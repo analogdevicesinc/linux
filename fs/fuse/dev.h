@@ -36,8 +36,8 @@ void fuse_chan_queue_forget(struct fuse_chan *fch, struct fuse_forget_link *forg
 
 DEFINE_FREE(fuse_chan_free, struct fuse_chan *, if (_T) fuse_chan_free(_T))
 
-void fuse_dev_install(struct fuse_dev *fud, struct fuse_conn *fc);
-bool fuse_dev_verify(struct fuse_dev *fud, struct fuse_conn *fc);
+void fuse_dev_install(struct fuse_dev *fud, struct fuse_chan *fch);
+bool fuse_dev_verify(struct fuse_dev *fud, struct fuse_chan *fch);
 void fuse_dev_put(struct fuse_dev *fud);
 bool fuse_dev_is_installed(struct fuse_dev *fud);
 bool fuse_dev_is_sync_init(struct fuse_dev *fud);

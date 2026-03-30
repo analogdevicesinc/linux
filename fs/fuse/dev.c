@@ -430,34 +430,34 @@ struct fuse_dev *fuse_dev_alloc(void)
 }
 EXPORT_SYMBOL_GPL(fuse_dev_alloc);
 
-void fuse_dev_install(struct fuse_dev *fud, struct fuse_conn *fc)
+void fuse_dev_install(struct fuse_dev *fud, struct fuse_chan *fch)
 {
-	struct fuse_conn *old_fc;
+	struct fuse_chan *old_fch;
 
-	spin_lock(&fc->chan->lock);
+	spin_lock(&fch->lock);
 	/*
 	 * Pairs with:
 	 *  - xchg() in fuse_dev_release()
 	 *  - smp_load_acquire() in fuse_dev_fc_get()
 	 */
-	old_fc = cmpxchg(&fud->fc, NULL, fc);
-	if (old_fc) {
+	old_fch = cmpxchg(&fud->chan, NULL, fch);
+	if (old_fch) {
 		/*
-		 * failed to set fud->fc because
+		 * failed to set fud->chan because
 		 *  - it was already set to a different fc
 		 *  - it was set to disconneted
 		 */
-		fc->chan->connected = 0;
+		fch->connected = 0;
 	} else {
-		list_add_tail(&fud->entry, &fc->chan->devices);
-		fuse_conn_get(fc);
+		list_add_tail(&fud->entry, &fch->devices);
+		fuse_conn_get(fch->conn);
 		wake_up_all(&fuse_dev_waitq);
 	}
-	spin_unlock(&fc->chan->lock);
+	spin_unlock(&fch->lock);
 }
 EXPORT_SYMBOL_GPL(fuse_dev_install);
 
-struct fuse_dev *fuse_dev_alloc_install(struct fuse_conn *fc)
+struct fuse_dev *fuse_dev_alloc_install(struct fuse_chan *fch)
 {
 	struct fuse_dev *fud;
 
@@ -465,26 +465,26 @@ struct fuse_dev *fuse_dev_alloc_install(struct fuse_conn *fc)
 	if (!fud)
 		return NULL;
 
-	fuse_dev_install(fud, fc);
+	fuse_dev_install(fud, fch);
 	return fud;
 }
 EXPORT_SYMBOL_GPL(fuse_dev_alloc_install);
 
 void fuse_dev_put(struct fuse_dev *fud)
 {
-	struct fuse_conn *fc;
+	struct fuse_chan *fch;
 
 	if (!refcount_dec_and_test(&fud->ref))
 		return;
 
-	fc = fuse_dev_fc_get(fud);
-	if (fc && fc != FUSE_DEV_FC_DISCONNECTED) {
+	fch = fuse_dev_chan_get(fud);
+	if (fch && fch != FUSE_DEV_CHAN_DISCONNECTED) {
 		/* This is the virtiofs case (fuse_dev_release() not called) */
-		spin_lock(&fc->chan->lock);
+		spin_lock(&fch->lock);
 		list_del(&fud->entry);
-		spin_unlock(&fc->chan->lock);
+		spin_unlock(&fch->lock);
 
-		fuse_conn_put(fc);
+		fuse_conn_put(fch->conn);
 	}
 	kfree(fud->pq.processing);
 	kfree(fud);
@@ -493,17 +493,17 @@ EXPORT_SYMBOL_GPL(fuse_dev_put);
 
 bool fuse_dev_is_installed(struct fuse_dev *fud)
 {
-	struct fuse_conn *fc = fuse_dev_fc_get(fud);
+	struct fuse_chan *fch = fuse_dev_chan_get(fud);
 
-	return fc != NULL && fc != FUSE_DEV_FC_DISCONNECTED;
+	return fch != NULL && fch != FUSE_DEV_CHAN_DISCONNECTED;
 }
 
 /*
  * Checks if @fc matches the one installed in @fud
  */
-bool fuse_dev_verify(struct fuse_dev *fud, struct fuse_conn *fc)
+bool fuse_dev_verify(struct fuse_dev *fud, struct fuse_chan *fch)
 {
-	return fuse_dev_fc_get(fud) == fc;
+	return fuse_dev_chan_get(fud) == fch;
 }
 
 bool fuse_dev_is_sync_init(struct fuse_dev *fud)
@@ -1491,8 +1491,8 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 				struct fuse_copy_state *cs, size_t nbytes)
 {
 	ssize_t err;
-	struct fuse_conn *fc = fud->fc;
-	struct fuse_iqueue *fiq = &fc->chan->iq;
+	struct fuse_chan *fch = fud->chan;
+	struct fuse_iqueue *fiq = &fch->iq;
 	struct fuse_pqueue *fpq = &fud->pq;
 	struct fuse_req *req;
 	struct fuse_args *args;
@@ -1514,7 +1514,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	if (nbytes < max_t(size_t, FUSE_MIN_READ_BUFFER,
 			   sizeof(struct fuse_in_header) +
 			   sizeof(struct fuse_write_in) +
-			   fc->max_write))
+			   fch->conn->max_write))
 		return -EINVAL;
 
  restart:
@@ -1533,7 +1533,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	}
 
 	if (!fiq->connected) {
-		err = fc->chan->abort_with_err ? -ECONNABORTED : -ENODEV;
+		err = fch->abort_with_err ? -ECONNABORTED : -ENODEV;
 		goto err_unlock;
 	}
 
@@ -1545,7 +1545,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 
 	if (forget_pending(fiq)) {
 		if (list_empty(&fiq->pending) || fiq->forget_batch-- > 0)
-			return fuse_read_forget(fc, fiq, cs, nbytes);
+			return fuse_read_forget(fch->conn, fiq, cs, nbytes);
 
 		if (fiq->forget_batch <= -8)
 			fiq->forget_batch = 16;
@@ -1589,7 +1589,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	spin_lock(&fpq->lock);
 	clear_bit(FR_LOCKED, &req->flags);
 	if (!fpq->connected) {
-		err = fc->chan->abort_with_err ? -ECONNABORTED : -ENODEV;
+		err = fch->abort_with_err ? -ECONNABORTED : -ENODEV;
 		goto out_end;
 	}
 	if (err) {
@@ -1641,12 +1641,12 @@ struct fuse_dev *fuse_get_dev(struct file *file)
 	struct fuse_dev *fud = fuse_file_to_fud(file);
 	int err;
 
-	if (unlikely(!fuse_dev_fc_get(fud))) {
+	if (unlikely(!fuse_dev_chan_get(fud))) {
 		/* only block waiting for mount if sync init was requested */
 		if (!fud->sync_init)
 			return ERR_PTR(-EPERM);
 
-		err = wait_event_interruptible(fuse_dev_waitq, fuse_dev_fc_get(fud) != NULL);
+		err = wait_event_interruptible(fuse_dev_waitq, fuse_dev_chan_get(fud) != NULL);
 		if (err)
 			return ERR_PTR(err);
 	}
@@ -2269,7 +2269,7 @@ static ssize_t fuse_dev_do_write(struct fuse_dev *fud,
 				 struct fuse_copy_state *cs, size_t nbytes)
 {
 	int err;
-	struct fuse_conn *fc = fud->fc;
+	struct fuse_chan *fch = fud->chan;
 	struct fuse_pqueue *fpq = &fud->pq;
 	struct fuse_req *req;
 	struct fuse_out_header oh;
@@ -2291,7 +2291,7 @@ static ssize_t fuse_dev_do_write(struct fuse_dev *fud,
 	 * and error contains notification code.
 	 */
 	if (!oh.unique) {
-		err = fuse_notify(fc, oh.error, nbytes - sizeof(oh), cs);
+		err = fuse_notify(fch->conn, oh.error, nbytes - sizeof(oh), cs);
 		goto copy_finish;
 	}
 
@@ -2319,7 +2319,7 @@ static ssize_t fuse_dev_do_write(struct fuse_dev *fud,
 		if (nbytes != sizeof(struct fuse_out_header))
 			err = -EINVAL;
 		else if (oh.error == -ENOSYS)
-			fc->chan->no_interrupt = true;
+			fch->no_interrupt = 1;
 		else if (oh.error == -EAGAIN)
 			err = queue_interrupt(req);
 
@@ -2479,7 +2479,7 @@ static __poll_t fuse_dev_poll(struct file *file, poll_table *wait)
 	if (IS_ERR(fud))
 		return EPOLLERR;
 
-	fiq = &fud->fc->chan->iq;
+	fiq = &fud->chan->iq;
 	poll_wait(file, &fiq->waitq, wait);
 
 	spin_lock(&fiq->lock);
@@ -2629,9 +2629,9 @@ int fuse_dev_release(struct inode *inode, struct file *file)
 {
 	struct fuse_dev *fud = fuse_file_to_fud(file);
 	/* Pairs with cmpxchg() in fuse_dev_install() */
-	struct fuse_conn *fc = xchg(&fud->fc, FUSE_DEV_FC_DISCONNECTED);
+	struct fuse_chan *fch = xchg(&fud->chan, FUSE_DEV_CHAN_DISCONNECTED);
 
-	if (fc) {
+	if (fch) {
 		struct fuse_pqueue *fpq = &fud->pq;
 		LIST_HEAD(to_end);
 		unsigned int i;
@@ -2645,17 +2645,17 @@ int fuse_dev_release(struct inode *inode, struct file *file)
 
 		fuse_dev_end_requests(&to_end);
 
-		spin_lock(&fc->chan->lock);
+		spin_lock(&fch->lock);
 		list_del(&fud->entry);
 		/* Are we the last open device? */
-		last = list_empty(&fc->chan->devices);
-		spin_unlock(&fc->chan->lock);
+		last = list_empty(&fch->devices);
+		spin_unlock(&fch->lock);
 
 		if (last) {
-			WARN_ON(fc->chan->iq.fasync != NULL);
-			fuse_chan_abort(fc->chan, false);
+			WARN_ON(fch->iq.fasync != NULL);
+			fuse_chan_abort(fch, false);
 		}
-		fuse_conn_put(fc);
+		fuse_conn_put(fch->conn);
 	}
 	fuse_dev_put(fud);
 	return 0;
@@ -2670,7 +2670,7 @@ static int fuse_dev_fasync(int fd, struct file *file, int on)
 		return PTR_ERR(fud);
 
 	/* No locking - fasync_helper does its own locking */
-	return fasync_helper(fd, file, on, &fud->fc->chan->iq.fasync);
+	return fasync_helper(fd, file, on, &fud->chan->iq.fasync);
 }
 
 static long fuse_dev_ioctl_clone(struct file *file, __u32 __user *argp)
@@ -2697,10 +2697,10 @@ static long fuse_dev_ioctl_clone(struct file *file, __u32 __user *argp)
 		return PTR_ERR(fud);
 
 	new_fud = fuse_file_to_fud(file);
-	if (fuse_dev_fc_get(new_fud))
+	if (fuse_dev_chan_get(new_fud))
 		return -EINVAL;
 
-	fuse_dev_install(new_fud, fud->fc);
+	fuse_dev_install(new_fud, fud->chan);
 
 	return 0;
 }
@@ -2720,7 +2720,7 @@ static long fuse_dev_ioctl_backing_open(struct file *file,
 	if (copy_from_user(&map, argp, sizeof(map)))
 		return -EFAULT;
 
-	return fuse_backing_open(fud->fc, &map);
+	return fuse_backing_open(fud->chan->conn, &map);
 }
 
 static long fuse_dev_ioctl_backing_close(struct file *file, __u32 __user *argp)
@@ -2737,7 +2737,7 @@ static long fuse_dev_ioctl_backing_close(struct file *file, __u32 __user *argp)
 	if (get_user(backing_id, argp))
 		return -EFAULT;
 
-	return fuse_backing_close(fud->fc, backing_id);
+	return fuse_backing_close(fud->chan->conn, backing_id);
 }
 
 static long fuse_dev_ioctl_sync_init(struct file *file)
@@ -2746,7 +2746,7 @@ static long fuse_dev_ioctl_sync_init(struct file *file)
 	struct fuse_dev *fud = fuse_file_to_fud(file);
 
 	mutex_lock(&fuse_mutex);
-	if (!fuse_dev_fc_get(fud)) {
+	if (!fuse_dev_chan_get(fud)) {
 		fud->sync_init = true;
 		err = 0;
 	}
@@ -2784,7 +2784,7 @@ static void fuse_dev_show_fdinfo(struct seq_file *seq, struct file *file)
 	if (!fud)
 		return;
 
-	seq_printf(seq, "fuse_connection:\t%u\n", fud->fc->dev);
+	seq_printf(seq, "fuse_connection:\t%u\n", fud->chan->conn->dev);
 }
 #endif
 

@@ -225,14 +225,14 @@ void fuse_uring_destruct(struct fuse_chan *fch)
 /*
  * Basic ring setup for this connection based on the provided configuration
  */
-static struct fuse_ring *fuse_uring_create(struct fuse_conn *fc)
+static struct fuse_ring *fuse_uring_create(struct fuse_chan *fch)
 {
 	struct fuse_ring *ring;
 	size_t nr_queues = num_possible_cpus();
 	struct fuse_ring *res = NULL;
 	size_t max_payload_size;
 
-	ring = kzalloc_obj(*fc->chan->ring, GFP_KERNEL_ACCOUNT);
+	ring = kzalloc_obj(*ring, GFP_KERNEL_ACCOUNT);
 	if (!ring)
 		return NULL;
 
@@ -241,25 +241,25 @@ static struct fuse_ring *fuse_uring_create(struct fuse_conn *fc)
 	if (!ring->queues)
 		goto out_err;
 
-	max_payload_size = max(FUSE_MIN_READ_BUFFER, fc->max_write);
-	max_payload_size = max(max_payload_size, fc->max_pages * PAGE_SIZE);
+	max_payload_size = max(FUSE_MIN_READ_BUFFER, fch->conn->max_write);
+	max_payload_size = max(max_payload_size, fch->conn->max_pages * PAGE_SIZE);
 
-	spin_lock(&fc->chan->lock);
-	if (fc->chan->ring) {
+	spin_lock(&fch->lock);
+	if (fch->ring) {
 		/* race, another thread created the ring in the meantime */
-		spin_unlock(&fc->chan->lock);
-		res = fc->chan->ring;
+		spin_unlock(&fch->lock);
+		res = fch->ring;
 		goto out_err;
 	}
 
 	init_waitqueue_head(&ring->stop_waitq);
 
 	ring->nr_queues = nr_queues;
-	ring->fc = fc;
+	ring->fc = fch->conn;
 	ring->max_payload_sz = max_payload_size;
-	smp_store_release(&fc->chan->ring, ring);
+	smp_store_release(&fch->ring, ring);
 
-	spin_unlock(&fc->chan->lock);
+	spin_unlock(&fch->lock);
 	return ring;
 
 out_err:
@@ -874,13 +874,13 @@ static int fuse_ring_ent_set_commit(struct fuse_ring_ent *ent)
 
 /* FUSE_URING_CMD_COMMIT_AND_FETCH handler */
 static int fuse_uring_commit_fetch(struct io_uring_cmd *cmd, int issue_flags,
-				   struct fuse_conn *fc)
+				   struct fuse_chan *fch)
 {
 	const struct fuse_uring_cmd_req *cmd_req = io_uring_sqe128_cmd(cmd->sqe,
 								       struct fuse_uring_cmd_req);
 	struct fuse_ring_ent *ent;
 	int err;
-	struct fuse_ring *ring = fc->chan->ring;
+	struct fuse_ring *ring = fch->ring;
 	struct fuse_ring_queue *queue;
 	uint64_t commit_id = READ_ONCE(cmd_req->commit_id);
 	unsigned int qid = READ_ONCE(cmd_req->qid);
@@ -899,7 +899,7 @@ static int fuse_uring_commit_fetch(struct io_uring_cmd *cmd, int issue_flags,
 		return err;
 	fpq = &queue->fpq;
 
-	if (!READ_ONCE(fc->chan->connected) || READ_ONCE(queue->stopped))
+	if (!READ_ONCE(fch->connected) || READ_ONCE(queue->stopped))
 		return err;
 
 	spin_lock(&queue->lock);
@@ -1079,11 +1079,11 @@ fuse_uring_create_ring_ent(struct io_uring_cmd *cmd,
  * entry as "ready to get fuse requests" on the queue
  */
 static int fuse_uring_register(struct io_uring_cmd *cmd,
-			       unsigned int issue_flags, struct fuse_conn *fc)
+			       unsigned int issue_flags, struct fuse_chan *fch)
 {
 	const struct fuse_uring_cmd_req *cmd_req = io_uring_sqe128_cmd(cmd->sqe,
 								       struct fuse_uring_cmd_req);
-	struct fuse_ring *ring = smp_load_acquire(&fc->chan->ring);
+	struct fuse_ring *ring = smp_load_acquire(&fch->ring);
 	struct fuse_ring_queue *queue;
 	struct fuse_ring_ent *ent;
 	int err;
@@ -1091,7 +1091,7 @@ static int fuse_uring_register(struct io_uring_cmd *cmd,
 
 	err = -ENOMEM;
 	if (!ring) {
-		ring = fuse_uring_create(fc);
+		ring = fuse_uring_create(fch);
 		if (!ring)
 			return err;
 	}
@@ -1129,7 +1129,7 @@ static int fuse_uring_register(struct io_uring_cmd *cmd,
 int fuse_uring_cmd(struct io_uring_cmd *cmd, unsigned int issue_flags)
 {
 	struct fuse_dev *fud;
-	struct fuse_conn *fc;
+	struct fuse_chan *fch;
 	u32 cmd_op = cmd->cmd_op;
 	int err;
 
@@ -1147,39 +1147,39 @@ int fuse_uring_cmd(struct io_uring_cmd *cmd, unsigned int issue_flags)
 		pr_info_ratelimited("No fuse device found\n");
 		return PTR_ERR(fud);
 	}
-	fc = fud->fc;
+	fch = fud->chan;
 
 	/* Once a connection has io-uring enabled on it, it can't be disabled */
-	if (!enable_uring && !fc->chan->io_uring) {
+	if (!enable_uring && !fch->io_uring) {
 		pr_info_ratelimited("fuse-io-uring is disabled\n");
 		return -EOPNOTSUPP;
 	}
 
-	if (fc->chan->abort_with_err)
+	if (fch->abort_with_err)
 		return -ECONNABORTED;
-	if (!fc->chan->connected)
+	if (!fch->connected)
 		return -ENOTCONN;
 
 	/*
 	 * fuse_uring_register() needs the ring to be initialized,
 	 * we need to know the max payload size
 	 */
-	if (!fc->chan->initialized)
+	if (!fch->initialized)
 		return -EAGAIN;
 
 	switch (cmd_op) {
 	case FUSE_IO_URING_CMD_REGISTER:
-		err = fuse_uring_register(cmd, issue_flags, fc);
+		err = fuse_uring_register(cmd, issue_flags, fch);
 		if (err) {
 			pr_info_once("FUSE_IO_URING_CMD_REGISTER failed err=%d\n",
 				     err);
-			fc->chan->io_uring = 0;
-			wake_up_all(&fc->chan->blocked_waitq);
+			fch->io_uring = 0;
+			wake_up_all(&fch->blocked_waitq);
 			return err;
 		}
 		break;
 	case FUSE_IO_URING_CMD_COMMIT_AND_FETCH:
-		err = fuse_uring_commit_fetch(cmd, issue_flags, fc);
+		err = fuse_uring_commit_fetch(cmd, issue_flags, fch);
 		if (err) {
 			pr_info_once("FUSE_IO_URING_COMMIT_AND_FETCH failed err=%d\n",
 				     err);

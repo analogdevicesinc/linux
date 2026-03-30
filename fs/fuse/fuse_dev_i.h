@@ -283,8 +283,8 @@ struct fuse_dev {
 	/** Issue FUSE_INIT synchronously */
 	bool sync_init;
 
-	/** Fuse connection for this device */
-	struct fuse_conn *fc;
+	/** Fuse channel for this device */
+	struct fuse_chan *chan;
 
 	/** Processing queue */
 	struct fuse_pqueue pq;
@@ -311,21 +311,21 @@ struct fuse_copy_state {
 	} ring;
 };
 
-/* fud->fc gets assigned to this value when /dev/fuse is closed */
-#define FUSE_DEV_FC_DISCONNECTED ((struct fuse_conn *) 1)
+/* fud->chan gets assigned to this value when /dev/fuse is closed */
+#define FUSE_DEV_CHAN_DISCONNECTED ((struct fuse_chan *) 1)
 
 /*
- * Lockless access is OK, because fud->fc is set once during mount and is valid
+ * Lockless access is OK, because fud->chan is set once during mount and is valid
  * until the file is released.
  *
- * fud->fc is set to FUSE_DEV_FC_DISCONNECTED only after the containing file is
+ * fud->chan is set to FUSE_DEV_CHAN_DISCONNECTED only after the containing file is
  * released, so result is safe to dereference in most cases.  Exceptions are:
  * fuse_dev_put() and fuse_fill_super_common().
  */
-static inline struct fuse_conn *fuse_dev_fc_get(struct fuse_dev *fud)
+static inline struct fuse_chan *fuse_dev_chan_get(struct fuse_dev *fud)
 {
 	/* Pairs with xchg() in fuse_dev_install() */
-	return smp_load_acquire(&fud->fc);
+	return smp_load_acquire(&fud->chan);
 }
 
 static inline struct fuse_dev *fuse_file_to_fud(struct file *file)
@@ -337,7 +337,7 @@ static inline struct fuse_dev *__fuse_get_dev(struct file *file)
 {
 	struct fuse_dev *fud = fuse_file_to_fud(file);
 
-	if (!fuse_dev_fc_get(fud))
+	if (!fuse_dev_chan_get(fud))
 		return NULL;
 
 	return fud;
@@ -377,7 +377,7 @@ void fuse_request_assign_unique(struct fuse_iqueue *fiq, struct fuse_req *req);
  */
 u64 fuse_get_unique(struct fuse_iqueue *fiq);
 
-struct fuse_dev *fuse_dev_alloc_install(struct fuse_conn *fc);
+struct fuse_dev *fuse_dev_alloc_install(struct fuse_chan *fch);
 struct fuse_dev *fuse_dev_alloc(void);
 
 /**

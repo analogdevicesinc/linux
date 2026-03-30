@@ -1791,7 +1791,7 @@ int fuse_fill_super_common(struct super_block *sb, struct fuse_fs_context *ctx)
 	list_add_tail(&fc->entry, &fuse_conn_list);
 	sb->s_root = root_dentry;
 	if (fud)
-		fuse_dev_install(fud, fc);
+		fuse_dev_install(fud, fc->chan);
 
 	mutex_unlock(&fuse_mutex);
 	return 0;
@@ -1837,7 +1837,7 @@ static int fuse_set_no_super(struct super_block *sb, struct fs_context *fsc)
 
 static int fuse_test_super(struct super_block *sb, struct fs_context *fsc)
 {
-	return fuse_dev_verify(fsc->sget_key, get_fuse_conn_super(sb));
+	return fuse_dev_verify(fsc->sget_key, get_fuse_conn_super(sb)->chan);
 }
 
 static int fuse_get_tree(struct fs_context *fsc)
