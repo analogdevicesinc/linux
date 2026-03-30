@@ -75,7 +75,7 @@ int aie2_suspend_fw(struct amdxdna_dev_hdl *ndev)
 		return ret;
 	}
 
-	return aie2_psp_waitmode_poll(ndev->psp_hdl);
+	return aie_psp_waitmode_poll(ndev->aie.psp_hdl);
 }
 
 int aie2_resume_fw(struct amdxdna_dev_hdl *ndev)

@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2022-2024, Advanced Micro Devices, Inc.
+ * Copyright (C) 2026, Advanced Micro Devices, Inc.
  */
 
 #include <drm/drm_device.h>
-#include <drm/drm_gem_shmem_helper.h>
 #include <drm/drm_managed.h>
 #include <drm/drm_print.h>
-#include <drm/gpu_scheduler.h>
 #include <linux/bitfield.h>
 #include <linux/iopoll.h>
+#include <linux/slab.h>
 
-#include "aie2_pci.h"
-#include "amdxdna_mailbox.h"
-#include "amdxdna_pci_drv.h"
+#include "aie.h"
 
 #define PSP_STATUS_READY	BIT(31)
 
@@ -76,7 +73,7 @@ static int psp_exec(struct psp_device *psp, u32 *reg_vals)
 	return 0;
 }
 
-int aie2_psp_waitmode_poll(struct psp_device *psp)
+int aie_psp_waitmode_poll(struct psp_device *psp)
 {
 	struct amdxdna_dev *xdna = to_xdna_dev(psp->ddev);
 	u32 mode_reg;
@@ -91,7 +88,7 @@ int aie2_psp_waitmode_poll(struct psp_device *psp)
 	return ret;
 }
 
-void aie2_psp_stop(struct psp_device *psp)
+void aie_psp_stop(struct psp_device *psp)
 {
 	u32 reg_vals[PSP_NUM_IN_REGS] = { PSP_RELEASE_TMR, };
 	int ret;
@@ -101,7 +98,7 @@ void aie2_psp_stop(struct psp_device *psp)
 		drm_err(psp->ddev, "release tmr failed, ret %d", ret);
 }
 
-int aie2_psp_start(struct psp_device *psp)
+int aie_psp_start(struct psp_device *psp)
 {
 	u32 reg_vals[PSP_NUM_IN_REGS];
 	int ret;
@@ -129,7 +126,7 @@ int aie2_psp_start(struct psp_device *psp)
 	return 0;
 }
 
-struct psp_device *aie2m_psp_create(struct drm_device *ddev, struct psp_config *conf)
+struct psp_device *aiem_psp_create(struct drm_device *ddev, struct psp_config *conf)
 {
 	struct psp_device *psp;
 	u64 offset;

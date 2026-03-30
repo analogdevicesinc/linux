@@ -2,12 +2,12 @@
 
 amdxdna-y := \
 	aie.o \
+	aie_psp.o \
 	aie2_ctx.o \
 	aie2_error.o \
 	aie2_message.o \
 	aie2_pci.o \
 	aie2_pm.o \
-	aie2_psp.o \
 	aie2_smu.o \
 	aie2_solver.o \
 	aie4_message.o \

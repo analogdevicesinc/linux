@@ -297,7 +297,7 @@ static void aie2_hw_stop(struct amdxdna_dev *xdna)
 	aie_destroy_chann(&ndev->aie, &ndev->aie.mgmt_chann);
 	drmm_kfree(&xdna->ddev, ndev->mbox);
 	ndev->mbox = NULL;
-	aie2_psp_stop(ndev->psp_hdl);
+	aie_psp_stop(ndev->aie.psp_hdl);
 	aie2_smu_fini(ndev);
 	aie2_error_async_events_free(ndev);
 	pci_disable_device(pdev);
@@ -350,7 +350,7 @@ static int aie2_hw_start(struct amdxdna_dev *xdna)
 		goto free_channel;
 	}
 
-	ret = aie2_psp_start(ndev->psp_hdl);
+	ret = aie_psp_start(ndev->aie.psp_hdl);
 	if (ret) {
 		XDNA_ERR(xdna, "failed to start psp, ret %d", ret);
 		goto fini_smu;
@@ -413,7 +413,7 @@ stop_fw:
 	aie2_suspend_fw(ndev);
 	xdna_mailbox_stop_channel(ndev->aie.mgmt_chann);
 stop_psp:
-	aie2_psp_stop(ndev->psp_hdl);
+	aie_psp_stop(ndev->aie.psp_hdl);
 fini_smu:
 	aie2_smu_fini(ndev);
 free_channel:
@@ -463,7 +463,7 @@ static int aie2_init(struct amdxdna_dev *xdna)
 	void __iomem *tbl[PCI_NUM_RESOURCES] = {0};
 	struct init_config xrs_cfg = { 0 };
 	struct amdxdna_dev_hdl *ndev;
-	struct psp_config psp_conf;
+	struct psp_config psp_conf = { 0 };
 	const struct firmware *fw;
 	unsigned long bars = 0;
 	char *fw_full_path;
@@ -551,8 +551,8 @@ static int aie2_init(struct amdxdna_dev *xdna)
 	psp_conf.fw_buf = fw->data;
 	for (i = 0; i < PSP_MAX_REGS; i++)
 		psp_conf.psp_regs[i] = tbl[PSP_REG_BAR(ndev, i)] + PSP_REG_OFF(ndev, i);
-	ndev->psp_hdl = aie2m_psp_create(&xdna->ddev, &psp_conf);
-	if (!ndev->psp_hdl) {
+	ndev->aie.psp_hdl = aiem_psp_create(&xdna->ddev, &psp_conf);
+	if (!ndev->aie.psp_hdl) {
 		XDNA_ERR(xdna, "failed to create psp");
 		ret = -ENOMEM;
 		goto release_fw;

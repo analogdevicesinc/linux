@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2023-2024, Advanced Micro Devices, Inc.
+ * Copyright (C) 2023-2026, Advanced Micro Devices, Inc.
  */
 
 #ifndef _AIE2_PCI_H_
@@ -23,8 +23,6 @@
 #define AIE2_SRAM_OFF(ndev, addr) ((addr) - (ndev)->priv->sram_dev_addr)
 #define AIE2_MBOX_OFF(ndev, addr) ((addr) - (ndev)->priv->mbox_dev_addr)
 
-#define PSP_REG_BAR(ndev, idx) ((ndev)->priv->psp_regs_off[(idx)].bar_idx)
-#define PSP_REG_OFF(ndev, idx) ((ndev)->priv->psp_regs_off[(idx)].offset)
 #define SRAM_REG_OFF(ndev, idx) ((ndev)->priv->sram_offs[(idx)].offset)
 
 #define SMU_REG(ndev, idx) \
@@ -88,29 +86,10 @@ enum aie2_sram_reg_idx {
 	SRAM_MAX_INDEX /* Keep this at the end */
 };
 
-enum psp_reg_idx {
-	PSP_CMD_REG = 0,
-	PSP_ARG0_REG,
-	PSP_ARG1_REG,
-	PSP_ARG2_REG,
-	PSP_NUM_IN_REGS, /* number of input registers */
-	PSP_INTR_REG = PSP_NUM_IN_REGS,
-	PSP_STATUS_REG,
-	PSP_RESP_REG,
-	PSP_PWAITMODE_REG,
-	PSP_MAX_REGS /* Keep this at the end */
-};
-
 struct amdxdna_client;
 struct amdxdna_fw_ver;
 struct amdxdna_hwctx;
 struct amdxdna_sched_job;
-
-struct psp_config {
-	const void	*fw_buf;
-	u32		fw_size;
-	void __iomem	*psp_regs[PSP_MAX_REGS];
-};
 
 struct aie_version {
 	u16 major;
@@ -206,7 +185,6 @@ struct amdxdna_dev_hdl {
 	void			__iomem *sram_base;
 	void			__iomem *smu_base;
 	void			__iomem *mbox_base;
-	struct psp_device		*psp_hdl;
 
 	u32				total_col;
 	struct aie_version		version;
@@ -236,14 +214,6 @@ struct amdxdna_dev_hdl {
 	struct amdxdna_async_error	last_async_err;
 };
 
-#define DEFINE_BAR_OFFSET(reg_name, bar, reg_addr) \
-	[reg_name] = {bar##_BAR_INDEX, (reg_addr) - bar##_BAR_BASE}
-
-struct aie2_bar_off_pair {
-	int	bar_idx;
-	u32	offset;
-};
-
 struct aie2_hw_ops {
 	int (*set_dpm)(struct amdxdna_dev_hdl *ndev, u32 dpm_level);
 };
@@ -271,9 +241,9 @@ struct amdxdna_dev_priv {
 	u32				mbox_size;
 	u32				hwctx_limit;
 	u32				sram_dev_addr;
-	struct aie2_bar_off_pair	sram_offs[SRAM_MAX_INDEX];
-	struct aie2_bar_off_pair	psp_regs_off[PSP_MAX_REGS];
-	struct aie2_bar_off_pair	smu_regs_off[SMU_MAX_REGS];
+	struct aie_bar_off_pair		sram_offs[SRAM_MAX_INDEX];
+	struct aie_bar_off_pair		psp_regs_off[PSP_MAX_REGS];
+	struct aie_bar_off_pair		smu_regs_off[SMU_MAX_REGS];
 	struct aie2_hw_ops		hw_ops;
 };
 
@@ -299,12 +269,6 @@ int npu4_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level);
 int aie2_pm_init(struct amdxdna_dev_hdl *ndev);
 int aie2_pm_set_mode(struct amdxdna_dev_hdl *ndev, enum amdxdna_power_mode_type target);
 int aie2_pm_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level);
-
-/* aie2_psp.c */
-struct psp_device *aie2m_psp_create(struct drm_device *ddev, struct psp_config *conf);
-int aie2_psp_start(struct psp_device *psp);
-void aie2_psp_stop(struct psp_device *psp);
-int aie2_psp_waitmode_poll(struct psp_device *psp);
 
 /* aie2_error.c */
 int aie2_error_async_events_alloc(struct amdxdna_dev_hdl *ndev);
