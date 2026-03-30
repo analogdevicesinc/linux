@@ -278,8 +278,8 @@ static int ad7793_setup(struct iio_dev *indio_dev,
 	id &= AD7793_ID_MASK;
 
 	if (id != st->chip_info->id) {
-		ret = -ENODEV;
-		dev_err(&st->sd.spi->dev, "device ID query failed\n");
+		ret = dev_err_probe(&st->sd.spi->dev, -ENODEV,
+				    "device ID query failed\n");
 		goto out;
 	}
 
@@ -338,8 +338,7 @@ static int ad7793_setup(struct iio_dev *indio_dev,
 
 	return 0;
 out:
-	dev_err(&st->sd.spi->dev, "setup failed\n");
-	return ret;
+	return dev_err_probe(&st->sd.spi->dev, ret, "setup failed\n");
 }
 
 static const u16 ad7793_sample_freq_avail[16] = {0, 470, 242, 123, 62, 50, 39,
@@ -780,15 +779,11 @@ static int ad7793_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	int ret, vref_mv = 0;
 
-	if (!pdata) {
-		dev_err(&spi->dev, "no platform data?\n");
-		return -ENODEV;
-	}
+	if (!pdata)
+		return dev_err_probe(dev, -ENODEV, "no platform data?\n");
 
-	if (!spi->irq) {
-		dev_err(&spi->dev, "no IRQ?\n");
-		return -ENODEV;
-	}
+	if (!spi->irq)
+		return dev_err_probe(dev, -ENODEV, "no IRQ?\n");
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (indio_dev == NULL)
