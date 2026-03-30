@@ -314,6 +314,9 @@ static void hdlc_transmit(struct work_struct *work)
  * @payloads: array of payload buffers
  * @count: number of payloads
  *
+ * Every data byte may need HDLC escaping (doubling its size).
+ * Frame layout: flag(1) + address(1-2) + control(1-2) + payload + CRC(2-4) + flag(1).
+ *
  * Returns the maximum number of bytes needed in the circular buffer.
  */
 static size_t hdlc_encoded_length(const struct hdlc_payload payloads[],
@@ -348,8 +351,10 @@ static size_t hdlc_encoded_length(const struct hdlc_payload payloads[],
  * available, then verifies space under the lock and writes the entire
  * frame atomically.  Either a complete frame is enqueued or nothing is
  * written, avoiding both sleeping in atomic context and partial frames.
+ *
+ * Returns 0 on success, -EAGAIN if the buffer remains full after retries.
  */
-static void hdlc_tx_frames(struct gb_beagleplay *bg, u8 address, u8 control,
+static int hdlc_tx_frames(struct gb_beagleplay *bg, u8 address, u8 control,
 			   const struct hdlc_payload payloads[], size_t count)
 {
 	size_t needed = hdlc_encoded_length(payloads, count);
@@ -372,25 +377,24 @@ static void hdlc_tx_frames(struct gb_beagleplay *bg, u8 address, u8 control,
 	}
 
 	if (retries < 0) {
-		dev_warn_ratelimited(&bg->sd->dev,
-				     "Tx circ buf full, dropping frame\n");
-		return;
+		dev_warn_ratelimited(&bg->sd->dev, "Tx circ buf full, dropping frame\n");
+		return -EAGAIN;
 	}
 
 	spin_lock(&bg->tx_producer_lock);
 
 	/*
-	 * Re-check under the lock.  Should not fail since
-	 * tx_producer_lock serialises all producers and the
-	 * consumer only frees space, but guard against it.
+	 * Re-check space under the lock to close the TOCTOU window.
+	 * This should be rare since tx_producer_lock serialises all
+	 * producers and the consumer only frees space.  If it fires,
+	 * the caller is expected to handle -EAGAIN (retry or report).
 	 */
 	head = bg->tx_circ_buf.head;
 	tail = READ_ONCE(bg->tx_circ_buf.tail);
 	if (unlikely(CIRC_SPACE(head, tail, TX_CIRC_BUF_SIZE) < needed)) {
 		spin_unlock(&bg->tx_producer_lock);
-		dev_warn_ratelimited(&bg->sd->dev,
-				     "Tx circ buf space lost, dropping frame\n");
-		return;
+		dev_warn_ratelimited(&bg->sd->dev, "Tx circ buf space lost, dropping frame\n");
+		return -EAGAIN;
 	}
 
 	hdlc_append_tx_frame(bg);
@@ -406,11 +410,16 @@ static void hdlc_tx_frames(struct gb_beagleplay *bg, u8 address, u8 control,
 	spin_unlock(&bg->tx_producer_lock);
 
 	schedule_work(&bg->tx_work);
+	return 0;
 }
 
 static void hdlc_tx_s_frame_ack(struct gb_beagleplay *bg)
 {
-	hdlc_tx_frames(bg, bg->rx_buffer[0], (bg->rx_buffer[1] >> 1) & 0x7, NULL, 0);
+	int ret;
+
+	ret = hdlc_tx_frames(bg, bg->rx_buffer[0], (bg->rx_buffer[1] >> 1) & 0x7, NULL, 0);
+	if (ret)
+		dev_warn_ratelimited(&bg->sd->dev, "Failed to send HDLC ACK: %d\n", ret);
 }
 
 static void hdlc_rx_frame(struct gb_beagleplay *bg)
@@ -674,6 +683,7 @@ static int gb_message_send(struct gb_host_device *hd, u16 cport, struct gb_messa
 	struct gb_beagleplay *bg = dev_get_drvdata(&hd->dev);
 	struct hdlc_payload payloads[3];
 	__le16 cport_id = cpu_to_le16(cport);
+	int ret;
 
 	dev_dbg(&hd->dev, "Sending greybus message with Operation %u, Type: %X on Cport %u",
 		msg->header->operation_id, msg->header->type, cport);
@@ -688,7 +698,10 @@ static int gb_message_send(struct gb_host_device *hd, u16 cport, struct gb_messa
 	payloads[2].buf = msg->payload;
 	payloads[2].len = msg->payload_size;
 
-	hdlc_tx_frames(bg, ADDRESS_GREYBUS, 0x03, payloads, 3);
+	ret = hdlc_tx_frames(bg, ADDRESS_GREYBUS, 0x03, payloads, 3);
+	if (ret)
+		return ret;
+
 	greybus_message_sent(bg->gb_hd, msg, 0);
 
 	return 0;
@@ -701,20 +714,20 @@ static void gb_message_cancel(struct gb_message *message)
 static struct gb_hd_driver gb_hdlc_driver = { .message_send = gb_message_send,
 					      .message_cancel = gb_message_cancel };
 
-static void gb_beagleplay_start_svc(struct gb_beagleplay *bg)
+static int gb_beagleplay_start_svc(struct gb_beagleplay *bg)
 {
 	const u8 command = CONTROL_SVC_START;
 	const struct hdlc_payload payload = { .len = 1, .buf = (void *)&command };
 
-	hdlc_tx_frames(bg, ADDRESS_CONTROL, 0x03, &payload, 1);
+	return hdlc_tx_frames(bg, ADDRESS_CONTROL, 0x03, &payload, 1);
 }
 
-static void gb_beagleplay_stop_svc(struct gb_beagleplay *bg)
+static int gb_beagleplay_stop_svc(struct gb_beagleplay *bg)
 {
 	const u8 command = CONTROL_SVC_STOP;
 	const struct hdlc_payload payload = { .len = 1, .buf = (void *)&command };
 
-	hdlc_tx_frames(bg, ADDRESS_CONTROL, 0x03, &payload, 1);
+	return hdlc_tx_frames(bg, ADDRESS_CONTROL, 0x03, &payload, 1);
 }
 
 static int cc1352_bootloader_wait_for_ack(struct gb_beagleplay *bg)
@@ -952,7 +965,9 @@ static enum fw_upload_err cc1352_prepare(struct fw_upload *fw_upload,
 	gb_greybus_deinit(bg);
 	msleep(5 * MSEC_PER_SEC);
 
-	gb_beagleplay_stop_svc(bg);
+	/* Best effort — device is entering bootloader mode regardless. */
+	if (gb_beagleplay_stop_svc(bg))
+		dev_warn(&bg->sd->dev, "Failed to send SVC stop before flashing\n");
 	msleep(200);
 	flush_work(&bg->tx_work);
 
@@ -994,7 +1009,9 @@ static enum fw_upload_err cc1352_prepare(struct fw_upload *fw_upload,
 		if (gb_greybus_init(bg) < 0)
 			return dev_err_probe(&bg->sd->dev, FW_UPLOAD_ERR_RW_ERROR,
 					     "Failed to initialize greybus");
-		gb_beagleplay_start_svc(bg);
+		if (gb_beagleplay_start_svc(bg))
+			return dev_err_probe(&bg->sd->dev, FW_UPLOAD_ERR_RW_ERROR,
+					     "Failed to restart SVC after skip");
 		return FW_UPLOAD_ERR_FW_INVALID;
 	}
 
@@ -1075,7 +1092,9 @@ static enum fw_upload_err cc1352_poll_complete(struct fw_upload *fw_upload)
 		return dev_err_probe(&bg->sd->dev, FW_UPLOAD_ERR_RW_ERROR,
 				     "Failed to initialize greybus");
 
-	gb_beagleplay_start_svc(bg);
+	if (gb_beagleplay_start_svc(bg) < 0)
+		return dev_err_probe(&bg->sd->dev, FW_UPLOAD_ERR_RW_ERROR,
+				     "Failed to start SVC");
 
 	return FW_UPLOAD_ERR_NONE;
 }
@@ -1186,10 +1205,14 @@ static int gb_beagleplay_probe(struct serdev_device *serdev)
 	if (ret)
 		goto free_fw;
 
-	gb_beagleplay_start_svc(bg);
+	ret = gb_beagleplay_start_svc(bg);
+	if (ret)
+		goto free_greybus;
 
 	return 0;
 
+free_greybus:
+	gb_greybus_deinit(bg);
 free_fw:
 	gb_fw_deinit(bg);
 free_hdlc:
@@ -1205,6 +1228,7 @@ static void gb_beagleplay_remove(struct serdev_device *serdev)
 
 	gb_fw_deinit(bg);
 	gb_greybus_deinit(bg);
+	/* Best effort — device is being removed. */
 	gb_beagleplay_stop_svc(bg);
 	hdlc_deinit(bg);
 	gb_serdev_deinit(bg);
