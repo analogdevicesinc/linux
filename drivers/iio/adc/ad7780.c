@@ -307,11 +307,12 @@ static void ad7780_reg_disable(void *reg)
 
 static int ad7780_probe(struct spi_device *spi)
 {
+	struct device *dev = &spi->dev;
 	struct ad7780_state *st;
 	struct iio_dev *indio_dev;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
@@ -329,11 +330,11 @@ static int ad7780_probe(struct spi_device *spi)
 	indio_dev->num_channels = 1;
 	indio_dev->info = &ad7780_info;
 
-	ret = ad7780_init_gpios(&spi->dev, st);
+	ret = ad7780_init_gpios(dev, st);
 	if (ret)
 		return ret;
 
-	st->reg = devm_regulator_get(&spi->dev, "avdd");
+	st->reg = devm_regulator_get(dev, "avdd");
 	if (IS_ERR(st->reg))
 		return PTR_ERR(st->reg);
 
@@ -343,15 +344,15 @@ static int ad7780_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	ret = devm_add_action_or_reset(&spi->dev, ad7780_reg_disable, st->reg);
+	ret = devm_add_action_or_reset(dev, ad7780_reg_disable, st->reg);
 	if (ret)
 		return ret;
 
-	ret = devm_ad_sd_setup_buffer_and_trigger(&spi->dev, indio_dev);
+	ret = devm_ad_sd_setup_buffer_and_trigger(dev, indio_dev);
 	if (ret)
 		return ret;
 
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	return devm_iio_device_register(dev, indio_dev);
 }
 
 static const struct spi_device_id ad7780_id[] = {
