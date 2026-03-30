@@ -1262,8 +1262,7 @@ static void fuse_uring_dispatch_ent(struct fuse_ring_ent *ent)
 /* queue a fuse request and send it if a ring entry is available */
 void fuse_uring_queue_fuse_req(struct fuse_iqueue *fiq, struct fuse_req *req)
 {
-	struct fuse_conn *fc = req->fm->fc;
-	struct fuse_ring *ring = fc->chan->ring;
+	struct fuse_ring *ring = req->chan->ring;
 	struct fuse_ring_queue *queue;
 	struct fuse_ring_ent *ent = NULL;
 	int err;
@@ -1305,8 +1304,8 @@ err:
 
 bool fuse_uring_queue_bq_req(struct fuse_req *req)
 {
-	struct fuse_conn *fc = req->fm->fc;
-	struct fuse_ring *ring = fc->chan->ring;
+	struct fuse_chan *fch = req->chan;
+	struct fuse_ring *ring = fch->ring;
 	struct fuse_ring_queue *queue;
 	struct fuse_ring_ent *ent = NULL;
 
@@ -1326,12 +1325,12 @@ bool fuse_uring_queue_bq_req(struct fuse_req *req)
 
 	ent = list_first_entry_or_null(&queue->ent_avail_queue,
 				       struct fuse_ring_ent, list);
-	spin_lock(&fc->chan->bg_lock);
-	fc->chan->num_background++;
-	if (fc->chan->num_background == fc->chan->max_background)
-		fc->chan->blocked = 1;
+	spin_lock(&fch->bg_lock);
+	fch->num_background++;
+	if (fch->num_background == fch->max_background)
+		fch->blocked = 1;
 	fuse_uring_flush_bg(queue);
-	spin_unlock(&fc->chan->bg_lock);
+	spin_unlock(&fch->bg_lock);
 
 	/*
 	 * Due to bg_queue flush limits there might be other bg requests

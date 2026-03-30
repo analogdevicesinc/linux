@@ -90,7 +90,7 @@ TRACE_EVENT(fuse_request_send,
 	),
 
 	TP_fast_assign(
-		__entry->connection	=	req->fm->fc->dev;
+		__entry->connection	=	req->chan->conn->dev;
 		__entry->unique		=	req->in.h.unique;
 		__entry->opcode		=	req->in.h.opcode;
 		__entry->len		=	req->in.h.len;
@@ -114,7 +114,7 @@ TRACE_EVENT(fuse_request_end,
 	),
 
 	TP_fast_assign(
-		__entry->connection	=	req->fm->fc->dev;
+		__entry->connection	=	req->chan->conn->dev;
 		__entry->unique		=	req->in.h.unique;
 		__entry->len		=	req->out.h.len;
 		__entry->error		=	req->out.h.error;

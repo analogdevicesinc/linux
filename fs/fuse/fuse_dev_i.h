@@ -97,8 +97,8 @@ struct fuse_req {
 	void *argbuf;
 #endif
 
-	/** fuse_mount this request belongs to */
-	struct fuse_mount *fm;
+	/** fuse_chan this request belongs to */
+	struct fuse_chan *chan;
 
 #ifdef CONFIG_FUSE_IO_URING
 	void *ring_entry;
