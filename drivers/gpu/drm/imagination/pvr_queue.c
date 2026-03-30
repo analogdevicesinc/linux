@@ -178,6 +178,24 @@ static const struct dma_fence_ops pvr_queue_job_fence_ops = {
 };
 
 /**
+ * pvr_queue_fence_is_ufo_backed() - Check if a dma_fence is backed by a UFO.
+ * @f: The dma_fence to check.
+ *
+ * Return:
+ * * true if the dma_fence is backed by a UFO, or
+ * * false otherwise.
+ */
+static inline bool
+pvr_queue_fence_is_ufo_backed(struct dma_fence *f)
+{
+	/*
+	 * Currently the only dma_fence backed by a UFO object is the job fence,
+	 * e.g. pvr_job::done_fence, wrapped by a pvr_queue_fence object.
+	 */
+	return f && f->ops == &pvr_queue_job_fence_ops;
+}
+
+/**
  * to_pvr_queue_job_fence() - Return a pvr_queue_fence object if the fence is
  * already backed by a UFO.
  * @f: The dma_fence to turn into a pvr_queue_fence.
@@ -194,7 +212,7 @@ to_pvr_queue_job_fence(struct dma_fence *f)
 	if (sched_fence)
 		f = sched_fence->parent;
 
-	if (f && f->ops == &pvr_queue_job_fence_ops)
+	if (pvr_queue_fence_is_ufo_backed(f))
 		return container_of(f, struct pvr_queue_fence, base);
 
 	return NULL;
@@ -915,10 +933,7 @@ bool pvr_queue_fence_is_native(struct dma_fence *f)
 	    sched_fence->sched->ops == &pvr_queue_sched_ops)
 		return true;
 
-	if (f && f->ops == &pvr_queue_job_fence_ops)
-		return true;
-
-	return false;
+	return pvr_queue_fence_is_ufo_backed(f);
 }
 
 /**
