@@ -44,7 +44,7 @@ static int aie2_smu_exec(struct amdxdna_dev_hdl *ndev, u32 reg_cmd,
 	writel(1, SMU_REG(ndev, SMU_INTR_REG));
 
 	ret = readx_poll_timeout(readl, SMU_REG(ndev, SMU_RESP_REG), resp,
-				 resp, AIE2_INTERVAL, AIE2_TIMEOUT);
+				 resp, AIE_INTERVAL, AIE_TIMEOUT);
 	if (ret) {
 		XDNA_ERR(ndev->aie.xdna, "smu cmd %d timed out", reg_cmd);
 		return ret;

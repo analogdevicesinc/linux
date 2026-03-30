@@ -8,6 +8,9 @@
 #include "amdxdna_pci_drv.h"
 #include "amdxdna_mailbox.h"
 
+#define AIE_INTERVAL	20000	/* us */
+#define AIE_TIMEOUT	1000000	/* us */
+
 struct aie_device {
 	struct amdxdna_dev *xdna;
 	struct mailbox_channel *mgmt_chann;

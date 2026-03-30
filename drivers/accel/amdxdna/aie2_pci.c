@@ -79,7 +79,7 @@ static int aie2_get_mgmt_chann_info(struct amdxdna_dev_hdl *ndev)
 	 * is alive.
 	 */
 	ret = readx_poll_timeout(readl, SRAM_GET_ADDR(ndev, FW_ALIVE_OFF),
-				 addr, addr, AIE2_INTERVAL, AIE2_TIMEOUT);
+				 addr, addr, AIE_INTERVAL, AIE_TIMEOUT);
 	if (ret || !addr)
 		return -ETIME;
 

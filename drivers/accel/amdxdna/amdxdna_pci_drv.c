@@ -37,9 +37,10 @@ MODULE_FIRMWARE("amdnpu/17f0_11/npu_7.sbin");
  * 0.6: Support preemption
  * 0.7: Support getting power and utilization data
  * 0.8: Support BO usage query
+ * 0.9: Add new device type AMDXDNA_DEV_TYPE_PF
  */
 #define AMDXDNA_DRIVER_MAJOR		0
-#define AMDXDNA_DRIVER_MINOR		8
+#define AMDXDNA_DRIVER_MINOR		9
 
 /*
  * Bind the driver base on (vendor_id, device_id) pair and later use the
@@ -49,6 +50,8 @@ MODULE_FIRMWARE("amdnpu/17f0_11/npu_7.sbin");
 static const struct pci_device_id pci_ids[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, 0x1502) },
 	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, 0x17f0) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, 0x17f2) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_AMD, 0x1B0B) },
 	{0}
 };
 
@@ -59,6 +62,8 @@ static const struct amdxdna_device_id amdxdna_ids[] = {
 	{ 0x17f0, 0x10, &dev_npu4_info },
 	{ 0x17f0, 0x11, &dev_npu5_info },
 	{ 0x17f0, 0x20, &dev_npu6_info },
+	{ 0x17f2, 0x10, &dev_npu3_pf_info },
+	{ 0x1B0B, 0x10, &dev_npu3_pf_info },
 	{0}
 };
 
@@ -365,12 +370,24 @@ static const struct dev_pm_ops amdxdna_pm_ops = {
 	RUNTIME_PM_OPS(amdxdna_pm_suspend, amdxdna_pm_resume, NULL)
 };
 
+static int amdxdna_sriov_configure(struct pci_dev *pdev, int num_vfs)
+{
+	struct amdxdna_dev *xdna = pci_get_drvdata(pdev);
+
+	guard(mutex)(&xdna->dev_lock);
+	if (xdna->dev_info->ops->sriov_configure)
+		return xdna->dev_info->ops->sriov_configure(xdna, num_vfs);
+
+	return -ENOENT;
+}
+
 static struct pci_driver amdxdna_pci_driver = {
 	.name = KBUILD_MODNAME,
 	.id_table = pci_ids,
 	.probe = amdxdna_probe,
 	.remove = amdxdna_remove,
 	.driver.pm = &amdxdna_pm_ops,
+	.sriov_configure = amdxdna_sriov_configure,
 };
 
 module_pci_driver(amdxdna_pci_driver);

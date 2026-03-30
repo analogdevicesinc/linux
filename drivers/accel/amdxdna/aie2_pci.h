@@ -14,9 +14,6 @@
 #include "aie2_msg_priv.h"
 #include "amdxdna_mailbox.h"
 
-#define AIE2_INTERVAL	20000	/* us */
-#define AIE2_TIMEOUT	1000000	/* us */
-
 /* Firmware determines device memory base address and size */
 #define AIE2_DEVM_BASE	0x4000000
 #define AIE2_DEVM_SIZE	SZ_64M
