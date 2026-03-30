@@ -9,6 +9,7 @@
 #include <drm/drm_drv.h>
 #include <drm/drm_print.h>
 #include <drm/intel/pciids.h>
+#include <drm/intel/step.h>
 
 #include "intel_cx0_phy_regs.h"
 #include "intel_de.h"
@@ -21,7 +22,6 @@
 #include "intel_display_types.h"
 #include "intel_display_wa.h"
 #include "intel_fbc.h"
-#include "intel_step.h"
 
 __diag_push();
 __diag_ignore_all("-Woverride-init", "Allow field initialization overrides for display info");

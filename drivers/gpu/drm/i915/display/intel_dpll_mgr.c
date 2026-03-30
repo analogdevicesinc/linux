@@ -25,6 +25,7 @@
 #include <linux/string_helpers.h>
 
 #include <drm/drm_print.h>
+#include <drm/intel/step.h>
 
 #include "bxt_dpio_phy_regs.h"
 #include "intel_cx0_phy.h"
@@ -41,7 +42,6 @@
 #include "intel_lt_phy.h"
 #include "intel_mg_phy_regs.h"
 #include "intel_pch_refclk.h"
-#include "intel_step.h"
 #include "intel_tc.h"
 
 /**
