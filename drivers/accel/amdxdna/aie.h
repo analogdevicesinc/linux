@@ -12,6 +12,7 @@
 #define AIE_TIMEOUT	1000000	/* us */
 
 struct psp_device;
+struct smu_device;
 
 struct aie_device {
 	struct amdxdna_dev *xdna;
@@ -24,6 +25,7 @@ struct aie_device {
 	unsigned long feature_mask;
 
 	struct psp_device *psp_hdl;
+	struct smu_device *smu_hdl;
 };
 
 #define DECLARE_AIE_MSG(name, op) \
@@ -33,8 +35,20 @@ struct aie_device {
 #define PSP_REG_BAR(ndev, idx) ((ndev)->priv->psp_regs_off[(idx)].bar_idx)
 #define PSP_REG_OFF(ndev, idx) ((ndev)->priv->psp_regs_off[(idx)].offset)
 
+#define SMU_REG_BAR(ndev, idx) ((ndev)->priv->smu_regs_off[(idx)].bar_idx)
+#define SMU_REG_OFF(ndev, idx) ((ndev)->priv->smu_regs_off[(idx)].offset)
+
 #define DEFINE_BAR_OFFSET(reg_name, bar, reg_addr) \
 	[reg_name] = {bar##_BAR_INDEX, (reg_addr) - bar##_BAR_BASE}
+
+enum smu_reg_idx {
+	SMU_CMD_REG = 0,
+	SMU_ARG_REG,
+	SMU_INTR_REG,
+	SMU_RESP_REG,
+	SMU_OUT_REG,
+	SMU_MAX_REGS /* Keep this at the end */
+};
 
 enum psp_reg_idx {
 	PSP_CMD_REG = 0,
@@ -52,6 +66,10 @@ enum psp_reg_idx {
 struct aie_bar_off_pair {
 	int	bar_idx;
 	u32	offset;
+};
+
+struct smu_config {
+	void __iomem    *smu_regs[SMU_MAX_REGS];
 };
 
 struct psp_config {
@@ -75,5 +93,12 @@ struct psp_device *aiem_psp_create(struct drm_device *ddev, struct psp_config *c
 int aie_psp_start(struct psp_device *psp);
 void aie_psp_stop(struct psp_device *psp);
 int aie_psp_waitmode_poll(struct psp_device *psp);
+
+/* aie_smu.c */
+struct smu_device *aiem_smu_create(struct drm_device *ddev, struct smu_config *conf);
+int aie_smu_init(struct smu_device *smu);
+void aie_smu_fini(struct smu_device *smu);
+int aie_smu_set_clocks(struct smu_device *smu, u32 *npuclk, u32 *hclk);
+int aie_smu_set_dpm(struct smu_device *smu, u32 dpm_level);
 
 #endif /* _AIE_H_ */

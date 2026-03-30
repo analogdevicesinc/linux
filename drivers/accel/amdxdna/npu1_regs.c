@@ -71,6 +71,27 @@ static const struct amdxdna_fw_feature_tbl npu1_fw_feature_table[] = {
 	{ 0 }
 };
 
+static int npu1_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level)
+{
+	u32 npuclk, hclk;
+	int ret;
+
+	npuclk = ndev->priv->dpm_clk_tbl[dpm_level].npuclk;
+	hclk = ndev->priv->dpm_clk_tbl[dpm_level].hclk;
+	ret = aie_smu_set_clocks(ndev->aie.smu_hdl, &npuclk, &hclk);
+	if (ret)
+		return ret;
+
+	ndev->npuclk_freq = npuclk;
+	ndev->hclk_freq = hclk;
+	ndev->max_tops = 2 * ndev->total_col;
+	ndev->curr_tops = ndev->max_tops * hclk / 1028;
+
+	XDNA_DBG(ndev->aie.xdna, "MP-NPU clock %d, H clock %d\n",
+		 ndev->npuclk_freq, ndev->hclk_freq);
+	return 0;
+}
+
 static const struct amdxdna_dev_priv npu1_dev_priv = {
 	.fw_path        = "amdnpu/1502_00/",
 	.rt_config	= npu1_default_rt_cfg,

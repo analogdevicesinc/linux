@@ -25,11 +25,6 @@
 
 #define SRAM_REG_OFF(ndev, idx) ((ndev)->priv->sram_offs[(idx)].offset)
 
-#define SMU_REG(ndev, idx) \
-({ \
-	typeof(ndev) _ndev = ndev; \
-	((_ndev)->smu_base + (_ndev)->priv->smu_regs_off[(idx)].offset); \
-})
 #define SRAM_GET_ADDR(ndev, idx) \
 ({ \
 	typeof(ndev) _ndev = ndev; \
@@ -70,15 +65,6 @@
 	(-EOPNOTSUPP);							\
 })
 #endif
-
-enum aie2_smu_reg_idx {
-	SMU_CMD_REG = 0,
-	SMU_ARG_REG,
-	SMU_INTR_REG,
-	SMU_RESP_REG,
-	SMU_OUT_REG,
-	SMU_MAX_REGS /* Keep this at the end */
-};
 
 enum aie2_sram_reg_idx {
 	MBOX_CHANN_OFF = 0,
@@ -183,7 +169,6 @@ struct amdxdna_dev_hdl {
 	struct aie_device		aie;
 	const struct amdxdna_dev_priv	*priv;
 	void			__iomem *sram_base;
-	void			__iomem *smu_base;
 	void			__iomem *mbox_base;
 
 	u32				total_col;
@@ -258,11 +243,6 @@ extern const struct dpm_clk_freq npu4_dpm_clk_table[];
 extern const struct rt_config npu1_default_rt_cfg[];
 extern const struct rt_config npu4_default_rt_cfg[];
 extern const struct amdxdna_fw_feature_tbl npu4_fw_feature_table[];
-
-/* aie2_smu.c */
-int aie2_smu_init(struct amdxdna_dev_hdl *ndev);
-void aie2_smu_fini(struct amdxdna_dev_hdl *ndev);
-int npu1_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level);
 int npu4_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level);
 
 /* aie2_pm.c */

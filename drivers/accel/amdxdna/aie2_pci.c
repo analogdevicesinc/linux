@@ -282,6 +282,12 @@ static struct xrs_action_ops aie2_xrs_actions = {
 	.set_dft_dpm_level = aie2_xrs_set_dft_dpm_level,
 };
 
+static void aie2_smu_fini(struct amdxdna_dev_hdl *ndev)
+{
+	ndev->priv->hw_ops.set_dpm(ndev, 0);
+	aie_smu_fini(ndev->aie.smu_hdl);
+}
+
 static void aie2_hw_stop(struct amdxdna_dev *xdna)
 {
 	struct pci_dev *pdev = to_pci_dev(xdna->ddev.dev);
@@ -344,7 +350,7 @@ static int aie2_hw_start(struct amdxdna_dev *xdna)
 		goto disable_dev;
 	}
 
-	ret = aie2_smu_init(ndev);
+	ret = aie_smu_init(ndev->aie.smu_hdl);
 	if (ret) {
 		XDNA_ERR(xdna, "failed to init smu, ret %d", ret);
 		goto free_channel;
@@ -464,6 +470,7 @@ static int aie2_init(struct amdxdna_dev *xdna)
 	struct init_config xrs_cfg = { 0 };
 	struct amdxdna_dev_hdl *ndev;
 	struct psp_config psp_conf = { 0 };
+	struct smu_config smu_conf;
 	const struct firmware *fw;
 	unsigned long bars = 0;
 	char *fw_full_path;
@@ -508,9 +515,10 @@ static int aie2_init(struct amdxdna_dev *xdna)
 
 	for (i = 0; i < PSP_MAX_REGS; i++)
 		set_bit(PSP_REG_BAR(ndev, i), &bars);
+	for (i = 0; i < SMU_MAX_REGS; i++)
+		set_bit(SMU_REG_BAR(ndev, i), &bars);
 
 	set_bit(xdna->dev_info->sram_bar, &bars);
-	set_bit(xdna->dev_info->smu_bar, &bars);
 	set_bit(xdna->dev_info->mbox_bar, &bars);
 
 	for (i = 0; i < PCI_NUM_RESOURCES; i++) {
@@ -525,7 +533,6 @@ static int aie2_init(struct amdxdna_dev *xdna)
 	}
 
 	ndev->sram_base = tbl[xdna->dev_info->sram_bar];
-	ndev->smu_base = tbl[xdna->dev_info->smu_bar];
 	ndev->mbox_base = tbl[xdna->dev_info->mbox_bar];
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
@@ -556,6 +563,15 @@ static int aie2_init(struct amdxdna_dev *xdna)
 	ndev->aie.psp_hdl = aiem_psp_create(&xdna->ddev, &psp_conf);
 	if (!ndev->aie.psp_hdl) {
 		XDNA_ERR(xdna, "failed to create psp");
+		ret = -ENOMEM;
+		goto release_fw;
+	}
+
+	for (i = 0; i < SMU_MAX_REGS; i++)
+		smu_conf.smu_regs[i] = tbl[SMU_REG_BAR(ndev, i)] + SMU_REG_OFF(ndev, i);
+	ndev->aie.smu_hdl = aiem_smu_create(&xdna->ddev, &smu_conf);
+	if (!ndev->aie.smu_hdl) {
+		XDNA_ERR(xdna, "failed to create smu");
 		ret = -ENOMEM;
 		goto release_fw;
 	}
