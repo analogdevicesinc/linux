@@ -101,75 +101,44 @@ static void fuse_drop_waiting(struct fuse_chan *fch)
 
 static void fuse_put_request(struct fuse_req *req);
 
-static struct fuse_req *fuse_get_req(struct mnt_idmap *idmap,
-				     struct fuse_mount *fm,
-				     bool for_background)
+static struct fuse_req *fuse_get_req(struct fuse_chan *fch, bool for_background)
 {
-	struct fuse_conn *fc = fm->fc;
 	struct fuse_req *req;
-	bool no_idmap = !fm->sb || (fm->sb->s_iflags & SB_I_NOIDMAP);
-	kuid_t fsuid;
-	kgid_t fsgid;
 	int err;
 
-	atomic_inc(&fc->chan->num_waiting);
+	atomic_inc(&fch->num_waiting);
 
-	if (fuse_block_alloc(fc, for_background)) {
+	if (fuse_block_alloc(fch->conn, for_background)) {
 		err = -EINTR;
-		if (wait_event_state_exclusive(fc->chan->blocked_waitq,
-				!fuse_block_alloc(fc, for_background),
+		if (wait_event_state_exclusive(fch->blocked_waitq,
+				!fuse_block_alloc(fch->conn, for_background),
 				(TASK_KILLABLE | TASK_FREEZABLE)))
 			goto out;
 	}
+
 	/* Matches smp_wmb() in fuse_chan_set_initialized() */
 	smp_rmb();
 
 	err = -ENOTCONN;
-	if (!fc->chan->connected)
+	if (!fch->connected)
 		goto out;
 
-	err = -ECONNREFUSED;
-	if (fc->conn_error)
-		goto out;
-
-	req = fuse_request_alloc(fc->chan, GFP_KERNEL);
+	req = fuse_request_alloc(fch, GFP_KERNEL);
 	err = -ENOMEM;
 	if (!req) {
 		if (for_background)
-			wake_up(&fc->chan->blocked_waitq);
+			wake_up(&fch->blocked_waitq);
 		goto out;
 	}
-
-	req->in.h.pid = pid_nr_ns(task_pid(current), fc->pid_ns);
 
 	__set_bit(FR_WAITING, &req->flags);
 	if (for_background)
 		__set_bit(FR_BACKGROUND, &req->flags);
 
-	/*
-	 * Keep the old behavior when idmappings support was not
-	 * declared by a FUSE server.
-	 *
-	 * For those FUSE servers who support idmapped mounts,
-	 * we send UID/GID only along with "inode creation"
-	 * fuse requests, otherwise idmap == &invalid_mnt_idmap and
-	 * req->in.h.{u,g}id will be equal to FUSE_INVALID_UIDGID.
-	 */
-	fsuid = no_idmap ? current_fsuid() : mapped_fsuid(idmap, fc->user_ns);
-	fsgid = no_idmap ? current_fsgid() : mapped_fsgid(idmap, fc->user_ns);
-	req->in.h.uid = from_kuid(fc->user_ns, fsuid);
-	req->in.h.gid = from_kgid(fc->user_ns, fsgid);
-
-	if (no_idmap && unlikely(req->in.h.uid == ((uid_t)-1) ||
-				 req->in.h.gid == ((gid_t)-1))) {
-		fuse_put_request(req);
-		return ERR_PTR(-EOVERFLOW);
-	}
-
 	return req;
 
  out:
-	fuse_drop_waiting(fc->chan);
+	fuse_drop_waiting(fch);
 	return ERR_PTR(err);
 }
 
@@ -775,25 +744,13 @@ static void fuse_adjust_compat(struct fuse_conn *fc, struct fuse_args *args)
 	}
 }
 
-static void fuse_force_creds(struct fuse_mount *fm, struct fuse_req *req)
-{
-	struct fuse_conn *fc = fm->fc;
-
-	if (!fm->sb || fm->sb->s_iflags & SB_I_NOIDMAP) {
-		req->in.h.uid = from_kuid_munged(fc->user_ns, current_fsuid());
-		req->in.h.gid = from_kgid_munged(fc->user_ns, current_fsgid());
-	} else {
-		req->in.h.uid = FUSE_INVALID_UIDGID;
-		req->in.h.gid = FUSE_INVALID_UIDGID;
-	}
-
-	req->in.h.pid = pid_nr_ns(task_pid(current), fc->pid_ns);
-}
-
 static void fuse_args_to_req(struct fuse_req *req, struct fuse_args *args)
 {
 	req->in.h.opcode = args->opcode;
 	req->in.h.nodeid = args->nodeid;
+	req->in.h.uid = args->uid;
+	req->in.h.gid = args->gid;
+	req->in.h.pid = args->pid;
 	req->args = args;
 	if (args->is_ext)
 		req->in.h.total_extlen = args->in_args[args->ext_idx].size / 8;
@@ -801,33 +758,26 @@ static void fuse_args_to_req(struct fuse_req *req, struct fuse_args *args)
 		__set_bit(FR_ASYNC, &req->flags);
 }
 
-ssize_t __fuse_simple_request(struct mnt_idmap *idmap,
-			      struct fuse_mount *fm,
-			      struct fuse_args *args)
+ssize_t fuse_chan_send(struct fuse_chan *fch, struct fuse_args *args)
 {
-	struct fuse_conn *fc = fm->fc;
 	struct fuse_req *req;
 	ssize_t ret;
 
 	if (args->force) {
-		atomic_inc(&fc->chan->num_waiting);
-		req = fuse_request_alloc(fc->chan, GFP_KERNEL | __GFP_NOFAIL);
-
-		if (!args->nocreds)
-			fuse_force_creds(fm, req);
+		atomic_inc(&fch->num_waiting);
+		req = fuse_request_alloc(fch, GFP_KERNEL | __GFP_NOFAIL);
 
 		__set_bit(FR_WAITING, &req->flags);
 		if (!args->abort_on_kill)
 			__set_bit(FR_FORCE, &req->flags);
 	} else {
-		WARN_ON(args->nocreds);
-		req = fuse_get_req(idmap, fm, false);
+		req = fuse_get_req(fch, false);
 		if (IS_ERR(req))
 			return PTR_ERR(req);
 	}
 
 	/* Needs to be done after fuse_get_req() so that fc->minor is valid */
-	fuse_adjust_compat(fc, args);
+	fuse_adjust_compat(fch->conn, args);
 	fuse_args_to_req(req, args);
 
 	if (!args->noreply)
@@ -891,20 +841,17 @@ static int fuse_request_queue_background(struct fuse_req *req)
 	return queued;
 }
 
-int fuse_simple_background(struct fuse_mount *fm, struct fuse_args *args,
-			    gfp_t gfp_flags)
+int fuse_chan_send_bg(struct fuse_chan *fch, struct fuse_args *args, gfp_t gfp_flags)
 {
 	struct fuse_req *req;
 
 	if (args->force) {
-		WARN_ON(!args->nocreds);
-		req = fuse_request_alloc(fm->fc->chan, gfp_flags);
+		req = fuse_request_alloc(fch, gfp_flags);
 		if (!req)
 			return -ENOMEM;
 		__set_bit(FR_BACKGROUND, &req->flags);
 	} else {
-		WARN_ON(args->nocreds);
-		req = fuse_get_req(&invalid_mnt_idmap, fm, true);
+		req = fuse_get_req(fch, true);
 		if (IS_ERR(req))
 			return PTR_ERR(req);
 	}
@@ -918,15 +865,13 @@ int fuse_simple_background(struct fuse_mount *fm, struct fuse_args *args,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(fuse_simple_background);
 
-static int fuse_simple_notify_reply(struct fuse_mount *fm,
-				    struct fuse_args *args, u64 unique)
+int fuse_chan_send_notify_reply(struct fuse_chan *fch, struct fuse_args *args, u64 unique)
 {
 	struct fuse_req *req;
-	struct fuse_iqueue *fiq = &fm->fc->chan->iq;
+	struct fuse_iqueue *fiq = &fch->iq;
 
-	req = fuse_get_req(&invalid_mnt_idmap, fm, false);
+	req = fuse_get_req(fch, false);
 	if (IS_ERR(req))
 		return PTR_ERR(req);
 

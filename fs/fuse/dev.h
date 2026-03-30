@@ -11,6 +11,7 @@
 struct fuse_conn;
 struct fuse_chan;
 struct fuse_dev;
+struct fuse_args;
 struct file;
 
 struct fuse_chan *fuse_chan_new(void);
@@ -24,6 +25,9 @@ unsigned int fuse_chan_num_waiting(struct fuse_chan *fch);
 void fuse_chan_set_fc(struct fuse_chan *fch, struct fuse_conn *fc);
 void fuse_chan_set_initialized(struct fuse_chan *fch);
 void fuse_chan_io_uring_enable(struct fuse_chan *fch);
+ssize_t fuse_chan_send(struct fuse_chan *fch, struct fuse_args *args);
+int fuse_chan_send_bg(struct fuse_chan *fch, struct fuse_args *args, gfp_t gfp_flags);
+int fuse_chan_send_notify_reply(struct fuse_chan *fch, struct fuse_args *args, u64 unique);
 
 struct fuse_forget_link *fuse_alloc_forget(void);
 void fuse_chan_queue_forget(struct fuse_chan *fch, struct fuse_forget_link *forget,
