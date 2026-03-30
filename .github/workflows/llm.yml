@@ -3,20 +3,26 @@ name: LLM Agent
 on:
   workflow_dispatch:
     inputs:
-      base-sha:
-        required: false
-        type: string
-      head-sha:
+      ref:
+        description: The branch, tag, PR number, or SHA to checkout
         required: false
         type: string
       run-id:
+        description: Explicit workflow run to analyse, optional.
         required: false
         type: string
       prompt:
+        description: Prompt to use, overwrites the default.
+        required: false
+        type: string
+        default: ""
+      prompt-extra:
+        description: Extra prompt to concatenate.
         required: false
         type: string
         default: ""
       prompt-repository:
+        description: Repository with LLM skills, overwrites the default.
         required: false
         type: string
         default: ""
@@ -44,10 +50,10 @@ jobs:
       ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
       ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
     with:
-      base-sha: ${{ inputs.base-sha }}
-      head-sha: ${{ inputs.head-sha }}
+      ref: ${{ inputs.ref }}
       run-id: ${{ inputs.run-id }}
       prompt: ${{ inputs.prompt }}
+      prompt-extra: ${{ inputs.prompt }}
       prompt-repository: ${{ inputs.prompt-repository }}
       model-small: ${{ inputs.model-small }}
       model-medium: ${{ inputs.model-medium }}
