@@ -267,10 +267,9 @@ static int ad7292_probe(struct spi_device *spi)
 	st->spi = spi;
 
 	ret = ad7292_spi_reg_read(st, AD7292_REG_VENDOR_ID);
-	if (ret != ADI_VENDOR_ID) {
-		dev_err(&spi->dev, "Wrong vendor id 0x%x\n", ret);
-		return -EINVAL;
-	}
+	if (ret != ADI_VENDOR_ID)
+		return dev_err_probe(dev, -EINVAL,
+				     "Wrong vendor id 0x%x\n", ret);
 
 	ret = devm_regulator_get_enable_read_voltage(dev, "vref");
 	if (ret < 0 && ret != -ENODEV)
