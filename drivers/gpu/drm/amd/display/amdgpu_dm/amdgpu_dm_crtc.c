@@ -685,7 +685,7 @@ static int amdgpu_dm_crtc_helper_atomic_check(struct drm_crtc *crtc,
 	 * pitch, the DCC state, rotation, etc.
 	 */
 	if (crtc_state->async_flip &&
-	    dm_crtc_state->update_type != UPDATE_TYPE_FAST) {
+	    dm_crtc_state->update_type > UPDATE_TYPE_FAST) {
 		drm_dbg_atomic(crtc->dev,
 			       "[CRTC:%d:%s] async flips are only supported for fast updates\n",
 			       crtc->base.id, crtc->name);
@@ -765,15 +765,15 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
 	dm->adev->mode_info.crtcs[crtc_index] = acrtc;
 
 	/* Don't enable DRM CRTC degamma property for
-	 * 1. Degamma is replaced by color pipeline.
-	 * 2. DCE since it doesn't support programmable degamma anywhere.
-	 * 3. DCN401 since pre-blending degamma LUT doesn't apply to cursor.
+	 * 1. DCE since it doesn't support programmable degamma anywhere.
+	 * 2. DCN401 since pre-blending degamma LUT doesn't apply to cursor.
+	 * Note: DEGAMMA properties are created even if the primary plane has the
+	 * COLOR_PIPELINE property. User space can use either the DEGAMMA properties
+	 * or the COLOR_PIPELINE property. An atomic commit which attempts to enable
+	 * both is rejected.
 	 */
-	if (plane->color_pipeline_property)
-		has_degamma = false;
-	else
-		has_degamma = dm->adev->dm.dc->caps.color.dpp.dcn_arch &&
-			      dm->adev->dm.dc->ctx->dce_version != DCN_VERSION_4_01;
+	has_degamma = dm->adev->dm.dc->caps.color.dpp.dcn_arch &&
+		      dm->adev->dm.dc->ctx->dce_version != DCN_VERSION_4_01;
 
 	drm_crtc_enable_color_mgmt(&acrtc->base, has_degamma ? MAX_COLOR_LUT_ENTRIES : 0,
 				   true, MAX_COLOR_LUT_ENTRIES);

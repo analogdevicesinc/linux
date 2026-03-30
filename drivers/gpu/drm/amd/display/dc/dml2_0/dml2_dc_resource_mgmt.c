@@ -143,7 +143,7 @@ static unsigned int find_pipes_assigned_to_plane(struct dml2_context *ctx,
 {
 	int i;
 	unsigned int num_found = 0;
-	unsigned int plane_id_assigned_to_pipe = -1;
+	unsigned int plane_id_assigned_to_pipe = UINT_MAX;
 
 	for (i = 0; i < ctx->config.dcn_pipe_count; i++) {
 		struct pipe_ctx *pipe = &state->res_ctx.pipe_ctx[i];
@@ -909,10 +909,10 @@ static unsigned int get_source_mpc_factor(const struct dml2_context *ctx,
 		const struct dc_plane_state *plane)
 {
 	struct pipe_ctx *dpp_pipes[MAX_PIPES] = {0};
-	int dpp_pipe_count = ctx->config.callbacks.get_dpp_pipes_for_plane(plane,
-			&state->res_ctx, dpp_pipes);
 
-	ASSERT(dpp_pipe_count > 0);
+	if (ctx->config.callbacks.get_dpp_pipes_for_plane(plane, &state->res_ctx, dpp_pipes) <= 0)
+		ASSERT(false);
+
 	return ctx->config.callbacks.get_mpc_slice_count(dpp_pipes[0]);
 }
 

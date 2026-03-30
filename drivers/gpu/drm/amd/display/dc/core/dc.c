@@ -443,75 +443,6 @@ static bool set_long_vtotal(struct dc *dc, struct dc_stream_state *stream, struc
 }
 
 /**
- *  dc_stream_adjust_vmin_vmax - look up pipe context & update parts of DRR
- *  @dc:     dc reference
- *  @stream: Initial dc stream state
- *  @adjust: Updated parameters for vertical_total_min and vertical_total_max
- *
- *  Looks up the pipe context of dc_stream_state and updates the
- *  vertical_total_min and vertical_total_max of the DRR, Dynamic Refresh
- *  Rate, which is a power-saving feature that targets reducing panel
- *  refresh rate while the screen is static
- *
- *  Return: %true if the pipe context is found and adjusted;
- *          %false if the pipe context is not found.
- */
-bool dc_stream_adjust_vmin_vmax(struct dc *dc,
-		struct dc_stream_state *stream,
-		struct dc_crtc_timing_adjust *adjust)
-{
-	int i;
-
-	/*
-	 * Don't adjust DRR while there's bandwidth optimizations pending to
-	 * avoid conflicting with firmware updates.
-	 */
-	if (dc->ctx->dce_version > DCE_VERSION_MAX) {
-		if (dc->optimized_required &&
-			(stream->adjust.v_total_max != adjust->v_total_max ||
-			stream->adjust.v_total_min != adjust->v_total_min)) {
-			stream->adjust.timing_adjust_pending = true;
-			return false;
-		}
-	}
-
-	dc_exit_ips_for_hw_access(dc);
-
-	stream->adjust.v_total_max = adjust->v_total_max;
-	stream->adjust.v_total_mid = adjust->v_total_mid;
-	stream->adjust.v_total_mid_frame_num = adjust->v_total_mid_frame_num;
-	stream->adjust.v_total_min = adjust->v_total_min;
-	stream->adjust.allow_otg_v_count_halt = adjust->allow_otg_v_count_halt;
-
-	if (dc->caps.max_v_total != 0 &&
-		(adjust->v_total_max > dc->caps.max_v_total || adjust->v_total_min > dc->caps.max_v_total)) {
-		stream->adjust.timing_adjust_pending = false;
-		if (adjust->allow_otg_v_count_halt)
-			return set_long_vtotal(dc, stream, adjust);
-		else
-			return false;
-	}
-
-	for (i = 0; i < MAX_PIPES; i++) {
-		struct pipe_ctx *pipe = &dc->current_state->res_ctx.pipe_ctx[i];
-
-		if (pipe->stream == stream && pipe->stream_res.tg) {
-			dc->hwss.set_drr(&pipe,
-					1,
-					*adjust);
-			stream->adjust.timing_adjust_pending = false;
-
-			if (dc->hwss.notify_cursor_offload_drr_update)
-				dc->hwss.notify_cursor_offload_drr_update(dc, dc->current_state, stream);
-
-			return true;
-		}
-	}
-
-	return false;
-}
-
-/**
  * dc_stream_get_last_used_drr_vtotal - Looks up the pipe context of
  * dc_stream_state and gets the last VTOTAL used by DRR (Dynamic Refresh Rate)
  *
@@ -1274,6 +1205,8 @@ static void dc_update_visual_confirm_color(struct dc *dc, struct dc_state *conte
 				get_fams2_visual_confirm_color(dc, context, pipe_ctx, &(pipe_ctx->visual_confirm_color));
 			else if (dc->debug.visual_confirm == VISUAL_CONFIRM_VABC)
 				get_vabc_visual_confirm_color(pipe_ctx, &(pipe_ctx->visual_confirm_color));
+			else if (dc->debug.visual_confirm == VISUAL_CONFIRM_BOOSTED_REFRESH_RATE)
+				get_refresh_rate_confirm_color(pipe_ctx, &(pipe_ctx->visual_confirm_color));
 		}
 	}
 }
@@ -1321,6 +1254,83 @@ void dc_get_visual_confirm_for_stream(
 			}
 		}
 	}
+}
+
+/**
+ *  dc_stream_adjust_vmin_vmax - look up pipe context & update parts of DRR
+ *  @dc:     dc reference
+ *  @stream: Initial dc stream state
+ *  @adjust: Updated parameters for vertical_total_min and vertical_total_max
+ *
+ *  Looks up the pipe context of dc_stream_state and updates the
+ *  vertical_total_min and vertical_total_max of the DRR, Dynamic Refresh
+ *  Rate, which is a power-saving feature that targets reducing panel
+ *  refresh rate while the screen is static
+ *
+ *  Return: %true if the pipe context is found and adjusted;
+ *          %false if the pipe context is not found.
+ */
+bool dc_stream_adjust_vmin_vmax(struct dc *dc,
+		struct dc_stream_state *stream,
+		struct dc_crtc_timing_adjust *adjust)
+{
+	int i;
+
+	/*
+	 * Don't adjust DRR while there's bandwidth optimizations pending to
+	 * avoid conflicting with firmware updates.
+	 */
+	if (dc->ctx->dce_version > DCE_VERSION_MAX) {
+		if (dc->optimized_required &&
+			(stream->adjust.v_total_max != adjust->v_total_max ||
+			stream->adjust.v_total_min != adjust->v_total_min)) {
+			stream->adjust.timing_adjust_pending = true;
+			return false;
+		}
+	}
+
+	dc_exit_ips_for_hw_access(dc);
+
+	stream->adjust.v_total_max = adjust->v_total_max;
+	stream->adjust.v_total_mid = adjust->v_total_mid;
+	stream->adjust.v_total_mid_frame_num = adjust->v_total_mid_frame_num;
+	stream->adjust.v_total_min = adjust->v_total_min;
+	stream->adjust.allow_otg_v_count_halt = adjust->allow_otg_v_count_halt;
+
+	if (dc->caps.max_v_total != 0 &&
+		(adjust->v_total_max > dc->caps.max_v_total || adjust->v_total_min > dc->caps.max_v_total)) {
+		stream->adjust.timing_adjust_pending = false;
+		if (adjust->allow_otg_v_count_halt)
+			return set_long_vtotal(dc, stream, adjust);
+		else
+			return false;
+	}
+
+	for (i = 0; i < MAX_PIPES; i++) {
+		struct pipe_ctx *pipe = &dc->current_state->res_ctx.pipe_ctx[i];
+
+		if (pipe->stream == stream && pipe->stream_res.tg) {
+			dc->hwss.set_drr(&pipe,
+					1,
+					*adjust);
+			stream->adjust.timing_adjust_pending = false;
+
+			if (dc->debug.visual_confirm == VISUAL_CONFIRM_BOOSTED_REFRESH_RATE) {
+				if (pipe->stream && pipe->plane_state) {
+					dc_update_visual_confirm_color(dc, dc->current_state, pipe);
+					dc->hwss.update_visual_confirm_color(dc, pipe, pipe->plane_res.hubp->mpcc_id);
+
+				}
+			}
+
+			if (dc->hwss.notify_cursor_offload_drr_update)
+				dc->hwss.notify_cursor_offload_drr_update(dc, dc->current_state, stream);
+
+			return true;
+		}
+	}
+
+	return false;
 }
 
 static void disable_dangling_plane(struct dc *dc, struct dc_state *context)
@@ -2607,6 +2617,16 @@ void dc_post_update_surfaces_to_stream(struct dc *dc)
 	dc->optimized_required = false;
 }
 
+void dc_get_default_tiling_info(const struct dc *dc, struct dc_tiling_info *tiling_info)
+{
+	if (!dc || !tiling_info)
+		return;
+	if (dc->res_pool && dc->res_pool->funcs && dc->res_pool->funcs->get_default_tiling_info) {
+		dc->res_pool->funcs->get_default_tiling_info(tiling_info);
+		return;
+	}
+}
+
 bool dc_set_generic_gpio_for_stereo(bool enable,
 		struct gpio_service *gpio_service)
 {
@@ -2675,7 +2695,7 @@ static bool is_surface_in_context(
 static struct surface_update_descriptor get_plane_info_update_type(const struct dc_surface_update *u)
 {
 	union surface_update_flags *update_flags = &u->surface->update_flags;
-	struct surface_update_descriptor update_type = { UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_NONE };
+	struct surface_update_descriptor update_type = { UPDATE_TYPE_ADDR_ONLY, LOCK_DESCRIPTOR_NONE };
 
 	if (!u->plane_info)
 		return update_type;
@@ -2749,28 +2769,12 @@ static struct surface_update_descriptor get_plane_info_update_type(const struct 
 
 	if (memcmp(tiling, &u->surface->tiling_info, sizeof(*tiling)) != 0) {
 		update_flags->bits.swizzle_change = 1;
-		elevate_update_type(&update_type, UPDATE_TYPE_MED, LOCK_DESCRIPTOR_STREAM);
 
-		switch (tiling->gfxversion) {
-		case DcGfxVersion9:
-		case DcGfxVersion10:
-		case DcGfxVersion11:
-			if (tiling->gfx9.swizzle != DC_SW_LINEAR) {
-				update_flags->bits.bandwidth_change = 1;
-				elevate_update_type(&update_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
-			}
-			break;
-		case DcGfxAddr3:
-			if (tiling->gfx_addr3.swizzle != DC_ADDR3_SW_LINEAR) {
-				update_flags->bits.bandwidth_change = 1;
-				elevate_update_type(&update_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
-			}
-			break;
-		case DcGfxVersion7:
-		case DcGfxVersion8:
-		case DcGfxVersionUnknown:
-		default:
-			break;
+		if (tiling->flags.avoid_full_update_on_tiling_change) {
+			elevate_update_type(&update_type, UPDATE_TYPE_MED, LOCK_DESCRIPTOR_STREAM);
+		} else {
+			update_flags->bits.bandwidth_change = 1;
+			elevate_update_type(&update_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
 		}
 	}
 
@@ -2783,7 +2787,7 @@ static struct surface_update_descriptor get_scaling_info_update_type(
 		const struct dc_surface_update *u)
 {
 	union surface_update_flags *update_flags = &u->surface->update_flags;
-	struct surface_update_descriptor update_type = { UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_NONE };
+	struct surface_update_descriptor update_type = { UPDATE_TYPE_ADDR_ONLY, LOCK_DESCRIPTOR_NONE };
 
 	if (!u->scaling_info)
 		return update_type;
@@ -2834,11 +2838,11 @@ static struct surface_update_descriptor get_scaling_info_update_type(
 	return update_type;
 }
 
-static struct surface_update_descriptor det_surface_update(
+static struct surface_update_descriptor check_update_surface(
 		const struct dc_check_config *check_config,
 		struct dc_surface_update *u)
 {
-	struct surface_update_descriptor overall_type = { UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_NONE };
+	struct surface_update_descriptor overall_type = { UPDATE_TYPE_ADDR_ONLY, LOCK_DESCRIPTOR_NONE };
 	union surface_update_flags *update_flags = &u->surface->update_flags;
 
 	if (u->surface->force_full_update) {
@@ -2858,7 +2862,7 @@ static struct surface_update_descriptor det_surface_update(
 
 	if (u->flip_addr) {
 		update_flags->bits.addr_update = 1;
-		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		elevate_update_type(&overall_type, UPDATE_TYPE_ADDR_ONLY, LOCK_DESCRIPTOR_STREAM);
 
 		if (u->flip_addr->address.tmz_surface != u->surface->address.tmz_surface) {
 			update_flags->bits.tmz_changed = 1;
@@ -2872,34 +2876,62 @@ static struct surface_update_descriptor det_surface_update(
 
 	if (u->input_csc_color_matrix) {
 		update_flags->bits.input_csc_change = 1;
-		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		elevate_update_type(&overall_type,
+				check_config->enable_legacy_fast_update ? UPDATE_TYPE_MED : UPDATE_TYPE_FAST,
+				LOCK_DESCRIPTOR_STREAM);
+	}
+
+	if (u->cursor_csc_color_matrix) {
+		elevate_update_type(&overall_type,
+				check_config->enable_legacy_fast_update ? UPDATE_TYPE_MED : UPDATE_TYPE_FAST,
+				LOCK_DESCRIPTOR_STREAM);
 	}
 
 	if (u->coeff_reduction_factor) {
 		update_flags->bits.coeff_reduction_change = 1;
-		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		elevate_update_type(&overall_type,
+				check_config->enable_legacy_fast_update ? UPDATE_TYPE_MED : UPDATE_TYPE_FAST,
+				LOCK_DESCRIPTOR_STREAM);
 	}
 
 	if (u->gamut_remap_matrix) {
 		update_flags->bits.gamut_remap_change = 1;
-		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		elevate_update_type(&overall_type,
+				check_config->enable_legacy_fast_update ? UPDATE_TYPE_MED : UPDATE_TYPE_FAST,
+				LOCK_DESCRIPTOR_STREAM);
 	}
 
-	if (u->blend_tf || (u->gamma && dce_use_lut(u->plane_info ? u->plane_info->format : u->surface->format))) {
+	if (u->cm || (u->gamma && dce_use_lut(u->plane_info ? u->plane_info->format : u->surface->format))) {
 		update_flags->bits.gamma_change = 1;
-		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		elevate_update_type(&overall_type,
+				check_config->enable_legacy_fast_update ? UPDATE_TYPE_MED : UPDATE_TYPE_FAST,
+				LOCK_DESCRIPTOR_STREAM);
 	}
 
-	if (u->lut3d_func || u->func_shaper) {
+	if (u->cm && (u->cm->flags.bits.lut3d_enable || u->surface->cm.flags.bits.lut3d_enable)) {
 		update_flags->bits.lut_3d = 1;
-		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		elevate_update_type(&overall_type,
+				check_config->enable_legacy_fast_update ? UPDATE_TYPE_MED : UPDATE_TYPE_FAST,
+				LOCK_DESCRIPTOR_STREAM);
+	}
+
+	if (u->cm && u->cm->flags.bits.lut3d_dma_enable != u->surface->cm.flags.bits.lut3d_dma_enable &&
+			u->cm->flags.bits.lut3d_enable && u->surface->cm.flags.bits.lut3d_enable) {
+		/* Toggling 3DLUT loading between DMA and Host is illegal */
+		BREAK_TO_DEBUGGER();
+	}
+
+	if (u->cm && u->cm->flags.bits.lut3d_enable && !u->cm->flags.bits.lut3d_dma_enable) {
+		/* Host loading 3DLUT requires full update but only stream lock  */
+		elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_STREAM);
 	}
 
 	if (u->hdr_mult.value)
 		if (u->hdr_mult.value != u->surface->hdr_mult.value) {
-			// TODO: Should be fast?
 			update_flags->bits.hdr_mult = 1;
-			elevate_update_type(&overall_type, UPDATE_TYPE_MED, LOCK_DESCRIPTOR_STREAM);
+			elevate_update_type(&overall_type,
+					check_config->enable_legacy_fast_update ? UPDATE_TYPE_MED : UPDATE_TYPE_FAST,
+					LOCK_DESCRIPTOR_STREAM);
 		}
 
 	if (u->sdr_white_level_nits)
@@ -2909,24 +2941,15 @@ static struct surface_update_descriptor det_surface_update(
 			elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
 		}
 
-	if (u->cm2_params) {
-		if (u->cm2_params->component_settings.shaper_3dlut_setting != u->surface->mcm_shaper_3dlut_setting
-				|| u->cm2_params->component_settings.lut1d_enable != u->surface->mcm_lut1d_enable
-				|| u->cm2_params->cm2_luts.lut3d_data.lut3d_src != u->surface->mcm_luts.lut3d_data.lut3d_src) {
-			update_flags->bits.mcm_transfer_function_enable_change = 1;
-			elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
-		}
+	if (u->cm_hist_control) {
+		update_flags->bits.cm_hist_change = 1;
+		elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
 	}
-
-	if (update_flags->bits.lut_3d &&
-			u->surface->mcm_luts.lut3d_data.lut3d_src != DC_CM2_TRANSFER_FUNC_SOURCE_VIDMEM) {
-		elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
-	}
-
 	if (check_config->enable_legacy_fast_update &&
 			(update_flags->bits.gamma_change ||
 			update_flags->bits.gamut_remap_change ||
 			update_flags->bits.input_csc_change ||
+			update_flags->bits.cm_hist_change ||
 			update_flags->bits.coeff_reduction_change)) {
 		elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
 	}
@@ -2962,7 +2985,7 @@ static struct surface_update_descriptor check_update_surfaces_for_stream(
 		int surface_count,
 		struct dc_stream_update *stream_update)
 {
-	struct surface_update_descriptor overall_type = { UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_NONE };
+	struct surface_update_descriptor overall_type = { UPDATE_TYPE_ADDR_ONLY, LOCK_DESCRIPTOR_NONE };
 
 	/* When countdown finishes, promote this flip to full to trigger deferred final transition */
 	if (check_config->deferred_transition_state && !check_config->transition_countdown_to_steady_state) {
@@ -3029,7 +3052,18 @@ static struct surface_update_descriptor check_update_surfaces_for_stream(
 		if (su_flags->raw)
 			elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
 
-		// Non-global cases
+		/* Non-global cases */
+		if (stream_update->hdr_static_metadata ||
+				stream_update->vrr_infopacket ||
+				stream_update->vsc_infopacket ||
+				stream_update->vsp_infopacket ||
+				stream_update->hfvsif_infopacket ||
+				stream_update->adaptive_sync_infopacket ||
+				stream_update->vtem_infopacket ||
+				stream_update->avi_infopacket) {
+			elevate_update_type(&overall_type, UPDATE_TYPE_MED, LOCK_DESCRIPTOR_STREAM);
+		}
+
 		if (stream_update->output_csc_transform) {
 			su_flags->bits.out_csc = 1;
 			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
@@ -3039,11 +3073,32 @@ static struct surface_update_descriptor check_update_surfaces_for_stream(
 			su_flags->bits.out_tf = 1;
 			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
 		}
+
+		if (stream_update->periodic_interrupt) {
+			elevate_update_type(&overall_type, UPDATE_TYPE_MED, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		if (stream_update->dither_option) {
+			elevate_update_type(&overall_type, UPDATE_TYPE_MED, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		if (stream_update->cursor_position || stream_update->cursor_attributes) {
+			elevate_update_type(&overall_type, UPDATE_TYPE_MED, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		/* TODO - cleanup post blend CM */
+		if (stream_update->func_shaper || stream_update->lut3d_func) {
+			elevate_update_type(&overall_type, UPDATE_TYPE_FAST, LOCK_DESCRIPTOR_STREAM);
+		}
+
+		if (stream_update->pending_test_pattern) {
+			elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
+		}
 	}
 
 	for (int i = 0 ; i < surface_count; i++) {
 		struct surface_update_descriptor inner_type =
-				det_surface_update(check_config, &updates[i]);
+				check_update_surface(check_config, &updates[i]);
 
 		elevate_update_type(&overall_type, inner_type.update_type, inner_type.lock_descriptor);
 	}
@@ -3064,10 +3119,85 @@ struct surface_update_descriptor dc_check_update_surfaces_for_stream(
 {
 	if (stream_update)
 		stream_update->stream->update_flags.raw = 0;
-	for (size_t i = 0; i < surface_count; i++)
+	for (int i = 0; i < surface_count; i++)
 		updates[i].surface->update_flags.raw = 0;
 
 	return check_update_surfaces_for_stream(check_config, updates, surface_count, stream_update);
+}
+
+/*
+ * check_update_state_and_surfaces_for_stream() - Determine update type (fast, med, or full)
+ *
+ * This function performs checks on the DC global state, and is therefore not re-entrant.  It
+ * should not be called from DM.
+ *
+ * See :c:type:`enum surface_update_type <surface_update_type>` for explanation of update types
+ */
+static struct surface_update_descriptor check_update_state_and_surfaces_for_stream(
+		const struct dc *dc,
+		const struct dc_check_config *check_config,
+		const struct dc_stream_state *stream,
+		const struct dc_surface_update *updates,
+		const int surface_count,
+		const struct dc_stream_update *stream_update)
+{
+	const struct dc_state *context = dc->current_state;
+
+	struct surface_update_descriptor overall_type = { UPDATE_TYPE_ADDR_ONLY, LOCK_DESCRIPTOR_NONE};
+
+	if (updates)
+		for (int i = 0; i < surface_count; i++)
+			if (!is_surface_in_context(context, updates[i].surface))
+				elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
+
+	if (stream) {
+		const struct dc_stream_status *stream_status = dc_stream_get_status_const(stream);
+		if (stream_status == NULL || stream_status->plane_count != surface_count)
+			elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
+	}
+	if (dc->idle_optimizations_allowed)
+		elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
+
+	if (dc_can_clear_cursor_limit(dc))
+		elevate_update_type(&overall_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
+
+	return overall_type;
+}
+
+/*
+ * dc_check_update_state_and_surfaces_for_stream() - Determine update type (fast, med, or full)
+ *
+ * This function performs checks on the DC global state, stream and surface update, and is
+ * therefore not re-entrant.  It should not be called from DM.
+ *
+ * See :c:type:`enum surface_update_type <surface_update_type>` for explanation of update types
+ */
+static struct surface_update_descriptor dc_check_update_state_and_surfaces_for_stream(
+		const struct dc *dc,
+		const struct dc_check_config *check_config,
+		struct dc_stream_state *stream,
+		struct dc_surface_update *updates,
+		int surface_count,
+		struct dc_stream_update *stream_update)
+{
+	/* check updates against the entire DC state (global) first */
+	struct surface_update_descriptor overall_update_type = check_update_state_and_surfaces_for_stream(
+			dc,
+			check_config,
+			stream,
+			updates,
+			surface_count,
+			stream_update);
+
+	/* check updates for stream and plane */
+	struct surface_update_descriptor stream_update_type = dc_check_update_surfaces_for_stream(
+			check_config,
+			updates,
+			surface_count,
+			stream_update);
+	elevate_update_type(&overall_update_type, stream_update_type.update_type, stream_update_type.lock_descriptor);
+
+	return overall_update_type;
 }
 
 static struct dc_stream_status *stream_get_status(
@@ -3158,6 +3288,11 @@ static void copy_surface_update_to_plane(
 		surface->gamma_correction.type =
 			srf_update->gamma->type;
 	}
+	if (srf_update->cm_hist_control) {
+		memcpy(&surface->cm_hist_control,
+			srf_update->cm_hist_control,
+			sizeof(surface->cm_hist_control));
+	}
 
 	if (srf_update->in_transfer_func) {
 		surface->in_transfer_func.sdr_ref_white_level =
@@ -3171,23 +3306,11 @@ static void copy_surface_update_to_plane(
 			sizeof(struct dc_transfer_func_distributed_points));
 	}
 
-	if (srf_update->cm2_params) {
-		surface->mcm_shaper_3dlut_setting = srf_update->cm2_params->component_settings.shaper_3dlut_setting;
-		surface->mcm_lut1d_enable = srf_update->cm2_params->component_settings.lut1d_enable;
-		surface->mcm_luts = srf_update->cm2_params->cm2_luts;
+	/* Shaper, 3DLUT, 1DLUT */
+	if (srf_update->cm) {
+		memcpy(&surface->cm, srf_update->cm,
+				sizeof(surface->cm));
 	}
-
-	if (srf_update->func_shaper) {
-		memcpy(&surface->in_shaper_func, srf_update->func_shaper,
-		sizeof(surface->in_shaper_func));
-
-		if (surface->mcm_shaper_3dlut_setting >= DC_CM2_SHAPER_3DLUT_SETTING_ENABLE_SHAPER)
-			surface->mcm_luts.shaper = &surface->in_shaper_func;
-	}
-
-	if (srf_update->lut3d_func)
-		memcpy(&surface->lut3d_func, srf_update->lut3d_func,
-		sizeof(surface->lut3d_func));
 
 	if (srf_update->hdr_mult.value)
 		surface->hdr_mult =
@@ -3196,17 +3319,6 @@ static void copy_surface_update_to_plane(
 	if (srf_update->sdr_white_level_nits)
 		surface->sdr_white_level_nits =
 				srf_update->sdr_white_level_nits;
-
-	if (srf_update->blend_tf) {
-		memcpy(&surface->blend_tf, srf_update->blend_tf,
-		sizeof(surface->blend_tf));
-
-		if (surface->mcm_lut1d_enable)
-			surface->mcm_luts.lut1d_func = &surface->blend_tf;
-	}
-
-	if (srf_update->cm2_params || srf_update->blend_tf)
-		surface->lut_bank_a = !surface->lut_bank_a;
 
 	if (srf_update->input_csc_color_matrix)
 		surface->input_csc_color_matrix =
@@ -3444,13 +3556,6 @@ static void update_seamless_boot_flags(struct dc *dc,
 	}
 }
 
-static bool full_update_required_weak(
-		const struct dc *dc,
-		const struct dc_surface_update *srf_updates,
-		int surface_count,
-		const struct dc_stream_update *stream_update,
-		const struct dc_stream_state *stream);
-
 struct pipe_split_policy_backup {
 	bool dynamic_odm_policy;
 	bool subvp_policy;
@@ -3520,12 +3625,11 @@ static bool update_planes_and_stream_state(struct dc *dc,
 		struct dc_surface_update *srf_updates, int surface_count,
 		struct dc_stream_state *stream,
 		struct dc_stream_update *stream_update,
-		enum surface_update_type *new_update_type,
+		struct surface_update_descriptor *update_descriptor,
 		struct dc_state **new_context)
 {
 	struct dc_state *context;
 	int i, j;
-	enum surface_update_type update_type;
 	const struct dc_stream_status *stream_status;
 	struct dc_context *dc_ctx = dc->ctx;
 
@@ -3539,17 +3643,20 @@ static bool update_planes_and_stream_state(struct dc *dc,
 	}
 
 	context = dc->current_state;
-	update_type = dc_check_update_surfaces_for_stream(
-			&dc->check_config, srf_updates, surface_count, stream_update).update_type;
-	if (full_update_required_weak(dc, srf_updates, surface_count, stream_update, stream))
-		update_type = UPDATE_TYPE_FULL;
+	*update_descriptor = dc_check_update_state_and_surfaces_for_stream(
+			dc,
+			&dc->check_config,
+			stream,
+			srf_updates,
+			surface_count,
+			stream_update);
 
 	/* It is possible to receive a flip for one plane while there are multiple flip_immediate planes in the same stream.
 	 * E.g. Desktop and MPO plane are flip_immediate but only the MPO plane received a flip
 	 * Force the other flip_immediate planes to flip so GSL doesn't wait for a flip that won't come.
 	 */
 	force_immediate_gsl_plane_flip(dc, srf_updates, surface_count);
-	if (update_type == UPDATE_TYPE_FULL)
+	if (update_descriptor->update_type == UPDATE_TYPE_FULL)
 		backup_planes_and_stream_state(&dc->scratch.current_state, stream);
 
 	/* update current stream with the new updates */
@@ -3575,7 +3682,7 @@ static bool update_planes_and_stream_state(struct dc *dc,
 		}
 	}
 
-	if (update_type == UPDATE_TYPE_FULL) {
+	if (update_descriptor->update_type == UPDATE_TYPE_FULL) {
 		if (stream_update) {
 			uint32_t dsc_changed = stream_update->stream->update_flags.bits.dsc_changed;
 			stream_update->stream->update_flags.raw = 0xFFFFFFFF;
@@ -3585,13 +3692,13 @@ static bool update_planes_and_stream_state(struct dc *dc,
 			srf_updates[i].surface->update_flags.raw = 0xFFFFFFFF;
 	}
 
-	if (update_type >= update_surface_trace_level)
+	if (update_descriptor->update_type >= update_surface_trace_level)
 		update_surface_trace(dc, srf_updates, surface_count);
 
 	for (i = 0; i < surface_count; i++)
 		copy_surface_update_to_plane(srf_updates[i].surface, &srf_updates[i]);
 
-	if (update_type >= UPDATE_TYPE_FULL) {
+	if (update_descriptor->update_type >= UPDATE_TYPE_FULL) {
 		struct dc_plane_state *new_planes[MAX_SURFACES] = {0};
 
 		for (i = 0; i < surface_count; i++)
@@ -3629,7 +3736,7 @@ static bool update_planes_and_stream_state(struct dc *dc,
 	for (i = 0; i < surface_count; i++) {
 		struct dc_plane_state *surface = srf_updates[i].surface;
 
-		if (update_type != UPDATE_TYPE_MED)
+		if (update_descriptor->update_type != UPDATE_TYPE_MED)
 			continue;
 		if (surface->update_flags.bits.position_change) {
 			for (j = 0; j < dc->res_pool->pipe_count; j++) {
@@ -3643,7 +3750,7 @@ static bool update_planes_and_stream_state(struct dc *dc,
 		}
 	}
 
-	if (update_type == UPDATE_TYPE_FULL) {
+	if (update_descriptor->update_type == UPDATE_TYPE_FULL) {
 		struct pipe_split_policy_backup policy;
 		bool minimize = false;
 
@@ -3672,8 +3779,7 @@ static bool update_planes_and_stream_state(struct dc *dc,
 	update_seamless_boot_flags(dc, context, surface_count, stream);
 
 	*new_context = context;
-	*new_update_type = update_type;
-	if (update_type == UPDATE_TYPE_FULL)
+	if (update_descriptor->update_type == UPDATE_TYPE_FULL)
 		backup_planes_and_stream_state(&dc->scratch.new_state, stream);
 
 	return true;
@@ -3753,7 +3859,7 @@ static void commit_planes_do_stream_update(struct dc *dc,
 				program_cursor_position(dc, stream);
 
 			/* Full fe update*/
-			if (update_type == UPDATE_TYPE_FAST)
+			if (update_type <= UPDATE_TYPE_FAST)
 				continue;
 
 			if (stream_update->dsc_config)
@@ -4062,7 +4168,7 @@ static void commit_planes_for_stream_fast(struct dc *dc,
 	struct pipe_ctx *top_pipe_to_program = NULL;
 	struct dc_stream_status *stream_status = NULL;
 	bool should_offload_fams2_flip = false;
-	bool should_lock_all_pipes = (update_type != UPDATE_TYPE_FAST);
+	bool should_lock_all_pipes = (update_type > UPDATE_TYPE_FAST);
 
 	if (should_lock_all_pipes)
 		determine_pipe_unlock_order(dc, context);
@@ -4122,7 +4228,7 @@ static void commit_planes_for_stream_fast(struct dc *dc,
 				continue;
 
 			pipe_ctx->plane_state->triplebuffer_flips = false;
-			if (update_type == UPDATE_TYPE_FAST &&
+			if (update_type <= UPDATE_TYPE_FAST &&
 					dc->hwss.program_triplebuffer != NULL &&
 					!pipe_ctx->plane_state->flip_immediate && dc->debug.enable_tri_buf) {
 				/*triple buffer for VUpdate only*/
@@ -4179,7 +4285,7 @@ static void commit_planes_for_stream(struct dc *dc,
 {
 	int i, j;
 	struct pipe_ctx *top_pipe_to_program = NULL;
-	bool should_lock_all_pipes = (update_type != UPDATE_TYPE_FAST);
+	bool should_lock_all_pipes = (update_type > UPDATE_TYPE_FAST);
 	bool subvp_prev_use = false;
 	bool subvp_curr_use = false;
 	uint8_t current_stream_mask = 0;
@@ -4196,7 +4302,7 @@ static void commit_planes_for_stream(struct dc *dc,
 	if (update_type == UPDATE_TYPE_FULL && dc->optimized_required)
 		hwss_process_outstanding_hw_updates(dc, dc->current_state);
 
-	if (update_type != UPDATE_TYPE_FAST && dc->res_pool->funcs->prepare_mcache_programming)
+	if (update_type > UPDATE_TYPE_FAST && dc->res_pool->funcs->prepare_mcache_programming)
 		dc->res_pool->funcs->prepare_mcache_programming(dc, context);
 
 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
@@ -4258,7 +4364,7 @@ static void commit_planes_for_stream(struct dc *dc,
 				odm_pipe->ttu_regs.min_ttu_vblank = MAX_TTU;
 	}
 
-	if ((update_type != UPDATE_TYPE_FAST) && stream->update_flags.bits.dsc_changed)
+	if ((update_type > UPDATE_TYPE_FAST) && stream->update_flags.bits.dsc_changed)
 		if (top_pipe_to_program &&
 			top_pipe_to_program->stream_res.tg->funcs->lock_doublebuffer_enable) {
 			if (should_use_dmub_inbox1_lock(dc, stream->link)) {
@@ -4329,7 +4435,7 @@ static void commit_planes_for_stream(struct dc *dc,
 		}
 		dc->hwss.post_unlock_program_front_end(dc, context);
 
-		if (update_type != UPDATE_TYPE_FAST)
+		if (update_type > UPDATE_TYPE_FAST)
 			if (dc->hwss.commit_subvp_config)
 				dc->hwss.commit_subvp_config(dc, context);
 
@@ -4345,7 +4451,7 @@ static void commit_planes_for_stream(struct dc *dc,
 		return;
 	}
 
-	if (update_type != UPDATE_TYPE_FAST) {
+	if (update_type > UPDATE_TYPE_FAST) {
 		for (j = 0; j < dc->res_pool->pipe_count; j++) {
 			struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[j];
 
@@ -4373,7 +4479,7 @@ static void commit_planes_for_stream(struct dc *dc,
 			if (!should_update_pipe_for_plane(context, pipe_ctx, plane_state))
 				continue;
 			pipe_ctx->plane_state->triplebuffer_flips = false;
-			if (update_type == UPDATE_TYPE_FAST &&
+			if (update_type <= UPDATE_TYPE_FAST &&
 					dc->hwss.program_triplebuffer != NULL &&
 					!pipe_ctx->plane_state->flip_immediate && dc->debug.enable_tri_buf) {
 				/*triple buffer for VUpdate only*/
@@ -4400,7 +4506,7 @@ static void commit_planes_for_stream(struct dc *dc,
 				continue;
 
 			/* Full fe update*/
-			if (update_type == UPDATE_TYPE_FAST)
+			if (update_type <= UPDATE_TYPE_FAST)
 				continue;
 
 			stream_status =
@@ -4419,7 +4525,7 @@ static void commit_planes_for_stream(struct dc *dc,
 			continue;
 
 		/* Full fe update*/
-		if (update_type == UPDATE_TYPE_FAST)
+		if (update_type <= UPDATE_TYPE_FAST)
 			continue;
 
 		ASSERT(!pipe_ctx->plane_state->triplebuffer_flips);
@@ -4430,7 +4536,7 @@ static void commit_planes_for_stream(struct dc *dc,
 		}
 	}
 
-	if (dc->hwss.program_front_end_for_ctx && update_type != UPDATE_TYPE_FAST) {
+	if (dc->hwss.program_front_end_for_ctx && update_type > UPDATE_TYPE_FAST) {
 		dc->hwss.program_front_end_for_ctx(dc, context);
 
 		//Pipe busy until some frame and line #
@@ -4458,7 +4564,7 @@ static void commit_planes_for_stream(struct dc *dc,
 	}
 
 	// Update Type FAST, Surface updates
-	if (update_type == UPDATE_TYPE_FAST) {
+	if (update_type <= UPDATE_TYPE_FAST) {
 		if (dc->hwss.set_flip_control_gsl)
 			for (i = 0; i < surface_count; i++) {
 				struct dc_plane_state *plane_state = srf_updates[i].surface;
@@ -4491,13 +4597,11 @@ static void commit_planes_for_stream(struct dc *dc,
 				if (!should_update_pipe_for_plane(context, pipe_ctx, plane_state))
 					continue;
 
-				if (srf_updates[i].cm2_params &&
-						srf_updates[i].cm2_params->cm2_luts.lut3d_data.lut3d_src ==
-								DC_CM2_TRANSFER_FUNC_SOURCE_VIDMEM &&
-						srf_updates[i].cm2_params->component_settings.shaper_3dlut_setting ==
-								DC_CM2_SHAPER_3DLUT_SETTING_ENABLE_SHAPER_3DLUT &&
+				if (srf_updates[i].cm &&
+						srf_updates[i].cm->flags.bits.lut3d_enable &&
+						srf_updates[i].cm->flags.bits.lut3d_dma_enable &&
 						dc->hwss.trigger_3dlut_dma_load)
-					dc->hwss.trigger_3dlut_dma_load(dc, pipe_ctx);
+					dc->hwss.trigger_3dlut_dma_load(pipe_ctx);
 
 				/*program triple buffer after lock based on flip type*/
 				if (dc->hwss.program_triplebuffer != NULL && dc->debug.enable_tri_buf) {
@@ -4517,7 +4621,7 @@ static void commit_planes_for_stream(struct dc *dc,
 		dc->hwss.pipe_control_lock(dc, top_pipe_to_program, false);
 	}
 
-	if ((update_type != UPDATE_TYPE_FAST) && stream->update_flags.bits.dsc_changed)
+	if ((update_type > UPDATE_TYPE_FAST) && stream->update_flags.bits.dsc_changed)
 		if (top_pipe_to_program &&
 		    top_pipe_to_program->stream_res.tg->funcs->lock_doublebuffer_enable) {
 			top_pipe_to_program->stream_res.tg->funcs->wait_for_state(
@@ -4550,13 +4654,13 @@ static void commit_planes_for_stream(struct dc *dc,
 		/* If enabling subvp or transitioning from subvp->subvp, enable the
 		 * phantom streams before we program front end for the phantom pipes.
 		 */
-		if (update_type != UPDATE_TYPE_FAST) {
+		if (update_type > UPDATE_TYPE_FAST) {
 			if (dc->hwss.enable_phantom_streams)
 				dc->hwss.enable_phantom_streams(dc, context);
 		}
 	}
 
-	if (update_type != UPDATE_TYPE_FAST)
+	if (update_type > UPDATE_TYPE_FAST)
 		dc->hwss.post_unlock_program_front_end(dc, context);
 
 	if (subvp_prev_use && !subvp_curr_use) {
@@ -4569,7 +4673,7 @@ static void commit_planes_for_stream(struct dc *dc,
 			dc->hwss.disable_phantom_streams(dc, context);
 	}
 
-	if (update_type != UPDATE_TYPE_FAST)
+	if (update_type > UPDATE_TYPE_FAST)
 		if (dc->hwss.commit_subvp_config)
 			dc->hwss.commit_subvp_config(dc, context);
 	/* Since phantom pipe programming is moved to post_unlock_program_front_end,
@@ -5041,184 +5145,12 @@ static bool commit_minimal_transition_state(struct dc *dc,
 	return true;
 }
 
-void populate_fast_updates(struct dc_fast_update *fast_update,
-		struct dc_surface_update *srf_updates,
-		int surface_count,
-		struct dc_stream_update *stream_update)
-{
-	int i = 0;
-
-	if (stream_update) {
-		fast_update[0].out_transfer_func = stream_update->out_transfer_func;
-		fast_update[0].output_csc_transform = stream_update->output_csc_transform;
-	} else {
-		fast_update[0].out_transfer_func = NULL;
-		fast_update[0].output_csc_transform = NULL;
-	}
-
-	for (i = 0; i < surface_count; i++) {
-		fast_update[i].flip_addr = srf_updates[i].flip_addr;
-		fast_update[i].gamma = srf_updates[i].gamma;
-		fast_update[i].gamut_remap_matrix = srf_updates[i].gamut_remap_matrix;
-		fast_update[i].input_csc_color_matrix = srf_updates[i].input_csc_color_matrix;
-		fast_update[i].coeff_reduction_factor = srf_updates[i].coeff_reduction_factor;
-		fast_update[i].cursor_csc_color_matrix = srf_updates[i].cursor_csc_color_matrix;
-	}
-}
-
-static bool fast_updates_exist(const struct dc_fast_update *fast_update, int surface_count)
-{
-	int i;
-
-	if (fast_update[0].out_transfer_func ||
-		fast_update[0].output_csc_transform)
-		return true;
-
-	for (i = 0; i < surface_count; i++) {
-		if (fast_update[i].flip_addr ||
-				fast_update[i].gamma ||
-				fast_update[i].gamut_remap_matrix ||
-				fast_update[i].input_csc_color_matrix ||
-				fast_update[i].cursor_csc_color_matrix ||
-				fast_update[i].coeff_reduction_factor)
-			return true;
-	}
-
-	return false;
-}
-
-bool fast_nonaddr_updates_exist(struct dc_fast_update *fast_update, int surface_count)
-{
-	int i;
-
-	if (fast_update[0].out_transfer_func ||
-		fast_update[0].output_csc_transform)
-		return true;
-
-	for (i = 0; i < surface_count; i++) {
-		if (fast_update[i].input_csc_color_matrix ||
-				fast_update[i].gamma ||
-				fast_update[i].gamut_remap_matrix ||
-				fast_update[i].coeff_reduction_factor ||
-				fast_update[i].cursor_csc_color_matrix)
-			return true;
-	}
-
-	return false;
-}
-
-static bool full_update_required_weak(
-		const struct dc *dc,
-		const struct dc_surface_update *srf_updates,
-		int surface_count,
-		const struct dc_stream_update *stream_update,
-		const struct dc_stream_state *stream)
-{
-	const struct dc_state *context = dc->current_state;
-	if (srf_updates)
-		for (int i = 0; i < surface_count; i++)
-			if (!is_surface_in_context(context, srf_updates[i].surface))
-				return true;
-
-	if (stream) {
-		const struct dc_stream_status *stream_status = dc_stream_get_status_const(stream);
-		if (stream_status == NULL || stream_status->plane_count != surface_count)
-			return true;
-	}
-	if (dc->idle_optimizations_allowed)
-		return true;
-
-	if (dc_can_clear_cursor_limit(dc))
-		return true;
-
-	return false;
-}
-
-static bool full_update_required(
-		const struct dc *dc,
-		const struct dc_surface_update *srf_updates,
-		int surface_count,
-		const struct dc_stream_update *stream_update,
-		const struct dc_stream_state *stream)
-{
-	if (full_update_required_weak(dc, srf_updates, surface_count, stream_update, stream))
-		return true;
-
-	for (int i = 0; i < surface_count; i++) {
-		if (srf_updates &&
-				(srf_updates[i].plane_info ||
-				srf_updates[i].scaling_info ||
-				(srf_updates[i].hdr_mult.value &&
-				srf_updates[i].hdr_mult.value != srf_updates->surface->hdr_mult.value) ||
-				(srf_updates[i].sdr_white_level_nits &&
-				srf_updates[i].sdr_white_level_nits != srf_updates->surface->sdr_white_level_nits) ||
-				srf_updates[i].in_transfer_func ||
-				srf_updates[i].func_shaper ||
-				srf_updates[i].lut3d_func ||
-				srf_updates[i].surface->force_full_update ||
-				(srf_updates[i].flip_addr &&
-				srf_updates[i].flip_addr->address.tmz_surface != srf_updates[i].surface->address.tmz_surface) ||
-				(srf_updates[i].cm2_params &&
-				 (srf_updates[i].cm2_params->component_settings.shaper_3dlut_setting != srf_updates[i].surface->mcm_shaper_3dlut_setting ||
-				  srf_updates[i].cm2_params->component_settings.lut1d_enable != srf_updates[i].surface->mcm_lut1d_enable))))
-			return true;
-	}
-
-	if (stream_update &&
-			(((stream_update->src.height != 0 && stream_update->src.width != 0) ||
-			(stream_update->dst.height != 0 && stream_update->dst.width != 0) ||
-			stream_update->integer_scaling_update) ||
-			stream_update->hdr_static_metadata ||
-			stream_update->abm_level ||
-			stream_update->periodic_interrupt ||
-			stream_update->vrr_infopacket ||
-			stream_update->vsc_infopacket ||
-			stream_update->vsp_infopacket ||
-			stream_update->hfvsif_infopacket ||
-			stream_update->vtem_infopacket ||
-			stream_update->adaptive_sync_infopacket ||
-			stream_update->avi_infopacket ||
-			stream_update->dpms_off ||
-			stream_update->allow_freesync ||
-			stream_update->vrr_active_variable ||
-			stream_update->vrr_active_fixed ||
-			stream_update->gamut_remap ||
-			stream_update->output_color_space ||
-			stream_update->dither_option ||
-			stream_update->wb_update ||
-			stream_update->dsc_config ||
-			stream_update->mst_bw_update ||
-			stream_update->func_shaper ||
-			stream_update->lut3d_func ||
-			stream_update->pending_test_pattern ||
-			stream_update->crtc_timing_adjust ||
-			stream_update->scaler_sharpener_update ||
-			stream_update->hw_cursor_req))
-		return true;
-
-	return false;
-}
-
-static bool fast_update_only(
-		const struct dc *dc,
-		const struct dc_fast_update *fast_update,
-		const struct dc_surface_update *srf_updates,
-		int surface_count,
-		const struct dc_stream_update *stream_update,
-		const struct dc_stream_state *stream)
-{
-	return fast_updates_exist(fast_update, surface_count)
-			&& !full_update_required(dc, srf_updates, surface_count, stream_update, stream);
-}
-
 static bool update_planes_and_stream_v2(struct dc *dc,
 		struct dc_surface_update *srf_updates, int surface_count,
 		struct dc_stream_state *stream,
 		struct dc_stream_update *stream_update)
 {
 	struct dc_state *context;
-	enum surface_update_type update_type;
-	struct dc_fast_update fast_update[MAX_SURFACES] = {0};
 
 	/* In cases where MPO and split or ODM are used transitions can
 	 * cause underflow. Apply stream configuration with minimal pipe
@@ -5226,11 +5158,9 @@ static bool update_planes_and_stream_v2(struct dc *dc,
 	 */
 	bool force_minimal_pipe_splitting = 0;
 	bool is_plane_addition = 0;
-	bool is_fast_update_only;
 
-	populate_fast_updates(fast_update, srf_updates, surface_count, stream_update);
-	is_fast_update_only = fast_update_only(dc, fast_update, srf_updates,
-			surface_count, stream_update, stream);
+	struct surface_update_descriptor update_descriptor = {0};
+
 	force_minimal_pipe_splitting = could_mpcc_tree_change_for_active_pipes(
 			dc,
 			stream,
@@ -5249,7 +5179,7 @@ static bool update_planes_and_stream_v2(struct dc *dc,
 			surface_count,
 			stream,
 			stream_update,
-			&update_type,
+			&update_descriptor,
 			&context))
 		return false;
 
@@ -5259,7 +5189,7 @@ static bool update_planes_and_stream_v2(struct dc *dc,
 			dc_state_release(context);
 			return false;
 		}
-		update_type = UPDATE_TYPE_FULL;
+		elevate_update_type(&update_descriptor, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
 	}
 
 	if (dc->hwss.is_pipe_topology_transition_seamless &&
@@ -5268,13 +5198,13 @@ static bool update_planes_and_stream_v2(struct dc *dc,
 		commit_minimal_transition_state_in_dc_update(dc, context, stream,
 				srf_updates, surface_count);
 
-	if (is_fast_update_only && !dc->check_config.enable_legacy_fast_update) {
+	if (update_descriptor.update_type <= UPDATE_TYPE_FAST) {
 		commit_planes_for_stream_fast(dc,
 				srf_updates,
 				surface_count,
 				stream,
 				stream_update,
-				update_type,
+				update_descriptor.update_type,
 				context);
 	} else {
 		if (!stream_update &&
@@ -5290,7 +5220,7 @@ static bool update_planes_and_stream_v2(struct dc *dc,
 				surface_count,
 				stream,
 				stream_update,
-				update_type,
+				update_descriptor.update_type,
 				context);
 	}
 	if (dc->current_state != context)
@@ -5304,14 +5234,8 @@ static void commit_planes_and_stream_update_on_current_context(struct dc *dc,
 		struct dc_stream_update *stream_update,
 		enum surface_update_type update_type)
 {
-	struct dc_fast_update fast_update[MAX_SURFACES] = {0};
-
 	ASSERT(update_type < UPDATE_TYPE_FULL);
-	populate_fast_updates(fast_update, srf_updates, surface_count,
-			stream_update);
-	if (fast_update_only(dc, fast_update, srf_updates, surface_count,
-			stream_update, stream) &&
-			!dc->check_config.enable_legacy_fast_update)
+	if (update_type <= UPDATE_TYPE_FAST)
 		commit_planes_for_stream_fast(dc,
 				srf_updates,
 				surface_count,
@@ -5402,7 +5326,7 @@ static bool update_planes_and_stream_v3(struct dc *dc,
 		struct dc_stream_update *stream_update)
 {
 	struct dc_state *new_context;
-	enum surface_update_type update_type;
+	struct surface_update_descriptor update_descriptor = {0};
 
 	/*
 	 * When this function returns true and new_context is not equal to
@@ -5414,22 +5338,26 @@ static bool update_planes_and_stream_v3(struct dc *dc,
 	 * replaced by a newer context. Refer to the use of
 	 * swap_and_free_current_context below.
 	 */
-	if (!update_planes_and_stream_state(dc, srf_updates, surface_count,
-				stream, stream_update, &update_type,
+	if (!update_planes_and_stream_state(dc,
+				srf_updates,
+				surface_count,
+				stream,
+				stream_update,
+				&update_descriptor,
 				&new_context))
 		return false;
 
 	if (new_context == dc->current_state) {
 		commit_planes_and_stream_update_on_current_context(dc,
 				srf_updates, surface_count, stream,
-				stream_update, update_type);
+				stream_update, update_descriptor.update_type);
 
 		if (dc->check_config.transition_countdown_to_steady_state)
 			dc->check_config.transition_countdown_to_steady_state--;
 	} else {
 		commit_planes_and_stream_update_with_new_context(dc,
 				srf_updates, surface_count, stream,
-				stream_update, update_type, new_context);
+				stream_update, update_descriptor.update_type, new_context);
 	}
 
 	return true;
@@ -5540,6 +5468,9 @@ void dc_power_down_on_boot(struct dc *dc)
 {
 	if (dc->ctx->dce_environment != DCE_ENV_VIRTUAL_HW &&
 	    dc->hwss.power_down_on_boot) {
+		if (dc->current_state->stream_count > 0)
+			return;
+
 		if (dc->caps.ips_support)
 			dc_exit_ips_for_hw_access(dc);
 		dc->hwss.power_down_on_boot(dc);
@@ -5551,11 +5482,11 @@ void dc_set_power_state(struct dc *dc, enum dc_acpi_cm_power_state power_state)
 	if (!dc->current_state)
 		return;
 
+	dc_exit_ips_for_hw_access(dc);
+
 	switch (power_state) {
 	case DC_ACPI_CM_POWER_STATE_D0:
 		dc_state_construct(dc, dc->current_state);
-
-		dc_exit_ips_for_hw_access(dc);
 
 		dc_z10_restore(dc);
 
@@ -5932,6 +5863,7 @@ bool dc_is_dmub_outbox_supported(struct dc *dc)
 
 	case AMDGPU_FAMILY_GC_11_0_1:
 	case AMDGPU_FAMILY_GC_11_5_0:
+	case AMDGPU_FAMILY_GC_11_5_4:
 		if (!dc->debug.dpia_debug.bits.disable_dpia)
 			return true;
 	break;
@@ -6884,7 +6816,7 @@ bool dc_capture_register_software_state(struct dc *dc, struct dc_register_softwa
 			struct dc_plane_state *plane_state = pipe_ctx->plane_state;
 
 			/* MPCC blending tree and mode control - capture actual blend configuration */
-			state->mpc.mpcc_mode[i] = (plane_state->blend_tf.type != TF_TYPE_BYPASS) ? 1 : 0;
+			state->mpc.mpcc_mode[i] = (plane_state->cm.blend_func.type != TF_TYPE_BYPASS) ? 1 : 0;
 			state->mpc.mpcc_alpha_blend_mode[i] = plane_state->per_pixel_alpha ? 1 : 0;
 			state->mpc.mpcc_alpha_multiplied_mode[i] = plane_state->pre_multiplied_alpha ? 1 : 0;
 			state->mpc.mpcc_blnd_active_overlap_only[i] = 0; /* Default - no overlap restriction */
@@ -7199,7 +7131,7 @@ struct dc_update_scratch_space {
 	struct dc_stream_update *stream_update;
 	bool update_v3;
 	bool do_clear_update_flags;
-	enum surface_update_type update_type;
+	struct surface_update_descriptor update_descriptor;
 	struct dc_state *new_context;
 	enum update_v3_flow flow;
 	struct dc_state *backup_context;
@@ -7288,41 +7220,22 @@ static bool update_planes_and_stream_prepare_v3(
 			scratch->surface_count,
 			scratch->stream,
 			scratch->stream_update,
-			&scratch->update_type,
+			&scratch->update_descriptor,
 			&scratch->new_context
 	)) {
 		return false;
 	}
 
 	if (scratch->new_context == scratch->dc->current_state) {
-		ASSERT(scratch->update_type < UPDATE_TYPE_FULL);
+		ASSERT(scratch->update_descriptor.update_type < UPDATE_TYPE_FULL);
 
-		// TODO: Do we need this to be alive in execute?
-		struct dc_fast_update fast_update[MAX_SURFACES] = { 0 };
-
-		populate_fast_updates(
-				fast_update,
-				scratch->surface_updates,
-				scratch->surface_count,
-				scratch->stream_update
-		);
-		const bool fast = fast_update_only(
-				scratch->dc,
-				fast_update,
-				scratch->surface_updates,
-				scratch->surface_count,
-				scratch->stream_update,
-				scratch->stream
-		)
-		// TODO: Can this be used to skip `populate_fast_updates`?
-				&& !scratch->dc->check_config.enable_legacy_fast_update;
-		scratch->flow = fast
+		scratch->flow = scratch->update_descriptor.update_type <= UPDATE_TYPE_FAST
 				? UPDATE_V3_FLOW_NO_NEW_CONTEXT_CONTEXT_FAST
 				: UPDATE_V3_FLOW_NO_NEW_CONTEXT_CONTEXT_FULL;
 		return true;
 	}
 
-	ASSERT(scratch->update_type >= UPDATE_TYPE_FULL);
+	ASSERT(scratch->update_descriptor.update_type >= UPDATE_TYPE_FULL);
 
 	const bool seamless = scratch->dc->hwss.is_pipe_topology_transition_seamless(
 			scratch->dc,
@@ -7395,7 +7308,7 @@ static void update_planes_and_stream_execute_v3_commit(
 			intermediate_update ? scratch->intermediate_count : scratch->surface_count,
 			scratch->stream,
 			use_stream_update ? scratch->stream_update : NULL,
-			intermediate_context ? UPDATE_TYPE_FULL : scratch->update_type,
+			intermediate_context ? UPDATE_TYPE_FULL : scratch->update_descriptor.update_type,
 			// `dc->current_state` only used in `NO_NEW_CONTEXT`, where it is equal to `new_context`
 			intermediate_context ? scratch->intermediate_context : scratch->new_context
 	);
@@ -7413,7 +7326,7 @@ static void update_planes_and_stream_execute_v3(
 				scratch->surface_count,
 				scratch->stream,
 				scratch->stream_update,
-				scratch->update_type,
+				scratch->update_descriptor.update_type,
 				scratch->new_context
 		);
 		break;

@@ -84,13 +84,6 @@ static int amdgpu_cs_job_idx(struct amdgpu_cs_parser *p,
 	if (r)
 		return r;
 
-	/*
-	 * Abort if there is no run queue associated with this entity.
-	 * Possibly because of disabled HW IP.
-	 */
-	if (entity->rq == NULL)
-		return -EINVAL;
-
 	/* Check if we can add this IB to some existing job */
 	for (i = 0; i < p->gang_size; ++i)
 		if (p->entities[i] == entity)
@@ -1746,6 +1739,13 @@ int amdgpu_cs_wait_fences_ioctl(struct drm_device *dev, void *data,
 	union drm_amdgpu_wait_fences *wait = data;
 	struct drm_amdgpu_fence *fences;
 	int r;
+
+	/*
+	 * fence_count must be non-zero; dma_fence_wait_any_timeout()
+	 * does not accept an empty fence array.
+	 */
+	if (!wait->in.fence_count)
+		return -EINVAL;
 
 	/* Get the fences from userspace */
 	fences = memdup_array_user(u64_to_user_ptr(wait->in.fences),

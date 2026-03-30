@@ -2232,7 +2232,8 @@ static const struct resource_funcs dcn20_res_pool_funcs = {
 	.set_mcif_arb_params = dcn20_set_mcif_arb_params,
 	.populate_dml_pipes = dcn20_populate_dml_pipes_from_context,
 	.find_first_free_match_stream_enc_for_link = dcn10_find_first_free_match_stream_enc_for_link,
-	.get_vstartup_for_pipe = dcn10_get_vstartup_for_pipe
+	.get_vstartup_for_pipe = dcn10_get_vstartup_for_pipe,
+	.get_default_tiling_info = dcn10_get_default_tiling_info
 };
 
 bool dcn20_dwbc_create(struct dc_context *ctx, struct resource_pool *pool)
@@ -2340,8 +2341,6 @@ static bool init_soc_bounding_box(struct dc *dc,
 			get_asic_rev_soc_bb(dc->ctx->asic_id.hw_internal_rev);
 	struct _vcs_dpi_ip_params_st *loaded_ip =
 			get_asic_rev_ip_params(dc->ctx->asic_id.hw_internal_rev);
-
-	DC_LOGGER_INIT(dc->ctx->logger);
 
 	if (pool->base.pp_smu) {
 		struct pp_smu_nv_clock_table max_clocks = {0};

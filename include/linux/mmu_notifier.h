@@ -234,15 +234,57 @@ struct mmu_notifier {
 };
 
 /**
- * struct mmu_interval_notifier_ops
+ * struct mmu_interval_notifier_finish - mmu_interval_notifier two-pass abstraction
+ * @link: Lockless list link for the notifiers pending pass list
+ * @notifier: The mmu_interval_notifier for which the finish pass is called.
+ *
+ * Allocate, typically using GFP_NOWAIT in the interval notifier's start pass.
+ * Note that with a large number of notifiers implementing two passes,
+ * allocation with GFP_NOWAIT will become increasingly likely to fail, so consider
+ * implementing a small pool instead of using kmalloc() allocations.
+ *
+ * If the implementation needs to pass data between the start and the finish passes,
+ * the recommended way is to embed struct mmu_interval_notifier_finish into a larger
+ * structure that also contains the data needed to be shared. Keep in mind that
+ * a notifier callback can be invoked in parallel, and each invocation needs its
+ * own struct mmu_interval_notifier_finish.
+ *
+ * If allocation fails, then the &mmu_interval_notifier_ops->invalidate_start op
+ * needs to implements the full notifier functionality. Please refer to its
+ * documentation.
+ */
+struct mmu_interval_notifier_finish {
+	struct llist_node link;
+	struct mmu_interval_notifier *notifier;
+};
+
+/**
+ * struct mmu_interval_notifier_ops - callback for range notification
  * @invalidate: Upon return the caller must stop using any SPTEs within this
  *              range. This function can sleep. Return false only if sleeping
  *              was required but mmu_notifier_range_blockable(range) is false.
+ * @invalidate_start: Similar to @invalidate, but intended for two-pass notifier
+ *                    callbacks where the call to @invalidate_start is the first
+ *                    pass and any struct mmu_interval_notifier_finish pointer
+ *                    returned in the @finish parameter describes the finish pass.
+ *                    If *@finish is %NULL on return, then no final pass will be
+ *                    called, and @invalidate_start needs to implement the full
+ *                    notifier, behaving like @invalidate. The value of *@finish
+ *                    is guaranteed to be %NULL at function entry.
+ * @invalidate_finish: Called as the second pass for any notifier that returned
+ *                     a non-NULL *@finish from @invalidate_start. The @finish
+ *                     pointer passed here is the same one returned by
+ *                     @invalidate_start.
  */
 struct mmu_interval_notifier_ops {
 	bool (*invalidate)(struct mmu_interval_notifier *interval_sub,
 			   const struct mmu_notifier_range *range,
 			   unsigned long cur_seq);
+	bool (*invalidate_start)(struct mmu_interval_notifier *interval_sub,
+				 const struct mmu_notifier_range *range,
+				 unsigned long cur_seq,
+				 struct mmu_interval_notifier_finish **finish);
+	void (*invalidate_finish)(struct mmu_interval_notifier_finish *finish);
 };
 
 struct mmu_interval_notifier {
@@ -309,8 +351,8 @@ void mmu_interval_notifier_remove(struct mmu_interval_notifier *interval_sub);
 
 /**
  * mmu_interval_set_seq - Save the invalidation sequence
- * @interval_sub - The subscription passed to invalidate
- * @cur_seq - The cur_seq passed to the invalidate() callback
+ * @interval_sub: The subscription passed to invalidate
+ * @cur_seq: The cur_seq passed to the invalidate() callback
  *
  * This must be called unconditionally from the invalidate callback of a
  * struct mmu_interval_notifier_ops under the same lock that is used to call
@@ -329,8 +371,8 @@ mmu_interval_set_seq(struct mmu_interval_notifier *interval_sub,
 
 /**
  * mmu_interval_read_retry - End a read side critical section against a VA range
- * interval_sub: The subscription
- * seq: The return of the paired mmu_interval_read_begin()
+ * @interval_sub: The subscription
+ * @seq: The return of the paired mmu_interval_read_begin()
  *
  * This MUST be called under a user provided lock that is also held
  * unconditionally by op->invalidate() when it calls mmu_interval_set_seq().
@@ -338,7 +380,7 @@ mmu_interval_set_seq(struct mmu_interval_notifier *interval_sub,
  * Each call should be paired with a single mmu_interval_read_begin() and
  * should be used to conclude the read side.
  *
- * Returns true if an invalidation collided with this critical section, and
+ * Returns: true if an invalidation collided with this critical section, and
  * the caller should retry.
  */
 static inline bool
@@ -350,20 +392,21 @@ mmu_interval_read_retry(struct mmu_interval_notifier *interval_sub,
 
 /**
  * mmu_interval_check_retry - Test if a collision has occurred
- * interval_sub: The subscription
- * seq: The return of the matching mmu_interval_read_begin()
+ * @interval_sub: The subscription
+ * @seq: The return of the matching mmu_interval_read_begin()
  *
  * This can be used in the critical section between mmu_interval_read_begin()
- * and mmu_interval_read_retry().  A return of true indicates an invalidation
- * has collided with this critical region and a future
- * mmu_interval_read_retry() will return true.
- *
- * False is not reliable and only suggests a collision may not have
- * occurred. It can be called many times and does not have to hold the user
- * provided lock.
+ * and mmu_interval_read_retry().
  *
  * This call can be used as part of loops and other expensive operations to
  * expedite a retry.
+ * It can be called many times and does not have to hold the user
+ * provided lock.
+ *
+ * Returns: true indicates an invalidation has collided with this critical
+ * region and a future mmu_interval_read_retry() will return true.
+ * False is not reliable and only suggests a collision may not have
+ * occurred.
  */
 static inline bool
 mmu_interval_check_retry(struct mmu_interval_notifier *interval_sub,
