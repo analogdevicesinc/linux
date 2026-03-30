@@ -147,9 +147,11 @@ jobs:
         echo "patches_path=$patches_path" >> "$GITHUB_ENV"
 
     - name: Prepare prompt repository
-      if: ${{ env.LLM_AGENT_RUN == 'true' && inputs.prompt-repository != '' }}
+      if: ${{ env.LLM_AGENT_RUN == 'true' }}
       run: |
-        git clone ${{ inputs.prompt-repository }} prompts-repository
+        prompt_repo="${{ inputs.prompt-repository }}"
+        [[ -n "$prompt_repo" ]] || prompt_repo="https://github.com/masoncl/review-prompts"
+        git clone "$prompt_repo" --depth 1 prompts-repository
         script="$(find ./prompts-repository -name "claude-setup.sh" -type f | grep -v systemd | head -n 1)"
         [[ -x "$script" ]] && "$script"
 
