@@ -30,7 +30,7 @@ Status
 
    * - Source
      - Mainlined?
-   * - `drivers/iio/logic/axi-aion-trig.c <https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/logic/axi-aion-trig.c>`__
+   * - :git-linux:`drivers/iio/logic/axi-aion-trig.c <drivers/iio/logic/axi-aion-trig.c>`
      - No
 
 Files
@@ -42,7 +42,7 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/iio/logic/axi-aion-trig.c <https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/logic/axi-aion-trig.c>`__
+     - :git-linux:`drivers/iio/logic/axi-aion-trig.c <drivers/iio/logic/axi-aion-trig.c>`
 
 Overview
 --------
@@ -137,7 +137,9 @@ Driver testing
 
 This device can be found under ``/sys/bus/iio/devices/``.
 
-Use **iio_info** to check if the device and driver are present::
+Use **iio_info** to check if the device and driver are present:
+
+.. shell::
 
    $ iio_info
         iio:device0: axi_aion_trig
@@ -147,7 +149,9 @@ Use **iio_info** to check if the device and driver are present::
                         ...
                         voltage7:  (input)
 
-Navigate to the device folder::
+Navigate to the device folder:
+
+.. shell::
 
    $ cd $(grep -rw /sys/bus/iio/devices/*/name -e "axi_aion_trig" -l | xargs dirname)
 
@@ -161,29 +165,30 @@ Per-channel attributes
     Phase offset for trigger channel X (16-bit value, 0-65535).
     Controls the timing of the trigger output relative to the BSYNC signal.
 
-::
+.. shell::
 
    $ cat in_voltage0_phase
-   0
+     0
    $ echo 1000 > in_voltage0_phase
 
 **in_voltageX_en** (read/write)
     Enable/disable trigger channel X (0 or 1).
 
-::
+.. shell::
 
    $ cat in_voltage0_en
-   1
+    1
    $ echo 0 > in_voltage0_en
 
 **in_voltageX_status** (read-only)
     Status information for channel X including trigger state machine state,
     BSYNC state, capture status, and alignment information.
 
-::
+.. shell::
 
    $ cat in_voltage0_status
-   trig_state=idle bsync_state=bsync_gen bsync_captured=1 bsync_alignment_error=0 bsync_ratio=256 bsync_delay=2 bsync_ready=1
+     trig_state=idle bsync_state=bsync_gen bsync_captured=1 bsync_alignment_error=0
+     bsync_ratio=256 bsync_delay=2 bsync_ready=1
 
 Shared attributes
 ^^^^^^^^^^^^^^^^^
@@ -205,7 +210,7 @@ Shared attributes
 **in_voltage_trigger_now** (read/write)
     Write 1 to issue a manual trigger. Reading always returns 0 (self-clearing).
 
-::
+.. shell::
 
    $ echo 1 > in_voltage_trigger_now
 
@@ -368,5 +373,5 @@ Control register bits
 Related drivers
 ---------------
 
-- :ref:`ADF4030 <adf4030>` - Precision synchronizer driver
-- :ref:`AD9084/AD9088 <ad9088>` - MxFE data converter driver
+- :ref:`adf4030` - Precision synchronizer driver
+- :ref:`ad9088` - MxFE data converter driver

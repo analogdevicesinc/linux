@@ -10,6 +10,7 @@
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
     <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=833c9372" />
     <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -399,7 +400,7 @@ timing required for multi-chip synchronization.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/frequency/adf4382.c" target="_blank">drivers/iio/frequency/adf4382.c</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/adf4382.c" target="_blank">drivers/iio/frequency/adf4382.c</a></p></td>
 <td><p>No</p></td>
 </tr>
 </tbody>
@@ -417,7 +418,7 @@ timing required for multi-chip synchronization.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/frequency/adf4382.c" target="_blank">drivers/iio/frequency/adf4382.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/frequency/adf4382.c" target="_blank">drivers/iio/frequency/adf4382.c</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -519,19 +520,27 @@ timing required for multi-chip synchronization.</p>
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>This device can be found under <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/</span></code>.</p>
 <p>Use <strong>iio_info</strong> to check if the device and driver are present:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ iio_info
-    iio:device0: adf4382
-        3 channels found:
-            altvoltage0:  (output)
-            altvoltage1:  (output)
-            temp0:  (input)
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<p>Navigate to the device folder:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cd $(grep -rw /sys/bus/iio/devices/*/name -e &quot;adf4382&quot; -l | xargs dirname)
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>iio_info
 </pre></div>
 </div>
-<section id="iio-channel-attributes">
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> iio:device0: adf4382
+     3 channels found:
+         altvoltage0:  (output)
+         altvoltage1:  (output)
+         temp0:  (input)
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Navigate to the device folder:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="k">$(</span>grep<span class="w"> </span>-rw<span class="w"> </span>/sys/bus/iio/devices/*/name<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;adf4382&quot;</span><span class="w"> </span>-l<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>dirname<span class="k">)</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><section id="iio-channel-attributes">
 <h3>IIO channel attributes<a class="headerlink" href="#iio-channel-attributes" title="Link to this heading"></a></h3>
 <section id="output-channels-altvoltage0-altvoltage1">
 <h4>Output channels (altvoltage0, altvoltage1)<a class="headerlink" href="#output-channels-altvoltage0-altvoltage1" title="Link to this heading"></a></h4>
@@ -545,12 +554,22 @@ timing required for multi-chip synchronization.</p>
 <dt><strong>out_altvoltage_frequency</strong> (read/write)</dt><dd><p>Output frequency in Hz (shared by all channels).</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cat out_altvoltage_frequency
-20000000000
-$ echo 19500000000 &gt; out_altvoltage_frequency
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<dl class="simple">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>out_altvoltage_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> 20000000000
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">19500000000</span><span class="w"> </span>&gt;<span class="w"> </span>out_altvoltage_frequency
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><dl class="simple">
 <dt><strong>out_altvoltage_en_auto_align</strong> (read/write)</dt><dd><p>Enable/disable auto-alignment mode. Used for multi-chip synchronization
 with ADF4030 and AD9084/AD9088.</p>
 </dd>
@@ -568,11 +587,16 @@ with ADF4030 and AD9084/AD9088.</p>
 <dt><strong>in_temp0_input</strong> (read-only)</dt><dd><p>Die temperature in millidegrees Celsius.</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cat in_temp0_input
-45200
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-</section>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_temp0_input
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> 45200
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
 </section>
 <section id="clock-provider-interface">
 <h3>Clock provider interface<a class="headerlink" href="#clock-provider-interface" title="Link to this heading"></a></h3>
@@ -596,9 +620,36 @@ reference it directly via devicetree:</p>
 <li><p>Output dividers provide final output frequency</p></li>
 </ol>
 <p>The output frequency is calculated as:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">f_out</span> <span class="o">=</span> <span class="n">f_ref</span> <span class="o">*</span> <span class="p">(</span><span class="n">N</span> <span class="o">+</span> <span class="n">FRAC</span><span class="o">/</span><span class="n">MOD</span><span class="p">)</span> <span class="o">/</span> <span class="n">R</span> <span class="o">/</span> <span class="n">output_div</span>
-</pre></div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f_{VCO} = f_{REF} * \frac{D * N * O}{R}\]</div>
 </div>
+<div class="line-block">
+<div class="line">f<sub>REF</sub> is the reference frequency.</div>
+<div class="line">D is the reference doubler.</div>
+<div class="line">R is the reference divider.</div>
+<div class="line">O is the output divider.</div>
+<div class="line">N is the feedback divider and is given by the following:</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[N = N_{INT} + \frac{FRAC1WORD + \frac{FRAC2WORD}{MOD2WORD}}{MOD1WORD}\]</div>
+</div>
+<div class="line-block">
+<div class="line">f<sub>PFD</sub> is given by the following:</div>
+</div>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f_{PFD} = \frac{f_{REF} * D}{R}\]</div>
+</div>
+<p>The output frequency, f<sub>RFOUT</sub>, produced at the output of the output
+divider is given by the following:</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[f_{RFOUT} = \frac{VCO}{O}\]</div>
+</div>
+<p>An example for the calculation procedure is described at “Output Frequency
+Calculation Procedure” in the <a class="icon adi reference external" href="https://www.analog.com/media/en/technical-documentation/data-sheets/adf4382.pdf" target="_blank">datasheet</a>.</p>
 </section>
 <section id="multi-chip-synchronization">
 <h3>Multi-chip synchronization<a class="headerlink" href="#multi-chip-synchronization" title="Link to this heading"></a></h3>

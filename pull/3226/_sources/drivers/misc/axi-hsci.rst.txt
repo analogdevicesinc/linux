@@ -29,7 +29,7 @@ Status
 
    * - Source
      - Mainlined?
-   * - `drivers/misc/adi-axi-hsci.c <https://github.com/analogdevicesinc/linux/blob/main/drivers/misc/adi-axi-hsci.c>`__
+   * - :git-linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
      - No
 
 Files
@@ -41,9 +41,9 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/misc/adi-axi-hsci.c <https://github.com/analogdevicesinc/linux/blob/main/drivers/misc/adi-axi-hsci.c>`__
+     - :git-linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
    * - header
-     - `drivers/misc/adi-axi-hsci.h <https://github.com/analogdevicesinc/linux/blob/main/drivers/misc/adi-axi-hsci.h>`__
+     - :git-linux:`drivers/misc/adi-axi-hsci.h <main:drivers/misc/adi-axi-hsci.h>`
 
 Overview
 --------
@@ -94,7 +94,9 @@ Optional properties
 Device tree example
 ^^^^^^^^^^^^^^^^^^^
 
-Clock generator for HSCI::
+Clock generator for HSCI:
+
+::
 
     hsci_clkgen: axi-clkgen@44ad0000  {
         compatible = "adi,axi-clkgen-2.00.a";
@@ -105,7 +107,9 @@ Clock generator for HSCI::
         clock-output-names = "hsci_clkgen";
     };
 
-HSCI interface::
+HSCI interface:
+
+::
 
     axi_hsci_0: axi_hsci_0@7c500000 {
         compatible = "adi,axi-hsci-1.0.a";
@@ -119,7 +123,9 @@ Connecting to AD9084/AD9088
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The MxFE device references the HSCI interface using the
-``adi,axi-hsci-connected`` property::
+``adi,axi-hsci-connected`` property:
+
+::
 
     ad9084: ad9084@0 {
         compatible = "adi,ad9084";
@@ -164,12 +170,14 @@ with the following entries:
 **statistics** (read-only)
     Read/write transfer statistics.
 
-Example debugfs usage::
+Example debugfs usage:
 
-    $ cd /sys/kernel/debug/adi-axi-hsci/axi_hsci@bc500000
-    $ cat status
-    $ cat linkup_status
-    $ cat statistics
+.. shell::
+
+   $ cd /sys/kernel/debug/adi-axi-hsci/axi_hsci@bc500000
+   $ cat status
+   $ cat linkup_status
+   $ cat statistics
 
 Theory of operation
 -------------------
@@ -203,15 +211,17 @@ The HSCI interface supports streaming transfers:
 4. Wait for completion (DONE status)
 5. Read data from BRAM buffer (for read operations)
 
-The driver provides kernel APIs for other drivers to use::
+The driver provides kernel APIs for other drivers to use:
 
-    int axi_hsci_readm(struct axi_hsci_state *st, const u8 tx_data[],
-                       u8 rx_data[], u32 num_tx_rx_bytes, u8 addr_len,
-                       u8 data_len, u32 stream_len);
+::
 
-    int axi_hsci_writem(struct axi_hsci_state *st, const u8 tx_data[],
-                        u32 num_tx_rx_bytes, u8 addr_len, u8 data_len,
-                        u32 stream_len);
+   int axi_hsci_readm(struct axi_hsci_state *st, const u8 tx_data[],
+                      u8 rx_data[], u32 num_tx_rx_bytes, u8 addr_len,
+                      u8 data_len, u32 stream_len);
+
+   int axi_hsci_writem(struct axi_hsci_state *st, const u8 tx_data[],
+                       u32 num_tx_rx_bytes, u8 addr_len, u8 data_len,
+                       u32 stream_len);
 
 Register map
 ------------
@@ -290,5 +300,5 @@ Register map
 Related drivers
 ---------------
 
-- :ref:`AD9084/AD9088 <ad9088>` - MxFE data converter driver (consumer of HSCI)
-- :ref:`AXI AION Trigger <axi-aion-trig>` - Trigger synchronization IP
+- :ref:`ad9088` - MxFE data converter driver (consumer of HSCI)
+- :ref:`axi-aion-trig` - Trigger synchronization IP

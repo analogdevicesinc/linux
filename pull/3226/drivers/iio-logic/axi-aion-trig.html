@@ -407,7 +407,7 @@ to provide:</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/logic/axi-aion-trig.c" target="_blank">drivers/iio/logic/axi-aion-trig.c</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/logic/axi-aion-trig.c" target="_blank">drivers/iio/logic/axi-aion-trig.c</a></p></td>
 <td><p>No</p></td>
 </tr>
 </tbody>
@@ -425,7 +425,7 @@ to provide:</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/logic/axi-aion-trig.c" target="_blank">drivers/iio/logic/axi-aion-trig.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/logic/axi-aion-trig.c" target="_blank">drivers/iio/logic/axi-aion-trig.c</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -521,20 +521,28 @@ BSYNC synchronization signal.</p>
 <h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
 <p>This device can be found under <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/</span></code>.</p>
 <p>Use <strong>iio_info</strong> to check if the device and driver are present:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ iio_info
-     iio:device0: axi_aion_trig
-             8 channels found:
-                     voltage0:  (input)
-                     voltage1:  (input)
-                     ...
-                     voltage7:  (input)
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<p>Navigate to the device folder:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cd $(grep -rw /sys/bus/iio/devices/*/name -e &quot;axi_aion_trig&quot; -l | xargs dirname)
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>iio_info
 </pre></div>
 </div>
-<section id="iio-channel-attributes">
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>    iio:device0: axi_aion_trig
+            8 channels found:
+                    voltage0:  (input)
+                    voltage1:  (input)
+                    ...
+                    voltage7:  (input)
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Navigate to the device folder:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="k">$(</span>grep<span class="w"> </span>-rw<span class="w"> </span>/sys/bus/iio/devices/*/name<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;axi_aion_trig&quot;</span><span class="w"> </span>-l<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>dirname<span class="k">)</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><section id="iio-channel-attributes">
 <h3>IIO channel attributes<a class="headerlink" href="#iio-channel-attributes" title="Link to this heading"></a></h3>
 <section id="per-channel-attributes">
 <h4>Per-channel attributes<a class="headerlink" href="#per-channel-attributes" title="Link to this heading"></a></h4>
@@ -543,30 +551,56 @@ BSYNC synchronization signal.</p>
 Controls the timing of the trigger output relative to the BSYNC signal.</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cat in_voltage0_phase
-0
-$ echo 1000 &gt; in_voltage0_phase
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<dl class="simple">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage0_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> 0
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1000</span><span class="w"> </span>&gt;<span class="w"> </span>in_voltage0_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><dl class="simple">
 <dt><strong>in_voltageX_en</strong> (read/write)</dt><dd><p>Enable/disable trigger channel X (0 or 1).</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cat in_voltage0_en
-1
-$ echo 0 &gt; in_voltage0_en
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<dl class="simple">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage0_en
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>&gt;<span class="w"> </span>in_voltage0_en
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><dl class="simple">
 <dt><strong>in_voltageX_status</strong> (read-only)</dt><dd><p>Status information for channel X including trigger state machine state,
 BSYNC state, capture status, and alignment information.</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cat in_voltage0_status
-trig_state=idle bsync_state=bsync_gen bsync_captured=1 bsync_alignment_error=0 bsync_ratio=256 bsync_delay=2 bsync_ready=1
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-</section>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage0_status
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> trig_state=idle bsync_state=bsync_gen bsync_captured=1 bsync_alignment_error=0
+ bsync_ratio=256 bsync_delay=2 bsync_ready=1
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
 <section id="shared-attributes">
 <h4>Shared attributes<a class="headerlink" href="#shared-attributes" title="Link to this heading"></a></h4>
 <dl class="simple">
@@ -583,10 +617,13 @@ BSYNC ratio.</p>
 <dt><strong>in_voltage_trigger_now</strong> (read/write)</dt><dd><p>Write 1 to issue a manual trigger. Reading always returns 0 (self-clearing).</p>
 </dd>
 </dl>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ echo 1 &gt; in_voltage_trigger_now
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-</section>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>in_voltage_trigger_now
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
 </section>
 <section id="debug-attributes">
 <h3>Debug attributes<a class="headerlink" href="#debug-attributes" title="Link to this heading"></a></h3>

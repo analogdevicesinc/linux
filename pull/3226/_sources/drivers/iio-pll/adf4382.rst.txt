@@ -27,7 +27,7 @@ Status
 
    * - Source
      - Mainlined?
-   * - `drivers/iio/frequency/adf4382.c <https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/frequency/adf4382.c>`__
+   * - :git-linux:`drivers/iio/frequency/adf4382.c <main:drivers/iio/frequency/adf4382.c>`
      - No
 
 Files
@@ -39,7 +39,7 @@ Files
    * - Function
      - File
    * - driver
-     - `drivers/iio/frequency/adf4382.c <https://github.com/analogdevicesinc/linux/blob/main/drivers/iio/frequency/adf4382.c>`__
+     - :git-linux:`drivers/iio/frequency/adf4382.c <main:drivers/iio/frequency/adf4382.c>`
 
 Overview
 --------
@@ -138,18 +138,22 @@ Driver testing
 
 This device can be found under ``/sys/bus/iio/devices/``.
 
-Use **iio_info** to check if the device and driver are present::
+Use **iio_info** to check if the device and driver are present:
 
-    $ iio_info
-        iio:device0: adf4382
-            3 channels found:
-                altvoltage0:  (output)
-                altvoltage1:  (output)
-                temp0:  (input)
+.. shell::
 
-Navigate to the device folder::
+   $ iio_info
+     iio:device0: adf4382
+         3 channels found:
+             altvoltage0:  (output)
+             altvoltage1:  (output)
+             temp0:  (input)
 
-    $ cd $(grep -rw /sys/bus/iio/devices/*/name -e "adf4382" -l | xargs dirname)
+Navigate to the device folder:
+
+.. shell::
+
+   $ cd $(grep -rw /sys/bus/iio/devices/*/name -e "adf4382" -l | xargs dirname)
 
 IIO channel attributes
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -169,11 +173,11 @@ Output channels (altvoltage0, altvoltage1)
 **out_altvoltage_frequency** (read/write)
     Output frequency in Hz (shared by all channels).
 
-::
+.. shell::
 
-    $ cat out_altvoltage_frequency
-    20000000000
-    $ echo 19500000000 > out_altvoltage_frequency
+   $ cat out_altvoltage_frequency
+     20000000000
+   $ echo 19500000000 > out_altvoltage_frequency
 
 **out_altvoltage_en_auto_align** (read/write)
     Enable/disable auto-alignment mode. Used for multi-chip synchronization
@@ -194,16 +198,18 @@ Temperature channel (temp0)
 **in_temp0_input** (read-only)
     Die temperature in millidegrees Celsius.
 
-::
+.. shell::
 
     $ cat in_temp0_input
-    45200
+      45200
 
 Clock provider interface
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ADF4382 registers as a clock provider, allowing downstream devices to
-reference it directly via devicetree::
+reference it directly via devicetree:
+
+::
 
     /* In AD9084 devicetree node */
     clocks = <&adf4382 0>;
@@ -221,9 +227,38 @@ The ADF4382 uses a fractional-N PLL architecture:
 3. VCO generates frequency from 11.5 to 22.9 GHz
 4. Output dividers provide final output frequency
 
-The output frequency is calculated as::
+The output frequency is calculated as:
 
-    f_out = f_ref * (N + FRAC/MOD) / R / output_div
+.. math::
+
+    f_{VCO} = f_{REF} * \frac{D * N * O}{R}
+
+| f\ :sub:`REF` is the reference frequency.
+| D is the reference doubler.
+| R is the reference divider.
+| O is the output divider.
+| N is the feedback divider and is given by the following:
+
+.. math::
+
+   N = N_{INT} + \frac{FRAC1WORD + \frac{FRAC2WORD}{MOD2WORD}}{MOD1WORD}
+
+| f\ :sub:`PFD` is given by the following:
+
+.. math::
+
+   f_{PFD} = \frac{f_{REF} * D}{R}
+
+The output frequency, f\ :sub:`RFOUT`, produced at the output of the output
+divider is given by the following:
+
+.. math::
+
+   f_{RFOUT} = \frac{VCO}{O}
+
+An example for the calculation procedure is described at "Output Frequency
+Calculation Procedure" in the :adi:`datasheet <media/en/technical-documentation/data-sheets/adf4382.pdf>`.
+
 
 Multi-chip synchronization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -240,7 +275,7 @@ This enables ±10ps multi-chip synchronization across multiple converters.
 Related drivers
 ---------------
 
-- :ref:`ADF4030 <adf4030>` - Precision synchronizer for BSYNC generation
-- :ref:`AXI AION Trigger <axi-aion-trig>` - FPGA trigger IP for synchronization
-- :ref:`AD9084/AD9088 <ad9088>` - MxFE data converter (clock consumer)
-- :ref:`HMC7044 <hmc7044>` - Clock distribution
+- :ref:`adf4030` - Precision synchronizer for BSYNC generation
+- :ref:`axi-aion-trig` - FPGA trigger IP for synchronization
+- :ref:`ad9088` - MxFE data converter (clock consumer)
+- :ref:`hmc7044` - Clock distribution

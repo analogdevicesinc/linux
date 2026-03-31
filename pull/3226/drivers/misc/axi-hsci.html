@@ -399,7 +399,7 @@ between the FPGA and the MxFE devices at speeds up to 800 MHz.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/blob/main/drivers/misc/adi-axi-hsci.c" target="_blank">drivers/misc/adi-axi-hsci.c</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/misc/adi-axi-hsci.c" target="_blank">drivers/misc/adi-axi-hsci.c</a></p></td>
 <td><p>No</p></td>
 </tr>
 </tbody>
@@ -417,10 +417,10 @@ between the FPGA and the MxFE devices at speeds up to 800 MHz.</p>
 </thead>
 <tbody>
 <tr class="row-even"><td><p>driver</p></td>
-<td><p><a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/blob/main/drivers/misc/adi-axi-hsci.c" target="_blank">drivers/misc/adi-axi-hsci.c</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/misc/adi-axi-hsci.c" target="_blank">drivers/misc/adi-axi-hsci.c</a></p></td>
 </tr>
 <tr class="row-odd"><td><p>header</p></td>
-<td><p><a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/blob/main/drivers/misc/adi-axi-hsci.h" target="_blank">drivers/misc/adi-axi-hsci.h</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/misc/adi-axi-hsci.h" target="_blank">drivers/misc/adi-axi-hsci.h</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -537,13 +537,31 @@ with the following entries:</p>
 </dd>
 </dl>
 <p>Example debugfs usage:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cd /sys/kernel/debug/adi-axi-hsci/axi_hsci@bc500000
-$ cat status
-$ cat linkup_status
-$ cat statistics
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-</section>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/sys/kernel/debug/adi-axi-hsci/axi_hsci@bc500000
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/adi-axi-hsci/axi_hsci@bc500000$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>status
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/adi-axi-hsci/axi_hsci@bc500000$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>linkup_status
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/kernel/debug/adi-axi-hsci/axi_hsci@bc500000$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>statistics
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
 </section>
 <section id="theory-of-operation">
 <h2>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h2>
