@@ -128,6 +128,9 @@ struct fuse_chan {
 	/** The number of requests waiting for completion */
 	atomic_t num_waiting;
 
+	/** Is interrupt not implemented by fs? */
+	bool no_interrupt;
+
 	/* Use io_uring for communication */
 	unsigned int io_uring;
 

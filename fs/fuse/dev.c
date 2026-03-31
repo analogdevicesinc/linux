@@ -607,7 +607,7 @@ static void request_wait_answer(struct fuse_req *req)
 	struct fuse_iqueue *fiq = &fc->chan->iq;
 	int err;
 
-	if (!fc->no_interrupt) {
+	if (!fc->chan->no_interrupt) {
 		/* Any signal may interrupt this */
 		err = wait_event_interruptible(req->waitq,
 					test_bit(FR_FINISHED, &req->flags));
@@ -2301,7 +2301,7 @@ static ssize_t fuse_dev_do_write(struct fuse_dev *fud,
 		if (nbytes != sizeof(struct fuse_out_header))
 			err = -EINVAL;
 		else if (oh.error == -ENOSYS)
-			fc->no_interrupt = 1;
+			fc->chan->no_interrupt = true;
 		else if (oh.error == -EAGAIN)
 			err = queue_interrupt(req);
 

@@ -659,9 +659,6 @@ struct fuse_conn {
 	/** Is create not implemented by fs? */
 	unsigned no_create:1;
 
-	/** Is interrupt not implemented by fs? */
-	unsigned no_interrupt:1;
-
 	/** Is bmap not implemented by fs? */
 	unsigned no_bmap:1;
 
