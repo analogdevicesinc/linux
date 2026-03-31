@@ -926,7 +926,7 @@ static void disp_cc_milos_clk_regs_configure(struct device *dev, struct regmap *
 }
 
 
-static struct qcom_cc_driver_data disp_cc_milos_driver_data = {
+static const struct qcom_cc_driver_data disp_cc_milos_driver_data = {
 	.alpha_plls = disp_cc_milos_plls,
 	.num_alpha_plls = ARRAY_SIZE(disp_cc_milos_plls),
 	.clk_cbcrs = disp_cc_milos_critical_cbcrs,

@@ -2615,7 +2615,7 @@ static const struct regmap_config cam_cc_kaanapali_regmap_config = {
 	.fast_io = true,
 };
 
-static struct qcom_cc_driver_data cam_cc_kaanapali_driver_data = {
+static const struct qcom_cc_driver_data cam_cc_kaanapali_driver_data = {
 	.alpha_plls = cam_cc_kaanapali_plls,
 	.num_alpha_plls = ARRAY_SIZE(cam_cc_kaanapali_plls),
 	.clk_cbcrs = cam_cc_kaanapali_critical_cbcrs,

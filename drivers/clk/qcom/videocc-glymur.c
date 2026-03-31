@@ -487,7 +487,7 @@ static void clk_glymur_regs_configure(struct device *dev, struct regmap *regmap)
 	regmap_update_bits(regmap, 0x9f24, BIT(0), BIT(0));
 }
 
-static struct qcom_cc_driver_data video_cc_glymur_driver_data = {
+static const struct qcom_cc_driver_data video_cc_glymur_driver_data = {
 	.alpha_plls = video_cc_glymur_plls,
 	.num_alpha_plls = ARRAY_SIZE(video_cc_glymur_plls),
 	.clk_cbcrs = video_cc_glymur_critical_cbcrs,

@@ -49,7 +49,7 @@ struct qcom_cc_desc {
 	size_t num_icc_hws;
 	unsigned int icc_first_node_id;
 	bool use_rpm;
-	struct qcom_cc_driver_data *driver_data;
+	const struct qcom_cc_driver_data *driver_data;
 };
 
 /**

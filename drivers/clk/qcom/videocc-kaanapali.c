@@ -776,7 +776,7 @@ static void clk_kaanapali_regs_configure(struct device *dev, struct regmap *regm
 	regmap_set_bits(regmap, 0x8158, ACCU_CFG_MASK);
 }
 
-static struct qcom_cc_driver_data video_cc_kaanapali_driver_data = {
+static const struct qcom_cc_driver_data video_cc_kaanapali_driver_data = {
 	.alpha_plls = video_cc_kaanapali_plls,
 	.num_alpha_plls = ARRAY_SIZE(video_cc_kaanapali_plls),
 	.clk_cbcrs = video_cc_kaanapali_critical_cbcrs,

@@ -3485,7 +3485,7 @@ static void clk_kaanapali_regs_configure(struct device *dev, struct regmap *regm
 	qcom_branch_set_force_mem_core(regmap, gcc_ufs_phy_ice_core_clk, true);
 }
 
-static struct qcom_cc_driver_data gcc_kaanapali_driver_data = {
+static const struct qcom_cc_driver_data gcc_kaanapali_driver_data = {
 	.clk_cbcrs = gcc_kaanapali_critical_cbcrs,
 	.num_clk_cbcrs = ARRAY_SIZE(gcc_kaanapali_critical_cbcrs),
 	.dfs_rcgs = gcc_dfs_clocks,

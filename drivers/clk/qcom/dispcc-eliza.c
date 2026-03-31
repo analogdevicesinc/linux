@@ -2076,7 +2076,7 @@ static void clk_eliza_regs_configure(struct device *dev, struct regmap *regmap)
 	regmap_set_bits(regmap, DISP_CC_MISC_CMD, BIT(4));
 }
 
-static struct qcom_cc_driver_data disp_cc_eliza_driver_data = {
+static const struct qcom_cc_driver_data disp_cc_eliza_driver_data = {
 	.alpha_plls = disp_cc_eliza_plls,
 	.num_alpha_plls = ARRAY_SIZE(disp_cc_eliza_plls),
 	.clk_cbcrs = disp_cc_eliza_critical_cbcrs,

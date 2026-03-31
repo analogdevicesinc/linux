@@ -574,7 +574,7 @@ static const struct regmap_config gpu_cc_glymur_regmap_config = {
 	.fast_io = true,
 };
 
-static struct qcom_cc_driver_data gpu_cc_glymur_driver_data = {
+static const struct qcom_cc_driver_data gpu_cc_glymur_driver_data = {
 	.alpha_plls = gpu_cc_glymur_plls,
 	.num_alpha_plls = ARRAY_SIZE(gpu_cc_glymur_plls),
 	.clk_cbcrs = gpu_cc_glymur_critical_cbcrs,

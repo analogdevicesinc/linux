@@ -3171,7 +3171,7 @@ static const struct regmap_config gcc_milos_regmap_config = {
 	.fast_io = true,
 };
 
-static struct qcom_cc_driver_data gcc_milos_driver_data = {
+static const struct qcom_cc_driver_data gcc_milos_driver_data = {
 	.clk_cbcrs = gcc_milos_critical_cbcrs,
 	.num_clk_cbcrs = ARRAY_SIZE(gcc_milos_critical_cbcrs),
 	.dfs_rcgs = gcc_milos_dfs_clocks,

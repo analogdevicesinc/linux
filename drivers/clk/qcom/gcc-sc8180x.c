@@ -4675,7 +4675,7 @@ static void clk_sc8180x_regs_configure(struct device *dev, struct regmap *regmap
 	regmap_update_bits(regmap, 0x71028, 0x3, 0x3);
 }
 
-static struct qcom_cc_driver_data gcc_sc8180x_driver_data = {
+static const struct qcom_cc_driver_data gcc_sc8180x_driver_data = {
 	.clk_cbcrs = gcc_sc8180x_critical_cbcrs,
 	.num_clk_cbcrs = ARRAY_SIZE(gcc_sc8180x_critical_cbcrs),
 	.dfs_rcgs = gcc_sc8180x_dfs_clocks,

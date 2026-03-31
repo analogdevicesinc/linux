@@ -751,7 +751,7 @@ static const struct regmap_config disp_cc_qcs615_regmap_config = {
 	.fast_io = true,
 };
 
-static struct qcom_cc_driver_data disp_cc_qcs615_driver_data = {
+static const struct qcom_cc_driver_data disp_cc_qcs615_driver_data = {
 	.alpha_plls = disp_cc_qcs615_plls,
 	.num_alpha_plls = ARRAY_SIZE(disp_cc_qcs615_plls),
 	.clk_cbcrs = disp_cc_qcs615_critical_cbcrs,
