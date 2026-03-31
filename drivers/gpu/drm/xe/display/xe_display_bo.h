@@ -6,9 +6,9 @@
 
 #include <linux/types.h>
 
-struct drm_device;
+struct xe_device;
 
-bool xe_display_bo_fbdev_prefer_stolen(struct drm_device *drm, unsigned int size);
+bool xe_display_bo_fbdev_prefer_stolen(struct xe_device *xe, unsigned int size);
 
 extern const struct intel_display_bo_interface xe_display_bo_interface;
 

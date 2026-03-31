@@ -119,9 +119,8 @@ static u32 xe_display_bo_fbdev_pitch_align(u32 stride)
 	return ALIGN(stride, XE_PAGE_SIZE);
 }
 
-bool xe_display_bo_fbdev_prefer_stolen(struct drm_device *drm, unsigned int size)
+bool xe_display_bo_fbdev_prefer_stolen(struct xe_device *xe, unsigned int size)
 {
-	struct xe_device *xe = to_xe_device(drm);
 	struct ttm_resource_manager *stolen;
 
 	stolen = ttm_manager_type(&xe->ttm, XE_PL_STOLEN);
@@ -149,7 +148,7 @@ static struct drm_gem_object *xe_display_bo_fbdev_create(struct drm_device *drm,
 
 	obj = ERR_PTR(-ENODEV);
 
-	if (xe_display_bo_fbdev_prefer_stolen(drm, size)) {
+	if (xe_display_bo_fbdev_prefer_stolen(xe, size)) {
 		obj = xe_bo_create_pin_map_novm(xe, xe_device_get_root_tile(xe),
 						size,
 						ttm_bo_type_kernel,
