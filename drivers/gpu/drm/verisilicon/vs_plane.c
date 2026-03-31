@@ -129,16 +129,21 @@ dma_addr_t vs_fb_get_dma_addr(struct drm_framebuffer *fb,
 
 struct drm_plane_state *vs_plane_duplicate_state(struct drm_plane *plane)
 {
-	struct vs_plane_state *vs_state;
+	struct vs_plane_state *vs_state, *vs_state_old;
 
 	if (drm_WARN_ON(plane->dev, !plane->state))
 		return NULL;
+
+	vs_state_old = to_vs_plane_state(plane->state);
 
 	vs_state = kzalloc_obj(*vs_state, GFP_KERNEL);
 	if (!vs_state)
 		return NULL;
 
 	__drm_atomic_helper_plane_duplicate_state(plane, &vs_state->base);
+
+	memcpy(&vs_state->format, &vs_state_old->format,
+	       sizeof(struct vs_format));
 
 	return &vs_state->base;
 }

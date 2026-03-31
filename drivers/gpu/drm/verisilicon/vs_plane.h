@@ -65,6 +65,8 @@ struct vs_format {
 
 struct vs_plane_state {
 	struct drm_plane_state base;
+
+	struct vs_format format;
 };
 
 static inline struct vs_plane_state *to_vs_plane_state(struct drm_plane_state *state)
