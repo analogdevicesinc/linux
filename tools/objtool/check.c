@@ -3677,18 +3677,23 @@ static int checksum_debug_init(struct objtool_file *file)
 
 	s = dup;
 	while (*s) {
-		struct symbol *func;
+		bool found = false;
+		struct symbol *sym;
 		char *comma;
 
 		comma = strchr(s, ',');
 		if (comma)
 			*comma = '\0';
 
-		func = find_symbol_by_name(file->elf, s);
-		if (!func || !is_func_sym(func))
+		for_each_sym_by_name(file->elf, s, sym) {
+			if (!is_func_sym(sym))
+				continue;
+			sym->debug_checksum = 1;
+			found = true;
+		}
+
+		if (!found)
 			WARN("--debug-checksum: can't find '%s'", s);
-		else
-			func->debug_checksum = 1;
 
 		if (!comma)
 			break;

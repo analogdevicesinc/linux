@@ -489,6 +489,11 @@ static inline void set_sym_next_reloc(struct reloc *reloc, struct reloc *next)
 #define for_each_sym_continue(elf, sym)					\
 	list_for_each_entry_continue(sym, &elf->symbols, global_list)
 
+#define for_each_sym_by_name(elf, _name, sym)				\
+	elf_hash_for_each_possible(elf, symbol_name, sym, name_hash,	\
+				   str_hash_demangled(_name))		\
+		if (strcmp(sym->name, _name)) {} else
+
 #define for_each_sym_by_demangled_name(elf, name, sym)			\
 	elf_hash_for_each_possible(elf, symbol_name, sym, name_hash,	\
 				   str_hash(name))			\
