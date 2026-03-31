@@ -327,6 +327,7 @@ struct kfd_vm_fault_info;
 struct amdgpu_hive_info;
 struct amdgpu_reset_context;
 struct amdgpu_reset_control;
+struct amdgpu_coredump_info;
 
 enum amdgpu_cp_irq {
 	AMDGPU_CP_IRQ_GFX_ME0_PIPE0_EOP = 0,
@@ -689,6 +690,7 @@ enum amdgpu_uid_type {
 	AMDGPU_UID_TYPE_XCD,
 	AMDGPU_UID_TYPE_AID,
 	AMDGPU_UID_TYPE_SOC,
+	AMDGPU_UID_TYPE_MID,
 	AMDGPU_UID_TYPE_MAX
 };
 
@@ -1146,6 +1148,11 @@ struct amdgpu_device {
 	struct list_head                ras_list;
 
 	struct amdgpu_reset_domain	*reset_domain;
+
+#ifdef CONFIG_DEV_COREDUMP
+	struct amdgpu_coredump_info	*coredump;
+	struct work_struct		coredump_work;
+#endif
 
 	struct mutex			benchmark_mutex;
 

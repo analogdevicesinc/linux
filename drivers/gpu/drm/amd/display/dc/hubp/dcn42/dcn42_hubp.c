@@ -147,12 +147,15 @@ static void hubp42_program_pixel_format(
 	/* don't see the need of program the xbar in DCN 1.0 */
 }
 
-void hubp42_program_deadline(
+static void hubp42_program_deadline(
 		struct hubp *hubp,
 		struct dml2_display_dlg_regs *dlg_attr,
 		struct dml2_display_ttu_regs *ttu_attr)
 {
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
+
+	/* put DLG in mission mode */
+	REG_WRITE(HUBPREQ_DEBUG_DB, 0);
 
 	/* DLG - Per hubp */
 	REG_SET_2(BLANK_OFFSET_0, 0,
@@ -242,6 +245,39 @@ void hubp42_program_deadline(
 			REFCYC_PER_VM_DMDATA, dlg_attr->refcyc_per_vm_dmdata);
 }
 
+void hubp42_program_requestor(
+		struct hubp *hubp,
+		struct dml2_display_rq_regs *rq_regs)
+{
+	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
+
+	REG_UPDATE(HUBPRET_CONTROL,
+			DET_BUF_PLANE1_BASE_ADDRESS, rq_regs->plane1_base_address);
+	REG_SET_4(DCN_EXPANSION_MODE, 0,
+			DRQ_EXPANSION_MODE, rq_regs->drq_expansion_mode,
+			PRQ_EXPANSION_MODE, rq_regs->prq_expansion_mode,
+			MRQ_EXPANSION_MODE, rq_regs->mrq_expansion_mode,
+			CRQ_EXPANSION_MODE, rq_regs->crq_expansion_mode);
+	REG_SET_8(DCHUBP_REQ_SIZE_CONFIG, 0,
+		CHUNK_SIZE, rq_regs->rq_regs_l.chunk_size,
+		MIN_CHUNK_SIZE, rq_regs->rq_regs_l.min_chunk_size,
+		META_CHUNK_SIZE, rq_regs->rq_regs_l.meta_chunk_size,
+		MIN_META_CHUNK_SIZE, rq_regs->rq_regs_l.min_meta_chunk_size,
+		DPTE_GROUP_SIZE, rq_regs->rq_regs_l.dpte_group_size,
+		VM_GROUP_SIZE, rq_regs->rq_regs_l.mpte_group_size,
+		SWATH_HEIGHT, rq_regs->rq_regs_l.swath_height,
+		PTE_ROW_HEIGHT_LINEAR, rq_regs->rq_regs_l.pte_row_height_linear);
+	REG_SET_7(DCHUBP_REQ_SIZE_CONFIG_C, 0,
+		CHUNK_SIZE_C, rq_regs->rq_regs_c.chunk_size,
+		MIN_CHUNK_SIZE_C, rq_regs->rq_regs_c.min_chunk_size,
+		META_CHUNK_SIZE_C, rq_regs->rq_regs_c.meta_chunk_size,
+		MIN_META_CHUNK_SIZE_C, rq_regs->rq_regs_c.min_meta_chunk_size,
+		DPTE_GROUP_SIZE_C, rq_regs->rq_regs_c.dpte_group_size,
+		SWATH_HEIGHT_C, rq_regs->rq_regs_c.swath_height,
+		PTE_ROW_HEIGHT_LINEAR_C, rq_regs->rq_regs_c.pte_row_height_linear);
+}
+
+
 void hubp42_setup(
 		struct hubp *hubp,
 	    struct dml2_dchub_per_pipe_register_set *pipe_regs,
@@ -252,7 +288,7 @@ void hubp42_setup(
 	 * disable the requestors is not needed
 	 */
 	hubp401_vready_at_or_After_vsync(hubp, pipe_global_sync, timing);
-	hubp401_program_requestor(hubp, &pipe_regs->rq_regs);
+	hubp42_program_requestor(hubp, &pipe_regs->rq_regs);
 	hubp42_program_deadline(hubp, &pipe_regs->dlg_regs, &pipe_regs->ttu_regs);
 }
 static void hubp42_program_surface_config(
@@ -274,17 +310,82 @@ static void hubp42_program_surface_config(
 	hubp42_program_pixel_format(hubp, format);
 }
 
+static void hubp42_get_3dlut_fl_xbar_map(
+		const enum dc_cm_lut_pixel_format format,
+		enum hubp_3dlut_fl_crossbar_bit_slice *bit_slice_y_g,
+		enum hubp_3dlut_fl_crossbar_bit_slice *bit_slice_cb_b,
+		enum hubp_3dlut_fl_crossbar_bit_slice *bit_slice_cr_r)
+{
+	switch (format) {
+	case CM_LUT_PIXEL_FORMAT_BGRA16161616_UNORM_12MSB:
+	case CM_LUT_PIXEL_FORMAT_BGRA16161616_UNORM_12LSB:
+	case CM_LUT_PIXEL_FORMAT_BGRA16161616_FLOAT_FP1_5_10:
+		/* BGRA */
+		*bit_slice_cr_r = hubp_3dlut_fl_crossbar_bit_slice_32_47;
+		*bit_slice_y_g = hubp_3dlut_fl_crossbar_bit_slice_16_31;
+		*bit_slice_cb_b =  hubp_3dlut_fl_crossbar_bit_slice_0_15;
+		break;
+	case CM_LUT_PIXEL_FORMAT_RGBA16161616_UNORM_12MSB:
+	case CM_LUT_PIXEL_FORMAT_RGBA16161616_UNORM_12LSB:
+	case CM_LUT_PIXEL_FORMAT_RGBA16161616_FLOAT_FP1_5_10:
+	default:
+		/* RGBA */
+		*bit_slice_cr_r = hubp_3dlut_fl_crossbar_bit_slice_0_15;
+		*bit_slice_y_g = hubp_3dlut_fl_crossbar_bit_slice_16_31;
+		*bit_slice_cb_b = hubp_3dlut_fl_crossbar_bit_slice_32_47;
+		break;
+	}
+}
+
 void hubp42_program_3dlut_fl_crossbar(struct hubp *hubp,
-	enum hubp_3dlut_fl_crossbar_bit_slice bit_slice_r,
-	enum hubp_3dlut_fl_crossbar_bit_slice bit_slice_g,
-	enum hubp_3dlut_fl_crossbar_bit_slice bit_slice_b)
+		const enum dc_cm_lut_pixel_format format)
 {
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
+
+	enum hubp_3dlut_fl_crossbar_bit_slice bit_slice_g = 0;
+	enum hubp_3dlut_fl_crossbar_bit_slice bit_slice_b = 0;
+	enum hubp_3dlut_fl_crossbar_bit_slice bit_slice_r = 0;
+
+	hubp42_get_3dlut_fl_xbar_map(format,
+			&bit_slice_g,
+			&bit_slice_b,
+			&bit_slice_r);
 
 	REG_UPDATE_3(HUBP_3DLUT_CONTROL,
 		HUBP_3DLUT_CROSSBAR_SEL_R, bit_slice_r,
 		HUBP_3DLUT_CROSSBAR_SEL_G, bit_slice_g,
 		HUBP_3DLUT_CROSSBAR_SEL_B, bit_slice_b);
+}
+
+static uint32_t hubp42_get_3dlut_fl_mpc_width(
+		const enum dc_cm_lut_size size)
+{
+	uint32_t width = 0;
+
+	switch (size) {
+	case CM_LUT_SIZE_333333:
+		width = 1;
+		break;
+	case CM_LUT_SIZE_171717:
+	default:
+		width = 0;
+		break;
+	}
+
+	return width;
+}
+
+void hubp42_program_3dlut_fl_config(struct hubp *hubp,
+		const struct dc_3dlut_dma *config)
+{
+	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
+
+	uint32_t mpc_width = hubp42_get_3dlut_fl_mpc_width(config->size);
+
+	REG_UPDATE(HUBP_3DLUT_CONTROL,
+			HUBP_3DLUT_MPC_WIDTH, mpc_width);
+
+	hubp401_program_3dlut_fl_config(hubp, config);
 }
 
 static bool hubp42_program_surface_flip_and_addr(
@@ -548,6 +649,7 @@ struct hubp_funcs dcn42_hubp_funcs = {
 	.hubp_setup_interdependent2 = hubp401_setup_interdependent,
 	.hubp_set_vm_system_aperture_settings = hubp3_set_vm_system_aperture_settings,
 	.set_blank = hubp2_set_blank,
+	.set_blank_regs = hubp2_set_blank_regs,
 	.dcc_control = hubp3_dcc_control,
 	.hubp_reset = hubp_reset,
 	.mem_program_viewport = min_set_viewport,
@@ -567,17 +669,13 @@ struct hubp_funcs dcn42_hubp_funcs = {
 	.hubp_set_flip_int = hubp1_set_flip_int,
 	.hubp_in_blank = hubp1_in_blank,
 	.program_extended_blank = hubp31_program_extended_blank_value,
-	.hubp_update_3dlut_fl_bias_scale = hubp401_update_3dlut_fl_bias_scale,
-	.hubp_program_3dlut_fl_mode = hubp401_program_3dlut_fl_mode,
-	.hubp_program_3dlut_fl_format = hubp401_program_3dlut_fl_format,
 	.hubp_program_3dlut_fl_addr = hubp401_program_3dlut_fl_addr,
+	.hubp_program_3dlut_fl_config = hubp42_program_3dlut_fl_config,
 	.hubp_program_3dlut_fl_dlg_param = hubp401_program_3dlut_fl_dlg_param,
 	.hubp_enable_3dlut_fl = hubp401_enable_3dlut_fl,
-	.hubp_program_3dlut_fl_addressing_mode = hubp401_program_3dlut_fl_addressing_mode,
-	.hubp_program_3dlut_fl_width = hubp401_program_3dlut_fl_width,
-	.hubp_program_3dlut_fl_tmz_protected = hubp401_program_3dlut_fl_tmz_protected,
 	.hubp_program_3dlut_fl_crossbar = hubp42_program_3dlut_fl_crossbar,
 	.hubp_get_3dlut_fl_done = hubp401_get_3dlut_fl_done,
+	.hubp_clear_tiling = hubp3_clear_tiling,
 	.hubp_program_3dlut_fl_config = hubp401_program_3dlut_fl_config,
 	.hubp_read_reg_state = hubp3_read_reg_state
 };

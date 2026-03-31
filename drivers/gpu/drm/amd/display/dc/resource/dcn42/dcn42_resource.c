@@ -53,7 +53,7 @@
 #include "dce/dce_audio.h"
 #include "dce/dce_hwseq.h"
 #include "clk_mgr.h"
-#include "virtual/virtual_stream_encoder.h"
+#include "dio/virtual/virtual_stream_encoder.h"
 #include "dml/display_mode_vba.h"
 #include "dcn42/dcn42_dccg.h"
 #include "dcn10/dcn10_resource.h"
@@ -666,6 +666,7 @@ static const struct resource_caps res_cap_dcn42 = {
 	.num_vmid = 16,
 	.num_mpc_3dlut = 2,
 	.num_dsc = 4,
+	.num_rmcm = 2,
 };
 
 static const struct dc_plane_cap plane_cap = {
@@ -755,9 +756,11 @@ static const struct dc_debug_options debug_defaults_drv = {
 	.dcc_meta_propagation_delay_us = 10,
 	.disable_timeout = true,
 	.min_disp_clk_khz = 50000,
+	.static_screen_wait_frames = 2,
 	.disable_z10 = false,
 	.ignore_pg = true,
 	.disable_stutter_for_wm_program = true,
+	.min_deep_sleep_dcfclk_khz = 8000,
 };
 
 static const struct dc_check_config config_defaults = {
@@ -1788,8 +1791,10 @@ static struct resource_funcs dcn42_res_pool_funcs = {
 	.calculate_mall_ways_from_bytes = dcn32_calculate_mall_ways_from_bytes,
 	.prepare_mcache_programming = dcn42_prepare_mcache_programming,
 	.build_pipe_pix_clk_params = dcn42_build_pipe_pix_clk_params,
+	.get_power_profile = dcn401_get_power_profile,
 	.get_vstartup_for_pipe = dcn401_get_vstartup_for_pipe,
 	.get_max_hw_cursor_size = dcn42_get_max_hw_cursor_size,
+	.get_default_tiling_info = dcn10_get_default_tiling_info
 };
 
 static uint32_t read_pipe_fuses(struct dc_context *ctx)
@@ -2013,7 +2018,7 @@ static bool dcn42_resource_construct(
 	dc->config.dcn_override_sharpness_range.hdr_rgb_mid = 1500;
 
 	dc->config.use_pipe_ctx_sync_logic = true;
-	dc->config.dc_mode_clk_limit_support = true;
+	dc->config.dc_mode_clk_limit_support = false;
 	dc->config.enable_windowed_mpo_odm = true;
 	/* Use psp mailbox to enable assr */
 	dc->config.use_assr_psp_message = true;
@@ -2302,13 +2307,11 @@ static bool dcn42_resource_construct(
 
 	dc->dml2_options.max_segments_per_hubp = 24;
 	dc->dml2_options.det_segment_size = DCN42_CRB_SEGMENT_SIZE_KB;
+	dc->dml2_options.gpuvm_enable = true;
+	dc->dml2_options.hostvm_enable = true;
 
 	/* SPL */
 	dc->caps.scl_caps.sharpener_support = true;
-
-	/* init DC limited DML2 options */
-	memcpy(&dc->dml2_dc_power_options, &dc->dml2_options, sizeof(struct dml2_configuration_options));
-	dc->dml2_dc_power_options.use_clock_dc_limits = true;
 
 	return true;
 

@@ -14,6 +14,7 @@
 #include "instructions/xe_gfxpipe_commands.h"
 #include "instructions/xe_gfx_state_commands.h"
 #include "regs/xe_engine_regs.h"
+#include "regs/xe_gt_regs.h"
 #include "regs/xe_lrc_layout.h"
 #include "xe_bb.h"
 #include "xe_bo.h"
@@ -27,6 +28,7 @@
 #include "xe_map.h"
 #include "xe_memirq.h"
 #include "xe_mmio.h"
+#include "xe_ring_ops.h"
 #include "xe_sriov.h"
 #include "xe_trace_lrc.h"
 #include "xe_vm.h"
@@ -91,6 +93,9 @@ gt_engine_needs_indirect_ctx(struct xe_gt *gt, enum xe_engine_class class)
 
 	if (xe_configfs_get_ctx_restore_mid_bb(to_pci_dev(xe->drm.dev),
 					       class, NULL))
+		return true;
+
+	if (gt->ring_ops[class]->emit_aux_table_inv)
 		return true;
 
 	return false;
@@ -641,12 +646,12 @@ static const u8 *reg_offsets(struct xe_device *xe, enum xe_engine_class class)
 
 static void set_context_control(u32 *regs, struct xe_hw_engine *hwe)
 {
-	regs[CTX_CONTEXT_CONTROL] = _MASKED_BIT_ENABLE(CTX_CTRL_INHIBIT_SYN_CTX_SWITCH |
-						       CTX_CTRL_ENGINE_CTX_RESTORE_INHIBIT);
+	regs[CTX_CONTEXT_CONTROL] = REG_MASKED_FIELD_ENABLE(CTX_CTRL_INHIBIT_SYN_CTX_SWITCH |
+							    CTX_CTRL_ENGINE_CTX_RESTORE_INHIBIT);
 
 	if (xe_gt_has_indirect_ring_state(hwe->gt))
 		regs[CTX_CONTEXT_CONTROL] |=
-			_MASKED_BIT_ENABLE(CTX_CTRL_INDIRECT_RING_STATE_ENABLE);
+			REG_MASKED_FIELD_ENABLE(CTX_CTRL_INDIRECT_RING_STATE_ENABLE);
 }
 
 static void set_memory_based_intr(u32 *regs, struct xe_hw_engine *hwe)
@@ -1211,9 +1216,26 @@ static ssize_t setup_invalidate_state_cache_wa(struct xe_lrc *lrc,
 
 	*cmd++ = MI_LOAD_REGISTER_IMM | MI_LRI_NUM_REGS(1);
 	*cmd++ = CS_DEBUG_MODE2(0).addr;
-	*cmd++ = _MASKED_BIT_ENABLE(INSTRUCTION_STATE_CACHE_INVALIDATE);
+	*cmd++ = REG_MASKED_FIELD_ENABLE(INSTRUCTION_STATE_CACHE_INVALIDATE);
 
 	return cmd - batch;
+}
+
+static ssize_t setup_invalidate_auxccs_wa(struct xe_lrc *lrc,
+					  struct xe_hw_engine *hwe,
+					  u32 *batch, size_t max_len)
+{
+	struct xe_gt *gt = lrc->gt;
+	u32 *(*emit)(struct xe_gt *gt, u32 *cmd) =
+		gt->ring_ops[hwe->class]->emit_aux_table_inv;
+
+	if (!emit)
+		return 0;
+
+	if (xe_gt_WARN_ON(gt, max_len < 8))
+		return -ENOSPC;
+
+	return emit(gt, batch) - batch;
 }
 
 struct bo_setup {
@@ -1348,9 +1370,11 @@ setup_indirect_ctx(struct xe_lrc *lrc, struct xe_hw_engine *hwe)
 {
 	static const struct bo_setup rcs_funcs[] = {
 		{ .setup = setup_timestamp_wa },
+		{ .setup = setup_invalidate_auxccs_wa },
 		{ .setup = setup_configfs_mid_ctx_restore_bb },
 	};
 	static const struct bo_setup xcs_funcs[] = {
+		{ .setup = setup_invalidate_auxccs_wa },
 		{ .setup = setup_configfs_mid_ctx_restore_bb },
 	};
 	struct bo_setup_state state = {
@@ -1446,6 +1470,7 @@ static int xe_lrc_ctx_init(struct xe_lrc *lrc, struct xe_hw_engine *hwe, struct 
 	struct xe_device *xe = gt_to_xe(gt);
 	struct iosys_map map;
 	u32 arb_enable;
+	u32 state_cache_perf_fix[3];
 	int err;
 
 	/*
@@ -1513,12 +1538,12 @@ static int xe_lrc_ctx_init(struct xe_lrc *lrc, struct xe_hw_engine *hwe, struct 
 	if (init_flags & XE_LRC_CREATE_RUNALONE)
 		xe_lrc_write_ctx_reg(lrc, CTX_CONTEXT_CONTROL,
 				     xe_lrc_read_ctx_reg(lrc, CTX_CONTEXT_CONTROL) |
-				     _MASKED_BIT_ENABLE(CTX_CTRL_RUN_ALONE));
+				     REG_MASKED_FIELD_ENABLE(CTX_CTRL_RUN_ALONE));
 
 	if (init_flags & XE_LRC_CREATE_PXP)
 		xe_lrc_write_ctx_reg(lrc, CTX_CONTEXT_CONTROL,
 				     xe_lrc_read_ctx_reg(lrc, CTX_CONTEXT_CONTROL) |
-				     _MASKED_BIT_ENABLE(CTX_CTRL_PXP_ENABLE));
+				     REG_MASKED_FIELD_ENABLE(CTX_CTRL_PXP_ENABLE));
 
 	lrc->ctx_timestamp = 0;
 	xe_lrc_write_ctx_reg(lrc, CTX_TIMESTAMP, 0);
@@ -1545,6 +1570,13 @@ static int xe_lrc_ctx_init(struct xe_lrc *lrc, struct xe_hw_engine *hwe, struct 
 
 	arb_enable = MI_ARB_ON_OFF | MI_ARB_ENABLE;
 	xe_lrc_write_ring(lrc, &arb_enable, sizeof(arb_enable));
+
+	if (init_flags & XE_LRC_DISABLE_STATE_CACHE_PERF_FIX) {
+		state_cache_perf_fix[0] = MI_LOAD_REGISTER_IMM | MI_LRI_NUM_REGS(1);
+		state_cache_perf_fix[1] = COMMON_SLICE_CHICKEN3.addr;
+		state_cache_perf_fix[2] = REG_MASKED_FIELD_ENABLE(DISABLE_STATE_CACHE_PERF_FIX);
+		xe_lrc_write_ring(lrc, state_cache_perf_fix, sizeof(state_cache_perf_fix));
+	}
 
 	map = __xe_lrc_seqno_map(lrc);
 	xe_map_write32(lrc_to_xe(lrc), &map, lrc->fence_ctx.next_seqno - 1);
@@ -1598,8 +1630,8 @@ static int xe_lrc_init(struct xe_lrc *lrc, struct xe_hw_engine *hwe, struct xe_v
 	bo = xe_bo_create_pin_map_novm(xe, tile, bo_size,
 				       ttm_bo_type_kernel,
 				       bo_flags, false);
-	if (IS_ERR(lrc->bo))
-		return PTR_ERR(lrc->bo);
+	if (IS_ERR(bo))
+		return PTR_ERR(bo);
 
 	lrc->bo = bo;
 
@@ -1893,6 +1925,7 @@ static int instr_dw(u32 cmd_header)
 
 static int dump_mi_command(struct drm_printer *p,
 			   struct xe_gt *gt,
+			   u32 *start,
 			   u32 *dw,
 			   int remaining_dw)
 {
@@ -1908,15 +1941,18 @@ static int dump_mi_command(struct drm_printer *p,
 		while (num_noop < remaining_dw &&
 		       (*(++dw) & REG_GENMASK(31, 23)) == MI_NOOP)
 			num_noop++;
-		drm_printf(p, "[%#010x] MI_NOOP (%d dwords)\n", inst_header, num_noop);
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] MI_NOOP (%d dwords)\n",
+			   dw - num_noop - start, inst_header, num_noop);
 		return num_noop;
 
 	case MI_TOPOLOGY_FILTER:
-		drm_printf(p, "[%#010x] MI_TOPOLOGY_FILTER\n", inst_header);
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] MI_TOPOLOGY_FILTER\n",
+			   dw - start, inst_header);
 		return 1;
 
 	case MI_BATCH_BUFFER_END:
-		drm_printf(p, "[%#010x] MI_BATCH_BUFFER_END\n", inst_header);
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] MI_BATCH_BUFFER_END\n",
+			   dw - start, inst_header);
 		/* Return 'remaining_dw' to consume the rest of the LRC */
 		return remaining_dw;
 	}
@@ -1930,39 +1966,43 @@ static int dump_mi_command(struct drm_printer *p,
 
 	switch (inst_header & MI_OPCODE) {
 	case MI_LOAD_REGISTER_IMM:
-		drm_printf(p, "[%#010x] MI_LOAD_REGISTER_IMM: %d regs\n",
-			   inst_header, (numdw - 1) / 2);
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] MI_LOAD_REGISTER_IMM: %d regs\n",
+			   dw - start, inst_header, (numdw - 1) / 2);
 		for (int i = 1; i < numdw; i += 2)
-			drm_printf(p, " - %#6x = %#010x\n", dw[i], dw[i + 1]);
+			drm_printf(p, "LRC[%#5tx]  =  - %#6x = %#010x\n",
+				   &dw[i] - start, dw[i], dw[i + 1]);
 		return numdw;
 
 	case MI_LOAD_REGISTER_MEM & MI_OPCODE:
-		drm_printf(p, "[%#010x] MI_LOAD_REGISTER_MEM: %s%s\n",
-			   inst_header,
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] MI_LOAD_REGISTER_MEM: %s%s\n",
+			   dw - start, inst_header,
 			   dw[0] & MI_LRI_LRM_CS_MMIO ? "CS_MMIO " : "",
 			   dw[0] & MI_LRM_USE_GGTT ? "USE_GGTT " : "");
 		if (numdw == 4)
-			drm_printf(p, " - %#6x = %#010llx\n",
+			drm_printf(p, "LRC[%#5tx]  =  - %#6x = %#010llx\n",
+				   dw - start,
 				   dw[1], ((u64)(dw[3]) << 32 | (u64)(dw[2])));
 		else
-			drm_printf(p, " - %*ph (%s)\n",
-				   (int)sizeof(u32) * (numdw - 1), dw + 1,
-				   numdw < 4 ? "truncated" : "malformed");
+			drm_printf(p, "LRC[%#5tx]  =  - %*ph (%s)\n",
+				   dw - start, (int)sizeof(u32) * (numdw - 1),
+				   dw + 1, numdw < 4 ? "truncated" : "malformed");
 		return numdw;
 
 	case MI_FORCE_WAKEUP:
-		drm_printf(p, "[%#010x] MI_FORCE_WAKEUP\n", inst_header);
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] MI_FORCE_WAKEUP\n",
+			   dw - start, inst_header);
 		return numdw;
 
 	default:
-		drm_printf(p, "[%#010x] unknown MI opcode %#x, likely %d dwords\n",
-			   inst_header, opcode, numdw);
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] unknown MI opcode %#x, likely %d dwords\n",
+			   dw - start, inst_header, opcode, numdw);
 		return numdw;
 	}
 }
 
 static int dump_gfxpipe_command(struct drm_printer *p,
 				struct xe_gt *gt,
+				u32 *start,
 				u32 *dw,
 				int remaining_dw)
 {
@@ -1981,11 +2021,13 @@ static int dump_gfxpipe_command(struct drm_printer *p,
 	switch (*dw & GFXPIPE_MATCH_MASK) {
 #define MATCH(cmd) \
 	case cmd: \
-		drm_printf(p, "[%#010x] " #cmd " (%d dwords)\n", *dw, numdw); \
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] " #cmd " (%d dwords)\n", \
+			   dw - start, *dw, numdw); \
 		return numdw
 #define MATCH3D(cmd) \
 	case CMD_##cmd: \
-		drm_printf(p, "[%#010x] " #cmd " (%d dwords)\n", *dw, numdw); \
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] " #cmd " (%d dwords)\n", \
+			   dw - start, *dw, numdw); \
 		return numdw
 
 	MATCH(STATE_BASE_ADDRESS);
@@ -2117,14 +2159,15 @@ static int dump_gfxpipe_command(struct drm_printer *p,
 	MATCH3D(3DSTATE_SLICE_TABLE_STATE_POINTER_2);
 
 	default:
-		drm_printf(p, "[%#010x] unknown GFXPIPE command (pipeline=%#x, opcode=%#x, subopcode=%#x), likely %d dwords\n",
-			   *dw, pipeline, opcode, subopcode, numdw);
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] unknown GFXPIPE command (pipeline=%#x, opcode=%#x, subopcode=%#x), likely %d dwords\n",
+			   dw - start, *dw, pipeline, opcode, subopcode, numdw);
 		return numdw;
 	}
 }
 
 static int dump_gfx_state_command(struct drm_printer *p,
 				  struct xe_gt *gt,
+				  u32 *start,
 				  u32 *dw,
 				  int remaining_dw)
 {
@@ -2142,8 +2185,8 @@ static int dump_gfx_state_command(struct drm_printer *p,
 	MATCH(STATE_WRITE_INLINE);
 
 	default:
-		drm_printf(p, "[%#010x] unknown GFX_STATE command (opcode=%#x), likely %d dwords\n",
-			   *dw, opcode, numdw);
+		drm_printf(p, "LRC[%#5tx]  =  [%#010x] unknown GFX_STATE command (opcode=%#x), likely %d dwords\n",
+			   dw - start, *dw, opcode, numdw);
 		return numdw;
 	}
 }
@@ -2152,7 +2195,7 @@ void xe_lrc_dump_default(struct drm_printer *p,
 			 struct xe_gt *gt,
 			 enum xe_engine_class hwe_class)
 {
-	u32 *dw;
+	u32 *dw, *start;
 	int remaining_dw, num_dw;
 
 	if (!gt->default_lrc[hwe_class]) {
@@ -2165,18 +2208,20 @@ void xe_lrc_dump_default(struct drm_printer *p,
 	 * hardware status page.
 	 */
 	dw = gt->default_lrc[hwe_class] + LRC_PPHWSP_SIZE;
+	start = dw;
 	remaining_dw = (xe_gt_lrc_size(gt, hwe_class) - LRC_PPHWSP_SIZE) / 4;
 
 	while (remaining_dw > 0) {
 		if ((*dw & XE_INSTR_CMD_TYPE) == XE_INSTR_MI) {
-			num_dw = dump_mi_command(p, gt, dw, remaining_dw);
+			num_dw = dump_mi_command(p, gt, start, dw, remaining_dw);
 		} else if ((*dw & XE_INSTR_CMD_TYPE) == XE_INSTR_GFXPIPE) {
-			num_dw = dump_gfxpipe_command(p, gt, dw, remaining_dw);
+			num_dw = dump_gfxpipe_command(p, gt, start, dw, remaining_dw);
 		} else if ((*dw & XE_INSTR_CMD_TYPE) == XE_INSTR_GFX_STATE) {
-			num_dw = dump_gfx_state_command(p, gt, dw, remaining_dw);
+			num_dw = dump_gfx_state_command(p, gt, start, dw, remaining_dw);
 		} else {
 			num_dw = min(instr_dw(*dw), remaining_dw);
-			drm_printf(p, "[%#10x] Unknown instruction of type %#x, likely %d dwords\n",
+			drm_printf(p, "LRC[%#5tx]  =  [%#10x] Unknown instruction of type %#x, likely %d dwords\n",
+				   dw - start,
 				   *dw, REG_FIELD_GET(XE_INSTR_CMD_TYPE, *dw),
 				   num_dw);
 		}
@@ -2554,14 +2599,14 @@ static int get_ctx_timestamp(struct xe_lrc *lrc, u32 engine_id, u64 *reg_ctx_ts)
  * @lrc: Pointer to the lrc.
  *
  * Return latest ctx timestamp. With support for active contexts, the
- * calculation may bb slightly racy, so follow a read-again logic to ensure that
+ * calculation may be slightly racy, so follow a read-again logic to ensure that
  * the context is still active before returning the right timestamp.
  *
  * Returns: New ctx timestamp value
  */
 u64 xe_lrc_timestamp(struct xe_lrc *lrc)
 {
-	u64 lrc_ts, reg_ts, new_ts;
+	u64 lrc_ts, reg_ts, new_ts = lrc->ctx_timestamp;
 	u32 engine_id;
 
 	lrc_ts = xe_lrc_ctx_timestamp(lrc);

@@ -63,7 +63,7 @@ struct dcn_dsc_reg_state;
 struct dcn_optc_reg_state;
 struct dcn_dccg_reg_state;
 
-#define DC_VER "3.2.372"
+#define DC_VER "3.2.375"
 
 /**
  * MAX_SURFACES - representative of the upper bound of surfaces that can be piped to a single CRTC
@@ -467,6 +467,7 @@ struct dc_static_screen_params {
  */
 
 enum surface_update_type {
+	UPDATE_TYPE_ADDR_ONLY, /* only surface address is being updated, no other programming needed */
 	UPDATE_TYPE_FAST, /* super fast, safe to execute in isr */
 	UPDATE_TYPE_MED,  /* ISR safe, most of programming needed, no bw/clk change*/
 	UPDATE_TYPE_FULL, /* may need to shuffle resources */
@@ -562,6 +563,7 @@ struct dc_config {
 	bool frame_update_cmd_version2;
 	struct spl_sharpness_range dcn_sharpness_range;
 	struct spl_sharpness_range dcn_override_sharpness_range;
+	bool no_native422_support;
 };
 
 enum visual_confirm {
@@ -986,7 +988,6 @@ struct link_service;
  * causing an issue or not.
  */
 struct dc_debug_options {
-	bool native422_support;
 	bool disable_dsc;
 	enum visual_confirm visual_confirm;
 	int visual_confirm_rect_height;
@@ -1215,6 +1216,7 @@ struct dc_debug_options {
 	bool enable_dmu_recovery;
 	unsigned int force_vmin_threshold;
 	bool enable_otg_frame_sync_pwa;
+	unsigned int min_deep_sleep_dcfclk_khz;
 };
 
 
@@ -1404,15 +1406,50 @@ struct lut_mem_mapping {
 struct dc_rmcm_3dlut {
 	bool isInUse;
 	const struct dc_stream_state *stream;
-	uint8_t protection_bits;
 };
 
 struct dc_3dlut {
 	struct kref refcount;
 	struct tetrahedral_params lut_3d;
-	struct fixed31_32 hdr_multiplier;
 	union dc_3dlut_state state;
 };
+
+/* 3DLUT DMA (Fast Load) params */
+struct dc_3dlut_dma {
+	struct dc_plane_address addr;
+	enum dc_cm_lut_swizzle swizzle;
+	enum dc_cm_lut_pixel_format format;
+	uint16_t bias; /* FP1.5.10 */
+	uint16_t scale; /* FP1.5.10 */
+	enum dc_cm_lut_size size;
+};
+
+/* color manager */
+union dc_plane_cm_flags {
+	unsigned int all;
+	struct {
+		unsigned int shaper_enable    : 1;
+		unsigned int lut3d_enable     : 1;
+		unsigned int blend_enable     : 1;
+		/* whether legacy (lut3d_func) or DMA is valid */
+		unsigned int lut3d_dma_enable : 1;
+		/* RMCM lut to be used instead of MCM */
+		unsigned int rmcm_enable	 : 1;
+		unsigned int reserved: 27;
+	} bits;
+};
+
+struct dc_plane_cm {
+	struct kref refcount;
+	struct dc_transfer_func shaper_func;
+	union {
+		struct dc_3dlut lut3d_func;
+		struct dc_3dlut_dma lut3d_dma;
+	};
+	struct dc_transfer_func blend_func;
+	union dc_plane_cm_flags flags;
+};
+
 /*
  * This structure is filled in by dc_surface_get_status and contains
  * the last requested address and the currently active address so the called
@@ -1490,14 +1527,18 @@ struct dc_plane_state {
 	struct fixed31_32 hdr_mult;
 	struct colorspace_transform gamut_remap_matrix;
 
-	// TODO: No longer used, remove
-	struct dc_hdr_static_metadata hdr_static_ctx;
-
 	enum dc_color_space color_space;
 
+	bool lut_bank_a;
+	struct dc_hdr_static_metadata hdr_static_ctx;
 	struct dc_3dlut lut3d_func;
 	struct dc_transfer_func in_shaper_func;
 	struct dc_transfer_func blend_tf;
+	enum dc_cm2_shaper_3dlut_setting mcm_shaper_3dlut_setting;
+	bool mcm_lut1d_enable;
+	struct dc_cm2_func_luts mcm_luts;
+	enum mpcc_movable_cm_location mcm_location;
+	struct dc_plane_cm cm;
 
 	struct dc_transfer_func *gamcor_tf;
 	enum surface_pixel_format format;
@@ -1534,11 +1575,6 @@ struct dc_plane_state {
 
 	bool is_statically_allocated;
 	enum chroma_cositing cositing;
-	enum dc_cm2_shaper_3dlut_setting mcm_shaper_3dlut_setting;
-	bool mcm_lut1d_enable;
-	struct dc_cm2_func_luts mcm_luts;
-	bool lut_bank_a;
-	enum mpcc_movable_cm_location mcm_location;
 	struct dc_csc_transform cursor_csc_color_matrix;
 	bool adaptive_sharpness_en;
 	int adaptive_sharpness_policy;
@@ -1845,18 +1881,6 @@ struct dc_scaling_info {
 	struct scaling_taps scaling_quality;
 };
 
-struct dc_fast_update {
-	const struct dc_flip_addrs *flip_addr;
-	const struct dc_gamma *gamma;
-	const struct colorspace_transform *gamut_remap_matrix;
-	const struct dc_csc_transform *input_csc_color_matrix;
-	const struct fixed31_32 *coeff_reduction_factor;
-	struct dc_transfer_func *out_transfer_func;
-	struct dc_csc_transform *output_csc_transform;
-	const struct dc_csc_transform *cursor_csc_color_matrix;
-	struct cm_hist_control *cm_hist_control;
-};
-
 struct dc_surface_update {
 	struct dc_plane_state *surface;
 
@@ -1884,6 +1908,7 @@ struct dc_surface_update {
 	 * change cm2_params.cm2_luts: Fast update
 	 */
 	const struct dc_cm2_parameters *cm2_params;
+	const struct dc_plane_cm *cm;
 	const struct dc_csc_transform *cursor_csc_color_matrix;
 	unsigned int sdr_white_level_nits;
 	struct dc_bias_and_scale bias_and_scale;
@@ -1928,8 +1953,21 @@ struct dc_3dlut *dc_create_3dlut_func(void);
 void dc_3dlut_func_release(struct dc_3dlut *lut);
 void dc_3dlut_func_retain(struct dc_3dlut *lut);
 
+struct dc_plane_cm *dc_plane_cm_create(void);
+void dc_plane_cm_release(struct dc_plane_cm *cm);
+void dc_plane_cm_retain(struct dc_plane_cm *cm);
+
 void dc_post_update_surfaces_to_stream(
 		struct dc *dc);
+
+/*
+ * dc_get_default_tiling_info() - Retrieve an ASIC-appropriate default tiling
+ * description for (typically) linear surfaces.
+ *
+ * This is used by OS/DM paths that need a valid, fully-initialized tiling
+ * description without hardcoding gfx-version specifics in the caller.
+ */
+void dc_get_default_tiling_info(const struct dc *dc, struct dc_tiling_info *tiling_info);
 
 /**
  * struct dc_validation_set - Struct to store surface/stream associations for validation
@@ -1981,12 +2019,7 @@ bool dc_resource_is_dsc_encoding_supported(const struct dc *dc);
 void get_audio_check(struct audio_info *aud_modes,
 	struct audio_check *aud_chk);
 
-bool fast_nonaddr_updates_exist(struct dc_fast_update *fast_update, int surface_count);
-void populate_fast_updates(struct dc_fast_update *fast_update,
-		struct dc_surface_update *srf_updates,
-		int surface_count,
-		struct dc_stream_update *stream_update);
-/*
+	/*
  * Set up streams and links associated to drive sinks
  * The streams parameter is an absolute set of all active streams.
  *

@@ -122,6 +122,7 @@
 	DCCG_SF(DCCG_GATE_DISABLE_CNTL2, PHYBSYMCLK_ROOT_GATE_DISABLE, mask_sh),\
 	DCCG_SF(DCCG_GATE_DISABLE_CNTL2, PHYCSYMCLK_ROOT_GATE_DISABLE, mask_sh),\
 	DCCG_SF(DCCG_GATE_DISABLE_CNTL2, PHYDSYMCLK_ROOT_GATE_DISABLE, mask_sh),\
+	DCCG_SF(DCCG_GLOBAL_FGCG_REP_CNTL, DCCG_GLOBAL_FGCG_REP_DIS, mask_sh),\
 	DCCG_SFII(OTG, PIXEL_RATE_CNTL, DP_DTO, ENABLE, 0, mask_sh),\
 	DCCG_SFII(OTG, PIXEL_RATE_CNTL, DP_DTO, ENABLE, 1, mask_sh),\
 	DCCG_SFII(OTG, PIXEL_RATE_CNTL, DP_DTO, ENABLE, 2, mask_sh),\
@@ -238,7 +239,8 @@
 	DCCG_SF(SYMCLKE_CLOCK_ENABLE, SYMCLKE_SRC_SEL, mask_sh),\
 	DCCG_SF(SYMCLKE_CLOCK_ENABLE, SYMCLKE_CLOCK_ENABLE, mask_sh),\
 	DCCG_SF(SYMCLKE_CLOCK_ENABLE, SYMCLKE_FE_EN, mask_sh),\
-	DCCG_SF(SYMCLKE_CLOCK_ENABLE, SYMCLKE_FE_SRC_SEL, mask_sh)
+	DCCG_SF(SYMCLKE_CLOCK_ENABLE, SYMCLKE_FE_SRC_SEL, mask_sh),\
+	DCCG_SF(DISPCLK_FREQ_CHANGE_CNTL, RESYNC_FIFO_LEVEL_ADJUST_EN, mask_sh)
 
 
 void dccg42_otg_add_pixel(struct dccg *dccg,
@@ -253,6 +255,14 @@ void dccg42_set_physymclk(
 		int phy_inst,
 		enum physymclk_clock_source clk_src,
 		bool force_enable);
+
+void dccg42_set_pixel_rate_div(
+		struct dccg *dccg,
+		uint32_t otg_inst,
+		enum pixel_rate_div tmds_div,
+		enum pixel_rate_div unused);
+
+void dccg42_trigger_dio_fifo_resync(struct dccg *dccg);
 
 struct dccg *dccg42_create(
 	struct dc_context *ctx,

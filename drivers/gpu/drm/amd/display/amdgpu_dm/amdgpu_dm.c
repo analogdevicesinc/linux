@@ -2290,6 +2290,11 @@ static void amdgpu_dm_fini(struct amdgpu_device *adev)
 				      &adev->dm.dmub_bo_gpu_addr,
 				      &adev->dm.dmub_bo_cpu_addr);
 
+	if (adev->dm.boot_time_crc_info.bo_ptr)
+		amdgpu_bo_free_kernel(&adev->dm.boot_time_crc_info.bo_ptr,
+					&adev->dm.boot_time_crc_info.gpu_addr,
+					&adev->dm.boot_time_crc_info.cpu_addr);
+
 	if (adev->dm.hpd_rx_offload_wq && adev->dm.dc) {
 		for (i = 0; i < adev->dm.dc->caps.max_links; i++) {
 			if (adev->dm.hpd_rx_offload_wq[i].wq) {
@@ -2473,6 +2478,8 @@ static int dm_dmub_sw_init(struct amdgpu_device *adev)
 		DMUB_WINDOW_MEMORY_TYPE_FB,		//DMUB_WINDOW_7_SCRATCH_MEM
 		DMUB_WINDOW_MEMORY_TYPE_FB,		//DMUB_WINDOW_IB_MEM
 		DMUB_WINDOW_MEMORY_TYPE_FB,		//DMUB_WINDOW_SHARED_STATE
+		DMUB_WINDOW_MEMORY_TYPE_FB,		//DMUB_WINDOW_LSDMA_BUFFER
+		DMUB_WINDOW_MEMORY_TYPE_FB,		//DMUB_WINDOW_CURSOR_OFFLOAD
 	};
 	int r;
 
@@ -2575,7 +2582,7 @@ static int dm_dmub_sw_init(struct amdgpu_device *adev)
 	fw_meta_info_params.fw_inst_const = adev->dm.dmub_fw->data +
 					    le32_to_cpu(hdr->header.ucode_array_offset_bytes) +
 					    PSP_HEADER_BYTES_256;
-	fw_meta_info_params.fw_bss_data = region_params.bss_data_size ? adev->dm.dmub_fw->data +
+	fw_meta_info_params.fw_bss_data = fw_meta_info_params.bss_data_size ? adev->dm.dmub_fw->data +
 					  le32_to_cpu(hdr->header.ucode_array_offset_bytes) +
 					  le32_to_cpu(hdr->inst_const_bytes) : NULL;
 	fw_meta_info_params.custom_psp_footer_size = 0;
@@ -2736,6 +2743,54 @@ static int detect_mst_link_for_all_connectors(struct drm_device *dev)
 	return ret;
 }
 
+static void amdgpu_dm_boot_time_crc_init(struct amdgpu_device *adev)
+{
+	struct dm_boot_time_crc_info *bootcrc_info = NULL;
+	struct dmub_srv *dmub = NULL;
+	union dmub_fw_boot_options option = {0};
+	int ret = 0;
+	const uint32_t fb_size = 3 * 1024 * 1024;	/* 3MB for DCC pattern */
+
+	if (!adev || !adev->dm.dc || !adev->dm.dc->ctx ||
+		!adev->dm.dc->ctx->dmub_srv) {
+		return;
+	}
+
+	dmub = adev->dm.dc->ctx->dmub_srv->dmub;
+	bootcrc_info = &adev->dm.boot_time_crc_info;
+
+	if (!dmub || !dmub->hw_funcs.get_fw_boot_option) {
+		drm_dbg(adev_to_drm(adev), "failed to init boot time crc buffer\n");
+		return;
+	}
+
+	option = dmub->hw_funcs.get_fw_boot_option(dmub);
+
+	/* Return if boot time CRC is not enabled */
+	if (option.bits.bootcrc_en_at_S0i3 == 0)
+		return;
+
+	/* Create a buffer for boot time CRC */
+	ret = amdgpu_bo_create_kernel(adev, fb_size, PAGE_SIZE,
+		AMDGPU_GEM_DOMAIN_VRAM | AMDGPU_GEM_DOMAIN_GTT,
+		&bootcrc_info->bo_ptr,
+		&bootcrc_info->gpu_addr,
+		&bootcrc_info->cpu_addr);
+
+	if (ret) {
+		drm_dbg(adev_to_drm(adev), "failed to create boot time crc buffer\n");
+	} else {
+		bootcrc_info->size = fb_size;
+
+		drm_dbg(adev_to_drm(adev), "boot time crc buffer created addr 0x%llx, size %u\n",
+			bootcrc_info->gpu_addr, bootcrc_info->size);
+
+		/* Send the buffer info to DMUB */
+		dc_dmub_srv_boot_time_crc_init(adev->dm.dc,
+			bootcrc_info->gpu_addr, bootcrc_info->size);
+	}
+}
+
 static int dm_late_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
@@ -2746,6 +2801,11 @@ static int dm_late_init(struct amdgpu_ip_block *ip_block)
 	struct dmcu *dmcu = NULL;
 
 	dmcu = adev->dm.dc->res_pool->dmcu;
+
+	/* Init the boot time CRC (skip in resume) */
+	if ((adev->in_suspend == 0) &&
+		(amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(3, 6, 0)))
+		amdgpu_dm_boot_time_crc_init(adev);
 
 	for (i = 0; i < 16; i++)
 		linear_lut[i] = 0xFFFF * i / 15;
@@ -3934,8 +3994,9 @@ void amdgpu_dm_update_connector_after_detect(
 
 		aconnector->dc_sink = sink;
 		dc_sink_retain(aconnector->dc_sink);
+		drm_edid_free(aconnector->drm_edid);
+		aconnector->drm_edid = NULL;
 		if (sink->dc_edid.length == 0) {
-			aconnector->drm_edid = NULL;
 			hdmi_cec_unset_edid(aconnector);
 			if (aconnector->dc_link->aux_mode) {
 				drm_dp_cec_unset_edid(&aconnector->dm_dp_aux.aux);
@@ -5360,7 +5421,7 @@ static void setup_backlight_device(struct amdgpu_display_manager *dm,
 	caps = &dm->backlight_caps[aconnector->bl_idx];
 
 	/* Only offer ABM property when non-OLED and user didn't turn off by module parameter */
-	if (!caps->ext_caps->bits.oled && amdgpu_dm_abm_level < 0)
+	if (caps->ext_caps && !caps->ext_caps->bits.oled && amdgpu_dm_abm_level < 0)
 		drm_object_attach_property(&aconnector->base.base,
 					   dm->adev->mode_info.abm_level_property,
 					   ABM_SYSFS_CONTROL);
@@ -9828,7 +9889,7 @@ static void amdgpu_dm_enable_self_refresh(struct amdgpu_crtc *acrtc_attach,
 	}
 
 	/* Decrement skip count when SR is enabled and we're doing fast updates. */
-	if (acrtc_state->update_type == UPDATE_TYPE_FAST &&
+	if (acrtc_state->update_type <= UPDATE_TYPE_FAST &&
 	    (psr->psr_feature_enabled || pr->config.replay_supported)) {
 		if (aconn->sr_skip_count > 0)
 			aconn->sr_skip_count--;
@@ -9841,7 +9902,8 @@ static void amdgpu_dm_enable_self_refresh(struct amdgpu_crtc *acrtc_attach,
 		 * a vblank event disable request to enable PSR/RP. PSR SU/RP
 		 * can be enabled immediately once OS demonstrates an
 		 * adequate number of fast atomic commits to notify KMD
-		 * of update events. See `vblank_control_worker()`.
+		 * of update events.
+		 * See `amdgpu_dm_crtc_vblank_control_worker()`.
 		 */
 		if (!vrr_active &&
 		    acrtc_attach->dm_irq_params.allow_sr_entry &&
@@ -10009,8 +10071,9 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
 			/*
 			 * If the dirty regions changed, PSR-SU need to be disabled temporarily
 			 * and enabled it again after dirty regions are stable to avoid video glitch.
-			 * PSR-SU will be enabled in vblank_control_worker() if user pause the video
-			 * during the PSR-SU was disabled.
+			 * PSR-SU will be enabled in
+			 * amdgpu_dm_crtc_vblank_control_worker() if user
+			 * pause the video during the PSR-SU was disabled.
 			 */
 			if (acrtc_state->stream->link->psr_settings.psr_version >= DC_PSR_VERSION_SU_1 &&
 			    acrtc_attach->dm_irq_params.allow_sr_entry &&
@@ -10036,7 +10099,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
 		 * fast updates.
 		 */
 		if (crtc->state->async_flip &&
-		    (acrtc_state->update_type != UPDATE_TYPE_FAST ||
+		    (acrtc_state->update_type > UPDATE_TYPE_FAST ||
 		     get_mem_type(old_plane_state->fb) != get_mem_type(fb)))
 			drm_warn_once(state->dev,
 				      "[PLANE:%d:%s] async flip with non-fast update\n",
@@ -10044,7 +10107,7 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
 
 		bundle->flip_addrs[planes_count].flip_immediate =
 			crtc->state->async_flip &&
-			acrtc_state->update_type == UPDATE_TYPE_FAST &&
+			acrtc_state->update_type <= UPDATE_TYPE_FAST &&
 			get_mem_type(old_plane_state->fb) == get_mem_type(fb);
 
 		timestamp_ns = ktime_get_ns();
@@ -12472,6 +12535,11 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
 
 	if (dc_resource_is_dsc_encoding_supported(dc)) {
 		for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+			dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
+			dm_new_crtc_state->mode_changed_independent_from_dsc = new_crtc_state->mode_changed;
+		}
+
+		for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 			if (drm_atomic_crtc_needs_modeset(new_crtc_state)) {
 				ret = add_affected_mst_dsc_crtcs(state, crtc);
 				if (ret) {
@@ -13068,7 +13136,7 @@ static void parse_edid_displayid_vrr(struct drm_connector *connector,
 	u16 min_vfreq;
 	u16 max_vfreq;
 
-	if (edid == NULL || edid->extensions == 0)
+	if (!edid || !edid->extensions)
 		return;
 
 	/* Find DisplayID extension */
@@ -13078,7 +13146,7 @@ static void parse_edid_displayid_vrr(struct drm_connector *connector,
 			break;
 	}
 
-	if (edid_ext == NULL)
+	if (i == edid->extensions)
 		return;
 
 	while (j < EDID_LENGTH) {

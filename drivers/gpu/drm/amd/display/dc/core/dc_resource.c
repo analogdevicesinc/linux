@@ -749,10 +749,10 @@ struct clock_source *resource_find_used_clk_src_for_sharing(
 	return NULL;
 }
 
-static enum pixel_format convert_pixel_format_to_dalsurface(
+static enum dc_pixel_format convert_pixel_format_to_dalsurface(
 		enum surface_pixel_format surface_pixel_format)
 {
-	enum pixel_format dal_pixel_format = PIXEL_FORMAT_UNKNOWN;
+	enum dc_pixel_format dal_pixel_format = PIXEL_FORMAT_UNKNOWN;
 
 	switch (surface_pixel_format) {
 	case SURFACE_PIXEL_FORMAT_GRPH_PALETA_256_COLORS:
@@ -2431,7 +2431,6 @@ static void resource_log_pipe_for_stream(struct dc *dc, struct dc_state *state,
 
 	int slice_idx, dpp_idx, plane_idx, slice_count, dpp_count;
 	bool is_primary;
-	DC_LOGGER_INIT(dc->ctx->logger);
 
 	slice_count = resource_get_opp_heads_for_otg_master(otg_master,
 			&state->res_ctx, opp_heads);
