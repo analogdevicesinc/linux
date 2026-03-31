@@ -6,7 +6,7 @@
 #include "mana_ib.h"
 
 #define VALID_MR_FLAGS (IB_ACCESS_LOCAL_WRITE | IB_ACCESS_REMOTE_WRITE | IB_ACCESS_REMOTE_READ |\
-			IB_ACCESS_REMOTE_ATOMIC | IB_ZERO_BASED)
+			IB_ACCESS_REMOTE_ATOMIC | IB_ACCESS_MW_BIND | IB_ZERO_BASED)
 
 #define VALID_DMA_MR_FLAGS (IB_ACCESS_LOCAL_WRITE)
 
@@ -26,6 +26,9 @@ mana_ib_verbs_to_gdma_access_flags(int access_flags)
 
 	if (access_flags & IB_ACCESS_REMOTE_ATOMIC)
 		flags |= GDMA_ACCESS_FLAG_REMOTE_ATOMIC;
+
+	if (access_flags & IB_ACCESS_MW_BIND)
+		flags |= GDMA_ACCESS_FLAG_BIND_MW;
 
 	return flags;
 }
@@ -285,6 +288,55 @@ struct ib_mr *mana_ib_get_dma_mr(struct ib_pd *ibpd, int access_flags)
 err_free:
 	kfree(mr);
 	return ERR_PTR(err);
+}
+
+static int mana_ib_gd_create_mw(struct mana_ib_dev *dev, struct mana_ib_pd *pd, struct ib_mw *ibmw)
+{
+	struct mana_ib_mw *mw = container_of(ibmw, struct mana_ib_mw, ibmw);
+	struct gdma_context *gc = mdev_to_gc(dev);
+	struct gdma_create_mr_response resp = {};
+	struct gdma_create_mr_request req = {};
+	int err;
+
+	mana_gd_init_req_hdr(&req.hdr, GDMA_CREATE_MR, sizeof(req), sizeof(resp));
+	req.hdr.req.msg_version = GDMA_MESSAGE_V2;
+	req.pd_handle = pd->pd_handle;
+
+	switch (mw->ibmw.type) {
+	case IB_MW_TYPE_1:
+		req.mr_type = GDMA_MR_TYPE_MW1;
+		break;
+	case IB_MW_TYPE_2:
+		req.mr_type = GDMA_MR_TYPE_MW2;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	err = mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
+	if (err)
+		return err;
+
+	mw->ibmw.rkey = resp.rkey;
+	mw->mw_handle = resp.mr_handle;
+
+	return 0;
+}
+
+int mana_ib_alloc_mw(struct ib_mw *ibmw, struct ib_udata *udata)
+{
+	struct mana_ib_dev *mdev = container_of(ibmw->device, struct mana_ib_dev, ib_dev);
+	struct mana_ib_pd *pd = container_of(ibmw->pd, struct mana_ib_pd, ibpd);
+
+	return mana_ib_gd_create_mw(mdev, pd, ibmw);
+}
+
+int mana_ib_dealloc_mw(struct ib_mw *ibmw)
+{
+	struct mana_ib_dev *dev = container_of(ibmw->device, struct mana_ib_dev, ib_dev);
+	struct mana_ib_mw *mw = container_of(ibmw, struct mana_ib_mw, ibmw);
+
+	return mana_ib_gd_destroy_mr(dev, mw->mw_handle);
 }
 
 int mana_ib_dereg_mr(struct ib_mr *ibmr, struct ib_udata *udata)
