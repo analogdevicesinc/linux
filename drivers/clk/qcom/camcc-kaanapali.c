@@ -2600,7 +2600,7 @@ static struct clk_alpha_pll *cam_cc_kaanapali_plls[] = {
 	&cam_cc_pll7,
 };
 
-static u32 cam_cc_kaanapali_critical_cbcrs[] = {
+static const u32 cam_cc_kaanapali_critical_cbcrs[] = {
 	0x21398, /* CAM_CC_DRV_AHB_CLK */
 	0x21390, /* CAM_CC_DRV_XO_CLK */
 	0x21364, /* CAM_CC_GDSC_CLK */

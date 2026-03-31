@@ -2915,7 +2915,7 @@ static struct clk_alpha_pll *cam_cc_sm8450_plls[] = {
 	&cam_cc_pll8,
 };
 
-static u32 cam_cc_sm8450_critical_cbcrs[] = {
+static const u32 cam_cc_sm8450_critical_cbcrs[] = {
 	0x1320c, /* CAM_CC_GDSC_CLK */
 };
 

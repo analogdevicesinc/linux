@@ -8538,7 +8538,7 @@ static const struct clk_rcg_dfs_data gcc_dfs_clocks[] = {
 	DEFINE_RCG_DFS(gcc_qupv3_wrap2_s7_clk_src),
 };
 
-static u32 gcc_glymur_critical_cbcrs[] = {
+static const u32 gcc_glymur_critical_cbcrs[] = {
 	0x26004, /* GCC_CAMERA_AHB_CLK */
 	0x26040, /* GCC_CAMERA_XO_CLK */
 	0x27004, /* GCC_DISP_AHB_CLK */

@@ -413,7 +413,7 @@ static struct clk_alpha_pll *video_cc_sm8450_plls[] = {
 	&video_cc_pll1,
 };
 
-static u32 video_cc_sm8450_critical_cbcrs[] = {
+static const u32 video_cc_sm8450_critical_cbcrs[] = {
 	0x80e4, /* VIDEO_CC_AHB_CLK */
 	0x8114, /* VIDEO_CC_XO_CLK */
 	0x8130, /* VIDEO_CC_SLEEP_CLK */

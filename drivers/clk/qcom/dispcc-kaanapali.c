@@ -1886,7 +1886,7 @@ static struct clk_alpha_pll *disp_cc_kaanapali_plls[] = {
 	&disp_cc_pll2,
 };
 
-static u32 disp_cc_kaanapali_critical_cbcrs[] = {
+static const u32 disp_cc_kaanapali_critical_cbcrs[] = {
 	0xe064, /* DISP_CC_SLEEP_CLK */
 	0xe05c, /* DISP_CC_XO_CLK */
 	0xc00c, /* DISP_CC_MDSS_RSCC_AHB_CLK */

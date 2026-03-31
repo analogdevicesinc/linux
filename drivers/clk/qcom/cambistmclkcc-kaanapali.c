@@ -383,7 +383,7 @@ static struct clk_alpha_pll *cam_bist_mclk_cc_kaanapali_plls[] = {
 	&cam_bist_mclk_cc_pll0,
 };
 
-static u32 cam_bist_mclk_cc_kaanapali_critical_cbcrs[] = {
+static const u32 cam_bist_mclk_cc_kaanapali_critical_cbcrs[] = {
 	0x40e0, /* CAM_BIST_MCLK_CC_SLEEP_CLK */
 };
 

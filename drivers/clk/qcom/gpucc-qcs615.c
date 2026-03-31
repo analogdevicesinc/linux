@@ -459,7 +459,7 @@ static struct clk_alpha_pll *gpu_cc_qcs615_plls[] = {
 	&gpu_cc_pll1,
 };
 
-static u32 gpu_cc_qcs615_critical_cbcrs[] = {
+static const u32 gpu_cc_qcs615_critical_cbcrs[] = {
 	0x1078, /* GPU_CC_AHB_CLK */
 };
 

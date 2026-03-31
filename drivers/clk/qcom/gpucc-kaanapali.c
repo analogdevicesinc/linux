@@ -423,7 +423,7 @@ static struct clk_alpha_pll *gpu_cc_kaanapali_plls[] = {
 	&gpu_cc_pll0,
 };
 
-static u32 gpu_cc_kaanapali_critical_cbcrs[] = {
+static const u32 gpu_cc_kaanapali_critical_cbcrs[] = {
 	0x9008, /* GPU_CC_CXO_AON_CLK */
 	0x93e8, /* GPU_CC_RSCC_HUB_AON_CLK */
 	0x9004, /* GPU_CC_RSCC_XO_AON_CLK */

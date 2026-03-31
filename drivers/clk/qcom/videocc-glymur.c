@@ -467,7 +467,7 @@ static struct clk_alpha_pll *video_cc_glymur_plls[] = {
 	&video_cc_pll0,
 };
 
-static u32 video_cc_glymur_critical_cbcrs[] = {
+static const u32 video_cc_glymur_critical_cbcrs[] = {
 	0x80e0, /* VIDEO_CC_AHB_CLK */
 	0x8138, /* VIDEO_CC_SLEEP_CLK */
 	0x8110, /* VIDEO_CC_XO_CLK */

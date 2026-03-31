@@ -500,7 +500,7 @@ static struct clk_alpha_pll *gpu_cc_milos_plls[] = {
 	&gpu_cc_pll0,
 };
 
-static u32 gpu_cc_milos_critical_cbcrs[] = {
+static const u32 gpu_cc_milos_critical_cbcrs[] = {
 	0x93a4, /* GPU_CC_CB_CLK */
 	0x9008, /* GPU_CC_CXO_AON_CLK */
 	0x9010, /* GPU_CC_DEMET_CLK */

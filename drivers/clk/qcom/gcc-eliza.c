@@ -3005,7 +3005,7 @@ static const struct qcom_reset_map gcc_eliza_resets[] = {
 	[GCC_VIDEO_BCR] = { 0x32000 },
 };
 
-static u32 gcc_eliza_critical_cbcrs[] = {
+static const u32 gcc_eliza_critical_cbcrs[] = {
 	0xa0004, /* GCC_CAM_BIST_MCLK_AHB_CLK */
 	0x26004, /* GCC_CAMERA_AHB_CLK */
 	0x26034, /* GCC_CAMERA_XO_CLK */

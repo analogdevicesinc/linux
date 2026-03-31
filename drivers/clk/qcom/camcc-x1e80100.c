@@ -2434,7 +2434,7 @@ static struct clk_alpha_pll *cam_cc_x1e80100_plls[] = {
 	&cam_cc_pll8,
 };
 
-static u32 cam_cc_x1e80100_critical_cbcrs[] = {
+static const u32 cam_cc_x1e80100_critical_cbcrs[] = {
 	0x13a9c, /* CAM_CC_GDSC_CLK */
 	0x13ab8, /* CAM_CC_SLEEP_CLK */
 };

@@ -739,7 +739,7 @@ static struct clk_alpha_pll *disp_cc_qcs615_plls[] = {
 	&disp_cc_pll0,
 };
 
-static u32 disp_cc_qcs615_critical_cbcrs[] = {
+static const u32 disp_cc_qcs615_critical_cbcrs[] = {
 	0x6054, /* DISP_CC_XO_CLK */
 };
 

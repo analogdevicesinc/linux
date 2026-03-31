@@ -3152,7 +3152,7 @@ static struct gdsc *gcc_milos_gdscs[] = {
 	[USB3_PHY_GDSC] = &usb3_phy_gdsc,
 };
 
-static u32 gcc_milos_critical_cbcrs[] = {
+static const u32 gcc_milos_critical_cbcrs[] = {
 	0x26004, /* GCC_CAMERA_AHB_CLK */
 	0x26018, /* GCC_CAMERA_HF_XO_CLK */
 	0x2601c, /* GCC_CAMERA_SF_XO_CLK */

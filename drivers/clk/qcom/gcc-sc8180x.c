@@ -4647,7 +4647,7 @@ static struct gdsc *gcc_sc8180x_gdscs[] = {
 	[HLOS1_VOTE_TURING_MMU_TBU1_GDSC] = &hlos1_vote_turing_mmu_tbu1_gdsc,
 };
 
-static u32 gcc_sc8180x_critical_cbcrs[] = {
+static const u32 gcc_sc8180x_critical_cbcrs[] = {
 	0xb004,  /* GCC_VIDEO_AHB_CLK */
 	0xb008,  /* GCC_CAMERA_AHB_CLK */
 	0xb00c,  /* GCC_DISP_AHB_CLK */

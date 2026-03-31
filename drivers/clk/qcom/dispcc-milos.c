@@ -906,7 +906,7 @@ static struct clk_alpha_pll *disp_cc_milos_plls[] = {
 	&disp_cc_pll0,
 };
 
-static u32 disp_cc_milos_critical_cbcrs[] = {
+static const u32 disp_cc_milos_critical_cbcrs[] = {
 	0xe06c, /* DISP_CC_SLEEP_CLK */
 	0xe04c, /* DISP_CC_XO_CLK */
 };
