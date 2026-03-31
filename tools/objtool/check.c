@@ -1044,9 +1044,6 @@ static int create_sym_checksum_section(struct objtool_file *file)
 		if (sym->csum.checksum)
 			idx++;
 
-	if (!idx)
-		return 0;
-
 	sec = elf_create_section_pair(file->elf, ".discard.sym_checksum", entsize,
 				      idx, idx);
 	if (!sec)
