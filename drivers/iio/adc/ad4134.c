@@ -490,11 +490,12 @@ const struct attribute_group ad4134_offload_attribute_group = {
 static void ad4134_prepare_offload_msg(struct iio_dev *indio_dev)
 {
 	struct ad4134_state *st = iio_priv(indio_dev);
+	unsigned int bpw = roundup_pow_of_two(BITS_TO_BYTES(AD4134_CHAN_PRECISION_BITS));
 	unsigned int i;
 
 	for (i = 0; i < AD4134_NUM_CHANNELS; i++) {
-		st->xfers[i].bits_per_word = AD4134_CHAN_PRECISION_BITS;
-		st->xfers[i].len = roundup_pow_of_two(BITS_TO_BYTES(AD4134_CHAN_PRECISION_BITS));
+		st->xfers[i].bits_per_word = bpw;
+		st->xfers[i].len = bpw / st->num_dout_lines;
 		st->xfers[i].offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 	}
 
