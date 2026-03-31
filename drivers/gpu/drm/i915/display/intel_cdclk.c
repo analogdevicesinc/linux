@@ -691,10 +691,10 @@ static void vlv_set_cdclk(struct intel_display *display,
 	 */
 	wakeref = intel_display_power_get(display, POWER_DOMAIN_DISPLAY_CORE);
 
-	vlv_iosf_sb_get(display->drm,
-			BIT(VLV_IOSF_SB_CCK) |
-			BIT(VLV_IOSF_SB_BUNIT) |
-			BIT(VLV_IOSF_SB_PUNIT));
+	intel_parent_vlv_iosf_get(display,
+				  BIT(VLV_IOSF_SB_CCK) |
+				  BIT(VLV_IOSF_SB_BUNIT) |
+				  BIT(VLV_IOSF_SB_PUNIT));
 
 	val = vlv_punit_read(display, PUNIT_REG_DSPSSPM);
 	val &= ~DSPFREQGUAR_MASK;
@@ -740,10 +740,10 @@ static void vlv_set_cdclk(struct intel_display *display,
 		val |= 3000 / 250; /* 3.0 usec */
 	vlv_bunit_write(display, BUNIT_REG_BISOC, val);
 
-	vlv_iosf_sb_put(display->drm,
-			BIT(VLV_IOSF_SB_CCK) |
-			BIT(VLV_IOSF_SB_BUNIT) |
-			BIT(VLV_IOSF_SB_PUNIT));
+	intel_parent_vlv_iosf_put(display,
+				  BIT(VLV_IOSF_SB_CCK) |
+				  BIT(VLV_IOSF_SB_BUNIT) |
+				  BIT(VLV_IOSF_SB_PUNIT));
 
 	intel_update_cdclk(display);
 

@@ -6,6 +6,7 @@
 
 #include <linux/types.h>
 
+enum vlv_iosf_sb_unit;
 struct dma_fence;
 struct drm_crtc;
 struct drm_device;
@@ -176,6 +177,13 @@ struct intel_display_stolen_interface {
 	void (*node_free)(const struct intel_stolen_node *node);
 };
 
+struct intel_display_vlv_iosf_interface {
+	void (*get)(struct drm_device *drm, unsigned long unit_mask);
+	void (*put)(struct drm_device *drm, unsigned long unit_mask);
+	u32 (*read)(struct drm_device *drm, enum vlv_iosf_sb_unit unit, u32 addr);
+	int (*write)(struct drm_device *drm, enum vlv_iosf_sb_unit unit, u32 addr, u32 val);
+};
+
 struct intel_display_vma_interface {
 	int (*fence_id)(const struct i915_vma *vma);
 };
@@ -234,6 +242,9 @@ struct intel_display_parent_interface {
 
 	/** @stolen: Stolen memory. */
 	const struct intel_display_stolen_interface *stolen;
+
+	/** @vlv_iosf: VLV IOSF sideband. Optional. */
+	const struct intel_display_vlv_iosf_interface *vlv_iosf;
 
 	/** @vma: VMA interface. Optional. */
 	const struct intel_display_vma_interface *vma;
