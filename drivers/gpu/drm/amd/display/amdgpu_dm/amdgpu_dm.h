@@ -53,12 +53,6 @@
 
 #define AMDGPU_DMUB_NOTIFICATION_MAX 8
 
-#define HDMI_AMD_VENDOR_SPECIFIC_DATA_BLOCK_IEEE_REGISTRATION_ID 0x00001A
-#define AMD_VSDB_VERSION_3_FEATURECAP_REPLAYMODE 0x40
-#define AMD_VDSB_VERSION_3_PANEL_TYPE_MASK 0xC0
-#define AMD_VDSB_VERSION_3_PANEL_TYPE_SHIFT 6
-#define HDMI_AMD_VENDOR_SPECIFIC_DATA_BLOCK_VERSION_3 0x3
-
 enum amd_vsdb_panel_type {
 	AMD_VSDB_PANEL_TYPE_DEFAULT = 0,
 	AMD_VSDB_PANEL_TYPE_MINILED,
@@ -96,14 +90,6 @@ struct dmub_srv;
 struct dc_plane_state;
 struct dmub_notification;
 struct dmub_cmd_fused_request;
-
-struct amd_vsdb_block {
-	unsigned char ieee_id[3];
-	unsigned char version;
-	unsigned char feature_caps;
-	unsigned char reserved[3];
-	unsigned char color_space_eotf_support;
-};
 
 struct common_irq_params {
 	struct amdgpu_device *adev;
