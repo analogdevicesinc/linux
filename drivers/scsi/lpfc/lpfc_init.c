@@ -11795,6 +11795,7 @@ lpfc_sli4_pci_mem_setup(struct lpfc_hba *phba)
 	unsigned long bar0map_len, bar1map_len, bar2map_len;
 	int error;
 	uint32_t if_type;
+	u8 sli_family;
 
 	if (!pdev)
 		return -ENODEV;
@@ -11823,6 +11824,14 @@ lpfc_sli4_pci_mem_setup(struct lpfc_hba *phba)
 				"sli_intf reg 0x%x\n",
 				phba->sli4_hba.sli_intf.word0);
 		return -ENODEV;
+	}
+
+	/* Check if ASIC_ID register should be read */
+	sli_family = bf_get(lpfc_sli_intf_sli_family, &phba->sli4_hba.sli_intf);
+	if (sli_family == LPFC_SLI_INTF_ASIC_ID) {
+		if (pci_read_config_dword(pdev, LPFC_ASIC_ID_OFFSET,
+					  &phba->sli4_hba.asic_id.word0))
+			return -ENODEV;
 	}
 
 	if_type = bf_get(lpfc_sli_intf_if_type, &phba->sli4_hba.sli_intf);
@@ -14522,6 +14531,12 @@ lpfc_log_write_firmware_error(struct lpfc_hba *phba, uint32_t offset,
 	u8 sli_family;
 
 	sli_family = bf_get(lpfc_sli_intf_sli_family, &phba->sli4_hba.sli_intf);
+
+	/* Refer to ASIC_ID register case */
+	if (sli_family == LPFC_SLI_INTF_ASIC_ID)
+		sli_family = bf_get(lpfc_asic_id_gen_num,
+				    &phba->sli4_hba.asic_id);
+
 	/* Three cases:  (1) FW was not supported on the detected adapter.
 	 * (2) FW update has been locked out administratively.
 	 * (3) Some other error during FW update.
@@ -14534,7 +14549,9 @@ lpfc_log_write_firmware_error(struct lpfc_hba *phba, uint32_t offset,
 	    (sli_family == LPFC_SLI_INTF_FAMILY_G7 &&
 	     magic_number != MAGIC_NUMBER_G7) ||
 	    (sli_family == LPFC_SLI_INTF_FAMILY_G7P &&
-	     magic_number != MAGIC_NUMBER_G7P)) {
+	     magic_number != MAGIC_NUMBER_G7P) ||
+	    (sli_family == LPFC_SLI_INTF_FAMILY_G8 &&
+	     magic_number != MAGIC_NUMBER_G8)) {
 		lpfc_printf_log(phba, KERN_ERR, LOG_TRACE_EVENT,
 				"3030 This firmware version is not supported on"
 				" this HBA model. Device:%x Magic:%x Type:%x "
