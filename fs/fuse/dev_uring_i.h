@@ -107,7 +107,7 @@ struct fuse_ring_queue {
  */
 struct fuse_ring {
 	/* back pointer */
-	struct fuse_conn *fc;
+	struct fuse_chan *chan;
 
 	/* number of ring queues */
 	size_t nr_queues;
