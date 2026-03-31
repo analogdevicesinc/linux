@@ -662,7 +662,7 @@ void dcn3_fpu_build_wm_range_table(struct clk_mgr *base)
 	double pstate_latency_us = base->ctx->dc->dml.soc.dram_clock_change_latency_us;
 	double sr_exit_time_us = base->ctx->dc->dml.soc.sr_exit_time_us;
 	double sr_enter_plus_exit_time_us = base->ctx->dc->dml.soc.sr_enter_plus_exit_time_us;
-	uint16_t min_uclk_mhz = base->bw_params->clk_table.entries[0].memclk_mhz;
+	uint16_t min_uclk_mhz = (uint16_t)base->bw_params->clk_table.entries[0].memclk_mhz;
 
 	dc_assert_fp_enabled();
 

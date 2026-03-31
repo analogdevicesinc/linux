@@ -75,7 +75,7 @@ uint8_t  dc_plane_get_pipe_mask(struct dc_state *dc_state, const struct dc_plane
 		struct pipe_ctx *pipe_ctx = &dc_state->res_ctx.pipe_ctx[i];
 
 		if (pipe_ctx->plane_state == plane_state && pipe_ctx->plane_res.hubp)
-			pipe_mask |= 1 << pipe_ctx->plane_res.hubp->inst;
+			pipe_mask |= (uint8_t)(1 << pipe_ctx->plane_res.hubp->inst);
 	}
 
 	return pipe_mask;

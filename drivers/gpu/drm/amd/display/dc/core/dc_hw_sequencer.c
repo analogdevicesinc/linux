@@ -347,39 +347,39 @@ void get_surface_visual_confirm_color(
 	switch (pipe_ctx->plane_res.scl_data.format) {
 	case PIXEL_FORMAT_ARGB8888:
 		/* set border color to red */
-		color->color_r_cr = color_value;
+		color->color_r_cr = (uint16_t)color_value;
 		if (pipe_ctx->plane_state->layer_index > 0) {
 			/* set border color to pink */
-			color->color_b_cb = color_value;
-			color->color_g_y = color_value * 0.5;
+			color->color_b_cb = (uint16_t)color_value;
+			color->color_g_y = (uint16_t)(color_value / 2);
 		}
 		break;
 
 	case PIXEL_FORMAT_ARGB2101010:
 		/* set border color to blue */
-		color->color_b_cb = color_value;
+		color->color_b_cb = (uint16_t)color_value;
 		if (pipe_ctx->plane_state->layer_index > 0) {
 			/* set border color to cyan */
-			color->color_g_y = color_value;
+			color->color_g_y = (uint16_t)color_value;
 		}
 		break;
 	case PIXEL_FORMAT_420BPP8:
 		/* set border color to green */
-		color->color_g_y = color_value;
+		color->color_g_y = (uint16_t)color_value;
 		break;
 	case PIXEL_FORMAT_420BPP10:
 		/* set border color to yellow */
-		color->color_g_y = color_value;
-		color->color_r_cr = color_value;
+		color->color_g_y = (uint16_t)color_value;
+		color->color_r_cr = (uint16_t)color_value;
 		break;
 	case PIXEL_FORMAT_FP16:
 		/* set border color to white */
-		color->color_r_cr = color_value;
-		color->color_b_cb = color_value;
-		color->color_g_y = color_value;
+		color->color_r_cr = (uint16_t)color_value;
+		color->color_b_cb = (uint16_t)color_value;
+		color->color_g_y = (uint16_t)color_value;
 		if (pipe_ctx->plane_state->layer_index > 0) {
 			/* set border color to orange */
-			color->color_g_y = 0.22 * color_value;
+			color->color_g_y = (uint16_t)((color_value * 22) / 100);
 			color->color_b_cb = 0;
 		}
 		break;
@@ -405,21 +405,21 @@ void get_hdr_visual_confirm_color(
 	case PIXEL_FORMAT_ARGB2101010:
 		if (top_pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_PQ) {
 			/* HDR10, ARGB2101010 - set border color to red */
-			color->color_r_cr = color_value;
+			color->color_r_cr = (uint16_t)color_value;
 		} else if (top_pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_GAMMA22) {
 			/* FreeSync 2 ARGB2101010 - set border color to pink */
-			color->color_r_cr = color_value;
-			color->color_b_cb = color_value;
+			color->color_r_cr = (uint16_t)color_value;
+			color->color_b_cb = (uint16_t)color_value;
 		} else
 			is_sdr = true;
 		break;
 	case PIXEL_FORMAT_FP16:
 		if (top_pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_PQ) {
 			/* HDR10, FP16 - set border color to blue */
-			color->color_b_cb = color_value;
+			color->color_b_cb = (uint16_t)color_value;
 		} else if (top_pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_GAMMA22) {
 			/* FreeSync 2 HDR - set border color to green */
-			color->color_g_y = color_value;
+			color->color_g_y = (uint16_t)color_value;
 		} else
 			is_sdr = true;
 		break;
@@ -430,9 +430,9 @@ void get_hdr_visual_confirm_color(
 
 	if (is_sdr) {
 		/* SDR - set border color to Gray */
-		color->color_r_cr = color_value/2;
-		color->color_b_cb = color_value/2;
-		color->color_g_y = color_value/2;
+		color->color_r_cr = (uint16_t)(color_value / 2);
+		color->color_b_cb = (uint16_t)(color_value / 2);
+		color->color_g_y = (uint16_t)(color_value / 2);
 	}
 }
 
@@ -456,7 +456,7 @@ void get_smartmux_visual_confirm_color(
 		*color = sm_ver_colors[dc->config.smart_mux_version];
 	} else {
 		/* dGPU driving the eDP - red */
-		color->color_r_cr = color_value;
+		color->color_r_cr = (uint16_t)color_value;
 		color->color_g_y = 0;
 		color->color_b_cb = 0;
 	}
@@ -478,19 +478,19 @@ void get_vabc_visual_confirm_color(
 	if (edp_link) {
 		switch (edp_link->backlight_control_type) {
 		case BACKLIGHT_CONTROL_PWM:
-			color->color_r_cr = color_value;
+			color->color_r_cr = (uint16_t)color_value;
 			color->color_g_y = 0;
 			color->color_b_cb = 0;
 			break;
 		case BACKLIGHT_CONTROL_AMD_AUX:
 			color->color_r_cr = 0;
-			color->color_g_y = color_value;
+			color->color_g_y = (uint16_t)color_value;
 			color->color_b_cb = 0;
 			break;
 		case BACKLIGHT_CONTROL_VESA_AUX:
 			color->color_r_cr = 0;
 			color->color_g_y = 0;
-			color->color_b_cb = color_value;
+			color->color_b_cb = (uint16_t)color_value;
 			break;
 		}
 	} else {
@@ -508,19 +508,19 @@ void get_subvp_visual_confirm_color(
 	if (pipe_ctx) {
 		switch (pipe_ctx->p_state_type) {
 		case P_STATE_SUB_VP:
-			color->color_r_cr = color_value;
+			color->color_r_cr = (uint16_t)color_value;
 			color->color_g_y  = 0;
 			color->color_b_cb = 0;
 			break;
 		case P_STATE_DRR_SUB_VP:
 			color->color_r_cr = 0;
-			color->color_g_y  = color_value;
+			color->color_g_y  = (uint16_t)color_value;
 			color->color_b_cb = 0;
 			break;
 		case P_STATE_V_BLANK_SUB_VP:
 			color->color_r_cr = 0;
 			color->color_g_y  = 0;
-			color->color_b_cb = color_value;
+			color->color_b_cb = (uint16_t)color_value;
 			break;
 		default:
 			break;
@@ -537,34 +537,34 @@ void get_mclk_switch_visual_confirm_color(
 	if (pipe_ctx) {
 		switch (pipe_ctx->p_state_type) {
 		case P_STATE_V_BLANK:
-			color->color_r_cr = color_value;
-			color->color_g_y = color_value;
+			color->color_r_cr = (uint16_t)color_value;
+			color->color_g_y = (uint16_t)color_value;
 			color->color_b_cb = 0;
 			break;
 		case P_STATE_FPO:
 			color->color_r_cr = 0;
-			color->color_g_y  = color_value;
-			color->color_b_cb = color_value;
+			color->color_g_y  = (uint16_t)color_value;
+			color->color_b_cb = (uint16_t)color_value;
 			break;
 		case P_STATE_V_ACTIVE:
-			color->color_r_cr = color_value;
+			color->color_r_cr = (uint16_t)color_value;
 			color->color_g_y  = 0;
-			color->color_b_cb = color_value;
+			color->color_b_cb = (uint16_t)color_value;
 			break;
 		case P_STATE_SUB_VP:
-			color->color_r_cr = color_value;
+			color->color_r_cr = (uint16_t)color_value;
 			color->color_g_y  = 0;
 			color->color_b_cb = 0;
 			break;
 		case P_STATE_DRR_SUB_VP:
 			color->color_r_cr = 0;
-			color->color_g_y  = color_value;
+			color->color_g_y  = (uint16_t)color_value;
 			color->color_b_cb = 0;
 			break;
 		case P_STATE_V_BLANK_SUB_VP:
 			color->color_r_cr = 0;
 			color->color_g_y  = 0;
-			color->color_b_cb = color_value;
+			color->color_b_cb = (uint16_t)color_value;
 			break;
 		default:
 			break;
@@ -579,13 +579,13 @@ void get_cursor_visual_confirm_color(
 	uint32_t color_value = MAX_TG_COLOR_VALUE;
 
 	if (pipe_ctx->stream && pipe_ctx->stream->cursor_position.enable) {
-		color->color_r_cr = color_value;
+		color->color_r_cr = (uint16_t)color_value;
 		color->color_g_y = 0;
 		color->color_b_cb = 0;
 	} else {
 		color->color_r_cr = 0;
 		color->color_g_y = 0;
-		color->color_b_cb = color_value;
+		color->color_b_cb = (uint16_t)color_value;
 	}
 }
 
@@ -723,9 +723,9 @@ void get_fams2_visual_confirm_color(
 	/* driver only handles visual confirm when FAMS2 is disabled */
 	if (!dc_state_is_fams2_in_use(dc, context)) {
 		/* when FAMS2 is disabled, all pipes are grey */
-		color->color_g_y = color_value / 2;
-		color->color_b_cb = color_value / 2;
-		color->color_r_cr = color_value / 2;
+		color->color_g_y = (uint16_t)(color_value / 2);
+		color->color_b_cb = (uint16_t)(color_value / 2);
+		color->color_r_cr = (uint16_t)(color_value / 2);
 	}
 }
 
@@ -2414,7 +2414,7 @@ void get_surface_tile_visual_confirm_color(
 	switch (bottom_pipe_ctx->plane_state->tiling_info.gfx9.swizzle) {
 	case DC_SW_LINEAR:
 		/* LINEAR Surface - set border color to red */
-		color->color_r_cr = color_value;
+		color->color_r_cr = (uint16_t)color_value;
 		break;
 	default:
 		break;
@@ -4595,8 +4595,8 @@ void get_refresh_rate_confirm_color(struct pipe_ctx *pipe_ctx, struct tg_color *
 		if (max_refresh_rate - min_refresh_rate)
 			scaling_factor = MAX_TG_COLOR_VALUE * (refresh_rate - min_refresh_rate) / (max_refresh_rate - min_refresh_rate);
 
-		pipe_ctx->visual_confirm_color.color_r_cr = color_value;
-		pipe_ctx->visual_confirm_color.color_g_y = scaling_factor;
-		pipe_ctx->visual_confirm_color.color_b_cb = color_value;
+		pipe_ctx->visual_confirm_color.color_r_cr = (uint16_t)color_value;
+		pipe_ctx->visual_confirm_color.color_g_y = (uint16_t)scaling_factor;
+		pipe_ctx->visual_confirm_color.color_b_cb = (uint16_t)color_value;
 	}
 }

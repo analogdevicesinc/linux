@@ -235,7 +235,7 @@ static bool create_links(
 	 *   variants of the same card.
 	 */
 	for (i = 0; dc->link_count < connectors_num && i < MAX_LINKS; i++) {
-		struct graphics_object_id connector_id = bios->funcs->get_connector_id(bios, i);
+		struct graphics_object_id connector_id = bios->funcs->get_connector_id(bios, (uint8_t)i);
 		struct link_init_data link_init_params = {0};
 		struct dc_link *link;
 
@@ -246,7 +246,7 @@ static bool create_links(
 
 		link_init_params.ctx = dc->ctx;
 		/* next BIOS object table connector */
-		link_init_params.connector_index = i;
+		link_init_params.connector_index = (uint8_t)i;
 		link_init_params.link_index = dc->link_count;
 		link_init_params.dc = dc;
 		link = dc->link_srv->create_link(&link_init_params);
@@ -267,7 +267,7 @@ static bool create_links(
 		struct dc_link *link;
 
 		link_init_params.ctx = dc->ctx;
-		link_init_params.connector_index = i;
+		link_init_params.connector_index = (uint8_t)i;
 		link_init_params.link_index = dc->link_count;
 		link_init_params.dc = dc;
 		link_init_params.is_dpia_link = true;
@@ -659,12 +659,12 @@ bool dc_stream_configure_crc(struct dc *dc, struct dc_stream_state *stream,
 	/* By default, capture the full frame */
 	param.windowa_x_start = 0;
 	param.windowa_y_start = 0;
-	param.windowa_x_end = pipe->stream->timing.h_addressable;
-	param.windowa_y_end = pipe->stream->timing.v_addressable;
+	param.windowa_x_end = (uint16_t)pipe->stream->timing.h_addressable;
+	param.windowa_y_end = (uint16_t)pipe->stream->timing.v_addressable;
 	param.windowb_x_start = 0;
 	param.windowb_y_start = 0;
-	param.windowb_x_end = pipe->stream->timing.h_addressable;
-	param.windowb_y_end = pipe->stream->timing.v_addressable;
+	param.windowb_x_end = (uint16_t)pipe->stream->timing.h_addressable;
+	param.windowb_y_end = (uint16_t)pipe->stream->timing.v_addressable;
 	param.crc_poly_mode = crc_poly_mode;
 
 	if (crc_window) {
@@ -2137,7 +2137,7 @@ static uint8_t get_stream_mask(struct dc *dc, struct dc_state *context)
 			stream_mask |= 1 << i;
 	}
 
-	return stream_mask;
+	return (uint8_t)stream_mask;
 }
 
 void dc_z10_restore(const struct dc *dc)
@@ -2482,7 +2482,7 @@ enum dc_status dc_commit_streams(struct dc *dc, struct dc_commit_streams_params 
 		set[i].stream = stream;
 
 		if (status) {
-			set[i].plane_count = status->plane_count;
+			set[i].plane_count = (uint8_t)status->plane_count;
 			for (j = 0; j < status->plane_count; j++)
 				set[i].plane_states[j] = status->plane_states[j];
 		}
@@ -2541,7 +2541,7 @@ enum dc_status dc_commit_streams(struct dc *dc, struct dc_commit_streams_params 
 	for (i = 0; i < params->stream_count; i++) {
 		for (j = 0; j < context->stream_count; j++) {
 			if (params->streams[i]->stream_id == context->streams[j]->stream_id)
-				params->streams[i]->out.otg_offset = context->stream_status[j].primary_otg_inst;
+				params->streams[i]->out.otg_offset = (uint8_t)context->stream_status[j].primary_otg_inst;
 
 			if (dc_is_embedded_signal(params->streams[i]->signal)) {
 				struct dc_stream_status *status = dc_state_get_stream_status(context, params->streams[i]);
@@ -2669,7 +2669,7 @@ void dc_post_update_surfaces_to_stream(struct dc *dc)
 		for (i = 0; i < dc->res_pool->pipe_count; i++)
 			if (context->res_ctx.pipe_ctx[i].stream == NULL ||
 					context->res_ctx.pipe_ctx[i].plane_state == NULL) {
-				context->res_ctx.pipe_ctx[i].pipe_idx = i;
+				context->res_ctx.pipe_ctx[i].pipe_idx = (uint8_t)i;
 				dc->hwss.disable_plane(dc, context, &context->res_ctx.pipe_ctx[i]);
 			}
 
@@ -3218,10 +3218,10 @@ static void copy_surface_update_to_plane(
 		surface->flip_immediate =
 			srf_update->flip_addr->flip_immediate;
 		surface->time.time_elapsed_in_us[surface->time.index] =
-			srf_update->flip_addr->flip_timestamp_in_us -
-				surface->time.prev_update_time_in_us;
+			(unsigned int)(srf_update->flip_addr->flip_timestamp_in_us -
+				surface->time.prev_update_time_in_us);
 		surface->time.prev_update_time_in_us =
-			srf_update->flip_addr->flip_timestamp_in_us;
+			(unsigned int)srf_update->flip_addr->flip_timestamp_in_us;
 		surface->time.index++;
 		if (surface->time.index >= DC_PLANE_UPDATE_TIMES_MAX)
 			surface->time.index = 0;
@@ -3997,7 +3997,7 @@ void dc_dmub_update_dirty_rect(struct dc *dc,
 		else
 			update_dirty_rect->cmd_version = DMUB_CMD_CURSOR_UPDATE_VERSION_1;
 
-		update_dirty_rect->dirty_rect_count = flip_addr->dirty_rect_count;
+		update_dirty_rect->dirty_rect_count = (uint8_t)flip_addr->dirty_rect_count;
 		memcpy(update_dirty_rect->src_dirty_rects, flip_addr->dirty_rects,
 				sizeof(flip_addr->dirty_rects));
 		for (j = 0; j < dc->res_pool->pipe_count; j++) {
@@ -4008,9 +4008,9 @@ void dc_dmub_update_dirty_rect(struct dc *dc,
 			if (pipe_ctx->plane_state != plane_state)
 				continue;
 
-			update_dirty_rect->panel_inst = panel_inst;
-			update_dirty_rect->pipe_idx = j;
-			update_dirty_rect->otg_inst = pipe_ctx->stream_res.tg->inst;
+			update_dirty_rect->panel_inst = (uint8_t)panel_inst;
+			update_dirty_rect->pipe_idx = (uint8_t)j;
+			update_dirty_rect->otg_inst = (uint8_t)pipe_ctx->stream_res.tg->inst;
 			dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_NO_WAIT);
 		}
 	}
@@ -4058,7 +4058,7 @@ static void build_dmub_update_dirty_rect(
 		else
 			update_dirty_rect->cmd_version = DMUB_CMD_CURSOR_UPDATE_VERSION_1;
 
-		update_dirty_rect->dirty_rect_count = flip_addr->dirty_rect_count;
+		update_dirty_rect->dirty_rect_count = (uint8_t)flip_addr->dirty_rect_count;
 		memcpy(update_dirty_rect->src_dirty_rects, flip_addr->dirty_rects,
 				sizeof(flip_addr->dirty_rects));
 		for (j = 0; j < dc->res_pool->pipe_count; j++) {
@@ -4068,9 +4068,9 @@ static void build_dmub_update_dirty_rect(
 				continue;
 			if (pipe_ctx->plane_state != plane_state)
 				continue;
-			update_dirty_rect->panel_inst = panel_inst;
-			update_dirty_rect->pipe_idx = j;
-			update_dirty_rect->otg_inst = pipe_ctx->stream_res.tg->inst;
+			update_dirty_rect->panel_inst = (uint8_t)panel_inst;
+			update_dirty_rect->pipe_idx = (uint8_t)j;
+			update_dirty_rect->otg_inst = (uint8_t)pipe_ctx->stream_res.tg->inst;
 			dc_dmub_cmd[*dmub_cmd_count].dmub_cmd = cmd;
 			dc_dmub_cmd[*dmub_cmd_count].wait_type = DM_DMUB_WAIT_TYPE_NO_WAIT;
 			(*dmub_cmd_count)++;
@@ -4373,7 +4373,7 @@ static void commit_planes_for_stream(struct dc *dc,
 				struct dmub_hw_lock_inst_flags inst_flags = { 0 };
 
 				hw_locks.bits.lock_dig = 1;
-				inst_flags.dig_inst = top_pipe_to_program->stream_res.tg->inst;
+				inst_flags.dig_inst = (uint8_t)top_pipe_to_program->stream_res.tg->inst;
 
 				dmub_hw_lock_mgr_cmd(dc->ctx->dmub_srv,
 							true,
@@ -4640,7 +4640,7 @@ static void commit_planes_for_stream(struct dc *dc,
 				struct dmub_hw_lock_inst_flags inst_flags = { 0 };
 
 				hw_locks.bits.lock_dig = 1;
-				inst_flags.dig_inst = top_pipe_to_program->stream_res.tg->inst;
+				inst_flags.dig_inst = (uint8_t)top_pipe_to_program->stream_res.tg->inst;
 
 				dmub_hw_lock_mgr_cmd(dc->ctx->dmub_srv,
 							false,
@@ -6170,12 +6170,12 @@ bool dc_process_dmub_aux_transfer_async(struct dc *dc,
 	else
 		cmd.dp_aux_access.aux_control.type = AUX_CHANNEL_LEGACY_DDC;
 
-	cmd.dp_aux_access.aux_control.instance = dc->links[link_index]->ddc_hw_inst;
+	cmd.dp_aux_access.aux_control.instance = (uint8_t)dc->links[link_index]->ddc_hw_inst;
 	cmd.dp_aux_access.aux_control.sw_crc_enabled = 0;
 	cmd.dp_aux_access.aux_control.timeout = 0;
 	cmd.dp_aux_access.aux_control.dpaux.address = payload->address;
 	cmd.dp_aux_access.aux_control.dpaux.is_i2c_over_aux = payload->i2c_over_aux;
-	cmd.dp_aux_access.aux_control.dpaux.length = payload->length;
+	cmd.dp_aux_access.aux_control.dpaux.length = (uint8_t)payload->length;
 
 	/* set aux action */
 	if (payload->i2c_over_aux) {
@@ -6241,7 +6241,7 @@ bool dc_smart_power_oled_enable(const struct dc_link *link, bool enable, uint16_
 	}
 
 	if (pipe_ctx)
-		otg_inst = pipe_ctx->stream_res.tg->inst;
+		otg_inst = (uint8_t)pipe_ctx->stream_res.tg->inst;
 
 	// before enable smart power OLED, we need to call set pipe for DMUB to set ABM config
 	if (enable) {
@@ -6258,11 +6258,11 @@ bool dc_smart_power_oled_enable(const struct dc_link *link, bool enable, uint16_
 		sizeof(struct dmub_rb_cmd_smart_power_oled_enable_data) - sizeof(struct dmub_cmd_header);
 	cmd.smart_power_oled_enable.header.ret_status = 1;
 	cmd.smart_power_oled_enable.data.enable = enable;
-	cmd.smart_power_oled_enable.data.panel_inst = panel_inst;
+	cmd.smart_power_oled_enable.data.panel_inst = (uint8_t)panel_inst;
 	cmd.smart_power_oled_enable.data.peak_nits = peak_nits;
 	cmd.smart_power_oled_enable.data.otg_inst = otg_inst;
-	cmd.smart_power_oled_enable.data.digfe_inst = link->link_enc->preferred_engine;
-	cmd.smart_power_oled_enable.data.digbe_inst = link->link_enc->transmitter;
+	cmd.smart_power_oled_enable.data.digfe_inst = (uint8_t)link->link_enc->preferred_engine;
+	cmd.smart_power_oled_enable.data.digbe_inst = (uint8_t)link->link_enc->transmitter;
 
 	cmd.smart_power_oled_enable.data.debugcontrol = debug_control;
 	cmd.smart_power_oled_enable.data.triggerline = triggerline;
@@ -6293,7 +6293,7 @@ bool dc_smart_power_oled_get_max_cll(const struct dc_link *link, unsigned int *p
 	cmd.smart_power_oled_getmaxcll.header.payload_bytes = sizeof(cmd.smart_power_oled_getmaxcll.data);
 	cmd.smart_power_oled_getmaxcll.header.ret_status = 1;
 
-	cmd.smart_power_oled_getmaxcll.data.input.panel_inst = panel_inst;
+	cmd.smart_power_oled_getmaxcll.data.input.panel_inst = (uint8_t)panel_inst;
 
 	// send cmd and wait for reply
 	status = dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT_WITH_REPLY);
@@ -6351,7 +6351,7 @@ bool dc_process_dmub_set_config_async(struct dc *dc,
 	cmd.set_config_access.header.type = DMUB_CMD__DPIA;
 	cmd.set_config_access.header.sub_type = DMUB_CMD__DPIA_SET_CONFIG_ACCESS;
 
-	cmd.set_config_access.set_config_control.instance = dc->links[link_index]->ddc_hw_inst;
+	cmd.set_config_access.set_config_control.instance = (uint8_t)dc->links[link_index]->ddc_hw_inst;
 	cmd.set_config_access.set_config_control.cmd_pkt.msg_type = payload->msg_type;
 	cmd.set_config_access.set_config_control.cmd_pkt.msg_data = payload->msg_data;
 
@@ -6395,7 +6395,7 @@ enum dc_status dc_process_dmub_set_mst_slots(const struct dc *dc,
 	cmd.set_mst_alloc_slots.header.type = DMUB_CMD__DPIA;
 	cmd.set_mst_alloc_slots.header.sub_type = DMUB_CMD__DPIA_MST_ALLOC_SLOTS;
 
-	cmd.set_mst_alloc_slots.mst_slots_control.instance = dc->links[link_index]->ddc_hw_inst;
+	cmd.set_mst_alloc_slots.mst_slots_control.instance = (uint8_t)dc->links[link_index]->ddc_hw_inst;
 	cmd.set_mst_alloc_slots.mst_slots_control.mst_alloc_slots = mst_alloc_slots;
 
 	if (!dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT_WITH_REPLY))
@@ -6435,7 +6435,7 @@ void dc_process_dmub_dpia_set_tps_notification(const struct dc *dc, uint32_t lin
 
 	cmd.set_tps_notification.header.type = DMUB_CMD__DPIA;
 	cmd.set_tps_notification.header.sub_type = DMUB_CMD__DPIA_SET_TPS_NOTIFICATION;
-	cmd.set_tps_notification.tps_notification.instance = dc->links[link_index]->ddc_hw_inst;
+	cmd.set_tps_notification.tps_notification.instance = (uint8_t)dc->links[link_index]->ddc_hw_inst;
 	cmd.set_tps_notification.tps_notification.tps = tps;
 
 	dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);

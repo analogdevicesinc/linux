@@ -2302,7 +2302,7 @@ static bool dcn32_resource_construct(
 	dc->caps.color.dpp.ocsc = 0;
 
 	dc->caps.color.mpc.gamut_remap = 1;
-	dc->caps.color.mpc.num_3dluts = pool->base.res_cap->num_mpc_3dlut; //4, configurable to be before or after BLND in MPCC
+	dc->caps.color.mpc.num_3dluts = (uint16_t)pool->base.res_cap->num_mpc_3dlut; //4, configurable to be before or after BLND in MPCC
 	dc->caps.color.mpc.ogam_ram = 1;
 	dc->caps.color.mpc.ogam_rom_caps.srgb = 0;
 	dc->caps.color.mpc.ogam_rom_caps.bt2020 = 0;
@@ -2619,7 +2619,7 @@ struct resource_pool *dcn32_create_resource_pool(
 	if (!pool)
 		return NULL;
 
-	if (dcn32_resource_construct(init_data->num_virtual_links, dc, pool))
+	if (dcn32_resource_construct((uint8_t)init_data->num_virtual_links, dc, pool))
 		return &pool->base;
 
 	BREAK_TO_DEBUGGER();
@@ -2747,7 +2747,7 @@ static struct pipe_ctx *find_idle_secondary_pipe_check_mpo(
 		if ((res_ctx->pipe_ctx[preferred_pipe_idx].stream == NULL) &&
 			!(next_odm_mpo_pipe && next_odm_mpo_pipe->pipe_idx == preferred_pipe_idx)) {
 			secondary_pipe = &res_ctx->pipe_ctx[preferred_pipe_idx];
-			secondary_pipe->pipe_idx = preferred_pipe_idx;
+			secondary_pipe->pipe_idx = (uint8_t)preferred_pipe_idx;
 		}
 	}
 
@@ -2760,7 +2760,7 @@ static struct pipe_ctx *find_idle_secondary_pipe_check_mpo(
 			if ((res_ctx->pipe_ctx[i].stream == NULL) &&
 				!(next_odm_mpo_pipe && next_odm_mpo_pipe->pipe_idx == i)) {
 				secondary_pipe = &res_ctx->pipe_ctx[i];
-				secondary_pipe->pipe_idx = i;
+				secondary_pipe->pipe_idx = (uint8_t)i;
 				break;
 			}
 		}
@@ -2794,7 +2794,7 @@ static struct pipe_ctx *dcn32_acquire_idle_pipe_for_head_pipe_in_layer(
 	pipe = &old_ctx->pipe_ctx[head_index];
 	if (pipe->bottom_pipe && res_ctx->pipe_ctx[pipe->bottom_pipe->pipe_idx].stream == NULL) {
 		idle_pipe = &res_ctx->pipe_ctx[pipe->bottom_pipe->pipe_idx];
-		idle_pipe->pipe_idx = pipe->bottom_pipe->pipe_idx;
+		idle_pipe->pipe_idx = (uint8_t)pipe->bottom_pipe->pipe_idx;
 	} else {
 		idle_pipe = find_idle_secondary_pipe_check_mpo(res_ctx, pool, head_pipe);
 		if (!idle_pipe)
@@ -2808,7 +2808,7 @@ static struct pipe_ctx *dcn32_acquire_idle_pipe_for_head_pipe_in_layer(
 	idle_pipe->plane_res.hubp = pool->hubps[idle_pipe->pipe_idx];
 	idle_pipe->plane_res.ipp = pool->ipps[idle_pipe->pipe_idx];
 	idle_pipe->plane_res.dpp = pool->dpps[idle_pipe->pipe_idx];
-	idle_pipe->plane_res.mpcc_inst = pool->dpps[idle_pipe->pipe_idx]->inst;
+	idle_pipe->plane_res.mpcc_inst = (uint8_t)pool->dpps[idle_pipe->pipe_idx]->inst;
 
 	return idle_pipe;
 }
@@ -2859,7 +2859,7 @@ struct pipe_ctx *dcn32_acquire_free_pipe_as_secondary_dpp_pipe(
 					pool, opp_head_pipe);
 	if (free_pipe_idx >= 0) {
 		free_pipe = &new_ctx->res_ctx.pipe_ctx[free_pipe_idx];
-		free_pipe->pipe_idx = free_pipe_idx;
+		free_pipe->pipe_idx = (uint8_t)free_pipe_idx;
 		free_pipe->stream = opp_head_pipe->stream;
 		free_pipe->stream_res.tg = opp_head_pipe->stream_res.tg;
 		free_pipe->stream_res.opp = opp_head_pipe->stream_res.opp;
@@ -2868,7 +2868,7 @@ struct pipe_ctx *dcn32_acquire_free_pipe_as_secondary_dpp_pipe(
 		free_pipe->plane_res.ipp = pool->ipps[free_pipe->pipe_idx];
 		free_pipe->plane_res.dpp = pool->dpps[free_pipe->pipe_idx];
 		free_pipe->plane_res.mpcc_inst =
-				pool->dpps[free_pipe->pipe_idx]->inst;
+				(uint8_t)pool->dpps[free_pipe->pipe_idx]->inst;
 	} else {
 		ASSERT(opp_head_pipe);
 		free_pipe = NULL;
@@ -2890,7 +2890,7 @@ struct pipe_ctx *dcn32_acquire_free_pipe_as_secondary_opp_head(
 
 	if (free_pipe_idx >= 0) {
 		free_pipe = &new_ctx->res_ctx.pipe_ctx[free_pipe_idx];
-		free_pipe->pipe_idx = free_pipe_idx;
+		free_pipe->pipe_idx = (uint8_t)free_pipe_idx;
 		free_pipe->stream = otg_master->stream;
 		free_pipe->stream_res.tg = otg_master->stream_res.tg;
 		free_pipe->stream_res.dsc = NULL;
@@ -2900,7 +2900,7 @@ struct pipe_ctx *dcn32_acquire_free_pipe_as_secondary_opp_head(
 		free_pipe->plane_res.ipp = pool->ipps[free_pipe_idx];
 		free_pipe->plane_res.xfm = pool->transforms[free_pipe_idx];
 		free_pipe->plane_res.dpp = pool->dpps[free_pipe_idx];
-		free_pipe->plane_res.mpcc_inst = pool->dpps[free_pipe_idx]->inst;
+		free_pipe->plane_res.mpcc_inst = (uint8_t)pool->dpps[free_pipe_idx]->inst;
 		free_pipe->dsc_padding_params = otg_master->dsc_padding_params;
 		if (free_pipe->stream->timing.flags.DSC == 1) {
 			dcn20_acquire_dsc(free_pipe->stream->ctx->dc,

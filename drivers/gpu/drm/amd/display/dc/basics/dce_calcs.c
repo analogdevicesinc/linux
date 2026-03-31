@@ -3077,7 +3077,7 @@ bool bw_calcs(struct dc_context *ctx,
 		}
 		calculate_bandwidth(dceip, vbios, data);
 
-		yclk_lvl = data->y_clk_level;
+		yclk_lvl = (uint8_t)data->y_clk_level;
 
 		calcs_output->nbp_state_change_enable =
 			data->nbp_state_change_enable;

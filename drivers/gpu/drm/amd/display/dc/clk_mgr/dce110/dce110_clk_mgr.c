@@ -127,7 +127,7 @@ void dce110_fill_display_configs(
 	pp_display_cfg->avail_mclk_switch_time_us = dce110_get_min_vblank_time_us(context);
 	pp_display_cfg->disp_clk_khz = dc->clk_mgr->clks.dispclk_khz;
 	pp_display_cfg->avail_mclk_switch_time_in_disp_active_us = 0;
-	pp_display_cfg->crtc_index = dc->res_pool->res_cap->num_timing_generator;
+	pp_display_cfg->crtc_index = (uint8_t)dc->res_pool->res_cap->num_timing_generator;
 
 	for (j = 0; j < context->stream_count; j++) {
 		int k;
@@ -151,7 +151,7 @@ void dce110_fill_display_configs(
 
 		num_cfgs++;
 		cfg->signal = pipe_ctx->stream->signal;
-		cfg->pipe_idx = pipe_ctx->stream_res.tg->inst;
+		cfg->pipe_idx = (uint8_t)pipe_ctx->stream_res.tg->inst;
 		cfg->src_height = stream->src.height;
 		cfg->src_width = stream->src.width;
 		cfg->ddi_channel_mapping =
@@ -189,7 +189,7 @@ void dce110_fill_display_configs(
 		pp_display_cfg->line_time_in_us = 0;
 	}
 
-	pp_display_cfg->display_count = num_cfgs;
+	pp_display_cfg->display_count = (uint8_t)num_cfgs;
 }
 
 void dce11_pplib_apply_display_requirements(

@@ -610,11 +610,13 @@ void dccg401_set_dp_dto(
 		 * int = target_pix_rate / reference_clock
 		 * phase = target_pix_rate - int * reference_clock,
 		 * modulo = reference_clock */
-		dto_integer = div_u64(params->pixclk_hz, dto_modulo_hz);
+
+		/* dto_modulo_hz = refclk (~100 MHz), well within uint32_t range */
+		dto_integer = div_u64(params->pixclk_hz, (uint32_t)dto_modulo_hz);
 		dto_phase_hz = params->pixclk_hz - dto_integer * dto_modulo_hz;
 
-		if (dto_phase_hz <= 0 && dto_integer <= 0) {
-			/* negative pixel rate should never happen */
+		if (dto_phase_hz == 0 && dto_integer == 0) {
+			/* zero pixel rate should never happen */
 			BREAK_TO_DEBUGGER();
 			return;
 		}
@@ -656,25 +658,25 @@ void dccg401_set_dp_dto(
 
 		dccg401_set_dtbclk_p_src(dccg, params->clk_src, params->otg_inst);
 
-		REG_WRITE(DP_DTO_PHASE[params->otg_inst], dto_phase_hz);
-		REG_WRITE(DP_DTO_MODULO[params->otg_inst], dto_modulo_hz);
+		REG_WRITE(DP_DTO_PHASE[params->otg_inst], (uint32_t)dto_phase_hz);
+		REG_WRITE(DP_DTO_MODULO[params->otg_inst], (uint32_t)dto_modulo_hz);
 
 		switch (params->otg_inst) {
 		case 0:
 			REG_UPDATE(OTG_PIXEL_RATE_DIV,
-					DPDTO0_INT, dto_integer);
+					DPDTO0_INT, (uint32_t)dto_integer);
 			break;
 		case 1:
 			REG_UPDATE(OTG_PIXEL_RATE_DIV,
-					DPDTO1_INT, dto_integer);
+					DPDTO1_INT, (uint32_t)dto_integer);
 			break;
 		case 2:
 			REG_UPDATE(OTG_PIXEL_RATE_DIV,
-					DPDTO2_INT, dto_integer);
+					DPDTO2_INT, (uint32_t)dto_integer);
 			break;
 		case 3:
 			REG_UPDATE(OTG_PIXEL_RATE_DIV,
-					DPDTO3_INT, dto_integer);
+					DPDTO3_INT, (uint32_t)dto_integer);
 			break;
 		default:
 			BREAK_TO_DEBUGGER();

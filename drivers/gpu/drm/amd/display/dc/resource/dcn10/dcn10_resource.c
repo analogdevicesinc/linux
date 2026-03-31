@@ -1139,7 +1139,7 @@ static struct pipe_ctx *dcn10_acquire_free_pipe_for_layer(
 	idle_pipe->plane_res.hubp = pool->hubps[idle_pipe->pipe_idx];
 	idle_pipe->plane_res.ipp = pool->ipps[idle_pipe->pipe_idx];
 	idle_pipe->plane_res.dpp = pool->dpps[idle_pipe->pipe_idx];
-	idle_pipe->plane_res.mpcc_inst = pool->dpps[idle_pipe->pipe_idx]->inst;
+	idle_pipe->plane_res.mpcc_inst = (uint8_t)pool->dpps[idle_pipe->pipe_idx]->inst;
 
 	return idle_pipe;
 }
@@ -1735,7 +1735,7 @@ struct resource_pool *dcn10_create_resource_pool(
 	if (!pool)
 		return NULL;
 
-	if (dcn10_resource_construct(init_data->num_virtual_links, dc, pool))
+	if (dcn10_resource_construct((uint8_t)init_data->num_virtual_links, dc, pool))
 		return &pool->base;
 
 	kfree(pool);

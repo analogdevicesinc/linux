@@ -290,12 +290,12 @@ static bool i2c_read(
 	struct i2c_payload payloads[2] = {
 		{
 		.write = true,
-		.address = address,
+		.address = (uint8_t)address,
 		.length = 1,
 		.data = &offs_data },
 		{
 		.write = false,
-		.address = address,
+		.address = (uint8_t)address,
 		.length = len,
 		.data = buffer } };
 

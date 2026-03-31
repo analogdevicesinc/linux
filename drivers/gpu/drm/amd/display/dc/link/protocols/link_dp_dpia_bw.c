@@ -112,7 +112,7 @@ static int get_estimated_bw(struct dc_link *link)
 	return bw_estimated_bw * (Kbps_TO_Gbps / link->dpia_bw_alloc_config.bw_granularity);
 }
 
-static int get_non_reduced_max_link_rate(struct dc_link *link)
+static uint8_t get_non_reduced_max_link_rate(struct dc_link *link)
 {
 	uint8_t nrd_max_link_rate = 0;
 
@@ -125,7 +125,7 @@ static int get_non_reduced_max_link_rate(struct dc_link *link)
 	return nrd_max_link_rate;
 }
 
-static int get_non_reduced_max_lane_count(struct dc_link *link)
+static uint8_t get_non_reduced_max_lane_count(struct dc_link *link)
 {
 	uint8_t nrd_max_lane_count = 0;
 

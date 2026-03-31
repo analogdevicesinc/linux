@@ -75,8 +75,8 @@ void cm_helper_read_color_matrices(struct dc_context *ctx,
 				csc_c11, &regval0,
 				csc_c12, &regval1);
 
-		regval[2 * i] = regval0;
-		regval[(2 * i) + 1] = regval1;
+		regval[2 * i] = (uint16_t)regval0;
+		regval[(2 * i) + 1] = (uint16_t)regval1;
 
 		i++;
 	}

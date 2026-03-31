@@ -1402,11 +1402,12 @@ int dcn20_populate_dml_pipes_from_context(struct dc *dc,
 			timing->h_addressable + timing->h_border_left + timing->h_border_right;
 		pipes[pipe_cnt].pipe.dest.vactive =
 			timing->v_addressable + timing->v_border_top + timing->v_border_bottom;
-		pipes[pipe_cnt].pipe.dest.interlaced = timing->flags.INTERLACE;
+		pipes[pipe_cnt].pipe.dest.interlaced = (unsigned char)timing->flags.INTERLACE;
 		pipes[pipe_cnt].pipe.dest.pixel_rate_mhz = timing->pix_clk_100hz/10000.0;
 		if (timing->timing_3d_format == TIMING_3D_FORMAT_HW_FRAME_PACKING)
 			pipes[pipe_cnt].pipe.dest.pixel_rate_mhz *= 2;
-		pipes[pipe_cnt].pipe.dest.otg_inst = res_ctx->pipe_ctx[i].stream_res.tg->inst;
+		pipes[pipe_cnt].pipe.dest.otg_inst =
+				(unsigned char)res_ctx->pipe_ctx[i].stream_res.tg->inst;
 		pipes[pipe_cnt].dout.dp_lanes = 4;
 		pipes[pipe_cnt].dout.dp_rate = dm_dp_rate_na;
 		pipes[pipe_cnt].dout.is_virtual = 0;
@@ -1879,7 +1880,7 @@ void dcn20_update_bounding_box(struct dc *dc,
 		bb->clock_limits[i].dram_speed_mts = uclk_states[i] * 16 / 1000;
 
 		// FCLK:UCLK ratio is 1.08
-		min_fclk_required_by_uclk = div_u64(((unsigned long long)uclk_states[i]) * 1080,
+		min_fclk_required_by_uclk = (int)div_u64(((unsigned long long)uclk_states[i]) * 1080,
 			1000000);
 
 		bb->clock_limits[i].fabricclk_mhz = (min_fclk_required_by_uclk < min_dcfclk) ?

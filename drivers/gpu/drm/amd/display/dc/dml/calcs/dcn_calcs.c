@@ -533,13 +533,14 @@ static void split_stream_across_pipes(
 
 	*secondary_pipe = *primary_pipe;
 
-	secondary_pipe->pipe_idx = pipe_idx;
+	secondary_pipe->pipe_idx = (uint8_t)pipe_idx;
 	secondary_pipe->plane_res.mi = pool->mis[secondary_pipe->pipe_idx];
 	secondary_pipe->plane_res.hubp = pool->hubps[secondary_pipe->pipe_idx];
 	secondary_pipe->plane_res.ipp = pool->ipps[secondary_pipe->pipe_idx];
 	secondary_pipe->plane_res.xfm = pool->transforms[secondary_pipe->pipe_idx];
 	secondary_pipe->plane_res.dpp = pool->dpps[secondary_pipe->pipe_idx];
-	secondary_pipe->plane_res.mpcc_inst = pool->dpps[secondary_pipe->pipe_idx]->inst;
+	secondary_pipe->plane_res.mpcc_inst =
+			(uint8_t)pool->dpps[secondary_pipe->pipe_idx]->inst;
 	if (primary_pipe->bottom_pipe) {
 		ASSERT(primary_pipe->bottom_pipe != secondary_pipe);
 		secondary_pipe->bottom_pipe = primary_pipe->bottom_pipe;

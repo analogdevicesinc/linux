@@ -1713,7 +1713,7 @@ enum dc_status dp_retrieve_lttpr_cap(struct dc_link *link)
 		CONN_DATA_DETECT(link, lttpr_dpcd_data, sizeof(lttpr_dpcd_data), "LTTPR Caps: ");
 
 		// Identify closest LTTPR to determine if workarounds required for known embedded LTTPR
-		closest_lttpr_offset = dp_get_closest_lttpr_offset(lttpr_count);
+		closest_lttpr_offset = dp_get_closest_lttpr_offset((uint8_t)lttpr_count);
 
 		core_link_read_dpcd(link, (DP_LTTPR_IEEE_OUI + closest_lttpr_offset),
 				link->dpcd_caps.lttpr_caps.lttpr_ieee_oui, sizeof(link->dpcd_caps.lttpr_caps.lttpr_ieee_oui));

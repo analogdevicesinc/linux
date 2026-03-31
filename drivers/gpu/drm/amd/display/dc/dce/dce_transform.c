@@ -802,7 +802,7 @@ static void program_bit_depth_reduction(
 
 	ASSERT(depth <= COLOR_DEPTH_121212); /* Invalid clamp bit depth */
 
-	spatial_dither_enable = bit_depth_params->flags.SPATIAL_DITHER_ENABLED;
+	spatial_dither_enable = bit_depth_params->flags.SPATIAL_DITHER_ENABLED != 0;
 	/* Default to 12 bit truncation without rounding */
 	trunc_round_depth = DCP_OUT_TRUNC_ROUND_DEPTH_12BIT;
 	trunc_mode = DCP_OUT_TRUNC_ROUND_MODE_TRUNCATE;
@@ -835,9 +835,9 @@ static void program_bit_depth_reduction(
 		   spatial_dither_enable,
 		   DCP_SPATIAL_DITHER_MODE_A_AA_A,
 		   DCP_SPATIAL_DITHER_DEPTH_30BPP,
-		   bit_depth_params->flags.FRAME_RANDOM,
-		   bit_depth_params->flags.RGB_RANDOM,
-		   bit_depth_params->flags.HIGHPASS_RANDOM);
+		   bit_depth_params->flags.FRAME_RANDOM != 0,
+		   bit_depth_params->flags.RGB_RANDOM != 0,
+		   bit_depth_params->flags.HIGHPASS_RANDOM != 0);
 }
 
 #if defined(CONFIG_DRM_AMD_DC_SI)

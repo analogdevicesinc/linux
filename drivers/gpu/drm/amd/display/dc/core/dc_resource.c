@@ -286,34 +286,34 @@ struct resource_pool *dc_create_resource_pool(struct dc  *dc,
 #endif
 	case DCE_VERSION_8_0:
 		res_pool = dce80_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_8_1:
 		res_pool = dce81_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_8_3:
 		res_pool = dce83_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_10_0:
 		res_pool = dce100_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_11_0:
 		res_pool = dce110_create_resource_pool(
-				init_data->num_virtual_links, dc,
+				(uint8_t)init_data->num_virtual_links, dc,
 				init_data->asic_id);
 		break;
 	case DCE_VERSION_11_2:
 	case DCE_VERSION_11_22:
 		res_pool = dce112_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_12_0:
 	case DCE_VERSION_12_1:
 		res_pool = dce120_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 
 #if defined(CONFIG_DRM_AMD_DC_FP)
@@ -511,7 +511,7 @@ bool resource_construct(
 	pool->hpo_dp_link_enc_count = 0;
 	if (create_funcs->create_hpo_dp_link_encoder) {
 		for (i = 0; i < caps->num_hpo_dp_link_encoder; i++) {
-			pool->hpo_dp_link_enc[i] = create_funcs->create_hpo_dp_link_encoder(i, ctx);
+			pool->hpo_dp_link_enc[i] = create_funcs->create_hpo_dp_link_encoder((uint8_t)i, ctx);
 			if (pool->hpo_dp_link_enc[i] == NULL)
 				DC_ERR("DC: failed to create HPO DP link encoder!\n");
 			pool->hpo_dp_link_enc_count++;
@@ -610,7 +610,7 @@ bool resource_are_vblanks_synchronizable(
 {
 	uint32_t base60_refresh_rates[] = {10, 20, 5};
 	uint8_t i;
-	uint8_t rr_count = ARRAY_SIZE(base60_refresh_rates);
+	uint8_t rr_count = (uint8_t)ARRAY_SIZE(base60_refresh_rates);
 	uint64_t frame_time_diff;
 
 	if (stream1->ctx->dc->config.vblank_alignment_dto_params &&
@@ -1801,7 +1801,7 @@ struct pipe_ctx *resource_find_free_secondary_pipe_legacy(
 		int preferred_pipe_idx = (pool->pipe_count - 1) - primary_pipe->pipe_idx;
 		if (res_ctx->pipe_ctx[preferred_pipe_idx].stream == NULL) {
 			secondary_pipe = &res_ctx->pipe_ctx[preferred_pipe_idx];
-			secondary_pipe->pipe_idx = preferred_pipe_idx;
+			secondary_pipe->pipe_idx = (uint8_t)preferred_pipe_idx;
 		}
 	}
 
@@ -1813,7 +1813,7 @@ struct pipe_ctx *resource_find_free_secondary_pipe_legacy(
 		for (i = pool->pipe_count - 1; i >= 0; i--) {
 			if (res_ctx->pipe_ctx[i].stream == NULL) {
 				secondary_pipe = &res_ctx->pipe_ctx[i];
-				secondary_pipe->pipe_idx = i;
+				secondary_pipe->pipe_idx = (uint8_t)i;
 				break;
 			}
 		}
@@ -2624,8 +2624,8 @@ static int acquire_first_split_pipe(
 			split_pipe->plane_res.ipp = pool->ipps[i];
 			split_pipe->plane_res.dpp = pool->dpps[i];
 			split_pipe->stream_res.opp = pool->opps[i];
-			split_pipe->plane_res.mpcc_inst = pool->dpps[i]->inst;
-			split_pipe->pipe_idx = i;
+			split_pipe->plane_res.mpcc_inst = (uint8_t)pool->dpps[i]->inst;
+			split_pipe->pipe_idx = (uint8_t)i;
 
 			split_pipe->stream = stream;
 			return i;
@@ -3804,7 +3804,7 @@ static int acquire_resource_from_hw_enabled_state(
 			pipe_ctx->stream_res.opp = pool->opps[id_src[i]];
 
 			if (pool->dpps[id_src[i]]) {
-				pipe_ctx->plane_res.mpcc_inst = pool->dpps[id_src[i]]->inst;
+				pipe_ctx->plane_res.mpcc_inst = (uint8_t)pool->dpps[id_src[i]]->inst;
 
 				if (pool->mpc->funcs->read_mpcc_state) {
 					struct mpcc_state s = {0};
@@ -3823,7 +3823,7 @@ static int acquire_resource_from_hw_enabled_state(
 						pipe_ctx->stream_res.opp->mpc_tree_params.opp_id = s.opp_id;
 				}
 			}
-			pipe_ctx->pipe_idx = id_src[i];
+			pipe_ctx->pipe_idx = (uint8_t)id_src[i];
 
 			if (id_src[i] >= pool->timing_generator_count) {
 				id_src[i] = pool->timing_generator_count - 1;
@@ -3939,7 +3939,7 @@ static bool acquire_otg_master_pipe_for_stream(
 	if (pipe_idx != FREE_PIPE_INDEX_NOT_FOUND) {
 		pipe_ctx = &new_ctx->res_ctx.pipe_ctx[pipe_idx];
 		memset(pipe_ctx, 0, sizeof(*pipe_ctx));
-		pipe_ctx->pipe_idx = pipe_idx;
+		pipe_ctx->pipe_idx = (uint8_t)pipe_idx;
 		pipe_ctx->stream_res.tg = pool->timing_generators[pipe_idx];
 		pipe_ctx->plane_res.mi = pool->mis[pipe_idx];
 		pipe_ctx->plane_res.hubp = pool->hubps[pipe_idx];
@@ -3948,7 +3948,7 @@ static bool acquire_otg_master_pipe_for_stream(
 		pipe_ctx->plane_res.dpp = pool->dpps[pipe_idx];
 		pipe_ctx->stream_res.opp = pool->opps[pipe_idx];
 		if (pool->dpps[pipe_idx])
-			pipe_ctx->plane_res.mpcc_inst = pool->dpps[pipe_idx]->inst;
+			pipe_ctx->plane_res.mpcc_inst = (uint8_t)pool->dpps[pipe_idx]->inst;
 
 		if (pipe_idx >= pool->timing_generator_count && pool->timing_generator_count != 0) {
 			int tg_inst = pool->timing_generator_count - 1;
@@ -4497,7 +4497,7 @@ static void patch_gamut_packet_checksum(
 		for (i = 0; i <= gamut_packet->sb[1]; i++)
 			chk_sum += ptr[i];
 
-		gamut_packet->sb[2] = (uint8_t) (0x100 - chk_sum);
+		gamut_packet->sb[2] = (uint8_t)(0x100 - chk_sum);
 	}
 }
 
@@ -4562,7 +4562,7 @@ static void set_avi_info_frame(
 
 	/* Y0_Y1_Y2 : The pixel encoding */
 	/* H14b AVI InfoFrame has extension on Y-field from 2 bits to 3 bits */
-	hdmi_info.bits.Y0_Y1_Y2 = pixel_encoding;
+	hdmi_info.bits.Y0_Y1_Y2 = (uint8_t)pixel_encoding;
 
 	/* A0 = 1 Active Format Information valid */
 	hdmi_info.bits.A0 = ACTIVE_FORMAT_VALID;
@@ -4692,7 +4692,7 @@ static void set_avi_info_frame(
 		}
 	}
 	/* If VIC >= 128, the Source shall use AVI InfoFrame Version 3*/
-	hdmi_info.bits.VIC0_VIC7 = vic;
+	hdmi_info.bits.VIC0_VIC7 = (uint8_t)vic;
 	if (vic >= 128)
 		hdmi_info.bits.header.version = 3;
 	/* If (C1, C0)=(1, 1) and (EC2, EC1, EC0)=(1, 1, 1),
@@ -4710,7 +4710,7 @@ static void set_avi_info_frame(
 
 		hdmi_info.bits.FR0_FR3 = fr_ind & 0xF;
 		hdmi_info.bits.FR4 = (fr_ind >> 4) & 0x1;
-		hdmi_info.bits.RID0_RID5 = rid;
+		hdmi_info.bits.RID0_RID5 = (uint8_t)rid;
 	}
 
 	/* pixel repetition
@@ -4723,10 +4723,10 @@ static void set_avi_info_frame(
 	 * barBottom: Line Number of Start of Bottom Bar.
 	 * barLeft:   Pixel Number of End of Left Bar.
 	 * barRight:  Pixel Number of Start of Right Bar. */
-	hdmi_info.bits.bar_top = stream->timing.v_border_top;
+	hdmi_info.bits.bar_top = (uint16_t)stream->timing.v_border_top;
 	hdmi_info.bits.bar_bottom = (stream->timing.v_total
 			- stream->timing.v_border_bottom + 1);
-	hdmi_info.bits.bar_left  = stream->timing.h_border_left;
+	hdmi_info.bits.bar_left  = (uint16_t)stream->timing.h_border_left;
 	hdmi_info.bits.bar_right = (stream->timing.h_total
 			- stream->timing.h_border_right + 1);
 
@@ -4746,7 +4746,7 @@ static void set_avi_info_frame(
 		*check_sum += hdmi_info.packet_raw_data.sb[byte_index];
 
 	/* one byte complement */
-	*check_sum = (uint8_t) (0x100 - *check_sum);
+	*check_sum = (uint8_t)(0x100 - *check_sum);
 
 	/* Store in hw_path_mode */
 	info_packet->hb0 = hdmi_info.packet_raw_data.hb0;
@@ -5564,13 +5564,13 @@ bool dc_resource_acquire_secondary_pipe_for_mpc_odm_legacy(
 	sec_pipe->next_odm_pipe = sec_next;
 	sec_pipe->prev_odm_pipe = sec_prev;
 
-	sec_pipe->pipe_idx = pipe_idx;
+	sec_pipe->pipe_idx = (uint8_t)pipe_idx;
 	sec_pipe->plane_res.mi = pool->mis[pipe_idx];
 	sec_pipe->plane_res.hubp = pool->hubps[pipe_idx];
 	sec_pipe->plane_res.ipp = pool->ipps[pipe_idx];
 	sec_pipe->plane_res.xfm = pool->transforms[pipe_idx];
 	sec_pipe->plane_res.dpp = pool->dpps[pipe_idx];
-	sec_pipe->plane_res.mpcc_inst = pool->dpps[pipe_idx]->inst;
+	sec_pipe->plane_res.mpcc_inst = (uint8_t)pool->dpps[pipe_idx]->inst;
 	sec_pipe->stream_res.dsc = NULL;
 	if (odm) {
 		if (!sec_pipe->top_pipe)

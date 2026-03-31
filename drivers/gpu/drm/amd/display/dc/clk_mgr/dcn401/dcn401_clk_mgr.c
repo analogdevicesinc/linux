@@ -174,7 +174,7 @@ static void dcn401_init_single_clock(struct clk_mgr_internal *clk_mgr, PPCLK_e c
 
 	/* if the initial message failed, num_levels will be 0 */
 	for (i = 0; i < *num_levels && i < ARRAY_SIZE(clk_mgr->base.bw_params->clk_table.entries); i++) {
-		*((unsigned int *)entry_i) = (dcn401_smu_get_dpm_freq_by_index(clk_mgr, clk, i) & 0xFFFF);
+		*((unsigned int *)entry_i) = (dcn401_smu_get_dpm_freq_by_index(clk_mgr, clk, (uint8_t)i) & 0xFFFF);
 		entry_i += sizeof(clk_mgr->base.bw_params->clk_table.entries[0]);
 	}
 }
@@ -182,15 +182,15 @@ static void dcn401_init_single_clock(struct clk_mgr_internal *clk_mgr, PPCLK_e c
 static void dcn401_build_wm_range_table(struct clk_mgr *clk_mgr)
 {
 	/* For min clocks use as reported by PM FW and report those as min */
-	uint16_t min_uclk_mhz = clk_mgr->bw_params->clk_table.entries[0].memclk_mhz;
-	uint16_t min_dcfclk_mhz	= clk_mgr->bw_params->clk_table.entries[0].dcfclk_mhz;
+	unsigned int min_uclk_mhz = clk_mgr->bw_params->clk_table.entries[0].memclk_mhz;
+	unsigned int min_dcfclk_mhz = clk_mgr->bw_params->clk_table.entries[0].dcfclk_mhz;
 
 	/* Set A - Normal - default values */
 	clk_mgr->bw_params->wm_table.nv_entries[WM_A].valid = true;
 	clk_mgr->bw_params->wm_table.nv_entries[WM_A].pmfw_breakdown.wm_type = WATERMARKS_CLOCK_RANGE;
-	clk_mgr->bw_params->wm_table.nv_entries[WM_A].pmfw_breakdown.min_dcfclk = min_dcfclk_mhz;
+	clk_mgr->bw_params->wm_table.nv_entries[WM_A].pmfw_breakdown.min_dcfclk = (uint16_t)min_dcfclk_mhz;
 	clk_mgr->bw_params->wm_table.nv_entries[WM_A].pmfw_breakdown.max_dcfclk = 0xFFFF;
-	clk_mgr->bw_params->wm_table.nv_entries[WM_A].pmfw_breakdown.min_uclk = min_uclk_mhz;
+	clk_mgr->bw_params->wm_table.nv_entries[WM_A].pmfw_breakdown.min_uclk = (uint16_t)min_uclk_mhz;
 	clk_mgr->bw_params->wm_table.nv_entries[WM_A].pmfw_breakdown.max_uclk = 0xFFFF;
 
 	/* Set B - Unused on dcn4 */
@@ -201,9 +201,9 @@ static void dcn401_build_wm_range_table(struct clk_mgr *clk_mgr)
 	if (clk_mgr->ctx->dc->bb_overrides.dummy_clock_change_latency_ns != 0x7FFFFFFF) {
 		clk_mgr->bw_params->wm_table.nv_entries[WM_1A].valid = true;
 		clk_mgr->bw_params->wm_table.nv_entries[WM_1A].pmfw_breakdown.wm_type = WATERMARKS_DUMMY_PSTATE;
-		clk_mgr->bw_params->wm_table.nv_entries[WM_1A].pmfw_breakdown.min_dcfclk = min_dcfclk_mhz;
+		clk_mgr->bw_params->wm_table.nv_entries[WM_1A].pmfw_breakdown.min_dcfclk = (uint16_t)min_dcfclk_mhz;
 		clk_mgr->bw_params->wm_table.nv_entries[WM_1A].pmfw_breakdown.max_dcfclk = 0xFFFF;
-		clk_mgr->bw_params->wm_table.nv_entries[WM_1A].pmfw_breakdown.min_uclk = min_uclk_mhz;
+		clk_mgr->bw_params->wm_table.nv_entries[WM_1A].pmfw_breakdown.min_uclk = (uint16_t)min_uclk_mhz;
 		clk_mgr->bw_params->wm_table.nv_entries[WM_1A].pmfw_breakdown.max_uclk = 0xFFFF;
 	} else {
 		clk_mgr->bw_params->wm_table.nv_entries[WM_1A].valid = false;
@@ -604,10 +604,10 @@ static int dcn401_set_hard_min_by_freq_optimized(struct clk_mgr_internal *clk_mg
 	 * clock returned is less than requested, then we will ceil the
 	 * requested value to mhz and call it again.
 	 */
-	int actual_clk_khz = dcn401_smu_set_hard_min_by_freq(clk_mgr, clk, khz_to_mhz_floor(requested_clk_khz));
+	int actual_clk_khz = dcn401_smu_set_hard_min_by_freq(clk_mgr, clk, (uint16_t)khz_to_mhz_floor(requested_clk_khz));
 
 	if (actual_clk_khz < requested_clk_khz)
-		actual_clk_khz = dcn401_smu_set_hard_min_by_freq(clk_mgr, clk, khz_to_mhz_ceil(requested_clk_khz));
+		actual_clk_khz = dcn401_smu_set_hard_min_by_freq(clk_mgr, clk, (uint16_t)khz_to_mhz_ceil(requested_clk_khz));
 
 	return actual_clk_khz;
 }
@@ -849,7 +849,7 @@ static unsigned int dcn401_build_update_bandwidth_clocks_sequence(
 		clk_mgr_base->clks.dcfclk_khz = new_clocks->dcfclk_khz;
 		if (dcn401_is_ppclk_dpm_enabled(clk_mgr_internal, PPCLK_DCFCLK)) {
 			block_sequence[num_steps].params.update_hardmin_params.ppclk = PPCLK_DCFCLK;
-			block_sequence[num_steps].params.update_hardmin_params.freq_mhz = khz_to_mhz_ceil(clk_mgr_base->clks.dcfclk_khz);
+			block_sequence[num_steps].params.update_hardmin_params.freq_mhz = (uint16_t)khz_to_mhz_ceil(clk_mgr_base->clks.dcfclk_khz);
 			block_sequence[num_steps].params.update_hardmin_params.response = NULL;
 			block_sequence[num_steps].func = CLK_MGR401_UPDATE_HARDMIN_PPCLK;
 			num_steps++;
@@ -860,7 +860,7 @@ static unsigned int dcn401_build_update_bandwidth_clocks_sequence(
 	if (should_set_clock(safe_to_lower, new_clocks->dcfclk_deep_sleep_khz, clk_mgr_base->clks.dcfclk_deep_sleep_khz)) {
 		clk_mgr_base->clks.dcfclk_deep_sleep_khz = new_clocks->dcfclk_deep_sleep_khz;
 		if (dcn401_is_ppclk_dpm_enabled(clk_mgr_internal, PPCLK_DCFCLK)) {
-			block_sequence[num_steps].params.update_deep_sleep_dcfclk_params.freq_mhz = khz_to_mhz_ceil(clk_mgr_base->clks.dcfclk_deep_sleep_khz);
+			block_sequence[num_steps].params.update_deep_sleep_dcfclk_params.freq_mhz = (uint16_t)khz_to_mhz_ceil(clk_mgr_base->clks.dcfclk_deep_sleep_khz);
 			block_sequence[num_steps].func = CLK_MGR401_UPDATE_DEEP_SLEEP_DCFCLK;
 			num_steps++;
 		}
@@ -984,24 +984,24 @@ static unsigned int dcn401_build_update_bandwidth_clocks_sequence(
 	/* When idle DPM is enabled, need to send active and idle hardmins separately */
 	/* CLK_MGR401_UPDATE_ACTIVE_HARDMINS */
 	if ((update_active_uclk || update_active_fclk) && is_idle_dpm_enabled) {
-		block_sequence[num_steps].params.update_idle_hardmin_params.uclk_mhz = active_uclk_mhz;
-		block_sequence[num_steps].params.update_idle_hardmin_params.fclk_mhz = active_fclk_mhz;
+		block_sequence[num_steps].params.update_idle_hardmin_params.uclk_mhz = (uint16_t)active_uclk_mhz;
+		block_sequence[num_steps].params.update_idle_hardmin_params.fclk_mhz = (uint16_t)active_fclk_mhz;
 		block_sequence[num_steps].func = CLK_MGR401_UPDATE_ACTIVE_HARDMINS;
 		num_steps++;
 	}
 
 	/* CLK_MGR401_UPDATE_IDLE_HARDMINS */
 	if ((update_idle_uclk || update_idle_fclk) && is_idle_dpm_enabled) {
-		block_sequence[num_steps].params.update_idle_hardmin_params.uclk_mhz = idle_uclk_mhz;
-		block_sequence[num_steps].params.update_idle_hardmin_params.fclk_mhz = idle_fclk_mhz;
+		block_sequence[num_steps].params.update_idle_hardmin_params.uclk_mhz = (uint16_t)idle_uclk_mhz;
+		block_sequence[num_steps].params.update_idle_hardmin_params.fclk_mhz = (uint16_t)idle_fclk_mhz;
 		block_sequence[num_steps].func = CLK_MGR401_UPDATE_IDLE_HARDMINS;
 		num_steps++;
 	}
 
 	/* CLK_MGR401_UPDATE_SUBVP_HARDMINS */
 	if ((update_subvp_prefetch_dramclk || update_subvp_prefetch_fclk) && is_df_throttle_opt_enabled) {
-		block_sequence[num_steps].params.update_idle_hardmin_params.uclk_mhz = subvp_prefetch_dramclk_mhz;
-		block_sequence[num_steps].params.update_idle_hardmin_params.fclk_mhz = subvp_prefetch_fclk_mhz;
+		block_sequence[num_steps].params.update_idle_hardmin_params.uclk_mhz = (uint16_t)subvp_prefetch_dramclk_mhz;
+		block_sequence[num_steps].params.update_idle_hardmin_params.fclk_mhz = (uint16_t)subvp_prefetch_fclk_mhz;
 		block_sequence[num_steps].func = CLK_MGR401_UPDATE_SUBVP_HARDMINS;
 		num_steps++;
 	}
@@ -1010,7 +1010,7 @@ static unsigned int dcn401_build_update_bandwidth_clocks_sequence(
 	if (update_active_uclk || update_idle_uclk) {
 		if (!is_idle_dpm_enabled) {
 			block_sequence[num_steps].params.update_hardmin_params.ppclk = PPCLK_UCLK;
-			block_sequence[num_steps].params.update_hardmin_params.freq_mhz = active_uclk_mhz;
+			block_sequence[num_steps].params.update_hardmin_params.freq_mhz = (uint16_t)active_uclk_mhz;
 			block_sequence[num_steps].params.update_hardmin_params.response = NULL;
 			block_sequence[num_steps].func = CLK_MGR401_UPDATE_HARDMIN_PPCLK;
 			num_steps++;
@@ -1123,7 +1123,7 @@ static unsigned int dcn401_build_update_display_clocks_sequence(
 			dcn401_is_ppclk_dpm_enabled(clk_mgr_internal, PPCLK_DTBCLK)) {
 		/* DCCG requires KHz precision for DTBCLK */
 		block_sequence[num_steps].params.update_hardmin_params.ppclk = PPCLK_DTBCLK;
-		block_sequence[num_steps].params.update_hardmin_params.freq_mhz = khz_to_mhz_ceil(new_clocks->ref_dtbclk_khz);
+		block_sequence[num_steps].params.update_hardmin_params.freq_mhz = (uint16_t)khz_to_mhz_ceil(new_clocks->ref_dtbclk_khz);
 		block_sequence[num_steps].params.update_hardmin_params.response = &clk_mgr_base->clks.ref_dtbclk_khz;
 		block_sequence[num_steps].func = CLK_MGR401_UPDATE_HARDMIN_PPCLK;
 		num_steps++;
@@ -1318,7 +1318,7 @@ static void dcn401_notify_wm_ranges(struct clk_mgr *clk_mgr_base)
 	/* collect valid ranges, place in pmfw table */
 	for (i = 0; i < WM_SET_COUNT; i++)
 		if (clk_mgr->base.bw_params->wm_table.nv_entries[i].valid) {
-			table->Watermarks.WatermarkRow[i].WmSetting = i;
+			table->Watermarks.WatermarkRow[i].WmSetting = (uint8_t)i;
 			table->Watermarks.WatermarkRow[i].Flags = clk_mgr->base.bw_params->wm_table.nv_entries[i].pmfw_breakdown.wm_type;
 		}
 	dcn401_smu_set_dram_addr_high(clk_mgr, clk_mgr->wm_range_table_addr >> 32);

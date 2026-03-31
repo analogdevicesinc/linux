@@ -235,7 +235,7 @@ void dcn20_setup_gsl_group_as_lock(
 
 		group_idx = find_free_gsl_group(dc);
 		ASSERT(group_idx != 0);
-		pipe_ctx->stream_res.gsl_group = group_idx;
+		pipe_ctx->stream_res.gsl_group = (uint8_t)group_idx;
 
 		/* set gsl group reg field and mark resource used */
 		switch (group_idx) {
@@ -826,7 +826,7 @@ enum dc_status dcn20_enable_stream_timing(
 	unsigned int event_triggers = 0;
 	int opp_cnt = 1;
 	int opp_inst[MAX_PIPES] = {0};
-	bool interlace = stream->timing.flags.INTERLACE;
+	bool interlace = (stream->timing.flags.INTERLACE != 0);
 	int i;
 	struct mpc_dwb_flow_control flow_control;
 	struct mpc *mpc = dc->res_pool->mpc;
@@ -1452,7 +1452,7 @@ void dcn20_pipe_control_lock(
 		struct dmub_hw_lock_inst_flags inst_flags = { 0 };
 
 		hw_locks.bits.lock_pipe = 1;
-		inst_flags.otg_inst =  pipe->stream_res.tg->inst;
+		inst_flags.otg_inst = (uint8_t)pipe->stream_res.tg->inst;
 
 		if (pipe->plane_state != NULL)
 			hw_locks.bits.triple_buffer_lock = pipe->plane_state->triplebuffer_flips;
@@ -2733,7 +2733,8 @@ void dcn20_update_plane_addr(const struct dc *dc, struct pipe_ctx *pipe_ctx)
 	addr_patched = patch_address_for_sbs_tb_stereo(pipe_ctx, &addr);
 
 	// Call Helper to track VMID use
-	vm_helper_mark_vmid_used(dc->vm_helper, plane_state->address.vmid, pipe_ctx->plane_res.hubp->inst);
+	vm_helper_mark_vmid_used(dc->vm_helper, plane_state->address.vmid,
+			(uint8_t)pipe_ctx->plane_res.hubp->inst);
 
 	pipe_ctx->plane_res.hubp->funcs->hubp_program_surface_flip_and_addr(
 			pipe_ctx->plane_res.hubp,
@@ -3126,7 +3127,7 @@ void dcn20_program_dmdata_engine(struct pipe_ctx *pipe_ctx)
 
 void dcn20_fpga_init_hw(struct dc *dc)
 {
-	int i, j;
+	uint8_t i, j;
 	struct dce_hwseq *hws = dc->hwseq;
 	struct resource_pool *res_pool = dc->res_pool;
 	struct dc_state  *context = dc->current_state;
@@ -3199,7 +3200,7 @@ void dcn20_fpga_init_hw(struct dc *dc)
 
 		pipe_ctx->plane_res.hubp = hubp;
 		pipe_ctx->plane_res.dpp = dpp;
-		pipe_ctx->plane_res.mpcc_inst = dpp->inst;
+		pipe_ctx->plane_res.mpcc_inst = (uint8_t)dpp->inst;
 		hubp->mpcc_id = dpp->inst;
 		hubp->opp_id = OPP_ID_INVALID;
 		hubp->power_gated = false;

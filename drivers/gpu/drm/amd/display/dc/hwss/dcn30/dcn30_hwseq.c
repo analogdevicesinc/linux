@@ -978,7 +978,7 @@ bool dcn30_apply_idle_power_optimizations(struct dc *dc, bool enable)
 							cursor_cache_enable ? &cursor_attr : NULL)) {
 				unsigned int v_total = stream->adjust.v_total_max ?
 						stream->adjust.v_total_max : stream->timing.v_total;
-				unsigned int refresh_hz = div_u64((unsigned long long) stream->timing.pix_clk_100hz *
+				unsigned int refresh_hz = (unsigned int)div_u64((unsigned long long)stream->timing.pix_clk_100hz *
 						100LL, (v_total * stream->timing.h_total));
 
 				/*
@@ -1006,9 +1006,9 @@ bool dcn30_apply_idle_power_optimizations(struct dc *dc, bool enable)
 				unsigned int denom = refresh_hz * 6528;
 				unsigned int stutter_period = dc->current_state->perf_params.stutter_period_us;
 
-				tmr_delay = div_u64(((1000000LL + 2 * stutter_period * refresh_hz) *
+				tmr_delay = (uint32_t)(div_u64(((1000000LL + 2 * stutter_period * refresh_hz) *
 						(100LL + dc->debug.mall_additional_timer_percent) + denom - 1),
-						denom) - 64LL;
+						denom) - 64LL);
 
 				/* In some cases the stutter period is really big (tiny modes) in these
 				 * cases MALL cant be enabled, So skip these cases to avoid a ASSERT()
@@ -1030,9 +1030,9 @@ bool dcn30_apply_idle_power_optimizations(struct dc *dc, bool enable)
 					}
 
 					denom *= 2;
-					tmr_delay = div_u64(((1000000LL + 2 * stutter_period * refresh_hz) *
+					tmr_delay = (uint32_t)(div_u64(((1000000LL + 2 * stutter_period * refresh_hz) *
 							(100LL + dc->debug.mall_additional_timer_percent) + denom - 1),
-							denom) - 64LL;
+							denom) - 64LL);
 				}
 
 				/* Copy HW cursor */
@@ -1062,9 +1062,9 @@ bool dcn30_apply_idle_power_optimizations(struct dc *dc, bool enable)
 					cmd.mall.cursor_copy_src.quad_part = cursor_attr.address.quad_part;
 					cmd.mall.cursor_copy_dst.quad_part =
 							(plane->address.grph.cursor_cache_addr.quad_part + 2047) & ~2047;
-					cmd.mall.cursor_width = cursor_attr.width;
-					cmd.mall.cursor_height = cursor_attr.height;
-					cmd.mall.cursor_pitch = cursor_attr.pitch;
+					cmd.mall.cursor_width = (uint16_t)cursor_attr.width;
+					cmd.mall.cursor_height = (uint16_t)cursor_attr.height;
+					cmd.mall.cursor_pitch = (uint16_t)cursor_attr.pitch;
 
 					dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 

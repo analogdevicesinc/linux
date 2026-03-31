@@ -1574,7 +1574,7 @@ void dcn10_disable_plane(struct dc *dc, struct dc_state *state, struct pipe_ctx 
 
 void dcn10_init_pipes(struct dc *dc, struct dc_state *context)
 {
-	int i;
+	uint8_t i;
 	struct dce_hwseq *hws = dc->hwseq;
 	struct hubbub *hubbub = dc->res_pool->hubbub;
 	bool can_apply_seamless_boot = false;
@@ -1677,7 +1677,7 @@ void dcn10_init_pipes(struct dc *dc, struct dc_state *context)
 
 		pipe_ctx->plane_res.hubp = hubp;
 		pipe_ctx->plane_res.dpp = dpp;
-		pipe_ctx->plane_res.mpcc_inst = dpp->inst;
+		pipe_ctx->plane_res.mpcc_inst = (uint8_t)dpp->inst;
 		hubp->mpcc_id = dpp->inst;
 		hubp->opp_id = OPP_ID_INVALID;
 		hubp->power_gated = false;
@@ -2258,7 +2258,7 @@ void dcn10_cursor_lock(struct dc *dc, struct pipe_ctx *pipe, bool lock)
 		struct dmub_hw_lock_inst_flags inst_flags = { 0 };
 
 		hw_locks.bits.lock_cursor = 1;
-		inst_flags.opp_inst = pipe->stream_res.opp->inst;
+		inst_flags.opp_inst = (uint8_t)pipe->stream_res.opp->inst;
 
 		dmub_hw_lock_mgr_cmd(dc->ctx->dmub_srv,
 					lock,
@@ -2383,7 +2383,7 @@ static uint8_t get_clock_divider(struct pipe_ctx *pipe,
 	}
 	clock_divider *= numpipes;
 
-	return clock_divider;
+	return (uint8_t)clock_divider;
 }
 
 static int dcn10_align_pixel_clocks(struct dc *dc, int group_size,
@@ -2458,7 +2458,7 @@ static int dcn10_align_pixel_clocks(struct dc *dc, int group_size,
 				dc->res_pool->dp_clock_source->funcs->override_dp_pix_clk(
 					dc->res_pool->dp_clock_source,
 					grouped_pipes[i]->stream_res.tg->inst,
-					phase[i], modulo[i]);
+					(unsigned int)phase[i], (unsigned int)modulo[i]);
 				dc->res_pool->dp_clock_source->funcs->get_pixel_clk_frequency_100hz(
 					dc->res_pool->dp_clock_source,
 					grouped_pipes[i]->stream_res.tg->inst, &pclk);
@@ -3516,7 +3516,7 @@ void dcn10_config_stereo_parameters(
 			}
 		}
 		flags->RIGHT_EYE_POLARITY =\
-				stream->timing.flags.RIGHT_EYE_3D_POLARITY;
+				(stream->timing.flags.RIGHT_EYE_3D_POLARITY != 0);
 		if (timing_3d_format == TIMING_3D_FORMAT_HW_FRAME_PACKING)
 			flags->FRAME_PACKED = 1;
 	}

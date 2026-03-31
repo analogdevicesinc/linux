@@ -211,7 +211,7 @@ void dcn314_update_odm(struct dc *dc, struct dc_state *context, struct pipe_ctx 
 	if (pipe_ctx->stream_res.dsc) {
 		struct pipe_ctx *current_pipe_ctx = &dc->current_state->res_ctx.pipe_ctx[pipe_ctx->pipe_idx];
 
-		update_dsc_on_stream(pipe_ctx, pipe_ctx->stream->timing.flags.DSC);
+		update_dsc_on_stream(pipe_ctx, pipe_ctx->stream->timing.flags.DSC != 0);
 
 		/* Check if no longer using pipe for ODM, then need to disconnect DSC for that pipe */
 		if (!pipe_ctx->next_odm_pipe && current_pipe_ctx->next_odm_pipe &&
@@ -419,7 +419,7 @@ void dcn314_resync_fifo_dccg_dio(struct dce_hwseq *hws, struct dc *dc, struct dc
 			if (dcn314_is_pipe_dig_fifo_on(pipe))
 				continue;
 			pipe->stream_res.tg->funcs->disable_crtc(pipe->stream_res.tg);
-			reset_sync_context_for_pipe(dc, context, i);
+			reset_sync_context_for_pipe(dc, context, (uint8_t)i);
 			otg_disabled[i] = true;
 		}
 	}

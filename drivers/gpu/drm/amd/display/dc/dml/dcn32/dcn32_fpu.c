@@ -191,21 +191,24 @@ void dcn32_build_wm_range_table_fpu(struct clk_mgr_internal *clk_mgr)
 	double sr_exit_time_us = clk_mgr->base.ctx->dc->dml.soc.sr_exit_time_us;
 	double sr_enter_plus_exit_time_us = clk_mgr->base.ctx->dc->dml.soc.sr_enter_plus_exit_time_us;
 	/* For min clocks use as reported by PM FW and report those as min */
-	uint16_t min_uclk_mhz			= clk_mgr->base.bw_params->clk_table.entries[0].memclk_mhz;
-	uint16_t min_dcfclk_mhz			= clk_mgr->base.bw_params->clk_table.entries[0].dcfclk_mhz;
+	uint16_t min_uclk_mhz			= (uint16_t)clk_mgr->base.bw_params->clk_table.entries[0].memclk_mhz;
+	uint16_t min_dcfclk_mhz			= (uint16_t)clk_mgr->base.bw_params->clk_table.entries[0].dcfclk_mhz;
 	uint16_t setb_min_uclk_mhz		= min_uclk_mhz;
-	uint16_t dcfclk_mhz_for_the_second_state = clk_mgr->base.ctx->dc->dml.soc.clock_limits[2].dcfclk_mhz;
+	uint16_t dcfclk_mhz_for_the_second_state =
+			(uint16_t)clk_mgr->base.ctx->dc->dml.soc.clock_limits[2].dcfclk_mhz;
 
 	dc_assert_fp_enabled();
 
 	/* For Set B ranges use min clocks state 2 when available, and report those to PM FW */
-	if (dcfclk_mhz_for_the_second_state)
-		clk_mgr->base.bw_params->wm_table.nv_entries[WM_B].pmfw_breakdown.min_dcfclk = dcfclk_mhz_for_the_second_state;
-	else
-		clk_mgr->base.bw_params->wm_table.nv_entries[WM_B].pmfw_breakdown.min_dcfclk = clk_mgr->base.bw_params->clk_table.entries[0].dcfclk_mhz;
+	if (dcfclk_mhz_for_the_second_state) {
+		clk_mgr->base.bw_params->wm_table.nv_entries[WM_B].pmfw_breakdown.min_dcfclk =
+				(uint16_t)dcfclk_mhz_for_the_second_state;
+	} else
+		clk_mgr->base.bw_params->wm_table.nv_entries[WM_B].pmfw_breakdown.min_dcfclk =
+				(uint16_t)clk_mgr->base.bw_params->clk_table.entries[0].dcfclk_mhz;
 
 	if (clk_mgr->base.bw_params->clk_table.entries[2].memclk_mhz)
-		setb_min_uclk_mhz = clk_mgr->base.bw_params->clk_table.entries[2].memclk_mhz;
+		setb_min_uclk_mhz = (uint16_t)clk_mgr->base.bw_params->clk_table.entries[2].memclk_mhz;
 
 	/* Set A - Normal - default values */
 	clk_mgr->base.bw_params->wm_table.nv_entries[WM_A].valid = true;
@@ -901,7 +904,7 @@ static bool subvp_vblank_schedulable(struct dc *dc, struct dc_state *context)
 	struct pipe_ctx *subvp_pipe = NULL;
 	bool found = false;
 	bool schedulable = false;
-	uint32_t i = 0;
+	uint8_t i = 0;
 	uint8_t vblank_index = 0;
 	uint16_t prefetch_us = 0;
 	uint16_t mall_region_us = 0;
@@ -986,7 +989,7 @@ static bool subvp_subvp_admissable(struct dc *dc,
 				struct dc_state *context)
 {
 	bool result = false;
-	uint32_t i;
+	uint8_t i;
 	uint8_t subvp_count = 0;
 	uint32_t min_refresh = subvp_high_refresh_list.min_refresh, max_refresh = 0;
 	uint64_t refresh_rate = 0;
@@ -1779,7 +1782,7 @@ static struct pipe_ctx *dcn32_find_split_pipe(
 
 	if (old_index >= 0 && context->res_ctx.pipe_ctx[old_index].stream == NULL) {
 		pipe = &context->res_ctx.pipe_ctx[old_index];
-		pipe->pipe_idx = old_index;
+		pipe->pipe_idx = (uint8_t)old_index;
 	}
 
 	if (!pipe)
@@ -1788,7 +1791,7 @@ static struct pipe_ctx *dcn32_find_split_pipe(
 					&& dc->current_state->res_ctx.pipe_ctx[i].prev_odm_pipe == NULL) {
 				if (context->res_ctx.pipe_ctx[i].stream == NULL) {
 					pipe = &context->res_ctx.pipe_ctx[i];
-					pipe->pipe_idx = i;
+					pipe->pipe_idx = (uint8_t)i;
 					break;
 				}
 			}
@@ -1803,7 +1806,7 @@ static struct pipe_ctx *dcn32_find_split_pipe(
 		for (i = dc->res_pool->pipe_count - 1; i >= 0; i--) {
 			if (context->res_ctx.pipe_ctx[i].stream == NULL) {
 				pipe = &context->res_ctx.pipe_ctx[i];
-				pipe->pipe_idx = i;
+				pipe->pipe_idx = (uint8_t)i;
 				break;
 			}
 		}
@@ -1846,13 +1849,13 @@ static bool dcn32_split_stream_for_mpc_or_odm(
 
 	*sec_pipe = *pri_pipe;
 
-	sec_pipe->pipe_idx = pipe_idx;
+	sec_pipe->pipe_idx = (uint8_t)pipe_idx;
 	sec_pipe->plane_res.mi = pool->mis[pipe_idx];
 	sec_pipe->plane_res.hubp = pool->hubps[pipe_idx];
 	sec_pipe->plane_res.ipp = pool->ipps[pipe_idx];
 	sec_pipe->plane_res.xfm = pool->transforms[pipe_idx];
 	sec_pipe->plane_res.dpp = pool->dpps[pipe_idx];
-	sec_pipe->plane_res.mpcc_inst = pool->dpps[pipe_idx]->inst;
+	sec_pipe->plane_res.mpcc_inst = (uint8_t)pool->dpps[pipe_idx]->inst;
 	sec_pipe->stream_res.dsc = NULL;
 	if (odm) {
 		if (pri_pipe->next_odm_pipe) {
@@ -3365,8 +3368,8 @@ bool dcn32_allow_subvp_with_active_margin(struct pipe_ctx *pipe)
 
 		refresh_rate = (pipe->stream->timing.pix_clk_100hz * (uint64_t)100 +
 			(uint64_t)pipe->stream->timing.v_total * pipe->stream->timing.h_total - (uint64_t)1);
-		refresh_rate = div_u64(refresh_rate, pipe->stream->timing.v_total);
-		refresh_rate = div_u64(refresh_rate, pipe->stream->timing.h_total);
+		refresh_rate = (uint32_t)div_u64(refresh_rate, pipe->stream->timing.v_total);
+		refresh_rate = (uint32_t)div_u64(refresh_rate, pipe->stream->timing.h_total);
 
 		if (refresh_rate >= min_refresh && refresh_rate <= max_refresh &&
 				dcn32_check_native_scaling_for_res(pipe, width, height)) {

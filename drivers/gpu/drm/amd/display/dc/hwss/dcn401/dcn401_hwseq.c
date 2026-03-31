@@ -1158,7 +1158,7 @@ static bool dcn401_check_no_memory_request_for_cab(struct dc *dc)
 static uint32_t dcn401_calculate_cab_allocation(struct dc *dc, struct dc_state *ctx)
 {
 	int i;
-	uint8_t num_ways = 0;
+	uint32_t num_ways = 0;
 	uint32_t mall_ss_size_bytes = 0;
 
 	mall_ss_size_bytes = ctx->bw_ctx.bw.dcn.mall_ss_size_bytes;
@@ -1189,7 +1189,8 @@ static uint32_t dcn401_calculate_cab_allocation(struct dc *dc, struct dc_state *
 bool dcn401_apply_idle_power_optimizations(struct dc *dc, bool enable)
 {
 	union dmub_rb_cmd cmd;
-	uint8_t ways, i;
+	uint32_t ways;
+	uint8_t i;
 	int j;
 	bool mall_ss_unsupported = false;
 	struct dc_plane_state *plane = NULL;
@@ -1242,7 +1243,7 @@ bool dcn401_apply_idle_power_optimizations(struct dc *dc, bool enable)
 			}
 			if (ways <= dc->caps.cache_num_ways && !mall_ss_unsupported) {
 				cmd.cab.header.sub_type = DMUB_CMD__CAB_DCN_SS_FIT_IN_CAB;
-				cmd.cab.cab_alloc_ways = ways;
+				cmd.cab.cab_alloc_ways = (uint8_t)ways;
 				DC_LOG_MALL("cab allocation: %d ways. CAB action: DCN_SS_FIT_IN_CAB\n", ways);
 			} else {
 				cmd.cab.header.sub_type = DMUB_CMD__CAB_DCN_SS_NOT_FIT_IN_CAB;
@@ -1433,12 +1434,15 @@ void dcn401_dmub_hw_control_lock_fast(union block_sequence_params *params)
 void dcn401_fams2_update_config(struct dc *dc, struct dc_state *context, bool enable)
 {
 	bool fams2_info_required;
+	bool fams2_enabled;
+	bool fams2_legacy_no_fams2;
 
 	if (!dc->ctx || !dc->ctx->dmub_srv || !dc->debug.fams2_config.bits.enable)
 		return;
 
-	fams2_info_required = context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable;
-	fams2_info_required |= context->bw_ctx.bw.dcn.fams2_global_config.features.bits.legacy_method_no_fams2;
+	fams2_enabled = context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable != 0u;
+	fams2_legacy_no_fams2 = context->bw_ctx.bw.dcn.fams2_global_config.features.bits.legacy_method_no_fams2 != 0u;
+	fams2_info_required = fams2_enabled || fams2_legacy_no_fams2;
 
 	dc_dmub_srv_fams2_update_config(dc, context, enable && fams2_info_required);
 }
@@ -1470,7 +1474,7 @@ static void update_dsc_for_odm_change(struct dc *dc, struct dc_state *context,
 
 	if (otg_master->stream_res.dsc)
 		dcn32_update_dsc_on_stream(otg_master,
-				otg_master->stream->timing.flags.DSC);
+				otg_master->stream->timing.flags.DSC != 0u);
 	if (old_otg_master && old_otg_master->stream_res.dsc) {
 		for (i = 0; i < old_opp_head_count; i++) {
 			old_pipe = old_opp_heads[i];
@@ -3297,7 +3301,7 @@ void dcn401_setup_gsl_group_as_lock_sequence(
 
 		group_idx = find_free_gsl_group(dc);
 		ASSERT(group_idx != 0);
-		pipe_ctx->stream_res.gsl_group = group_idx;
+		pipe_ctx->stream_res.gsl_group = (uint8_t)group_idx;
 
 		/* set gsl group reg field and mark resource used */
 		switch (group_idx) {
