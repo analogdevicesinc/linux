@@ -71,6 +71,11 @@ enum amdgpu_gfx_partition {
 	AMDGPU_AUTO_COMPUTE_PARTITION_MODE = -2,
 };
 
+enum amdgpu_gfx_partition_mem_alloc_mode {
+	AMDGPU_PARTITION_MEM_CAPPING_EVEN = 0,
+	AMDGPU_PARTITION_MEM_ALLOC_ALL  = 1,
+};
+
 #define NUM_XCC(x) hweight16(x)
 
 enum amdgpu_gfx_ras_mem_id_type {
@@ -672,6 +677,18 @@ static inline const char *amdgpu_gfx_compute_mode_desc(int mode)
 		return "QPX";
 	case AMDGPU_CPX_PARTITION_MODE:
 		return "CPX";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static inline const char *amdgpu_gfx_compute_mem_alloc_mode_desc(int mode)
+{
+	switch (mode) {
+	case AMDGPU_PARTITION_MEM_CAPPING_EVEN:
+			return "CAPPING";
+	case AMDGPU_PARTITION_MEM_ALLOC_ALL:
+		return "ALL";
 	default:
 		return "UNKNOWN";
 	}
