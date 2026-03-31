@@ -4,24 +4,28 @@
 $id: http://devicetree.org/schemas/gpio/adi,adg1736.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Analog Devices ADG1736 dual SPDT switch GPIO controller
+title: Analog Devices ADG1736/ADG2736 dual SPDT switch GPIO controller
 
 maintainers:
   - Antoniu Miclaus <antoniu.miclaus@analog.com>
 
 description: |
-  Bindings for Analog Devices ADG1736 dual single-pole, double-throw (SPDT)
-  switch controlled by GPIOs. The device features two independent switches,
-  each controlled by a dedicated GPIO input pin and each capable of connecting
-  its input to one of two outputs (A or B).
+  Bindings for Analog Devices ADG1736/ADG2736 dual single-pole, double-throw
+  (SPDT) switch controlled by GPIOs. The device features two independent
+  switches, each controlled by a dedicated GPIO input pin and each capable of
+  connecting its input to one of two outputs (A or B).
 
   Each GPIO line exposed by this controller corresponds to one of the two
-  switches (SW1-SW2) on the ADG1736. Setting a GPIO line high connects the
-  switch to output A, while setting it low connects the switch to output B.
+  switches (SW1-SW2). Setting a GPIO line high connects the switch to output A,
+  while setting it low connects the switch to output B.
+
+  The ADG2736 is a pin-compatible, ultra-low leakage variant of the ADG1736.
 
 properties:
   compatible:
-    const: adi,adg1736
+    enum:
+      - adi,adg1736
+      - adi,adg2736
 
   switch1-gpios:
     description: GPIO connected to the IN1 control pin (controls SW1)
