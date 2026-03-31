@@ -6,9 +6,11 @@
 #include <linux/errno.h>
 #include <linux/printk.h>
 
+#include <drm/drm_atomic_state_helper.h>
 #include <drm/drm_fb_dma_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_gem_dma_helper.h>
+#include <drm/drm_print.h>
 
 #include "vs_plane.h"
 
@@ -123,4 +125,45 @@ dma_addr_t vs_fb_get_dma_addr(struct drm_framebuffer *fb,
 	dma_addr += (src_rect->y1 >> 16) * fb->pitches[0];
 
 	return dma_addr;
+}
+
+struct drm_plane_state *vs_plane_duplicate_state(struct drm_plane *plane)
+{
+	struct vs_plane_state *vs_state;
+
+	if (drm_WARN_ON(plane->dev, !plane->state))
+		return NULL;
+
+	vs_state = kzalloc_obj(*vs_state, GFP_KERNEL);
+	if (!vs_state)
+		return NULL;
+
+	__drm_atomic_helper_plane_duplicate_state(plane, &vs_state->base);
+
+	return &vs_state->base;
+}
+
+void vs_plane_destroy_state(struct drm_plane *plane,
+			    struct drm_plane_state *state)
+{
+	__drm_atomic_helper_plane_destroy_state(state);
+	kfree(state);
+}
+
+/* Called during init to allocate the plane's atomic state. */
+void vs_plane_reset(struct drm_plane *plane)
+{
+	struct vs_plane_state *vs_state;
+
+	if (plane->state) {
+		__drm_atomic_helper_plane_destroy_state(plane->state);
+		kfree(plane->state);
+		plane->state = NULL;
+	}
+
+	vs_state = kzalloc_obj(*vs_state, GFP_KERNEL);
+	if (!vs_state)
+		return;
+
+	__drm_atomic_helper_plane_reset(plane, &vs_state->base);
 }
