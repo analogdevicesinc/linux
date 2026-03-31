@@ -1,0 +1,122 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/adf4360
+
+.. _adf4360:
+
+ADF4360
+=======
+
+ADF4360 Integrated Integer-N Synthesizer/VCO Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADF4360-0`
+- :adi:`ADF4360-1`
+- :adi:`ADF4360-2`
+- :adi:`ADF4360-3`
+- :adi:`ADF4360-4`
+- :adi:`ADF4360-5`
+- :adi:`ADF4360-6`
+- :adi:`ADF4360-7`
+- :adi:`ADF4360-8`
+- :adi:`ADF4360-9`
+
+Description
+-----------
+
+The ADF4360 is a fully integrated integer-N synthesizer and voltage controlled
+oscillator (VCO). Control of all the on-chip registers is through a simple
+3-wire interface. The device operates with a power supply ranging from 3.0 V to
+3.6 V and can be powered down when not in use.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+   * - :git-linux:`drivers/iio/frequency/adf4360.c`
+     - No
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/frequency/adf4360.c`
+     -
+   * - Documentation
+     - :git-linux:`Documentation/devicetree/bindings/iio/frequency/adi,adf4360.yaml`
+     -
+
+Enabling the driver
+-------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADF4360 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>  Industrial I/O support --->
+                Frequency Synthesizers DDS/PLL  --->
+                    Clock Generator/Distribution  --->
+                    <*>  Analog Devices ADF4360 Wideband Synthesizer
+
+Adding a device tree entry
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Device tree example
+^^^^^^^^^^^^^^^^^^^
+
+The following example instantiates the adf4360 driver for a adf4360-7 device
+connected on the SPI bus to the chip-select line 0.
+
+::
+
+   / {
+       clocks {
+           adf_ref_clock: clock@0 {
+               #clock-cells = <0>;
+               compatible = "fixed-clock";
+               clock-frequency = <25000000>;
+               clock-output-names = "adf_ref_clock";
+           };
+       };
+   ];
+
+   &spi {
+       adf4360: pll@0 {
+           compatible = "adi,adf4360-7";
+           reg = <0>;
+           spi-max-frequency = <2000000>;
+
+           #clock-cells = <0>;
+
+           clocks = <&adf_ref_clock>;
+           clock-names = "clkin";
+           clock-output-names = "adf4360-7";
+
+           adi,loop-filter-charge-pump-current-microamp = <1870>;
+           adi,loop-filter-pfd-frequency-hz = <2500000>;
+           adi,power-up-frequency-hz = <1000000000>;
+       };
+
+   };

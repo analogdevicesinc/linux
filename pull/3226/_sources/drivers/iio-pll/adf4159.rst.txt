@@ -1,0 +1,431 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/adf4159
+
+.. _adf4159:
+
+ADF4159
+=======
+
+ADF4159 IIO Direct Modulation/Fast Waveform Generating Synthesizer Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADF4159`
+- :adi:`ADF4169`
+
+Supported Boards
+----------------
+
+| This driver supports the
+
+- :adi:`EV-ADF4159EB1Z`
+- :adi:`EV-ADF4159EB3Z`
+
+Description
+-----------
+
+The ADF4159 is a 13 GHz, fractional-N frequency synthesizer with modulation and
+both fast and slow waveform generation capability. The part uses a 25-bit fixed
+modulus, allowing subhertz frequency resolution.
+
+The ADF4159 consists of a low noise digital phase frequency detector (PFD), a
+precision charge pump, and a programmable reference divider. The Σ-Δ-based
+fractional interpolator allows programmable fractional-N division. The INT and
+FRAC registers define an overall N divider as N = INT + (FRAC/225).
+
+The ADF4159 can be used to implement frequency shift keying (FSK) and phase
+shift keying (PSK) modulation. Frequency sweep modes are also available to
+generate various waveforms in the frequency domain, for example, sawtooth and
+triangular waveforms. Sweeps can be set to run automatically, or each step
+manually triggered by an external pulse. The ADF4159 features cycle slip
+reduction circuitry, which enables faster lock times without the need for
+modifications to the loop filter.
+
+Control of all on-chip registers is via a simple 3-wire interface. The ADF4159
+operates with an analog power supply in the range of 2.7 V to 3.45 V and a
+digital power supply in the range of 1.62 V to 1.98 V. The device can be powered
+down when not in use.
+
+Applications
+
+- Communications infrastructure
+- Communications test equipment
+- Instrumentation
+- FMCW radars
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+   * - :git-linux:`drivers/iio/frequency/adf4159.c`
+     - WIP
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/frequency/adf4159.c`
+     -
+   * - Documentation
+     - :git-linux:`adf4159.yaml <Documentation/devicetree/bindings/iio/frequency/adf4159.yaml>`
+     -
+   * - ABI documentation
+     - :git-linux:`sysfs-bus-iio-frequency-adf4159 <Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4159>`
+     -
+
+Example device tree
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - dts
+     - :git-linux:`rpi-adf4159-overlay.dts <rpi-5.4.y:arch/arm/boot/dts/overlays/rpi-adf4159-overlay.dts>`
+     -
+
+Example platform device initialization
+--------------------------------------
+
+The adf4159 driver is a SPI bus driver and can be instantiated via device tree.
+
+**Required properties:**
+
+- **compatible**: Should always be one of these:
+
+  - ``adi,adf4159``
+  - ``adi,adf4169``
+
+- **reg**: SPI chip select number.
+- **spi-max-frequency**: Max SPI frequency to use.
+- **clocks**: a list of phandle, one for each entry in clock-names.
+- **clock-names**: Must include the following entry: ``clkin``
+
+::
+
+   Example:
+
+   spi0 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           adf4159@0 {
+               compatible = "adi,adf4159";
+               reg = <0x0>;
+               spi-max-frequency = <12500000>;
+
+               /* Clocks */
+               clocks = <&clkin>;
+               clock-names = "clkin";
+               clock-output-names = "rf_out";
+               #clock-cells = <0>;
+
+               adi,power-up-frequency-hz = /bits/ 64 <6000000000>;
+               adi,charge-pump-current-microamp = <900>;
+               //adi,charge-pump-negative-bleed-enable;
+               adi,clk1-div = <100>;
+               adi,clk2-timer-div = <0>;
+               adi,clk2-timer-div-2 = <0>;
+               adi,clk-div-mode = <0>;
+               //adi,cycle-slip-reduction-enable;
+               //adi,delay-clk-sel-pfd-x-clk1-enable;
+               //adi,delay-start-enable;
+               adi,delay-start-word = <0>;
+               adi,deviation = <1000>;
+               adi,deviation-2 = <0>;
+               adi,deviation-offset = <1>;
+               //adi,dual-ramp-enable;
+               //adi,fast-ramp-enable;
+               //adi,fsk-modulation-enable;
+               //adi,fsk-ramp-enable;
+               adi,interrupt-mode-select = <0>;
+               //adi,le-sync-refin-enable;
+               //adi,lock-detect-precision-6ns-enable;
+               adi,muxout-select = <MUXOUT_READBACK_TO_MUXOUT>;
+               adi,negative-bleed-current-microamp = <0>;
+               //adi,parabolic-ramp-enable;
+               adi,phase = <0>;
+               //adi,phase-detector-polarity-positive-enable;
+               //adi,powerdown-enable;
+               //adi,psk-modulation-enable;
+               //adi,ramp-dealy-fl-enable;
+               //adi,ramp-delay-enable;
+               //adi,ramp-enable;
+               adi,ramp-mode-select = <0>;
+               adi,ramp-status-mode = <RAMP_STATUS_RAMP_COMPLETE_TO_MUXOUT>;
+               //adi,reference-div2-enable;
+               adi,reference-div-factor = <1>;
+               //adi,reference-doubler-enable;
+               //adi,single-full-triangle-enable;
+               adi,step-word = <0>;
+               adi,step-word-2 = <0>;
+               //adi,txdata-invert-enable;
+               //adi,txdata-ramp-clk-txdata-enable;
+               //adi,txdata-trigger-delay-enable;
+               //adi,txdata-trigger-enable;
+           };
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The adf4159 driver depends on **SPI** and selects **REGMAP_SPI**
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+                    Frequency Synthesizers DDS/PLL --->
+                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
+                                <*> Analog Devices ADF4159/ADF4169 Waveform Generating Synthesizers
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   analog:/sys/bus/iio/devices/iio:device0# cd /sys/bus/iio/devices/
+   root@analog:/sys/bus/iio/devices# ls
+   iio:device0  iio:device1  iio:device2  iio:device3
+   root@analog:/sys/bus/iio/devices#
+
+   root@analog:/sys/bus/iio/devices# cd iio\:device0
+   root@analog:/sys/bus/iio/devices/iio:device1# ls -l
+   total 0
+   drwxr-xr-x 3 root root    0 Jan  1 00:00 .
+   drwxr-xr-x 5 root root    0 Jan  1 00:00 ..
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 dev
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 name
+   lrwxrwxrwx 1 root root    0 Jan  1 00:00 of_node -> ../../../../../../../../firmware/devicetree/base/amba/spi@e0007000/ad0
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 out_altvoltage0_frequency
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 out_altvoltage0_frequency_deviation_range
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 out_altvoltage0_frequency_deviation_step
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 out_altvoltage0_frequency_deviation_time
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 out_altvoltage0_powerdown
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 out_altvoltage0_ramp_mode
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 out_altvoltage_ramp_mode_available
+   drwxrwxrwx 2 root root    0 Jan  1 00:00 power
+   lrwxrwxrwx 1 root root    0 Jan  1 00:00 subsystem -> ../../../../../../../../bus/iio
+   -rw-rw-rw- 1 root root 4096 Jan  1 00:00 uevent
+   root@analog:/sys/bus/iio/devices/iio:device1#
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device1# cat name
+   adf4159
+
+Read output frequency
+~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_frequency
+   6000000000
+
+Set output frequency
+~~~~~~~~~~~~~~~~~~~~
+
+Frequencies are in Hz
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device1# echo 6001000000 > out_altvoltage0_frequency
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_frequency
+   6001000000
+
+Output power down
+~~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_powerdown
+   0
+   root@analog:/sys/bus/iio/devices/iio:device1# echo 1 > out_altvoltage0_powerdown
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_powerdown
+   1
+
+Ramp modes
+~~~~~~~~~~
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-pll/adf4159_ramp.png
+   :width: 600px
+
+The ``ramp_mode`` attribute allows the user to control the output ramp mode of
+the chip. Valid values that can be written:
+
+- disabled
+- continuous_sawtooth
+- continuous_triangular
+- single_sawtooth_burst
+- single_ramp_burst
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage_ramp_mode_available
+   disabled continuous_sawtooth continuous_triangular single_sawtooth_burst single_ramp_burst
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_ramp_mode
+   disabled
+   root@analog:/sys/bus/iio/devices/iio:device1# echo continuous_sawtooth > out_altvoltage0_ramp_mode
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_ramp_mode
+   continuous_sawtooth
+
+Ramp mode deviation step
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+This attribute sets the ``deviation_step`` in Hz. Values can be positive or
+negative. Negative values result in a ramp down.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_frequency_deviation_step
+   0
+   root@analog:/sys/bus/iio/devices/iio:device1# echo 1000 > out_altvoltage0_frequency_deviation_step
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_frequency_deviation_step
+   998
+
+Ramp mode deviation range
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This attribute sets the ``deviation_range`` in Hz.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_frequency_deviation_range
+   0
+   root@analog:/sys/bus/iio/devices/iio:device1# echo 10000000 > out_altvoltage0_frequency_deviation_range
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_frequency_deviation_range
+   9999960
+
+Ramp mode deviation time
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+This attribute sets the ``deviation_time`` in us.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_frequency_deviation_time
+   0
+   root@analog:/sys/bus/iio/devices/iio:device1# echo 10000 > out_altvoltage0_frequency_deviation_time
+   root@analog:/sys/bus/iio/devices/iio:device1# cat out_altvoltage0_frequency_deviation_time
+   10020
+
+Full device control via IIO debugfs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This device features an additional debugfs ABI, allowing the user to control
+additional features of the chip. Such as dual-ramp modes, muxout mappings,
+modulation features etc. All debugfs attributes have exactly the same naming as
+the devicetree attributes. So, for a complete description please see the
+devicetree property descriptions. In most cases these attributes correspond
+directly to bits and bitfields in the SPI register map. So, the ADF4159
+datasheet should be consulted as well. Manipulating these debugfs attributes
+will not take effect unless at least one of the IIO device sysfs attributes is
+written/updated. For example, after setting ``adi,ramp-delay-enable`` write
+``out_altvoltage0_powerdown`` afterwards, this flush all debugfs updates to the
+device.
+
+::
+
+   root@analog:~# iio_attr -D adf4159
+   dev 'adf4159', debug attr 'adi,txdata-trigger-delay-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,single-full-triangle-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,txdata-trigger-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,fast-ramp-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,ramp-dealy-fl-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,ramp-delay-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,delay-clk-sel-pfd-x-clk1-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,delay-start-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,delay-start-word', value :'0'
+   dev 'adf4159', debug attr 'adi,step-word-2', value :'0'
+   dev 'adf4159', debug attr 'adi,step-word', value :'10020'
+   dev 'adf4159', debug attr 'adi,txdata-invert-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,txdata-ramp-clk-txdata-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,parabolic-ramp-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,fsk-ramp-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,dual-ramp-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,interrupt-mode-select', value :'0'
+   dev 'adf4159', debug attr 'adi,deviation-offset', value :'0'
+   dev 'adf4159', debug attr 'adi,deviation-2', value :'0'
+   dev 'adf4159', debug attr 'adi,deviation', value :'335'
+   dev 'adf4159', debug attr 'adi,le-sync-refin-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,ramp-status-mode', value :'3'
+   dev 'adf4159', debug attr 'adi,clk-div-mode', value :'0'
+   dev 'adf4159', debug attr 'adi,clk2-timer-div-2', value :'0'
+   dev 'adf4159', debug attr 'adi,clk2-timer-div', value :'100'
+   dev 'adf4159', debug attr 'adi,negative-bleed-current-microamp', value :'0'
+   dev 'adf4159', debug attr 'adi,ramp-mode-select', value :'0'
+   dev 'adf4159', debug attr 'adi,charge-pump-negative-bleed-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,psk-modulation-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,fsk-modulation-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,lock-detect-precision-6ns-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,phase-detector-polarity-positive-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,powerdown-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,cycle-slip-reduction-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,reference-div2-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,reference-doubler-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,charge-pump-current-microamp', value :'900'
+   dev 'adf4159', debug attr 'adi,phase', value :'0'
+   dev 'adf4159', debug attr 'adi,ramp-enable', value :'N'
+   dev 'adf4159', debug attr 'adi,muxout-select', value :'15'
+   dev 'adf4159', debug attr 'adi,clkin-hz', value :'0'
+   dev 'adf4159', debug attr 'adi,clk1-div', value :'1'
+   dev 'adf4159', debug attr 'adi,reference-div-factor', value :'1'
+   dev 'adf4159', debug attr 'adi,frequency-deviation-time-us', value :'10000'
+   dev 'adf4159', debug attr 'adi,frequency-deviation-range-hz', value :'10000000'
+   dev 'adf4159', debug attr 'adi,frequency-deviation-step-hz', value :'1000'
+   dev 'adf4159', debug attr 'adi,power-up-frequency-hz', value :'6000000000'
+   dev 'adf4159', debug attr 'direct_reg_access', value :'0x781E0000'
+   root@analog:~#
+
+**Example:**
+
+::
+
+   root@analog:~# iio_attr -D adf4159 adi,ramp-delay-enable 1
+   Y
+   root@analog:~# iio_attr -c adf4159 altvoltage0 powerdown 0
+   0
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

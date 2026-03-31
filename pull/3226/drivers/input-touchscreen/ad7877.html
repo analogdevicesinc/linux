@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="AD7877 Input Touch Screen Controller Linux Driver." name="description" />
+
+    <title>AD7877 &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=833c9372" />
+    <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="AD7879" href="ad7879.html" />
+    <link rel="prev" title="AD7873" href="ad7873.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">AD7877</a><ul>
+<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#driver-compiled-as-a-module">Driver compiled as a module</a></li>
+<li><a class="reference internal" href="#driver-compiled-into-the-kernel">Driver compiled into the kernel</a></li>
+<li><a class="reference internal" href="#use-the-evtest-event-test-utility-to-test-proper-function">Use the evtest/event_test utility to test proper function</a></li>
+<li><a class="reference internal" href="#common-problems">Common Problems</a></li>
+<li><a class="reference internal" href="#testing">Testing</a><ul>
+<li><a class="reference internal" href="#interrupt">Interrupt</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#aux-functions">Aux functions</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4695.html">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad6676.html">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-mxfe/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361-customization.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/ad714x.html">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl345.html">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7873.html">AD7873</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/open_alliance.html">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1320.html">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="ad7877">
+<span id="id1"></span><h1>AD7877<a class="headerlink" href="#ad7877" title="Link to this heading"></a></h1>
+<p>AD7877 Input Touch Screen Controller Linux Driver.</p>
+<section id="supported-devices">
+<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/AD7877" target="_blank">AD7877</a></p></li>
+</ul>
+</section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The AD7877 is a 12-bit, successive approximation ADC with a synchronous serial
+interface and low on resistance switches for driving touch screens.</p>
+<p>To reduce the effects of noise from LCDs, the acquisition phase of the on-board
+ADC is controlled via the STOPACQ pin. User-programmable conversion controls
+include <strong>variable acquisition time</strong> and <strong>first conversion delay</strong>. Up to <strong>16
+averages can be taken per conversion</strong>. There is also an <strong>on-board DAC for LCD
+back-light or contrast control</strong>. The AD7877 runs in either slave or master mode
+using a <strong>conversion sequencer and timer</strong>. It is ideal for battery-powered
+systems such as personal digital assistants with resistive touch screens and
+other portable equipment.</p>
+<p>The AD7877 operates from a single 2.7 V to 5.25 V power supply, and features
+throughput rates of 125 kSPS. The AD7877 features direct battery measurement on
+two inputs, temperature and touch-pressure measurement.</p>
+<p>The AD7877 also has an on-board reference of 2.5 V. When not in use, it can be
+shut down to conserve power. An external reference can also be applied and
+varied from 1 V to +VCC, with an analog input range of 0 V to VREF. The device
+includes a shutdown mode that reduces its current consumption to less than 1 μA.</p>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/software/driver/linux/ad7877_block_dia.png..figure::https://wiki.analog.com/_media/software/driver/linux/ad7877_input_structure.png" src="https://wiki.analog.com/_media/software/driver/linux/ad7877_block_dia.png..figure::https://wiki.analog.com/_media/software/driver/linux/ad7877_input_structure.png" />
+</figure>
+<p><em>See also:</em> <a class="icon link reference external" href="https://github.com/libts/tslib" target="_blank">tslib - Touchscreen Access Library</a></p>
+<p><em>See also:</em> <a class="reference internal" href="ad7879.html#ad7879"><span class="std std-ref">AD7879</span></a></p>
+</section>
+<section id="software-configurable-features">
+<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
+<p><strong>Software configurable:</strong></p>
+<ul class="simple">
+<li><p>STOPACQ Polarity (LOW, HIGH)</p></li>
+<li><p>First Conversion Delay (0.5us, 128us, 1ms, 8ms)</p></li>
+<li><p>Acquisition Time (2us, 4us, 8us, 16us)</p></li>
+<li><p>Number of Averages (1,4,8,16)</p></li>
+<li><p>Pen Down Acquisition Interval Timer (convert once, every 0.5ms, 1ms, 8ms)</p></li>
+</ul>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
+<section id="status">
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7877.c" target="_blank">git</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7877.c" target="_blank">Yes</a></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="files">
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7877.c" target="_blank">drivers/input/touchscreen/ad7877.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/spi/ad7877.h" target="_blank">include/linux/spi/ad7877.h</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="example-platform-device-initialization">
+<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<p>For compile time configuration, it’s common Linux practice to keep board- and
+application-specific configuration out of the main driver file, instead putting
+it into the board support file.</p>
+<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
+based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
+describing devices and how they are connected to the SoC. This can include
+available ports, chip variants, preferred modes, default initialization,
+additional pin roles, and so on. This shrinks the board-support packages (BSPs)
+and minimizes board and application specific #ifdefs in drivers.</p>
+<p>Touchscreen characteristics vary between boards and models. The platform_data
+for the device’s <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> holds this information.</p>
+<p>&lt;source trunk/include/linux/spi/ad7877.h c linux-kernel&gt;</p>
+<p>These snippets are all from the same file.
+<code class="docutils literal notranslate"><span class="pre">arch/blackfin/mach-bf537/boards/pnav10.c</span></code>:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/ad7877.h&gt;</span>
+</pre></div>
+</div>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">spi_ad7877_chip_info{}</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">bfin_ad7877_ts_info{}</a></p>
+<p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
+Instead, the software must know which devices are connected on each SPI bus
+segment, and what slave selects these devices are using. For this reason, the
+kernel code must instantiate SPI devices explicitly. The most common method is
+to declare the SPI devices by bus number.</p>
+<p>This method is appropriate when the SPI bus is a system bus, as in many
+embedded systems, wherein each SPI bus has a number which is known in advance.
+It is thus possible to pre-declare the SPI devices that inhabit this bus. This
+is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
+calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/pnav10.c" target="_blank">bfin_spi_board_info[]</a></p>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD7877 Driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>
+  <span class="o">-*-</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="nb">input</span> <span class="n">device</span> <span class="n">skeleton</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sparse</span> <span class="n">keymap</span> <span class="n">support</span> <span class="n">library</span>
+        <span class="o">***</span> <span class="n">Userland</span> <span class="n">interfaces</span> <span class="o">***</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
+  <span class="o">&lt;*&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
+        <span class="o">***</span> <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span> <span class="o">***</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Mice</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span><span class="o">/</span><span class="n">Gamepads</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Tablets</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
+
+     <span class="o">---</span> <span class="n">Touchscreens</span>
+     <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">ADS7846</span><span class="o">/</span><span class="n">TSC2046</span><span class="o">/</span><span class="n">AD7873</span> <span class="ow">and</span> <span class="n">AD</span><span class="p">(</span><span class="n">S</span><span class="p">)</span><span class="mi">7843</span> <span class="n">based</span> <span class="n">touchscreens</span> <span class="p">(</span><span class="n">NEW</span><span class="p">)</span>
+     <span class="o">&lt;*&gt;</span>   <span class="n">AD7877</span> <span class="n">based</span> <span class="n">touchscreens</span>
+     <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD7879</span><span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="n">AD7889</span><span class="o">-</span><span class="mi">1</span> <span class="n">touchscreen</span> <span class="n">interface</span> <span class="p">(</span><span class="n">NEW</span><span class="p">)</span>
+
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
+      <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The AD7877 Linux Driver only uses the /DAV Data Available Interrupt. /PENIRQ
+is not used. STOPACQ can be used to reduce the effect of noise from an LCD
+screen on the touch screen measurements.</p>
+</div>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png"><img alt="https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png" src="https://wiki.analog.com/_media/software/driver/linux/ad7877_example_schematic.png" style="width: 800px;" />
+</a>
+</figure>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="driver-compiled-as-a-module">
+<h3>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">ad7877</span>
+<span class="nb">input</span><span class="p">:</span> <span class="n">AD7877</span> <span class="n">Touchscreen</span> <span class="k">as</span> <span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input2</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="driver-compiled-into-the-kernel">
+<h3>Driver compiled into the kernel<a class="headerlink" href="#driver-compiled-into-the-kernel" title="Link to this heading"></a></h3>
+<p>Your kernel startup messages should include something like this</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">AD7877</span> <span class="n">Touchscreen</span> <span class="k">as</span> <span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input2</span>
+</pre></div>
+</div>
+</section>
+<section id="use-the-evtest-event-test-utility-to-test-proper-function">
+<h3>Use the evtest/event_test utility to test proper function<a class="headerlink" href="#use-the-evtest-event-test-utility-to-test-proper-function" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">event_test</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">event2</span>
+<span class="n">Input</span> <span class="n">driver</span> <span class="n">version</span> <span class="ow">is</span> <span class="mf">1.0.0</span>
+<span class="n">Input</span> <span class="n">device</span> <span class="n">ID</span><span class="p">:</span> <span class="n">bus</span> <span class="mh">0x0</span> <span class="n">vendor</span> <span class="mh">0x0</span> <span class="n">product</span> <span class="mh">0x0</span> <span class="n">version</span> <span class="mh">0x0</span>
+<span class="n">Input</span> <span class="n">device</span> <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;AD7877 Touchscreen&quot;</span>
+<span class="n">Supported</span> <span class="n">events</span><span class="p">:</span>
+  <span class="n">Event</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Sync</span><span class="p">)</span>
+  <span class="n">Event</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">)</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">330</span> <span class="p">(</span><span class="n">Touch</span><span class="p">)</span>
+  <span class="n">Event</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">)</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">X</span><span class="p">)</span>
+      <span class="n">Value</span>   <span class="mi">1268</span>
+      <span class="n">Min</span>        <span class="mi">0</span>
+      <span class="n">Max</span>     <span class="mi">4095</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Y</span><span class="p">)</span>
+      <span class="n">Value</span>   <span class="mi">1250</span>
+      <span class="n">Min</span>        <span class="mi">0</span>
+      <span class="n">Max</span>     <span class="mi">4095</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">24</span> <span class="p">(</span><span class="n">Pressure</span><span class="p">)</span>
+      <span class="n">Value</span>      <span class="mi">0</span>
+      <span class="n">Min</span>        <span class="mi">0</span>
+      <span class="n">Max</span>     <span class="mi">1000</span>
+<span class="n">Testing</span> <span class="o">...</span> <span class="p">(</span><span class="n">interrupt</span> <span class="n">to</span> <span class="n">exit</span><span class="p">)</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.364000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">),</span> <span class="n">code</span> <span class="mi">330</span> <span class="p">(</span><span class="n">Touch</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.364000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1624</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.364000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Y</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1514</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.364000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">24</span> <span class="p">(</span><span class="n">Pressure</span><span class="p">),</span> <span class="n">value</span> <span class="mi">349</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.364000</span><span class="p">,</span> <span class="o">--------------</span> <span class="n">Report</span> <span class="n">Sync</span> <span class="o">------------</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.408000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1626</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.408000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Y</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1516</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.408000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">24</span> <span class="p">(</span><span class="n">Pressure</span><span class="p">),</span> <span class="n">value</span> <span class="mi">342</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.408000</span><span class="p">,</span> <span class="o">--------------</span> <span class="n">Report</span> <span class="n">Sync</span> <span class="o">------------</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.452000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Y</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1514</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.452000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">24</span> <span class="p">(</span><span class="n">Pressure</span><span class="p">),</span> <span class="n">value</span> <span class="mi">339</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.452000</span><span class="p">,</span> <span class="o">--------------</span> <span class="n">Report</span> <span class="n">Sync</span> <span class="o">------------</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.496000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">value</span> <span class="mi">1625</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.496000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">24</span> <span class="p">(</span><span class="n">Pressure</span><span class="p">),</span> <span class="n">value</span> <span class="mi">343</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.496000</span><span class="p">,</span> <span class="o">--------------</span> <span class="n">Report</span> <span class="n">Sync</span> <span class="o">------------</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.596000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">24</span> <span class="p">(</span><span class="n">Pressure</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.596000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">),</span> <span class="n">code</span> <span class="mi">330</span> <span class="p">(</span><span class="n">Touch</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">67435.596000</span><span class="p">,</span> <span class="o">--------------</span> <span class="n">Report</span> <span class="n">Sync</span> <span class="o">------------</span>
+</pre></div>
+</div>
+</section>
+<section id="common-problems">
+<h3>Common Problems<a class="headerlink" href="#common-problems" title="Link to this heading"></a></h3>
+<p>In case you see a message like this</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">spi0</span><span class="mf">.2</span><span class="p">:</span> <span class="n">Failed</span> <span class="n">to</span> <span class="n">probe</span> <span class="n">AD7877</span> <span class="n">Touchscreen</span>
+</pre></div>
+</div>
+<p>This means that the SPI communication and initilaization with the AD7877
+touchscreen controller/digitizer failed. <strong>check bus_num and chip_select in your
+platform device file</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#if defined(CONFIG_TOUCHSCREEN_AD7877) || defined(CONFIG_TOUCHSCREEN_AD7877_MODULE)</span>
+<span class="p">{</span>
+    <span class="o">.</span><span class="n">modalias</span>       <span class="o">=</span> <span class="s2">&quot;ad7877&quot;</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">platform_data</span>      <span class="o">=</span> <span class="o">&amp;</span><span class="n">bfin_ad7877_ts_info</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">irq</span>            <span class="o">=</span> <span class="n">IRQ_PJ11</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">max_speed_hz</span>       <span class="o">=</span> <span class="mi">12500000</span><span class="p">,</span>     <span class="o">/*</span> <span class="nb">max</span> <span class="n">spi</span> <span class="n">clock</span> <span class="p">(</span><span class="n">SCK</span><span class="p">)</span> <span class="n">speed</span> <span class="ow">in</span> <span class="n">HZ</span> <span class="o">*/</span>
+    <span class="o">.</span><span class="n">bus_num</span>        <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">chip_select</span>        <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">controller_data</span> <span class="o">=</span> <span class="o">&amp;</span><span class="n">spi_ad7877_chip_info</span><span class="p">,</span>
+<span class="p">},</span>
+<span class="c1">#endif</span>
+</pre></div>
+</div>
+</section>
+<section id="testing">
+<h3>Testing<a class="headerlink" href="#testing" title="Link to this heading"></a></h3>
+<p>See the <a class="icon link reference external" href="https://github.com/libts/tslib" target="_blank">tslib - Touchscreen Access Library</a>
+page for information on testing the touchscreen from userspace.</p>
+<section id="interrupt">
+<h4>Interrupt<a class="headerlink" href="#interrupt" title="Link to this heading"></a></h4>
+<p>Check that the interrupt is registered.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">grep</span> <span class="n">ad7877</span> <span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">interrupts</span>
+<span class="mi">258</span><span class="p">:</span>          <span class="mi">0</span>   <span class="n">ad7877</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In case you touch the surface and don’t receive events, it’s likely that
+something with your /DAV Interrupt is wrong. <strong>check irq number in your
+platform device file</strong></p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In case you get a message like: <code class="docutils literal notranslate"><span class="pre">evtest:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">device</span></code>, it’s likely that
+you have not install the necessary modules</p>
+</div>
+</section>
+</section>
+<section id="aux-functions">
+<h3>Aux functions<a class="headerlink" href="#aux-functions" title="Link to this heading"></a></h3>
+<p>Under the device folder there are auxiliary functions such as temperature, GPIO,
+DAC and ADC read backs and controls.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input2</span><span class="o">&gt;</span> <span class="n">cd</span> <span class="n">device</span><span class="o">/</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">al</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">3</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="o">.</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">4</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span>  <span class="mi">2007</span> <span class="o">..</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">aux1</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">aux2</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">aux3</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">bat1</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">bat2</span>
+<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">bus</span> <span class="o">-&gt;</span> <span class="o">../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">spi</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">dac</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">disable</span>
+<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">driver</span> <span class="o">-&gt;</span> <span class="o">../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">spi</span><span class="o">/</span><span class="n">drivers</span><span class="o">/</span><span class="n">ad7877</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">gpio4</span>
+<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="nb">input</span><span class="p">:</span><span class="n">event2</span> <span class="o">-&gt;</span> <span class="o">../../../../</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input2</span><span class="o">/</span><span class="n">event2</span>
+<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="nb">input</span><span class="p">:</span><span class="n">input2</span> <span class="o">-&gt;</span> <span class="o">../../../../</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input2</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">modalias</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">2</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span>  <span class="mi">2007</span> <span class="n">power</span>
+<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">spi</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">temp1</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">temp2</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">15</span> <span class="n">uevent</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">temp1</span>
+<span class="mi">963</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">temp1</span>
+<span class="mi">960</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">temp2</span>
+<span class="mi">1167</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">temp2</span>
+<span class="mi">1167</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">aux1</span>
+<span class="mi">1929</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.0</span><span class="o">/</span><span class="n">spi0</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">aux1</span>
+<span class="mi">1929</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="ad7873.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD7873</a>
+    <a href="ad7879.html" title="Next document (Alt+Shift+RightArrow)" class="next">AD7879</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

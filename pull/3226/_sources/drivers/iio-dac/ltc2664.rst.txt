@@ -1,0 +1,394 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ltc2664
+
+.. _ltc2664:
+
+LTC2664
+=======
+
+LTC2664 IIO DAC Linux Driver.
+
+The LTC2664 is a family of four-channel, 16-/12-bit ±10V digital-to-analog
+converters with integrated precision references. They are guaranteed monotonic
+and have built-in rail-to-rail output buffers. These SoftSpan™ DACs offer five
+output ranges up to ±10V. The range of each channel is independently
+programmable, or the part can be hardware-configured for operation in a fixed
+range.
+
+The integrated 2.5V reference is buffered separately to each channel; an
+external reference can be used for additional range options. The LTC2664 also
+includes A/B toggle capability via a dedicated pin or software toggle command.
+
+The SPI/Microwire-compatible 3-wire serial interface operates on logic levels as
+low as 1.71V at clock rates up to 50MHz.
+
+Supported Devices
+-----------------
+
+- :adi:`LTC2664`
+
+Evaluation Boards
+-----------------
+
+- :adi:`DC2376A-A`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting single-channel serial interface DACs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ltc2664.c>`__
+     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ltc2664.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - :git-linux:`master?drivers/iio/dac/ltc2664.c <drivers/iio/dac/ltc2664.c>`
+   * - dt-bindings
+     - :git-linux:`master?Documentation/devicetree/bindings/iio/dac/adi,ltc2664.yaml <Documentation/devicetree/bindings/iio/dac/adi,ltc2664.yaml>`
+
+Example platform device initialization
+--------------------------------------
+
+Devicetree
+~~~~~~~~~~
+
+Required devicetree properties:
+
+- ``compatible``: Needs to be ``adi,`` followed by the name of the device. E.g.
+  ``adi,ltc2664``
+- ``reg``: The chipselect number used for the device
+- ``spi-max-frequency``: Maximum SPI clock frequency
+- ``Vdd-supply``: VDD voltage supply regulator
+- ``iovcc-supply``: Digital Input/Output Supply Voltage.
+- ``adi,manual-span-operation-config``:
+- Channel nodes with ``reg``, ``adi,manual-span-operation-config`` and
+  optionally ``adi,toggle-mode`` properties.
+
+Optional devicetree properties:
+
+- ``vref-supply``: external reference voltage supply regulator. This should only
+  be set if there is an external reference voltage connected to the REF pin.
+
+::
+
+   adi,manual-span-operation-config:
+     description:
+       This property must mimic the MSPAN pin configurations.
+       By tying the MSPAN pins (MSP2, MSP1 and MSP0) to GND
+       and/or VCC, any output range can be hardware-configured
+       with different mid-scale or zero-scale reset options.
+       The driver needs to be aware of this HW configuration
+       latched during power on reset for proper operation.
+         0 - MPS2=GND, MPS1=GND, MSP0=GND
+         1 - MPS2=GND, MPS1=GND, MSP0=VCC
+         2 - MPS2=GND, MPS1=VCC, MSP0=GND
+         3 - MPS2=GND, MPS1=VCC, MSP0=VCC
+         4 - MPS2=VCC, MPS1=GND, MSP0=GND
+         5 - MPS2=VCC, MPS1=GND, MSP0=VCC
+         6 - MPS2=VCC, MPS1=VCC, MSP0=GND
+         7 - MPS2=VCC, MPS1=VCC, MSP0=VCC (enables SoftSpan feature)
+
+::
+
+   &{/} {
+       vcc: fixedregulator@1 {
+           compatible = "regulator-fixed";
+           regulator-name = "vcc-supply";
+           regulator-min-microvolt = <5000000>;
+           regulator-max-microvolt = <5000000>;
+       };
+   };
+
+   &spi0 {
+       #address-cells = <1>;
+       #size-cells = <0>;
+       status = "okay";
+
+       ltc2688: ltc2688@0 {
+           compatible = "adi,ltc2664";
+           reg = <0>;
+           spi-max-frequency = <5000000>;
+
+           #address-cells = <1>;
+           #size-cells = <0>;
+
+           vcc-supply = <&vcc>;
+           iovcc-supply = <&vcc>;
+
+           adi,manual-span-operation-config = <7>;
+
+           channel@0 {
+               reg = <0>;
+               adi,output-range-microvolt = <(-10000000) 10000000>;
+           };
+
+           channel@1 {
+               reg = <1>;
+               adi,output-range-microvolt = <(-10000000) 10000000>;
+               adi,toggle-mode;
+           };
+
+           channel@2 {
+               reg = <2>;
+               adi,output-range-microvolt = <(-10000000) 10000000>;
+           };
+
+           channel@3 {
+               reg = <3>;
+               adi,output-range-microvolt = <(-10000000) 10000000>;
+           };
+       };
+   };
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root@analog:/> cd /sys/bus/iio/devices/
+   root@analog:/sys/bus/iio/devices> ls
+   iio:device0
+
+   root@analog:/sys/bus/iio/devices> cd iio\:device0
+
+   root@analog:/sys/bus/iio/devices/iio:device0> ls -l
+   total 0
+   drwxr-xr-x 3 root root    0 Jan 25 16:17 .
+   drwxr-xr-x 5 root root    0 Jan 25 16:17 ..
+   -r--r--r-- 1 root root 4096 Jan 25 16:17 name
+   lrwxrwxrwx 1 root root    0 Jan 25 16:17 of_node -> ../../../../../../../../firmware/devicetree/base/soc/spi@7e204000/ltc2688@0
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage0_offset
+   -rw-r--r-- 1 root root 4096 Jan 26 09:59 out_voltage0_powerdown
+   -rw-r--r-- 1 root root 4096 Jan 26 10:18 out_voltage0_raw
+   -r--r--r-- 1 root root 4096 Jan 25 16:17 out_voltage0_raw_available
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage0_scale
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage1_offset
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage1_powerdown
+   -rw-r--r-- 1 root root 4096 Jan 26 10:18 out_voltage1_raw0
+   -rw-r--r-- 1 root root 4096 Jan 26 10:18 out_voltage1_raw1
+   -r--r--r-- 1 root root 4096 Jan 25 16:17 out_voltage1_raw_available
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage1_scale
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage1_symbol
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage1_toggle_en
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage2_offset
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage2_powerdown
+   -rw-r--r-- 1 root root 4096 Jan 26 10:18 out_voltage2_raw
+   -r--r--r-- 1 root root 4096 Jan 25 16:17 out_voltage2_raw_available
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage2_scale
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage3_offset
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage3_powerdown
+   -rw-r--r-- 1 root root 4096 Jan 26 10:18 out_voltage3_raw
+   -r--r--r-- 1 root root 4096 Jan 25 16:17 out_voltage3_raw_available
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 out_voltage3_scale
+   drwxr-xr-x 2 root root    0 Jan 25 16:17 power
+   lrwxrwxrwx 1 root root    0 Jan 25 16:17 subsystem -> ../../../../../../../../bus/iio
+   -rw-r--r-- 1 root root 4096 Jan 25 16:17 uevent
+   -r--r--r-- 1 root root 4096 Jan 25 16:17 waiting_for_supplier
+   root@analog:/sys/bus/iio/devices/iio:device0#
+
+::
+
+   root@analog:~# iio_info
+   iio_info version: 0.25 (git tag:8fb78e06)
+   Libiio version: 0.25 (git tag: 8fb78e0) backends: local xml ip usb serial
+   IIO context created with local backend.
+   Backend version: 0.25 (git tag: 8fb78e0)
+   Backend description string: Linux analog 6.1.54-v7l+ #3472 SMP Thu Jan 25
+   16:22:37 CET 2024 armv7l
+   IIO context has 9 attributes:
+       hw_carrier: Raspberry Pi 4 Model B Rev 1.4
+       dtoverlay: rpi-ltc2664,vc4-kms-v3d
+       hw_model: 0x0001 on Raspberry Pi 4 Model B Rev 1.4
+       hw_mezzanine: 0x0001
+       hw_name: PMD-RPI-INTZ
+       hw_vendor: Analog Devices, Inc.
+       hw_serial: 13837e96-186d-45af-ac0b-e252c8d49a78
+       local,kernel: 6.1.54-v7l+
+       uri: local:
+   IIO context has 2 devices:
+       hwmon0: rpi_volt
+           1 channels found:
+               in0:  (input)
+               1 channel-specific attributes found:
+                   attr  0: lcrit_alarm value: 0
+           No trigger on this device
+       iio:device0: ltc2664
+           4 channels found:
+               voltage2:  (output)
+               5 channel-specific attributes found:
+                   attr  0: offset value: -32768
+                   attr  1: powerdown value: 0
+                   attr  2: raw value: 1000
+                   attr  3: raw_available value: [0 1 65535]
+                   attr  4: scale value: 0.305175781
+               voltage0:  (output)
+               5 channel-specific attributes found:
+                   attr  0: offset value: -32768
+                   attr  1: powerdown value: 1
+                   attr  2: raw value: 58000
+                   attr  3: raw_available value: [0 1 65535]
+                   attr  4: scale value: 0.305175781
+               voltage3:  (output)
+               5 channel-specific attributes found:
+                   attr  0: offset value: -32768
+                   attr  1: powerdown value: 0
+                   attr  2: raw value: 42000
+                   attr  3: raw_available value: [0 1 65535]
+                   attr  4: scale value: 0.305175781
+               voltage1:  (output)
+               8 channel-specific attributes found:
+                   attr  0: offset value: -32768
+                   attr  1: powerdown value: 0
+                   attr  2: raw0 value: 22000
+                   attr  3: raw1 value: 24000
+                   attr  4: raw_available value: [0 1 65535]
+                   attr  5: scale value: 0.305175781
+                   attr  6: symbol value: 0
+                   attr  7: toggle_en value: 0
+           1 device-specific attributes found:
+                   attr  0: waiting_for_supplier value: 0
+           1 debug attributes found:
+                   debug attr  0: direct_reg_access ERROR: Operation not
+                   supported (95)
+           No trigger on this device
+   root@analog:~#
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0> cat name
+   ltc2664
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to out_voltage0_raw and out_voltage1_raw in
+order to obtain the measured voltage in millivolts.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0> cat out_voltage_scale
+   0.305175781
+
+Show offset
+'''''''''''
+
+| **Description:**
+| /sys/bus/iio/devices/iio:deviceX/out_offset_raw
+
+Raw offset to be applied to out_voltage_raw in order to obtain the measured
+voltage in millivolts. The offset is applied before scale is applied.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0> cat out_voltage_offset
+   -32768
+
+Set channel Y output voltage
+''''''''''''''''''''''''''''
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
+
+Raw (unscaled, no bias etc.) output voltage for channel Y.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0> echo 10000 > out_voltage0_raw
+
+**U** = *(out_voltage0_raw + out_voltage0_offset) \* out_voltage0_scale* =
+(10000 - 32768) \* 0.305175781\ *mV* = **-6948.24 mV**
+
+Enable power down mode on output Y
+''''''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
+
+**Description:** Writing 1 causes output Y to enter the power down mode.
+Clearing returns to normal operation.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0> echo 1 > out_voltage0_powerdown
+   root@analog:/sys/bus/iio/devices/iio:device0> cat out_voltage0_powerdown
+   1
+   root@analog:/sys/bus/iio/devices/iio:device0> echo 0 > out_voltage0_powerdown
+   root@analog:/sys/bus/iio/devices/iio:device0> cat out_voltage0_powerdown
+   0
+
+Test example
+------------
+
+**Using:**
+
+- :adi:`DC2376A-A` LTC2664-16 Demo Board
+- :adi:`PMD-RPI-INTZ` Raspberry Pi to PMOD/QuikEval™/LTpowerPlay®
+  Adaptor HAT
+- Raspberry Pi 4
+-
+  :dokuwiki:`iio_attr </resources/tools-software/linux-software/libiio/iio_attr>`
+  part of the Libiio package.
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ltc2664.jpg
+   :width: 600px
+
+::
+
+   root@analog:~# iio_attr -c
+   IIO context has 2 devices:
+       hwmon0, rpi_volt: found 1 channels
+       iio:device0, ltc2664: found 4 channels
+
+   root@analog:~# iio_attr -c ltc2664
+   dev 'ltc2664', channel 'voltage2' (output), found 5 channel-specific attributes
+   dev 'ltc2664', channel 'voltage0' (output), found 5 channel-specific attributes
+   dev 'ltc2664', channel 'voltage3' (output), found 5 channel-specific attributes
+   dev 'ltc2664', channel 'voltage1' (output), found 8 channel-specific attributes
+
+   root@analog:~# iio_attr -c ltc2664 voltage0
+   dev 'ltc2664', channel 'voltage0' (output), attr 'offset', value '-32768'
+   dev 'ltc2664', channel 'voltage0' (output), attr 'powerdown', value '1'
+   dev 'ltc2664', channel 'voltage0' (output), attr 'raw', value '1'
+   dev 'ltc2664', channel 'voltage0' (output), attr 'raw_available', value '[0 1 65535]'
+   dev 'ltc2664', channel 'voltage0' (output), attr 'scale', value '0.305175781'
+
+   root@analog:~# iio_attr -c ltc2664 voltage0 raw 10000
+   10000
+   root@analog:~#
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

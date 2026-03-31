@@ -1,0 +1,330 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/leds/adp1650
+
+.. _adp1650:
+
+ADP1650
+=======
+
+ADP1650 LED Flash Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADP1650`
+
+Evaluation Boards
+-----------------
+
+- :adi:`ADP1650CB-EVALZ`
+
+Description
+-----------
+
+The ADP1650 is a programmable LED driver designed for camera flash
+applications in mobile devices. It provides current regulation up to 1.5 A
+for high-current flash mode and adjustable torch mode operation, with I2C
+programmability and hardware strobe input for precise timing control.
+
+- :adi:`Product Page <ADP1650>`
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - :git-linux:`git  <5.12:drivers/leds/leds-adp1650.c>`
+     - `In Progress <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/leds/leds-adp1650.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - `drivers/leds/leds-adp1650.c <http://blackfin.uclinux.org/git/?p=linux-kernel;a=blob_plain;f=drivers/leds/leds-adp1650.c;hb=HEAD>`__
+     -
+   * - include
+     - `include/linux/i2c/adp1650.h <http://blackfin.uclinux.org/git/?p=linux-kernel;a=blob_plain;f=include/linux/i2c/adp1650.h;hb=HEAD>`__
+     -
+
+Example platform device initialization
+--------------------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+.. note::
+
+   **platform_data: Platform data specific to the ADP1650 device.** Includes
+   feature selections and default initialization.
+
+   Please see
+   `include/linux/i2c/adp1650.h <http://blackfin.uclinux.org/git/?p=linux-kernel;a=blob_plain;f=include/linux/i2c/adp1650.h;hb=HEAD>`__
+   for details.
+
+.. code:: c
+
+   #include <linux/i2c/adp1650.h>
+
+   static struct adp1650_leds_platform_data adp1650_pdata = {
+       .timer_iocfg =  ADP1650_IOCFG_IO2_HIGH_IMP |
+               ADP1650_IOCFG_IO1_TORCH |
+               ADP1650_FL_TIMER_ms(500),
+
+       .current_set =  ADP1650_I_FL_mA(900) |
+               ADP1650_I_TOR_mA(100),
+
+       .output_mode =  ADP1650_IL_PEAK_2A25 |
+               ADP1650_STR_LV_EDGE |
+               ADP1650_FREQ_FB_EN |
+               ADP1650_OUTPUT_EN |
+               ADP1650_STR_MODE_HW |
+               ADP1650_STR_MODE_STBY,
+
+       .control =  ADP1650_I_TX2_mA(400) |
+               ADP1650_I_TX1_mA(400),
+
+       .ad_mode =  ADP1650_DYN_OVP_EN |
+               ADP1650_STR_POL_ACTIVE_HIGH |
+               ADP1650_I_ILED_2mA75 |
+               ADP1650_IL_DC_1A50 |
+               ADP1650_IL_DC_EN,
+
+       .batt_low = ADP1650_CL_SOFT_EN |
+               ADP1650_I_VB_LO_mA(400) |
+               ADP1650_V_VB_LO_3V50,
+
+       .gpio_enable = -1,
+   };
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-i2c-devices
+   :end-before: .. end-declaring-i2c-devices
+
+.. code:: c
+
+   static struct i2c_board_info __initdata board_i2c_board_info[] = {
+   #if defined(CONFIG_LEDS_ADP1650) || defined(CONFIG_LEDS_ADP1650_MODULE)
+       {
+           I2C_BOARD_INFO("adp1650", 0x30),
+           .platform_data = (void *)&adp1650_pdata,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       i2c_register_board_info(0, board_i2c_board_info,
+                   ARRAY_SIZE(board_i2c_board_info));
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. tip::
+
+   The ADP1650 LED driver depends on I2C.
+
+::
+
+   Device Drivers  --->
+       [] LED Support  --->
+           --- LED Support
+           []   LED Class Support
+                LED drivers
+
+           <--snip-->
+           <>   LED Support for ADP1650 I2C chips
+           <--snip-->
+
+Driver testing
+--------------
+
+LED handling under Linux
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The LED class allows control of LEDs from userspace. LEDs appear in
+/sys/class/leds/. The brightness file will set the brightness of the LED (taking
+a value 0-255).
+
+For more information read
+`linux/Documentaion/leds-class.txt <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/linux/Documentaion/leds-class.txt>`__
+
+::
+
+   ; **brightness** : get/set LED brightness (an integer between 0 and 255)
+   ; **max_brightness** : the maximum brightness value.
+
+Driver specific brightness interpretation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Value
+     - Define
+     - Description
+     - Intensity
+   * - 0
+     - FL_MODE_OFF
+     - Turns LED/FLASH off
+     - 0
+   * - 1
+     - FL_MODE_TORCH_25mA
+     - Software initiated TORCH/Assist light
+     - 25mA
+   * - 2
+     - FL_MODE_TORCH_50mA
+     - (STROBE) triggers FLASH
+     - 50mA
+   * - 3
+     - FL_MODE_TORCH_75mA
+     -
+     - 75mA
+   * - 4
+     - FL_MODE_TORCH_100mA
+     -
+     - 100mA
+   * - 5
+     - FL_MODE_TORCH_125mA
+     -
+     - 125mA
+   * - 6
+     - FL_MODE_TORCH_150mA
+     -
+     - 150mA
+   * - 7
+     - FL_MODE_TORCH_175mA
+     -
+     - 175mA
+   * - 8
+     - FL_MODE_TORCH_200mA
+     -
+     - 200mA
+   * - 9
+     - FL_MODE_TORCH_TRIG_EXT_25mA
+     - Hardware (GPIO1) triggered TORCH/Assist light
+     - 25mA
+   * - 10
+     - FL_MODE_TORCH_TRIG_EXT_50mA
+     - (STROBE) triggers FLASH
+     - 50mA
+   * - 11
+     - FL_MODE_TORCH_TRIG_EXT_75mA
+     -
+     - 75mA
+   * - 12
+     - FL_MODE_TORCH_TRIG_EXT_100mA
+     -
+     - 100mA
+   * - 13
+     - FL_MODE_TORCH_TRIG_EXT_125mA
+     -
+     - 125mA
+   * - 14
+     - FL_MODE_TORCH_TRIG_EXT_150mA
+     -
+     - 150mA
+   * - 15
+     - FL_MODE_TORCH_TRIG_EXT_175mA
+     -
+     - 175mA
+   * - 16
+     - FL_MODE_TORCH_TRIG_EXT_200mA
+     -
+     - 200mA
+   * - 254
+     - FL_MODE_FLASH
+     - Software initiated LED FLASH
+     - I_FL
+   * - 255
+     - FL_MODE_FLASH_TRIG_EXT
+     - Hardware (STROBE) triggered LED FLASH
+     - I_FL
+
+Example LED usage
+^^^^^^^^^^^^^^^^^
+
+::
+
+   root:/> cd sys/class/leds/adp1650/
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> ls -l
+   -rw-r--r--    1 root     root          4096 Jan  5 08:42 brightness
+   lrwxrwxrwx    1 root     root             0 Jan  5 08:23 device -> ../../../0-0030
+   -r--r--r--    1 root     root          4096 Jan  5 08:23 max_brightness
+   drwxr-xr-x    2 root     root             0 Jan  5 08:23 power
+   lrwxrwxrwx    1 root     root             0 Jan  5 08:23 subsystem -> ../../../../../../../class/leds
+   -rw-r--r--    1 root     root          4096 Jan  5 08:23 uevent
+
+Enable TORCH/Assist Light (Intensity 100mA)
+'''''''''''''''''''''''''''''''''''''''''''
+
+.. note::
+
+   A subsequent assert of **STROBE** will trigger the FLASH
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> echo 4 > brightness
+
+Prepare TORCH/Assist Light for an GPIO1 enable trigger (Intensity 100mA)
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+.. note::
+
+   A subsequent assert of **STROBE** will trigger the FLASH
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> echo 12 > brightness
+
+Initiate FLASH (Intensity set by I_FL)
+''''''''''''''''''''''''''''''''''''''
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> echo 254 > brightness
+
+Prepare FLASH for an STROBE triggered enable (Intensity set by I_FL)
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> echo 255 > brightness
+
+Disable all LED activity
+''''''''''''''''''''''''
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0030/leds/adp1650> echo 0 > brightness
+
+More Information
+----------------

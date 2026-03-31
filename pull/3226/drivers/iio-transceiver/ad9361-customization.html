@@ -1,0 +1,2429 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="AD9361 Device Driver Customization." name="description" />
+
+    <title>AD9361 &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=833c9372" />
+    <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="AD9371" href="ad9371.html" />
+    <link rel="prev" title="AD9361" href="ad9361.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">AD9361</a><ul>
+<li><a class="reference internal" href="#linux-no-os-device-driver-comparison">Linux/No-OS device driver comparison</a></li>
+<li><a class="reference internal" href="#rf-port-select">RF Port Select</a><ul>
+<li><a class="reference internal" href="#rf-port-input-select">RF Port Input Select</a></li>
+<li><a class="reference internal" href="#rf-port-output-select">RF Port Output Select</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#rssi-setup">RSSI Setup</a><ul>
+<li><a class="reference internal" href="#rssi-restart-modes">RSSI Restart Modes</a><ul>
+<li><a class="reference internal" href="#rssi-restart-mode-0">RSSI Restart Mode 0</a><ul>
+<li><a class="reference internal" href="#rssi-restart-mode-1">RSSI Restart Mode 1</a></li>
+<li><a class="reference internal" href="#rssi-restart-mode-2">RSSI Restart Mode 2</a></li>
+<li><a class="reference internal" href="#rssi-restart-mode-3">RSSI Restart Mode 3</a></li>
+<li><a class="reference internal" href="#rssi-restart-mode-4">RSSI Restart Mode 4</a></li>
+<li><a class="reference internal" href="#rssi-restart-mode-5">RSSI Restart Mode 5</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example">Example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#control-output-setup">Control Output Setup</a></li>
+<li><a class="reference internal" href="#clock-output-setup">Clock Output Setup</a></li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4695.html">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad6676.html">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-mxfe/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad9361.html">AD9361</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/ad714x.html">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl345.html">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7873.html">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7877.html">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/open_alliance.html">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1320.html">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="ad9361">
+<span id="ad9361-customization"></span><h1>AD9361<a class="headerlink" href="#ad9361" title="Link to this heading"></a></h1>
+<p>AD9361 Device Driver Customization.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>There are configuration options that must be set properly. Some others allow
+you to set defaults, but can be changed anytime later using the driver API.
+But most of these options don’t need to be changed at all.</p>
+<p>If unsure please see the manual or don’t change!</p>
+</div>
+<p>The Linux platform allows you to examine and determine optimal settings for your
+target application: See here:
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/fmcomms2_advanced_plugin" target="_blank">AD936X Advanced Plugin</a></p>
+<hr class="docutils" />
+<section id="linux-no-os-device-driver-comparison">
+<h2>Linux/No-OS device driver comparison<a class="headerlink" href="#linux-no-os-device-driver-comparison" title="Link to this heading"></a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Linux Device Tree Attribute</p></th>
+<th class="head"><p>No-OS AD9361_ParamInit structure member</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Base Configuration</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,2rx-2tx-mode-enable</p></td>
+<td><p>two_rx_two_tx_mode_enable</p></td>
+<td><p>Use 2Rx2Tx mode - default 1Rx1Tx (AD9364 must clear this)</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,1rx-1tx-mode-use-rx-num</p></td>
+<td><p>one_rx_one_tx_mode_use_rx_num</p></td>
+<td><p>Valid only in 1Rx1Tx mode for AD9361 and AD9363, Selects which RX channel is used</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,1rx-1tx-mode-use-tx-num</p></td>
+<td><p>one_rx_one_tx_mode_use_tx_num</p></td>
+<td><p>Valid only in 1Rx1Tx mode for AD9361 and AD9363, Selects which TX channel is used</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,frequency-division-duplex-mode-enable</p></td>
+<td><p>frequency_division_duplex_mode_enable</p></td>
+<td><p>Use FDD mode - default TDD</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,tdd-use-dual-synth-mode-enable</p></td>
+<td><p>tdd_use_dual_synth_mode_enable</p></td>
+<td><p>In TDD mode use Dual Synth mode - default only one Synth is enabled</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,tdd-skip-vco-cal-enable</p></td>
+<td><p>tdd_skip_vco_cal_enable</p></td>
+<td><p>Option to skip VCO cal in TDD mode when moving from TX/RX to Alert</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>ENSM Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,ensm-enable-pin-pulse-mode-enable</p></td>
+<td><p>ensm_enable_pin_pulse_mode_enable</p></td>
+<td><p>ENSM control Pins (ENABLE/TXNRX) use Pulse mode - default Level Mode</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,ensm-enable-txnrx-control-enable</p></td>
+<td><p>ensm_enable_txnrx_control_enable</p></td>
+<td><p>ENSM control Pins (ENABLE/TXNRX) control ENSM state - default SPI writes</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,frequency-division-duplex-independent-mode-enable</p></td>
+<td><p>frequency_division_duplex_independent_mode_enable</p></td>
+<td><p>Use independent FDD mode - allows individual control over RX and TX (Pin Mode Only)</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>LO Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,rx-synthesizer-frequency-hz</p></td>
+<td><p>rx_synthesizer_frequency_hz</p></td>
+<td><p>RX LO power-up Frequency in Hz</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,tx-synthesizer-frequency-hz</p></td>
+<td><p>tx_synthesizer_frequency_hz</p></td>
+<td><p>TX LO power-up Frequency in Hz</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,tx-fastlock-delay-ns</p></td>
+<td><p>tx_fastlock_delay_ns</p></td>
+<td><p>TX fastlock delay in ns</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rx-fastlock-delay-ns</p></td>
+<td><p>rx_fastlock_delay_ns</p></td>
+<td><p>RX fastlock delay in ns</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,rx-fastlock-pincontrol-enable</p></td>
+<td><p>rx_fastlock_pincontrol_enable</p></td>
+<td><p>RX fastlock pin control enable</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,tx-fastlock-pincontrol-enable</p></td>
+<td><p>tx_fastlock_pincontrol_enable</p></td>
+<td><p>RX fastlock pin control enable</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,trx-synthesizer-target-fref-overwrite-hz</p></td>
+<td><p>trx_synthesizer_target_fref_overwrite_hz</p></td>
+<td><p>This allows forcing a lower F_REF window (worse phase noise, better fractional spurs)</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,external-tx-lo-enable</p></td>
+<td><p>external_tx_lo_enable</p></td>
+<td><p>Enables external LO for TX</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,external-rx-lo-enable</p></td>
+<td><p>external_rx_lo_enable</p></td>
+<td><p>Enables external LO for RX</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Rate &amp; BW Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,rx-path-clock-frequencies</p></td>
+<td><p>rx_path_clock_frequencies[6]</p></td>
+<td><p>RX Path Frequencies in Hz (see also <a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad9361?&amp;#list_chosen_rx_path_rates" target="_blank">Here</a></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,tx-path-clock-frequencies</p></td>
+<td><p>tx_path_clock_frequencies[6]</p></td>
+<td><p>TX Path Frequencies in Hz (see also <a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad9361?&amp;#list_chosen_tx_path_rates" target="_blank">Here</a></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,rf-rx-bandwidth-hz</p></td>
+<td><p>rf_rx_bandwidth_hz</p></td>
+<td><p>RX RF Bandwidth power-up setting</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rf-tx-bandwidth-hz</p></td>
+<td><p>rf_tx_bandwidth_hz</p></td>
+<td><p>TX RF Bandwidth power-up setting</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>RF Port Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rx-rf-port-input-select</p></td>
+<td><p>rx_rf_port_input_select</p></td>
+<td><p>Please see <a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad9361-customization?&amp;#rf_port_select" target="_blank">Here</a></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,tx-rf-port-input-select</p></td>
+<td><p>tx_rf_port_input_select</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rx1-rx2-phase-inversion-enable</p></td>
+<td><p>rx1rx2_phase_inversion_en</p></td>
+<td><p>If enabled RX1 and RX2 are phase aligned</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>TX Attenuation Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,tx-attenuation-mdB</p></td>
+<td><p>tx_attenuation_mdB</p></td>
+<td><p>TX power-up attenuation in milli dB</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,update-tx-gain-in-alert-enable</p></td>
+<td><p>update_tx_gain_in_alert_enable</p></td>
+<td><p>in TDD mode disable immediate TX Gain update and wait until ENSM moves to Alert</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Reference Clock Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,xo-disable-use-ext-refclk-enable</p></td>
+<td><p>xo_disable_use_ext_refclk_enable</p></td>
+<td><p>Disable XO use Ext CLK into XTAL_N - default XO into XTAL</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,dcxo-coarse-and-fine-tune</p></td>
+<td><p>dcxo_coarse_and_fine_tune[2]</p></td>
+<td><p>DCXO Fine and Coarse Tune</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>RX DC/QEC tracking Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,dc-offset-tracking-update-event-mask</p></td>
+<td><p>dc_offset_tracking_update_event_mask</p></td>
+<td><p>BIT(0) Apply a new tracking word when a gain change occurs. BIT(1) Apply a new tracking word when the received signal is less than the SOI Threshold. BIT(2) Apply a new tracking word after the device exits the receive state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,dc-offset-attenuation-high-range</p></td>
+<td><p>dc_offset_attenuation_high_range</p></td>
+<td><p>RX LO &gt; 4 GHz: These bits control the attenuator for the initialization and tracking RF DC offset calibrations. The integrated data shifts by this twos complement value and ranges from -16 to +15.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,dc-offset-attenuation-low-range</p></td>
+<td><p>dc_offset_attenuation_low_range</p></td>
+<td><p>RX LO &lt; 4 GHz: These bits control the attenuator for the initialization and tracking RF DC offset calibrations. The integrated data shifts by this twos complement value and ranges from -16 to +15.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,dc-offset-count-high-range</p></td>
+<td><p>dc_offset_count_high_range</p></td>
+<td><p>RX LO &gt; 4 GHz: This value affects both RF DC offset initialization and tracking and it sets the number of integrated samples and the loop gain. The number of samples equals 256 × RF DC Offset Count[7:0] in ClkRF cycles. Increasing this value increases loop gain.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,dc-offset-count-low-range</p></td>
+<td><p>dc_offset_count_low_range</p></td>
+<td><p>RX LO &lt; 4 GHz: This value affects both RF DC offset initialization and tracking and it sets the number of integrated samples and the loop gain. The number of samples equals 256 × RF DC Offset Count[7:0] in ClkRF cycles. Increasing this value increases loop gain.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,qec-tracking-slow-mode-enable</p></td>
+<td><p>qec_tracking_slow_mode_enable</p></td>
+<td><p>Improved RX QEC tracking in case signal of interest is close to DC/LO</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Gain Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,split-gain-table-mode-enable</p></td>
+<td><p>split_gain_table_mode_enable</p></td>
+<td><p>Enable Split Gain Table Mode - default Full Table</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gc-rx1-mode</p></td>
+<td><p>gc_rx1_mode</p></td>
+<td><p>RX1 Gain control operation: Manual gain (0); Fast attack AGC (1); Slow attack AGC (2); Hybrid AGC (3). See register 0x0FA, bits [D4], [D1:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gc-rx2-mode</p></td>
+<td><p>gc_rx2_mode</p></td>
+<td><p>RX2 Gain control operation: Manual gain (0); Fast attack AGC (1); Slow attack AGC (2); Hybrid AGC (3). See register 0x0FA, bits [D4], [D3:D2].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gc-adc-large-overload-thresh</p></td>
+<td><p>gc_adc_large_overload_thresh</p></td>
+<td><p>This attribute sets the large ADC overload. See register 0x105.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gc-adc-ovr-sample-size</p></td>
+<td><p>gc_adc_ovr_sample_size</p></td>
+<td><p>This attribute equals the number of ADC output samples used to determine an ADC overload. See register 0x0FC, bits [D2:D0]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gc-adc-small-overload-thresh</p></td>
+<td><p>gc_adc_small_overload_thresh</p></td>
+<td><p>This attribute sets the small ADC overload. See register 0x104.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gc-dec-pow-measurement-duration</p></td>
+<td><p>gc_dec_pow_measurement_duration</p></td>
+<td><p>The power measurement duration used by the gain control algorithm. See register 0x15C, bits [D3:D0]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gc-use-rx-fir-out-for-dec-pwr-meas-enable</p></td>
+<td><p>gc_use_rx_fir_out_for_dec_pwr_meas_enable</p></td>
+<td><p>Set to use the RX FIR output for power measurements. Default/Clear to use the HB1 output. See register 0x15C, bits [D6].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gc-dig-gain-enable</p></td>
+<td><p>gc_dig_gain_enable</p></td>
+<td><p>This attribute is used in split table mode to enable the digital gain pointer. See register 0x0FB, bit D2.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gc-lmt-overload-high-thresh</p></td>
+<td><p>gc_lmt_overload_high_thresh</p></td>
+<td><p>This attribute sets the large LMT overload threshold. See register 0x108. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gc-lmt-overload-low-thresh</p></td>
+<td><p>gc_lmt_overload_low_thresh</p></td>
+<td><p>This attribute sets the small LMT overload threshold. See register 0x107. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gc-low-power-thresh</p></td>
+<td><p>gc_low_power_thresh</p></td>
+<td><p>This threshold is used by the fast AGC to determine if the gain should be increased. It can also be used to trigger a CTRL_OUT signal transition in MGC mode. See register 0x114, bits [D6:D0]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gc-max-dig-gain</p></td>
+<td><p>gc_max_dig_gain</p></td>
+<td><p>This attribute equals the maximum allowable digital gain, and applies to all gain control modes. See register 0x100, bits [D4:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Gain MGC Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,mgc-dec-gain-step</p></td>
+<td><p>mgc_dec_gain_step</p></td>
+<td><p>This attribute applies if the CTRL_IN signals control gain. The gain index decreases by this value when certain CTRL_IN signals transition high. See register 0x0FE, bits [D7:D5]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,mgc-inc-gain-step</p></td>
+<td><p>mgc_inc_gain_step</p></td>
+<td><p>This attribute applies if the CTRL_IN signals control gain. The gain index increases by this value when certain CTRL_IN signals transition high. See register 0x0FC, bits [D7:D5]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,mgc-rx1-ctrl-inp-enable</p></td>
+<td><p>mgc_rx1_ctrl_inp_enable</p></td>
+<td><p>If this attribute is clear, SPI writes change the RX1 gain. When this attribute is set, control input pins control the gain. See register 0x0FB, bit [D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,mgc-rx2-ctrl-inp-enable</p></td>
+<td><p>mgc_rx2_ctrl_inp_enable</p></td>
+<td><p>If this attribute is clear, SPI writes change the RX2 gain. When this attribute is set, control input pins control the gain. See register 0x0FB, bit [D1].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,mgc-split-table-ctrl-inp-gain-mode</p></td>
+<td><p>mgc_split_table_ctrl_inp_gain_mode</p></td>
+<td><p>AGC determine this (0); Only in LPF(1); Only in LMT (2). See register 0x0FC, bits [D4], [D3].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Gain AGC Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-adc-large-overload-exceed-counter</p></td>
+<td><p>agc_adc_large_overload_exceed_counter</p></td>
+<td><p>This counter specifies the number of large ADC overloads that must occur before the gain will decrease by the large ADC overload gain step. See register 0x122, bits [D7:D4].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-adc-large-overload-inc-steps</p></td>
+<td><p>agc_adc_large_overload_inc_steps</p></td>
+<td><p>This attribute applies to AGC and determine how much the gain changes for large LPF in split tablemode or the large LMT and large ADC overloads in full table mode. See register 0x106, bits [D3:D0] (Name is misleading should be dec-steps )</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-adc-lmt-small-overload-prevent-gain-inc-enable</p></td>
+<td><p>agc_adc_lmt_small_overload_prevent_gain_inc_enable</p></td>
+<td><p>This attribute set the slow AGC inner low window threshold. See register 0x120, bits [D6:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-adc-small-overload-exceed-counter</p></td>
+<td><p>agc_adc_small_overload_exceed_counter</p></td>
+<td><p>This counter specifies the number of small ADC overloads that must occur to prevent a gain increase. See register 0x122, bits [D3:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-attack-delay-extra-margin-us</p></td>
+<td><p>agc_attack_delay_extra_margin_us</p></td>
+<td><p>The AGC Attack Delay prevents the AGC from starting its algorithm until the receive path has settled. The delay counter starts when the ENSM enters the Rx state. See register 0x022, bits [D5:D0]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-dig-gain-step-size</p></td>
+<td><p>agc_dig_gain_step_size</p></td>
+<td><p>If digital saturation occurs, digital gain reduces by this value. See register 0x100, bits [D7:D5].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-dig-saturation-exceed-counter</p></td>
+<td><p>agc_dig_saturation_exceed_counter</p></td>
+<td><p>This counter specifies the number of digital saturation events that much occur to prevent a gain increase. See register 0x128, bits [D3:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-immed-gain-change-if-large-adc-overload-enable</p></td>
+<td><p>agc_immed_gain_change_if_large_adc_overload_enable</p></td>
+<td><p>Set this attribute to allow large ADC overload to reduce gain immediately. See register 0x123, bit D3.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-immed-gain-change-if-large-lmt-overload-enable</p></td>
+<td><p>agc_immed_gain_change_if_large_lmt_overload_enable</p></td>
+<td><p>Set this attribute to allow large LMT overloads to reduce gain immediately. See register 0x123, bit D7.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-inner-thresh-high</p></td>
+<td><p>agc_inner_thresh_high</p></td>
+<td><p>Applies to AGC. This attribute specifies the fast AGC lock level or specifies the slow AGC inner high threshold. Resolution is −1 dBFS/LSB. See register 0x101 [D6:D0]).</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-inner-thresh-high-dec-steps</p></td>
+<td><p>agc_inner_thresh_high_dec_steps</p></td>
+<td><p>This attribute sets the gain decrease amount when the inner high threshold is exceeded. See register 0x123, bits [D6:D4].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-inner-thresh-low</p></td>
+<td><p>agc_inner_thresh_low</p></td>
+<td><p>This attribute sets the slow AGC inner low window threshold. See register 0x120, bits [D6:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-inner-thresh-low-inc-steps</p></td>
+<td><p>agc_inner_thresh_low_inc_steps</p></td>
+<td><p>This attribute sets the increase amount used when the gain goes under the inner low threshold. See register 0x123, bits [D2:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-dig-sat-ovrg-enable</p></td>
+<td><p>agc_dig_sat_ovrg_enable</p></td>
+<td><p>Applies to the fast AGC and full gain table. When clear, digital saturation does not cause a gain decrease. When set, digital saturation will cause a gain decrease. See register 0x101, bit D7.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-lmt-overload-large-exceed-counter</p></td>
+<td><p>agc_lmt_overload_large_exceed_counter</p></td>
+<td><p>This counter specifies the number of large LMT overloads that must occur before gain decreases by the LMT Gain Step. See register 0x121, bits [D7:D4].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-lmt-overload-large-inc-steps</p></td>
+<td><p>agc_lmt_overload_large_inc_steps</p></td>
+<td><p>This attribute determines how much the gain changes for large LMT in split tablemode or the small ADC overload for the full table. See register 0x103, bits [D4:D2].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-lmt-overload-small-exceed-counter</p></td>
+<td><p>agc_lmt_overload_small_exceed_counter</p></td>
+<td><p>This counter specifies the number of small LMT overloads that much occur to prevent a gain increase. See register 0x121, bits [D3:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-outer-thresh-high</p></td>
+<td><p>agc_outer_thresh_high</p></td>
+<td><p>The outer high threshold equals the inner high threshold plus this value. See register 0x129, bits [D7:D4]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-outer-thresh-high-dec-steps</p></td>
+<td><p>agc_outer_thresh_high_dec_steps</p></td>
+<td><p>The slow AGC changes gain by this amount when the outer high threshold is exceeded. See register 0x12A, bits [D7:D4].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-outer-thresh-low</p></td>
+<td><p>agc_outer_thresh_low</p></td>
+<td><p>The outer low threshold equals the inner low threshold plus this value. See register 0x129, bits [D3:D0]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,agc-outer-thresh-low-inc-steps</p></td>
+<td><p>agc_outer_thresh_low_inc_steps</p></td>
+<td><p>The slow AGC changes gain by this amount when the outer low threshold is exceeded. See register 0x12A, bits [D3:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,agc-sync-for-gain-counter-enable</p></td>
+<td><p>agc_sync_for_gain_counter_enable</p></td>
+<td><p>If this attribute is set, CTRL_IN2 transitioning high resets the counter.See register 0x128, bit D4.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Fast AGC</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-dec-pow-measurement-duration</p></td>
+<td><p>fagc_dec_pow_measuremnt_duration</p></td>
+<td><p>The power measurement duration used by the gain control algorithm. See register 0x15C, bits [D3:D0]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-state-wait-time-ns</p></td>
+<td><p>fagc_state_wait_time_ns</p></td>
+<td><p>The fast AGC delays moving from State 1 to State 2 until no peak overloads are detected for the value of this counter; measured in ClkRF cycles. See register 0x117, bits [D4:D0]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-adc-large-overload-inc-steps</p></td>
+<td><p>f_agc_large_overload_inc_steps</p></td>
+<td><p>Fast Attack Only. Decrement Step Size for: Small LPF Gain Change / Full Table Case #2 &lt;2:0&gt;. See register 0x106, bits [D4:D6] (Name is misleading should be dec-steps!)</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Fast AGC - Low Power</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-allow-agc-gain-increase-enable</p></td>
+<td><p>fagc_allow_agc_gain_increase</p></td>
+<td><p>Setting this attribute allows the fast AGC to increase the gain while optimizing the gain index. Clearing it prevents the gain from increasing in any condition. See register 0x110, bit D0.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-lp-thresh-increment-time</p></td>
+<td><p>fagc_lp_thresh_increment_time</p></td>
+<td><p>This attribute sets the time that the signal power must remain below the Low Power Threshold before the fast AGC will change gain. Also can be used by the MGC. See register 0x11B, bits [D7:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-lp-thresh-increment-steps</p></td>
+<td><p>fagc_lp_thresh_increment_steps</p></td>
+<td><p>The Fast AGC will increase the gain index by this amount if signal power decreases below the Low Power Threshold and only if the Enable Incr Gain is enabled. See register 0x117, bits [D7:D5]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Fast AGC - Lock Level (Lock Level is set via slow AGC inner high threshold)</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-lock-level-lmt-gain-increase-enable</p></td>
+<td><p>fagc_lock_level_lmt_gain_increase_en</p></td>
+<td><p>Set this attribute to allow the AGC to use LMT gain if the gain index needs to increase when moving to the AGC Lock Level. See register 0x111, bit D6.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-lock-level-gain-increase-upper-limit</p></td>
+<td><p>fagc_lock_level_gain_increase_upper_limit</p></td>
+<td><p>This attribute sets the maximum gain index increase that the fast AGC can use for the lock level adjustment. See register 0x118, bits [D5:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Fast AGC - Peak Detectors and Final Settling</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-lpf-final-settling-steps</p></td>
+<td><p>fagc_lpf_final_settling_steps</p></td>
+<td><p>This attribute sets the reduction to the gain index if a large LMT or large ADC overload occurs after Lock Level but before fast AGC state 5. If the number of overloads exceeds the Final Overrange Count (fagc_final_overrange_count), the AGC algorithm restarts. Depending on various conditions if a split table is used, the gain may reduce in in the LPF or the LMT (fagc_lmt_final_settling_steps). See register 0x112, bits [D7:D6].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-lmt-final-settling-steps</p></td>
+<td><p>fagc_lmt_final_settling_steps</p></td>
+<td><p>Post Lock Level Step for LMT Table. See register 0x113, bits [D7:D6].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-final-overrange-count</p></td>
+<td><p>fagc_final_overrange_count</p></td>
+<td><p>Final Overrange Count. See register 0x116, bits [D7:D5].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Fast AGC - Final Power Test</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-gain-increase-after-gain-lock-enable</p></td>
+<td><p>fagc_gain_increase_after_gain_lock_en</p></td>
+<td><p>Set this attribute to allow gain increases after the gain has locked but before State 5. Signal power must be lower than the low power threshold for longer than the increment time duration register. See register 0x110, bit D7.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Fast AGC - Unlocking the Gain</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-gain-index-type-after-exit-rx-mode</p></td>
+<td><p>fagc_gain_index_type_after_exit_rx_mode</p></td>
+<td><p>MAX Gain (0); Optimized Gain (1); Set Gain (2). See register 0x110, bits D4,D2. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-use-last-lock-level-for-set-gain-enable</p></td>
+<td><p>fagc_use_last_lock_level_for_set_gain_en</p></td>
+<td><p>Set this attribute to use the last gain index of the previous frame for set gain. Clear to use the first gain index of the previous frame. See register 0x111, bit D7.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-rst-gla-stronger-sig-thresh-exceeded-enable</p></td>
+<td><p>fagc_rst_gla_stronger_sig_thresh_exceeded_en</p></td>
+<td><p>If this attribute is set and the fast AGC is in State 5, the gain will not change even if the signal power increase by more than the Stronger Signal Threshold. See register 0x115, bit D7.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-optimized-gain-offset</p></td>
+<td><p>fagc_optimized_gain_offset</p></td>
+<td><p>The offset added to the last gain lock level of the previous frame. The result is the optimize gain index. See register 0x116, bits [D3:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-rst-gla-stronger-sig-thresh-above-ll</p></td>
+<td><p>fagc_rst_gla_stronger_sig_thresh_above_ll</p></td>
+<td><p>If the signal power increases by this threshold and the signal power remains at this level or higher for a duration that is twice the Gain Lock Exit Count, the gain may unlock, depending on other AGC configuration bits. See register 0x113, bits [D5:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-rst-gla-engergy-lost-sig-thresh-exceeded-enable</p></td>
+<td><p>fagc_rst_gla_engergy_lost_sig_thresh_exceeded_en</p></td>
+<td><p>If this attribute is set and the fast AGC is in State 5, the gain will not change even if the average signal power decreases more than the Energy Lost Threshold register. See register 0x110, bit D3.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-rst-gla-engergy-lost-goto-optim-gain-enable</p></td>
+<td><p>fagc_rst_gla_engergy_lost_goto_optim_gain_en</p></td>
+<td><p>If this attribute is set and the fast AGC is in State 5, the gain index will go to the optimize gain value if an energy lost state occurs or when the EN_AGC signal goes high. See register 0x110, bit D6.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-rst-gla-engergy-lost-sig-thresh-below-ll</p></td>
+<td><p>fagc_rst_gla_engergy_lost_sig_thresh_below_ll</p></td>
+<td><p>If the signal power decreases by this threshold and the signal power remains at this level or lower for a duration that is twice the Gain Lock Exit Count, the gain may unlock, depending on other AGC configuration bits. See register 0x112, bits [D5:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-energy-lost-stronger-sig-gain-lock-exit-cnt</p></td>
+<td><p>fagc_energy_lost_stronger_sig_gain_lock_exit_cnt</p></td>
+<td><p>Gain Lock Exit Count. See register 0x119, bits [D5:D0].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-rst-gla-large-adc-overload-enable</p></td>
+<td><p>fagc_rst_gla_large_adc_overload_en</p></td>
+<td><p>Unlock gain if ADC Ovrg, Lg ADC or LMT Ovrg. See register 0x110, bit D1 and register 0x114, bit D7. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-rst-gla-large-lmt-overload-enable</p></td>
+<td><p>fagc_rst_gla_large_lmt_overload_en</p></td>
+<td><p>Unlock Gain if Lg ADC or LMT Ovrg. See register 0x110, bit D1.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-rst-gla-en-agc-pulled-high-enable</p></td>
+<td><p>fagc_rst_gla_en_agc_pulled_high_en</p></td>
+<td><p>See fagc_rst_gla_if_en_agc_pulled_high_mode. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,fagc-rst-gla-if-en-agc-pulled-high-mode</p></td>
+<td><p>fagc_rst_gla_if_en_agc_pulled_high_mode</p></td>
+<td><p>MAX Gain (0); Optimized Gain (1); Set Gain (2), No gain change. See registers 0x110, 0x111</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fagc-power-measurement-duration-in-state5</p></td>
+<td><p>fagc_power_measurement_duration_in_state5</p></td>
+<td><p>The power measurement duration used by the gain control algorithm for State 5 (gain lock) - fast AGC. See register 0x109, bit D7 and 0x10a, bits [D7:D5].</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>RSSI Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rssi-delay</p></td>
+<td><p>rssi_delay</p></td>
+<td><p>Please see <a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad9361-customization?&amp;#rssi_setup" target="_blank">Here</a></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,rssi-duration</p></td>
+<td><p>rssi_duration</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rssi-restart-mode</p></td>
+<td><p>rssi_restart_mode</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,rssi-unit-is-rx-samples-enable</p></td>
+<td><p>rssi_unit_is_rx_samples_enable</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rssi-wait</p></td>
+<td><p>rssi_wait</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,rssi-gain-step-lna-error-table</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>RSSI Gain Step LNA error table values</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rssi-gain-step-mixer-error-table</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>RSSI Gain Step Mixer error table values</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,rssi-gain-step-calibration-register-values</p></td>
+<td><ul class="simple">
+<li></li>
+</ul>
+</td>
+<td><p>Maximum LNA Gain, LNA Gain difference word for Index 0, LNA Gain difference word for Index 1, LNA Gain difference word for Index 2, LNA Gain difference word for Index 3</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Aux ADC Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,aux-adc-decimation</p></td>
+<td><p>aux_adc_decimation</p></td>
+<td><p>This sets the AuxADC decimation, See register 0x01D, bits [D3:D1]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,aux-adc-rate</p></td>
+<td><p>aux_adc_rate</p></td>
+<td><p>This sets the AuxADC clock frequency in Hz. See register 0x01C, bits [D5:D0]. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Temperature Sensor Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,temp-sense-decimation</p></td>
+<td><p>temp_sense_decimation</p></td>
+<td><p>Decimation of the AuxADC used to derive the temperature. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,temp-sense-measurement-interval-ms</p></td>
+<td><p>temp_sense_measurement_interval_ms</p></td>
+<td><p>Measurement interval in ms. This data is processed by the driver.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,temp-sense-offset-signed</p></td>
+<td><p>temp_sense_offset_signed</p></td>
+<td><p>Offset in signed deg. C, range -128…127</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,temp-sense-periodic-measurement-enable</p></td>
+<td><p>temp_sense_periodic_measurement_enable</p></td>
+<td><p>Enables periodic measurement</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Aux DAC Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,aux-dac-manual-mode-enable</p></td>
+<td><p>aux_dac_manual_mode_enable</p></td>
+<td><p>If enabled the Aux DAC doesn’t slave the ENSM</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,aux-dac1-default-value-mV</p></td>
+<td><p>aux_dac1_default_value_mV</p></td>
+<td><p>DAC1 default voltage in mV</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,aux-dac1-active-in-rx-enable</p></td>
+<td><p>aux_dac1_active_in_rx_enable</p></td>
+<td><p>If enabled DAC is active in RX mode</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,aux-dac1-active-in-tx-enable</p></td>
+<td><p>aux_dac1_active_in_tx_enable</p></td>
+<td><p>If enabled DAC is active in TX mode</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,aux-dac1-active-in-alert-enable</p></td>
+<td><p>aux_dac1_active_in_alert_enable</p></td>
+<td><p>If enabled DAC is active in ALERT mode</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,aux-dac1-rx-delay-us</p></td>
+<td><p>aux_dac1_rx_delay_us</p></td>
+<td><p>RX delay in us</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,aux-dac1-tx-delay-us</p></td>
+<td><p>aux_dac1_tx_delay_us</p></td>
+<td><p>TX delay in us</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,aux-dac2-default-value-mV</p></td>
+<td><p>aux_dac2_default_value_mV</p></td>
+<td><p>DAC2 default voltage in mV</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,aux-dac2-active-in-rx-enable</p></td>
+<td><p>aux_dac2_active_in_rx_enable</p></td>
+<td><p>If enabled DAC is active in RX mode</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,aux-dac2-active-in-tx-enable</p></td>
+<td><p>aux_dac2_active_in_tx_enable</p></td>
+<td><p>If enabled DAC is active in TX mode</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,aux-dac2-active-in-alert-enable</p></td>
+<td><p>aux_dac2_active_in_alert_enable</p></td>
+<td><p>If enabled DAC is active in ALERT mode</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,aux-dac2-rx-delay-us</p></td>
+<td><p>aux_dac2_rx_delay_us</p></td>
+<td><p>RX delay in us</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,aux-dac2-tx-delay-us</p></td>
+<td><p>aux_dac2_tx_delay_us</p></td>
+<td><p>TX delay in us</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>GPO Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo-manual-mode-enable</p></td>
+<td></td>
+<td><p>Enables GPO manual mode, this will conflict with automatic ENSM slave and eLNA mode</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo-manual-mode-enable-mask</p></td>
+<td></td>
+<td><p>Enable bit mask, setting or clearing bits will change the level of the corresponding output. Bit0 -&gt; GPO, Bit1 -&gt; GPO1, Bit2 -&gt; GPO2, Bit3 -&gt; GP03</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo0-inactive-state-high-enable</p></td>
+<td><p>gpo0_inactive_state_high_enable</p></td>
+<td><p>When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when set, the GPOs are logic high in the Alert state.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo0-slave-rx-enable</p></td>
+<td><p>gpo0_slave_rx_enable</p></td>
+<td><p>When set this GPO pin change state when the ENSM enters the RX state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo0-slave-tx-enable</p></td>
+<td><p>gpo0_slave_tx_enable</p></td>
+<td><p>When set this GPO pin change state when the ENSM enters the TX state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo0-rx-delay-us</p></td>
+<td><p>gpo0_rx_delay_us</p></td>
+<td><p>This value set the delay from an ENSM state change of Alert to RX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo0-tx-delay-us</p></td>
+<td><p>gpo0_tx_delay_us</p></td>
+<td><p>This value set the delay from an ENSM state change of Alert to TX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo1-inactive-state-high-enable</p></td>
+<td><p>gpo1_inactive_state_high_enable</p></td>
+<td><p>When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when set, the GPOs are logic high in the Alert state.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo1-slave-rx-enable</p></td>
+<td><p>gpo1_slave_rx_enable</p></td>
+<td><p>When set this GPO pin change state when the ENSM enters the RX state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo1-slave-tx-enable</p></td>
+<td><p>gpo1_slave_tx_enable</p></td>
+<td><p>When set this GPO pin change state when the ENSM enters the TX state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo1-rx-delay-us</p></td>
+<td><p>gpo1_rx_delay_us</p></td>
+<td><p>This value set the delay from an ENSM state change of Alert to RX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo1-tx-delay-us</p></td>
+<td><p>gpo1_tx_delay_us</p></td>
+<td><p>This value set the delay from an ENSM state change of Alert to TX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo2-inactive-state-high-enable</p></td>
+<td><p>gpo2_inactive_state_high_enable</p></td>
+<td><p>When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when set, the GPOs are logic high in the Alert state.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo2-slave-rx-enable</p></td>
+<td><p>gpo2_slave_rx_enable</p></td>
+<td><p>When set this GPO pin change state when the ENSM enters the RX state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo2-slave-tx-enable</p></td>
+<td><p>gpo2_slave_tx_enable</p></td>
+<td><p>When set this GPO pin change state when the ENSM enters the TX state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo2-rx-delay-us</p></td>
+<td><p>gpo2_rx_delay_us</p></td>
+<td><p>This value set the delay from an ENSM state change of Alert to RX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo2-tx-delay-us</p></td>
+<td><p>gpo2_tx_delay_us</p></td>
+<td><p>This value set the delay from an ENSM state change of Alert to TX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo3-inactive-state-high-enable</p></td>
+<td><p>gpo3_inactive_state_high_enable</p></td>
+<td><p>When clear, the GPOs are logic low in the Sleep, Wait, and Alert States and when set, the GPOs are logic high in the Alert state.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo3-slave-rx-enable</p></td>
+<td><p>gpo3_slave_rx_enable</p></td>
+<td><p>When set this GPO pin change state when the ENSM enters the RX state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo3-slave-tx-enable</p></td>
+<td><p>gpo3_slave_tx_enable</p></td>
+<td><p>When set this GPO pin change state when the ENSM enters the TX state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,gpo3-rx-delay-us</p></td>
+<td><p>gpo3_rx_delay_us</p></td>
+<td><p>This value set the delay from an ENSM state change of Alert to RX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,gpo3-tx-delay-us</p></td>
+<td><p>gpo3_tx_delay_us</p></td>
+<td><p>This value set the delay from an ENSM state change of Alert to TX to the time that the GPOs change logic level. 1us/LSB with a range from 0 to 255 us.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Control Out Setup</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,ctrl-outs-enable-mask</p></td>
+<td><p>ctrl_outs_enable_mask</p></td>
+<td><p>Please see <a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad9361-customization?&amp;#control_output_setup" target="_blank">Here</a></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,ctrl-outs-index</p></td>
+<td><p>ctrl_outs_index</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Clock Output Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,clk-output-mode-select</p></td>
+<td><p>clk_output_mode_select</p></td>
+<td><p>Please see <a class="icon dokuwiki reference external" href="https://wiki.analog.com/ad9361-customization?&amp;#clock_output_setup" target="_blank">Here</a></p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>External LNA Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,elna-settling-delay-ns</p></td>
+<td><p>elna_settling_delay_ns</p></td>
+<td><p>Settling delay of external LNA in ns</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,elna-gain-mdB</p></td>
+<td><p>elna_gain_mdB</p></td>
+<td><p>These options must have non-zero values only if (1) an external LNA is used and (2) the <code class="docutils literal notranslate"><span class="pre">Ext</span> <span class="pre">LNA</span> <span class="pre">ctrl</span></code> bits in the Gain Table have been programmed. For a fixed-gain LNA, set elna-gain-mdB to the gain of the LNA and leave register elna-bypass-loss-mdB at its default of 0. For an external LNA with a bypass mode, program elna-gain-mdB with the <code class="docutils literal notranslate"><span class="pre">high</span> <span class="pre">gain</span></code> (non-bypass) value and program elna-bypass-loss-mdB with the <code class="docutils literal notranslate"><span class="pre">low</span> <span class="pre">gain</span></code> (bypass) value. The part considers both values to represent positive gain in the front end prior to the AD9361. Both registers range from 0 to 31500mdB in 500mdB steps. See elna-rx[1|2]-gpo[0|1]-control-enable to route the external LNA gain table bits to the GPO pins.</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,elna-bypass-loss-mdB</p></td>
+<td><p>elna_bypass_loss_mdB</p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,elna-rx1-gpo0-control-enable</p></td>
+<td><p>elna_rx1_gpo0_control_enable</p></td>
+<td><p>When set, the <code class="docutils literal notranslate"><span class="pre">Ext</span> <span class="pre">LNA</span> <span class="pre">Ctrl</span></code> bit in the Rx1 gain table sets the GPO0 state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,elna-rx2-gpo1-control-enable</p></td>
+<td><p>elna_rx2_gpo1_control_enable</p></td>
+<td><p>When set, the <code class="docutils literal notranslate"><span class="pre">Ext</span> <span class="pre">LNA</span> <span class="pre">Ctrl</span></code> bit in the Rx2 gain table sets the GPO1 state</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,elna-gaintable-all-index-enable</p></td>
+<td><p>elna_gaintable_all_index_enable</p></td>
+<td><p>The external LNA control bit in the gain tables is set for all indexes</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>TX Monitor Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,txmon-low-high-thresh</p></td>
+<td><p>low_high_gain_threshold_mdB</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,txmon-low-gain</p></td>
+<td><p>low_gain_dB</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,txmon-high-gain</p></td>
+<td><p>high_gain_dB</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,txmon-dc-tracking-enable</p></td>
+<td><p>tx_mon_track_en</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,txmon-one-shot-mode-enable</p></td>
+<td><p>one_shot_mode_en</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,txmon-delay</p></td>
+<td><p>tx_mon_delay</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,txmon-duration</p></td>
+<td><p>tx_mon_duration</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,txmon-1-front-end-gain</p></td>
+<td><p>tx1_mon_front_end_gain</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,txmon-2-front-end-gain</p></td>
+<td><p>tx2_mon_front_end_gain</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,txmon-1-lo-cm</p></td>
+<td><p>tx1_mon_lo_cm</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,txmon-2-lo-cm</p></td>
+<td><p>tx2_mon_lo_cm</p></td>
+<td><p>Please see the manual</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Digital Interface Control</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,digital-interface-tune-skip-mode</p></td>
+<td><p>digital_interface_tune_skip_mode</p></td>
+<td><p>Allows skipping the digital interface tune 0=don’t skip, 1=skip TX tuning, 2=skip RX and TX and use rx-data-clock-delay, adi,rx-data-delay, adi,tx-fb-clock-delay, adi,tx-data-delay instead</p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="line-block">
+<div class="line">.. note::</div>
+</div>
+<blockquote>
+<div><p>All options below directly correspond to bits in:</p>
+<div class="line-block">
+<div class="line">PARALLEL PORT CONFIGURATION REGISTERS (ADDRESS 0x010 THROUGH ADDRESS 0x012)</div>
+<div class="line">TX, RX INTERFACE CLOCK CONFIGURATION REGISTERS (ADDRESS 0x006 THROUGH ADDRESS 0x07) DIGITAL IO CONTROL REGISTERS (ADDRESS 0x03B THROUGH ADDRESS 0x03E)</div>
+</div>
+<p>please see the manual for further assistance.</p>
+</div></blockquote>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>adi,pp-tx-swap-enable</p></td>
+<td><p>pp_tx_swap_enable</p></td>
+<td><p>Clearing this option swaps I and Q (performs spectral inversion)</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,pp-rx-swap-enable</p></td>
+<td><p>pp_rx_swap_enable</p></td>
+<td><p>Clearing this option swaps I and Q (performs spectral inversion)</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,tx-channel-swap-enable</p></td>
+<td><p>tx_channel_swap_enable</p></td>
+<td><p>Setting this option swaps the positions of Tx1 and Tx2 samples</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,rx-channel-swap-enable</p></td>
+<td><p>rx_channel_swap_enable</p></td>
+<td><p>Setting this option swaps the positions of Rx1 and Rx2 samples</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rx-frame-pulse-mode-enable</p></td>
+<td><p>rx_frame_pulse_mode_enable</p></td>
+<td><p>The AD9361 outputs an Rx frame sync signal indicating the beginning of an
+Rx frame. When this option is clear, Rx frame goes high coincident with
+the first valid receive sample. It stays high as long as the receivers
+are enabled. When this option is set, the Rx frame signal toggles with a
+duty cycle of 50%.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,2t2r-timing-enable</p></td>
+<td><p>two_t_two_r_timing_enable</p></td>
+<td><p>When set, the data port uses 2R2T timing, regardless of the number of
+enabled transmitters and receivers. When clear, the timing reflects the
+number of enabled signal paths.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,invert-data-bus-enable</p></td>
+<td><p>invert_data_bus_enable</p></td>
+<td><p>Inverts the data port(s) from [11:0] to [0:11]</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,invert-data-clk-enable</p></td>
+<td><p>invert_data_clk_enable</p></td>
+<td><p>Setting this option inverts DATA_CLK</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fdd-alt-word-order-enable</p></td>
+<td><p>fdd_alt_word_order_enable</p></td>
+<td><p>Valid only in full duplex, dual port, full port mode. When this option is
+set, each port splits into two 6-option halves. Rx1 uses 6 options of a
+port and Rx2 uses the other 6 options of the port (receivers are not
+interleaved). Tx1 and Tx2 are organized similarly</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,invert-rx-frame-enable</p></td>
+<td><p>invert_rx_frame_enable</p></td>
+<td><p>Setting this option inverts Rx frame</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,fdd-rx-rate-2tx-enable</p></td>
+<td><p>fdd_rx_rate_2tx_enable</p></td>
+<td><p>When clear, the Rx sample rate is equal to the Tx sample rate. When set,
+the Rx rate is twice the Tx rate. This option can only be set when option
+D3 of Register 0x012 is clear (full duplex mode).</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,swap-ports-enable</p></td>
+<td><p>swap_ports_enable</p></td>
+<td><p>Setting this option swaps Port 0 and Port 1. Must be clear for LVDS mode</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,single-data-rate-enable</p></td>
+<td><p>single_data_rate_enable</p></td>
+<td><p>When clear, both edges of DATA_CLK are used. When set, only one edge of
+is used</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,lvds-mode-enable</p></td>
+<td><p>lvds_mode_enable</p></td>
+<td><p>When clear, the data port uses single-ended CMOS. Set this bit to use
+LVDS. Full duplex (0x012[D3] clear), DDR (0x012[D5] clear), and dual port
+mode (0x012[D2] clear) are required</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,half-duplex-mode-enable</p></td>
+<td><p>half_duplex_mode_enable</p></td>
+<td><p>Clearing the option allows simultaneous bi-directional data. Setting the
+option allows data to flow in only one direction at a time</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,single-port-mode-enable</p></td>
+<td><p>single_port_mode_enable</p></td>
+<td><p>When clear, P0 and P1 ports are both used. When set, only one data port
+is used.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,full-port-enable</p></td>
+<td><p>full_port_enable</p></td>
+<td><p>This option toggles between the options used for receive data and those
+used for transmit data with one exception. If the FDD Alt Word Order
+option (0x011[D7]) is set, then the effect is to swap the most
+significant 6 options with the least significant 6 options. It is not
+always valid to set this option</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,full-duplex-swap-bits-enable</p></td>
+<td><p>full_duplex_swap_bits_enable</p></td>
+<td><p>This option toggles between the options used for receive data and those
+used for transmit data with one exception. If the FDD Alt Word Order
+option (0x011[D7]) is set, then the effect is to swap the most
+significant 6 options with the least significant 6 options. It is not
+always valid to set this option.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,delay-rx-data</p></td>
+<td><p>delay_rx_data</p></td>
+<td><p>These options set the delay of the Rx data relative to Rx frame, measured
+in ½ DATA_CLK cycles for DDR and full DATA_CLK cycles for SDR.</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,rx-data-clock-delay</p></td>
+<td><p>rx_data_clock_delay</p></td>
+<td><p>These bits affect the DATA_CLK and the Rx data delays. The typical delay
+is approximately 0.3 ns/LSB. Rx Frame is delayed the same amount as the
+data port bits. Minimum delay setting is 0x0 and maximum delay is 0xF.
+Set this register so that the data from the AD9361 meets BBP setup/hold
+specifications.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rx-data-delay</p></td>
+<td><p>rx_data_delay</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,tx-fb-clock-delay</p></td>
+<td><p>tx_fb_clock_delay</p></td>
+<td><p>This register function the same as Register 0x006 but affects the FB_CLK,
+Tx_FRAME, and Tx Data bits. Tx frame sync is delayed the same amount as
+the data port bits. Set this register so that the data from the BBP meets
+the AD9361 setup/hold specifications.</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,tx-data-delay</p></td>
+<td><p>tx_data_delay</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>adi,lvds-bias-mV</p></td>
+<td><p>lvds_bias_mV</p></td>
+<td><p>LVDS driver amplitude control. VOD = 75 mV to 450 mV</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,lvds-rx-onchip-termination-enable</p></td>
+<td><p>lvds_rx_onchip_termination_enable</p></td>
+<td><p>Use LVDS Rx100 on-chip termination for all data path bits, Tx_FRAME, and
+FB_CLK. Do not set this bit in CMOS mode</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,lvds-invert1-control</p></td>
+<td><p>lvds_invert1_control</p></td>
+<td><p>The phase of any LVDS pair can be inverted from its default configuration
+by setting bits in these two registers (see Table 24 in the Manual). The
+default configuration for the data bits is inverted. Set
+adi,lvds-invert1-control = 0xFF and adi,lvds-invert2-control = 0x0F to
+prevent data inversion. Clock and frame signals are not inverted in the
+default case</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,lvds-invert2-control</p></td>
+<td><p>lvds_invert2_control</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="rf-port-select">
+<h2>RF Port Select<a class="headerlink" href="#rf-port-select" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/ad9361_fbl.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/ad9361_fbl.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/ad9361_fbl.png" style="width: 300px;" />
+</a>
+</figure>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>RF Port Control</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>adi,rx-rf-port-input-select</p></td>
+<td><p>rx_rf_port_input_select</p></td>
+<td><p>RF Port Input Select</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,tx-rf-port-input-select</p></td>
+<td><p>tx_rf_port_input_select</p></td>
+<td><p>RF Port Output Select</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="rf-port-input-select">
+<span id="ad9361-customization-rf-port-input-select"></span><h3>RF Port Input Select<a class="headerlink" href="#rf-port-input-select" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>VAL</p></th>
+<th class="head"><p>OPTION</p></th>
+<th class="head"><p>TYPE</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>(RX1A_N &amp; RX1A_P) and (RX2A_N &amp; RX2A_P) enabled</p></td>
+<td><p>balanced</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>(RX1B_N &amp; RX1B_P) and (RX2B_N &amp; RX2B_P) enabled</p></td>
+<td><p>balanced</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>(RX1C_N &amp; RX1C_P) and (RX2C_N &amp; RX2C_P) enabled</p></td>
+<td><p>balanced</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>RX1A_N and RX2A_N enabled</p></td>
+<td><p>unbalanced</p></td>
+</tr>
+<tr class="row-even"><td><p>4</p></td>
+<td><p>RX1A_P and RX2A_P enabled</p></td>
+<td><p>unbalanced</p></td>
+</tr>
+<tr class="row-odd"><td><p>5</p></td>
+<td><p>RX1B_N and RX2B_N enabled</p></td>
+<td><p>unbalanced</p></td>
+</tr>
+<tr class="row-even"><td><p>6</p></td>
+<td><p>RX1B_P and RX2B_P enabled</p></td>
+<td><p>unbalanced</p></td>
+</tr>
+<tr class="row-odd"><td><p>7</p></td>
+<td><p>RX1C_N and RX2C_N enabled</p></td>
+<td><p>unbalanced</p></td>
+</tr>
+<tr class="row-even"><td><p>8</p></td>
+<td><p>RX1C_P and RX2C_P enabled</p></td>
+<td><p>unbalanced</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="rf-port-output-select">
+<span id="ad9361-customization-rf-port-output-select"></span><h3>RF Port Output Select<a class="headerlink" href="#rf-port-output-select" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>VAL</p></th>
+<th class="head"><p>OPTION</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>TX1A, TX2A</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>TX1B, TX2B</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="rssi-setup">
+<h2>RSSI Setup<a class="headerlink" href="#rssi-setup" title="Link to this heading"></a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>RSSI Control</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Linux Device Tree Attribute</p></td>
+<td><p>No-OS AD9361_ParamInit structure member</p></td>
+<td><p>Description</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rssi-restart-mode</p></td>
+<td><p>rssi_restart_mode</p></td>
+<td><p>See RSSI Restart Modes below</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,rssi-unit-is-rx-samples-enable</p></td>
+<td><p>rssi_unit_is_rx_samples_enable</p></td>
+<td><p>Duration, Delay and Wait are expressed in Rx sample-rate cycles. If not
+set unit is micro seconds</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rssi-duration</p></td>
+<td><p>rssi_duration</p></td>
+<td><p>Total RSSI measurement duration</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,rssi-delay</p></td>
+<td><p>rssi_delay</p></td>
+<td><p>When the RSSI algorithm (re)starts, the AD9361 first waits for the Rx
+signal path to settle. This delay is the <code class="docutils literal notranslate"><span class="pre">RSSI</span> <span class="pre">Delay</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,rssi-wait</p></td>
+<td><p>rssi_wait</p></td>
+<td><p>After the <code class="docutils literal notranslate"><span class="pre">RSSI</span> <span class="pre">Delay</span></code> the RSSI algorithm alternates between measuring
+RSSI and waiting <code class="docutils literal notranslate"><span class="pre">RSSI</span> <span class="pre">Wait</span></code> to measure RSSI</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="rssi-restart-modes">
+<h3>RSSI Restart Modes<a class="headerlink" href="#rssi-restart-modes" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>RSSI Mode Select</p></th>
+<th class="head"><p>The RSSI Algorithm will (re)start when</p></th>
+<th class="head"><p>Useful For</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>AGC in Fast Attack Mode Locks the Gain</p></td>
+<td><p>TDD</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>EN_AGC pin is pulled High</p></td>
+<td><p>TDD, measuring a symbol late in the burst</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>AD9361 Enters Rx Mode</p></td>
+<td><p>TDD</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>Gain Change Occurs</p></td>
+<td><p>FDD</p></td>
+</tr>
+<tr class="row-even"><td><p>4</p></td>
+<td><p>SPI Write to Register</p></td>
+<td><p>FDD</p></td>
+</tr>
+<tr class="row-odd"><td><p>5</p></td>
+<td><p>Gain Change Occurs OR EN_AGC pin pulled High</p></td>
+<td><p>FDD</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="rssi-restart-mode-0">
+<h4>RSSI Restart Mode 0<a class="headerlink" href="#rssi-restart-mode-0" title="Link to this heading"></a></h4>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode0.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode0.png" />
+</figure>
+<section id="rssi-restart-mode-1">
+<h5>RSSI Restart Mode 1<a class="headerlink" href="#rssi-restart-mode-1" title="Link to this heading"></a></h5>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode1.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode1.png" />
+</figure>
+</section>
+<section id="rssi-restart-mode-2">
+<h5>RSSI Restart Mode 2<a class="headerlink" href="#rssi-restart-mode-2" title="Link to this heading"></a></h5>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode2.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode2.png" />
+</figure>
+</section>
+<section id="rssi-restart-mode-3">
+<h5>RSSI Restart Mode 3<a class="headerlink" href="#rssi-restart-mode-3" title="Link to this heading"></a></h5>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode3.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode3.png" />
+</figure>
+</section>
+<section id="rssi-restart-mode-4">
+<h5>RSSI Restart Mode 4<a class="headerlink" href="#rssi-restart-mode-4" title="Link to this heading"></a></h5>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode4.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode4.png" />
+</figure>
+</section>
+<section id="rssi-restart-mode-5">
+<h5>RSSI Restart Mode 5<a class="headerlink" href="#rssi-restart-mode-5" title="Link to this heading"></a></h5>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode5.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-transceiver/rssi_restart_mode5.png" />
+</figure>
+</section>
+</section>
+<section id="example">
+<h4>Example<a class="headerlink" href="#example" title="Link to this heading"></a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/*</span> <span class="n">adi</span><span class="p">,</span><span class="n">rssi</span><span class="o">-</span><span class="n">restart</span><span class="o">-</span><span class="n">mode</span><span class="p">:</span>
+ <span class="o">*</span> <span class="mi">0</span> <span class="o">=</span> <span class="n">AGC_IN_FAST_ATTACK_MODE_LOCKS_THE_GAIN</span><span class="p">,</span>
+ <span class="o">*</span> <span class="mi">1</span> <span class="o">=</span> <span class="n">EN_AGC_PIN_IS_PULLED_HIGH</span><span class="p">,</span>
+ <span class="o">*</span> <span class="mi">2</span> <span class="o">=</span> <span class="n">ENTERS_RX_MODE</span><span class="p">,</span>
+ <span class="o">*</span> <span class="mi">3</span> <span class="o">=</span> <span class="n">GAIN_CHANGE_OCCURS</span><span class="p">,</span>
+ <span class="o">*</span> <span class="mi">4</span> <span class="o">=</span> <span class="n">SPI_WRITE_TO_REGISTER</span><span class="p">,</span>
+ <span class="o">*</span> <span class="mi">5</span> <span class="o">=</span> <span class="n">GAIN_CHANGE_OCCURS_OR_EN_AGC_PIN_PULLED_HIGH</span><span class="p">,</span>
+ <span class="o">*/</span>
+<span class="n">adi</span><span class="p">,</span><span class="n">rssi</span><span class="o">-</span><span class="n">restart</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">3</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="o">//</span><span class="n">adi</span><span class="p">,</span><span class="n">rssi</span><span class="o">-</span><span class="n">unit</span><span class="o">-</span><span class="ow">is</span><span class="o">-</span><span class="n">rx</span><span class="o">-</span><span class="n">samples</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+<span class="n">adi</span><span class="p">,</span><span class="n">rssi</span><span class="o">-</span><span class="n">delay</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="mi">1</span><span class="n">us</span> <span class="o">*/</span>
+<span class="n">adi</span><span class="p">,</span><span class="n">rssi</span><span class="o">-</span><span class="n">wait</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="mi">1</span><span class="n">us</span> <span class="o">*/</span>
+<span class="n">adi</span><span class="p">,</span><span class="n">rssi</span><span class="o">-</span><span class="n">duration</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="mi">1</span><span class="n">ms</span> <span class="o">*/</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="control-output-setup">
+<h2>Control Output Setup<a class="headerlink" href="#control-output-setup" title="Link to this heading"></a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Control Out Setup</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>adi,ctrl-outs-enable-mask</p></td>
+<td><p>ctrl_outs_enable_mask</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>adi,ctrl-outs-index</p></td>
+<td><p>ctrl_outs_index</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td></td>
+<td><p>MASK</p></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>INDEX</p></td>
+<td><p>[7]</p></td>
+<td><p>[6]</p></td>
+<td><p>[5]</p></td>
+<td><p>[4]</p></td>
+<td><p>[3]</p></td>
+<td><p>[2]</p></td>
+<td><p>[1]</p></td>
+<td><p>[0]</p></td>
+</tr>
+<tr class="row-odd"><td><p>0</p></td>
+<td><p>Cal Done</p></td>
+<td><p>TX CP Cal Done</p></td>
+<td><p>RX CP Cal Done</p></td>
+<td><p>Rx BB Filter Tuning Done</p></td>
+<td><p>Tx BB Filter Tuning Done</p></td>
+<td><p>Gain Step Cal Busy</p></td>
+<td><p>Rx Synth VCO Cal Busy</p></td>
+<td><p>Tx Synth VCO Cal Busy</p></td>
+</tr>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>Tx RF PLL Lock</p></td>
+<td><p>Rx RF PLL Lock</p></td>
+<td><p>BB PLL Lock</p></td>
+<td><p>0</p></td>
+<td><p>0</p></td>
+<td><p>0</p></td>
+<td><p>0</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>BB DC Cal Busy</p></td>
+<td><p>RF DC Cal Busy</p></td>
+<td><p>CH1 Rx Quad Cal Busy</p></td>
+<td><p>CH1 Tx Quad Cal Busy</p></td>
+<td><p>CH2 Rx Quad Cal Busy</p></td>
+<td><p>CH2 Tx Quad Cal Busy</p></td>
+<td><p>Gain Step Cal Busy</p></td>
+<td><p>Tx Mon Cal Busy</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>CH1 ADC Low Power</p></td>
+<td><p>CH 1 Lg LMT Ovrg</p></td>
+<td><p>CH 1 Lg ADC Ovrg</p></td>
+<td><p>CH1 Sm ADC Ovrg</p></td>
+<td><p>CH 2 Low Power</p></td>
+<td><p>CH 2 Lg LMT Ovrg</p></td>
+<td><p>CH 2 Lg ADC Ovrg</p></td>
+<td><p>CH 2 Sm ADC Ovrg</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>CH 2 Rx Gain[6]</p></td>
+<td><p>CH 2 Rx Gain[5]</p></td>
+<td><p>CH 2 Rx Gain[4]</p></td>
+<td><p>CH 2 Rx Gain[3]</p></td>
+<td><p>CH 2 Rx Gain[2]</p></td>
+<td><p>CH 2 Lg LMT Ovrg</p></td>
+<td><p>CH 2 Lg ADC Ovrg</p></td>
+<td><p>CH 2 Gain Lock</p></td>
+</tr>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>CH2 Gain Change</p></td>
+<td><p>CH1 Gain Change</p></td>
+<td><p>CH 2 Low Power</p></td>
+<td><p>CH 2 Lg LMT Ovrg</p></td>
+<td><p>CH 2 Lg ADC Ovrg</p></td>
+<td><p>CH 2 Gain Lock</p></td>
+<td><p>CH 2 Energy Lost</p></td>
+<td><p>CH2 Stronger Signal</p></td>
+</tr>
+<tr class="row-odd"><td><p>6</p></td>
+<td><p>CH1Low Power</p></td>
+<td><p>CH 1 Lg LMT Ovrg</p></td>
+<td><p>CH 1 Lg ADC Ovrg</p></td>
+<td><p>CH 1 Rx Gain[6]</p></td>
+<td><p>CH 1 Rx Gain[5]</p></td>
+<td><p>CH 1 Rx Gain[4]</p></td>
+<td><p>CH 1 Rx Gain[3]</p></td>
+<td><p>CH 1 Rx Gain[2]</p></td>
+</tr>
+<tr class="row-even"><td><p>7</p></td>
+<td><p>CH1 Low Power</p></td>
+<td><p>CH 1 Lg LMT Ovrg</p></td>
+<td><p>CH 1 Lg ADC Ovrg</p></td>
+<td><p>CH1 Sm ADC Ovrg</p></td>
+<td><p>CH1 AGC SM[2]</p></td>
+<td><p>CH1 AGC SM[1]</p></td>
+<td><p>CH1 AGC SM[0]</p></td>
+<td><p>CH1 Gain Lock</p></td>
+</tr>
+<tr class="row-odd"><td><p>8</p></td>
+<td><p>CH 1 Stronger Signal</p></td>
+<td><p>CH 1 Gain Lock</p></td>
+<td><p>CH 1 Energy Lost</p></td>
+<td><p>CH 1 Gain Change</p></td>
+<td><p>CH 2 Stronger Signal</p></td>
+<td><p>CH 2 Gain Lock</p></td>
+<td><p>CH 2 Energy Lost</p></td>
+<td><p>CH 2 Gain Change</p></td>
+</tr>
+<tr class="row-even"><td><p>9</p></td>
+<td><p>RxOn</p></td>
+<td><p>CH 1 RSSI Preamble Ready</p></td>
+<td><p>CH 1 RSSI Symbol Ready</p></td>
+<td><p>TxOn</p></td>
+<td><p>CH 2 RSSI Preamble Ready</p></td>
+<td><p>CH 2 RSSI Symbol Ready</p></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>10</p></td>
+<td><p>CH 1 Tx Int3 Overflow</p></td>
+<td><p>CH 1 Tx HB3 Overflow</p></td>
+<td><p>CH 1 Tx HB2 Overflow</p></td>
+<td><p>CH 1 Tx QEC Overflow</p></td>
+<td><p>CH 1 Tx HB1 Overflow</p></td>
+<td><p>CH 1 Tx FIR Overflow</p></td>
+<td><p>CH 1 Rx FIR Overflow</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>11</p></td>
+<td><p>Cal Seq State[3]</p></td>
+<td><p>Cal Seq State [2]</p></td>
+<td><p>Cal Seq State [1]</p></td>
+<td><p>Cal Seq State [0]</p></td>
+<td><p>ENSM[3]</p></td>
+<td><p>ENSM[2]</p></td>
+<td><p>ENSM[1]</p></td>
+<td><p>ENSM[0]</p></td>
+</tr>
+<tr class="row-odd"><td><p>12</p></td>
+<td><p>CH 1 Energy Lost</p></td>
+<td><p>CH 1 Reset Peak Detect</p></td>
+<td><p>CH 2 Energy Lost</p></td>
+<td><p>CH 2 Reset Peak Detect</p></td>
+<td><p>Gain Freeze</p></td>
+<td><p>CH 1 Digital Sat</p></td>
+<td><p>CH 2 Digital Sat</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>13</p></td>
+<td><p>CH1 Tx Quad Cal Status[1]</p></td>
+<td><p>CH1 Tx Quad Cal Status[0]</p></td>
+<td><p>CH1 Tx Quad Cal Done</p></td>
+<td><p>RF DC Cal Busy</p></td>
+<td><p>CH2 Tx Quad Cal Status[1]</p></td>
+<td><p>CH2 Tx Quad Cal Status[0]</p></td>
+<td><p>CH2 Tx Quad Cal Done</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>14</p></td>
+<td><p>CH1 Rx Quad Cal Status[1]</p></td>
+<td><p>CH1 Rx Quad Cal Status[0]</p></td>
+<td><p>CH1 Rx Quad Cal Done</p></td>
+<td><p>BB DC Cal Busy</p></td>
+<td><p>CH2 Rx Quad Cal Status[1]</p></td>
+<td><p>CH2 Rx Quad Cal Status[0]</p></td>
+<td><p>CH2 Rx Quad Cal Done</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>15</p></td>
+<td><p>CH1 AGC State[2]</p></td>
+<td><p>CH1 AGC State[1]</p></td>
+<td><p>CH1 AGC State[0]</p></td>
+<td><p>Reset Peak Detect CH1</p></td>
+<td><p>Reset Peak Detect CH2</p></td>
+<td><p>CH 1 RF DC Cal State[1]</p></td>
+<td><p>CH 1 RF DC Cal State[0]</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>16</p></td>
+<td><p>CH2 AGC State[2]</p></td>
+<td><p>CH2 AGC State[1]</p></td>
+<td><p>CH2 AGC State[0]</p></td>
+<td><p>CH 2 Enable RSSI</p></td>
+<td><p>CH 1Enable RSSI</p></td>
+<td><p>CH 2 RF DC Cal State[1]</p></td>
+<td><p>CH 2 RF DC Cal State[0]</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>17</p></td>
+<td><p>AuxADC Output[11]</p></td>
+<td><p>AuxADC Output[10]</p></td>
+<td><p>AuxADC Output[9]</p></td>
+<td><p>AuxADC Output[8]</p></td>
+<td><p>AuxADC Output[7]</p></td>
+<td><p>AuxADC Output[6]</p></td>
+<td><p>AuxADC Output[5]</p></td>
+<td><p>AuxADC Output[4]</p></td>
+</tr>
+<tr class="row-odd"><td><p>18</p></td>
+<td><p>CH 1 Filter Power Ready</p></td>
+<td><p>CH 1 Gain Lock</p></td>
+<td><p>CH 1 Energy Lost</p></td>
+<td><p>CH 1 Stronger Signal</p></td>
+<td><p>CH 1 ADC Power Ready</p></td>
+<td><p>CH 1 AGC State [2]</p></td>
+<td><p>CH 1 AGC State [1]</p></td>
+<td><p>CH 1 AGC State [0]</p></td>
+</tr>
+<tr class="row-even"><td><p>19</p></td>
+<td><p>CH 2 Filter Power Ready</p></td>
+<td><p>CH 2 Gain Lock</p></td>
+<td><p>CH 2 Energy Lost</p></td>
+<td><p>CH 2 Stronger Signal</p></td>
+<td><p>CH 2 ADC Power Ready</p></td>
+<td><p>CH 2 AGC State [2]</p></td>
+<td><p>CH 2 AGC State [1]</p></td>
+<td><p>CH 2 AGC State [0]</p></td>
+</tr>
+<tr class="row-odd"><td><p>20</p></td>
+<td><p>CH 2 Tx Int3 Overflow</p></td>
+<td><p>CH 2 Tx HB3 Overflow</p></td>
+<td><p>CH 2 Tx HB2 Overflow</p></td>
+<td><p>CH 2 Tx QEC Overflow</p></td>
+<td><p>CH 2 Tx HB1 Overflow</p></td>
+<td><p>CH 2 Tx FIR Overflow</p></td>
+<td><p>CH 2 Rx FIR Overflow</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-even"><td><p>21</p></td>
+<td><p>CH1 SOI Present</p></td>
+<td><p>CH1 Update DCRF</p></td>
+<td><p>CH1 Measure DCRF</p></td>
+<td><p>CH1 DC Track Count Reached</p></td>
+<td><p>0</p></td>
+<td><p>0</p></td>
+<td><p>0</p></td>
+<td><p>0</p></td>
+</tr>
+<tr class="row-odd"><td><p>22</p></td>
+<td><p>CH1 Gain Lock</p></td>
+<td><p>CH1 Rx Gain[6]</p></td>
+<td><p>CH1 Rx Gain[5]</p></td>
+<td><p>CH1 Rx Gain[4]</p></td>
+<td><p>CH1 Rx Gain[3]</p></td>
+<td><p>CH1 Rx Gain[2]</p></td>
+<td><p>CH1 Rx Gain[1]</p></td>
+<td><p>CH1 Rx Gain[0]</p></td>
+</tr>
+<tr class="row-even"><td><p>23</p></td>
+<td><p>CH2 Gain Lock</p></td>
+<td><p>CH2 Rx Gain[6]</p></td>
+<td><p>CH2 Rx Gain[5]</p></td>
+<td><p>CH2 Rx Gain[4]</p></td>
+<td><p>CH2 Rx Gain[3]</p></td>
+<td><p>CH2 Rx Gain[2]</p></td>
+<td><p>CH2 Rx Gain[1]</p></td>
+<td><p>CH2 Rx Gain[0]</p></td>
+</tr>
+<tr class="row-odd"><td><p>24</p></td>
+<td><p>CH2 SOI Present</p></td>
+<td><p>CH2 Update DCRF</p></td>
+<td><p>CH2 Measure DCRF</p></td>
+<td><p>CH2 DC Track Count Reached</p></td>
+<td><p>CH2Enable Dec Pwr</p></td>
+<td><p>CH2 Enable ADC Pwr</p></td>
+<td><p>CH1 Enable Dec Pwr</p></td>
+<td><p>CH1 Enable ADC Pwr</p></td>
+</tr>
+<tr class="row-even"><td><p>25</p></td>
+<td><p>RX Syn Cp Cal[3]</p></td>
+<td><p>RX Syn Cp Cal[2]</p></td>
+<td><p>RX Syn Cp Cal[1]</p></td>
+<td><p>RX Syn Cp Cal[0]</p></td>
+<td><p>TX Syn Cp Cal[3]</p></td>
+<td><p>TX Syn Cp Cal[2]</p></td>
+<td><p>TX Syn Cp Cal[1]</p></td>
+<td><p>TX Syn Cp Cal[0]</p></td>
+</tr>
+<tr class="row-odd"><td><p>26</p></td>
+<td><p>RX Syn VCO Tuning[8]</p></td>
+<td><p>RX Synth VCO ALC[6]</p></td>
+<td><p>RX Synth VCO ALC[5]</p></td>
+<td><p>RX Synth VCO ALC[4]</p></td>
+<td><p>RX Synth VCO ALC[3]</p></td>
+<td><p>RX Synth VCO ALC[2]</p></td>
+<td><p>RX Synth VCO ALC[1]</p></td>
+<td><p>RX Synth VCO ALC[0]</p></td>
+</tr>
+<tr class="row-even"><td><p>27</p></td>
+<td><p>TX Syn VCO Tuning[8]</p></td>
+<td><p>TX Synth VCO ALC[6]</p></td>
+<td><p>TX Synth VCO ALC[5]</p></td>
+<td><p>TX Synth VCO ALC[4]</p></td>
+<td><p>TX Synth VCO ALC[3]</p></td>
+<td><p>TX Synth VCO ALC[2]</p></td>
+<td><p>TX Synth VCO ALC[1]</p></td>
+<td><p>TX Synth VCO ALC[0]</p></td>
+</tr>
+<tr class="row-odd"><td><p>28</p></td>
+<td><p>RX Syn VCO Tuning[7]</p></td>
+<td><p>RX Syn VCO Tuning[6]</p></td>
+<td><p>RX Syn VCO Tuning[5]</p></td>
+<td><p>RX Syn VCO Tuning[4]</p></td>
+<td><p>RX Syn VCO Tuning[3]</p></td>
+<td><p>RX Syn VCO Tuning[2]</p></td>
+<td><p>RX Syn VCO Tuning[1]</p></td>
+<td><p>RX Syn VCO Tuning[0]</p></td>
+</tr>
+<tr class="row-even"><td><p>29</p></td>
+<td><p>TX Syn VCO Tuning[7]</p></td>
+<td><p>TX Syn VCO Tuning[6]</p></td>
+<td><p>TX Syn VCO Tuning[5]</p></td>
+<td><p>TX Syn VCO Tuning[4]</p></td>
+<td><p>TX Syn VCO Tuning[3]</p></td>
+<td><p>TX Syn VCO Tuning[2]</p></td>
+<td><p>TX Syn VCO Tuning[1]</p></td>
+<td><p>TX Syn VCO Tuning[0]</p></td>
+</tr>
+<tr class="row-odd"><td><p>30</p></td>
+<td><p>CH1Low Thresh Exceeded</p></td>
+<td><p>CH1High Thresh Exceeded</p></td>
+<td><p>CH1Gain Upd Count Exp</p></td>
+<td><p>CH1AGC State [1]</p></td>
+<td><p>CH1AGC State [0]</p></td>
+<td><p>CH 1 Gain Change</p></td>
+<td><p>Temp Sense Valid</p></td>
+<td><p>AuxADC Valid</p></td>
+</tr>
+<tr class="row-even"><td><p>31</p></td>
+<td><p>CH2Low Thresh Exceeded</p></td>
+<td><p>CH2High Thresh Exceeded</p></td>
+<td><p>CH2Gain Upd Count Exp</p></td>
+<td><p>CH2AGC SM[1]</p></td>
+<td><p>CH2AGC SM[0]</p></td>
+<td><p>CH 2 Gain Change</p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="clock-output-setup">
+<h2>Clock Output Setup<a class="headerlink" href="#clock-output-setup" title="Link to this heading"></a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>CLKOUT</p></th>
+<th class="head"><p>CLKOUT Frequency</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>Disabled</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>XTALN (or DCXO) (buffered)</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>ADC_CLK / 2</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>ADC_CLK / 3</p></td>
+</tr>
+<tr class="row-even"><td><p>4</p></td>
+<td><p>ADC_CLK / 4</p></td>
+</tr>
+<tr class="row-odd"><td><p>5</p></td>
+<td><p>ADC_CLK / 8</p></td>
+</tr>
+<tr class="row-even"><td><p>6</p></td>
+<td><p>ADC_CLK / 16</p></td>
+</tr>
+<tr class="row-odd"><td><p>7</p></td>
+<td><p>ADC_CLK / 32</p></td>
+</tr>
+<tr class="row-even"><td><p>8</p></td>
+<td><p>ADC_CLK / 64</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="ad9361.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD9361</a>
+    <a href="ad9371.html" title="Next document (Alt+Shift+RightArrow)" class="next">AD9371</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

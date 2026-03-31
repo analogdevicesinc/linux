@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="ADXL345 Input 3-Axis Digital Accelerometer Linux Driver." name="description" />
+
+    <title>ADXL345 &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=833c9372" />
+    <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="ADXL362" href="adxl362.html" />
+    <link rel="prev" title="AD714X" href="ad714x.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">ADXL345</a><ul>
+<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#description">Description</a><ul>
+<li><a class="reference internal" href="#adxl34x-hardware-features">ADXL34x Hardware Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration">Configuration</a></li>
+<li><a class="reference internal" href="#software-configurable-features">Software configurable features</a><ul>
+<li><a class="reference internal" href="#adxl34x-linux-driver-features">ADXL34x Linux Driver Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#id2">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+<li><a class="reference internal" href="#adxl345-6-driver-porting">ADXL345/6 driver porting</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example-platform-device-initialization">Example platform device initialization</a><ul>
+<li><a class="reference internal" href="#example-platform-board-file-spi-interface-option">Example Platform / Board file (SPI Interface Option)</a></li>
+<li><a class="reference internal" href="#devicetree">Devicetree</a></li>
+<li><a class="reference internal" href="#example-platform-board-file-i2c-interface-option">Example Platform / Board file (I2C Interface Option)</a></li>
+<li><a class="reference internal" href="#id3">Devicetree</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#driver-compiled-as-a-module">Driver compiled as a module</a></li>
+<li><a class="reference internal" href="#driver-compiled-into-the-kernel">Driver compiled into the kernel</a></li>
+<li><a class="reference internal" href="#common-problems">Common Problems</a></li>
+<li><a class="reference internal" href="#checking-for-proper-installation">Checking for proper installation</a></li>
+<li><a class="reference internal" href="#use-the-evtest-utility-to-test-proper-function">Use the evtest utility to test proper function</a></li>
+<li><a class="reference internal" href="#visualizing-linux-input-events-using-df-input-example-from-directfb">Visualizing Linux Input Events using df_input example from DirectFB</a></li>
+<li><a class="reference internal" href="#adxl34x-sysfs-runtime-controls">ADXL34x Sysfs runtime controls</a><ul>
+<li><a class="reference internal" href="#device-calibration">Device Calibration</a></li>
+<li><a class="reference internal" href="#controlling-the-output-data-rate">Controlling the Output Data Rate</a></li>
+<li><a class="reference internal" href="#enabling-disabling-the-device">Enabling / Disabling the Device</a></li>
+<li><a class="reference internal" href="#enabling-disabling-autosleep-upon-inactivity">Enabling / Disabling Autosleep Upon Inactivity</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adxl345-on-raspberry-pi-a-worked-example">ADXL345 on Raspberry Pi - A worked example</a><ul>
+<li><a class="reference internal" href="#create-an-sd-card-image">Create an SD Card image</a></li>
+<li><a class="reference internal" href="#compile-a-kernel">Compile a kernel</a><ul>
+<li><a class="reference internal" href="#get-arm-tools-and-raspberrypi-kernel-source">Get ARM tools and RaspberryPi kernel source</a><ul>
+<li><a class="reference internal" href="#create-an-empty-directory">Create an empty directory</a></li>
+<li><a class="reference internal" href="#get-tools">Get tools</a></li>
+<li><a class="reference internal" href="#get-kernel-source">Get Kernel Source</a></li>
+<li><a class="reference internal" href="#download-and-apply-patches">Download and apply patches</a></li>
+<li><a class="reference internal" href="#add-arm-toolchain-to-the-path-variable-and-set-arch-and-cross-compile">Add ARM toolchain to the PATH variable and set ARCH and CROSS_COMPILE</a></li>
+<li><a class="reference internal" href="#load-kernel-config-for-bcmrpi">Load kernel config for bcmrpi</a></li>
+<li><a class="reference internal" href="#now-build-your-kernel">Now build your kernel</a></li>
+<li><a class="reference internal" href="#copy-kernel-image-and-modules-to-sd-card">Copy kernel image and modules to SD Card</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#connect-adxl345-development-board">Connect ADXL345 development Board</a></li>
+<li><a class="reference internal" href="#power-up-your-raspberry-pi">Power up your Raspberry Pi</a><ul>
+<li><a class="reference internal" href="#load-the-i2c-bus-driver-module">Load the I2C Bus driver module</a></li>
+<li><a class="reference internal" href="#check-if-adxl345-was-successfully-probed-instantiated">Check if ADXL345 was successfully probed / instantiated</a></li>
+<li><a class="reference internal" href="#get-evtest-tool">Get evtest tool</a></li>
+<li><a class="reference internal" href="#driver-test">Driver test</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#adxl345-6-android-acceleration-sensor">ADXL345/6 Android Acceleration Sensor</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4695.html">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad6676.html">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-mxfe/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361-customization.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad714x.html">AD714X</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7873.html">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7877.html">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/open_alliance.html">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1320.html">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="adxl345">
+<span id="id1"></span><h1>ADXL345<a class="headerlink" href="#adxl345" title="Link to this heading"></a></h1>
+<p>ADXL345 Input 3-Axis Digital Accelerometer Linux Driver.</p>
+<section id="supported-devices">
+<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/ADXL345" target="_blank">ADXL345</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/ADXL346" target="_blank">ADXL346</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/ADXL375" target="_blank">ADXL375</a></p></li>
+</ul>
+</section>
+<section id="reference-circuits">
+<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/CN0133" target="_blank">CN0133</a></p></li>
+</ul>
+</section>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADXL313-Z-M" target="_blank">EVAL-ADXL313-Z-M</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADXL345Z-DB" target="_blank">EVAL-ADXL345Z-DB</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADXL346Z-DB" target="_blank">EVAL-ADXL346Z-DB</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADXL375" target="_blank">EVAL-ADXL375</a></p></li>
+</ul>
+</section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/software/driver/linux/ADXL346_FUNCTIONAL_BLOCK_DIAGRAM.png"><img alt="https://wiki.analog.com/_media/software/driver/linux/ADXL346_FUNCTIONAL_BLOCK_DIAGRAM.png" src="https://wiki.analog.com/_media/software/driver/linux/ADXL346_FUNCTIONAL_BLOCK_DIAGRAM.png" style="width: 550px;" />
+</a>
+</figure>
+<p>The ADXL345 is a small, thin, ultra low power, 3-axis accelerometer with high
+resolution (13-bit) measurement up to ±16 g. Digital output data is formatted as
+16-bit twos complement and is accessible through either a SPI (3- or 4- wire) or
+I2C digital interface.</p>
+<p>The ADXL345 is well suited for mobile device applications. It measures the
+static acceleration of gravity in tilt-sensing applications, as well as dynamic
+acceleration resulting from motion or shock. Its high resolution (4mg/LSB)
+enables resolution of inclination changes of as little as 0.25°.</p>
+<p>Several special sensing functions are provided. Activity and inactivity sensing
+detect the presence or lack of motion and if the acceleration on any axis
+exceeds a user-set level. Tap sensing detects single and double taps. Free-Fall
+sensing detects if the device is falling. These functions can be mapped to
+interrupt output pins. An integrated 32 level FIFO can be used to store data to
+minimize host processor intervention.</p>
+<p>Low power modes enable intelligent motion-based power management with threshold
+sensing and active acceleration measurement at extremely low power dissipation.</p>
+<p><a class="icon adi reference external" href="https://www.analog.com/en/mems-and-sensors/imems-accelerometers/adxl345/products/product.html" target="_blank">ADXL345</a>
+- Small, Ultra Low Power, 3-Axis, ±2/4/8/16g Digital Accelerometer
+<a class="icon adi reference external" href="https://www.analog.com/en/mems-and-sensors/imems-accelerometers/adxl346/products/product.html" target="_blank">ADXL346</a>
+- Ultra Low Power, Three-Axis, +-2/4/8/16g Digital Accelerometer
+<a class="icon adi reference external" href="https://www.analog.com/en/mems-and-sensors/imems-accelerometers/adxl375/products/product.html" target="_blank">ADXL375</a>
+- Low Power, Three-Axis, +-200g Digital Accelerometer</p>
+<div class="iframe-video"><iframe class="only-screen" src="https://www.youtube-nocookie.com/embed/8o_b2DO3d3E"></iframe><span class="only-screen"></span><div class="admonition video only-print"><p class="admonition-title">Video</p>
+<p><a href="https://www.youtube.com/watch?v=8o_b2DO3d3E"><span>https://www.youtube.com/watch?v=8o_b2DO3d3E</span></a></p>
+</div></div><section id="adxl34x-hardware-features">
+<h3>ADXL34x Hardware Features<a class="headerlink" href="#adxl34x-hardware-features" title="Link to this heading"></a></h3>
+<p><strong>ADXL345/346:</strong></p>
+<ul class="simple">
+<li><p>Ultra low power</p></li>
+<li><p>Power consumption scales automatically with bandwidth</p></li>
+<li><p>User selectable fixed 10-bit resolution or 4mg/LSB scale factor in all
+g-ranges, up to 13-bit resolution at ±16 g</p></li>
+<li><p>32 level output data FIFO minimizes host processor load</p></li>
+<li><p>Built in motion detection functions</p>
+<ul>
+<li><p>Tap/Double Tap detection</p></li>
+<li><p>Activity/Inactivity monitoring</p></li>
+<li><p>Free-Fall detection</p></li>
+</ul>
+</li>
+<li><p>Supply and I/O voltage range: 1.8 V to 3.6 V (ADXL345) and 1.7 V to 2.75 V
+(ADXL346)</p></li>
+<li><p>SPI (3 and 4 wire) and I2C digital interfaces</p></li>
+<li><p>Flexible interrupt modes – Any interrupt mappable to either interrupt pin</p></li>
+<li><p>See data sheet for additional features</p></li>
+</ul>
+<p><strong>ADXL346:</strong></p>
+<ul class="simple">
+<li><p>4- and 6-position orientation sensing</p></li>
+</ul>
+</section>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading"></a></h2>
+<p><strong>Selectable ADXL34X I2C Device Address:</strong></p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>SDO</p></th>
+<th class="head"><p>I2C Address</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>0x53</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>0x1D</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="software-configurable-features">
+<h2>Software configurable features<a class="headerlink" href="#software-configurable-features" title="Link to this heading"></a></h2>
+<section id="adxl34x-linux-driver-features">
+<h3>ADXL34x Linux Driver Features<a class="headerlink" href="#adxl34x-linux-driver-features" title="Link to this heading"></a></h3>
+<p><strong>ADXL345/346:</strong></p>
+<ul class="simple">
+<li><p>Driver supports both SPI (3 and 4 wire) and I2C digital interface</p>
+<ul>
+<li><p>I2C client using the 2.6 new style binding driver model</p></li>
+<li><p>SPI using the generic Linux SPI Bus Driver Model</p></li>
+</ul>
+</li>
+<li><p>Support for Linux Power Management (PM) suspend resume</p></li>
+<li><p>User selectable Sample Rate / Bandwidth trough sysfs hooks</p></li>
+<li><p>User selectable resolution</p></li>
+<li><p>Support for 32 level output data FIFO that minimizes host processor load</p></li>
+<li><p>Option to report acceleration as Linux Input Absolute or Relative events.
+(EV_ABS or EV_REL)</p></li>
+<li><p>Motion detection functions</p>
+<ul>
+<li><p>Tap/Double Tap detection</p>
+<ul>
+<li><p>User selectable Linux Input Event Codes for TAP_x,y,z axis</p></li>
+</ul>
+</li>
+<li><p>Activity/Inactivity monitoring</p>
+<ul>
+<li><p>User selectable Linux Input Event Code for Activity/Inactivity reporting</p></li>
+<li><p>Option to minimize host processor load and save additional power by
+automatically switch to sleep mode during periods of inactivity.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">*</span> <span class="n">Free</span><span class="o">-</span><span class="n">Fall</span> <span class="n">detection</span>
+  <span class="o">*</span> <span class="n">User</span> <span class="n">selectable</span> <span class="n">Linux</span> <span class="n">Input</span> <span class="n">Event</span> <span class="n">Code</span> <span class="k">for</span> <span class="n">Free</span><span class="o">-</span><span class="n">Fall</span> <span class="n">reporting</span>
+</pre></div>
+</div>
+<p><strong>ADXL346:</strong></p>
+<ul class="simple">
+<li><p>4- and 6-position orientation sensing</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">*</span> <span class="n">User</span> <span class="n">selectable</span> <span class="n">Linux</span> <span class="n">Input</span> <span class="n">Event</span> <span class="n">Code</span> <span class="k">for</span> <span class="n">individual</span> <span class="n">positions</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
+<section id="status">
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
+</section>
+<section id="id2">
+<h3>Status<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/releases" target="_blank">ADI Linux repository (releases)</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/releases" target="_blank">ADI Linux repository (releases)</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/mastitete/azure-pipelines-rpi.yml" target="_blank">azure-pipelines-rpi.yml</a></p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x.c" target="_blank">git</a></p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x.c" target="_blank">Yes</a></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="files">
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x.c" target="_blank">drivers/input/misc/adxl34x.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>i2c bus support</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x-i2c.c" target="_blank">drivers/input/misc/adxl34x-i2c.c</a></p></td>
+</tr>
+<tr class="row-even"><td><p>spi bus support</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x-spi.c" target="_blank">drivers/input/misc/adxl34x-spi.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/input/adxl34x.h" target="_blank">include/linux/input/adxl34x.h</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="adxl345-6-driver-porting">
+<h3>ADXL345/6 driver porting<a class="headerlink" href="#adxl345-6-driver-porting" title="Link to this heading"></a></h3>
+<p>Starting with linux-2.6.36 the ADXL34x driver is mainlined. If you are using an
+pre linux-2.6.36 kernel get the source from our repositories and add them to
+your kernel tree.</p>
+<p>If you are using a kernel version <strong>without the threaded irq capabilities (&lt;
+2.6.30) get there driver from here:</strong></p>
+<ul class="simple">
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/drivers/input/misc/adxl34x.c" target="_blank">adxl34x.c</a></p>
+<ul>
+<li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x.c</p></li>
+</ul>
+</li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/drivers/input/misc/adxl34x.h" target="_blank">adxl34x.h</a></p>
+<ul>
+<li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x.h</p></li>
+</ul>
+</li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/drivers/input/misc/adxl34x-i2c" target="_blank">adxl34x-i2c.c</a></p>
+<ul>
+<li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x-i2c.c</p></li>
+</ul>
+</li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/drivers/input/misc/adxl34x-spi.c" target="_blank">adxl34x-spi.c</a></p>
+<ul>
+<li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x-spi.c</p></li>
+</ul>
+</li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/include/linux/input/adxl34x.h" target="_blank">adxl34x.h</a></p></li>
+<li><p>Copy to linux-2.6.x/include/linux/input/adxl34x.h</p></li>
+</ul>
+<p>**For the latest version of checkout the <a class="icon dokuwiki reference external" href="https://wiki.analog.com/#Files" target="_blank">Files</a> section of
+this document. **</p>
+<p><strong>Add following lines to</strong> <em>linux-2.6.x/drivers/input/misc/Kconfig</em>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">config</span> <span class="n">INPUT_ADXL34X</span>
+    <span class="n">tristate</span> <span class="s2">&quot;Analog Devices ADXL34x Three-Axis Digital Accelerometer&quot;</span>
+    <span class="n">default</span> <span class="n">n</span>
+    <span class="n">help</span>
+      <span class="n">Say</span> <span class="n">Y</span> <span class="n">here</span> <span class="k">if</span> <span class="n">you</span> <span class="n">have</span> <span class="n">a</span> <span class="n">Accelerometer</span> <span class="n">interface</span> <span class="n">using</span> <span class="n">the</span>
+      <span class="n">ADXL345</span><span class="o">/</span><span class="mi">6</span> <span class="n">controller</span><span class="p">,</span> <span class="ow">and</span> <span class="n">your</span> <span class="n">board</span><span class="o">-</span><span class="n">specific</span> <span class="n">initialization</span>
+      <span class="n">code</span> <span class="n">includes</span> <span class="n">that</span> <span class="ow">in</span> <span class="n">its</span> <span class="n">table</span> <span class="n">of</span> <span class="n">devices</span><span class="o">.</span>
+
+      <span class="n">This</span> <span class="n">driver</span> <span class="n">can</span> <span class="n">use</span> <span class="n">either</span> <span class="n">I2C</span> <span class="ow">or</span> <span class="n">SPI</span> <span class="n">communication</span> <span class="n">to</span> <span class="n">the</span>
+      <span class="n">ADXL345</span><span class="o">/</span><span class="mi">6</span> <span class="n">controller</span><span class="o">.</span>  <span class="n">Select</span> <span class="n">the</span> <span class="n">appropriate</span> <span class="n">method</span> <span class="k">for</span>
+      <span class="n">your</span> <span class="n">system</span><span class="o">.</span>
+
+      <span class="n">If</span> <span class="n">unsure</span><span class="p">,</span> <span class="n">say</span> <span class="n">N</span> <span class="p">(</span><span class="n">but</span> <span class="n">it</span><span class="s1">&#39;s safe to say &quot;Y&quot;).</span>
+
+      <span class="n">To</span> <span class="nb">compile</span> <span class="n">this</span> <span class="n">driver</span> <span class="k">as</span> <span class="n">a</span> <span class="n">module</span><span class="p">,</span> <span class="n">choose</span> <span class="n">M</span> <span class="n">here</span><span class="p">:</span> <span class="n">the</span>
+      <span class="n">module</span> <span class="n">will</span> <span class="n">be</span> <span class="n">called</span> <span class="n">adxl34x</span><span class="o">.</span>
+
+<span class="n">config</span> <span class="n">INPUT_ADXL34X_I2C</span>
+    <span class="n">tristate</span> <span class="s2">&quot;support I2C bus connection&quot;</span>
+    <span class="n">depends</span> <span class="n">on</span> <span class="n">INPUT_ADXL34X</span> <span class="o">&amp;&amp;</span> <span class="n">I2C</span>
+    <span class="n">default</span> <span class="n">y</span>
+    <span class="n">help</span>
+      <span class="n">Say</span> <span class="n">Y</span> <span class="n">here</span> <span class="k">if</span> <span class="n">you</span> <span class="n">have</span> <span class="n">ADXL345</span><span class="o">/</span><span class="mi">6</span> <span class="n">hooked</span> <span class="n">to</span> <span class="n">an</span> <span class="n">I2C</span> <span class="n">bus</span><span class="o">.</span>
+
+      <span class="n">To</span> <span class="nb">compile</span> <span class="n">this</span> <span class="n">driver</span> <span class="k">as</span> <span class="n">a</span> <span class="n">module</span><span class="p">,</span> <span class="n">choose</span> <span class="n">M</span> <span class="n">here</span><span class="p">:</span> <span class="n">the</span>
+      <span class="n">module</span> <span class="n">will</span> <span class="n">be</span> <span class="n">called</span> <span class="n">adxl34x</span><span class="o">-</span><span class="n">i2c</span><span class="o">.</span>
+
+<span class="n">config</span> <span class="n">INPUT_ADXL34X_SPI</span>
+    <span class="n">tristate</span> <span class="s2">&quot;support SPI bus connection&quot;</span>
+    <span class="n">depends</span> <span class="n">on</span> <span class="n">INPUT_ADXL34X</span> <span class="o">&amp;&amp;</span> <span class="n">SPI</span>
+    <span class="n">default</span> <span class="n">y</span>
+    <span class="n">help</span>
+      <span class="n">Say</span> <span class="n">Y</span> <span class="n">here</span> <span class="k">if</span> <span class="n">you</span> <span class="n">have</span> <span class="n">ADXL345</span><span class="o">/</span><span class="mi">6</span> <span class="n">hooked</span> <span class="n">to</span> <span class="n">a</span> <span class="n">SPI</span> <span class="n">bus</span><span class="o">.</span>
+
+      <span class="n">To</span> <span class="nb">compile</span> <span class="n">this</span> <span class="n">driver</span> <span class="k">as</span> <span class="n">a</span> <span class="n">module</span><span class="p">,</span> <span class="n">choose</span> <span class="n">M</span> <span class="n">here</span><span class="p">:</span> <span class="n">the</span>
+      <span class="n">module</span> <span class="n">will</span> <span class="n">be</span> <span class="n">called</span> <span class="n">adxl34x</span><span class="o">-</span><span class="n">spi</span><span class="o">.</span>
+</pre></div>
+</div>
+<p><strong>Add following lines to</strong> <em>linux-2.6.x/drivers/input/misc/Makefile</em>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>obj-$(CONFIG_INPUT_ADXL34X)     += adxl34x.o
+obj-$(CONFIG_INPUT_ADXL34X_I2C)     += adxl34x-i2c.o
+obj-$(CONFIG_INPUT_ADXL34X_SPI)     += adxl34x-spi.o
+</pre></div>
+</div>
+</section>
+</section>
+<section id="example-platform-device-initialization">
+<h2>Example platform device initialization<a class="headerlink" href="#example-platform-device-initialization" title="Link to this heading"></a></h2>
+<p>For compile time configuration, it’s common Linux practice to keep board- and
+application-specific configuration out of the main driver file, instead putting
+it into the board support file.</p>
+<p>For devices on custom boards, as typical of embedded and SoC-(system-on-chip)
+based hardware, Linux uses <code class="docutils literal notranslate"><span class="pre">platform_data</span></code> to point to board-specific structures
+describing devices and how they are connected to the SoC. This can include
+available ports, chip variants, preferred modes, default initialization,
+additional pin roles, and so on. This shrinks the board-support packages (BSPs)
+and minimizes board and application specific #ifdefs in drivers.</p>
+<p>Digital Accelerometer characteristics are highly application specific and may
+vary between boards and models. The platform_data for the device’s <code class="docutils literal notranslate"><span class="pre">struct</span>
+<span class="pre">device</span></code> holds this information.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/*</span>
+<span class="cm"> * include/linux/input/adxl34x.h</span>
+<span class="cm"> *</span>
+<span class="cm"> * Digital Accelerometer characteristics are highly application specific</span>
+<span class="cm"> * and may vary between boards and models. The platform_data for the</span>
+<span class="cm"> * device&#39;s &quot;struct device&quot; holds this information.</span>
+<span class="cm"> *</span>
+<span class="cm"> * Copyright 2009 Analog Devices Inc.</span>
+<span class="cm"> *</span>
+<span class="cm"> * Licensed under the GPL-2 or later.</span>
+<span class="cm"> */</span>
+
+<span class="cp">#ifndef __LINUX_INPUT_ADXL34X_H__</span>
+<span class="cp">#define __LINUX_INPUT_ADXL34X_H__</span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">adxl34x_platform_data</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * X,Y,Z Axis Offset:</span>
+<span class="cm">     * offer user offset adjustments in twoscompliment</span>
+<span class="cm">     * form with a scale factor of 15.6 mg/LSB (i.e. 0x7F = +2 g)</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">s8</span><span class="w"> </span><span class="n">x_axis_offset</span><span class="p">;</span>
+<span class="w">    </span><span class="n">s8</span><span class="w"> </span><span class="n">y_axis_offset</span><span class="p">;</span>
+<span class="w">    </span><span class="n">s8</span><span class="w"> </span><span class="n">z_axis_offset</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * TAP_X/Y/Z Enable: Setting TAP_X, Y, or Z Enable enables X,</span>
+<span class="cm">     * Y, or Z participation in Tap detection. A &#39;0&#39; excludes the</span>
+<span class="cm">     * selected axis from participation in Tap detection.</span>
+<span class="cm">     * Setting the SUPPRESS bit suppresses Double Tap detection if</span>
+<span class="cm">     * acceleration greater than tap_threshold is present during the</span>
+<span class="cm">     * tap_latency period, i.e. after the first tap but before the</span>
+<span class="cm">     * opening of the second tap window.</span>
+<span class="cm">     */</span>
+
+<span class="cp">#define ADXL_SUPPRESS   (1 &lt;&lt; 3)</span>
+<span class="cp">#define ADXL_TAP_X_EN   (1 &lt;&lt; 2)</span>
+<span class="cp">#define ADXL_TAP_Y_EN   (1 &lt;&lt; 1)</span>
+<span class="cp">#define ADXL_TAP_Z_EN   (1 &lt;&lt; 0)</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">tap_axis_control</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * tap_threshold:</span>
+<span class="cm">     * holds the threshold value for tap detection/interrupts.</span>
+<span class="cm">     * The data format is unsigned. The scale factor is 62.5 mg/LSB</span>
+<span class="cm">     * (i.e. 0xFF = +16 g). A zero value may result in undesirable</span>
+<span class="cm">     * behavior if Tap/Double Tap is enabled.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">tap_threshold</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * tap_duration:</span>
+<span class="cm">     * is an unsigned time value representing the maximum</span>
+<span class="cm">     * time that an event must be above the tap_threshold threshold</span>
+<span class="cm">     * to qualify as a tap event. The scale factor is 625 us/LSB. A zero</span>
+<span class="cm">     * value will prevent Tap/Double Tap functions from working.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">tap_duration</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * tap_latency:</span>
+<span class="cm">     * is an unsigned time value representing the wait time</span>
+<span class="cm">     * from the detection of a tap event to the opening of the time</span>
+<span class="cm">     * window tap_window for a possible second tap event. The scale</span>
+<span class="cm">     * factor is 1.25 ms/LSB. A zero value will disable the Double Tap</span>
+<span class="cm">     * function.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">tap_latency</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * tap_window:</span>
+<span class="cm">     * is an unsigned time value representing the amount</span>
+<span class="cm">     * of time after the expiration of tap_latency during which a second</span>
+<span class="cm">     * tap can begin. The scale factor is 1.25 ms/LSB. A zero value will</span>
+<span class="cm">     * disable the Double Tap function.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">tap_window</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * act_axis_control:</span>
+<span class="cm">     * X/Y/Z Enable: A &#39;1&#39; enables X, Y, or Z participation in activity</span>
+<span class="cm">     * or inactivity detection. A &#39;0&#39; excludes the selected axis from</span>
+<span class="cm">     * participation. If all of the axes are excluded, the function is</span>
+<span class="cm">     * disabled.</span>
+<span class="cm">     * AC/DC: A &#39;0&#39; = DC coupled operation and a &#39;1&#39; = AC coupled</span>
+<span class="cm">     * operation. In DC coupled operation, the current acceleration is</span>
+<span class="cm">     * compared with activity_threshold and inactivity_threshold directly</span>
+<span class="cm">     * to determine whether activity or inactivity is detected. In AC</span>
+<span class="cm">     * coupled operation for activity detection, the acceleration value</span>
+<span class="cm">     * at the start of activity detection is taken as a reference value.</span>
+<span class="cm">     * New samples of acceleration are then compared to this</span>
+<span class="cm">     * reference value and if the magnitude of the difference exceeds</span>
+<span class="cm">     * activity_threshold the device will trigger an activity interrupt. In</span>
+<span class="cm">     * AC coupled operation for inactivity detection, a reference value</span>
+<span class="cm">     * is used again for comparison and is updated whenever the</span>
+<span class="cm">     * device exceeds the inactivity threshold. Once the reference</span>
+<span class="cm">     * value is selected, the device compares the magnitude of the</span>
+<span class="cm">     * difference between the reference value and the current</span>
+<span class="cm">     * acceleration with inactivity_threshold. If the difference is below</span>
+<span class="cm">     * inactivity_threshold for a total of inactivity_time, the device is</span>
+<span class="cm">     * considered inactive and the inactivity interrupt is triggered.</span>
+<span class="cm">     */</span>
+
+<span class="cp">#define ADXL_ACT_ACDC       (1 &lt;&lt; 7)</span>
+<span class="cp">#define ADXL_ACT_X_EN       (1 &lt;&lt; 6)</span>
+<span class="cp">#define ADXL_ACT_Y_EN       (1 &lt;&lt; 5)</span>
+<span class="cp">#define ADXL_ACT_Z_EN       (1 &lt;&lt; 4)</span>
+<span class="cp">#define ADXL_INACT_ACDC     (1 &lt;&lt; 3)</span>
+<span class="cp">#define ADXL_INACT_X_EN     (1 &lt;&lt; 2)</span>
+<span class="cp">#define ADXL_INACT_Y_EN     (1 &lt;&lt; 1)</span>
+<span class="cp">#define ADXL_INACT_Z_EN     (1 &lt;&lt; 0)</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">act_axis_control</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * activity_threshold:</span>
+<span class="cm">     * holds the threshold value for activity detection.</span>
+<span class="cm">     * The data format is unsigned. The scale factor is</span>
+<span class="cm">     * 62.5 mg/LSB. A zero value may result in undesirable behavior if</span>
+<span class="cm">     * Activity interrupt is enabled.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">activity_threshold</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * inactivity_threshold:</span>
+<span class="cm">     * holds the threshold value for inactivity</span>
+<span class="cm">     * detection. The data format is unsigned. The scale</span>
+<span class="cm">     * factor is 62.5 mg/LSB. A zero value may result in undesirable</span>
+<span class="cm">     * behavior if Inactivity interrupt is enabled.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">inactivity_threshold</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * inactivity_time:</span>
+<span class="cm">     * is an unsigned time value representing the</span>
+<span class="cm">     * amount of time that acceleration must be below the value in</span>
+<span class="cm">     * inactivity_threshold for inactivity to be declared. The scale factor</span>
+<span class="cm">     * is 1 second/LSB. Unlike the other interrupt functions, which</span>
+<span class="cm">     * operate on unfiltered data, the inactivity function operates on the</span>
+<span class="cm">     * filtered output data. At least one output sample must be</span>
+<span class="cm">     * generated for the inactivity interrupt to be triggered. This will</span>
+<span class="cm">     * result in the function appearing un-responsive if the</span>
+<span class="cm">     * inactivity_time register is set with a value less than the time</span>
+<span class="cm">     * constant of the Output Data Rate. A zero value will result in an</span>
+<span class="cm">     * interrupt when the output data is below inactivity_threshold.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">inactivity_time</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * free_fall_threshold:</span>
+<span class="cm">     * holds the threshold value for Free-Fall detection.</span>
+<span class="cm">     * The data format is unsigned. The root-sum-square(RSS) value</span>
+<span class="cm">     * of all axes is calculated and compared to the value in</span>
+<span class="cm">     * free_fall_threshold to determine if a free fall event may be</span>
+<span class="cm">     * occurring.  The scale factor is 62.5 mg/LSB. A zero value may</span>
+<span class="cm">     * result in undesirable behavior if Free-Fall interrupt is</span>
+<span class="cm">     * enabled. Values between 300 and 600 mg (0x05 to 0x09) are</span>
+<span class="cm">     * recommended.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">free_fall_threshold</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * free_fall_time:</span>
+<span class="cm">     * is an unsigned time value representing the minimum</span>
+<span class="cm">     * time that the RSS value of all axes must be less than</span>
+<span class="cm">     * free_fall_threshold to generate a Free-Fall interrupt. The</span>
+<span class="cm">     * scale factor is 5 ms/LSB. A zero value may result in</span>
+<span class="cm">     * undesirable behavior if Free-Fall interrupt is enabled.</span>
+<span class="cm">     * Values between 100 to 350 ms (0x14 to 0x46) are recommended.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">free_fall_time</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * data_rate:</span>
+<span class="cm">     * Selects device bandwidth and output data rate.</span>
+<span class="cm">     * RATE = 3200 Hz / (2^(15 - x)). Default value is 0x0A, or 100 Hz</span>
+<span class="cm">     * Output Data Rate. An Output Data Rate should be selected that</span>
+<span class="cm">     * is appropriate for the communication protocol and frequency</span>
+<span class="cm">     * selected. Selecting too high of an Output Data Rate with a low</span>
+<span class="cm">     * communication speed will result in samples being discarded.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">data_rate</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * data_range:</span>
+<span class="cm">     * FULL_RES: When this bit is set with the device is</span>
+<span class="cm">     * in Full-Resolution Mode, where the output resolution increases</span>
+<span class="cm">     * with RANGE to maintain a 4 mg/LSB scale factor. When this</span>
+<span class="cm">     * bit is cleared the device is in 10-bit Mode and RANGE determine the</span>
+<span class="cm">     * maximum g-Range and scale factor.</span>
+<span class="cm">     */</span>
+
+<span class="cp">#define ADXL_FULL_RES       (1 &lt;&lt; 3)</span>
+<span class="cp">#define ADXL_RANGE_PM_2g    0</span>
+<span class="cp">#define ADXL_RANGE_PM_4g    1</span>
+<span class="cp">#define ADXL_RANGE_PM_8g    2</span>
+<span class="cp">#define ADXL_RANGE_PM_16g   3</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">data_range</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * low_power_mode:</span>
+<span class="cm">     * A &#39;0&#39; = Normal operation and a &#39;1&#39; = Reduced</span>
+<span class="cm">     * power operation with somewhat higher noise.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">low_power_mode</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * power_mode:</span>
+<span class="cm">     * LINK: A &#39;1&#39; with both the activity and inactivity functions</span>
+<span class="cm">     * enabled will delay the start of the activity function until</span>
+<span class="cm">     * inactivity is detected. Once activity is detected, inactivity</span>
+<span class="cm">     * detection will begin and prevent the detection of activity. This</span>
+<span class="cm">     * bit serially links the activity and inactivity functions. When &#39;0&#39;</span>
+<span class="cm">     * the inactivity and activity functions are concurrent. Additional</span>
+<span class="cm">     * information can be found in the ADXL34x datasheet&#39;s Application</span>
+<span class="cm">     * section under Link Mode.</span>
+<span class="cm">     * AUTO_SLEEP: A &#39;1&#39; sets the ADXL34x to switch to Sleep Mode</span>
+<span class="cm">     * when inactivity (acceleration has been below inactivity_threshold</span>
+<span class="cm">     * for at least inactivity_time) is detected and the LINK bit is set.</span>
+<span class="cm">     * A &#39;0&#39; disables automatic switching to Sleep Mode. See the</span>
+<span class="cm">     * Sleep Bit section of the ADXL34x datasheet for more information.</span>
+<span class="cm">     */</span>
+
+<span class="cp">#define ADXL_LINK   (1 &lt;&lt; 5)</span>
+<span class="cp">#define ADXL_AUTO_SLEEP (1 &lt;&lt; 4)</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">power_mode</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * fifo_mode:</span>
+<span class="cm">     * BYPASS The FIFO is bypassed</span>
+<span class="cm">     * FIFO   FIFO collects up to 32 values then stops collecting data</span>
+<span class="cm">     * STREAM FIFO holds the last 32 data values. Once full, the FIFO&#39;s</span>
+<span class="cm">     *        oldest data is lost as it is replaced with newer data</span>
+<span class="cm">     *</span>
+<span class="cm">     * DEFAULT should be ADXL_FIFO_STREAM</span>
+<span class="cm">     */</span>
+
+<span class="cp">#define ADXL_FIFO_BYPASS    0</span>
+<span class="cp">#define ADXL_FIFO_FIFO      1</span>
+<span class="cp">#define ADXL_FIFO_STREAM    2</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">fifo_mode</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * watermark:</span>
+<span class="cm">     * The Watermark feature can be used to reduce the interrupt load</span>
+<span class="cm">     * of the system. The FIFO fills up to the value stored in watermark</span>
+<span class="cm">     * [1..32] and then generates an interrupt.</span>
+<span class="cm">     * A &#39;0&#39; disables the watermark feature.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">watermark</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * When acceleration measurements are received from the ADXL34x</span>
+<span class="cm">     * events are sent to the event subsystem. The following settings</span>
+<span class="cm">     * select the event type and event code for new x, y and z axis data</span>
+<span class="cm">     * respectively.</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">ev_type</span><span class="p">;</span><span class="w">    </span><span class="cm">/* EV_ABS or EV_REL */</span>
+
+<span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">ev_code_x</span><span class="p">;</span><span class="w">  </span><span class="cm">/* ABS_X,Y,Z or REL_X,Y,Z */</span>
+<span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">ev_code_y</span><span class="p">;</span><span class="w">  </span><span class="cm">/* ABS_X,Y,Z or REL_X,Y,Z */</span>
+<span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">ev_code_z</span><span class="p">;</span><span class="w">  </span><span class="cm">/* ABS_X,Y,Z or REL_X,Y,Z */</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * A valid BTN or KEY Code; use tap_axis_control to disable</span>
+<span class="cm">     * event reporting</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">ev_code_tap</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span><span class="w"> </span><span class="cm">/* EV_KEY {X-Axis, Y-Axis, Z-Axis} */</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * A valid BTN or KEY Code for Free-Fall or Activity enables</span>
+<span class="cm">     * input event reporting. A &#39;0&#39; disables the Free-Fall or</span>
+<span class="cm">     * Activity reporting.</span>
+<span class="cm">     */</span>
+
+<span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">ev_code_ff</span><span class="p">;</span><span class="w"> </span><span class="cm">/* EV_KEY */</span>
+<span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">ev_code_act_inactivity</span><span class="p">;</span><span class="w"> </span><span class="cm">/* EV_KEY */</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * Use ADXL34x INT2 pin instead of INT1 pin for interrupt output</span>
+<span class="cm">     */</span>
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">use_int2</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * ADXL346 only ORIENTATION SENSING feature</span>
+<span class="cm">     * The orientation function of the ADXL346 reports both 2-D and</span>
+<span class="cm">     * 3-D orientation concurrently.</span>
+<span class="cm">     */</span>
+
+<span class="cp">#define ADXL_EN_ORIENTATION_2D      1</span>
+<span class="cp">#define ADXL_EN_ORIENTATION_3D      2</span>
+<span class="cp">#define ADXL_EN_ORIENTATION_2D_3D   3</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">orientation_enable</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * The width of the deadzone region between two or more</span>
+<span class="cm">     * orientation positions is determined by setting the Deadzone</span>
+<span class="cm">     * value. The deadzone region size can be specified with a</span>
+<span class="cm">     * resolution of 3.6deg. The deadzone angle represents the total</span>
+<span class="cm">     * angle where the orientation is considered invalid.</span>
+<span class="cm">     */</span>
+
+<span class="cp">#define ADXL_DEADZONE_ANGLE_0p0     0   </span><span class="cm">/* !!!0.0 [deg] */</span>
+<span class="cp">#define ADXL_DEADZONE_ANGLE_3p6     1   </span><span class="cm">/* 3.6 [deg] */</span>
+<span class="cp">#define ADXL_DEADZONE_ANGLE_7p2     2   </span><span class="cm">/* 7.2 [deg] */</span>
+<span class="cp">#define ADXL_DEADZONE_ANGLE_10p8    3   </span><span class="cm">/* 10.8 [deg] */</span>
+<span class="cp">#define ADXL_DEADZONE_ANGLE_14p4    4   </span><span class="cm">/* 14.4 [deg] */</span>
+<span class="cp">#define ADXL_DEADZONE_ANGLE_18p0    5   </span><span class="cm">/* 18.0 [deg] */</span>
+<span class="cp">#define ADXL_DEADZONE_ANGLE_21p6    6   </span><span class="cm">/* 21.6 [deg] */</span>
+<span class="cp">#define ADXL_DEADZONE_ANGLE_25p2    7   </span><span class="cm">/* 25.2 [deg] */</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">deadzone_angle</span><span class="p">;</span>
+
+<span class="w">    </span><span class="cm">/*</span>
+<span class="cm">     * To eliminate most human motion such as walking or shaking,</span>
+<span class="cm">     * a Divisor value should be selected to effectively limit the</span>
+<span class="cm">     * orientation bandwidth. Set the depth of the filter used to</span>
+<span class="cm">     * low-pass filter the measured acceleration for stable</span>
+<span class="cm">     * orientation sensing</span>
+<span class="cm">     */</span>
+
+<span class="cp">#define ADXL_LP_FILTER_DIVISOR_2    0</span>
+<span class="cp">#define ADXL_LP_FILTER_DIVISOR_4    1</span>
+<span class="cp">#define ADXL_LP_FILTER_DIVISOR_8    2</span>
+<span class="cp">#define ADXL_LP_FILTER_DIVISOR_16   3</span>
+<span class="cp">#define ADXL_LP_FILTER_DIVISOR_32   4</span>
+<span class="cp">#define ADXL_LP_FILTER_DIVISOR_64   5</span>
+<span class="cp">#define ADXL_LP_FILTER_DIVISOR_128  6</span>
+<span class="cp">#define ADXL_LP_FILTER_DIVISOR_256  7</span>
+
+<span class="w">    </span><span class="n">u8</span><span class="w"> </span><span class="n">divisor_length</span><span class="p">;</span>
+
+<span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">ev_codes_orient_2d</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span><span class="w">  </span><span class="cm">/* EV_KEY {+X, -X, +Y, -Y} */</span>
+<span class="w">    </span><span class="n">u32</span><span class="w"> </span><span class="n">ev_codes_orient_3d</span><span class="p">[</span><span class="mi">6</span><span class="p">];</span><span class="w">  </span><span class="cm">/* EV_KEY {+Z, +Y, +X, -X, -Y, -Z} */</span>
+<span class="p">};</span>
+<span class="cp">#endif</span>
+</pre></div>
+</div>
+<section id="example-platform-board-file-spi-interface-option">
+<h3>Example Platform / Board file (SPI Interface Option)<a class="headerlink" href="#example-platform-board-file-spi-interface-option" title="Link to this heading"></a></h3>
+<p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
+Instead, the software must know which devices are connected on each SPI bus
+segment, and what slave selects these devices are using. For this reason, the
+kernel code must instantiate SPI devices explicitly. The most common method is
+to declare the SPI devices by bus number.</p>
+<p>This method is appropriate when the SPI bus is a system bus, as in many
+embedded systems, wherein each SPI bus has a number which is known in advance.
+It is thus possible to pre-declare the SPI devices that inhabit this bus. This
+is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
+calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>These snippets are all from the same file.
+<code class="docutils literal notranslate"><span class="pre">arch/blackfin/mach-bf548/boards/ezkit.c</span></code>:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/spi/adxl34x.h&gt;</span>
+</pre></div>
+</div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cp">#if defined(CONFIG_INPUT_ADXL34X) || defined(CONFIG_INPUT_ADXL34X_MODULE)</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;linux/input/adxl34x.h&gt;</span>
+<span class="k">static</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">adxl34x_platform_data</span><span class="w"> </span><span class="n">adxl34x_info</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="p">.</span><span class="n">x_axis_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">y_axis_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">z_axis_offset</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">tap_threshold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x31</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">tap_duration</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x10</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">tap_latency</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x60</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">tap_window</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0xF0</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">tap_axis_control</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADXL_TAP_X_EN</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADXL_TAP_Y_EN</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADXL_TAP_Z_EN</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">act_axis_control</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0xFF</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">activity_threshold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">inactivity_threshold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">inactivity_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">free_fall_threshold</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x7</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">free_fall_time</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x20</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">data_rate</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0x8</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">data_range</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADXL_FULL_RES</span><span class="p">,</span>
+
+<span class="w">    </span><span class="p">.</span><span class="n">ev_type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">EV_ABS</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">ev_code_x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ABS_X</span><span class="p">,</span><span class="w">     </span><span class="cm">/* EV_REL */</span>
+<span class="w">    </span><span class="p">.</span><span class="n">ev_code_y</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ABS_Y</span><span class="p">,</span><span class="w">     </span><span class="cm">/* EV_REL */</span>
+<span class="w">    </span><span class="p">.</span><span class="n">ev_code_z</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ABS_Z</span><span class="p">,</span><span class="w">     </span><span class="cm">/* EV_REL */</span>
+
+<span class="w">    </span><span class="p">.</span><span class="n">ev_code_tap</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="n">BTN_TOUCH</span><span class="p">,</span><span class="w"> </span><span class="n">BTN_TOUCH</span><span class="p">,</span><span class="w"> </span><span class="n">BTN_TOUCH</span><span class="p">},</span><span class="w"> </span><span class="cm">/* EV_KEY x,y,z */</span>
+
+<span class="cm">/*  .ev_code_ff = KEY_F,*/</span><span class="w">      </span><span class="cm">/* EV_KEY */</span>
+<span class="cm">/*  .ev_code_act_inactivity = KEY_A,*/</span><span class="w">  </span><span class="cm">/* EV_KEY */</span>
+<span class="w">    </span><span class="p">.</span><span class="n">power_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADXL_AUTO_SLEEP</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">ADXL_LINK</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">fifo_mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADXL_FIFO_STREAM</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">orientation_enable</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADXL_EN_ORIENTATION_3D</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">deadzone_angle</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADXL_DEADZONE_ANGLE_10p8</span><span class="p">,</span>
+<span class="w">    </span><span class="p">.</span><span class="n">divisor_length</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">ADXL_LP_FILTER_DIVISOR_16</span><span class="p">,</span>
+<span class="w">    </span><span class="cm">/* EV_KEY {+Z, +Y, +X, -X, -Y, -Z} */</span>
+<span class="w">    </span><span class="p">.</span><span class="n">ev_codes_orient_3d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="n">BTN_Z</span><span class="p">,</span><span class="w"> </span><span class="n">BTN_Y</span><span class="p">,</span><span class="w"> </span><span class="n">BTN_X</span><span class="p">,</span><span class="w"> </span><span class="n">BTN_A</span><span class="p">,</span><span class="w"> </span><span class="n">BTN_B</span><span class="p">,</span><span class="w"> </span><span class="n">BTN_C</span><span class="p">},</span>
+<span class="p">};</span>
+<span class="cp">#endif</span>
+</pre></div>
+</div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">board_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#if defined(CONFIG_INPUT_ADXL34X_SPI) || defined(CONFIG_INPUT_ADXL34X_SPI_MODULE)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="p">.</span><span class="n">modalias</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;adxl34x&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w">      </span><span class="o">=</span><span class="w"> </span><span class="o">&amp;</span><span class="n">adxl34x_info</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w">            </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_XYZ</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">max_speed_hz</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="mi">5000000</span><span class="p">,</span><span class="w">     </span><span class="cm">/* max spi clock (SCK) speed in HZ */</span>
+<span class="w">        </span><span class="p">.</span><span class="n">bus_num</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">chip_select</span><span class="w">        </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">mode</span><span class="w">           </span><span class="o">=</span><span class="w"> </span><span class="n">SPI_MODE_3</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="cp">#endif</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">board_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+<span class="w">    </span><span class="n">spi_register_board_info</span><span class="p">(</span><span class="n">board_spi_board_info</span><span class="p">,</span><span class="w"> </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">board_spi_board_info</span><span class="p">));</span>
+
+<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">arch_initcall</span><span class="p">(</span><span class="n">board_init</span><span class="p">);</span>
+</pre></div>
+</div>
+</section>
+<section id="devicetree">
+<h3>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h3>
+<p>Required devicetree properties:</p>
+<ul class="simple">
+<li><p>compatible: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
+<code class="docutils literal notranslate"><span class="pre">adi,adxl34x</span></code></p></li>
+<li><p>reg: The chipselect number used for the device</p></li>
+<li><p>spi-max-frequency: Maximum SPI clock frequency</p></li>
+<li><p>spi-cpha: Needs to be set for the correct SPI mode</p></li>
+<li><p>spi-cpol: Needs to be set for the correct SPI mode</p></li>
+<li><p>interrupt-parent: Specifies which IRQ controller is used</p></li>
+<li><p>interrupts: The interrupt associated with the INT2 pin</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_spi_1</span><span class="p">:</span> <span class="n">spi</span><span class="o">@</span><span class="mi">42040000</span> <span class="p">{</span>
+        <span class="c1">#address-cells = &lt;1&gt;;</span>
+        <span class="c1">#size-cells = &lt;0&gt;;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,axi-spi-1.02.a&quot;</span><span class="p">,</span> <span class="s2">&quot;xlnx,xps-spi-2.00.a&quot;</span><span class="p">;</span>
+        <span class="o">...</span>
+
+        <span class="n">adxl345</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,adxl34x&quot;</span><span class="p">;</span>
+                <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1000000</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">spi</span><span class="o">-</span><span class="n">cpha</span><span class="p">;</span>
+                <span class="n">spi</span><span class="o">-</span><span class="n">cpol</span><span class="p">;</span>
+                <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="mi">32</span> <span class="mi">4</span> <span class="o">&gt;</span><span class="p">;</span>
+        <span class="p">};</span>
+ <span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="example-platform-board-file-i2c-interface-option">
+<h3>Example Platform / Board file (I2C Interface Option)<a class="headerlink" href="#example-platform-board-file-i2c-interface-option" title="Link to this heading"></a></h3>
+<p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
+Instead, the software must know which devices are connected on each I2C bus
+segment, and what address these devices are using. For this reason, the kernel
+code must instantiate I2C devices explicitly. There are different ways to
+achieve this, depending on the context and requirements. However the most
+common method is to declare the I2C devices by bus number.</p>
+<p>This method is appropriate when the I2C bus is a system bus, as in many
+embedded systems, wherein each I2C bus has a number which is known in advance.
+It is thus possible to pre-declare the I2C devices that inhabit this bus. This
+is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">i2c_board_info</span></code>, which is registered by
+calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
+<p>So, to enable such a driver one need only edit the board support file by adding
+an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
+<p>These snippets are all from the same file.
+<code class="docutils literal notranslate"><span class="pre">arch/blackfin/mach-bf548/boards/ezkit.c</span></code>:</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">board_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="cp">#if defined(CONFIG_INPUT_ADXL34X_I2C) || defined(CONFIG_INPUT_ADXL34X_I2C_MODULE)</span>
+<span class="w">    </span><span class="p">{</span>
+<span class="w">        </span><span class="n">I2C_BOARD_INFO</span><span class="p">(</span><span class="s">&quot;adxl34x&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x53</span><span class="p">),</span>
+<span class="w">        </span><span class="p">.</span><span class="n">irq</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">IRQ_XYZ</span><span class="p">,</span>
+<span class="w">        </span><span class="p">.</span><span class="n">platform_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="kt">void</span><span class="w"> </span><span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">adxl34x_info</span><span class="p">,</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="cp">#endif</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">__init</span><span class="w"> </span><span class="nf">board_init</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+<span class="w">    </span><span class="n">i2c_register_board_info</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">board_i2c_board_info</span><span class="p">,</span>
+<span class="w">                </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">board_i2c_board_info</span><span class="p">));</span>
+<span class="w">    </span><span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">arch_initcall</span><span class="p">(</span><span class="n">board_init</span><span class="p">);</span>
+</pre></div>
+</div>
+</section>
+<section id="id3">
+<h3>Devicetree<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<p>Required devicetree properties:</p>
+<ul class="simple">
+<li><p>compatible: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.
+<code class="docutils literal notranslate"><span class="pre">adi,adxl34x</span></code></p></li>
+<li><p>reg: The slave address of the device</p></li>
+<li><p>interrupt-parent: Specifies which IRQ controller is used</p></li>
+<li><p>interrupts: The interrupt associated with the INT2 pin</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_iic_1</span><span class="p">:</span> <span class="n">i2c</span><span class="o">@</span><span class="mi">41640000</span> <span class="p">{</span>
+        <span class="c1">#address-cells = &lt;1&gt;;</span>
+        <span class="c1">#size-cells = &lt;0&gt;;</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;xlnx,axi-iic-1.02.a&quot;</span><span class="p">,</span> <span class="s2">&quot;xlnx,xps-iic-2.00.a&quot;</span><span class="p">;</span>
+        <span class="o">...</span>
+
+        <span class="n">adxl345</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+                <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,adxl34x&quot;</span><span class="p">;</span>
+                <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x53</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gic</span><span class="o">&gt;</span><span class="p">;</span>
+                <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="mi">32</span> <span class="mi">4</span> <span class="o">&gt;</span><span class="p">;</span>
+        <span class="p">};</span>
+ <span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ADXL34x Driver depends on <strong>CONFIG_SPI</strong> or <strong>CONFIG_I2C</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Input</span> <span class="n">device</span> <span class="n">support</span>
+  <span class="o">-*-</span> <span class="n">Generic</span> <span class="nb">input</span> <span class="n">layer</span> <span class="p">(</span><span class="n">needed</span> <span class="k">for</span> <span class="n">keyboard</span><span class="p">,</span> <span class="n">mouse</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Support</span> <span class="k">for</span> <span class="n">memoryless</span> <span class="n">force</span><span class="o">-</span><span class="n">feedback</span> <span class="n">devices</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Polled</span> <span class="nb">input</span> <span class="n">device</span> <span class="n">skeleton</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Sparse</span> <span class="n">keymap</span> <span class="n">support</span> <span class="n">library</span>
+        <span class="o">***</span> <span class="n">Userland</span> <span class="n">interfaces</span> <span class="o">***</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Mouse</span> <span class="n">interface</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Joystick</span> <span class="n">interface</span>
+  <span class="o">&lt;*&gt;</span>   <span class="n">Event</span> <span class="n">interface</span>
+  <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Event</span> <span class="n">debugging</span>
+        <span class="o">***</span> <span class="n">Input</span> <span class="n">Device</span> <span class="n">Drivers</span> <span class="o">***</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Keyboards</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Mice</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Joysticks</span><span class="o">/</span><span class="n">Gamepads</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Tablets</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span> <span class="p">]</span>   <span class="n">Touchscreens</span>  <span class="o">---&gt;</span>
+  <span class="p">[</span><span class="o">*</span><span class="p">]</span>   <span class="n">Miscellaneous</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
+     <span class="o">&lt;</span> <span class="o">&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD714x</span> <span class="n">Capacitance</span> <span class="n">Touch</span> <span class="n">Sensor</span>
+     <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADXL34x</span> <span class="n">Three</span><span class="o">-</span><span class="n">Axis</span> <span class="n">Digital</span> <span class="n">Accelerometer</span>
+     <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">I2C</span> <span class="n">bus</span> <span class="n">connection</span> <span class="p">(</span><span class="n">NEW</span><span class="p">)</span>
+     <span class="o">&lt;*&gt;</span>     <span class="n">support</span> <span class="n">SPI</span> <span class="n">bus</span> <span class="n">connection</span> <span class="p">(</span><span class="n">NEW</span><span class="p">)</span>
+        <span class="n">Hardware</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">ports</span>  <span class="o">---&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<section id="driver-compiled-as-a-module">
+<h3>Driver compiled as a module<a class="headerlink" href="#driver-compiled-as-a-module" title="Link to this heading"></a></h3>
+<p>I2C Interface:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">adxl34x</span>
+<span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.1</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
+<span class="n">adxl34x</span> <span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
+</pre></div>
+</div>
+<p>SPI Interface:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">evdev</span>
+<span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">modprobe</span> <span class="n">adxl34x</span>
+<span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
+<span class="n">adxl34x</span> <span class="n">spi1</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
+</pre></div>
+</div>
+</section>
+<section id="driver-compiled-into-the-kernel">
+<h3>Driver compiled into the kernel<a class="headerlink" href="#driver-compiled-into-the-kernel" title="Link to this heading"></a></h3>
+<p>Your kernel startup messages should include something like this</p>
+<p>I2C Interface:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">bfin</span><span class="o">-</span><span class="n">twi</span><span class="mf">.1</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="n">adapter</span><span class="o">/</span><span class="n">i2c</span><span class="o">-</span><span class="mi">1</span><span class="o">/</span><span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
+<span class="n">adxl34x</span> <span class="mi">1</span><span class="o">-</span><span class="mi">0053</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
+</pre></div>
+</div>
+<p>SPI Interface:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nb">input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="k">as</span> <span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span>
+<span class="n">adxl34x</span> <span class="n">spi1</span><span class="mf">.2</span><span class="p">:</span> <span class="n">ADXL345</span> <span class="n">accelerometer</span><span class="p">,</span> <span class="n">irq</span> <span class="mi">140</span>
+</pre></div>
+</div>
+</section>
+<section id="common-problems">
+<h3>Common Problems<a class="headerlink" href="#common-problems" title="Link to this heading"></a></h3>
+<p>In case you see a message like this</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adxl34x</span> <span class="n">spi1</span><span class="mf">.2</span><span class="p">:</span> <span class="n">Failed</span> <span class="n">to</span> <span class="n">probe</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span>
+</pre></div>
+</div>
+<p>This means that the SPI communication and initilaization with the ADXL34x
+failed. <strong>check bus_num and chip_select in your platform device file</strong></p>
+</section>
+<section id="checking-for-proper-installation">
+<h3>Checking for proper installation<a class="headerlink" href="#checking-for-proper-installation" title="Link to this heading"></a></h3>
+<p>After the kernel boot your device folder should include at least one device node
+for the accelerometer</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">al</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span>
+<span class="n">drw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">2</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="o">.</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">5</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="o">..</span>
+<span class="n">crw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>      <span class="mi">13</span><span class="p">,</span>  <span class="mi">64</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">event0</span>
+<span class="n">crw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>      <span class="mi">13</span><span class="p">,</span>  <span class="mi">65</span> <span class="n">Jan</span>  <span class="mi">1</span> <span class="mi">00</span><span class="p">:</span><span class="mi">03</span> <span class="n">event1</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span>
+</pre></div>
+</div>
+<p>Check that the interrupt is registered.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">cat</span> <span class="o">/</span><span class="n">proc</span><span class="o">/</span><span class="n">interrupts</span> <span class="o">|</span> <span class="n">grep</span> <span class="n">adxl34x</span>
+<span class="mi">140</span><span class="p">:</span>          <span class="mi">0</span>   <span class="n">adxl34x</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">~&gt;</span> <span class="n">cat</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span><span class="o">/</span><span class="n">name</span>
+<span class="n">ADXL34x</span> <span class="n">accelerometer</span>
+</pre></div>
+</div>
+</section>
+<section id="use-the-evtest-utility-to-test-proper-function">
+<h3>Use the evtest utility to test proper function<a class="headerlink" href="#use-the-evtest-utility-to-test-proper-function" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">evtest</span> <span class="o">/</span><span class="n">dev</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">event1</span>
+<span class="n">Input</span> <span class="n">driver</span> <span class="n">version</span> <span class="ow">is</span> <span class="mf">1.0.0</span>
+<span class="n">Input</span> <span class="n">device</span> <span class="n">ID</span><span class="p">:</span> <span class="n">bus</span> <span class="mh">0x18</span> <span class="n">vendor</span> <span class="mh">0x0</span> <span class="n">product</span> <span class="mh">0x159</span> <span class="n">version</span> <span class="mh">0x0</span>
+<span class="n">Input</span> <span class="n">device</span> <span class="n">name</span><span class="p">:</span> <span class="s2">&quot;ADXL34x accelerometer&quot;</span>
+<span class="n">Supported</span> <span class="n">events</span><span class="p">:</span>
+  <span class="n">Event</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">)</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">)</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">)</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">)</span>
+  <span class="n">Event</span> <span class="nb">type</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Key</span><span class="p">)</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">330</span> <span class="p">(</span><span class="n">Touch</span><span class="p">)</span>
+  <span class="n">Event</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">)</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">X</span><span class="p">)</span>
+      <span class="n">Value</span>     <span class="mi">15</span>
+      <span class="n">Min</span>    <span class="o">-</span><span class="mi">4096</span>
+      <span class="n">Max</span>     <span class="mi">4096</span>
+      <span class="n">Fuzz</span>       <span class="mi">3</span>
+      <span class="n">Flat</span>       <span class="mi">3</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Y</span><span class="p">)</span>
+      <span class="n">Value</span>    <span class="o">-</span><span class="mi">15</span>
+      <span class="n">Min</span>    <span class="o">-</span><span class="mi">4096</span>
+      <span class="n">Max</span>     <span class="mi">4096</span>
+      <span class="n">Fuzz</span>       <span class="mi">3</span>
+      <span class="n">Flat</span>       <span class="mi">3</span>
+    <span class="n">Event</span> <span class="n">code</span> <span class="mi">2</span> <span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+      <span class="n">Value</span>    <span class="mi">242</span>
+      <span class="n">Min</span>    <span class="o">-</span><span class="mi">4096</span>
+      <span class="n">Max</span>     <span class="mi">4096</span>
+      <span class="n">Fuzz</span>       <span class="mi">3</span>
+      <span class="n">Flat</span>       <span class="mi">3</span>
+<span class="n">Testing</span> <span class="o">...</span> <span class="p">(</span><span class="n">interrupt</span> <span class="n">to</span> <span class="n">exit</span><span class="p">)</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">107831.548000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">value</span> <span class="o">-</span><span class="mi">7</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">107831.548000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Y</span><span class="p">),</span> <span class="n">value</span> <span class="o">-</span><span class="mi">2</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">107831.548000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">2</span> <span class="p">(</span><span class="n">Z</span><span class="p">),</span> <span class="n">value</span> <span class="mi">12</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">107831.548000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">107831.588000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">value</span> <span class="o">-</span><span class="mi">17</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">107831.588000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">1</span> <span class="p">(</span><span class="n">Y</span><span class="p">),</span> <span class="n">value</span> <span class="mi">4</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">107831.588000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">Reset</span><span class="p">),</span> <span class="n">value</span> <span class="mi">0</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">107831.632000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">0</span> <span class="p">(</span><span class="n">X</span><span class="p">),</span> <span class="n">value</span> <span class="o">-</span><span class="mi">16</span>
+<span class="n">Event</span><span class="p">:</span> <span class="n">time</span> <span class="mf">107831.632000</span><span class="p">,</span> <span class="nb">type</span> <span class="mi">3</span> <span class="p">(</span><span class="n">Absolute</span><span class="p">),</span> <span class="n">code</span> <span class="mi">2</span> <span class="p">(</span><span class="n">Z</span><span class="p">),</span> <span class="n">value</span> <span class="mi">11</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In case you move the accelerometer and don’t receive events, it’s likely that
+something with your Interrupt is wrong. <strong>check irq number in your platform
+device file</strong></p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In case you get a message like: <code class="docutils literal notranslate"><span class="pre">evtest:</span> <span class="pre">No</span> <span class="pre">such</span> <span class="pre">device</span></code>, it’s likely that
+you have not install the necessary modules</p>
+</div>
+</section>
+<section id="visualizing-linux-input-events-using-df-input-example-from-directfb">
+<h3>Visualizing Linux Input Events using df_input example from DirectFB<a class="headerlink" href="#visualizing-linux-input-events-using-df-input-example-from-directfb" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">df_input</span> <span class="o">&amp;</span>
+
+   <span class="o">~~~~~~~~~~~~~~~~~~~~~~~~~~|</span> <span class="n">DirectFB</span> <span class="mf">1.2.7</span> <span class="o">|~~~~~~~~~~~~~~~~~~~~~~~~~~</span>
+        <span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="mi">2001</span><span class="o">-</span><span class="mi">2008</span>  <span class="n">The</span> <span class="n">world</span> <span class="n">wide</span> <span class="n">DirectFB</span> <span class="n">Open</span> <span class="n">Source</span> <span class="n">Community</span>
+        <span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="mi">2000</span><span class="o">-</span><span class="mi">2004</span>  <span class="n">Convergence</span> <span class="p">(</span><span class="n">integrated</span> <span class="n">media</span><span class="p">)</span> <span class="n">GmbH</span>
+      <span class="o">----------------------------------------------------------------</span>
+
+<span class="p">()</span> <span class="n">DirectFB</span><span class="o">/</span><span class="n">Core</span><span class="p">:</span> <span class="n">Single</span> <span class="n">Application</span> <span class="n">Core</span><span class="o">.</span> <span class="p">(</span><span class="mi">2009</span><span class="o">-</span><span class="mi">05</span><span class="o">-</span><span class="mi">27</span> <span class="mi">15</span><span class="p">:</span><span class="mi">03</span><span class="p">)</span>
+<span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="mi">401</span> <span class="n">df_input</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="p">()</span> <span class="n">Direct</span><span class="o">/</span><span class="n">Thread</span><span class="p">:</span> <span class="n">Started</span> <span class="s1">&#39;VT Switcher&#39;</span> <span class="p">(</span><span class="mi">405</span><span class="p">)</span> <span class="p">[</span><span class="n">CRITICAL</span> <span class="n">OTHER</span><span class="o">/</span><span class="n">OTHER</span> <span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span><span class="mi">12288</span><span class="o">&gt;...</span>
+<span class="p">()</span> <span class="n">Direct</span><span class="o">/</span><span class="n">Thread</span><span class="p">:</span> <span class="n">Started</span> <span class="s1">&#39;Keyboard Input&#39;</span> <span class="p">(</span><span class="mi">406</span><span class="p">)</span> <span class="p">[</span><span class="n">INPUT</span> <span class="n">OTHER</span><span class="o">/</span><span class="n">OTHER</span> <span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span><span class="mi">12288</span><span class="o">&gt;...</span>
+<span class="p">()</span> <span class="n">DirectFB</span><span class="o">/</span><span class="n">Input</span><span class="p">:</span> <span class="n">Keyboard</span> <span class="mf">0.9</span> <span class="p">(</span><span class="n">directfb</span><span class="o">.</span><span class="n">org</span><span class="p">)</span>
+<span class="p">()</span> <span class="n">Direct</span><span class="o">/</span><span class="n">Thread</span><span class="p">:</span> <span class="n">Started</span> <span class="s1">&#39;Linux Input&#39;</span> <span class="p">(</span><span class="mi">407</span><span class="p">)</span> <span class="p">[</span><span class="n">INPUT</span> <span class="n">OTHER</span><span class="o">/</span><span class="n">OTHER</span> <span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span><span class="mi">12288</span><span class="o">&gt;...</span>
+<span class="p">()</span> <span class="n">DirectFB</span><span class="o">/</span><span class="n">Input</span><span class="p">:</span> <span class="n">bf54x</span><span class="o">-</span><span class="n">keys</span> <span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="mf">0.1</span> <span class="p">(</span><span class="n">directfb</span><span class="o">.</span><span class="n">org</span><span class="p">)</span>
+<span class="p">()</span> <span class="n">Direct</span><span class="o">/</span><span class="n">Thread</span><span class="p">:</span> <span class="n">Started</span> <span class="s1">&#39;Linux Input&#39;</span> <span class="p">(</span><span class="mi">408</span><span class="p">)</span> <span class="p">[</span><span class="n">INPUT</span> <span class="n">OTHER</span><span class="o">/</span><span class="n">OTHER</span> <span class="mi">0</span><span class="o">/</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span><span class="mi">12288</span><span class="o">&gt;...</span>
+<span class="p">()</span> <span class="n">DirectFB</span><span class="o">/</span><span class="n">Input</span><span class="p">:</span> <span class="n">ADXL34x</span> <span class="n">accelerometer</span> <span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="mf">0.1</span> <span class="p">(</span><span class="n">directfb</span><span class="o">.</span><span class="n">org</span><span class="p">)</span>
+<span class="p">()</span> <span class="n">DirectFB</span><span class="o">/</span><span class="n">Graphics</span><span class="p">:</span> <span class="n">Generic</span> <span class="n">Software</span> <span class="n">Rasterizer</span> <span class="mf">0.6</span> <span class="p">(</span><span class="n">directfb</span><span class="o">.</span><span class="n">org</span><span class="p">)</span>
+<span class="p">()</span> <span class="n">DirectFB</span><span class="o">/</span><span class="n">Core</span><span class="o">/</span><span class="n">WM</span><span class="p">:</span> <span class="n">Default</span> <span class="mf">0.3</span> <span class="p">(</span><span class="n">directfb</span><span class="o">.</span><span class="n">org</span><span class="p">)</span>
+<span class="p">()</span> <span class="n">FBDev</span><span class="o">/</span><span class="n">Surface</span><span class="p">:</span> <span class="n">Allocated</span> <span class="mi">480</span><span class="n">x272</span> <span class="mi">24</span> <span class="n">bit</span> <span class="n">RGB24</span> <span class="n">buffer</span> <span class="p">(</span><span class="n">index</span> <span class="mi">0</span><span class="p">)</span> <span class="n">at</span> <span class="n">offset</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">pitch</span> <span class="mf">1440.</span>
+<span class="p">()</span> <span class="n">FBDev</span><span class="o">/</span><span class="n">Surface</span><span class="p">:</span> <span class="n">Allocated</span> <span class="mi">480</span><span class="n">x272</span> <span class="mi">24</span> <span class="n">bit</span> <span class="n">RGB24</span> <span class="n">buffer</span> <span class="p">(</span><span class="n">index</span> <span class="mi">0</span><span class="p">)</span> <span class="n">at</span> <span class="n">offset</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">pitch</span> <span class="mf">1440.</span>
+<span class="p">()</span> <span class="n">Direct</span><span class="o">/</span><span class="n">Interface</span><span class="p">:</span> <span class="n">Loaded</span> <span class="s1">&#39;FT2&#39;</span> <span class="n">implementation</span> <span class="n">of</span> <span class="s1">&#39;IDirectFBFont&#39;</span><span class="o">.</span>
+<span class="p">()</span> <span class="n">Direct</span><span class="o">/</span><span class="n">Interface</span><span class="p">:</span> <span class="n">Loaded</span> <span class="s1">&#39;PNG&#39;</span> <span class="n">implementation</span> <span class="n">of</span> <span class="s1">&#39;IDirectFBImageProvider&#39;</span><span class="o">.</span>
+
+<span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span>
+</pre></div>
+</div>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/software/driver/linux/df_input_adxl_screenshot.png" src="https://wiki.analog.com/_media/software/driver/linux/df_input_adxl_screenshot.png" />
+</figure>
+</section>
+<section id="adxl34x-sysfs-runtime-controls">
+<h3>ADXL34x Sysfs runtime controls<a class="headerlink" href="#adxl34x-sysfs-runtime-controls" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="nb">input</span><span class="o">/</span><span class="n">input1</span><span class="o">/</span><span class="n">device</span><span class="o">/</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">ls</span> <span class="o">-</span><span class="n">al</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">3</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">10</span><span class="p">:</span><span class="mi">39</span> <span class="o">.</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">4</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">10</span><span class="p">:</span><span class="mi">39</span> <span class="o">..</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">12</span><span class="p">:</span><span class="mi">01</span> <span class="n">autosleep</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">12</span><span class="p">:</span><span class="mi">01</span> <span class="n">calibrate</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">12</span><span class="p">:</span><span class="mi">01</span> <span class="n">disable</span>
+<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">12</span><span class="p">:</span><span class="mi">01</span> <span class="n">driver</span> <span class="o">-&gt;</span> <span class="o">../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">spi</span><span class="o">/</span><span class="n">drivers</span><span class="o">/</span><span class="n">adxl34x</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span>    <span class="mi">3</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">10</span><span class="p">:</span><span class="mi">39</span> <span class="nb">input</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">12</span><span class="p">:</span><span class="mi">01</span> <span class="n">modalias</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">12</span><span class="p">:</span><span class="mi">01</span> <span class="n">rate</span>
+<span class="n">lrwxrwxrwx</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>            <span class="mi">0</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">12</span><span class="p">:</span><span class="mi">01</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">spi</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span>    <span class="mi">1</span> <span class="n">root</span>     <span class="n">root</span>         <span class="mi">4096</span> <span class="n">Jan</span>  <span class="mi">2</span> <span class="mi">12</span><span class="p">:</span><span class="mi">01</span> <span class="n">uevent</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<section id="device-calibration">
+<h4>Device Calibration<a class="headerlink" href="#device-calibration" title="Link to this heading"></a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">calibrate</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">calibrate</span>
+<span class="mi">2</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="o">-</span><span class="mi">204</span>
+</pre></div>
+</div>
+</section>
+<section id="controlling-the-output-data-rate">
+<h4>Controlling the Output Data Rate<a class="headerlink" href="#controlling-the-output-data-rate" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Output Data Rate (Hz)</p></th>
+<th class="head"><p>Bandwidth (Hz)</p></th>
+<th class="head"><p>Value</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>3200</p></td>
+<td><p>1600</p></td>
+<td><p>15</p></td>
+</tr>
+<tr class="row-odd"><td><p>1600</p></td>
+<td><p>800</p></td>
+<td><p>14</p></td>
+</tr>
+<tr class="row-even"><td><p>800</p></td>
+<td><p>400</p></td>
+<td><p>13</p></td>
+</tr>
+<tr class="row-odd"><td><p>400</p></td>
+<td><p>200</p></td>
+<td><p>12</p></td>
+</tr>
+<tr class="row-even"><td><p>200</p></td>
+<td><p>100</p></td>
+<td><p>11</p></td>
+</tr>
+<tr class="row-odd"><td><p>100</p></td>
+<td><p>50</p></td>
+<td><p>10</p></td>
+</tr>
+<tr class="row-even"><td><p>50</p></td>
+<td><p>25</p></td>
+<td><p>9</p></td>
+</tr>
+<tr class="row-odd"><td><p>25</p></td>
+<td><p>12.5</p></td>
+<td><p>8</p></td>
+</tr>
+<tr class="row-even"><td><p>12.5</p></td>
+<td><p>6.25</p></td>
+<td><p>7</p></td>
+</tr>
+<tr class="row-odd"><td><p>6.25</p></td>
+<td><p>3.125</p></td>
+<td><p>6</p></td>
+</tr>
+<tr class="row-even"><td><p>3.125</p></td>
+<td><p>1.563</p></td>
+<td><p>5</p></td>
+</tr>
+<tr class="row-odd"><td><p>1.563</p></td>
+<td><p>0.782</p></td>
+<td><p>4</p></td>
+</tr>
+<tr class="row-even"><td><p>0.782</p></td>
+<td><p>0.39</p></td>
+<td><p>3</p></td>
+</tr>
+<tr class="row-odd"><td><p>0.39</p></td>
+<td><p>0.195</p></td>
+<td><p>2</p></td>
+</tr>
+<tr class="row-even"><td><p>0.195</p></td>
+<td><p>0.098</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-odd"><td><p>0.098</p></td>
+<td><p>0.048</p></td>
+<td><p>0</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Writing ‘<strong>value</strong>’ into <strong>rate</strong> sets the desired sample rate Reading <strong>rate</strong>
+returns the current value</p>
+<p>See table above for supported sample rates</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">8</span> <span class="o">&gt;</span> <span class="n">rate</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">rate</span>
+<span class="mi">8</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><strong>Be aware:</strong> The ADXL34x conforms to The I2C Bus Specification, Version 2.1,
+January 2000, available from Phillips Semiconductor. It supports standard
+(100 kHz) and fast (400 kHz) data transfer modes.</p>
+<p>Very high output data rates are only possible via fast I2C (400kHz) or the
+SPI interface.</p>
+</div>
+</section>
+<section id="enabling-disabling-the-device">
+<h4>Enabling / Disabling the Device<a class="headerlink" href="#enabling-disabling-the-device" title="Link to this heading"></a></h4>
+<p>Writing ‘<strong>1</strong>’ into disable - disables the ADXL34x (low power suspend mode)
+Writing ‘<strong>0</strong>’ into disable - enables the ADXL34x</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">disable</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">disable</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+</section>
+<section id="enabling-disabling-autosleep-upon-inactivity">
+<h4>Enabling / Disabling Autosleep Upon Inactivity<a class="headerlink" href="#enabling-disabling-autosleep-upon-inactivity" title="Link to this heading"></a></h4>
+<p>Writing ‘<strong>1</strong>’ into autosleep - enables Autosleep Upon Inactivity Writing
+‘<strong>0</strong>’ into autosleep - disables Autosleep Upon Inactivity</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">autosleep</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span> <span class="n">echo</span> <span class="mi">0</span> <span class="o">&gt;</span> <span class="n">autosleep</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">platform</span><span class="o">/</span><span class="n">bfin</span><span class="o">-</span><span class="n">spi</span><span class="mf">.1</span><span class="o">/</span><span class="n">spi1</span><span class="mf">.2</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="adxl345-on-raspberry-pi-a-worked-example">
+<h2>ADXL345 on Raspberry Pi - A worked example<a class="headerlink" href="#adxl345-on-raspberry-pi-a-worked-example" title="Link to this heading"></a></h2>
+<section id="create-an-sd-card-image">
+<h3>Create an SD Card image<a class="headerlink" href="#create-an-sd-card-image" title="Link to this heading"></a></h3>
+<p>Download Raspbian <code class="docutils literal notranslate"><span class="pre">wheezy</span></code> SD Card Image from here:
+<a class="icon link reference external" href="http://www.raspberrypi.org/downloads" target="_blank">http://www.raspberrypi.org/downloads</a></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This example assumes that /dev/sdc is the SD-Card reader. All content will be
+lost!</p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/pshare/RaspberryPi$ unzip 2012-08-16-wheezy-raspbian.zip
+Archive:  2012-08-16-wheezy-raspbian.zip
+  inflating: 2012-08-16-wheezy-raspbian.img
+
+Dave@HAL9000:~/devel/pshare/RaspberryPi$ sudo dd bs=1M if=2012-08-16-wheezy-raspbian.img of=/dev/sdc
+[sudo] password for michael:
+1850+0 records in
+1850+0 records out
+1939865600 bytes (1.9 GB) copied, 434.764 s, 4.5 MB/s
+Dave@HAL9000:~/devel/pshare/RaspberryPi$
+</pre></div>
+</div>
+</section>
+<section id="compile-a-kernel">
+<h3>Compile a kernel<a class="headerlink" href="#compile-a-kernel" title="Link to this heading"></a></h3>
+<p>There are two ways to compile a new Kernel -</p>
+<ul class="simple">
+<li><p>On the target itself</p></li>
+<li><p>On a development computer (host)</p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>In order to speed things up - we compile the kernel on a foreign host.</p>
+</div>
+<section id="get-arm-tools-and-raspberrypi-kernel-source">
+<h4>Get ARM tools and RaspberryPi kernel source<a class="headerlink" href="#get-arm-tools-and-raspberrypi-kernel-source" title="Link to this heading"></a></h4>
+<section id="create-an-empty-directory">
+<h5>Create an empty directory<a class="headerlink" href="#create-an-empty-directory" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git$ mkdir RaspberryPi
+Dave@HAL9000:~/devel/git$ cd RaspberryPi
+</pre></div>
+</div>
+</section>
+<section id="get-tools">
+<h5>Get tools<a class="headerlink" href="#get-tools" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi$ git clone https:%%//%%github.com/raspberrypi/tools.git
+Initialized empty Git repository in /home/michael/devel/git/RaspberryPi/tools/.git/
+remote: Counting objects: 11148, done.
+remote: Compressing objects: 100% (5752/5752), done.
+remote: Total 11148 (delta 6433), reused 9628 (delta 4913)
+Receiving objects: 100% (11148/11148), 219.74 MiB | 359 KiB/s, done.
+Resolving deltas: 100% (6433/6433), done.
+Checking out files: 100% (10692/10692), done.
+</pre></div>
+</div>
+</section>
+<section id="get-kernel-source">
+<h5>Get Kernel Source<a class="headerlink" href="#get-kernel-source" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi$ git clone https:%%//%%github.com/raspberrypi/linux.git
+Initialized empty Git repository in /home/michael/devel/git/RaspberryPi/linux/.git/
+remote: Counting objects: 2287525, done.
+remote: Compressing objects: 100% (360373/360373), done.
+remote: Total 2287525 (delta 1911472), reused 2276887 (delta 1905269)
+Receiving objects: 100% (2287525/2287525), 468.96 MiB | 566 KiB/s, done.
+Resolving deltas: 100% (1911472/1911472), done.
+Checking out files: 100% (37972/37972), done.
+Dave@HAL9000:~/devel/git/RaspberryPi$
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>See here: <a class="icon link reference external" href="http://elinux.org/RPi_Kernel_Compilation" target="_blank">http://elinux.org/RPi_Kernel_Compilation</a></p>
+</div>
+</section>
+<section id="download-and-apply-patches">
+<h5>Download and apply patches<a class="headerlink" href="#download-and-apply-patches" title="Link to this heading"></a></h5>
+<p>Get patch files here:</p>
+<ul class="simple">
+<li><p><a class="icon reference download external" download="" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/adxl34x_raspberrypi_patches.zip"><code class="xref download docutils literal notranslate"><span class="pre">https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/adxl34x_raspberrypi_patches.zip</span></code></a></p></li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>This was tested with the Raspberry Pi Model B, PCB Version 2 (made in UK)</p>
+<p><strong>The primary and secondary I2C channels have been reversed.</strong></p>
+<p>You may need to register i2c board info for Bus-0 instead of Bus-1.</p>
+<div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="cm">/* From arch/arm/mach-bcm2708/bcm2708.c */</span>
+
+<span class="cp">#ifdef CONFIG_I2C</span>
+<span class="w">    </span><span class="n">i2c_register_board_info</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">bcm2708_i2c_board_info</span><span class="p">,</span>
+<span class="w">                </span><span class="n">ARRAY_SIZE</span><span class="p">(</span><span class="n">bcm2708_i2c_board_info</span><span class="p">));</span>
+<span class="cp">#endif</span>
+</pre></div>
+</div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi/linux$ git am 0001-input-adxl34x-quick-hack-for-BCM2807-which-doesn-t-s.patch
+Applying: input: adxl34x: quick hack for BCM2807 which doesn&#39;t support level sensitive interrupts
+
+Dave@HAL9000:~/devel/git/RaspberryPi/linux$ git am 0002-platform-RaspberryPi-provide-i2c-board-info-for-ADXL.patch
+Applying: platform: RaspberryPi: provide i2c board info for ADXL345 Accelerometer.
+Dave@HAL9000:~/devel/git/RaspberryPi/linux$
+</pre></div>
+</div>
+</section>
+<section id="add-arm-toolchain-to-the-path-variable-and-set-arch-and-cross-compile">
+<h5>Add ARM toolchain to the PATH variable and set ARCH and CROSS_COMPILE<a class="headerlink" href="#add-arm-toolchain-to-the-path-variable-and-set-arch-and-cross-compile" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi/linux$ export PATH=/home/michael/devel/git/RaspberryPi/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/:$PATH
+Dave@HAL9000:~/devel/git/RaspberryPi/linux$ export ARCH=arm
+Dave@HAL9000:~/devel/git/RaspberryPi/linux$ export CROSS_COMPILE=arm-linux-gnueabihf-
+</pre></div>
+</div>
+</section>
+<section id="load-kernel-config-for-bcmrpi">
+<h5>Load kernel config for bcmrpi<a class="headerlink" href="#load-kernel-config-for-bcmrpi" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi/linux$ make bcmrpi_defconfig
+#
+# configuration written to .config
+#
+</pre></div>
+</div>
+</section>
+<section id="now-build-your-kernel">
+<h5>Now build your kernel<a class="headerlink" href="#now-build-your-kernel" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi/linux$ make -j5
+</pre></div>
+</div>
+</section>
+<section id="copy-kernel-image-and-modules-to-sd-card">
+<h5>Copy kernel image and modules to SD Card<a class="headerlink" href="#copy-kernel-image-and-modules-to-sd-card" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>Dave@HAL9000:~/devel/git/RaspberryPi/linux$ cp arch/arm/boot/zImage /media/A1B1-918F/kernel.img
+Dave@HAL9000:~/devel/git/RaspberryPi/linux$ sudo ARCH=arm make modules_install INSTALL_MOD_PATH=/media/10b4c001-2137-4418-b29e-57b7d15a6cbc
+</pre></div>
+</div>
+</section>
+</section>
+<section id="connect-adxl345-development-board">
+<h4>Connect ADXL345 development Board<a class="headerlink" href="#connect-adxl345-development-board" title="Link to this heading"></a></h4>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/rpi_adxl345.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/rpi_adxl345.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/input-misc/rpi_adxl345.jpg" style="width: 800px;" />
+</a>
+</figure>
+<p><a class="icon link reference external" href="http://elinux.org/RPi_Low-level_peripherals" target="_blank">http://elinux.org/RPi_Low-level_peripherals</a></p>
+<p>Connect ADXL345 SDA, SCL and INT1 to the RaspberryPi GPIO header P1</p>
+</section>
+<section id="power-up-your-raspberry-pi">
+<h4>Power up your Raspberry Pi<a class="headerlink" href="#power-up-your-raspberry-pi" title="Link to this heading"></a></h4>
+<section id="load-the-i2c-bus-driver-module">
+<h5>Load the I2C Bus driver module<a class="headerlink" href="#load-the-i2c-bus-driver-module" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi ~ $ sudo modprobe i2c-bcm2708
+</pre></div>
+</div>
+</section>
+<section id="check-if-adxl345-was-successfully-probed-instantiated">
+<h5>Check if ADXL345 was successfully probed / instantiated<a class="headerlink" href="#check-if-adxl345-was-successfully-probed-instantiated" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi ~ $ dmesg | grep ADXL
+[   44.858034] input: ADXL34x accelerometer as /devices/platform/bcm2708_i2c.1/i2c-1/1-0053/input/input2
+pi@raspberrypi ~ $
+</pre></div>
+</div>
+</section>
+<section id="get-evtest-tool">
+<h5>Get evtest tool<a class="headerlink" href="#get-evtest-tool" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi ~ $ sudo apt-get install evtest
+</pre></div>
+</div>
+</section>
+<section id="driver-test">
+<h5>Driver test<a class="headerlink" href="#driver-test" title="Link to this heading"></a></h5>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi ~ $ evtest /dev/input/event2
+Input driver version is 1.0.1
+Input device ID: bus 0x18 vendor 0x0 product 0x159 version 0x0
+Input device name: &quot;ADXL34x accelerometer&quot;
+Supported events:
+  Event type 0 (EV_SYN)
+  Event type 1 (EV_KEY)
+    Event code 330 (BTN_TOUCH)
+  Event type 3 (EV_ABS)
+    Event code 0 (ABS_X)
+      Value     43
+      Min    -4096
+      Max     4096
+      Fuzz       3
+      Flat       3
+    Event code 1 (ABS_Y)
+      Value     -9
+      Min    -4096
+      Max     4096
+      Fuzz       3
+      Flat       3
+    Event code 2 (ABS_Z)
+      Value     52
+      Min    -4096
+      Max     4096
+      Fuzz       3
+      Flat       3
+Properties:
+Testing ... (interrupt to exit)
+Event: time 1345080074.937061, type 3 (EV_ABS), code 0 (ABS_X), value 188
+Event: time 1345080074.937065, type 3 (EV_ABS), code 1 (ABS_Y), value -136
+Event: time 1345080074.937066, type 3 (EV_ABS), code 2 (ABS_Z), value 106
+Event: time 1345080074.937069, -------------- SYN_REPORT ------------
+Event: time 1345080074.976842, type 3 (EV_ABS), code 0 (ABS_X), value 197
+Event: time 1345080074.976847, type 3 (EV_ABS), code 1 (ABS_Y), value -134
+Event: time 1345080074.976848, type 3 (EV_ABS), code 2 (ABS_Z), value 112
+Event: time 1345080074.976850, -------------- SYN_REPORT ------------
+Event: time 1345080075.016672, type 3 (EV_ABS), code 0 (ABS_X), value 188
+Event: time 1345080075.016676, type 3 (EV_ABS), code 1 (ABS_Y), value -133
+Event: time 1345080075.016677, type 3 (EV_ABS), code 2 (ABS_Z), value 110
+Event: time 1345080075.016679, -------------- SYN_REPORT ------------
+Event: time 1345080075.056513, type 3 (EV_ABS), code 0 (ABS_X), value 189
+Event: time 1345080075.056516, type 3 (EV_ABS), code 1 (ABS_Y), value -131
+Event: time 1345080075.056518, type 3 (EV_ABS), code 2 (ABS_Z), value 99
+Event: time 1345080075.056520, -------------- SYN_REPORT ------------
+Event: time 1345080075.096264, type 3 (EV_ABS), code 0 (ABS_X), value 188
+Event: time 1345080075.096267, type 3 (EV_ABS), code 1 (ABS_Y), value -125
+Event: time 1345080075.096269, -------------- SYN_REPORT ------------
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi ~ $ cat /proc/interrupts
+           CPU0
+  3:       9183   ARMCTRL  BCM2708 Timer Tick
+ 52:        784   ARMCTRL  BCM2708 GPIO catchall handler
+ 65:          2   ARMCTRL  ARM Mailbox IRQ
+ 66:          1   ARMCTRL  VCHIQ doorbell
+ 75:    2615599   ARMCTRL  dwc_otg, dwc_otg_pcd, dwc_otg_hcd:usb1
+ 77:       9041   ARMCTRL  bcm2708_sdhci (dma)
+ 79:       9469   ARMCTRL  bcm2708_i2c.0, bcm2708_i2c.1
+ 83:         20   ARMCTRL  uart-pl011
+ 84:      14411   ARMCTRL  mmc0
+187:        784      GPIO  1-0053
+Err:          0
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>pi@raspberrypi /sys/bus/i2c/devices/1-0053 $ ls -l
+total 0
+-rw-rw-r-- 1 root root 4096 Aug 16 01:22 autosleep
+-rw-rw-r-- 1 root root 4096 Aug 16 01:22 calibrate
+-rw-rw-r-- 1 root root 4096 Aug 16 01:22 disable
+lrwxrwxrwx 1 root root    0 Aug 16 01:22 driver -&gt; ../../../../../bus/i2c/drivers/adxl34x
+drwxr-xr-x 3 root root    0 Aug 16 01:22 input
+-r--r--r-- 1 root root 4096 Aug 16 01:22 modalias
+-r--r--r-- 1 root root 4096 Aug 16 01:22 name
+-r--r--r-- 1 root root 4096 Aug 16 01:22 position
+drwxr-xr-x 2 root root    0 Aug 16 01:22 power
+-rw-rw-r-- 1 root root 4096 Aug 16 01:22 rate
+lrwxrwxrwx 1 root root    0 Aug 16 01:22 subsystem -&gt; ../../../../../bus/i2c
+-rw-r--r-- 1 root root 4096 Aug 16 01:22 uevent
+pi@raspberrypi /sys/bus/i2c/devices/1-0053 $
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="adxl345-6-android-acceleration-sensor">
+<h3>ADXL345/6 Android Acceleration Sensor<a class="headerlink" href="#adxl345-6-android-acceleration-sensor" title="Link to this heading"></a></h3>
+<p>Using this driver under Android as Acceleration Sensor, follow the link here:
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/android-drivers/sensor-acceleration/adxl345" target="_blank">ADXL345 Android Sensor</a></p>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="ad714x.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD714X</a>
+    <a href="adxl362.html" title="Next document (Alt+Shift+RightArrow)" class="next">ADXL362</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

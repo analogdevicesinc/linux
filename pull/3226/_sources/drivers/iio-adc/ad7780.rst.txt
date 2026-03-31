@@ -1,0 +1,300 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7780
+
+.. _ad7780:
+
+AD7780
+======
+
+AD7780 IIO Low Power Sigma-Delta ADC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD7170`
+- :adi:`AD7171`
+- :adi:`AD7780`
+- :adi:`AD7781`
+
+Reference Circuits
+------------------
+
+- :adi:`CN0107`
+- :adi:`CN0108`
+- :adi:`CN0188`
+- :adi:`CN0218`
+- :adi:`CN0240`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD7170EBZ`
+- :adi:`EVAL-AD7171EBZ`
+- :adi:`EVAL-AD7780EBZ`
+- :adi:`EVAL-AD7781EBZ`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting single channel serial interface ADCs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/staging/iio/adc/ad7780.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.c>`__
+   * - include
+     - `drivers/staging/iio/adc/ad7780.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7780.h>`__
+
+Example platform device initialization
+--------------------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+The reference voltage may vary between boards and models. The platform_data for
+the device’s ``struct device`` holds this information.
+
+:git-linux:`ad7780_platform_data{} <drivers/staging/iio/adc/ad7780.h>`
+
+.. code:: c
+
+   static struct ad7780_platform_data __initdata ad7780_pdata = {
+       .vref_mv    = 2500,
+       .gpio_pdrst = GPIO_PF10,
+   };
+
+.. note::
+
+   The AD7780 doesn’t feature a dedicated SPI chip select, in addition it
+   features a dual use data out ready **DOUT/RDY** output. In order to avoid
+   contentions on the SPI bus, it’s therefore necessary to use spi bus locking
+   combined with a dedicated GPIO to control the power down reset signal
+   **PDRST** of the AD7780.
+
+   The AD7780 DOUT/RDY output typically connected to SPI MISO must also be wired
+   to an interrupt capable GPIO.
+
+Specifying reference voltage via the regulator framework
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. tip::
+
+   This driver supports also an alternative way of specifying the reference
+   voltage, by using the Linux regulator framework.
+
+Below example specifies a 3.3 Volt reference for the SPI device 3 on SPI-Bus 0.
+(**spi0.3**)
+
+.. code:: c
+
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+   static struct regulator_consumer_supply ad7780_consumer_supplies[] = {
+       REGULATOR_SUPPLY("vcc", "spi0.3"),
+   };
+
+   static struct regulator_init_data stamp_avdd_reg_init_data = {
+       .constraints    = {
+           .name   = "3V3",
+           .valid_ops_mask = REGULATOR_CHANGE_STATUS,
+       },
+       .consumer_supplies = ad7780_consumer_supplies,
+       .num_consumer_supplies = ARRAY_SIZE(ad7780_consumer_supplies),
+   };
+
+   static struct fixed_voltage_config stamp_vdd_pdata = {
+       .supply_name    = "board-3V3",
+       .microvolts = 3300000,
+       .gpio       = -EINVAL,
+       .enabled_at_boot = 0,
+       .init_data  = &stamp_avdd_reg_init_data,
+   };
+   static struct platform_device brd_voltage_regulator = {
+       .name       = "reg-fixed-voltage",
+       .id     = -1,
+       .num_resources  = 0,
+       .dev        = {
+           .platform_data  = &stamp_vdd_pdata,
+       },
+   };
+   #endif
+
+.. code:: c
+
+   static struct platform_device *board_devices[] __initdata = {
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+       &brd_voltage_regulator
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       platform_add_devices(board_devices, ARRAY_SIZE(board_devices));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name. It may also required to adjust
+max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
+the device in question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_AD7780) || \
+       defined(CONFIG_AD7780_MODULE)
+       {
+           /* the modalias must be the same as spi device driver name */
+           .modalias = "ad7780", /* Name of spi_driver for this device */
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0, /* Framework bus number */
+           .chip_select = 3, /* Framework chip select */
+           .platform_data = &ad7780_pdata,
+           .irq = IRQ_PF6,
+           .mode = SPI_MODE_0,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7780 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [*] Staging drivers  --->
+               <*>     Industrial I/O support --->
+                   --- Industrial I/O support
+                   -*-   Enable ring buffer support within IIO
+                   -*-     Industrial I/O lock free software ring
+                   -*-   Enable triggered sampling support
+
+                         *** Analog to digital converters ***
+                   [--snip--]
+
+                   <*>   Analog Devices AD7780 AD7781 ADC driver
+
+                   [--snip--]
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   device0
+   root:/sys/bus/iio/devices> cd device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> ls -l
+   -r--r--r--    1 root     root          4096 Jan  3 12:41 in_voltage0_raw
+   -r--r--r--    1 root     root          4096 Jan  3 12:41 in_scale
+   -r--r--r--    1 root     root          4096 Jan  3 12:41 name
+   lrwxrwxrwx    1 root     root             0 Jan  3 12:41 subsystem -> ../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  3 12:41 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat name
+   ad7780
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to in_voltage0_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat in_scale
+   0.00029
+
+Show channel 0 measurement
+''''''''''''''''''''''''''
+
+**Description:** Raw unscaled voltage measurement on channel 0
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/device0> cat in0_raw
+   -1
+
+**U** = *in_voltage0_raw \* in_scale* = -1 \* 0.00029 = **-0.00029 mV**
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

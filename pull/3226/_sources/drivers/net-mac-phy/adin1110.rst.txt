@@ -1,0 +1,332 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/net-mac-phy/adin1110
+
+.. _adin1110:
+
+ADIN1110
+========
+
+ADIN1110 10BASE-T1L MAC-PHY Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADIN1110`
+
+Supported Boards
+----------------
+
+Description
+-----------
+
+The ADIN1110 is a low power single port 10BASE-T1L MACPHY designed for
+industrial Ethernet applications. It integrates an Ethernet PHY core with a MAC
+and all the associated analog circuitry, input and output clock buffering.
+
+Programmable transmit levels, external termination resistors and independent
+Rx/Tx pins make the ADIN1110 suited to intrinsic safety applications. The
+ADIN1110 has an integrated voltage supply monitoring and power on reset
+circuitry to improve system level robustness.
+
+The device has a 4-wire SPI interface for communication between the MAC and host
+processor.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+
+   * - Source
+     - Mainlined?
+     -
+   * - :git-linux:`adin1110.c <drivers/net/ethernet/adi/adin1110.c>`
+     - Yes
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/net/ethernet/adi/adin1110.c <drivers/net/ethernet/adi>`
+     -
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+#. Hit the search button (typically the slash ``/`` key)
+#. Type ADIN1110, then hit Enter; if nothing shows up, the driver is not
+   available in your kernel tree, please use
+   `the ADI linux tree <https://github.com/analogdevicesinc/linux/>`__
+#. Press 1 (the key), then hit Enter
+#. You should see the location + dependencies for enabling the driver
+
+::
+
+   Linux Kernel Configuration
+   Symbol: ADIN1110 [=y]
+   Type  : tristate
+   Prompt: Analog Devices ADIN1110 MAC-PHY
+      Location:
+        -> Device Drivers
+          -> Network device support (NETDEVICES [=y])
+            -> Ethernet driver support (ETHERNET [=y])
+      (1)     -> Analog Devices devices (NET_VENDOR_ADI [=y])
+      Defined at drivers/net/ethernet/adi/Kconfig:20
+      Depends on: NETDEVICES [=y] && ETHERNET [=y] && NET_VENDOR_ADI [=y] && SPI [=y]
+      Selects: CRC8 [=y]
+
+Driver testing
+--------------
+
+This requires that another 10BASE-T1L PHY be connected to the other end of the
+network cable, or that a media converter be used to convert to normal
+twisted-pair ethernet that standard ethernet cables use.
+
+ADIN1110 communicates with the host via SPI. For 10 Mbps bandwidth, SPI
+frequency needs to be around 23 MHz. Lower SPI frequencies are supported but
+will result in a lower bandwidth. At 1 MHz the MAC will provide aprox. 0.4 Mbps
+of bandwidth.
+
+Connect to host the SCLK, CS_N, SDI, SDO and INT_N. (The INT_N is mandatory, see
+DT bindings). RX frames and sent TX frames are signaled to the host by INT_N IRQ
+pin.
+
+:dokuwiki:`ADIN1110 Quick Start Guide </resources/quick-start/adin1110_linux_quick_start_guide>`
+
+Device Tree
+~~~~~~~~~~~
+
+ADIN1110 probes via devicetree.
+
+::
+
+   ethernet@0 {
+       compatible = "adi,adin1110";
+
+           /* SPI CS number */
+           reg = <0>;
+
+           /* will need 23 MHz for 10 Mbps, lower speeds will result in lower bandwidth */
+       spi-max-frequency = <1000000>;
+
+           /* optional, will check all control read/writes over SPI */
+       adi,spi-crc;
+
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+           /* an IRQ is required, INT_N pin is configured to signal RX/TX frames */
+       interrupt-parent = <&gpio>;
+       interrupts = <25 2>;
+
+           /* This is the host MAC address, by default ADIN1110 will also accept broadcast frames */
+       mac-address = [ CA 2F B7 10 23 63 ];
+
+       phy@0 {
+           compatible = "ethernet-phy-id0283.bc91";
+           reg = <0x0>;
+       };
+   };
+
+ifconfig
+~~~~~~~~
+
+This tool will display the general status of the available network interfaces.
+If they’ve obtained an IP address, RX packets/errors/dropped/etc, TX
+packets/errors/dropped/etc, MAC address, etc.
+
+Typically, if both TX & RX values are incremented, it means that it is working.
+Also note that there are error counters; if only the TX/RX counters increment,
+something may be wrong with the network connection. Check error/dropped counters
+too.
+
+::
+
+   root@analog:~# ifconfig eth1
+   eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+           inet 192.168.160.160  netmask 255.255.255.0  broadcast 192.168.160.255
+           inet6 fe80::c82f:b7ff:fe10:2363  prefixlen 64  scopeid 0x20<link>
+           ether ca:2f:b7:10:23:63  txqueuelen 1000  (Ethernet)
+           RX packets 132  bytes 8548 (8.3 KiB)
+           RX errors 0  dropped 0  overruns 0  frame 0
+           TX packets 79  bytes 9943 (9.7 KiB)
+           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+           device interrupt 55
+
+ethtool
+~~~~~~~
+
+This tool queries the MAC & PHY via the MAC driver. The MAC driver also allows
+access to the PHY registers. ethtool can be used to show & override link
+settings and other parameters for the MAC & PHY.
+
+Links for the tool:
+
+- Official page with source code:
+  https://mirrors.edge.kernel.org/pub/software/network/ethtool/
+- Manual page: http://man7.org/linux/man-pages/man8/ethtool.8.html
+
+.. tip::
+
+   Some features of ethtool described here are available in newer versions of
+   ethtool. If some of them don’t work, consider upgrading or getting a newer
+   version
+
+Example: Seeing MAC & PHY info
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   Settings for eth1:
+       Supported ports: [ TP MII ]
+       Supported link modes:   10baseT/Full
+       Supported pause frame use: Symmetric Receive-only
+       Supports auto-negotiation: Yes
+       Supported FEC modes: Not reported
+       Advertised link modes:  10baseT/Full
+       Advertised pause frame use: No
+       Advertised auto-negotiation: Yes
+       Advertised FEC modes: Not reported
+       Link partner advertised link modes:  10baseT/Full
+       Link partner advertised pause frame use: No
+       Link partner advertised auto-negotiation: Yes
+       Link partner advertised FEC modes: Not reported
+       Speed: 10Mb/s
+       Duplex: Full
+       Port: MII
+       PHYAD: 0
+       Transceiver: internal
+       Auto-negotiation: on
+       Link detected: yes
+
+Example: Renaming ethernet interface
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Renaming an ethernet interface from the generic ethx name to a custom name is
+done by adding a udev rule. Check:
+
+::
+
+   /sys/class/net/<iface>/phys_switch_id
+
+Create a .rules file under:
+
+::
+
+   /etc/udev/rules.d/
+
+Coppy the phys_switch_id to the bellow udev rule:
+
+::
+
+   root@analog:/sys/class/net/eth1# cat /etc/udev/rules.d/54-adin-net.rules
+   SUBSYSTEM=="net", ACTION=="add", ATTR{phys_switch_id}=="6164696e313131302d30", ATTR{phys_port_name}!="", NAME="adin1110-$attr{phys_port_name}"
+
+phys_switch_id can differ from device to device. It is a unique identifier for
+each device on that specific system.
+
+Example: changing link autonegotiation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Since the PHY can only do 10 Mbps full-duplex, the only operation possible here
+is to disable auto-negotiation and set preferred/forced master/slave
+
+::
+
+   ethtool -s eth1 speed 10 duplex full master-slave forced-master
+   ethtool -s eth1 speed 10 duplex full master-slave forced-slave
+   ethtool -s eth1 autoneg on
+   ethtool -s eth1 autoneg on master-slave preferred-master
+   ethtool -s eth1 autoneg on master-slave preferred-slave
+   ethtool -s eth1 autoneg on master-slave forced-master
+   ethtool -s eth1 autoneg on master-slave forced-slave
+
+Example: checking PHY statistics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@analog:~# ethtool --phy-statistics eth1
+   PHY statistics:
+        total_frames_error_count: 0
+        total_frames_count: 133
+        length_error_frames_count: 0
+        alignment_error_frames_count: 0
+        symbol_error_count: 0
+        oversized_frames_count: 0
+        undersized_frames_count: 0
+        odd_nibble_frames_count: 0
+        odd_preamble_packet_count: 0
+        false_carrier_events_count: 0
+
+Throughput testing - iperf
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is a more system-general test but it also validates the PHY.
+
+.. tip::
+
+   More tools are available for this sort of testing (iperf3, netperf, etc), but
+   iperf is one of the more basic/simple ones to do this validation. If this one
+   achieves expected results, others should too
+
+On one of the endpoints with the ADIN1300, run:
+
+::
+
+   iperf -s
+
+and on another system
+
+::
+
+   iperf -c <ip-addr-of-the-other-system>
+
+Then reverse the commands on the hosts. iperf only works in one direction.
+
+Data integrity testing
+~~~~~~~~~~~~~~~~~~~~~~
+
+One one side, generate a file with random data (say 1GB)
+
+::
+
+   dd if=/dev/urandom of=test.data bs=1M count=1000
+
+   sha256sum test.data
+   <SHA256-hash-of-data>
+
+Then transfer the data to the other side with scp,ftp,etc:
+
+::
+
+   scp test.data root@<ip-addr-of-the-other-host>
+
+On the other host check the hash
+
+::
+
+   sha256sum test.data
+   <SHA256-hash-of-data> == should be identical with the first hash
+
+Ethernet pointers
+-----------------
+
+- netdev mailing list: netdev@vger.kernel.org
+- `Ethernet Controller bindings doc <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ethernet-controller.yaml>`__
+- `Ethernet PHY bindings doc <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ethernet-phy.yaml>`__
+
+.. include:: /include/need-help.rst
+   :start-after: .. start-need-help
+   :end-before: .. end-need-help

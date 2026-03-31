@@ -1,0 +1,345 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/pmbus/adm1275
+
+.. _adm1275:
+
+ADM1275
+=======
+
+ADM1275/ADM1281/ADM1294 Digital Power Monitor and Hot Swap Controller Linux
+Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADM1075`
+- :adi:`ADM1272`
+- :adi:`ADM1275`
+- :adi:`ADM1276`
+- :adi:`ADM1278`
+- :adi:`ADM1281`
+- :adi:`ADM1293`
+- :adi:`ADM1294`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-ADM1076`
+- :adi:`EVAL-ADM1273`
+- :adi:`EVAL-ADM1276`
+- :adi:`EVAL-ADM1277`
+- :adi:`EVAL-ADM1279`
+- :adi:`EVAL-ADM1282`
+- :adi:`EVAL-ADM1294`
+- :adi:`EVAL-ADM1295`
+
+Description
+-----------
+
+The ADM1293 and ADM1294 are high accuracy integrated digital power monitors that
+offer digital current, voltage, and power monitoring using an on-chip, 12-bit
+analog-to-digital converter (ADC), communicated through a PMBus compliant I2C
+interface.
+
+The
+`PMBus Core Driver <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/pmbus_core.c?id=HEAD>`__
+provides a common driver for PMBus compliant devices. The adm1275 Linux driver
+is built on top of this core driver and provides adm1xxx specific functions and
+attributes on top of the ones provided by the core.
+
+Other PMBus related references include, but not limited to, the following:
+
+`PMBus Core API <https://www.kernel.org/doc/html/v5.7/hwmon/pmbus-core.html>`__
+
+`PMBus Source <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/pmbus.c?id=HEAD>`__
+
+`PMBus Header <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/pmbus.h?id=HEAD>`__
+
+`PMBus Documentation <https://docs.kernel.org/hwmon/pmbus.html>`__
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `drivers/hwmon/pmbus/adm1275.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/adm1275.c>`__
+     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/adm1275.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - `drivers/hwmon/pmbus/adm1275.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/adm1275.c>`__
+     -
+
+Example I2C device initialization
+---------------------------------
+
+The ADM1xxx uses an I2C interface. Currently, the devices can only be
+instantiated via device tree.
+
+Required devicetree properties:
+
+- **compatible**: Must be always one of these:
+
+  - adi,adm1075
+  - adi,adm1271
+  - adi,adm1272
+  - adi,adm1275
+  - adi,adm1278
+  - adi,adm1281
+  - adi,adm1293
+  - adi,adm1294
+
+- **reg**: Must be either the I2C device address (refer to device datasheet
+  address table).
+
+Example I2C:
+
+::
+
+   &i2c0 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           status = "okay";
+           adm1281: adm1281@10 {
+                   compatible = "adi,adm1281";
+                   reg = <0x10>;
+           };
+   };
+
+For more supported devicetree properties take a look to
+:git-linux:`dt-bindings <Documentation/devicetree/bindings/hwmon/adi,adm1275.yaml>`.
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or ``make qconfig``). .. note::
+
+   The ADM1xxxx I2C driver depends on **CONFIG_I2C**, **SENSORS_PMBUS**, and on **SENSORS_ADM1275**.
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Hardware Monitoring support --->
+               --- Hardware Monitoring support
+           [--snip--]
+               <*> Analog Devices ADM1275 Digital Power Monitor and Hot Swap Controller over I2C
+           [--snip--]
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+HWMON device files
+~~~~~~~~~~~~~~~~~~
+
+Each and every HWMON device has a device folder under /sys/class/hwmon/hwmonX,
+where X is the hwmon device index. Under every of these directory folders there
+are a set of files, depending on what kind of hardware monitoring is supported
+(temperature, voltage). In order to determine which hwmon device corresponds to
+which hardware chip, the user can read the name file under
+/sys/class/hwmon/hwmonX/name.
+
+::
+
+   root@raspberrypi:/home/embedded3/Desktop/joram/adm1281# cd /sys/class/hwmon/
+   root@raspberrypi:/sys/class/hwmon# ls
+   hwmon0  hwmon1  hwmon2
+
+   root@raspberrypi:/sys/class/hwmon# cd hwmon2
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# ls -l
+   total 0
+   -rw-r--r-- 1 root root 4096 May  8 03:48 curr1_highest
+   -r--r--r-- 1 root root 4096 May  8 03:48 curr1_input
+   -r--r--r-- 1 root root 4096 May  8 03:48 curr1_label
+   -rw-r--r-- 1 root root 4096 May  8 03:48 curr1_max
+   -r--r--r-- 1 root root 4096 May  8 03:48 curr1_max_alarm
+   -rw-r--r-- 1 root root 4096 May  8 03:48 curr1_reset_history
+   -rw-r--r-- 1 root root 4096 May  8 03:48 curr_samples
+   lrwxrwxrwx 1 root root    0 May  8 03:48 device -> ../../../1-0010
+   -rw-r--r-- 1 root root 4096 May  8 03:48 in1_highest
+   -r--r--r-- 1 root root 4096 May  8 03:48 in1_input
+   -r--r--r-- 1 root root 4096 May  8 03:48 in1_label
+   -rw-r--r-- 1 root root 4096 May  8 03:48 in1_max
+   -r--r--r-- 1 root root 4096 May  8 03:48 in1_max_alarm
+   -rw-r--r-- 1 root root 4096 May  8 03:48 in1_min
+   -r--r--r-- 1 root root 4096 May  8 03:48 in1_min_alarm
+   -rw-r--r-- 1 root root 4096 May  8 03:48 in1_reset_history
+   -rw-r--r-- 1 root root 4096 May  8 03:48 in2_highest
+   -r--r--r-- 1 root root 4096 May  8 03:48 in2_input
+   -r--r--r-- 1 root root 4096 May  8 03:48 in2_label
+   -rw-r--r-- 1 root root 4096 May  8 03:48 in2_max
+   -r--r--r-- 1 root root 4096 May  8 03:48 in2_max_alarm
+   -rw-r--r-- 1 root root 4096 May  8 03:48 in2_min
+   -r--r--r-- 1 root root 4096 May  8 03:48 in2_min_alarm
+   -rw-r--r-- 1 root root 4096 May  8 03:48 in2_reset_history
+   -rw-r--r-- 1 root root 4096 May  8 03:48 in_samples
+   -r--r--r-- 1 root root 4096 May  8 03:46 name
+   lrwxrwxrwx 1 root root    0 May  8 03:48 of_node -> ../../../../../../../../firmware/devicetree/base/soc/i2c@7e804000/adm1281@10
+   drwxr-xr-x 2 root root    0 May  8 03:48 power
+   -r--r--r-- 1 root root 4096 May  8 03:48 power1_alarm
+   -r--r--r-- 1 root root 4096 May  8 03:48 power1_input
+   -rw-r--r-- 1 root root 4096 May  8 03:48 power1_input_highest
+   -r--r--r-- 1 root root 4096 May  8 03:48 power1_label
+   -rw-r--r-- 1 root root 4096 May  8 03:48 power1_max
+   -rw-r--r-- 1 root root 4096 May  8 03:48 power1_reset_history
+   -rw-r--r-- 1 root root 4096 May  8 03:48 power_samples
+   lrwxrwxrwx 1 root root    0 May  8 03:48 subsystem -> ../../../../../../../../class/hwmon
+   -rw-r--r-- 1 root root 4096 May  8 03:48 temp1_crit
+   -r--r--r-- 1 root root 4096 May  8 03:48 temp1_crit_alarm
+   -rw-r--r-- 1 root root 4096 May  8 03:48 temp1_highest
+   -r--r--r-- 1 root root 4096 May  8 03:48 temp1_input
+   -rw-r--r-- 1 root root 4096 May  8 03:48 temp1_max
+   -r--r--r-- 1 root root 4096 May  8 03:48 temp1_max_alarm
+   -rw-r--r-- 1 root root 4096 May  8 03:48 temp1_reset_history
+   -rw-r--r-- 1 root root 4096 May  8 03:38 uevent
+   root@raspberrypi:/sys/class/hwmon/hwmon2#
+
+For each type of monitored value (current, power), the file will look like
+**${type}\_${monitored_value}\_${channel}**, where **${monitored_value}** can be
+the current value, the high threshold, etc… The channel is the index when, for
+example, a device can monitor more than one voltage. For more information on the
+files format, take a look to
+`sysfs-interface <https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface>`__.
+
+Show device name
+^^^^^^^^^^^^^^^^
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat name
+   adm1281
+
+Show current values
+^^^^^^^^^^^^^^^^^^^
+
+The device supports readings of current, voltage, power, temperature and energy.
+To get, for example, the value of the monitored voltage:
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_input
+   15199
+
+Show highest read value
+^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_highest
+   15199
+
+Show high threshold
+^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_max
+   20893
+
+Show low threshold
+^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_min
+   0
+
+Show high threshold alarm
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_max_alarm
+   0
+
+Show low threshold alarm
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_min_alarm
+   0
+
+Show label
+^^^^^^^^^^
+
+Some channels, support a label attribute which specifies the name of the channel
+being monitored.
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_label
+   vin
+
+Set High threshold
+^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# echo 20206 > in1_max
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_max
+   20205
+   root@raspberrypi:/sys/class/hwmon/hwmon2#
+
+Set Low threshold
+^^^^^^^^^^^^^^^^^
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# echo 3341 > in1_min
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_min
+   3342
+   root@raspberrypi:/sys/class/hwmon/hwmon2#
+
+Reset History
+^^^^^^^^^^^^^
+
+::
+
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_reset_history
+   0
+   root@raspberrypi:/sys/class/hwmon/hwmon2# echo 1 > in1_reset_history
+   root@raspberrypi:/sys/class/hwmon/hwmon2# cat in1_reset_history
+   0
+   root@raspberrypi:/sys/class/hwmon/hwmon2#
+
+More Information
+----------------
+
+HWMON pointers
+--------------
+
+- HWMON mailing list: linux-hwmon@vger.kernel.org
+- `HWMON Linux Kernel Documentation <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/hwmon>`__
+- `HWMON sysfs-interface <https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface>`__
+
+.. include:: /include/need-help.rst
+   :start-after: .. start-need-help
+   :end-before: .. end-need-help

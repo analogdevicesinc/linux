@@ -1,0 +1,549 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7625
+
+.. _ad7625:
+
+AD7625
+======
+
+AD7625 IIO 16-Bit, 6MSPS PulSAR Differential ADC Linux Driver.
+
+Supported Devices
+-----------------
+
+#. :adi:`AD7625`
+#. :adi:`AD7626`
+#. :adi:`AD7960`
+#. :adi:`AD7961`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting single channel serial interface ADCs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+The AD762x and AD796x are charge redistribution successive approximation
+register (SAR) based architecture analog-to-digital converters (ADCs). All
+converted results are available on a single LVDS self-clocked or echoed-clock
+serial interface, reducing external hardware connections.
+
+Status
+------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - :git-linux:`ADI tree <drivers/iio/adc/ad7625.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7625.c>`__
+     -
+     -
+
+Files
+-----
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/ad7625.c`
+     -
+   * - devicetree bindings
+     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad7625.yaml`
+     -
+   * - ZedBoard example devicetree
+     - :git-linux:`arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts`
+     -
+   * - ZedBoard example devicetree (ad7960)
+     - :git-linux:`arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts`
+     -
+
+Upstream documentation: https://docs.kernel.org/iio/ad7625.html
+
+Devicetree Configuration
+------------------------
+
+The devicetree (``.dts`` file) describes how the chip is wired up. The examples
+linked above are for evaluation boards connected to a Zedboard and using the
+`PULSAR-LVDS HDL Project <https://analogdevicesinc.github.io/hdl/projects/pulsar_lvds/index.html>`__.
+Depending on the desired configuration for the AD762x/AD796x devices in your
+design, you may need to alter the devicetree for use.
+
+The ADC has a number of EN (``enable``) GPIOs that define its operational mode.
+In the
+`PULSAR-LVDS HDL Project <https://analogdevicesinc.github.io/hdl/projects/pulsar_lvds/index.html#gpios>`__,
+these are identified as EN0 through EN3, with EN2 and EN3 only being
+present/instantiated for the AD796x ADCs. Both subfamilies support the use of
+two devicetree fields for indicating to the driver which mode the device should
+operate in, where ``X`` is a number between 0 and 3:
+
+::
+
+   - ''adi,enX-always-on'' - GPIO ''X'' is hard-wired to VIO
+   - ''enX-gpios'' - GPIO ''X'' is configurable
+
+By default, if only ``enX-gpios`` is specified in the devicetree for all GPIOs,
+the driver will select a mode based on the available REF and REFIN voltages. If
+neither ``adi,enX-always-on`` nor ``enX-gpios`` is specified, the assumption is
+that the respective pins are hard-wired to GND.
+
+AD7625/AD7626 Options
+~~~~~~~~~~~~~~~~~~~~~
+
+The AD762x parts have multiple methods for generating the 4.096V reference
+voltage required for conversion, controlled by the EN1 and EN0 pins. These are
+indicated in the devicetree as follows:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Option
+     - EN1
+     - EN0
+     - Description
+     - Devicetree Instruction
+   * - A
+     - VIO
+     - VIO
+     - Use internal reference and internal reference buffer (both are enabled).
+     - Specify both ``en1-always-on`` and ``en0-always-on``, or ``en1-gpios``
+       and ``en0-gpios`` if neither REFIN nor REF are connected
+   * - B
+     - GND
+     - VIO
+     - Use external 1.2 V reference on REFIN with internal reference buffer
+       enabled. The internal reference is disabled.
+     - Specify ``en0-always-on`` or ``en0-gpios``, and (optionally, if
+       configurable) ``en1-gpios``
+   * - C
+     - VIO
+     - GND
+     - Use external 4.096 V reference on the REF pin, with an external reference
+       buffer. The internal reference and reference buffer are disabled.
+     - Specify ``en1-always-on`` or ``en1-gpios``, and (optionally, if
+       configurable) ``en0-gpios``
+   * - D
+     - GND
+     - GND
+     - Power-down mode (AD7626), invalid state (AD7625)
+     - Omit ``enX-always-on``
+
+AD7960/AD7961 Options
+~~~~~~~~~~~~~~~~~~~~~
+
+The AD796x requires one and only one of REF and REFIN to be connected, as the
+device either operates using only an external reference input to REF (options B,
+D below), or it generates a voltage on REF using REFIN (option C). By default,
+the driver will set the bandwidth to wide mode (EN2 == 0) if possible.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Option
+     - EN1
+     - EN0
+     - REFIN
+     - Description
+     - Devicetree Instruction
+   * - A
+     - VIO
+     - VIO
+     - X
+     - Snooze mode. LVDS powers down. The chip is unresponsive to CNV± start
+       pulses. The wake-up time is fast (5 μs) when EN3 to EN0 are set to XX01
+       or XX10. Ensure that the CNV± start pulse is low when transitioning in
+       and out of this mode.
+     - Specify both ``en1-always-on`` and ``en0-always-on``, or ``en1-gpios``
+       and ``en0-gpios``
+   * - B
+     - GND
+     - VIO
+     - GND
+     - Interface powered up. Reference buffer disabled. An external 5 V
+       reference is applied to the REF pin. Connect REFIN to 0 V in this mode.
+     - Specify one of ``en0-always-on`` or ``en0-gpios``, and (optionally, if
+       configurable) ``en1-gpios``
+   * - C
+     - GND
+     - VIO
+     - 2.048V
+     - Internal reference buffer enabled. An external 2.048 V reference applied
+       to REFIN pin is required. A buffered 4.096 V reference is available on
+       the REF pin.
+     - Specify one of ``en0-always-on`` or ``en0-gpios``, and (optionally, if
+       configurable) ``en1-gpios``
+   * - D
+     - VIO
+     - GND
+     - GND
+     - Internal reference buffer disabled. Drive the REF pins with a 4.096 V
+       external reference. Connect REFIN to 0 V in this mode.
+     - Specify ``en1-always-on`` or ``en1-gpios``, and (optionally, if
+       configurable) ``en0-gpios``
+   * - E
+     - GND
+     - GND
+     - X
+     - Power-down mode. Everything is powered down, including the LVDS
+       interface.
+     - Omit ``enX-always-on``
+
+.. note::
+
+   An X indicates that the pin configuration doesn’t matter.
+
+Additionally, EN2 and EN3 provide the following functionality:
+
+.. list-table::
+   :header-rows: 1
+
+   * - GPIO
+     - Description
+   * - EN2
+     - Determines whether the bandwidth of the input sampling network is set to
+       28 MHz (EN2 connected to GND) or 9 MHz (connected to VIO)
+   * - EN3
+     - Enables or disables Common-Mode Output. When using any reference scheme,
+       this pin produces one-half the voltage present on the REF pin, which can
+       be useful for driving the common mode of the input amplifiers.
+
+As with EN1 and EN0, these can be indicated to be hard-wired to VIO with
+``en3-always-on`` and ``en2-always-on``, or configurable with ``en3-gpios`` and
+``en2-gpios``; otherwise, they are assumed hard-wired to GND.
+
+Special Modes (AD7960/AD7961)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - EN3
+     - EN2
+     - EN1
+     - EN0
+     - Description
+   * - GND
+     - VIO
+     - GND
+     - GND
+     - Test patterns output on LVDS. The ADC output is not available on the
+       interface.
+   * - VIO
+     - VIO
+     - GND
+     - GND
+     - Invalid mode.
+
+System Clock and PWMs
+~~~~~~~~~~~~~~~~~~~~~
+
+This device family requires the use of a clock signal connected to the CLK pins,
+along two PWM signals with phase offset capability. These PWM signals must be
+derived from the same clock connected to the CLK pins. The first PWM (referred
+to here as ``cnv``) is connected to the CNV pins on the ADC and is used for
+triggering conversions. The second (``clk_gate``), gates the clock signal
+connected to the CLK pins for transferring data to the host.
+
+Examples
+~~~~~~~~
+
+The AD7625 devicetree
+:git-linux:`example <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
+shows a case where EN1 is hard-wired high (and EN0 is implicitly hard-wired
+low):
+
+::
+
+   ad7625 {
+           compatible = "adi,ad7625";
+           clocks = <&ref_clk>;
+           pwms = <&axi_pwm_gen 0 0>, <&axi_pwm_gen 1 0>;
+           pwm-names = "cnv", "clk_gate";
+           ref-supply = <&ref>;
+           vio-supply = <&eval_u16>;
+           vdd1-supply = <&eval_u10>;
+           vdd2-supply = <&eval_u12>;
+           io-backends = <&iio_backend>;
+           adi,en1-always-on;
+   };
+
+The AD7960
+:git-linux:`example <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
+shows how to specify all GPIOs as configurable and allow the driver to select
+the default configuration:
+
+::
+
+   ad7960 {
+           compatible = "adi,ad7960";
+           clocks = <&ref_clk>;
+           pwms = <&axi_pwm_gen 0 0>, <&axi_pwm_gen 1 0>;
+           pwm-names = "cnv", "clk_gate";
+           ref-supply = <&ref>;
+           vio-supply = <&eval_u3>;
+           vdd1-supply = <&eval_u10>;
+           vdd2-supply = <&eval_u12>;
+           io-backends = <&iio_backend>;
+           en0-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
+           en1-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+           en2-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+           en3-gpios = <&gpio0 89 GPIO_ACTIVE_HIGH>;
+   };
+
+Note that both examples are using the same three lines for identifying the
+connected clock and PWMs:
+
+::
+
+   clocks = <&ref_clk>;
+   pwms = <&axi_pwm_gen 0 0>, <&axi_pwm_gen 1 0>;
+   pwm-names = "cnv", "clk_gate";
+
+These are referencing definitions for ``ref_clk`` and ``axi_pwm_gen`` specified
+elsewhere in the devicetree:
+
+::
+
+   ref_clk: clock@0x44a80000 {
+           compatible = "adi,axi-clkgen-2.00.a";
+           reg = <0x44a80000 0x10000>;
+           #clock-cells = <0>;
+           clocks = <&clkc 15>, <&clkc 15>;
+           clock-names = "s_axi_aclk", "clkin1";
+           clock-output-names = "ref_clk";
+   };
+
+   axi_pwm_gen: pwm@0x44a60000 {
+           compatible = "adi,axi-pwmgen-2.00.a";
+           reg = <0x44a60000 0x1000>;
+           label = "adc_conversion_trigger";
+           #pwm-cells = <2>;
+           clocks = <&ref_clk>;
+   };
+
+Where the
+`AXI CLK Generator <https://analogdevicesinc.github.io/hdl/library/axi_clkgen/index.html>`__
+and
+`AXI PWM Generator <https://analogdevicesinc.github.io/hdl/library/axi_pwm_gen/index.html>`__
+drivers are used, respectively.
+
+Linux Driver
+------------
+
+This section explains how to use the ``ad7625`` driver in Linux.
+
+Enabling the Driver
+~~~~~~~~~~~~~~~~~~~
+
+Precompiled kernels from ADI should have this driver already enabled. If
+building your own kernel, enable it using the CONFIG_AD7625 option. When using
+make menuconfig (or xconfig, etc.), the option can be found as follows:
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                   *** Analog to digital converters ***
+                   [--snip--]
+
+                   <*>   Analog Devices AD7625/AD7626 High-Speed ADC driver
+
+                   [--snip--]
+
+Note that the driver depends on CONFIG_PWM.
+
+Driver Usage
+------------
+
+Sysfs Attributes
+~~~~~~~~~~~~~~~~
+
+These can be found at ``/sys/bus/iio/devices/iio:deviceX/``, where ``X`` is the
+index corresponding to the ADC.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - ``name``
+     - Name of the specific device enumerated by the driver
+   * - ``in_voltage0-voltage1_scale``
+     - Scaling factor used to convert raw channel readings to mV
+   * - ``sampling_frequency``
+     - The device’s current sample rate
+
+Examples
+^^^^^^^^
+
+::
+
+   root@zed-tg:/sys/bus/iio/devices/iio:device1# cd /sys/bus/iio/devices/
+
+   root@zed-tg:/sys/bus/iio/devices# ls
+   iio:device0  iio:device1  iio_sysfs_trigger
+
+   root@zed-tg:/sys/bus/iio/devices# cd iio\:device1/
+
+   root@zed-tg:/sys/bus/iio/devices/iio:device1# ls
+   buffer   in_voltage0-voltage1_scale  power               subsystem
+   buffer0  name                        sampling_frequency  uevent
+   dev      of_node                     scan_elements       waiting_for_supplier
+
+Interfacing With the AD7625 via iio_attr
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Instead of using sysfs attributes to interact with the device, the attributes
+can be viewed and configured using the ``iio_attr`` command included with the
+:dokuwiki:`Libiio </resources/tools-software/linux-software/libiio>` package.
+
+Examples
+^^^^^^^^
+
+Get device info:
+
+::
+
+   root@zed-tg:/sys/bus/iio/devices/iio:device1# iio_attr -d ad7625
+   dev 'ad7625', attr 'sampling_frequency', value :'5952381'
+   dev 'ad7625', attr 'waiting_for_supplier', value :'0'
+
+Set sampling frequency:
+
+::
+
+   root@zed-tg:~# iio_attr -d ad7625 sampling_frequency 2000000
+   2008032
+
+**Description:** The actual rounded sample rate will depend on the master clock
+frequency (fclk) of the system.
+
+Evaluation Boards
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Board
+     - Devicetree
+     -
+     -
+   * - :adi:`EVAL-AD7625FMCZ <EVAL-AD7625>`
+     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
+     -
+     -
+   * - :adi:`EVAL-AD7626FMCZ <EVAL-AD7626>`
+     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
+     -
+     -
+   * - :adi:`EVAL-AD7960FMCZ <EVAL-AD7960>`
+     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
+     -
+     -
+   * - :adi:`EVAL-AD7961FMCZ <EVAL-AD7961>`
+     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
+     -
+     -
+
+Typical hardware setup
+~~~~~~~~~~~~~~~~~~~~~~
+
+A typical test setup consists of one of the evaluation boards from above
+connected to a
+`ZedBoard <https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/>`__.
+
+A :adi:`ADALM2000` (also known as M2K) or a signal generator of your
+choice can be used to to generate a signal. This will also require coax cable
+with SMA connectors and appropriate adapters to adapt the coax to individual
+wires on the signal generator.
+
+The example image below shows an :adi:`EVAL-AD7960` board attached
+to a Zedboard, with a signal generator producing 100kHz, 4Vpp, 2.5V DC offset
+antiphase waveforms connected to the inputs, and a USB cable (attached to a hub)
+connected to the J14 console port.
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/20241122_164534.jpg
+   :width: 800px
+
+Typical ZedBoard software setup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Install OS on the ZedBoard
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ADI provides a :external+documentation:ref:`kuiper` distribution for supported
+evaluation boards. Step by step guides for imaging Kuiper Linux are available
+for
+:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
+and
+:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
+
+Install evaluation-board specific boot files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Copy the ``uImage``, ``devicetree.dtb`` and ``BOOT.BIN`` from the appropriate
+zip file above to the boot partition on the SD card.
+
+Typical test application software
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ADI provides several open source tools to make it easy to get started with using
+Linux IIO drivers.
+
+Scopy
+^^^^^
+
+*Scopy* is the software used with the :adi:`ADALM2000` multi-purpose tool (also
+called ``M2K``). Visit :external+scopy:doc:`index` for instructions on how to
+obtain and install the software. It is a versatile alternative to the dedicated
+signal generator used for this example.
+
+IIO Oscilloscope
+^^^^^^^^^^^^^^^^
+
+This section only describes the bits specific to these chips. For instructions
+on how to obtain IIO Oscilloscope and its basic usage, please see the
+:dokuwiki:`IIO Oscilloscope </resources/tools-software/linux-software/IIO Oscilloscope>`
+page.
+
+Example: Capture many samples for analysis
+''''''''''''''''''''''''''''''''''''''''''
+
+The *Plot* feature of the *IIO Oscilloscope* app is used to perform a buffered
+read to capture many samples. This data can be saved as a ``.csv`` file for
+analysis in other applications.
+
+Then you will need to set up a signal generator to generate an appropriate
+signal. This family of chips has differential inputs and uses a signal offset
+(varying with the board model and GPIO configuration) which will need to be
+configured in the signal generator. The maximum allowable voltage is the same as
+the reference voltage. Typically, the offset will be configured to 1/2 of the
+reference voltage. A 100 kHz sine wave with peak-to-peak voltage of something a
+bit smaller (e.g. 4Vp-p) than the full measurable range is a reasonable place to
+start. For proper operation, both channels will need the same offset and must be
+antiphase (180 degrees phase difference). Below are two example images showing
+how to set up a SDG1032X signal generator:
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/20241126_151626.jpg
+   :width: 800px
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/20241126_151615.jpg
+   :width: 800px
+
+Once the signal generator is configured correctly, open a new *Plot* window,
+enable the differential channel, enter the number of samples required and
+perform a capture. Save the data to a ``.csv`` file if you need to perform
+additional analysis. You should see something like this:
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/iio_osc_example_ad7960.png
+   :width: 800px

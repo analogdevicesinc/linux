@@ -1,0 +1,416 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/net-mac-phy/adin2111
+
+.. _adin2111:
+
+ADIN2111
+========
+
+ADIN2111 10BASE-T1L 2-Port Ethernet Switch Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADIN2111`
+
+Supported Boards
+----------------
+
+Description
+-----------
+
+The ADIN2111 is a low complexity, 2-Port Ethernet Switch with Integrated
+10BASE-T1L PHYs designed for industrial Ethernet applications. It integrates an
+2 Ethernet PHY cores with a MAC and all the associated analog circuitry, input
+and output clock buffering.
+
+Programmable transmit levels, external termination resistors and independent
+Rx/Tx pins make the ADIN2111 suited to intrinsic safety applications. The
+ADIN2111 has an integrated voltage supply monitoring and power on reset
+circuitry to improve system level robustness.
+
+The device has a 4-wire SPI interface for communication between the MAC and host
+processor.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+
+   * - Source
+     - Mainlined?
+     -
+   * - :git-linux:`adin1110.c <drivers/net/ethernet/adi/adin1110.c>`
+     - Yes
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/net/ethernet/adi/adin1110.c <drivers/net/ethernet/adi>`
+     -
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+#. Hit the search button (typically the slash ``/`` key)
+#. Type ADIN1110, then hit Enter; if nothing shows up, the driver is not
+   available in your kernel tree, please use
+   `the ADI linux tree <https://github.com/analogdevicesinc/linux/>`__
+#. Press 1 (the key), then hit Enter
+#. You should see the location + dependencies for enabling the driver
+
+::
+
+   Linux Kernel Configuration
+   Symbol: ADIN1110 [=y]
+   Type  : tristate
+   Prompt: Analog Devices ADIN1110 MAC-PHY
+      Location:
+        -> Device Drivers
+          -> Network device support (NETDEVICES [=y])
+            -> Ethernet driver support (ETHERNET [=y])
+      (1)     -> Analog Devices devices (NET_VENDOR_ADI [=y])
+      Defined at drivers/net/ethernet/adi/Kconfig:20
+      Depends on: NETDEVICES [=y] && ETHERNET [=y] && NET_VENDOR_ADI [=y] && SPI [=y]
+      Selects: CRC8 [=y]
+
+Driver testing
+--------------
+
+This requires that another 10BASE-T1L PHY be connected to the other end of the
+network cable, or that a media converter be used to convert to normal
+twisted-pair ethernet that standard ethernet cables use.
+
+ADIN2111 communicates with the host via SPI. For 10 Mbps bandwidth, SPI
+frequency needs to be around 23 MHz. Lower SPI frequencies are supported but
+will result in a lower bandwidth. At 1 MHz the MAC will provide aprox. 0.4 Mbps
+of bandwidth.
+
+Connect to host the SCLK, CS_N, SDI, SDO and INT_N. (The INT_N is mandatory, see
+DT bindings). RX frames and sent TX frames are signaled to the host by INT_N IRQ
+pin.
+
+Device Tree
+~~~~~~~~~~~
+
+ADIN2111 probes via devicetree.
+
+::
+
+   ethernet@0 {
+       compatible = "adi,adin2111";
+
+           /* SPI CS number */
+           reg = <0>;
+
+           /* will need 23 MHz for 10 Mbps, lower speeds will result in lower bandwidth */
+       spi-max-frequency = <1000000>;
+
+           /* optional, will check all control read/writes over SPI */
+       adi,spi-crc;
+
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+           /* an IRQ is required, INT_N pin is configured to signal RX/TX frames */
+       interrupt-parent = <&gpio>;
+       interrupts = <25 2>;
+
+           /* This is the host MAC address, by default ADIN2111 will also accept broadcast frames */
+       mac-address = [ CA 2F B7 10 23 63 ];
+
+       phy@0 {
+           compatible = "ethernet-phy-id0283.bca1";
+           reg = <0x0>;
+       };
+
+       phy@1 {
+           compatible = "ethernet-phy-id0283.bca1";
+           reg = <0x1>;
+       };
+   };
+
+Renaming ethernet interfaces
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After ADIN2111 has probed, without any udev rule, the two interfaces will be
+probably named eth1 and eth2. To rename them you need to create a udev rule
+under:
+
+::
+
+   root@analog:~# cat /etc/udev/rules.d/55-adin2111-net.rules
+   SUBSYSTEM=="net", ACTION=="add", ATTR{phys_switch_id}=="6164696e323131312d31", ATTR{phys_port_name}!="", NAME="adin2111-0-$attr{phys_port_name}"
+
+.. important::
+
+   You need to change the phys_switch_id to match your own system. This can be
+   found under:
+
+   ::
+
+      root@analog:~# cat /sys/class/net/eth1/phys_switch_id
+      6164696e323131312d31
+
+Bridging the two ports
+~~~~~~~~~~~~~~~~~~~~~~
+
+Linux driver will allocated and register two port netdevs. In this way each port
+is exposed to the userspace. Sometimes the user may not care on which port he
+wants to talk to another host on the same subnet, for this the two ports can be
+bridged:
+
+::
+
+   ip link set adin2111-0-p0 up
+   ip link set adin2111-0-p1 up
+   ip link add br0 type bridge
+   ip link set adin2111-0-p0 master br0
+   ip link set adin2111-0-p1 master br0
+   ip addr add 192.168.160.160/24 dev br0
+   ip link set br0 up
+   ip route add 192.168.160.0/24 dev br0
+
+.. important::
+
+   Default behavior of ADIN2111 will be to forward to the host only frames with
+   the destination MAC address of the interface and broadcast address (Multicast
+   only if enabled). Other frames are not seen by the SPI host and will be
+   forwarded to the other port.
+
+Printing the forwarding database
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@analog:~# bridge fdb
+   ca:2f:b7:10:23:63 dev adin2111-0-p0 master br0 permanent
+   33:33:00:00:00:01 dev adin2111-0-p0 self permanent
+   01:00:5e:00:00:01 dev adin2111-0-p0 self permanent
+   33:33:ff:10:23:63 dev adin2111-0-p0 self permanent
+   33:33:00:00:00:fb dev adin2111-0-p0 self permanent
+   33:33:00:00:00:01 dev adin2111-0-p1 self permanent
+   01:00:5e:00:00:01 dev adin2111-0-p1 self permanent
+   33:33:ff:10:23:63 dev adin2111-0-p1 self permanent
+   33:33:00:00:00:fb dev adin2111-0-p1 self permanent
+
+ifconfig
+~~~~~~~~
+
+This tool will display the general status of the available network interfaces.
+If they’ve obtained an IP address, RX packets/errors/dropped/etc, TX
+packets/errors/dropped/etc, MAC address, etc.
+
+Typically, if both TX & RX values are incremented, it means that it is working.
+Also note that there are error counters; if only the TX/RX counters increment,
+something may be wrong with the network connection. Check error/dropped counters
+too.
+
+::
+
+   root@analog:~# ifconfig
+   adin2111-0-p0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+           inet6 fe80::c82f:b7ff:fe10:2363  prefixlen 64  scopeid 0x20<link>
+           ether ca:2f:b7:10:23:63  txqueuelen 1000  (Ethernet)
+           RX packets 13995  bytes 12616746 (12.0 MiB)
+           RX errors 2  dropped 270  overruns 0  frame 0
+           TX packets 15916  bytes 17297421 (16.4 MiB)
+           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+           device interrupt 199
+
+   adin2111-0-p1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+           inet6 fe80::c82f:b7ff:fe10:2363  prefixlen 64  scopeid 0x20<link>
+           ether ca:2f:b7:10:23:63  txqueuelen 1000  (Ethernet)
+           RX packets 106283  bytes 97498793 (92.9 MiB)
+           RX errors 4  dropped 1835  overruns 0  frame 0
+           TX packets 119263  bytes 128953328 (122.9 MiB)
+           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+           device interrupt 199
+
+ethtool
+~~~~~~~
+
+This tool queries the MAC & PHY via the MAC driver. The MAC driver also allows
+access to the PHY registers. ethtool can be used to show & override link
+settings and other parameters for the MAC & PHY.
+
+Links for the tool:
+
+- Official page with source code:
+  https://mirrors.edge.kernel.org/pub/software/network/ethtool/
+- Manual page: http://man7.org/linux/man-pages/man8/ethtool.8.html
+
+.. tip::
+
+   Some features of ethtool described here are available in newer versions of
+   ethtool. If some of them don’t work, consider upgrading or getting a newer
+   version
+
+Example: Seeing MAC & PHY info
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@analog:~# ethtool adin2111-0-p0
+   Settings for adin2111-0-p0:
+       Supported ports: [ TP    MII ]
+       Supported link modes:   10baseT/Full
+       Supported pause frame use: Symmetric Receive-only
+       Supports auto-negotiation: Yes
+       Supported FEC modes: Not reported
+       Advertised link modes:  10baseT/Full
+       Advertised pause frame use: No
+       Advertised auto-negotiation: Yes
+       Advertised FEC modes: Not reported
+       Speed: Unknown!
+       Duplex: Unknown! (255)
+       Auto-negotiation: on
+       Port: Twisted Pair
+       PHYAD: 1
+       Transceiver: external
+       MDI-X: Unknown
+       Link detected: no
+
+   Settings for adin2111-0-p1:
+       Supported ports: [ TP    MII ]
+       Supported link modes:   10baseT/Full
+       Supported pause frame use: Symmetric Receive-only
+       Supports auto-negotiation: Yes
+       Supported FEC modes: Not reported
+       Advertised link modes:  10baseT/Full
+       Advertised pause frame use: No
+       Advertised auto-negotiation: Yes
+       Advertised FEC modes: Not reported
+       Link partner advertised link modes:  10baseT/Full
+       Link partner advertised pause frame use: No
+       Link partner advertised auto-negotiation: Yes
+       Link partner advertised FEC modes: Not reported
+       Speed: 10Mb/s
+       Duplex: Full
+       Auto-negotiation: on
+       Port: Twisted Pair
+       PHYAD: 2
+       Transceiver: external
+       MDI-X: Unknown
+       Link detected: yes
+
+Example: changing link autonegotiation
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Since the PHY can only do 10 Mbps full-duplex, the only operation possible here
+is to disable auto-negotiation and set preferred/forced master/slave
+
+::
+
+   ethtool -s adin2111-0-p0 speed 10 duplex full master-slave forced-master
+   ethtool -s adin2111-0-p0 speed 10 duplex full master-slave forced-slave
+   ethtool -s adin2111-0-p0 autoneg on
+   ethtool -s adin2111-0-p0 autoneg on master-slave preferred-master
+   ethtool -s adin2111-0-p0 autoneg on master-slave preferred-slave
+   ethtool -s adin2111-0-p0 autoneg on master-slave forced-master
+   ethtool -s adin2111-0-p0 autoneg on master-slave forced-slave
+
+Example: checking PHY statistics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root@analog:~# ethtool --phy-statistics adin2111-0-p0
+   PHY statistics:
+        total_frames_error_count: 0
+        total_frames_count: 13994
+        length_error_frames_count: 0
+        alignment_error_frames_count: 0
+        symbol_error_count: 1
+        oversized_frames_count: 1
+        undersized_frames_count: 0
+        odd_nibble_frames_count: 1
+        odd_preamble_packet_count: 0
+        false_carrier_events_count: 1
+
+   root@analog:~# ethtool --phy-statistics adin2111-0-p1
+   PHY statistics:
+        total_frames_error_count: 0
+        total_frames_count: 106261
+        length_error_frames_count: 0
+        alignment_error_frames_count: 0
+        symbol_error_count: 0
+        oversized_frames_count: 0
+        undersized_frames_count: 0
+        odd_nibble_frames_count: 0
+        odd_preamble_packet_count: 0
+        false_carrier_events_count: 0
+
+Throughput testing - iperf
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This is a more system-general test but it also validates the PHY.
+
+.. tip::
+
+   More tools are available for this sort of testing (iperf3, netperf, etc), but
+   iperf is one of the more basic/simple ones to do this validation. If this one
+   achieves expected results, others should too
+
+On one of the endpoints with the ADIN1100, run:
+
+::
+
+   iperf -s
+
+and on another system
+
+::
+
+   iperf -c <ip-addr-of-the-other-system>
+
+Then reverse the commands on the hosts. iperf only works in one direction.
+
+Data integrity testing
+~~~~~~~~~~~~~~~~~~~~~~
+
+One one side, generate a file with random data (say 1GB)
+
+::
+
+   dd if=/dev/urandom of=test.data bs=1M count=1000
+
+   sha256sum test.data
+   <SHA256-hash-of-data>
+
+Then transfer the data to the other side with scp,ftp,etc:
+
+::
+
+   scp test.data root@<ip-addr-of-the-other-host>
+
+On the other host check the hash
+
+::
+
+   sha256sum test.data
+   <SHA256-hash-of-data> == should be identical with the first hash
+
+Ethernet pointers
+-----------------
+
+- netdev mailing list: netdev@vger.kernel.org
+- `Ethernet Controller bindings doc <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ethernet-controller.yaml>`__
+- `Ethernet PHY bindings doc <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ethernet-phy.yaml>`__
+
+.. include:: /include/need-help.rst
+   :start-after: .. start-need-help
+   :end-before: .. end-need-help

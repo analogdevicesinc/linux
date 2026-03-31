@@ -1,0 +1,388 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5791
+
+.. _ad5791:
+
+AD5791
+======
+
+AD5791 IIO DAC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD5760`
+- :adi:`AD5780`
+- :adi:`AD5781`
+- :adi:`AD5790`
+- :adi:`AD5791`
+
+Reference Circuits
+------------------
+
+- :adi:`CN0177`
+- :adi:`CN0191`
+- :adi:`CN0200`
+- :adi:`CN0257`
+- :adi:`CN0278`
+- :adi:`CN0318`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD5780ARDZ`
+- :adi:`EVAL-AD5781ARDZ`
+- :adi:`EVAL-AD5791ARDZ`
+- :adi:`EVAL-AD5760SDZ`
+- :adi:`EVAL-AD5780SDZ`
+- :adi:`EVAL-AD5781SDZ`
+- :adi:`EVAL-AD5790SDZ`
+- :adi:`EVAL-AD5791SDZ`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting single-channel serial interface DACs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5791.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5791.c>`__
+     -
+     -
+
+- SPI offload support was added in kernel v6.15.
+- SPI offload + cyclic DMA buffers is not supported in mainline yet - use ADI
+  tree if needed
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/dac/ad5791.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5791.c>`__
+   * - devicetree bindings
+     - `Documentation/devicetree/bindings/iio/dac/adi,ad5791.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/dac/adi,ad5791.yaml>`__
+
+Creating a devicetree .dts
+--------------------------
+
+Devicetree is used to describe how the chip is wired up. The driver uses this to
+configure the device based on what it is connected to.
+
+An example .dts file for the EVAL-AD5791ARDZ board can be found
+:git-linux:`here <arch/arm/boot/dts/intel/socfpga/socfpga_cyclone5_de10_nano_ad5791.dts>`.
+
+The DAC node
+~~~~~~~~~~~~
+
+Since the DAC communicates to the MCU via a SPI bus, the DAC node is a SPI
+peripheral node, meaning that it is a child node of the SPI controller it is
+connected to.
+
+::
+
+   spi@0x00040000 {
+       compatible = "adi,axi-spi-engine-1.00.a";
+       reg = <0x00040000 0x00010000>;
+       ...
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       dac@0 {
+           compatible = "adi,ad5791";
+           reg = <0>;
+           spi-cpha;
+           spi-max-frequency = <35000000>;
+           ...
+       };
+
+DAC‘s are always given the node name of ’‘dac’‘. The ’‘0’’ in ``@0`` and
+``reg = <0>`` is the chip select number from the SPI controller.
+
+Power supplies and reference voltages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Chips need power to work, so they will always have power supplies wired up to
+them. In most cases, the supplies are not connected to the MCU, so in the device
+tree, we just use a ````regulator-fixed```` to represent this.
+
+For example if the EVAL-AD5791ARDZ board is connected to a DE10-Nano board, the
+VCC and IOVCC is connected to the VCC3P3 supply on the DE10-Nano (U9 is the
+LTC3612EUDC chip that is the actual supply). That supply can be modeled like
+this (at the top level of the devicetree):
+
+::
+
+   vcc3p3: regulator-vcc3p3 {
+       compatible = "regulator-fixed";
+       regulator-name = "DE10-Nano VCC3P3 (U9)";
+       regulator-always-on;
+   };
+
+These get referenced in the DAC node like this:
+
+::
+
+   vcc-supply = <&vcc3p3>;
+   iovcc-supply = <&vcc3p3>;
+
+Voltage supplies that are providing a reference voltage will also need to
+specify what the voltage output is. These are the supplies connected to the VDD
+and VSS pins. Here is an example of how to write the U5 ADP7118ARDZ chip on the
+EVAL board.
+
+::
+
+   dac_vdd: regulator-vdd {
+       compatible = "regulator-fixed";
+       regulator-name = "EVAL VDD (U5)";
+       regulator-min-microvolt = <4096000>;
+       regulator-max-microvolt = <4096000>;
+       regulator-always-on;
+   };
+
+These get referenced in the DAC node like this:
+
+::
+
+   vdd-supply = <&dac_vdd>;
+   vss-supply = <&dac_vss>;
+
+Output buffer configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The output of the DAC can be wired to an amplifier with unity gain or a gain of
+two (using the RFB and INV pins). If the chip is wired in the gain of two
+configuration, supply the ``adi,rbuf-gain2-en;`` property in the .dts file,
+otherwise omit it.
+
+GPIOs
+^^^^^
+
+Several of the pins on the DAC can be connected to GPIOs on the MCU, namely
+/RESET, /CLR and /LDAC. All of these are active low signals, so that needs to be
+specified as well.
+
+::
+
+   reset-gpios = <&gpio_bd 16 GPIO_ACTIVE_LOW>;
+   clear-gpios = <&gpio_bd 17 GPIO_ACTIVE_LOW>;
+   ldac-gpios = <&gpio_bd 18 GPIO_ACTIVE_LOW>;
+
+SPI offload support
+^^^^^^^^^^^^^^^^^^^
+
+Specialized SPI controllers such as the AXI SPI Engine can be used to stream
+data from DMA to the DAC with high speed and precise timing compared to
+traditional SPI controllers.
+
+There is a reference HDL project available
+`here <https://analogdevicesinc.github.io/hdl/projects/ad57xx_ardz/index.html>`__
+that can be used with the ARDZ evaluation boards.
+
+To enable SPI offload support in this scenario, a few extra properties are added
+to the SPI controller node (not the DAC peripheral node).
+
+::
+
+   dmas = <&tx_dma 0>;
+   dma-names = "offload0-tx";
+   trigger-sources = <&trigger_pwm>;
+
+See the full example .dts file linked above for the full context.
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD5791 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Digital to analog converters  --->
+                   ...
+                   <*>   Analog Devices AD5760/AD5780/AD5781/AD5790/AD5791 DAC SPI driver
+                   ...
+               ...
+           ...
+
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/ad5791/test-with-de10-nano.png
+   :width: 600px
+
+.. figure:: https://wiki.analog.com/_media/software/driver/linux/ad5791_eval_lr.jpg
+   :width: 600px
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   device0
+
+   root:/sys/bus/iio/devices> cd device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> ls -l
+   drwxr-xr-x    2 root     root             0 Jan  4 12:28 .
+   drwxr-xr-x    3 root     root             0 Jan  4 12:28 ..
+   -r--r--r--    1 root     root          4096 Jan  4 12:28 name
+   -rw-r--r--    1 root     root          4096 Jan  4 12:29 out_voltage0_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  4 12:30 out_voltage0_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 12:28 out_voltage_powerdown_mode
+   -r--r--r--    1 root     root          4096 Jan  4 12:28 out_voltage_powerdown_mode_available
+   -r--r--r--    1 root     root          4096 Jan  4 12:28 out_voltage_scale
+   lrwxrwxrwx    1 root     root             0 Jan  4 12:28 subsystem -> ../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  4 12:28 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
+   ad5791
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to out_voltage0_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_scale
+   0.019
+
+Set channel Y output voltage
+''''''''''''''''''''''''''''
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
+
+Raw (unscaled, no bias etc.) output voltage for channel Y.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 131579 > out_voltage0_raw
+
+**U** = *out_voltage0_raw \* out_voltage_scale* = 131579 \* 0.019 = **2500.001
+mV**
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo -131579 > out_voltage0_raw
+
+**U** = *out_voltage0_raw \* out_voltage_scale* = -131579 \* 0.019 = **-2500.001
+mV**
+
+List available power down modes
+'''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode_available
+
+**Description:** Lists all available output power down modes.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_powerdown_mode_available
+   6kohm_to_gnd three_state
+
+Set power down mode
+'''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode
+
+**Description:** Specifies the output power down mode. DAC output stage is
+disconnected from the amplifier and
+
+.. list-table::
+
+   * - 6kohm_to_gnd
+     - connected to ground via an 6kOhm resistor
+   * - three_state
+     - left floating
+
+For a list of available output power down options read
+out_voltage_powerdown_mode_available.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo three_state > out_voltage_powerdown_mode
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_powerdown_mode
+   three_state
+
+Enable power down mode on output Y
+''''''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
+
+**Description:** Writing 1 causes output Y to enter the power down mode
+specified by the corresponding out_voltageY_powerdown_mode. Clearing returns to
+normal operation. Y may be suppressed if all outputs are controlled together.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 1 > out_voltage0_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage0_powerdown
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 0 > out_voltage0_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage0_powerdown
+   0
+
+SPI offload usage
+~~~~~~~~~~~~~~~~~
+
+When the chip is used together with a SPI controller that support offloading
+there are extra sysfs attributes available. A ``sampling_frequency`` attribute
+that is used to set the update rate for the DAC and a ``buffer`` folder
+containing attributes for doing buffered writes to the DAC.
+
+Combined with the cyclic DMA feature in the IIO kernel tree, this can be used to
+continuously stream a waveform from DMA to the DAC. There is example code for
+how to use this to output a basic waveform in ``libiio``.
+
+See: :git-libiio:`commit/2f6a9ca1771414fb72698df9923e21bf66834aa7+` for an iio
+example app for the ad57xx dac.
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

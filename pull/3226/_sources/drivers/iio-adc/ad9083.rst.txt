@@ -1,0 +1,335 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad9083
+
+.. _ad9083:
+
+AD9083
+======
+
+AD9083 Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD9083`
+
+Supported Boards
+----------------
+
+- :adi:`EVAL-AD9083`
+
+Supported HDL Cores
+-------------------
+
+- :dokuwiki:`AD9083 FMC Card HDL Reference Design </resources/eval/user-guides/ad9083/ad9083_evb_reference_hdl>`
+
+Description
+-----------
+
+The AD9083 is a 16-channel, 125 MHz bandwidth, continuous time Σ-Δ (CTSD) ADC.
+The device features an on-chip, programmable, single-pole antialiasing filter
+and termination resistor that is designed for low power, small size, and ease of
+use. The 16 ADC cores features a first-order, CTSD modulator architecture with
+integrated, background nonlinearity correction logic and self cancelling dither.
+Each ADC features wide bandwidth inputs supporting a variety of user-selectable
+input ranges. An integrated voltage reference eases design considerations. The
+analog input and clock signals are differential inputs. Each ADC has a signal
+processing tile to filter out of band shaped noise from the Σ-Δ ADC and reduce
+the sample rate. Each tile contains a cascaded integrator comb (CIC) filter, a
+quadrature digital downconverter (DDC) with multiple finite input response (FIR)
+decimation filters (decimate by J block), or up to three quadrature DDC channels
+with averaging decimation filters for data gating applications. Users can
+configure the Subclass 1 JESD204B based, high speed serialized output in a
+variety of lane configurations (up to four), depending on the DDC configuration
+and the acceptable lane rate of the receiving logic device. Multiple device
+synchronization is supported through the SYSREF±, TRIG±, and SYNCINB± input
+pins. The AD9083 has flexible power-down options that allow significant power
+savings when desired. All of these features can be programmed using a 1.8 V
+capable 3-wire serial port interface (SPI). The AD9083 is available in a
+Pb-free, 100-ball CSP_BGA and is specified over the −40°C to +85°C industrial
+temperature range.
+
+Source Code
+-----------
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/ad9083.c`
+     -
+   * - API driver
+     - :git-linux:`drivers/iio/adc/ad9083`
+     -
+
+Example device trees
+^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - dtsi
+     - :git-linux:`adi-ad9083-fmc-ebz.dtsi <arch/arm64/boot/dts/xilinx/adi-ad9083-fmc-ebz.dtsi>`
+     -
+   * - dts
+     - :git-linux:`zynqmp-zcu102-rev10-ad9083-fmc-ebz.dts <arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9083-fmc-ebz.dts>`
+     -
+   * - Documentation
+     - :git-linux:`adi,ad9083.yaml <Documentation/devicetree/bindings/iio/adc/adi,ad9083.yaml>`
+     -
+
+Interrelated Device Drivers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- :ref:`jesd204-fsm-framework`
+- :external+hdl:ref:`jesd204`
+
+Transport Layer Receive AXI-ADC driver
+''''''''''''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     -
+   * - driver
+     - :git-linux:`drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     -
+   * - include
+     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     -
+
+**Documentation:** :ref:`axi-adc-hdl`
+
+Link Layer AXI JESD204B HDL driver
+''''''''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/jesd204/axi_jesd204_rx.c`
+     -
+   * - driver
+     - :git-linux:`drivers/iio/jesd204/axi_jesd204_tx.c`
+     -
+
+**Documentation:**
+
+- :ref:`axi_jesd204_tx`
+- :ref:`axi_jesd204_rx`
+
+PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git-linux:`drivers/iio/jesd204/axi_adxcvr.c`
+     -
+
+**Documentation:**
+
+- :ref:`axi_adxcvr`
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD9083 driver depends on **CONFIG_SPI**
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable ring buffer support within IIO
+           -*-     Industrial I/O lock free software ring
+           -*-   Enable triggered sampling support
+
+                 *** Direct Digital Synthesis ***
+           [--snip--]
+
+           <*>   Analog Devices CoreFPGA AXI DDS driver
+           <*>   Analog Devices AD9083 16-Channel, 125 MHz Bandwidth, JESD204B ADC
+
+           [--snip--]
+
+Device Tree Example
+~~~~~~~~~~~~~~~~~~~
+
+.. code:: dts
+
+   #include <dt-bindings/iio/adc/adi,ad9083.h>
+   &spi0 {
+       adc0_ad9083: ad9083@0 {
+           compatible = "adi,ad9083";
+           reg = <0>;
+
+           jesd204-device;
+           #jesd204-cells = <2>;
+           jesd204-top-device = <0>;
+           jesd204-link-ids = <0>;
+           jesd204-inputs = <&axi_ad9083_core_rx 0 0>;
+
+           spi-max-frequency = <1000000>;
+           clocks = <&ad9528 13>;
+           clock-names = "adc_ref_clk";
+           adi,adc-frequency-hz= /bits/ 64 <2000000000>; /* 2 GHz */
+
+           /* adi_ad9083 config */
+
+           adi,vmax-microvolt = <1800>;
+           adi,fc-hz =  /bits/ 64 <800000000>;
+           adi,rterm-ohms = <100>;
+           adi,backoff = <0>;
+           adi,finmax-hz = /bits/ 64 <100000000>;
+           adi,nco0_freq-hz = /bits/ 64 <0>;
+           adi,nco1_freq-hz = /bits/ 64 <0>;
+           adi,nco2_freq-hz = /bits/ 64 <0>;
+           adi,cic_decimation = /bits/ 8 <AD9083_CIC_DEC_4>;
+           adi,j_decimation = /bits/ 8 <AD9083_J_DEC_4>;
+           adi,g_decimation = /bits/ 8 <0>;
+           adi,h_decimation = /bits/ 8 <0>;
+           adi,nco0_datapath_mode = /bits/ 8 <AD9083_DATAPATH_ADC_CIC_J>;
+
+           /* JESD204 parameters */
+
+           adi,octets-per-frame = <8>;
+           adi,frames-per-multiframe = <32>;
+           adi,converter-resolution = <16>;
+           adi,bits-per-sample = <16>;
+           adi,converters-per-device = <16>;
+           adi,control-bits-per-sample = <0>;
+           adi,lanes-per-device = <4>;
+           adi,subclass = <0>;
+       };
+   };
+
+Driver testing
+--------------
+
+In case the driver probes successfully and the device gets instantiated. Your
+systems kernel messages should include some line, which may look like the one
+shown below.
+
+::
+
+   [    8.404405] ad9083 spi1.0: AD9083 Rev. 1 Grade 0 (API 1.0.1) probed
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root@analog:/sys/bus/iio/devices# ls
+   iio:device0  iio:device1  iio:device2  iio_sysfs_trigger
+
+   root@analog:/sys/bus/iio/devices# cd iio:device2
+   root@analog:/sys/bus/iio/devices/iio:device2# cat name
+   axi-ad9083-rx-hpc
+   root@analog:/sys/bus/iio/devices/iio:device2# ls -l
+   total 0
+   drwxr-xr-x 2 root root    0 Jun 23 08:02 buffer
+   -r--r--r-- 1 root root 4096 Jun 23 08:02 dev
+   -rw-r--r-- 1 root root 4096 Jun 23 08:02 jesd204_fsm_ctrl
+   -r--r--r-- 1 root root 4096 Jun 23 08:02 jesd204_fsm_error
+   -r--r--r-- 1 root root 4096 Jun 23 08:02 jesd204_fsm_paused
+   --w------- 1 root root 4096 Jun 23 08:02 jesd204_fsm_resume
+   -r--r--r-- 1 root root 4096 Jun 23 08:02 jesd204_fsm_state
+   -r--r--r-- 1 root root 4096 Jun 23 08:02 name
+   lrwxrwxrwx 1 root root    0 Jun 23 08:02 of_node -> ../../../../../firmware/devicetree/base/fpga-axi0
+   drwxr-xr-x 2 root root    0 Jun 23 08:02 power
+   drwxr-xr-x 2 root root    0 Jun 23 08:02 scan_elements
+   lrwxrwxrwx 1 root root    0 Jun 23 08:02 subsystem -> ../../../../../bus/iio
+   -rw-r--r-- 1 root root 4096 Jun 23 08:02 uevent
+
+Low level register access via debugfs (direct_reg_access)
+---------------------------------------------------------
+
+Some IIO drivers feature an optional debug facility, allowing users to read or
+write registers directly. Special care needs to be taken when using this
+feature, since you can modify registers on the back of the driver. Accessing
+debugfs requires root privileges.
+
+In order to identify if the IIO device in question feature this option you first
+need to identify the IIO device number.
+
+Therefore read the name attribute of each IIO device
+
+::
+
+   root@analog:/sys/bus/iio/devices# ls
+   iio:device0  iio:device1  iio:device2  iio_sysfs_trigger
+   root@analog:/sys/bus/iio/devices# cd iio:device2
+   root@analog:/sys/bus/iio/devices/iio:device2# cat name
+   axi-ad9083-rx-hpc
+
+Change directory to /sys/kernel/debug/iio/iio:deviceX and check if the
+direct_reg_access file exists.
+
+::
+
+   root@analog:~# cd /sys/kernel/debug/iio/iio\:device2/
+   root@analog:/sys/kernel/debug/iio/iio:device2# ls direct_reg_access
+   ls direct_reg_access
+   root@analog:/sys/kernel/debug/iio/iio:device2#
+
+Reading
+
+::
+
+   root@analog:/sys/kernel/debug/iio/iio:device2# echo 0x0 > direct_reg_access
+
+   root@analog:/sys/kernel/debug/iio/iio:device2# cat direct_reg_access
+   0xAD
+   root@analog:/sys/kernel/debug/iio/iio:device2#
+
+Writing
+
+Write ADDRESS VALUE
+
+::
+
+   root@analog:/sys/kernel/debug/iio/iio:device2# echo 0x3D 0x80 > direct_reg_access
+   root@analog:/sys/kernel/debug/iio/iio:device2# cat direct_reg_access
+   0x80
+   root@analog:/sys/kernel/debug/iio/iio:device2#
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

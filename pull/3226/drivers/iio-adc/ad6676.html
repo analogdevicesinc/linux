@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="AD6676 Wideband IF Receiver Subsystem Linux device driver." name="description" />
+
+    <title>AD6676 &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=833c9372" />
+    <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="AD7091R5" href="ad7091r5.html" />
+    <link rel="prev" title="AD469x" href="ad4695.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">AD6676</a><ul>
+<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#reference-circuits">Reference Circuits</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a><ul>
+<li><a class="reference internal" href="#related-device-drivers">Related Device Drivers</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#example-linux-device-tree-initialization">Example Linux Device-Tree Initialization</a></li>
+<li><a class="reference internal" href="#device-driver-customization">Device Driver Customization</a></li>
+<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
+<li><a class="reference internal" href="#hardware-configuration">Hardware configuration</a></li>
+<li><a class="reference internal" href="#driver-testing-api">Driver testing / API</a><ul>
+<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+<li><a class="reference internal" href="#adc-frequency-fadc-in-voltage-adc-frequency">ADC frequency FADC (in_voltage_adc_frequency)</a></li>
+<li><a class="reference internal" href="#complex-iq-data-rate-in-voltage-sampling-frequency">Complex IQ Data Rate (in_voltage_sampling_frequency)</a></li>
+<li><a class="reference internal" href="#if-intermediate-frequency-in-voltage-intermediate-frequency">IF intermediate frequency (in_voltage_intermediate_frequency)</a></li>
+<li><a class="reference internal" href="#bandwidth-in-voltage-bandwidth">Bandwidth (in_voltage_bandwidth)</a></li>
+<li><a class="reference internal" href="#bandwidth-margins-in-voltage-bw-margin-low-high">Bandwidth Margins (in_voltage_bw_margin_[low|high])</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#bandwidth-margin-if-in-voltage-bw-margin-if">Bandwidth Margin IF (in_voltage_bw_margin_if)</a><ul>
+<li><a class="reference internal" href="#full-scale-in-voltage-scale">Full-Scale (in_voltage_scale)</a></li>
+<li><a class="reference internal" href="#attenuation-control-in-voltage-hardwaregain">Attenuation Control (in_voltage_hardwaregain)</a></li>
+<li><a class="reference internal" href="#shuffle-control-in-voltage-shuffler-control">Shuffle Control (in_voltage_shuffler_control)</a></li>
+<li><a class="reference internal" href="#shuffle-threshold-in-voltage-shuffler-thresh">Shuffle Threshold (in_voltage_shuffler_thresh)</a></li>
+<li><a class="reference internal" href="#test-modes-in-voltage-test-mode">Test Modes (in_voltage_test_mode)</a></li>
+<li><a class="reference internal" href="#jesd204b-interface-testing">JESD204B Interface Testing</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4695.html">AD469x</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-mxfe/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361-customization.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/ad714x.html">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl345.html">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7873.html">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7877.html">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/open_alliance.html">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1320.html">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="ad6676">
+<span id="id1"></span><h1>AD6676<a class="headerlink" href="#ad6676" title="Link to this heading"></a></h1>
+<p>AD6676 Wideband IF Receiver Subsystem Linux device driver.</p>
+<p>The AD6676 is a highly integrated IF subsystem that can digitize radio frequency
+(RF) bands up to 160 MHz in width centered on an intermediate frequency (IF) of
+70 MHz to 450 MHz.</p>
+<section id="supported-devices">
+<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/AD6676" target="_blank">AD6676</a></p></li>
+</ul>
+</section>
+<section id="reference-circuits">
+<h2>Reference Circuits<a class="headerlink" href="#reference-circuits" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/AD6676EBZ" target="_blank">AD6676-EBZ</a></p></li>
+</ul>
+</section>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/AD6676EBZ" target="_blank">AD6676-EBZ</a></p></li>
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/ad6676-wideband_rx_subsystem_ad6676ebz" target="_blank">AD6676 : Design Tools and Startup Guide for the AD6676 evaluation board, a high dynamic range, Wideband Receiver</a></p></li>
+</ul>
+</section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/linux/drivers/iio/index.html#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>) subsystem
+driver, targeting RF Transceivers. The industrial I/O subsystem provides a
+unified framework for drivers for many different types of converters and sensors
+using a number of different physical interfaces (i2c, spi, etc). See
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/linux/drivers/iio/index.html#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for more information.</p>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
+<section id="status">
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+<th class="head"></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad6676.c" target="_blank">git</a></p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad6676.c" target="_blank">No</a></p></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="files">
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad6676.c" target="_blank">drivers/iio/adc/ad6676.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/ad6676.h" target="_blank">drivers/iio/adc/ad6676.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="related-device-drivers">
+<h4>Related Device Drivers<a class="headerlink" href="#related-device-drivers" title="Link to this heading"></a></h4>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc_core.c" target="_blank">drivers/iio/adc/cf_axi_adc_core.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc_ring_stream.c" target="_blank">drivers/iio/adc/cf_axi_adc_ring_stream.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>include</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/iio/adc/cf_axi_adc.h" target="_blank">drivers/iio/adc/cf_axi_adc.h</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+</section>
+<section id="example-linux-device-tree-initialization">
+<h2>Example Linux Device-Tree Initialization<a class="headerlink" href="#example-linux-device-tree-initialization" title="Link to this heading"></a></h2>
+<p>The AD6676 driver is a spi-bus driver and can currently only be instantiated via
+device tree.</p>
+<p>Required devicetree properties:</p>
+<ul class="simple">
+<li><p>compatible: Should always be <code class="docutils literal notranslate"><span class="pre">ad6676</span></code></p></li>
+<li><p>reg: SPI slave select number</p></li>
+</ul>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>AD6676-EBZ Device Tree</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/arm/boot/dts/zynq-zc706-adv7511-ad6676-fmc.dts" target="_blank">zynq-zc706-adv7511-ad6676-fmc.dts</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="device-driver-customization">
+<h2>Device Driver Customization<a class="headerlink" href="#device-driver-customization" title="Link to this heading"></a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Devicetree Property</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>adi,adc-frequency-hz</p></td>
+<td><p>Initial ADC frequency in Hz</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,adc-frequency-fixed-enable</p></td>
+<td><p>Prevents ADC frequency changes after initial setup</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,use-external-clk-enable</p></td>
+<td><p>Use external CLK</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,decimation</p></td>
+<td><p>Initial decimation rate [12, 16, 24, 32]</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,intermediate-frequency-hz</p></td>
+<td><p>Initial IF in Hz</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,intermediate-frequency-min-hz</p></td>
+<td><p>Allowed minimum IF in Hz</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,intermediate-frequency-max-hz</p></td>
+<td><p>Allowed maximum IF in Hz</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,bandwidth-hz</p></td>
+<td><p>Initial bandwidth in Hz</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,bandwidth-margin-low-mhz</p></td>
+<td><p>Initial bandwidth margin low in Hz</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,bandwidth-margin-high-mhz</p></td>
+<td><p>Initial bandwidth margin high in Hz</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,bandwidth-margin-if-mhz</p></td>
+<td><p>Initial bandwidth margin IF in Hz</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,external-inductance-l-nh</p></td>
+<td><p>The inductance of the external inductors in nH</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,idac1-fullscale-adjust</p></td>
+<td><p>Initial IDAC_FS [64..16]</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,shuffler-control</p></td>
+<td><p>Initial shuffler control setting</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,shuffler-thresh</p></td>
+<td><p>Initial shuffler threshold</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,jesd-scrambling-enable</p></td>
+<td><p>Enables JESD204B link scrambling</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,jesd-use-lvds-syncb-enable</p></td>
+<td><p>Use LVDS SYNCB</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,jesd-powerdown-sysref-enable</p></td>
+<td><p>Powerdown SYSREF</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,jesd-l-lanes</p></td>
+<td><p>Number of JESD204B lanes</p></td>
+</tr>
+<tr class="row-odd"><td><p>adi,jesd-f-frames-per-multiframe</p></td>
+<td><p>Number of frames per multiframe</p></td>
+</tr>
+<tr class="row-even"><td><p>adi,spi-3wire-enable</p></td>
+<td><p>Enables SPI 3-WIRE mode</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="enabling-linux-driver-support">
+<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AD6676 driver depends on <strong>CONFIG_SPI</strong></p>
+</div>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+    <span class="o">&lt;*&gt;</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+        <span class="o">---</span> <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">ring</span> <span class="n">buffer</span> <span class="n">support</span> <span class="n">within</span> <span class="n">IIO</span>
+        <span class="o">-*-</span>     <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">lock</span> <span class="n">free</span> <span class="n">software</span> <span class="n">ring</span>
+        <span class="o">-*-</span>   <span class="n">Enable</span> <span class="n">triggered</span> <span class="n">sampling</span> <span class="n">support</span>
+
+              <span class="o">***</span> <span class="n">Analog</span> <span class="n">to</span> <span class="n">digital</span> <span class="n">converters</span> <span class="o">***</span>
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+
+        <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AD9467</span> <span class="n">AD9643</span> <span class="n">High</span><span class="o">-</span><span class="n">Speed</span> <span class="n">AXI</span> <span class="n">ADC</span> <span class="n">driver</span>
+
+        <span class="p">[</span><span class="o">--</span><span class="n">snip</span><span class="o">--</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="hardware-configuration">
+<h2>Hardware configuration<a class="headerlink" href="#hardware-configuration" title="Link to this heading"></a></h2>
+</section>
+<section id="driver-testing-api">
+<h2>Driver testing / API<a class="headerlink" href="#driver-testing-api" title="Link to this heading"></a></h2>
+<p>Each and every IIO device, typically a hardware chip, has a device folder under
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX</span></code>. Where X is the IIO index of the device. Under
+every of these directory folders reside a set of files, depending on the
+characteristics and features of the hardware device in question. These files
+are consistently generalized and documented in the IIO ABI documentation. In
+order to determine which IIO deviceX corresponds to which hardware device, the
+user can read the name file <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/iio:deviceX/name</span></code>. In case
+the sequence in which the iio device drivers are loaded/registered is constant,
+the numbering is constant and may be known in advance.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>An example program which uses the interface can be found here:</p>
+<ul class="simple">
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/software/iio-oscilloscope/index.html#iio-oscilloscope" target="_blank" title="(in System Level Documentation)"><span>IIO Oscilloscope</span></a></p></li>
+</ul>
+</div>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676-osc-screenshot.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676-osc-screenshot.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676-osc-screenshot.png" style="width: 600px;" />
+</a>
+</figure>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">cd</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span>
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">&gt;</span> <span class="n">ls</span>
+<span class="n">iio</span><span class="p">:</span><span class="n">device0</span>  <span class="n">iio</span><span class="p">:</span><span class="n">device1</span>
+
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">&gt;</span> <span class="n">cd</span> <span class="n">iio</span><span class="p">:</span><span class="n">device1</span>
+
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># ls -l</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">5</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="o">.</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">4</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="o">..</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">buffer</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">dev</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_adc_frequency</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_bandwidth</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_bw_margin_high</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_bw_margin_if</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_bw_margin_low</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_hardwaregain</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_intermediate_frequency</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_sampling_frequency</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_scale</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_shuffler_control</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_shuffler_control_available</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_shuffler_thresh</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_shuffler_thresh_available</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_test_mode</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">in_voltage_test_mode_available</span>
+<span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">name</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">power</span>
+<span class="n">drwxr</span><span class="o">-</span><span class="n">xr</span><span class="o">-</span><span class="n">x</span> <span class="mi">2</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">scan_elements</span>
+<span class="n">lrwxrwxrwx</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span>    <span class="mi">0</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">subsystem</span> <span class="o">-&gt;</span> <span class="o">../../../../../</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span>
+<span class="o">-</span><span class="n">rw</span><span class="o">-</span><span class="n">r</span><span class="o">--</span><span class="n">r</span><span class="o">--</span> <span class="mi">1</span> <span class="n">root</span> <span class="n">root</span> <span class="mi">4096</span> <span class="n">Jan</span> <span class="mi">22</span> <span class="mi">08</span><span class="p">:</span><span class="mi">19</span> <span class="n">uevent</span>
+
+<span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1">#</span>
+</pre></div>
+</div>
+<section id="show-device-name">
+<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="o">&gt;</span> <span class="n">cat</span> <span class="n">name</span>
+<span class="n">axi</span><span class="o">-</span><span class="n">ad6676</span><span class="o">-</span><span class="n">hpc</span>
+</pre></div>
+</div>
+</section>
+<section id="adc-frequency-fadc-in-voltage-adc-frequency">
+<h3>ADC frequency FADC (in_voltage_adc_frequency)<a class="headerlink" href="#adc-frequency-fadc-in-voltage-adc-frequency" title="Link to this heading"></a></h3>
+<p>The clock frequency of the ADC. Maximizing the clock frequency is helpful when
+the IF or bandwidth are high. A lower clock frequency reduces power consumption
+and is appropriate for low IFs and narrow bandwidths.</p>
+<p>Range using external synthesizer [2.0,3.2] GHz in Hz Range using internal
+synthesizer [2.925,3.2] GHz in Hz</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_adc_frequency</span>
+<span class="mi">3200000000</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo 3000000000 &gt; in_voltage_adc_frequency</span>
+<span class="o">-</span><span class="n">bash</span><span class="p">:</span> <span class="n">echo</span><span class="p">:</span> <span class="n">write</span> <span class="n">error</span><span class="p">:</span> <span class="n">Invalid</span> <span class="n">argument</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If writing this attribute returns <code class="docutils literal notranslate"><span class="pre">Invalid</span> <span class="pre">argument</span></code> (-EINVAL) this means
+that the underlying HDL or Hardware’s JESD204B Core and Gigabit Transceiver
+(GT) doesn’t support changing the JESD204B Lane Rate.</p>
+</div>
+</section>
+<section id="complex-iq-data-rate-in-voltage-sampling-frequency">
+<h3>Complex IQ Data Rate (in_voltage_sampling_frequency)<a class="headerlink" href="#complex-iq-data-rate-in-voltage-sampling-frequency" title="Link to this heading"></a></h3>
+<p>The complex (I/Q) data rate in SPS. The AD6676 supports decimation factors (DFs)
+of 12, 16, 24 and 32. The complex (I/Q) data rate at the JESD204B outputs is
+FADC / DF.</p>
+<p>In case the underlying HDL or Hardware’s JESD204B Core and Gigabit Transceiver
+(GT) support arbitrary JESD204B Lane Rates. This attribute can be writable. And
+it will select the appropriate AD6676 supported DFs.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_sampling_frequency</span>
+<span class="mi">200000000</span>
+</pre></div>
+</div>
+</section>
+<section id="if-intermediate-frequency-in-voltage-intermediate-frequency">
+<h3>IF intermediate frequency (in_voltage_intermediate_frequency)<a class="headerlink" href="#if-intermediate-frequency-in-voltage-intermediate-frequency" title="Link to this heading"></a></h3>
+<p>The IF (intermediate frequency) to which the ADC is tuned. The AD6676 supports
+IFs from 70 to 450 MHz provided the external inductors are chosen appropriately.
+Since the AD6676-EBZ by default includes a pair of 19-nH inductors soldered to
+the evaluation board, the IF range allowed is less than the full range supported
+by the AD6676.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Please see paragraph Lext Selection in the datasheet: Maximum External
+Inductor Value as a Function of IF Frequency</p>
+<p>The min/max values the device driver accepts can be set via following
+devicetree attributes:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">intermediate</span><span class="o">-</span><span class="n">frequency</span><span class="o">-</span><span class="nb">min</span><span class="o">-</span><span class="n">hz</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">150000000</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="n">adi</span><span class="p">,</span><span class="n">intermediate</span><span class="o">-</span><span class="n">frequency</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">hz</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">450000000</span><span class="o">&gt;</span><span class="p">;</span>
+</pre></div>
+</div>
+</div>
+<p>Since the tuning accuracy is finite - reading back this value allows the user to
+determine the offset.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo 200000000 &gt; in_voltage_intermediate_frequency</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_intermediate_frequency</span>
+<span class="mi">200000000</span>
+
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo 199000000 &gt; in_voltage_intermediate_frequency</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_intermediate_frequency</span>
+<span class="mi">199218750</span>
+</pre></div>
+</div>
+</section>
+<section id="bandwidth-in-voltage-bandwidth">
+<h3>Bandwidth (in_voltage_bandwidth)<a class="headerlink" href="#bandwidth-in-voltage-bandwidth" title="Link to this heading"></a></h3>
+<p>The bandwidth of the ADC. Since the AD6676 uses delta-sigma technology, the
+available bandwidth is a relatively small fraction of the ADC clock rate and the
+AD6676 achieves the lowest noise and distortion when the bandwidth is small.</p>
+<p>The allowed range is between [0.005,0.05]*FADC in Hz</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo 100000000 &gt; in_voltage_bandwidth</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_bandwidth</span>
+<span class="mi">100000000</span>
+</pre></div>
+</div>
+</section>
+<section id="bandwidth-margins-in-voltage-bw-margin-low-high">
+<h3>Bandwidth Margins (in_voltage_bw_margin_[low|high])<a class="headerlink" href="#bandwidth-margins-in-voltage-bw-margin-low-high" title="Link to this heading"></a></h3>
+<p>Lower (in_voltage_bw_margin_low) and upper (in_voltage_bw_margin_high) bandwidth
+margins for the noise-shaping profile of the ADC.</p>
+<p>Typical values are 5 MHz, but the user may want to increase these margins in
+wideband operation in order to optimize the noise profile of the ADC.</p>
+<p>Typical range [0,30] MHz in MHz</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo 5 &gt; in_voltage_bw_margin_low</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_bw_margin_low</span>
+<span class="mi">5</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="bandwidth-margin-if-in-voltage-bw-margin-if">
+<h2>Bandwidth Margin IF (in_voltage_bw_margin_if)<a class="headerlink" href="#bandwidth-margin-if-in-voltage-bw-margin-if" title="Link to this heading"></a></h2>
+<p>Displacement of the resonance frequency (F1Shift) of the first resonator within
+the ADC from band-center. Typically 0 is appropriate, but in the widest
+bandwidth modes positive shifts can be used to reduce the noise density near the
+upper edge of the passband.</p>
+<p>Typical range [-30,30] MHz in MHz</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo -1 &gt; in_voltage_bw_margin_if</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_bw_margin_if</span>
+<span class="o">-</span><span class="mi">1</span>
+</pre></div>
+</div>
+<section id="full-scale-in-voltage-scale">
+<h3>Full-Scale (in_voltage_scale)<a class="headerlink" href="#full-scale-in-voltage-scale" title="Link to this heading"></a></h3>
+<p>One of the convenient features of the AD6676 is that the full-scale of its ADC
+is relatively small and adjustable over a 12-dB range [1.00 .. 0.25] The dynamic
+range of the ADC is highest at the maximum full-scale setting but the noise
+figure of the system is lowest at the minimum full-scale setting.</p>
+<p>Writing a value of 0.5 to this device attribute lowers the PIN_0dBFS by 6 dB.
+Likewise writing a value of 0.25 to this device attribute lowers the PIN_0dBFS
+by 12 dB.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_scale</span>
+<span class="mf">1.000000</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo 0.25 &gt; in_voltage_scale</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_scale</span>
+<span class="mf">0.250000</span>
+</pre></div>
+</div>
+</section>
+<section id="attenuation-control-in-voltage-hardwaregain">
+<h3>Attenuation Control (in_voltage_hardwaregain)<a class="headerlink" href="#attenuation-control-in-voltage-hardwaregain" title="Link to this heading"></a></h3>
+<p>The AD6676 contains a 50-ohm input attenuator programmable in 1-dB steps. Use
+this device attribute to set the attenuator’s attenuation. The dynamic range of
+the system increases somewhat with moderate attenuation settings of 6-12 dB, at
+the expense of an increased noise figure.</p>
+<p>The range is from 0 to -27.00 dB in 1dB steps. The nomenclature used here is
+gain instead of attenuation, so all values are expressed negative.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo -10.00 &gt; in_voltage_hardwaregain</span>
+
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_hardwaregain</span>
+<span class="o">-</span><span class="mf">10.000000</span> <span class="n">dB</span>
+</pre></div>
+</div>
+</section>
+<section id="shuffle-control-in-voltage-shuffler-control">
+<h3>Shuffle Control (in_voltage_shuffler_control)<a class="headerlink" href="#shuffle-control-in-voltage-shuffler-control" title="Link to this heading"></a></h3>
+<p>The AD6676 includes dynamic reordering of the comparators within the ADC in
+order to break up the spurious tones and distortion products associated with a
+fixed ordering. The Shuffle Control device attribute allows the user to
+experiment with different shuffling rates. The <strong>fadc</strong> option (Shuffle every 1)
+reorders the comparators on every clock cycle with 50% probability. This shuffle
+scheme is able to randomize deterministic spurs but tends to increase the noise
+density and creates FADC/32 <code class="docutils literal notranslate"><span class="pre">shuffle</span> <span class="pre">humps</span></code> in the output spectrum. Similarly,
+the <strong>fadc/2 fadc/3 fadc/4</strong> (Shuffle every 2,3,4) options reorder the
+comparators every n clock cycles with 50% probability. Using a high value of n
+decreases the noise degradation at the expense of less effective randomization
+and FADC/(32*n) shuffle humps that are closer to the main carrier. Fast
+shuffling can be disabled by selecting the <strong>disable</strong> option.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_shuffler_control_available</span>
+<span class="n">disable</span> <span class="n">fadc</span> <span class="n">fadc</span><span class="o">/</span><span class="mi">2</span> <span class="n">fadc</span><span class="o">/</span><span class="mi">3</span> <span class="n">fadc</span><span class="o">/</span><span class="mi">4</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_shuffler_control</span>
+<span class="n">fadc</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo disable &gt; in_voltage_shuffler_control</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_shuffler_control</span>
+<span class="n">disable</span>
+</pre></div>
+</div>
+</section>
+<section id="shuffle-threshold-in-voltage-shuffler-thresh">
+<h3>Shuffle Threshold (in_voltage_shuffler_thresh)<a class="headerlink" href="#shuffle-threshold-in-voltage-shuffler-thresh" title="Link to this heading"></a></h3>
+<p>In order to obtain the spur-reduction benefits of shuffling at large signal
+levels while retaining the low noise of not shuffling when the signal is small,
+the AD6676 supports dynamic shuffle control via the Shuffle Threshold attribute.
+Shuffling is disabled if the raw ADC output is below the specified threshold for
+~5000 clock cycles. A threshold of zero implies that shuffling is always
+enabled.</p>
+<p>The supported range is from 0..8</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_shuffler_thresh_available</span>
+<span class="mi">0</span> <span class="mi">1</span> <span class="mi">2</span> <span class="mi">3</span> <span class="mi">4</span> <span class="mi">5</span> <span class="mi">6</span> <span class="mi">7</span> <span class="mi">8</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_shuffler_thresh</span>
+<span class="mi">5</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo 4 &gt; in_voltage_shuffler_thresh</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_shuffler_thresh</span>
+<span class="mi">4</span>
+</pre></div>
+</div>
+</section>
+<section id="test-modes-in-voltage-test-mode">
+<h3>Test Modes (in_voltage_test_mode)<a class="headerlink" href="#test-modes-in-voltage-test-mode" title="Link to this heading"></a></h3>
+<p>Interface test modes supported by the AD6676.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_test_mode_available</span>
+<span class="n">off</span> <span class="n">checkerboard</span> <span class="n">one_zero_toggle</span> <span class="n">pn23</span> <span class="n">pn9</span> <span class="n">rep_user_pat</span> <span class="n">sing_user_pat</span> <span class="n">ramp</span> <span class="n">mod_rpat</span> <span class="n">jspat</span> <span class="n">jtspat</span>
+
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># echo ramp &gt; in_voltage_test_mode</span>
+<span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">bus</span><span class="o">/</span><span class="n">iio</span><span class="o">/</span><span class="n">devices</span><span class="o">/</span><span class="n">iio</span><span class="p">:</span><span class="n">device1</span><span class="c1"># cat in_voltage_test_mode</span>
+<span class="n">ramp</span>
+</pre></div>
+</div>
+</section>
+<section id="jesd204b-interface-testing">
+<h3>JESD204B Interface Testing<a class="headerlink" href="#jesd204b-interface-testing" title="Link to this heading"></a></h3>
+<p>Below Eyes were captured on a Xilinx ZC706 after &gt; 4 hours of operation:</p>
+<p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-software/jesd_eye_scan" target="_blank">JESD204B Eye Scan</a></p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676_lane0_9.54e-08bert.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676_lane0_9.54e-08bert.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676_lane0_9.54e-08bert.png" style="width: 300px;" />
+</a>
+</figure>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676_lane1_9.54e-08bert.png"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676_lane1_9.54e-08bert.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad6676_lane1_9.54e-08bert.png" style="width: 300px;" />
+</a>
+</figure>
+</section>
+</section>
+<section id="more-information">
+<h2>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>IIO mailing list: <a class="reference external" href="mailto:linux-iio&#37;&#52;&#48;vger&#46;kernel&#46;org">linux-iio<span>&#64;</span>vger<span>&#46;</span>kernel<span>&#46;</span>org</a></p></li>
+<li><p><a class="icon link reference external" href="https://www.kernel.org/doc/Documentation/ABI/testing" target="_blank">IIO Linux Kernel Documentation sysfs-bus-iio-*</a></p></li>
+<li><p><a class="icon link reference external" href="https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-bus-iio" target="_blank">IIO Documentation</a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/software/iio-oscilloscope/index.html#iio-oscilloscope" target="_blank" title="(in System Level Documentation)"><span>IIO Oscilloscope</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/software/libiio/index.html#libiio" target="_blank" title="(in System Level Documentation)"><span>Libiio</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/software/libiio/internals.html#libiio-internals" target="_blank" title="(in System Level Documentation)"><span>About libiio</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://events.static.linuxfound.org/sites/events/files/slides/iio_high_speed.pdf" target="_blank">IIO High Speed</a></p></li>
+<li><p><a class="icon link reference external" href="http://video.fosdem.org/2015/devroom-software_defined_radio/iiosdr.mp4" target="_blank">Software Defined Radio using the IIO framework</a></p></li>
+<li><p><a class="icon link reference external" href="https://www.youtube.com/watch?v=p_VntEwUe24" target="_blank">libiio introduction</a></p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="ad4695.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AD469x</a>
+    <a href="ad7091r5.html" title="Next document (Alt+Shift+RightArrow)" class="next">AD7091R5</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>
