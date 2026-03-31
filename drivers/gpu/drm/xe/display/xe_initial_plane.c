@@ -86,6 +86,7 @@ initial_plane_bo(struct xe_device *xe,
 		flags |= XE_BO_FLAG_STOLEN;
 
 		if (IS_ENABLED(CONFIG_FRAMEBUFFER_CONSOLE) &&
+		    IS_ENABLED(CONFIG_DRM_FBDEV_EMULATION) &&
 		    !intel_fbdev_fb_prefer_stolen(&xe->drm, plane_config->size)) {
 			drm_info(&xe->drm, "Initial FB size exceeds half of stolen, discarding\n");
 			return NULL;
