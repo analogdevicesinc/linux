@@ -481,7 +481,7 @@ static void __tpdm_enable(struct tpdm_drvdata *drvdata)
 
 static int tpdm_enable(struct coresight_device *csdev, struct perf_event *event,
 		       enum cs_mode mode,
-		       __maybe_unused struct coresight_path *path)
+		       struct coresight_path *path)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
@@ -497,6 +497,7 @@ static int tpdm_enable(struct coresight_device *csdev, struct perf_event *event,
 	}
 
 	__tpdm_enable(drvdata);
+	drvdata->traceid = path->trace_id;
 	drvdata->enable = true;
 	spin_unlock(&drvdata->spinlock);
 
@@ -691,6 +692,29 @@ static struct attribute *tpdm_attrs[] = {
 
 static struct attribute_group tpdm_attr_grp = {
 	.attrs = tpdm_attrs,
+};
+
+static ssize_t traceid_show(struct device *dev,
+			    struct device_attribute *attr, char *buf)
+{
+	unsigned long val;
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	val = drvdata->traceid;
+	if (!val)
+		return -EINVAL;
+
+	return sysfs_emit(buf, "%#lx\n", val);
+}
+static DEVICE_ATTR_RO(traceid);
+
+static struct attribute *traceid_attrs[] = {
+	&dev_attr_traceid.attr,
+	NULL,
+};
+
+static struct attribute_group traceid_attr_grp = {
+	.attrs = traceid_attrs,
 };
 
 static ssize_t dsb_mode_show(struct device *dev,
@@ -1367,6 +1391,12 @@ static const struct attribute_group *tpdm_attr_grps[] = {
 	&tpdm_cmb_patt_grp,
 	&tpdm_cmb_msr_grp,
 	&tpdm_mcmb_attr_grp,
+	&traceid_attr_grp,
+	NULL,
+};
+
+static const struct attribute_group *static_tpdm_attr_grps[] = {
+	&traceid_attr_grp,
 	NULL,
 };
 
@@ -1425,6 +1455,8 @@ static int tpdm_probe(struct device *dev, struct resource *res)
 	desc.access = CSDEV_ACCESS_IOMEM(base);
 	if (res)
 		desc.groups = tpdm_attr_grps;
+	else
+		desc.groups = static_tpdm_attr_grps;
 	drvdata->csdev = coresight_register(&desc);
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
