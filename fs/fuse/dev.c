@@ -2303,16 +2303,13 @@ static long fuse_dev_ioctl_backing_close(struct file *file, __u32 __user *argp)
 
 static long fuse_dev_ioctl_sync_init(struct file *file)
 {
-	int err = -EINVAL;
 	struct fuse_dev *fud = fuse_file_to_fud(file);
 
-	mutex_lock(&fuse_mutex);
-	if (!fuse_dev_chan_get(fud)) {
-		fud->sync_init = true;
-		err = 0;
-	}
-	mutex_unlock(&fuse_mutex);
-	return err;
+	if (fuse_dev_chan_get(fud))
+		return -EINVAL;
+
+	fud->sync_init = true;
+	return 0;
 }
 
 static long fuse_dev_ioctl(struct file *file, unsigned int cmd,
