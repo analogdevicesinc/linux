@@ -16,7 +16,7 @@
 #include "intel_mchbar_regs.h"
 #include "intel_parent.h"
 #include "intel_uncore.h"
-#include "vlv_iosf_sb.h"
+#include "vlv_sideband.h"
 
 struct dram_dimm_info {
 	u16 size;
@@ -109,9 +109,9 @@ static unsigned int chv_mem_freq(struct intel_display *display)
 {
 	u32 val;
 
-	vlv_iosf_sb_get(display->drm, BIT(VLV_IOSF_SB_CCK));
-	val = vlv_iosf_sb_read(display->drm, VLV_IOSF_SB_CCK, CCK_FUSE_REG);
-	vlv_iosf_sb_put(display->drm, BIT(VLV_IOSF_SB_CCK));
+	vlv_cck_get(display);
+	val = vlv_cck_read(display, CCK_FUSE_REG);
+	vlv_cck_put(display);
 
 	switch ((val >> 2) & 0x7) {
 	case 3:
@@ -125,9 +125,9 @@ static unsigned int vlv_mem_freq(struct intel_display *display)
 {
 	u32 val;
 
-	vlv_iosf_sb_get(display->drm, BIT(VLV_IOSF_SB_PUNIT));
-	val = vlv_iosf_sb_read(display->drm, VLV_IOSF_SB_PUNIT, PUNIT_REG_GPU_FREQ_STS);
-	vlv_iosf_sb_put(display->drm, BIT(VLV_IOSF_SB_PUNIT));
+	vlv_punit_get(display);
+	val = vlv_punit_read(display, PUNIT_REG_GPU_FREQ_STS);
+	vlv_punit_put(display);
 
 	switch ((val >> 6) & 3) {
 	case 0:
