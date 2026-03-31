@@ -1426,9 +1426,15 @@ static void process_init_reply(struct fuse_args *args, int error)
 	if (!ok) {
 		fc->conn_init = 0;
 		fc->conn_error = 1;
+		fuse_chan_set_initialized(fc->chan, NULL);
+	} else {
+		struct fuse_chan_param cp = {
+			.minor = fc->minor,
+			.max_write = fc->max_write,
+			.max_pages = fc->max_pages,
+		};
+		fuse_chan_set_initialized(fc->chan, &cp);
 	}
-
-	fuse_chan_set_initialized(fc->chan);
 }
 
 static struct fuse_init_args *fuse_new_init(struct fuse_mount *fm)

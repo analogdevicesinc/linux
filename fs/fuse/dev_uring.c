@@ -241,8 +241,8 @@ static struct fuse_ring *fuse_uring_create(struct fuse_chan *fch)
 	if (!ring->queues)
 		goto out_err;
 
-	max_payload_size = max(FUSE_MIN_READ_BUFFER, fch->conn->max_write);
-	max_payload_size = max(max_payload_size, fch->conn->max_pages * PAGE_SIZE);
+	max_payload_size = max(FUSE_MIN_READ_BUFFER, fch->max_write);
+	max_payload_size = max(max_payload_size, fch->max_pages * PAGE_SIZE);
 
 	spin_lock(&fch->lock);
 	if (fch->ring) {

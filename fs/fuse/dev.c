@@ -71,8 +71,14 @@ static void __fuse_put_request(struct fuse_req *req)
 	refcount_dec(&req->count);
 }
 
-void fuse_chan_set_initialized(struct fuse_chan *fch)
+void fuse_chan_set_initialized(struct fuse_chan *fch, struct fuse_chan_param *param)
 {
+	if (param) {
+		fch->minor = param->minor;
+		fch->max_write = param->max_write;
+		fch->max_pages = param->max_pages;
+	}
+
 	/* Make sure stores before this are seen on another CPU */
 	smp_wmb();
 	fch->initialized = 1;
@@ -711,12 +717,12 @@ static void __fuse_request_send(struct fuse_req *req)
 	smp_rmb();
 }
 
-static void fuse_adjust_compat(struct fuse_conn *fc, struct fuse_args *args)
+static void fuse_adjust_compat(struct fuse_chan *fch, struct fuse_args *args)
 {
-	if (fc->minor < 4 && args->opcode == FUSE_STATFS)
+	if (fch->minor < 4 && args->opcode == FUSE_STATFS)
 		args->out_args[0].size = FUSE_COMPAT_STATFS_SIZE;
 
-	if (fc->minor < 9) {
+	if (fch->minor < 9) {
 		switch (args->opcode) {
 		case FUSE_LOOKUP:
 		case FUSE_CREATE:
@@ -732,7 +738,7 @@ static void fuse_adjust_compat(struct fuse_conn *fc, struct fuse_args *args)
 			break;
 		}
 	}
-	if (fc->minor < 12) {
+	if (fch->minor < 12) {
 		switch (args->opcode) {
 		case FUSE_CREATE:
 			args->in_args[0].size = sizeof(struct fuse_open_in);
@@ -776,8 +782,8 @@ ssize_t fuse_chan_send(struct fuse_chan *fch, struct fuse_args *args)
 			return PTR_ERR(req);
 	}
 
-	/* Needs to be done after fuse_get_req() so that fc->minor is valid */
-	fuse_adjust_compat(fch->conn, args);
+	/* Needs to be done after fuse_get_req() so that fch->minor is valid */
+	fuse_adjust_compat(fch, args);
 	fuse_args_to_req(req, args);
 
 	if (!args->noreply)
@@ -1467,12 +1473,12 @@ __releases(fiq->lock)
 	return ih.len;
 }
 
-static int fuse_read_forget(struct fuse_conn *fc, struct fuse_iqueue *fiq,
+static int fuse_read_forget(struct fuse_chan *fch, struct fuse_iqueue *fiq,
 			    struct fuse_copy_state *cs,
 			    size_t nbytes)
 __releases(fiq->lock)
 {
-	if (fc->minor < 16 || fiq->forget_list_head.next->next == NULL)
+	if (fch->minor < 16 || fiq->forget_list_head.next->next == NULL)
 		return fuse_read_single_forget(fiq, cs, nbytes);
 	else
 		return fuse_read_batch_forget(fiq, cs, nbytes);
@@ -1514,7 +1520,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	if (nbytes < max_t(size_t, FUSE_MIN_READ_BUFFER,
 			   sizeof(struct fuse_in_header) +
 			   sizeof(struct fuse_write_in) +
-			   fch->conn->max_write))
+			   fch->max_write))
 		return -EINVAL;
 
  restart:
@@ -1545,7 +1551,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 
 	if (forget_pending(fiq)) {
 		if (list_empty(&fiq->pending) || fiq->forget_batch-- > 0)
-			return fuse_read_forget(fch->conn, fiq, cs, nbytes);
+			return fuse_read_forget(fch, fiq, cs, nbytes);
 
 		if (fiq->forget_batch <= -8)
 			fiq->forget_batch = 16;
@@ -2116,7 +2122,7 @@ void fuse_chan_abort(struct fuse_chan *fch, bool abort_with_err)
 		fch->connected = 0;
 		spin_unlock(&fch->bg_lock);
 
-		fuse_chan_set_initialized(fch);
+		fuse_chan_set_initialized(fch, 0);
 		list_for_each_entry(fud, &fch->devices, entry) {
 			struct fuse_pqueue *fpq = &fud->pq;
 

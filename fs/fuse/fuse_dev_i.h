@@ -238,6 +238,15 @@ struct fuse_chan {
 	/* Use io_uring for communication */
 	unsigned int io_uring;
 
+	/* Negotiated minor version */
+	unsigned int minor;
+
+	/* Maximum write size */
+	unsigned int max_write;
+
+	/* Maximum number of pages that can be used in a single request */
+	unsigned int max_pages;
+
 	/** Connection aborted via sysfs, respond with ECONNABORTED on device I/O */
 	bool abort_with_err;
 
