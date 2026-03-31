@@ -6,6 +6,7 @@
 #ifndef _FS_FUSE_DEV_I_H
 #define _FS_FUSE_DEV_I_H
 
+#include <linux/fuse.h>
 #include <linux/types.h>
 
 /* Ordinary requests have even IDs, while interrupts IDs are odd */
@@ -18,7 +19,6 @@ struct fuse_arg;
 struct fuse_args;
 struct fuse_pqueue;
 struct fuse_iqueue;
-struct fuse_forget_link;
 
 /**
  * Request flags
@@ -104,6 +104,12 @@ struct fuse_req {
 #endif
 	/** When (in jiffies) the request was created */
 	unsigned long create_time;
+};
+
+/* One forget request */
+struct fuse_forget_link {
+	struct fuse_forget_one forget_one;
+	struct fuse_forget_link *next;
 };
 
 /**

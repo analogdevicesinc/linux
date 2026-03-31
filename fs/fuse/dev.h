@@ -25,6 +25,11 @@ void fuse_chan_set_fc(struct fuse_chan *fch, struct fuse_conn *fc);
 void fuse_chan_set_initialized(struct fuse_chan *fch);
 void fuse_chan_io_uring_enable(struct fuse_chan *fch);
 
+struct fuse_forget_link *fuse_alloc_forget(void);
+void fuse_chan_queue_forget(struct fuse_chan *fch, struct fuse_forget_link *forget,
+			    u64 nodeid, u64 nlookup);
+
+
 DEFINE_FREE(fuse_chan_free, struct fuse_chan *, if (_T) fuse_chan_free(_T))
 
 void fuse_dev_install(struct fuse_dev *fud, struct fuse_conn *fc);

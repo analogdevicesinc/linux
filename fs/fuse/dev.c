@@ -243,6 +243,11 @@ __releases(fiq->lock)
 	spin_unlock(&fiq->lock);
 }
 
+struct fuse_forget_link *fuse_alloc_forget(void)
+{
+	return kzalloc_obj(struct fuse_forget_link, GFP_KERNEL_ACCOUNT);
+}
+
 void fuse_dev_queue_forget(struct fuse_iqueue *fiq,
 			   struct fuse_forget_link *forget)
 {
@@ -550,10 +555,10 @@ static void fuse_send_one(struct fuse_iqueue *fiq, struct fuse_req *req)
 	fiq->ops->send_req(fiq, req);
 }
 
-void fuse_queue_forget(struct fuse_conn *fc, struct fuse_forget_link *forget,
-		       u64 nodeid, u64 nlookup)
+void fuse_chan_queue_forget(struct fuse_chan *fch, struct fuse_forget_link *forget,
+			    u64 nodeid, u64 nlookup)
 {
-	struct fuse_iqueue *fiq = &fc->chan->iq;
+	struct fuse_iqueue *fiq = &fch->iq;
 
 	forget->forget_one.nodeid = nodeid;
 	forget->forget_one.nlookup = nlookup;

@@ -68,11 +68,7 @@ extern struct mutex fuse_mutex;
 extern unsigned int max_user_bgreq;
 extern unsigned int max_user_congthresh;
 
-/* One forget request */
-struct fuse_forget_link {
-	struct fuse_forget_one forget_one;
-	struct fuse_forget_link *next;
-};
+struct fuse_forget_link;
 
 /* Submount lookup tracking */
 struct fuse_submount_lookup {
@@ -882,14 +878,6 @@ struct inode *fuse_iget(struct super_block *sb, u64 nodeid,
 
 int fuse_lookup_name(struct super_block *sb, u64 nodeid, const struct qstr *name,
 		     struct fuse_entry_out *outarg, struct inode **inode);
-
-/**
- * Send FORGET command
- */
-void fuse_queue_forget(struct fuse_conn *fc, struct fuse_forget_link *forget,
-		       u64 nodeid, u64 nlookup);
-
-struct fuse_forget_link *fuse_alloc_forget(void);
 
 /*
  * Initialize READ or READDIR request
