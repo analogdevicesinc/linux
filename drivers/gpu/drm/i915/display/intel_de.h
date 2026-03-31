@@ -36,8 +36,8 @@ intel_de_read(struct intel_display *display, i915_reg_t reg)
 }
 
 static inline u64
-intel_de_read64_2x32(struct intel_display *display,
-		     i915_reg_t lower_reg, i915_reg_t upper_reg)
+intel_de_read64_2x32_volatile(struct intel_display *display,
+			      i915_reg_t lower_reg, i915_reg_t upper_reg)
 {
 	u64 val;
 
