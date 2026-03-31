@@ -4156,7 +4156,8 @@ int xe_vm_get_property_ioctl(struct drm_device *drm, void *data,
 	int ret = 0;
 
 	if (XE_IOCTL_DBG(xe, (args->reserved[0] || args->reserved[1] ||
-			      args->reserved[2])))
+			      args->reserved[2] || args->extensions ||
+			      args->pad)))
 		return -EINVAL;
 
 	vm = xe_vm_lookup(xef, args->vm_id);
