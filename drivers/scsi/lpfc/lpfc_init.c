@@ -13758,7 +13758,9 @@ lpfc_get_sli4_parameters(struct lpfc_hba *phba, LPFC_MBOXQ_t *mboxq)
 	sli4_params->cqv = bf_get(cfg_cqv, mbx_sli4_parameters);
 	sli4_params->mqv = bf_get(cfg_mqv, mbx_sli4_parameters);
 	sli4_params->wqv = bf_get(cfg_wqv, mbx_sli4_parameters);
-	sli4_params->rqv = bf_get(cfg_rqv, mbx_sli4_parameters);
+	sli4_params->rqv =
+		(sli4_params->if_type < LPFC_SLI_INTF_IF_TYPE_2) ?
+			LPFC_Q_CREATE_VERSION_0 : LPFC_Q_CREATE_VERSION_1;
 	sli4_params->eqav = bf_get(cfg_eqav, mbx_sli4_parameters);
 	sli4_params->cqav = bf_get(cfg_cqav, mbx_sli4_parameters);
 	sli4_params->wqsize = bf_get(cfg_wqsize, mbx_sli4_parameters);
