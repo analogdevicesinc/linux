@@ -1339,7 +1339,7 @@ lpfc_nvme_prep_io_dma(struct lpfc_vport *vport,
 	dma_addr_t physaddr = 0;
 	uint32_t dma_len = 0;
 	uint32_t dma_offset = 0;
-	int nseg, i, j;
+	int nseg, i, j, k;
 	bool lsp_just_set = false;
 
 	/* Fix up the command and response DMA stuff. */
@@ -1379,6 +1379,9 @@ lpfc_nvme_prep_io_dma(struct lpfc_vport *vport,
 
 		/* for tracking the segment boundaries */
 		j = 2;
+		k = 5;
+		if (unlikely(!phba->cfg_xpsgl))
+			k = 1;
 		for (i = 0; i < nseg; i++) {
 			if (data_sg == NULL) {
 				lpfc_printf_log(phba, KERN_ERR, LOG_TRACE_EVENT,
@@ -1397,9 +1400,8 @@ lpfc_nvme_prep_io_dma(struct lpfc_vport *vport,
 				bf_set(lpfc_sli4_sge_last, sgl, 0);
 
 				/* expand the segment */
-				if (!lsp_just_set &&
-				    !((j + 1) % phba->border_sge_num) &&
-				    ((nseg - 1) != i)) {
+				if (!lsp_just_set && (nseg != (i + k)) &&
+				    !((j + k) % phba->border_sge_num)) {
 					/* set LSP type */
 					bf_set(lpfc_sli4_sge_type, sgl,
 					       LPFC_SGE_TYPE_LSP);
@@ -1422,8 +1424,8 @@ lpfc_nvme_prep_io_dma(struct lpfc_vport *vport,
 				}
 			}
 
-			if (!(bf_get(lpfc_sli4_sge_type, sgl) &
-				     LPFC_SGE_TYPE_LSP)) {
+			if (bf_get(lpfc_sli4_sge_type, sgl) !=
+			    LPFC_SGE_TYPE_LSP) {
 				if ((nseg - 1) == i)
 					bf_set(lpfc_sli4_sge_last, sgl, 1);
 
@@ -1444,19 +1446,25 @@ lpfc_nvme_prep_io_dma(struct lpfc_vport *vport,
 				sgl++;
 
 				lsp_just_set = false;
+				j++;
 			} else {
 				sgl->word2 = cpu_to_le32(sgl->word2);
-
-				sgl->sge_len = cpu_to_le32(
-						     phba->cfg_sg_dma_buf_size);
+				/* will remaining SGEs fill the next SGL? */
+				if ((nseg - i) < phba->border_sge_num)
+					sgl->sge_len =
+						cpu_to_le32((nseg - i) *
+								sizeof(*sgl));
+				else
+					sgl->sge_len =
+						cpu_to_le32(phba->cfg_sg_dma_buf_size);
 
 				sgl = (struct sli4_sge *)sgl_xtra->dma_sgl;
 				i = i - 1;
 
 				lsp_just_set = true;
+				j += k;
+				k = 1;
 			}
-
-			j++;
 		}
 	} else {
 		lpfc_ncmd->seg_cnt = 0;

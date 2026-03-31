@@ -1938,7 +1938,7 @@ lpfc_bg_setup_sgl(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 	uint32_t dma_len;
 	uint32_t dma_offset = 0;
 	struct sli4_hybrid_sgl *sgl_xtra = NULL;
-	int j;
+	int j, k;
 	bool lsp_just_set = false;
 
 	status  = lpfc_sc_to_bg_opcodes(phba, sc, &txop, &rxop);
@@ -2001,13 +2001,16 @@ lpfc_bg_setup_sgl(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 	/* assumption: caller has already run dma_map_sg on command data */
 	sgde = scsi_sglist(sc);
 	j = 3;
+	k = 5;
+	if (unlikely(!phba->cfg_xpsgl))
+		k = 1;
 	for (i = 0; i < datasegcnt; i++) {
 		/* clear it */
 		sgl->word2 = 0;
 
-		/* do we need to expand the segment */
-		if (!lsp_just_set && !((j + 1) % phba->border_sge_num) &&
-		    ((datasegcnt - 1) != i)) {
+		/* do we need to expand the segment? */
+		if (!lsp_just_set && (datasegcnt != (i + k)) &&
+		    !((j + k) % phba->border_sge_num)) {
 			/* set LSP type */
 			bf_set(lpfc_sli4_sge_type, sgl, LPFC_SGE_TYPE_LSP);
 
@@ -2026,7 +2029,7 @@ lpfc_bg_setup_sgl(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 			bf_set(lpfc_sli4_sge_type, sgl, LPFC_SGE_TYPE_DATA);
 		}
 
-		if (!(bf_get(lpfc_sli4_sge_type, sgl) & LPFC_SGE_TYPE_LSP)) {
+		if (bf_get(lpfc_sli4_sge_type, sgl) != LPFC_SGE_TYPE_LSP) {
 			if ((datasegcnt - 1) == i)
 				bf_set(lpfc_sli4_sge_last, sgl, 1);
 			physaddr = sg_dma_address(sgde);
@@ -2043,20 +2046,23 @@ lpfc_bg_setup_sgl(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 
 			sgl++;
 			num_sge++;
+			j++;
 			lsp_just_set = false;
-
 		} else {
 			sgl->word2 = cpu_to_le32(sgl->word2);
-			sgl->sge_len = cpu_to_le32(phba->cfg_sg_dma_buf_size);
-
+			/* will remaining SGEs fill the next SGL? */
+			if ((datasegcnt - i) < phba->border_sge_num)
+				sgl->sge_len = cpu_to_le32((datasegcnt - i) *
+								sizeof(*sgl));
+			else
+				sgl->sge_len =
+					cpu_to_le32(phba->cfg_sg_dma_buf_size);
 			sgl = (struct sli4_sge *)sgl_xtra->dma_sgl;
 			i = i - 1;
-
+			j += k;
 			lsp_just_set = true;
+			k = 1;
 		}
-
-		j++;
-
 	}
 
 out:
@@ -2109,6 +2115,7 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 	struct scatterlist *sgde = NULL; /* s/g data entry */
 	struct scatterlist *sgpe = NULL; /* s/g prot entry */
 	struct sli4_sge_diseed *diseed = NULL;
+	struct sli4_sge_le *lsp_sgl = NULL;
 	dma_addr_t dataphysaddr, protphysaddr;
 	unsigned short curr_prot = 0;
 	unsigned int split_offset;
@@ -2125,8 +2132,8 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 	uint32_t rc;
 #endif
 	uint32_t checking = 1;
-	uint32_t dma_offset = 0, num_sge = 0;
-	int j = 2;
+	uint32_t dma_offset = 0, num_sge = 0, lsp_len;
+	int j = 2, k = 4;
 	struct sli4_hybrid_sgl *sgl_xtra = NULL;
 
 	sgpe = scsi_prot_sglist(sc);
@@ -2157,6 +2164,8 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 	}
 #endif
 
+	if (unlikely(!phba->cfg_xpsgl))
+		k = 0;
 	split_offset = 0;
 	do {
 		/* Check to see if we ran out of space */
@@ -2164,10 +2173,10 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 		    !(phba->cfg_xpsgl))
 			return num_sge + 3;
 
-		/* DISEED and DIF have to be together */
-		if (!((j + 1) % phba->border_sge_num) ||
-		    !((j + 2) % phba->border_sge_num) ||
-		    !((j + 3) % phba->border_sge_num)) {
+		/* DISEED and DIF have to be together  */
+		if (!((j + k + 1) % phba->border_sge_num) ||
+		    !((j + k + 2) % phba->border_sge_num) ||
+		    !((j + k + 3) % phba->border_sge_num)) {
 			sgl->word2 = 0;
 
 			/* set LSP type */
@@ -2186,9 +2195,18 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 
 			sgl->word2 = cpu_to_le32(sgl->word2);
 			sgl->sge_len = cpu_to_le32(phba->cfg_sg_dma_buf_size);
+			if (lsp_sgl) {
+				j++;
+				if (j % phba->border_sge_num) {
+					lsp_len = j * (sizeof(*sgl));
+					lsp_sgl->sge_len = cpu_to_le32(lsp_len);
+				}
+			}
+			lsp_sgl = (struct sli4_sge_le *)sgl;
 
 			sgl = (struct sli4_sge *)sgl_xtra->dma_sgl;
 			j = 0;
+			k = 0;
 		}
 
 		/* setup DISEED with what we have */
@@ -2291,7 +2309,7 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 				return 0;
 			}
 
-			if (!((j + 1) % phba->border_sge_num)) {
+			if (!((j + k + 1) % phba->border_sge_num)) {
 				sgl->word2 = 0;
 
 				/* set LSP type */
@@ -2313,8 +2331,11 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 				sgl->word2 = cpu_to_le32(sgl->word2);
 				sgl->sge_len = cpu_to_le32(
 						     phba->cfg_sg_dma_buf_size);
+				lsp_sgl = (struct sli4_sge_le *)sgl;
 
 				sgl = (struct sli4_sge *)sgl_xtra->dma_sgl;
+				j = 0;
+				k = 0;
 			} else {
 				dataphysaddr = sg_dma_address(sgde) +
 								   split_offset;
@@ -2362,11 +2383,9 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 
 				/* Move to the next s/g segment if possible */
 				sgde = sg_next(sgde);
-
 				sgl++;
+				j++;
 			}
-
-			j++;
 		}
 
 		if (protgroup_offset) {
@@ -2381,6 +2400,14 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 			sgl--;
 			bf_set(lpfc_sli4_sge_last, sgl, 1);
 			alldone = 1;
+
+			/* Reset length in previous LSP where necessary */
+			if (lsp_sgl) {
+				if (j % phba->border_sge_num) {
+					lsp_len = j * (sizeof(*sgl));
+					lsp_sgl->sge_len = cpu_to_le32(lsp_len);
+				}
+			}
 		} else if (curr_prot < protcnt) {
 			/* advance to next prot buffer */
 			sgpe = sg_next(sgpe);
@@ -2392,7 +2419,6 @@ lpfc_bg_setup_sgl_prot(struct lpfc_hba *phba, struct scsi_cmnd *sc,
 			lpfc_printf_log(phba, KERN_ERR, LOG_TRACE_EVENT,
 					"9085 BLKGRD: bug in %s\n", __func__);
 		}
-
 	} while (!alldone);
 
 out:
@@ -3056,7 +3082,7 @@ lpfc_scsi_prep_dma_buf_s4(struct lpfc_hba *phba, struct lpfc_io_buf *lpfc_cmd)
 	dma_addr_t physaddr;
 	uint32_t dma_len;
 	uint32_t dma_offset = 0;
-	int nseg, i, j;
+	int nseg, i, j, k;
 	bool lsp_just_set = false;
 	struct sli4_hybrid_sgl *sgl_xtra = NULL;
 
@@ -3111,6 +3137,9 @@ lpfc_scsi_prep_dma_buf_s4(struct lpfc_hba *phba, struct lpfc_io_buf *lpfc_cmd)
 		/* for tracking segment boundaries */
 		sgel = scsi_sglist(scsi_cmnd);
 		j = 2;
+		k = 5;
+		if (unlikely(!phba->cfg_xpsgl))
+			k = 1;
 		for (i = 0; i < nseg; i++) {
 			sgl->word2 = 0;
 			if (nseg == 1) {
@@ -3121,9 +3150,8 @@ lpfc_scsi_prep_dma_buf_s4(struct lpfc_hba *phba, struct lpfc_io_buf *lpfc_cmd)
 				bf_set(lpfc_sli4_sge_last, sgl, 0);
 
 				/* do we need to expand the segment */
-				if (!lsp_just_set &&
-				    !((j + 1) % phba->border_sge_num) &&
-				    ((nseg - 1) != i)) {
+				if (!lsp_just_set && (nseg != (i + k)) &&
+				    !((j + k) % phba->border_sge_num)) {
 					/* set LSP type */
 					bf_set(lpfc_sli4_sge_type, sgl,
 					       LPFC_SGE_TYPE_LSP);
@@ -3147,8 +3175,8 @@ lpfc_scsi_prep_dma_buf_s4(struct lpfc_hba *phba, struct lpfc_io_buf *lpfc_cmd)
 				}
 			}
 
-			if (!(bf_get(lpfc_sli4_sge_type, sgl) &
-				     LPFC_SGE_TYPE_LSP)) {
+			if (bf_get(lpfc_sli4_sge_type, sgl) !=
+			    LPFC_SGE_TYPE_LSP) {
 				if ((nseg - 1) == i)
 					bf_set(lpfc_sli4_sge_last, sgl, 1);
 
@@ -3168,19 +3196,24 @@ lpfc_scsi_prep_dma_buf_s4(struct lpfc_hba *phba, struct lpfc_io_buf *lpfc_cmd)
 
 				sgl++;
 				lsp_just_set = false;
-
+				j++;
 			} else {
 				sgl->word2 = cpu_to_le32(sgl->word2);
-				sgl->sge_len = cpu_to_le32(
-						     phba->cfg_sg_dma_buf_size);
-
+				/* will remaining SGEs fill the next SGL? */
+				if ((nseg - i) < phba->border_sge_num)
+					sgl->sge_len =
+						cpu_to_le32((nseg - i) *
+								sizeof(*sgl));
+				else
+					sgl->sge_len =
+						cpu_to_le32(phba->cfg_sg_dma_buf_size);
 				sgl = (struct sli4_sge *)sgl_xtra->dma_sgl;
 				i = i - 1;
 
 				lsp_just_set = true;
+				j += k;
+				k = 1;
 			}
-
-			j++;
 		}
 	} else {
 		sgl += 1;
