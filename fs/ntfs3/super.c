@@ -1426,15 +1426,46 @@ static int ntfs_fill_super(struct super_block *sb, struct fs_context *fc)
 	tt = inode->i_size >> sbi->record_bits;
 	sbi->mft.next_free = MFT_REC_USER;
 
-	err = wnd_init(&sbi->mft.bitmap, sb, tt);
-	if (err)
-		goto put_inode_out;
-
 	err = ni_load_all_mi(ni);
 	if (err) {
 		ntfs_err(sb, "Failed to load $MFT's subrecords (%d).", err);
 		goto put_inode_out;
 	}
+
+	/* Merge MFT bitmap runs from extent records loaded by ni_load_all_mi. */
+	{
+		struct ATTRIB *a = NULL;
+		struct ATTR_LIST_ENTRY *le = NULL;
+
+		while ((a = ni_enum_attr_ex(ni, a, &le, NULL))) {
+			CLST svcn, evcn;
+			u16 roff;
+
+			if (a->type != ATTR_BITMAP || !a->non_res)
+				continue;
+
+			svcn = le64_to_cpu(a->nres.svcn);
+			if (!svcn)
+				continue; /* Base record runs already loaded. */
+
+			evcn = le64_to_cpu(a->nres.evcn);
+			roff = le16_to_cpu(a->nres.run_off);
+
+			err = run_unpack_ex(&sbi->mft.bitmap.run, sbi,
+					    MFT_REC_MFT, svcn, evcn, svcn,
+					    Add2Ptr(a, roff),
+					    le32_to_cpu(a->size) - roff);
+			if (err < 0) {
+				ntfs_err(sb, "Failed to unpack $MFT bitmap extent (%d).", err);
+				goto put_inode_out;
+			}
+			err = 0;
+		}
+	}
+
+	err = wnd_init(&sbi->mft.bitmap, sb, tt);
+	if (err)
+		goto put_inode_out;
 
 	sbi->mft.ni = ni;
 
