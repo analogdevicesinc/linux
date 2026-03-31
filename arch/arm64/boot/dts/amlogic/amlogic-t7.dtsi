@@ -709,6 +709,7 @@
 					 <&clkc_periphs CLKID_SD_EMMC_A>,
 					 <&scmi_clk CLKID_FCLK_DIV2>;
 				clock-names = "core", "clkin0", "clkin1";
+				resets = <&reset RESET_SD_EMMC_A>;
 				assigned-clocks = <&clkc_periphs CLKID_SD_EMMC_A_SEL>;
 				assigned-clock-parents = <&xtal>;
 				status = "disabled";
@@ -722,6 +723,7 @@
 					 <&clkc_periphs CLKID_SD_EMMC_B>,
 					 <&scmi_clk CLKID_FCLK_DIV2>;
 				clock-names = "core", "clkin0", "clkin1";
+				resets = <&reset RESET_SD_EMMC_B>;
 				assigned-clocks = <&clkc_periphs CLKID_SD_EMMC_B_SEL>;
 				assigned-clock-parents = <&xtal>;
 				status = "disabled";
@@ -735,6 +737,7 @@
 					 <&clkc_periphs CLKID_SD_EMMC_C>,
 					 <&scmi_clk CLKID_FCLK_DIV2>;
 				clock-names = "core", "clkin0", "clkin1";
+				resets = <&reset RESET_SD_EMMC_C>;
 				assigned-clocks = <&clkc_periphs CLKID_SD_EMMC_C_SEL>;
 				assigned-clock-parents = <&xtal>;
 				status = "disabled";
