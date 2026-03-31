@@ -81,6 +81,13 @@ These are drivers that are connected to or is a dependency of ``ad9088.c``.
 * :dokuwiki:`JESD204 (FSM) Interface Linux Kernel Framework <resources/tools-software/linux-drivers/jesd204/jesd204-fsm-framework>`
 * :dokuwiki:`JESD204 Interface Framework <resources/fpga/peripherals/jesd204>`
 
+* :ref:`axi-aion-trig` - FPGA trigger IP for BSYNC ToF synchronization
+* :ref:`axi-hsci` - High-speed communication interface for register access
+* :ref:`adf4382` - Wideband synthesizer (sampling clock source)
+* :ref:`adf4030` - Precision synchronizer for BSYNC generation
+* :ref:`hmc7044` - Clock distribution
+* :ref:`ltc6952` - Clock distribution
+
 * Transport Layer Receive AXI-ADC driver
 
   * Sources:
