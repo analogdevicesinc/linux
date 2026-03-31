@@ -41,7 +41,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`drivers/iio/frequency/ad9508.c`
+   * - :git+linux:`main:drivers/iio/frequency/ad9508.c`
      - No
      -
 
@@ -55,13 +55,13 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ad9508.c`
+     - :git+linux:`main:drivers/iio/frequency/ad9508.c`
      -
    * - include
-     - :git-linux:`include/linux/iio/frequency/ad9508.h`
+     - :git+linux:`main:include/linux/iio/frequency/ad9508.h`
      -
    * - include
-     - :git-linux:`include/dt-bindings/iio/frequency/ad9508.h`
+     - :git+linux:`main:include/dt-bindings/iio/frequency/ad9508.h`
      -
 
 Enabling the driver

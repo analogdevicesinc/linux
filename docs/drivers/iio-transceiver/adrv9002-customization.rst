@@ -33,8 +33,8 @@ transfers between channels are not required to by synchronous.
 
 For examples of these arrangements, look at the following devicetrees:
 
-- :git-linux:`MIMO (combined) mode <e2d92f9152d49473a887aad70486855e5843faa5:arch/arm64/boot/dts/xilinx>`
-- :git-linux:`Split mode <e2d92f9152d49473a887aad70486855e5843faa5:arch/arm64/boot/dts/xilinx>`
+- :git+linux:`MIMO (combined) mode <e2d92f9152d49473a887aad70486855e5843faa5:arch/arm64/boot/dts/xilinx>`
+- :git+linux:`Split mode <e2d92f9152d49473a887aad70486855e5843faa5:arch/arm64/boot/dts/xilinx>`
 
 RX
 --

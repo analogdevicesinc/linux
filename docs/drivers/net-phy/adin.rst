@@ -57,7 +57,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/net/phy/adin.c`
+   * - :git+linux:`main:drivers/net/phy/adin.c`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/phy/adin.c>`__
      -
      -
@@ -72,10 +72,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/net/phy/adin.c`
+     - :git+linux:`main:drivers/net/phy/adin.c`
      -
    * - Documentation
-     - :git-linux:`adi,adin.yaml <Documentation/devicetree/bindings/net/adi,adin.yaml>`
+     - :git+linux:`adi,adin.yaml <main:Documentation/devicetree/bindings/net/adi,adin.yaml>`
      -
 
 **Compatibility layer for Linux kernel version < 5.4 (Not required otherwise)**
@@ -87,7 +87,7 @@ Files
      - File
      -
    * - compatibility layer 4.19
-     - :git-linux:`2019_R2:drivers/net/phy/adin-compat.h`
+     - :git+linux:`2019_R2:drivers/net/phy/adin-compat.h`
      -
 
 Example platform device initialization
@@ -420,7 +420,7 @@ adintool.sh - convenience phytool wrapper
    or a reboot of the system to put the PHY back into a working state together
    with the attached MAC.
 
-Link: :git-wiki-scripts:`linux/adintool.sh`
+Link: :git+wiki-scripts:`linux/adintool.sh`
 
 When downloading, make sure the script is made executable.
 

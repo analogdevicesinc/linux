@@ -36,7 +36,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`drivers/iio/jesd204/axi_jesd204_tx.c`
+   * - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
      - No
      -
 
@@ -50,7 +50,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_jesd204_tx.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
      -
 
 Example platform device initialization

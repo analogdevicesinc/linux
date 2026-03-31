@@ -76,19 +76,19 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/dac/ad5592r-base.c`
+     - :git+linux:`main:drivers/iio/dac/ad5592r-base.c`
      -
    * - include
-     - :git-linux:`drivers/iio/dac/ad5592r-base.h`
+     - :git+linux:`main:drivers/iio/dac/ad5592r-base.h`
      -
    * - driver
-     - :git-linux:`drivers/iio/dac/ad5592r.c`
+     - :git+linux:`main:drivers/iio/dac/ad5592r.c`
      -
    * - include
-     - :git-linux:`include/dt-bindings/iio/adi,ad5592r.h`
+     - :git+linux:`main:include/dt-bindings/iio/adi,ad5592r.h`
      -
    * - Documentation
-     - :git-linux:`Documentation/devicetree/bindings/iio/dac/ad5592r.txt`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/dac/ad5592r.txt`
      -
 
 Hardware configuration

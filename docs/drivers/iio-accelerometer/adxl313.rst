@@ -58,19 +58,19 @@ Files
      - File
      -
    * - core driver
-     - :git-linux:`drivers/iio/accel/adxl313_core.c`
+     - :git+linux:`main:drivers/iio/accel/adxl313_core.c`
      -
    * - spi driver
-     - :git-linux:`drivers/iio/accel/adxl313_spi.c`
+     - :git+linux:`main:drivers/iio/accel/adxl313_spi.c`
      -
    * - i2c driver
-     - :git-linux:`drivers/iio/accel/adxl313_i2c.c`
+     - :git+linux:`main:drivers/iio/accel/adxl313_i2c.c`
      -
    * - header
-     - :git-linux:`drivers/iio/accel/adxl313.h`
+     - :git+linux:`main:drivers/iio/accel/adxl313.h`
      -
    * - Documentation
-     - :git-linux:`adi,adxl313.yaml <Documentation/devicetree/bindings/iio/accel/adi,adxl313.yaml>`
+     - :git+linux:`adi,adxl313.yaml <main:Documentation/devicetree/bindings/iio/accel/adi,adxl313.yaml>`
      -
 
 Example platform device initialization

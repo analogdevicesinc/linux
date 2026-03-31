@@ -48,19 +48,19 @@ Files
      - File
      -
    * - core driver
-     - :git-linux:`drivers/iio/accel/adxl367.c`
+     - :git+linux:`main:drivers/iio/accel/adxl367.c`
      -
    * - spi driver
-     - :git-linux:`drivers/iio/accel/adxl367_spi.c`
+     - :git+linux:`main:drivers/iio/accel/adxl367_spi.c`
      -
    * - i2c driver
-     - :git-linux:`drivers/iio/accel/adxl367_i2c.c`
+     - :git+linux:`main:drivers/iio/accel/adxl367_i2c.c`
      -
    * - header
-     - :git-linux:`drivers/iio/accel/adxl367.h <drivers/iio/iio/accel/adxl367.h>`
+     - :git+linux:`drivers/iio/accel/adxl367.h <main:drivers/iio/iio/accel/adxl367.h>`
      -
    * - Documentation
-     - :git-linux:`adi,adxl367.yaml <./Documentation/devicetree/bindings/iio/accel/adi,adxl367.yaml>`
+     - :git+linux:`adi,adxl367.yaml <main:./Documentation/devicetree/bindings/iio/accel/adi,adxl367.yaml>`
      -
 
 Example device tree
@@ -72,7 +72,7 @@ Example device tree
      - File
      -
    * - dts
-     - :git-linux:`rpi-adxl367-overlay.dts <rpi-4.19.y:arch/arm/boot/dts/overlays/rpi-adxl367-overlay.dts>`
+     - :git+linux:`rpi-adxl367-overlay.dts <rpi-4.19.y:arch/arm/boot/dts/overlays/rpi-adxl367-overlay.dts>`
      -
 
 Example platform device initialization

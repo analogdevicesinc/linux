@@ -43,7 +43,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`drivers/iio/frequency/hmc7044.c`
+   * - :git+linux:`main:drivers/iio/frequency/hmc7044.c`
      - No
      -
 
@@ -57,10 +57,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/hmc7044.c`
+     - :git+linux:`main:drivers/iio/frequency/hmc7044.c`
      -
    * - Documentation
-     - :git-linux:`Documentation/devicetree/bindings/iio/frequency/hmc7044.txt`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/frequency/hmc7044.txt`
      -
 
 Enabling the driver

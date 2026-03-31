@@ -61,13 +61,13 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/dma/dma-axi-dmac.c`
+     - :git+linux:`main:drivers/dma/dma-axi-dmac.c`
      -
    * - include
-     - :git-linux:`include/dt-bindings/dma/axi-dmac.h`
+     - :git+linux:`main:include/dt-bindings/dma/axi-dmac.h`
      -
    * - Documentation
-     - :git-linux:`Documentation/devicetree/bindings/dma/adi,axi-dmac.txt`
+     - :git+linux:`main:Documentation/devicetree/bindings/dma/adi,axi-dmac.txt`
      -
 
 Example platform device initialization

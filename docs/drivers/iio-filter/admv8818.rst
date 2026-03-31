@@ -52,7 +52,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/filter/admv8818.c`
+   * - :git+linux:`main:drivers/iio/filter/admv8818.c`
      - `YES <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/filter/admv8818.c>`__
      -
      -
@@ -67,13 +67,13 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/filter/admv8818.c`
+     - :git+linux:`main:drivers/iio/filter/admv8818.c`
      -
    * - Documentation
-     - :git-linux:`adi,admv8818.yaml <Documentation/devicetree/bindings/iio/filter/adi,admv8818.yaml>`
+     - :git+linux:`adi,admv8818.yaml <main:Documentation/devicetree/bindings/iio/filter/adi,admv8818.yaml>`
      -
    * - ABI documentation
-     - :git-linux:`sysfs-bus-iio-filter-admv8818 <Documentation/ABI/testing/sysfs-bus-iio-filter-admv8818>`
+     - :git+linux:`sysfs-bus-iio-filter-admv8818 <main:Documentation/ABI/testing/sysfs-bus-iio-filter-admv8818>`
      -
 
 Example device tree
@@ -85,7 +85,7 @@ Example device tree
      - File
      -
    * - dts
-     - :git-linux:`rpi-admv8818-overlay.dts <rpi-5.10.y:arch/arm/boot/dts/overlays/rpi-admv8818-overlay.dts>`
+     - :git+linux:`rpi-admv8818-overlay.dts <rpi-5.10.y:arch/arm/boot/dts/overlays/rpi-admv8818-overlay.dts>`
      -
 
 Example platform device initialization

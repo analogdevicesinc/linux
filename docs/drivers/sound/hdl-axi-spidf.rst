@@ -179,7 +179,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`In progress <sound/soc/adi/adv7511_hdmi.c>`
+   * - :git+linux:`In progress <main:sound/soc/adi/adv7511_hdmi.c>`
      - `In progress <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/adi/adv7511_hdmi.c>`__
      -
      -
@@ -194,7 +194,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`sound/soc/adi/adv7511_hdmi.c`
+     - :git+linux:`main:sound/soc/adi/adv7511_hdmi.c`
      -
 
 Kernel configuration

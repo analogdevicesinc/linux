@@ -89,7 +89,7 @@ Devicetree is used to describe how the chip is wired up. The driver uses this to
 configure the device based on what it is connected to.
 
 An example .dts file for the EVAL-AD5791ARDZ board can be found
-:git-linux:`here <arch/arm/boot/dts/intel/socfpga/socfpga_cyclone5_de10_nano_ad5791.dts>`.
+:git+linux:`here <main:arch/arm/boot/dts/intel/socfpga/socfpga_cyclone5_de10_nano_ad5791.dts>`.
 
 The DAC node
 ~~~~~~~~~~~~
@@ -377,7 +377,7 @@ Combined with the cyclic DMA feature in the IIO kernel tree, this can be used to
 continuously stream a waveform from DMA to the DAC. There is example code for
 how to use this to output a basic waveform in ``libiio``.
 
-See: :git-libiio:`commit/2f6a9ca1771414fb72698df9923e21bf66834aa7+` for an iio
+See: :git+libiio:`commit/2f6a9ca1771414fb72698df9923e21bf66834aa7+` for an iio
 example app for the ad57xx dac.
 
 More Information

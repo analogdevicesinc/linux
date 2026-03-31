@@ -158,11 +158,11 @@ Status
 Status
 ~~~~~~
 
-:git-linux:`releases+`
+:git+linux:`releases+`
 
-:git-linux:`releases+`
+:git+linux:`releases+`
 
-:git-linux:`mastitete:azure-pipelines-rpi.yml`
+:git+linux:`mastitete:azure-pipelines-rpi.yml`
 
 .. list-table::
    :header-rows: 1
@@ -203,23 +203,23 @@ your kernel tree.
 If you are using a kernel version **without the threaded irq capabilities (<
 2.6.30) get there driver from here:**
 
-- :git-linux:`adxl34x.c  <5.12:drivers/input/misc/adxl34x.c>`
+- :git+linux:`adxl34x.c  <5.12:drivers/input/misc/adxl34x.c>`
 
   - Copy to linux-2.6.x/drivers/input/misc/adxl34x.c
 
-- :git-linux:`adxl34x.h  <5.12:drivers/input/misc/adxl34x.h>`
+- :git+linux:`adxl34x.h  <5.12:drivers/input/misc/adxl34x.h>`
 
   - Copy to linux-2.6.x/drivers/input/misc/adxl34x.h
 
-- :git-linux:`adxl34x-i2c.c  <5.12:drivers/input/misc/adxl34x-i2c>`
+- :git+linux:`adxl34x-i2c.c  <5.12:drivers/input/misc/adxl34x-i2c>`
 
   - Copy to linux-2.6.x/drivers/input/misc/adxl34x-i2c.c
 
-- :git-linux:`adxl34x-spi.c  <5.12:drivers/input/misc/adxl34x-spi.c>`
+- :git+linux:`adxl34x-spi.c  <5.12:drivers/input/misc/adxl34x-spi.c>`
 
   - Copy to linux-2.6.x/drivers/input/misc/adxl34x-spi.c
 
-- :git-linux:`adxl34x.h  <5.12:include/linux/input/adxl34x.h>`
+- :git+linux:`adxl34x.h  <5.12:include/linux/input/adxl34x.h>`
 - Copy to linux-2.6.x/include/linux/input/adxl34x.h
 
 \**For the latest version of checkout the :dokuwiki:`Files <#Files>` section of

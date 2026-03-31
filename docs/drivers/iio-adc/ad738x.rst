@@ -58,7 +58,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <drivers:iio/adc/ad738x.c>`
+   * - :git+linux:`git <drivers:iio/adc/ad738x.c>`
      - Yes
      -
 

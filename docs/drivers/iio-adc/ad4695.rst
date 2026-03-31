@@ -37,7 +37,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`ADI tree <drivers/iio/adc/ad4695.c>`
+   * - :git+linux:`ADI tree <main:drivers/iio/adc/ad4695.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad4695.c>`__
      -
      -
@@ -57,13 +57,13 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad4695.c`
+     - :git+linux:`main:drivers/iio/adc/ad4695.c`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad4695.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad4695.yaml`
      -
    * - ZedBoard example devicetree
-     - :git-linux:`arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4695.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4696.dts>`
+     - :git+linux:`arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4695.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4696.dts>`
      -
 
 Upstream documentation: https://docs.kernel.org/iio/ad4695.html
@@ -505,7 +505,7 @@ The following evaluation boards have been tested with this driver:
      -
      -
    * - :adi:`EVAL-AD4696FMCZ <media/en/technical-documentation/user-guides/eval-ad4696fmcz-ug-1882.pdf>`
-     - :git-linux:`zynq-zed-adv7511-ad4696.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4696.dts>`
+     - :git+linux:`zynq-zed-adv7511-ad4696.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4696.dts>`
      -
      -
 

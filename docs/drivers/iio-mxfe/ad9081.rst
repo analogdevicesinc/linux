@@ -77,7 +77,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/adc/ad9081.c`
+   * - :git+linux:`main:drivers/iio/adc/ad9081.c`
      - `No <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad9081.c>`__
      -
      -
@@ -92,10 +92,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad9081.c`
+     - :git+linux:`main:drivers/iio/adc/ad9081.c`
      -
    * - API driver
-     - :git-linux:`drivers/iio/adc/ad9081`
+     - :git+linux:`main:drivers/iio/adc/ad9081`
      -
 
 Example device trees
@@ -122,13 +122,13 @@ Transport Layer Receive AXI-ADC driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
      -
 
 **Documentation:** :ref:`axi-adc-hdl`
@@ -143,10 +143,10 @@ Transport Layer Transmit AXI-DAC / DDS driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
      -
    * - include
-     - :git-linux:`drivers/iio/frequency/cf_axi_adc.h <drivers/iio/frequency/cf_axi_dds.h>`
+     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
      -
 
 **Documentation:** :ref:`axi-dac-dds-hdl`
@@ -161,10 +161,10 @@ Link Layer AXI JESD204B HDL driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_jesd204_rx.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_jesd204_tx.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
      -
 
 **Documentation:**
@@ -182,7 +182,7 @@ PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_adxcvr.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
      -
 
 **Documentation:**
@@ -1940,7 +1940,7 @@ supports the following directives:
     are required when ``I_MODE == matrix``.
 
 The parser can be found here:
-:git-linux:`ad9081_parse_fir <drivers/iio/adc/ad9081.c#L2430-L2647+>`
+:git+linux:`ad9081_parse_fir <main:drivers/iio/adc/ad9081.c#L2430-L2647+>`
 
 Examples
 ''''''''
@@ -1948,11 +1948,11 @@ Examples
 The iio-oscilloscope project provides some samples which can be used as a
 reference:
 
-- :git-iio-oscilloscope:`ad9081_pfir_OFF.cfg <filters/ad9081/ad9081_pfir_OFF.cfg+>`
-- :git-iio-oscilloscope:`ad9081_pfir_DualReal.cfg <filters/ad9081/ad9081_pfir_DualReal.cfg+>`
-- :git-iio-oscilloscope:`ad9081_pfir_SingleInphase.cfg <filters/ad9081/ad9081_pfir_SingleInphase.cfg+>`
-- :git-iio-oscilloscope:`ad9081_pfir_Matrix.cfg <filters/ad9081/ad9081_pfir_Matrix.cfg+>`
-- :git-iio-oscilloscope:`ad9081_pfir_FullComplex.cfg <filters/ad9081/ad9081_pfir_FullComplex.cfg+>`
+- :git+iio-oscilloscope:`ad9081_pfir_OFF.cfg <filters/ad9081/ad9081_pfir_OFF.cfg+>`
+- :git+iio-oscilloscope:`ad9081_pfir_DualReal.cfg <filters/ad9081/ad9081_pfir_DualReal.cfg+>`
+- :git+iio-oscilloscope:`ad9081_pfir_SingleInphase.cfg <filters/ad9081/ad9081_pfir_SingleInphase.cfg+>`
+- :git+iio-oscilloscope:`ad9081_pfir_Matrix.cfg <filters/ad9081/ad9081_pfir_Matrix.cfg+>`
+- :git+iio-oscilloscope:`ad9081_pfir_FullComplex.cfg <filters/ad9081/ad9081_pfir_FullComplex.cfg+>`
 
 Loopback Modes
 ~~~~~~~~~~~~~~
@@ -2310,7 +2310,7 @@ offset, good upper and lower voltages in mV.
 Example Eye Diagram Created from Half Rate Eye Scan Data
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
-Example from: :git-pyadi-iio:`/`
+Example from: :git+pyadi-iio:`/`
 
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-mxfe/screenshot_from_2024-01-19_14-15-55.png
    :width: 400px

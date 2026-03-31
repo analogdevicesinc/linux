@@ -48,10 +48,10 @@ Files
      - File
      -
    * - core driver
-     - :git-linux:`ad74413r.c <drivers/iio/addac/ad74413r.c>`
+     - :git+linux:`ad74413r.c <main:drivers/iio/addac/ad74413r.c>`
      -
    * - Documentation
-     - :git-linux:`adi,ad74413r.yaml <./Documentation/devicetree/bindings/iio/addac/adi,ad74413r.yaml>`
+     - :git+linux:`adi,ad74413r.yaml <main:./Documentation/devicetree/bindings/iio/addac/adi,ad74413r.yaml>`
      -
 
 Example device tree
@@ -63,7 +63,7 @@ Example device tree
      - File
      -
    * - dts
-     - :git-linux:`rpi-ad74413r-overlay.dts <rpi-5.15.y:arch/arm/boot/dts/overlays/rpi-ad74413r-overlay.dts>`
+     - :git+linux:`rpi-ad74413r-overlay.dts <rpi-5.15.y:arch/arm/boot/dts/overlays/rpi-ad74413r-overlay.dts>`
      -
 
 Driver testing

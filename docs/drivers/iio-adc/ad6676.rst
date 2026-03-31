@@ -49,8 +49,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/adc/ad6676.c>`
-     - :git-linux:`No <drivers/iio/adc/ad6676.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/ad6676.c>`
+     - :git+linux:`No <main:drivers/iio/adc/ad6676.c>`
      -
      -
 
@@ -64,10 +64,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad6676.c`
+     - :git+linux:`main:drivers/iio/adc/ad6676.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/ad6676.h`
+     - :git+linux:`main:drivers/iio/adc/ad6676.h`
      -
 
 Related Device Drivers
@@ -80,13 +80,13 @@ Related Device Drivers
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
      -
 
 Example Linux Device-Tree Initialization
@@ -106,7 +106,7 @@ Required devicetree properties:
    * - Function
      - File
    * - AD6676-EBZ Device Tree
-     - :git-linux:`zynq-zc706-adv7511-ad6676-fmc.dts <arch/arm/boot/dts/zynq-zc706-adv7511-ad6676-fmc.dts>`
+     - :git+linux:`zynq-zc706-adv7511-ad6676-fmc.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-ad6676-fmc.dts>`
 
 Device Driver Customization
 ---------------------------

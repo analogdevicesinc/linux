@@ -192,7 +192,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <sound/soc/adi/zed_adau1761.c>`
+   * - :git+linux:`git <main:sound/soc/adi/zed_adau1761.c>`
      - `In progress <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/adi/zed_adau1761.c>`__
      -
      -
@@ -207,7 +207,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`sound/soc/adi/zed_adau1761.c`
+     - :git+linux:`main:sound/soc/adi/zed_adau1761.c`
      -
 
 Kernel configuration

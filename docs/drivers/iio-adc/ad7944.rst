@@ -37,7 +37,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`ADI tree <drivers/iio/adc/ad7944.c>`
+   * - :git+linux:`ADI tree <main:drivers/iio/adc/ad7944.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7944.c>`__
      -
      -
@@ -57,13 +57,13 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad7944.c`
+     - :git+linux:`main:drivers/iio/adc/ad7944.c`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad7944.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad7944.yaml`
      -
    * - ZedBoard example devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts`
+     - :git+linux:`main:arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts`
      -
 
 Upstream documentation: https://docs.kernel.org/iio/ad7944.html
@@ -468,13 +468,13 @@ The following evaluation boards have been tested with this driver:
      - Device tree
      -
    * - :adi:`EVAL-AD7944FMCZ <EVAL-AD7944>`
-     - :git-linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts <arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts>`
+     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts>`
      -
    * - :adi:`EVAL-AD7985FMCZ <EVAL-AD7985>`
-     - :git-linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts <arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts>`
+     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts>`
      -
    * - :adi:`EVAL-AD7986FMCZ <EVAL-AD7986>`
-     - :git-linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts <arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts>`
+     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts>`
      -
 
 If you need to change any jumpers from default on the evaluation board, see the

@@ -48,7 +48,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <adxl362:drivers/input/misc/adxl362.c>`
+   * - :git+linux:`git <adxl362:drivers/input/misc/adxl362.c>`
      - `In Progress <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl362.c>`__
      -
      -
@@ -63,10 +63,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`adxl362:drivers/input/misc/adxl362.c`
+     - :git+linux:`adxl362:drivers/input/misc/adxl362.c`
      -
    * - include
-     - :git-linux:`adxl362:include/linux/input/adxl362.h`
+     - :git+linux:`adxl362:include/linux/input/adxl362.h`
      -
 
 Example platform device initialization

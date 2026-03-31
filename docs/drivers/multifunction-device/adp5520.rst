@@ -194,25 +194,25 @@ Example platform device initialization
 Backlight
 ~~~~~~~~~
 
-:git-linux:`adp5520_backlight_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp5520_backlight_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 LED
 ^^^
 
-:git-linux:`adp5520_leds[] <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp5520_leds[] <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
-:git-linux:`adp5520_leds_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp5520_leds_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 GPIO
 ^^^^
 
-:git-linux:`adp5520_gpio_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp5520_gpio_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 Keypad
 ^^^^^^
 
-:git-linux:`adp5520_keymap[] <arch/blackfin/mach-bf537/boards/stamp.c>`
-:git-linux:`adp5520_keys_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp5520_keymap[] <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp5520_keys_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 ADP5520/ADP5501 MFD Core Support
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -221,8 +221,8 @@ ADP5520/ADP5501 MFD Core Support
    :start-after: .. start-declaring-i2c-devices
    :end-before: .. end-declaring-i2c-devices
 
-:git-linux:`adp5520_pdev_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
-:git-linux:`/CONFIG_PMIC_ADP5520/2-/#if/ <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp5520_pdev_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`/CONFIG_PMIC_ADP5520/2-/#if/ <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 .. tip::
 

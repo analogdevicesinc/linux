@@ -48,8 +48,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/adc/adar1000.c>`
-     - :git-linux:`No <drivers/iio/adc/adar1000.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/adar1000.c>`
+     - :git+linux:`No <main:drivers/iio/adc/adar1000.c>`
      -
      -
 
@@ -63,10 +63,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/beamformer/adar1000.c`
+     - :git+linux:`main:drivers/iio/beamformer/adar1000.c`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,adar1000.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,adar1000.yaml`
      -
 
 Example Linux Device-Tree Initialization
@@ -86,7 +86,7 @@ Required devicetree properties:
    * - Function
      - File
    * - RPI Device Tree
-     - :git-linux:`rpi-adar1000-overlay.dts <arch/arm/boot/dts/overlays/rpi-adar1000-overlay.dts+>`
+     - :git+linux:`rpi-adar1000-overlay.dts <main:arch/arm/boot/dts/overlays/rpi-adar1000-overlay.dts+>`
 
 Enabling Linux driver support
 -----------------------------
@@ -281,7 +281,7 @@ provided standard phase table.
 Phase table is stored in a human readable file, with the format specified below.
 
 Example:
-:git-linux:`adar1000_std_phasetable <firmware/adar1000_std_phasetable>`
+:git+linux:`adar1000_std_phasetable <main:firmware/adar1000_std_phasetable>`
 
 ::
 

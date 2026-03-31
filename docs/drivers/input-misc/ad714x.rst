@@ -148,17 +148,17 @@ platform data, defines how the PCB info is implemented.
    :end-before: .. end-declaring-i2c-devices
 
 For AD7142 demo board, the platform information is:
-:git-linux:`ad7142_i2c_button_plat{} <arch/blackfin/mach-bf537/boards/stamp.c>`
-:git-linux:`ad7142_i2c_platform_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad7142_i2c_button_plat{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad7142_i2c_platform_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
    :end-before: .. end-declaring-spi-slave-devices
 
 For AD7147 demo board, the platform information is:
-:git-linux:`ad7147_spi_slider_plat{} <arch/blackfin/mach-bf537/boards/stamp.c>`
-:git-linux:`ad7147_spi_button_plat{} <arch/blackfin/mach-bf537/boards/stamp.c>`
-:git-linux:`ad7147_spi_platform_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad7147_spi_slider_plat{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad7147_spi_button_plat{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad7147_spi_platform_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 Adding Linux driver support
 ---------------------------

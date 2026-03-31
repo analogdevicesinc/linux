@@ -57,7 +57,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <drivers/iio/adc/ltc2358.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/ltc2358.c>`
      - [No]
      -
 
@@ -71,10 +71,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ltc2358.c`
+     - :git+linux:`main:drivers/iio/adc/ltc2358.c`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ltc2358.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ltc2358.yaml`
      -
 
 Related Device Drivers
@@ -87,10 +87,10 @@ Related Device Drivers
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
      -
    * - hdl
      - :dokuwiki:`DC2677A </resources/eval/user-guides/dc2677a>`
@@ -198,7 +198,7 @@ via device tree.
    * - Function
      - File
    * - DC2677A Device Tree
-     - :git-linux:`socfpga_cyclone5_sockit_dc2677a.dts <arch/arm/boot/dts/socfpga_cyclone5_sockit_dc2677a.dts>`
+     - :git+linux:`socfpga_cyclone5_sockit_dc2677a.dts <main:arch/arm/boot/dts/socfpga_cyclone5_sockit_dc2677a.dts>`
 
 Enabling Linux driver support
 -----------------------------

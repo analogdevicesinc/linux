@@ -323,21 +323,21 @@ TL;DR - show me the code
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The current source code of the JESD204 Linux framework resides in
-:git-linux:`drivers/jesd204/`
+:git+linux:`main:drivers/jesd204/`
 
 It is comprised of the current source files:
 
-- :git-linux:`jesd204-core.c <drivers/jesd204/jesd204-core.c+>` - the core file
+- :git+linux:`jesd204-core.c <main:drivers/jesd204/jesd204-core.c+>` - the core file
   of the framework - it reads the device-tree, constructs the topology
-- :git-linux:`jesd204-fsm.c <drivers/jesd204/jesd204-fsm.c+>` - the entire FSM
+- :git+linux:`jesd204-fsm.c <main:drivers/jesd204/jesd204-fsm.c+>` - the entire FSM
   logic
-- :git-linux:`jesd204-sysfs.c <drivers/jesd204/jesd204-sysfs.c+>` - the Linux
+- :git+linux:`jesd204-sysfs.c <main:drivers/jesd204/jesd204-sysfs.c+>` - the Linux
   sysfs code to export files for debug/control/etc under
   **/sys/bus/jesd204/devices/jesd204:X**
-- :git-linux:`jesd204-priv.h <drivers/jesd204/jesd204-priv.h+>` - internal
+- :git+linux:`jesd204-priv.h <main:drivers/jesd204/jesd204-priv.h+>` - internal
   framework structures/functions to be shared inside the framework
 -
-  :git-linux:`include/linux/jesd204/jesd204.h <include/linux/jesd204/jesd204.h+>`
+  :git+linux:`include/linux/jesd204/jesd204.h <main:include/linux/jesd204/jesd204.h+>`
   - API definitions to be used by drivers registering with the framework
 
 How does it work?
@@ -710,7 +710,7 @@ connections can be found below.
 
 .. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/zu11eg-fmcomms8-jesd204-fsm-topology.png
 
-:git-linux:`Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts <arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts+>`
+:git+linux:`Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts+>`
 
 ::
 
@@ -926,7 +926,7 @@ The devicetrees for both of them can be found below. They include the above
 example and just add/remove pieces which are required to synchronize such a
 distributed Multi-Topology system.
 
-:git-linux:`Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-primary.dts <arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts+>`
+:git+linux:`Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-primary.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts+>`
 
 ::
 
@@ -978,7 +978,7 @@ On the devicetree for the **PRIMARY** device:
   ``jesd204-stop-states`` array. These are states in which the jesd204-fsm
   framework pauses (stops) and waits for some external resume event to occur.
 
-:git-linux:`Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-secondary.dts <arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts+>`
+:git+linux:`Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-secondary.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts+>`
 
 ::
 
@@ -1051,7 +1051,7 @@ What is an external manager?
 ''''''''''''''''''''''''''''
 
 **Example:**
-:git-wiki-scripts:`iio_jesd204_fsm_sync <iio/iio_jesd204_fsm_sync+>`
+:git+wiki-scripts:`iio_jesd204_fsm_sync <iio/iio_jesd204_fsm_sync+>`
 
 This utility resumes a number of iio devices across different IIO context from
 the jesd204-fsm stop-states. It’s intended to sync multiple FPGA systems across

@@ -117,7 +117,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+   * - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/cf_axi_dds.c>`__
      -
      -
@@ -132,25 +132,25 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ad9122.c`
+     - :git+linux:`main:drivers/iio/frequency/ad9122.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ad9144.c`
+     - :git+linux:`main:drivers/iio/frequency/ad9144.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ad9162.c`
+     - :git+linux:`main:drivers/iio/frequency/ad9162.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ad9172.c`
+     - :git+linux:`main:drivers/iio/frequency/ad9172.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds_buffer_stream.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds_buffer_stream.c`
      -
    * - include
-     - :git-linux:`drivers/iio/frequency/cf_axi_adc.h <drivers/iio/frequency/cf_axi_dds.h>`
+     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
      -
 
 Example platform device initialization

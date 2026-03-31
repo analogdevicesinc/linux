@@ -39,7 +39,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`drivers/iio/jesd204/axi_adxcvr.c`
+   * - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
      - No
      -
 
@@ -53,25 +53,25 @@ Files Xilinx
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_adxcvr.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_adxcvr_eyescan.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr_eyescan.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/xilinx_transceiver.c`
+     - :git+linux:`main:drivers/iio/jesd204/xilinx_transceiver.c`
      -
    * - incude
-     - :git-linux:`drivers/iio/jesd204/axi_adxcvr.h`
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.h`
      -
    * - incude
-     - :git-linux:`drivers/iio/jesd204/axi_adxcvr_eyescan.h`
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr_eyescan.h`
      -
    * - incude
-     - :git-linux:`drivers/iio/jesd204/xilinx_transceiver.h`
+     - :git+linux:`main:drivers/iio/jesd204/xilinx_transceiver.h`
      -
    * - dt-bindings
-     - :git-linux:`include/dt-bindings/jesd204/adxcvr.h`
+     - :git+linux:`main:include/dt-bindings/jesd204/adxcvr.h`
      -
 
 Files Intel / Altera
@@ -84,13 +84,13 @@ Files Intel / Altera
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/altera_adxcvr.c`
+     - :git+linux:`main:drivers/iio/jesd204/altera_adxcvr.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/altera_a10_atx_pll.c`
+     - :git+linux:`main:drivers/iio/jesd204/altera_a10_atx_pll.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/altera_a10_cdr_pll.c`
+     - :git+linux:`main:drivers/iio/jesd204/altera_a10_cdr_pll.c`
      -
 
 Example platform device initialization

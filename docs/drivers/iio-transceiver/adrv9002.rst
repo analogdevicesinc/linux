@@ -55,8 +55,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/adc/navassa/adrv9002.c>`
-     - :git-linux:`No <drivers/iio/adc/navassa/adrv9002.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/navassa/adrv9002.c>`
+     - :git+linux:`No <main:drivers/iio/adc/navassa/adrv9002.c>`
      -
      -
 
@@ -70,28 +70,28 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/navassa/adrv9002.c`
+     - :git+linux:`main:drivers/iio/adc/navassa/adrv9002.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/navassa/adrv9002_conv.c`
+     - :git+linux:`main:drivers/iio/adc/navassa/adrv9002_conv.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/navassa/adrv9002_debugfs.c`
+     - :git+linux:`main:drivers/iio/adc/navassa/adrv9002_debugfs.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/navassa/adrv9002.h`
+     - :git+linux:`main:drivers/iio/adc/navassa/adrv9002.h`
      -
    * - Navassa API driver
-     - :git-linux:`drivers/iio/adc/navassa/devices/adrv9001/`
+     - :git+linux:`main:drivers/iio/adc/navassa/devices/adrv9001/`
      -
    * - Navassa API driver
-     - :git-linux:`drivers/iio/adc/navassa/third_party`
+     - :git+linux:`main:drivers/iio/adc/navassa/third_party`
      -
    * - Navassa API driver
-     - :git-linux:`drivers/iio/adc/navassa/common`
+     - :git+linux:`main:drivers/iio/adc/navassa/common`
      -
    * - Navassa API driver
-     - :git-linux:`drivers/iio/adc/navassa/platforms`
+     - :git+linux:`main:drivers/iio/adc/navassa/platforms`
      -
 
 Interrelated Device Drivers
@@ -107,13 +107,13 @@ Receive AXI-ADC driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad_adc.c <drivers/iio/adc/cf_axi_adc_core.c>`
+     - :git+linux:`drivers/iio/adc/ad_adc.c <main:drivers/iio/adc/cf_axi_adc_core.c>`
      -
 
 Transmit AXI-DAC / DDS driver
@@ -126,10 +126,10 @@ Transmit AXI-DAC / DDS driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
      -
    * - include
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.h`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
      -
 
 Device Driver Customization
@@ -175,7 +175,7 @@ However a unique name must be given.
      - File
      -
    * - Stream
-     - :git-linux:`firmware/Navassa_Stream.bin`
+     - :git+linux:`main:firmware/Navassa_Stream.bin`
      -
 
 For early versions of TES (before v0.14) streams were only made available in
@@ -204,7 +204,7 @@ expects the file to have the following name:
      - File
      -
    * - ARM firmware
-     - :git-linux:`adrv9001:firmware/Navassa_EvaluationFw.bin`
+     - :git+linux:`adrv9001:firmware/Navassa_EvaluationFw.bin`
      -
 
 Gain Tables
@@ -220,16 +220,16 @@ boot/setup phase. They are also loaded using the firmware framework.
      - File
      -
    * - RX Gain Correction table
-     - :git-linux:`firmware/RxGainTable.csv`
+     - :git+linux:`main:firmware/RxGainTable.csv`
      -
    * - RX Gain Compensated table
-     - :git-linux:`firmware/RxGainTable_GainCompensated.csv`
+     - :git+linux:`main:firmware/RxGainTable_GainCompensated.csv`
      -
    * - ORX Gain table
-     - :git-linux:`firmware/ORxGainTable.csv`
+     - :git+linux:`main:firmware/ORxGainTable.csv`
      -
    * - TX Gain table
-     - :git-linux:`firmware/TxAttenTable.csv`
+     - :git+linux:`main:firmware/TxAttenTable.csv`
      -
 
 Example Linux Device-Tree Initialization
@@ -251,25 +251,25 @@ Required devicetree properties:
      - File
      -
    * - ADRV9002 Device Tree
-     - :git-linux:`zynqmp-zcu102-rev10-adrv9002.dts <arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-adrv9002.dts>`
+     - :git+linux:`zynqmp-zcu102-rev10-adrv9002.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-adrv9002.dts>`
      -
    * -
-     - :git-linux:`zynq-zed-adv7511-adrv9002.dts <arch/arm/boot/dts/zynq-zed-adv7511-adrv9002.dts>`
+     - :git+linux:`zynq-zed-adv7511-adrv9002.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-adrv9002.dts>`
      -
    * -
-     - :git-linux:`zynq-zc706-adv7511-adrv9002.dts <arch/arm/boot/dts/zynq-zc706-adv7511-adrv9002.dts>`
+     - :git+linux:`zynq-zc706-adv7511-adrv9002.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-adrv9002.dts>`
      -
    * - ADRV9002 Device Tree MIMO
-     - :git-linux:`zynqmp-zcu102-rev10-adrv9002-rx2tx2.dts <arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-adrv9002-rx2tx2.dts>`
+     - :git+linux:`zynqmp-zcu102-rev10-adrv9002-rx2tx2.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-adrv9002-rx2tx2.dts>`
      -
    * -
-     - :git-linux:`zynq-zed-adv7511-adrv9002-rx2tx2.dts <arch/arm/boot/dts/zynq-zed-adv7511-adrv9002-rx2tx2.dts>`
+     - :git+linux:`zynq-zed-adv7511-adrv9002-rx2tx2.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-adrv9002-rx2tx2.dts>`
      -
    * -
-     - :git-linux:`zynq-zc706-adv7511-adrv9002-rx2tx2.dts <arch/arm/boot/dts/zynq-zc706-adv7511-adrv9002-rx2tx2.dts>`
+     - :git+linux:`zynq-zc706-adv7511-adrv9002-rx2tx2.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-adrv9002-rx2tx2.dts>`
      -
    * -
-     - :git-linux:`socfpga_arria10_socdk_adrv9002_rx2tx2.dts <arch/arm/boot/dts/socfpga_arria10_socdk_adrv9002_rx2tx2.dts>`
+     - :git+linux:`socfpga_arria10_socdk_adrv9002_rx2tx2.dts <main:arch/arm/boot/dts/socfpga_arria10_socdk_adrv9002_rx2tx2.dts>`
      -
 
 Enabling Linux driver support
@@ -608,7 +608,7 @@ port.
    all 4 ports. That is not true because, as stated above, the device only has 2
    PLLs. Hence, applications have to be careful. For an example on how this can
    be handled and for more details, look at this
-   :git-iio-oscilloscope:`commit <commit/6f77f19f055543c780598529ecdf5f3ed078cbfc+>`
+   :git+iio-oscilloscope:`commit <commit/6f77f19f055543c780598529ecdf5f3ed078cbfc+>`
    on the IIO Oscilloscope plugin.
 
 Filter and Signal Path Configuration
@@ -641,7 +641,7 @@ other ADI software tools not described here
 `ADRV9002 transceiver evaluation software (TES) <en/design-center/landing-pages/001/transceiver-evaluation-software.html>`.
 
 There are some constraints with the loaded profiles due to the architecture of
-the :git-hdl:`reference design <tree/master/projects/adrv9001+>`:
+the :git+hdl:`reference design <tree/master/projects/adrv9001+>`:
 
 .. warning::
 

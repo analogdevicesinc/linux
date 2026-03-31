@@ -45,7 +45,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`adas1000:drivers/iio/adc/adas1000.c`
+   * - :git+linux:`adas1000:drivers/iio/adc/adas1000.c`
      - `In progress <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/adas1000.c>`__
      -
      -
@@ -60,10 +60,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`adas1000:drivers/iio/adc/adas1000.c`
+     - :git+linux:`adas1000:drivers/iio/adc/adas1000.c`
      -
    * - include
-     - :git-linux:`adas1000:include/linux/platform_data/adas1000.h`
+     - :git+linux:`adas1000:include/linux/platform_data/adas1000.h`
      -
 
 Example platform device initialization

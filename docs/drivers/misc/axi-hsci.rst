@@ -29,7 +29,7 @@ Status
 
    * - Source
      - Mainlined?
-   * - :git-linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
+   * - :git+linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
      - No
 
 Files
@@ -41,9 +41,9 @@ Files
    * - Function
      - File
    * - driver
-     - :git-linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
+     - :git+linux:`drivers/misc/adi-axi-hsci.c <main:drivers/misc/adi-axi-hsci.c>`
    * - header
-     - :git-linux:`drivers/misc/adi-axi-hsci.h <main:drivers/misc/adi-axi-hsci.h>`
+     - :git+linux:`drivers/misc/adi-axi-hsci.h <main:drivers/misc/adi-axi-hsci.h>`
 
 Overview
 --------

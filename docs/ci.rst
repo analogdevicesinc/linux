@@ -77,7 +77,7 @@ When upstreaming a driver, target the pull-request against the mirror.
       $ git switch -c my-work v6.19-rc1
 
 All of them are mirrors from the links shown with a single commit on top
-that includes the CI workflows, :git-linux:`as simple as <ci:.github/workflows/mirror.yml>`:
+that includes the CI workflows, :git+linux:`as simple as <ci:.github/workflows/mirror.yml>`:
 
 .. shell::
 
@@ -314,7 +314,7 @@ Build the container image
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To build the container image, use your favorite container engine from the
-:git-linux:`ci branch <ci:>`:
+:git+linux:`ci branch <ci:>`:
 
 .. shell::
 
@@ -361,9 +361,9 @@ Or if you are feeling adventurous:
 Interactive run
 ~~~~~~~~~~~~~~~
 
-The :git-doctools:`container-run.sh <ci/scripts/container-run.sh>` is a
+The :git+doctools:`container-run.sh <ci/scripts/container-run.sh>` is a
 suggested container command to interactive login into an image, mounting the
-provided path and preparting the :git-linux:`_ci <ci:>` worktree to leverage the
+provided path and preparting the :git+linux:`_ci <ci:>` worktree to leverage the
 same scripts used by the continuous integration.
 
 You can use it to compile/runs checks using persistent cache, for example:

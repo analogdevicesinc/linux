@@ -54,22 +54,22 @@ Files
      - File
      -
    * - core driver
-     - :git-linux:`drivers/iio/accel/adxl372.c`
+     - :git+linux:`main:drivers/iio/accel/adxl372.c`
      -
    * - spi driver
-     - :git-linux:`drivers/iio/accel/adxl372_spi.c`
+     - :git+linux:`main:drivers/iio/accel/adxl372_spi.c`
      -
    * - i2c driver
-     - :git-linux:`drivers/iio/accel/adxl372_i2c.c`
+     - :git+linux:`main:drivers/iio/accel/adxl372_i2c.c`
      -
    * - header
-     - :git-linux:`drivers/iio/accel/adxl372.h <drivers/iio/iio/accel/adxl372.h>`
+     - :git+linux:`drivers/iio/accel/adxl372.h <main:drivers/iio/iio/accel/adxl372.h>`
      -
    * - Documentation
-     - :git-linux:`adxl345.txt <Documentation/devicetree/bindings/iio/accel/adxl345.txt>`
+     - :git+linux:`adxl345.txt <main:Documentation/devicetree/bindings/iio/accel/adxl345.txt>`
      -
    * - ABI documentation
-     - :git-linux:`sysfs-bus-iio-accel-adxl372 <Documentation/ABI/testing/sysfs-bus-iio-accel-adxl372>`
+     - :git+linux:`sysfs-bus-iio-accel-adxl372 <main:Documentation/ABI/testing/sysfs-bus-iio-accel-adxl372>`
      -
 
 Example device tree
@@ -81,7 +81,7 @@ Example device tree
      - File
      -
    * - dts
-     - :git-linux:`rpi-adxl372-overlay.dts <rpi-4.19.y:arch/arm/boot/dts/overlays/rpi-adxl372-overlay.dts>`
+     - :git+linux:`rpi-adxl372-overlay.dts <rpi-4.19.y:arch/arm/boot/dts/overlays/rpi-adxl372-overlay.dts>`
      -
 
 Example platform device initialization

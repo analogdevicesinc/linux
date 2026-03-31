@@ -54,7 +54,7 @@ Status
      -
 
 Support for the AD2S1210 is in mainline for kernel v6.7 and is backported to
-v6.1 of the :git-linux:`ADI tree </>`. Some additional features are slated for
+v6.1 of the :git+linux:`ADI tree <main:/>`. Some additional features are slated for
 v6.8. The device was previously supported by a staging driver with a different
 ABI.
 

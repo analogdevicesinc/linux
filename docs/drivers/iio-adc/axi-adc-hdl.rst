@@ -64,9 +64,9 @@ It’s register map can be found here:
 This driver is split into two parts. A control driver let’s call it SPI-ADC
 which configures the converter internal control registers, this part is
 typically instantiated via the SPI bus. (see:
-:git-linux:`ad9467.c <drivers/iio/adc/ad9467.c>`,
-:git-linux:`ad9361_conv.c <drivers/iio/adc/ad9361_conv.c>` or
-:git-linux:`ad9371_conv.c <mykonos:drivers/iio/adc/ad9361_conv.c>`) Device
+:git+linux:`ad9467.c <main:drivers/iio/adc/ad9467.c>`,
+:git+linux:`ad9361_conv.c <main:drivers/iio/adc/ad9361_conv.c>` or
+:git+linux:`ad9371_conv.c <mykonos:drivers/iio/adc/ad9361_conv.c>`) Device
 probing for the data capture driver (AXI-ADC) which controls the AXI HDL core
 registers and the DMA, is delayed until the SPI control driver is fully probed.
 The device tree phandle ``**spibus-connected**`` is used to connect the capture
@@ -83,8 +83,8 @@ the digital data interface etc.
 For the **AD9361** and **AD9371** family of transceivers, things are a bit more
 differentiated. In fact these devices have a separate IIO device for the radio
 control portion. We call them the PHY devices.
-(:git-linux:`ad9361.c <drivers/iio/adc/ad9361.c>` and
-:git-linux:`ad9371.c <drivers/iio/adc/ad9371.c>` ) The **PHY** drivers
+(:git+linux:`ad9361.c <main:drivers/iio/adc/ad9361.c>` and
+:git+linux:`ad9371.c <main:drivers/iio/adc/ad9371.c>` ) The **PHY** drivers
 are intended to be independent from our AXI-ADC capture drivers and underlying
 HDL designs. Therefore things related to the AXI-ADC driver are located in the
 ad93X1_conv.c files.
@@ -102,7 +102,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+   * - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/cf_axi_adc_core.c>`__
      -
      -
@@ -117,34 +117,34 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad6676.c`
+     - :git+linux:`main:drivers/iio/adc/ad6676.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad9208.c`
+     - :git+linux:`main:drivers/iio/adc/ad9208.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad9467.c`
+     - :git+linux:`main:drivers/iio/adc/ad9467.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad9680.c`
+     - :git+linux:`main:drivers/iio/adc/ad9680.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad9361_conv.c`
+     - :git+linux:`main:drivers/iio/adc/ad9361_conv.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad9371_conv.c <drivers/iio/adc/ad9361_conv.c>`
+     - :git+linux:`drivers/iio/adc/ad9371_conv.c <main:drivers/iio/adc/ad9361_conv.c>`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/adrv9009_conv.c`
+     - :git+linux:`main:drivers/iio/adc/adrv9009_conv.c`
      -
    * - core driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      -
    * - core driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
      -
    * - core include
-     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
      -
 
 Example platform device initialization

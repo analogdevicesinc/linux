@@ -265,7 +265,7 @@ Clone the ADI Linux repository:
 
 ::
 
-   git clone :git-linux.git
+   git clone :git+linux.git
    cd linux
    git checkout dev:`adin1320+`
 

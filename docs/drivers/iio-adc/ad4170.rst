@@ -35,7 +35,7 @@ Status
    :header-rows: 1
 
    * - Source
-   * - :git-linux:`dev_ad4170:/`
+   * - :git+linux:`dev_ad4170:/`
 
 Files
 -----
@@ -46,7 +46,7 @@ Files
    * - Function
      - File
    * - driver
-     - :git-linux:`dev_ad4170:drivers/iio/adc/ad4170.c`
+     - :git+linux:`dev_ad4170:drivers/iio/adc/ad4170.c`
 
 Driver testing
 --------------

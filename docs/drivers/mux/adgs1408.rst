@@ -38,7 +38,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <rpi-4.14.y:drivers/mux/adgs140x.c>`
+   * - :git+linux:`git <rpi-4.14.y:drivers/mux/adgs140x.c>`
      - [No]
      -
 
@@ -52,7 +52,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`rpi-4.14.y:drivers/mux/adgs140x.c`
+     - :git+linux:`rpi-4.14.y:drivers/mux/adgs140x.c`
      -
 
 Devicetree

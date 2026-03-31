@@ -42,7 +42,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <drivers/iio/adc/ad7768.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/ad7768.c>`
      - [In progress…]
      -
 
@@ -56,13 +56,13 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad7768.c`
+     - :git+linux:`main:drivers/iio/adc/ad7768.c`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad7768.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad7768.yaml`
      -
    * - hdl project
-     - :git-hdl:`hdl <projects/ad7768evb+>`
+     - :git+hdl:`hdl <projects/ad7768evb+>`
      -
 
 Example Linux Device-Tree Initialization
@@ -95,7 +95,7 @@ the number of data lines (DOUTx) on which the ADC conversions are output.
    * - Function
      - File
    * - AD7768 Device Tree
-     - :git-linux:`zynq-zed-adv7511-ad7768.dts <arch/arm/boot/dts/zynq-zed-adv7511-ad7768.dts>`
+     - :git+linux:`zynq-zed-adv7511-ad7768.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7768.dts>`
 
 Driver testing
 --------------

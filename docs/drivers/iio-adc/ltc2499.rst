@@ -32,7 +32,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/adc/ltc2497.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/ltc2497.c>`
      - `Accepted, not upstream yet <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ltc2497.c>`__
      -
      -
@@ -47,10 +47,10 @@ Files
      - File
      -
    * - core driver
-     - :git-linux:`ltc2497.c <drivers/iio/adc/ltc2497.c>`
+     - :git+linux:`ltc2497.c <main:drivers/iio/adc/ltc2497.c>`
      -
    * - Documentation
-     - :git-linux:`lltc,ltc2497.yaml <./Documentation/devicetree/bindings/iio/adc/lltc,ltc2497.yaml>`
+     - :git+linux:`lltc,ltc2497.yaml <main:./Documentation/devicetree/bindings/iio/adc/lltc,ltc2497.yaml>`
      -
 
 Example device tree
@@ -62,7 +62,7 @@ Example device tree
      - File
      -
    * - dts
-     - :git-linux:`rpi-ltc2499-overlay.dts <staging-rpi:rpi-5.10.y-ltc2499/arch/arm/boot/dts/overlays/rpi-ltc2499-overlay.dts>`
+     - :git+linux:`rpi-ltc2499-overlay.dts <staging-rpi:rpi-5.10.y-ltc2499/arch/arm/boot/dts/overlays/rpi-ltc2499-overlay.dts>`
      -
 
 Driver testing

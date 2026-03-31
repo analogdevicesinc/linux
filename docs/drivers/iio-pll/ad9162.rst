@@ -52,7 +52,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/frequency/ad9162.c`
+   * - :git+linux:`main:drivers/iio/frequency/ad9162.c`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/ad9162.c>`__
      -
      -
@@ -67,28 +67,28 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ad9162.c`
+     - :git+linux:`main:drivers/iio/frequency/ad9162.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ad916x_amp.c <drivers/iio/amplifiers/ad916x_amp.c>`
+     - :git+linux:`drivers/iio/frequency/ad916x_amp.c <main:drivers/iio/amplifiers/ad916x_amp.c>`
      -
    * - API driver
-     - :git-linux:`drivers/iio/frequency/ad916x`
+     - :git+linux:`main:drivers/iio/frequency/ad916x`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds_buffer_stream.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds_buffer_stream.c`
      -
    * - include
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.h`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
      -
    * - Documentation
-     - :git-linux:`ad916x.yaml <Documentation/devicetree/bindings/iio/frequency/ad916x.yaml>`
+     - :git+linux:`ad916x.yaml <main:Documentation/devicetree/bindings/iio/frequency/ad916x.yaml>`
      -
    * - Documentation
-     - :git-linux:`ad916x-amp.yaml <Documentation/devicetree/bindings/iio/amplifiers/ad916x-amp.yaml>`
+     - :git+linux:`ad916x-amp.yaml <main:Documentation/devicetree/bindings/iio/amplifiers/ad916x-amp.yaml>`
      -
 
 Example device trees
@@ -100,19 +100,19 @@ Example device trees
      - File
      -
    * - dtsi
-     - :git-linux:`adi-fmcomms11.dtsi <arch/arm/boot/dts/adi-fmcomms11.dtsi>`
+     - :git+linux:`adi-fmcomms11.dtsi <main:arch/arm/boot/dts/adi-fmcomms11.dtsi>`
      -
    * - dtsi
-     - :git-linux:`adi-fmcomms11-RevA.dtsi <arch/arm/boot/dts/adi-fmcomms11-RevA.dtsi>`
+     - :git+linux:`adi-fmcomms11-RevA.dtsi <main:arch/arm/boot/dts/adi-fmcomms11-RevA.dtsi>`
      -
    * - dts
-     - :git-linux:`rpi-cn0511-overlay.dts <rpi-5.4.y:arch/arm/boot/dts/overlays/rpi-cn0511-overlay.dts>`
+     - :git+linux:`rpi-cn0511-overlay.dts <rpi-5.4.y:arch/arm/boot/dts/overlays/rpi-cn0511-overlay.dts>`
      -
    * - dts
-     - :git-linux:`zynq-zc706-adv7511-fmcomms11.dts <arch/arm/boot/dts/zynq-zc706-adv7511-fmcomms11.dts>`
+     - :git+linux:`zynq-zc706-adv7511-fmcomms11.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-fmcomms11.dts>`
      -
    * - dts
-     - :git-linux:`zynq-zc706-adv7511-fmcomms11-RevA.dts <arch/arm/boot/dts/zynq-zc706-adv7511-fmcomms11-RevA.dts>`
+     - :git+linux:`zynq-zc706-adv7511-fmcomms11-RevA.dts <main:arch/arm/boot/dts/zynq-zc706-adv7511-fmcomms11-RevA.dts>`
      -
 
 Example platform device initialization
@@ -122,9 +122,9 @@ The AD9162 driver is a SPI bus driver and can be instantiated via device tree.
 
 For detailed information about the required/optional devicetree properties look
 at
-:git-linux:`ad916x.yaml <Documentation/devicetree/bindings/iio/frequency/ad916x.yaml>`
+:git+linux:`ad916x.yaml <main:Documentation/devicetree/bindings/iio/frequency/ad916x.yaml>`
 and
-:git-linux:`ad916x-amp.yaml <Documentation/devicetree/bindings/iio/amplifiers/ad916x-amp.yaml>`.
+:git+linux:`ad916x-amp.yaml <main:Documentation/devicetree/bindings/iio/amplifiers/ad916x-amp.yaml>`.
 
 Enabling Linux driver support
 -----------------------------
@@ -168,7 +168,7 @@ Driver testing
    :end-before: .. end-iio-device-files
 
 The driver has two main ways of functioning depending on the
-:git-linux:`adi,standalone-probe <Documentation/devicetree/bindings/iio/frequency/ad916x.yaml#L49>`
+:git+linux:`adi,standalone-probe <main:Documentation/devicetree/bindings/iio/frequency/ad916x.yaml#L49>`
 devicetree property. If set, the driver will probe in standalone mode which
 means that it won’t link with the :ref:`axi-dac-dds-hdl`. This means that
 different attributes will be seen depending on the working mode. The next ABI is
@@ -202,7 +202,7 @@ Standalone Mode
 ~~~~~~~~~~~~~~~
 
 This mode can be used together with
-:git-linux:`adi,dc-test-en <Documentation/devicetree/bindings/iio/frequency/ad916x.yaml#L42>`
+:git+linux:`adi,dc-test-en <main:Documentation/devicetree/bindings/iio/frequency/ad916x.yaml#L42>`
 for running the device as a signal generator. The present attributes are:
 
 ::
@@ -231,7 +231,7 @@ Change DC Test Word
 What: **out_altvoltageX_raw**
 
 Set the DC test word data. This will be the data source of the digital path when
-:git-linux:`adi,dc-test-en <Documentation/devicetree/bindings/iio/frequency/ad916x.yaml#L42>`
+:git+linux:`adi,dc-test-en <main:Documentation/devicetree/bindings/iio/frequency/ad916x.yaml#L42>`
 is enabled. We can control the signal amplitude with this attribute.
 
 ::

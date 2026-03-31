@@ -61,7 +61,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/frequency/adf4377.c`
+   * - :git+linux:`main:drivers/iio/frequency/adf4377.c`
      - `YES <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4377.c>`__
      -
      -
@@ -76,13 +76,13 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/adf4377.c`
+     - :git+linux:`main:drivers/iio/frequency/adf4377.c`
      -
    * - Documentation
-     - :git-linux:`adi,adf4377.yaml <Documentation/devicetree/bindings/iio/frequency/adi,adf4377.yaml>`
+     - :git+linux:`adi,adf4377.yaml <main:Documentation/devicetree/bindings/iio/frequency/adi,adf4377.yaml>`
      -
    * - ABI documentation
-     - :git-linux:`sysfs-bus-iio-frequency-adf4377 <Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4377>`
+     - :git+linux:`sysfs-bus-iio-frequency-adf4377 <main:Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4377>`
      -
 
 Example platform device initialization

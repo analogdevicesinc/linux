@@ -54,24 +54,24 @@ API to connect the device to the Linux Kernel subsystems.
 
 Linux Driver
 
-* :git-linux:`ad9088.c <drivers/iio/adc/apollo/ad9088.c>` - Main driver
-* :git-linux:`ad9088.h <drivers/iio/adc/apollo/ad9088.h>` - Driver header
-* :git-linux:`ad9088_dt.c <drivers/iio/adc/apollo/ad9088_dt.c>` - Device tree parsing
-* :git-linux:`ad9088_bmem.c <drivers/iio/adc/apollo/ad9088_bmem.c>` - Buffer memory interface
-* :git-linux:`ad9088_cal.c <drivers/iio/adc/apollo/ad9088_cal.c>` - Calibration save/restore
-* :git-linux:`ad9088_debugfs.c <drivers/iio/adc/apollo/ad9088_debugfs.c>` - Debugfs interface
-* :git-linux:`ad9088_fft.c <drivers/iio/adc/apollo/ad9088_fft.c>` - FFT sniffer support
-* :git-linux:`ad9088_ffh.c <drivers/iio/adc/apollo/ad9088_ffh.c>` - Fast frequency hopping
-* :git-linux:`ad9088_jesd204_fsm.c <drivers/iio/adc/apollo/ad9088_jesd204_fsm.c>` - JESD204 FSM callbacks
-* :git-linux:`ad9088_mcs.c <drivers/iio/adc/apollo/ad9088_mcs.c>` - MCS calibration
-* :git-linux:`ad9088_cal_dump.c <drivers/iio/adc/apollo/tools/ad9088_cal_dump.c>` - Calibration dump tool
+* :git+linux:`ad9088.c <main:drivers/iio/adc/apollo/ad9088.c>` - Main driver
+* :git+linux:`ad9088.h <main:drivers/iio/adc/apollo/ad9088.h>` - Driver header
+* :git+linux:`ad9088_dt.c <main:drivers/iio/adc/apollo/ad9088_dt.c>` - Device tree parsing
+* :git+linux:`ad9088_bmem.c <main:drivers/iio/adc/apollo/ad9088_bmem.c>` - Buffer memory interface
+* :git+linux:`ad9088_cal.c <main:drivers/iio/adc/apollo/ad9088_cal.c>` - Calibration save/restore
+* :git+linux:`ad9088_debugfs.c <main:drivers/iio/adc/apollo/ad9088_debugfs.c>` - Debugfs interface
+* :git+linux:`ad9088_fft.c <main:drivers/iio/adc/apollo/ad9088_fft.c>` - FFT sniffer support
+* :git+linux:`ad9088_ffh.c <main:drivers/iio/adc/apollo/ad9088_ffh.c>` - Fast frequency hopping
+* :git+linux:`ad9088_jesd204_fsm.c <main:drivers/iio/adc/apollo/ad9088_jesd204_fsm.c>` - JESD204 FSM callbacks
+* :git+linux:`ad9088_mcs.c <main:drivers/iio/adc/apollo/ad9088_mcs.c>` - MCS calibration
+* :git+linux:`ad9088_cal_dump.c <main:drivers/iio/adc/apollo/tools/ad9088_cal_dump.c>` - Calibration dump tool
 
 API:
 
-* :git-linux:`adi_inc <drivers/iio/adc/apollo/adi_inc>`
-* :git-linux:`adi_utils <drivers/iio/adc/apollo/adi_utils>`
-* :git-linux:`private <drivers/iio/adc/apollo/private>`
-* :git-linux:`public <drivers/iio/adc/apollo/public>`
+* :git+linux:`adi_inc <main:drivers/iio/adc/apollo/adi_inc>`
+* :git+linux:`adi_utils <main:drivers/iio/adc/apollo/adi_utils>`
+* :git+linux:`private <main:drivers/iio/adc/apollo/private>`
+* :git+linux:`public <main:drivers/iio/adc/apollo/public>`
 
 Interrelated Device Drivers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -92,9 +92,9 @@ These are drivers that are connected to or is a dependency of ``ad9088.c``.
 
   * Sources:
 
-    * :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
-    * :git-linux:`drivers/iio/adc/cf_axi_adc_ring_stream.c`
-    * :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+    * :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
+    * :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
+    * :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
 
   * Documentation:
 
@@ -104,8 +104,8 @@ These are drivers that are connected to or is a dependency of ``ad9088.c``.
 
   * Sources:
 
-    * :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
-    * :git-linux:`drivers/iio/frequency/cf_axi_adc.h`
+    * :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
+    * :git+linux:`main:drivers/iio/frequency/cf_axi_adc.h`
 
   * Documentation:
 
@@ -115,8 +115,8 @@ These are drivers that are connected to or is a dependency of ``ad9088.c``.
 
   * Sources:
 
-    * :git-linux:`drivers/iio/jesd204/axi_jesd204_rx.c`
-    * :git-linux:`drivers/iio/jesd204/axi_jesd204_tx.c`
+    * :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
+    * :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
 
   * Documentation:
 
@@ -127,7 +127,7 @@ These are drivers that are connected to or is a dependency of ``ad9088.c``.
 
   * Sources:
 
-    * :git-linux:`drivers/iio/jesd204/axi_adxcvr.c`
+    * :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
 
   * Documentation:
 
@@ -141,15 +141,15 @@ Devicetree
 
 The following example devicetrees are provided:
 
-* :git-linux:`AD9084-VCU118 RevB <arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts>`: vcu118_quad_ad9084_revB.dts
-* :git-linux:`AD9084-VCU118 26p4 RevB Ext <arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts>`: vcu118_quad_ad9084_26p4_revB_ext.dts
-* :git-linux:`AD9084-VCU118 26p4 RevB <arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts>`: vcu118_quad_ad9084_26p4_revB.dts
-* :git-linux:`AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1 <arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts>`: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts
-* :git-linux:`AD9084-VCU118 ad9084 <arch/microblaze/boot/dts/vcu118_ad9084.dts>`: vcu118_ad9084.dts
-* :git-linux:`AD9084-VCU118 RevB Ext <arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts>`: vcu118_quad_ad9084_revB_ext.dts
-* :git-linux:`AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4 <arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts>`: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts
-* :git-linux:`AD9084-VCK190 <arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts>`: versal-vck190-reva-ad9084.dts
-* :git-linux:`AD9084-VCK190 204C_M4_L4_NP16_20p0_4x4 <arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts>`: versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts
+* :git+linux:`AD9084-VCU118 RevB <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts>`: vcu118_quad_ad9084_revB.dts
+* :git+linux:`AD9084-VCU118 26p4 RevB Ext <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts>`: vcu118_quad_ad9084_26p4_revB_ext.dts
+* :git+linux:`AD9084-VCU118 26p4 RevB <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts>`: vcu118_quad_ad9084_26p4_revB.dts
+* :git+linux:`AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1 <main:arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts>`: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts
+* :git+linux:`AD9084-VCU118 ad9084 <main:arch/microblaze/boot/dts/vcu118_ad9084.dts>`: vcu118_ad9084.dts
+* :git+linux:`AD9084-VCU118 RevB Ext <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts>`: vcu118_quad_ad9084_revB_ext.dts
+* :git+linux:`AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4 <main:arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts>`: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts
+* :git+linux:`AD9084-VCK190 <main:arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts>`: versal-vck190-reva-ad9084.dts
+* :git+linux:`AD9084-VCK190 204C_M4_L4_NP16_20p0_4x4 <main:arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts>`: versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts
 
 Profile
 ~~~~~~~
@@ -308,9 +308,9 @@ Device profile
 The device profiles can be generated with the profile generator tool that is
 part of the :adi:`ACE` Evaluation Software. Profile modifications can be done
 through :external+pyadi-jif:doc:`pyadi-jif <index>`.
-In particular, the a Python Jupyter Notebook at :git-pyadi-jif:`examples/triton/triton_vcu118.ipynb`
+In particular, the a Python Jupyter Notebook at :git+pyadi-jif:`examples/triton/triton_vcu118.ipynb`
 guides you through the profile generation and modification, with sample files
-at the :git-pyadi-jif:`directory of the notebook <examples/triton>`.
+at the :git+pyadi-jif:`directory of the notebook <examples/triton>`.
 During runtime, some profile options are reconfigured, such as
 :ref:`apollo ffh`.
 
@@ -2689,8 +2689,8 @@ Source Code
 
 Calibration-related source files:
 
-* :git-linux:`ad9088_cal.c <drivers/iio/adc/apollo/ad9088_cal.c>` - Calibration save/restore implementation
-* :git-linux:`ad9088_cal.h <drivers/iio/adc/apollo/ad9088.h>` - Calibration data structures
-* :git-linux:`ad9088_cal_dump.c <drivers/iio/adc/apollo/tools/ad9088_cal_dump.c>` - Calibration dump tool
+* :git+linux:`ad9088_cal.c <main:drivers/iio/adc/apollo/ad9088_cal.c>` - Calibration save/restore implementation
+* :git+linux:`ad9088_cal.h <main:drivers/iio/adc/apollo/ad9088.h>` - Calibration data structures
+* :git+linux:`ad9088_cal_dump.c <main:drivers/iio/adc/apollo/tools/ad9088_cal_dump.c>` - Calibration dump tool
 
 

@@ -60,10 +60,10 @@ Files
    * - Function
      - Status
      -
-   * - :git-linux:`driver <ddd710f3eefcf494ab6d01be59b5512398f0fee7:drivers/iio/dac/ad3530r.c>`
+   * - :git+linux:`driver <ddd710f3eefcf494ab6d01be59b5512398f0fee7:drivers/iio/dac/ad3530r.c>`
      - PR
      -
-   * - :git-linux:`dt-bindings <f2b1c53b4014d76c4f35aea4d1517ad70e9fcf64:Documentation/devicetree/bindings/iio/dac/adi%2Cad3530r.yaml>`
+   * - :git+linux:`dt-bindings <f2b1c53b4014d76c4f35aea4d1517ad70e9fcf64:Documentation/devicetree/bindings/iio/dac/adi%2Cad3530r.yaml>`
      - PR
      -
 

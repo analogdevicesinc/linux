@@ -43,7 +43,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`drivers/iio/frequency/ltc6952.c`
+   * - :git+linux:`main:drivers/iio/frequency/ltc6952.c`
      - No
      -
 
@@ -57,10 +57,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ltc6952.c`
+     - :git+linux:`main:drivers/iio/frequency/ltc6952.c`
      -
    * - Documentation
-     - :git-linux:`Documentation/devicetree/bindings/iio/frequency/adi,ltc6952.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/frequency/adi,ltc6952.yaml`
      -
 
 Enabling the driver

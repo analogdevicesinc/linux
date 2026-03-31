@@ -64,11 +64,11 @@ Files
    * - Function
      - Status
    * - driver
-     - :git-linux:`drivers/iio/dac/ad3530r.c`
+     - :git+linux:`main:drivers/iio/dac/ad3530r.c`
    * - dt-bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/dac/adi,ad3530r.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/dac/adi,ad3530r.yaml`
    * - overlay
-     - :git-linux:`rpi-6.6.y:arch/arm/boot/dts/overlays/rpi-ad3530r-overlay.dts`
+     - :git+linux:`rpi-6.6.y:arch/arm/boot/dts/overlays/rpi-ad3530r-overlay.dts`
 
 Example platform device initialization
 --------------------------------------

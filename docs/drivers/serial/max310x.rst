@@ -79,10 +79,10 @@ Example device tree
      - File
      -
    * - i2c dts
-     - :git-linux:`rpi-max14830-i2c-overlay.dts <rpi-5.10.y:arch/arm/boot/dts/overlays/rpi-max14830-i2c-overlay.dts>`
+     - :git+linux:`rpi-max14830-i2c-overlay.dts <rpi-5.10.y:arch/arm/boot/dts/overlays/rpi-max14830-i2c-overlay.dts>`
      -
    * - spi dts
-     - :git-linux:`rpi-max14830-spi-overlay.dts <rpi-5.10.y:arch/arm/boot/dts/overlays/rpi-max14830-spi-overlay.dts>`
+     - :git+linux:`rpi-max14830-spi-overlay.dts <rpi-5.10.y:arch/arm/boot/dts/overlays/rpi-max14830-spi-overlay.dts>`
      -
 
 Driver testing

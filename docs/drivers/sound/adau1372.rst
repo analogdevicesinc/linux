@@ -30,7 +30,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <asoc-adau1372:sound/soc/codecs/adau1372.c>`
+   * - :git+linux:`git <asoc-adau1372:sound/soc/codecs/adau1372.c>`
      - `WiP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adau1372.c>`__
      -
      -
@@ -45,16 +45,16 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`asoc-adau1372:sound/soc/codecs/adau1372.c`
+     - :git+linux:`asoc-adau1372:sound/soc/codecs/adau1372.c`
      -
    * - driver
-     - :git-linux:`asoc-adau1372:sound/soc/codecs/adau1372-i2c.c`
+     - :git+linux:`asoc-adau1372:sound/soc/codecs/adau1372-i2c.c`
      -
    * - driver
-     - :git-linux:`asoc-adau1372:sound/soc/codecs/adau1372-spi.c`
+     - :git+linux:`asoc-adau1372:sound/soc/codecs/adau1372-spi.c`
      -
    * - include
-     - :git-linux:`asoc-adau1372:sound/soc/codecs/adau1372.h`
+     - :git+linux:`asoc-adau1372:sound/soc/codecs/adau1372.h`
      -
 
 Example device initialization
