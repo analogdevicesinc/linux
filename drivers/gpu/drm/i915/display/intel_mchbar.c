@@ -7,10 +7,10 @@
 
 #include <drm/drm_print.h>
 
+#include "intel_de.h"
 #include "intel_display_core.h"
 #include "intel_mchbar.h"
 #include "intel_mchbar_regs.h"
-#include "intel_uncore.h"
 
 static bool has_mchbar_mirror(struct intel_display *display)
 {
@@ -59,28 +59,21 @@ static void assert_is_mchbar_reg(struct intel_display *display, i915_reg_t reg)
 
 u16 intel_mchbar_read16(struct intel_display *display, i915_reg_t reg)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
-
 	assert_is_mchbar_reg(display, reg);
 
-	return intel_uncore_read16(uncore, reg);
+	return intel_de_read16(display, reg);
 }
 
 u32 intel_mchbar_read(struct intel_display *display, i915_reg_t reg)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
-
 	assert_is_mchbar_reg(display, reg);
 
-	return intel_uncore_read(uncore, reg);
+	return intel_de_read(display, reg);
 }
 
 u64 intel_mchbar_read64_2x32(struct intel_display *display, i915_reg_t reg)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
-	i915_reg_t upper_reg = _MMIO(i915_mmio_reg_offset(reg) + 4);
-
 	assert_is_mchbar_reg(display, reg);
 
-	return intel_uncore_read64_2x32(uncore, reg, upper_reg);
+	return intel_de_read64_2x32(display, reg);
 }
