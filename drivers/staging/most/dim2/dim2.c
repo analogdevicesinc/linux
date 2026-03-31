@@ -271,7 +271,7 @@ static void service_done_flag(struct dim2_hdm *dev, int ch_idx)
 	unsigned long flags;
 	u8 *data;
 
-	if (!hdm_ch || !hdm_ch->is_initialized)
+	if (!hdm_ch->is_initialized)
 		return;
 
 	spin_lock_irqsave(&dim_lock, flags);
