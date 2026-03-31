@@ -1911,42 +1911,36 @@ static int smu_v15_0_8_set_soft_freq_limited_range(struct smu_context *smu,
 	if (smu_dpm->dpm_level != AMD_DPM_FORCED_LEVEL_MANUAL)
 		return -EINVAL;
 
-	if (smu_dpm->dpm_level == AMD_DPM_FORCED_LEVEL_MANUAL) {
-		if (min >= max) {
-			dev_err(smu->adev->dev,
-				"Minimum clk should be less than the maximum allowed clock\n");
-			return -EINVAL;
-		}
-
-		if (clk_type == SMU_GFXCLK || clk_type == SMU_SCLK) {
-			if ((min == pstate_table->gfxclk_pstate.curr.min) &&
-			    (max == pstate_table->gfxclk_pstate.curr.max))
-				return 0;
-
-			ret = smu_v15_0_8_set_gfx_soft_freq_limited_range(smu,
-									  min, max);
-			if (!ret) {
-				pstate_table->gfxclk_pstate.curr.min = min;
-				pstate_table->gfxclk_pstate.curr.max = max;
-			}
-		}
-
-		if (clk_type == SMU_UCLK) {
-			if (max == pstate_table->uclk_pstate.curr.max)
-				return 0;
-
-			ret = smu_v15_0_set_soft_freq_limited_range(smu,
-								    SMU_UCLK,
-								    0, max,
-								    false);
-			if (!ret)
-				pstate_table->uclk_pstate.curr.max = max;
-		}
-
-		return ret;
+	if (min >= max) {
+		dev_err(smu->adev->dev,
+			"Minimum clk should be less than the maximum allowed clock\n");
+		return -EINVAL;
 	}
 
-	return 0;
+	if (clk_type == SMU_GFXCLK || clk_type == SMU_SCLK) {
+		if ((min == pstate_table->gfxclk_pstate.curr.min) &&
+		    (max == pstate_table->gfxclk_pstate.curr.max))
+			return 0;
+
+		ret = smu_v15_0_8_set_gfx_soft_freq_limited_range(smu, min,
+								  max);
+		if (!ret) {
+			pstate_table->gfxclk_pstate.curr.min = min;
+			pstate_table->gfxclk_pstate.curr.max = max;
+		}
+	}
+
+	if (clk_type == SMU_UCLK) {
+		if (max == pstate_table->uclk_pstate.curr.max)
+			return 0;
+
+		ret = smu_v15_0_set_soft_freq_limited_range(smu, SMU_UCLK, 0,
+							    max, false);
+		if (!ret)
+			pstate_table->uclk_pstate.curr.max = max;
+	}
+
+	return ret;
 }
 
 static int smu_v15_0_8_od_edit_dpm_table(struct smu_context *smu,
