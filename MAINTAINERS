@@ -8154,6 +8154,7 @@ DRM DRIVER FOR NOVATEK NT35532 PANELS
 M:	Cristian Cozzolino <cristian_ci@protonmail.com>
 S:	Maintained
 F:	Documentation/devicetree/bindings/display/panel/novatek,nt35532.yaml
+F:	drivers/gpu/drm/panel/panel-novatek-nt35532.c
 
 DRM DRIVER FOR NOVATEK NT35560 PANELS
 M:	Linus Walleij <linusw@kernel.org>
