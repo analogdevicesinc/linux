@@ -91,11 +91,11 @@ void intel_fbdev_fb_bo_destroy(struct drm_gem_object *obj)
 	xe_bo_unpin_map_no_vm(gem_to_xe_bo(obj));
 }
 
-int intel_fbdev_fb_fill_info(struct drm_device *drm, struct fb_info *info,
-			     struct drm_gem_object *_obj, struct i915_vma *vma)
+int intel_fbdev_fb_fill_info(struct drm_gem_object *_obj, struct fb_info *info,
+			     struct i915_vma *vma)
 {
 	struct xe_bo *obj = gem_to_xe_bo(_obj);
-	struct pci_dev *pdev = to_pci_dev(drm->dev);
+	struct pci_dev *pdev = to_pci_dev(_obj->dev->dev);
 
 	if (!(obj->flags & XE_BO_FLAG_SYSTEM)) {
 		if (obj->flags & XE_BO_FLAG_STOLEN)
