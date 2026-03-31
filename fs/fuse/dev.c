@@ -79,10 +79,10 @@ void fuse_chan_set_initialized(struct fuse_chan *fch)
 	wake_up_all(&fch->blocked_waitq);
 }
 
-static bool fuse_block_alloc(struct fuse_conn *fc, bool for_background)
+static bool fuse_block_alloc(struct fuse_chan *fch, bool for_background)
 {
-	return !fc->chan->initialized || (for_background && fc->chan->blocked) ||
-	       (fc->chan->io_uring && fc->chan->connected && !fuse_uring_ready(fc->chan));
+	return !fch->initialized || (for_background && fch->blocked) ||
+	       (fch->io_uring && fch->connected && !fuse_uring_ready(fch));
 }
 
 static void fuse_drop_waiting(struct fuse_chan *fch)
@@ -108,10 +108,10 @@ static struct fuse_req *fuse_get_req(struct fuse_chan *fch, bool for_background)
 
 	atomic_inc(&fch->num_waiting);
 
-	if (fuse_block_alloc(fch->conn, for_background)) {
+	if (fuse_block_alloc(fch, for_background)) {
 		err = -EINTR;
 		if (wait_event_state_exclusive(fch->blocked_waitq,
-				!fuse_block_alloc(fch->conn, for_background),
+				!fuse_block_alloc(fch, for_background),
 				(TASK_KILLABLE | TASK_FREEZABLE)))
 			goto out;
 	}
@@ -2071,21 +2071,21 @@ static int fuse_notify_retrieve(struct fuse_conn *fc, unsigned int size,
  * if the FUSE daemon takes careful measures to avoid processing duplicated
  * non-idempotent requests.
  */
-static void fuse_resend(struct fuse_conn *fc)
+static void fuse_resend(struct fuse_chan *fch)
 {
 	struct fuse_dev *fud;
 	struct fuse_req *req, *next;
-	struct fuse_iqueue *fiq = &fc->chan->iq;
+	struct fuse_iqueue *fiq = &fch->iq;
 	LIST_HEAD(to_queue);
 	unsigned int i;
 
-	spin_lock(&fc->chan->lock);
-	if (!fc->chan->connected) {
-		spin_unlock(&fc->chan->lock);
+	spin_lock(&fch->lock);
+	if (!fch->connected) {
+		spin_unlock(&fch->lock);
 		return;
 	}
 
-	list_for_each_entry(fud, &fc->chan->devices, entry) {
+	list_for_each_entry(fud, &fch->devices, entry) {
 		struct fuse_pqueue *fpq = &fud->pq;
 
 		spin_lock(&fpq->lock);
@@ -2093,7 +2093,7 @@ static void fuse_resend(struct fuse_conn *fc)
 			list_splice_tail_init(&fpq->processing[i], &to_queue);
 		spin_unlock(&fpq->lock);
 	}
-	spin_unlock(&fc->chan->lock);
+	spin_unlock(&fch->lock);
 
 	list_for_each_entry_safe(req, next, &to_queue, list) {
 		set_bit(FR_PENDING, &req->flags);
@@ -2117,7 +2117,7 @@ static void fuse_resend(struct fuse_conn *fc)
 
 static int fuse_notify_resend(struct fuse_conn *fc)
 {
-	fuse_resend(fc);
+	fuse_resend(fc->chan);
 	return 0;
 }
 
@@ -2505,23 +2505,6 @@ void fuse_dev_end_requests(struct list_head *head)
 	}
 }
 
-static void end_polls(struct fuse_conn *fc)
-{
-	struct rb_node *p;
-
-	spin_lock(&fc->lock);
-	p = rb_first(&fc->polled_files);
-
-	while (p) {
-		struct fuse_file *ff;
-		ff = rb_entry(p, struct fuse_file, polled_node);
-		wake_up_interruptible_all(&ff->poll_wait);
-
-		p = rb_next(p);
-	}
-	spin_unlock(&fc->lock);
-}
-
 /*
  * Abort all requests.
  *
@@ -2599,7 +2582,7 @@ void fuse_chan_abort(struct fuse_chan *fch, bool abort_with_err)
 		wake_up_all(&fiq->waitq);
 		spin_unlock(&fiq->lock);
 		kill_fasync(&fiq->fasync, SIGIO, POLL_IN);
-		end_polls(fch->conn);
+		fuse_end_polls(fch->conn);
 		wake_up_all(&fch->blocked_waitq);
 		spin_unlock(&fch->lock);
 

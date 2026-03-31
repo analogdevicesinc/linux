@@ -49,6 +49,8 @@ void fuse_init_server_timeout(struct fuse_chan *fch, unsigned int timeout);
 void fuse_chan_abort(struct fuse_chan *fch, bool abort_with_err);
 void fuse_chan_wait_aborted(struct fuse_chan *fch);
 
+void fuse_end_polls(struct fuse_conn *fc);
+
 #ifdef CONFIG_FUSE_IO_URING
 bool fuse_uring_enabled(void);
 void fuse_uring_destruct(struct fuse_chan *fch);
