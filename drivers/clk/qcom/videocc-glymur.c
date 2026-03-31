@@ -495,7 +495,7 @@ static struct qcom_cc_driver_data video_cc_glymur_driver_data = {
 	.clk_regs_configure = clk_glymur_regs_configure,
 };
 
-static struct qcom_cc_desc video_cc_glymur_desc = {
+static const struct qcom_cc_desc video_cc_glymur_desc = {
 	.config = &video_cc_glymur_regmap_config,
 	.clks = video_cc_glymur_clocks,
 	.num_clks = ARRAY_SIZE(video_cc_glymur_clocks),
