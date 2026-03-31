@@ -14,9 +14,9 @@
 #include "intel_display_utils.h"
 #include "intel_display_regs.h"
 #include "intel_dram.h"
+#include "intel_mchbar.h"
 #include "intel_mchbar_regs.h"
 #include "intel_parent.h"
-#include "intel_uncore.h"
 #include "vlv_sideband.h"
 
 struct dram_dimm_info {
@@ -59,18 +59,15 @@ const char *intel_dram_type_str(enum intel_dram_type type)
 
 static enum intel_dram_type pnv_dram_type(struct intel_display *display)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
-
-	return intel_uncore_read(uncore, CSHRDDR3CTL) & CSHRDDR3CTL_DDR3 ?
+	return intel_mchbar_read(display, CSHRDDR3CTL) & CSHRDDR3CTL_DDR3 ?
 		INTEL_DRAM_DDR3 : INTEL_DRAM_DDR2;
 }
 
 static unsigned int pnv_mem_freq(struct intel_display *display)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
 	u32 tmp;
 
-	tmp = intel_uncore_read(uncore, CLKCFG);
+	tmp = intel_mchbar_read(display, CLKCFG);
 
 	switch (tmp & CLKCFG_MEM_MASK) {
 	case CLKCFG_MEM_533:
@@ -86,10 +83,9 @@ static unsigned int pnv_mem_freq(struct intel_display *display)
 
 static unsigned int ilk_mem_freq(struct intel_display *display)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
 	u16 ddrpll;
 
-	ddrpll = intel_uncore_read16(uncore, DDRMPLL1);
+	ddrpll = intel_mchbar_read16(display, DDRMPLL1);
 	switch (ddrpll & 0xff) {
 	case 0xc:
 		return 800000;
@@ -159,7 +155,6 @@ unsigned int intel_mem_freq(struct intel_display *display)
 
 static unsigned int i9xx_fsb_freq(struct intel_display *display)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
 	u32 fsb;
 
 	/*
@@ -170,7 +165,7 @@ static unsigned int i9xx_fsb_freq(struct intel_display *display)
 	 * don't know which registers have that information,
 	 * and all the relevant docs have gone to bit heaven :(
 	 */
-	fsb = intel_uncore_read(uncore, CLKCFG) & CLKCFG_FSB_MASK;
+	fsb = intel_mchbar_read(display, CLKCFG) & CLKCFG_FSB_MASK;
 
 	if (display->platform.pineview || display->platform.mobile) {
 		switch (fsb) {
@@ -215,10 +210,9 @@ static unsigned int i9xx_fsb_freq(struct intel_display *display)
 
 static unsigned int ilk_fsb_freq(struct intel_display *display)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
 	u16 fsb;
 
-	fsb = intel_uncore_read16(uncore, CSIPLL0) & 0x3ff;
+	fsb = intel_mchbar_read16(display, CSIPLL0) & 0x3ff;
 
 	switch (fsb) {
 	case 0x00c:
@@ -485,7 +479,6 @@ intel_is_dram_symmetric(const struct dram_channel_info *ch0,
 static int
 skl_dram_get_channels_info(struct intel_display *display, struct dram_info *dram_info)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
 	struct dram_channel_info ch0 = {}, ch1 = {};
 	u32 val;
 	int ret;
@@ -493,12 +486,12 @@ skl_dram_get_channels_info(struct intel_display *display, struct dram_info *dram
 	/* Assume 16Gb+ DIMMs are present until proven otherwise */
 	dram_info->has_16gb_dimms = true;
 
-	val = intel_uncore_read(uncore, SKL_MAD_DIMM_CH0_0_0_0_MCHBAR_MCMAIN);
+	val = intel_mchbar_read(display, SKL_MAD_DIMM_CH0_0_0_0_MCHBAR_MCMAIN);
 	ret = skl_dram_get_channel_info(display, &ch0, 0, val);
 	if (ret == 0)
 		dram_info->num_channels++;
 
-	val = intel_uncore_read(uncore, SKL_MAD_DIMM_CH1_0_0_0_MCHBAR_MCMAIN);
+	val = intel_mchbar_read(display, SKL_MAD_DIMM_CH1_0_0_0_MCHBAR_MCMAIN);
 	ret = skl_dram_get_channel_info(display, &ch1, 1, val);
 	if (ret == 0)
 		dram_info->num_channels++;
@@ -529,10 +522,9 @@ skl_dram_get_channels_info(struct intel_display *display, struct dram_info *dram
 static enum intel_dram_type
 skl_get_dram_type(struct intel_display *display)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
 	u32 val;
 
-	val = intel_uncore_read(uncore, SKL_MAD_INTER_CHANNEL_0_0_0_MCHBAR_MCMAIN);
+	val = intel_mchbar_read(display, SKL_MAD_INTER_CHANNEL_0_0_0_MCHBAR_MCMAIN);
 
 	switch (val & SKL_DRAM_DDR_TYPE_MASK) {
 	case SKL_DRAM_DDR_TYPE_DDR3:
@@ -643,7 +635,6 @@ static void bxt_get_dimm_info(struct dram_dimm_info *dimm, u32 val)
 
 static int bxt_get_dram_info(struct intel_display *display, struct dram_info *dram_info)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
 	u32 val;
 	u8 valid_ranks = 0;
 	int i;
@@ -655,7 +646,7 @@ static int bxt_get_dram_info(struct intel_display *display, struct dram_info *dr
 		struct dram_dimm_info dimm;
 		enum intel_dram_type type;
 
-		val = intel_uncore_read(uncore, BXT_D_CR_DRP0_DUNIT(i));
+		val = intel_mchbar_read(display, BXT_D_CR_DRP0_DUNIT(i));
 		if (val == 0xFFFFFFFF)
 			continue;
 
