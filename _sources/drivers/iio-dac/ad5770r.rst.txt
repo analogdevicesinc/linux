@@ -40,7 +40,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <drivers/iio/dac/+>`
+   * - :git+linux:`git <main:drivers/iio/dac/+>`
      - [No]
      -
 

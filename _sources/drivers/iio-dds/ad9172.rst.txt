@@ -64,7 +64,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/frequency/ad9172.c`
+   * - :git+linux:`main:drivers/iio/frequency/ad9172.c`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/ad9172.c>`__
      -
      -
@@ -79,22 +79,22 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ad9172.c`
+     - :git+linux:`main:drivers/iio/frequency/ad9172.c`
      -
    * - API driver
-     - :git-linux:`drivers/iio/frequency/ad917x`
+     - :git+linux:`main:drivers/iio/frequency/ad917x`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds_buffer_stream.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds_buffer_stream.c`
      -
    * - include
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.h`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
      -
    * - Documentation
-     - :git-linux:`adi,ad9172.txt <Documentation/devicetree/bindings/iio/frequency/adi,ad9172.txt>`
+     - :git+linux:`adi,ad9172.txt <main:Documentation/devicetree/bindings/iio/frequency/adi,ad9172.txt>`
      -
 
 Example device trees
@@ -106,16 +106,16 @@ Example device trees
      - File
      -
    * - dtsi
-     - :git-linux:`adi-ad9172-fmc-ebz.dtsi <arch/arm64/boot/dts/xilinx/adi-ad9172-fmc-ebz.dtsi>`
+     - :git+linux:`adi-ad9172-fmc-ebz.dtsi <main:arch/arm64/boot/dts/xilinx/adi-ad9172-fmc-ebz.dtsi>`
      -
    * - dts
-     - :git-linux:`zynqmp-zcu102-rev10-ad9172-fmc-ebz-mode4.dts (MODE 4, L = 4, M = 4, NP = 16, N = 16) <arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9172-fmc-ebz-mode4.dts>`
+     - :git+linux:`zynqmp-zcu102-rev10-ad9172-fmc-ebz-mode4.dts (MODE 4, L = 4, M = 4, NP = 16, N = 16) <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9172-fmc-ebz-mode4.dts>`
      -
    * - dts
-     - :git-linux:`zynqmp-zcu102-rev10-ad9172-fmc-ebz.dts (MODE 10, L = 8, M = 2, S = 2, NP = 16, N = 16, full bandwidth mode) <arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9172-fmc-ebz.dts>`
+     - :git+linux:`zynqmp-zcu102-rev10-ad9172-fmc-ebz.dts (MODE 10, L = 8, M = 2, S = 2, NP = 16, N = 16, full bandwidth mode) <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9172-fmc-ebz.dts>`
      -
    * - dts
-     - :git-linux:`zynq-zc706-adv7511-ad9172-fmc-ebz.dts (MODE 4, L = 4, M = 4, NP = 16, N = 16) <arch/arm/boot/dts/zynq-zc706-adv7511-ad9172-fmc-ebz.dts>`
+     - :git+linux:`zynq-zc706-adv7511-ad9172-fmc-ebz.dts (MODE 4, L = 4, M = 4, NP = 16, N = 16) <main:arch/arm/boot/dts/zynq-zc706-adv7511-ad9172-fmc-ebz.dts>`
      -
 
 Interrelated Device Drivers
@@ -134,10 +134,10 @@ Transport Layer Transmit AXI-DAC / DDS driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
      -
    * - include
-     - :git-linux:`drivers/iio/frequency/cf_axi_adc.h <drivers/iio/frequency/cf_axi_dds.h>`
+     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
      -
 
 **Documentation:** :ref:`axi-dac-dds-hdl`
@@ -152,7 +152,7 @@ Link Layer AXI JESD204B HDL driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_jesd204_tx.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
      -
 
 **Documentation:**
@@ -169,7 +169,7 @@ PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_adxcvr.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
      -
 
 **Documentation:**

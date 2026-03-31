@@ -82,7 +82,7 @@ Example platform device initialization
 The reference voltage may vary between boards and models. The platform_data for
 the device’s ``struct device`` holds this information.
 
-:git-linux:`ad7780_platform_data{} <drivers/staging/iio/adc/ad7780.h>`
+:git+linux:`ad7780_platform_data{} <main:drivers/staging/iio/adc/ad7780.h>`
 
 .. code:: c
 

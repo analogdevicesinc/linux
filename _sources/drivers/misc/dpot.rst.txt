@@ -95,7 +95,7 @@ Evaluation Boards
 - :adi:`EVAL-ADN2850SDZ`
 - PMOD-DPOT
 
-:git-linux:`/DEVID/-/Documentation/ <drivers/misc/ad525x_dpot.c>`
+:git+linux:`/DEVID/-/Documentation/ <main:drivers/misc/ad525x_dpot.c>`
 
 Description
 -----------

@@ -382,7 +382,7 @@ supported by build.sh are as follows.</p>
 <section id="checkpatch">
 <h3>Checkpatch<a class="headerlink" href="#checkpatch" title="Link to this heading"></a></h3>
 <p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/checkpatch.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc6)"><span>Checkpatch</span></a>
-(<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/scripts/checkpatch.pl" target="_blank">scripts/checkpatch.pl</a>) is a perl script which checks for trivial
+(<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/scripts/checkpatch.pl" target="_blank">scripts/checkpatch.pl</a>) is a perl script which checks for trivial
 style violations in patches and optionally corrects them. Checkpatch can also
 be run on file contexts and without the kernel tree.</p>
 <p>It is the bare-minimum tool before submitting any patch series.</p>
@@ -471,7 +471,7 @@ operating system doesn’t need to hard code details of the machine.</p>
 <p>Even though some devicetrees are provided with the Linux Kernel, in general,
 a custom devicetree will need to be written to describe a specific board or
 device, using the protopytes provided by the
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/Documentation/devicetree/bindings" target="_blank">Documentation/devicetree/bindings/**/*.yaml</a> files.</p>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings" target="_blank">Documentation/devicetree/bindings/**/*.yaml</a> files.</p>
 <p>When submitting dt-bindings, you <strong>must</strong> check:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
@@ -512,9 +512,10 @@ conventions, and lifecycle, helping maintain modularity and clarity. For an
 up-to-date map of these subsystems and their interfaces, see
 <a class="icon link reference external" href="https://docs.kernel.org/subsystem-apis.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc6)"><span>Kernel subsystem documentation</span></a>.</p>
 <p>When developing for a particular subsystem, look for the appropriate git tree
-in the <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/MAINTAINERS" target="_blank">MAINTAINERS</a> file to work on. Development branches may be
+in the <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/MAINTAINERS" target="_blank">MAINTAINERS</a> file to work on. Development branches may be
 force pushed. It is reasonable to base you work on top of the current latest
-tag, such as <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&amp;id=8f0b4cce4481fb22653697cced8d0d04027cb1e8" target="_blank">v6.19-rc1</a>
+tag, such as
+<a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&amp;id=8f0b4cce4481fb22653697cced8d0d04027cb1e8" target="_blank">v6.19-rc1</a>
 or near it, this avoids unnecessary merge commits when pulling changes.</p>
 <p>For some subsystems, CI/CD is automatically applied to developemnt branches as
 described at <a class="reference internal" href="ci.html#ci"><span class="std std-ref">Continuous integration</span></a>.</p>

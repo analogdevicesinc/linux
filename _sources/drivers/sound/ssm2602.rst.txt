@@ -377,7 +377,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git  <5.12:sound/soc/blackfin/bf5xx-ssm2602.c>`
+   * - :git+linux:`git  <5.12:sound/soc/blackfin/bf5xx-ssm2602.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bf5xx-ssm2602.c>`__
      -
      -

@@ -46,7 +46,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/jesd204/axi_jesd204b_gt.c`
+   * - :git+linux:`main:drivers/iio/jesd204/axi_jesd204b_gt.c`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/jesd204/axi_jesd204b_gt.c>`__
      -
      -
@@ -61,10 +61,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_jesd204b_gt.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204b_gt.c`
      -
    * - include
-     - :git-linux:`drivers/iio/jesd204/axi_jesd204b_gt.h`
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204b_gt.h`
      -
 
 Example platform device initialization

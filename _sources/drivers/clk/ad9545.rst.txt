@@ -37,16 +37,16 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`drivers/clk/adi/clk-ad9545.c`
+   * - :git+linux:`main:drivers/clk/adi/clk-ad9545.c`
      - No
      -
-   * - :git-linux:`drivers/clk/adi/clk-ad9545-i2c.c`
+   * - :git+linux:`main:drivers/clk/adi/clk-ad9545-i2c.c`
      - No
      -
-   * - :git-linux:`drivers/clk/adi/clk-ad9545-spi.c`
+   * - :git+linux:`main:drivers/clk/adi/clk-ad9545-spi.c`
      - No
      -
-   * - :git-linux:`drivers/clk/adi/clk-ad9545.h`
+   * - :git+linux:`main:drivers/clk/adi/clk-ad9545.h`
      - No
      -
 
@@ -60,16 +60,16 @@ Files
      - File
      -
    * - core driver
-     - :git-linux:`drivers/clk/adi/clk-ad9545.c`
+     - :git+linux:`main:drivers/clk/adi/clk-ad9545.c`
      -
    * - driver
-     - :git-linux:`drivers/clk/adi/clk-ad9545-i2c.c`
+     - :git+linux:`main:drivers/clk/adi/clk-ad9545-i2c.c`
      -
    * - driver
-     - :git-linux:`drivers/clk/adi/clk-ad9545-spi.c`
+     - :git+linux:`main:drivers/clk/adi/clk-ad9545-spi.c`
      -
    * - core include
-     - :git-linux:`drivers/clk/adi/clk-ad9545.h`
+     - :git+linux:`main:drivers/clk/adi/clk-ad9545.h`
      -
 
 Example I2C & SPI device initialization
@@ -118,7 +118,7 @@ Example I2C:
    };
 
 For more supported devicetree properties take a look to
-:git-linux:`dt-bindings <Documentation/devicetree/bindings/clock/clk-ad9545.yaml>`.
+:git+linux:`dt-bindings <main:Documentation/devicetree/bindings/clock/clk-ad9545.yaml>`.
 
 Enabling Linux driver support
 -----------------------------

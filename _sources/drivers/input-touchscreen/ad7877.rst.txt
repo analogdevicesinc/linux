@@ -103,14 +103,14 @@ These snippets are all from the same file.
 
    #include <linux/spi/ad7877.h>
 
-:git-linux:`spi_ad7877_chip_info{} <arch/blackfin/mach-bf537/boards/pnav10.c>`
-:git-linux:`bfin_ad7877_ts_info{} <arch/blackfin/mach-bf537/boards/pnav10.c>`
+:git+linux:`spi_ad7877_chip_info{} <main:arch/blackfin/mach-bf537/boards/pnav10.c>`
+:git+linux:`bfin_ad7877_ts_info{} <main:arch/blackfin/mach-bf537/boards/pnav10.c>`
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-spi-slave-devices
    :end-before: .. end-declaring-spi-slave-devices
 
-:git-linux:`bfin_spi_board_info[] <arch/blackfin/mach-bf537/boards/pnav10.c>`
+:git+linux:`bfin_spi_board_info[] <main:arch/blackfin/mach-bf537/boards/pnav10.c>`
 
 Adding Linux driver support
 ---------------------------

@@ -38,7 +38,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <drivers/iio/adc/ad7768-1.c+>`
+   * - :git+linux:`git <main:drivers/iio/adc/ad7768-1.c+>`
      - [No]
      -
 
@@ -51,7 +51,7 @@ Files
    * - Function
      - File
    * - driver
-     - :git-linux:`drivers/iio/adc/ad7768-1.c`
+     - :git+linux:`main:drivers/iio/adc/ad7768-1.c`
 
 Devicetree
 ~~~~~~~~~~

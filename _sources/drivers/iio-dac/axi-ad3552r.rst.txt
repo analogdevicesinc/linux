@@ -51,8 +51,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <cn0585_v1:drivers/iio/dac/axi-ad3552r.c>`
-     - :git-linux:`No <cn0585_v1:drivers/iio/dac/axi-ad3552r.c>`
+   * - :git+linux:`git <cn0585_v1:drivers/iio/dac/axi-ad3552r.c>`
+     - :git+linux:`No <cn0585_v1:drivers/iio/dac/axi-ad3552r.c>`
      -
      -
 
@@ -66,7 +66,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`cn0585_v1:drivers/iio/dac/axi-ad3552r.c`
+     - :git+linux:`cn0585_v1:drivers/iio/dac/axi-ad3552r.c`
      -
 
 Example Linux Device-Tree Initialization
@@ -105,7 +105,7 @@ Example:
    * - Function
      - File
    * - :adi:`EVAL-AD3552R` Device Tree
-     - :git-linux:`zynq-zed-adv7511-axi-ad3552r_evb.dts <ad3552r_eval:/arch/arm/boot/dts/zynq-zed-adv7511-axi-ad3552r_evb.dts>`
+     - :git+linux:`zynq-zed-adv7511-axi-ad3552r_evb.dts <ad3552r_eval:/arch/arm/boot/dts/zynq-zed-adv7511-axi-ad3552r_evb.dts>`
 
 Enabling Linux driver support
 -----------------------------

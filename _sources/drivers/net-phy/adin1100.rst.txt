@@ -58,7 +58,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/net/phy/adin1100.c`
+   * - :git+linux:`main:drivers/net/phy/adin1100.c`
      - `In Progress <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/phy/adin-t1l.c>`__
      -
      -
@@ -73,7 +73,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/net/phy/adin1100.c`
+     - :git+linux:`main:drivers/net/phy/adin1100.c`
      -
 
 Example platform device initialization
@@ -128,7 +128,7 @@ Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
 
 #. Hit the search button (typically the slash ``/`` key)
 #. Type ADIN1100, then hit Enter; if nothing shows up, the driver is not
-   available in your kernel tree, please use :git-linux:`/`
+   available in your kernel tree, please use :git+linux:`/`
 #. Press 1 (the key), then hit Enter
 #. You should see the location + dependencies for enabling the driver
 

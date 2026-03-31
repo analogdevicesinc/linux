@@ -39,7 +39,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`ADI tree <drivers/iio/adc/ad7625.c>`
+   * - :git+linux:`ADI tree <main:drivers/iio/adc/ad7625.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7625.c>`__
      -
      -
@@ -54,16 +54,16 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad7625.c`
+     - :git+linux:`main:drivers/iio/adc/ad7625.c`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad7625.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad7625.yaml`
      -
    * - ZedBoard example devicetree
-     - :git-linux:`arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts`
+     - :git+linux:`main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts`
      -
    * - ZedBoard example devicetree (ad7960)
-     - :git-linux:`arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts`
+     - :git+linux:`main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts`
      -
 
 Upstream documentation: https://docs.kernel.org/iio/ad7625.html
@@ -256,7 +256,7 @@ Examples
 ~~~~~~~~
 
 The AD7625 devicetree
-:git-linux:`example <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
+:git+linux:`example <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
 shows a case where EN1 is hard-wired high (and EN0 is implicitly hard-wired
 low):
 
@@ -276,7 +276,7 @@ low):
    };
 
 The AD7960
-:git-linux:`example <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
+:git+linux:`example <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
 shows how to specify all GPIOs as configurable and allow the driver to select
 the default configuration:
 
@@ -439,19 +439,19 @@ Evaluation Boards
      -
      -
    * - :adi:`EVAL-AD7625FMCZ <EVAL-AD7625>`
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
      -
      -
    * - :adi:`EVAL-AD7626FMCZ <EVAL-AD7626>`
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7625.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts>`
      -
      -
    * - :adi:`EVAL-AD7960FMCZ <EVAL-AD7960>`
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
      -
      -
    * - :adi:`EVAL-AD7961FMCZ <EVAL-AD7961>`
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7960.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts>`
      -
      -
 

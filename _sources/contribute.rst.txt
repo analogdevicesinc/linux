@@ -15,15 +15,15 @@ maintained by Analog Devices Inc.
 
 .. tip::
 
-   When using :git-linux:`/`, the :doc:`ci` system automates most checks inside
-   a container (:git-linux:`ci:container`). See :ref:`interactive-run` for
+   When using :git+linux:`/`, the :doc:`ci` system automates most checks inside
+   a container (:git+linux:`ci:container`). See :ref:`interactive-run` for
    interactive usage.
 
 Code checkers
 -------------
 
 There are many checkers to catch issues before submitting changes to the Kernel
-mailing lists. :git-linux:`ci:ci/build.sh` combines all of the checkers so that
+mailing lists. :git+linux:`ci:ci/build.sh` combines all of the checkers so that
 they can be run with one command using a standard configuration. The checkers
 supported by build.sh are as follows.
 
@@ -31,7 +31,7 @@ Checkpatch
 ~~~~~~~~~~
 
 :external+upstream:doc:`dev-tools/checkpatch`
-(:git-linux:`scripts/checkpatch.pl`) is a perl script which checks for trivial
+(:git+linux:`main:scripts/checkpatch.pl`) is a perl script which checks for trivial
 style violations in patches and optionally corrects them. Checkpatch can also
 be run on file contexts and without the kernel tree.
 
@@ -131,7 +131,7 @@ operating system doesn’t need to hard code details of the machine.
 Even though some devicetrees are provided with the Linux Kernel, in general,
 a custom devicetree will need to be written to describe a specific board or
 device, using the protopytes provided by the
-:git-linux:`Documentation/devicetree/bindings/**/*.yaml <Documentation/devicetree/bindings>` files.
+:git+linux:`Documentation/devicetree/bindings/**/*.yaml <main:Documentation/devicetree/bindings>` files.
 
 When submitting dt-bindings, you **must** check:
 
@@ -182,10 +182,10 @@ up-to-date map of these subsystems and their interfaces, see
 :external+upstream:doc:`subsystem-apis`.
 
 When developing for a particular subsystem, look for the appropriate git tree
-in the :git-linux:`MAINTAINERS` file to work on. Development branches may be
+in the :git+linux:`main:MAINTAINERS` file to work on. Development branches may be
 force pushed. It is reasonable to base you work on top of the current latest
-tag, such as `v6.19-rc1
-<https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&id=8f0b4cce4481fb22653697cced8d0d04027cb1e8>`__
+tag, such as
+`v6.19-rc1 <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&id=8f0b4cce4481fb22653697cced8d0d04027cb1e8>`__
 or near it, this avoids unnecessary merge commits when pulling changes.
 
 For some subsystems, CI/CD is automatically applied to developemnt branches as

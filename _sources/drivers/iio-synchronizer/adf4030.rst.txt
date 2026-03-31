@@ -39,7 +39,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/frequency/adf4030.c`
+   * - :git+linux:`main:drivers/iio/frequency/adf4030.c`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4030.c>`__
      -
      -
@@ -54,13 +54,13 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/adf4030.c`
+     - :git+linux:`main:drivers/iio/frequency/adf4030.c`
      -
    * - Documentation
-     - :git-linux:`adi,adf4030.yaml <Documentation/devicetree/bindings/iio/frequency/adi,adf4030.yaml>`
+     - :git+linux:`adi,adf4030.yaml <main:Documentation/devicetree/bindings/iio/frequency/adi,adf4030.yaml>`
      -
    * - ABI documentation
-     - :git-linux:`sysfs-bus-iio-frequency-adf4030 <Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4030>`
+     - :git+linux:`sysfs-bus-iio-frequency-adf4030 <main:Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4030>`
      -
 
 Example platform device initialization

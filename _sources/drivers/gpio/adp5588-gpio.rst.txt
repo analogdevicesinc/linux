@@ -70,9 +70,9 @@ Example platform device initialization
    :start-after: .. start-platform-data
    :end-before: .. end-platform-data
 
-:git-linux:`/i2c_board_info/-EOF <include/linux/i2c/adp5588.h>`
+:git+linux:`/i2c_board_info/-EOF <main:include/linux/i2c/adp5588.h>`
 
-:git-linux:`adp5588_gpio_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp5588_gpio_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-i2c-devices

@@ -86,7 +86,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <drivers/iio/adc/ad4630.c+>`
+   * - :git+linux:`git <main:drivers/iio/adc/ad4630.c+>`
      - [No]
      -
 
@@ -100,10 +100,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`ad4630.c <drivers/iio/adc/ad4630.c+>`
+     - :git+linux:`ad4630.c <main:drivers/iio/adc/ad4630.c+>`
      -
    * - devicetree
-     - :git-linux:`ad4630-24.dts <arch/arm/boot/dts/zynq-zed-adv7511-ad4630-24.dts+>`
+     - :git+linux:`ad4630-24.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad4630-24.dts+>`
      -
 
 ===== Devicetree =====

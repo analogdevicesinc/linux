@@ -40,7 +40,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git  <5.12:drivers/leds/leds-adp1650.c>`
+   * - :git+linux:`git  <5.12:drivers/leds/leds-adp1650.c>`
      - `In Progress <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/leds/leds-adp1650.c>`__
      -
      -

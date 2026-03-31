@@ -32,7 +32,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/gpu/drm/analog/analog_drm_drv.c <drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c>`
+   * - :git+linux:`drivers/gpu/drm/analog/analog_drm_drv.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c>`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpu/drm/adi/axi_hdmi_drv.c>`__
      -
      -
@@ -47,16 +47,16 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/gpu/drm/adi/axi_hdmi_drv.c <drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c>`
+     - :git+linux:`drivers/gpu/drm/adi/axi_hdmi_drv.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.c>`
      -
    * - driver
-     - :git-linux:`drivers/gpu/drm/adi/axi_hdmi_drv.h <drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.h>`
+     - :git+linux:`drivers/gpu/drm/adi/axi_hdmi_drv.h <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_drv.h>`
      -
    * - driver
-     - :git-linux:`drivers/gpu/drm/adi/axi_hdmi_crtc.c <drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_crtc.c>`
+     - :git+linux:`drivers/gpu/drm/adi/axi_hdmi_crtc.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_crtc.c>`
      -
    * - driver
-     - :git-linux:`drivers/gpu/drm/adi/axi_hdmi_encoder.c <drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_encoder.c>`
+     - :git+linux:`drivers/gpu/drm/adi/axi_hdmi_encoder.c <main:drivers/gpu/drm/adi_axi_hdmi/axi_hdmi_encoder.c>`
      -
 
 Example platform device initialization

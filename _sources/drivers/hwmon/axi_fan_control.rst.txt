@@ -38,7 +38,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/hwmon/axi_fan_control.c`
+   * - :git+linux:`main:drivers/hwmon/axi_fan_control.c`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/axi_fan_control.c>`__
      -
      -
@@ -53,7 +53,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/hwmon/axi_fan_control.c`
+     - :git+linux:`main:drivers/hwmon/axi_fan_control.c`
      -
 
 Example platform device initialization

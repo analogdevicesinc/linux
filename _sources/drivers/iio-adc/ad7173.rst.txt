@@ -60,7 +60,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/adc/ad7173.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/ad7173.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7173.c>`__
      -
      -
@@ -75,10 +75,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad7173.c`
+     - :git+linux:`main:drivers/iio/adc/ad7173.c`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad7173.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad7173.yaml`
      -
 
 Devicetree
@@ -216,7 +216,7 @@ Configuration differences between models
 .. note::
 
    For more devicetree examples and full bindings documentation, refer to
-   :git-linux:`adi,ad7173.yaml <Documentation/devicetree/bindings/iio/adc/adi,ad7173.yaml>`
+   :git+linux:`adi,ad7173.yaml <main:Documentation/devicetree/bindings/iio/adc/adi,ad7173.yaml>`
 
 Adding Linux driver support
 ---------------------------
@@ -325,7 +325,7 @@ Driver testing
 .. note::
 
    The channels above correspond to the following devicetree instance:
-   :git-linux:`rpi-ad7173-overlay.dts <rpi-6.6.y:arch/arm/boot/dts/overlays/rpi-ad7173-overlay.dts>`
+   :git+linux:`rpi-ad7173-overlay.dts <rpi-6.6.y:arch/arm/boot/dts/overlays/rpi-ad7173-overlay.dts>`
 
 Show device name
 ~~~~~~~~~~~~~~~~
@@ -439,7 +439,7 @@ Buffer management
 .. note::
 
    The channels above correspond to the following devicetree instance:
-   :git-linux:`rpi-ad7173-overlay.dts <rpi-6.6.y:arch/arm/boot/dts/overlays/rpi-ad7173-overlay.dts>`
+   :git+linux:`rpi-ad7173-overlay.dts <rpi-6.6.y:arch/arm/boot/dts/overlays/rpi-ad7173-overlay.dts>`
 
 .. include:: /include/iio-snippets.rst
    :start-after: .. start-typical-adc-scan-elements

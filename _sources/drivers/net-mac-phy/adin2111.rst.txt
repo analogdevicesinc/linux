@@ -42,7 +42,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`adin1110.c <drivers/net/ethernet/adi/adin1110.c>`
+   * - :git+linux:`adin1110.c <main:drivers/net/ethernet/adi/adin1110.c>`
      - Yes
      -
 
@@ -56,7 +56,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/net/ethernet/adi/adin1110.c <drivers/net/ethernet/adi>`
+     - :git+linux:`drivers/net/ethernet/adi/adin1110.c <main:drivers/net/ethernet/adi>`
      -
 
 Enabling Linux driver support

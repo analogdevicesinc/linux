@@ -58,8 +58,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/adc/ad9361.c>`
-     - :git-linux:`No <drivers/iio/adc/ad9361.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/ad9361.c>`
+     - :git+linux:`No <main:drivers/iio/adc/ad9361.c>`
      -
      -
 
@@ -73,16 +73,16 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad9361.c`
+     - :git+linux:`main:drivers/iio/adc/ad9361.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad9361_conv.c`
+     - :git+linux:`main:drivers/iio/adc/ad9361_conv.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/ad9361.h`
+     - :git+linux:`main:drivers/iio/adc/ad9361.h`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad9361.txt`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad9361.txt`
      -
 
 Related Device Drivers
@@ -95,13 +95,13 @@ Related Device Drivers
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
      -
 
 .. list-table::
@@ -111,10 +111,10 @@ Related Device Drivers
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
      -
    * - include
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.h`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
      -
 
 Device Driver Customization
@@ -141,11 +141,11 @@ Required devicetree properties:
    * - Function
      - File
    * - FMCOMMS2/3 Device Tree
-     - :git-linux:`adi-fmcomms2.dtsi <arch/arm/boot/dts/adi-fmcomms2.dtsi>`
+     - :git+linux:`adi-fmcomms2.dtsi <main:arch/arm/boot/dts/adi-fmcomms2.dtsi>`
    * - FMCOMMS4 Device Tree
-     - :git-linux:`adi-fmcomms4.dtsi <arch/arm/boot/dts/adi-fmcomms4.dtsi>`
+     - :git+linux:`adi-fmcomms4.dtsi <main:arch/arm/boot/dts/adi-fmcomms4.dtsi>`
    * - FMCOMMS5 Device Tree
-     - :git-linux:`adi-fmcomms5.dtsi <arch/arm/boot/dts/adi-fmcomms5.dtsi>`
+     - :git+linux:`adi-fmcomms5.dtsi <main:arch/arm/boot/dts/adi-fmcomms5.dtsi>`
 
 Enabling Linux driver support
 -----------------------------
@@ -350,7 +350,7 @@ operation depending on the configuration.
    go via ALERT. (Recent driver releases - do this now automatically…)
 
    You may want to checkout the ENSM Pin-Control test script here:
-   :git-linux_image_ADI-scripts:`test_ensm_pinctrl.sh <test_ensm_pinctrl.sh+>`
+   :git+linux_image_ADI-scripts:`test_ensm_pinctrl.sh <test_ensm_pinctrl.sh+>`
 
 Local Oscillator Control (LO)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -444,7 +444,7 @@ can be defined at any convenient time.
 .. tip::
 
    You may want to checkout the Fastlock Pin-Control test script here:
-   :git-linux_image_ADI-scripts:`test_tx_fastlock_pinctrl.sh <test_tx_fastlock_pinctrl.sh+>`
+   :git+linux_image_ADI-scripts:`test_tx_fastlock_pinctrl.sh <test_tx_fastlock_pinctrl.sh+>`
 
 Create Profile
 ''''''''''''''
@@ -721,7 +721,7 @@ In general the filters are either created using the:
 #. `libad9361-iio <https://github.com/analogdevicesinc/libad9361-iio>`__
 
 Some per-generated examples can be found here:
-:git-iio-oscilloscope:`AD936x example filters <filters+>`
+:git+iio-oscilloscope:`AD936x example filters <filters+>`
 
 Query current filter Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -930,7 +930,7 @@ below. Up to 15 gain tables (for different frequency ranges, or gain table
 modes) can be provided in a single file.
 
 Example:
-:git-linux:`ad9361_std_gaintable <firmware/ad9361_std_gaintable>`
+:git+linux:`ad9361_std_gaintable <main:firmware/ad9361_std_gaintable>`
 
 ::
 

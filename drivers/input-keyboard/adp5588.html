@@ -460,9 +460,9 @@ describing devices and how they are connected to the SoC. This can include
 available ports, chip variants, preferred modes, default initialization,
 additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/include/linux/i2c/adp5588.h" target="_blank">/i2c_board_info/-EOF</a></p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5588_keymap[]</a>
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5588_kpad_data{}</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/include/linux/i2c/adp5588.h" target="_blank">/i2c_board_info/-EOF</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5588_keymap[]</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">adp5588_kpad_data{}</a></p>
 <p>Unlike PCI or USB devices, I2C devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each I2C bus
 segment, and what address these devices are using. For this reason, the kernel

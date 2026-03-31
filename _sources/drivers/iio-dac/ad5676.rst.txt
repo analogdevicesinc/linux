@@ -75,7 +75,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/dac/+>`
+   * - :git+linux:`git <main:drivers/iio/dac/+>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/>`__
      -
      -
@@ -89,13 +89,13 @@ Files
    * - Function
      - File
    * - driver
-     - :git-linux:`drivers/iio/dac/ad5686.c`
+     - :git+linux:`main:drivers/iio/dac/ad5686.c`
    * - driver
-     - :git-linux:`drivers/iio/dac/ad5686.h`
+     - :git+linux:`main:drivers/iio/dac/ad5686.h`
    * - driver
-     - :git-linux:`drivers/iio/dac/ad5686-spi.c`
+     - :git+linux:`main:drivers/iio/dac/ad5686-spi.c`
    * - driver
-     - :git-linux:`drivers/iio/dac/ad5696-i2c.c`
+     - :git+linux:`main:drivers/iio/dac/ad5696-i2c.c`
 
 Devicetree
 ~~~~~~~~~~

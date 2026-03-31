@@ -465,7 +465,7 @@ additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
 <p>The reference voltage may vary between boards and models. The platform_data for
 the device’s <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> holds this information.</p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/staging/iio/adc/ad7780.h" target="_blank">ad7780_platform_data{}</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/staging/iio/adc/ad7780.h" target="_blank">ad7780_platform_data{}</a></p>
 <div class="highlight-c notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">ad7780_platform_data</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">ad7780_pdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="p">.</span><span class="n">vref_mv</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="mi">2500</span><span class="p">,</span>
 <span class="w">    </span><span class="p">.</span><span class="n">gpio_pdrst</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">GPIO_PF10</span><span class="p">,</span>

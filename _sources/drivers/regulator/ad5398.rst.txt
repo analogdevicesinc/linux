@@ -89,21 +89,21 @@ regulator DAC, you should revise the platform information accordingly.
 
 - Define device supply name exported by the driver.
 
-:git-linux:`ad5398_consumer{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad5398_consumer{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 - Define supply value range.
 
-:git-linux:`ad5398_regulator_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad5398_regulator_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 - Define supply name in platform_data for the virtual consumer to match and use.
 
-:git-linux:`ad5398_virt_consumer_device{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad5398_virt_consumer_device{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 - Define supply name for the user space consumer to match and use.
 
-:git-linux:`ad5398_bulk_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
-:git-linux:`ad5398_userspace_comsumer_data{} <arch/blackfin/mach-bf537/boards/stamp.c>`
-:git-linux:`ad5398_userspace_consumer_device{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad5398_bulk_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad5398_userspace_comsumer_data{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`ad5398_userspace_consumer_device{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 Driver Testing
 ^^^^^^^^^^^^^^

@@ -666,19 +666,19 @@ topology; defining more than one will fail the initialization of the topology</p
 <section id="tl-dr-show-me-the-code">
 <h3>TL;DR - show me the code<a class="headerlink" href="#tl-dr-show-me-the-code" title="Link to this heading"></a></h3>
 <p>The current source code of the JESD204 Linux framework resides in
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/drivers/jesd204/" target="_blank">drivers/jesd204/</a></p>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/jesd204/" target="_blank">drivers/jesd204/</a></p>
 <p>It is comprised of the current source files:</p>
 <ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/drivers/jesd204/jesd204-core.c" target="_blank">jesd204-core.c</a> - the core file
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:drivers/jesd204/jesd204-core.c" target="_blank">jesd204-core.c</a> - the core file
 of the framework - it reads the device-tree, constructs the topology</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/drivers/jesd204/jesd204-fsm.c" target="_blank">jesd204-fsm.c</a> - the entire FSM
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:drivers/jesd204/jesd204-fsm.c" target="_blank">jesd204-fsm.c</a> - the entire FSM
 logic</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/drivers/jesd204/jesd204-sysfs.c" target="_blank">jesd204-sysfs.c</a> - the Linux
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:drivers/jesd204/jesd204-sysfs.c" target="_blank">jesd204-sysfs.c</a> - the Linux
 sysfs code to export files for debug/control/etc under
 <strong>/sys/bus/jesd204/devices/jesd204:X</strong></p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/drivers/jesd204/jesd204-priv.h" target="_blank">jesd204-priv.h</a> - internal
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:drivers/jesd204/jesd204-priv.h" target="_blank">jesd204-priv.h</a> - internal
 framework structures/functions to be shared inside the framework</p></li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/include/linux/jesd204/jesd204.h" target="_blank">include/linux/jesd204/jesd204.h</a>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:include/linux/jesd204/jesd204.h" target="_blank">include/linux/jesd204/jesd204.h</a>
 - API definitions to be used by drivers registering with the framework</p></li>
 </ul>
 </section>
@@ -1016,7 +1016,7 @@ connections can be found below.</p>
 <figure class="align-default">
 <img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/zu11eg-fmcomms8-jesd204-fsm-topology.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/zu11eg-fmcomms8-jesd204-fsm-topology.png" />
 </figure>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts" target="_blank">Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts" target="_blank">Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts</a></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">SPDX</span><span class="o">-</span><span class="n">License</span><span class="o">-</span><span class="n">Identifier</span><span class="p">:</span> <span class="n">GPL</span><span class="o">-</span><span class="mf">2.0</span>
 <span class="o">/*</span>
  <span class="o">*</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADRV2CRR</span><span class="o">-</span><span class="n">FMC</span> <span class="n">using</span> <span class="n">ADRV9009</span><span class="o">-</span><span class="n">ZU11EG</span> <span class="n">System</span> <span class="n">on</span> <span class="n">Module</span> <span class="o">+</span> <span class="n">AD</span><span class="o">-</span><span class="n">FMCOMMS8</span><span class="o">-</span><span class="n">EBZ</span>
@@ -1226,7 +1226,7 @@ call this the <strong>PRIMARY</strong> setup. The right setup (#2) is therefore 
 <p>The devicetrees for both of them can be found below. They include the above
 example and just add/remove pieces which are required to synchronize such a
 distributed Multi-Topology system.</p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts" target="_blank">Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-primary.dts</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts" target="_blank">Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-primary.dts</a></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &quot;zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts&quot;</span>
 <span class="c1">#include &lt;dt-bindings/iio/frequency/hmc7044.h&gt;</span>
 <span class="c1">#include &lt;dt-bindings/jesd204/device-states.h&gt;</span>
@@ -1276,7 +1276,7 @@ distributed Multi-Topology system.</p>
 <code class="docutils literal notranslate"><span class="pre">jesd204-stop-states</span></code> array. These are states in which the jesd204-fsm
 framework pauses (stops) and waits for some external resume event to occur.</p></li>
 </ul>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts" target="_blank">Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-secondary.dts</a></p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts" target="_blank">Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-secondary.dts</a></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &quot;zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts&quot;</span>
 <span class="c1">#include &lt;dt-bindings/jesd204/device-states.h&gt;</span>
 

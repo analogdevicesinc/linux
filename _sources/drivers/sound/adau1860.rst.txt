@@ -31,7 +31,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <adau1860_dev:sound/soc/codecs/adau1860.c>`
+   * - :git+linux:`git <adau1860_dev:sound/soc/codecs/adau1860.c>`
      - No
      -
 
@@ -45,19 +45,19 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`adau1860_dev:sound/soc/codecs/adau1860.c`
+     - :git+linux:`adau1860_dev:sound/soc/codecs/adau1860.c`
      -
    * - driver
-     - :git-linux:`adau1860_dev:sound/soc/codecs/adau1860-i2c.c`
+     - :git+linux:`adau1860_dev:sound/soc/codecs/adau1860-i2c.c`
      -
    * - driver
-     - :git-linux:`adau1860_dev:sound/soc/codecs/adau1860-spi.c`
+     - :git+linux:`adau1860_dev:sound/soc/codecs/adau1860-spi.c`
      -
    * - include
-     - :git-linux:`adau1860_dev:sound/soc/codecs/adau1860.h`
+     - :git+linux:`adau1860_dev:sound/soc/codecs/adau1860.h`
      -
    * - include
-     - :git-linux:`adau1860_dev:include/sound/adau1860.h`
+     - :git+linux:`adau1860_dev:include/sound/adau1860.h`
      -
 
 Example device initialization

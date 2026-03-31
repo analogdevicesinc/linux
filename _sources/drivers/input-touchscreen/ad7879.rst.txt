@@ -573,4 +573,4 @@ Driver Source
 Most people should not care about the driver source - it just works as a normal
 Linux input device. If you are interested, you can look at the driver source:
 
-:git-linux:`ad7879_report() <drivers/input/touchscreen/ad7879.c>`
+:git+linux:`ad7879_report() <main:drivers/input/touchscreen/ad7879.c>`

@@ -90,7 +90,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`drivers/iio/adc/ad9208.c`
+   * - :git+linux:`main:drivers/iio/adc/ad9208.c`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad9208.c>`__
      -
      -
@@ -105,22 +105,22 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad9208.c`
+     - :git+linux:`main:drivers/iio/adc/ad9208.c`
      -
    * - API driver
-     - :git-linux:`drivers/iio/adc/ad9208`
+     - :git+linux:`main:drivers/iio/adc/ad9208`
      -
    * - core driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      -
    * - core driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
      -
    * - core include
-     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
      -
    * - Documentation
-     - :git-linux:`adi,ad9208.txt <Documentation/devicetree/bindings/iio/adc/adi,ad9208.txt>`
+     - :git+linux:`adi,ad9208.txt <main:Documentation/devicetree/bindings/iio/adc/adi,ad9208.txt>`
      -
 
 Example device trees
@@ -132,13 +132,13 @@ Example device trees
      - File
      -
    * - dtsi
-     - :git-linux:`adi-dual-ad9208.dtsi <arch/microblaze/boot/dts/adi-dual-ad9208.dtsi>`
+     - :git+linux:`adi-dual-ad9208.dtsi <main:arch/microblaze/boot/dts/adi-dual-ad9208.dtsi>`
      -
    * - dts
-     - :git-linux:`vcu118_dual_ad9208.dts <arch/microblaze/boot/dts/vcu118_dual_ad9208.dts>`
+     - :git+linux:`vcu118_dual_ad9208.dts <main:arch/microblaze/boot/dts/vcu118_dual_ad9208.dts>`
      -
    * - dts
-     - :git-linux:`zynqmp-zcu102-rev10-ad9208.dts <arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9208.dts>`
+     - :git+linux:`zynqmp-zcu102-rev10-ad9208.dts <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9208.dts>`
      -
 
 Example devicetree SPI device initialization

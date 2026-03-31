@@ -27,7 +27,7 @@ Status
 
    * - Source
      - Mainlined?
-   * - :git-linux:`drivers/iio/frequency/adf4382.c <main:drivers/iio/frequency/adf4382.c>`
+   * - :git+linux:`drivers/iio/frequency/adf4382.c <main:drivers/iio/frequency/adf4382.c>`
      - No
 
 Files
@@ -39,7 +39,7 @@ Files
    * - Function
      - File
    * - driver
-     - :git-linux:`drivers/iio/frequency/adf4382.c <main:drivers/iio/frequency/adf4382.c>`
+     - :git+linux:`drivers/iio/frequency/adf4382.c <main:drivers/iio/frequency/adf4382.c>`
 
 Overview
 --------

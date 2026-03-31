@@ -58,7 +58,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`drivers/iio/frequency/ad9517.c`
+   * - :git+linux:`main:drivers/iio/frequency/ad9517.c`
      - No
      -
 
@@ -72,7 +72,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/ad9517.c`
+     - :git+linux:`main:drivers/iio/frequency/ad9517.c`
      -
 
 Enabling the driver

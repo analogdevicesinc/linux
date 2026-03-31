@@ -38,7 +38,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <drivers/iio/adc/ltc2387.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/ltc2387.c>`
      - [No]
      -
 
@@ -52,10 +52,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ltc2387.c`
+     - :git+linux:`main:drivers/iio/adc/ltc2387.c`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/lltc,ltc2387.yaml <Documentation/devicetree/bindings/iio/adc/lltc%2Cltc2387.yaml>`
+     - :git+linux:`Documentation/devicetree/bindings/iio/adc/lltc,ltc2387.yaml <main:Documentation/devicetree/bindings/iio/adc/lltc%2Cltc2387.yaml>`
      -
 
 Driver testing

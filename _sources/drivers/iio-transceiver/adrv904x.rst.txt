@@ -121,7 +121,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <tree/koror_dev/drivers/iio/adc/koror/adrv904x.c+>`
+   * - :git+linux:`git <main:tree/koror_dev/drivers/iio/adc/koror/adrv904x.c+>`
      - No
      -
 
@@ -135,16 +135,16 @@ Files
      - File
      -
    * - driver source file
-     - :git-linux:`drivers/iio/adc/koror/adrv904x.c <tree/koror_dev/drivers/iio/adc/koror/adrv904x.c+>`
+     - :git+linux:`drivers/iio/adc/koror/adrv904x.c <main:tree/koror_dev/drivers/iio/adc/koror/adrv904x.c+>`
      -
    * - driver source file
-     - :git-linux:`drivers/iio/adc/koror/adrv904x_conv.c <tree/koror_dev/drivers/iio/adc/koror/adrv904x_conv.c+>`
+     - :git+linux:`drivers/iio/adc/koror/adrv904x_conv.c <main:tree/koror_dev/drivers/iio/adc/koror/adrv904x_conv.c+>`
      -
    * - driver include
-     - :git-linux:`drivers/iio/adc/koror/adrv904x.h <tree/koror_dev/drivers/iio/adc/koror/adrv904x.h+>`
+     - :git+linux:`drivers/iio/adc/koror/adrv904x.h <main:tree/koror_dev/drivers/iio/adc/koror/adrv904x.h+>`
      -
    * - Koror API driver
-     - :git-linux:`drivers/iio/adc/koror <tree/koror_dev/drivers/iio/adc/koror+>`
+     - :git+linux:`drivers/iio/adc/koror <main:tree/koror_dev/drivers/iio/adc/koror+>`
      -
 
 Interrelated Device Drivers
@@ -163,13 +163,13 @@ Receive AXI-ADC driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_ring_stream.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
      -
 
 Transmit AXI-DAC / DDS driver
@@ -182,10 +182,10 @@ Transmit AXI-DAC / DDS driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/cf_axi_dds.c`
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
      -
    * - include
-     - :git-linux:`drivers/iio/frequency/cf_axi_adc.h <drivers/iio/frequency/cf_axi_dds.h>`
+     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
      -
 
 AXI JESD204B HDL driver
@@ -198,10 +198,10 @@ AXI JESD204B HDL driver
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_jesd204_rx.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_jesd204_tx.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
      -
 
 AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
@@ -214,7 +214,7 @@ AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/jesd204/axi_adxcvr.c`
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
      -
 
 Device Driver Customization
@@ -320,7 +320,7 @@ Note that this is user generated with ADI evaluation software.
      - File
      -
    * - Steam
-     - :git-linux:`koror_dev:firmware/stream_image.bin`
+     - :git+linux:`koror_dev:firmware/stream_image.bin`
      -
 
 ARM Processor
@@ -356,7 +356,7 @@ ADRV904x software package.
      - File
      -
    * - ARM processor firmware
-     - :git-linux:`firmware/ADRV9040_FW.bin <koror_dev:firmware/ADRV9025_DPDCORE_FW.bin>`
+     - :git+linux:`firmware/ADRV9040_FW.bin <koror_dev:firmware/ADRV9025_DPDCORE_FW.bin>`
      -
 
 DFE Processor
@@ -386,7 +386,7 @@ DFE algorithms such as DPD, CLGC and VSWR.
      - File
      -
    * - DFE processor firmware
-     - :git-linux:`koror_dev:firmware/ADRV9040_DFE_CALS_FW.bin`
+     - :git+linux:`koror_dev:firmware/ADRV9040_DFE_CALS_FW.bin`
      -
 
 Gain Tables
@@ -408,7 +408,7 @@ adi,rx-gaintable-names = ``ADRV9040_RxGainTable.csv``;
      - File
      -
    * - RX Gain Correction table
-     - :git-linux:`koror_dev:firmware/ADRV9040_RxGainTable.csv`
+     - :git+linux:`koror_dev:firmware/ADRV9040_RxGainTable.csv`
      -
 
 Profile Binary
@@ -430,7 +430,7 @@ adi,device-config-name = ``DeviceProfileTest.bin``;
      - File
      -
    * - RX Gain Correction table
-     - :git-linux:`koror_dev:firmware/DeviceProfileTest.bin`
+     - :git+linux:`koror_dev:firmware/DeviceProfileTest.bin`
      -
 
 Enabling Linux driver support

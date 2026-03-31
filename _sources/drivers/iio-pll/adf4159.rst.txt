@@ -65,7 +65,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`drivers/iio/frequency/adf4159.c`
+   * - :git+linux:`main:drivers/iio/frequency/adf4159.c`
      - WIP
      -
 
@@ -79,13 +79,13 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/adf4159.c`
+     - :git+linux:`main:drivers/iio/frequency/adf4159.c`
      -
    * - Documentation
-     - :git-linux:`adf4159.yaml <Documentation/devicetree/bindings/iio/frequency/adf4159.yaml>`
+     - :git+linux:`adf4159.yaml <main:Documentation/devicetree/bindings/iio/frequency/adf4159.yaml>`
      -
    * - ABI documentation
-     - :git-linux:`sysfs-bus-iio-frequency-adf4159 <Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4159>`
+     - :git+linux:`sysfs-bus-iio-frequency-adf4159 <main:Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4159>`
      -
 
 Example device tree
@@ -97,7 +97,7 @@ Example device tree
      - File
      -
    * - dts
-     - :git-linux:`rpi-adf4159-overlay.dts <rpi-5.4.y:arch/arm/boot/dts/overlays/rpi-adf4159-overlay.dts>`
+     - :git+linux:`rpi-adf4159-overlay.dts <rpi-5.4.y:arch/arm/boot/dts/overlays/rpi-adf4159-overlay.dts>`
      -
 
 Example platform device initialization

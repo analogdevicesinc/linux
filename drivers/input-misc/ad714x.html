@@ -535,8 +535,8 @@ calling <code class="docutils literal notranslate"><span class="pre">i2c_registe
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
 <p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc6)"><span>How to instantiate I2C devices</span></a></p>
 <p>For AD7142 demo board, the platform information is:
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7142_i2c_button_plat{}</a>
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7142_i2c_platform_data{}</a></p>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7142_i2c_button_plat{}</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7142_i2c_platform_data{}</a></p>
 <p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
 Instead, the software must know which devices are connected on each SPI bus
 segment, and what slave selects these devices are using. For this reason, the
@@ -549,9 +549,9 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
 <p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.0.0-rc6)"><span>Overview of Linux kernel SPI support</span></a></p>
 <p>For AD7147 demo board, the platform information is:
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7147_spi_slider_plat{}</a>
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7147_spi_button_plat{}</a>
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7147_spi_platform_data{}</a></p>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7147_spi_slider_plat{}</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7147_spi_button_plat{}</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/arch/blackfin/mach-bf537/boards/stamp.c" target="_blank">ad7147_spi_platform_data{}</a></p>
 </section>
 <section id="adding-linux-driver-support">
 <h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>

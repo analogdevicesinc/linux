@@ -126,7 +126,7 @@ Example I2C:
    };
 
 For more supported devicetree properties take a look to
-:git-linux:`dt-bindings <Documentation/devicetree/bindings/hwmon/adi,ltc2947.yaml>`.
+:git+linux:`dt-bindings <main:Documentation/devicetree/bindings/hwmon/adi,ltc2947.yaml>`.
 
 Enabling Linux driver support
 -----------------------------

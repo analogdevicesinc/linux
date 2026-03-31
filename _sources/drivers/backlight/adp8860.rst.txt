@@ -210,8 +210,8 @@ Example platform device initialization
 
    #include <linux/i2c/adp8860.h>
 
-:git-linux:`adp8860_leds{} <arch/blackfin/mach-bf537/boards/stamp.c>`
-:git-linux:`adp8860_pdata{} <arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp8860_leds{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
+:git+linux:`adp8860_pdata{} <main:arch/blackfin/mach-bf537/boards/stamp.c>`
 
 .. include:: /include/platform-and-bus-model.rst
    :start-after: .. start-declaring-i2c-devices

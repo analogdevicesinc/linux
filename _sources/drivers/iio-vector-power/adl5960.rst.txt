@@ -44,7 +44,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/frequency/adl5960.c>`
+   * - :git+linux:`git <main:drivers/iio/frequency/adl5960.c>`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adl5960.c>`__
      -
      -
@@ -59,16 +59,16 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/adl5960.c`
+     - :git+linux:`main:drivers/iio/frequency/adl5960.c`
      -
    * - Documentation
-     - :git-linux:`Documentation/ABI/testing/sysfs-bus-iio-frequency-adl5960`
+     - :git+linux:`main:Documentation/ABI/testing/sysfs-bus-iio-frequency-adl5960`
      -
    * - Documentation
      - `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
      -
    * - dt-bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/frequency/adi,adl5960.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/frequency/adi,adl5960.yaml`
      -
 
 .. include:: /include/platform-and-bus-model.rst

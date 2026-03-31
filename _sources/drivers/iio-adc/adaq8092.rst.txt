@@ -47,8 +47,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/adc/adaq8092.c>`
-     - :git-linux:`No <drivers/iio/adc/adaq8092.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/adaq8092.c>`
+     - :git+linux:`No <main:drivers/iio/adc/adaq8092.c>`
      -
      -
 
@@ -62,7 +62,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/adaq8092.c`
+     - :git+linux:`main:drivers/iio/adc/adaq8092.c`
      -
 
 Related Device Drivers
@@ -75,10 +75,10 @@ Related Device Drivers
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/cf_axi_adc_core.c`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
      -
    * - include
-     - :git-linux:`drivers/iio/adc/cf_axi_adc.h`
+     - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
      -
 
 Example Linux Device-Tree Initialization
@@ -98,7 +98,7 @@ Required devicetree properties:
    * - Function
      - File
    * - EVAL-ADAQ8092 Device Tree
-     - :git-linux:`zynq-zed-adv7511-adaq8092.dts <arch/arm/boot/dts/zynq-zed-adv7511-adaq8092.dts>`
+     - :git+linux:`zynq-zed-adv7511-adaq8092.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-adaq8092.dts>`
 
 Enabling Linux driver support
 -----------------------------

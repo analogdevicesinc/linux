@@ -31,7 +31,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`git <drivers/iio/adc/ad4630.c>`
+   * - :git+linux:`git <main:drivers/iio/adc/ad4630.c>`
      - [No]
      -
 
@@ -45,16 +45,16 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad4630.c`
+     - :git+linux:`main:drivers/iio/adc/ad4630.c`
      -
    * - devicetree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad4630.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad4630.yaml`
      -
    * - devicetree for ad4630
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad4630-24.dts`
+     - :git+linux:`main:arch/arm/boot/dts/zynq-zed-adv7511-ad4630-24.dts`
      -
    * - devicetree for adaq4224
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-adaq4224-24.dts`
+     - :git+linux:`main:arch/arm/boot/dts/zynq-zed-adv7511-adaq4224-24.dts`
      -
 
 Overview

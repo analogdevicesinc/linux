@@ -200,7 +200,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git  <5.12:sound/soc/blackfin/bfin-eval-adav80x.c>`
+   * - :git+linux:`git  <5.12:sound/soc/blackfin/bfin-eval-adav80x.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c>`__
      -
      -

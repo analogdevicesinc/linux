@@ -41,7 +41,7 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`drivers/iio/frequency/adf4360.c`
+   * - :git+linux:`main:drivers/iio/frequency/adf4360.c`
      - No
      -
 
@@ -55,10 +55,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/frequency/adf4360.c`
+     - :git+linux:`main:drivers/iio/frequency/adf4360.c`
      -
    * - Documentation
-     - :git-linux:`Documentation/devicetree/bindings/iio/frequency/adi,adf4360.yaml`
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/frequency/adi,adf4360.yaml`
      -
 
 Enabling the driver

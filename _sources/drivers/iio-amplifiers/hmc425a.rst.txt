@@ -45,7 +45,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/amplifiers/hmc425a.c>`
+   * - :git+linux:`git <main:drivers/iio/amplifiers/hmc425a.c>`
      - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/amplifiers/hmc425a.c>`__
      -
      -
@@ -60,7 +60,7 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/amplifiers/hmc425a.c`
+     - :git+linux:`main:drivers/iio/amplifiers/hmc425a.c`
      -
    * - Documentation
      - `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__

@@ -48,8 +48,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <drivers/iio/frequency/adf5355.c>`
-     - :git-linux:`WIP <drivers/iio/frequency/adf5355.c>`
+   * - :git+linux:`git <main:drivers/iio/frequency/adf5355.c>`
+     - :git+linux:`WIP <main:drivers/iio/frequency/adf5355.c>`
      -
      -
 
@@ -62,11 +62,11 @@ Files
    * - Function
      - File
    * - driver
-     - :git-linux:`master?drivers/iio/frequency/adf5355.c <drivers/iio/frequency/adf5355.c>`
+     - :git+linux:`master?drivers/iio/frequency/adf5355.c <main:drivers/iio/frequency/adf5355.c>`
    * - include
-     - :git-linux:`master?include/linux/iio/frequency/adf5355.h <include/linux/iio/frequency/adf5355.h>`
+     - :git+linux:`master?include/linux/iio/frequency/adf5355.h <main:include/linux/iio/frequency/adf5355.h>`
    * - Documentation
-     - :git-linux:`master?Documentation/devicetree/bindings/iio/frequency/adf5355.txt <Documentation/devicetree/bindings/iio/frequency/adf5355.txt>`
+     - :git+linux:`master?Documentation/devicetree/bindings/iio/frequency/adf5355.txt <main:Documentation/devicetree/bindings/iio/frequency/adf5355.txt>`
 
 Example platform device initialization
 --------------------------------------

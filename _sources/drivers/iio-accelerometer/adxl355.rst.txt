@@ -55,19 +55,19 @@ Files
      - File
      -
    * - core driver
-     - :git-linux:`drivers/iio/accel/adxl355_core.c`
+     - :git+linux:`main:drivers/iio/accel/adxl355_core.c`
      -
    * - spi driver
-     - :git-linux:`drivers/iio/accel/adxl355_spi.c`
+     - :git+linux:`main:drivers/iio/accel/adxl355_spi.c`
      -
    * - i2c driver
-     - :git-linux:`drivers/iio/accel/adxl355_i2c.c`
+     - :git+linux:`main:drivers/iio/accel/adxl355_i2c.c`
      -
    * - header
-     - :git-linux:`drivers/iio/accel/adxl355.h`
+     - :git+linux:`main:drivers/iio/accel/adxl355.h`
      -
    * - Documentation
-     - :git-linux:`adi,adxl355.yaml <Documentation/devicetree/bindings/iio/accel/adi,adxl355.yaml>`
+     - :git+linux:`adi,adxl355.yaml <main:Documentation/devicetree/bindings/iio/accel/adi,adxl355.yaml>`
      -
 
 Example platform device initialization

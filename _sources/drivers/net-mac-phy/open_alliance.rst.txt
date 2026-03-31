@@ -54,13 +54,13 @@ Status
    * - Source
      - Mainlined?
      -
-   * - :git-linux:`open_alliance.c <adin1110-open-alliance:drivers/net/ethernet/open_alliance.c>`
+   * - :git+linux:`open_alliance.c <adin1110-open-alliance:drivers/net/ethernet/open_alliance.c>`
      - No
      -
-   * - :git-linux:`open_alliance.h <adin1110-open-alliance:include/linux/open_alliance.h>`
+   * - :git+linux:`open_alliance.h <adin1110-open-alliance:include/linux/open_alliance.h>`
      - No
      -
-   * - :git-linux:`adin1110.c <adin1110-open-alliance:drivers/net/ethernet/adi/adin1110.c>`
+   * - :git+linux:`adin1110.c <adin1110-open-alliance:drivers/net/ethernet/adi/adin1110.c>`
      - No
      -
 
@@ -74,13 +74,13 @@ Files
      - File
      -
    * - API
-     - :git-linux:`drivers/net/ethernet/open_alliance.c <adin1110-open-alliance:drivers/net>`
+     - :git+linux:`drivers/net/ethernet/open_alliance.c <adin1110-open-alliance:drivers/net>`
      -
    * - API
-     - :git-linux:`include/linux/open_alliance.h <adin1110-open-alliance:include/linux>`
+     - :git+linux:`include/linux/open_alliance.h <adin1110-open-alliance:include/linux>`
      -
    * - Driver
-     - :git-linux:`drivers/net/ethernet/adi/adin1110.c <adin1110-open-alliance:drivers/net/ethernet/adi/>`
+     - :git+linux:`drivers/net/ethernet/adi/adin1110.c <adin1110-open-alliance:drivers/net/ethernet/adi/>`
      -
 
 Enabling Linux driver support

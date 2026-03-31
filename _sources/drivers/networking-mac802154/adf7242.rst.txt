@@ -51,10 +51,10 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`adf7242.c <drivers/net/ieee802154/adf7242.c>`
+     - :git+linux:`adf7242.c <main:drivers/net/ieee802154/adf7242.c>`
      -
    * - include
-     - :git-linux:`adf7242.h <include/linux/spi/adf7242.h>`
+     - :git+linux:`adf7242.h <main:include/linux/spi/adf7242.h>`
      -
 
 Firmware for Automatic IEEE 802.15.4 Operating Modes (AN-1082)
@@ -141,7 +141,7 @@ Example Platform / Board file
 
 Alternatively, it is possible to declare the SPI devices from a DeviceTree file.
 Read the
-:git-linux:`documentation <Documentation/devicetree/bindings/net/ieee802154/adf7242.txt>`
+:git+linux:`documentation <main:Documentation/devicetree/bindings/net/ieee802154/adf7242.txt>`
 for more details.
 
 Example:

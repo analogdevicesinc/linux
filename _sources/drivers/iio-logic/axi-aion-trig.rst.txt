@@ -30,7 +30,7 @@ Status
 
    * - Source
      - Mainlined?
-   * - :git-linux:`drivers/iio/logic/axi-aion-trig.c <drivers/iio/logic/axi-aion-trig.c>`
+   * - :git+linux:`drivers/iio/logic/axi-aion-trig.c <main:drivers/iio/logic/axi-aion-trig.c>`
      - No
 
 Files
@@ -42,7 +42,7 @@ Files
    * - Function
      - File
    * - driver
-     - :git-linux:`drivers/iio/logic/axi-aion-trig.c <drivers/iio/logic/axi-aion-trig.c>`
+     - :git+linux:`drivers/iio/logic/axi-aion-trig.c <main:drivers/iio/logic/axi-aion-trig.c>`
 
 Overview
 --------

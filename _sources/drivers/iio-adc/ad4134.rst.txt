@@ -42,8 +42,8 @@ Status
      - Mainlined?
      -
      -
-   * - :git-linux:`git <eval-ad7134fmcz-review+>`
-     - :git-linux:`No <eval-ad7134fmcz-review+>`
+   * - :git+linux:`git <main:eval-ad7134fmcz-review+>`
+     - :git+linux:`No <main:eval-ad7134fmcz-review+>`
      -
      -
 
@@ -57,40 +57,40 @@ Files
      - File
      -
    * - driver
-     - :git-linux:`drivers/iio/adc/ad4134.c <eval-ad7134fmcz-review/drivers/iio/adc/ad4134.c+>`
+     - :git+linux:`drivers/iio/adc/ad4134.c <main:eval-ad7134fmcz-review/drivers/iio/adc/ad4134.c+>`
      -
    * - device tree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad4134.yaml <eval-ad7134fmcz-review/Documentation/devicetree/bindings/iio/adc/adi%2Cad4134.yaml+>`
+     - :git+linux:`Documentation/devicetree/bindings/iio/adc/adi,ad4134.yaml <main:eval-ad7134fmcz-review/Documentation/devicetree/bindings/iio/adc/adi%2Cad4134.yaml+>`
      -
    * - device tree bindings
-     - :git-linux:`Documentation/devicetree/bindings/iio/adc/adi,ad4134-spi-engine.yaml <eval-ad7134fmcz-review/Documentation/devicetree/bindings/iio/adc/adi%2Cad4134-spi-engine.yaml+>`
+     - :git+linux:`Documentation/devicetree/bindings/iio/adc/adi,ad4134-spi-engine.yaml <main:eval-ad7134fmcz-review/Documentation/devicetree/bindings/iio/adc/adi%2Cad4134-spi-engine.yaml+>`
      -
    * - devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad4134-16.dts <eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad4134-16.dts+>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad4134-16.dts <main:eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad4134-16.dts+>`
      -
    * - devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad4134-16CRC.dts <eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad4134-16CRC.dts+>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad4134-16CRC.dts <main:eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad4134-16CRC.dts+>`
      -
    * - devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad4134-24.dts <eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad4134-24.dts+>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad4134-24.dts <main:eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad4134-24.dts+>`
      -
    * - devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad4134-24CRC.dts <eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad4134-24CRC.dts+>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad4134-24CRC.dts <main:eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad4134-24CRC.dts+>`
      -
    * - devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7134-16.dts <eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad7134-16.dts+>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7134-16.dts <main:eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad7134-16.dts+>`
      -
    * - devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7134-16CRC.dts <eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad7134-16CRC.dts+>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7134-16CRC.dts <main:eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad7134-16CRC.dts+>`
      -
    * - devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7134-24.dts <eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad7134-24.dts+>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7134-24.dts <main:eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad7134-24.dts+>`
      -
    * - devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7134-24CRC.dts <eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad7134-24CRC.dts+>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-ad7134-24CRC.dts <main:eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-ad7134-24CRC.dts+>`
      -
    * - devicetree
-     - :git-linux:`arch/arm/boot/dts/zynq-zed-adv7511-cn0561-24.dts <eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-cn0561-24.dts+>`
+     - :git+linux:`arch/arm/boot/dts/zynq-zed-adv7511-cn0561-24.dts <main:eval-ad7134fmcz-review/arch/arm/boot/dts/zynq-zed-adv7511-cn0561-24.dts+>`
      -
 
 Quick Start Guide
@@ -202,10 +202,10 @@ Get BOOT.BIN from HDL project
 
 To achieve high performance with AD4134 and similar ADCs, the hardware platform
 must have an integrated FPGA. To configure the FPGA to properly support them,
-ADI engineers provide :git-hdl:`HDL reference projects </>` from which one may
-use :git-hdl:`ad4134_fmc <tree/main/projects/ad4134_fmc+>`,
-:git-hdl:`ad7134_fmc <tree/main/projects/ad7134_fmc+>`, or
-:git-hdl:`cn0561 <tree/main/projects/cn0561+>`.
+ADI engineers provide :git+hdl:`HDL reference projects </>` from which one may
+use :git+hdl:`ad4134_fmc <tree/main/projects/ad4134_fmc+>`,
+:git+hdl:`ad7134_fmc <tree/main/projects/ad7134_fmc+>`, or
+:git+hdl:`cn0561 <tree/main/projects/cn0561+>`.
 
 Follow the build instructions on the :external+hdl:ref:`build_hdl` page to build
 the appropriate HDL project and generate a BOOT.BIN file from that.

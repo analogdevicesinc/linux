@@ -67,9 +67,9 @@ Files
    * - Function
      - File
    * - driver
-     - :git-linux:`master?drivers/iio/dac/ltc2664.c <drivers/iio/dac/ltc2664.c>`
+     - :git+linux:`master?drivers/iio/dac/ltc2664.c <main:drivers/iio/dac/ltc2664.c>`
    * - dt-bindings
-     - :git-linux:`master?Documentation/devicetree/bindings/iio/dac/adi,ltc2664.yaml <Documentation/devicetree/bindings/iio/dac/adi,ltc2664.yaml>`
+     - :git+linux:`master?Documentation/devicetree/bindings/iio/dac/adi,ltc2664.yaml <main:Documentation/devicetree/bindings/iio/dac/adi,ltc2664.yaml>`
 
 Example platform device initialization
 --------------------------------------
