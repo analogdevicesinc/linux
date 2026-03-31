@@ -354,7 +354,7 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	u64 offload_offset_ns;
 	u64 odr_high_time_ns;
 	unsigned int odr_hz;
-	u64 target = 0;
+	u64 target = 10;
 	int ret;
 
 	/*
