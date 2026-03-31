@@ -1890,9 +1890,9 @@ static bool vlv_punit_is_power_gated(struct intel_display *display, u32 reg0)
 {
 	bool ret;
 
-	vlv_punit_get(display->drm);
-	ret = (vlv_punit_read(display->drm, reg0) & SSPM0_SSC_MASK) == SSPM0_SSC_PWR_GATE;
-	vlv_punit_put(display->drm);
+	vlv_punit_get(display);
+	ret = (vlv_punit_read(display, reg0) & SSPM0_SSC_MASK) == SSPM0_SSC_PWR_GATE;
+	vlv_punit_put(display);
 
 	return ret;
 }
