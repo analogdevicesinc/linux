@@ -63,7 +63,7 @@ struct vs_format {
 	bool uv_swizzle;
 };
 
-void drm_format_to_vs_format(u32 drm_format, struct vs_format *vs_format);
+int drm_format_to_vs_format(u32 drm_format, struct vs_format *vs_format);
 dma_addr_t vs_fb_get_dma_addr(struct drm_framebuffer *fb,
 			      const struct drm_rect *src_rect);
 

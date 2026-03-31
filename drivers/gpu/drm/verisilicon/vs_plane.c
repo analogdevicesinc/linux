@@ -12,7 +12,7 @@
 
 #include "vs_plane.h"
 
-void drm_format_to_vs_format(u32 drm_format, struct vs_format *vs_format)
+int drm_format_to_vs_format(u32 drm_format, struct vs_format *vs_format)
 {
 	switch (drm_format) {
 	case DRM_FORMAT_XRGB4444:
@@ -62,7 +62,7 @@ void drm_format_to_vs_format(u32 drm_format, struct vs_format *vs_format)
 		vs_format->color = VSDC_COLOR_FORMAT_A2R10G10B10;
 		break;
 	default:
-		pr_warn("Unexpected drm format!\n");
+		return -EINVAL;
 	}
 
 	switch (drm_format) {
@@ -101,6 +101,8 @@ void drm_format_to_vs_format(u32 drm_format, struct vs_format *vs_format)
 
 	/* N/A for non-YUV formats */
 	vs_format->uv_swizzle = false;
+
+	return 0;
 }
 
 dma_addr_t vs_fb_get_dma_addr(struct drm_framebuffer *fb,
