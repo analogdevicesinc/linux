@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices ADG1712 quad SPST switch GPIO driver
+ * Analog Devices ADG1712/ADG2712 quad SPST switch GPIO driver
  *
  * Copyright 2025 Analog Devices Inc.
  *
@@ -125,6 +125,7 @@ static int adg1712_probe(struct platform_device *pdev)
 
 static const struct of_device_id adg1712_dt_ids[] = {
 	{ .compatible = "adi,adg1712", },
+	{ .compatible = "adi,adg2712", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adg1712_dt_ids);
@@ -138,6 +139,6 @@ static struct platform_driver adg1712_driver = {
 };
 module_platform_driver(adg1712_driver);
 
-MODULE_DESCRIPTION("Analog Devices ADG1712 quad SPST switch GPIO driver");
+MODULE_DESCRIPTION("Analog Devices ADG1712/ADG2712 quad SPST switch GPIO driver");
 MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com>");
 MODULE_LICENSE("GPL");
