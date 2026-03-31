@@ -6,9 +6,9 @@
 
 #include <linux/types.h>
 
-struct drm_device;
+struct drm_i915_private;
 
-bool i915_bo_fbdev_prefer_stolen(struct drm_device *drm, unsigned int size);
+bool i915_bo_fbdev_prefer_stolen(struct drm_i915_private *i915, unsigned int size);
 
 extern const struct intel_display_bo_interface i915_display_bo_interface;
 

@@ -150,10 +150,8 @@ static u32 i915_bo_fbdev_pitch_align(u32 stride)
 	return ALIGN(stride, 64);
 }
 
-bool i915_bo_fbdev_prefer_stolen(struct drm_device *drm, unsigned int size)
+bool i915_bo_fbdev_prefer_stolen(struct drm_i915_private *i915, unsigned int size)
 {
-	struct drm_i915_private *i915 = to_i915(drm);
-
 	/* Skip stolen on MTL as Wa_22018444074 mitigation. */
 	if (IS_METEORLAKE(i915))
 		return false;
@@ -177,7 +175,7 @@ static struct drm_gem_object *i915_bo_fbdev_create(struct drm_device *drm, int s
 						  I915_BO_ALLOC_CONTIGUOUS |
 						  I915_BO_ALLOC_USER);
 	} else {
-		if (i915_bo_fbdev_prefer_stolen(drm, size))
+		if (i915_bo_fbdev_prefer_stolen(i915, size))
 			obj = i915_gem_object_create_stolen(i915, size);
 		else
 			drm_info(drm, "Allocating fbdev: Stolen memory not preferred.\n");
