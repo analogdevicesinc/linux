@@ -8,7 +8,7 @@
 
     <title>Drivers &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../_static/app.min.css?v=5c8d5ce8" />
+    <link rel="stylesheet" type="text/css" href="../_static/app.min.css?v=833c9372" />
     <script async="async" src="../_static/app.umd.js?v=f78f54ff"></script>
     <link rel="icon" href="../_static/icon.svg"/>
     <link rel="index" title="Index" href="../genindex.html" />
@@ -229,6 +229,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-mxfe/ad9081.html">AD9081</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-pll/ad9162.html">AD9162</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-pll/ad9508.html">AD9508</a></li>
@@ -240,6 +241,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="iio-pll/adf4360.html">ADF4360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-pll/adf4371.html">ADF4371</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="iio-pll/adf4382.html">ADF4382</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-pll/adf5355.html">ADF5355</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-pll/admfm2000.html">ADMFM2000</a></li>
 <li class="toctree-l2"><a class="reference internal" href="iio-pll/admv1013.html">ADMV1013</a></li>
@@ -280,6 +282,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
 <li class="toctree-l2"><a class="reference internal" href="jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
 <li class="toctree-l2"><a class="reference internal" href="leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="misc/axi-hsci.html">AXI HSCI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="misc/dpot.html">Digital Potentiometer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="multifunction-device/adp5520.html">ADP5520</a></li>
 <li class="toctree-l2"><a class="reference internal" href="mux/adgs1408.html">ADGS1408</a></li>
@@ -665,6 +668,12 @@ and Current Sensors.</p>
 <li><p><a class="reference internal" href="iio-inertial-measurement-units/adis16480.html">ADIS16480</a></p>
 <p>ADIS16480 IIO Inertial Measurement Unit.</p>
 </li>
+<li><p><a class="reference internal" href="iio-logic/axi-aion-trig.html">AXI AION Trigger</a></p>
+<p>The AXI AION Trigger is an FPGA IP core driver that provides precision trigger
+generation and BSYNC Time-of-Flight (ToF) synchronization for multi-chip
+high-speed data converter systems. It is a key component in achieving
+synchronization between AD9084/AD9088 MxFE devices.</p>
+</li>
 <li><p><a class="reference internal" href="iio-mxfe/ad9081.html">AD9081</a></p>
 <p>AD9081 AD9081 MxFE Linux Driver.</p>
 </li>
@@ -698,6 +707,13 @@ Driver.</p>
 </li>
 <li><p><a class="reference internal" href="iio-pll/adf4377.html">ADF4377</a></p>
 <p>ADF4377 IIO Wideband Synthesizer with Integrated VCO Linux Driver.</p>
+</li>
+<li><p><a class="reference internal" href="iio-pll/adf4382.html">ADF4382</a></p>
+<p>The ADF4382 is a high performance, ultralow jitter, dual output integer-N
+and fractional-N phase-locked loop (PLL) with an integrated voltage controlled
+oscillator (VCO). The ADF4382 operates with a VCO frequency range of 11 GHz
+to 22 GHz (ADF4382A supports 11.5 GHz to 21 GHz), with output frequencies
+from 687.5 MHz to 22 GHz via configurable output dividers.</p>
 </li>
 <li><p><a class="reference internal" href="iio-pll/adf5355.html">ADF5355</a></p>
 <p>ADF5355 IIO Wideband Synthesizer Linux Driver.</p>
@@ -819,6 +835,12 @@ Driver.</p>
 </li>
 <li><p><a class="reference internal" href="leds/adp1650.html">ADP1650</a></p>
 <p>ADP1650 LED Flash Linux Driver.</p>
+</li>
+<li><p><a class="reference internal" href="misc/axi-hsci.html">AXI HSCI</a></p>
+<p>The AXI HSCI (High-Speed Communication Interface) is an FPGA IP core driver
+that provides a high-speed serial communication interface for AD9084/AD9088
+MxFE data converters. It enables efficient register access and data transfer
+between the FPGA and the MxFE devices at speeds up to 800 MHz.</p>
 </li>
 <li><p><a class="reference internal" href="misc/dpot.html">Digital Potentiometer</a></p>
 <p>Digital Potentiometer Linux Driver.</p>

@@ -8,13 +8,13 @@
 
     <title>AD9081 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=5c8d5ce8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=833c9372" />
     <script async="async" src="../../_static/app.umd.js?v=f78f54ff"></script>
     <link rel="icon" href="../../_static/icon.svg"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="AD9162" href="../iio-pll/ad9162.html" />
-    <link rel="prev" title="ADIS16480" href="../iio-inertial-measurement-units/adis16480.html" />
+    <link rel="prev" title="AXI AION Trigger" href="../iio-logic/axi-aion-trig.html" />
    
   
   
@@ -385,6 +385,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">AD9081</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
@@ -396,6 +397,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
@@ -436,6 +438,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
@@ -788,7 +791,7 @@ node, there are two child-nodes (<code class="docutils literal notranslate"><spa
 of DAC or ADC only operation, both nodes are required and must contain at least
 the <code class="docutils literal notranslate"><span class="pre">adi,dac-frequency-hz</span></code> and respectively the <code class="docutils literal notranslate"><span class="pre">adi,adc-frequency-hz</span></code>
 property. However omitting the child nodes will disable this ADC/DAC data path.</p>
-<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="na">spi</span><span class="w"> </span><span class="p">{</span>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="o">&amp;</span><span class="nf">spi</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nl">trx0_ad9081</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9081</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 
 <span class="w">        </span><span class="c1">// Device common properties</span>
@@ -1831,7 +1834,7 @@ channelizers</p></li>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/iio/adc/adi,ad9081.h&gt;</span>
 <span class="cp">#include</span><span class="cm"> </span><span class="cpf">&lt;dt-bindings/gpio/gpio.h&gt;</span>
 
-<span class="o">&amp;</span><span class="na">spi</span><span class="w"> </span><span class="p">{</span>
+<span class="o">&amp;</span><span class="nf">spi</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nl">trx0_ad9081</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9081</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">        </span><span class="kr">#address-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
 <span class="w">        </span><span class="kr">#size-cells</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
@@ -3399,7 +3402,7 @@ configuration and CTLE (Continuous Time Linear Equalizer) settings.</p>
           </div>
               <div class="related">
                 &nbsp;
-    <a href="../iio-inertial-measurement-units/adis16480.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">ADIS16480</a>
+    <a href="../iio-logic/axi-aion-trig.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AXI AION Trigger</a>
     <a href="../iio-pll/ad9162.html" title="Next document (Alt+Shift+RightArrow)" class="next">AD9162</a>
               </div>
           
