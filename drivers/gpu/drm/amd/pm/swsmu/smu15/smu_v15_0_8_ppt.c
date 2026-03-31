@@ -1611,8 +1611,6 @@ static ssize_t smu_v15_0_8_get_gpu_metrics(struct smu_context *smu, void **table
 	uint32_t mid_mask = adev->aid_mask;
 	MetricsTable_t *metrics;
 
-	metrics = kzalloc(sizeof(MetricsTable_t), GFP_KERNEL);
-
 	ret = smu_v15_0_8_get_metrics_table_internal(smu, 1, NULL);
 	if (ret)
 		return ret;
