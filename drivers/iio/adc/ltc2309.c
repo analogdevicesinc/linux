@@ -121,22 +121,22 @@ static const struct iio_chan_spec ltc2309_channels[] = {
 
 struct ltc2309_chip_info {
 	const char *name;
-	const struct iio_chan_spec *channels;
 	unsigned int read_delay_us;
 	int num_channels;
+	const struct iio_chan_spec *channels __counted_by_ptr(num_channels);
 };
 
 static const struct ltc2309_chip_info ltc2305_chip_info = {
 	.name = "ltc2305",
-	.channels = ltc2305_channels,
 	.read_delay_us = 2,
 	.num_channels = ARRAY_SIZE(ltc2305_channels),
+	.channels = ltc2305_channels,
 };
 
 static const struct ltc2309_chip_info ltc2309_chip_info = {
 	.name = "ltc2309",
-	.channels = ltc2309_channels,
 	.num_channels = ARRAY_SIZE(ltc2309_channels),
+	.channels = ltc2309_channels,
 };
 
 static int ltc2309_read_raw_channel(struct ltc2309 *ltc2309,
