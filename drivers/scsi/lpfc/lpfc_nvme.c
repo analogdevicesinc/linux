@@ -1296,8 +1296,6 @@ lpfc_nvme_prep_io_cmd(struct lpfc_vport *vport,
 	/* Word 10 */
 	bf_set(wqe_xchg, &wqe->fcp_iwrite.wqe_com, LPFC_NVME_XCHG);
 
-	/* Words 13 14 15 are for PBDE support */
-
 	/* add the VMID tags as per switch response */
 	if (unlikely(lpfc_ncmd->cur_iocbq.cmd_flag & LPFC_IO_VMID)) {
 		if (phba->pport->vmid_priority_tagging) {
@@ -1335,12 +1333,9 @@ lpfc_nvme_prep_io_dma(struct lpfc_vport *vport,
 {
 	struct lpfc_hba *phba = vport->phba;
 	struct nvmefc_fcp_req *nCmd = lpfc_ncmd->nvmeCmd;
-	union lpfc_wqe128 *wqe = &lpfc_ncmd->cur_iocbq.wqe;
 	struct sli4_sge *sgl = lpfc_ncmd->dma_sgl;
 	struct sli4_hybrid_sgl *sgl_xtra = NULL;
 	struct scatterlist *data_sg;
-	struct sli4_sge *first_data_sgl;
-	struct ulp_bde64 *bde;
 	dma_addr_t physaddr = 0;
 	uint32_t dma_len = 0;
 	uint32_t dma_offset = 0;
@@ -1361,7 +1356,6 @@ lpfc_nvme_prep_io_dma(struct lpfc_vport *vport,
 		 */
 		sgl += 2;
 
-		first_data_sgl = sgl;
 		lpfc_ncmd->seg_cnt = nCmd->sg_cnt;
 		if (lpfc_ncmd->seg_cnt > lpfc_nvme_template.max_sgl_segments) {
 			lpfc_printf_log(phba, KERN_ERR, LOG_TRACE_EVENT,
@@ -1464,26 +1458,6 @@ lpfc_nvme_prep_io_dma(struct lpfc_vport *vport,
 
 			j++;
 		}
-
-		/* PBDE support for first data SGE only */
-		if (nseg == 1 && phba->cfg_enable_pbde) {
-			/* Words 13-15 */
-			bde = (struct ulp_bde64 *)
-				&wqe->words[13];
-			bde->addrLow = first_data_sgl->addr_lo;
-			bde->addrHigh = first_data_sgl->addr_hi;
-			bde->tus.f.bdeSize =
-				le32_to_cpu(first_data_sgl->sge_len);
-			bde->tus.f.bdeFlags = BUFF_TYPE_BDE_64;
-			bde->tus.w = cpu_to_le32(bde->tus.w);
-
-			/* Word 11 - set PBDE bit */
-			bf_set(wqe_pbde, &wqe->generic.wqe_com, 1);
-		} else {
-			memset(&wqe->words[13], 0, (sizeof(uint32_t) * 3));
-			/* Word 11 - PBDE bit disabled by default template */
-		}
-
 	} else {
 		lpfc_ncmd->seg_cnt = 0;
 

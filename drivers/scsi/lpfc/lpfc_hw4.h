@@ -1,8 +1,8 @@
 /*******************************************************************
  * This file is part of the Emulex Linux Device Driver for         *
  * Fibre Channel Host Bus Adapters.                                *
- * Copyright (C) 2017-2025 Broadcom. All Rights Reserved. The term *
- * “Broadcom” refers to Broadcom Inc. and/or its subsidiaries.  *
+ * Copyright (C) 2017-2026 Broadcom. All Rights Reserved. The term *
+ * “Broadcom” refers to Broadcom Inc. and/or its subsidiaries.     *
  * Copyright (C) 2009-2016 Emulex.  All rights reserved.           *
  * EMULEX and SLI are trademarks of Emulex.                        *
  * www.broadcom.com                                                *
@@ -3062,9 +3062,6 @@ struct lpfc_mbx_request_features {
 #define lpfc_mbx_rq_ftr_rq_iaar_SHIFT		9
 #define lpfc_mbx_rq_ftr_rq_iaar_MASK		0x00000001
 #define lpfc_mbx_rq_ftr_rq_iaar_WORD		word2
-#define lpfc_mbx_rq_ftr_rq_perfh_SHIFT		11
-#define lpfc_mbx_rq_ftr_rq_perfh_MASK		0x00000001
-#define lpfc_mbx_rq_ftr_rq_perfh_WORD		word2
 #define lpfc_mbx_rq_ftr_rq_mrqp_SHIFT		16
 #define lpfc_mbx_rq_ftr_rq_mrqp_MASK		0x00000001
 #define lpfc_mbx_rq_ftr_rq_mrqp_WORD		word2
@@ -3096,9 +3093,6 @@ struct lpfc_mbx_request_features {
 #define lpfc_mbx_rq_ftr_rsp_ifip_SHIFT		7
 #define lpfc_mbx_rq_ftr_rsp_ifip_MASK		0x00000001
 #define lpfc_mbx_rq_ftr_rsp_ifip_WORD		word3
-#define lpfc_mbx_rq_ftr_rsp_perfh_SHIFT		11
-#define lpfc_mbx_rq_ftr_rsp_perfh_MASK		0x00000001
-#define lpfc_mbx_rq_ftr_rsp_perfh_WORD		word3
 #define lpfc_mbx_rq_ftr_rsp_mrqp_SHIFT		16
 #define lpfc_mbx_rq_ftr_rsp_mrqp_MASK		0x00000001
 #define lpfc_mbx_rq_ftr_rsp_mrqp_WORD		word3
@@ -3460,10 +3454,6 @@ struct lpfc_sli4_parameters {
 #define cfg_pvl_SHIFT				13
 #define cfg_pvl_MASK				0x00000001
 #define cfg_pvl_WORD				word19
-
-#define cfg_pbde_SHIFT				20
-#define cfg_pbde_MASK				0x00000001
-#define cfg_pbde_WORD				word19
 
 	uint32_t word20;
 #define cfg_max_tow_xri_SHIFT			0
@@ -4484,9 +4474,6 @@ struct wqe_common {
 #define wqe_irsp_SHIFT        4
 #define wqe_irsp_MASK         0x00000001
 #define wqe_irsp_WORD         word11
-#define wqe_pbde_SHIFT        5
-#define wqe_pbde_MASK         0x00000001
-#define wqe_pbde_WORD         word11
 #define wqe_sup_SHIFT         6
 #define wqe_sup_MASK          0x00000001
 #define wqe_sup_WORD          word11

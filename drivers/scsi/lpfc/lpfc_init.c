@@ -13822,12 +13822,6 @@ fcponly:
 	if (phba->cfg_enable_fc4_type & LPFC_ENABLE_NVME)
 		phba->cfg_sg_seg_cnt = LPFC_MAX_NVME_SEG_CNT;
 
-	/* Enable embedded Payload BDE if support is indicated */
-	if (bf_get(cfg_pbde, mbx_sli4_parameters))
-		phba->cfg_enable_pbde = 1;
-	else
-		phba->cfg_enable_pbde = 0;
-
 	/*
 	 * To support Suppress Response feature we must satisfy 3 conditions.
 	 * lpfc_suppress_rsp module parameter must be set (default).
@@ -13862,9 +13856,8 @@ fcponly:
 		phba->fcp_embed_io = 0;
 
 	lpfc_printf_log(phba, KERN_INFO, LOG_INIT | LOG_NVME,
-			"6422 XIB %d PBDE %d: FCP %d NVME %d %d %d\n",
+			"6422 XIB %d: FCP %d NVME %d %d %d\n",
 			bf_get(cfg_xib, mbx_sli4_parameters),
-			phba->cfg_enable_pbde,
 			phba->fcp_embed_io, sli4_params->nvme,
 			phba->cfg_nvme_embed_cmd, phba->cfg_suppress_rsp);
 
