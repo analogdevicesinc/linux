@@ -34,6 +34,12 @@
 			clock-output-names = "clkin";
 			#clock-cells = <0>;
 		};
+		tdd_ref: clock@1 {
+			compatible = "fixed-clock";
+			clock-frequency = <12500000>;
+			cloc-output-names = "tdd_ref_clk";
+			#clock-cells = <0>;
+		};
     };
 
     vref: regulator-vref {
@@ -131,22 +137,40 @@
 
         };
 
-        // first ADC
+        // =====================================================================
+        // ADC1 Data Path: HMCAD15xx -> data_offload (BRAM) -> DMA -> DDR
+        // =====================================================================
 
+        // ADC1 AXI interface core - provides register access to HMCAD15xx
+        // Address: 0x44A00000, Size: 64KB
         axi_adc1_hmcad15xx: axi_adc1_hmcad15xx@44A00000 {
             compatible = "adi,axi-adc-legacy-10.0.a";
             reg = <0x44A00000 0x10000>;
-            dmas = <&rx1_dma 0>;
-            dma-names = "rx";
-            spibus-connected = <&hmcad15xx_1>;
+            dmas = <&rx1_dma 0>;               // DMA channel for data transfer
+            dma-names = "rx";                   // RX path (ADC -> memory)
+            spibus-connected = <&hmcad15xx_1>;  // Links to SPI device for config
         };
 
+        // ADC1 Data Offload - BRAM-based store-and-forward buffer
+        // Buffers ADC data in FPGA BRAM before DMA transfer to DDR
+        // This decouples high-speed ADC from DDR bandwidth limitations
+        // Address: 0x44B00000, Size: 64KB
+        adc1_data_offload: axi-data-offload-0@44b00000 {
+            compatible = "adi,axi-data-offload-1.0.a";
+            reg = <0x44B00000 0x10000>;
+			adi,oneshot;
+			adi,sync-config = <1>;
+        };
+
+        // ADC1 DMA controller - transfers data from data_offload to DDR
+        // Address: 0x44A30000, Size: 64KB
+        // Interrupt: SPI[56] = PL interrupt 0 (offset 32+24)
         rx1_dma: rx1_dma@44a30000 {
             compatible = "adi,axi-dmac-1.00.a";
             reg = <0x44A30000 0x10000>;
             #dma-cells = <1>;
-            interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
-            clocks = <&clkc 17>;
+            interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;  // SPI[56], level triggered
+            clocks = <&clkc 17>;                       // FCLK2 = 150MHz
 
             adi,channels {
                 #size-cells = <0>;
@@ -154,17 +178,24 @@
 
                 dma-channel@0 {
                     reg = <0>;
-                    adi,source-bus-width = <128>;
-                    adi,source-bus-type = <2>;
+                    // Source: AXI Stream from data_offload (64-bit width)
+                    // bus-type: 0=AXI-MM, 1=AXI-Stream, 2=FIFO
+                    adi,source-bus-width = <64>;   // data_offload output width
+                    adi,source-bus-type = <1>;     // 1 = AXI Stream
+                    // Destination: AXI-MM to PS7 HP port -> DDR (64-bit width)
                     adi,destination-bus-width = <64>;
-                    adi,destination-bus-type = <0>;
+                    adi,destination-bus-type = <0>; // 0 = AXI Memory-Mapped
                 };
             };
         };
 
-        // second ADC
+        // =====================================================================
+        // ADC2 Data Path: HMCAD15xx -> data_offload (BRAM) -> DMA -> DDR
+        // =====================================================================
 
-        axi_adc2_hmcad15xx: axi_adc2_hmcad15xx@44A60000{
+        // ADC2 AXI interface core
+        // Address: 0x44A60000, Size: 64KB
+        axi_adc2_hmcad15xx: axi_adc2_hmcad15xx@44A60000 {
             compatible = "adi,axi-adc-legacy-10.0.a";
             reg = <0x44A60000 0x10000>;
             dmas = <&rx2_dma 0>;
@@ -172,6 +203,18 @@
             spibus-connected = <&hmcad15xx_2>;
         };
 
+        // ADC2 Data Offload - BRAM-based store-and-forward buffer
+        // Address: 0x44B10000, Size: 64KB
+        adc2_data_offload: axi-data-offload-1@44b10000 {
+            compatible = "adi,axi-data-offload-1.0.a";
+            reg = <0x44B10000 0x10000>;
+			adi,oneshot;
+			adi,sync-config = <1>;
+        };
+
+        // ADC2 DMA controller
+        // Address: 0x44A90000, Size: 64KB
+        // Interrupt: SPI[57] = PL interrupt 1
         rx2_dma: rx2_dma@44a90000 {
             compatible = "adi,axi-dmac-1.00.a";
             reg = <0x44A90000 0x10000>;
@@ -185,13 +228,39 @@
 
                 dma-channel@0 {
                     reg = <0>;
-                    adi,source-bus-width = <128>;
-                    adi,source-bus-type = <2>;
+                    adi,source-bus-width = <64>;
+                    adi,source-bus-type = <1>;      // AXI Stream from data_offload
                     adi,destination-bus-width = <64>;
-                    adi,destination-bus-type = <0>;
+                    adi,destination-bus-type = <0>; // AXI-MM to DDR
                 };
             };
         };
+
+		// TDD configuration, controlled from software
+		axi_tdd_0: axi-tdd-0@44ac0000 {
+			compatible = "adi,axi-tdd";
+			reg = <0x44ac0000 0x10000>;
+			clocks = <&clkc 15>, <&tdd_ref>;
+			clock-names = "s_axi_aclk", "intf_clk";
+		};
+
+		iio_axi_tdd_0: iio-axi-tdd-0@0 {
+			compatible = "adi,iio-fake-platform-device";
+			adi,faked-dev = <&axi_tdd_0>;
+			adi,attribute-names =
+			"version", "core_id", "scratch", "magic",
+			"sync_soft", "sync_external", "sync_internal", "sync_reset",
+			"enable", "startup_delay_raw", "startup_delay_ms",
+			"burst_count", "frame_length_raw", "frame_length_ms",
+			"state", "internal_sync_period_raw", "internal_sync_period_ms",
+			"out_channel0_enable", "out_channel0_polarity",
+			"out_channel0_on_raw", "out_channel0_on_ms",
+			"out_channel0_off_raw", "out_channel0_off_ms",
+			"out_channel1_enable", "out_channel1_polarity",
+			"out_channel1_on_raw", "out_channel1_on_ms",
+			"out_channel1_off_raw", "out_channel1_off_ms";
+			label = "axi-core-tdd";
+		};
     };
 };
 
@@ -291,4 +360,5 @@
 		adi,clock-shift = <0>;
 	};
 };
+
 
