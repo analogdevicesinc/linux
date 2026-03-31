@@ -12,7 +12,10 @@ struct fuse_conn;
 struct fuse_chan;
 struct fuse_dev;
 struct fuse_args;
+struct fuse_copy_state;
 struct file;
+struct folio;
+enum fuse_notify_code;
 
 struct fuse_chan *fuse_chan_new(void);
 struct fuse_chan *fuse_dev_chan_new(void);
@@ -28,11 +31,11 @@ void fuse_chan_io_uring_enable(struct fuse_chan *fch);
 ssize_t fuse_chan_send(struct fuse_chan *fch, struct fuse_args *args);
 int fuse_chan_send_bg(struct fuse_chan *fch, struct fuse_args *args, gfp_t gfp_flags);
 int fuse_chan_send_notify_reply(struct fuse_chan *fch, struct fuse_args *args, u64 unique);
+void fuse_chan_resend(struct fuse_chan *fch);
 
 struct fuse_forget_link *fuse_alloc_forget(void);
 void fuse_chan_queue_forget(struct fuse_chan *fch, struct fuse_forget_link *forget,
 			    u64 nodeid, u64 nlookup);
-
 
 DEFINE_FREE(fuse_chan_free, struct fuse_chan *, if (_T) fuse_chan_free(_T))
 
@@ -50,6 +53,13 @@ void fuse_chan_abort(struct fuse_chan *fch, bool abort_with_err);
 void fuse_chan_wait_aborted(struct fuse_chan *fch);
 
 void fuse_end_polls(struct fuse_conn *fc);
+int fuse_notify(struct fuse_conn *fc, enum fuse_notify_code code,
+		unsigned int size, struct fuse_copy_state *cs);
+
+int fuse_copy_one(struct fuse_copy_state *cs, void *val, unsigned size);
+int fuse_copy_folio(struct fuse_copy_state *cs, struct folio **foliop,
+		    unsigned offset, unsigned count, int zeroing);
+void fuse_copy_finish(struct fuse_copy_state *cs);
 
 #ifdef CONFIG_FUSE_IO_URING
 bool fuse_uring_enabled(void);
