@@ -788,7 +788,9 @@ lpfc_hba_init_link_fc_topology(struct lpfc_hba *phba, uint32_t fc_topology,
 	    ((phba->cfg_link_speed == LPFC_USER_LINK_SPEED_32G) &&
 	     !(phba->lmt & LMT_32Gb)) ||
 	    ((phba->cfg_link_speed == LPFC_USER_LINK_SPEED_64G) &&
-	     !(phba->lmt & LMT_64Gb))) {
+	     !(phba->lmt & LMT_64Gb)) ||
+	    ((phba->cfg_link_speed == LPFC_USER_LINK_SPEED_128G) &&
+	     !(phba->lmt & LMT_128Gb))) {
 		/* Reset link speed to auto */
 		lpfc_printf_log(phba, KERN_ERR, LOG_TRACE_EVENT,
 				"1302 Invalid speed for this board:%d "
@@ -2534,7 +2536,9 @@ lpfc_get_hba_model_desc(struct lpfc_hba *phba, uint8_t *mdp, uint8_t *descp)
 		return;
 	}
 
-	if (phba->lmt & LMT_64Gb)
+	if (phba->lmt & LMT_128Gb)
+		max_speed = 128;
+	else if (phba->lmt & LMT_64Gb)
 		max_speed = 64;
 	else if (phba->lmt & LMT_32Gb)
 		max_speed = 32;
@@ -10145,6 +10149,10 @@ lpfc_sli4_read_config(struct lpfc_hba *phba)
 			case LINK_SPEED_64G:
 				phba->cfg_link_speed =
 					LPFC_USER_LINK_SPEED_64G;
+				break;
+			case LINK_SPEED_128G:
+				phba->cfg_link_speed =
+					LPFC_USER_LINK_SPEED_128G;
 				break;
 			case 0xffff:
 				phba->cfg_link_speed =
