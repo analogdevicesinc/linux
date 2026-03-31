@@ -54,7 +54,6 @@
 #include "intel_fb.h"
 #include "intel_fb_pin.h"
 #include "intel_fbdev.h"
-#include "intel_fbdev_fb.h"
 #include "intel_frontbuffer.h"
 
 struct intel_fbdev {
@@ -204,7 +203,8 @@ static const struct drm_fb_helper_funcs intel_fb_helper_funcs = {
 	.fb_set_suspend = intelfb_set_suspend,
 };
 
-static void intel_fbdev_fill_mode_cmd(struct drm_fb_helper_surface_size *sizes,
+static void intel_fbdev_fill_mode_cmd(struct intel_display *display,
+				      struct drm_fb_helper_surface_size *sizes,
 				      struct drm_mode_fb_cmd2 *mode_cmd)
 {
 	/* we don't do packed 24bpp */
@@ -215,7 +215,7 @@ static void intel_fbdev_fill_mode_cmd(struct drm_fb_helper_surface_size *sizes,
 	mode_cmd->width = sizes->surface_width;
 	mode_cmd->height = sizes->surface_height;
 
-	mode_cmd->pitches[0] = intel_fbdev_fb_pitch_align(mode_cmd->width * DIV_ROUND_UP(sizes->surface_bpp, 8));
+	mode_cmd->pitches[0] = intel_bo_fbdev_pitch_align(display, mode_cmd->width * DIV_ROUND_UP(sizes->surface_bpp, 8));
 	mode_cmd->pixel_format = drm_mode_legacy_fb_format(sizes->surface_bpp,
 							   sizes->surface_depth);
 	mode_cmd->modifier[0] = DRM_FORMAT_MOD_LINEAR;
@@ -230,12 +230,12 @@ __intel_fbdev_fb_alloc(struct intel_display *display,
 	struct drm_gem_object *obj;
 	int size;
 
-	intel_fbdev_fill_mode_cmd(sizes, &mode_cmd);
+	intel_fbdev_fill_mode_cmd(display, sizes, &mode_cmd);
 
 	size = mode_cmd.pitches[0] * mode_cmd.height;
 	size = PAGE_ALIGN(size);
 
-	obj = intel_fbdev_fb_bo_create(display->drm, size);
+	obj = intel_bo_fbdev_create(display, size);
 	if (IS_ERR(obj)) {
 		fb = ERR_CAST(obj);
 		goto err;
@@ -247,7 +247,7 @@ __intel_fbdev_fb_alloc(struct intel_display *display,
 							  mode_cmd.modifier[0]),
 				      &mode_cmd);
 	if (IS_ERR(fb)) {
-		intel_fbdev_fb_bo_destroy(obj);
+		intel_bo_fbdev_destroy(obj);
 		goto err;
 	}
 
@@ -327,7 +327,7 @@ int intel_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
 
 	obj = intel_fb_bo(&fb->base);
 
-	ret = intel_fbdev_fb_fill_info(obj, info, vma);
+	ret = intel_bo_fbdev_fill_info(obj, info, vma);
 	if (ret)
 		goto out_unpin;
 

@@ -16,6 +16,7 @@ struct drm_gem_object;
 struct drm_mode_fb_cmd2;
 struct drm_plane_state;
 struct drm_scanout_buffer;
+struct fb_info;
 struct i915_vma;
 struct intel_dpt;
 struct intel_dsb_buffer;
@@ -44,6 +45,12 @@ struct intel_display_bo_interface {
 	struct drm_gem_object *(*framebuffer_lookup)(struct drm_device *drm,
 						     struct drm_file *filp,
 						     const struct drm_mode_fb_cmd2 *user_mode_cmd);
+#if IS_ENABLED(CONFIG_DRM_FBDEV_EMULATION)
+	struct drm_gem_object *(*fbdev_create)(struct drm_device *drm, int size);
+	void (*fbdev_destroy)(struct drm_gem_object *obj);
+	int (*fbdev_fill_info)(struct drm_gem_object *obj, struct fb_info *info, struct i915_vma *vma);
+	u32 (*fbdev_pitch_align)(u32 stride);
+#endif
 };
 
 struct intel_display_dpt_interface {
