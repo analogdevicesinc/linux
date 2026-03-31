@@ -19,6 +19,7 @@ static inline struct intel_uncore *__to_uncore(struct intel_display *display)
 
 u8 intel_de_read8(struct intel_display *display, i915_reg_t reg);
 void intel_de_write8(struct intel_display *display, i915_reg_t reg, u8 val);
+u16 intel_de_read16(struct intel_display *display, i915_reg_t reg);
 
 static inline u32
 intel_de_read(struct intel_display *display, i915_reg_t reg)
