@@ -19,10 +19,10 @@
 
 #include <drm/drm_print.h>
 #include <drm/intel/display_parent_interface.h>
+#include <drm/intel/vlv_iosf_sb_regs.h>
 
 #include "intel_display_core.h"
 #include "intel_parent.h"
-#include "vlv_iosf_sb.h"
 
 /* dpt */
 struct intel_dpt *intel_parent_dpt_create(struct intel_display *display,

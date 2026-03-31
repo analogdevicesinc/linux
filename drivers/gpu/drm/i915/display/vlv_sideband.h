@@ -6,8 +6,7 @@
 
 #include <linux/types.h>
 
-#include "vlv_iosf_sb.h"
-#include "vlv_iosf_sb_reg.h"
+#include <drm/intel/vlv_iosf_sb_regs.h>
 
 enum dpio_phy;
 struct intel_display;
