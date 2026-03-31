@@ -388,7 +388,11 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 		target += 10;
 	} while (odr_wf.duty_length_ns < odr_high_time_ns);
 
-	if (!in_range(odr_wf.period_length_ns, 2 * odr_high_time_ns, UINT_MAX))
+	/*
+	 * PWM waveform rounding might also change the wave period. Double check
+	 * the resulting ODR PWM period is valid.
+	 */
+	if (odr_wf.period_length_ns < 2 * odr_high_time_ns)
 		return -EINVAL;
 
 	/*
