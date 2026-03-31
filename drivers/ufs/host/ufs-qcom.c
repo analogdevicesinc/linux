@@ -2810,7 +2810,7 @@ static int ufs_qcom_get_rx_fom(struct ufs_hba *hba,
 	/* Restore Power Mode. */
 	ret = ufshcd_change_power_mode(hba, &old_pwr_info, UFSHCD_PMC_POLICY_FORCE);
 	if (ret) {
-		dev_err(hba->dev, "%s: Failed to retore power mode to HS-G%u: %d\n",
+		dev_err(hba->dev, "%s: Failed to restore power mode to HS-G%u: %d\n",
 			__func__, old_pwr_info.gear_tx, ret);
 		return ret;
 	}
