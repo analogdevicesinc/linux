@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices ADG1736 dual SPDT switch GPIO driver
+ * Analog Devices ADG1736/ADG2736 dual SPDT switch GPIO driver
  *
  * Copyright 2025 Analog Devices Inc.
  *
@@ -125,6 +125,7 @@ static int adg1736_probe(struct platform_device *pdev)
 
 static const struct of_device_id adg1736_dt_ids[] = {
 	{ .compatible = "adi,adg1736", },
+	{ .compatible = "adi,adg2736", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adg1736_dt_ids);
@@ -138,6 +139,6 @@ static struct platform_driver adg1736_driver = {
 };
 module_platform_driver(adg1736_driver);
 
-MODULE_DESCRIPTION("Analog Devices ADG1736 dual SPDT switch GPIO driver");
+MODULE_DESCRIPTION("Analog Devices ADG1736/ADG2736 dual SPDT switch GPIO driver");
 MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com>");
 MODULE_LICENSE("GPL");

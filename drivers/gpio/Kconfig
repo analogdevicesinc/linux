@@ -1792,14 +1792,15 @@ config GPIO_ADI_DAQ1
 	  found on the Analog Devices AD-FMCDAQ1-EBZ card.
 
 config GPIO_ADG1736
-	tristate "Analog Devices ADG1736 dual SPDT switch GPIO driver"
+	tristate "Analog Devices ADG1736/ADG2736 dual SPDT switch GPIO driver"
 	help
-	  Driver for Analog Devices ADG1736 dual single-pole, double-throw
-	  (SPDT) switch. The device features two independent switches, each
-	  controlled by a dedicated GPIO input pin and each capable of
-	  connecting its input to one of two outputs (A or B).
+	  Driver for Analog Devices ADG1736/ADG2736 dual single-pole,
+	  double-throw (SPDT) switch. The device features two independent
+	  switches, each controlled by a dedicated GPIO input pin and each
+	  capable of connecting its input to one of two outputs (A or B).
 
-	  Say yes here to enable GPIO expander functionality for the ADG1736.
+	  Say yes here to enable GPIO expander functionality for the
+	  ADG1736/ADG2736.
 
 config GPIO_MAX3191X
 	tristate "Maxim MAX3191x industrial serializer"
