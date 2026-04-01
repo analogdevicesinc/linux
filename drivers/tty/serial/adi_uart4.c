@@ -560,15 +560,13 @@ static void adi_uart4_serial_dma_tx(void *data)
 	UART_CLEAR_IER(uart, ETBEI);
 	uart->port.icount.tx += uart->tx_count;
 
-	if (!kfifo_is_empty(&tport->xmit_fifo)) {
-		if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
-			uart_write_wakeup(&uart->port);
-	}
-
 	/*
-	 * Advance fifo to match the dma write
+	 * Advance fifo to match the DMA write
 	 */
 	uart_xmit_advance(&uart->port, uart->tx_count);
+	if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
+		uart_write_wakeup(&uart->port);
+
 	adi_uart4_serial_dma_tx_chars(uart);
 	spin_unlock_irqrestore(&uart->port.lock, flags);
 }
