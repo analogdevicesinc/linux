@@ -1064,7 +1064,7 @@ assert_compiled () {
 			      .command" compile_commands.json)
 
 		[[ -n "$compile_cmd" ]] && continue
-		if [[ ! "$file" == "arch/$ARCH/"* ]]; then
+		if [[ "$file" == "arch/"* ]] && [[ ! "$file" == "arch/$ARCH/"* ]]; then
 			echo "Not compiled, but targets a different architecture." ; continue
 		fi
 		echo "::error file=$file,line=0::$step_name: Was not compiled during kernel compilation."
