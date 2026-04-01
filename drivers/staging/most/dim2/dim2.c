@@ -165,7 +165,7 @@ static int try_start_dim_transfer(struct hdm_channel *hdm_ch)
 	unsigned long flags;
 	struct dim_ch_state st;
 
-	if (!hdm_ch || !hdm_ch->is_initialized)
+	if (!hdm_ch->is_initialized)
 		return -EINVAL;
 
 	spin_lock_irqsave(&dim_lock, flags);
