@@ -267,15 +267,6 @@ static int ntfs_setattr_size(struct inode *vi, struct iattr *attr)
 		return err;
 
 	inode_dio_wait(vi);
-	/* Serialize against page faults */
-	if (NInoNonResident(NTFS_I(vi)) && attr->ia_size < old_size) {
-		err = iomap_truncate_page(vi, attr->ia_size, NULL,
-				&ntfs_read_iomap_ops,
-				&ntfs_iomap_folio_ops, NULL);
-		if (err)
-			return err;
-	}
-
 	truncate_setsize(vi, attr->ia_size);
 	err = ntfs_truncate_vfs(vi, attr->ia_size, old_size);
 	if (err) {
