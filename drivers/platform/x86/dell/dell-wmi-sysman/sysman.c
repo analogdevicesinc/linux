@@ -313,7 +313,7 @@ static int alloc_attributes_data(int attr_type)
  * destroy_attribute_objs() - Free a kset of kobjects
  * @kset: The kset to destroy
  *
- * Fress kobjects created for each attribute_name under attribute type kset
+ * Frees kobjects created for each attribute_name under attribute type kset.
  */
 static void destroy_attribute_objs(struct kset *kset)
 {
