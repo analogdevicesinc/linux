@@ -1273,12 +1273,12 @@ static void adi_uart4_serial_remove(struct platform_device *pdev)
 	if (uart) {
 		uart_remove_one_port(&adi_uart4_serial_reg, &uart->port);
 		adi_uart4_serial_ports[uart->port.line] = NULL;
-		kfree(uart);
-		if (IS_ERR(uart->tx_dma_channel))
-			return;
 
-		dma_release_channel(uart->tx_dma_channel);
-		dma_release_channel(uart->rx_dma_channel);
+		if (!IS_ERR(uart->tx_dma_channel)) {
+			dma_release_channel(uart->tx_dma_channel);
+			dma_release_channel(uart->rx_dma_channel);
+		}
+		kfree(uart);
 	}
 }
 
