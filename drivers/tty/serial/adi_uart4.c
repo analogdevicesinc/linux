@@ -1377,3 +1377,6 @@ static int __init adi_uart_early_console_setup(struct earlycon_device *device,
 }
 
 EARLYCON_DECLARE(adi_uart, adi_uart_early_console_setup);
+
+MODULE_DESCRIPTION("ADI UART4 serial driver");
+MODULE_LICENSE("GPL");
