@@ -161,7 +161,8 @@ int skl_int3472_register_regulator(struct int3472_discrete_device *int3472,
 				   const char *second_sensor);
 void skl_int3472_unregister_regulator(struct int3472_discrete_device *int3472);
 
-int skl_int3472_register_led(struct int3472_discrete_device *int3472, struct gpio_desc *gpio);
+int skl_int3472_register_led(struct int3472_discrete_device *int3472, struct gpio_desc *gpio,
+			     const char *con_id);
 void skl_int3472_unregister_led(struct int3472_discrete_device *int3472);
 
 #endif
