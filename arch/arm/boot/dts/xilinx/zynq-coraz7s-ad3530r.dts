@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD3530R
+ *
+ * hdl_project: <ad353xr/coraz7s>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-coraz7s.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	vdd: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	iovdd: regulator-iovdd {
+		compatible = "regulator-fixed";
+		regulator-name = "iovdd-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+};
+
+&spi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	ad3530r: dac@0 {
+		compatible = "adi,ad3530r";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+		ldac-gpios = <&gpio0 88 GPIO_ACTIVE_LOW>;
+		vdd-supply = <&vdd>;
+		iovdd-supply = <&iovdd>;
+	};
+};
