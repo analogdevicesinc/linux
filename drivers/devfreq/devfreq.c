@@ -1377,7 +1377,7 @@ static ssize_t governor_show(struct device *dev,
 	struct devfreq *df = to_devfreq(dev);
 
 	if (!df->governor)
-		return -EINVAL;
+		return -ENOENT;
 
 	return sprintf(buf, "%s\n", df->governor->name);
 }
