@@ -4372,11 +4372,11 @@ static int axienet_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 
 		/* ADIN1320: SD_CONTROL (0xFC00) = 0x2040: AN off, 1000M FD */
 		mdiobus_write(bus, adin_addr, 0x10, 0xFC00);
-		mdiobus_write(bus, adin_addr, 0x11, 0x2040);
+		mdiobus_write(bus, adin_addr, 0x11, 0x0140);
 
 		/* ADIN1320: SerDes reset to re-lock CDR */
 		mdiobus_write(bus, adin_addr, 0x10, 0xFC00);
-		mdiobus_write(bus, adin_addr, 0x11, 0xA040);
+		mdiobus_write(bus, adin_addr, 0x11, 0x8140);
 
 		/* Verify SD_STATUS (0xFC01) link bit after reset */
 		usleep_range(2000, 5000);
