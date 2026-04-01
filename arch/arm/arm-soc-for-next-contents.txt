@@ -20,6 +20,30 @@ soc/dt
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.1-devicetree-0
 	nuvoton/dt64
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-7.1-devicetree-0
+	broadcom/dts
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.1/devicetree
+	broadcom/dts64
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.1/devicetree-arm64
+	samsung/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-7.1
+	samsung/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt-7.1
+	stm32/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/atorgue/stm32 tags/stm32-dt-for-7.1-1
+	renesas/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.1-tag2
+	cix/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/peter.chen/cix tags/cix-dt-v7.1-rc1
+	thead/dt-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v7.1-p2
+	socfpga/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_updates_for_v7.1_v2
+	hisilicon/dts
+		https://github.com/hisilicon/linux-hisi tags/hisi-arm64-dt-for-7.1
+	qcom/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-7.1
+	sunxi/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-7.1
 
 soc/drivers
 	renesas/drivers
@@ -34,24 +58,6 @@ soc/defconfig
 soc/late
 
 arm/fixes
-	riscv/soc-fixes
-		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-soc-fixes-for-v7.0-rc1
-	fsl/soc-driver-fixes
-		https://git.kernel.org/pub/scm/linux/kernel/git/chleroy/linux tags/soc_fsl-7.0-2
-	reset/fixes
-		https://git.pengutronix.de/git/pza/linux tags/reset-fixes-for-v7.0
-	renesas/fixes
-		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-fixes-for-v7.0-tag1
-	patch
-		ARM: multi_v7_defconfig: Drop duplicate CONFIG_TI_PRUSS=m
-	rockchip/fixes
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.0-rockchip-drvfixes1
-	<no branch> (08d9a4580f71120be3c5b221af32dca00a48ceb0)
-		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-fix-for-v7.0
-	<no branch> (a4e8473b775160f3ce978f621cf8dea2c7250433)
-		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/ffa-fix-7.0
-	<no branch> (4e701b47c3ba8f4eaf51d676732b11204bc75b35)
-		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-fixes-7.0
 	nxp/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-fixes-7.0
 	rockchip/fixes-2
@@ -66,3 +72,9 @@ arm/fixes
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-fixes-for-7.0
 	hisilicon/fixes
 		https://github.com/hisilicon/linux-hisi tags/hisi-dts-fixes-for-7.0
+	renesas/fixes-2
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-fixes-for-v7.0-tag2
+	sunxi/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-fixes-for-7.0
+	qcom/fixes-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-fixes-for-7.0-2
