@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 or MIT */
 /* Copyright 2019 Linaro, Ltd, Rob Herring <robh@kernel.org> */
 /* Copyright 2023 Collabora ltd. */
+/* Copyright 2025 ARM Limited. All rights reserved. */
 
 #ifndef __PANTHOR_GEM_H__
 #define __PANTHOR_GEM_H__
@@ -94,6 +95,65 @@ struct panthor_gem_dev_map {
 };
 
 /**
+ * enum panthor_gem_reclaim_state - Reclaim state of a GEM object
+ *
+ * This is defined in descending reclaimability order and some part
+ * of the code depends on that.
+ */
+enum panthor_gem_reclaim_state {
+	/**
+	 * @PANTHOR_GEM_UNUSED: GEM is currently unused
+	 *
+	 * This can happen when the GEM was previously vmap-ed, mmap-ed,
+	 * and/or GPU mapped and got unmapped. Because pages are lazily
+	 * returned to the shmem layer, we want to keep a list of such
+	 * BOs, because they should be fairly easy to reclaim (no need
+	 * to wait for GPU to be done, and no need to tear down user
+	 * mappings either).
+	 */
+	PANTHOR_GEM_UNUSED,
+
+	/**
+	 * @PANTHOR_GEM_MMAPPED: GEM is currently mmap-ed
+	 *
+	 * When a GEM has pages allocated and the mmap_count is > 0, the
+	 * GEM is placed in the mmapped list. This comes right after
+	 * unused because we can relatively easily tear down user mappings.
+	 */
+	PANTHOR_GEM_MMAPPED,
+
+	/**
+	 * @PANTHOR_GEM_GPU_MAPPED_SINGLE_VM: GEM is GPU mapped to only one VM
+	 *
+	 * When a GEM is mapped to a single VM, reclaim requests have more
+	 * chances to succeed, because we only need to synchronize against
+	 * a single GPU context. This is more annoying than reclaiming
+	 * mmap-ed pages still, because we have to wait for in-flight jobs
+	 * to land, and we might not be able to acquire all necessary locks
+	 * at reclaim time either.
+	 */
+	PANTHOR_GEM_GPU_MAPPED_SINGLE_VM,
+
+	/**
+	 * @PANTHOR_GEM_GPU_MAPPED_MULTI_VM: GEM is GPU mapped to multiple VMs
+	 *
+	 * Like PANTHOR_GEM_GPU_MAPPED_SINGLE_VM, but the synchronization across
+	 * VMs makes such BOs harder to reclaim.
+	 */
+	PANTHOR_GEM_GPU_MAPPED_MULTI_VM,
+
+	/**
+	 * @PANTHOR_GEM_UNRECLAIMABLE: GEM can't be reclaimed
+	 *
+	 * Happens when the GEM memory is pinned. It's also the state all GEM
+	 * objects start in, because no memory is allocated until explicitly
+	 * requested by a CPU or GPU map, meaning there's nothing to reclaim
+	 * until such an allocation happens.
+	 */
+	PANTHOR_GEM_UNRECLAIMABLE,
+};
+
+/**
  * struct panthor_gem_object - Driver specific GEM object.
  */
 struct panthor_gem_object {
@@ -108,6 +168,9 @@ struct panthor_gem_object {
 
 	/** @dmap: Device mapping state */
 	struct panthor_gem_dev_map dmap;
+
+	/** @reclaim_state: Cached reclaim state */
+	enum panthor_gem_reclaim_state reclaim_state;
 
 	/**
 	 * @exclusive_vm_root_gem: Root GEM of the exclusive VM this GEM object
@@ -190,6 +253,11 @@ struct sg_table *
 panthor_gem_get_dev_sgt(struct panthor_gem_object *bo);
 int panthor_gem_pin(struct panthor_gem_object *bo);
 void panthor_gem_unpin(struct panthor_gem_object *bo);
+int panthor_gem_swapin_locked(struct panthor_gem_object *bo);
+void panthor_gem_update_reclaim_state_locked(struct panthor_gem_object *bo,
+					     enum panthor_gem_reclaim_state *old_state);
+int panthor_gem_shrinker_init(struct panthor_device *ptdev);
+void panthor_gem_shrinker_unplug(struct panthor_device *ptdev);
 
 void panthor_gem_bo_set_label(struct drm_gem_object *obj, const char *label);
 void panthor_gem_kernel_bo_set_label(struct panthor_kernel_bo *bo, const char *label);
