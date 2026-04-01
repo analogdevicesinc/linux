@@ -2109,12 +2109,19 @@ static const struct of_device_id ad4130_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, ad4130_of_match);
 
+static const struct spi_device_id ad4130_id_table[] = {
+	{ "ad4130" },
+	{ }
+};
+MODULE_DEVICE_TABLE(spi, ad4130_id_table);
+
 static struct spi_driver ad4130_driver = {
 	.driver = {
 		.name = AD4130_NAME,
 		.of_match_table = ad4130_of_match,
 	},
 	.probe = ad4130_probe,
+	.id_table = ad4130_id_table,
 };
 module_spi_driver(ad4130_driver);
 
