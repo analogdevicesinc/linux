@@ -64,47 +64,48 @@ static int ad5686_i2c_write(struct ad5686_state *st,
 
 static int ad5686_i2c_probe(struct i2c_client *i2c)
 {
-	const struct i2c_device_id *id = i2c_client_get_device_id(i2c);
-	return ad5686_probe(&i2c->dev, id->driver_data, id->name,
-			    ad5686_i2c_write, ad5686_i2c_read);
+	return ad5686_probe(&i2c->dev, i2c_get_match_data(i2c),
+			    i2c->name, ad5686_i2c_write, ad5686_i2c_read);
 }
 
 static const struct i2c_device_id ad5686_i2c_id[] = {
-	{"ad5311r", ID_AD5311R},
-	{"ad5337r", ID_AD5337R},
-	{"ad5338r", ID_AD5338R},
-	{"ad5671r", ID_AD5671R},
-	{"ad5673r", ID_AD5673R},
-	{"ad5675r", ID_AD5675R},
-	{"ad5677r", ID_AD5677R},
-	{"ad5691r", ID_AD5691R},
-	{"ad5692r", ID_AD5692R},
-	{"ad5693", ID_AD5693},
-	{"ad5693r", ID_AD5693R},
-	{"ad5694", ID_AD5694},
-	{"ad5694r", ID_AD5694R},
-	{"ad5695r", ID_AD5695R},
-	{"ad5696", ID_AD5696},
-	{"ad5696r", ID_AD5696R},
+	{ "ad5311r",  (kernel_ulong_t)&ad5311r_chip_info },
+	{ "ad5337r",  (kernel_ulong_t)&ad5337r_chip_info },
+	{ "ad5338r",  (kernel_ulong_t)&ad5338r_chip_info },
+	{ "ad5671r",  (kernel_ulong_t)&ad5672r_chip_info },
+	{ "ad5673r",  (kernel_ulong_t)&ad5674r_chip_info },
+	{ "ad5675r",  (kernel_ulong_t)&ad5676r_chip_info },
+	{ "ad5677r",  (kernel_ulong_t)&ad5679r_chip_info },
+	{ "ad5691r",  (kernel_ulong_t)&ad5681r_chip_info },
+	{ "ad5692r",  (kernel_ulong_t)&ad5682r_chip_info },
+	{ "ad5693",   (kernel_ulong_t)&ad5683_chip_info },
+	{ "ad5693r",  (kernel_ulong_t)&ad5683r_chip_info },
+	{ "ad5694",   (kernel_ulong_t)&ad5684_chip_info },
+	{ "ad5694r",  (kernel_ulong_t)&ad5684r_chip_info },
+	{ "ad5695r",  (kernel_ulong_t)&ad5685r_chip_info },
+	{ "ad5696",   (kernel_ulong_t)&ad5686_chip_info },
+	{ "ad5696r",  (kernel_ulong_t)&ad5686r_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, ad5686_i2c_id);
 
 static const struct of_device_id ad5686_of_match[] = {
-	{ .compatible = "adi,ad5311r" },
-	{ .compatible = "adi,ad5337r" },
-	{ .compatible = "adi,ad5338r" },
-	{ .compatible = "adi,ad5671r" },
-	{ .compatible = "adi,ad5675r" },
-	{ .compatible = "adi,ad5691r" },
-	{ .compatible = "adi,ad5692r" },
-	{ .compatible = "adi,ad5693" },
-	{ .compatible = "adi,ad5693r" },
-	{ .compatible = "adi,ad5694" },
-	{ .compatible = "adi,ad5694r" },
-	{ .compatible = "adi,ad5695r" },
-	{ .compatible = "adi,ad5696" },
-	{ .compatible = "adi,ad5696r" },
+	{ .compatible = "adi,ad5311r", .data = &ad5311r_chip_info },
+	{ .compatible = "adi,ad5337r", .data = &ad5337r_chip_info },
+	{ .compatible = "adi,ad5338r", .data = &ad5338r_chip_info },
+	{ .compatible = "adi,ad5671r", .data = &ad5672r_chip_info },
+	{ .compatible = "adi,ad5673r", .data = &ad5674r_chip_info },
+	{ .compatible = "adi,ad5675r", .data = &ad5676r_chip_info },
+	{ .compatible = "adi,ad5677r", .data = &ad5679r_chip_info },
+	{ .compatible = "adi,ad5691r", .data = &ad5681r_chip_info },
+	{ .compatible = "adi,ad5692r", .data = &ad5682r_chip_info },
+	{ .compatible = "adi,ad5693",  .data = &ad5683_chip_info },
+	{ .compatible = "adi,ad5693r", .data = &ad5683r_chip_info },
+	{ .compatible = "adi,ad5694",  .data = &ad5684_chip_info },
+	{ .compatible = "adi,ad5694r", .data = &ad5684r_chip_info },
+	{ .compatible = "adi,ad5695r", .data = &ad5685r_chip_info },
+	{ .compatible = "adi,ad5696",  .data = &ad5686_chip_info },
+	{ .compatible = "adi,ad5696r", .data = &ad5686r_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad5686_of_match);

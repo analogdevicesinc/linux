@@ -196,7 +196,7 @@ static const struct iio_chan_spec_ext_info ad5686_ext_info[] = {
 		.ext_info = ad5686_ext_info,			\
 }
 
-#define DECLARE_AD5693_CHANNELS(name, bits, _shift)		\
+#define DECLARE_AD5683_CHANNELS(name, bits, _shift)		\
 static const struct iio_chan_spec name[] = {			\
 		AD5868_CHANNEL(0, 0, bits, _shift),		\
 }
@@ -247,205 +247,172 @@ static const struct iio_chan_spec name[] = {			\
 		AD5868_CHANNEL(15, 15, bits, _shift),		\
 }
 
-DECLARE_AD5693_CHANNELS(ad5310r_channels, 10, 2);
-DECLARE_AD5693_CHANNELS(ad5311r_channels, 10, 6);
+/* single-channel */
+DECLARE_AD5683_CHANNELS(ad5310r_channels, 10, 2);
+DECLARE_AD5683_CHANNELS(ad5311r_channels, 10, 6);
+DECLARE_AD5683_CHANNELS(ad5681r_channels, 12, 4);
+DECLARE_AD5683_CHANNELS(ad5682r_channels, 14, 2);
+DECLARE_AD5683_CHANNELS(ad5683r_channels, 16, 0);
+
+/* dual-channel */
 DECLARE_AD5338_CHANNELS(ad5337r_channels, 8, 8);
 DECLARE_AD5338_CHANNELS(ad5338r_channels, 10, 6);
-DECLARE_AD5676_CHANNELS(ad5672_channels, 12, 4);
-DECLARE_AD5679_CHANNELS(ad5674r_channels, 12, 4);
-DECLARE_AD5676_CHANNELS(ad5676_channels, 16, 0);
-DECLARE_AD5679_CHANNELS(ad5679r_channels, 16, 0);
-DECLARE_AD5686_CHANNELS(ad5684_channels, 12, 4);
-DECLARE_AD5686_CHANNELS(ad5685r_channels, 14, 2);
-DECLARE_AD5686_CHANNELS(ad5686_channels, 16, 0);
-DECLARE_AD5693_CHANNELS(ad5693_channels, 16, 0);
-DECLARE_AD5693_CHANNELS(ad5692r_channels, 14, 2);
-DECLARE_AD5693_CHANNELS(ad5691r_channels, 12, 4);
 
-static const struct ad5686_chip_info ad5686_chip_info_tbl[] = {
-	[ID_AD5310R] = {
-		.channels = ad5310r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 1,
-		.regmap_type = AD5310_REGMAP,
-	},
-	[ID_AD5311R] = {
-		.channels = ad5311r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 1,
-		.regmap_type = AD5683_REGMAP,
-	},
-	[ID_AD5337R] = {
-		.channels = ad5337r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 2,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5338R] = {
-		.channels = ad5338r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 2,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5671R] = {
-		.channels = ad5672_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 8,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5672R] = {
-		.channels = ad5672_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 8,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5673R] = {
-		.channels = ad5674r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 16,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5674R] = {
-		.channels = ad5674r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 16,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5675R] = {
-		.channels = ad5676_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 8,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5676] = {
-		.channels = ad5676_channels,
-		.num_channels = 8,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5676R] = {
-		.channels = ad5676_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 8,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5677R] = {
-		.channels = ad5679r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 16,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5679R] = {
-		.channels = ad5679r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 16,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5681R] = {
-		.channels = ad5691r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 1,
-		.regmap_type = AD5683_REGMAP,
-	},
-	[ID_AD5682R] = {
-		.channels = ad5692r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 1,
-		.regmap_type = AD5683_REGMAP,
-	},
-	[ID_AD5683] = {
-		.channels = ad5693_channels,
-		.num_channels = 1,
-		.regmap_type = AD5683_REGMAP,
-	},
-	[ID_AD5683R] = {
-		.channels = ad5693_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 1,
-		.regmap_type = AD5683_REGMAP,
-	},
-	[ID_AD5684] = {
-		.channels = ad5684_channels,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5684R] = {
-		.channels = ad5684_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5685R] = {
-		.channels = ad5685r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5686] = {
-		.channels = ad5686_channels,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5686R] = {
-		.channels = ad5686_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5691R] = {
-		.channels = ad5691r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 1,
-		.regmap_type = AD5683_REGMAP,
-	},
-	[ID_AD5692R] = {
-		.channels = ad5692r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 1,
-		.regmap_type = AD5683_REGMAP,
-	},
-	[ID_AD5693] = {
-		.channels = ad5693_channels,
-		.num_channels = 1,
-		.regmap_type = AD5683_REGMAP,
-	},
-	[ID_AD5693R] = {
-		.channels = ad5693_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 1,
-		.regmap_type = AD5683_REGMAP,
-	},
-	[ID_AD5694] = {
-		.channels = ad5684_channels,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5694R] = {
-		.channels = ad5684_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5695R] = {
-		.channels = ad5685r_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5696] = {
-		.channels = ad5686_channels,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
-	[ID_AD5696R] = {
-		.channels = ad5686_channels,
-		.int_vref_mv = 2500,
-		.num_channels = 4,
-		.regmap_type = AD5686_REGMAP,
-	},
+/* quad-channel */
+DECLARE_AD5686_CHANNELS(ad5684r_channels, 12, 4);
+DECLARE_AD5686_CHANNELS(ad5685r_channels, 14, 2);
+DECLARE_AD5686_CHANNELS(ad5686r_channels, 16, 0);
+
+/* 8-channel */
+DECLARE_AD5676_CHANNELS(ad5672r_channels, 12, 4);
+DECLARE_AD5676_CHANNELS(ad5676r_channels, 16, 0);
+
+/* 16-channel */
+DECLARE_AD5679_CHANNELS(ad5674r_channels, 12, 4);
+DECLARE_AD5679_CHANNELS(ad5679r_channels, 16, 0);
+
+const struct ad5686_chip_info ad5310r_chip_info = {
+	.channels = ad5310r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 1,
+	.regmap_type = AD5310_REGMAP,
 };
+EXPORT_SYMBOL_NS_GPL(ad5310r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5311r_chip_info = {
+	.channels = ad5311r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 1,
+	.regmap_type = AD5683_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5311r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5681r_chip_info = {
+	.channels = ad5681r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 1,
+	.regmap_type = AD5683_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5681r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5682r_chip_info = {
+	.channels = ad5682r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 1,
+	.regmap_type = AD5683_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5682r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5683_chip_info = {
+	.channels = ad5683r_channels,
+	.num_channels = 1,
+	.regmap_type = AD5683_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5683_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5683r_chip_info = {
+	.channels = ad5683r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 1,
+	.regmap_type = AD5683_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5683r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5337r_chip_info = {
+	.channels = ad5337r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 2,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5337r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5338r_chip_info = {
+	.channels = ad5338r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 2,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5338r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5684_chip_info = {
+	.channels = ad5684r_channels,
+	.num_channels = 4,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5684_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5684r_chip_info = {
+	.channels = ad5684r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 4,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5684r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5685r_chip_info = {
+	.channels = ad5685r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 4,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5685r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5686_chip_info = {
+	.channels = ad5686r_channels,
+	.num_channels = 4,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5686_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5686r_chip_info = {
+	.channels = ad5686r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 4,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5686r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5672r_chip_info = {
+	.channels = ad5672r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 8,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5672r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5676_chip_info = {
+	.channels = ad5676r_channels,
+	.num_channels = 8,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5676_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5676r_chip_info = {
+	.channels = ad5676r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 8,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5676r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5674r_chip_info = {
+	.channels = ad5674r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 16,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5674r_chip_info, "IIO_AD5686");
+
+const struct ad5686_chip_info ad5679r_chip_info = {
+	.channels = ad5679r_channels,
+	.int_vref_mv = 2500,
+	.num_channels = 16,
+	.regmap_type = AD5686_REGMAP,
+};
+EXPORT_SYMBOL_NS_GPL(ad5679r_chip_info, "IIO_AD5686");
 
 int ad5686_probe(struct device *dev,
-		 enum ad5686_supported_device_ids chip_type,
+		 const struct ad5686_chip_info *chip_info,
 		 const char *name, ad5686_write_func write,
 		 ad5686_read_func read)
 {
@@ -465,8 +432,7 @@ int ad5686_probe(struct device *dev,
 	st->dev = dev;
 	st->write = write;
 	st->read = read;
-
-	st->chip_info = &ad5686_chip_info_tbl[chip_type];
+	st->chip_info = chip_info;
 
 	ret = devm_regulator_get_enable_read_voltage(dev, "vcc");
 	if (ret < 0 && ret != -ENODEV)

@@ -46,42 +46,6 @@
 #define AD5310_REF_BIT_MSK			BIT(8)
 #define AD5683_REF_BIT_MSK			BIT(12)
 
-/**
- * ad5686_supported_device_ids:
- */
-enum ad5686_supported_device_ids {
-	ID_AD5310R,
-	ID_AD5311R,
-	ID_AD5337R,
-	ID_AD5338R,
-	ID_AD5671R,
-	ID_AD5672R,
-	ID_AD5673R,
-	ID_AD5674R,
-	ID_AD5675R,
-	ID_AD5676,
-	ID_AD5676R,
-	ID_AD5677R,
-	ID_AD5679R,
-	ID_AD5681R,
-	ID_AD5682R,
-	ID_AD5683,
-	ID_AD5683R,
-	ID_AD5684,
-	ID_AD5684R,
-	ID_AD5685R,
-	ID_AD5686,
-	ID_AD5686R,
-	ID_AD5691R,
-	ID_AD5692R,
-	ID_AD5693,
-	ID_AD5693R,
-	ID_AD5694,
-	ID_AD5694R,
-	ID_AD5695R,
-	ID_AD5696,
-	ID_AD5696R,
-};
 
 enum ad5686_regmap_type {
 	AD5310_REGMAP,
@@ -110,6 +74,34 @@ struct ad5686_chip_info {
 	const struct iio_chan_spec	*channels;
 	enum ad5686_regmap_type		regmap_type;
 };
+
+/* single-channel instances */
+extern const struct ad5686_chip_info ad5310r_chip_info;
+extern const struct ad5686_chip_info ad5311r_chip_info;
+extern const struct ad5686_chip_info ad5681r_chip_info;
+extern const struct ad5686_chip_info ad5682r_chip_info;
+extern const struct ad5686_chip_info ad5683_chip_info;
+extern const struct ad5686_chip_info ad5683r_chip_info;
+
+/* dual-channel instances */
+extern const struct ad5686_chip_info ad5337r_chip_info;
+extern const struct ad5686_chip_info ad5338r_chip_info;
+
+/* quad-channel instances */
+extern const struct ad5686_chip_info ad5684_chip_info;
+extern const struct ad5686_chip_info ad5684r_chip_info;
+extern const struct ad5686_chip_info ad5685r_chip_info;
+extern const struct ad5686_chip_info ad5686_chip_info;
+extern const struct ad5686_chip_info ad5686r_chip_info;
+
+/* 8-channel instances */
+extern const struct ad5686_chip_info ad5672r_chip_info;
+extern const struct ad5686_chip_info ad5676_chip_info;
+extern const struct ad5686_chip_info ad5676r_chip_info;
+
+/* 16-channel instances */
+extern const struct ad5686_chip_info ad5674r_chip_info;
+extern const struct ad5686_chip_info ad5679r_chip_info;
 
 /**
  * struct ad5686_state - driver instance specific data
@@ -148,7 +140,7 @@ struct ad5686_state {
 
 
 int ad5686_probe(struct device *dev,
-		 enum ad5686_supported_device_ids chip_type,
+		 const struct ad5686_chip_info *chip_info,
 		 const char *name, ad5686_write_func write,
 		 ad5686_read_func read);
 
