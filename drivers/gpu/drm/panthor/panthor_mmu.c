@@ -197,11 +197,6 @@ struct panthor_vm_op_ctx {
 		 * to allocate in ::run_job().
 		 */
 		struct sg_table *sgt;
-
-		/**
-		 * @map.new_vma: The new VMA object that will be inserted to the VA tree.
-		 */
-		struct panthor_vma *new_vma;
 	} map;
 };
 
