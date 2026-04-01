@@ -2805,8 +2805,7 @@ S:	Maintained
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux.git
 F:	Documentation/devicetree/bindings/firmware/fsl*
 F:	Documentation/devicetree/bindings/firmware/nxp*
-F:	arch/arm/boot/dts/nxp/imx/
-F:	arch/arm/boot/dts/nxp/mxs/
+F:	arch/arm/boot/dts/nxp/
 F:	arch/arm64/boot/dts/freescale/
 X:	Documentation/devicetree/bindings/media/i2c/
 X:	arch/arm64/boot/dts/freescale/fsl-*
@@ -25008,6 +25007,7 @@ F:	drivers/hwmon/pmbus/stef48h28.c
 ST STM32 FIREWALL
 M:	Gatien Chevallier <gatien.chevallier@foss.st.com>
 S:	Maintained
+F:	drivers/bus/stm32_dbg_bus.c
 F:	drivers/bus/stm32_etzpc.c
 F:	drivers/bus/stm32_firewall.c
 F:	drivers/bus/stm32_rifsc.c
