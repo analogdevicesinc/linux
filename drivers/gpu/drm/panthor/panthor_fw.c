@@ -628,7 +628,6 @@ static int panthor_fw_load_section_entry(struct panthor_device *ptdev,
 		u32 cache_mode = hdr.flags & CSF_FW_BINARY_IFACE_ENTRY_CACHE_MODE_MASK;
 		struct panthor_gem_object *bo;
 		u32 vm_map_flags = 0;
-		struct sg_table *sgt;
 		u64 va = hdr.va.start;
 
 		if (!(hdr.flags & CSF_FW_BINARY_IFACE_ENTRY_WR))
@@ -666,11 +665,12 @@ static int panthor_fw_load_section_entry(struct panthor_device *ptdev,
 		panthor_fw_init_section_mem(ptdev, section);
 
 		bo = to_panthor_bo(section->mem->obj);
-		sgt = drm_gem_shmem_get_pages_sgt(&bo->base);
-		if (IS_ERR(sgt))
-			return PTR_ERR(sgt);
 
-		dma_sync_sgtable_for_device(ptdev->base.dev, sgt, DMA_TO_DEVICE);
+		/* An sgt should have been requested when the kernel BO was GPU-mapped. */
+		if (drm_WARN_ON_ONCE(&ptdev->base, !bo->dmap.sgt))
+			return -EINVAL;
+
+		dma_sync_sgtable_for_device(ptdev->base.dev, bo->dmap.sgt, DMA_TO_DEVICE);
 	}
 
 	if (hdr.va.start == CSF_MCU_SHARED_REGION_START)
@@ -730,8 +730,10 @@ panthor_reload_fw_sections(struct panthor_device *ptdev, bool full_reload)
 			continue;
 
 		panthor_fw_init_section_mem(ptdev, section);
-		sgt = drm_gem_shmem_get_pages_sgt(&to_panthor_bo(section->mem->obj)->base);
-		if (!drm_WARN_ON(&ptdev->base, IS_ERR_OR_NULL(sgt)))
+
+		/* An sgt should have been requested when the kernel BO was GPU-mapped. */
+		sgt = to_panthor_bo(section->mem->obj)->dmap.sgt;
+		if (!drm_WARN_ON_ONCE(&ptdev->base, !sgt))
 			dma_sync_sgtable_for_device(ptdev->base.dev, sgt, DMA_TO_DEVICE);
 	}
 }

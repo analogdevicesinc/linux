@@ -5,7 +5,7 @@
 #ifndef __PANTHOR_GEM_H__
 #define __PANTHOR_GEM_H__
 
-#include <drm/drm_gem_shmem_helper.h>
+#include <drm/drm_gem.h>
 #include <drm/drm_mm.h>
 
 #include <linux/iosys-map.h>
@@ -61,11 +61,50 @@ struct panthor_gem_debugfs {
 };
 
 /**
+ * struct panthor_gem_backing - GEM memory backing related data
+ */
+struct panthor_gem_backing {
+	/** @pages: Pages requested with drm_gem_get_pages() */
+	struct page **pages;
+
+	/** @pin_count: Number of active pin requests on this GEM */
+	refcount_t pin_count;
+};
+
+/**
+ * struct panthor_gem_cpu_map - GEM CPU mapping related data
+ */
+struct panthor_gem_cpu_map {
+	/** @vaddr: Address returned by vmap() */
+	void *vaddr;
+
+	/** @vaddr_use_count: Number of active vmap() requests on this GEM */
+	refcount_t vaddr_use_count;
+};
+
+/**
+ * struct panthor_gem_dev_map - GEM device mapping related data
+ */
+struct panthor_gem_dev_map {
+	/** @sgt: Device mapped sg_table for this GEM */
+	struct sg_table *sgt;
+};
+
+/**
  * struct panthor_gem_object - Driver specific GEM object.
  */
 struct panthor_gem_object {
-	/** @base: Inherit from drm_gem_shmem_object. */
-	struct drm_gem_shmem_object base;
+	/** @base: Inherit from drm_gem_object. */
+	struct drm_gem_object base;
+
+	/** @backing: Memory backing state */
+	struct panthor_gem_backing backing;
+
+	/** @cmap: CPU mapping state */
+	struct panthor_gem_cpu_map cmap;
+
+	/** @dmap: Device mapping state */
+	struct panthor_gem_dev_map dmap;
 
 	/**
 	 * @exclusive_vm_root_gem: Root GEM of the exclusive VM this GEM object
@@ -130,21 +169,24 @@ struct panthor_kernel_bo {
 	void *kmap;
 };
 
-static inline
-struct panthor_gem_object *to_panthor_bo(struct drm_gem_object *obj)
-{
-	return container_of(to_drm_gem_shmem_obj(obj), struct panthor_gem_object, base);
-}
+#define to_panthor_bo(obj) container_of_const(obj, struct panthor_gem_object, base)
 
 void panthor_gem_init(struct panthor_device *ptdev);
 
-struct drm_gem_object *panthor_gem_create_object(struct drm_device *ddev, size_t size);
-
+struct drm_gem_object *
+panthor_gem_prime_import_sg_table(struct drm_device *dev,
+				  struct dma_buf_attachment *attach,
+				  struct sg_table *sgt);
 int
 panthor_gem_create_with_handle(struct drm_file *file,
 			       struct drm_device *ddev,
 			       struct panthor_vm *exclusive_vm,
 			       u64 *size, u32 flags, uint32_t *handle);
+
+struct sg_table *
+panthor_gem_get_dev_sgt(struct panthor_gem_object *bo);
+int panthor_gem_pin(struct panthor_gem_object *bo);
+void panthor_gem_unpin(struct panthor_gem_object *bo);
 
 void panthor_gem_bo_set_label(struct drm_gem_object *obj, const char *label);
 void panthor_gem_kernel_bo_set_label(struct panthor_kernel_bo *bo, const char *label);

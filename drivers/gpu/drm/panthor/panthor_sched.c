@@ -3,7 +3,7 @@
 
 #include <drm/drm_drv.h>
 #include <drm/drm_exec.h>
-#include <drm/drm_gem_shmem_helper.h>
+#include <drm/drm_file.h>
 #include <drm/drm_managed.h>
 #include <drm/drm_print.h>
 #include <drm/gpu_scheduler.h>
@@ -871,8 +871,7 @@ panthor_queue_get_syncwait_obj(struct panthor_group *group, struct panthor_queue
 	int ret;
 
 	if (queue->syncwait.kmap) {
-		bo = container_of(queue->syncwait.obj,
-				  struct panthor_gem_object, base.base);
+		bo = to_panthor_bo(queue->syncwait.obj);
 		goto out_sync;
 	}
 
@@ -882,7 +881,7 @@ panthor_queue_get_syncwait_obj(struct panthor_group *group, struct panthor_queue
 	if (drm_WARN_ON(&ptdev->base, IS_ERR_OR_NULL(bo)))
 		goto err_put_syncwait_obj;
 
-	queue->syncwait.obj = &bo->base.base;
+	queue->syncwait.obj = &bo->base;
 	ret = drm_gem_vmap(queue->syncwait.obj, &map);
 	if (drm_WARN_ON(&ptdev->base, ret))
 		goto err_put_syncwait_obj;
@@ -896,7 +895,7 @@ out_sync:
 	 * panthor_gem_sync() is a NOP if map_wc=true, so no need to check
 	 * it here.
 	 */
-	panthor_gem_sync(&bo->base.base,
+	panthor_gem_sync(&bo->base,
 			 DRM_PANTHOR_BO_SYNC_CPU_CACHE_FLUSH_AND_INVALIDATE,
 			 queue->syncwait.offset,
 			 queue->syncwait.sync64 ?

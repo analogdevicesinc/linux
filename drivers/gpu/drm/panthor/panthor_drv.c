@@ -21,6 +21,7 @@
 #include <drm/drm_debugfs.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_exec.h>
+#include <drm/drm_file.h>
 #include <drm/drm_ioctl.h>
 #include <drm/drm_print.h>
 #include <drm/drm_syncobj.h>
@@ -1578,7 +1579,7 @@ static int panthor_ioctl_bo_query_info(struct drm_device *ddev, void *data,
 	args->create_flags = bo->flags;
 
 	args->extra_flags = 0;
-	if (drm_gem_is_imported(&bo->base.base))
+	if (drm_gem_is_imported(&bo->base))
 		args->extra_flags |= DRM_PANTHOR_BO_IS_IMPORTED;
 
 	drm_gem_object_put(obj);
@@ -1793,8 +1794,7 @@ static const struct drm_driver panthor_drm_driver = {
 	.major = 1,
 	.minor = 8,
 
-	.gem_create_object = panthor_gem_create_object,
-	.gem_prime_import_sg_table = drm_gem_shmem_prime_import_sg_table,
+	.gem_prime_import_sg_table = panthor_gem_prime_import_sg_table,
 	.gem_prime_import = panthor_gem_prime_import,
 #ifdef CONFIG_DEBUG_FS
 	.debugfs_init = panthor_debugfs_init,
@@ -1944,3 +1944,4 @@ module_exit(panthor_exit);
 MODULE_AUTHOR("Panthor Project Developers");
 MODULE_DESCRIPTION("Panthor DRM Driver");
 MODULE_LICENSE("Dual MIT/GPL");
+MODULE_IMPORT_NS("DMA_BUF");
