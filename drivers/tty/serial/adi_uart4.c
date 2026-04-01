@@ -558,7 +558,6 @@ static void adi_uart4_serial_dma_tx(void *data)
 	 *		when start a new tx.
 	 */
 	UART_CLEAR_IER(uart, ETBEI);
-	uart->port.icount.tx += uart->tx_count;
 
 	if (!kfifo_is_empty(&tport->xmit_fifo)) {
 		if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
