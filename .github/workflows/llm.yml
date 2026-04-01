@@ -87,6 +87,7 @@ on:
 permissions:
   contents: read
   checks: read
+  pull-requests: read
 
 jobs:
   llm:
@@ -94,6 +95,7 @@ jobs:
     permissions:
       contents: read
       checks: read
+      pull-requests: read
 
     steps:
     - name: Check if should run
