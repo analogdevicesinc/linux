@@ -29,8 +29,6 @@
 #include "ad917x/AD917x.h"
 #include "ad917x/ad917x_reg.h"
 
-#define AD9172_SAMPLE_RATE_KHZ 3000000UL /* 3 GSPS */
-
 #define AD9172_ATTR_CHAN_NCO(x) (2 << 8 | (x))
 #define AD9172_ATTR_CHAN_PHASE(x) (3 << 8 | (x))
 #define AD9172_ATTR_CHAN_TONE_AMP(x) (4 << 8 | (x))
@@ -229,8 +227,14 @@ static int ad9172_setup_dac_clk(struct ad9172_state *st)
 		u64 tmp = dac_clkin_hz;
 
 		do_div(tmp, 1000);
-
-		pll_mult = DIV_ROUND_CLOSEST_ULL(st->dac_rate_khz, tmp);
+		/*
+		 * if dac_rate_khz is set, use it to calculate pll_mult, otherwise
+		 * use total interpolation factor.
+		 */
+		if (st->dac_rate_khz)
+			pll_mult = DIV_ROUND_CLOSEST_ULL(st->dac_rate_khz, tmp);
+		else
+			pll_mult = st->interpolation;
 
 		ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_hz * pll_mult,
 			1, dac_clkin_hz);
@@ -943,7 +947,7 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 	struct device_node *np = spi->dev.of_node;
 	int ret, i;
 
-	st->dac_rate_khz = AD9172_SAMPLE_RATE_KHZ;
+	st->dac_rate_khz = 0;
 	of_property_read_u32(np, "adi,dac-rate-khz", &st->dac_rate_khz);
 
 	st->jesd_link_mode = 10;
