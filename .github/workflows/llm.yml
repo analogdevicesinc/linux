@@ -45,6 +45,7 @@ jobs:
     permissions:
       contents: read
       checks: read
+      pull-requests: read
     secrets:
       ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
       ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
