@@ -16,6 +16,10 @@ soc/dt
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts32-for-v7.1
 	juno/dt-2
 		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/juno-updates-7.1
+	aspeed/dt32
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.1-devicetree-0
+	nuvoton/dt64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-7.1-devicetree-0
 
 soc/drivers
 	renesas/drivers
@@ -52,3 +56,13 @@ arm/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-fixes-7.0
 	rockchip/fixes-2
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.0-rockchip-dtsfixes1-v2
+	reset/fixes-2
+		https://git.pengutronix.de/git/pza/linux tags/reset-fixes-for-v7.0-2
+	aspeed/fixes
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.0-fixes-0
+	riscv/soc-fixes-2
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-soc-fixes-for-v7.0-rc6
+	qcom/fixes
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-fixes-for-7.0
+	hisilicon/fixes
+		https://github.com/hisilicon/linux-hisi tags/hisi-dts-fixes-for-7.0
