@@ -224,6 +224,14 @@ enum ad4130_pin_function {
 	AD4130_PIN_FN_VBIAS = BIT(3),
 };
 
+struct ad4130_chip_info {
+	const char *name;
+	unsigned int max_analog_pins;
+	const struct iio_info *info;
+	const unsigned int *reg_size;
+	const unsigned int reg_size_length;
+};
+
 /*
  * If you make adaptations in this struct, you most likely also have to adapt
  * ad4130_setup_info_eq(), too.
@@ -268,6 +276,7 @@ struct ad4130_state {
 	struct regmap			*regmap;
 	struct spi_device		*spi;
 	struct clk			*mclk;
+	const struct ad4130_chip_info	*chip_info;
 	struct regulator_bulk_data	regulators[4];
 	u32				irq_trigger;
 	u32				inv_irq_trigger;
@@ -394,10 +403,10 @@ static const char * const ad4130_filter_types_str[] = {
 static int ad4130_get_reg_size(struct ad4130_state *st, unsigned int reg,
 			       unsigned int *size)
 {
-	if (reg >= ARRAY_SIZE(ad4130_reg_size))
+	if (reg >= st->chip_info->reg_size_length)
 		return -EINVAL;
 
-	*size = ad4130_reg_size[reg];
+	*size = st->chip_info->reg_size[reg];
 
 	return 0;
 }
@@ -1291,6 +1300,14 @@ static const struct iio_info ad4130_info = {
 	.debugfs_reg_access = ad4130_reg_access,
 };
 
+static const struct ad4130_chip_info ad4130_8_chip_info = {
+	.name = "ad4130-8",
+	.max_analog_pins = 16,
+	.info = &ad4130_info,
+	.reg_size = ad4130_reg_size,
+	.reg_size_length = ARRAY_SIZE(ad4130_reg_size),
+};
+
 static int ad4130_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4130_state *st = iio_priv(indio_dev);
@@ -1504,7 +1521,7 @@ static int ad4130_validate_diff_channel(struct ad4130_state *st, u32 pin)
 		return dev_err_probe(dev, -EINVAL,
 				     "Invalid differential channel %u\n", pin);
 
-	if (pin >= AD4130_MAX_ANALOG_PINS)
+	if (pin >= st->chip_info->max_analog_pins)
 		return 0;
 
 	if (st->pins_fn[pin] == AD4130_PIN_FN_SPECIAL)
@@ -1536,7 +1553,7 @@ static int ad4130_validate_excitation_pin(struct ad4130_state *st, u32 pin)
 {
 	struct device *dev = &st->spi->dev;
 
-	if (pin >= AD4130_MAX_ANALOG_PINS)
+	if (pin >= st->chip_info->max_analog_pins)
 		return dev_err_probe(dev, -EINVAL,
 				     "Invalid excitation pin %u\n", pin);
 
@@ -1554,7 +1571,7 @@ static int ad4130_validate_vbias_pin(struct ad4130_state *st, u32 pin)
 {
 	struct device *dev = &st->spi->dev;
 
-	if (pin >= AD4130_MAX_ANALOG_PINS)
+	if (pin >= st->chip_info->max_analog_pins)
 		return dev_err_probe(dev, -EINVAL, "Invalid vbias pin %u\n",
 				     pin);
 
@@ -1730,7 +1747,7 @@ static int ad4310_parse_fw(struct iio_dev *indio_dev)
 
 	ret = device_property_count_u32(dev, "adi,vbias-pins");
 	if (ret > 0) {
-		if (ret > AD4130_MAX_ANALOG_PINS)
+		if (ret > st->chip_info->max_analog_pins)
 			return dev_err_probe(dev, -EINVAL,
 					     "Too many vbias pins %u\n", ret);
 
@@ -1994,6 +2011,8 @@ static int ad4130_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 
+	st->chip_info = device_get_match_data(dev);
+
 	memset(st->reset_buf, 0xff, sizeof(st->reset_buf));
 	init_completion(&st->completion);
 	mutex_init(&st->lock);
@@ -2011,9 +2030,9 @@ static int ad4130_probe(struct spi_device *spi)
 	spi_message_init_with_transfers(&st->fifo_msg, st->fifo_xfer,
 					ARRAY_SIZE(st->fifo_xfer));
 
-	indio_dev->name = AD4130_NAME;
+	indio_dev->name = st->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->info = &ad4130_info;
+	indio_dev->info = st->chip_info->info;
 
 	st->regmap = devm_regmap_init(dev, NULL, st, &ad4130_regmap_config);
 	if (IS_ERR(st->regmap))
@@ -2056,7 +2075,7 @@ static int ad4130_probe(struct spi_device *spi)
 	ad4130_fill_scale_tbls(st);
 
 	st->gc.owner = THIS_MODULE;
-	st->gc.label = AD4130_NAME;
+	st->gc.label = st->chip_info->name;
 	st->gc.base = -1;
 	st->gc.ngpio = AD4130_MAX_GPIOS;
 	st->gc.parent = dev;
@@ -2104,13 +2123,14 @@ static int ad4130_probe(struct spi_device *spi)
 static const struct of_device_id ad4130_of_match[] = {
 	{
 		.compatible = "adi,ad4130",
+		.data = &ad4130_8_chip_info
 	},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad4130_of_match);
 
 static const struct spi_device_id ad4130_id_table[] = {
-	{ "ad4130" },
+	{ "ad4130", (kernel_ulong_t)&ad4130_8_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad4130_id_table);
