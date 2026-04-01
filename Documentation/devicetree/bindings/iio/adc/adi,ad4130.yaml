@@ -32,6 +32,10 @@ properties:
 
   interrupts:
     maxItems: 1
+    description: |
+      Data Ready / FIFO interrupt. For devices with FIFO support, the
+      interrupt polarity specified here is inverted when the device enters
+      FIFO mode, and normal for data ready.
 
   interrupt-names:
     description: |
