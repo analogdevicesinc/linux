@@ -604,15 +604,6 @@ static int panthor_gem_mmap(struct drm_gem_object *obj, struct vm_area_struct *v
 	if (is_cow_mapping(vma->vm_flags))
 		return -EINVAL;
 
-	dma_resv_lock(obj->resv, NULL);
-	ret = panthor_gem_backing_get_pages_locked(bo);
-	if (!ret)
-		ret = panthor_gem_prep_for_cpu_map_locked(bo);
-	dma_resv_unlock(obj->resv);
-
-	if (ret)
-		return ret;
-
 	vm_flags_set(vma, VM_PFNMAP | VM_DONTEXPAND | VM_DONTDUMP);
 	vma->vm_page_prot = vm_get_page_prot(vma->vm_flags);
 	if (should_map_wc(bo))
@@ -653,35 +644,95 @@ static vm_fault_t insert_page(struct vm_fault *vmf, unsigned int order, struct p
 	return VM_FAULT_FALLBACK;
 }
 
+static vm_fault_t nonblocking_page_setup(struct vm_fault *vmf,
+					 unsigned int order,
+					 pgoff_t page_offset)
+{
+	struct vm_area_struct *vma = vmf->vma;
+	struct panthor_gem_object *bo = to_panthor_bo(vma->vm_private_data);
+	vm_fault_t ret;
+
+	if (!dma_resv_trylock(bo->base.resv))
+		return VM_FAULT_RETRY;
+
+	if (bo->backing.pages)
+		ret = insert_page(vmf, order, bo->backing.pages[page_offset]);
+	else
+		ret = VM_FAULT_RETRY;
+
+	dma_resv_unlock(bo->base.resv);
+	return ret;
+}
+
+static vm_fault_t blocking_page_setup(struct vm_fault *vmf, unsigned int order,
+				      struct panthor_gem_object *bo,
+				      pgoff_t page_offset, bool mmap_lock_held)
+{
+	vm_fault_t ret;
+	int err;
+
+	err = dma_resv_lock_interruptible(bo->base.resv, NULL);
+	if (err)
+		return mmap_lock_held ? VM_FAULT_NOPAGE : VM_FAULT_RETRY;
+
+	err = panthor_gem_backing_get_pages_locked(bo);
+	if (!err)
+		err = panthor_gem_prep_for_cpu_map_locked(bo);
+
+	if (err) {
+		ret = mmap_lock_held ? VM_FAULT_SIGBUS : VM_FAULT_RETRY;
+	} else {
+		struct page *page = bo->backing.pages[page_offset];
+
+		if (mmap_lock_held)
+			ret = insert_page(vmf, order, page);
+		else
+			ret = VM_FAULT_RETRY;
+	}
+
+	dma_resv_unlock(bo->base.resv);
+
+	return ret;
+}
+
 static vm_fault_t panthor_gem_any_fault(struct vm_fault *vmf, unsigned int order)
 {
 	struct vm_area_struct *vma = vmf->vma;
-	struct drm_gem_object *obj = vma->vm_private_data;
 	struct panthor_gem_object *bo = to_panthor_bo(vma->vm_private_data);
-	loff_t num_pages = obj->size >> PAGE_SHIFT;
-	vm_fault_t ret;
+	loff_t num_pages = bo->base.size >> PAGE_SHIFT;
 	pgoff_t page_offset;
+	vm_fault_t ret;
 
 	if (order && order != PMD_ORDER)
 		return VM_FAULT_FALLBACK;
 
 	/* Offset to faulty address in the VMA. */
 	page_offset = vmf->pgoff - vma->vm_pgoff;
+	if (page_offset >= num_pages)
+		return VM_FAULT_SIGBUS;
 
-	dma_resv_lock(bo->base.resv, NULL);
+	ret = nonblocking_page_setup(vmf, order, page_offset);
+	if (ret != VM_FAULT_RETRY)
+		return ret;
 
-	if (page_offset >= num_pages ||
-	    drm_WARN_ON_ONCE(obj->dev, !bo->backing.pages)) {
-		ret = VM_FAULT_SIGBUS;
-		goto out;
+	/* Check if we're allowed to retry. */
+	if (fault_flag_allow_retry_first(vmf->flags)) {
+		/* If we're allowed to retry but not wait here, return
+		 * immediately, the wait will be done when the fault
+		 * handler is called again, with the mmap_lock held.
+		 */
+		if (vmf->flags & FAULT_FLAG_RETRY_NOWAIT)
+			return VM_FAULT_RETRY;
+
+		/* Wait with the mmap lock released, if we're allowed to. */
+		drm_gem_object_get(&bo->base);
+		mmap_read_unlock(vmf->vma->vm_mm);
+		ret = blocking_page_setup(vmf, order, bo, page_offset, false);
+		drm_gem_object_put(&bo->base);
+		return ret;
 	}
 
-	ret = insert_page(vmf, order, bo->backing.pages[page_offset]);
-
- out:
-	dma_resv_unlock(bo->base.resv);
-
-	return ret;
+	return blocking_page_setup(vmf, order, bo, page_offset, true);
 }
 
 static vm_fault_t panthor_gem_fault(struct vm_fault *vmf)
@@ -689,31 +740,12 @@ static vm_fault_t panthor_gem_fault(struct vm_fault *vmf)
 	return panthor_gem_any_fault(vmf, 0);
 }
 
-static void panthor_gem_vm_open(struct vm_area_struct *vma)
-{
-	struct panthor_gem_object *bo = to_panthor_bo(vma->vm_private_data);
-
-	drm_WARN_ON(bo->base.dev, drm_gem_is_imported(&bo->base));
-
-	dma_resv_lock(bo->base.resv, NULL);
-
-	/* We should have already pinned the pages when the buffer was first
-	 * mmap'd, vm_open() just grabs an additional reference for the new
-	 * mm the vma is getting copied into (ie. on fork()).
-	 */
-	drm_WARN_ON_ONCE(bo->base.dev, !bo->backing.pages);
-
-	dma_resv_unlock(bo->base.resv);
-
-	drm_gem_vm_open(vma);
-}
-
 static const struct vm_operations_struct panthor_gem_vm_ops = {
 	.fault = panthor_gem_fault,
 #ifdef CONFIG_ARCH_SUPPORTS_PMD_PFNMAP
 	.huge_fault = panthor_gem_any_fault,
 #endif
-	.open = panthor_gem_vm_open,
+	.open = drm_gem_vm_open,
 	.close = drm_gem_vm_close,
 };
 
