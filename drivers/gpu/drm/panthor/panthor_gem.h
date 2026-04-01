@@ -80,6 +80,9 @@ struct panthor_gem_cpu_map {
 
 	/** @vaddr_use_count: Number of active vmap() requests on this GEM */
 	refcount_t vaddr_use_count;
+
+	/** @mmap_count: Number of active mmap() requests on this GEM */
+	refcount_t mmap_count;
 };
 
 /**
