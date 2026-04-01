@@ -1175,6 +1175,44 @@ panthor_vm_op_ctx_prealloc_vmas(struct panthor_vm_op_ctx *op_ctx)
 	return 0;
 }
 
+static void panthor_vm_init_op_ctx(struct panthor_vm_op_ctx *op_ctx,
+				   u64 size, u64 va, u32 flags)
+{
+	memset(op_ctx, 0, sizeof(*op_ctx));
+	op_ctx->flags = flags;
+	op_ctx->va.range = size;
+	op_ctx->va.addr = va;
+}
+
+static int panthor_vm_op_ctx_prealloc_pts(struct panthor_vm_op_ctx *op_ctx)
+{
+	u64 size = op_ctx->va.range;
+	u64 va = op_ctx->va.addr;
+	int ret;
+
+	/* L1, L2 and L3 page tables.
+	 * We could optimize L3 allocation by iterating over the sgt and merging
+	 * 2M contiguous blocks, but it's simpler to over-provision and return
+	 * the pages if they're not used.
+	 */
+	u64 pt_count = ((ALIGN(va + size, 1ull << 39) - ALIGN_DOWN(va, 1ull << 39)) >> 39) +
+		       ((ALIGN(va + size, 1ull << 30) - ALIGN_DOWN(va, 1ull << 30)) >> 30) +
+		       ((ALIGN(va + size, 1ull << 21) - ALIGN_DOWN(va, 1ull << 21)) >> 21);
+
+	op_ctx->rsvd_page_tables.pages = kzalloc_objs(*op_ctx->rsvd_page_tables.pages,
+						      pt_count);
+	if (!op_ctx->rsvd_page_tables.pages)
+		return -ENOMEM;
+
+	ret = kmem_cache_alloc_bulk(pt_cache, GFP_KERNEL, pt_count,
+				    op_ctx->rsvd_page_tables.pages);
+	op_ctx->rsvd_page_tables.count = ret;
+	if (ret != pt_count)
+		return -ENOMEM;
+
+	return 0;
+}
+
 #define PANTHOR_VM_BIND_OP_MAP_FLAGS \
 	(DRM_PANTHOR_VM_BIND_OP_MAP_READONLY | \
 	 DRM_PANTHOR_VM_BIND_OP_MAP_NOEXEC | \
@@ -1190,7 +1228,6 @@ static int panthor_vm_prepare_map_op_ctx(struct panthor_vm_op_ctx *op_ctx,
 {
 	struct drm_gpuvm_bo *preallocated_vm_bo;
 	struct sg_table *sgt = NULL;
-	u64 pt_count;
 	int ret;
 
 	if (!bo)
@@ -1209,10 +1246,7 @@ static int panthor_vm_prepare_map_op_ctx(struct panthor_vm_op_ctx *op_ctx,
 	    bo->exclusive_vm_root_gem != panthor_vm_root_gem(vm))
 		return -EINVAL;
 
-	memset(op_ctx, 0, sizeof(*op_ctx));
-	op_ctx->flags = flags;
-	op_ctx->va.range = size;
-	op_ctx->va.addr = va;
+	panthor_vm_init_op_ctx(op_ctx, size, va, flags);
 
 	ret = panthor_vm_op_ctx_prealloc_vmas(op_ctx);
 	if (ret)
@@ -1244,29 +1278,9 @@ static int panthor_vm_prepare_map_op_ctx(struct panthor_vm_op_ctx *op_ctx,
 	op_ctx->map.vm_bo = drm_gpuvm_bo_obtain_prealloc(preallocated_vm_bo);
 	op_ctx->map.bo_offset = offset;
 
-	/* L1, L2 and L3 page tables.
-	 * We could optimize L3 allocation by iterating over the sgt and merging
-	 * 2M contiguous blocks, but it's simpler to over-provision and return
-	 * the pages if they're not used.
-	 */
-	pt_count = ((ALIGN(va + size, 1ull << 39) - ALIGN_DOWN(va, 1ull << 39)) >> 39) +
-		   ((ALIGN(va + size, 1ull << 30) - ALIGN_DOWN(va, 1ull << 30)) >> 30) +
-		   ((ALIGN(va + size, 1ull << 21) - ALIGN_DOWN(va, 1ull << 21)) >> 21);
-
-	op_ctx->rsvd_page_tables.pages = kzalloc_objs(*op_ctx->rsvd_page_tables.pages,
-						      pt_count);
-	if (!op_ctx->rsvd_page_tables.pages) {
-		ret = -ENOMEM;
+	ret = panthor_vm_op_ctx_prealloc_pts(op_ctx);
+	if (ret)
 		goto err_cleanup;
-	}
-
-	ret = kmem_cache_alloc_bulk(pt_cache, GFP_KERNEL, pt_count,
-				    op_ctx->rsvd_page_tables.pages);
-	op_ctx->rsvd_page_tables.count = ret;
-	if (ret != pt_count) {
-		ret = -ENOMEM;
-		goto err_cleanup;
-	}
 
 	/* Insert BO into the extobj list last, when we know nothing can fail. */
 	if (bo->base.resv != panthor_vm_resv(vm)) {
