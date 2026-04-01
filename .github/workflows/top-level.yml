@@ -84,7 +84,7 @@ jobs:
           job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
   build_gcc_arm_sc573-ezlite_defconfig:
@@ -167,6 +167,6 @@ jobs:
           job_fail_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.fail}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/${{ github.repository }}/ci/ci/runner_env.sh
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
           assert_labels
