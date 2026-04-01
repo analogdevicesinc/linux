@@ -5,9 +5,8 @@
  */
 
 #include "dev.h"
-#include "fuse_i.h"
+#include "args.h"
 #include "dev_uring_i.h"
-#include "fuse_dev_i.h"
 #include "fuse_trace.h"
 
 #include <linux/fs.h>

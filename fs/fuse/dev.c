@@ -7,9 +7,8 @@
 */
 
 #include "dev.h"
+#include "args.h"
 #include "dev_uring_i.h"
-#include "fuse_i.h"
-#include "fuse_dev_i.h"
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -2342,7 +2341,7 @@ static void fuse_dev_show_fdinfo(struct seq_file *seq, struct file *file)
 	if (!fud)
 		return;
 
-	seq_printf(seq, "fuse_connection:\t%u\n", fud->chan->conn->dev);
+	seq_printf(seq, "fuse_connection:\t%u\n", fuse_conn_get_id(fud->chan->conn));
 }
 #endif
 

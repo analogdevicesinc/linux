@@ -13,6 +13,7 @@ struct fuse_chan;
 struct fuse_dev;
 struct fuse_args;
 struct fuse_copy_state;
+struct fuse_backing_map;
 struct file;
 struct folio;
 enum fuse_notify_code;
@@ -45,6 +46,16 @@ void fuse_chan_queue_forget(struct fuse_chan *fch, struct fuse_forget_link *forg
 
 DEFINE_FREE(fuse_chan_free, struct fuse_chan *, if (_T) fuse_chan_free(_T))
 
+/**
+ * Initialize the client device
+ */
+int fuse_dev_init(void);
+
+/**
+ * Cleanup the client device
+ */
+void fuse_dev_cleanup(void);
+
 void fuse_dev_install(struct fuse_dev *fud, struct fuse_chan *fch);
 bool fuse_dev_verify(struct fuse_dev *fud, struct fuse_chan *fch);
 void fuse_dev_put(struct fuse_dev *fud);
@@ -58,9 +69,24 @@ void fuse_init_server_timeout(struct fuse_chan *fch, unsigned int timeout);
 void fuse_chan_abort(struct fuse_chan *fch, bool abort_with_err);
 void fuse_chan_wait_aborted(struct fuse_chan *fch);
 
+/**
+ * Acquire reference to fuse_conn
+ */
+struct fuse_conn *fuse_conn_get(struct fuse_conn *fc);
+
+/**
+ * Release reference to fuse_conn
+ */
+void fuse_conn_put(struct fuse_conn *fc);
+
+dev_t fuse_conn_get_id(struct fuse_conn *fc);
+
 void fuse_end_polls(struct fuse_conn *fc);
 int fuse_notify(struct fuse_conn *fc, enum fuse_notify_code code,
 		unsigned int size, struct fuse_copy_state *cs);
+
+int fuse_backing_open(struct fuse_conn *fc, struct fuse_backing_map *map);
+int fuse_backing_close(struct fuse_conn *fc, int backing_id);
 
 int fuse_copy_one(struct fuse_copy_state *cs, void *val, unsigned size);
 int fuse_copy_folio(struct fuse_copy_state *cs, struct folio **foliop,

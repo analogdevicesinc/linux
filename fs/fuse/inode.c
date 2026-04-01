@@ -1031,6 +1031,11 @@ struct fuse_conn *fuse_conn_get(struct fuse_conn *fc)
 }
 EXPORT_SYMBOL_GPL(fuse_conn_get);
 
+dev_t fuse_conn_get_id(struct fuse_conn *fc)
+{
+	return fc->dev;
+}
+
 static struct inode *fuse_get_root_inode(struct super_block *sb, unsigned int mode)
 {
 	struct fuse_attr attr;

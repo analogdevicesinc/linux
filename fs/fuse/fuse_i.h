@@ -907,16 +907,6 @@ void fuse_change_attributes_common(struct inode *inode, struct fuse_attr *attr,
 
 u32 fuse_get_cache_mask(struct inode *inode);
 
-/**
- * Initialize the client device
- */
-int fuse_dev_init(void);
-
-/**
- * Cleanup the client device
- */
-void fuse_dev_cleanup(void);
-
 int fuse_ctl_init(void);
 void __exit fuse_ctl_cleanup(void);
 
@@ -972,20 +962,10 @@ u64 fuse_time_to_jiffies(u64 sec, u32 nsec);
 void fuse_change_entry_timeout(struct dentry *entry, struct fuse_entry_out *o);
 
 /**
- * Acquire reference to fuse_conn
- */
-struct fuse_conn *fuse_conn_get(struct fuse_conn *fc);
-
-/**
  * Initialize fuse_conn
  */
 void fuse_conn_init(struct fuse_conn *fc, struct fuse_mount *fm,
 		    struct user_namespace *user_ns, struct fuse_chan *fch);
-
-/**
- * Release reference to fuse_conn
- */
-void fuse_conn_put(struct fuse_conn *fc);
 
 int fuse_send_init(struct fuse_mount *fm);
 
@@ -1105,7 +1085,6 @@ long fuse_do_ioctl(struct file *file, unsigned int cmd, unsigned long arg,
 long fuse_ioctl_common(struct file *file, unsigned int cmd,
 		       unsigned long arg, unsigned int flags);
 __poll_t fuse_file_poll(struct file *file, poll_table *wait);
-int fuse_dev_release(struct inode *inode, struct file *file);
 
 bool fuse_write_update_attr(struct inode *inode, loff_t pos, ssize_t written);
 
@@ -1135,11 +1114,6 @@ int fuse_set_acl(struct mnt_idmap *, struct dentry *dentry,
 
 /* readdir.c */
 int fuse_readdir(struct file *file, struct dir_context *ctx);
-
-/**
- * Return the number of bytes in an arguments list
- */
-unsigned int fuse_len_args(unsigned int numargs, struct fuse_arg *args);
 
 void fuse_free_conn(struct fuse_conn *fc);
 
@@ -1208,8 +1182,6 @@ static inline struct fuse_backing *fuse_backing_lookup(struct fuse_conn *fc,
 
 void fuse_backing_files_init(struct fuse_conn *fc);
 void fuse_backing_files_free(struct fuse_conn *fc);
-int fuse_backing_open(struct fuse_conn *fc, struct fuse_backing_map *map);
-int fuse_backing_close(struct fuse_conn *fc, int backing_id);
 
 /* passthrough.c */
 static inline struct fuse_backing *fuse_inode_backing(struct fuse_inode *fi)
