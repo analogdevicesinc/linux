@@ -1059,7 +1059,7 @@ assert_compiled () {
 	[[ -z "$files" ]] && return 0
 	while read file; do
 		echo -e "\e[1m$file\e[0m"
-		abs_file=$(realpath "$KBUILD_OUTPUT")/$file
+		abs_file=$(realpath .)/$file
 		compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
 			      .command" compile_commands.json)
 
