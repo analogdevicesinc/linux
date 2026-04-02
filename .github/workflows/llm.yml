@@ -1,57 +1,35 @@
 name: LLM Agent
+run-name: LLM run ${{ inputs.ref }}
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: The branch, tag, PR number, or SHA to checkout
-        required: false
-        type: string
-      run-id:
-        description: Explicit workflow run to analyse, optional.
+        description: "The branch, tag, PR number, or SHA to checkout"
         required: false
         type: string
       prompt:
-        description: Prompt to use, overwrites the default.
+        description: "Prompt to use, overwrites the default"
         required: false
         type: string
         default: ""
       prompt-extra:
-        description: Extra prompt to concatenate.
+        description: "Extra prompt to concatenate"
         required: false
         type: string
         default: ""
-      prompt-repository:
-        description: Repository with LLM skills, overwrites the default.
-        required: false
-        type: string
-        default: ""
-      model-small:
-        required: false
-        type: string
-        default: "@vertexai-global/anthropic.claude-haiku-4-5@20251001"
-      model-medium:
-        required: false
-        type: string
-        default: "@vertexai-global/anthropic.claude-sonnet-4-5@20250929"
-      model-large:
-        required: false
-        type: string
-        default: "@vertexai-global/anthropic.claude-opus-4-5@20251101"
+      model:
+        description: Model size.
+        type: choice
+        options:
+        - small
+        - medium
+        - large
   workflow_call:
     inputs:
-      base-sha: # DEPRECATED
-        required: false
-        type: string
-      head-sha: # DEPRECATED
-        required: false
-        type: string
       ref:
         required: false
         type: string
-      run-id:
-        required: false
-        type: string
       prompt:
         required: false
         type: string
@@ -60,34 +38,13 @@ on:
         required: false
         type: string
         default: ""
-      prompt-repository:
+      model:
         required: false
         type: string
-        default: ""
-      model-small:
-        required: false
-        type: string
-        default: "@vertexai-global/anthropic.claude-haiku-4-5@20251001"
-      model-medium:
-        required: false
-        type: string
-        default: "@vertexai-global/anthropic.claude-sonnet-4-5@20250929"
-      model-large:
-        required: false
-        type: string
-        default: "@vertexai-global/anthropic.claude-opus-4-5@20251101"
+        default: "medium"
     secrets:
-      ANTHROPIC_CUSTOM_HEADERS:
-        required: false
-      ANTHROPIC_BASE_URL:
-        required: false
-      ANTHROPIC_AUTH_TOKEN:
-        required: false
-
-permissions:
-  contents: read
-  checks: read
-  pull-requests: read
+      PORTKEY_API_KEY:
+        required: true
 
 jobs:
   llm:
@@ -98,133 +55,45 @@ jobs:
       pull-requests: read
 
     steps:
-    - name: Check if should run
-      env:
-        ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
-      if: ${{ env.ANTHROPIC_AUTH_TOKEN != '' && env.ANTHROPIC_AUTH_TOKEN != ' ' }}
-      run: |
-        echo "LLM_AGENT_RUN=true" >> "$GITHUB_ENV"
+      - name: Prepare prompt
+        run: |
+          prompt_file=$(mktemp --suffix=.md)
+          echo "prompt_file=$prompt_file" >> "$GITHUB_ENV"
 
-    - uses: analogdevicesinc/doctools/gh-get-ref-range@action
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      with:
-        repository: ${{ github.repository }}
-        ref: ${{ inputs.ref }}
+          cat <<'EOF' > "$prompt_file"
+          ${{ inputs.prompt }}
+          EOF
 
-    - uses: analogdevicesinc/doctools/checkout@action
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      with:
-        base-sha: ${{ env.base_sha }}
-        head-sha: ${{ env.head_sha }}
-
-    - name: Get sources
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      run: |
-        ref="refs/heads/ci"
-        org_repo="analogdevicesinc/linux"
-        get_file () {
-          echo https://raw.githubusercontent.com/$org_repo/$ref/$1
-          curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
-              https://raw.githubusercontent.com/$org_repo/$ref/$1
-        }
-
-        mkdir -p ci
-        get_file ci/build.sh
-        get_file ci/symbols_depend.py
-        get_file ci/touched_kconfig.awk
-        get_file ci/extract_register_map.py
-
-    - uses: analogdevicesinc/doctools/gh-collect-annotations@action
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      with:
-        head-sha: ${{ env.head_sha }}
-        run-id: ${{ inputs.run-id }}
-        repository: ${{ github.repository }}
-
-    - name: Get claude
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      run: |
-        export PATH="$HOME/.local/bin:$PATH"
-        command -v claude || curl -fsSL https://claude.ai/install.sh | bash -s 2.1.37
-        mkdir -p $HOME/.claude
-        echo '{ "includeCoAuthoredBy": false }' > $HOME/.claude/settings.json
-
-    - name: Prepare prompt sources
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      run: |
-        prompt_file=$(mktemp --suffix=.md)
-        echo "prompt_file=$prompt_file" >> "$GITHUB_ENV"
-        summary_file=$(mktemp --suffix=.md)
-        echo "summary_file=$summary_file" >> "$GITHUB_ENV"
-        patches_path=$(mktemp -d)
-        echo "patches_path=$patches_path" >> "$GITHUB_ENV"
-
-    - name: Prepare prompt repository
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      run: |
-        prompt_repo="${{ inputs.prompt-repository }}"
-        [[ -n "$prompt_repo" ]] || prompt_repo="https://github.com/masoncl/review-prompts"
-        git clone "$prompt_repo" --depth 1 prompts-repository
-        if [[ "$prompt_repo" == "https://github.com/masoncl/review-prompts" ]]; then
-          script="./prompts-repository/kernel/scripts/claude-setup.sh"
-        else
-          script="$(find ./prompts-repository -name "claude-setup.sh" -type f | grep -v systemd | head -n 1)"
-        fi
-        [[ -x "$script" ]] && "$script"
-
-    - name: Prepare tools
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      run: |
-        export PATH="$HOME/.local/bin:$PATH"
-        source ci/build.sh
-        venv_path=$(mktemp -d)
-        python3 -m venv $venv_path
-        source $venv_path/bin/activate
-        python3 -m ensurepip --upgrade
-
-        venv_packages="adi-doctools[mcp] camelot-py dtschema==2025.08 yamllint ply GitPython"
-        pip install $venv_packages
-        claude mcp add adoc $(which adoc-mcp)
-
-        echo "venv_path=$venv_path" >> "$GITHUB_ENV"
-        echo "venv_packages=$venv_packages" >> "$GITHUB_ENV"
-
-    - name: Prepare top prompt
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      run: |
-        # Prepare top prompt
-        source ci/build.sh
-        set_arch_available="$(set_arch | tail -1)"
-        echo -n "${{ inputs.prompt }}" > $prompt_file
-        [[ -s "$prompt_file" ]] || echo -n "
+          grep -q '[^[:space:]]' "$prompt_file" || \
+          cat <<'EOF' > "$prompt_file"
           Run a deep Linux Kernel analysis on the commit range $base_sha..$head_sha.
 
           You **must** read $annotations_file for the CI/CD notes, warnings, and errors.
           You **must** write your final review in markdown at $summary_file as a GitHub Summary.
 
-          You shall suggest fixup commits (**must** use \`--fixup\`) to resolve issues,
-          if so, you **must** use \`git format-patch -o $patches_path\` to store the patches to
+          You shall suggest fixup commits (**must** use `--fixup`) to resolve issues,
+          if so, you **must** use `git format-patch -o $patches_path` to store the patches to
           the $patches_path directory (**never** autosquash). You can create more than one fixup
           commit for each commit.
 
           You are allowed to use tools and write. Your review should be based on the current
           Kernel documentation at ./Documentation/ . Never says things you are unsure.
 
-          You have access to multi-architecture compilers and \`./ci/build.sh\`
+          You have access to multi-architecture compilers and `./ci/build.sh`
           contain multiple methods that run during the CI/CD that you can use to
           replicate the CI/CD steps, for example, to compile for 'arm' a minimal
           defconfig, do
-          \`\`\`
-          \$ make mrproper
-          \$ set_arch gcc_arm
+          ```
+          $ make mrproper
+          $ set_arch gcc_arm
              CXX=gcc-13
              ARCH=arm
              CROSS_COMPILE=arm-linux-
-          \$ auto_set_kconfig
-          \$ make
-          \`\`\`\
+          $ auto_set_kconfig
+          $ make
+          ```
           You must use the set_arch command, it properly sets the correct compilers for all
-          architectures, for example, \`set_arch gcc_aarch64\` sets \`CROSS_COMPILE=aarch64-linux-\`.
+          architectures, for example, `set_arch gcc_aarch64` sets `CROSS_COMPILE=aarch64-linux-`.
           The available compilers are $set_arch_available
 
           You shall install pip packages to help you review, test and debug;
@@ -236,62 +105,88 @@ jobs:
           they are not part of the series but to change the CI/CD or temporally change behaviour.
           You **must** check the appropriate datasheets for devices drivers, always convert pdfs
           before reading it, in particular, camelot-py is great to get the register map.
-          \`python3 -m  ci.extract_register_map ./datasheet.pdf\` extract register maps from datasheets,
+          `python3 -m  ci.extract_register_map ./datasheet.pdf` extract register maps from datasheets,
           should work on most cases, modify if needed. Tip: a sitemap with all pdfs, including the datasheets,
           are available at https://www.analog.com/media/en/en-pdf-sitemap.xml
-        " | sed ':a;N;$!ba;s/  */ /g' | sed 's/^[[:space:]]*//' > $prompt_file
-        echo "${{ inputs.prompt-extra }}" >> $prompt_file
-        cat $prompt_file
+          EOF
 
-    - name: Run claude
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      env:
-        ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
-        ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
-        ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
-        ANTHROPIC_MODEL: ${{ inputs.model-medium }}
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: ${{ inputs.model-small }}
-        ANTHROPIC_DEFAULT_SONNET_MODEL: ${{ inputs.model-medium }}
-        ANTHROPIC_DEFAULT_OPUS_MODEL: ${{ inputs.model-large }}
-      run: |
-        export PATH="$HOME/.local/bin:$PATH"
-        source $venv_path/bin/activate
-        source ci/build.sh
+          cat <<'EOF' >> "$prompt_file"
+          ${{ inputs.prompt-extra }}
+          EOF
 
-        timeout 60m adoc llm "$prompt_file" || true
+      - name: Get sources
+        run: |
+          ref="refs/heads/ci"
+          org_repo="analogdevicesinc/linux"
+          get_file () {
+            echo https://raw.githubusercontent.com/$org_repo/$ref/$1
+            curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
+                https://raw.githubusercontent.com/$org_repo/$ref/$1
+          }
 
-    - name: Collect results
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      run: |
-        [[ -s "$summary_file" ]] && cat "$summary_file" >> $GITHUB_STEP_SUMMARY || true
+          mkdir -p ci
+          get_file ci/build.sh
+          get_file ci/symbols_depend.py
+          get_file ci/touched_kconfig.awk
+          get_file ci/extract_register_map.py
 
-    - name: Store suggested patches
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      id: upload_patches
-      uses: actions/upload-artifact@v6
-      with:
-        name: llm-patches
-        path: ${{ env.patches_path }}
-        if-no-files-found: ignore
+      - name: Setup skills
+        run: |
+          prompt_dir="$(mktemp -d)"
+          echo "prompt_dir=$prompt_dir" >> "$GITHUB_ENV"
+          git clone --depth 1 https://github.com/masoncl/review-prompts "$prompt_dir" && cd $_
 
-    - name: Get artifact url of suggested patches
-      if: ${{ env.LLM_AGENT_RUN == 'true' }}
-      run: |
-        [[ -z "$(ls -A "$patches_path")" ]] && exit 0
+          PI=~/.pi/agent
+          PROMPTS_DIR=$PI/_prompts
 
-        # Requires upload-artifact@v6
-        url="${{ steps.upload_patches.outputs.artifact-url }}"
-        echo "## Suggested patches" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Suggested patches are provided at the [llm-patches]($url) artifact." >> $GITHUB_STEP_SUMMARY
+          pushd "$prompt_dir"
+          mkdir -p $PI/_prompts/kernel
+          cp kernel/*.md $PI/_prompts/kernel
+          cp -r kernel/subsystem $PI/_prompts/kernel
 
-    - name: Clean-up
-      if: ${{ env.LLM_AGENT_RUN == 'true' && always() }}
-      run: |
-        rm -rf "$HOME/.claude"
-        rm -f $HOME/.claude.json
-        rm -f $HOME/.claude.*
-        [[ -d "./prompts-repository" ]] && rm -r ./prompts-repository
-        rm -f "$annotations_file" "$summary_file" "$prompt_file"
-        rm -rf "$patches_path"
-        rm -rf "$venv_path"
+          mkdir -p $PI/prompts
+          pushd kernel/slash-commands
+          for f in *.md; do
+             sed  -e "s|{{KERNEL_REVIEW_PROMPTS_DIR}}|$PI/_prompts/kernel|g" \
+                  -e "s|{{REVIEW_DIR}}|$PI/_prompts/kernel|g" "$f" \
+                  > "$PI/prompts/$f"
+          done
+          popd
+
+          mkdir -p $PI/skills/kernel
+          sed "s|{{KERNEL_REVIEW_PROMPTS_DIR}}|$PI/_prompts/kernel|g" "kernel/skills/kernel.md" > "$PI/skills/kernel/kernel.md"
+          popd
+
+      - name: Prepare tools
+        shell: bash
+        run: |
+          py_venv="$(mktemp -d)"
+          echo "py_venv=$py_venv" >> "$GITHUB_ENV"
+          echo "sh_source=ci/build.sh" >> "$GITHUB_ENV"
+
+          python3 -m venv $py_venv
+          source $py_venv/bin/activate
+          python3 -m ensurepip --upgrade
+          pip install adi-doctools camelot-py
+
+      - name: Extra magic vars
+        run: |
+          source ci/build.sh
+          echo "set_arch_available=$(set_arch | tail -1)" >> $GITHUB_ENV
+
+      - uses: analogdevicesinc/doctools/llm@action
+        with:
+          ref: ${{ inputs.ref }}
+          model: ${{ inputs.model }}
+          prompt-file: ${{ env.prompt_file }}
+          api-key: ${{ secrets.PORTKEY_API_KEY }}
+          py-venv: ${{ env.py_venv }}
+          sh-source: ${{ env.sh_source }}
+
+      - name: Clean-up
+        if: always()
+        run: |
+          rm -f "$prompt_file"
+          rm -rf "$prompt_dir"
+          rm -rf "$py_venv"
+          rm -rf ci
