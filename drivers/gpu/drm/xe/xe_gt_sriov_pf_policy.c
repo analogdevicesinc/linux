@@ -8,6 +8,7 @@
 #include "abi/guc_actions_sriov_abi.h"
 
 #include "xe_gt.h"
+#include "xe_gt_sriov_pf_config.h"
 #include "xe_gt_sriov_pf_helpers.h"
 #include "xe_gt_sriov_pf_policy.h"
 #include "xe_gt_sriov_printk.h"
@@ -153,33 +154,14 @@ static int pf_update_policy_u32(struct xe_gt *gt, u16 key, u32 *policy, u32 valu
 	return 0;
 }
 
-static void pf_bulk_reset_sched_priority(struct xe_gt *gt, u32 priority)
-{
-	unsigned int total_vfs = 1 + xe_gt_sriov_pf_get_totalvfs(gt);
-	unsigned int n;
-
-	xe_gt_assert(gt, IS_SRIOV_PF(gt_to_xe(gt)));
-	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
-
-	for (n = 0; n < total_vfs; n++)
-		gt->sriov.pf.vfs[n].config.sched_priority = priority;
-}
-
 static int pf_provision_sched_if_idle(struct xe_gt *gt, bool enable)
 {
-	int err;
-
 	xe_gt_assert(gt, IS_SRIOV_PF(gt_to_xe(gt)));
 	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
 
-	err = pf_update_policy_bool(gt, GUC_KLV_VGT_POLICY_SCHED_IF_IDLE_KEY,
-				    &gt->sriov.pf.policy.guc.sched_if_idle,
-				    enable);
-
-	if (!err)
-		pf_bulk_reset_sched_priority(gt, enable ? GUC_SCHED_PRIORITY_NORMAL :
-					     GUC_SCHED_PRIORITY_LOW);
-	return err;
+	return pf_update_policy_bool(gt, GUC_KLV_VGT_POLICY_SCHED_IF_IDLE_KEY,
+				     &gt->sriov.pf.policy.guc.sched_if_idle,
+				     enable);
 }
 
 static int pf_reprovision_sched_if_idle(struct xe_gt *gt)
@@ -209,13 +191,25 @@ static void pf_sanitize_sched_if_idle(struct xe_gt *gt)
  */
 int xe_gt_sriov_pf_policy_set_sched_if_idle(struct xe_gt *gt, bool enable)
 {
+	u32 priority;
 	int err;
 
-	mutex_lock(xe_gt_sriov_pf_master_mutex(gt));
-	err = pf_provision_sched_if_idle(gt, enable);
-	mutex_unlock(xe_gt_sriov_pf_master_mutex(gt));
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
 
-	return err;
+	err = pf_provision_sched_if_idle(gt, enable);
+	if (err)
+		return err;
+
+	/*
+	 * As of GuC 70.12 a change of this policy impacts individual configs
+	 * of all VFs. See `GUC_KLV_VGT_POLICY_SCHED_IF_IDLE`_ for details.
+	 */
+	xe_gt_assert(gt, GUC_FIRMWARE_VER_AT_LEAST(&gt->uc.guc, 70, 12));
+
+	priority = enable ? GUC_SCHED_PRIORITY_NORMAL : GUC_SCHED_PRIORITY_LOW;
+	xe_gt_sriov_pf_config_force_sched_priority_locked(gt, priority);
+
+	return 0;
 }
 
 /**

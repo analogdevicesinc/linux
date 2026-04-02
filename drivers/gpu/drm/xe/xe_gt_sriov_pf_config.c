@@ -2550,6 +2550,35 @@ u32 xe_gt_sriov_pf_config_get_sched_priority(struct xe_gt *gt, unsigned int vfid
 	return priority;
 }
 
+/**
+ * xe_gt_sriov_pf_config_force_sched_priority_locked() - Force update scheduling priority.
+ * @gt: the &xe_gt
+ * @priority: new scheduling priority to set
+ *
+ * This function allows to update cached values of the scheduling priorities of all
+ * VFs (and PF) as result of applying the `GUC_KLV_VGT_POLICY_SCHED_IF_IDLE`_ policy.
+ *
+ * This function can only be called on PF.
+ */
+void xe_gt_sriov_pf_config_force_sched_priority_locked(struct xe_gt *gt, u32 priority)
+{
+	unsigned int total_vfs = 1 + xe_gt_sriov_pf_get_totalvfs(gt);
+	struct xe_gt_sriov_config *config;
+	unsigned int n;
+
+	xe_gt_assert(gt, IS_SRIOV_PF(gt_to_xe(gt)));
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
+
+	for (n = 0; n < total_vfs; n++) {
+		config = pf_pick_vf_config(gt, VFID(n));
+		config->sched_priority = priority;
+	}
+
+	pf_config_bulk_set_u32_done(gt, PFID, 1 + total_vfs, priority,
+				    pf_get_sched_priority, "scheduling priority",
+				    sched_priority_unit, n, 0);
+}
+
 static void pf_reset_config_sched(struct xe_gt *gt, struct xe_gt_sriov_config *config)
 {
 	int i;
