@@ -1295,7 +1295,6 @@ static struct platform_driver adi_uart4_serial_driver = {
 	.resume		= adi_uart4_serial_resume,
 	.driver		= {
 		.name	= DRIVER_NAME,
-		.owner	= THIS_MODULE,
 		.of_match_table	= adi_uart_dt_match,
 	},
 };
