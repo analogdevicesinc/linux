@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * AD5338R, AD5671R, AD5673R, AD5675R, AD5677R, AD5691R, AD5692R, AD5693,
- * AD5693R, AD5694, AD5694R, AD5695R, AD5696, AD5696R
- * Digital to analog converters driver
+ * I2C driver for AD5696 and similar Digital to Analog Converters
  *
- * Copyright 2018 Analog Devices Inc.
+ * Copyright 2018-2026 Analog Devices Inc.
  */
 
 #include <linux/err.h>
