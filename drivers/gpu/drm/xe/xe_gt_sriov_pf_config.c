@@ -2090,6 +2090,17 @@ static u32 pf_get_exec_quantum(struct xe_gt *gt, unsigned int vfid)
 	return config->exec_quantum[0];
 }
 
+static bool pf_non_default_exec_quantum(struct xe_gt *gt, unsigned int vfid)
+{
+	struct xe_gt_sriov_config *config = pf_pick_vf_config(gt, vfid);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(config->exec_quantum); i++)
+		if (config->exec_quantum[i])
+			return true;
+	return false;
+}
+
 /**
  * xe_gt_sriov_pf_config_set_exec_quantum_locked() - Configure PF/VF execution quantum.
  * @gt: the &xe_gt
@@ -2303,6 +2314,17 @@ static u32 pf_get_preempt_timeout(struct xe_gt *gt, unsigned int vfid)
 	struct xe_gt_sriov_config *config = pf_pick_vf_config(gt, vfid);
 
 	return config->preempt_timeout[0];
+}
+
+static bool pf_non_default_preempt_timeout(struct xe_gt *gt, unsigned int vfid)
+{
+	struct xe_gt_sriov_config *config = pf_pick_vf_config(gt, vfid);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(config->preempt_timeout); i++)
+		if (config->preempt_timeout[i])
+			return true;
+	return false;
 }
 
 /**
@@ -2603,6 +2625,13 @@ static void pf_reset_config_sched(struct xe_gt *gt, struct xe_gt_sriov_config *c
 	}
 }
 
+static bool pf_non_default_sched(struct xe_gt *gt, unsigned int vfid)
+{
+	return pf_non_default_exec_quantum(gt, vfid) ||
+	       pf_non_default_preempt_timeout(gt, vfid) ||
+	       custom_sched_priority(gt, pf_get_sched_priority(gt, vfid));
+}
+
 static int pf_provision_threshold(struct xe_gt *gt, unsigned int vfid,
 				  enum xe_guc_klv_threshold_index index, u32 value)
 {
@@ -2878,6 +2907,9 @@ static int pf_validate_vf_config(struct xe_gt *gt, unsigned int vfid)
 		valid_any = valid_any || (valid_lmem && is_primary);
 		valid_all = valid_all && valid_lmem;
 	}
+
+	/* also check optional EQ/PT/PRIO */
+	valid_any = valid_any || pf_non_default_sched(gt, vfid);
 
 	return valid_all ? 0 : valid_any ? -ENOKEY : -ENODATA;
 }
