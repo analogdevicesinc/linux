@@ -880,10 +880,11 @@ compile_gcc_fanalyzer () {
 	[[ -z "$files" ]] && return 0
 	while read file; do
 		abs_file=$(realpath .)/$file
-		compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
-			      .command" compile_commands.json |
-			      sed 's/^"//;s/"$//g' |
-			      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
+                compile_entry=$(jq -r --arg file "$abs_file" '
+                  .[] | select(.file == $file)
+                ' compile_commands.json)
+		compile_cmd=$(jq -r '.command' <<<"$compile_entry")
+		compile_dir=$(jq -r '.directory' <<<"$compile_entry")
 		if [[ -z "$compile_cmd" ]]; then
 			[[ ! "$file" == "arch/$ARCH/"* ]] && continue
 			echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
@@ -893,9 +894,11 @@ compile_gcc_fanalyzer () {
 
 		echo -e "\e[1m$file\e[0m"
 		compile_cmd=$(printf "$compile_cmd -fanalyzer")
+		pushd $compile_dir
 		mail=$($compile_cmd 2>&1 || (
 			echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
 		)
+		popd
 		found=0
 		msg=
 
@@ -961,10 +964,11 @@ compile_clang_analyzer () {
 	[[ -z "$files" ]] && return 0
 	while read file; do
 		abs_file=$(realpath .)/$file
-		compile_cmd=$(jq ".[] | select(.file == \"$abs_file\") |
-			      .command" compile_commands.json |
-			      sed 's/^"//;s/"$//g' |
-			      sed 's/='\''\\"/=\\"/g;s/\\"'\''/\\"/g')
+                compile_entry=$(jq -r --arg file "$abs_file" '
+                  .[] | select(.file == $file)
+                ' compile_commands.json)
+		compile_cmd=$(jq -r '.command' <<<"$compile_entry")
+		compile_dir=$(jq -r '.directory' <<<"$compile_entry")
 		if [[ -z "$compile_cmd" ]]; then
 			[[ ! "$file" == "arch/$ARCH/"* ]] && continue
 			echo "::error file=$file,line=0::$step_name: Failed to get compile command from compile_commands.json"
@@ -974,9 +978,11 @@ compile_clang_analyzer () {
 
 		echo -e "\e[1m$file\e[0m"
 		compile_cmd=$(printf "$compile_cmd --analyze -Xanalyzer -analyzer-output=text")
+		pushd $compile_dir
 		mail=$($compile_cmd 2>&1 || (
 			echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
 		)
+		popd
 		found=0
 		msg=
 
