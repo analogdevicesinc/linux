@@ -192,6 +192,13 @@ enum  {
  * `GuC KLV`_ keys available for use with PF2GUC_UPDATE_VGT_POLICY.
  *
  * _`GUC_KLV_VGT_POLICY_SCHED_IF_IDLE` : 0x8001
+ *      [From 70.12.0]
+ *      This config allows to update scheduling priority of PF and all VFs at once.
+ *      Setting this policy to 0 updates all VFs scheduling priorities to LOW, and
+ *      setting this policy to 1 updates all VFs scheduling priorities to NORMAL.
+ *      Those changes will take effect on the next VF-Switch event.
+ *
+ *      [Before 70.12.0]
  *      This config sets whether strict scheduling is enabled whereby any VF
  *      that doesn’t have work to submit is still allocated a fixed execution
  *      time-slice to ensure active VFs execution is always consistent even
