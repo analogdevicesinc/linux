@@ -277,7 +277,7 @@ static struct fuse_ring_queue *fuse_uring_create_queue(struct fuse_ring *ring,
 	queue = kzalloc_obj(*queue, GFP_KERNEL_ACCOUNT);
 	if (!queue)
 		return NULL;
-	pq = kzalloc_objs(struct list_head, FUSE_PQ_HASH_SIZE);
+	pq = fuse_pqueue_alloc();
 	if (!pq) {
 		kfree(queue);
 		return NULL;
@@ -295,8 +295,8 @@ static struct fuse_ring_queue *fuse_uring_create_queue(struct fuse_ring *ring,
 	INIT_LIST_HEAD(&queue->fuse_req_bg_queue);
 	INIT_LIST_HEAD(&queue->ent_released);
 
-	queue->fpq.processing = pq;
 	fuse_pqueue_init(&queue->fpq);
+	queue->fpq.processing = pq;
 
 	spin_lock(&fch->lock);
 	if (ring->queues[qid]) {

@@ -328,6 +328,7 @@ void fuse_chan_release(struct fuse_chan *fch)
 void fuse_chan_free(struct fuse_chan *fch)
 {
 	WARN_ON(!list_empty(&fch->devices));
+	kfree(fch->pq_prealloc);
 	kfree(fch);
 }
 EXPORT_SYMBOL_GPL(fuse_chan_free);
@@ -354,15 +355,30 @@ struct fuse_chan *fuse_chan_new(void)
 }
 EXPORT_SYMBOL_GPL(fuse_chan_new);
 
+struct list_head *fuse_pqueue_alloc(void)
+{
+	struct list_head *pq = kzalloc_objs(struct list_head, FUSE_PQ_HASH_SIZE);
+
+	if (pq) {
+		for (int i = 0; i < FUSE_PQ_HASH_SIZE; i++)
+			INIT_LIST_HEAD(&pq[i]);
+	}
+	return pq;
+}
+
 struct fuse_chan *fuse_dev_chan_new(void)
 {
-	struct fuse_chan *fch = fuse_chan_new();
+	struct fuse_chan *fch __free(kfree) = fuse_chan_new();
 	if (!fch)
+		return NULL;
+
+	fch->pq_prealloc = fuse_pqueue_alloc();
+	if (!fch->pq_prealloc)
 		return NULL;
 
 	fuse_iqueue_init(&fch->iq, &fuse_dev_fiq_ops, NULL);
 
-	return fch;
+	return no_free_ptr(fch);
 }
 EXPORT_SYMBOL_GPL(fuse_dev_chan_new);
 
@@ -403,39 +419,42 @@ void fuse_chan_io_uring_enable(struct fuse_chan *fch)
 
 void fuse_pqueue_init(struct fuse_pqueue *fpq)
 {
-	unsigned int i;
-
 	spin_lock_init(&fpq->lock);
-	for (i = 0; i < FUSE_PQ_HASH_SIZE; i++)
-		INIT_LIST_HEAD(&fpq->processing[i]);
 	INIT_LIST_HEAD(&fpq->io);
 	fpq->connected = 1;
+	fpq->processing = NULL;
 }
 
-struct fuse_dev *fuse_dev_alloc(void)
+static struct fuse_dev *fuse_dev_alloc_no_pq(void)
 {
 	struct fuse_dev *fud;
-	struct list_head *pq;
 
 	fud = kzalloc_obj(struct fuse_dev);
 	if (!fud)
 		return NULL;
 
 	refcount_set(&fud->ref, 1);
-	pq = kzalloc_objs(struct list_head, FUSE_PQ_HASH_SIZE);
-	if (!pq) {
-		kfree(fud);
-		return NULL;
-	}
-
-	fud->pq.processing = pq;
 	fuse_pqueue_init(&fud->pq);
 
 	return fud;
 }
+
+struct fuse_dev *fuse_dev_alloc(void)
+{
+	struct fuse_dev *fud __free(kfree) = fuse_dev_alloc_no_pq();
+	if (!fud)
+		return NULL;
+
+	fud->pq.processing = fuse_pqueue_alloc();
+	if (!fud->pq.processing)
+		return NULL;
+
+	return no_free_ptr(fud);
+}
 EXPORT_SYMBOL_GPL(fuse_dev_alloc);
 
-void fuse_dev_install(struct fuse_dev *fud, struct fuse_chan *fch)
+static void fuse_dev_install_with_pq(struct fuse_dev *fud, struct fuse_chan *fch,
+				     struct list_head *pq)
 {
 	struct fuse_chan *old_fch;
 
@@ -453,12 +472,25 @@ void fuse_dev_install(struct fuse_dev *fud, struct fuse_chan *fch)
 		 *  - it was set to disconneted
 		 */
 		fch->connected = 0;
+		kfree(pq);
 	} else {
+		if (pq) {
+			WARN_ON(fud->pq.processing);
+			fud->pq.processing = pq;
+		}
 		list_add_tail(&fud->entry, &fch->devices);
 		fuse_conn_get(fch->conn);
 		wake_up_all(&fuse_dev_waitq);
 	}
 	spin_unlock(&fch->lock);
+}
+
+void fuse_dev_install(struct fuse_dev *fud, struct fuse_chan *fch)
+{
+	struct list_head *pq = fch->pq_prealloc;
+
+	fch->pq_prealloc = NULL;
+	fuse_dev_install_with_pq(fud, fch, pq);
 }
 EXPORT_SYMBOL_GPL(fuse_dev_install);
 
@@ -466,7 +498,7 @@ struct fuse_dev *fuse_dev_alloc_install(struct fuse_chan *fch)
 {
 	struct fuse_dev *fud;
 
-	fud = fuse_dev_alloc();
+	fud = fuse_dev_alloc_no_pq();
 	if (!fud)
 		return NULL;
 
@@ -1632,7 +1664,7 @@ out_end:
 
 static int fuse_dev_open(struct inode *inode, struct file *file)
 {
-	struct fuse_dev *fud = fuse_dev_alloc();
+	struct fuse_dev *fud = fuse_dev_alloc_no_pq();
 
 	if (!fud)
 		return -ENOMEM;
@@ -2237,6 +2269,7 @@ static long fuse_dev_ioctl_clone(struct file *file, __u32 __user *argp)
 {
 	int oldfd;
 	struct fuse_dev *fud, *new_fud;
+	struct list_head *pq;
 
 	if (get_user(oldfd, argp))
 		return -EFAULT;
@@ -2260,7 +2293,11 @@ static long fuse_dev_ioctl_clone(struct file *file, __u32 __user *argp)
 	if (fuse_dev_chan_get(new_fud))
 		return -EINVAL;
 
-	fuse_dev_install(new_fud, fud->chan);
+	pq = fuse_pqueue_alloc();
+	if (!pq)
+		return -ENOMEM;
+
+	fuse_dev_install_with_pq(new_fud, fud->chan, pq);
 
 	return 0;
 }

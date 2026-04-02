@@ -247,6 +247,9 @@ struct fuse_chan {
 	/* Maximum number of pages that can be used in a single request */
 	unsigned int max_pages;
 
+	/* Before being installed into fud, contains the preallocated pq array*/
+	struct list_head *pq_prealloc;
+
 	/** Connection aborted via sysfs, respond with ECONNABORTED on device I/O */
 	bool abort_with_err;
 
@@ -394,6 +397,8 @@ struct fuse_dev *fuse_dev_alloc_install(struct fuse_chan *fch);
 struct fuse_dev *fuse_dev_alloc(void);
 
 int fuse_dev_release(struct inode *inode, struct file *file);
+
+struct list_head *fuse_pqueue_alloc(void);
 
 /**
  * Initialize the fuse processing queue
