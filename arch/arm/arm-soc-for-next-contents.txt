@@ -3,6 +3,8 @@ soc/arm
 		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-soc-7.1
 	renesas/arm
 		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-soc-for-v7.1-tag1
+	omap/arm
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.1/soc-signed
 
 soc/dt
 	patch
@@ -74,10 +76,34 @@ soc/drivers
 		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.1-tag2
 	nxp/drivers
 		git://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-soc-7.1
+	tegra/soc-drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-soc
+	tegra/firmware-driver
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-firmware
+	imx/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-bindings-7.1
+	drivers/reset
+		https://git.pengutronix.de/git/pza/linux tags/reset-for-v7.1
+		contains reset/fixes-2
+		contains reset/fixes
+	qcom/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.1
 
 soc/defconfig
 	renesas/defconfig
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v7.1-tag1
+	qcom/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-7.1
+	patch
+		arch/arm: Drop CONFIG_FIRMWARE_EDID from defconfig files
+	ti/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-config-for-v7.1
+	omap/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.1/defconfig-signed
+	tegra/defconfig32
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm-defconfig
+	tegra/defconfig64
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm64-defconfig
 
 soc/late
 
