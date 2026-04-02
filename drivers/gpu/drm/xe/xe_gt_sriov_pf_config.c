@@ -2662,6 +2662,97 @@ static bool pf_non_default_sched(struct xe_gt *gt, unsigned int vfid)
 	       custom_sched_priority(gt, pf_get_sched_priority(gt, vfid));
 }
 
+static void __pf_show_provisioned_sched(struct xe_gt *gt, unsigned int first_vf,
+					unsigned int num_vfs, bool provisioned)
+{
+	__pf_show_provisioned(gt, first_vf, num_vfs, provisioned,
+			      pf_get_exec_quantum, NULL, "EQ");
+	__pf_show_provisioned(gt, first_vf, num_vfs, provisioned,
+			      pf_get_preempt_timeout, NULL, "PT");
+
+	/* we only care about non-default priorities */
+	if (provisioned)
+		__pf_show_provisioned(gt, first_vf, num_vfs, true,
+				      pf_get_sched_priority, NULL, "PRIORITY");
+}
+
+static void pf_show_all_provisioned_sched(struct xe_gt *gt)
+{
+	__pf_show_provisioned_sched(gt, PFID, 1 + xe_gt_sriov_pf_get_totalvfs(gt), true);
+}
+
+static void pf_show_unprovisioned_sched(struct xe_gt *gt, unsigned int num_vfs)
+{
+	__pf_show_provisioned_sched(gt, PFID, 1 + num_vfs, false);
+}
+
+static bool pf_needs_provision_sched(struct xe_gt *gt, unsigned int num_vfs)
+{
+	unsigned int vfid;
+
+	for (vfid = PFID; vfid <= PFID + num_vfs; vfid++) {
+		if (pf_non_default_sched(gt, vfid)) {
+			pf_show_all_provisioned_sched(gt);
+			pf_show_unprovisioned_sched(gt, num_vfs);
+			return false;
+		}
+	}
+
+	if (xe_gt_sriov_pf_policy_get_sched_if_idle_locked(gt)) {
+		pf_show_all_provisioned_sched(gt);
+		pf_show_unprovisioned_sched(gt, num_vfs);
+		return false;
+	}
+
+	pf_show_all_provisioned_sched(gt);
+	return true;
+}
+
+/* With 16ms EQ/PT GuC should be able to handle up to 63 VFs within 2s */
+#define XE_FAIR_EXEC_QUANTUM_MS		16
+#define XE_FAIR_PREEMPT_TIMEOUT_US	16000
+#define XE_FAIR_SCHED_PRIORITY		GUC_SCHED_PRIORITY_LOW
+#define XE_ADMIN_PF_SCHED_PRIORITY	GUC_SCHED_PRIORITY_HIGH
+
+/**
+ * xe_gt_sriov_pf_config_set_fair_sched() - Provision PF and VFs with fair scheduling.
+ * @gt: the &xe_gt
+ * @num_vfs: number of VFs to provision (can't be 0)
+ *
+ * This function can only be called on PF.
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_gt_sriov_pf_config_set_fair_sched(struct xe_gt *gt, unsigned int num_vfs)
+{
+	int result = 0;
+	int err;
+
+	xe_gt_assert(gt, num_vfs);
+	xe_gt_assert(gt, XE_FAIR_EXEC_QUANTUM_MS);
+	xe_gt_assert(gt, XE_FAIR_PREEMPT_TIMEOUT_US);
+
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
+
+	if (!pf_needs_provision_sched(gt, num_vfs))
+		return 0;
+
+	err = pf_bulk_set_exec_quantum(gt, XE_FAIR_EXEC_QUANTUM_MS, PFID, 1 + num_vfs);
+	result = result ?: err;
+	err = pf_bulk_set_preempt_timeout(gt, XE_FAIR_PREEMPT_TIMEOUT_US, PFID, 1 + num_vfs);
+	result = result ?: err;
+
+	xe_gt_assert(gt, XE_FAIR_SCHED_PRIORITY == GUC_SCHED_PRIORITY_LOW);
+	xe_gt_assert(gt, !xe_gt_sriov_pf_policy_get_sched_if_idle_locked(gt));
+
+	if (xe_sriov_pf_admin_only(gt_to_xe(gt))) {
+		err = pf_provision_sched_priority(gt, PFID, XE_ADMIN_PF_SCHED_PRIORITY);
+		result = result ?: err;
+	}
+
+	return result;
+}
+
 static int pf_provision_threshold(struct xe_gt *gt, unsigned int vfid,
 				  enum xe_guc_klv_threshold_index index, u32 value)
 {
