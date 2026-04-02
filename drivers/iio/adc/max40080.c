@@ -367,10 +367,35 @@ static const struct iio_chan_spec max40080_channels[] = {
 
 static int max40080_init(struct max40080_state *st)
 {
-	u16 tmp = 0;
+	u16 fifo_cfg, cfg;
 	int ret;
 
-	tmp = FIELD_PREP(MAX40080_MODE_MSK, MAX40080_ACTIVE_MODE) |
+	/*
+	 * Write CFG with Standby mode first, ignoring any error. This serves
+	 * two purposes:
+	 *
+	 * 1. BCM2835 I2C silently ignores the chip's NAK on the PEC byte for
+	 *    the first write to a newly-addressed device. This write primes
+	 *    the bus so subsequent writes are properly acknowledged.
+	 *
+	 * 2. If the chip is already in Active mode (e.g. after module reload
+	 *    without power cycle), writing FIFO_CFG while active causes
+	 *    clock-stretching on BCM2835 I2C (-EREMOTEIO). Putting the chip
+	 *    back in Standby first prevents that.
+	 */
+	i2c_smbus_write_word_data(st->client, MAX40080_REG_CFG,
+				  FIELD_PREP(MAX40080_PEC_EN_MSK, 1));
+
+	fifo_cfg = FIELD_PREP(MAX40080_STORE_IV_MSK, MAX40080_STORE_I_V) |
+		   FIELD_PREP(MAX40080_OVERFLOW_WARN_MSK, 0x34) |
+		   FIELD_PREP(MAX40080_ROLL_OVER_MSK, 1);
+
+	ret = i2c_smbus_write_word_data(st->client, MAX40080_REG_FIFO_CFG,
+					fifo_cfg);
+	if (ret)
+		return ret;
+
+	cfg = FIELD_PREP(MAX40080_MODE_MSK, MAX40080_ACTIVE_MODE) |
 	      FIELD_PREP(MAX40080_I2C_TO_MSK, 1) |
 	      FIELD_PREP(MAX40080_ALERT_MSK, 0) |
 	      FIELD_PREP(MAX40080_PEC_EN_MSK, 1) |
@@ -379,15 +404,7 @@ static int max40080_init(struct max40080_state *st)
 	      FIELD_PREP(MAX40080_ADC_RATE_MSK, MAX40080_SR_15_KSPS) |
 	      FIELD_PREP(MAX40080_FILTER_MSK, MAX40080_FTR_NO_AVG);
 
-	ret = i2c_smbus_write_word_data(st->client, MAX40080_REG_CFG, tmp);
-	if (ret)
-		return ret;
-
-	tmp = FIELD_PREP(MAX40080_STORE_IV_MSK, MAX40080_STORE_I_V) |
-	      FIELD_PREP(MAX40080_OVERFLOW_WARN_MSK, 0X34) |
-	      FIELD_PREP(MAX40080_ROLL_OVER_MSK, 1);
-
-	ret = i2c_smbus_write_word_data(st->client, MAX40080_REG_FIFO_CFG, tmp);
+	ret = i2c_smbus_write_word_data(st->client, MAX40080_REG_CFG, cfg);
 	if (ret)
 		return ret;
 
