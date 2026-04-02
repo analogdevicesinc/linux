@@ -29,7 +29,7 @@ bool xe_gt_sriov_pf_policy_sched_groups_enabled(struct xe_gt *gt);
 
 void xe_gt_sriov_pf_policy_init(struct xe_gt *gt);
 void xe_gt_sriov_pf_policy_sanitize(struct xe_gt *gt);
-int xe_gt_sriov_pf_policy_reprovision(struct xe_gt *gt, bool reset);
+int xe_gt_sriov_pf_policy_restart(struct xe_gt *gt);
 int xe_gt_sriov_pf_policy_print(struct xe_gt *gt, struct drm_printer *p);
 
 #endif

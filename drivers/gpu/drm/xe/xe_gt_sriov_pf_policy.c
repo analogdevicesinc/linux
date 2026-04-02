@@ -17,7 +17,6 @@
 #include "xe_guc_ct.h"
 #include "xe_guc_klv_helpers.h"
 #include "xe_guc_submit.h"
-#include "xe_pm.h"
 
 /*
  * Return: number of KLVs that were successfully parsed and saved,
@@ -692,30 +691,23 @@ void xe_gt_sriov_pf_policy_sanitize(struct xe_gt *gt)
 }
 
 /**
- * xe_gt_sriov_pf_policy_reprovision - Reprovision (and optionally reset) policy settings.
+ * xe_gt_sriov_pf_policy_restart() - Reprovision policy settings.
  * @gt: the &xe_gt
- * @reset: if true will reprovision using default values instead of latest
  *
  * This function can only be called on PF.
  *
  * Return: 0 on success or a negative error code on failure.
  */
-int xe_gt_sriov_pf_policy_reprovision(struct xe_gt *gt, bool reset)
+int xe_gt_sriov_pf_policy_restart(struct xe_gt *gt)
 {
 	int err = 0;
 
-	xe_pm_runtime_get_noresume(gt_to_xe(gt));
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
 
-	mutex_lock(xe_gt_sriov_pf_master_mutex(gt));
-	if (reset)
-		pf_sanitize_guc_policies(gt);
 	err |= pf_reprovision_sched_if_idle(gt);
 	err |= pf_reprovision_reset_engine(gt);
 	err |= pf_reprovision_sample_period(gt);
 	err |= pf_reprovision_sched_groups(gt);
-	mutex_unlock(xe_gt_sriov_pf_master_mutex(gt));
-
-	xe_pm_runtime_put(gt_to_xe(gt));
 
 	return err ? -ENXIO : 0;
 }
