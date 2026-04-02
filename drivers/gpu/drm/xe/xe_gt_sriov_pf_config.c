@@ -1934,29 +1934,45 @@ static u64 pf_profile_fair_lmem(struct xe_gt *gt, unsigned int num_vfs)
 	return ALIGN_DOWN(fair, alignment);
 }
 
-static void __pf_show_provisioning_lmem(struct xe_gt *gt, unsigned int first_vf,
-					unsigned int num_vfs, bool provisioned)
+static void __pf_show_provisioned(struct xe_gt *gt, unsigned int first_vf,
+				  unsigned int num_vfs, bool provisioned,
+				  u32 (*get32)(struct xe_gt *, unsigned int),
+				  u64 (*get64)(struct xe_gt *, unsigned int),
+				  const char *what)
 {
 	unsigned int allvfs = 1 + xe_gt_sriov_pf_get_totalvfs(gt); /* PF plus VFs */
 	unsigned long *bitmap __free(bitmap) = bitmap_zalloc(allvfs, GFP_KERNEL);
 	unsigned int weight;
 	unsigned int n;
+	bool pf;
+
+	xe_gt_assert(gt, get32 || get64);
 
 	if (!bitmap)
 		return;
 
 	for (n = first_vf; n < first_vf + num_vfs; n++) {
-		if (!!pf_get_vf_config_lmem(gt, VFID(n)) == provisioned)
+		if ((get32 && (!!get32(gt, VFID(n)) == provisioned)) ||
+		    (get64 && (!!get64(gt, VFID(n)) == provisioned)))
 			bitmap_set(bitmap, n, 1);
 	}
 
+	pf = test_and_clear_bit(0, bitmap);
 	weight = bitmap_weight(bitmap, allvfs);
-	if (!weight)
+	if (!pf && !weight)
 		return;
 
-	xe_gt_sriov_info(gt, "VF%s%*pbl %s provisioned with VRAM\n",
-			 weight > 1 ? "s " : "", allvfs, bitmap,
-			 provisioned ? "already" : "not");
+	xe_gt_sriov_info(gt, "%s%s%s%s%*pbl %s provisioned with %s\n",
+			 pf ? "PF" : "", pf && weight ? " and " : "",
+			 weight ? "VF" : "", weight > 1 ? "s " : "",
+			 allvfs, bitmap, provisioned ? "already" : "not", what);
+}
+
+static void __pf_show_provisioning_lmem(struct xe_gt *gt, unsigned int first_vf,
+					unsigned int num_vfs, bool provisioned)
+{
+	__pf_show_provisioned(gt, first_vf, num_vfs, provisioned,
+			      NULL, pf_get_vf_config_lmem, "VRAM");
 }
 
 static void pf_show_all_provisioned_lmem(struct xe_gt *gt)
