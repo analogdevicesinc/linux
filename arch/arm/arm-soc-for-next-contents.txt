@@ -50,6 +50,16 @@ soc/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-7.1
 	sunxi/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-7.1
+	patch
+		ARM: dts: st: spear: remove undocumented thermal_flags property
+	ti/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-dt-for-v7.1
+	rockchip/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.1-rockchip-dts64-2
+	omap/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.1/soc-signed
+	qcom/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.1
 
 soc/drivers
 	renesas/drivers
@@ -128,3 +138,4 @@ arm/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-fixes-for-7.0
 	qcom/fixes-2
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-fixes-for-7.0-2
+
