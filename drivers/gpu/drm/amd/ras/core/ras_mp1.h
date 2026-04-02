@@ -25,6 +25,26 @@
 #define __RAS_MP1_H__
 #include "ras.h"
 
+struct eeprom_err_record {
+	u32 timestamp;
+
+	union {
+		struct {
+			u32 mca_addr_low;
+			u32 mca_addr_high;
+		};
+		u64 mca_addr;
+	};
+
+	union {
+		struct {
+			u32 ipid_low;
+			u32 ipid_high;
+		};
+		u64 ipid;
+	};
+};
+
 enum ras_err_type;
 struct ras_mp1_ip_func {
 	int (*get_valid_bank_count)(struct ras_core_context *ras_core,
@@ -32,12 +52,26 @@ struct ras_mp1_ip_func {
 	int (*dump_valid_bank)(struct ras_core_context *ras_core,
 		enum ras_err_type type, u32 idx, u64 *regs, u32 regs_sz);
 	int (*set_debug_mode)(struct ras_core_context *ras_core, bool enable);
+
+	/* The following is used for firmware management of EEPROM */
+	int (*get_table_version)(struct ras_core_context *ras_core,
+			u32 *table_version);
+	bool (*rma_detected)(struct ras_core_context *ras_core);
+	int (*set_timestamp)(struct ras_core_context *ras_core,
+			u32 timestamp);
+	int (*reset_ras_table)(struct ras_core_context *ras_core,
+			u32 *result);
+	int (*get_record_count)(struct ras_core_context *ras_core,
+			u32 *count);
+	int (*get_record)(struct ras_core_context *ras_core,
+			u32 idx, struct eeprom_err_record *rec);
 };
 
 struct ras_mp1 {
 	uint32_t mp1_ip_version;
 	const struct ras_mp1_ip_func *ip_func;
 	const struct ras_mp1_sys_func *sys_func;
+	struct mutex op_mutex;
 };
 
 int ras_mp1_hw_init(struct ras_core_context *ras_core);
@@ -50,4 +84,14 @@ int ras_mp1_dump_bank(struct ras_core_context *ras_core,
 		u32 ecc_type, u32 idx, u64 *regs, u32 regs_sz);
 
 int ras_mp1_set_debug_mode(struct ras_core_context *ras_core, bool enable);
+int ras_mp1_get_table_version(struct ras_core_context *ras_core,
+		u32 *table_version);
+bool ras_mp1_rma_detected(struct ras_core_context *ras_core);
+int ras_mp1_set_timestamp(struct ras_core_context *ras_core,
+		u32 timestamp);
+int ras_mp1_reset_ras_table(struct ras_core_context *ras_core,
+		u32 *result);
+int ras_mp1_get_record_count(struct ras_core_context *ras_core, u32 *count);
+int ras_mp1_get_record(struct ras_core_context *ras_core,
+		u32 idx, struct eeprom_err_record *rec);
 #endif

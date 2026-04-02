@@ -50,23 +50,127 @@ int ras_mp1_get_bank_count(struct ras_core_context *ras_core,
 			    enum ras_err_type type, u32 *count)
 {
 	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+	int ret;
 
 	if (!mp1->ip_func || !mp1->ip_func->get_valid_bank_count)
 		return 0;
 
-	return mp1->ip_func->get_valid_bank_count(ras_core, type, count);
+	mutex_lock(&mp1->op_mutex);
+	ret = mp1->ip_func->get_valid_bank_count(ras_core, type, count);
+	mutex_unlock(&mp1->op_mutex);
+
+	return ret;
 }
 
 int ras_mp1_dump_bank(struct ras_core_context *ras_core,
 		u32 type, u32 idx, u64 *regs, u32 regs_sz)
 {
 	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+	int ret;
 
 	if (!mp1->ip_func || !mp1->ip_func->dump_valid_bank)
 		return 0;
 
-	return mp1->ip_func->dump_valid_bank(ras_core,
+	mutex_lock(&mp1->op_mutex);
+	ret = mp1->ip_func->dump_valid_bank(ras_core,
 				type, idx, regs, regs_sz);
+	mutex_unlock(&mp1->op_mutex);
+
+	return ret;
+}
+
+int ras_mp1_get_table_version(struct ras_core_context *ras_core,
+		u32 *table_version)
+{
+	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+	int ret;
+
+	if (!mp1->ip_func || !mp1->ip_func->get_table_version)
+		return -EOPNOTSUPP;
+
+	mutex_lock(&mp1->op_mutex);
+	ret = mp1->ip_func->get_table_version(ras_core, table_version);
+	mutex_unlock(&mp1->op_mutex);
+
+	return ret;
+}
+
+bool ras_mp1_rma_detected(struct ras_core_context *ras_core)
+{
+	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+	int ret;
+
+	if (!mp1->ip_func || !mp1->ip_func->rma_detected)
+		return false;
+
+	mutex_lock(&mp1->op_mutex);
+	ret = mp1->ip_func->rma_detected(ras_core);
+	mutex_unlock(&mp1->op_mutex);
+
+	return ret;
+}
+
+int ras_mp1_set_timestamp(struct ras_core_context *ras_core,
+		u32 timestamp)
+{
+	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+	int ret;
+
+	if (!mp1->ip_func || !mp1->ip_func->set_timestamp)
+		return -EOPNOTSUPP;
+
+	mutex_lock(&mp1->op_mutex);
+	ret = mp1->ip_func->set_timestamp(ras_core, timestamp);
+	mutex_unlock(&mp1->op_mutex);
+
+	return ret;
+}
+
+int ras_mp1_reset_ras_table(struct ras_core_context *ras_core,
+		u32 *result)
+{
+	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+	int ret;
+
+	if (!result || !mp1->ip_func || !mp1->ip_func->reset_ras_table)
+		return -EOPNOTSUPP;
+
+	mutex_lock(&mp1->op_mutex);
+	ret = mp1->ip_func->reset_ras_table(ras_core, result);
+	mutex_unlock(&mp1->op_mutex);
+
+	return ret;
+}
+
+int ras_mp1_get_record_count(struct ras_core_context *ras_core, u32 *count)
+{
+	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+	int ret;
+
+	if (!count || !mp1->ip_func || !mp1->ip_func->get_record_count)
+		return 0;
+
+	mutex_lock(&mp1->op_mutex);
+	ret = mp1->ip_func->get_record_count(ras_core, count);
+	mutex_unlock(&mp1->op_mutex);
+
+	return ret;
+}
+
+int ras_mp1_get_record(struct ras_core_context *ras_core,
+		u32 idx, struct eeprom_err_record *rec)
+{
+	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+	int ret;
+
+	if (!rec || !mp1->ip_func || !mp1->ip_func->get_record)
+		return -EOPNOTSUPP;
+
+	mutex_lock(&mp1->op_mutex);
+	ret = mp1->ip_func->get_record(ras_core, idx, rec);
+	mutex_unlock(&mp1->op_mutex);
+
+	return ret;
 }
 
 int ras_mp1_set_debug_mode(struct ras_core_context *ras_core, bool enable)
@@ -86,21 +190,29 @@ int ras_mp1_hw_init(struct ras_core_context *ras_core)
 
 	mp1->mp1_ip_version = ras_core->config->mp1_ip_version;
 
-	if (ras_core->config->mp1_cfg.mp1_sys_fn)
+	if (ras_core->config && ras_core->config->mp1_cfg.mp1_sys_fn)
 		mp1->sys_func = ras_core->config->mp1_cfg.mp1_sys_fn;
 
 	mp1->ip_func = ras_mp1_get_ip_funcs(ras_core, mp1->mp1_ip_version);
 	if (!mp1->ip_func)
 		return -EINVAL;
 
+	mutex_init(&mp1->op_mutex);
+
 	ret = ras_mp1_set_debug_mode(ras_core, false);
-	if (ret)
-		return -EINVAL;
+	if (ret) {
+		mutex_destroy(&mp1->op_mutex);
+		return ret;
+	}
 
 	return ret;
 }
 
 int ras_mp1_hw_fini(struct ras_core_context *ras_core)
 {
+	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
+
+	mutex_destroy(&mp1->op_mutex);
+
 	return 0;
 }
