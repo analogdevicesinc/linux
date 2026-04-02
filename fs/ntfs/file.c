@@ -876,14 +876,19 @@ static int ntfs_punch_hole(struct ntfs_inode *ni, int mode, loff_t offset,
 	end_vcn = ntfs_bytes_to_cluster(vol, end_offset - 1) + 1;
 
 	if (offset & vol->cluster_size_mask) {
-		loff_t to;
+		if (offset < ni->initialized_size) {
+			loff_t to;
 
-		to = min_t(loff_t, ntfs_cluster_to_bytes(vol, start_vcn + 1),
-				end_offset);
-		err = iomap_zero_range(vi, offset, to - offset, NULL,
-				&ntfs_seek_iomap_ops,
-				&ntfs_iomap_folio_ops, NULL);
-		if (err < 0 || (end_vcn - start_vcn) == 1)
+			to = min_t(loff_t,
+				   ntfs_cluster_to_bytes(vol, start_vcn + 1),
+				   end_offset);
+			err = iomap_zero_range(vi, offset, to - offset,
+					       NULL, &ntfs_seek_iomap_ops,
+					       &ntfs_iomap_folio_ops, NULL);
+			if (err < 0)
+				goto out;
+		}
+		if (end_vcn - start_vcn == 1)
 			goto out;
 		start_vcn++;
 	}
@@ -892,10 +897,14 @@ static int ntfs_punch_hole(struct ntfs_inode *ni, int mode, loff_t offset,
 		loff_t from;
 
 		from = ntfs_cluster_to_bytes(vol, end_vcn - 1);
-		err = iomap_zero_range(vi, from, end_offset - from, NULL,
-				&ntfs_seek_iomap_ops,
-				&ntfs_iomap_folio_ops, NULL);
-		if (err < 0 || (end_vcn - start_vcn) == 1)
+		if (from < ni->initialized_size) {
+			err = iomap_zero_range(vi, from, end_offset - from,
+					       NULL, &ntfs_seek_iomap_ops,
+					       &ntfs_iomap_folio_ops, NULL);
+			if (err < 0)
+				goto out;
+		}
+		if (end_vcn - start_vcn == 1)
 			goto out;
 		end_vcn--;
 	}
