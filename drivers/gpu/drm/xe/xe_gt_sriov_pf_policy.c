@@ -192,7 +192,7 @@ static void pf_sanitize_sched_if_idle(struct xe_gt *gt)
 }
 
 /**
- * xe_gt_sriov_pf_policy_set_sched_if_idle - Control the 'sched_if_idle' policy.
+ * xe_gt_sriov_pf_policy_set_sched_if_idle_locked() - Control the 'sched_if_idle' policy.
  * @gt: the &xe_gt where to apply the policy
  * @enable: the value of the 'sched_if_idle' policy
  *
@@ -200,12 +200,12 @@ static void pf_sanitize_sched_if_idle(struct xe_gt *gt)
  *
  * Return: 0 on success or a negative error code on failure.
  */
-int xe_gt_sriov_pf_policy_set_sched_if_idle(struct xe_gt *gt, bool enable)
+int xe_gt_sriov_pf_policy_set_sched_if_idle_locked(struct xe_gt *gt, bool enable)
 {
 	u32 priority;
 	int err;
 
-	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
 
 	err = pf_provision_sched_if_idle(gt, enable);
 	if (err)
@@ -221,6 +221,23 @@ int xe_gt_sriov_pf_policy_set_sched_if_idle(struct xe_gt *gt, bool enable)
 	xe_gt_sriov_pf_config_force_sched_priority_locked(gt, priority);
 
 	return 0;
+}
+
+/**
+ * xe_gt_sriov_pf_policy_set_sched_if_idle() - Control the 'sched_if_idle' policy.
+ * @gt: the &xe_gt where to apply the policy
+ * @enable: the value of the 'sched_if_idle' policy
+ *
+ * This function can only be called on PF.
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_gt_sriov_pf_policy_set_sched_if_idle(struct xe_gt *gt, bool enable)
+{
+	xe_gt_assert(gt, IS_SRIOV_PF(gt_to_xe(gt)));
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
+
+	return xe_gt_sriov_pf_policy_set_sched_if_idle_locked(gt, enable);
 }
 
 /**
