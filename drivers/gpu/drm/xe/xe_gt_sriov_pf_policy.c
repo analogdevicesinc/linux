@@ -177,6 +177,9 @@ static int pf_reprovision_sched_if_idle(struct xe_gt *gt)
 	xe_gt_assert(gt, IS_SRIOV_PF(gt_to_xe(gt)));
 	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
 
+	if (!gt->sriov.pf.policy.guc.sched_if_idle)
+		return 0;
+
 	return pf_provision_sched_if_idle(gt, gt->sriov.pf.policy.guc.sched_if_idle);
 }
 
@@ -255,6 +258,9 @@ static int pf_reprovision_reset_engine(struct xe_gt *gt)
 	xe_gt_assert(gt, IS_SRIOV_PF(gt_to_xe(gt)));
 	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
 
+	if (!gt->sriov.pf.policy.guc.reset_engine)
+		return 0;
+
 	return pf_provision_reset_engine(gt, gt->sriov.pf.policy.guc.reset_engine);
 }
 
@@ -320,6 +326,9 @@ static int pf_reprovision_sample_period(struct xe_gt *gt)
 {
 	xe_gt_assert(gt, IS_SRIOV_PF(gt_to_xe(gt)));
 	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
+
+	if (!gt->sriov.pf.policy.guc.sample_period)
+		return 0;
 
 	return pf_provision_sample_period(gt, gt->sriov.pf.policy.guc.sample_period);
 }
