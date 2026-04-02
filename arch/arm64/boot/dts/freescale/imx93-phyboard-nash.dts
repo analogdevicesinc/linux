@@ -141,6 +141,37 @@
 	status = "okay";
 };
 
+&gpio1 {
+	gpio-line-names = "", "USER_LED", "I2C2_SCL", "I2C2_SDA";
+};
+
+&gpio2 {
+	gpio-line-names = "SPI6_CS0", "", "", "", "",
+			  "", "", "", "", "",
+			  "", "", "", "", "",
+			  "", "", "TPM_nIRQ", "", "",
+			  "", "", "", "", "",
+			  "", "", "", "I2C3_SDA", "I2C3_SCL";
+};
+
+&gpio3 {
+	gpio-line-names = "SD2_nCD", "", "", "", "",
+			  "", "", "SD2_nRESET", "", "",
+			  "", "", "", "", "",
+			  "", "", "", "", "",
+			  "", "", "", "", "",
+			  "", "nENET1_INT";
+};
+
+&gpio4 {
+	gpio-line-names = "", "", "", "", "",
+			  "", "", "", "", "",
+			  "", "", "", "", "",
+			  "", "nCAN_EN", "", "", "",
+			  "", "", "", "RESET_PHY", "",
+			  "", "RTC_nINT", "PMIC_IRQ_B";
+};
+
 /* I2C2 */
 &lpi2c2 {
 	clock-frequency = <400000>;
