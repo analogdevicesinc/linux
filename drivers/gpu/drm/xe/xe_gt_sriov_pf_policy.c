@@ -68,6 +68,15 @@ static int pf_push_policy_buf_klvs(struct xe_gt *gt, u32 num_klvs,
 		return err;
 	}
 
+	if (IS_ENABLED(CONFIG_DRM_XE_DEBUG_SRIOV)) {
+		struct drm_printer p = xe_gt_dbg_printer(gt);
+		void *klvs = xe_guc_buf_cpu_ptr(buf);
+
+		xe_gt_sriov_dbg(gt, "pushed policy update with %u KLV%s:\n",
+				num_klvs, str_plural(num_klvs));
+		xe_guc_klv_print(klvs, num_dwords, &p);
+	}
+
 	return 0;
 }
 
