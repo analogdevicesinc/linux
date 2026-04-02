@@ -1,0 +1,214 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+==============
+AD5529R driver
+==============
+
+Device driver for Analog Devices Inc. AD5529R 16-Channel 12/16-bit High Voltage DAC.
+The module name is ``ad5529r``.
+
+Supported devices
+=================
+
+* `AD5529R <https://www.analog.com/en/products/ad5529r.html>`_
+
+Description
+===========
+
+The AD5529R is a 16-channel, 12-bit or 16-bit, high voltage, buffered voltage output
+digital-to-analog converter (DAC) with an integrated precision reference.
+The device operates from unipolar and bipolar supplies and is guaranteed
+monotonic. It has built-in rail-to-rail output buffers that can source or
+sink up to 25mA.
+
+Hardware Features
+=================
+
+* 16 independent 12-bit or 16-bit DAC channels
+* Independently programmable output ranges:
+
+  - 0V to 5V (current driver default)
+  - 0V to 10V
+  - 0V to 20V
+  - 0V to 40V
+  - ±5V to ±15V
+  - ±10V to ±20V
+
+* 4.096V precision reference (12ppm/°C maximum)
+* Built-in function generation capabilities (hardware support)
+* Output voltage and current monitoring (hardware support)
+* Temperature monitoring with 8 on-chip sensors (hardware support)
+* Over-temperature protection
+* SPI interface with CRC error detection support
+
+Current Driver Implementation
+=============================
+
+The current driver provides basic DAC functionality with the following features:
+
+* Basic DAC output control for all 16 channels
+* Scale attributes for voltage conversion (0-5V default range)
+* SPI communication with regmap support
+* Reset control framework support
+* Automatic hardware variant detection (16-bit vs 12-bit) based on product ID
+* Debugfs register access for development
+
+SPI Configuration:
+
+* **Mode**: Supports SPI mode 0 and mode 3 (default: mode 0)
+* **Frequency**: Up to 50 MHz (typically tested at lower frequencies)
+* **Word Size**: 16-bit transactions
+
+.. note::
+   The device default configuration uses address decrement mode (ADDR_ASCENSION=0)
+   for multi-byte SPI transactions. Therefore, all 16-bit register addresses are
+   incremented by 1 in the driver to access the last byte first, allowing the
+   hardware to decrement and access the complete multi-byte register correctly.
+
+IIO Attributes (Currently Implemented)
+======================================
+
+Basic DAC Control
+-----------------
+
+For each of the 16 channels (0-15):
+
+**out_voltageY_raw**
+  Raw DAC code (12-bit: 0-4095, 16-bit: 0-65535)
+
+  * Read: Returns the current DAC register value
+  * Write: Sets the DAC output code
+
+**out_voltageY_scale**
+  Scale factor for voltage conversion (microvolts per LSB)
+
+  Based on the formula: VOUTn = A × D/2^N + B, where A=5V, B=0V, N=resolution
+
+  * 16-bit: 76.294 µV/LSB (5V ÷ 2^16 = 5V ÷ 65536 = 76.294µV)
+  * 12-bit: 1220.703 µV/LSB (5V ÷ 2^12 = 5V ÷ 4096 = 1.220703mV)
+  * Read-only attribute
+
+Debug Interface
+===============
+
+**Register Access**
+
+The driver provides debugfs register access for debugging and development:
+
+``/sys/kernel/debug/iio/iio:deviceX/direct_reg_access``
+  Direct register read/write access. Format:
+
+  * Read: ``echo <register_address> > direct_reg_access; cat direct_reg_access``
+  * Write: ``echo <register_address> <value> > direct_reg_access``
+
+Usage examples
+==============
+
+Basic DAC Output Control
+------------------------
+
+.. code-block:: bash
+
+    # Set channel 0 to mid-scale (approximately 2.048V with 4.096V reference)
+    echo "32768" > /sys/bus/iio/devices/iio:device0/out_voltage0_raw
+
+    # Set channel 15 to full scale
+    echo "65535" > /sys/bus/iio/devices/iio:device0/out_voltage15_raw
+
+    # Read current value from channel 5
+    cat /sys/bus/iio/devices/iio:device0/out_voltage5_raw
+
+Scale Attributes
+----------------
+
+.. code-block:: bash
+
+    # Read scale factor (microvolts per LSB)
+    cat /sys/bus/iio/devices/iio:device0/out_voltage0_scale
+    # Output: 0.076294 (for 16-bit) or 1.220703 (for 12-bit)
+
+    # Convert raw to voltage: voltage_uv = raw * scale
+    # Formula: VOUTn = A × D/2^N + B where A=5V, B=0V
+
+Register Access for Development
+-------------------------------
+
+.. code-block:: bash
+
+    # Navigate to debugfs directory
+    cd /sys/kernel/debug/iio/iio:device0/
+
+    # Read device product ID (register 0x04)
+    echo 4 > direct_reg_access
+    cat direct_reg_access
+
+    # Write to a 16-bit configuration register (example: LDAC_HW_SW register 0x19)
+    echo "0x019 0xAA11" > direct_reg_access
+    cat direct_reg_access
+    # Output: 0xAA11
+
+    # Write to DAC channel registers (16-bit values)
+    echo "0x149 32768" > direct_reg_access   # DAC channel 0 mid-scale
+    echo "0x14B 65535" > direct_reg_access   # DAC channel 1 full-scale
+
+    # Read back DAC register values
+    echo 0x149 > direct_reg_access && cat direct_reg_access  # Read channel 0
+    echo 0x14B > direct_reg_access && cat direct_reg_access  # Read channel 1
+
+.. note::
+   For 16-bit registers, use hexadecimal format for addresses (0x019, 0x149, etc.).
+   Values can be decimal (32768) or hexadecimal (0xAA11). Register addresses shown
+   include the +1 offset required for decrement mode operation.
+
+Device Tree Configuration
+=========================
+
+Basic configuration example:
+
+.. code-block:: devicetree
+
+    &spi0 {
+        status = "okay";
+
+        ad5529r@0 {
+            compatible = "adi,ad5529r";
+            reg = <0>;
+            spi-max-frequency = <25000000>;
+
+            vdd-supply = <&vdd_regulator>;
+            avdd-supply = <&avdd_regulator>;
+            hvdd-supply = <&hvdd_regulator>;
+            hvss-supply = <&hvss_regulator>;
+
+            reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+        };
+    };
+
+For complete device tree binding documentation, see:
+``Documentation/devicetree/bindings/iio/dac/adi,ad5529r.yaml``
+
+Driver Architecture
+===================
+
+The driver is structured as follows:
+
+* **Core**: Basic SPI communication and device initialization
+* **IIO Interface**: Standard IIO DAC channel interface with scale attributes
+* **Dual Regmap**: Uses standard regmap-spi for both 8-bit and 16-bit register access
+* **Reset Framework**: Reset control support
+
+Development Notes
+=================
+
+* The driver uses standard regmap-spi for both 8-bit and 16-bit register access
+* SPI mode 0 (CPOL=0, CPHA=0) is typically used
+* Reset control framework support for device initialization
+* Register addresses are incremented by 1 for 16-bit registers due to decrement mode addressing
+* Scale attributes provide voltage conversion for 0-5V range
+* Automatic regmap selection based on register address (≤0x13: 8-bit, >0x13: 16-bit)
+
+References
+==========
+
+* AD5529R Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/ad5529r.pdf
+* Linux IIO Subsystem: https://www.kernel.org/doc/html/latest/driver-api/iio/index.html
