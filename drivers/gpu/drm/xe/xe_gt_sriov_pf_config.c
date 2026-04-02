@@ -2500,7 +2500,7 @@ static int pf_provision_sched_priority(struct xe_gt *gt, unsigned int vfid, u32 
 	return 0;
 }
 
-static int pf_get_sched_priority(struct xe_gt *gt, unsigned int vfid)
+static u32 pf_get_sched_priority(struct xe_gt *gt, unsigned int vfid)
 {
 	struct xe_gt_sriov_config *config = pf_pick_vf_config(gt, vfid);
 
