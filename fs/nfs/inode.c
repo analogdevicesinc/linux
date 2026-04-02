@@ -692,7 +692,8 @@ void nfs_update_delegated_atime(struct inode *inode)
 
 void nfs_update_delegated_mtime_locked(struct inode *inode)
 {
-	if (nfs_have_delegated_mtime(inode))
+	if (nfs_have_delegated_mtime(inode) ||
+	    nfs_have_directory_delegation(inode))
 		nfs_update_mtime(inode);
 }
 
