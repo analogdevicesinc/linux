@@ -224,6 +224,22 @@ int xe_gt_sriov_pf_policy_set_sched_if_idle(struct xe_gt *gt, bool enable)
 }
 
 /**
+ * xe_gt_sriov_pf_policy_get_sched_if_idle_locked() - Retrieve value of 'sched_if_idle' policy.
+ * @gt: the &xe_gt where to read the policy from
+ *
+ * This function can only be called on PF.
+ *
+ * Return: last value of 'sched_if_idle' policy applied.
+ */
+bool xe_gt_sriov_pf_policy_get_sched_if_idle_locked(struct xe_gt *gt)
+{
+	xe_gt_assert(gt, IS_SRIOV_PF(gt_to_xe(gt)));
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
+
+	return gt->sriov.pf.policy.guc.sched_if_idle;
+}
+
+/**
  * xe_gt_sriov_pf_policy_get_sched_if_idle - Retrieve value of 'sched_if_idle' policy.
  * @gt: the &xe_gt where to read the policy from
  *
@@ -233,15 +249,10 @@ int xe_gt_sriov_pf_policy_set_sched_if_idle(struct xe_gt *gt, bool enable)
  */
 bool xe_gt_sriov_pf_policy_get_sched_if_idle(struct xe_gt *gt)
 {
-	bool enable;
-
 	xe_gt_assert(gt, IS_SRIOV_PF(gt_to_xe(gt)));
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
 
-	mutex_lock(xe_gt_sriov_pf_master_mutex(gt));
-	enable = gt->sriov.pf.policy.guc.sched_if_idle;
-	mutex_unlock(xe_gt_sriov_pf_master_mutex(gt));
-
-	return enable;
+	return xe_gt_sriov_pf_policy_get_sched_if_idle_locked(gt);
 }
 
 static int pf_provision_reset_engine(struct xe_gt *gt, bool enable)

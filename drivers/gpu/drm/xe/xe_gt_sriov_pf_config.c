@@ -285,6 +285,13 @@ static u32 encode_config_ggtt(u32 *cfg, const struct xe_gt_sriov_config *config,
 	return encode_ggtt(cfg, xe_ggtt_node_addr(node), xe_ggtt_node_size(node), details);
 }
 
+static bool custom_sched_priority(struct xe_gt *gt, u32 priority)
+{
+	return xe_gt_sriov_pf_policy_get_sched_if_idle_locked(gt) ?
+		priority != GUC_SCHED_PRIORITY_NORMAL :
+		priority != GUC_SCHED_PRIORITY_LOW;
+}
+
 static u32 encode_config_sched(struct xe_gt *gt, u32 *cfg, u32 n,
 			       const struct xe_gt_sriov_config *config)
 {
@@ -311,6 +318,11 @@ static u32 encode_config_sched(struct xe_gt *gt, u32 *cfg, u32 n,
 
 		cfg[n++] = PREP_GUC_KLV_TAG(VF_CFG_PREEMPT_TIMEOUT);
 		cfg[n++] = config->preempt_timeout[0];
+	}
+
+	if (custom_sched_priority(gt, config->sched_priority)) {
+		cfg[n++] = PREP_GUC_KLV_TAG(VF_CFG_SCHED_PRIORITY);
+		cfg[n++] = config->sched_priority;
 	}
 
 	return n;

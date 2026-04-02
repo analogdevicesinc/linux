@@ -15,6 +15,7 @@ struct xe_gt;
 
 int xe_gt_sriov_pf_policy_set_sched_if_idle(struct xe_gt *gt, bool enable);
 bool xe_gt_sriov_pf_policy_get_sched_if_idle(struct xe_gt *gt);
+bool xe_gt_sriov_pf_policy_get_sched_if_idle_locked(struct xe_gt *gt);
 int xe_gt_sriov_pf_policy_set_reset_engine(struct xe_gt *gt, bool enable);
 bool xe_gt_sriov_pf_policy_get_reset_engine(struct xe_gt *gt);
 int xe_gt_sriov_pf_policy_set_sample_period(struct xe_gt *gt, u32 value);
