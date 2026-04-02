@@ -2193,6 +2193,25 @@ u32 xe_gt_sriov_pf_config_get_exec_quantum(struct xe_gt *gt, unsigned int vfid)
 	return pf_get_exec_quantum(gt, vfid);
 }
 
+static int pf_bulk_set_exec_quantum(struct xe_gt *gt, u32 exec_quantum,
+				    unsigned int first_vf, unsigned int num_vfs)
+{
+	unsigned int n;
+	int err = 0;
+
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
+
+	for (n = first_vf; n < first_vf + num_vfs; n++) {
+		err = pf_provision_exec_quantum(gt, VFID(n), exec_quantum);
+		if (err)
+			break;
+	}
+
+	return pf_config_bulk_set_u32_done(gt, first_vf, num_vfs, exec_quantum,
+					   pf_get_exec_quantum, "execution quantum",
+					   exec_quantum_unit, n, err);
+}
+
 /**
  * xe_gt_sriov_pf_config_bulk_set_exec_quantum_locked() - Configure EQ for PF and VFs.
  * @gt: the &xe_gt to configure
@@ -2205,20 +2224,8 @@ u32 xe_gt_sriov_pf_config_get_exec_quantum(struct xe_gt *gt, unsigned int vfid)
 int xe_gt_sriov_pf_config_bulk_set_exec_quantum_locked(struct xe_gt *gt, u32 exec_quantum)
 {
 	unsigned int totalvfs = xe_gt_sriov_pf_get_totalvfs(gt);
-	unsigned int n;
-	int err = 0;
 
-	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
-
-	for (n = 0; n <= totalvfs; n++) {
-		err = pf_provision_exec_quantum(gt, VFID(n), exec_quantum);
-		if (err)
-			break;
-	}
-
-	return pf_config_bulk_set_u32_done(gt, 0, 1 + totalvfs, exec_quantum,
-					   pf_get_exec_quantum, "execution quantum",
-					   exec_quantum_unit, n, err);
+	return pf_bulk_set_exec_quantum(gt, exec_quantum, PFID, 1 + totalvfs);
 }
 
 static int pf_provision_groups_exec_quantums(struct xe_gt *gt, unsigned int vfid,
@@ -2418,6 +2425,25 @@ u32 xe_gt_sriov_pf_config_get_preempt_timeout(struct xe_gt *gt, unsigned int vfi
 	return pf_get_preempt_timeout(gt, vfid);
 }
 
+static int pf_bulk_set_preempt_timeout(struct xe_gt *gt, u32 preempt_timeout,
+				       unsigned int first_vf, unsigned int num_vfs)
+{
+	unsigned int n;
+	int err = 0;
+
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
+
+	for (n = first_vf; n < first_vf + num_vfs; n++) {
+		err = pf_provision_preempt_timeout(gt, VFID(n), preempt_timeout);
+		if (err)
+			break;
+	}
+
+	return pf_config_bulk_set_u32_done(gt, first_vf, num_vfs, preempt_timeout,
+					   pf_get_preempt_timeout, "preemption timeout",
+					   preempt_timeout_unit, n, err);
+}
+
 /**
  * xe_gt_sriov_pf_config_bulk_set_preempt_timeout_locked() - Configure PT for PF and VFs.
  * @gt: the &xe_gt to configure
@@ -2430,20 +2456,8 @@ u32 xe_gt_sriov_pf_config_get_preempt_timeout(struct xe_gt *gt, unsigned int vfi
 int xe_gt_sriov_pf_config_bulk_set_preempt_timeout_locked(struct xe_gt *gt, u32 preempt_timeout)
 {
 	unsigned int totalvfs = xe_gt_sriov_pf_get_totalvfs(gt);
-	unsigned int n;
-	int err = 0;
 
-	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
-
-	for (n = 0; n <= totalvfs; n++) {
-		err = pf_provision_preempt_timeout(gt, VFID(n), preempt_timeout);
-		if (err)
-			break;
-	}
-
-	return pf_config_bulk_set_u32_done(gt, 0, 1 + totalvfs, preempt_timeout,
-					   pf_get_preempt_timeout, "preemption timeout",
-					   preempt_timeout_unit, n, err);
+	return pf_bulk_set_preempt_timeout(gt, preempt_timeout, PFID, 1 + totalvfs);
 }
 
 static int pf_provision_groups_preempt_timeouts(struct xe_gt *gt, unsigned int vfid,
