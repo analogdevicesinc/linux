@@ -681,6 +681,7 @@ diff_objects() {
 
 		(
 			cd "$ORIG_DIR"
+			[[ -v VERBOSE ]] && echo "cd $ORIG_DIR && ${cmd[*]}"
 			"${cmd[@]}"							\
 				1> >(tee -a "$log")					\
 				2> >(tee -a "$log" | "${filter[@]}" >&2) ||		\
