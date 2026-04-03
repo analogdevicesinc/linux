@@ -2715,7 +2715,7 @@ void mpi3mr_check_rh_fault_ioc(struct mpi3mr_ioc *mrioc, u32 reason_code)
  * mpi3mr_sync_timestamp - Issue time stamp sync request
  * @mrioc: Adapter reference
  *
- * Issue IO unit control MPI request to synchornize firmware
+ * Issue IO unit control MPI request to synchronize firmware
  * timestamp with host time.
  *
  * Return: 0 on success, non-zero on failure.
