@@ -32,6 +32,15 @@ __efistub___init_text_end	= __init_text_end;
 __efistub_sysfb_primary_display	= sysfb_primary_display;
 #endif
 
+#ifdef CONFIG_CC_IS_GCC
+/*
+ * Double-word integer shifts are used by the library code and so EFI stub as
+ * well. Not needed for clang and please let me know if anyone understands why.
+ */
+PROVIDE(__efistub___lshrdi3    = __lshrdi3);
+PROVIDE(__efistub___ashldi3    = __ashldi3);
+#endif /* CONFIG_CC_IS_GCC */
+
 #endif
 
 #endif /* __RISCV_KERNEL_IMAGE_VARS_H */
