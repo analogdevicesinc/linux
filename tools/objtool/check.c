@@ -18,7 +18,6 @@
 #include <objtool/special.h>
 #include <objtool/trace.h>
 #include <objtool/warn.h>
-#include <objtool/checksum.h>
 #include <objtool/util.h>
 
 #include <linux/objtool_types.h>
@@ -4945,15 +4944,6 @@ int check(struct objtool_file *file)
 
 	if (opts.noabs)
 		warnings += check_abs_references(file);
-
-	if (opts.checksum) {
-		ret = calculate_checksums(file);
-		if (ret)
-			goto out;
-		ret = create_sym_checksum_section(file);
-		if (ret)
-			goto out;
-	}
 
 	if (opts.orc && nr_insns) {
 		ret = orc_create(file);
