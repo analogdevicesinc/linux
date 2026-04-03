@@ -242,7 +242,7 @@
 
 		clocks = <&rpmhcc RPMH_RF_CLK1>;
 
-		pinctrl-0 = <&bluetooth_enable_default>;
+		pinctrl-0 = <&bluetooth_enable_default>, <&pmk8550_sleep_clk_default>;
 		pinctrl-names = "default";
 
 		regulators {
@@ -785,6 +785,17 @@
 	qcom,tune-usb2-preem = /bits/ 8 <0x6>;
 };
 
+&pmk8550_gpios {
+	pmk8550_sleep_clk_default: sleep-clk-default-state {
+		pins = "gpio5";
+		function = "func1";
+		input-disable;
+		output-enable;
+		bias-disable;
+		power-source = <0>;
+	};
+};
+
 &pmr735b_gpios {
 	s1j_enable_default: s1j-enable-default-state {
 		pins = "gpio1";
@@ -1084,6 +1095,12 @@
 	vdda12-supply = <&vreg_l4b>;
 
 	phys = <&pmiv0104_eusb2_repeater>;
+
+	status = "okay";
+};
+
+&wifi {
+	qcom,calibration-variant = "Fairphone_Gen_6";
 
 	status = "okay";
 };
