@@ -26,6 +26,7 @@ static inline void checksum_finish(struct symbol *func)
 {
 	if (func && func->csum.state) {
 		func->csum.checksum = XXH3_64bits_digest(func->csum.state);
+		XXH3_freeState(func->csum.state);
 		func->csum.state = NULL;
 	}
 }
