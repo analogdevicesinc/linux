@@ -157,6 +157,7 @@ process_args() {
 	local short
 	local long
 	local args
+	local patch
 
 	short="hfj:o:vdS:T"
 	long="help,show-first-changed,jobs:,output:,no-replace,verbose,debug,short-circuit:,keep-tmp"
@@ -235,6 +236,10 @@ process_args() {
 
 	KEEP_TMP="$keep_tmp"
 	PATCHES=("$@")
+
+	for patch in "${PATCHES[@]}"; do
+		[[ -f "$patch" ]] || die "$patch doesn't exist"
+	done
 }
 
 # temporarily disable xtrace for especially verbose code
