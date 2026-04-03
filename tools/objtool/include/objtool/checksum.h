@@ -33,11 +33,7 @@ static inline void checksum_finish(struct symbol *func)
 
 #else /* !BUILD_KLP */
 
-static inline void checksum_init(struct symbol *func) {}
-static inline void checksum_update(struct symbol *func,
-				   struct instruction *insn,
-				   const void *data, size_t size) {}
-static inline void checksum_finish(struct symbol *func) {}
+static inline int calculate_checksums(struct objtool_file *file) { return -ENOSYS; }
 
 #endif /* !BUILD_KLP */
 

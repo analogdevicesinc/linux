@@ -1350,10 +1350,7 @@ static struct reloc *insn_reloc(struct objtool_file *file, struct instruction *i
 {
 	struct reloc *reloc;
 
-	if (insn->no_reloc)
-		return NULL;
-
-	if (!file)
+	if (!file || insn->no_reloc || insn->fake)
 		return NULL;
 
 	reloc = find_reloc_by_dest_range(file->elf, insn->sec,
@@ -2622,9 +2619,17 @@ static void mark_holes(struct objtool_file *file)
 
 static bool validate_branch_enabled(void)
 {
-	return opts.stackval ||
-	       opts.orc ||
-	       opts.uaccess ||
+	return opts.stackval	||
+	       opts.orc		||
+	       opts.uaccess;
+}
+
+static bool alts_needed(void)
+{
+	return validate_branch_enabled()	||
+	       opts.noinstr			||
+	       opts.hack_jump_label		||
+	       opts.disas			||
 	       opts.checksum;
 }
 
@@ -2658,7 +2663,7 @@ static int decode_sections(struct objtool_file *file)
 	 * Must be before add_jump_destinations(), which depends on 'func'
 	 * being set for alternatives, to enable proper sibling call detection.
 	 */
-	if (validate_branch_enabled() || opts.noinstr || opts.hack_jump_label || opts.disas) {
+	if (alts_needed()) {
 		if (add_special_section_alts(file))
 			return -1;
 	}
@@ -3654,6 +3659,7 @@ static bool skip_alt_group(struct instruction *insn)
 	return alt_insn->type == INSN_CLAC || alt_insn->type == INSN_STAC;
 }
 
+#ifdef BUILD_KLP
 static int checksum_debug_init(struct objtool_file *file)
 {
 	char *dup, *s;
@@ -3701,8 +3707,10 @@ static void checksum_update_insn(struct objtool_file *file, struct symbol *func,
 				 struct instruction *insn)
 {
 	struct reloc *reloc = insn_reloc(file, insn);
+	struct alternative *alt;
 	unsigned long offset;
 	struct symbol *sym;
+	static bool in_alt;
 
 	if (insn->fake)
 		return;
@@ -3715,7 +3723,7 @@ static void checksum_update_insn(struct objtool_file *file, struct symbol *func,
 		if (call_dest)
 			checksum_update(func, insn, call_dest->demangled_name,
 					strlen(call_dest->demangled_name));
-		return;
+		goto alts;
 	}
 
 	sym = reloc->sym;
@@ -3726,20 +3734,77 @@ static void checksum_update_insn(struct objtool_file *file, struct symbol *func,
 
 		str = sym->sec->data->d_buf + sym->offset + offset;
 		checksum_update(func, insn, str, strlen(str));
-		return;
+		goto alts;
 	}
 
 	if (is_sec_sym(sym)) {
 		sym = find_symbol_containing(reloc->sym->sec, offset);
 		if (!sym)
-			return;
+			goto alts;
 
 		offset -= sym->offset;
 	}
 
 	checksum_update(func, insn, sym->demangled_name, strlen(sym->demangled_name));
 	checksum_update(func, insn, &offset, sizeof(offset));
+
+alts:
+	for (alt = insn->alts; alt; alt = alt->next) {
+		struct alt_group *alt_group = alt->insn->alt_group;
+
+		/* Prevent __ex_table recursion, e.g. LOAD_SEGMENT() */
+		if (in_alt)
+			break;
+		in_alt = true;
+
+		checksum_update(func, insn, &alt->type, sizeof(alt->type));
+
+		if (alt_group && alt_group->orig_group) {
+			struct instruction *alt_insn;
+
+			checksum_update(func, insn, &alt_group->feature, sizeof(alt_group->feature));
+
+			for (alt_insn = alt->insn; alt_insn; alt_insn = next_insn_same_sec(file, alt_insn)) {
+				checksum_update_insn(file, func, alt_insn);
+				if (!alt_group->last_insn || alt_insn == alt_group->last_insn)
+					break;
+			}
+		} else {
+			checksum_update_insn(file, func, alt->insn);
+		}
+
+		in_alt = false;
+	}
 }
+
+static int calculate_checksums(struct objtool_file *file)
+{
+	struct instruction *insn;
+	struct symbol *func;
+
+	if (checksum_debug_init(file))
+		return -1;
+
+	for_each_sym(file->elf, func) {
+		/*
+		 * Skip cold subfunctions and aliases: they share the
+		 * parent's checksum via func_for_each_insn() which
+		 * follows func->cfunc into the cold subfunction.
+		 */
+		if (!is_func_sym(func) || is_cold_func(func) ||
+		    is_alias_sym(func) || !func->len)
+			continue;
+
+		checksum_init(func);
+
+		func_for_each_insn(file, func, insn)
+			checksum_update_insn(file, func, insn);
+
+		checksum_finish(func);
+	}
+	return 0;
+}
+#endif /* BUILD_KLP */
 
 static int validate_branch(struct objtool_file *file, struct symbol *func,
 			   struct instruction *insn, struct insn_state state);
@@ -4022,9 +4087,6 @@ static int do_validate_branch(struct objtool_file *file, struct symbol *func,
 		insn->trace = 0;
 		next_insn = next_insn_to_validate(file, insn);
 
-		if (opts.checksum && func && insn->sec)
-			checksum_update_insn(file, func, insn);
-
 		if (func && insn_func(insn) && func != insn_func(insn)->pfunc) {
 			/* Ignore KCFI type preambles, which always fall through */
 			if (is_prefix_func(func))
@@ -4089,9 +4151,6 @@ static int validate_unwind_hint(struct objtool_file *file,
 	if (insn->hint && !insn->visited) {
 		struct symbol *func = insn_func(insn);
 		int ret;
-
-		if (opts.checksum)
-			checksum_init(func);
 
 		ret = validate_branch(file, func, insn, *state);
 		if (ret)
@@ -4535,9 +4594,6 @@ static int validate_symbol(struct objtool_file *file, struct section *sec,
 
 	func = insn_func(insn);
 
-	if (opts.checksum)
-		checksum_init(func);
-
 	if (opts.trace && !fnmatch(opts.trace, sym->name, 0)) {
 		trace_enable();
 		TRACE("%s: validation begin\n", sym->name);
@@ -4549,9 +4605,6 @@ static int validate_symbol(struct objtool_file *file, struct section *sec,
 
 	TRACE("%s: validation %s\n\n", sym->name, ret ? "failed" : "end");
 	trace_disable();
-
-	if (opts.checksum)
-		checksum_finish(func);
 
 	return ret;
 }
@@ -5007,10 +5060,6 @@ int check(struct objtool_file *file)
 	cfi_hash_add(&init_cfi);
 	cfi_hash_add(&func_cfi);
 
-	ret = checksum_debug_init(file);
-	if (ret)
-		goto out;
-
 	ret = decode_sections(file);
 	if (ret)
 		goto out;
@@ -5101,6 +5150,9 @@ int check(struct objtool_file *file)
 		warnings += check_abs_references(file);
 
 	if (opts.checksum) {
+		ret = calculate_checksums(file);
+		if (ret)
+			goto out;
 		ret = create_sym_checksum_section(file);
 		if (ret)
 			goto out;
