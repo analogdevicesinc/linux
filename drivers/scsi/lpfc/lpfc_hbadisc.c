@@ -3817,7 +3817,7 @@ lpfc_mbx_cmpl_read_topology(struct lpfc_hba *phba, LPFC_MBOXQ_t *pmb)
 		if (phba->cmf_active_mode != LPFC_CFG_OFF)
 			lpfc_cmf_signal_init(phba);
 
-		if (phba->lmt & LMT_64Gb)
+		if (phba->lmt & (LMT_64Gb | LMT_128Gb))
 			lpfc_read_lds_params(phba);
 
 	} else if (attn_type == LPFC_ATT_LINK_DOWN ||
@@ -4410,7 +4410,7 @@ out:
 					LOG_INIT | LOG_ELS | LOG_DISCOVERY,
 					"4220 Issue EDC status x%x Data x%x\n",
 					rc, phba->cgn_init_reg_signal);
-		} else if (phba->lmt & LMT_64Gb) {
+		} else if (phba->lmt & (LMT_64Gb | LMT_128Gb)) {
 			/* may send link fault capability descriptor */
 			lpfc_issue_els_edc(vport, 0);
 		} else {

@@ -2,7 +2,7 @@
  * This file is part of the Emulex Linux Device Driver for         *
  * Fibre Channel Host Bus Adapters.                                *
  * Copyright (C) 2017-2026 Broadcom. All Rights Reserved. The term *
- * “Broadcom” refers to Broadcom Inc. and/or its subsidiaries.  *
+ * “Broadcom” refers to Broadcom Inc. and/or its subsidiaries.     *
  * Copyright (C) 2004-2016 Emulex.  All rights reserved.           *
  * EMULEX and SLI are trademarks of Emulex.                        *
  * www.broadcom.com                                                *
@@ -789,7 +789,9 @@ lpfc_hba_init_link_fc_topology(struct lpfc_hba *phba, uint32_t fc_topology,
 	    ((phba->cfg_link_speed == LPFC_USER_LINK_SPEED_32G) &&
 	     !(phba->lmt & LMT_32Gb)) ||
 	    ((phba->cfg_link_speed == LPFC_USER_LINK_SPEED_64G) &&
-	     !(phba->lmt & LMT_64Gb))) {
+	     !(phba->lmt & LMT_64Gb)) ||
+	    ((phba->cfg_link_speed == LPFC_USER_LINK_SPEED_128G) &&
+	     !(phba->lmt & LMT_128Gb))) {
 		/* Reset link speed to auto */
 		lpfc_printf_log(phba, KERN_ERR, LOG_TRACE_EVENT,
 				"1302 Invalid speed for this board:%d "
@@ -2535,7 +2537,9 @@ lpfc_get_hba_model_desc(struct lpfc_hba *phba, uint8_t *mdp, uint8_t *descp)
 		return;
 	}
 
-	if (phba->lmt & LMT_64Gb)
+	if (phba->lmt & LMT_128Gb)
+		max_speed = 128;
+	else if (phba->lmt & LMT_64Gb)
 		max_speed = 64;
 	else if (phba->lmt & LMT_32Gb)
 		max_speed = 32;
@@ -2752,6 +2756,9 @@ lpfc_get_hba_model_desc(struct lpfc_hba *phba, uint8_t *mdp, uint8_t *descp)
 		break;
 	case PCI_DEVICE_ID_LANCER_G7P_FC:
 		m = (typeof(m)){"LPe38000", "PCIe", "Fibre Channel Adapter"};
+		break;
+	case PCI_DEVICE_ID_LANCER_G8_FC:
+		m = (typeof(m)){"LPe42100", "PCIe", "Fibre Channel Adapter"};
 		break;
 	case PCI_DEVICE_ID_SKYHAWK:
 	case PCI_DEVICE_ID_SKYHAWK_VF:
@@ -10144,6 +10151,10 @@ lpfc_sli4_read_config(struct lpfc_hba *phba)
 				phba->cfg_link_speed =
 					LPFC_USER_LINK_SPEED_64G;
 				break;
+			case LINK_SPEED_128G:
+				phba->cfg_link_speed =
+					LPFC_USER_LINK_SPEED_128G;
+				break;
 			case 0xffff:
 				phba->cfg_link_speed =
 					LPFC_USER_LINK_SPEED_AUTO;
@@ -11793,6 +11804,7 @@ lpfc_sli4_pci_mem_setup(struct lpfc_hba *phba)
 	unsigned long bar0map_len, bar1map_len, bar2map_len;
 	int error;
 	uint32_t if_type;
+	u8 sli_family;
 
 	if (!pdev)
 		return -ENODEV;
@@ -11821,6 +11833,14 @@ lpfc_sli4_pci_mem_setup(struct lpfc_hba *phba)
 				"sli_intf reg 0x%x\n",
 				phba->sli4_hba.sli_intf.word0);
 		return -ENODEV;
+	}
+
+	/* Check if ASIC_ID register should be read */
+	sli_family = bf_get(lpfc_sli_intf_sli_family, &phba->sli4_hba.sli_intf);
+	if (sli_family == LPFC_SLI_INTF_ASIC_ID) {
+		if (pci_read_config_dword(pdev, LPFC_ASIC_ID_OFFSET,
+					  &phba->sli4_hba.asic_id.word0))
+			return -ENODEV;
 	}
 
 	if_type = bf_get(lpfc_sli_intf_if_type, &phba->sli4_hba.sli_intf);
@@ -13041,6 +13061,10 @@ lpfc_sli4_enable_msix(struct lpfc_hba *phba)
 			/* Iterate to next offline or online cpu in aff_mask */
 			cpu = cpumask_next(cpu, aff_mask);
 
+			/* Reached the end of the aff_mask */
+			if (cpu >= nr_cpu_ids)
+				break;
+
 			/* Find next online cpu in aff_mask to set affinity */
 			cpu_select = lpfc_next_online_cpu(aff_mask, cpu);
 		} else if (vectors == 1) {
@@ -13714,7 +13738,9 @@ lpfc_get_sli4_parameters(struct lpfc_hba *phba, LPFC_MBOXQ_t *mboxq)
 	sli4_params->cqv = bf_get(cfg_cqv, mbx_sli4_parameters);
 	sli4_params->mqv = bf_get(cfg_mqv, mbx_sli4_parameters);
 	sli4_params->wqv = bf_get(cfg_wqv, mbx_sli4_parameters);
-	sli4_params->rqv = bf_get(cfg_rqv, mbx_sli4_parameters);
+	sli4_params->rqv =
+		(sli4_params->if_type < LPFC_SLI_INTF_IF_TYPE_2) ?
+			LPFC_Q_CREATE_VERSION_0 : LPFC_Q_CREATE_VERSION_1;
 	sli4_params->eqav = bf_get(cfg_eqav, mbx_sli4_parameters);
 	sli4_params->cqav = bf_get(cfg_cqav, mbx_sli4_parameters);
 	sli4_params->wqsize = bf_get(cfg_wqsize, mbx_sli4_parameters);
@@ -13776,12 +13802,6 @@ fcponly:
 	if (phba->cfg_enable_fc4_type & LPFC_ENABLE_NVME)
 		phba->cfg_sg_seg_cnt = LPFC_MAX_NVME_SEG_CNT;
 
-	/* Enable embedded Payload BDE if support is indicated */
-	if (bf_get(cfg_pbde, mbx_sli4_parameters))
-		phba->cfg_enable_pbde = 1;
-	else
-		phba->cfg_enable_pbde = 0;
-
 	/*
 	 * To support Suppress Response feature we must satisfy 3 conditions.
 	 * lpfc_suppress_rsp module parameter must be set (default).
@@ -13816,9 +13836,8 @@ fcponly:
 		phba->fcp_embed_io = 0;
 
 	lpfc_printf_log(phba, KERN_INFO, LOG_INIT | LOG_NVME,
-			"6422 XIB %d PBDE %d: FCP %d NVME %d %d %d\n",
+			"6422 XIB %d: FCP %d NVME %d %d %d\n",
 			bf_get(cfg_xib, mbx_sli4_parameters),
-			phba->cfg_enable_pbde,
 			phba->fcp_embed_io, sli4_params->nvme,
 			phba->cfg_nvme_embed_cmd, phba->cfg_suppress_rsp);
 
@@ -14483,6 +14502,12 @@ lpfc_log_write_firmware_error(struct lpfc_hba *phba, uint32_t offset,
 	u8 sli_family;
 
 	sli_family = bf_get(lpfc_sli_intf_sli_family, &phba->sli4_hba.sli_intf);
+
+	/* Refer to ASIC_ID register case */
+	if (sli_family == LPFC_SLI_INTF_ASIC_ID)
+		sli_family = bf_get(lpfc_asic_id_gen_num,
+				    &phba->sli4_hba.asic_id);
+
 	/* Three cases:  (1) FW was not supported on the detected adapter.
 	 * (2) FW update has been locked out administratively.
 	 * (3) Some other error during FW update.
@@ -14495,7 +14520,9 @@ lpfc_log_write_firmware_error(struct lpfc_hba *phba, uint32_t offset,
 	    (sli_family == LPFC_SLI_INTF_FAMILY_G7 &&
 	     magic_number != MAGIC_NUMBER_G7) ||
 	    (sli_family == LPFC_SLI_INTF_FAMILY_G7P &&
-	     magic_number != MAGIC_NUMBER_G7P)) {
+	     magic_number != MAGIC_NUMBER_G7P) ||
+	    (sli_family == LPFC_SLI_INTF_FAMILY_G8 &&
+	     magic_number != MAGIC_NUMBER_G8)) {
 		lpfc_printf_log(phba, KERN_ERR, LOG_TRACE_EVENT,
 				"3030 This firmware version is not supported on"
 				" this HBA model. Device:%x Magic:%x Type:%x "

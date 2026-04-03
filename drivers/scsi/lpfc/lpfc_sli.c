@@ -136,14 +136,11 @@ void lpfc_wqe_cmd_template(void)
 	bf_set(wqe_dbde, &wqe->fcp_iread.wqe_com, 0);
 	bf_set(wqe_wqes, &wqe->fcp_iread.wqe_com, 1);
 
-	/* Word 11 - pbde is variable */
+	/* Word 11 */
 	bf_set(wqe_cmd_type, &wqe->fcp_iread.wqe_com, COMMAND_DATA_IN);
 	bf_set(wqe_cqid, &wqe->fcp_iread.wqe_com, LPFC_WQE_CQ_ID_DEFAULT);
-	bf_set(wqe_pbde, &wqe->fcp_iread.wqe_com, 0);
 
 	/* Word 12 - is zero */
-
-	/* Word 13, 14, 15 - PBDE is variable */
 
 	/* IWRITE template */
 	wqe = &lpfc_iwrite_cmd_template;
@@ -176,14 +173,11 @@ void lpfc_wqe_cmd_template(void)
 	bf_set(wqe_dbde, &wqe->fcp_iwrite.wqe_com, 0);
 	bf_set(wqe_wqes, &wqe->fcp_iwrite.wqe_com, 1);
 
-	/* Word 11 - pbde is variable */
+	/* Word 11 */
 	bf_set(wqe_cmd_type, &wqe->fcp_iwrite.wqe_com, COMMAND_DATA_OUT);
 	bf_set(wqe_cqid, &wqe->fcp_iwrite.wqe_com, LPFC_WQE_CQ_ID_DEFAULT);
-	bf_set(wqe_pbde, &wqe->fcp_iwrite.wqe_com, 0);
 
 	/* Word 12 - is zero */
-
-	/* Word 13, 14, 15 - PBDE is variable */
 
 	/* ICMND template */
 	wqe = &lpfc_icmnd_cmd_template;
@@ -217,7 +211,6 @@ void lpfc_wqe_cmd_template(void)
 	/* Word 11 */
 	bf_set(wqe_cmd_type, &wqe->fcp_icmd.wqe_com, COMMAND_DATA_IN);
 	bf_set(wqe_cqid, &wqe->fcp_icmd.wqe_com, LPFC_WQE_CQ_ID_DEFAULT);
-	bf_set(wqe_pbde, &wqe->fcp_icmd.wqe_com, 0);
 
 	/* Word 12, 13, 14, 15 - is zero */
 }
@@ -8732,14 +8725,6 @@ lpfc_sli4_hba_setup(struct lpfc_hba *phba)
 		ftr_rsp++;
 	}
 
-	/* Performance Hints are ONLY for FCoE */
-	if (test_bit(HBA_FCOE_MODE, &phba->hba_flag)) {
-		if (bf_get(lpfc_mbx_rq_ftr_rsp_perfh, &mqe->un.req_ftrs))
-			phba->sli3_options |= LPFC_SLI4_PERFH_ENABLED;
-		else
-			phba->sli3_options &= ~LPFC_SLI4_PERFH_ENABLED;
-	}
-
 	/*
 	 * If the port cannot support the host's requested features
 	 * then turn off the global config parameters to disable the
@@ -14337,13 +14322,15 @@ lpfc_sli4_sp_handle_mbox_event(struct lpfc_hba *phba, struct lpfc_mcqe *mcqe)
 	/* Get the reference to the active mbox command */
 	spin_lock_irqsave(&phba->hbalock, iflags);
 	pmb = phba->sli.mbox_active;
+	spin_unlock_irqrestore(&phba->hbalock, iflags);
 	if (unlikely(!pmb)) {
 		lpfc_printf_log(phba, KERN_ERR, LOG_TRACE_EVENT,
-				"1832 No pending MBOX command to handle\n");
-		spin_unlock_irqrestore(&phba->hbalock, iflags);
+				"1832 No pending MBOX command to handle, "
+				"mcqe: x%08x x%08x x%08x x%08x\n",
+				mcqe->word0, mcqe->mcqe_tag0,
+				mcqe->mcqe_tag1, mcqe->trailer);
 		goto out_no_mqe_complete;
 	}
-	spin_unlock_irqrestore(&phba->hbalock, iflags);
 	mqe = &pmb->u.mqe;
 	pmbox = (MAILBOX_t *)&pmb->u.mqe;
 	mbox = phba->mbox;
