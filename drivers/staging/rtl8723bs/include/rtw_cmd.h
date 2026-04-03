@@ -712,4 +712,4 @@ enum {
 #define _GetRFReg_CMD_		_Read_RFREG_CMD_
 #define _SetRFReg_CMD_		_Write_RFREG_CMD_
 
-#endif /*  _CMD_H_ */
+#endif /* __RTW_CMD_H_ */
