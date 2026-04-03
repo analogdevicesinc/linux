@@ -19,12 +19,11 @@ set -o nounset
 # This helps keep execution in pipes so pipefail+ERR trap can catch errors.
 shopt -s lastpipe
 
-unset DEBUG_CLONE DIFF_CHECKSUM SKIP_CLEANUP XTRACE
+unset DEBUG_CLONE DIFF_CHECKSUM SKIP_CLEANUP VERBOSE XTRACE
 
 REPLACE=1
 SHORT_CIRCUIT=0
 JOBS="$(getconf _NPROCESSORS_ONLN)"
-VERBOSE="-s"
 shopt -o xtrace | grep -q 'on' && XTRACE=1
 
 # Avoid removing the previous $TMP_DIR until args have been fully processed.
@@ -194,7 +193,7 @@ process_args() {
 				shift
 				;;
 			-v | --verbose)
-				VERBOSE="V=1"
+				VERBOSE=1
 				shift
 				;;
 			-d | --debug)
@@ -381,7 +380,7 @@ apply_patch() {
 		echo "$output" >&2
 		die "$patch did not apply"
 	elif [[ "$output" =~ $drift_regex ]]; then
-		echo "$output" >&2
+		[[ -v VERBOSE ]] && echo "$output" >&2
 		warn "${patch} applied with fuzz"
 	fi
 
@@ -544,7 +543,11 @@ build_kernel() {
 	#
 	cmd+=("KBUILD_MODPOST_WARN=1")
 
-	cmd+=("$VERBOSE")
+	if [[ -v VERBOSE ]]; then
+		cmd+=("V=1")
+	else
+		cmd+=("-s")
+	fi
 	cmd+=("-j$JOBS")
 	cmd+=("KCFLAGS=-ffunction-sections -fdata-sections")
 	cmd+=("OBJTOOL_ARGS=${objtool_args[*]}")
@@ -805,7 +808,11 @@ build_patch_module() {
 	[[ $REPLACE -eq 0 ]] && cflags+=("-DKLP_NO_REPLACE")
 
 	cmd=("make")
-	cmd+=("$VERBOSE")
+	if [[ -v VERBOSE ]]; then
+		cmd+=("V=1")
+	else
+		cmd+=("-s")
+	fi
 	cmd+=("-j$JOBS")
 	cmd+=("--directory=.")
 	cmd+=("M=$KMOD_DIR")
