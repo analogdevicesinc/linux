@@ -258,10 +258,8 @@ static int scmi_quirk_range_parse(struct scmi_quirk *quirk)
 void scmi_quirks_initialize(void)
 {
 	struct scmi_quirk *quirk;
-	int i;
 
-	for (i = 0, quirk = scmi_quirks_table[0]; quirk;
-	     i++, quirk = scmi_quirks_table[i]) {
+	for (unsigned int i = 0; (quirk = scmi_quirks_table[i]); i++) {
 		int ret;
 
 		ret = scmi_quirk_range_parse(quirk);
