@@ -915,10 +915,11 @@ static ssize_t usb_c_power_priority_store(struct device *dev,
 	unsigned int value;
 	int ret;
 
-	option = sysfs_match_string(usb_c_power_priority_text, buf);
-	if (option < 0)
-		return option;
+	ret = sysfs_match_string(usb_c_power_priority_text, buf);
+	if (ret < 0)
+		return ret;
 
+	option = ret;
 	value = usb_c_power_priority_value[option];
 
 	guard(mutex)(&data->usb_c_power_priority_lock);
