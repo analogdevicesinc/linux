@@ -166,7 +166,7 @@ static int read_sym_checksums(struct elf *elf)
 
 	sec = find_section_by_name(elf, ".discard.sym_checksum");
 	if (!sec) {
-		ERROR("'%s' missing .discard.sym_checksum section, file not processed by 'objtool --checksum'?",
+		ERROR("'%s' missing .discard.sym_checksum section, file not processed by 'objtool klp checksum'?",
 		      elf->name);
 		return -1;
 	}

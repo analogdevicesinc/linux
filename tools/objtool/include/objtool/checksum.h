@@ -31,9 +31,13 @@ static inline void checksum_finish(struct symbol *func)
 	}
 }
 
+int calculate_checksums(struct objtool_file *file);
+int create_sym_checksum_section(struct objtool_file *file);
+
 #else /* !BUILD_KLP */
 
 static inline int calculate_checksums(struct objtool_file *file) { return -ENOSYS; }
+static inline int create_sym_checksum_section(struct objtool_file *file) { return -EINVAL; }
 
 #endif /* !BUILD_KLP */
 
