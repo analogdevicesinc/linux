@@ -66,16 +66,57 @@ static void checksum_update_insn(struct objtool_file *file, struct symbol *func,
 	if (insn->fake)
 		return;
 
-	__checksum_update_insn(func, insn, insn->sec->data->d_buf + insn->offset, insn->len);
-
 	if (!reloc) {
 		struct symbol *call_dest = insn_call_dest(insn);
+		struct instruction *jump_dest = insn->jump_dest;
 
-		if (call_dest)
-			__checksum_update_insn(func, insn, call_dest->demangled_name,
-					       strlen(call_dest->demangled_name));
-		goto alts;
+		/*
+		 * For a jump/call non-relocated dest offset embedded in the
+		 * instruction, the offset may vary due to changes in
+		 * surrounding code.  Just hash the opcode and a
+		 * position-independent representation of the destination.
+		 */
+
+		if (call_dest || jump_dest) {
+			unsigned char buf[16];
+			size_t len;
+
+			len = arch_jump_opcode_bytes(file, insn, buf);
+			__checksum_update_insn(func, insn, buf, len);
+
+			if (call_dest) {
+				__checksum_update_insn(func, insn, call_dest->demangled_name,
+						       strlen(call_dest->demangled_name));
+
+			} else if (jump_dest) {
+				struct symbol *dest_sym;
+				unsigned long offset;
+
+				/*
+				 * use insn->_sym instead of insn_sym() here.
+				 * For alternative replacements, the latter
+				 * would give the function of the code being
+				 * replaced.
+				 */
+				dest_sym = jump_dest->_sym;
+				if (!dest_sym)
+					goto alts;
+
+				__checksum_update_insn(func, insn, dest_sym->demangled_name,
+						       strlen(dest_sym->demangled_name));
+
+				offset = jump_dest->offset - dest_sym->offset;
+				__checksum_update_insn(func, insn, &offset, sizeof(offset));
+			}
+
+			goto alts;
+		}
 	}
+
+	__checksum_update_insn(func, insn, insn->sec->data->d_buf + insn->offset, insn->len);
+
+	if (!reloc)
+		goto alts;
 
 	sym = reloc->sym;
 	offset = arch_insn_adjusted_addend(insn, reloc);

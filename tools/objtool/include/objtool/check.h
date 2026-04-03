@@ -68,6 +68,7 @@ struct instruction {
 	s8 instr;
 
 	u32 idx			: INSN_CHUNK_BITS,
+	    immediate_len	: 4,
 	    dead_end		: 1,
 	    ignore_alts		: 1,
 	    hint		: 1,
@@ -81,7 +82,7 @@ struct instruction {
 	    hole		: 1,
 	    fake		: 1,
 	    trace		: 1;
-		/* 9 bit hole */
+		/* 4 bit hole */
 
 	struct alt_group *alt_group;
 	struct instruction *jump_dest;
