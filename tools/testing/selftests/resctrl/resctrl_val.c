@@ -11,10 +11,10 @@
 #include "resctrl.h"
 
 #define UNCORE_IMC		"uncore_imc"
-#define READ_FILE_NAME		"events/cas_count_read"
+#define READ_FILE_NAME		"cas_count_read"
 #define DYN_PMU_PATH		"/sys/bus/event_source/devices"
 #define SCALE			0.00006103515625
-#define MAX_IMCS		20
+#define MAX_IMCS		40
 #define MAX_TOKENS		5
 
 #define CON_MBM_LOCAL_BYTES_PATH		\
@@ -109,46 +109,114 @@ static int open_perf_read_event(int i, int cpu_no)
 	return 0;
 }
 
+static int parse_imc_read_bw_events(char *imc_dir, unsigned int type,
+				    unsigned int *count)
+{
+	char imc_events_dir[PATH_MAX], imc_counter_cfg[PATH_MAX];
+	unsigned int orig_count = *count;
+	char cas_count_cfg[1024];
+	struct dirent *ep;
+	int path_len;
+	int ret = -1;
+	int num_cfg;
+	FILE *fp;
+	DIR *dp;
+
+	path_len = snprintf(imc_events_dir, sizeof(imc_events_dir), "%sevents",
+			    imc_dir);
+	if (path_len >= sizeof(imc_events_dir)) {
+		ksft_print_msg("Unable to create path to %sevents\n", imc_dir);
+		return -1;
+	}
+
+	dp = opendir(imc_events_dir);
+	if (!dp) {
+		ksft_perror("Unable to open PMU events directory");
+		return -1;
+	}
+
+	while ((ep = readdir(dp))) {
+		/*
+		 * Parse all event files with READ_FILE_NAME prefix that
+		 * contain the event number and umask. Skip files containing
+		 * "." that contain unused properties of event.
+		 */
+		if (!strstr(ep->d_name, READ_FILE_NAME) ||
+		    strchr(ep->d_name, '.'))
+			continue;
+
+		path_len = snprintf(imc_counter_cfg, sizeof(imc_counter_cfg),
+				    "%s/%s", imc_events_dir, ep->d_name);
+		if (path_len >= sizeof(imc_counter_cfg)) {
+			ksft_print_msg("Unable to create path to %s/%s\n",
+				       imc_events_dir, ep->d_name);
+			goto out_close;
+		}
+		fp = fopen(imc_counter_cfg, "r");
+		if (!fp) {
+			ksft_perror("Failed to open iMC config file");
+			goto out_close;
+		}
+		num_cfg = fscanf(fp, "%1023s", cas_count_cfg);
+		fclose(fp);
+		if (num_cfg <= 0) {
+			ksft_perror("Could not get iMC cas count read");
+			goto out_close;
+		}
+		if (*count >= MAX_IMCS) {
+			ksft_print_msg("Maximum iMC count exceeded\n");
+			goto out_close;
+		}
+
+		imc_counters_config[*count].type = type;
+		get_read_event_and_umask(cas_count_cfg, *count);
+		/* Do not fail after incrementing *count. */
+		*count += 1;
+	}
+	if (*count == orig_count) {
+		ksft_print_msg("Unable to find events in %s\n", imc_events_dir);
+		goto out_close;
+	}
+	ret = 0;
+out_close:
+	closedir(dp);
+	return ret;
+}
+
 /* Get type and config of an iMC counter's read event. */
 static int read_from_imc_dir(char *imc_dir, unsigned int *count)
 {
-	char cas_count_cfg[1024], imc_counter_cfg[1024], imc_counter_type[1024];
+	char imc_counter_type[PATH_MAX];
+	unsigned int type;
+	int path_len;
 	FILE *fp;
+	int ret;
 
 	/* Get type of iMC counter */
-	sprintf(imc_counter_type, "%s%s", imc_dir, "type");
+	path_len = snprintf(imc_counter_type, sizeof(imc_counter_type),
+			    "%s%s", imc_dir, "type");
+	if (path_len >= sizeof(imc_counter_type)) {
+		ksft_print_msg("Unable to create path to %s%s\n",
+			       imc_dir, "type");
+		return -1;
+	}
 	fp = fopen(imc_counter_type, "r");
 	if (!fp) {
 		ksft_perror("Failed to open iMC counter type file");
 
 		return -1;
 	}
-	if (fscanf(fp, "%u", &imc_counters_config[*count].type) <= 0) {
+	ret = fscanf(fp, "%u", &type);
+	fclose(fp);
+	if (ret <= 0) {
 		ksft_perror("Could not get iMC type");
-		fclose(fp);
-
 		return -1;
 	}
-	fclose(fp);
-
-	/* Get read config */
-	sprintf(imc_counter_cfg, "%s%s", imc_dir, READ_FILE_NAME);
-	fp = fopen(imc_counter_cfg, "r");
-	if (!fp) {
-		ksft_perror("Failed to open iMC config file");
-
-		return -1;
+	ret = parse_imc_read_bw_events(imc_dir, type, count);
+	if (ret) {
+		ksft_print_msg("Unable to parse bandwidth event and umask\n");
+		return ret;
 	}
-	if (fscanf(fp, "%1023s", cas_count_cfg) <= 0) {
-		ksft_perror("Could not get iMC cas count read");
-		fclose(fp);
-
-		return -1;
-	}
-	fclose(fp);
-
-	get_read_event_and_umask(cas_count_cfg, *count);
-	*count += 1;
 
 	return 0;
 }
