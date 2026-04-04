@@ -150,7 +150,6 @@ ifdef CONFIG_RISCV_M_MODE
 boot-image-$(CONFIG_SOC_CANAAN_K210)	:= loader.bin
 endif
 boot-image-$(CONFIG_EFI_ZBOOT)		:= vmlinuz.efi
-boot-image-$(CONFIG_XIP_KERNEL)		:= xipImage
 KBUILD_IMAGE				:= $(boot)/$(boot-image-y)
 
 libs-y += arch/riscv/lib/
@@ -218,8 +217,6 @@ define archhelp
   echo  '  Image.xz	- Compressed kernel image (arch/riscv/boot/Image.xz)'
   echo  '  vmlinuz.efi	- Compressed EFI kernel image (arch/riscv/boot/vmlinuz.efi)'
   echo  '		  Default when CONFIG_EFI_ZBOOT=y'
-  echo  '  xipImage	- Execute-in-place kernel image (arch/riscv/boot/xipImage)'
-  echo  '		  Default when CONFIG_XIP_KERNEL=y'
   echo  '  install	- Install kernel using (your) ~/bin/$(INSTALLKERNEL) or'
   echo  '		  (distribution) /sbin/$(INSTALLKERNEL) or install to '
   echo  '		  $$(INSTALL_PATH)'
