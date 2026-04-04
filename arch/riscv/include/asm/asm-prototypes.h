@@ -40,6 +40,7 @@ asmlinkage void riscv_v_context_nesting_end(struct pt_regs *regs);
 #define DECLARE_DO_ERROR_INFO(name)	asmlinkage void name(struct pt_regs *regs)
 
 DECLARE_DO_ERROR_INFO(do_trap_unknown);
+DECLARE_DO_ERROR_INFO(do_trap_hardware_error);
 DECLARE_DO_ERROR_INFO(do_trap_insn_misaligned);
 DECLARE_DO_ERROR_INFO(do_trap_insn_fault);
 DECLARE_DO_ERROR_INFO(do_trap_insn_illegal);
