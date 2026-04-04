@@ -94,14 +94,30 @@ struct instruction {
 		};
 	};
 	struct alternative *alts;
-	struct symbol *sym;
+	struct symbol *_sym;
 	struct stack_op *stack_ops;
 	struct cfi_state *cfi;
 };
 
+/*
+ * Return the symbol associated with an instruction.  For alternative
+ * replacements, return the symbol of the original code being replaced rather
+ * than NULL.  insn->_sym reflects the actual location in the ELF file.
+ */
+static inline struct symbol *insn_sym(struct instruction *insn)
+{
+	struct symbol *sym = insn->_sym;
+
+	if ((!sym || !is_func_sym(sym)) &&
+	    insn->alt_group && insn->alt_group->orig_group)
+		sym = insn->alt_group->orig_group->first_insn->_sym;
+
+	return sym;
+}
+
 static inline struct symbol *insn_func(struct instruction *insn)
 {
-	struct symbol *sym = insn->sym;
+	struct symbol *sym = insn_sym(insn);
 
 	if (sym && sym->type != STT_FUNC)
 		sym = NULL;

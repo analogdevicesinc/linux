@@ -495,7 +495,7 @@ static int decode_instructions(struct objtool_file *file)
 			}
 
 			sym_for_each_insn(file, func, insn) {
-				insn->sym = func;
+				insn->_sym = func;
 				if (is_func_sym(func) &&
 				    insn->type == INSN_ENDBR &&
 				    list_empty(&insn->call_node)) {
@@ -859,15 +859,14 @@ static int create_ibt_endbr_seal_sections(struct objtool_file *file)
 	list_for_each_entry(insn, &file->endbr_list, call_node) {
 
 		int *site = (int *)sec->data->d_buf + idx;
-		struct symbol *sym = insn->sym;
+		struct symbol *func = insn_func(insn);
 		*site = 0;
 
-		if (opts.module && sym && is_func_sym(sym) &&
-		    insn->offset == sym->offset &&
-		    (!strcmp(sym->name, "init_module") ||
-		     !strcmp(sym->name, "cleanup_module"))) {
+		if (opts.module && func && insn->offset == func->offset &&
+		    (!strcmp(func->name, "init_module") ||
+		     !strcmp(func->name, "cleanup_module"))) {
 			ERROR("%s(): Magic init_module() function name is deprecated, use module_init(fn) instead",
-			      sym->name);
+			      func->name);
 			return -1;
 		}
 
@@ -1581,7 +1580,7 @@ static int add_jump_destinations(struct objtool_file *file)
 		}
 
 		if (!dest_sym || is_sec_sym(dest_sym)) {
-			dest_sym = dest_insn->sym;
+			dest_sym = insn_sym(dest_insn);
 			if (!dest_sym)
 				goto set_jump_dest;
 		}
@@ -1597,7 +1596,7 @@ static int add_jump_destinations(struct objtool_file *file)
 			continue;
 		}
 
-		if (!insn->sym || insn->sym->pfunc == dest_sym->pfunc)
+		if (!insn_sym(insn) || insn_sym(insn)->pfunc == dest_sym->pfunc)
 			goto set_jump_dest;
 
 		/*
@@ -1770,7 +1769,6 @@ static int handle_group_alt(struct objtool_file *file,
 		nop->offset = special_alt->new_off + special_alt->new_len;
 		nop->len = special_alt->orig_len - special_alt->new_len;
 		nop->type = INSN_NOP;
-		nop->sym = orig_insn->sym;
 		nop->alt_group = new_alt_group;
 		nop->fake = 1;
 	}
@@ -1789,7 +1787,6 @@ static int handle_group_alt(struct objtool_file *file,
 
 		last_new_insn = insn;
 
-		insn->sym = orig_insn->sym;
 		insn->alt_group = new_alt_group;
 
 		/*
@@ -2432,12 +2429,12 @@ static int __annotate_late(struct objtool_file *file, int type, struct instructi
 		break;
 
 	case ANNOTYPE_NOCFI:
-		sym = insn->sym;
+		sym = insn_sym(insn);
 		if (!sym) {
 			ERROR_INSN(insn, "dodgy NOCFI annotation");
 			return -1;
 		}
-		insn->sym->nocfi = 1;
+		sym->nocfi = 1;
 		break;
 
 	default:
@@ -2538,7 +2535,7 @@ static void mark_holes(struct objtool_file *file)
 	 * favour of a regular symbol, but leaves the code in place.
 	 */
 	for_each_insn(file, insn) {
-		if (insn->sym || !find_symbol_hole_containing(insn->sec, insn->offset)) {
+		if (insn_sym(insn) || !find_symbol_hole_containing(insn->sec, insn->offset)) {
 			in_hole = false;
 			continue;
 		}
@@ -2982,7 +2979,7 @@ static int update_cfi_state(struct instruction *insn,
 			}
 
 			if (op->dest.reg == CFI_BP && op->src.reg == CFI_SP &&
-			    insn->sym->frame_pointer) {
+			    insn_sym(insn)->frame_pointer) {
 				/* addi.d fp,sp,imm on LoongArch */
 				if (cfa->base == CFI_SP && cfa->offset == op->src.offset) {
 					cfa->base = CFI_BP;
@@ -2994,7 +2991,7 @@ static int update_cfi_state(struct instruction *insn,
 			if (op->dest.reg == CFI_SP && op->src.reg == CFI_BP) {
 				/* addi.d sp,fp,imm on LoongArch */
 				if (cfa->base == CFI_BP && cfa->offset == 0) {
-					if (insn->sym->frame_pointer) {
+					if (insn_sym(insn)->frame_pointer) {
 						cfa->base = CFI_SP;
 						cfa->offset = -op->src.offset;
 					}
@@ -4171,7 +4168,7 @@ static int validate_retpoline(struct objtool_file *file)
 	 * broken.
 	 */
 	list_for_each_entry(insn, &file->retpoline_call_list, call_node) {
-		struct symbol *sym = insn->sym;
+		struct symbol *sym = insn_sym(insn);
 
 		if (sym && (is_notype_sym(sym) ||
 			    is_func_sym(sym)) && !sym->nocfi) {

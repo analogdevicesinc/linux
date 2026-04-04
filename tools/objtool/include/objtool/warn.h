@@ -77,13 +77,13 @@ static inline char *offstr(struct section *sec, unsigned long offset)
 #define WARN_INSN(insn, format, ...)					\
 ({									\
 	struct instruction *_insn = (insn);				\
-	if (!_insn->sym || !_insn->sym->warned)	{			\
+	if (!insn_sym(_insn) || !insn_sym(_insn)->warned)	{	\
 		WARN_FUNC(_insn->sec, _insn->offset, format,		\
 			  ##__VA_ARGS__);				\
 		BT_INSN(_insn, "");					\
 	}								\
-	if (_insn->sym)							\
-		_insn->sym->warned = 1;					\
+	if (insn_sym(_insn))						\
+		insn_sym(_insn)->warned = 1;				\
 })
 
 #define BT_INSN(insn, format, ...)				\
