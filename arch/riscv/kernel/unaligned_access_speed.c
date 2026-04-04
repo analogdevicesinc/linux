@@ -63,58 +63,79 @@ measure_cycles(void (*func)(void *dst, const void *src, size_t len),
 	return cycles;
 }
 
-#ifdef CONFIG_RISCV_PROBE_UNALIGNED_ACCESS
-static int check_unaligned_access(void *param)
+/*
+ * Return:
+ *     1 if unaligned accesses are fast
+ *     0 if unaligned accesses are slow
+ *    -1 if check cannot be done
+ */
+static int __maybe_unused
+compare_unaligned_access(void (*word_copy)(void *dst, const void *src, size_t len),
+			 void (*byte_copy)(void *dst, const void *src, size_t len),
+			 void *buf)
 {
 	int cpu = smp_processor_id();
 	u64 word_cycles;
 	u64 byte_cycles;
+	void *dst, *src;
+	bool fast;
 	int ratio;
-	struct page *page = param;
-	void *dst;
-	void *src;
-	long speed = RISCV_HWPROBE_MISALIGNED_SCALAR_SLOW;
-
-	if (per_cpu(misaligned_access_speed, cpu) != RISCV_HWPROBE_MISALIGNED_SCALAR_UNKNOWN)
-		return 0;
 
 	/* Make an unaligned destination buffer. */
-	dst = (void *)((unsigned long)page_address(page) | 0x1);
+	dst = (void *)((unsigned long)buf | 0x1);
 	/* Unalign src as well, but differently (off by 1 + 2 = 3). */
 	src = dst + (MISALIGNED_BUFFER_SIZE / 2);
 	src += 2;
 
-	word_cycles = measure_cycles(__riscv_copy_words_unaligned, dst, src, MISALIGNED_COPY_SIZE);
-	byte_cycles = measure_cycles(__riscv_copy_bytes_unaligned, dst, src, MISALIGNED_COPY_SIZE);
+	word_cycles = measure_cycles(word_copy, dst, src, MISALIGNED_COPY_SIZE);
+	byte_cycles = measure_cycles(byte_copy, dst, src, MISALIGNED_COPY_SIZE);
 
 	/* Don't divide by zero. */
 	if (!word_cycles || !byte_cycles) {
 		pr_warn("cpu%d: rdtime lacks granularity needed to measure unaligned access speed\n",
 			cpu);
 
-		return 0;
+		return -1;
 	}
 
-	if (word_cycles < byte_cycles)
-		speed = RISCV_HWPROBE_MISALIGNED_SCALAR_FAST;
+	fast = word_cycles < byte_cycles;
 
 	ratio = div_u64((byte_cycles * 100), word_cycles);
 	pr_info("cpu%d: Ratio of byte access time to unaligned word access is %d.%02d, unaligned accesses are %s\n",
 		cpu,
 		ratio / 100,
 		ratio % 100,
-		(speed == RISCV_HWPROBE_MISALIGNED_SCALAR_FAST) ? "fast" : "slow");
+		fast ? "fast" : "slow");
 
-	per_cpu(misaligned_access_speed, cpu) = speed;
+	return fast;
+}
+
+#ifdef CONFIG_RISCV_PROBE_UNALIGNED_ACCESS
+static int check_unaligned_access(struct page *page)
+{
+	void *buf = page_address(page);
+	int cpu = smp_processor_id();
+	int ret;
+
+	if (per_cpu(misaligned_access_speed, cpu) != RISCV_HWPROBE_MISALIGNED_SCALAR_UNKNOWN)
+		return 0;
+
+	ret = compare_unaligned_access(__riscv_copy_words_unaligned,
+				       __riscv_copy_bytes_unaligned, buf);
+	if (ret < 0)
+		return 0;
 
 	/*
 	 * Set the value of fast_misaligned_access of a CPU. These operations
 	 * are atomic to avoid race conditions.
 	 */
-	if (speed == RISCV_HWPROBE_MISALIGNED_SCALAR_FAST)
+	if (ret) {
+		per_cpu(misaligned_access_speed, cpu) = RISCV_HWPROBE_MISALIGNED_SCALAR_FAST;
 		cpumask_set_cpu(cpu, &fast_misaligned_access);
-	else
+	} else {
+		per_cpu(misaligned_access_speed, cpu) = RISCV_HWPROBE_MISALIGNED_SCALAR_SLOW;
 		cpumask_clear_cpu(cpu, &fast_misaligned_access);
+	}
 
 	return 0;
 }
