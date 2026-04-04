@@ -31,13 +31,44 @@ static long unaligned_vector_speed_param = RISCV_HWPROBE_MISALIGNED_VECTOR_UNKNO
 static cpumask_t fast_misaligned_access;
 
 #ifdef CONFIG_RISCV_PROBE_UNALIGNED_ACCESS
+static u64 measure_cycles(void (*func)(void *dst, const void *src, size_t len),
+			  void *dst, void *src, size_t len)
+{
+	u64 start_cycles, end_cycles, cycles = -1ULL;
+	u64 start_ns;
+
+	/* Do a warmup. */
+	func(dst, src, len);
+
+	preempt_disable();
+
+	/*
+	 * For a fixed amount of time, repeatedly try the function, and take
+	 * the best time in cycles as the measurement.
+	 */
+	start_ns = ktime_get_mono_fast_ns();
+	while (ktime_get_mono_fast_ns() < start_ns + MISALIGNED_ACCESS_NS) {
+		start_cycles = get_cycles64();
+		/* Ensure the CSR read can't reorder WRT to the copy. */
+		mb();
+		func(dst, src, len);
+		/* Ensure the copy ends before the end time is snapped. */
+		mb();
+		end_cycles = get_cycles64();
+		if ((end_cycles - start_cycles) < cycles)
+			cycles = end_cycles - start_cycles;
+	}
+
+	preempt_enable();
+
+	return cycles;
+}
+
 static int check_unaligned_access(void *param)
 {
 	int cpu = smp_processor_id();
-	u64 start_cycles, end_cycles;
 	u64 word_cycles;
 	u64 byte_cycles;
-	u64 start_ns;
 	int ratio;
 	struct page *page = param;
 	void *dst;
@@ -52,43 +83,9 @@ static int check_unaligned_access(void *param)
 	/* Unalign src as well, but differently (off by 1 + 2 = 3). */
 	src = dst + (MISALIGNED_BUFFER_SIZE / 2);
 	src += 2;
-	word_cycles = -1ULL;
-	/* Do a warmup. */
-	__riscv_copy_words_unaligned(dst, src, MISALIGNED_COPY_SIZE);
-	preempt_disable();
 
-	/*
-	 * For a fixed amount of time, repeatedly try the function, and take
-	 * the best time in cycles as the measurement.
-	 */
-	start_ns = ktime_get_mono_fast_ns();
-	while (ktime_get_mono_fast_ns() < start_ns + MISALIGNED_ACCESS_NS) {
-		start_cycles = get_cycles64();
-		/* Ensure the CSR read can't reorder WRT to the copy. */
-		mb();
-		__riscv_copy_words_unaligned(dst, src, MISALIGNED_COPY_SIZE);
-		/* Ensure the copy ends before the end time is snapped. */
-		mb();
-		end_cycles = get_cycles64();
-		if ((end_cycles - start_cycles) < word_cycles)
-			word_cycles = end_cycles - start_cycles;
-	}
-
-	byte_cycles = -1ULL;
-	__riscv_copy_bytes_unaligned(dst, src, MISALIGNED_COPY_SIZE);
-
-	start_ns = ktime_get_mono_fast_ns();
-	while (ktime_get_mono_fast_ns() < start_ns + MISALIGNED_ACCESS_NS) {
-		start_cycles = get_cycles64();
-		mb();
-		__riscv_copy_bytes_unaligned(dst, src, MISALIGNED_COPY_SIZE);
-		mb();
-		end_cycles = get_cycles64();
-		if ((end_cycles - start_cycles) < byte_cycles)
-			byte_cycles = end_cycles - start_cycles;
-	}
-
-	preempt_enable();
+	word_cycles = measure_cycles(__riscv_copy_words_unaligned, dst, src, MISALIGNED_COPY_SIZE);
+	byte_cycles = measure_cycles(__riscv_copy_bytes_unaligned, dst, src, MISALIGNED_COPY_SIZE);
 
 	/* Don't divide by zero. */
 	if (!word_cycles || !byte_cycles) {
