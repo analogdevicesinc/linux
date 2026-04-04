@@ -36,7 +36,7 @@ struct keyboard_led {
  * See struct led_classdev in include/linux/leds.h for more details.
  */
 struct keyboard_led_drvdata {
-	int (*init)(struct platform_device *pdev);
+	int (*init)(struct platform_device *pdev, struct keyboard_led *keyboard_led);
 
 	enum led_brightness (*brightness_get)(struct led_classdev *led_cdev);
 
@@ -89,7 +89,8 @@ keyboard_led_get_brightness_acpi(struct led_classdev *cdev)
 	return brightness;
 }
 
-static int keyboard_led_init_acpi(struct platform_device *pdev)
+static int keyboard_led_init_acpi(struct platform_device *pdev,
+				  struct keyboard_led *keyboard_led)
 {
 	acpi_handle handle;
 	acpi_status status;
@@ -116,11 +117,11 @@ static const struct keyboard_led_drvdata keyboard_led_drvdata_acpi = {
 #endif /* CONFIG_ACPI */
 
 #if IS_ENABLED(CONFIG_MFD_CROS_EC_DEV)
-static int keyboard_led_init_ec_pwm_mfd(struct platform_device *pdev)
+static int keyboard_led_init_ec_pwm_mfd(struct platform_device *pdev,
+					struct keyboard_led *keyboard_led)
 {
 	struct cros_ec_dev *ec_dev = dev_get_drvdata(pdev->dev.parent);
 	struct cros_ec_device *cros_ec = ec_dev->ec_dev;
-	struct keyboard_led *keyboard_led = platform_get_drvdata(pdev);
 
 	keyboard_led->ec = cros_ec;
 
@@ -198,10 +199,9 @@ static int keyboard_led_probe(struct platform_device *pdev)
 	keyboard_led = devm_kzalloc(&pdev->dev, sizeof(*keyboard_led), GFP_KERNEL);
 	if (!keyboard_led)
 		return -ENOMEM;
-	platform_set_drvdata(pdev, keyboard_led);
 
 	if (drvdata->init) {
-		err = drvdata->init(pdev);
+		err = drvdata->init(pdev, keyboard_led);
 		if (err)
 			return err;
 	}
