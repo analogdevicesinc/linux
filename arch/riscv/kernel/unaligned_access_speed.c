@@ -17,6 +17,7 @@
 #include "copy-unaligned.h"
 
 #define MISALIGNED_ACCESS_JIFFIES_LG2 1
+#define MISALIGNED_ACCESS_NS 8000000
 #define MISALIGNED_BUFFER_SIZE 0x4000
 #define MISALIGNED_BUFFER_ORDER get_order(MISALIGNED_BUFFER_SIZE)
 #define MISALIGNED_COPY_SIZE ((MISALIGNED_BUFFER_SIZE / 2) - 0x80)
@@ -36,8 +37,8 @@ static int check_unaligned_access(void *param)
 	u64 start_cycles, end_cycles;
 	u64 word_cycles;
 	u64 byte_cycles;
+	u64 start_ns;
 	int ratio;
-	unsigned long start_jiffies, now;
 	struct page *page = param;
 	void *dst;
 	void *src;
@@ -55,15 +56,13 @@ static int check_unaligned_access(void *param)
 	/* Do a warmup. */
 	__riscv_copy_words_unaligned(dst, src, MISALIGNED_COPY_SIZE);
 	preempt_disable();
-	start_jiffies = jiffies;
-	while ((now = jiffies) == start_jiffies)
-		cpu_relax();
 
 	/*
 	 * For a fixed amount of time, repeatedly try the function, and take
 	 * the best time in cycles as the measurement.
 	 */
-	while (time_before(jiffies, now + (1 << MISALIGNED_ACCESS_JIFFIES_LG2))) {
+	start_ns = ktime_get_mono_fast_ns();
+	while (ktime_get_mono_fast_ns() < start_ns + MISALIGNED_ACCESS_NS) {
 		start_cycles = get_cycles64();
 		/* Ensure the CSR read can't reorder WRT to the copy. */
 		mb();
@@ -77,11 +76,9 @@ static int check_unaligned_access(void *param)
 
 	byte_cycles = -1ULL;
 	__riscv_copy_bytes_unaligned(dst, src, MISALIGNED_COPY_SIZE);
-	start_jiffies = jiffies;
-	while ((now = jiffies) == start_jiffies)
-		cpu_relax();
 
-	while (time_before(jiffies, now + (1 << MISALIGNED_ACCESS_JIFFIES_LG2))) {
+	start_ns = ktime_get_mono_fast_ns();
+	while (ktime_get_mono_fast_ns() < start_ns + MISALIGNED_ACCESS_NS) {
 		start_cycles = get_cycles64();
 		mb();
 		__riscv_copy_bytes_unaligned(dst, src, MISALIGNED_COPY_SIZE);
@@ -125,13 +122,12 @@ static int check_unaligned_access(void *param)
 	return 0;
 }
 
-static void __init check_unaligned_access_nonboot_cpu(void *param)
+static void __init _check_unaligned_access(void *param)
 {
 	unsigned int cpu = smp_processor_id();
 	struct page **pages = param;
 
-	if (smp_processor_id() != 0)
-		check_unaligned_access(pages[cpu]);
+	check_unaligned_access(pages[cpu]);
 }
 
 /* Measure unaligned access speed on all CPUs present at boot in parallel. */
@@ -158,11 +154,7 @@ static void __init check_unaligned_access_speed_all_cpus(void)
 		}
 	}
 
-	/* Check everybody except 0, who stays behind to tend jiffies. */
-	on_each_cpu(check_unaligned_access_nonboot_cpu, bufs, 1);
-
-	/* Check core 0. */
-	smp_call_on_cpu(0, check_unaligned_access, bufs[0], true);
+	on_each_cpu(_check_unaligned_access, bufs, 1);
 
 out:
 	for_each_cpu(cpu, cpu_online_mask) {
@@ -494,4 +486,4 @@ static int __init check_unaligned_access_all_cpus(void)
 	return 0;
 }
 
-arch_initcall(check_unaligned_access_all_cpus);
+late_initcall(check_unaligned_access_all_cpus);
