@@ -45,16 +45,30 @@
 		: __sysret_arg;                         /* return original value */ \
 })
 
-/* Syscall ENOSYS helper: Avoids unused-parameter warnings and provides a
- * debugging hook.
+/* Syscall ENOSYS helper: Avoids unused-parameter warnings, provides compile
+ * time validation and a debugging hook.
  */
 
+#if defined(NOLIBC_COMPILE_TIME_ENOSYS)
 static __inline__ int __nolibc_enosys(const char *syscall, ...)
 {
 	(void)syscall;
 	return -ENOSYS;
 }
 
+#elif __nolibc_has_attribute(error)
+__attribute__((error("system call not implemented")))
+extern int __nolibc_enosys(const char *syscall, ...);
+
+#else
+static __inline__ int __nolibc_enosys(const char *syscall, ...)
+{
+	extern int __nolibc_enosys_error;
+	(void)syscall;
+
+	return __nolibc_enosys_error;
+}
+#endif
 
 /* Functions in this file only describe syscalls. They're declared static so
  * that the compiler usually decides to inline them while still being allowed

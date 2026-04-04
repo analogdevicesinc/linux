@@ -1299,6 +1299,23 @@ int test_openat(void)
 	return 0;
 }
 
+int test_nolibc_enosys(void)
+{
+	if (true)
+		return 0;
+
+#if defined(NOLIBC)
+	/*
+	 * __nolibc_enosys() will fail the compilation.
+	 * Make sure it can be optimized away if not actually called.
+	 */
+	if (__nolibc_enosys("something") != -ENOSYS)
+		return 1;
+#endif
+
+	return 0;
+}
+
 int test_namespace(void)
 {
 	int original_ns, new_ns, ret;
@@ -1467,6 +1484,7 @@ int run_syscall(int min, int max)
 		CASE_TEST(munmap_bad);        EXPECT_SYSER(1, munmap(NULL, 0), -1, EINVAL); break;
 		CASE_TEST(mmap_munmap_good);  EXPECT_SYSZR(1, test_mmap_munmap()); break;
 		CASE_TEST(nanosleep);         ts.tv_nsec = -1; EXPECT_SYSER(1, nanosleep(&ts, NULL), -1, EINVAL); break;
+		CASE_TEST(nolibc_enosys);     EXPECT_ZR(is_nolibc, test_nolibc_enosys()); break;
 		CASE_TEST(open_tty);          EXPECT_SYSNE(1, tmp = open("/dev/null", O_RDONLY), -1); if (tmp != -1) close(tmp); break;
 		CASE_TEST(open_blah);         EXPECT_SYSER(1, tmp = open("/proc/self/blah", O_RDONLY), -1, ENOENT); if (tmp != -1) close(tmp); break;
 		CASE_TEST(openat_dir);        EXPECT_SYSZR(1, test_openat()); break;
