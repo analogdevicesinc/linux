@@ -1448,6 +1448,8 @@ int __meminit vmemmap_check_pmd(pmd_t *pmdp, int node,
 int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
 			       struct vmem_altmap *altmap)
 {
+	WARN_ON((start < VMEMMAP_START) || (end > VMEMMAP_END));
+
 	/*
 	 * Note that SPARSEMEM_VMEMMAP is only selected for rv64 and that we
 	 * can't use hugepage mappings for 2-level page table because in case of
