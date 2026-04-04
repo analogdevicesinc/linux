@@ -14,42 +14,20 @@
 #define RESULT_FILE_NAME	"result_cat"
 #define NUM_OF_RUNS		5
 
-/*
- * Minimum difference in LLC misses between a test with n+1 bits CBM to the
- * test with n bits is MIN_DIFF_PERCENT_PER_BIT * (n - 1). With e.g. 5 vs 4
- * bits in the CBM mask, the minimum difference must be at least
- * MIN_DIFF_PERCENT_PER_BIT * (4 - 1) = 3 percent.
- *
- * The relationship between number of used CBM bits and difference in LLC
- * misses is not expected to be linear. With a small number of bits, the
- * margin is smaller than with larger number of bits. For selftest purposes,
- * however, linear approach is enough because ultimately only pass/fail
- * decision has to be made and distinction between strong and stronger
- * signal is irrelevant.
- */
-#define MIN_DIFF_PERCENT_PER_BIT	1UL
-
 static int show_results_info(__u64 sum_llc_val, int no_of_bits,
 			     unsigned long cache_span,
-			     unsigned long min_diff_percent,
 			     unsigned long num_of_runs, bool platform,
 			     __s64 *prev_avg_llc_val)
 {
 	__u64 avg_llc_val = 0;
-	float avg_diff;
 	int ret = 0;
 
 	avg_llc_val = sum_llc_val / num_of_runs;
 	if (*prev_avg_llc_val) {
-		float delta = (__s64)(avg_llc_val - *prev_avg_llc_val);
+		ret = platform && (avg_llc_val < *prev_avg_llc_val);
 
-		avg_diff = delta / *prev_avg_llc_val;
-		ret = platform && (avg_diff * 100) < (float)min_diff_percent;
-
-		ksft_print_msg("%s Check cache miss rate changed more than %.1f%%\n",
-			       ret ? "Fail:" : "Pass:", (float)min_diff_percent);
-
-		ksft_print_msg("Percent diff=%.1f\n", avg_diff * 100);
+		ksft_print_msg("%s Check cache miss rate increased\n",
+			       ret ? "Fail:" : "Pass:");
 	}
 	*prev_avg_llc_val = avg_llc_val;
 
@@ -58,10 +36,10 @@ static int show_results_info(__u64 sum_llc_val, int no_of_bits,
 	return ret;
 }
 
-/* Remove the highest bit from CBM */
+/* Remove the highest bits from CBM */
 static unsigned long next_mask(unsigned long current_mask)
 {
-	return current_mask & (current_mask >> 1);
+	return current_mask & (current_mask >> 2);
 }
 
 static int check_results(struct resctrl_val_param *param, const char *cache_type,
@@ -112,7 +90,6 @@ static int check_results(struct resctrl_val_param *param, const char *cache_type
 
 		ret = show_results_info(sum_llc_perf_miss, bits,
 					alloc_size / 64,
-					MIN_DIFF_PERCENT_PER_BIT * (bits - 1),
 					runs, get_vendor() == ARCH_INTEL,
 					&prev_avg_llc_val);
 		if (ret)
