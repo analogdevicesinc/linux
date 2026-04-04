@@ -72,7 +72,7 @@ measure_cycles(void (*func)(void *dst, const void *src, size_t len),
 static int __maybe_unused
 compare_unaligned_access(void (*word_copy)(void *dst, const void *src, size_t len),
 			 void (*byte_copy)(void *dst, const void *src, size_t len),
-			 void *buf)
+			 void *buf, const char *type)
 {
 	int cpu = smp_processor_id();
 	u64 word_cycles;
@@ -92,8 +92,8 @@ compare_unaligned_access(void (*word_copy)(void *dst, const void *src, size_t le
 
 	/* Don't divide by zero. */
 	if (!word_cycles || !byte_cycles) {
-		pr_warn("cpu%d: rdtime lacks granularity needed to measure unaligned access speed\n",
-			cpu);
+		pr_warn("cpu%d: rdtime lacks granularity needed to measure %s unaligned access speed\n",
+			cpu, type);
 
 		return -1;
 	}
@@ -101,8 +101,9 @@ compare_unaligned_access(void (*word_copy)(void *dst, const void *src, size_t le
 	fast = word_cycles < byte_cycles;
 
 	ratio = div_u64((byte_cycles * 100), word_cycles);
-	pr_info("cpu%d: Ratio of byte access time to unaligned word access is %d.%02d, unaligned accesses are %s\n",
+	pr_info("cpu%d: %s unaligned word access speed is %d.%02dx byte access speed (%s)\n",
 		cpu,
+		type,
 		ratio / 100,
 		ratio % 100,
 		fast ? "fast" : "slow");
@@ -121,7 +122,8 @@ static int check_unaligned_access(struct page *page)
 		return 0;
 
 	ret = compare_unaligned_access(__riscv_copy_words_unaligned,
-				       __riscv_copy_bytes_unaligned, buf);
+				       __riscv_copy_bytes_unaligned,
+				       buf, "scalar");
 	if (ret < 0)
 		return 0;
 
@@ -291,13 +293,8 @@ static int riscv_offline_cpu(unsigned int cpu)
 static void check_vector_unaligned_access(struct work_struct *work __always_unused)
 {
 	int cpu = smp_processor_id();
-	u64 word_cycles;
-	u64 byte_cycles;
-	int ratio;
 	struct page *page;
-	void *dst;
-	void *src;
-	long speed = RISCV_HWPROBE_MISALIGNED_VECTOR_SLOW;
+	int ret;
 
 	if (per_cpu(vector_misaligned_access, cpu) != RISCV_HWPROBE_MISALIGNED_VECTOR_UNKNOWN)
 		return;
@@ -308,40 +305,20 @@ static void check_vector_unaligned_access(struct work_struct *work __always_unus
 		return;
 	}
 
-	/* Make an unaligned destination buffer. */
-	dst = (void *)((unsigned long)page_address(page) | 0x1);
-	/* Unalign src as well, but differently (off by 1 + 2 = 3). */
-	src = dst + (MISALIGNED_BUFFER_SIZE / 2);
-	src += 2;
-
 	kernel_vector_begin();
 
-	word_cycles = measure_cycles(__riscv_copy_vec_words_unaligned,
-				     dst, src, MISALIGNED_COPY_SIZE);
-
-	byte_cycles = measure_cycles(__riscv_copy_vec_bytes_unaligned,
-				     dst, src, MISALIGNED_COPY_SIZE);
+	ret = compare_unaligned_access(__riscv_copy_vec_words_unaligned,
+				       __riscv_copy_vec_bytes_unaligned,
+				       page_address(page), "vector");
 	kernel_vector_end();
 
-	/* Don't divide by zero. */
-	if (!word_cycles || !byte_cycles) {
-		pr_warn("cpu%d: rdtime lacks granularity needed to measure unaligned vector access speed\n",
-			cpu);
-
+	if (ret < 0)
 		goto free;
-	}
 
-	if (word_cycles < byte_cycles)
-		speed = RISCV_HWPROBE_MISALIGNED_VECTOR_FAST;
-
-	ratio = div_u64((byte_cycles * 100), word_cycles);
-	pr_info("cpu%d: Ratio of vector byte access time to vector unaligned word access is %d.%02d, unaligned accesses are %s\n",
-		cpu,
-		ratio / 100,
-		ratio % 100,
-		(speed ==  RISCV_HWPROBE_MISALIGNED_VECTOR_FAST) ? "fast" : "slow");
-
-	per_cpu(vector_misaligned_access, cpu) = speed;
+	if (ret)
+		per_cpu(vector_misaligned_access, cpu) = RISCV_HWPROBE_MISALIGNED_VECTOR_FAST;
+	else
+		per_cpu(vector_misaligned_access, cpu) = RISCV_HWPROBE_MISALIGNED_VECTOR_SLOW;
 
 free:
 	__free_pages(page, MISALIGNED_BUFFER_ORDER);
