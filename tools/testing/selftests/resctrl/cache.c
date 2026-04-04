@@ -174,6 +174,19 @@ int measure_llc_resctrl(const char *filename, pid_t bm_pid)
 }
 
 /*
+ * Reduce L2 allocation to minimum when testing L3 cache allocation.
+ */
+int minimize_l2_occupancy(const struct resctrl_test *test,
+			  const struct user_params *uparams,
+			  const struct resctrl_val_param *param)
+{
+	if (!strcmp(test->resource, "L3") && resctrl_resource_exists("L2"))
+		return write_schemata(param->ctrlgrp, "0x1", uparams->cpu, "L2");
+
+	return 0;
+}
+
+/*
  * show_cache_info - Show generic cache test information
  * @no_of_bits:		Number of bits
  * @avg_llc_val:	Average of LLC cache result data
