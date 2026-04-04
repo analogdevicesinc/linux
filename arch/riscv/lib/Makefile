@@ -7,6 +7,7 @@ ifeq ($(CONFIG_KASAN_GENERIC)$(CONFIG_KASAN_SW_TAGS),)
 lib-y			+= strcmp.o
 lib-y			+= strlen.o
 lib-y			+= strncmp.o
+lib-y			+= strnlen.o
 endif
 lib-y			+= csum.o
 ifeq ($(CONFIG_MMU), y)
