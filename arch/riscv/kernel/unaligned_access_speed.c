@@ -16,7 +16,6 @@
 
 #include "copy-unaligned.h"
 
-#define MISALIGNED_ACCESS_JIFFIES_LG2 1
 #define MISALIGNED_ACCESS_NS 8000000
 #define MISALIGNED_BUFFER_SIZE 0x4000
 #define MISALIGNED_BUFFER_ORDER get_order(MISALIGNED_BUFFER_SIZE)
@@ -30,9 +29,9 @@ static long unaligned_vector_speed_param = RISCV_HWPROBE_MISALIGNED_VECTOR_UNKNO
 
 static cpumask_t fast_misaligned_access;
 
-#ifdef CONFIG_RISCV_PROBE_UNALIGNED_ACCESS
-static u64 measure_cycles(void (*func)(void *dst, const void *src, size_t len),
-			  void *dst, void *src, size_t len)
+static u64 __maybe_unused
+measure_cycles(void (*func)(void *dst, const void *src, size_t len),
+	       void *dst, void *src, size_t len)
 {
 	u64 start_cycles, end_cycles, cycles = -1ULL;
 	u64 start_ns;
@@ -64,6 +63,7 @@ static u64 measure_cycles(void (*func)(void *dst, const void *src, size_t len),
 	return cycles;
 }
 
+#ifdef CONFIG_RISCV_PROBE_UNALIGNED_ACCESS
 static int check_unaligned_access(void *param)
 {
 	int cpu = smp_processor_id();
@@ -270,11 +270,9 @@ static int riscv_offline_cpu(unsigned int cpu)
 static void check_vector_unaligned_access(struct work_struct *work __always_unused)
 {
 	int cpu = smp_processor_id();
-	u64 start_cycles, end_cycles;
 	u64 word_cycles;
 	u64 byte_cycles;
 	int ratio;
-	unsigned long start_jiffies, now;
 	struct page *page;
 	void *dst;
 	void *src;
@@ -294,50 +292,14 @@ static void check_vector_unaligned_access(struct work_struct *work __always_unus
 	/* Unalign src as well, but differently (off by 1 + 2 = 3). */
 	src = dst + (MISALIGNED_BUFFER_SIZE / 2);
 	src += 2;
-	word_cycles = -1ULL;
 
-	/* Do a warmup. */
 	kernel_vector_begin();
-	__riscv_copy_vec_words_unaligned(dst, src, MISALIGNED_COPY_SIZE);
 
-	start_jiffies = jiffies;
-	while ((now = jiffies) == start_jiffies)
-		cpu_relax();
+	word_cycles = measure_cycles(__riscv_copy_vec_words_unaligned,
+				     dst, src, MISALIGNED_COPY_SIZE);
 
-	/*
-	 * For a fixed amount of time, repeatedly try the function, and take
-	 * the best time in cycles as the measurement.
-	 */
-	while (time_before(jiffies, now + (1 << MISALIGNED_ACCESS_JIFFIES_LG2))) {
-		start_cycles = get_cycles64();
-		/* Ensure the CSR read can't reorder WRT to the copy. */
-		mb();
-		__riscv_copy_vec_words_unaligned(dst, src, MISALIGNED_COPY_SIZE);
-		/* Ensure the copy ends before the end time is snapped. */
-		mb();
-		end_cycles = get_cycles64();
-		if ((end_cycles - start_cycles) < word_cycles)
-			word_cycles = end_cycles - start_cycles;
-	}
-
-	byte_cycles = -1ULL;
-	__riscv_copy_vec_bytes_unaligned(dst, src, MISALIGNED_COPY_SIZE);
-	start_jiffies = jiffies;
-	while ((now = jiffies) == start_jiffies)
-		cpu_relax();
-
-	while (time_before(jiffies, now + (1 << MISALIGNED_ACCESS_JIFFIES_LG2))) {
-		start_cycles = get_cycles64();
-		/* Ensure the CSR read can't reorder WRT to the copy. */
-		mb();
-		__riscv_copy_vec_bytes_unaligned(dst, src, MISALIGNED_COPY_SIZE);
-		/* Ensure the copy ends before the end time is snapped. */
-		mb();
-		end_cycles = get_cycles64();
-		if ((end_cycles - start_cycles) < byte_cycles)
-			byte_cycles = end_cycles - start_cycles;
-	}
-
+	byte_cycles = measure_cycles(__riscv_copy_vec_bytes_unaligned,
+				     dst, src, MISALIGNED_COPY_SIZE);
 	kernel_vector_end();
 
 	/* Don't divide by zero. */
