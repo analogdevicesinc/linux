@@ -116,7 +116,6 @@ static const struct keyboard_led_drvdata keyboard_led_drvdata_acpi = {
 
 #endif /* CONFIG_ACPI */
 
-#if IS_ENABLED(CONFIG_MFD_CROS_EC_DEV)
 static int keyboard_led_init_ec_pwm_mfd(struct platform_device *pdev,
 					struct keyboard_led *keyboard_led)
 {
@@ -171,12 +170,6 @@ static const struct keyboard_led_drvdata keyboard_led_drvdata_ec_pwm_mfd = {
 	.brightness_set_blocking = keyboard_led_set_brightness_ec_pwm,
 	.brightness_get = keyboard_led_get_brightness_ec_pwm,
 };
-
-#else /* IS_ENABLED(CONFIG_MFD_CROS_EC_DEV) */
-
-static const struct keyboard_led_drvdata keyboard_led_drvdata_ec_pwm_mfd = {};
-
-#endif /* IS_ENABLED(CONFIG_MFD_CROS_EC_DEV) */
 
 static int keyboard_led_is_mfd_device(struct platform_device *pdev)
 {
