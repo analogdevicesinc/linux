@@ -2419,9 +2419,6 @@ void issue_probersp(struct adapter *padapter, unsigned char *da, u8 is_valid_p2p
 
 
 	dump_mgntframe(padapter, pmgntframe);
-
-	return;
-
 }
 
 static int _issue_probereq(struct adapter *padapter,
@@ -3879,9 +3876,6 @@ void site_survey(struct adapter *padapter)
 			issue_action_BSSCoexistPacket(padapter);
 		}
 	}
-
-	return;
-
 }
 
 /* collect bss info from Beacon and Probe request/response frames. */
@@ -4416,9 +4410,6 @@ void report_survey_event(struct adapter *padapter, union recv_frame *precv_frame
 	rtw_enqueue_cmd(pcmdpriv, pcmd_obj);
 
 	pmlmeext->sitesurvey_res.bss_cnt++;
-
-	return;
-
 }
 
 void report_surveydone_event(struct adapter *padapter)
@@ -4460,9 +4451,6 @@ void report_surveydone_event(struct adapter *padapter)
 	psurveydone_evt->bss_cnt = pmlmeext->sitesurvey_res.bss_cnt;
 
 	rtw_enqueue_cmd(pcmdpriv, pcmd_obj);
-
-	return;
-
 }
 
 void report_join_res(struct adapter *padapter, int res)
@@ -4554,9 +4542,6 @@ void report_wmm_edca_update(struct adapter *padapter)
 	pwmm_event->wmm = 0;
 
 	rtw_enqueue_cmd(pcmdpriv, pcmd_obj);
-
-	return;
-
 }
 
 void report_del_sta_event(struct adapter *padapter, unsigned char *MacAddr, unsigned short reason)
