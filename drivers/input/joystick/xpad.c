@@ -551,6 +551,7 @@ static const struct usb_device_id xpad_table[] = {
 	XPAD_XBOX360_VENDOR(0x3651),		/* CRKD Controllers */
 	XPAD_XBOXONE_VENDOR(0x366c),		/* ByoWave controllers */
 	XPAD_XBOX360_VENDOR(0x37d7),		/* Flydigi Controllers */
+	XPAD_XBOX360_VENDOR(0x3958),		/* RedOctane Games Controllers */
 	XPAD_XBOX360_VENDOR(0x413d),		/* Black Shark Green Ghost Controller */
 	{ }
 };
