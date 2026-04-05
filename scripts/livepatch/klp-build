@@ -3,7 +3,7 @@
 #
 # Build a livepatch module
 
-# shellcheck disable=SC1090,SC2155
+# shellcheck disable=SC1090,SC2155,SC2164
 
 if (( BASH_VERSINFO[0]  < 4 || \
      (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 4) )); then
@@ -11,13 +11,12 @@ if (( BASH_VERSINFO[0]  < 4 || \
 	exit 1
 fi
 
-set -o errexit
 set -o errtrace
 set -o pipefail
 set -o nounset
 
 # Allow doing 'cmd | mapfile -t array' instead of 'mapfile -t array < <(cmd)'.
-# This helps keep execution in pipes so pipefail+errexit can catch errors.
+# This helps keep execution in pipes so pipefail+ERR trap can catch errors.
 shopt -s lastpipe
 
 unset DEBUG_CLONE DIFF_CHECKSUM SKIP_CLEANUP XTRACE
