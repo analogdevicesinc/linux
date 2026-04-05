@@ -153,7 +153,7 @@ static bool errata_probe_ghostwrite(unsigned int stage,
 	 * target-c9xx cores report arch_id and impid as 0
 	 *
 	 * While ghostwrite may not affect all c9xx cores that implement
-	 * xtheadvector, there is no futher granularity than c9xx. Assume
+	 * xtheadvector, there is no further granularity than c9xx. Assume
 	 * vulnerable for this entire class of processors when xtheadvector is
 	 * enabled.
 	 */
