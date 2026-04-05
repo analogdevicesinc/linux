@@ -5,6 +5,8 @@ soc/arm
 		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-soc-for-v7.1-tag1
 	omap/arm
 		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.1/soc-signed
+	microchip/soc64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-soc-7.1
 
 soc/dt
 	patch
@@ -60,6 +62,16 @@ soc/dt
 		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.1/soc-signed
 	qcom/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.1
+	tegra/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm-dt
+	tegra/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm64-dt
+	nxp/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt64-7.1
+	microchip/dt32
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-7.1
+	microchip/dt64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.1
 
 soc/drivers
 	renesas/drivers
@@ -98,6 +110,10 @@ soc/drivers
 		contains reset/fixes
 	qcom/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.1
+	tegra/drivers-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-dt-bindings
+	microchip/drivers
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-7.1
 
 soc/defconfig
 	renesas/defconfig
@@ -114,6 +130,8 @@ soc/defconfig
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm-defconfig
 	tegra/defconfig64
 		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm64-defconfig
+	microchip/defconfig
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-defconfig-7.1
 
 soc/late
 
@@ -138,4 +156,6 @@ arm/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-fixes-for-7.0
 	qcom/fixes-2
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-fixes-for-7.0-2
+	microchip/fixes
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-7.0
 
