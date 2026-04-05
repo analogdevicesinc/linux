@@ -3,6 +3,11 @@
 #include <linux/vmcore_info.h>
 #include <linux/pagemap.h>
 
+static inline u64 get_satp_value(void)
+{
+	return csr_read(CSR_SATP);
+}
+
 void arch_crash_save_vmcoreinfo(void)
 {
 	VMCOREINFO_NUMBER(phys_ram_base);
@@ -27,5 +32,7 @@ void arch_crash_save_vmcoreinfo(void)
 #else
 	vmcoreinfo_append_str("NUMBER(va_kernel_pa_offset)=0x%lx\n",
 						kernel_map.va_kernel_pa_offset);
+	vmcoreinfo_append_str("KERNELOFFSET=%lx\n", kaslr_offset());
+	vmcoreinfo_append_str("NUMBER(satp)=0x%llx\n", get_satp_value());
 #endif
 }
