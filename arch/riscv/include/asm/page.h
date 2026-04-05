@@ -190,7 +190,10 @@ extern phys_addr_t __phys_addr_symbol(unsigned long x);
 
 #define sym_to_pfn(x)           __phys_to_pfn(__pa_symbol(x))
 
-unsigned long kaslr_offset(void);
+static inline unsigned long kaslr_offset(void)
+{
+	return kernel_map.virt_offset;
+}
 
 static __always_inline void *pfn_to_kaddr(unsigned long pfn)
 {
