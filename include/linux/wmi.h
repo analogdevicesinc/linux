@@ -68,7 +68,7 @@ ssize_t wmi_string_from_utf8s(struct wmi_string *str, size_t max_chars, const u8
 			      size_t src_length);
 
 int wmidev_invoke_method(struct wmi_device *wdev, u8 instance, u32 method_id,
-			 const struct wmi_buffer *in, struct wmi_buffer *out);
+			 const struct wmi_buffer *in, struct wmi_buffer *out, size_t min_size);
 
 int wmidev_invoke_procedure(struct wmi_device *wdev, u8 instance, u32 method_id,
 			    const struct wmi_buffer *in);

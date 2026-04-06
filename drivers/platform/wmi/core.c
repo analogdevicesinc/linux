@@ -364,20 +364,23 @@ acpi_status wmidev_evaluate_method(struct wmi_device *wdev, u8 instance, u32 met
 EXPORT_SYMBOL_GPL(wmidev_evaluate_method);
 
 /**
- * wmidev_invoke_method - Invoke a WMI method
+ * wmidev_invoke_method - Invoke a WMI method that returns values
  * @wdev: A wmi bus device from a driver
  * @instance: Instance index
  * @method_id: Method ID to call
  * @in: Mandatory WMI buffer containing input for the method call
- * @out: Optional WMI buffer to return the method results
+ * @out: Mandatory WMI buffer to return the method results
+ * @min_size: Minimum size of the method result data in bytes
  *
- * Invoke a WMI method, the caller must free the resulting data inside @out.
- * Said data is guaranteed to be aligned on a 8-byte boundary.
+ * Invoke a WMI method that returns values, the caller must free the resulting
+ * data inside @out using kfree(). Said data is guaranteed to be aligned on a
+ * 8-byte boundary. Use wmidev_invoke_procedure() for WMI methods that
+ * return no values.
  *
  * Return: 0 on success or negative error code on failure.
  */
 int wmidev_invoke_method(struct wmi_device *wdev, u8 instance, u32 method_id,
-			 const struct wmi_buffer *in, struct wmi_buffer *out)
+			 const struct wmi_buffer *in, struct wmi_buffer *out, size_t min_size)
 {
 	struct wmi_block *wblock = container_of(wdev, struct wmi_block, dev);
 	struct acpi_buffer aout = { ACPI_ALLOCATE_BUFFER, NULL };
@@ -398,19 +401,13 @@ int wmidev_invoke_method(struct wmi_device *wdev, u8 instance, u32 method_id,
 		ain.pointer = in->data;
 	}
 
-	if (out)
-		status = wmidev_evaluate_method(wdev, instance, method_id, &ain, &aout);
-	else
-		status = wmidev_evaluate_method(wdev, instance, method_id, &ain, NULL);
+	status = wmidev_evaluate_method(wdev, instance, method_id, &ain, &aout);
 
 	if (wblock->gblock.flags & ACPI_WMI_STRING)
 		kfree(ain.pointer);
 
 	if (ACPI_FAILURE(status))
 		return -EIO;
-
-	if (!out)
-		return 0;
 
 	obj = aout.pointer;
 	if (!obj) {
@@ -420,7 +417,7 @@ int wmidev_invoke_method(struct wmi_device *wdev, u8 instance, u32 method_id,
 		return 0;
 	}
 
-	ret = wmi_unmarshal_acpi_object(obj, out, 0);
+	ret = wmi_unmarshal_acpi_object(obj, out, min_size);
 	kfree(obj);
 
 	return ret;

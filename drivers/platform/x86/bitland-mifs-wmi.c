@@ -10,7 +10,6 @@
 #include <linux/acpi.h>
 #include <linux/array_size.h>
 #include <linux/bits.h>
-#include <linux/cleanup.h>
 #include <linux/container_of.h>
 #include <linux/dev_printk.h>
 #include <linux/device.h>
@@ -167,7 +166,6 @@ static int bitland_mifs_wmi_call(struct bitland_mifs_wmi_data *data,
 				 struct bitland_mifs_output *output)
 {
 	struct wmi_buffer in_buf = { .length = sizeof(*input), .data = (void *)input };
-	void *out_data __free(kfree) = NULL;
 	struct wmi_buffer out_buf = { 0 };
 	int ret;
 
@@ -176,15 +174,12 @@ static int bitland_mifs_wmi_call(struct bitland_mifs_wmi_data *data,
 	if (!output)
 		return wmidev_invoke_procedure(data->wdev, 0, 1, &in_buf);
 
-	ret = wmidev_invoke_method(data->wdev, 0, 1, &in_buf, &out_buf);
+	ret = wmidev_invoke_method(data->wdev, 0, 1, &in_buf, &out_buf, sizeof(*output));
 	if (ret)
 		return ret;
 
-	out_data = out_buf.data;
-	if (out_buf.length < sizeof(*output))
-		return -EIO;
-
-	memcpy(output, out_data, sizeof(*output));
+	memcpy(output, out_buf.data, sizeof(*output));
+	kfree(out_buf.data);
 
 	return 0;
 }
