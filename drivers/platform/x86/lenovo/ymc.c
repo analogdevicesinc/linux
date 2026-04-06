@@ -153,6 +153,7 @@ static struct wmi_driver lenovo_ymc_driver = {
 		.name = "lenovo-ymc",
 	},
 	.id_table = lenovo_ymc_wmi_id_table,
+	.min_event_size = sizeof(u32),
 	.probe = lenovo_ymc_probe,
 	.notify = lenovo_ymc_notify,
 };

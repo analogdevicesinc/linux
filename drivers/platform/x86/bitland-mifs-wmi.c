@@ -734,14 +734,9 @@ static void bitland_mifs_wmi_notify(struct wmi_device *wdev,
 				    const struct wmi_buffer *buffer)
 {
 	struct bitland_mifs_wmi_data *data = dev_get_drvdata(&wdev->dev);
-	const struct bitland_mifs_event *event;
+	const struct bitland_mifs_event *event = buffer->data;
 	struct bitland_fan_notify_data fan_data;
 	u8 brightness;
-
-	if (buffer->length < sizeof(*event))
-		return;
-
-	event = buffer->data;
 
 	/* Validate event type */
 	if (event->event_type != WMI_EVENT_TYPE_HOTKEY)
@@ -830,6 +825,7 @@ static struct wmi_driver bitland_mifs_wmi_driver = {
 		.pm = pm_sleep_ptr(&bitland_mifs_wmi_pm_ops),
 	},
 	.id_table = bitland_mifs_wmi_id_table,
+	.min_event_size = sizeof(struct bitland_mifs_event),
 	.probe = bitland_mifs_wmi_probe,
 	.notify_new = bitland_mifs_wmi_notify,
 };

@@ -1040,7 +1040,7 @@ static int wmi_dev_probe(struct device *dev)
 	}
 
 	if (wdriver->notify || wdriver->notify_new) {
-		if (test_bit(WMI_NO_EVENT_DATA, &wblock->flags) && !wdriver->no_notify_data)
+		if (test_bit(WMI_NO_EVENT_DATA, &wblock->flags) && wdriver->min_event_size)
 			return -ENODEV;
 	}
 
@@ -1398,10 +1398,14 @@ static int wmi_get_notify_data(struct wmi_block *wblock, union acpi_object **obj
 static void wmi_notify_driver(struct wmi_block *wblock, union acpi_object *obj)
 {
 	struct wmi_driver *driver = to_wmi_driver(wblock->dev.dev.driver);
+	struct wmi_buffer dummy = {
+		.length = 0,
+		.data = ZERO_SIZE_PTR,
+	};
 	struct wmi_buffer buffer;
 	int ret;
 
-	if (!obj && !driver->no_notify_data) {
+	if (!obj && driver->min_event_size) {
 		dev_warn(&wblock->dev.dev, "Event contains no event data\n");
 		return;
 	}
@@ -1411,11 +1415,11 @@ static void wmi_notify_driver(struct wmi_block *wblock, union acpi_object *obj)
 
 	if (driver->notify_new) {
 		if (!obj) {
-			driver->notify_new(&wblock->dev, NULL);
+			driver->notify_new(&wblock->dev, &dummy);
 			return;
 		}
 
-		ret = wmi_unmarshal_acpi_object(obj, &buffer, 0);
+		ret = wmi_unmarshal_acpi_object(obj, &buffer, driver->min_event_size);
 		if (ret < 0) {
 			dev_warn(&wblock->dev.dev, "Failed to unmarshal event data: %d\n", ret);
 			return;

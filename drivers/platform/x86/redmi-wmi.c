@@ -141,6 +141,7 @@ static struct wmi_driver redmi_wmi_driver = {
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 	.id_table = redmi_wmi_id_table,
+	.min_event_size = 32,
 	.probe = redmi_wmi_probe,
 	.notify = redmi_wmi_notify,
 	.no_singleton = true,
