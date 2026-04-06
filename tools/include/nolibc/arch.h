@@ -30,6 +30,8 @@
 #include "arch-sh.h"
 #elif defined(__or1k__)
 #include "arch-openrisc.h"
+#elif defined(__hppa__)
+#include "arch-parisc.h"
 #else
 #error Unsupported Architecture
 #endif
