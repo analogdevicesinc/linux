@@ -73,7 +73,8 @@ int wmidev_invoke_method(struct wmi_device *wdev, u8 instance, u32 method_id,
 int wmidev_invoke_procedure(struct wmi_device *wdev, u8 instance, u32 method_id,
 			    const struct wmi_buffer *in);
 
-int wmidev_query_block(struct wmi_device *wdev, u8 instance, struct wmi_buffer *out);
+int wmidev_query_block(struct wmi_device *wdev, u8 instance, struct wmi_buffer *out,
+		       size_t min_size);
 
 int wmidev_set_block(struct wmi_device *wdev, u8 instance, const struct wmi_buffer *in);
 

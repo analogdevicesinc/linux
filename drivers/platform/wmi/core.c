@@ -565,13 +565,15 @@ EXPORT_SYMBOL_GPL(wmidev_block_query);
  * @wdev: A wmi bus device from a driver
  * @instance: Instance index
  * @out: WMI buffer to fill
+ * @min_size: Minimum size of the result data in bytes
  *
- * Query a WMI data block, the caller must free the resulting data inside @out.
- * Said data is guaranteed to be aligned on a 8-byte boundary.
+ * Query a WMI data block, the caller must free the resulting data inside @out
+ * using kfree(). Said data is guaranteed to be aligned on a 8-byte boundary.
  *
  * Return: 0 on success or a negative error code on failure.
  */
-int wmidev_query_block(struct wmi_device *wdev, u8 instance, struct wmi_buffer *out)
+int wmidev_query_block(struct wmi_device *wdev, u8 instance, struct wmi_buffer *out,
+		       size_t min_size)
 {
 	union acpi_object *obj;
 	int ret;
@@ -580,7 +582,7 @@ int wmidev_query_block(struct wmi_device *wdev, u8 instance, struct wmi_buffer *
 	if (!obj)
 		return -EIO;
 
-	ret = wmi_unmarshal_acpi_object(obj, out, 0);
+	ret = wmi_unmarshal_acpi_object(obj, out, min_size);
 	kfree(obj);
 
 	return ret;

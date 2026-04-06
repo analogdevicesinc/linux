@@ -62,7 +62,7 @@ static int wmi_bmof_probe(struct wmi_device *wdev, const void *context)
 	if (!buffer)
 		return -ENOMEM;
 
-	ret = wmidev_query_block(wdev, 0, buffer);
+	ret = wmidev_query_block(wdev, 0, buffer, 0);
 	if (ret < 0)
 		return ret;
 
