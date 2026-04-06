@@ -167,23 +167,24 @@ static int bitland_mifs_wmi_call(struct bitland_mifs_wmi_data *data,
 				 struct bitland_mifs_output *output)
 {
 	struct wmi_buffer in_buf = { .length = sizeof(*input), .data = (void *)input };
+	void *out_data __free(kfree) = NULL;
 	struct wmi_buffer out_buf = { 0 };
 	int ret;
 
 	guard(mutex)(&data->lock);
 
-	ret = wmidev_invoke_method(data->wdev, 0, 1, &in_buf, output ? &out_buf : NULL);
+	if (!output)
+		return wmidev_invoke_procedure(data->wdev, 0, 1, &in_buf);
+
+	ret = wmidev_invoke_method(data->wdev, 0, 1, &in_buf, &out_buf);
 	if (ret)
 		return ret;
 
-	if (output) {
-		void *out_data __free(kfree) = out_buf.data;
+	out_data = out_buf.data;
+	if (out_buf.length < sizeof(*output))
+		return -EIO;
 
-		if (out_buf.length < sizeof(*output))
-			return -EIO;
-
-		memcpy(output, out_data, sizeof(*output));
-	}
+	memcpy(output, out_data, sizeof(*output));
 
 	return 0;
 }
