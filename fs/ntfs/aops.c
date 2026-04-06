@@ -281,7 +281,6 @@ const struct address_space_operations ntfs_aops = {
 	.read_folio		= ntfs_read_folio,
 	.readahead		= ntfs_readahead,
 	.writepages		= ntfs_writepages,
-	.direct_IO		= noop_direct_IO,
 	.dirty_folio		= iomap_dirty_folio,
 	.bmap			= ntfs_bmap,
 	.migrate_folio		= filemap_migrate_folio,
