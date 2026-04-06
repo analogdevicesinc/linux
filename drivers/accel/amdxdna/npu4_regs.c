@@ -6,6 +6,7 @@
 #include <drm/amdxdna_accel.h>
 #include <drm/drm_device.h>
 #include <drm/gpu_scheduler.h>
+#include <linux/amd-pmf-io.h>
 #include <linux/bits.h>
 #include <linux/sizes.h>
 
@@ -63,12 +64,7 @@
 #define NPU4_SMU_BAR_BASE	MMNPU_APERTURE4_BASE
 #define NPU4_SRAM_BAR_BASE	MMNPU_APERTURE1_BASE
 
-#define NPU4_DPM_TOPS(ndev, dpm_level) \
-({ \
-	typeof(ndev) _ndev = ndev; \
-	(4096 * (_ndev)->total_col * \
-	 (_ndev)->priv->dpm_clk_tbl[dpm_level].hclk / 1000000); \
-})
+#define NPU4_DPM_TOPS(ndev, hclk) (4096 * (ndev)->total_col * (hclk) / 1000000)
 
 const struct rt_config npu4_default_rt_cfg[] = {
 	{ 5, 1, AIE2_RT_CFG_INIT }, /* PDI APP LOAD MODE */
@@ -105,7 +101,7 @@ const struct amdxdna_fw_feature_tbl npu4_fw_feature_table[] = {
 	{ 0 }
 };
 
-int npu4_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level)
+static int npu4_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level)
 {
 	int ret;
 
@@ -115,14 +111,35 @@ int npu4_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level)
 
 	ndev->npuclk_freq = ndev->priv->dpm_clk_tbl[dpm_level].npuclk;
 	ndev->hclk_freq = ndev->priv->dpm_clk_tbl[dpm_level].hclk;
-	ndev->max_tops = NPU4_DPM_TOPS(ndev, ndev->max_dpm_level);
-	ndev->curr_tops = NPU4_DPM_TOPS(ndev, dpm_level);
+	ndev->max_tops = NPU4_DPM_TOPS(ndev, ndev->priv->dpm_clk_tbl[ndev->max_dpm_level].hclk);
+	ndev->curr_tops = NPU4_DPM_TOPS(ndev, ndev->hclk_freq);
 
 	XDNA_DBG(ndev->aie.xdna, "MP-NPU clock %d, H clock %d\n",
 		 ndev->npuclk_freq, ndev->hclk_freq);
 
 	return 0;
 }
+
+static int npu4_update_counters(struct amdxdna_dev_hdl *ndev)
+{
+	struct amd_pmf_npu_metrics npu_metrics;
+	int ret;
+
+	ret = AIE2_GET_PMF_NPU_METRICS(&npu_metrics);
+	if (ret)
+		return ret;
+
+	ndev->npuclk_freq = npu_metrics.mpnpuclk_freq;
+	ndev->hclk_freq = npu_metrics.npuclk_freq;
+	ndev->curr_tops = NPU4_DPM_TOPS(ndev, ndev->hclk_freq);
+
+	return 0;
+}
+
+const struct aie2_hw_ops npu4_hw_ops = {
+	.set_dpm = npu4_set_dpm,
+	.update_counters = npu4_update_counters,
+};
 
 static const struct amdxdna_dev_priv npu4_dev_priv = {
 	.fw_path        = "amdnpu/17f0_10/",
@@ -154,9 +171,7 @@ static const struct amdxdna_dev_priv npu4_dev_priv = {
 		DEFINE_BAR_OFFSET(SMU_RESP_REG, NPU4_SMU, MP1_C2PMSG_61),
 		DEFINE_BAR_OFFSET(SMU_OUT_REG,  NPU4_SMU, MP1_C2PMSG_60),
 	},
-	.hw_ops		= {
-		.set_dpm = npu4_set_dpm,
-	},
+	.hw_ops		= &npu4_hw_ops
 };
 
 const struct amdxdna_dev_info dev_npu4_info = {

@@ -284,7 +284,7 @@ static struct xrs_action_ops aie2_xrs_actions = {
 
 static void aie2_smu_fini(struct amdxdna_dev_hdl *ndev)
 {
-	ndev->priv->hw_ops.set_dpm(ndev, 0);
+	ndev->priv->hw_ops->set_dpm(ndev, 0);
 	aie_smu_fini(ndev->aie.smu_hdl);
 }
 
@@ -765,6 +765,7 @@ static int aie2_get_clock_metadata(struct amdxdna_client *client,
 	if (!clock)
 		return -ENOMEM;
 
+	aie2_update_counters(ndev);
 	snprintf(clock->mp_npu_clock.name, sizeof(clock->mp_npu_clock.name),
 		 "MP-NPU Clock");
 	clock->mp_npu_clock.freq_mhz = ndev->npuclk_freq;
@@ -925,6 +926,7 @@ static int aie2_query_resource_info(struct amdxdna_client *client,
 	ndev = xdna->dev_handle;
 	priv = ndev->priv;
 
+	aie2_update_counters(ndev);
 	res_info.npu_clk_max = priv->dpm_clk_tbl[ndev->max_dpm_level].hclk;
 	res_info.npu_tops_max = ndev->max_tops;
 	res_info.npu_task_max = priv->hwctx_limit;

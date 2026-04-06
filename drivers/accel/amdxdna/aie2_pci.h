@@ -201,7 +201,15 @@ struct amdxdna_dev_hdl {
 
 struct aie2_hw_ops {
 	int (*set_dpm)(struct amdxdna_dev_hdl *ndev, u32 dpm_level);
+	int (*update_counters)(struct amdxdna_dev_hdl *ndev);
 };
+
+#define aie2_update_counters(ndev)				\
+({								\
+	typeof(ndev) _ndev = ndev;				\
+	if (_ndev->priv->hw_ops->update_counters)		\
+		_ndev->priv->hw_ops->update_counters(_ndev);	\
+})
 
 enum aie2_fw_feature {
 	AIE2_NPU_COMMAND,
@@ -229,7 +237,7 @@ struct amdxdna_dev_priv {
 	struct aie_bar_off_pair		sram_offs[SRAM_MAX_INDEX];
 	struct aie_bar_off_pair		psp_regs_off[PSP_MAX_REGS];
 	struct aie_bar_off_pair		smu_regs_off[SMU_MAX_REGS];
-	struct aie2_hw_ops		hw_ops;
+	const struct aie2_hw_ops	*hw_ops;
 };
 
 extern const struct amdxdna_dev_ops aie2_ops;
@@ -243,7 +251,7 @@ extern const struct dpm_clk_freq npu4_dpm_clk_table[];
 extern const struct rt_config npu1_default_rt_cfg[];
 extern const struct rt_config npu4_default_rt_cfg[];
 extern const struct amdxdna_fw_feature_tbl npu4_fw_feature_table[];
-int npu4_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level);
+extern const struct aie2_hw_ops npu4_hw_ops;
 
 /* aie2_pm.c */
 int aie2_pm_init(struct amdxdna_dev_hdl *ndev);

@@ -122,7 +122,7 @@ static const struct amdxdna_dev_priv npu1_dev_priv = {
 		DEFINE_BAR_OFFSET(SMU_RESP_REG, NPU1_SMU, MPNPU_PUB_SCRATCH6),
 		DEFINE_BAR_OFFSET(SMU_OUT_REG,  NPU1_SMU, MPNPU_PUB_SCRATCH7),
 	},
-	.hw_ops		= {
+	.hw_ops		= &(const struct aie2_hw_ops) {
 		.set_dpm = npu1_set_dpm,
 	},
 };
