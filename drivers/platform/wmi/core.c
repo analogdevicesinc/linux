@@ -427,6 +427,50 @@ int wmidev_invoke_method(struct wmi_device *wdev, u8 instance, u32 method_id,
 }
 EXPORT_SYMBOL_GPL(wmidev_invoke_method);
 
+/**
+ * wmidev_invoke_procedure - Invoke a WMI method that does not return values
+ * @wdev: A wmi bus device from a driver
+ * @instance: Instance index
+ * @method_id: Method ID to call
+ * @in: Mandatory WMI buffer containing input for the method call
+ *
+ * Invoke a WMI method that does not return any values. Use wmidev_invoke_method()
+ * for WMI methods that do return values.
+ *
+ * Return: 0 on success or negative error code on failure.
+ */
+int wmidev_invoke_procedure(struct wmi_device *wdev, u8 instance, u32 method_id,
+			    const struct wmi_buffer *in)
+{
+	struct wmi_block *wblock = container_of(wdev, struct wmi_block, dev);
+	struct acpi_buffer ain;
+	acpi_status status;
+	int ret;
+
+	if (wblock->gblock.flags & ACPI_WMI_STRING) {
+		ret = wmi_marshal_string(in, &ain);
+		if (ret < 0)
+			return ret;
+	} else {
+		if (in->length > U32_MAX)
+			return -E2BIG;
+
+		ain.length = in->length;
+		ain.pointer = in->data;
+	}
+
+	status = wmidev_evaluate_method(wdev, instance, method_id, &ain, NULL);
+
+	if (wblock->gblock.flags & ACPI_WMI_STRING)
+		kfree(ain.pointer);
+
+	if (ACPI_FAILURE(status))
+		return -EIO;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(wmidev_invoke_procedure);
+
 static acpi_status __query_block(struct wmi_block *wblock, u8 instance,
 				 struct acpi_buffer *out)
 {

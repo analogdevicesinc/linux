@@ -106,7 +106,8 @@ WMI method drivers
 
 WMI drivers can call WMI device methods using wmidev_invoke_method(). For each WMI method
 invocation the WMI driver needs to provide the instance number and the method ID, as well as
-a buffer with the method arguments and optionally a buffer for the results.
+a buffer with the method arguments and optionally a buffer for the results. When calling WMI
+methods that do not return any values, wmidev_invoke_procedure() should be used instead.
 
 The layout of said buffers is device-specific and described by the Binary MOF data associated
 with a given WMI device. Said Binary MOF data also describes the method ID of a given WMI method
