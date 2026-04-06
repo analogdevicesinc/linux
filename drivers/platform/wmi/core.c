@@ -420,7 +420,7 @@ int wmidev_invoke_method(struct wmi_device *wdev, u8 instance, u32 method_id,
 		return 0;
 	}
 
-	ret = wmi_unmarshal_acpi_object(obj, out);
+	ret = wmi_unmarshal_acpi_object(obj, out, 0);
 	kfree(obj);
 
 	return ret;
@@ -583,7 +583,7 @@ int wmidev_query_block(struct wmi_device *wdev, u8 instance, struct wmi_buffer *
 	if (!obj)
 		return -EIO;
 
-	ret = wmi_unmarshal_acpi_object(obj, out);
+	ret = wmi_unmarshal_acpi_object(obj, out, 0);
 	kfree(obj);
 
 	return ret;
@@ -1416,7 +1416,7 @@ static void wmi_notify_driver(struct wmi_block *wblock, union acpi_object *obj)
 			return;
 		}
 
-		ret = wmi_unmarshal_acpi_object(obj, &buffer);
+		ret = wmi_unmarshal_acpi_object(obj, &buffer, 0);
 		if (ret < 0) {
 			dev_warn(&wblock->dev.dev, "Failed to unmarshal event data: %d\n", ret);
 			return;
