@@ -524,6 +524,9 @@ struct device_physical_location {
  *		optional (if the coherent mask is large enough) also for dma
  *		allocations. This flag is managed by the dma ops instance from
  *		->dma_supported.
+ * @DEV_FLAG_STATE_SYNCED: The hardware state of this device has been synced to
+ *		match the software state of this device by calling the
+ *		driver/bus sync_state() callback.
  * @DEV_FLAG_COUNT: Number of defined struct_device_flags.
  */
 enum struct_device_flags {
@@ -532,6 +535,7 @@ enum struct_device_flags {
 	DEV_FLAG_DMA_IOMMU = 2,
 	DEV_FLAG_DMA_SKIP_SYNC = 3,
 	DEV_FLAG_DMA_OPS_BYPASS = 4,
+	DEV_FLAG_STATE_SYNCED = 5,
 
 	DEV_FLAG_COUNT
 };
@@ -615,9 +619,6 @@ enum struct_device_flags {
  * @offline:	Set after successful invocation of bus type's .offline().
  * @of_node_reused: Set if the device-tree node is shared with an ancestor
  *              device.
- * @state_synced: The hardware state of this device has been synced to match
- *		  the software state of this device by calling the driver/bus
- *		  sync_state() callback.
  * @dma_coherent: this particular device is dma coherent, even if the
  *		architecture supports non-coherent devices.
  * @flags:	DEV_FLAG_XXX flags. Use atomic bitfield operations to modify.
@@ -727,7 +728,6 @@ struct device {
 	bool			offline_disabled:1;
 	bool			offline:1;
 	bool			of_node_reused:1;
-	bool			state_synced:1;
 #if defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_DEVICE) || \
     defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU) || \
     defined(CONFIG_ARCH_HAS_SYNC_DMA_FOR_CPU_ALL)
@@ -764,6 +764,7 @@ __create_dev_flag_accessors(can_match, DEV_FLAG_CAN_MATCH);
 __create_dev_flag_accessors(dma_iommu, DEV_FLAG_DMA_IOMMU);
 __create_dev_flag_accessors(dma_skip_sync, DEV_FLAG_DMA_SKIP_SYNC);
 __create_dev_flag_accessors(dma_ops_bypass, DEV_FLAG_DMA_OPS_BYPASS);
+__create_dev_flag_accessors(state_synced, DEV_FLAG_STATE_SYNCED);
 
 #undef __create_dev_flag_accessors
 
