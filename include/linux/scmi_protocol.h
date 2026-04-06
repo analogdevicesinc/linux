@@ -18,7 +18,7 @@
 #define SCMI_MAX_NUM_RATES		16
 
 /**
- * struct scmi_revision_info - version information structure
+ * struct scmi_base_info - version information structure
  *
  * @major_ver: Major ABI version. Change here implies risk of backward
  *	compatibility break.
@@ -31,7 +31,7 @@
  * @vendor_id: A vendor identifier(Null terminated ASCII string)
  * @sub_vendor_id: A sub-vendor identifier(Null terminated ASCII string)
  */
-struct scmi_revision_info {
+struct scmi_base_info {
 	u16 major_ver;
 	u16 minor_ver;
 	u8 num_protocols;
@@ -901,7 +901,7 @@ struct scmi_notify_ops {
  */
 struct scmi_handle {
 	struct device *dev;
-	struct scmi_revision_info *version;
+	struct scmi_base_info *version;
 
 	int __must_check (*devm_protocol_acquire)(struct scmi_device *sdev,
 						  u8 proto);
