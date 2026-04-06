@@ -601,6 +601,11 @@ static void test_unescape(struct kunit *test)
 		test_string_unescape(test, "unescape", i, false);
 	test_string_unescape(test, "unescape inplace",
 			     get_random_u32_below(UNESCAPE_ALL_MASK + 1), true);
+}
+
+static void test_escape(struct kunit *test)
+{
+	unsigned int i;
 
 	/* Without dictionary */
 	for (i = 0; i < ESCAPE_ALL_MASK + 1; i++)
@@ -615,6 +620,7 @@ static struct kunit_case string_helpers_test_cases[] = {
 	KUNIT_CASE(test_get_size),
 	KUNIT_CASE(test_upper_lower),
 	KUNIT_CASE(test_unescape),
+	KUNIT_CASE(test_escape),
 	{}
 };
 
