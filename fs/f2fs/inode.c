@@ -565,6 +565,20 @@ static bool is_meta_ino(struct f2fs_sb_info *sbi, unsigned int ino)
 		ino == F2FS_COMPRESS_INO(sbi);
 }
 
+static void f2fs_mapping_set_large_folio(struct inode *inode)
+{
+	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
+
+	if (f2fs_compressed_file(inode))
+		return;
+	if (f2fs_quota_file(sbi, inode->i_ino))
+		return;
+	if (IS_IMMUTABLE(inode) ||
+	    (f2fs_exist_written_data(sbi, inode->i_ino, LARGE_FOLIO_INO) &&
+	     !(inode->i_mode & S_IWUGO)))
+	    mapping_set_folio_min_order(inode->i_mapping, 0);
+}
+
 struct inode *f2fs_iget(struct super_block *sb, unsigned long ino)
 {
 	struct f2fs_sb_info *sbi = F2FS_SB(sb);
@@ -620,9 +634,7 @@ make_now:
 		inode->i_op = &f2fs_file_inode_operations;
 		inode->i_fop = &f2fs_file_operations;
 		inode->i_mapping->a_ops = &f2fs_dblock_aops;
-		if (IS_IMMUTABLE(inode) && !f2fs_compressed_file(inode) &&
-		    !f2fs_quota_file(sbi, inode->i_ino))
-			mapping_set_folio_min_order(inode->i_mapping, 0);
+		f2fs_mapping_set_large_folio(inode);
 	} else if (S_ISDIR(inode->i_mode)) {
 		inode->i_op = &f2fs_dir_inode_operations;
 		inode->i_fop = &f2fs_dir_operations;
@@ -895,6 +907,7 @@ void f2fs_evict_inode(struct inode *inode)
 	f2fs_remove_ino_entry(sbi, inode->i_ino, APPEND_INO);
 	f2fs_remove_ino_entry(sbi, inode->i_ino, UPDATE_INO);
 	f2fs_remove_ino_entry(sbi, inode->i_ino, FLUSH_INO);
+	f2fs_remove_ino_entry(sbi, inode->i_ino, LARGE_FOLIO_INO);
 
 	if (!is_sbi_flag_set(sbi, SBI_IS_FREEZING)) {
 		sb_start_intwrite(inode->i_sb);
