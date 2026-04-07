@@ -3082,7 +3082,7 @@ int issue_nulldata(struct adapter *padapter, unsigned char *da, unsigned int pow
 		else
 			rtw_hal_macid_wakeup(padapter, psta->mac_id);
 	} else {
-		rtw_warn_on(1);
+		WARN_ON(1);
 	}
 
 	do {
@@ -5890,7 +5890,7 @@ int rtw_chk_start_clnt_join(struct adapter *padapter, u8 *ch, u8 *bw, u8 *offset
 	bool connect_allow = true;
 
 	if (!ch || !bw || !offset) {
-		rtw_warn_on(1);
+		WARN_ON(1);
 		connect_allow = false;
 	}
 

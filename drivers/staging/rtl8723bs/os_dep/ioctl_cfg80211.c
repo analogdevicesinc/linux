@@ -377,7 +377,7 @@ void rtw_cfg80211_ibss_indicate_connect(struct adapter *padapter)
 			rtw_cfg80211_inform_bss(padapter, cur_network);
 		} else {
 			if (!scanned) {
-				rtw_warn_on(1);
+				WARN_ON(1);
 				return;
 			}
 			if (!memcmp(&scanned->network.ssid, &pnetwork->ssid,
@@ -385,7 +385,7 @@ void rtw_cfg80211_ibss_indicate_connect(struct adapter *padapter)
 			    !memcmp(scanned->network.mac_address, pnetwork->mac_address, ETH_ALEN))
 				rtw_cfg80211_inform_bss(padapter, scanned);
 			else
-				rtw_warn_on(1);
+				WARN_ON(1);
 		}
 
 		if (!rtw_cfg80211_check_bss(padapter))
@@ -418,7 +418,7 @@ void rtw_cfg80211_indicate_connect(struct adapter *padapter)
 		struct wlan_network *scanned = pmlmepriv->cur_network_scanned;
 
 		if (!scanned) {
-			rtw_warn_on(1);
+			WARN_ON(1);
 			goto check_bss;
 		}
 
@@ -427,7 +427,7 @@ void rtw_cfg80211_indicate_connect(struct adapter *padapter)
 			    sizeof(struct ndis_802_11_ssid)))
 			rtw_cfg80211_inform_bss(padapter, scanned);
 		else
-			rtw_warn_on(1);
+			WARN_ON(1);
 	}
 
 check_bss:

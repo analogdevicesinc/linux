@@ -64,7 +64,6 @@ static inline void flush_signals_thread(void)
 		flush_signals(current);
 }
 
-#define rtw_warn_on(condition) WARN_ON(condition)
 #define _RND(sz, r) ((((sz)+((r)-1))/(r))*(r))
 
 extern void rtw_free_netdev(struct net_device *netdev);

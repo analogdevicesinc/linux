@@ -577,7 +577,7 @@ s16 rtw_camid_alloc(struct adapter *adapter, struct sta_info *sta, u8 kid)
 			netdev_dbg(adapter->pnetdev,
 				   FUNC_ADPT_FMT " group key with invalid key id:%u\n",
 				   FUNC_ADPT_ARG(adapter), kid);
-			rtw_warn_on(1);
+			WARN_ON(1);
 			goto bitmap_handle;
 		}
 
@@ -623,7 +623,7 @@ s16 rtw_camid_alloc(struct adapter *adapter, struct sta_info *sta, u8 kid)
 				netdev_dbg(adapter->pnetdev,
 					   FUNC_ADPT_FMT " group key id:%u no room\n",
 					   FUNC_ADPT_ARG(adapter), kid);
-			rtw_warn_on(1);
+			WARN_ON(1);
 			goto bitmap_handle;
 		}
 

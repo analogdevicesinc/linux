@@ -1603,7 +1603,7 @@ static void rtw_btinfo_hdl(struct adapter *adapter, u8 *buf, u16 buf_len)
 	cmd_idx = info->cid;
 
 	if (info->len > buf_len - 2) {
-		rtw_warn_on(1);
+		WARN_ON(1);
 		len = buf_len - 2;
 	} else {
 		len = info->len;

@@ -1697,7 +1697,7 @@ int rtw_select_roaming_candidate(struct mlme_priv *mlme)
 	struct	wlan_network	*candidate = NULL;
 
 	if (!mlme->cur_network_scanned) {
-		rtw_warn_on(1);
+		WARN_ON(1);
 		return ret;
 	}
 

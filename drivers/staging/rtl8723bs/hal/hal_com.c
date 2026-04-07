@@ -576,7 +576,7 @@ void SetHwReg(struct adapter *adapter, u8 variable, u8 *val)
 
 	switch (variable) {
 	case HW_VAR_INIT_RTS_RATE:
-		rtw_warn_on(1);
+		WARN_ON(1);
 		break;
 	case HW_VAR_SEC_CFG:
 	{

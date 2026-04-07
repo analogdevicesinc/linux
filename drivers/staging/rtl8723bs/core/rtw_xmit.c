@@ -2037,7 +2037,7 @@ inline bool xmitframe_hiq_filter(struct xmit_frame *xmitframe)
 		allow = true;
 	else if (registry->hiq_filter == RTW_HIQ_FILTER_DENY_ALL) {
 	} else
-		rtw_warn_on(1);
+		WARN_ON(1);
 
 	return allow;
 }
