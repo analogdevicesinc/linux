@@ -705,6 +705,12 @@ int amdgpu_psp_irq_mgr_register(
 	struct amdgpu_psp_irq_mgr *mgr,
 	const struct amdgpu_psp_irq_handler *handlers, int count,
 	const struct amdgpu_psp_irq_handler *default_handler);
+
+struct amdgpu_ualink_info;
+
 int psp_ual_get_interface_version(struct psp_context *psp, uint32_t *intf_ver);
+
+int psp_ual_query_info(struct psp_context *psp, uint32_t intf_ver,
+		       struct amdgpu_ualink_info *info);
 
 #endif

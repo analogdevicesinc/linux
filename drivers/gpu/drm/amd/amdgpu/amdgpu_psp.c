@@ -835,6 +835,8 @@ static const char *psp_gfx_cmd_name(enum psp_gfx_cmd_id cmd_id)
 		return "PERF MONITORING HW";
 	case GFX_CMD_ID_UAL_GET_INTERFACE_VER:
 		return "UAL_GET_INTERFACE_VER";
+	case GFX_CMD_ID_UAL_GET_CONFIG:
+		return "UAL_GET_CONFIG";
 	default:
 		return "UNKNOWN CMD";
 	}
@@ -1210,6 +1212,62 @@ int psp_ual_get_interface_version(struct psp_context *psp, uint32_t *intf_ver)
 		*intf_ver = cmd->resp.uresp.get_intf_ver_ual.intf_ver;
 	} else if (!ret) {
 		pr_debug("ual_get_if_ver: PSP status %x\n", cmd->resp.status);
+		ret = -EINVAL;
+	}
+
+	release_psp_cmd_buf(psp);
+
+	return ret;
+}
+
+int psp_ual_query_info(struct psp_context *psp, uint32_t intf_ver,
+		       struct amdgpu_ualink_info *info)
+{
+	struct psp_gfx_get_config_ual_v1 *ual_config;
+	struct psp_gfx_cmd_resp *cmd;
+	int ret;
+
+	/* TBD check interface version 1.x */
+	if (intf_ver > 0x1ffff) {
+		pr_warn("PSP UAL interface version mismatch: 0x%x\n", intf_ver);
+		return -EOPNOTSUPP;
+	}
+
+	cmd = acquire_psp_cmd_buf(psp);
+
+	ual_config = psp->cmd_ext_resp_mem;
+
+	cmd->cmd_id = GFX_CMD_ID_UAL_GET_CONFIG;
+	cmd->cmd.cmd_get_config_ual.ual_cfg_addr_lo = lower_32_bits(psp->cmd_ext_resp_mc_addr);
+	cmd->cmd.cmd_get_config_ual.ual_cfg_addr_hi = upper_32_bits(psp->cmd_ext_resp_mc_addr);
+	cmd->cmd.cmd_get_config_ual.ual_cfg_size = sizeof(*ual_config);
+
+	ret = psp_cmd_submit_buf(psp, NULL, cmd, psp->fence_buf_mc_addr);
+
+	if (!ret && !cmd->resp.status) {
+		WARN_ON(cmd->resp.uresp.get_config_ual.resp_size < sizeof(*ual_config));
+
+		info->link_type = (enum amdgpu_ualink_type)ual_config->link_type;
+
+		info->ppod.accel_id = ual_config->accelerator_id;
+		info->ppod.bandwidth = ual_config->bandwidth;
+		info->ppod.latency = ual_config->latency;
+		info->ppod.size = ual_config->ppod_size;
+		memcpy(&info->ppod.id, ual_config->ppod_id, sizeof(info->ppod.id));
+
+		info->vpod.id = ual_config->vpod_id;
+		info->vpod.size = ual_config->vpod_size;
+		info->vpod.addr_mode = ual_config->addr_mode;
+		bitmap_from_arr32(info->vpod.active_accel_bits,
+				  ual_config->vpod_active_accelerators,
+				  min(AMDGPU_UALINK_ACCEL_MAX, PSP_GFX_UAL_MAX_ACC_BIT_MASK*32));
+		/* Ensure no uninitialized data in the bitmap, even if these
+		 * constants change in the future.
+		 */
+		if (AMDGPU_UALINK_ACCEL_MAX > PSP_GFX_UAL_MAX_ACC_BIT_MASK*32)
+			bitmap_clear(info->vpod.active_accel_bits, PSP_GFX_UAL_MAX_ACC_BIT_MASK*32,
+				     AMDGPU_UALINK_ACCEL_MAX - PSP_GFX_UAL_MAX_ACC_BIT_MASK*32);
+	} else if (!ret) {
 		ret = -EINVAL;
 	}
 
