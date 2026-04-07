@@ -3531,7 +3531,7 @@ void hwss_send_cursor_info_to_dmu(union block_sequence_params *params)
 	struct pipe_ctx *pipe_ctx = params->send_cursor_info_to_dmu_params.pipe_ctx;
 	int pipe_idx = params->send_cursor_info_to_dmu_params.pipe_idx;
 
-	dc_send_update_cursor_info_to_dmu(pipe_ctx, pipe_idx);
+	dc_send_update_cursor_info_to_dmu(pipe_ctx, (uint8_t)pipe_idx);
 }
 
 void hwss_set_cursor_attribute(union block_sequence_params *params)
