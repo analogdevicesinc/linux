@@ -44,6 +44,23 @@ static int __init imx8mp_hdmi_tx_connector_fixup_init(void)
 	if (endpoint)
 		return 0;
 
+	/*
+	 * Boards with an HDMI connector should describe it in a device
+	 * tree node with compatible = "hdmi-connector".
+	 *
+	 * If you see this warning, it means such a node was not found and
+	 * a fallback one is added using a device tree overlay. Please add
+	 * one in your device tree, also describing the exact connector
+	 * type (the added overlay assumes Type A as a fallback, but it
+	 * might be wrong).
+	 *
+	 * This node is necessary for modern DRM, where bridge drivers do
+	 * not create a connector (see the DRM_BRIDGE_ATTACH_NO_CONNECTOR
+	 * flag). See https://docs.kernel.org/gpu/drm-kms-helpers.html for
+	 * more info.
+	 */
+	pr_warn("Please add a hdmi-connector DT node for imx8mp-hdmi-tx.\n");
+
 	dtbo_start = __dtbo_imx8mp_hdmi_tx_connector_fixup_begin;
 	dtbo_size = __dtbo_imx8mp_hdmi_tx_connector_fixup_end -
 		    __dtbo_imx8mp_hdmi_tx_connector_fixup_begin;
