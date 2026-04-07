@@ -39,8 +39,6 @@ static void deactivate_accelerator(struct amdgpu_device *adev);
 static int amdgpu_ualink_remote_interrupt(struct amdgpu_device *adev,
 				u32 remote_accel_id, u32 dw0, u32 dw1,
 				u32 dw2, u32 dw3);
-static void amdgpu_ualink_flush_tlb(struct amdgpu_device *adev,
-				    u32 flush_type);
 static int amdgpu_ualink_reserve_npa_vm_and_bos(struct amdgpu_device *adev,
 						struct amdgpu_bo *bos[], u32 n_bos,
 						struct drm_exec *exec,
@@ -4334,9 +4332,6 @@ void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
  * UALink remote interrupt and shootdown
  */
 
-/* UALINK ring buffer size, same for both remote shootdown and interrupt ring */
-#define AMDGPU_UALINK_RB_SIZE	4096
-
 #define AMDGPU_UALINK_METADATA_HEADER	0x4E485446
 
 /* 2MB NPA start address for 2MB page mapping */
@@ -4583,7 +4578,7 @@ static inline u32 ualink_tlb_wb_offset(struct amdgpu_device *adev, u32 accel_id)
 	return ualink_wb_offset(adev, accel_id) + sizeof(struct amdgpu_ualink_wb);
 }
 
-static void amdgpu_ualink_flush_tlb(struct amdgpu_device *adev, u32 flush_type)
+void amdgpu_ualink_flush_tlb(struct amdgpu_device *adev, u32 flush_type)
 {
 	u32 bit;
 
@@ -5284,7 +5279,8 @@ static int amdgpu_ualink_metadata_init(struct amdgpu_device *adev)
 	if (status != AMDGPU_NHT_FW_ST_PREINIT &&
 	    status != AMDGPU_NHT_FW_ST_HALT) {
 		dev_dbg(adev->dev, "fw status 0x%x not preinit or halt\n", status);
-		return -ENODEV;
+		if (!adev->ualink.selftesting)
+			return -ENODEV;
 	}
 
 	dev_dbg(adev->dev, "accel_id %u addr_mode %d fw status 0x%x\n",
@@ -5402,6 +5398,8 @@ static int amdgpu_ualink_metadata_init(struct amdgpu_device *adev)
 	r = adev->ualink.msg_ctl->send_metadata(adev,
 						    remote->metadata_gpu_addr,
 						    AMDGPU_UALINK_ACCEL_MAX << 8);
+	if (r && adev->ualink.selftesting)
+		r = 0;
 
 out:
 	if (r)
@@ -6387,9 +6385,222 @@ void amdgpu_ualink_sw_fini(struct amdgpu_device *adev)
 	adev->ualink.remote = NULL;
 }
 
-int ualink_send_hello(struct amdgpu_device *adev, u32 remote_accel_id)
+/* byte offset of the local interrupt ring a remote GPU writes to */
+static u32 ualink_test_local_rb_offset(u32 remote_accel_id)
 {
+	u32 rb_size = AMDGPU_GPU_PAGE_ALIGN(2 * AMDGPU_UALINK_RB_SIZE);
+
+	/* remote shootdown ring is first, remote interrupt ring follows it */
+	return rb_size * remote_accel_id + AMDGPU_UALINK_RB_SIZE;
+}
+
+/*
+ * ualink_test_local_data - read or write the local ring buffer of a remote GPU
+ *
+ * The local ring buffer is partitioned per remote GPU, @remote_accel_id selects
+ * the interrupt ring that remote GPU writes to through its NPA mapping. Read it
+ * to see what the remote GPU wrote, write it to provide the data it reads.
+ */
+int ualink_test_local_data(struct amdgpu_device *adev, u32 remote_accel_id,
+			   void *data, u32 size, bool read)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	void *rb;
+
+	if (!remote || !remote->rb_cpu_addr)
+		return -EINVAL;
+
+	if (size > AMDGPU_UALINK_RB_SIZE)
+		return -EINVAL;
+
+	rb = remote->rb_cpu_addr + ualink_test_local_rb_offset(remote_accel_id);
+
+	dev_dbg(adev->dev, "%s local rb of remote %u at 0x%p size 0x%x\n",
+		read ? "read" : "write", remote_accel_id, rb, size);
+
+	if (read)
+		memcpy(data, rb, size);
+	else
+		memcpy(rb, data, size);
+
+	return 0;
+}
+
+/*
+ * ualink_test_remote_rw - read or write the remote GPU ring buffer
+ *
+ * Copy @size bytes between @data and the remote GPU ring buffer NPA address
+ * using lsdma or sdma. The DMA engines cannot access @data, a scratch IB is
+ * used to stage it so that the local ring buffer keeps showing only what the
+ * remote GPU wrote.
+ *
+ * Works with or without MPNHT FW running, the copy does not update wptr and
+ * does not ring the doorbell.
+ */
+int ualink_test_remote_rw(struct amdgpu_device *adev, u32 remote_accel_id,
+			  void *data, u32 size, bool read, bool use_lsdma)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+	struct amdgpu_ualink_peer *peer;
+	struct amdgpu_ualink_ring *ring;
+	struct amdgpu_ib stage = {};
+	struct dma_fence *fence;
+	struct amdgpu_job *job;
+	struct amdgpu_ib *ib;
+	u64 npa, local;
+	u32 ndw;
+	int r;
+
+	if (!remote)
+		return -EINVAL;
+
+	if (size > AMDGPU_UALINK_RB_SIZE)
+		return -EINVAL;
+
+	peer = &remote->peer[remote_accel_id];
+	ring = &peer->interrupt;
+
+	guard(mutex)(&peer->lock);
+
+	r = amdgpu_ib_get(adev, NULL, size, AMDGPU_IB_POOL_DIRECT, &stage);
+	if (r)
+		return r;
+
+	local = stage.gpu_addr;
+	npa = ring->rb_npa_gart;
+
+	if (!read)
+		memcpy(stage.ptr, data, size);
+
+	remote->use_lsdma = use_lsdma;
+
+	dev_dbg(adev->dev, "%s remote %u npa 0x%llx local 0x%llx size 0x%x use %s\n",
+		read ? "read" : "write", remote_accel_id, npa, local, size,
+		use_lsdma ? "lsdma" : "sdma");
+
+	if (use_lsdma) {
+		r = amdgpu_lsdma_copy_mem(adev, read ? npa : local,
+					  read ? local : npa, size);
+		if (r)
+			goto out;
+
+		goto done;
+	}
+
+	/* sdma linear copy command, align to 8 dwords boundary */
+	ndw = ALIGN(adev->mman.buffer_funcs->copy_num_dw, 8);
+
+	r = amdgpu_job_alloc_with_ib(adev, &peer->entity, AMDGPU_FENCE_OWNER_VM,
+				     ndw * 4, AMDGPU_IB_POOL_IMMEDIATE,
+				     AMDGPU_KERNEL_JOB_ID_TTM_COPY_BUFFER, &job);
+	if (r)
+		goto out;
+
+	ib = job->ibs;
+	ib->length_dw = 0;
+
+	amdgpu_emit_copy_buffer(adev, ib, read ? npa : local,
+				read ? local : npa, size, 0);
+	amdgpu_ring_pad_ib(&adev->sdma.instance[0].ring, ib);
+	WARN_ON(ib->length_dw > ndw);
+
+	fence = amdgpu_job_submit(job);
+
+	r = dma_fence_wait_timeout(fence, false, HZ * 10);
+	dma_fence_put(fence);
+	if (r <= 0) {
+		dev_dbg(adev->dev, "remote sdma fence wait timeout %d\n", r);
+		dev_dbg(adev->dev, "use lsdma for testing afterwards\n");
+		remote->use_lsdma = true;
+		r = -ETIME;
+		goto out;
+	}
+
+	r = 0;
+done:
+	if (read)
+		memcpy(data, stage.ptr, size);
+out:
+	amdgpu_ib_free(&stage, NULL);
+
+	return r;
+}
+
+/* The peer may have rebooted or the vpod was reconfigured, adopt the remote
+ * wptr before sending a command, same as the handshake does.
+ */
+static int ualink_test_resync_peer(struct amdgpu_device *adev, u32 remote_accel_id)
+{
+	int r;
+
+	if (!adev->ualink.remote)
+		return -EINVAL;
+
+	r = amdgpu_ualink_ring_resync_ptrs(adev, remote_accel_id);
+	if (r < 0)
+		return r;
+
+	/* Peer moved, drop ready so the next command updates the wb address */
+	if (r)
+		amdgpu_ualink_reset_peer_rings(adev, remote_accel_id);
+
+	return 0;
+}
+
+int ualink_test_send_hello(struct amdgpu_device *adev, u32 remote_accel_id)
+{
+	int r;
+
+	r = ualink_test_resync_peer(adev, remote_accel_id);
+	if (r)
+		return r;
+
 	return amdgpu_ualink_send_hello_msg(adev, remote_accel_id);
+}
+
+int ualink_test_remote_shootdown(struct amdgpu_device *adev, u32 remote_accel_id,
+				 u64 addr, u32 size_in_pages, u32 flush_type)
+{
+	int r;
+
+	r = ualink_test_resync_peer(adev, remote_accel_id);
+	if (r)
+		return r;
+
+	return amdgpu_ualink_remote_shootdown(adev, remote_accel_id, addr,
+					      size_in_pages, flush_type);
+}
+
+int ualink_test_update_interrupt_wb(struct amdgpu_device *adev, u32 remote_accel_id)
+{
+	int r;
+
+	r = ualink_test_resync_peer(adev, remote_accel_id);
+	if (r)
+		return r;
+
+	guard(mutex)(&adev->ualink.remote->peer[remote_accel_id].lock);
+
+	/* Update interrupt completion write back address */
+	r = amdgpu_ualink_update_wb_address(adev, remote_accel_id,
+					    RB_TYPE_REMOTE_INTERRUPT);
+	return r;
+}
+
+int ualink_test_update_shootdown_wb(struct amdgpu_device *adev, u32 remote_accel_id)
+{
+	int r;
+
+	r = ualink_test_resync_peer(adev, remote_accel_id);
+	if (r)
+		return r;
+
+	guard(mutex)(&adev->ualink.remote->peer[remote_accel_id].lock);
+
+	/* Update shootdown completion write back address */
+	r = amdgpu_ualink_update_wb_address(adev, remote_accel_id,
+					    RB_TYPE_TLB_INV);
+	return r;
 }
 
 /*
