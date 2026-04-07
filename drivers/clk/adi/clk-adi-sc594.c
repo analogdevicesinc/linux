@@ -53,19 +53,19 @@ static void sc594_clock_probe(struct device_node *np)
 	int i;
 
 	cgu0 = of_iomap(np, 0);
-	if (IS_ERR(cgu0)) {
+	if (!cgu0) {
 		pr_err("Unable to remap CGU0 address (resource 0)\n");
 		return;
 	}
 
 	cgu1 = of_iomap(np, 1);
-	if (IS_ERR(cgu1)) {
+	if (!cgu1) {
 		pr_err("Unable to remap CGU1 address (resource 1)\n");
 		return;
 	}
 
 	cdu = of_iomap(np, 2);
-	if (IS_ERR(cdu)) {
+	if (!cdu) {
 		pr_err("Unable to remap CDU address (resource 2)\n");
 		return;
 	}
