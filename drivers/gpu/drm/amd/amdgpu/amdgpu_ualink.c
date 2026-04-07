@@ -430,13 +430,19 @@ static ssize_t ualink_ppod_setup_commit_store(struct kobject *kobj,
 	struct device *dev = kobj_to_dev(info->kobj.parent);
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct amdgpu_device *adev = drm_to_adev(ddev);
+	int r;
 
 	if (!sysfs_streq(buf, "true"))
 		return -EINVAL;
 
-	/* TODO: Send configuration to ASP */
+	r = psp_ual_set_ppod_config(&adev->psp, adev->ualink.psp_if_ver,
+				    setup);
+	if (r)
+		return r;
+	r = psp_ual_query_info(&adev->psp, adev->ualink.psp_if_ver, info);
+	if (r)
+		return r;
 
-	info->ppod = setup->ppod;
 	info->accel_state = check_ppod_state(adev, setup);
 
 	/* TODO: If accel_state was ACTIVE, reset all connections */
