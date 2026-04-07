@@ -189,10 +189,6 @@ struct intel_display_vlv_iosf_interface {
 	int (*write)(struct drm_device *drm, enum vlv_iosf_sb_unit unit, u32 addr, u32 val);
 };
 
-struct intel_display_vma_interface {
-	int (*fence_id)(const struct i915_vma *vma);
-};
-
 /**
  * struct intel_display_parent_interface - services parent driver provides to display
  *
@@ -250,9 +246,6 @@ struct intel_display_parent_interface {
 
 	/** @vlv_iosf: VLV IOSF sideband. Optional. */
 	const struct intel_display_vlv_iosf_interface *vlv_iosf;
-
-	/** @vma: VMA interface. Optional. */
-	const struct intel_display_vma_interface *vma;
 
 	/* Generic independent functions */
 	struct {

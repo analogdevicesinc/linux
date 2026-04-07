@@ -780,7 +780,6 @@ static const struct intel_display_parent_interface parent = {
 	.rps = &i915_display_rps_interface,
 	.stolen = &i915_display_stolen_interface,
 	.vlv_iosf = &i915_display_vlv_iosf_interface,
-	.vma = &i915_display_vma_interface,
 
 	.fence_priority_display = fence_priority_display,
 	.has_auxccs = has_auxccs,

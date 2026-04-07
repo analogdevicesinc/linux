@@ -372,15 +372,6 @@ int intel_parent_vlv_iosf_write(struct intel_display *display, enum vlv_iosf_sb_
 	return display->parent->vlv_iosf->write(display->drm, unit, addr, val);
 }
 
-/* vma */
-int intel_parent_vma_fence_id(struct intel_display *display, const struct i915_vma *vma)
-{
-	if (!display->parent->vma)
-		return -1;
-
-	return display->parent->vma->fence_id(vma);
-}
-
 /* generic */
 void intel_parent_fence_priority_display(struct intel_display *display, struct dma_fence *fence)
 {
