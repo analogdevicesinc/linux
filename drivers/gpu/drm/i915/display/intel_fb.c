@@ -1252,6 +1252,10 @@ static bool intel_plane_can_remap(const struct intel_plane_state *plane_state)
 	if (intel_fb_is_ccs_modifier(fb->modifier))
 		return false;
 
+	/* TODO implement remapping with DPT */
+	if (intel_fb_uses_dpt(fb))
+		return false;
+
 	/* Linear needs a page aligned stride for remapping */
 	if (fb->modifier == DRM_FORMAT_MOD_LINEAR) {
 		unsigned int alignment = intel_tile_size(display) - 1;
