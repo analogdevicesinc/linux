@@ -893,9 +893,9 @@ compile_gcc_fanalyzer () {
 		fi
 
 		echo -e "\e[1m$file\e[0m"
-		compile_cmd=$(printf "$compile_cmd -fanalyzer")
+		compile_cmd="$compile_cmd -fanalyzer"
 		pushd $compile_dir
-		mail=$($compile_cmd 2>&1 || (
+		mail=$(eval "$compile_cmd" 2>&1 || (
 			echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
 		)
 		popd
@@ -977,9 +977,9 @@ compile_clang_analyzer () {
 		fi
 
 		echo -e "\e[1m$file\e[0m"
-		compile_cmd=$(printf "$compile_cmd --analyze -Xanalyzer -analyzer-output=text")
+		compile_cmd="$compile_cmd --analyze -Xanalyzer -analyzer-output=text"
 		pushd $compile_dir
-		mail=$($compile_cmd 2>&1 || (
+		mail=$(eval "$compile_cmd" 2>&1 || (
 			echo "::error file=$file,line=0::$step_name: Exited with code '$?'" ; true)
 		)
 		popd
