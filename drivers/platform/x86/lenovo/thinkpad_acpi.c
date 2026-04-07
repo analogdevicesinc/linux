@@ -9235,9 +9235,6 @@ static int fan_write_cmd_speed(const char *cmd, int *rc)
 {
 	int speed;
 
-	/* TODO:
-	 * Support speed <low> <medium> <high> ? */
-
 	if (sscanf(cmd, "speed %d", &speed) != 1)
 		return 0;
 
