@@ -83,6 +83,7 @@ extern "C" {
  *  - &DRM_IOCTL_XE_OBSERVATION
  *  - &DRM_IOCTL_XE_MADVISE
  *  - &DRM_IOCTL_XE_VM_QUERY_MEM_RANGE_ATTRS
+ *  - &DRM_IOCTL_XE_EXEC_QUEUE_SET_PROPERTY
  *  - &DRM_IOCTL_XE_VM_GET_PROPERTY
  */
 
@@ -167,7 +168,7 @@ extern "C" {
  * Typically the struct drm_xe_user_extension would be embedded in some uAPI
  * struct, and in this case we would feed it the head of the chain(i.e ext1),
  * which would then apply all of the above extensions.
-*/
+ */
 
 /**
  * struct drm_xe_user_extension - Base class for defining a chain of extensions
@@ -705,7 +706,10 @@ struct drm_xe_query_pxp_status {
  *    attributes.
  *  - %DRM_XE_DEVICE_QUERY_GT_TOPOLOGY
  *  - %DRM_XE_DEVICE_QUERY_ENGINE_CYCLES
+ *  - %DRM_XE_DEVICE_QUERY_UC_FW_VERSION
+ *  - %DRM_XE_DEVICE_QUERY_OA_UNITS
  *  - %DRM_XE_DEVICE_QUERY_PXP_STATUS
+ *  - %DRM_XE_DEVICE_QUERY_EU_STALL
  *
  * If size is set to 0, the driver fills it with the required size for
  * the requested type of data to query. If size is equal to the required
@@ -1060,6 +1064,7 @@ struct drm_xe_vm_destroy {
  *    not invoke autoreset. Neither will stack variables going out of scope.
  *    Therefore it's recommended to always explicitly reset the madvises when
  *    freeing the memory backing a region used in a &DRM_IOCTL_XE_MADVISE call.
+ *
  *  - %DRM_XE_VM_BIND_FLAG_DECOMPRESS - Request on-device decompression for a MAP.
  *    When set on a MAP bind operation, request the driver schedule an on-device
  *    in-place decompression (via the migrate/resolve path) for the GPU mapping
@@ -1760,10 +1765,10 @@ struct drm_xe_observation_param {
 };
 
 /**
- * enum drm_xe_observation_ioctls - Observation stream fd ioctl's
+ * enum drm_xe_observation_ioctls - Observation stream fd ioctls
  *
  * Information exchanged between userspace and kernel for observation fd
- * ioctl's is stream type specific
+ * ioctls is stream type specific
  */
 enum drm_xe_observation_ioctls {
 	/** @DRM_XE_OBSERVATION_IOCTL_ENABLE: Enable data capture for an observation stream */
@@ -2379,14 +2384,9 @@ struct drm_xe_madvise {
  * page attribute table (PAT) index, and preferred memory location.
  * Userspace allocates an array of these structures and passes a pointer to the
  * ioctl to retrieve attributes for each memory range.
- *
- * @extensions: Pointer to the first extension struct, if any
- * @start: Start address of the memory range
- * @end: End address of the virtual memory range
- *
  */
 struct drm_xe_mem_range_attr {
-	 /** @extensions: Pointer to the first extension struct, if any */
+	/** @extensions: Pointer to the first extension struct, if any */
 	__u64 extensions;
 
 	/** @start: start of the memory range */
@@ -2413,7 +2413,7 @@ struct drm_xe_mem_range_attr {
 		__u32 reserved;
 	} atomic;
 
-	 /** @pat_index: Page attribute table index */
+	/** @pat_index: Page attribute table index */
 	struct {
 		/** @pat_index.val: PAT index */
 		__u32 val;
