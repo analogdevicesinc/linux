@@ -29,6 +29,36 @@
 #include <linux/sysfs.h>
 #include <linux/string.h>
 
+int amdgpu_ualink_init(struct amdgpu_device *adev)
+{
+	int r;
+
+	r = psp_ual_get_interface_version(&adev->psp, &adev->ualink.psp_if_ver);
+	if (r) {
+		adev->ualink.psp_if_ver = 0xffffffff;
+		dev_err(adev->dev,
+			"UALink interface version detection failed: %d", r);
+		return r;
+	}
+	dev_info(adev->dev, "Found UALink interface version 0x%x\n",
+		 adev->ualink.psp_if_ver);
+
+	/* Query initial configuration from ASP */
+	r = psp_ual_query_info(&adev->psp, adev->ualink.psp_if_ver,
+			       adev->ualink.info);
+	if (r) {
+		dev_err(adev->dev,
+			"Failed to query initial UALink config: %d\n", r);
+		return r;
+	}
+
+	return 0;
+}
+
+void amdgpu_ualink_fini(struct amdgpu_device *adev)
+{
+	/* empty */
+}
 
 /****************************************************************************
  * UALink info and configuration in sysfs

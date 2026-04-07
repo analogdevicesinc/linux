@@ -439,6 +439,9 @@ static int soc_v1_0_common_late_init(struct amdgpu_ip_block *ip_block)
 	 */
 	adev->nbio.funcs->enable_doorbell_selfring_aperture(adev, true);
 
+	/* Depends on PSP being initialized */
+	amdgpu_ualink_init(adev);
+
 	return 0;
 }
 
@@ -471,6 +474,8 @@ static int soc_v1_0_common_hw_init(struct amdgpu_ip_block *ip_block)
 static int soc_v1_0_common_hw_fini(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
+
+	amdgpu_ualink_fini(adev);
 
 	adev->nbio.funcs->enable_doorbell_aperture(adev, false);
 	adev->nbio.funcs->enable_doorbell_selfring_aperture(adev, false);
