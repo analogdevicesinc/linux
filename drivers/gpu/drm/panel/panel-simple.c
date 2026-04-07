@@ -4603,6 +4603,32 @@ static const struct panel_desc starry_kr070pe2t = {
 	.connector_type = DRM_MODE_CONNECTOR_DPI,
 };
 
+static const struct display_timing startek_kd070hdfld092_timing = {
+	.pixelclock = { 40800000, 51200000, 67200000 },
+	.hactive = { 1024, 1024, 1024 },
+	.hfront_porch = { 40, 160, 216 },
+	.hback_porch = { 30, 140, 140 },
+	.hsync_len = { 20, 20, 20 },
+	.vactive = { 600, 600, 600 },
+	.vfront_porch = { 2, 12, 177 },
+	.vback_porch = { 5, 20, 20 },
+	.vsync_len = { 3, 3, 3 },
+	.flags = DISPLAY_FLAGS_DE_HIGH,
+};
+
+static const struct panel_desc startek_kd070hdfld092 = {
+	.timings = &startek_kd070hdfld092_timing,
+	.num_timings = 1,
+	.bpc = 8,
+	.size = {
+		.width = 154,
+		.height = 86,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X7X4_SPWG,
+	.bus_flags = DRM_BUS_FLAG_DE_HIGH,
+	.connector_type = DRM_MODE_CONNECTOR_LVDS,
+};
+
 static const struct display_timing startek_kd070wvfpa_mode = {
 	.pixelclock = { 25200000, 27200000, 30500000 },
 	.hactive = { 800, 800, 800 },
@@ -5964,6 +5990,9 @@ static const struct of_device_id platform_of_match[] = {
 	}, {
 		.compatible = "starry,kr070pe2t",
 		.data = &starry_kr070pe2t,
+	}, {
+		.compatible = "startek,kd070hdfld092",
+		.data = &startek_kd070hdfld092,
 	}, {
 		.compatible = "startek,kd070wvfpa",
 		.data = &startek_kd070wvfpa,
