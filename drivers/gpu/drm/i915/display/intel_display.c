@@ -994,7 +994,7 @@ static bool intel_casf_enabling(const struct intel_crtc_state *new_crtc_state,
 	if (!new_crtc_state->hw.active)
 		return false;
 
-	return is_enabling(hw.casf_params.casf_enable, old_crtc_state, new_crtc_state);
+	return is_enabling(hw.casf_params.enable, old_crtc_state, new_crtc_state);
 }
 
 static bool intel_casf_disabling(const struct intel_crtc_state *old_crtc_state,
@@ -1003,7 +1003,7 @@ static bool intel_casf_disabling(const struct intel_crtc_state *old_crtc_state,
 	if (!new_crtc_state->hw.active)
 		return false;
 
-	return is_disabling(hw.casf_params.casf_enable, old_crtc_state, new_crtc_state);
+	return is_disabling(hw.casf_params.enable, old_crtc_state, new_crtc_state);
 }
 
 static bool intel_crtc_lobf_enabling(const struct intel_crtc_state *old_crtc_state,
@@ -5371,7 +5371,7 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 
 		PIPE_CONF_CHECK_I(scaler_state.scaler_id);
 		PIPE_CONF_CHECK_I(pixel_rate);
-		PIPE_CONF_CHECK_BOOL(hw.casf_params.casf_enable);
+		PIPE_CONF_CHECK_BOOL(hw.casf_params.enable);
 		PIPE_CONF_CHECK_I(hw.casf_params.win_size);
 		PIPE_CONF_CHECK_I(hw.casf_params.strength);
 

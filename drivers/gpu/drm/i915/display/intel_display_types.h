@@ -997,7 +997,7 @@ struct intel_casf {
 	struct scaler_filter_coeff coeff[SCALER_FILTER_NUM_TAPS];
 	u8 strength;
 	u8 win_size;
-	bool casf_enable;
+	bool enable;
 };
 
 struct intel_crtc_state {

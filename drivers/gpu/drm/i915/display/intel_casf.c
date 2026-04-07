@@ -110,7 +110,7 @@ int intel_casf_compute_config(struct intel_crtc_state *crtc_state)
 		return 0;
 
 	if (crtc_state->uapi.sharpness_strength == 0) {
-		crtc_state->hw.casf_params.casf_enable = false;
+		crtc_state->hw.casf_params.enable = false;
 		crtc_state->hw.casf_params.strength = 0;
 		return 0;
 	}
@@ -121,7 +121,7 @@ int intel_casf_compute_config(struct intel_crtc_state *crtc_state)
 		return -EINVAL;
 	}
 
-	crtc_state->hw.casf_params.casf_enable = true;
+	crtc_state->hw.casf_params.enable = true;
 
 	/*
 	 * HW takes a value in form (1.0 + strength) in 4.4 fixed format.
@@ -155,7 +155,7 @@ void intel_casf_sharpness_get_config(struct intel_crtc_state *crtc_state)
 		else
 			crtc_state->hw.casf_params.strength =
 				REG_FIELD_GET(FILTER_STRENGTH_MASK, sharp);
-		crtc_state->hw.casf_params.casf_enable = true;
+		crtc_state->hw.casf_params.enable = true;
 		crtc_state->hw.casf_params.win_size =
 			REG_FIELD_GET(FILTER_SIZE_MASK, sharp);
 	}
@@ -163,7 +163,7 @@ void intel_casf_sharpness_get_config(struct intel_crtc_state *crtc_state)
 
 bool intel_casf_needs_scaler(const struct intel_crtc_state *crtc_state)
 {
-	if (crtc_state->hw.casf_params.casf_enable)
+	if (crtc_state->hw.casf_params.enable)
 		return true;
 
 	return false;
