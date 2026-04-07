@@ -1265,7 +1265,7 @@ static bool intel_plane_can_remap(const struct intel_plane_state *plane_state)
 	return true;
 }
 
-bool intel_fb_needs_pot_stride_remap(const struct intel_framebuffer *fb)
+static bool intel_fb_needs_pot_stride_remap(const struct intel_framebuffer *fb)
 {
 	struct intel_display *display = to_intel_display(fb->base.dev);
 
