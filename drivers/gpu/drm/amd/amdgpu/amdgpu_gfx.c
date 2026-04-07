@@ -2013,6 +2013,8 @@ static void amdgpu_gfx_sysfs_xcp_fini(struct amdgpu_device *adev)
 		(xcp_mgr->funcs && xcp_mgr->funcs->switch_partition_mode);
 	device_remove_file(adev->dev, &dev_attr_current_compute_partition);
 
+	device_remove_file(adev->dev, &dev_attr_compute_partition_mem_alloc_mode);
+
 	if (xcp_switch_supported)
 		device_remove_file(adev->dev,
 				   &dev_attr_available_compute_partition);
