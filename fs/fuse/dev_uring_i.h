@@ -101,7 +101,7 @@ struct fuse_ring_queue {
 	bool stopped;
 };
 
-/**
+/*
  * Describes if uring is for communication and holds alls the data needed
  * for uring communication
  */
