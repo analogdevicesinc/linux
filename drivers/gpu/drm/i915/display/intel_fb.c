@@ -876,15 +876,6 @@ static void intel_tile_block_dims(const struct drm_framebuffer *fb, int color_pl
 		*tile_height = 1;
 }
 
-unsigned int intel_tile_row_size(const struct drm_framebuffer *fb, int color_plane)
-{
-	unsigned int tile_width, tile_height;
-
-	intel_tile_dims(fb, color_plane, &tile_width, &tile_height);
-
-	return fb->pitches[color_plane] * tile_height;
-}
-
 unsigned int
 intel_fb_align_height(const struct drm_framebuffer *fb,
 		      int color_plane, unsigned int height)
