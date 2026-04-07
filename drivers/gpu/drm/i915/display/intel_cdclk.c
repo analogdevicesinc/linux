@@ -28,6 +28,7 @@
 #include <drm/drm_fixed.h>
 #include <drm/drm_print.h>
 #include <drm/intel/intel_pcode_regs.h>
+#include <drm/intel/pci_config.h>
 
 #include "hsw_ips.h"
 #include "intel_atomic.h"
@@ -43,7 +44,6 @@
 #include "intel_dram.h"
 #include "intel_mchbar.h"
 #include "intel_parent.h"
-#include "intel_pci_config.h"
 #include "intel_plane.h"
 #include "intel_psr.h"
 #include "intel_step.h"

@@ -8,6 +8,7 @@
 #include <linux/string_helpers.h>
 
 #include <drm/intel/mchbar_regs.h>
+#include <drm/intel/pci_config.h>
 
 #include "display/intel_display_reset.h"
 #include "display/intel_overlay.h"
@@ -29,7 +30,6 @@
 #include "intel_gt_pm.h"
 #include "intel_gt_print.h"
 #include "intel_gt_requests.h"
-#include "intel_pci_config.h"
 #include "intel_reset.h"
 
 #define RESET_MAX_RETRIES 3
