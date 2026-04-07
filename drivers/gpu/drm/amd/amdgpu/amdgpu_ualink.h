@@ -87,8 +87,19 @@ struct amdgpu_ualink_info {
 };
 #define to_ualink_info(ko) container_of(ko, struct amdgpu_ualink_info, kobj)
 
+/* UALink physical pod setup */
+struct amdgpu_ualink_ppod_setup {
+	struct kobject kobj;
+	struct amdgpu_ualink_ppod_info ppod;
+	/* Local accelerator array indexed by socket ID */
+	u32 n_local_accels;
+	u32 local_accels[AMDGPU_UALINK_LOCAL_ACCELS_MAX];
+};
+#define to_ualink_ppod_setup(ko) container_of(ko, struct amdgpu_ualink_ppod_setup, kobj)
+
 struct amdgpu_ualink_mgr {
 	struct amdgpu_ualink_info *info;
+	struct amdgpu_ualink_ppod_setup *setup;
 };
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
