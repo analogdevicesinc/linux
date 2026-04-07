@@ -110,6 +110,18 @@ config AL_FIC
 	help
 	  Support Amazon's Annapurna Labs Fabric Interrupt Controller.
 
+config ASPEED_AST2700_INTC
+	bool "ASPEED AST2700 Interrupt Controller support"
+	depends on OF
+	depends on ARCH_ASPEED || COMPILE_TEST
+	select IRQ_DOMAIN_HIERARCHY
+	help
+	  Enable support for the ASPEED AST2700 interrupt controller.
+	  This driver handles interrupt, routing and merged interrupt
+	  sources to upstream parent interrupt controllers.
+
+	  If unsure, say N.
+
 config ATMEL_AIC_IRQ
 	bool
 	select GENERIC_IRQ_CHIP
