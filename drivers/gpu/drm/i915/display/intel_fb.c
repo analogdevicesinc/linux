@@ -1284,7 +1284,7 @@ bool intel_plane_uses_fence(const struct intel_plane_state *plane_state)
 
 	return DISPLAY_VER(display) < 4 ||
 		(plane->fbc && !plane_state->no_fbc_reason &&
-		 plane_state->view.gtt.type == I915_GTT_VIEW_NORMAL);
+		 i915_gtt_view_is_normal(&plane_state->view.gtt));
 }
 
 static int intel_fb_pitch(const struct intel_framebuffer *fb, int color_plane, unsigned int rotation)
@@ -1506,7 +1506,7 @@ static u32 calc_plane_remap_info(const struct intel_framebuffer *fb, int color_p
 			       plane_view_height_tiles(fb, color_plane, dims, y));
 	}
 
-	if (view->gtt.type == I915_GTT_VIEW_ROTATED) {
+	if (i915_gtt_view_is_rotated(&view->gtt)) {
 		drm_WARN_ON(display->drm, remap_info->linear);
 		check_array_bounds(display, view->gtt.rotated.plane, color_plane);
 
@@ -1531,7 +1531,7 @@ static u32 calc_plane_remap_info(const struct intel_framebuffer *fb, int color_p
 		/* rotate the tile dimensions to match the GTT view */
 		swap(tile_width, tile_height);
 	} else {
-		drm_WARN_ON(display->drm, view->gtt.type != I915_GTT_VIEW_REMAPPED);
+		drm_WARN_ON(display->drm, !i915_gtt_view_is_remapped(&view->gtt));
 
 		check_array_bounds(display, view->gtt.remapped.plane, color_plane);
 
@@ -1632,7 +1632,7 @@ static void intel_fb_view_init(struct intel_display *display,
 	memset(view, 0, sizeof(*view));
 	view->gtt.type = view_type;
 
-	if (view_type == I915_GTT_VIEW_REMAPPED &&
+	if (i915_gtt_view_is_remapped(&view->gtt) &&
 	    (display->platform.alderlake_p || DISPLAY_VER(display) >= 14))
 		view->gtt.remapped.plane_alignment = SZ_2M / PAGE_SIZE;
 }
