@@ -311,7 +311,8 @@ int aspeed_intc0_resolve_route(const struct irq_domain *c0domain, size_t nc1outs
 	if (nc1outs == 0 || nc1ranges == 0)
 		return -ENOENT;
 
-	if (!fwnode_device_is_compatible(c0domain->fwnode, "aspeed,ast2700-intc0"))
+	if (!IS_ENABLED(CONFIG_ASPEED_AST2700_INTC_TEST) &&
+	    !fwnode_device_is_compatible(c0domain->fwnode, "aspeed,ast2700-intc0"))
 		return -ENODEV;
 
 	intc0 = c0domain->host_data;
