@@ -837,6 +837,8 @@ static const char *psp_gfx_cmd_name(enum psp_gfx_cmd_id cmd_id)
 		return "UAL_GET_INTERFACE_VER";
 	case GFX_CMD_ID_UAL_GET_CONFIG:
 		return "UAL_GET_CONFIG";
+	case GFX_CMD_ID_UAL_SET_PPOD_CONFIG:
+		return "UAL_SET_PPOD_CONFIG";
 	default:
 		return "UNKNOWN CMD";
 	}
@@ -1270,6 +1272,49 @@ int psp_ual_query_info(struct psp_context *psp, uint32_t intf_ver,
 	} else if (!ret) {
 		ret = -EINVAL;
 	}
+
+	release_psp_cmd_buf(psp);
+
+	return ret;
+}
+
+int psp_ual_set_ppod_config(struct psp_context *psp, uint32_t intf_ver,
+			    const struct amdgpu_ualink_ppod_setup *setup)
+{
+	struct psp_gfx_cmd_resp *cmd;
+	int ret;
+
+	/* TBD check interface version 1.x */
+	if (intf_ver > 0x1ffff) {
+		pr_warn("PSP UAL interface version mismatch: 0x%x\n", intf_ver);
+		return -EOPNOTSUPP;
+	}
+
+	cmd = acquire_psp_cmd_buf(psp);
+
+	cmd->cmd_id = GFX_CMD_ID_UAL_SET_PPOD_CONFIG;
+	cmd->cmd.cmd_set_ppod_config_ual.accelerator_id = setup->ppod.accel_id;
+	memcpy(cmd->cmd.cmd_set_ppod_config_ual.ppod_id, &setup->ppod.id,
+	       sizeof(cmd->cmd.cmd_set_ppod_config_ual.ppod_id));
+	cmd->cmd.cmd_set_ppod_config_ual.ppod_size = setup->ppod.size;
+	cmd->cmd.cmd_set_ppod_config_ual.bandwidth = setup->ppod.bandwidth;
+	cmd->cmd.cmd_set_ppod_config_ual.latency = setup->ppod.latency;
+
+	memcpy(cmd->cmd.cmd_set_ppod_config_ual.local_accelerators,
+	       setup->local_accels,
+	       min(sizeof(cmd->cmd.cmd_set_ppod_config_ual.local_accelerators),
+		   setup->n_local_accels * sizeof(u32)));
+	/* Fill the remainder of the array with invalid accelerator IDs */
+	if (sizeof(cmd->cmd.cmd_set_ppod_config_ual.local_accelerators) >
+	    setup->n_local_accels * sizeof(u32))
+		memset(&cmd->cmd.cmd_set_ppod_config_ual.local_accelerators[setup->n_local_accels],
+		       0xff, sizeof(cmd->cmd.cmd_set_ppod_config_ual.local_accelerators) -
+		       setup->n_local_accels * sizeof(u32));
+
+	ret = psp_cmd_submit_buf(psp, NULL, cmd, psp->fence_buf_mc_addr);
+
+	if (!ret && cmd->resp.status)
+		ret = -EINVAL;
 
 	release_psp_cmd_buf(psp);
 
