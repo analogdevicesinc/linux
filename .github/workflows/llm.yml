@@ -1,43 +1,30 @@
 name: LLM Agent
+run-name: LLM run ${{ inputs.ref }}
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: The branch, tag, PR number, or SHA to checkout
-        required: false
-        type: string
-      run-id:
-        description: Explicit workflow run to analyse, optional.
+        description: "The branch, tag, PR number, or SHA to checkout"
         required: false
         type: string
       prompt:
-        description: Prompt to use, overwrites the default.
+        description: "Prompt to use, overwrites the default"
         required: false
         type: string
         default: ""
       prompt-extra:
-        description: Extra prompt to concatenate.
+        description: "Extra prompt to concatenate"
         required: false
         type: string
         default: ""
-      prompt-repository:
-        description: Repository with LLM skills, overwrites the default.
-        required: false
-        type: string
-        default: ""
-      model-small:
-        required: false
-        type: string
-        default: "@vertexai-global/anthropic.claude-haiku-4-5@20251001"
-      model-medium:
-        required: false
-        type: string
-        default: "@vertexai-global/anthropic.claude-sonnet-4-5@20250929"
-      model-large:
-        required: false
-        type: string
-        default: "@vertexai-global/anthropic.claude-opus-4-5@20251101"
+      model:
+        description: Model size.
+        type: choice
+        options:
+        - small
+        - medium
+        - large
 
 jobs:
   llm:
@@ -47,16 +34,10 @@ jobs:
       checks: read
       pull-requests: read
     secrets:
-      ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
-      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
-      ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+      PORTKEY_API_KEY: ${{ secrets.PORTKEY_API_KEY }}
     with:
       ref: ${{ inputs.ref }}
-      run-id: ${{ inputs.run-id }}
       prompt: ${{ inputs.prompt }}
       prompt-extra: ${{ inputs.prompt }}
-      prompt-repository: ${{ inputs.prompt-repository }}
-      model-small: ${{ inputs.model-small }}
-      model-medium: ${{ inputs.model-medium }}
-      model-large: ${{ inputs.model-large }}
+      model: ${{ inputs.model }}
 
