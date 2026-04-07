@@ -730,9 +730,9 @@ static void glk_program_nearest_filter_coefs(struct intel_display *display,
 			   GLK_PS_COEF_INDEX_SET(pipe, id, set), 0);
 }
 
-static u32 skl_scaler_get_filter_select(enum drm_scaling_filter filter)
+static u32 skl_scaler_get_filter_select(enum drm_scaling_filter filter, bool casf)
 {
-	if (filter == DRM_SCALING_FILTER_NEAREST_NEIGHBOR)
+	if (filter == DRM_SCALING_FILTER_NEAREST_NEIGHBOR || casf)
 		return (PS_FILTER_PROGRAMMED |
 			PS_Y_VERT_FILTER_SELECT(0) |
 			PS_Y_HORZ_FILTER_SELECT(0) |
@@ -756,13 +756,6 @@ static void skl_scaler_setup_filter(struct intel_display *display,
 		MISSING_CASE(filter);
 	}
 }
-
-#define CASF_SCALER_FILTER_SELECT \
-	(PS_FILTER_PROGRAMMED | \
-	PS_Y_VERT_FILTER_SELECT(0) | \
-	PS_Y_HORZ_FILTER_SELECT(0) | \
-	PS_UV_VERT_FILTER_SELECT(0) | \
-	PS_UV_HORZ_FILTER_SELECT(0))
 
 void skl_scaler_setup_casf(struct intel_crtc_state *crtc_state)
 {
@@ -794,7 +787,7 @@ void skl_scaler_setup_casf(struct intel_crtc_state *crtc_state)
 	trace_intel_pipe_scaler_update_arm(crtc, id, x, y, width, height);
 
 	ps_ctrl = PS_SCALER_EN | PS_BINDING_PIPE | scaler_state->scalers[id].mode |
-		  CASF_SCALER_FILTER_SELECT;
+		skl_scaler_get_filter_select(crtc_state->hw.scaling_filter, true);
 
 	intel_de_write_fw(display, SKL_PS_CTRL(pipe, id), ps_ctrl);
 	intel_de_write_fw(display, SKL_PS_WIN_POS(pipe, id),
@@ -844,7 +837,7 @@ void skl_pfit_enable(const struct intel_crtc_state *crtc_state)
 	id = scaler_state->scaler_id;
 
 	ps_ctrl = PS_SCALER_EN | PS_BINDING_PIPE | scaler_state->scalers[id].mode |
-		skl_scaler_get_filter_select(crtc_state->hw.scaling_filter);
+		skl_scaler_get_filter_select(crtc_state->hw.scaling_filter, false);
 
 	trace_intel_pipe_scaler_update_arm(crtc, id, x, y, width, height);
 
@@ -910,7 +903,7 @@ skl_program_plane_scaler(struct intel_dsb *dsb,
 	}
 
 	ps_ctrl = PS_SCALER_EN | PS_BINDING_PLANE(plane->id) | scaler->mode |
-		skl_scaler_get_filter_select(plane_state->hw.scaling_filter);
+		skl_scaler_get_filter_select(plane_state->hw.scaling_filter, false);
 
 	trace_intel_plane_scaler_update_arm(plane, scaler_id,
 					    crtc_x, crtc_y, crtc_w, crtc_h);
