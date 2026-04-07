@@ -97,9 +97,17 @@ struct amdgpu_ualink_ppod_setup {
 };
 #define to_ualink_ppod_setup(ko) container_of(ko, struct amdgpu_ualink_ppod_setup, kobj)
 
+/* UAlink virtual pod config */
+struct amdgpu_ualink_vpod_config {
+	struct kobject kobj;
+	struct amdgpu_ualink_vpod_info vpod;
+};
+#define to_ualink_vpod_config(ko) container_of(ko, struct amdgpu_ualink_vpod_config, kobj)
+
 struct amdgpu_ualink_mgr {
 	struct amdgpu_ualink_info *info;
 	struct amdgpu_ualink_ppod_setup *setup;
+	struct amdgpu_ualink_vpod_config *config;
 };
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);

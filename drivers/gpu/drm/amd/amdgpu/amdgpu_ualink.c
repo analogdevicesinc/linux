@@ -94,6 +94,57 @@ static ssize_t ualink_##prefix##_##name##_show(struct kobject *kobj,	\
 	return show_idbits(info->field, sizeof(info->field)*8, buf);	\
 }
 
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+static ssize_t store_idbits(unsigned long *bits, unsigned int nbits,
+			    const char *buf, size_t count)
+{
+	char *dup_buf, *str, *tok;
+	ssize_t r;
+	u32 id;
+
+	bitmap_zero(bits, nbits);
+	if (!count)
+		return 0;
+
+	dup_buf = kstrndup(buf, count, GFP_KERNEL);
+	if (unlikely(!dup_buf))
+		return -ENOMEM;
+	str = dup_buf;
+	do {
+		str += strspn(str, " ");
+		tok = strsep(&str, ", ");
+		r = kstrtou32(tok, 10, &id);
+		if (r < 0)
+			goto err;
+		if (id >= nbits) {
+			r = -ERANGE;
+			goto err;
+		}
+		set_bit(id, bits);
+	} while (str);
+	kfree(dup_buf);
+
+	return count;
+
+err:
+	kfree(dup_buf);
+	return r;
+}
+#define UALINK_IDBITS_STORE(prefix, name, field, nbits)			\
+static ssize_t ualink_##prefix##_##name##_store(struct kobject *kobj,	\
+						struct kobj_attribute *attr,\
+						const char *buf, size_t count)\
+{									\
+	struct amdgpu_ualink_##prefix *info = to_ualink_##prefix(kobj);	\
+	DECLARE_BITMAP(bits, nbits);					\
+	ssize_t r = store_idbits(bits, nbits, buf, count);		\
+									\
+	if (r >= 0)							\
+		bitmap_copy(info->field, bits, nbits);			\
+	return r;							\
+}
+#endif
+
 static ssize_t show_idarray(const u32 *array, u32 size, char *buf)
 {
 	ssize_t len = 0;
@@ -215,6 +266,32 @@ static ssize_t ualink_##prefix##_##name##_show(struct kobject *kobj,	\
 			 ARRAY_SIZE(ualink_##name##_values), buf);	\
 }
 
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+static ssize_t store_enum(u32 *x, const char * const values[], unsigned int n,
+			  const char *buf, size_t count)
+{
+	unsigned int i;
+
+	for (i = 0; i < n; i++) {
+		if (values[i] && sysfs_streq(buf, values[i])) {
+			*x = i;
+			return count;
+		}
+	}
+	return -EINVAL;
+}
+#define UALINK_ENUM_STORE(prefix, name, field)				\
+static ssize_t ualink_##prefix##_##name##_store(struct kobject *kobj,	\
+						struct kobj_attribute *attr,\
+						const char *buf, size_t count)\
+{									\
+	struct amdgpu_ualink_##prefix *info = to_ualink_##prefix(kobj);	\
+									\
+	return store_enum(&info->field, ualink_##name##_values,		\
+			 ARRAY_SIZE(ualink_##name##_values),		\
+			 buf, count);					\
+}
+#endif
 static const char * const ualink_link_type_values[] = {
 	"UALoE", "UALink"
 };
@@ -372,8 +449,299 @@ static const struct kobj_type ualink_ppod_setup_ktype = {
 	.sysfs_ops = &kobj_sysfs_ops
 };
 
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+UALINK_VALUE_SHOW(vpod_config, vpod_id,   vpod.id,   "%u");
+UALINK_VALUE_SHOW(vpod_config, vpod_size, vpod.size, "%u");
+UALINK_IDBITS_SHOW(vpod_config, vpod_active_accels, vpod.active_accel_bits);
+UALINK_ENUM_SHOW(vpod_config, addr_mode, vpod.addr_mode);
+
+UALINK_VALUE_STORE(vpod_config, vpod_id,   vpod.id,   u32, 10);
+UALINK_VALUE_STORE(vpod_config, vpod_size, vpod.size, u32, 10);
+UALINK_IDBITS_STORE(vpod_config, vpod_active_accels, vpod.active_accel_bits,
+		    AMDGPU_UALINK_ACCEL_MAX);
+UALINK_ENUM_STORE(vpod_config, addr_mode, vpod.addr_mode);
+
+static bool check_vpod_info(struct amdgpu_device *adev,
+			    const struct amdgpu_ualink_info *info)
+{
+	unsigned int weight;
+
+	if (info->accel_state < AMDGPU_UALINK_ACCEL_STATE_CONFIGURED) {
+		dev_dbg(adev->dev, "pPod is not yet configured\n");
+		return false;
+	}
+	if (info->vpod.id >= AMDGPU_UALINK_ACCEL_MAX) {
+		dev_dbg(adev->dev, "vPod ID %u out of range [0..%u]\n",
+			info->vpod.id, AMDGPU_UALINK_ACCEL_MAX - 1);
+		return false;
+	}
+	if (info->vpod.size == 0 || info->vpod.size > info->ppod.size) {
+		dev_dbg(adev->dev, "vPod size %u out of range [1..%u]\n",
+			info->vpod.size, info->ppod.size);
+		return false;
+	}
+	if (info->vpod.addr_mode >= AMDGPU_UALINK_ADDR_MODE_MAX) {
+		dev_dbg(adev->dev, "Invalid addr mode %u\n", info->vpod.id);
+		return false;
+	}
+	weight = bitmap_weight(info->vpod.active_accel_bits, AMDGPU_UALINK_ACCEL_MAX);
+	if (weight != info->vpod.size) {
+		dev_dbg(adev->dev, "vPod size doesn't match vpod_active_accels list: %u != %u\n",
+			info->vpod.size, weight);
+		return false;
+	}
+	if (!test_bit(info->ppod.accel_id, info->vpod.active_accel_bits)) {
+		dev_dbg(adev->dev, "Accelerator ID %u not listed in vpod_active_accels\n",
+			info->ppod.accel_id);
+		return false;
+	}
+
+	return true;
+}
+
+static struct amdgpu_device *find_peer_adev(unsigned int accel_id)
+{
+	unsigned int i;
+
+	for (i = 0; i < mgpu_info.num_gpu; i++) {
+		struct amdgpu_device *peer_adev = mgpu_info.gpu_ins[i].adev;
+
+		if (peer_adev->ualink.info &&
+		    peer_adev->ualink.info->ppod.accel_id == accel_id)
+			return peer_adev;
+	}
+
+	return NULL;
+}
+
+static bool check_local_vpod_integrity(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_info *info = adev->ualink.info;
+	struct amdgpu_ualink_info *peer_info;
+	struct amdgpu_device *peer_adev;
+	unsigned int accel_id;
+	unsigned int i;
+
+	if (!check_vpod_info(adev, info))
+		return false;
+
+	/* Check that all local accelerators listed in vpod_active_accels have
+	 * matching pod IDs
+	 */
+	for_each_set_bit(accel_id, info->vpod.active_accel_bits, AMDGPU_UALINK_ACCEL_MAX) {
+
+		if (accel_id == info->ppod.accel_id)
+			continue;
+
+		peer_adev = find_peer_adev(accel_id);
+		if (!peer_adev)
+			continue;
+		peer_info = peer_adev->ualink.info;
+
+		if (peer_info->vpod.id != info->vpod.id) {
+			dev_dbg(adev->dev, "Peer %u vpod_id doesn't match: %u != %u",
+				accel_id, peer_info->vpod.id, info->vpod.id);
+			return false;
+		}
+		if (!uuid_equal(&peer_info->ppod.id, &info->ppod.id)) {
+			dev_dbg(adev->dev, "Peer %u ppod_id doesn't match: %pU != %pU",
+				accel_id, &peer_info->ppod.id, &info->ppod.id);
+			return false;
+		}
+	}
+
+	/* Derive local accels from pod IDs of GPUs in mgpu_info */
+	info->n_local_accels = 0;
+	for (i = 0; i < mgpu_info.num_gpu &&
+		    info->n_local_accels < AMDGPU_UALINK_LOCAL_ACCELS_MAX;
+	     i++) {
+		peer_adev = mgpu_info.gpu_ins[i].adev;
+		peer_info = peer_adev->ualink.info;
+
+		if (peer_adev == adev ||
+		    (peer_info && peer_info->vpod.id == info->vpod.id &&
+		     uuid_equal(&peer_info->ppod.id, &info->ppod.id)))
+			info->local_accels[info->n_local_accels++] =
+				peer_info->ppod.accel_id;
+	}
+
+	/* Then check consistency of the vpod information on all those GPUs */
+	for (i = 0; i < info->n_local_accels; i++) {
+		unsigned int j;
+
+		for (j = i + 1; j < info->n_local_accels; j++) {
+			if (info->local_accels[j] == accel_id) {
+				dev_dbg(adev->dev,
+					"Accelerator ID %u is not unique among local GPUs\n",
+					accel_id);
+				return false;
+			}
+		}
+
+		accel_id = info->local_accels[i];
+
+		/* Skip this GPU, we are looking for our peers */
+		if (accel_id == info->ppod.accel_id)
+			continue;
+
+		peer_adev = find_peer_adev(accel_id);
+		if (WARN_ON(!peer_adev || !peer_adev->ualink.info))
+			/* info->local_accels we just built is corrupted? */
+			return false;
+		peer_info = peer_adev->ualink.info;
+
+		/* Check peer vpod info and consistency */
+		if (!check_vpod_info(peer_adev, peer_info))
+			return false;
+
+		if (peer_info->ppod.size != info->ppod.size) {
+			dev_dbg(adev->dev, "Peer %u ppod_size doesn't match: %u != %u\n",
+				accel_id, peer_info->ppod.size, info->ppod.size);
+			return false;
+		}
+		if (peer_info->vpod.size != info->vpod.size) {
+			dev_dbg(adev->dev, "Peer %u vpod_size doesn't match: %u != %u\n",
+				accel_id, peer_info->vpod.size, info->vpod.size);
+			return false;
+		}
+		if (peer_info->vpod.addr_mode != info->vpod.addr_mode) {
+			dev_dbg(adev->dev, "Peer %u addr_mode doesn't match: %u != %u\n",
+				accel_id, peer_info->vpod.addr_mode, info->vpod.addr_mode);
+			return false;
+		}
+		if (!bitmap_equal(peer_info->vpod.active_accel_bits,
+				  info->vpod.active_accel_bits, AMDGPU_UALINK_ACCEL_MAX)) {
+			dev_dbg(adev->dev, "Peer %u vpod_active_accels don't match\n",
+				accel_id);
+			return false;
+		}
+
+		/* Update peer's local accelerator array */
+		peer_info->n_local_accels = info->n_local_accels;
+		memcpy(peer_info->local_accels, info->local_accels,
+		       sizeof(info->local_accels));
+	}
+	return true;
+}
+
+static void activate_accelerator(struct amdgpu_device *adev)
+{
+	if (adev->ualink.info->accel_state >= AMDGPU_UALINK_ACCEL_STATE_READY)
+		return;
+
+	adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_READY;
+}
+
+static void deactivate_accelerator(struct amdgpu_device *adev)
+{
+	if (adev->ualink.info->accel_state < AMDGPU_UALINK_ACCEL_STATE_READY)
+		return;
+
+	adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_CONFIGURED;
+}
+
+static void activate_local_vpod(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_info *info = adev->ualink.info;
+	struct amdgpu_device *peer_adev;
+	unsigned int accel_id;
+	unsigned int i;
+
+	for (i = 0; i < info->n_local_accels; i++) {
+		accel_id = info->local_accels[i];
+
+		peer_adev = find_peer_adev(accel_id);
+		if (WARN_ON(!peer_adev || !peer_adev->ualink.info))
+			/* info->local_accels is corrupted? */
+			continue;
+
+		activate_accelerator(peer_adev);
+	}
+}
+
+static ssize_t ualink_vpod_config_commit_store(struct kobject *kobj,
+					       struct kobj_attribute *attr,
+					       const char *buf, size_t count)
+{
+	struct amdgpu_ualink_vpod_config *config = to_ualink_vpod_config(kobj);
+	struct amdgpu_ualink_info *info = to_ualink_info(kobj->parent);
+	struct device *dev = kobj_to_dev(info->kobj.parent);
+	struct drm_device *ddev = dev_get_drvdata(dev);
+	struct amdgpu_device *adev = drm_to_adev(ddev);
+
+	if (!sysfs_streq(buf, "true"))
+		return -EINVAL;
+	if (info->accel_state < AMDGPU_UALINK_ACCEL_STATE_CONFIGURED) {
+		dev_dbg(adev->dev, "Ualink ppod is not yet configured\n");
+		return -EINVAL;
+	}
+
+	/* TODO: instead of just copying the info, call ASP vpod config API
+	 * and query ASP for the updated info
+	 */
+	info->vpod = config->vpod;
+
+	/* The integrity check makes sure each new GPU is consistent with the
+	 * other GPUs already in the vPod. All known local GPUs can become
+	 * "ready" at the same time.
+	 *
+	 * Misconfiguration of one GPU does not reduce the state of other GPUs
+	 * already in the vPod.
+	 */
+	mutex_lock(&mgpu_info.mutex);
+	if (check_local_vpod_integrity(adev))
+		activate_local_vpod(adev);
+	else if (info->accel_state >= AMDGPU_UALINK_ACCEL_STATE_CONFIGURED)
+		deactivate_accelerator(adev);
+	mutex_unlock(&mgpu_info.mutex);
+
+	/* TODO: Update KFD topology for in-domain link */
+
+	/* TODO: If state was ACTIVE:
+	 * - If addr_mode changed, reset all connections, reset state to READY
+	 * - If accelerators were removed, reset those links, but keep state ACTIVE
+	 * - If accelerators were added, keep state ACTIVE
+	 */
+
+	return count;
+}
+
+#define UALINK_VPOD_CONFIG_ATTR(name) __ATTR(name, 0600,		\
+		ualink_vpod_config_##name##_show,			\
+		ualink_vpod_config_##name##_store)
+static struct kobj_attribute ualink_vpod_config_vpod_id   = UALINK_VPOD_CONFIG_ATTR(vpod_id);
+static struct kobj_attribute ualink_vpod_config_vpod_size = UALINK_VPOD_CONFIG_ATTR(vpod_size);
+static struct kobj_attribute ualink_vpod_config_vpod_active_accels =
+						UALINK_VPOD_CONFIG_ATTR(vpod_active_accels);
+static struct kobj_attribute ualink_vpod_config_addr_mode = UALINK_VPOD_CONFIG_ATTR(addr_mode);
+static struct kobj_attribute ualink_vpod_config_commit = __ATTR(commit, 0200, NULL,
+								ualink_vpod_config_commit_store);
+
+static const struct attribute *ualink_vpod_config_attrs[] = {
+	&ualink_vpod_config_vpod_id.attr,
+	&ualink_vpod_config_vpod_size.attr,
+	&ualink_vpod_config_vpod_active_accels.attr,
+	&ualink_vpod_config_addr_mode.attr,
+	&ualink_vpod_config_commit.attr,
+	NULL
+};
+#endif
+
+static void ualink_vpod_config_release(struct kobject *kobj)
+{
+	struct amdgpu_ualink_vpod_config *config = to_ualink_vpod_config(kobj);
+
+	kfree(config);
+}
+
+static const struct kobj_type ualink_vpod_config_ktype = {
+	.release = ualink_vpod_config_release,
+	.sysfs_ops = &kobj_sysfs_ops
+};
+
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
 {
+	struct amdgpu_ualink_vpod_config *vpod_config = NULL;
 	struct amdgpu_ualink_ppod_setup *ppod_setup = NULL;
 	struct amdgpu_ualink_info *info = NULL;
 	int r;
@@ -411,15 +779,39 @@ int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
 		goto err_del_ppod_setup;
 #endif
 
+	vpod_config = kzalloc(sizeof(*vpod_config), GFP_KERNEL);
+	if (!vpod_config) {
+		r = -ENOMEM;
+		goto err_remove_ppod_setup_files;
+	}
+	r = kobject_init_and_add(&vpod_config->kobj, &ualink_vpod_config_ktype,
+				 &info->kobj, "config");
+	if (r)
+		goto err_put_vpod_config;
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+	r = sysfs_create_files(&vpod_config->kobj, ualink_vpod_config_attrs);
+	if (r)
+		goto err_del_vpod_config;
+#endif
+
+	adev->ualink.config = vpod_config;
 	adev->ualink.setup = ppod_setup;
 	adev->ualink.info = info;
 
 	return r;
 
 #ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-err_del_ppod_setup:
-	kobject_del(&ppod_setup->kobj);
+err_del_vpod_config:
+	kobject_del(&vpod_config->kobj);
 #endif
+err_put_vpod_config:
+	kobject_put(&vpod_config->kobj);
+err_remove_ppod_setup_files:
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+	sysfs_remove_files(&ppod_setup->kobj, ualink_ppod_setup_attrs);
+err_del_ppod_setup:
+#endif
+	kobject_del(&ppod_setup->kobj);
 err_put_ppod_setup:
 	kobject_put(&ppod_setup->kobj);
 err_remove_info_files:
@@ -433,6 +825,15 @@ err_put_info:
 
 void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev)
 {
+	if (adev->ualink.config) {
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+		sysfs_remove_files(&adev->ualink.config->kobj,
+				   ualink_vpod_config_attrs);
+#endif
+		kobject_del(&adev->ualink.config->kobj);
+		kobject_put(&adev->ualink.config->kobj);
+		adev->ualink.config = NULL;
+	}
 	if (adev->ualink.setup) {
 #ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
 		sysfs_remove_files(&adev->ualink.setup->kobj,
