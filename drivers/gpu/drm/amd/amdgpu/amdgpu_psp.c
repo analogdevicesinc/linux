@@ -839,6 +839,8 @@ static const char *psp_gfx_cmd_name(enum psp_gfx_cmd_id cmd_id)
 		return "UAL_GET_CONFIG";
 	case GFX_CMD_ID_UAL_SET_PPOD_CONFIG:
 		return "UAL_SET_PPOD_CONFIG";
+	case GFX_CMD_ID_UAL_SET_VPOD_CONFIG:
+		return "UAL_SET_VPOD_CONFIG";
 	default:
 		return "UNKNOWN CMD";
 	}
@@ -1310,6 +1312,46 @@ int psp_ual_set_ppod_config(struct psp_context *psp, uint32_t intf_ver,
 		memset(&cmd->cmd.cmd_set_ppod_config_ual.local_accelerators[setup->n_local_accels],
 		       0xff, sizeof(cmd->cmd.cmd_set_ppod_config_ual.local_accelerators) -
 		       setup->n_local_accels * sizeof(u32));
+
+	ret = psp_cmd_submit_buf(psp, NULL, cmd, psp->fence_buf_mc_addr);
+
+	if (!ret && cmd->resp.status)
+		ret = -EINVAL;
+
+	release_psp_cmd_buf(psp);
+
+	return ret;
+}
+
+int psp_ual_set_vpod_config(struct psp_context *psp, uint32_t intf_ver,
+			    const struct amdgpu_ualink_vpod_config *config)
+{
+	struct psp_gfx_cmd_resp *cmd;
+	int ret;
+
+	/* TBD check interface version 1.x */
+	if (intf_ver > 0x1ffff) {
+		pr_warn("PSP UAL interface version mismatch: 0x%x\n", intf_ver);
+		return -EOPNOTSUPP;
+	}
+
+	cmd = acquire_psp_cmd_buf(psp);
+
+	cmd->cmd_id = GFX_CMD_ID_UAL_SET_VPOD_CONFIG;
+	cmd->cmd.cmd_set_vpod_config_ual.addr_mode =
+		(enum psp_gfx_ual_npa_address_mode)config->vpod.addr_mode;
+	cmd->cmd.cmd_set_vpod_config_ual.vpod_id = config->vpod.id;
+	cmd->cmd.cmd_set_vpod_config_ual.vpod_size = config->vpod.size;
+
+	bitmap_to_arr32(cmd->cmd.cmd_set_vpod_config_ual.vpod_active_accelerators,
+			config->vpod.active_accel_bits,
+			min(AMDGPU_UALINK_ACCEL_MAX, PSP_GFX_UAL_MAX_ACC_BIT_MASK*32));
+	/* Clear any remaining accelerator bits */
+	if (PSP_GFX_UAL_MAX_ACC_BIT_MASK > DIV_ROUND_UP(AMDGPU_UALINK_ACCEL_MAX, 32))
+		memset(cmd->cmd.cmd_set_vpod_config_ual.vpod_active_accelerators +
+		       DIV_ROUND_UP(AMDGPU_UALINK_ACCEL_MAX, 32), 0,
+		       (PSP_GFX_UAL_MAX_ACC_BIT_MASK -
+			DIV_ROUND_UP(AMDGPU_UALINK_ACCEL_MAX, 32)) * sizeof(u32));
 
 	ret = psp_cmd_submit_buf(psp, NULL, cmd, psp->fence_buf_mc_addr);
 
