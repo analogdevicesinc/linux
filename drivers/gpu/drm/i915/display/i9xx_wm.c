@@ -20,7 +20,6 @@
 #include "intel_dram.h"
 #include "intel_fb.h"
 #include "intel_mchbar.h"
-#include "intel_mchbar_regs.h"
 #include "intel_wm.h"
 #include "skl_watermark.h"
 #include "vlv_sideband.h"

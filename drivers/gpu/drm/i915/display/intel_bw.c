@@ -16,7 +16,6 @@
 #include "intel_display_utils.h"
 #include "intel_dram.h"
 #include "intel_mchbar.h"
-#include "intel_mchbar_regs.h"
 #include "intel_parent.h"
 #include "skl_watermark.h"
 

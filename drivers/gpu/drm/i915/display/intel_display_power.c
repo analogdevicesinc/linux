@@ -25,7 +25,6 @@
 #include "intel_dmc.h"
 #include "intel_dram.h"
 #include "intel_mchbar.h"
-#include "intel_mchbar_regs.h"
 #include "intel_parent.h"
 #include "intel_pch_refclk.h"
 #include "intel_pmdemand.h"

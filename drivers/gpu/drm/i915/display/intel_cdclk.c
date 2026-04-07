@@ -42,7 +42,6 @@
 #include "intel_display_wa.h"
 #include "intel_dram.h"
 #include "intel_mchbar.h"
-#include "intel_mchbar_regs.h"
 #include "intel_parent.h"
 #include "intel_pci_config.h"
 #include "intel_plane.h"

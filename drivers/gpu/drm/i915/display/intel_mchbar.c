@@ -10,7 +10,6 @@
 #include "intel_de.h"
 #include "intel_display_core.h"
 #include "intel_mchbar.h"
-#include "intel_mchbar_regs.h"
 
 static bool has_mchbar_mirror(struct intel_display *display)
 {
