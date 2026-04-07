@@ -196,7 +196,8 @@ static int pch_panel_fitting(struct intel_crtc_state *crtc_state,
 	/* Native modes don't need fitting */
 	if (adjusted_mode->crtc_hdisplay == pipe_src_w &&
 	    adjusted_mode->crtc_vdisplay == pipe_src_h &&
-	    crtc_state->output_format != INTEL_OUTPUT_FORMAT_YCBCR420)
+	    crtc_state->output_format != INTEL_OUTPUT_FORMAT_YCBCR420 &&
+	    crtc_state->hw.sharpness_strength == 0)
 		return 0;
 
 	switch (conn_state->scaling_mode) {
@@ -257,6 +258,16 @@ static int pch_panel_fitting(struct intel_crtc_state *crtc_state,
 
 	default:
 		MISSING_CASE(conn_state->scaling_mode);
+		return -EINVAL;
+	}
+
+	if (crtc_state->hw.sharpness_strength &&
+	    (width != pipe_src_w || height != pipe_src_h ||
+	     crtc_state->hw.scaling_filter != DRM_SCALING_FILTER_DEFAULT ||
+	     crtc_state->output_format != INTEL_OUTPUT_FORMAT_RGB)) {
+		drm_dbg_kms(display->drm,
+			    "[CRTC:%d:%s] no scaling/YCbCr output with sharpness filter\n",
+			    crtc->base.base.id, crtc->base.name);
 		return -EINVAL;
 	}
 

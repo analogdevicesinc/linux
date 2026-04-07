@@ -75,20 +75,6 @@ static void intel_casf_filter_lut_load(const struct intel_crtc_state *crtc_state
 			       sharpness_lut[i]);
 }
 
-void intel_casf_update_strength(const struct intel_crtc_state *crtc_state)
-{
-	struct intel_display *display = to_intel_display(crtc_state);
-	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	int win_size;
-
-	intel_de_rmw(display, SHARPNESS_CTL(crtc->pipe), FILTER_STRENGTH_MASK,
-		     FILTER_STRENGTH(crtc_state->pch_pfit.casf.strength));
-
-	win_size = intel_de_read(display, SKL_PS_WIN_SZ(crtc->pipe, 1));
-
-	intel_de_write_fw(display, SKL_PS_WIN_SZ(crtc->pipe, 1), win_size);
-}
-
 static void intel_casf_compute_win_size(struct intel_crtc_state *crtc_state)
 {
 	const struct drm_display_mode *mode = &crtc_state->hw.adjusted_mode;
@@ -102,18 +88,14 @@ static void intel_casf_compute_win_size(struct intel_crtc_state *crtc_state)
 		crtc_state->pch_pfit.casf.win_size = SHARPNESS_FILTER_SIZE_7X7;
 }
 
+static void intel_casf_scaler_compute_coef(struct intel_crtc_state *crtc_state);
+
 int intel_casf_compute_config(struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 
-	if (!HAS_CASF(display))
+	if (crtc_state->hw.sharpness_strength == 0)
 		return 0;
-
-	if (crtc_state->hw.sharpness_strength == 0) {
-		crtc_state->pch_pfit.casf.enable = false;
-		crtc_state->pch_pfit.casf.strength = 0;
-		return 0;
-	}
 
 	/* CASF with joiner not supported in hardware */
 	if (crtc_state->joiner_pipes) {
@@ -136,7 +118,7 @@ int intel_casf_compute_config(struct intel_crtc_state *crtc_state)
 
 	intel_casf_compute_win_size(crtc_state);
 
-	intel_casf_scaler_compute_config(crtc_state);
+	intel_casf_scaler_compute_coef(crtc_state);
 
 	return 0;
 }
@@ -159,14 +141,6 @@ void intel_casf_sharpness_get_config(struct intel_crtc_state *crtc_state)
 		crtc_state->pch_pfit.casf.win_size =
 			REG_FIELD_GET(FILTER_SIZE_MASK, sharp);
 	}
-}
-
-bool intel_casf_needs_scaler(const struct intel_crtc_state *crtc_state)
-{
-	if (crtc_state->pch_pfit.casf.enable)
-		return true;
-
-	return false;
 }
 
 static int casf_coeff_tap(int i)
@@ -240,7 +214,7 @@ static void convert_sharpness_coef_binary(struct scaler_filter_coeff *coeff,
 	}
 }
 
-void intel_casf_scaler_compute_config(struct intel_crtc_state *crtc_state)
+static void intel_casf_scaler_compute_coef(struct intel_crtc_state *crtc_state)
 {
 	const u16 *filtercoeff;
 	u16 filter_coeff[SCALER_FILTER_NUM_TAPS];
@@ -264,32 +238,8 @@ void intel_casf_scaler_compute_config(struct intel_crtc_state *crtc_state)
 	}
 }
 
-void intel_casf_enable(const struct intel_crtc_state *crtc_state)
+void intel_casf_setup(const struct intel_crtc_state *crtc_state)
 {
-	struct intel_display *display = to_intel_display(crtc_state);
-	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	u32 sharpness_ctl;
-
 	intel_casf_filter_lut_load(crtc_state);
-
 	intel_casf_write_coeff(crtc_state);
-
-	sharpness_ctl = FILTER_EN | FILTER_STRENGTH(crtc_state->pch_pfit.casf.strength);
-
-	sharpness_ctl |= crtc_state->pch_pfit.casf.win_size;
-
-	intel_de_write(display, SHARPNESS_CTL(crtc->pipe), sharpness_ctl);
-
-	skl_scaler_setup_casf(crtc_state);
-}
-
-void intel_casf_disable(const struct intel_crtc_state *crtc_state)
-{
-	struct intel_display *display = to_intel_display(crtc_state);
-	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-
-	intel_de_write(display, SKL_PS_CTRL(crtc->pipe, 1), 0);
-	intel_de_write(display, SKL_PS_WIN_POS(crtc->pipe, 1), 0);
-	intel_de_write(display, SHARPNESS_CTL(crtc->pipe), 0);
-	intel_de_write(display, SKL_PS_WIN_SZ(crtc->pipe, 1), 0);
 }

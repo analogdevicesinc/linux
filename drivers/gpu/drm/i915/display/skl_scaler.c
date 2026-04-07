@@ -270,6 +270,11 @@ int skl_update_scaler_crtc(struct intel_crtc_state *crtc_state)
 {
 	const struct drm_display_mode *pipe_mode = &crtc_state->hw.pipe_mode;
 	int width, height;
+	int ret;
+
+	ret = intel_casf_compute_config(crtc_state);
+	if (ret)
+		return ret;
 
 	if (crtc_state->pch_pfit.enabled) {
 		width = drm_rect_width(&crtc_state->pch_pfit.dst);
@@ -284,8 +289,7 @@ int skl_update_scaler_crtc(struct intel_crtc_state *crtc_state)
 				 drm_rect_width(&crtc_state->pipe_src),
 				 drm_rect_height(&crtc_state->pipe_src),
 				 width, height, NULL, 0,
-				 crtc_state->pch_pfit.enabled ||
-				 intel_casf_needs_scaler(crtc_state));
+				 crtc_state->pch_pfit.enabled);
 }
 
 /**
@@ -534,14 +538,11 @@ static int setup_crtc_scaler(struct intel_atomic_state *state,
 	struct intel_crtc_scaler_state *scaler_state =
 		&crtc_state->scaler_state;
 
-	if (intel_casf_needs_scaler(crtc_state) && crtc_state->pch_pfit.enabled)
-		return -EINVAL;
-
 	return intel_atomic_setup_scaler(crtc_state,
 					 hweight32(scaler_state->scaler_users),
 					 crtc, "CRTC", crtc->base.base.id,
 					 NULL, &scaler_state->scaler_id,
-					 intel_casf_needs_scaler(crtc_state));
+					 crtc_state->pch_pfit.casf.enable);
 }
 
 static int setup_plane_scaler(struct intel_atomic_state *state,
@@ -757,43 +758,14 @@ static void skl_scaler_setup_filter(struct intel_display *display,
 	}
 }
 
-void skl_scaler_setup_casf(const struct intel_crtc_state *crtc_state)
+static u32 casf_sharpness_ctl(const struct intel_crtc_state *crtc_state)
 {
-	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	struct intel_display *display = to_intel_display(crtc);
-	const struct drm_display_mode *adjusted_mode =
-		&crtc_state->hw.adjusted_mode;
-	const struct intel_crtc_scaler_state *scaler_state =
-		&crtc_state->scaler_state;
-	struct drm_rect src, dest;
-	int id, width, height;
-	int x = 0, y = 0;
-	enum pipe pipe = crtc->pipe;
-	u32 ps_ctrl;
+	if (!crtc_state->pch_pfit.casf.enable)
+		return 0;
 
-	width = adjusted_mode->crtc_hdisplay;
-	height = adjusted_mode->crtc_vdisplay;
-
-	drm_rect_init(&dest, x, y, width, height);
-
-	width = drm_rect_width(&dest);
-	height = drm_rect_height(&dest);
-	id = scaler_state->scaler_id;
-
-	drm_rect_init(&src, 0, 0,
-		      drm_rect_width(&crtc_state->pipe_src) << 16,
-		      drm_rect_height(&crtc_state->pipe_src) << 16);
-
-	trace_intel_pipe_scaler_update_arm(crtc, id, x, y, width, height);
-
-	ps_ctrl = PS_SCALER_EN | PS_BINDING_PIPE | scaler_state->scalers[id].mode |
-		skl_scaler_get_filter_select(crtc_state->hw.scaling_filter, true);
-
-	intel_de_write_fw(display, SKL_PS_CTRL(pipe, id), ps_ctrl);
-	intel_de_write_fw(display, SKL_PS_WIN_POS(pipe, id),
-			  PS_WIN_XPOS(x) | PS_WIN_YPOS(y));
-	intel_de_write_fw(display, SKL_PS_WIN_SZ(pipe, id),
-			  PS_WIN_XSIZE(width) | PS_WIN_YSIZE(height));
+	return FILTER_EN |
+		FILTER_STRENGTH(crtc_state->pch_pfit.casf.strength) |
+		crtc_state->pch_pfit.casf.win_size;
 }
 
 void skl_pfit_enable(const struct intel_crtc_state *crtc_state)
@@ -837,12 +809,20 @@ void skl_pfit_enable(const struct intel_crtc_state *crtc_state)
 	id = scaler_state->scaler_id;
 
 	ps_ctrl = PS_SCALER_EN | PS_BINDING_PIPE | scaler_state->scalers[id].mode |
-		skl_scaler_get_filter_select(crtc_state->hw.scaling_filter, false);
+		skl_scaler_get_filter_select(crtc_state->hw.scaling_filter,
+					     crtc_state->pch_pfit.casf.enable);
 
 	trace_intel_pipe_scaler_update_arm(crtc, id, x, y, width, height);
 
-	skl_scaler_setup_filter(display, NULL, pipe, id, 0,
-				crtc_state->hw.scaling_filter);
+	if (crtc_state->pch_pfit.casf.enable)
+		intel_casf_setup(crtc_state);
+	else
+		skl_scaler_setup_filter(display, NULL, pipe, id, 0,
+					crtc_state->hw.scaling_filter);
+
+	if (scaler_has_casf(display, id))
+		intel_de_write_fw(display, SHARPNESS_CTL(crtc->pipe),
+				  casf_sharpness_ctl(crtc_state));
 
 	intel_de_write_fw(display, SKL_PS_CTRL(pipe, id), ps_ctrl);
 
@@ -930,6 +910,9 @@ static void skl_detach_scaler(struct intel_dsb *dsb,
 
 	trace_intel_scaler_disable_arm(crtc, id);
 
+	if (scaler_has_casf(display, id))
+		intel_de_write_dsb(display, dsb, SHARPNESS_CTL(crtc->pipe), 0);
+
 	intel_de_write_dsb(display, dsb, SKL_PS_CTRL(crtc->pipe, id), 0);
 	intel_de_write_dsb(display, dsb, SKL_PS_WIN_POS(crtc->pipe, id), 0);
 	intel_de_write_dsb(display, dsb, SKL_PS_WIN_SZ(crtc->pipe, id), 0);
@@ -983,18 +966,16 @@ void skl_scaler_get_config(struct intel_crtc_state *crtc_state)
 		if (scaler_has_casf(display, i))
 			intel_casf_sharpness_get_config(crtc_state);
 
-		if (!crtc_state->pch_pfit.casf.enable)
-			crtc_state->pch_pfit.enabled = true;
+		crtc_state->pch_pfit.enabled = true;
 
 		pos = intel_de_read(display, SKL_PS_WIN_POS(crtc->pipe, i));
 		size = intel_de_read(display, SKL_PS_WIN_SZ(crtc->pipe, i));
 
-		if (!crtc_state->pch_pfit.casf.enable)
-			drm_rect_init(&crtc_state->pch_pfit.dst,
-				      REG_FIELD_GET(PS_WIN_XPOS_MASK, pos),
-				      REG_FIELD_GET(PS_WIN_YPOS_MASK, pos),
-				      REG_FIELD_GET(PS_WIN_XSIZE_MASK, size),
-				      REG_FIELD_GET(PS_WIN_YSIZE_MASK, size));
+		drm_rect_init(&crtc_state->pch_pfit.dst,
+			      REG_FIELD_GET(PS_WIN_XPOS_MASK, pos),
+			      REG_FIELD_GET(PS_WIN_YPOS_MASK, pos),
+			      REG_FIELD_GET(PS_WIN_XSIZE_MASK, size),
+			      REG_FIELD_GET(PS_WIN_YSIZE_MASK, size));
 
 		scaler_state->scalers[i].in_use = true;
 		break;
