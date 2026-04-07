@@ -1430,6 +1430,7 @@ static int tpdm_probe(struct device *dev, struct resource *res)
 		if (ret)
 			return ret;
 
+		desc.access = CSDEV_ACCESS_IOMEM(base);
 		if (tpdm_has_dsb_dataset(drvdata))
 			of_property_read_u32(drvdata->dev->of_node,
 					     "qcom,dsb-msrs-num", &drvdata->dsb_msr_num);
@@ -1452,7 +1453,6 @@ static int tpdm_probe(struct device *dev, struct resource *res)
 	desc.ops = &tpdm_cs_ops;
 	desc.pdata = dev->platform_data;
 	desc.dev = dev;
-	desc.access = CSDEV_ACCESS_IOMEM(base);
 	if (res)
 		desc.groups = tpdm_attr_grps;
 	else
