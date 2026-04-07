@@ -725,4 +725,7 @@ int psp_ual_set_vpod_config(struct psp_context *psp, uint32_t intf_ver,
 int psp_ual_set_station_config(struct psp_context *psp, uint32_t intf_ver,
 			       const struct amdgpu_ualink_station_config *stations);
 
+int psp_ual_set_npa_config(struct psp_context *psp, uint32_t intf_ver,
+			   unsigned int vmid, bool enable);
+
 #endif
