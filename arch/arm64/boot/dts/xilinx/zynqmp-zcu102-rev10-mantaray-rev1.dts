@@ -1,0 +1,437 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Stingray
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe/quick-start
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ *
+ * hdl_project: <>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/iio/frequency/hmc7044.h>
+
+/ {
+        model = "Mantaray ZynqMP ZCU102";
+
+        fpga_axi: fpga-axi@0 {
+                #address-cells = <2>;
+                #size-cells = <2>;
+                compatible = "simple-bus";
+                ranges ;
+ 
+                axi_sysid_0: axi_sysid@85000000 {
+                        clock-names = "s_axi_aclk";
+                        clocks = <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-sysid-1.0";
+                        reg = <0x0 0x85000000 0x0 0x10000>;
+                };
+
+                bf_spi_01: spi@80000000 {
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+                        bits-per-word = <8>;
+                        clock-names = "ext_spi_clk", "s_axi_aclk";
+                        clocks = <&zynqmp_clk 74>, <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+                        fifo-size = <16>;
+                        interrupt-names = "ip2intc_irpt";
+                        interrupt-parent = <&gic>;
+                        interrupts = <0 89 1>;
+                        num-cs = <0x1>;
+                        reg = <0x0 0x80000000 0x0 0x1000>;
+                        xlnx,num-ss-bits = <0x1>;
+                        xlnx,spi-mode = <0>;
+
+                        adar1000_0@0 {
+                                compatible = "adi,adar1000";
+                                reg = <0>;
+                                spi-max-frequency = <1000000>;
+        
+                                #address-cells = <1>;
+                                #size-cells = <0>;
+        
+                                adar1000_csb_0_1_1@0 {
+                                        reg = <0>;
+                                        label = "adar1000_csb_0_1_1";
+                                };
+        
+                                adar1000_csb_0_1_2@1 {
+                                        reg = <1>;
+                                        label = "adar1000_csb_0_1_2";
+                                };
+        
+                                adar1000_csb_0_1_3@2 {
+                                        reg = <2>;
+                                        label = "adar1000_csb_0_1_3";
+                                };
+         
+                                adar1000_csb_0_1_4@3 {
+                                        reg = <3>;
+                                        label = "adar1000_csb_0_1_4";
+                                };
+                        };
+                };
+
+                bf_spi_02: spi@80010000 {
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+                        bits-per-word = <8>;
+                        clock-names = "ext_spi_clk", "s_axi_aclk";
+                        clocks = <&zynqmp_clk 74>, <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+                        fifo-size = <16>;
+                        interrupt-names = "ip2intc_irpt";
+                        interrupt-parent = <&gic>;
+                        interrupts = <0 90 1>;
+                        num-cs = <0x1>;
+                        reg = <0x0 0x80010000 0x0 0x1000>;
+                        xlnx,num-ss-bits = <0x1>;
+                        xlnx,spi-mode = <0>;
+
+                        adar1000_0@0 {
+                                compatible = "adi,adar1000";
+                                reg = <0>;
+                                spi-max-frequency = <1000000>;
+        
+                                #address-cells = <1>;
+                                #size-cells = <0>;
+        
+                                adar1000_csb_0_2_1@0 {
+                                        reg = <0>;
+                                        label = "adar1000_csb_0_2_1";
+                                };
+        
+                                adar1000_csb_0_2_2@1 {
+                                        reg = <1>;
+                                        label = "adar1000_csb_0_2_2";
+                                };
+        
+                                adar1000_csb_0_2_3@2 {
+                                        reg = <2>;
+                                        label = "adar1000_csb_0_2_3";
+                                };
+         
+                                adar1000_csb_0_2_4@3 {
+                                        reg = <3>;
+                                        label = "adar1000_csb_0_2_4";
+                                };
+                        };
+                };
+
+                bf_spi_03: spi@80020000 {
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+                        bits-per-word = <8>;
+                        clock-names = "ext_spi_clk", "s_axi_aclk";
+                        clocks = <&zynqmp_clk 74>, <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+                        fifo-size = <16>;
+                        interrupt-names = "ip2intc_irpt";
+                        interrupt-parent = <&gic>;
+                        interrupts = <0 91 1>;
+                        num-cs = <0x1>;
+                        reg = <0x0 0x80020000 0x0 0x1000>;
+                        xlnx,num-ss-bits = <0x1>;
+                        xlnx,spi-mode = <0>;
+                        
+                        adar1000_0@0 {
+                                compatible = "adi,adar1000";
+                                reg = <0>;
+                                spi-max-frequency = <1000000>;
+        
+                                #address-cells = <1>;
+                                #size-cells = <0>;
+        
+                                adar1000_csb_1_1_1@0 {
+                                        reg = <0>;
+                                        label = "adar1000_csb_1_1_1";
+                                };
+        
+                                adar1000_csb_1_1_2@1 {
+                                        reg = <1>;
+                                        label = "adar1000_csb_1_1_2";
+                                };
+        
+                                adar1000_csb_1_1_3@2 {
+                                        reg = <2>;
+                                        label = "adar1000_csb_1_1_3";
+                                };
+         
+                                adar1000_csb_1_1_4@3 {
+                                        reg = <3>;
+                                        label = "adar1000_csb_1_1_4";
+                                };
+                        };
+                };
+
+                bf_spi_04: spi@80030000 {
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+                        bits-per-word = <8>;
+                        clock-names = "ext_spi_clk", "s_axi_aclk";
+                        clocks = <&zynqmp_clk 74>, <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+                        fifo-size = <16>;
+                        interrupt-names = "ip2intc_irpt";
+                        interrupt-parent = <&gic>;
+                        interrupts = <0 92 1>;
+                        num-cs = <0x1>;
+                        reg = <0x0 0x80030000 0x0 0x1000>;
+                        xlnx,num-ss-bits = <0x1>;
+                        xlnx,spi-mode = <0>;
+                        
+                        adar1000_0@0 {
+                                compatible = "adi,adar1000";
+                                reg = <0>;
+                                spi-max-frequency = <1000000>;
+        
+                                #address-cells = <1>;
+                                #size-cells = <0>;
+        
+                                adar1000_csb_1_2_1@0 {
+                                        reg = <0>;
+                                        label = "adar1000_csb_1_2_1";
+                                };
+        
+                                adar1000_csb_1_2_2@1 {
+                                        reg = <1>;
+                                        label = "adar1000_csb_1_2_2";
+                                };
+        
+                                adar1000_csb_1_2_3@2 {
+                                        reg = <2>;
+                                        label = "adar1000_csb_1_2_3";
+                                };
+         
+                                adar1000_csb_1_2_4@3 {
+                                        reg = <3>;
+                                        label = "adar1000_csb_1_2_4";
+                                };
+                        };
+                };
+
+                gpio_0: gpio@80050000 {
+                        #gpio-cells = <2>;
+                        clock-names = "s_axi_aclk";
+                        clocks = <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
+                        gpio-controller;
+                        reg = <0x0 0x80050000 0x0 0x1000>;
+                        xlnx,all-inputs = <0x0>;
+                        xlnx,all-inputs-2 = <0x1>;
+                        xlnx,all-outputs = <0x1>;
+                        xlnx,all-outputs-2 = <0x0>;
+                        xlnx,dout-default = <0x00000000>;
+                        xlnx,dout-default-2 = <0x00000000>;
+                        xlnx,gpio-width = <0x1a>;
+                        xlnx,gpio2-width = <0x4>;
+                        xlnx,interrupt-present = <0x0>;
+                        xlnx,is-dual = <0x1>;
+                        xlnx,tri-default = <0xFFFFFFFF>;
+                        xlnx,tri-default-2 = <0xFFFFFFFF>;
+                };
+                xud_spi: spi@80040000 {
+                        bits-per-word = <8>;
+                        clock-names = "ext_spi_clk", "s_axi_aclk";
+                        clocks = <&zynqmp_clk 74>, <&zynqmp_clk 71>;
+                        compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+                        fifo-size = <16>;
+                        interrupt-names = "ip2intc_irpt";
+                        interrupt-parent = <&gic>;
+                        interrupts = <0 93 1>;
+                        num-cs = <0x1>;
+                        reg = <0x0 0x80040000 0x0 0x1000>;
+                        xlnx,num-ss-bits = <0x1>;
+                        xlnx,spi-mode = <0>;
+                };
+        };
+ 
+        mantaray_control@0 {
+ 
+                compatible = "adi,one-bit-adc-dac";
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                out-gpios = <&gpio_0 0 0>, <&gpio_0 1 0>, <&gpio_0 2 0>,
+                            <&gpio_0 3 0>, <&gpio_0 4 0>, <&gpio_0 5 0>,
+                            <&gpio_0 6 0>, <&gpio_0 7 0>, <&gpio_0 8 0>,
+                            <&gpio_0 9 0>, <&gpio_0 10 0>, <&gpio_0 11 0>, 
+                            <&gpio_0 12 0>, <&gpio_0 13 0>, <&gpio_0 14 0>,
+                            <&gpio_0 15 0>, <&gpio_0 16 0>, <&gpio_0 17 0>,
+                            <&gpio_0 18 0>, <&gpio_0 19 0>;
+                label = "mantaray_control";
+ 
+                channel@0 {
+                        reg = <0>;
+                        label = "BF_TR_01";
+                };
+ 
+                channel@1 {
+                        reg = <1>;
+                        label = "BF_TX_LOAD_01";
+                };
+ 
+                channel@2 {
+                        reg = <2>;
+                        label = "BF_RX_LOAD_01";
+                };
+ 
+                channel@3 {
+                        reg = <3>;
+                        label = "BF_PWR_EN_01";
+                };
+ 
+                channel@4 {
+                        reg = <4>;
+                        label = "BF_PA_ON_01";
+                };
+
+                channel@5 {
+                        reg = <5>;
+                        label = "BF_TR_02";
+                };
+
+                channel@6 {
+                        reg = <6>;
+                        label = "BF_TX_LOAD_02";
+                };
+ 
+                channel@7 {
+                        reg = <7>;
+                        label = "BF_RX_LOAD_02";
+                };
+ 
+                channel@8 {
+                        reg = <8>;
+                        label = "BF_PWR_EN_02";
+                };
+ 
+                channel@9 {
+                        reg = <9>;
+                        label = "BF_PA_ON_02";
+                };
+
+                channel@10 {
+                        reg = <10>;
+                        label = "BF_TR_03";
+                };
+
+                channel@11 {
+                        reg = <11>;
+                        label = "BF_TX_LOAD_03";
+                };
+ 
+                channel@12 {
+                        reg = <12>;
+                        label = "BF_RX_LOAD_03";
+                };
+ 
+                channel@13 {
+                        reg = <13>;
+                        label = "BF_PWR_EN_03";
+                };
+ 
+                channel@14 {
+                        reg = <14>;
+                        label = "BF_PA_ON_03";
+                };
+ 
+                channel@15 {
+                        reg = <15>;
+                        label = "BF_TR_04";
+                };
+
+                channel@16 {
+                        reg = <16>;
+                        label = "BF_TX_LOAD_04";
+                };
+ 
+                channel@17 {
+                        reg = <17>;
+                        label = "BF_RX_LOAD_04";
+                };
+ 
+                channel@18 {
+                        reg = <18>;
+                        label = "BF_PWR_EN_04";
+                };
+ 
+                channel@19 {
+                        reg = <19>;
+                        label = "BF_PA_ON_04";
+                };
+        };
+ 
+        xud_control@1 {
+                compatible = "adi,one-bit-adc-dac";
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                out-gpios = <&gpio_0 20 0>, <&gpio_0 21 0>, <&gpio_0 22 0>,
+                            <&gpio_0 23 0>, <&gpio_0 24 0>, <&gpio_0 25 0>;
+                label = "xud_control";
+
+                channel@0 {
+                        reg = <0>;
+                        label = "XUD_RX_GAIN_MODE";
+                };
+ 
+                channel@1 {
+                        reg = <1>;
+                        label = "XUD_PLL_OUTPUT_SEL";
+                };
+                channel@2 {
+                        reg = <2>;
+                        label = "XUD_TXRX0";
+                };
+ 
+                channel@3 {
+                        reg = <3>;
+                        label = "XUD_TXRX1";
+                };
+ 
+                channel@4 {
+                        reg = <4>;
+                        label = "XUD_TXRX2";
+                };
+ 
+                channel@5 {
+                        reg = <5>;
+                        label = "XUD_TXRX3";
+                };
+        };
+ 
+        mantaray_pg_status@2 {
+                compatible = "adi,one-bit-adc-dac";
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                in-gpios = <&gpio_0 26 0>, <&gpio_0 27 0>,
+                           <&gpio_0 28 0>, <&gpio_0 29 0>;
+                label = "mantaray_pg_status";
+ 
+                channel@0 {
+                        reg = <0>;
+                        label = "PG_PA_VGG_01";
+                };
+ 
+                channel@1 {
+                        reg = <1>;
+                        label = "PG_PA_VGG_02";
+                };
+ 
+                channel@2 {
+                        reg = <2>;
+                        label = "PG_PA_VGG_03";
+                };
+ 
+                channel@3 {
+                        reg = <3>;
+                        label = "PG_PA_VGG_04";
+                };
+        };
+};
+ 
