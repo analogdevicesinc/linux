@@ -736,9 +736,12 @@ void dcn42_notify_wm_ranges(struct clk_mgr *clk_mgr_base)
 			clk_mgr_dcn42->smu_wm_set.mc_address.low_part);
 	dcn42_smu_transfer_wm_table_dram_2_smu(clk_mgr);
 
-	if (clk_mgr_dcn42->smu_wm_set.wm_set && clk_mgr_dcn42->smu_wm_set.mc_address.quad_part != 0)
+	if (clk_mgr_dcn42->smu_wm_set.wm_set && clk_mgr_dcn42->smu_wm_set.mc_address.quad_part != 0) {
 		dm_helpers_free_gpu_mem(clk_mgr->base.ctx, DC_MEM_ALLOC_TYPE_GART,
 				clk_mgr_dcn42->smu_wm_set.wm_set);
+		clk_mgr_dcn42->smu_wm_set.wm_set = NULL;
+		clk_mgr_dcn42->smu_wm_set.mc_address.quad_part = 0;
+	}
 
 }
 
@@ -1101,7 +1104,10 @@ void dcn42_clk_mgr_destroy(struct clk_mgr_internal *clk_mgr_int)
 {
 	struct clk_mgr_dcn42 *clk_mgr = TO_CLK_MGR_DCN42(clk_mgr_int);
 
-	if (clk_mgr->smu_wm_set.wm_set && clk_mgr->smu_wm_set.mc_address.quad_part != 0)
+	if (clk_mgr->smu_wm_set.wm_set && clk_mgr->smu_wm_set.mc_address.quad_part != 0) {
 		dm_helpers_free_gpu_mem(clk_mgr_int->base.ctx, DC_MEM_ALLOC_TYPE_GART,
 				clk_mgr->smu_wm_set.wm_set);
+		clk_mgr->smu_wm_set.wm_set = NULL;
+		clk_mgr->smu_wm_set.mc_address.quad_part = 0;
+	}
 }
