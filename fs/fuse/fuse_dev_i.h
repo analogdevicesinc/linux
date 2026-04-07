@@ -23,21 +23,21 @@ struct fuse_pqueue;
 struct fuse_iqueue;
 
 /**
- * Request flags
+ * enum fuse_req_flag - Request flags
  *
- * FR_ISREPLY:		set if the request has reply
- * FR_FORCE:		force sending of the request even if interrupted
- * FR_BACKGROUND:	request is sent in the background
- * FR_WAITING:		request is counted as "waiting"
- * FR_ABORTED:		the request was aborted
- * FR_INTERRUPTED:	the request has been interrupted
- * FR_LOCKED:		data is being copied to/from the request
- * FR_PENDING:		request is not yet in userspace
- * FR_SENT:		request is in userspace, waiting for an answer
- * FR_FINISHED:		request is finished
- * FR_PRIVATE:		request is on private list
- * FR_ASYNC:		request is asynchronous
- * FR_URING:		request is handled through fuse-io-uring
+ * @FR_ISREPLY:		set if the request has reply
+ * @FR_FORCE:		force sending of the request even if interrupted
+ * @FR_BACKGROUND:	request is sent in the background
+ * @FR_WAITING:		request is counted as "waiting"
+ * @FR_ABORTED:		the request was aborted
+ * @FR_INTERRUPTED:	the request has been interrupted
+ * @FR_LOCKED:		data is being copied to/from the request
+ * @FR_PENDING:		request is not yet in userspace
+ * @FR_SENT:		request is in userspace, waiting for an answer
+ * @FR_FINISHED:	request is finished
+ * @FR_PRIVATE:		request is on private list
+ * @FR_ASYNC:		request is asynchronous
+ * @FR_URING:		request is handled through fuse-io-uring
  */
 enum fuse_req_flag {
 	FR_ISREPLY,
@@ -56,55 +56,62 @@ enum fuse_req_flag {
 };
 
 /**
- * A request to the client
+ * struct fuse_req - A request to the client
  *
  * .waitq.lock protects the following fields:
  *   - FR_ABORTED
  *   - FR_LOCKED (may also be modified under fpq->lock, tested under both)
  */
 struct fuse_req {
-	/** This can be on either pending processing or io lists in
-	    fuse_conn */
+	/**
+	 * @list: This can be on either pending processing or io lists in
+	 * fuse_conn
+	 */
 	struct list_head list;
 
-	/** Entry on the interrupts list  */
+	/** @intr_entry: Entry on the interrupts list  */
 	struct list_head intr_entry;
 
-	/* Input/output arguments */
+	/** @args: Input/output arguments */
 	struct fuse_args *args;
 
-	/** refcount */
+	/** @count: refcount */
 	refcount_t count;
 
-	/* Request flags, updated with test/set/clear_bit() */
+	/** @flags: Request flags, updated with test/set/clear_bit() */
 	unsigned long flags;
 
-	/* The request input header */
+	/** @in: The request input header */
 	struct {
+		/** @in.h: The request input header */
 		struct fuse_in_header h;
 	} in;
 
-	/* The request output header */
+	/** @out: The request output header */
 	struct {
+		/** @out.h: The request output header */
 		struct fuse_out_header h;
 	} out;
 
-	/** Used to wake up the task waiting for completion of request*/
+	/** @waitq: Used to wake up the task waiting for completion of request */
 	wait_queue_head_t waitq;
 
 #if IS_ENABLED(CONFIG_VIRTIO_FS)
-	/** virtio-fs's physically contiguous buffer for in and out args */
+	/**
+	 * @argbuf: virtio-fs's physically contiguous buffer for in and out
+	 * args
+	 */
 	void *argbuf;
 #endif
 
-	/** fuse_chan this request belongs to */
+	/** @chan: fuse_chan this request belongs to */
 	struct fuse_chan *chan;
 
 #ifdef CONFIG_FUSE_IO_URING
 	void *ring_entry;
 	void *ring_queue;
 #endif
-	/** When (in jiffies) the request was created */
+	/** @create_time: When (in jiffies) the request was created */
 	unsigned long create_time;
 };
 
@@ -115,7 +122,7 @@ struct fuse_forget_link {
 };
 
 /**
- * Input queue callbacks
+ * struct fuse_iqueue_ops - Input queue callbacks
  *
  * Input queue signalling is device-specific.  For example, the /dev/fuse file
  * uses fiq->waitq and fasync to wake processes that are waiting on queue
@@ -124,22 +131,22 @@ struct fuse_forget_link {
  */
 struct fuse_iqueue_ops {
 	/**
-	 * Send one forget
+	 * @send_forget: Send one forget
 	 */
 	void (*send_forget)(struct fuse_iqueue *fiq, struct fuse_forget_link *link);
 
 	/**
-	 * Send interrupt for request
+	 * @send_interrupt: Send interrupt for request
 	 */
 	void (*send_interrupt)(struct fuse_iqueue *fiq, struct fuse_req *req);
 
 	/**
-	 * Send one request
+	 * @send_req: Send one request
 	 */
 	void (*send_req)(struct fuse_iqueue *fiq, struct fuse_req *req);
 
 	/**
-	 * Clean up when fuse_iqueue is destroyed
+	 * @release: Clean up when fuse_iqueue is destroyed
 	 */
 	void (*release)(struct fuse_iqueue *fiq);
 };
@@ -286,22 +293,22 @@ struct fuse_pqueue {
 };
 
 /**
- * Fuse device instance
+ * struct fuse_dev - Fuse device instance
  */
 struct fuse_dev {
-	/** Reference count of this object */
+	/** @ref: Reference count of this object */
 	refcount_t ref;
 
-	/** Issue FUSE_INIT synchronously */
+	/** @sync_init: Issue FUSE_INIT synchronously */
 	bool sync_init;
 
-	/** Fuse channel for this device */
+	/** @chan: Fuse channel for this device */
 	struct fuse_chan *chan;
 
-	/** Processing queue */
+	/** @pq: Processing queue */
 	struct fuse_pqueue pq;
 
-	/** list entry on fch->devices */
+	/** @entry: list entry on fch->devices */
 	struct list_head entry;
 };
 
@@ -366,7 +373,7 @@ void fuse_dev_end_requests(struct list_head *head);
 
 void fuse_copy_init(struct fuse_copy_state *cs, bool write,
 			   struct iov_iter *iter);
-/**
+/*
  * Return the number of bytes in an arguments list
  */
 unsigned int fuse_len_args(unsigned int numargs, struct fuse_arg *args);
@@ -383,12 +390,12 @@ bool fuse_remove_pending_req(struct fuse_req *req, spinlock_t *lock);
 
 bool fuse_request_expired(struct fuse_chan *fch, struct list_head *list);
 
-/**
+/*
  * Assign a unique id to a fuse request
  */
 void fuse_request_assign_unique(struct fuse_iqueue *fiq, struct fuse_req *req);
 
-/**
+/*
  * Get the next unique ID for a request
  */
 u64 fuse_get_unique(struct fuse_iqueue *fiq);
@@ -400,12 +407,12 @@ int fuse_dev_release(struct inode *inode, struct file *file);
 
 struct list_head *fuse_pqueue_alloc(void);
 
-/**
+/*
  * Initialize the fuse processing queue
  */
 void fuse_pqueue_init(struct fuse_pqueue *fpq);
 
-/**
+/*
  * End a finished request
  */
 void fuse_request_end(struct fuse_req *req);
