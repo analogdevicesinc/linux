@@ -410,7 +410,7 @@ struct drm_xe_query_mem_regions {
  *      device supports the userspace hint %DRM_XE_GEM_CREATE_FLAG_NO_COMPRESSION.
  *      This is exposed only on Xe2+.
  *    - %DRM_XE_QUERY_CONFIG_FLAG_HAS_DISABLE_STATE_CACHE_PERF_FIX - Flag is set
- *      if a queue can be creaed with
+ *      if a queue can be created with
  *      %DRM_XE_EXEC_QUEUE_SET_DISABLE_STATE_CACHE_PERF_FIX
  *  - %DRM_XE_QUERY_CONFIG_MIN_ALIGNMENT - Minimal memory alignment
  *    required by this device, typically SZ_4K or SZ_64K
@@ -888,7 +888,7 @@ struct drm_xe_gem_create {
 #define DRM_XE_GEM_CPU_CACHING_WC                      2
 	/**
 	 * @cpu_caching: The CPU caching mode to select for this object. If
-	 * mmaping the object the mode selected here will also be used. The
+	 * mmapping the object the mode selected here will also be used. The
 	 * exception is when mapping system memory (including data evicted
 	 * to system) on discrete GPUs. The caching mode selected will
 	 * then be overridden to DRM_XE_GEM_CPU_CACHING_WB, and coherency
@@ -931,7 +931,7 @@ struct drm_xe_gem_create {
  *
  *     err = ioctl(fd, DRM_IOCTL_XE_GEM_MMAP_OFFSET, &mmo);
  *     map = mmap(NULL, size, PROT_WRITE, MAP_SHARED, fd, mmo.offset);
- *     map[i] = 0xdeadbeaf; // issue barrier
+ *     map[i] = 0xdeadbeef; // issue barrier
  */
 struct drm_xe_gem_mmap_offset {
 	/** @extensions: Pointer to the first extension struct, if any */
@@ -958,8 +958,8 @@ struct drm_xe_gem_mmap_offset {
  *  - %DRM_XE_VM_CREATE_FLAG_SCRATCH_PAGE - Map the whole virtual address
  *    space of the VM to scratch page. A vm_bind would overwrite the scratch
  *    page mapping. This flag is mutually exclusive with the
- *    %DRM_XE_VM_CREATE_FLAG_FAULT_MODE flag, with an exception of on x2 and
- *    xe3 platform.
+ *    %DRM_XE_VM_CREATE_FLAG_FAULT_MODE flag, with an exception on Xe2 and
+ *    Xe3 platforms.
  *  - %DRM_XE_VM_CREATE_FLAG_LR_MODE - An LR, or Long Running VM accepts
  *    exec submissions to its exec_queues that don't have an upper time
  *    limit on the job execution time. But exec submissions to these
@@ -1695,9 +1695,9 @@ struct drm_xe_wait_user_fence {
 	 * Without DRM_XE_UFENCE_WAIT_FLAG_ABSTIME flag set (relative timeout)
 	 * it contains timeout expressed in nanoseconds to wait (fence will
 	 * expire at now() + timeout).
-	 * When DRM_XE_UFENCE_WAIT_FLAG_ABSTIME flat is set (absolute timeout) wait
-	 * will end at timeout (uses system MONOTONIC_CLOCK).
-	 * Passing negative timeout leads to neverending wait.
+	 * When DRM_XE_UFENCE_WAIT_FLAG_ABSTIME flag is set (absolute timeout) wait
+	 * will end at timeout (uses system CLOCK_MONOTONIC).
+	 * Passing negative timeout leads to never ending wait.
 	 *
 	 * On relative timeout this value is updated with timeout left
 	 * (for restarting the call in case of signal delivery).
