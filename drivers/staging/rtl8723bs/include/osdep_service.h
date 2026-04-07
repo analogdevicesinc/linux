@@ -60,8 +60,6 @@ int _rtw_netif_rx(struct net_device *ndev, struct sk_buff *skb);
 
 #define rtw_netif_rx(ndev, skb) _rtw_netif_rx(ndev, skb)
 
-extern void _rtw_init_queue(struct __queue	*pqueue);
-
 static inline void flush_signals_thread(void)
 {
 	if (signal_pending(current))

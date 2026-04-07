@@ -67,7 +67,6 @@ u32 _rtw_init_sta_priv(struct	sta_priv *pstapriv)
 
 	spin_lock_init(&pstapriv->sta_hash_lock);
 
-	/* _rtw_init_queue(&pstapriv->asoc_q); */
 	pstapriv->asoc_sta_count = 0;
 	INIT_LIST_HEAD(&pstapriv->sleep_q.queue);
 	spin_lock_init(&pstapriv->sleep_q.lock);

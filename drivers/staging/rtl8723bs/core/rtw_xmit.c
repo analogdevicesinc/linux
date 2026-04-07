@@ -98,10 +98,6 @@ s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
 	init_completion(&pxmitpriv->xmit_comp);
 	init_completion(&pxmitpriv->terminate_xmitthread_comp);
 
-	/*
-	 * Please insert all the queue initialization using _rtw_init_queue below
-	 */
-
 	pxmitpriv->adapter = padapter;
 
 	INIT_LIST_HEAD(&pxmitpriv->be_pending.queue);

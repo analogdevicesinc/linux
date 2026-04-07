@@ -21,9 +21,6 @@ void _rtw_init_sta_recv_priv(struct sta_recv_priv *psta_recvpriv)
 
 	spin_lock_init(&psta_recvpriv->lock);
 
-	/* for (i = 0; i<MAX_RX_NUMBLKS; i++) */
-	/* _rtw_init_queue(&psta_recvpriv->blk_strms[i]); */
-
 	INIT_LIST_HEAD(&psta_recvpriv->defrag_q.queue);
 	spin_lock_init(&psta_recvpriv->defrag_q.lock);
 }
