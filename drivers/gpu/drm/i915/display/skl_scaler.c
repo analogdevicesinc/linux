@@ -986,13 +986,13 @@ void skl_scaler_get_config(struct intel_crtc_state *crtc_state)
 		if (HAS_CASF(display) && id == 1)
 			intel_casf_sharpness_get_config(crtc_state);
 
-		if (!crtc_state->hw.casf_params.enable)
+		if (!crtc_state->pch_pfit.casf.enable)
 			crtc_state->pch_pfit.enabled = true;
 
 		pos = intel_de_read(display, SKL_PS_WIN_POS(crtc->pipe, i));
 		size = intel_de_read(display, SKL_PS_WIN_SZ(crtc->pipe, i));
 
-		if (!crtc_state->hw.casf_params.enable)
+		if (!crtc_state->pch_pfit.casf.enable)
 			drm_rect_init(&crtc_state->pch_pfit.dst,
 				      REG_FIELD_GET(PS_WIN_XPOS_MASK, pos),
 				      REG_FIELD_GET(PS_WIN_YPOS_MASK, pos),

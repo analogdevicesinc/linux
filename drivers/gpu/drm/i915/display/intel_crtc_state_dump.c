@@ -350,9 +350,9 @@ void intel_crtc_state_dump(const struct intel_crtc_state *pipe_config,
 			   str_yes_no(pipe_config->pch_pfit.force_thru));
 
 	drm_printf(&p, "sharpness strength: %d, sharpness tap size: %d, sharpness enable: %d\n",
-		   pipe_config->hw.casf_params.strength,
-		   pipe_config->hw.casf_params.win_size,
-		   pipe_config->hw.casf_params.enable);
+		   pipe_config->pch_pfit.casf.strength,
+		   pipe_config->pch_pfit.casf.win_size,
+		   pipe_config->pch_pfit.casf.enable);
 
 	drm_printf(&p, "ips: %i, double wide: %i, drrs: %i\n",
 		   pipe_config->ips_enabled, pipe_config->double_wide,
