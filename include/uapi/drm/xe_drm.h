@@ -1401,23 +1401,25 @@ struct drm_xe_vm_get_property {
  *     struct drm_xe_exec_queue_create exec_queue_create = {
  *          .extensions = 0,
  *          .vm_id = vm,
- *          .num_bb_per_exec = 1,
- *          .num_eng_per_bb = 1,
+ *          .width = 1,
+ *          .num_placements = 1,
  *          .instances = to_user_pointer(&instance),
  *     };
  *     ioctl(fd, DRM_IOCTL_XE_EXEC_QUEUE_CREATE, &exec_queue_create);
  *
- *     Allow users to provide a hint to kernel for cases demanding low latency
- *     profile. Please note it will have impact on power consumption. User can
- *     indicate low latency hint with flag while creating exec queue as
- *     mentioned below,
+ * Allow users to provide a hint to kernel for cases demanding low latency
+ * profile. Please note it will have impact on power consumption. User can
+ * indicate low latency hint with flag while creating exec queue as
+ * mentioned below:
+ *
+ * .. code-block:: C
  *
  *     struct drm_xe_exec_queue_create exec_queue_create = {
  *          .flags = DRM_XE_EXEC_QUEUE_LOW_LATENCY_HINT,
  *          .extensions = 0,
  *          .vm_id = vm,
- *          .num_bb_per_exec = 1,
- *          .num_eng_per_bb = 1,
+ *          .width = 1,
+ *          .num_placements = 1,
  *          .instances = to_user_pointer(&instance),
  *     };
  *     ioctl(fd, DRM_IOCTL_XE_EXEC_QUEUE_CREATE, &exec_queue_create);
@@ -2019,7 +2021,7 @@ struct drm_xe_oa_config {
 	/** @extensions: Pointer to the first extension struct, if any */
 	__u64 extensions;
 
-	/** @uuid: String formatted like "%\08x-%\04x-%\04x-%\04x-%\012x" */
+	/** @uuid: String formatted like "%08x-%04x-%04x-%04x-%012x" */
 	char uuid[36];
 
 	/** @n_regs: Number of regs in @regs_ptr */
@@ -2181,7 +2183,7 @@ struct drm_xe_query_eu_stall {
  *         .start = 0x100000,
  *         .range = 0x2000,
  *         .type = DRM_XE_MEM_RANGE_ATTR_ATOMIC,
- *         .atomic_val = DRM_XE_ATOMIC_DEVICE,
+ *         .atomic.val = DRM_XE_ATOMIC_DEVICE,
  *    };
  *
  *    ioctl(fd, DRM_IOCTL_XE_MADVISE, &madvise);
