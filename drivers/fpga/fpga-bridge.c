@@ -290,7 +290,7 @@ static ssize_t name_show(struct device *dev,
 {
 	struct fpga_bridge *bridge = to_fpga_bridge(dev);
 
-	return sprintf(buf, "%s\n", bridge->name);
+	return sysfs_emit(buf, "%s\n", bridge->name);
 }
 
 static ssize_t state_show(struct device *dev,
