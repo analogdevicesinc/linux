@@ -349,7 +349,7 @@ struct drm_xe_mem_region {
 	 * is smaller than @total_size then this is referred to as a
 	 * small BAR system.
 	 *
-	 * On systems without small BAR (full BAR), the probed_size will
+	 * On systems without small BAR (full BAR), the @cpu_visible_size will
 	 * always equal the @total_size, since all of it will be CPU
 	 * accessible.
 	 *
@@ -862,8 +862,7 @@ struct drm_xe_gem_create {
 #define DRM_XE_GEM_CREATE_FLAG_NEEDS_VISIBLE_VRAM	(1 << 2)
 #define DRM_XE_GEM_CREATE_FLAG_NO_COMPRESSION		(1 << 3)
 	/**
-	 * @flags: Flags, currently a mask of memory instances of where BO can
-	 * be placed
+	 * @flags: Flags for the GEM object, see DRM_XE_GEM_CREATE_FLAG_*
 	 */
 	__u32 flags;
 
@@ -1366,7 +1365,7 @@ struct drm_xe_vm_get_property {
  *    drm_xe_pxp_session_type. %DRM_XE_PXP_TYPE_NONE is the default behavior, so
  *    there is no need to explicitly set that. When a queue of type
  *    %DRM_XE_PXP_TYPE_HWDRM is created, the PXP default HWDRM session
- *    (%XE_PXP_HWDRM_DEFAULT_SESSION) will be started, if it isn't already running.
+ *    (%DRM_XE_PXP_HWDRM_DEFAULT_SESSION) will be started, if it isn't already running.
  *    The user is expected to query the PXP status via the query ioctl (see
  *    %DRM_XE_DEVICE_QUERY_PXP_STATUS) and to wait for PXP to be ready before
  *    attempting to create a queue with this property. When a queue is created
@@ -1651,7 +1650,6 @@ struct drm_xe_exec {
  *
  * and the @flags can be:
  *  - %DRM_XE_UFENCE_WAIT_FLAG_ABSTIME
- *  - %DRM_XE_UFENCE_WAIT_FLAG_SOFT_OP
  *
  * The @mask values can be for example:
  *  - 0xffu for u8
@@ -1741,7 +1739,7 @@ enum drm_xe_observation_op {
 };
 
 /**
- * struct drm_xe_observation_param - Input of &DRM_XE_OBSERVATION
+ * struct drm_xe_observation_param - Input of &DRM_IOCTL_XE_OBSERVATION
  *
  * The observation layer enables multiplexing observation streams of
  * multiple types. The actual params for a particular stream operation are
@@ -1902,10 +1900,10 @@ enum drm_xe_oa_format_type {
 };
 
 /**
- * enum drm_xe_oa_property_id - OA stream property id's
+ * enum drm_xe_oa_property_id - OA stream property IDs
  *
  * Stream params are specified as a chain of @drm_xe_ext_set_property
- * struct's, with @property values from enum @drm_xe_oa_property_id and
+ * structs, with @property values from enum @drm_xe_oa_property_id and
  * @drm_xe_user_extension base.name set to @DRM_XE_OA_EXTENSION_SET_PROPERTY.
  * @param field in struct @drm_xe_observation_param points to the first
  * @drm_xe_ext_set_property struct.
@@ -1919,7 +1917,7 @@ enum drm_xe_oa_property_id {
 	/**
 	 * @DRM_XE_OA_PROPERTY_OA_UNIT_ID: ID of the OA unit on which to open
 	 * the OA stream, see @oa_unit_id in 'struct
-	 * drm_xe_query_oa_units'. Defaults to 0 if not provided.
+	 * drm_xe_oa_unit'. Defaults to 0 if not provided.
 	 */
 	DRM_XE_OA_PROPERTY_OA_UNIT_ID = 1,
 
@@ -2369,10 +2367,10 @@ struct drm_xe_madvise {
 };
 
 /**
- * struct drm_xe_mem_range_attr - Output of &DRM_IOCTL_XE_VM_QUERY_MEM_RANGES_ATTRS
+ * struct drm_xe_mem_range_attr - Output of &DRM_IOCTL_XE_VM_QUERY_MEM_RANGE_ATTRS
  *
  * This structure is provided by userspace and filled by KMD in response to the
- * DRM_IOCTL_XE_VM_QUERY_MEM_RANGES_ATTRS ioctl. It describes memory attributes of
+ * DRM_IOCTL_XE_VM_QUERY_MEM_RANGE_ATTRS ioctl. It describes memory attributes of
  * memory ranges within a user specified address range in a VM.
  *
  * The structure includes information such as atomic access policy,
@@ -2427,7 +2425,7 @@ struct drm_xe_mem_range_attr {
 };
 
 /**
- * struct drm_xe_vm_query_mem_range_attr - Input of &DRM_IOCTL_XE_VM_QUERY_MEM_ATTRIBUTES
+ * struct drm_xe_vm_query_mem_range_attr - Input of &DRM_IOCTL_XE_VM_QUERY_MEM_RANGE_ATTRS
  *
  * This structure is used to query memory attributes of memory regions
  * within a user specified address range in a VM. It provides detailed
@@ -2435,14 +2433,14 @@ struct drm_xe_mem_range_attr {
  * page attribute table (PAT) index, and preferred memory location.
  *
  * Userspace first calls the ioctl with @num_mem_ranges = 0,
- * @sizeof_mem_ranges_attr = 0 and @vector_of_vma_mem_attr = NULL to retrieve
+ * @sizeof_mem_range_attr = 0 and @vector_of_mem_attr = NULL to retrieve
  * the number of memory regions and size of each memory range attribute.
  * Then, it allocates a buffer of that size and calls the ioctl again to fill
  * the buffer with memory range attributes.
  *
  * If second call fails with -ENOSPC, it means memory ranges changed between
  * first call and now, retry IOCTL again with @num_mem_ranges = 0,
- * @sizeof_mem_ranges_attr = 0 and @vector_of_vma_mem_attr = NULL followed by
+ * @sizeof_mem_range_attr = 0 and @vector_of_mem_attr = NULL followed by
  * second ioctl call.
  *
  * Example:
