@@ -89,6 +89,14 @@
 		"DIP4", "USR_IO11", "", "", "SWITCH1", "", "", "";
 };
 
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
 &irqmux {
 	interrupt-map = <0 &plic 13>, <1 &plic 14>, <2 &plic 15>,
 			<3 &plic 16>, <4 &plic 17>, <5 &plic 18>,
@@ -131,14 +139,6 @@
 };
 
 &mbox {
-	status = "okay";
-};
-
-&i2c0 {
-	status = "okay";
-};
-
-&i2c1 {
 	status = "okay";
 };
 
