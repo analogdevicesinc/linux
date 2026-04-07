@@ -1317,6 +1317,15 @@ intel_dp_tmds_clock_valid(struct intel_dp *intel_dp,
 	return MODE_OK;
 }
 
+static int frl_required_bw(int clock, int bpc,
+			   enum intel_output_format sink_format)
+{
+	if (sink_format == INTEL_OUTPUT_FORMAT_YCBCR420)
+		clock /= 2;
+
+	return clock * bpc * 3;
+}
+
 static enum drm_mode_status
 intel_dp_mode_valid_downstream(struct intel_connector *connector,
 			       const struct drm_display_mode *mode,
@@ -1327,13 +1336,14 @@ intel_dp_mode_valid_downstream(struct intel_connector *connector,
 	enum drm_mode_status status;
 	enum intel_output_format sink_format;
 
+	sink_format = intel_dp_sink_format(connector, mode);
+
 	/* If PCON supports FRL MODE, check FRL bandwidth constraints */
 	if (intel_dp->dfp.pcon_max_frl_bw) {
-		int link_bpp_x16 = intel_dp_mode_min_link_bpp_x16(connector, mode);
-		int target_bw;
-		int max_frl_bw;
+		int target_bw, max_frl_bw;
 
-		target_bw = fxp_q4_to_int_roundup(link_bpp_x16) * target_clock;
+		/* Assume 8bpc for the FRL bandwidth check */
+		target_bw = frl_required_bw(target_clock, 8, sink_format);
 
 		max_frl_bw = intel_dp->dfp.pcon_max_frl_bw;
 
@@ -1349,8 +1359,6 @@ intel_dp_mode_valid_downstream(struct intel_connector *connector,
 	if (intel_dp->dfp.max_dotclock &&
 	    target_clock > intel_dp->dfp.max_dotclock)
 		return MODE_CLOCK_HIGH;
-
-	sink_format = intel_dp_sink_format(connector, mode);
 
 	/* Assume 8bpc for the DP++/HDMI/DVI TMDS clock check */
 	status = intel_dp_tmds_clock_valid(intel_dp, target_clock,
