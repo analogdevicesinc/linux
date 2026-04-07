@@ -80,6 +80,7 @@ i915-y += \
 	i915_display_pc8.o \
 	i915_dpt.o \
 	i915_dsb_buffer.o \
+	i915_fb_pin.o \
 	i915_hdcp_gsc.o \
 	i915_initial_plane.o \
 	i915_overlay.o \
@@ -279,7 +280,6 @@ i915-y += \
 	display/intel_drrs.o \
 	display/intel_dsb.o \
 	display/intel_fb.o \
-	display/intel_fb_pin.o \
 	display/intel_fbc.o \
 	display/intel_fdi.o \
 	display/intel_fifo_underrun.o \
