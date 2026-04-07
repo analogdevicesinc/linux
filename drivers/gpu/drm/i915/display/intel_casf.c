@@ -109,7 +109,7 @@ int intel_casf_compute_config(struct intel_crtc_state *crtc_state)
 	if (!HAS_CASF(display))
 		return 0;
 
-	if (crtc_state->uapi.sharpness_strength == 0) {
+	if (crtc_state->hw.sharpness_strength == 0) {
 		crtc_state->hw.casf_params.enable = false;
 		crtc_state->hw.casf_params.strength = 0;
 		return 0;
@@ -132,7 +132,7 @@ int intel_casf_compute_config(struct intel_crtc_state *crtc_state)
 	 * Also 85 + 16 = 101.
 	 */
 	crtc_state->hw.casf_params.strength =
-		min(crtc_state->uapi.sharpness_strength, 0xEF) + 0x10;
+		min(crtc_state->hw.sharpness_strength, 0xEF) + 0x10;
 
 	intel_casf_compute_win_size(crtc_state);
 

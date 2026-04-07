@@ -333,6 +333,7 @@ static void intel_crtc_copy_hw_to_uapi_state(struct intel_crtc_state *crtc_state
 
 	crtc_state->uapi.adjusted_mode = crtc_state->hw.adjusted_mode;
 	crtc_state->uapi.scaling_filter = crtc_state->hw.scaling_filter;
+	crtc_state->uapi.sharpness_strength = crtc_state->hw.sharpness_strength;
 
 	if (DISPLAY_INFO(display)->color.degamma_lut_size) {
 		/* assume 1:1 mapping */
