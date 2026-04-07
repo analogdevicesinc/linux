@@ -663,10 +663,16 @@ static bool check_local_vpod_integrity(struct amdgpu_device *adev)
 
 static void activate_accelerator(struct amdgpu_device *adev)
 {
+	int r;
+
 	if (adev->ualink.info->accel_state >= AMDGPU_UALINK_ACCEL_STATE_READY)
 		return;
 
-	adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_READY;
+	/* Enable incoming NPA address translation with VMID15 */
+	r = psp_ual_set_npa_config(&adev->psp, adev->ualink.psp_if_ver,
+				   15, true);
+	if (!r)
+		adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_READY;
 }
 
 static void deactivate_accelerator(struct amdgpu_device *adev)
@@ -674,6 +680,10 @@ static void deactivate_accelerator(struct amdgpu_device *adev)
 	if (adev->ualink.info->accel_state < AMDGPU_UALINK_ACCEL_STATE_READY)
 		return;
 
+	/* Disable incoming NPA address translation with VMID15 */
+	psp_ual_set_npa_config(&adev->psp, adev->ualink.psp_if_ver,
+			       15, false);
+	/* ignore return value */
 	adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_CONFIGURED;
 }
 
