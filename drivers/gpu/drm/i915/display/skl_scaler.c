@@ -323,19 +323,24 @@ int skl_update_scaler_plane(struct intel_crtc_state *crtc_state,
 				 need_scaler);
 }
 
+static bool scaler_has_casf(struct intel_display *display, int scaler_id)
+{
+	return HAS_CASF(display) && scaler_id == 1;
+}
+
 static int intel_allocate_scaler(struct intel_crtc_scaler_state *scaler_state,
 				 struct intel_crtc *crtc,
 				 struct intel_plane_state *plane_state,
 				 bool casf_scaler)
 {
+	struct intel_display *display = to_intel_display(crtc);
 	int i;
 
 	for (i = 0; i < crtc->num_scalers; i++) {
 		if (scaler_state->scalers[i].in_use)
 			continue;
 
-		/* CASF needs second scaler */
-		if (!plane_state && casf_scaler && i != 1)
+		if (casf_scaler && !scaler_has_casf(display, i))
 			continue;
 
 		scaler_state->scalers[i].in_use = true;
@@ -982,8 +987,7 @@ void skl_scaler_get_config(struct intel_crtc_state *crtc_state)
 
 		id = i;
 
-		/* Read CASF regs for second scaler */
-		if (HAS_CASF(display) && id == 1)
+		if (scaler_has_casf(display, i))
 			intel_casf_sharpness_get_config(crtc_state);
 
 		if (!crtc_state->pch_pfit.casf.enable)
