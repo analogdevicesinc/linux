@@ -709,6 +709,7 @@ int amdgpu_psp_irq_mgr_register(
 struct amdgpu_ualink_info;
 struct amdgpu_ualink_ppod_setup;
 struct amdgpu_ualink_vpod_config;
+struct amdgpu_ualink_station_config;
 
 int psp_ual_get_interface_version(struct psp_context *psp, uint32_t *intf_ver);
 
@@ -720,5 +721,8 @@ int psp_ual_set_ppod_config(struct psp_context *psp, uint32_t intf_ver,
 
 int psp_ual_set_vpod_config(struct psp_context *psp, uint32_t intf_ver,
 			    const struct amdgpu_ualink_vpod_config *config);
+
+int psp_ual_set_station_config(struct psp_context *psp, uint32_t intf_ver,
+			       const struct amdgpu_ualink_station_config *stations);
 
 #endif

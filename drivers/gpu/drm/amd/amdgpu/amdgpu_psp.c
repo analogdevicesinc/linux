@@ -841,6 +841,8 @@ static const char *psp_gfx_cmd_name(enum psp_gfx_cmd_id cmd_id)
 		return "UAL_SET_PPOD_CONFIG";
 	case GFX_CMD_ID_UAL_SET_VPOD_CONFIG:
 		return "UAL_SET_VPOD_CONFIG";
+	case GFX_CMD_ID_UAL_SET_STATION_CONFIG:
+		return "UAL_SET_STATION_CONFIG";
 	default:
 		return "UNKNOWN CMD";
 	}
@@ -1352,6 +1354,39 @@ int psp_ual_set_vpod_config(struct psp_context *psp, uint32_t intf_ver,
 		       DIV_ROUND_UP(AMDGPU_UALINK_ACCEL_MAX, 32), 0,
 		       (PSP_GFX_UAL_MAX_ACC_BIT_MASK -
 			DIV_ROUND_UP(AMDGPU_UALINK_ACCEL_MAX, 32)) * sizeof(u32));
+
+	ret = psp_cmd_submit_buf(psp, NULL, cmd, psp->fence_buf_mc_addr);
+
+	if (!ret && cmd->resp.status)
+		ret = -EINVAL;
+
+	release_psp_cmd_buf(psp);
+
+	return ret;
+}
+
+int psp_ual_set_station_config(struct psp_context *psp, uint32_t intf_ver,
+			       const struct amdgpu_ualink_station_config *stations)
+{
+	struct psp_gfx_cmd_resp *cmd;
+	int ret;
+
+	/* TBD check interface version 1.x */
+	if (intf_ver > 0x1ffff) {
+		pr_warn("PSP UAL interface version mismatch: 0x%x\n", intf_ver);
+		return -EOPNOTSUPP;
+	}
+
+	cmd = acquire_psp_cmd_buf(psp);
+
+	cmd->cmd_id = GFX_CMD_ID_UAL_SET_STATION_CONFIG;
+	cmd->cmd.cmd_set_station_config_ual.num_stations = stations->n_stations;
+	cmd->cmd.cmd_set_station_config_ual.station_flag = stations->flags;
+	memcpy(cmd->cmd.cmd_set_station_config_ual.lane_en_bitmap,
+	       stations->lane_en_bitmap,
+	       min(stations->n_stations,
+		   sizeof(cmd->cmd.cmd_set_station_config_ual.lane_en_bitmap)));
+	/* The remainder is already 0-initialized by acquire_psp_cmd_buf */
 
 	ret = psp_cmd_submit_buf(psp, NULL, cmd, psp->fence_buf_mc_addr);
 
