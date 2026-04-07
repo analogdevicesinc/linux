@@ -29,7 +29,7 @@ all_archs=(
 	sparc32 sparc64
 	m68k
 	sh4
-	parisc32
+	parisc32 parisc64
 	alpha
 	hexagon
 )
@@ -122,6 +122,7 @@ crosstool_arch() {
 	sparc*) echo sparc64;;
 	x32*) echo x86_64;;
 	parisc32) echo hppa;;
+	parisc64) echo hppa64;;
 	*) echo "$1";;
 	esac
 }
@@ -206,11 +207,14 @@ test_arch() {
 			exit 1
 	esac
 	printf '%-15s' "$arch:"
-	if [ "$llvm" = "1" ] && [ "$arch" = "m68k" -o "$arch" = "sh4" -o "$arch" = "openrisc" -o "$arch" = "parisc32" -o "$arch" = "alpha" ]; then
+	if [ "$llvm" = "1" ] && \
+	   [ "$arch" = "m68k" -o "$arch" = "sh4" -o "$arch" = "openrisc" \
+	     -o "$arch" == "parisc32" -o "$arch" == "parisc64" -o "$arch" = "alpha"  \
+	]; then
 		echo "Unsupported configuration"
 		return
 	fi
-	if [ "$test_mode" = "user" ] && [ "$arch" = "x32" ]; then
+	if [ "$test_mode" = "user" ] && [ "$arch" = "x32" -o "$arch" = "parisc64" ]; then
 		echo "Unsupported configuration"
 		return
 	fi
