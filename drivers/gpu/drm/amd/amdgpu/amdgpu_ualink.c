@@ -856,15 +856,19 @@ static ssize_t ualink_station_config_commit_store(struct kobject *kobj,
 	struct device *dev = kobj_to_dev(info->kobj.parent);
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct amdgpu_device *adev = drm_to_adev(ddev);
+	int r;
 
 	/* DF reconfiguration does not interact with accelerator state */
 
 	if (!sysfs_streq(buf, "true"))
 		return -EINVAL;
 
-	/* TODO: Send configuration to ASP */
-	(void)adev;
-	(void)stations;
+	r = psp_ual_set_station_config(&adev->psp, adev->ualink.psp_if_ver, stations);
+	if (r)
+		return r;
+	r = psp_ual_query_info(&adev->psp, adev->ualink.psp_if_ver, info);
+	if (r)
+		return r;
 
 	return count;
 }
