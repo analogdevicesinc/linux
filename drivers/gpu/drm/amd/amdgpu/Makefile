@@ -278,6 +278,9 @@ amdgpu-y += amdgpu_amdkfd.o
 # add gfx usermode queue
 amdgpu-y += amdgpu_userq.o
 
+# add UALink manager support
+amdgpu-y += amdgpu_ualink.o
+
 ifneq ($(CONFIG_HSA_AMD),)
 AMDKFD_PATH := ../amdkfd
 include $(FULL_AMD_PATH)/amdkfd/Makefile
