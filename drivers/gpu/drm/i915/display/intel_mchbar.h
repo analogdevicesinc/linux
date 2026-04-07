@@ -8,8 +8,9 @@
 
 #include <linux/types.h>
 
+#include <drm/intel/mchbar_regs.h>
+
 #include "i915_reg_defs.h"
-#include "intel_mchbar_regs.h"
 
 struct intel_display;
 
