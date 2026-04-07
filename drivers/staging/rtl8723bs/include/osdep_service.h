@@ -54,8 +54,6 @@
 
 extern int RTW_STATUS_CODE(int error_code);
 
-void _kfree(u8 *pbuf, u32 sz);
-
 int _rtw_netif_rx(struct net_device *ndev, struct sk_buff *skb);
 
 #define rtw_netif_rx(ndev, skb) _rtw_netif_rx(ndev, skb)
