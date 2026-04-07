@@ -304,6 +304,8 @@ properties:
       - shelly,sca07010-bfn-lnn
         # Starry KR070PE2T 7" WVGA TFT LCD panel
       - starry,kr070pe2t
+        # Startek KD070HDFLD092 7" WSVGA TFT LCD panel
+      - startek,kd070hdfld092
         # Startek KD070WVFPA043-C069A 7" TFT LCD panel
       - startek,kd070wvfpa
         # Team Source Display Technology TST043015CMHX 4.3" WQVGA TFT LCD panel
