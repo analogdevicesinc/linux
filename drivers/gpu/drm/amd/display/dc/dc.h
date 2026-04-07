@@ -1500,10 +1500,13 @@ union surface_update_flags {
 		uint32_t full_update:1;
 		uint32_t sdr_white_level_nits:1;
 		uint32_t cm_hist_change:1;
+		uint32_t reserved:2; /* adjust when adding new flags */
 	} bits;
 
 	uint32_t raw;
 };
+
+bool dc_check_address_only_update(union surface_update_flags update_flags);
 
 #define DC_REMOVE_PLANE_POINTERS 1
 
@@ -1883,34 +1886,6 @@ struct dc_scaling_info {
 	struct scaling_taps scaling_quality;
 };
 
-struct dc_fast_update {
-	const struct dc_flip_addrs *flip_addr;
-	const struct dc_gamma *gamma;
-	const struct colorspace_transform *gamut_remap_matrix;
-	const struct dc_csc_transform *input_csc_color_matrix;
-	const struct fixed31_32 *coeff_reduction_factor;
-	struct dc_transfer_func *out_transfer_func;
-	struct dc_csc_transform *output_csc_transform;
-	const struct dc_csc_transform *cursor_csc_color_matrix;
-#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
-	struct cm_hist_control *cm_hist_control;
-#endif
-	/* stream-level fast updates */
-	const struct colorspace_transform *gamut_remap;
-	const struct dc_cursor_attributes *cursor_attributes;
-	const struct dc_cursor_position *cursor_position;
-	const struct periodic_interrupt_config *periodic_interrupt;
-	const enum dc_dither_option *dither_option;
-	struct dc_info_packet *vrr_infopacket;
-	struct dc_info_packet *vsc_infopacket;
-	struct dc_info_packet *vsp_infopacket;
-	struct dc_info_packet *hfvsif_infopacket;
-	struct dc_info_packet *vtem_infopacket;
-	struct dc_info_packet *adaptive_sync_infopacket;
-	struct dc_info_packet *avi_infopacket;
-	struct dc_info_packet *hdr_static_metadata;
-};
-
 struct dc_surface_update {
 	struct dc_plane_state *surface;
 
@@ -2049,11 +2024,6 @@ bool dc_resource_is_dsc_encoding_supported(const struct dc *dc);
 void get_audio_check(struct audio_info *aud_modes,
 	struct audio_check *aud_chk);
 
-bool fast_nonaddr_updates_exist(struct dc_fast_update *fast_update, int surface_count);
-void populate_fast_updates(struct dc_fast_update *fast_update,
-		struct dc_surface_update *srf_updates,
-		int surface_count,
-		struct dc_stream_update *stream_update);
 /*
  * Set up streams and links associated to drive sinks
  * The streams parameter is an absolute set of all active streams.
