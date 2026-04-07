@@ -739,8 +739,127 @@ static const struct kobj_type ualink_vpod_config_ktype = {
 	.sysfs_ops = &kobj_sysfs_ops
 };
 
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+UALINK_VALUE_SHOW(station_config, flags, flags, "0x%x");
+
+UALINK_VALUE_STORE(station_config, flags, flags, u8, 16);
+
+static size_t lane_bitmap_to_string(char *str,
+		const struct amdgpu_ualink_station_config *stations)
+{
+	size_t i;
+
+	for (i = 0; i < stations->n_stations; i++)
+		str[i] = stations->lane_en_bitmap[i] +
+			(stations->lane_en_bitmap[i] < 10 ? '0' : 'a' - 10);
+	str[i] = '\0';
+
+	return i;
+}
+static ssize_t
+ualink_station_config_lane_en_bitmap_show(struct kobject *kobj,
+					  struct kobj_attribute *attr,
+					  char *buf)
+{
+	struct amdgpu_ualink_station_config *stations = to_ualink_station_config(kobj);
+	char str[AMDGPU_UALINK_STATIONS_MAX + 1];
+
+	lane_bitmap_to_string(str, stations);
+	return sysfs_emit(buf, "%s\n", str);
+}
+static ssize_t
+ualink_station_config_lane_en_bitmap_store(struct kobject *kobj,
+					   struct kobj_attribute *attr,
+					   const char *buf, size_t count)
+{
+	struct amdgpu_ualink_station_config *stations = to_ualink_station_config(kobj);
+	u8 lane_en_bitmap[AMDGPU_UALINK_STATIONS_MAX];
+	u32 n_stations = 0;
+	bool end = false;
+	size_t i;
+
+	for (i = 0; i < count; i++) {
+		/* Accept any number of \n in the end */
+		if (buf[i] == '\n') {
+			end = true;
+			continue;
+		}
+		/* Don't accept any more data after \n */
+		if (end)
+			return -EINVAL;
+		/* Don't accept more data than the array size */
+		if (i >= sizeof(lane_en_bitmap))
+			return -ENOSPC;
+		/* Accept hex digits */
+		if (buf[i] >= '0' && buf[i] <= '9')
+			lane_en_bitmap[n_stations++] = buf[i] - '0';
+		else if (buf[i] >= 'a' && buf[i] <= 'f')
+			lane_en_bitmap[n_stations++] = buf[i] + 10 - 'a';
+		else if (buf[i] >= 'A' && buf[i] <= 'F')
+			lane_en_bitmap[n_stations++] = buf[i] + 10 - 'A';
+		else
+			return -EINVAL;
+	}
+
+	memcpy(stations->lane_en_bitmap, lane_en_bitmap, sizeof(lane_en_bitmap));
+	stations->n_stations = n_stations;
+	return i;
+}
+
+static ssize_t ualink_station_config_commit_store(struct kobject *kobj,
+						  struct kobj_attribute *attr,
+						  const char *buf, size_t count)
+{
+	struct amdgpu_ualink_station_config *stations = to_ualink_station_config(kobj);
+	struct amdgpu_ualink_info *info = to_ualink_info(kobj->parent);
+	struct device *dev = kobj_to_dev(info->kobj.parent);
+	struct drm_device *ddev = dev_get_drvdata(dev);
+	struct amdgpu_device *adev = drm_to_adev(ddev);
+
+	/* DF reconfiguration does not interact with accelerator state */
+
+	if (!sysfs_streq(buf, "true"))
+		return -EINVAL;
+
+	/* TODO: Send configuration to ASP */
+	(void)adev;
+	(void)stations;
+
+	return count;
+}
+
+#define UALINK_STATION_CONFIG_ATTR(name) __ATTR(name, 0600,		\
+		ualink_station_config_##name##_show,			\
+		ualink_station_config_##name##_store)
+static struct kobj_attribute ualink_station_config_flags  = UALINK_STATION_CONFIG_ATTR(flags);
+static struct kobj_attribute ualink_station_config_lane_en_bitmap =
+							UALINK_STATION_CONFIG_ATTR(lane_en_bitmap);
+static struct kobj_attribute ualink_station_config_commit =
+				__ATTR(commit, 0200, NULL, ualink_station_config_commit_store);
+
+static const struct attribute *ualink_station_config_attrs[] = {
+	&ualink_station_config_flags.attr,
+	&ualink_station_config_lane_en_bitmap.attr,
+	&ualink_station_config_commit.attr,
+	NULL
+};
+#endif
+
+static void ualink_station_config_release(struct kobject *kobj)
+{
+	struct amdgpu_ualink_station_config *stations = to_ualink_station_config(kobj);
+
+	kfree(stations);
+}
+
+static const struct kobj_type ualink_station_config_ktype = {
+	.release = ualink_station_config_release,
+	.sysfs_ops = &kobj_sysfs_ops
+};
+
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
 {
+	struct amdgpu_ualink_station_config *stations = NULL;
 	struct amdgpu_ualink_vpod_config *vpod_config = NULL;
 	struct amdgpu_ualink_ppod_setup *ppod_setup = NULL;
 	struct amdgpu_ualink_info *info = NULL;
@@ -794,6 +913,22 @@ int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
 		goto err_del_vpod_config;
 #endif
 
+	stations = kzalloc(sizeof(*stations), GFP_KERNEL);
+	if (!stations) {
+		r = -ENOMEM;
+		goto err_remove_vpod_config_files;
+	}
+	r = kobject_init_and_add(&stations->kobj, &ualink_station_config_ktype,
+				 &info->kobj, "stations");
+	if (r)
+		goto err_put_stations;
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+	r = sysfs_create_files(&stations->kobj, ualink_station_config_attrs);
+	if (r)
+		goto err_del_stations;
+#endif
+
+	adev->ualink.stations = stations;
 	adev->ualink.config = vpod_config;
 	adev->ualink.setup = ppod_setup;
 	adev->ualink.info = info;
@@ -801,9 +936,17 @@ int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
 	return r;
 
 #ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-err_del_vpod_config:
-	kobject_del(&vpod_config->kobj);
+err_del_stations:
+	kobject_del(&stations->kobj);
 #endif
+err_put_stations:
+	kobject_put(&stations->kobj);
+err_remove_vpod_config_files:
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+	sysfs_remove_files(&vpod_config->kobj, ualink_vpod_config_attrs);
+err_del_vpod_config:
+#endif
+	kobject_del(&vpod_config->kobj);
 err_put_vpod_config:
 	kobject_put(&vpod_config->kobj);
 err_remove_ppod_setup_files:
@@ -825,6 +968,15 @@ err_put_info:
 
 void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev)
 {
+	if (adev->ualink.stations) {
+#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+		sysfs_remove_files(&adev->ualink.stations->kobj,
+				   ualink_station_config_attrs);
+#endif
+		kobject_del(&adev->ualink.stations->kobj);
+		kobject_put(&adev->ualink.stations->kobj);
+		adev->ualink.stations = NULL;
+	}
 	if (adev->ualink.config) {
 #ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
 		sysfs_remove_files(&adev->ualink.config->kobj,

@@ -33,6 +33,7 @@ struct amdgpu_device;
 
 #define AMDGPU_UALINK_ACCEL_MAX 256
 #define AMDGPU_UALINK_LOCAL_ACCELS_MAX 8
+#define AMDGPU_UALINK_STATIONS_MAX 64
 
 enum amdgpu_ualink_type {
 	AMDGPU_UALINK_TYPE_UALOE = 0,
@@ -104,10 +105,25 @@ struct amdgpu_ualink_vpod_config {
 };
 #define to_ualink_vpod_config(ko) container_of(ko, struct amdgpu_ualink_vpod_config, kobj)
 
+/* UALink station configuration */
+struct amdgpu_ualink_station_config {
+	struct kobject kobj;
+	/* Station configuration flags
+	 * bits [3:0]: PortPerStation (PPS) - 1, 2, or 4
+	 * bits [7:4]: Reserved
+	 */
+	u8 flags;
+	u8 n_stations;
+	/* bitmap or enabled lanes for each station in logical station order */
+	u8 lane_en_bitmap[AMDGPU_UALINK_STATIONS_MAX];
+};
+#define to_ualink_station_config(ko) container_of(ko, struct amdgpu_ualink_station_config, kobj)
+
 struct amdgpu_ualink_mgr {
 	struct amdgpu_ualink_info *info;
 	struct amdgpu_ualink_ppod_setup *setup;
 	struct amdgpu_ualink_vpod_config *config;
+	struct amdgpu_ualink_station_config *stations;
 };
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
