@@ -58,6 +58,13 @@ Entries specific to zPCI functions and entries that hold zPCI information.
 
   - /sys/bus/pci/slots/XXXXXXXX/power
 
+  In addition to using the FID as the name of the slot, the slot directory
+  also contains the following s390-specific slot attributes.
+
+  - uid:
+    The User-defined identifier (UID) of the function which may be configured
+    by this slot. See also the corresponding attribute of the device.
+
   A physical function that currently supports a virtual function cannot be
   powered off until all virtual functions are removed with:
   echo 0 > /sys/bus/pci/devices/DDDD:BB:dd.f/sriov_numvf
