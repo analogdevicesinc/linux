@@ -1045,7 +1045,7 @@ struct drm_xe_vm_destroy {
  *    set, no mappings are created rather the range is reserved for CPU address
  *    mirroring which will be populated on GPU page faults or prefetches. Only
  *    valid on VMs with DRM_XE_VM_CREATE_FLAG_FAULT_MODE set. The CPU address
- *    mirror flag are only valid for DRM_XE_VM_BIND_OP_MAP operations, the BO
+ *    mirror flag is only valid for DRM_XE_VM_BIND_OP_MAP operations, the BO
  *    handle MBZ, and the BO offset MBZ.
  *  - %DRM_XE_VM_BIND_FLAG_MADVISE_AUTORESET - Can be used in combination with
  *    %DRM_XE_VM_BIND_FLAG_CPU_ADDR_MIRROR to reset madvises when the underlying
@@ -1109,7 +1109,7 @@ struct drm_xe_vm_bind_op {
 	 *	ppGTT WT -> COH_NONE
 	 *	ppGTT WB -> COH_AT_LEAST_1WAY
 	 *
-	 * In practice UC/WC/WT should only ever used for scanout surfaces on
+	 * In practice UC/WC/WT should only ever be used for scanout surfaces on
 	 * such platforms (or perhaps in general for dma-buf if shared with
 	 * another device) since it is only the display engine that is actually
 	 * incoherent.  Everything else should typically use WB given that we
@@ -1366,7 +1366,7 @@ struct drm_xe_vm_get_property {
  *    drm_xe_pxp_session_type. %DRM_XE_PXP_TYPE_NONE is the default behavior, so
  *    there is no need to explicitly set that. When a queue of type
  *    %DRM_XE_PXP_TYPE_HWDRM is created, the PXP default HWDRM session
- *    (%XE_PXP_HWDRM_DEFAULT_SESSION) will be started, if isn't already running.
+ *    (%XE_PXP_HWDRM_DEFAULT_SESSION) will be started, if it isn't already running.
  *    The user is expected to query the PXP status via the query ioctl (see
  *    %DRM_XE_DEVICE_QUERY_PXP_STATUS) and to wait for PXP to be ready before
  *    attempting to create a queue with this property. When a queue is created
@@ -1546,7 +1546,7 @@ struct drm_xe_sync {
 #define DRM_XE_SYNC_TYPE_SYNCOBJ		0x0
 #define DRM_XE_SYNC_TYPE_TIMELINE_SYNCOBJ	0x1
 #define DRM_XE_SYNC_TYPE_USER_FENCE		0x2
-	/** @type: Type of the this sync object */
+	/** @type: Type of this sync object */
 	__u32 type;
 
 #define DRM_XE_SYNC_FLAG_SIGNAL	(1 << 0)
@@ -1559,9 +1559,9 @@ struct drm_xe_sync {
 
 		/**
 		 * @addr: Address of user fence. When sync is passed in via exec
-		 * IOCTL this is a GPU address in the VM. When sync passed in via
+		 * IOCTL this is a GPU address in the VM. When sync is passed in via
 		 * VM bind IOCTL this is a user pointer. In either case, it is
-		 * the users responsibility that this address is present and
+		 * the user's responsibility that this address is present and
 		 * mapped when the user fence is signalled. Must be qword
 		 * aligned.
 		 */
@@ -1664,7 +1664,7 @@ struct drm_xe_wait_user_fence {
 	__u64 extensions;
 
 	/**
-	 * @addr: user pointer address to wait on, must qword aligned
+	 * @addr: user pointer address to wait on, must be qword aligned
 	 */
 	__u64 addr;
 
@@ -1769,7 +1769,7 @@ enum drm_xe_observation_ioctls {
 	/** @DRM_XE_OBSERVATION_IOCTL_ENABLE: Enable data capture for an observation stream */
 	DRM_XE_OBSERVATION_IOCTL_ENABLE = _IO('i', 0x0),
 
-	/** @DRM_XE_OBSERVATION_IOCTL_DISABLE: Disable data capture for a observation stream */
+	/** @DRM_XE_OBSERVATION_IOCTL_DISABLE: Disable data capture for an observation stream */
 	DRM_XE_OBSERVATION_IOCTL_DISABLE = _IO('i', 0x1),
 
 	/** @DRM_XE_OBSERVATION_IOCTL_CONFIG: Change observation stream configuration */
@@ -2373,12 +2373,12 @@ struct drm_xe_madvise {
  *
  * This structure is provided by userspace and filled by KMD in response to the
  * DRM_IOCTL_XE_VM_QUERY_MEM_RANGES_ATTRS ioctl. It describes memory attributes of
- * a memory ranges within a user specified address range in a VM.
+ * memory ranges within a user specified address range in a VM.
  *
  * The structure includes information such as atomic access policy,
  * page attribute table (PAT) index, and preferred memory location.
  * Userspace allocates an array of these structures and passes a pointer to the
- * ioctl to retrieve attributes for each memory ranges
+ * ioctl to retrieve attributes for each memory range.
  *
  * @extensions: Pointer to the first extension struct, if any
  * @start: Start address of the memory range
@@ -2443,7 +2443,7 @@ struct drm_xe_mem_range_attr {
  * If second call fails with -ENOSPC, it means memory ranges changed between
  * first call and now, retry IOCTL again with @num_mem_ranges = 0,
  * @sizeof_mem_ranges_attr = 0 and @vector_of_vma_mem_attr = NULL followed by
- * Second ioctl call.
+ * second ioctl call.
  *
  * Example:
  *
