@@ -47,10 +47,6 @@
 #define BIT30	0x40000000
 #define BIT31	0x80000000
 #define BIT32	0x0100000000
-#define BIT33	0x0200000000
-#define BIT34	0x0400000000
-#define BIT35	0x0800000000
-#define BIT36	0x1000000000
 
 extern int RTW_STATUS_CODE(int error_code);
 
