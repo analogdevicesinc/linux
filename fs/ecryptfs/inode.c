@@ -771,15 +771,8 @@ static int truncate_upper(struct dentry *dentry, struct iattr *ia,
 	 */
 	num_zeros = PAGE_SIZE - (ia->ia_size & ~PAGE_MASK);
 	if (num_zeros) {
-		char *zeros_virt;
-
-		zeros_virt = kzalloc(num_zeros, GFP_KERNEL);
-		if (!zeros_virt) {
-			rc = -ENOMEM;
-			goto out;
-		}
-		rc = ecryptfs_write(inode, zeros_virt, ia->ia_size, num_zeros);
-		kfree(zeros_virt);
+		rc = ecryptfs_write(inode, page_address(ZERO_PAGE(0)),
+				ia->ia_size, num_zeros);
 		if (rc) {
 			pr_err("Error attempting to zero out the remainder of the end page on reducing truncate; rc = [%d]\n",
 				rc);
