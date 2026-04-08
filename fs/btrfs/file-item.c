@@ -8,7 +8,6 @@
 #include <linux/pagemap.h>
 #include <linux/highmem.h>
 #include <linux/sched/mm.h>
-#include <crypto/hash.h>
 #include "messages.h"
 #include "ctree.h"
 #include "disk-io.h"
@@ -309,6 +308,13 @@ static int search_csum_tree(struct btrfs_fs_info *fs_info,
 	/* Current item doesn't contain the desired range, search again */
 	btrfs_release_path(path);
 	csum_root = btrfs_csum_root(fs_info, disk_bytenr);
+	if (unlikely(!csum_root)) {
+		btrfs_err(fs_info,
+			  "missing csum root for extent at bytenr %llu",
+			  disk_bytenr);
+		return -EUCLEAN;
+	}
+
 	item = btrfs_lookup_csum(NULL, csum_root, path, disk_bytenr, 0);
 	if (IS_ERR(item)) {
 		ret = PTR_ERR(item);
@@ -769,7 +775,6 @@ static void csum_one_bio(struct btrfs_bio *bbio, struct bvec_iter *src)
 {
 	struct btrfs_inode *inode = bbio->inode;
 	struct btrfs_fs_info *fs_info = inode->root->fs_info;
-	SHASH_DESC_ON_STACK(shash, fs_info->csum_shash);
 	struct bio *bio = &bbio->bio;
 	struct btrfs_ordered_sum *sums = bbio->sums;
 	struct bvec_iter iter = *src;
@@ -780,8 +785,6 @@ static void csum_one_bio(struct btrfs_bio *bbio, struct bvec_iter *src)
 	phys_addr_t paddrs[BTRFS_MAX_BLOCKSIZE / PAGE_SIZE];
 	u32 offset = 0;
 	int index = 0;
-
-	shash->tfm = fs_info->csum_shash;
 
 	btrfs_bio_for_each_block(paddr, bio, &iter, step) {
 		paddrs[(offset / step) % nr_steps] = paddr;
@@ -1138,7 +1141,7 @@ again:
 	}
 	ret = PTR_ERR(item);
 	if (ret != -EFBIG && ret != -ENOENT)
-		goto out;
+		return ret;
 
 	if (ret == -EFBIG) {
 		u32 item_size;
@@ -1154,7 +1157,7 @@ again:
 		/* We didn't find a csum item, insert one. */
 		ret = find_next_csum_offset(root, path, &next_offset);
 		if (ret < 0)
-			goto out;
+			return ret;
 		found_next = 1;
 		goto insert;
 	}
@@ -1182,7 +1185,7 @@ again:
 				csum_size, 1);
 	path->search_for_extension = false;
 	if (ret < 0)
-		goto out;
+		return ret;
 
 	if (ret > 0) {
 		if (path->slots[0] == 0)
@@ -1238,14 +1241,14 @@ extend_csum:
 			    btrfs_header_nritems(path->nodes[0])) {
 				ret = find_next_csum_offset(root, path, &next_offset);
 				if (ret < 0)
-					goto out;
+					return ret;
 				found_next = 1;
 				goto insert;
 			}
 
 			ret = find_next_csum_offset(root, path, &next_offset);
 			if (ret < 0)
-				goto out;
+				return ret;
 
 			tmp = (next_offset - bytenr) >> fs_info->sectorsize_bits;
 			if (tmp <= INT_MAX)
@@ -1286,7 +1289,7 @@ insert:
 	ret = btrfs_insert_empty_item(trans, root, path, &file_key,
 				      ins_size);
 	if (ret < 0)
-		goto out;
+		return ret;
 	leaf = path->nodes[0];
 csum:
 	item = btrfs_item_ptr(leaf, path->slots[0], struct btrfs_csum_item);
@@ -1311,8 +1314,8 @@ found:
 		cond_resched();
 		goto again;
 	}
-out:
-	return ret;
+
+	return 0;
 }
 
 void btrfs_extent_item_to_extent_map(struct btrfs_inode *inode,

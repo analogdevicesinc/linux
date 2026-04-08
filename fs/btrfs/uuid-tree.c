@@ -199,6 +199,44 @@ int btrfs_uuid_tree_remove(struct btrfs_trans_handle *trans, const u8 *uuid, u8 
 	return 0;
 }
 
+/*
+ * Check if we can add one root ID to a UUID key.
+ * If the key does not yet exists, we can, otherwise only if extended item does
+ * not exceeds the maximum item size permitted by the leaf size.
+ *
+ * Returns 0 on success, negative value on error.
+ */
+int btrfs_uuid_tree_check_overflow(struct btrfs_fs_info *fs_info,
+				   const u8 *uuid, u8 type)
+{
+	BTRFS_PATH_AUTO_FREE(path);
+	int ret;
+	u32 item_size;
+	struct btrfs_key key;
+
+	if (WARN_ON_ONCE(!fs_info->uuid_root))
+		return -EINVAL;
+
+	path = btrfs_alloc_path();
+	if (!path)
+		return -ENOMEM;
+
+	btrfs_uuid_to_key(uuid, type, &key);
+	ret = btrfs_search_slot(NULL, fs_info->uuid_root, &key, path, 0, 0);
+	if (ret < 0)
+		return ret;
+	if (ret > 0)
+		return 0;
+
+	item_size = btrfs_item_size(path->nodes[0], path->slots[0]);
+
+	if (sizeof(struct btrfs_item) + item_size + sizeof(u64) >
+	    BTRFS_LEAF_DATA_SIZE(fs_info))
+		return -EOVERFLOW;
+
+	return 0;
+}
+
 static int btrfs_uuid_iter_rem(struct btrfs_root *uuid_root, u8 *uuid, u8 type,
 			       u64 subid)
 {
@@ -207,15 +245,11 @@ static int btrfs_uuid_iter_rem(struct btrfs_root *uuid_root, u8 *uuid, u8 type,
 
 	/* 1 - for the uuid item */
 	trans = btrfs_start_transaction(uuid_root, 1);
-	if (IS_ERR(trans)) {
-		ret = PTR_ERR(trans);
-		goto out;
-	}
+	if (IS_ERR(trans))
+		return PTR_ERR(trans);
 
 	ret = btrfs_uuid_tree_remove(trans, uuid, type, subid);
 	btrfs_end_transaction(trans);
-
-out:
 	return ret;
 }
 
@@ -235,14 +269,14 @@ static int btrfs_check_uuid_tree_entry(struct btrfs_fs_info *fs_info,
 
 	if (type != BTRFS_UUID_KEY_SUBVOL &&
 	    type != BTRFS_UUID_KEY_RECEIVED_SUBVOL)
-		goto out;
+		return 0;
 
 	subvol_root = btrfs_get_fs_root(fs_info, subvolid, true);
 	if (IS_ERR(subvol_root)) {
 		ret = PTR_ERR(subvol_root);
 		if (ret == -ENOENT)
-			ret = 1;
-		goto out;
+			return 1;
+		return ret;
 	}
 
 	switch (type) {
@@ -257,7 +291,7 @@ static int btrfs_check_uuid_tree_entry(struct btrfs_fs_info *fs_info,
 		break;
 	}
 	btrfs_put_root(subvol_root);
-out:
+
 	return ret;
 }
 
