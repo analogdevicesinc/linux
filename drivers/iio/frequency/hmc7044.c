@@ -226,6 +226,8 @@
 #define HMC7044_LOW_VCO_MAX_KHZ		2880000
 #define HMC7044_HIGH_VCO_MIN_KHZ	2650000
 #define HMC7044_HIGH_VCO_MAX_KHZ	3200000
+#define HMC7044_RECOMM_VCO_MIN_KHZ	2400000
+#define HMC7044_RECOMM_VCO_MAX_KHZ	3200000
 #define HMC7044_EXT_VCO_MIN_KHZ		800000
 #define HMC7044_EXT_VCO_MAX_KHZ		3200000
 #define HMC7044_EXT_VCO_LOW_THRESH_KHZ	1000000
@@ -899,11 +901,67 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	struct hmc7044_output *out = to_output(hw);
 	struct iio_dev *indio_dev = out->indio_dev;
 	struct hmc7044 *hmc = iio_priv(indio_dev);
-	unsigned int div;
+	unsigned long min_dev = ULONG_MAX;
+	unsigned long oldrate, newrate;
+	unsigned int div, div_avail;
+	unsigned long vcxo_freq;
+	unsigned long rate_best = 0;
+	unsigned long vco_best = 0;
 
+
+	mutex_lock(&hmc->lock);
+	vcxo_freq = hmc->vcxo_freq;
 	div = hmc7044_calc_out_div(hmc->pll2_freq, rate);
+	oldrate = DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+	mutex_unlock(&hmc->lock);
 
-	return DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+	if (out->address == hmc->pll2_output.address)
+		return hmc7044_pll2_recalc_rate(NULL, vcxo_freq, rate,
+						hmc->sync_through_pll2_force_r2_eq_1);
+
+	if (oldrate == rate)
+		return rate;
+
+	/* don't propagate rate change to parent*/
+	if (!(clk_hw_get_flags(hw) & CLK_SET_RATE_PARENT))
+		return oldrate;
+
+	/* find the best parent rate */
+	for (div = HMC7044_OUT_DIV_MIN; div <= HMC7044_OUT_DIV_MAX; div++) {
+		unsigned long vco_freq;
+		unsigned long deviation;
+
+		vco_freq = rate * div;
+		if (vco_freq < (HMC7044_RECOMM_VCO_MIN_KHZ * 1000UL))
+			continue;
+		if (vco_freq > (HMC7044_RECOMM_VCO_MAX_KHZ * 1000UL))
+			break;
+
+		div_avail = hmc7044_calc_out_div(vco_freq, rate);
+		if (div != div_avail)
+			continue;
+
+		/* get achievable freq. */
+		vco_freq = hmc7044_pll2_recalc_rate(NULL, vcxo_freq, vco_freq,
+						    hmc->sync_through_pll2_force_r2_eq_1);
+		div = hmc7044_calc_out_div(vco_freq, rate);
+		newrate = DIV_ROUND_CLOSEST(vco_freq, div);
+		if (newrate == rate) {
+			*parent_rate = vco_freq;
+			return newrate;
+		}
+
+		deviation = abs(rate - newrate);
+		if (deviation < min_dev) {
+			min_dev = deviation;
+			vco_best = vco_freq;
+			rate_best = newrate;
+		}
+	}
+
+	*parent_rate = vco_best;
+
+	return rate_best;
 }
 
 static int hmc7044_clk_set_rate(struct clk_hw *hw,
