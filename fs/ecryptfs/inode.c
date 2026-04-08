@@ -725,83 +725,88 @@ upper_size_to_lower_size(struct ecryptfs_crypt_stat *crypt_stat,
 static int truncate_upper(struct dentry *dentry, struct iattr *ia,
 			  struct iattr *lower_ia)
 {
-	int rc = 0;
 	struct inode *inode = d_inode(dentry);
 	struct ecryptfs_crypt_stat *crypt_stat;
 	loff_t i_size = i_size_read(inode);
 	loff_t lower_size_before_truncate;
 	loff_t lower_size_after_truncate;
+	size_t num_zeros;
+	int rc;
 
 	if (unlikely((ia->ia_size == i_size))) {
 		lower_ia->ia_valid &= ~ATTR_SIZE;
 		return 0;
 	}
+
 	rc = ecryptfs_get_lower_file(dentry, inode);
 	if (rc)
 		return rc;
-	crypt_stat = &ecryptfs_inode_to_private(d_inode(dentry))->crypt_stat;
-	/* Switch on growing or shrinking file */
+
 	if (ia->ia_size > i_size) {
 		char zero[] = { 0x00 };
 
+		/*
+		 * Write a single 0 at the last position of the file; this
+		 * triggers code that will fill in 0's throughout the
+		 * intermediate portion of the previous end of the file and the
+		 * new end of the file.
+		 */
+		rc = ecryptfs_write(inode, zero, ia->ia_size - 1, 1);
 		lower_ia->ia_valid &= ~ATTR_SIZE;
-		/* Write a single 0 at the last position of the file;
-		 * this triggers code that will fill in 0's throughout
-		 * the intermediate portion of the previous end of the
-		 * file and the new and of the file */
-		rc = ecryptfs_write(inode, zero,
-				    (ia->ia_size - 1), 1);
-	} else { /* ia->ia_size < i_size_read(inode) */
-		/* We're chopping off all the pages down to the page
-		 * in which ia->ia_size is located. Fill in the end of
-		 * that page from (ia->ia_size & ~PAGE_MASK) to
-		 * PAGE_SIZE with zeros. */
-		size_t num_zeros = (PAGE_SIZE
-				    - (ia->ia_size & ~PAGE_MASK));
+		goto out;
+	}
 
-		if (!(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
-			truncate_setsize(inode, ia->ia_size);
-			lower_ia->ia_size = ia->ia_size;
-			lower_ia->ia_valid |= ATTR_SIZE;
-			goto out;
-		}
-		if (num_zeros) {
-			char *zeros_virt;
-
-			zeros_virt = kzalloc(num_zeros, GFP_KERNEL);
-			if (!zeros_virt) {
-				rc = -ENOMEM;
-				goto out;
-			}
-			rc = ecryptfs_write(inode, zeros_virt,
-					    ia->ia_size, num_zeros);
-			kfree(zeros_virt);
-			if (rc) {
-				printk(KERN_ERR "Error attempting to zero out "
-				       "the remainder of the end page on "
-				       "reducing truncate; rc = [%d]\n", rc);
-				goto out;
-			}
-		}
+	crypt_stat = &ecryptfs_inode_to_private(d_inode(dentry))->crypt_stat;
+	if (!(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		truncate_setsize(inode, ia->ia_size);
-		rc = ecryptfs_write_inode_size_to_metadata(inode);
-		if (rc) {
-			printk(KERN_ERR	"Problem with "
-			       "ecryptfs_write_inode_size_to_metadata; "
-			       "rc = [%d]\n", rc);
+		lower_ia->ia_size = ia->ia_size;
+		lower_ia->ia_valid |= ATTR_SIZE;
+		goto out;
+	}
+
+	/*
+	 * We're chopping off all the pages down to the page in which
+	 * ia->ia_size is located. Fill in the end of that page from
+	 * (ia->ia_size & ~PAGE_MASK) to PAGE_SIZE with zeros.
+	 */
+	num_zeros = PAGE_SIZE - (ia->ia_size & ~PAGE_MASK);
+	if (num_zeros) {
+		char *zeros_virt;
+
+		zeros_virt = kzalloc(num_zeros, GFP_KERNEL);
+		if (!zeros_virt) {
+			rc = -ENOMEM;
 			goto out;
 		}
-		/* We are reducing the size of the ecryptfs file, and need to
-		 * know if we need to reduce the size of the lower file. */
-		lower_size_before_truncate =
-		    upper_size_to_lower_size(crypt_stat, i_size);
-		lower_size_after_truncate =
-		    upper_size_to_lower_size(crypt_stat, ia->ia_size);
-		if (lower_size_after_truncate < lower_size_before_truncate) {
-			lower_ia->ia_size = lower_size_after_truncate;
-			lower_ia->ia_valid |= ATTR_SIZE;
-		} else
-			lower_ia->ia_valid &= ~ATTR_SIZE;
+		rc = ecryptfs_write(inode, zeros_virt, ia->ia_size, num_zeros);
+		kfree(zeros_virt);
+		if (rc) {
+			pr_err("Error attempting to zero out the remainder of the end page on reducing truncate; rc = [%d]\n",
+				rc);
+			goto out;
+		}
+	}
+	truncate_setsize(inode, ia->ia_size);
+	rc = ecryptfs_write_inode_size_to_metadata(inode);
+	if (rc) {
+		pr_err("Problem with ecryptfs_write_inode_size_to_metadata; rc = [%d]\n",
+			rc);
+		goto out;
+	}
+
+	/*
+	 * We are reducing the size of the ecryptfs file, and need to know if we
+	 * need to reduce the size of the lower file.
+	 */
+	lower_size_before_truncate =
+		upper_size_to_lower_size(crypt_stat, i_size);
+	lower_size_after_truncate =
+		upper_size_to_lower_size(crypt_stat, ia->ia_size);
+	if (lower_size_after_truncate < lower_size_before_truncate) {
+		lower_ia->ia_size = lower_size_after_truncate;
+		lower_ia->ia_valid |= ATTR_SIZE;
+	} else {
+		lower_ia->ia_valid &= ~ATTR_SIZE;
 	}
 out:
 	ecryptfs_put_lower_file(inode);
