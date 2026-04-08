@@ -429,12 +429,19 @@ static void __init hv_smp_prepare_cpus(unsigned int max_cpus)
 	}
 
 #ifdef CONFIG_X86_64
+	/* If AP LPs exist, we are in a kexec'd kernel and VPs already exist */
+	if (num_present_cpus() == 1 || hv_lp_exists(1))
+		return;
+
 	for_each_present_cpu(i) {
 		if (i == 0)
 			continue;
 		ret = hv_call_add_logical_proc(numa_cpu_node(i), i, cpu_physical_id(i));
 		BUG_ON(ret);
 	}
+
+	ret = hv_call_notify_all_processors_started();
+	WARN_ON(ret);
 
 	for_each_present_cpu(i) {
 		if (i == 0)

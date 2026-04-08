@@ -362,11 +362,23 @@ union hv_partition_event_input {
 
 enum hv_partition_event {
 	HV_PARTITION_EVENT_ROOT_CRASHDUMP = 2,
+	HV_PARTITION_ALL_LOGICAL_PROCESSORS_STARTED = 4,
 };
 
 struct hv_input_notify_partition_event {
 	u32 event;      /* enum hv_partition_event */
 	union hv_partition_event_input input;
+} __packed;
+
+struct hv_input_get_logical_processor_run_time {
+	u32 lp_index;
+} __packed;
+
+struct hv_output_get_logical_processor_run_time {
+	u64 global_time;
+	u64 local_run_time;
+	u64 rsvdz0;
+	u64 hypervisor_time;
 } __packed;
 
 struct hv_lp_startup_status {
