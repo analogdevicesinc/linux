@@ -337,39 +337,6 @@ void alarm_init(struct alarm *alarm, enum alarmtimer_type type,
 EXPORT_SYMBOL_GPL(alarm_init);
 
 /**
- * alarm_start - Sets an absolute alarm to fire
- * @alarm: ptr to alarm to set
- * @start: time to run the alarm
- */
-void alarm_start(struct alarm *alarm, ktime_t start)
-{
-	struct alarm_base *base = &alarm_bases[alarm->type];
-
-	scoped_guard(spinlock_irqsave, &base->lock) {
-		alarm->node.expires = start;
-		alarmtimer_enqueue(base, alarm);
-		hrtimer_start(&alarm->timer, alarm->node.expires, HRTIMER_MODE_ABS);
-	}
-
-	trace_alarmtimer_start(alarm, base->get_ktime());
-}
-EXPORT_SYMBOL_GPL(alarm_start);
-
-/**
- * alarm_start_relative - Sets a relative alarm to fire
- * @alarm: ptr to alarm to set
- * @start: time relative to now to run the alarm
- */
-void alarm_start_relative(struct alarm *alarm, ktime_t start)
-{
-	struct alarm_base *base = &alarm_bases[alarm->type];
-
-	start = ktime_add_safe(start, base->get_ktime());
-	alarm_start(alarm, start);
-}
-EXPORT_SYMBOL_GPL(alarm_start_relative);
-
-/**
  * alarm_start_timer - Sets an alarm to fire
  * @alarm:	Pointer to alarm to set
  * @expires:	Expiry time
@@ -396,17 +363,6 @@ bool alarm_start_timer(struct alarm *alarm, ktime_t expires, bool relative)
 	return true;
 }
 EXPORT_SYMBOL_GPL(alarm_start_timer);
-
-void alarm_restart(struct alarm *alarm)
-{
-	struct alarm_base *base = &alarm_bases[alarm->type];
-
-	guard(spinlock_irqsave)(&base->lock);
-	hrtimer_set_expires(&alarm->timer, alarm->node.expires);
-	hrtimer_restart(&alarm->timer);
-	alarmtimer_enqueue(base, alarm);
-}
-EXPORT_SYMBOL_GPL(alarm_restart);
 
 /**
  * alarm_try_to_cancel - Tries to cancel an alarm timer
