@@ -767,7 +767,7 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 	    amdgpu_userq_input_va_validate(adev, queue, args->in.rptr_va, AMDGPU_GPU_PAGE_SIZE) ||
 	    amdgpu_userq_input_va_validate(adev, queue, args->in.wptr_va, AMDGPU_GPU_PAGE_SIZE)) {
 		r = -EINVAL;
-		goto free_queue;
+		goto clean_mapping;
 	}
 
 	/* Convert relative doorbell offset into absolute doorbell index */
@@ -775,7 +775,7 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 	if (index == (uint64_t)-EINVAL) {
 		drm_file_err(uq_mgr->file, "Failed to get doorbell for queue\n");
 		r = -EINVAL;
-		goto free_queue;
+		goto clean_mapping;
 	}
 
 	queue->doorbell_index = index;
@@ -783,7 +783,7 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 	r = amdgpu_userq_fence_driver_alloc(adev, &queue->fence_drv);
 	if (r) {
 		drm_file_err(uq_mgr->file, "Failed to alloc fence driver\n");
-		goto free_queue;
+		goto clean_mapping;
 	}
 
 	/*
@@ -857,7 +857,8 @@ clean_mqd:
 clean_fence_driver:
 	amdgpu_userq_fence_driver_free(queue);
 	mutex_unlock(&uq_mgr->userq_mutex);
-free_queue:
+clean_mapping:
+	amdgpu_userq_buffer_vas_list_cleanup(adev, queue);
 	kfree(queue);
 	return r;
 }
