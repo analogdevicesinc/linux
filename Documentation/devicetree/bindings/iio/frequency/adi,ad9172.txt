@@ -8,7 +8,6 @@ Required properties:
 	- clocks: a list of phandle, one for each entry in clock-names.
 	- clock-names: Must include the following entries:
 		"jesd_dac_clk", "dac_clk", "dac_sysref"
-	- adi,dac-rate-khz: The desired DAC rate in kHz
 	- adi,jesd-link-mode: The desired JESD204 Link Mode,
 		please refer to the AD917x datasheet.
 	- adi,dac-interpolation: The DAC or main datapath interpolation,
@@ -20,6 +19,9 @@ Required properties:
 
 
 Optional properties:
+	- adi,dac-rate-khz: The desired DAC rate in kHz. Setting 0 or omitting
+		enables auto calculation based on total interpolation and
+		dac_clk frequency.
 	- adi,jesd-subclass: The JESD204 subclass (0, 1).
 	- adi,clock-output-divider: Divide down DAC clock, supported
 		values (ratios) are 0 (disabled), 1, 2, 3.
