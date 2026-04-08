@@ -677,6 +677,20 @@ static const char *ecryptfs_get_link(struct dentry *dentry,
 	return buf;
 }
 
+static void ecryptfs_iattr_to_lower(struct iattr *lower_ia,
+		const struct iattr *ia)
+{
+	memcpy(lower_ia, ia, sizeof(*lower_ia));
+	if (ia->ia_valid & ATTR_FILE)
+		lower_ia->ia_file = ecryptfs_file_to_lower(ia->ia_file);
+	/*
+	 * If the mode change is for clearing setuid/setgid bits, allow the lower
+	 * file system to interpret this in its own way.
+	 */
+	if (lower_ia->ia_valid & (ATTR_KILL_SUID | ATTR_KILL_SGID))
+		lower_ia->ia_valid &= ~ATTR_MODE;
+}
+
 /**
  * upper_size_to_lower_size
  * @crypt_stat: Crypt_stat associated with file
@@ -921,21 +935,13 @@ static int ecryptfs_setattr(struct mnt_idmap *idmap,
 	if (rc)
 		goto out;
 
-	memcpy(&lower_ia, ia, sizeof(lower_ia));
-	if (ia->ia_valid & ATTR_FILE)
-		lower_ia.ia_file = ecryptfs_file_to_lower(ia->ia_file);
+	ecryptfs_iattr_to_lower(&lower_ia, ia);
 	if (ia->ia_valid & ATTR_SIZE) {
 		rc = truncate_upper(dentry, ia, &lower_ia);
 		if (rc < 0)
 			goto out;
 	}
 
-	/*
-	 * mode change is for clearing setuid/setgid bits. Allow lower fs
-	 * to interpret this in its own way.
-	 */
-	if (lower_ia.ia_valid & (ATTR_KILL_SUID | ATTR_KILL_SGID))
-		lower_ia.ia_valid &= ~ATTR_MODE;
 
 	inode_lock(d_inode(lower_dentry));
 	rc = notify_change(&nop_mnt_idmap, lower_dentry, &lower_ia, NULL);
