@@ -239,12 +239,11 @@ int amdgpu_userq_input_va_validate(struct amdgpu_device *adev,
 	u64 size;
 	int r = 0;
 
+	/* Caller must hold vm->root.bo reservation */
+	dma_resv_assert_held(queue->vm->root.bo->tbo.base.resv);
+
 	user_addr = (addr & AMDGPU_GMC_HOLE_MASK) >> AMDGPU_GPU_PAGE_SHIFT;
 	size = expected_size >> AMDGPU_GPU_PAGE_SHIFT;
-
-	r = amdgpu_bo_reserve(vm->root.bo, false);
-	if (r)
-		return r;
 
 	va_map = amdgpu_vm_bo_lookup_mapping(vm, user_addr);
 	if (!va_map) {
@@ -255,13 +254,11 @@ int amdgpu_userq_input_va_validate(struct amdgpu_device *adev,
 	if (user_addr >= va_map->start  &&
 	    va_map->last - user_addr + 1 >= size) {
 		amdgpu_userq_buffer_va_list_add(queue, va_map, user_addr);
-		amdgpu_bo_unreserve(vm->root.bo);
 		return 0;
 	}
 
 	r = -EINVAL;
 out_err:
-	amdgpu_bo_unreserve(vm->root.bo);
 	return r;
 }
 
@@ -773,13 +770,20 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 	db_info.doorbell_offset = args->in.doorbell_offset;
 
 	queue->userq_mgr = uq_mgr;
+
 	/* Validate the userq virtual address.*/
+	r = amdgpu_bo_reserve(fpriv->vm.root.bo, false);
+	if (r)
+		goto free_queue;
+
 	if (amdgpu_userq_input_va_validate(adev, queue, args->in.queue_va, args->in.queue_size) ||
 	    amdgpu_userq_input_va_validate(adev, queue, args->in.rptr_va, AMDGPU_GPU_PAGE_SIZE) ||
 	    amdgpu_userq_input_va_validate(adev, queue, args->in.wptr_va, AMDGPU_GPU_PAGE_SIZE)) {
 		r = -EINVAL;
+		amdgpu_bo_unreserve(fpriv->vm.root.bo);
 		goto clean_mapping;
 	}
+	amdgpu_bo_unreserve(fpriv->vm.root.bo);
 
 	/* Convert relative doorbell offset into absolute doorbell index */
 	index = amdgpu_userq_get_doorbell_index(uq_mgr, &db_info, filp);
@@ -863,6 +867,7 @@ clean_mapping:
 	amdgpu_bo_reserve(fpriv->vm.root.bo, true);
 	amdgpu_userq_buffer_vas_list_cleanup(adev, queue);
 	amdgpu_bo_unreserve(fpriv->vm.root.bo);
+free_queue:
 	kfree(queue);
 	return r;
 }
