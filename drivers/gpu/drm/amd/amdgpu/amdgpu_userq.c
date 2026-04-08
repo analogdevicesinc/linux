@@ -460,6 +460,15 @@ static void amdgpu_userq_cleanup(struct amdgpu_usermode_queue *queue)
 	up_read(&adev->reset_domain->sem);
 }
 
+/**
+ * amdgpu_userq_ensure_ev_fence - ensure a valid, unsignaled eviction fence exists
+ * @uq_mgr: the usermode queue manager for this process
+ * @evf_mgr: the eviction fence manager to check and rearm
+ *
+ * Ensures that a valid and not yet signaled eviction fence is attached to the
+ * usermode queue before any queue operations proceed. If it is signalled, then
+ * rearm a new eviction fence.
+ */
 void
 amdgpu_userq_ensure_ev_fence(struct amdgpu_userq_mgr *uq_mgr,
 			     struct amdgpu_eviction_fence_mgr *evf_mgr)
@@ -786,13 +795,6 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 		goto clean_mapping;
 	}
 
-	/*
-	 * There could be a situation that we are creating a new queue while
-	 * the other queues under this UQ_mgr are suspended. So if there is any
-	 * resume work pending, wait for it to get done.
-	 *
-	 * This will also make sure we have a valid eviction fence ready to be used.
-	 */
 	amdgpu_userq_ensure_ev_fence(&fpriv->userq_mgr, &fpriv->evf_mgr);
 
 	r = uq_funcs->mqd_create(queue, &args->in);
