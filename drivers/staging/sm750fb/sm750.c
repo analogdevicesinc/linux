@@ -531,7 +531,7 @@ static int lynxfb_ops_setcolreg(unsigned int regno,
 	var = &info->var;
 	ret = 0;
 
-	if (regno > 256) {
+	if (regno >= 256) {
 		dev_err(info->device, "regno = %d\n", regno);
 		return -EINVAL;
 	}
@@ -553,7 +553,7 @@ static int lynxfb_ops_setcolreg(unsigned int regno,
 		goto exit;
 	}
 
-	if (info->fix.visual == FB_VISUAL_TRUECOLOR && regno < 256) {
+	if (info->fix.visual == FB_VISUAL_TRUECOLOR) {
 		u32 val;
 
 		if (var->bits_per_pixel == 16 ||
