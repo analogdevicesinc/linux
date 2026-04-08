@@ -270,15 +270,13 @@ static bool amdgpu_userq_buffer_va_mapped(struct amdgpu_vm *vm, u64 addr)
 	struct amdgpu_bo_va_mapping *mapping;
 	bool r;
 
-	if (amdgpu_bo_reserve(vm->root.bo, false))
-		return false;
+	dma_resv_assert_held(vm->root.bo->tbo.base.resv);
 
 	mapping = amdgpu_vm_bo_lookup_mapping(vm, addr);
 	if (!IS_ERR_OR_NULL(mapping) && atomic_read(&mapping->bo_va->userq_va_mapped))
 		r = true;
 	else
 		r = false;
-	amdgpu_bo_unreserve(vm->root.bo);
 
 	return r;
 }
@@ -991,9 +989,15 @@ int amdgpu_userq_ioctl(struct drm_device *dev, void *data,
 static int
 amdgpu_userq_restore_all(struct amdgpu_userq_mgr *uq_mgr)
 {
+	struct amdgpu_fpriv *fpriv = uq_mgr_to_fpriv(uq_mgr);
+	struct amdgpu_vm *vm = &fpriv->vm;
 	struct amdgpu_usermode_queue *queue;
 	unsigned long queue_id;
 	int ret = 0, r;
+
+
+	if (amdgpu_bo_reserve(vm->root.bo, false))
+		return false;
 
 	mutex_lock(&uq_mgr->userq_mutex);
 	/* Resume all the queues for this process */
@@ -1012,6 +1016,7 @@ amdgpu_userq_restore_all(struct amdgpu_userq_mgr *uq_mgr)
 
 	}
 	mutex_unlock(&uq_mgr->userq_mutex);
+	amdgpu_bo_unreserve(vm->root.bo);
 
 	if (ret)
 		drm_file_err(uq_mgr->file,
