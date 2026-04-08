@@ -6217,7 +6217,12 @@ static bool raid5_make_request(struct mddev *mddev, struct bio * bi)
 
 	mempool_free(ctx, conf->ctx_pool);
 	if (res == STRIPE_WAIT_RESHAPE) {
-		md_free_cloned_bio(bi);
+		DECLARE_COMPLETION_ONSTACK(done);
+		WRITE_ONCE(bi->bi_private, &done);
+
+		bio_endio(bi);
+
+		wait_for_completion(&done);
 		return false;
 	}
 
