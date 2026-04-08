@@ -271,6 +271,12 @@ struct hmc7044_output {
 
 #define to_output(_hw) container_of(_hw, struct hmc7044_output, hw)
 
+struct hmc7044_pll2_config {
+	bool		pll2_freq_doubler_en;
+	unsigned long	n2;
+	unsigned long	r2;
+};
+
 struct hmc7044_chan_spec {
 	unsigned int		num;
 	bool			disable;
@@ -805,6 +811,64 @@ static long hmc7044_set_clk_attr(struct clk_hw *hw,
 	return hmc7044_write_raw(indio_dev, chan, val, 0, mask);
 }
 
+static unsigned long hmc7044_pll2_recalc_rate(unsigned long vcxo_freq,
+					      unsigned long pll2_freq,
+					      bool force_r2_eq_1,
+					      struct hmc7044_pll2_config *pll2)
+{
+	bool freq_doubler_en;
+	unsigned long n2[2], r2[2];
+	unsigned long pll2_act;
+	unsigned long r2_max;
+
+	vcxo_freq = vcxo_freq / 1000;
+	pll2_freq = pll2_freq / 1000;
+
+	if (pll2_freq < HMC7044_LOW_VCO_MIN  ||
+	    pll2_freq > HMC7044_HIGH_VCO_MAX)
+		return 0;
+
+	r2_max = force_r2_eq_1 ? 1 : HMC7044_R2_MAX;
+
+	/* fVCO / N2 = fVCXO * doubler / R2 */
+	freq_doubler_en = true;
+	rational_best_approximation(pll2_freq, vcxo_freq * 2,
+				    HMC7044_N2_MAX, r2_max,
+				    &n2[0], &r2[0]);
+
+	if (pll2_freq != vcxo_freq * n2[0] / r2[0]) {
+		rational_best_approximation(pll2_freq, vcxo_freq,
+					    HMC7044_N2_MAX, r2_max,
+					    &n2[1], &r2[1]);
+
+		if (abs((int)pll2_freq - (int)(vcxo_freq * 2 * n2[0] / r2[0])) >
+		    abs((int)pll2_freq - (int)(vcxo_freq * n2[1] / r2[1]))) {
+			n2[0] = n2[1];
+			r2[0] = r2[1];
+			freq_doubler_en = false;
+		}
+	}
+
+	while ((n2[0] < HMC7044_N2_MIN) && (r2[0] <= HMC7044_R2_MAX / 2)) {
+		n2[0] *= 2;
+		r2[0] *= 2;
+	}
+	if (n2[0] < HMC7044_N2_MIN)
+		return 0;
+
+	if (pll2) {
+		pll2->n2 = n2[0];
+		pll2->r2 = r2[0];
+		pll2->pll2_freq_doubler_en = freq_doubler_en;
+	}
+
+	pll2_act = vcxo_freq * n2[0] / r2[0];
+	if (freq_doubler_en)
+		pll2_act *= 2;
+
+	return pll2_act * 1000;
+}
+
 static unsigned long hmc7044_clk_recalc_rate(struct clk_hw *hw,
 					     unsigned long parent_rate)
 {
@@ -1002,8 +1066,8 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *chan;
+	struct hmc7044_pll2_config pll2;
 	bool high_vco_en;
-	bool pll2_freq_doubler_en;
 	unsigned long vcxo_freq, pll2_freq;
 	unsigned long clkin_freq[4];
 	unsigned long lcm_freq;
@@ -1013,7 +1077,6 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	unsigned long n, r;
 	unsigned long pfd1_freq;
 	unsigned long vco_limit;
-	unsigned long n2[2], r2[2];
 	unsigned int i, c, ref_en = 0;
 	int ret;
 
@@ -1094,32 +1157,9 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	else
 		high_vco_en = false;
 
-	/* fVCO / N2 = fVCXO * doubler / R2 */
-	pll2_freq_doubler_en = true;
-	rational_best_approximation(pll2_freq, vcxo_freq * 2,
-				    HMC7044_N2_MAX,
-				    hmc->sync_through_pll2_force_r2_eq_1 ? 1 : HMC7044_R2_MAX,
-				    &n2[0], &r2[0]);
-
-	if (pll2_freq != vcxo_freq * n2[0] / r2[0]) {
-		rational_best_approximation(pll2_freq, vcxo_freq,
-					    HMC7044_N2_MAX,
-					    hmc->sync_through_pll2_force_r2_eq_1 ? 1 : HMC7044_R2_MAX,
-					    &n2[1], &r2[1]);
-
-		if (abs((int)pll2_freq - (int)(vcxo_freq * 2 * n2[0] / r2[0])) >
-		    abs((int)pll2_freq - (int)(vcxo_freq * n2[1] / r2[1]))) {
-			n2[0] = n2[1];
-			r2[0] = r2[1];
-			pll2_freq_doubler_en = false;
-		}
-	}
-
-	while ((n2[0] < HMC7044_N2_MIN) && (r2[0] <= HMC7044_R2_MAX / 2)) {
-		n2[0] *= 2;
-		r2[0] *= 2;
-	}
-	if (n2[0] < HMC7044_N2_MIN)
+	ret = hmc7044_pll2_recalc_rate(hmc->vcxo_freq, hmc->pll2_freq,
+				       hmc->sync_through_pll2_force_r2_eq_1, &pll2);
+	if (ret == 0)
 		return -EINVAL;
 
 	/* Resets all registers to default values */
@@ -1210,25 +1250,25 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	/* Program the dividers */
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_R_LSB,
-		      HMC7044_R2_LSB(r2[0]));
+		      HMC7044_R2_LSB(pll2.r2));
 	if (ret)
 		return ret;
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_R_MSB,
-		      HMC7044_R2_MSB(r2[0]));
+		      HMC7044_R2_MSB(pll2.r2));
 	if (ret)
 		return ret;
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_N_LSB,
-		      HMC7044_N2_LSB(n2[0]));
+		      HMC7044_N2_LSB(pll2.n2));
 	if (ret)
 		return ret;
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_N_MSB,
-		      HMC7044_N2_MSB(n2[0]));
+		      HMC7044_N2_MSB(pll2.n2));
 	if (ret)
 		return ret;
 
 	/* Program the reference doubler */
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_FREQ_DOUBLER,
-		      pll2_freq_doubler_en ? 0 : HMC7044_PLL2_FREQ_DOUBLER_DIS);
+		      pll2.pll2_freq_doubler_en ? 0 : HMC7044_PLL2_FREQ_DOUBLER_DIS);
 	if (ret)
 		return ret;
 	/* Program PLL1 */
