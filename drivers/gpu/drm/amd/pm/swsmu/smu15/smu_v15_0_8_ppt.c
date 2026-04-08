@@ -1062,38 +1062,30 @@ static int smu_v15_0_8_set_driver_pptable(struct smu_context *smu)
 		smu_table->tables[SMU_TABLE_SMU_METRICS].version =
 			table_version;
 
-		pptable->MaxSocketPowerLimit =
-			SMUQ10_ROUND(static_metrics->MaxSocketPowerLimit);
-		pptable->MaxGfxclkFrequency =
-			SMUQ10_ROUND(static_metrics->MaxGfxclkFrequency);
-		pptable->MinGfxclkFrequency =
-			SMUQ10_ROUND(static_metrics->MinGfxclkFrequency);
-		pptable->MaxFclkFrequency =
-			SMUQ10_ROUND(static_metrics->MaxFclkFrequency);
-		pptable->MinFclkFrequency =
-			SMUQ10_ROUND(static_metrics->MinFclkFrequency);
-		pptable->MaxGl2clkFrequency =
-			SMUQ10_ROUND(static_metrics->MaxGl2clkFrequency);
-		pptable->MinGl2clkFrequency =
-			SMUQ10_ROUND(static_metrics->MinGl2clkFrequency);
+		pptable->MaxSocketPowerLimit = static_metrics->MaxSocketPowerLimit;
+		pptable->MaxGfxclkFrequency = static_metrics->MaxGfxclkFrequency;
+		pptable->MinGfxclkFrequency = static_metrics->MinGfxclkFrequency;
+		pptable->MaxFclkFrequency = static_metrics->MaxFclkFrequency;
+		pptable->MinFclkFrequency = static_metrics->MinFclkFrequency;
+		pptable->MaxGl2clkFrequency = static_metrics->MaxGl2clkFrequency;
+		pptable->MinGl2clkFrequency = static_metrics->MinGl2clkFrequency;
 
 		for (i = 0; i < ARRAY_SIZE(static_metrics->UclkFrequencyTable); ++i)
-			pptable->UclkFrequencyTable[i] =
-				SMUQ10_ROUND(static_metrics->UclkFrequencyTable[i]);
+			pptable->UclkFrequencyTable[i] = static_metrics->UclkFrequencyTable[i];
 
-		pptable->SocclkFrequency = SMUQ10_ROUND(static_metrics->SocclkFrequency);
-		pptable->LclkFrequency = SMUQ10_ROUND(static_metrics->LclkFrequency);
-		pptable->VclkFrequency = SMUQ10_ROUND(static_metrics->VclkFrequency);
-		pptable->DclkFrequency = SMUQ10_ROUND(static_metrics->DclkFrequency);
+		pptable->SocclkFrequency = static_metrics->SocclkFrequency;
+		pptable->LclkFrequency = static_metrics->LclkFrequency;
+		pptable->VclkFrequency = static_metrics->VclkFrequency;
+		pptable->DclkFrequency = static_metrics->DclkFrequency;
 
-		pptable->CTFLimitMID = SMUQ10_ROUND(static_metrics->CTFLimit_MID);
-		pptable->CTFLimitAID = SMUQ10_ROUND(static_metrics->CTFLimit_AID);
-		pptable->CTFLimitXCD = SMUQ10_ROUND(static_metrics->CTFLimit_XCD);
-		pptable->CTFLimitHBM = SMUQ10_ROUND(static_metrics->CTFLimit_HBM);
-		pptable->ThermalLimitMID = SMUQ10_ROUND(static_metrics->ThermalLimit_MID);
-		pptable->ThermalLimitAID = SMUQ10_ROUND(static_metrics->ThermalLimit_AID);
-		pptable->ThermalLimitXCD = SMUQ10_ROUND(static_metrics->ThermalLimit_XCD);
-		pptable->ThermalLimitHBM = SMUQ10_ROUND(static_metrics->ThermalLimit_HBM);
+		pptable->CTFLimitMID = static_metrics->CTFLimit_MID;
+		pptable->CTFLimitAID = static_metrics->CTFLimit_AID;
+		pptable->CTFLimitXCD = static_metrics->CTFLimit_XCD;
+		pptable->CTFLimitHBM = static_metrics->CTFLimit_HBM;
+		pptable->ThermalLimitMID = static_metrics->ThermalLimit_MID;
+		pptable->ThermalLimitAID = static_metrics->ThermalLimit_AID;
+		pptable->ThermalLimitXCD = static_metrics->ThermalLimit_XCD;
+		pptable->ThermalLimitHBM = static_metrics->ThermalLimit_HBM;
 
 		/* use MID0 serial number by default */
 		pptable->PublicSerialNumberMID =
