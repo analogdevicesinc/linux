@@ -45,7 +45,7 @@ static s32 rtw_alloc_hwxmits(struct adapter *padapter)
 	pxmitpriv->hwxmits = kzalloc_objs(*hwxmits, pxmitpriv->hwxmit_entry,
 					  GFP_ATOMIC);
 	if (!pxmitpriv->hwxmits)
-		return _FAIL;
+		return -ENOMEM;
 
 	hwxmits = pxmitpriv->hwxmits;
 
@@ -70,7 +70,7 @@ static s32 rtw_alloc_hwxmits(struct adapter *padapter)
 	} else {
 	}
 
-	return _SUCCESS;
+	return 0;
 }
 
 s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
@@ -287,7 +287,7 @@ s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
 	}
 
 	res = rtw_alloc_hwxmits(padapter);
-	if (res == _FAIL)
+	if (res)
 		return _FAIL;
 	rtw_init_hwxmits(pxmitpriv->hwxmits, pxmitpriv->hwxmit_entry);
 
