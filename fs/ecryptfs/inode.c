@@ -886,25 +886,23 @@ ecryptfs_permission(struct mnt_idmap *idmap, struct inode *inode,
 static int ecryptfs_setattr(struct mnt_idmap *idmap,
 			    struct dentry *dentry, struct iattr *ia)
 {
-	int rc = 0;
-	struct dentry *lower_dentry;
+	struct inode *inode = d_inode(dentry);
+	struct dentry *lower_dentry = ecryptfs_dentry_to_lower(dentry);
+	struct inode *lower_inode = ecryptfs_inode_to_lower(inode);
 	struct iattr lower_ia;
-	struct inode *inode;
-	struct inode *lower_inode;
 	struct ecryptfs_crypt_stat *crypt_stat;
+	int rc;
 
 	crypt_stat = &ecryptfs_inode_to_private(d_inode(dentry))->crypt_stat;
 	if (!(crypt_stat->flags & ECRYPTFS_STRUCT_INITIALIZED))
 		ecryptfs_init_crypt_stat(crypt_stat);
-	inode = d_inode(dentry);
-	lower_inode = ecryptfs_inode_to_lower(inode);
-	lower_dentry = ecryptfs_dentry_to_lower(dentry);
+
 	mutex_lock(&crypt_stat->cs_mutex);
 	if (d_is_dir(dentry))
 		crypt_stat->flags &= ~(ECRYPTFS_ENCRYPTED);
-	else if (d_is_reg(dentry)
-		 && (!(crypt_stat->flags & ECRYPTFS_POLICY_APPLIED)
-		     || !(crypt_stat->flags & ECRYPTFS_KEY_VALID))) {
+	else if (d_is_reg(dentry) &&
+		 (!(crypt_stat->flags & ECRYPTFS_POLICY_APPLIED) ||
+		  !(crypt_stat->flags & ECRYPTFS_KEY_VALID))) {
 		struct ecryptfs_mount_crypt_stat *mount_crypt_stat;
 
 		mount_crypt_stat = &ecryptfs_superblock_to_private(
@@ -917,8 +915,8 @@ static int ecryptfs_setattr(struct mnt_idmap *idmap,
 		rc = ecryptfs_read_metadata(dentry);
 		ecryptfs_put_lower_file(inode);
 		if (rc) {
-			if (!(mount_crypt_stat->flags
-			      & ECRYPTFS_PLAINTEXT_PASSTHROUGH_ENABLED)) {
+			if (!(mount_crypt_stat->flags &
+			      ECRYPTFS_PLAINTEXT_PASSTHROUGH_ENABLED)) {
 				rc = -EIO;
 				printk(KERN_WARNING "Either the lower file "
 				       "is not in a valid eCryptfs format, "
