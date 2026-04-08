@@ -293,8 +293,7 @@ static bool common_hrtimer_rearm(struct k_itimer *timr)
 	struct hrtimer *timer = &timr->it.real.timer;
 
 	timr->it_overrun += hrtimer_forward_now(timer, timr->it_interval);
-	hrtimer_restart(timer);
-	return true;
+	return hrtimer_start_expires_user(timer, HRTIMER_MODE_ABS);
 }
 
 static bool __posixtimer_deliver_signal(struct kernel_siginfo *info, struct k_itimer *timr)
@@ -829,9 +828,11 @@ static bool common_hrtimer_arm(struct k_itimer *timr, ktime_t expires,
 		expires = ktime_add_safe(expires, hrtimer_cb_get_time(timer));
 	hrtimer_set_expires(timer, expires);
 
-	if (!sigev_none)
-		hrtimer_start_expires(timer, HRTIMER_MODE_ABS);
-	return true;
+	/* For sigev_none pretend that the timer is queued */
+	if (sigev_none)
+		return true;
+
+	return hrtimer_start_expires_user(timer, HRTIMER_MODE_ABS);
 }
 
 static int common_hrtimer_try_to_cancel(struct k_itimer *timr)
