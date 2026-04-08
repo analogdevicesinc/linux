@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * (C) Copyright 2026 - Analog Devices, Inc.
+ */
+
+/dts-v1/;
+
+#include "sc598-som.dtsi"
+
+/ {
+	model = "ADI SC598-HTOL";
+	compatible = "adi,sc598-htol", "adi,sc59x-64";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_default>;
+	linux,rs485-enabled-at-boot-time;
+	rs485-rts-active-low;
+	rts-gpios = <&gpd 1 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+&uart2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_default>;
+	status = "okay";
+};
+
+&pinctrl0 {
+	uart1_default: uart1_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('D', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 5, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+
+	uart2_default: uart2_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('B', 11, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 12, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+};
+
+&gpb {
+	uart0-en {
+		gpio-hog;
+		gpios = <13 GPIO_ACTIVE_LOW>;
+		output-high;
+		line-name = "uart0-en";
+	};
+
+	uart0-flow-en {
+		gpio-hog;
+		gpios = <14 GPIO_ACTIVE_LOW>;
+		output-low;
+		line-name = "uart0-flow-en";
+	};
+};
+
+&gpe {
+	led1 {
+		gpio-hog;
+		gpios = <15 GPIO_ACTIVE_LOW>;
+		output-high;
+		line-name = "led1";
+	};
+
+	led2 {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_LOW>;
+		output-high;
+		line-name = "led2";
+	};
+};
+
+&emac0 {
+	phy-handle = <&adin1300>;
+	phy-mode = "rgmii-id";
+	pinctrl-names = "default";
+	pinctrl-0 = <&eth0_default>;
+	status = "okay";
+
+	mdio0 {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		adin1300: ethernet-phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <0>;
+		};
+	};
+};
+
+&mmc0 {
+	status = "disabled";
+};
+
+&spi2 {
+	som_flash: is25lp01g@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "issi,is25lp01g", "jedec,spi-nor";
+		reg = <0>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <10000000>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qspi_0@0 {
+				label = "u-boot-spl";
+				reg = <0x00000000 0x40000>;
+			};
+
+			qspi_1@40000 {
+				label = "u-boot";
+				reg = <0x00040000 0xC0000>;
+			};
+
+			qspi_2@100000 {
+				label = "kernel";
+				reg = <0x00100000 0x2000000>;
+			};
+
+			qspi_3@2100000 {
+				label = "rootfs";
+				reg = <0x02100000 0x5ef0000>;
+			};
+		};
+	};
+};
