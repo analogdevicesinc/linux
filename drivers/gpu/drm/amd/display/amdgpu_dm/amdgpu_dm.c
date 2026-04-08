@@ -2290,6 +2290,11 @@ static void amdgpu_dm_fini(struct amdgpu_device *adev)
 				      &adev->dm.dmub_bo_gpu_addr,
 				      &adev->dm.dmub_bo_cpu_addr);
 
+	if (adev->dm.boot_time_crc_info.bo_ptr)
+		amdgpu_bo_free_kernel(&adev->dm.boot_time_crc_info.bo_ptr,
+					&adev->dm.boot_time_crc_info.gpu_addr,
+					&adev->dm.boot_time_crc_info.cpu_addr);
+
 	if (adev->dm.hpd_rx_offload_wq && adev->dm.dc) {
 		for (i = 0; i < adev->dm.dc->caps.max_links; i++) {
 			if (adev->dm.hpd_rx_offload_wq[i].wq) {
@@ -2577,7 +2582,7 @@ static int dm_dmub_sw_init(struct amdgpu_device *adev)
 	fw_meta_info_params.fw_inst_const = adev->dm.dmub_fw->data +
 					    le32_to_cpu(hdr->header.ucode_array_offset_bytes) +
 					    PSP_HEADER_BYTES_256;
-	fw_meta_info_params.fw_bss_data = region_params.bss_data_size ? adev->dm.dmub_fw->data +
+	fw_meta_info_params.fw_bss_data = fw_meta_info_params.bss_data_size ? adev->dm.dmub_fw->data +
 					  le32_to_cpu(hdr->header.ucode_array_offset_bytes) +
 					  le32_to_cpu(hdr->inst_const_bytes) : NULL;
 	fw_meta_info_params.custom_psp_footer_size = 0;
@@ -2738,6 +2743,54 @@ static int detect_mst_link_for_all_connectors(struct drm_device *dev)
 	return ret;
 }
 
+static void amdgpu_dm_boot_time_crc_init(struct amdgpu_device *adev)
+{
+	struct dm_boot_time_crc_info *bootcrc_info = NULL;
+	struct dmub_srv *dmub = NULL;
+	union dmub_fw_boot_options option = {0};
+	int ret = 0;
+	const uint32_t fb_size = 3 * 1024 * 1024;	/* 3MB for DCC pattern */
+
+	if (!adev || !adev->dm.dc || !adev->dm.dc->ctx ||
+		!adev->dm.dc->ctx->dmub_srv) {
+		return;
+	}
+
+	dmub = adev->dm.dc->ctx->dmub_srv->dmub;
+	bootcrc_info = &adev->dm.boot_time_crc_info;
+
+	if (!dmub || !dmub->hw_funcs.get_fw_boot_option) {
+		drm_dbg(adev_to_drm(adev), "failed to init boot time crc buffer\n");
+		return;
+	}
+
+	option = dmub->hw_funcs.get_fw_boot_option(dmub);
+
+	/* Return if boot time CRC is not enabled */
+	if (option.bits.bootcrc_en_at_S0i3 == 0)
+		return;
+
+	/* Create a buffer for boot time CRC */
+	ret = amdgpu_bo_create_kernel(adev, fb_size, PAGE_SIZE,
+		AMDGPU_GEM_DOMAIN_VRAM | AMDGPU_GEM_DOMAIN_GTT,
+		&bootcrc_info->bo_ptr,
+		&bootcrc_info->gpu_addr,
+		&bootcrc_info->cpu_addr);
+
+	if (ret) {
+		drm_dbg(adev_to_drm(adev), "failed to create boot time crc buffer\n");
+	} else {
+		bootcrc_info->size = fb_size;
+
+		drm_dbg(adev_to_drm(adev), "boot time crc buffer created addr 0x%llx, size %u\n",
+			bootcrc_info->gpu_addr, bootcrc_info->size);
+
+		/* Send the buffer info to DMUB */
+		dc_dmub_srv_boot_time_crc_init(adev->dm.dc,
+			bootcrc_info->gpu_addr, bootcrc_info->size);
+	}
+}
+
 static int dm_late_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
@@ -2748,6 +2801,11 @@ static int dm_late_init(struct amdgpu_ip_block *ip_block)
 	struct dmcu *dmcu = NULL;
 
 	dmcu = adev->dm.dc->res_pool->dmcu;
+
+	/* Init the boot time CRC (skip in resume) */
+	if ((adev->in_suspend == 0) &&
+		(amdgpu_ip_version(adev, DCE_HWIP, 0) == IP_VERSION(3, 6, 0)))
+		amdgpu_dm_boot_time_crc_init(adev);
 
 	for (i = 0; i < 16; i++)
 		linear_lut[i] = 0xFFFF * i / 15;
@@ -3225,6 +3283,7 @@ static int dm_suspend(struct amdgpu_ip_block *ip_block)
 
 		mutex_lock(&dm->dc_lock);
 
+		amdgpu_dm_ism_disable(dm);
 		dc_allow_idle_optimizations(adev->dm.dc, false);
 
 		dm->cached_dc_state = dc_state_create_copy(dm->dc->current_state);
@@ -3257,6 +3316,9 @@ static int dm_suspend(struct amdgpu_ip_block *ip_block)
 	s3_handle_mst(adev_to_drm(adev), true);
 
 	amdgpu_dm_irq_suspend(adev);
+
+	scoped_guard(mutex, &dm->dc_lock)
+		amdgpu_dm_ism_disable(dm);
 
 	hpd_rx_irq_work_suspend(dm);
 
@@ -3548,6 +3610,7 @@ static int dm_resume(struct amdgpu_ip_block *ip_block)
 
 		dc_resume(dm->dc);
 
+		amdgpu_dm_ism_enable(dm);
 		amdgpu_dm_irq_resume_early(adev);
 
 		for (i = 0; i < dc_state->stream_count; i++) {
@@ -3607,6 +3670,9 @@ static int dm_resume(struct amdgpu_ip_block *ip_block)
 
 	/* program HPD filter */
 	dc_resume(dm->dc);
+
+	scoped_guard(mutex, &dm->dc_lock)
+		amdgpu_dm_ism_enable(dm);
 
 	/*
 	 * early enable HPD Rx IRQ, should be done before set mode as short
@@ -3936,8 +4002,9 @@ void amdgpu_dm_update_connector_after_detect(
 
 		aconnector->dc_sink = sink;
 		dc_sink_retain(aconnector->dc_sink);
+		drm_edid_free(aconnector->drm_edid);
+		aconnector->drm_edid = NULL;
 		if (sink->dc_edid.length == 0) {
-			aconnector->drm_edid = NULL;
 			hdmi_cec_unset_edid(aconnector);
 			if (aconnector->dc_link->aux_mode) {
 				drm_dp_cec_unset_edid(&aconnector->dm_dp_aux.aux);
@@ -4846,14 +4913,37 @@ static void dm_atomic_destroy_state(struct drm_private_obj *obj,
 	kfree(dm_state);
 }
 
+static struct drm_private_state *
+dm_atomic_create_state(struct drm_private_obj *obj)
+{
+	struct amdgpu_device *adev = drm_to_adev(obj->dev);
+	struct dm_atomic_state *dm_state;
+	struct dc_state *context;
+
+	dm_state = kzalloc_obj(*dm_state);
+	if (!dm_state)
+		return ERR_PTR(-ENOMEM);
+
+	context = dc_state_create_current_copy(adev->dm.dc);
+	if (!context) {
+		kfree(dm_state);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	__drm_atomic_helper_private_obj_create_state(obj, &dm_state->base);
+	dm_state->context = context;
+
+	return &dm_state->base;
+}
+
 static struct drm_private_state_funcs dm_atomic_state_funcs = {
+	.atomic_create_state = dm_atomic_create_state,
 	.atomic_duplicate_state = dm_atomic_duplicate_state,
 	.atomic_destroy_state = dm_atomic_destroy_state,
 };
 
 static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
 {
-	struct dm_atomic_state *state;
 	int r;
 
 	adev->mode_info.mode_config_initialized = true;
@@ -4873,42 +4963,22 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
 	/* indicates support for immediate flip */
 	adev_to_drm(adev)->mode_config.async_page_flip = true;
 
-	state = kzalloc_obj(*state);
-	if (!state)
-		return -ENOMEM;
-
-	state->context = dc_state_create_current_copy(adev->dm.dc);
-	if (!state->context) {
-		kfree(state);
-		return -ENOMEM;
-	}
-
 	drm_atomic_private_obj_init(adev_to_drm(adev),
 				    &adev->dm.atomic_obj,
-				    &state->base,
 				    &dm_atomic_state_funcs);
 
 	r = amdgpu_display_modeset_create_props(adev);
-	if (r) {
-		dc_state_release(state->context);
-		kfree(state);
+	if (r)
 		return r;
-	}
 
 #ifdef AMD_PRIVATE_COLOR
-	if (amdgpu_dm_create_color_properties(adev)) {
-		dc_state_release(state->context);
-		kfree(state);
+	if (amdgpu_dm_create_color_properties(adev))
 		return -ENOMEM;
-	}
 #endif
 
 	r = amdgpu_dm_audio_init(adev);
-	if (r) {
-		dc_state_release(state->context);
-		kfree(state);
+	if (r)
 		return r;
-	}
 
 	return 0;
 }
@@ -5359,7 +5429,7 @@ static void setup_backlight_device(struct amdgpu_display_manager *dm,
 	caps = &dm->backlight_caps[aconnector->bl_idx];
 
 	/* Only offer ABM property when non-OLED and user didn't turn off by module parameter */
-	if (!caps->ext_caps->bits.oled && amdgpu_dm_abm_level < 0)
+	if (caps->ext_caps && !caps->ext_caps->bits.oled && amdgpu_dm_abm_level < 0)
 		drm_object_attach_property(&aconnector->base.base,
 					   dm->adev->mode_info.abm_level_property,
 					   ABM_SYSFS_CONTROL);
@@ -5519,6 +5589,7 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
 		case IP_VERSION(3, 5, 0):
 		case IP_VERSION(3, 5, 1):
 		case IP_VERSION(3, 6, 0):
+		case IP_VERSION(4, 2, 0):
 			replay_feature_enabled = true;
 			break;
 
@@ -6659,11 +6730,11 @@ static void fill_stream_properties_from_drm_display_mode(
 			&& aconnector
 			&& aconnector->force_yuv420_output)
 		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR420;
-	else if ((connector->display_info.color_formats & DRM_COLOR_FORMAT_YCBCR422)
+	else if ((connector->display_info.color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422))
 			&& aconnector
 			&& aconnector->force_yuv422_output)
 		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR422;
-	else if ((connector->display_info.color_formats & DRM_COLOR_FORMAT_YCBCR444)
+	else if ((connector->display_info.color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444))
 			&& stream->signal == SIGNAL_TYPE_HDMI_TYPE_A)
 		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR444;
 	else
@@ -9271,31 +9342,7 @@ static void manage_dm_interrupts(struct amdgpu_device *adev,
 	if (acrtc_state) {
 		timing = &acrtc_state->stream->timing;
 
-		/*
-		 * Depending on when the HW latching event of double-buffered
-		 * registers happen relative to the PSR SDP deadline, and how
-		 * bad the Panel clock has drifted since the last ALPM off
-		 * event, there can be up to 3 frames of delay between sending
-		 * the PSR exit cmd to DMUB fw, and when the panel starts
-		 * displaying live frames.
-		 *
-		 * We can set:
-		 *
-		 * 20/100 * offdelay_ms = 3_frames_ms
-		 * => offdelay_ms = 5 * 3_frames_ms
-		 *
-		 * This ensures that `3_frames_ms` will only be experienced as a
-		 * 20% delay on top how long the display has been static, and
-		 * thus make the delay less perceivable.
-		 */
-		if (acrtc_state->stream->link->psr_settings.psr_version <
-		    DC_PSR_VERSION_UNSUPPORTED) {
-			offdelay = DIV64_U64_ROUND_UP((u64)5 * 3 * 10 *
-						      timing->v_total *
-						      timing->h_total,
-						      timing->pix_clk_100hz);
-			config.offdelay_ms = offdelay ?: 30;
-		} else if (amdgpu_ip_version(adev, DCE_HWIP, 0) <
+		if (amdgpu_ip_version(adev, DCE_HWIP, 0) <
 			   IP_VERSION(3, 5, 0) ||
 			   !(adev->flags & AMD_IS_APU)) {
 			/*
@@ -9840,7 +9887,8 @@ static void amdgpu_dm_enable_self_refresh(struct amdgpu_crtc *acrtc_attach,
 		 * a vblank event disable request to enable PSR/RP. PSR SU/RP
 		 * can be enabled immediately once OS demonstrates an
 		 * adequate number of fast atomic commits to notify KMD
-		 * of update events. See `vblank_control_worker()`.
+		 * of update events.
+		 * See `amdgpu_dm_crtc_vblank_control_worker()`.
 		 */
 		if (!vrr_active &&
 		    acrtc_attach->dm_irq_params.allow_sr_entry &&
@@ -10008,8 +10056,9 @@ static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
 			/*
 			 * If the dirty regions changed, PSR-SU need to be disabled temporarily
 			 * and enabled it again after dirty regions are stable to avoid video glitch.
-			 * PSR-SU will be enabled in vblank_control_worker() if user pause the video
-			 * during the PSR-SU was disabled.
+			 * PSR-SU will be enabled in
+			 * amdgpu_dm_crtc_vblank_control_worker() if user
+			 * pause the video during the PSR-SU was disabled.
 			 */
 			if (acrtc_state->stream->link->psr_settings.psr_version >= DC_PSR_VERSION_SU_1 &&
 			    acrtc_attach->dm_irq_params.allow_sr_entry &&
@@ -12471,6 +12520,11 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
 
 	if (dc_resource_is_dsc_encoding_supported(dc)) {
 		for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
+			dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
+			dm_new_crtc_state->mode_changed_independent_from_dsc = new_crtc_state->mode_changed;
+		}
+
+		for_each_oldnew_crtc_in_state(state, crtc, old_crtc_state, new_crtc_state, i) {
 			if (drm_atomic_crtc_needs_modeset(new_crtc_state)) {
 				ret = add_affected_mst_dsc_crtcs(state, crtc);
 				if (ret) {
@@ -13067,7 +13121,7 @@ static void parse_edid_displayid_vrr(struct drm_connector *connector,
 	u16 min_vfreq;
 	u16 max_vfreq;
 
-	if (edid == NULL || edid->extensions == 0)
+	if (!edid || !edid->extensions)
 		return;
 
 	/* Find DisplayID extension */
@@ -13077,7 +13131,7 @@ static void parse_edid_displayid_vrr(struct drm_connector *connector,
 			break;
 	}
 
-	if (edid_ext == NULL)
+	if (i == edid->extensions)
 		return;
 
 	while (j < EDID_LENGTH) {

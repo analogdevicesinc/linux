@@ -63,7 +63,7 @@ struct dcn_dsc_reg_state;
 struct dcn_optc_reg_state;
 struct dcn_dccg_reg_state;
 
-#define DC_VER "3.2.373"
+#define DC_VER "3.2.376"
 
 /**
  * MAX_SURFACES - representative of the upper bound of surfaces that can be piped to a single CRTC
@@ -520,7 +520,7 @@ struct dc_config {
 	union allow_lttpr_non_transparent_mode allow_lttpr_non_transparent_mode;
 	bool multi_mon_pp_mclk_switch;
 	bool disable_dmcu;
-	bool enable_4to1MPC;
+	bool allow_4to1MPC;
 	bool enable_windowed_mpo_odm;
 	bool forceHBR2CP2520; // Used for switching between test patterns TPS4 and CP2520
 	uint32_t allow_edp_hotplug_detection;
@@ -1215,6 +1215,7 @@ struct dc_debug_options {
 	bool enable_dmu_recovery;
 	unsigned int force_vmin_threshold;
 	bool enable_otg_frame_sync_pwa;
+	unsigned int min_deep_sleep_dcfclk_khz;
 };
 
 
@@ -1888,7 +1889,9 @@ struct dc_fast_update {
 	struct dc_transfer_func *out_transfer_func;
 	struct dc_csc_transform *output_csc_transform;
 	const struct dc_csc_transform *cursor_csc_color_matrix;
+#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 	struct cm_hist_control *cm_hist_control;
+#endif
 };
 
 struct dc_surface_update {
@@ -1969,6 +1972,15 @@ void dc_plane_cm_retain(struct dc_plane_cm *cm);
 
 void dc_post_update_surfaces_to_stream(
 		struct dc *dc);
+
+/*
+ * dc_get_default_tiling_info() - Retrieve an ASIC-appropriate default tiling
+ * description for (typically) linear surfaces.
+ *
+ * This is used by OS/DM paths that need a valid, fully-initialized tiling
+ * description without hardcoding gfx-version specifics in the caller.
+ */
+void dc_get_default_tiling_info(const struct dc *dc, struct dc_tiling_info *tiling_info);
 
 /**
  * struct dc_validation_set - Struct to store surface/stream associations for validation
@@ -2068,7 +2080,7 @@ bool dc_get_edp_link_panel_inst(const struct dc *dc,
 /* Return an array of link pointers to edp links. */
 void dc_get_edp_links(const struct dc *dc,
 		struct dc_link **edp_links,
-		int *edp_num);
+		unsigned int *edp_num);
 
 void dc_set_edp_power(const struct dc *dc, struct dc_link *edp_link,
 				 bool powerOn);

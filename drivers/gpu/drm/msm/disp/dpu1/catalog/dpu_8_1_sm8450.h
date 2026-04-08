@@ -134,7 +134,7 @@ static const struct dpu_sspp_cfg sm8450_sspp[] = {
 static const struct dpu_lm_cfg sm8450_lm[] = {
 	{
 		.name = "lm_0", .id = LM_0,
-		.base = 0x44000, .len = 0x320,
+		.base = 0x44000, .len = 0x400,
 		.features = MIXER_MSM8998_MASK,
 		.sblk = &sdm845_lm_sblk,
 		.lm_pair = LM_1,
@@ -142,7 +142,7 @@ static const struct dpu_lm_cfg sm8450_lm[] = {
 		.dspp = DSPP_0,
 	}, {
 		.name = "lm_1", .id = LM_1,
-		.base = 0x45000, .len = 0x320,
+		.base = 0x45000, .len = 0x400,
 		.features = MIXER_MSM8998_MASK,
 		.sblk = &sdm845_lm_sblk,
 		.lm_pair = LM_0,
@@ -150,7 +150,7 @@ static const struct dpu_lm_cfg sm8450_lm[] = {
 		.dspp = DSPP_1,
 	}, {
 		.name = "lm_2", .id = LM_2,
-		.base = 0x46000, .len = 0x320,
+		.base = 0x46000, .len = 0x400,
 		.features = MIXER_MSM8998_MASK,
 		.sblk = &sdm845_lm_sblk,
 		.lm_pair = LM_3,
@@ -158,7 +158,7 @@ static const struct dpu_lm_cfg sm8450_lm[] = {
 		.dspp = DSPP_2,
 	}, {
 		.name = "lm_3", .id = LM_3,
-		.base = 0x47000, .len = 0x320,
+		.base = 0x47000, .len = 0x400,
 		.features = MIXER_MSM8998_MASK,
 		.sblk = &sdm845_lm_sblk,
 		.lm_pair = LM_2,
@@ -166,14 +166,14 @@ static const struct dpu_lm_cfg sm8450_lm[] = {
 		.dspp = DSPP_3,
 	}, {
 		.name = "lm_4", .id = LM_4,
-		.base = 0x48000, .len = 0x320,
+		.base = 0x48000, .len = 0x400,
 		.features = MIXER_MSM8998_MASK,
 		.sblk = &sdm845_lm_sblk,
 		.lm_pair = LM_5,
 		.pingpong = PINGPONG_4,
 	}, {
 		.name = "lm_5", .id = LM_5,
-		.base = 0x49000, .len = 0x320,
+		.base = 0x49000, .len = 0x400,
 		.features = MIXER_MSM8998_MASK,
 		.sblk = &sdm845_lm_sblk,
 		.lm_pair = LM_4,
@@ -303,7 +303,6 @@ static const struct dpu_wb_cfg sm8450_wb[] = {
 		.num_formats = ARRAY_SIZE(wb2_formats_rgb_yuv),
 		.clk_ctrl = DPU_CLK_CTRL_WB2,
 		.xin_id = 6,
-		.vbif_idx = VBIF_RT,
 		.maxlinewidth = 4096,
 		.intr_wb_done = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 4),
 	},
@@ -340,7 +339,7 @@ static const struct dpu_intf_cfg sm8450_intf[] = {
 		.name = "intf_3", .id = INTF_3,
 		.base = 0x37000, .len = 0x280,
 		.type = INTF_DP,
-		.controller_id = MSM_DP_CONTROLLER_1,
+		.controller_id = MSM_DP_CONTROLLER_0,	/* pair with intf_0 for DP MST */
 		.prog_fetch_lines_worst_case = 24,
 		.intr_underrun = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 30),
 		.intr_vsync = DPU_IRQ_IDX(MDP_SSPP_TOP0_INTR, 31),
@@ -405,8 +404,7 @@ const struct dpu_mdss_cfg dpu_sm8450_cfg = {
 	.wb = sm8450_wb,
 	.intf_count = ARRAY_SIZE(sm8450_intf),
 	.intf = sm8450_intf,
-	.vbif_count = ARRAY_SIZE(sdm845_vbif),
-	.vbif = sdm845_vbif,
+	.vbif = &sdm845_vbif,
 	.perf = &sm8450_perf_data,
 };
 

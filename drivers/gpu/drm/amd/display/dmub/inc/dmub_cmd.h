@@ -4437,6 +4437,7 @@ enum dmub_cmd_replay_general_subtype {
 	REPLAY_GENERAL_CMD_VIDEO_CONFERENCING,
 	REPLAY_GENERAL_CMD_SET_CONTINUOUSLY_RESYNC,
 	REPLAY_GENERAL_CMD_SET_COASTING_VTOTAL_WITHOUT_FRAME_UPDATE,
+	REPLAY_GENERAL_CMD_LIVE_CAPTURE_WITH_CVT,
 };
 
 struct dmub_alpm_auxless_data {
@@ -6271,6 +6272,7 @@ struct dmub_cmd_edid_cea_amd_vsdb {
 	uint16_t amd_vsdb_version;	/**< AMD VSDB version */
 	uint16_t min_frame_rate;	/**< Maximum frame rate */
 	uint16_t max_frame_rate;	/**< Minimum frame rate */
+	uint8_t freesync_mccs_vcp_code; /**< Freesync MCCS VCP code */
 };
 
 /**

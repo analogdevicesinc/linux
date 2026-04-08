@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (C) 2020-2025 Intel Corporation
+ * Copyright (C) 2020-2026 Intel Corporation
  */
 
 #ifndef __IVPU_DRV_H__
@@ -36,6 +36,7 @@
 #define IVPU_HW_IP_60XX 60
 
 #define IVPU_HW_IP_REV_LNL_B0 4
+#define IVPU_HW_IP_REV_NVL_A0 0
 
 #define IVPU_HW_BTRS_MTL 1
 #define IVPU_HW_BTRS_LNL 2
@@ -168,6 +169,7 @@ struct ivpu_device {
 	struct xarray submitted_jobs_xa;
 	struct ivpu_ipc_consumer job_done_consumer;
 	atomic_t job_timeout_counter;
+	atomic_t faults_detected;
 
 	atomic64_t unique_id_counter;
 

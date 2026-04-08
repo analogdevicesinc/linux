@@ -846,7 +846,10 @@ static int aie2_hwctx_status_cb(struct amdxdna_hwctx *hwctx, void *arg)
 	struct amdxdna_drm_hwctx_entry *tmp __free(kfree) = NULL;
 	struct amdxdna_drm_get_array *array_args = arg;
 	struct amdxdna_drm_hwctx_entry __user *buf;
+	struct app_health_report report;
+	struct amdxdna_dev_hdl *ndev;
 	u32 size;
+	int ret;
 
 	if (!array_args->num_element)
 		return -EINVAL;
@@ -862,6 +865,7 @@ static int aie2_hwctx_status_cb(struct amdxdna_hwctx *hwctx, void *arg)
 	tmp->command_submissions = hwctx->priv->seq;
 	tmp->command_completions = hwctx->priv->completed;
 	tmp->pasid = hwctx->client->pasid;
+	tmp->heap_usage = hwctx->client->heap_usage;
 	tmp->priority = hwctx->qos.priority;
 	tmp->gops = hwctx->qos.gops;
 	tmp->fps = hwctx->qos.fps;
@@ -869,6 +873,17 @@ static int aie2_hwctx_status_cb(struct amdxdna_hwctx *hwctx, void *arg)
 	tmp->latency = hwctx->qos.latency;
 	tmp->frame_exec_time = hwctx->qos.frame_exec_time;
 	tmp->state = AMDXDNA_HWCTX_STATE_ACTIVE;
+	ndev = hwctx->client->xdna->dev_handle;
+	ret = aie2_query_app_health(ndev, hwctx->fw_ctx_id, &report);
+	if (!ret) {
+		/* Fill in app health report fields */
+		tmp->txn_op_idx = report.txn_op_id;
+		tmp->ctx_pc = report.ctx_pc;
+		tmp->fatal_error_type = report.fatal_info.fatal_type;
+		tmp->fatal_error_exception_type = report.fatal_info.exception_type;
+		tmp->fatal_error_exception_pc = report.fatal_info.exception_pc;
+		tmp->fatal_error_app_module = report.fatal_info.app_module;
+	}
 
 	buf = u64_to_user_ptr(array_args->buffer);
 	size = min(sizeof(*tmp), array_args->element_size);
@@ -1133,6 +1148,9 @@ static int aie2_get_array(struct amdxdna_client *client,
 		break;
 	case DRM_AMDXDNA_HW_LAST_ASYNC_ERR:
 		ret = aie2_get_array_async_error(xdna->dev_handle, args);
+		break;
+	case DRM_AMDXDNA_BO_USAGE:
+		ret = amdxdna_drm_get_bo_usage(&xdna->ddev, args);
 		break;
 	default:
 		XDNA_ERR(xdna, "Not supported request parameter %u", args->param);

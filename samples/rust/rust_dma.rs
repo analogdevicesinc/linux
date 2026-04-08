@@ -6,7 +6,12 @@
 
 use kernel::{
     device::Core,
-    dma::{CoherentAllocation, DataDirection, Device, DmaMask},
+    dma::{
+        Coherent,
+        DataDirection,
+        Device,
+        DmaMask, //
+    },
     page, pci,
     prelude::*,
     scatterlist::{Owned, SGTable},
@@ -16,7 +21,7 @@ use kernel::{
 #[pin_data(PinnedDrop)]
 struct DmaSampleDriver {
     pdev: ARef<pci::Device>,
-    ca: CoherentAllocation<MyStruct>,
+    ca: Coherent<[MyStruct]>,
     #[pin]
     sgt: SGTable<Owned<VVec<u8>>>,
 }
@@ -64,11 +69,11 @@ impl pci::Driver for DmaSampleDriver {
             // SAFETY: There are no concurrent calls to DMA allocation and mapping primitives.
             unsafe { pdev.dma_set_mask_and_coherent(mask)? };
 
-            let ca: CoherentAllocation<MyStruct> =
-                CoherentAllocation::alloc_coherent(pdev.as_ref(), TEST_VALUES.len(), GFP_KERNEL)?;
+            let ca: Coherent<[MyStruct]> =
+                Coherent::zeroed_slice(pdev.as_ref(), TEST_VALUES.len(), GFP_KERNEL)?;
 
             for (i, value) in TEST_VALUES.into_iter().enumerate() {
-                kernel::dma_write!(ca[i] = MyStruct::new(value.0, value.1))?;
+                kernel::dma_write!(ca, [i]?, MyStruct::new(value.0, value.1));
             }
 
             let size = 4 * page::PAGE_SIZE;
@@ -85,24 +90,26 @@ impl pci::Driver for DmaSampleDriver {
     }
 }
 
+impl DmaSampleDriver {
+    fn check_dma(&self) -> Result {
+        for (i, value) in TEST_VALUES.into_iter().enumerate() {
+            let val0 = kernel::dma_read!(self.ca, [i]?.h);
+            let val1 = kernel::dma_read!(self.ca, [i]?.b);
+
+            assert_eq!(val0, value.0);
+            assert_eq!(val1, value.1);
+        }
+
+        Ok(())
+    }
+}
+
 #[pinned_drop]
 impl PinnedDrop for DmaSampleDriver {
     fn drop(self: Pin<&mut Self>) {
         dev_info!(self.pdev, "Unload DMA test driver.\n");
 
-        for (i, value) in TEST_VALUES.into_iter().enumerate() {
-            let val0 = kernel::dma_read!(self.ca[i].h);
-            let val1 = kernel::dma_read!(self.ca[i].b);
-            assert!(val0.is_ok());
-            assert!(val1.is_ok());
-
-            if let Ok(val0) = val0 {
-                assert_eq!(val0, value.0);
-            }
-            if let Ok(val1) = val1 {
-                assert_eq!(val1, value.1);
-            }
-        }
+        assert!(self.check_dma().is_ok());
 
         for (i, entry) in self.sgt.iter().enumerate() {
             dev_info!(

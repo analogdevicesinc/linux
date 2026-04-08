@@ -1096,11 +1096,8 @@ static bool dc_construct(struct dc *dc,
 #ifdef CONFIG_DRM_AMD_DC_FP
 	dc->clk_mgr->force_smu_not_present = init_params->force_smu_not_present;
 
-	if (dc->res_pool->funcs->update_bw_bounding_box) {
-		DC_FP_START();
+	if (dc->res_pool->funcs->update_bw_bounding_box)
 		dc->res_pool->funcs->update_bw_bounding_box(dc, dc->clk_mgr->bw_params);
-		DC_FP_END();
-	}
 	dc->soc_and_ip_translator = dc_create_soc_and_ip_translator(dc_ctx->dce_version);
 	if (!dc->soc_and_ip_translator)
 		goto fail;
@@ -1137,6 +1134,8 @@ static void disable_all_writeback_pipes_for_stream(
 		struct dc_stream_state *stream,
 		struct dc_state *context)
 {
+	(void)dc;
+	(void)context;
 	int i;
 
 	for (i = 0; i < stream->num_wb_info; i++)
@@ -1148,6 +1147,8 @@ static void apply_ctx_interdependent_lock(struct dc *dc,
 					  struct dc_stream_state *stream,
 					  bool lock)
 {
+	(void)dc;
+	(void)context;
 	int i;
 
 	/* Checks if interdependent update function pointer is NULL or not, takes care of DCE110 case */
@@ -1563,8 +1564,7 @@ static void detect_edp_presence(struct dc *dc)
 	struct dc_link *edp_links[MAX_NUM_EDP];
 	struct dc_link *edp_link = NULL;
 	enum dc_connection_type type;
-	int i;
-	int edp_num;
+	unsigned int i, edp_num;
 
 	dc_get_edp_links(dc, edp_links, &edp_num);
 	if (!edp_num)
@@ -1923,10 +1923,77 @@ bool dc_validate_boot_timing(const struct dc *dc,
 		return false;
 	}
 
-	/* block DSC for now, as VBIOS does not currently support DSC timings */
 	if (crtc_timing->flags.DSC) {
-		DC_LOG_DEBUG("boot timing validation failed due to DSC\n");
-		return false;
+		struct display_stream_compressor *dsc = NULL;
+		struct dcn_dsc_state dsc_state = {0};
+
+		/* Find DSC associated with this timing generator */
+		if (tg_inst < dc->res_pool->res_cap->num_dsc) {
+			dsc = dc->res_pool->dscs[tg_inst];
+		}
+
+		if (!dsc || !dsc->funcs->dsc_read_state) {
+			DC_LOG_DEBUG("boot timing validation failed due to no DSC resource or read function\n");
+			return false;
+		}
+
+		/* Read current DSC hardware state */
+		dsc->funcs->dsc_read_state(dsc, &dsc_state);
+
+		/* Check if DSC is actually enabled in hardware */
+		if (dsc_state.dsc_clock_en == 0) {
+			DC_LOG_DEBUG("boot timing validation failed due to DSC not enabled in hardware\n");
+			return false;
+		}
+
+		uint32_t num_slices_h = 0;
+		uint32_t num_slices_v = 0;
+
+		if (dsc_state.dsc_slice_width > 0) {
+			num_slices_h = (crtc_timing->h_addressable + dsc_state.dsc_slice_width - 1) / dsc_state.dsc_slice_width;
+		}
+
+		if (dsc_state.dsc_slice_height > 0) {
+			num_slices_v = (crtc_timing->v_addressable + dsc_state.dsc_slice_height - 1) / dsc_state.dsc_slice_height;
+		}
+
+		if (crtc_timing->dsc_cfg.num_slices_h != num_slices_h) {
+			DC_LOG_DEBUG("boot timing validation failed due to num_slices_h mismatch\n");
+			return false;
+		}
+
+		if (crtc_timing->dsc_cfg.num_slices_v != num_slices_v) {
+			DC_LOG_DEBUG("boot timing validation failed due to num_slices_v mismatch\n");
+			return false;
+		}
+
+		if (crtc_timing->dsc_cfg.bits_per_pixel != dsc_state.dsc_bits_per_pixel) {
+			DC_LOG_DEBUG("boot timing validation failed due to bits_per_pixel mismatch\n");
+			return false;
+		}
+
+		if (crtc_timing->dsc_cfg.block_pred_enable != dsc_state.dsc_block_pred_enable) {
+			DC_LOG_DEBUG("boot timing validation failed due to block_pred_enable mismatch\n");
+			return false;
+		}
+
+		if (crtc_timing->dsc_cfg.linebuf_depth != dsc_state.dsc_line_buf_depth) {
+			DC_LOG_DEBUG("boot timing validation failed due to linebuf_depth mismatch\n");
+			return false;
+		}
+
+		if (crtc_timing->dsc_cfg.version_minor != dsc_state.dsc_version_minor) {
+			DC_LOG_DEBUG("boot timing validation failed due to version_minor mismatch\n");
+			return false;
+		}
+
+		if (crtc_timing->dsc_cfg.ycbcr422_simple != dsc_state.dsc_simple_422) {
+			DC_LOG_DEBUG("boot timing validation failed due to pixel encoding mismatch\n");
+			return false;
+		}
+
+		// Skip checks for is_frl, is_dp, and rc_buffer_size which are not programmed by vbios
+		// or not necessary for seamless boot validation.
 	}
 
 	if (dc_is_dp_signal(link->connector_signal)) {
@@ -2617,6 +2684,16 @@ void dc_post_update_surfaces_to_stream(struct dc *dc)
 	dc->optimized_required = false;
 }
 
+void dc_get_default_tiling_info(const struct dc *dc, struct dc_tiling_info *tiling_info)
+{
+	if (!dc || !tiling_info)
+		return;
+	if (dc->res_pool && dc->res_pool->funcs && dc->res_pool->funcs->get_default_tiling_info) {
+		dc->res_pool->funcs->get_default_tiling_info(tiling_info);
+		return;
+	}
+}
+
 bool dc_set_generic_gpio_for_stereo(bool enable,
 		struct gpio_service *gpio_service)
 {
@@ -2759,28 +2836,12 @@ static struct surface_update_descriptor get_plane_info_update_type(const struct 
 
 	if (memcmp(tiling, &u->surface->tiling_info, sizeof(*tiling)) != 0) {
 		update_flags->bits.swizzle_change = 1;
-		elevate_update_type(&update_type, UPDATE_TYPE_MED, LOCK_DESCRIPTOR_STREAM);
 
-		switch (tiling->gfxversion) {
-		case DcGfxVersion9:
-		case DcGfxVersion10:
-		case DcGfxVersion11:
-			if (tiling->gfx9.swizzle != DC_SW_LINEAR) {
-				update_flags->bits.bandwidth_change = 1;
-				elevate_update_type(&update_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
-			}
-			break;
-		case DcGfxAddr3:
-			if (tiling->gfx_addr3.swizzle != DC_ADDR3_SW_LINEAR) {
-				update_flags->bits.bandwidth_change = 1;
-				elevate_update_type(&update_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
-			}
-			break;
-		case DcGfxVersion7:
-		case DcGfxVersion8:
-		case DcGfxVersionUnknown:
-		default:
-			break;
+		if (tiling->flags.avoid_full_update_on_tiling_change) {
+			elevate_update_type(&update_type, UPDATE_TYPE_MED, LOCK_DESCRIPTOR_STREAM);
+		} else {
+			update_flags->bits.bandwidth_change = 1;
+			elevate_update_type(&update_type, UPDATE_TYPE_FULL, LOCK_DESCRIPTOR_GLOBAL);
 		}
 	}
 
@@ -2950,6 +3011,7 @@ static struct surface_update_descriptor det_surface_update(
  */
 static void force_immediate_gsl_plane_flip(struct dc *dc, struct dc_surface_update *updates, int surface_count)
 {
+	(void)dc;
 	bool has_flip_immediate_plane = false;
 	int i;
 
@@ -3228,6 +3290,7 @@ static void copy_stream_update_to_stream(struct dc *dc,
 					 struct dc_stream_state *stream,
 					 struct dc_stream_update *update)
 {
+	(void)context;
 	struct dc_context *dc_ctx = dc->ctx;
 
 	if (update == NULL || stream == NULL)
@@ -3503,6 +3566,7 @@ static void restore_minimal_pipe_split_policy(struct dc *dc,
  * @surface_count: surface update count
  * @stream: Corresponding stream to be updated
  * @stream_update: stream update
+ * @update_descriptor: describes what plane and stream changes to apply
  * @new_update_type: [out] determined update type by the function
  * @new_context: [out] new context allocated and validated if update type is
  * FULL, reference to current context if update type is less than FULL.
@@ -3831,6 +3895,7 @@ static void commit_planes_do_stream_update(struct dc *dc,
 
 static bool dc_dmub_should_send_dirty_rect_cmd(struct dc *dc, struct dc_stream_state *stream)
 {
+	(void)dc;
 	if ((stream->link->psr_settings.psr_version == DC_PSR_VERSION_SU_1
 			|| stream->link->psr_settings.psr_version == DC_PSR_VERSION_1)
 			&& stream->ctx->dce_version >= DCN_VERSION_3_1)
@@ -4631,6 +4696,7 @@ static bool could_mpcc_tree_change_for_active_pipes(struct dc *dc,
 		int surface_count,
 		bool *is_plane_addition)
 {
+	(void)srf_updates;
 
 	struct dc_stream_status *cur_stream_status = stream_get_status(dc->current_state, stream);
 	bool force_minimal_pipe_splitting = false;
@@ -5055,7 +5121,9 @@ void populate_fast_updates(struct dc_fast_update *fast_update,
 		fast_update[i].input_csc_color_matrix = srf_updates[i].input_csc_color_matrix;
 		fast_update[i].coeff_reduction_factor = srf_updates[i].coeff_reduction_factor;
 		fast_update[i].cursor_csc_color_matrix = srf_updates[i].cursor_csc_color_matrix;
+#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 		fast_update[i].cm_hist_control = srf_updates[i].cm_hist_control;
+#endif
 	}
 }
 
@@ -5073,7 +5141,9 @@ static bool fast_updates_exist(const struct dc_fast_update *fast_update, int sur
 				fast_update[i].gamut_remap_matrix ||
 				fast_update[i].input_csc_color_matrix ||
 				fast_update[i].cursor_csc_color_matrix ||
+#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 				fast_update[i].cm_hist_control ||
+#endif
 				fast_update[i].coeff_reduction_factor)
 			return true;
 	}
@@ -5094,7 +5164,9 @@ bool fast_nonaddr_updates_exist(struct dc_fast_update *fast_update, int surface_
 				fast_update[i].gamma ||
 				fast_update[i].gamut_remap_matrix ||
 				fast_update[i].coeff_reduction_factor ||
+#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
 				fast_update[i].cm_hist_control ||
+#endif
 				fast_update[i].cursor_csc_color_matrix)
 			return true;
 	}
@@ -5109,6 +5181,7 @@ static bool full_update_required_weak(
 		const struct dc_stream_update *stream_update,
 		const struct dc_stream_state *stream)
 {
+	(void)stream_update;
 	const struct dc_state *context = dc->current_state;
 	if (srf_updates)
 		for (int i = 0; i < surface_count; i++)
@@ -5478,6 +5551,7 @@ void dc_commit_updates_for_stream(struct dc *dc,
 		struct dc_stream_update *stream_update,
 		struct dc_state *state)
 {
+	(void)state;
 	bool ret = false;
 
 	dc_exit_ips_for_hw_access(dc);
@@ -5787,6 +5861,7 @@ void dc_lock_memory_clock_frequency(struct dc *dc)
 
 static void blank_and_force_memclk(struct dc *dc, bool apply, unsigned int memclk_mhz)
 {
+	(void)apply;
 	struct dc_state *context = dc->current_state;
 	struct hubp *hubp;
 	struct pipe_ctx *pipe;
@@ -6331,8 +6406,7 @@ void dc_disable_accelerated_mode(struct dc *dc)
  */
 void dc_notify_vsync_int_state(struct dc *dc, struct dc_stream_state *stream, bool enable)
 {
-	int i;
-	int edp_num;
+	unsigned int i, edp_num;
 	struct pipe_ctx *pipe = NULL;
 	struct dc_link *link = stream->sink->link;
 	struct dc_link *edp_links[MAX_NUM_EDP];
@@ -6386,8 +6460,7 @@ bool dc_abm_save_restore(
 		struct dc_stream_state *stream,
 		struct abm_save_restore *pData)
 {
-	int i;
-	int edp_num;
+	unsigned int i, edp_num;
 	struct pipe_ctx *pipe = NULL;
 	struct dc_link *link = stream->sink->link;
 	struct dc_link *edp_links[MAX_NUM_EDP];
@@ -6463,6 +6536,7 @@ void dc_query_current_properties(struct dc *dc, struct dc_current_properties *pr
 void dc_set_edp_power(const struct dc *dc, struct dc_link *edp_link,
 				 bool powerOn)
 {
+	(void)dc;
 	if (edp_link->connector_signal != SIGNAL_TYPE_EDP)
 		return;
 
@@ -6589,6 +6663,7 @@ void dc_get_underflow_debug_data_for_otg(struct dc *dc, int primary_otg_inst,
 void dc_get_power_feature_status(struct dc *dc, int primary_otg_inst,
 				struct power_features *out_data)
 {
+	(void)primary_otg_inst;
 	out_data->uclk_p_state = dc->current_state->clk_mgr->clks.p_state_change_support;
 	out_data->fams = dc->current_state->bw_ctx.bw.dcn.clk.fw_based_mclk_switching;
 }

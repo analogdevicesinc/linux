@@ -657,6 +657,7 @@ void hubp401_program_tiling(
 	const struct dc_tiling_info *info,
 	const enum surface_pixel_format pixel_format)
 {
+	(void)pixel_format;
 	/* DCSURF_ADDR_CONFIG still shows up in reg spec, but does not need to be programmed for DCN4x
 	 * All 4 fields NUM_PIPES, PIPE_INTERLEAVE, MAX_COMPRESSED_FRAGS and NUM_PKRS are irrelevant.
 	 *
@@ -671,6 +672,7 @@ void hubp401_program_size(
 	const struct plane_size *plane_size,
 	struct dc_plane_dcc_param *dcc)
 {
+	(void)dcc;
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
 	uint32_t pitch, pitch_c;
 	bool use_pitch_c = false;
@@ -709,6 +711,7 @@ void hubp401_program_surface_config(
 	bool horizontal_mirror,
 	unsigned int compat_level)
 {
+	(void)compat_level;
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
 
 	hubp401_dcc_control(hubp, dcc);
@@ -812,9 +815,8 @@ void hubp401_cursor_set_position(
 	int x_pos_viewport = 0;
 	int x_hot_viewport = 0;
 	uint32_t cur_en = pos->enable ? 1 : 0;
-
+	uint32_t x_hotspot_clamped = pos->x_hotspot;
 	hubp->curs_pos = *pos;
-
 	/* Recout is zero for pipes if the entire dst_rect is contained
 	 * within preceeding ODM slices.
 	 */
@@ -845,6 +847,8 @@ void hubp401_cursor_set_position(
 
 	ASSERT(param->h_scale_ratio.value);
 
+	if (x_hotspot_clamped > 0xFF)
+		x_hotspot_clamped = 0xFF;
 	if (param->h_scale_ratio.value)
 		dst_x_offset = dc_fixpt_floor(dc_fixpt_div(
 			dc_fixpt_from_int(dst_x_offset),
@@ -865,7 +869,7 @@ void hubp401_cursor_set_position(
 			CURSOR_Y_POSITION, pos->y);
 
 		REG_SET_2(CURSOR_HOT_SPOT, 0,
-			CURSOR_HOT_SPOT_X, pos->x_hotspot,
+			CURSOR_HOT_SPOT_X, x_hotspot_clamped,
 			CURSOR_HOT_SPOT_Y, pos->y_hotspot);
 
 		REG_SET(CURSOR_DST_OFFSET, 0,

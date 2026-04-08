@@ -784,6 +784,7 @@ static void verify_link_capability_destructive(struct dc_link *link,
 		struct dc_sink *sink,
 		enum dc_detect_reason reason)
 {
+	(void)sink;
 	bool should_prepare_phy_clocks =
 			should_prepare_phy_clocks_for_link_verification(link->dc, reason);
 
@@ -822,6 +823,7 @@ static void verify_link_capability_non_destructive(struct dc_link *link)
 static bool should_verify_link_capability_destructively(struct dc_link *link,
 		enum dc_detect_reason reason)
 {
+	(void)reason;
 	bool destrictive = false;
 	struct dc_link_settings max_link_cap;
 	bool is_link_enc_unavailable = false;
