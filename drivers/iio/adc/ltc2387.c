@@ -370,10 +370,14 @@ static int ltc2387_probe(struct platform_device *pdev)
 	if (IS_ERR(ltc->clk_en))
 		return PTR_ERR(ltc->clk_en);
 
+	//dev_err(&pdev->dev, "qwerty123");
+
 	ret = devm_add_action_or_reset(&pdev->dev, ltc2387_pwm_diasble,
 				       ltc->clk_en);
 	if (ret)
 		return ret;
+	
+	dev_err(&pdev->dev, "qwerty123");
 
 	ltc->cnv = devm_pwm_get(&pdev->dev, "cnv");
 	if (IS_ERR(ltc->cnv))
