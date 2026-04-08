@@ -3044,7 +3044,7 @@ static const struct nvme_core_quirk_entry core_quirks[] = {
 		 *
 		 * The device is left in a state where it is also not possible
 		 * to use "nvme set-feature" to disable APST, but booting with
-		 * nvme_core.default_ps_max_latency=0 works.
+		 * nvme_core.default_ps_max_latency_us=0 works.
 		 */
 		.vid = 0x1e0f,
 		.mn = "KCD6XVUL6T40",
