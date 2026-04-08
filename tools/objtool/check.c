@@ -4296,27 +4296,12 @@ static bool ignore_unreachable_insn(struct objtool_file *file, struct instructio
  * For FineIBT or kCFI, a certain number of bytes preceding the function may be
  * NOPs.  Those NOPs may be rewritten at runtime and executed, so give them a
  * proper function name: __pfx_<func>.
- *
- * The NOPs may not exist for the following cases:
- *
- *   - compiler cloned functions (*.cold, *.part0, etc)
- *   - asm functions created with inline asm or without SYM_FUNC_START()
- *
- * Also, the function may already have a prefix from a previous objtool run
- * (livepatch extracted functions, or manually running objtool multiple times).
- *
- * So return 0 if the NOPs are missing or the function already has a prefix
- * symbol.
  */
 static int create_prefix_symbol(struct objtool_file *file, struct symbol *func)
 {
 	struct instruction *insn, *prev;
 	char name[SYM_NAME_LEN];
 	struct cfi_state *cfi;
-
-	if (!is_func_sym(func) || is_prefix_func(func) || is_cold_func(func) ||
-	    func->static_call_tramp)
-		return 0;
 
 	if ((strlen(func->name) + sizeof("__pfx_") > SYM_NAME_LEN)) {
 		WARN("%s: symbol name too long, can't create __pfx_ symbol",
@@ -4327,59 +4312,21 @@ static int create_prefix_symbol(struct objtool_file *file, struct symbol *func)
 	if (snprintf_check(name, SYM_NAME_LEN, "__pfx_%s", func->name))
 		return -1;
 
-	if (file->klp) {
-		struct symbol *pfx;
-
-		pfx = find_symbol_by_offset(func->sec, func->offset - opts.prefix);
-		if (pfx && is_prefix_func(pfx) && !strcmp(pfx->name, name))
-			return 0;
-	}
-
-	insn = find_insn(file, func->sec, func->offset);
-	if (!insn) {
-		WARN("%s: can't find starting instruction", func->name);
+	if (!elf_create_symbol(file->elf, name, func->sec,
+			       GELF_ST_BIND(func->sym.st_info),
+			       GELF_ST_TYPE(func->sym.st_info),
+			       func->offset - opts.prefix, opts.prefix))
 		return -1;
-	}
-
-	for (prev = prev_insn_same_sec(file, insn);
-	     prev;
-	     prev = prev_insn_same_sec(file, prev)) {
-		u64 offset;
-
-		if (prev->type != INSN_NOP)
-			return 0;
-
-		offset = func->offset - prev->offset;
-
-		if (offset > opts.prefix)
-			return 0;
-
-		if (offset < opts.prefix)
-			continue;
-
-		if (!elf_create_symbol(file->elf, name, func->sec,
-				       GELF_ST_BIND(func->sym.st_info),
-				       GELF_ST_TYPE(func->sym.st_info),
-				       prev->offset, opts.prefix))
-			return -1;
-
-		break;
-	}
-
-	if (!prev)
-		return 0;
-
-	if (!insn->cfi) {
-		/*
-		 * This can happen if stack validation isn't enabled or the
-		 * function is annotated with STACK_FRAME_NON_STANDARD.
-		 */
-		return 0;
-	}
 
 	/* Propagate insn->cfi to the prefix code */
+	insn = find_insn(file, func->sec, func->offset);
+	if (!insn || !insn->cfi)
+		return 0;
+
 	cfi = cfi_hash_find_or_add(insn->cfi);
-	for (; prev != insn; prev = next_insn_same_sec(file, prev))
+	for (prev = find_insn(file, func->sec, func->offset - opts.prefix);
+	     prev && prev != insn;
+	     prev = next_insn_same_sec(file, prev))
 		prev->cfi = cfi;
 
 	return 0;
@@ -4387,15 +4334,20 @@ static int create_prefix_symbol(struct objtool_file *file, struct symbol *func)
 
 static int create_prefix_symbols(struct objtool_file *file)
 {
-	struct section *sec;
+	struct section *pfe_sec;
 	struct symbol *func;
+	struct reloc *reloc;
 
-	for_each_sec(file->elf, sec) {
-		if (!is_text_sec(sec))
+	for_each_sec(file->elf, pfe_sec) {
+		if (strcmp(pfe_sec->name, "__patchable_function_entries"))
+			continue;
+		if (!pfe_sec->rsec)
 			continue;
 
-		sec_for_each_sym(sec, func) {
-			if (create_prefix_symbol(file, func))
+		for_each_reloc(pfe_sec->rsec, reloc) {
+			func = find_func_by_offset(reloc->sym->sec,
+						   reloc->sym->offset + reloc_addend(reloc) + opts.prefix);
+			if (func && create_prefix_symbol(file, func))
 				return -1;
 		}
 	}
