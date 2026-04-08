@@ -737,28 +737,17 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 		return r;
 	}
 
-	/*
-	 * There could be a situation that we are creating a new queue while
-	 * the other queues under this UQ_mgr are suspended. So if there is any
-	 * resume work pending, wait for it to get done.
-	 *
-	 * This will also make sure we have a valid eviction fence ready to be used.
-	 */
-	amdgpu_userq_ensure_ev_fence(&fpriv->userq_mgr, &fpriv->evf_mgr);
-
 	uq_funcs = adev->userq_funcs[args->in.ip_type];
 	if (!uq_funcs) {
 		drm_file_err(uq_mgr->file, "Usermode queue is not supported for this IP (%u)\n",
 			     args->in.ip_type);
-		r = -EINVAL;
-		goto unlock;
+		return -EINVAL;
 	}
 
 	queue = kzalloc_obj(struct amdgpu_usermode_queue);
 	if (!queue) {
 		drm_file_err(uq_mgr->file, "Failed to allocate memory for queue\n");
-		r = -ENOMEM;
-		goto unlock;
+		return -ENOMEM;
 	}
 
 	INIT_LIST_HEAD(&queue->userq_va_list);
@@ -796,6 +785,15 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 		drm_file_err(uq_mgr->file, "Failed to alloc fence driver\n");
 		goto free_queue;
 	}
+
+	/*
+	 * There could be a situation that we are creating a new queue while
+	 * the other queues under this UQ_mgr are suspended. So if there is any
+	 * resume work pending, wait for it to get done.
+	 *
+	 * This will also make sure we have a valid eviction fence ready to be used.
+	 */
+	amdgpu_userq_ensure_ev_fence(&fpriv->userq_mgr, &fpriv->evf_mgr);
 
 	r = uq_funcs->mqd_create(queue, &args->in);
 	if (r) {
@@ -858,11 +856,9 @@ clean_mqd:
 	up_read(&adev->reset_domain->sem);
 clean_fence_driver:
 	amdgpu_userq_fence_driver_free(queue);
+	mutex_unlock(&uq_mgr->userq_mutex);
 free_queue:
 	kfree(queue);
-unlock:
-	mutex_unlock(&uq_mgr->userq_mutex);
-
 	return r;
 }
 
