@@ -209,6 +209,8 @@ static struct intel_crtc *intel_crtc_alloc(void)
 	crtc->base.state = &crtc_state->uapi;
 	crtc->config = crtc_state;
 
+	INIT_LIST_HEAD(&crtc->pipe_head);
+
 	return crtc;
 }
 
@@ -221,6 +223,8 @@ static void intel_crtc_free(struct intel_crtc *crtc)
 static void intel_crtc_destroy(struct drm_crtc *_crtc)
 {
 	struct intel_crtc *crtc = to_intel_crtc(_crtc);
+
+	list_del(&crtc->pipe_head);
 
 	cpu_latency_qos_remove_request(&crtc->vblank_pm_qos);
 
@@ -307,6 +311,20 @@ static const struct drm_crtc_funcs i8xx_crtc_funcs = {
 	.disable_vblank = i8xx_disable_vblank,
 	.get_vblank_timestamp = intel_crtc_get_vblank_timestamp,
 };
+
+static void add_crtc_to_pipe_list(struct intel_display *display, struct intel_crtc *crtc)
+{
+	struct intel_crtc *iter;
+
+	list_for_each_entry(iter, &display->pipe_list, pipe_head) {
+		if (crtc->pipe < iter->pipe) {
+			list_add_tail(&crtc->pipe_head, &iter->pipe_head);
+			return;
+		}
+	}
+
+	list_add_tail(&crtc->pipe_head, &display->pipe_list);
+}
 
 static int __intel_crtc_init(struct intel_display *display, enum pipe pipe)
 {
@@ -397,6 +415,8 @@ static int __intel_crtc_init(struct intel_display *display, enum pipe pipe)
 
 	if (HAS_CASF(display) && crtc->num_scalers >= 2)
 		drm_crtc_create_sharpness_strength_property(&crtc->base);
+
+	add_crtc_to_pipe_list(display, crtc);
 
 	return 0;
 
