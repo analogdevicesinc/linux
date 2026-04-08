@@ -282,6 +282,7 @@ struct hmc7044_pll2_config {
 struct hmc7044_chan_spec {
 	unsigned int		num;
 	bool			disable;
+	bool			mute;
 	bool			high_performance_mode_dis;
 	bool			start_up_mode_dynamic_enable;
 	bool			dynamic_driver_enable;
@@ -482,7 +483,10 @@ static int hmc7044_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
-		*val = hmc->pll2_freq / ch->divider;
+		if (ch->mute)
+			*val = 0;
+		else
+			*val = hmc->pll2_freq / ch->divider;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		hmc7044_read(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(ch->num),
@@ -878,6 +882,8 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	unsigned long rate_best = 0;
 	unsigned long vco_best = 0;
 
+	if (!rate)
+		return 0;
 
 	mutex_lock(&hmc->lock);
 	vcxo_freq = hmc->vcxo_freq;
@@ -943,7 +949,8 @@ static int hmc7044_clk_set_rate(struct clk_hw *hw,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *ch;
 	unsigned int address;
-	int ret;
+	unsigned int val;
+	int ret = 0;
 
 	address = to_output(hw)->address;
 
@@ -962,6 +969,23 @@ static int hmc7044_clk_set_rate(struct clk_hw *hw,
 	ch = &hmc->channels[address];
 
 	mutex_lock(&hmc->lock);
+	ret = hmc7044_read(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(ch->num),
+		     &val);
+	if (ret)
+		goto out;
+
+	val &= ~HMC7044_CH_EN;
+	ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(ch->num),
+		     val | (rate ? HMC7044_CH_EN : 0));
+	if (ret)
+		goto out;
+
+	ch->mute = !rate;
+
+	if (!rate) {
+		mutex_unlock(&hmc->lock);
+		return 0;
+	}
 
 	ch->divider = hmc7044_calc_out_div(hmc->pll2_freq, rate);
 	ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(ch->num),
@@ -1518,7 +1542,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			      HMC7044_START_UP_MODE_DYN_EN : 0) | BIT(4) |
 			      (chan->high_performance_mode_dis ?
 			      0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
-			      HMC7044_CH_EN);
+			      (chan->mute ? 0 : HMC7044_CH_EN));
 		if (ret)
 			return ret;
 		hmc->iio_channels[i].type = IIO_ALTVOLTAGE;
@@ -1713,7 +1737,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 			HMC7044_START_UP_MODE_DYN_EN : 0) | BIT(4) |
 			(chan->high_performance_mode_dis ?
 			0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
-			HMC7044_CH_EN);
+			(chan->mute ? 0 : HMC7044_CH_EN));
 		if (ret)
 			return ret;
 
@@ -2108,7 +2132,8 @@ static int hmc7044_continuous_chan_sync_enable(struct iio_dev *indio_dev, bool e
 			      (chan->high_performance_mode_dis ?
 			      0 : HMC7044_HI_PERF_MODE) |
 			      ((enable || chan->start_up_mode_dynamic_enable) ?
-			      HMC7044_SYNC_EN : 0) | HMC7044_CH_EN);
+			      HMC7044_SYNC_EN : 0) |
+			      (chan->mute ? 0 : HMC7044_CH_EN));
 		if (ret < 0)
 			return ret;
 	}
