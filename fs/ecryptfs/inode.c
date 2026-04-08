@@ -721,36 +721,33 @@ upper_size_to_lower_size(struct ecryptfs_crypt_stat *crypt_stat,
 }
 
 /**
- * truncate_upper
+ * __ecryptfs_truncate
  * @dentry: The ecryptfs layer dentry
  * @ia: Address of the ecryptfs inode's attributes
- * @lower_ia: Address of the lower inode's attributes
  *
- * Function to handle truncations modifying the size of the file. Note
- * that the file sizes are interpolated. When expanding, we are simply
- * writing strings of 0's out. When truncating, we truncate the upper
- * inode and update the lower_ia according to the page index
- * interpolations. If ATTR_SIZE is set in lower_ia->ia_valid upon return,
- * the caller must use lower_ia in a call to notify_change() to perform
- * the truncation of the lower inode.
+ * Handle truncations modifying the size of the file.  Note that the file sizes
+ * are interpolated.  When expanding, we are simply writing strings of 0's out.
+ * When truncating, we truncate the upper inode and update the lower_ia
+ * according to the page index interpolations.
  *
  * Returns zero on success; non-zero otherwise
  */
-static int truncate_upper(struct dentry *dentry, struct iattr *ia,
-			  struct iattr *lower_ia)
+static int __ecryptfs_truncate(struct dentry *dentry, const struct iattr *ia)
 {
+	struct dentry *lower_dentry = ecryptfs_dentry_to_lower(dentry);
 	struct inode *inode = d_inode(dentry);
 	struct ecryptfs_crypt_stat *crypt_stat;
 	loff_t i_size = i_size_read(inode);
 	loff_t lower_size_before_truncate;
 	loff_t lower_size_after_truncate;
+	struct iattr lower_ia;
 	size_t num_zeros;
 	int rc;
 
-	if (unlikely((ia->ia_size == i_size))) {
-		lower_ia->ia_valid &= ~ATTR_SIZE;
+	ecryptfs_iattr_to_lower(&lower_ia, ia);
+
+	if (unlikely((ia->ia_size == i_size)))
 		return 0;
-	}
 
 	crypt_stat = &ecryptfs_inode_to_private(inode)->crypt_stat;
 	lower_size_before_truncate =
@@ -783,15 +780,13 @@ static int truncate_upper(struct dentry *dentry, struct iattr *ia,
 		 * new end of the file.
 		 */
 		rc = ecryptfs_write(inode, zero, ia->ia_size - 1, 1);
-		lower_ia->ia_valid &= ~ATTR_SIZE;
 		goto out;
 	}
 
 	if (!(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		truncate_setsize(inode, ia->ia_size);
-		lower_ia->ia_size = ia->ia_size;
-		lower_ia->ia_valid |= ATTR_SIZE;
-		goto out;
+		lower_ia.ia_size = ia->ia_size;
+		goto set_size;
 	}
 
 	/*
@@ -821,12 +816,15 @@ static int truncate_upper(struct dentry *dentry, struct iattr *ia,
 	 * We are reducing the size of the ecryptfs file, and need to know if we
 	 * need to reduce the size of the lower file.
 	 */
-	if (lower_size_after_truncate < lower_size_before_truncate) {
-		lower_ia->ia_size = lower_size_after_truncate;
-		lower_ia->ia_valid |= ATTR_SIZE;
-	} else {
-		lower_ia->ia_valid &= ~ATTR_SIZE;
-	}
+	if (lower_size_after_truncate >= lower_size_before_truncate)
+		goto out;
+
+	lower_ia.ia_size = lower_size_after_truncate;
+set_size:
+	lower_ia.ia_valid |= ATTR_SIZE;
+	inode_lock(d_inode(lower_dentry));
+	rc = notify_change(&nop_mnt_idmap, lower_dentry, &lower_ia, NULL);
+	inode_unlock(d_inode(lower_dentry));
 out:
 	ecryptfs_put_lower_file(inode);
 	return rc;
@@ -844,20 +842,12 @@ out:
  */
 int ecryptfs_truncate(struct dentry *dentry, loff_t new_length)
 {
-	struct iattr ia = { .ia_valid = ATTR_SIZE, .ia_size = new_length };
-	struct iattr lower_ia = { .ia_valid = 0 };
-	int rc;
+	const struct iattr ia = {
+		.ia_valid	= ATTR_SIZE,
+		.ia_size	= new_length,
+	};
 
-	rc = truncate_upper(dentry, &ia, &lower_ia);
-	if (!rc && lower_ia.ia_valid & ATTR_SIZE) {
-		struct dentry *lower_dentry = ecryptfs_dentry_to_lower(dentry);
-
-		inode_lock(d_inode(lower_dentry));
-		rc = notify_change(&nop_mnt_idmap, lower_dentry,
-				   &lower_ia, NULL);
-		inode_unlock(d_inode(lower_dentry));
-	}
-	return rc;
+	return __ecryptfs_truncate(dentry, &ia);
 }
 
 static int
@@ -887,7 +877,6 @@ static int ecryptfs_setattr(struct mnt_idmap *idmap,
 	struct inode *inode = d_inode(dentry);
 	struct dentry *lower_dentry = ecryptfs_dentry_to_lower(dentry);
 	struct inode *lower_inode = ecryptfs_inode_to_lower(inode);
-	struct iattr lower_ia;
 	struct ecryptfs_crypt_stat *crypt_stat;
 	int rc;
 
@@ -935,17 +924,18 @@ static int ecryptfs_setattr(struct mnt_idmap *idmap,
 	if (rc)
 		goto out;
 
-	ecryptfs_iattr_to_lower(&lower_ia, ia);
 	if (ia->ia_valid & ATTR_SIZE) {
-		rc = truncate_upper(dentry, ia, &lower_ia);
-		if (rc < 0)
-			goto out;
+		rc = __ecryptfs_truncate(dentry, ia);
+	} else {
+		struct iattr lower_ia;
+
+		ecryptfs_iattr_to_lower(&lower_ia, ia);
+
+		inode_lock(d_inode(lower_dentry));
+		rc = notify_change(&nop_mnt_idmap, lower_dentry, &lower_ia,
+				NULL);
+		inode_unlock(d_inode(lower_dentry));
 	}
-
-
-	inode_lock(d_inode(lower_dentry));
-	rc = notify_change(&nop_mnt_idmap, lower_dentry, &lower_ia, NULL);
-	inode_unlock(d_inode(lower_dentry));
 out:
 	fsstack_copy_attr_all(inode, lower_inode);
 	return rc;
