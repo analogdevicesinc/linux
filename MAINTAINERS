@@ -7840,6 +7840,8 @@ M:	Karol Wachowski <karol.wachowski@linux.intel.com>
 L:	dri-devel@lists.freedesktop.org
 S:	Supported
 T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git
+F:	Documentation/ABI/obsolete/sysfs-driver-ivpu
+F:	Documentation/ABI/testing/sysfs-driver-ivpu
 F:	drivers/accel/ivpu/
 F:	include/uapi/drm/ivpu_accel.h
 
