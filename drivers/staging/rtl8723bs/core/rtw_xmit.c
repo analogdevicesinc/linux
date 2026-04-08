@@ -73,6 +73,19 @@ static s32 rtw_alloc_hwxmits(struct adapter *padapter)
 	return 0;
 }
 
+static int rtw_os_xmit_resource_alloc(struct adapter *padapter, struct xmit_buf *pxmitbuf, u32 alloc_sz, u8 flag)
+{
+	if (alloc_sz > 0) {
+		pxmitbuf->pallocated_buf = kzalloc(alloc_sz, GFP_KERNEL);
+		if (!pxmitbuf->pallocated_buf)
+			return _FAIL;
+
+		pxmitbuf->pbuf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(pxmitbuf->pallocated_buf), XMITBUF_ALIGN_SZ);
+	}
+
+	return _SUCCESS;
+}
+
 s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
 {
 	int i;

@@ -46,19 +46,6 @@ signed int rtw_endofpktfile(struct pkt_file *pfile)
 	return false;
 }
 
-int rtw_os_xmit_resource_alloc(struct adapter *padapter, struct xmit_buf *pxmitbuf, u32 alloc_sz, u8 flag)
-{
-	if (alloc_sz > 0) {
-		pxmitbuf->pallocated_buf = kzalloc(alloc_sz, GFP_KERNEL);
-		if (!pxmitbuf->pallocated_buf)
-			return _FAIL;
-
-		pxmitbuf->pbuf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(pxmitbuf->pallocated_buf), XMITBUF_ALIGN_SZ);
-	}
-
-	return _SUCCESS;
-}
-
 void rtw_os_xmit_resource_free(struct adapter *padapter, struct xmit_buf *pxmitbuf, u32 free_sz, u8 flag)
 {
 	if (free_sz > 0)
