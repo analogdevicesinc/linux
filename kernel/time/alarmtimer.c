@@ -369,6 +369,34 @@ void alarm_start_relative(struct alarm *alarm, ktime_t start)
 }
 EXPORT_SYMBOL_GPL(alarm_start_relative);
 
+/**
+ * alarm_start_timer - Sets an alarm to fire
+ * @alarm:	Pointer to alarm to set
+ * @expires:	Expiry time
+ * @relative:	True if @expires is relative
+ *
+ * Returns: True if the alarm was queued. False if it already expired
+ */
+bool alarm_start_timer(struct alarm *alarm, ktime_t expires, bool relative)
+{
+	struct alarm_base *base = &alarm_bases[alarm->type];
+
+	if (relative)
+		expires = ktime_add_safe(expires, base->get_ktime());
+
+	trace_alarmtimer_start(alarm, base->get_ktime());
+
+	guard(spinlock_irqsave)(&base->lock);
+	alarm->node.expires = expires;
+	alarmtimer_enqueue(base, alarm);
+	if (!hrtimer_start_range_ns_user(&alarm->timer, expires, 0, HRTIMER_MODE_ABS)) {
+		alarmtimer_dequeue(base, alarm);
+		return false;
+	}
+	return true;
+}
+EXPORT_SYMBOL_GPL(alarm_start_timer);
+
 void alarm_restart(struct alarm *alarm)
 {
 	struct alarm_base *base = &alarm_bases[alarm->type];

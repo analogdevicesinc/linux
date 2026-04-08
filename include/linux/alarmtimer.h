@@ -42,8 +42,14 @@ struct alarm {
 	void			*data;
 };
 
+static __always_inline ktime_t alarm_get_expires(struct alarm *alarm)
+{
+	return alarm->node.expires;
+}
+
 void alarm_init(struct alarm *alarm, enum alarmtimer_type type,
 		void (*function)(struct alarm *, ktime_t));
+bool alarm_start_timer(struct alarm *alarm, ktime_t expires, bool relative);
 void alarm_start(struct alarm *alarm, ktime_t start);
 void alarm_start_relative(struct alarm *alarm, ktime_t start);
 void alarm_restart(struct alarm *alarm);
