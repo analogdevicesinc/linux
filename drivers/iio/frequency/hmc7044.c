@@ -296,6 +296,7 @@ struct hmc7044_chan_spec {
 	unsigned int		out_mux_mode;
 	const char		*extended_name;
 	bool			set_rate_parent;
+	unsigned int		max_deviation_ppm;
 };
 
 struct hmc7044 {
@@ -868,6 +869,43 @@ static unsigned long hmc7044_clk_recalc_rate(struct clk_hw *hw,
 	return hmc7044_get_clk_attr(hw, IIO_CHAN_INFO_FREQUENCY);
 }
 
+static int hmc7044_verify_deviation(struct clk_hw *hw,
+				    unsigned long pll2_candidate)
+{
+	struct hmc7044_output *out = to_output(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int ret = 0;
+	int i;
+
+	mutex_lock(&hmc->lock);
+	for (i = 0; i < hmc->num_channels; i++) {
+		struct hmc7044_chan_spec *ch = &hmc->channels[i];
+		unsigned int div;
+		unsigned long current_rate;
+		unsigned long candidate_rate;
+		unsigned int deviation_ppm;
+
+		if (out->address == i || ch->mute || ch->disable)
+			continue;
+
+		current_rate = hmc->pll2_freq / ch->divider;
+		div = hmc7044_calc_out_div(pll2_candidate, current_rate);
+		candidate_rate = DIV_ROUND_CLOSEST(pll2_candidate, div);
+		deviation_ppm = abs(current_rate - candidate_rate) *
+				1000000 / current_rate;
+		if (deviation_ppm > ch->max_deviation_ppm) {
+			dev_err(&hmc->spi->dev,
+				 "Rejecting PLL2 freq. change to %lu Hz due to output %u deviation %u ppm\n",
+				 pll2_candidate, ch->num, deviation_ppm);
+			ret = -EINVAL;
+			break;
+		}
+	}
+	mutex_unlock(&hmc->lock);
+	return ret;
+}
+
 static long hmc7044_clk_round_rate(struct clk_hw *hw,
 				   unsigned long rate,
 				   unsigned long *parent_rate)
@@ -875,12 +913,13 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	struct hmc7044_output *out = to_output(hw);
 	struct iio_dev *indio_dev = out->indio_dev;
 	struct hmc7044 *hmc = iio_priv(indio_dev);
-	unsigned long min_dev = ULONG_MAX;
+	unsigned long min_dev;
+	unsigned int div, div_avail, div_out;
 	unsigned long oldrate, newrate;
-	unsigned int div, div_avail;
 	unsigned long vcxo_freq;
 	unsigned long rate_best = 0;
 	unsigned long vco_best = 0;
+	bool found = false;
 
 	if (!rate)
 		return 0;
@@ -902,10 +941,13 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	if (!(clk_hw_get_flags(hw) & CLK_SET_RATE_PARENT))
 		return oldrate;
 
-	/* find the best parent rate */
+	min_dev = hmc->channels[out->address].max_deviation_ppm;
+
+	/* find the best parent rate or fail */
 	for (div = HMC7044_OUT_DIV_MIN; div <= HMC7044_OUT_DIV_MAX; div++) {
 		unsigned long vco_freq;
-		unsigned long deviation;
+		unsigned long deviation_ppm;
+		int ret;
 
 		vco_freq = rate * div;
 		if (vco_freq < (HMC7044_RECOMM_VCO_MIN * 1000UL))
@@ -920,24 +962,35 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 		/* get achievable freq. */
 		vco_freq = hmc7044_pll2_recalc_rate(vcxo_freq, vco_freq,
 						    hmc->sync_through_pll2_force_r2_eq_1, NULL);
-		div = hmc7044_calc_out_div(vco_freq, rate);
-		newrate = DIV_ROUND_CLOSEST(vco_freq, div);
+		div_out = hmc7044_calc_out_div(vco_freq, rate);
+		newrate = DIV_ROUND_CLOSEST(vco_freq, div_out);
+
+		ret = hmc7044_verify_deviation(hw, vco_freq);
+		if (ret < 0)
+			continue;
+
 		if (newrate == rate) {
 			*parent_rate = vco_freq;
 			return newrate;
 		}
 
-		deviation = abs(rate - newrate);
-		if (deviation < min_dev) {
-			min_dev = deviation;
+		deviation_ppm = abs(rate - newrate) *
+				1000000 / rate;
+
+		if (deviation_ppm < min_dev) {
+			min_dev = deviation_ppm;
 			vco_best = vco_freq;
 			rate_best = newrate;
+			found = true;
 		}
 	}
 
-	*parent_rate = vco_best;
+	if (found) {
+		*parent_rate = vco_best;
+		return rate_best;
+	}
 
-	return rate_best;
+	return -EINVAL;
 }
 
 static int hmc7044_clk_set_rate(struct clk_hw *hw,
@@ -2010,6 +2063,9 @@ static int hmc7044_parse_dt(struct device *dev,
 			of_property_read_bool(chan_np,"adi,jesd204-sysref-chan");
 		hmc->channels[cnt].set_rate_parent =
 			of_property_read_bool(chan_np, "adi,set-rate-parent");
+		hmc->channels[cnt].max_deviation_ppm = UINT_MAX;
+		of_property_read_u32(chan_np, "adi,max-deviation-ppm",
+				     &hmc->channels[cnt].max_deviation_ppm);
 		cnt++;
 	}
 
