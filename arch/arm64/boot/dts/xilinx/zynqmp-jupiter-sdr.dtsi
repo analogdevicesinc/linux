@@ -296,11 +296,15 @@
 		compatible = "atmel,24c16";
 		pagesize = <16>;
 		reg = <0x50>;
-		#address-cells = <1>;
-		#size-cells = <1>;
 
-		eth0_addr: eth-mac-addr@B {
-			reg = <0xB 0x06>;
+		nvmem-layout {
+			compatible = "fixed-layout";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			eth0_addr: eth-mac-addr@B {
+				reg = <0xB 0x06>;
+			};
 		};
 	};
 
