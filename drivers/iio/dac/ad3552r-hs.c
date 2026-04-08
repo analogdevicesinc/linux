@@ -13,9 +13,13 @@
 #include <linux/iio/backend.h>
 #include <linux/iio/buffer.h>
 #include <linux/mod_devicetable.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
 #include <linux/units.h>
+
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 
 #include "ad3552r.h"
 #include "ad3552r-hs.h"
@@ -51,12 +55,14 @@ struct ad3552r_hs_state {
 	struct device *dev;
 	struct iio_backend *back;
 	bool single_channel;
+	enum ad3552r_io_mode default_spi_mode;
 	struct ad3552r_ch_data ch_data[AD3552R_MAX_CH];
 	struct ad3552r_hs_platform_data *data;
 	/* INTERFACE_CONFIG_D register cache, in DDR we cannot read values. */
 	u32 config_d;
 	/* Protects backend I/O operations from concurrent accesses. */
 	struct mutex lock;
+	bool init_done;
 };
 
 enum ad3552r_sources {
@@ -116,7 +122,7 @@ static int ad3552r_hs_read_raw(struct iio_dev *indio_dev,
 	int ch = chan->channel;
 
 	switch (mask) {
-	case IIO_CHAN_INFO_SAMP_FREQ:
+		case IIO_CHAN_INFO_SAMP_FREQ:
 		/*
 		 * Using a "num_spi_data_lanes" variable since ad3541/2 have
 		 * only DSPI interface, while ad355x is QSPI. Then using 2 as
@@ -129,25 +135,25 @@ static int ad3552r_hs_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_INT;
 
-	case IIO_CHAN_INFO_RAW:
+		case IIO_CHAN_INFO_RAW:
 		/* For RAW accesses, stay always in simple-spi. */
 		ret = ad3552r_hs_reg_read(st,
 				AD3552R_REG_ADDR_CH_DAC_16B(chan->channel),
 				val, 2);
-		if (ret)
-			return ret;
+        if (ret)
+				return ret;
 
-		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_SCALE:
-		*val = st->ch_data[ch].scale_int;
-		*val2 = st->ch_data[ch].scale_dec;
-		return IIO_VAL_INT_PLUS_MICRO;
-	case IIO_CHAN_INFO_OFFSET:
-		*val = st->ch_data[ch].offset_int;
-		*val2 = st->ch_data[ch].offset_dec;
-		return IIO_VAL_INT_PLUS_MICRO;
-	default:
-		return -EINVAL;
+			return IIO_VAL_INT;
+		case IIO_CHAN_INFO_SCALE:
+			*val = st->ch_data[ch].scale_int;
+			*val2 = st->ch_data[ch].scale_dec;
+			return IIO_VAL_INT_PLUS_MICRO;
+		case IIO_CHAN_INFO_OFFSET:
+			*val = st->ch_data[ch].offset_int;
+			*val2 = st->ch_data[ch].offset_dec;
+			return IIO_VAL_INT_PLUS_MICRO;
+		default:
+			return -EINVAL;
 	}
 }
 
@@ -215,25 +221,25 @@ static int ad3552r_hs_buffer_postenable(struct iio_dev *indio_dev)
 	};
 	int loop_len, val, ret;
 
-	switch (*indio_dev->active_scan_mask) {
-	case AD3552R_CH0_ACTIVE:
-		st->single_channel = true;
-		loop_len = 2;
-		val = AD3552R_REG_ADDR_CH_DAC_16B(0);
-		break;
-	case AD3552R_CH1_ACTIVE:
-		st->single_channel = true;
-		loop_len = 2;
-		val = AD3552R_REG_ADDR_CH_DAC_16B(1);
-		break;
-	case AD3552R_CH0_ACTIVE | AD3552R_CH1_ACTIVE:
-		st->single_channel = false;
-		loop_len = 4;
-		val = AD3552R_REG_ADDR_CH_DAC_16B(1);
-		break;
-	default:
-		return -EINVAL;
-	}
+       switch (*indio_dev->active_scan_mask) {
+       case AD3552R_CH0_ACTIVE:
+	       st->single_channel = true;
+	       loop_len = 2;
+		       val = AD3552R_REG_ADDR_CH_DAC_16B(0);
+	       break;
+       case AD3552R_CH1_ACTIVE:
+	       st->single_channel = true;
+	       loop_len = 2;
+		       val = AD3552R_REG_ADDR_CH_DAC_16B(1);
+	       break;
+       case AD3552R_CH0_ACTIVE | AD3552R_CH1_ACTIVE:
+	       st->single_channel = false;
+	       loop_len = 4;
+		       val = AD3552R_REG_ADDR_CH_DAC_16B(1);
+	       break;
+       default:
+	       return -EINVAL;
+       }
 
 	/*
 	 * With ad3541/2r support, QSPI pin is held low at reset from HDL,
@@ -310,17 +316,16 @@ static int ad3552r_hs_buffer_postenable(struct iio_dev *indio_dev)
 	return 0;
 
 exit_err_bus_mode_target:
-	/* Back to simple SPI, not using update to avoid read. */
 	st->data->bus_reg_write(st->back, AD3552R_REG_ADDR_TRANSFER_REGISTER,
 				FIELD_PREP(AD3552R_MASK_MULTI_IO_MODE,
-					   AD3552R_SPI) |
+					   st->default_spi_mode) |
 				AD3552R_MASK_STREAM_LENGTH_KEEP_VALUE, 1);
 
 	/*
 	 * Back bus to simple SPI, this must be executed together with above
 	 * target mode unwind, and can be done only after it.
 	 */
-	st->data->bus_set_io_mode(st->back, AD3552R_IO_MODE_SPI);
+	st->data->bus_set_io_mode(st->back, st->default_spi_mode);
 
 exit_err_ddr_mode:
 	iio_backend_ddr_disable(st->back);
@@ -356,7 +361,7 @@ static int ad3552r_hs_buffer_predisable(struct iio_dev *indio_dev)
 	 * Set us to simple SPI, even if still in ddr, so to be able to write
 	 * in primary region.
 	 */
-	ret = st->data->bus_set_io_mode(st->back, AD3552R_IO_MODE_SPI);
+	st->data->bus_set_io_mode(st->back, st->default_spi_mode);
 	if (ret)
 		return ret;
 
@@ -381,7 +386,7 @@ static int ad3552r_hs_buffer_predisable(struct iio_dev *indio_dev)
 	 */
 	ret = ad3552r_hs_update_reg_bits(st, AD3552R_REG_ADDR_TRANSFER_REGISTER,
 					 AD3552R_MASK_MULTI_IO_MODE,
-					 AD3552R_SPI, 1);
+					 st->default_spi_mode, 1);
 	if (ret)
 		return ret;
 
@@ -452,7 +457,7 @@ static int ad3552r_hs_scratch_pad_test(struct ad3552r_hs_state *st)
 		return ret;
 
 	if (val != AD3552R_SCRATCH_PAD_TEST_VAL1)
-		return dev_err_probe(st->dev, -EIO,
+	    		return dev_err_probe(st->dev, -EIO,
 			"SCRATCH_PAD_TEST mismatch. Expected 0x%x, Read 0x%x\n",
 			AD3552R_SCRATCH_PAD_TEST_VAL1, val);
 
@@ -496,7 +501,7 @@ static int ad3552r_hs_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	if (reg > st->model_data->max_reg_addr)
 		return -EINVAL;
 
-	/*
+    /*
 	 * There are 8, 16 or 24 bit registers, but HDL supports only reading 8
 	 * or 16 bit data, not 24. So, also to avoid to check any proper read
 	 * alignment, supporting only 8-bit readings here.
@@ -604,16 +609,42 @@ static const struct file_operations ad3552r_hs_data_source_avail_fops = {
 	.read = ad3552r_hs_show_data_source_avail,
 };
 
-static int ad3552r_hs_setup(struct ad3552r_hs_state *st)
+static int ad3552r_hs_init_sequence(struct ad3552r_hs_state *st)
 {
 	u16 id;
 	u16 gain = 0, offset = 0;
 	u32 ch, val, range;
 	int ret;
 
-	ret = ad3552r_hs_reset(st);
-	if (ret)
-		return ret;
+	struct device_node *node = st->dev->of_node;
+
+
+	if (of_property_read_u32(node, "adi,initial-target-spi-io-mode", &(st->default_spi_mode))) {
+        dev_warn(st->dev, "WARNING: 'initial-target-spi-io-mode' property not found! \n");
+
+	    // /* Set initial bus mode defined by the QSPI pin on the chip (SINGLE/GND or QSPI/DVDD). */
+		ret = st->data->bus_set_io_mode(st->back, AD3552R_IO_MODE_SPI);
+		if (ret)
+			return ret;
+		st->default_spi_mode = AD3552R_IO_MODE_SPI;
+	} else {
+		if (st->default_spi_mode >= AD3552R_IO_MODE_SPI && st->default_spi_mode <= AD3552R_IO_MODE_QSPI) {
+			// /* Set initial bus mode defined by the QSPI pin on the chip (SINGLE/GND or QSPI/DVDD). */
+			ret = st->data->bus_set_io_mode(st->back, st->default_spi_mode);
+
+			if (ret)
+				return ret;
+		} else {
+			dev_warn(st->dev, "WARNING: 'initial-target-spi-io-mode' property not found! \n");
+
+			// /* Set initial bus mode defined by the QSPI pin on the chip (SINGLE/GND or QSPI/DVDD). */
+			ret = st->data->bus_set_io_mode(st->back, AD3552R_IO_MODE_SPI);
+			if (ret)
+				return ret;
+			st->default_spi_mode = AD3552R_IO_MODE_SPI;
+		}
+	}
+	dev_info(st->dev, "Target SPI mode: %d ! \n", st->default_spi_mode);
 
 	/* HDL starts with DDR enabled, disabling it. */
 	ret = iio_backend_ddr_disable(st->back);
@@ -744,6 +775,20 @@ static int ad3552r_hs_setup(struct ad3552r_hs_state *st)
 	return 0;
 }
 
+static int ad3552r_hs_setup(struct ad3552r_hs_state *st)
+{
+	int ret;
+	ret = ad3552r_hs_reset(st);
+	if (ret)
+		return ret;
+	st->init_done = false;
+	ret = ad3552r_hs_init_sequence(st);
+	if (ret)
+		return ret;
+	st->init_done = true;
+	return 0;
+}
+
 static const struct iio_buffer_setup_ops ad3552r_hs_buffer_setup_ops = {
 	.postenable = ad3552r_hs_buffer_postenable,
 	.predisable = ad3552r_hs_buffer_predisable,
@@ -827,8 +872,8 @@ static int ad3552r_hs_probe(struct platform_device *pdev)
 	if (!st->model_data)
 		return -ENODEV;
 
-	indio_dev->name = "ad3552r";
-	indio_dev->modes = INDIO_DIRECT_MODE;
+    indio_dev->name = st->dev->of_node->name;
+    indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->setup_ops = &ad3552r_hs_buffer_setup_ops;
 	indio_dev->channels = ad3552r_hs_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ad3552r_hs_channels);
@@ -875,6 +920,7 @@ module_platform_driver(ad3552r_hs_driver);
 
 MODULE_AUTHOR("Dragos Bogdan <dragos.bogdan@analog.com>");
 MODULE_AUTHOR("Angelo Dureghello <adueghello@baylibre.com>");
+MODULE_AUTHOR("Vilmos-Csaba Jozsa <vilmoscsaba.jozsa@analog.com>");
 MODULE_DESCRIPTION("AD3552R Driver - High Speed version");
 MODULE_LICENSE("GPL");
 MODULE_IMPORT_NS(IIO_BACKEND);
