@@ -348,7 +348,6 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../iio-mxfe/ad9081.html">AD9081</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-pll/ad9162.html">AD9162</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-pll/ad9508.html">AD9508</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-pll/ad9517.html">AD9517</a></li>
@@ -386,6 +385,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv904x.html">ADRV904x</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ad9081.html">AD9081</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../iio-vector-power/adl5960.html">ADL5960</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../input-keyboard/adp5588.html">ADP5588 Input</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../input-keyboard/adp5589.html">ADP5589</a></li>
@@ -2610,7 +2610,7 @@ channels are enabled, samples are interleaved in channel order.</p>
 <section id="gpios-gpio-chip">
 <span id="apollo-gpio"></span><h4>GPIOs &amp; GPIO chip<a class="headerlink" href="#gpios-gpio-chip" title="Link to this heading"></a></h4>
 <p>The device contains 30 general purpose GPIOs that can be used to trigger various
-changes and can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.0.0-rc6)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
+changes and can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.0.0-rc7)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
 using the <code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code> devicetree property:</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">     </span><span class="n">adi</span><span class="p">,</span><span class="n">gpio-exports</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">8 &lt;15 16 17 18&gt;</span><span class="p">;</span>
