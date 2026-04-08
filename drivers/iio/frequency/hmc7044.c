@@ -506,6 +506,7 @@ static int hmc7044_write_raw(struct iio_dev *indio_dev,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *ch;
 	unsigned int code, tmp;
+	long round_rate;
 
 	if (chan->address >= hmc->num_channels)
 		return -EINVAL;
@@ -514,14 +515,10 @@ static int hmc7044_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
-		ch->divider = hmc7044_calc_out_div(hmc->pll2_freq, val);
-		mutex_lock(&hmc->lock);
-		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(ch->num),
-			      HMC7044_DIV_LSB(ch->divider));
-		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(ch->num),
-			      HMC7044_DIV_MSB(ch->divider));
-		mutex_unlock(&hmc->lock);
-		break;
+		round_rate = clk_round_rate(hmc->clks[ch->num], val);
+		if (round_rate < 0)
+			return -EINVAL;
+		return clk_set_rate(hmc->clks[ch->num], val);
 	case IIO_CHAN_INFO_PHASE:
 		mutex_lock(&hmc->lock);
 		code = val * 1000000 + val2 % 1000000;
@@ -796,24 +793,6 @@ static long hmc7044_get_clk_attr(struct clk_hw *hw,
 	return ret;
 }
 
-static long hmc7044_set_clk_attr(struct clk_hw *hw,
-				 long mask,
-				 unsigned long val)
-{
-	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
-	struct hmc7044 *hmc = iio_priv(indio_dev);
-	struct iio_chan_spec *chan;
-	unsigned int address;
-
-	address = to_output(hw)->address;
-	if (address >= hmc->num_channels)
-		return -EINVAL;
-
-	chan = &hmc->iio_channels[address];
-
-	return hmc7044_write_raw(indio_dev, chan, val, 0, mask);
-}
-
 static unsigned long hmc7044_pll2_recalc_rate(unsigned long vcxo_freq,
 					      unsigned long pll2_freq,
 					      bool force_r2_eq_1,
@@ -962,6 +941,7 @@ static int hmc7044_clk_set_rate(struct clk_hw *hw,
 	struct hmc7044_output *out = to_output(hw);
 	struct iio_dev *indio_dev = out->indio_dev;
 	struct hmc7044 *hmc = iio_priv(indio_dev);
+	struct hmc7044_chan_spec *ch;
 	unsigned int address;
 	int ret;
 
@@ -976,7 +956,23 @@ static int hmc7044_clk_set_rate(struct clk_hw *hw,
 		return ret;
 	}
 
-	return hmc7044_set_clk_attr(hw, IIO_CHAN_INFO_FREQUENCY, rate);
+	if (address >= hmc->num_channels)
+		return -EINVAL;
+
+	ch = &hmc->channels[address];
+
+	mutex_lock(&hmc->lock);
+
+	ch->divider = hmc7044_calc_out_div(hmc->pll2_freq, rate);
+	ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(ch->num),
+		      HMC7044_DIV_LSB(ch->divider));
+	if (ret)
+		goto out;
+	ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(ch->num),
+		      HMC7044_DIV_MSB(ch->divider));
+out:
+	mutex_unlock(&hmc->lock);
+	return ret;
 }
 
 static const struct clk_ops hmc7044_clk_ops = {
