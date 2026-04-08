@@ -2315,7 +2315,11 @@ void hrtimer_sleeper_start_expires(struct hrtimer_sleeper *sl, enum hrtimer_mode
 	if (IS_ENABLED(CONFIG_PREEMPT_RT) && sl->timer.is_hard)
 		mode |= HRTIMER_MODE_HARD;
 
-	hrtimer_start_expires(&sl->timer, mode);
+	/* If already expired, clear the task pointer and set current state to running */
+	if (!hrtimer_start_expires_user(&sl->timer, mode)) {
+		sl->task = NULL;
+		__set_current_state(TASK_RUNNING);
+	}
 }
 EXPORT_SYMBOL_GPL(hrtimer_sleeper_start_expires);
 
