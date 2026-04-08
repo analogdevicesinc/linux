@@ -88,6 +88,7 @@ xe-y += xe_bb.o \
 	xe_irq.o \
 	xe_late_bind_fw.o \
 	xe_lrc.o \
+	xe_mem_pool.o \
 	xe_migrate.o \
 	xe_mmio.o \
 	xe_mmio_gem.o \
