@@ -33,6 +33,46 @@ void _rtw_init_sta_xmit_priv(struct sta_xmit_priv *psta_xmitpriv)
 	INIT_LIST_HEAD(&psta_xmitpriv->apsd);
 }
 
+static s32 rtw_alloc_hwxmits(struct adapter *padapter)
+{
+	struct hw_xmit *hwxmits;
+	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
+
+	pxmitpriv->hwxmit_entry = HWXMIT_ENTRY;
+
+	pxmitpriv->hwxmits = NULL;
+
+	pxmitpriv->hwxmits = kzalloc_objs(*hwxmits, pxmitpriv->hwxmit_entry,
+					  GFP_ATOMIC);
+	if (!pxmitpriv->hwxmits)
+		return _FAIL;
+
+	hwxmits = pxmitpriv->hwxmits;
+
+	if (pxmitpriv->hwxmit_entry == 5) {
+		hwxmits[0] .sta_queue = &pxmitpriv->bm_pending;
+
+		hwxmits[1] .sta_queue = &pxmitpriv->vo_pending;
+
+		hwxmits[2] .sta_queue = &pxmitpriv->vi_pending;
+
+		hwxmits[3] .sta_queue = &pxmitpriv->bk_pending;
+
+		hwxmits[4] .sta_queue = &pxmitpriv->be_pending;
+	} else if (pxmitpriv->hwxmit_entry == 4) {
+		hwxmits[0] .sta_queue = &pxmitpriv->vo_pending;
+
+		hwxmits[1] .sta_queue = &pxmitpriv->vi_pending;
+
+		hwxmits[2] .sta_queue = &pxmitpriv->be_pending;
+
+		hwxmits[3] .sta_queue = &pxmitpriv->bk_pending;
+	} else {
+	}
+
+	return _SUCCESS;
+}
+
 s32 _rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, struct adapter *padapter)
 {
 	int i;
@@ -1850,46 +1890,6 @@ s32 rtw_xmit_classifier(struct adapter *padapter, struct xmit_frame *pxmitframe)
 exit:
 
 	return res;
-}
-
-s32 rtw_alloc_hwxmits(struct adapter *padapter)
-{
-	struct hw_xmit *hwxmits;
-	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
-
-	pxmitpriv->hwxmit_entry = HWXMIT_ENTRY;
-
-	pxmitpriv->hwxmits = NULL;
-
-	pxmitpriv->hwxmits = kzalloc_objs(*hwxmits, pxmitpriv->hwxmit_entry,
-					  GFP_ATOMIC);
-	if (!pxmitpriv->hwxmits)
-		return _FAIL;
-
-	hwxmits = pxmitpriv->hwxmits;
-
-	if (pxmitpriv->hwxmit_entry == 5) {
-		hwxmits[0] .sta_queue = &pxmitpriv->bm_pending;
-
-		hwxmits[1] .sta_queue = &pxmitpriv->vo_pending;
-
-		hwxmits[2] .sta_queue = &pxmitpriv->vi_pending;
-
-		hwxmits[3] .sta_queue = &pxmitpriv->bk_pending;
-
-		hwxmits[4] .sta_queue = &pxmitpriv->be_pending;
-	} else if (pxmitpriv->hwxmit_entry == 4) {
-		hwxmits[0] .sta_queue = &pxmitpriv->vo_pending;
-
-		hwxmits[1] .sta_queue = &pxmitpriv->vi_pending;
-
-		hwxmits[2] .sta_queue = &pxmitpriv->be_pending;
-
-		hwxmits[3] .sta_queue = &pxmitpriv->bk_pending;
-	} else {
-	}
-
-	return _SUCCESS;
 }
 
 void rtw_free_hwxmits(struct adapter *padapter)
