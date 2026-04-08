@@ -1142,7 +1142,11 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 
 	uartid = of_alias_get_id(np, "serial");
 	tx_dma_channel = dma_request_chan(dev, "tx");
+	if (IS_ERR(tx_dma_channel))
+		tx_dma_channel = NULL;
 	rx_dma_channel = dma_request_chan(dev, "rx");
+	if (IS_ERR(rx_dma_channel))
+		rx_dma_channel = NULL;
 
 	if (uartid < 0) {
 		dev_err(&pdev->dev, "failed to get alias/pdev id, errno %d\n",
