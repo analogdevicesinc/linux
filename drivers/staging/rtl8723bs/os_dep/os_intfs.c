@@ -636,6 +636,8 @@ void rtw_reset_drv_sw(struct adapter *padapter)
 
 u8 rtw_init_drv_sw(struct adapter *padapter)
 {
+	int res;
+
 	rtw_init_default_value(padapter);
 
 	rtw_init_hal_com_default_value(padapter);
@@ -653,7 +655,8 @@ u8 rtw_init_drv_sw(struct adapter *padapter)
 
 	init_mlme_ext_priv(padapter);
 
-	if (_rtw_init_xmit_priv(&padapter->xmitpriv, padapter) == _FAIL)
+	res = _rtw_init_xmit_priv(&padapter->xmitpriv, padapter);
+	if (res)
 		goto free_mlme_ext;
 
 	if (_rtw_init_recv_priv(&padapter->recvpriv, padapter) == _FAIL)
