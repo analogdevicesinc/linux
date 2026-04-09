@@ -333,7 +333,7 @@ void dml2_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_state *cont
 		}
 
 		context->bw_ctx.bw.dcn.compbuf_size_kb -= context->res_ctx.pipe_ctx[dc_pipe_ctx_index].det_buffer_size_kb;
-		context->res_ctx.pipe_ctx[dc_pipe_ctx_index].plane_res.bw.dppclk_khz = dml_get_dppclk_calculated(&context->bw_ctx.dml2->v20.dml_core_ctx, dml_pipe_idx) * 1000;
+		context->res_ctx.pipe_ctx[dc_pipe_ctx_index].plane_res.bw.dppclk_khz = (int)(dml_get_dppclk_calculated(&context->bw_ctx.dml2->v20.dml_core_ctx, dml_pipe_idx) * 1000);
 		if (context->bw_ctx.bw.dcn.clk.dppclk_khz < context->res_ctx.pipe_ctx[dc_pipe_ctx_index].plane_res.bw.dppclk_khz)
 			context->bw_ctx.bw.dcn.clk.dppclk_khz = context->res_ctx.pipe_ctx[dc_pipe_ctx_index].plane_res.bw.dppclk_khz;
 
@@ -362,10 +362,10 @@ void dml2_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_state *cont
 	context->bw_ctx.bw.dcn.clk.bw_dppclk_khz = context->bw_ctx.bw.dcn.clk.dppclk_khz;
 	context->bw_ctx.bw.dcn.clk.bw_dispclk_khz = context->bw_ctx.bw.dcn.clk.dispclk_khz;
 
-	context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz = in_ctx->v20.dml_core_ctx.states.state_array[in_ctx->v20.scratch.mode_support_params.out_lowest_state_idx].dppclk_mhz
-		* 1000;
-	context->bw_ctx.bw.dcn.clk.max_supported_dispclk_khz = in_ctx->v20.dml_core_ctx.states.state_array[in_ctx->v20.scratch.mode_support_params.out_lowest_state_idx].dispclk_mhz
-		* 1000;
+	context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz = (int)(in_ctx->v20.dml_core_ctx.states.state_array[in_ctx->v20.scratch.mode_support_params.out_lowest_state_idx].dppclk_mhz
+		* 1000);
+	context->bw_ctx.bw.dcn.clk.max_supported_dispclk_khz = (int)(in_ctx->v20.dml_core_ctx.states.state_array[in_ctx->v20.scratch.mode_support_params.out_lowest_state_idx].dispclk_mhz
+		* 1000);
 
 	if (dc->config.forced_clocks || dc->debug.max_disp_clk) {
 		context->bw_ctx.bw.dcn.clk.bw_dispclk_khz = context->bw_ctx.bw.dcn.clk.max_supported_dispclk_khz;
@@ -375,18 +375,18 @@ void dml2_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_state *cont
 
 void dml2_extract_watermark_set(struct dcn_watermarks *watermark, struct display_mode_lib_st *dml_core_ctx)
 {
-	watermark->urgent_ns = dml_get_wm_urgent(dml_core_ctx) * 1000;
-	watermark->cstate_pstate.cstate_enter_plus_exit_ns = dml_get_wm_stutter_enter_exit(dml_core_ctx) * 1000;
-	watermark->cstate_pstate.cstate_exit_ns = dml_get_wm_stutter_exit(dml_core_ctx) * 1000;
-	watermark->cstate_pstate.pstate_change_ns = dml_get_wm_dram_clock_change(dml_core_ctx) * 1000;
-	watermark->pte_meta_urgent_ns = dml_get_wm_memory_trip(dml_core_ctx) * 1000;
-	watermark->frac_urg_bw_nom = dml_get_fraction_of_urgent_bandwidth(dml_core_ctx) * 1000;
-	watermark->frac_urg_bw_flip = dml_get_fraction_of_urgent_bandwidth_imm_flip(dml_core_ctx) * 1000;
-	watermark->urgent_latency_ns = dml_get_urgent_latency(dml_core_ctx) * 1000;
-	watermark->cstate_pstate.fclk_pstate_change_ns = dml_get_wm_fclk_change(dml_core_ctx) * 1000;
-	watermark->usr_retraining_ns = dml_get_wm_usr_retraining(dml_core_ctx) * 1000;
-	watermark->cstate_pstate.cstate_enter_plus_exit_z8_ns = dml_get_wm_z8_stutter_enter_exit(dml_core_ctx) * 1000;
-	watermark->cstate_pstate.cstate_exit_z8_ns = dml_get_wm_z8_stutter(dml_core_ctx) * 1000;
+	watermark->urgent_ns = (uint32_t)(dml_get_wm_urgent(dml_core_ctx) * 1000);
+	watermark->cstate_pstate.cstate_enter_plus_exit_ns = (uint32_t)(dml_get_wm_stutter_enter_exit(dml_core_ctx) * 1000);
+	watermark->cstate_pstate.cstate_exit_ns = (uint32_t)(dml_get_wm_stutter_exit(dml_core_ctx) * 1000);
+	watermark->cstate_pstate.pstate_change_ns = (uint32_t)(dml_get_wm_dram_clock_change(dml_core_ctx) * 1000);
+	watermark->pte_meta_urgent_ns = (uint32_t)(dml_get_wm_memory_trip(dml_core_ctx) * 1000);
+	watermark->frac_urg_bw_nom = (uint32_t)(dml_get_fraction_of_urgent_bandwidth(dml_core_ctx) * 1000);
+	watermark->frac_urg_bw_flip = (uint32_t)(dml_get_fraction_of_urgent_bandwidth_imm_flip(dml_core_ctx) * 1000);
+	watermark->urgent_latency_ns = (uint32_t)(dml_get_urgent_latency(dml_core_ctx) * 1000);
+	watermark->cstate_pstate.fclk_pstate_change_ns = (uint32_t)(dml_get_wm_fclk_change(dml_core_ctx) * 1000);
+	watermark->usr_retraining_ns = (uint32_t)(dml_get_wm_usr_retraining(dml_core_ctx) * 1000);
+	watermark->cstate_pstate.cstate_enter_plus_exit_z8_ns = (uint32_t)(dml_get_wm_z8_stutter_enter_exit(dml_core_ctx) * 1000);
+	watermark->cstate_pstate.cstate_exit_z8_ns = (uint32_t)(dml_get_wm_z8_stutter(dml_core_ctx) * 1000);
 }
 
 unsigned int dml2_calc_max_scaled_time(
@@ -434,9 +434,9 @@ void dml2_extract_writeback_wm(struct dc_state *context, struct display_mode_lib
 		for (j = 0 ; j < 4; j++) {
 			/*current dml only has one set of watermark, need to follow up*/
 			bw_writeback->mcif_wb_arb[i].cli_watermark[j] =
-					dml_get_wm_writeback_urgent(dml_core_ctx) * 1000;
+					(unsigned int)(dml_get_wm_writeback_urgent(dml_core_ctx) * 1000);
 			bw_writeback->mcif_wb_arb[i].pstate_watermark[j] =
-					dml_get_wm_writeback_dram_clock_change(dml_core_ctx) * 1000;
+					(unsigned int)(dml_get_wm_writeback_dram_clock_change(dml_core_ctx) * 1000);
 		}
 		if (context->res_ctx.pipe_ctx[i].stream->phy_pix_clk != 0) {
 			/* time_per_pixel should be in u6.6 format */
@@ -450,7 +450,7 @@ void dml2_extract_writeback_wm(struct dc_state *context, struct display_mode_lib
 					wbif_mode, 	wb_arb_params->cli_watermark[0]);
 		/*not required any more*/
 		bw_writeback->mcif_wb_arb[i].dram_speed_change_duration =
-			dml_get_wm_writeback_dram_clock_change(dml_core_ctx) * 1000;
+			(unsigned int)(dml_get_wm_writeback_dram_clock_change(dml_core_ctx) * 1000);
 
 	}
 }
