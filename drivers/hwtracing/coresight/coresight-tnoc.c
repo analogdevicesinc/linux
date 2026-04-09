@@ -47,8 +47,6 @@ struct trace_noc_drvdata {
 	int			atid;
 };
 
-DEFINE_CORESIGHT_DEVLIST(trace_noc_devs, "traceNoc");
-
 static void trace_noc_enable_hw(struct trace_noc_drvdata *drvdata)
 {
 	u32 val;
@@ -191,7 +189,7 @@ static int _tnoc_probe(struct device *dev, struct resource *res)
 	struct coresight_desc desc = { 0 };
 	int ret;
 
-	desc.name = coresight_alloc_device_name(&trace_noc_devs, dev);
+	desc.name = coresight_alloc_device_name("traceNoc", dev);
 	if (!desc.name)
 		return -ENOMEM;
 
