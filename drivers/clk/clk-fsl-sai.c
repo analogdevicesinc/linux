@@ -26,20 +26,71 @@ struct fsl_sai_data {
 };
 
 struct fsl_sai_clk {
-	struct clk_divider div;
-	struct clk_gate gate;
+	struct clk_divider bclk_div;
+	struct clk_gate bclk_gate;
+	struct clk_hw *bclk_hw;
 	spinlock_t lock;
 };
+
+static struct clk_hw *
+fsl_sai_of_clk_get(struct of_phandle_args *clkspec, void *data)
+{
+	struct fsl_sai_clk *sai_clk = data;
+
+	return sai_clk->bclk_hw;
+}
+
+static int fsl_sai_clk_register(struct device *dev, void __iomem *base,
+				spinlock_t *lock, struct clk_divider *div,
+				struct clk_gate *gate, struct clk_hw **hw,
+				const int gate_bit, const int dir_bit,
+				const int div_reg, char *name)
+{
+	const struct fsl_sai_data *data = device_get_match_data(dev);
+	struct clk_parent_data pdata = { .index = 0 };
+	struct clk_hw *chw;
+	char *cname;
+
+	gate->reg = base + data->offset + I2S_CSR;
+	gate->bit_idx = gate_bit;
+	gate->lock = lock;
+
+	div->reg = base + div_reg;
+	div->shift = CR2_DIV_SHIFT;
+	div->width = CR2_DIV_WIDTH;
+	div->lock = lock;
+
+	cname = devm_kasprintf(dev, GFP_KERNEL, "%s.%s",
+			       of_node_full_name(dev->of_node), name);
+	if (!cname)
+		return -ENOMEM;
+
+	/* Set clock direction */
+	writel(dir_bit, base + div_reg);
+
+	chw = devm_clk_hw_register_composite_pdata(dev, cname,
+						   &pdata, 1, NULL, NULL,
+						   &div->hw,
+						   &clk_divider_ops,
+						   &gate->hw,
+						   &clk_gate_ops,
+						   CLK_SET_RATE_GATE);
+	if (IS_ERR(chw))
+		return PTR_ERR(chw);
+
+	*hw = chw;
+
+	return 0;
+}
 
 static int fsl_sai_clk_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	const struct fsl_sai_data *data = device_get_match_data(dev);
 	struct fsl_sai_clk *sai_clk;
-	struct clk_parent_data pdata = { .index = 0 };
 	struct clk *clk_bus;
 	void __iomem *base;
-	struct clk_hw *hw;
+	int ret;
 
 	sai_clk = devm_kzalloc(dev, sizeof(*sai_clk), GFP_KERNEL);
 	if (!sai_clk)
@@ -55,29 +106,14 @@ static int fsl_sai_clk_probe(struct platform_device *pdev)
 
 	spin_lock_init(&sai_clk->lock);
 
-	sai_clk->gate.reg = base + data->offset + I2S_CSR;
-	sai_clk->gate.bit_idx = CSR_BCE_BIT;
-	sai_clk->gate.lock = &sai_clk->lock;
+	ret = fsl_sai_clk_register(dev, base, &sai_clk->lock,
+				   &sai_clk->bclk_div, &sai_clk->bclk_gate,
+				   &sai_clk->bclk_hw, CSR_BCE_BIT, CR2_BCD,
+				   data->offset + I2S_CR2, "BCLK");
+	if (ret)
+		return ret;
 
-	sai_clk->div.reg = base + data->offset + I2S_CR2;
-	sai_clk->div.shift = CR2_DIV_SHIFT;
-	sai_clk->div.width = CR2_DIV_WIDTH;
-	sai_clk->div.lock = &sai_clk->lock;
-
-	/* set clock direction, we are the BCLK master */
-	writel(CR2_BCD, base + data->offset + I2S_CR2);
-
-	hw = devm_clk_hw_register_composite_pdata(dev, dev->of_node->name,
-						  &pdata, 1, NULL, NULL,
-						  &sai_clk->div.hw,
-						  &clk_divider_ops,
-						  &sai_clk->gate.hw,
-						  &clk_gate_ops,
-						  CLK_SET_RATE_GATE);
-	if (IS_ERR(hw))
-		return PTR_ERR(hw);
-
-	return devm_of_clk_add_hw_provider(dev, of_clk_hw_simple_get, hw);
+	return devm_of_clk_add_hw_provider(dev, fsl_sai_of_clk_get, sai_clk);
 }
 
 static const struct fsl_sai_data fsl_sai_vf610_data = {
