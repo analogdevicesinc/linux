@@ -18,6 +18,7 @@
 #include <drm/drm_print.h>
 #include <drm/intel/i915_component.h>
 #include <drm/intel/intel_pcode_regs.h>
+#include <drm/intel/step.h>
 
 #include "intel_connector.h"
 #include "intel_de.h"
@@ -33,7 +34,6 @@
 #include "intel_hdcp_regs.h"
 #include "intel_hdcp_shim.h"
 #include "intel_parent.h"
-#include "intel_step.h"
 
 #define USE_HDCP_GSC(__display)		(DISPLAY_VER(__display) >= 14)
 

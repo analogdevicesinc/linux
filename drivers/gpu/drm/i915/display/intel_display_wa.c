@@ -4,12 +4,12 @@
  */
 
 #include <drm/drm_print.h>
+#include <drm/intel/step.h>
 
 #include "intel_de.h"
 #include "intel_display_core.h"
 #include "intel_display_regs.h"
 #include "intel_display_wa.h"
-#include "intel_step.h"
 
 static void gen11_display_wa_apply(struct intel_display *display)
 {
