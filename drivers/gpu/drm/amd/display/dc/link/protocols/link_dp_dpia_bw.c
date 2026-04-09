@@ -180,7 +180,7 @@ static void dpia_bw_alloc_unplug(struct dc_link *link)
 
 static void link_dpia_send_bw_alloc_request(struct dc_link *link, int req_bw)
 {
-	uint8_t request_reg_val;
+	uint32_t request_reg_val;
 	uint32_t temp, request_bw;
 
 	if (link->dpia_bw_alloc_config.bw_granularity == 0) {
@@ -212,8 +212,8 @@ static void link_dpia_send_bw_alloc_request(struct dc_link *link, int req_bw)
 	link->dpia_bw_alloc_config.allocated_bw = request_bw;
 	DC_LOG_DC("%s:  Link[%d]:  Request BW:  %d", __func__, link->link_index, request_bw);
 
-	core_link_write_dpcd(link, REQUESTED_BW,
-		&request_reg_val,
+	uint8_t requested_bw_dpcd = (uint8_t)request_reg_val;
+	core_link_write_dpcd(link, REQUESTED_BW, &requested_bw_dpcd,
 		sizeof(uint8_t));
 }
 

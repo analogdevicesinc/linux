@@ -476,7 +476,8 @@ static void build_watermark_ranges(struct clk_bw_params *bw_params, struct pp_sm
 				ranges->reader_wm_sets[num_valid_sets].min_drain_clk_mhz = 0;
 			else {
 				/* add 1 to make it non-overlapping with next lvl */
-				ranges->reader_wm_sets[num_valid_sets].min_drain_clk_mhz = bw_params->clk_table.entries[i - 1].dcfclk_mhz + 1;
+				ranges->reader_wm_sets[num_valid_sets].min_drain_clk_mhz =
+					(uint16_t)(bw_params->clk_table.entries[i - 1].dcfclk_mhz + 1);
 			}
 			ranges->reader_wm_sets[num_valid_sets].max_drain_clk_mhz =
 				(uint16_t)bw_params->clk_table.entries[i].dcfclk_mhz;

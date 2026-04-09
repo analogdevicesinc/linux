@@ -546,24 +546,24 @@ static void update_psp_stream_config(struct pipe_ctx *pipe_ctx, bool dpms_off)
 	config.dig_fe = (uint8_t) pipe_ctx->stream_res.stream_enc->stream_enc_inst;
 
 	/* stream encoder index */
-	config.stream_enc_idx = pipe_ctx->stream_res.stream_enc->id - ENGINE_ID_DIGA;
+	config.stream_enc_idx = (uint8_t)(pipe_ctx->stream_res.stream_enc->id - ENGINE_ID_DIGA);
 	if (dp_is_128b_132b_signal(pipe_ctx))
 		config.stream_enc_idx =
-				pipe_ctx->stream_res.hpo_dp_stream_enc->id - ENGINE_ID_HPO_DP_0;
+				(uint8_t)(pipe_ctx->stream_res.hpo_dp_stream_enc->id - ENGINE_ID_HPO_DP_0);
 
 	/* dig back end */
 	config.dig_be = pipe_ctx->stream->link->link_enc_hw_inst;
 
 	/* link encoder index */
-	config.link_enc_idx = link_enc->transmitter - TRANSMITTER_UNIPHY_A;
+	config.link_enc_idx = (uint8_t)(link_enc->transmitter - TRANSMITTER_UNIPHY_A);
 	if (dp_is_128b_132b_signal(pipe_ctx))
 		config.link_enc_idx = (uint8_t)pipe_ctx->link_res.hpo_dp_link_enc->inst;
 
 	/* dio output index is dpia index for DPIA endpoint & dcio index by default */
 	if (pipe_ctx->stream->link->ep_type == DISPLAY_ENDPOINT_USB4_DPIA)
-		config.dio_output_idx = pipe_ctx->stream->link->link_id.enum_id - ENUM_ID_1;
+		config.dio_output_idx = (uint8_t)(pipe_ctx->stream->link->link_id.enum_id - ENUM_ID_1);
 	else
-		config.dio_output_idx = link_enc->transmitter - TRANSMITTER_UNIPHY_A;
+		config.dio_output_idx = (uint8_t)(link_enc->transmitter - TRANSMITTER_UNIPHY_A);
 
 
 	/* phy index */

@@ -447,7 +447,7 @@ static void dcn31_build_watermark_ranges(struct clk_bw_params *bw_params, struct
 			else {
 				/* add 1 to make it non-overlapping with next lvl */
 				table->WatermarkRow[WM_DCFCLK][num_valid_sets].MinMclk =
-						bw_params->clk_table.entries[i - 1].dcfclk_mhz + 1;
+						(uint16_t)(bw_params->clk_table.entries[i - 1].dcfclk_mhz + 1);
 			}
 			table->WatermarkRow[WM_DCFCLK][num_valid_sets].MaxMclk =
 					(uint16_t)bw_params->clk_table.entries[i].dcfclk_mhz;

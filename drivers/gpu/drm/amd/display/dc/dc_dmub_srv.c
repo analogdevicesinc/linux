@@ -697,7 +697,8 @@ static void populate_subvp_cmd_vblank_pipe_info(struct dc *dc,
 	pipe_data->pipe_config.vblank_data.vblank_pipe_index = vblank_pipe->pipe_idx;
 	pipe_data->pipe_config.vblank_data.vstartup_start = (uint16_t)vblank_pipe->pipe_dlg_param.vstartup_start;
 	pipe_data->pipe_config.vblank_data.vblank_end =
-			vblank_pipe->stream->timing.v_total - vblank_pipe->stream->timing.v_front_porch - vblank_pipe->stream->timing.v_addressable;
+			(uint16_t)(vblank_pipe->stream->timing.v_total -
+			vblank_pipe->stream->timing.v_front_porch - vblank_pipe->stream->timing.v_addressable);
 
 	if (vblank_pipe->stream->ignore_msa_timing_param &&
 		(vblank_pipe->stream->allow_freesync || vblank_pipe->stream->vrr_active_variable || vblank_pipe->stream->vrr_active_fixed))
@@ -831,7 +832,7 @@ static void populate_subvp_cmd_pipe_info(struct dc *dc,
 
 	// Prefetch lines is equal to VACTIVE + BP + VSYNC
 	pipe_data->pipe_config.subvp_data.prefetch_lines =
-			phantom_timing->v_total - phantom_timing->v_front_porch;
+			(uint16_t)(phantom_timing->v_total - phantom_timing->v_front_porch);
 
 	// Round up
 	pipe_data->pipe_config.subvp_data.prefetch_to_mall_start_lines =
@@ -1811,7 +1812,7 @@ static void dc_dmub_srv_rb_based_fams2_update_config(struct dc *dc,
 		struct dc_state *context,
 		bool enable)
 {
-	uint8_t num_cmds = 1;
+	uint32_t num_cmds = 1;
 	uint32_t i;
 	union dmub_rb_cmd cmd[2 * MAX_STREAMS + 1];
 	struct dmub_rb_cmd_fams2 *global_cmd = &cmd[0].fams2_config;

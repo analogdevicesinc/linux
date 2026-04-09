@@ -49,7 +49,7 @@ static void dcn401_convert_dc_clock_table_to_soc_bb_clock_table(
 						dc_clk_table->entries[i].dcfclk_mhz > dc_bw_params->dc_mode_limit.dcfclk_mhz) {
 					if (i == 0 || dc_clk_table->entries[i-1].dcfclk_mhz < dc_bw_params->dc_mode_limit.dcfclk_mhz) {
 						dml_clk_table->dcfclk.clk_values_khz[i] = dc_bw_params->dc_mode_limit.dcfclk_mhz * 1000;
-						dml_clk_table->dcfclk.num_clk_values = i + 1;
+						dml_clk_table->dcfclk.num_clk_values = (uint8_t)(i + 1);
 					} else {
 						dml_clk_table->dcfclk.clk_values_khz[i] = 0;
 						dml_clk_table->dcfclk.num_clk_values = (uint8_t)i;
@@ -72,7 +72,7 @@ static void dcn401_convert_dc_clock_table_to_soc_bb_clock_table(
 						dc_clk_table->entries[i].fclk_mhz > dc_bw_params->dc_mode_limit.fclk_mhz) {
 					if (i == 0 || dc_clk_table->entries[i-1].fclk_mhz < dc_bw_params->dc_mode_limit.fclk_mhz) {
 						dml_clk_table->fclk.clk_values_khz[i] = dc_bw_params->dc_mode_limit.fclk_mhz * 1000;
-						dml_clk_table->fclk.num_clk_values = i + 1;
+						dml_clk_table->fclk.num_clk_values = (uint8_t)(i + 1);
 					} else {
 						dml_clk_table->fclk.clk_values_khz[i] = 0;
 						dml_clk_table->fclk.num_clk_values = (uint8_t)i;
@@ -95,7 +95,7 @@ static void dcn401_convert_dc_clock_table_to_soc_bb_clock_table(
 						dc_clk_table->entries[i].memclk_mhz > dc_bw_params->dc_mode_limit.memclk_mhz) {
 					if (i == 0 || dc_clk_table->entries[i-1].memclk_mhz < dc_bw_params->dc_mode_limit.memclk_mhz) {
 						dml_clk_table->uclk.clk_values_khz[i] = dc_bw_params->dc_mode_limit.memclk_mhz * 1000;
-						dml_clk_table->uclk.num_clk_values = i + 1;
+						dml_clk_table->uclk.num_clk_values = (uint8_t)(i + 1);
 					} else {
 						dml_clk_table->uclk.clk_values_khz[i] = 0;
 						dml_clk_table->uclk.num_clk_values = (uint8_t)i;
@@ -121,7 +121,7 @@ static void dcn401_convert_dc_clock_table_to_soc_bb_clock_table(
 						dc_clk_table->entries[i].dispclk_mhz > dc_bw_params->dc_mode_limit.dispclk_mhz) {
 					if (i == 0 || dc_clk_table->entries[i-1].dispclk_mhz < dc_bw_params->dc_mode_limit.dispclk_mhz) {
 						dml_clk_table->dispclk.clk_values_khz[i] = dc_bw_params->dc_mode_limit.dispclk_mhz * 1000;
-						dml_clk_table->dispclk.num_clk_values = i + 1;
+						dml_clk_table->dispclk.num_clk_values = (uint8_t)(i + 1);
 					} else {
 						dml_clk_table->dispclk.clk_values_khz[i] = 0;
 						dml_clk_table->dispclk.num_clk_values = (uint8_t)i;
@@ -144,7 +144,7 @@ static void dcn401_convert_dc_clock_table_to_soc_bb_clock_table(
 						dc_clk_table->entries[i].dppclk_mhz > dc_bw_params->dc_mode_limit.dppclk_mhz) {
 					if (i == 0 || dc_clk_table->entries[i-1].dppclk_mhz < dc_bw_params->dc_mode_limit.dppclk_mhz) {
 						dml_clk_table->dppclk.clk_values_khz[i] = dc_bw_params->dc_mode_limit.dppclk_mhz * 1000;
-						dml_clk_table->dppclk.num_clk_values = i + 1;
+						dml_clk_table->dppclk.num_clk_values = (uint8_t)(i + 1);
 					} else {
 						dml_clk_table->dppclk.clk_values_khz[i] = 0;
 						dml_clk_table->dppclk.num_clk_values = (uint8_t)i;
@@ -167,7 +167,7 @@ static void dcn401_convert_dc_clock_table_to_soc_bb_clock_table(
 						dc_clk_table->entries[i].dtbclk_mhz > dc_bw_params->dc_mode_limit.dtbclk_mhz) {
 					if (i == 0 || dc_clk_table->entries[i-1].dtbclk_mhz < dc_bw_params->dc_mode_limit.dtbclk_mhz) {
 						dml_clk_table->dtbclk.clk_values_khz[i] = dc_bw_params->dc_mode_limit.dtbclk_mhz * 1000;
-						dml_clk_table->dtbclk.num_clk_values = i + 1;
+						dml_clk_table->dtbclk.num_clk_values = (uint8_t)(i + 1);
 					} else {
 						dml_clk_table->dtbclk.clk_values_khz[i] = 0;
 						dml_clk_table->dtbclk.num_clk_values = (uint8_t)i;
@@ -190,7 +190,7 @@ static void dcn401_convert_dc_clock_table_to_soc_bb_clock_table(
 						dc_clk_table->entries[i].socclk_mhz > dc_bw_params->dc_mode_limit.socclk_mhz) {
 					if (i == 0 || dc_clk_table->entries[i-1].socclk_mhz < dc_bw_params->dc_mode_limit.socclk_mhz) {
 						dml_clk_table->socclk.clk_values_khz[i] = dc_bw_params->dc_mode_limit.socclk_mhz * 1000;
-						dml_clk_table->socclk.num_clk_values = i + 1;
+						dml_clk_table->socclk.num_clk_values = (uint8_t)(i + 1);
 					} else {
 						dml_clk_table->socclk.clk_values_khz[i] = 0;
 						dml_clk_table->socclk.num_clk_values = (uint8_t)i;

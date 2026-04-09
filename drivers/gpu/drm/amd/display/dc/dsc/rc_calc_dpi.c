@@ -103,7 +103,8 @@ int dscc_compute_dsc_parameters(const struct drm_dsc_config *pps,
 	struct drm_dsc_config   dsc_cfg;
 
 	dsc_params->pps = *pps;
-	dsc_params->pps.initial_scale_value = 8 * rc->rc_model_size / (rc->rc_model_size - rc->initial_fullness_offset);
+	dsc_params->pps.initial_scale_value = (u8)(8 * rc->rc_model_size /
+			(rc->rc_model_size - rc->initial_fullness_offset));
 
 	copy_pps_fields(&dsc_cfg, &dsc_params->pps);
 	copy_rc_to_cfg(&dsc_cfg, rc);

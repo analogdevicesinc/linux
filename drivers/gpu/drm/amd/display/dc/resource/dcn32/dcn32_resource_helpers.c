@@ -333,7 +333,7 @@ void dcn32_determine_det_override(struct dc *dc,
 				continue;
 
 			if (context->stream_status[i].plane_count > 0)
-				plane_segments = stream_segments / context->stream_status[i].plane_count;
+				plane_segments = (uint8_t)(stream_segments / context->stream_status[i].plane_count);
 			else
 				plane_segments = stream_segments;
 			for (j = 0; j < dc->res_pool->pipe_count; j++) {

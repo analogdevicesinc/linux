@@ -328,9 +328,9 @@ bool dp_pr_copy_settings(struct dc_link *link, struct replay_context *replay_con
 		link->dpcd_caps.vesa_replay_su_info.pr_su_y_granularity_extended_caps;
 
 	if (pipe_ctx->stream->timing.dsc_cfg.num_slices_v > 0)
-		cmd.pr_copy_settings.data.dsc_slice_height = (pipe_ctx->stream->timing.v_addressable +
+		cmd.pr_copy_settings.data.dsc_slice_height = (uint16_t)((pipe_ctx->stream->timing.v_addressable +
 			pipe_ctx->stream->timing.v_border_top + pipe_ctx->stream->timing.v_border_bottom) /
-			pipe_ctx->stream->timing.dsc_cfg.num_slices_v;
+			pipe_ctx->stream->timing.dsc_cfg.num_slices_v);
 
 	if (dc_is_embedded_signal(link->connector_signal))
 		cmd.pr_copy_settings.data.main_link_activity_option = OPTION_1C;

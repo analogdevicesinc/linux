@@ -1443,8 +1443,8 @@ void build_audio_output(
 			(stream->timing.flags.INTERLACE != 0);
 
 	audio_output->crtc_info.refresh_rate =
-		(stream->timing.pix_clk_100hz*100)/
-		(stream->timing.h_total*stream->timing.v_total);
+		(uint16_t)((stream->timing.pix_clk_100hz*100)/
+		(stream->timing.h_total*stream->timing.v_total));
 
 	audio_output->crtc_info.color_depth =
 		stream->timing.display_color_depth;

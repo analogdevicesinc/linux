@@ -2977,6 +2977,7 @@ static enum bp_result get_integrated_info_v2_2(
 	info->edp1_info.edp_panel_bpc =
 		info_v2_2->edp1_info.edp_panel_bpc;
 	info->edp1_info.edp_bootup_bl_level =
+		info_v2_2->edp1_info.edp_bootup_bl_level;
 
 	info->edp2_info.edp_backlight_pwm_hz =
 	le16_to_cpu(info_v2_2->edp2_info.edp_backlight_pwm_hz);

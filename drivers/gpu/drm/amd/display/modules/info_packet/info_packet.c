@@ -246,7 +246,7 @@ void set_vsc_packet_colorimetry_data(
 		break;
 	}
 
-	info_packet->sb[16] = (pixelEncoding << 4) | colorimetryFormat;
+	info_packet->sb[16] = (uint8_t)((pixelEncoding << 4) | colorimetryFormat);
 
 	/* Set color depth */
 	switch (stream->timing.display_color_depth) {

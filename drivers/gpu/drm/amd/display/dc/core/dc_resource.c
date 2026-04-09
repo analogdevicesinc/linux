@@ -4724,10 +4724,10 @@ static void set_avi_info_frame(
 	 * barLeft:   Pixel Number of End of Left Bar.
 	 * barRight:  Pixel Number of Start of Right Bar. */
 	hdmi_info.bits.bar_top = (uint16_t)stream->timing.v_border_top;
-	hdmi_info.bits.bar_bottom = (stream->timing.v_total
+	hdmi_info.bits.bar_bottom = (uint16_t)(stream->timing.v_total
 			- stream->timing.v_border_bottom + 1);
 	hdmi_info.bits.bar_left  = (uint16_t)stream->timing.h_border_left;
-	hdmi_info.bits.bar_right = (stream->timing.h_total
+	hdmi_info.bits.bar_right = (uint16_t)(stream->timing.h_total
 			- stream->timing.h_border_right + 1);
 
     /* Additional Colorimetry Extension
@@ -5363,7 +5363,7 @@ bool get_temp_dp_link_res(struct dc_link *link,
 void reset_syncd_pipes_from_disabled_pipes(struct dc *dc,
 		struct dc_state *context)
 {
-	int i, j;
+	uint8_t i, j;
 	struct pipe_ctx *pipe_ctx_old, *pipe_ctx, *pipe_ctx_syncd;
 
 	/* If pipe backend is reset, need to reset pipe syncd status */
@@ -5426,7 +5426,7 @@ void reset_sync_context_for_pipe(const struct dc *dc,
 	struct dc_state *context,
 	uint8_t pipe_idx)
 {
-	int i;
+	uint8_t i;
 	struct pipe_ctx *pipe_ctx_reset;
 
 	/* reset the otg sync context for the pipe and its slave pipes if any */
@@ -5442,7 +5442,7 @@ void reset_sync_context_for_pipe(const struct dc *dc,
 uint8_t resource_transmitter_to_phy_idx(const struct dc *dc, enum transmitter transmitter)
 {
 	/* TODO - get transmitter to phy idx mapping from DMUB */
-	uint8_t phy_idx = transmitter - TRANSMITTER_UNIPHY_A;
+	uint8_t phy_idx = (uint8_t)(transmitter - TRANSMITTER_UNIPHY_A);
 
 	if (dc->ctx->dce_version == DCN_VERSION_3_1 &&
 			dc->ctx->asic_id.hw_internal_rev == YELLOW_CARP_B0) {
@@ -5509,8 +5509,8 @@ const struct link_hwss *get_link_hwss(const struct dc_link *link,
 bool is_h_timing_divisible_by_2(struct dc_stream_state *stream)
 {
 	bool divisible = false;
-	uint16_t h_blank_start = 0;
-	uint16_t h_blank_end = 0;
+	uint32_t h_blank_start = 0;
+	uint32_t h_blank_end = 0;
 
 	if (stream) {
 		h_blank_start = stream->timing.h_total - stream->timing.h_front_porch;
