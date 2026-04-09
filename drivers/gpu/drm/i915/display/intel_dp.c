@@ -1457,6 +1457,10 @@ intel_dp_mode_valid_format(struct intel_connector *connector,
 	int num_joined_pipes;
 	int link_bpp_x16;
 
+	status = intel_dp_sink_format_valid(connector, mode, sink_format);
+	if (status != MODE_OK)
+		return status;
+
 	output_format = intel_dp_output_format(connector, sink_format);
 
 	max_link_clock = intel_dp_max_link_rate(intel_dp);
