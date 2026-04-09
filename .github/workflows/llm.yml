@@ -118,17 +118,22 @@ jobs:
         run: |
           ref="refs/heads/ci"
           org_repo="analogdevicesinc/linux"
+          ci_worktree="$(mktemp -d)"
+
           get_file () {
             echo https://raw.githubusercontent.com/$org_repo/$ref/$1
-            curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
+            curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o "$ci_worktree/$1" \
                 https://raw.githubusercontent.com/$org_repo/$ref/$1
           }
 
-          mkdir -p ci
-          get_file ci/build.sh
-          get_file ci/symbols_depend.py
-          get_file ci/touched_kconfig.awk
-          get_file ci/extract_register_map.py
+          mkdir "$ci_worktree/ci"
+          get_file "ci/build.sh"
+          get_file "ci/symbols_depend.py"
+          get_file "ci/touched_kconfig.awk"
+          get_file "ci/extract_register_map.py"
+
+          echo "CI_WORKTREE=$ci_worktree" >> "$GITHUB_ENV"
+          echo "sh_source=$ci_worktree/ci/build.sh" >> "$GITHUB_ENV"
 
       - name: Setup skills
         run: |
@@ -162,7 +167,6 @@ jobs:
         run: |
           py_venv="$(mktemp -d)"
           echo "py_venv=$py_venv" >> "$GITHUB_ENV"
-          echo "sh_source=ci/build.sh" >> "$GITHUB_ENV"
 
           python3 -m venv $py_venv
           source $py_venv/bin/activate
@@ -171,7 +175,7 @@ jobs:
 
       - name: Extra magic vars
         run: |
-          source ci/build.sh
+          source "${{ env.sh_source }}"
           echo "set_arch_available=$(set_arch | tail -1)" >> $GITHUB_ENV
 
       - uses: analogdevicesinc/doctools/llm@action
@@ -189,4 +193,4 @@ jobs:
           rm -f "$prompt_file"
           rm -rf "$prompt_dir"
           rm -rf "$py_venv"
-          rm -rf ci
+          rm -rf "$CI_WORKTREE"
