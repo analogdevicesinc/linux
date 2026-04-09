@@ -13,7 +13,10 @@ use kernel::{
     devres::Devres,
     drm,
     drm::ioctl,
-    io::poll,
+    io::{
+        poll,
+        Io, //
+    },
     new_mutex,
     of,
     platform,
@@ -34,7 +37,7 @@ use crate::{
     gem::TyrObject,
     gpu,
     gpu::GpuInfo,
-    regs, //
+    regs::gpu_control::*, //
 };
 
 pub(crate) type IoMem = kernel::io::mem::IoMem<SZ_2M>;
@@ -66,11 +69,15 @@ pub(crate) struct TyrDrmDeviceData {
 }
 
 fn issue_soft_reset(dev: &Device<Bound>, iomem: &Devres<IoMem>) -> Result {
-    regs::GPU_CMD.write(dev, iomem, regs::GPU_CMD_SOFT_RESET)?;
+    let io = (*iomem).access(dev)?;
+    io.write_reg(GPU_COMMAND::reset(ResetMode::SoftReset));
 
     poll::read_poll_timeout(
-        || regs::GPU_IRQ_RAWSTAT.read(dev, iomem),
-        |status| *status & regs::GPU_IRQ_RAWSTAT_RESET_COMPLETED != 0,
+        || {
+            let io = (*iomem).access(dev)?;
+            Ok(io.read(GPU_IRQ_RAWSTAT))
+        },
+        |status| status.reset_completed(),
         time::Delta::from_millis(1),
         time::Delta::from_millis(100),
     )
@@ -115,7 +122,7 @@ impl platform::Driver for TyrPlatformDriverData {
         gpu::l2_power_on(pdev.as_ref(), &iomem)?;
 
         let gpu_info = GpuInfo::new(pdev.as_ref(), &iomem)?;
-        gpu_info.log(pdev);
+        gpu_info.log(pdev.as_ref());
 
         let platform: ARef<platform::Device> = pdev.into();
 
