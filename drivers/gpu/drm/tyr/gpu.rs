@@ -97,9 +97,9 @@ impl GpuInfo {
 
         dev_info!(
             dev,
-            "mali-{} id 0x{:x} major 0x{:x} minor 0x{:x} status 0x{:x}",
+            "mali-{} GPU_ID 0x{:x} major 0x{:x} minor 0x{:x} status 0x{:x}",
             model_name,
-            gpu_id.into_raw() >> 16,
+            gpu_id.into_raw(),
             gpu_id.ver_major().get(),
             gpu_id.ver_minor().get(),
             gpu_id.ver_status().get()
