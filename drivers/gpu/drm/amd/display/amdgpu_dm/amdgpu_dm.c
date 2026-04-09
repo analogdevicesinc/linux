@@ -13263,6 +13263,10 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
  *
  * @connector: Connector to query.
  * @drm_edid: DRM EDID from monitor
+ * @do_mccs: Controls whether MCCS (Monitor Control Command Set) over
+ *	      DDC (Display Data Channel) transactions are performed. When true,
+ *	      the driver queries the monitor to get or update additional FreeSync
+ *	      capability information. When false, these transactions are skipped.
  *
  * Amdgpu supports Freesync in DP and HDMI displays, and it is required to keep
  * track of some of the display information in the internal data struct used by
