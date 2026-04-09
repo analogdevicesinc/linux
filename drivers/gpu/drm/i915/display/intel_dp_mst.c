@@ -721,7 +721,6 @@ static int mst_stream_compute_config(struct intel_encoder *encoder,
 
 	pipe_config->sink_format = INTEL_OUTPUT_FORMAT_RGB;
 	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
-	pipe_config->has_pch_encoder = false;
 
 	ret = intel_pfit_compute_config(pipe_config, conn_state);
 	if (ret)
