@@ -108,6 +108,19 @@ jobs:
           `python3 -m  ci.extract_register_map ./datasheet.pdf` extract register maps from datasheets,
           should work on most cases, modify if needed. Tip: a sitemap with all pdfs, including the datasheets,
           are available at https://www.analog.com/media/en/en-pdf-sitemap.xml
+
+          You **must** use wget to fetch resources, with timeout, for example:
+          ```
+          $ wget -O ad4062.pdf \
+              --connect-timeout=10 \
+              --timeout=120 \
+              "https://www.analog.com/media/en/technical-documentation/data-sheets/ad4062.pdf"
+          ```
+          As well as using the `timeout` bash command for things that may hang, e.g.,
+          ```
+          $ timeout 2s sleep 5 || echo "error: $?"
+            error: 124
+          ```
           EOF
 
           cat <<'EOF' >> "$prompt_file"
