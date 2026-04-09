@@ -35,6 +35,7 @@ torture_param(int, onoff_holdoff, 0, "Time after boot before CPU hotplugs (s)");
 torture_param(int, onoff_interval, 0, "Time between CPU hotplugs (jiffies), 0=disable");
 torture_param(int, preempt_duration, 0, "Preemption duration (ms), zero to disable");
 torture_param(int, preempt_interval, MSEC_PER_SEC, "Interval between preemptions (ms)");
+torture_param(int, reader_sleep_us, 0, "Reader sleep duration (us)");
 torture_param(int, shuffle_interval, 3, "Number of seconds between shuffles");
 torture_param(int, shutdown_secs, 0, "Shutdown time (s), <= zero to disable.");
 torture_param(int, stat_interval, 60, "Number of seconds between stats printk()s");
@@ -219,6 +220,8 @@ static void hazptr_read_delay(struct torture_random_state *rrsp)
 		udelay(shortdelay_us);
 	if (!preempt_count() && !(torture_random(rrsp) % (nrealreaders * 500)))
 		torture_preempt_schedule();  /* QS only if preemptible. */
+	if (reader_sleep_us > 0)
+		torture_hrtimeout_us(reader_sleep_us, 0, NULL);
 }
 
 static void hazptr_torture_read_unlock(struct hazptr_ctx *hcp, struct hazptr_torture *htp)
@@ -507,11 +510,13 @@ hazptr_torture_print_module_parms(struct hazptr_torture_ops *cur_ops, const char
 		 "--- %s: nreaders=%d "
 		 "onoff_interval=%d onoff_holdoff=%d "
 		 "preempt_duration=%d preempt_interval=%d "
+		 "reader_sleep_us=%d "
 		 "shuffle_interval=%d shutdown_secs=%d stat_interval=%d stutter=%d "
 		 "verbose=%d\n",
 		 torture_type, tag, nrealreaders,
 		 onoff_interval, onoff_holdoff,
 		 preempt_duration, preempt_interval,
+		 reader_sleep_us,
 		 shuffle_interval, shutdown_secs, stat_interval, stutter,
 		 verbose);
 }
