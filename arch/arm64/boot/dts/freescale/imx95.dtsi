@@ -777,6 +777,7 @@
 					     <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&scmi_clk IMX95_CLK_BUSWAKEUP>;
 				clock-names = "dma";
+				iommus = <&smmu 0x0>;
 			};
 
 			mu7: mailbox@42430000 {
@@ -1242,6 +1243,7 @@
 				bus-width = <8>;
 				fsl,tuning-start-tap = <1>;
 				fsl,tuning-step = <2>;
+				iommus = <&smmu 0x1>;
 				status = "disabled";
 			};
 
@@ -1259,6 +1261,7 @@
 				bus-width = <4>;
 				fsl,tuning-start-tap = <1>;
 				fsl,tuning-step = <2>;
+				iommus = <&smmu 0x2>;
 				status = "disabled";
 			};
 
@@ -1276,6 +1279,7 @@
 				bus-width = <4>;
 				fsl,tuning-start-tap = <1>;
 				fsl,tuning-step = <2>;
+				iommus = <&smmu 0x3>;
 				status = "disabled";
 			};
 		};
@@ -1768,7 +1772,6 @@
 					     <GIC_SPI 326 IRQ_TYPE_EDGE_RISING>;
 				interrupt-names = "eventq", "gerror", "priq", "cmdq-sync";
 				#iommu-cells = <1>;
-				status = "disabled";
 			};
 
 			pmu@490d2000 {
