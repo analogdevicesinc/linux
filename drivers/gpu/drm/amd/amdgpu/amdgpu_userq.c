@@ -793,13 +793,13 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 		goto clean_mapping;
 	}
 
-	amdgpu_userq_ensure_ev_fence(&fpriv->userq_mgr, &fpriv->evf_mgr);
-
 	r = uq_funcs->mqd_create(queue, &args->in);
 	if (r) {
 		drm_file_err(uq_mgr->file, "Failed to create Queue\n");
 		goto clean_fence_driver;
 	}
+
+	amdgpu_userq_ensure_ev_fence(&fpriv->userq_mgr, &fpriv->evf_mgr);
 
 	/* don't map the queue if scheduling is halted */
 	if (adev->userq_halt_for_enforce_isolation &&
@@ -812,7 +812,6 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 		r = amdgpu_userq_map_helper(queue);
 		if (r) {
 			drm_file_err(uq_mgr->file, "Failed to map Queue\n");
-			down_read(&adev->reset_domain->sem);
 			goto clean_mqd;
 		}
 	}
@@ -828,9 +827,8 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 	if (r) {
 		if (!skip_map_queue)
 			amdgpu_userq_unmap_helper(queue);
-
 		r = -ENOMEM;
-		goto clean_mqd;
+		goto clean_reset_domain;
 	}
 
 	r = xa_err(xa_store_irq(&adev->userq_doorbell_xa, index, queue, GFP_KERNEL));
@@ -838,8 +836,7 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 		xa_erase(&uq_mgr->userq_xa, qid);
 		if (!skip_map_queue)
 			amdgpu_userq_unmap_helper(queue);
-
-		goto clean_mqd;
+		goto clean_reset_domain;
 	}
 	up_read(&adev->reset_domain->sem);
 
@@ -851,12 +848,13 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 	mutex_unlock(&uq_mgr->userq_mutex);
 	return 0;
 
-clean_mqd:
-	uq_funcs->mqd_destroy(queue);
+clean_reset_domain:
 	up_read(&adev->reset_domain->sem);
+clean_mqd:
+	mutex_unlock(&uq_mgr->userq_mutex);
+	uq_funcs->mqd_destroy(queue);
 clean_fence_driver:
 	amdgpu_userq_fence_driver_free(queue);
-	mutex_unlock(&uq_mgr->userq_mutex);
 clean_mapping:
 	amdgpu_userq_buffer_vas_list_cleanup(adev, queue);
 	kfree(queue);
