@@ -133,6 +133,7 @@
 #include "err.h"
 #include "byteswap.h"
 #include "endian.h"
+#include "assert.h"
 
 /* Used by programs to avoid std includes */
 #define NOLIBC
