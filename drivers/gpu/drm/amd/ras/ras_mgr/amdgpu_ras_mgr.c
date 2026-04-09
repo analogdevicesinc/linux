@@ -198,6 +198,14 @@ static int amdgpu_ras_mgr_get_ras_ta_init_param(struct ras_core_context *ras_cor
 	struct ras_ta_init_param *ras_ta_param)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
+	struct ras_ta_ctx *ta_ctx = &ras_core->ras_psp.ta_ctx;
+	struct ras_ta_fw_bin  *fw_bin = &ta_ctx->fw_bin;
+	struct ta_context *context = &adev->psp.ras_context.context;
+	struct ta_mem_context *mem_ctx = &context->mem_context;
+	uint32_t nps_mode;
+
+	if (ras_core_poison_supported(ras_core))
+		ras_ta_param->poison_mode_en = 1;
 
 	if (!adev->gmc.xgmi.connected_to_cpu && !adev->gmc.is_app_apu)
 		ras_ta_param->dgpu_mode = 1;
@@ -207,13 +215,51 @@ static int amdgpu_ras_mgr_get_ras_ta_init_param(struct ras_core_context *ras_cor
 
 	ras_ta_param->active_umc_mask = lower_32_bits(adev->umc.active_mask);
 	ras_ta_param->ext_umc_mask = upper_32_bits(adev->umc.active_mask);
+	ras_ta_param->vram_type = (uint8_t)adev->gmc.vram_type;
+
+	if (!amdgpu_ras_mgr_get_curr_nps_mode(adev, &nps_mode))
+		ras_ta_param->nps_mode = nps_mode;
+
+	/* If RAS TA is not initialized, it means RAS TA is not loaded. In this case, RAS module
+	 * needs to get the FW bin info from the context and load RAS TA.
+	 */
+	if (!ta_ctx->ras_ta_initialized) {
+		fw_bin->fw_version = context->bin_desc.fw_version;
+		fw_bin->feature_version = context->bin_desc.feature_version;
+		fw_bin->bin_size = context->bin_desc.size_bytes;
+		fw_bin->bin_addr = context->bin_desc.start_addr;
+
+		if (!mem_ctx->shared_buf) {
+			mem_ctx->shared_mem_size = PSP_RAS_SHARED_MEM_SIZE;
+			return amdgpu_bo_create_kernel(adev, mem_ctx->shared_mem_size,
+				    PAGE_SIZE, AMDGPU_GEM_DOMAIN_VRAM |
+				    AMDGPU_GEM_DOMAIN_GTT,
+				    &mem_ctx->shared_bo,
+				    &mem_ctx->shared_mc_addr,
+				    &mem_ctx->shared_buf);
+		}
+	}
 
 	return 0;
+}
+
+static void amdgpu_ras_mgr_put_ras_ta_fini_param(struct ras_core_context *ras_core)
+{
+	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
+	struct ta_context *context = &adev->psp.ras_context.context;
+	struct ta_mem_context *mem_ctx = &context->mem_context;
+
+	if (mem_ctx->shared_buf) {
+		amdgpu_bo_free_kernel(&mem_ctx->shared_bo,
+				      &mem_ctx->shared_mc_addr,
+				      &mem_ctx->shared_buf);
+	}
 }
 
 const struct ras_psp_sys_func amdgpu_ras_psp_sys_func = {
 	.get_ras_psp_system_status = amdgpu_ras_mgr_get_ras_psp_system_status,
 	.get_ras_ta_init_param = amdgpu_ras_mgr_get_ras_ta_init_param,
+	.put_ras_ta_fini_param = amdgpu_ras_mgr_put_ras_ta_fini_param,
 };
 
 static int amdgpu_ras_mgr_init_psp_config(struct amdgpu_device *adev,
@@ -459,10 +505,38 @@ struct amdgpu_ras_mgr *amdgpu_ras_mgr_get_context(struct amdgpu_device *adev)
 	return (struct amdgpu_ras_mgr *)adev->psp.ras_context.ras->ras_mgr;
 }
 
+static int amdgpu_ras_mgr_suspend(struct amdgpu_ip_block *ip_block)
+{
+	return 0;
+}
+
+static int amdgpu_ras_mgr_resume(struct amdgpu_ip_block *ip_block)
+{
+	struct amdgpu_device *adev = ip_block->adev;
+	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	int ret;
+
+	if (!ras_mgr || !ras_mgr->ras_core)
+		return 0;
+
+	/*
+	 * Pass skip_lock=true: PSP is re-initialized after GPU reset or
+	 * S3/S4, so bypass the trylock and clear stale TA session state.
+	 */
+	ret = ras_psp_load_firmware(ras_mgr->ras_core, true);
+	if (ret)
+		RAS_DEV_ERR(adev,
+			    "Failed to reload RAS TA on resume, ret:%d\n", ret);
+
+	return ret;
+}
+
 static const struct amd_ip_funcs __maybe_unused ras_v1_0_ip_funcs = {
 	.name = "ras_v1_0",
 	.hw_init = amdgpu_ras_mgr_hw_init,
 	.hw_fini = amdgpu_ras_mgr_hw_fini,
+	.suspend = amdgpu_ras_mgr_suspend,
+	.resume = amdgpu_ras_mgr_resume,
 };
 
 const struct amdgpu_ip_block_version ras_v1_0_ip_block = {
