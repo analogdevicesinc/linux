@@ -45,6 +45,7 @@
 #include <stdbool.h>
 #include <byteswap.h>
 #include <endian.h>
+#include <alloca.h>
 
 #pragma GCC diagnostic ignored "-Wmissing-prototypes"
 
@@ -1516,6 +1517,18 @@ int run_syscall(int min, int max)
 	return ret;
 }
 
+int test_alloca(void)
+{
+	uint64_t *x;
+
+	x = alloca(sizeof(*x));
+
+	*x = 0x1234;
+	__asm__ ("" : "+r" (x));
+
+	return *x - 0x1234;
+}
+
 int test_difftime(void)
 {
 	if (difftime(200., 100.) != 100.)
@@ -1731,6 +1744,7 @@ int run_stdlib(int min, int max)
 		CASE_TEST(toupper_noop);            EXPECT_EQ(1, toupper('A'), 'A'); break;
 		CASE_TEST(abs);                     EXPECT_EQ(1, abs(-10), 10); break;
 		CASE_TEST(abs_noop);                EXPECT_EQ(1, abs(10), 10); break;
+		CASE_TEST(alloca);                  EXPECT_ZR(1, test_alloca()); break;
 		CASE_TEST(difftime);                EXPECT_ZR(1, test_difftime()); break;
 		CASE_TEST(memchr_foobar6_o);        EXPECT_STREQ(1, memchr("foobar", 'o', 6), "oobar"); break;
 		CASE_TEST(memchr_foobar3_b);        EXPECT_STRZR(1, memchr("foobar", 'b', 3)); break;
