@@ -35,7 +35,6 @@
 
 struct exynos_dp_device {
 	struct drm_encoder         encoder;
-	struct drm_connector       *connector;
 	struct drm_device          *drm_dev;
 	struct device              *dev;
 
@@ -101,8 +100,6 @@ static int exynos_dp_bridge_attach(struct analogix_dp_plat_data *plat_data,
 {
 	struct exynos_dp_device *dp = to_dp(plat_data);
 	int ret;
-
-	dp->connector = connector;
 
 	/* Pre-empt DP connector creation if there's a bridge */
 	if (plat_data->next_bridge) {
