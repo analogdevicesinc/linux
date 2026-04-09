@@ -484,6 +484,7 @@ config SERIAL_ADI_UART4_CONSOLE
 	depends on SERIAL_ADI_UART4
 	default y
 	select SERIAL_CORE_CONSOLE
+	select SERIAL_EARLYCON
 	help
 	  If you have enabled the ADI UART4 serial port, you can
 	  make it the console by answering Y to this option.
