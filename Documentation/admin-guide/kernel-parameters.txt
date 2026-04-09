@@ -7888,6 +7888,22 @@ Kernel parameters
 			first trust source as a backend which is initialized
 			successfully during iteration.
 
+	trusted.debug=	[KEYS]
+			Format: <bool>
+			Enable trusted keys debug traces at runtime when
+			CONFIG_TRUSTED_KEYS_DEBUG=y.
+
+			To make the traces visible after enabling the option,
+			use trusted.dyndbg='+p' as needed. By convention,
+			the subsystem uses pr_debug() for these traces.
+
+			SAFETY: The traces can leak sensitive data, so be
+			cautious before enabling this. They remain inactive
+			unless this parameter is set this option to  a true
+			value.
+
+			Default: false
+
 	trusted.rng=	[KEYS]
 			Format: <string>
 			The RNG used to generate key material for trusted keys.

@@ -31,6 +31,12 @@ static char *trusted_rng = "default";
 module_param_named(rng, trusted_rng, charp, 0);
 MODULE_PARM_DESC(rng, "Select trusted key RNG");
 
+#ifdef CONFIG_TRUSTED_KEYS_DEBUG
+bool trusted_debug;
+module_param_named(debug, trusted_debug, bool, 0);
+MODULE_PARM_DESC(debug, "Enable trusted keys debug traces (default: 0)");
+#endif
+
 static char *trusted_key_source;
 module_param_named(source, trusted_key_source, charp, 0);
 MODULE_PARM_DESC(source, "Select trusted keys source (tpm, tee, caam, dcp or pkwm)");
