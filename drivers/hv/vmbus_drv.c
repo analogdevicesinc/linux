@@ -101,13 +101,11 @@ struct device *hv_get_vmbus_root_device(void)
 }
 EXPORT_SYMBOL_GPL(hv_get_vmbus_root_device);
 
-static int vmbus_exists(void)
+bool hv_vmbus_exists(void)
 {
-	if (vmbus_root_device == NULL)
-		return -ENODEV;
-
-	return 0;
+	return vmbus_root_device != NULL;
 }
+EXPORT_SYMBOL_GPL(hv_vmbus_exists);
 
 static u8 channel_monitor_group(const struct vmbus_channel *channel)
 {
@@ -1577,11 +1575,10 @@ int __vmbus_driver_register(struct hv_driver *hv_driver, struct module *owner, c
 {
 	int ret;
 
-	pr_info("registering driver %s\n", hv_driver->name);
+	if (!hv_vmbus_exists())
+		return -ENODEV;
 
-	ret = vmbus_exists();
-	if (ret < 0)
-		return ret;
+	pr_info("registering driver %s\n", hv_driver->name);
 
 	hv_driver->driver.name = hv_driver->name;
 	hv_driver->driver.owner = owner;
@@ -1607,9 +1604,8 @@ EXPORT_SYMBOL_GPL(__vmbus_driver_register);
  */
 void vmbus_driver_unregister(struct hv_driver *hv_driver)
 {
-	pr_info("unregistering driver %s\n", hv_driver->name);
-
-	if (!vmbus_exists()) {
+	if (hv_vmbus_exists()) {
+		pr_info("unregistering driver %s\n", hv_driver->name);
 		driver_unregister(&hv_driver->driver);
 		vmbus_free_dynids(hv_driver);
 	}

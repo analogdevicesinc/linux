@@ -1304,6 +1304,8 @@ static inline void *hv_get_drvdata(struct hv_device *dev)
 
 struct device *hv_get_vmbus_root_device(void);
 
+bool hv_vmbus_exists(void);
+
 struct hv_ring_buffer_debug_info {
 	u32 current_interrupt_mask;
 	u32 current_read_index;
