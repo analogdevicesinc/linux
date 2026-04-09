@@ -1349,10 +1349,15 @@ intel_dp_sink_format_valid(struct intel_connector *connector,
 			   const struct drm_display_mode *mode,
 			   enum intel_output_format sink_format)
 {
+	struct intel_dp *intel_dp = intel_attached_dp(connector);
 	const struct drm_display_info *info = &connector->base.display_info;
 
 	switch (sink_format) {
 	case INTEL_OUTPUT_FORMAT_YCBCR420:
+		if (intel_dp->dfp.min_tmds_clock &&
+		    !intel_dp_has_hdmi_sink(intel_dp))
+			return MODE_NO_420;
+
 		if (!connector->base.ycbcr_420_allowed ||
 		    !drm_mode_is_420(info, mode))
 			return MODE_NO_420;
