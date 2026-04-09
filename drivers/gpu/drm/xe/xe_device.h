@@ -211,6 +211,15 @@ bool xe_is_xe_file(const struct file *file);
 
 struct xe_vm *xe_device_asid_to_vm(struct xe_device *xe, u32 asid);
 
+#ifdef CONFIG_PCI_IOV
+bool xe_device_is_admin_only(const struct xe_device *xe);
+#else
+static inline bool xe_device_is_admin_only(const struct xe_device *xe)
+{
+	return false;
+}
+#endif
+
 /*
  * Occasionally it is seen that the G2H worker starts running after a delay of more than
  * a second even after being queued and activated by the Linux workqueue subsystem. This
