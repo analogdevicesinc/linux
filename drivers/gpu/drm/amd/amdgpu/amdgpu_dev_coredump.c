@@ -566,7 +566,7 @@ void amdgpu_coredump(struct amdgpu_device *adev, bool skip_vram_check,
 			coredump->rings[idx].offset = off;
 
 			memcpy(&coredump->rings_dw[off], ring->ring, ring->ring_size);
-			off += ring->ring_size;
+			off += ring->ring_size / 4;
 			idx++;
 		}
 		coredump->num_rings = idx;
