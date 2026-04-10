@@ -628,7 +628,9 @@ static int ad3552r_probe(struct spi_device *spi)
 	if (!dac->model_data)
 		return -EINVAL;
 
-	mutex_init(&dac->lock);
+	err = devm_mutex_init(&spi->dev, &dac->lock);
+	if (err)
+		return err;
 
 	err = ad3552r_init(dac);
 	if (err)
