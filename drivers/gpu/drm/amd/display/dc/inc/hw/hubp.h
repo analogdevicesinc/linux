@@ -133,7 +133,7 @@ struct surface_flip_registers {
 	uint32_t DCSURF_SECONDARY_META_SURFACE_ADDRESS;
 	uint32_t DCSURF_SECONDARY_SURFACE_ADDRESS_HIGH;
 	uint32_t DCSURF_SECONDARY_SURFACE_ADDRESS;
-	bool tmz_surface;
+	uint8_t tmz_surface;
 	bool immediate;
 	uint8_t vmid;
 	bool grph_stereo;
