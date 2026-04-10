@@ -4,6 +4,7 @@
  *
  * Copyright 2017 Analog Devices Inc.
  */
+#include "linux/printk.h"
 #include <linux/array_size.h>
 #include <linux/bitfield.h>
 #include <linux/cleanup.h>
@@ -120,7 +121,7 @@
 
 #define AD7768_TRIGGER_SOURCE_SYNC_IDX 0
 
-#define AD7768_MAX_CHANNELS 1
+#define AD7768_MAX_CHANNELS 4
 
 #define ADAQ7768_PGA_PINS 3
 
@@ -289,6 +290,7 @@ struct ad7768_chip_info {
 	const char *name;
 	const struct iio_chan_spec *channel_spec;
 	int num_channels;
+	const unsigned long *available_scan_masks;
 	const int *pga_gains;
 	int num_pga_modes;
 	int default_pga_mode;
@@ -296,6 +298,8 @@ struct ad7768_chip_info {
 	bool has_pga;
 	bool has_variable_aaf;
 	bool has_vcm_regulator;
+	bool has_mux_gpios;
+	bool has_cs_delay;
 };
 
 struct ad7768_state {
@@ -321,13 +325,17 @@ struct ad7768_state {
 	struct completion completion;
 	struct iio_trigger *trig;
 	struct gpio_descs *pga_gpios;
+	struct gpio_descs *iepe_bias_gpios;
+	struct gpio_descs *ac_dc_coupling_gpios;
 	struct gpio_desc *gpio_sync_in;
 	struct gpio_desc *gpio_reset;
 	const char *labels[AD7768_MAX_CHANNELS];
 	struct gpio_chip gpiochip;
-	struct spi_transfer offload_xfer;
+	struct spi_transfer offload_xfer[2];
 	struct spi_message offload_msg;
 	const struct ad7768_chip_info *chip;
+	/* How many SDO lines are wired up for multi-lane operation. */
+	u8 num_sdo_lines;
 	bool en_spi_sync;
 	struct mutex pga_lock; /* protect device internal state (PGA) */
 	/*
@@ -336,7 +344,7 @@ struct ad7768_state {
 	 */
 	union {
 		struct {
-			__be32 chan;
+			__be32 chan[AD7768_MAX_CHANNELS];
 			s64 timestamp;
 		} scan;
 		__be32 d32;
@@ -479,7 +487,49 @@ static int ad7768_set_mode(struct ad7768_state *st,
 				 AD7768_CONV_MODE_MSK, AD7768_CONV_MODE(mode));
 }
 
-static int ad7768_scan_direct(struct iio_dev *indio_dev)
+static int ad7768_read_from_multi_lanes(struct iio_dev *indio_dev,
+					   unsigned int chan_idx,
+					   int *val)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	const struct iio_scan_type *scan_type;
+	struct spi_transfer normal_xfer[2] = {};
+	u8 tx_data;
+	int ret;
+
+	if (chan_idx >= st->chip->num_channels)
+		return -EINVAL;
+
+	scan_type = iio_get_current_scan_type(indio_dev, &indio_dev->channels[0]);
+	if (IS_ERR(scan_type))
+		return PTR_ERR(scan_type);
+
+	tx_data = (BIT(6) | ((AD7768_REG24_ADC_DATA) & 0x3F));
+	normal_xfer[0].tx_buf = &tx_data;
+	normal_xfer[0].len = 1;
+	normal_xfer[0].bits_per_word = 8;
+
+	normal_xfer[1].rx_buf = st->data.scan.chan;
+	normal_xfer[1].len = spi_bpw_to_bytes(scan_type->realbits) * (st->chip->num_channels);
+	normal_xfer[1].bits_per_word = scan_type->realbits;
+	normal_xfer[1].multi_lane_mode = SPI_MULTI_LANE_MODE_STRIPE;
+
+	ret = spi_sync_transfer(st->spi, normal_xfer, 2);
+	if (ret)
+		return ret;
+
+	printk(" chan[0] %X | chan[1] %X | chan[2] %X| chan[3] %X\n",
+		st->data.scan.chan[0],
+		st->data.scan.chan[1],
+		st->data.scan.chan[2],
+		st->data.scan.chan[3]);
+
+	*val = st->data.scan.chan[chan_idx];
+
+	return 0;
+}
+
+static int ad7768_scan_direct(struct iio_dev *indio_dev, unsigned int chan_idx)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 	int readval, ret;
@@ -493,9 +543,18 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	if (!ret)
 		return -ETIMEDOUT;
 
-	ret = regmap_read(st->regmap24, AD7768_REG24_ADC_DATA, &readval);
-	if (ret)
-		return ret;
+	printk("Channel idx: %d\n", chan_idx);
+	if (st->num_sdo_lines > 1){
+		ret = ad7768_read_from_multi_lanes(indio_dev, chan_idx, &readval);
+		if (ret)
+			return ret;
+		printk("readval: %d\n", readval);
+	} else {
+		ret = regmap_read(st->regmap24, AD7768_REG24_ADC_DATA, &readval);
+		if (ret)
+			return ret;
+	}
+	
 
 	/*
 	 * When the decimation rate is set to x8, the ADC data precision is
@@ -699,6 +758,132 @@ static int ad7768_setup_pga(struct device *dev, struct ad7768_state *st)
 		return dev_err_probe(dev, -EINVAL,
 				     "Expected %d GPIOs for PGA control.\n",
 				     ADAQ7768_PGA_PINS);
+	return 0;
+}
+
+static int ad7768_setup_iepe_bias_gpios(struct device *dev, struct ad7768_state *st)
+{
+	st->iepe_bias_gpios = devm_gpiod_get_array_optional(dev, "iepe-bias", GPIOD_OUT_LOW);
+	if (IS_ERR(st->iepe_bias_gpios))
+		return dev_err_probe(dev, PTR_ERR(st->iepe_bias_gpios),
+				     "Failed to get IEPE bias gpios.\n");
+
+	if (st->iepe_bias_gpios && st->iepe_bias_gpios->ndescs != st->chip->num_channels)
+		return dev_err_probe(dev, -EINVAL,
+				     "Expected %d GPIOs for IEPE bias control.\n",
+				     st->chip->num_channels);
+	return 0;
+}
+
+static int ad7768_setup_ac_dc_coupling_gpios(struct device *dev, struct ad7768_state *st)
+{
+	st->ac_dc_coupling_gpios = devm_gpiod_get_array_optional(dev, "ac-dc-coupling", GPIOD_OUT_LOW);
+	if (IS_ERR(st->ac_dc_coupling_gpios))
+		return dev_err_probe(dev, PTR_ERR(st->ac_dc_coupling_gpios),
+				     "Failed to get AC/DC coupling gpios.\n");
+
+	if (st->ac_dc_coupling_gpios && st->ac_dc_coupling_gpios->ndescs != st->chip->num_channels)
+		return dev_err_probe(dev, -EINVAL,
+				     "Expected %d GPIOs for AC/DC coupling control.\n",
+				     st->chip->num_channels);
+	return 0;
+}
+
+
+static int ad7768_validate_diff_channels(u32 *diff_channels, unsigned int *gpio_index)
+{
+	u32 pos_ch = diff_channels[0];
+	u32 neg_ch = diff_channels[1];
+
+	printk("diff channels: %d - %d\n",diff_channels[0],diff_channels[1]);
+	/* Check if channels are consecutive and form a valid pair */
+	if (pos_ch + 1 != neg_ch || (pos_ch % 2) != 0) {
+		return -EINVAL;
+	}
+
+	/* Valid pairs are: (0,1), (2,3), (4,5), (6,7) */
+	*gpio_index = pos_ch / 2;
+	printk("*gpio_index: %d \n", *gpio_index);
+
+	if (*gpio_index >= AD7768_MAX_CHANNELS)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int ad7768_validate_single_channel(u32 single_channel, unsigned int *gpio_index)
+{
+	/* Valid single-ended channels: 0, 2, 4, 6 */
+	if (single_channel % 2 != 0)
+		return -EINVAL;
+
+	*gpio_index = single_channel / 2;
+	printk("*gpio_index: %d \n", *gpio_index);
+
+	return 0;
+}
+
+// TODO: merge this with _set_channel_label()
+static int ad7768_configure_mux_gpios(struct device *dev, struct ad7768_state *st)
+{
+	unsigned int gpio_index, reg;
+	bool is_single_ended;
+	bool dc_coupling;
+	u32 diff_channels[2], single_channel;
+	int ret;
+
+	if (!st->chip->has_mux_gpios)
+		return 0;
+
+	printk("Debugging channels\n");
+	device_for_each_child_node_scoped(dev, child) {
+		ret = fwnode_property_read_u32(child, "reg", &reg);
+		if (ret) {
+			dev_warn(dev, "Missing reg property in channel node\n");
+			continue;
+		}
+
+		printk("REG: %d\n", reg);
+		ret = fwnode_property_read_u32_array(child, "diff-channels", diff_channels, 2);
+		if (!ret) {
+			ret = ad7768_validate_diff_channels(diff_channels, &gpio_index);
+			if (ret)
+				return dev_err_probe(dev, ret, "Invalid differential channel pair (%d,%d) for channel %d\n",
+					diff_channels[0], diff_channels[1], reg);
+
+			is_single_ended = false;
+		} else {
+			ret = fwnode_property_read_u32(child, "single-channel", &single_channel);
+			if (!ret) {
+				ret = ad7768_validate_single_channel(single_channel, &gpio_index);
+				if (ret) {
+					return dev_err_probe(dev, ret, "Invalid single-ended channel %d for channel %d\n",
+						single_channel, reg);
+				}
+			} else {
+				return dev_err_probe(dev, ret, "Channel must define one of diff-channels or single-channel.\n");
+			}
+
+			is_single_ended = true;
+		}
+
+		/* Check AC/DC coupling */
+		dc_coupling = fwnode_property_read_bool(child, "adi,dc-coupling");
+
+		/* Configure IEPE bias GPIO (enabled for single-ended, disabled for differential) */
+		if (st->iepe_bias_gpios) {
+			gpiod_set_value_cansleep(st->iepe_bias_gpios->desc[gpio_index], is_single_ended);
+		}
+
+		/* Configure AC/DC coupling GPIO */
+		if (st->ac_dc_coupling_gpios) {
+			gpiod_set_value_cansleep(st->ac_dc_coupling_gpios->desc[gpio_index], dc_coupling);
+		}
+
+		printk("Channel %d: gpio_index=%d, differential=%s, dc_coupling=%s\n",
+			reg, gpio_index, !is_single_ended ? "yes" : "no", dc_coupling ? "yes" : "no");
+	}
+
 	return 0;
 }
 
@@ -962,6 +1147,13 @@ static const struct iio_chan_spec adaq776x_channels[] = {
 	AD7768_CHAN(0, BIT(IIO_CHAN_INFO_SCALE)),
 };
 
+static const struct iio_chan_spec quad_adaq776x_channels[] = {
+	AD7768_CHAN(0, BIT(IIO_CHAN_INFO_SCALE)),
+	AD7768_CHAN(1, BIT(IIO_CHAN_INFO_SCALE)),
+	AD7768_CHAN(2, BIT(IIO_CHAN_INFO_SCALE)),
+	AD7768_CHAN(3, BIT(IIO_CHAN_INFO_SCALE)),
+};
+
 static int ad7768_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val, int *val2, long info)
@@ -979,7 +1171,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 		if (!iio_device_claim_direct(indio_dev))
 			return -EBUSY;
 
-		ret = ad7768_scan_direct(indio_dev);
+		ret = ad7768_scan_direct(indio_dev, chan->scan_index);
 
 		iio_device_release_direct(indio_dev);
 		if (ret < 0)
@@ -1301,14 +1493,36 @@ static irqreturn_t ad7768_trigger_handler(int irq, void *p)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad7768_state *st = iio_priv(indio_dev);
 	const struct iio_scan_type *scan_type;
+	struct spi_transfer xfer = {0};
+	struct spi_message msg;
 	int ret;
+	int bytes_per_sample, total_bytes;
 
 	scan_type = iio_get_current_scan_type(indio_dev, &indio_dev->channels[0]);
 	if (IS_ERR(scan_type))
 		goto out;
 
-	ret = spi_read(st->spi, &st->data.scan.chan,
-		       BITS_TO_BYTES(scan_type->realbits));
+	bytes_per_sample = BITS_TO_BYTES(scan_type->realbits);
+
+	/* For multi-channel devices, read all channels at once using multi-lane SPI */
+	if (st->num_sdo_lines > 1) {
+		total_bytes = bytes_per_sample * st->chip->num_channels;
+
+		xfer.rx_buf = &st->data.scan.chan;
+		xfer.len = total_bytes;
+		xfer.bits_per_word = scan_type->realbits;
+		xfer.multi_lane_mode = SPI_MULTI_LANE_MODE_STRIPE;
+
+		spi_message_init(&msg);
+		spi_message_add_tail(&xfer, &msg);
+
+		ret = spi_sync(st->spi, &msg);
+	} else {
+		/* Single channel or single lane - use traditional read */
+		ret = spi_read(st->spi, &st->data.scan.chan,
+			       bytes_per_sample * st->chip->num_channels);
+	}
+
 	if (ret < 0)
 		goto out;
 
@@ -1378,11 +1592,33 @@ static int ad7768_offload_buffer_postenable(struct iio_dev *indio_dev)
 	if (IS_ERR(scan_type))
 		return PTR_ERR(scan_type);
 
-	st->offload_xfer.len = spi_bpw_to_bytes(scan_type->realbits);
-	st->offload_xfer.bits_per_word = scan_type->realbits;
-	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+	printk("New OFFLOAD transfer.\n");
 
-	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+	/*
+	 * Some devices have a digital isolator between the external SPI pins
+	 * and the internal interface. This adds propagation delay to the
+	 * signals, most significantly to the chip-select, requiring an extra
+	 * delay transfer to assert the chip select before the actual transfer
+	 * starts.
+	 */
+	st->offload_xfer[0].bits_per_word = scan_type->realbits;
+	st->offload_xfer[0].delay.value = 100;
+	st->offload_xfer[0].delay.unit = SPI_DELAY_UNIT_NSECS;
+
+	/* Acutal transfer */
+	st->offload_xfer[1].len = spi_bpw_to_bytes(scan_type->realbits) * st->chip->num_channels;
+	st->offload_xfer[1].bits_per_word = scan_type->realbits;
+	st->offload_xfer[1].offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+	if (st->num_sdo_lines > 1)
+		st->offload_xfer[1].multi_lane_mode = SPI_MULTI_LANE_MODE_STRIPE;
+
+	if (st->chip->has_cs_delay) 
+		spi_message_init_with_transfers(&st->offload_msg,
+						st->offload_xfer, 2);
+	else
+		spi_message_init_with_transfers(&st->offload_msg, 
+						&st->offload_xfer[1], 1);
+
 	st->offload_msg.offload = st->offload;
 
 	ret = spi_optimize_message(st->spi, &st->offload_msg);
@@ -1714,6 +1950,11 @@ static const struct spi_offload_trigger_ops ad7768_offload_trigger_ops = {
 	.request = ad7768_offload_trigger_request,
 };
 
+static const unsigned long quad_ad7768_channel_masks[] = {
+	GENMASK(ARRAY_SIZE(quad_adaq776x_channels) - 1, 0),
+	0,
+};
+
 static const struct ad7768_chip_info ad7768_chip_info = {
 	.name = "ad7768-1",
 	.channel_spec = ad7768_channels,
@@ -1749,6 +1990,21 @@ static const struct ad7768_chip_info adaq7769_chip_info = {
 	.pgia_mode2pin_offset = 0,
 	.has_pga = true,
 	.has_variable_aaf = true,
+};
+
+static const struct ad7768_chip_info quad_adaq7768_chip_info = {
+	.name = "quad_adaq7768-1",
+	.channel_spec = quad_adaq776x_channels,
+	.num_channels = ARRAY_SIZE(quad_adaq776x_channels),
+	.available_scan_masks = quad_ad7768_channel_masks,
+	.pga_gains = adaq7768_gains,
+	.default_pga_mode = AD7768_PGA_GAIN_2,
+	.num_pga_modes = ARRAY_SIZE(adaq7768_gains),
+	.pgia_mode2pin_offset = 6,
+	.has_pga = true,
+	.has_variable_aaf = false,
+	.has_mux_gpios = true,
+	.has_cs_delay = true,
 };
 
 static const struct spi_offload_config ad7768_spi_offload_config = {
@@ -1820,6 +2076,12 @@ static int ad7768_probe(struct spi_device *spi)
 
 	st->chip = spi_get_device_match_data(spi);
 	st->spi = spi;
+	st->num_sdo_lines = spi->num_rx_lanes;
+
+	if (st->num_sdo_lines < 1 || st->num_sdo_lines > st->chip->num_channels)
+		return dev_err_probe(&spi->dev, -EINVAL,
+				     "invalid number of SDO lines (%d)\n",
+				     st->num_sdo_lines);
 
 	st->regmap = devm_regmap_init_spi(spi, &ad7768_regmap_config);
 	if (IS_ERR(st->regmap))
@@ -1848,6 +2110,8 @@ static int ad7768_probe(struct spi_device *spi)
 	indio_dev->name = st->chip->name;
 	indio_dev->info = &ad7768_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+	if (st->chip->available_scan_masks)
+		indio_dev->available_scan_masks = st->chip->available_scan_masks;
 
 	/* Register VCM output regulator */
 	if (st->chip->has_vcm_regulator) {
@@ -1877,6 +2141,22 @@ static int ad7768_probe(struct spi_device *spi)
 			return ret;
 
 		ret = ad7768_set_pga_gain(st, st->chip->default_pga_mode);
+		if (ret)
+			return ret;
+	}
+
+	/* Setup IEPE bias and AC/DC coupling GPIOs for devices that support them */
+	if (st->chip->has_mux_gpios) {
+		ret = ad7768_setup_iepe_bias_gpios(&spi->dev, st);
+		if (ret)
+			return ret;
+
+		ret = ad7768_setup_ac_dc_coupling_gpios(&spi->dev, st);
+		if (ret)
+			return ret;
+
+		/* Configure GPIOs based on channel properties */
+		ret = ad7768_configure_mux_gpios(&spi->dev, st);
 		if (ret)
 			return ret;
 	}
@@ -1914,6 +2194,7 @@ static const struct spi_device_id ad7768_id_table[] = {
 	{ "adaq7767-1", (kernel_ulong_t)&adaq7767_chip_info },
 	{ "adaq7768-1", (kernel_ulong_t)&adaq7768_chip_info },
 	{ "adaq7769-1", (kernel_ulong_t)&adaq7769_chip_info },
+	{ "quad_adaq7768-1", (kernel_ulong_t)&quad_adaq7768_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad7768_id_table);
@@ -1923,6 +2204,7 @@ static const struct of_device_id ad7768_of_match[] = {
 	{ .compatible = "adi,adaq7767-1", .data = &adaq7767_chip_info },
 	{ .compatible = "adi,adaq7768-1", .data = &adaq7768_chip_info },
 	{ .compatible = "adi,adaq7769-1", .data = &adaq7769_chip_info },
+	{ .compatible = "adi,quad_adaq7768-1", .data = &quad_adaq7768_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad7768_of_match);
