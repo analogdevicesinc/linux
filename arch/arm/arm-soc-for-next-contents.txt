@@ -72,6 +72,8 @@ soc/dt
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-7.1
 	microchip/dt64
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.1
+	spacemit/dt
+		https://github.com/spacemit-com/linux tags/spacemit-dt-for-7.1-1
 
 soc/drivers
 	renesas/drivers
