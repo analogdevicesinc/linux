@@ -25,7 +25,6 @@ static	u32 phy_CalculateBitShift(u32 BitMask)
 	return i;
 }
 
-
 /**
  * PHY_QueryBBReg_8723B - Read "specific bits" from BB register.
  * @Adapter:
@@ -46,9 +45,7 @@ u32 PHY_QueryBBReg_8723B(struct adapter *Adapter, u32 RegAddr, u32 BitMask)
 	BitShift = phy_CalculateBitShift(BitMask);
 
 	return (OriginalValue & BitMask) >> BitShift;
-
 }
-
 
 /**
  * PHY_SetBBReg_8723B - Write "Specific bits" to BB register (page 8~).
@@ -80,9 +77,7 @@ void PHY_SetBBReg_8723B(
 	}
 
 	rtw_write32(Adapter, RegAddr, Data);
-
 }
-
 
 /*  */
 /*  2. RF register R/W API */
@@ -141,7 +136,6 @@ static u32 phy_RFSerialRead_8723B(
 		retValue = PHY_QueryBBReg(Adapter, pPhyReg->rfLSSIReadBack | MaskforPhySet, bLSSIReadBackData);
 	}
 	return retValue;
-
 }
 
 /**
@@ -210,7 +204,6 @@ static void phy_RFSerialWrite_8723B(
 	PHY_SetBBReg(Adapter, pPhyReg->rf3wireOffset, bMaskDWord, DataAndAddr);
 }
 
-
 /**
  * PHY_QueryRFReg_8723B - Query "Specific bits" to RF register (page 8~).
  * @Adapter:
@@ -272,11 +265,9 @@ void PHY_SetRFReg_8723B(
 	phy_RFSerialWrite_8723B(Adapter, eRFPath, RegAddr, Data);
 }
 
-
 /*  */
 /*  3. Initial MAC/BB/RF config by reading MAC/BB/RF txt. */
 /*  */
-
 
 /*-----------------------------------------------------------------------------
  * PHY_MACConfig8192C - Config MAC by header file or parameter file.
@@ -329,7 +320,6 @@ static void phy_InitBBRFRegisterDefinition(struct adapter *Adapter)
 	pHalData->PHYRegDef[RF_PATH_B].rfLSSIReadBack = rFPGA0_XB_LSSIReadBack;
 	pHalData->PHYRegDef[RF_PATH_A].rfLSSIReadBackPi = TransceiverA_HSPI_Readback;
 	pHalData->PHYRegDef[RF_PATH_B].rfLSSIReadBackPi = TransceiverB_HSPI_Readback;
-
 }
 
 static int phy_BB8723b_Config_ParaFile(struct adapter *Adapter)
@@ -372,7 +362,6 @@ static int phy_BB8723b_Config_ParaFile(struct adapter *Adapter)
 
 	return _SUCCESS;
 }
-
 
 int PHY_BBConfig8723B(struct adapter *Adapter)
 {
@@ -614,7 +603,6 @@ static void phy_PostSetBwMode8723B(struct adapter *Adapter)
 	u8 SubChnlNum = 0;
 	struct hal_com_data *pHalData = GET_HAL_DATA(Adapter);
 
-
 	/* 3 Set Reg668 Reg440 BW */
 	phy_SetRegBW_8723B(Adapter, pHalData->CurrentChannelBW);
 
@@ -725,12 +713,10 @@ static void PHY_HandleSwChnlAndSetBW8723B(
 	if (!pHalData->bSetChnlBW && !pHalData->bSwChnl)
 		return;
 
-
 	if (pHalData->bSwChnl) {
 		pHalData->CurrentChannel = ChannelNum;
 		pHalData->CurrentCenterFrequencyIndex1 = ChannelNum;
 	}
-
 
 	if (pHalData->bSetChnlBW) {
 		pHalData->CurrentChannelBW = ChnlWidth;
