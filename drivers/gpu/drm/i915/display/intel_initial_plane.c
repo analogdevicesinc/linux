@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: MIT
 /* Copyright © 2025 Intel Corporation */
 
+#include <linux/iopoll.h>
+
 #include <drm/drm_print.h>
 #include <drm/intel/display_parent_interface.h>
 
+#include "intel_crtc.h"
+#include "intel_de.h"
 #include "intel_display_core.h"
+#include "intel_display_regs.h"
 #include "intel_display_types.h"
 #include "intel_fb.h"
 #include "intel_frontbuffer.h"
 #include "intel_initial_plane.h"
+#include "intel_parent.h"
 #include "intel_plane.h"
 
 struct intel_initial_plane_configs {
@@ -18,8 +24,22 @@ struct intel_initial_plane_configs {
 void intel_initial_plane_vblank_wait(struct intel_crtc *crtc)
 {
 	struct intel_display *display = to_intel_display(crtc);
+	u32 start_ts, end_ts;
+	int ret;
 
-	display->parent->initial_plane->vblank_wait(&crtc->base);
+	/* xe doesn't have interrupts enabled this early */
+	if (intel_parent_irq_enabled(display)) {
+		intel_crtc_wait_for_next_vblank(crtc);
+		return;
+	}
+
+	start_ts = intel_de_read(display, PIPE_FRMTMSTMP(crtc->pipe));
+
+	ret = poll_timeout_us(end_ts = intel_de_read(display, PIPE_FRMTMSTMP(crtc->pipe)),
+			      end_ts != start_ts, 1000, 40 * 1000, false);
+	if (ret)
+		drm_warn(display->drm, "[CRTC:%d:%s] early vblank wait timed out\n",
+			 crtc->base.base.id, crtc->base.name);
 }
 
 static const struct intel_plane_state *

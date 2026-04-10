@@ -16,11 +16,6 @@
 #include "i915_drv.h"
 #include "i915_initial_plane.h"
 
-static void i915_initial_plane_vblank_wait(struct drm_crtc *crtc)
-{
-	intel_crtc_wait_for_next_vblank(to_intel_crtc(crtc));
-}
-
 static enum intel_memory_type
 initial_plane_memory_type(struct drm_i915_private *i915)
 {
@@ -282,7 +277,6 @@ static void i915_plane_config_fini(struct intel_initial_plane_config *plane_conf
 }
 
 const struct intel_display_initial_plane_interface i915_display_initial_plane_interface = {
-	.vblank_wait = i915_initial_plane_vblank_wait,
 	.alloc_obj = i915_alloc_initial_plane_obj,
 	.setup = i915_initial_plane_setup,
 	.config_fini = i915_plane_config_fini,

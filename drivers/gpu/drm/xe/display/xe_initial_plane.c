@@ -7,8 +7,6 @@
 
 #include "regs/xe_gtt_defs.h"
 
-#include "intel_crtc.h"
-#include "intel_display_regs.h"
 #include "intel_display_types.h"
 #include "intel_fb.h"
 #include "intel_fb_pin.h"
@@ -18,22 +16,6 @@
 #include "xe_ggtt.h"
 #include "xe_mmio.h"
 #include "xe_vram_types.h"
-
-/* Early xe has no irq */
-static void xe_initial_plane_vblank_wait(struct drm_crtc *_crtc)
-{
-	struct intel_crtc *crtc = to_intel_crtc(_crtc);
-	struct xe_device *xe = to_xe_device(crtc->base.dev);
-	struct xe_reg pipe_frmtmstmp = XE_REG(i915_mmio_reg_offset(PIPE_FRMTMSTMP(crtc->pipe)));
-	u32 timestamp;
-	int ret;
-
-	timestamp = xe_mmio_read32(xe_root_tile_mmio(xe), pipe_frmtmstmp);
-
-	ret = xe_mmio_wait32_not(xe_root_tile_mmio(xe), pipe_frmtmstmp, ~0U, timestamp, 40000U, &timestamp, false);
-	if (ret < 0)
-		drm_warn(&xe->drm, "waiting for early vblank failed with %i\n", ret);
-}
 
 static struct xe_bo *
 initial_plane_bo(struct xe_device *xe,
@@ -172,7 +154,6 @@ static void xe_plane_config_fini(struct intel_initial_plane_config *plane_config
 }
 
 const struct intel_display_initial_plane_interface xe_display_initial_plane_interface = {
-	.vblank_wait = xe_initial_plane_vblank_wait,
 	.alloc_obj = xe_alloc_initial_plane_obj,
 	.setup = xe_initial_plane_setup,
 	.config_fini = xe_plane_config_fini,
