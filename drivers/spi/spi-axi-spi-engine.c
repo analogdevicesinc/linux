@@ -425,6 +425,7 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 					spi_engine_primary_lane_flag(spi, &rx_lane_flags,
 								     &tx_lane_flags);
 
+				/* FIXME: */
 				spi_engine_program_add_cmd(p, dry,
 					SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_SDI_MASK,
 							     rx_lane_flags));
@@ -1238,11 +1239,11 @@ static int spi_engine_probe(struct platform_device *pdev)
 
 	/* Some features depend of the IP core version. */
 	if (ADI_AXI_PCORE_VER_MAJOR(version) >= 1) {
-		if (ADI_AXI_PCORE_VER_MINOR(version) >= 2) {
+		if (ADI_AXI_PCORE_VER_MINOR(version) >= 2 || ADI_AXI_PCORE_VER_MAJOR(version) >= 2) {
 			host->mode_bits |= SPI_CS_HIGH;
 			host->setup = spi_engine_setup;
 		}
-		if (ADI_AXI_PCORE_VER_MINOR(version) >= 3)
+		if (ADI_AXI_PCORE_VER_MINOR(version) >= 3 || ADI_AXI_PCORE_VER_MAJOR(version) >= 2)
 			host->mode_bits |= SPI_MOSI_IDLE_LOW | SPI_MOSI_IDLE_HIGH;
 	}
 	if (ADI_AXI_PCORE_VER_MAJOR(version) >= 2)
