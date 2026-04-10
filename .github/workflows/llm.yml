@@ -19,7 +19,7 @@ on:
         type: string
         default: ""
       model:
-        description: Model size.
+        description: "Model size"
         type: choice
         options:
         - small
