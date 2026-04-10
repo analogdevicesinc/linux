@@ -1236,11 +1236,11 @@ static inline u32 ieee80211_emlmr_trans_delay_in_us(u16 eml_cap)
 }
 
 /**
- * ieee80211_eml_trans_timeout_in_us - Fetch the EMLSR Transition
+ * ieee80211_eml_trans_timeout_in_us - Fetch the EML Transition
  *	timeout value in microseconds
  * @eml_cap: EML capabilities field value from common info field of
  *	the Multi-link element
- * Return: the EMLSR Transition timeout (in microseconds) encoded in
+ * Return: the EML Transition timeout (in microseconds) encoded in
  *	the EML Capabilities field
  */
 
