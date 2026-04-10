@@ -92,6 +92,15 @@ intel_alloc_initial_plane_obj(struct intel_display *display,
 		return NULL;
 	}
 
+	/*
+	 * Would need to preserve the DPT, its GGTT
+	 * mapping, and the actual FB memory.
+	 */
+	if (intel_fb_modifier_uses_dpt(display, fb->modifier)) {
+		drm_dbg_kms(display->drm, "DPT not supported for initial FB\n");
+		return NULL;
+	}
+
 	return display->parent->initial_plane->alloc_obj(display->drm, plane_config);
 }
 
