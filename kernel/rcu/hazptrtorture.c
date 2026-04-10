@@ -362,7 +362,7 @@ static int hazptr_torture_reader(void *arg)
 	struct hazptr_torture *htp;
 	unsigned long lastsleep = jiffies;
 	long myid = (long)arg;
-	int mynumonline = myid;
+	int mynumonline = myid % nr_cpu_ids;
 	int pipe_count;
 	DEFINE_TORTURE_RANDOM(rand);
 
@@ -622,7 +622,7 @@ static int __init hazptr_torture_init(void)
 	if (nreaders >= 0) {
 		nrealreaders = nreaders;
 	} else {
-		nrealreaders = num_online_cpus() - 2 - nreaders;
+		nrealreaders = num_online_cpus() * -nreaders;
 		if (nrealreaders <= 0)
 			nrealreaders = 1;
 	}
