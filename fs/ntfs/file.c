@@ -525,10 +525,9 @@ static ssize_t ntfs_dio_write_iter(struct kiocb *iocb, struct iov_iter *from)
 			ret = -EIO;
 			goto out;
 		}
-		if (!ret2)
-			invalidate_mapping_pages(iocb->ki_filp->f_mapping,
-						 offset >> PAGE_SHIFT,
-						 end >> PAGE_SHIFT);
+		invalidate_mapping_pages(iocb->ki_filp->f_mapping,
+					 offset >> PAGE_SHIFT,
+					 end >> PAGE_SHIFT);
 	}
 
 out:
