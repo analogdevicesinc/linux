@@ -1030,14 +1030,15 @@ found_sym:
 }
 
 /*
- * Sections with anonymous or uncorrelated data (strings, UBSAN data)
- * need section symbol references.
+ * Sections with anonymous or uncorrelated data (strings, UBSAN data, Clang
+ * anonymous constants) need section symbol references.
  */
 static bool is_uncorrelated_section(struct section *sec)
 {
 	return is_string_sec(sec) ||
 	       strstarts(sec->name, ".data..Lubsan") ||		/* GCC */
-	       strstarts(sec->name, ".data..L__unnamed_");	/* Clang */
+	       strstarts(sec->name, ".data..L__unnamed_") ||	/* Clang */
+	       strstarts(sec->name, ".data..Lanon.");		/* Clang */
 }
 
 /*
