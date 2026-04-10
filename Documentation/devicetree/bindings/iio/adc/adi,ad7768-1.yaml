@@ -24,6 +24,7 @@ properties:
       - adi,adaq7767-1
       - adi,adaq7768-1
       - adi,adaq7769-1
+      - adi,quad_adaq7768-1
 
   reg:
     maxItems: 1
@@ -84,6 +85,24 @@ properties:
       PGA configuration input pins, pga-gpios must be defined.
     minItems: 3
     maxItems: 3
+
+  iepe-bias-gpios:
+    description:
+      GPIO pins that control the IEPE BIAS enable for each channel pair.
+      For quad_adaq7768-1 devices, this should contain 4 GPIO descriptors
+      (one pin per channel pair). Channel pairs are (0-1), (2-3), (4-5), (6-7).
+      Order is [pair0_iepe_bias, pair1_iepe_bias, pair2_iepe_bias, pair3_iepe_bias].
+    minItems: 4
+    maxItems: 4
+
+  ac-dc-coupling-gpios:
+    description:
+      GPIO pins that control the AC/DC coupling for each channel pair.
+      For quad_adaq7768-1 devices, this should contain 4 GPIO descriptors
+      (one pin per channel pair). Channel pairs are (0-1), (2-3), (4-5), (6-7).
+      Order is [pair0_coupling, pair1_coupling, pair2_coupling, pair3_coupling].
+    minItems: 4
+    maxItems: 4
 
   adi,sync-in-gpios:
     maxItems: 1
@@ -167,6 +186,26 @@ patternProperties:
       label:
         description: |
           Unique name to identify which channel this is.
+
+      diff-channels:
+        description: |
+          Differential channel configuration. When present, configures the channel
+          for differential input mode and disables IEPE bias for this channel.
+        $ref: /schemas/types.yaml#/definitions/uint32-array
+        minItems: 2
+        maxItems: 2
+
+      single-channel:
+        description: |
+          Single-ended channel configuration. When present instead of diff-channels,
+          configures the channel for single-ended input mode and enables IEPE bias.
+        $ref: /schemas/types.yaml#/definitions/uint32
+
+      adi,dc-coupling:
+        type: boolean
+        description: |
+          If present, configures the channel as DC coupled.
+          When not present, the channel is configured as AC coupled.
     required:
       - reg
     additionalProperties: false
@@ -241,6 +280,78 @@ examples:
               vcm_reg: vcm-output {
                 regulator-name = "ad7768-1-vcm";
               };
+            };
+        };
+    };
+
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/gpio/gpio.h>
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        quad_adc@0 {
+            compatible = "adi,quad_adaq7768-1";
+            reg = <0>;
+            spi-max-frequency = <2000000>;
+            spi-cpol;
+            spi-cpha;
+            vref-supply = <&adc_vref>;
+            interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+            interrupt-parent = <&gpio>;
+            clocks = <&adc_mclk>;
+            clock-names = "mclk";
+
+            pga-gpios = <&gpio 10 GPIO_ACTIVE_LOW>,
+                       <&gpio 11 GPIO_ACTIVE_LOW>,
+                       <&gpio 12 GPIO_ACTIVE_LOW>;
+
+            iepe-bias-gpios = <&gpio 13 GPIO_ACTIVE_HIGH>,
+                             <&gpio 14 GPIO_ACTIVE_HIGH>,
+                             <&gpio 15 GPIO_ACTIVE_HIGH>,
+                             <&gpio 16 GPIO_ACTIVE_HIGH>;
+
+            ac-dc-coupling-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>,
+                                  <&gpio 18 GPIO_ACTIVE_HIGH>,
+                                  <&gpio 19 GPIO_ACTIVE_HIGH>,
+                                  <&gpio 20 GPIO_ACTIVE_HIGH>;
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            channel@0 {
+                reg = <0>;
+                label = "channel_0";
+                single-channel = <0>;
+                /* Logical channel 0: uses only physical channel 0 (single-ended)
+                   IEPE bias enabled, DC coupling (default) */
+            };
+
+            channel@1 {
+                reg = <1>;
+                label = "channel_1";
+                diff-channels = <2 3>;
+                adi,ac-coupling;
+                /* Logical channel 1: uses physical channels 2-3 (differential)
+                   IEPE bias disabled, AC coupling */
+            };
+
+            channel@2 {
+                reg = <2>;
+                label = "channel_2";
+                single-channel = <4>;
+                adi,ac-coupling;
+                /* Logical channel 2: uses only physical channel 4 (single-ended)
+                   IEPE bias enabled, AC coupling */
+            };
+
+            channel@3 {
+                reg = <3>;
+                label = "channel_3";
+                diff-channels = <6 7>;
+                /* Logical channel 3: uses physical channels 6-7 (differential)
+                   IEPE bias disabled, DC coupling (default) */
             };
         };
     };
