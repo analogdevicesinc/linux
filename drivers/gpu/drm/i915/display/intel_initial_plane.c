@@ -3,6 +3,7 @@
 
 #include <linux/iopoll.h>
 
+#include <drm/drm_blend.h>
 #include <drm/drm_print.h>
 #include <drm/intel/display_parent_interface.h>
 
@@ -98,6 +99,15 @@ intel_alloc_initial_plane_obj(struct intel_display *display,
 	 */
 	if (intel_fb_modifier_uses_dpt(display, fb->modifier)) {
 		drm_dbg_kms(display->drm, "DPT not supported for initial FB\n");
+		return NULL;
+	}
+
+	/*
+	 * Would need to preserve the 270 degree rotated
+	 * GGTT mapping used by the display hardware.
+	 */
+	if (drm_rotation_90_or_270(plane_config->rotation)) {
+		drm_dbg_kms(display->drm, "90/270 degree rotation not supported for initial FB\n");
 		return NULL;
 	}
 
