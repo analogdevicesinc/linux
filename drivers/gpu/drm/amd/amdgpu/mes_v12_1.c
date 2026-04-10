@@ -2028,7 +2028,7 @@ static int mes_v12_1_test_ring(struct amdgpu_device *adev, int xcc_id,
 	int num_xcc = NUM_XCC(adev->gfx.xcc_mask);
 	int sdma_ring_align = 0x10, compute_ring_align = 0x100;
 	uint32_t tmp, xcc_offset;
-	int r = 0, i, wptr = 0;
+	int r = 0, i, j, wptr = 0;
 
 	if (queue_type == AMDGPU_RING_TYPE_COMPUTE) {
 		if (!adev->mes.enable_coop_mode) {
@@ -2077,11 +2077,11 @@ static int mes_v12_1_test_ring(struct amdgpu_device *adev, int xcc_id,
 				tmp = RREG32_SOC15(GC, GET_INST(GC, xcc_id),
 						   regSCRATCH_REG0);
 			} else {
-				for (i = 0; i < num_xcc; i++) {
-					if (xcc_id != adev->mes.master_xcc_ids[i])
+				for (j = 0; j < num_xcc; j++) {
+					if (xcc_id != adev->mes.master_xcc_ids[j])
 						continue;
 
-					tmp = RREG32_SOC15(GC, GET_INST(GC, i),
+					tmp = RREG32_SOC15(GC, GET_INST(GC, j),
 							   regSCRATCH_REG0);
 					if (tmp != 0xDEADBEEF)
 						break;
