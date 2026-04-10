@@ -48,6 +48,7 @@ MODULE_ALIAS("wmi:5FB7F034-2C63-45E9-BE91-3D44E2C707E4");
 
 enum hp_ec_offsets {
 	HP_EC_OFFSET_UNKNOWN				= 0x00,
+	HP_NO_THERMAL_PROFILE_OFFSET			= 0x01,
 	HP_VICTUS_S_EC_THERMAL_PROFILE_OFFSET		= 0x59,
 	HP_OMEN_EC_THERMAL_PROFILE_FLAGS_OFFSET		= 0x62,
 	HP_OMEN_EC_THERMAL_PROFILE_TIMER_OFFSET		= 0x63,
@@ -125,6 +126,13 @@ static const struct thermal_profile_params omen_v1_legacy_thermal_params = {
 	.balanced	= HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
 	.low_power	= HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
 	.ec_tp_offset	= HP_OMEN_EC_THERMAL_PROFILE_OFFSET,
+};
+
+static const struct thermal_profile_params omen_v1_no_ec_thermal_params = {
+	.performance	= HP_OMEN_V1_THERMAL_PROFILE_PERFORMANCE,
+	.balanced	= HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
+	.low_power	= HP_OMEN_V1_THERMAL_PROFILE_DEFAULT,
+	.ec_tp_offset	= HP_NO_THERMAL_PROFILE_OFFSET,
 };
 
 /*
@@ -230,6 +238,10 @@ static const struct dmi_system_id victus_s_thermal_profile_boards[] __initconst 
 	{
 		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8D41") },
 		.driver_data = (void *)&victus_s_thermal_params,
+	},
+	{
+		.matches = { DMI_MATCH(DMI_BOARD_NAME, "8D87") },
+		.driver_data = (void *)&omen_v1_no_ec_thermal_params,
 	},
 	{},
 };
@@ -1837,7 +1849,8 @@ static int platform_profile_victus_s_get_ec(enum platform_profile_option *profil
 	const struct thermal_profile_params *params;
 
 	params = active_thermal_profile_params;
-	if (params->ec_tp_offset == HP_EC_OFFSET_UNKNOWN) {
+	if (params->ec_tp_offset == HP_EC_OFFSET_UNKNOWN ||
+	    params->ec_tp_offset == HP_NO_THERMAL_PROFILE_OFFSET) {
 		*profile = active_platform_profile;
 		return 0;
 	}
@@ -2192,7 +2205,8 @@ static int thermal_profile_setup(struct platform_device *device)
 		 * behaves like a wrapper around active_platform_profile, to avoid using
 		 * uninitialized data, we default to PLATFORM_PROFILE_BALANCED.
 		 */
-		if (active_thermal_profile_params->ec_tp_offset == HP_EC_OFFSET_UNKNOWN) {
+		if (active_thermal_profile_params->ec_tp_offset == HP_EC_OFFSET_UNKNOWN ||
+		    active_thermal_profile_params->ec_tp_offset == HP_NO_THERMAL_PROFILE_OFFSET) {
 			active_platform_profile = PLATFORM_PROFILE_BALANCED;
 		} else {
 			err = platform_profile_victus_s_get_ec(&active_platform_profile);
