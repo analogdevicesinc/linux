@@ -24465,7 +24465,7 @@ F:	Documentation/devicetree/bindings/net/socionext,synquacer-netsec.yaml
 F:	drivers/net/ethernet/socionext/netsec.c
 
 SOCIONEXT (SNI) Synquacer SPI DRIVER
-M:	Masahisa Kojima <masahisa.kojima@linaro.org>
+M:	Masahisa Kojima <kojima.masahisa@socionext.com>
 M:	Jassi Brar <jaswinder.singh@linaro.org>
 L:	linux-spi@vger.kernel.org
 S:	Maintained
