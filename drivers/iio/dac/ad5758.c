@@ -851,7 +851,9 @@ static int ad5758_probe(struct spi_device *spi)
 
 	st->spi = spi;
 
-	mutex_init(&st->lock);
+	ret = devm_mutex_init(&spi->dev, &st->lock);
+	if (ret)
+		return ret;
 
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->info = &ad5758_info;
