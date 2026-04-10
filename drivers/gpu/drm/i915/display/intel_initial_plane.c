@@ -79,9 +79,13 @@ intel_alloc_initial_plane_obj(struct intel_display *display,
 
 	switch (fb->modifier) {
 	case DRM_FORMAT_MOD_LINEAR:
+		break;
 	case I915_FORMAT_MOD_X_TILED:
 	case I915_FORMAT_MOD_Y_TILED:
-		break;
+		/* fenced region needed for linear CPU access to tiled FB */
+		if (intel_parent_has_fenced_regions(display))
+			break;
+		fallthrough;
 	default:
 		drm_dbg_kms(display->drm, "Unsupported modifier for initial FB: 0x%llx\n",
 			    fb->modifier);
