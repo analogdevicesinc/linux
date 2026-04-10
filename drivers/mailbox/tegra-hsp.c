@@ -514,7 +514,7 @@ static int tegra_hsp_mailbox_startup(struct mbox_chan *chan)
 	struct tegra_hsp *hsp = mb->channel.hsp;
 	unsigned long flags;
 
-	chan->txdone_method = TXDONE_BY_IRQ;
+	chan->txdone_method = MBOX_TXDONE_BY_IRQ;
 
 	/*
 	 * Shared mailboxes start out as consumers by default. FULL and EMPTY

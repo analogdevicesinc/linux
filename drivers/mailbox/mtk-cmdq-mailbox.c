@@ -728,7 +728,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->mbox.ops = &cmdq_mbox_chan_ops;
 	cmdq->mbox.of_xlate = cmdq_xlate;
 
-	/* make use of TXDONE_BY_ACK */
+	/* make use of MBOX_TXDONE_BY_ACK */
 	cmdq->mbox.txdone_irq = false;
 	cmdq->mbox.txdone_poll = false;
 

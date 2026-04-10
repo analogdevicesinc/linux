@@ -238,7 +238,7 @@ static int omap_mbox_startup(struct omap_mbox *mbox)
 	}
 
 	if (mbox->send_no_irq)
-		mbox->chan->txdone_method = TXDONE_BY_ACK;
+		mbox->chan->txdone_method = MBOX_TXDONE_BY_ACK;
 
 	omap_mbox_enable_irq(mbox, IRQ_RX);
 
