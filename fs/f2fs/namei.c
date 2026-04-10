@@ -83,6 +83,21 @@ int f2fs_update_extension_list(struct f2fs_sb_info *sbi, const char *name,
 	if (set) {
 		if (total_count == F2FS_MAX_EXTENSION)
 			return -EINVAL;
+
+		if (hot) {
+			start = 0;
+			count = cold_count;
+		} else {
+			start = cold_count;
+			count = total_count;
+		}
+		for (i = start; i < count; i++) {
+			if (!strcmp(name, extlist[i])) {
+				f2fs_warn(sbi, "extension '%s' already exists in %s list",
+					  name, hot ? "cold" : "hot");
+				return -EINVAL;
+			}
+		}
 	} else {
 		if (!hot && !cold_count)
 			return -EINVAL;
