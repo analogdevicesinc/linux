@@ -1108,6 +1108,11 @@ static int pci_endpoint_test_doorbell(struct pci_endpoint_test *test)
 	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_STATUS, 0);
 
 	bar = pci_endpoint_test_readl(test, PCI_ENDPOINT_TEST_DB_BAR);
+	if (bar < BAR_0 || bar >= PCI_STD_NUM_BARS) {
+		dev_err(dev, "BAR %d reported by endpoint out of range [0, %u]\n",
+			bar, PCI_STD_NUM_BARS - 1);
+		return -ERANGE;
+	}
 
 	writel(data, test->bar[bar] + addr);
 
