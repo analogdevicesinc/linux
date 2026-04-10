@@ -55,9 +55,9 @@ static struct drm_gem_object *
 intel_alloc_initial_plane_obj(struct intel_display *display,
 			      struct intel_initial_plane_config *plane_config)
 {
-	struct intel_framebuffer *fb = plane_config->fb;
+	struct drm_framebuffer *fb = plane_config->fb;
 
-	switch (fb->base.modifier) {
+	switch (fb->modifier) {
 	case DRM_FORMAT_MOD_LINEAR:
 	case I915_FORMAT_MOD_X_TILED:
 	case I915_FORMAT_MOD_Y_TILED:
@@ -65,7 +65,7 @@ intel_alloc_initial_plane_obj(struct intel_display *display,
 		break;
 	default:
 		drm_dbg_kms(display->drm, "Unsupported modifier for initial FB: 0x%llx\n",
-			    fb->base.modifier);
+			    fb->modifier);
 		return NULL;
 	}
 
@@ -93,7 +93,7 @@ intel_find_initial_plane_obj(struct intel_crtc *crtc,
 		return;
 
 	if (intel_alloc_initial_plane_obj(display, plane_config)) {
-		fb = &plane_config->fb->base;
+		fb = plane_config->fb;
 		vma = plane_config->vma;
 	} else {
 		const struct intel_plane_state *other_plane_state;
@@ -149,7 +149,7 @@ static void plane_config_fini(struct intel_display *display,
 			      struct intel_initial_plane_config *plane_config)
 {
 	if (plane_config->fb) {
-		struct drm_framebuffer *fb = &plane_config->fb->base;
+		struct drm_framebuffer *fb = plane_config->fb;
 
 		/* We may only have the stub and not a full framebuffer */
 		if (drm_framebuffer_read_refcount(fb))

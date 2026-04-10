@@ -137,7 +137,7 @@ initial_plane_vma(struct drm_i915_private *i915,
 	i915_gem_object_set_cache_coherency(obj, HAS_WT(i915) ?
 					    I915_CACHE_WT : I915_CACHE_NONE);
 
-	tiling = intel_fb_modifier_to_tiling(plane_config->fb->base.modifier);
+	tiling = intel_fb_modifier_to_tiling(plane_config->fb->modifier);
 
 	switch (tiling) {
 	case I915_TILING_NONE:
@@ -145,7 +145,7 @@ initial_plane_vma(struct drm_i915_private *i915,
 	case I915_TILING_X:
 	case I915_TILING_Y:
 		obj->tiling_and_stride =
-			plane_config->fb->base.pitches[0] |
+			plane_config->fb->pitches[0] |
 			tiling;
 		break;
 	default:
@@ -223,7 +223,7 @@ i915_alloc_initial_plane_obj(struct drm_device *drm,
 {
 	struct drm_i915_private *i915 = to_i915(drm);
 	struct drm_mode_fb_cmd2 mode_cmd = {};
-	struct drm_framebuffer *fb = &plane_config->fb->base;
+	struct drm_framebuffer *fb = plane_config->fb;
 	struct i915_vma *vma;
 
 	vma = initial_plane_vma(i915, plane_config);

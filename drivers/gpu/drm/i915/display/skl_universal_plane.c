@@ -3206,7 +3206,7 @@ skl_get_initial_plane_config(struct intel_crtc *crtc,
 		    fb->width, fb->height, fb->format->cpp[0] * 8,
 		    base, fb->pitches[0], plane_config->size);
 
-	plane_config->fb = intel_fb;
+	plane_config->fb = &intel_fb->base;
 	return;
 
 error:

@@ -755,7 +755,7 @@ struct intel_plane_state {
 };
 
 struct intel_initial_plane_config {
-	struct intel_framebuffer *fb;
+	struct drm_framebuffer *fb;
 	struct i915_vma *vma;
 	int size;
 	u32 base;

@@ -115,7 +115,7 @@ xe_alloc_initial_plane_obj(struct drm_device *drm,
 {
 	struct xe_device *xe = to_xe_device(drm);
 	struct drm_mode_fb_cmd2 mode_cmd = { 0 };
-	struct drm_framebuffer *fb = &plane_config->fb->base;
+	struct drm_framebuffer *fb = plane_config->fb;
 	struct xe_bo *bo;
 
 	mode_cmd.pixel_format = fb->format->format;
