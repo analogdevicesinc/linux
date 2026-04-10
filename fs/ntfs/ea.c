@@ -406,7 +406,10 @@ int ntfs_ea_set_wsl_inode(struct inode *inode, dev_t rdev, __le16 *ea_size,
 		unsigned int flags)
 {
 	__le32 v;
-	int err;
+	int err = 0;
+
+	if (ea_size)
+		*ea_size = 0;
 
 	if (flags & NTFS_EA_UID) {
 		/* Store uid to lxuid EA */
