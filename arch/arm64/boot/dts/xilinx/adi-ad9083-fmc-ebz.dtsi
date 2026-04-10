@@ -57,7 +57,11 @@
 		 *    862.500 MHz - 1006.250 MHz
 		 *    690.000 MHz -  805.000 MHz
 		 */
-		adi,pll2-m1-frequency = <1000000000>;
+		adi,pll2-vco-div-m1 = <5>; /* use 5 for 184320000 output device clock */
+		adi,pll2-n2-div = <15>; /* N / M1 */
+		adi,pll2-r1-div = <2>;
+
+		adi,pll2-m1-frequency = <750000000>;
 		adi,pll2-charge-pump-current-nA = <805000>;
 
 		adi,rpole2 = <RPOLE2_900_OHM>;
@@ -72,7 +76,7 @@
 			adi,extended-name = "FPGA_GLBL_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <8>; /* 125 MHz */
+			adi,channel-divider = <3>; /* 250 MHz */
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -81,7 +85,7 @@
 			adi,extended-name = "FPGA_REF_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <2>; /* 500 MHz */
+			adi,channel-divider = <2>; /* 375 MHz */
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -90,7 +94,7 @@
 			adi,extended-name = "ADC_REF_CLK";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <4>; /* 250 MHz */
+			adi,channel-divider = <3>; /* 250 MHz */
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -128,9 +132,11 @@
 		clock-names = "adc_ref_clk";
 		adi,adc-frequency-hz= /bits/ 64 <2000000000>; /* 2 GHz */
 
+		jesd204-ignore-errors;
+
 		/* adi_ad9083 config */
 
-		adi,vmax-microvolt = <1800>;
+		adi,vmax-microvolt = <2000>;
 		adi,fc-hz =  /bits/ 64 <800000000>;
 		adi,rterm-ohms = <100>;
 		adi,backoff = <0>;
@@ -138,18 +144,18 @@
 		adi,nco0_freq-hz = /bits/ 64 <0>;
 		adi,nco1_freq-hz = /bits/ 64 <0>;
 		adi,nco2_freq-hz = /bits/ 64 <0>;
-		adi,cic_decimation = /bits/ 8 <AD9083_CIC_DEC_4>;
-		adi,j_decimation = /bits/ 8 <AD9083_J_DEC_4>;
+		adi,cic_decimation = /bits/ 8 <0>;
+		adi,j_decimation = /bits/ 8 <AD9083_J_DEC_8>;
 		adi,g_decimation = /bits/ 8 <0>;
 		adi,h_decimation = /bits/ 8 <0>;
-		adi,nco0_datapath_mode = /bits/ 8 <AD9083_DATAPATH_ADC_CIC_J>;
+		adi,nco0_datapath_mode = /bits/ 8 <AD9083_DATAPATH_ADC_J>;
 
 		/* JESD204 parameters */
 
-		adi,octets-per-frame = <8>;
+		adi,octets-per-frame = <6>;
 		adi,frames-per-multiframe = <32>;
-		adi,converter-resolution = <16>;
-		adi,bits-per-sample = <16>;
+		adi,converter-resolution = <12>;
+		adi,bits-per-sample = <12>;
 		adi,converters-per-device = <16>;
 		adi,control-bits-per-sample = <0>;
 		adi,lanes-per-device = <4>;

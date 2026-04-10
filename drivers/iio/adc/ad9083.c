@@ -330,6 +330,8 @@ static int ad9083_jesd204_clks_enable(struct jesd204_dev *jdev,
 			BF_JTX_TPL_SYSREF_CLR_PHASE_ERR_INFO, 0);
 	}
 
+	dev_info(dev, "AD9083 clks_enable: performing JTX digital reset\n");
+
 	ret = adi_ad9083_jesd_tx_link_digital_reset(&phy->adi_ad9083, 1);
 	if (ret)
 		return JESD204_STATE_CHANGE_ERROR;
@@ -338,6 +340,15 @@ static int ad9083_jesd204_clks_enable(struct jesd204_dev *jdev,
 	if (ret)
 		return JESD204_STATE_CHANGE_ERROR;
 	mdelay(1);
+
+	{
+		uint8_t lcpll_locked = 0;
+
+		adi_ad9083_jesd_tx_lcpll_status_get(&phy->adi_ad9083,
+						    &lcpll_locked);
+		dev_info(dev, "AD9083 LCPLL after clks_enable reset: %s\n",
+			 lcpll_locked ? "LOCKED" : "UNLOCKED");
+	}
 
 	return JESD204_STATE_CHANGE_DONE;
 }
@@ -384,6 +395,15 @@ static int ad9083_jesd204_link_running(struct jesd204_dev *jdev,
 				stat & BIT(1) ? "Received" : "Waiting",
 				stat & BIT(2) ? "(Unaligned)" : "",
 				stat & BIT(3) ? "Established" : "Lost");
+	}
+
+	{
+		uint8_t lcpll_locked = 0;
+
+		adi_ad9083_jesd_tx_lcpll_status_get(&phy->adi_ad9083,
+						    &lcpll_locked);
+		dev_info(dev, "AD9083 LCPLL at link_running: %s\n",
+			 lcpll_locked ? "LOCKED" : "UNLOCKED");
 	}
 
 	ret = ad9083_jesd_rx_link_status_print(phy);
@@ -783,6 +803,31 @@ static int ad9083_setup(struct axiadc_converter *conv)
 	ret = adi_ad9083_jtx_startup(&phy->adi_ad9083, &phy->jesd_param);
 	if (ret < 0)
 		dev_err(dev, "adi_ad9083_jtx_startup failed (%d)\n", ret);
+
+	{
+		uint8_t lcpll_locked = 0;
+		uint16_t jtx_stat = 0;
+
+		ret = adi_ad9083_jesd_tx_lcpll_status_get(&phy->adi_ad9083,
+							  &lcpll_locked);
+		if (ret == 0)
+			dev_info(dev, "AD9083 LCPLL %s\n",
+				 lcpll_locked ? "LOCKED" : "UNLOCKED");
+		else
+			dev_err(dev, "Failed to read LCPLL status (%d)\n", ret);
+
+		ret = adi_ad9083_jesd_tx_link_status_get(&phy->adi_ad9083,
+							 &jtx_stat);
+		if (ret == 0)
+			dev_info(dev, "AD9083 JTX status after startup: 0x%04x "
+				 "(state=%d SYNC=%s PLL=%s PHASE=%s MODE=%s)\n",
+				 jtx_stat,
+				 jtx_stat & 0xF,
+				 jtx_stat & BIT(4) ? "deasserted" : "asserted",
+				 jtx_stat & BIT(5) ? "locked" : "unlocked",
+				 jtx_stat & BIT(6) ? "established" : "lost",
+				 jtx_stat & BIT(7) ? "invalid" : "valid");
+	}
 
 	adi_ad9083_device_api_revision_get(&phy->adi_ad9083, &api_rev[0],
 					   &api_rev[1], &api_rev[2]);

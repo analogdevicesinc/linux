@@ -1110,6 +1110,7 @@ int32_t adi_ad9083_rx_datapath_config_set(adi_ad9083_device_t *device,
     break;
   case AD9083_DATAPATH_ADC_J:
     deci_adc_data = 1;
+    no_ddc_mode = 1;
     sample_order = 0;
     break;
   case AD9083_DATAPATH_ADC_CIC_NCO_G:
