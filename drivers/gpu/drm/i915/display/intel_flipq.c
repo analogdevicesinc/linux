@@ -6,6 +6,7 @@
 #include <linux/pci.h>
 
 #include <drm/drm_print.h>
+#include <drm/intel/step.h>
 
 #include "intel_crtc.h"
 #include "intel_de.h"
@@ -17,7 +18,6 @@
 #include "intel_dmc_regs.h"
 #include "intel_dsb.h"
 #include "intel_flipq.h"
-#include "intel_step.h"
 #include "intel_vblank.h"
 #include "intel_vrr.h"
 
