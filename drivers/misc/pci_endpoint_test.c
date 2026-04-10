@@ -1100,7 +1100,6 @@ static int pci_endpoint_test_doorbell(struct pci_endpoint_test *test)
 
 	data = pci_endpoint_test_readl(test, PCI_ENDPOINT_TEST_DB_DATA);
 	addr = pci_endpoint_test_readl(test, PCI_ENDPOINT_TEST_DB_OFFSET);
-	bar = pci_endpoint_test_readl(test, PCI_ENDPOINT_TEST_DB_BAR);
 
 	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_TYPE, irq_type);
 	pci_endpoint_test_writel(test, PCI_ENDPOINT_TEST_IRQ_NUMBER, 1);
