@@ -92,7 +92,7 @@ int ntfs_map_runlist_nolock(struct ntfs_inode *ni, s64 vcn, struct ntfs_attr_sea
 	struct runlist_element *rl;
 	struct folio *put_this_folio = NULL;
 	int err = 0;
-	bool ctx_is_temporary = false, ctx_needs_reset;
+	bool ctx_is_temporary = false, ctx_needs_reset = false;
 	struct ntfs_attr_search_ctx old_ctx = { NULL, };
 	size_t new_rl_count;
 
