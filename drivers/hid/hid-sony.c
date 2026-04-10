@@ -2456,11 +2456,10 @@ static void sony_remove(struct hid_device *hdev)
 static int sony_suspend(struct hid_device *hdev, pm_message_t message)
 {
 #ifdef CONFIG_SONY_FF
+	struct sony_sc *sc = hid_get_drvdata(hdev);
 
 	/* On suspend stop any running force-feedback events */
-	if (SONY_FF_SUPPORT) {
-		struct sony_sc *sc = hid_get_drvdata(hdev);
-
+	if (sc->quirks & SONY_FF_SUPPORT) {
 		sc->left = sc->right = 0;
 		sony_send_output_report(sc);
 	}
