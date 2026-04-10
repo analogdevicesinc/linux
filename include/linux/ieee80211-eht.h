@@ -485,19 +485,27 @@ struct ieee80211_multi_link_elem {
 #define IEEE80211_MED_SYNC_DELAY_DEFAULT		0x10ac
 
 #define IEEE80211_EML_CAP_EMLSR_SUPP			0x0001
-#define IEEE80211_EML_CAP_EMLSR_PADDING_DELAY		0x000e
-#define  IEEE80211_EML_CAP_EMLSR_PADDING_DELAY_0US		0
-#define  IEEE80211_EML_CAP_EMLSR_PADDING_DELAY_32US		1
-#define  IEEE80211_EML_CAP_EMLSR_PADDING_DELAY_64US		2
-#define  IEEE80211_EML_CAP_EMLSR_PADDING_DELAY_128US		3
-#define  IEEE80211_EML_CAP_EMLSR_PADDING_DELAY_256US		4
-#define IEEE80211_EML_CAP_EMLSR_TRANSITION_DELAY	0x0070
+#define IEEE80211_EML_CAP_EML_PADDING_DELAY		0x000e
+/* Described Tables 9-417i & 9-417k in 802.11be-2024, which have the same values */
+#define  IEEE80211_EML_CAP_EML_PADDING_DELAY_0US		0
+#define  IEEE80211_EML_CAP_EML_PADDING_DELAY_32US		1
+#define  IEEE80211_EML_CAP_EML_PADDING_DELAY_64US		2
+#define  IEEE80211_EML_CAP_EML_PADDING_DELAY_128US		3
+#define  IEEE80211_EML_CAP_EML_PADDING_DELAY_256US		4
+#define IEEE80211_EML_CAP_EML_TRANSITION_DELAY	0x0070
+/* Described in Table 9-417j in 802.11be-2024 */
 #define  IEEE80211_EML_CAP_EMLSR_TRANSITION_DELAY_0US		0
 #define  IEEE80211_EML_CAP_EMLSR_TRANSITION_DELAY_16US		1
 #define  IEEE80211_EML_CAP_EMLSR_TRANSITION_DELAY_32US		2
 #define  IEEE80211_EML_CAP_EMLSR_TRANSITION_DELAY_64US		3
 #define  IEEE80211_EML_CAP_EMLSR_TRANSITION_DELAY_128US		4
 #define  IEEE80211_EML_CAP_EMLSR_TRANSITION_DELAY_256US		5
+/* Described in Table 9-417l in 802.11be-2024 */
+#define  IEEE80211_EML_CAP_EMLMR_TRANSITION_DELAY_0US		0
+#define  IEEE80211_EML_CAP_EMLMR_TRANSITION_DELAY_32US		1
+#define  IEEE80211_EML_CAP_EMLMR_TRANSITION_DELAY_64US		2
+#define  IEEE80211_EML_CAP_EMLMR_TRANSITION_DELAY_128US		3
+#define  IEEE80211_EML_CAP_EMLMR_TRANSITION_DELAY_256US		4
 #define IEEE80211_EML_CAP_EMLMR_SUPPORT			0x0080
 #define IEEE80211_EML_CAP_TRANSITION_TIMEOUT		0x7800
 #define  IEEE80211_EML_CAP_TRANSITION_TIMEOUT_0			0
@@ -1114,14 +1122,20 @@ static inline bool ieee80211_tid_to_link_map_size_ok(const u8 *data, size_t len)
 
 static inline u32 ieee80211_emlsr_pad_delay_in_us(u16 eml_cap)
 {
+	u32 emlsr_supp =
+		u16_get_bits(eml_cap, IEEE80211_EML_CAP_EMLSR_SUPP);
+
+	if (!emlsr_supp)
+		return 0;
+
 	/* IEEE Std 802.11be-2024 Table 9-417i—Encoding of the EMLSR
 	 * Padding Delay subfield.
 	 */
 	u32 pad_delay = u16_get_bits(eml_cap,
-				     IEEE80211_EML_CAP_EMLSR_PADDING_DELAY);
+				     IEEE80211_EML_CAP_EML_PADDING_DELAY);
 
 	if (!pad_delay ||
-	    pad_delay > IEEE80211_EML_CAP_EMLSR_PADDING_DELAY_256US)
+	    pad_delay > IEEE80211_EML_CAP_EML_PADDING_DELAY_256US)
 		return 0;
 
 	return 32 * (1 << (pad_delay - 1));
@@ -1138,12 +1152,18 @@ static inline u32 ieee80211_emlsr_pad_delay_in_us(u16 eml_cap)
 
 static inline u32 ieee80211_emlsr_trans_delay_in_us(u16 eml_cap)
 {
+	u32 emlsr_supp =
+		u16_get_bits(eml_cap, IEEE80211_EML_CAP_EMLSR_SUPP);
+
+	if (!emlsr_supp)
+		return 0;
+
 	/* IEEE Std 802.11be-2024 Table 9-417j—Encoding of the EMLSR
 	 * Transition Delay subfield.
 	 */
 	u32 trans_delay =
 		u16_get_bits(eml_cap,
-			     IEEE80211_EML_CAP_EMLSR_TRANSITION_DELAY);
+			     IEEE80211_EML_CAP_EML_TRANSITION_DELAY);
 
 	/* invalid values also just use 0 */
 	if (!trans_delay ||
@@ -1151,6 +1171,68 @@ static inline u32 ieee80211_emlsr_trans_delay_in_us(u16 eml_cap)
 		return 0;
 
 	return 16 * (1 << (trans_delay - 1));
+}
+
+/**
+ * ieee80211_emlmr_pad_delay_in_us - Fetch the EMLMR Padding delay
+ *	in microseconds
+ * @eml_cap: EML capabilities field value from common info field of
+ *	the Multi-link element
+ * Return: the EMLMR Padding delay (in microseconds) encoded in the
+ *	EML Capabilities field
+ */
+
+static inline u32 ieee80211_emlmr_pad_delay_in_us(u16 eml_cap)
+{
+	u32 emlmr_supp =
+		u16_get_bits(eml_cap, IEEE80211_EML_CAP_EMLMR_SUPPORT);
+
+	if (!emlmr_supp)
+		return 0;
+
+	/* IEEE Std 802.11be-2024 Table 9-417k—Encoding of the EMLMR
+	 * Padding Delay subfield.
+	 */
+	u32 pad_delay = u16_get_bits(eml_cap,
+				     IEEE80211_EML_CAP_EML_PADDING_DELAY);
+
+	if (!pad_delay ||
+	    pad_delay > IEEE80211_EML_CAP_EML_PADDING_DELAY_256US)
+		return 0;
+
+	return 32 * (1 << (pad_delay - 1));
+}
+
+/**
+ * ieee80211_emlmr_trans_delay_in_us - Fetch the EMLMR Transition
+ *	delay in microseconds
+ * @eml_cap: EML capabilities field value from common info field of
+ *	the Multi-link element
+ * Return: the EMLMR Transition delay (in microseconds) encoded in the
+ *	EML Capabilities field
+ */
+
+static inline u32 ieee80211_emlmr_trans_delay_in_us(u16 eml_cap)
+{
+	u32 emlmr_supp =
+		u16_get_bits(eml_cap, IEEE80211_EML_CAP_EMLMR_SUPPORT);
+
+	if (!emlmr_supp)
+		return 0;
+
+	/* IEEE Std 802.11be-2024 Table 9-417l—Encoding of the EMLMR
+	 * Transition Delay subfield.
+	 */
+	u32 trans_delay =
+		u16_get_bits(eml_cap,
+			     IEEE80211_EML_CAP_EML_TRANSITION_DELAY);
+
+	/* invalid values also just use 0 */
+	if (!trans_delay ||
+	    trans_delay > IEEE80211_EML_CAP_EMLMR_TRANSITION_DELAY_256US)
+		return 0;
+
+	return 32 * (1 << (trans_delay - 1));
 }
 
 /**
