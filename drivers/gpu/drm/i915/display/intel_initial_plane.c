@@ -36,7 +36,7 @@ void intel_initial_plane_vblank_wait(struct intel_crtc *crtc)
 	start_ts = intel_de_read(display, PIPE_FRMTMSTMP(crtc->pipe));
 
 	ret = poll_timeout_us(end_ts = intel_de_read(display, PIPE_FRMTMSTMP(crtc->pipe)),
-			      end_ts != start_ts, 1000, 40 * 1000, false);
+			      end_ts != start_ts, 1000, 1000 * 1000, false);
 	if (ret)
 		drm_warn(display->drm, "[CRTC:%d:%s] early vblank wait timed out\n",
 			 crtc->base.base.id, crtc->base.name);
