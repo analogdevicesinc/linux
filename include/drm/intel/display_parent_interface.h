@@ -91,7 +91,7 @@ struct intel_display_initial_plane_interface {
 	struct drm_gem_object *(*alloc_obj)(struct drm_device *drm, struct intel_initial_plane_config *plane_config);
 	int (*setup)(struct drm_plane_state *plane_state, struct intel_initial_plane_config *plane_config,
 		     struct drm_framebuffer *fb, struct i915_vma *vma);
-	void (*config_fini)(struct intel_initial_plane_config *plane_configs);
+	void (*config_fini)(struct intel_initial_plane_config *plane_config);
 };
 
 struct intel_display_irq_interface {

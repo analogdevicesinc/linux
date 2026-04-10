@@ -11,6 +11,10 @@
 #include "intel_initial_plane.h"
 #include "intel_plane.h"
 
+struct intel_initial_plane_configs {
+	struct intel_initial_plane_config config[I915_MAX_PIPES];
+};
+
 void intel_initial_plane_vblank_wait(struct intel_crtc *crtc)
 {
 	struct intel_display *display = to_intel_display(crtc);
@@ -20,7 +24,7 @@ void intel_initial_plane_vblank_wait(struct intel_crtc *crtc)
 
 static const struct intel_plane_state *
 intel_reuse_initial_plane_obj(struct intel_crtc *this,
-			      const struct intel_initial_plane_config plane_configs[])
+			      const struct intel_initial_plane_configs *all_plane_configs)
 {
 	struct intel_display *display = to_intel_display(this);
 	struct intel_crtc *crtc;
@@ -39,7 +43,8 @@ intel_reuse_initial_plane_obj(struct intel_crtc *this,
 		if (!plane_state->ggtt_vma)
 			continue;
 
-		if (plane_configs[this->pipe].base == plane_configs[crtc->pipe].base)
+		if (all_plane_configs->config[this->pipe].base ==
+		    all_plane_configs->config[crtc->pipe].base)
 			return plane_state;
 	}
 
@@ -69,10 +74,10 @@ intel_alloc_initial_plane_obj(struct intel_display *display,
 
 static void
 intel_find_initial_plane_obj(struct intel_crtc *crtc,
-			     struct intel_initial_plane_config plane_configs[])
+			     struct intel_initial_plane_configs *all_plane_configs)
 {
 	struct intel_display *display = to_intel_display(crtc);
-	struct intel_initial_plane_config *plane_config = &plane_configs[crtc->pipe];
+	struct intel_initial_plane_config *plane_config = &all_plane_configs->config[crtc->pipe];
 	struct intel_plane *plane = to_intel_plane(crtc->base.primary);
 	struct intel_plane_state *plane_state = to_intel_plane_state(plane->base.state);
 	struct drm_framebuffer *fb;
@@ -93,7 +98,7 @@ intel_find_initial_plane_obj(struct intel_crtc *crtc,
 	} else {
 		const struct intel_plane_state *other_plane_state;
 
-		other_plane_state = intel_reuse_initial_plane_obj(crtc, plane_configs);
+		other_plane_state = intel_reuse_initial_plane_obj(crtc, all_plane_configs);
 		if (!other_plane_state)
 			goto nofb;
 
@@ -158,14 +163,14 @@ static void plane_config_fini(struct intel_display *display,
 
 void intel_initial_plane_config(struct intel_display *display)
 {
-	struct intel_initial_plane_config plane_configs[I915_MAX_PIPES] = {};
+	struct intel_initial_plane_configs all_plane_configs = {};
 	struct intel_crtc *crtc;
 
 	for_each_intel_crtc(display->drm, crtc) {
 		const struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
 		struct intel_initial_plane_config *plane_config =
-			&plane_configs[crtc->pipe];
+			&all_plane_configs.config[crtc->pipe];
 
 		if (!crtc_state->hw.active)
 			continue;
@@ -183,7 +188,7 @@ void intel_initial_plane_config(struct intel_display *display)
 		 * If the fb is shared between multiple heads, we'll
 		 * just get the first one.
 		 */
-		intel_find_initial_plane_obj(crtc, plane_configs);
+		intel_find_initial_plane_obj(crtc, &all_plane_configs);
 
 		if (display->funcs.display->fixup_initial_plane_config(crtc, plane_config))
 			intel_initial_plane_vblank_wait(crtc);
