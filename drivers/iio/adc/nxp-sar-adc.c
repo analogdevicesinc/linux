@@ -317,11 +317,7 @@ static int nxp_sar_adc_read_data(struct nxp_sar_adc *info, unsigned int chan)
 
 	ceocfr = readl(NXP_SAR_ADC_CEOCFR0(info->regs));
 
-	/*
-	 * FIELD_GET() can not be used here because EOC_CH is not constant.
-	 * TODO: Switch to field_get() when it will be available.
-	 */
-	if (!(NXP_SAR_ADC_EOC_CH(chan) & ceocfr))
+	if (!field_get(NXP_SAR_ADC_EOC_CH(chan), ceocfr))
 		return -EIO;
 
 	cdr = readl(NXP_SAR_ADC_CDR(info->regs, chan));
