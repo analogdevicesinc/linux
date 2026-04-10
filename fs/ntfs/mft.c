@@ -2503,6 +2503,7 @@ mft_rec_already_initialized:
 			folio_unlock(folio);
 			kunmap_local(m);
 			folio_put(folio);
+			err = -ENOMEM;
 			goto undo_mftbmp_alloc;
 		}
 
