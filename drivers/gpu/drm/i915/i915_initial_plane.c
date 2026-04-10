@@ -34,7 +34,9 @@ initial_plane_memory_type(struct drm_i915_private *i915)
 
 static bool
 initial_plane_phys(struct drm_i915_private *i915,
-		   struct intel_initial_plane_config *plane_config)
+		   struct intel_initial_plane_config *plane_config,
+		   resource_size_t *out_phys_base,
+		   struct intel_memory_region **out_mem)
 {
 	struct i915_ggtt *ggtt = to_gt(i915)->ggtt;
 	struct intel_memory_region *mem;
@@ -77,8 +79,8 @@ initial_plane_phys(struct drm_i915_private *i915,
 	drm_dbg(&i915->drm, "Using dma_addr=%pa, based on initial plane programming\n",
 		&dma_addr);
 
-	plane_config->phys_base = dma_addr - mem->region.start;
-	plane_config->mem = mem;
+	*out_phys_base = dma_addr - mem->region.start;
+	*out_mem = mem;
 
 	return true;
 }
@@ -99,11 +101,8 @@ initial_plane_vma(struct drm_i915_private *i915,
 	if (plane_config->size == 0)
 		return NULL;
 
-	if (!initial_plane_phys(i915, plane_config))
+	if (!initial_plane_phys(i915, plane_config, &phys_base, &mem))
 		return NULL;
-
-	phys_base = plane_config->phys_base;
-	mem = plane_config->mem;
 
 	base = round_down(plane_config->base, I915_GTT_MIN_ALIGNMENT);
 	size = round_up(plane_config->base + plane_config->size,
