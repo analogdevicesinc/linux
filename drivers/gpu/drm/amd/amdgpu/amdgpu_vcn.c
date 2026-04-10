@@ -34,6 +34,7 @@
 #include "amdgpu.h"
 #include "amdgpu_pm.h"
 #include "amdgpu_vcn.h"
+#include "amdgpu_reset.h"
 #include "soc15d.h"
 
 /* Firmware Names */
@@ -361,7 +362,7 @@ int amdgpu_vcn_suspend(struct amdgpu_device *adev, int i)
 
 	/* err_event_athub and dpc recovery will corrupt VCPU buffer, so we need to
 	 * restore fw data and clear buffer in amdgpu_vcn_resume() */
-	if (in_ras_intr || adev->pcie_reset_ctx.in_link_reset)
+	if (in_ras_intr || amdgpu_reset_in_dpc(adev))
 		return 0;
 
 	return amdgpu_vcn_save_vcpu_bo_inst(adev, i);

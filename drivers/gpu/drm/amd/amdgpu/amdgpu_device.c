@@ -5518,8 +5518,6 @@ static void amdgpu_device_recovery_prepare(struct amdgpu_device *adev,
 			list_add_tail(&tmp_adev->reset_list, device_list);
 			if (adev->shutdown)
 				tmp_adev->shutdown = true;
-			if (amdgpu_reset_in_dpc(adev))
-				tmp_adev->pcie_reset_ctx.in_link_reset = true;
 		}
 		if (!list_is_first(&adev->reset_list, device_list))
 			list_rotate_to_front(&adev->reset_list, device_list);
@@ -6291,6 +6289,9 @@ pci_ers_result_t amdgpu_pci_error_detected(struct pci_dev *pdev, pci_channel_sta
 			amdgpu_reset_set_dpc_status(adev, true);
 
 			mutex_lock(&hive->hive_lock);
+		} else {
+			if (amdgpu_device_bus_status_check(adev))
+				amdgpu_reset_set_dpc_status(adev, true);
 		}
 		memset(&reset_context, 0, sizeof(reset_context));
 		INIT_LIST_HEAD(&device_list);
@@ -6411,6 +6412,7 @@ pci_ers_result_t amdgpu_pci_slot_reset(struct pci_dev *pdev)
 		list_for_each_entry(tmp_adev, &hive->device_list, gmc.xgmi.head)
 			tmp_adev->pcie_reset_ctx.in_link_reset = true;
 	} else {
+		adev->pcie_reset_ctx.in_link_reset = true;
 		set_bit(AMDGPU_SKIP_HW_RESET, &reset_context.flags);
 	}
 
@@ -6467,9 +6469,10 @@ void amdgpu_pci_resume(struct pci_dev *pdev)
 			tmp_adev->pcie_reset_ctx.in_link_reset = false;
 			list_add_tail(&tmp_adev->reset_list, &device_list);
 		}
-	} else
+	} else {
+		adev->pcie_reset_ctx.in_link_reset = false;
 		list_add_tail(&adev->reset_list, &device_list);
-
+	}
 	amdgpu_device_sched_resume(&device_list, NULL, NULL);
 	amdgpu_device_gpu_resume(adev, &device_list, false);
 	amdgpu_device_recovery_put_reset_lock(adev, &device_list);
