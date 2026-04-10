@@ -675,7 +675,9 @@ static int ltc2664_probe(struct spi_device *spi)
 
 	st->chip_info = chip_info;
 
-	mutex_init(&st->lock);
+	ret = devm_mutex_init(dev, &st->lock);
+	if (ret)
+		return ret;
 
 	st->regmap = devm_regmap_init_spi(spi, &ltc2664_regmap_config);
 	if (IS_ERR(st->regmap))
