@@ -517,7 +517,6 @@ struct ieee80211_multi_link_elem {
 #define  IEEE80211_EML_CAP_TRANSITION_TIMEOUT_16TU		8
 #define  IEEE80211_EML_CAP_TRANSITION_TIMEOUT_32TU		9
 #define  IEEE80211_EML_CAP_TRANSITION_TIMEOUT_64TU		10
-#define  IEEE80211_EML_CAP_TRANSITION_TIMEOUT_128TU		11
 
 #define IEEE80211_MLD_CAP_OP_MAX_SIMUL_LINKS		0x000f
 #define IEEE80211_MLD_CAP_OP_SRS_SUPPORT		0x0010
@@ -1178,7 +1177,7 @@ static inline u32 ieee80211_eml_trans_timeout_in_us(u16 eml_cap)
 				  IEEE80211_EML_CAP_TRANSITION_TIMEOUT);
 
 	/* invalid values also just use 0 */
-	if (!timeout || timeout > IEEE80211_EML_CAP_TRANSITION_TIMEOUT_128TU)
+	if (!timeout || timeout > IEEE80211_EML_CAP_TRANSITION_TIMEOUT_64TU)
 		return 0;
 
 	return 128 * (1 << (timeout - 1));

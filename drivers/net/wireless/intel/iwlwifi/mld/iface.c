@@ -257,7 +257,7 @@ static void iwl_mld_fill_mac_cmd_sta(struct iwl_mld *mld,
 				     IEEE80211_EML_CAP_TRANSITION_TIMEOUT);
 
 		cmd->client.esr_transition_timeout =
-			min_t(u16, IEEE80211_EML_CAP_TRANSITION_TIMEOUT_128TU,
+			min_t(u16, IEEE80211_EML_CAP_TRANSITION_TIMEOUT_64TU,
 			      esr_transition_timeout);
 		cmd->client.medium_sync_delay =
 			cpu_to_le16(vif->cfg.eml_med_sync_delay);
