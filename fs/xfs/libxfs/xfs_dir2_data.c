@@ -728,7 +728,6 @@ xfs_dir3_data_init(
 	struct xfs_dir2_data_unused	*dup;
 	struct xfs_dir2_data_free 	*bf;
 	int				error;
-	int				i;
 
 	/*
 	 * Get the buffer set up for the block.
@@ -741,13 +740,16 @@ xfs_dir3_data_init(
 	xfs_trans_buf_set_type(tp, bp, XFS_BLFT_DIR_DATA_BUF);
 
 	/*
-	 * Initialize the header.
+	 * Initialize the whole directory header region to zero
+	 * so that all padding, bestfree entries, and any
+	 * future header fields are clean.
 	 */
 	hdr = bp->b_addr;
+	memset(hdr, 0, geo->data_entry_offset);
+
 	if (xfs_has_crc(mp)) {
 		struct xfs_dir3_blk_hdr *hdr3 = bp->b_addr;
 
-		memset(hdr3, 0, sizeof(*hdr3));
 		hdr3->magic = cpu_to_be32(XFS_DIR3_DATA_MAGIC);
 		hdr3->blkno = cpu_to_be64(xfs_buf_daddr(bp));
 		hdr3->owner = cpu_to_be64(args->owner);
@@ -759,10 +761,6 @@ xfs_dir3_data_init(
 	bf = xfs_dir2_data_bestfree_p(mp, hdr);
 	bf[0].offset = cpu_to_be16(geo->data_entry_offset);
 	bf[0].length = cpu_to_be16(geo->blksize - geo->data_entry_offset);
-	for (i = 1; i < XFS_DIR2_DATA_FD_COUNT; i++) {
-		bf[i].length = 0;
-		bf[i].offset = 0;
-	}
 
 	/*
 	 * Set up an unused entry for the block's body.
