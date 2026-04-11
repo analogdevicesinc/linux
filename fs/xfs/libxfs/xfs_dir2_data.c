@@ -382,6 +382,7 @@ xfs_dir3_data_write_verify(
 	struct xfs_mount	*mp = bp->b_mount;
 	struct xfs_buf_log_item	*bip = bp->b_log_item;
 	struct xfs_dir3_blk_hdr	*hdr3 = bp->b_addr;
+	struct xfs_dir3_data_hdr *datahdr3 = bp->b_addr;
 	xfs_failaddr_t		fa;
 
 	fa = xfs_dir3_data_verify(bp);
@@ -395,6 +396,11 @@ xfs_dir3_data_write_verify(
 
 	if (bip)
 		hdr3->lsn = cpu_to_be64(bip->bli_item.li_lsn);
+
+	/*
+	 * Zero padding that may be stale from old kernels.
+	 */
+	datahdr3->pad = 0;
 
 	xfs_buf_update_cksum(bp, XFS_DIR3_DATA_CRC_OFF);
 }
