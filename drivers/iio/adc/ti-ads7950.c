@@ -267,31 +267,6 @@ static const struct ti_ads7950_chip_info ti_ads7961_chip_info = {
 	.num_channels	= ARRAY_SIZE(ti_ads7961_channels),
 };
 
-/*
- * ti_ads7950_update_scan_mode() setup the spi transfer buffer for the new
- * scan mask
- */
-static int ti_ads7950_update_scan_mode(struct iio_dev *indio_dev,
-				       const unsigned long *active_scan_mask)
-{
-	struct ti_ads7950_state *st = iio_priv(indio_dev);
-	int i, cmd, len;
-
-	len = 0;
-	for_each_set_bit(i, active_scan_mask, indio_dev->num_channels) {
-		cmd = TI_ADS7950_MAN_CMD(TI_ADS7950_CR_CHAN(i));
-		st->tx_buf[len++] = cmd;
-	}
-
-	/* Data for the 1st channel is not returned until the 3rd transfer */
-	st->tx_buf[len++] = 0;
-	st->tx_buf[len++] = 0;
-
-	st->ring_xfer.len = len * 2;
-
-	return 0;
-}
-
 static irqreturn_t ti_ads7950_trigger_handler(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
@@ -375,8 +350,42 @@ static int ti_ads7950_read_raw(struct iio_dev *indio_dev,
 }
 
 static const struct iio_info ti_ads7950_info = {
-	.read_raw		= &ti_ads7950_read_raw,
-	.update_scan_mode	= ti_ads7950_update_scan_mode,
+	.read_raw = &ti_ads7950_read_raw,
+};
+
+static int ti_ads7950_buffer_preenable(struct iio_dev *indio_dev)
+{
+	struct ti_ads7950_state *st = iio_priv(indio_dev);
+	u32 len = 0;
+	u32 i;
+	u16 cmd;
+
+	for_each_set_bit(i, indio_dev->active_scan_mask, indio_dev->num_channels) {
+		cmd = TI_ADS7950_MAN_CMD(TI_ADS7950_CR_CHAN(i));
+		st->tx_buf[len++] = cmd;
+	}
+
+	/* Data for the 1st channel is not returned until the 3rd transfer */
+	st->tx_buf[len++] = 0;
+	st->tx_buf[len++] = 0;
+
+	st->ring_xfer.len = len * 2;
+
+	return spi_optimize_message(st->spi, &st->ring_msg);
+}
+
+static int ti_ads7950_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct ti_ads7950_state *st = iio_priv(indio_dev);
+
+	spi_unoptimize_message(&st->ring_msg);
+
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops ti_ads7950_buffer_setup_ops = {
+	.preenable = ti_ads7950_buffer_preenable,
+	.postdisable = ti_ads7950_buffer_postdisable,
 };
 
 static int ti_ads7950_set(struct gpio_chip *chip, unsigned int offset,
@@ -573,7 +582,7 @@ static int ti_ads7950_probe(struct spi_device *spi)
 
 	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev, NULL,
 					      &ti_ads7950_trigger_handler,
-					      NULL);
+					      &ti_ads7950_buffer_setup_ops);
 	if (ret)
 		return dev_err_probe(&spi->dev, ret,
 				     "Failed to setup triggered buffer\n");
