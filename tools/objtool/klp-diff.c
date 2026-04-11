@@ -353,6 +353,15 @@ static bool is_special_section_aux(struct section *sec)
 }
 
 /*
+ * Symbols created by ___ADDRESSABLE() are only used to convince the toolchain
+ * not to optimize out the referenced symbol.
+ */
+static bool is_addressable_sym(struct symbol *sym)
+{
+	return !strcmp(sym->sec->name, ".discard.addressable");
+}
+
+/*
  * These symbols should never be correlated, so their local patched versions
  * are used instead of linking to the originals.
  */
@@ -365,6 +374,7 @@ static bool dont_correlate(struct symbol *sym)
 	       is_uncorrelated_static_local(sym) ||
 	       is_clang_tmp_label(sym) ||
 	       is_string_sec(sym->sec) ||
+	       is_addressable_sym(sym) ||
 	       is_special_section(sym->sec) ||
 	       is_special_section_aux(sym->sec) ||
 	       strstarts(sym->name, "__initcall__");
