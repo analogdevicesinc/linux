@@ -74,6 +74,20 @@ soc/dt
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.1
 	spacemit/dt
 		https://github.com/spacemit-com/linux tags/spacemit-dt-for-7.1-1
+	rockchip/dt32
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.1-rockchip-dts32-1
+	rockchip/dt32-2
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.1-rockchip-dts32-2
+	nxp/dt32-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt-7.1
+	riscv/dt
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v7.1
+	qcom/dt64-2
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.1-2
+	sunxi/dt64-2
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-7.1-2
+	marvell/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-7.1-1
 
 soc/drivers
 	renesas/drivers
@@ -116,6 +130,12 @@ soc/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-dt-bindings
 	microchip/drivers
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-7.1
+	riscv/drivers
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-soc-drivers-for-v7.1
+	qcom/drivers-2
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.1-2
+	firmware/scmi-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/ffa-fix-7.1
 
 soc/defconfig
 	renesas/defconfig
@@ -160,4 +180,10 @@ arm/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-fixes-for-7.0-2
 	microchip/fixes
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-7.0
+	nxp/fixes-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-fixes-7.0-2nd
+	reset/fixes-3
+		https://git.pengutronix.de/git/pza/linux tags/reset-fixes-for-v7.0-3
+	marvell/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-fixes-7.0-1
 
