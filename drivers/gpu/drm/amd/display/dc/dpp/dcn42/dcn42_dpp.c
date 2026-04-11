@@ -280,6 +280,14 @@ static void dpp42_dpp_setup(
 		dpp3_program_post_csc(dpp_base, color_space, select, NULL);
 	}
 }
+static void dcn42_dpp_force_disable_cursor(struct dpp *dpp_base)
+{
+	struct dcn401_dpp *dpp = TO_DCN401_DPP(dpp_base);
+
+	/* Force disable cursor */
+	REG_UPDATE(CURSOR0_CONTROL, CUR0_ENABLE, 0);
+	dpp_base->pos.cur0_ctl.bits.cur0_enable = 0;
+}
 
 static struct dpp_funcs dcn42_dpp_funcs = {
 	.dpp_program_gamcor_lut		= dpp3_program_gamcor_lut,
@@ -302,6 +310,7 @@ static struct dpp_funcs dcn42_dpp_funcs = {
 	.dpp_cm_hist_control        = dpp42_dpp_cm_hist_control,
 	.dpp_cm_hist_read           = dpp42_dpp_cm_hist_read,
 	.dpp_read_reg_state			= dpp30_read_reg_state,
+	.dpp_force_disable_cursor	= dcn42_dpp_force_disable_cursor,
 };
 
 

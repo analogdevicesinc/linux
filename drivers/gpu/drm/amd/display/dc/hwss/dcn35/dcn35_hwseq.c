@@ -904,6 +904,13 @@ void dcn35_disable_plane(struct dc *dc, struct dc_state *state, struct pipe_ctx 
 	if (!pipe_ctx->plane_res.hubp || pipe_ctx->plane_res.hubp->power_gated)
 		return;
 
+	if (dc->debug.disable_dpp_power_gate) {
+		/* Workaround for use case when disabled power gating set to 1 */
+		/* Force disable cursor if power gating is disabled */
+		struct dpp *dpp = pipe_ctx->plane_res.dpp;
+		if (dpp && dpp->funcs->dpp_force_disable_cursor)
+			dpp->funcs->dpp_force_disable_cursor(dpp);
+	}
 	if (hws->funcs.plane_atomic_disable)
 		hws->funcs.plane_atomic_disable(dc, pipe_ctx);
 
