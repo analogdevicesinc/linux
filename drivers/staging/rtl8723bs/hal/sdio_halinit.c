@@ -638,10 +638,10 @@ u32 rtl8723bs_hal_init(struct adapter *padapter)
 		padapter->bFWReady = false;
 		pHalData->fw_ractrl = false;
 		return ret;
-	} else {
-		padapter->bFWReady = true;
-		pHalData->fw_ractrl = true;
 	}
+
+	padapter->bFWReady = true;
+	pHalData->fw_ractrl = true;
 
 	rtl8723b_InitializeFirmwareVars(padapter);
 
