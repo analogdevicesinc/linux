@@ -274,6 +274,17 @@
 			status = "okay";
 		};
 
+                tmu: tmu@31016800 {
+                        compatible = "adi,sc594-tmu";
+                        reg = "0x31016800 0x44";
+                        interrupt-parent = <&gic>;
+                        interrupt-names = "tmu0_fault", "tmu0_alert";
+                        interrupts = <GIC_SPI 7 IRQ_TYPE_EDGE_RISING>,
+                                        <GIC_SPI 8 IRQ_TYPE_EDGE_RISING>;
+                        #thermal-sensor-cells = <0>;
+                        status = "okay";
+                };
+
 		rtc0: rtc@310C8000 {
 			compatible = "adi,rtc2";
 			reg = <0x310C8000 0x100>;

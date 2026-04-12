@@ -266,6 +266,16 @@
 			status = "okay";
 		};
 
+                tmu: tmu@31016000 {
+                        compatible = "adi,sc589-tmu";
+                        reg = "0x31016000 0x2c";
+                        interrupt-parent = <&gic>;
+                        interrupt-names = "tmu0_fault";
+                        interrupts = <GIC_SPI 6 IRQ_TYPE_EDGE_RISING>;
+                        #thermal-sensor-cells = <0>;
+                        status = "okay";
+                };
+
 		rtc0: rtc@310C8000 {
 			compatible = "adi,rtc2";
 			reg = <0x310C8000 0x100>;
