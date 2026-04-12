@@ -80,9 +80,12 @@ static int fsdev_dax_zero_page_range(struct dax_device *dax_dev,
 			pgoff_t pgoff, size_t nr_pages)
 {
 	void *kaddr;
+	long rc;
 
 	WARN_ONCE(nr_pages > 1, "%s: nr_pages > 1\n", __func__);
-	__fsdev_dax_direct_access(dax_dev, pgoff, 1, DAX_ACCESS, &kaddr, NULL);
+	rc = __fsdev_dax_direct_access(dax_dev, pgoff, 1, DAX_ACCESS, &kaddr, NULL);
+	if (rc < 0)
+		return rc;
 	fsdev_write_dax(kaddr, ZERO_PAGE(0), 0, PAGE_SIZE);
 	return 0;
 }
