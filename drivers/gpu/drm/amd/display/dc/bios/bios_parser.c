@@ -98,7 +98,7 @@ struct dc_bios *bios_parser_create(
 {
 	struct bios_parser *bp;
 
-	bp = kzalloc(sizeof(struct bios_parser), GFP_KERNEL);
+	bp = kzalloc_obj(struct bios_parser);
 	if (!bp)
 		return NULL;
 
@@ -763,14 +763,14 @@ static enum bp_result bios_parser_encoder_control(
 			return BP_RESULT_FAILURE;
 
 		return bp->cmd_tbl.dac1_encoder_control(
-			bp, cntl->action == ENCODER_CONTROL_ENABLE,
+			bp, cntl->action,
 			cntl->pixel_clock, ATOM_DAC1_PS2);
 	} else if (cntl->engine_id == ENGINE_ID_DACB) {
 		if (!bp->cmd_tbl.dac2_encoder_control)
 			return BP_RESULT_FAILURE;
 
 		return bp->cmd_tbl.dac2_encoder_control(
-			bp, cntl->action == ENCODER_CONTROL_ENABLE,
+			bp, cntl->action,
 			cntl->pixel_clock, ATOM_DAC1_PS2);
 	}
 
@@ -2667,7 +2667,7 @@ static struct integrated_info *bios_parser_create_integrated_info(
 	struct bios_parser *bp = BP_FROM_DCB(dcb);
 	struct integrated_info *info;
 
-	info = kzalloc(sizeof(struct integrated_info), GFP_KERNEL);
+	info = kzalloc_obj(struct integrated_info);
 
 	if (info == NULL) {
 		ASSERT_CRITICAL(0);

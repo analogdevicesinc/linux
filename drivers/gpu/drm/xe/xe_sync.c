@@ -59,7 +59,7 @@ static struct xe_user_fence *user_fence_create(struct xe_device *xe, u64 addr,
 	if (get_user(prefetch_val, ptr))
 		return ERR_PTR(-EFAULT);
 
-	ufence = kzalloc(sizeof(*ufence), GFP_KERNEL);
+	ufence = kzalloc_obj(*ufence);
 	if (!ufence)
 		return ERR_PTR(-ENOMEM);
 
@@ -146,8 +146,10 @@ int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
 
 		if (!signal) {
 			sync->fence = drm_syncobj_fence_get(sync->syncobj);
-			if (XE_IOCTL_DBG(xe, !sync->fence))
-				return -EINVAL;
+			if (XE_IOCTL_DBG(xe, !sync->fence)) {
+				err = -EINVAL;
+				goto free_sync;
+			}
 		}
 		break;
 
@@ -167,17 +169,21 @@ int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
 
 		if (signal) {
 			sync->chain_fence = dma_fence_chain_alloc();
-			if (!sync->chain_fence)
-				return -ENOMEM;
+			if (!sync->chain_fence) {
+				err = -ENOMEM;
+				goto free_sync;
+			}
 		} else {
 			sync->fence = drm_syncobj_fence_get(sync->syncobj);
-			if (XE_IOCTL_DBG(xe, !sync->fence))
-				return -EINVAL;
+			if (XE_IOCTL_DBG(xe, !sync->fence)) {
+				err = -EINVAL;
+				goto free_sync;
+			}
 
 			err = dma_fence_chain_find_seqno(&sync->fence,
 							 sync_in.timeline_value);
 			if (err)
-				return err;
+				goto free_sync;
 		}
 		break;
 
@@ -200,8 +206,10 @@ int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
 			if (XE_IOCTL_DBG(xe, IS_ERR(sync->ufence)))
 				return PTR_ERR(sync->ufence);
 			sync->ufence_chain_fence = dma_fence_chain_alloc();
-			if (!sync->ufence_chain_fence)
-				return -ENOMEM;
+			if (!sync->ufence_chain_fence) {
+				err = -ENOMEM;
+				goto free_sync;
+			}
 			sync->ufence_syncobj = ufence_syncobj;
 		}
 
@@ -216,6 +224,10 @@ int xe_sync_entry_parse(struct xe_device *xe, struct xe_file *xef,
 	sync->timeline_value = sync_in.timeline_value;
 
 	return 0;
+
+free_sync:
+	xe_sync_entry_cleanup(sync);
+	return err;
 }
 ALLOW_ERROR_INJECTION(xe_sync_entry_parse, ERRNO);
 
@@ -226,6 +238,32 @@ int xe_sync_entry_add_deps(struct xe_sync_entry *sync, struct xe_sched_job *job)
 						     dma_fence_get(sync->fence));
 
 	return 0;
+}
+
+/**
+ * xe_sync_entry_wait() - Wait on in-sync
+ * @sync: Sync object
+ *
+ * If the sync is in an in-sync, wait on the sync to signal.
+ *
+ * Return: 0 on success, -ERESTARTSYS on failure (interruption)
+ */
+int xe_sync_entry_wait(struct xe_sync_entry *sync)
+{
+	return xe_sync_needs_wait(sync) ?
+		dma_fence_wait(sync->fence, true) : 0;
+}
+
+/**
+ * xe_sync_needs_wait() - Sync needs a wait (input dma-fence not signaled)
+ * @sync: Sync object
+ *
+ * Return: True if sync needs a wait, False otherwise
+ */
+bool xe_sync_needs_wait(struct xe_sync_entry *sync)
+{
+	return sync->fence &&
+	       !test_bit(DMA_FENCE_FLAG_SIGNALED_BIT, &sync->fence->flags);
 }
 
 void xe_sync_entry_signal(struct xe_sync_entry *sync, struct dma_fence *fence)
@@ -311,11 +349,13 @@ xe_sync_in_fence_get(struct xe_sync_entry *sync, int num_sync,
 		struct xe_tile *tile;
 		u8 id;
 
-		for_each_tile(tile, vm->xe, id)
-			num_fence += (1 + XE_MAX_GT_PER_TILE);
+		for_each_tile(tile, vm->xe, id) {
+			num_fence++;
+			for_each_tlb_inval(i)
+				num_fence++;
+		}
 
-		fences = kmalloc_array(num_fence, sizeof(*fences),
-				       GFP_KERNEL);
+		fences = kmalloc_objs(*fences, num_fence);
 		if (!fences)
 			return ERR_PTR(-ENOMEM);
 

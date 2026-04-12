@@ -144,13 +144,12 @@ static int fp9931_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 		return ret;
 
 	ret = regmap_read(data->regmap, FP9931_REG_TMST_VALUE, &val);
-	if (ret)
-		return ret;
+	if (!ret)
+		*temp = (s8)val * 1000;
 
 	pm_runtime_put_autosuspend(data->dev);
-	*temp = (s8)val * 1000;
 
-	return 0;
+	return ret;
 }
 
 static umode_t fp9931_hwmon_is_visible(const void *data,
@@ -439,6 +438,9 @@ static int fp9931_probe(struct i2c_client *client)
 	int i;
 
 	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
 	data->regmap = devm_regmap_init_i2c(client, &regmap_config);
 	if (IS_ERR(data->regmap))
 		return dev_err_probe(&client->dev, PTR_ERR(data->regmap),

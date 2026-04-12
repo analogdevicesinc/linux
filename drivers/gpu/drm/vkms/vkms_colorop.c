@@ -24,7 +24,7 @@ static int vkms_initialize_color_pipeline(struct drm_plane *plane, struct drm_pr
 	memset(ops, 0, sizeof(ops));
 
 	/* 1st op: 1d curve */
-	ops[i] = kzalloc(sizeof(*ops[i]), GFP_KERNEL);
+	ops[i] = kzalloc_obj(*ops[i]);
 	if (!ops[i]) {
 		drm_err(dev, "KMS: Failed to allocate colorop\n");
 		ret = -ENOMEM;
@@ -37,12 +37,11 @@ static int vkms_initialize_color_pipeline(struct drm_plane *plane, struct drm_pr
 		goto cleanup;
 
 	list->type = ops[i]->base.id;
-	list->name = kasprintf(GFP_KERNEL, "Color Pipeline %d", ops[i]->base.id);
 
 	i++;
 
 	/* 2nd op: 3x4 matrix */
-	ops[i] = kzalloc(sizeof(*ops[i]), GFP_KERNEL);
+	ops[i] = kzalloc_obj(*ops[i]);
 	if (!ops[i]) {
 		drm_err(dev, "KMS: Failed to allocate colorop\n");
 		ret = -ENOMEM;
@@ -58,7 +57,7 @@ static int vkms_initialize_color_pipeline(struct drm_plane *plane, struct drm_pr
 	i++;
 
 	/* 3rd op: 3x4 matrix */
-	ops[i] = kzalloc(sizeof(*ops[i]), GFP_KERNEL);
+	ops[i] = kzalloc_obj(*ops[i]);
 	if (!ops[i]) {
 		drm_err(dev, "KMS: Failed to allocate colorop\n");
 		ret = -ENOMEM;
@@ -74,7 +73,7 @@ static int vkms_initialize_color_pipeline(struct drm_plane *plane, struct drm_pr
 	i++;
 
 	/* 4th op: 1d curve */
-	ops[i] = kzalloc(sizeof(*ops[i]), GFP_KERNEL);
+	ops[i] = kzalloc_obj(*ops[i]);
 	if (!ops[i]) {
 		drm_err(dev, "KMS: Failed to allocate colorop\n");
 		ret = -ENOMEM;
@@ -87,6 +86,8 @@ static int vkms_initialize_color_pipeline(struct drm_plane *plane, struct drm_pr
 		goto cleanup;
 
 	drm_colorop_set_next_property(ops[i - 1], ops[i]);
+
+	list->name = kasprintf(GFP_KERNEL, "Color Pipeline %d", ops[0]->base.id);
 
 	return 0;
 
@@ -103,18 +104,18 @@ cleanup:
 
 int vkms_initialize_colorops(struct drm_plane *plane)
 {
-	struct drm_prop_enum_list pipeline;
-	int ret;
+	struct drm_prop_enum_list pipeline = {};
+	int ret = 0;
 
 	/* Add color pipeline */
 	ret = vkms_initialize_color_pipeline(plane, &pipeline);
 	if (ret)
-		return ret;
+		goto out;
 
 	/* Create COLOR_PIPELINE property and attach */
 	ret = drm_plane_create_color_pipeline_property(plane, &pipeline, 1);
-	if (ret)
-		return ret;
 
-	return 0;
+	kfree(pipeline.name);
+out:
+	return ret;
 }
