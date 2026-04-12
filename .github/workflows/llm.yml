@@ -66,18 +66,9 @@ jobs:
 
           grep -q '[^[:space:]]' "$prompt_file" || \
           cat <<'EOF' > "$prompt_file"
-          Run a deep Linux Kernel analysis on the commit range $base_sha..$head_sha.
-
-          You **must** read $annotations_file for the CI/CD notes, warnings, and errors.
-          You **must** write your final review in markdown at $summary_file as a GitHub Summary.
-
-          You shall suggest fixup commits (**must** use `--fixup`) to resolve issues,
-          if so, you **must** use `git format-patch -o $patches_path` to store the patches to
-          the $patches_path directory (**never** autosquash). You can create more than one fixup
-          commit for each commit.
-
-          You are allowed to use tools and write. Your review should be based on the current
-          Kernel documentation at ./Documentation/ . Never says things you are unsure.
+          Run a deep Linux Kernel analysis.
+          Your review should be based on the current Kernel documentation at
+          ./Documentation/ . Never says things you are unsure.
 
           You have access to multi-architecture compilers and `./ci/build.sh`
           contain multiple methods that run during the CI/CD that you can use to
@@ -108,19 +99,6 @@ jobs:
           `python3 -m  ci.extract_register_map ./datasheet.pdf` extract register maps from datasheets,
           should work on most cases, modify if needed. Tip: a sitemap with all pdfs, including the datasheets,
           are available at https://www.analog.com/media/en/en-pdf-sitemap.xml
-
-          You **must** use wget to fetch resources, with timeout, for example:
-          ```
-          $ wget -O ad4062.pdf \
-              --connect-timeout=10 \
-              --timeout=120 \
-              "https://www.analog.com/media/en/technical-documentation/data-sheets/ad4062.pdf"
-          ```
-          As well as using the `timeout` bash command for things that may hang, e.g.,
-          ```
-          $ timeout 2s sleep 5 || echo "error: $?"
-            error: 124
-          ```
           EOF
 
           cat <<'EOF' >> "$prompt_file"
