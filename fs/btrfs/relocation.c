@@ -2607,7 +2607,7 @@ int relocate_tree_blocks(struct btrfs_trans_handle *trans,
 		if (!block->key_ready)
 			btrfs_readahead_tree_block(fs_info, block->bytenr,
 						   block->owner, 0,
-						   block->level);
+						   block->level, NULL);
 	}
 
 	/* Get first keys */
