@@ -357,7 +357,7 @@ check_unsupported_patches() {
 
 		for file in "${files[@]}"; do
 			case "$file" in
-				lib/*|*.S)
+				lib/*|*/vdso/*|*.S)
 					die "${patch}: unsupported patch to $file"
 					;;
 			esac
