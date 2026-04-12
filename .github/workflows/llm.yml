@@ -54,6 +54,10 @@ jobs:
       checks: read
       pull-requests: read
 
+    outputs:
+      pr: ${{ steps.llm.outputs.pr }}
+      comment: ${{ steps.llm.outputs.comment }}
+
     steps:
       - name: Prepare prompt
         run: |
@@ -170,6 +174,7 @@ jobs:
           echo "set_arch_available=$(set_arch | tail -1)" >> $GITHUB_ENV
 
       - uses: analogdevicesinc/doctools/llm@action
+        id: llm
         with:
           ref: ${{ inputs.ref }}
           model: ${{ inputs.model }}
@@ -185,3 +190,15 @@ jobs:
           rm -rf "$prompt_dir"
           rm -rf "$py_venv"
           rm -rf "$CI_WORKTREE"
+
+  pr-comment:
+    runs-on: [self-hosted, repo-only]
+    needs: llm
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: analogdevicesinc/doctools/gh-pr-comment@action
+        with:
+          pr: ${{ needs.llm.outputs.pr }}
+          body: ${{ needs.llm.outputs.comment }}
