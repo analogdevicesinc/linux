@@ -122,7 +122,6 @@ static const struct i2c_device_id tasdevice_id[] = {
 	{}
 };
 
-#ifdef CONFIG_OF
 static const struct of_device_id tasdevice_of_match[] = {
 	{ .compatible = "ti,tas2020", .data = &tasdevice_id[TAS2020] },
 	{ .compatible = "ti,tas2118", .data = &tasdevice_id[TAS2118] },
@@ -146,7 +145,6 @@ static const struct of_device_id tasdevice_of_match[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, tasdevice_of_match);
-#endif
 
 /**
  * tas2781_digital_getvol - get the volum control
@@ -2083,7 +2081,6 @@ static void tasdevice_i2c_remove(struct i2c_client *client)
 	tasdevice_remove(tas_priv);
 }
 
-#ifdef CONFIG_ACPI
 static const struct acpi_device_id tasdevice_acpi_match[] = {
 	{ "TXNW2020", (kernel_ulong_t)&tasdevice_id[TAS2020] },
 	{ "TXNW2118", (kernel_ulong_t)&tasdevice_id[TAS2118] },
@@ -2108,15 +2105,12 @@ static const struct acpi_device_id tasdevice_acpi_match[] = {
 };
 
 MODULE_DEVICE_TABLE(acpi, tasdevice_acpi_match);
-#endif
 
 static struct i2c_driver tasdevice_i2c_driver = {
 	.driver = {
 		.name = "tasdev-codec",
-		.of_match_table = of_match_ptr(tasdevice_of_match),
-#ifdef CONFIG_ACPI
-		.acpi_match_table = ACPI_PTR(tasdevice_acpi_match),
-#endif
+		.of_match_table = tasdevice_of_match,
+		.acpi_match_table = tasdevice_acpi_match,
 	},
 	.probe	= tasdevice_i2c_probe,
 	.remove = tasdevice_i2c_remove,
