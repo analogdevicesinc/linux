@@ -138,7 +138,7 @@ int btrfs_delete_raid_extent(struct btrfs_trans_handle *trans, u64 start, u64 le
 		 */
 		if (found_start > start) {
 			if (slot == 0) {
-				ret = btrfs_previous_item(stripe_root, path, start,
+				ret = btrfs_previous_item(stripe_root, path, 0,
 							  BTRFS_RAID_STRIPE_KEY);
 				if (ret) {
 					if (ret > 0)
