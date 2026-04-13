@@ -6,6 +6,7 @@
 #include "core_types.h"
 #include "dcn35/dcn35_dccg.h"
 #include "dcn42_dccg.h"
+#include "dcn20/dcn20_dccg.h"
 
 #define TO_DCN_DCCG(dccg)\
 	container_of(dccg, struct dcn_dccg, base)
@@ -306,6 +307,7 @@ static const struct dccg_funcs dccg42_funcs = {
 	.dccg_root_gate_disable_control = dccg35_root_gate_disable_control,
 	.dccg_read_reg_state = dccg31_read_reg_state,
 	.dccg_enable_global_fgcg = dccg42_enable_global_fgcg,
+	.allow_clock_gating = dccg2_allow_clock_gating
 };
 
 struct dccg *dccg42_create(
