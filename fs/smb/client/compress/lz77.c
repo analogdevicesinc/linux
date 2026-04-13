@@ -137,6 +137,10 @@ noinline int lz77_compress(const void *src, u32 slen, void *dst, u32 *dlen)
 	long flag = 0;
 	u64 *htable;
 
+	/* This is probably a bug, so throw a warning. */
+	if (WARN_ON_ONCE(*dlen < lz77_compressed_alloc_size(slen)))
+		return -EINVAL;
+
 	srcp = src;
 	end = src + slen;
 	dstp = dst;
@@ -180,15 +184,6 @@ noinline int lz77_compress(const void *src, u32 slen, void *dst, u32 *dlen)
 			continue;
 		}
 
-		/*
-		 * Bail out if @dstp reached >= 7/8 of @slen -- already compressed badly, not worth
-		 * going further.
-		 */
-		if (unlikely(dstp - dst >= slen - (slen >> 3))) {
-			*dlen = slen;
-			goto out;
-		}
-
 		dstp = lz77_write_match(dstp, &nib, dist, len);
 		srcp += len;
 
@@ -225,7 +220,6 @@ noinline int lz77_compress(const void *src, u32 slen, void *dst, u32 *dlen)
 	lz77_write32(flag_pos, flag);
 
 	*dlen = dstp - dst;
-out:
 	kvfree(htable);
 
 	if (*dlen < slen)
