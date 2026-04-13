@@ -271,8 +271,19 @@ _get_artifact () {
 }
 export -f _get_artifact
 
+_get_latest_commit () {
+	local cloudsmith_token="$1"
+	local org_repository="$2"
+	local ref="$3"
+
+	curl -sL \
+	  -H "X-Api-Key: $cloudsmith_token" \
+	  "https://api.cloudsmith.io/v1/packages/$org_repository/?query=tag:on/push+tag:$ref&sort=-date&page_size=1" \
+	  | jq -r '.[].version // empty'
+}
+
 download_artifacts() {
-	local git_sha="${1-c894bed472b7}"
+	local ref="${1-c894bed472b7}"
 	local org_repository="${2-adi/linux}"
 	local no_cache="${3-false}"
 	local cloudsmith_token=${4}
@@ -281,7 +292,7 @@ download_artifacts() {
 
 	[ -f '.get_artifacts' ] && { log_step "Get artifacts (checkpoint)" ; return ;} || log_step "Get artifacts"
 
-	git_sha=${git_sha:0:12}
+	[[ $ref == refs/heads/* ]] || [[ $ref == refs/tags/* ]] && git_sha=$(_get_latest_commit "$cloudsmith_token" "$org_repository" "$ref") || git_sha=${ref:0:12}
 
 	[[ -z "$cloudsmith_token" ]] && cloudsmith_token="$CLOUDSMITH_API_KEY"
 	[[ -z "$cloudsmith_token" ]] && { log_error "At this time, a CLOUDSMITH_API_KEY is required." ; return 1 ; }
