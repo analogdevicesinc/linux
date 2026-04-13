@@ -247,7 +247,9 @@ static int aca_log_bad_bank(struct ras_core_context *ras_core,
 	ecc_err->total_de_count += bank_ecc->de_count;
 	mutex_unlock(&ras_core->ras_aca.aca_lock);
 
-	if ((aca_blk->blk_info->ras_block_id == RAS_BLOCK_ID__UMC) &&
+	/* Log ACA bad bank when FW management EEPROM is disabled. */
+	if (!ras_eeprom_mgr_fw_record_enabled(ras_core) &&
+	    (aca_blk->blk_info->ras_block_id == RAS_BLOCK_ID__UMC) &&
 	    bank_ecc->de_count) {
 		struct ras_bank_ecc  ras_ecc = {0};
 

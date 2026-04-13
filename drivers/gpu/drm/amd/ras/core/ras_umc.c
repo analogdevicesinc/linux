@@ -676,6 +676,10 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 	int save_count;
 	int ret = -ENODATA;
 
+	/* Not need to save bad pages when FW management EEPROM is enabled. */
+	if (ras_eeprom_mgr_fw_record_enabled(ras_core))
+		return 0;
+
 	if (!data->bps)
 		return -EINVAL;
 
@@ -921,4 +925,40 @@ int ras_umc_record_to_nps_record(struct ras_core_context *ras_core,
 		return -EINVAL;
 
 	return ras_umc_eeprom_rec2nps_rec(ras_core, record, nps);
+}
+
+int ras_umc_dump_fw_records(struct ras_core_context *ras_core)
+{
+	struct eeprom_umc_record rec;
+	int eeprom_count, umc_count, new_count = 0;
+	uint32_t c;
+	int i, ret;
+
+	eeprom_count = ras_eeprom_mgr_get_record_count(ras_core);
+	/* no bad page record, skip eeprom access */
+	if (!eeprom_count)
+		return 0;
+
+	umc_count = ras_umc_get_saved_eeprom_count(ras_core);
+	if (umc_count == eeprom_count) {
+		return 0;
+	} else if (umc_count > eeprom_count) {
+		RAS_DEV_ERR(ras_core->dev, "Invalid error count: eeprom:%d, umc:%d\n",
+			eeprom_count, umc_count);
+		return 0;
+	}
+
+	for (i = umc_count; i < eeprom_count; i++) {
+		memset(&rec, 0, sizeof(rec));
+		ret = ras_eeprom_mgr_get_records(ras_core, i, &rec, 1);
+		if (ret)
+			return 0;
+
+		c = 0;
+		ret = ras_umc_add_bad_pages(ras_core, &rec, 1, &c);
+		if (!ret)
+			new_count += c;
+	}
+
+	return new_count;
 }

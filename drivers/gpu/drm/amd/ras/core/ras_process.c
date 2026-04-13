@@ -170,6 +170,9 @@ int ras_process_handle_ras_event(struct ras_core_context *ras_core)
 	ras_aca_clear_fatal_flag(ras_core);
 	ras_umc_log_pending_bad_bank(ras_core);
 
+	if (ras_eeprom_mgr_fw_record_enabled(ras_core))
+		ras_umc_dump_fw_records(ras_core);
+
 	do {
 		umc_event_count = atomic_read(&ras_proc->umc_interrupt_count);
 		ret = ras_process_umc_event(ras_core, umc_event_count);

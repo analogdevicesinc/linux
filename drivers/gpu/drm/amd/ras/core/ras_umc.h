@@ -229,4 +229,5 @@ int ras_umc_bank_to_umc_record(struct ras_core_context *ras_core,
 		struct ras_bank_ecc *bank, struct eeprom_umc_record *record);
 int ras_umc_record_to_nps_record(struct ras_core_context *ras_core,
 		struct eeprom_umc_record *record,  uint32_t nps);
+int ras_umc_dump_fw_records(struct ras_core_context *ras_core);
 #endif
