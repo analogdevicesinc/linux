@@ -362,6 +362,15 @@ static bool is_addressable_sym(struct symbol *sym)
 }
 
 /*
+ * ABS symbols are typically assembly .set/.equ constants which are never
+ * referenced by relocations.  (Exclude FILE symbols which are also SHN_ABS.)
+ */
+static bool is_abs_sym(struct symbol *sym)
+{
+	return sym->sym.st_shndx == SHN_ABS && !is_file_sym(sym);
+}
+
+/*
  * These symbols should never be correlated, so their local patched versions
  * are used instead of linking to the originals.
  */
@@ -370,6 +379,7 @@ static bool dont_correlate(struct symbol *sym)
 	return is_file_sym(sym) ||
 	       is_null_sym(sym) ||
 	       is_sec_sym(sym) ||
+	       is_abs_sym(sym) ||
 	       is_prefix_func(sym) ||
 	       is_uncorrelated_static_local(sym) ||
 	       is_clang_tmp_label(sym) ||
