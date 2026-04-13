@@ -76,6 +76,73 @@ void ath12k_thermal_init_configs(struct ath12k *ar)
 	ar->thermal.tt_level_configs = &tt_level_configs[cfg_idx][0];
 }
 
+static int
+ath12k_thermal_get_max_throttle_state(struct thermal_cooling_device *cdev,
+				      unsigned long *state)
+{
+	*state = ATH12K_THERMAL_THROTTLE_MAX;
+
+	return 0;
+}
+
+static int
+ath12k_thermal_get_cur_throttle_state(struct thermal_cooling_device *cdev,
+				      unsigned long *state)
+{
+	struct ath12k *ar = cdev->devdata;
+
+	mutex_lock(&ar->thermal.lock);
+	*state = ar->thermal.throttle_state;
+	mutex_unlock(&ar->thermal.lock);
+
+	return 0;
+}
+
+int ath12k_thermal_set_throttling(struct ath12k *ar, u32 throttle_state)
+{
+	struct ath12k_wmi_thermal_mitigation_arg param = {};
+	struct ath12k_wmi_tt_level_config_param cfg = {};
+	int ret;
+
+	param.num_levels = 1;
+	cfg.dcoffpercent = throttle_state;
+	param.levelconf = &cfg;
+
+	ret = ath12k_wmi_send_thermal_mitigation_cmd(ar, &param);
+	if (ret)
+		ath12k_warn(ar->ab, "failed to send thermal mitigation cmd: %d\n",
+			    ret);
+
+	return ret;
+}
+
+static int
+ath12k_thermal_set_cur_throttle_state(struct thermal_cooling_device *cdev,
+				      unsigned long throttle_state)
+{
+	struct ath12k *ar = cdev->devdata;
+
+	if (throttle_state > ATH12K_THERMAL_THROTTLE_MAX)
+		return -EINVAL;
+
+	scoped_guard(mutex, &ar->thermal.lock) {
+		if (ar->thermal.throttle_state == throttle_state)
+			return 0;
+		ar->thermal.throttle_state = throttle_state;
+	}
+
+	if (throttle_state == 0)
+		return ath12k_thermal_throttling_config_default(ar);
+
+	return ath12k_thermal_set_throttling(ar, throttle_state);
+}
+
+static const struct thermal_cooling_device_ops ath12k_thermal_ops = {
+	.get_max_state = ath12k_thermal_get_max_throttle_state,
+	.get_cur_state = ath12k_thermal_get_cur_throttle_state,
+	.set_cur_state = ath12k_thermal_set_cur_throttle_state,
+};
+
 static ssize_t ath12k_thermal_temp_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
@@ -132,12 +199,35 @@ ATTRIBUTE_GROUPS(ath12k_hwmon);
 
 static int ath12k_thermal_setup_radio(struct ath12k_base *ab, int i)
 {
+	char pdev_name[20];
 	struct ath12k *ar;
 	int ret;
 
 	ar = ab->pdevs[i].ar;
 	if (!ar)
 		return 0;
+
+	ar->thermal.cdev =
+		thermal_cooling_device_register("ath12k_thermal", ar,
+						&ath12k_thermal_ops);
+	if (IS_ERR(ar->thermal.cdev)) {
+		ret = PTR_ERR(ar->thermal.cdev);
+		ar->thermal.cdev = NULL;
+		ath12k_err(ar->ab, "failed to register cooling device: %d\n",
+			   ret);
+		return ret;
+	}
+
+	scnprintf(pdev_name, sizeof(pdev_name), "cooling_device%u",
+		  ar->hw_link_id);
+
+	ret = sysfs_create_link(&ar->ah->hw->wiphy->dev.kobj,
+				&ar->thermal.cdev->device.kobj, pdev_name);
+	if (ret) {
+		ath12k_err(ab, "failed to create cooling device symlink: %d\n",
+			   ret);
+		goto unregister_cdev;
+	}
 
 	ar->thermal.hwmon_dev =
 		hwmon_device_register_with_groups(&ar->ah->hw->wiphy->dev,
@@ -148,14 +238,22 @@ static int ath12k_thermal_setup_radio(struct ath12k_base *ab, int i)
 		ar->thermal.hwmon_dev = NULL;
 		ath12k_err(ar->ab, "failed to register hwmon device: %d\n",
 			   ret);
-		return ret;
+		goto remove_sysfs;
 	}
 
 	return 0;
+
+remove_sysfs:
+	sysfs_remove_link(&ar->ah->hw->wiphy->dev.kobj, pdev_name);
+unregister_cdev:
+	thermal_cooling_device_unregister(ar->thermal.cdev);
+	ar->thermal.cdev = NULL;
+	return ret;
 }
 
 static void ath12k_thermal_cleanup_radio(struct ath12k_base *ab, int i)
 {
+	char pdev_name[20];
 	struct ath12k *ar;
 
 	ar = ab->pdevs[i].ar;
@@ -164,6 +262,13 @@ static void ath12k_thermal_cleanup_radio(struct ath12k_base *ab, int i)
 
 	hwmon_device_unregister(ar->thermal.hwmon_dev);
 	ar->thermal.hwmon_dev = NULL;
+
+	scnprintf(pdev_name, sizeof(pdev_name), "cooling_device%u",
+		  ar->hw_link_id);
+	sysfs_remove_link(&ar->ah->hw->wiphy->dev.kobj, pdev_name);
+
+	thermal_cooling_device_unregister(ar->thermal.cdev);
+	ar->thermal.cdev = NULL;
 }
 
 int ath12k_thermal_register(struct ath12k_base *ab)
