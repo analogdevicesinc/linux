@@ -1006,8 +1006,11 @@ static int find_sdca_entity_control(struct device *dev, struct sdca_entity *enti
 			control->has_fixed = true;
 		fallthrough;
 	case SDCA_ACCESS_MODE_RO:
-		control->deferrable = fwnode_property_read_bool(control_node,
-								"mipi-sdca-control-deferrable");
+		ret = fwnode_property_read_u32(control_node,
+					       "mipi-sdca-control-deferrable",
+					       &tmp);
+		if (ret == 0)
+			control->deferrable = !!tmp;
 		break;
 	default:
 		break;
