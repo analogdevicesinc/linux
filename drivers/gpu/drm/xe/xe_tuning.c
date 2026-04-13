@@ -124,6 +124,11 @@ static const struct xe_rtp_entry_sr engine_tunings[] = {
 			     GHWSP_CSB_REPORT_DIS,
 			     XE_RTP_ACTION_FLAG(ENGINE_BASE)))
 	},
+	{ XE_RTP_NAME("Tuning: TileY 2x2 Walk"),
+	  XE_RTP_RULES(GRAPHICS_VERSION_RANGE(3510, XE_RTP_END_VERSION_UNDEFINED),
+		       FUNC(xe_rtp_match_first_render_or_compute)),
+	  XE_RTP_ACTIONS(SET(TDL_TSL_CHICKEN2, TILEY_LOCALID))
+	},
 };
 
 static const struct xe_rtp_entry_sr lrc_tunings[] = {
