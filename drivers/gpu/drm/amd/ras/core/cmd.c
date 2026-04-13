@@ -413,6 +413,34 @@ static int ras_cmd_inject_error(struct ras_core_context *ras_core,
 	return ret;
 }
 
+static int ras_cmd_get_ras_cap(struct ras_core_context *ras_core,
+	struct ras_cmd_ctx *cmd, void *data)
+{
+	struct ras_cmd_get_ras_cap_rsp *output_data =
+			(struct ras_cmd_get_ras_cap_rsp *)cmd->output_buff_raw;
+
+	output_data->version = 0;
+	output_data->poison = ras_core_poison_supported(ras_core);
+	output_data->flex_mca = ras_psp_flex_mca_enabled(ras_core);
+	output_data->ras_block_mask = ras_core_get_ras_caps(ras_core);
+
+	output_data->ecc_type = 0;
+	if (output_data->poison)
+		output_data->ecc_type |= BIT_ULL(RAS_ECC_TYPE_POISON);
+
+	if (output_data->ras_block_mask & BIT_ULL(RAS_BLOCK_ID__UMC))
+		output_data->ecc_type |= BIT_ULL(RAS_ECC_TYPE_MEM);
+
+	if (output_data->ras_block_mask &
+		(BIT_ULL(RAS_BLOCK_ID__GFX) | BIT_ULL(RAS_BLOCK_ID__SDMA)))
+		output_data->ecc_type |= BIT_ULL(RAS_ECC_TYPE_SRAM);
+
+
+	cmd->output_size = sizeof(struct ras_cmd_get_ras_cap_rsp);
+
+	return 0;
+}
+
 static struct ras_cmd_func_map ras_cmd_maps[] = {
 	{RAS_CMD__INJECT_ERROR, ras_cmd_inject_error},
 	{RAS_CMD__GET_BLOCK_ECC_STATUS, ras_get_block_ecc_info},
@@ -423,6 +451,7 @@ static struct ras_cmd_func_map ras_cmd_maps[] = {
 	{RAS_CMD__GET_CPER_RECORD, ras_cmd_get_cper_records},
 	{RAS_CMD__GET_BATCH_TRACE_SNAPSHOT, ras_cmd_get_batch_trace_snapshot},
 	{RAS_CMD__GET_BATCH_TRACE_RECORD, ras_cmd_get_batch_trace_records},
+	{RAS_CMD__GET_RAS_CAP, ras_cmd_get_ras_cap},
 };
 
 int rascore_handle_cmd(struct ras_core_context *ras_core,
