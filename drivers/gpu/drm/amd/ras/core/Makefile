@@ -38,6 +38,7 @@ RAS_CORE_FILES = core.o \
 			ras_cper.o \
 			ras_psp.o \
 			ras_psp_v13_0.o \
+			ras_psp_v15_0.o \
 			eeprom_fw.o \
 			ras_mce.o
 
