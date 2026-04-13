@@ -410,7 +410,7 @@ static int apparmor_path_rename(const struct path *old_dir, struct dentry *old_d
 			struct path_cond cond_exchange = {
 				.mode = d_backing_inode(new_dentry)->i_mode,
 			};
-			vfsuid = i_uid_into_vfsuid(idmap, d_backing_inode(old_dentry));
+			vfsuid = i_uid_into_vfsuid(idmap, d_backing_inode(new_dentry));
 			cond_exchange.uid = vfsuid_into_kuid(vfsuid);
 
 			error = aa_path_perm(OP_RENAME_SRC, current_cred(),
