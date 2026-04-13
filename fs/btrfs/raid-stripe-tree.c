@@ -154,7 +154,10 @@ int btrfs_delete_raid_extent(struct btrfs_trans_handle *trans, u64 start, u64 le
 			btrfs_item_key_to_cpu(leaf, &key, slot);
 			found_start = key.objectid;
 			found_end = found_start + key.offset;
-			ASSERT(found_start <= start);
+			if (found_start > start || found_end <= start) {
+				ret = -ENOENT;
+				break;
+			}
 		}
 
 		if (key.type != BTRFS_RAID_STRIPE_KEY)
