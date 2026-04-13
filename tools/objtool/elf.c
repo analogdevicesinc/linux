@@ -649,7 +649,7 @@ static int read_symbols(struct elf *elf)
 
 		if (is_file_sym(sym))
 			file = sym;
-		else if (sym->bind == STB_LOCAL)
+		else if (sym->bind == STB_LOCAL && !is_sec_sym(sym))
 			sym->file = file;
 	}
 
