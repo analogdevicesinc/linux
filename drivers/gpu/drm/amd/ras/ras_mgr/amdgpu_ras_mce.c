@@ -124,9 +124,112 @@ static int amdgpu_ras_unregister_mce_notifier(struct amdgpu_device *adev)
 	return 0;
 }
 
+static void __fill_mce_to_aca_bank(struct amdgpu_device *adev,
+	enum mce_bank_type bank_type, struct mce *m, struct aca_bank_reg *aca_bank)
+{
+	aca_bank->timestamp = m->time;
+	aca_bank->bank_type = bank_type;
+	aca_bank->ecc_type = RAS_ERR_TYPE__MCE;
+	aca_bank->regs[ACA_REG_IDX__STATUS] = m->status;
+	aca_bank->regs[ACA_REG_IDX__ADDR] = m->addr;
+	aca_bank->regs[ACA_REG_IDX__MISC0] = m->misc;
+	aca_bank->regs[ACA_REG_IDX__IPID] = m->ipid;
+	aca_bank->regs[ACA_REG_IDX__SYND] = m->synd;
+}
+
+static int amdgpu_ras_mce_notifier_v1(struct amdgpu_device *adev, unsigned int id, struct mce *m)
+{
+	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	struct aca_bank_reg aca_bank = {0};
+	struct aca_bank_ecc err = {0};
+
+	/*
+	 * If the error was generated in UMC_V2, which belongs to GPU UMCs,
+	 * and error occurred in DramECC (Extended error code = 0) then only
+	 * process the error, else bail out.
+	 */
+	#ifdef HAVE_SMCA_UMC_V2
+	if (!((smca_get_bank_type(m->extcpu, m->bank) == SMCA_UMC_V2) &&
+			(XEC(m->status, 0x3f) == 0x0)))
+		return 0;
+	#endif
+
+	if (!adev->smuio.funcs || !adev->smuio.funcs->get_socket_id)
+		return 0;
+
+	__fill_mce_to_aca_bank(adev, MCE_BANK_TYPE_GPU, m, &aca_bank);
+
+	if (ras_aca_parse_bank(ras_mgr->ras_core, &aca_bank, &err))
+		return -EINVAL;
+
+	/* GPU device only record bank data that matches its own socket id.*/
+	if (adev->smuio.funcs->get_socket_id(adev) != err.bank_info.socket_id)
+		return 0;
+
+	return ras_mce_add_aca_bank(ras_mgr->ras_core, &aca_bank);
+}
+
+static int amdgpu_ras_mce_notifier_v5(struct amdgpu_device *adev, unsigned int id, struct mce *m)
+{
+	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	struct aca_bank_reg aca_bank = {0};
+	struct aca_bank_ecc err = {0};
+	enum mce_bank_type bank_type;
+
+	if (!adev->smuio.funcs || !adev->smuio.funcs->get_socket_id) {
+		RAS_DEV_WARN(adev, "No interface to obtain current device socket ID!\n");
+		return 0;
+	}
+
+	if (ras_mce_check_bank(ras_mgr->ras_core, MCE_BANK_TYPE_GPU, m->bank)) {
+		bank_type = MCE_BANK_TYPE_GPU;
+	/* For CPU bank, only the first registered gpu device needs to record bank */
+	} else if (ras_mce_check_bank(ras_mgr->ras_core, MCE_BANK_TYPE_CPU, m->bank) &&
+			!id) {
+		bank_type = MCE_BANK_TYPE_CPU;
+	} else {
+		RAS_DEV_WARN(adev, "Unsupported mce bank: %u\n",  m->bank);
+		return 0;
+	}
+
+	__fill_mce_to_aca_bank(adev, bank_type, m, &aca_bank);
+
+	if (bank_type == MCE_BANK_TYPE_GPU) {
+
+		if (ras_aca_parse_bank(ras_mgr->ras_core, &aca_bank, &err))
+			return -EINVAL;
+
+		/* GPU device only record bank data that matches its own socket id.*/
+		if (adev->smuio.funcs->get_socket_id(adev) != err.bank_info.socket_id)
+			return 0;
+	}
+
+	return ras_mce_add_aca_bank(ras_mgr->ras_core, &aca_bank);
+}
+
 static int amdgpu_ras_mce_notifier(struct amdgpu_device *adev,
 			unsigned int id, unsigned long val, void *data)
 {
+	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	u32 aca_ip_version = 0;
+
+	if (!data || !ras_mgr)
+		return 0;
+
+	if (ras_core_get_ip_version(ras_mgr->ras_core,
+				RAS_UNIT_ID_ACA, &aca_ip_version))
+		return 0;
+
+	switch (aca_ip_version) {
+	case IP_VERSION(1, 0, 0):
+		return amdgpu_ras_mce_notifier_v1(adev, id, data);
+	case IP_VERSION(5, 0, 0):
+		return amdgpu_ras_mce_notifier_v5(adev, id, data);
+	default:
+		RAS_DEV_WARN(adev, "Invalid aca ip version:0x%x\n", aca_ip_version);
+		break;
+	}
+
 	return 0;
 }
 
