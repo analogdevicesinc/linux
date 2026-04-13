@@ -164,6 +164,7 @@ struct eeprom_umc_record {
 	uint64_t cur_nps_retired_row_pfn;
 	uint32_t cur_nps_bank;
 	uint32_t cur_nps;
+	uint64_t ipid;
 };
 
 struct ras_core_context;

@@ -962,3 +962,22 @@ uint32_t ras_umc_bit_wise_xor(uint32_t val)
 
 	return result;
 }
+
+int ras_umc_bank_to_umc_record(struct ras_core_context *ras_core,
+		struct ras_bank_ecc *bank, struct eeprom_umc_record *record)
+{
+	struct ras_umc *ras_umc = &ras_core->ras_umc;
+	int ret;
+
+	if (!bank || !record || !ras_umc->ip_func ||
+	    !ras_umc->ip_func->bank_to_eeprom_record)
+		return -EINVAL;
+
+	ret = ras_umc->ip_func->bank_to_eeprom_record(ras_core, bank, record);
+	if (ret)
+		return ret;
+
+	record->ipid = bank->ipid;
+
+	return 0;
+}

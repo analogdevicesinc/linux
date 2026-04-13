@@ -224,4 +224,6 @@ uint32_t ras_umc_bit_wise_xor(uint32_t val);
 int ras_umc_ma2pa(struct ras_core_context *ras_core,
 	struct umc_mca_addr *addr_in, struct umc_phy_addr *addr_out,
 	uint32_t nps);
+int ras_umc_bank_to_umc_record(struct ras_core_context *ras_core,
+		struct ras_bank_ecc *bank, struct eeprom_umc_record *record);
 #endif
