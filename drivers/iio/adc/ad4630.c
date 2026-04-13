@@ -856,7 +856,7 @@ static const struct ad4630_out_mode ad4630_20_modes[] = {
 			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 20, 0, AD4630_CHAN_INFO_NONE),
 			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 20, 0, AD4630_CHAN_INFO_NONE),
 		},
-		.data_width = 24,
+		.data_width = 20,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
