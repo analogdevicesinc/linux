@@ -430,7 +430,7 @@ int ad917x_jesd_enable_datapath(ad917x_handle_t *h,
 		err = ad917x_register_write(h,
 					    AD917X_MASTER_PD_REG, AD917X_SERDES_PDN(0));
 		if (err != API_ERROR_OK)
-			return err;;
+			return err;
 
 		/*Config SERDES PLL with ADI RECOMMENDED Settings*/
 		err = ad917x_register_write_tbl(h, &ADI_REC_ES_SERDES_INIT_TBL_2[0],
@@ -462,7 +462,7 @@ int ad917x_jesd_enable_datapath(ad917x_handle_t *h,
 		err = ad917x_register_write(h,
 					    AD917X_MASTER_PD_REG, AD917X_SERDES_PDN(1));
 		if (err != API_ERROR_OK)
-			return err;;
+			return err;
 		/*Power Down ALL Lanes*/
 		err = ad917x_register_write(h, AD917X_PHY_PD_REG, 0xFF);
 		if (err != API_ERROR_OK)
