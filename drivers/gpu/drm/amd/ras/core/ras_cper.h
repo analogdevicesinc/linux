@@ -30,11 +30,11 @@ struct ras_cper_guid {
 };
 
 #define CPER_GUID__INIT(a, b, c, d0, d1, d2, d3, d4, d5, d6, d7)			\
-	((struct ras_cper_guid)								\
+	(struct ras_cper_guid)								\
 	{{ (a) & 0xff, ((a) >> 8) & 0xff, ((a) >> 16) & 0xff, ((a) >> 24) & 0xff, \
 		(b) & 0xff, ((b) >> 8) & 0xff,					\
 		(c) & 0xff, ((c) >> 8) & 0xff,					\
-		(d0), (d1), (d2), (d3), (d4), (d5), (d6), (d7) }})
+		(d0), (d1), (d2), (d3), (d4), (d5), (d6), (d7) }}
 
 #define CPER_HDR__REV_1          (0x100)
 #define CPER_SEC__MINOR_REV_1    (0x01)
@@ -277,6 +277,12 @@ struct ras_cper_fatal_record {
 	struct cper_section_hdr hdr;
 	struct cper_section_desc descriptor;
 	struct cper_section_fatal fatal;
+};
+
+struct ras_cper_boot_record {
+	struct cper_section_hdr hdr;
+	struct cper_section_desc descriptor;
+	struct cper_section_boot boot;
 };
 #pragma pack(pop)
 

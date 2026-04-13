@@ -24,6 +24,7 @@
 #ifndef __LOG_RING_H__
 #define __LOG_RING_H__
 #include "aca.h"
+#include "ras_cper.h"
 
 #define MAX_RECORD_PER_BATCH 32
 
@@ -38,11 +39,20 @@ enum ras_log_event {
 	RAS_LOG_EVENT_POISON_CONSUMPTION,
 	RAS_LOG_EVENT_RMA,
 	RAS_LOG_EVENT_MCE,
+	RAS_LOG_EVENT_BOOT,
 	RAS_LOG_EVENT_COUNT_MAX,
 };
 
 struct ras_aca_reg {
 	uint64_t regs[ACA_REG_MAX_COUNT];
+};
+
+struct ras_boot_err_ctx {
+	u8 section_type[16];
+	u32 error_severity;
+	u16 reg_ctx_type;
+	u16 reg_arr_size;
+	u64 regs[CPER_OAM_MAX_COUNT];
 };
 
 struct ras_log_info {
@@ -51,6 +61,7 @@ struct ras_log_info {
 	enum ras_log_event event;
 	union {
 		struct ras_aca_reg aca_reg;
+		struct ras_boot_err_ctx boot_err_ctx;
 	};
 };
 

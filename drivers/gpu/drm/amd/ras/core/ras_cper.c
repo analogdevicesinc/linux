@@ -174,6 +174,19 @@ static int fill_section_runtime(struct ras_core_context *ras_core,
 	return 0;
 }
 
+static int fill_section_boot(struct ras_core_context *ras_core, struct cper_section_boot *boot,
+			     struct ras_log_info *log)
+{
+	struct ras_boot_err_ctx *ctx = &log->boot_err_ctx;
+	struct crashdump_boot *data = &boot->data;
+
+	data->reg_ctx_type = ctx->reg_ctx_type;
+	data->reg_arr_size = ctx->reg_arr_size;
+	memcpy(data->msg, ctx->regs, min(boot->data.reg_arr_size, sizeof(data->msg)));
+
+	return 0;
+}
+
 static int cper_generate_runtime_record(struct ras_core_context *ras_core,
 	struct cper_section_hdr *hdr, struct ras_log_info *trace_arr, uint32_t arr_num,
 		enum ras_cper_severity sev)
@@ -222,6 +235,41 @@ static int cper_generate_fatal_record(struct ras_core_context *ras_core,
 				&record, record.hdr.record_length);
 	}
 
+	return 0;
+}
+
+static int cper_generate_boot_record(struct ras_core_context *ras_core, u8 *buffer,
+				     struct ras_log_info *trace_arr, u32 arr_num)
+{
+	struct ras_cper_boot_record *record;
+	int i;
+
+	record = kzalloc(sizeof(*record), GFP_KERNEL);
+	if (!record)
+		return -ENOMEM;
+
+	for (i = 0; i < arr_num; i++) {
+		u32 severity = trace_arr[i].boot_err_ctx.error_severity;
+		struct ras_cper_guid section_type;
+
+		memcpy(&section_type, &trace_arr[i].boot_err_ctx.section_type,
+		       min(sizeof(section_type), sizeof(trace_arr[i].boot_err_ctx.section_type)));
+
+		fill_section_hdr(ras_core, &record->hdr, RAS_CPER_TYPE_BOOT, severity,
+				 &trace_arr[i]);
+		record->hdr.record_length = RAS_HDR_LEN + RAS_SEC_DESC_LEN + RAS_BOOT_SEC_LEN;
+		record->hdr.sec_cnt = 1;
+
+		fill_section_descriptor(ras_core, &record->descriptor, severity, section_type,
+					offsetof(struct ras_cper_boot_record, boot),
+					sizeof(struct ras_cper_boot_record));
+
+		fill_section_boot(ras_core, &record->boot, &trace_arr[i]);
+
+		memcpy(buffer + (i * record->hdr.record_length), record, record->hdr.record_length);
+	}
+
+	kfree(record);
 	return 0;
 }
 
@@ -330,6 +378,9 @@ int ras_cper_generate_cper(struct ras_core_context *ras_core,
 		break;
 	case RAS_LOG_EVENT_UE:
 		cper_generate_fatal_record(ras_core, buffer + saved_size, trace_list, count);
+		break;
+	case RAS_LOG_EVENT_BOOT:
+		cper_generate_boot_record(ras_core, buffer + saved_size, trace_list, count);
 		break;
 	default:
 		RAS_DEV_WARN(ras_core->dev, "Unprocessed trace event: %d\n", trace_list[0].event);

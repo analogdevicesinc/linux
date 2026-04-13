@@ -251,8 +251,12 @@ void ras_log_ring_add_log_event(struct ras_core_context *ras_core,
 		batch_tag ? batch_tag->timestamp : ras_core_get_utc_second_timestamp(ras_core);
 	log->event = event;
 
-	if (data)
-		memcpy(&log->aca_reg, data, sizeof(log->aca_reg));
+	if (data) {
+		if (event == RAS_LOG_EVENT_BOOT)
+			memcpy(&log->boot_err_ctx, data, sizeof(log->boot_err_ctx));
+		else
+			memcpy(&log->aca_reg, data, sizeof(log->aca_reg));
+	}
 
 	if (event == RAS_LOG_EVENT_RMA) {
 		memcpy(&log->aca_reg, ras_rma_aca_reg, sizeof(log->aca_reg));
