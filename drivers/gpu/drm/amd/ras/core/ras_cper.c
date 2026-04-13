@@ -270,6 +270,26 @@ static enum ras_cper_type cper_ras_log_event_to_cper_type(enum ras_log_event eve
 	}
 }
 
+static enum ras_log_event cper_mce_parse_err_type(struct ras_core_context *ras_core,
+						  struct aca_bank_reg *bank)
+{
+	struct aca_bank_ecc bank_err = {0};
+
+	if (ras_aca_parse_bank(ras_core, bank, &bank_err))
+		return RAS_LOG_EVENT_NONE;
+
+	if (bank_err.ue_count)
+		return RAS_LOG_EVENT_UE;
+
+	if (bank_err.ce_count)
+		return RAS_LOG_EVENT_CE;
+
+	if (bank_err.de_count)
+		return RAS_LOG_EVENT_DE;
+
+	return RAS_LOG_EVENT_NONE;
+}
+
 int ras_cper_generate_cper(struct ras_core_context *ras_core,
 		struct ras_log_info *trace_list, uint32_t count,
 		uint8_t *buf, uint32_t buf_len, uint32_t *real_data_len)
@@ -278,6 +298,14 @@ int ras_cper_generate_cper(struct ras_core_context *ras_core,
 	uint64_t buf_size = buf_len;
 	int record_size, saved_size = 0;
 	struct cper_section_hdr *hdr;
+
+	if (trace_list[0].event == RAS_LOG_EVENT_MCE) {
+		struct aca_bank_reg bank = { 0 };
+
+		/* MCE is encoded as 1 record each */
+		memcpy(&bank.regs, &trace_list[0].aca_reg.regs, sizeof(bank.regs));
+		trace_list[0].event = cper_mce_parse_err_type(ras_core, &bank);
+	}
 
 	/* All the batch traces share the same event */
 	record_size = cper_get_record_size(
