@@ -22,6 +22,7 @@
 #include <drm/bridge/of-display-mode-bridge.h>
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge.h>
+#include <drm/drm_bridge_connector.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_of.h>
 #include <drm/drm_panel.h>
@@ -41,8 +42,6 @@ struct exynos_dp_device {
 
 	struct analogix_dp_device *adp;
 	struct analogix_dp_plat_data plat_data;
-
-	bool has_of_bridge;
 };
 
 static int exynos_dp_crtc_clock_enable(struct analogix_dp_plat_data *plat_data,
@@ -78,10 +77,8 @@ static int exynos_dp_bridge_attach(struct analogix_dp_plat_data *plat_data,
 
 	/* Pre-empt DP connector creation if there's a bridge */
 	if (plat_data->next_bridge) {
-		if (dp->has_of_bridge)
-			flags = DRM_BRIDGE_ATTACH_NO_CONNECTOR;
-
-		ret = drm_bridge_attach(&dp->encoder, plat_data->next_bridge, bridge, flags);
+		ret = drm_bridge_attach(&dp->encoder, plat_data->next_bridge, bridge,
+					flags | DRM_BRIDGE_ATTACH_NO_CONNECTOR);
 		if (ret)
 			return ret;
 	}
@@ -111,6 +108,7 @@ static int exynos_dp_bind(struct device *dev, struct device *master, void *data)
 	struct exynos_dp_device *dp = dev_get_drvdata(dev);
 	struct drm_encoder *encoder = &dp->encoder;
 	struct drm_device *drm_dev = data;
+	struct drm_connector *connector;
 	int ret;
 
 	dp->drm_dev = drm_dev;
@@ -126,10 +124,19 @@ static int exynos_dp_bind(struct device *dev, struct device *master, void *data)
 	dp->plat_data.encoder = encoder;
 
 	ret = analogix_dp_bind(dp->adp, dp->drm_dev);
-	if (ret)
+	if (ret) {
 		dp->encoder.funcs->destroy(&dp->encoder);
+		return ret;
+	}
 
-	return ret;
+	connector = drm_bridge_connector_init(dp->drm_dev, dp->plat_data.encoder);
+	if (IS_ERR(connector)) {
+		ret = PTR_ERR(connector);
+		dev_err(dp->dev, "Failed to initialize bridge_connector\n");
+		return ret;
+	}
+
+	return drm_connector_attach_encoder(connector, dp->plat_data.encoder);
 }
 
 static void exynos_dp_unbind(struct device *dev, struct device *master,
@@ -186,8 +193,6 @@ static int exynos_dp_probe(struct platform_device *pdev)
 									dp->dev->of_node,
 									DRM_MODE_CONNECTOR_eDP);
 		ret = IS_ERR(dp->plat_data.next_bridge) ? PTR_ERR(dp->plat_data.next_bridge) : 0;
-		if (!ret)
-			dp->has_of_bridge = true;
 	}
 	if (ret)
 		return ret;
