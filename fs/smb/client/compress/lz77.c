@@ -48,17 +48,17 @@ static __always_inline void lz77_write32(u32 *ptr, u32 v)
 	put_unaligned_le32(v, ptr);
 }
 
-static __always_inline u32 lz77_match_len(const void *wnd, const void *cur, const void *end)
+static __always_inline u32 lz77_match_len(const void *match, const void *cur, const void *end)
 {
 	const void *start = cur;
 	u64 diff;
 
 	/* Safe for a do/while because otherwise we wouldn't reach here from the main loop. */
 	do {
-		diff = lz77_read64(cur) ^ lz77_read64(wnd);
+		diff = lz77_read64(cur) ^ lz77_read64(match);
 		if (!diff) {
 			cur += LZ77_STEP_SIZE;
-			wnd += LZ77_STEP_SIZE;
+			match += LZ77_STEP_SIZE;
 
 			continue;
 		}
@@ -67,10 +67,13 @@ static __always_inline u32 lz77_match_len(const void *wnd, const void *cur, cons
 		cur += count_trailing_zeros(diff) >> 3;
 
 		return (cur - start);
-	} while (likely(cur + LZ77_STEP_SIZE < end));
+	} while (likely(cur + LZ77_STEP_SIZE <= end));
 
-	while (cur < end && lz77_read8(cur++) == lz77_read8(wnd++))
-		;
+	/* Fallback to byte-by-byte comparison for last <8 bytes. */
+	while (cur < end && lz77_read8(cur) == lz77_read8(match)) {
+		cur++;
+		match++;
+	}
 
 	return (cur - start);
 }
@@ -195,7 +198,7 @@ noinline int lz77_compress(const void *src, u32 slen, void *dst, u32 *dlen)
 			flag_pos = dstp;
 			dstp += 4;
 		}
-	} while (likely(srcp + LZ77_STEP_SIZE < end));
+	} while (likely(srcp + LZ77_STEP_SIZE <= end));
 
 	while (srcp < end) {
 		u32 c = umin(end - srcp, 32 - flag_count);
