@@ -907,6 +907,15 @@ static const struct dmi_system_id video_detect_dmi_table[] = {
 		DMI_MATCH(DMI_PRODUCT_NAME, "Vostro 15 3535"),
 		},
 	},
+	{
+	 /* https://gitlab.freedesktop.org/drm/amd/-/issues/4512 */
+	 .callback = video_detect_force_native,
+	 /* Lenovo Legion S7 15ACH6 */
+	 .matches = {
+		DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
+		DMI_MATCH(DMI_PRODUCT_NAME, "82K8"),
+		},
+	},
 
 	/*
 	 * x86 android tablets which directly control the backlight through
@@ -954,14 +963,6 @@ static const struct dmi_system_id video_detect_dmi_table[] = {
 	 .matches = {
 		DMI_MATCH(DMI_SYS_VENDOR, "Xiaomi Inc"),
 		DMI_MATCH(DMI_PRODUCT_NAME, "Mipad2"),
-		},
-	},
-	/* https://gitlab.freedesktop.org/drm/amd/-/issues/4512 */
-	{
-	 .callback = video_detect_force_native,
-	 .matches = {
-		DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
-		DMI_MATCH(DMI_PRODUCT_NAME, "82K8"),
 		},
 	},
 	{ },
