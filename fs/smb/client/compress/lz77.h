@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (C) 2024, SUSE LLC
+ * Copyright (C) 2024-2026, SUSE LLC
  *
  * Authors: Enzo Matsumiya <ematsumiya@suse.de>
  *
@@ -39,5 +39,5 @@ static __always_inline u32 lz77_compressed_alloc_size(const u32 size)
 	return size + (size >> 3) + 8;
 }
 
-int lz77_compress(const void *src, u32 slen, void *dst, u32 *dlen);
+int lz77_compress(const void *src, const u32 slen, void *dst, u32 *dlen);
 #endif /* _SMB_COMPRESS_LZ77_H */
