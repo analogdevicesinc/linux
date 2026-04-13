@@ -194,9 +194,19 @@ int btrfs_delete_raid_extent(struct btrfs_trans_handle *trans, u64 start, u64 le
 
 			/* The "right" item. */
 			ret = btrfs_duplicate_item(trans, stripe_root, path, &newkey);
+			if (ret == -EAGAIN) {
+				btrfs_release_path(path);
+				continue;
+			}
 			if (ret)
 				break;
 
+			/*
+			 * btrfs_duplicate_item() may have triggered a leaf
+			 * split via setup_leaf_for_split(), so we must refresh
+			 * our leaf pointer from the path.
+			 */
+			leaf = path->nodes[0];
 			item_size = btrfs_item_size(leaf, path->slots[0]);
 			extent = btrfs_item_ptr(leaf, path->slots[0],
 						struct btrfs_stripe_extent);
