@@ -17,6 +17,7 @@
 #include <drm/drm_managed.h>
 #include <drm/drm_pagemap_util.h>
 #include <drm/drm_print.h>
+#include <kunit/static_stub.h>
 #include <uapi/drm/xe_drm.h>
 
 #include "display/xe_display.h"
@@ -445,6 +446,7 @@ static struct drm_driver admin_only_driver = {
  */
 bool xe_device_is_admin_only(const struct xe_device *xe)
 {
+	KUNIT_STATIC_STUB_REDIRECT(xe_device_is_admin_only, xe);
 	return xe->drm.driver == &admin_only_driver;
 }
 #endif
