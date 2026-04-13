@@ -17,8 +17,7 @@
  * Compression parameters.
  */
 #define LZ77_MATCH_MIN_LEN	4
-#define LZ77_MATCH_MIN_DIST	1
-#define LZ77_MATCH_MAX_DIST	SZ_1K
+#define LZ77_MATCH_MAX_DIST	SZ_8K
 #define LZ77_HASH_LOG		15
 #define LZ77_HASH_SIZE		(1 << LZ77_HASH_LOG)
 #define LZ77_STEP_SIZE		sizeof(u64)
