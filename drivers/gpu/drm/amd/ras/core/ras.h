@@ -151,6 +151,17 @@ enum ras_fw_eeprom_cmd {
 	RAS_SMU_GetBadPageMcaAddr,
 };
 
+enum ras_unit_id {
+	RAS_UNIT_ID_UMC,
+	RAS_UNIT_ID_GFX,
+	RAS_UNIT_ID_MP1,
+	RAS_UNIT_ID_PSP,
+	RAS_UNIT_ID_NBIO,
+	RAS_UNIT_ID_ACA,
+	RAS_UNIT_ID_EEPROM,
+	RAS_UNIT_ID_MAX
+};
+
 struct ras_core_context;
 struct ras_bank_ecc;
 struct ras_umc;
@@ -416,4 +427,6 @@ int ras_core_set_debug_mode(struct ras_core_context *ras_core, bool enable);
 bool ras_core_is_ce_log_disabled(struct ras_core_context *ras_core);
 int ras_core_get_eeprom_version(struct ras_core_context *ras_core,
 	uint32_t *version);
+int ras_core_get_ip_version(struct ras_core_context *ras_core,
+	enum ras_unit_id unit_id, uint32_t *version);
 #endif

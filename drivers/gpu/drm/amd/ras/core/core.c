@@ -734,6 +734,41 @@ int ras_core_check_address_sanity(struct ras_core_context *ras_core,
 	return 0;
 }
 
+int ras_core_get_ip_version(struct ras_core_context *ras_core,
+	enum ras_unit_id unit_id, uint32_t *version)
+{
+	if (!version)
+		return -EINVAL;
+
+	switch (unit_id) {
+	case RAS_UNIT_ID_UMC:
+		*version = ras_core->ras_umc.umc_ip_version;
+		return 0;
+	case RAS_UNIT_ID_GFX:
+		*version = ras_core->ras_gfx.gfx_ip_version;
+		return 0;
+	case RAS_UNIT_ID_MP1:
+		*version = ras_core->ras_mp1.mp1_ip_version;
+		return 0;
+	case RAS_UNIT_ID_PSP:
+		*version = ras_core->ras_psp.psp_ip_version;
+		return 0;
+	case RAS_UNIT_ID_NBIO:
+		*version = ras_core->ras_nbio.nbio_ip_version;
+		return 0;
+	case RAS_UNIT_ID_ACA:
+		*version = ras_core->ras_aca.aca_ip_version;
+		return 0;
+	case RAS_UNIT_ID_EEPROM:
+		*version = ras_core->ras_eeprom.tbl_hdr.version;
+		return 0;
+	default:
+		break;
+	}
+
+	return -RAS_CORE_NOT_SUPPORTED;
+}
+
 int ras_core_get_eeprom_version(struct ras_core_context *ras_core,
 	uint32_t *version)
 {
