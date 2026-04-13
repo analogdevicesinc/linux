@@ -83,7 +83,7 @@ static struct adi_reg_data ADI_REC_ES_SERDES_INIT_TBL_2[] = {
 	{0x213, 0x01}, /*ADI INTERNAL Init Serdes PLL Settings*/
 	{0x213, 0x00}, /*ADI INTERNAL Init Serdes PLL Settings*/
 	{0x210, 0x86}, /*ADI INTERNAL Init Serdes PLL Settings*/
-	{0x210, 0x00}, /*ADI INTERNAL Init Serdes PLL Settings*/
+	{0x216, 0x00}, /*ADI INTERNAL Init Serdes PLL Settings*/
 	{0x213, 0x01}, /*ADI INTERNAL Init Serdes PLL Settings*/
 	{0x213, 0x00}, /*ADI INTERNAL Init Serdes PLL Settings*/
 	{0x210, 0x87}, /*ADI INTERNAL Init Serdes PLL Settings*/
