@@ -639,21 +639,6 @@ amdgpu_userq_destroy(struct amdgpu_userq_mgr *uq_mgr, struct amdgpu_usermode_que
 	queue->hang_detect_fence = NULL;
 	amdgpu_userq_wait_for_last_fence(queue);
 
-	r = amdgpu_bo_reserve(queue->db_obj.obj, true);
-	if (!r) {
-		amdgpu_bo_unpin(queue->db_obj.obj);
-		amdgpu_bo_unreserve(queue->db_obj.obj);
-	}
-	amdgpu_bo_unref(&queue->db_obj.obj);
-
-	r = amdgpu_bo_reserve(queue->wptr_obj.obj, true);
-	if (!r) {
-		amdgpu_bo_unpin(queue->wptr_obj.obj);
-		amdgpu_bo_unreserve(queue->wptr_obj.obj);
-	}
-	amdgpu_bo_unref(&queue->wptr_obj.obj);
-
-	atomic_dec(&uq_mgr->userq_count[queue->queue_type]);
 #if defined(CONFIG_DEBUG_FS)
 	debugfs_remove_recursive(queue->debugfs_queue);
 #endif
@@ -664,6 +649,19 @@ amdgpu_userq_destroy(struct amdgpu_userq_mgr *uq_mgr, struct amdgpu_usermode_que
 		drm_warn(adev_to_drm(uq_mgr->adev), "trying to destroy a HW mapping userq\n");
 		queue->state = AMDGPU_USERQ_STATE_HUNG;
 	}
+
+	amdgpu_bo_reserve(queue->db_obj.obj, true);
+	amdgpu_bo_unpin(queue->db_obj.obj);
+	amdgpu_bo_unreserve(queue->db_obj.obj);
+	amdgpu_bo_unref(&queue->db_obj.obj);
+
+	amdgpu_bo_reserve(queue->wptr_obj.obj, true);
+	amdgpu_bo_unpin(queue->wptr_obj.obj);
+	amdgpu_bo_unreserve(queue->wptr_obj.obj);
+	amdgpu_bo_unref(&queue->wptr_obj.obj);
+
+	atomic_dec(&uq_mgr->userq_count[queue->queue_type]);
+
 	amdgpu_userq_cleanup(queue);
 	mutex_unlock(&uq_mgr->userq_mutex);
 	pm_runtime_put_autosuspend(adev_to_drm(adev)->dev);
