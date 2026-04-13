@@ -317,6 +317,11 @@ static inline bool is_text_sec(struct section *sec)
 	return sec->sh.sh_flags & SHF_EXECINSTR;
 }
 
+static inline bool is_rodata_sec(struct section *sec)
+{
+	return sec->rodata;
+}
+
 static inline bool sec_changed(struct section *sec)
 {
 	return sec->_changed;
