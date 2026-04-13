@@ -130,59 +130,70 @@ static struct attribute *ath12k_hwmon_attrs[] = {
 };
 ATTRIBUTE_GROUPS(ath12k_hwmon);
 
-int ath12k_thermal_register(struct ath12k_base *ab)
+static int ath12k_thermal_setup_radio(struct ath12k_base *ab, int i)
 {
 	struct ath12k *ar;
-	int i, j, ret;
+	int ret;
 
-	if (!IS_REACHABLE(CONFIG_HWMON))
+	ar = ab->pdevs[i].ar;
+	if (!ar)
 		return 0;
 
-	for (i = 0; i < ab->num_radios; i++) {
-		ar = ab->pdevs[i].ar;
-		if (!ar)
-			continue;
-
-		ar->thermal.hwmon_dev =
-			hwmon_device_register_with_groups(&ar->ah->hw->wiphy->dev,
-							  "ath12k_hwmon", ar,
-							  ath12k_hwmon_groups);
-		if (IS_ERR(ar->thermal.hwmon_dev)) {
-			ret = PTR_ERR(ar->thermal.hwmon_dev);
-			ar->thermal.hwmon_dev = NULL;
-			ath12k_err(ar->ab, "failed to register hwmon device: %d\n",
-				   ret);
-			for (j = i - 1; j >= 0; j--) {
-				ar = ab->pdevs[j].ar;
-				if (!ar)
-					continue;
-
-				hwmon_device_unregister(ar->thermal.hwmon_dev);
-				ar->thermal.hwmon_dev = NULL;
-			}
-			return ret;
-		}
+	ar->thermal.hwmon_dev =
+		hwmon_device_register_with_groups(&ar->ah->hw->wiphy->dev,
+						  "ath12k_hwmon", ar,
+						  ath12k_hwmon_groups);
+	if (IS_ERR(ar->thermal.hwmon_dev)) {
+		ret = PTR_ERR(ar->thermal.hwmon_dev);
+		ar->thermal.hwmon_dev = NULL;
+		ath12k_err(ar->ab, "failed to register hwmon device: %d\n",
+			   ret);
+		return ret;
 	}
 
 	return 0;
 }
 
-void ath12k_thermal_unregister(struct ath12k_base *ab)
+static void ath12k_thermal_cleanup_radio(struct ath12k_base *ab, int i)
 {
 	struct ath12k *ar;
+
+	ar = ab->pdevs[i].ar;
+	if (!ar)
+		return;
+
+	hwmon_device_unregister(ar->thermal.hwmon_dev);
+	ar->thermal.hwmon_dev = NULL;
+}
+
+int ath12k_thermal_register(struct ath12k_base *ab)
+{
+	int i, ret;
+
+	if (!IS_REACHABLE(CONFIG_HWMON))
+		return 0;
+
+	for (i = 0; i < ab->num_radios; i++) {
+		ret = ath12k_thermal_setup_radio(ab, i);
+		if (ret)
+			goto out;
+	}
+
+	return 0;
+out:
+	for (i--; i >= 0; i--)
+		ath12k_thermal_cleanup_radio(ab, i);
+
+	return ret;
+}
+
+void ath12k_thermal_unregister(struct ath12k_base *ab)
+{
 	int i;
 
 	if (!IS_REACHABLE(CONFIG_HWMON))
 		return;
 
-	for (i = 0; i < ab->num_radios; i++) {
-		ar = ab->pdevs[i].ar;
-		if (!ar)
-			continue;
-
-		if (ar->thermal.hwmon_dev) {
-			hwmon_device_unregister(ar->thermal.hwmon_dev);
-			ar->thermal.hwmon_dev = NULL;
-		}
-	}
+	for (i = 0; i < ab->num_radios; i++)
+		ath12k_thermal_cleanup_radio(ab, i);
 }
