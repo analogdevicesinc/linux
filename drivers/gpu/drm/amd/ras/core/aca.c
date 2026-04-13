@@ -132,15 +132,20 @@ static void aca_log_bank_data(struct ras_core_context *ras_core,
 			struct aca_bank_reg *bank, struct aca_bank_ecc *bank_ecc,
 			struct ras_log_batch_tag *batch)
 {
+	enum ras_log_event event;
+
 	if (batch && bank->timestamp)
 		batch->timestamp = bank->timestamp;
 
 	if (bank_ecc->ue_count)
-		ras_log_ring_add_log_event(ras_core, RAS_LOG_EVENT_UE, bank->regs, batch);
+		event = RAS_LOG_EVENT_UE;
 	else if (bank_ecc->de_count)
-		ras_log_ring_add_log_event(ras_core, RAS_LOG_EVENT_DE, bank->regs, batch);
+		event = RAS_LOG_EVENT_DE;
 	else
-		ras_log_ring_add_log_event(ras_core, RAS_LOG_EVENT_CE, bank->regs, batch);
+		event = RAS_LOG_EVENT_CE;
+
+	ras_log_ring_add_log_event(ras_core,
+		event, bank->regs, sizeof(bank->regs), batch);
 }
 
 static int aca_get_bank_count(struct ras_core_context *ras_core,

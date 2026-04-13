@@ -55,14 +55,16 @@ struct ras_boot_err_ctx {
 	u64 regs[CPER_OAM_MAX_COUNT];
 };
 
+union ras_log_body {
+	struct ras_aca_reg aca_reg;
+	struct ras_boot_err_ctx boot_err_ctx;
+};
+
 struct ras_log_info {
 	uint64_t seqno;
 	uint64_t timestamp;
 	enum ras_log_event event;
-	union {
-		struct ras_aca_reg aca_reg;
-		struct ras_boot_err_ctx boot_err_ctx;
-	};
+	union ras_log_body body;
 };
 
 struct ras_log_batch_tag {
@@ -95,7 +97,8 @@ struct ras_log_batch_tag *ras_log_ring_create_batch_tag(struct ras_core_context 
 void ras_log_ring_destroy_batch_tag(struct ras_core_context *ras_core,
 			struct ras_log_batch_tag *tag);
 void ras_log_ring_add_log_event(struct ras_core_context *ras_core,
-		enum ras_log_event event, void *data, struct ras_log_batch_tag *tag);
+		enum ras_log_event event,
+		void *data, uint32_t size, struct ras_log_batch_tag *batch_tag);
 
 int ras_log_ring_get_batch_records(struct ras_core_context *ras_core, uint64_t batch_idx,
 		struct ras_log_info *log_arr, uint32_t arr_num);

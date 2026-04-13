@@ -331,8 +331,9 @@ static int ras_cmd_get_batch_trace_records(struct ras_core_context *ras_core,
 				record->seqno = trace_arry[j].seqno;
 				record->timestamp = trace_arry[j].timestamp;
 				record->event = trace_arry[j].event;
-				memcpy(&record->aca_reg,
-					&trace_arry[j].aca_reg, sizeof(trace_arry[j].aca_reg));
+				memcpy(&record->body.aca_reg,
+					&trace_arry[j].body.aca_reg,
+					sizeof(trace_arry[j].body.aca_reg));
 			}
 		} else {
 			count = 0;

@@ -136,7 +136,7 @@ static int amdgpu_ras_sys_event_notifier(struct ras_core_context *ras_core,
 		ret = amdgpu_dpm_send_hbm_bad_channel_flag(ras_core->dev, *(uint32_t *)data);
 		break;
 	case RAS_EVENT_ID__DEVICE_RMA:
-		ras_log_ring_add_log_event(ras_core, RAS_LOG_EVENT_RMA, NULL, NULL);
+		ras_log_ring_add_log_event(ras_core, RAS_LOG_EVENT_RMA, NULL, 0, NULL);
 		if (!ras_fw_eeprom_supported(ras_core))
 			ret = amdgpu_dpm_send_rma_reason(ras_core->dev);
 		break;

@@ -223,7 +223,8 @@ void ras_log_ring_destroy_batch_tag(struct ras_core_context *ras_core,
 }
 
 void ras_log_ring_add_log_event(struct ras_core_context *ras_core,
-		enum ras_log_event event, void *data, struct ras_log_batch_tag *batch_tag)
+		enum ras_log_event event,
+		void *data, uint32_t size, struct ras_log_batch_tag *batch_tag)
 {
 	struct ras_log_ring *log_ring = &ras_core->ras_log_ring;
 	struct device_system_info dev_info = {0};
@@ -251,19 +252,15 @@ void ras_log_ring_add_log_event(struct ras_core_context *ras_core,
 		batch_tag ? batch_tag->timestamp : ras_core_get_utc_second_timestamp(ras_core);
 	log->event = event;
 
-	if (data) {
-		if (event == RAS_LOG_EVENT_BOOT)
-			memcpy(&log->boot_err_ctx, data, sizeof(log->boot_err_ctx));
-		else
-			memcpy(&log->aca_reg, data, sizeof(log->aca_reg));
-	}
+	if (data && size && size <= sizeof(log->body))
+		memcpy(&log->body, data, size);
 
 	if (event == RAS_LOG_EVENT_RMA) {
-		memcpy(&log->aca_reg, ras_rma_aca_reg, sizeof(log->aca_reg));
+		memcpy(&log->body.aca_reg, ras_rma_aca_reg, sizeof(log->body.aca_reg));
 		ras_core_get_device_system_info(ras_core, &dev_info);
 		socket_id = dev_info.socket_id;
-		log->aca_reg.regs[ACA_REG_IDX__IPID] |= ((socket_id / 4) & 0x01);
-		log->aca_reg.regs[ACA_REG_IDX__IPID] |= (((socket_id % 4) & 0x3) << 44);
+		log->body.aca_reg.regs[ACA_REG_IDX__IPID] |= ((socket_id / 4) & 0x01);
+		log->body.aca_reg.regs[ACA_REG_IDX__IPID] |= (((socket_id % 4) & 0x3) << 44);
 	}
 
 	ras_log_ring_add_data(ras_core, log, batch_tag);

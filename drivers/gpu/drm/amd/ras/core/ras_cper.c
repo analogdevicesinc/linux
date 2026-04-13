@@ -137,10 +137,10 @@ static int fill_section_fatal(struct ras_core_context *ras_core,
 	fatal->data.reg_ctx_type = CPER_CTX_TYPE__CRASH;
 	fatal->data.reg_arr_size = sizeof(fatal->data.reg);
 
-	fatal->data.reg.status = trace->aca_reg.regs[RAS_CPER_ACA_REG_STATUS];
-	fatal->data.reg.addr   = trace->aca_reg.regs[RAS_CPER_ACA_REG_ADDR];
-	fatal->data.reg.ipid   = trace->aca_reg.regs[RAS_CPER_ACA_REG_IPID];
-	fatal->data.reg.synd   = trace->aca_reg.regs[RAS_CPER_ACA_REG_SYND];
+	fatal->data.reg.status = trace->body.aca_reg.regs[RAS_CPER_ACA_REG_STATUS];
+	fatal->data.reg.addr   = trace->body.aca_reg.regs[RAS_CPER_ACA_REG_ADDR];
+	fatal->data.reg.ipid   = trace->body.aca_reg.regs[RAS_CPER_ACA_REG_IPID];
+	fatal->data.reg.synd   = trace->body.aca_reg.regs[RAS_CPER_ACA_REG_SYND];
 
 	return 0;
 }
@@ -163,13 +163,20 @@ static int fill_section_runtime(struct ras_core_context *ras_core,
 	runtime->reg.reg_ctx_type = CPER_CTX_TYPE__CRASH;
 	runtime->reg.reg_arr_size = sizeof(runtime->reg.reg_dump);
 
-	runtime->reg.reg_dump[RAS_CPER_ACA_REG_CTL]    = trace->aca_reg.regs[ACA_REG_IDX__CTL];
-	runtime->reg.reg_dump[RAS_CPER_ACA_REG_STATUS] = trace->aca_reg.regs[ACA_REG_IDX__STATUS];
-	runtime->reg.reg_dump[RAS_CPER_ACA_REG_ADDR]   = trace->aca_reg.regs[ACA_REG_IDX__ADDR];
-	runtime->reg.reg_dump[RAS_CPER_ACA_REG_MISC0]  = trace->aca_reg.regs[ACA_REG_IDX__MISC0];
-	runtime->reg.reg_dump[RAS_CPER_ACA_REG_CONFIG] = trace->aca_reg.regs[ACA_REG_IDX__CONFG];
-	runtime->reg.reg_dump[RAS_CPER_ACA_REG_IPID]   = trace->aca_reg.regs[ACA_REG_IDX__IPID];
-	runtime->reg.reg_dump[RAS_CPER_ACA_REG_SYND]   = trace->aca_reg.regs[ACA_REG_IDX__SYND];
+	runtime->reg.reg_dump[RAS_CPER_ACA_REG_CTL] =
+			trace->body.aca_reg.regs[ACA_REG_IDX__CTL];
+	runtime->reg.reg_dump[RAS_CPER_ACA_REG_STATUS] =
+			trace->body.aca_reg.regs[ACA_REG_IDX__STATUS];
+	runtime->reg.reg_dump[RAS_CPER_ACA_REG_ADDR] =
+			trace->body.aca_reg.regs[ACA_REG_IDX__ADDR];
+	runtime->reg.reg_dump[RAS_CPER_ACA_REG_MISC0] =
+			trace->body.aca_reg.regs[ACA_REG_IDX__MISC0];
+	runtime->reg.reg_dump[RAS_CPER_ACA_REG_CONFIG] =
+			trace->body.aca_reg.regs[ACA_REG_IDX__CONFG];
+	runtime->reg.reg_dump[RAS_CPER_ACA_REG_IPID] =
+			trace->body.aca_reg.regs[ACA_REG_IDX__IPID];
+	runtime->reg.reg_dump[RAS_CPER_ACA_REG_SYND] =
+			trace->body.aca_reg.regs[ACA_REG_IDX__SYND];
 
 	return 0;
 }
@@ -177,12 +184,13 @@ static int fill_section_runtime(struct ras_core_context *ras_core,
 static int fill_section_boot(struct ras_core_context *ras_core, struct cper_section_boot *boot,
 			     struct ras_log_info *log)
 {
-	struct ras_boot_err_ctx *ctx = &log->boot_err_ctx;
+	struct ras_boot_err_ctx *ctx = &log->body.boot_err_ctx;
 	struct crashdump_boot *data = &boot->data;
 
 	data->reg_ctx_type = ctx->reg_ctx_type;
 	data->reg_arr_size = ctx->reg_arr_size;
-	memcpy(data->msg, ctx->regs, min(boot->data.reg_arr_size, sizeof(data->msg)));
+	memcpy(data->msg, ctx->regs,
+		min(boot->data.reg_arr_size, sizeof(data->msg)));
 
 	return 0;
 }
@@ -249,11 +257,12 @@ static int cper_generate_boot_record(struct ras_core_context *ras_core, u8 *buff
 		return -ENOMEM;
 
 	for (i = 0; i < arr_num; i++) {
-		u32 severity = trace_arr[i].boot_err_ctx.error_severity;
+		u32 severity = trace_arr[i].body.boot_err_ctx.error_severity;
 		struct ras_cper_guid section_type;
 
-		memcpy(&section_type, &trace_arr[i].boot_err_ctx.section_type,
-		       min(sizeof(section_type), sizeof(trace_arr[i].boot_err_ctx.section_type)));
+		memcpy(&section_type, &trace_arr[i].body.boot_err_ctx.section_type,
+			min(sizeof(section_type),
+			    sizeof(trace_arr[i].body.boot_err_ctx.section_type)));
 
 		fill_section_hdr(ras_core, &record->hdr, RAS_CPER_TYPE_BOOT, severity,
 				 &trace_arr[i]);
@@ -351,7 +360,7 @@ int ras_cper_generate_cper(struct ras_core_context *ras_core,
 		struct aca_bank_reg bank = { 0 };
 
 		/* MCE is encoded as 1 record each */
-		memcpy(&bank.regs, &trace_list[0].aca_reg.regs, sizeof(bank.regs));
+		memcpy(&bank.regs, &trace_list[0].body.aca_reg.regs, sizeof(bank.regs));
 		trace_list[0].event = cper_mce_parse_err_type(ras_core, &bank);
 	}
 
