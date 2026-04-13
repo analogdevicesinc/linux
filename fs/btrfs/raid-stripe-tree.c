@@ -98,14 +98,26 @@ int btrfs_delete_raid_extent(struct btrfs_trans_handle *trans, u64 start, u64 le
 	while (1) {
 		key.objectid = start;
 		key.type = BTRFS_RAID_STRIPE_KEY;
-		key.offset = 0;
+		key.offset = (u64)-1;
 
 		ret = btrfs_search_slot(trans, stripe_root, &key, path, -1, 1);
 		if (ret < 0)
 			break;
 
-		if (path->slots[0] == btrfs_header_nritems(path->nodes[0]))
-			path->slots[0]--;
+		/*
+		 * Search with offset=(u64)-1 ensures we land on the correct
+		 * leaf even when the target entry is the first item on a leaf.
+		 * Since no real entry has offset=(u64)-1, ret is always 1 and
+		 * slot points past the last entry with objectid==start (or
+		 * past the end of the leaf if that entry is the last item).
+		 * Back up one slot to find the actual entry.
+		 */
+		if (path->slots[0] == 0) {
+			/* No entry with objectid <= start exists. */
+			ret = 0;
+			break;
+		}
+		path->slots[0]--;
 
 		leaf = path->nodes[0];
 		slot = path->slots[0];
