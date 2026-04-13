@@ -732,35 +732,20 @@ Out:
 static int ras_eeprom_update_header(struct ras_eeprom_control *control)
 {
 	struct ras_core_context *ras_core = to_ras_core_context(control->mgr);
-	int threshold_config = control->record_threshold_config;
 	u8 *buf, *pp, csum;
 	u32 buf_size;
-	int bad_page_count;
+	int record_count;
 	int res;
 
-	bad_page_count = ras_umc_get_badpage_count(ras_core);
-	ras_core_event_notify(ras_core, RAS_EVENT_ID__UPDATE_BAD_PAGE_NUM,
-			      &bad_page_count);
-
+	record_count = ras_umc_get_saved_eeprom_count(ras_core);
 	/* Modify the header if it exceeds.
 	 */
-	if (threshold_config != 0 &&
-		bad_page_count > control->record_threshold_count) {
-		RAS_DEV_WARN(ras_core->dev,
-			"Saved bad pages %d reaches threshold value %d\n",
-			bad_page_count, control->record_threshold_count);
+	if (record_count >= control->record_threshold_count) {
 		control->tbl_hdr.header = RAS_TABLE_HDR_BAD;
 		if (control->tbl_hdr.version >= RAS_TABLE_VER_V2_1) {
 			control->tbl_rai.rma_status = RAS_GPU_RETIRED__ECC_REACH_THRESHOLD;
 			control->tbl_rai.health_percent = 0;
 		}
-
-		if ((threshold_config != WARN_NONSTOP_OVER_THRESHOLD) &&
-			(threshold_config != NONSTOP_OVER_THRESHOLD))
-			ras_core->is_rma = true;
-
-		/* ignore the -ENOTSUPP return value */
-		ras_core_event_notify(ras_core, RAS_EVENT_ID__DEVICE_RMA, NULL);
 	}
 
 	if (control->tbl_hdr.version >= RAS_TABLE_VER_V2_1)
@@ -801,11 +786,10 @@ static int ras_eeprom_update_header(struct ras_eeprom_control *control)
 	 * bad page records have been stored in eeprom,
 	 * now calculate gpu health percent
 	 */
-	if (threshold_config != 0 &&
-	    control->tbl_hdr.version >= RAS_TABLE_VER_V2_1 &&
-	    bad_page_count <= control->record_threshold_count)
+	if (control->tbl_hdr.version >= RAS_TABLE_VER_V2_1 &&
+	    record_count <= control->record_threshold_count)
 		control->tbl_rai.health_percent = ((control->record_threshold_count -
-			bad_page_count) * 100) / control->record_threshold_count;
+			record_count) * 100) / control->record_threshold_count;
 
 	/* Recalc the checksum.
 	 */
