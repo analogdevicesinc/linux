@@ -398,6 +398,12 @@ static int umc_v12_0_bank_to_eeprom_record(struct ras_core_context *ras_core,
 	if (ras_fw_eeprom_supported(ras_core) && bank->ts)
 		record->ts = bank->ts;
 
+	/* If the bank being converted already has a timestamp,
+	 * then use the bank's timestamp.
+	 */
+	if (bank->timestamp)
+		record->ts = bank->timestamp;
+
 	lookup_bad_pages_in_a_row(ras_core, record,
 		bank->nps, NULL, 0, bank->seq_no, true);
 

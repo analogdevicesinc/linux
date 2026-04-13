@@ -132,6 +132,9 @@ static void aca_log_bank_data(struct ras_core_context *ras_core,
 			struct aca_bank_reg *bank, struct aca_bank_ecc *bank_ecc,
 			struct ras_log_batch_tag *batch)
 {
+	if (batch && bank->timestamp)
+		batch->timestamp = bank->timestamp;
+
 	if (bank_ecc->ue_count)
 		ras_log_ring_add_log_event(ras_core, RAS_LOG_EVENT_UE, bank->regs, batch);
 	else if (bank_ecc->de_count)
@@ -245,6 +248,7 @@ static int aca_log_bad_bank(struct ras_core_context *ras_core,
 				ras_ecc.nps = ras_core_get_curr_nps_mode(ras_core);
 				ras_ecc.status = bank_ecc->bank_info.status;
 				ras_ecc.seq_no = bank->seq_no;
+				ras_ecc.timestamp = bank->timestamp;
 			}
 		} else {
 			ras_ecc.nps = ras_core_get_curr_nps_mode(ras_core);
@@ -252,6 +256,7 @@ static int aca_log_bad_bank(struct ras_core_context *ras_core,
 			ras_ecc.ipid = bank_ecc->bank_info.ipid;
 			ras_ecc.status = bank_ecc->bank_info.status;
 			ras_ecc.seq_no = bank->seq_no;
+			ras_ecc.timestamp = bank->timestamp;
 		}
 
 		if (!ret) {

@@ -247,6 +247,7 @@ struct ras_ecc_count {
 };
 
 struct ras_bank_ecc {
+	uint64_t timestamp;
 	uint32_t nps;
 	uint64_t seq_no;
 	uint64_t status;
