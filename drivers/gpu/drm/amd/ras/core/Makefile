@@ -24,6 +24,7 @@ RAS_CORE_FILES = core.o \
 			ras_mp1_v13_0.o \
 			aca.o  \
 			aca_v1_0.o \
+			ras_aca_v5_0.o \
 			eeprom.o \
 			ras_umc.o \
 			ras_umc_v12_0.o \

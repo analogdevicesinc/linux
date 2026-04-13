@@ -24,6 +24,7 @@
 #include "ras.h"
 #include "aca.h"
 #include "aca_v1_0.h"
+#include "ras_aca_v5_0.h"
 #include "ras_mp1_v13_0.h"
 
 #define ACA_MARK_FATAL_FLAG    0x100
@@ -534,6 +535,8 @@ static const struct ras_aca_ip_func *aca_get_ip_func(
 	switch (ip_version) {
 	case IP_VERSION(1, 0, 0):
 		return &ras_aca_func_v1_0;
+	case IP_VERSION(5, 0, 0):
+		return &ras_aca_func_v5_0;
 	default:
 		RAS_DEV_ERR(ras_core->dev,
 			"ACA ip version(0x%x) is not supported!\n", ip_version);
