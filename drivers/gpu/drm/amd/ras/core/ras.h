@@ -37,6 +37,7 @@
 #include "ras_psp.h"
 #include "log_ring.h"
 #include "eeprom_fw.h"
+#include "ras_mce.h"
 
 #define RAS_HW_ERR		"[Hardware Error]: "
 
@@ -352,6 +353,7 @@ struct ras_core_context {
 	struct ras_mp1 ras_mp1;
 	struct ras_process ras_proc;
 	struct ras_log_ring ras_log_ring;
+	struct ras_mce ras_mce;
 
 	const struct ras_sys_func *sys_fn;
 
