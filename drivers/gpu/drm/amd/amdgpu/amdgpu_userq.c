@@ -444,7 +444,6 @@ static void amdgpu_userq_cleanup(struct amdgpu_usermode_queue *queue)
 	queue->fence_drv = NULL;
 	queue->userq_mgr = NULL;
 	list_del(&queue->userq_va_list);
-	kfree(queue);
 
 	up_read(&adev->reset_domain->sem);
 }
@@ -650,6 +649,10 @@ amdgpu_userq_destroy(struct amdgpu_userq_mgr *uq_mgr, struct amdgpu_usermode_que
 		queue->state = AMDGPU_USERQ_STATE_HUNG;
 	}
 
+	atomic_dec(&uq_mgr->userq_count[queue->queue_type]);
+	amdgpu_userq_cleanup(queue);
+	mutex_unlock(&uq_mgr->userq_mutex);
+
 	amdgpu_bo_reserve(queue->db_obj.obj, true);
 	amdgpu_bo_unpin(queue->db_obj.obj);
 	amdgpu_bo_unreserve(queue->db_obj.obj);
@@ -659,11 +662,8 @@ amdgpu_userq_destroy(struct amdgpu_userq_mgr *uq_mgr, struct amdgpu_usermode_que
 	amdgpu_bo_unpin(queue->wptr_obj.obj);
 	amdgpu_bo_unreserve(queue->wptr_obj.obj);
 	amdgpu_bo_unref(&queue->wptr_obj.obj);
+	kfree(queue);
 
-	atomic_dec(&uq_mgr->userq_count[queue->queue_type]);
-
-	amdgpu_userq_cleanup(queue);
-	mutex_unlock(&uq_mgr->userq_mutex);
 	pm_runtime_put_autosuspend(adev_to_drm(adev)->dev);
 
 	return r;
