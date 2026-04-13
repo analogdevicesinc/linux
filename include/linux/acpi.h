@@ -959,6 +959,12 @@ static inline int acpi_table_parse(char *id,
 	return -ENODEV;
 }
 
+static inline int acpi_get_cpu_uid(unsigned int cpu, u32 *uid)
+{
+	*uid = cpu;
+	return 0;
+}
+
 static inline int acpi_nvs_register(__u64 start, __u64 size)
 {
 	return 0;
