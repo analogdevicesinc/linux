@@ -137,7 +137,7 @@ struct cper_section_hdr {
 	uint8_t			reserved[12];     /* Reserved */
 };
 
-struct cper_section_descriptor {
+struct cper_section_desc {
 	uint32_t sec_offset;     /* Offset from the start of CPER entry */
 	uint32_t sec_length;
 	uint8_t  revision_minor; /* CPER_SEC_MINOR_REV_1 */
@@ -275,7 +275,7 @@ struct cper_section_boot {
 
 struct ras_cper_fatal_record {
 	struct cper_section_hdr hdr;
-	struct cper_section_descriptor descriptor;
+	struct cper_section_desc descriptor;
 	struct cper_section_fatal fatal;
 };
 #pragma pack(pop)

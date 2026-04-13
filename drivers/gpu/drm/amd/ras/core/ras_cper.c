@@ -101,7 +101,7 @@ static void fill_section_hdr(struct ras_core_context *ras_core,
 }
 
 static int fill_section_descriptor(struct ras_core_context *ras_core,
-					struct cper_section_descriptor *descriptor,
+					struct cper_section_desc *descriptor,
 					enum ras_cper_severity sev,
 					struct ras_cper_guid sec_type,
 					uint32_t section_offset,
@@ -178,7 +178,7 @@ static int cper_generate_runtime_record(struct ras_core_context *ras_core,
 	struct cper_section_hdr *hdr, struct ras_log_info *trace_arr, uint32_t arr_num,
 		enum ras_cper_severity sev)
 {
-	struct cper_section_descriptor *descriptor;
+	struct cper_section_desc *descriptor;
 	struct cper_section_runtime *runtime;
 	int i;
 
@@ -186,7 +186,7 @@ static int cper_generate_runtime_record(struct ras_core_context *ras_core,
 	hdr->record_length =  RAS_HDR_LEN + ((RAS_SEC_DESC_LEN + RAS_NONSTD_SEC_LEN) * arr_num);
 	hdr->sec_cnt = arr_num;
 	for (i = 0; i < arr_num; i++) {
-		descriptor = (struct cper_section_descriptor *)((uint8_t *)hdr +
+		descriptor = (struct cper_section_desc *)((uint8_t *)hdr +
 			     RAS_SEC_DESC_OFFSET(i));
 		runtime = (struct cper_section_runtime *)((uint8_t *)hdr +
 			  RAS_NONSTD_SEC_OFFSET(hdr->sec_cnt, i));
