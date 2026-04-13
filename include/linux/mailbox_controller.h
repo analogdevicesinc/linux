@@ -62,10 +62,10 @@ struct mbox_chan_ops {
 
 /**
  * struct mbox_controller - Controller of a class of communication channels
- * @dev:		Device backing this controller
- * @ops:		Operators that work on each communication chan
- * @chans:		Array of channels
- * @num_chans:		Number of channels in the 'chans' array.
+ * @dev:		Device backing this controller. Required.
+ * @ops:		Operators that work on each communication chan. Required.
+ * @chans:		Array of channels. Required.
+ * @num_chans:		Number of channels in the 'chans' array. Required.
  * @txdone_irq:		Indicates if the controller can report to API when
  *			the last transmitted data was read by the remote.
  *			Eg, if it has some TX ACK irq.
@@ -78,6 +78,7 @@ struct mbox_chan_ops {
  * @of_xlate:		Controller driver specific mapping of channel via DT
  * @poll_hrt:		API private. hrtimer used to poll for TXDONE on all
  *			channels.
+ * @poll_hrt_lock:	API private. Lock protecting access to poll_hrt.
  * @node:		API private. To hook into list of controllers.
  */
 struct mbox_controller {
