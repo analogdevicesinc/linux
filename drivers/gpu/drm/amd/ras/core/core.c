@@ -287,6 +287,9 @@ static int ras_core_eeprom_recovery(struct ras_core_context *ras_core)
 		return ret;
 	}
 
+	if (ras_eeprom_mgr_get_gpu_op_status(ras_core) == RAS_GPU_OP_STATUS_RMA)
+		return -EPERM;
+
 	return ret;
 }
 
