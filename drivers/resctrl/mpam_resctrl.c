@@ -220,8 +220,16 @@ int resctrl_arch_set_cdp_enabled(enum resctrl_res_level rid, bool enable)
 	if (cdp_enabled && !mpam_resctrl_controls[RDT_RESOURCE_MBA].cdp_enabled)
 		mpam_resctrl_controls[RDT_RESOURCE_MBA].resctrl_res.alloc_capable = false;
 
+	/*
+	 * If resctrl has attempted to enable CDP on MBA, re-enable MBA as two
+	 * configurations will be provided so there is no aliasing problem.
+	 */
 	if (mpam_resctrl_controls[RDT_RESOURCE_MBA].cdp_enabled &&
 	    mpam_resctrl_controls[RDT_RESOURCE_MBA].class)
+		mpam_resctrl_controls[RDT_RESOURCE_MBA].resctrl_res.alloc_capable = true;
+
+	/* On unmount when CDP is disabled, re-enable MBA */
+	if (!cdp_enabled && mpam_resctrl_controls[RDT_RESOURCE_MBA].class)
 		mpam_resctrl_controls[RDT_RESOURCE_MBA].resctrl_res.alloc_capable = true;
 
 	if (enable) {
