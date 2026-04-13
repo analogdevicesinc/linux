@@ -2361,8 +2361,10 @@ static int sb_regs_show(struct tb_port *port, const struct sb_reg *sb_regs,
 		memset(data, 0, sizeof(data));
 		ret = usb4_port_sb_read(port, target, index, regs->reg, data,
 					regs->size);
-		if (ret)
-			return ret;
+		if (ret) {
+			seq_printf(s, "0x%02x <not accessible>\n", regs->reg);
+			continue;
+		}
 
 		seq_printf(s, "0x%02x", regs->reg);
 		for (j = 0; j < regs->size; j++)
