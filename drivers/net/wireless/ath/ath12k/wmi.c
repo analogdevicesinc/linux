@@ -3380,6 +3380,75 @@ int ath12k_wmi_send_set_current_country_cmd(struct ath12k *ar,
 	return ret;
 }
 
+int
+ath12k_wmi_send_thermal_mitigation_cmd(struct ath12k *ar,
+				       struct ath12k_wmi_thermal_mitigation_arg *arg)
+{
+	struct ath12k_wmi_therm_throt_level_config_param *lvl_conf;
+	struct ath12k_wmi_therm_throt_config_request_cmd *cmd;
+	struct ath12k_wmi_pdev *wmi = ar->wmi;
+	struct wmi_tlv *tlv;
+	struct sk_buff *skb;
+	int i, ret, len;
+
+	len = sizeof(*cmd) + TLV_HDR_SIZE + (arg->num_levels * sizeof(*lvl_conf));
+
+	skb = ath12k_wmi_alloc_skb(wmi->wmi_ab, len);
+	if (!skb)
+		return -ENOMEM;
+
+	cmd = (struct ath12k_wmi_therm_throt_config_request_cmd *)skb->data;
+	cmd->tlv_header = ath12k_wmi_tlv_cmd_hdr(WMI_TAG_THERM_THROT_CONFIG_REQUEST,
+						 sizeof(*cmd));
+	cmd->pdev_id = cpu_to_le32(ar->pdev->pdev_id);
+	cmd->enable = cpu_to_le32(1);
+	cmd->dc = cpu_to_le32(100);
+	cmd->dc_per_event = cpu_to_le32(0xffffffff);
+	cmd->therm_throt_levels = cpu_to_le32(arg->num_levels);
+
+	tlv = (struct wmi_tlv *)(skb->data + sizeof(*cmd));
+	tlv->header = ath12k_wmi_tlv_hdr(WMI_TAG_ARRAY_STRUCT,
+					 arg->num_levels * sizeof(*lvl_conf));
+
+	lvl_conf = (struct ath12k_wmi_therm_throt_level_config_param *)tlv->value;
+
+	for (i = 0; i < arg->num_levels; i++) {
+		lvl_conf->tlv_header =
+			ath12k_wmi_tlv_cmd_hdr(WMI_TAG_THERM_THROT_LEVEL_CONFIG_INFO,
+					       sizeof(*lvl_conf));
+
+		lvl_conf->temp_lwm = a_cpu_to_sle32(arg->levelconf[i].tmplwm);
+		lvl_conf->temp_hwm = a_cpu_to_sle32(arg->levelconf[i].tmphwm);
+		lvl_conf->dc_off_percent = cpu_to_le32(arg->levelconf[i].dcoffpercent);
+
+		if (test_bit(WMI_TLV_SERVICE_THERM_THROT_POUT_REDUCTION,
+			     ar->ab->wmi_ab.svc_map))
+			lvl_conf->pout_reduction_25db =
+				cpu_to_le32(arg->levelconf[i].pout_reduction_db);
+
+		if (test_bit(WMI_TLV_SERVICE_THERM_THROT_TX_CHAIN_MASK,
+			     ar->ab->wmi_ab.svc_map))
+			lvl_conf->tx_chain_mask = cpu_to_le32(ar->cfg_tx_chainmask);
+
+		lvl_conf->duty_cycle = cpu_to_le32(ATH12K_THERMAL_DEFAULT_DUTY_CYCLE);
+		lvl_conf++;
+	}
+
+	ath12k_dbg(ar->ab, ATH12K_DBG_WMI,
+		   "WMI vdev set thermal throt pdev_id %u enable dc 100 dc_per_event 0xffffffff levels %d\n",
+		   ar->pdev->pdev_id, arg->num_levels);
+
+	ret = ath12k_wmi_cmd_send(wmi, skb, WMI_THERM_THROT_SET_CONF_CMDID);
+	if (ret) {
+		ath12k_warn(ar->ab,
+			    "failed to send WMI_THERM_THROT_SET_CONF cmd: %d\n",
+			    ret);
+		dev_kfree_skb(skb);
+	}
+
+	return ret;
+}
+
 int ath12k_wmi_send_11d_scan_start_cmd(struct ath12k *ar,
 				       struct wmi_11d_scan_start_arg *arg)
 {

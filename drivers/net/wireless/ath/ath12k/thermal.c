@@ -12,6 +12,70 @@
 #include "core.h"
 #include "debug.h"
 
+static const struct ath12k_wmi_tt_level_config_param
+tt_level_configs[ATH12K_TT_CFG_IDX_MAX][ENHANCED_THERMAL_LEVELS] = {
+	[ATH12K_TT_CFG_IDX_IPA] = {
+		[0] = {	.tmplwm = -100, .tmphwm = 115, .dcoffpercent = 0,
+			.pout_reduction_db = 0 },
+		[1] = { .tmplwm = 110, .tmphwm = 120, .dcoffpercent = 0,
+			.pout_reduction_db = 12	},
+		[2] = { .tmplwm = 115, .tmphwm = 125, .dcoffpercent = 50,
+			.pout_reduction_db = 12	},
+		[3] = { .tmplwm = 120, .tmphwm = 130, .dcoffpercent = 90,
+			.pout_reduction_db = 12	},
+		[4] = { .tmplwm = 125, .tmphwm = 130, .dcoffpercent = 100,
+			.pout_reduction_db = 12	},
+	},
+	[ATH12K_TT_CFG_IDX_XFEM] = {
+		[0] = {	.tmplwm = -100,	.tmphwm = 105, .dcoffpercent = 0,
+			.pout_reduction_db = 0 },
+		[1] = { .tmplwm = 100, .tmphwm = 110, .dcoffpercent = 0,
+			.pout_reduction_db = 0 },
+		[2] = { .tmplwm = 105, .tmphwm = 115, .dcoffpercent = 50,
+			.pout_reduction_db = 0 },
+		[3] = {	.tmplwm = 110, .tmphwm = 120, .dcoffpercent = 90,
+			.pout_reduction_db = 0 },
+		[4] = { .tmplwm = 115, .tmphwm = 120, .dcoffpercent = 100,
+			.pout_reduction_db = 0 },
+	},
+};
+
+static enum ath12k_thermal_cfg_idx ath12k_thermal_cfg_index(struct ath12k *ar)
+{
+	if (test_bit(WMI_TLV_SERVICE_IS_TARGET_IPA, ar->ab->wmi_ab.svc_map))
+		return ATH12K_TT_CFG_IDX_IPA;
+
+	return ATH12K_TT_CFG_IDX_XFEM;
+}
+
+int ath12k_thermal_throttling_config_default(struct ath12k *ar)
+{
+	struct ath12k_wmi_thermal_mitigation_arg param = {};
+	int ret;
+
+	if (test_bit(WMI_TLV_SERVICE_THERM_THROT_5_LEVELS, ar->ab->wmi_ab.svc_map))
+		param.num_levels = ENHANCED_THERMAL_LEVELS;
+	else
+		param.num_levels = THERMAL_LEVELS;
+
+	param.levelconf = ar->thermal.tt_level_configs;
+
+	ret = ath12k_wmi_send_thermal_mitigation_cmd(ar, &param);
+	if (ret)
+		ath12k_warn(ar->ab,
+			    "failed to send thermal mitigation cmd for default config: %d\n",
+			    ret);
+	return ret;
+}
+
+void ath12k_thermal_init_configs(struct ath12k *ar)
+{
+	enum ath12k_thermal_cfg_idx cfg_idx;
+
+	cfg_idx = ath12k_thermal_cfg_index(ar);
+	ar->thermal.tt_level_configs = &tt_level_configs[cfg_idx][0];
+}
+
 static ssize_t ath12k_thermal_temp_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)

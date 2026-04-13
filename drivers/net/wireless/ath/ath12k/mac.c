@@ -9664,6 +9664,12 @@ static int ath12k_mac_start(struct ath12k *ar)
 		}
 	}
 
+	ret = ath12k_thermal_throttling_config_default(ar);
+	if (ret) {
+		ath12k_err(ab, "failed to set thermal throttle: %d\n", ret);
+		goto err;
+	}
+
 	rcu_assign_pointer(ab->pdevs_active[ar->pdev_idx],
 			   &ab->pdevs[ar->pdev_idx]);
 
@@ -14445,6 +14451,8 @@ static int ath12k_mac_setup_register(struct ath12k *ar,
 	ar->rssi_info.min_nf_dbm = ATH12K_DEFAULT_NOISE_FLOOR;
 	ar->rssi_info.temp_offset = 0;
 	ar->rssi_info.noise_floor = ar->rssi_info.min_nf_dbm + ar->rssi_info.temp_offset;
+
+	ath12k_thermal_init_configs(ar);
 
 	return 0;
 }

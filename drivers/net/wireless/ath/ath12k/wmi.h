@@ -2274,6 +2274,10 @@ enum wmi_tlv_service {
 	WMI_TLV_SERVICE_WMSK_COMPACTION_RX_TLVS = 361,
 
 	WMI_TLV_SERVICE_PEER_METADATA_V1A_V1B_SUPPORT = 365,
+	WMI_TLV_SERVICE_THERM_THROT_POUT_REDUCTION = 410,
+	WMI_TLV_SERVICE_IS_TARGET_IPA = 425,
+	WMI_TLV_SERVICE_THERM_THROT_TX_CHAIN_MASK = 426,
+	WMI_TLV_SERVICE_THERM_THROT_5_LEVELS = 429,
 	WMI_TLV_SERVICE_ETH_OFFLOAD = 461,
 
 	WMI_MAX_EXT2_SERVICE,
@@ -4127,6 +4131,42 @@ struct wmi_therm_throt_stats_event {
 	__le32 level;
 	__le32 therm_throt_levels;
 } __packed;
+
+#define THERMAL_LEVELS  4
+#define ENHANCED_THERMAL_LEVELS 5
+
+struct ath12k_wmi_tt_level_config_param {
+	s32 tmplwm;
+	s32 tmphwm;
+	u32 dcoffpercent;
+	u32 pout_reduction_db;
+};
+
+struct ath12k_wmi_therm_throt_config_request_cmd {
+	__le32 tlv_header;
+	__le32 pdev_id;
+	__le32 enable;
+	__le32 dc;
+	/* After how many duty cycles the firmware sends stats to host */
+	__le32 dc_per_event;
+	__le32 therm_throt_levels;
+} __packed;
+
+struct ath12k_wmi_therm_throt_level_config_param {
+	__le32 tlv_header;
+	a_sle32 temp_lwm;
+	a_sle32 temp_hwm;
+	__le32 dc_off_percent;
+	__le32 prio;
+	__le32 pout_reduction_25db;
+	__le32 tx_chain_mask;
+	__le32 duty_cycle;
+} __packed;
+
+struct ath12k_wmi_thermal_mitigation_arg {
+	int num_levels;
+	const struct ath12k_wmi_tt_level_config_param *levelconf;
+};
 
 struct ath12k_wmi_init_country_arg {
 	union {
@@ -6522,6 +6562,8 @@ __le32 ath12k_wmi_tlv_hdr(u32 cmd, u32 len);
 int ath12k_wmi_send_tpc_stats_request(struct ath12k *ar,
 				      enum wmi_halphy_ctrl_path_stats_id tpc_stats_type);
 void ath12k_wmi_free_tpc_stats_mem(struct ath12k *ar);
+int ath12k_wmi_send_thermal_mitigation_cmd(struct ath12k *ar,
+					   struct ath12k_wmi_thermal_mitigation_arg *arg);
 
 static inline u32
 ath12k_wmi_caps_ext_get_pdev_id(const struct ath12k_wmi_caps_ext_params *param)
