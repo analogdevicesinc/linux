@@ -45,8 +45,11 @@ static int btrfs_partially_delete_raid_extent(struct btrfs_trans_handle *trans,
 
 	for (int i = 0; i < btrfs_num_raid_stripes(item_size); i++) {
 		struct btrfs_raid_stride *stride = &extent->strides[i];
+		u64 devid;
 		u64 phys;
 
+		devid = btrfs_raid_stride_devid(leaf, stride);
+		btrfs_set_stack_raid_stride_devid(&newitem->strides[i], devid);
 		phys = btrfs_raid_stride_physical(leaf, stride) + frontpad;
 		btrfs_set_stack_raid_stride_physical(&newitem->strides[i], phys);
 	}
