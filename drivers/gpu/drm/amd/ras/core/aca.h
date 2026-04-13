@@ -29,7 +29,6 @@
 #define MAX_SOCKET_NUM_PER_NODE 8
 #define MAX_AID_NUM_PER_SOCKET 4
 #define MAX_XCD_NUM_PER_AID 4
-#define MAX_ACA_RAS_BLOCK  20
 
 #define ACA_ERROR__UE_MASK			(0x1 << RAS_ERR_TYPE__UE)
 #define ACA_ERROR__CE_MASK			(0x1 << RAS_ERR_TYPE__CE)
@@ -153,7 +152,7 @@ struct ras_aca {
 	const struct ras_aca_ip_func *ip_func;
 	struct mutex  aca_lock;
 	struct mutex  bank_op_lock;
-	struct aca_block aca_blk[MAX_ACA_RAS_BLOCK];
+	struct aca_block *aca_blk;
 	uint32_t ue_updated_mark;
 };
 

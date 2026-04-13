@@ -619,6 +619,10 @@ int ras_aca_sw_init(struct ras_core_context *ras_core)
 
 	memset(ras_aca, 0, sizeof(*ras_aca));
 
+	ras_aca->aca_blk = kcalloc(RAS_BLOCK_ID__LAST, sizeof(struct aca_block), GFP_KERNEL);
+	if (!ras_aca->aca_blk)
+		return -ENOMEM;
+
 	for (blk = 0; blk < RAS_BLOCK_ID__LAST; blk++) {
 		aca_blk = &ras_aca->aca_blk[blk];
 		aca_blk->ecc.socket_num_per_node = socket_num_per_node;
@@ -642,6 +646,7 @@ int ras_aca_sw_fini(struct ras_core_context *ras_core)
 {
 	struct ras_aca *ras_aca = &ras_core->ras_aca;
 
+	kfree(ras_aca->aca_blk);
 	mutex_destroy(&ras_aca->aca_lock);
 	mutex_destroy(&ras_aca->bank_op_lock);
 

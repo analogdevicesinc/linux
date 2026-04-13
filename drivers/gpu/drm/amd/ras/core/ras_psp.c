@@ -716,6 +716,10 @@ int ras_psp_hw_init(struct ras_core_context *ras_core)
 	if (!psp->ip_func)
 		return -EINVAL;
 
+	if (psp->ip_func->get_ras_block_maps &&
+		psp->ip_func->get_ras_block_maps(ras_core,
+			&psp->blk_maps, &psp->maps_size))
+		return -EINVAL;
 	/* After GPU reset, the system RAS PSP status may change.
 	 * therefore, it is necessary to synchronize the system status again.
 	 */
@@ -755,4 +759,27 @@ bool ras_psp_check_supported_cmd(struct ras_core_context *ras_core,
 	}
 
 	return ret;
+}
+
+int ras_psp_get_block_ta_id(struct ras_core_context *ras_core,
+		uint32_t ras_id, uint32_t *ta_id)
+{
+	struct ras_psp *psp = &ras_core->ras_psp;
+	int i;
+
+	if (!ta_id || !psp->blk_maps || !psp->maps_size) {
+		RAS_DEV_ERR(ras_core->dev, "Invalid ras block parameter\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < psp->maps_size; i++) {
+		if (psp->blk_maps[i].ras_id == ras_id) {
+			*ta_id = psp->blk_maps[i].ta_id;
+			return 0;
+		}
+	}
+
+	RAS_DEV_WARN(ras_core->dev, "Ras block %u is not supported\n", ras_id);
+
+	return -RAS_CORE_NOT_SUPPORTED;
 }

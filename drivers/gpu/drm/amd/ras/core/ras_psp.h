@@ -64,9 +64,15 @@ struct gpu_mem_block {
 	void *private;
 };
 
+struct ras_block_map {
+	uint32_t ras_id;
+	uint32_t ta_id;
+};
 struct ras_psp_ip_func {
 	uint32_t (*psp_ras_ring_wptr_get)(struct ras_core_context *ras_core);
 	int (*psp_ras_ring_wptr_set)(struct ras_core_context *ras_core, uint32_t wptr);
+	int (*get_ras_block_maps)(struct ras_core_context *ras_core,
+			struct ras_block_map **blk_maps, uint32_t *maps_size);
 };
 
 struct ras_psp_ring {
@@ -108,6 +114,8 @@ struct ras_ta_ctx {
 
 struct ras_psp {
 	uint32_t psp_ip_version;
+	struct ras_block_map *blk_maps;
+	uint32_t maps_size;
 	struct ras_psp_ring psp_ring;
 	struct ras_psp_ctx  psp_ctx;
 	struct ras_ta_ctx   ta_ctx;
@@ -143,4 +151,6 @@ int ras_psp_query_address(struct ras_core_context *ras_core,
 		struct ras_ta_query_address_output *addr_out);
 bool ras_psp_check_supported_cmd(struct ras_core_context *ras_core,
 		enum ras_ta_cmd_id cmd_id);
+int ras_psp_get_block_ta_id(struct ras_core_context *ras_core,
+		uint32_t ras_id, uint32_t *ta_id);
 #endif

@@ -92,6 +92,7 @@ enum ras_cmd_response {
 	RAS_CMD__ERROR_ACCESS_DENIED,
 	RAS_CMD__ERROR_GENERIC,
 	RAS_CMD__ERROR_TIMEOUT,
+	RAS_CMD__ERROR_UNSUPPORT,
 };
 
 enum ras_error_type {

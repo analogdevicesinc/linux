@@ -357,48 +357,6 @@ static int ras_cmd_get_batch_trace_records(struct ras_core_context *ras_core,
 	return RAS_CMD__SUCCESS;
 }
 
-static enum ras_ta_block __get_ras_ta_block(enum ras_block_id block)
-{
-	switch (block) {
-	case RAS_BLOCK_ID__UMC:
-		return RAS_TA_BLOCK__UMC;
-	case RAS_BLOCK_ID__SDMA:
-		return RAS_TA_BLOCK__SDMA;
-	case RAS_BLOCK_ID__GFX:
-		return RAS_TA_BLOCK__GFX;
-	case RAS_BLOCK_ID__MMHUB:
-		return RAS_TA_BLOCK__MMHUB;
-	case RAS_BLOCK_ID__ATHUB:
-		return RAS_TA_BLOCK__ATHUB;
-	case RAS_BLOCK_ID__PCIE_BIF:
-		return RAS_TA_BLOCK__PCIE_BIF;
-	case RAS_BLOCK_ID__HDP:
-		return RAS_TA_BLOCK__HDP;
-	case RAS_BLOCK_ID__XGMI_WAFL:
-		return RAS_TA_BLOCK__XGMI_WAFL;
-	case RAS_BLOCK_ID__DF:
-		return RAS_TA_BLOCK__DF;
-	case RAS_BLOCK_ID__SMN:
-		return RAS_TA_BLOCK__SMN;
-	case RAS_BLOCK_ID__SEM:
-		return RAS_TA_BLOCK__SEM;
-	case RAS_BLOCK_ID__MP0:
-		return RAS_TA_BLOCK__MP0;
-	case RAS_BLOCK_ID__MP1:
-		return RAS_TA_BLOCK__MP1;
-	case RAS_BLOCK_ID__FUSE:
-		return RAS_TA_BLOCK__FUSE;
-	case RAS_BLOCK_ID__MCA:
-		return RAS_TA_BLOCK__MCA;
-	case RAS_BLOCK_ID__VCN:
-		return RAS_TA_BLOCK__VCN;
-	case RAS_BLOCK_ID__JPEG:
-		return RAS_TA_BLOCK__JPEG;
-	default:
-		return RAS_TA_BLOCK__UMC;
-	}
-}
-
 static enum ras_ta_error_type __get_ras_ta_err_type(enum ras_ecc_err_type error)
 {
 	switch (error) {
@@ -426,7 +384,6 @@ static int ras_cmd_inject_error(struct ras_core_context *ras_core,
 		(struct ras_cmd_inject_error_rsp *)cmd->output_buff_raw;
 	int ret = 0;
 	struct ras_ta_trigger_error_input block_info = {
-		.block_id = __get_ras_ta_block(req->block_id),
 		.sub_block_index = req->subblock_id,
 		.inject_error_type = __get_ras_ta_err_type(req->error_type),
 		.address = req->address,
@@ -436,6 +393,12 @@ static int ras_cmd_inject_error(struct ras_core_context *ras_core,
 	if ((cmd->input_size != sizeof(*req)) ||
 		(cmd->output_buf_size < sizeof(*output_data)))
 		return RAS_CMD__ERROR_INVALID_INPUT_SIZE;
+
+	ret = ras_psp_get_block_ta_id(ras_core, req->block_id, &block_info.block_id);
+	if (ret == -RAS_CORE_NOT_SUPPORTED)
+		return RAS_CMD__ERROR_UNSUPPORT;
+	else if (ret)
+		return ret;
 
 	ret = ras_psp_trigger_error(ras_core, &block_info, req->instance_mask);
 	if (!ret) {
