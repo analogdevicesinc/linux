@@ -221,7 +221,7 @@ noinline int lz77_compress(const void *src, u32 slen, void *dst, u32 *dlen)
 	}
 
 	flag <<= (32 - flag_count);
-	flag |= (1 << (32 - flag_count)) - 1;
+	flag |= (1UL << (32 - flag_count)) - 1;
 	lz77_write32(flag_pos, flag);
 
 	*dlen = dstp - dst;
