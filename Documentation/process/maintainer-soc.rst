@@ -169,8 +169,6 @@ more information on the validation of devicetrees.
 For new platforms, or additions to existing ones, ``make dtbs_check`` should not
 add any new warnings.  For RISC-V and Samsung SoC, ``make dtbs_check W=1`` is
 required to not add any new warnings.
-If in any doubt about a devicetree change, reach out to the devicetree
-maintainers.
 
 Branches and Pull Requests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
