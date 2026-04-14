@@ -12,7 +12,7 @@
 
 #include "adi_library.h"
 
-ADI_API void* adi_library_memset(void* dst, int c, size_t len)
+ADI_API void* adrv904x_library_memset(void* dst, int c, size_t len)
 {
     uint8_t* target = NULL;
 
@@ -31,7 +31,7 @@ ADI_API void* adi_library_memset(void* dst, int c, size_t len)
     return target;
 }
 
-ADI_API void* adi_library_memcpy(void* dst, const void* src, size_t len)
+ADI_API void* adrv904x_library_memcpy(void* dst, const void* src, size_t len)
 {
     uint8_t* target = NULL;
     const uint8_t* source = NULL;
@@ -50,7 +50,7 @@ ADI_API void* adi_library_memcpy(void* dst, const void* src, size_t len)
     return dst;
 }
 
-ADI_API size_t adi_library_strlen(const char* src)
+ADI_API size_t adrv904x_library_strlen(const char* src)
 {
     uint8_t* target = NULL;
     const uint8_t* source = NULL;
@@ -73,7 +73,7 @@ ADI_API size_t adi_library_strlen(const char* src)
     return (target - source);
 }
 
-ADI_API size_t adi_library_strnlen(const char* src, size_t maxlen)
+ADI_API size_t adrv904x_library_strnlen(const char* src, size_t maxlen)
 {
     uint8_t* target = NULL;
     const uint8_t* source = NULL;
@@ -97,7 +97,7 @@ ADI_API size_t adi_library_strnlen(const char* src, size_t maxlen)
     return (target - source);
 }
 
-ADI_API char* adi_library_strchr(const char* src, int c)
+ADI_API char* adrv904x_library_strchr(const char* src, int c)
 {
     char* target = NULL;
 
@@ -119,7 +119,7 @@ ADI_API char* adi_library_strchr(const char* src, int c)
     return (NULL);
 }
 
-ADI_API char* adi_library_strcat(char* dst, const char* src)
+ADI_API char* adrv904x_library_strcat(char* dst, const char* src)
 {
     char* target = dst;
     char* source = NULL;
@@ -148,7 +148,7 @@ ADI_API char* adi_library_strcat(char* dst, const char* src)
     return (dst);
 }
 
-ADI_API char* adi_library_strncat(char* dst, const char* src, size_t n)
+ADI_API char* adrv904x_library_strncat(char* dst, const char* src, size_t n)
 {
     char* target = dst;
     char* source = NULL;
@@ -186,9 +186,9 @@ ADI_API char* adi_library_strncat(char* dst, const char* src, size_t n)
     return (dst);
 }
 
-ADI_API char* adi_library_strdup(const char* stringPtr)
+ADI_API char* adrv904x_library_strdup(const char* stringPtr)
 {
-    size_t stringLength = adi_library_strlen(stringPtr) + 1;
+    size_t stringLength = adrv904x_library_strlen(stringPtr) + 1;
 
     if (stringPtr == NULL)
     {
@@ -210,35 +210,35 @@ ADI_API char* adi_library_strdup(const char* stringPtr)
  */
 #if !defined(ADI_LIBRARY_RM_FLOATS) || defined(ADI_LIBRARY_FORCE_FLOAT_FUNCS)
 
-ADI_API int32_t adi_library_q36ToDB(uint32_t val, int32_t scale)
+ADI_API int32_t adrv904x_library_q36ToDB(uint32_t val, int32_t scale)
 {
     return (int32_t)(10 * log10(val / pow(2,36)) * scale);
 }
 
-ADI_API int32_t adi_library_linearToMillidBVolt(uint32_t val, uint32_t scale)
+ADI_API int32_t adrv904x_library_linearToMillidBVolt(uint32_t val, uint32_t scale)
 {
     return (int32_t)(1000 * 20 * log10((double)val / scale));
 }
 
-ADI_API int32_t adi_library_millidBVoltToLinear(int32_t millidB, uint32_t scale)
+ADI_API int32_t adrv904x_library_millidBVoltToLinear(int32_t millidB, uint32_t scale)
 {
     return (uint32_t)(pow(10, (double)millidB / 1000 / 20) * scale);
 }
 #elif defined (__KERNEL__)
 
-ADI_API int32_t adi_library_q36ToDB(uint32_t val, int32_t scale)
+ADI_API int32_t adrv904x_library_q36ToDB(uint32_t val, int32_t scale)
 {
     /* 181816029 = (1 << 24) * log10(1 << 36) */
     return (10 * (int64_t)(intlog10(val) - 181816029ULL) * scale) >> 24;
 }
 
-ADI_API int32_t adi_library_linearToMillidBVolt(uint32_t val, uint32_t scale)
+ADI_API int32_t adrv904x_library_linearToMillidBVolt(uint32_t val, uint32_t scale)
 {
     return (1000 * 20 * ((uint64_t)intlog10(val) - intlog10(scale))) >> 24U;
 }
 
 #define COMPUTE(n, d) if (neg) {a *= d; a = ADI_LIBRARY_DIV_U64(a, n);} else {a *= n; a = ADI_LIBRARY_DIV_U64(a, d);};
-ADI_API int32_t adi_library_millidBVoltToLinear(int32_t millidB, uint32_t scale)
+ADI_API int32_t adrv904x_library_millidBVoltToLinear(int32_t millidB, uint32_t scale)
 {
     unsigned neg = 0;
     uint64_t a = scale;
