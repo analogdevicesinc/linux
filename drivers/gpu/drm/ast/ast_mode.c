@@ -105,8 +105,9 @@ static void ast_crtc_fill_gamma(struct ast_device *ast,
 		/* gamma table is used as color palette */
 		drm_crtc_fill_palette_8(crtc, ast_set_gamma_lut);
 		break;
+	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_RGB565:
-		/* also uses 8-bit gamma ramp on low-color modes */
+		/* also uses 24-bit gamma correction on high-color modes */
 		fallthrough;
 	case DRM_FORMAT_XRGB8888:
 		drm_crtc_fill_gamma_888(crtc, ast_set_gamma_lut);
@@ -129,8 +130,9 @@ static void ast_crtc_load_gamma(struct ast_device *ast,
 		/* gamma table is used as color palette */
 		drm_crtc_load_palette_8(crtc, lut, ast_set_gamma_lut);
 		break;
+	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_RGB565:
-		/* also uses 8-bit gamma ramp on low-color modes */
+		/* also uses 24-bit gamma correction on high-color modes */
 		fallthrough;
 	case DRM_FORMAT_XRGB8888:
 		drm_crtc_load_gamma_888(crtc, lut, ast_set_gamma_lut);
@@ -153,6 +155,10 @@ static void ast_set_vbios_color_reg(struct ast_device *ast,
 	case DRM_FORMAT_C8:
 		vgacr8c |= AST_IO_VGACR8C_CUR_MODE_VGA;
 		vgacr92 = 8;
+		break;
+	case DRM_FORMAT_XRGB1555:
+		vgacr8c |= AST_IO_VGACR8C_CUR_MODE_15_BPP;
+		vgacr92 = 15;
 		break;
 	case DRM_FORMAT_RGB565:
 		vgacr8c |= AST_IO_VGACR8C_CUR_MODE_16_BPP;
@@ -396,6 +402,9 @@ static void ast_set_color_reg(struct ast_device *ast,
 		vgacra8 &= ~AST_IO_VGACRA8_GAMMA_CORRECTION_ENABLED;
 		break;
 	case DRM_FORMAT_XRGB1555:
+		vgacra3 |= AST_IO_VGACRA3_15_BPP;
+		vgacra8 |= AST_IO_VGACRA8_GAMMA_CORRECTION_ENABLED;
+		break;
 	case DRM_FORMAT_RGB565:
 		vgacra3 |= AST_IO_VGACRA3_16_BPP;
 		vgacra8 |= AST_IO_VGACRA8_GAMMA_CORRECTION_ENABLED;
@@ -493,6 +502,7 @@ void __iomem *ast_plane_vaddr(struct ast_plane *ast_plane)
 static const uint32_t ast_primary_plane_formats[] = {
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB1555,
 	DRM_FORMAT_C8,
 };
 
@@ -766,6 +776,7 @@ static int ast_crtc_helper_atomic_check(struct drm_crtc *crtc,
 	case DRM_FORMAT_C8:
 		ast_state->std_table = &vbios_stdtable[VGAModeIndex];
 		break;
+	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_RGB565:
 		ast_state->std_table = &vbios_stdtable[HiCModeIndex];
 		break;
