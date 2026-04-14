@@ -155,7 +155,6 @@ static void ast_set_vbios_color_reg(struct ast_device *ast,
 	case 2:
 		color_index = HiCModeIndex;
 		break;
-	case 3:
 	case 4:
 		color_index = TrueCModeIndex;
 		break;
@@ -765,7 +764,6 @@ static int ast_crtc_helper_atomic_check(struct drm_crtc *crtc,
 	case DRM_FORMAT_RGB565:
 		ast_state->std_table = &vbios_stdtable[HiCModeIndex];
 		break;
-	case DRM_FORMAT_RGB888:
 	case DRM_FORMAT_XRGB8888:
 		ast_state->std_table = &vbios_stdtable[TrueCModeIndex];
 		break;
