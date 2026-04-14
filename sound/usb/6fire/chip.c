@@ -31,7 +31,6 @@ static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX; /* Index 0-max */
 static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR; /* Id for card */
 static bool enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP; /* Enable card */
 static struct sfire_chip *chips[SNDRV_CARDS] = SNDRV_DEFAULT_PTR;
-static struct usb_device *devices[SNDRV_CARDS] = SNDRV_DEFAULT_PTR;
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for the 6fire sound device");
@@ -85,19 +84,17 @@ static int usb6fire_chip_probe(struct usb_interface *intf,
 	/* look if we already serve this card and return if so */
 	guard(mutex)(&register_mutex);
 	for (i = 0; i < SNDRV_CARDS; i++) {
-		if (devices[i] == device) {
-			if (chips[i])
-				chips[i]->intf_count++;
+		if (chips[i] && chips[i]->dev == device) {
+			chips[i]->intf_count++;
 			usb_set_intfdata(intf, chips[i]);
 			return 0;
-		} else if (!devices[i] && regidx < 0)
+		} else if (!chips[i] && regidx < 0)
 			regidx = i;
 	}
 	if (regidx < 0) {
 		dev_err(&intf->dev, "too many cards registered.\n");
 		return -ENODEV;
 	}
-	devices[regidx] = device;
 
 	/* check, if firmware is present on device, upload it if not */
 	ret = usb6fire_fw_init(intf);
@@ -123,7 +120,6 @@ static int usb6fire_chip_probe(struct usb_interface *intf,
 			device->bus->busnum, device->devnum);
 
 	chip = card->private_data;
-	chips[regidx] = chip;
 	chip->dev = device;
 	chip->regidx = regidx;
 	chip->intf_count = 1;
@@ -151,7 +147,10 @@ static int usb6fire_chip_probe(struct usb_interface *intf,
 		dev_err(&intf->dev, "cannot register card.");
 		goto destroy_chip;
 	}
+
 	usb_set_intfdata(intf, chip);
+	chips[regidx] = chip;
+
 	return 0;
 
 destroy_chip:
@@ -169,7 +168,6 @@ static void usb6fire_chip_disconnect(struct usb_interface *intf)
 	if (chip) { /* if !chip, fw upload has been performed */
 		chip->intf_count--;
 		if (!chip->intf_count) {
-			devices[chip->regidx] = NULL;
 			chips[chip->regidx] = NULL;
 
 			/*
