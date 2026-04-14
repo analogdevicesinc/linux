@@ -318,7 +318,7 @@ void fuse_invalidate_attr(struct inode *inode)
 
 static void fuse_dir_changed(struct inode *dir)
 {
-	fuse_invalidate_attr(dir);
+	fuse_invalidate_attr_mask(dir, FUSE_STATX_MODDIR);
 	inode_maybe_inc_iversion(dir, false);
 }
 

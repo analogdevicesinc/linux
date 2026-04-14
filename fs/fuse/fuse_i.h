@@ -1034,6 +1034,9 @@ void fuse_epoch_work(struct work_struct *work);
 /* Attributes possibly changed on data and/or size modification */
 #define FUSE_STATX_MODSIZE	(FUSE_STATX_MODIFY | STATX_SIZE)
 
+/* Attributes possibly changed on directory modification */
+#define FUSE_STATX_MODDIR	(FUSE_STATX_MODSIZE | STATX_NLINK)
+
 void fuse_invalidate_attr(struct inode *inode);
 void fuse_invalidate_attr_mask(struct inode *inode, u32 mask);
 
