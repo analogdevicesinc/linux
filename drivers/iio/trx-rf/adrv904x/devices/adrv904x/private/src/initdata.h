@@ -16,10 +16,10 @@
 
 #include "adi_adrv904x_api.h"
 
-ADI_API_EX adi_adrv904x_Version_t initStructApiVersion;
-ADI_API_EX adi_adrv904x_CpuFwVersion_t initStructArmVersion;
-ADI_API_EX adi_adrv904x_Version_t initStructStreamVersion;
-ADI_API_EX adi_adrv904x_Init_t deviceInitStruct;
-ADI_API_EX adi_adrv904x_PostMcsInit_t utilityInit;
+ADI_API_EX adi_adrv904x_Version_t adrv904x_initStructApiVersion;
+ADI_API_EX adi_adrv904x_CpuFwVersion_t adrv904x_initStructArmVersion;
+ADI_API_EX adi_adrv904x_Version_t adrv904x_initStructStreamVersion;
+ADI_API_EX adi_adrv904x_Init_t adrv904x_deviceInitStruct;
+ADI_API_EX adi_adrv904x_PostMcsInit_t adrv904x_utilityInit;
 
 #endif /* INITDATA_H_ */

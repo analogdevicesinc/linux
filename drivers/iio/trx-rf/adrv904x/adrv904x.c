@@ -1548,7 +1548,7 @@ static int adrv904x_jesd204_device_init(struct jesd204_dev *jdev,
 		return JESD204_STATE_CHANGE_ERROR;
 	}
 
-	recoveryAction = adi_adrv904x_PreMcsInit(phy->kororDevice, &deviceInitStruct,
+	recoveryAction = adi_adrv904x_PreMcsInit(phy->kororDevice, &adrv904x_deviceInitStruct,
 						 &phy->trxBinaryInfoPtr);
 	if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE) {
 		dev_err(dev, "ERROR adi_adrv904x_PreMcsInit failed in %s at line %d.\n", __func__,
@@ -1557,7 +1557,7 @@ static int adrv904x_jesd204_device_init(struct jesd204_dev *jdev,
 	}
 
 	recoveryAction = adi_adrv904x_PreMcsInit_NonBroadcast(phy->kororDevice,
-							      &deviceInitStruct);
+							      &adrv904x_deviceInitStruct);
 	if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE) {
 		dev_err(dev, "ERROR adi_adrv904x_PreMcsInit_NonBroadcast failed in %s at line %d.\n",
 			__func__, __LINE__);
@@ -1779,7 +1779,7 @@ static int adrv904x_jesd204_setup_stage2(struct jesd204_dev *jdev,
 
 	/* Post MCS */
 	ret = adrv904x_api_call(phy, adi_adrv904x_PostMcsInit,
-			       &utilityInit);
+			       &adrv904x_utilityInit);
 	if (ret)
 		return ret;
 
@@ -2355,11 +2355,11 @@ static int adrv904x_probe(struct spi_device *spi)
 	if (apiVersion.majorVer > 1U) {
 		ret = adrv904x_api_call(phy, adi_adrv904x_InitDataExtract,
 				       &phy->trxBinaryInfoPtr.cpuProfile,
-				       &initStructApiVersion,
-				       &initStructArmVersion,
-				       &initStructStreamVersion,
-				       &deviceInitStruct,
-				       &utilityInit,
+				       &adrv904x_initStructApiVersion,
+				       &adrv904x_initStructArmVersion,
+				       &adrv904x_initStructStreamVersion,
+				       &adrv904x_deviceInitStruct,
+				       &adrv904x_utilityInit,
 				       &checkExtractInitData);
 
 		switch (checkExtractInitData) {
@@ -2377,14 +2377,14 @@ static int adrv904x_probe(struct spi_device *spi)
 		default:
 			ADI_APP_ERROR_REPORT(ADI_COMMON_ERRCODE_INVALID_PARAM,
 					     ret,
-					     &deviceInitStruct,
+					     &adrv904x_deviceInitStruct,
 					     "PreMcsInit and/or PostMcsInit Data Structures Not Populated");
 			return -EINVAL;
 		}
 	}
 
 	/* Copy the data structure that holds Utility Init structures to the device */
-	memcpy(&phy->adrv904xPostMcsInitInst, &utilityInit, sizeof(adi_adrv904x_PostMcsInit_t));
+	memcpy(&phy->adrv904xPostMcsInitInst, &adrv904x_utilityInit, sizeof(adi_adrv904x_PostMcsInit_t));
 
 	/* Extract Info from CPU Profile Binary */
 	/* Required for Link init */

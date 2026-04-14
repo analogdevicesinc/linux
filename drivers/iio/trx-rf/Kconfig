@@ -28,7 +28,7 @@ config ADRV903X
 
 config ADRV904X
 	tristate "Analog Devices ADRV904X/ADRV9040 RF Transceiver driver"
-	depends on SPI && ADRV903X != y
+	depends on SPI
 	select CF_AXI_ADC
 	help
 	  Say yes here to build support for Analog Devices:

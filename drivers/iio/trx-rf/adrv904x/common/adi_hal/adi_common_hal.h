@@ -20,11 +20,11 @@
 #include "adi_common_log.h"
 
 /**
- * /brief Convenience macro for public API functions to call adi_common_hal_ApiEnter
+ * /brief Convenience macro for public API functions to call adrv904x_common_hal_ApiEnter
  */
 #define ADI_API_ENTER_RTN(commonDev)                                                                        \
 {                                                                                                           \
-    adi_common_ErrAction_e _recoveryAction = adi_common_hal_ApiEnter((commonDev), __func__, ADI_TRUE);      \
+    adi_common_ErrAction_e _recoveryAction = adrv904x_common_hal_ApiEnter((commonDev), __func__, ADI_TRUE);      \
                                                                                                             \
     if(ADI_COMMON_ERR_ACT_NONE != _recoveryAction)                                                          \
     {                                                                                                       \
@@ -34,7 +34,7 @@
 }
 
 /**
- * /brief Convenience macro for public API functions to call adi_common_hal_ApiEnter
+ * /brief Convenience macro for public API functions to call adrv904x_common_hal_ApiEnter
  *  and return. Always causes a return from the calling function.
  *
  *  If the supplied recovery action indicates an error then any failure in ApiExit is ignored.
@@ -47,7 +47,7 @@
  */
 #define ADI_API_EXIT(commonDev, recoveryAction)                                                             \
 {                                                                                                           \
-    adi_common_ErrAction_e _recoveryAction = adi_common_hal_ApiExit((commonDev), __func__, ADI_TRUE); \
+    adi_common_ErrAction_e _recoveryAction = adrv904x_common_hal_ApiExit((commonDev), __func__, ADI_TRUE); \
                                                                                                             \
     if (ADI_COMMON_ERR_ACT_NONE != _recoveryAction)                                                         \
     {                                                                                                       \
@@ -69,7 +69,7 @@
 *
 * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
 */
-ADI_API adi_common_ErrAction_e adi_common_hal_ErrCodeConvert(const adi_hal_Err_e halCode);
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ErrCodeConvert(const adi_hal_Err_e halCode);
 
 /**
  * \brief Used to initialise the HAL hardware.
@@ -192,7 +192,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_Wait_ms(  const adi_common_Devic
 
 /**
 * \brief Acquires the device so that it can only be used only in the context of the calling
-* thread until such time as adi_common_hal_Unlock is called on the device.
+* thread until such time as adrv904x_common_hal_Unlock is called on the device.
 *
 * Blocks until the device is acquired. There is no timeout mechanism in the API although
 * the underlying HAL may choose to timeout and return an error.
@@ -209,7 +209,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_Wait_ms(  const adi_common_Devic
 *
 * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
 */
-ADI_API adi_common_ErrAction_e adi_common_hal_Lock(adi_common_Device_t* const commonDev);
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_Lock(adi_common_Device_t* const commonDev);
 
 /**
 * \brief Releases a device previously acquired by the calling thread.
@@ -228,7 +228,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Lock(adi_common_Device_t* const co
 *
 * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
 */
-ADI_API adi_common_ErrAction_e adi_common_hal_Unlock(adi_common_Device_t* const commonDev);
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_Unlock(adi_common_Device_t* const commonDev);
 
 /**
  * /brief A convenience function that performs the tasks that must be preformed at the start
@@ -254,7 +254,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Unlock(adi_common_Device_t* const 
  *
  * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
  */
-ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter( adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ApiEnter( adi_common_Device_t* const  commonDev,
                                                         const char* const           fnName,
                                                         const uint32_t              doLocking);
 
@@ -277,14 +277,14 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter( adi_common_Device_t* con
  *
  * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
  */
-ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit(  adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ApiExit(  adi_common_Device_t* const  commonDev,
                                                         const char* const           fnName,
                                                         const uint32_t              doLocking);
 
 /**
- * /brief Allows greater control over the logging of entry to the API than adi_common_hal_ApiEnter.
+ * /brief Allows greater control over the logging of entry to the API than adrv904x_common_hal_ApiEnter.
  *
- * Refer to the documentation for the otherwise identical adi_common_hal_ApiEnter.
+ * Refer to the documentation for the otherwise identical adrv904x_common_hal_ApiEnter.
  *
  * \param commonDev Pointer to the common structure of type adi_common_Device_t
  * \param fnName The name of the calling function
@@ -293,15 +293,15 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit(  adi_common_Device_t* con
  *
  * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
  */
-ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ApiEnter_vLogCtl(adi_common_Device_t* const  commonDev,
                                                                const char* const           fnName,
                                                                const uint32_t              doLocking,
                                                                const adi_common_LogCtl_e   logCtl);
 
 /**
- * /brief Allows greater control over the logging of exit from the API than adi_common_hal_ApiExit.
+ * /brief Allows greater control over the logging of exit from the API than adrv904x_common_hal_ApiExit.
  *  
- * Refer to the documentation for the otherwise identical adi_common_hal_ApiExit.
+ * Refer to the documentation for the otherwise identical adrv904x_common_hal_ApiExit.
  *
  * \param commonDev Pointer to the common structure of type adi_common_Device_t
  * \param fnName The name of the calling function
@@ -310,7 +310,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device
  *
  * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
  */
-ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit_vLogCtl(adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ApiExit_vLogCtl(adi_common_Device_t* const  commonDev,
                                                                const char* const           fnName,
                                                                const uint32_t              doLocking,
                                                                const adi_common_LogCtl_e   logCtl);
@@ -324,6 +324,17 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit_vLogCtl(adi_common_Device_
 *
 * \retval adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if Successful
 */
-ADI_API adi_common_ErrAction_e adi_common_hal_PlatformFunctionCheck(adi_common_Device_t* const commonDev);
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_PlatformFunctionCheck(adi_common_Device_t* const commonDev);
+
+
+/* Symbol redirects for backward compatibility */
+#define adi_common_hal_ApiEnter	adrv904x_common_hal_ApiEnter
+#define adi_common_hal_ApiEnter_vLogCtl	adrv904x_common_hal_ApiEnter_vLogCtl
+#define adi_common_hal_ApiExit	adrv904x_common_hal_ApiExit
+#define adi_common_hal_ApiExit_vLogCtl	adrv904x_common_hal_ApiExit_vLogCtl
+#define adi_common_hal_ErrCodeConvert	adrv904x_common_hal_ErrCodeConvert
+#define adi_common_hal_Lock	adrv904x_common_hal_Lock
+#define adi_common_hal_PlatformFunctionCheck	adrv904x_common_hal_PlatformFunctionCheck
+#define adi_common_hal_Unlock	adrv904x_common_hal_Unlock
 
 #endif

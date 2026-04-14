@@ -174,7 +174,7 @@ ADI_API_EX adi_hal_Err_e (*adrv904x_DevHalCfgFree)(void* devHalCfg);
  *
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e(*adi_hal_I2cWrite)(void* const devHalCfg, const uint8_t txData[], const uint32_t numTxBytes);
+ADI_API_EX adi_hal_Err_e(*adrv904x_hal_I2cWrite)(void* const devHalCfg, const uint8_t txData[], const uint32_t numTxBytes);
 
 /**
  * \brief Function to read data from the device via I2C port
@@ -192,7 +192,7 @@ ADI_API_EX adi_hal_Err_e(*adi_hal_I2cWrite)(void* const devHalCfg, const uint8_t
  *
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e(*adi_hal_I2cRead)(void* const devHalCfg, const uint8_t txData[], const uint32_t numTxBytes,
+ADI_API_EX adi_hal_Err_e(*adrv904x_hal_I2cRead)(void* const devHalCfg, const uint8_t txData[], const uint32_t numTxBytes,
                                            uint8_t rxData[], const uint32_t numRxBytes);
 
 /**
@@ -353,7 +353,7 @@ ADI_API_EX adi_hal_Err_e (*adrv904x_Wait_ms)(void* const devHalCfg, const uint32
  *
  * \retval ADI_HAL_ERR_OK Function completed successfully
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegisterRead)(void* const devHalCfg, const uint32_t addr, uint32_t* const data);
+ADI_API_EX adi_hal_Err_e (*adrv904x_hal_BbicRegisterRead)(void* const devHalCfg, const uint32_t addr, uint32_t* const data);
 
 /**
  * \brief Function to write a single BBIC control register
@@ -364,7 +364,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegisterRead)(void* const devHalCfg, cons
  *
  * \retval ADI_HAL_ERR_OK Function completed successfully
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegisterWrite)(void* const devHalCfg, const uint32_t addr, const uint32_t data);
+ADI_API_EX adi_hal_Err_e (*adrv904x_hal_BbicRegisterWrite)(void* const devHalCfg, const uint32_t addr, const uint32_t data);
 
 /**
  * \brief Function to read multiple consecutive BBIC control registers starting at a specified register address.
@@ -380,7 +380,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegisterWrite)(void* const devHalCfg, con
  *
  * \retval ADI_HAL_ERR_OK Function completed successfully
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegistersRead)(  void* const     devHalCfg,
+ADI_API_EX adi_hal_Err_e (*adrv904x_hal_BbicRegistersRead)(  void* const     devHalCfg,
                                                         const uint32_t  addr,
                                                         uint32_t        data[],
                                                         const uint32_t  numDataWords);
@@ -399,7 +399,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegistersRead)(  void* const     devHalCf
  *
  * \retval ADI_HAL_ERR_OK Function completed successfully
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegistersWrite)( void* const     devHalCfg,
+ADI_API_EX adi_hal_Err_e (*adrv904x_hal_BbicRegistersWrite)( void* const     devHalCfg,
                                                         const uint32_t  addr,
                                                         const uint32_t  data[],
                                                         const uint32_t  numDataWords);
@@ -411,7 +411,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegistersWrite)( void* const     devHalCf
  * Non-multithreaded HALs must implement this function but may return the same value regardless
  * of the calling thread.
  */
-ADI_API_EX adi_hal_thread_t (*adi_hal_ThreadSelf)(void);
+ADI_API_EX adi_hal_thread_t (*adrv904x_hal_ThreadSelf)(void);
 #endif
 
 /**
@@ -527,7 +527,18 @@ ADI_API_EX adi_hal_Err_e adrv904x_hal_PlatformSetup(const adi_hal_Platforms_e pl
  * 
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e(*adi_hal_BoardIdentify)(char** boardNames, int32_t* numBoards);
+ADI_API_EX adi_hal_Err_e(*adrv904x_hal_BoardIdentify)(char** boardNames, int32_t* numBoards);
+
+
+/* Symbol redirects for backward compatibility */
+#define adi_hal_BbicRegisterRead	adrv904x_hal_BbicRegisterRead
+#define adi_hal_BbicRegisterWrite	adrv904x_hal_BbicRegisterWrite
+#define adi_hal_BbicRegistersRead	adrv904x_hal_BbicRegistersRead
+#define adi_hal_BbicRegistersWrite	adrv904x_hal_BbicRegistersWrite
+#define adi_hal_BoardIdentify	adrv904x_hal_BoardIdentify
+#define adi_hal_I2cRead	adrv904x_hal_I2cRead
+#define adi_hal_I2cWrite	adrv904x_hal_I2cWrite
+#define adi_hal_ThreadSelf	adrv904x_hal_ThreadSelf
 
 #endif /* __ADI_PLATFORM_H__ */
 
