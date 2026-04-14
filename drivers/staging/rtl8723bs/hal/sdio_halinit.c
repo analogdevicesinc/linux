@@ -46,8 +46,6 @@ u8 _InitPowerOn_8723BS(struct adapter *padapter)
 	u16 value16;
 	u32 value32;
 	u8 ret;
-/* 	u8 bMacPwrCtrlOn; */
-
 
 	/*  all of these MUST be configured before power on */
 
@@ -68,10 +66,6 @@ u8 _InitPowerOn_8723BS(struct adapter *padapter)
 	value16 = rtw_read16(padapter, REG_APS_FSMCO);
 	value16 |= EnPDN; /*  Enable HW power down and RF on */
 	rtw_write16(padapter, REG_APS_FSMCO, value16);
-
-	/*  Enable CMD53 R/W Operation */
-/* 	bMacPwrCtrlOn = true; */
-/* 	rtw_hal_set_hwreg(padapter, HW_VAR_APFM_ON_MAC, &bMacPwrCtrlOn); */
 
 	rtw_write8(padapter, REG_CR, 0x00);
 	/*  Enable MAC DMA/WMAC/SCHEDULE/SEC block */
@@ -359,7 +353,6 @@ static void _InitNetworkType(struct adapter *padapter)
 	value32 = rtw_read32(padapter, REG_CR);
 
 	/*  TODO: use the other function to set network type */
-/* 	value32 = (value32 & ~MASK_NETTYPE) | _NETTYPE(NT_LINK_AD_HOC); */
 	value32 = (value32 & ~MASK_NETTYPE) | _NETTYPE(NT_LINK_AP);
 
 	rtw_write32(padapter, REG_CR, value32);
@@ -409,9 +402,6 @@ static void _InitAdaptiveCtrl(struct adapter *padapter)
 	value32 &= ~RATE_BITMAP_ALL;
 	value32 |= RATE_RRSR_CCK_ONLY_1M;
 	rtw_write32(padapter, REG_RRSR, value32);
-
-	/*  CF-END Threshold */
-	/* m_spIoBase->rtw_write8(REG_CFEND_TH, 0x1); */
 
 	/*  SIFS (used in NAV) */
 	value16 = _SPEC_SIFS_CCK(0x10) | _SPEC_SIFS_OFDM(0x10);
@@ -485,9 +475,6 @@ static void sdio_AggSettingRxUpdate(struct adapter *padapter)
 static void _initSdioAggregationSetting(struct adapter *padapter)
 {
 	struct hal_com_data	*pHalData = GET_HAL_DATA(padapter);
-
-	/*  Tx aggregation setting */
-/* 	sdio_AggSettingTxUpdate(padapter); */
 
 	/*  Rx aggregation setting */
 	HalRxAggr8723BSdio(padapter);
@@ -640,9 +627,6 @@ u32 rtl8723bs_hal_init(struct adapter *padapter)
 		return _SUCCESS;
 	}
 
-	/*  Disable Interrupt first. */
-/* 	rtw_hal_disable_interrupt(padapter); */
-
 	ret = _InitPowerOn_8723BS(padapter);
 	if (ret == _FAIL)
 		return _FAIL;
@@ -660,8 +644,6 @@ u32 rtl8723bs_hal_init(struct adapter *padapter)
 	}
 
 	rtl8723b_InitializeFirmwareVars(padapter);
-
-/* 	SIC_Init(padapter); */
 
 	if (pwrctrlpriv->reg_rfoff)
 		pwrctrlpriv->rf_pwrstate = rf_off;
@@ -704,8 +686,6 @@ u32 rtl8723bs_hal_init(struct adapter *padapter)
 	pHalData->RfRegChnlVal[1] =
 		PHY_QueryRFReg(padapter, (enum rf_path)1, RF_CHNLBW, bRFRegOffsetMask);
 
-
-	/* if (!pHalData->bMACFuncEnable) { */
 	_InitQueueReservedPage(padapter);
 	_InitTxBufferBoundary(padapter);
 
@@ -744,11 +724,6 @@ u32 rtl8723bs_hal_init(struct adapter *padapter)
 
 	rtw_hal_set_chnl_bw(padapter, padapter->registrypriv.channel,
 		CHANNEL_WIDTH_20, HAL_PRIME_CHNL_OFFSET_DONT_CARE, HAL_PRIME_CHNL_OFFSET_DONT_CARE);
-
-	/*  Record original value for template. This is arough data, we can only use the data */
-	/*  for power adjust. The value can not be adjustde according to different power!!! */
-/* 	pHalData->OriginalCckTxPwrIdx = pHalData->CurrentCckTxPwrIdx; */
-/* 	pHalData->OriginalOfdm24GTxPwrIdx = pHalData->CurrentOfdm24GTxPwrIdx; */
 
 	rtl8723b_InitAntenna_Selection(padapter);
 
@@ -790,8 +765,6 @@ u32 rtl8723bs_hal_init(struct adapter *padapter)
 
 	/* ack for xmit mgmt frames. */
 	rtw_write32(padapter, REG_FWHW_TXQ_CTRL, rtw_read32(padapter, REG_FWHW_TXQ_CTRL) | BIT(12));
-
-/* 	pHalData->PreRpwmVal = SdioLocalCmd52Read1Byte(padapter, SDIO_REG_HRPWM1) & 0x80; */
 
 	{
 		pwrctrlpriv->rf_pwrstate = rf_on;
@@ -1079,8 +1052,6 @@ static void _ReadPROMContent(struct adapter *padapter)
 	/*  To check system boot selection. */
 	pEEPROM->EepromOrEfuse = (eeValue & BOOT_FROM_EEPROM) ? true : false;
 	pEEPROM->bautoload_fail_flag = (eeValue & EEPROM_EN) ? false : true;
-
-/* 	pHalData->EEType = IS_BOOT_FROM_EEPROM(Adapter) ? EEPROM_93C46 : EEPROM_BOOT_EFUSE; */
 
 	_ReadEfuseInfo8723BS(padapter);
 }
