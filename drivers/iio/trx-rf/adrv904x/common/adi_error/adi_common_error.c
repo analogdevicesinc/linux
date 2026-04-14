@@ -40,7 +40,7 @@
                                                                         errPtr->stackTrace[frameIdx].varInfo.varName,                           \
                                                                         errPtr->stackTrace[frameIdx].varInfo.varData);
 
-ADI_API adi_common_ErrAction_e adi_common_ErrReport(const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrReport(const adi_common_Device_t* const    commonDev,
                                                     const uint32_t                      errSource,
                                                     const adi_common_ErrAction_e        action,
                                                     const int64_t                       errCode,
@@ -95,7 +95,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrReport(const adi_common_Device_t* c
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_ErrMsgReport( const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrMsgReport( const adi_common_Device_t* const    commonDev,
                                                         const char*                         errCausePtr,
                                                         const char*                         errActionMsgPtr)
 {
@@ -114,7 +114,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrMsgReport( const adi_common_Device_
     return ADI_COMMON_ERR_ACT_NONE;
 }
 
-ADI_API void adi_common_ErrStandardOutputWrite(const adi_common_ErrData_t* const errData)
+ADI_API void adrv904x_common_ErrStandardOutputWrite(const adi_common_ErrData_t* const errData)
 {
     uint32_t idx = 0U;
 
@@ -131,7 +131,7 @@ ADI_API void adi_common_ErrStandardOutputWrite(const adi_common_ErrData_t* const
 }
 
 
-ADI_API adi_common_ErrData_t* adi_common_ErrCreate(void)
+ADI_API adi_common_ErrData_t* adrv904x_common_ErrCreate(void)
 {
     adi_common_ErrData_t* errDataPtr = (adi_common_ErrData_t*)ADI_LIBRARY_CALLOC(1, sizeof(adi_common_ErrData_t));
 
@@ -143,7 +143,7 @@ ADI_API adi_common_ErrData_t* adi_common_ErrCreate(void)
     return errDataPtr;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_ErrAssign(adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrAssign(adi_common_Device_t* const  commonDev,
                                                     adi_common_ErrData_t* const errDataPtr)
 {
     adi_common_ErrAction_e recoveryAction = ADI_COMMON_ERR_ACT_CHECK_PARAM;
@@ -158,7 +158,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrAssign(adi_common_Device_t* const  
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_ErrDestroy(adi_common_ErrData_t* errDataPtr)
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrDestroy(adi_common_ErrData_t* errDataPtr)
 {
     adi_common_ErrAction_e recoveryAction = ADI_COMMON_ERR_ACT_CHECK_PARAM;
 
@@ -177,7 +177,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrDestroy(adi_common_ErrData_t* errDa
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_ErrClear(adi_common_ErrData_t* const errDataPtr)
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrClear(adi_common_ErrData_t* const errDataPtr)
 {
     uint32_t idx = 0U;
 
@@ -210,7 +210,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrClear(adi_common_ErrData_t* const e
     return ADI_COMMON_ERR_ACT_NONE;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_ErrFrameGet(  const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrFrameGet(  const adi_common_Device_t* const    commonDev,
                                                         const adi_common_ErrFrameId_e       frameId,
                                                         adi_common_ErrFrame_t* const        errFrame)
 {
@@ -248,7 +248,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrFrameGet(  const adi_common_Device_
     return ADI_COMMON_ERR_ACT_NONE;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_ErrorGet( const int64_t                   errCode,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrorGet( const int64_t                   errCode,
                                                     const char** const              errMsgPtr,
                                                     adi_common_ErrAction_e* const   action)
 {
@@ -286,7 +286,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrorGet( const int64_t               
 }
 
 
-ADI_API adi_common_ErrAction_e adi_common_ErrInfoGet(   const adi_common_ErrSources_e       errSrc,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrInfoGet(   const adi_common_ErrSources_e       errSrc,
                                                         const int64_t                       errCode,
                                                         const char** const                  errMsgPtr,
                                                         adi_common_ErrAction_e* const       errAction)
@@ -308,7 +308,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrInfoGet(   const adi_common_ErrSour
     case ADI_COMMON_ERRSRC_DEVICEHAL:
     case ADI_COMMON_ERRSRC_DEVICEBF:
         /* All Using Same Generic Error Codes */
-        recoveryAction = adi_common_ErrorGet(errCode, errMsgPtr, errAction);
+        recoveryAction = adrv904x_common_ErrorGet(errCode, errMsgPtr, errAction);
         break;
 
     case ADI_COMMON_ERRSRC_NONE:
