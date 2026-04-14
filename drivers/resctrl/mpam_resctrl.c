@@ -22,7 +22,7 @@
 
 #include "mpam_internal.h"
 
-DECLARE_WAIT_QUEUE_HEAD(resctrl_mon_ctx_waiters);
+static DECLARE_WAIT_QUEUE_HEAD(resctrl_mon_ctx_waiters);
 
 /*
  * The classes we've picked to map to resctrl resources, wrapped
