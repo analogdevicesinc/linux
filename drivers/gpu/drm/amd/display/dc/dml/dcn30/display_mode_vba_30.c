@@ -630,7 +630,7 @@ static unsigned int dscceComputeDelay(
 		pixelsPerClock = 1;
 
 	//initial transmit delay as per PPS
-	initalXmitDelay = dml_round(rcModelSize / 2.0 / BPP / pixelsPerClock);
+	initalXmitDelay = (unsigned int)dml_round(rcModelSize / 2.0 / BPP / pixelsPerClock);
 
 	//compute ssm delay
 	if (bpc == 8)
@@ -866,13 +866,13 @@ static bool CalculatePrefetchSchedule(
 	v->Tdmdl_vm[k] = (v->DynamicMetadataEnable[k] == true && v->DynamicMetadataVMEnabled == true && v->GPUVMEnable == true ? TWait + Tvm_trips : 0);
 
 	if (myPipe->ScalerEnabled)
-		DPPCycles = DPPCLKDelaySubtotalPlusCNVCFormater + v->DPPCLKDelaySCL;
+		DPPCycles = (unsigned int)(DPPCLKDelaySubtotalPlusCNVCFormater + v->DPPCLKDelaySCL);
 	else
-		DPPCycles = DPPCLKDelaySubtotalPlusCNVCFormater + v->DPPCLKDelaySCLLBOnly;
+		DPPCycles = (unsigned int)(DPPCLKDelaySubtotalPlusCNVCFormater + v->DPPCLKDelaySCLLBOnly);
 
-	DPPCycles = DPPCycles + myPipe->NumberOfCursors * v->DPPCLKDelayCNVCCursor;
+	DPPCycles = (unsigned int)(DPPCycles + myPipe->NumberOfCursors * v->DPPCLKDelayCNVCCursor);
 
-	DISPCLKCycles = v->DISPCLKDelaySubtotal;
+	DISPCLKCycles = (unsigned int)v->DISPCLKDelaySubtotal;
 
 	if (myPipe->DPPCLK == 0.0 || myPipe->DISPCLK == 0.0)
 		return true;
@@ -1302,14 +1302,14 @@ static void CalculateDCCConfiguration(
 		horz_div_c = 0;
 
 	if (BytePerPixelC == 0) {
-		swath_buf_size = DETBufferSize / 2 - 2 * 256;
+		swath_buf_size = (long)(DETBufferSize / 2 - 2 * 256);
 		detile_buf_vp_horz_limit = (double) swath_buf_size
 				/ ((double) RequestHeight256ByteLuma * BytePerPixelY
 						/ (1 + horz_div_l));
 		detile_buf_vp_vert_limit = (double) swath_buf_size
 				/ (256.0 / RequestHeight256ByteLuma / (1 + vert_div_l));
 	} else {
-		swath_buf_size = DETBufferSize / 2 - 2 * 2 * 256;
+		swath_buf_size = (long)(DETBufferSize / 2 - 2 * 2 * 256);
 		detile_buf_vp_horz_limit = (double) swath_buf_size
 				/ ((double) RequestHeight256ByteLuma * BytePerPixelY
 						/ (1 + horz_div_l)
@@ -1332,8 +1332,8 @@ static void CalculateDCCConfiguration(
 
 	MAS_vp_horz_limit = 5760;
 	MAS_vp_vert_limit = (BytePerPixelC > 0 ? 2880 : 5760);
-	max_vp_horz_width = dml_min((double) MAS_vp_horz_limit, detile_buf_vp_horz_limit);
-	max_vp_vert_height = dml_min((double) MAS_vp_vert_limit, detile_buf_vp_vert_limit);
+	max_vp_horz_width = (long)dml_min((double) MAS_vp_horz_limit, detile_buf_vp_horz_limit);
+	max_vp_vert_height = (long)dml_min((double) MAS_vp_vert_limit, detile_buf_vp_vert_limit);
 	eff_surf_width_l =
 			(SurfaceWidthLuma > max_vp_horz_width ? max_vp_horz_width : SurfaceWidthLuma);
 	eff_surf_width_c = eff_surf_width_l / (1 + yuv420);
@@ -1354,10 +1354,10 @@ static void CalculateDCCConfiguration(
 	}
 
 	if (SourcePixelFormat == dm_420_10) {
-		full_swath_bytes_horz_wc_l = dml_ceil(full_swath_bytes_horz_wc_l * 2 / 3, 256);
-		full_swath_bytes_horz_wc_c = dml_ceil(full_swath_bytes_horz_wc_c * 2 / 3, 256);
-		full_swath_bytes_vert_wc_l = dml_ceil(full_swath_bytes_vert_wc_l * 2 / 3, 256);
-		full_swath_bytes_vert_wc_c = dml_ceil(full_swath_bytes_vert_wc_c * 2 / 3, 256);
+		full_swath_bytes_horz_wc_l = (long)dml_ceil(full_swath_bytes_horz_wc_l * 2 / 3, 256);
+		full_swath_bytes_horz_wc_c = (long)dml_ceil(full_swath_bytes_horz_wc_c * 2 / 3, 256);
+		full_swath_bytes_vert_wc_l = (long)dml_ceil(full_swath_bytes_vert_wc_l * 2 / 3, 256);
+		full_swath_bytes_vert_wc_c = (long)dml_ceil(full_swath_bytes_vert_wc_c * 2 / 3, 256);
 	}
 
 	if (2 * full_swath_bytes_horz_wc_l + 2 * full_swath_bytes_horz_wc_c <= DETBufferSize) {
@@ -1537,14 +1537,14 @@ static double CalculatePrefetchSourceLines(
 
 	if (!mode_lib->vba.IgnoreViewportPositioning) {
 
-		*MaxNumSwath = dml_ceil((*VInitPreFill - 1.0) / SwathHeight, 1) + 1.0;
+		*MaxNumSwath = (unsigned int)(dml_ceil((*VInitPreFill - 1.0) / SwathHeight, 1) + 1.0);
 
 		if (*VInitPreFill > 1.0)
 			MaxPartialSwath = (unsigned int) (*VInitPreFill - 2) % SwathHeight;
 		else
 			MaxPartialSwath = (unsigned int) (*VInitPreFill + SwathHeight - 2)
 					% SwathHeight;
-		MaxPartialSwath = dml_max(1U, MaxPartialSwath);
+		MaxPartialSwath = (unsigned int)dml_max(1U, MaxPartialSwath);
 
 	} else {
 
@@ -1552,7 +1552,7 @@ static double CalculatePrefetchSourceLines(
 			dml_print(
 					"WARNING DML: using viewport y position of 0 even though actual viewport y position is non-zero in prefetch source lines calculation\n");
 
-		*MaxNumSwath = dml_ceil(*VInitPreFill / SwathHeight, 1);
+		*MaxNumSwath = (unsigned int)dml_ceil(*VInitPreFill / SwathHeight, 1);
 
 		if (*VInitPreFill > 1.0)
 			MaxPartialSwath = (unsigned int) (*VInitPreFill - 1) % SwathHeight;
@@ -1617,9 +1617,9 @@ static unsigned int CalculateVMAndRowBytes(
 		if (HostVMMinPageSize < 2048) {
 			HostVMDynamicLevels = HostVMMaxNonCachedPageTableLevels;
 		} else if (HostVMMinPageSize >= 2048 && HostVMMinPageSize < 1048576) {
-			HostVMDynamicLevels = dml_max(0, (int) HostVMMaxNonCachedPageTableLevels - 1);
+			HostVMDynamicLevels = (unsigned int)dml_max(0, (int) HostVMMaxNonCachedPageTableLevels - 1);
 		} else {
-			HostVMDynamicLevels = dml_max(0, (int) HostVMMaxNonCachedPageTableLevels - 2);
+			HostVMDynamicLevels = (unsigned int)dml_max(0, (int) HostVMMaxNonCachedPageTableLevels - 2);
 		}
 	}
 
@@ -1627,19 +1627,19 @@ static unsigned int CalculateVMAndRowBytes(
 	*MetaRequestWidth = 8 * BlockWidth256Bytes;
 	if (ScanDirection != dm_vert) {
 		*meta_row_height = *MetaRequestHeight;
-		*meta_row_width = dml_ceil((double) SwathWidth - 1, *MetaRequestWidth)
-				+ *MetaRequestWidth;
-		*MetaRowByte = *meta_row_width * *MetaRequestHeight * BytePerPixel / 256.0;
+		*meta_row_width = (unsigned int)(dml_ceil((double) SwathWidth - 1, *MetaRequestWidth)
+				+ *MetaRequestWidth);
+		*MetaRowByte = (unsigned int)(*meta_row_width * *MetaRequestHeight * BytePerPixel / 256.0);
 	} else {
 		*meta_row_height = *MetaRequestWidth;
-		*meta_row_width = dml_ceil((double) SwathWidth - 1, *MetaRequestHeight)
-				+ *MetaRequestHeight;
-		*MetaRowByte = *meta_row_width * *MetaRequestWidth * BytePerPixel / 256.0;
+		*meta_row_width = (unsigned int)(dml_ceil((double) SwathWidth - 1, *MetaRequestHeight)
+				+ *MetaRequestHeight);
+		*MetaRowByte = (unsigned int)(*meta_row_width * *MetaRequestWidth * BytePerPixel / 256.0);
 	}
-	DCCMetaSurfaceBytes = DCCMetaPitch * (dml_ceil(ViewportHeight - 1, 64 * BlockHeight256Bytes)
-					+ 64 * BlockHeight256Bytes) * BytePerPixel / 256;
+	DCCMetaSurfaceBytes = (unsigned int)(DCCMetaPitch * (dml_ceil(ViewportHeight - 1, 64 * BlockHeight256Bytes)
+					+ 64 * BlockHeight256Bytes) * BytePerPixel / 256);
 	if (GPUVMEnable == true) {
-		*MetaPTEBytesFrame = (dml_ceil((double) (DCCMetaSurfaceBytes - 4.0 * 1024.0) / (8 * 4.0 * 1024), 1) + 1) * 64;
+		*MetaPTEBytesFrame = (unsigned int)((dml_ceil((double) (DCCMetaSurfaceBytes - 4.0 * 1024.0) / (8 * 4.0 * 1024), 1) + 1) * 64);
 		MPDEBytesFrame = 128 * (mode_lib->vba.GPUVMMaxPageTableLevels - 1);
 	} else {
 		*MetaPTEBytesFrame = 0;
@@ -1663,9 +1663,9 @@ static unsigned int CalculateVMAndRowBytes(
 
 	if (GPUVMEnable == true && mode_lib->vba.GPUVMMaxPageTableLevels > 1) {
 		if (ScanDirection != dm_vert) {
-			*DPDE0BytesFrame = 64 * (dml_ceil(((Pitch * (dml_ceil(ViewportHeight - 1, MacroTileHeight) + MacroTileHeight) * BytePerPixel) - MacroTileSizeBytes) / (8 * 2097152), 1) + 1);
+			*DPDE0BytesFrame = (unsigned int)(64 * (dml_ceil(((Pitch * (dml_ceil(ViewportHeight - 1, MacroTileHeight) + MacroTileHeight) * BytePerPixel) - MacroTileSizeBytes) / (8 * 2097152), 1) + 1));
 		} else {
-			*DPDE0BytesFrame = 64 * (dml_ceil(((Pitch * (dml_ceil((double) SwathWidth - 1, MacroTileHeight) + MacroTileHeight) * BytePerPixel) - MacroTileSizeBytes) / (8 * 2097152), 1) + 1);
+			*DPDE0BytesFrame = (unsigned int)(64 * (dml_ceil(((Pitch * (dml_ceil((double) SwathWidth - 1, MacroTileHeight) + MacroTileHeight) * BytePerPixel) - MacroTileSizeBytes) / (8 * 2097152), 1) + 1));
 		}
 		ExtraDPDEBytesFrame = 128 * (mode_lib->vba.GPUVMMaxPageTableLevels - 2);
 	} else {
@@ -1683,7 +1683,7 @@ static unsigned int CalculateVMAndRowBytes(
 	if (SurfaceTiling == dm_sw_linear) {
 		PixelPTEReqHeightPTEs = 1;
 		*PixelPTEReqHeight = 1;
-		*PixelPTEReqWidth = 32768.0 / BytePerPixel;
+		*PixelPTEReqWidth = (unsigned int)(32768.0 / BytePerPixel);
 		*PTERequestSize = 64;
 		FractionOfPTEReturnDrop = 0;
 	} else if (GPUVMMinPageSize == 4 && MacroTileSizeBytes > 4096) {
@@ -1704,16 +1704,16 @@ static unsigned int CalculateVMAndRowBytes(
 		if (PTEBufferSizeInRequests == 0)
 			*dpte_row_height = 1;
 		else
-			*dpte_row_height = dml_min(128, 1 << (unsigned int) dml_floor(dml_log2(PTEBufferSizeInRequests * *PixelPTEReqWidth / Pitch), 1));
-		*dpte_row_width_ub = (dml_ceil(((double) SwathWidth - 1) / *PixelPTEReqWidth, 1) + 1) * *PixelPTEReqWidth;
+			*dpte_row_height = (unsigned int)dml_min(128, 1 << (unsigned int) dml_floor(dml_log2(PTEBufferSizeInRequests * *PixelPTEReqWidth / Pitch), 1));
+		*dpte_row_width_ub = (unsigned int)((dml_ceil(((double) SwathWidth - 1) / *PixelPTEReqWidth, 1) + 1) * *PixelPTEReqWidth);
 		*PixelPTEBytesPerRow = *dpte_row_width_ub / *PixelPTEReqWidth * *PTERequestSize;
 	} else if (ScanDirection != dm_vert) {
 		*dpte_row_height = *PixelPTEReqHeight;
-		*dpte_row_width_ub = (dml_ceil((double) (SwathWidth - 1) / *PixelPTEReqWidth, 1) + 1) * *PixelPTEReqWidth;
+		*dpte_row_width_ub = (unsigned int)((dml_ceil((double) (SwathWidth - 1) / *PixelPTEReqWidth, 1) + 1) * *PixelPTEReqWidth);
 		*PixelPTEBytesPerRow = *dpte_row_width_ub / *PixelPTEReqWidth * *PTERequestSize;
 	} else {
-		*dpte_row_height = dml_min(*PixelPTEReqWidth, *MacroTileWidth);
-		*dpte_row_width_ub = (dml_ceil((double) (SwathWidth - 1) / *PixelPTEReqHeight, 1) + 1) * *PixelPTEReqHeight;
+		*dpte_row_height = (unsigned int)dml_min(*PixelPTEReqWidth, *MacroTileWidth);
+		*dpte_row_width_ub = (unsigned int)((dml_ceil((double) (SwathWidth - 1) / *PixelPTEReqHeight, 1) + 1) * *PixelPTEReqHeight);
 		*PixelPTEBytesPerRow = *dpte_row_width_ub / *PixelPTEReqHeight * *PTERequestSize;
 	}
 	if (*PixelPTEBytesPerRow * (1 - FractionOfPTEReturnDrop)
@@ -1793,9 +1793,9 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 						v->WritebackHTaps[k],
 						v->WritebackVTaps[k],
 						v->WritebackSourceWidth[k],
-						v->WritebackDestinationWidth[k],
+						(long)v->WritebackDestinationWidth[k],
 						v->HTotal[k],
-						v->WritebackLineBufferSize));
+						(unsigned int)v->WritebackLineBufferSize));
 		}
 	}
 
@@ -2002,7 +2002,7 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 			v->DPPCLK,
 			v->ReadBandwidthPlaneLuma,
 			v->ReadBandwidthPlaneChroma,
-			v->ReturnBusWidth,
+			(int)v->ReturnBusWidth,
 			&v->DCFCLKDeepSleep);
 
 	// DSCCLK
@@ -2038,7 +2038,7 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 			if (v->ODMCombineEnabled[k] == dm_odm_combine_mode_disabled) {
 				v->DSCDelay[k] = dscceComputeDelay(v->DSCInputBitPerComponent[k],
 						BPP,
-						dml_ceil((double) v->HActive[k] / v->NumberOfDSCSlices[k], 1),
+						(unsigned int)dml_ceil((double) v->HActive[k] / v->NumberOfDSCSlices[k], 1),
 						v->NumberOfDSCSlices[k],
 						v->OutputFormat[k],
 						v->Output[k])
@@ -2046,21 +2046,21 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 			} else if (v->ODMCombineEnabled[k] == dm_odm_combine_mode_2to1) {
 				v->DSCDelay[k] = 2 * dscceComputeDelay(v->DSCInputBitPerComponent[k],
 						BPP,
-						dml_ceil((double) v->HActive[k] / v->NumberOfDSCSlices[k], 1),
-						v->NumberOfDSCSlices[k] / 2.0,
+						(unsigned int)dml_ceil((double) v->HActive[k] / v->NumberOfDSCSlices[k], 1),
+						(unsigned int)(v->NumberOfDSCSlices[k] / 2.0),
 						v->OutputFormat[k],
 						v->Output[k])
 					+ dscComputeDelay(v->OutputFormat[k], v->Output[k]);
 			} else {
 				v->DSCDelay[k] = 4 * dscceComputeDelay(v->DSCInputBitPerComponent[k],
 						BPP,
-						dml_ceil((double) v->HActive[k] / v->NumberOfDSCSlices[k], 1),
-						v->NumberOfDSCSlices[k] / 4.0,
+						(unsigned int)dml_ceil((double) v->HActive[k] / v->NumberOfDSCSlices[k], 1),
+						(unsigned int)(v->NumberOfDSCSlices[k] / 4.0),
 						v->OutputFormat[k],
 						v->Output[k])
 					+ dscComputeDelay(v->OutputFormat[k], v->Output[k]);
 			}
-			v->DSCDelay[k] = v->DSCDelay[k] * v->PixelClock[k] / v->PixelClockBackEnd[k];
+			v->DSCDelay[k] = (unsigned int)(v->DSCDelay[k] * v->PixelClock[k] / v->PixelClockBackEnd[k]);
 		} else {
 			v->DSCDelay[k] = 0;
 		}
@@ -2102,13 +2102,13 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 					v->SurfaceTiling[k],
 					v->BytePerPixelC[k],
 					v->SourceScan[k],
-					v->SwathWidthC[k],
+					(unsigned int)v->SwathWidthC[k],
 					v->ViewportHeightChroma[k],
 					v->GPUVMEnable,
 					v->HostVMEnable,
 					v->HostVMMaxNonCachedPageTableLevels,
-					v->GPUVMMinPageSize,
-					v->HostVMMinPageSize,
+					(unsigned int)v->GPUVMMinPageSize,
+					(unsigned int)v->HostVMMinPageSize,
 					v->PTEBufferSizeInRequestsForChroma,
 					v->PitchC[k],
 					v->DCCMetaPitchC[k],
@@ -2159,13 +2159,13 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 				v->SurfaceTiling[k],
 				v->BytePerPixelY[k],
 				v->SourceScan[k],
-				v->SwathWidthY[k],
+				(unsigned int)v->SwathWidthY[k],
 				v->ViewportHeight[k],
 				v->GPUVMEnable,
 				v->HostVMEnable,
 				v->HostVMMaxNonCachedPageTableLevels,
-				v->GPUVMMinPageSize,
-				v->HostVMMinPageSize,
+				(unsigned int)v->GPUVMMinPageSize,
+				(unsigned int)v->HostVMMinPageSize,
 				v->PTEBufferSizeInRequestsForLuma,
 				v->PitchY[k],
 				v->DCCMetaPitchY[k],
@@ -2232,13 +2232,13 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 	}
 
 
-	ReorderBytes = v->NumberOfChannels * dml_max3(
+	ReorderBytes = (long)(v->NumberOfChannels * dml_max3(
 		v->UrgentOutOfOrderReturnPerChannelPixelDataOnly,
 		v->UrgentOutOfOrderReturnPerChannelPixelMixedWithVMData,
-		v->UrgentOutOfOrderReturnPerChannelVMDataOnly);
+		v->UrgentOutOfOrderReturnPerChannelVMDataOnly));
 
 	v->UrgentExtraLatency = CalculateExtraLatency(
-		v->RoundTripPingLatencyCycles,
+		(long)v->RoundTripPingLatencyCycles,
 		ReorderBytes,
 		v->DCFCLK,
 		v->TotalActiveDPP,
@@ -2266,9 +2266,9 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 									v->WritebackHRatio[k],
 									v->WritebackVRatio[k],
 									v->WritebackVTaps[k],
-									v->WritebackDestinationWidth[k],
-									v->WritebackDestinationHeight[k],
-									v->WritebackSourceHeight[k],
+									(long)v->WritebackDestinationWidth[k],
+									(long)v->WritebackDestinationHeight[k],
+									(long)v->WritebackSourceHeight[k],
 									v->HTotal[k]) / v->DISPCLK;
 			} else
 				v->WritebackDelay[v->VoltageLevel][k] = 0;
@@ -2281,9 +2281,9 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 											v->WritebackHRatio[j],
 											v->WritebackVRatio[j],
 											v->WritebackVTaps[j],
-											v->WritebackDestinationWidth[j],
-											v->WritebackDestinationHeight[j],
-											v->WritebackSourceHeight[j],
+											(long)v->WritebackDestinationWidth[j],
+											(long)v->WritebackDestinationHeight[j],
+											(long)v->WritebackSourceHeight[j],
 											v->HTotal[k]) / v->DISPCLK);
 				}
 			}
@@ -2296,12 +2296,12 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 				v->WritebackDelay[v->VoltageLevel][k] = v->WritebackDelay[v->VoltageLevel][j];
 
 	for (k = 0; k < v->NumberOfActivePlanes; ++k) {
-		v->MaxVStartupLines[k] = v->VTotal[k] - v->VActive[k] - dml_max(1.0, dml_ceil((double) v->WritebackDelay[v->VoltageLevel][k] / (v->HTotal[k] / v->PixelClock[k]), 1));
+		v->MaxVStartupLines[k] = (unsigned int)(v->VTotal[k] - v->VActive[k] - dml_max(1.0, dml_ceil((double) v->WritebackDelay[v->VoltageLevel][k] / (v->HTotal[k] / v->PixelClock[k]), 1)));
 	}
 
 	v->MaximumMaxVStartupLines = 0;
 	for (k = 0; k < v->NumberOfActivePlanes; ++k)
-		v->MaximumMaxVStartupLines = dml_max(v->MaximumMaxVStartupLines, v->MaxVStartupLines[k]);
+		v->MaximumMaxVStartupLines = (unsigned int)dml_max(v->MaximumMaxVStartupLines, v->MaxVStartupLines[k]);
 
 	if (v->DRAMClockChangeLatencyOverride > 0.0) {
 		v->FinalDRAMClockChangeLatency = v->DRAMClockChangeLatencyOverride;
@@ -2354,21 +2354,21 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 					&myPipe,
 					v->DSCDelay[k],
 					(unsigned int) (v->SwathWidthY[k] / v->HRatio[k]),
-					dml_min(v->VStartupLines, v->MaxVStartupLines[k]),
+					(unsigned int)dml_min(v->VStartupLines, v->MaxVStartupLines[k]),
 					v->MaxVStartupLines[k],
 					v->UrgentLatency,
 					v->UrgentExtraLatency,
 					v->TCalc,
-					v->PDEAndMetaPTEBytesFrame[k],
-					v->MetaRowByte[k],
-					v->PixelPTEBytesPerRow[k],
+					(unsigned int)v->PDEAndMetaPTEBytesFrame[k],
+					(unsigned int)v->MetaRowByte[k],
+					(unsigned int)v->PixelPTEBytesPerRow[k],
 					v->PrefetchSourceLinesY[k],
-					v->SwathWidthY[k],
+					(unsigned int)v->SwathWidthY[k],
 					v->BytePerPixelY[k],
 					v->VInitPreFillY[k],
 					v->MaxNumSwathY[k],
 					v->PrefetchSourceLinesC[k],
-					v->SwathWidthC[k],
+					(unsigned int)v->SwathWidthC[k],
 					v->VInitPreFillC[k],
 					v->MaxNumSwathC[k],
 					v->swath_width_luma_ub[k],
@@ -2389,17 +2389,17 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 				double TotalRepeaterDelayTime = v->MaxInterDCNTileRepeaters * (2 / v->DPPCLK[k] + 3 / v->DISPCLK);
 				v->VUpdateWidthPix[k] = (14 / v->DCFCLKDeepSleep + 12 / v->DPPCLK[k] + TotalRepeaterDelayTime) * v->PixelClock[k];
 				v->VReadyOffsetPix[k] = dml_max(150.0 / v->DPPCLK[k], TotalRepeaterDelayTime + 20 / v->DCFCLKDeepSleep + 10 / v->DPPCLK[k]) * v->PixelClock[k];
-				v->VUpdateOffsetPix[k] = dml_ceil(v->HTotal[k] / 4.0, 1);
-				v->VStartup[k] = dml_min(v->VStartupLines, v->MaxVStartupLines[k]);
+				v->VUpdateOffsetPix[k] = (unsigned int)dml_ceil(v->HTotal[k] / 4.0, 1);
+				v->VStartup[k] = (unsigned int)dml_min(v->VStartupLines, v->MaxVStartupLines[k]);
 			} else {
 				int x = v->BlendingAndTiming[k];
 				double TotalRepeaterDelayTime = v->MaxInterDCNTileRepeaters * (2 / v->DPPCLK[k] + 3 / v->DISPCLK);
 				v->VUpdateWidthPix[k] = (14 / v->DCFCLKDeepSleep + 12 / v->DPPCLK[k] + TotalRepeaterDelayTime) * v->PixelClock[x];
 				v->VReadyOffsetPix[k] = dml_max(150.0 / v->DPPCLK[k], TotalRepeaterDelayTime + 20 / v->DCFCLKDeepSleep + 10 / v->DPPCLK[k]) * v->PixelClock[x];
-				v->VUpdateOffsetPix[k] = dml_ceil(v->HTotal[x] / 4.0, 1);
+				v->VUpdateOffsetPix[k] = (unsigned int)dml_ceil(v->HTotal[x] / 4.0, 1);
 				if (!v->MaxVStartupLines[x])
 					v->MaxVStartupLines[x] = v->MaxVStartupLines[k];
-				v->VStartup[k] = dml_min(v->VStartupLines, v->MaxVStartupLines[x]);
+				v->VStartup[k] = (unsigned int)dml_min(v->VStartupLines, v->MaxVStartupLines[x]);
 			}
 		}
 
@@ -2524,7 +2524,7 @@ static void DISPCLKDPPCLKDCFCLKDeepSleepPrefetchParametersWatermarksAndPerforman
 
 			v->TotImmediateFlipBytes = 0;
 			for (k = 0; k < v->NumberOfActivePlanes; ++k) {
-				v->TotImmediateFlipBytes = v->TotImmediateFlipBytes + v->DPPPerPlane[k] * (v->PDEAndMetaPTEBytesFrame[k] + v->MetaRowByte[k] + v->PixelPTEBytesPerRow[k]);
+				v->TotImmediateFlipBytes = (unsigned int)(v->TotImmediateFlipBytes + v->DPPPerPlane[k] * (v->PDEAndMetaPTEBytesFrame[k] + v->MetaRowByte[k] + v->PixelPTEBytesPerRow[k]));
 			}
 			for (k = 0; k < v->NumberOfActivePlanes; ++k) {
 				CalculateFlipSchedule(
@@ -3590,9 +3590,9 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 							v->WritebackHTaps[k],
 							v->WritebackVTaps[k],
 							v->WritebackSourceWidth[k],
-							v->WritebackDestinationWidth[k],
+							(long)v->WritebackDestinationWidth[k],
 							v->HTotal[k],
-							v->WritebackLineBufferSize));
+							(unsigned int)v->WritebackLineBufferSize));
 		}
 	}
 	for (k = 0; k <= v->NumberOfActivePlanes - 1; k++) {
@@ -3631,15 +3631,15 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 		int MaximumSwathWidthSupportChroma = 0;
 
 		if (v->SurfaceTiling[k] == dm_sw_linear) {
-			MaximumSwathWidthSupportLuma = 8192.0;
+			MaximumSwathWidthSupportLuma = (int)8192.0;
 		} else if (v->SourceScan[k] == dm_vert && v->BytePerPixelC[k] > 0) {
-			MaximumSwathWidthSupportLuma = 2880.0;
+			MaximumSwathWidthSupportLuma = (int)2880.0;
 		} else {
-			MaximumSwathWidthSupportLuma = 5760.0;
+			MaximumSwathWidthSupportLuma = (int)5760.0;
 		}
 
 		if (v->SourcePixelFormat[k] == dm_420_8 || v->SourcePixelFormat[k] == dm_420_10 || v->SourcePixelFormat[k] == dm_420_12) {
-			MaximumSwathWidthSupportChroma = MaximumSwathWidthSupportLuma / 2.0;
+			MaximumSwathWidthSupportChroma = (int)(MaximumSwathWidthSupportLuma / 2.0);
 		} else {
 			MaximumSwathWidthSupportChroma = MaximumSwathWidthSupportLuma;
 		}
@@ -3837,7 +3837,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 						v->DISPCLK_DPPCLK_Support[i][j] = false;
 					}
 				}
-				v->TotalNumberOfActiveDPP[i][j] = 0.0;
+				v->TotalNumberOfActiveDPP[i][j] = (unsigned int)0.0;
 				for (k = 0; k <= v->NumberOfActivePlanes - 1; k++) {
 					v->TotalNumberOfActiveDPP[i][j] = v->TotalNumberOfActiveDPP[i][j] + v->NoOfDPP[i][j][k];
 				}
@@ -3875,7 +3875,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 	for (k = 0; k < v->NumberOfActivePlanes; ++k) {
 		if (v->BlendingAndTiming[k] == k) {
 			if (v->PixelClockBackEnd[k] > 3200) {
-				v->NumberOfDSCSlices[k] = dml_ceil(v->PixelClockBackEnd[k] / 400.0, 4.0);
+				v->NumberOfDSCSlices[k] = (unsigned int)dml_ceil(v->PixelClockBackEnd[k] / 400.0, 4.0);
 			} else if (v->PixelClockBackEnd[k] > 1360) {
 				v->NumberOfDSCSlices[k] = 8;
 			} else if (v->PixelClockBackEnd[k] > 680) {
@@ -3932,7 +3932,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 					if (v->PHYCLKPerState[i] >= 270.0) {
 						v->Outbpp = TruncToValidBPP(
 								(1.0 - v->Downspreading / 100.0) * 2700,
-								v->OutputLinkDPLanes[k],
+								(int)v->OutputLinkDPLanes[k],
 								v->HTotal[k],
 								v->HActive[k],
 								v->PixelClockBackEnd[k],
@@ -3952,7 +3952,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 					if (v->Outbpp == BPP_INVALID && v->PHYCLKPerState[i] >= 540.0) {
 						v->Outbpp = TruncToValidBPP(
 								(1.0 - v->Downspreading / 100.0) * 5400,
-								v->OutputLinkDPLanes[k],
+								(int)v->OutputLinkDPLanes[k],
 								v->HTotal[k],
 								v->HActive[k],
 								v->PixelClockBackEnd[k],
@@ -3972,7 +3972,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 					if (v->Outbpp == BPP_INVALID && v->PHYCLKPerState[i] >= 810.0) {
 						v->Outbpp = TruncToValidBPP(
 								(1.0 - v->Downspreading / 100.0) * 8100,
-								v->OutputLinkDPLanes[k],
+								(int)v->OutputLinkDPLanes[k],
 								v->HTotal[k],
 								v->HActive[k],
 								v->PixelClockBackEnd[k],
@@ -3994,7 +3994,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 							}
 							v->Outbpp = TruncToValidBPP(
 									(1.0 - v->Downspreading / 100.0) * 8100,
-									v->OutputLinkDPLanes[k],
+									(int)v->OutputLinkDPLanes[k],
 									v->HTotal[k],
 									v->HActive[k],
 									v->PixelClockBackEnd[k],
@@ -4073,7 +4073,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 					v->DSCDelayPerState[i][k] = dscceComputeDelay(
 							v->DSCInputBitPerComponent[k],
 							v->BPP,
-							dml_ceil(1.0 * v->HActive[k] / v->NumberOfDSCSlices[k], 1.0),
+							(unsigned int)dml_ceil(1.0 * v->HActive[k] / v->NumberOfDSCSlices[k], 1.0),
 							v->NumberOfDSCSlices[k],
 							v->OutputFormat[k],
 							v->Output[k]) + dscComputeDelay(v->OutputFormat[k], v->Output[k]);
@@ -4082,7 +4082,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 							* dscceComputeDelay(
 									v->DSCInputBitPerComponent[k],
 									v->BPP,
-									dml_ceil(1.0 * v->HActive[k] / v->NumberOfDSCSlices[k], 1.0),
+									(unsigned int)dml_ceil(1.0 * v->HActive[k] / v->NumberOfDSCSlices[k], 1.0),
 									v->NumberOfDSCSlices[k] / 2,
 									v->OutputFormat[k],
 									v->Output[k]) + dscComputeDelay(v->OutputFormat[k], v->Output[k]);
@@ -4091,7 +4091,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 							* (dscceComputeDelay(
 									v->DSCInputBitPerComponent[k],
 									v->BPP,
-									dml_ceil(1.0 * v->HActive[k] / v->NumberOfDSCSlices[k], 1.0),
+									(unsigned int)dml_ceil(1.0 * v->HActive[k] / v->NumberOfDSCSlices[k], 1.0),
 									v->NumberOfDSCSlices[k] / 4,
 									v->OutputFormat[k],
 									v->Output[k]) + dscComputeDelay(v->OutputFormat[k], v->Output[k]));
@@ -4163,8 +4163,8 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 			for (k = 0; k < v->NumberOfActivePlanes; ++k) {
 				v->swath_width_luma_ub_all_states[i][j][k] = v->swath_width_luma_ub_this_state[k];
 				v->swath_width_chroma_ub_all_states[i][j][k] = v->swath_width_chroma_ub_this_state[k];
-				v->SwathWidthYAllStates[i][j][k] = v->SwathWidthYThisState[k];
-				v->SwathWidthCAllStates[i][j][k] = v->SwathWidthCThisState[k];
+				v->SwathWidthYAllStates[i][j][k] = (unsigned int)v->SwathWidthYThisState[k];
+				v->SwathWidthCAllStates[i][j][k] = (unsigned int)v->SwathWidthCThisState[k];
 				v->SwathHeightYAllStates[i][j][k] = v->SwathHeightYThisState[k];
 				v->SwathHeightCAllStates[i][j][k] = v->SwathHeightCThisState[k];
 				v->DETBufferSizeYAllStates[i][j][k] = v->DETBufferSizeYThisState[k];
@@ -4186,8 +4186,8 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 				v->SwathWidthCThisState[k] = v->SwathWidthCAllStates[i][j][k];
 				v->SwathHeightYThisState[k] = v->SwathHeightYAllStates[i][j][k];
 				v->SwathHeightCThisState[k] = v->SwathHeightCAllStates[i][j][k];
-				v->DETBufferSizeYThisState[k] = v->DETBufferSizeYAllStates[i][j][k];
-				v->DETBufferSizeCThisState[k] = v->DETBufferSizeCAllStates[i][j][k];
+				v->DETBufferSizeYThisState[k] = (unsigned int)v->DETBufferSizeYAllStates[i][j][k];
+				v->DETBufferSizeCThisState[k] = (unsigned int)v->DETBufferSizeCAllStates[i][j][k];
 			}
 
 			v->TotalNumberOfDCCActiveDPP[i][j] = 0;
@@ -4218,16 +4218,16 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 							v->SurfaceTiling[k],
 							v->BytePerPixelC[k],
 							v->SourceScan[k],
-							v->SwathWidthCThisState[k],
+							(unsigned int)v->SwathWidthCThisState[k],
 							v->ViewportHeightChroma[k],
 							v->GPUVMEnable,
 							v->HostVMEnable,
 							v->HostVMMaxNonCachedPageTableLevels,
-							v->GPUVMMinPageSize,
-							v->HostVMMinPageSize,
+							(unsigned int)v->GPUVMMinPageSize,
+							(unsigned int)v->HostVMMinPageSize,
 							v->PTEBufferSizeInRequestsForChroma,
 							v->PitchC[k],
-							0.0,
+							(unsigned int)0,
 							&v->MacroTileWidthC[k],
 							&v->MetaRowBytesC,
 							&v->DPTEBytesPerRowC,
@@ -4260,8 +4260,8 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 					v->PTEBufferSizeInRequestsForLuma = v->PTEBufferSizeInRequestsLuma + v->PTEBufferSizeInRequestsChroma;
 					v->PTEBufferSizeInRequestsForChroma = 0;
 					v->PDEAndMetaPTEBytesPerFrameC = 0.0;
-					v->MetaRowBytesC = 0.0;
-					v->DPTEBytesPerRowC = 0.0;
+					v->MetaRowBytesC = (unsigned int)0;
+					v->DPTEBytesPerRowC = (unsigned int)0;
 					v->PrefetchLinesC[i][j][k] = 0.0;
 					v->PTEBufferSizeNotExceededC[i][j][k] = true;
 				}
@@ -4274,13 +4274,13 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 						v->SurfaceTiling[k],
 						v->BytePerPixelY[k],
 						v->SourceScan[k],
-						v->SwathWidthYThisState[k],
+						(unsigned int)v->SwathWidthYThisState[k],
 						v->ViewportHeight[k],
 						v->GPUVMEnable,
 						v->HostVMEnable,
 						v->HostVMMaxNonCachedPageTableLevels,
-						v->GPUVMMinPageSize,
-						v->HostVMMinPageSize,
+						(unsigned int)v->GPUVMMinPageSize,
+						(unsigned int)v->HostVMMinPageSize,
 						v->PTEBufferSizeInRequestsForLuma,
 						v->PitchY[k],
 						v->DCCMetaPitchY[k],
@@ -4408,7 +4408,7 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 					v->RequiredDPPCLKThisState,
 					v->ReadBandwidthLuma,
 					v->ReadBandwidthChroma,
-					v->ReturnBusWidth,
+					(int)v->ReturnBusWidth,
 					&v->ProjectedDCFCLKDeepSleep[i][j]);
 		}
 	}
@@ -4426,9 +4426,9 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 										v->WritebackHRatio[k],
 										v->WritebackVRatio[k],
 										v->WritebackVTaps[k],
-										v->WritebackDestinationWidth[k],
-										v->WritebackDestinationHeight[k],
-										v->WritebackSourceHeight[k],
+										(long)v->WritebackDestinationWidth[k],
+										(long)v->WritebackDestinationHeight[k],
+										(long)v->WritebackSourceHeight[k],
 										v->HTotal[k]) / v->RequiredDISPCLK[i][j];
 					} else {
 						v->WritebackDelayTime[k] = 0.0;
@@ -4443,9 +4443,9 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 													v->WritebackHRatio[m],
 													v->WritebackVRatio[m],
 													v->WritebackVTaps[m],
-													v->WritebackDestinationWidth[m],
-													v->WritebackDestinationHeight[m],
-													v->WritebackSourceHeight[m],
+													(long)v->WritebackDestinationWidth[m],
+													(long)v->WritebackDestinationHeight[m],
+													(long)v->WritebackSourceHeight[m],
 													v->HTotal[m]) / v->RequiredDISPCLK[i][j]);
 						}
 					}
@@ -4467,11 +4467,11 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 		}
 	}
 
-	ReorderingBytes = v->NumberOfChannels
+	ReorderingBytes = (long)(v->NumberOfChannels
 			* dml_max3(
 					v->UrgentOutOfOrderReturnPerChannelPixelDataOnly,
 					v->UrgentOutOfOrderReturnPerChannelPixelMixedWithVMData,
-					v->UrgentOutOfOrderReturnPerChannelVMDataOnly);
+					v->UrgentOutOfOrderReturnPerChannelVMDataOnly));
 	v->FinalDRAMClockChangeLatency = (v->DRAMClockChangeLatencyOverride > 0 ? v->DRAMClockChangeLatencyOverride : v->DRAMClockChangeLatency);
 
 	for (i = start_state; i < mode_lib->soc.num_states; ++i) {
@@ -4567,13 +4567,13 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 				v->SwathWidthCThisState[k] = v->SwathWidthCAllStates[i][j][k];
 				v->SwathHeightYThisState[k] = v->SwathHeightYAllStates[i][j][k];
 				v->SwathHeightCThisState[k] = v->SwathHeightCAllStates[i][j][k];
-				v->DETBufferSizeYThisState[k] = v->DETBufferSizeYAllStates[i][j][k];
-				v->DETBufferSizeCThisState[k] = v->DETBufferSizeCAllStates[i][j][k];
+				v->DETBufferSizeYThisState[k] = (unsigned int)v->DETBufferSizeYAllStates[i][j][k];
+				v->DETBufferSizeCThisState[k] = (unsigned int)v->DETBufferSizeCAllStates[i][j][k];
 				v->ODMCombineEnabled[k] = v->ODMCombineEnablePerState[i][k];
 			}
 
 			v->ExtraLatency = CalculateExtraLatency(
-					v->RoundTripPingLatencyCycles,
+					(long)v->RoundTripPingLatencyCycles,
 					ReorderingBytes,
 					v->DCFCLKState[i][j],
 					v->TotalNumberOfActiveDPP[i][j],
@@ -4623,23 +4623,23 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 							mode_lib,
 							k,
 							&myPipe,
-							v->DSCDelayPerState[i][k],
-							v->SwathWidthYThisState[k] / v->HRatio[k],
-							dml_min(v->MaxVStartup, v->MaximumVStartup[i][j][k]),
-							v->MaximumVStartup[i][j][k],
+							(unsigned int)v->DSCDelayPerState[i][k],
+							(unsigned int)(v->SwathWidthYThisState[k] / v->HRatio[k]),
+							(unsigned int)dml_min(v->MaxVStartup, v->MaximumVStartup[i][j][k]),
+							(unsigned int)v->MaximumVStartup[i][j][k],
 							v->UrgLatency[i],
 							v->ExtraLatency,
 							v->TimeCalc,
-							v->PDEAndMetaPTEBytesPerFrame[i][j][k],
-							v->MetaRowBytes[i][j][k],
-							v->DPTEBytesPerRow[i][j][k],
+							(unsigned int)v->PDEAndMetaPTEBytesPerFrame[i][j][k],
+							(unsigned int)v->MetaRowBytes[i][j][k],
+							(unsigned int)v->DPTEBytesPerRow[i][j][k],
 							v->PrefetchLinesY[i][j][k],
-							v->SwathWidthYThisState[k],
+							(unsigned int)v->SwathWidthYThisState[k],
 							v->BytePerPixelY[k],
 							v->PrefillY[k],
 							v->MaxNumSwY[k],
 							v->PrefetchLinesC[i][j][k],
-							v->SwathWidthCThisState[k],
+							(unsigned int)v->SwathWidthCThisState[k],
 							v->PrefillC[k],
 							v->MaxNumSwC[k],
 							v->swath_width_luma_ub_this_state[k],
@@ -4751,10 +4751,10 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 																* v->UrgentBurstFactorChromaPre[k])
 												+ v->cursor_bw_pre[k] * v->UrgentBurstFactorCursorPre[k]);
 					}
-					v->TotImmediateFlipBytes = 0.0;
+					v->TotImmediateFlipBytes = (unsigned int)0;
 					for (k = 0; k <= v->NumberOfActivePlanes - 1; k++) {
-						v->TotImmediateFlipBytes = v->TotImmediateFlipBytes + v->NoOfDPP[i][j][k] * (v->PDEAndMetaPTEBytesPerFrame[i][j][k]
-								+ v->MetaRowBytes[i][j][k] + v->DPTEBytesPerRow[i][j][k]);
+						v->TotImmediateFlipBytes = (unsigned int)(v->TotImmediateFlipBytes + v->NoOfDPP[i][j][k] * (v->PDEAndMetaPTEBytesPerFrame[i][j][k]
+								+ v->MetaRowBytes[i][j][k] + v->DPTEBytesPerRow[i][j][k]));
 					}
 
 					for (k = 0; k <= v->NumberOfActivePlanes - 1; k++) {
@@ -5038,20 +5038,20 @@ static void CalculateWatermarksAndDRAMSpeedChangeSupport(
 
 	for (k = 0; k < v->NumberOfActivePlanes; ++k) {
 
-		v->LBLatencyHidingSourceLinesY = dml_min((double) v->MaxLineBufferLines, dml_floor(v->LineBufferSize / v->LBBitPerPixel[k] / (SwathWidthY[k] / dml_max(v->HRatio[k], 1.0)), 1)) - (v->vtaps[k] - 1);
+		v->LBLatencyHidingSourceLinesY = (unsigned int)(dml_min((double) v->MaxLineBufferLines, dml_floor(v->LineBufferSize / v->LBBitPerPixel[k] / (SwathWidthY[k] / dml_max(v->HRatio[k], 1.0)), 1)) - (v->vtaps[k] - 1));
 
-		v->LBLatencyHidingSourceLinesC = dml_min((double) v->MaxLineBufferLines, dml_floor(v->LineBufferSize / v->LBBitPerPixel[k] / (SwathWidthC[k] / dml_max(v->HRatioChroma[k], 1.0)), 1)) - (v->VTAPsChroma[k] - 1);
+		v->LBLatencyHidingSourceLinesC = (unsigned int)(dml_min((double) v->MaxLineBufferLines, dml_floor(v->LineBufferSize / v->LBBitPerPixel[k] / (SwathWidthC[k] / dml_max(v->HRatioChroma[k], 1.0)), 1)) - (v->VTAPsChroma[k] - 1));
 
 		EffectiveLBLatencyHidingY = v->LBLatencyHidingSourceLinesY / v->VRatio[k] * (v->HTotal[k] / v->PixelClock[k]);
 
 		EffectiveLBLatencyHidingC = v->LBLatencyHidingSourceLinesC / v->VRatioChroma[k] * (v->HTotal[k] / v->PixelClock[k]);
 
 		LinesInDETY[k] = (double) DETBufferSizeY[k] / BytePerPixelDETY[k] / SwathWidthY[k];
-		LinesInDETYRoundedDownToSwath[k] = dml_floor(LinesInDETY[k], SwathHeightY[k]);
+		LinesInDETYRoundedDownToSwath[k] = (unsigned int)dml_floor(LinesInDETY[k], SwathHeightY[k]);
 		FullDETBufferingTimeY[k] = LinesInDETYRoundedDownToSwath[k] * (v->HTotal[k] / v->PixelClock[k]) / v->VRatio[k];
 		if (BytePerPixelDETC[k] > 0) {
 			LinesInDETC = v->DETBufferSizeC[k] / BytePerPixelDETC[k] / SwathWidthC[k];
-			LinesInDETCRoundedDownToSwath = dml_floor(LinesInDETC, SwathHeightC[k]);
+			LinesInDETCRoundedDownToSwath = (unsigned int)dml_floor(LinesInDETC, SwathHeightC[k]);
 			FullDETBufferingTimeC = LinesInDETCRoundedDownToSwath * (v->HTotal[k] / v->PixelClock[k]) / v->VRatioChroma[k];
 		} else {
 			LinesInDETC = 0;
@@ -5380,7 +5380,7 @@ static void CalculatePixelDeliveryTimes(
 
 	for (k = 0; k < NumberOfActivePlanes; ++k) {
 		int cursor_req_per_width = 0;
-		cursor_req_per_width = dml_ceil(CursorWidth[k][0] * CursorBPP[k][0] / 256 / 8, 1);
+		cursor_req_per_width = (int)dml_ceil(CursorWidth[k][0] * CursorBPP[k][0] / 256 / 8, 1);
 		if (NumberOfCursors[k] > 0) {
 			if (VRatio[k] <= 1) {
 				CursorRequestDeliveryTime[k] = CursorWidth[k][0] / HRatio[k] / PixelClock[k] / cursor_req_per_width;
@@ -5509,7 +5509,7 @@ static void CalculateMetaAndPTETimes(
 			} else {
 				meta_chunk_width_chroma = MetaChunkSize * 1024 * 256 / BytePerPixelC[k] / meta_row_height_chroma[k];
 				min_meta_chunk_width_chroma = MinMetaChunkSizeBytes * 256 / BytePerPixelC[k] / meta_row_height_chroma[k];
-				meta_chunk_per_row_int_chroma = (double) meta_row_width_chroma[k] / meta_chunk_width_chroma;
+				meta_chunk_per_row_int_chroma = (unsigned int)((double) meta_row_width_chroma[k] / meta_chunk_width_chroma);
 				meta_row_remainder_chroma = meta_row_width_chroma[k] % meta_chunk_width_chroma;
 				if (SourceScan[k] != dm_vert) {
 					meta_chunk_threshold_chroma = 2 * min_meta_chunk_width_chroma - meta_req_width_chroma[k];
@@ -5542,7 +5542,7 @@ static void CalculateMetaAndPTETimes(
 			} else {
 				dpte_group_width_luma = dpte_group_bytes[k] / PTERequestSizeY[k] * PixelPTEReqHeightY[k];
 			}
-			dpte_groups_per_row_luma_ub = dml_ceil(1.0 * dpte_row_width_luma_ub[k] / dpte_group_width_luma, 1);
+			dpte_groups_per_row_luma_ub = (unsigned int)dml_ceil(1.0 * dpte_row_width_luma_ub[k] / dpte_group_width_luma, 1);
 			time_per_pte_group_nom_luma[k] = DST_Y_PER_PTE_ROW_NOM_L[k] * HTotal[k] / PixelClock[k] / dpte_groups_per_row_luma_ub;
 			time_per_pte_group_vblank_luma[k] = DestinationLinesToRequestRowInVBlank[k] * HTotal[k] / PixelClock[k] / dpte_groups_per_row_luma_ub;
 			time_per_pte_group_flip_luma[k] = DestinationLinesToRequestRowInImmediateFlip[k] * HTotal[k] / PixelClock[k] / dpte_groups_per_row_luma_ub;
@@ -5556,7 +5556,7 @@ static void CalculateMetaAndPTETimes(
 				} else {
 					dpte_group_width_chroma = dpte_group_bytes[k] / PTERequestSizeC[k] * PixelPTEReqHeightC[k];
 				}
-				dpte_groups_per_row_chroma_ub = dml_ceil(1.0 * dpte_row_width_chroma_ub[k] / dpte_group_width_chroma, 1);
+				dpte_groups_per_row_chroma_ub = (unsigned int)dml_ceil(1.0 * dpte_row_width_chroma_ub[k] / dpte_group_width_chroma, 1);
 				time_per_pte_group_nom_chroma[k] = DST_Y_PER_PTE_ROW_NOM_C[k] * HTotal[k] / PixelClock[k] / dpte_groups_per_row_chroma_ub;
 				time_per_pte_group_vblank_chroma[k] = DestinationLinesToRequestRowInVBlank[k] * HTotal[k] / PixelClock[k] / dpte_groups_per_row_chroma_ub;
 				time_per_pte_group_flip_chroma[k] = DestinationLinesToRequestRowInImmediateFlip[k] * HTotal[k] / PixelClock[k] / dpte_groups_per_row_chroma_ub;
@@ -5604,32 +5604,32 @@ static void CalculateVMGroupAndRequestTimes(
 		if (GPUVMEnable == true && (DCCEnable[k] == true || GPUVMMaxPageTableLevels > 1)) {
 			if (DCCEnable[k] == false) {
 				if (BytePerPixelC[k] > 0) {
-					num_group_per_lower_vm_stage = dml_ceil((double) (dpde0_bytes_per_frame_ub_l[k])
+					num_group_per_lower_vm_stage = (int)(dml_ceil((double) (dpde0_bytes_per_frame_ub_l[k])
 						/ (double) (vm_group_bytes[k]), 1) + dml_ceil((double) (dpde0_bytes_per_frame_ub_c[k])
-									/ (double) (vm_group_bytes[k]), 1);
+									/ (double) (vm_group_bytes[k]), 1));
 				} else {
-					num_group_per_lower_vm_stage = dml_ceil((double) (dpde0_bytes_per_frame_ub_l[k])
+					num_group_per_lower_vm_stage = (int)dml_ceil((double) (dpde0_bytes_per_frame_ub_l[k])
 							/ (double) (vm_group_bytes[k]), 1);
 				}
 			} else {
 				if (GPUVMMaxPageTableLevels == 1) {
 					if (BytePerPixelC[k] > 0) {
-						num_group_per_lower_vm_stage = dml_ceil((double) (meta_pte_bytes_per_frame_ub_l[k])
+						num_group_per_lower_vm_stage = (int)(dml_ceil((double) (meta_pte_bytes_per_frame_ub_l[k])
 							/ (double) (vm_group_bytes[k]), 1) + dml_ceil((double) (meta_pte_bytes_per_frame_ub_c[k])
-									/ (double) (vm_group_bytes[k]), 1);
+									/ (double) (vm_group_bytes[k]), 1));
 					} else {
-						num_group_per_lower_vm_stage = dml_ceil((double) (meta_pte_bytes_per_frame_ub_l[k])
+						num_group_per_lower_vm_stage = (int)dml_ceil((double) (meta_pte_bytes_per_frame_ub_l[k])
 							/ (double) (vm_group_bytes[k]), 1);
 					}
 				} else {
 					if (BytePerPixelC[k] > 0) {
-						num_group_per_lower_vm_stage = 2 + dml_ceil((double) (dpde0_bytes_per_frame_ub_l[k]) / (double) (vm_group_bytes[k]), 1)
+						num_group_per_lower_vm_stage = (int)(2 + dml_ceil((double) (dpde0_bytes_per_frame_ub_l[k]) / (double) (vm_group_bytes[k]), 1)
 								+ dml_ceil((double) (dpde0_bytes_per_frame_ub_c[k]) / (double) (vm_group_bytes[k]), 1)
 								+ dml_ceil((double) (meta_pte_bytes_per_frame_ub_l[k]) / (double) (vm_group_bytes[k]), 1)
-								+ dml_ceil((double) (meta_pte_bytes_per_frame_ub_c[k]) / (double) (vm_group_bytes[k]), 1);
+								+ (int)dml_ceil((double) (meta_pte_bytes_per_frame_ub_c[k]) / (double) (vm_group_bytes[k]), 1));
 					} else {
-						num_group_per_lower_vm_stage = 1 + dml_ceil((double) (dpde0_bytes_per_frame_ub_l[k]) / (double) (vm_group_bytes[k]), 1)
-								+ dml_ceil((double) (meta_pte_bytes_per_frame_ub_l[k]) / (double) (vm_group_bytes[k]), 1);
+						num_group_per_lower_vm_stage = (int)(1 + dml_ceil((double) (dpde0_bytes_per_frame_ub_l[k]) / (double) (vm_group_bytes[k]), 1)
+								+ dml_ceil((double) (meta_pte_bytes_per_frame_ub_l[k]) / (double) (vm_group_bytes[k]), 1));
 					}
 				}
 			}
@@ -5962,21 +5962,21 @@ static void CalculateSwathAndDETConfiguration(
 			}
 		}
 
-		RoundedUpMaxSwathSizeBytesY = swath_width_luma_ub[k] * BytePerPixDETY[k]
-				* MaximumSwathHeightY[k];
-		RoundedUpMinSwathSizeBytesY = swath_width_luma_ub[k] * BytePerPixDETY[k]
-				* MinimumSwathHeightY;
+		RoundedUpMaxSwathSizeBytesY = (long)(swath_width_luma_ub[k] * BytePerPixDETY[k]
+				* MaximumSwathHeightY[k]);
+		RoundedUpMinSwathSizeBytesY = (long)(swath_width_luma_ub[k] * BytePerPixDETY[k]
+				* MinimumSwathHeightY);
 		if (SourcePixelFormat[k] == dm_420_10) {
-			RoundedUpMaxSwathSizeBytesY = dml_ceil((double) RoundedUpMaxSwathSizeBytesY, 256);
-			RoundedUpMinSwathSizeBytesY = dml_ceil((double) RoundedUpMinSwathSizeBytesY, 256);
+			RoundedUpMaxSwathSizeBytesY = (long)dml_ceil((double) RoundedUpMaxSwathSizeBytesY, 256);
+			RoundedUpMinSwathSizeBytesY = (long)dml_ceil((double) RoundedUpMinSwathSizeBytesY, 256);
 		}
-		RoundedUpMaxSwathSizeBytesC = swath_width_chroma_ub[k] * BytePerPixDETC[k]
-				* MaximumSwathHeightC[k];
-		RoundedUpMinSwathSizeBytesC = swath_width_chroma_ub[k] * BytePerPixDETC[k]
-				* MinimumSwathHeightC;
+		RoundedUpMaxSwathSizeBytesC = (long)(swath_width_chroma_ub[k] * BytePerPixDETC[k]
+				* MaximumSwathHeightC[k]);
+		RoundedUpMinSwathSizeBytesC = (long)(swath_width_chroma_ub[k] * BytePerPixDETC[k]
+				* MinimumSwathHeightC);
 		if (SourcePixelFormat[k] == dm_420_10) {
-			RoundedUpMaxSwathSizeBytesC = dml_ceil(RoundedUpMaxSwathSizeBytesC, 256);
-			RoundedUpMinSwathSizeBytesC = dml_ceil(RoundedUpMinSwathSizeBytesC, 256);
+			RoundedUpMaxSwathSizeBytesC = (long)dml_ceil(RoundedUpMaxSwathSizeBytesC, 256);
+			RoundedUpMinSwathSizeBytesC = (long)dml_ceil(RoundedUpMinSwathSizeBytesC, 256);
 		}
 
 		if (RoundedUpMaxSwathSizeBytesY + RoundedUpMaxSwathSizeBytesC
@@ -6107,17 +6107,17 @@ static void CalculateSwathWidth(
 			SwathWidthC[k] = SwathWidthSingleDPPC[k];
 		}
 
-		surface_width_ub_l  = dml_ceil(SurfaceWidthY[k], Read256BytesBlockWidthY[k]);
-		surface_height_ub_l = dml_ceil(SurfaceHeightY[k], Read256BytesBlockHeightY[k]);
+		surface_width_ub_l  = (long)dml_ceil(SurfaceWidthY[k], Read256BytesBlockWidthY[k]);
+		surface_height_ub_l = (long)dml_ceil(SurfaceHeightY[k], Read256BytesBlockHeightY[k]);
 
 		if (SourceScan[k] != dm_vert) {
 			MaximumSwathHeightY[k] = Read256BytesBlockHeightY[k];
 			MaximumSwathHeightC[k] = Read256BytesBlockHeightC[k];
-			swath_width_luma_ub[k] = dml_min(surface_width_ub_l, (long) dml_ceil(SwathWidthY[k] - 1,
+			swath_width_luma_ub[k] = (unsigned int)dml_min(surface_width_ub_l, (long) dml_ceil(SwathWidthY[k] - 1,
 					Read256BytesBlockWidthY[k]) + Read256BytesBlockWidthY[k]);
 			if (BytePerPixC[k] > 0) {
-				surface_width_ub_c  = dml_ceil(SurfaceWidthC[k], Read256BytesBlockWidthC[k]);
-				swath_width_chroma_ub[k] = dml_min(surface_width_ub_c, (long) dml_ceil(SwathWidthC[k] - 1,
+				surface_width_ub_c  = (long)dml_ceil(SurfaceWidthC[k], Read256BytesBlockWidthC[k]);
+				swath_width_chroma_ub[k] = (unsigned int)dml_min(surface_width_ub_c, (long) dml_ceil(SwathWidthC[k] - 1,
 						Read256BytesBlockWidthC[k]) + Read256BytesBlockWidthC[k]);
 			} else {
 				swath_width_chroma_ub[k] = 0;
@@ -6125,11 +6125,11 @@ static void CalculateSwathWidth(
 		} else {
 			MaximumSwathHeightY[k] = Read256BytesBlockWidthY[k];
 			MaximumSwathHeightC[k] = Read256BytesBlockWidthC[k];
-			swath_width_luma_ub[k] = dml_min(surface_height_ub_l, (long) dml_ceil(SwathWidthY[k] - 1,
+			swath_width_luma_ub[k] = (unsigned int)dml_min(surface_height_ub_l, (long) dml_ceil(SwathWidthY[k] - 1,
 					Read256BytesBlockHeightY[k]) + Read256BytesBlockHeightY[k]);
 			if (BytePerPixC[k] > 0) {
-				surface_height_ub_c = dml_ceil(SurfaceHeightC[k], Read256BytesBlockHeightC[k]);
-				swath_width_chroma_ub[k] = dml_min(surface_height_ub_c, (long) dml_ceil(SwathWidthC[k] - 1,
+				surface_height_ub_c = (long)dml_ceil(SurfaceHeightC[k], Read256BytesBlockHeightC[k]);
+				swath_width_chroma_ub[k] = (unsigned int)dml_min(surface_height_ub_c, (long) dml_ceil(SwathWidthC[k] - 1,
 						Read256BytesBlockHeightC[k]) + Read256BytesBlockHeightC[k]);
 			} else {
 				swath_width_chroma_ub[k] = 0;
@@ -6203,9 +6203,9 @@ static double CalculateExtraLatencyBytes(
 		if (HostVMMinPageSize < 2048) {
 			HostVMDynamicLevels = HostVMMaxNonCachedPageTableLevels;
 		} else if (HostVMMinPageSize >= 2048 && HostVMMinPageSize < 1048576) {
-			HostVMDynamicLevels = dml_max(0, (int) HostVMMaxNonCachedPageTableLevels - 1);
+			HostVMDynamicLevels = (int)dml_max(0, (int) HostVMMaxNonCachedPageTableLevels - 1);
 		} else {
-			HostVMDynamicLevels = dml_max(0, (int) HostVMMaxNonCachedPageTableLevels - 2);
+			HostVMDynamicLevels = (int)dml_max(0, (int) HostVMMaxNonCachedPageTableLevels - 2);
 		}
 	} else {
 		HostVMInefficiencyFactor = 1;

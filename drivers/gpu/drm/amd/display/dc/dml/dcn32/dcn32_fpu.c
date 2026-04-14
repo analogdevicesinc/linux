@@ -350,13 +350,13 @@ void dcn32_helper_populate_phantom_dlg_params(struct dc *dc,
 
 		if (pipe->plane_state && dc_state_get_pipe_subvp_type(context, pipe) == SUBVP_PHANTOM) {
 			pipes[pipe_idx].pipe.dest.vstartup_start =
-				get_vstartup(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
+				(unsigned int)get_vstartup(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
 			pipes[pipe_idx].pipe.dest.vupdate_offset =
-				get_vupdate_offset(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
+				(unsigned int)get_vupdate_offset(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
 			pipes[pipe_idx].pipe.dest.vupdate_width =
-				get_vupdate_width(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
+				(unsigned int)get_vupdate_width(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
 			pipes[pipe_idx].pipe.dest.vready_offset =
-				get_vready_offset(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
+				(unsigned int)get_vready_offset(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
 			pipe->pipe_dlg_param = pipes[pipe_idx].pipe.dest;
 		}
 		pipe_idx++;
@@ -370,18 +370,18 @@ static float calculate_net_bw_in_kbytes_sec(struct _vcs_dpi_voltage_scaling_st *
 	float sdp_bw_kbytes_sec;
 	float limiting_bw_kbytes_sec;
 
-	memory_bw_kbytes_sec = entry->dram_speed_mts *
+	memory_bw_kbytes_sec = (float)(entry->dram_speed_mts *
 				dcn3_2_soc.num_chans *
 				dcn3_2_soc.dram_channel_width_bytes *
-				((float)dcn3_2_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100);
+			((float)dcn3_2_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100));
 
-	fabric_bw_kbytes_sec = entry->fabricclk_mhz *
+	fabric_bw_kbytes_sec = (float)(entry->fabricclk_mhz *
 				dcn3_2_soc.return_bus_width_bytes *
-				((float)dcn3_2_soc.pct_ideal_fabric_bw_after_urgent / 100);
+			((float)dcn3_2_soc.pct_ideal_fabric_bw_after_urgent / 100));
 
-	sdp_bw_kbytes_sec = entry->dcfclk_mhz *
+	sdp_bw_kbytes_sec = (float)(entry->dcfclk_mhz *
 				dcn3_2_soc.return_bus_width_bytes *
-				((float)dcn3_2_soc.pct_ideal_sdp_bw_after_urgent / 100);
+			((float)dcn3_2_soc.pct_ideal_sdp_bw_after_urgent / 100));
 
 	limiting_bw_kbytes_sec = memory_bw_kbytes_sec;
 
@@ -397,23 +397,23 @@ static float calculate_net_bw_in_kbytes_sec(struct _vcs_dpi_voltage_scaling_st *
 static void get_optimal_ntuple(struct _vcs_dpi_voltage_scaling_st *entry)
 {
 	if (entry->dcfclk_mhz > 0) {
-		float bw_on_sdp = entry->dcfclk_mhz * dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_sdp_bw_after_urgent / 100);
+		float bw_on_sdp = (float)(entry->dcfclk_mhz * dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_sdp_bw_after_urgent / 100));
 
-		entry->fabricclk_mhz = bw_on_sdp / (dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_fabric_bw_after_urgent / 100));
-		entry->dram_speed_mts = bw_on_sdp / (dcn3_2_soc.num_chans *
-				dcn3_2_soc.dram_channel_width_bytes * ((float)dcn3_2_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100));
+		entry->fabricclk_mhz = (float)(bw_on_sdp / (dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_fabric_bw_after_urgent / 100)));
+		entry->dram_speed_mts = (float)(bw_on_sdp / (dcn3_2_soc.num_chans *
+				dcn3_2_soc.dram_channel_width_bytes * ((float)dcn3_2_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100)));
 	} else if (entry->fabricclk_mhz > 0) {
-		float bw_on_fabric = entry->fabricclk_mhz * dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_fabric_bw_after_urgent / 100);
+		float bw_on_fabric = (float)(entry->fabricclk_mhz * dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_fabric_bw_after_urgent / 100));
 
-		entry->dcfclk_mhz = bw_on_fabric / (dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_sdp_bw_after_urgent / 100));
-		entry->dram_speed_mts = bw_on_fabric / (dcn3_2_soc.num_chans *
-				dcn3_2_soc.dram_channel_width_bytes * ((float)dcn3_2_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100));
+		entry->dcfclk_mhz = (float)(bw_on_fabric / (dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_sdp_bw_after_urgent / 100)));
+		entry->dram_speed_mts = (float)(bw_on_fabric / (dcn3_2_soc.num_chans *
+				dcn3_2_soc.dram_channel_width_bytes * ((float)dcn3_2_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100)));
 	} else if (entry->dram_speed_mts > 0) {
-		float bw_on_dram = entry->dram_speed_mts * dcn3_2_soc.num_chans *
-				dcn3_2_soc.dram_channel_width_bytes * ((float)dcn3_2_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100);
+		float bw_on_dram = (float)(entry->dram_speed_mts * dcn3_2_soc.num_chans *
+				dcn3_2_soc.dram_channel_width_bytes * ((float)dcn3_2_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100));
 
-		entry->fabricclk_mhz = bw_on_dram / (dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_fabric_bw_after_urgent / 100));
-		entry->dcfclk_mhz = bw_on_dram / (dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_sdp_bw_after_urgent / 100));
+		entry->fabricclk_mhz = (float)(bw_on_dram / (dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_fabric_bw_after_urgent / 100)));
+		entry->dcfclk_mhz = (float)(bw_on_dram / (dcn3_2_soc.return_bus_width_bytes * ((float)dcn3_2_soc.pct_ideal_sdp_bw_after_urgent / 100)));
 	}
 }
 
@@ -479,8 +479,8 @@ void dcn32_set_phantom_stream_timing(struct dc *dc,
 	uint32_t phantom_vactive, phantom_bp, pstate_width_fw_delay_lines;
 	unsigned int num_dpp;
 	unsigned int vlevel = context->bw_ctx.dml.vba.VoltageLevel;
-	unsigned int dcfclk = context->bw_ctx.dml.vba.DCFCLKState[vlevel][context->bw_ctx.dml.vba.maxMpcComb];
-	unsigned int socclk = context->bw_ctx.dml.vba.SOCCLKPerState[vlevel];
+	unsigned int dcfclk = (unsigned int)context->bw_ctx.dml.vba.DCFCLKState[vlevel][context->bw_ctx.dml.vba.maxMpcComb];
+	unsigned int socclk = (unsigned int)context->bw_ctx.dml.vba.SOCCLKPerState[vlevel];
 	struct vba_vars_st *vba = &context->bw_ctx.dml.vba;
 	struct dc_stream_state *main_stream = ref_pipe->stream;
 
@@ -500,10 +500,10 @@ void dcn32_set_phantom_stream_timing(struct dc *dc,
 	}
 
 	// Calculate lines required for pstate allow width and FW processing delays
-	pstate_width_fw_delay_lines = ((double)(dc->caps.subvp_fw_processing_delay_us +
+	pstate_width_fw_delay_lines = (uint32_t)(((double)(dc->caps.subvp_fw_processing_delay_us +
 			dc->caps.subvp_pstate_allow_width_us) / 1000000) *
 			(ref_pipe->stream->timing.pix_clk_100hz * 100) /
-			(double)ref_pipe->stream->timing.h_total;
+			(double)ref_pipe->stream->timing.h_total);
 
 	// Update clks_cfg for calling into recalculate
 	pipes[0].clks_cfg.voltage = vlevel;
@@ -515,8 +515,8 @@ void dcn32_set_phantom_stream_timing(struct dc *dc,
 	/* Add 16 lines margin to the MALL REGION because SUB_VP_START_LINE must be aligned
 	 * to 2 swaths (i.e. 16 lines)
 	 */
-	phantom_vactive = get_subviewport_lines_needed_in_mall(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx) +
-				pstate_width_fw_delay_lines + dc->caps.subvp_swath_height_margin_lines;
+	phantom_vactive = (uint32_t)(get_subviewport_lines_needed_in_mall(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx) +
+				pstate_width_fw_delay_lines + dc->caps.subvp_swath_height_margin_lines);
 
 	// W/A for DCC corruption with certain high resolution timings.
 	// Determing if pipesplit is used. If so, add meta_row_height to the phantom vactive.
@@ -527,7 +527,7 @@ void dcn32_set_phantom_stream_timing(struct dc *dc,
 	phantom_vactive += dc->debug.subvp_extra_lines;
 
 	// For backporch of phantom pipe, use vstartup of the main pipe
-	phantom_bp = get_vstartup(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
+	phantom_bp = (uint32_t)get_vstartup(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
 
 	phantom_stream->dst.y = 0;
 	phantom_stream->dst.height = phantom_vactive;
@@ -537,7 +537,7 @@ void dcn32_set_phantom_stream_timing(struct dc *dc,
 	 * phantom for this case.
 	 */
 	phantom_stream->src.y = 0;
-	phantom_stream->src.height = (double)phantom_vactive * (double)main_stream->src.height / (double)main_stream->dst.height;
+	phantom_stream->src.height = (int)((double)phantom_vactive * (double)main_stream->src.height / (double)main_stream->dst.height);
 
 	phantom_stream->timing.v_addressable = phantom_vactive;
 	phantom_stream->timing.v_front_porch = 1;
@@ -618,9 +618,9 @@ static bool dcn32_assign_subvp_pipe(struct dc *dc,
 			continue;
 
 		// Round up
-		refresh_rate = (pipe->stream->timing.pix_clk_100hz * 100 +
+		refresh_rate = (unsigned int)((pipe->stream->timing.pix_clk_100hz * 100 +
 				pipe->stream->timing.v_total * pipe->stream->timing.h_total - 1)
-				/ (double)(pipe->stream->timing.v_total * pipe->stream->timing.h_total);
+				/ (double)(pipe->stream->timing.v_total * pipe->stream->timing.h_total));
 		/* SubVP pipe candidate requirements:
 		 * - Refresh rate < 120hz
 		 * - Not able to switch in vactive naturally (switching in active means the
@@ -647,8 +647,8 @@ static bool dcn32_assign_subvp_pipe(struct dc *dc,
 			pipe = &context->res_ctx.pipe_ctx[i];
 			if (num_pipes <= free_pipes) {
 				struct dc_stream_state *stream = pipe->stream;
-				unsigned int frame_us = (stream->timing.v_total * stream->timing.h_total /
-						(double)(stream->timing.pix_clk_100hz * 100)) * 1000000;
+				unsigned int frame_us = (unsigned int)((stream->timing.v_total * stream->timing.h_total /
+						(double)(stream->timing.pix_clk_100hz * 100)) * 1000000);
 				if (frame_us > max_frame_time) {
 					*index = i;
 					max_frame_time = frame_us;
@@ -750,10 +750,10 @@ static bool subvp_subvp_schedulable(struct dc *dc, struct dc_state *context)
 					phantom->timing.v_addressable;
 
 			// Round up when calculating microschedule time (+ 1 at the end)
-			time_us = (microschedule_lines * phantom->timing.h_total) /
+			time_us = (uint32_t)((microschedule_lines * phantom->timing.h_total) /
 					(double)(phantom->timing.pix_clk_100hz * 100) * 1000000 +
 						dc->caps.subvp_prefetch_end_to_mall_start_us +
-						dc->caps.subvp_fw_processing_delay_us + 1;
+						dc->caps.subvp_fw_processing_delay_us + 1);
 			if (time_us > max_microschedule_us)
 				max_microschedule_us = time_us;
 
@@ -765,16 +765,16 @@ static bool subvp_subvp_schedulable(struct dc *dc, struct dc_state *context)
 				break;
 		}
 	}
-	vactive1_us = ((subvp_pipes[0]->stream->timing.v_addressable * subvp_pipes[0]->stream->timing.h_total) /
-			(double)(subvp_pipes[0]->stream->timing.pix_clk_100hz * 100)) * 1000000;
-	vactive2_us = ((subvp_pipes[1]->stream->timing.v_addressable * subvp_pipes[1]->stream->timing.h_total) /
-				(double)(subvp_pipes[1]->stream->timing.pix_clk_100hz * 100)) * 1000000;
-	vblank1_us = (((subvp_pipes[0]->stream->timing.v_total - subvp_pipes[0]->stream->timing.v_addressable) *
+	vactive1_us = (int32_t)(((subvp_pipes[0]->stream->timing.v_addressable * subvp_pipes[0]->stream->timing.h_total) /
+			(double)(subvp_pipes[0]->stream->timing.pix_clk_100hz * 100)) * 1000000);
+	vactive2_us = (int32_t)(((subvp_pipes[1]->stream->timing.v_addressable * subvp_pipes[1]->stream->timing.h_total) /
+				(double)(subvp_pipes[1]->stream->timing.pix_clk_100hz * 100)) * 1000000);
+	vblank1_us = (int32_t)((((subvp_pipes[0]->stream->timing.v_total - subvp_pipes[0]->stream->timing.v_addressable) *
 			subvp_pipes[0]->stream->timing.h_total) /
-			(double)(subvp_pipes[0]->stream->timing.pix_clk_100hz * 100)) * 1000000;
-	vblank2_us = (((subvp_pipes[1]->stream->timing.v_total - subvp_pipes[1]->stream->timing.v_addressable) *
+			(double)(subvp_pipes[0]->stream->timing.pix_clk_100hz * 100)) * 1000000);
+	vblank2_us = (int32_t)((((subvp_pipes[1]->stream->timing.v_total - subvp_pipes[1]->stream->timing.v_addressable) *
 			subvp_pipes[1]->stream->timing.h_total) /
-			(double)(subvp_pipes[1]->stream->timing.pix_clk_100hz * 100)) * 1000000;
+			(double)(subvp_pipes[1]->stream->timing.pix_clk_100hz * 100)) * 1000000);
 
 	if ((vactive1_us - vblank2_us) / 2 > max_microschedule_us &&
 	    (vactive2_us - vblank1_us) / 2 > max_microschedule_us)
@@ -855,19 +855,19 @@ static bool subvp_drr_schedulable(struct dc *dc, struct dc_state *context)
 		main_timing = &pipe->stream->timing;
 		phantom_timing = &phantom_stream->timing;
 		drr_timing = &drr_pipe->stream->timing;
-		prefetch_us = (phantom_timing->v_total - phantom_timing->v_front_porch) * phantom_timing->h_total /
+		prefetch_us = (uint16_t)((phantom_timing->v_total - phantom_timing->v_front_porch) * phantom_timing->h_total /
 				(double)(phantom_timing->pix_clk_100hz * 100) * 1000000 +
-				dc->caps.subvp_prefetch_end_to_mall_start_us;
-		subvp_active_us = main_timing->v_addressable * main_timing->h_total /
-				(double)(main_timing->pix_clk_100hz * 100) * 1000000;
-		drr_frame_us = drr_timing->v_total * drr_timing->h_total /
-				(double)(drr_timing->pix_clk_100hz * 100) * 1000000;
+				dc->caps.subvp_prefetch_end_to_mall_start_us);
+		subvp_active_us = (uint16_t)(main_timing->v_addressable * main_timing->h_total /
+				(double)(main_timing->pix_clk_100hz * 100) * 1000000);
+		drr_frame_us = (uint16_t)(drr_timing->v_total * drr_timing->h_total /
+				(double)(drr_timing->pix_clk_100hz * 100) * 1000000);
 		// P-State allow width and FW delays already included phantom_timing->v_addressable
-		mall_region_us = phantom_timing->v_addressable * phantom_timing->h_total /
-				(double)(phantom_timing->pix_clk_100hz * 100) * 1000000;
+		mall_region_us = (uint16_t)(phantom_timing->v_addressable * phantom_timing->h_total /
+				(double)(phantom_timing->pix_clk_100hz * 100) * 1000000);
 		stretched_drr_us = drr_frame_us + mall_region_us + SUBVP_DRR_MARGIN_US;
-		drr_stretched_vblank_us = (drr_timing->v_total - drr_timing->v_addressable) * drr_timing->h_total /
-				(double)(drr_timing->pix_clk_100hz * 100) * 1000000 + (stretched_drr_us - drr_frame_us);
+		drr_stretched_vblank_us = (uint16_t)((drr_timing->v_total - drr_timing->v_addressable) * drr_timing->h_total /
+				(double)(drr_timing->pix_clk_100hz * 100) * 1000000 + (stretched_drr_us - drr_frame_us));
 		max_vblank_mallregion = drr_stretched_vblank_us > mall_region_us ? drr_stretched_vblank_us : mall_region_us;
 	}
 
@@ -950,18 +950,18 @@ static bool subvp_vblank_schedulable(struct dc *dc, struct dc_state *context)
 		vblank_timing = &context->res_ctx.pipe_ctx[vblank_index].stream->timing;
 		// Prefetch time is equal to VACTIVE + BP + VSYNC of the phantom pipe
 		// Also include the prefetch end to mallstart delay time
-		prefetch_us = (phantom_timing->v_total - phantom_timing->v_front_porch) * phantom_timing->h_total /
+		prefetch_us = (uint16_t)((phantom_timing->v_total - phantom_timing->v_front_porch) * phantom_timing->h_total /
 				(double)(phantom_timing->pix_clk_100hz * 100) * 1000000 +
-				dc->caps.subvp_prefetch_end_to_mall_start_us;
+				dc->caps.subvp_prefetch_end_to_mall_start_us);
 		// P-State allow width and FW delays already included phantom_timing->v_addressable
-		mall_region_us = phantom_timing->v_addressable * phantom_timing->h_total /
-				(double)(phantom_timing->pix_clk_100hz * 100) * 1000000;
-		vblank_frame_us = vblank_timing->v_total * vblank_timing->h_total /
-				(double)(vblank_timing->pix_clk_100hz * 100) * 1000000;
-		vblank_blank_us =  (vblank_timing->v_total - vblank_timing->v_addressable) * vblank_timing->h_total /
-				(double)(vblank_timing->pix_clk_100hz * 100) * 1000000;
-		subvp_active_us = main_timing->v_addressable * main_timing->h_total /
-				(double)(main_timing->pix_clk_100hz * 100) * 1000000;
+		mall_region_us = (uint16_t)(phantom_timing->v_addressable * phantom_timing->h_total /
+				(double)(phantom_timing->pix_clk_100hz * 100) * 1000000);
+		vblank_frame_us = (uint16_t)(vblank_timing->v_total * vblank_timing->h_total /
+				(double)(vblank_timing->pix_clk_100hz * 100) * 1000000);
+		vblank_blank_us =  (uint16_t)((vblank_timing->v_total - vblank_timing->v_addressable) * vblank_timing->h_total /
+				(double)(vblank_timing->pix_clk_100hz * 100) * 1000000);
+		subvp_active_us = (uint16_t)(main_timing->v_addressable * main_timing->h_total /
+				(double)(main_timing->pix_clk_100hz * 100) * 1000000);
 		max_vblank_mallregion = vblank_blank_us > mall_region_us ? vblank_blank_us : mall_region_us;
 
 		// Schedulable if VACTIVE region of the SubVP pipe can fit the MALL prefetch, VBLANK frame time,
@@ -1103,7 +1103,7 @@ static void assign_subvp_index(struct dc *dc, struct dc_state *context)
 
 		if (resource_is_pipe_type(pipe_ctx, OTG_MASTER) &&
 				dc_state_get_pipe_subvp_type(context, pipe_ctx) == SUBVP_MAIN) {
-			pipe_ctx->subvp_index = index++;
+			pipe_ctx->subvp_index = (uint8_t)index++;
 		} else {
 			pipe_ctx->subvp_index = 0;
 		}
@@ -1627,12 +1627,12 @@ static void dcn32_calculate_dlg_params(struct dc *dc, struct dc_state *context,
 	/* Writeback MCIF_WB arbitration parameters */
 	dc->res_pool->funcs->set_mcif_arb_params(dc, context, pipes, pipe_cnt);
 
-	context->bw_ctx.bw.dcn.clk.dispclk_khz = context->bw_ctx.dml.vba.DISPCLK * 1000;
-	context->bw_ctx.bw.dcn.clk.dcfclk_khz = context->bw_ctx.dml.vba.DCFCLK * 1000;
-	context->bw_ctx.bw.dcn.clk.socclk_khz = context->bw_ctx.dml.vba.SOCCLK * 1000;
-	context->bw_ctx.bw.dcn.clk.dramclk_khz = context->bw_ctx.dml.vba.DRAMSpeed * 1000 / 16;
-	context->bw_ctx.bw.dcn.clk.dcfclk_deep_sleep_khz = context->bw_ctx.dml.vba.DCFCLKDeepSleep * 1000;
-	context->bw_ctx.bw.dcn.clk.fclk_khz = context->bw_ctx.dml.vba.FabricClock * 1000;
+	context->bw_ctx.bw.dcn.clk.dispclk_khz = (int)(context->bw_ctx.dml.vba.DISPCLK * 1000);
+	context->bw_ctx.bw.dcn.clk.dcfclk_khz = (int)(context->bw_ctx.dml.vba.DCFCLK * 1000);
+	context->bw_ctx.bw.dcn.clk.socclk_khz = (int)(context->bw_ctx.dml.vba.SOCCLK * 1000);
+	context->bw_ctx.bw.dcn.clk.dramclk_khz = (int)(context->bw_ctx.dml.vba.DRAMSpeed * 1000 / 16);
+	context->bw_ctx.bw.dcn.clk.dcfclk_deep_sleep_khz = (int)(context->bw_ctx.dml.vba.DCFCLKDeepSleep * 1000);
+	context->bw_ctx.bw.dcn.clk.fclk_khz = (int)(context->bw_ctx.dml.vba.FabricClock * 1000);
 	context->bw_ctx.bw.dcn.clk.p_state_change_support =
 			context->bw_ctx.dml.vba.DRAMClockChangeSupport[vlevel][context->bw_ctx.dml.vba.maxMpcComb]
 					!= dm_dram_clock_change_unsupported;
@@ -1644,7 +1644,7 @@ static void dcn32_calculate_dlg_params(struct dc *dc, struct dc_state *context,
 
 	context->bw_ctx.bw.dcn.clk.dppclk_khz = 0;
 	context->bw_ctx.bw.dcn.clk.dtbclk_en = is_dtbclk_required(dc, context);
-	context->bw_ctx.bw.dcn.clk.ref_dtbclk_khz = context->bw_ctx.dml.vba.DTBCLKPerState[vlevel] * 1000;
+	context->bw_ctx.bw.dcn.clk.ref_dtbclk_khz = (int)(context->bw_ctx.dml.vba.DTBCLKPerState[vlevel] * 1000);
 	if (context->bw_ctx.dml.vba.FCLKChangeSupport[vlevel][context->bw_ctx.dml.vba.maxMpcComb] == dm_fclock_change_unsupported)
 		context->bw_ctx.bw.dcn.clk.fclk_p_state_change_support = false;
 	else
@@ -1673,13 +1673,13 @@ static void dcn32_calculate_dlg_params(struct dc *dc, struct dc_state *context,
 			continue;
 		if (context->res_ctx.pipe_ctx[i].plane_state)
 			active_hubp_count++;
-		pipes[pipe_idx].pipe.dest.vstartup_start = get_vstartup(&context->bw_ctx.dml, pipes, pipe_cnt,
+		pipes[pipe_idx].pipe.dest.vstartup_start = (unsigned int)get_vstartup(&context->bw_ctx.dml, pipes, pipe_cnt,
 				pipe_idx);
-		pipes[pipe_idx].pipe.dest.vupdate_offset = get_vupdate_offset(&context->bw_ctx.dml, pipes, pipe_cnt,
+		pipes[pipe_idx].pipe.dest.vupdate_offset = (unsigned int)get_vupdate_offset(&context->bw_ctx.dml, pipes, pipe_cnt,
 				pipe_idx);
-		pipes[pipe_idx].pipe.dest.vupdate_width = get_vupdate_width(&context->bw_ctx.dml, pipes, pipe_cnt,
+		pipes[pipe_idx].pipe.dest.vupdate_width = (unsigned int)get_vupdate_width(&context->bw_ctx.dml, pipes, pipe_cnt,
 				pipe_idx);
-		pipes[pipe_idx].pipe.dest.vready_offset = get_vready_offset(&context->bw_ctx.dml, pipes, pipe_cnt,
+		pipes[pipe_idx].pipe.dest.vready_offset = (unsigned int)get_vready_offset(&context->bw_ctx.dml, pipes, pipe_cnt,
 				pipe_idx);
 
 		if (dc_state_get_pipe_subvp_type(context, &context->res_ctx.pipe_ctx[i]) == SUBVP_PHANTOM) {
@@ -1687,20 +1687,20 @@ static void dcn32_calculate_dlg_params(struct dc *dc, struct dc_state *context,
 			context->res_ctx.pipe_ctx[i].det_buffer_size_kb = 0;
 			context->res_ctx.pipe_ctx[i].unbounded_req = false;
 		} else {
-			context->res_ctx.pipe_ctx[i].det_buffer_size_kb = get_det_buffer_size_kbytes(&context->bw_ctx.dml, pipes, pipe_cnt,
+			context->res_ctx.pipe_ctx[i].det_buffer_size_kb = (int)get_det_buffer_size_kbytes(&context->bw_ctx.dml, pipes, pipe_cnt,
 							pipe_idx);
 			context->res_ctx.pipe_ctx[i].unbounded_req = unbounded_req_enabled;
 		}
 
 		if (context->bw_ctx.bw.dcn.clk.dppclk_khz < pipes[pipe_idx].clks_cfg.dppclk_mhz * 1000)
-			context->bw_ctx.bw.dcn.clk.dppclk_khz = pipes[pipe_idx].clks_cfg.dppclk_mhz * 1000;
+			context->bw_ctx.bw.dcn.clk.dppclk_khz = (int)(pipes[pipe_idx].clks_cfg.dppclk_mhz * 1000);
 		if (context->res_ctx.pipe_ctx[i].plane_state)
-			context->res_ctx.pipe_ctx[i].plane_res.bw.dppclk_khz = pipes[pipe_idx].clks_cfg.dppclk_mhz * 1000;
+			context->res_ctx.pipe_ctx[i].plane_res.bw.dppclk_khz = (int)(pipes[pipe_idx].clks_cfg.dppclk_mhz * 1000);
 		else
 			context->res_ctx.pipe_ctx[i].plane_res.bw.dppclk_khz = 0;
 		context->res_ctx.pipe_ctx[i].pipe_dlg_param = pipes[pipe_idx].pipe.dest;
 
-		context->res_ctx.pipe_ctx[i].surface_size_in_mall_bytes = get_surface_size_in_mall(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
+		context->res_ctx.pipe_ctx[i].surface_size_in_mall_bytes = (unsigned int)get_surface_size_in_mall(&context->bw_ctx.dml, pipes, pipe_cnt, pipe_idx);
 
 		if (vba->ActiveDRAMClockChangeLatencyMarginPerState[vba->VoltageLevel][vba->maxMpcComb][vba->pipe_plane[pipe_idx]] > 0)
 			context->res_ctx.pipe_ctx[i].has_vactive_margin = true;
@@ -1743,10 +1743,10 @@ static void dcn32_calculate_dlg_params(struct dc *dc, struct dc_state *context,
 	/*save a original dppclock copy*/
 	context->bw_ctx.bw.dcn.clk.bw_dppclk_khz = context->bw_ctx.bw.dcn.clk.dppclk_khz;
 	context->bw_ctx.bw.dcn.clk.bw_dispclk_khz = context->bw_ctx.bw.dcn.clk.dispclk_khz;
-	context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz = context->bw_ctx.dml.soc.clock_limits[vlevel].dppclk_mhz
-			* 1000;
-	context->bw_ctx.bw.dcn.clk.max_supported_dispclk_khz = context->bw_ctx.dml.soc.clock_limits[vlevel].dispclk_mhz
-			* 1000;
+	context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz = (int)(context->bw_ctx.dml.soc.clock_limits[vlevel].dppclk_mhz
+			* 1000);
+	context->bw_ctx.bw.dcn.clk.max_supported_dispclk_khz = (int)(context->bw_ctx.dml.soc.clock_limits[vlevel].dispclk_mhz
+			* 1000);
 
 	context->bw_ctx.bw.dcn.clk.num_ways = dcn32_helper_calculate_num_ways_for_subvp(dc, context);
 
@@ -2279,7 +2279,7 @@ void dcn32_calculate_wm_and_dlg_fpu(struct dc *dc, struct dc_state *context,
 			dm_dram_clock_change_unsupported;
 	unsigned int dummy_latency_index = 0;
 	int maxMpcComb = context->bw_ctx.dml.vba.maxMpcComb;
-	unsigned int min_dram_speed_mts = context->bw_ctx.dml.vba.DRAMSpeed;
+	unsigned int min_dram_speed_mts = (unsigned int)context->bw_ctx.dml.vba.DRAMSpeed;
 	bool subvp_in_use = dcn32_subvp_in_use(dc, context);
 	unsigned int min_dram_speed_mts_margin;
 	bool need_fclk_lat_as_dummy = false;
@@ -2408,16 +2408,16 @@ void dcn32_calculate_wm_and_dlg_fpu(struct dc *dc, struct dc_state *context,
 		context->bw_ctx.dml.soc.sr_enter_plus_exit_time_us = dc->clk_mgr->bw_params->wm_table.nv_entries[WM_B].dml_input.sr_enter_plus_exit_time_us;
 		context->bw_ctx.dml.soc.sr_exit_time_us = dc->clk_mgr->bw_params->wm_table.nv_entries[WM_B].dml_input.sr_exit_time_us;
 	}
-	context->bw_ctx.bw.dcn.watermarks.b.urgent_ns = get_wm_urgent(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.cstate_enter_plus_exit_ns = get_wm_stutter_enter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.cstate_exit_ns = get_wm_stutter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.pstate_change_ns = get_wm_dram_clock_change(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.b.pte_meta_urgent_ns = get_wm_memory_trip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.b.frac_urg_bw_nom = get_fraction_of_urgent_bandwidth(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.b.frac_urg_bw_flip = get_fraction_of_urgent_bandwidth_imm_flip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.b.urgent_latency_ns = get_urgent_latency(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.fclk_pstate_change_ns = get_fclk_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.b.usr_retraining_ns = get_usr_retraining_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
+	context->bw_ctx.bw.dcn.watermarks.b.urgent_ns = (uint32_t)(get_wm_urgent(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.cstate_enter_plus_exit_ns = (uint32_t)(get_wm_stutter_enter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.cstate_exit_ns = (uint32_t)(get_wm_stutter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.pstate_change_ns = (uint32_t)(get_wm_dram_clock_change(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.b.pte_meta_urgent_ns = (uint32_t)(get_wm_memory_trip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.b.frac_urg_bw_nom = (uint32_t)(get_fraction_of_urgent_bandwidth(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.b.frac_urg_bw_flip = (uint32_t)(get_fraction_of_urgent_bandwidth_imm_flip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.b.urgent_latency_ns = (uint32_t)(get_urgent_latency(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.b.cstate_pstate.fclk_pstate_change_ns = (uint32_t)(get_fclk_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.b.usr_retraining_ns = (uint32_t)(get_usr_retraining_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
 
 	/* Set D:
 	 * All clocks min.
@@ -2472,7 +2472,7 @@ void dcn32_calculate_wm_and_dlg_fpu(struct dc *dc, struct dc_state *context,
 	}
 
 	if (dc->clk_mgr->bw_params->wm_table.nv_entries[WM_C].valid) {
-		min_dram_speed_mts = dram_speed_from_validation;
+		min_dram_speed_mts = (unsigned int)dram_speed_from_validation;
 		min_dram_speed_mts_margin = 160;
 
 		context->bw_ctx.dml.soc.dram_clock_change_latency_us =
@@ -2504,20 +2504,20 @@ void dcn32_calculate_wm_and_dlg_fpu(struct dc *dc, struct dc_state *context,
 		context->bw_ctx.dml.soc.sr_exit_time_us = dc->clk_mgr->bw_params->wm_table.nv_entries[WM_C].dml_input.sr_exit_time_us;
 	}
 
-	context->bw_ctx.bw.dcn.watermarks.c.urgent_ns = get_wm_urgent(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.cstate_enter_plus_exit_ns = get_wm_stutter_enter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.cstate_exit_ns = get_wm_stutter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.pstate_change_ns = get_wm_dram_clock_change(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.c.pte_meta_urgent_ns = get_wm_memory_trip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.c.frac_urg_bw_nom = get_fraction_of_urgent_bandwidth(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.c.frac_urg_bw_flip = get_fraction_of_urgent_bandwidth_imm_flip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.c.urgent_latency_ns = get_urgent_latency(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
+	context->bw_ctx.bw.dcn.watermarks.c.urgent_ns = (uint32_t)(get_wm_urgent(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.cstate_enter_plus_exit_ns = (uint32_t)(get_wm_stutter_enter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.cstate_exit_ns = (uint32_t)(get_wm_stutter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.pstate_change_ns = (uint32_t)(get_wm_dram_clock_change(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.c.pte_meta_urgent_ns = (uint32_t)(get_wm_memory_trip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.c.frac_urg_bw_nom = (uint32_t)(get_fraction_of_urgent_bandwidth(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.c.frac_urg_bw_flip = (uint32_t)(get_fraction_of_urgent_bandwidth_imm_flip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.c.urgent_latency_ns = (uint32_t)(get_urgent_latency(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
 	/* On DCN32/321, PMFW will set PSTATE_CHANGE_TYPE = 1 (FCLK) for UCLK dummy p-state.
 	 * In this case we must program FCLK WM Set C to use the UCLK dummy p-state WM
 	 * value.
 	 */
-	context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.fclk_pstate_change_ns = get_wm_dram_clock_change(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-	context->bw_ctx.bw.dcn.watermarks.c.usr_retraining_ns = get_usr_retraining_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
+	context->bw_ctx.bw.dcn.watermarks.c.cstate_pstate.fclk_pstate_change_ns = (uint32_t)(get_wm_dram_clock_change(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+	context->bw_ctx.bw.dcn.watermarks.c.usr_retraining_ns = (uint32_t)(get_usr_retraining_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
 
 	if ((!pstate_en) && (dc->clk_mgr->bw_params->wm_table.nv_entries[WM_C].valid)) {
 		/* The only difference between A and C is p-state latency, if p-state is not supported
@@ -2529,7 +2529,7 @@ void dcn32_calculate_wm_and_dlg_fpu(struct dc *dc, struct dc_state *context,
 		/* Calculate FCLK p-state change watermark based on FCLK pstate change latency in case
 		 * UCLK p-state is not supported, to avoid underflow in case FCLK pstate is supported
 		 */
-		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.fclk_pstate_change_ns = get_fclk_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
+		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.fclk_pstate_change_ns = (uint32_t)(get_fclk_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
 	} else {
 		/* Set A:
 		 * All clocks min.
@@ -2543,16 +2543,16 @@ void dcn32_calculate_wm_and_dlg_fpu(struct dc *dc, struct dc_state *context,
 		context->bw_ctx.dml.soc.sr_enter_plus_exit_time_us = dc->clk_mgr->bw_params->wm_table.nv_entries[WM_A].dml_input.sr_enter_plus_exit_time_us;
 		context->bw_ctx.dml.soc.sr_exit_time_us = dc->clk_mgr->bw_params->wm_table.nv_entries[WM_A].dml_input.sr_exit_time_us;
 
-		context->bw_ctx.bw.dcn.watermarks.a.urgent_ns = get_wm_urgent(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_enter_plus_exit_ns = get_wm_stutter_enter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_exit_ns = get_wm_stutter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.pstate_change_ns = get_wm_dram_clock_change(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-		context->bw_ctx.bw.dcn.watermarks.a.pte_meta_urgent_ns = get_wm_memory_trip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-		context->bw_ctx.bw.dcn.watermarks.a.frac_urg_bw_nom = get_fraction_of_urgent_bandwidth(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-		context->bw_ctx.bw.dcn.watermarks.a.frac_urg_bw_flip = get_fraction_of_urgent_bandwidth_imm_flip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-		context->bw_ctx.bw.dcn.watermarks.a.urgent_latency_ns = get_urgent_latency(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.fclk_pstate_change_ns = get_fclk_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
-		context->bw_ctx.bw.dcn.watermarks.a.usr_retraining_ns = get_usr_retraining_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000;
+		context->bw_ctx.bw.dcn.watermarks.a.urgent_ns = (uint32_t)(get_wm_urgent(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_enter_plus_exit_ns = (uint32_t)(get_wm_stutter_enter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_exit_ns = (uint32_t)(get_wm_stutter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.pstate_change_ns = (uint32_t)(get_wm_dram_clock_change(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+		context->bw_ctx.bw.dcn.watermarks.a.pte_meta_urgent_ns = (uint32_t)(get_wm_memory_trip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+		context->bw_ctx.bw.dcn.watermarks.a.frac_urg_bw_nom = (uint32_t)(get_fraction_of_urgent_bandwidth(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+		context->bw_ctx.bw.dcn.watermarks.a.frac_urg_bw_flip = (uint32_t)(get_fraction_of_urgent_bandwidth_imm_flip(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+		context->bw_ctx.bw.dcn.watermarks.a.urgent_latency_ns = (uint32_t)(get_urgent_latency(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.fclk_pstate_change_ns = (uint32_t)(get_fclk_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
+		context->bw_ctx.bw.dcn.watermarks.a.usr_retraining_ns = (uint32_t)(get_usr_retraining_watermark(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
 	}
 
 	/* Make set D = set A since we do not optimized watermarks for MALL */
@@ -2577,7 +2577,7 @@ void dcn32_calculate_wm_and_dlg_fpu(struct dc *dc, struct dc_state *context,
 		pipe_idx++;
 	}
 
-	context->perf_params.stutter_period_us = context->bw_ctx.dml.vba.StutterPeriod;
+	context->perf_params.stutter_period_us = (unsigned int)context->bw_ctx.dml.vba.StutterPeriod;
 
 	/* for proper prefetch calculations, if dummy lat > fclk lat, use fclk lat = dummy lat */
 	if (need_fclk_lat_as_dummy)
@@ -2611,12 +2611,12 @@ static void dcn32_get_optimal_dcfclk_fclk_for_uclk(unsigned int uclk_mts,
 	bw_from_dram = (bw_from_dram1 < bw_from_dram2) ? bw_from_dram1 : bw_from_dram2;
 
 	if (optimal_fclk)
-		*optimal_fclk = bw_from_dram /
-		(dcn3_2_soc.fabric_datapath_to_dcn_data_return_bytes * (dcn3_2_soc.max_avg_sdp_bw_use_normal_percent / 100));
+		*optimal_fclk = (unsigned int)(bw_from_dram /
+		(dcn3_2_soc.fabric_datapath_to_dcn_data_return_bytes * (dcn3_2_soc.max_avg_sdp_bw_use_normal_percent / 100)));
 
 	if (optimal_dcfclk)
-		*optimal_dcfclk =  bw_from_dram /
-		(dcn3_2_soc.return_bus_width_bytes * (dcn3_2_soc.max_avg_sdp_bw_use_normal_percent / 100));
+		*optimal_dcfclk =  (unsigned int)(bw_from_dram /
+		(dcn3_2_soc.return_bus_width_bytes * (dcn3_2_soc.max_avg_sdp_bw_use_normal_percent / 100)));
 }
 
 static void remove_entry_from_table_at_index(struct _vcs_dpi_voltage_scaling_st *table, unsigned int *num_entries,
@@ -2663,13 +2663,13 @@ void dcn32_patch_dpm_table(struct clk_bw_params *bw_params)
 	 *  0, will cause it to skip building the clock table.
 	 */
 	if (max_dcfclk_mhz == 0)
-		bw_params->clk_table.entries[0].dcfclk_mhz = dcn3_2_soc.clock_limits[0].dcfclk_mhz;
+		bw_params->clk_table.entries[0].dcfclk_mhz = (unsigned int)dcn3_2_soc.clock_limits[0].dcfclk_mhz;
 	if (max_dispclk_mhz == 0)
-		bw_params->clk_table.entries[0].dispclk_mhz = dcn3_2_soc.clock_limits[0].dispclk_mhz;
+		bw_params->clk_table.entries[0].dispclk_mhz = (unsigned int)dcn3_2_soc.clock_limits[0].dispclk_mhz;
 	if (max_dtbclk_mhz == 0)
-		bw_params->clk_table.entries[0].dtbclk_mhz = dcn3_2_soc.clock_limits[0].dtbclk_mhz;
+		bw_params->clk_table.entries[0].dtbclk_mhz = (unsigned int)dcn3_2_soc.clock_limits[0].dtbclk_mhz;
 	if (max_uclk_mhz == 0)
-		bw_params->clk_table.entries[0].memclk_mhz = dcn3_2_soc.clock_limits[0].dram_speed_mts / 16;
+		bw_params->clk_table.entries[0].memclk_mhz = (unsigned int)(dcn3_2_soc.clock_limits[0].dram_speed_mts / 16);
 }
 
 static void swap_table_entries(struct _vcs_dpi_voltage_scaling_st *first_entry,
@@ -2691,7 +2691,7 @@ static void sort_entries_with_same_bw(struct _vcs_dpi_voltage_scaling_st *table,
 
 	for (int i = 0; i < (*num_entries - 1); i++) {
 		if (table[i].net_bw_in_kbytes_sec == table[i+1].net_bw_in_kbytes_sec) {
-			current_bw = table[i].net_bw_in_kbytes_sec;
+			current_bw = (unsigned int)table[i].net_bw_in_kbytes_sec;
 			start_index = i;
 			end_index = ++i;
 
@@ -2838,12 +2838,12 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 		max_clk_data.dppclk_mhz = max_clk_data.dispclk_mhz;
 
 	if (max_clk_data.fclk_mhz == 0)
-		max_clk_data.fclk_mhz = max_clk_data.dcfclk_mhz *
+		max_clk_data.fclk_mhz = (unsigned int)(max_clk_data.dcfclk_mhz *
 				dcn3_2_soc.pct_ideal_sdp_bw_after_urgent /
-				dcn3_2_soc.pct_ideal_fabric_bw_after_urgent;
+				dcn3_2_soc.pct_ideal_fabric_bw_after_urgent);
 
 	if (max_clk_data.phyclk_mhz == 0)
-		max_clk_data.phyclk_mhz = dcn3_2_soc.clock_limits[0].phyclk_mhz;
+		max_clk_data.phyclk_mhz = (unsigned int)dcn3_2_soc.clock_limits[0].phyclk_mhz;
 
 	*num_entries = 0;
 	entry.dispclk_mhz = max_clk_data.dispclk_mhz;
@@ -3096,9 +3096,12 @@ void dcn32_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_pa
 			dc->ctx->dc_bios->vram_info.num_chans) * dc->caps.mall_size_per_mem_channel);
 	}
 
-	if (dc->ctx->dc_bios->vram_info.dram_channel_width_bytes)
-		dc->dml2_options.bbox_overrides.dram_chanel_width_bytes =
-		dcn3_2_soc.dram_channel_width_bytes = dc->ctx->dc_bios->vram_info.dram_channel_width_bytes;
+	if (dc->ctx->dc_bios->vram_info.dram_channel_width_bytes) {
+		unsigned int dram_channel_width_bytes = (unsigned int)dc->ctx->dc_bios->vram_info.dram_channel_width_bytes;
+
+		dc->dml2_options.bbox_overrides.dram_chanel_width_bytes = dram_channel_width_bytes;
+		dcn3_2_soc.dram_channel_width_bytes = dram_channel_width_bytes;
+	}
 
 	/* DML DSC delay factor workaround */
 	dcn3_2_ip.dsc_delay_factor_wa = dc->debug.dsc_delay_factor_wa_x1000 / 1000.0;
@@ -3145,13 +3148,13 @@ void dcn32_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_pa
 			if (min_dcfclk > dcfclk_sta_targets[0])
 				dcfclk_sta_targets[0] = min_dcfclk;
 			if (!max_dcfclk_mhz)
-				max_dcfclk_mhz = dcn3_2_soc.clock_limits[0].dcfclk_mhz;
+				max_dcfclk_mhz = (unsigned int)dcn3_2_soc.clock_limits[0].dcfclk_mhz;
 			if (!max_dispclk_mhz)
-				max_dispclk_mhz = dcn3_2_soc.clock_limits[0].dispclk_mhz;
+				max_dispclk_mhz = (unsigned int)dcn3_2_soc.clock_limits[0].dispclk_mhz;
 			if (!max_dppclk_mhz)
-				max_dppclk_mhz = dcn3_2_soc.clock_limits[0].dppclk_mhz;
+				max_dppclk_mhz = (unsigned int)dcn3_2_soc.clock_limits[0].dppclk_mhz;
 			if (!max_phyclk_mhz)
-				max_phyclk_mhz = dcn3_2_soc.clock_limits[0].phyclk_mhz;
+				max_phyclk_mhz = (unsigned int)dcn3_2_soc.clock_limits[0].phyclk_mhz;
 
 			if (max_dcfclk_mhz > dcfclk_sta_targets[num_dcfclk_sta_targets-1]) {
 				// If max DCFCLK is greater than the max DCFCLK STA target, insert into the DCFCLK STA target array
@@ -3414,9 +3417,9 @@ bool dcn32_allow_subvp_high_refresh_rate(struct dc *dc, struct dc_state *context
 
 		if (!pipe_ctx->stream)
 			continue;
-		refresh_rate = (pipe_ctx->stream->timing.pix_clk_100hz * 100 +
+		refresh_rate = (unsigned int)((pipe_ctx->stream->timing.pix_clk_100hz * 100 +
 				pipe_ctx->stream->timing.v_total * pipe_ctx->stream->timing.h_total - 1)
-						/ (double)(pipe_ctx->stream->timing.v_total * pipe_ctx->stream->timing.h_total);
+						/ (double)(pipe_ctx->stream->timing.v_total * pipe_ctx->stream->timing.h_total));
 
 		if (refresh_rate < min_refresh)
 			min_refresh = refresh_rate;
@@ -3424,9 +3427,9 @@ bool dcn32_allow_subvp_high_refresh_rate(struct dc *dc, struct dc_state *context
 
 	if (!dc->debug.disable_subvp_high_refresh && min_refresh >= subvp_min_refresh && pipe->stream &&
 			pipe->plane_state && !(pipe->stream->vrr_active_variable || pipe->stream->vrr_active_fixed)) {
-		refresh_rate = (pipe->stream->timing.pix_clk_100hz * 100 +
+		refresh_rate = (unsigned int)((pipe->stream->timing.pix_clk_100hz * 100 +
 						pipe->stream->timing.v_total * pipe->stream->timing.h_total - 1)
-						/ (double)(pipe->stream->timing.v_total * pipe->stream->timing.h_total);
+						/ (double)(pipe->stream->timing.v_total * pipe->stream->timing.h_total));
 		if (refresh_rate >= subvp_min_refresh && refresh_rate <= subvp_max_refresh) {
 			for (i = 0; i < SUBVP_HIGH_REFRESH_LIST_LEN; i++) {
 				uint32_t width = subvp_high_refresh_list.res[i].width;
@@ -3546,8 +3549,8 @@ bool dcn32_find_vactive_pipe(struct dc *dc, const struct dc_state *context, stru
 		/* Every plane (apart from the ones driven by the FPO pipes) needs to have active margin
 		 * in order for us to have found a valid "vactive" config for FPO + Vactive
 		 */
-		blank_us = ((pipe->stream->timing.v_total - pipe->stream->timing.v_addressable) * pipe->stream->timing.h_total /
-				(double)(pipe->stream->timing.pix_clk_100hz * 100)) * 1000000;
+		blank_us = (unsigned int)(((pipe->stream->timing.v_total - pipe->stream->timing.v_addressable) * pipe->stream->timing.h_total /
+				(double)(pipe->stream->timing.pix_clk_100hz * 100)) * 1000000);
 		if (vba->ActiveDRAMClockChangeLatencyMarginPerState[vba->VoltageLevel][vba->maxMpcComb][vba->pipe_plane[pipe_idx]] < vactive_margin_req_us ||
 				pipe->stream->vrr_active_variable || pipe->stream->vrr_active_fixed || blank_us >= dc->debug.fpo_vactive_max_blank_us) {
 			vactive_found = false;
@@ -3575,7 +3578,7 @@ void dcn32_override_min_req_memclk(struct dc *dc, struct dc_state *context)
 		if (context->bw_ctx.dml.vba.DRAMSpeed <= dc->clk_mgr->bw_params->clk_table.entries[0].memclk_mhz * 16 &&
 				num_mclk_levels > 1) {
 			context->bw_ctx.dml.vba.DRAMSpeed = dc->clk_mgr->bw_params->clk_table.entries[1].memclk_mhz * 16;
-			context->bw_ctx.bw.dcn.clk.dramclk_khz = context->bw_ctx.dml.vba.DRAMSpeed * 1000 / 16;
+			context->bw_ctx.bw.dcn.clk.dramclk_khz = (int)(context->bw_ctx.dml.vba.DRAMSpeed * 1000 / 16);
 		}
 	}
 }

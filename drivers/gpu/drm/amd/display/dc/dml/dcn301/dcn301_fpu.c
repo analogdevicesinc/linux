@@ -308,14 +308,14 @@ static void calculate_wm_set_for_vlevel(int vlevel,
 	dml->soc.sr_exit_time_us = table_entry->sr_exit_time_us;
 	dml->soc.sr_enter_plus_exit_time_us = table_entry->sr_enter_plus_exit_time_us;
 
-	wm_set->urgent_ns = get_wm_urgent(dml, pipes, pipe_cnt) * 1000;
-	wm_set->cstate_pstate.cstate_enter_plus_exit_ns = get_wm_stutter_enter_exit(dml, pipes, pipe_cnt) * 1000;
-	wm_set->cstate_pstate.cstate_exit_ns = get_wm_stutter_exit(dml, pipes, pipe_cnt) * 1000;
-	wm_set->cstate_pstate.pstate_change_ns = get_wm_dram_clock_change(dml, pipes, pipe_cnt) * 1000;
-	wm_set->pte_meta_urgent_ns = get_wm_memory_trip(dml, pipes, pipe_cnt) * 1000;
-	wm_set->frac_urg_bw_nom = get_fraction_of_urgent_bandwidth(dml, pipes, pipe_cnt) * 1000;
-	wm_set->frac_urg_bw_flip = get_fraction_of_urgent_bandwidth_imm_flip(dml, pipes, pipe_cnt) * 1000;
-	wm_set->urgent_latency_ns = get_urgent_latency(dml, pipes, pipe_cnt) * 1000;
+	wm_set->urgent_ns = (uint32_t)(get_wm_urgent(dml, pipes, pipe_cnt) * 1000);
+	wm_set->cstate_pstate.cstate_enter_plus_exit_ns = (uint32_t)(get_wm_stutter_enter_exit(dml, pipes, pipe_cnt) * 1000);
+	wm_set->cstate_pstate.cstate_exit_ns = (uint32_t)(get_wm_stutter_exit(dml, pipes, pipe_cnt) * 1000);
+	wm_set->cstate_pstate.pstate_change_ns = (uint32_t)(get_wm_dram_clock_change(dml, pipes, pipe_cnt) * 1000);
+	wm_set->pte_meta_urgent_ns = (uint32_t)(get_wm_memory_trip(dml, pipes, pipe_cnt) * 1000);
+	wm_set->frac_urg_bw_nom = (uint32_t)(get_fraction_of_urgent_bandwidth(dml, pipes, pipe_cnt) * 1000);
+	wm_set->frac_urg_bw_flip = (uint32_t)(get_fraction_of_urgent_bandwidth_imm_flip(dml, pipes, pipe_cnt) * 1000);
+	wm_set->urgent_latency_ns = (uint32_t)(get_urgent_latency(dml, pipes, pipe_cnt) * 1000);
 	dml->soc.dram_clock_change_latency_us = dram_clock_change_latency_cached;
 
 }
@@ -405,8 +405,8 @@ void dcn301_fpu_set_wm_ranges(int i,
 {
 	dc_assert_fp_enabled();
 
-	ranges->reader_wm_sets[i].min_fill_clk_mhz = (i > 0) ? (loaded_bb->clock_limits[i - 1].dram_speed_mts / 16) + 1 : 0;
-	ranges->reader_wm_sets[i].max_fill_clk_mhz = loaded_bb->clock_limits[i].dram_speed_mts / 16;
+	ranges->reader_wm_sets[i].min_fill_clk_mhz = (uint16_t)((i > 0) ? (loaded_bb->clock_limits[i - 1].dram_speed_mts / 16) + 1 : 0);
+	ranges->reader_wm_sets[i].max_fill_clk_mhz = (uint16_t)(loaded_bb->clock_limits[i].dram_speed_mts / 16);
 }
 
 void dcn301_fpu_init_soc_bounding_box(struct bp_soc_bb_info bb_info)

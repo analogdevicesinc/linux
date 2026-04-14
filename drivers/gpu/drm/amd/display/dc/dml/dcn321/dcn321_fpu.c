@@ -162,20 +162,20 @@ struct _vcs_dpi_soc_bounding_box_st dcn3_21_soc = {
 static void get_optimal_ntuple(struct _vcs_dpi_voltage_scaling_st *entry)
 {
 	if (entry->dcfclk_mhz > 0) {
-		float bw_on_sdp = entry->dcfclk_mhz * dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_sdp_bw_after_urgent / 100);
+		float bw_on_sdp = (float)(entry->dcfclk_mhz * dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_sdp_bw_after_urgent / 100));
 
 		entry->fabricclk_mhz = bw_on_sdp / (dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_fabric_bw_after_urgent / 100));
 		entry->dram_speed_mts = bw_on_sdp / (dcn3_21_soc.num_chans *
 				dcn3_21_soc.dram_channel_width_bytes * ((float)dcn3_21_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100));
 	} else if (entry->fabricclk_mhz > 0) {
-		float bw_on_fabric = entry->fabricclk_mhz * dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_fabric_bw_after_urgent / 100);
+		float bw_on_fabric = (float)(entry->fabricclk_mhz * dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_fabric_bw_after_urgent / 100));
 
 		entry->dcfclk_mhz = bw_on_fabric / (dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_sdp_bw_after_urgent / 100));
 		entry->dram_speed_mts = bw_on_fabric / (dcn3_21_soc.num_chans *
 				dcn3_21_soc.dram_channel_width_bytes * ((float)dcn3_21_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100));
 	} else if (entry->dram_speed_mts > 0) {
-		float bw_on_dram = entry->dram_speed_mts * dcn3_21_soc.num_chans *
-				dcn3_21_soc.dram_channel_width_bytes * ((float)dcn3_21_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100);
+		float bw_on_dram = (float)(entry->dram_speed_mts * dcn3_21_soc.num_chans *
+				dcn3_21_soc.dram_channel_width_bytes * ((float)dcn3_21_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100));
 
 		entry->fabricclk_mhz = bw_on_dram / (dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_fabric_bw_after_urgent / 100));
 		entry->dcfclk_mhz = bw_on_dram / (dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_sdp_bw_after_urgent / 100));
@@ -189,12 +189,12 @@ static float calculate_net_bw_in_kbytes_sec(struct _vcs_dpi_voltage_scaling_st *
 	float sdp_bw_kbytes_sec;
 	float limiting_bw_kbytes_sec;
 
-	memory_bw_kbytes_sec = entry->dram_speed_mts * dcn3_21_soc.num_chans *
-			dcn3_21_soc.dram_channel_width_bytes * ((float)dcn3_21_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100);
+	memory_bw_kbytes_sec = (float)(entry->dram_speed_mts * dcn3_21_soc.num_chans *
+			dcn3_21_soc.dram_channel_width_bytes * ((float)dcn3_21_soc.pct_ideal_dram_sdp_bw_after_urgent_pixel_only / 100));
 
-	fabric_bw_kbytes_sec = entry->fabricclk_mhz * dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_fabric_bw_after_urgent / 100);
+	fabric_bw_kbytes_sec = (float)(entry->fabricclk_mhz * dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_fabric_bw_after_urgent / 100));
 
-	sdp_bw_kbytes_sec = entry->dcfclk_mhz * dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_sdp_bw_after_urgent / 100);
+	sdp_bw_kbytes_sec = (float)(entry->dcfclk_mhz * dcn3_21_soc.return_bus_width_bytes * ((float)dcn3_21_soc.pct_ideal_sdp_bw_after_urgent / 100));
 
 	limiting_bw_kbytes_sec = memory_bw_kbytes_sec;
 
@@ -267,7 +267,7 @@ static void sort_entries_with_same_bw(struct _vcs_dpi_voltage_scaling_st *table,
 
 	for (int i = 0; i < (*num_entries - 1); i++) {
 		if (table[i].net_bw_in_kbytes_sec == table[i+1].net_bw_in_kbytes_sec) {
-			current_bw = table[i].net_bw_in_kbytes_sec;
+			current_bw = (unsigned int)table[i].net_bw_in_kbytes_sec;
 			start_index = i;
 			end_index = ++i;
 
@@ -414,12 +414,12 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 		max_clk_data.dppclk_mhz = max_clk_data.dispclk_mhz;
 
 	if (max_clk_data.fclk_mhz == 0)
-		max_clk_data.fclk_mhz = max_clk_data.dcfclk_mhz *
+		max_clk_data.fclk_mhz = (unsigned int)(max_clk_data.dcfclk_mhz *
 				dcn3_21_soc.pct_ideal_sdp_bw_after_urgent /
-				dcn3_21_soc.pct_ideal_fabric_bw_after_urgent;
+				dcn3_21_soc.pct_ideal_fabric_bw_after_urgent);
 
 	if (max_clk_data.phyclk_mhz == 0)
-		max_clk_data.phyclk_mhz = dcn3_21_soc.clock_limits[0].phyclk_mhz;
+		max_clk_data.phyclk_mhz = (unsigned int)dcn3_21_soc.clock_limits[0].phyclk_mhz;
 
 	*num_entries = 0;
 	entry.dispclk_mhz = max_clk_data.dispclk_mhz;
@@ -588,12 +588,12 @@ static void dcn321_get_optimal_dcfclk_fclk_for_uclk(unsigned int uclk_mts,
 	bw_from_dram = (bw_from_dram1 < bw_from_dram2) ? bw_from_dram1 : bw_from_dram2;
 
 	if (optimal_fclk)
-		*optimal_fclk = bw_from_dram /
-		(dcn3_21_soc.fabric_datapath_to_dcn_data_return_bytes * (dcn3_21_soc.max_avg_sdp_bw_use_normal_percent / 100));
+		*optimal_fclk = (unsigned int)(bw_from_dram /
+		(dcn3_21_soc.fabric_datapath_to_dcn_data_return_bytes * (dcn3_21_soc.max_avg_sdp_bw_use_normal_percent / 100)));
 
 	if (optimal_dcfclk)
-		*optimal_dcfclk =  bw_from_dram /
-		(dcn3_21_soc.return_bus_width_bytes * (dcn3_21_soc.max_avg_sdp_bw_use_normal_percent / 100));
+		*optimal_dcfclk =  (unsigned int)(bw_from_dram /
+		(dcn3_21_soc.return_bus_width_bytes * (dcn3_21_soc.max_avg_sdp_bw_use_normal_percent / 100)));
 }
 
 /** dcn321_update_bw_bounding_box
@@ -688,9 +688,12 @@ void dcn321_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_p
 			dc->ctx->dc_bios->vram_info.num_chans) * dc->caps.mall_size_per_mem_channel);
 	}
 
-	if (dc->ctx->dc_bios->vram_info.dram_channel_width_bytes)
-		dc->dml2_options.bbox_overrides.dram_chanel_width_bytes =
-		dcn3_21_soc.dram_channel_width_bytes = dc->ctx->dc_bios->vram_info.dram_channel_width_bytes;
+	if (dc->ctx->dc_bios->vram_info.dram_channel_width_bytes) {
+		unsigned int dram_channel_width_bytes = (unsigned int)dc->ctx->dc_bios->vram_info.dram_channel_width_bytes;
+
+		dc->dml2_options.bbox_overrides.dram_chanel_width_bytes = dram_channel_width_bytes;
+		dcn3_21_soc.dram_channel_width_bytes = dram_channel_width_bytes;
+	}
 
 	/* DML DSC delay factor workaround */
 	dcn3_21_ip.dsc_delay_factor_wa = dc->debug.dsc_delay_factor_wa_x1000 / 1000.0;
@@ -729,13 +732,13 @@ void dcn321_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_p
 				max_phyclk_mhz = bw_params->clk_table.entries[i].phyclk_mhz;
 		}
 		if (!max_dcfclk_mhz)
-			max_dcfclk_mhz = dcn3_21_soc.clock_limits[0].dcfclk_mhz;
+			max_dcfclk_mhz = (unsigned int)dcn3_21_soc.clock_limits[0].dcfclk_mhz;
 		if (!max_dispclk_mhz)
-			max_dispclk_mhz = dcn3_21_soc.clock_limits[0].dispclk_mhz;
+			max_dispclk_mhz = (unsigned int)dcn3_21_soc.clock_limits[0].dispclk_mhz;
 		if (!max_dppclk_mhz)
-			max_dppclk_mhz = dcn3_21_soc.clock_limits[0].dppclk_mhz;
+			max_dppclk_mhz = (unsigned int)dcn3_21_soc.clock_limits[0].dppclk_mhz;
 		if (!max_phyclk_mhz)
-			max_phyclk_mhz = dcn3_21_soc.clock_limits[0].phyclk_mhz;
+			max_phyclk_mhz = (unsigned int)dcn3_21_soc.clock_limits[0].phyclk_mhz;
 
 		if (max_dcfclk_mhz > dcfclk_sta_targets[num_dcfclk_sta_targets-1]) {
 			// If max DCFCLK is greater than the max DCFCLK STA target, insert into the DCFCLK STA target array

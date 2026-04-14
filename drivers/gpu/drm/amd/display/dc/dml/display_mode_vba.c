@@ -246,7 +246,7 @@ unsigned int get_total_surface_size_in_mall_bytes(
 		unsigned int num_pipes)
 {
 	unsigned int k;
-	unsigned int size = 0.0;
+	unsigned int size = 0;
 	recalculate_params(mode_lib, pipes, num_pipes);
 	for (k = 0; k < mode_lib->vba.NumberOfActiveSurfaces; ++k)
 		size += mode_lib->vba.SurfaceSizeInMALL[k];
@@ -343,7 +343,7 @@ static void fetch_socbb_params(struct display_mode_lib *mode_lib)
 	mode_lib->vba.FCLKChangeLatency = soc->fclk_change_latency_us;
 	mode_lib->vba.USRRetrainingLatency = soc->usr_retraining_latency_us;
 	mode_lib->vba.SMNLatency = soc->smn_latency_us;
-	mode_lib->vba.MALLAllocatedForDCNFinal = soc->mall_allocated_for_dcn_mbytes;
+	mode_lib->vba.MALLAllocatedForDCNFinal = (unsigned int)soc->mall_allocated_for_dcn_mbytes;
 
 	mode_lib->vba.PercentOfIdealDRAMBWReceivedAfterUrgLatencySTROBE = soc->pct_ideal_dram_bw_after_urgent_strobe;
 	mode_lib->vba.MaxAveragePercentOfIdealFabricBWDisplayCanUseInNormalSystemOperation =

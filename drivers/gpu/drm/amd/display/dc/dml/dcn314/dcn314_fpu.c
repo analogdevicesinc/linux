@@ -284,11 +284,11 @@ static bool is_dual_plane(enum surface_pixel_format format)
 static unsigned int micro_sec_to_vert_lines(unsigned int num_us, struct dc_crtc_timing *timing)
 {
 	unsigned int num_lines = 0;
-	unsigned int lines_time_in_ns = 1000.0 *
-			(((float)timing->h_total * 1000.0) /
-			 ((float)timing->pix_clk_100hz / 10.0));
+	double lines_time_in_ns = 1000.0 *
+			(((double)timing->h_total * 1000.0) /
+			 ((double)timing->pix_clk_100hz / 10.0));
 
-	num_lines = dml_ceil(1000.0 * num_us / lines_time_in_ns, 1.0);
+	num_lines = (unsigned int)dml_ceil(1000.0 * num_us / lines_time_in_ns, 1.0);
 
 	return num_lines;
 }
