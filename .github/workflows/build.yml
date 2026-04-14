@@ -227,15 +227,15 @@ jobs:
         compile_kernel_smatch
 
     - name: Store the Linux kernel and modules drivers
-      if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v6
+      if: ${{ !cancelled() && env.fatal != 'true' }}
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.defconfig }}-${{ inputs.compiler }}-${{ inputs.arch }}
         path: ${{ env.DIST }}
 
     - name: Store the Linux headers
-      if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v6
+      if: ${{ !cancelled() && env.fatal != 'true' }}
+      uses: actions/upload-artifact@v7
       with:
         name: ${{ inputs.defconfig }}-${{ inputs.compiler }}-${{ inputs.arch }}-headers
         path: ${{ env.DIST_HEADERS }}
