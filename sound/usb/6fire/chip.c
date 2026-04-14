@@ -43,32 +43,28 @@ static DEFINE_MUTEX(register_mutex);
 
 static void usb6fire_chip_abort(struct sfire_chip *chip)
 {
-	if (chip) {
-		if (chip->pcm)
-			usb6fire_pcm_abort(chip);
-		if (chip->midi)
-			usb6fire_midi_abort(chip);
-		if (chip->comm)
-			usb6fire_comm_abort(chip);
-		if (chip->control)
-			usb6fire_control_abort(chip);
-	}
+	if (chip->pcm)
+		usb6fire_pcm_abort(chip);
+	if (chip->midi)
+		usb6fire_midi_abort(chip);
+	if (chip->comm)
+		usb6fire_comm_abort(chip);
+	if (chip->control)
+		usb6fire_control_abort(chip);
 }
 
 static void usb6fire_card_free(struct snd_card *card)
 {
 	struct sfire_chip *chip = card->private_data;
 
-	if (chip) {
-		if (chip->pcm)
-			usb6fire_pcm_destroy(chip);
-		if (chip->midi)
-			usb6fire_midi_destroy(chip);
-		if (chip->comm)
-			usb6fire_comm_destroy(chip);
-		if (chip->control)
-			usb6fire_control_destroy(chip);
-	}
+	if (chip->pcm)
+		usb6fire_pcm_destroy(chip);
+	if (chip->midi)
+		usb6fire_midi_destroy(chip);
+	if (chip->comm)
+		usb6fire_comm_destroy(chip);
+	if (chip->control)
+		usb6fire_control_destroy(chip);
 }
 
 static int usb6fire_chip_probe(struct usb_interface *intf,
