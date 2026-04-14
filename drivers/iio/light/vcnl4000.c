@@ -2059,8 +2059,8 @@ static int vcnl4000_probe(struct i2c_client *client)
 	if (ret)
 		return ret;
 
-	ret = iio_device_register(indio_dev);
-	if (ret < 0)
+	ret = devm_iio_device_register(dev, indio_dev);
+	if (ret)
 		return ret;
 
 	pm_runtime_set_autosuspend_delay(dev, VCNL4000_SLEEP_DELAY_MS);
@@ -2081,13 +2081,6 @@ static const struct of_device_id vcnl_4000_of_match[] = {
 	{ }
 };
 MODULE_DEVICE_TABLE(of, vcnl_4000_of_match);
-
-static void vcnl4000_remove(struct i2c_client *client)
-{
-	struct iio_dev *indio_dev = i2c_get_clientdata(client);
-
-	iio_device_unregister(indio_dev);
-}
 
 static int vcnl4000_runtime_suspend(struct device *dev)
 {
@@ -2128,7 +2121,6 @@ static struct i2c_driver vcnl4000_driver = {
 	},
 	.probe = vcnl4000_probe,
 	.id_table = vcnl4000_id,
-	.remove	= vcnl4000_remove,
 };
 
 module_i2c_driver(vcnl4000_driver);
