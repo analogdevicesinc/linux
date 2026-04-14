@@ -447,15 +447,4 @@ struct regd_pair_mapping {
 	u16 reg_2ghz_ctl;
 };
 
-struct rtw_regulatory {
-	char alpha2[2];
-	u16 country_code;
-	u16 max_power_level;
-	u32 tp_scale;
-	u16 current_rd;
-	u16 current_rd_ext;
-	int16_t power_limit;
-	struct regd_pair_mapping *regpair;
-};
-
 #endif /*  _WIFI_H_ */
