@@ -22,7 +22,7 @@
 *
 * \retval Returns pointer to the dst when successful, NULL when error occurred.
 */
-ADI_API void* adi_library_memset(void* dst, int c, size_t len);
+ADI_API void* adrv904x_library_memset(void* dst, int c, size_t len);
 
 /**
 * \brief A function to copy len bytes from memory area src to memory area dst.
@@ -33,7 +33,7 @@ ADI_API void* adi_library_memset(void* dst, int c, size_t len);
 *
 * \retval Returns pointer to the dst.
 */
-ADI_API void* adi_library_memcpy(void* dst, const void* src, size_t len);
+ADI_API void* adrv904x_library_memcpy(void* dst, const void* src, size_t len);
 
 /**
 * \brief A function to determine the length of a string.
@@ -42,7 +42,7 @@ ADI_API void* adi_library_memcpy(void* dst, const void* src, size_t len);
 *
 * \retval Returns the length of the string, 0 when error occurred.
 */
-ADI_API size_t adi_library_strlen(const char* src);
+ADI_API size_t adrv904x_library_strlen(const char* src);
 
 /**
 * \brief A function to determine the length of a fixed-size string.
@@ -52,7 +52,7 @@ ADI_API size_t adi_library_strlen(const char* src);
 *
 * \retval Returns the length of the string or maxlen if '\0' is not found in the string, or 0 when error occurred.
 */
-ADI_API size_t adi_library_strnlen(const char* src, size_t maxlen);
+ADI_API size_t adrv904x_library_strnlen(const char* src, size_t maxlen);
 
 /**
 * \brief A function to return a pointer to the first occurrence of the character c in the string src.
@@ -62,7 +62,7 @@ ADI_API size_t adi_library_strnlen(const char* src, size_t maxlen);
 *
 * \retval Return a pointer to the matched character or NULL if the character is not found or error occurred.
 */
-ADI_API char* adi_library_strchr(const char* src, int c);
+ADI_API char* adrv904x_library_strchr(const char* src, int c);
 
 /**
 * \brief A function appends the src string to the dst string. dst string must have enough room for both strings.
@@ -72,7 +72,7 @@ ADI_API char* adi_library_strchr(const char* src, int c);
 *
 * \retval Return a pointer to the resulting string dst, NULL when error occurred.
 */
-ADI_API char* adi_library_strcat(char* dst, const char* src);
+ADI_API char* adrv904x_library_strcat(char* dst, const char* src);
 
 /**
 * \brief A function appends n bytes the src string to the dst string. dst string must have enough room for dst string and n bytes.
@@ -83,7 +83,7 @@ ADI_API char* adi_library_strcat(char* dst, const char* src);
 *
 * \retval Return a pointer to the resulting string dst, NULL when error occurred.
 */
-ADI_API char* adi_library_strncat(char* dst, const char* src, size_t n);
+ADI_API char* adrv904x_library_strncat(char* dst, const char* src, size_t n);
 
 /**
 * \brief A function to duplicate a string
@@ -94,7 +94,7 @@ ADI_API char* adi_library_strncat(char* dst, const char* src, size_t n);
 *
 * \retval Pointer to duplicated string or NULL for error
 */
-ADI_API char* adi_library_strdup(const char* stringPtr);
+ADI_API char* adrv904x_library_strdup(const char* stringPtr);
 
 /**
 * \brief Convert a fixed point Q0.36 value to a dB value
@@ -104,7 +104,7 @@ ADI_API char* adi_library_strdup(const char* stringPtr);
 *
 * \retval Scaled dB value
 */
-ADI_API int32_t adi_library_q36ToDB(uint32_t val, int32_t scale);
+ADI_API int32_t adrv904x_library_q36ToDB(uint32_t val, int32_t scale);
 
 /**
 * \brief Convert a linear value to a milli-dB value
@@ -114,7 +114,7 @@ ADI_API int32_t adi_library_q36ToDB(uint32_t val, int32_t scale);
 *
 * \retval milli-dB value
 */
-ADI_API int32_t adi_library_linearToMillidBVolt(uint32_t val, uint32_t scale);
+ADI_API int32_t adrv904x_library_linearToMillidBVolt(uint32_t val, uint32_t scale);
 
 /**
 * \brief Convert a milli-dB value to a linear field value
@@ -124,7 +124,7 @@ ADI_API int32_t adi_library_linearToMillidBVolt(uint32_t val, uint32_t scale);
 *
 * \retval linear value
 */
-ADI_API int32_t adi_library_millidBVoltToLinear(int32_t millidB, uint32_t scale);
+ADI_API int32_t adrv904x_library_millidBVoltToLinear(int32_t millidB, uint32_t scale);
 
 /**
 * \brief Function to convert a 32bit scaled integer to bytes that represent a 32bit floating-point number.
@@ -169,5 +169,19 @@ ADI_API bool adi_library_fp32ToScaledInt(uint32_t fpNum, unsigned scale, int32_t
 * \retval true if the conversion was successful, false otherwise (e.g. outside range of scaled integer).
 */
 ADI_API bool adi_library_fp64ToScaledInt(uint64_t fpNum, unsigned scale, int64_t *scaledInt);
+
+
+/* Symbol redirects for backward compatibility */
+#define adi_library_linearToMillidBVolt	adrv904x_library_linearToMillidBVolt
+#define adi_library_memcpy	adrv904x_library_memcpy
+#define adi_library_memset	adrv904x_library_memset
+#define adi_library_millidBVoltToLinear	adrv904x_library_millidBVoltToLinear
+#define adi_library_q36ToDB	adrv904x_library_q36ToDB
+#define adi_library_strcat	adrv904x_library_strcat
+#define adi_library_strchr	adrv904x_library_strchr
+#define adi_library_strdup	adrv904x_library_strdup
+#define adi_library_strlen	adrv904x_library_strlen
+#define adi_library_strncat	adrv904x_library_strncat
+#define adi_library_strnlen	adrv904x_library_strnlen
 
 #endif  /*_ADI_LIBRARY_H_ */

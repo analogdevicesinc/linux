@@ -76,7 +76,7 @@ ADI_API void adi_adrv904x_LogLevelGet(const adi_common_Device_t* const    common
     }
 }
 
-ADI_API adi_common_ErrAction_e adi_common_LogStatusGet( const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_LogStatusGet( const adi_common_Device_t* const    commonDev,
                                                         adi_hal_LogStatusGet_t* const       logStatus)
 {
     adi_common_ErrAction_e recoveryAction = ADI_COMMON_ERR_ACT_CHECK_PARAM;
@@ -97,7 +97,7 @@ ADI_API adi_common_ErrAction_e adi_common_LogStatusGet( const adi_common_Device_
     return recoveryAction;
 }
 
-ADI_API void adi_common_LogConsoleSet(const adi_common_Device_t* const commonDev, adi_hal_LogConsole_e logConsoleFlag)
+ADI_API void adrv904x_common_LogConsoleSet(const adi_common_Device_t* const commonDev, adi_hal_LogConsole_e logConsoleFlag)
 {
     if ((NULL != commonDev)                 &&
         (NULL != commonDev->devHalInfo))
@@ -129,7 +129,7 @@ ADI_API void adi_adrv904x_LogFileClose(const adi_common_Device_t* const commonDe
     }
 }
 
-ADI_API adi_common_ErrAction_e adi_common_ErrLog(   const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrLog(   const adi_common_Device_t* const    commonDev,
                                                     const uint32_t                      errSource,
                                                     const adi_common_ErrAction_e        action,
                                                     const int64_t                       errCode,
