@@ -31,7 +31,7 @@
 /* DAC uses an internal Voltage reference of 4.096V at a gain of 2x */
 #define MCP4821_2X_GAIN_VREF_MV 4096
 
-enum mcp4821_supported_drvice_ids {
+enum mcp4821_supported_device_ids {
 	ID_MCP4801,
 	ID_MCP4802,
 	ID_MCP4811,
