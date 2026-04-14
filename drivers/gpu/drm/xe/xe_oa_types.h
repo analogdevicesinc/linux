@@ -154,7 +154,9 @@ struct xe_oa {
 	u16 oa_unit_ids;
 };
 
-/** @xe_oa_buffer: State of the stream OA buffer */
+/**
+ * struct xe_oa_buffer - State of the stream OA buffer
+ */
 struct xe_oa_buffer {
 	/** @format: data format */
 	const struct xe_oa_format *format;

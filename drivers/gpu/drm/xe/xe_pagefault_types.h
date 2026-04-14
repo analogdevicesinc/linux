@@ -112,7 +112,7 @@ struct xe_pagefault {
 };
 
 /**
- * struct xe_pagefault_queue: Xe pagefault queue (consumer)
+ * struct xe_pagefault_queue - Xe pagefault queue (consumer)
  *
  * Used to capture all device page faults for deferred processing. Size this
  * queue to absorb the device’s worst-case number of outstanding faults.

@@ -111,7 +111,7 @@ static inline bool xe_pt_covers(u64 addr, u64 end, unsigned int level,
 }
 
 /**
- * xe_pt_num_entries: Number of page-table entries of a given range at this
+ * xe_pt_num_entries - Number of page-table entries of a given range at this
  * level
  * @addr: Start address.
  * @end: End address.
@@ -132,7 +132,7 @@ xe_pt_num_entries(u64 addr, u64 end, unsigned int level,
 }
 
 /**
- * xe_pt_offset: Offset of the page-table entry for a given address.
+ * xe_pt_offset - Offset of the page-table entry for a given address.
  * @addr: The address.
  * @level: Page table level.
  * @walk: Walk info.
