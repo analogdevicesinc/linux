@@ -126,7 +126,7 @@ ADI_API void adi_adrv904x_LogLevelGet(const adi_common_Device_t* const    common
 * \param[out]   logStatus   Pointer to Logging Status Information
 *
 */
-ADI_API adi_common_ErrAction_e adi_common_LogStatusGet( const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_LogStatusGet( const adi_common_Device_t* const    commonDev,
                                                         adi_hal_LogStatusGet_t* const       logStatus);
 
 /**
@@ -136,7 +136,7 @@ ADI_API adi_common_ErrAction_e adi_common_LogStatusGet( const adi_common_Device_
 * \param[out]   logConsoleFlag  Flag Status to be Set
 *
 */
-ADI_API void adi_common_LogConsoleSet(const adi_common_Device_t* const commonDev, adi_hal_LogConsole_e logConsoleFlag);
+ADI_API void adrv904x_common_LogConsoleSet(const adi_common_Device_t* const commonDev, adi_hal_LogConsole_e logConsoleFlag);
 
 /**
 * \brief Function to write to log with a selected comment
@@ -186,7 +186,7 @@ ADI_API void adi_adrv904x_LogFileClose(const adi_common_Device_t* const commonDe
  * \param[in] varData           Variable Data will be captured (Limitations Apply)
  * \param[in] errMsg            User Readable Error Message
  */
-ADI_API adi_common_ErrAction_e adi_common_ErrLog(   const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrLog(   const adi_common_Device_t* const    commonDev,
                                                     const uint32_t                      errSource,
                                                     const adi_common_ErrAction_e        action,
                                                     const int64_t                       errCode,
@@ -196,5 +196,11 @@ ADI_API adi_common_ErrAction_e adi_common_ErrLog(   const adi_common_Device_t* c
                                                     const char*                         varName,
                                                     const int64_t                       varData,
                                                     const char*                         errMsg);
+
+
+/* Symbol redirects for backward compatibility */
+#define adi_common_ErrLog	adrv904x_common_ErrLog
+#define adi_common_LogConsoleSet	adrv904x_common_LogConsoleSet
+#define adi_common_LogStatusGet	adrv904x_common_LogStatusGet
 
 #endif /* _ADI_COMMON_LOG_H_ */

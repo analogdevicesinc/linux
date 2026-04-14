@@ -161,7 +161,7 @@ if (ptr == NULL)                            \
                                     variable,                                   \
                                     errMsg)                                     \
                                                                                 \
-     (void)adi_common_ErrReport (   commonDev,                                  \
+     (void)adrv904x_common_ErrReport (   commonDev,                                  \
                                     (uint32_t) errSource,                           /* Explicit Type Conversion; errSource stored as uint32_t */    \
                                     (adi_common_ErrAction_e) recoveryAction,        /* Explicit Type Conversion;recoveryAction stored as adi_common_ErrAction_e */  \
                                     (int64_t) errCode,                              /* Explicit Type Conversion; errCode stored as int64_t */   \
@@ -234,7 +234,7 @@ if (ptr == NULL)                            \
 * \brief    Macro to perform the following:
 *                       1) Write Error Data to Standard Output
 */
-#define ADI_APP_ERROR_OUTPUT(errPtr)    adi_common_ErrStandardOutputWrite(errPtr);
+#define ADI_APP_ERROR_OUTPUT(errPtr)    adrv904x_common_ErrStandardOutputWrite(errPtr);
 
 /*
 * \brief Macro to perform Application Level Error Reporting to Memory & Error Logging to File
@@ -277,7 +277,7 @@ if (ptr == NULL)                            \
                                     errCause,                                   \
                                     errActionMsg)                               \
                                                                                 \
-                                (void) adi_common_ErrMsgReport( commonDev,      \
+                                (void) adrv904x_common_ErrMsgReport( commonDev,      \
                                                                 errCause,       \
                                                                 errActionMsg)
 
@@ -316,7 +316,7 @@ if (ptr == NULL)                            \
 *
 * \param errDataPtr Pointer to Error Structure
 */
-#define ADI_CREATE_ERROR_MEMORY()                               adi_common_ErrCreate()
+#define ADI_CREATE_ERROR_MEMORY()                               adrv904x_common_ErrCreate()
 
 
 /*
@@ -325,21 +325,21 @@ if (ptr == NULL)                            \
 * \param commonDev  Pointer to Common Device
 * \param errDataPtr Pointer to Error Structure
 */
-#define ADI_ASSIGN_ERROR_MEMORY(commonDev, errDataPtr)          adi_common_ErrAssign(commonDev, errDataPtr)
+#define ADI_ASSIGN_ERROR_MEMORY(commonDev, errDataPtr)          adrv904x_common_ErrAssign(commonDev, errDataPtr)
 
 /*
 * \brief Macro to Destroy an Error Structure
 *
 * \param errDataPtr Pointer to Error Structure
 */
-#define ADI_DESTROY_ERROR_MEMORY(errDataPtr)                    adi_common_ErrDestroy(errDataPtr)
+#define ADI_DESTROY_ERROR_MEMORY(errDataPtr)                    adrv904x_common_ErrDestroy(errDataPtr)
 
 /*
 * \brief Macro to clear an Error Structure
 *
 * \param errDataPtr Pointer to Error Structure
 */
-#define ADI_CLEAR_ERROR_MEMORY(errDataPtr)                      adi_common_ErrClear(errDataPtr)
+#define ADI_CLEAR_ERROR_MEMORY(errDataPtr)                      adrv904x_common_ErrClear(errDataPtr)
 
 /*
 * \brief Macro to Get Error Frame from Stack Trace
@@ -348,7 +348,7 @@ if (ptr == NULL)                            \
 * \param frameId    Frame ID
 * \param errDataPtr Pointer to Error Frame
 */
-#define ADI_ERROR_FRAME_GET(commonDev, frameId, framePtr)       adi_common_ErrFrameGet(commonDev, frameId, framePtr)
+#define ADI_ERROR_FRAME_GET(commonDev, frameId, framePtr)       adrv904x_common_ErrFrameGet(commonDev, frameId, framePtr)
 
 /*
 * *******************************
@@ -370,7 +370,7 @@ if (ptr == NULL)                            \
  * \param[in] varData           Variable Data will be captured (Limitations Apply)
  * \param[in] errMsg            User Readable Error Message
  */
-ADI_API adi_common_ErrAction_e adi_common_ErrReport(const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrReport(const adi_common_Device_t* const    commonDev,
                                                     const uint32_t                      errSource,
                                                     const adi_common_ErrAction_e        action,
                                                     const int64_t                       errCode,
@@ -388,7 +388,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrReport(const adi_common_Device_t* c
  * \param[in] errCausePtr       Error Cause Message
  * \param[in] errActionMsgPtr   Recovery Action Message
  */
-ADI_API adi_common_ErrAction_e adi_common_ErrMsgReport( const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrMsgReport( const adi_common_Device_t* const    commonDev,
                                                         const char*                         errCausePtr,
                                                         const char*                         errActionMsgPtr);
 
@@ -398,14 +398,14 @@ ADI_API adi_common_ErrAction_e adi_common_ErrMsgReport( const adi_common_Device_
 * \param[in] errData   pointer to adi_common_Device_t Error Data
 *
 */
-ADI_API void adi_common_ErrStandardOutputWrite(const adi_common_ErrData_t* const errData);
+ADI_API void adrv904x_common_ErrStandardOutputWrite(const adi_common_ErrData_t* const errData);
 
 /*
  * \brief   Create Error Structure in Memory
  * 
  * \retval adi_common_ErrData_t* Non NULL Pointer to Error Structure is created
  */
-ADI_API adi_common_ErrData_t* adi_common_ErrCreate(void);
+ADI_API adi_common_ErrData_t* adrv904x_common_ErrCreate(void);
 
 /*
  * \brief   Assign Error Structure in Memory to Common Device Structure
@@ -415,7 +415,7 @@ ADI_API adi_common_ErrData_t* adi_common_ErrCreate(void);
  * 
  * \retval  adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if successfully assigned
  */
-ADI_API adi_common_ErrAction_e adi_common_ErrAssign(adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrAssign(adi_common_Device_t* const  commonDev,
                                                     adi_common_ErrData_t* const errDataPtr);
 
 /*
@@ -427,7 +427,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrAssign(adi_common_Device_t* const  
  *
  * \retval  adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if successfully parsed
  */
-ADI_API adi_common_ErrAction_e adi_common_ErrFrameGet(  const adi_common_Device_t* const    commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrFrameGet(  const adi_common_Device_t* const    commonDev,
                                                         const adi_common_ErrFrameId_e       frameId,
                                                         adi_common_ErrFrame_t* const        errFrame);
 
@@ -440,7 +440,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrFrameGet(  const adi_common_Device_
  *
  * \retval  adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if successfully parsed
  */
-ADI_API adi_common_ErrAction_e adi_common_ErrorGet( const int64_t                   errCode,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrorGet( const int64_t                   errCode,
                                                     const char** const              errMsgPtr,
                                                     adi_common_ErrAction_e* const   action);
 
@@ -455,7 +455,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrorGet( const int64_t               
  *
  * \retval  adi_common_ErrAction_e - ADI_COMMON_ERR_ACT_NONE if successfully parsed
  */
-ADI_API adi_common_ErrAction_e adi_common_ErrInfoGet(   const adi_common_ErrSources_e       errSrc,
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrInfoGet(   const adi_common_ErrSources_e       errSrc,
                                                         const int64_t                       errCode,
                                                         const char** const                  errMsgPtr,
                                                         adi_common_ErrAction_e* const       errAction);
@@ -467,7 +467,7 @@ ADI_API adi_common_ErrAction_e adi_common_ErrInfoGet(   const adi_common_ErrSour
  * 
  * \retval ADI_COMMON_ERR_ACT_NONE if Memory is successfully deallocated
  */
-ADI_API adi_common_ErrAction_e adi_common_ErrDestroy(adi_common_ErrData_t* errDataPtr);
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrDestroy(adi_common_ErrData_t* errDataPtr);
 
 /**
  * \brief Clear Error Structure
@@ -476,6 +476,19 @@ ADI_API adi_common_ErrAction_e adi_common_ErrDestroy(adi_common_ErrData_t* errDa
  * 
  * \retval ADI_COMMON_ERR_ACT_NONE if Error Data is marked clear
  */
-ADI_API adi_common_ErrAction_e adi_common_ErrClear(adi_common_ErrData_t* const errDataPtr);
+ADI_API adi_common_ErrAction_e adrv904x_common_ErrClear(adi_common_ErrData_t* const errDataPtr);
+
+
+/* Symbol redirects for backward compatibility */
+#define adi_common_ErrAssign	adrv904x_common_ErrAssign
+#define adi_common_ErrClear	adrv904x_common_ErrClear
+#define adi_common_ErrCreate	adrv904x_common_ErrCreate
+#define adi_common_ErrDestroy	adrv904x_common_ErrDestroy
+#define adi_common_ErrFrameGet	adrv904x_common_ErrFrameGet
+#define adi_common_ErrInfoGet	adrv904x_common_ErrInfoGet
+#define adi_common_ErrMsgReport	adrv904x_common_ErrMsgReport
+#define adi_common_ErrReport	adrv904x_common_ErrReport
+#define adi_common_ErrStandardOutputWrite	adrv904x_common_ErrStandardOutputWrite
+#define adi_common_ErrorGet	adrv904x_common_ErrorGet
 
 #endif /* _ADI_COMMON_ERROR_H_ */

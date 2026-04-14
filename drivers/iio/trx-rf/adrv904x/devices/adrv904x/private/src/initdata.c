@@ -5,13 +5,13 @@
             * see the "LICENSE.pdf" file in this zip file.
             */#include "initdata.h"
 
-adi_adrv904x_Version_t initStructApiVersion = {2, 15, 0, 5};
+adi_adrv904x_Version_t adrv904x_initStructApiVersion = {2, 15, 0, 5};
 
-adi_adrv904x_CpuFwVersion_t initStructArmVersion = { {2, 15, 0, 5} , ADI_ADRV904X_CPU_FW_BUILD_RELEASE};
+adi_adrv904x_CpuFwVersion_t adrv904x_initStructArmVersion = { {2, 15, 0, 5} , ADI_ADRV904X_CPU_FW_BUILD_RELEASE};
 
-adi_adrv904x_Version_t initStructStreamVersion = {2, 15, 0, 5};
+adi_adrv904x_Version_t adrv904x_initStructStreamVersion = {2, 15, 0, 5};
 
-adi_adrv904x_Init_t deviceInitStruct = 
+adi_adrv904x_Init_t adrv904x_deviceInitStruct = 
 {
     { // spiOptionsInit
         1,  // allowSpiStreaming
@@ -941,7 +941,7 @@ adi_adrv904x_Init_t deviceInitStruct =
         0,  // enableGpioRts
     },
 };
-adi_adrv904x_PostMcsInit_t utilityInit = 
+adi_adrv904x_PostMcsInit_t adrv904x_utilityInit = 
 {
     { // radioCtrlCfg
         { // txRadioCtrlModeCfg

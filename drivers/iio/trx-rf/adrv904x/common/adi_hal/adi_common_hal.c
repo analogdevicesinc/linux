@@ -18,7 +18,7 @@
 
 #define ADI_FILE    ADI_COMMON_FILE_HAL
 
-ADI_API adi_common_ErrAction_e adi_common_hal_ErrCodeConvert(const adi_hal_Err_e halCode)
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ErrCodeConvert(const adi_hal_Err_e halCode)
 {
     adi_common_ErrAction_e action = ADI_COMMON_ERR_ACT_RESET_DEVICE;
 
@@ -83,7 +83,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_HwOpen(adi_common_Device_t* cons
     halError = adrv904x_MutexInit(&commonDev->mutex);
     if (ADI_HAL_ERR_OK != halError)
     {
-        recoveryAction = adi_common_hal_ErrCodeConvert(halError);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(halError);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_HAL,
                             ADI_COMMON_ERRCODE_API,
@@ -100,7 +100,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_HwOpen(adi_common_Device_t* cons
     }
     else
     {
-        recoveryAction = adi_common_hal_ErrCodeConvert(halError);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(halError);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_HAL,
                             ADI_COMMON_ERRCODE_API,
@@ -122,7 +122,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_HwClose(adi_common_Device_t* con
     halError = adrv904x_HwClose(commonDev->devHalInfo);
     if (ADI_HAL_ERR_OK != halError)
     {
-        recoveryAction = adi_common_hal_ErrCodeConvert(halError);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(halError);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_HAL,
                             ADI_COMMON_ERRCODE_API,
@@ -139,7 +139,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_HwClose(adi_common_Device_t* con
     }
     else
     {
-        recoveryAction = adi_common_hal_ErrCodeConvert(halError);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(halError);
         ADI_PARAM_ERROR_REPORT(commonDev, recoveryAction, &commonDev->publicCnt, "Public Count");
         ADI_PARAM_ERROR_REPORT(commonDev, recoveryAction, &commonDev->lockCnt, "Lock Count");
         ADI_ERROR_REPORT(   commonDev,
@@ -169,7 +169,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_HwReset(const adi_common_Device_
     }
     else
     {
-        recoveryAction = adi_common_hal_ErrCodeConvert(halError);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(halError);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_HAL,
                             ADI_COMMON_ERRCODE_API,
@@ -196,7 +196,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_Wait_us(const adi_common_Device_
     }
     else
     {
-        recoveryAction = adi_common_hal_ErrCodeConvert(halError);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(halError);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_HAL,
                             ADI_COMMON_ERRCODE_API,
@@ -223,7 +223,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_Wait_ms(const adi_common_Device_
     }
     else
     {
-        recoveryAction = adi_common_hal_ErrCodeConvert(halError);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(halError);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_HAL,
                             ADI_COMMON_ERRCODE_API,
@@ -235,7 +235,7 @@ ADI_API adi_common_ErrAction_e adi_adrv904x_hal_Wait_ms(const adi_common_Device_
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_Lock(adi_common_Device_t* const commonDev)
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_Lock(adi_common_Device_t* const commonDev)
 {
     adi_common_ErrAction_e  recoveryAction  = ADI_COMMON_ERR_ACT_CHECK_PARAM;
     adi_hal_Err_e           halError        = ADI_HAL_ERR_PARAM;
@@ -250,7 +250,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Lock(adi_common_Device_t* const co
     }
     else
     {
-        recoveryAction = adi_common_hal_ErrCodeConvert(halError);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(halError);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_HAL,
                             ADI_COMMON_ERRCODE_LOCK,
@@ -276,7 +276,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Lock(adi_common_Device_t* const co
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_Unlock(adi_common_Device_t* const commonDev)
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_Unlock(adi_common_Device_t* const commonDev)
 {
     adi_common_ErrAction_e  recoveryAction  = ADI_COMMON_ERR_ACT_CHECK_PARAM;
     adi_hal_Err_e           halError        = ADI_HAL_ERR_PARAM;
@@ -304,7 +304,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Unlock(adi_common_Device_t* const 
     else
     {
         ++commonDev->lockCnt;
-        recoveryAction = adi_common_hal_ErrCodeConvert(halError);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(halError);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_API,
                             ADI_COMMON_ERRCODE_LOCK,
@@ -316,7 +316,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_Unlock(adi_common_Device_t* const 
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ApiEnter_vLogCtl(adi_common_Device_t* const  commonDev,
                                                                const char* const           fnName,
                                                                const uint32_t              doLocking,
                                                                const adi_common_LogCtl_e   logCtl)
@@ -358,7 +358,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device
             }
 
             /* Lock Device */
-            recoveryAction = adi_common_hal_Lock(commonDev);
+            recoveryAction = adrv904x_common_hal_Lock(commonDev);
             break;
 
         case ADI_FALSE:
@@ -443,7 +443,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter_vLogCtl(adi_common_Device
     return recoveryAction;
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit_vLogCtl(adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ApiExit_vLogCtl(adi_common_Device_t* const  commonDev,
                                                               const char* const           fnName,
                                                               const uint32_t              doLocking,
                                                               const adi_common_LogCtl_e   logCtl)
@@ -492,7 +492,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit_vLogCtl(adi_common_Device_
     {
         case ADI_TRUE:
             /* Unlock Device */
-            recoveryAction = adi_common_hal_Unlock(commonDev);
+            recoveryAction = adrv904x_common_hal_Unlock(commonDev);
             if (ADI_COMMON_ERR_ACT_NONE != recoveryAction)
             {
                 /* Device Locked Up */
@@ -526,21 +526,21 @@ ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit_vLogCtl(adi_common_Device_
 }
 
 
-ADI_API adi_common_ErrAction_e adi_common_hal_ApiEnter( adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ApiEnter( adi_common_Device_t* const  commonDev,
                                                         const char* const           fnName,
                                                         const uint32_t              doLocking)
 {
-    return adi_common_hal_ApiEnter_vLogCtl(commonDev, fnName, doLocking, ADI_COMMON_DEVICE_LOGCTL_NORMAL);
+    return adrv904x_common_hal_ApiEnter_vLogCtl(commonDev, fnName, doLocking, ADI_COMMON_DEVICE_LOGCTL_NORMAL);
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_ApiExit(  adi_common_Device_t* const  commonDev,
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_ApiExit(  adi_common_Device_t* const  commonDev,
                                                         const char* const           fnName,
                                                         const uint32_t              doLocking)
 {
-    return adi_common_hal_ApiExit_vLogCtl(commonDev, fnName, doLocking, ADI_COMMON_DEVICE_LOGCTL_NORMAL);
+    return adrv904x_common_hal_ApiExit_vLogCtl(commonDev, fnName, doLocking, ADI_COMMON_DEVICE_LOGCTL_NORMAL);
 }
 
-ADI_API adi_common_ErrAction_e adi_common_hal_PlatformFunctionCheck(adi_common_Device_t* const commonDev)
+ADI_API adi_common_ErrAction_e adrv904x_common_hal_PlatformFunctionCheck(adi_common_Device_t* const commonDev)
 {
     adi_common_ErrAction_e recoveryAction = ADI_COMMON_ERR_ACT_NONE;
 
@@ -564,7 +564,7 @@ ADI_API adi_common_ErrAction_e adi_common_hal_PlatformFunctionCheck(adi_common_D
         (adrv904x_TlsSet         == NULL)    ||
         (adrv904x_TlsGet         == NULL))
     {
-        recoveryAction = adi_common_hal_ErrCodeConvert(ADI_HAL_ERR_NOT_IMPLEMENTED);
+        recoveryAction = adrv904x_common_hal_ErrCodeConvert(ADI_HAL_ERR_NOT_IMPLEMENTED);
         ADI_ERROR_REPORT(   commonDev,
                             ADI_COMMON_ERRSRC_HAL,
                             ADI_HAL_ERR_NOT_IMPLEMENTED,
