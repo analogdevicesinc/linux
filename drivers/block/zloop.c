@@ -1401,8 +1401,17 @@ static void zloop_forget_cache(struct zloop_device *zlo)
 				zlo->disk->part0, ret);
 			continue;
 		}
-		if (old_wp < zone->wp)
-			zloop_truncate(file, old_wp);
+
+		if (old_wp > zone->wp)
+			continue;
+		/*
+		 * This should not happen, if we recored a full zone, it can't
+		 * be active.
+		 */
+		if (WARN_ON_ONCE(old_wp == ULLONG_MAX))
+			continue;
+
+		zloop_truncate(file, (old_wp - zone->start) << SECTOR_SHIFT);
 	}
 }
 
