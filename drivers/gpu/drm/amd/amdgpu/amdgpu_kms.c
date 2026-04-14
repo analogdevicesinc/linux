@@ -47,6 +47,7 @@
 #include "amd_pcie.h"
 #include "amdgpu_userq.h"
 #include "amdgpu_video_codecs.h"
+#include "amdgpu_ras_mgr.h"
 
 void amdgpu_unregister_gpu_instance(struct amdgpu_device *adev)
 {
@@ -1290,7 +1291,11 @@ int amdgpu_info_ioctl(struct drm_device *dev, void *data, struct drm_file *filp)
 
 		if (!ras)
 			return -EINVAL;
-		ras_mask = (uint64_t)adev->ras_enabled << 32 | ras->features;
+
+		if (amdgpu_uniras_enabled(adev))
+			ras_mask = amdgpu_uniras_get_ras_caps(adev);
+		else
+			ras_mask = (uint64_t)adev->ras_enabled << 32 | ras->features;
 
 		return copy_to_user(out, &ras_mask,
 				min_t(u64, size, sizeof(ras_mask))) ?

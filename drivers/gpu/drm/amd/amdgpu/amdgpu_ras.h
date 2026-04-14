@@ -981,4 +981,5 @@ void amdgpu_ras_pre_reset(struct amdgpu_device *adev,
 void amdgpu_ras_post_reset(struct amdgpu_device *adev,
 					  struct list_head *device_list);
 int amdgpu_ras_resume_after_reset(struct amdgpu_device *adev);
+uint64_t amdgpu_uniras_get_ras_caps(struct amdgpu_device *adev);
 #endif

@@ -1820,8 +1820,12 @@ static ssize_t amdgpu_ras_sysfs_features_read(struct device *dev,
 {
 	struct amdgpu_ras *con =
 		container_of(attr, struct amdgpu_ras, features_attr);
+	u64 ras_features;
 
-	return sysfs_emit(buf, "feature mask: 0x%x\n", con->features);
+	ras_features = amdgpu_uniras_enabled(con->adev) ?
+		amdgpu_uniras_get_ras_caps(con->adev) : con->features;
+
+	return sysfs_emit(buf, "feature mask: 0x%llx\n", ras_features);
 }
 
 static bool amdgpu_ras_get_version_info(struct amdgpu_device *adev, u32 *major,
@@ -5002,4 +5006,23 @@ int amdgpu_ras_resume_after_reset(struct amdgpu_device *adev)
 		return r;
 
 	return amdgpu_cper_deferred_init(adev);
+}
+
+uint64_t amdgpu_uniras_get_ras_caps(struct amdgpu_device *adev)
+{
+	struct ras_cmd_get_ras_cap_req req = {0};
+	struct ras_cmd_get_ras_cap_rsp rsp = {0};
+	union ras_feature feature = {0};
+
+	if (amdgpu_ras_mgr_handle_ras_cmd(adev, RAS_CMD__GET_RAS_CAP,
+			&req, sizeof(struct ras_cmd_get_ras_cap_req),
+			&rsp, sizeof(struct ras_cmd_get_ras_cap_rsp)))
+		return 0;
+
+	feature.block_mask = rsp.ras_block_mask;
+	feature.en = adev->ras_enabled;
+	if (adev->smuio.funcs && adev->smuio.funcs->get_socket_id)
+		feature.tag = adev->smuio.funcs->get_socket_id(adev);
+
+	return feature.value;
 }
