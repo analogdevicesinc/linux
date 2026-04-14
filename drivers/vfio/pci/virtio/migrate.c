@@ -224,10 +224,9 @@ static void virtiovf_clean_migf_resources(struct virtiovf_migration_file *migf)
 
 static void virtiovf_disable_fd(struct virtiovf_migration_file *migf)
 {
-	mutex_lock(&migf->lock);
+	guard(mutex)(&migf->lock);
 	migf->state = VIRTIOVF_MIGF_STATE_ERROR;
 	migf->filp->f_pos = 0;
-	mutex_unlock(&migf->lock);
 }
 
 static void virtiovf_disable_fds(struct virtiovf_pci_core_device *virtvdev)
@@ -385,11 +384,10 @@ static ssize_t virtiovf_save_read(struct file *filp, char __user *buf, size_t le
 		return -ESPIPE;
 	pos = &filp->f_pos;
 
-	mutex_lock(&migf->lock);
-	if (migf->state == VIRTIOVF_MIGF_STATE_ERROR) {
-		done = -ENODEV;
-		goto out_unlock;
-	}
+	guard(mutex)(&migf->lock);
+
+	if (migf->state == VIRTIOVF_MIGF_STATE_ERROR)
+		return -ENODEV;
 
 	while (len) {
 		ssize_t count;
@@ -398,34 +396,24 @@ static ssize_t virtiovf_save_read(struct file *filp, char __user *buf, size_t le
 		if (first_loop_call) {
 			first_loop_call = false;
 			/* Temporary end of file as part of PRE_COPY */
-			if (end_of_data && migf->state == VIRTIOVF_MIGF_STATE_PRECOPY) {
-				done = -ENOMSG;
-				goto out_unlock;
-			}
-			if (end_of_data && migf->state != VIRTIOVF_MIGF_STATE_COMPLETE) {
-				done = -EINVAL;
-				goto out_unlock;
-			}
+			if (end_of_data && migf->state == VIRTIOVF_MIGF_STATE_PRECOPY)
+				return -ENOMSG;
+			if (end_of_data && migf->state != VIRTIOVF_MIGF_STATE_COMPLETE)
+				return -EINVAL;
 		}
 
 		if (end_of_data)
-			goto out_unlock;
+			return done;
 
-		if (!vhca_buf) {
-			done = -EINVAL;
-			goto out_unlock;
-		}
+		if (!vhca_buf)
+			return -EINVAL;
 
 		count = virtiovf_buf_read(vhca_buf, &buf, &len, pos);
-		if (count < 0) {
-			done = count;
-			goto out_unlock;
-		}
+		if (count < 0)
+			return count;
 		done += count;
 	}
 
-out_unlock:
-	mutex_unlock(&migf->lock);
 	return done;
 }
 
