@@ -313,9 +313,9 @@ static int zloop_update_seq_zone(struct zloop_device *zlo, unsigned int zone_no)
 		return -EINVAL;
 	}
 
-	if (file_sectors & ((zlo->block_size >> SECTOR_SHIFT) - 1)) {
-		pr_err("Zone %u file size not aligned to block size %u\n",
-		       zone_no, zlo->block_size);
+	if (!IS_ALIGNED(stat.size, zlo->block_size)) {
+		pr_err("Zone %u file size (%llu) not aligned to block size %u\n",
+		       zone_no, stat.size, zlo->block_size);
 		return -EINVAL;
 	}
 
