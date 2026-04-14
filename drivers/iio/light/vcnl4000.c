@@ -234,6 +234,7 @@ struct vcnl4000_chip_spec {
 	const int(*als_it_times)[][2];
 	const int num_als_it_times;
 	const unsigned int ulux_step;
+	const int prod_id;
 };
 
 static const struct i2c_device_id vcnl4000_id[] = {
@@ -265,12 +266,12 @@ static int vcnl4000_init(struct vcnl4000_data *data)
 	prod_id = ret >> 4;
 	switch (prod_id) {
 	case VCNL4000_PROD_ID:
-		if (data->id != VCNL4000)
+		if (data->chip_spec->prod_id != VCNL4000_PROD_ID)
 			dev_warn(&data->client->dev,
 					"wrong device id, use vcnl4000");
 		break;
 	case VCNL4010_PROD_ID:
-		if (data->id != VCNL4010)
+		if (data->chip_spec->prod_id != VCNL4010_PROD_ID)
 			dev_warn(&data->client->dev,
 					"wrong device id, use vcnl4010/4020");
 		break;
@@ -1901,6 +1902,7 @@ static const struct vcnl4000_chip_spec vcnl4000_chip_spec_cfg[] = {
 		.int_reg = VCNL4040_INT_FLAGS,
 		.ps_it_times = &vcnl4040_ps_it_times,
 		.num_ps_it_times = ARRAY_SIZE(vcnl4040_ps_it_times),
+		.prod_id = VCNL4040_PROD_ID,
 	},
 	[VCNL4000] = {
 		.prod = "VCNL4000",
@@ -1911,6 +1913,7 @@ static const struct vcnl4000_chip_spec vcnl4000_chip_spec_cfg[] = {
 		.channels = vcnl4000_channels,
 		.num_channels = ARRAY_SIZE(vcnl4000_channels),
 		.info = &vcnl4000_info,
+		.prod_id = VCNL4000_PROD_ID,
 	},
 	[VCNL4010] = {
 		.prod = "VCNL4010/4020",
@@ -1924,6 +1927,7 @@ static const struct vcnl4000_chip_spec vcnl4000_chip_spec_cfg[] = {
 		.irq_thread = vcnl4010_irq_thread,
 		.trig_buffer_func = vcnl4010_trigger_handler,
 		.buffer_setup_ops = &vcnl4010_buffer_ops,
+		.prod_id = VCNL4010_PROD_ID,
 	},
 	[VCNL4040] = {
 		.prod = "VCNL4040",
@@ -1941,6 +1945,7 @@ static const struct vcnl4000_chip_spec vcnl4000_chip_spec_cfg[] = {
 		.als_it_times = &vcnl4040_als_it_times,
 		.num_als_it_times = ARRAY_SIZE(vcnl4040_als_it_times),
 		.ulux_step = 100000,
+		.prod_id = VCNL4040_PROD_ID,
 	},
 	[VCNL4200] = {
 		.prod = "VCNL4200",
@@ -1958,6 +1963,7 @@ static const struct vcnl4000_chip_spec vcnl4000_chip_spec_cfg[] = {
 		.als_it_times = &vcnl4200_als_it_times,
 		.num_als_it_times = ARRAY_SIZE(vcnl4200_als_it_times),
 		.ulux_step = 24000,
+		.prod_id = VCNL4200_PROD_ID,
 	},
 };
 
