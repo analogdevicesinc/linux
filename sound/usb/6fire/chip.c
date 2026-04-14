@@ -83,22 +83,21 @@ static int usb6fire_chip_probe(struct usb_interface *intf,
 	struct snd_card *card = NULL;
 
 	/* look if we already serve this card and return if so */
-	scoped_guard(mutex, &register_mutex) {
-		for (i = 0; i < SNDRV_CARDS; i++) {
-			if (devices[i] == device) {
-				if (chips[i])
-					chips[i]->intf_count++;
-				usb_set_intfdata(intf, chips[i]);
-				return 0;
-			} else if (!devices[i] && regidx < 0)
-				regidx = i;
-		}
-		if (regidx < 0) {
-			dev_err(&intf->dev, "too many cards registered.\n");
-			return -ENODEV;
-		}
-		devices[regidx] = device;
+	guard(mutex)(&register_mutex);
+	for (i = 0; i < SNDRV_CARDS; i++) {
+		if (devices[i] == device) {
+			if (chips[i])
+				chips[i]->intf_count++;
+			usb_set_intfdata(intf, chips[i]);
+			return 0;
+		} else if (!devices[i] && regidx < 0)
+			regidx = i;
 	}
+	if (regidx < 0) {
+		dev_err(&intf->dev, "too many cards registered.\n");
+		return -ENODEV;
+	}
+	devices[regidx] = device;
 
 	/* check, if firmware is present on device, upload it if not */
 	ret = usb6fire_fw_init(intf);
@@ -165,14 +164,13 @@ static void usb6fire_chip_disconnect(struct usb_interface *intf)
 	struct sfire_chip *chip;
 	struct snd_card *card;
 
+	guard(mutex)(&register_mutex);
 	chip = usb_get_intfdata(intf);
 	if (chip) { /* if !chip, fw upload has been performed */
 		chip->intf_count--;
 		if (!chip->intf_count) {
-			scoped_guard(mutex, &register_mutex) {
-				devices[chip->regidx] = NULL;
-				chips[chip->regidx] = NULL;
-			}
+			devices[chip->regidx] = NULL;
+			chips[chip->regidx] = NULL;
 
 			/*
 			 * Save card pointer before teardown.
