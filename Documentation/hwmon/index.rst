@@ -185,6 +185,7 @@ Hardware Monitoring Kernel Drivers
    mp2925
    mp29502
    mp2975
+   mp2985
    mp2993
    mp5023
    mp5920
