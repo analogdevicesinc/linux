@@ -863,6 +863,7 @@ static int unpack_tags(struct aa_ext *e, struct aa_tags_struct *tags,
 			*info = "failed to unpack profile tag.sets";
 			goto fail;
 		}
+		error = -EPROTO;
 		if (!aa_unpack_nameX(e, AA_STRUCTEND, NULL))
 			goto fail;
 
