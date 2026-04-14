@@ -32,7 +32,7 @@ struct __guc_mmio_reg_descr {
 	/**
 	 * @data_type: data type of the register
 	 * Could be 32 bit, low or hi dword of a 64 bit, see enum
-	 * register_data_type
+	 * capture_register_data_type
 	 */
 	enum capture_register_data_type data_type;
 	/** @flags: Flags for the register */

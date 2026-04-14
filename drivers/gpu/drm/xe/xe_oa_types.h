@@ -67,7 +67,7 @@ struct xe_oa_format {
 	u32 counter_select;
 	/** @size: record size as written by HW (multiple of 64 byte cachelines) */
 	int size;
-	/** @type: of enum @drm_xe_oa_format_type */
+	/** @type: of enum drm_xe_oa_format_type */
 	int type;
 	/** @header: 32 or 64 bit report headers */
 	enum xe_oa_report_header header;
