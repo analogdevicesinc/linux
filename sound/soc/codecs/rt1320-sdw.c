@@ -1498,6 +1498,7 @@ static int rt1320_rae_load(struct rt1320_sdw_priv *rt1320)
 		}
 		if (!retry && !(value & 0x40)) {
 			dev_err(dev, "%s: RAE is not ready to load\n", __func__);
+			release_firmware(rae_fw);
 			return -ETIMEDOUT;
 		}
 
