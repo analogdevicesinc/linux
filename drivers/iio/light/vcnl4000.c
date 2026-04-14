@@ -2055,23 +2055,18 @@ static int vcnl4000_probe(struct i2c_client *client)
 			return ret;
 	}
 
-	ret = pm_runtime_set_active(dev);
-	if (ret < 0)
+	ret = devm_pm_runtime_set_active_enabled(dev);
+	if (ret)
 		return ret;
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0)
-		goto fail_register;
+		return ret;
 
-	pm_runtime_enable(dev);
 	pm_runtime_set_autosuspend_delay(dev, VCNL4000_SLEEP_DELAY_MS);
 	pm_runtime_use_autosuspend(dev);
 
 	return 0;
-
-fail_register:
-	pm_runtime_set_suspended(dev);
-	return ret;
 }
 
 static const struct of_device_id vcnl_4000_of_match[] = {
@@ -2091,10 +2086,7 @@ static void vcnl4000_remove(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
 
-	pm_runtime_dont_use_autosuspend(&client->dev);
-	pm_runtime_disable(&client->dev);
 	iio_device_unregister(indio_dev);
-	pm_runtime_set_suspended(&client->dev);
 }
 
 static int vcnl4000_runtime_suspend(struct device *dev)
