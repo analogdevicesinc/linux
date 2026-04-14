@@ -2058,35 +2058,14 @@ fail_poweroff:
 }
 
 static const struct of_device_id vcnl_4000_of_match[] = {
-	{
-		.compatible = "capella,cm36672p",
-		.data = &cm36672p_spec,
-	},
+	{ .compatible = "capella,cm36672p", .data = &cm36672p_spec },
 	/* Capella CM36686 is fully compatible with Vishay VCNL4040 */
-	{
-		.compatible = "capella,cm36686",
-		.data = &vcnl4040_spec,
-	},
-	{
-		.compatible = "vishay,vcnl4000",
-		.data = &vcnl4000_spec,
-	},
-	{
-		.compatible = "vishay,vcnl4010",
-		.data = &vcnl4010_spec,
-	},
-	{
-		.compatible = "vishay,vcnl4020",
-		.data = &vcnl4010_spec,
-	},
-	{
-		.compatible = "vishay,vcnl4040",
-		.data = &vcnl4040_spec,
-	},
-	{
-		.compatible = "vishay,vcnl4200",
-		.data = &vcnl4200_spec,
-	},
+	{ .compatible = "capella,cm36686", .data = &vcnl4040_spec },
+	{ .compatible = "vishay,vcnl4000", .data = &vcnl4000_spec },
+	{ .compatible = "vishay,vcnl4010", .data = &vcnl4010_spec },
+	{ .compatible = "vishay,vcnl4020", .data = &vcnl4010_spec },
+	{ .compatible = "vishay,vcnl4040", .data = &vcnl4040_spec },
+	{ .compatible = "vishay,vcnl4200", .data = &vcnl4200_spec },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, vcnl_4000_of_match);
