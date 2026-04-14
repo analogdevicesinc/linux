@@ -168,7 +168,7 @@ static void ast_set_vbios_color_reg(struct ast_device *ast,
 	ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, 0x00);
 
 	if (vmode->flags & NewModeInfo) {
-		ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, 0xa8);
+		ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, AST_IO_VGACR91_PASSWORD);
 		ast_set_index_reg(ast, AST_IO_VGACRI, 0x92, format->cpp[0] * 8);
 	}
 }
@@ -188,7 +188,7 @@ static void ast_set_vbios_mode_reg(struct ast_device *ast,
 	ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, 0x00);
 
 	if (vmode->flags & NewModeInfo) {
-		ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, 0xa8);
+		ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, AST_IO_VGACR91_PASSWORD);
 		ast_set_index_reg(ast, AST_IO_VGACRI, 0x93, adjusted_mode->clock / 1000);
 		ast_set_index_reg(ast, AST_IO_VGACRI, 0x94, adjusted_mode->crtc_hdisplay);
 		ast_set_index_reg(ast, AST_IO_VGACRI, 0x95, adjusted_mode->crtc_hdisplay >> 8);
