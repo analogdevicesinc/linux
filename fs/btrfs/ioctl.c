@@ -5102,7 +5102,6 @@ static int btrfs_ioctl_subvol_sync(struct btrfs_fs_info *fs_info, void __user *a
 	return 0;
 }
 
-#ifdef CONFIG_BTRFS_EXPERIMENTAL
 static int btrfs_ioctl_shutdown(struct btrfs_fs_info *fs_info, unsigned long arg)
 {
 	int ret = 0;
@@ -5134,10 +5133,12 @@ static int btrfs_ioctl_shutdown(struct btrfs_fs_info *fs_info, unsigned long arg
 	case BTRFS_SHUTDOWN_FLAGS_NOLOGFLUSH:
 		btrfs_force_shutdown(fs_info);
 		break;
+	default:
+		ret = -EINVAL;
+		break;
 	}
 	return ret;
 }
-#endif
 
 long btrfs_ioctl(struct file *file, unsigned int
 		cmd, unsigned long arg)
@@ -5294,10 +5295,8 @@ long btrfs_ioctl(struct file *file, unsigned int
 #endif
 	case BTRFS_IOC_SUBVOL_SYNC_WAIT:
 		return btrfs_ioctl_subvol_sync(fs_info, argp);
-#ifdef CONFIG_BTRFS_EXPERIMENTAL
 	case BTRFS_IOC_SHUTDOWN:
 		return btrfs_ioctl_shutdown(fs_info, arg);
-#endif
 	}
 
 	return -ENOTTY;
