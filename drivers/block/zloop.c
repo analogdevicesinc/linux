@@ -891,8 +891,10 @@ static blk_status_t zloop_queue_rq(struct blk_mq_hw_ctx *hctx,
 	struct zloop_cmd *cmd = blk_mq_rq_to_pdu(rq);
 	struct zloop_device *zlo = rq->q->queuedata;
 
-	if (data_race(READ_ONCE(zlo->state)) == Zlo_deleting)
+	if (data_race(READ_ONCE(zlo->state)) == Zlo_deleting) {
+		rq->rq_flags |= RQF_QUIET;
 		return BLK_STS_IOERR;
+	}
 
 	/*
 	 * If we need to strongly order zone append operations, set the request
