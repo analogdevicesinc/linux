@@ -748,8 +748,10 @@ static const hcall_t host_hcall[] = {
 static void handle_host_hcall(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(unsigned long, id, host_ctxt, 0);
-	unsigned long hcall_min = 0, hcall_max = -1;
+	unsigned long hcall_min = 0, hcall_max = __KVM_HOST_SMCCC_FUNC_MAX;
 	hcall_t hfn;
+
+	BUILD_BUG_ON(ARRAY_SIZE(host_hcall) != __KVM_HOST_SMCCC_FUNC_MAX);
 
 	/*
 	 * If pKVM has been initialised then reject any calls to the
@@ -763,16 +765,14 @@ static void handle_host_hcall(struct kvm_cpu_context *host_ctxt)
 	if (static_branch_unlikely(&kvm_protected_mode_initialized)) {
 		hcall_min = __KVM_HOST_SMCCC_FUNC_MIN_PKVM;
 	} else {
-		hcall_max = __KVM_HOST_SMCCC_FUNC_MAX_NO_PKVM;
+		hcall_max = __KVM_HOST_SMCCC_FUNC_PKVM_ONLY;
 	}
 
 	id &= ~ARM_SMCCC_CALL_HINTS;
 	id -= KVM_HOST_SMCCC_ID(0);
 
-	if (unlikely(id < hcall_min || id > hcall_max ||
-		     id >= ARRAY_SIZE(host_hcall))) {
+	if (unlikely(id < hcall_min || id >= hcall_max))
 		goto inval;
-	}
 
 	hfn = host_hcall[id];
 	if (unlikely(!hfn))
