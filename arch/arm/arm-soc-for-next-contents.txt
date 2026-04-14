@@ -156,6 +156,8 @@ soc/defconfig
 		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-defconfig-7.1
 
 soc/late
+	marvell/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-7.1-1
 
 arm/fixes
 	nxp/fixes
