@@ -1363,20 +1363,6 @@ out:
 	return ret;
 }
 
-static void zloop_truncate(struct file *file, loff_t pos)
-{
-	struct mnt_idmap *idmap = file_mnt_idmap(file);
-	struct dentry *dentry = file_dentry(file);
-	struct iattr newattrs;
-
-	newattrs.ia_size = pos;
-	newattrs.ia_valid = ATTR_SIZE;
-
-	inode_lock(dentry->d_inode);
-	notify_change(idmap, dentry, &newattrs, NULL);
-	inode_unlock(dentry->d_inode);
-}
-
 static void zloop_forget_cache(struct zloop_device *zlo)
 {
 	unsigned int i;
@@ -1411,7 +1397,8 @@ static void zloop_forget_cache(struct zloop_device *zlo)
 		if (WARN_ON_ONCE(old_wp == ULLONG_MAX))
 			continue;
 
-		zloop_truncate(file, (old_wp - zone->start) << SECTOR_SHIFT);
+		vfs_truncate(&file->f_path,
+			(old_wp - zone->start) << SECTOR_SHIFT);
 	}
 }
 
