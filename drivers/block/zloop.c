@@ -288,6 +288,24 @@ static bool zloop_do_open_zone(struct zloop_device *zlo,
 	}
 }
 
+static void zloop_mark_full(struct zloop_device *zlo, struct zloop_zone *zone)
+{
+	lockdep_assert_held(&zone->wp_lock);
+
+	zloop_lru_remove_open_zone(zlo, zone);
+	zone->cond = BLK_ZONE_COND_FULL;
+	zone->wp = ULLONG_MAX;
+}
+
+static void zloop_mark_empty(struct zloop_device *zlo, struct zloop_zone *zone)
+{
+	lockdep_assert_held(&zone->wp_lock);
+
+	zloop_lru_remove_open_zone(zlo, zone);
+	zone->cond = BLK_ZONE_COND_EMPTY;
+	zone->wp = zone->start;
+}
+
 static int zloop_update_seq_zone(struct zloop_device *zlo, unsigned int zone_no)
 {
 	struct zloop_zone *zone = &zlo->zones[zone_no];
@@ -321,13 +339,9 @@ static int zloop_update_seq_zone(struct zloop_device *zlo, unsigned int zone_no)
 
 	spin_lock_irqsave(&zone->wp_lock, flags);
 	if (!file_sectors) {
-		zloop_lru_remove_open_zone(zlo, zone);
-		zone->cond = BLK_ZONE_COND_EMPTY;
-		zone->wp = zone->start;
+		zloop_mark_empty(zlo, zone);
 	} else if (file_sectors == zlo->zone_capacity) {
-		zloop_lru_remove_open_zone(zlo, zone);
-		zone->cond = BLK_ZONE_COND_FULL;
-		zone->wp = ULLONG_MAX;
+		zloop_mark_full(zlo, zone);
 	} else {
 		if (zone->cond != BLK_ZONE_COND_IMP_OPEN &&
 		    zone->cond != BLK_ZONE_COND_EXP_OPEN)
@@ -429,9 +443,7 @@ static int zloop_reset_zone(struct zloop_device *zlo, unsigned int zone_no)
 	}
 
 	spin_lock_irqsave(&zone->wp_lock, flags);
-	zloop_lru_remove_open_zone(zlo, zone);
-	zone->cond = BLK_ZONE_COND_EMPTY;
-	zone->wp = zone->start;
+	zloop_mark_empty(zlo, zone);
 	clear_bit(ZLOOP_ZONE_SEQ_ERROR, &zone->flags);
 	spin_unlock_irqrestore(&zone->wp_lock, flags);
 
@@ -477,9 +489,7 @@ static int zloop_finish_zone(struct zloop_device *zlo, unsigned int zone_no)
 	}
 
 	spin_lock_irqsave(&zone->wp_lock, flags);
-	zloop_lru_remove_open_zone(zlo, zone);
-	zone->cond = BLK_ZONE_COND_FULL;
-	zone->wp = ULLONG_MAX;
+	zloop_mark_full(zlo, zone);
 	clear_bit(ZLOOP_ZONE_SEQ_ERROR, &zone->flags);
 	spin_unlock_irqrestore(&zone->wp_lock, flags);
 
@@ -616,11 +626,8 @@ static int zloop_seq_write_prep(struct zloop_cmd *cmd)
 	 */
 	if (!is_append || !zlo->ordered_zone_append) {
 		zone->wp += nr_sectors;
-		if (zone->wp == zone_end) {
-			zloop_lru_remove_open_zone(zlo, zone);
-			zone->cond = BLK_ZONE_COND_FULL;
-			zone->wp = ULLONG_MAX;
-		}
+		if (zone->wp == zone_end)
+			zloop_mark_full(zlo, zone);
 	}
 out_unlock:
 	spin_unlock_irqrestore(&zone->wp_lock, flags);
@@ -873,11 +880,8 @@ static bool zloop_set_zone_append_sector(struct request *rq)
 
 	rq->__sector = zone->wp;
 	zone->wp += blk_rq_sectors(rq);
-	if (zone->wp >= zone_end) {
-		zloop_lru_remove_open_zone(zlo, zone);
-		zone->cond = BLK_ZONE_COND_FULL;
-		zone->wp = ULLONG_MAX;
-	}
+	if (zone->wp >= zone_end)
+		zloop_mark_full(zlo, zone);
 
 	spin_unlock_irqrestore(&zone->wp_lock, flags);
 
