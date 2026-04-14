@@ -131,6 +131,7 @@ enum audio_device {
 	TAS5827,
 	TAS5828,
 	TAS5830,
+	TAS5832,
 	TAS_OTHERS,
 };
 
