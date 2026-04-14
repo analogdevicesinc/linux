@@ -86,7 +86,7 @@ struct xe_pagefault {
 		u8 engine_class;
 		/** @consumer.engine_instance: engine instance */
 		u8 engine_instance;
-		/** consumer.reserved: reserved bits for future expansion */
+		/** @consumer.reserved: reserved bits for future expansion */
 		u64 reserved;
 	} consumer;
 	/**
