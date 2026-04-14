@@ -147,6 +147,7 @@ config MDIO_OCTEON
 
 config MDIO_PIC64HPSC
 	tristate "PIC64-HPSC/HX MDIO interface support"
+	depends on ARCH_MICROCHIP || COMPILE_TEST
 	depends on HAS_IOMEM && OF_MDIO
 	help
 	  This driver supports the MDIO interface found on the PIC64-HPSC/HX
