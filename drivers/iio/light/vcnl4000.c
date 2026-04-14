@@ -1970,6 +1970,18 @@ static int vcnl4010_probe_trigger(struct iio_dev *indio_dev)
 	return devm_iio_trigger_register(&client->dev, trigger);
 }
 
+static void vcnl4000_cleanup(void *data)
+{
+	struct iio_dev *indio_dev = data;
+	struct vcnl4000_data *chip = iio_priv(indio_dev);
+	struct device *dev = &chip->client->dev;
+	int ret;
+
+	ret = chip->chip_spec->set_power_state(chip, false);
+	if (ret)
+		dev_warn(dev, "Failed to power down (%pe)", ERR_PTR(ret));
+}
+
 static int vcnl4000_probe(struct i2c_client *client)
 {
 	const char * const regulator_names[] = { "vdd", "vio", "vled" };
@@ -2001,6 +2013,10 @@ static int vcnl4000_probe(struct i2c_client *client)
 		return ret;
 
 	ret = data->chip_spec->set_power_state(data, true);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(dev, vcnl4000_cleanup, indio_dev);
 	if (ret)
 		return ret;
 
@@ -2041,19 +2057,20 @@ static int vcnl4000_probe(struct i2c_client *client)
 
 	ret = pm_runtime_set_active(dev);
 	if (ret < 0)
-		goto fail_poweroff;
+		return ret;
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0)
-		goto fail_poweroff;
+		goto fail_register;
 
 	pm_runtime_enable(dev);
 	pm_runtime_set_autosuspend_delay(dev, VCNL4000_SLEEP_DELAY_MS);
 	pm_runtime_use_autosuspend(dev);
 
 	return 0;
-fail_poweroff:
-	data->chip_spec->set_power_state(data, false);
+
+fail_register:
+	pm_runtime_set_suspended(dev);
 	return ret;
 }
 
@@ -2073,18 +2090,11 @@ MODULE_DEVICE_TABLE(of, vcnl_4000_of_match);
 static void vcnl4000_remove(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
-	struct vcnl4000_data *data = iio_priv(indio_dev);
-	int ret;
 
 	pm_runtime_dont_use_autosuspend(&client->dev);
 	pm_runtime_disable(&client->dev);
 	iio_device_unregister(indio_dev);
 	pm_runtime_set_suspended(&client->dev);
-
-	ret = data->chip_spec->set_power_state(data, false);
-	if (ret)
-		dev_warn(&client->dev, "Failed to power down (%pe)\n",
-			 ERR_PTR(ret));
 }
 
 static int vcnl4000_runtime_suspend(struct device *dev)
