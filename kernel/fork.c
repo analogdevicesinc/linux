@@ -2666,6 +2666,16 @@ pid_t kernel_clone(struct kernel_clone_args *args)
 	pid_t nr;
 
 	/*
+	 * Creating an empty mount namespace implies creating a new mount
+	 * namespace.  Set this before copy_process() so that the
+	 * CLONE_NEWNS|CLONE_FS mutual exclusion check works correctly.
+	 */
+	if (clone_flags & CLONE_EMPTY_MNTNS) {
+		clone_flags |= CLONE_NEWNS;
+		args->flags = clone_flags;
+	}
+
+	/*
 	 * For legacy clone() calls, CLONE_PIDFD uses the parent_tid argument
 	 * to return the pidfd. Hence, CLONE_PIDFD and CLONE_PARENT_SETTID are
 	 * mutually exclusive. With clone3() CLONE_PIDFD has grown a separate
@@ -2942,9 +2952,9 @@ static inline bool clone3_stack_valid(struct kernel_clone_args *kargs)
 static bool clone3_args_valid(struct kernel_clone_args *kargs)
 {
 	/* Verify that no unknown flags are passed along. */
-	if (kargs->flags &
-	    ~(CLONE_LEGACY_FLAGS | CLONE_CLEAR_SIGHAND | CLONE_INTO_CGROUP |
-	      CLONE_AUTOREAP | CLONE_NNP | CLONE_PIDFD_AUTOKILL))
+	if (kargs->flags & ~(CLONE_LEGACY_FLAGS | CLONE_CLEAR_SIGHAND |
+			     CLONE_INTO_CGROUP | CLONE_AUTOREAP | CLONE_NNP |
+			     CLONE_PIDFD_AUTOKILL | CLONE_EMPTY_MNTNS))
 		return false;
 
 	/*
@@ -3095,7 +3105,7 @@ static int check_unshare_flags(unsigned long unshare_flags)
 {
 	if (unshare_flags & ~(CLONE_THREAD|CLONE_FS|CLONE_SIGHAND|
 				CLONE_VM|CLONE_FILES|CLONE_SYSVSEM|
-				CLONE_NS_ALL))
+				CLONE_NS_ALL|UNSHARE_EMPTY_MNTNS))
 		return -EINVAL;
 	/*
 	 * Not implemented, but pretend it works if there is nothing
@@ -3194,6 +3204,8 @@ int ksys_unshare(unsigned long unshare_flags)
 	/*
 	 * If unsharing namespace, must also unshare filesystem information.
 	 */
+	if (unshare_flags & UNSHARE_EMPTY_MNTNS)
+		unshare_flags |= CLONE_NEWNS;
 	if (unshare_flags & CLONE_NEWNS)
 		unshare_flags |= CLONE_FS;
 
