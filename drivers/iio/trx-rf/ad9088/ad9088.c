@@ -3775,7 +3775,7 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 		if (~read_mask & BIT(9)) {
 			char m[16];
 
-			ret = sscanf(line, "selection_mode: %s", m);
+			ret = sscanf(line, "selection_mode: %15s", m);
 			if (ret == 1) {
 				ret = sysfs_match_string(pfilt_profile_selection_mode, m);
 				if (ret < 0)
@@ -3915,41 +3915,163 @@ static u32 ad9088_cfir_gain_enc(int val)
 };
 
 /**
- * ad9088_parse_cfilt - Parse the CFIR filter configuration from a string
+ * ad9088_parse_cfilt - Parse a CFIR (Channel FIR) filter configuration blob
  * @phy: Pointer to the ad9088_phy structure
- * @data: Pointer to the string containing the CFIR filter configuration
- * @size: Size of the string
+ * @data: Buffer holding the CFIR filter configuration text
+ * @size: Size of @data in bytes
  *
- * This function parses the CFIR filter configuration from a string and updates
- * the ad9088_phy structure accordingly. The string should have the following
- * format:
+ * Parses a text blob (normally written to the sysfs bin attribute
+ * ``cfir_config``) describing one CFIR programming operation and pushes it
+ * down to the Apollo API. The file is line oriented. Lines starting with
+ * ``#`` are treated as comments. Except for the coefficient list, each
+ * directive appears at most once and may appear in any order; the parser
+ * keeps a bitmask of directives already consumed and only the first
+ * occurrence of each takes effect. Unrecognised lines are silently ignored.
  *
- * dest: <terminal> <cfir_select> <cfir_profile> <cfir_datapath>
- * gain: <gain_value>
- * complex_scalar: <scalar_i> <scalar_q>
- * bypass: <bypass_value>
- * sparse_filt_en: <sparse_filt_en_value>
- * 32taps_en: <32taps_en_value>
- * coeff_transfer: <coeff_transfer_value>
- * enable: <enable_value> <enable_profile_value>
- * selection_mode: <selection_mode_value>
- * <cfir_coeff0_i> <cfir_coeff0_q>
- * <cfir_coeff1_i> <cfir_coeff1_q>
- * ...
- * <cfir_coeffN_i> <cfir_coeffN_q>
+ * The Apollo/AD9088 CFIR block is a per-channel complex FIR with the
+ * following topology that this file maps onto:
  *
- * Each line in the string represents a specific configuration parameter.
- * The "dest" line specifies the destination terminal, CFIR select, CFIR profile,
- * and CFIR datapath. The "gain" line specifies the gain value. The "complex_scalar"
- * line specifies the complex scalar values. The "bypass" line specifies the bypass
- * value. The "sparse_filt_en" line specifies the sparse filter enable value.
- * The "32taps_en" line specifies the 32 taps enable value. The "coeff_transfer"
- * line specifies the coefficient transfer value. The "enable" line specifies the
- * enable value and enable profile value. The "selection_mode" line specifies the
- * selection mode value. The <cfir_coeff_i> and <cfir_coeff_q> lines specify the
- * CFIR coefficient values.
+ *   terminal (RX|TX)
+ *     -> CFIR instance mask (A0/A1/B0/B1) - 4 instances (2 per "side")
+ *        -> data path mask (DP0..DP3)     - up to 4 datapaths per instance
+ *           -> profile (1 of 2)           - hop-capable coefficient banks
+ *              -> 16 complex taps, complex scalar, dB gain, bypass, ...
  *
- * Return: 0 on success, negative error code on failure
+ * Programming one "filter" therefore targets a {terminal, CFIR-mask,
+ * profile, DP-mask} tuple; a single blob can fan out to several
+ * instances/datapaths at once via the mask forms described below.
+ *
+ * Recognised directives
+ * ---------------------
+ *
+ * ``dest: <terminal> <cfir_select> <cfir_profile> <cfir_datapath>``
+ *   Mandatory. Selects where the coefficients, scalar, gain, mode bits
+ *   and enable state are programmed.
+ *
+ *   * ``<terminal>`` - ``rx`` or ``tx`` (see @terminals).
+ *   * ``<cfir_select>`` - which CFIR instance(s) to target
+ *     (see @cfir_selects, maps to ``adi_apollo_cfir_sel_e``):
+ *
+ *       - ``cfir_none`` (0x0)   - no CFIR
+ *       - ``cfir_a0``   (0x1)   - side A, instance 0
+ *       - ``cfir_a1``   (0x2)   - side A, instance 1
+ *       - ``cfir_b0``   (0x4)   - side B, instance 0
+ *       - ``cfir_b1``   (0x8)   - side B, instance 1
+ *       - ``cfir_all``  (0xF)   - all four instances
+ *       - ``cfir_maskN`` - raw 4-bit OR of the above, e.g. ``cfir_mask5``
+ *         targets A0|B0 (0x1|0x4).
+ *
+ *   * ``<cfir_profile>`` - which of the two hop profiles to load
+ *     (see @cfir_profiles, maps to ``adi_apollo_cfir_profile_sel_e``):
+ *
+ *       - ``profile_none`` (0x0)
+ *       - ``profile_1``    (0x1) - 1st profile bank
+ *       - ``profile_2``    (0x2) - 2nd profile bank
+ *       - ``profile_all``  (0x3) - write both profiles at once
+ *
+ *     Naming quirk: the user-facing strings are 1-indexed
+ *     (``profile_1``/``profile_2``) while the underlying enum values
+ *     are 0-indexed (``ADI_APOLLO_CFIR_PROFILE_0`` = 0x1,
+ *     ``ADI_APOLLO_CFIR_PROFILE_1`` = 0x2). So ``profile_1`` maps to
+ *     ``_PROFILE_0`` and ``profile_2`` maps to ``_PROFILE_1``.
+ *
+ *   * ``<cfir_datapath>`` - which datapath(s) inside each selected CFIR
+ *     instance are programmed (see @cfir_datapaths, maps to
+ *     ``adi_apollo_cfir_dp_sel``):
+ *
+ *       - ``datapath_none`` (0x0)
+ *       - ``datapath_0..3`` (0x1/0x2/0x4/0x8); DP2/DP3 exist only in
+ *         8T8R configurations.
+ *       - ``datapath_all``  (0xF)
+ *       - ``datapath_maskN`` - raw 4-bit OR, e.g. ``datapath_mask3``
+ *         for DP0|DP1 (matches ``ALL_4T4R``).
+ *
+ * ``gain: <dB>``
+ *   Integer dB gain applied after the FIR, encoded via
+ *   ad9088_cfir_gain_enc() into ``adi_apollo_cfir_gain_e``. Valid values
+ *   are ``-18, -12, -6, 0, 6, 12``. Anything else silently falls back to
+ *   0 dB. Programmed through adi_apollo_cfir_gain_pgm().
+ *
+ * ``complex_scalar: <scalar_i> <scalar_q>``
+ *   Two u16 complex scalar values (Q1.15, accepted as decimal or ``0x``
+ *   hex) applied to the I and Q streams. Hardware defaults are
+ *   ``0x7fff`` for I and ``0x0000`` for Q (i.e. pass-through, no Q
+ *   leakage). Programmed through adi_apollo_cfir_scalar_pgm().
+ *
+ * ``bypass: <0|1>``
+ *   ``cfir_bypass`` bit of ``adi_apollo_cfir_pgm_t``. 0 runs the FIR,
+ *   1 bypasses the taps (scalar/gain path still applies per API).
+ *
+ * ``sparse_filt_en: <0|1>``
+ *   ``cfir_sparse_filt_en``. Enables the sparse-coefficient variant of
+ *   the FIR (coefficient memory is shared between taps via
+ *   ``sparse_mem`` selectors - see ``adi_apollo_cfir_inspect_t``).
+ *
+ * ``32taps_en: <0|1>``
+ *   ``cfir_32taps_en``. Reconfigures the hardware from the default
+ *   16-tap symmetric mode into 32-tap mode by chaining both coefficient
+ *   banks. When enabled, the coefficient list below must be populated
+ *   accordingly (the bank still loads ``ADI_APOLLO_CFIR_COEFF_NUM`` = 16
+ *   entries per call; the API takes care of expansion).
+ *
+ * ``coeff_transfer: <0|1>``
+ *   ``cfir_coeff_transfer``. When set, the shadow ("master") register
+ *   set is copied into the live ("slave") set at the end of this
+ *   programming cycle - i.e. the newly written coefficients become
+ *   active atomically.
+ *
+ * ``enable: <0|1> <profile>``
+ *   Enable/bypass control plus an explicit run-time profile selection.
+ *   ``0`` maps to ``ADI_APOLLO_CFIR_BYPASS``, ``1`` to
+ *   ``ADI_APOLLO_CFIR_ENABLE``. ``<profile>`` is one of the
+ *   @cfir_profiles strings and is passed to
+ *   adi_apollo_cfir_profile_sel(); the pair is cached per
+ *   {terminal, CFIR, DP} in ``phy->cfir_profile``/``phy->cfir_enable``
+ *   so subsequent profile hops can be issued from userspace.
+ *
+ * ``selection_mode: <mode>``
+ *   Controls how profile hopping is driven at runtime
+ *   (see @cfir_profile_selection_mode, maps to
+ *   ``adi_apollo_cfir_profile_sel_mode_e``):
+ *
+ *     - ``direct_regmap`` - SPI/HSCI write picks the profile.
+ *     - ``direct_gpio``   - dedicated GPIO level picks the profile.
+ *     - ``trig_regmap``   - scheduled via regmap trigger (ts-based).
+ *     - ``trig_gpio``     - scheduled via GPIO trigger.
+ *
+ * Coefficient lines
+ *   Any line that parses as ``<i> <q>`` (signed/hex integers accepted)
+ *   after the directives above is consumed as the next complex tap.
+ *   Values are truncated to u16 (Q1.15). Up to
+ *   ``ADI_APOLLO_CFIR_COEFF_NUM`` (16) taps are accepted; more causes
+ *   ``-EINVAL``. Programmed via adi_apollo_cfir_coeff_pgm().
+ *
+ * Programming order
+ *   After parsing, the function programs (in order): coefficients,
+ *   scalar (if given), gain (if given), profile selection mode (if
+ *   given), the ``cfir_pgm`` bits (bypass/sparse/32taps/transfer), then
+ *   runs a dynamic MCS sync sequence (required for the coefficient
+ *   transfer to take effect across the digital clock domains), and
+ *   finally applies the ``enable:`` directive if present.
+ *
+ * Example blob::
+ *
+ *   # dual-profile RX CFIR on A0, datapath 0
+ *   dest: rx cfir_a0 profile_all datapath_0
+ *   gain: 0
+ *   complex_scalar: 0x7fff 0x0000
+ *   bypass: 0
+ *   sparse_filt_en: 0
+ *   32taps_en: 0
+ *   coeff_transfer: 1
+ *   selection_mode: direct_regmap
+ *   enable: 1 profile_1
+ *   0x7fff 0x0000
+ *   0x0000 0x0000
+ *   ... (up to 16 I/Q pairs)
+ *
+ * Return: @size on success (so write(2) reports all bytes consumed),
+ * negative errno on a malformed blob or API failure.
  */
 static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 			      char *data, u32 size)
@@ -3960,15 +4082,15 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 	char *ptr = data;
 	u16 cfir_coeff_i[ADI_APOLLO_CFIR_COEFF_NUM];
 	u16 cfir_coeff_q[ADI_APOLLO_CFIR_COEFF_NUM];
-	u32 val, enable;
-	s32 sval_i, sval_q, enable_profile, selection_mode, gain = 0;
+	u32 enable;
+	s32 sval_i, sval_q, gain_db, enable_profile, selection_mode, gain = 0;
 	adi_apollo_terminal_e terminal;
 	adi_apollo_cfir_sel_e cfir_sel;
 	adi_apollo_cfir_dp_sel dp_sel;
 	adi_apollo_cfir_profile_sel_e profile_sel;
 	adi_apollo_cfir_pgm_t cfir_pgm = { 0 };
 	u16 scalar_i, scalar_q;
-	u8 read_mask = 0;
+	u16 read_mask = 0;
 
 	while ((line = strsep(&ptr, "\n"))) {
 		if (line >= data + size)
@@ -4086,9 +4208,9 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 		}
 
 		if (~read_mask & BIT(1)) {
-			ret = sscanf(line, "gain: %d", &val);
+			ret = sscanf(line, "gain: %d", &gain_db);
 			if (ret == 1) {
-				gain = ad9088_cfir_gain_enc(val);
+				gain = ad9088_cfir_gain_enc(gain_db);
 				read_mask |= BIT(1);
 				continue;
 			}
@@ -4132,22 +4254,22 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 				continue;
 			}
 		}
-		if (~read_mask & BIT(6)) {
+		if (~read_mask & BIT(8)) {
 			char p[16];
 
-			ret = sscanf(line, "enable: %u %s", &enable, p);
+			ret = sscanf(line, "enable: %u %15s", &enable, p);
 			if (ret == 2) {
 				enable_profile = sysfs_match_string(cfir_profiles, p);
 				if (enable_profile < 0)
 					goto out;
-				read_mask |= BIT(6);
+				read_mask |= BIT(8);
 				continue;
 			}
 		}
 		if (~read_mask & BIT(7)) {
 			char m[16];
 
-			ret = sscanf(line, "selection_mode: %s", m);
+			ret = sscanf(line, "selection_mode: %15s", m);
 			if (ret == 1) {
 				ret = sysfs_match_string(cfir_profile_selection_mode, m);
 				if (ret < 0)
@@ -4221,7 +4343,7 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 	if (ret < 0)
 		goto out1;
 
-	if (read_mask & BIT(6)) {
+	if (read_mask & BIT(8)) {
 		u32 j;
 
 		dev_dbg(dev, "enable: %u enable_profile: %u\n", enable, enable_profile);
