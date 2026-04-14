@@ -1407,7 +1407,7 @@ mpam_resctrl_alloc_domain(unsigned int cpu, struct mpam_resctrl_res *res)
 	}
 
 	if (r->mon_capable) {
-		struct mpam_component *any_mon_comp;
+		struct mpam_component *any_mon_comp = NULL;
 		struct mpam_resctrl_mon *mon;
 		enum resctrl_event_id eventid;
 
