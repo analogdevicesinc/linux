@@ -276,7 +276,7 @@ struct xe_device {
 		struct xe_vram_region *vram;
 		/** @mem.sys_mgr: system TTM manager */
 		struct ttm_resource_manager sys_mgr;
-		/** @mem.sys_mgr: system memory shrinker. */
+		/** @mem.shrinker: system memory shrinker. */
 		struct xe_shrinker *shrinker;
 	} mem;
 
@@ -298,7 +298,7 @@ struct xe_device {
 
 	/** @usm: unified memory state */
 	struct {
-		/** @usm.asid: convert a ASID to VM */
+		/** @usm.asid_to_vm: convert an ASID to VM */
 		struct xarray asid_to_vm;
 		/** @usm.next_asid: next ASID, used to cyclical alloc asids */
 		u32 next_asid;
@@ -315,7 +315,7 @@ struct xe_device {
 		/** @usm.pf_queue: Page fault queues */
 		struct xe_pagefault_queue pf_queue[XE_PAGEFAULT_QUEUE_COUNT];
 #if IS_ENABLED(CONFIG_DRM_XE_PAGEMAP)
-		/** @usm.pagemap_shrinker: Shrinker for unused pagemaps */
+		/** @usm.dpagemap_shrinker: Shrinker for unused pagemaps */
 		struct drm_pagemap_shrinker *dpagemap_shrinker;
 #endif
 	} usm;
@@ -337,7 +337,7 @@ struct xe_device {
 			struct list_head kernel_bo_present;
 			/** @pinned.late.evicted: pinned BO that have been evicted */
 			struct list_head evicted;
-			/** @pinned.external: pinned external and dma-buf. */
+			/** @pinned.late.external: pinned external and dma-buf. */
 			struct list_head external;
 		} late;
 	} pinned;
@@ -372,7 +372,7 @@ struct xe_device {
 		struct {
 			/**
 			 * @mem_access.vram_userfault.lock: Protects access to
-			 * @vram_usefault.list Using mutex instead of spinlock
+			 * @mem_access.vram_userfault.list Using mutex instead of spinlock
 			 * as lock is applied to entire list operation which
 			 * may sleep
 			 */
@@ -584,7 +584,7 @@ struct xe_file {
 
 	/** @vm: VM state for file */
 	struct {
-		/** @vm.xe: xarray to store VMs */
+		/** @vm.xa: xarray to store VMs */
 		struct xarray xa;
 		/**
 		 * @vm.lock: Protects VM lookup + reference and removal from

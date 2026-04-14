@@ -79,7 +79,7 @@ struct xe_hw_engine_class_intf {
 	 * @defaults: default scheduling properties
 	 */
 	struct {
-		/** @sched_props.set_job_timeout: Set job timeout in ms for engine */
+		/** @sched_props.job_timeout_ms: Set job timeout in ms for engine */
 		u32 job_timeout_ms;
 		/** @sched_props.job_timeout_min: Min job timeout in ms for engine */
 		u32 job_timeout_min;

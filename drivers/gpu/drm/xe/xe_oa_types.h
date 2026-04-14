@@ -159,7 +159,7 @@ struct xe_oa_buffer {
 	/** @format: data format */
 	const struct xe_oa_format *format;
 
-	/** @format: xe_bo backing the OA buffer */
+	/** @bo: xe_bo backing the OA buffer */
 	struct xe_bo *bo;
 
 	/** @vaddr: mapped vaddr of the OA buffer */
