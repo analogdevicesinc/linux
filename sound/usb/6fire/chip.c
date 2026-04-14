@@ -165,26 +165,29 @@ static void usb6fire_chip_disconnect(struct usb_interface *intf)
 
 	guard(mutex)(&register_mutex);
 	chip = usb_get_intfdata(intf);
-	if (chip) { /* if !chip, fw upload has been performed */
-		chip->intf_count--;
-		if (!chip->intf_count) {
-			chips[chip->regidx] = NULL;
+	/* if !chip, fw upload has been performed */
+	if (!chip)
+		return;
 
-			/*
-			 * Save card pointer before teardown.
-			 * snd_card_free_when_closed() may free card (and
-			 * the embedded chip) immediately, so it must be
-			 * called last and chip must not be accessed after.
-			 */
-			card = chip->card;
-			chip->shutdown = true;
-			if (card)
-				snd_card_disconnect(card);
-			usb6fire_chip_abort(chip);
-			if (card)
-				snd_card_free_when_closed(card);
-		}
-	}
+	chip->intf_count--;
+	if (chip->intf_count)
+		return;
+
+	chips[chip->regidx] = NULL;
+
+	/*
+	 * Save card pointer before teardown.
+	 * snd_card_free_when_closed() may free card (and
+	 * the embedded chip) immediately, so it must be
+	 * called last and chip must not be accessed after.
+	 */
+	card = chip->card;
+	chip->shutdown = true;
+	if (card)
+		snd_card_disconnect(card);
+	usb6fire_chip_abort(chip);
+	if (card)
+		snd_card_free_when_closed(card);
 }
 
 static const struct usb_device_id device_table[] = {
