@@ -3622,8 +3622,8 @@ static inline int bpf_fd_reuseport_array_update_elem(struct bpf_map *map,
 struct bpf_key *bpf_lookup_user_key(s32 serial, u64 flags);
 struct bpf_key *bpf_lookup_system_key(u64 id);
 void bpf_key_put(struct bpf_key *bkey);
-int bpf_verify_pkcs7_signature(struct bpf_dynptr *data_p,
-			       struct bpf_dynptr *sig_p,
+int bpf_verify_pkcs7_signature(const struct bpf_dynptr *data_p,
+			       const struct bpf_dynptr *sig_p,
 			       struct bpf_key *trusted_keyring);
 
 #else
@@ -3641,8 +3641,8 @@ static inline void bpf_key_put(struct bpf_key *bkey)
 {
 }
 
-static inline int bpf_verify_pkcs7_signature(struct bpf_dynptr *data_p,
-					     struct bpf_dynptr *sig_p,
+static inline int bpf_verify_pkcs7_signature(const struct bpf_dynptr *data_p,
+					     const struct bpf_dynptr *sig_p,
 					     struct bpf_key *trusted_keyring)
 {
 	return -EOPNOTSUPP;

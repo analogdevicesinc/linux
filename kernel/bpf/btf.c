@@ -7973,7 +7973,7 @@ int btf_prepare_func_args(struct bpf_verifier_env *env, int subprog)
 				bpf_log(log, "arg#%d has invalid combination of tags\n", i);
 				return -EINVAL;
 			}
-			sub->args[i].arg_type = ARG_PTR_TO_DYNPTR | MEM_RDONLY;
+			sub->args[i].arg_type = ARG_PTR_TO_DYNPTR;
 			continue;
 		}
 		if (tags & ARG_TAG_TRUSTED) {
