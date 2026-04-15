@@ -273,7 +273,7 @@ static void ieee80211_link_sta_rc_update_omi(struct ieee80211_link_data *link,
 	band = link->conf->chanreq.oper.chan->band;
 	sband = sdata->local->hw.wiphy->bands[band];
 
-	new_bw = ieee80211_sta_cur_vht_bw(link_sta);
+	new_bw = ieee80211_sta_cur_vht_bw(link_sta, &link->conf->chanreq.oper);
 	if (link_sta->pub->bandwidth == new_bw)
 		return;
 

@@ -587,8 +587,13 @@ void ieee80211_ht_handle_chanwidth_notif(struct ieee80211_local *local,
 	enum ieee80211_sta_rx_bandwidth max_bw, new_bw;
 	struct ieee80211_supported_band *sband;
 	struct sta_opmode_info sta_opmode = {};
+	struct ieee80211_link_data *link;
 
 	lockdep_assert_wiphy(local->hw.wiphy);
+
+	link = sdata_dereference(sdata->link[link_sta->link_id], sdata);
+	if (WARN_ON(!link))
+		return;
 
 	if (chanwidth == IEEE80211_HT_CHANWIDTH_20MHZ)
 		max_bw = IEEE80211_STA_RX_BW_20;
@@ -597,7 +602,7 @@ void ieee80211_ht_handle_chanwidth_notif(struct ieee80211_local *local,
 
 	/* set cur_max_bandwidth and recalc sta bw */
 	link_sta->cur_max_bandwidth = max_bw;
-	new_bw = ieee80211_sta_cur_vht_bw(link_sta);
+	new_bw = ieee80211_sta_cur_vht_bw(link_sta, &link->conf->chanreq.oper);
 
 	if (link_sta->pub->bandwidth == new_bw)
 		return;

@@ -2303,13 +2303,8 @@ enum ieee80211_sta_rx_bandwidth
 ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
 			struct cfg80211_chan_def *chandef);
 enum ieee80211_sta_rx_bandwidth
-_ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta,
-			  struct cfg80211_chan_def *chandef);
-static inline enum ieee80211_sta_rx_bandwidth
-ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta)
-{
-	return _ieee80211_sta_cur_vht_bw(link_sta, NULL);
-}
+ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta,
+			 struct cfg80211_chan_def *chandef);
 
 void ieee80211_process_mu_groups(struct ieee80211_sub_if_data *sdata,
 				 struct ieee80211_link_data *link,

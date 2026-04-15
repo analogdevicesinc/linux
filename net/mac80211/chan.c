@@ -693,8 +693,8 @@ static void ieee80211_chan_bw_change(struct ieee80211_local *local,
 			else
 				new_chandef = &link_conf->chanreq.oper;
 
-			new_sta_bw = _ieee80211_sta_cur_vht_bw(link_sta,
-							       new_chandef);
+			new_sta_bw = ieee80211_sta_cur_vht_bw(link_sta,
+							      new_chandef);
 
 			/* nothing change */
 			if (new_sta_bw == link_sta->pub->bandwidth)

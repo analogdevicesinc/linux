@@ -3519,7 +3519,7 @@ void ieee80211_sta_init_nss_bw_capa(struct link_sta_info *link_sta,
 	link_sta->capa_nss = ieee80211_sta_nss_capability(link_sta);
 	link_sta->pub->rx_nss = link_sta->capa_nss;
 
-	link_sta->pub->bandwidth = _ieee80211_sta_cur_vht_bw(link_sta, chandef);
+	link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta, chandef);
 }
 
 void ieee80211_sta_set_max_amsdu_subframes(struct sta_info *sta,

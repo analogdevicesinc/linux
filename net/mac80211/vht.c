@@ -401,12 +401,12 @@ ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
 	 * The purpose, however, is to save power, and that requires
 	 * changing also transmissions to the AP and the chanctx. The
 	 * transmissions depend on link_sta->bandwidth which is set in
-	 * _ieee80211_sta_cur_vht_bw() below, but the chanctx depends
+	 * ieee80211_sta_cur_vht_bw() below, but the chanctx depends
 	 * on the result of this function which is also called by
-	 * _ieee80211_sta_cur_vht_bw(), so we need to do that here as
+	 * ieee80211_sta_cur_vht_bw(), so we need to do that here as
 	 * well. This is sufficient for the steady state, but during
 	 * the transition we already need to change TX/RX separately,
-	 * so _ieee80211_sta_cur_vht_bw() below applies the _tx one.
+	 * so ieee80211_sta_cur_vht_bw() below applies the _tx one.
 	 */
 	return min(_ieee80211_sta_cap_rx_bw(link_sta, chandef->chan->band),
 		   link_sta->rx_omi_bw_rx);
@@ -414,35 +414,19 @@ ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
 
 /* FIXME: rename/move - this deals with everything not just VHT */
 enum ieee80211_sta_rx_bandwidth
-_ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta,
-			  struct cfg80211_chan_def *chandef)
+ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta,
+			 struct cfg80211_chan_def *chandef)
 {
 	struct sta_info *sta = link_sta->sta;
 	enum nl80211_chan_width bss_width;
 	enum ieee80211_sta_rx_bandwidth bw;
 	enum nl80211_band band;
 
-	if (chandef) {
-		bss_width = chandef->width;
-		band = chandef->chan->band;
-	} else {
-		struct ieee80211_bss_conf *link_conf;
+	if (WARN_ON(!chandef))
+		return IEEE80211_STA_RX_BW_20;
 
-		/* NAN operates on multiple channels so a chandef must be given */
-		if (sta->sdata->vif.type == NL80211_IFTYPE_NAN ||
-		    sta->sdata->vif.type == NL80211_IFTYPE_NAN_DATA)
-			return IEEE80211_STA_RX_BW_MAX;
-
-		rcu_read_lock();
-		link_conf = rcu_dereference(sta->sdata->vif.link_conf[link_sta->link_id]);
-		if (WARN_ON_ONCE(!link_conf)) {
-			rcu_read_unlock();
-			return IEEE80211_STA_RX_BW_20;
-		}
-		bss_width = link_conf->chanreq.oper.width;
-		band = link_conf->chanreq.oper.chan->band;
-		rcu_read_unlock();
-	}
+	bss_width = chandef->width;
+	band = chandef->chan->band;
 
 	/* intentionally do not take rx_bw_omi_rx into account */
 	bw = _ieee80211_sta_cap_rx_bw(link_sta, band);
@@ -476,8 +460,13 @@ u32 __ieee80211_vht_handle_opmode(struct ieee80211_sub_if_data *sdata,
 {
 	enum ieee80211_sta_rx_bandwidth new_bw;
 	struct sta_opmode_info sta_opmode = {};
+	struct ieee80211_link_data *link;
 	u32 changed = 0;
 	u8 nss;
+
+	link = sdata_dereference(sdata->link[link_sta->link_id], sdata);
+	if (WARN_ON(!link))
+		return 0;
 
 	/* ignore - no support for BF yet */
 	if (opmode & IEEE80211_OPMODE_NOTIF_RX_NSS_TYPE_BF)
@@ -525,7 +514,7 @@ u32 __ieee80211_vht_handle_opmode(struct ieee80211_sub_if_data *sdata,
 		break;
 	}
 
-	new_bw = ieee80211_sta_cur_vht_bw(link_sta);
+	new_bw = ieee80211_sta_cur_vht_bw(link_sta, &link->conf->chanreq.oper);
 	if (new_bw != link_sta->pub->bandwidth) {
 		link_sta->pub->bandwidth = new_bw;
 		sta_opmode.bw = ieee80211_sta_rx_bw_to_chan_width(new_bw);
