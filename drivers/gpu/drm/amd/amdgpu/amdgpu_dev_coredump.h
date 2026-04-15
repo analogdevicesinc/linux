@@ -31,6 +31,18 @@
 
 #define AMDGPU_COREDUMP_VERSION "1"
 
+struct amdgpu_coredump_ring {
+	u64				rptr;
+	u64				wptr;
+	u32				ring_index;
+	u32				offset;
+};
+
+struct amdgpu_coredump_ib_info {
+	uint64_t			gpu_addr;
+	u32				ib_size_dw;
+};
+
 struct amdgpu_coredump_info {
 	struct amdgpu_device            *adev;
 	struct amdgpu_task_info         reset_task_info;
@@ -39,11 +51,20 @@ struct amdgpu_coredump_info {
 	bool                            skip_vram_check;
 	bool                            reset_vram_lost;
 	struct amdgpu_ring              *ring;
+
+	struct amdgpu_coredump_ring	*rings;
+	u32				*rings_dw;
+	u32				num_rings;
+
 	/* Readable form of coredevdump, generate once to speed up
 	 * reading it (see drm_coredump_printer's documentation).
 	 */
 	ssize_t				formatted_size;
 	char				*formatted;
+
+	unsigned int			pasid;
+	int				num_ibs;
+	struct amdgpu_coredump_ib_info	ibs[] __counted_by(num_ibs);
 };
 #endif
 

@@ -344,7 +344,12 @@ static int smu_v15_0_8_get_metrics_table_internal(struct smu_context *smu, uint3
 		}
 
 		amdgpu_device_invalidate_hdp(smu->adev, NULL);
-		memcpy(smu_table->metrics_table, table->cpu_addr, table_size);
+		ret = smu_cmn_vram_cpy(smu, smu_table->metrics_table,
+				       table->cpu_addr, table_size);
+		if (ret) {
+			mutex_unlock(&smu_table->metrics_lock);
+			return ret;
+		}
 
 		smu_table->metrics_time = jiffies;
 	}
@@ -551,9 +556,14 @@ static int smu_v15_0_8_get_system_metrics_table(struct smu_context *smu)
 	}
 
 	amdgpu_hdp_invalidate(smu->adev, NULL);
+
+	ret = smu_cmn_vram_cpy(smu, sys_table->cache.buffer,
+			       table->cpu_addr,
+			       sizeof(SystemMetricsTable_t));
+	if (ret)
+		return ret;
+
 	smu_table_cache_update_time(sys_table, jiffies);
-	memcpy(sys_table->cache.buffer, table->cpu_addr,
-	       sizeof(SystemMetricsTable_t));
 
 	return 0;
 }
@@ -988,9 +998,9 @@ static int smu_v15_0_8_get_static_metrics_table(struct smu_context *smu)
 	}
 
 	amdgpu_hdp_invalidate(smu->adev, NULL);
-	memcpy(smu_table->metrics_table, table->cpu_addr, table_size);
 
-	return 0;
+	return smu_cmn_vram_cpy(smu, smu_table->metrics_table,
+				table->cpu_addr, table_size);
 }
 
 static int smu_v15_0_8_fru_get_product_info(struct smu_context *smu,
@@ -1601,8 +1611,6 @@ static ssize_t smu_v15_0_8_get_gpu_metrics(struct smu_context *smu, void **table
 	uint32_t mid_mask = adev->aid_mask;
 	MetricsTable_t *metrics;
 
-	metrics = kzalloc(sizeof(MetricsTable_t), GFP_KERNEL);
-
 	ret = smu_v15_0_8_get_metrics_table_internal(smu, 1, NULL);
 	if (ret)
 		return ret;
@@ -1775,7 +1783,7 @@ static int smu_v15_0_8_get_power_limit(struct smu_context *smu,
 		*current_power_limit = power_limit;
 
 	if (default_power_limit)
-		*max_power_limit = pptable->MaxSocketPowerLimit;
+		*default_power_limit = pptable->MaxSocketPowerLimit;
 
 	if (max_power_limit)
 		*max_power_limit = pptable->MaxSocketPowerLimit;
@@ -1901,42 +1909,36 @@ static int smu_v15_0_8_set_soft_freq_limited_range(struct smu_context *smu,
 	if (smu_dpm->dpm_level != AMD_DPM_FORCED_LEVEL_MANUAL)
 		return -EINVAL;
 
-	if (smu_dpm->dpm_level == AMD_DPM_FORCED_LEVEL_MANUAL) {
-		if (min >= max) {
-			dev_err(smu->adev->dev,
-				"Minimum clk should be less than the maximum allowed clock\n");
-			return -EINVAL;
-		}
-
-		if (clk_type == SMU_GFXCLK || clk_type == SMU_SCLK) {
-			if ((min == pstate_table->gfxclk_pstate.curr.min) &&
-			    (max == pstate_table->gfxclk_pstate.curr.max))
-				return 0;
-
-			ret = smu_v15_0_8_set_gfx_soft_freq_limited_range(smu,
-									  min, max);
-			if (!ret) {
-				pstate_table->gfxclk_pstate.curr.min = min;
-				pstate_table->gfxclk_pstate.curr.max = max;
-			}
-		}
-
-		if (clk_type == SMU_UCLK) {
-			if (max == pstate_table->uclk_pstate.curr.max)
-				return 0;
-
-			ret = smu_v15_0_set_soft_freq_limited_range(smu,
-								    SMU_UCLK,
-								    0, max,
-								    false);
-			if (!ret)
-				pstate_table->uclk_pstate.curr.max = max;
-		}
-
-		return ret;
+	if (min >= max) {
+		dev_err(smu->adev->dev,
+			"Minimum clk should be less than the maximum allowed clock\n");
+		return -EINVAL;
 	}
 
-	return 0;
+	if (clk_type == SMU_GFXCLK || clk_type == SMU_SCLK) {
+		if ((min == pstate_table->gfxclk_pstate.curr.min) &&
+		    (max == pstate_table->gfxclk_pstate.curr.max))
+			return 0;
+
+		ret = smu_v15_0_8_set_gfx_soft_freq_limited_range(smu, min,
+								  max);
+		if (!ret) {
+			pstate_table->gfxclk_pstate.curr.min = min;
+			pstate_table->gfxclk_pstate.curr.max = max;
+		}
+	}
+
+	if (clk_type == SMU_UCLK) {
+		if (max == pstate_table->uclk_pstate.curr.max)
+			return 0;
+
+		ret = smu_v15_0_set_soft_freq_limited_range(smu, SMU_UCLK, 0,
+							    max, false);
+		if (!ret)
+			pstate_table->uclk_pstate.curr.max = max;
+	}
+
+	return ret;
 }
 
 static int smu_v15_0_8_od_edit_dpm_table(struct smu_context *smu,

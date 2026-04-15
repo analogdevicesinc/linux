@@ -1076,24 +1076,25 @@ int psp_update_fw_reservation(struct psp_context *psp)
 		return 0;
 	}
 
-	amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory, NULL, NULL);
+	amdgpu_ttm_unmark_vram_reserved(adev, AMDGPU_RESV_FW);
 
 	reserv_size = roundup(reserv_size, SZ_1M);
 
-	ret = amdgpu_bo_create_kernel_at(adev, reserv_addr, reserv_size, &adev->mman.fw_reserved_memory, NULL);
+	amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW,
+				  reserv_addr, reserv_size, false);
+	ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW);
 	if (ret) {
 		dev_err(adev->dev, "reserve fw region failed(%d)!\n", ret);
-		amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory, NULL, NULL);
 		return ret;
 	}
 
 	reserv_size_ext = roundup(reserv_size_ext, SZ_1M);
 
-	ret = amdgpu_bo_create_kernel_at(adev, reserv_addr_ext, reserv_size_ext,
-					 &adev->mman.fw_reserved_memory_extend, NULL);
+	amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW_EXTEND,
+				  reserv_addr_ext, reserv_size_ext, false);
+	ret = amdgpu_ttm_mark_vram_reserved(adev, AMDGPU_RESV_FW_EXTEND);
 	if (ret) {
 		dev_err(adev->dev, "reserve extend fw region failed(%d)!\n", ret);
-		amdgpu_bo_free_kernel(&adev->mman.fw_reserved_memory_extend, NULL, NULL);
 		return ret;
 	}
 

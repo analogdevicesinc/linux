@@ -427,23 +427,14 @@ static int amdgpu_userq_map_helper(struct amdgpu_usermode_queue *queue)
 	return r;
 }
 
-static int amdgpu_userq_wait_for_last_fence(struct amdgpu_usermode_queue *queue)
+static void amdgpu_userq_wait_for_last_fence(struct amdgpu_usermode_queue *queue)
 {
-	struct amdgpu_userq_mgr *uq_mgr = queue->userq_mgr;
 	struct dma_fence *f = queue->last_fence;
-	int ret = 0;
 
-	if (f && !dma_fence_is_signaled(f)) {
-		ret = dma_fence_wait_timeout(f, true, MAX_SCHEDULE_TIMEOUT);
-		if (ret <= 0) {
-			drm_file_err(uq_mgr->file, "Timed out waiting for fence=%llu:%llu\n",
-				     f->context, f->seqno);
-			queue->state = AMDGPU_USERQ_STATE_HUNG;
-			return -ETIME;
-		}
-	}
+	if (!f)
+		return;
 
-	return ret;
+	dma_fence_wait(f, false);
 }
 
 static void amdgpu_userq_cleanup(struct amdgpu_usermode_queue *queue)
@@ -458,9 +449,10 @@ static void amdgpu_userq_cleanup(struct amdgpu_usermode_queue *queue)
 	/* Drop the userq reference. */
 	amdgpu_userq_buffer_vas_list_cleanup(adev, queue);
 	uq_funcs->mqd_destroy(queue);
-	amdgpu_userq_fence_driver_free(queue);
 	/* Use interrupt-safe locking since IRQ handlers may access these XArrays */
 	xa_erase_irq(&adev->userq_doorbell_xa, queue->doorbell_index);
+	amdgpu_userq_fence_driver_free(queue);
+	queue->fence_drv = NULL;
 	queue->userq_mgr = NULL;
 	list_del(&queue->userq_va_list);
 	kfree(queue);
@@ -799,7 +791,7 @@ amdgpu_userq_create(struct drm_file *filp, union drm_amdgpu_userq *args)
 
 	queue->doorbell_index = index;
 	xa_init_flags(&queue->fence_drv_xa, XA_FLAGS_ALLOC);
-	r = amdgpu_userq_fence_driver_alloc(adev, queue);
+	r = amdgpu_userq_fence_driver_alloc(adev, &queue->fence_drv);
 	if (r) {
 		drm_file_err(uq_mgr->file, "Failed to alloc fence driver\n");
 		goto free_queue;
@@ -1023,7 +1015,8 @@ amdgpu_userq_restore_all(struct amdgpu_userq_mgr *uq_mgr)
 	mutex_unlock(&uq_mgr->userq_mutex);
 
 	if (ret)
-		drm_file_err(uq_mgr->file, "Failed to map all the queues\n");
+		drm_file_err(uq_mgr->file,
+			     "Failed to map all the queues, restore failed ret=%d\n", ret);
 	return ret;
 }
 
@@ -1230,13 +1223,11 @@ static void amdgpu_userq_restore_worker(struct work_struct *work)
 
 	ret = amdgpu_userq_vm_validate(uq_mgr);
 	if (ret) {
-		drm_file_err(uq_mgr->file, "Failed to validate BOs to restore\n");
+		drm_file_err(uq_mgr->file, "Failed to validate BOs to restore ret=%d\n", ret);
 		goto put_fence;
 	}
 
-	ret = amdgpu_userq_restore_all(uq_mgr);
-	if (ret)
-		drm_file_err(uq_mgr->file, "Failed to restore all queues\n");
+	amdgpu_userq_restore_all(uq_mgr);
 
 put_fence:
 	dma_fence_put(ev_fence);
@@ -1258,7 +1249,8 @@ amdgpu_userq_evict_all(struct amdgpu_userq_mgr *uq_mgr)
 	}
 
 	if (ret)
-		drm_file_err(uq_mgr->file, "Couldn't unmap all the queues\n");
+		drm_file_err(uq_mgr->file,
+			     "Couldn't unmap all the queues, eviction failed ret=%d\n", ret);
 	return ret;
 }
 
@@ -1279,46 +1271,28 @@ void amdgpu_userq_reset_work(struct work_struct *work)
 	amdgpu_device_gpu_recover(adev, NULL, &reset_context);
 }
 
-static int
+static void
 amdgpu_userq_wait_for_signal(struct amdgpu_userq_mgr *uq_mgr)
 {
 	struct amdgpu_usermode_queue *queue;
 	unsigned long queue_id;
-	int ret;
 
 	xa_for_each(&uq_mgr->userq_xa, queue_id, queue) {
 		struct dma_fence *f = queue->last_fence;
 
-		if (!f || dma_fence_is_signaled(f))
+		if (!f)
 			continue;
 
-		ret = dma_fence_wait_timeout(f, true, msecs_to_jiffies(100));
-		if (ret <= 0) {
-			drm_file_err(uq_mgr->file, "Timed out waiting for fence=%llu:%llu\n",
-				     f->context, f->seqno);
-
-			return -ETIMEDOUT;
-		}
+		dma_fence_wait(f, false);
 	}
-
-	return 0;
 }
 
 void
 amdgpu_userq_evict(struct amdgpu_userq_mgr *uq_mgr)
 {
-	struct amdgpu_device *adev = uq_mgr->adev;
-	int ret;
-
 	/* Wait for any pending userqueue fence work to finish */
-	ret = amdgpu_userq_wait_for_signal(uq_mgr);
-	if (ret)
-		dev_err(adev->dev, "Not evicting userqueue, timeout waiting for work\n");
-
-	ret = amdgpu_userq_evict_all(uq_mgr);
-	if (ret)
-		dev_err(adev->dev, "Failed to evict userqueue\n");
-
+	amdgpu_userq_wait_for_signal(uq_mgr);
+	amdgpu_userq_evict_all(uq_mgr);
 }
 
 int amdgpu_userq_mgr_init(struct amdgpu_userq_mgr *userq_mgr, struct drm_file *file_priv,
@@ -1480,17 +1454,16 @@ int amdgpu_userq_start_sched_for_enforce_isolation(struct amdgpu_device *adev,
 	return ret;
 }
 
-int amdgpu_userq_gem_va_unmap_validate(struct amdgpu_device *adev,
-				       struct amdgpu_bo_va_mapping *mapping,
-				       uint64_t saddr)
+void amdgpu_userq_gem_va_unmap_validate(struct amdgpu_device *adev,
+					struct amdgpu_bo_va_mapping *mapping,
+					uint64_t saddr)
 {
 	u32 ip_mask = amdgpu_userq_get_supported_ip_mask(adev);
 	struct amdgpu_bo_va *bo_va = mapping->bo_va;
 	struct dma_resv *resv = bo_va->base.bo->tbo.base.resv;
-	int ret = 0;
 
 	if (!ip_mask)
-		return 0;
+		return;
 
 	dev_warn_once(adev->dev, "now unmapping a vital queue va:%llx\n", saddr);
 	/**
@@ -1501,14 +1474,8 @@ int amdgpu_userq_gem_va_unmap_validate(struct amdgpu_device *adev,
 	 * unmap is only for one kind of userq VAs, so at this point suppose
 	 * the eviction fence is always unsignaled.
 	 */
-	if (!dma_resv_test_signaled(resv, DMA_RESV_USAGE_BOOKKEEP)) {
-		ret = dma_resv_wait_timeout(resv, DMA_RESV_USAGE_BOOKKEEP, true,
-					    MAX_SCHEDULE_TIMEOUT);
-		if (ret <= 0)
-			return -EBUSY;
-	}
-
-	return 0;
+	dma_resv_wait_timeout(resv, DMA_RESV_USAGE_BOOKKEEP,
+			      false, MAX_SCHEDULE_TIMEOUT);
 }
 
 void amdgpu_userq_pre_reset(struct amdgpu_device *adev)

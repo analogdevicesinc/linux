@@ -290,13 +290,10 @@ static int amdgpu_ras_mgr_sw_init(struct amdgpu_ip_block *ip_block)
 	/* Disabled by default */
 	con->uniras_enabled = false;
 
-	/* Enabled only in debug mode */
-	if (adev->debug_enable_ras_aca) {
+	if (amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(13, 0, 14) ||
+	    adev->debug_enable_ras_aca)
 		con->uniras_enabled = true;
-		RAS_DEV_INFO(adev, "Debug amdgpu uniras!");
-	}
-
-	if (!con->uniras_enabled)
+	else
 		return 0;
 
 	ras_mgr = kzalloc_obj(*ras_mgr);
