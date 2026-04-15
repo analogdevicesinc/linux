@@ -27,18 +27,11 @@ bool intel_display_reset_test(struct intel_display *display)
 		display->params.force_reset_modeset_test;
 }
 
-void intel_display_reset_prepare(struct intel_display *display,
-				 modeset_stuck_fn modeset_stuck, void *context)
+void intel_display_reset_prepare(struct intel_display *display)
 {
 	struct drm_modeset_acquire_ctx *ctx = &display->restore.reset_ctx;
 	struct drm_atomic_state *state;
 	int ret;
-
-	if (atomic_read(&display->restore.pending_fb_pin)) {
-		drm_dbg_kms(display->drm,
-			    "Modeset potentially stuck, unbreaking through wedging\n");
-		modeset_stuck(context);
-	}
 
 	/*
 	 * Need mode_config.mutex so that we don't
