@@ -2240,8 +2240,6 @@ static int amdgpu_dm_early_fini(struct amdgpu_ip_block *ip_block)
 static void amdgpu_dm_fini(struct amdgpu_device *adev)
 {
 	int i;
-	struct drm_crtc *crtc;
-	struct amdgpu_crtc *acrtc;
 
 	if (adev->dm.vblank_control_workqueue) {
 		destroy_workqueue(adev->dm.vblank_control_workqueue);
@@ -2258,12 +2256,9 @@ static void amdgpu_dm_fini(struct amdgpu_device *adev)
 		adev->dm.idle_workqueue = NULL;
 	}
 
-	/* Finalize ISM for each CRTC before dc_destroy() sets dm->dc to NULL */
-	drm_for_each_crtc(crtc, adev_to_drm(adev)) {
-		acrtc = to_amdgpu_crtc(crtc);
-		amdgpu_dm_ism_fini(&acrtc->ism);
-
-	}
+	/* Disable ISM before dc_destroy() invalidates dm->dc */
+	scoped_guard(mutex, &adev->dm.dc_lock)
+		amdgpu_dm_ism_disable(&adev->dm);
 
 	amdgpu_dm_destroy_drm_device(&adev->dm);
 
