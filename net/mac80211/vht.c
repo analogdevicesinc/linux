@@ -433,38 +433,6 @@ _ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
 		   link_sta->rx_omi_bw_rx);
 }
 
-enum nl80211_chan_width
-ieee80211_sta_rx_bw_to_chan_width(struct link_sta_info *link_sta)
-{
-	enum ieee80211_sta_rx_bandwidth cur_bw =
-		link_sta->pub->bandwidth;
-	struct ieee80211_sta_vht_cap *vht_cap =
-		&link_sta->pub->vht_cap;
-	u32 cap_width;
-
-	switch (cur_bw) {
-	case IEEE80211_STA_RX_BW_20:
-		if (!link_sta->pub->ht_cap.ht_supported)
-			return NL80211_CHAN_WIDTH_20_NOHT;
-		else
-			return NL80211_CHAN_WIDTH_20;
-	case IEEE80211_STA_RX_BW_40:
-		return NL80211_CHAN_WIDTH_40;
-	case IEEE80211_STA_RX_BW_80:
-		return NL80211_CHAN_WIDTH_80;
-	case IEEE80211_STA_RX_BW_160:
-		cap_width =
-			vht_cap->cap & IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_MASK;
-
-		if (cap_width == IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ)
-			return NL80211_CHAN_WIDTH_160;
-
-		return NL80211_CHAN_WIDTH_80P80;
-	default:
-		return NL80211_CHAN_WIDTH_20;
-	}
-}
-
 /* FIXME: rename/move - this deals with everything not just VHT */
 enum ieee80211_sta_rx_bandwidth
 _ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta,
@@ -671,7 +639,7 @@ u32 __ieee80211_vht_handle_opmode(struct ieee80211_sub_if_data *sdata,
 	new_bw = ieee80211_sta_cur_vht_bw(link_sta);
 	if (new_bw != link_sta->pub->bandwidth) {
 		link_sta->pub->bandwidth = new_bw;
-		sta_opmode.bw = ieee80211_sta_rx_bw_to_chan_width(link_sta);
+		sta_opmode.bw = ieee80211_sta_rx_bw_to_chan_width(new_bw);
 		changed |= IEEE80211_RC_BW_CHANGED;
 		sta_opmode.changed |= STA_OPMODE_MAX_BW_CHANGED;
 	}

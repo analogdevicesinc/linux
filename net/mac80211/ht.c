@@ -642,8 +642,7 @@ void ieee80211_ht_handle_chanwidth_notif(struct ieee80211_local *local,
 
 	link_sta->pub->bandwidth = new_bw;
 	sband = local->hw.wiphy->bands[band];
-	sta_opmode.bw =
-		ieee80211_sta_rx_bw_to_chan_width(link_sta);
+	sta_opmode.bw = ieee80211_sta_rx_bw_to_chan_width(new_bw);
 	sta_opmode.changed = STA_OPMODE_MAX_BW_CHANGED;
 
 	rate_control_rate_update(local, sband, link_sta,

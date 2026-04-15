@@ -460,33 +460,17 @@ ieee80211_get_sta_bw(struct sta_info *sta, struct ieee80211_link_data *link)
 	 */
 	width = _ieee80211_sta_cap_rx_bw(link_sta, &link->conf->chanreq.oper);
 
-	switch (width) {
-	case IEEE80211_STA_RX_BW_20:
-		if (link_sta->pub->ht_cap.ht_supported)
-			return NL80211_CHAN_WIDTH_20;
-		else
-			return NL80211_CHAN_WIDTH_20_NOHT;
-	case IEEE80211_STA_RX_BW_40:
-		return NL80211_CHAN_WIDTH_40;
-	case IEEE80211_STA_RX_BW_80:
-		return NL80211_CHAN_WIDTH_80;
-	case IEEE80211_STA_RX_BW_160:
-		/*
-		 * This applied for both 160 and 80+80. since we use
-		 * the returned value to consider degradation of
-		 * ctx->conf.min_def, we have to make sure to take
-		 * the bigger one (NL80211_CHAN_WIDTH_160).
-		 * Otherwise we might try degrading even when not
-		 * needed, as the max required sta_bw returned (80+80)
-		 * might be smaller than the configured bw (160).
-		 */
-		return NL80211_CHAN_WIDTH_160;
-	case IEEE80211_STA_RX_BW_320:
-		return NL80211_CHAN_WIDTH_320;
-	default:
-		WARN_ON(1);
-		return NL80211_CHAN_WIDTH_20;
-	}
+	if (width == IEEE80211_STA_RX_BW_20 &&
+	    !link_sta->pub->ht_cap.ht_supported &&
+	    !link_sta->pub->he_cap.has_he)
+		return NL80211_CHAN_WIDTH_20_NOHT;
+
+	/*
+	 * This returns 160 for both 160 and 80+80. Since we use
+	 * the returned value to consider narrowing for
+	 * ctx->conf.min_def, that's correct and necessary.
+	 */
+	return ieee80211_sta_rx_bw_to_chan_width(width);
 }
 
 static enum nl80211_chan_width

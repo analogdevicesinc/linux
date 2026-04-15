@@ -2329,8 +2329,6 @@ void ieee80211_apply_vhtcap_overrides(struct ieee80211_sub_if_data *sdata,
 				      struct ieee80211_sta_vht_cap *vht_cap);
 void ieee80211_get_vht_mask_from_cap(__le16 vht_cap,
 				     u16 vht_mask[NL80211_VHT_NSS_MAX]);
-enum nl80211_chan_width
-ieee80211_sta_rx_bw_to_chan_width(struct link_sta_info *sta);
 
 /* HE */
 void
@@ -2715,6 +2713,9 @@ void ieee80211_add_s1g_capab_ie(struct ieee80211_sub_if_data *sdata,
 				struct sk_buff *skb);
 void ieee80211_add_aid_request_ie(struct ieee80211_sub_if_data *sdata,
 				  struct sk_buff *skb);
+
+enum nl80211_chan_width
+ieee80211_sta_rx_bw_to_chan_width(enum ieee80211_sta_rx_bandwidth bw);
 
 /* element building in SKBs */
 int ieee80211_put_srates_elem(struct sk_buff *skb,
