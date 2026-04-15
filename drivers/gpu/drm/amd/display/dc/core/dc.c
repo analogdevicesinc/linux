@@ -6533,6 +6533,10 @@ bool dc_smart_power_oled_enable(const struct dc_link *link, bool enable, uint16_
 	// send cmd
 	status = dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 
+	// Update firmware_controlled_hdr_info_packet state on successful command execution
+	if (status && pipe_ctx)
+		pipe_ctx->stream->firmware_controlled_hdr_info_packet = enable;
+
 	return status;
 }
 

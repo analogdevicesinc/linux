@@ -304,6 +304,7 @@ struct dc_stream_state {
 	enum dc_drr_trigger_mode drr_trigger_mode;
 
 	struct dc_update_scratch_space *update_scratch;
+	bool firmware_controlled_hdr_info_packet;
 };
 
 #define ABM_LEVEL_IMMEDIATE_DISABLE 255

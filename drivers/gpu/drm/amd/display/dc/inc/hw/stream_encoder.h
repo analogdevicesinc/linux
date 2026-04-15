@@ -93,6 +93,7 @@ struct encoder_info_frame {
 	/* Adaptive Sync SDP*/
 	struct dc_info_packet adaptive_sync;
 	struct enc_sdp_line_num sdp_line_num;
+	bool firmware_controlled_hdr_info_packet;
 };
 
 struct encoder_unblank_param {
