@@ -603,8 +603,19 @@ static void rpmsg_dev_remove(struct device *dev)
 
 	dev_pm_domain_detach(dev, true);
 
-	if (rpdev->ept)
+	if (rpdev->ept) {
 		rpmsg_destroy_ept(rpdev->ept);
+		rpdev->ept = NULL;
+		/*
+		 * If the source address was dynamically allocated during probe
+		 * (i.e. the channel was not a pre-announced server channel),
+		 * reset it so a subsequent re-bind allocates a fresh address
+		 * instead of requesting the now-stale one, which may have been
+		 * claimed by another endpoint in the meantime.
+		 */
+		if (!rpdev->announce)
+			rpdev->src = RPMSG_ADDR_ANY;
+	}
 }
 
 static const struct bus_type rpmsg_bus = {
