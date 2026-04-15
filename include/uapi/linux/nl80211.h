@@ -1204,10 +1204,12 @@
  *	user space through the connect result as the user space would have
  *	initiated the connection through the connect request.
  *
- * @NL80211_CMD_STA_OPMODE_CHANGED: An event that notify station's
- *	ht opmode or vht opmode changes using any of %NL80211_ATTR_SMPS_MODE,
- *	%NL80211_ATTR_CHANNEL_WIDTH,%NL80211_ATTR_NSS attributes with its
- *	address(specified in %NL80211_ATTR_MAC).
+ * @NL80211_CMD_STA_OPMODE_CHANGED: An event that notifies that a station's
+ *	HT opmode or VHT opmode changed using any of %NL80211_ATTR_SMPS_MODE,
+ *	%NL80211_ATTR_CHANNEL_WIDTH, %NL80211_ATTR_NSS attributes with its
+ *	address (specified in %NL80211_ATTR_MAC).
+ *	Note that 80+80 and 160 MHz might not be differentiated, i.e. may
+ *	report %NL80211_CHAN_WIDTH_160 instead of %NL80211_CHAN_WIDTH_80P80.
  *
  * @NL80211_CMD_GET_FTM_RESPONDER_STATS: Retrieve FTM responder statistics, in
  *	the %NL80211_ATTR_FTM_RESPONDER_STATS attribute.
