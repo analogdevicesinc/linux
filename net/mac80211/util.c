@@ -3149,7 +3149,9 @@ bool ieee80211_chandef_vht_oper(struct ieee80211_hw *hw, u32 vht_cap_info,
 		ext_nss_bw_supp = 0;
 
 	/*
-	 * Cf. IEEE 802.11 Table 9-250
+	 * Cf. IEEE 802.11-2020 Table 9-272 - Setting of the Supported Channel
+	 * Width Set subfield and Extended NSS BW Support subfield at a STA
+	 * transmitting the VHT Capabilities Information field
 	 *
 	 * We really just consider that because it's inefficient to connect
 	 * at a higher bandwidth than we'll actually be able to use.
