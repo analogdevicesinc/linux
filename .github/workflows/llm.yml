@@ -32,7 +32,7 @@ jobs:
     permissions:
       contents: read
       checks: read
-      pull-requests: read
+      pull-requests: write
     secrets:
       PORTKEY_API_KEY: ${{ secrets.PORTKEY_API_KEY }}
     with:
