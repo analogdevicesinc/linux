@@ -3537,63 +3537,160 @@ static u32 ad9088_pfir_gain_enc(int val)
 };
 
 /**
- * ad9088_parse_pfilt - Parse the configuration data for the PFIR filter
+ * ad9088_parse_pfilt - Parse a PFILT (Programmable FIR) configuration blob
  * @phy: Pointer to the AD9088 PHY structure
- * @data: Pointer to the configuration data
- * @size: Size of the configuration data
+ * @data: Buffer holding the PFILT configuration text
+ * @size: Size of @data in bytes
  *
- * This function parses the configuration data for the PFIR (Programmable
- * Finite Impulse Response) filter of the AD9088 device. The configuration
- * data is expected to be in a specific format, which is documented below.
+ * Parses a text blob (normally written to the sysfs bin attribute
+ * ``pfilt_config``) describing one PFILT programming operation and pushes
+ * it down to the Apollo API. The file is line oriented. Lines starting
+ * with ``#`` are comments. Each directive appears at most once (the
+ * parser keeps a ``read_mask`` of what's already been consumed and only
+ * the first occurrence wins); they may appear in any order except that
+ * the coefficient block must come after the directive that defines its
+ * mode. Unrecognised lines are silently ignored.
  *
- * Format of the configuration data:
- *   - Each line represents a parameter or setting for the PFIR filter.
- *   - Lines starting with '#' are considered comments and are ignored.
- *   - The format for each parameter is as follows:
- *     - mode: <imode> <qmode>
- *       - Sets the mode for the PFIR filter. The <imode> and <qmode> values
- *         should be one of the predefined filter modes: "disabled",
- *         "real_n4", "real_n2", "undef", "matrix", "undef", "complex_half",
- *         "real_n".
- *     - gain: <ix> <iy> <qx> <qy>
- *       - Sets the gain values for the PFIR filter. The <ix>, <iy>, <qx>,
- *         and <qy> values should be integers representing the gain in dB.
- *     - scalar_gain: <ix> <iy> <qx> <qy>
- *       - Sets the scalar gain values for the PFIR filter. The <ix>, <iy>,
- *         <qx>, and <qy> values should be integers representing the scalar
- *         gain.
- *     - dest: <terminal> <pfilt_sel> <bank_sel>
- *       - Sets the destination for the PFIR filter. The <terminal> value
- *         should be either "rx" or "tx". The <pfilt_sel> value should be one
- *         of the predefined filter selects: "pfilt_a0", "pfilt_a1",
- *         "pfilt_b0", "pfilt_b1", "pfilt_all", "pfilt_mask". The <bank_sel>
- *         value should be one of the predefined filter banks: "bank_0",
- *         "bank_1", "bank_2", "bank_3", "bank_all", "bank_mask".
- *     - hc_delay: <delay>
- *       - Sets the high cut delay value for the PFIR filter. The <delay>
- *         value should be an unsigned 8-bit integer.
- *     - mode_switch_en: <value>
- *       - Sets the mode switch enable value for the PFIR filter. The <value>
- *         should be either 0 or 1.
- *     - mode_switch_add_en: <value>
- *       - Sets the mode switch add enable value for the PFIR filter. The
- *         <value> should be either 0 or 1.
- *     - real_data_mode_en: <value>
- *       - Sets the real data mode enable value for the PFIR filter. The
- *         <value> should be either 0 or 1.
- *     - quad_mode_en: <value>
- *       - Sets the quad mode enable value for the PFIR filter. The <value>
- *         should be either 0 or 1.
- *     - selection_mode: <mode>
- *       - Sets the profile selection mode for the PFIR filter. The <mode>
- *         value should be one of the predefined profile selection modes:
- *         "direct_regmap", "direct_gpio", "direct_gpio1", "trig_regmap",
- *         "trig_gpio", "trig_gpio1".
- *     - <sval>
- *       - Sets the coefficient values for the PFIR filter. The <sval> value
- *         should be an integer representing the coefficient value.
+ * The PFILT block is a 32-tap full-rate programmable FIR located in the
+ * wideband DSP stage ahead of the CDDC/CDUC mixers on AD9084/AD9088
+ * (UG sec. 6001). Each side hosts 2 PFILT instances and each instance
+ * holds 4 offline coefficient banks that can be hot-swapped at runtime
+ * via SPI or GPIO (UG Table 108/109, sec. 6137).
  *
- * Return: 0 on success, negative error code on failure
+ * Recognised directives
+ * ---------------------
+ *
+ * ``dest: <terminal> <pfilt_sel> <bank_sel>`` (mandatory)
+ *   Where coefficients, mode, gain and selection_mode get programmed.
+ *
+ *   * ``<terminal>`` - ``rx`` or ``tx``.
+ *   * ``<pfilt_sel>`` - target PFILT instance mask (maps to
+ *     ``adi_apollo_pfilt_sel_e``):
+ *
+ *       - ``pfilt_a0`` (0x1) - side A, instance 0
+ *       - ``pfilt_a1`` (0x2) - side A, instance 1 (8T8R only)
+ *       - ``pfilt_b0`` (0x4) - side B, instance 0
+ *       - ``pfilt_b1`` (0x8) - side B, instance 1 (8T8R only)
+ *       - ``pfilt_all`` (0xF) - all PFILTs (use ``pfilt_mask5`` = 0x5
+ *         for 4T4R "all")
+ *       - ``pfilt_maskN`` - raw 4-bit OR, e.g. ``pfilt_mask5`` for A0|B0.
+ *
+ *   * ``<bank_sel>`` - which of the 4 offline coefficient banks to load
+ *     (maps to ``adi_apollo_pfilt_bank_sel_e``):
+ *
+ *       - ``bank_0..3`` (0x1/0x2/0x4/0x8)
+ *       - ``bank_all`` (0xF) - load all four banks with the same set
+ *       - ``bank_maskN`` - raw 4-bit OR.
+ *
+ * ``mode: <imode> [<qmode>]``
+ *   Filter topology for the I stream and, optionally, the Q stream
+ *   (UG Table 107/111, maps to ``adi_apollo_pfilt_mode_e``). If
+ *   ``<qmode>`` is omitted, only the I-side mode is programmed and the
+ *   Q-side mode stays at whatever the struct was zero-initialised to
+ *   (``disabled``). Valid strings:
+ *
+ *     - ``disabled``     (0) - filter bypassed
+ *     - ``real_n4``      (1) - N/4 taps  = 8-tap real, two sub-filters
+ *     - ``real_n2``      (2) - N/2 taps  = 16-tap real, two sub-filters
+ *     - ``matrix``       (4) - full N/4 matrix: four 8-tap real
+ *       sub-filters (A/B/C/D) - lets you mix I<->Q for crosstalk or
+ *       quadrature correction
+ *     - ``complex_half`` (6) - half-complex with 16-tap direct+cross +
+ *       a 16-tap programmable delay line (see ``hc_delay``)
+ *     - ``real_n``       (7) - one 32-tap real filter, single ADC/DAC
+ *
+ *   (Positions 3 and 5 in ``pfir_filter_modes[]`` are placeholders for
+ *   unused enum values, string ``undef``.)
+ *
+ * ``gain: <ix> <iy> <qx> <qy>``
+ *   Per-branch integer-dB shift gains, one of ``0, 6, 12, 18, 24``
+ *   (anything else falls back to 0 dB). The four slots correspond to
+ *   the matrix-mode sub-filters (UG sec. 6097):
+ *
+ *     - ``ix`` = Ga (DIN1 straight), ``iy`` = Gb (DIN1 cross)
+ *     - ``qx`` = Gd (DIN2 straight), ``qy`` = Gc (DIN2 cross)
+ *
+ *   ``iy``/``qy`` are only used in matrix mode; other modes leave them
+ *   unused.
+ *
+ * ``scalar_gain: <ix> <iy> <qx> <qy>``
+ *   Six-bit fine-gain multiplier per branch, ``0..63``. Encoded per UG
+ *   as ``code = 64 * scalarGain - 1`` so 0 -> 1/64 (-36 dB), 63 -> 1.0
+ *   (0 dB). Driver default is ``0x3f`` (1.0) for the ``iy``/``qx`` slots
+ *   before parsing.
+ *
+ * ``hc_delay: <samples>``
+ *   Programmable delay line for half-complex mode (``complex_half``),
+ *   u8 in ADC samples. Ignored in other modes.
+ *
+ * ``mode_switch_en: <0|1>``
+ *   Rx-only: enables the 3 dB ADC averaging block ahead of the PFILT
+ *   (UG sec. 6129). When enabled, the two input streams are combined
+ *   (add or subtract; see ``mode_switch_add_en``) and averaged.
+ *
+ * ``mode_switch_add_en: <0|1>``
+ *   Selects add (1) vs. subtract (0) for the Rx averaging block above.
+ *   Meaningful only when ``mode_switch_en: 1``.
+ *
+ * ``real_data_mode_en: <0|1>``
+ *   Data-stream type: 1 = treat the pair as two independent real
+ *   streams (AD9088 real-mode); 0 = complex I/Q pair. Selects between
+ *   the connectivity shown in UG Figures 135/136 / 137/138.
+ *
+ * ``quad_mode_en: <0|1>``
+ *   Dual (0) vs. quad (1) mode. Quad mode engages all four sub-filters
+ *   (required for matrix mode on AD9088 8T8R).
+ *
+ * ``selection_mode: <mode>``
+ *   How the active bank is picked at runtime. Maps to
+ *   ``adi_apollo_pfilt_profile_sel_mode_e``:
+ *
+ *     - ``direct_regmap``   - SPI/HSCI register write selects the bank.
+ *     - ``direct_gpio``     - GPIO[1:0] selects one of the 4 banks
+ *       (config 0 in UG Table 108/109).
+ *     - ``direct_gpio1``    - GPIO[0] drives PFILT0, GPIO[1] drives
+ *       PFILT1 (each chooses between its own 2 banks; config 1).
+ *     - ``trig_regmap``     - timestamp-triggered hop via regmap.
+ *     - ``trig_gpio``       - timestamp-triggered hop via GPIO[1:0].
+ *     - ``trig_gpio1``      - timestamp-triggered, GPIO[0]/GPIO[1] split.
+ *
+ * Coefficient lines
+ *   Every line parseable as a single integer (decimal or ``0x`` hex) is
+ *   consumed as the next u16 coefficient (Q1.15). Up to
+ *   ``ADI_APOLLO_PFILT_COEFF_NUM`` (32) values are accepted; more
+ *   causes ``-EINVAL``. The number actually needed depends on
+ *   ``mode:``:
+ *
+ *     - ``real_n``       - 32 taps (one 32-tap real filter)
+ *     - ``real_n2``      - 16 taps per sub-filter
+ *     - ``real_n4``      - 8 taps per sub-filter
+ *     - ``complex_half`` - 16 taps per arm (direct + cross)
+ *     - ``matrix``       - 8 taps per A/B/C/D sub-filter (32 total)
+ *
+ *   Coefficient placement within the buffer is handled by the Apollo
+ *   API; this driver just passes them through adi_apollo_pfilt_coeff_pgm()
+ *   and then follows with adi_apollo_pfilt_coeff_transfer() to move the
+ *   offline-bank values into the active bank.
+ *
+ * Programming order
+ *   After parsing, the driver calls, in order:
+ *   adi_apollo_pfilt_mode_pgm(), adi_apollo_pfilt_gain_dly_pgm(),
+ *   adi_apollo_pfilt_profile_sel_mode_set() (if given),
+ *   adi_apollo_pfilt_coeff_pgm(), adi_apollo_pfilt_coeff_transfer().
+ *
+ * Example blob (32-tap real Rx PFILT into bank_0)::
+ *
+ *   dest: rx pfilt_a0 bank_0
+ *   mode: real_n real_n
+ *   gain: 0 0 0 0
+ *   scalar_gain: 63 63 63 63
+ *   selection_mode: direct_regmap
+ *   0x0001
+ *   0x0002
+ *   ... (up to 32 u16 taps)
+ *
+ * Return: @size on success (so write(2) reports all bytes consumed),
+ * negative errno on a malformed blob or API failure.
  */
 static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 			      char *data, u32 size)
@@ -3704,7 +3801,7 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 				if (ret == 4)
 					pfilt_sel = ADI_APOLLO_PFILT_ALL;
 				if (ret == 5) {
-					ret = sscanf(line, "pfilt_mask%u", &mask);
+					ret = sscanf(p, "pfilt_mask%u", &mask);
 					if (ret != 1)
 						goto out;
 					pfilt_sel = mask;
@@ -3717,7 +3814,7 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 				if (ret == 4)
 					bank_sel = ADI_APOLLO_PFILT_BANK_ALL;
 				if (ret == 5) {
-					ret = sscanf(line, "bank_mask%u", &mask);
+					ret = sscanf(b, "bank_mask%u", &mask);
 					if (ret != 1)
 						goto out;
 					bank_sel = mask;
@@ -3795,6 +3892,11 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 			pfilt_coeffs[i++] = (u16)sval;
 			continue;
 		}
+	}
+
+	if (!(read_mask & BIT(2))) {
+		dev_err(dev, "dest: not found\n");
+		goto out;
 	}
 
 	dev_dbg(dev, "terminal: %s\n", terminals[terminal]);
