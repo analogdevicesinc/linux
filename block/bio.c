@@ -544,7 +544,8 @@ struct bio *bio_alloc_bioset(struct block_device *bdev, unsigned short nr_vecs,
 	if (WARN_ON_ONCE(!mempool_initialized(&bs->bvec_pool) && nr_vecs > 0))
 		return NULL;
 
-	gfp = try_alloc_gfp(gfp);
+	if (saved_gfp & __GFP_DIRECT_RECLAIM)
+		gfp = try_alloc_gfp(gfp);
 	if (bs->cache && nr_vecs <= BIO_INLINE_VECS) {
 		/*
 		 * Set REQ_ALLOC_CACHE even if no cached bio is available to
