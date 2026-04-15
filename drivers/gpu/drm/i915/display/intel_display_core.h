@@ -560,6 +560,10 @@ struct intel_display {
 	} quirks;
 
 	struct {
+		u32 count;
+	} reset;
+
+	struct {
 		/* restore state for suspend/resume and display reset */
 		struct drm_atomic_state *modeset_state;
 		struct drm_modeset_acquire_ctx reset_ctx;

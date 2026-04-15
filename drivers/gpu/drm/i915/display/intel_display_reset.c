@@ -3,6 +3,8 @@
  * Copyright © 2023 Intel Corporation
  */
 
+#include <linux/debugfs.h>
+
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_print.h>
 
@@ -66,6 +68,7 @@ void intel_display_reset_prepare(struct intel_display *display)
 		return;
 	}
 
+	display->reset.count++;
 	display->restore.modeset_state = state;
 	state->acquire_ctx = ctx;
 }
@@ -113,4 +116,11 @@ unlock:
 	drm_modeset_drop_locks(ctx);
 	drm_modeset_acquire_fini(ctx);
 	mutex_unlock(&display->drm->mode_config.mutex);
+}
+
+void intel_display_reset_debugfs_register(struct intel_display *display)
+{
+	debugfs_create_u32("intel_display_reset_count", 0400,
+			   display->drm->debugfs_root,
+			   &display->reset.count);
 }

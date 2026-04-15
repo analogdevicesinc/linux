@@ -27,6 +27,7 @@
 #include "intel_display_power.h"
 #include "intel_display_power_well.h"
 #include "intel_display_regs.h"
+#include "intel_display_reset.h"
 #include "intel_display_rpm.h"
 #include "intel_display_types.h"
 #include "intel_dmc.h"
@@ -838,6 +839,7 @@ void intel_display_debugfs_register(struct intel_display *display)
 
 	intel_bios_debugfs_register(display);
 	intel_cdclk_debugfs_register(display);
+	intel_display_reset_debugfs_register(display);
 	intel_dmc_debugfs_register(display);
 	intel_dp_test_debugfs_register(display);
 	intel_fbc_debugfs_register(display);
