@@ -343,9 +343,9 @@ static void mgag200_set_offset(struct mga_device *mdev,
 
 void mgag200_set_format_regs(struct mga_device *mdev, const struct drm_format_info *format)
 {
-	struct drm_device *dev = &mdev->base;
 	unsigned int bpp, bppshift, scale;
-	u8 crtcext3, xmulctrl;
+	u8 xmulctrl = 0;
+	u8 crtcext3;
 
 	bpp = format->cpp[0] * 8;
 
@@ -361,26 +361,22 @@ void mgag200_set_format_regs(struct mga_device *mdev, const struct drm_format_in
 
 	RREG_ECRT(3, crtcext3);
 
-	switch (bpp) {
-	case 8:
+	switch (format->format) {
+	case DRM_FORMAT_C8:
 		xmulctrl = MGA1064_MUL_CTL_8bits;
 		break;
-	case 16:
-		if (format->depth == 15)
-			xmulctrl = MGA1064_MUL_CTL_15bits;
-		else
-			xmulctrl = MGA1064_MUL_CTL_16bits;
+	case DRM_FORMAT_XRGB1555:
+		xmulctrl = MGA1064_MUL_CTL_15bits;
 		break;
-	case 24:
+	case DRM_FORMAT_RGB565:
+		xmulctrl = MGA1064_MUL_CTL_16bits;
+		break;
+	case DRM_FORMAT_RGB888:
 		xmulctrl = MGA1064_MUL_CTL_24bits;
 		break;
-	case 32:
+	case DRM_FORMAT_XRGB8888:
 		xmulctrl = MGA1064_MUL_CTL_32_24bits;
 		break;
-	default:
-		/* BUG: We should have caught this problem already. */
-		drm_WARN_ON(dev, "invalid format depth\n");
-		return;
 	}
 
 	crtcext3 &= ~GENMASK(2, 0);
