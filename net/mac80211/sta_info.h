@@ -997,7 +997,8 @@ void ieee80211_sta_ps_deliver_uapsd(struct sta_info *sta);
 
 unsigned long ieee80211_sta_last_active(struct sta_info *sta, int link_id);
 
-void ieee80211_sta_init_nss(struct link_sta_info *link_sta);
+void ieee80211_sta_init_nss_bw_capa(struct link_sta_info *link_sta,
+				    struct cfg80211_chan_def *chandef);
 void ieee80211_sta_set_max_amsdu_subframes(struct sta_info *sta,
 					   const u8 *ext_capab,
 					   unsigned int ext_capab_len);

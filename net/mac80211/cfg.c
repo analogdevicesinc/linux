@@ -2221,7 +2221,15 @@ static int sta_link_apply_parameters(struct ieee80211_local *local,
 		ieee80211_s1g_cap_to_sta_s1g_cap(sdata, params->s1g_capa,
 						 link_sta);
 
-	ieee80211_sta_init_nss(link_sta);
+	switch (sdata->vif.type) {
+	case NL80211_IFTYPE_NAN:
+	case NL80211_IFTYPE_NAN_DATA:
+		/* not applicable - they don't use NSS/BW as capability */
+		break;
+	default:
+		ieee80211_sta_init_nss_bw_capa(link_sta, &link->conf->chanreq.oper);
+		break;
+	}
 
 	if (params->opmode_notif_used) {
 		enum nl80211_chan_width width = link->conf->chanreq.oper.width;

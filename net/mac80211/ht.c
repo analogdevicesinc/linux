@@ -140,14 +140,11 @@ bool ieee80211_ht_cap_ie_to_sta_ht_cap(struct ieee80211_sub_if_data *sdata,
 				       const struct ieee80211_ht_cap *ht_cap_ie,
 				       struct link_sta_info *link_sta)
 {
-	struct ieee80211_bss_conf *link_conf;
 	struct sta_info *sta = link_sta->sta;
 	struct ieee80211_sta_ht_cap ht_cap, own_cap;
 	u8 ampdu_info, tx_mcs_set_cap;
 	int i, max_tx_streams;
 	bool changed;
-	enum ieee80211_sta_rx_bandwidth bw;
-	enum nl80211_chan_width width;
 
 	memset(&ht_cap, 0, sizeof(ht_cap));
 
@@ -255,41 +252,6 @@ bool ieee80211_ht_cap_ie_to_sta_ht_cap(struct ieee80211_sub_if_data *sdata,
 	changed = memcmp(&link_sta->pub->ht_cap, &ht_cap, sizeof(ht_cap));
 
 	memcpy(&link_sta->pub->ht_cap, &ht_cap, sizeof(ht_cap));
-
-	rcu_read_lock();
-	link_conf = rcu_dereference(sdata->vif.link_conf[link_sta->link_id]);
-	if (WARN_ON(!link_conf)) {
-		width = NL80211_CHAN_WIDTH_20_NOHT;
-	} else if (sdata->vif.type == NL80211_IFTYPE_NAN ||
-		   sdata->vif.type == NL80211_IFTYPE_NAN_DATA) {
-		/* In NAN, link_sta->bandwidth is invalid since NAN operates on
-		 * multiple channels. Just take the maximum.
-		 */
-		width = NL80211_CHAN_WIDTH_320;
-	} else {
-		width = link_conf->chanreq.oper.width;
-	}
-
-	switch (width) {
-	default:
-		WARN_ON_ONCE(1);
-		fallthrough;
-	case NL80211_CHAN_WIDTH_20_NOHT:
-	case NL80211_CHAN_WIDTH_20:
-		bw = IEEE80211_STA_RX_BW_20;
-		break;
-	case NL80211_CHAN_WIDTH_40:
-	case NL80211_CHAN_WIDTH_80:
-	case NL80211_CHAN_WIDTH_80P80:
-	case NL80211_CHAN_WIDTH_160:
-	case NL80211_CHAN_WIDTH_320:
-		bw = ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40 ?
-				IEEE80211_STA_RX_BW_40 : IEEE80211_STA_RX_BW_20;
-		break;
-	}
-	rcu_read_unlock();
-
-	link_sta->pub->bandwidth = bw;
 
 	if (sta->sdata->vif.type == NL80211_IFTYPE_AP ||
 	    sta->sdata->vif.type == NL80211_IFTYPE_AP_VLAN ||

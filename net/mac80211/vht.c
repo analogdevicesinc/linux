@@ -301,8 +301,6 @@ ieee80211_vht_cap_ie_to_sta_vht_cap(struct ieee80211_sub_if_data *sdata,
 		return;
 	}
 
-	link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta);
-
 	/*
 	 * Work around the Cisco 9115 FW 17.3 bug by taking the min of
 	 * both reported MPDU lengths.

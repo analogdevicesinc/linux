@@ -5748,22 +5748,13 @@ static bool ieee80211_assoc_config_link(struct ieee80211_link_data *link,
 	 * next beacon and update then.
 	 */
 
-	/*
-	 * If an operating mode notification element is present, set the opmode
-	 * NSS override to correct for the current number of spatial streams,
-	 * overriding the capabilities. ieee80211_sta_init_nss() uses this.
-	 */
-	if (elems->opmode_notif &&
-	    !(*elems->opmode_notif & IEEE80211_OPMODE_NOTIF_RX_NSS_TYPE_BF)) {
-		u8 nss;
+	ieee80211_sta_init_nss_bw_capa(link_sta, &bss_conf->chanreq.oper);
 
-		nss = *elems->opmode_notif & IEEE80211_OPMODE_NOTIF_RX_NSS_MASK;
-		nss >>= IEEE80211_OPMODE_NOTIF_RX_NSS_SHIFT;
-		nss += 1;
-		link_sta->op_mode_nss = nss;
-	}
-
-	ieee80211_sta_init_nss(link_sta);
+	/* If an operating mode notification element is present, use it. */
+	if (elems->opmode_notif)
+		__ieee80211_vht_handle_opmode(sdata, link_sta,
+					      *elems->opmode_notif,
+					      sband->band);
 
 	/*
 	 * Always handle WMM once after association regardless

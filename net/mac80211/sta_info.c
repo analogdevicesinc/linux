@@ -3426,7 +3426,7 @@ void ieee80211_sta_remove_link(struct sta_info *sta, unsigned int link_id)
 	sta_remove_link(sta, link_id, true);
 }
 
-void ieee80211_sta_init_nss(struct link_sta_info *link_sta)
+static u8 ieee80211_sta_nss_capability(struct link_sta_info *link_sta)
 {
 	u8 ht_rx_nss = 0, vht_rx_nss = 0, he_rx_nss = 0, eht_rx_nss = 0, rx_nss;
 	bool support_160;
@@ -3509,13 +3509,17 @@ void ieee80211_sta_init_nss(struct link_sta_info *link_sta)
 	rx_nss = max(he_rx_nss, rx_nss);
 	rx_nss = max(eht_rx_nss, rx_nss);
 	rx_nss = max_t(u8, 1, rx_nss);
-	link_sta->capa_nss = rx_nss;
 
-	if (link_sta->op_mode_nss)
-		link_sta->pub->rx_nss =
-			min_t(u8, rx_nss, link_sta->op_mode_nss);
-	else
-		link_sta->pub->rx_nss = rx_nss;
+	return rx_nss;
+}
+
+void ieee80211_sta_init_nss_bw_capa(struct link_sta_info *link_sta,
+				    struct cfg80211_chan_def *chandef)
+{
+	link_sta->capa_nss = ieee80211_sta_nss_capability(link_sta);
+	link_sta->pub->rx_nss = link_sta->capa_nss;
+
+	link_sta->pub->bandwidth = _ieee80211_sta_cur_vht_bw(link_sta, chandef);
 }
 
 void ieee80211_sta_set_max_amsdu_subframes(struct sta_info *sta,
