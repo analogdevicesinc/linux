@@ -6649,28 +6649,49 @@ static void nl80211_check_ap_rate_selectors(struct cfg80211_beacon_data *bcn,
  * HT/VHT/... capabilities, we parse them out of the elements and check for
  * validity for use by drivers/mac80211.
  */
-static int nl80211_calculate_ap_capabilities(struct cfg80211_ap_settings *params)
+static int nl80211_calculate_ap_capabilities(struct genl_info *info,
+					     struct cfg80211_ap_settings *params)
 {
 	size_t ies_len = params->beacon.tail_len;
 	const u8 *ies = params->beacon.tail;
 	const struct element *cap;
 
 	cap = cfg80211_find_elem(WLAN_EID_HT_CAPABILITY, ies, ies_len);
-	if (cap && cap->datalen >= sizeof(*params->ht_cap))
+	if (cap) {
+		if (cap->datalen < sizeof(*params->ht_cap)) {
+			GENL_SET_ERR_MSG(info, "bad HT capability in beacon");
+			return -EINVAL;
+		}
 		params->ht_cap = (void *)cap->data;
+	}
+
 	cap = cfg80211_find_elem(WLAN_EID_VHT_CAPABILITY, ies, ies_len);
-	if (cap && cap->datalen >= sizeof(*params->vht_cap))
+	if (cap) {
+		if (cap->datalen < sizeof(*params->vht_cap)) {
+			GENL_SET_ERR_MSG(info, "bad VHT capability in beacon");
+			return -EINVAL;
+		}
 		params->vht_cap = (void *)cap->data;
+	}
+
 	cap = cfg80211_find_ext_elem(WLAN_EID_EXT_HE_CAPABILITY, ies, ies_len);
-	if (cap && cap->datalen >= sizeof(*params->he_cap) + 1)
+	if (cap) {
+		if (cap->datalen < sizeof(*params->he_cap) + 1) {
+			GENL_SET_ERR_MSG(info, "bad HE capability in beacon");
+			return -EINVAL;
+		}
 		params->he_cap = (void *)(cap->data + 1);
+	}
+
 	cap = cfg80211_find_ext_elem(WLAN_EID_EXT_EHT_CAPABILITY, ies, ies_len);
 	if (cap) {
 		params->eht_cap = (void *)(cap->data + 1);
 		if (!ieee80211_eht_capa_size_ok((const u8 *)params->he_cap,
 						(const u8 *)params->eht_cap,
-						cap->datalen - 1, true))
+						cap->datalen - 1, true)) {
+			GENL_SET_ERR_MSG(info, "bad EHT capability in beacon");
 			return -EINVAL;
+		}
 	}
 
 	return 0;
@@ -6696,26 +6717,36 @@ static int nl80211_calculate_ap_operation(struct genl_info *info,
 	nl80211_check_ap_rate_selectors(bcn, rates);
 
 	op = cfg80211_find_ext_elem(WLAN_EID_EXT_HE_OPERATION, ies, ies_len);
-	if (op && op->datalen >= sizeof(*bcn->he_oper) + 1) {
+	if (op) {
+		if (op->datalen < sizeof(*bcn->he_oper) + 1) {
+			GENL_SET_ERR_MSG(info, "bad HE operation in beacon");
+			return -EINVAL;
+		}
 		bcn->he_oper = (void *)(op->data + 1);
 		/* takes extension ID into account */
-		if (op->datalen < ieee80211_he_oper_size((void *)bcn->he_oper))
+		if (op->datalen < ieee80211_he_oper_size((void *)bcn->he_oper)) {
+			GENL_SET_ERR_MSG(info, "bad HE operation in beacon");
 			return -EINVAL;
+		}
 	}
 
 	op = cfg80211_find_ext_elem(WLAN_EID_EXT_EHT_OPERATION, ies, ies_len);
 	if (op) {
 		if (!ieee80211_eht_oper_size_ok(op->data + 1,
-						op->datalen - 1))
+						op->datalen - 1)) {
+			GENL_SET_ERR_MSG(info, "bad EHT operation in beacon");
 			return -EINVAL;
+		}
 		bcn->eht_oper = (void *)(op->data + 1);
 	}
 
 	op = cfg80211_find_ext_elem(WLAN_EID_EXT_UHR_OPER, ies, ies_len);
 	if (op) {
 		/* need full UHR operation separately */
-		if (!info->attrs[NL80211_ATTR_UHR_OPERATION])
+		if (!info->attrs[NL80211_ATTR_UHR_OPERATION]) {
+			GENL_SET_ERR_MSG(info, "missing UHR operation");
 			return -EINVAL;
+		}
 		bcn->uhr_oper = nla_data(info->attrs[NL80211_ATTR_UHR_OPERATION]);
 	} else if (info->attrs[NL80211_ATTR_UHR_OPERATION]) {
 		GENL_SET_ERR_MSG(info, "unexpected UHR operation");
@@ -7156,7 +7187,7 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 			goto out;
 	}
 
-	err = nl80211_calculate_ap_capabilities(params);
+	err = nl80211_calculate_ap_capabilities(info, params);
 	if (err)
 		goto out;
 
