@@ -333,34 +333,15 @@ ieee80211_vht_cap_ie_to_sta_vht_cap(struct ieee80211_sub_if_data *sdata,
 
 /* FIXME: move this to some better location - parses HE/EHT now */
 static enum ieee80211_sta_rx_bandwidth
-__ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
-			  struct cfg80211_chan_def *chandef)
+_ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta, enum nl80211_band band)
 {
-	unsigned int link_id = link_sta->link_id;
-	struct ieee80211_sub_if_data *sdata = link_sta->sta->sdata;
 	struct ieee80211_sta_vht_cap *vht_cap = &link_sta->pub->vht_cap;
 	struct ieee80211_sta_he_cap *he_cap = &link_sta->pub->he_cap;
 	struct ieee80211_sta_eht_cap *eht_cap = &link_sta->pub->eht_cap;
 	u32 cap_width;
 
 	if (he_cap->has_he) {
-		enum nl80211_band band;
 		u8 info;
-
-		if (chandef) {
-			band = chandef->chan->band;
-		} else {
-			struct ieee80211_bss_conf *link_conf;
-
-			if (WARN_ON_ONCE(sdata->vif.type == NL80211_IFTYPE_NAN_DATA ||
-					 sdata->vif.type == NL80211_IFTYPE_NAN))
-				return IEEE80211_STA_RX_BW_20;
-
-			rcu_read_lock();
-			link_conf = rcu_dereference(sdata->vif.link_conf[link_id]);
-			band = link_conf->chanreq.oper.chan->band;
-			rcu_read_unlock();
-		}
 
 		if (eht_cap->has_eht && band == NL80211_BAND_6GHZ) {
 			info = eht_cap->eht_cap_elem.phy_cap_info[0];
@@ -410,8 +391,8 @@ __ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
 }
 
 enum ieee80211_sta_rx_bandwidth
-_ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
-			 struct cfg80211_chan_def *chandef)
+ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
+			struct cfg80211_chan_def *chandef)
 {
 	/*
 	 * With RX OMI, also pretend that the STA's capability changed.
@@ -427,7 +408,7 @@ _ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
 	 * the transition we already need to change TX/RX separately,
 	 * so _ieee80211_sta_cur_vht_bw() below applies the _tx one.
 	 */
-	return min(__ieee80211_sta_cap_rx_bw(link_sta, chandef),
+	return min(_ieee80211_sta_cap_rx_bw(link_sta, chandef->chan->band),
 		   link_sta->rx_omi_bw_rx);
 }
 
@@ -439,9 +420,11 @@ _ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta,
 	struct sta_info *sta = link_sta->sta;
 	enum nl80211_chan_width bss_width;
 	enum ieee80211_sta_rx_bandwidth bw;
+	enum nl80211_band band;
 
 	if (chandef) {
 		bss_width = chandef->width;
+		band = chandef->chan->band;
 	} else {
 		struct ieee80211_bss_conf *link_conf;
 
@@ -457,11 +440,12 @@ _ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta,
 			return IEEE80211_STA_RX_BW_20;
 		}
 		bss_width = link_conf->chanreq.oper.width;
+		band = link_conf->chanreq.oper.chan->band;
 		rcu_read_unlock();
 	}
 
 	/* intentionally do not take rx_bw_omi_rx into account */
-	bw = __ieee80211_sta_cap_rx_bw(link_sta, chandef);
+	bw = _ieee80211_sta_cap_rx_bw(link_sta, band);
 	bw = min(bw, link_sta->cur_max_bandwidth);
 	/* but do apply rx_omi_bw_tx */
 	bw = min(bw, link_sta->rx_omi_bw_tx);

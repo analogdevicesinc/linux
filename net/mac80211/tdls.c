@@ -314,7 +314,7 @@ ieee80211_tdls_chandef_vht_upgrade(struct ieee80211_sub_if_data *sdata,
 	enum nl80211_chan_width max_width;
 	int i;
 
-	switch (ieee80211_sta_cap_rx_bw(&sta->deflink)) {
+	switch (ieee80211_sta_cap_rx_bw(&sta->deflink, &uc)) {
 	case IEEE80211_STA_RX_BW_20:
 		max_width = NL80211_CHAN_WIDTH_20;
 		break;
@@ -1337,8 +1337,8 @@ static void iee80211_tdls_recalc_chanctx(struct ieee80211_sub_if_data *sdata,
 			enum ieee80211_sta_rx_bandwidth bw;
 
 			bw = ieee80211_chan_width_to_rx_bw(conf->def.width);
-			bw = min(bw, _ieee80211_sta_cap_rx_bw(&sta->deflink,
-							      &conf->def));
+			bw = min(bw, ieee80211_sta_cap_rx_bw(&sta->deflink,
+							     &conf->def));
 			if (bw != sta->sta.deflink.bandwidth) {
 				sta->sta.deflink.bandwidth = bw;
 				rate_control_rate_update(local, sband,
