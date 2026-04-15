@@ -3426,6 +3426,98 @@ void ieee80211_sta_remove_link(struct sta_info *sta, unsigned int link_id)
 	sta_remove_link(sta, link_id, true);
 }
 
+void ieee80211_sta_init_nss(struct link_sta_info *link_sta)
+{
+	u8 ht_rx_nss = 0, vht_rx_nss = 0, he_rx_nss = 0, eht_rx_nss = 0, rx_nss;
+	bool support_160;
+
+	if (link_sta->pub->eht_cap.has_eht) {
+		int i;
+		const u8 *rx_nss_mcs = (void *)&link_sta->pub->eht_cap.eht_mcs_nss_supp;
+
+		/* get the max nss for EHT over all possible bandwidths and mcs */
+		for (i = 0; i < sizeof(struct ieee80211_eht_mcs_nss_supp); i++)
+			eht_rx_nss = max_t(u8, eht_rx_nss,
+					   u8_get_bits(rx_nss_mcs[i],
+						       IEEE80211_EHT_MCS_NSS_RX));
+	}
+
+	if (link_sta->pub->he_cap.has_he) {
+		int i;
+		u8 rx_mcs_80 = 0, rx_mcs_160 = 0;
+		const struct ieee80211_sta_he_cap *he_cap = &link_sta->pub->he_cap;
+		u16 mcs_160_map =
+			le16_to_cpu(he_cap->he_mcs_nss_supp.rx_mcs_160);
+		u16 mcs_80_map = le16_to_cpu(he_cap->he_mcs_nss_supp.rx_mcs_80);
+
+		for (i = 7; i >= 0; i--) {
+			u8 mcs_160 = (mcs_160_map >> (2 * i)) & 3;
+
+			if (mcs_160 != IEEE80211_HE_MCS_NOT_SUPPORTED) {
+				rx_mcs_160 = i + 1;
+				break;
+			}
+		}
+		for (i = 7; i >= 0; i--) {
+			u8 mcs_80 = (mcs_80_map >> (2 * i)) & 3;
+
+			if (mcs_80 != IEEE80211_HE_MCS_NOT_SUPPORTED) {
+				rx_mcs_80 = i + 1;
+				break;
+			}
+		}
+
+		support_160 = he_cap->he_cap_elem.phy_cap_info[0] &
+			      IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_160MHZ_IN_5G;
+
+		if (support_160)
+			he_rx_nss = min(rx_mcs_80, rx_mcs_160);
+		else
+			he_rx_nss = rx_mcs_80;
+	}
+
+	if (link_sta->pub->ht_cap.ht_supported) {
+		if (link_sta->pub->ht_cap.mcs.rx_mask[0])
+			ht_rx_nss++;
+		if (link_sta->pub->ht_cap.mcs.rx_mask[1])
+			ht_rx_nss++;
+		if (link_sta->pub->ht_cap.mcs.rx_mask[2])
+			ht_rx_nss++;
+		if (link_sta->pub->ht_cap.mcs.rx_mask[3])
+			ht_rx_nss++;
+		/* FIXME: consider rx_highest? */
+	}
+
+	if (link_sta->pub->vht_cap.vht_supported) {
+		int i;
+		u16 rx_mcs_map;
+
+		rx_mcs_map = le16_to_cpu(link_sta->pub->vht_cap.vht_mcs.rx_mcs_map);
+
+		for (i = 7; i >= 0; i--) {
+			u8 mcs = (rx_mcs_map >> (2 * i)) & 3;
+
+			if (mcs != IEEE80211_VHT_MCS_NOT_SUPPORTED) {
+				vht_rx_nss = i + 1;
+				break;
+			}
+		}
+		/* FIXME: consider rx_highest? */
+	}
+
+	rx_nss = max(vht_rx_nss, ht_rx_nss);
+	rx_nss = max(he_rx_nss, rx_nss);
+	rx_nss = max(eht_rx_nss, rx_nss);
+	rx_nss = max_t(u8, 1, rx_nss);
+	link_sta->capa_nss = rx_nss;
+
+	if (link_sta->op_mode_nss)
+		link_sta->pub->rx_nss =
+			min_t(u8, rx_nss, link_sta->op_mode_nss);
+	else
+		link_sta->pub->rx_nss = rx_nss;
+}
+
 void ieee80211_sta_set_max_amsdu_subframes(struct sta_info *sta,
 					   const u8 *ext_capab,
 					   unsigned int ext_capab_len)

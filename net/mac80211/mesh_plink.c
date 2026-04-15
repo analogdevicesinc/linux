@@ -470,6 +470,8 @@ static void mesh_sta_info_init(struct ieee80211_sub_if_data *sdata,
 					    elems->eht_cap, elems->eht_cap_len,
 					    &sta->deflink);
 
+	ieee80211_sta_init_nss(&sta->deflink);
+
 	if (bw != sta->sta.deflink.bandwidth)
 		changed |= IEEE80211_RC_BW_CHANGED;
 

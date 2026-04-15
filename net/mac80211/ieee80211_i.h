@@ -2315,7 +2315,7 @@ ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta)
 {
 	return _ieee80211_sta_cur_vht_bw(link_sta, NULL);
 }
-void ieee80211_sta_init_nss(struct link_sta_info *link_sta);
+
 void ieee80211_process_mu_groups(struct ieee80211_sub_if_data *sdata,
 				 struct ieee80211_link_data *link,
 				 struct ieee80211_mgmt *mgmt);
