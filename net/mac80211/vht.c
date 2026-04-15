@@ -324,8 +324,7 @@ ieee80211_vht_cap_ie_to_sta_vht_cap(struct ieee80211_sub_if_data *sdata,
 				IEEE80211_STA_RX_BW_160;
 	}
 
-	if (sdata->vif.type != NL80211_IFTYPE_NAN)
-		link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta);
+	link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta);
 
 	/*
 	 * Work around the Cisco 9115 FW 17.3 bug by taking the min of
@@ -528,9 +527,9 @@ _ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta,
 		struct ieee80211_bss_conf *link_conf;
 
 		/* NAN operates on multiple channels so a chandef must be given */
-		if (WARN_ON_ONCE(sta->sdata->vif.type == NL80211_IFTYPE_NAN ||
-				 sta->sdata->vif.type == NL80211_IFTYPE_NAN_DATA))
-			return IEEE80211_STA_RX_BW_20;
+		if (sta->sdata->vif.type == NL80211_IFTYPE_NAN ||
+		    sta->sdata->vif.type == NL80211_IFTYPE_NAN_DATA)
+			return IEEE80211_STA_RX_BW_MAX;
 
 		rcu_read_lock();
 		link_conf = rcu_dereference(sta->sdata->vif.link_conf[link_sta->link_id]);
