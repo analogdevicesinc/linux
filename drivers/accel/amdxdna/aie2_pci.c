@@ -33,6 +33,8 @@ static int aie2_max_col = XRS_MAX_COL;
 module_param(aie2_max_col, uint, 0600);
 MODULE_PARM_DESC(aie2_max_col, "Maximum column could be used");
 
+#define DEFAULT_TIME_QUANTUM 30000 /* microseconds */
+
 static char *npu_fw[] = {
 	"npu_7.sbin",
 	"npu.sbin"
@@ -183,6 +185,12 @@ static int aie2_mgmt_fw_init(struct amdxdna_dev_hdl *ndev)
 	ret = aie2_assign_mgmt_pasid(ndev, 0);
 	if (ret) {
 		XDNA_ERR(ndev->aie.xdna, "Can not assign PASID");
+		return ret;
+	}
+
+	ret = aie2_update_prop_time_quota(ndev, DEFAULT_TIME_QUANTUM);
+	if (ret) {
+		XDNA_ERR(ndev->aie.xdna, "Failed to update execution time quantum");
 		return ret;
 	}
 

@@ -31,6 +31,7 @@ enum aie2_msg_opcode {
 	MSG_OP_SET_RUNTIME_CONFIG          = 0x10A,
 	MSG_OP_GET_RUNTIME_CONFIG          = 0x10B,
 	MSG_OP_REGISTER_ASYNC_EVENT_MSG    = 0x10C,
+	MSG_OP_UPDATE_PROPERTY             = 0x113,
 	MSG_OP_GET_APP_HEALTH              = 0x114,
 	MSG_OP_MAX_DRV_OPCODE,
 	MSG_OP_GET_PROTOCOL_VERSION        = 0x301,
@@ -503,4 +504,19 @@ struct get_app_health_resp {
 	__u32 required_buffer_size;
 	__u32 reserved[7];
 } __packed;
+
+struct update_property_req {
+#define UPDATE_PROPERTY_TIME_QUOTA 0
+	__u32 type;
+#define AIE2_UPDATE_PROPERTY_ALL_CTX	0xFF
+	__u8 context_id;
+	__u8 reserved[7];
+	__u32 time_quota_us;
+	__u32 reserved1;
+} __packed;
+
+struct update_property_resp {
+	enum aie2_msg_status status;
+} __packed;
+
 #endif /* _AIE2_MSG_PRIV_H_ */
