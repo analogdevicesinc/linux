@@ -859,100 +859,141 @@ The ``calibration_data`` attribute provides access to the device calibration
 data. This can be used to save and restore calibration across power cycles.
 See :ref:`calibration data management` for detailed usage.
 
-PFIR
-^^^^
+PFILT
+^^^^^
 
-The PFIR (Programmable Finite Impulse Response) configuration is defined the
-configuration ``pfilt_config`` (write-only).
+The PFILT (Programmable FIR) is a 32-tap full-rate filter sitting in the
+wideband DSP stage ahead of the CDDC/CDUC mixers (UG "Transmit/Receive
+Programmable Filter (PFILT)"). Each side has 2 PFILT instances and each
+instance holds 4 offline coefficient banks that can be hot-swapped at
+runtime via SPI or GPIO.
 
-.. literalinclude: /../drivers/iio/adc/apollo/ad9088.c
-   :prepend: /**
-   :start-at: * ad9088_parse_pfilt -
-   :end-before: static int ad9088_parse_pfilt
+The filter is programmed by writing a text blob to the ``pfilt_config``
+sysfs bin attribute (write-only). The full parser grammar is documented
+in the kernel-doc above :c:func:`ad9088_parse_pfilt` in
+``drivers/iio/trx-rf/ad9088/ad9088.c``; a summary follows.
 
-The ``pfilt_config`` input must have the following format:
+General format
+++++++++++++++
+
+Lines are processed in order. Lines starting with ``#`` are comments.
+Each directive may appear once and in any order; only the first
+occurrence takes effect. Unknown lines are ignored. ``dest:`` is
+mandatory.
 
 .. code:: ini
 
-   mode: <imode> <qmode>
+   dest: <terminal> <pfilt_sel> <bank_sel>
+   mode: <imode> [<qmode>]
    gain: <ix> <iy> <qx> <qy>
    scalar_gain: <ix> <iy> <qx> <qy>
-   dest: <terminal> <pfilt_sel> <bank_sel>
-   hc_delay: <delay>
-   mode_switch_en: <value>
-   mode_switch_add_en: <value>
-   real_data_mode_en: <value>
-   quad_mode_en: <value>
-   selection_mode: <mode>
-   <sval>
+   hc_delay: <samples>
+   mode_switch_en: <0|1>
+   mode_switch_add_en: <0|1>
+   real_data_mode_en: <0|1>
+   quad_mode_en: <0|1>
+   selection_mode: <direct_regmap|direct_gpio|direct_gpio1|trig_regmap|trig_gpio|trig_gpio1>
+   <coeff0>
+   <coeff1>
+   ...
+   <coeffN>
 
-* Each line represents a parameter or setting for the PFIR filter.
-* Lines starting with '#' are considered comments and are ignored.
+Directives
+++++++++++
 
-The format for each parameter is as follows:
+**dest**
+  - ``<terminal>`` — ``rx`` or ``tx``
+  - ``<pfilt_sel>`` — target PFILT instance(s):
+    ``pfilt_a0`` (A side, inst 0), ``pfilt_a1`` (A side, inst 1; 8T8R
+    only), ``pfilt_b0``, ``pfilt_b1`` (8T8R only), ``pfilt_all`` (0xF),
+    or ``pfilt_maskN`` (raw 4-bit OR; use ``pfilt_mask5`` for the
+    4T4R-equivalent "all" A0|B0).
+  - ``<bank_sel>`` — which of the 4 offline coefficient banks to load:
+    ``bank_0..bank_3``, ``bank_all``, or ``bank_maskN``.
 
-- | mode: <imode> <qmode>
+**mode**
+  I-stream and, optionally, Q-stream filter topology (UG Table 107).
+  Valid strings: ``disabled`` (0), ``real_n4`` (1, 8-tap real / sub),
+  ``real_n2`` (2, 16-tap real / sub), ``matrix`` (4, full matrix with
+  8-tap A/B/C/D sub-filters), ``complex_half`` (6, 16-tap direct + cross
+  plus a 16-tap programmable delay line), ``real_n`` (7, 32-tap real
+  filter on a single channel). Positions 3 and 5 in the mode table are
+  unused (string ``undef``). Omitting ``<qmode>`` only programs the
+  I-side mode.
 
-  Sets the mode for the PFIR filter. The <imode> and <qmode> values should be
-  one of the predefined filter modes: ``disabled``, ``real_n4``, ``real_n2``,
-  ``undef``, ``matrix``, ``undef``, ``complex_half``, ``real_n``.
+**gain**
+  Integer-dB shift gain per sub-filter, one of ``0, 6, 12, 18, 24``;
+  anything else falls back to 0 dB. Maps to the UG matrix-mode diagram:
+  ``ix`` = Ga (DIN1 straight), ``iy`` = Gb (DIN1 cross), ``qx`` = Gd
+  (DIN2 straight), ``qy`` = Gc (DIN2 cross). ``iy``/``qy`` are only
+  used in matrix mode.
 
-- | gain: <ix> <iy> <qx> <qy>
+**scalar_gain**
+  Per-branch 6-bit fine gain, ``0..63``. Encoded per UG as
+  ``code = 64 * scalarGain - 1`` so 0 → 1/64 (-36 dB) and 63 → 1.0
+  (0 dB). Driver default is ``0x3f`` (1.0) for ``iy``/``qx`` before
+  parsing.
 
-  Sets the gain values for the PFIR filter. The <ix>, <iy>, <qx>,
-  and <qy> values should be integers representing the gain in dB.
+**hc_delay**
+  u8 delay in ADC samples used only in ``complex_half`` mode.
 
-- | scalar_gain: <ix> <iy> <qx> <qy>
+**mode_switch_en** / **mode_switch_add_en**
+  Rx-only. Enables the averaging block ahead of the PFILT (UG
+  "ADC Averaging for Receiver PFILT"). ``mode_switch_add_en`` selects
+  add (1) vs subtract (0) of the two input streams before averaging.
+  The noise improvement is up to 3dB.
 
-  Sets the scalar gain values for the PFIR filter. The <ix>, <iy>,
-  <qx>, and <qy> values should be integers representing the scalar
-  gain.
+**real_data_mode_en**
+  0 = complex I/Q data stream, 1 = two independent real data streams.
+  Picks between the "real data" and "complex data" connectivity
+  diagrams in the UG (Figures 135/136 vs 137/138 for AD9088).
 
-- | dest: <terminal> <pfilt_sel> <bank_sel>
+**quad_mode_en**
+  Dual (0) vs quad (1) mode. Quad mode engages all four sub-filters;
+  required for ``matrix`` mode on AD9088 8T8R.
 
-  Sets the destination for the PFIR filter. The <terminal> value should be
-  either ``rx`` or ``tx``. The <pfilt_sel> value should be one of the
-  predefined filter selects: ``pfilt_a0``, ``pfilt_a1``, ``pfilt_b0``,
-  ``pfilt_b1``, ``pfilt_all``, ``pfilt_mask``. The <bank_sel> value should be
-  one of the predefined filter banks: ``bank_0``, ``bank_1``, ``bank_2``,
-  ``bank_3``, ``bank_all``, ``bank_mask``.
+**selection_mode**
+  Runtime bank-selection mechanism (UG Table 108/109):
 
-- | hc_delay: <delay>
+  - ``direct_regmap`` — SPI/HSCI register write picks the bank.
+  - ``direct_gpio`` — GPIO[1:0] selects one of 4 banks (config 0).
+  - ``direct_gpio1`` — GPIO[0] drives PFILT0, GPIO[1] drives PFILT1,
+    each choosing between its own 2 banks (config 1).
+  - ``trig_regmap`` / ``trig_gpio`` / ``trig_gpio1`` — the same three
+    schemes, but hop on a scheduled timestamp trigger instead of taking
+    effect immediately.
 
-  Sets the high cut delay value for the PFIR filter. The <delay>
-  value should be an unsigned 8-bit integer.
+**Coefficient lines**
+  Each line parseable as a single integer (decimal or ``0x`` hex) is
+  consumed as the next u16 tap (Q1.15). Up to 32 values are accepted.
+  Number of taps required depends on ``mode``:
 
-- | mode_switch_en: <value>
+  - ``real_n`` → 32
+  - ``real_n2`` → 16 per sub-filter
+  - ``real_n4`` → 8 per sub-filter
+  - ``complex_half`` → 16 per arm
+  - ``matrix`` → 8 per A/B/C/D sub-filter (32 total)
 
-  Sets the mode switch enable value for the PFIR filter. The <value>
-  should be either 0 or 1.
+  Coefficient placement within the buffer is handled by the Apollo API.
+  After the write the driver pulses
+  :c:func:`adi_apollo_pfilt_coeff_transfer` so the offline bank becomes
+  live.
 
-- | mode_switch_add_en: <value>
+Example — 32-tap real Rx PFILT into bank_0:
 
-  Sets the mode switch add enable value for the PFIR filter. The
-  <value> should be either 0 or 1.
+.. code:: ini
 
-- | real_data_mode_en: <value>
+   dest: rx pfilt_a0 bank_0
+   mode: real_n real_n
+   gain: 0 0 0 0
+   scalar_gain: 63 63 63 63
+   selection_mode: direct_regmap
+   0x0001
+   0x0002
+   # ... (up to 32 u16 taps)
 
-  Sets the real data mode enable value for the PFIR filter. The
-  <value> should be either 0 or 1.
-
-- | quad_mode_en: <value>
-
-  Sets the quad mode enable value for the PFIR filter. The <value>
-  should be either 0 or 1.
-
-- | selection_mode: <mode>
-
-  Sets the profile selection mode for the PFIR filter. The <mode> value
-  should be one of the predefined profile selection modes: ``direct_regmap``,
-  ``direct_gpio``, ``direct_gpio1``, ``trig_regmap``, ``trig_gpio``,
-  ``trig_gpio1``.
-
-- | <sval>
-
-  Sets the coefficient values for the PFIR filter. The <sval> value
-  should be an integer representing the coefficient value.
+Ready-made example blobs live in the ``iio-oscilloscope`` tree under
+``filters/ad9084/`` (``pfilt_hp_rx.txt``, ``pfilt_off_rx.txt``).
 
 CFIR
 ^^^^
