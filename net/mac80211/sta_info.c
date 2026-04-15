@@ -3623,6 +3623,49 @@ ieee80211_sta_bw_capability(struct link_sta_info *link_sta,
 	return IEEE80211_STA_RX_BW_80;
 }
 
+/**
+ * ieee80211_sta_usable_bw - get STA's usable bandwidth capability
+ * @link_sta: the (link) STA to get the capability for
+ * @band: the band to get the capability on
+ *
+ * If the STA is on an AP interface, take into account the AP's
+ * bandwidth corresponding to this station's PHY capability
+ *
+ * Return: the maximum bandwidth supported by the STA on the
+ *	connection to the interface it's connected to
+ */
+static enum ieee80211_sta_rx_bandwidth
+ieee80211_sta_usable_bw(struct link_sta_info *link_sta,
+			enum nl80211_band band)
+{
+	struct ieee80211_sub_if_data *sdata = link_sta->sta->sdata;
+	enum ieee80211_sta_rx_bandwidth bw;
+	struct ieee80211_link_data *link;
+
+	bw = ieee80211_sta_bw_capability(link_sta, band);
+
+	if (sdata->vif.type == NL80211_IFTYPE_AP_VLAN) {
+		sdata = get_bss_sdata(sdata);
+
+		/* for a STA to exist on VLAN, it must have AP */
+		if (WARN_ON(!sdata))
+			return IEEE80211_STA_RX_BW_20;
+	}
+
+	if (sdata->vif.type != NL80211_IFTYPE_AP)
+		return bw;
+
+	/* for a link STA to exist, vif must have the link */
+	link = sdata_dereference(sdata->link[link_sta->link_id], sdata);
+	if (WARN_ON(!link))
+		return IEEE80211_STA_RX_BW_20;
+
+	if (link_sta->pub->eht_cap.has_eht)
+		return bw;
+
+	return min(bw, link->bss_bw.he_and_lower);
+}
+
 static enum ieee80211_sta_rx_bandwidth
 ieee80211_sta_current_bw_rx_from_sta(struct link_sta_info *link_sta,
 				     struct cfg80211_chan_def *chandef)
@@ -3637,7 +3680,7 @@ ieee80211_sta_current_bw_rx_from_sta(struct link_sta_info *link_sta,
 	 * at a higher bandwidth first while reducing bandwidth, and
 	 * change the chanctx only after the peer accepts, etc.)
 	 */
-	return min(ieee80211_sta_bw_capability(link_sta, chandef->chan->band),
+	return min(ieee80211_sta_usable_bw(link_sta, chandef->chan->band),
 		   link_sta->rx_omi_bw_rx);
 }
 
@@ -3653,7 +3696,7 @@ ieee80211_sta_current_bw_tx_to_sta(struct link_sta_info *link_sta,
 	bss_width = chandef->width;
 	band = chandef->chan->band;
 
-	bw = ieee80211_sta_bw_capability(link_sta, band);
+	bw = ieee80211_sta_usable_bw(link_sta, band);
 	bw = min(bw, link_sta->op_mode_bw);
 	/* also limit to RX OMI bandwidth we TX to the STA */
 	bw = min(bw, link_sta->rx_omi_bw_tx);
