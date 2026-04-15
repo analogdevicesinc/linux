@@ -343,23 +343,30 @@ static void mgag200_set_offset(struct mga_device *mdev,
 
 void mgag200_set_format_regs(struct mga_device *mdev, const struct drm_format_info *format)
 {
-	unsigned int bpp, bppshift, scale;
 	u8 xmulctrl = 0;
 	u8 crtcext3;
 
-	bpp = format->cpp[0] * 8;
+	RREG_ECRT(3, crtcext3);
 
-	bppshift = mgag200_get_bpp_shift(format);
-	switch (bpp) {
-	case 24:
-		scale = ((1 << bppshift) * 3) - 1;
+	switch (format->format) {
+	case DRM_FORMAT_C8:
+		crtcext3 &= ~MGAREG_CRTCEXT3_SCALE_MASK;
+		crtcext3 |= 0x0;
 		break;
-	default:
-		scale = (1 << bppshift) - 1;
+	case DRM_FORMAT_XRGB1555:
+	case DRM_FORMAT_RGB565:
+		crtcext3 &= ~MGAREG_CRTCEXT3_SCALE_MASK;
+		crtcext3 |= 0x01;
+		break;
+	case DRM_FORMAT_RGB888:
+		crtcext3 &= ~MGAREG_CRTCEXT3_SCALE_MASK;
+		crtcext3 |= 0x02;
+		break;
+	case DRM_FORMAT_XRGB8888:
+		crtcext3 &= ~MGAREG_CRTCEXT3_SCALE_MASK;
+		crtcext3 |= 0x03;
 		break;
 	}
-
-	RREG_ECRT(3, crtcext3);
 
 	switch (format->format) {
 	case DRM_FORMAT_C8:
@@ -378,9 +385,6 @@ void mgag200_set_format_regs(struct mga_device *mdev, const struct drm_format_in
 		xmulctrl = MGA1064_MUL_CTL_32_24bits;
 		break;
 	}
-
-	crtcext3 &= ~GENMASK(2, 0);
-	crtcext3 |= scale;
 
 	WREG_DAC(MGA1064_MUL_CTL, xmulctrl);
 
