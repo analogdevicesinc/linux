@@ -6730,6 +6730,24 @@ static int nl80211_calculate_ap_operation(struct genl_info *info,
 		}
 	}
 
+	op = cfg80211_find_elem(WLAN_EID_HT_OPERATION, ies, ies_len);
+	if (op) {
+		if (op->datalen < sizeof(*bcn->ht_oper)) {
+			GENL_SET_ERR_MSG(info, "bad HT operation in beacon");
+			return -EINVAL;
+		}
+		bcn->ht_oper = (void *)op->data;
+	}
+
+	op = cfg80211_find_elem(WLAN_EID_VHT_OPERATION, ies, ies_len);
+	if (op) {
+		if (op->datalen < sizeof(*bcn->vht_oper)) {
+			GENL_SET_ERR_MSG(info, "bad VHT operation in beacon");
+			return -EINVAL;
+		}
+		bcn->vht_oper = (void *)op->data;
+	}
+
 	op = cfg80211_find_ext_elem(WLAN_EID_EXT_EHT_OPERATION, ies, ies_len);
 	if (op) {
 		if (!ieee80211_eht_oper_size_ok(op->data + 1,

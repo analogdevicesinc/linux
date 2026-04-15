@@ -1398,6 +1398,8 @@ struct cfg80211_rnr_elems {
  *	attribute is present in beacon data or not.
  * @ht_required: stations must support HT
  * @vht_required: stations must support VHT
+ * @ht_oper: HT operation element (or %NULL if HT isn't enabled)
+ * @vht_oper: VHT operation element (or %NULL if VHT isn't enabled)
  * @he_oper: HE operation IE (or %NULL if HE isn't enabled)
  * @eht_oper: EHT operation IE (or %NULL if EHT isn't enabled)
  * @uhr_oper: UHR operation (or %NULL if UHR isn't enabled)
@@ -1427,6 +1429,8 @@ struct cfg80211_beacon_data {
 	bool he_bss_color_valid;
 
 	bool ht_required, vht_required;
+	const struct ieee80211_ht_operation *ht_oper;
+	const struct ieee80211_vht_operation *vht_oper;
 	const struct ieee80211_he_operation *he_oper;
 	const struct ieee80211_eht_operation *eht_oper;
 	const struct ieee80211_uhr_operation *uhr_oper;
