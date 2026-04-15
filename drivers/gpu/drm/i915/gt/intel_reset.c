@@ -967,6 +967,7 @@ static void nop_submit_request(struct i915_request *request)
 
 static void __intel_gt_set_wedged(struct intel_gt *gt)
 {
+	struct intel_display *display = gt->i915->display;
 	struct intel_engine_cs *engine;
 	intel_engine_mask_t awake;
 	enum intel_engine_id id;
@@ -984,7 +985,8 @@ static void __intel_gt_set_wedged(struct intel_gt *gt)
 	awake = reset_prepare(gt);
 
 	/* Even if the GPU reset fails, it should still stop the engines */
-	if (!intel_gt_gpu_reset_clobbers_display(gt))
+	if (!intel_gt_gpu_reset_clobbers_display(gt) &&
+	    !intel_display_reset_test(display))
 		intel_gt_reset_all_engines(gt);
 
 	for_each_engine(engine, gt, id)
@@ -1506,9 +1508,10 @@ void intel_gt_handle_error(struct intel_gt *gt,
 
 	/*
 	 * Try engine reset when available. We fall back to full reset if
-	 * single reset fails.
+	 * single reset fails. Display reset test needs a full reset.
 	 */
-	if (!intel_uc_uses_guc_submission(&gt->uc) &&
+	if (!intel_display_reset_test(gt->i915->display) &&
+	    !intel_uc_uses_guc_submission(&gt->uc) &&
 	    intel_has_reset_engine(gt) && !intel_gt_is_wedged(gt)) {
 		local_bh_disable();
 		for_each_engine_masked(engine, gt, engine_mask, tmp) {
