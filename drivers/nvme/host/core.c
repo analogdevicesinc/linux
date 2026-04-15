@@ -4083,7 +4083,8 @@ static int nvme_init_ns_head(struct nvme_ns *ns, struct nvme_ns_info *info)
 	mutex_unlock(&ctrl->subsys->lock);
 
 #ifdef CONFIG_NVME_MULTIPATH
-	cancel_delayed_work(&head->remove_work);
+	if (cancel_delayed_work(&head->remove_work))
+		module_put(THIS_MODULE);
 #endif
 	return 0;
 
