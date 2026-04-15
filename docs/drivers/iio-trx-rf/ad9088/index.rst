@@ -961,41 +961,124 @@ The CFIR configuration is defined by enabling ``[in|out]_voltage<index>_[i|q]_cf
 profile selection ``[in|out]_voltage<index>_[i|q]_cfir_profile_sel``
 and the configuration ``cfir_config`` (write-only).
 
-The ``cfir_config`` input must have the following format:
+The full parser grammar, including every directive's value set, is
+documented in the kernel-doc block above :c:func:`ad9088_parse_cfilt` in
+``drivers/iio/trx-rf/ad9088/ad9088.c``. A summary follows.
 
-.. literalinclude: /../drivers/iio/adc/apollo/ad9088.c
-   :prepend: /**
-   :start-at: * ad9088_parse_cfilt -
-   :end-before: static int ad9088_parse_cfilt
+General format
+++++++++++++++
 
-The ``cfir_config`` input must have the following format:
+Lines are processed in order. Lines starting with ``#`` are comments.
+Each directive may appear once and in any order; only the first
+occurrence takes effect.
 
 .. code:: ini
 
    dest: <terminal> <cfir_select> <cfir_profile> <cfir_datapath>
-   gain: <gain_value>
+   gain: <dB>
    complex_scalar: <scalar_i> <scalar_q>
-   bypass: <bypass_value>
-   sparse_filt_en: <sparse_filt_en_value>
-   32taps_en: <32taps_en_value>
-   coeff_transfer: <coeff_transfer_value>
-   enable: <enable_value> <enable_profile_value>
-   selection_mode: <selection_mode_value>
-   <cfir_coeff0_i> <cfir_coeff0_q>
-   <cfir_coeff1_i> <cfir_coeff1_q>
-   ...
-   <cfir_coeffN_i> <cfir_coeffN_q>
+   bypass: <0|1>
+   sparse_filt_en: <0|1>
+   32taps_en: <0|1>
+   coeff_transfer: <0|1>
+   selection_mode: <direct_regmap|direct_gpio|trig_regmap|trig_gpio>
+   enable: <0|1> <profile_1|profile_2|profile_all|profile_none>
+   # then the coefficient block (see below)
 
-Each line in the string represents a specific configuration parameter.
-The ``dest`` line specifies the destination terminal, CFIR select, CFIR profile,
-and CFIR datapath. The ``gain`` line specifies the gain value. The ``complex_scalar``
-line specifies the complex scalar values. The ``bypass`` line specifies the bypass
-value. The ``sparse_filt_en`` line specifies the sparse filter enable value.
-The ``32taps_en`` line specifies the 32 taps enable value. The ``coeff_transfer``
-line specifies the coefficient transfer value. The ``enable`` line specifies the
-enable value and enable profile value. The ``selection_mode`` line specifies the
-selection mode value. The <cfir_coeff_i> and <cfir_coeff_q> lines specify the
-CFIR coefficient values.
+Values:
+
+* ``<terminal>`` — ``rx`` or ``tx``
+* ``<cfir_select>`` — ``cfir_none``, ``cfir_a0``, ``cfir_a1``,
+  ``cfir_b0``, ``cfir_b1``, ``cfir_all`` or ``cfir_maskN`` (raw 4-bit
+  OR of instances)
+* ``<cfir_profile>`` — ``profile_none``, ``profile_1``, ``profile_2``,
+  ``profile_all``. Note the naming mismatch: strings are 1-indexed
+  while the underlying enum (``ADI_APOLLO_CFIR_PROFILE_0/_1``) is
+  0-indexed, so ``profile_1`` targets the first profile bank.
+* ``<cfir_datapath>`` — ``datapath_none``, ``datapath_0..3``,
+  ``datapath_all`` or ``datapath_maskN``. DP2/DP3 only exist in 8T8R.
+* ``<dB>`` — one of ``-18, -12, -6, 0, 6, 12`` (anything else silently
+  maps to 0 dB)
+* ``<scalar_i>/<scalar_q>`` — u16 (Q1.15); HW defaults are
+  ``0x7fff``/``0x0000``
+* ``selection_mode`` — picks how profile hops are driven (SPI regmap
+  vs. GPIO, direct vs. timestamp-triggered).
+
+Normal-mode coefficient block
++++++++++++++++++++++++++++++
+
+When ``sparse_filt_en`` is 0 (default), the coefficient block consists
+of up to 16 ``<i> <q>`` lines (u16, decimal or ``0x``-hex):
+
+.. code:: ini
+
+   # <i> <q>
+   0x7fff 0x0000
+   0x0000 0x0000
+   ...
+
+Sparse-mode coefficient block
++++++++++++++++++++++++++++++
+
+The CFIR block supports a sparse mode where the 16-tap filter is
+virtually expanded across a 128-sample delay line, keeping only 16
+non-zero taps. This lets the filter compensate long-delay echoes (cable
+reflections etc.) without extra multipliers. See the AD9084/AD9088
+User Guide "Sparse CFIR Mode" section for the full hardware model.
+
+Enable via ``sparse_filt_en: 1``. This directive **must appear before**
+the coefficient block — it switches the parser to the sparse
+coefficient grammar ``<i> <q> <hsel>``, where ``<hsel>`` is in 0..63
+and selects the non-zero tap's source sample across the four internal
+"Dstore" slices (16 samples each). Exactly 16 taps must be provided.
+
+An optional ``sparse_mem_sel: <m0> <m1> <m2>`` directive (each 0..3)
+sets the Dstore spacing on the 128-sample line:
+
+.. code:: text
+
+   Dstore0 offset = 0
+   Dstore2 offset = 16 * (m0 + 1)
+   Dstore5 offset = 16 * (m0 + m1 + 2)
+   Dstore7 offset = 16 * (m0 + m1 + m2 + 3)
+
+If omitted, existing HW / profile defaults are retained. Note that
+once the Dstores are non-contiguous, hsel values 15/31/47/63 cannot be
+used: the datapath needs x[k-1] alongside x[k] and those samples sit
+at a Dstore boundary.
+
+Example (sparse, stride-4 hsel across the 64-slot default delay line):
+
+.. code:: ini
+
+   dest: rx cfir_all profile_all datapath_all
+   gain: -6
+   complex_scalar: 32767 0
+   bypass: 0
+   sparse_filt_en: 1
+   coeff_transfer: 1
+   selection_mode: direct_regmap
+   enable: 1 profile_1
+   # <i> <q> <hsel>
+   0xF726 0x03AA 0x00
+   0xF29B 0xFEF1 0x04
+   0x0589 0x0365 0x08
+   0x0676 0x0A88 0x0C
+   0x011D 0x0E33 0x10
+   0x047D 0xF52C 0x14
+   0x247D 0xE0D5 0x18
+   0x4AAD 0xEE12 0x1C
+   0x4AAD 0x11ED 0x20
+   0x247D 0x1F2A 0x24
+   0x047D 0x0AD3 0x28
+   0x011D 0xF1CC 0x2C
+   0x0676 0xF577 0x30
+   0x0589 0xFC9A 0x34
+   0xF29B 0x010E 0x38
+   0xF726 0xFC55 0x3C
+
+Ready-made example blobs live in the ``iio-oscilloscope`` tree under
+``filters/ad9084/`` (cfir_hp_rx.txt, cfir_lp_rx.txt, cfir_lp_tx.txt).
 
 .. shell::
 
