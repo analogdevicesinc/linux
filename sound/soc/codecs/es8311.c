@@ -862,13 +862,18 @@ static int es8311_suspend(struct snd_soc_component *component)
 static int es8311_resume(struct snd_soc_component *component)
 {
 	struct es8311_priv *es8311;
+	int ret;
 
 	es8311 = snd_soc_component_get_drvdata(component);
 
 	es8311_reset(component, false);
 
 	regcache_cache_only(es8311->regmap, false);
-	regcache_sync(es8311->regmap);
+	ret = regcache_sync(es8311->regmap);
+	if (ret) {
+		dev_err(component->dev, "unable to sync regcache\n");
+		return ret;
+	}
 
 	return 0;
 }
