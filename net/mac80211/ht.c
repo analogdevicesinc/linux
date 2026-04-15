@@ -631,7 +631,7 @@ void ieee80211_ht_handle_chanwidth_notif(struct ieee80211_local *local,
 	if (chanwidth == IEEE80211_HT_CHANWIDTH_20MHZ)
 		max_bw = IEEE80211_STA_RX_BW_20;
 	else
-		max_bw = ieee80211_sta_cap_rx_bw(link_sta);
+		max_bw = IEEE80211_STA_RX_BW_MAX;
 
 	/* set cur_max_bandwidth and recalc sta bw */
 	link_sta->cur_max_bandwidth = max_bw;
