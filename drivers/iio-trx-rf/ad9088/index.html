@@ -143,8 +143,17 @@
 <li><a class="reference internal" href="#sampling-mode">Sampling Mode</a></li>
 <li><a class="reference internal" href="#temperature-sensor">Temperature Sensor</a></li>
 <li><a class="reference internal" href="#calibration-data">Calibration Data</a></li>
-<li><a class="reference internal" href="#pfir">PFIR</a></li>
-<li><a class="reference internal" href="#cfir">CFIR</a></li>
+<li><a class="reference internal" href="#pfilt">PFILT</a><ul>
+<li><a class="reference internal" href="#general-format">General format</a></li>
+<li><a class="reference internal" href="#directives">Directives</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#cfir">CFIR</a><ul>
+<li><a class="reference internal" href="#id3">General format</a></li>
+<li><a class="reference internal" href="#normal-mode-coefficient-block">Normal-mode coefficient block</a></li>
+<li><a class="reference internal" href="#sparse-mode-coefficient-block">Sparse-mode coefficient block</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#loopback">Loopback</a></li>
 <li><a class="reference internal" href="#apollo-fft">Spectrum Sniffer</a><ul>
 <li><a class="reference internal" href="#debugfs-attributes">Debugfs Attributes</a></li>
@@ -208,7 +217,7 @@
 </li>
 <li><a class="reference internal" href="#best-practices">Best Practices</a></li>
 <li><a class="reference internal" href="#security-considerations">Security Considerations</a></li>
-<li><a class="reference internal" href="#id5">Source Code</a></li>
+<li><a class="reference internal" href="#id6">Source Code</a></li>
 </ul>
 </li>
 </ul>
@@ -1480,138 +1489,240 @@ read in millidegrees Celsius via the <code class="docutils literal notranslate">
 data. This can be used to save and restore calibration across power cycles.
 See <a class="reference internal" href="#calibration-data-management"><span class="std std-ref">Calibration Data Management</span></a> for detailed usage.</p>
 </section>
-<section id="pfir">
-<h4>PFIR<a class="headerlink" href="#pfir" title="Link to this heading"></a></h4>
-<p>The PFIR (Programmable Finite Impulse Response) configuration is defined the
-configuration <code class="docutils literal notranslate"><span class="pre">pfilt_config</span></code> (write-only).</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">pfilt_config</span></code> input must have the following format:</p>
-<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="na">mode</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;imode&gt; &lt;qmode&gt;</span>
+<section id="pfilt">
+<h4>PFILT<a class="headerlink" href="#pfilt" title="Link to this heading"></a></h4>
+<p>The PFILT (Programmable FIR) is a 32-tap full-rate filter sitting in the
+wideband DSP stage ahead of the CDDC/CDUC mixers (UG “Transmit/Receive
+Programmable Filter (PFILT)”). Each side has 2 PFILT instances and each
+instance holds 4 offline coefficient banks that can be hot-swapped at
+runtime via SPI or GPIO.</p>
+<p>The filter is programmed by writing a text blob to the <code class="docutils literal notranslate"><span class="pre">pfilt_config</span></code>
+sysfs bin attribute (write-only). The full parser grammar is documented
+in the kernel-doc above <code class="xref c c-func docutils literal notranslate"><span class="pre">ad9088_parse_pfilt()</span></code> in
+<code class="docutils literal notranslate"><span class="pre">drivers/iio/trx-rf/ad9088/ad9088.c</span></code>; a summary follows.</p>
+<section id="general-format">
+<h5>General format<a class="headerlink" href="#general-format" title="Link to this heading"></a></h5>
+<p>Lines are processed in order. Lines starting with <code class="docutils literal notranslate"><span class="pre">#</span></code> are comments.
+Each directive may appear once and in any order; only the first
+occurrence takes effect. Unknown lines are ignored. <code class="docutils literal notranslate"><span class="pre">dest:</span></code> is
+mandatory.</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="na">dest</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;terminal&gt; &lt;pfilt_sel&gt; &lt;bank_sel&gt;</span>
+<span class="na">mode</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;imode&gt; [&lt;qmode&gt;]</span>
 <span class="na">gain</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;ix&gt; &lt;iy&gt; &lt;qx&gt; &lt;qy&gt;</span>
 <span class="na">scalar_gain</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;ix&gt; &lt;iy&gt; &lt;qx&gt; &lt;qy&gt;</span>
-<span class="na">dest</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;terminal&gt; &lt;pfilt_sel&gt; &lt;bank_sel&gt;</span>
-<span class="na">hc_delay</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;delay&gt;</span>
-<span class="na">mode_switch_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;value&gt;</span>
-<span class="na">mode_switch_add_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;value&gt;</span>
-<span class="na">real_data_mode_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;value&gt;</span>
-<span class="na">quad_mode_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;value&gt;</span>
-<span class="na">selection_mode</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;mode&gt;</span>
-<span class="na">&lt;sval&gt;</span>
+<span class="na">hc_delay</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;samples&gt;</span>
+<span class="na">mode_switch_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;0|1&gt;</span>
+<span class="na">mode_switch_add_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;0|1&gt;</span>
+<span class="na">real_data_mode_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;0|1&gt;</span>
+<span class="na">quad_mode_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;0|1&gt;</span>
+<span class="na">selection_mode</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;direct_regmap|direct_gpio|direct_gpio1|trig_regmap|trig_gpio|trig_gpio1&gt;</span>
+<span class="na">&lt;coeff0&gt;</span>
+<span class="na">&lt;coeff1&gt;</span>
+<span class="na">...</span>
+<span class="na">&lt;coeffN&gt;</span>
 </pre></div>
 </div>
+</section>
+<section id="directives">
+<h5>Directives<a class="headerlink" href="#directives" title="Link to this heading"></a></h5>
+<dl>
+<dt><strong>dest</strong></dt><dd><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;terminal&gt;</span></code> — <code class="docutils literal notranslate"><span class="pre">rx</span></code> or <code class="docutils literal notranslate"><span class="pre">tx</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;pfilt_sel&gt;</span></code> — target PFILT instance(s):
+<code class="docutils literal notranslate"><span class="pre">pfilt_a0</span></code> (A side, inst 0), <code class="docutils literal notranslate"><span class="pre">pfilt_a1</span></code> (A side, inst 1; 8T8R
+only), <code class="docutils literal notranslate"><span class="pre">pfilt_b0</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_b1</span></code> (8T8R only), <code class="docutils literal notranslate"><span class="pre">pfilt_all</span></code> (0xF),
+or <code class="docutils literal notranslate"><span class="pre">pfilt_maskN</span></code> (raw 4-bit OR; use <code class="docutils literal notranslate"><span class="pre">pfilt_mask5</span></code> for the
+4T4R-equivalent “all” A0|B0).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;bank_sel&gt;</span></code> — which of the 4 offline coefficient banks to load:
+<code class="docutils literal notranslate"><span class="pre">bank_0..bank_3</span></code>, <code class="docutils literal notranslate"><span class="pre">bank_all</span></code>, or <code class="docutils literal notranslate"><span class="pre">bank_maskN</span></code>.</p></li>
+</ul>
+</dd>
+<dt><strong>mode</strong></dt><dd><p>I-stream and, optionally, Q-stream filter topology (UG Table 107).
+Valid strings: <code class="docutils literal notranslate"><span class="pre">disabled</span></code> (0), <code class="docutils literal notranslate"><span class="pre">real_n4</span></code> (1, 8-tap real / sub),
+<code class="docutils literal notranslate"><span class="pre">real_n2</span></code> (2, 16-tap real / sub), <code class="docutils literal notranslate"><span class="pre">matrix</span></code> (4, full matrix with
+8-tap A/B/C/D sub-filters), <code class="docutils literal notranslate"><span class="pre">complex_half</span></code> (6, 16-tap direct + cross
+plus a 16-tap programmable delay line), <code class="docutils literal notranslate"><span class="pre">real_n</span></code> (7, 32-tap real
+filter on a single channel). Positions 3 and 5 in the mode table are
+unused (string <code class="docutils literal notranslate"><span class="pre">undef</span></code>). Omitting <code class="docutils literal notranslate"><span class="pre">&lt;qmode&gt;</span></code> only programs the
+I-side mode.</p>
+</dd>
+<dt><strong>gain</strong></dt><dd><p>Integer-dB shift gain per sub-filter, one of <code class="docutils literal notranslate"><span class="pre">0,</span> <span class="pre">6,</span> <span class="pre">12,</span> <span class="pre">18,</span> <span class="pre">24</span></code>;
+anything else falls back to 0 dB. Maps to the UG matrix-mode diagram:
+<code class="docutils literal notranslate"><span class="pre">ix</span></code> = Ga (DIN1 straight), <code class="docutils literal notranslate"><span class="pre">iy</span></code> = Gb (DIN1 cross), <code class="docutils literal notranslate"><span class="pre">qx</span></code> = Gd
+(DIN2 straight), <code class="docutils literal notranslate"><span class="pre">qy</span></code> = Gc (DIN2 cross). <code class="docutils literal notranslate"><span class="pre">iy</span></code>/<code class="docutils literal notranslate"><span class="pre">qy</span></code> are only
+used in matrix mode.</p>
+</dd>
+<dt><strong>scalar_gain</strong></dt><dd><p>Per-branch 6-bit fine gain, <code class="docutils literal notranslate"><span class="pre">0..63</span></code>. Encoded per UG as
+<code class="docutils literal notranslate"><span class="pre">code</span> <span class="pre">=</span> <span class="pre">64</span> <span class="pre">*</span> <span class="pre">scalarGain</span> <span class="pre">-</span> <span class="pre">1</span></code> so 0 → 1/64 (-36 dB) and 63 → 1.0
+(0 dB). Driver default is <code class="docutils literal notranslate"><span class="pre">0x3f</span></code> (1.0) for <code class="docutils literal notranslate"><span class="pre">iy</span></code>/<code class="docutils literal notranslate"><span class="pre">qx</span></code> before
+parsing.</p>
+</dd>
+<dt><strong>hc_delay</strong></dt><dd><p>u8 delay in ADC samples used only in <code class="docutils literal notranslate"><span class="pre">complex_half</span></code> mode.</p>
+</dd>
+<dt><strong>mode_switch_en</strong> / <strong>mode_switch_add_en</strong></dt><dd><p>Rx-only. Enables the averaging block ahead of the PFILT (UG
+“ADC Averaging for Receiver PFILT”). <code class="docutils literal notranslate"><span class="pre">mode_switch_add_en</span></code> selects
+add (1) vs subtract (0) of the two input streams before averaging.
+The noise improvement is up to 3dB.</p>
+</dd>
+<dt><strong>real_data_mode_en</strong></dt><dd><p>0 = complex I/Q data stream, 1 = two independent real data streams.
+Picks between the “real data” and “complex data” connectivity
+diagrams in the UG (Figures 135/136 vs 137/138 for AD9088).</p>
+</dd>
+<dt><strong>quad_mode_en</strong></dt><dd><p>Dual (0) vs quad (1) mode. Quad mode engages all four sub-filters;
+required for <code class="docutils literal notranslate"><span class="pre">matrix</span></code> mode on AD9088 8T8R.</p>
+</dd>
+<dt><strong>selection_mode</strong></dt><dd><p>Runtime bank-selection mechanism (UG Table 108/109):</p>
 <ul class="simple">
-<li><p>Each line represents a parameter or setting for the PFIR filter.</p></li>
-<li><p>Lines starting with ‘#’ are considered comments and are ignored.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">direct_regmap</span></code> — SPI/HSCI register write picks the bank.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">direct_gpio</span></code> — GPIO[1:0] selects one of 4 banks (config 0).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">direct_gpio1</span></code> — GPIO[0] drives PFILT0, GPIO[1] drives PFILT1,
+each choosing between its own 2 banks (config 1).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trig_regmap</span></code> / <code class="docutils literal notranslate"><span class="pre">trig_gpio</span></code> / <code class="docutils literal notranslate"><span class="pre">trig_gpio1</span></code> — the same three
+schemes, but hop on a scheduled timestamp trigger instead of taking
+effect immediately.</p></li>
 </ul>
-<p>The format for each parameter is as follows:</p>
-<ul>
-<li><div class="line-block">
-<div class="line">mode: &lt;imode&gt; &lt;qmode&gt;</div>
-</div>
-<p>Sets the mode for the PFIR filter. The &lt;imode&gt; and &lt;qmode&gt; values should be
-one of the predefined filter modes: <code class="docutils literal notranslate"><span class="pre">disabled</span></code>, <code class="docutils literal notranslate"><span class="pre">real_n4</span></code>, <code class="docutils literal notranslate"><span class="pre">real_n2</span></code>,
-<code class="docutils literal notranslate"><span class="pre">undef</span></code>, <code class="docutils literal notranslate"><span class="pre">matrix</span></code>, <code class="docutils literal notranslate"><span class="pre">undef</span></code>, <code class="docutils literal notranslate"><span class="pre">complex_half</span></code>, <code class="docutils literal notranslate"><span class="pre">real_n</span></code>.</p>
-</li>
-<li><div class="line-block">
-<div class="line">gain: &lt;ix&gt; &lt;iy&gt; &lt;qx&gt; &lt;qy&gt;</div>
-</div>
-<p>Sets the gain values for the PFIR filter. The &lt;ix&gt;, &lt;iy&gt;, &lt;qx&gt;,
-and &lt;qy&gt; values should be integers representing the gain in dB.</p>
-</li>
-<li><div class="line-block">
-<div class="line">scalar_gain: &lt;ix&gt; &lt;iy&gt; &lt;qx&gt; &lt;qy&gt;</div>
-</div>
-<p>Sets the scalar gain values for the PFIR filter. The &lt;ix&gt;, &lt;iy&gt;,
-&lt;qx&gt;, and &lt;qy&gt; values should be integers representing the scalar
-gain.</p>
-</li>
-<li><div class="line-block">
-<div class="line">dest: &lt;terminal&gt; &lt;pfilt_sel&gt; &lt;bank_sel&gt;</div>
-</div>
-<p>Sets the destination for the PFIR filter. The &lt;terminal&gt; value should be
-either <code class="docutils literal notranslate"><span class="pre">rx</span></code> or <code class="docutils literal notranslate"><span class="pre">tx</span></code>. The &lt;pfilt_sel&gt; value should be one of the
-predefined filter selects: <code class="docutils literal notranslate"><span class="pre">pfilt_a0</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_a1</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_b0</span></code>,
-<code class="docutils literal notranslate"><span class="pre">pfilt_b1</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_all</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_mask</span></code>. The &lt;bank_sel&gt; value should be
-one of the predefined filter banks: <code class="docutils literal notranslate"><span class="pre">bank_0</span></code>, <code class="docutils literal notranslate"><span class="pre">bank_1</span></code>, <code class="docutils literal notranslate"><span class="pre">bank_2</span></code>,
-<code class="docutils literal notranslate"><span class="pre">bank_3</span></code>, <code class="docutils literal notranslate"><span class="pre">bank_all</span></code>, <code class="docutils literal notranslate"><span class="pre">bank_mask</span></code>.</p>
-</li>
-<li><div class="line-block">
-<div class="line">hc_delay: &lt;delay&gt;</div>
-</div>
-<p>Sets the high cut delay value for the PFIR filter. The &lt;delay&gt;
-value should be an unsigned 8-bit integer.</p>
-</li>
-<li><div class="line-block">
-<div class="line">mode_switch_en: &lt;value&gt;</div>
-</div>
-<p>Sets the mode switch enable value for the PFIR filter. The &lt;value&gt;
-should be either 0 or 1.</p>
-</li>
-<li><div class="line-block">
-<div class="line">mode_switch_add_en: &lt;value&gt;</div>
-</div>
-<p>Sets the mode switch add enable value for the PFIR filter. The
-&lt;value&gt; should be either 0 or 1.</p>
-</li>
-<li><div class="line-block">
-<div class="line">real_data_mode_en: &lt;value&gt;</div>
-</div>
-<p>Sets the real data mode enable value for the PFIR filter. The
-&lt;value&gt; should be either 0 or 1.</p>
-</li>
-<li><div class="line-block">
-<div class="line">quad_mode_en: &lt;value&gt;</div>
-</div>
-<p>Sets the quad mode enable value for the PFIR filter. The &lt;value&gt;
-should be either 0 or 1.</p>
-</li>
-<li><div class="line-block">
-<div class="line">selection_mode: &lt;mode&gt;</div>
-</div>
-<p>Sets the profile selection mode for the PFIR filter. The &lt;mode&gt; value
-should be one of the predefined profile selection modes: <code class="docutils literal notranslate"><span class="pre">direct_regmap</span></code>,
-<code class="docutils literal notranslate"><span class="pre">direct_gpio</span></code>, <code class="docutils literal notranslate"><span class="pre">direct_gpio1</span></code>, <code class="docutils literal notranslate"><span class="pre">trig_regmap</span></code>, <code class="docutils literal notranslate"><span class="pre">trig_gpio</span></code>,
-<code class="docutils literal notranslate"><span class="pre">trig_gpio1</span></code>.</p>
-</li>
-<li><div class="line-block">
-<div class="line">&lt;sval&gt;</div>
-</div>
-<p>Sets the coefficient values for the PFIR filter. The &lt;sval&gt; value
-should be an integer representing the coefficient value.</p>
-</li>
+</dd>
+<dt><strong>Coefficient lines</strong></dt><dd><p>Each line parseable as a single integer (decimal or <code class="docutils literal notranslate"><span class="pre">0x</span></code> hex) is
+consumed as the next u16 tap (Q1.15). Up to 32 values are accepted.
+Number of taps required depends on <code class="docutils literal notranslate"><span class="pre">mode</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">real_n</span></code> → 32</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">real_n2</span></code> → 16 per sub-filter</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">real_n4</span></code> → 8 per sub-filter</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">complex_half</span></code> → 16 per arm</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">matrix</span></code> → 8 per A/B/C/D sub-filter (32 total)</p></li>
 </ul>
+<p>Coefficient placement within the buffer is handled by the Apollo API.
+After the write the driver pulses
+<code class="xref c c-func docutils literal notranslate"><span class="pre">adi_apollo_pfilt_coeff_transfer()</span></code> so the offline bank becomes
+live.</p>
+</dd>
+</dl>
+<p>Example — 32-tap real Rx PFILT into bank_0:</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="na">dest</span><span class="o">:</span><span class="w"> </span><span class="s">rx pfilt_a0 bank_0</span>
+<span class="na">mode</span><span class="o">:</span><span class="w"> </span><span class="s">real_n real_n</span>
+<span class="na">gain</span><span class="o">:</span><span class="w"> </span><span class="s">0 0 0 0</span>
+<span class="na">scalar_gain</span><span class="o">:</span><span class="w"> </span><span class="s">63 63 63 63</span>
+<span class="na">selection_mode</span><span class="o">:</span><span class="w"> </span><span class="s">direct_regmap</span>
+<span class="na">0x0001</span>
+<span class="na">0x0002</span>
+<span class="c1"># ... (up to 32 u16 taps)</span>
+</pre></div>
+</div>
+<p>Ready-made example blobs live in the <code class="docutils literal notranslate"><span class="pre">iio-oscilloscope</span></code> tree under
+<code class="docutils literal notranslate"><span class="pre">filters/ad9084/</span></code> (<code class="docutils literal notranslate"><span class="pre">pfilt_hp_rx.txt</span></code>, <code class="docutils literal notranslate"><span class="pre">pfilt_off_rx.txt</span></code>).</p>
+</section>
 </section>
 <section id="cfir">
 <h4>CFIR<a class="headerlink" href="#cfir" title="Link to this heading"></a></h4>
 <p>The CFIR configuration is defined by enabling <code class="docutils literal notranslate"><span class="pre">[in|out]_voltage&lt;index&gt;_[i|q]_cfir_profile_sel</span></code>,
 profile selection <code class="docutils literal notranslate"><span class="pre">[in|out]_voltage&lt;index&gt;_[i|q]_cfir_profile_sel</span></code>
 and the configuration <code class="docutils literal notranslate"><span class="pre">cfir_config</span></code> (write-only).</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">cfir_config</span></code> input must have the following format:</p>
-<p>The <code class="docutils literal notranslate"><span class="pre">cfir_config</span></code> input must have the following format:</p>
+<p>The full parser grammar, including every directive’s value set, is
+documented in the kernel-doc block above <code class="xref c c-func docutils literal notranslate"><span class="pre">ad9088_parse_cfilt()</span></code> in
+<code class="docutils literal notranslate"><span class="pre">drivers/iio/trx-rf/ad9088/ad9088.c</span></code>. A summary follows.</p>
+<section id="id3">
+<h5>General format<a class="headerlink" href="#id3" title="Link to this heading"></a></h5>
+<p>Lines are processed in order. Lines starting with <code class="docutils literal notranslate"><span class="pre">#</span></code> are comments.
+Each directive may appear once and in any order; only the first
+occurrence takes effect.</p>
 <div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="na">dest</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;terminal&gt; &lt;cfir_select&gt; &lt;cfir_profile&gt; &lt;cfir_datapath&gt;</span>
-<span class="na">gain</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;gain_value&gt;</span>
+<span class="na">gain</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;dB&gt;</span>
 <span class="na">complex_scalar</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;scalar_i&gt; &lt;scalar_q&gt;</span>
-<span class="na">bypass</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;bypass_value&gt;</span>
-<span class="na">sparse_filt_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;sparse_filt_en_value&gt;</span>
-<span class="na">32taps_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;32taps_en_value&gt;</span>
-<span class="na">coeff_transfer</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;coeff_transfer_value&gt;</span>
-<span class="na">enable</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;enable_value&gt; &lt;enable_profile_value&gt;</span>
-<span class="na">selection_mode</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;selection_mode_value&gt;</span>
-<span class="na">&lt;cfir_coeff0_i&gt; &lt;cfir_coeff0_q&gt;</span>
-<span class="na">&lt;cfir_coeff1_i&gt; &lt;cfir_coeff1_q&gt;</span>
-<span class="na">...</span>
-<span class="na">&lt;cfir_coeffN_i&gt; &lt;cfir_coeffN_q&gt;</span>
+<span class="na">bypass</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;0|1&gt;</span>
+<span class="na">sparse_filt_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;0|1&gt;</span>
+<span class="na">32taps_en</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;0|1&gt;</span>
+<span class="na">coeff_transfer</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;0|1&gt;</span>
+<span class="na">selection_mode</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;direct_regmap|direct_gpio|trig_regmap|trig_gpio&gt;</span>
+<span class="na">enable</span><span class="o">:</span><span class="w"> </span><span class="s">&lt;0|1&gt; &lt;profile_1|profile_2|profile_all|profile_none&gt;</span>
+<span class="c1"># then the coefficient block (see below)</span>
 </pre></div>
 </div>
-<p>Each line in the string represents a specific configuration parameter.
-The <code class="docutils literal notranslate"><span class="pre">dest</span></code> line specifies the destination terminal, CFIR select, CFIR profile,
-and CFIR datapath. The <code class="docutils literal notranslate"><span class="pre">gain</span></code> line specifies the gain value. The <code class="docutils literal notranslate"><span class="pre">complex_scalar</span></code>
-line specifies the complex scalar values. The <code class="docutils literal notranslate"><span class="pre">bypass</span></code> line specifies the bypass
-value. The <code class="docutils literal notranslate"><span class="pre">sparse_filt_en</span></code> line specifies the sparse filter enable value.
-The <code class="docutils literal notranslate"><span class="pre">32taps_en</span></code> line specifies the 32 taps enable value. The <code class="docutils literal notranslate"><span class="pre">coeff_transfer</span></code>
-line specifies the coefficient transfer value. The <code class="docutils literal notranslate"><span class="pre">enable</span></code> line specifies the
-enable value and enable profile value. The <code class="docutils literal notranslate"><span class="pre">selection_mode</span></code> line specifies the
-selection mode value. The &lt;cfir_coeff_i&gt; and &lt;cfir_coeff_q&gt; lines specify the
-CFIR coefficient values.</p>
+<p>Values:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;terminal&gt;</span></code> — <code class="docutils literal notranslate"><span class="pre">rx</span></code> or <code class="docutils literal notranslate"><span class="pre">tx</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;cfir_select&gt;</span></code> — <code class="docutils literal notranslate"><span class="pre">cfir_none</span></code>, <code class="docutils literal notranslate"><span class="pre">cfir_a0</span></code>, <code class="docutils literal notranslate"><span class="pre">cfir_a1</span></code>,
+<code class="docutils literal notranslate"><span class="pre">cfir_b0</span></code>, <code class="docutils literal notranslate"><span class="pre">cfir_b1</span></code>, <code class="docutils literal notranslate"><span class="pre">cfir_all</span></code> or <code class="docutils literal notranslate"><span class="pre">cfir_maskN</span></code> (raw 4-bit
+OR of instances)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;cfir_profile&gt;</span></code> — <code class="docutils literal notranslate"><span class="pre">profile_none</span></code>, <code class="docutils literal notranslate"><span class="pre">profile_1</span></code>, <code class="docutils literal notranslate"><span class="pre">profile_2</span></code>,
+<code class="docutils literal notranslate"><span class="pre">profile_all</span></code>. Note the naming mismatch: strings are 1-indexed
+while the underlying enum (<code class="docutils literal notranslate"><span class="pre">ADI_APOLLO_CFIR_PROFILE_0/_1</span></code>) is
+0-indexed, so <code class="docutils literal notranslate"><span class="pre">profile_1</span></code> targets the first profile bank.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;cfir_datapath&gt;</span></code> — <code class="docutils literal notranslate"><span class="pre">datapath_none</span></code>, <code class="docutils literal notranslate"><span class="pre">datapath_0..3</span></code>,
+<code class="docutils literal notranslate"><span class="pre">datapath_all</span></code> or <code class="docutils literal notranslate"><span class="pre">datapath_maskN</span></code>. DP2/DP3 only exist in 8T8R.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;dB&gt;</span></code> — one of <code class="docutils literal notranslate"><span class="pre">-18,</span> <span class="pre">-12,</span> <span class="pre">-6,</span> <span class="pre">0,</span> <span class="pre">6,</span> <span class="pre">12</span></code> (anything else silently
+maps to 0 dB)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&lt;scalar_i&gt;/&lt;scalar_q&gt;</span></code> — u16 (Q1.15); HW defaults are
+<code class="docutils literal notranslate"><span class="pre">0x7fff</span></code>/<code class="docutils literal notranslate"><span class="pre">0x0000</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">selection_mode</span></code> — picks how profile hops are driven (SPI regmap
+vs. GPIO, direct vs. timestamp-triggered).</p></li>
+</ul>
+</section>
+<section id="normal-mode-coefficient-block">
+<h5>Normal-mode coefficient block<a class="headerlink" href="#normal-mode-coefficient-block" title="Link to this heading"></a></h5>
+<p>When <code class="docutils literal notranslate"><span class="pre">sparse_filt_en</span></code> is 0 (default), the coefficient block consists
+of up to 16 <code class="docutils literal notranslate"><span class="pre">&lt;i&gt;</span> <span class="pre">&lt;q&gt;</span></code> lines (u16, decimal or <code class="docutils literal notranslate"><span class="pre">0x</span></code>-hex):</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="c1"># &lt;i&gt; &lt;q&gt;</span>
+<span class="na">0x7fff 0x0000</span>
+<span class="na">0x0000 0x0000</span>
+<span class="na">...</span>
+</pre></div>
+</div>
+</section>
+<section id="sparse-mode-coefficient-block">
+<h5>Sparse-mode coefficient block<a class="headerlink" href="#sparse-mode-coefficient-block" title="Link to this heading"></a></h5>
+<p>The CFIR block supports a sparse mode where the 16-tap filter is
+virtually expanded across a 128-sample delay line, keeping only 16
+non-zero taps. This lets the filter compensate long-delay echoes (cable
+reflections etc.) without extra multipliers. See the AD9084/AD9088
+User Guide “Sparse CFIR Mode” section for the full hardware model.</p>
+<p>Enable via <code class="docutils literal notranslate"><span class="pre">sparse_filt_en:</span> <span class="pre">1</span></code>. This directive <strong>must appear before</strong>
+the coefficient block — it switches the parser to the sparse
+coefficient grammar <code class="docutils literal notranslate"><span class="pre">&lt;i&gt;</span> <span class="pre">&lt;q&gt;</span> <span class="pre">&lt;hsel&gt;</span></code>, where <code class="docutils literal notranslate"><span class="pre">&lt;hsel&gt;</span></code> is in 0..63
+and selects the non-zero tap’s source sample across the four internal
+“Dstore” slices (16 samples each). Exactly 16 taps must be provided.</p>
+<p>An optional <code class="docutils literal notranslate"><span class="pre">sparse_mem_sel:</span> <span class="pre">&lt;m0&gt;</span> <span class="pre">&lt;m1&gt;</span> <span class="pre">&lt;m2&gt;</span></code> directive (each 0..3)
+sets the Dstore spacing on the 128-sample line:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Dstore0 offset = 0
+Dstore2 offset = 16 * (m0 + 1)
+Dstore5 offset = 16 * (m0 + m1 + 2)
+Dstore7 offset = 16 * (m0 + m1 + m2 + 3)
+</pre></div>
+</div>
+<p>If omitted, existing HW / profile defaults are retained. Note that
+once the Dstores are non-contiguous, hsel values 15/31/47/63 cannot be
+used: the datapath needs x[k-1] alongside x[k] and those samples sit
+at a Dstore boundary.</p>
+<p>Example (sparse, stride-4 hsel across the 64-slot default delay line):</p>
+<div class="highlight-ini notranslate"><div class="highlight"><pre><span></span><span class="na">dest</span><span class="o">:</span><span class="w"> </span><span class="s">rx cfir_all profile_all datapath_all</span>
+<span class="na">gain</span><span class="o">:</span><span class="w"> </span><span class="s">-6</span>
+<span class="na">complex_scalar</span><span class="o">:</span><span class="w"> </span><span class="s">32767 0</span>
+<span class="na">bypass</span><span class="o">:</span><span class="w"> </span><span class="s">0</span>
+<span class="na">sparse_filt_en</span><span class="o">:</span><span class="w"> </span><span class="s">1</span>
+<span class="na">coeff_transfer</span><span class="o">:</span><span class="w"> </span><span class="s">1</span>
+<span class="na">selection_mode</span><span class="o">:</span><span class="w"> </span><span class="s">direct_regmap</span>
+<span class="na">enable</span><span class="o">:</span><span class="w"> </span><span class="s">1 profile_1</span>
+<span class="c1"># &lt;i&gt; &lt;q&gt; &lt;hsel&gt;</span>
+<span class="na">0xF726 0x03AA 0x00</span>
+<span class="na">0xF29B 0xFEF1 0x04</span>
+<span class="na">0x0589 0x0365 0x08</span>
+<span class="na">0x0676 0x0A88 0x0C</span>
+<span class="na">0x011D 0x0E33 0x10</span>
+<span class="na">0x047D 0xF52C 0x14</span>
+<span class="na">0x247D 0xE0D5 0x18</span>
+<span class="na">0x4AAD 0xEE12 0x1C</span>
+<span class="na">0x4AAD 0x11ED 0x20</span>
+<span class="na">0x247D 0x1F2A 0x24</span>
+<span class="na">0x047D 0x0AD3 0x28</span>
+<span class="na">0x011D 0xF1CC 0x2C</span>
+<span class="na">0x0676 0xF577 0x30</span>
+<span class="na">0x0589 0xFC9A 0x34</span>
+<span class="na">0xF29B 0x010E 0x38</span>
+<span class="na">0xF726 0xFC55 0x3C</span>
+</pre></div>
+</div>
+<p>Ready-made example blobs live in the <code class="docutils literal notranslate"><span class="pre">iio-oscilloscope</span></code> tree under
+<code class="docutils literal notranslate"><span class="pre">filters/ad9084/</span></code> (cfir_hp_rx.txt, cfir_lp_rx.txt, cfir_lp_tx.txt).</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
 </pre></div>
 </div>
@@ -1647,6 +1758,7 @@ out_voltage3_q_cfir_profile_sel
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>One main use case of CFIR is to equalize the RF carriers independent of PFILT.</p>
+</section>
 </section>
 <section id="loopback">
 <h4>Loopback<a class="headerlink" href="#loopback" title="Link to this heading"></a></h4>
@@ -1702,7 +1814,7 @@ fail with -EINVAL.
 Consult the User Guide for all configuration requirements before enabling the loopback.</p>
 </section>
 <section id="apollo-fft">
-<span id="id3"></span><h4>Spectrum Sniffer<a class="headerlink" href="#apollo-fft" title="Link to this heading"></a></h4>
+<span id="id4"></span><h4>Spectrum Sniffer<a class="headerlink" href="#apollo-fft" title="Link to this heading"></a></h4>
 <p>The Spectrum Sniffer provides users information with fast indications of where
 the strong and weak signals are within the digitized signal bandwidth.</p>
 <p>The interrupt-names <code class="docutils literal notranslate"><span class="pre">fft_done_A</span></code> and <code class="docutils literal notranslate"><span class="pre">fft_done_B</span></code> maps the spectrum
@@ -1934,9 +2046,9 @@ the <code class="docutils literal notranslate"><span class="pre">fft_enable</spa
 <section id="feature-availability-by-mode">
 <h5>Feature Availability by Mode<a class="headerlink" href="#feature-availability-by-mode" title="Link to this heading"></a></h5>
 <p>The following table shows which features are available in each sniffer mode:</p>
-<div class="table-wrapper colwidths-given docutils container" id="id6">
-<table class="docutils align-default" id="id6">
-<caption><span class="caption-text">FFT Sniffer Feature Matrix</span><a class="headerlink" href="#id6" title="Link to this table"></a></caption>
+<div class="table-wrapper colwidths-given docutils container" id="id7">
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-text">FFT Sniffer Feature Matrix</span><a class="headerlink" href="#id7" title="Link to this table"></a></caption>
 <colgroup>
 <col style="width: 33.3%" />
 <col style="width: 16.7%" />
@@ -2610,7 +2722,7 @@ channels are enabled, samples are interleaved in channel order.</p>
 <section id="gpios-gpio-chip">
 <span id="apollo-gpio"></span><h4>GPIOs &amp; GPIO chip<a class="headerlink" href="#gpios-gpio-chip" title="Link to this heading"></a></h4>
 <p>The device contains 30 general purpose GPIOs that can be used to trigger various
-changes and can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.0.0-rc7)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
+changes and can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.0.0)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
 using the <code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code> devicetree property:</p>
 <div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
 <span class="w">     </span><span class="n">adi</span><span class="p">,</span><span class="n">gpio-exports</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">8 &lt;15 16 17 18&gt;</span><span class="p">;</span>
@@ -3352,7 +3464,7 @@ register read/write access. Useful for low-level debugging.</p>
 </section>
 </section>
 <section id="calibration-data-management">
-<span id="id4"></span><h2>Calibration Data Management<a class="headerlink" href="#calibration-data-management" title="Link to this heading"></a></h2>
+<span id="id5"></span><h2>Calibration Data Management<a class="headerlink" href="#calibration-data-management" title="Link to this heading"></a></h2>
 <p>The AD9088 driver provides a comprehensive calibration data management system that allows you to save and restore device calibration across power cycles. This significantly reduces boot time and maintains consistent performance.</p>
 <section id="overview">
 <h3>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h3>
@@ -3734,8 +3846,8 @@ relying on it in production</p></li>
 <li><p>No sensitive information is stored in calibration data</p></li>
 </ul>
 </section>
-<section id="id5">
-<h3>Source Code<a class="headerlink" href="#id5" title="Link to this heading"></a></h3>
+<section id="id6">
+<h3>Source Code<a class="headerlink" href="#id6" title="Link to this heading"></a></h3>
 <p>Calibration-related source files:</p>
 <ul class="simple">
 <li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/apollo/ad9088_cal.c" target="_blank">ad9088_cal.c</a> - Calibration save/restore implementation</p></li>
