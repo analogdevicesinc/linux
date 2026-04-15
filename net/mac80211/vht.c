@@ -301,29 +301,6 @@ ieee80211_vht_cap_ie_to_sta_vht_cap(struct ieee80211_sub_if_data *sdata,
 		return;
 	}
 
-	/* finally set up the bandwidth */
-	switch (vht_cap->cap & IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_MASK) {
-	case IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ:
-	case IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ:
-		link_sta->cur_max_bandwidth = IEEE80211_STA_RX_BW_160;
-		break;
-	default:
-		link_sta->cur_max_bandwidth = IEEE80211_STA_RX_BW_80;
-
-		if (!(vht_cap->vht_mcs.tx_highest &
-				cpu_to_le16(IEEE80211_VHT_EXT_NSS_BW_CAPABLE)))
-			break;
-
-		/*
-		 * If this is non-zero, then it does support 160 MHz after all,
-		 * in one form or the other. We don't distinguish here (or even
-		 * above) between 160 and 80+80 yet.
-		 */
-		if (cap_info & IEEE80211_VHT_CAP_EXT_NSS_BW_MASK)
-			link_sta->cur_max_bandwidth =
-				IEEE80211_STA_RX_BW_160;
-	}
-
 	link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta);
 
 	/*
