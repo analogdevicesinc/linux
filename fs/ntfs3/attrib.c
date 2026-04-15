@@ -173,7 +173,7 @@ int attr_allocate_clusters(struct ntfs_sb_info *sbi, struct runs_tree *run,
 
 		if (err == -ENOSPC && pre) {
 			pre = 0;
-			if (*pre_alloc)
+			if (pre_alloc)
 				*pre_alloc = 0;
 			continue;
 		}

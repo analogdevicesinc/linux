@@ -3267,7 +3267,7 @@ int ni_allocate_da_blocks(struct ntfs_inode *ni)
  */
 int ni_allocate_da_blocks_locked(struct ntfs_inode *ni)
 {
-	int err;
+	int err = 0;
 
 	if (!ni->file.run_da.count)
 		return 0;
