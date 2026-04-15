@@ -310,6 +310,7 @@ static void i915_driver_late_release(struct drm_i915_private *dev_priv)
 	i915_params_free(&dev_priv->params);
 
 	intel_display_device_remove(display);
+	dev_priv->display = NULL;
 }
 
 /**
