@@ -82,6 +82,7 @@ static void mgag200_g200se_set_hiprilvl(struct mga_device *mdev,
 			bpp = 32;
 			break;
 		case DRM_FORMAT_RGB565:
+		case DRM_FORMAT_XRGB1555:
 			bpp = 16;
 			break;
 		case DRM_FORMAT_C8:

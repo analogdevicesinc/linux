@@ -59,6 +59,9 @@ void mgag200_crtc_fill_gamma(struct mga_device *mdev,
 	case DRM_FORMAT_C8:
 		drm_crtc_fill_palette_8(crtc, mgag200_set_gamma_lut);
 		break;
+	case DRM_FORMAT_XRGB1555:
+		drm_crtc_fill_gamma_555(crtc, mgag200_set_gamma_lut);
+		break;
 	case DRM_FORMAT_RGB565:
 		drm_crtc_fill_gamma_565(crtc, mgag200_set_gamma_lut);
 		break;
@@ -82,6 +85,9 @@ void mgag200_crtc_load_gamma(struct mga_device *mdev,
 	switch (format->format) {
 	case DRM_FORMAT_C8:
 		drm_crtc_load_palette_8(crtc, lut, mgag200_set_gamma_lut);
+		break;
+	case DRM_FORMAT_XRGB1555:
+		drm_crtc_load_gamma_555_from_888(crtc, lut, mgag200_set_gamma_lut);
 		break;
 	case DRM_FORMAT_RGB565:
 		drm_crtc_load_gamma_565_from_888(crtc, lut, mgag200_set_gamma_lut);
@@ -180,6 +186,7 @@ static void mgag200_set_datasiz(struct mga_device *mdev, u32 format)
 
 	/* Big-endian byte-swapping */
 	switch (format) {
+	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_RGB565:
 		opmode |= 0x10100;
 		break;
@@ -443,6 +450,7 @@ static void mgag200_handle_damage(struct mga_device *mdev, const struct iosys_ma
 const uint32_t mgag200_primary_plane_formats[] = {
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB1555,
 	DRM_FORMAT_RGB888,
 	DRM_FORMAT_C8,
 };
