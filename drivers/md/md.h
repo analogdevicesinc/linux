@@ -1014,7 +1014,7 @@ static inline int mddev_suspend_and_lock(struct mddev *mddev)
 static inline void mddev_suspend_and_lock_nointr(struct mddev *mddev)
 {
 	mddev_suspend(mddev, false);
-	mutex_lock(&mddev->reconfig_mutex);
+	mddev_lock_nointr(mddev);
 }
 
 static inline void mddev_unlock_and_resume(struct mddev *mddev)
