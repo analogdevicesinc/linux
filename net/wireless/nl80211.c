@@ -1733,6 +1733,7 @@ static int nl80211_parse_key(struct genl_info *info, struct key_parse *k)
 
 static struct cfg80211_cached_keys *
 nl80211_parse_connkeys(struct cfg80211_registered_device *rdev,
+		       struct wireless_dev *wdev,
 		       struct genl_info *info, bool *no_ht)
 {
 	struct nlattr *keys = info->attrs[NL80211_ATTR_KEYS];
@@ -1782,7 +1783,7 @@ nl80211_parse_connkeys(struct cfg80211_registered_device *rdev,
 				goto error;
 		} else if (parse.defmgmt)
 			goto error;
-		err = cfg80211_validate_key_settings(rdev, &parse.p,
+		err = cfg80211_validate_key_settings(rdev, wdev, &parse.p,
 						     parse.idx, false, NULL);
 		if (err)
 			goto error;
@@ -5407,7 +5408,7 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 	if (!rdev->ops->add_key)
 		return -EOPNOTSUPP;
 
-	if (cfg80211_validate_key_settings(rdev, &key.p, key.idx,
+	if (cfg80211_validate_key_settings(rdev, wdev, &key.p, key.idx,
 					   key.type == NL80211_KEYTYPE_PAIRWISE,
 					   mac_addr)) {
 		GENL_SET_ERR_MSG(info, "key setting validation failed");
@@ -13227,7 +13228,8 @@ static int nl80211_join_ibss(struct sk_buff *skb, struct genl_info *info)
 	if (ibss.privacy && info->attrs[NL80211_ATTR_KEYS]) {
 		bool no_ht = false;
 
-		connkeys = nl80211_parse_connkeys(rdev, info, &no_ht);
+		connkeys = nl80211_parse_connkeys(rdev, dev->ieee80211_ptr,
+						  info, &no_ht);
 		if (IS_ERR(connkeys))
 			return PTR_ERR(connkeys);
 
@@ -13669,7 +13671,8 @@ static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	if (connect.privacy && info->attrs[NL80211_ATTR_KEYS]) {
-		connkeys = nl80211_parse_connkeys(rdev, info, NULL);
+		connkeys = nl80211_parse_connkeys(rdev, dev->ieee80211_ptr,
+						  info, NULL);
 		if (IS_ERR(connkeys))
 			return PTR_ERR(connkeys);
 	}
