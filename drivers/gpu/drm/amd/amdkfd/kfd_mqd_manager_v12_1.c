@@ -143,12 +143,31 @@ static struct kfd_mem_obj *allocate_mqd(struct mqd_manager *mm,
 	u32 mqd_size = AMDGPU_MQD_SIZE_ALIGN(mm->mqd_size);
 	struct kfd_node *node = mm->dev;
 	struct kfd_mem_obj *mqd_mem_obj;
+	int retval;
 
 	if (q->type == KFD_QUEUE_TYPE_COMPUTE)
 		mqd_size *= NUM_XCC(node->xcc_mask);
 
-	if (kfd_gtt_sa_allocate(node, mqd_size, &mqd_mem_obj))
-		return NULL;
+	if (node->kfd->cwsr_enabled && (q->type == KFD_QUEUE_TYPE_COMPUTE)) {
+		mqd_mem_obj = kzalloc(sizeof(struct kfd_mem_obj), GFP_KERNEL);
+		if (!mqd_mem_obj)
+			return NULL;
+		retval = amdgpu_amdkfd_alloc_kernel_mem(node->adev,
+			mqd_size,
+			AMDGPU_GEM_DOMAIN_GTT,
+			&(mqd_mem_obj->mem),
+			&(mqd_mem_obj->gpu_addr),
+			(void *)&(mqd_mem_obj->cpu_ptr), false);
+
+		if (retval) {
+			kfree(mqd_mem_obj);
+			return NULL;
+		}
+	} else {
+		retval = kfd_gtt_sa_allocate(node, mqd_size, &mqd_mem_obj);
+		if (retval)
+			return NULL;
+	}
 
 	return mqd_mem_obj;
 }
