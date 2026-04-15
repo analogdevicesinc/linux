@@ -351,6 +351,20 @@ int32_t adi_ad9083_jesd_tx_clk_set(adi_ad9083_device_t *device) {
     }
   }
 
+#ifdef __KERNEL__
+  printk(KERN_INFO "AD9083 jtx_clk_set: lane_rate=%llu vco=%llu bit_repeat=%u\n",
+         lane_rate, vco_clk, bit_repeat);
+  printk(KERN_INFO "AD9083 jtx_clk_set: spi_div=%u fRefClk=%llu fPfd=%llu refindiv=%u lcpll_exp=%u\n",
+         spi_div, fRefClk, fPfd, refindiv_lcpll, lcpll_exponent);
+  printk(KERN_INFO "AD9083 jtx_clk_set: B=%u (num=%u den=%u) => VCO_check=%llu\n",
+         b_lcpll_integer, b_lcpll_numerator, b_lcpll_denominator,
+         fPfd * 8 * (uint64_t)b_lcpll_integer);
+  printk(KERN_INFO "AD9083 jtx_clk_set: pclk_div=%u+%u/%u ifx_pclk_div=%u+%u/%u divm_rx=%u\n",
+         pclk_div_integer, pclk_div_numerator, pclk_div_denominator,
+         ifx_pclk_div_integer, ifx_pclk_div_numerator, ifx_pclk_div_denominator,
+         divm_lcpll_rc_rx);
+#endif
+
   err = adi_ad9083_hal_bf_set(device, BF_JTX_BR_LOG2_RATIO_INFO(0),
                               bit_repeat_exponent); /* lane 1 */
   AD9083_ERROR_RETURN(err);

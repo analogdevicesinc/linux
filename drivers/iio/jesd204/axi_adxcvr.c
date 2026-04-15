@@ -477,11 +477,17 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 	unsigned int status;
 	int bufstatus_err;
 
-	dev_dbg(st->dev, "%s: %s\n", __func__, st->tx_enable ? "TX" : "RX");
+	dev_info(st->dev, "%s: %s lane_rate=%lu kHz\n", __func__,
+		 st->tx_enable ? "TX" : "RX", st->lane_rate);
 
 	ret = adxcvr_reset(st);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(st->dev, "%s: initial reset failed (%d)\n", __func__, ret);
 		return ret;
+	}
+
+	dev_info(st->dev, "%s: initial reset OK (PLL locked), status=0x%x\n",
+		 __func__, adxcvr_read(st, ADXCVR_REG_STATUS));
 
 	if (st->xcvr.version >= ADI_AXI_PCORE_VER(17, 5, 'a')) {
 		do {
@@ -490,6 +496,8 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 			mdelay(1);
 			status = adxcvr_read(st, ADXCVR_REG_STATUS);
 			bufstatus_err = ((status & BIT(5)) || (status & BIT(6)));
+			dev_info(st->dev, "%s: bufstatus retry=%d status=0x%x err=%d\n",
+				 __func__, retry, status, bufstatus_err);
 			if (bufstatus_err) {
 				ret = adxcvr_reset(st);
 				if (ret < 0)
@@ -510,6 +518,19 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 				adxcvr_sys_clock_sel_names[st->sys_clk_sel],
 				st->tx_enable ? "TX" : "RX",
 				"buffer overflow", status);
+
+		/* DRP readback of CDR registers for debug (CH0 only) */
+		if (!st->tx_enable) {
+			unsigned int port = ADXCVR_DRP_PORT_CHANNEL(0);
+
+			dev_info(st->dev, "  CH0 DRP: RXCDR_CFG0(0xA8)=0x%04x "
+				 "RXCDR_CFG2(0xAA)=0x%04x RXCDR_CFG3(0xAB)=0x%04x "
+				 "CH_HSPMUX(0x116)=0x%04x\n",
+				 adxcvr_drp_read(&st->xcvr, port, 0xa8) & 0xffff,
+				 adxcvr_drp_read(&st->xcvr, port, 0xaa) & 0xffff,
+				 adxcvr_drp_read(&st->xcvr, port, 0xab) & 0xffff,
+				 adxcvr_drp_read(&st->xcvr, port, 0x116) & 0xffff);
+		}
 	}
 
 	return ret;
@@ -534,7 +555,7 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 	unsigned int *tx_out_div;
 	unsigned int out_div;
 
-	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
+	dev_info(st->dev, "%s: Parent Rate %lu Hz",
 		__func__, parent_rate);
 
 	if (st->tx_enable) {
@@ -547,6 +568,8 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 
 	xilinx_xcvr_read_out_div(&st->xcvr, ADXCVR_DRP_PORT_CHANNEL(0),
 		rx_out_div, tx_out_div);
+
+	dev_info(st->dev, "%s: OUT_DIV=%u\n", __func__, out_div);
 
 	if (st->cpll_enable) {
 		struct xilinx_xcvr_cpll_config cpll_conf;
@@ -564,8 +587,13 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 
 		xilinx_xcvr_qpll_read_config(&st->xcvr, st->sys_clk_sel,
 			ADXCVR_DRP_PORT_COMMON(0), &qpll_conf);
-		return xilinx_xcvr_qpll_calc_lane_rate(&st->xcvr,
-			st->sys_clk_sel, parent_rate, &qpll_conf, out_div);
+		{
+			unsigned long lane_rate_khz = xilinx_xcvr_qpll_calc_lane_rate(
+				&st->xcvr, st->sys_clk_sel, parent_rate, &qpll_conf, out_div);
+			dev_info(st->dev, "%s: QPLL readback: FBDIV=%u REFCLK_DIV=%u => lane_rate=%lu kHz\n",
+				 __func__, qpll_conf.fb_div, qpll_conf.refclk_div, lane_rate_khz);
+			return lane_rate_khz;
+		}
 	}
 }
 
@@ -606,7 +634,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 	unsigned int i;
 	int ret;
 
-	dev_dbg(st->dev, "%s: Rate %lu kHz Parent Rate %lu Hz",
+	dev_info(st->dev, "%s: Rate %lu kHz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
 
 	clk25_div = DIV_ROUND_CLOSEST(parent_rate, 25000000);
@@ -617,8 +645,19 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 	else
 		ret = xilinx_xcvr_calc_qpll_config(&st->xcvr, st->sys_clk_sel,
 			parent_rate, rate, &qpll_conf, &out_div);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(st->dev, "%s: calc config failed (%d)\n", __func__, ret);
 		return ret;
+	}
+
+	if (!st->cpll_enable)
+		dev_info(st->dev, "%s: QPLL config: FBDIV=%u REFCLK_DIV=%u OUT_DIV=%u band=%u CLK25_DIV=%u",
+			 __func__, qpll_conf.fb_div, qpll_conf.refclk_div, out_div,
+			 qpll_conf.band, clk25_div);
+	else
+		dev_info(st->dev, "%s: CPLL config: FBDIV_N1=%u FBDIV_N2=%u REFCLK_DIV=%u OUT_DIV=%u CLK25_DIV=%u",
+			 __func__, cpll_conf.fb_div_N1, cpll_conf.fb_div_N2, cpll_conf.refclk_div,
+			 out_div, clk25_div);
 
 
 	for (i = 0; i < st->num_lanes; i++) {
@@ -1237,6 +1276,10 @@ static int adxcvr_probe(struct platform_device *pdev)
 		 ADI_AXI_PCORE_VER_PATCH(st->xcvr.version),
 		 adxcvr_sys_clock_sel_names[st->sys_clk_sel], adxcvr_gt_names[st->xcvr.type],
 		 st->num_lanes);
+	dev_info(&pdev->dev, "  out_clk_sel=%u sys_clk_sel=%u lpm=%d qpll_en=%d cpll_en=%d encoding=%s",
+		 st->out_clk_sel, st->sys_clk_sel, st->lpm_enable,
+		 st->qpll_enable, st->cpll_enable,
+		 st->xcvr.encoding == ENC_66B64B ? "66b64b" : "8b10b");
 
 	return 0;
 }

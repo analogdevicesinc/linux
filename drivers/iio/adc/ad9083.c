@@ -21,6 +21,7 @@
 #include <linux/iio/sysfs.h>
 #include "ad9083/adi_ad9083.h"
 #include "ad9083/adi_ad9083_hal.h"
+#include "ad9083/adi_ad9083_bf_ser_phy.h"
 #include "cf_axi_adc.h"
 
 #include <dt-bindings/iio/adc/adi,ad9083.h>
@@ -305,6 +306,14 @@ static int ad9083_jesd204_link_init(struct jesd204_dev *jdev,
 	lnk->sample_rate_div = phy->total_dcm;
 	lnk->link_id = 0;
 
+	dev_info(dev, "AD9083 link_init: L=%u M=%u S=%u F=%u K=%u N=%u NP=%u HD=%u SCR=%u subclass=%u\n",
+		 lnk->num_lanes, lnk->num_converters, lnk->samples_per_conv_frame,
+		 lnk->octets_per_frame, lnk->frames_per_multiframe,
+		 lnk->converter_resolution, lnk->bits_per_sample,
+		 lnk->high_density, lnk->scrambling, lnk->subclass);
+	dev_info(dev, "AD9083 link_init: adc_freq=%llu total_dcm=%u sample_rate=%llu sample_rate_div=%u\n",
+		 phy->adc_frequency_hz, phy->total_dcm, lnk->sample_rate, lnk->sample_rate_div);
+
 	return JESD204_STATE_CHANGE_DONE;
 }
 
@@ -399,11 +408,22 @@ static int ad9083_jesd204_link_running(struct jesd204_dev *jdev,
 
 	{
 		uint8_t lcpll_locked = 0;
+		uint16_t jtx_stat = 0;
+		u8 pd_ser_lo, pd_ser_hi, synca_ctrl;
 
 		adi_ad9083_jesd_tx_lcpll_status_get(&phy->adi_ad9083,
 						    &lcpll_locked);
-		dev_info(dev, "AD9083 LCPLL at link_running: %s\n",
-			 lcpll_locked ? "LOCKED" : "UNLOCKED");
+		adi_ad9083_jesd_tx_link_status_get(&phy->adi_ad9083,
+						   &jtx_stat);
+		ad9083_register_read(&phy->adi_ad9083, 0x0400, &pd_ser_lo);
+		ad9083_register_read(&phy->adi_ad9083, 0x0401, &pd_ser_hi);
+		ad9083_register_read(&phy->adi_ad9083, 0x0447, &synca_ctrl);
+
+		dev_info(dev, "AD9083 at link_running: LCPLL=%s JTX=0x%04x(state=%d) "
+			 "PD_SER=0x%02x%02x SYNCA=0x%02x\n",
+			 lcpll_locked ? "LOCKED" : "UNLOCKED",
+			 jtx_stat, jtx_stat & 0xF,
+			 pd_ser_hi, pd_ser_lo, synca_ctrl);
 	}
 
 	ret = ad9083_jesd_rx_link_status_print(phy);
@@ -759,6 +779,15 @@ static int ad9083_setup(struct axiadc_converter *conv)
 		return ret;
 	}
 
+	dev_info(dev, "AD9083 setup: adc_freq=%llu Hz ref_clk=%lu Hz datapath_mode=%u\n",
+		 phy->adc_frequency_hz, clk_get_rate(conv->clk), phy->nco0_datapath_mode);
+	dev_info(dev, "AD9083 setup: JESD params L=%u M=%u F=%u K=%u N=%u NP=%u S=%u HD=%u SCR=%u subclass=%u\n",
+		 phy->jesd_param.jesd_l, phy->jesd_param.jesd_m,
+		 phy->jesd_param.jesd_f, phy->jesd_param.jesd_k,
+		 phy->jesd_param.jesd_n, phy->jesd_param.jesd_np,
+		 phy->jesd_param.jesd_s, phy->jesd_param.jesd_hd,
+		 phy->jesd_param.jesd_scr, phy->jesd_param.jesd_subclass);
+
 	ret = adi_ad9083_device_clock_config_set(&phy->adi_ad9083,
 		phy->adc_frequency_hz, clk_get_rate(conv->clk));
 	if (ret < 0) {
@@ -804,6 +833,48 @@ static int ad9083_setup(struct axiadc_converter *conv)
 	if (ret < 0)
 		dev_err(dev, "adi_ad9083_jtx_startup failed (%d)\n", ret);
 
+	/* Set max serializer output swing and pre-emphasis for 15 Gbps
+	 * through FMC connector. Must be AFTER jtx_startup() since the
+	 * power-down/up cycle in startup may reset PHY registers.
+	 *
+	 * Swing:    reg 0x0402 bits[2:0]=ch0, [6:4]=ch1
+	 *           reg 0x0403 bits[2:0]=ch2, [6:4]=ch3
+	 * Post-emp: reg 0x040A bits[2:0]=ch0, [6:4]=ch1
+	 *           reg 0x040B bits[2:0]=ch2, [6:4]=ch3
+	 * Pre-emp:  reg 0x0413=ch0, 0x0414=ch1, 0x0415=ch2, 0x0416=ch3
+	 */
+	{
+		/* swing = 0 (1000mV), pre_emp = 2 (6dB), post_emp = 2 (6dB) */
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVSWING_CH0_SER_RC_INFO, AD9083_SER_SWING_1000);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVSWING_CH1_SER_RC_INFO, AD9083_SER_SWING_1000);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVSWING_CH2_SER_RC_INFO, AD9083_SER_SWING_1000);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVSWING_CH3_SER_RC_INFO, AD9083_SER_SWING_1000);
+
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVPREEM_CH0_SER_RC_INFO, AD9083_SER_PRE_EMP_6DB);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVPREEM_CH1_SER_RC_INFO, AD9083_SER_PRE_EMP_6DB);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVPREEM_CH2_SER_RC_INFO, AD9083_SER_PRE_EMP_6DB);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVPREEM_CH3_SER_RC_INFO, AD9083_SER_PRE_EMP_6DB);
+
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVPOSTEM_CH0_SER_RC_INFO, AD9083_SER_POST_EMP_6DB);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVPOSTEM_CH1_SER_RC_INFO, AD9083_SER_POST_EMP_6DB);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVPOSTEM_CH2_SER_RC_INFO, AD9083_SER_POST_EMP_6DB);
+		adi_ad9083_hal_bf_set(&phy->adi_ad9083,
+			BF_DRVPOSTEM_CH3_SER_RC_INFO, AD9083_SER_POST_EMP_6DB);
+
+		dev_info(dev, "AD9083 SER: set swing=1000mV pre_emp=6dB post_emp=6dB on 4 lanes\n");
+	}
+
 	{
 		uint8_t lcpll_locked = 0;
 		uint16_t jtx_stat = 0;
@@ -827,6 +898,32 @@ static int ad9083_setup(struct axiadc_converter *conv)
 				 jtx_stat & BIT(5) ? "locked" : "unlocked",
 				 jtx_stat & BIT(6) ? "established" : "lost",
 				 jtx_stat & BIT(7) ? "invalid" : "valid");
+	}
+
+	/* Serializer diagnostic readback */
+	{
+		u8 pd_ser_lo, pd_ser_hi, rstb_lo, rstb_hi, synca_ctrl;
+		u8 lane_cfg[4], swing01, swing23;
+		int i;
+
+		ad9083_register_read(&phy->adi_ad9083, 0x0400, &pd_ser_lo);
+		ad9083_register_read(&phy->adi_ad9083, 0x0401, &pd_ser_hi);
+		ad9083_register_read(&phy->adi_ad9083, 0x0423, &rstb_lo);
+		ad9083_register_read(&phy->adi_ad9083, 0x0424, &rstb_hi);
+		ad9083_register_read(&phy->adi_ad9083, 0x0447, &synca_ctrl);
+		ad9083_register_read(&phy->adi_ad9083, 0x0402, &swing01);
+		ad9083_register_read(&phy->adi_ad9083, 0x0403, &swing23);
+		for (i = 0; i < 4; i++)
+			ad9083_register_read(&phy->adi_ad9083, 0x0261 + i,
+					     &lane_cfg[i]);
+
+		dev_info(dev, "AD9083 SER diag: PD_SER=0x%02x%02x RSTB_SER=0x%02x%02x "
+			 "SYNCA_CTRL=0x%02x\n",
+			 pd_ser_hi, pd_ser_lo, rstb_hi, rstb_lo, synca_ctrl);
+		dev_info(dev, "AD9083 SER diag: swing[0:1]=0x%02x swing[2:3]=0x%02x "
+			 "lane_cfg[0..3]=0x%02x 0x%02x 0x%02x 0x%02x\n",
+			 swing01, swing23,
+			 lane_cfg[0], lane_cfg[1], lane_cfg[2], lane_cfg[3]);
 	}
 
 	adi_ad9083_device_api_revision_get(&phy->adi_ad9083, &api_rev[0],
@@ -919,10 +1016,6 @@ static int ad9083_parse_dt(struct ad9083_phy *phy, struct device *dev)
 
 	/* JESD Link Config */
 
-	phy->jesd_param.jesd_s = 1;
-	phy->jesd_param.jesd_hd = 1;
-	phy->jesd_param.jesd_scr = 1;
-
 	JESD204_LNK_READ_NUM_LANES(dev, np, &phy->jesd204_link,
 				   &phy->jesd_param.jesd_l, 4);
 	if (ad9083_validate_parameter(phy->jesd_param.jesd_l,
@@ -980,11 +1073,19 @@ static int ad9083_parse_dt(struct ad9083_phy *phy, struct device *dev)
 	JESD204_LNK_READ_SUBCLASS(dev, np, &phy->jesd204_link,
 				  &phy->jesd_param.jesd_subclass, JESD_SUBCLASS_0);
 
-
 	if (phy->jesd_param.jesd_subclass >= JESD_SUBCLASS_INVALID) {
 		dev_err(dev, "Invalid JESD subclass value: %d\n", phy->jesd_param.jesd_subclass);
 		return -EINVAL;
 	}
+
+	JESD204_LNK_READ_SCRAMBLING(dev, np, &phy->jesd204_link,
+				    &phy->jesd_param.jesd_scr, 1);
+
+	JESD204_LNK_READ_HIGH_DENSITY(dev, np, &phy->jesd204_link,
+				      &phy->jesd_param.jesd_hd, 1);
+
+	JESD204_LNK_READ_SAMPLES_PER_CONVERTER_PER_FRAME(dev, np,
+			&phy->jesd204_link, &phy->jesd_param.jesd_s, 1);
 
 	return 0;
 }

@@ -830,11 +830,19 @@ static int axi_jesd204_rx_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
+	dev_info(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__,
 		lnk->link_id, jesd204_state_op_reason_str(reason));
+	dev_info(dev, "  JESD params: L=%u M=%u S=%u F=%u K=%u N=%u NP=%u HD=%u SCR=%u subclass=%u\n",
+		lnk->num_lanes, lnk->num_converters, lnk->samples_per_conv_frame,
+		lnk->octets_per_frame, lnk->frames_per_multiframe,
+		lnk->converter_resolution, lnk->bits_per_sample,
+		lnk->high_density, lnk->scrambling,
+		lnk->subclass);
+	dev_info(dev, "  sample_rate=%llu sample_rate_div=%u\n",
+		lnk->sample_rate, lnk->sample_rate_div);
 
 	ret = jesd204_link_get_device_clock(lnk, &link_rate);
-	dev_dbg(dev, "%s: Link%u device clock rate %lu (%d)\n",
+	dev_info(dev, "%s: Link%u device clock rate %lu (%d)\n",
 		__func__, lnk->link_id, link_rate, ret);
 	if (ret) {
 		dev_err(dev, "%s: Link%u get device clock rate failed (%d)\n",
@@ -843,7 +851,7 @@ static int axi_jesd204_rx_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 	}
 
 	ret = jesd204_link_get_rate_khz(lnk, &lane_rate);
-	dev_dbg(dev, "%s: Link%u lane rate %lu (%d)\n",
+	dev_info(dev, "%s: Link%u lane rate %lu kHz (%d)\n",
 		__func__, lnk->link_id, lane_rate, ret);
 	if (ret) {
 		dev_err(dev, "%s: Link%u get rate failed (%d)\n",
@@ -852,6 +860,8 @@ static int axi_jesd204_rx_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 	}
 
 	device_rate = axi_jesd204_rx_calc_device_clk(jesd, link_rate);
+	dev_info(dev, "%s: Link%u computed device_rate=%lu Hz (from link_rate=%lu)\n",
+		__func__, lnk->link_id, device_rate, link_rate);
 
 	ret = clk_set_rate(jesd->device_clk, device_rate);
 	if (ret) {
@@ -859,6 +869,8 @@ static int axi_jesd204_rx_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 			__func__, lnk->link_id, device_rate, ret);
 		return ret;
 	}
+	dev_info(dev, "%s: Link%u device_clk set to %lu Hz OK\n",
+		__func__, lnk->link_id, clk_get_rate(jesd->device_clk));
 
 	if (!IS_ERR_OR_NULL(jesd->link_clk)) {
 		ret = clk_set_rate(jesd->link_clk, link_rate);
@@ -870,7 +882,7 @@ static int axi_jesd204_rx_jesd204_link_pre_setup(struct jesd204_dev *jdev,
 	}
 
 	rate = clk_round_rate(jesd->lane_clk, lane_rate);
-	dev_dbg(dev, "%s: Link%u round lane rate %lu returned %ld\n",
+	dev_info(dev, "%s: Link%u round lane rate %lu kHz returned %ld\n",
 		__func__, lnk->link_id, lane_rate, rate);
 
 	if (rate != (long)lane_rate) {
@@ -974,6 +986,7 @@ static int axi_jesd204_rx_jesd204_clks_enable(struct jesd204_dev *jdev,
 		return JESD204_STATE_CHANGE_DONE;
 	}
 
+	dev_info(dev, "%s: Link%u enabling device_clk\n", __func__, lnk->link_id);
 	ret = clk_prepare_enable(jesd->device_clk);
 	if (ret) {
 		dev_err(dev, "%s: Link%u enable device clock failed (%d)\n",
@@ -982,6 +995,7 @@ static int axi_jesd204_rx_jesd204_clks_enable(struct jesd204_dev *jdev,
 	}
 
 	if (!IS_ERR_OR_NULL(jesd->sysref_clk)) {
+		dev_info(dev, "%s: Link%u enabling sysref_clk\n", __func__, lnk->link_id);
 		ret = clk_prepare_enable(jesd->sysref_clk);
 		if (ret) {
 			dev_err(dev, "%s: Link%u enable sysref clock failed (%d)\n",
@@ -991,12 +1005,16 @@ static int axi_jesd204_rx_jesd204_clks_enable(struct jesd204_dev *jdev,
 	}
 
 	if (!IS_ERR_OR_NULL(jesd->link_clk)) {
+		dev_info(dev, "%s: Link%u enabling link_clk (may trigger lane_clk/CDR via parent)\n",
+			__func__, lnk->link_id);
 		ret = clk_prepare_enable(jesd->link_clk);
 		if (ret) {
 			dev_err(dev, "%s: Link%u enable link clock failed (%d)\n",
 				__func__, lnk->link_id, ret);
 			return ret;
 		}
+		dev_info(dev, "%s: Link%u link_clk enabled, rate=%lu\n",
+			__func__, lnk->link_id, clk_get_rate(jesd->link_clk));
 	}
 
 	ret = axi_jesd_ext_reset(dev, "rx_pll_datapath", jesd->reset_pll_datapath_gpio,
@@ -1037,18 +1055,24 @@ static int axi_jesd204_rx_jesd204_link_enable(struct jesd204_dev *jdev,
 		return JESD204_STATE_CHANGE_DONE;
 	}
 
+	dev_info(dev, "%s: Link%u enabling lane_clk (triggers CDR)\n",
+		__func__, lnk->link_id);
 	ret = clk_prepare_enable(jesd->lane_clk);
 	if (ret) {
 		dev_err(dev, "%s: Link%u enable lane clock failed (%d)\n",
 			__func__, lnk->link_id, ret);
 		return ret;
 	}
+	dev_info(dev, "%s: Link%u lane_clk enabled, rate=%lu\n",
+		__func__, lnk->link_id, clk_get_rate(jesd->lane_clk));
 
 	ret = axi_jesd_ext_reset(dev, "rx_datapath", jesd->reset_datapath_gpio,
 				 jesd->reset_done_gpio);
 	if (ret)
 		return ret;
 
+	dev_info(dev, "%s: Link%u enabling JESD RX link (SYNC~ assert)\n",
+		__func__, lnk->link_id);
 	writel_relaxed(0x3, jesd->base + JESD204_RX_REG_SYSREF_STATUS);
 	writel_relaxed(0x0, jesd->base + JESD204_RX_REG_LINK_DISABLE);
 
@@ -1082,9 +1106,23 @@ static int axi_jesd204_rx_jesd204_link_running(struct jesd204_dev *jdev,
 			const char *_status = (jesd->encoder == JESD204_ENCODER_8B10B) ?
 				axi_jesd204_rx_link_status_label[link_status] :
 				axi_jesd204_rx_link_status_64b66b_l[link_status];
+			unsigned int i;
 
 			dev_err(dev, "%s: Link%u status failed (%s)\n",
 				__func__, lnk->link_id, _status);
+
+			for (i = 0; i < lnk->num_lanes; i++) {
+				unsigned int lane_status = readl_relaxed(
+					jesd->base + JESD204_RX_REG_LANE_STATUS(i));
+				unsigned int lane_latency = readl_relaxed(
+					jesd->base + JESD204_RX_REG_LANE_LATENCY(i));
+				dev_info(dev, "  Lane%u: status=0x%08x latency=%u\n",
+					i, lane_status, lane_latency);
+			}
+
+			dev_info(dev, "  link_clk_ratio=0x%x device_clk_ratio=0x%x\n",
+				readl_relaxed(jesd->base + JESD204_RX_REG_LINK_CLK_RATIO),
+				readl_relaxed(jesd->base + JESD204_RX_REG_DEVICE_CLK_RATIO));
 
 			return JESD204_STATE_CHANGE_ERROR;
 		}

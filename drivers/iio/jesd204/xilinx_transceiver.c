@@ -152,6 +152,9 @@ static int xilinx_xcvr_gth3_configure_cdr(struct xilinx_xcvr *xcvr,
 	 * TODO: UltraScale FPGAs Transceivers Wizard should be used for
 	 *	 generating these settings
 	 */
+	dev_info(xcvr->dev,
+		 "GTH3/4 CDR configure: NO-OP (CDR params from synthesis only), drp_port=%u out_div=%u\n",
+		 drp_port, out_div);
 
 	return 0;
 }
@@ -560,6 +563,10 @@ int xilinx_xcvr_calc_qpll_config(struct xilinx_xcvr *xcvr,
 					if (out_div)
 						*out_div = d;
 
+					dev_info(xcvr->dev,
+						 "QPLL calc: refclk=%u kHz lane_rate=%u kHz => N=%u M=%u D=%u VCO=%u kHz band=%u\n",
+						 refclk_khz, lane_rate_khz, N[n], m, d, vco_freq, band);
+
 					return 0;
 				}
 
@@ -886,8 +893,8 @@ static int xilinx_xcvr_gth34_qpll_read_config(struct xilinx_xcvr *xcvr,
 
 	conf->band = 0;
 
-	dev_dbg(xcvr->dev, "qpll: fb_div=%d, qpll: refclk_div=%d\n",
-		conf->fb_div, conf->refclk_div);
+	dev_info(xcvr->dev, "QPLL DRP readback: fb_div=%d refclk_div=%d full_rate=%d drp_port=%u\n",
+		conf->fb_div, conf->refclk_div, conf->qty4_full_rate, drp_port);
 
 	return 0;
 }
@@ -1006,6 +1013,10 @@ static int xilinx_xcvr_gth34_qpll_write_config(struct xilinx_xcvr *xcvr,
 		return -EINVAL;
 	}
 
+
+	dev_info(xcvr->dev,
+		 "QPLL DRP write: port=%u FBDIV=%u(raw=%u) REFCLK_DIV=%u(raw=0x%x) sys_clk_sel=%u\n",
+		 drp_port, conf->fb_div, fbdiv, conf->refclk_div, refclk, sys_clk_sel);
 
 	ret = xilinx_xcvr_drp_update(xcvr, drp_port,
 			GTH34_QPLL_FBDIV(xcvr, sys_clk_sel), 0xff, fbdiv);
@@ -1142,8 +1153,15 @@ int xilinx_xcvr_qpll_calc_lane_rate(struct xilinx_xcvr *xcvr,
 		refclk_hz *= 2;
 
 	/* FIXME: do we need to use sys_clk_sel here ? */
-	return DIV_ROUND_CLOSEST_ULL((unsigned long long)refclk_hz * conf->fb_div,
+	{
+		unsigned long rate = DIV_ROUND_CLOSEST_ULL(
+			(unsigned long long)refclk_hz * conf->fb_div,
 			conf->refclk_div * out_div * 1000);
+		dev_info(xcvr->dev,
+			 "QPLL lane rate calc: refclk=%u Hz FBDIV=%u REFCLK_DIV=%u OUT_DIV=%u => %lu kHz\n",
+			 refclk_hz, conf->fb_div, conf->refclk_div, out_div, rate);
+		return rate;
+	}
 }
 EXPORT_SYMBOL_GPL(xilinx_xcvr_qpll_calc_lane_rate);
 

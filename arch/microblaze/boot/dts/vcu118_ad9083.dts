@@ -68,7 +68,7 @@
 		interrupt-parent = <&axi_intc>;
 		interrupts = <13 2>;
 
-		clocks = <&clk_bus_0>, <&ad9528 1>, <&axi_ad9083_adxcvr_rx 0>, <&rx_fixed_link_clk >;
+		clocks = <&clk_bus_0>, <&ad9528 1>, <&axi_ad9083_adxcvr_rx 0>, <&axi_ad9083_adxcvr_rx 1>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
 
 		#clock-cells = <0>;
