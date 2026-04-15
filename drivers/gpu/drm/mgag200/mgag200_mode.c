@@ -298,37 +298,11 @@ void mgag200_set_mode_regs(struct mga_device *mdev, const struct drm_display_mod
 	WREG8(MGA_MISC_OUT, misc);
 }
 
-static u8 mgag200_get_bpp_shift(const struct drm_format_info *format)
-{
-	static const u8 bpp_shift[] = {0, 1, 0, 2};
-
-	return bpp_shift[format->cpp[0] - 1];
-}
-
-/*
- * Calculates the HW offset value from the framebuffer's pitch. The
- * offset is a multiple of the pixel size and depends on the display
- * format.
- */
-static u32 mgag200_calculate_offset(struct mga_device *mdev,
-				    const struct drm_framebuffer *fb)
-{
-	u32 offset = fb->pitches[0] / fb->format->cpp[0];
-	u8 bppshift = mgag200_get_bpp_shift(fb->format);
-
-	if (fb->format->cpp[0] * 8 == 24)
-		offset = (offset * 3) >> (4 - bppshift);
-	else
-		offset = offset >> (4 - bppshift);
-
-	return offset;
-}
-
 static void mgag200_set_offset(struct mga_device *mdev,
 			       const struct drm_framebuffer *fb)
 {
 	u8 crtc13, crtcext0;
-	u32 offset = mgag200_calculate_offset(mdev, fb);
+	u32 offset = fb->pitches[0] / 16;
 
 	RREG_ECRT(0, crtcext0);
 
