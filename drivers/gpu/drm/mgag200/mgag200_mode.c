@@ -56,6 +56,9 @@ void mgag200_crtc_fill_gamma(struct mga_device *mdev,
 	struct drm_crtc *crtc = &mdev->crtc;
 
 	switch (format->format) {
+	case DRM_FORMAT_C8:
+		drm_crtc_fill_palette_8(crtc, mgag200_set_gamma_lut);
+		break;
 	case DRM_FORMAT_RGB565:
 		drm_crtc_fill_gamma_565(crtc, mgag200_set_gamma_lut);
 		break;
@@ -77,6 +80,9 @@ void mgag200_crtc_load_gamma(struct mga_device *mdev,
 	struct drm_crtc *crtc = &mdev->crtc;
 
 	switch (format->format) {
+	case DRM_FORMAT_C8:
+		drm_crtc_load_palette_8(crtc, lut, mgag200_set_gamma_lut);
+		break;
 	case DRM_FORMAT_RGB565:
 		drm_crtc_load_gamma_565_from_888(crtc, lut, mgag200_set_gamma_lut);
 		break;
@@ -438,6 +444,7 @@ const uint32_t mgag200_primary_plane_formats[] = {
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_RGB565,
 	DRM_FORMAT_RGB888,
+	DRM_FORMAT_C8,
 };
 
 const size_t mgag200_primary_plane_formats_size = ARRAY_SIZE(mgag200_primary_plane_formats);
