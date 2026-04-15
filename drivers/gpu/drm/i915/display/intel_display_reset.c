@@ -16,21 +16,23 @@
 #include "intel_hotplug.h"
 #include "intel_pps.h"
 
-bool intel_display_reset_test(struct intel_display *display)
+bool intel_display_reset_supported(struct intel_display *display)
 {
-	return display->params.force_reset_modeset_test;
+	return display && HAS_DISPLAY(display);
 }
 
-/* returns true if intel_display_reset_finish() needs to be called */
-bool intel_display_reset_prepare(struct intel_display *display,
+bool intel_display_reset_test(struct intel_display *display)
+{
+	return display && HAS_DISPLAY(display) &&
+		display->params.force_reset_modeset_test;
+}
+
+void intel_display_reset_prepare(struct intel_display *display,
 				 modeset_stuck_fn modeset_stuck, void *context)
 {
 	struct drm_modeset_acquire_ctx *ctx = &display->restore.reset_ctx;
 	struct drm_atomic_state *state;
 	int ret;
-
-	if (!HAS_DISPLAY(display))
-		return false;
 
 	if (atomic_read(&display->restore.pending_fb_pin)) {
 		drm_dbg_kms(display->drm,
@@ -60,7 +62,7 @@ bool intel_display_reset_prepare(struct intel_display *display,
 		ret = PTR_ERR(state);
 		drm_err(display->drm, "Duplicating state failed with %i\n",
 			ret);
-		return true;
+		return;
 	}
 
 	ret = drm_atomic_helper_disable_all(display->drm, ctx);
@@ -68,13 +70,11 @@ bool intel_display_reset_prepare(struct intel_display *display,
 		drm_err(display->drm, "Suspending crtc's failed with %i\n",
 			ret);
 		drm_atomic_state_put(state);
-		return true;
+		return;
 	}
 
 	display->restore.modeset_state = state;
 	state->acquire_ctx = ctx;
-
-	return true;
 }
 
 void intel_display_reset_finish(struct intel_display *display, bool test_only)
@@ -82,9 +82,6 @@ void intel_display_reset_finish(struct intel_display *display, bool test_only)
 	struct drm_modeset_acquire_ctx *ctx = &display->restore.reset_ctx;
 	struct drm_atomic_state *state;
 	int ret;
-
-	if (!HAS_DISPLAY(display))
-		return;
 
 	state = fetch_and_zero(&display->restore.modeset_state);
 	if (!state)
