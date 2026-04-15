@@ -434,30 +434,6 @@ _ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
 }
 
 enum nl80211_chan_width
-ieee80211_sta_cap_chan_bw(struct link_sta_info *link_sta)
-{
-	struct ieee80211_sta_vht_cap *vht_cap = &link_sta->pub->vht_cap;
-	u32 cap_width;
-
-	if (!vht_cap->vht_supported) {
-		if (!link_sta->pub->ht_cap.ht_supported)
-			return NL80211_CHAN_WIDTH_20_NOHT;
-
-		return link_sta->pub->ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40 ?
-				NL80211_CHAN_WIDTH_40 : NL80211_CHAN_WIDTH_20;
-	}
-
-	cap_width = vht_cap->cap & IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_MASK;
-
-	if (cap_width == IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ)
-		return NL80211_CHAN_WIDTH_160;
-	else if (cap_width == IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ)
-		return NL80211_CHAN_WIDTH_80P80;
-
-	return NL80211_CHAN_WIDTH_80;
-}
-
-enum nl80211_chan_width
 ieee80211_sta_rx_bw_to_chan_width(struct link_sta_info *link_sta)
 {
 	enum ieee80211_sta_rx_bandwidth cur_bw =
