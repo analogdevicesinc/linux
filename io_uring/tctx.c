@@ -171,7 +171,8 @@ int __io_uring_add_tctx_node(struct io_ring_ctx *ctx)
 	}
 	if (!current->io_uring) {
 err_free:
-		io_wq_put_and_exit(tctx->io_wq);
+		if (tctx->io_wq)
+			io_wq_put_and_exit(tctx->io_wq);
 		percpu_counter_destroy(&tctx->inflight);
 		kfree(tctx);
 	}
