@@ -4003,9 +4003,38 @@ static u32 ad9088_cfir_gain_enc(int val)
  *   1 bypasses the taps (scalar/gain path still applies per API).
  *
  * ``sparse_filt_en: <0|1>``
- *   ``cfir_sparse_filt_en``. Enables the sparse-coefficient variant of
- *   the FIR (coefficient memory is shared between taps via
- *   ``sparse_mem`` selectors - see ``adi_apollo_cfir_inspect_t``).
+ *   ``cfir_sparse_filt_en``. Enables sparse-FIR mode. The 16-tap CFIR is
+ *   virtually expanded across a 128-sample delay line: only 16 taps are
+ *   non-zero, but they can sit anywhere in the impulse response, which
+ *   lets the CFIR compensate long-delay echoes (cable reflections, etc.)
+ *   without spending silicon on more multipliers (UG sec.6357).
+ *
+ *   Internally, four 16-sample windows ("Dstore0/2/5/7") are tapped off
+ *   the delay line; per-tap ``hsel`` (0..63) picks one of those 64
+ *   samples to feed each non-zero tap. Dstore spacing is controlled by
+ *   the optional ``sparse_mem_sel`` directive below. Note the Dstore-gap
+ *   limitation from UG sec.6389: when the spacing makes Dstore samples
+ *   non-consecutive, hsel values 15/31/47/63 may be unusable (the
+ *   datapath needs x[k-1] to be available alongside x[k]).
+ *
+ *   ``sparse_filt_en: 1`` must appear **before** the coefficient block:
+ *   it switches the coefficient-line scanner from ``<i> <q>`` to
+ *   ``<hsel> <i> <q>`` (see "Coefficient lines" below). Sparse mode
+ *   also requires exactly ``ADI_APOLLO_CFIR_COEFF_NUM`` (16) entries.
+ *
+ * ``sparse_mem_sel: <m0> <m1> <m2>``
+ *   Optional. Three u8 values (each 0..3) controlling the offsets of
+ *   Dstore2/5/7 on the 128-sample sparse delay line. Offsets along the
+ *   line are:
+ *
+ *       Dstore0 offset = 0
+ *       Dstore2 offset = 16 * (m0 + 1)
+ *       Dstore5 offset = 16 * (m0 + m1 + 2)
+ *       Dstore7 offset = 16 * (m0 + m1 + m2 + 3)
+ *
+ *   Programmed via adi_apollo_cfir_sparse_mem_sel_pgm(). If omitted, the
+ *   existing HW/profile defaults are retained - matches the Apollo
+ *   ``fullchip_sparse_cfir`` example which only programs ``hsel``.
  *
  * ``32taps_en: <0|1>``
  *   ``cfir_32taps_en``. Reconfigures the hardware from the default
@@ -4040,11 +4069,19 @@ static u32 ad9088_cfir_gain_enc(int val)
  *     - ``trig_gpio``     - scheduled via GPIO trigger.
  *
  * Coefficient lines
- *   Any line that parses as ``<i> <q>`` (signed/hex integers accepted)
- *   after the directives above is consumed as the next complex tap.
- *   Values are truncated to u16 (Q1.15). Up to
- *   ``ADI_APOLLO_CFIR_COEFF_NUM`` (16) taps are accepted; more causes
- *   ``-EINVAL``. Programmed via adi_apollo_cfir_coeff_pgm().
+ *   Normal mode: any line that parses as ``<i> <q>`` (signed/hex
+ *   integers accepted) is consumed as the next complex tap. Values are
+ *   truncated to u16 (Q1.15). Up to ``ADI_APOLLO_CFIR_COEFF_NUM`` (16)
+ *   taps are accepted; more causes ``-EINVAL``. Programmed via
+ *   adi_apollo_cfir_coeff_pgm().
+ *
+ *   Sparse mode (active when ``sparse_filt_en: 1`` has already been
+ *   parsed): each coefficient line is ``<i> <q> <hsel>`` - the I/Q
+ *   columns stay in the same position as the non-sparse format, with
+ *   ``<hsel>`` (0..63, picks the source sample for this non-zero tap)
+ *   appended. Exactly 16 lines must be supplied. The ``hsel`` list is
+ *   programmed via adi_apollo_cfir_sparse_coeff_sel_pgm() and the I/Q
+ *   values through the same adi_apollo_cfir_coeff_pgm() call as above.
  *
  * Programming order
  *   After parsing, the function programs (in order): coefficients,
@@ -4054,7 +4091,7 @@ static u32 ad9088_cfir_gain_enc(int val)
  *   transfer to take effect across the digital clock domains), and
  *   finally applies the ``enable:`` directive if present.
  *
- * Example blob::
+ * Example blob (normal mode)::
  *
  *   # dual-profile RX CFIR on A0, datapath 0
  *   dest: rx cfir_a0 profile_all datapath_0
@@ -4070,6 +4107,21 @@ static u32 ad9088_cfir_gain_enc(int val)
  *   0x0000 0x0000
  *   ... (up to 16 I/Q pairs)
  *
+ * Example blob (sparse mode, stride-4 across the 64-slot delay line)::
+ *
+ *   dest: rx cfir_all profile_all datapath_all
+ *   gain: -6
+ *   bypass: 0
+ *   sparse_filt_en: 1
+ *   coeff_transfer: 1
+ *   # optional: sparse_mem_sel: 0 0 0
+ *   # <i> <q> <hsel>
+ *   0xF726 0x03AA 0x00
+ *   0xF29B 0xFEF1 0x04
+ *   0x0589 0x0365 0x08
+ *   ... (exactly 16 lines)
+ *   0xF726 0xFC55 0x3C
+ *
  * Return: @size on success (so write(2) reports all bytes consumed),
  * negative errno on a malformed blob or API failure.
  */
@@ -4082,6 +4134,8 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 	char *ptr = data;
 	u16 cfir_coeff_i[ADI_APOLLO_CFIR_COEFF_NUM];
 	u16 cfir_coeff_q[ADI_APOLLO_CFIR_COEFF_NUM];
+	u16 sparse_hsel[ADI_APOLLO_CFIR_COEFF_NUM];
+	u8 sparse_mem_sel[ADI_APOLLO_CFIR_MEM_SEL_NUM];
 	u32 enable;
 	s32 sval_i, sval_q, gain_db, enable_profile, selection_mode, gain = 0;
 	adi_apollo_terminal_e terminal;
@@ -4281,14 +4335,64 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 			}
 		}
 
-		ret = sscanf(line, "%i %i", &sval_i, &sval_q);
-		if (ret == 2) {
-			if (i >= ADI_APOLLO_CFIR_COEFF_NUM)
-				return -EINVAL;
+		if (~read_mask & BIT(9)) {
+			u32 m0, m1, m2;
 
-			cfir_coeff_i[i] = (u16)sval_i;
-			cfir_coeff_q[i++] = (u16)sval_q;
-			continue;
+			/* sparse_mem_sel: 3 values, each 0..3. Controls the
+			 * spacing between the Dstore0/2/5/7 taps on the sparse
+			 * filter's 128-sample delay line (see UG sec.6357).
+			 */
+			ret = sscanf(line, "sparse_mem_sel: %i %i %i", &m0, &m1, &m2);
+			if (ret == 3) {
+				if (m0 > 3 || m1 > 3 || m2 > 3) {
+					dev_err(dev,
+						"sparse_mem_sel out of range: %u %u %u (each 0..3)\n",
+						m0, m1, m2);
+					goto out;
+				}
+				sparse_mem_sel[0] = m0;
+				sparse_mem_sel[1] = m1;
+				sparse_mem_sel[2] = m2;
+				read_mask |= BIT(9);
+				continue;
+			}
+		}
+
+		if (cfir_pgm.cfir_sparse_filt_en) {
+			u32 hsel;
+
+			/* In sparse mode each coefficient line is "<i> <q> <hsel>":
+			 * I/Q columns stay in the same position as the non-sparse
+			 * format, with hsel (0..63) appended. hsel picks one of
+			 * the 64 available sparse-input slots (Dstore0/2/5/7 x 16
+			 * samples) for this non-zero tap. Requires sparse_filt_en: 1
+			 * to appear before the coeff block.
+			 */
+			ret = sscanf(line, "%i %i %i", &sval_i, &sval_q, &hsel);
+			if (ret == 3) {
+				if (i >= ADI_APOLLO_CFIR_COEFF_NUM)
+					return -EINVAL;
+				if (hsel > 63) {
+					dev_err(dev,
+						"sparse coeff[%d]: hsel=%u out of range (0..63)\n",
+						i, hsel);
+					goto out;
+				}
+				sparse_hsel[i] = hsel;
+				cfir_coeff_i[i] = (u16)sval_i;
+				cfir_coeff_q[i++] = (u16)sval_q;
+				continue;
+			}
+		} else {
+			ret = sscanf(line, "%i %i", &sval_i, &sval_q);
+			if (ret == 2) {
+				if (i >= ADI_APOLLO_CFIR_COEFF_NUM)
+					return -EINVAL;
+
+				cfir_coeff_i[i] = (u16)sval_i;
+				cfir_coeff_q[i++] = (u16)sval_q;
+				continue;
+			}
 		}
 	}
 
@@ -4302,6 +4406,13 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 		goto out;
 	}
 
+	if (cfir_pgm.cfir_sparse_filt_en && i != ADI_APOLLO_CFIR_COEFF_NUM) {
+		dev_err(dev,
+			"sparse mode requires exactly %u coefficients, got %d\n",
+			ADI_APOLLO_CFIR_COEFF_NUM, i);
+		goto out;
+	}
+
 	for (j = 0; j < i; j++)
 		dev_dbg(dev, "0x%X\t0x%X\n", cfir_coeff_i[j], cfir_coeff_q[j]);
 
@@ -4309,6 +4420,29 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 					cfir_coeff_i, cfir_coeff_q, i);
 	if (ret < 0)
 		goto out1;
+
+	if (cfir_pgm.cfir_sparse_filt_en) {
+		for (j = 0; j < ADI_APOLLO_CFIR_COEFF_NUM; j++)
+			dev_dbg(dev, "hsel[%d]=0x%02X\n", j, sparse_hsel[j]);
+
+		ret = adi_apollo_cfir_sparse_coeff_sel_pgm(&phy->ad9088, terminal, cfir_sel,
+							   profile_sel, dp_sel,
+							   sparse_hsel,
+							   ADI_APOLLO_CFIR_COEFF_NUM);
+		if (ret < 0)
+			goto out1;
+
+		if (read_mask & BIT(9)) {
+			dev_dbg(dev, "sparse_mem_sel: %u %u %u\n",
+				sparse_mem_sel[0], sparse_mem_sel[1], sparse_mem_sel[2]);
+			ret = adi_apollo_cfir_sparse_mem_sel_pgm(&phy->ad9088, terminal,
+								 cfir_sel, profile_sel,
+								 dp_sel, sparse_mem_sel,
+								 ADI_APOLLO_CFIR_MEM_SEL_NUM);
+			if (ret < 0)
+				goto out1;
+		}
+	}
 
 	if (read_mask & BIT(2)) {
 		dev_dbg(dev, "scalar_i: %d scalar_q: %d\n", scalar_i, scalar_q);
