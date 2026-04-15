@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADRV904X RF Transceiver
+ *
+ * Copyright 2020-2026 Analog Devices Inc.
+ *
+ */
+
+#include <linux/spi/spi.h>
+#include <linux/err.h>
+
+#include <linux/iio/iio.h>
+
+#include <linux/clk.h>
+
+#include "adrv904x.h"
+
+#include "../../adc/cf_axi_adc.h"
+
+#define AIM_CHAN(_chan, _mod, _si, _bits, _sign)                                   \
+	{                                                                          \
+		.type = IIO_VOLTAGE, .indexed = 1, .modified = 1,                  \
+		.channel = _chan, .channel2 = _mod,                                \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) |              \
+				      BIT(IIO_CHAN_INFO_CALIBBIAS) |               \
+				      BIT(IIO_CHAN_INFO_CALIBPHASE),               \
+		.info_mask_shared_by_type = BIT(                                   \
+			IIO_CHAN_INFO_SAMP_FREQ), /*.ext_info = axiadc_ext_info,*/ \
+			.scan_index = _si,                                         \
+		.scan_type = {                                                     \
+			.sign = _sign,                                             \
+			.realbits = _bits,                                         \
+			.storagebits = 16,                                         \
+			.shift = 0,                                                \
+		},                                                                 \
+	}
+
+#define AIM_MC_CHAN(_chan, _si, _bits, _sign)                                  \
+	{                                                                      \
+		.type = IIO_VOLTAGE, .indexed = 1, .channel = _chan,           \
+		.scan_index = _si,                                             \
+		.scan_type = {                                                 \
+			.sign = _sign,                                         \
+			.realbits = _bits,                                     \
+			.storagebits = 16,                                     \
+			.shift = 0,                                            \
+		},                                                             \
+	}
+
+static const struct axiadc_chip_info adrv9040_axiadc_chip_info = {
+	.name = "ADRV904X",
+	.max_rate = 245760000,
+	.max_testmode = 0,
+	.num_channels = 16,
+	.channel[0] = AIM_CHAN(0, IIO_MOD_I, 0, 16, 'S'),
+	.channel[1] = AIM_CHAN(0, IIO_MOD_Q, 1, 16, 'S'),
+	.channel[2] = AIM_CHAN(1, IIO_MOD_I, 2, 16, 'S'),
+	.channel[3] = AIM_CHAN(1, IIO_MOD_Q, 3, 16, 'S'),
+	.channel[4] = AIM_CHAN(2, IIO_MOD_I, 4, 16, 'S'),
+	.channel[5] = AIM_CHAN(2, IIO_MOD_Q, 5, 16, 'S'),
+	.channel[6] = AIM_CHAN(3, IIO_MOD_I, 6, 16, 'S'),
+	.channel[7] = AIM_CHAN(3, IIO_MOD_Q, 7, 16, 'S'),
+	.channel[8] = AIM_CHAN(4, IIO_MOD_I, 8, 16, 'S'),
+	.channel[9] = AIM_CHAN(4, IIO_MOD_Q, 9, 16, 'S'),
+	.channel[10] = AIM_CHAN(5, IIO_MOD_I, 10, 16, 'S'),
+	.channel[11] = AIM_CHAN(5, IIO_MOD_Q, 11, 16, 'S'),
+	.channel[12] = AIM_CHAN(6, IIO_MOD_I, 12, 16, 'S'),
+	.channel[13] = AIM_CHAN(6, IIO_MOD_Q, 13, 16, 'S'),
+	.channel[14] = AIM_CHAN(7, IIO_MOD_I, 14, 16, 'S'),
+	.channel[15] = AIM_CHAN(7, IIO_MOD_Q, 15, 16, 'S'),
+};
+
+static int adrv904x_read_raw(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan, int *val,
+			     int *val2, long m)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+
+	switch (m) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (!conv->clk)
+			return -ENODEV;
+
+		*val = conv->adc_clk = clk_get_rate(conv->clk);
+
+		return IIO_VAL_INT;
+	}
+	return -EINVAL;
+}
+
+static int adrv904x_write_raw(struct iio_dev *indio_dev,
+			      struct iio_chan_spec const *chan, int val,
+			      int val2, long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return -ENODEV;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int adrv904x_post_setup(struct iio_dev *indio_dev)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+
+	unsigned int tmp, num_chan;
+	int i;
+
+	num_chan = conv->chip_info->num_channels;
+
+	conv->indio_dev = indio_dev;
+	axiadc_write(st, ADI_REG_CNTRL, 0);
+	tmp = axiadc_read(st, 0x4048);
+
+	tmp &= ~BIT(5);
+	axiadc_write(st, 0x4048, tmp);
+	axiadc_write(st, 0x404c, 3); /* RATE */
+
+	for (i = 0; i < num_chan; i++) {
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_1(i), ADI_DCFILT_OFFSET(0));
+		axiadc_write(st, ADI_REG_CHAN_CNTRL_2(i),
+			     (i & 1) ? 0x00004000 : 0x40000000);
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(i),
+			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE |
+				     ADI_ENABLE | ADI_IQCOR_ENB);
+	}
+
+	return 0;
+}
+
+int adrv904x_register_axi_converter(struct adrv904x_rf_phy *phy)
+{
+	struct axiadc_converter *conv;
+	struct spi_device *spi = phy->spi;
+
+	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
+	if (!conv)
+		return -ENOMEM;
+
+	conv->chip_info = &adrv9040_axiadc_chip_info;
+	conv->write_raw = adrv904x_write_raw;
+	conv->read_raw = adrv904x_read_raw;
+	conv->post_setup = adrv904x_post_setup;
+	conv->spi = spi;
+	conv->phy = phy;
+
+	conv->clk = phy->clks[RX_SAMPL_CLK];
+	conv->adc_clk = clk_get_rate(conv->clk);
+
+	spi_set_drvdata(spi, conv); /* Take care here */
+
+	return 0;
+}
