@@ -1,0 +1,566 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/adau1381
+
+.. _adau1381:
+
+ADAU1781
+========
+
+ADAU1781 Sound CODEC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADAU1381`
+- :adi:`ADAU1781`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-ADAU1381Z`
+- :adi:`EVAL-ADAU1781Z`
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adau1781.c>`__
+     - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adau1781.c>`__
+     -
+     -
+
+Files
+^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `sound/soc/codecs/adau1781.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adau1781.c>`__
+   * - driver
+     - `sound/soc/codecs/adau17x1.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adau17x1.c>`__
+   * - include
+     - `sound/soc/codecs/adau1781.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adau1781.h>`__
+   * - include
+     - `include/sound/adau17x1.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/sound/adau17x1.h>`__
+
+Example device initialization
+-----------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+I2C
+~~~
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-i2c-devices
+   :end-before: .. end-declaring-i2c-devices
+
+The I2C device id depends on the ADDR0 and ADDR1 pin settings and needs to be
+set according to your board setup.
+
+.. list-table::
+   :header-rows: 1
+
+   * - ADDR1
+     - ADDR0
+     - I2C device id
+   * - 0
+     - 0
+     - 0x38
+   * - 0
+     - 1
+     - 0x39
+   * - 1
+     - 0
+     - 0x3a
+   * - 1
+     - 1
+     - 0x3b
+
+In this example we assume ADDR0=0 and ADDR1=0.
+
+.. code:: c
+
+   static struct i2c_board_info __initdata bfin_i2c_board_info[] = {
+
+       [--snip--]
+       {
+           I2C_BOARD_INFO("adau1781", 0x38),
+       },
+       [--snip--]
+   }
+
+.. code:: c
+
+   static int __init stamp_init(void)
+   {
+       [--snip--]
+       i2c_register_board_info(0, bfin_i2c_board_info,
+                   ARRAY_SIZE(bfin_i2c_board_info));
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+ASoC DAPM Widgets
+~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - AOUTL
+     - Left Lineout Amplifier
+   * - AOUTR
+     - Right Lineout Amplifier
+   * - SP
+     - Speaker Amplifier
+   * - BEEP
+     - Beep Signal Input
+   * - LMIC
+     - Left Microphone Input or Digital Microphone Input 1
+   * - RMIC
+     - Right Microphone Input or Digital Microphone Input 2
+   * - MICBIAS
+     - Bias Voltage for Electret Microphone
+
+ALSA Controls
+~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - ADC High Pass Filter Switch
+     - Enable/Disable ADC high-pass-filter
+   * - Playback De-emphasis
+     - Enable/Disable Playback de-empahsis
+   * - Capture Boost
+     - Mixer amplifier bias boost
+       Valid values: ``Normal operation``, ``Boost Level 1``, ``Boost Level 2``,
+       ``Boost Level 3``
+   * - Mic Bias Mode
+     - Microphone bias.
+       Valid values: ``Normal operation``, ``High performance``
+   * - DAC Mono Stereo
+     - DAC mono mode.
+       Valid values: ``Stereo``, ``Mono Left Channel (L+R)``, ``Mono Right
+       Channel (L+R)``, ``Mono (L+R)``
+   * - DSP Bypass Capture Switch
+     - Bypass DSP on the capture path and send ADC data directly to the serial
+       ports
+   * - DSP Bypass Playback Switch
+     - Bypass DSP on the playback path and send serial port data directly to the
+       DACs
+   * - Digital Capture Volume
+     - Digital volume attenuation for input from either the ADC or the digital
+       microphone input.
+   * - Digital Playback Volume
+     - Digital volume attenuation for output from the DAC
+   * - Beep Capture Volume
+     - Beep input signal gain
+   * - Beep Capture Switch
+     - Mute/Unmute Beep input signal
+   * - PGA Capture Volume
+     - Analog Microphone input PGA Gain
+   * - PGA Capture Switch
+     - Mute/Unmute Analog Microphone input
+   * - Lineout Playback Switch
+     - Mute/Unmute Lineout
+   * - Beep ZC Switch
+     - Enable Beep Zero Cross Detection
+   * - Mono Playback Switch
+     - Mute/Unmute Mono(Speaker) output
+   * - Mono Playback Volume
+     - Mono(Speaker) output gain
+   * - ADC Bias
+     - ADC bias.
+       Valid values: ``Normal operation``, ``Extreme powersaving``, ``Enhanced
+       performance``, ``Power saving``
+   * - DAC Bias
+     - DAC bias.
+       Valid values: ``Normal operation``, ``Extreme powersaving``, ``Enhanced
+       performance``, ``Power saving``
+   * - Capture Bias
+     - Record path bias.
+       Valid values: ``Normal operation``, ``Extreme powersaving``, ``Enhanced
+       performance``, ``Power saving``
+   * - Playback Bias
+     - Playback path bias.
+       Valid values: ``Normal operation``, ``Extreme powersaving``, ``Enhanced
+       performance``, ``Power saving``
+   * - Speaker Bias
+     - Headphone bias.
+       Valid values: ``Normal operation``, ``Enhanced performance``, ``Power
+       saving``
+   * - Mono Mixer Left Switch
+     - Mix Left DAC signal into the Mono Mixer
+   * - Mono Mixer Right Switch
+     - Mix Right DAC signal into the Mono Mixer
+   * - Mono Mixer Beep Playback Volume
+     - Beep signal gain into the Mono Mixer
+   * - Right Lineout Mixer Switch
+     - Mix Right DAC signal into the Right Lineout Mixer
+   * - Right Lineout Mixer Beep Playback Volume
+     - Beep signal gain into the Right Lineout Mixer
+   * - Left Lineout Mixer Switch
+     - Mix Left DAC signal into the Left Lineout Mixer
+   * - Left Lineout Mixer Beep Playback Volume
+     - Beep signal gain into the Left Lineout Mixer
+
+PLL configuration
+~~~~~~~~~~~~~~~~~
+
+The ADAU1781 features one PLL:
+
+.. code:: c
+
+   enum adau17x1_pll {
+       ADAU17X1_PLL
+   };
+
+The PLL input signal is the MCLK signal.
+
+.. code:: c
+
+   enum adau1xx1_pll_src {
+       ADAU1XX1_PLL_SRC_MCLK,
+   };
+
+(The input frequency must configured to be between 8000000 and 27000000 Hz (8MHz
+- 27MHz). The output frequency must be configured to be between 45158000 and
+49152000. Configuring the PLL with other input or output frequency will fail.)
+
+The PLL runs at 1024 times the base sample rate. So for a 48000 Hz based sample
+rate you’d normally choose 49152000 Hz for the PLL output frequncey and for a
+44100 Hz based sample rate 45158400 Hz.
+
+DAI configuration
+~~~~~~~~~~~~~~~~~
+
+The codec driver registers one DAI: **adau-hifi**
+
+Supported DAI formats
+^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Supported by driver
+     - Description
+   * - SND_SOC_DAIFMT_I2S
+     - yes
+     - I2S mode
+   * - SND_SOC_DAIFMT_RIGHT_J
+     - yes
+     - Right Justified mode
+   * - SND_SOC_DAIFMT_LEFT_J
+     - yes
+     - Left Justified mode
+   * - SND_SOC_DAIFMT_DSP_A
+     - yes
+     - data MSB after FRM LRC
+   * - SND_SOC_DAIFMT_DSP_B
+     - yes
+     - data MSB during FRM LRC
+   * - SND_SOC_DAIFMT_AC97
+     - no
+     - AC97 mode
+   * - SND_SOC_DAIFMT_PDM
+     - no
+     - Pulse density modulation
+   * -
+     -
+     -
+   * - SND_SOC_DAIFMT_NB_NF
+     - yes
+     - Normal bit- and frameclock
+   * - SND_SOC_DAIFMT_NB_IF
+     - yes
+     - Normal bitclock, inverted frameclock
+   * - SND_SOC_DAIFMT_IB_NF
+     - yes
+     - Inverted frameclock, normal bitclock
+   * - SND_SOC_DAIFMT_IB_IF
+     - yes
+     - Inverted bit- and frameclock
+   * -
+     -
+     -
+   * - SND_SOC_DAIFMT_CBM_CFM
+     - yes
+     - Codec bit- and frameclock master
+   * - SND_SOC_DAIFMT_CBS_CFM
+     - no
+     - Codec bitclock slave, frameclock master
+   * - SND_SOC_DAIFMT_CBM_CFS
+     - no
+     - Codec bitclock master, frameclock slave
+   * - SND_SOC_DAIFMT_CBS_CFS
+     - yes
+     - Codec bit- and frameclock slave
+
+DAI sysclk
+^^^^^^^^^^
+
+The DAIs can either use the PLL or the MCLK signal as source.
+
+When using the PLL the DAIs rate should be set to the rate of the PLL. When
+using MCLK the rate should be set to frequency of the external MCLK signal.
+
+.. code:: c
+
+   enum adau17x1_clk_src {
+       ADAU17X1_CLK_SRC_MCLK,
+       ADAU17X1_CLK_SRC_PLL,
+   };
+
+When using the MCLK as the DAI source it is possible to use an internal
+prescaler to divide the signals frequency. Valid divider values are 1, 2, 3 and
+4.
+
+Example clock divider configuration:
+
+.. code:: c
+
+   ret = snd_soc_dai_set_clkdiv(codec_dai, 0, 4);
+
+Example DAI configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code:: c
+
+   static int bfin_eval_adau1x81_hw_params(struct snd_pcm_substream *substream,
+       struct snd_pcm_hw_params *params)
+   {
+       struct snd_soc_pcm_runtime *rtd = substream->private_data;
+       struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+       struct snd_soc_dai *codec_dai = rtd->codec_dai;
+       int pll_rate;
+       int ret;
+
+       ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_I2S |
+               SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBM_CFM);
+       if (ret)
+           return ret;
+
+       ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_I2S |
+               SND_SOC_DAIFMT_NB_NF | SND_SOC_DAIFMT_CBM_CFM);
+       if (ret)
+           return ret;
+
+       switch (params_rate(params)) {
+       case 48000:
+       case 8000:
+       case 12000:
+       case 16000:
+       case 24000:
+       case 32000:
+           pll_rate = 48000 * 1024;
+           break;
+       case 44100:
+       case 7350:
+       case 11025:
+       case 14700:
+       case 22050:
+       case 29400:
+           pll_rate = 44100 * 1024;
+           break;
+       default:
+           return -EINVAL;
+       }
+
+       ret = snd_soc_dai_set_pll(codec_dai, ADAU17X1_PLL,
+               ADAU17X1_PLL_SRC_MCLK, 12288000, pll_rate);
+       if (ret)
+           return ret;
+
+       ret = snd_soc_dai_set_sysclk(codec_dai, ADAU17X1_CLK_SRC_PLL, pll_rate,
+               SND_SOC_CLOCK_IN);
+
+       return ret;
+   }
+
+   static struct snd_soc_ops bfin_eval_adau1x81_ops = {
+       .hw_params = bfin_eval_adau1x81_hw_params,
+   };
+
+   static struct snd_soc_dai_link bfin_eval_adau1x81_dai = {
+       .name = "adau1x81",
+       .stream_name = "ADAU1X81",
+       .cpu_dai_name = "bfin-i2s.0",
+       .codec_dai_name = "adau-hifi",
+       .platform_name = "bfin-i2s-pcm-audio",
+       .codec_name = "adau1781.0-0038",
+       .ops = &bfin_eval_adau1x81_ops,
+   };
+
+TDM configuration
+~~~~~~~~~~~~~~~~~
+
+The ADAU1381 and ADAU1781 chips have basic TDM support.
+
+- The number of slots can be either 2, 4 or 8.
+- The slot width can be 32, 64, 48, 128 or 256
+- The slot mask must be either 0x03 (slot 0 and 1), 0x0c (slot 2 and 3), 0x30
+  (slot 4 and 5), 0xc0 (slot 6 and 7)
+
+Example TDM configuration:
+
+.. code:: c
+
+   ret = snd_soc_dai_set_tdm_slot(codec_dai, 0x30, 0x0c, 8, 64);
+
+ADAU1X81 evaluation board driver
+--------------------------------
+
+There is no dedicated Blackfin STAMP evaluation board for the ADAU1381/ADAU1781.
+During test and driver development we used the
+:adi:`EVAL-ADAU1381Z`/:adi:`EVAL-ADAU1781Z`
+board.
+
+It can be easily wired to the Blackfin STAMP SPORT header.
+
+Source
+~~~~~~
+
+Status
+^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1x81.c>`__
+     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1x81.c>`__
+     -
+     -
+
+Files
+^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `sound/soc/blackfin/bfin-eval-adau1x81.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adau1x81.c>`__
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   Device Drivers  --->
+   [*] I2C support  --->
+   [*]   I2C Hardware Bus support  --->
+   ***     I2C system bus drivers (mostly embedded / system-on-chip) ***
+   <*>       Blackfin TWI I2C support
+   (100)     Blackfin TWI I2C clock (kHz)
+
+Enable ALSA SoC evaluation board driver:
+
+::
+
+   Device Drivers  --->
+   <M> Sound card support  --->
+   <M>   Advanced Linux Sound Architecture  --->
+   <M>     ALSA for SoC audio support  --->
+   <M>       Support for the EVAL-ADAU1X81 boards on Blackfin eval boards
+
+Hardware configuration
+~~~~~~~~~~~~~~~~~~~~~~
+
+Connect the STAMP SPORT 0 port (P6) to the EVAL-ADAU1X81 Control port(J1) and
+Serial Data Interface(J4) headers.
+
+Note that the SPORT has separate signals for the capture and playback clocks,
+while the ADAU1381/ADAU1781 uses the same clock signals for both, so the
+EVAL-ADAU1X81 clock signal pins need to be connected to two STAMP pins each.
+
+.. list-table::
+   :header-rows: 1
+
+   * - STAMP pin
+     - EVAL-ADAU1X81 pin
+     - Function
+   * - P6-26 (SPORT 0 - PJ2_SCL)
+     - J1-1
+     - I2C SCL
+   * - P6-24 (SPORT 0 - PJ3_SDA)
+     - J1-3
+     - I2C SDA
+   * - P6-6 (SPORT 0 - PJ9_TSCLK0), P6-16 (SPORT 0 - PJ6_RSCLK0)
+     - J4-7
+     - BCLK
+   * - P6-11 (SPORT 0 - PJ10_TFS0), P6-7 (SPORT 0 - PJ7_RFS0)
+     - J4-5
+     - LRCLK
+   * - P6-8 (SPORT 0 - PJ8_DR0PRI)
+     - J4-9
+     - Captrue data
+   * - P6-14 (SPORT 0 - PJ11_DT0PRI
+     - J4-11
+     - Playback data
+   * - P6-33
+     - J4-2
+     - GND
+
+Driver testing
+~~~~~~~~~~~~~~
+
+Load the driver and make sure the sound card is properly instantiated.
+
+::
+
+   root:/> modprobe snd-bf5xx-i2s
+   root:/> modprobe snd-soc-bf5xx-i2s
+   root:/> modprobe snd-soc-adau1781
+   root:/> modprobe snd-soc-bfin-eval-adau1x81
+   bfin-i2s bfin-i2s.0: dma rx:3 tx:4, err irq:45, regs:ffc00800
+   dma_alloc_init: dma_page @ 0x02791000 - 256 pages at 0x03f00000
+   asoc: adau-hifi <-> bfin-i2s.0 mapping ok
+   ALSA device list:
+     #0: bfin-eval-adau1x81
+
+::
+
+   root:/> modprobe snd-pcm-oss
+   root:/> tone
+   TONE: generating sine wave at 1000 Hz...
+
+   root:/> arecord -f cd | aplay
+   Recording WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
+   Playing WAVE 'stdin' : Signed 16 bit Little Endian, Rate 44100 Hz, Stereo
+
+More information
+~~~~~~~~~~~~~~~~
+
+- :dokuwiki:`SigmaStudio <resources/tools-software/sigmastudio>`
+- :dokuwiki:`SigmaDSP Firmware Utility for Linux <resources/tools-software/linux-software/sigmadsp_genfirmware>`
+- :dokuwiki:`SigmaStudio Network Utility for Linux <resources/tools-software/linux-software/sigmatcp>`
+
+.. include:: /include/need-help.rst
+   :start-after: .. start-need-help
+   :end-before: .. end-need-help

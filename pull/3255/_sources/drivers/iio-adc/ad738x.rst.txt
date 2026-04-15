@@ -1,0 +1,492 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad738x
+
+.. _ad738x:
+
+AD738x
+======
+
+AD738x IIO Dual Channel Serial ADC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD7380`
+- :adi:`AD7381`
+- :adi:`AD7383`
+- :adi:`AD7384`
+- :adi:`AD7386`
+- :adi:`AD7387`
+- :adi:`AD7388`
+- :adi:`AD7380-4`
+- :adi:`AD7381-4`
+- :adi:`AD7383-4`
+- :adi:`AD7384-4`
+- :adi:`AD7386-4`
+- :adi:`AD7387-4`
+- :adi:`AD7388-4`
+- :adi:`AD7389-4`
+- :adi:`ADAQ4370-4`
+- :adi:`ADAQ4380-4`
+- :adi:`ADAQ4381-4`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD738xFMCZ`
+- :adi:`EVAL-ADAQ4370-4`
+- :adi:`EVAL-ADAQ4380-4`
+- :adi:`EVAL-ADAQ4381-4`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting dual or quad channel serial interface ADCs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+   * - :git+linux:`git <drivers:iio/adc/ad738x.c>`
+     - Yes
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - `drivers/iio/adc/ad7380.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7380.c>`__
+     -
+   * - devicetree bindings
+     - `Documentation/devicetree/bindings/iio/adc/adi,ad7380.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad7380.yaml>`__
+     -
+   * - documentation
+     - `Documentation/iio/ad7380.rst <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/iio/ad7380.rst>`__ (`html <https://docs.kernel.org/iio/ad7380.html>`__)
+     -
+
+Devicetree
+----------
+
+The devicetree (:linux.github:``.dts`` file) describes how the chip is wired up.
+A complete example
+`devicetree for EVAL-AD7380FMCZ evaluation board <main/arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7380.dts>`
+can be found in the ADI Linux source code. This can be adapted for other
+evaluation boards by changing the ``compatible`` property.
+
+If you change any jumpers on the evaluation board or modify the HDL project, you
+may need to update the ``.dts`` file to reflect the changes in wiring.
+
+SPI Bus
+~~~~~~~
+
+The ADC is represented by a child node of the SPI controller that the ADC is
+attached to. The ``compatible`` property indicates which specific chip is being
+used. The ``reg`` property indicates the chip select line of the SPI controller
+that is being used.
+
+::
+
+   spi@44a00000 {
+       compatible = "adi,axi-spi-engine-1.00.a";
+       ...
+
+       adc@0 {
+           compatible = "adi,ad7380";
+           reg = <0>;
+           ...
+
+       };
+   };
+
+If the specific application has wiring that can’t handle the max SPI SCLK rate
+for the ADC chip, a lower max rate can be specified, otherwise use the max rate
+from the datasheet (which may be different for some chips).
+
+The ``spi-cpol`` flags also need to be set to ensure the correct settings for
+the clock polarity.
+
+::
+
+   spi-max-frequency = <80000000>; /* 12.5 ns period */
+   spi-cpol;
+
+Currently, the mainline Linux kernel doesn‘t support one SDO line of the chip.
+The ADI Linux kernel does support this. In this case you will need to add a
+’‘adi,num-sdi’’ property that corresponds to the ``NUM_OF_SDI`` compile option
+that was used when compiling the FPGA bitstream from the
+`AD738x-FMC HDL project <https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/index.html>`__.
+
+::
+
+   adi,num-sdi = <2>;
+
+Power supplies
+~~~~~~~~~~~~~~
+
+Power supplies should be described. Typically these will link to a ``compatible
+= ``regulator-fixed``;`` node describing the power supply. See the full example
+devictree linked above for the complete example. These need to reflect what is
+actually wired to the chip. For the FMCZ evaluation board, this is the default:
+
+::
+
+   vcc-supply = <&eval_u2>;
+   vlogic-supply = <&eval_u6>;
+
+Reference supplies
+~~~~~~~~~~~~~~~~~~
+
+The default of the evaluation boards is to use a 3.3V external reference wired
+to the REFIO pin. This is described with:
+
+::
+
+   refio-supply = <&eval_u3>;
+
+To use the internal reference instead, omit this property.
+
+AD7380-4 and the ADAQ chips are an exception. They have an internal reference,
+but still requires an extra supply that is connected to the REFIN pin.
+
+::
+
+   refin-supply = <&eval_u3>;
+
+AD7389-4 is another exception. It only has an internal reference, so both
+properties are always omitted.
+
+Common mode supplies
+~~~~~~~~~~~~~~~~~~~~
+
+Some chips in this series are pseudo-differential ADCs. In this case, a voltage
+supply is needed for each negative input on the chip.
+
+::
+
+   aina-supply = <&signal_generator_1>;
+   ainb-supply = <&signal_generator_2>;
+
+These properties are omitted on single-ended and fully differential chips.
+
+Additional properties
+~~~~~~~~~~~~~~~~~~~~~
+
+The ``interrupts`` property for the ALERT signals is not currently supported in
+the Linux driver.
+
+ADAQ chips have a resistor network for each input that determines the amplifier
+gain. These are specified using channel properties. The ``mili`` in the property
+name means it is the gain multiplied by 1000. So a gain of 0.3 would be written
+as ``300`` as in the example below. If any channel is omitted, the gain for that
+channel is assumed to be 1.0.
+
+::
+
+   #address-cells = <1>;
+   #size-cells = <0>;
+
+   channel@0 {
+       reg = <0>;
+       adi,gain-milli = /bits/ 16 <300>;
+   };
+
+Driver testing
+--------------
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+
+   root:/sys/bus/iio/devices> cd iio\:device0
+
+   root:/sys/bus/iio/devices/iio:device0> ls -l
+   drwxr-xr-x 2 root root    0 Sep 12 20:11 buffer
+   -r--r--r-- 1 root root 4096 Sep 12 20:11 dev
+   -rw-r--r-- 1 root root 4096 Sep 12 20:11 in_voltage0_raw
+   -rw-r--r-- 1 root root 4096 Sep 12 20:11 in_voltage1_raw
+   -rw-r--r-- 1 root root 4096 Sep 12 20:11 in_voltage_scale
+   -r--r--r-- 1 root root 4096 Sep 12 20:11 name
+   lrwxrwxrwx 1 root root    0 Sep 12 20:11 of_node -> ../../../../../../../../firmware/devicetree/base/soc/spi@7e204000/ad738x@0
+   drwxr-xr-x 2 root root    0 Sep 12 20:11 power
+   drwxr-xr-x 2 root root    0 Sep 12 20:11 scan_elements
+   lrwxrwxrwx 1 root root    0 Sep 12 20:11 subsystem -> ../../../../../../../../bus/iio
+   drwxr-xr-x 2 root root    0 Sep 12 20:11 trigger
+   -rw-r--r-- 1 root root 4096 Sep 12 20:11 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat name
+   ad7380
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to in_voltage0_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage_scale
+   0.076293945
+
+Show offset
+'''''''''''
+
+**Description:** offset to be applied to in_voltage0_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_offset
+   32768
+
+This attribute only applies to pseduo-differential chips and will not be present
+on single-ended or fully differential chips. The value comes from the
+``inx-supply`` voltage.
+
+Show channel 0 measurement
+''''''''''''''''''''''''''
+
+**Description:** Raw unscaled voltage measurement on channel 0
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_raw
+   28583
+
+**U** = *in_voltage0_raw \* in_voltage_scale* = 28583 \* 0.076293945 = **2180.70
+mV**
+
+.. _ad738x trigger-management:
+
+Trigger management
+~~~~~~~~~~~~~~~~~~
+
+This driver can be used in two different ways. In order to be able to achieve
+the maximum sample rate (e.g. 4 MSPS), it needs to be used with a specialized
+SPI controller that supports offloading. And example of such a SPI controller
+can be found in the
+`example AD738x-FMC HDL project <https://analogdevicesinc.github.io/hdl/projects/ad738x_fmc/index.html>`__.
+It can also be used with conventional SPI controllers, but sampling rate will be
+limited by the software and hardware capabilities of the system it is running
+on.
+
+SPI offload trigger
+^^^^^^^^^^^^^^^^^^^
+
+When using this chip with a SPI controller with offload capabilities, there will
+be ``in_voltage_sampling_frequency`` and
+``in_voltage_sampling_frequency_available`` attributes on the IIO device. The
+``in_voltage_sampling_frequency`` attribute will control the frequency of the
+hardware trigger, e.g. a PWM output. The
+``in_voltage_sampling_frequency_available`` can be used to obtain the maximum
+sample rate (datasheet value).
+
+No manual setup of the trigger is needed other than setting the desired sample
+rate.
+
+.. important::
+
+   There is a quirk with single-ended chips. Due to the MUX to switch between
+   banks of inputs, the effective sample rate is 1/2 of the
+   ``in_voltage_sampling_frequency`` value when all channels are enabled at the
+   same time in a buffered read. If only 1/2 of the channels are enabled, the
+   MUX doesn‘t have to switch and the effective sample rate will match
+   ’‘in_voltage_sampling_frequency’’.
+
+Conventional IIO trigger
+''''''''''''''''''''''''
+
+If deviceX supports triggered sampling, it’s a so called trigger consumer and
+there will be an additional folder /sys/bus/iio/device/iio:deviceX/trigger. In
+this folder there is a file called current_trigger, allowing controlling and
+viewing the current trigger source connected to deviceX. Available trigger
+sources can be identified by reading the name file
+/sys/bus/iio/devices/triggerY/name. The same trigger source can connect to
+multiple devices, so a single trigger may initialize data capture or reading
+from a number of sensors, converters, etc.
+
+This driver uses **high resolution timers** as interrupt source
+
+**Description:** Hrtimer triggers creation and destruction
+
+Loading iio-trig-hrtimer module will register hrtimer trigger types allowing
+users to create hrtimer triggers:
+
+::
+
+   root:/sys/kernel/config/iio/triggers/hrtimer/> mkdir trigger0
+
+**Description:** Read name of trigger0
+
+::
+
+   root:/sys/bus/iio/devices/trigger0/> cat name
+   trigger0
+
+**Description:** Configure the sampling frequency of trigger0
+
+::
+
+   root:/sys/bus/iio/devices/trigger0/> echo 500 > sampling_frequency
+   trigger0
+
+**Description:** Make trigger0 to current trigger of device0
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0/> echo trigger0 > trigger/current_trigger
+
+**Description:** Read current trigger source of device0
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0/trigger> cat current_trigger
+   trigger0
+
+Buffer management
+~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0/buffer> ls
+   enable          length                   watermark
+   root:/sys/bus/iio/devices/iio:device0/buffer>
+
+Every buffer implementation features a set of files:
+
+**length** Get/set the number of sample sets that may be held by the buffer.
+
+**enable** Enables/disables the buffer. This file should be written last, after
+length and selection of scan elements
+
+**scan_elements** The scan_elements directory contains interfaces for elements
+that will be captured for a single triggered sample set in the buffer.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0/scan_elements> ls
+   in_voltage0_en  in_voltage0_index  in_voltage0_type  in_voltage1_en  in_voltage1_index  in_voltage1_type
+   root:/sys/bus/iio/devices/iio:device0/scan_elements>
+
+.. important::
+
+   When using the driver with SPI offloading, **all** channels must be enabled
+   for buffered reads, otherwise enabling the buffer will fail with an error.
+
+   There is one exception to this for single-ended chips. Since there is a MUX,
+   enabling 1/2 of the channels is also permitted as long as all of the enabled
+   channels have the same MUX position (the first contiguous 1/2 or the last
+   contiguous 1/2).
+
+.. tip::
+
+   When using SPI offloading, the software timestamp attributes will not be
+   present. This is due to having a hardware trigger in this case vs. a software
+   trigger.
+
+**in_voltageX_en / in_voltageX-voltageY_en / timestamp_en:** Scan element
+control for triggered data capture. Writing 1 will enable the scan element,
+writing 0 will disable it
+
+**in_voltageX_type / in_voltageX-voltageY_type / timestamp_type:** Description
+of the scan element data storage within the buffer and therefore in the form in
+which it is read from user-space. Form is [s|u]bits/storage-bits. s or u
+specifies if signed (2’s complement) or unsigned. bits is the number of bits of
+data and storage-bits is the space (after padding) that it occupies in the
+buffer. Note that some devices will have additional information in the unused
+bits so to get a clean value, the bits value must be used to mask the buffer
+output value appropriately. The storage-bits value also specifies the data
+alignment. So u12/16 will be a unsigned 12 bit integer stored in a 16 bit
+location aligned to a 16 bit boundary. For other storage combinations this
+attribute will be extended appropriately.
+
+**in_voltageX_index / in_voltageX-voltageY_index / timestamp_index:** A single
+positive integer specifying the position of this scan element in the buffer.
+Note these are not dependent on what is enabled and may not be contiguous. Thus
+for user-space to establish the full layout these must be used in conjunction
+with all \_en attributes to establish which channels are present, and the
+relevant \_type attributes to establish the data storage format.
+
+Oversampling
+~~~~~~~~~~~~
+
+This family of chips has two types of oversampling/averaging built into the
+hardware, *Normal average oversampling* and *rolling average oversampling*.
+
+Using rolling average oversampling is not supported in the Linux driver. Instead
+the data read can be averaged in software to achieve the same result.
+
+Normal averaging oversampling is supported via the
+``in_voltage_oversampling_ratio`` and
+``in_voltage_oversampling_ratio_available`` attributes.
+
+The latter can be read to get a list of supported values.
+
+::
+
+   $ cat in_voltage_oversampling_ratio_available
+   1 2 4 8 16 32
+
+Writing a value greater than 1 to ``in_voltage_oversampling_ratio`` will enable
+oversampling and writing ``1`` will disable oversampling.
+
+When oversampling is enabled, the resolution boost feature of the chip is also
+turned on.
+
+.. important::
+
+   The resolution boost changes the ``scan_type`` for buffered reads. Older
+   versions of ``libiio`` do not expect this to change. So you may need restart
+   ``iiod``, for example, in order for it to pick up the change after
+   oversampling is enabled. Otherwise it could misinterpret the data it is
+   reading thinking it has a different binary format.
+
+Alert output
+~~~~~~~~~~~~
+
+The thresholds that drive the ALERT output on the chip are accessed via the
+``events/in_thresh_falling_value`` (low) and ``events/in_thresh_falling_value``
+(high) attributes.
+
+These values are in raw units, so to set a specific voltage, the values of the
+``scale`` attribute (and ``offset`` if present) needs to be taken into account.
+
+For example, if the reference voltage is 3.3V, the scale will be 0.050354003
+which makes the default rising threshold 32768 \* 0.050354003 = 1650 mV.
+
+The ``events/thresh_either_en`` attribute is used to enable or disable the
+/ALERT output pin on the chip. (If all SDO lines are being used, this will have
+no effect.)
+
+Reading events via the ``/dev/iio:deviceX`` character device is not implemented
+in the driver.
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

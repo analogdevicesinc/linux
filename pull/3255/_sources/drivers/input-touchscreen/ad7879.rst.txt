@@ -1,0 +1,576 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/input-touchscreen/ad7879
+
+.. _ad7879:
+
+AD7879
+======
+
+AD7879 Input Touch Screen Digitizer Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD7879`
+- :adi:`AD7879-1 <AD7879>`
+- :adi:`AD7889`
+- :adi:`AD7889-1 <AD7889>`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD7879EBZ`
+- :adi:`EVAL-AD7879-1EBZ`
+
+Description
+-----------
+
+The AD7879/AD7889 is a 12-bit successive approximation ADC with a synchronous
+serial interface and low on-resistance switches for driving 4-wire resistive
+touch screens. The AD7879 works with a very low power supply, a single 1.6 V to
+3.6V, and features throughput rates of 105 kSPS.
+
+The device includes a shutdown mode, which reduces its current consumption to
+less than 5 uA.
+
+To reduce the effects of noise from LCDs and other sources, the AD7879 contains
+a preprocessing block. The preprocessing function consists of a median and an
+averaging filter. The combination of these two techniques provides a more robust
+solution, discarding the spurious noise in the signal and keeping only the data
+of interest. The size of both filters is programmable. Other user-programmable
+conversion controls include variable acquisition time, and first conversion
+delay. Up to 16 averages can be taken per conversion. The AD7879 can run in
+either slave or stand-alone mode, using an automatic conversion sequencer and
+timer.
+
+.. figure:: https://wiki.analog.com/_media/software/driver/linux/ad7879_filter_example.png
+   :width: 500px
+
+The AD7879 has a programmable pin that can operate as either an auxiliary input
+to the ADC, as a battery monitor, or as a GPIO. There is a programmable
+interrupt output which can operate in three modes, as a general purpose
+interrupt to signal when new data is available INT, as an interrupt to indicate
+when limits are exceeded, or as a pen down interrupt when the screen is touched,
+PENIRQ. The AD7879 offers temperature and touch-pressure measurement.
+
+It is available in various packages. It has either an*\* SPI (AD7879)(AD7889)*\*
+or **I2C (AD7879-1)(AD7889-1)** interface.
+
+*See also:* `tslib - Touchscreen Access Library <https://github.com/libts/tslib>`__
+
+*See also:* :ref:`ad7877`
+
+Configuration
+-------------
+
+**AD7879-1/AD7889-1 I2C Device Address options:**
+
+.. list-table::
+   :header-rows: 1
+
+   * - ADD1
+     - ADD0
+     - I2C Address
+   * - 0
+     - 0
+     - 0x2C
+   * - 0
+     - 1
+     - 0x2D
+   * - 1
+     - 0
+     - 0x2E
+   * - 1
+     - 1
+     - 0x2F
+
+Software configurable features
+------------------------------
+
+**Software configurable:**
+
+- First Conversion Delay (128us..4.096ms in steps up 128us)
+- Acquisition Time (2us, 4us, 8us, 16us)
+- Average Filter (2,4,8,16)
+- Median Filter (0,4,8,16)
+- Pen Down Acquisition Interval Timer (550us..9.44ms in steps of 35us)
+- Auxiliary GPIO can be exported to GPIOLIB, and therefore used system-wide
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/input/touchscreen/ad7879.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c>`__
+   * - i2c bus support
+     - `drivers/input/touchscreen/ad7879-i2c.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879-i2c.c>`__
+   * - spi bus support
+     - `drivers/input/touchscreen/ad7879-spi.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879-spi.c>`__
+   * - include
+     - `include/linux/spi/ad7879.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/spi/ad7879.h>`__
+
+Example platform device initialization
+--------------------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+Touchscreen characteristics vary between boards and models. The platform_data
+for the device’s ``struct device`` holds this information.
+
+<source trunk/include/linux/spi/ad7879.h c linux-kernel>
+
+Example Platform / Board file (SPI Interface Version)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+These snippets are all from the same file.
+``arch/blackfin/mach-bf537/boards/stamp.c``:
+
+.. code:: C
+
+   #include <linux/spi/ad7879.h>
+
+   static const struct ad7879_platform_data bfin_ad7879_ts_info = {
+       .model          = 7879, /* Model = AD7879 */
+       .x_plate_ohms       = 620,  /* 620 Ohm from the touch datasheet */
+       .pressure_max       = 10000,
+       .pressure_min       = 0,
+       .first_conversion_delay = 3,    /* wait 512us before do a first conversion */
+       .acquisition_time   = 1,    /* 4us acquisition time per sample */
+       .median         = 2,    /* do 8 measurements */
+       .averaging      = 1,    /* take the average of 4 middle samples */
+       .pen_down_acc_interval  = 255,  /* 9.4 ms */
+       .gpio_export        = 1,    /* Export GPIO to gpiolib */
+       .gpio_base      = -1,   /* Dynamic allocation */
+   };
+
+.. code:: C
+
+   static struct spi_board_info bfin_spi_board_info[] __initdata = {
+   #if defined(CONFIG_TOUCHSCREEN_AD7879_SPI) || defined(CONFIG_TOUCHSCREEN_AD7879_SPI_MODULE)
+       {
+           .modalias = "ad7879",
+           .platform_data = &bfin_ad7879_ts_info,
+           .irq = IRQ_PF7,
+           .max_speed_hz = 5000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = 1,
+           .controller_data = &spi_ad7879_chip_info, /* only needed on Blackfin */
+           .mode = SPI_CPHA | SPI_CPOL,
+       },
+   #endif
+   };
+
+Example Platform / Board file (I2C Interface Version)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-i2c-devices
+   :end-before: .. end-declaring-i2c-devices
+
+.. code:: C
+
+   #include <linux/spi/ad7879.h>
+
+   static const struct ad7879_platform_data bfin_ad7879_ts_info = {
+       .model          = 7879, /* Model = AD7879 */
+       .x_plate_ohms       = 620,  /* 620 Ohm from the touch datasheet */
+       .pressure_max       = 10000,
+       .pressure_min       = 0,
+       .first_conversion_delay = 3,    /* wait 512us before do a first conversion */
+       .acquisition_time   = 1,    /* 4us acquisition time per sample */
+       .median         = 2,    /* do 8 measurements */
+       .averaging      = 1,    /* take the average of 4 middle samples */
+       .pen_down_acc_interval  = 255,  /* 9.4 ms */
+       .gpio_export        = 1,    /* Export GPIO to gpiolib */
+       .gpio_base      = -1,   /* Dynamic allocation */
+   };
+
+.. code:: C
+
+   static struct i2c_board_info __initdata bfin_i2c_board_info[] = {
+   #if defined(CONFIG_TOUCHSCREEN_AD7879_I2C) || defined(CONFIG_TOUCHSCREEN_AD7879_I2C_MODULE)
+       {
+           I2C_BOARD_INFO("ad7879", 0x2F),
+           .irq = IRQ_PG5,
+           .platform_data = (void *)&bfin_ad7879_ts_info,
+       },
+   #endif
+   }
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7879 Driver depends on **CONFIG_SPI** or **CONFIG_I2C**
+
+::
+
+   Input device support
+     -*- Generic input layer (needed for keyboard, mouse, ...)
+     < >   Support for memoryless force-feedback devices
+     < >   Polled input device skeleton
+     < >   Sparse keymap support library
+           *** Userland interfaces ***
+     < >   Mouse interface
+     < >   Joystick interface
+     <*>   Event interface
+     < >   Event debugging
+           *** Input Device Drivers ***
+     [ ]   Keyboards  --->
+     [ ]   Mice  --->
+     [ ]   Joysticks/Gamepads  --->
+     [ ]   Tablets  --->
+     [*]   Touchscreens  --->
+
+        --- Touchscreens
+        < >   ADS7846/TSC2046/AD7873 and AD(S)7843 based touchscreens (NEW)
+        < >   AD7877 based touchscreens
+        <*>   Analog Devices AD7879-1/AD7889-1 touchscreen interface (NEW)
+           <*>     support I2C bus connection
+           < >     support SPI bus connection (NEW)
+
+     [ ]   Miscellaneous devices  --->
+         Hardware I/O ports  --->
+
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/software/driver/linux/ad7879_example_schematic.png
+   :width: 800px
+
+Driver testing
+--------------
+
+Driver compiled as a module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:~> modprobe evdev
+   root:~> modprobe ad7879
+   input: AD7879 Touchscreen as /class/input/input0
+   ad7879 spi0.1: touchscreen, irq 57
+
+Driver compiled into the kernel
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Your kernel startup messages should include something like this
+
+::
+
+   input: AD7879 Touchscreen as /class/input/input0
+   ad7879 spi0.1: touchscreen, irq 57
+
+Common Problems
+~~~~~~~~~~~~~~~
+
+In case you see a message like this
+
+::
+
+   spi0.1: Failed to probe AD7879 Touchscreen
+
+This means that the SPI communication and initialization with the AD7879
+touchscreen controller/digitizer failed. **check bus_num and chip_select in your
+platform device file**
+
+Checking for proper installation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+After the kernel boot your device folder should include at least one device node
+for the touchscreen
+
+::
+
+   root:/> ls -al /dev/input/
+   drw-r--r--    2 root     root            0 Jan  1 00:03 .
+   drwxr-xr-x    5 root     root            0 Jan  1 00:03 ..
+   crw-rw-r--    1 root     root      13,  64 Jan  1 00:03 event0
+   crw-rw-r--    1 root     root      13,  65 Jan  1 00:03 event1
+   crw-rw-r--    1 root     root      13,  66 Jan  1 00:03 event2
+   root:/>
+
+Check that the interrupt is registered.
+
+::
+
+   root:~> cat /proc/interrupts | grep ad7879
+   57:          0   ad7879
+
+::
+
+   root:~> cat /sys/class/input/input0/name
+   AD7879 Touchscreen
+
+Use the event_test utility to test proper function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/> event_test /dev/input/event0
+   Input driver version is 1.0.0
+   Input device ID: bus 0x0 vendor 0x0 product 0x0 version 0x0
+   Input device name: "AD7879 Touchscreen"
+   Supported events:
+     Event type 0 (Sync)
+     Event type 1 (Key)
+       Event code 330 (Touch)
+     Event type 3 (Absolute)
+       Event code 0 (X)
+         Value   1268
+         Min        0
+         Max     4095
+       Event code 1 (Y)
+         Value   1250
+         Min        0
+         Max     4095
+       Event code 24 (Pressure)
+         Value      0
+         Min        0
+         Max    10000
+   Testing ... (interrupt to exit)
+   Event: time 67435.364000, type 1 (Key), code 330 (Touch), value 1
+   Event: time 67435.364000, type 3 (Absolute), code 0 (X), value 1624
+   Event: time 67435.364000, type 3 (Absolute), code 1 (Y), value 1514
+   Event: time 67435.364000, type 3 (Absolute), code 24 (Pressure), value 349
+   Event: time 67435.364000, -------------- Report Sync ------------
+   Event: time 67435.408000, type 3 (Absolute), code 0 (X), value 1626
+   Event: time 67435.408000, type 3 (Absolute), code 1 (Y), value 1516
+   Event: time 67435.408000, type 3 (Absolute), code 24 (Pressure), value 342
+   Event: time 67435.408000, -------------- Report Sync ------------
+   Event: time 67435.452000, type 3 (Absolute), code 1 (Y), value 1514
+   Event: time 67435.452000, type 3 (Absolute), code 24 (Pressure), value 339
+   Event: time 67435.452000, -------------- Report Sync ------------
+   Event: time 67435.496000, type 3 (Absolute), code 0 (X), value 1625
+   Event: time 67435.496000, type 3 (Absolute), code 24 (Pressure), value 343
+   Event: time 67435.496000, -------------- Report Sync ------------
+   Event: time 67435.596000, type 3 (Absolute), code 24 (Pressure), value 0
+   Event: time 67435.596000, type 1 (Key), code 330 (Touch), value 0
+   Event: time 67435.596000, -------------- Report Sync ------------
+
+.. tip::
+
+   In case you touch the surface and don’t receive events, it’s likely that
+   something with your /DAV Interrupt is wrong. **check irq number in your
+   platform device file**
+
+.. tip::
+
+   In case you get a message like: ``evtest: No such device``, it’s likely that
+   you have not install the necessary modules
+
+::
+
+   root:/> cat /proc/interrupts
+     6:       7898   Blackfin Core Timer
+    10:          1   rtc-bfin
+    18:          0   BFIN_UART_RX
+    19:        105   BFIN_UART_TX
+    24:         77   EMAC_RX
+    42:          0   PPI ERROR
+    57:        168   ad7879
+   Err:          0
+   root:/>
+
+Find Input by name
+~~~~~~~~~~~~~~~~~~
+
+In case you like to find out which input/event interface is connected to your
+touchscreen, use the sysfs entries
+
+::
+
+   root:/sys/class/input> for i in `find /sys/class/input/ -name name` ; do echo -n %%"$i : "%%; cat $i; done
+   ./input2/name : Logitech USB Receive
+   ./input1/name : Logitech USB Receiver
+   ./input0/name : AD7879 Touchscreen
+
+Under the device folder there are auxiliary functions such as GPIO and disable controls
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/> cd sys/class/input/input0/device/
+   root:/sys/devices/platform/bfin-spi.0/spi0.1> ls -al
+   drwxr-xr-x    3 root     root            0 Jan  3 13:02 .
+   drwxr-xr-x    5 root     root            0 Jan  3 13:02 ..
+   lrwxrwxrwx    1 root     root            0 Jan  3 13:04 bus -> ../../../../bus/spi
+   -rw-rw-r--    1 root     root         4096 Jan  3 13:04 disable
+   lrwxrwxrwx    1 root     root            0 Jan  3 13:04 driver -> ../../../../bus/spi/drivers/ad7879
+   -rw-rw-r--    1 root     root         4096 Jan  3 13:04 gpio
+   lrwxrwxrwx    1 root     root            0 Jan  3 13:04 input:input0 -> ../../../../class/input/input0
+   -r--r--r--    1 root     root         4096 Jan  3 13:04 modalias
+   drwxr-xr-x    2 root     root            0 Jan  3 13:04 power
+   lrwxrwxrwx    1 root     root            0 Jan  3 13:04 subsystem -> ../../../../bus/spi
+   -rw-r--r--    1 root     root         4096 Jan  3 13:04 uevent
+   root:/sys/devices/platform/bfin-spi.0/spi0.1> cat gpio
+   0
+   root:/sys/devices/platform/bfin-spi.0/spi0.1> echo 1 > gpio
+   root:/sys/devices/platform/bfin-spi.0/spi0.1> cat gpio
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi0.1>
+
+Touchscreen calibration
+~~~~~~~~~~~~~~~~~~~~~~~
+
+See the `tslib - Touchscreen Access Library <https://github.com/libts/tslib>`__
+page for more information.
+
+Using the AD7879 in Microwin / Nano-X
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+User Configuration
+^^^^^^^^^^^^^^^^^^
+
+- Enable Microwin during Customize Application/Library Settings
+- Manually edit user/microwin/src/config
+
+*Enable:* **AD7877MOUSE = Y**
+
+*Disable:* **NOMOUSE = N**
+
+Testing and Calibration
+^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root:/> nano-X &
+   210
+   root:/> nanowm &
+   211
+   root:/> nxcal <-- TS Calibration Utility
+   root:/> nxeyes
+
+Nanox with tslib
+^^^^^^^^^^^^^^^^
+
+For kernel after 2.6.22, ``/dev/input/ts\*`` interface has been deprecated in
+linux. Nanox need to use tslib for touchscreen. To enable:
+
+::
+
+   ####################################################################
+   # Mouse drivers
+   # GPMMOUSE      gpm mouse
+   # SERMOUSE      serial Microsoft, PC, Logitech, PS/2 mice (/dev/psaux)
+   # SUNMOUSE      Sun Workstation mouse (/dev/sunmouse)
+   # NOMOUSE       no mouse driver
+   #
+   # Touchscreen drivers
+   # IPAQMOUSE     Compaq iPAQ, Intel Assabet (/dev/h3600_tsraw)
+   # ZAURUSMOUSE   Sharp Zaurus (/dev/sharp_ts)
+   # TUXMOUSE      TuxScreen (/dev/ucb1x00-ts)
+   # ADSMOUSE      Applied Data Systems GC+ (/dev/ts)
+   # ADS7846MOUSE          ADS7846 chip, PSI OMAP Innovator (/dev/innnovator_ts)
+   # EPMOUSE       Embedded Planet (/dev/tpanel)
+   # VHMOUSE       Vtech Helio (/dev/tpanel)
+   # MTMOUSE       MicroTouch serial (/dev/ttyS1)
+   # PSIONMOUSE    Psion 5 (/dev/touch_psion)
+   # YOPYMOUSE     Yopy (/dev/yopy-ts)
+   # HARRIERMOUSE  NEC Harrier (/dev/tpanel)
+   # AD7877MOUSE   Analog Devices AD7877/9 Touch Screen Digitizer (/dev/ts0)
+   # TSLIBMOUSE    Common touchscreen driver using tslib
+   ####################################################################
+   GPMMOUSE                 = N
+   SERMOUSE                 = N
+   SUNMOUSE                 = N
+   IPAQMOUSE                = N
+   ZAURUSMOUSE              = N
+   TUXMOUSE                 = N
+   ADSMOUSE                 = N
+   ADS7846MOUSE             = N
+   EPMOUSE                  = N
+   VHMOUSE                  = N
+   MTMOUSE                  = N
+   PSIONMOUSE               = N
+   YOPYMOUSE                = N
+   HARRIERMOUSE             = N
+   LIRCMOUSE                = N
+   AD7879MOUSE              = N
+   TSLIBMOUSE               = Y
+   NOMOUSE                  = N
+
+Before start nano-x, need to set up
+`tslib - Touchscreen Access Library <https://github.com/libts/tslib>`__ first
+(including running ts_calibrate):
+
+::
+
+   root:/> . /etc/tslib.env
+   root:/> ts_calibrate
+   root:/> nano-X &
+   root:/> nanowm &
+
+Example Links Graphical Browser
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Enable Links
+^^^^^^^^^^^^
+
+::
+
+   Network Applications
+       [*] links (web browswer)
+
+Start Links
+^^^^^^^^^^^
+
+::
+
+   root:/> links -g http://uclinux.org
+
+      ~~~~~~~~~~~~~~~~~~~~~~~~~~| DirectFB 1.2.3 |~~~~~~~~~~~~~~~~~~~~~~~~~~
+           (c) 2001-2008  The world wide DirectFB Open Source Community
+           (c) 2000-2004  Convergence (integrated media) GmbH
+         ----------------------------------------------------------------
+
+   (*) DirectFB/Core: Single Application Core. (2008-10-08 07:38)
+   (*) Direct/Thread: Started 'VT Switcher' (235) [CRITICAL OTHER/OTHER 0/0] <12288>...
+   (*) Direct/Thread: Started 'Keyboard Input' (236) [INPUT OTHER/OTHER 0/0] <12288>...
+   (*) DirectFB/Input: Keyboard 0.9 (directfb.org)
+   (*) Direct/Thread: Started 'tslib Input' (237) [INPUT OTHER/OTHER 0/0] <12288>...
+   (*) DirectFB/Input: tslib touchscreen 0 0.1 (tslib)
+   (*) DirectFB/Graphics: Generic Software Rasterizer 0.6 (directfb.org)
+   (*) DirectFB/Core/WM: Default 0.3 (directfb.org)
+   (*) FBDev/Surface: Allocated 320x240 16 bit RGB16 buffer (index 0) at offset 0 and pitch 640.
+   (!) DirectFB/FBDev: Panning display failed (x=0 y=0 ywrap=0 vbl=1)!
+       --> Invalid argument
+
+Driver Source
+~~~~~~~~~~~~~
+
+Most people should not care about the driver source - it just works as a normal
+Linux input device. If you are interested, you can look at the driver source:
+
+:git+linux:`ad7879_report() <main:drivers/input/touchscreen/ad7879.c>`

@@ -1,0 +1,421 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5064
+
+.. _ad5064:
+
+AD5064
+======
+
+AD5064 IIO Quad-Channel DAC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD5024`
+- :adi:`AD5025`
+- :adi:`AD5044`
+- :adi:`AD5045`
+- :adi:`AD5064`
+- :adi:`AD5064-1 <AD5064>`
+- :adi:`AD5065`
+- :adi:`AD5625`, (Upstream v4.6+)
+- :adi:`AD5625R`, (Upstream v4.6+)
+- :adi:`AD5627`, (Upstream v4.6+)
+- :adi:`AD5627R`, (Upstream v4.6+)
+- :adi:`AD5628`
+- :adi:`AD5629R`
+- :adi:`AD5645R`, (Upstream v4.6+)
+- :adi:`AD5647R`, (Upstream v4.6+)
+- :adi:`AD5648`
+- :adi:`AD5665`, (Upstream v4.6+)
+- :adi:`AD5665R`, (Upstream v4.6+)
+- :adi:`AD5666`
+- :adi:`AD5667`, (Upstream v4.6+)
+- :adi:`AD5667R`, (Upstream v4.6+)
+- :adi:`AD5668`
+- :adi:`AD5669R`
+- :adi:`LTC2606`, (Upstream v4.5+)
+- :adi:`LTC2607`, (Upstream v4.5+)
+- :adi:`LTC2609`, (Upstream v4.5+)
+- :adi:`LTC2616`, (Upstream v4.5+)
+- :adi:`LTC2617`, (Upstream v4.5+)
+- :adi:`LTC2619`, (Upstream v4.5+)
+- :adi:`LTC2626`, (Upstream v4.5+)
+- :adi:`LTC2627`, (Upstream v4.5+)
+- :adi:`LTC2629`, (Upstream v4.5+)
+
+Reference Circuits
+------------------
+
+- :adi:`CN0182`
+- :adi:`CN0183`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD5064EBZ`
+- :adi:`EVAL-AD5064-1EBZ`
+- :adi:`EVAL-AD5629RSDZ`
+- :adi:`EVAL-AD5666EBZ`
+- :adi:`EVAL-AD5668SDRZ`
+- :adi:`EVAL-AD5668SDCZ`
+- :adi:`EVAL-AD5669RSDZ`
+- PMOD-DA4
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting multi-channel serial interface DACs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5064.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5064.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/dac/ad5064.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5064.c>`__
+
+Example platform device initialization
+--------------------------------------
+
+Specifying reference voltage via the regulator framework
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Below example specifies a 2.5 Volt reference for the SPI device 3 on SPI-Bus 0.
+(**spi0.3**) In this example all 4 reference voltage are supplied by the same
+regulator.
+
+.. code:: c
+
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+   static struct regulator_consumer_supply ad5064_consumer_supplies[] = {
+       REGULATOR_SUPPLY("vrefA", "spi0.3"),
+       REGULATOR_SUPPLY("vrefB", "spi0.3"),
+       REGULATOR_SUPPLY("vrefC", "spi0.3"),
+       REGULATOR_SUPPLY("vrefD", "spi0.3"),
+   };
+
+   static struct regulator_init_data stamp_avdd_reg_init_data = {
+       .constraints    = {
+           .name   = "2V5",
+           .valid_ops_mask = REGULATOR_CHANGE_STATUS,
+       },
+       .consumer_supplies = ad5624_consumer_supplies,
+       .num_consumer_supplies = ARRAY_SIZE(ad5624_consumer_supplies),
+   };
+
+   static struct fixed_voltage_config stamp_vdd_pdata = {
+       .supply_name    = "board-2V5",
+       .microvolts = 2500000,
+       .gpio       = -EINVAL,
+       .enabled_at_boot = 0,
+       .init_data  = &stamp_avdd_reg_init_data,
+   };
+   static struct platform_device brd_voltage_regulator = {
+       .name       = "reg-fixed-voltage",
+       .id     = -1,
+       .num_resources  = 0,
+       .dev        = {
+           .platform_data  = &stamp_vdd_pdata,
+       },
+   };
+   #endif
+
+.. code:: c
+
+   static struct platform_device *board_devices[] __initdata = {
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+       &brd_voltage_regulator
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       platform_add_devices(board_devices, ARRAY_SIZE(board_devices));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name. It may also required to adjust
+max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
+the device in question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_AD5064_SPI) || \
+       defined(CONFIG_AD5064_SPI_MODULE)
+       {
+           /* the modalias must be the same as spi device driver name */
+           .modalias = "ad5064", /* Name of spi_driver for this device */
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0, /* Framework bus number */
+           .chip_select = 3, /* Framework chip select */
+           .mode = SPI_MODE_1,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD5064 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Digital to analog converters  --->
+                   ...
+                   <*>  Analog Devices AD5064 and similar multi-channel DAC driver
+                   ...
+               ...
+           ...
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> ls -l
+   -r--r--r--    1 root     root          4096 Jan  1 03:29 dev
+   -r--r--r--    1 root     root          4096 Jan  1 03:29 name
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage0_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage0_powerdown_mode
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage0_raw
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage0_scale
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage1_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage1_powerdown_mode
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage1_raw
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage1_scale
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage2_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage2_powerdown_mode
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage2_raw
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage2_scale
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage3_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage3_powerdown_mode
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage3_raw
+   -rw-r--r--    1 root     root          4096 Jan  1 03:29 out_voltage3_scale
+   -r--r--r--    1 root     root          4096 Jan  1 03:29 out_voltage_powerdown_mode_available
+   drwxr-xr-x    2 root     root             0 Jan  3 16:50 power
+   lrwxrwxrwx    1 root     root             0 Jan  3 16:50 subsystem -> ../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  3 16:50 uevent
+
+The number of channels depends on the chip model.
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
+   ad5064
+
+Show scale
+^^^^^^^^^^
+
+| **Description:**
+| /sys/bus/iio/devices/iio:deviceX/out_voltageY_scale
+
+scale to be applied to out_voltage0_raw in order to obtain the measured voltage
+in millivolts.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage0_scale
+   0.038140
+
+Set channel Y output voltage
+''''''''''''''''''''''''''''
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
+
+Raw (unscaled, no bias etc.) output voltage for channel Y.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 10000 > out_voltage0_raw
+
+**U** = *out_voltage0_raw \* out_voltage0_scale* = 10000 \* 0,038140 *mV* =
+**381,14 mV**
+
+List available power down modes
+'''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode_available
+
+**Description:** Lists all available output power down modes.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_powerdown_mode_available
+   1kohm_to_gnd 100kohm_to_gnd three_state
+
+Set power down mode
+'''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode
+
+**Description:** Specifies the output power down mode. DAC output stage is
+disconnected from the amplifier and
+
+.. list-table::
+
+   * - 1kohm_to_gnd
+     - connected to ground via an 1kOhm resistor
+   * - 100kohm_to_gnd
+     - connected to ground via an 100kOhm resistor
+   * - three_state
+     - left floating
+
+For a list of available output power down options read
+out_voltage_powerdown_mode_available.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo three_state > out_voltage_powerdown_mode
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_powerdown_mode
+   three_state
+
+Enable power down mode on output Y
+''''''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
+
+**Description:** Writing 1 causes output Y to enter the power down mode
+specified by the corresponding out_voltageY_powerdown_mode. Clearing returns to
+normal operation.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 1 > out_voltage0_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage0_powerdown
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 0 > out_voltage0_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage0_powerdown
+   0
+
+PMOD-DA4
+~~~~~~~~
+
+The PMOD-DA4 is a PMOD board made by Digilent Inc. which features the AD5628
+
+The following example shows how to connect the PMOD-DA4 to a Blackfin
+BF537-STAMP board.
+
+Hardware configuration
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dac/pmodda4.jpg
+   :width: 300px
+
+.. list-table::
+   :header-rows: 1
+
+   * - BF537-STAMP (P9) SPI header
+     -
+     - PMOD-DA4
+     -
+   * - PIN
+     - Function
+     - PIN
+     - Function
+   * - 2
+     - (+3.3V)
+     - 6
+     - VDD
+   * - 5
+     - SPI_MOSI
+     - 2
+     - DIN
+   * - 8
+     - SPI_SCK
+     - 4
+     - SCLK
+   * - 10
+     - SPI_SS
+     - 1
+     - SYNC
+   * - 20
+     - GND
+     - 5
+     - GND
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

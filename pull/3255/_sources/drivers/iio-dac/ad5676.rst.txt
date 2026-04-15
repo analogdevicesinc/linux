@@ -1,0 +1,404 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5676
+
+.. _ad5676:
+
+AD5676
+======
+
+AD5676 nanoDAC+ IIO DAC Linux Driver.
+
+Supported Devices
+-----------------
+
+This driver supports the
+
+- :adi:`AD5310R`
+- :adi:`AD5311R`
+- :adi:`AD5671R`
+- :adi:`AD5672R`
+- :adi:`AD5673R`
+- :adi:`AD5674R`
+- :adi:`AD5675R`
+- :adi:`AD5676`
+- :adi:`AD5676R`
+- :adi:`AD5677R`
+- :adi:`AD5679R`
+- :adi:`AD5683R`
+- :adi:`AD5684R`
+- :adi:`AD5685R`
+- :adi:`AD5686`
+- :adi:`AD5686R`
+- :adi:`AD5691R`
+- :adi:`AD5692R`
+- :adi:`AD5693`
+- :adi:`AD5693R`
+- :adi:`AD5694`
+- :adi:`AD5694R`
+- :adi:`AD5695R`
+- :adi:`AD5696`
+- :adi:`AD5696R`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0229`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD5677RSDZ`
+- :adi:`EVAL-AD5679RSDZ`
+- :adi:`EVAL-AD5683RSDZ`
+- :adi:`EVAL-AD5684RSDZ`
+- :adi:`EVAL-AD5686RSDZ`
+- :adi:`EVAL-AD5693RSDZ`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting multi-channel serial interface DACs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - :git+linux:`git <main:drivers/iio/dac/+>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - :git+linux:`main:drivers/iio/dac/ad5686.c`
+   * - driver
+     - :git+linux:`main:drivers/iio/dac/ad5686.h`
+   * - driver
+     - :git+linux:`main:drivers/iio/dac/ad5686-spi.c`
+   * - driver
+     - :git+linux:`main:drivers/iio/dac/ad5696-i2c.c`
+
+Devicetree
+~~~~~~~~~~
+
+Required devicetree properties for spi devices:
+
+- compatible: Needs to be the name of the device. E.g. ``ad5676``
+- reg: The chipselect number used for the device
+- spi-max-frequency: Maximum SPI clock frequency.
+- spi-cpol: Needs to be set for the correct SPI mode
+- vcc-supply: Phandle to the fixed regulator
+- interrupts: the interrupt used for buffer sampling
+- pwms: pwm pin used as the interrupt source
+
+::
+
+   adc_vref: fixedregulator@0 {
+       compatible = "regulator-fixed";
+       regulator-name = "fixed-supply";
+       regulator-min-microvolt = <2500000>;
+       regulator-max-microvolt = <2500000>;
+       regulator-boot-on;
+   };
+
+   #address-cells = <1>;
+   #size-cells = <0>;
+   status = "okay";
+
+   ad5676@0 {
+       compatible = "ad5676";
+       reg = <0>;
+       spi-max-frequency = <1000000>;
+       spi-cpha;
+       vcc-supply = <&adc_vref>;
+
+       interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+       interrupt-parent = <&gpio>;
+
+       pwms = <&pwm 0 100>;
+       pwm-names = "pwm-trigger";
+   };
+
+Required devicetree properties for i2c devices:
+
+- compatible: Needs to be the name of the device. E.g. ``AD5696``
+- reg: The chipselect number used for the device
+- vcc-supply: Phandle to the fixed regulator
+- interrupts: the interrupt used for buffer sampling
+- pwms: pwm pin used as the interrupt source
+
+::
+
+   adc_vref: fixedregulator@0 {
+       compatible = "regulator-fixed";
+       regulator-name = "fixed-supply";
+       regulator-min-microvolt = <2500000>;
+       regulator-max-microvolt = <2500000>;
+       regulator-boot-on;
+   };
+
+   #address-cells = <1>;
+   #size-cells = <0>;
+   status = "okay";
+
+   ad5696@e {
+       compatible = "ad5696";
+       reg = <0xe>;
+       vcc-supply = <&adc_vref>;
+
+       interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+       interrupt-parent = <&gpio>;
+
+       pwms = <&pwm 0 100>;
+       pwm-names = "pwm-trigger";
+   };
+
+Driver testing
+--------------
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+
+   root:/sys/bus/iio/devices> cd iio\:device0
+
+   root:/sys/bus/iio/devices/iio:device0> ls -l
+   drwxr-xr-x 2 root root    0 Jul 31 15:17 buffer
+   -r--r--r-- 1 root root 4096 Jul 31 15:17 dev
+   -r--r--r-- 1 root root 4096 Jul 31 15:17 name
+   lrwxrwxrwx 1 root root    0 Jul 31 15:17 of_node -> ../../../../../../../../firmware/devicetree/base/soc/spi@7e204000/ad5679r@0
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage0_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage0_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage0_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage10_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage10_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage10_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage11_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage11_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage11_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage12_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage12_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage12_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage13_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage13_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage13_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage14_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage14_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage14_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage15_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage15_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage15_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage1_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage1_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage1_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage2_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage2_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage2_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage3_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage3_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage3_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage4_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage4_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage4_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage5_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage5_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage5_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage6_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage6_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage6_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage7_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage7_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage7_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage8_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage8_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage8_raw
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage9_powerdown
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage9_powerdown_mode
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage9_raw
+   -r--r--r-- 1 root root 4096 Jul 31 15:17 out_voltage_powerdown_mode_available
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage_sampling_frequency
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 out_voltage_scale
+   drwxr-xr-x 2 root root    0 Jul 31 15:17 power
+   drwxr-xr-x 2 root root    0 Jul 31 15:17 scan_elements
+   lrwxrwxrwx 1 root root    0 Jul 31 15:17 subsystem -> ../../../../../../../../bus/iio
+   drwxr-xr-x 2 root root    0 Jul 31 15:17 trigger
+   -rw-r--r-- 1 root root 4096 Jul 31 15:17 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat name
+   ad5696
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to in_voltage0_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat out_voltage_scale
+   0.038146972
+
+Set channel Y output voltage
+''''''''''''''''''''''''''''
+
+**Description:** /sys/bus/iio/devices/deviceX/out_voltageY_raw
+
+Raw (unscaled, no bias etc.) output voltage for channel Y.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> echo 10000 > out_voltage0_raw
+
+**U** = *out_voltage0_raw \* out_voltage_scale* = 10000 \* 0.038140 = **381.40
+mV**
+
+List available power down modes
+'''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/deviceX/out_powerdown_mode_available
+
+**Description:** Lists all available output power down modes.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat out_voltage_powerdown_mode_available
+   1kohm_to_gnd 100kohm_to_gnd three_state
+
+Set channel Y power down mode
+'''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/deviceX/out_voltageY_powerdown_mode
+
+**Description:** Specifies the output power down mode. DAC output stage is
+disconnected from the amplifier and
+
+.. list-table::
+
+   * - 1kohm_to_gnd
+     - connected to ground via an 1kOhm resistor
+   * - 100kohm_to_gnd
+     - connected to ground via an 100kOhm resistor
+   * - three_state
+     - left floating
+
+For a list of available output power down options read
+out_voltageX_powerdown_mode_available.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> echo three_state > out_voltage0_powerdown_mode
+   root:/sys/bus/iio/devices/iio:device0> cat out_voltage0_powerdown_mode
+   three_state
+
+Enable power down mode on output Y
+''''''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/deviceX/out_voltageY_powerdown
+
+**Description:** Writing 1 causes output Y to enter the power down mode
+specified by the corresponding out_voltageY_powerdown_mode. Clearing returns to
+normal operation. Y may be suppressed if all outputs are controlled together.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> echo 1 > out_voltage0_powerdown
+   root:/sys/bus/iio/devices/iio:device0>  cat out_voltage0_powerdown
+   1
+   root:/sys/bus/iio/devices/iio:device0> echo 0 > out_voltage0_powerdown
+   root:/sys/bus/iio/devices/iio:device0>  cat out_voltage0_powerdown
+   0
+
+Buffer Support
+--------------
+
+**Description:** The nanoDAC family of devices has buffer support for changing
+the output of the DAC channels. To achieve this a PWM signal is used as the
+device trigger to output data. Using a sampling frequency attribute the period
+of the PWM signal can be changed. The sampling frequency is in Hz.
+
+.. important::
+
+   In order to use this functionality the **interrupt** pin must be tied to the
+   **PWM** generation pin
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0 $ cat out_voltage_sampling_frequency
+   1000
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 2000 > out_voltage_sampling_frequency
+   root@analog:/sys/bus/iio/devices/iio:device0# cat out_voltage_sampling_frequency
+   2000
+
+Enable buffered channels
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** The user has to enable on what channels to output the buffer
+samples. The samples are interleaved in the following in the order of the
+enabled channels.
+
+**Example:**
+
+.. tip::
+
+   **sample_ch0|sample_ch1|sample_ch2**
+
+If only channel 1 is enabled the buffer samples will have the following
+configuration:
+
+.. tip::
+
+   **sample_ch1|sample_ch1|sample_ch1**
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cd scan_elements/
+   root@analog:/sys/bus/iio/devices/iio:device0/scan_elements# ls
+   out_voltage0_en      out_voltage10_type   out_voltage12_index  out_voltage14_en     out_voltage15_type  out_voltage2_index  out_voltage4_en out_voltage5_type   out_voltage7_index  out_voltage9_en
+   out_voltage0_index   out_voltage11_en     out_voltage12_type   out_voltage14_index  out_voltage1_en out_voltage2_type   out_voltage4_index  out_voltage6_en     out_voltage7_type   out_voltage9_index
+   out_voltage0_type    out_voltage11_index  out_voltage13_en     out_voltage14_type   out_voltage1_index  out_voltage3_en     out_voltage4_type   out_voltage6_index  out_voltage8_en out_voltage9_type
+   out_voltage10_en     out_voltage11_type   out_voltage13_index  out_voltage15_en     out_voltage1_type   out_voltage3_index  out_voltage5_en out_voltage6_type   out_voltage8_index
+   out_voltage10_index  out_voltage12_en     out_voltage13_type   out_voltage15_index  out_voltage2_en out_voltage3_type   out_voltage5_index  out_voltage7_en     out_voltage8_type
+   root@analog:/sys/bus/iio/devices/iio:device0/scan_elements# echo 1 > out_voltage0_en
+
+   root@analog:/sys/bus/iio/devices/iio:device0/scan_elements# cd ../buffer/
+   root@analog:/sys/bus/iio/devices/iio:device0/buffer# ls
+   data_available  enable  length  watermark
+   root@analog:/sys/bus/iio/devices/iio:device0/buffer# echo 1 > enable
+
+**Sending a buffer sample example:** ::
+
+   root@analog:/sys/bus/iio/devices/iio:device0/buffer# echo -n -e '\x22\x33' >
+   /dev/iio\:device0
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
