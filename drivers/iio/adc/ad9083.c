@@ -1090,6 +1090,25 @@ static int ad9083_parse_dt(struct ad9083_phy *phy, struct device *dev)
 	return 0;
 }
 
+static int ad9083_post_setup(struct iio_dev *indio_dev)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad9083_phy *phy = conv->phy;
+	int i;
+
+	/* Enable sign extension in the HDL ad_datafmt module for all channels.
+	 * Critical for NP<16 (e.g., NP=12 at 15 Gbps): without this, 12-bit
+	 * 2's complement samples are zero-padded to 16 bits instead of
+	 * sign-extended, corrupting negative values.
+	 */
+	for (i = 0; i < phy->jesd_param.jesd_m; i++)
+		axiadc_write(st, ADI_REG_CHAN_CNTRL(i),
+			     ADI_FORMAT_SIGNEXT | ADI_FORMAT_ENABLE);
+
+	return 0;
+}
+
 static void ad9083_setup_chip_info_tbl(struct ad9083_phy *phy)
 {
 	bool complex;
@@ -1170,6 +1189,7 @@ static int ad9083_probe(struct spi_device *spi)
 	conv->reg_access = ad9083_reg_access;
 	conv->write_raw = ad9083_write_raw;
 	conv->read_raw = ad9083_read_raw;
+	conv->post_setup = ad9083_post_setup;
 	conv->attrs = &ad9083_phy_attribute_group;
 
 	if (jdev) {
