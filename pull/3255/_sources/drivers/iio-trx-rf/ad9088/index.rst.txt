@@ -938,9 +938,10 @@ Directives
   u8 delay in ADC samples used only in ``complex_half`` mode.
 
 **mode_switch_en** / **mode_switch_add_en**
-  Rx-only. Enables the 3 dB ADC averaging block ahead of the PFILT (UG
+  Rx-only. Enables the averaging block ahead of the PFILT (UG
   "ADC Averaging for Receiver PFILT"). ``mode_switch_add_en`` selects
   add (1) vs subtract (0) of the two input streams before averaging.
+  The noise improvement is up to 3dB.
 
 **real_data_mode_en**
   0 = complex I/Q data stream, 1 = two independent real data streams.

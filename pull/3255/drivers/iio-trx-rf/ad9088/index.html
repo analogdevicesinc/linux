@@ -1559,9 +1559,10 @@ parsing.</p>
 </dd>
 <dt><strong>hc_delay</strong></dt><dd><p>u8 delay in ADC samples used only in <code class="docutils literal notranslate"><span class="pre">complex_half</span></code> mode.</p>
 </dd>
-<dt><strong>mode_switch_en</strong> / <strong>mode_switch_add_en</strong></dt><dd><p>Rx-only. Enables the 3 dB ADC averaging block ahead of the PFILT (UG
+<dt><strong>mode_switch_en</strong> / <strong>mode_switch_add_en</strong></dt><dd><p>Rx-only. Enables the averaging block ahead of the PFILT (UG
 “ADC Averaging for Receiver PFILT”). <code class="docutils literal notranslate"><span class="pre">mode_switch_add_en</span></code> selects
-add (1) vs subtract (0) of the two input streams before averaging.</p>
+add (1) vs subtract (0) of the two input streams before averaging.
+The noise improvement is up to 3dB.</p>
 </dd>
 <dt><strong>real_data_mode_en</strong></dt><dd><p>0 = complex I/Q data stream, 1 = two independent real data streams.
 Picks between the “real data” and “complex data” connectivity
