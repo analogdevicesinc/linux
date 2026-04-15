@@ -572,13 +572,13 @@ static int sta_info_alloc_link(struct ieee80211_local *local,
 	link_info->rx_omi_bw_tx = IEEE80211_STA_RX_BW_MAX;
 	link_info->rx_omi_bw_staging = IEEE80211_STA_RX_BW_MAX;
 
-	link_info->cur_max_bandwidth = IEEE80211_STA_RX_BW_MAX;
+	link_info->op_mode_bw = IEEE80211_STA_RX_BW_MAX;
 
 	/*
 	 * Cause (a) warning(s) if IEEE80211_STA_RX_BW_MAX != 320
 	 * or if new values are added to the enum.
 	 */
-	switch (link_info->cur_max_bandwidth) {
+	switch (link_info->op_mode_bw) {
 	case IEEE80211_STA_RX_BW_20:
 	case IEEE80211_STA_RX_BW_40:
 	case IEEE80211_STA_RX_BW_80:
@@ -3519,7 +3519,9 @@ void ieee80211_sta_init_nss_bw_capa(struct link_sta_info *link_sta,
 	link_sta->capa_nss = ieee80211_sta_nss_capability(link_sta);
 	link_sta->pub->rx_nss = link_sta->capa_nss;
 
-	link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta, chandef);
+	link_sta->pub->bandwidth =
+		ieee80211_sta_current_bw(link_sta, chandef,
+					 IEEE80211_STA_BW_TX_TO_STA);
 }
 
 void ieee80211_sta_set_max_amsdu_subframes(struct sta_info *sta,
@@ -3554,3 +3556,152 @@ bool lockdep_sta_mutex_held(struct ieee80211_sta *pubsta)
 }
 EXPORT_SYMBOL(lockdep_sta_mutex_held);
 #endif
+
+/**
+ * ieee80211_sta_bw_capability - get STA's bandwidth capability
+ * @link_sta: the (link) STA to get the capability for
+ * @band: the band to get the capability on
+ *
+ * Return: the maximum bandwidth supported by the STA
+ */
+static enum ieee80211_sta_rx_bandwidth
+ieee80211_sta_bw_capability(struct link_sta_info *link_sta,
+			    enum nl80211_band band)
+{
+	struct ieee80211_sta_vht_cap *vht_cap = &link_sta->pub->vht_cap;
+	struct ieee80211_sta_he_cap *he_cap = &link_sta->pub->he_cap;
+	struct ieee80211_sta_eht_cap *eht_cap = &link_sta->pub->eht_cap;
+	u32 cap_width;
+
+	if (he_cap->has_he) {
+		u8 info;
+
+		if (eht_cap->has_eht && band == NL80211_BAND_6GHZ) {
+			info = eht_cap->eht_cap_elem.phy_cap_info[0];
+
+			if (info & IEEE80211_EHT_PHY_CAP0_320MHZ_IN_6GHZ)
+				return IEEE80211_STA_RX_BW_320;
+		}
+
+		info = he_cap->he_cap_elem.phy_cap_info[0];
+
+		if (band == NL80211_BAND_2GHZ) {
+			if (info & IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_IN_2G)
+				return IEEE80211_STA_RX_BW_40;
+			return IEEE80211_STA_RX_BW_20;
+		}
+
+		if (info & IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_160MHZ_IN_5G ||
+		    info & IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_80PLUS80_MHZ_IN_5G)
+			return IEEE80211_STA_RX_BW_160;
+
+		if (info & IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_80MHZ_IN_5G)
+			return IEEE80211_STA_RX_BW_80;
+
+		return IEEE80211_STA_RX_BW_20;
+	}
+
+	if (!vht_cap->vht_supported)
+		return link_sta->pub->ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40 ?
+				IEEE80211_STA_RX_BW_40 :
+				IEEE80211_STA_RX_BW_20;
+
+	cap_width = vht_cap->cap & IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_MASK;
+
+	if (cap_width == IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ ||
+	    cap_width == IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ)
+		return IEEE80211_STA_RX_BW_160;
+
+	/*
+	 * If this is non-zero, then it does support 160 MHz after all,
+	 * in one form or the other. We don't distinguish here (or even
+	 * above) between 160 and 80+80 yet.
+	 */
+	if (vht_cap->cap & IEEE80211_VHT_CAP_EXT_NSS_BW_MASK)
+		return IEEE80211_STA_RX_BW_160;
+
+	return IEEE80211_STA_RX_BW_80;
+}
+
+static enum ieee80211_sta_rx_bandwidth
+ieee80211_sta_current_bw_rx_from_sta(struct link_sta_info *link_sta,
+				     struct cfg80211_chan_def *chandef)
+{
+	/*
+	 * Take RX OMI into account. The value "rx_omi_bw_rx" is what
+	 * we've indicated to the STA we can currently receive.
+	 *
+	 * This is needed since the RX OMI is done by us to save power,
+	 * requiring changing both our TX (rate control) and RX (chanctx),
+	 * which in turn needs to be done in the right order (stop TX
+	 * at a higher bandwidth first while reducing bandwidth, and
+	 * change the chanctx only after the peer accepts, etc.)
+	 */
+	return min(ieee80211_sta_bw_capability(link_sta, chandef->chan->band),
+		   link_sta->rx_omi_bw_rx);
+}
+
+static enum ieee80211_sta_rx_bandwidth
+ieee80211_sta_current_bw_tx_to_sta(struct link_sta_info *link_sta,
+				   struct cfg80211_chan_def *chandef)
+{
+	struct sta_info *sta = link_sta->sta;
+	enum nl80211_chan_width bss_width;
+	enum ieee80211_sta_rx_bandwidth bw;
+	enum nl80211_band band;
+
+	bss_width = chandef->width;
+	band = chandef->chan->band;
+
+	bw = ieee80211_sta_bw_capability(link_sta, band);
+	bw = min(bw, link_sta->op_mode_bw);
+	/* also limit to RX OMI bandwidth we TX to the STA */
+	bw = min(bw, link_sta->rx_omi_bw_tx);
+
+	/* Don't consider AP's bandwidth for TDLS peers, section 11.23.1 of
+	 * IEEE80211-2016 specification makes higher bandwidth operation
+	 * possible on the TDLS link if the peers have wider bandwidth
+	 * capability.
+	 *
+	 * However, in this case, and only if the TDLS peer is authorized,
+	 * limit to the tdls_chandef so that the configuration here isn't
+	 * wider than what's actually requested on the channel context.
+	 */
+	if (test_sta_flag(sta, WLAN_STA_TDLS_PEER) &&
+	    test_sta_flag(sta, WLAN_STA_TDLS_WIDER_BW) &&
+	    test_sta_flag(sta, WLAN_STA_AUTHORIZED) &&
+	    sta->tdls_chandef.chan)
+		bw = min(bw, ieee80211_chan_width_to_rx_bw(sta->tdls_chandef.width));
+	else
+		bw = min(bw, ieee80211_chan_width_to_rx_bw(bss_width));
+
+	return bw;
+}
+
+/**
+ * ieee80211_sta_current_bw - get STA's current usable bandwidth
+ * @link_sta: the (link) STA to get the bandwidth for
+ * @chandef: the chandef for the channel the STA is on
+ * @direction: the direction (to or from STA)
+ *
+ * Return: the maximum bandwidth that the station can/may
+ *	(currently) use in the given direction
+ */
+enum ieee80211_sta_rx_bandwidth
+ieee80211_sta_current_bw(struct link_sta_info *link_sta,
+			 struct cfg80211_chan_def *chandef,
+			 enum ieee80211_sta_bw_direction direction)
+{
+	if (WARN_ON(!chandef))
+		return IEEE80211_STA_RX_BW_20;
+
+	switch (direction) {
+	case IEEE80211_STA_BW_RX_FROM_STA:
+		return ieee80211_sta_current_bw_rx_from_sta(link_sta, chandef);
+	case IEEE80211_STA_BW_TX_TO_STA:
+		return ieee80211_sta_current_bw_tx_to_sta(link_sta, chandef);
+	}
+
+	/* unreachable */
+	return IEEE80211_STA_RX_BW_20;
+}

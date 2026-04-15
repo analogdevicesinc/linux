@@ -600,9 +600,10 @@ void ieee80211_ht_handle_chanwidth_notif(struct ieee80211_local *local,
 	else
 		max_bw = IEEE80211_STA_RX_BW_MAX;
 
-	/* set cur_max_bandwidth and recalc sta bw */
-	link_sta->cur_max_bandwidth = max_bw;
-	new_bw = ieee80211_sta_cur_vht_bw(link_sta, &link->conf->chanreq.oper);
+	/* set op_mode_bw and recalc sta bw */
+	link_sta->op_mode_bw = max_bw;
+	new_bw = ieee80211_sta_current_bw(link_sta, &link->conf->chanreq.oper,
+					  IEEE80211_STA_BW_TX_TO_STA);
 
 	if (link_sta->pub->bandwidth == new_bw)
 		return;

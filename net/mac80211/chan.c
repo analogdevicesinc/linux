@@ -455,10 +455,10 @@ ieee80211_get_sta_bw(struct sta_info *sta, struct ieee80211_link_data *link)
 	 * We assume that TX/RX might be asymmetric (so e.g. VHT operating
 	 * mode notification changes what a STA wants to receive, but not
 	 * necessarily what it will transmit to us), and therefore use the
-	 * capabilities here. Calling it RX bandwidth capability is a bit
-	 * wrong though, since capabilities are in fact symmetric.
+	 * "from station" bandwidth here.
 	 */
-	width = ieee80211_sta_cap_rx_bw(link_sta, &link->conf->chanreq.oper);
+	width = ieee80211_sta_current_bw(link_sta, &link->conf->chanreq.oper,
+					 IEEE80211_STA_BW_RX_FROM_STA);
 
 	if (width == IEEE80211_STA_RX_BW_20 &&
 	    !link_sta->pub->ht_cap.ht_supported &&
@@ -693,8 +693,9 @@ static void ieee80211_chan_bw_change(struct ieee80211_local *local,
 			else
 				new_chandef = &link_conf->chanreq.oper;
 
-			new_sta_bw = ieee80211_sta_cur_vht_bw(link_sta,
-							      new_chandef);
+			new_sta_bw = ieee80211_sta_current_bw(link_sta,
+							      new_chandef,
+							      IEEE80211_STA_BW_TX_TO_STA);
 
 			/* nothing change */
 			if (new_sta_bw == link_sta->pub->bandwidth)

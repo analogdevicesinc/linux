@@ -331,129 +331,6 @@ ieee80211_vht_cap_ie_to_sta_vht_cap(struct ieee80211_sub_if_data *sdata,
 	ieee80211_sta_recalc_aggregates(&link_sta->sta->sta);
 }
 
-/* FIXME: move this to some better location - parses HE/EHT now */
-static enum ieee80211_sta_rx_bandwidth
-_ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta, enum nl80211_band band)
-{
-	struct ieee80211_sta_vht_cap *vht_cap = &link_sta->pub->vht_cap;
-	struct ieee80211_sta_he_cap *he_cap = &link_sta->pub->he_cap;
-	struct ieee80211_sta_eht_cap *eht_cap = &link_sta->pub->eht_cap;
-	u32 cap_width;
-
-	if (he_cap->has_he) {
-		u8 info;
-
-		if (eht_cap->has_eht && band == NL80211_BAND_6GHZ) {
-			info = eht_cap->eht_cap_elem.phy_cap_info[0];
-
-			if (info & IEEE80211_EHT_PHY_CAP0_320MHZ_IN_6GHZ)
-				return IEEE80211_STA_RX_BW_320;
-		}
-
-		info = he_cap->he_cap_elem.phy_cap_info[0];
-
-		if (band == NL80211_BAND_2GHZ) {
-			if (info & IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_IN_2G)
-				return IEEE80211_STA_RX_BW_40;
-			return IEEE80211_STA_RX_BW_20;
-		}
-
-		if (info & IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_160MHZ_IN_5G ||
-		    info & IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_80PLUS80_MHZ_IN_5G)
-			return IEEE80211_STA_RX_BW_160;
-
-		if (info & IEEE80211_HE_PHY_CAP0_CHANNEL_WIDTH_SET_40MHZ_80MHZ_IN_5G)
-			return IEEE80211_STA_RX_BW_80;
-
-		return IEEE80211_STA_RX_BW_20;
-	}
-
-	if (!vht_cap->vht_supported)
-		return link_sta->pub->ht_cap.cap & IEEE80211_HT_CAP_SUP_WIDTH_20_40 ?
-				IEEE80211_STA_RX_BW_40 :
-				IEEE80211_STA_RX_BW_20;
-
-	cap_width = vht_cap->cap & IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_MASK;
-
-	if (cap_width == IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160MHZ ||
-	    cap_width == IEEE80211_VHT_CAP_SUPP_CHAN_WIDTH_160_80PLUS80MHZ)
-		return IEEE80211_STA_RX_BW_160;
-
-	/*
-	 * If this is non-zero, then it does support 160 MHz after all,
-	 * in one form or the other. We don't distinguish here (or even
-	 * above) between 160 and 80+80 yet.
-	 */
-	if (vht_cap->cap & IEEE80211_VHT_CAP_EXT_NSS_BW_MASK)
-		return IEEE80211_STA_RX_BW_160;
-
-	return IEEE80211_STA_RX_BW_80;
-}
-
-enum ieee80211_sta_rx_bandwidth
-ieee80211_sta_cap_rx_bw(struct link_sta_info *link_sta,
-			struct cfg80211_chan_def *chandef)
-{
-	/*
-	 * With RX OMI, also pretend that the STA's capability changed.
-	 * Of course this isn't really true, it didn't change, only our
-	 * RX capability was changed by notifying RX OMI to the STA.
-	 * The purpose, however, is to save power, and that requires
-	 * changing also transmissions to the AP and the chanctx. The
-	 * transmissions depend on link_sta->bandwidth which is set in
-	 * ieee80211_sta_cur_vht_bw() below, but the chanctx depends
-	 * on the result of this function which is also called by
-	 * ieee80211_sta_cur_vht_bw(), so we need to do that here as
-	 * well. This is sufficient for the steady state, but during
-	 * the transition we already need to change TX/RX separately,
-	 * so ieee80211_sta_cur_vht_bw() below applies the _tx one.
-	 */
-	return min(_ieee80211_sta_cap_rx_bw(link_sta, chandef->chan->band),
-		   link_sta->rx_omi_bw_rx);
-}
-
-/* FIXME: rename/move - this deals with everything not just VHT */
-enum ieee80211_sta_rx_bandwidth
-ieee80211_sta_cur_vht_bw(struct link_sta_info *link_sta,
-			 struct cfg80211_chan_def *chandef)
-{
-	struct sta_info *sta = link_sta->sta;
-	enum nl80211_chan_width bss_width;
-	enum ieee80211_sta_rx_bandwidth bw;
-	enum nl80211_band band;
-
-	if (WARN_ON(!chandef))
-		return IEEE80211_STA_RX_BW_20;
-
-	bss_width = chandef->width;
-	band = chandef->chan->band;
-
-	/* intentionally do not take rx_bw_omi_rx into account */
-	bw = _ieee80211_sta_cap_rx_bw(link_sta, band);
-	bw = min(bw, link_sta->cur_max_bandwidth);
-	/* but do apply rx_omi_bw_tx */
-	bw = min(bw, link_sta->rx_omi_bw_tx);
-
-	/* Don't consider AP's bandwidth for TDLS peers, section 11.23.1 of
-	 * IEEE80211-2016 specification makes higher bandwidth operation
-	 * possible on the TDLS link if the peers have wider bandwidth
-	 * capability.
-	 *
-	 * However, in this case, and only if the TDLS peer is authorized,
-	 * limit to the tdls_chandef so that the configuration here isn't
-	 * wider than what's actually requested on the channel context.
-	 */
-	if (test_sta_flag(sta, WLAN_STA_TDLS_PEER) &&
-	    test_sta_flag(sta, WLAN_STA_TDLS_WIDER_BW) &&
-	    test_sta_flag(sta, WLAN_STA_AUTHORIZED) &&
-	    sta->tdls_chandef.chan)
-		bw = min(bw, ieee80211_chan_width_to_rx_bw(sta->tdls_chandef.width));
-	else
-		bw = min(bw, ieee80211_chan_width_to_rx_bw(bss_width));
-
-	return bw;
-}
-
 u32 __ieee80211_vht_handle_opmode(struct ieee80211_sub_if_data *sdata,
 				  struct link_sta_info *link_sta,
 				  u8 opmode, enum nl80211_band band)
@@ -496,25 +373,26 @@ u32 __ieee80211_vht_handle_opmode(struct ieee80211_sub_if_data *sdata,
 	switch (opmode & IEEE80211_OPMODE_NOTIF_CHANWIDTH_MASK) {
 	case IEEE80211_OPMODE_NOTIF_CHANWIDTH_20MHZ:
 		/* ignore IEEE80211_OPMODE_NOTIF_BW_160_80P80 must not be set */
-		link_sta->cur_max_bandwidth = IEEE80211_STA_RX_BW_20;
+		link_sta->op_mode_bw = IEEE80211_STA_RX_BW_20;
 		break;
 	case IEEE80211_OPMODE_NOTIF_CHANWIDTH_40MHZ:
 		/* ignore IEEE80211_OPMODE_NOTIF_BW_160_80P80 must not be set */
-		link_sta->cur_max_bandwidth = IEEE80211_STA_RX_BW_40;
+		link_sta->op_mode_bw = IEEE80211_STA_RX_BW_40;
 		break;
 	case IEEE80211_OPMODE_NOTIF_CHANWIDTH_80MHZ:
 		if (opmode & IEEE80211_OPMODE_NOTIF_BW_160_80P80)
-			link_sta->cur_max_bandwidth = IEEE80211_STA_RX_BW_160;
+			link_sta->op_mode_bw = IEEE80211_STA_RX_BW_160;
 		else
-			link_sta->cur_max_bandwidth = IEEE80211_STA_RX_BW_80;
+			link_sta->op_mode_bw = IEEE80211_STA_RX_BW_80;
 		break;
 	case IEEE80211_OPMODE_NOTIF_CHANWIDTH_160MHZ:
 		/* legacy only, no longer used by newer spec */
-		link_sta->cur_max_bandwidth = IEEE80211_STA_RX_BW_160;
+		link_sta->op_mode_bw = IEEE80211_STA_RX_BW_160;
 		break;
 	}
 
-	new_bw = ieee80211_sta_cur_vht_bw(link_sta, &link->conf->chanreq.oper);
+	new_bw = ieee80211_sta_current_bw(link_sta, &link->conf->chanreq.oper,
+					  IEEE80211_STA_BW_TX_TO_STA);
 	if (new_bw != link_sta->pub->bandwidth) {
 		link_sta->pub->bandwidth = new_bw;
 		sta_opmode.bw = ieee80211_sta_rx_bw_to_chan_width(new_bw);
