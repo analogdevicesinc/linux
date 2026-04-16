@@ -34,6 +34,9 @@ struct cpu_ctx {
 	__u32 cpuperf_target;
 };
 
+/* Opaque to userspace; defined in scx_qmap.bpf.c. */
+struct task_ctx;
+
 struct qmap_arena {
 	/* userspace-visible stats */
 	__u64 nr_enqueued, nr_dispatched, nr_reenqueued, nr_reenqueued_cpu0;
@@ -52,6 +55,10 @@ struct qmap_arena {
 	__u64 core_sched_tail_seqs[5];
 
 	struct cpu_ctx cpu_ctxs[SCX_QMAP_MAX_CPUS];
+
+	/* task_ctx slab; allocated and threaded by qmap_init() */
+	struct task_ctx __arena *task_ctxs;
+	struct task_ctx __arena *task_free_head;
 };
 
 #endif /* __SCX_QMAP_H */

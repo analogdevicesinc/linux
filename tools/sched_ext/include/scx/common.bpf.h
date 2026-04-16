@@ -526,6 +526,10 @@ static inline bool is_migration_disabled(const struct task_struct *p)
 void bpf_rcu_read_lock(void) __ksym;
 void bpf_rcu_read_unlock(void) __ksym;
 
+/* resilient qspinlock */
+int bpf_res_spin_lock(struct bpf_res_spin_lock *lock) __ksym __weak;
+void bpf_res_spin_unlock(struct bpf_res_spin_lock *lock) __ksym __weak;
+
 /*
  * Time helpers, most of which are from jiffies.h.
  */
