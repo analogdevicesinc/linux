@@ -4246,6 +4246,7 @@ static int btusb_probe(struct usb_interface *intf,
 		hci_set_quirk(hdev, HCI_QUIRK_BROKEN_ENHANCED_SETUP_SYNC_CONN);
 		hci_set_quirk(hdev, HCI_QUIRK_NON_PERSISTENT_SETUP);
 		data->recv_acl = btmtk_usb_recv_acl;
+		data->recv_event = btmtk_recv_event;
 		data->suspend = btmtk_usb_suspend;
 		data->resume = btmtk_usb_resume;
 		data->disconnect = btusb_mtk_disconnect;
