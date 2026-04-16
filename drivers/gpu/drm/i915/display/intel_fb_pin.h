@@ -22,6 +22,7 @@ struct intel_fb_pin_params {
 	bool needs_cpu_lmem_access;
 	bool needs_low_address;
 	bool needs_physical;
+	bool needs_fence;
 };
 
 struct i915_vma *

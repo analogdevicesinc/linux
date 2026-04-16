@@ -112,7 +112,6 @@ intel_fb_pin_to_ggtt(const struct drm_framebuffer *fb,
 		     const struct intel_fb_pin_params *pin_params,
 		     int *out_fence_id)
 {
-	struct intel_display *display = to_intel_display(fb->dev);
 	struct drm_i915_private *i915 = to_i915(fb->dev);
 	struct drm_gem_object *_obj = intel_fb_bo(fb);
 	struct drm_i915_gem_object *obj = to_intel_bo(_obj);
@@ -188,7 +187,7 @@ retry:
 		 * mode that matches the user configuration.
 		 */
 		ret = i915_vma_pin_fence(vma);
-		if (ret != 0 && intel_plane_needs_fence(display)) {
+		if (ret != 0 && pin_params->needs_fence) {
 			i915_vma_unpin(vma);
 			goto err_unpin;
 		}
@@ -272,6 +271,7 @@ int intel_plane_pin_fb(struct intel_plane_state *plane_state,
 			.needs_cpu_lmem_access = intel_fb_needs_cpu_access(&fb->base),
 			.needs_low_address = intel_plane_needs_low_address(display),
 			.needs_physical = intel_plane_needs_physical(plane),
+			.needs_fence = intel_plane_needs_fence(display),
 		};
 		int fence_id = -1;
 
