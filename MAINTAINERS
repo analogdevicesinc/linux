@@ -5674,15 +5674,6 @@ T:	git git://linuxtv.org/media.git
 F:	Documentation/admin-guide/media/cafe_ccic*
 F:	drivers/media/platform/marvell/
 
-CAIF NETWORK LAYER
-L:	netdev@vger.kernel.org
-S:	Orphan
-F:	Documentation/networking/caif/
-F:	drivers/net/caif/
-F:	include/net/caif/
-F:	include/uapi/linux/caif/
-F:	net/caif/
-
 CAKE QDISC
 M:	Toke Høiland-Jørgensen <toke@toke.dk>
 L:	cake@lists.bufferbloat.net (moderated for non-subscribers)

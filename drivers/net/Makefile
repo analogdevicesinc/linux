@@ -48,7 +48,6 @@ obj-$(CONFIG_MHI_NET) += mhi_net.o
 # Networking Drivers
 #
 obj-$(CONFIG_ARCNET) += arcnet/
-obj-$(CONFIG_CAIF) += caif/
 obj-$(CONFIG_CAN) += can/
 ifdef CONFIG_NET_DSA
 obj-y += dsa/

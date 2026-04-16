@@ -17,7 +17,6 @@ Contents:
    diagnostic/index
    dsa/index
    devlink/index
-   caif/index
    ethtool-netlink
    ieee802154
    iso15765-2
