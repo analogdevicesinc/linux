@@ -46,6 +46,7 @@ properties:
       - items:
           - enum:
               - qcom,eliza-qce
+              - qcom,glymur-qce
               - qcom,kaanapali-qce
               - qcom,milos-qce
               - qcom,qcs615-qce
