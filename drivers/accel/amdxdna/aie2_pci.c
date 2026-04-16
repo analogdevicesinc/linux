@@ -608,6 +608,7 @@ static int aie2_init(struct amdxdna_dev *xdna)
 
 	release_firmware(fw);
 	aie2_msg_init(ndev);
+	amdxdna_vbnv_init(xdna);
 	amdxdna_pm_init(xdna);
 	return 0;
 
@@ -1255,6 +1256,21 @@ dev_exit:
 	return ret;
 }
 
+static int aie2_get_dev_rev(struct amdxdna_dev *xdna, u32 *rev)
+{
+	struct amdxdna_dev_hdl *ndev = xdna->dev_handle;
+	enum aie2_dev_revision aie2_rev;
+	int ret;
+
+	drm_WARN_ON(&xdna->ddev, !mutex_is_locked(&xdna->dev_lock));
+	ret = aie2_get_dev_revision(ndev, &aie2_rev);
+
+	if (!ret)
+		*rev = (u32)aie2_rev;
+
+	return ret;
+}
+
 const struct amdxdna_dev_ops aie2_ops = {
 	.init = aie2_init,
 	.fini = aie2_fini,
@@ -1269,4 +1285,5 @@ const struct amdxdna_dev_ops aie2_ops = {
 	.cmd_submit = aie2_cmd_submit,
 	.hmm_invalidate = aie2_hmm_invalidate,
 	.get_array = aie2_get_array,
+	.get_dev_revision = aie2_get_dev_rev,
 };

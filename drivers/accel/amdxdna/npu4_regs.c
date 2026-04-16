@@ -98,6 +98,7 @@ const struct amdxdna_fw_feature_tbl npu4_fw_feature_table[] = {
 	{ .features = BIT_U64(AIE2_NPU_COMMAND), .major = 6, .min_minor = 15 },
 	{ .features = BIT_U64(AIE2_UPDATE_PROPERTY), .major = 6, .min_minor = 15 },
 	{ .features = BIT_U64(AIE2_APP_HEALTH), .major = 6, .min_minor = 18 },
+	{ .features = BIT_U64(AIE2_GET_DEV_REVISION), .major = 6, .min_minor = 24 },
 	{ .features = AIE2_ALL_FEATURES, .major = 7 },
 	{ 0 }
 };
@@ -140,6 +141,18 @@ static int npu4_update_counters(struct amdxdna_dev_hdl *ndev)
 const struct aie2_hw_ops npu4_hw_ops = {
 	.set_dpm = npu4_set_dpm,
 	.update_counters = npu4_update_counters,
+};
+
+const struct amdxdna_rev_vbnv npu4_rev_vbnv_tbl[] = {
+	{ AIE2_DEV_REVISION_STXA, "NPU Strix" },
+	{ AIE2_DEV_REVISION_STXB, "NPU Strix" },
+	{ AIE2_DEV_REVISION_KRK1, "NPU Krackan 1" },
+	{ AIE2_DEV_REVISION_KRK2, "NPU Krackan 2" },
+	{ AIE2_DEV_REVISION_HALO, "NPU Strix Halo" },
+	{ AIE2_DEV_REVISION_GPT1, "NPU Gorgon Point 1" },
+	{ AIE2_DEV_REVISION_GPT2, "NPU Gorgon Point 2" },
+	{ AIE2_DEV_REVISION_GPT3, "NPU Gorgon Point 3" },
+	{ 0 }
 };
 
 static const struct amdxdna_dev_priv npu4_dev_priv = {
@@ -185,8 +198,9 @@ const struct amdxdna_dev_info dev_npu4_info = {
 	.dev_mem_buf_shift = 15, /* 32 KiB aligned */
 	.dev_mem_base      = AIE2_DEVM_BASE,
 	.dev_mem_size      = AIE2_DEVM_SIZE,
-	.vbnv              = "RyzenAI-npu4",
+	.default_vbnv      = "RyzenAI-npu4",
 	.device_type       = AMDXDNA_DEV_TYPE_KMQ,
+	.rev_vbnv_tbl      = npu4_rev_vbnv_tbl,
 	.dev_priv          = &npu4_dev_priv,
 	.fw_feature_tbl    = npu4_fw_feature_table,
 	.ops               = &aie2_ops, /* NPU4 can share NPU1's callback */

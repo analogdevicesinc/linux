@@ -82,11 +82,18 @@ struct psp_config {
 	u32			notify_val;
 };
 
+/* Device revision to VBNV string mapping table entry */
+struct amdxdna_rev_vbnv {
+	u32		revision;
+	const char	*vbnv;
+};
+
 /* aie.c */
 void aie_dump_mgmt_chann_debug(struct aie_device *aie);
 void aie_destroy_chann(struct aie_device *aie, struct mailbox_channel **chann);
 int aie_send_mgmt_msg_wait(struct aie_device *aie, struct xdna_mailbox_msg *msg);
 int aie_check_protocol(struct aie_device *aie, u32 fw_major, u32 fw_minor);
+void amdxdna_vbnv_init(struct amdxdna_dev *xdna);
 
 /* aie_psp.c */
 struct psp_device *aiem_psp_create(struct drm_device *ddev, struct psp_config *conf);

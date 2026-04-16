@@ -223,6 +223,7 @@ enum aie2_fw_feature {
 	AIE2_TEMPORAL_ONLY,
 	AIE2_APP_HEALTH,
 	AIE2_UPDATE_PROPERTY,
+	AIE2_GET_DEV_REVISION,
 	AIE2_FEATURE_MAX
 };
 
@@ -258,6 +259,7 @@ extern const struct dpm_clk_freq npu4_dpm_clk_table[];
 extern const struct rt_config npu1_default_rt_cfg[];
 extern const struct rt_config npu4_default_rt_cfg[];
 extern const struct amdxdna_fw_feature_tbl npu4_fw_feature_table[];
+extern const struct amdxdna_rev_vbnv npu4_rev_vbnv_tbl[];
 extern const struct aie2_hw_ops npu4_hw_ops;
 
 /* aie2_pm.c */
@@ -286,6 +288,7 @@ int aie2_query_firmware_version(struct amdxdna_dev_hdl *ndev,
 				struct amdxdna_fw_ver *fw_ver);
 int aie2_query_app_health(struct amdxdna_dev_hdl *ndev, u32 context_id,
 			  struct app_health_report *report);
+int aie2_get_dev_revision(struct amdxdna_dev_hdl *ndev, enum aie2_dev_revision *rev);
 int aie2_create_context(struct amdxdna_dev_hdl *ndev, struct amdxdna_hwctx *hwctx);
 int aie2_destroy_context(struct amdxdna_dev_hdl *ndev, struct amdxdna_hwctx *hwctx);
 int aie2_map_host_buf(struct amdxdna_dev_hdl *ndev, u32 context_id, u64 addr, u64 size);

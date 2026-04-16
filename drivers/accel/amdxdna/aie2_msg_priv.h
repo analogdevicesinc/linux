@@ -33,6 +33,7 @@ enum aie2_msg_opcode {
 	MSG_OP_REGISTER_ASYNC_EVENT_MSG    = 0x10C,
 	MSG_OP_UPDATE_PROPERTY             = 0x113,
 	MSG_OP_GET_APP_HEALTH              = 0x114,
+	MSG_OP_GET_DEV_REVISION            = 0x117,
 	MSG_OP_MAX_DRV_OPCODE,
 	MSG_OP_GET_PROTOCOL_VERSION        = 0x301,
 	MSG_OP_MAX_OPCODE
@@ -517,6 +518,28 @@ struct update_property_req {
 
 struct update_property_resp {
 	enum aie2_msg_status status;
+} __packed;
+
+enum aie2_dev_revision {
+	AIE2_DEV_REVISION_STXA = 1,
+	AIE2_DEV_REVISION_STXB,
+	AIE2_DEV_REVISION_KRK1,
+	AIE2_DEV_REVISION_KRK2,
+	AIE2_DEV_REVISION_HALO,
+	AIE2_DEV_REVISION_GPT1,
+	AIE2_DEV_REVISION_GPT2,
+	AIE2_DEV_REVISION_GPT3,
+	AIE2_DEV_REVISION_UNKN,
+};
+
+struct get_dev_revision_req {
+	__u32			place_holder;
+} __packed;
+
+struct get_dev_revision_resp {
+	enum aie2_msg_status	status;
+	enum aie2_dev_revision	rev;
+	__u32			raw_fuse_data;
 } __packed;
 
 #endif /* _AIE2_MSG_PRIV_H_ */

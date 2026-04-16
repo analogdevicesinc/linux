@@ -471,6 +471,7 @@ static int aie4_init(struct amdxdna_dev *xdna)
 		return ret;
 	}
 
+	amdxdna_vbnv_init(xdna);
 	XDNA_DBG(xdna, "aie4 init finished");
 	return 0;
 }

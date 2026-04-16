@@ -1244,3 +1244,28 @@ int aie2_update_prop_time_quota(struct amdxdna_dev_hdl *ndev, u32 us)
 	}
 	return ret;
 }
+
+int aie2_get_dev_revision(struct amdxdna_dev_hdl *ndev, enum aie2_dev_revision *rev)
+{
+	DECLARE_AIE_MSG(get_dev_revision, MSG_OP_GET_DEV_REVISION);
+	struct amdxdna_dev *xdna = ndev->aie.xdna;
+	int ret;
+
+	if (!AIE_FEATURE_ON(&ndev->aie, AIE2_GET_DEV_REVISION))
+		return -EOPNOTSUPP;
+
+	ret = aie_send_mgmt_msg_wait(&ndev->aie, &msg);
+	if (ret)
+		return ret;
+
+	*rev = resp.rev;
+
+	if (*rev < AIE2_DEV_REVISION_STXA || *rev >= AIE2_DEV_REVISION_UNKN) {
+		XDNA_ERR(xdna, "Unknown device revision: %d (raw fuse: 0x%x)",
+			 *rev, resp.raw_fuse_data);
+		return -EINVAL;
+	}
+
+	XDNA_DBG(xdna, "Device revision: %d (raw fuse: 0x%x)", *rev, resp.raw_fuse_data);
+	return 0;
+}
