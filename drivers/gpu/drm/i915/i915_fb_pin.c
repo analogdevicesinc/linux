@@ -148,7 +148,7 @@ intel_fb_pin_to_ggtt(const struct drm_framebuffer *fb,
 	i915_gem_ww_ctx_init(&ww, true);
 retry:
 	ret = i915_gem_object_lock(obj, &ww);
-	if (!ret && pin_params->phys_alignment)
+	if (!ret && pin_params->needs_physical)
 		ret = i915_gem_object_attach_phys(obj, pin_params->phys_alignment);
 	else if (!ret && HAS_LMEM(i915))
 		ret = i915_gem_object_migrate(obj, &ww, INTEL_REGION_LMEM_0);
@@ -271,6 +271,7 @@ int intel_plane_pin_fb(struct intel_plane_state *plane_state,
 			.vtd_guard = intel_plane_fb_vtd_guard(plane_state),
 			.needs_cpu_lmem_access = intel_fb_needs_cpu_access(&fb->base),
 			.needs_low_address = intel_plane_needs_low_address(display),
+			.needs_physical = intel_plane_needs_physical(plane),
 		};
 		int fence_id = -1;
 
