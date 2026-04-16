@@ -1399,9 +1399,9 @@ static u16 pde_pat_index(struct xe_bo *bo)
 	 * something which is always safe).
 	 */
 	if (!xe_bo_is_vram(bo) && bo->ttm.ttm->caching == ttm_cached)
-		pat_index = xe->pat.idx[XE_CACHE_WB];
+		pat_index = xe_cache_pat_idx(xe, XE_CACHE_WB);
 	else
-		pat_index = xe->pat.idx[XE_CACHE_NONE];
+		pat_index = xe_cache_pat_idx(xe, XE_CACHE_NONE);
 
 	xe_assert(xe, pat_index <= 3);
 
@@ -4204,7 +4204,7 @@ struct dma_fence *xe_vm_bind_kernel_bo(struct xe_vm *vm, struct xe_bo *bo,
 
 	ops = vm_bind_ioctl_ops_create(vm, &vops, bo, 0, addr, xe_bo_size(bo),
 				       DRM_XE_VM_BIND_OP_MAP, 0, 0,
-				       vm->xe->pat.idx[cache_lvl]);
+				       xe_cache_pat_idx(vm->xe, cache_lvl));
 	if (IS_ERR(ops)) {
 		err = PTR_ERR(ops);
 		goto release_vm_lock;
