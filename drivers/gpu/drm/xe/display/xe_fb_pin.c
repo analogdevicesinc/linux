@@ -318,7 +318,7 @@ static int __xe_pin_fb_vma_ggtt(const struct intel_framebuffer *fb,
 	return ret;
 }
 
-static struct i915_vma *__xe_pin_fb_vma(const struct intel_framebuffer *fb,
+static struct i915_vma *__xe_pin_fb_vma(const struct intel_framebuffer *fb, bool is_dpt,
 					const struct intel_fb_pin_params *pin_params)
 {
 	struct drm_device *dev = fb->base.dev;
@@ -375,7 +375,7 @@ static struct i915_vma *__xe_pin_fb_vma(const struct intel_framebuffer *fb,
 		goto err;
 
 	vma->bo = bo;
-	if (intel_fb_uses_dpt(&fb->base))
+	if (is_dpt)
 		ret = __xe_pin_fb_vma_dpt(fb, pin_params, vma);
 	else
 		ret = __xe_pin_fb_vma_ggtt(fb, pin_params, vma);
@@ -419,7 +419,7 @@ intel_fb_pin_to_ggtt(const struct drm_framebuffer *fb,
 	if (out_fence_id)
 		*out_fence_id = -1;
 
-	return __xe_pin_fb_vma(to_intel_framebuffer(fb), pin_params);
+	return __xe_pin_fb_vma(to_intel_framebuffer(fb), false, pin_params);
 }
 
 void intel_fb_unpin_vma(struct i915_vma *vma, int fence_id)
@@ -483,7 +483,8 @@ int intel_plane_pin_fb(struct intel_plane_state *new_plane_state,
 	/* We reject creating !SCANOUT fb's, so this is weird.. */
 	drm_WARN_ON(bo->ttm.base.dev, !(bo->flags & XE_BO_FLAG_FORCE_WC));
 
-	vma = __xe_pin_fb_vma(intel_fb, &pin_params);
+	vma = __xe_pin_fb_vma(intel_fb, intel_fb_uses_dpt(&intel_fb->base),
+			      &pin_params);
 
 	if (IS_ERR(vma))
 		return PTR_ERR(vma);
