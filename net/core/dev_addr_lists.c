@@ -1229,10 +1229,34 @@ static void netif_addr_lists_reconcile(struct net_device *dev,
 				 &dev->rx_mode_addr_cache);
 }
 
+/**
+ * netif_uc_promisc_update() - evaluate whether uc_promisc should be toggled.
+ * @dev: device
+ *
+ * Must be called under netif_addr_lock_bh.
+ * Return: +1 to enter promisc, -1 to leave, 0 for no change.
+ */
+static int netif_uc_promisc_update(struct net_device *dev)
+{
+	if (dev->priv_flags & IFF_UNICAST_FLT)
+		return 0;
+
+	if (!netdev_uc_empty(dev) && !dev->uc_promisc) {
+		dev->uc_promisc = true;
+		return 1;
+	}
+	if (netdev_uc_empty(dev) && dev->uc_promisc) {
+		dev->uc_promisc = false;
+		return -1;
+	}
+	return 0;
+}
+
 static void netif_rx_mode_run(struct net_device *dev)
 {
 	struct netdev_hw_addr_list uc_snap, mc_snap, uc_ref, mc_ref;
 	const struct net_device_ops *ops = dev->netdev_ops;
+	int promisc_inc;
 	int err;
 
 	might_sleep();
@@ -1246,22 +1270,39 @@ static void netif_rx_mode_run(struct net_device *dev)
 	if (!(dev->flags & IFF_UP) || !netif_device_present(dev))
 		return;
 
-	netif_addr_lock_bh(dev);
-	err = netif_addr_lists_snapshot(dev, &uc_snap, &mc_snap,
-					&uc_ref, &mc_ref);
-	if (err) {
-		netdev_WARN(dev, "failed to sync uc/mc addresses\n");
+	if (ops->ndo_set_rx_mode_async) {
+		netif_addr_lock_bh(dev);
+		err = netif_addr_lists_snapshot(dev, &uc_snap, &mc_snap,
+						&uc_ref, &mc_ref);
+		if (err) {
+			netdev_WARN(dev, "failed to sync uc/mc addresses\n");
+			netif_addr_unlock_bh(dev);
+			return;
+		}
+
+		promisc_inc = netif_uc_promisc_update(dev);
 		netif_addr_unlock_bh(dev);
-		return;
+	} else {
+		netif_addr_lock_bh(dev);
+		promisc_inc = netif_uc_promisc_update(dev);
+		netif_addr_unlock_bh(dev);
 	}
-	netif_addr_unlock_bh(dev);
 
-	ops->ndo_set_rx_mode_async(dev, &uc_snap, &mc_snap);
+	if (promisc_inc)
+		__dev_set_promiscuity(dev, promisc_inc, false);
 
-	netif_addr_lock_bh(dev);
-	netif_addr_lists_reconcile(dev, &uc_snap, &mc_snap,
-				   &uc_ref, &mc_ref);
-	netif_addr_unlock_bh(dev);
+	if (ops->ndo_set_rx_mode_async) {
+		ops->ndo_set_rx_mode_async(dev, &uc_snap, &mc_snap);
+
+		netif_addr_lock_bh(dev);
+		netif_addr_lists_reconcile(dev, &uc_snap, &mc_snap,
+					   &uc_ref, &mc_ref);
+		netif_addr_unlock_bh(dev);
+	} else if (ops->ndo_set_rx_mode) {
+		netif_addr_lock_bh(dev);
+		ops->ndo_set_rx_mode(dev);
+		netif_addr_unlock_bh(dev);
+	}
 }
 
 static void netdev_rx_mode_work(struct work_struct *work)
@@ -1320,6 +1361,7 @@ static void netif_rx_mode_queue(struct net_device *dev)
 void __dev_set_rx_mode(struct net_device *dev)
 {
 	const struct net_device_ops *ops = dev->netdev_ops;
+	int promisc_inc;
 
 	/* dev_open will call this function so the list will stay sane. */
 	if (!(dev->flags & IFF_UP))
@@ -1328,20 +1370,16 @@ void __dev_set_rx_mode(struct net_device *dev)
 	if (!netif_device_present(dev))
 		return;
 
-	if (ops->ndo_set_rx_mode_async) {
+	if (ops->ndo_set_rx_mode_async || ops->ndo_change_rx_flags) {
 		netif_rx_mode_queue(dev);
 		return;
 	}
 
-	if (!(dev->priv_flags & IFF_UNICAST_FLT)) {
-		if (!netdev_uc_empty(dev) && !dev->uc_promisc) {
-			__dev_set_promiscuity(dev, 1, false);
-			dev->uc_promisc = true;
-		} else if (netdev_uc_empty(dev) && dev->uc_promisc) {
-			__dev_set_promiscuity(dev, -1, false);
-			dev->uc_promisc = false;
-		}
-	}
+	/* Legacy path for non-ops-locked HW devices. */
+
+	promisc_inc = netif_uc_promisc_update(dev);
+	if (promisc_inc)
+		__dev_set_promiscuity(dev, promisc_inc, false);
 
 	if (ops->ndo_set_rx_mode)
 		ops->ndo_set_rx_mode(dev);
