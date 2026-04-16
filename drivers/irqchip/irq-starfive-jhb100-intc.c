@@ -7,16 +7,15 @@
  * Author: Changhuang Liang <changhuang.liang@starfivetech.com>
  */
 
-#define pr_fmt(fmt) "irq-starfive-jhb100: " fmt
-
 #include <linux/bitops.h>
+#include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/irqdomain.h>
-#include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/platform_device.h>
 #include <linux/reset.h>
 #include <linux/spinlock.h>
 
@@ -117,85 +116,49 @@ static void starfive_intc_irq_handler(struct irq_desc *desc)
 static int starfive_intc_probe(struct platform_device *pdev, struct device_node *parent)
 {
 	struct device_node *intc = pdev->dev.of_node;
-	struct starfive_irq_chip *irqc;
 	struct reset_control *rst;
 	struct clk *clk;
 	int parent_irq;
-	int ret;
 
-	irqc = kzalloc_obj(*irqc);
+	struct starfive_irq_chip *irqc __free(kfree) = kzalloc_obj(*irqc);
 	if (!irqc)
 		return -ENOMEM;
 
-	irqc->base = of_iomap(intc, 0);
-	if (!irqc->base) {
-		pr_err("Unable to map registers\n");
-		ret = -ENXIO;
-		goto err_free;
-	}
+	irqc->base = devm_platform_ioremap_resource(pdev, 0);
+	if (!irqc->base)
+		return dev_err_probe(&pdev->dev, -ENXIO, "unable to map registers\n");
 
-	rst = of_reset_control_get_exclusive(intc, NULL);
-	if (IS_ERR(rst)) {
-		pr_err("Unable to get reset control %pe\n", rst);
-		ret = PTR_ERR(rst);
-		goto err_unmap;
-	}
+	rst = devm_reset_control_get_optional_exclusive_deasserted(&pdev->dev, NULL);
+	if (IS_ERR(rst))
+		return dev_err_probe(&pdev->dev, PTR_ERR(rst),
+				     "Unable to get and deassert reset control\n");
 
-	clk = of_clk_get(intc, 0);
-	if (IS_ERR(clk)) {
-		pr_err("Unable to get clock %pe\n", clk);
-		ret = PTR_ERR(clk);
-		goto err_reset_put;
-	}
+	clk = devm_clk_get_optional_enabled(&pdev->dev, NULL);
+	if (IS_ERR(clk))
+		return dev_err_probe(&pdev->dev, PTR_ERR(clk), "Unable to get and enable clock\n");
 
-	ret = reset_control_deassert(rst);
-	if (ret)
-		goto err_clk_put;
-
-	ret = clk_prepare_enable(clk);
-	if (ret)
-		goto err_reset_assert;
 
 	raw_spin_lock_init(&irqc->lock);
 
 	irqc->domain = irq_domain_create_linear(of_fwnode_handle(intc), STARFIVE_INTC_SRC_IRQ_NUM,
 						&starfive_intc_domain_ops, irqc);
-	if (!irqc->domain) {
-		pr_err("Unable to create IRQ domain\n");
-		ret = -EINVAL;
-		goto err_clk_disable;
-	}
+	if (!irqc->domain)
+		return dev_err_probe(&pdev->dev, -EINVAL, "Unable to create IRQ domain\n");
 
 	parent_irq = of_irq_get(intc, 0);
 	if (parent_irq < 0) {
-		pr_err("Failed to get main IRQ: %d\n", parent_irq);
-		ret = parent_irq;
-		goto err_remove_domain;
+		irq_domain_remove(irqc->domain);
+		return dev_err_probe(&pdev->dev, parent_irq, "Failed to get main IRQ\n");
 	}
 
 	irq_set_chained_handler_and_data(parent_irq, starfive_intc_irq_handler,
 					 irqc);
 
-	pr_info("Interrupt controller register, nr_irqs %d\n",
-		STARFIVE_INTC_SRC_IRQ_NUM);
+	dev_info(&pdev->dev, "Interrupt controller register, nr_irqs %d\n",
+		 STARFIVE_INTC_SRC_IRQ_NUM);
 
+	retain_and_null_ptr(irqc);
 	return 0;
-
-err_remove_domain:
-	irq_domain_remove(irqc->domain);
-err_clk_disable:
-	clk_disable_unprepare(clk);
-err_reset_assert:
-	reset_control_assert(rst);
-err_clk_put:
-	clk_put(clk);
-err_reset_put:
-	reset_control_put(rst);
-err_unmap:
-	iounmap(irqc->base);
-err_free:
-	kfree(irqc);
-	return ret;
 }
 
 IRQCHIP_PLATFORM_DRIVER_BEGIN(starfive_intc)
