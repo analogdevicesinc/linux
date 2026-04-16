@@ -172,8 +172,7 @@ static int UVERBS_HANDLER(UVERBS_METHOD_CQ_CREATE)(
 		}
 		umem = &umem_dmabuf->umem;
 	} else if (uverbs_attr_is_valid(attrs, UVERBS_ATTR_CREATE_CQ_BUFFER_OFFSET) ||
-		   uverbs_attr_is_valid(attrs, UVERBS_ATTR_CREATE_CQ_BUFFER_LENGTH) ||
-		   !ib_dev->ops.create_cq) {
+		   uverbs_attr_is_valid(attrs, UVERBS_ATTR_CREATE_CQ_BUFFER_LENGTH)) {
 		ret = -EINVAL;
 		goto err_event_file;
 	}
