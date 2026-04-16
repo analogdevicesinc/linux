@@ -10,6 +10,7 @@
 #include <linux/bitops.h>
 #include <linux/cleanup.h>
 #include <linux/clk.h>
+#include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irqchip.h>
 #include <linux/irqchip/chained_irq.h>
@@ -19,18 +20,36 @@
 #include <linux/reset.h>
 #include <linux/spinlock.h>
 
+#define STARFIVE_INTC_SRC_TYPE(n)	(0x04 + ((n) * 0x20))
 #define STARFIVE_INTC_SRC_CLEAR(n)	(0x10 + ((n) * 0x20))
 #define STARFIVE_INTC_SRC_MASK(n)	(0x14 + ((n) * 0x20))
 #define STARFIVE_INTC_SRC_INT(n)	(0x1c + ((n) * 0x20))
 
+#define STARFIVE_INTC_TRIGGER_MASK	0x3
+#define STARFIVE_INTC_TRIGGER_HIGH	0
+#define STARFIVE_INTC_TRIGGER_LOW	1
+#define STARFIVE_INTC_TRIGGER_POSEDGE	2
+#define STARFIVE_INTC_TRIGGER_NEGEDGE	3
+
 #define STARFIVE_INTC_NUM		2
 #define STARFIVE_INTC_SRC_IRQ_NUM	32
+#define STARFIVE_INTC_TYPE_NUM		16
 
 struct starfive_irq_chip {
 	void __iomem		*base;
 	struct irq_domain	*domain;
 	raw_spinlock_t		lock;
 };
+
+static void starfive_intc_mod(struct starfive_irq_chip *irqc, u32 reg, u32 mask, u32 data)
+{
+	u32 value;
+
+	value = ioread32(irqc->base + reg) & ~mask;
+	data &= mask;
+	data |= value;
+	iowrite32(data, irqc->base + reg);
+}
 
 static void starfive_intc_bit_set(struct starfive_irq_chip *irqc,
 				  u32 reg, u32 bit_mask)
@@ -76,10 +95,64 @@ static void starfive_intc_mask(struct irq_data *d)
 	starfive_intc_bit_set(irqc, STARFIVE_INTC_SRC_MASK(i), BIT(bitpos));
 }
 
+static void starfive_intc_ack(struct irq_data *d)
+{
+	/* for handle_edge_irq, nothing to do */
+}
+
+static int starfive_intc_set_type(struct irq_data *d, unsigned int type)
+{
+	struct starfive_irq_chip *irqc = irq_data_get_irq_chip_data(d);
+	u32 i, bitpos, ty_pos, ty_shift, trigger, typeval;
+	irq_flow_handler_t handler;
+
+	i = d->hwirq / STARFIVE_INTC_SRC_IRQ_NUM;
+	bitpos = d->hwirq % STARFIVE_INTC_SRC_IRQ_NUM;
+	ty_pos = bitpos / STARFIVE_INTC_TYPE_NUM;
+	ty_shift = (bitpos % STARFIVE_INTC_TYPE_NUM) * 2;
+
+	switch (type) {
+	case IRQF_TRIGGER_LOW:
+		trigger = STARFIVE_INTC_TRIGGER_LOW;
+		handler = handle_level_irq;
+		break;
+	case IRQF_TRIGGER_HIGH:
+		trigger = STARFIVE_INTC_TRIGGER_HIGH;
+		handler = handle_level_irq;
+		break;
+	case IRQF_TRIGGER_FALLING:
+		trigger = STARFIVE_INTC_TRIGGER_NEGEDGE;
+		handler = handle_edge_irq;
+		break;
+	case IRQF_TRIGGER_RISING:
+		trigger = STARFIVE_INTC_TRIGGER_POSEDGE;
+		handler = handle_edge_irq;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	irq_set_handler_locked(d, handler);
+	typeval = trigger << ty_shift;
+
+	guard(raw_spinlock)(&irqc->lock);
+
+	starfive_intc_mod(irqc, STARFIVE_INTC_SRC_TYPE(i) + 4 * ty_pos,
+			  STARFIVE_INTC_TRIGGER_MASK << ty_shift, typeval);
+
+	/* Once the type is updated, clear interrupt can help to reset the type value */
+	starfive_intc_bit_set(irqc, STARFIVE_INTC_SRC_CLEAR(i), BIT(bitpos));
+	starfive_intc_bit_clear(irqc, STARFIVE_INTC_SRC_CLEAR(i), BIT(bitpos));
+
+	return 0;
+}
+
 static struct irq_chip intc_dev = {
 	.name		= "StarFive JHB100 INTC",
 	.irq_unmask	= starfive_intc_unmask,
 	.irq_mask	= starfive_intc_mask,
+	.irq_ack	= starfive_intc_ack,
+	.irq_set_type	= starfive_intc_set_type,
 };
 
 static int starfive_intc_map(struct irq_domain *d, unsigned int irq,
