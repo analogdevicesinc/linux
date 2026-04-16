@@ -20,6 +20,7 @@ struct intel_fb_pin_params {
 	unsigned int phys_alignment;
 	unsigned int vtd_guard;
 	bool needs_cpu_lmem_access;
+	bool needs_low_address;
 };
 
 struct i915_vma *

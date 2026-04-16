@@ -142,7 +142,7 @@ intel_fb_pin_to_ggtt(const struct drm_framebuffer *fb,
 
 	pinctl = 0;
 	/* PIN_MAPPABLE limits the address to GMADR size */
-	if (intel_plane_needs_low_address(display))
+	if (pin_params->needs_low_address)
 		pinctl |= PIN_MAPPABLE;
 
 	i915_gem_ww_ctx_init(&ww, true);
@@ -256,6 +256,7 @@ intel_plane_fb_vtd_guard(const struct intel_plane_state *plane_state)
 int intel_plane_pin_fb(struct intel_plane_state *plane_state,
 		       const struct intel_plane_state *old_plane_state)
 {
+	struct intel_display *display = to_intel_display(plane_state);
 	struct drm_i915_private *i915 = to_i915(plane_state->uapi.plane->dev);
 	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
 	const struct intel_framebuffer *fb =
@@ -269,6 +270,7 @@ int intel_plane_pin_fb(struct intel_plane_state *plane_state,
 			.phys_alignment = intel_plane_fb_min_phys_alignment(plane_state),
 			.vtd_guard = intel_plane_fb_vtd_guard(plane_state),
 			.needs_cpu_lmem_access = intel_fb_needs_cpu_access(&fb->base),
+			.needs_low_address = intel_plane_needs_low_address(display),
 		};
 		int fence_id = -1;
 

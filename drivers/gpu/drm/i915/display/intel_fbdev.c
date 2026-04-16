@@ -55,6 +55,7 @@
 #include "intel_fb_pin.h"
 #include "intel_fbdev.h"
 #include "intel_frontbuffer.h"
+#include "intel_plane.h"
 
 struct intel_fbdev {
 	struct intel_framebuffer *fb;
@@ -314,6 +315,7 @@ int intel_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
 	pin_params.vtd_guard = intel_fb_view_vtd_guard(&fb->base,
 						       &fb->normal_view,
 						       DRM_MODE_ROTATE_0);
+	pin_params.needs_low_address = intel_plane_needs_low_address(display);
 
 	vma = intel_fb_pin_to_ggtt(&fb->base, &pin_params, NULL);
 	if (IS_ERR(vma)) {
