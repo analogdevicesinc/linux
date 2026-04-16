@@ -2,7 +2,16 @@
 # SPDX-License-Identifier: GPL-2.0
 #
 # Runs a set of tests in a given subdirectory.
-. $(dirname "$(readlink -e "${BASH_SOURCE[0]}")")/ktap_helpers.sh
+
+# There isn't a shell-agnostic way to find the path of a sourced file,
+# so we must rely on BASE_DIR being set to find other tools.
+if [ -z "$BASE_DIR" ]; then
+	echo "Error: BASE_DIR must be set before sourcing." >&2
+	exit 1
+fi
+
+. ${BASE_DIR}/kselftest/ktap_helpers.sh
+
 export timeout_rc=124
 export logfile=/dev/stdout
 export per_test_logging=
@@ -13,13 +22,6 @@ export RUN_IN_NETNS=
 # "timeout" how many seconds to let each test run before running
 # over our soft timeout limit.
 export kselftest_default_timeout=45
-
-# There isn't a shell-agnostic way to find the path of a sourced file,
-# so we must rely on BASE_DIR being set to find other tools.
-if [ -z "$BASE_DIR" ]; then
-	echo "Error: BASE_DIR must be set before sourcing." >&2
-	exit 1
-fi
 
 TR_CMD=$(command -v tr)
 
