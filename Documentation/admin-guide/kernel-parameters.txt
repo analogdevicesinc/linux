@@ -1246,8 +1246,9 @@ Kernel parameters
 			deferred probe to give up waiting on dependencies to
 			probe. Only specific dependencies (subsystems or
 			drivers) that have opted in will be ignored. A timeout
-			of 0 will timeout at the end of initcalls. If the time
-			out hasn't expired, it'll be restarted by each
+			of 0 will timeout at the end of initcalls; a negative
+			value is treated as an infinite timeout value. If the
+			timeout hasn't expired, it'll be restarted by each
 			successful driver registration. This option will also
 			dump out devices still on the deferred probe list after
 			retrying.
