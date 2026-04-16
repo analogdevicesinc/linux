@@ -60,7 +60,6 @@ struct xe_device_desc {
 	u8 has_sysctrl:1;
 	u8 needs_scratch:1;
 	u8 skip_guc_pc:1;
-	u8 skip_mtcfg:1;
 	u8 skip_pcode:1;
 	u8 needs_shared_vf_gt_wq:1;
 };

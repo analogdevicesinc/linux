@@ -767,7 +767,6 @@ static int xe_info_init_early(struct xe_device *xe,
 		desc->has_sriov;
 	xe->info.has_sysctrl = desc->has_sysctrl;
 	xe->info.skip_guc_pc = desc->skip_guc_pc;
-	xe->info.skip_mtcfg = desc->skip_mtcfg;
 	xe->info.skip_pcode = desc->skip_pcode;
 	xe->info.needs_scratch = desc->needs_scratch;
 	xe->info.needs_shared_vf_gt_wq = desc->needs_shared_vf_gt_wq;
@@ -807,9 +806,6 @@ static void xe_info_probe_tile_count(struct xe_device *xe)
 	 * tiles.
 	 */
 	if (xe->info.tile_count == 1)
-		return;
-
-	if (xe->info.skip_mtcfg)
 		return;
 
 	mmio = xe_root_tile_mmio(xe);

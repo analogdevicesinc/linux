@@ -218,8 +218,6 @@ struct xe_device {
 		u8 probe_display:1;
 		/** @info.skip_guc_pc: Skip GuC based PM feature init */
 		u8 skip_guc_pc:1;
-		/** @info.skip_mtcfg: skip Multi-Tile configuration from MTCFG register */
-		u8 skip_mtcfg:1;
 		/** @info.skip_pcode: skip access to PCODE uC */
 		u8 skip_pcode:1;
 		/** @info.needs_shared_vf_gt_wq: needs shared GT WQ on VF */
