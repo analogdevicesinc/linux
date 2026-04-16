@@ -31,6 +31,9 @@ ovpn_prepare_network() {
 	for p in $(seq 0 ${OVPN_NUM_PEERS}); do
 		ovpn_cmd_ok "start notification listener peer${p}" \
 			ovpn_setup_listener "${p}"
+		# starting all YNL listeners back-to-back can intermittently
+		# stall their startup so serialize launches a bit
+		sleep 0.5
 	done
 
 	for p in $(seq 0 ${OVPN_NUM_PEERS}); do
