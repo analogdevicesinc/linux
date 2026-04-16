@@ -617,7 +617,7 @@ static int rockchip_gpiolib_register(struct rockchip_pin_bank *bank)
 			return -ENODEV;
 
 		ret = gpiochip_add_pin_range(gc, dev_name(pctldev->dev), 0,
-					     gc->base, gc->ngpio);
+					     bank->pin_base, bank->nr_pins);
 		if (ret) {
 			dev_err(bank->dev, "Failed to add pin range\n");
 			goto fail;
