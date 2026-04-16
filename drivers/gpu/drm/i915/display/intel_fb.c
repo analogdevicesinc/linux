@@ -521,6 +521,11 @@ bool intel_fb_needs_64k_phys(u64 modifier)
 				      INTEL_PLANE_CAP_NEED64K_PHYS);
 }
 
+bool intel_fb_needs_cpu_access(const struct drm_framebuffer *fb)
+{
+	return intel_fb_rc_ccs_cc_plane(fb) >= 0;
+}
+
 /**
  * intel_fb_is_tile4_modifier: Check if a modifier is a tile4 modifier type
  * @modifier: Modifier to check

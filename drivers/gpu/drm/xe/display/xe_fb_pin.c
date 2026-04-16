@@ -335,7 +335,7 @@ static struct i915_vma *__xe_pin_fb_vma(const struct intel_framebuffer *fb,
 
 	refcount_set(&vma->ref, 1);
 	if (IS_DGFX(to_xe_device(bo->ttm.base.dev)) &&
-	    intel_fb_rc_ccs_cc_plane(&fb->base) >= 0 &&
+	    intel_fb_needs_cpu_access(&fb->base) &&
 	    !(bo->flags & XE_BO_FLAG_NEEDS_CPU_ACCESS)) {
 		struct xe_vram_region *vram = xe_device_get_root_tile(xe)->mem.vram;
 

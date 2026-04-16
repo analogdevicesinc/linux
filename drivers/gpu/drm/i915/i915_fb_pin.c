@@ -61,7 +61,7 @@ intel_fb_pin_to_dpt(const struct drm_framebuffer *fb,
 			 * ensure it is always in the mappable part of lmem, if this is
 			 * a small-bar device.
 			 */
-			if (intel_fb_rc_ccs_cc_plane(fb) >= 0)
+			if (intel_fb_needs_cpu_access(fb))
 				flags &= ~I915_BO_ALLOC_GPU_ONLY;
 			ret = __i915_gem_object_migrate(obj, &ww, INTEL_REGION_LMEM_0,
 							flags);
