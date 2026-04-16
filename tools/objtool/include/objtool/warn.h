@@ -130,10 +130,22 @@ static inline void unindent(int *unused) { indent--; }
 		objname ? ": " : "",					\
 		##__VA_ARGS__)
 
-#define dbg(args...)							\
+#define dbg_checksum_insn(func, insn, checksum)				\
 ({									\
-	if (unlikely(debug))						\
-		__dbg(args);						\
+	if (unlikely(func->debug_checksum)) {				\
+		char *insn_off = offstr(insn->sec, insn->offset);	\
+		__dbg("checksum: %s(): %s %016llx",			\
+		      func->name, insn_off, (unsigned long long)checksum);\
+		free(insn_off);						\
+	}								\
+})
+
+#define dbg_checksum_object(sym, offset, what, checksum)		\
+({									\
+	if (unlikely(sym->debug_checksum))				\
+		__dbg("checksum: %s+0x%lx: %s %016llx",			\
+		      sym->name, offset, what,				\
+		      (unsigned long long)checksum);			\
 })
 
 #define __dbg_indent(format, ...)					\
@@ -146,16 +158,5 @@ static inline void unindent(int *unused) { indent--; }
 	int __cleanup(unindent) __dummy_##__COUNTER__;			\
 	__dbg_indent(args);						\
 	indent++
-
-#define dbg_checksum(func, insn, checksum)				\
-({									\
-	if (unlikely(insn->sym && insn->sym->pfunc &&			\
-		     insn->sym->pfunc->debug_checksum)) {		\
-		char *insn_off = offstr(insn->sec, insn->offset);	\
-		__dbg("checksum: %s %s %016llx",			\
-		      func->name, insn_off, (unsigned long long)checksum);\
-		free(insn_off);						\
-	}								\
-})
 
 #endif /* _WARN_H */

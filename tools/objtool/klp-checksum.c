@@ -35,7 +35,7 @@ static int checksum_debug_init(struct objtool_file *file)
 			*comma = '\0';
 
 		for_each_sym_by_name(file->elf, s, sym) {
-			if (!is_func_sym(sym))
+			if (!is_func_sym(sym) && !is_object_sym(sym))
 				continue;
 			sym->debug_checksum = 1;
 			found = true;
@@ -66,14 +66,14 @@ static void checksum_update_insn(struct objtool_file *file, struct symbol *func,
 	if (insn->fake)
 		return;
 
-	checksum_update(func, insn, insn->sec->data->d_buf + insn->offset, insn->len);
+	__checksum_update_insn(func, insn, insn->sec->data->d_buf + insn->offset, insn->len);
 
 	if (!reloc) {
 		struct symbol *call_dest = insn_call_dest(insn);
 
 		if (call_dest)
-			checksum_update(func, insn, call_dest->demangled_name,
-					strlen(call_dest->demangled_name));
+			__checksum_update_insn(func, insn, call_dest->demangled_name,
+					       strlen(call_dest->demangled_name));
 		goto alts;
 	}
 
@@ -84,7 +84,7 @@ static void checksum_update_insn(struct objtool_file *file, struct symbol *func,
 		char *str;
 
 		str = sym->sec->data->d_buf + sym->offset + offset;
-		checksum_update(func, insn, str, strlen(str));
+		__checksum_update_insn(func, insn, str, strlen(str));
 		goto alts;
 	}
 
@@ -96,8 +96,9 @@ static void checksum_update_insn(struct objtool_file *file, struct symbol *func,
 		offset -= sym->offset;
 	}
 
-	checksum_update(func, insn, sym->demangled_name, strlen(sym->demangled_name));
-	checksum_update(func, insn, &offset, sizeof(offset));
+	__checksum_update_insn(func, insn, sym->demangled_name,
+			       strlen(sym->demangled_name));
+	__checksum_update_insn(func, insn, &offset, sizeof(offset));
 
 alts:
 	for (alt = insn->alts; alt; alt = alt->next) {
@@ -108,12 +109,13 @@ alts:
 			break;
 		in_alt = true;
 
-		checksum_update(func, insn, &alt->type, sizeof(alt->type));
+		__checksum_update_insn(func, insn, &alt->type,
+				       sizeof(alt->type));
 
 		if (alt_group && alt_group->orig_group) {
 			struct instruction *alt_insn;
 
-			checksum_update(func, insn, &alt_group->feature, sizeof(alt_group->feature));
+			__checksum_update_insn(func, insn, &alt_group->feature,sizeof(alt_group->feature));
 
 			for (alt_insn = alt->insn; alt_insn; alt_insn = next_insn_same_sec(file, alt_insn)) {
 				checksum_update_insn(file, func, alt_insn);
@@ -128,31 +130,82 @@ alts:
 	}
 }
 
+static void checksum_update_object(struct objtool_file *file, struct symbol *sym)
+{
+	struct reloc *reloc;
+
+	__checksum_update_object(sym, 0, "len", &sym->len, sizeof(sym->len));
+
+	if (sym->sec->data->d_buf)
+		__checksum_update_object(sym, 0, "data",
+					 sym->sec->data->d_buf + sym->offset,
+					 sym->len);
+
+	sym_for_each_reloc(file->elf, sym, reloc) {
+		unsigned long sym_offset = reloc_offset(reloc) - sym->offset;
+		struct symbol *target = reloc->sym;
+		s64 offset;
+
+		offset = reloc_addend(reloc);
+
+		if (is_string_sec(target->sec)) {
+			char *str;
+
+			str = target->sec->data->d_buf + target->offset + offset;
+			__checksum_update_object(sym, sym_offset,
+						 "reloc string", str, strlen(str));
+			continue;
+		}
+
+		if (is_sec_sym(target)) {
+			target = find_symbol_containing(reloc->sym->sec, offset);
+			if (!target)
+				continue;
+
+			offset -= target->offset;
+		}
+
+		__checksum_update_object(sym, sym_offset, "reloc name",
+					 target->demangled_name,
+					 strlen(target->demangled_name));
+		__checksum_update_object(sym, sym_offset, "reloc addend",
+					 &offset, sizeof(offset));
+	}
+}
+
 int calculate_checksums(struct objtool_file *file)
 {
 	struct instruction *insn;
-	struct symbol *func;
+	struct symbol *sym;
 
 	if (checksum_debug_init(file))
 		return -1;
 
-	for_each_sym(file->elf, func) {
+	for_each_sym(file->elf, sym) {
+
 		/*
 		 * Skip cold subfunctions and aliases: they share the
 		 * parent's checksum via func_for_each_insn() which
 		 * follows func->cfunc into the cold subfunction.
 		 */
-		if (!is_func_sym(func) || is_cold_func(func) ||
-		    is_alias_sym(func) || !func->len)
+		if (is_cold_func(sym) || is_alias_sym(sym) || !sym->len ||
+		    !sym->sec || !sym->sec->data)
 			continue;
 
-		checksum_init(func);
+		if (is_func_sym(sym)) {
+			checksum_init(sym);
+			func_for_each_insn(file, sym, insn)
+				checksum_update_insn(file, sym, insn);
+			checksum_finish(sym);
 
-		func_for_each_insn(file, func, insn)
-			checksum_update_insn(file, func, insn);
+		} else if (is_object_sym(sym)) {
+			checksum_init(sym);
+			checksum_update_object(file, sym);
+			checksum_finish(sym);
+		}
 
-		checksum_finish(func);
 	}
+
 	return 0;
 }
 
@@ -213,7 +266,7 @@ int cmd_klp_checksum(int argc, const char **argv)
 	int ret;
 
 	const struct option options[] = {
-		OPT_STRING(0,	"debug-checksum", &opts.debug_checksum,	"funcs", "enable checksum debug output"),
+		OPT_STRING(0,	"debug-checksum", &opts.debug_checksum,	"syms", "enable checksum debug output"),
 		OPT_BOOLEAN(0,	"dry-run", &opts.dryrun, "don't write modifications"),
 		OPT_END(),
 	};

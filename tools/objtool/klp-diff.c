@@ -201,7 +201,7 @@ static int read_sym_checksums(struct elf *elf)
 			return -1;
 		}
 
-		if (is_func_sym(sym))
+		if (is_func_sym(sym) || is_object_sym(sym))
 			sym->csum.checksum = sym_checksum->checksum;
 	}
 
