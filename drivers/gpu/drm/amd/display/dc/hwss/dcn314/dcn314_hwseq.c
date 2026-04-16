@@ -232,59 +232,59 @@ void dcn314_dsc_pg_control(
 	uint32_t pwr_status = power_on ? 0 : 2;
 	uint32_t org_ip_request_cntl = 0;
 
-	if (hws->ctx->dc->debug.disable_dsc_power_gate)
-		return;
-
 	if (hws->ctx->dc->debug.root_clock_optimization.bits.dsc &&
 		hws->ctx->dc->res_pool->dccg->funcs->enable_dsc &&
 		power_on)
 		hws->ctx->dc->res_pool->dccg->funcs->enable_dsc(
 			hws->ctx->dc->res_pool->dccg, dsc_inst);
 
-	REG_GET(DC_IP_REQUEST_CNTL, IP_REQUEST_EN, &org_ip_request_cntl);
-	if (org_ip_request_cntl == 0)
-		REG_SET(DC_IP_REQUEST_CNTL, 0, IP_REQUEST_EN, 1);
+	if (!hws->ctx->dc->debug.disable_dsc_power_gate) {
 
-	switch (dsc_inst) {
-	case 0: /* DSC0 */
-		REG_UPDATE(DOMAIN16_PG_CONFIG,
-				DOMAIN_POWER_GATE, power_gate);
+		REG_GET(DC_IP_REQUEST_CNTL, IP_REQUEST_EN, &org_ip_request_cntl);
+		if (org_ip_request_cntl == 0)
+			REG_SET(DC_IP_REQUEST_CNTL, 0, IP_REQUEST_EN, 1);
 
-		REG_WAIT(DOMAIN16_PG_STATUS,
-				DOMAIN_PGFSM_PWR_STATUS, pwr_status,
-				1, 1000);
-		break;
-	case 1: /* DSC1 */
-		REG_UPDATE(DOMAIN17_PG_CONFIG,
-				DOMAIN_POWER_GATE, power_gate);
+		switch (dsc_inst) {
+		case 0: /* DSC0 */
+			REG_UPDATE(DOMAIN16_PG_CONFIG,
+					DOMAIN_POWER_GATE, power_gate);
 
-		REG_WAIT(DOMAIN17_PG_STATUS,
-				DOMAIN_PGFSM_PWR_STATUS, pwr_status,
-				1, 1000);
-		break;
-	case 2: /* DSC2 */
-		REG_UPDATE(DOMAIN18_PG_CONFIG,
-				DOMAIN_POWER_GATE, power_gate);
+			REG_WAIT(DOMAIN16_PG_STATUS,
+					DOMAIN_PGFSM_PWR_STATUS, pwr_status,
+					1, 1000);
+			break;
+		case 1: /* DSC1 */
+			REG_UPDATE(DOMAIN17_PG_CONFIG,
+					DOMAIN_POWER_GATE, power_gate);
 
-		REG_WAIT(DOMAIN18_PG_STATUS,
-				DOMAIN_PGFSM_PWR_STATUS, pwr_status,
-				1, 1000);
-		break;
-	case 3: /* DSC3 */
-		REG_UPDATE(DOMAIN19_PG_CONFIG,
-				DOMAIN_POWER_GATE, power_gate);
+			REG_WAIT(DOMAIN17_PG_STATUS,
+					DOMAIN_PGFSM_PWR_STATUS, pwr_status,
+					1, 1000);
+			break;
+		case 2: /* DSC2 */
+			REG_UPDATE(DOMAIN18_PG_CONFIG,
+					DOMAIN_POWER_GATE, power_gate);
 
-		REG_WAIT(DOMAIN19_PG_STATUS,
-				DOMAIN_PGFSM_PWR_STATUS, pwr_status,
-				1, 1000);
-		break;
-	default:
-		BREAK_TO_DEBUGGER();
-		break;
+			REG_WAIT(DOMAIN18_PG_STATUS,
+					DOMAIN_PGFSM_PWR_STATUS, pwr_status,
+					1, 1000);
+			break;
+		case 3: /* DSC3 */
+			REG_UPDATE(DOMAIN19_PG_CONFIG,
+					DOMAIN_POWER_GATE, power_gate);
+
+			REG_WAIT(DOMAIN19_PG_STATUS,
+					DOMAIN_PGFSM_PWR_STATUS, pwr_status,
+					1, 1000);
+			break;
+		default:
+			BREAK_TO_DEBUGGER();
+			break;
+		}
+
+		if (org_ip_request_cntl == 0)
+			REG_SET(DC_IP_REQUEST_CNTL, 0, IP_REQUEST_EN, 0);
 	}
-
-	if (org_ip_request_cntl == 0)
-		REG_SET(DC_IP_REQUEST_CNTL, 0, IP_REQUEST_EN, 0);
 
 	if (hws->ctx->dc->debug.root_clock_optimization.bits.dsc) {
 		if (hws->ctx->dc->res_pool->dccg->funcs->disable_dsc && !power_on)
