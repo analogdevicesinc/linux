@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # SPDX-License-Identifier: GPL-2.0
 #
 # Runs a set of tests in a given subdirectory.
@@ -193,7 +193,7 @@ run_many()
 	DIR="${PWD#${BASE_DIR}/}"
 	test_num=0
 	local rc
-	pids=()
+	pids=
 
 	for TEST in "$@"; do
 		BASENAME_TEST=$(basename $TEST)
@@ -204,7 +204,7 @@ run_many()
 		fi
 		if [ -n "$RUN_IN_NETNS" ]; then
 			run_in_netns &
-			pids+=($!)
+			pids="$pids $!"
 		else
 			run_one "$DIR" "$TEST" "$test_num"
 		fi
@@ -212,7 +212,7 @@ run_many()
 
 	# These variables are outputs of ktap_helpers.sh but since we've
 	# run the test in a subprocess we need to update them manually
-	for pid in "${pids[@]}"; do
+	for pid in $pids; do
 		wait "$pid"
 		rc=$?
 		case "$rc" in
