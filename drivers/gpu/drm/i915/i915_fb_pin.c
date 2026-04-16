@@ -23,12 +23,10 @@
 #include "i915_vma.h"
 
 static struct i915_vma *
-intel_fb_pin_to_dpt(const struct drm_framebuffer *fb,
-		    struct intel_dpt *dpt,
+intel_fb_pin_to_dpt(struct drm_gem_object *_obj, struct intel_dpt *dpt,
 		    const struct intel_fb_pin_params *pin_params)
 {
-	struct drm_i915_private *i915 = to_i915(fb->dev);
-	struct drm_gem_object *_obj = intel_fb_bo(fb);
+	struct drm_i915_private *i915 = to_i915(_obj->dev);
 	struct drm_i915_gem_object *obj = to_intel_bo(_obj);
 	struct i915_address_space *vm = i915_dpt_to_vm(dpt);
 	struct i915_gem_ww_ctx ww;
@@ -108,12 +106,11 @@ err:
 }
 
 struct i915_vma *
-intel_fb_pin_to_ggtt(const struct drm_framebuffer *fb,
+intel_fb_pin_to_ggtt(struct drm_gem_object *_obj,
 		     const struct intel_fb_pin_params *pin_params,
 		     int *out_fence_id)
 {
-	struct drm_i915_private *i915 = to_i915(fb->dev);
-	struct drm_gem_object *_obj = intel_fb_bo(fb);
+	struct drm_i915_private *i915 = to_i915(_obj->dev);
 	struct drm_i915_gem_object *obj = to_intel_bo(_obj);
 	intel_wakeref_t wakeref;
 	struct i915_gem_ww_ctx ww;
@@ -275,7 +272,7 @@ int intel_plane_pin_fb(struct intel_plane_state *plane_state,
 		};
 		int fence_id = -1;
 
-		vma = intel_fb_pin_to_ggtt(&fb->base, &pin_params,
+		vma = intel_fb_pin_to_ggtt(intel_fb_bo(&fb->base), &pin_params,
 					   intel_plane_uses_fence(plane_state) ? &fence_id : NULL);
 		if (IS_ERR(vma))
 			return PTR_ERR(vma);
@@ -295,7 +292,7 @@ int intel_plane_pin_fb(struct intel_plane_state *plane_state,
 
 		plane_state->ggtt_vma = vma;
 
-		vma = intel_fb_pin_to_dpt(&fb->base, fb->dpt, &pin_params);
+		vma = intel_fb_pin_to_dpt(intel_fb_bo(&fb->base), fb->dpt, &pin_params);
 		if (IS_ERR(vma)) {
 			i915_dpt_unpin_from_ggtt(fb->dpt);
 			plane_state->ggtt_vma = NULL;

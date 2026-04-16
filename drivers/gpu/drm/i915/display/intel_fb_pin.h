@@ -8,7 +8,7 @@
 
 #include <linux/types.h>
 
-struct drm_framebuffer;
+struct drm_gem_object;
 struct i915_vma;
 struct intel_plane_state;
 struct i915_gtt_view;
@@ -26,7 +26,7 @@ struct intel_fb_pin_params {
 };
 
 struct i915_vma *
-intel_fb_pin_to_ggtt(const struct drm_framebuffer *fb,
+intel_fb_pin_to_ggtt(struct drm_gem_object *obj,
 		     const struct intel_fb_pin_params *pin_params,
 		     int *out_fence_id);
 

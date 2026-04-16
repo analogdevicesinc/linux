@@ -138,7 +138,7 @@ xe_initial_plane_setup(struct drm_plane_state *_plane_state,
 		.view = &plane_state->view.gtt,
 	};
 
-	vma = intel_fb_pin_to_ggtt(fb, &pin_params, NULL);
+	vma = intel_fb_pin_to_ggtt(intel_fb_bo(fb), &pin_params, NULL);
 	if (IS_ERR(vma))
 		return PTR_ERR(vma);
 

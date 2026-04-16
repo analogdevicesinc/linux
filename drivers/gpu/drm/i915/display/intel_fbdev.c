@@ -306,6 +306,8 @@ int intel_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
 		sizes->fb_height = fb->base.height;
 	}
 
+	obj = intel_fb_bo(&fb->base);
+
 	/* Pin the GGTT vma for our access via info->screen_base.
 	 * This also validates that any existing fb inherited from the
 	 * BIOS is suitable for own access.
@@ -317,7 +319,7 @@ int intel_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
 						       DRM_MODE_ROTATE_0);
 	pin_params.needs_low_address = intel_plane_needs_low_address(display);
 
-	vma = intel_fb_pin_to_ggtt(&fb->base, &pin_params, NULL);
+	vma = intel_fb_pin_to_ggtt(obj, &pin_params, NULL);
 	if (IS_ERR(vma)) {
 		ret = PTR_ERR(vma);
 		goto out_unlock;
@@ -327,8 +329,6 @@ int intel_fbdev_driver_fbdev_probe(struct drm_fb_helper *helper,
 	helper->fb = &fb->base;
 
 	info->fbops = &intelfb_ops;
-
-	obj = intel_fb_bo(&fb->base);
 
 	ret = intel_bo_fbdev_fill_info(obj, info, vma);
 	if (ret)
