@@ -1287,7 +1287,7 @@ bool intel_plane_uses_fence(const struct intel_plane_state *plane_state)
 	struct intel_display *display = to_intel_display(plane_state);
 	struct intel_plane *plane = to_intel_plane(plane_state->uapi.plane);
 
-	return DISPLAY_VER(display) < 4 ||
+	return intel_plane_needs_fence(display) ||
 		(plane->fbc && !plane_state->no_fbc_reason &&
 		 i915_gtt_view_is_normal(&plane_state->view.gtt));
 }

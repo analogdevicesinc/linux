@@ -192,6 +192,15 @@ bool intel_plane_needs_physical(struct intel_plane *plane)
 		DISPLAY_INFO(display)->cursor_needs_physical;
 }
 
+bool intel_plane_needs_fence(struct intel_display *display)
+{
+	/*
+	 * pre-i965 planes use the fence for tiled scanout.
+	 * i965+ planes have their own tiled scanout control bit.
+	 */
+	return DISPLAY_VER(display) < 4;
+}
+
 bool intel_plane_can_async_flip(struct intel_plane *plane,
 				const struct drm_format_info *info,
 				u64 modifier)

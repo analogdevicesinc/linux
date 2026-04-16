@@ -188,7 +188,7 @@ retry:
 		 * mode that matches the user configuration.
 		 */
 		ret = i915_vma_pin_fence(vma);
-		if (ret != 0 && DISPLAY_VER(display) < 4) {
+		if (ret != 0 && intel_plane_needs_fence(display)) {
 			i915_vma_unpin(vma);
 			goto err_unpin;
 		}
