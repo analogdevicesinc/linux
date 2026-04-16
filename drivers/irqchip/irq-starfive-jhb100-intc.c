@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * StarFive JH8100 External Interrupt Controller driver
+ * StarFive JHB100 External Interrupt Controller driver
  *
  * Copyright (C) 2023 StarFive Technology Co., Ltd.
  *
  * Author: Changhuang Liang <changhuang.liang@starfivetech.com>
  */
 
-#define pr_fmt(fmt) "irq-starfive-jh8100: " fmt
+#define pr_fmt(fmt) "irq-starfive-jhb100: " fmt
 
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -71,7 +71,7 @@ static void starfive_intc_mask(struct irq_data *d)
 }
 
 static struct irq_chip intc_dev = {
-	.name		= "StarFive JH8100 INTC",
+	.name		= "StarFive JHB100 INTC",
 	.irq_unmask	= starfive_intc_unmask,
 	.irq_mask	= starfive_intc_mask,
 };
@@ -199,9 +199,9 @@ err_free:
 }
 
 IRQCHIP_PLATFORM_DRIVER_BEGIN(starfive_intc)
-IRQCHIP_MATCH("starfive,jh8100-intc", starfive_intc_probe)
+IRQCHIP_MATCH("starfive,jhb100-intc", starfive_intc_probe)
 IRQCHIP_PLATFORM_DRIVER_END(starfive_intc)
 
-MODULE_DESCRIPTION("StarFive JH8100 External Interrupt Controller");
+MODULE_DESCRIPTION("StarFive JHB100 External Interrupt Controller");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Changhuang Liang <changhuang.liang@starfivetech.com>");
