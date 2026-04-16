@@ -1204,21 +1204,6 @@ static void gmc_v9_0_override_vm_pte_flags(struct amdgpu_device *adev,
 {
 	int local_node, nid;
 
-	/* Only GFX 9.4.3 APUs associate GPUs with NUMA nodes. Local system
-	 * memory can use more efficient MTYPEs.
-	 */
-	if (!(adev->flags & AMD_IS_APU) ||
-	    amdgpu_ip_version(adev, GC_HWIP, 0) != IP_VERSION(9, 4, 3))
-		return;
-
-	/* Only direct-mapped memory allows us to determine the NUMA node from
-	 * the DMA address.
-	 */
-	if (!adev->ram_is_direct_mapped) {
-		dev_dbg_ratelimited(adev->dev, "RAM is not direct mapped\n");
-		return;
-	}
-
 	/* MTYPE_NC is the same default and can be overridden.
 	 * MTYPE_UC will be present if the memory is extended-coherent
 	 * and can also be overridden.
@@ -1231,11 +1216,7 @@ static void gmc_v9_0_override_vm_pte_flags(struct amdgpu_device *adev,
 		return;
 	}
 
-	/* FIXME: Only supported on native mode for now. For carve-out, the
-	 * NUMA affinity of the GPU/VM needs to come from the PCI info because
-	 * memory partitions are not associated with different NUMA nodes.
-	 */
-	if (adev->gmc.is_app_apu && vm->mem_id >= 0) {
+	if (vm->mem_id >= 0) {
 		local_node = adev->gmc.mem_partitions[vm->mem_id].numa.node;
 	} else {
 		dev_dbg_ratelimited(adev->dev, "Only native mode APU is supported.\n");
@@ -1344,6 +1325,20 @@ static const struct amdgpu_gmc_funcs gmc_v9_0_gmc_funcs = {
 static void gmc_v9_0_set_gmc_funcs(struct amdgpu_device *adev)
 {
 	adev->gmc.gmc_funcs = &gmc_v9_0_gmc_funcs;
+
+	/* Only GFX 9.4.3 APUs associate GPUs with NUMA nodes, local system
+	 * memory can use more efficient MTYPEs.
+	 *
+	 * APUs mapping system memory may need different MTYPEs on different
+	 * NUMA nodes.
+	 *
+	 * Only direct-mapped memory allows us to determine the NUMA node from
+	 * the DMA address.
+	 */
+	adev->gmc.override_pte = adev->gmc.is_app_apu &&
+				 num_possible_nodes() > 1 &&
+				 amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 3) &&
+				 adev->ram_is_direct_mapped;
 }
 
 static void gmc_v9_0_set_umc_funcs(struct amdgpu_device *adev)

@@ -365,6 +365,8 @@ struct amdgpu_gmc {
 	bool flush_tlb_needs_extra_type_0;
 	bool flush_tlb_needs_extra_type_2;
 	bool flush_pasid_uses_kiq;
+
+	bool override_pte;
 };
 
 #define amdgpu_gmc_emit_flush_gpu_tlb(r, vmid, addr) (r)->adev->gmc.gmc_funcs->emit_flush_gpu_tlb((r), (vmid), (addr))

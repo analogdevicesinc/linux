@@ -710,15 +710,6 @@ static void amdgpu_vm_pte_update_flags(struct amdgpu_vm_update_params *params,
 	if (level == AMDGPU_VM_PTB)
 		amdgpu_vm_pte_update_noretry_flags(adev, &flags);
 
-	/* APUs mapping system memory may need different MTYPEs on different
-	 * NUMA nodes. Only do this for contiguous ranges that can be assumed
-	 * to be on the same NUMA node.
-	 */
-	if ((flags & AMDGPU_PTE_SYSTEM) && (adev->flags & AMD_IS_APU) &&
-	    adev->gmc.gmc_funcs->override_vm_pte_flags &&
-	    num_possible_nodes() > 1 && !params->pages_addr && params->allow_override)
-		amdgpu_gmc_override_vm_pte_flags(adev, params->vm, addr, &flags);
-
 	params->vm->update_funcs->update(params, pt, pe, addr, count, incr,
 					 flags);
 }
