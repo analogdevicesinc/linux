@@ -61,7 +61,7 @@ intel_fb_pin_to_dpt(const struct drm_framebuffer *fb,
 			 * ensure it is always in the mappable part of lmem, if this is
 			 * a small-bar device.
 			 */
-			if (intel_fb_needs_cpu_access(fb))
+			if (pin_params->needs_cpu_lmem_access)
 				flags &= ~I915_BO_ALLOC_GPU_ONLY;
 			ret = __i915_gem_object_migrate(obj, &ww, INTEL_REGION_LMEM_0,
 							flags);
@@ -275,6 +275,7 @@ int intel_plane_pin_fb(struct intel_plane_state *plane_state,
 			.alignment = intel_plane_fb_min_alignment(plane_state),
 			.phys_alignment = intel_plane_fb_min_phys_alignment(plane_state),
 			.vtd_guard = intel_plane_fb_vtd_guard(plane_state),
+			.needs_cpu_lmem_access = intel_fb_needs_cpu_access(&fb->base),
 		};
 		int fence_id = -1;
 
@@ -289,6 +290,7 @@ int intel_plane_pin_fb(struct intel_plane_state *plane_state,
 		struct intel_fb_pin_params pin_params = {
 			.view = &plane_state->view.gtt,
 			.alignment = intel_plane_fb_min_alignment(plane_state),
+			.needs_cpu_lmem_access = intel_fb_needs_cpu_access(&fb->base),
 		};
 
 		vma = i915_dpt_pin_to_ggtt(fb->dpt, pin_params.alignment / 512);
