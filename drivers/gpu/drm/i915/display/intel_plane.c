@@ -171,6 +171,19 @@ intel_plane_destroy_state(struct drm_plane *plane,
 	kfree(plane_state);
 }
 
+bool intel_plane_needs_low_address(struct intel_display *display)
+{
+	/*
+	 * Valleyview is definitely limited to scanning out the first
+	 * 512MiB. Lets presume this behaviour was inherited from the
+	 * g4x display engine and that all earlier gen are similarly
+	 * limited. Testing suggests that it is a little more
+	 * complicated than this. For example, Cherryview appears quite
+	 * happy to scanout from anywhere within its global aperture.
+	 */
+	return HAS_GMCH(display);
+}
+
 bool intel_plane_needs_physical(struct intel_plane *plane)
 {
 	struct intel_display *display = to_intel_display(plane);

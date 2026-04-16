@@ -140,16 +140,9 @@ intel_fb_pin_to_ggtt(const struct drm_framebuffer *fb,
 
 	atomic_inc(&i915->pending_fb_pin);
 
-	/*
-	 * Valleyview is definitely limited to scanning out the first
-	 * 512MiB. Lets presume this behaviour was inherited from the
-	 * g4x display engine and that all earlier gen are similarly
-	 * limited. Testing suggests that it is a little more
-	 * complicated than this. For example, Cherryview appears quite
-	 * happy to scanout from anywhere within its global aperture.
-	 */
 	pinctl = 0;
-	if (HAS_GMCH(display))
+	/* PIN_MAPPABLE limits the address to GMADR size */
+	if (intel_plane_needs_low_address(display))
 		pinctl |= PIN_MAPPABLE;
 
 	i915_gem_ww_ctx_init(&ww, true);
