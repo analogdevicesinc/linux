@@ -37,6 +37,12 @@ struct cpu_ctx {
 /* Opaque to userspace; defined in scx_qmap.bpf.c. */
 struct task_ctx;
 
+struct qmap_fifo {
+	struct task_ctx __arena *head;
+	struct task_ctx __arena *tail;
+	__s32 idx;
+};
+
 struct qmap_arena {
 	/* userspace-visible stats */
 	__u64 nr_enqueued, nr_dispatched, nr_reenqueued, nr_reenqueued_cpu0;
@@ -59,6 +65,9 @@ struct qmap_arena {
 	/* task_ctx slab; allocated and threaded by qmap_init() */
 	struct task_ctx __arena *task_ctxs;
 	struct task_ctx __arena *task_free_head;
+
+	/* five priority FIFOs, each a doubly-linked list through task_ctx */
+	struct qmap_fifo fifos[5];
 };
 
 #endif /* __SCX_QMAP_H */
