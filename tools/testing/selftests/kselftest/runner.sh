@@ -51,7 +51,6 @@ run_one()
 {
 	DIR="$1"
 	TEST="$2"
-	local rc test_num="$3"
 
 	BASENAME_TEST=$(basename $TEST)
 
@@ -108,7 +107,7 @@ run_one()
 	echo "# $TEST_HDR_MSG"
 	if [ ! -e "$TEST" ]; then
 		ktap_print_msg "Warning: file $TEST is missing!"
-		ktap_test_fail "$test_num $TEST_HDR_MSG"
+		ktap_test_fail "$TEST_HDR_MSG"
 		rc=$KSFT_FAIL
 	else
 		if [ -x /usr/bin/stdbuf ]; then
@@ -127,7 +126,7 @@ run_one()
 				interpreter=$(head -n 1 "$TEST" | cut -c 3-)
 				cmd="$stdbuf $interpreter ./$BASENAME_TEST"
 			else
-				ktap_test_fail "$test_num $TEST_HDR_MSG"
+				ktap_test_fail "$TEST_HDR_MSG"
 				return $KSFT_FAIL
 			fi
 		fi
@@ -138,15 +137,15 @@ run_one()
 		rc=$?
 		case "$rc" in
 		"$KSFT_PASS")
-			ktap_test_pass "$test_num $TEST_HDR_MSG";;
+			ktap_test_pass "$TEST_HDR_MSG";;
 		"$KSFT_SKIP")
-			ktap_test_skip "$test_num $TEST_HDR_MSG";;
+			ktap_test_skip "$TEST_HDR_MSG";;
 		"$KSFT_XFAIL")
-			ktap_test_xfail "$test_num $TEST_HDR_MSG";;
+			ktap_test_xfail "$TEST_HDR_MSG";;
 		"$timeout_rc")
-			ktap_test_fail "$test_num $TEST_HDR_MSG # TIMEOUT $kselftest_timeout seconds";;
+			ktap_test_fail "$TEST_HDR_MSG # TIMEOUT $kselftest_timeout seconds";;
 		*)
-			ktap_test_fail "$test_num $TEST_HDR_MSG # exit=$rc";;
+			ktap_test_fail "$TEST_HDR_MSG # exit=$rc";;
 		esac
 		cd - >/dev/null
 	fi
@@ -161,7 +160,7 @@ in_netns()
 		BASE_DIR=$BASE_DIR
 		source $BASE_DIR/kselftest/runner.sh
 		logfile=$logfile
-		run_one $DIR $TEST $test_num
+		run_one $DIR $TEST
 	EOF
 }
 
@@ -174,7 +173,7 @@ run_in_netns()
 	ip netns add $netns
 	if [ $? -ne 0 ]; then
 		ktap_print_msg "Warning: Create namespace failed for $BASENAME_TEST"
-		ktap_test_fail "$test_num selftests: $DIR: $BASENAME_TEST # Create NS failed"
+		ktap_test_fail "selftests: $DIR: $BASENAME_TEST # Create NS failed"
 	fi
 	ip -n $netns link set lo up
 
@@ -191,13 +190,11 @@ run_in_netns()
 run_many()
 {
 	DIR="${PWD#${BASE_DIR}/}"
-	test_num=0
 	local rc
 	pids=
 
 	for TEST in "$@"; do
 		BASENAME_TEST=$(basename $TEST)
-		test_num=$(( test_num + 1 ))
 		if [ -n "$per_test_logging" ]; then
 			logfile="$per_test_log_dir/$BASENAME_TEST"
 			cat /dev/null > "$logfile"
@@ -206,7 +203,7 @@ run_many()
 			run_in_netns &
 			pids="$pids $!"
 		else
-			run_one "$DIR" "$TEST" "$test_num"
+			run_one "$DIR" "$TEST"
 		fi
 	done
 
