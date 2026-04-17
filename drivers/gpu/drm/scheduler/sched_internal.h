@@ -14,6 +14,7 @@
  * @runtime: time entity spent on the GPU.
  * @prev_runtime: previous @runtime used to get the runtime delta.
  * @vruntime: virtual runtime as accumulated by the fair algorithm.
+ * @avg_job_us: average job duration.
  *
  * Because jobs and entities have decoupled lifetimes, ie. we cannot access the
  * entity once the job has been de-queued, and we do need know how much GPU time
@@ -26,6 +27,8 @@ struct drm_sched_entity_stats {
 	ktime_t		runtime;
 	ktime_t		prev_runtime;
 	ktime_t		vruntime;
+
+	struct ewma_drm_sched_avgtime   avg_job_us;
 };
 
 /* Used to choose between FIFO and RR job-scheduling */
@@ -146,6 +149,6 @@ drm_sched_entity_stats_put(struct drm_sched_entity_stats *stats)
 	kref_put(&stats->kref, drm_sched_entity_stats_release);
 }
 
-void drm_sched_entity_stats_job_add_gpu_time(struct drm_sched_job *job);
+ktime_t drm_sched_entity_stats_job_add_gpu_time(struct drm_sched_job *job);
 
 #endif

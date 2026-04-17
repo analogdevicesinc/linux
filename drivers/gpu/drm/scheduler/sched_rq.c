@@ -165,13 +165,21 @@ drm_sched_entity_restore_vruntime(struct drm_sched_entity *entity,
 				  enum drm_sched_priority rq_prio)
 {
 	struct drm_sched_entity_stats *stats = entity->stats;
+	struct drm_gpu_scheduler *sched = entity->rq->sched;
 	enum drm_sched_priority prio = entity->priority;
+	unsigned long avg_us, sched_avg_us;
 	ktime_t vruntime;
 
 	BUILD_BUG_ON(DRM_SCHED_PRIORITY_NORMAL < DRM_SCHED_PRIORITY_HIGH);
 
 	spin_lock(&stats->lock);
 	vruntime = stats->vruntime;
+	avg_us = ewma_drm_sched_avgtime_read(&stats->avg_job_us);
+	/*
+	 * Unlocked read of the scheduler average is fine since it is just
+	 * heuristics and data type is a natural word size.
+	 */
+	sched_avg_us = ewma_drm_sched_avgtime_read(&sched->avg_job_us);
 
 	/*
 	 * Special handling for entities which were picked from the top of the
@@ -181,14 +189,24 @@ drm_sched_entity_restore_vruntime(struct drm_sched_entity *entity,
 		if (prio > rq_prio) {
 			/*
 			 * Lower priority should not overtake higher when re-
-			 * joining at the top of the queue.
+			 * joining at the top of the queue so push it back
+			 * somewhere behind the "middle" of the run-queue,
+			 * proportional to the scheduler and entity average job
+			 * durations.
 			 */
-			vruntime = ns_to_ktime(prio - rq_prio);
+			vruntime = us_to_ktime((1 + avg_us + sched_avg_us) <<
+					       vruntime_shift[prio]);
 		} else if (prio < rq_prio) {
 			/*
 			 * Higher priority can go first.
 			 */
 			vruntime = -ns_to_ktime(rq_prio - prio);
+		} else {
+			/* Favour entity with shorter jobs (interactivity). */
+			if (avg_us <= sched_avg_us)
+				vruntime = -ns_to_ktime(1);
+			else
+				vruntime = ns_to_ktime(1);
 		}
 	}
 
