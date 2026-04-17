@@ -201,12 +201,12 @@ static struct clk * const disable_clks[] __initconst = {
 
 static void __clk_enable2(struct clk *clk)
 {
-	__raw_writel(__raw_readl(MCFSDHC_CLK) | (1 << clk->slot), MCFSDHC_CLK);
+	mcf_write32(mcf_read32(MCFSDHC_CLK) | (1 << clk->slot), MCFSDHC_CLK);
 }
 
 static void __clk_disable2(struct clk *clk)
 {
-	__raw_writel(__raw_readl(MCFSDHC_CLK) & ~(1 << clk->slot), MCFSDHC_CLK);
+	mcf_write32(mcf_read32(MCFSDHC_CLK) & ~(1 << clk->slot), MCFSDHC_CLK);
 }
 
 struct clk_ops clk_ops2 = {
@@ -229,14 +229,14 @@ static void __init m5441x_clk_init(void)
 
 static void __init m5441x_uarts_init(void)
 {
-	__raw_writeb(0x0f, MCFGPIO_PAR_UART0);
-	__raw_writeb(0x00, MCFGPIO_PAR_UART1);
-	__raw_writeb(0x00, MCFGPIO_PAR_UART2);
+	mcf_write8(0x0f, MCFGPIO_PAR_UART0);
+	mcf_write8(0x00, MCFGPIO_PAR_UART1);
+	mcf_write8(0x00, MCFGPIO_PAR_UART2);
 }
 
 static void __init m5441x_fec_init(void)
 {
-	__raw_writeb(0x03, MCFGPIO_PAR_FEC);
+	mcf_write8(0x03, MCFGPIO_PAR_FEC);
 }
 
 void __init config_BSP(char *commandp, int size)
