@@ -541,9 +541,9 @@ static int ak8975_set_mode(struct ak8975_data *data, enum ak_ctrl_mode mode)
 		 data->def->ctrl_modes[mode];
 	ret = i2c_smbus_write_byte_data(data->client,
 					data->def->ctrl_regs[CNTL], regval);
-	if (ret < 0) {
+	if (ret < 0)
 		return ret;
-	}
+
 	data->cntl_cache = regval;
 	/* After mode change wait at least 100us */
 	usleep_range(100, 500);
