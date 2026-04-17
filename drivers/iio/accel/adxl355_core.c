@@ -336,10 +336,8 @@ static int adxl355_setup(struct adxl355_data *data)
 		return ret;
 
 	do {
-		if (--retries == 0) {
-			dev_err(data->dev, "Shadow registers mismatch\n");
-			return -EIO;
-		}
+		if (--retries == 0)
+			return dev_err_probe(data->dev, -EIO, "Shadow registers mismatch\n");
 
 		/*
 		 * Perform a software reset to make sure the device is in a consistent
@@ -775,10 +773,8 @@ static int adxl355_probe_trigger(struct iio_dev *indio_dev, int irq)
 				     irq);
 
 	ret = devm_iio_trigger_register(data->dev, data->dready_trig);
-	if (ret) {
-		dev_err(data->dev, "iio trigger register failed\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(data->dev, ret, "iio trigger register failed\n");
 
 	indio_dev->trig = iio_trigger_get(data->dready_trig);
 
@@ -814,18 +810,14 @@ int adxl355_core_probe(struct device *dev, struct regmap *regmap,
 	indio_dev->available_scan_masks = adxl355_avail_scan_masks;
 
 	ret = adxl355_setup(data);
-	if (ret) {
-		dev_err(dev, "ADXL355 setup failed\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "ADXL355 setup failed\n");
 
 	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
 					      &iio_pollfunc_store_time,
 					      &adxl355_trigger_handler, NULL);
-	if (ret) {
-		dev_err(dev, "iio triggered buffer setup failed\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "iio triggered buffer setup failed\n");
 
 	irq = fwnode_irq_get_byname(dev_fwnode(dev), "DRDY");
 	if (irq > 0) {
