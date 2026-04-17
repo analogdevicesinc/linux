@@ -1299,7 +1299,9 @@ int adxl372_probe(struct device *dev, struct regmap *regmap,
 	st->irq = irq;
 	st->chip_info = chip_info;
 
-	mutex_init(&st->threshold_m);
+	ret = devm_mutex_init(dev, &st->threshold_m);
+	if (ret < 0)
+		return ret;
 
 	indio_dev->channels = adxl372_channels;
 	indio_dev->num_channels = ARRAY_SIZE(adxl372_channels);
