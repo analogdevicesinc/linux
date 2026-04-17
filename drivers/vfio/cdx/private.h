@@ -38,7 +38,6 @@ struct vfio_cdx_device {
 	u32			flags;
 #define BME_SUPPORT BIT(0)
 	u32			msi_count;
-	u8			config_msi;
 };
 
 #ifdef CONFIG_GENERIC_MSI_IRQ
