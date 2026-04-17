@@ -349,8 +349,8 @@ static int amdgpu_firmware_info(struct drm_amdgpu_info_firmware *fw_info,
 		fw_info->feature = adev->psp.toc.feature_version;
 		break;
 	case AMDGPU_INFO_FW_CAP:
-		fw_info->ver = adev->psp.cap_fw_version;
-		fw_info->feature = adev->psp.cap_feature_version;
+		fw_info->ver = adev->psp.cap.fw_version;
+		fw_info->feature = adev->psp.cap.feature_version;
 		break;
 	case AMDGPU_INFO_FW_MES_KIQ:
 		fw_info->ver = adev->mes.kiq_version & AMDGPU_MES_VERSION_MASK;

@@ -448,9 +448,7 @@ struct psp_context {
 	const struct firmware		*ta_fw;
 	uint32_t			ta_fw_version;
 
-	uint32_t			cap_fw_version;
-	uint32_t			cap_feature_version;
-	uint32_t			cap_ucode_size;
+	struct psp_bin_desc		cap;
 
 	struct ta_context		asd_context;
 	struct psp_xgmi_context		xgmi_context;

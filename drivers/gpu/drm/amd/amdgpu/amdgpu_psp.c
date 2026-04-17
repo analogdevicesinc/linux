@@ -3960,58 +3960,72 @@ int psp_ring_cmd_submit(struct psp_context *psp,
 	return 0;
 }
 
+/**
+ * parse_psp_v1_bin_descriptor - Populate struct psp_bin_desc from a
+ * v1.0 PSP firmware header (standalone images such as ASD or TOC).
+ */
+static int parse_psp_v1_bin_descriptor(struct psp_bin_desc *desc,
+					const struct psp_firmware_header_v1_0 *hdr)
+{
+	if (!desc || !hdr)
+		return -EINVAL;
+
+	desc->fw_version = le32_to_cpu(hdr->header.ucode_version);
+	desc->feature_version = le32_to_cpu(hdr->sos.fw_version);
+	desc->size_bytes = le32_to_cpu(hdr->header.ucode_size_bytes);
+	desc->start_addr = (uint8_t *)hdr +
+			   le32_to_cpu(hdr->header.ucode_array_offset_bytes);
+
+	return 0;
+}
+
 int psp_init_asd_microcode(struct psp_context *psp, const char *chip_name)
 {
-	struct amdgpu_device *adev = psp->adev;
-	const struct psp_firmware_header_v1_0 *asd_hdr;
-	int err = 0;
+	int err;
 
-	err = amdgpu_ucode_request(adev, &adev->psp.asd_fw, AMDGPU_UCODE_REQUIRED,
+	err = amdgpu_ucode_request(psp->adev, &psp->asd_fw, AMDGPU_UCODE_REQUIRED,
 				   "amdgpu/%s_asd.bin", chip_name);
 	if (err)
 		goto out;
 
-	asd_hdr = (const struct psp_firmware_header_v1_0 *)adev->psp.asd_fw->data;
-	adev->psp.asd_context.bin_desc.fw_version = le32_to_cpu(asd_hdr->header.ucode_version);
-	adev->psp.asd_context.bin_desc.feature_version = le32_to_cpu(asd_hdr->sos.fw_version);
-	adev->psp.asd_context.bin_desc.size_bytes = le32_to_cpu(asd_hdr->header.ucode_size_bytes);
-	adev->psp.asd_context.bin_desc.start_addr = (uint8_t *)asd_hdr +
-				le32_to_cpu(asd_hdr->header.ucode_array_offset_bytes);
+	err = parse_psp_v1_bin_descriptor(&psp->asd_context.bin_desc,
+		    (const struct psp_firmware_header_v1_0 *)psp->asd_fw->data);
+	if (err)
+		goto out;
+
 	return 0;
 out:
-	amdgpu_ucode_release(&adev->psp.asd_fw);
+	amdgpu_ucode_release(&psp->asd_fw);
 	return err;
 }
 
 int psp_init_toc_microcode(struct psp_context *psp, const char *chip_name)
 {
-	struct amdgpu_device *adev = psp->adev;
-	const struct psp_firmware_header_v1_0 *toc_hdr;
-	int err = 0;
+	int err;
 
-	if (amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(15, 0, 8) &&
-	    adev->rev_id == 0)
-		err = amdgpu_ucode_request(adev, &adev->psp.toc_fw, AMDGPU_UCODE_REQUIRED,
+	if (amdgpu_ip_version(psp->adev, MP0_HWIP, 0) == IP_VERSION(15, 0, 8) &&
+	    psp->adev->rev_id == 0 &&
+	    !amdgpu_emu_mode)
+		err = amdgpu_ucode_request(psp->adev, &psp->toc_fw, AMDGPU_UCODE_REQUIRED,
 				   "amdgpu/%s_toc_1.bin", chip_name);
 	else
-		err = amdgpu_ucode_request(adev, &adev->psp.toc_fw, AMDGPU_UCODE_REQUIRED,
+		err = amdgpu_ucode_request(psp->adev, &psp->toc_fw, AMDGPU_UCODE_REQUIRED,
 				   "amdgpu/%s_toc.bin", chip_name);
 	if (err)
 		goto out;
 
-	toc_hdr = (const struct psp_firmware_header_v1_0 *)adev->psp.toc_fw->data;
-	adev->psp.toc.fw_version = le32_to_cpu(toc_hdr->header.ucode_version);
-	adev->psp.toc.feature_version = le32_to_cpu(toc_hdr->sos.fw_version);
-	adev->psp.toc.size_bytes = le32_to_cpu(toc_hdr->header.ucode_size_bytes);
-	adev->psp.toc.start_addr = (uint8_t *)toc_hdr +
-				le32_to_cpu(toc_hdr->header.ucode_array_offset_bytes);
+	err = parse_psp_v1_bin_descriptor(&psp->toc,
+		    (const struct psp_firmware_header_v1_0 *)psp->toc_fw->data);
+	if (err)
+		goto out;
+
 	return 0;
 out:
-	amdgpu_ucode_release(&adev->psp.toc_fw);
+	amdgpu_ucode_release(&psp->toc_fw);
 	return err;
 }
 
-static int parse_sos_bin_descriptor(struct psp_context *psp,
+static int parse_psp_v2_bin_descriptor(struct psp_context *psp,
 				   const struct psp_fw_bin_desc *desc,
 				   const struct psp_firmware_header_v2_0 *sos_hdr)
 {
@@ -4241,7 +4255,7 @@ int psp_init_sos_microcode(struct psp_context *psp, const char *chip_name)
 		}
 
 		for (fw_index = start_index; fw_index < fw_bin_count; fw_index++) {
-			err = parse_sos_bin_descriptor(psp, fw_bin + fw_index,
+			err = parse_psp_v2_bin_descriptor(psp, fw_bin + fw_index,
 						       sos_hdr_v2_0);
 			if (err)
 				goto out;
@@ -4476,16 +4490,15 @@ int psp_init_ta_microcode(struct psp_context *psp, const char *chip_name)
 int psp_init_cap_microcode(struct psp_context *psp, const char *chip_name)
 {
 	struct amdgpu_device *adev = psp->adev;
-	const struct psp_firmware_header_v1_0 *cap_hdr_v1_0;
-	struct amdgpu_firmware_info *info = NULL;
-	int err = 0;
+	struct amdgpu_firmware_info *info;
+	int err;
 
 	if (!amdgpu_sriov_vf(adev)) {
 		dev_err(adev->dev, "cap microcode should only be loaded under SRIOV\n");
 		return -EINVAL;
 	}
 
-	err = amdgpu_ucode_request(adev, &adev->psp.cap_fw, AMDGPU_UCODE_OPTIONAL,
+	err = amdgpu_ucode_request(adev, &psp->cap_fw, AMDGPU_UCODE_OPTIONAL,
 				   "amdgpu/%s_cap.bin", chip_name);
 	if (err) {
 		if (err == -ENODEV) {
@@ -4497,21 +4510,19 @@ int psp_init_cap_microcode(struct psp_context *psp, const char *chip_name)
 		goto out;
 	}
 
+	err = parse_psp_v1_bin_descriptor(&psp->cap,
+		(const struct psp_firmware_header_v1_0 *)psp->cap_fw->data);
+	if (err)
+		goto out;
+
 	info = &adev->firmware.ucode[AMDGPU_UCODE_ID_CAP];
 	info->ucode_id = AMDGPU_UCODE_ID_CAP;
-	info->fw = adev->psp.cap_fw;
-	cap_hdr_v1_0 = (const struct psp_firmware_header_v1_0 *)
-		adev->psp.cap_fw->data;
-	adev->firmware.fw_size += ALIGN(
-			le32_to_cpu(cap_hdr_v1_0->header.ucode_size_bytes), PAGE_SIZE);
-	adev->psp.cap_fw_version = le32_to_cpu(cap_hdr_v1_0->header.ucode_version);
-	adev->psp.cap_feature_version = le32_to_cpu(cap_hdr_v1_0->sos.fw_version);
-	adev->psp.cap_ucode_size = le32_to_cpu(cap_hdr_v1_0->header.ucode_size_bytes);
-
+	info->fw = psp->cap_fw;
+	adev->firmware.fw_size += ALIGN(psp->cap.size_bytes, PAGE_SIZE);
 	return 0;
 
 out:
-	amdgpu_ucode_release(&adev->psp.cap_fw);
+	amdgpu_ucode_release(&psp->cap_fw);
 	return err;
 }
 
