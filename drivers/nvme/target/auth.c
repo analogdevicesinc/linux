@@ -399,11 +399,12 @@ int nvmet_auth_ctrl_hash(struct nvmet_req *req, u8 *response,
 	put_unaligned_le16(req->sq->dhchap_tid, buf);
 	nvme_auth_hmac_update(&hmac, buf, 2);
 
-	memset(buf, 0, 4);
+	*buf = req->sq->sc_c;
 	nvme_auth_hmac_update(&hmac, buf, 1);
 	nvme_auth_hmac_update(&hmac, "Controller", 10);
 	nvme_auth_hmac_update(&hmac, ctrl->subsys->subsysnqn,
 			      strlen(ctrl->subsys->subsysnqn));
+	memset(buf, 0, 4);
 	nvme_auth_hmac_update(&hmac, buf, 1);
 	nvme_auth_hmac_update(&hmac, ctrl->hostnqn, strlen(ctrl->hostnqn));
 	nvme_auth_hmac_final(&hmac, response);

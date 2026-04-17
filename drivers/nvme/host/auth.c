@@ -535,11 +535,12 @@ static int nvme_auth_dhchap_setup_ctrl_response(struct nvme_ctrl *ctrl,
 	put_unaligned_le16(chap->transaction, buf);
 	nvme_auth_hmac_update(&hmac, buf, 2);
 
-	memset(buf, 0, 4);
+	*buf = chap->sc_c;
 	nvme_auth_hmac_update(&hmac, buf, 1);
 	nvme_auth_hmac_update(&hmac, "Controller", 10);
 	nvme_auth_hmac_update(&hmac, ctrl->opts->subsysnqn,
 			      strlen(ctrl->opts->subsysnqn));
+	memset(buf, 0, 4);
 	nvme_auth_hmac_update(&hmac, buf, 1);
 	nvme_auth_hmac_update(&hmac, ctrl->opts->host->nqn,
 			      strlen(ctrl->opts->host->nqn));
