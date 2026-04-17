@@ -1228,6 +1228,14 @@ set_arch () {
 	fi
 }
 
+get_adi_ci_defconfig () {
+	# User helper only, build.yml fetches with token
+	[[ -n "$ARCH" ]] || { echo "ARCH is not set" ; return 1 ; }
+
+	mkdir -p "arch/$ARCH/configs"
+	cp "$CI_WORKTREE/arch/$ARCH/configs/adi_ci_defconfig" "arch/$ARCH/configs"
+}
+
 set_step_warn () {
 	[[ -z "$GITHUB_ENV" ]] && return
 	echo ; echo "step_warn_$1=true" >> "$GITHUB_ENV"
