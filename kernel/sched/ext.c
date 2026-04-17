@@ -5526,6 +5526,26 @@ static void scx_disable_dump(struct scx_sched *sch)
 	sch->dump_disabled = true;
 }
 
+static void scx_log_sched_disable(struct scx_sched *sch)
+{
+	struct scx_exit_info *ei = sch->exit_info;
+	const char *type = scx_parent(sch) ? "sub-scheduler" : "scheduler";
+
+	if (ei->kind >= SCX_EXIT_ERROR) {
+		pr_err("sched_ext: BPF %s \"%s\" disabled (%s)\n", type,
+		       sch->ops.name, ei->reason);
+
+		if (ei->msg[0] != '\0')
+			pr_err("sched_ext: %s: %s\n", sch->ops.name, ei->msg);
+#ifdef CONFIG_STACKTRACE
+		stack_trace_print(ei->bt, ei->bt_len, 2);
+#endif
+	} else {
+		pr_info("sched_ext: BPF %s \"%s\" disabled (%s)\n", type,
+			sch->ops.name, ei->reason);
+	}
+}
+
 #ifdef CONFIG_EXT_SUB_SCHED
 static DECLARE_WAIT_QUEUE_HEAD(scx_unlink_waitq);
 
@@ -5696,6 +5716,8 @@ static void scx_sub_disable(struct scx_sched *sch)
 			    &sub_detach_args);
 	}
 
+	scx_log_sched_disable(sch);
+
 	if (sch->ops.exit)
 		SCX_CALL_OP(sch, exit, NULL, sch->exit_info);
 	kobject_del(&sch->kobj);
@@ -5707,7 +5729,6 @@ static void scx_sub_disable(struct scx_sched *sch) { }
 
 static void scx_root_disable(struct scx_sched *sch)
 {
-	struct scx_exit_info *ei = sch->exit_info;
 	struct scx_task_iter sti;
 	struct task_struct *p;
 	int cpu;
@@ -5797,22 +5818,10 @@ static void scx_root_disable(struct scx_sched *sch)
 	scx_idle_disable();
 	synchronize_rcu();
 
-	if (ei->kind >= SCX_EXIT_ERROR) {
-		pr_err("sched_ext: BPF scheduler \"%s\" disabled (%s)\n",
-		       sch->ops.name, ei->reason);
-
-		if (ei->msg[0] != '\0')
-			pr_err("sched_ext: %s: %s\n", sch->ops.name, ei->msg);
-#ifdef CONFIG_STACKTRACE
-		stack_trace_print(ei->bt, ei->bt_len, 2);
-#endif
-	} else {
-		pr_info("sched_ext: BPF scheduler \"%s\" disabled (%s)\n",
-			sch->ops.name, ei->reason);
-	}
+	scx_log_sched_disable(sch);
 
 	if (sch->ops.exit)
-		SCX_CALL_OP(sch, exit, NULL, ei);
+		SCX_CALL_OP(sch, exit, NULL, sch->exit_info);
 
 	scx_unlink_sched(sch);
 
