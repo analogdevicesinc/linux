@@ -5,6 +5,7 @@ on:
     branches:
       - 'main'
       - 'ci/*'
+      - 'xlnx/release/*'
   pull_request:
 
 jobs:
