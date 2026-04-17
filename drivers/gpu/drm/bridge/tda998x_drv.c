@@ -1293,7 +1293,7 @@ static const struct drm_edid *tda998x_edid_read(struct tda998x_priv *priv,
 	 * can't handle signals gracefully.
 	 */
 	if (tda998x_edid_delay_wait(priv))
-		return 0;
+		return NULL;
 
 	if (priv->rev == TDA19988)
 		reg_clear(priv, REG_TX4, TX4_PD_RAM);
