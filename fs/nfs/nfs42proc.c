@@ -401,6 +401,7 @@ static void nfs42_copy_dest_done(struct file *file, loff_t pos, loff_t len,
 					     NFS_INO_INVALID_MTIME |
 					     NFS_INO_INVALID_BLOCKS);
 	spin_unlock(&inode->i_lock);
+	nfs_update_delegated_mtime(inode);
 }
 
 static ssize_t _nfs42_proc_copy(struct file *src,
