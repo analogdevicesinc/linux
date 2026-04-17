@@ -802,7 +802,9 @@ int adxl355_core_probe(struct device *dev, struct regmap *regmap,
 	data->dev = dev;
 	data->op_mode = ADXL355_STANDBY;
 	data->chip_info = chip_info;
-	mutex_init(&data->lock);
+	ret = devm_mutex_init(dev, &data->lock);
+	if (ret)
+		return ret;
 
 	indio_dev->name = chip_info->name;
 	indio_dev->info = &adxl355_info;
