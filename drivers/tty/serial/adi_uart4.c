@@ -1151,6 +1151,12 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 		goto out_dma_release;
 	}
 
+	if (uartid >= ADI_UART_NR_PORTS) {
+		dev_err(dev, "serial id %d out of range\n", uartid);
+		ret = -EINVAL;
+		goto out_dma_release;
+	}
+
 	if (adi_uart4_serial_ports[uartid] == NULL) {
 		uart = devm_kzalloc(dev, sizeof(*uart), GFP_KERNEL);
 		if (!uart) {
