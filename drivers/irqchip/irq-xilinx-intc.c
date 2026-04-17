@@ -191,18 +191,25 @@ static int xilinx_intc_of_init(struct device_node *intc,
 
 		clkin = devm_clk_get_optional_enabled(&pdev->dev, NULL);
 		if (IS_ERR(clkin)) {
+			ret = dev_err_probe(&pdev->dev, PTR_ERR(clkin),
+					    "Failed to get and enable clock from Device Tree\n");
 			platform_device_put(pdev);
-			return dev_err_probe(&pdev->dev, PTR_ERR(clkin),
-					     "Failed to get and enable clock from Device Tree\n");
+			return ret;
 		}
 
 		irqc = devm_kzalloc(&pdev->dev, sizeof(*irqc), GFP_KERNEL);
-		if (!irqc)
+		if (!irqc) {
+			platform_device_put(pdev);
 			return -ENOMEM;
+		}
 
 		irqc->base = devm_of_iomap(&pdev->dev, intc, 0, NULL);
-		if (IS_ERR(irqc->base))
+		if (IS_ERR(irqc->base)) {
+			platform_device_put(pdev);
 			return PTR_ERR(irqc->base);
+		}
+
+		platform_device_put(pdev);
 	} else {
 		irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
 		if (!irqc)
@@ -306,6 +313,16 @@ static int xilinx_intc_of_remove(struct device_node *intc,
 
 	irq_set_chained_handler_and_data(irq, NULL, NULL);
 
+	/*
+	 * Disable all external interrupts until they are
+	 * explicity requested.
+	 */
+	xintc_write(irqc, IER, 0);
+	/* Acknowledge any pending interrupts just in case. */
+	xintc_write(irqc, IAR, 0xffffffff);
+	/* Turn off the Master Enable. */
+	xintc_write(irqc, MER, 0x0);
+
 	if (irqc->root_domain) {
 		unsigned int tempirq;
 		unsigned int i;
@@ -319,21 +336,14 @@ static int xilinx_intc_of_remove(struct device_node *intc,
 					pr_warn("%s\n", INTC_WARN);
 					return 0;
 				}
+				irq_dispose_mapping(tempirq);
 			}
 		}
 		irq_dispose_mapping(irq);
 		irq_domain_remove(irqc->root_domain);
 	}
 
-	/*
-	 * Disable all external interrupts until they are
-	 * explicity requested.
-	 */
-	xintc_write(irqc, IER, 0);
-	/* Acknowledge any pending interrupts just in case. */
-	xintc_write(irqc, IAR, 0xffffffff);
-	/* Turn off the Master Enable. */
-	xintc_write(irqc, MER, 0x0);
+	intc->data = NULL;
 
 	return 0;
 }
