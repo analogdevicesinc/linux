@@ -425,6 +425,9 @@ struct psp_context {
 	/* cap firmware */
 	const struct firmware		*cap_fw;
 
+	/* rl firmware */
+	const struct firmware		*rl_fw;
+
 	/* fence buffer */
 	struct amdgpu_bo		*fence_buf_bo;
 	uint64_t			fence_buf_mc_addr;
@@ -656,5 +659,6 @@ void amdgpu_psp_debugfs_init(struct amdgpu_device *adev);
 int amdgpu_psp_get_fw_type(struct amdgpu_firmware_info *ucode,
 			   enum psp_gfx_fw_type *type);
 int psp_set_mmhub_eco_sec_level(struct amdgpu_device *adev);
+int psp_init_rl_microcode(struct psp_context *psp, const char *chip_name);
 
 #endif

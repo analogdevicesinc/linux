@@ -33,6 +33,7 @@
 
 MODULE_FIRMWARE("amdgpu/psp_15_0_8_toc.bin");
 MODULE_FIRMWARE("amdgpu/psp_15_0_8_toc_1.bin");
+MODULE_FIRMWARE("amdgpu/psp_15_0_8_rl.bin");
 
 static int psp_v15_0_8_init_microcode(struct psp_context *psp)
 {
@@ -43,6 +44,10 @@ static int psp_v15_0_8_init_microcode(struct psp_context *psp)
 	amdgpu_ucode_ip_version_decode(adev, MP0_HWIP, ucode_prefix, sizeof(ucode_prefix));
 
 	err = psp_init_toc_microcode(psp, ucode_prefix);
+	if (err)
+		return err;
+
+	err = psp_init_rl_microcode(psp, ucode_prefix);
 	if (err)
 		return err;
 

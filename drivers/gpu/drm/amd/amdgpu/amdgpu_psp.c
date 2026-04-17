@@ -4025,6 +4025,26 @@ out:
 	return err;
 }
 
+int psp_init_rl_microcode(struct psp_context *psp, const char *chip_name)
+{
+	int err;
+
+	err = amdgpu_ucode_request(psp->adev, &psp->rl_fw, AMDGPU_UCODE_REQUIRED,
+				   "amdgpu/%s_rl.bin", chip_name);
+	if (err)
+		goto out;
+
+	err = parse_psp_v1_bin_descriptor(&psp->rl,
+		    (const struct psp_firmware_header_v1_0 *)psp->rl_fw->data);
+	if (err)
+		goto out;
+
+	return 0;
+out:
+	amdgpu_ucode_release(&psp->rl_fw);
+	return err;
+}
+
 static int parse_psp_v2_bin_descriptor(struct psp_context *psp,
 				   const struct psp_fw_bin_desc *desc,
 				   const struct psp_firmware_header_v2_0 *sos_hdr)
