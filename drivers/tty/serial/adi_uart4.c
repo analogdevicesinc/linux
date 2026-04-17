@@ -1148,13 +1148,15 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to get alias/pdev id, errno %d\n",
 				uartid);
 		ret = -ENODEV;
-		return ret;
+		goto out_dma_release;
 	}
 
 	if (adi_uart4_serial_ports[uartid] == NULL) {
 		uart = devm_kzalloc(dev, sizeof(*uart), GFP_KERNEL);
-		if (!uart)
-			return -ENOMEM;
+		if (!uart) {
+			ret = -ENOMEM;
+			goto out_dma_release;
+		}
 
 		adi_uart4_serial_ports[uartid] = uart;
 		uart->dev = &pdev->dev;
@@ -1261,6 +1263,11 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 
 out_error:
 	adi_uart4_serial_ports[uartid] = NULL;
+out_dma_release:
+	if (!IS_ERR(tx_dma_channel))
+		dma_release_channel(tx_dma_channel);
+	if (!IS_ERR(rx_dma_channel))
+		dma_release_channel(rx_dma_channel);
 
 	return ret;
 }
