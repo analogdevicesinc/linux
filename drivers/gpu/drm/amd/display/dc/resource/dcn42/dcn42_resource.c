@@ -700,6 +700,7 @@ static const struct dc_debug_options debug_defaults_drv = {
 	.disable_optc_power_gate = false,
 	.disable_dsc_power_gate = false,
 	.disable_dio_power_gate = true,
+	.disable_hpo_power_gate = true,
 	.pipe_split_policy = MPC_SPLIT_AVOID,
 	.force_single_disp_pipe_split = false,
 	.disable_dcc = DCC_ENABLE,
