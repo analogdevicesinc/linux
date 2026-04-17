@@ -539,6 +539,8 @@ static umode_t lm75_is_visible(const void *data, enum hwmon_sensor_types type,
 			if (config_data->params->num_sample_times > 1)
 				return 0644;
 			return 0444;
+		default:
+			break;
 		}
 		break;
 	case hwmon_temp:
@@ -554,6 +556,8 @@ static umode_t lm75_is_visible(const void *data, enum hwmon_sensor_types type,
 		case hwmon_temp_alarm:
 			if (config_data->params->alarm)
 				return 0444;
+			break;
+		default:
 			break;
 		}
 		break;
