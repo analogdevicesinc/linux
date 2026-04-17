@@ -5083,6 +5083,8 @@ static void f2fs_dio_write_submit_io(const struct iomap_iter *iter,
 	enum temp_type temp = f2fs_get_segment_temp(sbi, type);
 
 	bio->bi_write_hint = f2fs_io_type_to_rw_hint(sbi, DATA, temp);
+	bio->bi_write_stream =
+		f2fs_io_type_to_write_stream(bio->bi_bdev, DATA, temp);
 	blk_crypto_submit_bio(bio);
 }
 
