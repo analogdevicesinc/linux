@@ -1152,7 +1152,7 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 	}
 
 	if (adi_uart4_serial_ports[uartid] == NULL) {
-		uart = kzalloc(sizeof(*uart), GFP_KERNEL);
+		uart = devm_kzalloc(dev, sizeof(*uart), GFP_KERNEL);
 		if (!uart)
 			return -ENOMEM;
 
@@ -1160,8 +1160,10 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 		uart->dev = &pdev->dev;
 
 		uart->clk = devm_clk_get(dev, "sclk0");
-		if (IS_ERR(uart->clk))
-			return -ENODEV;
+		if (IS_ERR(uart->clk)) {
+			ret = PTR_ERR(uart->clk);
+			goto out_error;
+		}
 
 		spin_lock_init(&uart->port.lock);
 		uart->port.uartclk   = clk_get_rate(uart->clk);
@@ -1175,14 +1177,15 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 		if (res == NULL) {
 			dev_err(&pdev->dev, "Cannot get IORESOURCE_MEM\n");
 			ret = -ENOENT;
-			goto out_error_unmap;
+			goto out_error;
 		}
 
 		uart->port.membase = devm_ioremap(&pdev->dev, res->start,
 						resource_size(res));
 		if (!uart->port.membase) {
 			dev_err(&pdev->dev, "Cannot map uart IO\n");
-			return -ENXIO;
+			ret = -ENXIO;
+			goto out_error;
 		}
 
 		uart->tx_dma_channel = tx_dma_channel;
@@ -1203,7 +1206,7 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 				uart);
 			if (ret) {
 				dev_err(dev, "Unable to attach UART RX int\n");
-				return ret;
+				goto out_error;
 			}
 
 			ret = devm_request_threaded_irq(dev, uart->tx_irq,
@@ -1211,7 +1214,7 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 				uart);
 			if (ret) {
 				dev_err(dev, "Unable to attach UART TX int\n");
-				return ret;
+				goto out_error;
 			}
 		}
 
@@ -1241,24 +1244,23 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 			if (IS_ERR(uart->hwflow_en_pin)) {
 				dev_err(dev,
 				"hwflow-en required in peripheral hwflow mode\n");
-				return PTR_ERR(uart->hwflow_en_pin);
+				ret = PTR_ERR(uart->hwflow_en_pin);
+				goto out_error;
 			}
 		}
 	}
 
 	uart = adi_uart4_serial_ports[uartid];
 	uart->port.dev = &pdev->dev;
-	dev_set_drvdata(&pdev->dev, uart);
 
 	ret = uart_add_one_port(&adi_uart4_serial_reg, &uart->port);
-	if (!ret)
+	if (!ret) {
+		dev_set_drvdata(&pdev->dev, uart);
 		return 0;
-
-	if (uart) {
-out_error_unmap:
-		adi_uart4_serial_ports[uartid] = NULL;
-		kfree(uart);
 	}
+
+out_error:
+	adi_uart4_serial_ports[uartid] = NULL;
 
 	return ret;
 }
@@ -1276,7 +1278,6 @@ static void adi_uart4_serial_remove(struct platform_device *pdev)
 			dma_release_channel(uart->tx_dma_channel);
 			dma_release_channel(uart->rx_dma_channel);
 		}
-		kfree(uart);
 	}
 }
 
