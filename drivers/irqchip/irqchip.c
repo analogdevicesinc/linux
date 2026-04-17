@@ -124,6 +124,8 @@ void platform_irqchip_remove(struct platform_device *pdev)
 		par_np = NULL;
 
 	irqchip->irq_remove_cb(np, par_np);
+
+	of_node_put(irqchip->parent_node);
 }
 EXPORT_SYMBOL_GPL(platform_irqchip_remove);
 #endif

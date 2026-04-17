@@ -54,11 +54,12 @@ MODULE_DEVICE_TABLE(of, drv_name##_irqchip_match_table);		\
 static struct platform_driver drv_name##_driver = {			\
 	.probe  = IS_ENABLED(CONFIG_IRQCHIP) ? 				\
 			platform_irqchip_probe : NULL,			\
+	.remove = platform_irqchip_remove,                              \
 	.driver = {							\
 		.name = #drv_name,					\
 		.owner = THIS_MODULE,					\
 		.of_match_table = drv_name##_irqchip_match_table,	\
-		.suppress_bind_attrs = true,				\
+		/*.suppress_bind_attrs = false,*/			\
 		__VA_ARGS__						\
 	},								\
 };									\
@@ -76,7 +77,7 @@ static struct platform_driver drv_name##_driver = {		\
 		.name = #drv_name,					\
 		.owner = THIS_MODULE,					\
 		.of_match_table = drv_name##_irqchip_match_table,	\
-		.suppress_bind_attrs = true,				\
+		.suppress_bind_attrs = false,				\
 		__VA_ARGS__						\
 	},								\
 };									\
