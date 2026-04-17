@@ -415,12 +415,12 @@ static inline bool btf_type_is_array(const struct btf_type *t)
 	return BTF_INFO_KIND(t->info) == BTF_KIND_ARRAY;
 }
 
-static inline u16 btf_type_vlen(const struct btf_type *t)
+static inline u32 btf_type_vlen(const struct btf_type *t)
 {
 	return BTF_INFO_VLEN(t->info);
 }
 
-static inline u16 btf_vlen(const struct btf_type *t)
+static inline u32 btf_vlen(const struct btf_type *t)
 {
 	return btf_type_vlen(t);
 }
