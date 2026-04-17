@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'rpi-*.y'
+      - 'rpi/release/*'
     paths-ignore:
       - 'docs/**'
   pull_request:
