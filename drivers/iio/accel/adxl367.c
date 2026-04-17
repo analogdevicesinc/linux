@@ -1445,7 +1445,9 @@ int adxl367_probe(struct device *dev, const struct adxl367_ops *ops,
 	st->context = context;
 	st->ops = ops;
 
-	mutex_init(&st->lock);
+	ret = devm_mutex_init(dev, &st->lock);
+	if (ret)
+		return ret;
 
 	indio_dev->channels = adxl367_channels;
 	indio_dev->num_channels = ARRAY_SIZE(adxl367_channels);
