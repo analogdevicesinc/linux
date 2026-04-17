@@ -959,17 +959,17 @@ const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
 	return &phy->rx_chan_map[chan->address];
 }
 
-static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
-				   const struct iio_chan_spec *chan,
-				   adi_apollo_terminal_e *terminal,
-				   adi_apollo_cfir_sel_e *cfir_sel,
-				   adi_apollo_cfir_dp_sel *dp_sel)
+static int ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
+				  const struct iio_chan_spec *chan,
+				  adi_apollo_terminal_e *terminal,
+				  adi_apollo_cfir_sel_e *cfir_sel,
+				  adi_apollo_cfir_dp_sel *dp_sel)
 {
 	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 
 	if (!map) {
 		dev_err(&phy->spi->dev, "Invalid channel address %lu", chan->address);
-		return;
+		return -EINVAL;
 	}
 
 	if (chan->output)
@@ -1044,12 +1044,15 @@ static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
 		break;
 	default:
 		dev_err(&phy->spi->dev, "Unhandled FDDC number 0x%X\n", map->fddc_mask);
+		return -EINVAL;
 	}
 
 	dev_dbg(&phy->spi->dev,
 		"%s_voltage%d: Side-%c fddc_mask=%X terminal=%s, cfir_sel=%u dp_sel=%u\n",
 		chan->output ? "out" : "in", chan->channel, map->side ? 'B' : 'A',
 		map->fddc_mask, *terminal ? "TX" : "RX", *cfir_sel, *dp_sel);
+
+	return 0;
 }
 
 #define AD9088_MAX_CLK_NAME 79
@@ -1599,10 +1602,14 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 			return ret;
 		return sysfs_emit(buf, "%u\n", !!invsinc_inspect.invsinc_en);
 	case CFIR_PROFILE_SEL:
-		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		ret = ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		if (ret)
+			return ret;
 		return sysfs_emit(buf, "%u\n", phy->cfir_profile[terminal][cfir_sel][dp_sel]);
 	case CFIR_ENABLE:
-		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		ret = ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		if (ret)
+			return ret;
 		return sysfs_emit(buf, "%u\n", phy->cfir_enable[terminal][cfir_sel][dp_sel]);
 	case BMEM_CDDC_DELAY:
 		return sysfs_emit(buf, "%u\n", phy->cddc_sample_delay[map->side][map->cddc_num]);
@@ -1885,7 +1892,9 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		ret = ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		if (ret)
+			return ret;
 		adi_apollo_cfir_profile_sel(&phy->ad9088, terminal, cfir_sel, dp_sel, readin);
 		phy->cfir_profile[terminal][cfir_sel][dp_sel] = readin;
 		return len;
@@ -1893,7 +1902,9 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
-		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		ret = ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		if (ret)
+			return ret;
 		ret = adi_apollo_cfir_mode_enable_set(&phy->ad9088, terminal, cfir_sel, enable);
 		if (ret < 0)
 			return ret;
