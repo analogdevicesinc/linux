@@ -3,6 +3,26 @@
 #ifndef _DRM_GPU_SCHEDULER_INTERNAL_H_
 #define _DRM_GPU_SCHEDULER_INTERNAL_H_
 
+#include <linux/ktime.h>
+#include <linux/kref.h>
+#include <linux/spinlock.h>
+
+/**
+ * struct drm_sched_entity_stats - execution stats for an entity.
+ * @kref: reference count for the object.
+ * @lock: lock guarding the @runtime updates.
+ * @runtime: time entity spent on the GPU.
+ *
+ * Because jobs and entities have decoupled lifetimes, ie. we cannot access the
+ * entity once the job has been de-queued, and we do need know how much GPU time
+ * each entity has spent, we need to track this in a separate object which is
+ * reference counted by both entities and jobs.
+ */
+struct drm_sched_entity_stats {
+	struct kref	kref;
+	spinlock_t	lock; /* Protects the below fields. */
+	ktime_t		runtime;
+};
 
 /* Used to choose between FIFO and RR job-scheduling */
 extern int drm_sched_policy;
@@ -94,5 +114,33 @@ drm_sched_entity_is_ready(struct drm_sched_entity *entity)
 
 	return true;
 }
+
+void drm_sched_entity_stats_release(struct kref *kref);
+
+/**
+ * drm_sched_entity_stats_get - Obtain a reference count on &struct drm_sched_entity_stats object
+ * @stats: struct drm_sched_entity_stats pointer
+ *
+ * Return: struct drm_sched_entity_stats pointer
+ */
+static inline struct drm_sched_entity_stats *
+drm_sched_entity_stats_get(struct drm_sched_entity_stats *stats)
+{
+	kref_get(&stats->kref);
+
+	return stats;
+}
+
+/**
+ * drm_sched_entity_stats_put - Release a reference count on &struct drm_sched_entity_stats object
+ * @stats: struct drm_sched_entity_stats pointer
+ */
+static inline void
+drm_sched_entity_stats_put(struct drm_sched_entity_stats *stats)
+{
+	kref_put(&stats->kref, drm_sched_entity_stats_release);
+}
+
+void drm_sched_entity_stats_job_add_gpu_time(struct drm_sched_job *job);
 
 #endif
