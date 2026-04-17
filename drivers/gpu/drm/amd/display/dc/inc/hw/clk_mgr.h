@@ -362,6 +362,18 @@ struct clk_mgr_funcs {
 	uint32_t (*set_smartmux_switch)(struct clk_mgr *clk_mgr, uint32_t pins_to_set);
 
 	unsigned int (*get_max_clock_khz)(struct clk_mgr *clk_mgr_base, enum clk_type clk_type);
+	/**
+	 * override_memory_bandwidth_request - Override the DCN nominal memory
+	 *     bandwidth request sent to PMFW, independent of the current display
+	 *     mode. For debug use only.
+	 * @clk_mgr: clock manager instance
+	 * @bw_kbps: requested bandwidth in kbps; 0 clears the override
+	 *
+	 * Return: capped bandwidth value actually applied (kbps)
+	 */
+	unsigned int (*override_memory_bandwidth_request)(
+			struct clk_mgr *clk_mgr,
+			unsigned int bw_kbps);
 };
 
 struct clk_mgr {

@@ -7624,6 +7624,17 @@ bool dc_get_qos_info(struct dc *dc, struct dc_qos_info *info)
 	return true;
 }
 
+unsigned int dc_override_memory_bandwidth_request(
+		struct dc *dc,
+		unsigned int bw_mbps)
+{
+	if (!dc->clk_mgr || !dc->clk_mgr->funcs)
+		return 0;
+
+	return dc->clk_mgr->funcs->override_memory_bandwidth_request(
+			dc->clk_mgr, bw_mbps * 1000) / 1000;
+}
+
 enum update_v3_flow {
 	UPDATE_V3_FLOW_INVALID,
 	UPDATE_V3_FLOW_NO_NEW_CONTEXT_CONTEXT_FAST,

@@ -3383,4 +3383,17 @@ bool dc_capture_register_software_state(struct dc *dc, struct dc_register_softwa
  */
 bool dc_get_qos_info(struct dc *dc, struct dc_qos_info *info);
 
+/**
+ * dc_override_memory_bandwidth_request - Override the DCN nominal memory
+ *     bandwidth request sent to PMFW, independent of the current display mode.
+ *     For debug use only.
+ * @dc: DC instance
+ * @bw_mbps: requested bandwidth in MB/s; 0 clears the override
+ *
+ * Return: capped bandwidth value actually applied (MB/s)
+ */
+unsigned int dc_override_memory_bandwidth_request(
+		struct dc *dc,
+		unsigned int bw_mbps);
+
 #endif /* DC_INTERFACE_H_ */
