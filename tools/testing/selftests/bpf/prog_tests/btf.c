@@ -8092,7 +8092,7 @@ static struct btf_dedup_test dedup_tests[] = {
 static int btf_type_size(const struct btf_type *t)
 {
 	int base_size = sizeof(struct btf_type);
-	__u16 vlen = BTF_INFO_VLEN(t->info);
+	__u32 vlen = BTF_INFO_VLEN(t->info);
 	__u16 kind = BTF_INFO_KIND(t->info);
 
 	switch (kind) {

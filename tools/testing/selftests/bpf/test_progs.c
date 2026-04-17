@@ -1257,7 +1257,7 @@ int get_bpf_max_tramp_links_from(struct btf *btf)
 	const struct btf_type *t;
 	__u32 i, type_cnt;
 	const char *name;
-	__u16 j, vlen;
+	__u32 j, vlen;
 
 	for (i = 1, type_cnt = btf__type_cnt(btf); i < type_cnt; i++) {
 		t = btf__type_by_id(btf, i);

@@ -487,9 +487,8 @@ static void test_split_module(void)
 	for (i = 0; i < ARRAY_SIZE(mod_funcs); i++) {
 		const struct btf_param *p;
 		const struct btf_type *t;
-		__u16 vlen;
+		__u32 vlen, j;
 		__u32 id;
-		int j;
 
 		id = btf__find_by_name_kind(btf1, mod_funcs[i], BTF_KIND_FUNC);
 		if (!ASSERT_GE(id, nr_base_types, "func_id"))

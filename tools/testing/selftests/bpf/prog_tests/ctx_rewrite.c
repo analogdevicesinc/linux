@@ -253,8 +253,7 @@ static int find_field_offset_aux(struct btf *btf, int btf_id, char *field_name, 
 {
 	const struct btf_type *type = btf__type_by_id(btf, btf_id);
 	const struct btf_member *m;
-	__u16 mnum;
-	int i;
+	__u32 mnum, i;
 
 	if (!type) {
 		PRINT_FAIL("Can't find btf_type for id %d\n", btf_id);
