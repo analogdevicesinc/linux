@@ -3731,7 +3731,7 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 		if (line >= data + size)
 			break;
 
-		if (line[0] == '#')
+		if (line[0] == '#' || line[0] == '\0')
 			continue;
 
 		if (~read_mask & BIT(0)) {
@@ -3740,13 +3740,22 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 			ret = sscanf(line, "mode: %15s %15s",
 				     imode, qmode);
 
-			if (ret == 2)
-				pfilt_mode_pgm.pfir_q_mode[0] = sysfs_match_string(pfir_filter_modes,
-										   qmode);
+			if (ret == 2) {
+				j = sysfs_match_string(pfir_filter_modes, qmode);
+				if (j < 0) {
+					dev_err(dev, "mode: unknown Q mode '%s'\n", qmode);
+					return -EINVAL;
+				}
+				pfilt_mode_pgm.pfir_q_mode[0] = j;
+			}
 
 			if (ret == 1 || ret == 2) {
-				pfilt_mode_pgm.pfir_i_mode[0] = sysfs_match_string(pfir_filter_modes,
-										   imode);
+				j = sysfs_match_string(pfir_filter_modes, imode);
+				if (j < 0) {
+					dev_err(dev, "mode: unknown I mode '%s'\n", imode);
+					return -EINVAL;
+				}
+				pfilt_mode_pgm.pfir_i_mode[0] = j;
 				read_mask |= BIT(0);
 				continue;
 			}
@@ -3790,33 +3799,43 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 
 			if (ret == 3) {
 				ret = sysfs_match_string(terminals, t);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "dest: unknown terminal '%s'\n", t);
+					return -EINVAL;
+				}
 				terminal = ret ? ADI_APOLLO_TX : ADI_APOLLO_RX;
 
 				ret = sysfs_match_string(pfir_selects, p);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "dest: unknown pfilt_sel '%s'\n", p);
+					return -EINVAL;
+				}
 				pfilt_sel = 1 << ret;
 				if (ret == 4)
 					pfilt_sel = ADI_APOLLO_PFILT_ALL;
 				if (ret == 5) {
 					ret = sscanf(p, "pfilt_mask%u", &mask);
-					if (ret != 1)
-						goto out;
+					if (ret != 1) {
+						dev_err(dev, "dest: bad pfilt mask '%s'\n", p);
+						return -EINVAL;
+					}
 					pfilt_sel = mask;
 				}
 
 				ret = sysfs_match_string(pfir_filter_banks, b);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "dest: unknown bank '%s'\n", b);
+					return -EINVAL;
+				}
 				bank_sel = 1 << ret;
 				if (ret == 4)
 					bank_sel = ADI_APOLLO_PFILT_BANK_ALL;
 				if (ret == 5) {
 					ret = sscanf(b, "bank_mask%u", &mask);
-					if (ret != 1)
-						goto out;
+					if (ret != 1) {
+						dev_err(dev, "dest: bad bank mask '%s'\n", b);
+						return -EINVAL;
+					}
 					bank_sel = mask;
 				}
 
@@ -3875,8 +3894,10 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 			ret = sscanf(line, "selection_mode: %15s", m);
 			if (ret == 1) {
 				ret = sysfs_match_string(pfilt_profile_selection_mode, m);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "selection_mode: unknown mode '%s'\n", m);
+					return -EINVAL;
+				}
 
 				selection_mode = ret;
 				read_mask |= BIT(9);
@@ -3886,8 +3907,11 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 
 		ret = sscanf(line, "%i", &sval);
 		if (ret == 1) {
-			if (i >= ADI_APOLLO_PFILT_COEFF_NUM)
+			if (i >= ADI_APOLLO_PFILT_COEFF_NUM) {
+				dev_err(dev, "too many coefficients (max %u)\n",
+					ADI_APOLLO_PFILT_COEFF_NUM);
 				return -EINVAL;
+			}
 
 			pfilt_coeffs[i++] = (u16)sval;
 			continue;
@@ -3895,8 +3919,8 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 	}
 
 	if (!(read_mask & BIT(2))) {
-		dev_err(dev, "dest: not found\n");
-		goto out;
+		dev_err(dev, "pfilt: mandatory 'dest:' directive not found\n");
+		return -EINVAL;
 	}
 
 	dev_dbg(dev, "terminal: %s\n", terminals[terminal]);
@@ -3913,8 +3937,9 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 	dev_dbg(dev, "pfilt_mode_pgm.dq_mode: %d\n", pfilt_mode_pgm.dq_mode);
 
 	ret = adi_apollo_pfilt_mode_pgm(&phy->ad9088, terminal, pfilt_sel, &pfilt_mode_pgm);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_mode_pgm");
+	if (ret)
+		return ret;
 
 	dev_dbg(dev, "gain_dly_pgm.pfir_ix_gain: %d\n", gain_dly_pgm.pfir_ix_gain);
 	dev_dbg(dev, "gain_dly_pgm.pfir_iy_gain: %d\n", gain_dly_pgm.pfir_iy_gain);
@@ -3925,18 +3950,20 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 	dev_dbg(dev, "gain_dly_pgm.pfir_qx_scalar_gain: %u\n", gain_dly_pgm.pfir_qx_scalar_gain);
 	dev_dbg(dev, "gain_dly_pgm.pfir_qy_scalar_gain: %u\n", gain_dly_pgm.pfir_qy_scalar_gain);
 	dev_dbg(dev, "gain_dly_pgm.hc_delay: %u\n", gain_dly_pgm.hc_delay);
-	dev_dbg(dev, "selection_mode: %u\n", selection_mode);
 
 	ret = adi_apollo_pfilt_gain_dly_pgm(&phy->ad9088, terminal, pfilt_sel, bank_sel,
 					    &gain_dly_pgm);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_gain_dly_pgm");
+	if (ret)
+		return ret;
 
 	if (read_mask & BIT(9)) {
+		dev_dbg(dev, "selection_mode: %u\n", selection_mode);
 		ret = adi_apollo_pfilt_profile_sel_mode_set(&phy->ad9088, terminal, pfilt_sel,
 							    selection_mode);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_profile_sel_mode_set");
+		if (ret)
+			return ret;
 	}
 
 	for (j = 0; j < i; j++)
@@ -3944,22 +3971,16 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 
 	ret = adi_apollo_pfilt_coeff_pgm(&phy->ad9088, terminal, pfilt_sel, bank_sel,
 					 pfilt_coeffs, i);
-	if (ret < 0)
-		goto out1;
-	ret = adi_apollo_pfilt_coeff_transfer(&phy->ad9088, terminal, pfilt_sel, bank_sel);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_coeff_pgm");
+	if (ret)
+		return ret;
 
-out1:
-	if (ret != API_CMS_ERROR_OK)
-		dev_err(&phy->spi->dev, "Programming filter failed (%d)", ret);
+	ret = adi_apollo_pfilt_coeff_transfer(&phy->ad9088, terminal, pfilt_sel, bank_sel);
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_coeff_transfer");
+	if (ret)
+		return ret;
 
 	return size;
-
-out:
-	dev_err(dev, "malformed pFir filter file detected\n");
-
-	return -EINVAL;
 }
 
 static ssize_t
@@ -4252,7 +4273,7 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 		if (line >= data + size)
 			break;
 
-		if (line[0] == '#') /* skip comments */
+		if (line[0] == '#' || line[0] == '\0')
 			continue;
 
 		if (~read_mask & BIT(0)) {
@@ -4263,15 +4284,16 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 			if (ret == 4) {
 				ret = sysfs_match_string(terminals, t);
 				if (ret < 0) {
-					dev_err(dev, "dest read:%s %s %s %s", t, s, p, d);
-					goto out;
+					dev_err(dev, "dest: unknown terminal '%s'\n", t);
+					return -EINVAL;
 				}
 				terminal = ret ? ADI_APOLLO_TX : ADI_APOLLO_RX;
 
 				ret = sysfs_match_string(cfir_selects, s);
-
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "dest: unknown cfir_sel '%s'\n", s);
+					return -EINVAL;
+				}
 
 				switch (ret) {
 				case 0:
@@ -4294,18 +4316,21 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 					break;
 				case 6:
 					ret = sscanf(s, "cfir_mask%u", &mask);
-					if (ret != 1)
-						goto out;
+					if (ret != 1) {
+						dev_err(dev, "dest: bad cfir mask '%s'\n", s);
+						return -EINVAL;
+					}
 					cfir_sel = mask;
 					break;
 				default:
-					goto out;
+					dev_err(dev, "dest: unexpected cfir_sel index %d\n", ret);
+					return -EINVAL;
 				}
 
 				ret = sysfs_match_string(cfir_profiles, p);
 				if (ret < 0) {
-					dev_err(dev, "dest read:%s %s %s %s", t, s, p, d);
-					goto out;
+					dev_err(dev, "dest: unknown profile '%s'\n", p);
+					return -EINVAL;
 				}
 				switch (ret) {
 				case 0:
@@ -4321,13 +4346,14 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 					profile_sel = ADI_APOLLO_CFIR_PROFILE_ALL;
 					break;
 				default:
-					goto out;
+					dev_err(dev, "dest: unexpected profile index %d\n", ret);
+					return -EINVAL;
 				}
 
 				ret = sysfs_match_string(cfir_datapaths, d);
 				if (ret < 0) {
-					dev_err(dev, "dest read:%s %s %s %s", t, s, p, d);
-					goto out;
+					dev_err(dev, "dest: unknown datapath '%s'\n", d);
+					return -EINVAL;
 				}
 				switch (ret) {
 				case 0:
@@ -4350,12 +4376,15 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 					break;
 				case 6:
 					ret = sscanf(d, "datapath_mask%u", &mask);
-					if (ret != 1)
-						goto out;
+					if (ret != 1) {
+						dev_err(dev, "dest: bad datapath mask '%s'\n", d);
+						return -EINVAL;
+					}
 					dp_sel = mask;
 					break;
 				default:
-					goto out;
+					dev_err(dev, "dest: unexpected datapath index %d\n", ret);
+					return -EINVAL;
 				}
 
 				read_mask |= BIT(0);
@@ -4416,8 +4445,10 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 			ret = sscanf(line, "enable: %u %15s", &enable, p);
 			if (ret == 2) {
 				enable_profile = sysfs_match_string(cfir_profiles, p);
-				if (enable_profile < 0)
-					goto out;
+				if (enable_profile < 0) {
+					dev_err(dev, "enable: unknown profile '%s'\n", p);
+					return -EINVAL;
+				}
 				read_mask |= BIT(8);
 				continue;
 			}
@@ -4428,8 +4459,10 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 			ret = sscanf(line, "selection_mode: %15s", m);
 			if (ret == 1) {
 				ret = sysfs_match_string(cfir_profile_selection_mode, m);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "selection_mode: unknown mode '%s'\n", m);
+					return -EINVAL;
+				}
 
 				selection_mode = ret;
 				read_mask |= BIT(7);
@@ -4450,7 +4483,7 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 					dev_err(dev,
 						"sparse_mem_sel out of range: %u %u %u (each 0..3)\n",
 						m0, m1, m2);
-					goto out;
+					return -EINVAL;
 				}
 				sparse_mem_sel[0] = m0;
 				sparse_mem_sel[1] = m1;
@@ -4472,13 +4505,16 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 			 */
 			ret = sscanf(line, "%i %i %i", &sval_i, &sval_q, &hsel);
 			if (ret == 3) {
-				if (i >= ADI_APOLLO_CFIR_COEFF_NUM)
+				if (i >= ADI_APOLLO_CFIR_COEFF_NUM) {
+					dev_err(dev, "too many sparse coefficients (max %u)\n",
+						ADI_APOLLO_CFIR_COEFF_NUM);
 					return -EINVAL;
+				}
 				if (hsel > 63) {
 					dev_err(dev,
 						"sparse coeff[%d]: hsel=%u out of range (0..63)\n",
 						i, hsel);
-					goto out;
+					return -EINVAL;
 				}
 				sparse_hsel[i] = hsel;
 				cfir_coeff_i[i] = (u16)sval_i;
@@ -4488,8 +4524,11 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 		} else {
 			ret = sscanf(line, "%i %i", &sval_i, &sval_q);
 			if (ret == 2) {
-				if (i >= ADI_APOLLO_CFIR_COEFF_NUM)
+				if (i >= ADI_APOLLO_CFIR_COEFF_NUM) {
+					dev_err(dev, "too many coefficients (max %u)\n",
+						ADI_APOLLO_CFIR_COEFF_NUM);
 					return -EINVAL;
+				}
 
 				cfir_coeff_i[i] = (u16)sval_i;
 				cfir_coeff_q[i++] = (u16)sval_q;
@@ -4498,21 +4537,21 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 		}
 	}
 
-	if (read_mask & BIT(0)) {
-		dev_dbg(dev, "terminal: %s\n", terminals[terminal]);
-		dev_dbg(dev, "cfir_sel: MASK 0x%X\n", cfir_sel);
-		dev_dbg(dev, "profile_sel: %s\n", cfir_profiles[profile_sel]);
-		dev_dbg(dev, "dp_sel: MASK 0x%x\n", dp_sel);
-	} else {
-		dev_err(dev, "dest: not found\n");
-		goto out;
+	if (!(read_mask & BIT(0))) {
+		dev_err(dev, "cfir: mandatory 'dest:' directive not found\n");
+		return -EINVAL;
 	}
+
+	dev_dbg(dev, "terminal: %s\n", terminals[terminal]);
+	dev_dbg(dev, "cfir_sel: MASK 0x%X\n", cfir_sel);
+	dev_dbg(dev, "profile_sel: %s\n", cfir_profiles[profile_sel]);
+	dev_dbg(dev, "dp_sel: MASK 0x%x\n", dp_sel);
 
 	if (cfir_pgm.cfir_sparse_filt_en && i != ADI_APOLLO_CFIR_COEFF_NUM) {
 		dev_err(dev,
 			"sparse mode requires exactly %u coefficients, got %d\n",
 			ADI_APOLLO_CFIR_COEFF_NUM, i);
-		goto out;
+		return -EINVAL;
 	}
 
 	for (j = 0; j < i; j++)
@@ -4520,8 +4559,9 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 
 	ret = adi_apollo_cfir_coeff_pgm(&phy->ad9088, terminal, cfir_sel, profile_sel, dp_sel,
 					cfir_coeff_i, cfir_coeff_q, i);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_coeff_pgm");
+	if (ret)
+		return ret;
 
 	if (cfir_pgm.cfir_sparse_filt_en) {
 		for (j = 0; j < ADI_APOLLO_CFIR_COEFF_NUM; j++)
@@ -4531,8 +4571,9 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 							   profile_sel, dp_sel,
 							   sparse_hsel,
 							   ADI_APOLLO_CFIR_COEFF_NUM);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_sparse_coeff_sel_pgm");
+		if (ret)
+			return ret;
 
 		if (read_mask & BIT(9)) {
 			dev_dbg(dev, "sparse_mem_sel: %u %u %u\n",
@@ -4541,8 +4582,9 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 								 cfir_sel, profile_sel,
 								 dp_sel, sparse_mem_sel,
 								 ADI_APOLLO_CFIR_MEM_SEL_NUM);
-			if (ret < 0)
-				goto out1;
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_sparse_mem_sel_pgm");
+			if (ret)
+				return ret;
 		}
 	}
 
@@ -4550,46 +4592,54 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 		dev_dbg(dev, "scalar_i: %d scalar_q: %d\n", scalar_i, scalar_q);
 		ret = adi_apollo_cfir_scalar_pgm(&phy->ad9088, terminal, cfir_sel, profile_sel,
 						 dp_sel, scalar_i, scalar_q);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_scalar_pgm");
+		if (ret)
+			return ret;
 	}
 
 	if (read_mask & BIT(1)) {
 		dev_dbg(dev, "gain: %d\n", gain);
 		ret = adi_apollo_cfir_gain_pgm(&phy->ad9088, terminal, cfir_sel, profile_sel,
 					       dp_sel, gain);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_gain_pgm");
+		if (ret)
+			return ret;
 	}
 
 	if (read_mask & BIT(7)) {
 		dev_dbg(dev, "selection_mode: %d\n", selection_mode);
 		ret = adi_apollo_cfir_profile_sel_mode_set(&phy->ad9088, terminal, cfir_sel,
 							   selection_mode);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_profile_sel_mode_set");
+		if (ret)
+			return ret;
 	}
 
 	ret = adi_apollo_cfir_pgm(&phy->ad9088, terminal, cfir_sel, &cfir_pgm);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_pgm");
+	if (ret)
+		return ret;
 
 	/* This seems to be required */
 	ret = adi_apollo_clk_mcs_dyn_sync_sequence_run(&phy->ad9088);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_clk_mcs_dyn_sync_sequence_run");
+	if (ret)
+		return ret;
 
 	if (read_mask & BIT(8)) {
 		u32 j;
 
 		dev_dbg(dev, "enable: %u enable_profile: %u\n", enable, enable_profile);
-		adi_apollo_cfir_profile_sel(&phy->ad9088, terminal, cfir_sel, dp_sel,
+		ret = adi_apollo_cfir_profile_sel(&phy->ad9088, terminal, cfir_sel, dp_sel,
 					    enable_profile);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_profile_sel");
+		if (ret)
+			return ret;
+
 		ret = adi_apollo_cfir_mode_enable_set(&phy->ad9088, terminal, cfir_sel, enable);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_mode_enable_set");
+		if (ret)
+			return ret;
 
 		for (i = 0; i < 4; i++) {
 			if (!(cfir_sel & BIT(i)))
@@ -4603,16 +4653,7 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 		}
 	}
 
-out1:
-	if (ret != API_CMS_ERROR_OK)
-		dev_err(&phy->spi->dev, "Programming filter failed (%d)", ret);
-
 	return size;
-
-out:
-	dev_err(dev, "malformed CFir filter file detected\n");
-
-	return -EINVAL;
 }
 
 static ssize_t ad9088_cfir_bin_write(struct file *filp, struct kobject *kobj,
