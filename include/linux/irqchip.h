@@ -69,14 +69,14 @@ builtin_platform_driver(drv_name##_driver)
 	{},								\
 };									\
 MODULE_DEVICE_TABLE(of, drv_name##_irqchip_match_table);		\
-static struct platform_driver drv_name##_driver = {		\
+static struct platform_driver drv_name##_driver = {			\
 	.probe  = platform_irqchip_probe,				\
-	.remove = platform_irqchip_remove,              \
+	.remove = platform_irqchip_remove,              		\
 	.driver = {							\
 		.name = #drv_name,					\
 		.owner = THIS_MODULE,					\
 		.of_match_table = drv_name##_irqchip_match_table,	\
-		.suppress_bind_attrs = true,				\
+		.suppress_bind_attrs = false,				\
 		__VA_ARGS__						\
 	},								\
 };									\
