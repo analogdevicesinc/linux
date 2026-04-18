@@ -611,12 +611,18 @@ int link(const char *old, const char *new)
 static __attribute__((unused))
 off_t _sys_lseek(int fd, off_t offset, int whence)
 {
-#if defined(__NR_llseek)
+#if defined(__NR_llseek) || defined(__NR__llseek)
 	__kernel_loff_t loff = 0;
+	int ret, nr_llseek;
 	off_t result;
-	int ret;
 
-	ret = __nolibc_syscall5(__NR_llseek, fd, offset >> 32, (uint32_t)offset, &loff, whence);
+#if defined(__NR_llseek)
+	nr_llseek = __NR_llseek;
+#else
+	nr_llseek = __NR__llseek;
+#endif
+
+	ret = __nolibc_syscall5(nr_llseek, fd, offset >> 32, (uint32_t)offset, &loff, whence);
 	if (ret < 0)
 		result = ret;
 	else
