@@ -407,7 +407,7 @@ static void CalculatePixelDeliveryTimes(
 		double CursorRequestDeliveryTimePrefetch[]);
 
 static void CalculateMetaAndPTETimes(
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		bool GPUVMEnable,
 		int MetaChunkSize,
 		int MinMetaChunkSizeBytes,
@@ -1527,14 +1527,14 @@ static void CalculateDCCConfiguration(
 	double detile_buf_vp_horz_limit;
 	double detile_buf_vp_vert_limit;
 
-	int MAS_vp_horz_limit;
-	int MAS_vp_vert_limit;
-	int max_vp_horz_width;
-	int max_vp_vert_height;
-	int eff_surf_width_l;
-	int eff_surf_width_c;
-	int eff_surf_height_l;
-	int eff_surf_height_c;
+	unsigned int MAS_vp_horz_limit;
+	unsigned int MAS_vp_vert_limit;
+	unsigned int max_vp_horz_width;
+	unsigned int max_vp_vert_height;
+	unsigned int eff_surf_width_l;
+	unsigned int eff_surf_width_c;
+	unsigned int eff_surf_height_l;
+	unsigned int eff_surf_height_c;
 
 	int full_swath_bytes_horz_wc_l;
 	int full_swath_bytes_horz_wc_c;
@@ -3893,7 +3893,8 @@ void dml314_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_
 {
 	struct vba_vars_st *v = &mode_lib->vba;
 
-	int i, j;
+	int j;
+	unsigned int i;
 	unsigned int k, m;
 	int ReorderingBytes;
 	int MinPrefetchMode = 0, MaxPrefetchMode = 2;
@@ -5537,30 +5538,37 @@ void dml314_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_
 	}
 
 	/*Mode Support, Voltage State and SOC Configuration*/
-	for (i = v->soc.num_states - 1; i >= 0; i--) {
+	for (int idx = (int)v->soc.num_states - 1; idx >= 0; idx--) {
 		for (j = 0; j < 2; j++) {
-			if (v->ScaleRatioAndTapsSupport == true && v->SourceFormatPixelAndScanSupport == true && v->ViewportSizeSupport[i][j] == true
-					&& v->LinkCapacitySupport[i] == true && !P2IWith420 && !DSCOnlyIfNecessaryWithBPP
-					&& !DSC422NativeNotSupported && v->ODMCombine4To1SupportCheckOK[i] == true && v->NotEnoughDSCUnits[i] == false
-					&& v->DTBCLKRequiredMoreThanSupported[i] == false
-					&& v->ROBSupport[i][j] == true && v->DISPCLK_DPPCLK_Support[i][j] == true
-					&& v->TotalAvailablePipesSupport[i][j] == true && EnoughWritebackUnits == true
+			if (v->ScaleRatioAndTapsSupport == true && v->SourceFormatPixelAndScanSupport == true
+					&& v->ViewportSizeSupport[idx][j] == true
+					&& v->LinkCapacitySupport[idx] == true && !P2IWith420
+					&& !DSCOnlyIfNecessaryWithBPP
+					&& !DSC422NativeNotSupported && v->ODMCombine4To1SupportCheckOK[idx] == true
+					&& v->NotEnoughDSCUnits[idx] == false
+					&& v->DTBCLKRequiredMoreThanSupported[idx] == false
+					&& v->ROBSupport[idx][j] == true && v->DISPCLK_DPPCLK_Support[idx][j] == true
+					&& v->TotalAvailablePipesSupport[idx][j] == true && EnoughWritebackUnits == true
 					&& v->WritebackLatencySupport == true && v->WritebackScaleRatioAndTapsSupport == true
-					&& v->CursorSupport == true && v->PitchSupport == true && ViewportExceedsSurface == false
-					&& v->PrefetchSupported[i][j] == true && v->DynamicMetadataSupported[i][j] == true
-					&& v->TotalVerticalActiveBandwidthSupport[i][j] == true && v->VRatioInPrefetchSupported[i][j] == true
-					&& v->PTEBufferSizeNotExceeded[i][j] == true && v->NonsupportedDSCInputBPC == false
+					&& v->CursorSupport == true && v->PitchSupport == true
+					&& ViewportExceedsSurface == false
+					&& v->PrefetchSupported[idx][j] == true
+					&& v->DynamicMetadataSupported[idx][j] == true
+					&& v->TotalVerticalActiveBandwidthSupport[idx][j] == true
+					&& v->VRatioInPrefetchSupported[idx][j] == true
+					&& v->PTEBufferSizeNotExceeded[idx][j] == true
+					&& v->NonsupportedDSCInputBPC == false
 					&& ((v->HostVMEnable == false
 					&& v->ImmediateFlipRequirement[0] != dm_immediate_flip_required)
-							|| v->ImmediateFlipSupportedForState[i][j] == true)
+							|| v->ImmediateFlipSupportedForState[idx][j] == true)
 					&& FMTBufferExceeded == false) {
-				v->ModeSupport[i][j] = true;
+				v->ModeSupport[idx][j] = true;
 			} else {
-				v->ModeSupport[i][j] = false;
+				v->ModeSupport[idx][j] = false;
 			}
 		}
 	}
-	for (i = v->soc.num_states; i >= 0; i--) {
+	for (int idx = (int)v->soc.num_states; idx >= 0; idx--) {
 		for (j = 0; j < 2; j++) {
 			enum dm_validation_status status = DML_VALIDATION_OK;
 
@@ -5568,7 +5576,7 @@ void dml314_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_
 				status = DML_FAIL_SCALE_RATIO_TAP;
 			} else if (!v->SourceFormatPixelAndScanSupport) {
 				status = DML_FAIL_SOURCE_PIXEL_FORMAT;
-			} else if (!v->ViewportSizeSupport[i][j]) {
+			} else if (!v->ViewportSizeSupport[idx][j]) {
 				status = DML_FAIL_VIEWPORT_SIZE;
 			} else if (P2IWith420) {
 				status = DML_FAIL_P2I_WITH_420;
@@ -5576,15 +5584,15 @@ void dml314_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_
 				status = DML_FAIL_DSC_ONLY_IF_NECESSARY_WITH_BPP;
 			} else if (DSC422NativeNotSupported) {
 				status = DML_FAIL_NOT_DSC422_NATIVE;
-			} else if (!v->ODMCombine4To1SupportCheckOK[i]) {
+			} else if (!v->ODMCombine4To1SupportCheckOK[idx]) {
 				status = DML_FAIL_ODM_COMBINE4TO1;
-			} else if (v->NotEnoughDSCUnits[i]) {
+			} else if (v->NotEnoughDSCUnits[idx]) {
 				status = DML_FAIL_NOT_ENOUGH_DSC;
-			} else if (!v->ROBSupport[i][j]) {
+			} else if (!v->ROBSupport[idx][j]) {
 				status = DML_FAIL_REORDERING_BUFFER;
-			} else if (!v->DISPCLK_DPPCLK_Support[i][j]) {
+			} else if (!v->DISPCLK_DPPCLK_Support[idx][j]) {
 				status = DML_FAIL_DISPCLK_DPPCLK;
-			} else if (!v->TotalAvailablePipesSupport[i][j]) {
+			} else if (!v->TotalAvailablePipesSupport[idx][j]) {
 				status = DML_FAIL_TOTAL_AVAILABLE_PIPES;
 			} else if (!EnoughWritebackUnits) {
 				status = DML_FAIL_ENOUGH_WRITEBACK_UNITS;
@@ -5598,36 +5606,36 @@ void dml314_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_
 				status = DML_FAIL_PITCH_SUPPORT;
 			} else if (ViewportExceedsSurface) {
 				status = DML_FAIL_VIEWPORT_EXCEEDS_SURFACE;
-			} else if (!v->PrefetchSupported[i][j]) {
+			} else if (!v->PrefetchSupported[idx][j]) {
 				status = DML_FAIL_PREFETCH_SUPPORT;
-			} else if (!v->DynamicMetadataSupported[i][j]) {
+			} else if (!v->DynamicMetadataSupported[idx][j]) {
 				status = DML_FAIL_DYNAMIC_METADATA;
-			} else if (!v->TotalVerticalActiveBandwidthSupport[i][j]) {
+			} else if (!v->TotalVerticalActiveBandwidthSupport[idx][j]) {
 				status = DML_FAIL_TOTAL_V_ACTIVE_BW;
-			} else if (!v->VRatioInPrefetchSupported[i][j]) {
+			} else if (!v->VRatioInPrefetchSupported[idx][j]) {
 				status = DML_FAIL_V_RATIO_PREFETCH;
-			} else if (!v->PTEBufferSizeNotExceeded[i][j]) {
+			} else if (!v->PTEBufferSizeNotExceeded[idx][j]) {
 				status = DML_FAIL_PTE_BUFFER_SIZE;
 			} else if (v->NonsupportedDSCInputBPC) {
 				status = DML_FAIL_DSC_INPUT_BPC;
 			} else if ((v->HostVMEnable
-					&& !v->ImmediateFlipSupportedForState[i][j])) {
+					&& !v->ImmediateFlipSupportedForState[idx][j])) {
 				status = DML_FAIL_HOST_VM_IMMEDIATE_FLIP;
 			} else if (FMTBufferExceeded) {
 				status = DML_FAIL_FMT_BUFFER_EXCEEDED;
 			}
-			mode_lib->vba.ValidationStatus[i] = status;
+			mode_lib->vba.ValidationStatus[idx] = status;
 		}
 	}
 
 	{
 		unsigned int MaximumMPCCombine = 0;
-
-		for (i = v->soc.num_states; i >= 0; i--) {
-			if (i == v->soc.num_states || v->ModeSupport[i][0] == true || v->ModeSupport[i][1] == true) {
-				v->VoltageLevel = i;
-				v->ModeIsSupported = v->ModeSupport[i][0] == true || v->ModeSupport[i][1] == true;
-				if (v->ModeSupport[i][0] == true) {
+		for (int idx = (int)v->soc.num_states; idx >= 0; idx--) {
+			if (idx == (int)v->soc.num_states || v->ModeSupport[idx][0] == true
+					|| v->ModeSupport[idx][1] == true) {
+				v->VoltageLevel = idx;
+				v->ModeIsSupported = v->ModeSupport[idx][0] == true || v->ModeSupport[idx][1] == true;
+				if (v->ModeSupport[idx][0] == true) {
 					MaximumMPCCombine = 0;
 				} else {
 					MaximumMPCCombine = 1;
@@ -5635,7 +5643,7 @@ void dml314_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_
 			}
 		}
 		v->ImmediateFlipSupport = v->ImmediateFlipSupportedForState[v->VoltageLevel][MaximumMPCCombine];
-		for (k = 0; k <= v->NumberOfActivePlanes - 1; k++) {
+		for (k = 0; k < v->NumberOfActivePlanes; k++) {
 			v->MPCCombineEnable[k] = v->MPCCombine[v->VoltageLevel][MaximumMPCCombine][k];
 			v->DPPPerPlane[k] = v->NoOfDPP[v->VoltageLevel][MaximumMPCCombine][k];
 		}
@@ -5693,7 +5701,7 @@ static void CalculateWatermarksAndDRAMSpeedChangeSupport(
 	double SecondMinActiveDRAMClockChangeMarginOneDisplayInVBLank;
 	double WritebackDRAMClockChangeLatencyHiding;
 	double TotalPixelBW = 0.0;
-	int k, j;
+	unsigned int k, j;
 
 	v->UrgentWatermark = UrgentLatency + ExtraLatency;
 
@@ -5881,7 +5889,7 @@ static void CalculateDCFCLKDeepSleep(
 	double DisplayPipeLineDeliveryTimeLuma;
 	double DisplayPipeLineDeliveryTimeChroma;
 	double ReadBandwidth = 0.0;
-	int k;
+	unsigned int k;
 
 	for (k = 0; k < NumberOfActivePlanes; ++k) {
 
@@ -6032,7 +6040,7 @@ static void CalculatePixelDeliveryTimes(
 		double CursorRequestDeliveryTimePrefetch[])
 {
 	double req_per_swath_ub;
-	int k;
+	unsigned int k;
 
 	for (k = 0; k < NumberOfActivePlanes; ++k) {
 		if (VRatio[k] <= 1) {
@@ -6132,7 +6140,7 @@ static void CalculatePixelDeliveryTimes(
 }
 
 static void CalculateMetaAndPTETimes(
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		bool GPUVMEnable,
 		int MetaChunkSize,
 		int MinMetaChunkSizeBytes,
@@ -6198,7 +6206,7 @@ static void CalculateMetaAndPTETimes(
 	unsigned int dpte_groups_per_row_luma_ub;
 	unsigned int dpte_group_width_chroma;
 	unsigned int dpte_groups_per_row_chroma_ub;
-	int k;
+	unsigned int k;
 
 	for (k = 0; k < NumberOfActivePlanes; ++k) {
 		DST_Y_PER_PTE_ROW_NOM_L[k] = dpte_row_height[k] / VRatio[k];
@@ -6330,7 +6338,7 @@ static void CalculateVMGroupAndRequestTimes(
 	(void)dpte_row_width_chroma_ub;
 	int num_group_per_lower_vm_stage;
 	int num_req_per_lower_vm_stage;
-	int k;
+	unsigned int k;
 
 	for (k = 0; k < NumberOfActivePlanes; ++k) {
 		if (GPUVMEnable == true && (DCCEnable[k] == true || GPUVMMaxPageTableLevels > 1)) {
@@ -6770,12 +6778,12 @@ static void CalculateSwathAndDETConfiguration(
 	int MaximumSwathHeightC[DC__NUM_DPP__MAX];
 	int MinimumSwathHeightY;
 	int MinimumSwathHeightC;
-	int RoundedUpMaxSwathSizeBytesY;
-	int RoundedUpMaxSwathSizeBytesC;
-	int RoundedUpMinSwathSizeBytesY;
-	int RoundedUpMinSwathSizeBytesC;
-	int RoundedUpSwathSizeBytesY;
-	int RoundedUpSwathSizeBytesC;
+	unsigned int RoundedUpMaxSwathSizeBytesY;
+	unsigned int RoundedUpMaxSwathSizeBytesC;
+	unsigned int RoundedUpMinSwathSizeBytesY;
+	unsigned int RoundedUpMinSwathSizeBytesC;
+	unsigned int RoundedUpSwathSizeBytesY;
+	unsigned int RoundedUpSwathSizeBytesC;
 	double SwathWidthSingleDPP[DC__NUM_DPP__MAX];
 	double SwathWidthSingleDPPChroma[DC__NUM_DPP__MAX];
 	int k;
@@ -7139,7 +7147,8 @@ static noinline_for_stack void UseMinimumDCFCLK(
 		int ReorderingBytes)
 {
 	struct vba_vars_st *v = &mode_lib->vba;
-	int dummy1, i, j, k;
+	int dummy1, j;
+	unsigned int i, k;
 	double NormalEfficiency,  dummy2, dummy3;
 	double TotalMaxPrefetchFlipDPTERowBandwidth[DC__VOLTAGE_STATES][2];
 
@@ -7166,7 +7175,7 @@ static noinline_for_stack void UseMinimumDCFCLK(
 						+ v->NoOfDPP[i][j][k] * v->DPTEBytesPerRow[i][j][k] / (15.75 * v->HTotal[k] / v->PixelClock[k]);
 			}
 
-			for (k = 0; k <= v->NumberOfActivePlanes - 1; ++k)
+			for (k = 0; k < v->NumberOfActivePlanes; ++k)
 				NoOfDPPState[k] = v->NoOfDPP[i][j][k];
 
 			MinimumTWait = CalculateTWait(MaxPrefetchMode, v->FinalDRAMClockChangeLatency, v->UrgLatency[i], v->SREnterPlusExitTime);
@@ -7269,7 +7278,7 @@ static noinline_for_stack void UseMinimumDCFCLK(
 				}
 			}
 			DCFCLKRequiredForPeakBandwidth = 0;
-			for (k = 0; k <= v->NumberOfActivePlanes - 1; ++k)
+			for (k = 0; k < v->NumberOfActivePlanes; ++k)
 				DCFCLKRequiredForPeakBandwidth = DCFCLKRequiredForPeakBandwidth + DCFCLKRequiredForPeakBandwidthPerPlane[k];
 
 			MinimumTvmPlus2Tr0 = v->UrgLatency[i]

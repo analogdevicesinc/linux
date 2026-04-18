@@ -366,7 +366,7 @@ static void CalculatePixelDeliveryTimes(
 		double CursorRequestDeliveryTimePrefetch[]);
 
 static void CalculateMetaAndPTETimes(
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		bool GPUVMEnable,
 		int MetaChunkSize,
 		int MinMetaChunkSizeBytes,
@@ -439,7 +439,7 @@ static void CalculateVMGroupAndRequestTimes(
 		double TimePerVMRequestFlip[]);
 
 static void CalculateStutterEfficiency(
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		long ROBBufferSizeInKByte,
 		double TotalDataReadBandwidth,
 		double DCFCLK,
@@ -479,7 +479,7 @@ static void CalculateStutterEfficiency(
 
 static void CalculateSwathAndDETConfiguration(
 		bool ForceSingleDPP,
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		unsigned int DETBufferSizeInKByte,
 		double MaximumSwathWidthLuma[],
 		double MaximumSwathWidthChroma[],
@@ -518,7 +518,7 @@ static void CalculateSwathAndDETConfiguration(
 		bool *ViewportSizeSupport);
 static void CalculateSwathWidth(
 		bool ForceSingleDPP,
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		enum source_format_class SourcePixelFormat[],
 		enum scan_direction_class SourceScan[],
 		unsigned int ViewportWidth[],
@@ -572,7 +572,7 @@ static double CalculateExtraLatencyBytes(
 		int MetaChunkSize,
 		bool GPUVMEnable,
 		bool HostVMEnable,
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		int NumberOfDPP[],
 		int dpte_group_bytes[],
 		double PercentOfIdealDRAMFabricAndSDPPortBWReceivedAfterUrgLatencyPixelMixedWithVMData,
@@ -1335,11 +1335,12 @@ static void CalculateDCCConfiguration(
 	max_vp_horz_width = (long)dml_min((double) MAS_vp_horz_limit, detile_buf_vp_horz_limit);
 	max_vp_vert_height = (long)dml_min((double) MAS_vp_vert_limit, detile_buf_vp_vert_limit);
 	eff_surf_width_l =
-			(SurfaceWidthLuma > max_vp_horz_width ? max_vp_horz_width : SurfaceWidthLuma);
+			(SurfaceWidthLuma > (unsigned long)max_vp_horz_width ?
+			(unsigned long)max_vp_horz_width : SurfaceWidthLuma);
 	eff_surf_width_c = eff_surf_width_l / (1 + yuv420);
 	eff_surf_height_l = (
-			SurfaceHeightLuma > max_vp_vert_height ?
-					max_vp_vert_height : SurfaceHeightLuma);
+			SurfaceHeightLuma > (unsigned long)max_vp_vert_height ?
+					(unsigned long)max_vp_vert_height : SurfaceHeightLuma);
 	eff_surf_height_c = eff_surf_height_l / (1 + yuv420);
 
 	full_swath_bytes_horz_wc_l = eff_surf_width_l * RequestHeight256ByteLuma * BytePerPixelY;
@@ -3381,8 +3382,8 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 {
 	struct vba_vars_st *v = &mode_lib->vba;
 	int MinPrefetchMode, MaxPrefetchMode;
-	int i, start_state;
-	unsigned int j, k, m;
+	int idx, start_state;
+	unsigned int i, j, k, m;
 	bool   EnoughWritebackUnits = true;
 	bool   WritebackModeSupport = true;
 	bool   ViewportExceedsSurface = false;
@@ -4913,33 +4914,39 @@ void dml30_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 	}
 	/*Mode Support, Voltage State and SOC Configuration*/
 
-	for (i = v->soc.num_states - 1; i >= start_state; i--) {
+	for (idx = v->soc.num_states - 1; idx >= start_state; idx--) {
 		for (j = 0; j < 2; j++) {
-			if (v->ScaleRatioAndTapsSupport == 1 && v->SourceFormatPixelAndScanSupport == 1 && v->ViewportSizeSupport[i][j] == 1
-					&& v->DIOSupport[i] == 1 && v->ODMCombine4To1SupportCheckOK[i] == 1
-					&& v->NotEnoughDSCUnits[i] == 0
-					&& v->DTBCLKRequiredMoreThanSupported[i] == 0
-					&& v->ROBSupport[i][j] == 1 && v->DISPCLK_DPPCLK_Support[i][j] == 1 && v->TotalAvailablePipesSupport[i][j] == 1
+			if (v->ScaleRatioAndTapsSupport == 1 && v->SourceFormatPixelAndScanSupport == 1
+					&& v->ViewportSizeSupport[idx][j] == 1
+					&& v->DIOSupport[idx] == 1 && v->ODMCombine4To1SupportCheckOK[idx] == 1
+					&& v->NotEnoughDSCUnits[idx] == 0
+					&& v->DTBCLKRequiredMoreThanSupported[idx] == 0
+					&& v->ROBSupport[idx][j] == 1 && v->DISPCLK_DPPCLK_Support[idx][j] == 1
+					&& v->TotalAvailablePipesSupport[idx][j] == 1
 					&& EnoughWritebackUnits == 1 && WritebackModeSupport == 1
-					&& v->WritebackLatencySupport == 1 && v->WritebackScaleRatioAndTapsSupport == 1 && v->CursorSupport == 1 && v->PitchSupport == 1
-					&& ViewportExceedsSurface == 0 && v->PrefetchSupported[i][j] == 1 && v->DynamicMetadataSupported[i][j] == 1
-					&& v->TotalVerticalActiveBandwidthSupport[i][j] == 1 && v->VRatioInPrefetchSupported[i][j] == 1
-					&& v->PTEBufferSizeNotExceeded[i][j] == 1 && v->NonsupportedDSCInputBPC == 0
+					&& v->WritebackLatencySupport == 1 && v->WritebackScaleRatioAndTapsSupport == 1
+					&& v->CursorSupport == 1 && v->PitchSupport == 1
+					&& ViewportExceedsSurface == 0 && v->PrefetchSupported[idx][j] == 1
+					&& v->DynamicMetadataSupported[idx][j] == 1
+					&& v->TotalVerticalActiveBandwidthSupport[idx][j] == 1
+					&& v->VRatioInPrefetchSupported[idx][j] == 1
+					&& v->PTEBufferSizeNotExceeded[idx][j] == 1 && v->NonsupportedDSCInputBPC == 0
 					&& ((v->HostVMEnable == 0 && v->ImmediateFlipRequirement[0] != dm_immediate_flip_required)
-							|| v->ImmediateFlipSupportedForState[i][j] == true)) {
-				v->ModeSupport[i][j] = true;
+							|| v->ImmediateFlipSupportedForState[idx][j] == true)) {
+				v->ModeSupport[idx][j] = true;
 			} else {
-				v->ModeSupport[i][j] = false;
+				v->ModeSupport[idx][j] = false;
 			}
 		}
 	}
 	{
 		unsigned int MaximumMPCCombine = 0;
-		for (i = v->soc.num_states; i >= start_state; i--) {
-			if (i == v->soc.num_states || v->ModeSupport[i][0] == true || v->ModeSupport[i][1] == true) {
-				v->VoltageLevel = i;
-				v->ModeIsSupported = v->ModeSupport[i][0] == true || v->ModeSupport[i][1] == true;
-				if (v->ModeSupport[i][1] == true) {
+		for (idx = v->soc.num_states; idx >= start_state; idx--) {
+			if (idx == (int)v->soc.num_states || v->ModeSupport[idx][0] == true
+					|| v->ModeSupport[idx][1] == true) {
+				v->VoltageLevel = idx;
+				v->ModeIsSupported = v->ModeSupport[idx][0] == true || v->ModeSupport[idx][1] == true;
+				if (v->ModeSupport[idx][1] == true) {
 					MaximumMPCCombine = 1;
 				} else {
 					MaximumMPCCombine = 0;
@@ -5400,7 +5407,7 @@ static void CalculatePixelDeliveryTimes(
 }
 
 static void CalculateMetaAndPTETimes(
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		bool GPUVMEnable,
 		int MetaChunkSize,
 		int MinMetaChunkSizeBytes,
@@ -5686,7 +5693,7 @@ static void CalculateVMGroupAndRequestTimes(
 }
 
 static void CalculateStutterEfficiency(
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		long ROBBufferSizeInKByte,
 		double TotalDataReadBandwidth,
 		double DCFCLK,
@@ -5840,7 +5847,7 @@ static void CalculateStutterEfficiency(
 
 static void CalculateSwathAndDETConfiguration(
 		bool ForceSingleDPP,
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		unsigned int DETBufferSizeInKByte,
 		double MaximumSwathWidthLuma[],
 		double MaximumSwathWidthChroma[],
@@ -5891,7 +5898,7 @@ static void CalculateSwathAndDETConfiguration(
 	long RoundedUpSwathSizeBytesC = 0;
 	double SwathWidthSingleDPP[DC__NUM_DPP__MAX] = { 0 };
 	double SwathWidthSingleDPPChroma[DC__NUM_DPP__MAX] = { 0 };
-	int k;
+	unsigned int k;
 
 	CalculateSwathWidth(
 			ForceSingleDPP,
@@ -5980,21 +5987,21 @@ static void CalculateSwathAndDETConfiguration(
 		}
 
 		if (RoundedUpMaxSwathSizeBytesY + RoundedUpMaxSwathSizeBytesC
-				<= DETBufferSizeInKByte * 1024 / 2) {
+				<= (long)DETBufferSizeInKByte * 1024 / 2) {
 			SwathHeightY[k] = MaximumSwathHeightY[k];
 			SwathHeightC[k] = MaximumSwathHeightC[k];
 			RoundedUpSwathSizeBytesY = RoundedUpMaxSwathSizeBytesY;
 			RoundedUpSwathSizeBytesC = RoundedUpMaxSwathSizeBytesC;
 		} else if (RoundedUpMaxSwathSizeBytesY >= 1.5 * RoundedUpMaxSwathSizeBytesC
 				&& RoundedUpMinSwathSizeBytesY + RoundedUpMaxSwathSizeBytesC
-						<= DETBufferSizeInKByte * 1024 / 2) {
+						<= (long)DETBufferSizeInKByte * 1024 / 2) {
 			SwathHeightY[k] = MinimumSwathHeightY;
 			SwathHeightC[k] = MaximumSwathHeightC[k];
 			RoundedUpSwathSizeBytesY = RoundedUpMinSwathSizeBytesY;
 			RoundedUpSwathSizeBytesC = RoundedUpMaxSwathSizeBytesC;
 		} else if (RoundedUpMaxSwathSizeBytesY < 1.5 * RoundedUpMaxSwathSizeBytesC
 				&& RoundedUpMaxSwathSizeBytesY + RoundedUpMinSwathSizeBytesC
-						<= DETBufferSizeInKByte * 1024 / 2) {
+						<= (long)DETBufferSizeInKByte * 1024 / 2) {
 			SwathHeightY[k] = MaximumSwathHeightY[k];
 			SwathHeightC[k] = MinimumSwathHeightC;
 			RoundedUpSwathSizeBytesY = RoundedUpMaxSwathSizeBytesY;
@@ -6018,7 +6025,7 @@ static void CalculateSwathAndDETConfiguration(
 		}
 
 		if (RoundedUpMinSwathSizeBytesY + RoundedUpMinSwathSizeBytesC
-				> DETBufferSizeInKByte * 1024 / 2
+				> (long)DETBufferSizeInKByte * 1024 / 2
 				|| SwathWidth[k] > MaximumSwathWidthLuma[k]
 				|| (SwathHeightC[k] > 0
 						&& SwathWidthChroma[k] > MaximumSwathWidthChroma[k])) {
@@ -6032,7 +6039,7 @@ static void CalculateSwathAndDETConfiguration(
 
 static void CalculateSwathWidth(
 		bool ForceSingleDPP,
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		enum source_format_class SourcePixelFormat[],
 		enum scan_direction_class SourceScan[],
 		unsigned int ViewportWidth[],
@@ -6185,7 +6192,7 @@ static double CalculateExtraLatencyBytes(
 		int MetaChunkSize,
 		bool GPUVMEnable,
 		bool HostVMEnable,
-		int NumberOfActivePlanes,
+		unsigned int NumberOfActivePlanes,
 		int NumberOfDPP[],
 		int dpte_group_bytes[],
 		double PercentOfIdealDRAMFabricAndSDPPortBWReceivedAfterUrgLatencyPixelMixedWithVMData,

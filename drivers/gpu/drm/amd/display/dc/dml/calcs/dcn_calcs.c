@@ -760,7 +760,8 @@ bool dcn_validate_bandwidth(
 
 	const struct resource_pool *pool = dc->res_pool;
 	struct dcn_bw_internal_vars *v = &context->dcn_bw_vars;
-	int i, input_idx, k;
+	unsigned int i;
+	int input_idx, k;
 	int vesa_sync_start, asic_blank_end, asic_blank_start;
 	bool bw_limit_pass;
 	float bw_limit;
@@ -1169,9 +1170,9 @@ bool dcn_validate_bandwidth(
 			context->bw_ctx.bw.dcn.clk.dispclk_khz = (int)(dc->dcn_soc->max_dispclk_vmax0p9 * 1000);
 
 		if (context->bw_ctx.bw.dcn.clk.dispclk_khz <
-				dc->debug.min_disp_clk_khz) {
+				(int)dc->debug.min_disp_clk_khz) {
 			context->bw_ctx.bw.dcn.clk.dispclk_khz =
-					dc->debug.min_disp_clk_khz;
+					(int)dc->debug.min_disp_clk_khz;
 		}
 
 		context->bw_ctx.bw.dcn.clk.dppclk_khz = context->bw_ctx.bw.dcn.clk.dispclk_khz /
@@ -1308,7 +1309,7 @@ bool dcn_validate_bandwidth(
 	PERFORMANCE_TRACE_END();
 	BW_VAL_TRACE_FINISH();
 
-	if (bw_limit_pass && v->voltage_level <= get_highest_allowed_voltage_level(dc->config.is_vmin_only_asic))
+	if (bw_limit_pass && v->voltage_level <= (int)get_highest_allowed_voltage_level(dc->config.is_vmin_only_asic))
 		return true;
 	else
 		return false;

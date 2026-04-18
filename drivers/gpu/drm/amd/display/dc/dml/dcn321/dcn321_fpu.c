@@ -211,8 +211,8 @@ static void dcn321_insert_entry_into_table_sorted(struct _vcs_dpi_voltage_scalin
 					   unsigned int *num_entries,
 					   struct _vcs_dpi_voltage_scaling_st *entry)
 {
-	int i = 0;
-	int index = 0;
+	unsigned int i = 0;
+	unsigned int index = 0;
 
 	dc_assert_fp_enabled();
 
@@ -237,7 +237,7 @@ static void dcn321_insert_entry_into_table_sorted(struct _vcs_dpi_voltage_scalin
 static void remove_entry_from_table_at_index(struct _vcs_dpi_voltage_scaling_st *table, unsigned int *num_entries,
 		unsigned int index)
 {
-	int i;
+	unsigned int i;
 
 	if (*num_entries == 0)
 		return;
@@ -265,19 +265,19 @@ static void sort_entries_with_same_bw(struct _vcs_dpi_voltage_scaling_st *table,
 	unsigned int end_index = 0;
 	unsigned int current_bw = 0;
 
-	for (int i = 0; i < (*num_entries - 1); i++) {
+	for (unsigned int i = 0; i + 1 < *num_entries; i++) {
 		if (table[i].net_bw_in_kbytes_sec == table[i+1].net_bw_in_kbytes_sec) {
 			current_bw = (unsigned int)table[i].net_bw_in_kbytes_sec;
 			start_index = i;
 			end_index = ++i;
 
-			while ((i < (*num_entries - 1)) && (table[i+1].net_bw_in_kbytes_sec == current_bw))
+			while ((i + 1 < *num_entries) && (table[i+1].net_bw_in_kbytes_sec == current_bw))
 				end_index = ++i;
 		}
 
 		if (start_index != end_index) {
-			for (int j = start_index; j < end_index; j++) {
-				for (int k = start_index; k < end_index; k++) {
+			for (unsigned int j = start_index; j < end_index; j++) {
+				for (unsigned int k = start_index; k < end_index; k++) {
 					if (table[k].dcfclk_mhz > table[k+1].dcfclk_mhz)
 						swap_table_entries(&table[k], &table[k+1]);
 				}
@@ -296,7 +296,7 @@ static void sort_entries_with_same_bw(struct _vcs_dpi_voltage_scaling_st *table,
  */
 static void remove_inconsistent_entries(struct _vcs_dpi_voltage_scaling_st *table, unsigned int *num_entries)
 {
-	for (int i = 0; i < (*num_entries - 1); i++) {
+	for (unsigned int i = 0; i + 1 < *num_entries; i++) {
 		if (table[i].net_bw_in_kbytes_sec == table[i+1].net_bw_in_kbytes_sec) {
 			if ((table[i].dram_speed_mts > table[i+1].dram_speed_mts) ||
 				(table[i].fabricclk_mhz > table[i+1].fabricclk_mhz))
@@ -344,7 +344,8 @@ static int override_max_clk_values(struct clk_limit_table_entry *max_clk_limit,
 static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk_bw_params *bw_params,
 		struct _vcs_dpi_voltage_scaling_st *table, unsigned int *num_entries)
 {
-	int i, j;
+	int i;
+	unsigned int j, k;
 	struct _vcs_dpi_voltage_scaling_st entry = {0};
 	struct clk_limit_table_entry max_clk_data = {0};
 
@@ -431,8 +432,8 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 	entry.phyclk_d32_mhz = dcn3_21_soc.clock_limits[0].phyclk_d32_mhz;
 
 	// Insert all the DCFCLK STAs
-	for (i = 0; i < num_dcfclk_stas; i++) {
-		entry.dcfclk_mhz = dcfclk_sta_targets[i];
+	for (k = 0; k < num_dcfclk_stas; k++) {
+		entry.dcfclk_mhz = dcfclk_sta_targets[k];
 		entry.fabricclk_mhz = 0;
 		entry.dram_speed_mts = 0;
 
@@ -451,10 +452,10 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 	dcn321_insert_entry_into_table_sorted(table, num_entries, &entry);
 
 	// Insert the UCLK DPMS
-	for (i = 0; i < num_uclk_dpms; i++) {
+	for (k = 0; k < num_uclk_dpms; k++) {
 		entry.dcfclk_mhz = 0;
 		entry.fabricclk_mhz = 0;
-		entry.dram_speed_mts = bw_params->clk_table.entries[i].memclk_mhz * 16;
+		entry.dram_speed_mts = bw_params->clk_table.entries[k].memclk_mhz * 16;
 
 		get_optimal_ntuple(&entry);
 		entry.net_bw_in_kbytes_sec = calculate_net_bw_in_kbytes_sec(&entry);
@@ -463,9 +464,9 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 
 	// If FCLK is coarse grained, insert individual DPMs.
 	if (num_fclk_dpms > 2) {
-		for (i = 0; i < num_fclk_dpms; i++) {
+		for (k = 0; k < num_fclk_dpms; k++) {
 			entry.dcfclk_mhz = 0;
-			entry.fabricclk_mhz = bw_params->clk_table.entries[i].fclk_mhz;
+			entry.fabricclk_mhz = bw_params->clk_table.entries[k].fclk_mhz;
 			entry.dram_speed_mts = 0;
 
 			get_optimal_ntuple(&entry);
@@ -489,7 +490,7 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 	// ratios (by derate, are exact).
 
 	// Remove states that require higher clocks than are supported
-	for (i = *num_entries - 1; i >= 0 ; i--) {
+	for (i = (int)*num_entries - 1; i >= 0 ; i--) {
 		if (table[i].dcfclk_mhz > max_clk_data.dcfclk_mhz ||
 				table[i].fabricclk_mhz > max_clk_data.fclk_mhz ||
 				table[i].dram_speed_mts > max_clk_data.memclk_mhz * 16)
@@ -519,7 +520,7 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 	// coarse grained DPMs and remove duplicates.
 
 	// Round up UCLKs
-	for (i = *num_entries - 1; i >= 0 ; i--) {
+	for (i = (int)*num_entries - 1; i >= 0 ; i--) {
 		for (j = 0; j < num_uclk_dpms; j++) {
 			if (bw_params->clk_table.entries[j].memclk_mhz * 16 >= table[i].dram_speed_mts) {
 				table[i].dram_speed_mts = bw_params->clk_table.entries[j].memclk_mhz * 16;
@@ -530,7 +531,7 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 
 	// If FCLK is coarse grained, round up to next DPMs
 	if (num_fclk_dpms > 2) {
-		for (i = *num_entries - 1; i >= 0 ; i--) {
+		for (i = (int)*num_entries - 1; i >= 0 ; i--) {
 			for (j = 0; j < num_fclk_dpms; j++) {
 				if (bw_params->clk_table.entries[j].fclk_mhz >= table[i].fabricclk_mhz) {
 					table[i].fabricclk_mhz = bw_params->clk_table.entries[j].fclk_mhz;
@@ -541,7 +542,7 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 	}
 	// Otherwise, round up to minimum.
 	else {
-		for (i = *num_entries - 1; i >= 0 ; i--) {
+		for (i = (int)*num_entries - 1; i >= 0 ; i--) {
 			if (table[i].fabricclk_mhz < min_fclk_mhz) {
 				table[i].fabricclk_mhz = min_fclk_mhz;
 			}
@@ -549,7 +550,7 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 	}
 
 	// Round DCFCLKs up to minimum
-	for (i = *num_entries - 1; i >= 0 ; i--) {
+	for (i = (int)*num_entries - 1; i >= 0 ; i--) {
 		if (table[i].dcfclk_mhz < min_dcfclk_mhz) {
 			table[i].dcfclk_mhz = min_dcfclk_mhz;
 		}
@@ -557,7 +558,7 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 
 	// Remove duplicate states, note duplicate states are always neighbouring since table is sorted.
 	i = 0;
-	while (i < *num_entries - 1) {
+	while (i < (int)*num_entries - 1) {
 		if (table[i].dcfclk_mhz == table[i + 1].dcfclk_mhz &&
 				table[i].fabricclk_mhz == table[i + 1].fabricclk_mhz &&
 				table[i].dram_speed_mts == table[i + 1].dram_speed_mts)
@@ -567,9 +568,8 @@ static int build_synthetic_soc_states(bool disable_dc_mode_overwrite, struct clk
 	}
 
 	// Fix up the state indicies
-	for (i = *num_entries - 1; i >= 0 ; i--) {
+	for (i = (int)*num_entries - 1; i >= 0 ; i--)
 		table[i].state = i;
-	}
 
 	return 0;
 }

@@ -485,9 +485,12 @@ void dcn31_calculate_wm_and_dlg_fp(
 		int pipe_cnt,
 		int vlevel)
 {
-	int i, pipe_idx, total_det = 0, active_hubp_count = 0;
+	int total_det = 0, active_hubp_count = 0;
+	unsigned int i, pipe_idx;
 	double dcfclk = context->bw_ctx.dml.vba.DCFCLKState[vlevel][context->bw_ctx.dml.vba.maxMpcComb];
 	uint32_t cstate_enter_plus_exit_z8_ns;
+	uint32_t minimum_z8_residency_time_ns =
+			(uint32_t)dc->debug.minimum_z8_residency_time * 1000U;
 
 	dc_assert_fp_enabled();
 
@@ -511,8 +514,8 @@ void dcn31_calculate_wm_and_dlg_fp(
 		(uint32_t)(get_wm_z8_stutter_enter_exit(&context->bw_ctx.dml, pipes, pipe_cnt) * 1000);
 
 	if (get_stutter_period(&context->bw_ctx.dml, pipes, pipe_cnt) < dc->debug.minimum_z8_residency_time &&
-			cstate_enter_plus_exit_z8_ns < dc->debug.minimum_z8_residency_time * 1000)
-		cstate_enter_plus_exit_z8_ns = dc->debug.minimum_z8_residency_time * 1000;
+				cstate_enter_plus_exit_z8_ns < minimum_z8_residency_time_ns)
+		cstate_enter_plus_exit_z8_ns = minimum_z8_residency_time_ns;
 
 	/* Set A:
 	 * All clocks min required
@@ -592,7 +595,7 @@ void dcn31_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_pa
 	struct _vcs_dpi_voltage_scaling_st *s = dc->scratch.update_bw_bounding_box.clock_limits;
 	struct clk_limit_table *clk_table = &bw_params->clk_table;
 	unsigned int i, closest_clk_lvl;
-	int max_dispclk_mhz = 0, max_dppclk_mhz = 0;
+	unsigned int max_dispclk_mhz = 0, max_dppclk_mhz = 0;
 	int j;
 
 	dc_assert_fp_enabled();
@@ -668,7 +671,7 @@ void dcn31_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_pa
 void dcn315_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_params)
 {
 	struct clk_limit_table *clk_table = &bw_params->clk_table;
-	int i, max_dispclk_mhz = 0, max_dppclk_mhz = 0;
+	unsigned int i, max_dispclk_mhz = 0, max_dppclk_mhz = 0;
 
 	dc_assert_fp_enabled();
 
@@ -731,7 +734,7 @@ void dcn316_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_p
 	struct _vcs_dpi_voltage_scaling_st *s = dc->scratch.update_bw_bounding_box.clock_limits;
 	struct clk_limit_table *clk_table = &bw_params->clk_table;
 	unsigned int i, closest_clk_lvl;
-	int max_dispclk_mhz = 0, max_dppclk_mhz = 0;
+	unsigned int max_dispclk_mhz = 0, max_dppclk_mhz = 0;
 	int j;
 
 	dc_assert_fp_enabled();

@@ -326,7 +326,8 @@ void dcn301_fpu_update_bw_bounding_box(struct dc *dc, struct clk_bw_params *bw_p
 	struct dcn301_resource_pool *pool = TO_DCN301_RES_POOL(dc->res_pool);
 	struct clk_limit_table *clk_table = &bw_params->clk_table;
 	unsigned int i, closest_clk_lvl;
-	int j = 0, max_dispclk_mhz = 0, max_dppclk_mhz = 0;
+	int j = 0;
+	unsigned int max_dispclk_mhz = 0, max_dppclk_mhz = 0;
 
 	dc_assert_fp_enabled();
 
@@ -429,7 +430,7 @@ void dcn301_fpu_calculate_wm_and_dlg(struct dc *dc,
 		int pipe_cnt,
 		int vlevel_req)
 {
-	int i, pipe_idx;
+	unsigned int i, pipe_idx;
 	int vlevel, vlevel_max;
 	struct wm_range_table_entry *table_entry;
 	struct clk_bw_params *bw_params = dc->clk_mgr->bw_params;

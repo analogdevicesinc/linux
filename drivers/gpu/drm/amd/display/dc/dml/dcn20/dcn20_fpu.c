@@ -990,7 +990,8 @@ void dcn20_populate_dml_writeback_from_context(struct dc *dc,
 					       struct resource_context *res_ctx,
 					       display_e2e_pipe_params_st *pipes)
 {
-	int pipe_cnt, i;
+	unsigned int i;
+	int pipe_cnt;
 
 	dc_assert_fp_enabled();
 
@@ -1044,7 +1045,7 @@ void dcn20_fpu_set_wb_arb_params(struct mcif_arb_params *wb_arb_params,
 
 static bool is_dtbclk_required(struct dc *dc, struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
 		if (!context->res_ctx.pipe_ctx[i].stream)
 			continue;
@@ -1134,7 +1135,7 @@ static void dcn20_adjust_freesync_v_startup(
 	/* The newVStartUp is 1 line before vsync point */
 	newVstartup = asic_blank_end + 1;
 
-	*vstartup_start = ((newVstartup > *vstartup_start) ? newVstartup : *vstartup_start);
+	*vstartup_start = (((int)newVstartup > *vstartup_start) ? (int)newVstartup : *vstartup_start);
 }
 
 void dcn20_calculate_dlg_params(struct dc *dc,
@@ -1143,7 +1144,8 @@ void dcn20_calculate_dlg_params(struct dc *dc,
 				int pipe_cnt,
 				int vlevel)
 {
-	int i, pipe_idx, active_hubp_count = 0;
+	int pipe_idx, active_hubp_count = 0;
+	unsigned int i;
 
 	dc_assert_fp_enabled();
 
@@ -1155,7 +1157,7 @@ void dcn20_calculate_dlg_params(struct dc *dc,
 	context->bw_ctx.bw.dcn.clk.socclk_khz = (int)(context->bw_ctx.dml.vba.SOCCLK * 1000.0);
 	context->bw_ctx.bw.dcn.clk.dramclk_khz = (int)(context->bw_ctx.dml.vba.DRAMSpeed * 1000.0 / 16.0);
 
-	if (dc->debug.min_dram_clk_khz > context->bw_ctx.bw.dcn.clk.dramclk_khz)
+	if ((int)dc->debug.min_dram_clk_khz > context->bw_ctx.bw.dcn.clk.dramclk_khz)
 		context->bw_ctx.bw.dcn.clk.dramclk_khz = dc->debug.min_dram_clk_khz;
 
 	context->bw_ctx.bw.dcn.clk.dcfclk_deep_sleep_khz = (int)(context->bw_ctx.dml.vba.DCFCLKDeepSleep * 1000.0);
@@ -1173,8 +1175,8 @@ void dcn20_calculate_dlg_params(struct dc *dc,
 
 	context->bw_ctx.bw.dcn.clk.dtbclk_en = is_dtbclk_required(dc, context);
 
-	if (context->bw_ctx.bw.dcn.clk.dispclk_khz < dc->debug.min_disp_clk_khz)
-		context->bw_ctx.bw.dcn.clk.dispclk_khz = dc->debug.min_disp_clk_khz;
+	if ((unsigned int)context->bw_ctx.bw.dcn.clk.dispclk_khz < dc->debug.min_disp_clk_khz)
+		context->bw_ctx.bw.dcn.clk.dispclk_khz = (int)dc->debug.min_disp_clk_khz;
 
 	for (i = 0, pipe_idx = 0; i < dc->res_pool->pipe_count; i++) {
 		if (!context->res_ctx.pipe_ctx[i].stream)
@@ -1317,7 +1319,8 @@ int dcn20_populate_dml_pipes_from_context(struct dc *dc,
 					  enum dc_validate_mode validate_mode)
 {
 	(void)validate_mode;
-	int pipe_cnt, i;
+	int pipe_cnt;
+	unsigned int i;
 	bool synchronized_vblank = true;
 	struct resource_context *res_ctx = &context->res_ctx;
 
@@ -1736,7 +1739,8 @@ void dcn20_calculate_wm(struct dc *dc, struct dc_state *context,
 			int vlevel,
 			enum dc_validate_mode validate_mode)
 {
-	int pipe_cnt, i, pipe_idx;
+	int pipe_cnt, pipe_idx;
+	unsigned int i;
 
 	dc_assert_fp_enabled();
 
@@ -1854,7 +1858,7 @@ void dcn20_update_bounding_box(struct dc *dc,
 {
 	int num_calculated_states = 0;
 	int min_dcfclk = 0;
-	int i;
+	unsigned int i;
 
 	dc_assert_fp_enabled();
 
@@ -1915,7 +1919,7 @@ void dcn20_update_bounding_box(struct dc *dc,
 void dcn20_cap_soc_clocks(struct _vcs_dpi_soc_bounding_box_st *bb,
 			  struct pp_smu_nv_clock_table max_clocks)
 {
-	int i;
+	unsigned int i;
 
 	dc_assert_fp_enabled();
 
@@ -2159,7 +2163,7 @@ int dcn21_populate_dml_pipes_from_context(struct dc *dc,
 					  enum dc_validate_mode validate_mode)
 {
 	uint32_t pipe_cnt;
-	int i;
+	unsigned int i;
 
 	dc_assert_fp_enabled();
 
@@ -2241,7 +2245,8 @@ static void dcn21_calculate_wm(struct dc *dc, struct dc_state *context,
 			int vlevel_req,
 			enum dc_validate_mode validate_mode)
 {
-	int pipe_cnt, i, pipe_idx;
+	int pipe_cnt, pipe_idx;
+	unsigned int i;
 	int vlevel, vlevel_max;
 	struct wm_range_table_entry *table_entry;
 	struct clk_bw_params *bw_params = dc->clk_mgr->bw_params;
@@ -2477,7 +2482,8 @@ void dcn201_populate_dml_writeback_from_context_fpu(struct dc *dc,
 						    struct resource_context *res_ctx,
 						    display_e2e_pipe_params_st *pipes)
 {
-	int pipe_cnt, i, j;
+	int pipe_cnt;
+	unsigned int i, j;
 	double max_calc_writeback_dispclk;
 	double writeback_dispclk;
 	struct writeback_st dout_wb = {0};

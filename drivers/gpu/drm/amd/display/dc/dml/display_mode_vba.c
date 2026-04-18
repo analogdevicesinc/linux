@@ -304,7 +304,7 @@ bool get_is_phantom_pipe(struct display_mode_lib *mode_lib, const display_e2e_pi
 static void fetch_socbb_params(struct display_mode_lib *mode_lib)
 {
 	soc_bounding_box_st *soc = &mode_lib->vba.soc;
-	int i;
+	unsigned int i;
 
 	// SOC Bounding Box Parameters
 	mode_lib->vba.ReturnBusWidth = soc->return_bus_width_bytes;
@@ -946,7 +946,7 @@ static void fetch_pipe_params(struct display_mode_lib *mode_lib)
  */
 static void cache_debug_params(struct display_mode_lib *mode_lib)
 {
-	int k = 0;
+	unsigned int k = 0;
 
 	for (k = 0; k < mode_lib->vba.NumberOfActivePlanes; k++)
 		mode_lib->vba.CachedActiveDRAMClockChangeLatencyMargin[k] = mode_lib->vba.ActiveDRAMClockChangeLatencyMargin[k];

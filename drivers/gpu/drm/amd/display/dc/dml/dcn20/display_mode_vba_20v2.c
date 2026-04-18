@@ -3394,8 +3394,8 @@ void dml20v2_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode
 {
 	struct vba_vars_st *locals = &mode_lib->vba;
 
-	int i;
-	unsigned int j, k, m;
+	int idx;
+	unsigned int i, j, k, m;
 
 	/*MODE SUPPORT, VOLTAGE STATE AND SOC CONFIGURATION*/
 
@@ -5133,7 +5133,7 @@ void dml20v2_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode
 	}
 	/*Mode Support, Voltage State and SOC Configuration*/
 
-	for (i = mode_lib->vba.soc.num_states; i >= 0; i--) {
+	for (idx = mode_lib->vba.soc.num_states; idx >= 0; idx--) {
 		for (j = 0; j < 2; j++) {
 			enum dm_validation_status status = DML_VALIDATION_OK;
 
@@ -5141,21 +5141,21 @@ void dml20v2_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode
 				status = DML_FAIL_SCALE_RATIO_TAP;
 			} else if (mode_lib->vba.SourceFormatPixelAndScanSupport != true) {
 				status = DML_FAIL_SOURCE_PIXEL_FORMAT;
-			} else if (locals->ViewportSizeSupport[i][0] != true) {
+			} else if (locals->ViewportSizeSupport[idx][0] != true) {
 				status = DML_FAIL_VIEWPORT_SIZE;
-			} else if (locals->DIOSupport[i] != true) {
+			} else if (locals->DIOSupport[idx] != true) {
 				status = DML_FAIL_DIO_SUPPORT;
-			} else if (locals->NotEnoughDSCUnits[i] != false) {
+			} else if (locals->NotEnoughDSCUnits[idx] != false) {
 				status = DML_FAIL_NOT_ENOUGH_DSC;
-			} else if (locals->DSCCLKRequiredMoreThanSupported[i] != false) {
+			} else if (locals->DSCCLKRequiredMoreThanSupported[idx] != false) {
 				status = DML_FAIL_DSC_CLK_REQUIRED;
-			} else if (locals->UrgentLatencySupport[i][j] != true) {
+			} else if (locals->UrgentLatencySupport[idx][j] != true) {
 				status = DML_FAIL_URGENT_LATENCY;
-			} else if (locals->ROBSupport[i][0] != true) {
+			} else if (locals->ROBSupport[idx][0] != true) {
 				status = DML_FAIL_REORDERING_BUFFER;
-			} else if (locals->DISPCLK_DPPCLK_Support[i][j] != true) {
+			} else if (locals->DISPCLK_DPPCLK_Support[idx][j] != true) {
 				status = DML_FAIL_DISPCLK_DPPCLK;
-			} else if (locals->TotalAvailablePipesSupport[i][j] != true) {
+			} else if (locals->TotalAvailablePipesSupport[idx][j] != true) {
 				status = DML_FAIL_TOTAL_AVAILABLE_PIPES;
 			} else if (mode_lib->vba.NumberOfOTGSupport != true) {
 				status = DML_FAIL_NUM_OTG;
@@ -5169,24 +5169,24 @@ void dml20v2_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode
 				status = DML_FAIL_CURSOR_SUPPORT;
 			} else if (mode_lib->vba.PitchSupport != true) {
 				status = DML_FAIL_PITCH_SUPPORT;
-			} else if (locals->PrefetchSupported[i][j] != true) {
+			} else if (locals->PrefetchSupported[idx][j] != true) {
 				status = DML_FAIL_PREFETCH_SUPPORT;
-			} else if (locals->TotalVerticalActiveBandwidthSupport[i][0] != true) {
+			} else if (locals->TotalVerticalActiveBandwidthSupport[idx][0] != true) {
 				status = DML_FAIL_TOTAL_V_ACTIVE_BW;
-			} else if (locals->VRatioInPrefetchSupported[i][j] != true) {
+			} else if (locals->VRatioInPrefetchSupported[idx][j] != true) {
 				status = DML_FAIL_V_RATIO_PREFETCH;
-			} else if (locals->PTEBufferSizeNotExceeded[i][j] != true) {
+			} else if (locals->PTEBufferSizeNotExceeded[idx][j] != true) {
 				status = DML_FAIL_PTE_BUFFER_SIZE;
 			} else if (mode_lib->vba.NonsupportedDSCInputBPC != false) {
 				status = DML_FAIL_DSC_INPUT_BPC;
 			}
 
 			if (status == DML_VALIDATION_OK) {
-				locals->ModeSupport[i][j] = true;
+				locals->ModeSupport[idx][j] = true;
 			} else {
-				locals->ModeSupport[i][j] = false;
+				locals->ModeSupport[idx][j] = false;
 			}
-			locals->ValidationStatus[i] = status;
+			locals->ValidationStatus[idx] = status;
 		}
 	}
 	{

@@ -233,7 +233,7 @@ void dcn35_update_bw_bounding_box_fpu(struct dc *dc,
 	struct clk_limit_table *clk_table = &bw_params->clk_table;
 	struct _vcs_dpi_voltage_scaling_st *clock_limits =
 		dc->scratch.update_bw_bounding_box.clock_limits;
-	int max_dispclk_mhz = 0, max_dppclk_mhz = 0;
+	unsigned int max_dispclk_mhz = 0, max_dppclk_mhz = 0;
 
 	dc_assert_fp_enabled();
 
@@ -440,7 +440,8 @@ int dcn35_populate_dml_pipes_from_context_fpu(struct dc *dc,
 					      display_e2e_pipe_params_st *pipes,
 					      enum dc_validate_mode validate_mode)
 {
-	int i, pipe_cnt;
+	unsigned int i;
+	int pipe_cnt;
 	struct resource_context *res_ctx = &context->res_ctx;
 	struct pipe_ctx *pipe = 0;
 	bool upscaled = false;

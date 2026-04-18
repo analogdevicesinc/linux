@@ -181,7 +181,8 @@ struct _vcs_dpi_soc_bounding_box_st dcn3_0_soc = {
 void dcn30_fpu_populate_dml_writeback_from_context(
 		struct dc *dc, struct resource_context *res_ctx, display_e2e_pipe_params_st *pipes)
 {
-	int pipe_cnt, i, j;
+	int pipe_cnt;
+	unsigned int i, j;
 	double max_calc_writeback_dispclk;
 	double writeback_dispclk;
 	struct writeback_st dout_wb = {0};
@@ -308,6 +309,7 @@ void dcn30_fpu_calculate_wm_and_dlg(
 {
 	int maxMpcComb = context->bw_ctx.dml.vba.maxMpcComb;
 	int i, pipe_idx;
+	unsigned int pipe_i, state_i;
 	double dcfclk = context->bw_ctx.dml.vba.DCFCLKState[vlevel][maxMpcComb];
 	bool pstate_en = context->bw_ctx.dml.vba.DRAMClockChangeSupport[vlevel][maxMpcComb] != dm_dram_clock_change_unsupported;
 	unsigned int dummy_latency_index = 0;
@@ -475,8 +477,8 @@ void dcn30_fpu_calculate_wm_and_dlg(
 	/* Make set D = set A until set D is enabled */
 	context->bw_ctx.bw.dcn.watermarks.d = context->bw_ctx.bw.dcn.watermarks.a;
 
-	for (i = 0, pipe_idx = 0; i < dc->res_pool->pipe_count; i++) {
-		if (!context->res_ctx.pipe_ctx[i].stream)
+	for (pipe_i = 0, pipe_idx = 0; pipe_i < dc->res_pool->pipe_count; pipe_i++) {
+		if (!context->res_ctx.pipe_ctx[pipe_i].stream)
 			continue;
 
 		pipes[pipe_idx].clks_cfg.dispclk_mhz = get_dispclk_calculated(&context->bw_ctx.dml, pipes, pipe_cnt);
@@ -500,9 +502,9 @@ void dcn30_fpu_calculate_wm_and_dlg(
 			context->bw_ctx.dml.vba.DRAMSpeed <= 1700 &&
 			context->bw_ctx.dml.vba.DRAMSpeed >= 1500) {
 
-		for (i = 0; i < dc->dml.soc.num_states; i++) {
-			if (dc->dml.soc.clock_limits[i].dram_speed_mts > 1700) {
-				context->bw_ctx.dml.vba.DRAMSpeed = dc->dml.soc.clock_limits[i].dram_speed_mts;
+		for (state_i = 0; state_i < dc->dml.soc.num_states; state_i++) {
+			if (dc->dml.soc.clock_limits[state_i].dram_speed_mts > 1700) {
+				context->bw_ctx.dml.vba.DRAMSpeed = dc->dml.soc.clock_limits[state_i].dram_speed_mts;
 				break;
 			}
 		}

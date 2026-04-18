@@ -6318,7 +6318,7 @@ bool dml32_CalculateDETSwathFillLatencyHiding(unsigned int NumberOfActiveSurface
 		enum dm_use_mall_for_pstate_change_mode UsesMALLForPStateChange[],
 		enum unbounded_requesting_policy UseUnboundedRequesting)
 {
-	int k;
+	unsigned int k;
 	double SwathSizeAllSurfaces = 0;
 	double SwathSizeAllSurfacesInFetchTimeUs;
 	double DETSwathLatencyHidingUs;

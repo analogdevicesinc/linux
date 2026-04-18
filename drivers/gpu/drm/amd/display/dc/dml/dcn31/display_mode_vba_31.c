@@ -1510,10 +1510,10 @@ static void CalculateDCCConfiguration(
 	double detile_buf_vp_horz_limit;
 	double detile_buf_vp_vert_limit;
 
-	int MAS_vp_horz_limit;
-	int MAS_vp_vert_limit;
-	int max_vp_horz_width;
-	int max_vp_vert_height;
+	unsigned int MAS_vp_horz_limit;
+	unsigned int MAS_vp_vert_limit;
+	unsigned int max_vp_horz_width;
+	unsigned int max_vp_vert_height;
 	int eff_surf_width_l;
 	int eff_surf_width_c;
 	int eff_surf_height_l;
@@ -3785,7 +3785,8 @@ static noinline void CalculatePrefetchSchedulePerPlane(
 
 static void PatchDETBufferSizeInKByte(unsigned int NumberOfActivePlanes, int NoOfDPPThisState[], unsigned int config_return_buffer_size_in_kbytes, unsigned int DETBufferSizeInKByte[])
 {
-	int i, total_pipes = 0;
+	int total_pipes = 0;
+	unsigned int i;
 	for (i = 0; i < NumberOfActivePlanes; i++)
 		total_pipes += NoOfDPPThisState[i];
 	DETBufferSizeInKByte[0] = ((config_return_buffer_size_in_kbytes - DCN3_15_MIN_COMPBUF_SIZE_KB) / 64 / total_pipes) * 64;
@@ -3800,8 +3801,8 @@ void dml31_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 {
 	struct vba_vars_st *v = &mode_lib->vba;
 
-	int i, j;
-	unsigned int k, m;
+	int idx;
+	unsigned int i, j, k, m;
 	int ReorderingBytes;
 	int MinPrefetchMode = 0, MaxPrefetchMode = 2;
 	bool NoChroma = true;
@@ -5451,46 +5452,53 @@ void dml31_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 	}
 
 	/*Mode Support, Voltage State and SOC Configuration*/
-	for (i = v->soc.num_states - 1; i >= 0; i--) {
+	for (idx = (int)v->soc.num_states - 1; idx >= 0; idx--) {
 		for (j = 0; j < 2; j++) {
-			if (v->ScaleRatioAndTapsSupport == true && v->SourceFormatPixelAndScanSupport == true && v->ViewportSizeSupport[i][j] == true
-					&& v->LinkCapacitySupport[i] == true && !P2IWith420 && !DSCOnlyIfNecessaryWithBPP
-					&& !DSC422NativeNotSupported && v->ODMCombine4To1SupportCheckOK[i] == true && v->NotEnoughDSCUnits[i] == false
-					&& v->DTBCLKRequiredMoreThanSupported[i] == false
-					&& v->ROBSupport[i][j] == true && v->DISPCLK_DPPCLK_Support[i][j] == true
-					&& v->TotalAvailablePipesSupport[i][j] == true && EnoughWritebackUnits == true
+			if (v->ScaleRatioAndTapsSupport == true && v->SourceFormatPixelAndScanSupport == true
+					&& v->ViewportSizeSupport[idx][j] == true
+					&& v->LinkCapacitySupport[idx] == true && !P2IWith420
+					&& !DSCOnlyIfNecessaryWithBPP
+					&& !DSC422NativeNotSupported && v->ODMCombine4To1SupportCheckOK[idx] == true
+					&& v->NotEnoughDSCUnits[idx] == false
+					&& v->DTBCLKRequiredMoreThanSupported[idx] == false
+					&& v->ROBSupport[idx][j] == true && v->DISPCLK_DPPCLK_Support[idx][j] == true
+					&& v->TotalAvailablePipesSupport[idx][j] == true && EnoughWritebackUnits == true
 					&& v->WritebackLatencySupport == true && v->WritebackScaleRatioAndTapsSupport == true
-					&& v->CursorSupport == true && v->PitchSupport == true && ViewportExceedsSurface == false
-					&& v->PrefetchSupported[i][j] == true && v->DynamicMetadataSupported[i][j] == true
-					&& v->TotalVerticalActiveBandwidthSupport[i][j] == true && v->VRatioInPrefetchSupported[i][j] == true
-					&& v->PTEBufferSizeNotExceeded[i][j] == true && v->NonsupportedDSCInputBPC == false
+					&& v->CursorSupport == true && v->PitchSupport == true
+					&& ViewportExceedsSurface == false
+					&& v->PrefetchSupported[idx][j] == true
+					&& v->DynamicMetadataSupported[idx][j] == true
+					&& v->TotalVerticalActiveBandwidthSupport[idx][j] == true
+					&& v->VRatioInPrefetchSupported[idx][j] == true
+					&& v->PTEBufferSizeNotExceeded[idx][j] == true
+					&& v->NonsupportedDSCInputBPC == false
 					&& ((v->HostVMEnable == false
 					&& v->ImmediateFlipRequirement[0] != dm_immediate_flip_required)
-							|| v->ImmediateFlipSupportedForState[i][j] == true)
+							|| v->ImmediateFlipSupportedForState[idx][j] == true)
 					&& FMTBufferExceeded == false) {
-				v->ModeSupport[i][j] = true;
+				v->ModeSupport[idx][j] = true;
 			} else {
-				v->ModeSupport[i][j] = false;
+				v->ModeSupport[idx][j] = false;
 #ifdef __DML_VBA_DEBUG__
 				if (v->ScaleRatioAndTapsSupport == false)
 					dml_print("DML SUPPORT:     ScaleRatioAndTapsSupport failed");
 				if (v->SourceFormatPixelAndScanSupport == false)
 					dml_print("DML SUPPORT:     SourceFormatPixelAndScanSupport failed");
-				if (v->ViewportSizeSupport[i][j] == false)
+				if (v->ViewportSizeSupport[idx][j] == false)
 					dml_print("DML SUPPORT:     ViewportSizeSupport failed");
-				if (v->LinkCapacitySupport[i] == false)
+				if (v->LinkCapacitySupport[idx] == false)
 					dml_print("DML SUPPORT:     LinkCapacitySupport failed");
-				if (v->ODMCombine4To1SupportCheckOK[i] == false)
+				if (v->ODMCombine4To1SupportCheckOK[idx] == false)
 					dml_print("DML SUPPORT:     DSC422NativeNotSupported failed");
-				if (v->NotEnoughDSCUnits[i] == true)
+				if (v->NotEnoughDSCUnits[idx] == true)
 					dml_print("DML SUPPORT:     NotEnoughDSCUnits");
-				if (v->DTBCLKRequiredMoreThanSupported[i] == true)
+				if (v->DTBCLKRequiredMoreThanSupported[idx] == true)
 					dml_print("DML SUPPORT:     DTBCLKRequiredMoreThanSupported");
-				if (v->ROBSupport[i][j] == false)
+				if (v->ROBSupport[idx][j] == false)
 					dml_print("DML SUPPORT:     ROBSupport failed");
-				if (v->DISPCLK_DPPCLK_Support[i][j] == false)
+				if (v->DISPCLK_DPPCLK_Support[idx][j] == false)
 					dml_print("DML SUPPORT:     DISPCLK_DPPCLK_Support failed");
-				if (v->TotalAvailablePipesSupport[i][j] == false)
+				if (v->TotalAvailablePipesSupport[idx][j] == false)
 					dml_print("DML SUPPORT:     DSC422NativeNotSupported failed");
 				if (EnoughWritebackUnits == false)
 					dml_print("DML SUPPORT:     DSC422NativeNotSupported failed");
@@ -5504,21 +5512,21 @@ void dml31_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 					dml_print("DML SUPPORT:     PitchSupport failed");
 				if (ViewportExceedsSurface == true)
 					dml_print("DML SUPPORT:     ViewportExceedsSurface failed");
-				if (v->PrefetchSupported[i][j] == false)
+				if (v->PrefetchSupported[idx][j] == false)
 					dml_print("DML SUPPORT:     PrefetchSupported failed");
-				if (v->DynamicMetadataSupported[i][j] == false)
+				if (v->DynamicMetadataSupported[idx][j] == false)
 					dml_print("DML SUPPORT:     DSC422NativeNotSupported failed");
-				if (v->TotalVerticalActiveBandwidthSupport[i][j] == false)
+				if (v->TotalVerticalActiveBandwidthSupport[idx][j] == false)
 					dml_print("DML SUPPORT:     TotalVerticalActiveBandwidthSupport failed");
-				if (v->VRatioInPrefetchSupported[i][j] == false)
+				if (v->VRatioInPrefetchSupported[idx][j] == false)
 					dml_print("DML SUPPORT:     VRatioInPrefetchSupported failed");
-				if (v->PTEBufferSizeNotExceeded[i][j] == false)
+				if (v->PTEBufferSizeNotExceeded[idx][j] == false)
 					dml_print("DML SUPPORT:     PTEBufferSizeNotExceeded failed");
 				if (v->NonsupportedDSCInputBPC == true)
 					dml_print("DML SUPPORT:     NonsupportedDSCInputBPC failed");
 				if (!((v->HostVMEnable == false
 					&& v->ImmediateFlipRequirement[0] != dm_immediate_flip_required)
-							|| v->ImmediateFlipSupportedForState[i][j] == true))
+							|| v->ImmediateFlipSupportedForState[idx][j] == true))
 					dml_print("DML SUPPORT:     ImmediateFlipRequirement failed");
 				if (FMTBufferExceeded == true)
 					dml_print("DML SUPPORT:     FMTBufferExceeded failed");
@@ -5529,11 +5537,12 @@ void dml31_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 
 	{
 		unsigned int MaximumMPCCombine = 0;
-		for (i = v->soc.num_states; i >= 0; i--) {
-			if (i == v->soc.num_states || v->ModeSupport[i][0] == true || v->ModeSupport[i][1] == true) {
-				v->VoltageLevel = i;
-				v->ModeIsSupported = v->ModeSupport[i][0] == true || v->ModeSupport[i][1] == true;
-				if (v->ModeSupport[i][0] == true) {
+		for (idx = (int)v->soc.num_states; idx >= 0; idx--) {
+			if (idx == (int)v->soc.num_states || v->ModeSupport[idx][0] == true
+					|| v->ModeSupport[idx][1] == true) {
+				v->VoltageLevel = idx;
+				v->ModeIsSupported = v->ModeSupport[idx][0] == true || v->ModeSupport[idx][1] == true;
+				if (v->ModeSupport[idx][0] == true) {
 					MaximumMPCCombine = 0;
 				} else {
 					MaximumMPCCombine = 1;
@@ -5541,7 +5550,7 @@ void dml31_ModeSupportAndSystemConfigurationFull(struct display_mode_lib *mode_l
 			}
 		}
 		v->ImmediateFlipSupport = v->ImmediateFlipSupportedForState[v->VoltageLevel][MaximumMPCCombine];
-		for (k = 0; k <= v->NumberOfActivePlanes - 1; k++) {
+		for (k = 0; k < v->NumberOfActivePlanes; k++) {
 			v->MPCCombineEnable[k] = v->MPCCombine[v->VoltageLevel][MaximumMPCCombine][k];
 			v->DPPPerPlane[k] = v->NoOfDPP[v->VoltageLevel][MaximumMPCCombine][k];
 		}
@@ -5599,7 +5608,7 @@ static void CalculateWatermarksAndDRAMSpeedChangeSupport(
 	double SecondMinActiveDRAMClockChangeMarginOneDisplayInVBLank;
 	double WritebackDRAMClockChangeLatencyHiding;
 	double TotalPixelBW = 0.0;
-	int k, j;
+	unsigned int k, j;
 
 	v->UrgentWatermark = UrgentLatency + ExtraLatency;
 
@@ -5787,7 +5796,7 @@ static void CalculateDCFCLKDeepSleep(
 	double DisplayPipeLineDeliveryTimeLuma;
 	double DisplayPipeLineDeliveryTimeChroma;
 	double ReadBandwidth = 0.0;
-	int k;
+	unsigned int k;
 
 	for (k = 0; k < NumberOfActivePlanes; ++k) {
 
@@ -5938,7 +5947,7 @@ static void CalculatePixelDeliveryTimes(
 		double CursorRequestDeliveryTimePrefetch[])
 {
 	double req_per_swath_ub;
-	int k;
+	unsigned int k;
 
 	for (k = 0; k < NumberOfActivePlanes; ++k) {
 		if (VRatio[k] <= 1) {
@@ -6235,7 +6244,7 @@ static void CalculateVMGroupAndRequestTimes(
 	(void)dpte_row_width_chroma_ub;
 	int num_group_per_lower_vm_stage;
 	int num_req_per_lower_vm_stage;
-	int k;
+	unsigned int k;
 
 	for (k = 0; k < NumberOfActivePlanes; ++k) {
 		if (GPUVMEnable == true && (DCCEnable[k] == true || GPUVMMaxPageTableLevels > 1)) {
@@ -6676,12 +6685,12 @@ static void CalculateSwathAndDETConfiguration(
 	int MaximumSwathHeightC[DC__NUM_DPP__MAX];
 	int MinimumSwathHeightY;
 	int MinimumSwathHeightC;
-	int RoundedUpMaxSwathSizeBytesY;
-	int RoundedUpMaxSwathSizeBytesC;
-	int RoundedUpMinSwathSizeBytesY;
-	int RoundedUpMinSwathSizeBytesC;
-	int RoundedUpSwathSizeBytesY;
-	int RoundedUpSwathSizeBytesC;
+	unsigned int RoundedUpMaxSwathSizeBytesY;
+	unsigned int RoundedUpMaxSwathSizeBytesC;
+	unsigned int RoundedUpMinSwathSizeBytesY;
+	unsigned int RoundedUpMinSwathSizeBytesC;
+	unsigned int RoundedUpSwathSizeBytesY;
+	unsigned int RoundedUpSwathSizeBytesC;
 	double SwathWidthSingleDPP[DC__NUM_DPP__MAX];
 	double SwathWidthSingleDPPChroma[DC__NUM_DPP__MAX];
 	int k;
@@ -7052,7 +7061,9 @@ static noinline_for_stack void UseMinimumDCFCLK(
 		int ReorderingBytes)
 {
 	struct vba_vars_st *v = &mode_lib->vba;
-	int dummy1, i, j, k;
+	int dummy1;
+	unsigned int j, k;
+	unsigned int i;
 	double NormalEfficiency,  dummy2, dummy3;
 	double TotalMaxPrefetchFlipDPTERowBandwidth[DC__VOLTAGE_STATES][2];
 
@@ -7079,9 +7090,8 @@ static noinline_for_stack void UseMinimumDCFCLK(
 						+ v->NoOfDPP[i][j][k] * v->DPTEBytesPerRow[i][j][k] / (15.75 * v->HTotal[k] / v->PixelClock[k]);
 			}
 
-			for (k = 0; k <= v->NumberOfActivePlanes - 1; ++k) {
+			for (k = 0; k < v->NumberOfActivePlanes; ++k)
 				NoOfDPPState[k] = v->NoOfDPP[i][j][k];
-			}
 
 			MinimumTWait = CalculateTWait(MaxPrefetchMode, v->FinalDRAMClockChangeLatency, v->UrgLatency[i], v->SREnterPlusExitTime);
 			NonDPTEBandwidth = v->TotalVActivePixelBandwidth[i][j] + v->TotalVActiveCursorBandwidth[i][j] + v->TotalMetaRowBandwidth[i][j];
@@ -7182,9 +7192,8 @@ static noinline_for_stack void UseMinimumDCFCLK(
 				}
 			}
 			DCFCLKRequiredForPeakBandwidth = 0;
-			for (k = 0; k <= v->NumberOfActivePlanes - 1; ++k) {
+			for (k = 0; k < v->NumberOfActivePlanes; ++k)
 				DCFCLKRequiredForPeakBandwidth = DCFCLKRequiredForPeakBandwidth + DCFCLKRequiredForPeakBandwidthPerPlane[k];
-			}
 			MinimumTvmPlus2Tr0 = v->UrgLatency[i]
 					* (v->GPUVMEnable == true ?
 							(v->HostVMEnable == true ?
