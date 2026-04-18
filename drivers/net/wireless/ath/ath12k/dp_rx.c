@@ -1092,7 +1092,8 @@ static void ath12k_get_dot11_hdr_from_rx_desc(struct ath12k_pdev_dp *dp_pdev,
 static void ath12k_dp_rx_h_undecap_eth(struct ath12k_pdev_dp *dp_pdev,
 				       struct sk_buff *msdu,
 				       enum hal_encrypt_type enctype,
-				       struct hal_rx_desc_data *rx_info)
+				       struct hal_rx_desc_data *rx_info,
+				       enum ath12k_dp_rx_decap_type decap_type)
 {
 	struct ieee80211_hdr *hdr;
 	struct ethhdr *eth;
@@ -1100,12 +1101,24 @@ static void ath12k_dp_rx_h_undecap_eth(struct ath12k_pdev_dp *dp_pdev,
 	u8 sa[ETH_ALEN];
 	struct ath12k_skb_rxcb *rxcb = ATH12K_SKB_RXCB(msdu);
 	struct ath12k_dp_rx_rfc1042_hdr rfc = {0xaa, 0xaa, 0x03, {0x00, 0x00, 0x00}};
+	struct ath12k_dp_rx_rfc1042_hdr *llc;
 
 	eth = (struct ethhdr *)msdu->data;
 	ether_addr_copy(da, eth->h_dest);
 	ether_addr_copy(sa, eth->h_source);
-	rfc.snap_type = eth->h_proto;
-	skb_pull(msdu, sizeof(*eth));
+	if (decap_type == DP_RX_DECAP_TYPE_8023) {
+		/*
+		 * For 802.3 frames, eth->h_proto carries a length field, not
+		 * an EtherType. The actual EtherType is in the LLC/SNAP header
+		 * that follows the Ethernet header.
+		 */
+		llc = (struct ath12k_dp_rx_rfc1042_hdr *)(msdu->data + sizeof(*eth));
+		rfc.snap_type = llc->snap_type;
+		skb_pull(msdu, sizeof(*eth) + sizeof(*llc));
+	} else {
+		rfc.snap_type = eth->h_proto;
+		skb_pull(msdu, sizeof(*eth));
+	}
 	memcpy(skb_push(msdu, sizeof(rfc)), &rfc,
 	       sizeof(rfc));
 	ath12k_get_dot11_hdr_from_rx_desc(dp_pdev, msdu, rxcb, enctype, rx_info);
@@ -1123,9 +1136,10 @@ void ath12k_dp_rx_h_undecap(struct ath12k_pdev_dp *dp_pdev, struct sk_buff *msdu
 			    bool decrypted,
 			    struct hal_rx_desc_data *rx_info)
 {
+	enum ath12k_dp_rx_decap_type decap_type = rx_info->decap_type;
 	struct ethhdr *ehdr;
 
-	switch (rx_info->decap_type) {
+	switch (decap_type) {
 	case DP_RX_DECAP_TYPE_NATIVE_WIFI:
 		ath12k_dp_rx_h_undecap_nwifi(dp_pdev, msdu, enctype, rx_info);
 		break;
@@ -1139,19 +1153,33 @@ void ath12k_dp_rx_h_undecap(struct ath12k_pdev_dp *dp_pdev, struct sk_buff *msdu
 		/* mac80211 allows fast path only for authorized STA */
 		if (ehdr->h_proto == cpu_to_be16(ETH_P_PAE)) {
 			ATH12K_SKB_RXCB(msdu)->is_eapol = true;
-			ath12k_dp_rx_h_undecap_eth(dp_pdev, msdu, enctype, rx_info);
+			ath12k_dp_rx_h_undecap_eth(dp_pdev, msdu, enctype, rx_info,
+						   decap_type);
 			break;
 		}
 
 		/* PN for mcast packets will be validated in mac80211;
 		 * remove eth header and add 802.11 header.
 		 */
-		if (ATH12K_SKB_RXCB(msdu)->is_mcbc && decrypted)
-			ath12k_dp_rx_h_undecap_eth(dp_pdev, msdu, enctype, rx_info);
+		if (ATH12K_SKB_RXCB(msdu)->is_mcbc && decrypted) {
+			ath12k_dp_rx_h_undecap_eth(dp_pdev, msdu, enctype, rx_info,
+						   decap_type);
+			break;
+		}
+
+		rx_info->rx_status->flag |= RX_FLAG_8023;
 		break;
 	case DP_RX_DECAP_TYPE_8023:
-		/* TODO: Handle undecap for these formats */
-		break;
+		/*
+		 * Note that ethernet decap format indicates that the decapped
+		 * packet is either Ethernet 2 (DIX)  or 802.3 (uses SNAP/LLC).
+		 */
+		if (ATH12K_SKB_RXCB(msdu)->is_mcbc && decrypted) {
+			ath12k_dp_rx_h_undecap_eth(dp_pdev, msdu, enctype, rx_info,
+						   decap_type);
+			break;
+		}
+		rx_info->rx_status->flag |= RX_FLAG_8023;
 	}
 }
 EXPORT_SYMBOL(ath12k_dp_rx_h_undecap);
@@ -1333,9 +1361,7 @@ void ath12k_dp_rx_deliver_msdu(struct ath12k_pdev_dp *dp_pdev, struct napi_struc
 	struct ath12k_dp_peer *peer;
 	struct ath12k_skb_rxcb *rxcb = ATH12K_SKB_RXCB(msdu);
 	struct ieee80211_rx_status *status = rx_info->rx_status;
-	u8 decap = rx_info->decap_type;
 	bool is_mcbc = rxcb->is_mcbc;
-	bool is_eapol = rxcb->is_eapol;
 
 	peer = ath12k_dp_peer_find_by_peerid(dp_pdev, rx_info->peer_id);
 
@@ -1379,15 +1405,6 @@ void ath12k_dp_rx_deliver_msdu(struct ath12k_pdev_dp *dp_pdev, struct napi_struc
 	*rx_status = *status;
 
 	/* TODO: trace rx packet */
-
-	/* PN for multicast packets are not validate in HW,
-	 * so skip 802.3 rx path
-	 * Also, fast_rx expects the STA to be authorized, hence
-	 * eapol packets are sent in slow path.
-	 */
-	if (decap == DP_RX_DECAP_TYPE_ETHERNET2_DIX && !is_eapol &&
-	    !(is_mcbc && rx_status->flag & RX_FLAG_DECRYPTED))
-		rx_status->flag |= RX_FLAG_8023;
 
 	ieee80211_rx_napi(ath12k_pdev_dp_to_hw(dp_pdev), pubsta, msdu, napi);
 }
