@@ -29,6 +29,8 @@ int openat(int dirfd, const char *path, int flags, ...)
 {
 	mode_t mode = 0;
 
+	flags |= O_LARGEFILE;
+
 	if (flags & O_CREAT) {
 		va_list args;
 
@@ -54,6 +56,8 @@ static __attribute__((unused))
 int open(const char *path, int flags, ...)
 {
 	mode_t mode = 0;
+
+	flags |= O_LARGEFILE;
 
 	if (flags & O_CREAT) {
 		va_list args;
