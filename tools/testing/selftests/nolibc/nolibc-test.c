@@ -2,6 +2,7 @@
 
 #define _GNU_SOURCE
 #define _LARGEFILE64_SOURCE
+#define _FILE_OFFSET_BITS 64
 
 /* libc-specific include files
  * The program may be built in 3 ways:
@@ -1382,6 +1383,52 @@ out:
 	return ret;
 }
 
+int test_large_file(void)
+{
+	off_t large_seek = ((off_t)UINT32_MAX) + 100;
+	int fd, ret, saved_errno;
+	ssize_t written;
+	off_t off;
+
+#if defined(__mips__) && defined(_ABIN32)
+	/* https://lore.kernel.org/qemu-devel/fed03914-a95a-4522-a432-f129264cb2ac@t-8ch.de/ */
+	if (getpid() != 1)
+		return 0;
+#endif
+
+	if (large_seek < UINT32_MAX) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+
+	fd = open("/tmp", O_TMPFILE | O_RDWR, 0644);
+	if (fd == -1)
+		return -1;
+
+	off = lseek(fd, large_seek, SEEK_CUR);
+	if (off == -1) {
+		ret = off;
+		goto out;
+	} else if (off != large_seek) {
+		errno = ERANGE;
+		ret = -1;
+		goto out;
+	}
+
+	written = write(fd, "1", 1);
+	if (written == -1) {
+		ret = written;
+		goto out;
+	}
+
+	ret = 0;
+out:
+	saved_errno = errno;
+	close(fd);
+	errno = saved_errno;
+	return ret;
+}
+
 /* Run syscall tests between IDs <min> and <max>.
  * Return 0 on success, non-zero on failure.
  */
@@ -1527,6 +1574,7 @@ int run_syscall(int min, int max)
 		CASE_TEST(_syscall_noargs);   EXPECT_SYSEQ(is_nolibc, _syscall(__NR_getpid), getpid()); break;
 		CASE_TEST(_syscall_args);     EXPECT_SYSEQ(is_nolibc, _syscall(__NR_statx, 0, NULL, 0, 0, NULL), -EFAULT); break;
 		CASE_TEST(namespace);         EXPECT_SYSZR(euid0 && proc, test_namespace()); break;
+		CASE_TEST(largefile);         EXPECT_SYSZR(1, test_large_file()); break;
 		case __LINE__:
 			return ret; /* must be last */
 		/* note: do not set any defaults so as to permit holes above */
