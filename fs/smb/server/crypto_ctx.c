@@ -28,14 +28,6 @@ static inline void free_aead(struct crypto_aead *aead)
 		crypto_free_aead(aead);
 }
 
-static void free_shash(struct shash_desc *shash)
-{
-	if (shash) {
-		crypto_free_shash(shash->tfm);
-		kfree(shash);
-	}
-}
-
 static struct crypto_aead *alloc_aead(int id)
 {
 	struct crypto_aead *tfm = NULL;
@@ -60,37 +52,10 @@ static struct crypto_aead *alloc_aead(int id)
 	return tfm;
 }
 
-static struct shash_desc *alloc_shash_desc(int id)
-{
-	struct crypto_shash *tfm = NULL;
-	struct shash_desc *shash;
-
-	switch (id) {
-	case CRYPTO_SHASH_CMACAES:
-		tfm = crypto_alloc_shash("cmac(aes)", 0, 0);
-		break;
-	default:
-		return NULL;
-	}
-
-	if (IS_ERR(tfm))
-		return NULL;
-
-	shash = kzalloc(sizeof(*shash) + crypto_shash_descsize(tfm),
-			KSMBD_DEFAULT_GFP);
-	if (!shash)
-		crypto_free_shash(tfm);
-	else
-		shash->tfm = tfm;
-	return shash;
-}
-
 static void ctx_free(struct ksmbd_crypto_ctx *ctx)
 {
 	int i;
 
-	for (i = 0; i < CRYPTO_SHASH_MAX; i++)
-		free_shash(ctx->desc[i]);
 	for (i = 0; i < CRYPTO_AEAD_MAX; i++)
 		free_aead(ctx->ccmaes[i]);
 	kfree(ctx);
@@ -151,29 +116,6 @@ void ksmbd_release_crypto_ctx(struct ksmbd_crypto_ctx *ctx)
 	ctx_list.avail_ctx--;
 	spin_unlock(&ctx_list.ctx_lock);
 	ctx_free(ctx);
-}
-
-static struct ksmbd_crypto_ctx *____crypto_shash_ctx_find(int id)
-{
-	struct ksmbd_crypto_ctx *ctx;
-
-	if (id >= CRYPTO_SHASH_MAX)
-		return NULL;
-
-	ctx = ksmbd_find_crypto_ctx();
-	if (ctx->desc[id])
-		return ctx;
-
-	ctx->desc[id] = alloc_shash_desc(id);
-	if (ctx->desc[id])
-		return ctx;
-	ksmbd_release_crypto_ctx(ctx);
-	return NULL;
-}
-
-struct ksmbd_crypto_ctx *ksmbd_crypto_ctx_find_cmacaes(void)
-{
-	return ____crypto_shash_ctx_find(CRYPTO_SHASH_CMACAES);
 }
 
 static struct ksmbd_crypto_ctx *____crypto_aead_ctx_find(int id)
