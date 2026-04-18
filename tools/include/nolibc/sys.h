@@ -101,7 +101,7 @@ static __inline__ int __nolibc_enosys(const char *syscall, ...)
 static __attribute__((unused))
 void *_sys_brk(void *addr)
 {
-	return (void *)__nolibc_syscall1(__NR_brk, addr);
+	return (void *)(unsigned long)__nolibc_syscall1(__NR_brk, addr);
 }
 
 static __attribute__((unused))
