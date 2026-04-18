@@ -29,14 +29,6 @@
 #include "../common/smb2status.h"
 #include "smb2glob.h"
 
-int
-smb3_crypto_shash_allocate(struct TCP_Server_Info *server)
-{
-	struct cifs_secmech *p = &server->secmech;
-
-	return cifs_alloc_hash("cmac(aes)", &p->aes_cmac);
-}
-
 static
 int smb3_get_sign_key(__u64 ses_id, struct TCP_Server_Info *server, u8 *key)
 {
@@ -266,19 +258,12 @@ static int generate_key(struct cifs_ses *ses, struct kvec label,
 	__u8 i[4] = {0, 0, 0, 1};
 	__u8 L128[4] = {0, 0, 0, 128};
 	__u8 L256[4] = {0, 0, 1, 0};
-	int rc = 0;
 	unsigned char prfhash[SMB2_HMACSHA256_SIZE];
 	struct TCP_Server_Info *server = ses->server;
 	struct hmac_sha256_ctx hmac_ctx;
 
 	memset(prfhash, 0x0, SMB2_HMACSHA256_SIZE);
 	memset(key, 0x0, key_size);
-
-	rc = smb3_crypto_shash_allocate(server);
-	if (rc) {
-		cifs_server_dbg(VFS, "%s: crypto alloc failed\n", __func__);
-		return rc;
-	}
 
 	hmac_sha256_init_usingrawkey(&hmac_ctx, ses->auth_key.response,
 				     SMB2_NTLMV2_SESSKEY_SIZE);

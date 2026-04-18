@@ -5,7 +5,6 @@ config CIFS
 	select NLS
 	select NLS_UCS2_UTILS
 	select CRYPTO
-	select CRYPTO_CMAC
 	select CRYPTO_AEAD2
 	select CRYPTO_CCM
 	select CRYPTO_GCM

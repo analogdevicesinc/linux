@@ -503,8 +503,6 @@ calc_seckey(struct cifs_ses *ses)
 void
 cifs_crypto_secmech_release(struct TCP_Server_Info *server)
 {
-	cifs_free_hash(&server->secmech.aes_cmac);
-
 	if (server->secmech.enc) {
 		crypto_free_aead(server->secmech.enc);
 		server->secmech.enc = NULL;
