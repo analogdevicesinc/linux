@@ -45,6 +45,13 @@
 
 #define TMU_AVG_EN	    BIT(0) /* Enable TMU Averaging */
 
+#define TMU_ALRT_LIM_HI     BIT(0) /* Alert High Limit */
+
+
+#define TMU_CTL_TMEN	    BIT(3)
+#define TMU_CTL_SCLKDIV	    
+#define TMU_CTL_TMPU	    BIT(0)
+
 struct adi_tmu_soc_data {
 	u16 gain;
 	u16 offset;
@@ -127,28 +134,31 @@ static int adi_sc5xx_thermal_probe(struct platform_device *pdev) {
 		return dev_err_probe(dev, irq_fault, 
 				"failed to get tmu0_fault irq\n");
 
+	tmu->irq_fault = irq_fault;
+	ret = devm_request_threaded_irq(dev, tmu->irq_fault, 
+		top_half_irq_fault, bottom_half_irq_fault, 
+		IRQF_ONESHOT, "adi-sc5xx-tmu-fault", tmu);
+	
+	if (ret < 0)
+		return ret;
+
 	irq_alert = platform_get_irq_byname_optional(pdev, "tmu0_alert");
+	if (irq_alert == -EPROBE_DEFER)
+		return irq_alert;
+
 	if (irq_alert < 0) {
 		if (tmu->soc_data->has_alert_irq)
 			return dev_err_probe(dev, irq_alert, 
 				"failed to get tmu0_alert irq\n");
-		irq_alert = 0;
 	}
-
-	tmu->irq_fault = irq_fault;
-	tmu->irq_alert = irq_alert;
-
-	ret = devm_request_threaded_irq(dev, tmu->irq_fault, 
-			top_half_irq_fault, bottom_half_irq_fault, 
-			IRQF_ONESHOT, "adi-sc5xx-tmu-fault", tmu);
-	if (ret < 0)
-		return ret;
-
-	ret = devm_request_threaded_irq(dev, tmu->irq_alert,
+	else {
+		tmu->irq_alert = irq_alert;
+		ret = devm_request_threaded_irq(dev, tmu->irq_alert,
 			top_half_irq_alert, bottom_half_irq_alert,
 			IRQF_ONESHOT, "adi-sc5xx-tmu-alert", tmu);
-	if (ret < 0)
-		return ret;
+		if (ret < 0)
+			return ret;
+	}
 
 	return 0;	
 }
