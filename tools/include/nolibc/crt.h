@@ -7,6 +7,10 @@
 #ifndef _NOLIBC_CRT_H
 #define _NOLIBC_CRT_H
 
+#define __nolibc_arg_to_reg(_a)									\
+	__builtin_choose_expr(__builtin_classify_type(_a) == __builtin_classify_type(NULL),	\
+			      (unsigned long)(_a), (_a))
+
 #ifndef NOLIBC_NO_RUNTIME
 
 #include "compiler.h"
