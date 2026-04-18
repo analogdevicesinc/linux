@@ -136,7 +136,7 @@ __bpf_kfunc static void cubictcp_init(struct sock *sk)
 		bictcp_hystart_reset(sk);
 
 	if (!hystart && initial_ssthresh)
-		tcp_sk(sk)->snd_ssthresh = initial_ssthresh;
+		WRITE_ONCE(tcp_sk(sk)->snd_ssthresh, initial_ssthresh);
 }
 
 __bpf_kfunc static void cubictcp_cwnd_event_tx_start(struct sock *sk)
@@ -420,7 +420,7 @@ static void hystart_update(struct sock *sk, u32 delay)
 				NET_ADD_STATS(sock_net(sk),
 					      LINUX_MIB_TCPHYSTARTTRAINCWND,
 					      tcp_snd_cwnd(tp));
-				tp->snd_ssthresh = tcp_snd_cwnd(tp);
+				WRITE_ONCE(tp->snd_ssthresh, tcp_snd_cwnd(tp));
 			}
 		}
 	}
@@ -440,7 +440,7 @@ static void hystart_update(struct sock *sk, u32 delay)
 				NET_ADD_STATS(sock_net(sk),
 					      LINUX_MIB_TCPHYSTARTDELAYCWND,
 					      tcp_snd_cwnd(tp));
-				tp->snd_ssthresh = tcp_snd_cwnd(tp);
+				WRITE_ONCE(tp->snd_ssthresh, tcp_snd_cwnd(tp));
 			}
 		}
 	}
