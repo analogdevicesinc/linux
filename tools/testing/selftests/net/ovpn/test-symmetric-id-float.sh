@@ -5,7 +5,7 @@
 #	Author:	Ralf Lici <ralf@mandelbit.com>
 #		Antonio Quartulli <antonio@openvpn.net>
 
-SYMMETRIC_ID="1"
-FLOAT="1"
+OVPN_SYMMETRIC_ID="1"
+OVPN_FLOAT="1"
 
 source test.sh

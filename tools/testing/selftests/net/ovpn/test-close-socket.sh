@@ -5,41 +5,81 @@
 #  Author:	Antonio Quartulli <antonio@openvpn.net>
 
 #set -x
-set -e
+set -eE
 
 source ./common.sh
 
-cleanup
+ovpn_test_finished=0
 
+ovpn_test_exit() {
+	ovpn_cleanup
+	modprobe -r ovpn || true
+
+	if [ "${ovpn_test_finished}" -eq 0 ]; then
+		ktap_print_totals
+	fi
+}
+
+ovpn_prepare_network() {
+	local p
+	local peer_ns
+
+	for p in $(seq 0 ${OVPN_NUM_PEERS}); do
+		ovpn_cmd_ok "create namespace peer${p}" ovpn_create_ns "${p}"
+	done
+
+	for p in $(seq 0 ${OVPN_NUM_PEERS}); do
+		ovpn_cmd_ok "configure peer${p} namespace" ovpn_setup_ns \
+			"${p}" 5.5.5.$((p + 1))/24
+	done
+
+	for p in $(seq 0 ${OVPN_NUM_PEERS}); do
+		ovpn_cmd_ok "register peer${p} in overlay" ovpn_add_peer "${p}"
+	done
+
+	for p in $(seq 1 ${OVPN_NUM_PEERS}); do
+		peer_ns="ovpn_peer${p}"
+		ovpn_cmd_ok "set peer0 timeout for peer ${p}" \
+			ip netns exec ovpn_peer0 ${OVPN_CLI} set_peer tun0 \
+				${p} 60 120
+		ovpn_cmd_ok "set peer${p} timeout for peer ${p}" \
+			ip netns exec "${peer_ns}" ${OVPN_CLI} set_peer \
+				tun${p} $((p + OVPN_ID_OFFSET)) 60 120
+	done
+}
+
+ovpn_run_ping_traffic() {
+	local p
+
+	for p in $(seq 1 ${OVPN_NUM_PEERS}); do
+		ovpn_cmd_ok "send ping traffic to peer ${p}" \
+			ip netns exec ovpn_peer0 ping -qfc 500 -w 3 \
+				5.5.5.$((p + 1))
+	done
+}
+
+ovpn_run_iperf() {
+	local iperf_pid
+
+	ovpn_run_bg iperf_pid ip netns exec ovpn_peer0 iperf3 -1 -s
+	sleep 1
+	ovpn_cmd_ok "run iperf throughput flow" \
+		ip netns exec ovpn_peer1 iperf3 -Z -t 3 -c 5.5.5.1
+	wait "${iperf_pid}" || return 1
+}
+
+trap ovpn_test_exit EXIT
+trap ovpn_stage_err ERR
+
+ktap_print_header
+ktap_set_plan 3
+
+ovpn_cleanup
 modprobe -q ovpn || true
 
-for p in $(seq 0 ${NUM_PEERS}); do
-	create_ns ${p}
-done
+ovpn_run_stage "setup network topology" ovpn_prepare_network
+ovpn_run_stage "run ping traffic" ovpn_run_ping_traffic
+ovpn_run_stage "run iperf throughput" ovpn_run_iperf
 
-for p in $(seq 0 ${NUM_PEERS}); do
-	setup_ns ${p} 5.5.5.$((${p} + 1))/24
-done
-
-for p in $(seq 0 ${NUM_PEERS}); do
-	add_peer ${p}
-done
-
-for p in $(seq 1 ${NUM_PEERS}); do
-	ip netns exec peer0 ${OVPN_CLI} set_peer tun0 ${p} 60 120
-	ip netns exec peer${p} ${OVPN_CLI} set_peer tun${p} $((${p}+9)) 60 120
-done
-
-sleep 1
-
-for p in $(seq 1 ${NUM_PEERS}); do
-	ip netns exec peer0 ping -qfc 500 -w 3 5.5.5.$((${p} + 1))
-done
-
-ip netns exec peer0 iperf3 -1 -s &
-sleep 1
-ip netns exec peer1 iperf3 -Z -t 3 -c 5.5.5.1
-
-cleanup
-
-modprobe -r ovpn || true
+ovpn_test_finished=1
+ktap_finished

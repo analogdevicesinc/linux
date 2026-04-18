@@ -5,7 +5,7 @@
 #	Author:	Ralf Lici <ralf@mandelbit.com>
 #		Antonio Quartulli <antonio@openvpn.net>
 
-PROTO="TCP"
-SYMMETRIC_ID=1
+OVPN_PROTO="TCP"
+OVPN_SYMMETRIC_ID=1
 
 source test.sh
