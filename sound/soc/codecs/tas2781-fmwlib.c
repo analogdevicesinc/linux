@@ -2487,7 +2487,7 @@ static int tas2781_cali_preproc(struct tasdevice_priv *priv, int i)
 		if (spec == NULL)
 			return -ENOMEM;
 		priv->tasdevice[i].cali_specific = spec;
-		rc = tasdevice_dev_bulk_read(priv, i, p->r0_reg, r0_deflt, 4);
+		rc = priv->dev_bulk_read(priv, i, p->r0_reg, r0_deflt, 4);
 		if (rc < 0) {
 			dev_err(priv->dev, "invalid RE from %d = %d\n", i, rc);
 			return rc;
@@ -2511,9 +2511,8 @@ static int tas2781_cali_preproc(struct tasdevice_priv *priv, int i)
 				TASDEVICE_REG(0, 0x1b, 0x34) :
 				TASDEVICE_REG(0, 0x18, 0x1c);
 
-			rc = tasdevice_dev_bulk_read(priv, i,
-						      spec->sin_gni_reg,
-						      spec->sin_gni, 4);
+			rc = priv->dev_bulk_read(priv, i, spec->sin_gni_reg,
+						 spec->sin_gni, 4);
 			if (rc < 0) {
 				dev_err(priv->dev, "wrong sinegaini %d = %d\n",
 					i, rc);
