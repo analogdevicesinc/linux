@@ -19,6 +19,7 @@
 #include <linux/mempool.h>
 #include <linux/highmem.h>
 #include <crypto/aead.h>
+#include <crypto/aes-cbc-macs.h>
 #include <crypto/sha2.h>
 #include <crypto/utils.h>
 #include "cifsglob.h"
@@ -474,7 +475,8 @@ smb3_calc_signature(struct smb_rqst *rqst, struct TCP_Server_Info *server,
 	unsigned char smb3_signature[SMB2_CMACAES_SIZE];
 	struct kvec *iov = rqst->rq_iov;
 	struct smb2_hdr *shdr = (struct smb2_hdr *)iov[0].iov_base;
-	struct shash_desc *shash = NULL;
+	struct aes_cmac_key cmac_key;
+	struct aes_cmac_ctx cmac_ctx;
 	struct smb_rqst drqst;
 	u8 key[SMB3_SIGN_KEY_SIZE];
 
@@ -487,33 +489,16 @@ smb3_calc_signature(struct smb_rqst *rqst, struct TCP_Server_Info *server,
 		return rc;
 	}
 
-	if (allocate_crypto) {
-		rc = cifs_alloc_hash("cmac(aes)", &shash);
-		if (rc)
-			return rc;
-	} else {
-		shash = server->secmech.aes_cmac;
-	}
-
 	memset(smb3_signature, 0x0, SMB2_CMACAES_SIZE);
 	memset(shdr->Signature, 0x0, SMB2_SIGNATURE_SIZE);
 
-	rc = crypto_shash_setkey(shash->tfm, key, SMB2_CMACAES_SIZE);
+	rc = aes_cmac_preparekey(&cmac_key, key, SMB2_CMACAES_SIZE);
 	if (rc) {
 		cifs_server_dbg(VFS, "%s: Could not set key for cmac aes\n", __func__);
-		goto out;
+		return rc;
 	}
 
-	/*
-	 * we already allocate aes_cmac when we init smb3 signing key,
-	 * so unlike smb2 case we do not have to check here if secmech are
-	 * initialized
-	 */
-	rc = crypto_shash_init(shash);
-	if (rc) {
-		cifs_server_dbg(VFS, "%s: Could not init cmac aes\n", __func__);
-		goto out;
-	}
+	aes_cmac_init(&cmac_ctx, &cmac_key);
 
 	/*
 	 * For SMB2+, __cifs_calc_signature() expects to sign only the actual
@@ -524,26 +509,16 @@ smb3_calc_signature(struct smb_rqst *rqst, struct TCP_Server_Info *server,
 	 */
 	drqst = *rqst;
 	if (drqst.rq_nvec >= 2 && iov[0].iov_len == 4) {
-		rc = crypto_shash_update(shash, iov[0].iov_base,
-					 iov[0].iov_len);
-		if (rc) {
-			cifs_server_dbg(VFS, "%s: Could not update with payload\n",
-				 __func__);
-			goto out;
-		}
+		aes_cmac_update(&cmac_ctx, iov[0].iov_base, iov[0].iov_len);
 		drqst.rq_iov++;
 		drqst.rq_nvec--;
 	}
 
 	rc = __cifs_calc_signature(
 		&drqst, server, smb3_signature,
-		&(struct cifs_calc_sig_ctx){ .shash = shash });
+		&(struct cifs_calc_sig_ctx){ .cmac = &cmac_ctx });
 	if (!rc)
 		memcpy(shdr->Signature, smb3_signature, SMB2_SIGNATURE_SIZE);
-
-out:
-	if (allocate_crypto)
-		cifs_free_hash(&shash);
 	return rc;
 }
 
