@@ -264,7 +264,7 @@ static struct adapter *rtw_sdio_if1_init(struct dvobj_priv *dvobj, const struct 
 	if (rtw_init_io_priv(padapter, sdio_set_intf_ops) == _FAIL)
 		goto free_hal_data;
 
-	rtw_hal_read_chip_version(padapter);
+	rtl8723b_read_chip_version(padapter);
 
 	rtl8723bs_interface_configure(padapter);
 
