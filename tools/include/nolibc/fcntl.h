@@ -66,4 +66,14 @@ int open(const char *path, int flags, ...)
 	return __sysret(_sys_open(path, flags, mode));
 }
 
+/*
+ * int creat(const char *path, mode_t mode);
+ */
+
+static __attribute__((unused))
+int creat(const char *path, mode_t mode)
+{
+	return open(path, O_CREAT | O_WRONLY | O_TRUNC, mode);
+}
+
 #endif /* _NOLIBC_FCNTL_H */
