@@ -38,6 +38,15 @@ static const struct rhashtable_params scx_sched_hash_params = {
 static struct rhashtable scx_sched_hash;
 #endif
 
+/* see SCX_OPS_TID_TO_TASK */
+static const struct rhashtable_params scx_tid_hash_params = {
+	.key_len		= sizeof_field(struct sched_ext_entity, tid),
+	.key_offset		= offsetof(struct sched_ext_entity, tid),
+	.head_offset		= offsetof(struct sched_ext_entity, tid_hash_node),
+	.insecure_elasticity	= true,	/* inserted/removed under scx_tasks_lock */
+};
+static struct rhashtable scx_tid_hash;
+
 /*
  * During exit, a task may schedule after losing its PIDs. When disabling the
  * BPF scheduler, we need to be able to iterate tasks in every state to
@@ -58,9 +67,24 @@ static cpumask_var_t scx_bypass_lb_resched_cpumask;
 static bool scx_init_task_enabled;
 static bool scx_switching_all;
 DEFINE_STATIC_KEY_FALSE(__scx_switched_all);
+static DEFINE_STATIC_KEY_FALSE(__scx_tid_to_task_enabled);
+
+/*
+ * True once SCX_OPS_TID_TO_TASK has been negotiated with the root scheduler
+ * and the tid->task table is live. Wraps the static key so callers don't
+ * take the address, and hints "likely enabled" for the common case where
+ * the feature is in use.
+ */
+static inline bool scx_tid_to_task_enabled(void)
+{
+	return static_branch_likely(&__scx_tid_to_task_enabled);
+}
 
 static atomic_long_t scx_nr_rejected = ATOMIC_LONG_INIT(0);
 static atomic_long_t scx_hotplug_seq = ATOMIC_LONG_INIT(0);
+
+/* Global cursor for the per-CPU tid allocator. Starts at 1; tid 0 is reserved. */
+static atomic64_t scx_tid_cursor = ATOMIC64_INIT(1);
 
 #ifdef CONFIG_EXT_SUB_SCHED
 /*
@@ -109,6 +133,17 @@ struct scx_kick_syncs {
 };
 
 static DEFINE_PER_CPU(struct scx_kick_syncs __rcu *, scx_kick_syncs);
+
+/*
+ * Per-CPU buffered allocator state for p->scx.tid. Each CPU pulls a chunk of
+ * SCX_TID_CHUNK ids from scx_tid_cursor and hands them out locally without
+ * further synchronization. See scx_alloc_tid().
+ */
+struct scx_tid_alloc {
+	u64	next;
+	u64	end;
+};
+static DEFINE_PER_CPU(struct scx_tid_alloc, scx_tid_alloc);
 
 /*
  * Direct dispatch marker.
@@ -3665,6 +3700,33 @@ void init_scx_entity(struct sched_ext_entity *scx)
 	scx->slice = SCX_SLICE_DFL;
 }
 
+/* See scx_tid_alloc / scx_tid_cursor. */
+static u64 scx_alloc_tid(void)
+{
+	struct scx_tid_alloc *ta;
+
+	guard(preempt)();
+	ta = this_cpu_ptr(&scx_tid_alloc);
+
+	if (unlikely(ta->next >= ta->end)) {
+		ta->next = atomic64_fetch_add(SCX_TID_CHUNK, &scx_tid_cursor);
+		ta->end = ta->next + SCX_TID_CHUNK;
+	}
+	return ta->next++;
+}
+
+static void scx_tid_hash_insert(struct task_struct *p)
+{
+	int ret;
+
+	lockdep_assert_held(&scx_tasks_lock);
+
+	ret = rhashtable_lookup_insert_fast(&scx_tid_hash,
+					    &p->scx.tid_hash_node,
+					    scx_tid_hash_params);
+	WARN_ON_ONCE(ret);
+}
+
 void scx_pre_fork(struct task_struct *p)
 {
 	/*
@@ -3681,6 +3743,8 @@ int scx_fork(struct task_struct *p, struct kernel_clone_args *kargs)
 	s32 ret;
 
 	percpu_rwsem_assert_held(&scx_fork_rwsem);
+
+	p->scx.tid = scx_alloc_tid();
 
 	if (scx_init_task_enabled) {
 #ifdef CONFIG_EXT_SUB_SCHED
@@ -3717,9 +3781,11 @@ void scx_post_fork(struct task_struct *p)
 		}
 	}
 
-	raw_spin_lock_irq(&scx_tasks_lock);
-	list_add_tail(&p->scx.tasks_node, &scx_tasks);
-	raw_spin_unlock_irq(&scx_tasks_lock);
+	scoped_guard(raw_spinlock_irq, &scx_tasks_lock) {
+		list_add_tail(&p->scx.tasks_node, &scx_tasks);
+		if (scx_tid_to_task_enabled())
+			scx_tid_hash_insert(p);
+	}
 
 	percpu_up_read(&scx_fork_rwsem);
 }
@@ -3770,17 +3836,19 @@ static bool task_dead_and_done(struct task_struct *p)
 
 void sched_ext_dead(struct task_struct *p)
 {
-	unsigned long flags;
-
 	/*
 	 * By the time control reaches here, @p has %TASK_DEAD set, switched out
 	 * for the last time and then dropped the rq lock - task_dead_and_done()
 	 * should be returning %true nullifying the straggling sched_class ops.
 	 * Remove from scx_tasks and exit @p.
 	 */
-	raw_spin_lock_irqsave(&scx_tasks_lock, flags);
-	list_del_init(&p->scx.tasks_node);
-	raw_spin_unlock_irqrestore(&scx_tasks_lock, flags);
+	scoped_guard(raw_spinlock_irqsave, &scx_tasks_lock) {
+		list_del_init(&p->scx.tasks_node);
+		if (scx_tid_to_task_enabled())
+			rhashtable_remove_fast(&scx_tid_hash,
+					       &p->scx.tid_hash_node,
+					       scx_tid_hash_params);
+	}
 
 	/*
 	 * @p is off scx_tasks and wholly ours. scx_root_enable()'s READY ->
@@ -5815,9 +5883,13 @@ static void scx_root_disable(struct scx_sched *sch)
 
 	/* no task is on scx, turn off all the switches and flush in-progress calls */
 	static_branch_disable(&__scx_enabled);
+	if (sch->ops.flags & SCX_OPS_TID_TO_TASK)
+		static_branch_disable(&__scx_tid_to_task_enabled);
 	bitmap_zero(sch->has_op, SCX_OPI_END);
 	scx_idle_disable();
 	synchronize_rcu();
+	if (sch->ops.flags & SCX_OPS_TID_TO_TASK)
+		rhashtable_free_and_destroy(&scx_tid_hash, NULL, NULL);
 
 	scx_log_sched_disable(sch);
 
@@ -6562,6 +6634,17 @@ static int validate_ops(struct scx_sched *sch, const struct sched_ext_ops *ops)
 	}
 
 	/*
+	 * SCX_OPS_TID_TO_TASK is enabled by the root scheduler. A sub-sched
+	 * may set it to declare a dependency; reject if the root hasn't
+	 * enabled it.
+	 */
+	if ((ops->flags & SCX_OPS_TID_TO_TASK) && scx_parent(sch) &&
+	    !(scx_root->ops.flags & SCX_OPS_TID_TO_TASK)) {
+		scx_error(sch, "SCX_OPS_TID_TO_TASK requires root scheduler to enable it");
+		return -EINVAL;
+	}
+
+	/*
 	 * SCX_OPS_BUILTIN_IDLE_PER_NODE requires built-in CPU idle
 	 * selection policy to be enabled.
 	 */
@@ -6611,13 +6694,19 @@ static void scx_root_enable_workfn(struct kthread_work *work)
 	if (ret)
 		goto err_unlock;
 
+	if (ops->flags & SCX_OPS_TID_TO_TASK) {
+		ret = rhashtable_init(&scx_tid_hash, &scx_tid_hash_params);
+		if (ret)
+			goto err_free_ksyncs;
+	}
+
 #if defined(CONFIG_EXT_GROUP_SCHED) || defined(CONFIG_EXT_SUB_SCHED)
 	cgroup_get(cgrp);
 #endif
 	sch = scx_alloc_and_add_sched(ops, cgrp, NULL);
 	if (IS_ERR(sch)) {
 		ret = PTR_ERR(sch);
-		goto err_free_ksyncs;
+		goto err_free_tid_hash;
 	}
 
 	/*
@@ -6706,6 +6795,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
 	WARN_ON_ONCE(scx_init_task_enabled);
 	scx_init_task_enabled = true;
 
+	/* flip under fork_rwsem; the iter below covers existing tasks */
+	if (ops->flags & SCX_OPS_TID_TO_TASK)
+		static_branch_enable(&__scx_tid_to_task_enabled);
+
 	/*
 	 * Enable ops for every task. Fork is excluded by scx_fork_rwsem
 	 * preventing new tasks from being added. No need to exclude tasks
@@ -6748,6 +6841,17 @@ static void scx_root_enable_workfn(struct kthread_work *work)
 
 		scx_set_task_sched(p, sch);
 		scx_set_task_state(p, SCX_TASK_READY);
+
+		/*
+		 * Insert into the tid hash under scx_tasks_lock so we can't
+		 * race sched_ext_dead() and leave a stale entry for an already
+		 * exited task.
+		 */
+		if (scx_tid_to_task_enabled()) {
+			guard(raw_spinlock_irq)(&scx_tasks_lock);
+			if (!list_empty(&p->scx.tasks_node))
+				scx_tid_hash_insert(p);
+		}
 
 		put_task_struct(p);
 	}
@@ -6808,6 +6912,9 @@ static void scx_root_enable_workfn(struct kthread_work *work)
 	cmd->ret = 0;
 	return;
 
+err_free_tid_hash:
+	if (ops->flags & SCX_OPS_TID_TO_TASK)
+		rhashtable_free_and_destroy(&scx_tid_hash, NULL, NULL);
 err_free_ksyncs:
 	free_kick_syncs();
 err_unlock:
@@ -9297,6 +9404,34 @@ __bpf_kfunc struct task_struct *scx_bpf_cpu_curr(s32 cpu, const struct bpf_prog_
 }
 
 /**
+ * scx_bpf_tid_to_task - Look up a task by its scx tid
+ * @tid: task ID previously read from p->scx.tid
+ *
+ * Returns the task with the given tid, or NULL if no such task exists. The
+ * returned pointer is valid until the end of the current RCU read section
+ * (KF_RCU_PROTECTED). Requires SCX_OPS_TID_TO_TASK to be set on the root
+ * scheduler; otherwise an error is raised and NULL returned.
+ */
+__bpf_kfunc struct task_struct *scx_bpf_tid_to_task(u64 tid)
+{
+	struct sched_ext_entity *scx;
+
+	if (!scx_tid_to_task_enabled()) {
+		struct scx_sched *sch = rcu_dereference(scx_root);
+
+		if (sch)
+			scx_error(sch, "scx_bpf_tid_to_task() called without SCX_OPS_TID_TO_TASK");
+		return NULL;
+	}
+
+	scx = rhashtable_lookup(&scx_tid_hash, &tid, scx_tid_hash_params);
+	if (!scx)
+		return NULL;
+
+	return container_of(scx, struct task_struct, scx);
+}
+
+/**
  * scx_bpf_now - Returns a high-performance monotonically non-decreasing
  * clock for the current CPU. The clock returned is in nanoseconds.
  *
@@ -9479,6 +9614,7 @@ BTF_ID_FLAGS(func, scx_bpf_task_cpu, KF_RCU)
 BTF_ID_FLAGS(func, scx_bpf_cpu_rq, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_locked_rq, KF_IMPLICIT_ARGS | KF_RET_NULL)
 BTF_ID_FLAGS(func, scx_bpf_cpu_curr, KF_IMPLICIT_ARGS | KF_RET_NULL | KF_RCU_PROTECTED)
+BTF_ID_FLAGS(func, scx_bpf_tid_to_task, KF_RET_NULL | KF_RCU_PROTECTED)
 BTF_ID_FLAGS(func, scx_bpf_now)
 BTF_ID_FLAGS(func, scx_bpf_events)
 #ifdef CONFIG_CGROUP_SCHED

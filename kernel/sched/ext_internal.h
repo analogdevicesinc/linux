@@ -13,6 +13,9 @@ enum scx_consts {
 	SCX_DSP_MAX_LOOPS		= 32,
 	SCX_WATCHDOG_MAX_TIMEOUT	= 30 * HZ,
 
+	/* per-CPU chunk size for p->scx.tid allocation, see scx_alloc_tid() */
+	SCX_TID_CHUNK			= 1024,
+
 	SCX_EXIT_BT_LEN			= 64,
 	SCX_EXIT_MSG_LEN		= 1024,
 	SCX_EXIT_DUMP_DFL_LEN		= 32768,
@@ -138,7 +141,8 @@ enum scx_ops_flags {
 	 * To mask this problem, by default, unhashed tasks are automatically
 	 * dispatched to the local DSQ on enqueue. If the BPF scheduler doesn't
 	 * depend on pid lookups and wants to handle these tasks directly, the
-	 * following flag can be used.
+	 * following flag can be used. With %SCX_OPS_TID_TO_TASK,
+	 * scx_bpf_tid_to_task() can find exiting tasks reliably.
 	 */
 	SCX_OPS_ENQ_EXITING		= 1LLU << 2,
 
@@ -189,6 +193,17 @@ enum scx_ops_flags {
 	 */
 	SCX_OPS_ALWAYS_ENQ_IMMED	= 1LLU << 7,
 
+	/*
+	 * Maintain a mapping from p->scx.tid to task_struct so the BPF
+	 * scheduler can recover task pointers from stored tids via
+	 * scx_bpf_tid_to_task().
+	 *
+	 * Only the root scheduler turns this on. A sub-sched may set the flag
+	 * to declare a dependency on the lookup; if the root scheduler hasn't
+	 * enabled it, attaching the sub-sched is rejected.
+	 */
+	SCX_OPS_TID_TO_TASK		= 1LLU << 8,
+
 	SCX_OPS_ALL_FLAGS		= SCX_OPS_KEEP_BUILTIN_IDLE |
 					  SCX_OPS_ENQ_LAST |
 					  SCX_OPS_ENQ_EXITING |
@@ -196,7 +211,8 @@ enum scx_ops_flags {
 					  SCX_OPS_ALLOW_QUEUED_WAKEUP |
 					  SCX_OPS_SWITCH_PARTIAL |
 					  SCX_OPS_BUILTIN_IDLE_PER_NODE |
-					  SCX_OPS_ALWAYS_ENQ_IMMED,
+					  SCX_OPS_ALWAYS_ENQ_IMMED |
+					  SCX_OPS_TID_TO_TASK,
 
 	/* high 8 bits are internal, don't include in SCX_OPS_ALL_FLAGS */
 	__SCX_OPS_INTERNAL_MASK		= 0xffLLU << 56,
