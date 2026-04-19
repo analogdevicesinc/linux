@@ -6,6 +6,7 @@
  ******************************************************************************/
 #include <drv_types.h>
 #include <hal_btcoex.h>
+#include <hal_data.h>
 #include <linux/jiffies.h>
 
 #ifndef dev_to_sdio_func
@@ -265,7 +266,7 @@ static struct adapter *rtw_sdio_if1_init(struct dvobj_priv *dvobj, const struct 
 
 	rtw_hal_read_chip_version(padapter);
 
-	rtw_hal_chip_configure(padapter);
+	rtl8723bs_interface_configure(padapter);
 
 	hal_btcoex_Initialize((void *)padapter);
 

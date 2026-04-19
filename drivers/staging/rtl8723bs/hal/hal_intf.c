@@ -7,11 +7,6 @@
 #include <drv_types.h>
 #include <hal_data.h>
 
-void rtw_hal_chip_configure(struct adapter *padapter)
-{
-	rtl8723bs_interface_configure(padapter);
-}
-
 void rtw_hal_read_chip_info(struct adapter *padapter)
 {
 	ReadAdapterInfo8723BS(padapter);
