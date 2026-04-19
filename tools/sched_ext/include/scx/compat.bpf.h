@@ -423,8 +423,10 @@ static inline void scx_bpf_dsq_reenq(u64 dsq_id, u64 reenq_flags)
 }
 
 /*
- * Define sched_ext_ops. This may be expanded to define multiple variants for
- * backward compatibility. See compat.h::SCX_OPS_LOAD/ATTACH().
+ * Define sched_ext_ops. See compat.h::SCX_OPS_OPEN() for how backward
+ * compatibility is handled (this macro can be expanded to emit multiple
+ * variants for incompatible op changes; SCX_OPS_OPEN() handles purely
+ * additive changes at load time).
  */
 #define SCX_OPS_DEFINE(__name, ...)						\
 	SEC(".struct_ops.link")							\
