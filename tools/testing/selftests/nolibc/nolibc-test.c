@@ -798,7 +798,7 @@ int test_getdents64(const char *dir)
 	int fd, ret;
 	int err;
 
-	ret = fd = open(dir, O_RDONLY | O_DIRECTORY, 0);
+	ret = fd = open(dir, O_RDONLY | O_DIRECTORY);
 	if (ret < 0)
 		return ret;
 
