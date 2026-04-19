@@ -32,6 +32,7 @@ static const struct rhashtable_params scx_sched_hash_params = {
 	.key_len		= sizeof_field(struct scx_sched, ops.sub_cgroup_id),
 	.key_offset		= offsetof(struct scx_sched, ops.sub_cgroup_id),
 	.head_offset		= offsetof(struct scx_sched, hash_node),
+	.insecure_elasticity	= true,	/* inserted under scx_sched_lock */
 };
 
 static struct rhashtable scx_sched_hash;
