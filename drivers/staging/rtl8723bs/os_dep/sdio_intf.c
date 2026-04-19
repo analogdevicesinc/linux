@@ -204,7 +204,7 @@ static void sd_intf_start(struct adapter *padapter)
 	if (!padapter)
 		return;
 
-	EnableInterrupt8723BSdio(padapter);
+	rtw_sdio_enable_interrupt(padapter);
 }
 
 static void sd_intf_stop(struct adapter *padapter)

@@ -596,17 +596,14 @@ void InitSysInterrupt8723BSdio(struct adapter *adapter)
 	haldata->SysIntrMask = (0);
 }
 
-/*  */
-/*	Description: */
-/*		Enalbe SDIO Host Interrupt Mask configuration on SDIO local domain. */
-/*  */
-/*	Assumption: */
-/*		1. Using SDIO Local register ONLY for configuration. */
-/*		2. PASSIVE LEVEL */
-/*  */
-/*	Created by Roger, 2011.02.11. */
-/*  */
-void EnableInterrupt8723BSdio(struct adapter *adapter)
+/*
+ * Enable SDIO Host Interrupt Mask configuration on SDIO local domain.
+ *
+ * Assumption:
+ *	1. Using SDIO Local register ONLY for configuration.
+ *	2. PASSIVE LEVEL
+ */
+void rtw_sdio_enable_interrupt(struct adapter *adapter)
 {
 	struct hal_com_data *haldata;
 	__le32 himr;
