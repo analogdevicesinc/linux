@@ -3,8 +3,8 @@
  *   Copyright (c) 2012,2016,2017,2025 Stefan Metzmacher
  */
 
-#include "smbdirect_internal.h"
-#include "../../common/smb2status.h"
+#include "internal.h"
+#include "../common/smb2status.h"
 
 static int smbdirect_connect_setup_connection(struct smbdirect_socket *sc);
 static int smbdirect_connect_resolve_addr(struct smbdirect_socket *sc,

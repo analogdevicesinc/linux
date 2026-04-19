@@ -4,7 +4,7 @@
  *   Copyright (c) 2025, Stefan Metzmacher
  */
 
-#include "smbdirect_internal.h"
+#include "internal.h"
 #include <linux/seq_file.h>
 
 void smbdirect_connection_legacy_debug_proc_show(struct smbdirect_socket *sc,

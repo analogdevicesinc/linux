@@ -4,7 +4,7 @@
  *   Copyright (c) 2025, Stefan Metzmacher
  */
 
-#include "smbdirect_internal.h"
+#include "internal.h"
 #include <linux/folio_queue.h>
 
 struct smbdirect_map_sges {

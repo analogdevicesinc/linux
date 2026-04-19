@@ -5,7 +5,7 @@
  *   Copyright (c) 2025 Stefan Metzmacher
  */
 
-#include "smbdirect_internal.h"
+#include "internal.h"
 
 static u8 smbdirect_ib_device_rdma_capable_node_type(struct ib_device *ib_dev)
 {

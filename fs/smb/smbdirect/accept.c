@@ -5,9 +5,9 @@
  *   Copyright (c) 2025, Stefan Metzmacher
  */
 
-#include "smbdirect_internal.h"
+#include "internal.h"
 #include <net/sock.h>
-#include "../../common/smb2status.h"
+#include "../common/smb2status.h"
 
 static int smbdirect_accept_rdma_event_handler(struct rdma_cm_id *id,
 					       struct rdma_cm_event *event);

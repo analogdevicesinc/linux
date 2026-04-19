@@ -18,7 +18,7 @@
 #include "smb_common.h"
 #include "../common/smb2status.h"
 #include "transport_rdma.h"
-#include "../common/smbdirect/smbdirect_public.h"
+#include "../smbdirect/public.h"
 
 
 #define SMB_DIRECT_PORT_IWARP		5445

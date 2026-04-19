@@ -3,7 +3,7 @@
  *   Copyright (c) 2025, Stefan Metzmacher
  */
 
-#include "smbdirect_internal.h"
+#include "internal.h"
 #include <linux/module.h>
 
 struct smbdirect_module_state smbdirect_globals = {
