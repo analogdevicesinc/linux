@@ -7,12 +7,6 @@
 #include <drv_types.h>
 #include <hal_data.h>
 
-void rtw_hal_free_data(struct adapter *padapter)
-{
-	/* free HAL Data */
-	rtw_hal_data_deinit(padapter);
-}
-
 void rtw_hal_dm_init(struct adapter *padapter)
 {
 	rtl8723b_init_dm_priv(padapter);

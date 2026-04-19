@@ -737,7 +737,7 @@ u8 rtw_free_drv_sw(struct adapter *padapter)
 
 	/* kfree((void *)padapter); */
 
-	rtw_hal_free_data(padapter);
+	rtw_hal_data_deinit(padapter);
 
 	/* free the old_pnetdev */
 	if (padapter->rereg_nd_name_priv.old_pnetdev) {
