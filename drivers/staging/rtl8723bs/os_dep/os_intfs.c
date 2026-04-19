@@ -677,7 +677,7 @@ u8 rtw_init_drv_sw(struct adapter *padapter)
 
 	rtw_init_pwrctrl_priv(padapter);
 
-	rtw_hal_dm_init(padapter);
+	rtl8723b_init_dm_priv(padapter);
 
 	return _SUCCESS;
 
