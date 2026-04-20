@@ -63,7 +63,7 @@ struct test_args {
 static enum test_stage guest_test_stage;
 
 /* Host variables */
-static uint32_t nr_vcpus = 1;
+static u32 nr_vcpus = 1;
 static struct test_args test_args;
 static enum test_stage *current_stage;
 static bool host_quit;

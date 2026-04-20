@@ -50,7 +50,7 @@ static void gic_dist_init(enum gic_type type, unsigned int nr_cpus)
 
 void gic_init(enum gic_type type, unsigned int nr_cpus)
 {
-	uint32_t cpu = guest_get_vcpuid();
+	u32 cpu = guest_get_vcpuid();
 
 	GUEST_ASSERT(type < GIC_TYPE_MAX);
 	GUEST_ASSERT(nr_cpus);

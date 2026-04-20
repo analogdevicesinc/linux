@@ -80,7 +80,7 @@
  *   typedef u64 sparsebit_num_t;
  *
  *   sparsebit_idx_t idx;
- *   uint32_t mask;
+ *   u32 mask;
  *   sparsebit_num_t num_after;
  *
  * The idx member contains the bit index of the first bit described by this
@@ -162,7 +162,7 @@
 
 #define DUMP_LINE_MAX 100 /* Does not include indent amount */
 
-typedef uint32_t mask_t;
+typedef u32 mask_t;
 #define MASK_BITS (sizeof(mask_t) * CHAR_BIT)
 
 struct node {

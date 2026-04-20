@@ -413,7 +413,7 @@ void vcpu_arch_set_entry_point(struct kvm_vcpu *vcpu, void *guest_code)
 	vcpu_set_reg(vcpu, ARM64_CORE_REG(regs.pc), (u64)guest_code);
 }
 
-static struct kvm_vcpu *__aarch64_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id,
+static struct kvm_vcpu *__aarch64_vcpu_add(struct kvm_vm *vm, u32 vcpu_id,
 					   struct kvm_vcpu_init *init)
 {
 	size_t stack_size;
@@ -432,7 +432,7 @@ static struct kvm_vcpu *__aarch64_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id,
 	return vcpu;
 }
 
-struct kvm_vcpu *aarch64_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id,
+struct kvm_vcpu *aarch64_vcpu_add(struct kvm_vm *vm, u32 vcpu_id,
 				  struct kvm_vcpu_init *init, void *guest_code)
 {
 	struct kvm_vcpu *vcpu = __aarch64_vcpu_add(vm, vcpu_id, init);
@@ -442,7 +442,7 @@ struct kvm_vcpu *aarch64_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id,
 	return vcpu;
 }
 
-struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
+struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 {
 	return __aarch64_vcpu_add(vm, vcpu_id, NULL);
 }
@@ -563,13 +563,13 @@ void vm_install_exception_handler(struct kvm_vm *vm, int vector,
 	handlers->exception_handlers[vector][0] = handler;
 }
 
-uint32_t guest_get_vcpuid(void)
+u32 guest_get_vcpuid(void)
 {
 	return read_sysreg(tpidr_el1);
 }
 
-static uint32_t max_ipa_for_page_size(uint32_t vm_ipa, uint32_t gran,
-				uint32_t not_sup_val, uint32_t ipa52_min_val)
+static u32 max_ipa_for_page_size(u32 vm_ipa, u32 gran,
+				 u32 not_sup_val, u32 ipa52_min_val)
 {
 	if (gran == not_sup_val)
 		return 0;
@@ -579,13 +579,13 @@ static uint32_t max_ipa_for_page_size(uint32_t vm_ipa, uint32_t gran,
 		return min(vm_ipa, 48U);
 }
 
-void aarch64_get_supported_page_sizes(uint32_t ipa, uint32_t *ipa4k,
-					uint32_t *ipa16k, uint32_t *ipa64k)
+void aarch64_get_supported_page_sizes(u32 ipa, u32 *ipa4k,
+				      u32 *ipa16k, u32 *ipa64k)
 {
 	struct kvm_vcpu_init preferred_init;
 	int kvm_fd, vm_fd, vcpu_fd, err;
 	u64 val;
-	uint32_t gran;
+	u32 gran;
 	struct kvm_one_reg reg = {
 		.id	= KVM_ARM64_SYS_REG(SYS_ID_AA64MMFR0_EL1),
 		.addr	= (u64)&val,
@@ -646,7 +646,7 @@ void aarch64_get_supported_page_sizes(uint32_t ipa, uint32_t *ipa4k,
 		     : "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7")
 
 
-void smccc_hvc(uint32_t function_id, u64 arg0, u64 arg1,
+void smccc_hvc(u32 function_id, u64 arg0, u64 arg1,
 	       u64 arg2, u64 arg3, u64 arg4, u64 arg5,
 	       u64 arg6, struct arm_smccc_res *res)
 {
@@ -654,7 +654,7 @@ void smccc_hvc(uint32_t function_id, u64 arg0, u64 arg1,
 		     arg6, res);
 }
 
-void smccc_smc(uint32_t function_id, u64 arg0, u64 arg1,
+void smccc_smc(u32 function_id, u64 arg0, u64 arg1,
 	       u64 arg2, u64 arg3, u64 arg4, u64 arg5,
 	       u64 arg6, struct arm_smccc_res *res)
 {

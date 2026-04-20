@@ -15,7 +15,7 @@
 	"pop %[flags]\n\t"
 
 #define flags_constraint(flags_val) [flags]"=r"(flags_val)
-#define bt_constraint(__bt_val) [bt_val]"rm"((uint32_t)__bt_val)
+#define bt_constraint(__bt_val) [bt_val]"rm"((u32)__bt_val)
 
 #define guest_execute_fastop_1(FEP, insn, __val, __flags)				\
 ({											\
@@ -187,7 +187,7 @@ static void guest_code(void)
 {
 	guest_test_fastops(uint8_t, "b");
 	guest_test_fastops(uint16_t, "w");
-	guest_test_fastops(uint32_t, "l");
+	guest_test_fastops(u32, "l");
 	guest_test_fastops(u64, "q");
 
 	GUEST_DONE();

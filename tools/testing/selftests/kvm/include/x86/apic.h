@@ -79,19 +79,19 @@ void apic_disable(void);
 void xapic_enable(void);
 void x2apic_enable(void);
 
-static inline uint32_t get_bsp_flag(void)
+static inline u32 get_bsp_flag(void)
 {
 	return rdmsr(MSR_IA32_APICBASE) & MSR_IA32_APICBASE_BSP;
 }
 
-static inline uint32_t xapic_read_reg(unsigned int reg)
+static inline u32 xapic_read_reg(unsigned int reg)
 {
-	return ((volatile uint32_t *)APIC_DEFAULT_GPA)[reg >> 2];
+	return ((volatile u32 *)APIC_DEFAULT_GPA)[reg >> 2];
 }
 
-static inline void xapic_write_reg(unsigned int reg, uint32_t val)
+static inline void xapic_write_reg(unsigned int reg, u32 val)
 {
-	((volatile uint32_t *)APIC_DEFAULT_GPA)[reg >> 2] = val;
+	((volatile u32 *)APIC_DEFAULT_GPA)[reg >> 2] = val;
 }
 
 static inline u64 x2apic_read_reg(unsigned int reg)

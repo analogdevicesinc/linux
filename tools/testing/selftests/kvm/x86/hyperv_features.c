@@ -22,7 +22,7 @@
 	KVM_X86_CPU_FEATURE(HYPERV_CPUID_ENLIGHTMENT_INFO, 0, EBX, 0)
 
 struct msr_data {
-	uint32_t idx;
+	u32 idx;
 	bool fault_expected;
 	bool write;
 	u64 write_val;
@@ -34,7 +34,7 @@ struct hcall_data {
 	bool ud_expected;
 };
 
-static bool is_write_only_msr(uint32_t msr)
+static bool is_write_only_msr(u32 msr)
 {
 	return msr == HV_X64_MSR_EOI;
 }

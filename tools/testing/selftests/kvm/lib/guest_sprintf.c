@@ -35,8 +35,8 @@ static int skip_atoi(const char **s)
 ({							\
 	int __res;					\
 							\
-	__res = ((u64)n) % (uint32_t) base;		\
-	n = ((u64)n) / (uint32_t) base;			\
+	__res = ((u64)n) % (u32)base;			\
+	n = ((u64)n) / (u32)base;			\
 	__res;						\
 })
 
@@ -292,7 +292,7 @@ repeat:
 		} else if (flags & SIGN)
 			num = va_arg(args, int);
 		else
-			num = va_arg(args, uint32_t);
+			num = va_arg(args, u32);
 		str = number(str, end, num, base, field_width, precision, flags);
 	}
 

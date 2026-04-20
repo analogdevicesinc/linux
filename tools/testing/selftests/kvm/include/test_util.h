@@ -109,14 +109,14 @@ struct timespec timespec_elapsed(struct timespec start);
 struct timespec timespec_div(struct timespec ts, int divisor);
 
 struct guest_random_state {
-	uint32_t seed;
+	u32 seed;
 };
 
-extern uint32_t guest_random_seed;
+extern u32 guest_random_seed;
 extern struct guest_random_state guest_rng;
 
-struct guest_random_state new_guest_random_state(uint32_t seed);
-uint32_t guest_random_u32(struct guest_random_state *state);
+struct guest_random_state new_guest_random_state(u32 seed);
+u32 guest_random_u32(struct guest_random_state *state);
 
 static inline bool __guest_random_bool(struct guest_random_state *state,
 				       uint8_t percent)
@@ -160,7 +160,7 @@ enum vm_mem_backing_src_type {
 
 struct vm_mem_backing_src_alias {
 	const char *name;
-	uint32_t flag;
+	u32 flag;
 };
 
 #define MIN_RUN_DELAY_NS	200000UL
@@ -168,9 +168,9 @@ struct vm_mem_backing_src_alias {
 bool thp_configured(void);
 size_t get_trans_hugepagesz(void);
 size_t get_def_hugetlb_pagesz(void);
-const struct vm_mem_backing_src_alias *vm_mem_backing_src_alias(uint32_t i);
-size_t get_backing_src_pagesz(uint32_t i);
-bool is_backing_src_hugetlb(uint32_t i);
+const struct vm_mem_backing_src_alias *vm_mem_backing_src_alias(u32 i);
+size_t get_backing_src_pagesz(u32 i);
+bool is_backing_src_hugetlb(u32 i);
 void backing_src_help(const char *flag);
 enum vm_mem_backing_src_type parse_backing_src_type(const char *type_name);
 long get_run_delay(void);
@@ -217,7 +217,7 @@ static inline void *align_ptr_up(void *x, size_t size)
 
 int atoi_paranoid(const char *num_str);
 
-static inline uint32_t atoi_positive(const char *name, const char *num_str)
+static inline u32 atoi_positive(const char *name, const char *num_str)
 {
 	int num = atoi_paranoid(num_str);
 
@@ -225,7 +225,7 @@ static inline uint32_t atoi_positive(const char *name, const char *num_str)
 	return num;
 }
 
-static inline uint32_t atoi_non_negative(const char *name, const char *num_str)
+static inline u32 atoi_non_negative(const char *name, const char *num_str)
 {
 	int num = atoi_paranoid(num_str);
 

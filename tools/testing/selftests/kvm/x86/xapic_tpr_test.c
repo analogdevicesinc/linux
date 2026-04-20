@@ -58,7 +58,7 @@ static void tpr_guest_irq_queue(void)
 	if (is_x2apic) {
 		x2apic_write_reg(APIC_SELF_IPI, IRQ_VECTOR);
 	} else {
-		uint32_t icr, icr2;
+		u32 icr, icr2;
 
 		icr = APIC_DEST_SELF | APIC_DEST_PHYSICAL | APIC_DM_FIXED |
 			IRQ_VECTOR;
@@ -71,7 +71,7 @@ static void tpr_guest_irq_queue(void)
 
 static uint8_t tpr_guest_tpr_get(void)
 {
-	uint32_t taskpri;
+	u32 taskpri;
 
 	if (is_x2apic)
 		taskpri = x2apic_read_reg(APIC_TASKPRI);
@@ -83,7 +83,7 @@ static uint8_t tpr_guest_tpr_get(void)
 
 static uint8_t tpr_guest_ppr_get(void)
 {
-	uint32_t procpri;
+	u32 procpri;
 
 	if (is_x2apic)
 		procpri = x2apic_read_reg(APIC_PROCPRI);

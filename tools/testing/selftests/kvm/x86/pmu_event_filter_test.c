@@ -75,7 +75,7 @@ static void guest_gp_handler(struct ex_regs *regs)
  *
  * Return on success. GUEST_SYNC(0) on error.
  */
-static void check_msr(uint32_t msr, u64 bits_to_flip)
+static void check_msr(u32 msr, u64 bits_to_flip)
 {
 	u64 v = rdmsr(msr) ^ bits_to_flip;
 
@@ -89,7 +89,7 @@ static void check_msr(uint32_t msr, u64 bits_to_flip)
 		GUEST_SYNC(-EIO);
 }
 
-static void run_and_measure_loop(uint32_t msr_base)
+static void run_and_measure_loop(u32 msr_base)
 {
 	const u64 branches_retired = rdmsr(msr_base + 0);
 	const u64 insn_retired = rdmsr(msr_base + 1);
@@ -378,7 +378,7 @@ static bool use_amd_pmu(void)
 
 static bool supports_event_mem_inst_retired(void)
 {
-	uint32_t eax, ebx, ecx, edx;
+	u32 eax, ebx, ecx, edx;
 
 	cpuid(1, &eax, &ebx, &ecx, &edx);
 	if (x86_family(eax) == 0x6) {
@@ -415,7 +415,7 @@ static bool supports_event_mem_inst_retired(void)
 #define EXCLUDE_MASKED_ENTRY(event_select, mask, match) \
 	KVM_PMU_ENCODE_MASKED_ENTRY(event_select, mask, match, true)
 
-static void masked_events_guest_test(uint32_t msr_base)
+static void masked_events_guest_test(u32 msr_base)
 {
 	/*
 	 * The actual value of the counters don't determine the outcome of
@@ -499,7 +499,7 @@ struct masked_events_test {
 	u64 amd_events[MAX_TEST_EVENTS];
 	u64 amd_event_end;
 	const char *msg;
-	uint32_t flags;
+	u32 flags;
 };
 
 /*
@@ -669,7 +669,7 @@ static int set_pmu_event_filter(struct kvm_vcpu *vcpu,
 }
 
 static int set_pmu_single_event_filter(struct kvm_vcpu *vcpu, u64 event,
-				       uint32_t flags, uint32_t action)
+				       u32 flags, u32 action)
 {
 	struct __kvm_pmu_event_filter f = {
 		.nevents = 1,
@@ -746,7 +746,7 @@ static void intel_run_fixed_counter_guest_code(uint8_t idx)
 }
 
 static u64 test_with_fixed_counter_filter(struct kvm_vcpu *vcpu,
-					  uint32_t action, uint32_t bitmap)
+					  u32 action, u32 bitmap)
 {
 	struct __kvm_pmu_event_filter f = {
 		.action = action,
@@ -758,8 +758,8 @@ static u64 test_with_fixed_counter_filter(struct kvm_vcpu *vcpu,
 }
 
 static u64 test_set_gp_and_fixed_event_filter(struct kvm_vcpu *vcpu,
-					      uint32_t action,
-					      uint32_t bitmap)
+					      u32 action,
+					      u32 bitmap)
 {
 	struct __kvm_pmu_event_filter f = base_event_filter;
 
@@ -774,7 +774,7 @@ static void __test_fixed_counter_bitmap(struct kvm_vcpu *vcpu, uint8_t idx,
 					uint8_t nr_fixed_counters)
 {
 	unsigned int i;
-	uint32_t bitmap;
+	u32 bitmap;
 	u64 count;
 
 	TEST_ASSERT(nr_fixed_counters < sizeof(bitmap) * 8,

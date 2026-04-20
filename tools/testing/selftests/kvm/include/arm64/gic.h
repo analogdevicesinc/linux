@@ -49,7 +49,7 @@ void gic_set_dir(unsigned int intid);
  */
 void gic_set_eoi_split(bool split);
 void gic_set_priority_mask(u64 mask);
-void gic_set_priority(uint32_t intid, uint32_t prio);
+void gic_set_priority(u32 intid, u32 prio);
 void gic_irq_set_active(unsigned int intid);
 void gic_irq_clear_active(unsigned int intid);
 bool gic_irq_get_active(unsigned int intid);

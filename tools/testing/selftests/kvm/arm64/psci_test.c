@@ -61,7 +61,7 @@ static u64 psci_system_off2(u64 type, u64 cookie)
 	return res.a0;
 }
 
-static u64 psci_features(uint32_t func_id)
+static u64 psci_features(u32 func_id)
 {
 	struct arm_smccc_res res;
 

@@ -285,8 +285,8 @@ enum vmcs_field {
 };
 
 struct vmx_msr_entry {
-	uint32_t index;
-	uint32_t reserved;
+	u32 index;
+	u32 reserved;
 	u64 value;
 } __attribute__ ((aligned(16)));
 
@@ -490,7 +490,7 @@ static inline int vmwrite(u64 encoding, u64 value)
 	return ret;
 }
 
-static inline uint32_t vmcs_revision(void)
+static inline u32 vmcs_revision(void)
 {
 	return rdmsr(MSR_IA32_VMX_BASIC);
 }

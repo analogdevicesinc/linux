@@ -236,7 +236,7 @@ static enum log_mode_t host_log_mode_option = LOG_MODE_ALL;
 /* Logging mode for current run */
 static enum log_mode_t host_log_mode;
 static pthread_t vcpu_thread;
-static uint32_t test_dirty_ring_count = TEST_DIRTY_RING_COUNT;
+static u32 test_dirty_ring_count = TEST_DIRTY_RING_COUNT;
 
 static bool clear_log_supported(void)
 {
@@ -255,15 +255,15 @@ static void clear_log_create_vm_done(struct kvm_vm *vm)
 }
 
 static void dirty_log_collect_dirty_pages(struct kvm_vcpu *vcpu, int slot,
-					  void *bitmap, uint32_t num_pages,
-					  uint32_t *unused)
+					  void *bitmap, u32 num_pages,
+					  u32 *unused)
 {
 	kvm_vm_get_dirty_log(vcpu->vm, slot, bitmap);
 }
 
 static void clear_log_collect_dirty_pages(struct kvm_vcpu *vcpu, int slot,
-					  void *bitmap, uint32_t num_pages,
-					  uint32_t *unused)
+					  void *bitmap, u32 num_pages,
+					  u32 *unused)
 {
 	kvm_vm_get_dirty_log(vcpu->vm, slot, bitmap);
 	kvm_vm_clear_dirty_log(vcpu->vm, slot, bitmap, 0, num_pages);
@@ -298,7 +298,7 @@ static bool dirty_ring_supported(void)
 static void dirty_ring_create_vm_done(struct kvm_vm *vm)
 {
 	u64 pages;
-	uint32_t limit;
+	u32 limit;
 
 	/*
 	 * We rely on vcpu exit due to full dirty ring state. Adjust
@@ -333,12 +333,12 @@ static inline void dirty_gfn_set_collected(struct kvm_dirty_gfn *gfn)
 	smp_store_release(&gfn->flags, KVM_DIRTY_GFN_F_RESET);
 }
 
-static uint32_t dirty_ring_collect_one(struct kvm_dirty_gfn *dirty_gfns,
-				       int slot, void *bitmap,
-				       uint32_t num_pages, uint32_t *fetch_index)
+static u32 dirty_ring_collect_one(struct kvm_dirty_gfn *dirty_gfns,
+				  int slot, void *bitmap,
+				  u32 num_pages, u32 *fetch_index)
 {
 	struct kvm_dirty_gfn *cur;
-	uint32_t count = 0;
+	u32 count = 0;
 
 	while (true) {
 		cur = &dirty_gfns[*fetch_index % test_dirty_ring_count];
@@ -359,10 +359,10 @@ static uint32_t dirty_ring_collect_one(struct kvm_dirty_gfn *dirty_gfns,
 }
 
 static void dirty_ring_collect_dirty_pages(struct kvm_vcpu *vcpu, int slot,
-					   void *bitmap, uint32_t num_pages,
-					   uint32_t *ring_buf_idx)
+					   void *bitmap, u32 num_pages,
+					   u32 *ring_buf_idx)
 {
-	uint32_t count, cleared;
+	u32 count, cleared;
 
 	/* Only have one vcpu */
 	count = dirty_ring_collect_one(vcpu_map_dirty_ring(vcpu),
@@ -404,8 +404,8 @@ struct log_mode {
 	void (*create_vm_done)(struct kvm_vm *vm);
 	/* Hook to collect the dirty pages into the bitmap provided */
 	void (*collect_dirty_pages) (struct kvm_vcpu *vcpu, int slot,
-				     void *bitmap, uint32_t num_pages,
-				     uint32_t *ring_buf_idx);
+				     void *bitmap, u32 num_pages,
+				     u32 *ring_buf_idx);
 	/* Hook to call when after each vcpu run */
 	void (*after_vcpu_run)(struct kvm_vcpu *vcpu);
 } log_modes[LOG_MODE_NUM] = {
@@ -459,8 +459,8 @@ static void log_mode_create_vm_done(struct kvm_vm *vm)
 }
 
 static void log_mode_collect_dirty_pages(struct kvm_vcpu *vcpu, int slot,
-					 void *bitmap, uint32_t num_pages,
-					 uint32_t *ring_buf_idx)
+					 void *bitmap, u32 num_pages,
+					 u32 *ring_buf_idx)
 {
 	struct log_mode *mode = &log_modes[host_log_mode];
 
@@ -601,7 +601,7 @@ static void run_test(enum vm_guest_mode mode, void *arg)
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
 	unsigned long *bmap[2];
-	uint32_t ring_buf_idx = 0;
+	u32 ring_buf_idx = 0;
 	int sem_val;
 
 	if (!log_mode_supported()) {

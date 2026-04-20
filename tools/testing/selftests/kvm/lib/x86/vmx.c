@@ -160,7 +160,7 @@ bool prepare_for_vmx_operation(struct vmx_pages *vmx)
 		wrmsr(MSR_IA32_FEAT_CTL, feature_control | required);
 
 	/* Enter VMX root operation. */
-	*(uint32_t *)(vmx->vmxon) = vmcs_revision();
+	*(u32 *)(vmx->vmxon) = vmcs_revision();
 	if (vmxon(vmx->vmxon_gpa))
 		return false;
 
@@ -170,7 +170,7 @@ bool prepare_for_vmx_operation(struct vmx_pages *vmx)
 bool load_vmcs(struct vmx_pages *vmx)
 {
 	/* Load a VMCS. */
-	*(uint32_t *)(vmx->vmcs) = vmcs_revision();
+	*(u32 *)(vmx->vmcs) = vmcs_revision();
 	if (vmclear(vmx->vmcs_gpa))
 		return false;
 
@@ -178,7 +178,7 @@ bool load_vmcs(struct vmx_pages *vmx)
 		return false;
 
 	/* Setup shadow VMCS, do not load it yet. */
-	*(uint32_t *)(vmx->shadow_vmcs) = vmcs_revision() | 0x80000000ul;
+	*(u32 *)(vmx->shadow_vmcs) = vmcs_revision() | 0x80000000ul;
 	if (vmclear(vmx->shadow_vmcs_gpa))
 		return false;
 
@@ -200,7 +200,7 @@ bool ept_1g_pages_supported(void)
  */
 static inline void init_vmcs_control_fields(struct vmx_pages *vmx)
 {
-	uint32_t sec_exec_ctl = 0;
+	u32 sec_exec_ctl = 0;
 
 	vmwrite(VIRTUAL_PROCESSOR_ID, 0);
 	vmwrite(POSTED_INTR_NV, 0);
@@ -259,7 +259,7 @@ static inline void init_vmcs_control_fields(struct vmx_pages *vmx)
  */
 static inline void init_vmcs_host_state(void)
 {
-	uint32_t exit_controls = vmreadz(VM_EXIT_CONTROLS);
+	u32 exit_controls = vmreadz(VM_EXIT_CONTROLS);
 
 	vmwrite(HOST_ES_SELECTOR, get_es());
 	vmwrite(HOST_CS_SELECTOR, get_cs());

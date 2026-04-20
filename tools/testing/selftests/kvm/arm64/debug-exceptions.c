@@ -151,7 +151,7 @@ static void enable_monitor_debug_exceptions(void)
 
 static void install_wp(uint8_t wpn, u64 addr)
 {
-	uint32_t wcr;
+	u32 wcr;
 
 	wcr = DBGWCR_LEN8 | DBGWCR_RD | DBGWCR_WR | DBGWCR_EL1 | DBGWCR_E;
 	write_dbgwcr(wpn, wcr);
@@ -164,7 +164,7 @@ static void install_wp(uint8_t wpn, u64 addr)
 
 static void install_hw_bp(uint8_t bpn, u64 addr)
 {
-	uint32_t bcr;
+	u32 bcr;
 
 	bcr = DBGBCR_LEN8 | DBGBCR_EXEC | DBGBCR_EL1 | DBGBCR_E;
 	write_dbgbcr(bpn, bcr);
@@ -177,7 +177,7 @@ static void install_hw_bp(uint8_t bpn, u64 addr)
 static void install_wp_ctx(uint8_t addr_wp, uint8_t ctx_bp, u64 addr,
 			   u64 ctx)
 {
-	uint32_t wcr;
+	u32 wcr;
 	u64 ctx_bcr;
 
 	/* Setup a context-aware breakpoint for Linked Context ID Match */
@@ -188,7 +188,7 @@ static void install_wp_ctx(uint8_t addr_wp, uint8_t ctx_bp, u64 addr,
 
 	/* Setup a linked watchpoint (linked to the context-aware breakpoint) */
 	wcr = DBGWCR_LEN8 | DBGWCR_RD | DBGWCR_WR | DBGWCR_EL1 | DBGWCR_E |
-	      DBGWCR_WT_LINK | ((uint32_t)ctx_bp << DBGWCR_LBN_SHIFT);
+	      DBGWCR_WT_LINK | ((u32)ctx_bp << DBGWCR_LBN_SHIFT);
 	write_dbgwcr(addr_wp, wcr);
 	write_dbgwvr(addr_wp, addr);
 	isb();
@@ -199,7 +199,7 @@ static void install_wp_ctx(uint8_t addr_wp, uint8_t ctx_bp, u64 addr,
 void install_hw_bp_ctx(uint8_t addr_bp, uint8_t ctx_bp, u64 addr,
 		       u64 ctx)
 {
-	uint32_t addr_bcr, ctx_bcr;
+	u32 addr_bcr, ctx_bcr;
 
 	/* Setup a context-aware breakpoint for Linked Context ID Match */
 	ctx_bcr = DBGBCR_LEN8 | DBGBCR_EXEC | DBGBCR_EL1 | DBGBCR_E |
@@ -213,7 +213,7 @@ void install_hw_bp_ctx(uint8_t addr_bp, uint8_t ctx_bp, u64 addr,
 	 */
 	addr_bcr = DBGBCR_LEN8 | DBGBCR_EXEC | DBGBCR_EL1 | DBGBCR_E |
 		   DBGBCR_BT_ADDR_LINK_CTX |
-		   ((uint32_t)ctx_bp << DBGBCR_LBN_SHIFT);
+		   ((u32)ctx_bp << DBGBCR_LBN_SHIFT);
 	write_dbgbcr(addr_bp, addr_bcr);
 	write_dbgbvr(addr_bp, addr);
 	isb();

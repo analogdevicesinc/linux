@@ -12,8 +12,7 @@
 #include "kvm_util.h"
 #include "vmx.h"
 
-static void vmx_fixed1_msr_test(struct kvm_vcpu *vcpu, uint32_t msr_index,
-				  u64 mask)
+static void vmx_fixed1_msr_test(struct kvm_vcpu *vcpu, u32 msr_index, u64 mask)
 {
 	u64 val = vcpu_get_msr(vcpu, msr_index);
 	u64 bit;
@@ -26,8 +25,7 @@ static void vmx_fixed1_msr_test(struct kvm_vcpu *vcpu, uint32_t msr_index,
 	}
 }
 
-static void vmx_fixed0_msr_test(struct kvm_vcpu *vcpu, uint32_t msr_index,
-				u64 mask)
+static void vmx_fixed0_msr_test(struct kvm_vcpu *vcpu, u32 msr_index, u64 mask)
 {
 	u64 val = vcpu_get_msr(vcpu, msr_index);
 	u64 bit;
@@ -40,7 +38,7 @@ static void vmx_fixed0_msr_test(struct kvm_vcpu *vcpu, uint32_t msr_index,
 	}
 }
 
-static void vmx_fixed0and1_msr_test(struct kvm_vcpu *vcpu, uint32_t msr_index)
+static void vmx_fixed0and1_msr_test(struct kvm_vcpu *vcpu, u32 msr_index)
 {
 	vmx_fixed0_msr_test(vcpu, msr_index, GENMASK_ULL(31, 0));
 	vmx_fixed1_msr_test(vcpu, msr_index, GENMASK_ULL(63, 32));

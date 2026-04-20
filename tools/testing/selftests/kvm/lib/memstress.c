@@ -44,7 +44,7 @@ static struct kvm_vcpu *vcpus[KVM_MAX_VCPUS];
  * Continuously write to the first 8 bytes of each page in the
  * specified region.
  */
-void memstress_guest_code(uint32_t vcpu_idx)
+void memstress_guest_code(u32 vcpu_idx)
 {
 	struct memstress_args *args = &memstress_args;
 	struct memstress_vcpu_args *vcpu_args = &args->vcpu_args[vcpu_idx];
@@ -232,7 +232,7 @@ void memstress_destroy_vm(struct kvm_vm *vm)
 	kvm_vm_free(vm);
 }
 
-void memstress_set_write_percent(struct kvm_vm *vm, uint32_t write_percent)
+void memstress_set_write_percent(struct kvm_vm *vm, u32 write_percent)
 {
 	memstress_args.write_percent = write_percent;
 	sync_global_to_guest(vm, memstress_args.write_percent);

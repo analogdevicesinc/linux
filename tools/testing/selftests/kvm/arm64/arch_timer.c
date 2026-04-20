@@ -105,7 +105,7 @@ static void guest_validate_irq(unsigned int intid,
 static void guest_irq_handler(struct ex_regs *regs)
 {
 	unsigned int intid = gic_get_and_ack_irq();
-	uint32_t cpu = guest_get_vcpuid();
+	u32 cpu = guest_get_vcpuid();
 	struct test_vcpu_shared_data *shared_data = &vcpu_shared_data[cpu];
 
 	guest_validate_irq(intid, shared_data);
@@ -116,7 +116,7 @@ static void guest_irq_handler(struct ex_regs *regs)
 static void guest_run_stage(struct test_vcpu_shared_data *shared_data,
 				enum guest_stage stage)
 {
-	uint32_t irq_iter, config_iter;
+	u32 irq_iter, config_iter;
 
 	shared_data->guest_stage = stage;
 	shared_data->nr_iter = 0;
@@ -140,7 +140,7 @@ static void guest_run_stage(struct test_vcpu_shared_data *shared_data,
 
 static void guest_code(void)
 {
-	uint32_t cpu = guest_get_vcpuid();
+	u32 cpu = guest_get_vcpuid();
 	struct test_vcpu_shared_data *shared_data = &vcpu_shared_data[cpu];
 
 	local_irq_disable();

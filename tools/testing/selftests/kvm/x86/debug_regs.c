@@ -16,7 +16,7 @@
 #define IRQ_VECTOR 0xAA
 
 /* For testing data access debug BP */
-uint32_t guest_value;
+u32 guest_value;
 
 extern unsigned char sw_bp, hw_bp, write_data, ss_start, bd_start;
 

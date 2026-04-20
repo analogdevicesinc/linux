@@ -30,7 +30,7 @@ static void guest_nmi_handler(struct ex_regs *regs)
 {
 }
 
-static inline void rdmsr_from_l2(uint32_t msr)
+static inline void rdmsr_from_l2(u32 msr)
 {
 	/* Currently, L1 doesn't preserve GPRs during vmexits. */
 	__asm__ __volatile__ ("rdmsr" : : "c"(msr) :

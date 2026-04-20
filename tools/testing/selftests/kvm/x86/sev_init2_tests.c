@@ -94,7 +94,7 @@ void test_vm_types(void)
 				   "VM type is KVM_X86_SW_PROTECTED_VM");
 }
 
-void test_flags(uint32_t vm_type)
+void test_flags(u32 vm_type)
 {
 	int i;
 
@@ -104,7 +104,7 @@ void test_flags(uint32_t vm_type)
 			"invalid flag");
 }
 
-void test_features(uint32_t vm_type, u64 supported_features)
+void test_features(u32 vm_type, u64 supported_features)
 {
 	int i;
 

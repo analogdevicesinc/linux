@@ -21,7 +21,7 @@
 #define L2_GUEST_STACK_SIZE 256
 
 /* Exit to L1 from L2 with RDMSR instruction */
-static inline void rdmsr_from_l2(uint32_t msr)
+static inline void rdmsr_from_l2(u32 msr)
 {
 	/* Currently, L1 doesn't preserve GPRs during vmexits. */
 	__asm__ __volatile__ ("rdmsr" : : "c"(msr) :

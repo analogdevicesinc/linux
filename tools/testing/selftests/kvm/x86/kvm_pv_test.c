@@ -13,7 +13,7 @@
 #include "processor.h"
 
 struct msr_data {
-	uint32_t idx;
+	u32 idx;
 	const char *name;
 };
 

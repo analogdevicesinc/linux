@@ -35,7 +35,7 @@ static int open_dev_msr(int cpu)
 	return open_path_or_exit(path, O_RDONLY);
 }
 
-static u64 read_dev_msr(int msr_fd, uint32_t msr)
+static u64 read_dev_msr(int msr_fd, u32 msr)
 {
 	u64 data;
 	ssize_t rc;

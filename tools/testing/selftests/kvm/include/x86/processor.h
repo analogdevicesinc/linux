@@ -403,8 +403,8 @@ struct desc64 {
 	uint16_t base0;
 	unsigned base1:8, type:4, s:1, dpl:2, p:1;
 	unsigned limit1:4, avl:1, l:1, db:1, g:1, base2:8;
-	uint32_t base3;
-	uint32_t zero1;
+	u32 base3;
+	u32 zero1;
 } __attribute__((packed));
 
 struct desc_ptr {
@@ -437,7 +437,7 @@ static inline u64 get_desc64_base(const struct desc64 *desc)
 
 static inline u64 rdtsc(void)
 {
-	uint32_t eax, edx;
+	u32 eax, edx;
 	u64 tsc_val;
 	/*
 	 * The lfence is to wait (on Intel CPUs) until all previous
@@ -450,27 +450,27 @@ static inline u64 rdtsc(void)
 	return tsc_val;
 }
 
-static inline u64 rdtscp(uint32_t *aux)
+static inline u64 rdtscp(u32 *aux)
 {
-	uint32_t eax, edx;
+	u32 eax, edx;
 
 	__asm__ __volatile__("rdtscp" : "=a"(eax), "=d"(edx), "=c"(*aux));
 	return ((u64)edx) << 32 | eax;
 }
 
-static inline u64 rdmsr(uint32_t msr)
+static inline u64 rdmsr(u32 msr)
 {
-	uint32_t a, d;
+	u32 a, d;
 
 	__asm__ __volatile__("rdmsr" : "=a"(a), "=d"(d) : "c"(msr) : "memory");
 
 	return a | ((u64)d << 32);
 }
 
-static inline void wrmsr(uint32_t msr, u64 value)
+static inline void wrmsr(u32 msr, u64 value)
 {
-	uint32_t a = value;
-	uint32_t d = value >> 32;
+	u32 a = value;
+	u32 d = value >> 32;
 
 	__asm__ __volatile__("wrmsr" :: "a"(a), "d"(d), "c"(msr) : "memory");
 }
@@ -651,14 +651,14 @@ static inline struct desc_ptr get_idt(void)
 	return idt;
 }
 
-static inline void outl(uint16_t port, uint32_t value)
+static inline void outl(uint16_t port, u32 value)
 {
 	__asm__ __volatile__("outl %%eax, %%dx" : : "d"(port), "a"(value));
 }
 
-static inline void __cpuid(uint32_t function, uint32_t index,
-			   uint32_t *eax, uint32_t *ebx,
-			   uint32_t *ecx, uint32_t *edx)
+static inline void __cpuid(u32 function, u32 index,
+			   u32 *eax, u32 *ebx,
+			   u32 *ecx, u32 *edx)
 {
 	*eax = function;
 	*ecx = index;
@@ -672,35 +672,35 @@ static inline void __cpuid(uint32_t function, uint32_t index,
 	    : "memory");
 }
 
-static inline void cpuid(uint32_t function,
-			 uint32_t *eax, uint32_t *ebx,
-			 uint32_t *ecx, uint32_t *edx)
+static inline void cpuid(u32 function,
+			 u32 *eax, u32 *ebx,
+			 u32 *ecx, u32 *edx)
 {
 	return __cpuid(function, 0, eax, ebx, ecx, edx);
 }
 
-static inline uint32_t this_cpu_fms(void)
+static inline u32 this_cpu_fms(void)
 {
-	uint32_t eax, ebx, ecx, edx;
+	u32 eax, ebx, ecx, edx;
 
 	cpuid(1, &eax, &ebx, &ecx, &edx);
 	return eax;
 }
 
-static inline uint32_t this_cpu_family(void)
+static inline u32 this_cpu_family(void)
 {
 	return x86_family(this_cpu_fms());
 }
 
-static inline uint32_t this_cpu_model(void)
+static inline u32 this_cpu_model(void)
 {
 	return x86_model(this_cpu_fms());
 }
 
 static inline bool this_cpu_vendor_string_is(const char *vendor)
 {
-	const uint32_t *chunk = (const uint32_t *)vendor;
-	uint32_t eax, ebx, ecx, edx;
+	const u32 *chunk = (const u32 *)vendor;
+	u32 eax, ebx, ecx, edx;
 
 	cpuid(0, &eax, &ebx, &ecx, &edx);
 	return (ebx == chunk[0] && edx == chunk[1] && ecx == chunk[2]);
@@ -724,10 +724,10 @@ static inline bool this_cpu_is_hygon(void)
 	return this_cpu_vendor_string_is("HygonGenuine");
 }
 
-static inline uint32_t __this_cpu_has(uint32_t function, uint32_t index,
-				      uint8_t reg, uint8_t lo, uint8_t hi)
+static inline u32 __this_cpu_has(u32 function, u32 index,
+				 uint8_t reg, uint8_t lo, uint8_t hi)
 {
-	uint32_t gprs[4];
+	u32 gprs[4];
 
 	__cpuid(function, index,
 		&gprs[KVM_CPUID_EAX], &gprs[KVM_CPUID_EBX],
@@ -742,7 +742,7 @@ static inline bool this_cpu_has(struct kvm_x86_cpu_feature feature)
 			      feature.reg, feature.bit, feature.bit);
 }
 
-static inline uint32_t this_cpu_property(struct kvm_x86_cpu_property property)
+static inline u32 this_cpu_property(struct kvm_x86_cpu_property property)
 {
 	return __this_cpu_has(property.function, property.index,
 			      property.reg, property.lo_bit, property.hi_bit);
@@ -750,7 +750,7 @@ static inline uint32_t this_cpu_property(struct kvm_x86_cpu_property property)
 
 static __always_inline bool this_cpu_has_p(struct kvm_x86_cpu_property property)
 {
-	uint32_t max_leaf;
+	u32 max_leaf;
 
 	switch (property.function & 0xc0000000) {
 	case 0:
@@ -770,7 +770,7 @@ static __always_inline bool this_cpu_has_p(struct kvm_x86_cpu_property property)
 
 static inline bool this_pmu_has(struct kvm_x86_pmu_feature feature)
 {
-	uint32_t nr_bits;
+	u32 nr_bits;
 
 	if (feature.f.reg == KVM_CPUID_EBX) {
 		nr_bits = this_cpu_property(X86_PROPERTY_PMU_EBX_BIT_VECTOR_LENGTH);
@@ -898,7 +898,7 @@ void kvm_x86_state_cleanup(struct kvm_x86_state *state);
 
 const struct kvm_msr_list *kvm_get_msr_index_list(void);
 const struct kvm_msr_list *kvm_get_feature_msr_index_list(void);
-bool kvm_msr_is_in_save_restore_list(uint32_t msr_index);
+bool kvm_msr_is_in_save_restore_list(u32 msr_index);
 u64 kvm_get_feature_msr(u64 msr_index);
 
 static inline void vcpu_msrs_get(struct kvm_vcpu *vcpu,
@@ -954,20 +954,20 @@ static inline void vcpu_xcrs_set(struct kvm_vcpu *vcpu, struct kvm_xcrs *xcrs)
 }
 
 const struct kvm_cpuid_entry2 *get_cpuid_entry(const struct kvm_cpuid2 *cpuid,
-					       uint32_t function, uint32_t index);
+					       u32 function, u32 index);
 const struct kvm_cpuid2 *kvm_get_supported_cpuid(void);
 
-static inline uint32_t kvm_cpu_fms(void)
+static inline u32 kvm_cpu_fms(void)
 {
 	return get_cpuid_entry(kvm_get_supported_cpuid(), 0x1, 0)->eax;
 }
 
-static inline uint32_t kvm_cpu_family(void)
+static inline u32 kvm_cpu_family(void)
 {
 	return x86_family(kvm_cpu_fms());
 }
 
-static inline uint32_t kvm_cpu_model(void)
+static inline u32 kvm_cpu_model(void)
 {
 	return x86_model(kvm_cpu_fms());
 }
@@ -980,17 +980,17 @@ static inline bool kvm_cpu_has(struct kvm_x86_cpu_feature feature)
 	return kvm_cpuid_has(kvm_get_supported_cpuid(), feature);
 }
 
-uint32_t kvm_cpuid_property(const struct kvm_cpuid2 *cpuid,
-			    struct kvm_x86_cpu_property property);
+u32 kvm_cpuid_property(const struct kvm_cpuid2 *cpuid,
+		       struct kvm_x86_cpu_property property);
 
-static inline uint32_t kvm_cpu_property(struct kvm_x86_cpu_property property)
+static inline u32 kvm_cpu_property(struct kvm_x86_cpu_property property)
 {
 	return kvm_cpuid_property(kvm_get_supported_cpuid(), property);
 }
 
 static __always_inline bool kvm_cpu_has_p(struct kvm_x86_cpu_property property)
 {
-	uint32_t max_leaf;
+	u32 max_leaf;
 
 	switch (property.function & 0xc0000000) {
 	case 0:
@@ -1010,7 +1010,7 @@ static __always_inline bool kvm_cpu_has_p(struct kvm_x86_cpu_property property)
 
 static inline bool kvm_pmu_has(struct kvm_x86_pmu_feature feature)
 {
-	uint32_t nr_bits;
+	u32 nr_bits;
 
 	if (feature.f.reg == KVM_CPUID_EBX) {
 		nr_bits = kvm_cpu_property(X86_PROPERTY_PMU_EBX_BIT_VECTOR_LENGTH);
@@ -1062,8 +1062,8 @@ static inline void vcpu_get_cpuid(struct kvm_vcpu *vcpu)
 }
 
 static inline struct kvm_cpuid_entry2 *__vcpu_get_cpuid_entry(struct kvm_vcpu *vcpu,
-							      uint32_t function,
-							      uint32_t index)
+							      u32 function,
+							      u32 index)
 {
 	TEST_ASSERT(vcpu->cpuid, "Must do vcpu_init_cpuid() first (or equivalent)");
 
@@ -1074,7 +1074,7 @@ static inline struct kvm_cpuid_entry2 *__vcpu_get_cpuid_entry(struct kvm_vcpu *v
 }
 
 static inline struct kvm_cpuid_entry2 *vcpu_get_cpuid_entry(struct kvm_vcpu *vcpu,
-							    uint32_t function)
+							    u32 function)
 {
 	return __vcpu_get_cpuid_entry(vcpu, function, 0);
 }
@@ -1104,10 +1104,10 @@ static inline void vcpu_set_cpuid(struct kvm_vcpu *vcpu)
 
 void vcpu_set_cpuid_property(struct kvm_vcpu *vcpu,
 			     struct kvm_x86_cpu_property property,
-			     uint32_t value);
+			     u32 value);
 void vcpu_set_cpuid_maxphyaddr(struct kvm_vcpu *vcpu, uint8_t maxphyaddr);
 
-void vcpu_clear_cpuid_entry(struct kvm_vcpu *vcpu, uint32_t function);
+void vcpu_clear_cpuid_entry(struct kvm_vcpu *vcpu, u32 function);
 
 static inline bool vcpu_cpuid_has(struct kvm_vcpu *vcpu,
 				  struct kvm_x86_cpu_feature feature)
@@ -1161,7 +1161,7 @@ do {										\
  * is changing, etc.  This is NOT an exhaustive list!  The intent is to filter
  * out MSRs that are not durable _and_ that a selftest wants to write.
  */
-static inline bool is_durable_msr(uint32_t msr)
+static inline bool is_durable_msr(u32 msr)
 {
 	return msr != MSR_IA32_TSC;
 }
@@ -1203,7 +1203,7 @@ struct idt_entry {
 	uint16_t dpl : 2;
 	uint16_t p : 1;
 	uint16_t offset1;
-	uint32_t offset2; uint32_t reserved;
+	u32 offset2; u32 reserved;
 };
 
 void vm_install_exception_handler(struct kvm_vm *vm, int vector,
@@ -1307,11 +1307,11 @@ void vm_install_exception_handler(struct kvm_vm *vm, int vector,
 })
 
 #define BUILD_READ_U64_SAFE_HELPER(insn, _fep, _FEP)			\
-static inline uint8_t insn##_safe ##_fep(uint32_t idx, u64 *val)	\
+static inline uint8_t insn##_safe ##_fep(u32 idx, u64 *val)	\
 {									\
 	u64 error_code;						\
 	uint8_t vector;							\
-	uint32_t a, d;							\
+	u32 a, d;							\
 									\
 	asm volatile(KVM_ASM_SAFE##_FEP(#insn)				\
 		     : "=a"(a), "=d"(d),				\
@@ -1335,12 +1335,12 @@ BUILD_READ_U64_SAFE_HELPERS(rdmsr)
 BUILD_READ_U64_SAFE_HELPERS(rdpmc)
 BUILD_READ_U64_SAFE_HELPERS(xgetbv)
 
-static inline uint8_t wrmsr_safe(uint32_t msr, u64 val)
+static inline uint8_t wrmsr_safe(u32 msr, u64 val)
 {
 	return kvm_asm_safe("wrmsr", "a"(val & -1u), "d"(val >> 32), "c"(msr));
 }
 
-static inline uint8_t xsetbv_safe(uint32_t index, u64 value)
+static inline uint8_t xsetbv_safe(u32 index, u64 value)
 {
 	u32 eax = value;
 	u32 edx = value >> 32;

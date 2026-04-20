@@ -59,8 +59,8 @@ struct test_desc {
 	void (*iabt_handler)(struct ex_regs *regs);
 	void (*mmio_handler)(struct kvm_vm *vm, struct kvm_run *run);
 	void (*fail_vcpu_run_handler)(int ret);
-	uint32_t pt_memslot_flags;
-	uint32_t data_memslot_flags;
+	u32 pt_memslot_flags;
+	u32 data_memslot_flags;
 	bool skip;
 	struct event_cnt expected_events;
 };
@@ -510,7 +510,7 @@ void fail_vcpu_run_mmio_no_syndrome_handler(int ret)
 	events.fail_vcpu_runs += 1;
 }
 
-typedef uint32_t aarch64_insn_t;
+typedef u32 aarch64_insn_t;
 extern aarch64_insn_t __exec_test[2];
 
 noinline void __return_0x77(void)

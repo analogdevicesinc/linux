@@ -19,8 +19,8 @@
  * timer frequency.
  */
 static const struct {
-	const uint32_t tdcr;
-	const uint32_t divide_count;
+	const u32 tdcr;
+	const u32 divide_count;
 } tdcrs[] = {
 	{0x0, 2},
 	{0x1, 4},
@@ -42,12 +42,12 @@ static void apic_enable(void)
 		xapic_enable();
 }
 
-static uint32_t apic_read_reg(unsigned int reg)
+static u32 apic_read_reg(unsigned int reg)
 {
 	return is_x2apic ? x2apic_read_reg(reg) : xapic_read_reg(reg);
 }
 
-static void apic_write_reg(unsigned int reg, uint32_t val)
+static void apic_write_reg(unsigned int reg, u32 val)
 {
 	if (is_x2apic)
 		x2apic_write_reg(reg, val);
@@ -58,9 +58,9 @@ static void apic_write_reg(unsigned int reg, uint32_t val)
 static void apic_guest_code(u64 apic_hz, u64 delay_ms)
 {
 	u64 tsc_hz = guest_tsc_khz * 1000;
-	const uint32_t tmict = ~0u;
+	const u32 tmict = ~0u;
 	u64 tsc0, tsc1, freq;
-	uint32_t tmcct;
+	u32 tmcct;
 	int i;
 
 	apic_enable();

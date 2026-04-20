@@ -144,7 +144,7 @@ static void test_icr(struct xapic_vcpu *x)
 
 static void __test_apic_id(struct kvm_vcpu *vcpu, u64 apic_base)
 {
-	uint32_t apic_id, expected;
+	u32 apic_id, expected;
 	struct kvm_lapic_state xapic;
 
 	vcpu_set_msr(vcpu, MSR_IA32_APICBASE, apic_base);
@@ -170,7 +170,7 @@ static void __test_apic_id(struct kvm_vcpu *vcpu, u64 apic_base)
  */
 static void test_apic_id(void)
 {
-	const uint32_t NR_VCPUS = 3;
+	const u32 NR_VCPUS = 3;
 	struct kvm_vcpu *vcpus[NR_VCPUS];
 	u64 apic_base;
 	struct kvm_vm *vm;

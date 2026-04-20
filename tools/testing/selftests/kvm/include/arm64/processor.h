@@ -128,7 +128,7 @@
 #define PTE_ADDR_51_50_LPA2_SHIFT	8
 
 void aarch64_vcpu_setup(struct kvm_vcpu *vcpu, struct kvm_vcpu_init *init);
-struct kvm_vcpu *aarch64_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id,
+struct kvm_vcpu *aarch64_vcpu_add(struct kvm_vm *vm, u32 vcpu_id,
 				  struct kvm_vcpu_init *init, void *guest_code);
 
 struct ex_regs {
@@ -167,8 +167,8 @@ enum {
 			   (v) == VECTOR_SYNC_LOWER_64    || \
 			   (v) == VECTOR_SYNC_LOWER_32)
 
-void aarch64_get_supported_page_sizes(uint32_t ipa, uint32_t *ipa4k,
-					uint32_t *ipa16k, uint32_t *ipa64k);
+void aarch64_get_supported_page_sizes(u32 ipa, u32 *ipa4k,
+				      u32 *ipa16k, u32 *ipa64k);
 
 void vm_init_descriptor_tables(struct kvm_vm *vm);
 void vcpu_init_descriptor_tables(struct kvm_vcpu *vcpu);
@@ -287,7 +287,7 @@ struct arm_smccc_res {
  * @res: pointer to write the return values from registers x0-x3
  *
  */
-void smccc_hvc(uint32_t function_id, u64 arg0, u64 arg1,
+void smccc_hvc(u32 function_id, u64 arg0, u64 arg1,
 	       u64 arg2, u64 arg3, u64 arg4, u64 arg5,
 	       u64 arg6, struct arm_smccc_res *res);
 
@@ -298,7 +298,7 @@ void smccc_hvc(uint32_t function_id, u64 arg0, u64 arg1,
  * @res: pointer to write the return values from registers x0-x3
  *
  */
-void smccc_smc(uint32_t function_id, u64 arg0, u64 arg1,
+void smccc_smc(u32 function_id, u64 arg0, u64 arg1,
 	       u64 arg2, u64 arg3, u64 arg4, u64 arg5,
 	       u64 arg6, struct arm_smccc_res *res);
 

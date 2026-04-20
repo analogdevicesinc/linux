@@ -251,7 +251,7 @@ static void setup_mce_cap(struct kvm_vcpu *vcpu, bool enable_cmci_p)
 	vcpu_ioctl(vcpu, KVM_X86_SETUP_MCE, &mcg_caps);
 }
 
-static struct kvm_vcpu *create_vcpu_with_mce_cap(struct kvm_vm *vm, uint32_t vcpuid,
+static struct kvm_vcpu *create_vcpu_with_mce_cap(struct kvm_vm *vm, u32 vcpuid,
 						 bool enable_cmci_p, void *guest_code)
 {
 	struct kvm_vcpu *vcpu = vm_vcpu_add(vm, vcpuid, guest_code);

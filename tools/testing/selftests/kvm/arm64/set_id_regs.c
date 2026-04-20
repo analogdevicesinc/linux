@@ -43,7 +43,7 @@ struct reg_ftr_bits {
 };
 
 struct test_feature_reg {
-	uint32_t reg;
+	u32 reg;
 	const struct reg_ftr_bits *ftr_bits;
 };
 
@@ -457,7 +457,7 @@ static void test_vm_ftr_id_regs(struct kvm_vcpu *vcpu, bool aarch64_only)
 
 	for (int i = 0; i < ARRAY_SIZE(test_regs); i++) {
 		const struct reg_ftr_bits *ftr_bits = test_regs[i].ftr_bits;
-		uint32_t reg_id = test_regs[i].reg;
+		u32 reg_id = test_regs[i].reg;
 		u64 reg = KVM_ARM64_SYS_REG(reg_id);
 		int idx;
 
@@ -643,7 +643,7 @@ static void test_user_set_mte_reg(struct kvm_vcpu *vcpu)
 		ksft_test_result_pass("ID_AA64PFR1_EL1.MTE_frac no longer 0xF\n");
 }
 
-static u64 reset_mutable_bits(uint32_t id, u64 val)
+static u64 reset_mutable_bits(u32 id, u64 val)
 {
 	struct test_feature_reg *reg = NULL;
 
@@ -771,7 +771,7 @@ static void test_vcpu_non_ftr_id_regs(struct kvm_vcpu *vcpu)
 	ksft_test_result_pass("%s\n", __func__);
 }
 
-static void test_assert_id_reg_unchanged(struct kvm_vcpu *vcpu, uint32_t encoding)
+static void test_assert_id_reg_unchanged(struct kvm_vcpu *vcpu, u32 encoding)
 {
 	size_t idx = encoding_to_range_idx(encoding);
 	u64 observed;

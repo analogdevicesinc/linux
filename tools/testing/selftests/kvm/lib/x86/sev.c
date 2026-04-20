@@ -79,7 +79,7 @@ void snp_vm_init(struct kvm_vm *vm)
 	vm_sev_ioctl(vm, KVM_SEV_INIT2, &init);
 }
 
-void sev_vm_launch(struct kvm_vm *vm, uint32_t policy)
+void sev_vm_launch(struct kvm_vm *vm, u32 policy)
 {
 	struct kvm_sev_launch_start launch_start = {
 		.policy = policy,
@@ -158,7 +158,7 @@ void snp_vm_launch_finish(struct kvm_vm *vm)
 	vm_sev_ioctl(vm, KVM_SEV_SNP_LAUNCH_FINISH, &launch_finish);
 }
 
-struct kvm_vm *vm_sev_create_with_one_vcpu(uint32_t type, void *guest_code,
+struct kvm_vm *vm_sev_create_with_one_vcpu(u32 type, void *guest_code,
 					   struct kvm_vcpu **cpu)
 {
 	struct vm_shape shape = {

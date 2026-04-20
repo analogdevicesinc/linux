@@ -42,7 +42,7 @@ static void check_status(struct kvm_steal_time *st)
 static void guest_code(int cpu)
 {
 	struct kvm_steal_time *st = st_gva[cpu];
-	uint32_t version;
+	u32 version;
 
 	GUEST_ASSERT_EQ(rdmsr(MSR_KVM_STEAL_TIME), ((u64)st_gva[cpu] | KVM_MSR_ENABLED));
 
@@ -67,7 +67,7 @@ static bool is_steal_time_supported(struct kvm_vcpu *vcpu)
 	return kvm_cpu_has(X86_FEATURE_KVM_STEAL_TIME);
 }
 
-static void steal_time_init(struct kvm_vcpu *vcpu, uint32_t i)
+static void steal_time_init(struct kvm_vcpu *vcpu, u32 i)
 {
 	/* ST_GPA_BASE is identity mapped */
 	st_gva[i] = (void *)(ST_GPA_BASE + i * STEAL_TIME_SIZE);
@@ -76,7 +76,7 @@ static void steal_time_init(struct kvm_vcpu *vcpu, uint32_t i)
 	vcpu_set_msr(vcpu, MSR_KVM_STEAL_TIME, (ulong)st_gva[i] | KVM_MSR_ENABLED);
 }
 
-static void steal_time_dump(struct kvm_vm *vm, uint32_t vcpu_idx)
+static void steal_time_dump(struct kvm_vm *vm, u32 vcpu_idx)
 {
 	struct kvm_steal_time *st = addr_gva2hva(vm, (ulong)st_gva[vcpu_idx]);
 
@@ -118,12 +118,12 @@ static void check_steal_time_uapi(void)
 #define PV_TIME_ST		0xc5000021
 
 struct st_time {
-	uint32_t rev;
-	uint32_t attr;
+	u32 rev;
+	u32 attr;
 	u64 st_time;
 };
 
-static s64 smccc(uint32_t func, u64 arg)
+static s64 smccc(u32 func, u64 arg)
 {
 	struct arm_smccc_res res;
 
@@ -175,7 +175,7 @@ static bool is_steal_time_supported(struct kvm_vcpu *vcpu)
 	return !__vcpu_ioctl(vcpu, KVM_HAS_DEVICE_ATTR, &dev);
 }
 
-static void steal_time_init(struct kvm_vcpu *vcpu, uint32_t i)
+static void steal_time_init(struct kvm_vcpu *vcpu, u32 i)
 {
 	struct kvm_vm *vm = vcpu->vm;
 	u64 st_ipa;
@@ -194,7 +194,7 @@ static void steal_time_init(struct kvm_vcpu *vcpu, uint32_t i)
 	vcpu_ioctl(vcpu, KVM_SET_DEVICE_ATTR, &dev);
 }
 
-static void steal_time_dump(struct kvm_vm *vm, uint32_t vcpu_idx)
+static void steal_time_dump(struct kvm_vm *vm, u32 vcpu_idx)
 {
 	struct st_time *st = addr_gva2hva(vm, (ulong)st_gva[vcpu_idx]);
 
@@ -242,8 +242,8 @@ static void check_steal_time_uapi(void)
 static gpa_t st_gpa[NR_VCPUS];
 
 struct sta_struct {
-	uint32_t sequence;
-	uint32_t flags;
+	u32 sequence;
+	u32 flags;
 	u64 steal;
 	uint8_t preempted;
 	uint8_t pad[47];
@@ -272,7 +272,7 @@ static void check_status(struct sta_struct *st)
 static void guest_code(int cpu)
 {
 	struct sta_struct *st = st_gva[cpu];
-	uint32_t sequence;
+	u32 sequence;
 	long out_val = 0;
 	bool probe;
 
@@ -305,7 +305,7 @@ static bool is_steal_time_supported(struct kvm_vcpu *vcpu)
 	return enabled;
 }
 
-static void steal_time_init(struct kvm_vcpu *vcpu, uint32_t i)
+static void steal_time_init(struct kvm_vcpu *vcpu, u32 i)
 {
 	/* ST_GPA_BASE is identity mapped */
 	st_gva[i] = (void *)(ST_GPA_BASE + i * STEAL_TIME_SIZE);
@@ -314,7 +314,7 @@ static void steal_time_init(struct kvm_vcpu *vcpu, uint32_t i)
 	sync_global_to_guest(vcpu->vm, st_gpa[i]);
 }
 
-static void steal_time_dump(struct kvm_vm *vm, uint32_t vcpu_idx)
+static void steal_time_dump(struct kvm_vm *vm, u32 vcpu_idx)
 {
 	struct sta_struct *st = addr_gva2hva(vm, (ulong)st_gva[vcpu_idx]);
 	int i;
@@ -388,7 +388,7 @@ static void check_status(struct kvm_steal_time *st)
 
 static void guest_code(int cpu)
 {
-	uint32_t version;
+	u32 version;
 	struct kvm_steal_time *st = st_gva[cpu];
 
 	memset(st, 0, sizeof(*st));
@@ -428,7 +428,7 @@ static bool is_steal_time_supported(struct kvm_vcpu *vcpu)
 	return val & BIT(KVM_FEATURE_STEAL_TIME);
 }
 
-static void steal_time_init(struct kvm_vcpu *vcpu, uint32_t i)
+static void steal_time_init(struct kvm_vcpu *vcpu, u32 i)
 {
 	int err;
 	u64 st_gpa;
@@ -451,7 +451,7 @@ static void steal_time_init(struct kvm_vcpu *vcpu, uint32_t i)
 	TEST_ASSERT(err == 0, "Fail to set PV stealtime GPA");
 }
 
-static void steal_time_dump(struct kvm_vm *vm, uint32_t vcpu_idx)
+static void steal_time_dump(struct kvm_vm *vm, u32 vcpu_idx)
 {
 	struct kvm_steal_time *st = addr_gva2hva(vm, (ulong)st_gva[vcpu_idx]);
 

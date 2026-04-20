@@ -41,7 +41,7 @@ bool kvm_supports_vgic_v3(void)
  * redistributor regions of the guest. Since it depends on the number of
  * vCPUs for the VM, it must be called after all the vCPUs have been created.
  */
-int __vgic_v3_setup(struct kvm_vm *vm, unsigned int nr_vcpus, uint32_t nr_irqs)
+int __vgic_v3_setup(struct kvm_vm *vm, unsigned int nr_vcpus, u32 nr_irqs)
 {
 	int gic_fd;
 	u64 attr;
@@ -77,7 +77,7 @@ void __vgic_v3_init(int fd)
 			    KVM_DEV_ARM_VGIC_CTRL_INIT, NULL);
 }
 
-int vgic_v3_setup(struct kvm_vm *vm, unsigned int nr_vcpus, uint32_t nr_irqs)
+int vgic_v3_setup(struct kvm_vm *vm, unsigned int nr_vcpus, u32 nr_irqs)
 {
 	unsigned int nr_vcpus_created = 0;
 	struct list_head *iter;
@@ -104,7 +104,7 @@ int vgic_v3_setup(struct kvm_vm *vm, unsigned int nr_vcpus, uint32_t nr_irqs)
 }
 
 /* should only work for level sensitive interrupts */
-int _kvm_irq_set_level_info(int gic_fd, uint32_t intid, int level)
+int _kvm_irq_set_level_info(int gic_fd, u32 intid, int level)
 {
 	u64 attr = 32 * (intid / 32);
 	u64 index = intid % 32;
@@ -122,16 +122,16 @@ int _kvm_irq_set_level_info(int gic_fd, uint32_t intid, int level)
 	return ret;
 }
 
-void kvm_irq_set_level_info(int gic_fd, uint32_t intid, int level)
+void kvm_irq_set_level_info(int gic_fd, u32 intid, int level)
 {
 	int ret = _kvm_irq_set_level_info(gic_fd, intid, level);
 
 	TEST_ASSERT(!ret, KVM_IOCTL_ERROR(KVM_DEV_ARM_VGIC_GRP_LEVEL_INFO, ret));
 }
 
-int _kvm_arm_irq_line(struct kvm_vm *vm, uint32_t intid, int level)
+int _kvm_arm_irq_line(struct kvm_vm *vm, u32 intid, int level)
 {
-	uint32_t irq = intid & KVM_ARM_IRQ_NUM_MASK;
+	u32 irq = intid & KVM_ARM_IRQ_NUM_MASK;
 
 	TEST_ASSERT(!INTID_IS_SGI(intid), "KVM_IRQ_LINE's interface itself "
 		"doesn't allow injecting SGIs. There's no mask for it.");
@@ -144,14 +144,14 @@ int _kvm_arm_irq_line(struct kvm_vm *vm, uint32_t intid, int level)
 	return _kvm_irq_line(vm, irq, level);
 }
 
-void kvm_arm_irq_line(struct kvm_vm *vm, uint32_t intid, int level)
+void kvm_arm_irq_line(struct kvm_vm *vm, u32 intid, int level)
 {
 	int ret = _kvm_arm_irq_line(vm, intid, level);
 
 	TEST_ASSERT(!ret, KVM_IOCTL_ERROR(KVM_IRQ_LINE, ret));
 }
 
-static void vgic_poke_irq(int gic_fd, uint32_t intid, struct kvm_vcpu *vcpu,
+static void vgic_poke_irq(int gic_fd, u32 intid, struct kvm_vcpu *vcpu,
 			  u64 reg_off)
 {
 	u64 reg = intid / 32;
@@ -160,7 +160,7 @@ static void vgic_poke_irq(int gic_fd, uint32_t intid, struct kvm_vcpu *vcpu,
 	u64 val;
 	bool intid_is_private = INTID_IS_SGI(intid) || INTID_IS_PPI(intid);
 
-	uint32_t group = intid_is_private ? KVM_DEV_ARM_VGIC_GRP_REDIST_REGS
+	u32 group = intid_is_private ? KVM_DEV_ARM_VGIC_GRP_REDIST_REGS
 					  : KVM_DEV_ARM_VGIC_GRP_DIST_REGS;
 
 	if (intid_is_private) {
@@ -183,12 +183,12 @@ static void vgic_poke_irq(int gic_fd, uint32_t intid, struct kvm_vcpu *vcpu,
 	kvm_device_attr_set(gic_fd, group, attr, &val);
 }
 
-void kvm_irq_write_ispendr(int gic_fd, uint32_t intid, struct kvm_vcpu *vcpu)
+void kvm_irq_write_ispendr(int gic_fd, u32 intid, struct kvm_vcpu *vcpu)
 {
 	vgic_poke_irq(gic_fd, intid, vcpu, GICD_ISPENDR);
 }
 
-void kvm_irq_write_isactiver(int gic_fd, uint32_t intid, struct kvm_vcpu *vcpu)
+void kvm_irq_write_isactiver(int gic_fd, u32 intid, struct kvm_vcpu *vcpu)
 {
 	vgic_poke_irq(gic_fd, intid, vcpu, GICD_ISACTIVER);
 }

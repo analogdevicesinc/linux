@@ -116,13 +116,13 @@ struct pvclock_wall_clock {
 } __attribute__((__packed__));
 
 struct vcpu_runstate_info {
-	uint32_t state;
+	u32 state;
 	u64 state_entry_time;
 	u64 time[5]; /* Extra field for overrun check */
 };
 
 struct compat_vcpu_runstate_info {
-	uint32_t state;
+	u32 state;
 	u64 state_entry_time;
 	u64 time[5];
 } __attribute__((__packed__));
@@ -145,7 +145,7 @@ struct shared_info {
 	unsigned long evtchn_pending[64];
 	unsigned long evtchn_mask[64];
 	struct pvclock_wall_clock wc;
-	uint32_t wc_sec_hi;
+	u32 wc_sec_hi;
 	/* arch_shared_info here */
 };
 

@@ -29,9 +29,9 @@ TYPE(test_type_i64,  I64,  "%ld",   s64)		\
 TYPE(test_type_u64,  U64u, "%lu",   u64)		\
 TYPE(test_type_x64,  U64x, "0x%lx", u64)		\
 TYPE(test_type_X64,  U64X, "0x%lX", u64)		\
-TYPE(test_type_u32,  U32u, "%u",    uint32_t)		\
-TYPE(test_type_x32,  U32x, "0x%x",  uint32_t)		\
-TYPE(test_type_X32,  U32X, "0x%X",  uint32_t)		\
+TYPE(test_type_u32,  U32u, "%u",    u32)		\
+TYPE(test_type_x32,  U32x, "0x%x",  u32)		\
+TYPE(test_type_X32,  U32X, "0x%X",  u32)		\
 TYPE(test_type_int,  INT,  "%d",    int)		\
 TYPE(test_type_char, CHAR, "%c",    char)		\
 TYPE(test_type_str,  STR,  "'%s'",  const char *)	\

@@ -34,7 +34,7 @@ static void guest_code(u64 base_gva)
 struct slot_worker_data {
 	struct kvm_vm *vm;
 	u64 gpa;
-	uint32_t flags;
+	u32 flags;
 	bool worker_ready;
 	bool prefault_ready;
 	bool recreate_slot;

@@ -82,8 +82,8 @@ static inline void __tilerelease(void)
 
 static inline void __xsavec(struct xstate *xstate, u64 rfbm)
 {
-	uint32_t rfbm_lo = rfbm;
-	uint32_t rfbm_hi = rfbm >> 32;
+	u32 rfbm_lo = rfbm;
+	u32 rfbm_hi = rfbm >> 32;
 
 	asm volatile("xsavec (%%rdi)"
 		     : : "D" (xstate), "a" (rfbm_lo), "d" (rfbm_hi)

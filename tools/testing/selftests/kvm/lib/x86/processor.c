@@ -525,7 +525,7 @@ void tdp_map(struct kvm_vm *vm, u64 nested_paddr, u64 paddr,
  */
 void tdp_identity_map_default_memslots(struct kvm_vm *vm)
 {
-	uint32_t s, memslot = 0;
+	u32 s, memslot = 0;
 	sparsebit_idx_t i, last;
 	struct userspace_mem_region *region = memslot2region(vm, memslot);
 
@@ -821,7 +821,7 @@ void vcpu_arch_set_entry_point(struct kvm_vcpu *vcpu, void *guest_code)
 	vcpu_regs_set(vcpu, &regs);
 }
 
-struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
+struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 {
 	struct kvm_mp_state mp_state;
 	struct kvm_regs regs;
@@ -872,7 +872,7 @@ struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
 	return vcpu;
 }
 
-struct kvm_vcpu *vm_arch_vcpu_recreate(struct kvm_vm *vm, uint32_t vcpu_id)
+struct kvm_vcpu *vm_arch_vcpu_recreate(struct kvm_vm *vm, u32 vcpu_id)
 {
 	struct kvm_vcpu *vcpu = __vm_vcpu_add(vm, vcpu_id);
 
@@ -907,9 +907,9 @@ const struct kvm_cpuid2 *kvm_get_supported_cpuid(void)
 	return kvm_supported_cpuid;
 }
 
-static uint32_t __kvm_cpu_has(const struct kvm_cpuid2 *cpuid,
-			      uint32_t function, uint32_t index,
-			      uint8_t reg, uint8_t lo, uint8_t hi)
+static u32 __kvm_cpu_has(const struct kvm_cpuid2 *cpuid,
+			 u32 function, u32 index,
+			 uint8_t reg, uint8_t lo, uint8_t hi)
 {
 	const struct kvm_cpuid_entry2 *entry;
 	int i;
@@ -936,8 +936,8 @@ bool kvm_cpuid_has(const struct kvm_cpuid2 *cpuid,
 			     feature.reg, feature.bit, feature.bit);
 }
 
-uint32_t kvm_cpuid_property(const struct kvm_cpuid2 *cpuid,
-			    struct kvm_x86_cpu_property property)
+u32 kvm_cpuid_property(const struct kvm_cpuid2 *cpuid,
+		       struct kvm_x86_cpu_property property)
 {
 	return __kvm_cpu_has(cpuid, property.function, property.index,
 			     property.reg, property.lo_bit, property.hi_bit);
@@ -1019,7 +1019,7 @@ void vcpu_init_cpuid(struct kvm_vcpu *vcpu, const struct kvm_cpuid2 *cpuid)
 
 void vcpu_set_cpuid_property(struct kvm_vcpu *vcpu,
 			     struct kvm_x86_cpu_property property,
-			     uint32_t value)
+			     u32 value)
 {
 	struct kvm_cpuid_entry2 *entry;
 
@@ -1034,7 +1034,7 @@ void vcpu_set_cpuid_property(struct kvm_vcpu *vcpu,
 	TEST_ASSERT_EQ(kvm_cpuid_property(vcpu->cpuid, property), value);
 }
 
-void vcpu_clear_cpuid_entry(struct kvm_vcpu *vcpu, uint32_t function)
+void vcpu_clear_cpuid_entry(struct kvm_vcpu *vcpu, u32 function)
 {
 	struct kvm_cpuid_entry2 *entry = vcpu_get_cpuid_entry(vcpu, function);
 
@@ -1196,7 +1196,7 @@ const struct kvm_msr_list *kvm_get_feature_msr_index_list(void)
 	return list;
 }
 
-bool kvm_msr_is_in_save_restore_list(uint32_t msr_index)
+bool kvm_msr_is_in_save_restore_list(u32 msr_index)
 {
 	const struct kvm_msr_list *list = kvm_get_msr_index_list();
 	int i;
@@ -1327,7 +1327,7 @@ void kvm_init_vm_address_properties(struct kvm_vm *vm)
 }
 
 const struct kvm_cpuid_entry2 *get_cpuid_entry(const struct kvm_cpuid2 *cpuid,
-					       uint32_t function, uint32_t index)
+					       u32 function, u32 index)
 {
 	int i;
 

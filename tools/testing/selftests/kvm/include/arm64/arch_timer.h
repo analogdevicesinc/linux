@@ -26,7 +26,7 @@ enum arch_timer {
 #define cycles_to_usec(cycles) \
 	((u64)(cycles) * 1000000 / timer_get_cntfrq())
 
-static inline uint32_t timer_get_cntfrq(void)
+static inline u32 timer_get_cntfrq(void)
 {
 	return read_sysreg(cntfrq_el0);
 }
@@ -111,7 +111,7 @@ static inline int32_t timer_get_tval(enum arch_timer timer)
 	return 0;
 }
 
-static inline void timer_set_ctl(enum arch_timer timer, uint32_t ctl)
+static inline void timer_set_ctl(enum arch_timer timer, u32 ctl)
 {
 	switch (timer) {
 	case VIRTUAL:
@@ -127,7 +127,7 @@ static inline void timer_set_ctl(enum arch_timer timer, uint32_t ctl)
 	isb();
 }
 
-static inline uint32_t timer_get_ctl(enum arch_timer timer)
+static inline u32 timer_get_ctl(enum arch_timer timer)
 {
 	switch (timer) {
 	case VIRTUAL:
@@ -142,7 +142,7 @@ static inline uint32_t timer_get_ctl(enum arch_timer timer)
 	return 0;
 }
 
-static inline void timer_set_next_cval_ms(enum arch_timer timer, uint32_t msec)
+static inline void timer_set_next_cval_ms(enum arch_timer timer, u32 msec)
 {
 	u64 now_ct = timer_get_cntct(timer);
 	u64 next_ct = now_ct + msec_to_cycles(msec);
@@ -150,7 +150,7 @@ static inline void timer_set_next_cval_ms(enum arch_timer timer, uint32_t msec)
 	timer_set_cval(timer, next_ct);
 }
 
-static inline void timer_set_next_tval_ms(enum arch_timer timer, uint32_t msec)
+static inline void timer_set_next_tval_ms(enum arch_timer timer, u32 msec)
 {
 	timer_set_tval(timer, msec_to_cycles(msec));
 }

@@ -30,7 +30,7 @@
 #define NUM_INSNS_RETIRED		(NUM_LOOPS * NUM_INSNS_PER_LOOP + NUM_EXTRA_INSNS)
 
 /* Track which architectural events are supported by hardware. */
-static uint32_t hardware_pmu_arch_events;
+static u32 hardware_pmu_arch_events;
 
 static uint8_t kvm_pmu_version;
 static bool kvm_has_perf_caps;
@@ -153,7 +153,7 @@ static uint8_t guest_get_pmu_version(void)
  * Sanity check that in all cases, the event doesn't count when it's disabled,
  * and that KVM correctly emulates the write of an arbitrary value.
  */
-static void guest_assert_event_count(uint8_t idx, uint32_t pmc, uint32_t pmc_msr)
+static void guest_assert_event_count(uint8_t idx, u32 pmc, u32 pmc_msr)
 {
 	u64 count;
 
@@ -236,7 +236,7 @@ do {										\
 			     FEP "xor %%eax, %%eax\n\t"				\
 			     FEP "xor %%edx, %%edx\n\t"				\
 			     "wrmsr\n\t"					\
-			     :: "a"((uint32_t)_value), "d"(_value >> 32),	\
+			     :: "a"((u32)_value), "d"(_value >> 32),	\
 				"c"(_msr), "D"(_msr), [m]"m"(kvm_pmu_version)	\
 	);									\
 } while (0)
@@ -255,8 +255,8 @@ do {										\
 	guest_assert_event_count(_idx, _pmc, _pmc_msr);				\
 } while (0)
 
-static void __guest_test_arch_event(uint8_t idx, uint32_t pmc, uint32_t pmc_msr,
-				    uint32_t ctrl_msr, u64 ctrl_msr_value)
+static void __guest_test_arch_event(uint8_t idx, u32 pmc, u32 pmc_msr,
+				    u32 ctrl_msr, u64 ctrl_msr_value)
 {
 	GUEST_TEST_EVENT(idx, pmc, pmc_msr, ctrl_msr, ctrl_msr_value, "");
 
@@ -266,12 +266,12 @@ static void __guest_test_arch_event(uint8_t idx, uint32_t pmc, uint32_t pmc_msr,
 
 static void guest_test_arch_event(uint8_t idx)
 {
-	uint32_t nr_gp_counters = this_cpu_property(X86_PROPERTY_PMU_NR_GP_COUNTERS);
-	uint32_t pmu_version = guest_get_pmu_version();
+	u32 nr_gp_counters = this_cpu_property(X86_PROPERTY_PMU_NR_GP_COUNTERS);
+	u32 pmu_version = guest_get_pmu_version();
 	/* PERF_GLOBAL_CTRL exists only for Architectural PMU Version 2+. */
 	bool guest_has_perf_global_ctrl = pmu_version >= 2;
 	struct kvm_x86_pmu_feature gp_event, fixed_event;
-	uint32_t base_pmc_msr;
+	u32 base_pmc_msr;
 	unsigned int i;
 
 	/* The host side shouldn't invoke this without a guest PMU. */
@@ -329,7 +329,7 @@ static void guest_test_arch_events(void)
 }
 
 static void test_arch_events(uint8_t pmu_version, u64 perf_capabilities,
-			     uint8_t length, uint32_t unavailable_mask)
+			     uint8_t length, u32 unavailable_mask)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -373,7 +373,7 @@ __GUEST_ASSERT(expect_gp ? vector == GP_VECTOR : !vector,			\
 		       "Expected " #insn "(0x%x) to yield 0x%lx, got 0x%lx",	\
 		       msr, expected, val);
 
-static void guest_test_rdpmc(uint32_t rdpmc_idx, bool expect_success,
+static void guest_test_rdpmc(u32 rdpmc_idx, bool expect_success,
 			     u64 expected_val)
 {
 	uint8_t vector;
@@ -393,8 +393,8 @@ static void guest_test_rdpmc(uint32_t rdpmc_idx, bool expect_success,
 		GUEST_ASSERT_PMC_VALUE(RDPMC, rdpmc_idx, val, expected_val);
 }
 
-static void guest_rd_wr_counters(uint32_t base_msr, uint8_t nr_possible_counters,
-				 uint8_t nr_counters, uint32_t or_mask)
+static void guest_rd_wr_counters(u32 base_msr, uint8_t nr_possible_counters,
+				 uint8_t nr_counters, u32 or_mask)
 {
 	const bool pmu_has_fast_mode = !guest_get_pmu_version();
 	uint8_t i;
@@ -405,7 +405,7 @@ static void guest_rd_wr_counters(uint32_t base_msr, uint8_t nr_possible_counters
 		 * width of the counters.
 		 */
 		const u64 test_val = 0xffff;
-		const uint32_t msr = base_msr + i;
+		const u32 msr = base_msr + i;
 
 		/*
 		 * Fixed counters are supported if the counter is less than the
@@ -421,7 +421,7 @@ static void guest_rd_wr_counters(uint32_t base_msr, uint8_t nr_possible_counters
 		const u64 expected_val = expect_success ? test_val : 0;
 		const bool expect_gp = !expect_success && msr != MSR_P6_PERFCTR0 &&
 				       msr != MSR_P6_PERFCTR1;
-		uint32_t rdpmc_idx;
+		u32 rdpmc_idx;
 		uint8_t vector;
 		u64 val;
 
@@ -463,7 +463,7 @@ static void guest_test_gp_counters(void)
 {
 	uint8_t pmu_version = guest_get_pmu_version();
 	uint8_t nr_gp_counters = 0;
-	uint32_t base_msr;
+	u32 base_msr;
 
 	if (pmu_version)
 		nr_gp_counters = this_cpu_property(X86_PROPERTY_PMU_NR_GP_COUNTERS);
@@ -563,7 +563,7 @@ static void guest_test_fixed_counters(void)
 
 static void test_fixed_counters(uint8_t pmu_version, u64 perf_capabilities,
 				uint8_t nr_fixed_counters,
-				uint32_t supported_bitmask)
+				u32 supported_bitmask)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -588,7 +588,7 @@ static void test_intel_counters(void)
 	uint8_t pmu_version = kvm_cpu_property(X86_PROPERTY_PMU_VERSION);
 	unsigned int i;
 	uint8_t v, j;
-	uint32_t k;
+	u32 k;
 
 	const u64 perf_caps[] = {
 		0,
@@ -602,7 +602,7 @@ static void test_intel_counters(void)
 	 * as alternating bit sequencues, e.g. to detect if KVM is checking the
 	 * wrong bit(s).
 	 */
-	const uint32_t unavailable_masks[] = {
+	const u32 unavailable_masks[] = {
 		0x0,
 		0xffffffffu,
 		0xaaaaaaaau,

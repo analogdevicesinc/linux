@@ -14,7 +14,7 @@
 
 struct kvm_coalesced_io {
 	struct kvm_coalesced_mmio_ring *ring;
-	uint32_t ring_size;
+	u32 ring_size;
 	u64 mmio_gpa;
 	u64 *mmio;
 
@@ -70,13 +70,13 @@ static void guest_code(struct kvm_coalesced_io *io)
 
 static void vcpu_run_and_verify_io_exit(struct kvm_vcpu *vcpu,
 					struct kvm_coalesced_io *io,
-					uint32_t ring_start,
-					uint32_t expected_exit)
+					u32 ring_start,
+					u32 expected_exit)
 {
 	const bool want_pio = expected_exit == KVM_EXIT_IO;
 	struct kvm_coalesced_mmio_ring *ring = io->ring;
 	struct kvm_run *run = vcpu->run;
-	uint32_t pio_value;
+	u32 pio_value;
 
 	WRITE_ONCE(ring->first, ring_start);
 	WRITE_ONCE(ring->last, ring_start);
@@ -88,7 +88,7 @@ static void vcpu_run_and_verify_io_exit(struct kvm_vcpu *vcpu,
 	 * data_offset is garbage, e.g. an MMIO gpa.
 	 */
 	if (run->exit_reason == KVM_EXIT_IO)
-		pio_value = *(uint32_t *)((void *)run + run->io.data_offset);
+		pio_value = *(u32 *)((void *)run + run->io.data_offset);
 	else
 		pio_value = 0;
 
@@ -111,8 +111,8 @@ static void vcpu_run_and_verify_io_exit(struct kvm_vcpu *vcpu,
 
 static void vcpu_run_and_verify_coalesced_io(struct kvm_vcpu *vcpu,
 					     struct kvm_coalesced_io *io,
-					     uint32_t ring_start,
-					     uint32_t expected_exit)
+					     u32 ring_start,
+					     u32 expected_exit)
 {
 	struct kvm_coalesced_mmio_ring *ring = io->ring;
 	int i;
@@ -124,18 +124,18 @@ static void vcpu_run_and_verify_coalesced_io(struct kvm_vcpu *vcpu,
 		    ring->first, ring->last, io->ring_size, ring_start);
 
 	for (i = 0; i < io->ring_size - 1; i++) {
-		uint32_t idx = (ring->first + i) % io->ring_size;
+		u32 idx = (ring->first + i) % io->ring_size;
 		struct kvm_coalesced_mmio *entry = &ring->coalesced_mmio[idx];
 
 #ifdef __x86_64__
 		if (i & 1)
 			TEST_ASSERT(entry->phys_addr == io->pio_port &&
 				    entry->len == 4 && entry->pio &&
-				    *(uint32_t *)entry->data == io->pio_port + i,
+				    *(u32 *)entry->data == io->pio_port + i,
 				    "Wanted 4-byte port I/O 0x%x = 0x%x in entry %u, got %u-byte %s 0x%llx = 0x%x",
 				    io->pio_port, io->pio_port + i, i,
 				    entry->len, entry->pio ? "PIO" : "MMIO",
-				    entry->phys_addr, *(uint32_t *)entry->data);
+				    entry->phys_addr, *(u32 *)entry->data);
 		else
 #endif
 			TEST_ASSERT(entry->phys_addr == io->mmio_gpa &&
@@ -148,7 +148,7 @@ static void vcpu_run_and_verify_coalesced_io(struct kvm_vcpu *vcpu,
 }
 
 static void test_coalesced_io(struct kvm_vcpu *vcpu,
-			      struct kvm_coalesced_io *io, uint32_t ring_start)
+			      struct kvm_coalesced_io *io, u32 ring_start)
 {
 	struct kvm_coalesced_mmio_ring *ring = io->ring;
 

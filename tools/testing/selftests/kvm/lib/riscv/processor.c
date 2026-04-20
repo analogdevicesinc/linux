@@ -45,7 +45,7 @@ static u64 pte_index_mask[] = {
 	PGTBL_L3_INDEX_MASK,
 };
 
-static uint32_t pte_index_shift[] = {
+static u32 pte_index_shift[] = {
 	PGTBL_L0_INDEX_SHIFT,
 	PGTBL_L1_INDEX_SHIFT,
 	PGTBL_L2_INDEX_SHIFT,
@@ -311,7 +311,7 @@ void vcpu_arch_set_entry_point(struct kvm_vcpu *vcpu, void *guest_code)
 	vcpu_set_reg(vcpu, RISCV_CORE_REG(regs.pc), (unsigned long)guest_code);
 }
 
-struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
+struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 {
 	int r;
 	size_t stack_size;
@@ -470,7 +470,7 @@ void vm_install_interrupt_handler(struct kvm_vm *vm, exception_handler_fn handle
 	handlers->exception_handlers[1][0] = handler;
 }
 
-uint32_t guest_get_vcpuid(void)
+u32 guest_get_vcpuid(void)
 {
 	return csr_read(CSR_SSCRATCH);
 }

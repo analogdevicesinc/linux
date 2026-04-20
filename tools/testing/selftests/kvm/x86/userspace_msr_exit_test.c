@@ -142,9 +142,9 @@ struct kvm_msr_filter no_filter_deny = {
  * Note: Force test_rdmsr() to not be inlined to prevent the labels,
  * rdmsr_start and rdmsr_end, from being defined multiple times.
  */
-static noinline u64 test_rdmsr(uint32_t msr)
+static noinline u64 test_rdmsr(u32 msr)
 {
-	uint32_t a, d;
+	u32 a, d;
 
 	guest_exception_count = 0;
 
@@ -158,10 +158,10 @@ static noinline u64 test_rdmsr(uint32_t msr)
  * Note: Force test_wrmsr() to not be inlined to prevent the labels,
  * wrmsr_start and wrmsr_end, from being defined multiple times.
  */
-static noinline void test_wrmsr(uint32_t msr, u64 value)
+static noinline void test_wrmsr(u32 msr, u64 value)
 {
-	uint32_t a = value;
-	uint32_t d = value >> 32;
+	u32 a = value;
+	u32 d = value >> 32;
 
 	guest_exception_count = 0;
 
@@ -176,9 +176,9 @@ extern char wrmsr_start, wrmsr_end;
  * Note: Force test_em_rdmsr() to not be inlined to prevent the labels,
  * rdmsr_start and rdmsr_end, from being defined multiple times.
  */
-static noinline u64 test_em_rdmsr(uint32_t msr)
+static noinline u64 test_em_rdmsr(u32 msr)
 {
-	uint32_t a, d;
+	u32 a, d;
 
 	guest_exception_count = 0;
 
@@ -192,10 +192,10 @@ static noinline u64 test_em_rdmsr(uint32_t msr)
  * Note: Force test_em_wrmsr() to not be inlined to prevent the labels,
  * wrmsr_start and wrmsr_end, from being defined multiple times.
  */
-static noinline void test_em_wrmsr(uint32_t msr, u64 value)
+static noinline void test_em_wrmsr(u32 msr, u64 value)
 {
-	uint32_t a = value;
-	uint32_t d = value >> 32;
+	u32 a = value;
+	u32 d = value >> 32;
 
 	guest_exception_count = 0;
 
@@ -391,7 +391,7 @@ static void check_for_guest_assert(struct kvm_vcpu *vcpu)
 	}
 }
 
-static void process_rdmsr(struct kvm_vcpu *vcpu, uint32_t msr_index)
+static void process_rdmsr(struct kvm_vcpu *vcpu, u32 msr_index)
 {
 	struct kvm_run *run = vcpu->run;
 
@@ -423,7 +423,7 @@ static void process_rdmsr(struct kvm_vcpu *vcpu, uint32_t msr_index)
 	}
 }
 
-static void process_wrmsr(struct kvm_vcpu *vcpu, uint32_t msr_index)
+static void process_wrmsr(struct kvm_vcpu *vcpu, u32 msr_index)
 {
 	struct kvm_run *run = vcpu->run;
 
@@ -489,14 +489,14 @@ static u64 process_ucall(struct kvm_vcpu *vcpu)
 }
 
 static void run_guest_then_process_rdmsr(struct kvm_vcpu *vcpu,
-					 uint32_t msr_index)
+					 u32 msr_index)
 {
 	vcpu_run(vcpu);
 	process_rdmsr(vcpu, msr_index);
 }
 
 static void run_guest_then_process_wrmsr(struct kvm_vcpu *vcpu,
-					 uint32_t msr_index)
+					 u32 msr_index)
 {
 	vcpu_run(vcpu);
 	process_wrmsr(vcpu, msr_index);

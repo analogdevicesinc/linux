@@ -88,7 +88,7 @@ static void l1_guest_code(void *data)
 	 */
 	if (this_cpu_has(X86_FEATURE_VMX)) {
 		struct vmx_pages *vmx_pages = data;
-		uint32_t control;
+		u32 control;
 
 		GUEST_ASSERT(prepare_for_vmx_operation(vmx_pages));
 		GUEST_ASSERT(load_vmcs(vmx_pages));

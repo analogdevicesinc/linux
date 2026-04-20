@@ -52,16 +52,16 @@ static volatile u64 ipis_rcvd;
 
 /* Data struct shared between host main thread and vCPUs */
 struct test_data_page {
-	uint32_t halter_apic_id;
+	u32 halter_apic_id;
 	volatile u64 hlt_count;
 	volatile u64 wake_count;
 	u64 ipis_sent;
 	u64 migrations_attempted;
 	u64 migrations_completed;
-	uint32_t icr;
-	uint32_t icr2;
-	uint32_t halter_tpr;
-	uint32_t halter_ppr;
+	u32 icr;
+	u32 icr2;
+	u32 halter_tpr;
+	u32 halter_ppr;
 
 	/*
 	 *  Record local version register as a cross-check that APIC access
@@ -69,7 +69,7 @@ struct test_data_page {
 	 *  arch/x86/kvm/lapic.c). If test is failing, check that values match
 	 *  to determine whether APIC access exits are working.
 	 */
-	uint32_t halter_lvr;
+	u32 halter_lvr;
 };
 
 struct thread_params {
@@ -128,8 +128,8 @@ static void sender_guest_code(struct test_data_page *data)
 	u64 last_wake_count;
 	u64 last_hlt_count;
 	u64 last_ipis_rcvd_count;
-	uint32_t icr_val;
-	uint32_t icr2_val;
+	u32 icr_val;
+	u32 icr2_val;
 	u64 tsc_start;
 
 	verify_apic_base_addr();

@@ -46,14 +46,14 @@ static inline bool is_sev_vm(struct kvm_vm *vm)
 	return is_sev_es_vm(vm) || vm->type == KVM_X86_SEV_VM;
 }
 
-void sev_vm_launch(struct kvm_vm *vm, uint32_t policy);
+void sev_vm_launch(struct kvm_vm *vm, u32 policy);
 void sev_vm_launch_measure(struct kvm_vm *vm, uint8_t *measurement);
 void sev_vm_launch_finish(struct kvm_vm *vm);
 void snp_vm_launch_start(struct kvm_vm *vm, u64 policy);
 void snp_vm_launch_update(struct kvm_vm *vm);
 void snp_vm_launch_finish(struct kvm_vm *vm);
 
-struct kvm_vm *vm_sev_create_with_one_vcpu(uint32_t type, void *guest_code,
+struct kvm_vm *vm_sev_create_with_one_vcpu(u32 type, void *guest_code,
 					   struct kvm_vcpu **cpu);
 void vm_sev_launch(struct kvm_vm *vm, u64 policy, uint8_t *measurement);
 

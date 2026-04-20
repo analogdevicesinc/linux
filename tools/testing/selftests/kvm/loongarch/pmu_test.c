@@ -15,7 +15,7 @@ static int pmu_irq_count;
 /* Check PMU support */
 static bool has_pmu_support(void)
 {
-	uint32_t cfg6;
+	u32 cfg6;
 
 	/* Read CPUCFG6 to check PMU */
 	cfg6 = read_cpucfg(LOONGARCH_CPUCFG6);
@@ -34,7 +34,7 @@ static bool has_pmu_support(void)
 /* Dump PMU capabilities */
 static void dump_pmu_caps(void)
 {
-	uint32_t cfg6;
+	u32 cfg6;
 	int nr_counters, counter_bits;
 
 	cfg6 = read_cpucfg(LOONGARCH_CPUCFG6);
@@ -51,7 +51,7 @@ static void dump_pmu_caps(void)
 static void guest_pmu_base_test(void)
 {
 	int i;
-	uint32_t cfg6, pmnum;
+	u32 cfg6, pmnum;
 	u64 cnt[4];
 
 	cfg6 = read_cpucfg(LOONGARCH_CPUCFG6);

@@ -47,7 +47,7 @@ static inline void timer_irq_disable(void)
 	csr_clear(CSR_SIE, IE_TIE);
 }
 
-static inline void timer_set_next_cmp_ms(uint32_t msec)
+static inline void timer_set_next_cmp_ms(u32 msec)
 {
 	u64 now_ct = timer_get_cycles();
 	u64 next_ct = now_ct + msec_to_cycles(msec);

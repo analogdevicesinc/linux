@@ -42,11 +42,11 @@ struct mop_desc {
 	unsigned int _set_flags : 1;
 	unsigned int _sida_offset : 1;
 	unsigned int _ar : 1;
-	uint32_t size;
+	u32 size;
 	enum mop_target target;
 	enum mop_access_mode mode;
 	void *buf;
-	uint32_t sida_offset;
+	u32 sida_offset;
 	void *old;
 	uint8_t old_value[16];
 	bool *cmpxchg_success;
@@ -296,7 +296,7 @@ static void prepare_mem12(void)
 	TEST_ASSERT(!memcmp(p1, p2, size), "Memory contents do not match!")
 
 static void default_write_read(struct test_info copy_cpu, struct test_info mop_cpu,
-			       enum mop_target mop_target, uint32_t size, uint8_t key)
+			       enum mop_target mop_target, u32 size, uint8_t key)
 {
 	prepare_mem12();
 	CHECK_N_DO(MOP, mop_cpu, mop_target, WRITE, mem1, size,
@@ -308,7 +308,7 @@ static void default_write_read(struct test_info copy_cpu, struct test_info mop_c
 }
 
 static void default_read(struct test_info copy_cpu, struct test_info mop_cpu,
-			 enum mop_target mop_target, uint32_t size, uint8_t key)
+			 enum mop_target mop_target, u32 size, uint8_t key)
 {
 	prepare_mem12();
 	CHECK_N_DO(MOP, mop_cpu, mop_target, WRITE, mem1, size, GADDR_V(mem1));
@@ -487,7 +487,7 @@ static __uint128_t cut_to_size(int size, __uint128_t val)
 	case 2:
 		return (uint16_t)val;
 	case 4:
-		return (uint32_t)val;
+		return (u32)val;
 	case 8:
 		return (u64)val;
 	case 16:
@@ -585,15 +585,15 @@ static bool _cmpxchg(int size, void *target, __uint128_t *old_addr, __uint128_t 
 
 	switch (size) {
 	case 4: {
-			uint32_t old = *old_addr;
+			u32 old = *old_addr;
 
 			asm volatile ("cs %[old],%[new],%[address]"
 			    : [old] "+d" (old),
-			      [address] "+Q" (*(uint32_t *)(target))
-			    : [new] "d" ((uint32_t)new)
+			      [address] "+Q" (*(u32 *)(target))
+			    : [new] "d" ((u32)new)
 			    : "cc"
 			);
-			ret = old == (uint32_t)*old_addr;
+			ret = old == (u32)*old_addr;
 			*old_addr = old;
 			return ret;
 		}

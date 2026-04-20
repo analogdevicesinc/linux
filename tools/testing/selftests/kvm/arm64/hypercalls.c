@@ -59,7 +59,7 @@ enum test_stage {
 static int stage = TEST_STAGE_REG_IFACE;
 
 struct test_hvc_info {
-	uint32_t func_id;
+	u32 func_id;
 	u64 arg1;
 };
 
@@ -152,8 +152,8 @@ static void guest_code(void)
 }
 
 struct st_time {
-	uint32_t rev;
-	uint32_t attr;
+	u32 rev;
+	u32 attr;
 	u64 st_time;
 };
 

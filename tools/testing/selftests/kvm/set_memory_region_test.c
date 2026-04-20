@@ -345,8 +345,8 @@ static void test_zero_memory_regions(void)
 
 static void test_invalid_memory_region_flags(void)
 {
-	uint32_t supported_flags = KVM_MEM_LOG_DIRTY_PAGES;
-	const uint32_t v2_only_flags = KVM_MEM_GUEST_MEMFD;
+	u32 supported_flags = KVM_MEM_LOG_DIRTY_PAGES;
+	const u32 v2_only_flags = KVM_MEM_GUEST_MEMFD;
 	struct kvm_vm *vm;
 	int r, i;
 
@@ -410,8 +410,8 @@ static void test_add_max_memory_regions(void)
 {
 	int ret;
 	struct kvm_vm *vm;
-	uint32_t max_mem_slots;
-	uint32_t slot;
+	u32 max_mem_slots;
+	u32 slot;
 	void *mem, *mem_aligned, *mem_extra;
 	size_t alignment = 1;
 

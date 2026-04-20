@@ -13,7 +13,7 @@
 #include "linux/psp-sev.h"
 #include "sev.h"
 
-static void guest_sev_test_msr(uint32_t msr)
+static void guest_sev_test_msr(u32 msr)
 {
 	u64 val = rdmsr(msr);
 
@@ -104,7 +104,7 @@ static void compare_xsave(u8 *from_host, u8 *from_guest)
 		abort();
 }
 
-static void test_sync_vmsa(uint32_t type, u64 policy)
+static void test_sync_vmsa(u32 type, u64 policy)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -150,7 +150,7 @@ static void test_sync_vmsa(uint32_t type, u64 policy)
 	kvm_vm_free(vm);
 }
 
-static void test_sev(void *guest_code, uint32_t type, u64 policy)
+static void test_sev(void *guest_code, u32 type, u64 policy)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -201,7 +201,7 @@ static void guest_shutdown_code(void)
 	__asm__ __volatile__("ud2");
 }
 
-static void test_sev_shutdown(uint32_t type, u64 policy)
+static void test_sev_shutdown(u32 type, u64 policy)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -218,7 +218,7 @@ static void test_sev_shutdown(uint32_t type, u64 policy)
 	kvm_vm_free(vm);
 }
 
-static void test_sev_smoke(void *guest, uint32_t type, u64 policy)
+static void test_sev_smoke(void *guest, u32 type, u64 policy)
 {
 	const u64 xf_mask = XFEATURE_MASK_X87_AVX;
 

@@ -118,7 +118,7 @@ gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 
 void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
 {
-	uint32_t prot_bits;
+	u32 prot_bits;
 	u64 *ptep;
 
 	TEST_ASSERT((vaddr % vm->page_size) == 0,
@@ -223,7 +223,7 @@ void vm_install_exception_handler(struct kvm_vm *vm, int vector, handler_fn hand
 	handlers->exception_handlers[vector] = handler;
 }
 
-uint32_t guest_get_vcpuid(void)
+u32 guest_get_vcpuid(void)
 {
 	return csr_read(LOONGARCH_CSR_CPUID);
 }
@@ -369,7 +369,7 @@ void loongarch_vcpu_setup(struct kvm_vcpu *vcpu)
 	loongarch_set_csr(vcpu, LOONGARCH_CSR_TMID,  vcpu->id);
 }
 
-struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
+struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 {
 	size_t stack_size;
 	u64 stack_vaddr;

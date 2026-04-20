@@ -20,9 +20,9 @@
 
 #define KVM_UTIL_MIN_PFN	2
 
-uint32_t guest_random_seed;
+u32 guest_random_seed;
 struct guest_random_state guest_rng;
-static uint32_t last_guest_seed;
+static u32 last_guest_seed;
 
 static size_t vcpu_mmap_sz(void);
 
@@ -165,7 +165,7 @@ unsigned int kvm_check_cap(long cap)
 	return (unsigned int)ret;
 }
 
-void vm_enable_dirty_ring(struct kvm_vm *vm, uint32_t ring_size)
+void vm_enable_dirty_ring(struct kvm_vm *vm, u32 ring_size)
 {
 	if (vm_check_cap(vm, KVM_CAP_DIRTY_LOG_RING_ACQ_REL))
 		vm_enable_cap(vm, KVM_CAP_DIRTY_LOG_RING_ACQ_REL, ring_size);
@@ -189,7 +189,7 @@ static void vm_open(struct kvm_vm *vm)
 		vm->stats.fd = -1;
 }
 
-const char *vm_guest_mode_string(uint32_t i)
+const char *vm_guest_mode_string(u32 i)
 {
 	static const char * const strings[] = {
 		[VM_MODE_P52V48_4K]	= "PA-bits:52,  VA-bits:48,  4K pages",
@@ -397,7 +397,7 @@ struct kvm_vm *____vm_create(struct vm_shape shape)
 }
 
 static u64 vm_nr_pages_required(enum vm_guest_mode mode,
-				uint32_t nr_runnable_vcpus,
+				u32 nr_runnable_vcpus,
 				u64 extra_mem_pages)
 {
 	u64 page_size = vm_guest_mode_params[mode].page_size;
@@ -435,7 +435,7 @@ static u64 vm_nr_pages_required(enum vm_guest_mode mode,
 	return vm_adjust_num_guest_pages(mode, nr_pages);
 }
 
-void kvm_set_files_rlimit(uint32_t nr_vcpus)
+void kvm_set_files_rlimit(u32 nr_vcpus)
 {
 	/*
 	 * Each vCPU will open two file descriptors: the vCPU itself and the
@@ -476,7 +476,7 @@ static bool is_guest_memfd_required(struct vm_shape shape)
 #endif
 }
 
-struct kvm_vm *__vm_create(struct vm_shape shape, uint32_t nr_runnable_vcpus,
+struct kvm_vm *__vm_create(struct vm_shape shape, u32 nr_runnable_vcpus,
 			   u64 nr_extra_pages)
 {
 	u64 nr_pages = vm_nr_pages_required(shape.mode, nr_runnable_vcpus,
@@ -546,7 +546,7 @@ struct kvm_vm *__vm_create(struct vm_shape shape, uint32_t nr_runnable_vcpus,
  * extra_mem_pages is only used to calculate the maximum page table size,
  * no real memory allocation for non-slot0 memory in this function.
  */
-struct kvm_vm *__vm_create_with_vcpus(struct vm_shape shape, uint32_t nr_vcpus,
+struct kvm_vm *__vm_create_with_vcpus(struct vm_shape shape, u32 nr_vcpus,
 				      u64 extra_mem_pages,
 				      void *guest_code, struct kvm_vcpu *vcpus[])
 {
@@ -614,7 +614,7 @@ void kvm_vm_restart(struct kvm_vm *vmp)
 }
 
 __weak struct kvm_vcpu *vm_arch_vcpu_recreate(struct kvm_vm *vm,
-					      uint32_t vcpu_id)
+					      u32 vcpu_id)
 {
 	return __vm_vcpu_add(vm, vcpu_id);
 }
@@ -636,9 +636,9 @@ int __pin_task_to_cpu(pthread_t task, int cpu)
 	return pthread_setaffinity_np(task, sizeof(cpuset), &cpuset);
 }
 
-static uint32_t parse_pcpu(const char *cpu_str, const cpu_set_t *allowed_mask)
+static u32 parse_pcpu(const char *cpu_str, const cpu_set_t *allowed_mask)
 {
-	uint32_t pcpu = atoi_non_negative("CPU number", cpu_str);
+	u32 pcpu = atoi_non_negative("CPU number", cpu_str);
 
 	TEST_ASSERT(CPU_ISSET(pcpu, allowed_mask),
 		    "Not allowed to run on pCPU '%d', check cgroups?", pcpu);
@@ -662,7 +662,7 @@ void kvm_print_vcpu_pinning_help(void)
 	       "     (default: no pinning)\n", name, name);
 }
 
-void kvm_parse_vcpu_pinning(const char *pcpus_string, uint32_t vcpu_to_pcpu[],
+void kvm_parse_vcpu_pinning(const char *pcpus_string, u32 vcpu_to_pcpu[],
 			    int nr_vcpus)
 {
 	cpu_set_t allowed_mask;
@@ -918,7 +918,7 @@ static void vm_userspace_mem_region_hva_insert(struct rb_root *hva_tree,
 }
 
 
-int __vm_set_user_memory_region(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
+int __vm_set_user_memory_region(struct kvm_vm *vm, u32 slot, u32 flags,
 				u64 gpa, u64 size, void *hva)
 {
 	struct kvm_userspace_memory_region region = {
@@ -932,7 +932,7 @@ int __vm_set_user_memory_region(struct kvm_vm *vm, uint32_t slot, uint32_t flags
 	return ioctl(vm->fd, KVM_SET_USER_MEMORY_REGION, &region);
 }
 
-void vm_set_user_memory_region(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
+void vm_set_user_memory_region(struct kvm_vm *vm, u32 slot, u32 flags,
 			       u64 gpa, u64 size, void *hva)
 {
 	int ret = __vm_set_user_memory_region(vm, slot, flags, gpa, size, hva);
@@ -945,9 +945,9 @@ void vm_set_user_memory_region(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
 	__TEST_REQUIRE(kvm_has_cap(KVM_CAP_USER_MEMORY2),	\
 		       "KVM selftests now require KVM_SET_USER_MEMORY_REGION2 (introduced in v6.8)")
 
-int __vm_set_user_memory_region2(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
+int __vm_set_user_memory_region2(struct kvm_vm *vm, u32 slot, u32 flags,
 				 u64 gpa, u64 size, void *hva,
-				 uint32_t guest_memfd, u64 guest_memfd_offset)
+				 u32 guest_memfd, u64 guest_memfd_offset)
 {
 	struct kvm_userspace_memory_region2 region = {
 		.slot = slot,
@@ -964,9 +964,9 @@ int __vm_set_user_memory_region2(struct kvm_vm *vm, uint32_t slot, uint32_t flag
 	return ioctl(vm->fd, KVM_SET_USER_MEMORY_REGION2, &region);
 }
 
-void vm_set_user_memory_region2(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
+void vm_set_user_memory_region2(struct kvm_vm *vm, u32 slot, u32 flags,
 				u64 gpa, u64 size, void *hva,
-				uint32_t guest_memfd, u64 guest_memfd_offset)
+				u32 guest_memfd, u64 guest_memfd_offset)
 {
 	int ret = __vm_set_user_memory_region2(vm, slot, flags, gpa, size, hva,
 					       guest_memfd, guest_memfd_offset);
@@ -978,7 +978,7 @@ void vm_set_user_memory_region2(struct kvm_vm *vm, uint32_t slot, uint32_t flags
 
 /* FIXME: This thing needs to be ripped apart and rewritten. */
 void vm_mem_add(struct kvm_vm *vm, enum vm_mem_backing_src_type src_type,
-		u64 gpa, uint32_t slot, u64 npages, uint32_t flags,
+		u64 gpa, u32 slot, u64 npages, u32 flags,
 		int guest_memfd, u64 guest_memfd_offset)
 {
 	int ret;
@@ -1085,7 +1085,7 @@ void vm_mem_add(struct kvm_vm *vm, enum vm_mem_backing_src_type src_type,
 
 	if (flags & KVM_MEM_GUEST_MEMFD) {
 		if (guest_memfd < 0) {
-			uint32_t guest_memfd_flags = 0;
+			u32 guest_memfd_flags = 0;
 			TEST_ASSERT(!guest_memfd_offset,
 				    "Offset must be zero when creating new guest_memfd");
 			guest_memfd = vm_create_guest_memfd(vm, mem_size, guest_memfd_flags);
@@ -1141,8 +1141,7 @@ void vm_mem_add(struct kvm_vm *vm, enum vm_mem_backing_src_type src_type,
 
 void vm_userspace_mem_region_add(struct kvm_vm *vm,
 				 enum vm_mem_backing_src_type src_type,
-				 u64 gpa, uint32_t slot, u64 npages,
-				 uint32_t flags)
+				 u64 gpa, u32 slot, u64 npages, u32 flags)
 {
 	vm_mem_add(vm, src_type, gpa, slot, npages, flags, -1, 0);
 }
@@ -1163,7 +1162,7 @@ void vm_userspace_mem_region_add(struct kvm_vm *vm,
  *   memory slot ID).
  */
 struct userspace_mem_region *
-memslot2region(struct kvm_vm *vm, uint32_t memslot)
+memslot2region(struct kvm_vm *vm, u32 memslot)
 {
 	struct userspace_mem_region *region;
 
@@ -1194,7 +1193,7 @@ memslot2region(struct kvm_vm *vm, uint32_t memslot)
  * Sets the flags of the memory region specified by the value of slot,
  * to the values given by flags.
  */
-void vm_mem_region_set_flags(struct kvm_vm *vm, uint32_t slot, uint32_t flags)
+void vm_mem_region_set_flags(struct kvm_vm *vm, u32 slot, u32 flags)
 {
 	int ret;
 	struct userspace_mem_region *region;
@@ -1210,7 +1209,7 @@ void vm_mem_region_set_flags(struct kvm_vm *vm, uint32_t slot, uint32_t flags)
 		ret, errno, slot, flags);
 }
 
-void vm_mem_region_reload(struct kvm_vm *vm, uint32_t slot)
+void vm_mem_region_reload(struct kvm_vm *vm, u32 slot)
 {
 	struct userspace_mem_region *region = memslot2region(vm, slot);
 	struct kvm_userspace_memory_region2 tmp = region->region;
@@ -1234,7 +1233,7 @@ void vm_mem_region_reload(struct kvm_vm *vm, uint32_t slot)
  *
  * Change the gpa of a memory region.
  */
-void vm_mem_region_move(struct kvm_vm *vm, uint32_t slot, u64 new_gpa)
+void vm_mem_region_move(struct kvm_vm *vm, u32 slot, u64 new_gpa)
 {
 	struct userspace_mem_region *region;
 	int ret;
@@ -1263,7 +1262,7 @@ void vm_mem_region_move(struct kvm_vm *vm, uint32_t slot, u64 new_gpa)
  *
  * Delete a memory region.
  */
-void vm_mem_region_delete(struct kvm_vm *vm, uint32_t slot)
+void vm_mem_region_delete(struct kvm_vm *vm, u32 slot)
 {
 	struct userspace_mem_region *region = memslot2region(vm, slot);
 
@@ -1317,7 +1316,7 @@ static size_t vcpu_mmap_sz(void)
 	return ret;
 }
 
-static bool vcpu_exists(struct kvm_vm *vm, uint32_t vcpu_id)
+static bool vcpu_exists(struct kvm_vm *vm, u32 vcpu_id)
 {
 	struct kvm_vcpu *vcpu;
 
@@ -1333,7 +1332,7 @@ static bool vcpu_exists(struct kvm_vm *vm, uint32_t vcpu_id)
  * Adds a virtual CPU to the VM specified by vm with the ID given by vcpu_id.
  * No additional vCPU setup is done.  Returns the vCPU.
  */
-struct kvm_vcpu *__vm_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
+struct kvm_vcpu *__vm_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 {
 	struct kvm_vcpu *vcpu;
 
@@ -1777,8 +1776,8 @@ struct kvm_reg_list *vcpu_get_reg_list(struct kvm_vcpu *vcpu)
 
 void *vcpu_map_dirty_ring(struct kvm_vcpu *vcpu)
 {
-	uint32_t page_size = getpagesize();
-	uint32_t size = vcpu->vm->dirty_ring_size;
+	u32 page_size = getpagesize();
+	u32 size = vcpu->vm->dirty_ring_size;
 
 	TEST_ASSERT(size > 0, "Should enable dirty ring first");
 
@@ -1807,7 +1806,7 @@ void *vcpu_map_dirty_ring(struct kvm_vcpu *vcpu)
  * Device Ioctl
  */
 
-int __kvm_has_device_attr(int dev_fd, uint32_t group, u64 attr)
+int __kvm_has_device_attr(int dev_fd, u32 group, u64 attr)
 {
 	struct kvm_device_attr attribute = {
 		.group = group,
@@ -1842,7 +1841,7 @@ int __kvm_create_device(struct kvm_vm *vm, u64 type)
 	return err ? : create_dev.fd;
 }
 
-int __kvm_device_attr_get(int dev_fd, uint32_t group, u64 attr, void *val)
+int __kvm_device_attr_get(int dev_fd, u32 group, u64 attr, void *val)
 {
 	struct kvm_device_attr kvmattr = {
 		.group = group,
@@ -1854,7 +1853,7 @@ int __kvm_device_attr_get(int dev_fd, uint32_t group, u64 attr, void *val)
 	return __kvm_ioctl(dev_fd, KVM_GET_DEVICE_ATTR, &kvmattr);
 }
 
-int __kvm_device_attr_set(int dev_fd, uint32_t group, u64 attr, void *val)
+int __kvm_device_attr_set(int dev_fd, u32 group, u64 attr, void *val)
 {
 	struct kvm_device_attr kvmattr = {
 		.group = group,
@@ -1870,7 +1869,7 @@ int __kvm_device_attr_set(int dev_fd, uint32_t group, u64 attr, void *val)
  * IRQ related functions.
  */
 
-int _kvm_irq_line(struct kvm_vm *vm, uint32_t irq, int level)
+int _kvm_irq_line(struct kvm_vm *vm, u32 irq, int level)
 {
 	struct kvm_irq_level irq_level = {
 		.irq    = irq,
@@ -1880,7 +1879,7 @@ int _kvm_irq_line(struct kvm_vm *vm, uint32_t irq, int level)
 	return __vm_ioctl(vm, KVM_IRQ_LINE, &irq_level);
 }
 
-void kvm_irq_line(struct kvm_vm *vm, uint32_t irq, int level)
+void kvm_irq_line(struct kvm_vm *vm, u32 irq, int level)
 {
 	int ret = _kvm_irq_line(vm, irq, level);
 
@@ -1902,7 +1901,7 @@ struct kvm_irq_routing *kvm_gsi_routing_create(void)
 }
 
 void kvm_gsi_routing_irqchip_add(struct kvm_irq_routing *routing,
-		uint32_t gsi, uint32_t pin)
+		u32 gsi, u32 pin)
 {
 	int i;
 
@@ -2088,7 +2087,7 @@ const char *exit_reason_str(unsigned int exit_reason)
  * not enough pages are available at or above paddr_min.
  */
 gpa_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
-			   gpa_t paddr_min, uint32_t memslot,
+			   gpa_t paddr_min, u32 memslot,
 			   bool protected)
 {
 	struct userspace_mem_region *region;
@@ -2133,7 +2132,7 @@ gpa_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
 	return base * vm->page_size;
 }
 
-gpa_t vm_phy_page_alloc(struct kvm_vm *vm, gpa_t paddr_min, uint32_t memslot)
+gpa_t vm_phy_page_alloc(struct kvm_vm *vm, gpa_t paddr_min, u32 memslot)
 {
 	return vm_phy_pages_alloc(vm, 1, paddr_min, memslot);
 }
