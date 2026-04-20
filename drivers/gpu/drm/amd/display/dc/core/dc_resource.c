@@ -5069,6 +5069,12 @@ void resource_build_bit_depth_reduction_params(struct dc_stream_state *stream,
 		}
 	}
 
+	if (stream->ctx->dce_version < DCE_VERSION_8_0 &&
+	    stream->timing.display_color_depth >= COLOR_DEPTH_101010) {
+		/* DCE 6.x doesn't support 10-bit truncation or dither options. */
+		option = DITHER_OPTION_DISABLE;
+	}
+
 	if (option == DITHER_OPTION_DISABLE)
 		return;
 
