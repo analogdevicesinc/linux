@@ -1113,24 +1113,17 @@ endmenu
 
 menu "Random number generation"
 
-menuconfig CRYPTO_DRBG_MENU
-	tristate "NIST SP800-90A DRBG (Deterministic Random Bit Generator)"
-	help
-	  DRBG (Deterministic Random Bit Generator) (NIST SP800-90A)
-
-	  In the following submenu, one or more of the DRBG types must be selected.
-
-if CRYPTO_DRBG_MENU
-
 config CRYPTO_DRBG
-	tristate
-	default CRYPTO_DRBG_MENU
+	tristate "NIST SP800-90A DRBG (Deterministic Random Bit Generator)"
 	select CRYPTO_HMAC
 	select CRYPTO_JITTERENTROPY
 	select CRYPTO_RNG
 	select CRYPTO_SHA512
+	help
+	  DRBG (Deterministic Random Bit Generator) (NIST SP800-90A)
 
-endif	# if CRYPTO_DRBG_MENU
+	  Enable this only if you need it for a FIPS 140 certification.
+	  It's otherwise redundant with the kernel's regular RNG.
 
 config CRYPTO_JITTERENTROPY
 	tristate "CPU Jitter Non-Deterministic RNG (Random Number Generator)"
