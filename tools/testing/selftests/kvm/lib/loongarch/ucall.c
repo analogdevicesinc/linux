@@ -11,7 +11,7 @@
  */
 gva_t *ucall_exit_mmio_addr;
 
-void ucall_arch_init(struct kvm_vm *vm, vm_paddr_t mmio_gpa)
+void ucall_arch_init(struct kvm_vm *vm, gpa_t mmio_gpa)
 {
 	gva_t mmio_gva = vm_vaddr_unused_gap(vm, vm->page_size, KVM_UTIL_MIN_VADDR);
 

@@ -15,7 +15,7 @@
 /* Any value is fine */
 #define EXT_CAPABILITIES 0xbull
 
-static void guest_code(vm_paddr_t in_pg_gpa, vm_paddr_t out_pg_gpa,
+static void guest_code(gpa_t in_pg_gpa, gpa_t out_pg_gpa,
 		       gva_t out_pg_gva)
 {
 	uint64_t *output_gva;

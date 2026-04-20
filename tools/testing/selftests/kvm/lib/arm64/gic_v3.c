@@ -424,8 +424,8 @@ const struct gic_common_ops gicv3_ops = {
 	.gic_irq_set_group = gicv3_set_group,
 };
 
-void gic_rdist_enable_lpis(vm_paddr_t cfg_table, size_t cfg_table_size,
-			   vm_paddr_t pend_table)
+void gic_rdist_enable_lpis(gpa_t cfg_table, size_t cfg_table_size,
+			   gpa_t pend_table)
 {
 	volatile void *rdist_base = gicr_base_cpu(guest_get_vcpuid());
 

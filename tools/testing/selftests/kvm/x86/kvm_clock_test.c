@@ -31,7 +31,7 @@ static struct test_case test_cases[] = {
 #define GUEST_SYNC_CLOCK(__stage, __val)			\
 		GUEST_SYNC_ARGS(__stage, __val, 0, 0, 0)
 
-static void guest_main(vm_paddr_t pvti_pa, struct pvclock_vcpu_time_info *pvti)
+static void guest_main(gpa_t pvti_pa, struct pvclock_vcpu_time_info *pvti)
 {
 	int i;
 
@@ -136,7 +136,7 @@ int main(void)
 {
 	struct kvm_vcpu *vcpu;
 	gva_t pvti_gva;
-	vm_paddr_t pvti_gpa;
+	gpa_t pvti_gpa;
 	struct kvm_vm *vm;
 	int flags;
 

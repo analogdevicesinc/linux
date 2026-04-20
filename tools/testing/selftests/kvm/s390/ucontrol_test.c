@@ -111,7 +111,7 @@ FIXTURE(uc_kvm)
 	uintptr_t base_hva;
 	uintptr_t code_hva;
 	int kvm_run_size;
-	vm_paddr_t pgd;
+	gpa_t pgd;
 	void *vm_mem;
 	int vcpu_fd;
 	int kvm_fd;

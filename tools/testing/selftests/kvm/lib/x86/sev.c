@@ -18,7 +18,7 @@ static void encrypt_region(struct kvm_vm *vm, struct userspace_mem_region *regio
 			   uint8_t page_type, bool private)
 {
 	const struct sparsebit *protected_phy_pages = region->protected_phy_pages;
-	const vm_paddr_t gpa_base = region->region.guest_phys_addr;
+	const gpa_t gpa_base = region->region.guest_phys_addr;
 	const sparsebit_idx_t lowest_page_in_region = gpa_base >> vm->page_shift;
 	sparsebit_idx_t i, j;
 

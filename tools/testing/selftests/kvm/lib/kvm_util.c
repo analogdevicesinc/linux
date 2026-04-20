@@ -1457,9 +1457,9 @@ static gva_t ____vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
 	uint64_t pages = (sz >> vm->page_shift) + ((sz % vm->page_size) != 0);
 
 	virt_pgd_alloc(vm);
-	vm_paddr_t paddr = __vm_phy_pages_alloc(vm, pages,
-						KVM_UTIL_MIN_PFN * vm->page_size,
-						vm->memslots[type], protected);
+	gpa_t paddr = __vm_phy_pages_alloc(vm, pages,
+					   KVM_UTIL_MIN_PFN * vm->page_size,
+					   vm->memslots[type], protected);
 
 	/*
 	 * Find an unused range of virtual page addresses of at least
@@ -1607,7 +1607,7 @@ void virt_map(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr,
  * address providing the memory to the vm physical address is returned.
  * A TEST_ASSERT failure occurs if no region containing gpa exists.
  */
-void *addr_gpa2hva(struct kvm_vm *vm, vm_paddr_t gpa)
+void *addr_gpa2hva(struct kvm_vm *vm, gpa_t gpa)
 {
 	struct userspace_mem_region *region;
 
@@ -1640,7 +1640,7 @@ void *addr_gpa2hva(struct kvm_vm *vm, vm_paddr_t gpa)
  * VM physical address is returned. A TEST_ASSERT failure occurs if no
  * region containing hva exists.
  */
-vm_paddr_t addr_hva2gpa(struct kvm_vm *vm, void *hva)
+gpa_t addr_hva2gpa(struct kvm_vm *vm, void *hva)
 {
 	struct rb_node *node;
 
@@ -1651,7 +1651,7 @@ vm_paddr_t addr_hva2gpa(struct kvm_vm *vm, void *hva)
 		if (hva >= region->host_mem) {
 			if (hva <= (region->host_mem
 				+ region->region.memory_size - 1))
-				return (vm_paddr_t)((uintptr_t)
+				return (gpa_t)((uintptr_t)
 					region->region.guest_phys_addr
 					+ (hva - (uintptr_t)region->host_mem));
 
@@ -1683,7 +1683,7 @@ vm_paddr_t addr_hva2gpa(struct kvm_vm *vm, void *hva)
  * memory without mapping said memory in the guest's address space. And, for
  * userfaultfd-based demand paging, to do so without triggering userfaults.
  */
-void *addr_gpa2alias(struct kvm_vm *vm, vm_paddr_t gpa)
+void *addr_gpa2alias(struct kvm_vm *vm, gpa_t gpa)
 {
 	struct userspace_mem_region *region;
 	uintptr_t offset;
@@ -2087,9 +2087,9 @@ const char *exit_reason_str(unsigned int exit_reason)
  * and their base address is returned. A TEST_ASSERT failure occurs if
  * not enough pages are available at or above paddr_min.
  */
-vm_paddr_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
-				vm_paddr_t paddr_min, uint32_t memslot,
-				bool protected)
+gpa_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
+			   gpa_t paddr_min, uint32_t memslot,
+			   bool protected)
 {
 	struct userspace_mem_region *region;
 	sparsebit_idx_t pg, base;
@@ -2133,13 +2133,12 @@ vm_paddr_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
 	return base * vm->page_size;
 }
 
-vm_paddr_t vm_phy_page_alloc(struct kvm_vm *vm, vm_paddr_t paddr_min,
-			     uint32_t memslot)
+gpa_t vm_phy_page_alloc(struct kvm_vm *vm, gpa_t paddr_min, uint32_t memslot)
 {
 	return vm_phy_pages_alloc(vm, 1, paddr_min, memslot);
 }
 
-vm_paddr_t vm_alloc_page_table(struct kvm_vm *vm)
+gpa_t vm_alloc_page_table(struct kvm_vm *vm)
 {
 	return vm_phy_page_alloc(vm, KVM_GUEST_PAGE_TABLE_MIN_PADDR,
 				 vm->memslots[MEM_REGION_PT]);
@@ -2353,7 +2352,7 @@ void __attribute((constructor)) kvm_selftest_init(void)
 	kvm_selftest_arch_init();
 }
 
-bool vm_is_gpa_protected(struct kvm_vm *vm, vm_paddr_t paddr)
+bool vm_is_gpa_protected(struct kvm_vm *vm, gpa_t paddr)
 {
 	sparsebit_idx_t pg = 0;
 	struct userspace_mem_region *region;

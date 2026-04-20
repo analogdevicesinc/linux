@@ -30,7 +30,7 @@ static void l1_guest_code(struct vmx_pages *vmx_pages)
 #define L2_GUEST_STACK_SIZE 64
 	unsigned long l2_guest_stack[L2_GUEST_STACK_SIZE];
 	u64 guest_cr4;
-	vm_paddr_t pml5_pa, pml4_pa;
+	gpa_t pml5_pa, pml4_pa;
 	u64 *pml5;
 	u64 exit_reason;
 

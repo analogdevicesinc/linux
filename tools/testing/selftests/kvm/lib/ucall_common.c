@@ -25,7 +25,7 @@ int ucall_nr_pages_required(uint64_t page_size)
  */
 static struct ucall_header *ucall_pool;
 
-void ucall_init(struct kvm_vm *vm, vm_paddr_t mmio_gpa)
+void ucall_init(struct kvm_vm *vm, gpa_t mmio_gpa)
 {
 	struct ucall_header *hdr;
 	struct ucall *uc;

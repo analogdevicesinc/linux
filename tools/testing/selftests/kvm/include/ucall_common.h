@@ -29,7 +29,7 @@ struct ucall {
 	struct ucall *hva;
 };
 
-void ucall_arch_init(struct kvm_vm *vm, vm_paddr_t mmio_gpa);
+void ucall_arch_init(struct kvm_vm *vm, gpa_t mmio_gpa);
 void ucall_arch_do_ucall(gva_t uc);
 void *ucall_arch_get_ucall(struct kvm_vcpu *vcpu);
 
@@ -39,7 +39,7 @@ __printf(5, 6) void ucall_assert(uint64_t cmd, const char *exp,
 				 const char *file, unsigned int line,
 				 const char *fmt, ...);
 uint64_t get_ucall(struct kvm_vcpu *vcpu, struct ucall *uc);
-void ucall_init(struct kvm_vm *vm, vm_paddr_t mmio_gpa);
+void ucall_init(struct kvm_vm *vm, gpa_t mmio_gpa);
 int ucall_nr_pages_required(uint64_t page_size);
 
 /*

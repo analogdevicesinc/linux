@@ -239,7 +239,7 @@ static void check_steal_time_uapi(void)
 /* SBI STA shmem must have 64-byte alignment */
 #define STEAL_TIME_SIZE		((sizeof(struct sta_struct) + 63) & ~63)
 
-static vm_paddr_t st_gpa[NR_VCPUS];
+static gpa_t st_gpa[NR_VCPUS];
 
 struct sta_struct {
 	uint32_t sequence;
@@ -249,7 +249,7 @@ struct sta_struct {
 	uint8_t pad[47];
 } __packed;
 
-static void sta_set_shmem(vm_paddr_t gpa, unsigned long flags)
+static void sta_set_shmem(gpa_t gpa, unsigned long flags)
 {
 	unsigned long lo = (unsigned long)gpa;
 #if __riscv_xlen == 32

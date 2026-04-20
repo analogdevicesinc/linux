@@ -62,7 +62,7 @@ struct hv_tlb_flush_ex {
  */
 struct test_data {
 	gva_t hcall_gva;
-	vm_paddr_t hcall_gpa;
+	gpa_t hcall_gpa;
 	gva_t test_pages;
 	gva_t test_pages_pte[NTEST_PAGES];
 };
@@ -133,7 +133,7 @@ static void set_expected_val(void *addr, u64 val, int vcpu_id)
  * Update PTEs swapping two test pages.
  * TODO: use swap()/xchg() when these are provided.
  */
-static void swap_two_test_pages(vm_paddr_t pte_gva1, vm_paddr_t pte_gva2)
+static void swap_two_test_pages(gpa_t pte_gva1, gpa_t pte_gva2)
 {
 	uint64_t tmp = *(uint64_t *)pte_gva1;
 
@@ -201,7 +201,7 @@ static void sender_guest_code(gva_t test_data)
 	struct test_data *data = (struct test_data *)test_data;
 	struct hv_tlb_flush *flush = (struct hv_tlb_flush *)data->hcall_gva;
 	struct hv_tlb_flush_ex *flush_ex = (struct hv_tlb_flush_ex *)data->hcall_gva;
-	vm_paddr_t hcall_gpa = data->hcall_gpa;
+	gpa_t hcall_gpa = data->hcall_gpa;
 	int i, stage = 1;
 
 	wrmsr(HV_X64_MSR_GUEST_OS_ID, HYPERV_LINUX_OS_ID);
@@ -582,7 +582,7 @@ int main(int argc, char *argv[])
 	struct kvm_vcpu *vcpu[3];
 	pthread_t threads[2];
 	gva_t test_data_page, gva;
-	vm_paddr_t gpa;
+	gpa_t gpa;
 	uint64_t *pte;
 	struct test_data *data;
 	struct ucall uc;

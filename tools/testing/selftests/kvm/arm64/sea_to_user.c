@@ -51,7 +51,7 @@
 #define EINJ_OFFSET		0x01234badUL
 #define EINJ_GVA		((START_GVA) + (EINJ_OFFSET))
 
-static vm_paddr_t einj_gpa;
+static gpa_t einj_gpa;
 static void *einj_hva;
 static uint64_t einj_hpa;
 static bool far_invalid;
@@ -254,7 +254,7 @@ static struct kvm_vm *vm_create_with_sea_handler(struct kvm_vcpu **vcpu)
 	size_t guest_page_size;
 	size_t alignment;
 	uint64_t num_guest_pages;
-	vm_paddr_t start_gpa;
+	gpa_t start_gpa;
 	enum vm_mem_backing_src_type src_type = VM_MEM_SRC_ANONYMOUS_HUGETLB_1GB;
 	struct kvm_vm *vm;
 
