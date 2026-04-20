@@ -8,6 +8,43 @@ import sys
 import re
 
 
+def detect_pdf_register_style(pdf_path):
+    """Detection of register documentation style.
+
+    Scans a sample of pages to count style-specific markers:
+      - 'tmc':   BIT 31..24 rows + Field/Reset/Access labels
+      - 'maxim': D15 D14 .. D0 bit-layout tables
+      - 'adi':   "Bit Descriptions for REGISTER" table headers
+
+    Returns one of 'tmc', 'maxim', or 'adi' (the default fallback).
+    """
+    tmc_hits = 0
+    maxim_hits = 0
+    adi_hits = 0
+
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            text = page.extract_text() or ""
+            if re.search(
+                r'\bBIT\b.*\b(31|30|29|28|27|26|25|24)\b', text
+            ) and re.search(r'\b(Field|Reset|Access)', text):
+                tmc_hits += 1
+            if re.search(r'D15\s+D14', text):
+                maxim_hits += 1
+            if re.search(r'bit descriptions for', text, re.IGNORECASE):
+                adi_hits += 1
+
+            # Early exit: 3 hits is enough to be confident
+            if tmc_hits >= 3 or maxim_hits >= 3 or adi_hits >= 3:
+                break
+
+    if tmc_hits >= maxim_hits and tmc_hits >= adi_hits and tmc_hits > 0:
+        return 'tmc'
+    if maxim_hits >= adi_hits and maxim_hits > 0:
+        return 'maxim'
+    return 'adi'
+
+
 def clean_watermark(text):
     """Remove common watermark/header text from extracted content."""
     watermarks = [
@@ -51,6 +88,40 @@ def find_register_details_pages(pdf_path):
             for name, addr in matches:
                 addr_int = int(addr, 16)
                 # Only update if this is an earlier page (first occurrence of register details)
+                if name not in register_pages or register_pages[name][0] > i:
+                    register_pages[name] = (i, addr_int, addr)
+
+    return register_pages
+
+
+def find_maxim_register_details_pages(pdf_path):
+    """Find pages containing register definitions in Maxim/ADI format.
+
+    Detects register headers like 'RegisterName Register (XXXh)' or
+    'RegisterName (XXXh)' paired with D15..D0 bit layout tables.
+    Returns a dict mapping register name to (page_num, addr_int, addr_hex).
+    """
+    register_pages = {}
+
+    with pdfplumber.open(pdf_path) as pdf:
+        for i, page in enumerate(pdf.pages, 1):
+            text = page.extract_text() or ""
+
+            # Only consider pages that have D15..D0 bit layout markers
+            if not re.search(r'D15\s+D14', text):
+                continue
+
+            # Match Maxim-style register headers:
+            #   RegisterName Register (XXXh)
+            #   RegisterName (XXXh)
+            #   Table N. RegisterName Register (XXXh) Format
+            # Address is hex digits followed by 'h', e.g. 0DAh, 1C2h, 000h
+            # Register names can start with lowercase 'n' (nonvolatile) or 's' (SBS)
+            header_pattern = r'(?:^|Table\s+\d+\.\s*)([ns]?[A-Z][A-Za-z0-9_]*)\s+(?:Register\s*)?\((?:0x)?([0-9A-Fa-f]+)h\)'
+            matches = re.findall(header_pattern, text, re.MULTILINE)
+
+            for name, addr in matches:
+                addr_int = int(addr, 16)
                 if name not in register_pages or register_pages[name][0] > i:
                     register_pages[name] = (i, addr_int, addr)
 
@@ -270,20 +341,404 @@ def extract_tmc_register_details(pdf_path, output_md, register_pages):
     return extracted_count
 
 
+def _parse_maxim_bit_table(table_rows, continuation_row=None):
+    """Parse a Maxim/ADI D15..D0 bit layout table into a list of (field_name, bit_high, bit_low) tuples.
+
+    Handles:
+    - 16-column tables (D15..D0 in one row)
+    - 8-column split tables (D15..D8 header, fields, separator, D7..D0 header, fields)
+    - Multi-bit fields indicated by None in subsequent columns
+
+    Args:
+        table_rows: list of rows from pdfplumber extract_tables()
+        continuation_row: optional value row for D7..D0 when the table is
+                          split across pages (the D7 header exists but the
+                          value row ended up on the next page)
+    """
+    fields = []
+
+    def _extract_fields_from_header_and_values(header_row, value_row):
+        """Extract fields from a header row (D15..D0) and corresponding value row."""
+        result = []
+        # Map header cells to bit numbers
+        bit_numbers = []
+        for cell in header_row:
+            cell_str = str(cell or '').strip()
+            m = re.match(r'^D(\d+)$', cell_str)
+            if m:
+                bit_numbers.append(int(m.group(1)))
+            else:
+                bit_numbers.append(None)
+
+        i = 0
+        while i < len(value_row):
+            cell = value_row[i]
+            cell_str = str(cell or '').strip()
+            if not cell_str or i >= len(bit_numbers) or bit_numbers[i] is None:
+                i += 1
+                continue
+
+            bit_high = bit_numbers[i]
+            bit_low = bit_high
+
+            # Check how many subsequent columns are None (multi-bit field)
+            j = i + 1
+            while j < len(value_row) and value_row[j] is None and j < len(bit_numbers):
+                if bit_numbers[j] is not None:
+                    bit_low = bit_numbers[j]
+                j += 1
+
+            result.append((cell_str, bit_high, bit_low))
+            i = j
+
+        return result
+
+    # Detect format: check if first row has 16 columns (D15..D0) or 8 columns (D15..D8)
+    if not table_rows:
+        return fields
+
+    header_row = table_rows[0]
+    ncols = len(header_row)
+
+    if ncols >= 16:
+        # Single-row format: D15..D0
+        if len(table_rows) >= 2:
+            fields = _extract_fields_from_header_and_values(header_row, table_rows[1])
+    elif ncols == 8:
+        # Split format: D15..D8 header, values, [separator], D7..D0 header, values
+        # Find value row for upper byte
+        if len(table_rows) >= 2:
+            fields = _extract_fields_from_header_and_values(header_row, table_rows[1])
+
+        # Find the D7 header row
+        for ri in range(2, len(table_rows)):
+            row = table_rows[ri]
+            row_strs = [str(c or '').strip() for c in row]
+            if 'D7' in row_strs:
+                if ri + 1 < len(table_rows):
+                    # Check if the next row has actual values
+                    next_vals = [str(c or '').strip() for c in table_rows[ri + 1]]
+                    if any(v and v not in ('', 'None') for v in next_vals):
+                        fields += _extract_fields_from_header_and_values(row, table_rows[ri + 1])
+                    elif continuation_row is not None:
+                        # Value row split to next page
+                        fields += _extract_fields_from_header_and_values(row, continuation_row)
+                elif continuation_row is not None:
+                    # D7 header is last row, value row on next page
+                    fields += _extract_fields_from_header_and_values(row, continuation_row)
+                break
+
+    return fields
+
+
+def _extract_field_descriptions(lines, field_names):
+    """Extract field descriptions from text lines following a register table.
+
+    Looks for patterns like:
+      FieldName: Description text
+      FieldName—Description text
+
+    Args:
+        lines: list of text lines to search through
+        field_names: list of field names to look for
+    """
+    descriptions = {}
+
+    # Build a set of field names to look for (skip X/x/0/1/Reserved)
+    skip = {'x', 'X', '0', '1', 'Reserved', ''}
+    target_fields = {f for f in field_names if f not in skip}
+
+    for field_name in target_fields:
+        # Escape for regex
+        escaped = re.escape(field_name)
+        # Look for "FieldName: description" or "FieldName—description"
+        pattern = rf'^{escaped}\s*[:—]\s*(.+)'
+        for li, line in enumerate(lines):
+            m = re.match(pattern, line.strip())
+            if m:
+                desc = m.group(1).strip()
+                # Collect continuation lines
+                for nli in range(li + 1, len(lines)):
+                    next_line = lines[nli].strip()
+                    # Stop at next field definition, table header, register header, or blank
+                    if not next_line:
+                        break
+                    if re.match(r'^[A-Za-z]\w*\s*[:—]', next_line):
+                        break
+                    if re.match(r'^(Table\s+\d+|D15\s+D14|www\.)', next_line):
+                        break
+                    if re.match(r'^\w+\s+Register\s*\(', next_line):
+                        break
+                    desc += ' ' + next_line
+                descriptions[field_name] = desc
+                break
+
+    return descriptions
+
+
+def _clean_page_text_lines(text):
+    """Return text lines with watermark/header/footer lines removed."""
+    lines = text.split('\n')
+    cleaned = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip common header/footer lines
+        if re.match(r'^MAX17\d+\s', stripped):
+            continue
+        if re.match(r'^Fuel Gauge', stripped):
+            continue
+        if re.match(r'^www\.analog\.com', stripped):
+            continue
+        if re.match(r'^Analog Devices\s*\|', stripped):
+            continue
+        cleaned.append(line)
+    return cleaned
+
+
+def extract_maxim_register_details(pdf_path, output_md, register_pages):
+    """Extract Maxim/ADI-style register details with D15..D0 bit layout tables.
+
+    Uses pdfplumber to extract tables and text.  Field descriptions are
+    collected across page boundaries so that continuation paragraphs on
+    the next page are not lost.
+    """
+    if not register_pages:
+        return 0
+
+    with open(output_md, 'a') as f:
+        f.write("## Register Bit Field Details\n\n")
+
+    print(f"Found {len(register_pages)} Maxim/ADI-style registers with bit field details")
+
+    # ------------------------------------------------------------------
+    # Pass 1 – build a flat list of "events" across all pages.
+    #
+    # Each event is one of:
+    #   ('reg_header', page, line_global, reg_name, addr_hex)
+    #   ('bit_table',  page, line_global, table_rows)
+    #   ('text',       page, line_global, line_text)
+    #
+    # line_global is a monotonically increasing counter so we can
+    # compare positions across pages.
+    # ------------------------------------------------------------------
+    events = []          # list of event tuples
+    all_lines = []       # flat list of (global_idx, line_text)
+    global_idx = 0
+
+    # Collect all pages that contain registers we care about, plus one
+    # page after for description continuation.
+    pages_of_interest = set()
+    for _, (pg, _, _) in register_pages.items():
+        pages_of_interest.add(pg)
+        pages_of_interest.add(pg + 1)  # next page for continuations
+
+    pending_continuation = None  # tracks incomplete split tables across pages
+
+    with pdfplumber.open(pdf_path) as pdf:
+        for page_num in sorted(pages_of_interest):
+            if page_num < 1 or page_num > len(pdf.pages):
+                continue
+
+            page = pdf.pages[page_num - 1]
+            text = page.extract_text() or ""
+            tables = page.extract_tables()
+            cleaned_lines = _clean_page_text_lines(text)
+
+            # Identify D15 bit tables and orphan continuation rows
+            bit_tables_on_page = []
+            orphan_continuation_rows = []  # 1-row 8-col tables that may be D7 value continuations
+            for table in tables:
+                if not table or not table[0]:
+                    continue
+                header_strs = [str(c or '').strip() for c in table[0]]
+                if 'D15' in header_strs:
+                    bit_tables_on_page.append(table)
+                elif (len(table) == 1 and len(table[0]) == 8
+                      and 'D15' not in header_strs and 'D7' not in header_strs):
+                    # Possible orphan value row from a cross-page split table
+                    orphan_continuation_rows.append(table[0])
+
+            # Check if the *last* D15 table on the previous page was
+            # incomplete (has D7 header but no value row).  If so,
+            # attach the first orphan row as its continuation.
+            if orphan_continuation_rows and pending_continuation is not None:
+                cont_table, cont_row = pending_continuation
+                # Find the table in events and update it
+                for ei in range(len(events) - 1, -1, -1):
+                    if events[ei][0] == 'bit_table' and events[ei][3] is cont_table:
+                        events[ei] = ('bit_table', events[ei][1], events[ei][2],
+                                      cont_table, orphan_continuation_rows[0])
+                        break
+                pending_continuation = None
+
+            # Detect incomplete split tables on this page for cross-page handling
+            pending_continuation = None
+            for table in bit_tables_on_page:
+                if len(table[0]) == 8:
+                    has_d7_header = False
+                    has_d7_values = False
+                    for ri, row in enumerate(table):
+                        row_strs = [str(c or '').strip() for c in row]
+                        if 'D7' in row_strs:
+                            has_d7_header = True
+                            if ri + 1 < len(table):
+                                next_vals = [str(c or '').strip() for c in table[ri + 1]]
+                                if any(v and v not in ('', 'None') for v in next_vals):
+                                    has_d7_values = True
+                    if has_d7_header and not has_d7_values:
+                        pending_continuation = (table, None)
+
+            bit_table_iter = iter(bit_tables_on_page)
+
+            for line in cleaned_lines:
+                stripped = line.strip()
+
+                # Check for register header
+                m = re.search(
+                    r'(?:Table\s+\d+\.\s*)?([ns]?[A-Z][A-Za-z0-9_]*)\s+(?:Register\s*)?\((?:0x)?([0-9A-Fa-f]+)h\)',
+                    stripped
+                )
+                if m:
+                    events.append(('reg_header', page_num, global_idx, m.group(1), m.group(2)))
+
+                # Check for D15 table start in text
+                if re.match(r'^D15\s+D14', stripped):
+                    tbl = next(bit_table_iter, None)
+                    if tbl is not None:
+                        # 5-tuple: type, page, gidx, table_rows, continuation_row
+                        events.append(('bit_table', page_num, global_idx, tbl, None))
+
+                all_lines.append((global_idx, stripped))
+                events.append(('text', page_num, global_idx, stripped))
+                global_idx += 1
+
+    # ------------------------------------------------------------------
+    # Pass 2 – walk events to pair each bit_table with its register
+    # header and collect description text that follows (across pages).
+    # ------------------------------------------------------------------
+    register_records = []  # (reg_name, addr_hex, table_rows, desc_lines)
+
+    last_reg_header = None   # (reg_name, addr_hex)
+    i = 0
+    while i < len(events):
+        ev = events[i]
+        if ev[0] == 'reg_header':
+            last_reg_header = (ev[3], ev[4])  # name, addr
+        elif ev[0] == 'bit_table' and last_reg_header is not None:
+            table_rows = ev[3]
+            continuation_row = ev[4] if len(ev) > 4 else None
+            table_gidx = ev[2]
+
+            # Collect description text lines after the table until
+            # the next register header or next D15 table.
+            desc_lines = []
+            # Skip text events that are part of the table itself
+            # (the D15 header line and the value line(s) right after)
+            j = i + 1
+            # Skip the value row(s) that immediately follow the D15 line
+            skipping_table_rows = True
+            while j < len(events):
+                jev = events[j]
+                if jev[0] == 'reg_header' or jev[0] == 'bit_table':
+                    break
+                if jev[0] == 'text':
+                    line = jev[3]
+                    # Skip the bit-value row (field names from the table)
+                    if skipping_table_rows:
+                        # The first non-empty text line after D15 is the
+                        # value row; keep skipping until we see a line
+                        # that looks like a description (has ':' or '—')
+                        # or is clearly not a table row.
+                        if re.match(r'^D[0-9]+\s', line):
+                            j += 1
+                            continue
+                        # Value row: single line of field names without
+                        # punctuation – skip it
+                        if line and not re.search(r'[:—.]', line) and not re.match(r'^(Table\s+\d+|www\.)', line):
+                            j += 1
+                            skipping_table_rows = False
+                            continue
+                        skipping_table_rows = False
+                    desc_lines.append(line)
+                j += 1
+
+            rname, raddr = last_reg_header
+            register_records.append((rname, raddr, table_rows, desc_lines, continuation_row))
+            # Don't reset last_reg_header – the same header might not
+            # repeat before the next table on the same page.
+        i += 1
+
+    # ------------------------------------------------------------------
+    # Pass 3 – deduplicate and write output.
+    # ------------------------------------------------------------------
+    seen = set()
+    extracted_count = 0
+
+    for rname, raddr, table_rows, desc_lines, continuation_row in register_records:
+        reg_key = (rname, raddr)
+        if reg_key in seen:
+            continue
+        seen.add(reg_key)
+
+        fields = _parse_maxim_bit_table(table_rows, continuation_row=continuation_row)
+        if not fields:
+            continue
+
+        field_names = [f[0] for f in fields]
+        descriptions = _extract_field_descriptions(desc_lines, field_names)
+
+        with open(output_md, 'a') as f:
+            f.write(f"### {rname} (0x{raddr})\n\n")
+            f.write("#### Bit Layout\n\n")
+
+            f.write("| Bits | Field |\n")
+            f.write("|------|-------|\n")
+            for field_name, bit_high, bit_low in fields:
+                if bit_high == bit_low:
+                    bits_str = str(bit_high)
+                else:
+                    bits_str = f"{bit_high}:{bit_low}"
+                f.write(f"| {bits_str} | {field_name} |\n")
+            f.write("\n")
+
+            if descriptions:
+                f.write("#### Field Descriptions\n\n")
+                for field_name, bit_high, bit_low in fields:
+                    if field_name in descriptions:
+                        if bit_high == bit_low:
+                            bits_str = str(bit_high)
+                        else:
+                            bits_str = f"{bit_high}:{bit_low}"
+                        f.write(f"- **{field_name}** (Bit {bits_str}): {descriptions[field_name]}\n")
+                f.write("\n")
+
+            f.write("---\n\n")
+
+        extracted_count += 1
+
+    print(f"  Extracted details for {extracted_count} registers")
+    return extracted_count
+
+
 def extract_adi_bitfield_format(pdf_path, output_md):
     """Extract ADI-style bit field descriptions (bit descriptions for REGISTER)."""
     with pdfplumber.open(pdf_path) as pdf:
-        register_details = []
+        register_details = []  # (page_num_1indexed, register_name)
 
         for i, page in enumerate(pdf.pages, 1):
             text = page.extract_text() or ""
-            if 'bit descriptions for' in text.lower():
-                lines = text.split('\n')
-                for line in lines:
-                    if 'bit descriptions for' in line.lower():
-                        register_name = line.split('for')[-1].strip()
-                        register_details.append((i, register_name))
-                        break
+            if 'bit descriptions for' not in text.lower():
+                continue
+            lines = text.split('\n')
+            for line in lines:
+                if 'bit descriptions for' in line.lower():
+                    raw = line.split('for')[-1].strip()
+                    # Strip trailing "(Continued)" — the table continues
+                    # from a previous page; skip it to avoid duplicates.
+                    if re.search(r'\(Continued\)', raw, re.IGNORECASE):
+                        continue
+                    register_name = raw
+                    register_details.append((i, register_name))
 
         if not register_details:
             return 0
@@ -325,18 +780,34 @@ def extract_register_map(pdf_path, output_md='register_map.md'):
         f.write(f"# Register Map\n\n")
         f.write(f"Extracted from: {pdf_path}\n\n")
 
-    register_pages = find_register_details_pages(pdf_path)
-    print(f"Detected {len(register_pages)} unique register definitions")
+    style = detect_pdf_register_style(pdf_path)
+    print(f"Detected register style: {style}")
 
-    extract_register_summary(pdf_path, output_md, register_pages)
-    tmc_count = extract_tmc_register_details(pdf_path, output_md, register_pages)
+    bitfield_count = 0
 
-    if tmc_count == 0:
-        adi_count = extract_adi_bitfield_format(pdf_path, output_md)
-        if adi_count == 0:
-            with open(output_md, 'a') as f:
-                f.write("## Register Bit Field Details\n\n")
-                f.write("No bit field tables found.\n")
+    if style == 'tmc':
+        register_pages = find_register_details_pages(pdf_path)
+        print(f"  {len(register_pages)} unique TMC register definitions")
+        extract_register_summary(pdf_path, output_md, register_pages)
+        bitfield_count = extract_tmc_register_details(pdf_path, output_md, register_pages)
+
+    elif style == 'maxim':
+        maxim_register_pages = find_maxim_register_details_pages(pdf_path)
+        print(f"  {len(maxim_register_pages)} unique Maxim register definitions")
+        extract_register_summary(pdf_path, output_md, {})
+        bitfield_count = extract_maxim_register_details(pdf_path, output_md, maxim_register_pages)
+
+    # ADI is always the fallback
+    if bitfield_count == 0:
+        if style != 'adi':
+            print(f"  {style} extraction found 0 registers, falling back to ADI style")
+        extract_register_summary(pdf_path, output_md, {})
+        bitfield_count = extract_adi_bitfield_format(pdf_path, output_md)
+
+    if bitfield_count == 0:
+        with open(output_md, 'a') as f:
+            f.write("## Register Bit Field Details\n\n")
+            f.write("No bit field tables found.\n")
 
     print(f"\nRegister map saved to: {output_md}")
 
