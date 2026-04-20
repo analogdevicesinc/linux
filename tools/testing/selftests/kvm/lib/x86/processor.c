@@ -379,7 +379,7 @@ static u64 *__vm_get_page_table_entry(struct kvm_vm *vm,
 	 * Check that the vaddr is a sign-extended va_width value.
 	 */
 	TEST_ASSERT(vaddr ==
-		    (((int64_t)vaddr << (64 - va_width) >> (64 - va_width))),
+		    (((s64)vaddr << (64 - va_width) >> (64 - va_width))),
 		    "Canonical check failed.  The virtual address is invalid.");
 
 	for (current_level = mmu->pgtable_levels;

@@ -59,7 +59,7 @@ static bool far_invalid;
 static u64 translate_to_host_paddr(unsigned long vaddr)
 {
 	u64 pinfo;
-	int64_t offset = vaddr / getpagesize() * sizeof(pinfo);
+	s64 offset = vaddr / getpagesize() * sizeof(pinfo);
 	int fd;
 	u64 page_addr;
 	u64 paddr;
