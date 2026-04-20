@@ -4634,6 +4634,11 @@ struct cfg80211_pmsr_result {
  *	is set, only the specified threshold is used. If both are set, both
  *	thresholds are applied. If neither is set, results are reported without
  *	threshold filtering.
+ * @pd_suppress_range_results: flag to suppress ranging results for PD
+ *	requests. When set, the device performs ranging measurements to
+ *	provide ranging services to a peer (e.g. in RSTA role) but does
+ *	not report the measurement results to userspace. Only valid when
+ *	@request_type is %NL80211_PMSR_FTM_REQ_TYPE_PD.
  *
  * See also nl80211 for the respective attribute documentation.
  */
@@ -4662,6 +4667,7 @@ struct cfg80211_pmsr_ftm_request_peer {
 	u32 num_measurements;
 	u64 ingress_distance;
 	u64 egress_distance;
+	u8 pd_suppress_range_results:1;
 };
 
 /**
