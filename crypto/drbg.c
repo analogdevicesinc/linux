@@ -506,25 +506,6 @@ err:
 	return len;
 }
 
-static int drbg_prepare_hrng(struct drbg_state *drbg)
-{
-	/* We do not need an HRNG in test mode. */
-	if (drbg->test_entropylen != 0)
-		return 0;
-
-	drbg->jent = crypto_alloc_rng("jitterentropy_rng", 0, 0);
-	if (IS_ERR(drbg->jent)) {
-		const int err = PTR_ERR(drbg->jent);
-
-		drbg->jent = NULL;
-		if (fips_enabled)
-			return err;
-		pr_info("DRBG: Continuing without Jitter RNG\n");
-	}
-
-	return 0;
-}
-
 /*
  * DRBG uninstantiate function as required by SP800-90A - this function
  * frees all buffers and the DRBG handle
@@ -602,9 +583,18 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 	memset(drbg->V, 1, DRBG_STATE_LEN);
 	hmac_sha512_preparekey(&drbg->key, initial_key, DRBG_STATE_LEN);
 
-	ret = drbg_prepare_hrng(drbg);
-	if (ret)
-		goto free_everything;
+	/* Allocate jitterentropy_rng if not in test mode. */
+	if (drbg->test_entropylen == 0) {
+		drbg->jent = crypto_alloc_rng("jitterentropy_rng", 0, 0);
+		if (IS_ERR(drbg->jent)) {
+			ret = PTR_ERR(drbg->jent);
+			drbg->jent = NULL;
+			if (fips_enabled)
+				goto free_everything;
+			pr_info("DRBG: Continuing without Jitter RNG\n");
+		}
+	}
+
 	ret = drbg_seed(drbg, pers, pers_len, /* reseed= */ false);
 	if (ret)
 		goto free_everything;
