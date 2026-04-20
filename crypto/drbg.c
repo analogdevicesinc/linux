@@ -111,17 +111,6 @@ struct drbg_core {
 	char backend_cra_name[CRYPTO_MAX_ALG_NAME];
 };
 
-struct drbg_state_ops {
-	int (*update)(struct drbg_state *drbg, struct list_head *seed,
-		      int reseed);
-	int (*generate)(struct drbg_state *drbg,
-			unsigned char *buf, unsigned int buflen,
-			struct list_head *addtl);
-	int (*crypto_init)(struct drbg_state *drbg);
-	int (*crypto_fini)(struct drbg_state *drbg);
-
-};
-
 enum drbg_seed_state {
 	DRBG_SEED_STATE_UNSEEDED,
 	DRBG_SEED_STATE_PARTIAL, /* Seeded with !rng_is_initialized() */
@@ -143,7 +132,6 @@ struct drbg_state {
 	unsigned long last_seed_time;
 	bool pr;		/* Prediction resistance enabled? */
 	struct crypto_rng *jent;
-	const struct drbg_state_ops *d_ops;
 	const struct drbg_core *core;
 	struct drbg_string test_data;
 };
@@ -250,7 +238,7 @@ static inline unsigned short drbg_sec_strength(drbg_flag_t flags)
 }
 
 /******************************************************************
- * HMAC DRBG callback functions
+ * HMAC DRBG functions
  ******************************************************************/
 
 static int drbg_kcapi_hash(struct drbg_state *drbg, unsigned char *outval,
@@ -360,21 +348,10 @@ static int drbg_hmac_generate(struct drbg_state *drbg,
 	return len;
 }
 
-static const struct drbg_state_ops drbg_hmac_ops = {
-	.update		= drbg_hmac_update,
-	.generate	= drbg_hmac_generate,
-	.crypto_init	= drbg_init_hash_kernel,
-	.crypto_fini	= drbg_fini_hash_kernel,
-};
-
-/******************************************************************
- * Functions common for DRBG implementations
- ******************************************************************/
-
 static inline int __drbg_seed(struct drbg_state *drbg, struct list_head *seed,
 			      int reseed, enum drbg_seed_state new_seed_state)
 {
-	int ret = drbg->d_ops->update(drbg, seed, reseed);
+	int ret = drbg_hmac_update(drbg, seed, reseed);
 
 	if (ret)
 		return ret;
@@ -578,7 +555,6 @@ static inline void drbg_dealloc_state(struct drbg_state *drbg)
 	drbg->Cbuf = NULL;
 	drbg->C = NULL;
 	drbg->reseed_ctr = 0;
-	drbg->d_ops = NULL;
 	drbg->core = NULL;
 }
 
@@ -590,16 +566,7 @@ static inline int drbg_alloc_state(struct drbg_state *drbg)
 {
 	int ret = -ENOMEM;
 
-	switch (drbg->core->flags & DRBG_TYPE_MASK) {
-	case DRBG_HMAC:
-		drbg->d_ops = &drbg_hmac_ops;
-		break;
-	default:
-		ret = -EOPNOTSUPP;
-		goto err;
-	}
-
-	ret = drbg->d_ops->crypto_init(drbg);
+	ret = drbg_init_hash_kernel(drbg);
 	if (ret < 0)
 		goto err;
 
@@ -619,15 +586,11 @@ static inline int drbg_alloc_state(struct drbg_state *drbg)
 	return 0;
 
 fini:
-	drbg->d_ops->crypto_fini(drbg);
+	drbg_fini_hash_kernel(drbg);
 err:
 	drbg_dealloc_state(drbg);
 	return ret;
 }
-
-/*************************************************************************
- * DRBG interface functions
- *************************************************************************/
 
 /*
  * DRBG generate function as required by SP800-90A - this function
@@ -714,7 +677,7 @@ static int drbg_generate(struct drbg_state *drbg,
 	if (addtl && 0 < addtl->len)
 		list_add_tail(&addtl->list, &addtllist);
 	/* 9.3.1 step 8 and 10 */
-	len = drbg->d_ops->generate(drbg, buf, buflen, &addtllist);
+	len = drbg_hmac_generate(drbg, buf, buflen, &addtllist);
 
 	/* 10.1.2.5 step 7 */
 	drbg->reseed_ctr++;
@@ -879,8 +842,7 @@ static int drbg_uninstantiate(struct drbg_state *drbg)
 		crypto_free_rng(drbg->jent);
 	drbg->jent = NULL;
 
-	if (drbg->d_ops)
-		drbg->d_ops->crypto_fini(drbg);
+	drbg_fini_hash_kernel(drbg);
 	drbg_dealloc_state(drbg);
 	/* no scrubbing of test_data -- this shall survive an uninstantiate */
 	return 0;
