@@ -524,7 +524,7 @@ static struct symbol *find_twin(struct elfs *e, struct symbol *sym1)
 
 	/* Count orig candidates */
 	for_each_sym_by_demangled_name(e->orig, sym1->demangled_name, sym2) {
-		if (sym2->twin || sym1->type != sym2->type || dont_correlate(sym2) ||
+		if (sym2->twin || sym1->type != sym2->type || sym2->dont_correlate ||
 		    (!maybe_same_file(sym1, sym2)))
 			continue;
 
@@ -550,7 +550,7 @@ static struct symbol *find_twin(struct elfs *e, struct symbol *sym1)
 
 	/* Count patched candidates */
 	for_each_sym_by_demangled_name(e->patched, sym1->demangled_name, sym2) {
-		if (sym2->twin || sym1->type != sym2->type || dont_correlate(sym2) ||
+		if (sym2->twin || sym1->type != sym2->type || sym2->dont_correlate ||
 		    !maybe_same_file(sym1, sym2))
 			continue;
 
@@ -693,7 +693,7 @@ static struct symbol *find_twin_suffixed(struct elf *elf, struct symbol *sym1)
 		return NULL;
 
 	for_each_sym_by_name(elf, name, sym2) {
-		if (sym2->twin || sym1->type != sym2->type || dont_correlate(sym2))
+		if (sym2->twin || sym1->type != sym2->type || sym2->dont_correlate)
 			continue;
 		count++;
 		match = sym2;
@@ -733,7 +733,7 @@ static struct symbol *find_twin_positional(struct elfs *e, struct symbol *sym1)
 	struct symbol *sym2, *match = NULL;
 
 	for_each_sym_by_demangled_name(e->orig, sym1->demangled_name, sym2) {
-		if (sym2->twin || sym1->type != sym2->type || dont_correlate(sym2) ||
+		if (sym2->twin || sym1->type != sym2->type || sym2->dont_correlate ||
 		    !maybe_same_file(sym1, sym2))
 			continue;
 		if (is_tu_local_sym(sym1) != is_tu_local_sym(sym2) ||
@@ -745,7 +745,7 @@ static struct symbol *find_twin_positional(struct elfs *e, struct symbol *sym1)
 	}
 
 	for_each_sym_by_demangled_name(e->patched, sym1->demangled_name, sym2) {
-		if (sym2->twin || sym1->type != sym2->type || dont_correlate(sym2) ||
+		if (sym2->twin || sym1->type != sym2->type || sym2->dont_correlate ||
 		    !maybe_same_file(sym1, sym2))
 			continue;
 		if (is_tu_local_sym(sym1) != is_tu_local_sym(sym2) ||
@@ -776,6 +776,11 @@ static int correlate_symbols(struct elfs *e)
 	struct symbol *file1_sym, *file2_sym;
 	struct symbol *sym1, *sym2;
 	bool progress;
+
+	for_each_sym(e->orig, sym1)
+		sym1->dont_correlate = dont_correlate(sym1);
+	for_each_sym(e->patched, sym2)
+		sym2->dont_correlate = dont_correlate(sym2);
 
 	/* Correlate FILE symbols */
 	file1_sym = first_file_symbol(e->orig);
@@ -817,7 +822,7 @@ static int correlate_symbols(struct elfs *e)
 	do {
 		progress = false;
 		for_each_sym(e->orig, sym1) {
-			if (sym1->twin || dont_correlate(sym1))
+			if (sym1->twin || sym1->dont_correlate)
 				continue;
 			sym2 = find_twin(e, sym1);
 			if (!sym2)
@@ -831,7 +836,7 @@ static int correlate_symbols(struct elfs *e)
 			return -1;
 
 		for_each_sym(e->orig, sym1) {
-			if (sym1->twin || dont_correlate(sym1))
+			if (sym1->twin || sym1->dont_correlate)
 				continue;
 			sym2 = find_twin_suffixed(e->patched, sym1);
 			if (!sym2)
@@ -843,7 +848,7 @@ static int correlate_symbols(struct elfs *e)
 	} while (progress);
 
 	for_each_sym(e->orig, sym1) {
-		if (sym1->twin || dont_correlate(sym1))
+		if (sym1->twin || sym1->dont_correlate)
 			continue;
 		sym2 = find_twin_positional(e, sym1);
 		if (!sym2)
@@ -853,7 +858,7 @@ static int correlate_symbols(struct elfs *e)
 	}
 
 	for_each_sym(e->orig, sym1) {
-		if (sym1->twin || dont_correlate(sym1))
+		if (sym1->twin || sym1->dont_correlate)
 			continue;
 		WARN("no correlation: %s", sym1->name);
 	}
@@ -1066,7 +1071,7 @@ static int mark_changed_functions(struct elfs *e)
 
 	/* Find changed functions */
 	for_each_sym(e->orig, orig_sym) {
-		if (dont_correlate(orig_sym))
+		if (orig_sym->dont_correlate)
 			continue;
 
 		patched_sym = orig_sym->twin;
@@ -1087,7 +1092,7 @@ static int mark_changed_functions(struct elfs *e)
 
 	/* Find added functions and print them */
 	for_each_sym(e->patched, patched_sym) {
-		if (!is_func_sym(patched_sym) || dont_correlate(patched_sym))
+		if (!is_func_sym(patched_sym) || patched_sym->dont_correlate)
 			continue;
 
 		if (!patched_sym->twin) {
@@ -1193,7 +1198,7 @@ static bool klp_reloc_needed(struct reloc *patched_reloc)
 	struct export *export;
 
 	/* no external symbol to reference */
-	if (dont_correlate(patched_sym))
+	if (patched_sym->dont_correlate)
 		return false;
 
 	/* For included functions, a regular reloc will do. */
