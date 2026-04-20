@@ -1,193 +1,23 @@
-soc/arm
-	samsung/arm
-		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-soc-7.1
-	renesas/arm
-		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-soc-for-v7.1-tag1
-	omap/arm
-		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.1/soc-signed
-	microchip/soc64
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-soc-7.1
-
-soc/dt
-	patch
-		ARM: dts: arm: Use lowercase hex
-	renesas/dt
-		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.1-tag1
-		contains renesas/fixes
-	rockchip/dt64
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.1-rockchip-dts64-1
-	thead/dt
-		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v7.1
-	mediatek/dt64
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts64-for-v7.1
-	mediatek/dt32
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts32-for-v7.1
-	juno/dt-2
-		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/juno-updates-7.1
-	aspeed/dt32
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.1-devicetree-0
-	nuvoton/dt64
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-7.1-devicetree-0
-	broadcom/dts
-		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.1/devicetree
-	broadcom/dts64
-		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.1/devicetree-arm64
-	samsung/dt64
-		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-7.1
-	samsung/dt
-		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt-7.1
-	stm32/dt
-		git://git.kernel.org/pub/scm/linux/kernel/git/atorgue/stm32 tags/stm32-dt-for-7.1-1
-	renesas/dt-2
-		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.1-tag2
-	cix/dt
-		git://git.kernel.org/pub/scm/linux/kernel/git/peter.chen/cix tags/cix-dt-v7.1-rc1
-	thead/dt-2
-		git://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v7.1-p2
-	socfpga/dt
-		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_updates_for_v7.1_v2
-	hisilicon/dts
-		https://github.com/hisilicon/linux-hisi tags/hisi-arm64-dt-for-7.1
-	qcom/dts
-		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-7.1
-	sunxi/dt
-		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-7.1
-	patch
-		ARM: dts: st: spear: remove undocumented thermal_flags property
-	ti/dt
-		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-dt-for-v7.1
-	rockchip/dt
-		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.1-rockchip-dts64-2
-	omap/dt
-		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.1/soc-signed
-	qcom/dt
-		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.1
-	tegra/dt32
-		https://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm-dt
-	tegra/dt64
-		https://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm64-dt
-	nxp/dt64
-		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt64-7.1
-	microchip/dt32
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-dt-7.1
-	microchip/dt64
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.1
-	spacemit/dt
-		https://github.com/spacemit-com/linux tags/spacemit-dt-for-7.1-1
-	rockchip/dt32
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.1-rockchip-dts32-1
-	rockchip/dt32-2
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.1-rockchip-dts32-2
-	nxp/dt32-2
-		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt-7.1
-	riscv/dt
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v7.1
-	qcom/dt64-2
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.1-2
-	sunxi/dt64-2
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-7.1-2
-	marvell/dt
-		https://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-7.1-1
-	ti/dt-2
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-dt-for-v7.1-part2
-
-soc/drivers
-	renesas/drivers
-		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.1-tag1
-	renesas/drivers-2
-		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dt-bindings-for-v7.1-tag1
-	samsung/drivers
-		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-7.1
-	drivers/memory
-		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-mem-ctrl tags/memory-controller-drv-7.1
-	patch
-		clk: spear: fix resource leak in clk_register_vco_pll()
-	firmware/scmi
-		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-7.1
-	stm32/firewall
-		git://git.kernel.org/pub/scm/linux/kernel/git/atorgue/stm32 tags/stm32-bus-firewall-for-7.1-1
-	hisilicon/drivers
-		https://github.com/hisilicon/linux-hisi tags/hisi-drivers-for-7.1
-	firmware/tee
-		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-for-v7.1
-	firmware/optee
-		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/optee-for-v7.1
-	renesas/drivers-tag2
-		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.1-tag2
-	nxp/drivers
-		git://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-soc-7.1
-	tegra/soc-drivers
-		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-soc
-	tegra/firmware-driver
-		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-firmware
-	imx/dt-bindings
-		git://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-bindings-7.1
-	drivers/reset
-		https://git.pengutronix.de/git/pza/linux tags/reset-for-v7.1
-		contains reset/fixes-2
-		contains reset/fixes
-	qcom/drivers
-		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.1
-	tegra/drivers-2
-		https://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-dt-bindings
-	microchip/drivers
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-7.1
-	riscv/drivers
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-soc-drivers-for-v7.1
-	qcom/drivers-2
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.1-2
-	firmware/scmi-2
-		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/ffa-fix-7.1
-
-soc/defconfig
-	renesas/defconfig
-		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v7.1-tag1
-	qcom/defconfig
-		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-7.1
-	patch
-		arch/arm: Drop CONFIG_FIRMWARE_EDID from defconfig files
-	ti/defconfig
-		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-config-for-v7.1
-	omap/defconfig
-		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.1/defconfig-signed
-	tegra/defconfig32
-		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm-defconfig
-	tegra/defconfig64
-		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.1-arm64-defconfig
-	microchip/defconfig
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-defconfig-7.1
-
-soc/late
-	marvell/dt64
-		https://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-7.1-1
-
 arm/fixes
-	nxp/fixes
-		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-fixes-7.0
-	rockchip/fixes-2
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.0-rockchip-dtsfixes1-v2
-	reset/fixes-2
-		https://git.pengutronix.de/git/pza/linux tags/reset-fixes-for-v7.0-2
-	aspeed/fixes
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.0-fixes-0
-	riscv/soc-fixes-2
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-soc-fixes-for-v7.0-rc6
-	qcom/fixes
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-fixes-for-7.0
-	hisilicon/fixes
-		https://github.com/hisilicon/linux-hisi tags/hisi-dts-fixes-for-7.0
-	renesas/fixes-2
-		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-fixes-for-v7.0-tag2
-	sunxi/fixes
-		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-fixes-for-7.0
-	qcom/fixes-2
-		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-fixes-for-7.0-2
-	microchip/fixes
-		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-7.0
 	nxp/fixes-2
 		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-fixes-7.0-2nd
 	reset/fixes-3
 		https://git.pengutronix.de/git/pza/linux tags/reset-fixes-for-v7.0-3
 	marvell/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-fixes-7.0-1
+
+soc/late2
+	arm/fixes
+		Merge branch 'arm/fixes' into soc/late2
+		contains nxp/fixes-2
+		contains reset/fixes-3
+		contains marvell/fixes
+	marvell/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-7.1-1
+	patch
+		ARM: dts: bcm4709: fix bus range assignment
+		Documentation/process: maintainer-soc: Trim from trivial ask-DT
+		Documentation/process: maintainer-soc: Document purpose of defconfigs
+	apple/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-fixes-7.0
 
