@@ -1093,6 +1093,25 @@ rdev_nan_set_peer_sched(struct cfg80211_registered_device *rdev,
 	return ret;
 }
 
+static inline int rdev_start_pd(struct cfg80211_registered_device *rdev,
+				struct wireless_dev *wdev)
+{
+	int ret;
+
+	trace_rdev_start_pd(&rdev->wiphy, wdev);
+	ret = rdev->ops->start_pd(&rdev->wiphy, wdev);
+	trace_rdev_return_int(&rdev->wiphy, ret);
+	return ret;
+}
+
+static inline void rdev_stop_pd(struct cfg80211_registered_device *rdev,
+				struct wireless_dev *wdev)
+{
+	trace_rdev_stop_pd(&rdev->wiphy, wdev);
+	rdev->ops->stop_pd(&rdev->wiphy, wdev);
+	trace_rdev_return_void(&rdev->wiphy);
+}
+
 static inline int rdev_set_mac_acl(struct cfg80211_registered_device *rdev,
 				   struct net_device *dev,
 				   struct cfg80211_acl_data *params)

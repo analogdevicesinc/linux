@@ -16638,6 +16638,46 @@ static int nl80211_nan_change_config(struct sk_buff *skb,
 	return rdev_nan_change_conf(rdev, wdev, &conf, changed);
 }
 
+static int nl80211_start_pd(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct wireless_dev *wdev = info->user_ptr[1];
+	int err;
+
+	if (wdev->iftype != NL80211_IFTYPE_PD)
+		return -EOPNOTSUPP;
+
+	if (wdev_running(wdev))
+		return -EEXIST;
+
+	if (rfkill_blocked(rdev->wiphy.rfkill))
+		return -ERFKILL;
+
+	if (!rdev->ops->start_pd)
+		return -EOPNOTSUPP;
+
+	err = rdev_start_pd(rdev, wdev);
+	if (err)
+		return err;
+	wdev->is_running = true;
+	rdev->opencount++;
+
+	return 0;
+}
+
+static int nl80211_stop_pd(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct wireless_dev *wdev = info->user_ptr[1];
+
+	if (wdev->iftype != NL80211_IFTYPE_PD)
+		return -EOPNOTSUPP;
+
+	cfg80211_stop_pd(rdev, wdev);
+
+	return 0;
+}
+
 void cfg80211_nan_match(struct wireless_dev *wdev,
 			struct cfg80211_nan_match_params *match, gfp_t gfp)
 {
@@ -19804,6 +19844,20 @@ static const struct genl_small_ops nl80211_small_ops[] = {
 		.doit = nl80211_nan_change_config,
 		.flags = GENL_ADMIN_PERM,
 		.internal_flags = IFLAGS(NL80211_FLAG_NEED_WDEV_UP),
+	},
+	{
+		.cmd = NL80211_CMD_START_PD,
+		.doit = nl80211_start_pd,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = IFLAGS(NL80211_FLAG_NEED_WDEV |
+					 NL80211_FLAG_NEED_RTNL),
+	},
+	{
+		.cmd = NL80211_CMD_STOP_PD,
+		.doit = nl80211_stop_pd,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = IFLAGS(NL80211_FLAG_NEED_WDEV_UP |
+					 NL80211_FLAG_NEED_RTNL),
 	},
 	{
 		.cmd = NL80211_CMD_SET_MCAST_RATE,
