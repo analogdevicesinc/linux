@@ -1467,6 +1467,7 @@ BTF_KFUNCS_END(scx_kfunc_ids_idle)
 static const struct btf_kfunc_id_set scx_kfunc_set_idle = {
 	.owner			= THIS_MODULE,
 	.set			= &scx_kfunc_ids_idle,
+	.filter			= scx_kfunc_context_filter,
 };
 
 /*
