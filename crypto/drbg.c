@@ -1219,36 +1219,7 @@ static int drbg_generate(struct drbg_state *drbg,
 	 * In this case, the entire kernel operation is questionable and it
 	 * is unlikely that the integrity violation only affects the
 	 * correct operation of the DRBG.
-	 *
-	 * Albeit the following code is commented out, it is provided in
-	 * case somebody has a need to implement the test of 11.3.3.
 	 */
-#if 0
-	if (drbg->reseed_ctr && !(drbg->reseed_ctr % 4096)) {
-		int err = 0;
-		pr_devel("DRBG: start to perform self test\n");
-		if (drbg->core->flags & DRBG_HMAC)
-			err = alg_test("drbg_pr_hmac_sha512",
-				       "drbg_pr_hmac_sha512", 0, 0);
-		else if (drbg->core->flags & DRBG_CTR)
-			err = alg_test("drbg_pr_ctr_aes256",
-				       "drbg_pr_ctr_aes256", 0, 0);
-		else
-			err = alg_test("drbg_pr_sha256",
-				       "drbg_pr_sha256", 0, 0);
-		if (err) {
-			pr_err("DRBG: periodical self test failed\n");
-			/*
-			 * uninstantiate implies that from now on, only errors
-			 * are returned when reusing this DRBG cipher handle
-			 */
-			drbg_uninstantiate(drbg);
-			return 0;
-		} else {
-			pr_devel("DRBG: self test successful\n");
-		}
-	}
-#endif
 
 	/*
 	 * All operations were successful, return 0 as mandated by
