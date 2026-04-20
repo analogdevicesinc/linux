@@ -361,12 +361,15 @@ int nl80211_pmsr_start(struct sk_buff *skb, struct genl_info *info)
 {
 	struct nlattr *reqattr = info->attrs[NL80211_ATTR_PEER_MEASUREMENTS];
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	int count, rem, err, idx, peer_count;
 	struct wireless_dev *wdev = info->user_ptr[1];
+	const struct cfg80211_pmsr_capabilities *capa;
 	struct cfg80211_pmsr_request *req;
 	struct nlattr *peers, *peer;
-	int count, rem, err, idx;
 
-	if (!rdev->wiphy.pmsr_capa)
+	capa = rdev->wiphy.pmsr_capa;
+
+	if (!capa)
 		return -EOPNOTSUPP;
 
 	if (!reqattr)
@@ -381,7 +384,7 @@ int nl80211_pmsr_start(struct sk_buff *skb, struct genl_info *info)
 	nla_for_each_nested(peer, peers, rem) {
 		count++;
 
-		if (count > rdev->wiphy.pmsr_capa->max_peers) {
+		if (count > capa->max_peers) {
 			NL_SET_ERR_MSG_ATTR(info->extack, peer,
 					    "Too many peers used");
 			return -EINVAL;
@@ -397,7 +400,7 @@ int nl80211_pmsr_start(struct sk_buff *skb, struct genl_info *info)
 		req->timeout = nla_get_u32(info->attrs[NL80211_ATTR_TIMEOUT]);
 
 	if (info->attrs[NL80211_ATTR_MAC]) {
-		if (!rdev->wiphy.pmsr_capa->randomize_mac_addr) {
+		if (!capa->randomize_mac_addr) {
 			NL_SET_ERR_MSG_ATTR(info->extack,
 					    info->attrs[NL80211_ATTR_MAC],
 					    "device cannot randomize MAC address");
@@ -421,6 +424,41 @@ int nl80211_pmsr_start(struct sk_buff *skb, struct genl_info *info)
 		if (err)
 			goto out_err;
 		idx++;
+	}
+
+	/* Validate per-role peer limits if advertised */
+	if (capa->ftm.ista.max_peers) {
+		peer_count = 0;
+
+		for (idx = 0; idx < req->n_peers; idx++) {
+			if (!req->peers[idx].ftm.rsta) {
+				peer_count++;
+
+				if (peer_count > capa->ftm.ista.max_peers) {
+					NL_SET_ERR_MSG(info->extack,
+						       "Too many ISTA peers for device limit");
+					err = -EINVAL;
+					goto out_err;
+				}
+			}
+		}
+	}
+
+	if (capa->ftm.rsta.max_peers) {
+		peer_count = 0;
+
+		for (idx = 0; idx < req->n_peers; idx++) {
+			if (req->peers[idx].ftm.rsta) {
+				peer_count++;
+
+				if (peer_count > capa->ftm.rsta.max_peers) {
+					NL_SET_ERR_MSG(info->extack,
+						       "Too many RSTA peers for device limit");
+					err = -EINVAL;
+					goto out_err;
+				}
+			}
+		}
 	}
 	req->cookie = cfg80211_assign_cookie(rdev);
 	req->nl_portid = info->snd_portid;

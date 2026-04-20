@@ -6003,6 +6003,8 @@ cfg80211_get_iftype_ext_capa(struct wiphy *wiphy, enum nl80211_iftype type);
  *	TB ranging.
  * @ftm.ista.support_edca: supports operating as ISTA in PMSR FTM request for
  *	EDCA based ranging.
+ * @ftm.ista.max_peers: maximum number of peers supported in the ISTA role.
+ *	If zero, no role-specific peer limit applies.
  * @ftm.rsta: responder role capabilities
  * @ftm.rsta.support_ntb: supports operating as RSTA in PMSR FTM request for
  *	NTB ranging.
@@ -6010,6 +6012,8 @@ cfg80211_get_iftype_ext_capa(struct wiphy *wiphy, enum nl80211_iftype type);
  *	TB ranging.
  * @ftm.rsta.support_edca: supports operating as RSTA in PMSR FTM request for
  *	EDCA based ranging.
+ * @ftm.rsta.max_peers: maximum number of peers supported in the RSTA role.
+ *	If zero, no role-specific peer limit applies.
  * @ftm.max_no_of_tx_antennas: maximum number of transmit antennas supported for
  *	EDCA based ranging (0 means unknown)
  * @ftm.max_no_of_rx_antennas: maximum number of receive antennas supported for
@@ -6064,11 +6068,13 @@ struct cfg80211_pmsr_capabilities {
 			u8 support_ntb:1,
 			   support_tb:1,
 			   support_edca:1;
+			u32 max_peers;
 		} ista;
 		struct {
 			u8 support_ntb:1,
 			   support_tb:1,
 			   support_edca:1;
+			u32 max_peers;
 		} rsta;
 		u8 max_no_of_tx_antennas;
 		u8 max_no_of_rx_antennas;
