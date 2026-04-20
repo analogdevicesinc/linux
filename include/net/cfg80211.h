@@ -5911,7 +5911,45 @@ cfg80211_get_iftype_ext_capa(struct wiphy *wiphy, enum nl80211_iftype type);
  *	(0 means unknown)
  * @ftm.max_total_ltf_rx: maximum total number of LTFs that can be received
  *	(0 means unknown)
- * @ftm.support_rsta: supports operating as RSTA in PMSR FTM request
+ * @ftm.ista: initiator role capabilities
+ * @ftm.ista.support_ntb: supports operating as ISTA in PMSR FTM request for
+ *	NTB ranging.
+ * @ftm.ista.support_tb: supports operating as ISTA in PMSR FTM request for
+ *	TB ranging.
+ * @ftm.ista.support_edca: supports operating as ISTA in PMSR FTM request for
+ *	EDCA based ranging.
+ * @ftm.rsta: responder role capabilities
+ * @ftm.rsta.support_ntb: supports operating as RSTA in PMSR FTM request for
+ *	NTB ranging.
+ * @ftm.rsta.support_tb: supports operating as RSTA in PMSR FTM request for
+ *	TB ranging.
+ * @ftm.rsta.support_edca: supports operating as RSTA in PMSR FTM request for
+ *	EDCA based ranging.
+ * @ftm.max_no_of_tx_antennas: maximum number of transmit antennas supported for
+ *	EDCA based ranging (0 means unknown)
+ * @ftm.max_no_of_rx_antennas: maximum number of receive antennas supported for
+ *	EDCA based ranging (0 means unknown)
+ * @ftm.min_allowed_ranging_interval_edca: Minimum EDCA ranging
+ *	interval supported by the device in milli seconds. (0 means unknown).
+ *	Applications can use this value to estimate the burst period to be
+ *	given in the FTM request for the EDCA based ranging case. If
+ *	non-zero, this value will be used to validate the burst period in
+ *	the FTM request.
+ * @ftm.min_allowed_ranging_interval_ntb: Minimum NTB ranging
+ *	interval supported by the device in milli seconds. (0 means unknown).
+ *	Applications can use this value to estimate the burst period to be
+ *	given in the FTM request for the NTB ranging case. If non-zero,
+ *	this value will be used to validate the nominal time in the FTM
+ *	request.
+ * @ftm.type: ranging type capabilities
+ * @ftm.type.infra_support: supports infrastructure ranging (STA-to-AP or
+ *	AP-to-STA) as part of Proximity Detection
+ * @ftm.type.pd_support: supports peer-to-peer ranging as mentioned in the
+ *	specification "PR Implementation Consideration Draft 1.9 rev 1" where
+ *	PD stands for proximity detection
+ * @ftm.concurrent_ista_rsta_support: indicates if the device can
+ *	simultaneously act as initiator and responder in a multi-peer
+ *	measurement request. Only valid if @ftm.rsta_support is set.
  */
 struct cfg80211_pmsr_capabilities {
 	unsigned int max_peers;
@@ -5937,7 +5975,25 @@ struct cfg80211_pmsr_capabilities {
 		u8 max_rx_sts;
 		u8 max_total_ltf_tx;
 		u8 max_total_ltf_rx;
-		u8 support_rsta:1;
+		struct {
+			u8 support_ntb:1,
+			   support_tb:1,
+			   support_edca:1;
+		} ista;
+		struct {
+			u8 support_ntb:1,
+			   support_tb:1,
+			   support_edca:1;
+		} rsta;
+		u8 max_no_of_tx_antennas;
+		u8 max_no_of_rx_antennas;
+		u32 min_allowed_ranging_interval_edca;
+		u32 min_allowed_ranging_interval_ntb;
+		struct {
+			u8 infra_support:1,
+			   pd_support:1;
+		} type;
+		u8 concurrent_ista_rsta_support:1;
 	} ftm;
 };
 

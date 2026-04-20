@@ -2503,10 +2503,97 @@ nl80211_send_pmsr_ftm_capa(const struct cfg80211_pmsr_capabilities *cap,
 	    nla_put_u32(msg, NL80211_PMSR_FTM_CAPA_ATTR_MAX_TOTAL_LTF_RX,
 			cap->ftm.max_total_ltf_rx))
 		return -ENOBUFS;
-	if (cap->ftm.support_rsta &&
-	    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_RSTA_SUPPORT))
+
+	if (cap->ftm.ista.support_ntb || cap->ftm.ista.support_tb ||
+	    cap->ftm.ista.support_edca) {
+		struct nlattr *ista_caps;
+
+		ista_caps = nla_nest_start_noflag(msg,
+						  NL80211_PMSR_FTM_CAPA_ATTR_ISTA_CAPS);
+		if (!ista_caps)
+			return -ENOBUFS;
+		if (cap->ftm.ista.support_ntb &&
+		    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_NTB))
+			return -ENOBUFS;
+		if (cap->ftm.ista.support_tb &&
+		    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_TB))
+			return -ENOBUFS;
+		if (cap->ftm.ista.support_edca &&
+		    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_EDCA))
+			return -ENOBUFS;
+		nla_nest_end(msg, ista_caps);
+	}
+
+	if (cap->ftm.rsta.support_ntb || cap->ftm.rsta.support_tb ||
+	    cap->ftm.rsta.support_edca) {
+		struct nlattr *rsta_caps;
+
+		/*
+		 * Set the generic RSTA_SUPPORT flag if any of the specific
+		 * ranging modes is supported to maintain the backward
+		 * compatibility.
+		 */
+		if (nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_RSTA_SUPPORT))
+			return -ENOBUFS;
+
+		rsta_caps = nla_nest_start_noflag(msg,
+						  NL80211_PMSR_FTM_CAPA_ATTR_RSTA_CAPS);
+		if (!rsta_caps)
+			return -ENOBUFS;
+		if (cap->ftm.rsta.support_ntb &&
+		    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_NTB))
+			return -ENOBUFS;
+		if (cap->ftm.rsta.support_tb &&
+		    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_TB))
+			return -ENOBUFS;
+		if (cap->ftm.rsta.support_edca &&
+		    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_EDCA))
+			return -ENOBUFS;
+		nla_nest_end(msg, rsta_caps);
+	}
+
+	if (cap->ftm.max_no_of_tx_antennas &&
+	    nla_put_u8(msg, NL80211_PMSR_FTM_CAPA_ATTR_MAX_NUM_TX_ANTENNAS,
+		       cap->ftm.max_no_of_tx_antennas))
 		return -ENOBUFS;
 
+	if (cap->ftm.max_no_of_rx_antennas &&
+	    nla_put_u8(msg, NL80211_PMSR_FTM_CAPA_ATTR_MAX_NUM_RX_ANTENNAS,
+		       cap->ftm.max_no_of_rx_antennas))
+		return -ENOBUFS;
+
+	if (cap->ftm.min_allowed_ranging_interval_edca &&
+	    nla_put_u32(msg, NL80211_PMSR_FTM_CAPA_ATTR_MIN_INTERVAL_EDCA,
+			cap->ftm.min_allowed_ranging_interval_edca))
+		return -ENOBUFS;
+
+	if (cap->ftm.min_allowed_ranging_interval_ntb &&
+	    nla_put_u32(msg, NL80211_PMSR_FTM_CAPA_ATTR_MIN_INTERVAL_NTB,
+			cap->ftm.min_allowed_ranging_interval_ntb))
+		return -ENOBUFS;
+
+	if (cap->ftm.type.infra_support || cap->ftm.type.pd_support) {
+		struct nlattr *pd_caps;
+
+		pd_caps = nla_nest_start_noflag(msg,
+						NL80211_PMSR_FTM_CAPA_ATTR_TYPE_CAPS);
+		if (!pd_caps)
+			return -ENOBUFS;
+
+		if (cap->ftm.type.infra_support &&
+		    nla_put_flag(msg, NL80211_PMSR_FTM_TYPE_CAPA_ATTR_INFRA_SUPPORT))
+			return -ENOBUFS;
+
+		if (cap->ftm.type.pd_support &&
+		    nla_put_flag(msg, NL80211_PMSR_FTM_TYPE_CAPA_ATTR_PD_SUPPORT))
+			return -ENOBUFS;
+
+		nla_nest_end(msg, pd_caps);
+	}
+
+	if (cap->ftm.concurrent_ista_rsta_support &&
+	    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_CONCURRENT_ISTA_RSTA_SUPPORT))
+		return -ENOBUFS;
 	nla_nest_end(msg, ftm);
 	return 0;
 }

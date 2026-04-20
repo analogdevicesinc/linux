@@ -8111,6 +8111,46 @@ enum nl80211_peer_measurement_attrs {
  *	This limits the allowed combinations of LTF repetitions and STS.
  * @NL80211_PMSR_FTM_CAPA_ATTR_RSTA_SUPPORT: flag attribute indicating the
  *	device supports operating as the RSTA in PMSR FTM request
+ * @NL80211_PMSR_FTM_CAPA_ATTR_ISTA_CAPS: nested attribute containing ISTA
+ *	(initiator) role capabilities. Uses the same sub-attributes as
+ *	%NL80211_PMSR_FTM_CAPA_ATTR_RSTA_CAPS.
+ * @NL80211_PMSR_FTM_CAPA_ATTR_RSTA_CAPS: nested attribute containing RSTA
+ *	(responder) role capabilities.
+ * @NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_NTB: flag attribute (used inside
+ *	%NL80211_PMSR_FTM_CAPA_ATTR_ISTA_CAPS or
+ *	%NL80211_PMSR_FTM_CAPA_ATTR_RSTA_CAPS) indicating NTB ranging support.
+ * @NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_TB: flag attribute (used inside
+ *	%NL80211_PMSR_FTM_CAPA_ATTR_ISTA_CAPS or
+ *	%NL80211_PMSR_FTM_CAPA_ATTR_RSTA_CAPS) indicating TB ranging support.
+ * @NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_EDCA: flag attribute (used inside
+ *	%NL80211_PMSR_FTM_CAPA_ATTR_ISTA_CAPS or
+ *	%NL80211_PMSR_FTM_CAPA_ATTR_RSTA_CAPS) indicating EDCA based ranging
+ *	support.
+ * @NL80211_PMSR_FTM_CAPA_ATTR_TYPE_CAPS: nested attribute containing ranging
+ *	type capabilities. Uses sub-attributes from
+ *	&enum nl80211_peer_measurement_ftm_type_capa.
+ * @NL80211_PMSR_FTM_CAPA_ATTR_CONCURRENT_ISTA_RSTA_SUPPORT: flag attribute
+ *	indicating that the device can simultaneously act as initiator and
+ *	responder in a multi-peer measurement request. Only valid if
+ *	@NL80211_PMSR_FTM_CAPA_ATTR_RSTA_SUPPORT is set.
+ * @NL80211_PMSR_FTM_CAPA_ATTR_MAX_NUM_TX_ANTENNAS: u32 attribute indicating
+ *	the maximum number of transmit antennas supported for EDCA based ranging
+ *	(0 means unknown)
+ * @NL80211_PMSR_FTM_CAPA_ATTR_MAX_NUM_RX_ANTENNAS: u32 attribute indicating
+ *	the maximum number of receive antennas supported for EDCA based ranging
+ *	(0 means unknown)
+ * @NL80211_PMSR_FTM_CAPA_ATTR_MIN_INTERVAL_EDCA: u32 attribute indicating
+ *	the minimum EDCA ranging interval supported by the device
+ *	in milli seconds. (0 means unknown). Applications can use this value
+ *	to estimate the burst period to be given in the FTM request for the
+ *	EDCA based ranging case. If non-zero, this value will be used to
+ *	validate the burst period in the FTM request.
+ * @NL80211_PMSR_FTM_CAPA_ATTR_MIN_INTERVAL_NTB: u32 attribute indicating
+ *	the minimum NTB ranging interval supported by the device
+ *	in milli seconds. (0 means unknown). Applications can use this value
+ *	to estimate the burst period to be given in the FTM request for the
+ *	NTB ranging case. If non-zero, this value will be used to validate
+ *	the nominal time in the FTM request.
  *
  * @NUM_NL80211_PMSR_FTM_CAPA_ATTR: internal
  * @NL80211_PMSR_FTM_CAPA_ATTR_MAX: highest attribute number
@@ -8136,10 +8176,48 @@ enum nl80211_peer_measurement_ftm_capa {
 	NL80211_PMSR_FTM_CAPA_ATTR_MAX_TOTAL_LTF_TX,
 	NL80211_PMSR_FTM_CAPA_ATTR_MAX_TOTAL_LTF_RX,
 	NL80211_PMSR_FTM_CAPA_ATTR_RSTA_SUPPORT,
+	NL80211_PMSR_FTM_CAPA_ATTR_ISTA_CAPS,
+	NL80211_PMSR_FTM_CAPA_ATTR_RSTA_CAPS,
+	NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_NTB,
+	NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_TB,
+	NL80211_PMSR_FTM_CAPA_ATTR_SUPPORT_EDCA,
+	NL80211_PMSR_FTM_CAPA_ATTR_TYPE_CAPS,
+	NL80211_PMSR_FTM_CAPA_ATTR_CONCURRENT_ISTA_RSTA_SUPPORT,
+	NL80211_PMSR_FTM_CAPA_ATTR_MAX_NUM_TX_ANTENNAS,
+	NL80211_PMSR_FTM_CAPA_ATTR_MAX_NUM_RX_ANTENNAS,
+	NL80211_PMSR_FTM_CAPA_ATTR_MIN_INTERVAL_EDCA,
+	NL80211_PMSR_FTM_CAPA_ATTR_MIN_INTERVAL_NTB,
 
 	/* keep last */
 	NUM_NL80211_PMSR_FTM_CAPA_ATTR,
 	NL80211_PMSR_FTM_CAPA_ATTR_MAX = NUM_NL80211_PMSR_FTM_CAPA_ATTR - 1
+};
+
+/**
+ * enum nl80211_peer_measurement_ftm_type_capa - FTM ranging type capability
+ *	sub-attributes, used inside %NL80211_PMSR_FTM_CAPA_ATTR_TYPE_CAPS
+ * @__NL80211_PMSR_FTM_TYPE_CAPA_ATTR_INVALID: invalid
+ *
+ * @NL80211_PMSR_FTM_TYPE_CAPA_ATTR_INFRA_SUPPORT: flag attribute indicating
+ *	that the device supports infrastructure ranging (STA-to-AP or
+ *	AP-to-STA) as part of Proximity Detection
+ * @NL80211_PMSR_FTM_TYPE_CAPA_ATTR_PD_SUPPORT: flag attribute indicating that
+ *	the device supports peer-to-peer ranging as mentioned in the
+ *	specification "PR Implementation Consideration Draft 1.9 rev 1" where
+ *	PD stands for proximity detection
+ *
+ * @NUM_NL80211_PMSR_FTM_TYPE_CAPA_ATTR: internal
+ * @NL80211_PMSR_FTM_TYPE_CAPA_ATTR_MAX: highest attribute number
+ */
+enum nl80211_peer_measurement_ftm_type_capa {
+	__NL80211_PMSR_FTM_TYPE_CAPA_ATTR_INVALID,
+
+	NL80211_PMSR_FTM_TYPE_CAPA_ATTR_INFRA_SUPPORT,
+	NL80211_PMSR_FTM_TYPE_CAPA_ATTR_PD_SUPPORT,
+
+	/* keep last */
+	NUM_NL80211_PMSR_FTM_TYPE_CAPA_ATTR,
+	NL80211_PMSR_FTM_TYPE_CAPA_ATTR_MAX = NUM_NL80211_PMSR_FTM_TYPE_CAPA_ATTR - 1
 };
 
 /**
