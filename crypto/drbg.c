@@ -1145,86 +1145,56 @@ static inline int __init drbg_healthcheck_sanity(void)
 	return rc;
 }
 
-static struct rng_alg drbg_algs[22];
-
-/*
- * Fill the array drbg_algs used to register the different DRBGs
- * with the kernel crypto API. To fill the array, the information
- * from drbg_cores[] is used.
- */
-static inline void __init drbg_fill_array(struct rng_alg *alg,
-					  const struct drbg_core *core, int pr)
-{
-	int pos = 0;
-	static int priority = 200;
-
-	memcpy(alg->base.cra_name, "stdrng", 6);
-	if (pr) {
-		memcpy(alg->base.cra_driver_name, "drbg_pr_", 8);
-		pos = 8;
-	} else {
-		memcpy(alg->base.cra_driver_name, "drbg_nopr_", 10);
-		pos = 10;
-	}
-	memcpy(alg->base.cra_driver_name + pos, core->cra_name,
-	       strlen(core->cra_name));
-
-	alg->base.cra_priority = priority;
-	priority++;
-	/*
-	 * If FIPS mode enabled, the selected DRBG shall have the
-	 * highest cra_priority over other stdrng instances to ensure
-	 * it is selected.
-	 */
-	if (fips_enabled)
-		alg->base.cra_priority += 2000;
-
-	alg->base.cra_ctxsize 	= sizeof(struct drbg_state);
-	alg->base.cra_module	= THIS_MODULE;
-	alg->base.cra_init	= drbg_kcapi_init;
-	alg->base.cra_exit	= drbg_kcapi_cleanup;
-	alg->generate		= drbg_kcapi_random;
-	alg->seed		= drbg_kcapi_seed;
-	alg->set_ent		= drbg_kcapi_set_entropy;
-	alg->seedsize		= 0;
-}
+static struct rng_alg drbg_algs[] = {
+	{
+		.base.cra_name		= "stdrng",
+		.base.cra_driver_name	= "drbg_pr_hmac_sha512",
+		.base.cra_priority	= 200,
+		.base.cra_ctxsize	= sizeof(struct drbg_state),
+		.base.cra_module	= THIS_MODULE,
+		.base.cra_init		= drbg_kcapi_init,
+		.set_ent		= drbg_kcapi_set_entropy,
+		.seed			= drbg_kcapi_seed,
+		.generate		= drbg_kcapi_random,
+		.base.cra_exit		= drbg_kcapi_cleanup,
+	},
+	{
+		.base.cra_name		= "stdrng",
+		.base.cra_driver_name	= "drbg_nopr_hmac_sha512",
+		.base.cra_priority	= 201,
+		.base.cra_ctxsize	= sizeof(struct drbg_state),
+		.base.cra_module	= THIS_MODULE,
+		.base.cra_init		= drbg_kcapi_init,
+		.set_ent		= drbg_kcapi_set_entropy,
+		.seed			= drbg_kcapi_seed,
+		.generate		= drbg_kcapi_random,
+		.base.cra_exit		= drbg_kcapi_cleanup,
+	},
+};
 
 static int __init drbg_init(void)
 {
-	unsigned int i = 0; /* pointer to drbg_algs */
-	unsigned int j = 0; /* pointer to drbg_cores */
 	int ret;
 
 	ret = drbg_healthcheck_sanity();
 	if (ret)
 		return ret;
 
-	if (ARRAY_SIZE(drbg_cores) * 2 > ARRAY_SIZE(drbg_algs)) {
-		pr_info("DRBG: Cannot register all DRBG types"
-			"(slots needed: %zu, slots available: %zu)\n",
-			ARRAY_SIZE(drbg_cores) * 2, ARRAY_SIZE(drbg_algs));
-		return -EFAULT;
+	/*
+	 * In FIPS mode, boost the algorithm priorities to ensure that when
+	 * users request "stdrng", they really get an algorithm from here.
+	 */
+	if (fips_enabled) {
+		for (size_t i = 0; i < ARRAY_SIZE(drbg_algs); i++)
+			drbg_algs[i].base.cra_priority += 2000;
 	}
 
-	/*
-	 * each DRBG definition can be used with PR and without PR, thus
-	 * we instantiate each DRBG in drbg_cores[] twice.
-	 *
-	 * As the order of placing them into the drbg_algs array matters
-	 * (the later DRBGs receive a higher cra_priority) we register the
-	 * prediction resistance DRBGs first as the should not be too
-	 * interesting.
-	 */
-	for (j = 0; ARRAY_SIZE(drbg_cores) > j; j++, i++)
-		drbg_fill_array(&drbg_algs[i], &drbg_cores[j], 1);
-	for (j = 0; ARRAY_SIZE(drbg_cores) > j; j++, i++)
-		drbg_fill_array(&drbg_algs[i], &drbg_cores[j], 0);
-	return crypto_register_rngs(drbg_algs, (ARRAY_SIZE(drbg_cores) * 2));
+	return crypto_register_rngs(drbg_algs, ARRAY_SIZE(drbg_algs));
 }
 
 static void __exit drbg_exit(void)
 {
-	crypto_unregister_rngs(drbg_algs, (ARRAY_SIZE(drbg_cores) * 2));
+	crypto_unregister_rngs(drbg_algs, ARRAY_SIZE(drbg_algs));
 }
 
 module_init(drbg_init);
