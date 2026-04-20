@@ -297,7 +297,7 @@ follows:
     struct sockaddr_alg sa = {
         .salg_family = AF_ALG,
         .salg_type = "rng", /* this selects the random number generator */
-        .salg_name = "drbg_nopr_sha256" /* this is the RNG name */
+        .salg_name = "stdrng" /* this is the RNG name */
     };
 
 

@@ -2,7 +2,6 @@
  * DRBG: Deterministic Random Bits Generator
  *       Based on NIST Recommended DRBG from NIST SP800-90A with the following
  *       properties:
- *		* Hash DRBG with DF with SHA-1, SHA-256, SHA-384, SHA-512 cores
  *		* HMAC DRBG with DF with SHA-1, SHA-256, SHA-384, SHA-512 cores
  *		* with and without prediction resistance
  *
@@ -133,17 +132,13 @@ enum drbg_seed_state {
 
 struct drbg_state {
 	struct mutex drbg_mutex;	/* lock around DRBG */
-	unsigned char *V;	/* internal state 10.1.1.1 1a) */
+	unsigned char *V;	/* internal state -- 10.1.2.1 1a */
 	unsigned char *Vbuf;
-	/* hash: static value 10.1.1.1 1b) hmac: key */
-	unsigned char *C;
+	unsigned char *C;	/* current key -- 10.1.2.1 1b */
 	unsigned char *Cbuf;
-	/* Number of RNG requests since last reseed -- 10.1.1.1 1c) */
+	/* Number of RNG requests since last reseed -- 10.1.2.1 1c */
 	size_t reseed_ctr;
 	size_t reseed_threshold;
-	 /* some memory the DRBG can use for its operation */
-	unsigned char *scratchpad;
-	unsigned char *scratchpadbuf;
 	void *priv_data;	/* Cipher handle */
 
 	enum drbg_seed_state seeded;		/* DRBG fully seeded? */
@@ -194,8 +189,7 @@ static inline size_t drbg_max_requests(struct drbg_state *drbg)
 
 /* DRBG type flags */
 #define DRBG_HMAC	((drbg_flag_t)1<<1)
-#define DRBG_HASH	((drbg_flag_t)1<<2)
-#define DRBG_TYPE_MASK	(DRBG_HMAC | DRBG_HASH)
+#define DRBG_TYPE_MASK	DRBG_HMAC
 /* DRBG strength flags */
 #define DRBG_STRENGTH128	((drbg_flag_t)1<<3)
 #define DRBG_STRENGTH192	((drbg_flag_t)1<<4)
@@ -206,8 +200,6 @@ static inline size_t drbg_max_requests(struct drbg_state *drbg)
 enum drbg_prefixes {
 	DRBG_PREFIX0 = 0x00,
 	DRBG_PREFIX1,
-	DRBG_PREFIX2,
-	DRBG_PREFIX3
 };
 
 /***************************************************************
@@ -222,27 +214,6 @@ enum drbg_prefixes {
  * Thus, the favored DRBGs are the latest entries in this array.
  */
 static const struct drbg_core drbg_cores[] = {
-#ifdef CONFIG_CRYPTO_DRBG_HASH
-	{
-		.flags = DRBG_HASH | DRBG_STRENGTH256,
-		.statelen = 111, /* 888 bits */
-		.blocklen_bytes = 48,
-		.cra_name = "sha384",
-		.backend_cra_name = "sha384",
-	}, {
-		.flags = DRBG_HASH | DRBG_STRENGTH256,
-		.statelen = 111, /* 888 bits */
-		.blocklen_bytes = 64,
-		.cra_name = "sha512",
-		.backend_cra_name = "sha512",
-	}, {
-		.flags = DRBG_HASH | DRBG_STRENGTH256,
-		.statelen = 55, /* 440 bits */
-		.blocklen_bytes = 32,
-		.cra_name = "sha256",
-		.backend_cra_name = "sha256",
-	},
-#endif /* CONFIG_CRYPTO_DRBG_HASH */
 	{
 		.flags = DRBG_HMAC | DRBG_STRENGTH256,
 		.statelen = 48, /* block length of cipher */
@@ -303,7 +274,6 @@ static void drbg_kcapi_hmacsetkey(struct drbg_state *drbg,
 static int drbg_init_hash_kernel(struct drbg_state *drbg);
 static int drbg_fini_hash_kernel(struct drbg_state *drbg);
 
-#define CRYPTO_DRBG_HMAC_STRING "HMAC "
 MODULE_ALIAS_CRYPTO("drbg_pr_hmac_sha512");
 MODULE_ALIAS_CRYPTO("drbg_nopr_hmac_sha512");
 MODULE_ALIAS_CRYPTO("drbg_pr_hmac_sha384");
@@ -416,280 +386,6 @@ static const struct drbg_state_ops drbg_hmac_ops = {
 };
 
 /******************************************************************
- * Hash DRBG callback functions
- ******************************************************************/
-
-#ifdef CONFIG_CRYPTO_DRBG_HASH
-#define CRYPTO_DRBG_HASH_STRING "HASH "
-MODULE_ALIAS_CRYPTO("drbg_pr_sha512");
-MODULE_ALIAS_CRYPTO("drbg_nopr_sha512");
-MODULE_ALIAS_CRYPTO("drbg_pr_sha384");
-MODULE_ALIAS_CRYPTO("drbg_nopr_sha384");
-MODULE_ALIAS_CRYPTO("drbg_pr_sha256");
-MODULE_ALIAS_CRYPTO("drbg_nopr_sha256");
-
-/*
- * Increment buffer
- *
- * @dst buffer to increment
- * @add value to add
- */
-static inline void drbg_add_buf(unsigned char *dst, size_t dstlen,
-				const unsigned char *add, size_t addlen)
-{
-	/* implied: dstlen > addlen */
-	unsigned char *dstptr;
-	const unsigned char *addptr;
-	unsigned int remainder = 0;
-	size_t len = addlen;
-
-	dstptr = dst + (dstlen-1);
-	addptr = add + (addlen-1);
-	while (len) {
-		remainder += *dstptr + *addptr;
-		*dstptr = remainder & 0xff;
-		remainder >>= 8;
-		len--; dstptr--; addptr--;
-	}
-	len = dstlen - addlen;
-	while (len && remainder > 0) {
-		remainder = *dstptr + 1;
-		*dstptr = remainder & 0xff;
-		remainder >>= 8;
-		len--; dstptr--;
-	}
-}
-
-/*
- * scratchpad usage: as drbg_hash_update and drbg_hash_df are used
- * interlinked, the scratchpad is used as follows:
- * drbg_hash_update
- *	start: drbg->scratchpad
- *	length: drbg_statelen(drbg)
- * drbg_hash_df:
- *	start: drbg->scratchpad + drbg_statelen(drbg)
- *	length: drbg_blocklen(drbg)
- *
- * drbg_hash_process_addtl uses the scratchpad, but fully completes
- * before either of the functions mentioned before are invoked. Therefore,
- * drbg_hash_process_addtl does not need to be specifically considered.
- */
-
-/* Derivation Function for Hash DRBG as defined in 10.4.1 */
-static int drbg_hash_df(struct drbg_state *drbg,
-			unsigned char *outval, size_t outlen,
-			struct list_head *entropylist)
-{
-	int ret = 0;
-	size_t len = 0;
-	unsigned char input[5];
-	unsigned char *tmp = drbg->scratchpad + drbg_statelen(drbg);
-	struct drbg_string data;
-
-	/* 10.4.1 step 3 */
-	input[0] = 1;
-	put_unaligned_be32(outlen * 8, &input[1]);
-
-	/* 10.4.1 step 4.1 -- concatenation of data for input into hash */
-	drbg_string_fill(&data, input, 5);
-	list_add(&data.list, entropylist);
-
-	/* 10.4.1 step 4 */
-	while (len < outlen) {
-		short blocklen = 0;
-		/* 10.4.1 step 4.1 */
-		ret = drbg_kcapi_hash(drbg, tmp, entropylist);
-		if (ret)
-			goto out;
-		/* 10.4.1 step 4.2 */
-		input[0]++;
-		blocklen = (drbg_blocklen(drbg) < (outlen - len)) ?
-			    drbg_blocklen(drbg) : (outlen - len);
-		memcpy(outval + len, tmp, blocklen);
-		len += blocklen;
-	}
-
-out:
-	memset(tmp, 0, drbg_blocklen(drbg));
-	return ret;
-}
-
-/* update function for Hash DRBG as defined in 10.1.1.2 / 10.1.1.3 */
-static int drbg_hash_update(struct drbg_state *drbg, struct list_head *seed,
-			    int reseed)
-{
-	int ret = 0;
-	struct drbg_string data1, data2;
-	LIST_HEAD(datalist);
-	LIST_HEAD(datalist2);
-	unsigned char *V = drbg->scratchpad;
-	unsigned char prefix = DRBG_PREFIX1;
-
-	if (!seed)
-		return -EINVAL;
-
-	if (reseed) {
-		/* 10.1.1.3 step 1 */
-		memcpy(V, drbg->V, drbg_statelen(drbg));
-		drbg_string_fill(&data1, &prefix, 1);
-		list_add_tail(&data1.list, &datalist);
-		drbg_string_fill(&data2, V, drbg_statelen(drbg));
-		list_add_tail(&data2.list, &datalist);
-	}
-	list_splice_tail(seed, &datalist);
-
-	/* 10.1.1.2 / 10.1.1.3 step 2 and 3 */
-	ret = drbg_hash_df(drbg, drbg->V, drbg_statelen(drbg), &datalist);
-	if (ret)
-		goto out;
-
-	/* 10.1.1.2 / 10.1.1.3 step 4  */
-	prefix = DRBG_PREFIX0;
-	drbg_string_fill(&data1, &prefix, 1);
-	list_add_tail(&data1.list, &datalist2);
-	drbg_string_fill(&data2, drbg->V, drbg_statelen(drbg));
-	list_add_tail(&data2.list, &datalist2);
-	/* 10.1.1.2 / 10.1.1.3 step 4 */
-	ret = drbg_hash_df(drbg, drbg->C, drbg_statelen(drbg), &datalist2);
-
-out:
-	memset(drbg->scratchpad, 0, drbg_statelen(drbg));
-	return ret;
-}
-
-/* processing of additional information string for Hash DRBG */
-static int drbg_hash_process_addtl(struct drbg_state *drbg,
-				   struct list_head *addtl)
-{
-	int ret = 0;
-	struct drbg_string data1, data2;
-	LIST_HEAD(datalist);
-	unsigned char prefix = DRBG_PREFIX2;
-
-	/* 10.1.1.4 step 2 */
-	if (!addtl || list_empty(addtl))
-		return 0;
-
-	/* 10.1.1.4 step 2a */
-	drbg_string_fill(&data1, &prefix, 1);
-	drbg_string_fill(&data2, drbg->V, drbg_statelen(drbg));
-	list_add_tail(&data1.list, &datalist);
-	list_add_tail(&data2.list, &datalist);
-	list_splice_tail(addtl, &datalist);
-	ret = drbg_kcapi_hash(drbg, drbg->scratchpad, &datalist);
-	if (ret)
-		goto out;
-
-	/* 10.1.1.4 step 2b */
-	drbg_add_buf(drbg->V, drbg_statelen(drbg),
-		     drbg->scratchpad, drbg_blocklen(drbg));
-
-out:
-	memset(drbg->scratchpad, 0, drbg_blocklen(drbg));
-	return ret;
-}
-
-/* Hashgen defined in 10.1.1.4 */
-static int drbg_hash_hashgen(struct drbg_state *drbg,
-			     unsigned char *buf,
-			     unsigned int buflen)
-{
-	int len = 0;
-	int ret = 0;
-	unsigned char *src = drbg->scratchpad;
-	unsigned char *dst = drbg->scratchpad + drbg_statelen(drbg);
-	struct drbg_string data;
-	LIST_HEAD(datalist);
-
-	/* 10.1.1.4 step hashgen 2 */
-	memcpy(src, drbg->V, drbg_statelen(drbg));
-
-	drbg_string_fill(&data, src, drbg_statelen(drbg));
-	list_add_tail(&data.list, &datalist);
-	while (len < buflen) {
-		unsigned int outlen = 0;
-		/* 10.1.1.4 step hashgen 4.1 */
-		ret = drbg_kcapi_hash(drbg, dst, &datalist);
-		if (ret) {
-			len = ret;
-			goto out;
-		}
-		outlen = (drbg_blocklen(drbg) < (buflen - len)) ?
-			  drbg_blocklen(drbg) : (buflen - len);
-		/* 10.1.1.4 step hashgen 4.2 */
-		memcpy(buf + len, dst, outlen);
-		len += outlen;
-		/* 10.1.1.4 hashgen step 4.3 */
-		if (len < buflen)
-			crypto_inc(src, drbg_statelen(drbg));
-	}
-
-out:
-	memset(drbg->scratchpad, 0,
-	       (drbg_statelen(drbg) + drbg_blocklen(drbg)));
-	return len;
-}
-
-/* generate function for Hash DRBG as defined in  10.1.1.4 */
-static int drbg_hash_generate(struct drbg_state *drbg,
-			      unsigned char *buf, unsigned int buflen,
-			      struct list_head *addtl)
-{
-	int len = 0;
-	int ret = 0;
-	union {
-		unsigned char req[8];
-		__be64 req_int;
-	} u;
-	unsigned char prefix = DRBG_PREFIX3;
-	struct drbg_string data1, data2;
-	LIST_HEAD(datalist);
-
-	/* 10.1.1.4 step 2 */
-	ret = drbg_hash_process_addtl(drbg, addtl);
-	if (ret)
-		return ret;
-	/* 10.1.1.4 step 3 */
-	len = drbg_hash_hashgen(drbg, buf, buflen);
-
-	/* this is the value H as documented in 10.1.1.4 */
-	/* 10.1.1.4 step 4 */
-	drbg_string_fill(&data1, &prefix, 1);
-	list_add_tail(&data1.list, &datalist);
-	drbg_string_fill(&data2, drbg->V, drbg_statelen(drbg));
-	list_add_tail(&data2.list, &datalist);
-	ret = drbg_kcapi_hash(drbg, drbg->scratchpad, &datalist);
-	if (ret) {
-		len = ret;
-		goto out;
-	}
-
-	/* 10.1.1.4 step 5 */
-	drbg_add_buf(drbg->V, drbg_statelen(drbg),
-		     drbg->scratchpad, drbg_blocklen(drbg));
-	drbg_add_buf(drbg->V, drbg_statelen(drbg),
-		     drbg->C, drbg_statelen(drbg));
-	u.req_int = cpu_to_be64(drbg->reseed_ctr);
-	drbg_add_buf(drbg->V, drbg_statelen(drbg), u.req, 8);
-
-out:
-	memset(drbg->scratchpad, 0, drbg_blocklen(drbg));
-	return len;
-}
-
-/*
- * scratchpad usage: as update and generate are used isolated, both
- * can use the scratchpad
- */
-static const struct drbg_state_ops drbg_hash_ops = {
-	.update		= drbg_hash_update,
-	.generate	= drbg_hash_generate,
-	.crypto_init	= drbg_init_hash_kernel,
-	.crypto_fini	= drbg_fini_hash_kernel,
-};
-#endif /* CONFIG_CRYPTO_DRBG_HASH */
-
-/******************************************************************
  * Functions common for DRBG implementations
  ******************************************************************/
 
@@ -703,7 +399,6 @@ static inline int __drbg_seed(struct drbg_state *drbg, struct list_head *seed,
 
 	drbg->seeded = new_seed_state;
 	drbg->last_seed_time = jiffies;
-	/* 10.1.1.2 / 10.1.1.3 step 5 */
 	drbg->reseed_ctr = 1;
 
 	switch (drbg->seeded) {
@@ -900,8 +595,6 @@ static inline void drbg_dealloc_state(struct drbg_state *drbg)
 	kfree_sensitive(drbg->Cbuf);
 	drbg->Cbuf = NULL;
 	drbg->C = NULL;
-	kfree_sensitive(drbg->scratchpadbuf);
-	drbg->scratchpadbuf = NULL;
 	drbg->reseed_ctr = 0;
 	drbg->d_ops = NULL;
 	drbg->core = NULL;
@@ -914,17 +607,11 @@ static inline void drbg_dealloc_state(struct drbg_state *drbg)
 static inline int drbg_alloc_state(struct drbg_state *drbg)
 {
 	int ret = -ENOMEM;
-	unsigned int sb_size = 0;
 
 	switch (drbg->core->flags & DRBG_TYPE_MASK) {
 	case DRBG_HMAC:
 		drbg->d_ops = &drbg_hmac_ops;
 		break;
-#ifdef CONFIG_CRYPTO_DRBG_HASH
-	case DRBG_HASH:
-		drbg->d_ops = &drbg_hash_ops;
-		break;
-#endif /* CONFIG_CRYPTO_DRBG_HASH */
 	default:
 		ret = -EOPNOTSUPP;
 		goto err;
@@ -946,20 +633,6 @@ static inline int drbg_alloc_state(struct drbg_state *drbg)
 		goto fini;
 	}
 	drbg->C = PTR_ALIGN(drbg->Cbuf, ret + 1);
-	/* scratchpad is only generated for Hash */
-	if (drbg->core->flags & DRBG_HMAC)
-		sb_size = 0;
-	else
-		sb_size = drbg_statelen(drbg) + drbg_blocklen(drbg);
-
-	if (0 < sb_size) {
-		drbg->scratchpadbuf = kzalloc(sb_size + ret, GFP_KERNEL);
-		if (!drbg->scratchpadbuf) {
-			ret = -ENOMEM;
-			goto fini;
-		}
-		drbg->scratchpad = PTR_ALIGN(drbg->scratchpadbuf, ret + 1);
-	}
 
 	return 0;
 
@@ -1061,7 +734,7 @@ static int drbg_generate(struct drbg_state *drbg,
 	/* 9.3.1 step 8 and 10 */
 	len = drbg->d_ops->generate(drbg, buf, buflen, &addtllist);
 
-	/* 10.1.1.4 step 6, 10.1.2.5 step 7 */
+	/* 10.1.2.5 step 7 */
 	drbg->reseed_ctr++;
 	if (0 >= len)
 		goto err;
@@ -1449,9 +1122,6 @@ static inline int __init drbg_healthcheck_sanity(void)
 	if (!fips_enabled)
 		return 0;
 
-#ifdef CONFIG_CRYPTO_DRBG_HASH
-	drbg_convert_tfm_core("drbg_nopr_sha256", &coreref, &pr);
-#endif
 	drbg_convert_tfm_core("drbg_nopr_hmac_sha512", &coreref, &pr);
 
 	drbg = kzalloc_obj(struct drbg_state);
@@ -1577,13 +1247,7 @@ static void __exit drbg_exit(void)
 
 module_init(drbg_init);
 module_exit(drbg_exit);
-#ifndef CRYPTO_DRBG_HASH_STRING
-#define CRYPTO_DRBG_HASH_STRING ""
-#endif
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Stephan Mueller <smueller@chronox.de>");
-MODULE_DESCRIPTION("NIST SP800-90A Deterministic Random Bit Generator (DRBG) "
-		   "using following cores: "
-		   CRYPTO_DRBG_HASH_STRING
-		   CRYPTO_DRBG_HMAC_STRING);
+MODULE_DESCRIPTION("NIST SP800-90A Deterministic Random Bit Generator (DRBG)");
 MODULE_ALIAS_CRYPTO("stdrng");

@@ -1122,14 +1122,6 @@ menuconfig CRYPTO_DRBG_MENU
 
 if CRYPTO_DRBG_MENU
 
-config CRYPTO_DRBG_HASH
-	bool "Hash_DRBG"
-	select CRYPTO_SHA256
-	help
-	  Hash_DRBG variant as defined in NIST SP800-90A.
-
-	  This uses the SHA-1, SHA-256, SHA-384, or SHA-512 hash algorithms.
-
 config CRYPTO_DRBG
 	tristate
 	default CRYPTO_DRBG_MENU
