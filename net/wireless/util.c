@@ -434,6 +434,21 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 	if (!cfg80211_supported_cipher_suite(&rdev->wiphy, params->cipher))
 		return -EINVAL;
 
+	if (params->ltf_keyseed) {
+		if (!wiphy_ext_feature_isset(&rdev->wiphy,
+					     NL80211_EXT_FEATURE_SECURE_LTF) ||
+		    !wiphy_ext_feature_isset(&rdev->wiphy,
+					     NL80211_EXT_FEATURE_SET_KEY_LTF_SEED))
+			return -EOPNOTSUPP;
+
+		/*
+		 * LTF key seed is pairwise key material and must only be
+		 * used with a pairwise key
+		 */
+		if (!pairwise)
+			return -EINVAL;
+	}
+
 	return 0;
 }
 
