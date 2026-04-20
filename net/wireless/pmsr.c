@@ -562,6 +562,21 @@ static int nl80211_pmsr_send_ftm_res(struct sk_buff *msg,
 	PUTOPT_U64(DIST_AVG, dist_avg);
 	PUTOPT_U64(DIST_VARIANCE, dist_variance);
 	PUTOPT_U64(DIST_SPREAD, dist_spread);
+	PUTOPT(u32, TX_LTF_REPETITION_COUNT, tx_ltf_repetition_count);
+	PUTOPT(u32, RX_LTF_REPETITION_COUNT, rx_ltf_repetition_count);
+	PUTOPT(u32, MAX_TIME_BETWEEN_MEASUREMENTS,
+	       max_time_between_measurements);
+	PUTOPT(u32, MIN_TIME_BETWEEN_MEASUREMENTS,
+	       min_time_between_measurements);
+	PUTOPT(u8, NUM_TX_SPATIAL_STREAMS, num_tx_spatial_streams);
+	PUTOPT(u8, NUM_RX_SPATIAL_STREAMS, num_rx_spatial_streams);
+	PUTOPT(u32, NOMINAL_TIME, nominal_time);
+	PUTOPT(u8, AVAILABILITY_WINDOW, availability_window);
+	PUTOPT(u32, CHANNEL_WIDTH, chan_width);
+	PUTOPT(u32, PREAMBLE, preamble);
+	if (res->ftm.is_delayed_lmr &&
+	    nla_put_flag(msg, NL80211_PMSR_FTM_RESP_ATTR_IS_DELAYED_LMR))
+		goto error;
 	if (res->ftm.lci && res->ftm.lci_len &&
 	    nla_put(msg, NL80211_PMSR_FTM_RESP_ATTR_LCI,
 		    res->ftm.lci_len, res->ftm.lci))
