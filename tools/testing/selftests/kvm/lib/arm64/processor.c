@@ -19,9 +19,9 @@
 
 #define DEFAULT_ARM64_GUEST_STACK_VADDR_MIN	0xac0000
 
-static vm_vaddr_t exception_handlers;
+static gva_t exception_handlers;
 
-static uint64_t pgd_index(struct kvm_vm *vm, vm_vaddr_t gva)
+static uint64_t pgd_index(struct kvm_vm *vm, gva_t gva)
 {
 	unsigned int shift = (vm->mmu.pgtable_levels - 1) * (vm->page_shift - 3) + vm->page_shift;
 	uint64_t mask = (1UL << (vm->va_bits - shift)) - 1;
@@ -29,7 +29,7 @@ static uint64_t pgd_index(struct kvm_vm *vm, vm_vaddr_t gva)
 	return (gva >> shift) & mask;
 }
 
-static uint64_t pud_index(struct kvm_vm *vm, vm_vaddr_t gva)
+static uint64_t pud_index(struct kvm_vm *vm, gva_t gva)
 {
 	unsigned int shift = 2 * (vm->page_shift - 3) + vm->page_shift;
 	uint64_t mask = (1UL << (vm->page_shift - 3)) - 1;
@@ -40,7 +40,7 @@ static uint64_t pud_index(struct kvm_vm *vm, vm_vaddr_t gva)
 	return (gva >> shift) & mask;
 }
 
-static uint64_t pmd_index(struct kvm_vm *vm, vm_vaddr_t gva)
+static uint64_t pmd_index(struct kvm_vm *vm, gva_t gva)
 {
 	unsigned int shift = (vm->page_shift - 3) + vm->page_shift;
 	uint64_t mask = (1UL << (vm->page_shift - 3)) - 1;
@@ -51,7 +51,7 @@ static uint64_t pmd_index(struct kvm_vm *vm, vm_vaddr_t gva)
 	return (gva >> shift) & mask;
 }
 
-static uint64_t pte_index(struct kvm_vm *vm, vm_vaddr_t gva)
+static uint64_t pte_index(struct kvm_vm *vm, gva_t gva)
 {
 	uint64_t mask = (1UL << (vm->page_shift - 3)) - 1;
 	return (gva >> vm->page_shift) & mask;
@@ -181,7 +181,7 @@ void virt_arch_pg_map(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr)
 	_virt_pg_map(vm, vaddr, paddr, attr_idx);
 }
 
-uint64_t *virt_get_pte_hva_at_level(struct kvm_vm *vm, vm_vaddr_t gva, int level)
+uint64_t *virt_get_pte_hva_at_level(struct kvm_vm *vm, gva_t gva, int level)
 {
 	uint64_t *ptep;
 
@@ -225,12 +225,12 @@ unmapped_gva:
 	exit(EXIT_FAILURE);
 }
 
-uint64_t *virt_get_pte_hva(struct kvm_vm *vm, vm_vaddr_t gva)
+uint64_t *virt_get_pte_hva(struct kvm_vm *vm, gva_t gva)
 {
 	return virt_get_pte_hva_at_level(vm, gva, 3);
 }
 
-vm_paddr_t addr_arch_gva2gpa(struct kvm_vm *vm, vm_vaddr_t gva)
+vm_paddr_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 {
 	uint64_t *ptep = virt_get_pte_hva(vm, gva);
 
@@ -539,7 +539,7 @@ void vm_init_descriptor_tables(struct kvm_vm *vm)
 	vm->handlers = __vm_vaddr_alloc(vm, sizeof(struct handlers),
 					vm->page_size, MEM_REGION_DATA);
 
-	*(vm_vaddr_t *)addr_gva2hva(vm, (vm_vaddr_t)(&exception_handlers)) = vm->handlers;
+	*(gva_t *)addr_gva2hva(vm, (gva_t)(&exception_handlers)) = vm->handlers;
 }
 
 void vm_install_sync_handler(struct kvm_vm *vm, int vector, int ec,

@@ -15,7 +15,7 @@
 #define kvm_static_assert(expr, ...) __kvm_static_assert(expr, ##__VA_ARGS__, #expr)
 
 typedef uint64_t vm_paddr_t; /* Virtual Machine (Guest) physical address */
-typedef uint64_t vm_vaddr_t; /* Virtual Machine (Guest) virtual address */
+typedef uint64_t gva_t; /* Virtual Machine (Guest) virtual address */
 
 #define INVALID_GPA (~(uint64_t)0)
 

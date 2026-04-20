@@ -104,7 +104,7 @@ static void memstress_setup_ept_mappings(struct kvm_vm *vm)
 void memstress_setup_nested(struct kvm_vm *vm, int nr_vcpus, struct kvm_vcpu *vcpus[])
 {
 	struct kvm_regs regs;
-	vm_vaddr_t nested_gva;
+	gva_t nested_gva;
 	int vcpu_id;
 
 	TEST_REQUIRE(kvm_cpu_has_tdp());

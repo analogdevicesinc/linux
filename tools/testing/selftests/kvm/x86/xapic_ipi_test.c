@@ -393,7 +393,7 @@ int main(int argc, char *argv[])
 	int run_secs = 0;
 	int delay_usecs = 0;
 	struct test_data_page *data;
-	vm_vaddr_t test_data_page_vaddr;
+	gva_t test_data_page_vaddr;
 	bool migrate = false;
 	pthread_t threads[2];
 	struct thread_params params[2];

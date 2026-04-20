@@ -13,9 +13,9 @@
 #define LOONGARCH_GUEST_STACK_VADDR_MIN		0x200000
 
 static vm_paddr_t invalid_pgtable[4];
-static vm_vaddr_t exception_handlers;
+static gva_t exception_handlers;
 
-static uint64_t virt_pte_index(struct kvm_vm *vm, vm_vaddr_t gva, int level)
+static uint64_t virt_pte_index(struct kvm_vm *vm, gva_t gva, int level)
 {
 	unsigned int shift;
 	uint64_t mask;
@@ -72,7 +72,7 @@ static int virt_pte_none(uint64_t *ptep, int level)
 	return *ptep == invalid_pgtable[level];
 }
 
-static uint64_t *virt_populate_pte(struct kvm_vm *vm, vm_vaddr_t gva, int alloc)
+static uint64_t *virt_populate_pte(struct kvm_vm *vm, gva_t gva, int alloc)
 {
 	int level;
 	uint64_t *ptep;
@@ -106,7 +106,7 @@ unmapped_gva:
 	exit(EXIT_FAILURE);
 }
 
-vm_paddr_t addr_arch_gva2gpa(struct kvm_vm *vm, vm_vaddr_t gva)
+vm_paddr_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 {
 	uint64_t *ptep;
 

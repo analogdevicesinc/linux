@@ -236,7 +236,7 @@ int main(int argc, char *argv[])
 	struct kvm_x86_state *state;
 	struct kvm_x86_state *tile_state = NULL;
 	int xsave_restore_size;
-	vm_vaddr_t amx_cfg, tiledata, xstate;
+	gva_t amx_cfg, tiledata, xstate;
 	struct ucall uc;
 	int ret;
 

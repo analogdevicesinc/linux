@@ -8,7 +8,7 @@
 
 #define UCALL_PIO_PORT ((uint16_t)0x1000)
 
-void ucall_arch_do_ucall(vm_vaddr_t uc)
+void ucall_arch_do_ucall(gva_t uc)
 {
 	/*
 	 * FIXME: Revert this hack (the entire commit that added it) once nVMX

@@ -16,7 +16,7 @@
 #define EXT_CAPABILITIES 0xbull
 
 static void guest_code(vm_paddr_t in_pg_gpa, vm_paddr_t out_pg_gpa,
-		       vm_vaddr_t out_pg_gva)
+		       gva_t out_pg_gva)
 {
 	uint64_t *output_gva;
 
@@ -35,8 +35,8 @@ static void guest_code(vm_paddr_t in_pg_gpa, vm_paddr_t out_pg_gpa,
 
 int main(void)
 {
-	vm_vaddr_t hcall_out_page;
-	vm_vaddr_t hcall_in_page;
+	gva_t hcall_out_page;
+	gva_t hcall_in_page;
 	struct kvm_vcpu *vcpu;
 	struct kvm_run *run;
 	struct kvm_vm *vm;

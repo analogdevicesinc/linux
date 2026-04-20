@@ -309,7 +309,7 @@ static void steal_time_init(struct kvm_vcpu *vcpu, uint32_t i)
 {
 	/* ST_GPA_BASE is identity mapped */
 	st_gva[i] = (void *)(ST_GPA_BASE + i * STEAL_TIME_SIZE);
-	st_gpa[i] = addr_gva2gpa(vcpu->vm, (vm_vaddr_t)st_gva[i]);
+	st_gpa[i] = addr_gva2gpa(vcpu->vm, (gva_t)st_gva[i]);
 	sync_global_to_guest(vcpu->vm, st_gva[i]);
 	sync_global_to_guest(vcpu->vm, st_gpa[i]);
 }

@@ -79,9 +79,9 @@ void vm_enable_ept(struct kvm_vm *vm)
  *   Pointer to structure with the addresses of the VMX areas.
  */
 struct vmx_pages *
-vcpu_alloc_vmx(struct kvm_vm *vm, vm_vaddr_t *p_vmx_gva)
+vcpu_alloc_vmx(struct kvm_vm *vm, gva_t *p_vmx_gva)
 {
-	vm_vaddr_t vmx_gva = vm_vaddr_alloc_page(vm);
+	gva_t vmx_gva = vm_vaddr_alloc_page(vm);
 	struct vmx_pages *vmx = addr_gva2hva(vm, vmx_gva);
 
 	/* Setup of a region of guest memory for the vmxon region. */

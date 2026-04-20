@@ -73,7 +73,7 @@ void guest_code(struct vmx_pages *vmx_pages)
 
 int main(int argc, char *argv[])
 {
-	vm_vaddr_t vmx_pages_gva = 0;
+	gva_t vmx_pages_gva = 0;
 	struct kvm_vm *vm;
 	struct kvm_vcpu *vcpu;
 	struct kvm_x86_state *state;

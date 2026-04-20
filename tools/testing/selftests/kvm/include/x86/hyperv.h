@@ -254,8 +254,8 @@
  * Issue a Hyper-V hypercall. Returns exception vector raised or 0, 'hv_status'
  * is set to the hypercall status (if no exception occurred).
  */
-static inline uint8_t __hyperv_hypercall(u64 control, vm_vaddr_t input_address,
-					 vm_vaddr_t output_address,
+static inline uint8_t __hyperv_hypercall(u64 control, gva_t input_address,
+					 gva_t output_address,
 					 uint64_t *hv_status)
 {
 	uint64_t error_code;
@@ -274,8 +274,8 @@ static inline uint8_t __hyperv_hypercall(u64 control, vm_vaddr_t input_address,
 }
 
 /* Issue a Hyper-V hypercall and assert that it succeeded. */
-static inline void hyperv_hypercall(u64 control, vm_vaddr_t input_address,
-				    vm_vaddr_t output_address)
+static inline void hyperv_hypercall(u64 control, gva_t input_address,
+				    gva_t output_address)
 {
 	uint64_t hv_status;
 	uint8_t vector;
@@ -347,7 +347,7 @@ struct hyperv_test_pages {
 };
 
 struct hyperv_test_pages *vcpu_alloc_hyperv_test_pages(struct kvm_vm *vm,
-						       vm_vaddr_t *p_hv_pages_gva);
+						       gva_t *p_hv_pages_gva);
 
 /* HV_X64_MSR_TSC_INVARIANT_CONTROL bits */
 #define HV_INVARIANT_TSC_EXPOSED               BIT_ULL(0)

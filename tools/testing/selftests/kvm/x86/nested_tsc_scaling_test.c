@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
-	vm_vaddr_t guest_gva = 0;
+	gva_t guest_gva = 0;
 
 	uint64_t tsc_start, tsc_end;
 	uint64_t tsc_khz;

@@ -292,7 +292,7 @@ static struct kvm_vm *pre_init_before_test(enum vm_guest_mode mode, void *arg)
 	ret = sem_init(&test_stage_completed, 0, 0);
 	TEST_ASSERT(ret == 0, "Error in sem_init");
 
-	current_stage = addr_gva2hva(vm, (vm_vaddr_t)(&guest_test_stage));
+	current_stage = addr_gva2hva(vm, (gva_t)(&guest_test_stage));
 	*current_stage = NUM_TEST_STAGES;
 
 	pr_info("Testing guest mode: %s\n", vm_guest_mode_string(mode));

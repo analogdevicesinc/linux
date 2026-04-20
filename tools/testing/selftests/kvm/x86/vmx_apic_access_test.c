@@ -72,7 +72,7 @@ static void l1_guest_code(struct vmx_pages *vmx_pages, unsigned long high_gpa)
 int main(int argc, char *argv[])
 {
 	unsigned long apic_access_addr = ~0ul;
-	vm_vaddr_t vmx_pages_gva;
+	gva_t vmx_pages_gva;
 	unsigned long high_gpa;
 	struct vmx_pages *vmx;
 	bool done = false;

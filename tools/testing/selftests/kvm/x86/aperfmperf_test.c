@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 {
 	const bool has_nested = kvm_cpu_has(X86_FEATURE_SVM) || kvm_cpu_has(X86_FEATURE_VMX);
 	uint64_t host_aperf_before, host_mperf_before;
-	vm_vaddr_t nested_test_data_gva;
+	gva_t nested_test_data_gva;
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
 	int msr_fd, cpu, i;

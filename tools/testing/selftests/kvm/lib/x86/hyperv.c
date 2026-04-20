@@ -76,9 +76,9 @@ bool kvm_hv_cpu_has(struct kvm_x86_cpu_feature feature)
 }
 
 struct hyperv_test_pages *vcpu_alloc_hyperv_test_pages(struct kvm_vm *vm,
-						       vm_vaddr_t *p_hv_pages_gva)
+						       gva_t *p_hv_pages_gva)
 {
-	vm_vaddr_t hv_pages_gva = vm_vaddr_alloc_page(vm);
+	gva_t hv_pages_gva = vm_vaddr_alloc_page(vm);
 	struct hyperv_test_pages *hv = addr_gva2hva(vm, hv_pages_gva);
 
 	/* Setup of a region of guest memory for the VP Assist page. */

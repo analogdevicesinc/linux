@@ -135,7 +135,7 @@ static void enter_guest(struct kvm_vcpu *vcpu)
 int main(void)
 {
 	struct kvm_vcpu *vcpu;
-	vm_vaddr_t pvti_gva;
+	gva_t pvti_gva;
 	vm_paddr_t pvti_gpa;
 	struct kvm_vm *vm;
 	int flags;

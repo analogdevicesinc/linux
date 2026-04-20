@@ -74,7 +74,7 @@ static u64 unmappable_gpa(struct kvm_vcpu *vcpu)
 
 static void test_invalid_vmcb12(struct kvm_vcpu *vcpu)
 {
-	vm_vaddr_t nested_gva = 0;
+	gva_t nested_gva = 0;
 	struct ucall uc;
 
 
@@ -90,7 +90,7 @@ static void test_invalid_vmcb12(struct kvm_vcpu *vcpu)
 
 static void test_unmappable_vmcb12(struct kvm_vcpu *vcpu)
 {
-	vm_vaddr_t nested_gva = 0;
+	gva_t nested_gva = 0;
 
 	vcpu_alloc_svm(vcpu->vm, &nested_gva);
 	vcpu_args_set(vcpu, 2, nested_gva, unmappable_gpa(vcpu));
@@ -103,7 +103,7 @@ static void test_unmappable_vmcb12(struct kvm_vcpu *vcpu)
 static void test_unmappable_vmcb12_vmexit(struct kvm_vcpu *vcpu)
 {
 	struct kvm_x86_state *state;
-	vm_vaddr_t nested_gva = 0;
+	gva_t nested_gva = 0;
 	struct ucall uc;
 
 	/*

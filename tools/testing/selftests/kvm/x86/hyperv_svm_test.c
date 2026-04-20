@@ -67,7 +67,7 @@ void l2_guest_code(void)
 
 static void __attribute__((__flatten__)) guest_code(struct svm_test_data *svm,
 						    struct hyperv_test_pages *hv_pages,
-						    vm_vaddr_t pgs_gpa)
+						    gva_t pgs_gpa)
 {
 	unsigned long l2_guest_stack[L2_GUEST_STACK_SIZE];
 	struct vmcb *vmcb = svm->vmcb;
@@ -149,8 +149,8 @@ static void __attribute__((__flatten__)) guest_code(struct svm_test_data *svm,
 
 int main(int argc, char *argv[])
 {
-	vm_vaddr_t nested_gva = 0, hv_pages_gva = 0;
-	vm_vaddr_t hcall_page;
+	gva_t nested_gva = 0, hv_pages_gva = 0;
+	gva_t hcall_page;
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
 	struct ucall uc;

@@ -29,7 +29,7 @@ void ucall_init(struct kvm_vm *vm, vm_paddr_t mmio_gpa)
 {
 	struct ucall_header *hdr;
 	struct ucall *uc;
-	vm_vaddr_t vaddr;
+	gva_t vaddr;
 	int i;
 
 	vaddr = vm_vaddr_alloc_shared(vm, sizeof(*hdr), KVM_UTIL_MIN_VADDR,
@@ -96,7 +96,7 @@ void ucall_assert(uint64_t cmd, const char *exp, const char *file,
 	guest_vsnprintf(uc->buffer, UCALL_BUFFER_LEN, fmt, va);
 	va_end(va);
 
-	ucall_arch_do_ucall((vm_vaddr_t)uc->hva);
+	ucall_arch_do_ucall((gva_t)uc->hva);
 
 	ucall_free(uc);
 }
@@ -113,7 +113,7 @@ void ucall_fmt(uint64_t cmd, const char *fmt, ...)
 	guest_vsnprintf(uc->buffer, UCALL_BUFFER_LEN, fmt, va);
 	va_end(va);
 
-	ucall_arch_do_ucall((vm_vaddr_t)uc->hva);
+	ucall_arch_do_ucall((gva_t)uc->hva);
 
 	ucall_free(uc);
 }
@@ -135,7 +135,7 @@ void ucall(uint64_t cmd, int nargs, ...)
 		WRITE_ONCE(uc->args[i], va_arg(va, uint64_t));
 	va_end(va);
 
-	ucall_arch_do_ucall((vm_vaddr_t)uc->hva);
+	ucall_arch_do_ucall((gva_t)uc->hva);
 
 	ucall_free(uc);
 }

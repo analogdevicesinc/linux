@@ -82,7 +82,7 @@ done:
 	GUEST_DONE();
 }
 
-static void guest_hcall(vm_vaddr_t pgs_gpa, struct hcall_data *hcall)
+static void guest_hcall(gva_t pgs_gpa, struct hcall_data *hcall)
 {
 	u64 res, input, output;
 	uint8_t vector;
@@ -134,7 +134,7 @@ static void guest_test_msrs_access(void)
 	struct kvm_vm *vm;
 	struct ucall uc;
 	int stage = 0;
-	vm_vaddr_t msr_gva;
+	gva_t msr_gva;
 	struct msr_data *msr;
 	bool has_invtsc = kvm_cpu_has(X86_FEATURE_INVTSC);
 
@@ -523,7 +523,7 @@ static void guest_test_hcalls_access(void)
 	struct kvm_vm *vm;
 	struct ucall uc;
 	int stage = 0;
-	vm_vaddr_t hcall_page, hcall_params;
+	gva_t hcall_page, hcall_params;
 	struct hcall_data *hcall;
 
 	while (true) {

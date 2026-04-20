@@ -61,14 +61,14 @@ struct hv_tlb_flush_ex {
  * - GVAs of the test pages' PTEs
  */
 struct test_data {
-	vm_vaddr_t hcall_gva;
+	gva_t hcall_gva;
 	vm_paddr_t hcall_gpa;
-	vm_vaddr_t test_pages;
-	vm_vaddr_t test_pages_pte[NTEST_PAGES];
+	gva_t test_pages;
+	gva_t test_pages_pte[NTEST_PAGES];
 };
 
 /* 'Worker' vCPU code checking the contents of the test page */
-static void worker_guest_code(vm_vaddr_t test_data)
+static void worker_guest_code(gva_t test_data)
 {
 	struct test_data *data = (struct test_data *)test_data;
 	u32 vcpu_id = rdmsr(HV_X64_MSR_VP_INDEX);
@@ -196,7 +196,7 @@ static inline void post_test(struct test_data *data, u64 exp1, u64 exp2)
 #define TESTVAL2 0x0202020202020202
 
 /* Main vCPU doing the test */
-static void sender_guest_code(vm_vaddr_t test_data)
+static void sender_guest_code(gva_t test_data)
 {
 	struct test_data *data = (struct test_data *)test_data;
 	struct hv_tlb_flush *flush = (struct hv_tlb_flush *)data->hcall_gva;
@@ -581,7 +581,7 @@ int main(int argc, char *argv[])
 	struct kvm_vm *vm;
 	struct kvm_vcpu *vcpu[3];
 	pthread_t threads[2];
-	vm_vaddr_t test_data_page, gva;
+	gva_t test_data_page, gva;
 	vm_paddr_t gpa;
 	uint64_t *pte;
 	struct test_data *data;

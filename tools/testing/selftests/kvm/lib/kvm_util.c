@@ -1386,8 +1386,7 @@ struct kvm_vcpu *__vm_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
  * TEST_ASSERT failure occurs for invalid input or no area of at least
  * sz unallocated bytes >= vaddr_min is available.
  */
-vm_vaddr_t vm_vaddr_unused_gap(struct kvm_vm *vm, size_t sz,
-			       vm_vaddr_t vaddr_min)
+gva_t vm_vaddr_unused_gap(struct kvm_vm *vm, size_t sz, gva_t vaddr_min)
 {
 	uint64_t pages = (sz + vm->page_size - 1) >> vm->page_shift;
 
@@ -1452,10 +1451,8 @@ va_found:
 	return pgidx_start * vm->page_size;
 }
 
-static vm_vaddr_t ____vm_vaddr_alloc(struct kvm_vm *vm, size_t sz,
-				     vm_vaddr_t vaddr_min,
-				     enum kvm_mem_region_type type,
-				     bool protected)
+static gva_t ____vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+				enum kvm_mem_region_type type, bool protected)
 {
 	uint64_t pages = (sz >> vm->page_shift) + ((sz % vm->page_size) != 0);
 
@@ -1468,10 +1465,10 @@ static vm_vaddr_t ____vm_vaddr_alloc(struct kvm_vm *vm, size_t sz,
 	 * Find an unused range of virtual page addresses of at least
 	 * pages in length.
 	 */
-	vm_vaddr_t vaddr_start = vm_vaddr_unused_gap(vm, sz, vaddr_min);
+	gva_t vaddr_start = vm_vaddr_unused_gap(vm, sz, vaddr_min);
 
 	/* Map the virtual pages. */
-	for (vm_vaddr_t vaddr = vaddr_start; pages > 0;
+	for (gva_t vaddr = vaddr_start; pages > 0;
 		pages--, vaddr += vm->page_size, paddr += vm->page_size) {
 
 		virt_pg_map(vm, vaddr, paddr);
@@ -1480,16 +1477,15 @@ static vm_vaddr_t ____vm_vaddr_alloc(struct kvm_vm *vm, size_t sz,
 	return vaddr_start;
 }
 
-vm_vaddr_t __vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, vm_vaddr_t vaddr_min,
-			    enum kvm_mem_region_type type)
+gva_t __vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+		       enum kvm_mem_region_type type)
 {
 	return ____vm_vaddr_alloc(vm, sz, vaddr_min, type,
 				  vm_arch_has_protected_memory(vm));
 }
 
-vm_vaddr_t vm_vaddr_alloc_shared(struct kvm_vm *vm, size_t sz,
-				 vm_vaddr_t vaddr_min,
-				 enum kvm_mem_region_type type)
+gva_t vm_vaddr_alloc_shared(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+			    enum kvm_mem_region_type type)
 {
 	return ____vm_vaddr_alloc(vm, sz, vaddr_min, type, false);
 }
@@ -1513,7 +1509,7 @@ vm_vaddr_t vm_vaddr_alloc_shared(struct kvm_vm *vm, size_t sz,
  * a unique set of pages, with the minimum real allocation being at least
  * a page. The allocated physical space comes from the TEST_DATA memory region.
  */
-vm_vaddr_t vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, vm_vaddr_t vaddr_min)
+gva_t vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min)
 {
 	return __vm_vaddr_alloc(vm, sz, vaddr_min, MEM_REGION_TEST_DATA);
 }
@@ -1532,12 +1528,12 @@ vm_vaddr_t vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, vm_vaddr_t vaddr_min)
  * Allocates at least N system pages worth of bytes within the virtual address
  * space of the vm.
  */
-vm_vaddr_t vm_vaddr_alloc_pages(struct kvm_vm *vm, int nr_pages)
+gva_t vm_vaddr_alloc_pages(struct kvm_vm *vm, int nr_pages)
 {
 	return vm_vaddr_alloc(vm, nr_pages * getpagesize(), KVM_UTIL_MIN_VADDR);
 }
 
-vm_vaddr_t __vm_vaddr_alloc_page(struct kvm_vm *vm, enum kvm_mem_region_type type)
+gva_t __vm_vaddr_alloc_page(struct kvm_vm *vm, enum kvm_mem_region_type type)
 {
 	return __vm_vaddr_alloc(vm, getpagesize(), KVM_UTIL_MIN_VADDR, type);
 }
@@ -1556,7 +1552,7 @@ vm_vaddr_t __vm_vaddr_alloc_page(struct kvm_vm *vm, enum kvm_mem_region_type typ
  * Allocates at least one system page worth of bytes within the virtual address
  * space of the vm.
  */
-vm_vaddr_t vm_vaddr_alloc_page(struct kvm_vm *vm)
+gva_t vm_vaddr_alloc_page(struct kvm_vm *vm)
 {
 	return vm_vaddr_alloc_pages(vm, 1);
 }
@@ -2161,7 +2157,7 @@ vm_paddr_t vm_alloc_page_table(struct kvm_vm *vm)
  * Return:
  *   Equivalent host virtual address
  */
-void *addr_gva2hva(struct kvm_vm *vm, vm_vaddr_t gva)
+void *addr_gva2hva(struct kvm_vm *vm, gva_t gva)
 {
 	return addr_gpa2hva(vm, addr_gva2gpa(vm, gva));
 }

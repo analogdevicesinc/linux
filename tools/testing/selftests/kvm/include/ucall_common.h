@@ -30,7 +30,7 @@ struct ucall {
 };
 
 void ucall_arch_init(struct kvm_vm *vm, vm_paddr_t mmio_gpa);
-void ucall_arch_do_ucall(vm_vaddr_t uc);
+void ucall_arch_do_ucall(gva_t uc);
 void *ucall_arch_get_ucall(struct kvm_vcpu *vcpu);
 
 void ucall(uint64_t cmd, int nargs, ...);
@@ -48,7 +48,7 @@ int ucall_nr_pages_required(uint64_t page_size);
  * the full ucall() are problematic and/or unwanted.  Note, this will come out
  * as UCALL_NONE on the backend.
  */
-#define GUEST_UCALL_NONE()	ucall_arch_do_ucall((vm_vaddr_t)NULL)
+#define GUEST_UCALL_NONE()	ucall_arch_do_ucall((gva_t)NULL)
 
 #define GUEST_SYNC_ARGS(stage, arg1, arg2, arg3, arg4)	\
 				ucall(UCALL_SYNC, 6, "hello", stage, arg1, arg2, arg3, arg4)
