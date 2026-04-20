@@ -171,7 +171,7 @@ static void test_numa_allocation(int fd, size_t total_size)
 	kvm_munmap(mem, total_size);
 }
 
-static void test_collapse(int fd, uint64_t flags)
+static void test_collapse(int fd, u64 flags)
 {
 	const size_t pmd_size = get_trans_hugepagesz();
 	void *reserved_addr;
@@ -346,7 +346,7 @@ static void test_invalid_punch_hole(int fd, size_t total_size)
 }
 
 static void test_create_guest_memfd_invalid_sizes(struct kvm_vm *vm,
-						  uint64_t guest_memfd_flags)
+						  u64 guest_memfd_flags)
 {
 	size_t size;
 	int fd;
@@ -389,8 +389,8 @@ static void test_create_guest_memfd_multiple(struct kvm_vm *vm)
 
 static void test_guest_memfd_flags(struct kvm_vm *vm)
 {
-	uint64_t valid_flags = vm_check_cap(vm, KVM_CAP_GUEST_MEMFD_FLAGS);
-	uint64_t flag;
+	u64 valid_flags = vm_check_cap(vm, KVM_CAP_GUEST_MEMFD_FLAGS);
+	u64 flag;
 	int fd;
 
 	for (flag = BIT(0); flag; flag <<= 1) {
@@ -419,7 +419,7 @@ do {									\
 #define gmem_test(__test, __vm, __flags)				\
 	__gmem_test(__test, __vm, __flags, page_size * 4)
 
-static void __test_guest_memfd(struct kvm_vm *vm, uint64_t flags)
+static void __test_guest_memfd(struct kvm_vm *vm, u64 flags)
 {
 	test_create_guest_memfd_multiple(vm);
 	test_create_guest_memfd_invalid_sizes(vm, flags);
@@ -452,7 +452,7 @@ static void __test_guest_memfd(struct kvm_vm *vm, uint64_t flags)
 static void test_guest_memfd(unsigned long vm_type)
 {
 	struct kvm_vm *vm = vm_create_barebones_type(vm_type);
-	uint64_t flags;
+	u64 flags;
 
 	test_guest_memfd_flags(vm);
 
@@ -470,7 +470,7 @@ static void test_guest_memfd(unsigned long vm_type)
 	kvm_vm_free(vm);
 }
 
-static void guest_code(uint8_t *mem, uint64_t size)
+static void guest_code(u8 *mem, u64 size)
 {
 	size_t i;
 
@@ -489,12 +489,12 @@ static void test_guest_memfd_guest(void)
 	 * the guest's code, stack, and page tables, and low memory contains
 	 * the PCI hole and other MMIO regions that need to be avoided.
 	 */
-	const uint64_t gpa = SZ_4G;
+	const gpa_t gpa = SZ_4G;
 	const int slot = 1;
 
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
-	uint8_t *mem;
+	u8 *mem;
 	size_t size;
 	int fd, i;
 

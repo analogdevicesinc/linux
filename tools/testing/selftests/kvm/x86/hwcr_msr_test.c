@@ -10,11 +10,11 @@
 
 void test_hwcr_bit(struct kvm_vcpu *vcpu, unsigned int bit)
 {
-	const uint64_t ignored = BIT_ULL(3) | BIT_ULL(6) | BIT_ULL(8);
-	const uint64_t valid = BIT_ULL(18) | BIT_ULL(24);
-	const uint64_t legal = ignored | valid;
-	uint64_t val = BIT_ULL(bit);
-	uint64_t actual;
+	const u64 ignored = BIT_ULL(3) | BIT_ULL(6) | BIT_ULL(8);
+	const u64 valid = BIT_ULL(18) | BIT_ULL(24);
+	const u64 legal = ignored | valid;
+	u64 val = BIT_ULL(bit);
+	u64 actual;
 	int r;
 
 	r = _vcpu_set_msr(vcpu, MSR_K7_HWCR, val);

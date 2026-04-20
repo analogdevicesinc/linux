@@ -46,12 +46,12 @@ static const char * const test_stage_string[] = {
 
 struct test_args {
 	struct kvm_vm *vm;
-	uint64_t guest_test_virt_mem;
-	uint64_t host_page_size;
-	uint64_t host_num_pages;
-	uint64_t large_page_size;
-	uint64_t large_num_pages;
-	uint64_t host_pages_per_lpage;
+	u64 guest_test_virt_mem;
+	u64 host_page_size;
+	u64 host_num_pages;
+	u64 large_page_size;
+	u64 large_num_pages;
+	u64 host_pages_per_lpage;
 	enum vm_mem_backing_src_type src_type;
 	struct kvm_vcpu *vcpus[KVM_MAX_VCPUS];
 };
@@ -63,7 +63,7 @@ struct test_args {
 static enum test_stage guest_test_stage;
 
 /* Host variables */
-static uint32_t nr_vcpus = 1;
+static u32 nr_vcpus = 1;
 static struct test_args test_args;
 static enum test_stage *current_stage;
 static bool host_quit;
@@ -77,19 +77,19 @@ static sem_t test_stage_completed;
  * This will be set to the topmost valid physical address minus
  * the test memory size.
  */
-static uint64_t guest_test_phys_mem;
+static u64 guest_test_phys_mem;
 
 /*
  * Guest virtual memory offset of the testing memory slot.
  * Must not conflict with identity mapped test code.
  */
-static uint64_t guest_test_virt_mem = DEFAULT_GUEST_TEST_MEM;
+static u64 guest_test_virt_mem = DEFAULT_GUEST_TEST_MEM;
 
 static void guest_code(bool do_write)
 {
 	struct test_args *p = &test_args;
 	enum test_stage *current_stage = &guest_test_stage;
-	uint64_t addr;
+	u64 addr;
 	int i, j;
 
 	while (true) {
@@ -113,9 +113,9 @@ static void guest_code(bool do_write)
 		case KVM_CREATE_MAPPINGS:
 			for (i = 0; i < p->large_num_pages; i++) {
 				if (do_write)
-					*(uint64_t *)addr = 0x0123456789ABCDEF;
+					*(u64 *)addr = 0x0123456789ABCDEF;
 				else
-					READ_ONCE(*(uint64_t *)addr);
+					READ_ONCE(*(u64 *)addr);
 
 				addr += p->large_page_size;
 			}
@@ -131,7 +131,7 @@ static void guest_code(bool do_write)
 		case KVM_UPDATE_MAPPINGS:
 			if (p->src_type == VM_MEM_SRC_ANONYMOUS) {
 				for (i = 0; i < p->host_num_pages; i++) {
-					*(uint64_t *)addr = 0x0123456789ABCDEF;
+					*(u64 *)addr = 0x0123456789ABCDEF;
 					addr += p->host_page_size;
 				}
 				break;
@@ -142,7 +142,7 @@ static void guest_code(bool do_write)
 				 * Write to the first host page in each large
 				 * page region, and triger break of large pages.
 				 */
-				*(uint64_t *)addr = 0x0123456789ABCDEF;
+				*(u64 *)addr = 0x0123456789ABCDEF;
 
 				/*
 				 * Access the middle host pages in each large
@@ -152,7 +152,7 @@ static void guest_code(bool do_write)
 				 */
 				addr += p->large_page_size / 2;
 				for (j = 0; j < p->host_pages_per_lpage / 2; j++) {
-					READ_ONCE(*(uint64_t *)addr);
+					READ_ONCE(*(u64 *)addr);
 					addr += p->host_page_size;
 				}
 			}
@@ -167,7 +167,7 @@ static void guest_code(bool do_write)
 		 */
 		case KVM_ADJUST_MAPPINGS:
 			for (i = 0; i < p->host_num_pages; i++) {
-				READ_ONCE(*(uint64_t *)addr);
+				READ_ONCE(*(u64 *)addr);
 				addr += p->host_page_size;
 			}
 			break;
@@ -227,8 +227,8 @@ static void *vcpu_worker(void *data)
 }
 
 struct test_params {
-	uint64_t phys_offset;
-	uint64_t test_mem_size;
+	u64 phys_offset;
+	u64 test_mem_size;
 	enum vm_mem_backing_src_type src_type;
 };
 
@@ -237,12 +237,12 @@ static struct kvm_vm *pre_init_before_test(enum vm_guest_mode mode, void *arg)
 	int ret;
 	struct test_params *p = arg;
 	enum vm_mem_backing_src_type src_type = p->src_type;
-	uint64_t large_page_size = get_backing_src_pagesz(src_type);
-	uint64_t guest_page_size = vm_guest_mode_params[mode].page_size;
-	uint64_t host_page_size = getpagesize();
-	uint64_t test_mem_size = p->test_mem_size;
-	uint64_t guest_num_pages;
-	uint64_t alignment;
+	u64 large_page_size = get_backing_src_pagesz(src_type);
+	u64 guest_page_size = vm_guest_mode_params[mode].page_size;
+	u64 host_page_size = getpagesize();
+	u64 test_mem_size = p->test_mem_size;
+	u64 guest_num_pages;
+	u64 alignment;
 	void *host_test_mem;
 	struct kvm_vm *vm;
 
@@ -281,7 +281,7 @@ static struct kvm_vm *pre_init_before_test(enum vm_guest_mode mode, void *arg)
 	virt_map(vm, guest_test_virt_mem, guest_test_phys_mem, guest_num_pages);
 
 	/* Cache the HVA pointer of the region */
-	host_test_mem = addr_gpa2hva(vm, (vm_paddr_t)guest_test_phys_mem);
+	host_test_mem = addr_gpa2hva(vm, (gpa_t)guest_test_phys_mem);
 
 	/* Export shared structure test_args to guest */
 	sync_global_to_guest(vm, test_args);
@@ -292,7 +292,7 @@ static struct kvm_vm *pre_init_before_test(enum vm_guest_mode mode, void *arg)
 	ret = sem_init(&test_stage_completed, 0, 0);
 	TEST_ASSERT(ret == 0, "Error in sem_init");
 
-	current_stage = addr_gva2hva(vm, (vm_vaddr_t)(&guest_test_stage));
+	current_stage = addr_gva2hva(vm, (gva_t)(&guest_test_stage));
 	*current_stage = NUM_TEST_STAGES;
 
 	pr_info("Testing guest mode: %s\n", vm_guest_mode_string(mode));
@@ -304,7 +304,7 @@ static struct kvm_vm *pre_init_before_test(enum vm_guest_mode mode, void *arg)
 	pr_info("Guest physical test memory offset: 0x%lx\n",
 		guest_test_phys_mem);
 	pr_info("Host  virtual  test memory offset: 0x%lx\n",
-		(uint64_t)host_test_mem);
+		(u64)host_test_mem);
 	pr_info("Number of testing vCPUs: %d\n", nr_vcpus);
 
 	return vm;
