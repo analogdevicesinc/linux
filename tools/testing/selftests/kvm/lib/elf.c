@@ -156,7 +156,7 @@ void kvm_vm_elf_load(struct kvm_vm *vm, const char *filename)
 		TEST_ASSERT(phdr.p_memsz > 0, "Unexpected loadable segment "
 			"memsize of 0,\n"
 			"  phdr index: %u p_memsz: 0x%" PRIx64,
-			n1, (uint64_t) phdr.p_memsz);
+			n1, (u64)phdr.p_memsz);
 		gva_t seg_vstart = align_down(phdr.p_vaddr, vm->page_size);
 		gva_t seg_vend = phdr.p_vaddr + phdr.p_memsz - 1;
 		seg_vend |= vm->page_size - 1;

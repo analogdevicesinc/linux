@@ -76,7 +76,7 @@ static void l2_guest_code_nmi(void)
 	ud2();
 }
 
-static void l1_guest_code(struct svm_test_data *svm, uint64_t is_nmi, uint64_t idt_alt)
+static void l1_guest_code(struct svm_test_data *svm, u64 is_nmi, u64 idt_alt)
 {
 	#define L2_GUEST_STACK_SIZE 64
 	unsigned long l2_guest_stack[L2_GUEST_STACK_SIZE];
@@ -168,7 +168,7 @@ static void run_test(bool is_nmi)
 	} else {
 		idt_alt_vm = 0;
 	}
-	vcpu_args_set(vcpu, 3, svm_gva, (uint64_t)is_nmi, (uint64_t)idt_alt_vm);
+	vcpu_args_set(vcpu, 3, svm_gva, (u64)is_nmi, (u64)idt_alt_vm);
 
 	memset(&debug, 0, sizeof(debug));
 	vcpu_guest_debug_set(vcpu, &debug);

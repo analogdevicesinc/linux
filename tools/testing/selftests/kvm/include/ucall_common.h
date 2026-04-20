@@ -21,8 +21,8 @@ enum {
 #define UCALL_BUFFER_LEN 1024
 
 struct ucall {
-	uint64_t cmd;
-	uint64_t args[UCALL_MAX_ARGS];
+	u64 cmd;
+	u64 args[UCALL_MAX_ARGS];
 	char buffer[UCALL_BUFFER_LEN];
 
 	/* Host virtual address of this struct. */
@@ -33,14 +33,14 @@ void ucall_arch_init(struct kvm_vm *vm, gpa_t mmio_gpa);
 void ucall_arch_do_ucall(gva_t uc);
 void *ucall_arch_get_ucall(struct kvm_vcpu *vcpu);
 
-void ucall(uint64_t cmd, int nargs, ...);
-__printf(2, 3) void ucall_fmt(uint64_t cmd, const char *fmt, ...);
-__printf(5, 6) void ucall_assert(uint64_t cmd, const char *exp,
+void ucall(u64 cmd, int nargs, ...);
+__printf(2, 3) void ucall_fmt(u64 cmd, const char *fmt, ...);
+__printf(5, 6) void ucall_assert(u64 cmd, const char *exp,
 				 const char *file, unsigned int line,
 				 const char *fmt, ...);
-uint64_t get_ucall(struct kvm_vcpu *vcpu, struct ucall *uc);
+u64 get_ucall(struct kvm_vcpu *vcpu, struct ucall *uc);
 void ucall_init(struct kvm_vm *vm, gpa_t mmio_gpa);
-int ucall_nr_pages_required(uint64_t page_size);
+int ucall_nr_pages_required(u64 page_size);
 
 /*
  * Perform userspace call without any associated data.  This bare call avoids

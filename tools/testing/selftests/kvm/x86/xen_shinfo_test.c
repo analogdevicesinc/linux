@@ -117,14 +117,14 @@ struct pvclock_wall_clock {
 
 struct vcpu_runstate_info {
 	uint32_t state;
-	uint64_t state_entry_time;
-	uint64_t time[5]; /* Extra field for overrun check */
+	u64 state_entry_time;
+	u64 time[5]; /* Extra field for overrun check */
 };
 
 struct compat_vcpu_runstate_info {
 	uint32_t state;
-	uint64_t state_entry_time;
-	uint64_t time[5];
+	u64 state_entry_time;
+	u64 time[5];
 } __attribute__((__packed__));
 
 struct arch_vcpu_info {
@@ -658,7 +658,7 @@ int main(int argc, char *argv[])
 					printf("Testing RUNSTATE_ADJUST\n");
 				rst.type = KVM_XEN_VCPU_ATTR_TYPE_RUNSTATE_ADJUST;
 				memset(&rst.u, 0, sizeof(rst.u));
-				rst.u.runstate.state = (uint64_t)-1;
+				rst.u.runstate.state = (u64)-1;
 				rst.u.runstate.time_blocked =
 					0x5a - rs->time[RUNSTATE_blocked];
 				rst.u.runstate.time_offline =
@@ -1113,7 +1113,7 @@ int main(int argc, char *argv[])
 			/* Don't change the address, just trigger a write */
 			struct kvm_xen_vcpu_attr adj = {
 				.type = KVM_XEN_VCPU_ATTR_TYPE_RUNSTATE_ADJUST,
-				.u.runstate.state = (uint64_t)-1
+				.u.runstate.state = (u64)-1
 			};
 			vcpu_ioctl(vcpu, KVM_XEN_VCPU_SET_ATTR, &adj);
 

@@ -125,8 +125,8 @@ vcpu_alloc_vmx(struct kvm_vm *vm, gva_t *p_vmx_gva)
 
 bool prepare_for_vmx_operation(struct vmx_pages *vmx)
 {
-	uint64_t feature_control;
-	uint64_t required;
+	u64 feature_control;
+	u64 required;
 	unsigned long cr0;
 	unsigned long cr4;
 
@@ -185,7 +185,7 @@ bool load_vmcs(struct vmx_pages *vmx)
 	return true;
 }
 
-static bool ept_vpid_cap_supported(uint64_t mask)
+static bool ept_vpid_cap_supported(u64 mask)
 {
 	return rdmsr(MSR_IA32_VMX_EPT_VPID_CAP) & mask;
 }
@@ -208,7 +208,7 @@ static inline void init_vmcs_control_fields(struct vmx_pages *vmx)
 	vmwrite(PIN_BASED_VM_EXEC_CONTROL, rdmsr(MSR_IA32_VMX_TRUE_PINBASED_CTLS));
 
 	if (vmx->eptp_gpa) {
-		uint64_t eptp = vmx->eptp_gpa | EPTP_WB | EPTP_PWL_4;
+		u64 eptp = vmx->eptp_gpa | EPTP_WB | EPTP_PWL_4;
 
 		TEST_ASSERT((vmx->eptp_gpa & ~PHYSICAL_PAGE_MASK) == 0,
 			    "Illegal bits set in vmx->eptp_gpa");
@@ -358,8 +358,8 @@ static inline void init_vmcs_guest_state(void *rip, void *rsp)
 	vmwrite(GUEST_GDTR_BASE, vmreadz(HOST_GDTR_BASE));
 	vmwrite(GUEST_IDTR_BASE, vmreadz(HOST_IDTR_BASE));
 	vmwrite(GUEST_DR7, 0x400);
-	vmwrite(GUEST_RSP, (uint64_t)rsp);
-	vmwrite(GUEST_RIP, (uint64_t)rip);
+	vmwrite(GUEST_RSP, (u64)rsp);
+	vmwrite(GUEST_RIP, (u64)rip);
 	vmwrite(GUEST_RFLAGS, 2);
 	vmwrite(GUEST_PENDING_DBG_EXCEPTIONS, 0);
 	vmwrite(GUEST_SYSENTER_ESP, vmreadz(HOST_IA32_SYSENTER_ESP));
@@ -375,7 +375,7 @@ void prepare_vmcs(struct vmx_pages *vmx, void *guest_rip, void *guest_rsp)
 
 bool kvm_cpu_has_ept(void)
 {
-	uint64_t ctrl;
+	u64 ctrl;
 
 	if (!kvm_cpu_has(X86_FEATURE_VMX))
 		return false;

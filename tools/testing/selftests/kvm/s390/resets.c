@@ -57,9 +57,9 @@ static void guest_code_initial(void)
 		);
 }
 
-static void test_one_reg(struct kvm_vcpu *vcpu, uint64_t id, uint64_t value)
+static void test_one_reg(struct kvm_vcpu *vcpu, u64 id, u64 value)
 {
-	uint64_t eval_reg;
+	u64 eval_reg;
 
 	eval_reg = vcpu_get_reg(vcpu, id);
 	TEST_ASSERT(eval_reg == value, "value == 0x%lx", value);

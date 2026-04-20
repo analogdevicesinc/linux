@@ -20,7 +20,7 @@ struct vm_gic {
 	uint32_t gic_dev_type;
 };
 
-static uint64_t max_phys_size;
+static u64 max_phys_size;
 
 #define GUEST_CMD_IRQ_CDIA	10
 #define GUEST_CMD_IRQ_DIEOI	11

@@ -135,10 +135,10 @@ static void set_expected_val(void *addr, u64 val, int vcpu_id)
  */
 static void swap_two_test_pages(gpa_t pte_gva1, gpa_t pte_gva2)
 {
-	uint64_t tmp = *(uint64_t *)pte_gva1;
+	u64 tmp = *(u64 *)pte_gva1;
 
-	*(uint64_t *)pte_gva1 = *(uint64_t *)pte_gva2;
-	*(uint64_t *)pte_gva2 = tmp;
+	*(u64 *)pte_gva1 = *(u64 *)pte_gva2;
+	*(u64 *)pte_gva2 = tmp;
 }
 
 /*
@@ -583,7 +583,7 @@ int main(int argc, char *argv[])
 	pthread_t threads[2];
 	gva_t test_data_page, gva;
 	gpa_t gpa;
-	uint64_t *pte;
+	u64 *pte;
 	struct test_data *data;
 	struct ucall uc;
 	int stage = 1, r, i;

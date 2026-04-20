@@ -144,7 +144,7 @@ static void __attribute__((__flatten__)) guest_code(void *arg)
 	GUEST_SYNC(1);
 
 	if (this_cpu_has(X86_FEATURE_XSAVE)) {
-		uint64_t supported_xcr0 = this_cpu_supported_xcr0();
+		u64 supported_xcr0 = this_cpu_supported_xcr0();
 		uint8_t buffer[PAGE_SIZE];
 
 		memset(buffer, 0xcc, sizeof(buffer));
@@ -172,8 +172,8 @@ static void __attribute__((__flatten__)) guest_code(void *arg)
 		}
 
 		if (this_cpu_has(X86_FEATURE_MPX)) {
-			uint64_t bounds[2] = { 10, 0xffffffffull };
-			uint64_t output[2] = { };
+			u64 bounds[2] = { 10, 0xffffffffull };
+			u64 output[2] = { };
 
 			GUEST_ASSERT(supported_xcr0 & XFEATURE_MASK_BNDREGS);
 			GUEST_ASSERT(supported_xcr0 & XFEATURE_MASK_BNDCSR);
@@ -257,7 +257,7 @@ void check_nested_state(int stage, struct kvm_x86_state *state)
 
 int main(int argc, char *argv[])
 {
-	uint64_t *xstate_bv, saved_xstate_bv;
+	u64 *xstate_bv, saved_xstate_bv;
 	gva_t nested_gva = 0;
 	struct kvm_cpuid2 empty_cpuid = {};
 	struct kvm_regs regs1, regs2;

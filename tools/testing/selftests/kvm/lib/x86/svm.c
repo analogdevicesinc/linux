@@ -84,14 +84,14 @@ void vm_enable_npt(struct kvm_vm *vm)
 void generic_svm_setup(struct svm_test_data *svm, void *guest_rip, void *guest_rsp)
 {
 	struct vmcb *vmcb = svm->vmcb;
-	uint64_t vmcb_gpa = svm->vmcb_gpa;
+	u64 vmcb_gpa = svm->vmcb_gpa;
 	struct vmcb_save_area *save = &vmcb->save;
 	struct vmcb_control_area *ctrl = &vmcb->control;
 	u32 data_seg_attr = 3 | SVM_SELECTOR_S_MASK | SVM_SELECTOR_P_MASK
 	      | SVM_SELECTOR_DB_MASK | SVM_SELECTOR_G_MASK;
 	u32 code_seg_attr = 9 | SVM_SELECTOR_S_MASK | SVM_SELECTOR_P_MASK
 		| SVM_SELECTOR_L_MASK | SVM_SELECTOR_G_MASK;
-	uint64_t efer;
+	u64 efer;
 
 	efer = rdmsr(MSR_EFER);
 	wrmsr(MSR_EFER, efer | EFER_SVME);
@@ -158,7 +158,7 @@ void generic_svm_setup(struct svm_test_data *svm, void *guest_rip, void *guest_r
  * for now. registers involved in LOAD/SAVE_GPR_C are eventually
  * unmodified so they do not need to be in the clobber list.
  */
-void run_guest(struct vmcb *vmcb, uint64_t vmcb_gpa)
+void run_guest(struct vmcb *vmcb, u64 vmcb_gpa)
 {
 	asm volatile (
 		"vmload %[vmcb_gpa]\n\t"

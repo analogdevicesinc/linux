@@ -11,9 +11,9 @@
 #include "kvm_util.h"
 
 #define REDIST_REGION_ATTR_ADDR(count, base, flags, index) \
-	(((uint64_t)(count) << 52) | \
-	((uint64_t)((base) >> 16) << 16) | \
-	((uint64_t)(flags) << 12) | \
+	(((u64)(count) << 52) | \
+	((u64)((base) >> 16) << 16) | \
+	((u64)(flags) << 12) | \
 	index)
 
 bool kvm_supports_vgic_v3(void);

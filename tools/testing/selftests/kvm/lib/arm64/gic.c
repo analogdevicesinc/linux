@@ -73,7 +73,7 @@ void gic_irq_disable(unsigned int intid)
 
 unsigned int gic_get_and_ack_irq(void)
 {
-	uint64_t irqstat;
+	u64 irqstat;
 	unsigned int intid;
 
 	GUEST_ASSERT(gic_common_ops);
@@ -102,7 +102,7 @@ void gic_set_eoi_split(bool split)
 	gic_common_ops->gic_set_eoi_split(split);
 }
 
-void gic_set_priority_mask(uint64_t pmr)
+void gic_set_priority_mask(u64 pmr)
 {
 	GUEST_ASSERT(gic_common_ops);
 	gic_common_ops->gic_set_priority_mask(pmr);

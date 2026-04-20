@@ -179,8 +179,8 @@ void vm_install_exception_handler(struct kvm_vm *vm,
 void vm_install_sync_handler(struct kvm_vm *vm,
 		int vector, int ec, handler_fn handler);
 
-uint64_t *virt_get_pte_hva_at_level(struct kvm_vm *vm, gva_t gva, int level);
-uint64_t *virt_get_pte_hva(struct kvm_vm *vm, gva_t gva);
+u64 *virt_get_pte_hva_at_level(struct kvm_vm *vm, gva_t gva, int level);
+u64 *virt_get_pte_hva(struct kvm_vm *vm, gva_t gva);
 
 static inline void cpu_relax(void)
 {
@@ -287,9 +287,9 @@ struct arm_smccc_res {
  * @res: pointer to write the return values from registers x0-x3
  *
  */
-void smccc_hvc(uint32_t function_id, uint64_t arg0, uint64_t arg1,
-	       uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5,
-	       uint64_t arg6, struct arm_smccc_res *res);
+void smccc_hvc(uint32_t function_id, u64 arg0, u64 arg1,
+	       u64 arg2, u64 arg3, u64 arg4, u64 arg5,
+	       u64 arg6, struct arm_smccc_res *res);
 
 /**
  * smccc_smc - Invoke a SMCCC function using the smc conduit
@@ -298,9 +298,9 @@ void smccc_hvc(uint32_t function_id, uint64_t arg0, uint64_t arg1,
  * @res: pointer to write the return values from registers x0-x3
  *
  */
-void smccc_smc(uint32_t function_id, uint64_t arg0, uint64_t arg1,
-	       uint64_t arg2, uint64_t arg3, uint64_t arg4, uint64_t arg5,
-	       uint64_t arg6, struct arm_smccc_res *res);
+void smccc_smc(uint32_t function_id, u64 arg0, u64 arg1,
+	       u64 arg2, u64 arg3, u64 arg4, u64 arg5,
+	       u64 arg6, struct arm_smccc_res *res);
 
 /* Execute a Wait For Interrupt instruction. */
 void wfi(void);

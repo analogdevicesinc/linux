@@ -23,7 +23,7 @@
 #include "vgic.h"
 
 /* Depends on counter width. */
-static uint64_t CVAL_MAX;
+static u64 CVAL_MAX;
 /* tval is a signed 32-bit int. */
 static const int32_t TVAL_MAX = INT32_MAX;
 static const int32_t TVAL_MIN = INT32_MIN;
@@ -32,7 +32,7 @@ static const int32_t TVAL_MIN = INT32_MIN;
 static const uint32_t TIMEOUT_NO_IRQ_US = 50000;
 
 /* Counter value to use as the starting one for most tests. Set to CVAL_MAX/2 */
-static uint64_t DEF_CNT;
+static u64 DEF_CNT;
 
 /* Number of runs. */
 static const uint32_t NR_TEST_ITERS_DEF = 5;
@@ -53,9 +53,9 @@ struct test_args {
 	/* Virtual or physical timer and counter tests. */
 	enum arch_timer timer;
 	/* Delay used for most timer tests. */
-	uint64_t wait_ms;
+	u64 wait_ms;
 	/* Delay used in the test_long_timer_delays test. */
-	uint64_t long_wait_ms;
+	u64 long_wait_ms;
 	/* Number of iterations. */
 	int iterations;
 	/* Whether to test the physical timer. */
@@ -82,12 +82,12 @@ enum sync_cmd {
 	NO_USERSPACE_CMD,
 };
 
-typedef void (*sleep_method_t)(enum arch_timer timer, uint64_t usec);
+typedef void (*sleep_method_t)(enum arch_timer timer, u64 usec);
 
-static void sleep_poll(enum arch_timer timer, uint64_t usec);
-static void sleep_sched_poll(enum arch_timer timer, uint64_t usec);
-static void sleep_in_userspace(enum arch_timer timer, uint64_t usec);
-static void sleep_migrate(enum arch_timer timer, uint64_t usec);
+static void sleep_poll(enum arch_timer timer, u64 usec);
+static void sleep_sched_poll(enum arch_timer timer, u64 usec);
+static void sleep_in_userspace(enum arch_timer timer, u64 usec);
+static void sleep_migrate(enum arch_timer timer, u64 usec);
 
 sleep_method_t sleep_method[] = {
 	sleep_poll,
@@ -122,7 +122,7 @@ static void assert_irqs_handled(uint32_t n)
 	__GUEST_ASSERT(h == n, "Handled %d IRQS but expected %d", h, n);
 }
 
-static void userspace_cmd(uint64_t cmd)
+static void userspace_cmd(u64 cmd)
 {
 	GUEST_SYNC_ARGS(cmd, 0, 0, 0, 0);
 }
@@ -132,12 +132,12 @@ static void userspace_migrate_vcpu(void)
 	userspace_cmd(USERSPACE_MIGRATE_SELF);
 }
 
-static void userspace_sleep(uint64_t usecs)
+static void userspace_sleep(u64 usecs)
 {
 	GUEST_SYNC_ARGS(USERSPACE_USLEEP, usecs, 0, 0, 0);
 }
 
-static void set_counter(enum arch_timer timer, uint64_t counter)
+static void set_counter(enum arch_timer timer, u64 counter)
 {
 	GUEST_SYNC_ARGS(SET_COUNTER_VALUE, counter, timer, 0, 0);
 }
@@ -146,7 +146,7 @@ static void guest_irq_handler(struct ex_regs *regs)
 {
 	unsigned int intid = gic_get_and_ack_irq();
 	enum arch_timer timer;
-	uint64_t cnt, cval;
+	u64 cnt, cval;
 	uint32_t ctl;
 	bool timer_condition, istatus;
 
@@ -178,7 +178,7 @@ out:
 	gic_set_eoi(intid);
 }
 
-static void set_cval_irq(enum arch_timer timer, uint64_t cval_cycles,
+static void set_cval_irq(enum arch_timer timer, u64 cval_cycles,
 			 uint32_t ctl)
 {
 	atomic_set(&shared_data.handled, 0);
@@ -187,7 +187,7 @@ static void set_cval_irq(enum arch_timer timer, uint64_t cval_cycles,
 	timer_set_ctl(timer, ctl);
 }
 
-static void set_tval_irq(enum arch_timer timer, uint64_t tval_cycles,
+static void set_tval_irq(enum arch_timer timer, u64 tval_cycles,
 			 uint32_t ctl)
 {
 	atomic_set(&shared_data.handled, 0);
@@ -196,7 +196,7 @@ static void set_tval_irq(enum arch_timer timer, uint64_t tval_cycles,
 	timer_set_ctl(timer, ctl);
 }
 
-static void set_xval_irq(enum arch_timer timer, uint64_t xval, uint32_t ctl,
+static void set_xval_irq(enum arch_timer timer, u64 xval, uint32_t ctl,
 			 enum timer_view tv)
 {
 	switch (tv) {
@@ -275,13 +275,13 @@ static void wait_migrate_poll_for_irq(void)
  * Sleep for usec microseconds by polling in the guest or in
  * userspace (e.g. userspace_cmd=USERSPACE_SCHEDULE).
  */
-static void guest_poll(enum arch_timer test_timer, uint64_t usec,
+static void guest_poll(enum arch_timer test_timer, u64 usec,
 		       enum sync_cmd usp_cmd)
 {
-	uint64_t cycles = usec_to_cycles(usec);
+	u64 cycles = usec_to_cycles(usec);
 	/* Whichever timer we are testing with, sleep with the other. */
 	enum arch_timer sleep_timer = 1 - test_timer;
-	uint64_t start = timer_get_cntct(sleep_timer);
+	u64 start = timer_get_cntct(sleep_timer);
 
 	while ((timer_get_cntct(sleep_timer) - start) < cycles) {
 		if (usp_cmd == NO_USERSPACE_CMD)
@@ -291,22 +291,22 @@ static void guest_poll(enum arch_timer test_timer, uint64_t usec,
 	}
 }
 
-static void sleep_poll(enum arch_timer timer, uint64_t usec)
+static void sleep_poll(enum arch_timer timer, u64 usec)
 {
 	guest_poll(timer, usec, NO_USERSPACE_CMD);
 }
 
-static void sleep_sched_poll(enum arch_timer timer, uint64_t usec)
+static void sleep_sched_poll(enum arch_timer timer, u64 usec)
 {
 	guest_poll(timer, usec, USERSPACE_SCHED_YIELD);
 }
 
-static void sleep_migrate(enum arch_timer timer, uint64_t usec)
+static void sleep_migrate(enum arch_timer timer, u64 usec)
 {
 	guest_poll(timer, usec, USERSPACE_MIGRATE_SELF);
 }
 
-static void sleep_in_userspace(enum arch_timer timer, uint64_t usec)
+static void sleep_in_userspace(enum arch_timer timer, u64 usec)
 {
 	userspace_sleep(usec);
 }
@@ -315,15 +315,15 @@ static void sleep_in_userspace(enum arch_timer timer, uint64_t usec)
  * Reset the timer state to some nice values like the counter not being close
  * to the edge, and the control register masked and disabled.
  */
-static void reset_timer_state(enum arch_timer timer, uint64_t cnt)
+static void reset_timer_state(enum arch_timer timer, u64 cnt)
 {
 	set_counter(timer, cnt);
 	timer_set_ctl(timer, CTL_IMASK);
 }
 
-static void test_timer_xval(enum arch_timer timer, uint64_t xval,
+static void test_timer_xval(enum arch_timer timer, u64 xval,
 			    enum timer_view tv, irq_wait_method_t wm, bool reset_state,
-			    uint64_t reset_cnt)
+			    u64 reset_cnt)
 {
 	local_irq_disable();
 
@@ -348,23 +348,23 @@ static void test_timer_xval(enum arch_timer timer, uint64_t xval,
  * the "runner", like: tools/testing/selftests/kselftest/runner.sh.
  */
 
-static void test_timer_cval(enum arch_timer timer, uint64_t cval,
+static void test_timer_cval(enum arch_timer timer, u64 cval,
 			    irq_wait_method_t wm, bool reset_state,
-			    uint64_t reset_cnt)
+			    u64 reset_cnt)
 {
 	test_timer_xval(timer, cval, TIMER_CVAL, wm, reset_state, reset_cnt);
 }
 
 static void test_timer_tval(enum arch_timer timer, int32_t tval,
 			    irq_wait_method_t wm, bool reset_state,
-			    uint64_t reset_cnt)
+			    u64 reset_cnt)
 {
-	test_timer_xval(timer, (uint64_t) tval, TIMER_TVAL, wm, reset_state,
+	test_timer_xval(timer, (u64)tval, TIMER_TVAL, wm, reset_state,
 			reset_cnt);
 }
 
-static void test_xval_check_no_irq(enum arch_timer timer, uint64_t xval,
-				   uint64_t usec, enum timer_view timer_view,
+static void test_xval_check_no_irq(enum arch_timer timer, u64 xval,
+				   u64 usec, enum timer_view timer_view,
 				   sleep_method_t guest_sleep)
 {
 	local_irq_disable();
@@ -379,17 +379,17 @@ static void test_xval_check_no_irq(enum arch_timer timer, uint64_t xval,
 	assert_irqs_handled(0);
 }
 
-static void test_cval_no_irq(enum arch_timer timer, uint64_t cval,
-			     uint64_t usec, sleep_method_t wm)
+static void test_cval_no_irq(enum arch_timer timer, u64 cval,
+			     u64 usec, sleep_method_t wm)
 {
 	test_xval_check_no_irq(timer, cval, usec, TIMER_CVAL, wm);
 }
 
-static void test_tval_no_irq(enum arch_timer timer, int32_t tval, uint64_t usec,
+static void test_tval_no_irq(enum arch_timer timer, int32_t tval, u64 usec,
 			     sleep_method_t wm)
 {
 	/* tval will be cast to an int32_t in test_xval_check_no_irq */
-	test_xval_check_no_irq(timer, (uint64_t) tval, usec, TIMER_TVAL, wm);
+	test_xval_check_no_irq(timer, (u64)tval, usec, TIMER_TVAL, wm);
 }
 
 /* Test masking/unmasking a timer using the timer mask (not the IRQ mask). */
@@ -488,7 +488,7 @@ static void test_reprogramming_timer(enum arch_timer timer, irq_wait_method_t wm
 static void test_reprogram_timers(enum arch_timer timer)
 {
 	int i;
-	uint64_t base_wait = test_args.wait_ms;
+	u64 base_wait = test_args.wait_ms;
 
 	for (i = 0; i < ARRAY_SIZE(irq_wait_method); i++) {
 		/*
@@ -505,7 +505,7 @@ static void test_reprogram_timers(enum arch_timer timer)
 static void test_basic_functionality(enum arch_timer timer)
 {
 	int32_t tval = (int32_t) msec_to_cycles(test_args.wait_ms);
-	uint64_t cval = DEF_CNT + msec_to_cycles(test_args.wait_ms);
+	u64 cval = DEF_CNT + msec_to_cycles(test_args.wait_ms);
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(irq_wait_method); i++) {
@@ -593,7 +593,7 @@ static void test_set_cnt_after_tval_max(enum arch_timer timer, irq_wait_method_t
 	reset_timer_state(timer, DEF_CNT);
 
 	set_cval_irq(timer,
-		     (uint64_t) TVAL_MAX +
+		     (u64)TVAL_MAX +
 		     msec_to_cycles(test_args.wait_ms) / 2, CTL_ENABLE);
 
 	set_counter(timer, TVAL_MAX);
@@ -608,7 +608,7 @@ static void test_set_cnt_after_tval_max(enum arch_timer timer, irq_wait_method_t
 /* Test timers set for: cval = now + TVAL_MAX + wait_ms / 2 */
 static void test_timers_above_tval_max(enum arch_timer timer)
 {
-	uint64_t cval;
+	u64 cval;
 	int i;
 
 	/*
@@ -638,8 +638,8 @@ static void test_timers_above_tval_max(enum arch_timer timer)
  * sets the counter to cnt_1, the [c|t]val, the counter to cnt_2, and
  * then waits for an IRQ.
  */
-static void test_set_cnt_after_xval(enum arch_timer timer, uint64_t cnt_1,
-				    uint64_t xval, uint64_t cnt_2,
+static void test_set_cnt_after_xval(enum arch_timer timer, u64 cnt_1,
+				    u64 xval, u64 cnt_2,
 				    irq_wait_method_t wm, enum timer_view tv)
 {
 	local_irq_disable();
@@ -662,8 +662,8 @@ static void test_set_cnt_after_xval(enum arch_timer timer, uint64_t cnt_1,
  * then waits for an IRQ.
  */
 static void test_set_cnt_after_xval_no_irq(enum arch_timer timer,
-					   uint64_t cnt_1, uint64_t xval,
-					   uint64_t cnt_2,
+					   u64 cnt_1, u64 xval,
+					   u64 cnt_2,
 					   sleep_method_t guest_sleep,
 					   enum timer_view tv)
 {
@@ -684,31 +684,31 @@ static void test_set_cnt_after_xval_no_irq(enum arch_timer timer,
 	timer_set_ctl(timer, CTL_IMASK);
 }
 
-static void test_set_cnt_after_tval(enum arch_timer timer, uint64_t cnt_1,
-				    int32_t tval, uint64_t cnt_2,
+static void test_set_cnt_after_tval(enum arch_timer timer, u64 cnt_1,
+				    int32_t tval, u64 cnt_2,
 				    irq_wait_method_t wm)
 {
 	test_set_cnt_after_xval(timer, cnt_1, tval, cnt_2, wm, TIMER_TVAL);
 }
 
-static void test_set_cnt_after_cval(enum arch_timer timer, uint64_t cnt_1,
-				    uint64_t cval, uint64_t cnt_2,
+static void test_set_cnt_after_cval(enum arch_timer timer, u64 cnt_1,
+				    u64 cval, u64 cnt_2,
 				    irq_wait_method_t wm)
 {
 	test_set_cnt_after_xval(timer, cnt_1, cval, cnt_2, wm, TIMER_CVAL);
 }
 
 static void test_set_cnt_after_tval_no_irq(enum arch_timer timer,
-					   uint64_t cnt_1, int32_t tval,
-					   uint64_t cnt_2, sleep_method_t wm)
+					   u64 cnt_1, int32_t tval,
+					   u64 cnt_2, sleep_method_t wm)
 {
 	test_set_cnt_after_xval_no_irq(timer, cnt_1, tval, cnt_2, wm,
 				       TIMER_TVAL);
 }
 
 static void test_set_cnt_after_cval_no_irq(enum arch_timer timer,
-					   uint64_t cnt_1, uint64_t cval,
-					   uint64_t cnt_2, sleep_method_t wm)
+					   u64 cnt_1, u64 cval,
+					   u64 cnt_2, sleep_method_t wm)
 {
 	test_set_cnt_after_xval_no_irq(timer, cnt_1, cval, cnt_2, wm,
 				       TIMER_CVAL);
@@ -730,8 +730,7 @@ static void test_move_counters_ahead_of_timers(enum arch_timer timer)
 		test_set_cnt_after_tval(timer, 0, -1, DEF_CNT + 1, wm);
 		test_set_cnt_after_tval(timer, 0, -1, TVAL_MAX, wm);
 		tval = TVAL_MAX;
-		test_set_cnt_after_tval(timer, 0, tval, (uint64_t) tval + 1,
-					wm);
+		test_set_cnt_after_tval(timer, 0, tval, (u64)tval + 1, wm);
 	}
 }
 
@@ -755,7 +754,7 @@ static void test_move_counters_behind_timers(enum arch_timer timer)
 static void test_timers_in_the_past(enum arch_timer timer)
 {
 	int32_t tval = -1 * (int32_t) msec_to_cycles(test_args.wait_ms);
-	uint64_t cval;
+	u64 cval;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(irq_wait_method); i++) {
@@ -791,7 +790,7 @@ static void test_timers_in_the_past(enum arch_timer timer)
 static void test_long_timer_delays(enum arch_timer timer)
 {
 	int32_t tval = (int32_t) msec_to_cycles(test_args.long_wait_ms);
-	uint64_t cval = DEF_CNT + msec_to_cycles(test_args.long_wait_ms);
+	u64 cval = DEF_CNT + msec_to_cycles(test_args.long_wait_ms);
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(irq_wait_method); i++) {
@@ -862,7 +861,7 @@ static uint32_t next_pcpu(void)
 	return next;
 }
 
-static void kvm_set_cntxct(struct kvm_vcpu *vcpu, uint64_t cnt,
+static void kvm_set_cntxct(struct kvm_vcpu *vcpu, u64 cnt,
 			   enum arch_timer timer)
 {
 	if (timer == PHYSICAL)
@@ -874,7 +873,7 @@ static void kvm_set_cntxct(struct kvm_vcpu *vcpu, uint64_t cnt,
 static void handle_sync(struct kvm_vcpu *vcpu, struct ucall *uc)
 {
 	enum sync_cmd cmd = uc->args[1];
-	uint64_t val = uc->args[2];
+	u64 val = uc->args[2];
 	enum arch_timer timer = uc->args[3];
 
 	switch (cmd) {
@@ -1018,8 +1017,8 @@ static bool parse_args(int argc, char *argv[])
 
 static void set_counter_defaults(void)
 {
-	const uint64_t MIN_ROLLOVER_SECS = 40ULL * 365 * 24 * 3600;
-	uint64_t freq = read_sysreg(CNTFRQ_EL0);
+	const u64 MIN_ROLLOVER_SECS = 40ULL * 365 * 24 * 3600;
+	u64 freq = read_sysreg(CNTFRQ_EL0);
 	int width = ilog2(MIN_ROLLOVER_SECS * freq);
 
 	width = clamp(width, 56, 64);

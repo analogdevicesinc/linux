@@ -256,9 +256,9 @@
  */
 static inline uint8_t __hyperv_hypercall(u64 control, gva_t input_address,
 					 gva_t output_address,
-					 uint64_t *hv_status)
+					 u64 *hv_status)
 {
-	uint64_t error_code;
+	u64 error_code;
 	uint8_t vector;
 
 	/* Note both the hypercall and the "asm safe" clobber r9-r11. */
@@ -277,7 +277,7 @@ static inline uint8_t __hyperv_hypercall(u64 control, gva_t input_address,
 static inline void hyperv_hypercall(u64 control, gva_t input_address,
 				    gva_t output_address)
 {
-	uint64_t hv_status;
+	u64 hv_status;
 	uint8_t vector;
 
 	vector = __hyperv_hypercall(control, input_address, output_address, &hv_status);
@@ -327,22 +327,22 @@ struct hv_vp_assist_page {
 
 extern struct hv_vp_assist_page *current_vp_assist;
 
-int enable_vp_assist(uint64_t vp_assist_pa, void *vp_assist);
+int enable_vp_assist(u64 vp_assist_pa, void *vp_assist);
 
 struct hyperv_test_pages {
 	/* VP assist page */
 	void *vp_assist_hva;
-	uint64_t vp_assist_gpa;
+	u64 vp_assist_gpa;
 	void *vp_assist;
 
 	/* Partition assist page */
 	void *partition_assist_hva;
-	uint64_t partition_assist_gpa;
+	u64 partition_assist_gpa;
 	void *partition_assist;
 
 	/* Enlightened VMCS */
 	void *enlightened_vmcs_hva;
-	uint64_t enlightened_vmcs_gpa;
+	u64 enlightened_vmcs_gpa;
 	void *enlightened_vmcs;
 };
 

@@ -17,7 +17,7 @@
 #include "processor.h"
 
 struct test_case {
-	uint64_t kvmclock_base;
+	u64 kvmclock_base;
 	int64_t realtime_offset;
 };
 
@@ -52,7 +52,7 @@ static inline void assert_flags(struct kvm_clock_data *data)
 static void handle_sync(struct ucall *uc, struct kvm_clock_data *start,
 			struct kvm_clock_data *end)
 {
-	uint64_t obs, exp_lo, exp_hi;
+	u64 obs, exp_lo, exp_hi;
 
 	obs = uc->args[2];
 	exp_lo = start->clock;

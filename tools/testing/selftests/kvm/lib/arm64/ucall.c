@@ -25,9 +25,9 @@ void *ucall_arch_get_ucall(struct kvm_vcpu *vcpu)
 
 	if (run->exit_reason == KVM_EXIT_MMIO &&
 	    run->mmio.phys_addr == vcpu->vm->ucall_mmio_addr) {
-		TEST_ASSERT(run->mmio.is_write && run->mmio.len == sizeof(uint64_t),
+		TEST_ASSERT(run->mmio.is_write && run->mmio.len == sizeof(u64),
 			    "Unexpected ucall exit mmio address access");
-		return (void *)(*((uint64_t *)run->mmio.data));
+		return (void *)(*((u64 *)run->mmio.data));
 	}
 
 	return NULL;

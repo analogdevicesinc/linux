@@ -90,7 +90,7 @@ static struct kvm_intel_pmu_event intel_event_to_feature(uint8_t idx)
 static struct kvm_vm *pmu_vm_create_with_one_vcpu(struct kvm_vcpu **vcpu,
 						  void *guest_code,
 						  uint8_t pmu_version,
-						  uint64_t perf_capabilities)
+						  u64 perf_capabilities)
 {
 	struct kvm_vm *vm;
 
@@ -155,7 +155,7 @@ static uint8_t guest_get_pmu_version(void)
  */
 static void guest_assert_event_count(uint8_t idx, uint32_t pmc, uint32_t pmc_msr)
 {
-	uint64_t count;
+	u64 count;
 
 	count = _rdpmc(pmc);
 	if (!(hardware_pmu_arch_events & BIT(idx)))
@@ -256,7 +256,7 @@ do {										\
 } while (0)
 
 static void __guest_test_arch_event(uint8_t idx, uint32_t pmc, uint32_t pmc_msr,
-				    uint32_t ctrl_msr, uint64_t ctrl_msr_value)
+				    uint32_t ctrl_msr, u64 ctrl_msr_value)
 {
 	GUEST_TEST_EVENT(idx, pmc, pmc_msr, ctrl_msr, ctrl_msr_value, "");
 
@@ -289,7 +289,7 @@ static void guest_test_arch_event(uint8_t idx)
 	GUEST_ASSERT(nr_gp_counters);
 
 	for (i = 0; i < nr_gp_counters; i++) {
-		uint64_t eventsel = ARCH_PERFMON_EVENTSEL_OS |
+		u64 eventsel = ARCH_PERFMON_EVENTSEL_OS |
 				    ARCH_PERFMON_EVENTSEL_ENABLE |
 				    intel_pmu_arch_events[idx];
 
@@ -328,7 +328,7 @@ static void guest_test_arch_events(void)
 	GUEST_DONE();
 }
 
-static void test_arch_events(uint8_t pmu_version, uint64_t perf_capabilities,
+static void test_arch_events(uint8_t pmu_version, u64 perf_capabilities,
 			     uint8_t length, uint32_t unavailable_mask)
 {
 	struct kvm_vcpu *vcpu;
@@ -374,10 +374,10 @@ __GUEST_ASSERT(expect_gp ? vector == GP_VECTOR : !vector,			\
 		       msr, expected, val);
 
 static void guest_test_rdpmc(uint32_t rdpmc_idx, bool expect_success,
-			     uint64_t expected_val)
+			     u64 expected_val)
 {
 	uint8_t vector;
-	uint64_t val;
+	u64 val;
 
 	vector = rdpmc_safe(rdpmc_idx, &val);
 	GUEST_ASSERT_PMC_MSR_ACCESS(RDPMC, rdpmc_idx, !expect_success, vector);
@@ -404,7 +404,7 @@ static void guest_rd_wr_counters(uint32_t base_msr, uint8_t nr_possible_counters
 		 * TODO: Test a value that validates full-width writes and the
 		 * width of the counters.
 		 */
-		const uint64_t test_val = 0xffff;
+		const u64 test_val = 0xffff;
 		const uint32_t msr = base_msr + i;
 
 		/*
@@ -418,12 +418,12 @@ static void guest_rd_wr_counters(uint32_t base_msr, uint8_t nr_possible_counters
 		 * KVM drops writes to MSR_P6_PERFCTR[0|1] if the counters are
 		 * unsupported, i.e. doesn't #GP and reads back '0'.
 		 */
-		const uint64_t expected_val = expect_success ? test_val : 0;
+		const u64 expected_val = expect_success ? test_val : 0;
 		const bool expect_gp = !expect_success && msr != MSR_P6_PERFCTR0 &&
 				       msr != MSR_P6_PERFCTR1;
 		uint32_t rdpmc_idx;
 		uint8_t vector;
-		uint64_t val;
+		u64 val;
 
 		vector = wrmsr_safe(msr, test_val);
 		GUEST_ASSERT_PMC_MSR_ACCESS(WRMSR, msr, expect_gp, vector);
@@ -477,7 +477,7 @@ static void guest_test_gp_counters(void)
 	 * counters, of which there are none.
 	 */
 	if (pmu_version > 1) {
-		uint64_t global_ctrl = rdmsr(MSR_CORE_PERF_GLOBAL_CTRL);
+		u64 global_ctrl = rdmsr(MSR_CORE_PERF_GLOBAL_CTRL);
 
 		if (nr_gp_counters)
 			GUEST_ASSERT_EQ(global_ctrl, GENMASK_ULL(nr_gp_counters - 1, 0));
@@ -495,7 +495,7 @@ static void guest_test_gp_counters(void)
 	GUEST_DONE();
 }
 
-static void test_gp_counters(uint8_t pmu_version, uint64_t perf_capabilities,
+static void test_gp_counters(uint8_t pmu_version, u64 perf_capabilities,
 			     uint8_t nr_gp_counters)
 {
 	struct kvm_vcpu *vcpu;
@@ -514,7 +514,7 @@ static void test_gp_counters(uint8_t pmu_version, uint64_t perf_capabilities,
 
 static void guest_test_fixed_counters(void)
 {
-	uint64_t supported_bitmask = 0;
+	u64 supported_bitmask = 0;
 	uint8_t nr_fixed_counters = 0;
 	uint8_t i;
 
@@ -534,7 +534,7 @@ static void guest_test_fixed_counters(void)
 
 	for (i = 0; i < MAX_NR_FIXED_COUNTERS; i++) {
 		uint8_t vector;
-		uint64_t val;
+		u64 val;
 
 		if (i >= nr_fixed_counters && !(supported_bitmask & BIT_ULL(i))) {
 			vector = wrmsr_safe(MSR_CORE_PERF_FIXED_CTR_CTRL,
@@ -561,7 +561,7 @@ static void guest_test_fixed_counters(void)
 	GUEST_DONE();
 }
 
-static void test_fixed_counters(uint8_t pmu_version, uint64_t perf_capabilities,
+static void test_fixed_counters(uint8_t pmu_version, u64 perf_capabilities,
 				uint8_t nr_fixed_counters,
 				uint32_t supported_bitmask)
 {
@@ -590,7 +590,7 @@ static void test_intel_counters(void)
 	uint8_t v, j;
 	uint32_t k;
 
-	const uint64_t perf_caps[] = {
+	const u64 perf_caps[] = {
 		0,
 		PMU_CAP_FW_WRITES,
 	};

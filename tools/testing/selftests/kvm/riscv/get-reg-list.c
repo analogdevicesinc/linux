@@ -162,7 +162,7 @@ bool check_reject_set(int err)
 }
 
 static int override_vector_reg_size(struct kvm_vcpu *vcpu, struct vcpu_reg_sublist *s,
-				    uint64_t feature)
+				    u64 feature)
 {
 	unsigned long vlenb_reg = 0;
 	int rc;
@@ -197,7 +197,7 @@ void finalize_vcpu(struct kvm_vcpu *vcpu, struct vcpu_reg_list *c)
 {
 	unsigned long isa_ext_state[KVM_RISCV_ISA_EXT_MAX] = { 0 };
 	struct vcpu_reg_sublist *s;
-	uint64_t feature;
+	u64 feature;
 	int rc;
 
 	for (int i = 0; i < KVM_RISCV_ISA_EXT_MAX; i++)

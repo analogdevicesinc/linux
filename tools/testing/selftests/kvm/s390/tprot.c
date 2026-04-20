@@ -46,7 +46,7 @@ enum permission {
 
 static enum permission test_protection(void *addr, uint8_t key)
 {
-	uint64_t mask;
+	u64 mask;
 
 	asm volatile (
 		       "tprot	%[addr], 0(%[key])\n"

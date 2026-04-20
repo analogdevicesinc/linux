@@ -76,8 +76,8 @@
  * the use of a binary-search tree, where each node contains at least
  * the following members:
  *
- *   typedef uint64_t sparsebit_idx_t;
- *   typedef uint64_t sparsebit_num_t;
+ *   typedef u64 sparsebit_idx_t;
+ *   typedef u64 sparsebit_num_t;
  *
  *   sparsebit_idx_t idx;
  *   uint32_t mask;
@@ -2056,9 +2056,9 @@ unsigned char get8(void)
 	return ch;
 }
 
-uint64_t get64(void)
+u64 get64(void)
 {
-	uint64_t x;
+	u64 x;
 
 	x = get8();
 	x = (x << 8) | get8();
@@ -2075,8 +2075,8 @@ int main(void)
 	s = sparsebit_alloc();
 	for (;;) {
 		uint8_t op = get8() & 0xf;
-		uint64_t first = get64();
-		uint64_t last = get64();
+		u64 first = get64();
+		u64 last = get64();
 
 		operate(op, first, last);
 	}

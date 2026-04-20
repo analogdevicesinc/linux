@@ -40,7 +40,7 @@ uint8_t smi_handler[] = {
 	0x0f, 0xaa,           /* rsm */
 };
 
-static inline void sync_with_host(uint64_t phase)
+static inline void sync_with_host(u64 phase)
 {
 	asm volatile("in $" XSTR(SYNC_PORT)", %%al \n"
 		     : "+a" (phase));
@@ -65,7 +65,7 @@ static void guest_code(void *arg)
 {
 	#define L2_GUEST_STACK_SIZE 64
 	unsigned long l2_guest_stack[L2_GUEST_STACK_SIZE];
-	uint64_t apicbase = rdmsr(MSR_IA32_APICBASE);
+	u64 apicbase = rdmsr(MSR_IA32_APICBASE);
 	struct svm_test_data *svm = arg;
 	struct vmx_pages *vmx_pages = arg;
 

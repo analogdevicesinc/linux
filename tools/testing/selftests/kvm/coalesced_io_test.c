@@ -15,8 +15,8 @@
 struct kvm_coalesced_io {
 	struct kvm_coalesced_mmio_ring *ring;
 	uint32_t ring_size;
-	uint64_t mmio_gpa;
-	uint64_t *mmio;
+	u64 mmio_gpa;
+	u64 *mmio;
 
 	/*
 	 * x86-only, but define pio_port for all architectures to minimize the
@@ -94,7 +94,7 @@ static void vcpu_run_and_verify_io_exit(struct kvm_vcpu *vcpu,
 
 	TEST_ASSERT((!want_pio && (run->exit_reason == KVM_EXIT_MMIO && run->mmio.is_write &&
 				   run->mmio.phys_addr == io->mmio_gpa && run->mmio.len == 8 &&
-				   *(uint64_t *)run->mmio.data == io->mmio_gpa + io->ring_size - 1)) ||
+				   *(u64 *)run->mmio.data == io->mmio_gpa + io->ring_size - 1)) ||
 		    (want_pio  && (run->exit_reason == KVM_EXIT_IO && run->io.port == io->pio_port &&
 				   run->io.direction == KVM_EXIT_IO_OUT && run->io.count == 1 &&
 				   pio_value == io->pio_port + io->ring_size - 1)),
@@ -105,7 +105,7 @@ static void vcpu_run_and_verify_io_exit(struct kvm_vcpu *vcpu,
 		    want_pio ? (unsigned long long)io->pio_port : io->mmio_gpa,
 		    (want_pio ? io->pio_port : io->mmio_gpa) + io->ring_size - 1, run->exit_reason,
 		    run->exit_reason == KVM_EXIT_MMIO ? "MMIO" : run->exit_reason == KVM_EXIT_IO ? "PIO" : "other",
-		    run->mmio.phys_addr, run->mmio.is_write, run->mmio.len, *(uint64_t *)run->mmio.data,
+		    run->mmio.phys_addr, run->mmio.is_write, run->mmio.len, *(u64 *)run->mmio.data,
 		    run->io.port, run->io.direction, run->io.size, run->io.count, pio_value);
 }
 
@@ -143,7 +143,7 @@ static void vcpu_run_and_verify_coalesced_io(struct kvm_vcpu *vcpu,
 				    "Wanted 8-byte MMIO to 0x%lx = %lx in entry %u, got %u-byte %s 0x%llx = 0x%lx",
 				    io->mmio_gpa, io->mmio_gpa + i, i,
 				    entry->len, entry->pio ? "PIO" : "MMIO",
-				    entry->phys_addr, *(uint64_t *)entry->data);
+				    entry->phys_addr, *(u64 *)entry->data);
 	}
 }
 
@@ -219,11 +219,11 @@ int main(int argc, char *argv[])
 		 * the MMIO GPA identity mapped in the guest.
 		 */
 		.mmio_gpa = 4ull * SZ_1G,
-		.mmio = (uint64_t *)(4ull * SZ_1G),
+		.mmio = (u64 *)(4ull * SZ_1G),
 		.pio_port = 0x80,
 	};
 
-	virt_map(vm, (uint64_t)kvm_builtin_io_ring.mmio, kvm_builtin_io_ring.mmio_gpa, 1);
+	virt_map(vm, (u64)kvm_builtin_io_ring.mmio, kvm_builtin_io_ring.mmio_gpa, 1);
 
 	sync_global_to_guest(vm, kvm_builtin_io_ring);
 	vcpu_args_set(vcpu, 1, &kvm_builtin_io_ring);

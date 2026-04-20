@@ -34,9 +34,9 @@ void virt_arch_pgd_alloc(struct kvm_vm *vm)
  * a page table (ri == 4). Returns a suitable region/segment table entry
  * which points to the freshly allocated pages.
  */
-static uint64_t virt_alloc_region(struct kvm_vm *vm, int ri)
+static u64 virt_alloc_region(struct kvm_vm *vm, int ri)
 {
-	uint64_t taddr;
+	u64 taddr;
 
 	taddr = vm_phy_pages_alloc(vm,  ri < 4 ? PAGES_PER_REGION : 1,
 				   KVM_GUEST_PAGE_TABLE_MIN_PADDR, 0);
@@ -47,10 +47,10 @@ static uint64_t virt_alloc_region(struct kvm_vm *vm, int ri)
 		| ((ri < 4 ? (PAGES_PER_REGION - 1) : 0) & REGION_ENTRY_LENGTH);
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, uint64_t gva, uint64_t gpa)
+void virt_arch_pg_map(struct kvm_vm *vm, u64 gva, u64 gpa)
 {
 	int ri, idx;
-	uint64_t *entry;
+	u64 *entry;
 
 	TEST_ASSERT((gva % vm->page_size) == 0,
 		"Virtual address not on page boundary,\n"
@@ -89,7 +89,7 @@ void virt_arch_pg_map(struct kvm_vm *vm, uint64_t gva, uint64_t gpa)
 gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 {
 	int ri, idx;
-	uint64_t *entry;
+	u64 *entry;
 
 	TEST_ASSERT(vm->page_size == PAGE_SIZE, "Unsupported page size: 0x%x",
 		    vm->page_size);
@@ -112,9 +112,9 @@ gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 }
 
 static void virt_dump_ptes(FILE *stream, struct kvm_vm *vm, uint8_t indent,
-			   uint64_t ptea_start)
+			   u64 ptea_start)
 {
-	uint64_t *pte, ptea;
+	u64 *pte, ptea;
 
 	for (ptea = ptea_start; ptea < ptea_start + 0x100 * 8; ptea += 8) {
 		pte = addr_gpa2hva(vm, ptea);
@@ -126,9 +126,9 @@ static void virt_dump_ptes(FILE *stream, struct kvm_vm *vm, uint8_t indent,
 }
 
 static void virt_dump_region(FILE *stream, struct kvm_vm *vm, uint8_t indent,
-			     uint64_t reg_tab_addr)
+			     u64 reg_tab_addr)
 {
-	uint64_t addr, *entry;
+	u64 addr, *entry;
 
 	for (addr = reg_tab_addr; addr < reg_tab_addr + 0x400 * 8; addr += 8) {
 		entry = addr_gpa2hva(vm, addr);
@@ -163,7 +163,7 @@ void vcpu_arch_set_entry_point(struct kvm_vcpu *vcpu, void *guest_code)
 struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
 {
 	size_t stack_size =  DEFAULT_STACK_PGS * getpagesize();
-	uint64_t stack_vaddr;
+	u64 stack_vaddr;
 	struct kvm_regs regs;
 	struct kvm_sregs sregs;
 	struct kvm_vcpu *vcpu;
@@ -206,7 +206,7 @@ void vcpu_args_set(struct kvm_vcpu *vcpu, unsigned int num, ...)
 	vcpu_regs_get(vcpu, &regs);
 
 	for (i = 0; i < num; i++)
-		regs.gprs[i + 2] = va_arg(ap, uint64_t);
+		regs.gprs[i + 2] = va_arg(ap, u64);
 
 	vcpu_regs_set(vcpu, &regs);
 	va_end(ap);

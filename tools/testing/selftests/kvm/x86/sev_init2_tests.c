@@ -34,7 +34,7 @@ static int __sev_ioctl(int vm_fd, int cmd_id, void *data)
 {
 	struct kvm_sev_cmd cmd = {
 		.id = cmd_id,
-		.data = (uint64_t)data,
+		.data = (u64)data,
 		.sev_fd = open_sev_dev_path_or_exit(),
 	};
 	int ret;
@@ -104,7 +104,7 @@ void test_flags(uint32_t vm_type)
 			"invalid flag");
 }
 
-void test_features(uint32_t vm_type, uint64_t supported_features)
+void test_features(uint32_t vm_type, u64 supported_features)
 {
 	int i;
 

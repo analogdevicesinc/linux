@@ -91,9 +91,9 @@ static enum gicv3_intid_range get_intid_range(unsigned int intid)
 	return INVALID_RANGE;
 }
 
-static uint64_t gicv3_read_iar(void)
+static u64 gicv3_read_iar(void)
 {
-	uint64_t irqstat = read_sysreg_s(SYS_ICC_IAR1_EL1);
+	u64 irqstat = read_sysreg_s(SYS_ICC_IAR1_EL1);
 
 	dsb(sy);
 	return irqstat;
@@ -111,7 +111,7 @@ static void gicv3_write_dir(uint32_t irq)
 	isb();
 }
 
-static void gicv3_set_priority_mask(uint64_t mask)
+static void gicv3_set_priority_mask(u64 mask)
 {
 	write_sysreg_s(mask, SYS_ICC_PMR_EL1);
 }
@@ -129,27 +129,27 @@ static void gicv3_set_eoi_split(bool split)
 	isb();
 }
 
-uint32_t gicv3_reg_readl(uint32_t cpu_or_dist, uint64_t offset)
+uint32_t gicv3_reg_readl(uint32_t cpu_or_dist, u64 offset)
 {
 	volatile void *base = cpu_or_dist & DIST_BIT ? GICD_BASE_GVA
 			: sgi_base_from_redist(gicr_base_cpu(cpu_or_dist));
 	return readl(base + offset);
 }
 
-void gicv3_reg_writel(uint32_t cpu_or_dist, uint64_t offset, uint32_t reg_val)
+void gicv3_reg_writel(uint32_t cpu_or_dist, u64 offset, uint32_t reg_val)
 {
 	volatile void *base = cpu_or_dist & DIST_BIT ? GICD_BASE_GVA
 			: sgi_base_from_redist(gicr_base_cpu(cpu_or_dist));
 	writel(reg_val, base + offset);
 }
 
-uint32_t gicv3_getl_fields(uint32_t cpu_or_dist, uint64_t offset, uint32_t mask)
+uint32_t gicv3_getl_fields(uint32_t cpu_or_dist, u64 offset, uint32_t mask)
 {
 	return gicv3_reg_readl(cpu_or_dist, offset) & mask;
 }
 
-void gicv3_setl_fields(uint32_t cpu_or_dist, uint64_t offset,
-		uint32_t mask, uint32_t reg_val)
+void gicv3_setl_fields(uint32_t cpu_or_dist, u64 offset,
+		       uint32_t mask, uint32_t reg_val)
 {
 	uint32_t tmp = gicv3_reg_readl(cpu_or_dist, offset) & ~mask;
 
@@ -165,9 +165,9 @@ void gicv3_setl_fields(uint32_t cpu_or_dist, uint64_t offset,
  * map that doesn't implement it; like GICR_WAKER's offset of 0x0014 being
  * marked as "Reserved" in the Distributor map.
  */
-static void gicv3_access_reg(uint32_t intid, uint64_t offset,
-		uint32_t reg_bits, uint32_t bits_per_field,
-		bool write, uint32_t *val)
+static void gicv3_access_reg(uint32_t intid, u64 offset,
+			     uint32_t reg_bits, uint32_t bits_per_field,
+			     bool write, uint32_t *val)
 {
 	uint32_t cpu = guest_get_vcpuid();
 	enum gicv3_intid_range intid_range = get_intid_range(intid);
@@ -197,15 +197,15 @@ static void gicv3_access_reg(uint32_t intid, uint64_t offset,
 	*val = gicv3_getl_fields(cpu_or_dist, offset, mask) >> shift;
 }
 
-static void gicv3_write_reg(uint32_t intid, uint64_t offset,
-		uint32_t reg_bits, uint32_t bits_per_field, uint32_t val)
+static void gicv3_write_reg(uint32_t intid, u64 offset,
+			    uint32_t reg_bits, uint32_t bits_per_field, uint32_t val)
 {
 	gicv3_access_reg(intid, offset, reg_bits,
 			bits_per_field, true, &val);
 }
 
-static uint32_t gicv3_read_reg(uint32_t intid, uint64_t offset,
-		uint32_t reg_bits, uint32_t bits_per_field)
+static uint32_t gicv3_read_reg(uint32_t intid, u64 offset,
+			       uint32_t reg_bits, uint32_t bits_per_field)
 {
 	uint32_t val;
 

@@ -15,29 +15,29 @@
 static gpa_t invalid_pgtable[4];
 static gva_t exception_handlers;
 
-static uint64_t virt_pte_index(struct kvm_vm *vm, gva_t gva, int level)
+static u64 virt_pte_index(struct kvm_vm *vm, gva_t gva, int level)
 {
 	unsigned int shift;
-	uint64_t mask;
+	u64 mask;
 
 	shift = level * (vm->page_shift - 3) + vm->page_shift;
 	mask = (1UL << (vm->page_shift - 3)) - 1;
 	return (gva >> shift) & mask;
 }
 
-static uint64_t pte_addr(struct kvm_vm *vm, uint64_t entry)
+static u64 pte_addr(struct kvm_vm *vm, u64 entry)
 {
 	return entry &  ~((0x1UL << vm->page_shift) - 1);
 }
 
-static uint64_t ptrs_per_pte(struct kvm_vm *vm)
+static u64 ptrs_per_pte(struct kvm_vm *vm)
 {
 	return 1 << (vm->page_shift - 3);
 }
 
 static void virt_set_pgtable(struct kvm_vm *vm, gpa_t table, gpa_t child)
 {
-	uint64_t *ptep;
+	u64 *ptep;
 	int i, ptrs_per_pte;
 
 	ptep = addr_gpa2hva(vm, table);
@@ -67,15 +67,15 @@ void virt_arch_pgd_alloc(struct kvm_vm *vm)
 	vm->mmu.pgd_created = true;
 }
 
-static int virt_pte_none(uint64_t *ptep, int level)
+static int virt_pte_none(u64 *ptep, int level)
 {
 	return *ptep == invalid_pgtable[level];
 }
 
-static uint64_t *virt_populate_pte(struct kvm_vm *vm, gva_t gva, int alloc)
+static u64 *virt_populate_pte(struct kvm_vm *vm, gva_t gva, int alloc)
 {
 	int level;
-	uint64_t *ptep;
+	u64 *ptep;
 	gpa_t child;
 
 	if (!vm->mmu.pgd_created)
@@ -108,7 +108,7 @@ unmapped_gva:
 
 gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 {
-	uint64_t *ptep;
+	u64 *ptep;
 
 	ptep = virt_populate_pte(vm, gva, 0);
 	TEST_ASSERT(*ptep != 0, "Virtual address vaddr: 0x%lx not mapped\n", gva);
@@ -116,10 +116,10 @@ gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 	return pte_addr(vm, *ptep) + (gva & (vm->page_size - 1));
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr)
+void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
 {
 	uint32_t prot_bits;
-	uint64_t *ptep;
+	u64 *ptep;
 
 	TEST_ASSERT((vaddr % vm->page_size) == 0,
 			"Virtual address not on page boundary,\n"
@@ -140,9 +140,9 @@ void virt_arch_pg_map(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr)
 	WRITE_ONCE(*ptep, paddr | prot_bits);
 }
 
-static void pte_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent, uint64_t page, int level)
+static void pte_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent, u64 page, int level)
 {
-	uint64_t pte, *ptep;
+	u64 pte, *ptep;
 	static const char * const type[] = { "pte", "pmd", "pud", "pgd"};
 
 	if (level < 0)
@@ -241,36 +241,36 @@ void vcpu_args_set(struct kvm_vcpu *vcpu, unsigned int num, ...)
 
 	va_start(ap, num);
 	for (i = 0; i < num; i++)
-		regs.gpr[i + 4] = va_arg(ap, uint64_t);
+		regs.gpr[i + 4] = va_arg(ap, u64);
 	va_end(ap);
 
 	vcpu_regs_set(vcpu, &regs);
 }
 
-static void loongarch_set_reg(struct kvm_vcpu *vcpu, uint64_t id, uint64_t val)
+static void loongarch_set_reg(struct kvm_vcpu *vcpu, u64 id, u64 val)
 {
 	__vcpu_set_reg(vcpu, id, val);
 }
 
-static void loongarch_set_cpucfg(struct kvm_vcpu *vcpu, uint64_t id, uint64_t val)
+static void loongarch_set_cpucfg(struct kvm_vcpu *vcpu, u64 id, u64 val)
 {
-	uint64_t cfgid;
+	u64 cfgid;
 
 	cfgid = KVM_REG_LOONGARCH_CPUCFG | KVM_REG_SIZE_U64 | 8 * id;
 	__vcpu_set_reg(vcpu, cfgid, val);
 }
 
-static void loongarch_get_csr(struct kvm_vcpu *vcpu, uint64_t id, void *addr)
+static void loongarch_get_csr(struct kvm_vcpu *vcpu, u64 id, void *addr)
 {
-	uint64_t csrid;
+	u64 csrid;
 
 	csrid = KVM_REG_LOONGARCH_CSR | KVM_REG_SIZE_U64 | 8 * id;
 	__vcpu_get_reg(vcpu, csrid, addr);
 }
 
-static void loongarch_set_csr(struct kvm_vcpu *vcpu, uint64_t id, uint64_t val)
+static void loongarch_set_csr(struct kvm_vcpu *vcpu, u64 id, u64 val)
 {
-	uint64_t csrid;
+	u64 csrid;
 
 	csrid = KVM_REG_LOONGARCH_CSR | KVM_REG_SIZE_U64 | 8 * id;
 	__vcpu_set_reg(vcpu, csrid, val);
@@ -372,7 +372,7 @@ void loongarch_vcpu_setup(struct kvm_vcpu *vcpu)
 struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
 {
 	size_t stack_size;
-	uint64_t stack_vaddr;
+	u64 stack_vaddr;
 	struct kvm_regs regs;
 	struct kvm_vcpu *vcpu;
 
@@ -397,6 +397,6 @@ void vcpu_arch_set_entry_point(struct kvm_vcpu *vcpu, void *guest_code)
 
 	/* Setup guest PC register */
 	vcpu_regs_get(vcpu, &regs);
-	regs.pc = (uint64_t)guest_code;
+	regs.pc = (u64)guest_code;
 	vcpu_regs_set(vcpu, &regs);
 }

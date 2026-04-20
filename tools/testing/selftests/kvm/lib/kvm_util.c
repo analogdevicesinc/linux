@@ -396,12 +396,12 @@ struct kvm_vm *____vm_create(struct vm_shape shape)
 	return vm;
 }
 
-static uint64_t vm_nr_pages_required(enum vm_guest_mode mode,
-				     uint32_t nr_runnable_vcpus,
-				     uint64_t extra_mem_pages)
+static u64 vm_nr_pages_required(enum vm_guest_mode mode,
+				uint32_t nr_runnable_vcpus,
+				u64 extra_mem_pages)
 {
-	uint64_t page_size = vm_guest_mode_params[mode].page_size;
-	uint64_t nr_pages;
+	u64 page_size = vm_guest_mode_params[mode].page_size;
+	u64 nr_pages;
 
 	TEST_ASSERT(nr_runnable_vcpus,
 		    "Use vm_create_barebones() for VMs that _never_ have vCPUs");
@@ -477,9 +477,9 @@ static bool is_guest_memfd_required(struct vm_shape shape)
 }
 
 struct kvm_vm *__vm_create(struct vm_shape shape, uint32_t nr_runnable_vcpus,
-			   uint64_t nr_extra_pages)
+			   u64 nr_extra_pages)
 {
-	uint64_t nr_pages = vm_nr_pages_required(shape.mode, nr_runnable_vcpus,
+	u64 nr_pages = vm_nr_pages_required(shape.mode, nr_runnable_vcpus,
 						 nr_extra_pages);
 	struct userspace_mem_region *slot0;
 	struct kvm_vm *vm;
@@ -547,7 +547,7 @@ struct kvm_vm *__vm_create(struct vm_shape shape, uint32_t nr_runnable_vcpus,
  * no real memory allocation for non-slot0 memory in this function.
  */
 struct kvm_vm *__vm_create_with_vcpus(struct vm_shape shape, uint32_t nr_vcpus,
-				      uint64_t extra_mem_pages,
+				      u64 extra_mem_pages,
 				      void *guest_code, struct kvm_vcpu *vcpus[])
 {
 	struct kvm_vm *vm;
@@ -566,7 +566,7 @@ struct kvm_vm *__vm_create_with_vcpus(struct vm_shape shape, uint32_t nr_vcpus,
 
 struct kvm_vm *__vm_create_shape_with_one_vcpu(struct vm_shape shape,
 					       struct kvm_vcpu **vcpu,
-					       uint64_t extra_mem_pages,
+					       u64 extra_mem_pages,
 					       void *guest_code)
 {
 	struct kvm_vcpu *vcpus[1];
@@ -715,15 +715,15 @@ void kvm_parse_vcpu_pinning(const char *pcpus_string, uint32_t vcpu_to_pcpu[],
  * region exists.
  */
 static struct userspace_mem_region *
-userspace_mem_region_find(struct kvm_vm *vm, uint64_t start, uint64_t end)
+userspace_mem_region_find(struct kvm_vm *vm, u64 start, u64 end)
 {
 	struct rb_node *node;
 
 	for (node = vm->regions.gpa_tree.rb_node; node; ) {
 		struct userspace_mem_region *region =
 			container_of(node, struct userspace_mem_region, gpa_node);
-		uint64_t existing_start = region->region.guest_phys_addr;
-		uint64_t existing_end = region->region.guest_phys_addr
+		u64 existing_start = region->region.guest_phys_addr;
+		u64 existing_end = region->region.guest_phys_addr
 			+ region->region.memory_size - 1;
 		if (start <= existing_end && end >= existing_start)
 			return region;
@@ -919,7 +919,7 @@ static void vm_userspace_mem_region_hva_insert(struct rb_root *hva_tree,
 
 
 int __vm_set_user_memory_region(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
-				uint64_t gpa, uint64_t size, void *hva)
+				u64 gpa, u64 size, void *hva)
 {
 	struct kvm_userspace_memory_region region = {
 		.slot = slot,
@@ -933,7 +933,7 @@ int __vm_set_user_memory_region(struct kvm_vm *vm, uint32_t slot, uint32_t flags
 }
 
 void vm_set_user_memory_region(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
-			       uint64_t gpa, uint64_t size, void *hva)
+			       u64 gpa, u64 size, void *hva)
 {
 	int ret = __vm_set_user_memory_region(vm, slot, flags, gpa, size, hva);
 
@@ -946,8 +946,8 @@ void vm_set_user_memory_region(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
 		       "KVM selftests now require KVM_SET_USER_MEMORY_REGION2 (introduced in v6.8)")
 
 int __vm_set_user_memory_region2(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
-				 uint64_t gpa, uint64_t size, void *hva,
-				 uint32_t guest_memfd, uint64_t guest_memfd_offset)
+				 u64 gpa, u64 size, void *hva,
+				 uint32_t guest_memfd, u64 guest_memfd_offset)
 {
 	struct kvm_userspace_memory_region2 region = {
 		.slot = slot,
@@ -965,8 +965,8 @@ int __vm_set_user_memory_region2(struct kvm_vm *vm, uint32_t slot, uint32_t flag
 }
 
 void vm_set_user_memory_region2(struct kvm_vm *vm, uint32_t slot, uint32_t flags,
-				uint64_t gpa, uint64_t size, void *hva,
-				uint32_t guest_memfd, uint64_t guest_memfd_offset)
+				u64 gpa, u64 size, void *hva,
+				uint32_t guest_memfd, u64 guest_memfd_offset)
 {
 	int ret = __vm_set_user_memory_region2(vm, slot, flags, gpa, size, hva,
 					       guest_memfd, guest_memfd_offset);
@@ -978,8 +978,8 @@ void vm_set_user_memory_region2(struct kvm_vm *vm, uint32_t slot, uint32_t flags
 
 /* FIXME: This thing needs to be ripped apart and rewritten. */
 void vm_mem_add(struct kvm_vm *vm, enum vm_mem_backing_src_type src_type,
-		uint64_t gpa, uint32_t slot, uint64_t npages, uint32_t flags,
-		int guest_memfd, uint64_t guest_memfd_offset)
+		u64 gpa, uint32_t slot, u64 npages, uint32_t flags,
+		int guest_memfd, u64 guest_memfd_offset)
 {
 	int ret;
 	struct userspace_mem_region *region;
@@ -1016,8 +1016,8 @@ void vm_mem_add(struct kvm_vm *vm, enum vm_mem_backing_src_type src_type,
 			"  requested gpa: 0x%lx npages: 0x%lx page_size: 0x%x\n"
 			"  existing gpa: 0x%lx size: 0x%lx",
 			gpa, npages, vm->page_size,
-			(uint64_t) region->region.guest_phys_addr,
-			(uint64_t) region->region.memory_size);
+			(u64)region->region.guest_phys_addr,
+			(u64)region->region.memory_size);
 
 	/* Confirm no region with the requested slot already exists. */
 	hash_for_each_possible(vm->regions.slot_hash, region, slot_node,
@@ -1030,8 +1030,8 @@ void vm_mem_add(struct kvm_vm *vm, enum vm_mem_backing_src_type src_type,
 			"  requested slot: %u paddr: 0x%lx npages: 0x%lx\n"
 			"  existing slot: %u paddr: 0x%lx size: 0x%lx",
 			slot, gpa, npages, region->region.slot,
-			(uint64_t) region->region.guest_phys_addr,
-			(uint64_t) region->region.memory_size);
+			(u64)region->region.guest_phys_addr,
+			(u64)region->region.memory_size);
 	}
 
 	/* Allocate and initialize new mem region structure. */
@@ -1141,7 +1141,7 @@ void vm_mem_add(struct kvm_vm *vm, enum vm_mem_backing_src_type src_type,
 
 void vm_userspace_mem_region_add(struct kvm_vm *vm,
 				 enum vm_mem_backing_src_type src_type,
-				 uint64_t gpa, uint32_t slot, uint64_t npages,
+				 u64 gpa, uint32_t slot, u64 npages,
 				 uint32_t flags)
 {
 	vm_mem_add(vm, src_type, gpa, slot, npages, flags, -1, 0);
@@ -1234,7 +1234,7 @@ void vm_mem_region_reload(struct kvm_vm *vm, uint32_t slot)
  *
  * Change the gpa of a memory region.
  */
-void vm_mem_region_move(struct kvm_vm *vm, uint32_t slot, uint64_t new_gpa)
+void vm_mem_region_move(struct kvm_vm *vm, uint32_t slot, u64 new_gpa)
 {
 	struct userspace_mem_region *region;
 	int ret;
@@ -1273,18 +1273,18 @@ void vm_mem_region_delete(struct kvm_vm *vm, uint32_t slot)
 	__vm_mem_region_delete(vm, region);
 }
 
-void vm_guest_mem_fallocate(struct kvm_vm *vm, uint64_t base, uint64_t size,
+void vm_guest_mem_fallocate(struct kvm_vm *vm, u64 base, u64 size,
 			    bool punch_hole)
 {
 	const int mode = FALLOC_FL_KEEP_SIZE | (punch_hole ? FALLOC_FL_PUNCH_HOLE : 0);
 	struct userspace_mem_region *region;
-	uint64_t end = base + size;
-	uint64_t gpa, len;
+	u64 end = base + size;
+	u64 gpa, len;
 	off_t fd_offset;
 	int ret;
 
 	for (gpa = base; gpa < end; gpa += len) {
-		uint64_t offset;
+		u64 offset;
 
 		region = userspace_mem_region_find(vm, gpa, gpa);
 		TEST_ASSERT(region && region->region.flags & KVM_MEM_GUEST_MEMFD,
@@ -1292,7 +1292,7 @@ void vm_guest_mem_fallocate(struct kvm_vm *vm, uint64_t base, uint64_t size,
 
 		offset = gpa - region->region.guest_phys_addr;
 		fd_offset = region->region.guest_memfd_offset + offset;
-		len = min_t(uint64_t, end - gpa, region->region.memory_size - offset);
+		len = min_t(u64, end - gpa, region->region.memory_size - offset);
 
 		ret = fallocate(region->region.guest_memfd, mode, fd_offset, len);
 		TEST_ASSERT(!ret, "fallocate() failed to %s at %lx (len = %lu), fd = %d, mode = %x, offset = %lx",
@@ -1388,10 +1388,10 @@ struct kvm_vcpu *__vm_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
  */
 gva_t vm_vaddr_unused_gap(struct kvm_vm *vm, size_t sz, gva_t vaddr_min)
 {
-	uint64_t pages = (sz + vm->page_size - 1) >> vm->page_shift;
+	u64 pages = (sz + vm->page_size - 1) >> vm->page_shift;
 
 	/* Determine lowest permitted virtual page index. */
-	uint64_t pgidx_start = (vaddr_min + vm->page_size - 1) >> vm->page_shift;
+	u64 pgidx_start = (vaddr_min + vm->page_size - 1) >> vm->page_shift;
 	if ((pgidx_start * vm->page_size) < vaddr_min)
 		goto no_va_found;
 
@@ -1454,7 +1454,7 @@ va_found:
 static gva_t ____vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
 				enum kvm_mem_region_type type, bool protected)
 {
-	uint64_t pages = (sz >> vm->page_shift) + ((sz % vm->page_size) != 0);
+	u64 pages = (sz >> vm->page_shift) + ((sz % vm->page_size) != 0);
 
 	virt_pgd_alloc(vm);
 	gpa_t paddr = __vm_phy_pages_alloc(vm, pages,
@@ -1573,7 +1573,7 @@ gva_t vm_vaddr_alloc_page(struct kvm_vm *vm)
  * Within the VM given by @vm, creates a virtual translation for
  * @npages starting at @vaddr to the page range starting at @paddr.
  */
-void virt_map(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr,
+void virt_map(struct kvm_vm *vm, u64 vaddr, u64 paddr,
 	      unsigned int npages)
 {
 	size_t page_size = vm->page_size;
@@ -1807,7 +1807,7 @@ void *vcpu_map_dirty_ring(struct kvm_vcpu *vcpu)
  * Device Ioctl
  */
 
-int __kvm_has_device_attr(int dev_fd, uint32_t group, uint64_t attr)
+int __kvm_has_device_attr(int dev_fd, uint32_t group, u64 attr)
 {
 	struct kvm_device_attr attribute = {
 		.group = group,
@@ -1818,7 +1818,7 @@ int __kvm_has_device_attr(int dev_fd, uint32_t group, uint64_t attr)
 	return ioctl(dev_fd, KVM_HAS_DEVICE_ATTR, &attribute);
 }
 
-int __kvm_test_create_device(struct kvm_vm *vm, uint64_t type)
+int __kvm_test_create_device(struct kvm_vm *vm, u64 type)
 {
 	struct kvm_create_device create_dev = {
 		.type = type,
@@ -1828,7 +1828,7 @@ int __kvm_test_create_device(struct kvm_vm *vm, uint64_t type)
 	return __vm_ioctl(vm, KVM_CREATE_DEVICE, &create_dev);
 }
 
-int __kvm_create_device(struct kvm_vm *vm, uint64_t type)
+int __kvm_create_device(struct kvm_vm *vm, u64 type)
 {
 	struct kvm_create_device create_dev = {
 		.type = type,
@@ -1842,7 +1842,7 @@ int __kvm_create_device(struct kvm_vm *vm, uint64_t type)
 	return err ? : create_dev.fd;
 }
 
-int __kvm_device_attr_get(int dev_fd, uint32_t group, uint64_t attr, void *val)
+int __kvm_device_attr_get(int dev_fd, uint32_t group, u64 attr, void *val)
 {
 	struct kvm_device_attr kvmattr = {
 		.group = group,
@@ -1854,7 +1854,7 @@ int __kvm_device_attr_get(int dev_fd, uint32_t group, uint64_t attr, void *val)
 	return __kvm_ioctl(dev_fd, KVM_GET_DEVICE_ATTR, &kvmattr);
 }
 
-int __kvm_device_attr_set(int dev_fd, uint32_t group, uint64_t attr, void *val)
+int __kvm_device_attr_set(int dev_fd, uint32_t group, u64 attr, void *val)
 {
 	struct kvm_device_attr kvmattr = {
 		.group = group,
@@ -1965,8 +1965,8 @@ void vm_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
 	hash_for_each(vm->regions.slot_hash, ctr, region, slot_node) {
 		fprintf(stream, "%*sguest_phys: 0x%lx size: 0x%lx "
 			"host_virt: %p\n", indent + 2, "",
-			(uint64_t) region->region.guest_phys_addr,
-			(uint64_t) region->region.memory_size,
+			(u64)region->region.guest_phys_addr,
+			(u64)region->region.memory_size,
 			region->host_mem);
 		fprintf(stream, "%*sunused_phy_pages: ", indent + 2, "");
 		sparsebit_dump(stream, region->unused_phy_pages, 0);
@@ -2254,7 +2254,7 @@ struct kvm_stats_desc *read_stats_descriptors(int stats_fd,
  * Read the data values of a specified stat from the binary stats interface.
  */
 void read_stat_data(int stats_fd, struct kvm_stats_header *header,
-		    struct kvm_stats_desc *desc, uint64_t *data,
+		    struct kvm_stats_desc *desc, u64 *data,
 		    size_t max_elements)
 {
 	size_t nr_elements = min_t(ssize_t, desc->size, max_elements);
@@ -2275,7 +2275,7 @@ void read_stat_data(int stats_fd, struct kvm_stats_header *header,
 }
 
 void kvm_get_stat(struct kvm_binary_stats *stats, const char *name,
-		  uint64_t *data, size_t max_elements)
+		  u64 *data, size_t max_elements)
 {
 	struct kvm_stats_desc *desc;
 	size_t size_desc;

@@ -64,7 +64,7 @@ static void check_ia32_tsc_adjust(int64_t max)
 
 static void l2_guest_code(void)
 {
-	uint64_t l1_tsc = rdtsc() - TSC_OFFSET_VALUE;
+	u64 l1_tsc = rdtsc() - TSC_OFFSET_VALUE;
 
 	wrmsr(MSR_IA32_TSC, l1_tsc - TSC_ADJUST_VALUE);
 	check_ia32_tsc_adjust(-2 * TSC_ADJUST_VALUE);

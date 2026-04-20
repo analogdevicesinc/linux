@@ -100,9 +100,9 @@ struct hyperv_test_pages *vcpu_alloc_hyperv_test_pages(struct kvm_vm *vm,
 	return hv;
 }
 
-int enable_vp_assist(uint64_t vp_assist_pa, void *vp_assist)
+int enable_vp_assist(u64 vp_assist_pa, void *vp_assist)
 {
-	uint64_t val = (vp_assist_pa & HV_X64_MSR_VP_ASSIST_PAGE_ADDRESS_MASK) |
+	u64 val = (vp_assist_pa & HV_X64_MSR_VP_ASSIST_PAGE_ADDRESS_MASK) |
 		HV_X64_MSR_VP_ASSIST_PAGE_ENABLE;
 
 	wrmsr(HV_X64_MSR_VP_ASSIST_PAGE, val);

@@ -18,7 +18,7 @@
 
 #define IPI_VECTOR	 0xfe
 
-static volatile uint64_t ipis_rcvd[RECEIVER_VCPU_ID_2 + 1];
+static volatile u64 ipis_rcvd[RECEIVER_VCPU_ID_2 + 1];
 
 struct hv_vpset {
 	u64 format;

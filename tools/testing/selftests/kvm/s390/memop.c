@@ -34,7 +34,7 @@ enum mop_access_mode {
 struct mop_desc {
 	uintptr_t gaddr;
 	uintptr_t gaddr_v;
-	uint64_t set_flags;
+	u64 set_flags;
 	unsigned int f_check : 1;
 	unsigned int f_inject : 1;
 	unsigned int f_key : 1;
@@ -85,7 +85,7 @@ static struct kvm_s390_mem_op ksmo_from_desc(struct mop_desc *desc)
 			ksmo.op = KVM_S390_MEMOP_ABSOLUTE_WRITE;
 		if (desc->mode == CMPXCHG) {
 			ksmo.op = KVM_S390_MEMOP_ABSOLUTE_CMPXCHG;
-			ksmo.old_addr = (uint64_t)desc->old;
+			ksmo.old_addr = (u64)desc->old;
 			memcpy(desc->old_value, desc->old, desc->size);
 		}
 		break;
@@ -489,7 +489,7 @@ static __uint128_t cut_to_size(int size, __uint128_t val)
 	case 4:
 		return (uint32_t)val;
 	case 8:
-		return (uint64_t)val;
+		return (u64)val;
 	case 16:
 		return val;
 	}
@@ -501,10 +501,10 @@ static bool popcount_eq(__uint128_t a, __uint128_t b)
 {
 	unsigned int count_a, count_b;
 
-	count_a = __builtin_popcountl((uint64_t)(a >> 64)) +
-		  __builtin_popcountl((uint64_t)a);
-	count_b = __builtin_popcountl((uint64_t)(b >> 64)) +
-		  __builtin_popcountl((uint64_t)b);
+	count_a = __builtin_popcountl((u64)(a >> 64)) +
+		  __builtin_popcountl((u64)a);
+	count_b = __builtin_popcountl((u64)(b >> 64)) +
+		  __builtin_popcountl((u64)b);
 	return count_a == count_b;
 }
 
@@ -598,15 +598,15 @@ static bool _cmpxchg(int size, void *target, __uint128_t *old_addr, __uint128_t 
 			return ret;
 		}
 	case 8: {
-			uint64_t old = *old_addr;
+			u64 old = *old_addr;
 
 			asm volatile ("csg %[old],%[new],%[address]"
 			    : [old] "+d" (old),
-			      [address] "+Q" (*(uint64_t *)(target))
-			    : [new] "d" ((uint64_t)new)
+			      [address] "+Q" (*(u64 *)(target))
+			    : [new] "d" ((u64)new)
 			    : "cc"
 			);
-			ret = old == (uint64_t)*old_addr;
+			ret = old == (u64)*old_addr;
 			*old_addr = old;
 			return ret;
 		}
@@ -811,10 +811,10 @@ static void test_errors_cmpxchg_key(void)
 static void test_termination(void)
 {
 	struct test_default t = test_default_init(guest_error_key);
-	uint64_t prefix;
-	uint64_t teid;
-	uint64_t teid_mask = BIT(63 - 56) | BIT(63 - 60) | BIT(63 - 61);
-	uint64_t psw[2];
+	u64 prefix;
+	u64 teid;
+	u64 teid_mask = BIT(63 - 56) | BIT(63 - 60) | BIT(63 - 61);
+	u64 psw[2];
 
 	HOST_SYNC(t.vcpu, STAGE_INITED);
 	HOST_SYNC(t.vcpu, STAGE_SKEYS_SET);
@@ -855,7 +855,7 @@ static void test_errors_key_storage_prot_override(void)
 	kvm_vm_free(t.kvm_vm);
 }
 
-const uint64_t last_page_addr = -PAGE_SIZE;
+const u64 last_page_addr = -PAGE_SIZE;
 
 static void guest_copy_key_fetch_prot_override(void)
 {

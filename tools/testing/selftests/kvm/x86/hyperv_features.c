@@ -29,8 +29,8 @@ struct msr_data {
 };
 
 struct hcall_data {
-	uint64_t control;
-	uint64_t expect;
+	u64 control;
+	u64 expect;
 	bool ud_expected;
 };
 
@@ -42,7 +42,7 @@ static bool is_write_only_msr(uint32_t msr)
 static void guest_msr(struct msr_data *msr)
 {
 	uint8_t vector = 0;
-	uint64_t msr_val = 0;
+	u64 msr_val = 0;
 
 	GUEST_ASSERT(msr->idx);
 

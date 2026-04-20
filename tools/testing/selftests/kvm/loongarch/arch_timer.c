@@ -28,7 +28,7 @@ static void guest_irq_handler(struct ex_regs *regs)
 {
 	unsigned int intid;
 	uint32_t cpu = guest_get_vcpuid();
-	uint64_t xcnt, val, cfg, xcnt_diff_us;
+	u64 xcnt, val, cfg, xcnt_diff_us;
 	struct test_vcpu_shared_data *shared_data = &vcpu_shared_data[cpu];
 
 	intid = !!(regs->estat & BIT(INT_TI));
@@ -65,7 +65,7 @@ static void guest_irq_handler(struct ex_regs *regs)
 static void guest_test_period_timer(uint32_t cpu)
 {
 	uint32_t irq_iter, config_iter;
-	uint64_t us;
+	u64 us;
 	struct test_vcpu_shared_data *shared_data = &vcpu_shared_data[cpu];
 
 	shared_data->nr_iter = test_args.nr_iter;
@@ -89,7 +89,7 @@ static void guest_test_period_timer(uint32_t cpu)
 static void guest_test_oneshot_timer(uint32_t cpu)
 {
 	uint32_t irq_iter, config_iter;
-	uint64_t us;
+	u64 us;
 	struct test_vcpu_shared_data *shared_data = &vcpu_shared_data[cpu];
 
 	shared_data->nr_iter = 0;
@@ -115,7 +115,7 @@ static void guest_test_oneshot_timer(uint32_t cpu)
 static void guest_test_emulate_timer(uint32_t cpu)
 {
 	uint32_t config_iter;
-	uint64_t xcnt_diff_us, us;
+	u64 xcnt_diff_us, us;
 	struct test_vcpu_shared_data *shared_data = &vcpu_shared_data[cpu];
 
 	local_irq_disable();

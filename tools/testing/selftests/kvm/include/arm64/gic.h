@@ -48,7 +48,7 @@ void gic_set_dir(unsigned int intid);
  * split is true, EOI drops the priority and deactivates the interrupt.
  */
 void gic_set_eoi_split(bool split);
-void gic_set_priority_mask(uint64_t mask);
+void gic_set_priority_mask(u64 mask);
 void gic_set_priority(uint32_t intid, uint32_t prio);
 void gic_irq_set_active(unsigned int intid);
 void gic_irq_clear_active(unsigned int intid);

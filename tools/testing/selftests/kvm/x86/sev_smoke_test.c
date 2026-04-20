@@ -15,7 +15,7 @@
 
 static void guest_sev_test_msr(uint32_t msr)
 {
-	uint64_t val = rdmsr(msr);
+	u64 val = rdmsr(msr);
 
 	wrmsr(msr, val);
 	GUEST_ASSERT(val == rdmsr(msr));
@@ -23,7 +23,7 @@ static void guest_sev_test_msr(uint32_t msr)
 
 #define guest_sev_test_reg(reg)			\
 do {						\
-	uint64_t val = get_##reg();		\
+	u64 val = get_##reg();			\
 						\
 	set_##reg(val);				\
 	GUEST_ASSERT(val == get_##reg());	\
@@ -42,7 +42,7 @@ static void guest_sev_test_regs(void)
 
 static void guest_snp_code(void)
 {
-	uint64_t sev_msr = rdmsr(MSR_AMD64_SEV);
+	u64 sev_msr = rdmsr(MSR_AMD64_SEV);
 
 	GUEST_ASSERT(sev_msr & MSR_AMD64_SEV_ENABLED);
 	GUEST_ASSERT(sev_msr & MSR_AMD64_SEV_ES_ENABLED);
@@ -104,7 +104,7 @@ static void compare_xsave(u8 *from_host, u8 *from_guest)
 		abort();
 }
 
-static void test_sync_vmsa(uint32_t type, uint64_t policy)
+static void test_sync_vmsa(uint32_t type, u64 policy)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -150,7 +150,7 @@ static void test_sync_vmsa(uint32_t type, uint64_t policy)
 	kvm_vm_free(vm);
 }
 
-static void test_sev(void *guest_code, uint32_t type, uint64_t policy)
+static void test_sev(void *guest_code, uint32_t type, u64 policy)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -201,7 +201,7 @@ static void guest_shutdown_code(void)
 	__asm__ __volatile__("ud2");
 }
 
-static void test_sev_shutdown(uint32_t type, uint64_t policy)
+static void test_sev_shutdown(uint32_t type, u64 policy)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -218,7 +218,7 @@ static void test_sev_shutdown(uint32_t type, uint64_t policy)
 	kvm_vm_free(vm);
 }
 
-static void test_sev_smoke(void *guest, uint32_t type, uint64_t policy)
+static void test_sev_smoke(void *guest, uint32_t type, u64 policy)
 {
 	const u64 xf_mask = XFEATURE_MASK_X87_AVX;
 

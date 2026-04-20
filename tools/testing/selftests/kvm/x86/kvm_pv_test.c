@@ -40,7 +40,7 @@ static struct msr_data msrs_to_test[] = {
 
 static void test_msr(struct msr_data *msr)
 {
-	uint64_t ignored;
+	u64 ignored;
 	uint8_t vector;
 
 	PR_MSR(msr);
@@ -53,7 +53,7 @@ static void test_msr(struct msr_data *msr)
 }
 
 struct hcall_data {
-	uint64_t nr;
+	u64 nr;
 	const char *name;
 };
 
@@ -73,7 +73,7 @@ static struct hcall_data hcalls_to_test[] = {
 
 static void test_hcall(struct hcall_data *hc)
 {
-	uint64_t r;
+	u64 r;
 
 	PR_HCALL(hc);
 	r = kvm_hypercall(hc->nr, 0, 0, 0, 0);

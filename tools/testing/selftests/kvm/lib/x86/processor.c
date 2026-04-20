@@ -27,7 +27,7 @@ bool host_cpu_is_intel;
 bool host_cpu_is_hygon;
 bool host_cpu_is_amd_compatible;
 bool is_forced_emulation_enabled;
-uint64_t guest_tsc_khz;
+u64 guest_tsc_khz;
 
 const char *ex_str(int vector)
 {
@@ -207,10 +207,10 @@ void tdp_mmu_init(struct kvm_vm *vm, int pgtable_levels,
 }
 
 static void *virt_get_pte(struct kvm_vm *vm, struct kvm_mmu *mmu,
-			  uint64_t *parent_pte, uint64_t vaddr, int level)
+			  u64 *parent_pte, u64 vaddr, int level)
 {
-	uint64_t pt_gpa = PTE_GET_PA(*parent_pte);
-	uint64_t *page_table = addr_gpa2hva(vm, pt_gpa);
+	u64 pt_gpa = PTE_GET_PA(*parent_pte);
+	u64 *page_table = addr_gpa2hva(vm, pt_gpa);
 	int index = (vaddr >> PG_LEVEL_SHIFT(level)) & 0x1ffu;
 
 	TEST_ASSERT((*parent_pte == mmu->pgd) || is_present_pte(mmu, parent_pte),
@@ -220,15 +220,15 @@ static void *virt_get_pte(struct kvm_vm *vm, struct kvm_mmu *mmu,
 	return &page_table[index];
 }
 
-static uint64_t *virt_create_upper_pte(struct kvm_vm *vm,
-				       struct kvm_mmu *mmu,
-				       uint64_t *parent_pte,
-				       uint64_t vaddr,
-				       uint64_t paddr,
-				       int current_level,
-				       int target_level)
+static u64 *virt_create_upper_pte(struct kvm_vm *vm,
+				  struct kvm_mmu *mmu,
+				  u64 *parent_pte,
+				  u64 vaddr,
+				  u64 paddr,
+				  int current_level,
+				  int target_level)
 {
-	uint64_t *pte = virt_get_pte(vm, mmu, parent_pte, vaddr, current_level);
+	u64 *pte = virt_get_pte(vm, mmu, parent_pte, vaddr, current_level);
 
 	paddr = vm_untag_gpa(vm, paddr);
 
@@ -256,11 +256,11 @@ static uint64_t *virt_create_upper_pte(struct kvm_vm *vm,
 	return pte;
 }
 
-void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, uint64_t vaddr,
-		   uint64_t paddr, int level)
+void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, u64 vaddr,
+		   u64 paddr, int level)
 {
-	const uint64_t pg_size = PG_LEVEL_SIZE(level);
-	uint64_t *pte = &mmu->pgd;
+	const u64 pg_size = PG_LEVEL_SIZE(level);
+	u64 *pte = &mmu->pgd;
 	int current_level;
 
 	TEST_ASSERT(vm->mode == VM_MODE_PXXVYY_4K,
@@ -315,16 +315,16 @@ void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, uint64_t vaddr,
 		*pte |= PTE_S_BIT_MASK(mmu);
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr)
+void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
 {
 	__virt_pg_map(vm, &vm->mmu, vaddr, paddr, PG_LEVEL_4K);
 }
 
-void virt_map_level(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr,
-		    uint64_t nr_bytes, int level)
+void virt_map_level(struct kvm_vm *vm, u64 vaddr, u64 paddr,
+		    u64 nr_bytes, int level)
 {
-	uint64_t pg_size = PG_LEVEL_SIZE(level);
-	uint64_t nr_pages = nr_bytes / pg_size;
+	u64 pg_size = PG_LEVEL_SIZE(level);
+	u64 nr_pages = nr_bytes / pg_size;
 	int i;
 
 	TEST_ASSERT(nr_bytes % pg_size == 0,
@@ -341,7 +341,7 @@ void virt_map_level(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr,
 	}
 }
 
-static bool vm_is_target_pte(struct kvm_mmu *mmu, uint64_t *pte,
+static bool vm_is_target_pte(struct kvm_mmu *mmu, u64 *pte,
 			     int *level, int current_level)
 {
 	if (is_huge_pte(mmu, pte)) {
@@ -354,13 +354,13 @@ static bool vm_is_target_pte(struct kvm_mmu *mmu, uint64_t *pte,
 	return *level == current_level;
 }
 
-static uint64_t *__vm_get_page_table_entry(struct kvm_vm *vm,
-					   struct kvm_mmu *mmu,
-					   uint64_t vaddr,
-					   int *level)
+static u64 *__vm_get_page_table_entry(struct kvm_vm *vm,
+				      struct kvm_mmu *mmu,
+				      u64 vaddr,
+				      int *level)
 {
 	int va_width = 12 + (mmu->pgtable_levels) * 9;
-	uint64_t *pte = &mmu->pgd;
+	u64 *pte = &mmu->pgd;
 	int current_level;
 
 	TEST_ASSERT(!vm->arch.is_pt_protected,
@@ -393,14 +393,14 @@ static uint64_t *__vm_get_page_table_entry(struct kvm_vm *vm,
 	return virt_get_pte(vm, mmu, pte, vaddr, PG_LEVEL_4K);
 }
 
-uint64_t *tdp_get_pte(struct kvm_vm *vm, uint64_t l2_gpa)
+u64 *tdp_get_pte(struct kvm_vm *vm, u64 l2_gpa)
 {
 	int level = PG_LEVEL_4K;
 
 	return __vm_get_page_table_entry(vm, &vm->stage2_mmu, l2_gpa, &level);
 }
 
-uint64_t *vm_get_pte(struct kvm_vm *vm, uint64_t vaddr)
+u64 *vm_get_pte(struct kvm_vm *vm, u64 vaddr)
 {
 	int level = PG_LEVEL_4K;
 
@@ -410,10 +410,10 @@ uint64_t *vm_get_pte(struct kvm_vm *vm, uint64_t vaddr)
 void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
 {
 	struct kvm_mmu *mmu = &vm->mmu;
-	uint64_t *pml4e, *pml4e_start;
-	uint64_t *pdpe, *pdpe_start;
-	uint64_t *pde, *pde_start;
-	uint64_t *pte, *pte_start;
+	u64 *pml4e, *pml4e_start;
+	u64 *pdpe, *pdpe_start;
+	u64 *pde, *pde_start;
+	u64 *pte, *pte_start;
 
 	if (!mmu->pgd_created)
 		return;
@@ -423,7 +423,7 @@ void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
 	fprintf(stream, "%*s      index hvaddr         gpaddr         "
 		"addr         w exec dirty\n",
 		indent, "");
-	pml4e_start = (uint64_t *) addr_gpa2hva(vm, mmu->pgd);
+	pml4e_start = (u64 *)addr_gpa2hva(vm, mmu->pgd);
 	for (uint16_t n1 = 0; n1 <= 0x1ffu; n1++) {
 		pml4e = &pml4e_start[n1];
 		if (!is_present_pte(mmu, pml4e))
@@ -475,10 +475,10 @@ void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
 						is_writable_pte(mmu, pte),
 						is_nx_pte(mmu, pte),
 						is_dirty_pte(mmu, pte),
-						((uint64_t) n1 << 27)
-							| ((uint64_t) n2 << 18)
-							| ((uint64_t) n3 << 9)
-							| ((uint64_t) n4));
+						((u64)n1 << 27)
+							| ((u64)n2 << 18)
+							| ((u64)n3 << 9)
+							| ((u64)n4));
 				}
 			}
 		}
@@ -498,8 +498,8 @@ bool kvm_cpu_has_tdp(void)
 	return kvm_cpu_has_ept() || kvm_cpu_has_npt();
 }
 
-void __tdp_map(struct kvm_vm *vm, uint64_t nested_paddr, uint64_t paddr,
-	       uint64_t size, int level)
+void __tdp_map(struct kvm_vm *vm, u64 nested_paddr, u64 paddr,
+	       u64 size, int level)
 {
 	size_t page_size = PG_LEVEL_SIZE(level);
 	size_t npages = size / page_size;
@@ -514,8 +514,8 @@ void __tdp_map(struct kvm_vm *vm, uint64_t nested_paddr, uint64_t paddr,
 	}
 }
 
-void tdp_map(struct kvm_vm *vm, uint64_t nested_paddr, uint64_t paddr,
-	     uint64_t size)
+void tdp_map(struct kvm_vm *vm, u64 nested_paddr, u64 paddr,
+	     u64 size)
 {
 	__tdp_map(vm, nested_paddr, paddr, size, PG_LEVEL_4K);
 }
@@ -540,13 +540,13 @@ void tdp_identity_map_default_memslots(struct kvm_vm *vm)
 		if (i > last)
 			break;
 
-		tdp_map(vm, (uint64_t)i << vm->page_shift,
-			(uint64_t)i << vm->page_shift, 1 << vm->page_shift);
+		tdp_map(vm, (u64)i << vm->page_shift,
+			(u64)i << vm->page_shift, 1 << vm->page_shift);
 	}
 }
 
 /* Identity map a region with 1GiB Pages. */
-void tdp_identity_map_1g(struct kvm_vm *vm, uint64_t addr, uint64_t size)
+void tdp_identity_map_1g(struct kvm_vm *vm, u64 addr, u64 size)
 {
 	__tdp_map(vm, addr, addr, size, PG_LEVEL_1G);
 }
@@ -621,7 +621,7 @@ static void kvm_seg_set_kernel_data_64bit(struct kvm_segment *segp)
 gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 {
 	int level = PG_LEVEL_NONE;
-	uint64_t *pte = __vm_get_page_table_entry(vm, &vm->mmu, gva, &level);
+	u64 *pte = __vm_get_page_table_entry(vm, &vm->mmu, gva, &level);
 
 	TEST_ASSERT(is_present_pte(&vm->mmu, pte),
 		    "Leaf PTE not PRESENT for gva: 0x%08lx", gva);
@@ -943,7 +943,7 @@ uint32_t kvm_cpuid_property(const struct kvm_cpuid2 *cpuid,
 			     property.reg, property.lo_bit, property.hi_bit);
 }
 
-uint64_t kvm_get_feature_msr(uint64_t msr_index)
+u64 kvm_get_feature_msr(u64 msr_index)
 {
 	struct {
 		struct kvm_msrs header;
@@ -962,7 +962,7 @@ uint64_t kvm_get_feature_msr(uint64_t msr_index)
 	return buffer.entry.data;
 }
 
-void __vm_xsave_require_permission(uint64_t xfeature, const char *name)
+void __vm_xsave_require_permission(u64 xfeature, const char *name)
 {
 	int kvm_fd;
 	u64 bitmask;
@@ -1063,7 +1063,7 @@ void vcpu_set_or_clear_cpuid_feature(struct kvm_vcpu *vcpu,
 	vcpu_set_cpuid(vcpu);
 }
 
-uint64_t vcpu_get_msr(struct kvm_vcpu *vcpu, uint64_t msr_index)
+u64 vcpu_get_msr(struct kvm_vcpu *vcpu, u64 msr_index)
 {
 	struct {
 		struct kvm_msrs header;
@@ -1078,7 +1078,7 @@ uint64_t vcpu_get_msr(struct kvm_vcpu *vcpu, uint64_t msr_index)
 	return buffer.entry.data;
 }
 
-int _vcpu_set_msr(struct kvm_vcpu *vcpu, uint64_t msr_index, uint64_t msr_value)
+int _vcpu_set_msr(struct kvm_vcpu *vcpu, u64 msr_index, u64 msr_value)
 {
 	struct {
 		struct kvm_msrs header;
@@ -1106,22 +1106,22 @@ void vcpu_args_set(struct kvm_vcpu *vcpu, unsigned int num, ...)
 	vcpu_regs_get(vcpu, &regs);
 
 	if (num >= 1)
-		regs.rdi = va_arg(ap, uint64_t);
+		regs.rdi = va_arg(ap, u64);
 
 	if (num >= 2)
-		regs.rsi = va_arg(ap, uint64_t);
+		regs.rsi = va_arg(ap, u64);
 
 	if (num >= 3)
-		regs.rdx = va_arg(ap, uint64_t);
+		regs.rdx = va_arg(ap, u64);
 
 	if (num >= 4)
-		regs.rcx = va_arg(ap, uint64_t);
+		regs.rcx = va_arg(ap, u64);
 
 	if (num >= 5)
-		regs.r8 = va_arg(ap, uint64_t);
+		regs.r8 = va_arg(ap, u64);
 
 	if (num >= 6)
-		regs.r9 = va_arg(ap, uint64_t);
+		regs.r9 = va_arg(ap, u64);
 
 	vcpu_regs_set(vcpu, &regs);
 	va_end(ap);
@@ -1344,7 +1344,7 @@ const struct kvm_cpuid_entry2 *get_cpuid_entry(const struct kvm_cpuid2 *cpuid,
 
 #define X86_HYPERCALL(inputs...)					\
 ({									\
-	uint64_t r;							\
+	u64 r;							\
 									\
 	asm volatile("test %[use_vmmcall], %[use_vmmcall]\n\t"		\
 		     "jnz 1f\n\t"					\
@@ -1359,18 +1359,17 @@ const struct kvm_cpuid_entry2 *get_cpuid_entry(const struct kvm_cpuid2 *cpuid,
 	r;								\
 })
 
-uint64_t kvm_hypercall(uint64_t nr, uint64_t a0, uint64_t a1, uint64_t a2,
-		       uint64_t a3)
+u64 kvm_hypercall(u64 nr, u64 a0, u64 a1, u64 a2, u64 a3)
 {
 	return X86_HYPERCALL("a"(nr), "b"(a0), "c"(a1), "d"(a2), "S"(a3));
 }
 
-uint64_t __xen_hypercall(uint64_t nr, uint64_t a0, void *a1)
+u64 __xen_hypercall(u64 nr, u64 a0, void *a1)
 {
 	return X86_HYPERCALL("a"(nr), "D"(a0), "S"(a1));
 }
 
-void xen_hypercall(uint64_t nr, uint64_t a0, void *a1)
+void xen_hypercall(u64 nr, u64 a0, void *a1)
 {
 	GUEST_ASSERT(!__xen_hypercall(nr, a0, a1));
 }
@@ -1453,8 +1452,7 @@ bool kvm_arch_has_default_irqchip(void)
 	return true;
 }
 
-void setup_smram(struct kvm_vm *vm, struct kvm_vcpu *vcpu,
-		 uint64_t smram_gpa,
+void setup_smram(struct kvm_vm *vm, struct kvm_vcpu *vcpu, u64 smram_gpa,
 		 const void *smi_handler, size_t handler_size)
 {
 	vm_userspace_mem_region_add(vm, VM_MEM_SRC_ANONYMOUS, smram_gpa,

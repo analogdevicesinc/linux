@@ -86,12 +86,12 @@ struct vm_data {
 	struct kvm_vcpu *vcpu;
 	pthread_t vcpu_thread;
 	uint32_t nslots;
-	uint64_t npages;
-	uint64_t pages_per_slot;
+	u64 npages;
+	u64 pages_per_slot;
 	void **hva_slots;
 	bool mmio_ok;
-	uint64_t mmio_gpa_min;
-	uint64_t mmio_gpa_max;
+	u64 mmio_gpa_min;
+	u64 mmio_gpa_max;
 };
 
 struct sync_area {
@@ -186,9 +186,9 @@ static void wait_for_vcpu(void)
 		    "sem_timedwait() failed: %d", errno);
 }
 
-static void *vm_gpa2hva(struct vm_data *data, uint64_t gpa, uint64_t *rempages)
+static void *vm_gpa2hva(struct vm_data *data, u64 gpa, u64 *rempages)
 {
-	uint64_t gpage, pgoffs;
+	u64 gpage, pgoffs;
 	uint32_t slot, slotoffs;
 	void *base;
 	uint32_t guest_page_size = data->vm->page_size;
@@ -200,11 +200,11 @@ static void *vm_gpa2hva(struct vm_data *data, uint64_t gpa, uint64_t *rempages)
 
 	gpage = gpa / guest_page_size;
 	pgoffs = gpa % guest_page_size;
-	slot = min(gpage / data->pages_per_slot, (uint64_t)data->nslots - 1);
+	slot = min(gpage / data->pages_per_slot, (u64)data->nslots - 1);
 	slotoffs = gpage - (slot * data->pages_per_slot);
 
 	if (rempages) {
-		uint64_t slotpages;
+		u64 slotpages;
 
 		if (slot == data->nslots - 1)
 			slotpages = data->npages - slot * data->pages_per_slot;
@@ -220,7 +220,7 @@ static void *vm_gpa2hva(struct vm_data *data, uint64_t gpa, uint64_t *rempages)
 	return (uint8_t *)base + slotoffs * guest_page_size + pgoffs;
 }
 
-static uint64_t vm_slot2gpa(struct vm_data *data, uint32_t slot)
+static u64 vm_slot2gpa(struct vm_data *data, uint32_t slot)
 {
 	uint32_t guest_page_size = data->vm->page_size;
 
@@ -244,7 +244,7 @@ static struct vm_data *alloc_vm(void)
 }
 
 static bool check_slot_pages(uint32_t host_page_size, uint32_t guest_page_size,
-			     uint64_t pages_per_slot, uint64_t rempages)
+			     u64 pages_per_slot, u64 rempages)
 {
 	if (!pages_per_slot)
 		return false;
@@ -259,11 +259,11 @@ static bool check_slot_pages(uint32_t host_page_size, uint32_t guest_page_size,
 }
 
 
-static uint64_t get_max_slots(struct vm_data *data, uint32_t host_page_size)
+static u64 get_max_slots(struct vm_data *data, uint32_t host_page_size)
 {
 	uint32_t guest_page_size = data->vm->page_size;
-	uint64_t mempages, pages_per_slot, rempages;
-	uint64_t slots;
+	u64 mempages, pages_per_slot, rempages;
+	u64 slots;
 
 	mempages = data->npages;
 	slots = data->nslots;
@@ -281,12 +281,12 @@ static uint64_t get_max_slots(struct vm_data *data, uint32_t host_page_size)
 	return 0;
 }
 
-static bool prepare_vm(struct vm_data *data, int nslots, uint64_t *maxslots,
-		       void *guest_code, uint64_t mem_size,
+static bool prepare_vm(struct vm_data *data, int nslots, u64 *maxslots,
+		       void *guest_code, u64 mem_size,
 		       struct timespec *slot_runtime)
 {
-	uint64_t mempages, rempages;
-	uint64_t guest_addr;
+	u64 mempages, rempages;
+	u64 guest_addr;
 	uint32_t slot, host_page_size, guest_page_size;
 	struct timespec tstart;
 	struct sync_area *sync;
@@ -317,7 +317,7 @@ static bool prepare_vm(struct vm_data *data, int nslots, uint64_t *maxslots,
 
 	clock_gettime(CLOCK_MONOTONIC, &tstart);
 	for (slot = 1, guest_addr = MEM_GPA; slot <= data->nslots; slot++) {
-		uint64_t npages;
+		u64 npages;
 
 		npages = data->pages_per_slot;
 		if (slot == data->nslots)
@@ -331,8 +331,8 @@ static bool prepare_vm(struct vm_data *data, int nslots, uint64_t *maxslots,
 	*slot_runtime = timespec_elapsed(tstart);
 
 	for (slot = 1, guest_addr = MEM_GPA; slot <= data->nslots; slot++) {
-		uint64_t npages;
-		uint64_t gpa;
+		u64 npages;
+		u64 gpa;
 
 		npages = data->pages_per_slot;
 		if (slot == data->nslots)
@@ -460,7 +460,7 @@ static void guest_code_test_memslot_move(void)
 
 		for (ptr = base; ptr < base + MEM_TEST_MOVE_SIZE;
 		     ptr += page_size)
-			*(uint64_t *)ptr = MEM_TEST_VAL_1;
+			*(u64 *)ptr = MEM_TEST_VAL_1;
 
 		/*
 		 * No host sync here since the MMIO exits are so expensive
@@ -489,7 +489,7 @@ static void guest_code_test_memslot_map(void)
 		for (ptr = MEM_TEST_GPA;
 		     ptr < MEM_TEST_GPA + MEM_TEST_MAP_SIZE / 2;
 		     ptr += page_size)
-			*(uint64_t *)ptr = MEM_TEST_VAL_1;
+			*(u64 *)ptr = MEM_TEST_VAL_1;
 
 		if (!guest_perform_sync())
 			break;
@@ -497,7 +497,7 @@ static void guest_code_test_memslot_map(void)
 		for (ptr = MEM_TEST_GPA + MEM_TEST_MAP_SIZE / 2;
 		     ptr < MEM_TEST_GPA + MEM_TEST_MAP_SIZE;
 		     ptr += page_size)
-			*(uint64_t *)ptr = MEM_TEST_VAL_2;
+			*(u64 *)ptr = MEM_TEST_VAL_2;
 
 		if (!guest_perform_sync())
 			break;
@@ -526,13 +526,13 @@ static void guest_code_test_memslot_unmap(void)
 		 *
 		 * Just access a single page to be on the safe side.
 		 */
-		*(uint64_t *)ptr = MEM_TEST_VAL_1;
+		*(u64 *)ptr = MEM_TEST_VAL_1;
 
 		if (!guest_perform_sync())
 			break;
 
 		ptr += MEM_TEST_UNMAP_SIZE / 2;
-		*(uint64_t *)ptr = MEM_TEST_VAL_2;
+		*(u64 *)ptr = MEM_TEST_VAL_2;
 
 		if (!guest_perform_sync())
 			break;
@@ -555,17 +555,17 @@ static void guest_code_test_memslot_rw(void)
 
 		for (ptr = MEM_TEST_GPA;
 		     ptr < MEM_TEST_GPA + MEM_TEST_SIZE; ptr += page_size)
-			*(uint64_t *)ptr = MEM_TEST_VAL_1;
+			*(u64 *)ptr = MEM_TEST_VAL_1;
 
 		if (!guest_perform_sync())
 			break;
 
 		for (ptr = MEM_TEST_GPA + page_size / 2;
 		     ptr < MEM_TEST_GPA + MEM_TEST_SIZE; ptr += page_size) {
-			uint64_t val = *(uint64_t *)ptr;
+			u64 val = *(u64 *)ptr;
 
 			GUEST_ASSERT_EQ(val, MEM_TEST_VAL_2);
-			*(uint64_t *)ptr = 0;
+			*(u64 *)ptr = 0;
 		}
 
 		if (!guest_perform_sync())
@@ -577,10 +577,10 @@ static void guest_code_test_memslot_rw(void)
 
 static bool test_memslot_move_prepare(struct vm_data *data,
 				      struct sync_area *sync,
-				      uint64_t *maxslots, bool isactive)
+				      u64 *maxslots, bool isactive)
 {
 	uint32_t guest_page_size = data->vm->page_size;
-	uint64_t movesrcgpa, movetestgpa;
+	u64 movesrcgpa, movetestgpa;
 
 #ifdef __x86_64__
 	if (disable_slot_zap_quirk)
@@ -590,7 +590,7 @@ static bool test_memslot_move_prepare(struct vm_data *data,
 	movesrcgpa = vm_slot2gpa(data, data->nslots - 1);
 
 	if (isactive) {
-		uint64_t lastpages;
+		u64 lastpages;
 
 		vm_gpa2hva(data, movesrcgpa, &lastpages);
 		if (lastpages * guest_page_size < MEM_TEST_MOVE_SIZE / 2) {
@@ -613,21 +613,21 @@ static bool test_memslot_move_prepare(struct vm_data *data,
 
 static bool test_memslot_move_prepare_active(struct vm_data *data,
 					     struct sync_area *sync,
-					     uint64_t *maxslots)
+					     u64 *maxslots)
 {
 	return test_memslot_move_prepare(data, sync, maxslots, true);
 }
 
 static bool test_memslot_move_prepare_inactive(struct vm_data *data,
 					       struct sync_area *sync,
-					       uint64_t *maxslots)
+					       u64 *maxslots)
 {
 	return test_memslot_move_prepare(data, sync, maxslots, false);
 }
 
 static void test_memslot_move_loop(struct vm_data *data, struct sync_area *sync)
 {
-	uint64_t movesrcgpa;
+	u64 movesrcgpa;
 
 	movesrcgpa = vm_slot2gpa(data, data->nslots - 1);
 	vm_mem_region_move(data->vm, data->nslots - 1 + 1,
@@ -636,13 +636,13 @@ static void test_memslot_move_loop(struct vm_data *data, struct sync_area *sync)
 }
 
 static void test_memslot_do_unmap(struct vm_data *data,
-				  uint64_t offsp, uint64_t count)
+				  u64 offsp, u64 count)
 {
-	uint64_t gpa, ctr;
+	u64 gpa, ctr;
 	uint32_t guest_page_size = data->vm->page_size;
 
 	for (gpa = MEM_TEST_GPA + offsp * guest_page_size, ctr = 0; ctr < count; ) {
-		uint64_t npages;
+		u64 npages;
 		void *hva;
 		int ret;
 
@@ -661,10 +661,10 @@ static void test_memslot_do_unmap(struct vm_data *data,
 }
 
 static void test_memslot_map_unmap_check(struct vm_data *data,
-					 uint64_t offsp, uint64_t valexp)
+					 u64 offsp, u64 valexp)
 {
-	uint64_t gpa;
-	uint64_t *val;
+	u64 gpa;
+	u64 *val;
 	uint32_t guest_page_size = data->vm->page_size;
 
 	if (!map_unmap_verify)
@@ -681,7 +681,7 @@ static void test_memslot_map_unmap_check(struct vm_data *data,
 static void test_memslot_map_loop(struct vm_data *data, struct sync_area *sync)
 {
 	uint32_t guest_page_size = data->vm->page_size;
-	uint64_t guest_pages = MEM_TEST_MAP_SIZE / guest_page_size;
+	u64 guest_pages = MEM_TEST_MAP_SIZE / guest_page_size;
 
 	/*
 	 * Unmap the second half of the test area while guest writes to (maps)
@@ -718,11 +718,11 @@ static void test_memslot_map_loop(struct vm_data *data, struct sync_area *sync)
 
 static void test_memslot_unmap_loop_common(struct vm_data *data,
 					   struct sync_area *sync,
-					   uint64_t chunk)
+					   u64 chunk)
 {
 	uint32_t guest_page_size = data->vm->page_size;
-	uint64_t guest_pages = MEM_TEST_UNMAP_SIZE / guest_page_size;
-	uint64_t ctr;
+	u64 guest_pages = MEM_TEST_UNMAP_SIZE / guest_page_size;
+	u64 ctr;
 
 	/*
 	 * Wait for the guest to finish mapping page(s) in the first half
@@ -748,7 +748,7 @@ static void test_memslot_unmap_loop(struct vm_data *data,
 {
 	uint32_t host_page_size = getpagesize();
 	uint32_t guest_page_size = data->vm->page_size;
-	uint64_t guest_chunk_pages = guest_page_size >= host_page_size ?
+	u64 guest_chunk_pages = guest_page_size >= host_page_size ?
 					1 : host_page_size / guest_page_size;
 
 	test_memslot_unmap_loop_common(data, sync, guest_chunk_pages);
@@ -758,26 +758,26 @@ static void test_memslot_unmap_loop_chunked(struct vm_data *data,
 					    struct sync_area *sync)
 {
 	uint32_t guest_page_size = data->vm->page_size;
-	uint64_t guest_chunk_pages = MEM_TEST_UNMAP_CHUNK_SIZE / guest_page_size;
+	u64 guest_chunk_pages = MEM_TEST_UNMAP_CHUNK_SIZE / guest_page_size;
 
 	test_memslot_unmap_loop_common(data, sync, guest_chunk_pages);
 }
 
 static void test_memslot_rw_loop(struct vm_data *data, struct sync_area *sync)
 {
-	uint64_t gptr;
+	u64 gptr;
 	uint32_t guest_page_size = data->vm->page_size;
 
 	for (gptr = MEM_TEST_GPA + guest_page_size / 2;
 	     gptr < MEM_TEST_GPA + MEM_TEST_SIZE; gptr += guest_page_size)
-		*(uint64_t *)vm_gpa2hva(data, gptr, NULL) = MEM_TEST_VAL_2;
+		*(u64 *)vm_gpa2hva(data, gptr, NULL) = MEM_TEST_VAL_2;
 
 	host_perform_sync(sync);
 
 	for (gptr = MEM_TEST_GPA;
 	     gptr < MEM_TEST_GPA + MEM_TEST_SIZE; gptr += guest_page_size) {
-		uint64_t *vptr = (typeof(vptr))vm_gpa2hva(data, gptr, NULL);
-		uint64_t val = *vptr;
+		u64 *vptr = (typeof(vptr))vm_gpa2hva(data, gptr, NULL);
+		u64 val = *vptr;
 
 		TEST_ASSERT(val == MEM_TEST_VAL_1,
 			    "Guest written values should read back correctly (is %"PRIu64" @ %"PRIx64")",
@@ -790,21 +790,21 @@ static void test_memslot_rw_loop(struct vm_data *data, struct sync_area *sync)
 
 struct test_data {
 	const char *name;
-	uint64_t mem_size;
+	u64 mem_size;
 	void (*guest_code)(void);
 	bool (*prepare)(struct vm_data *data, struct sync_area *sync,
-			uint64_t *maxslots);
+			u64 *maxslots);
 	void (*loop)(struct vm_data *data, struct sync_area *sync);
 };
 
-static bool test_execute(int nslots, uint64_t *maxslots,
+static bool test_execute(int nslots, u64 *maxslots,
 			 unsigned int maxtime,
 			 const struct test_data *tdata,
-			 uint64_t *nloops,
+			 u64 *nloops,
 			 struct timespec *slot_runtime,
 			 struct timespec *guest_runtime)
 {
-	uint64_t mem_size = tdata->mem_size ? : MEM_SIZE;
+	u64 mem_size = tdata->mem_size ? : MEM_SIZE;
 	struct vm_data *data;
 	struct sync_area *sync;
 	struct timespec tstart;
@@ -1041,7 +1041,7 @@ static bool parse_args(int argc, char *argv[],
 struct test_result {
 	struct timespec slot_runtime, guest_runtime, iter_runtime;
 	int64_t slottimens, runtimens;
-	uint64_t nloops;
+	u64 nloops;
 };
 
 static bool test_loop(const struct test_data *data,
@@ -1049,7 +1049,7 @@ static bool test_loop(const struct test_data *data,
 		      struct test_result *rbestslottime,
 		      struct test_result *rbestruntime)
 {
-	uint64_t maxslots;
+	u64 maxslots;
 	struct test_result result = {};
 
 	if (!test_execute(targs->nslots, &maxslots, targs->seconds, data,

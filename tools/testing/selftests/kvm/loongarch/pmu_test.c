@@ -52,7 +52,7 @@ static void guest_pmu_base_test(void)
 {
 	int i;
 	uint32_t cfg6, pmnum;
-	uint64_t cnt[4];
+	u64 cnt[4];
 
 	cfg6 = read_cpucfg(LOONGARCH_CPUCFG6);
 	pmnum = (cfg6 >> 4) & 0xf;
@@ -114,7 +114,7 @@ static void guest_irq_handler(struct ex_regs *regs)
 
 static void guest_pmu_interrupt_test(void)
 {
-	uint64_t cnt;
+	u64 cnt;
 
 	csr_write(PMU_OVERFLOW - 1, LOONGARCH_CSR_PERFCNTR0);
 	csr_write(PMU_ENVENT_ENABLED | CSR_PERFCTRL_PMIE | LOONGARCH_PMU_EVENT_CYCLES, LOONGARCH_CSR_PERFCTRL0);

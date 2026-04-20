@@ -18,16 +18,16 @@
 static void guest_code(gpa_t in_pg_gpa, gpa_t out_pg_gpa,
 		       gva_t out_pg_gva)
 {
-	uint64_t *output_gva;
+	u64 *output_gva;
 
 	wrmsr(HV_X64_MSR_GUEST_OS_ID, HYPERV_LINUX_OS_ID);
 	wrmsr(HV_X64_MSR_HYPERCALL, in_pg_gpa);
 
-	output_gva = (uint64_t *)out_pg_gva;
+	output_gva = (u64 *)out_pg_gva;
 
 	hyperv_hypercall(HV_EXT_CALL_QUERY_CAPABILITIES, in_pg_gpa, out_pg_gpa);
 
-	/* TLFS states output will be a uint64_t value */
+	/* TLFS states output will be a u64 value */
 	GUEST_ASSERT_EQ(*output_gva, EXT_CAPABILITIES);
 
 	GUEST_DONE();
@@ -40,7 +40,7 @@ int main(void)
 	struct kvm_vcpu *vcpu;
 	struct kvm_run *run;
 	struct kvm_vm *vm;
-	uint64_t *outval;
+	u64 *outval;
 	struct ucall uc;
 
 	TEST_REQUIRE(kvm_has_cap(KVM_CAP_HYPERV_CPUID));

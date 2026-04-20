@@ -31,14 +31,14 @@
 
 extern unsigned char sw_bp, sw_bp2, hw_bp, hw_bp2, bp_svc, bp_brk, hw_wp, ss_start, hw_bp_ctx;
 extern unsigned char iter_ss_begin, iter_ss_end;
-static volatile uint64_t sw_bp_addr, hw_bp_addr;
-static volatile uint64_t wp_addr, wp_data_addr;
-static volatile uint64_t svc_addr;
-static volatile uint64_t ss_addr[4], ss_idx;
-#define  PC(v)  ((uint64_t)&(v))
+static volatile u64 sw_bp_addr, hw_bp_addr;
+static volatile u64 wp_addr, wp_data_addr;
+static volatile u64 svc_addr;
+static volatile u64 ss_addr[4], ss_idx;
+#define  PC(v)  ((u64)&(v))
 
 #define GEN_DEBUG_WRITE_REG(reg_name)			\
-static void write_##reg_name(int num, uint64_t val)	\
+static void write_##reg_name(int num, u64 val)	\
 {							\
 	switch (num) {					\
 	case 0:						\
@@ -103,7 +103,7 @@ GEN_DEBUG_WRITE_REG(dbgwvr)
 static void reset_debug_state(void)
 {
 	uint8_t brps, wrps, i;
-	uint64_t dfr0;
+	u64 dfr0;
 
 	asm volatile("msr daifset, #8");
 
@@ -140,7 +140,7 @@ static void enable_os_lock(void)
 
 static void enable_monitor_debug_exceptions(void)
 {
-	uint64_t mdscr;
+	u64 mdscr;
 
 	asm volatile("msr daifclr, #8");
 
@@ -149,7 +149,7 @@ static void enable_monitor_debug_exceptions(void)
 	isb();
 }
 
-static void install_wp(uint8_t wpn, uint64_t addr)
+static void install_wp(uint8_t wpn, u64 addr)
 {
 	uint32_t wcr;
 
@@ -162,7 +162,7 @@ static void install_wp(uint8_t wpn, uint64_t addr)
 	enable_monitor_debug_exceptions();
 }
 
-static void install_hw_bp(uint8_t bpn, uint64_t addr)
+static void install_hw_bp(uint8_t bpn, u64 addr)
 {
 	uint32_t bcr;
 
@@ -174,11 +174,11 @@ static void install_hw_bp(uint8_t bpn, uint64_t addr)
 	enable_monitor_debug_exceptions();
 }
 
-static void install_wp_ctx(uint8_t addr_wp, uint8_t ctx_bp, uint64_t addr,
-			   uint64_t ctx)
+static void install_wp_ctx(uint8_t addr_wp, uint8_t ctx_bp, u64 addr,
+			   u64 ctx)
 {
 	uint32_t wcr;
-	uint64_t ctx_bcr;
+	u64 ctx_bcr;
 
 	/* Setup a context-aware breakpoint for Linked Context ID Match */
 	ctx_bcr = DBGBCR_LEN8 | DBGBCR_EXEC | DBGBCR_EL1 | DBGBCR_E |
@@ -196,8 +196,8 @@ static void install_wp_ctx(uint8_t addr_wp, uint8_t ctx_bp, uint64_t addr,
 	enable_monitor_debug_exceptions();
 }
 
-void install_hw_bp_ctx(uint8_t addr_bp, uint8_t ctx_bp, uint64_t addr,
-		       uint64_t ctx)
+void install_hw_bp_ctx(uint8_t addr_bp, uint8_t ctx_bp, u64 addr,
+		       u64 ctx)
 {
 	uint32_t addr_bcr, ctx_bcr;
 
@@ -223,7 +223,7 @@ void install_hw_bp_ctx(uint8_t addr_bp, uint8_t ctx_bp, uint64_t addr,
 
 static void install_ss(void)
 {
-	uint64_t mdscr;
+	u64 mdscr;
 
 	asm volatile("msr daifclr, #8");
 
@@ -236,7 +236,7 @@ static volatile char write_data;
 
 static void guest_code(uint8_t bpn, uint8_t wpn, uint8_t ctx_bpn)
 {
-	uint64_t ctx = 0xabcdef;	/* a random context number */
+	u64 ctx = 0xabcdef;	/* a random context number */
 
 	/* Software-breakpoint */
 	reset_debug_state();
@@ -377,8 +377,8 @@ static void guest_svc_handler(struct ex_regs *regs)
 
 static void guest_code_ss(int test_cnt)
 {
-	uint64_t i;
-	uint64_t bvr, wvr, w_bvr, w_wvr;
+	u64 i;
+	u64 bvr, wvr, w_bvr, w_wvr;
 
 	for (i = 0; i < test_cnt; i++) {
 		/* Bits [1:0] of dbg{b,w}vr are RES0 */
@@ -416,7 +416,7 @@ static void guest_code_ss(int test_cnt)
 	GUEST_DONE();
 }
 
-static int debug_version(uint64_t id_aa64dfr0)
+static int debug_version(u64 id_aa64dfr0)
 {
 	return FIELD_GET(ID_AA64DFR0_EL1_DebugVer, id_aa64dfr0);
 }
@@ -468,8 +468,8 @@ void test_single_step_from_userspace(int test_cnt)
 	struct kvm_vm *vm;
 	struct ucall uc;
 	struct kvm_run *run;
-	uint64_t pc, cmd;
-	uint64_t test_pc = 0;
+	u64 pc, cmd;
+	u64 test_pc = 0;
 	bool ss_enable = false;
 	struct kvm_guest_debug debug = {};
 
@@ -506,7 +506,7 @@ void test_single_step_from_userspace(int test_cnt)
 			    "Unexpected pc 0x%lx (expected 0x%lx)",
 			    pc, test_pc);
 
-		if ((pc + 4) == (uint64_t)&iter_ss_end) {
+		if ((pc + 4) == (u64)&iter_ss_end) {
 			test_pc = 0;
 			debug.control = KVM_GUESTDBG_ENABLE;
 			ss_enable = false;
@@ -519,8 +519,8 @@ void test_single_step_from_userspace(int test_cnt)
 		 * iter_ss_end, the pc for the next KVM_EXIT_DEBUG should
 		 * be the current pc + 4.
 		 */
-		if ((pc >= (uint64_t)&iter_ss_begin) &&
-		    (pc < (uint64_t)&iter_ss_end))
+		if ((pc >= (u64)&iter_ss_begin) &&
+		    (pc < (u64)&iter_ss_end))
 			test_pc = pc + 4;
 		else
 			test_pc = 0;
@@ -533,7 +533,7 @@ void test_single_step_from_userspace(int test_cnt)
  * Run debug testing using the various breakpoint#, watchpoint# and
  * context-aware breakpoint# with the given ID_AA64DFR0_EL1 configuration.
  */
-void test_guest_debug_exceptions_all(uint64_t aa64dfr0)
+void test_guest_debug_exceptions_all(u64 aa64dfr0)
 {
 	uint8_t brp_num, wrp_num, ctx_brp_num, normal_brp_num, ctx_brp_base;
 	int b, w, c;
@@ -580,7 +580,7 @@ int main(int argc, char *argv[])
 	struct kvm_vm *vm;
 	int opt;
 	int ss_iteration = 10000;
-	uint64_t aa64dfr0;
+	u64 aa64dfr0;
 
 	vm = vm_create_with_one_vcpu(&vcpu, guest_code);
 	aa64dfr0 = vcpu_get_reg(vcpu, KVM_ARM64_SYS_REG(SYS_ID_AA64DFR0_EL1));

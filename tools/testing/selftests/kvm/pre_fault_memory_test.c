@@ -17,13 +17,13 @@
 #define TEST_NPAGES		(TEST_SIZE / PAGE_SIZE)
 #define TEST_SLOT		10
 
-static void guest_code(uint64_t base_gva)
+static void guest_code(u64 base_gva)
 {
-	volatile uint64_t val __used;
+	volatile u64 val __used;
 	int i;
 
 	for (i = 0; i < TEST_NPAGES; i++) {
-		uint64_t *src = (uint64_t *)(base_gva + i * PAGE_SIZE);
+		u64 *src = (u64 *)(base_gva + i * PAGE_SIZE);
 
 		val = *src;
 	}
@@ -161,7 +161,7 @@ static void pre_fault_memory(struct kvm_vcpu *vcpu, u64 base_gpa, u64 offset,
 
 static void __test_pre_fault_memory(unsigned long vm_type, bool private)
 {
-	uint64_t gpa, gva, alignment, guest_page_size;
+	u64 gpa, gva, alignment, guest_page_size;
 	const struct vm_shape shape = {
 		.mode = VM_MODE_DEFAULT,
 		.type = vm_type,

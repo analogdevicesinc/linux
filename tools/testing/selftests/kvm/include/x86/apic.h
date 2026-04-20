@@ -94,17 +94,17 @@ static inline void xapic_write_reg(unsigned int reg, uint32_t val)
 	((volatile uint32_t *)APIC_DEFAULT_GPA)[reg >> 2] = val;
 }
 
-static inline uint64_t x2apic_read_reg(unsigned int reg)
+static inline u64 x2apic_read_reg(unsigned int reg)
 {
 	return rdmsr(APIC_BASE_MSR + (reg >> 4));
 }
 
-static inline uint8_t x2apic_write_reg_safe(unsigned int reg, uint64_t value)
+static inline uint8_t x2apic_write_reg_safe(unsigned int reg, u64 value)
 {
 	return wrmsr_safe(APIC_BASE_MSR + (reg >> 4), value);
 }
 
-static inline void x2apic_write_reg(unsigned int reg, uint64_t value)
+static inline void x2apic_write_reg(unsigned int reg, u64 value)
 {
 	uint8_t fault = x2apic_write_reg_safe(reg, value);
 
@@ -112,7 +112,7 @@ static inline void x2apic_write_reg(unsigned int reg, uint64_t value)
 		       fault, APIC_BASE_MSR + (reg >> 4), value);
 }
 
-static inline void x2apic_write_reg_fault(unsigned int reg, uint64_t value)
+static inline void x2apic_write_reg_fault(unsigned int reg, u64 value)
 {
 	uint8_t fault = x2apic_write_reg_safe(reg, value);
 

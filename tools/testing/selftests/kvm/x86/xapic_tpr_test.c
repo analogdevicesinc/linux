@@ -95,7 +95,7 @@ static uint8_t tpr_guest_ppr_get(void)
 
 static uint8_t tpr_guest_cr8_get(void)
 {
-	uint64_t cr8;
+	u64 cr8;
 
 	asm volatile ("mov %%cr8, %[cr8]\n\t" : [cr8] "=r"(cr8));
 

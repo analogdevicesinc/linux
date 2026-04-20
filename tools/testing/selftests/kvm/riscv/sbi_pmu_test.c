@@ -86,7 +86,7 @@ unsigned long pmu_csr_read_num(int csr_num)
 #undef switchcase_csr_read
 }
 
-static inline void dummy_func_loop(uint64_t iter)
+static inline void dummy_func_loop(u64 iter)
 {
 	int i = 0;
 

@@ -49,13 +49,13 @@ static inline bool is_sev_vm(struct kvm_vm *vm)
 void sev_vm_launch(struct kvm_vm *vm, uint32_t policy);
 void sev_vm_launch_measure(struct kvm_vm *vm, uint8_t *measurement);
 void sev_vm_launch_finish(struct kvm_vm *vm);
-void snp_vm_launch_start(struct kvm_vm *vm, uint64_t policy);
+void snp_vm_launch_start(struct kvm_vm *vm, u64 policy);
 void snp_vm_launch_update(struct kvm_vm *vm);
 void snp_vm_launch_finish(struct kvm_vm *vm);
 
 struct kvm_vm *vm_sev_create_with_one_vcpu(uint32_t type, void *guest_code,
 					   struct kvm_vcpu **cpu);
-void vm_sev_launch(struct kvm_vm *vm, uint64_t policy, uint8_t *measurement);
+void vm_sev_launch(struct kvm_vm *vm, u64 policy, uint8_t *measurement);
 
 kvm_static_assert(SEV_RET_SUCCESS == 0);
 
@@ -85,7 +85,7 @@ static inline u64 snp_default_policy(void)
 		unsigned long raw;					\
 	} sev_cmd = { .c = {						\
 		.id = (cmd),						\
-		.data = (uint64_t)(arg),				\
+		.data = (u64)(arg),				\
 		.sev_fd = (vm)->arch.sev_fd,				\
 	} };								\
 									\
@@ -121,7 +121,7 @@ static inline void sev_register_encrypted_memory(struct kvm_vm *vm,
 }
 
 static inline void sev_launch_update_data(struct kvm_vm *vm, gpa_t gpa,
-					  uint64_t size)
+					  u64 size)
 {
 	struct kvm_sev_launch_update_data update_data = {
 		.uaddr = (unsigned long)addr_gpa2hva(vm, gpa),
@@ -132,7 +132,7 @@ static inline void sev_launch_update_data(struct kvm_vm *vm, gpa_t gpa,
 }
 
 static inline void snp_launch_update_data(struct kvm_vm *vm, gpa_t gpa,
-					  uint64_t hva, uint64_t size, uint8_t type)
+					  u64 hva, u64 size, uint8_t type)
 {
 	struct kvm_sev_snp_launch_update update_data = {
 		.uaddr = hva,

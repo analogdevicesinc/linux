@@ -22,6 +22,8 @@
 #include <sys/mman.h>
 #include "kselftest.h"
 
+#include <linux/types.h>
+
 #define msecs_to_usecs(msec)    ((msec) * 1000ULL)
 
 static inline __printf(1, 2) int _no_printf(const char *format, ...) { return 0; }
@@ -127,9 +129,9 @@ static inline bool guest_random_bool(struct guest_random_state *state)
 	return __guest_random_bool(state, 50);
 }
 
-static inline uint64_t guest_random_u64(struct guest_random_state *state)
+static inline u64 guest_random_u64(struct guest_random_state *state)
 {
-	return ((uint64_t)guest_random_u32(state) << 32) | guest_random_u32(state);
+	return ((u64)guest_random_u32(state) << 32) | guest_random_u32(state);
 }
 
 enum vm_mem_backing_src_type {
@@ -189,18 +191,18 @@ static inline bool backing_src_can_be_huge(enum vm_mem_backing_src_type t)
 }
 
 /* Aligns x up to the next multiple of size. Size must be a power of 2. */
-static inline uint64_t align_up(uint64_t x, uint64_t size)
+static inline u64 align_up(u64 x, u64 size)
 {
-	uint64_t mask = size - 1;
+	u64 mask = size - 1;
 
 	TEST_ASSERT(size != 0 && !(size & (size - 1)),
 		    "size not a power of 2: %lu", size);
 	return ((x + mask) & ~mask);
 }
 
-static inline uint64_t align_down(uint64_t x, uint64_t size)
+static inline u64 align_down(u64 x, u64 size)
 {
-	uint64_t x_aligned_up = align_up(x, size);
+	u64 x_aligned_up = align_up(x, size);
 
 	if (x == x_aligned_up)
 		return x;

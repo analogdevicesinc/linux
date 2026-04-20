@@ -55,11 +55,11 @@ static void apic_write_reg(unsigned int reg, uint32_t val)
 		xapic_write_reg(reg, val);
 }
 
-static void apic_guest_code(uint64_t apic_hz, uint64_t delay_ms)
+static void apic_guest_code(u64 apic_hz, u64 delay_ms)
 {
-	uint64_t tsc_hz = guest_tsc_khz * 1000;
+	u64 tsc_hz = guest_tsc_khz * 1000;
 	const uint32_t tmict = ~0u;
-	uint64_t tsc0, tsc1, freq;
+	u64 tsc0, tsc1, freq;
 	uint32_t tmcct;
 	int i;
 
@@ -121,7 +121,7 @@ static void test_apic_bus_clock(struct kvm_vcpu *vcpu)
 	}
 }
 
-static void run_apic_bus_clock_test(uint64_t apic_hz, uint64_t delay_ms,
+static void run_apic_bus_clock_test(u64 apic_hz, u64 delay_ms,
 				    bool x2apic)
 {
 	struct kvm_vcpu *vcpu;
@@ -168,8 +168,8 @@ int main(int argc, char *argv[])
 	 * Arbitrarilty default to 25MHz for the APIC bus frequency, which is
 	 * different enough from the default 1GHz to be interesting.
 	 */
-	uint64_t apic_hz = 25 * 1000 * 1000;
-	uint64_t delay_ms = 100;
+	u64 apic_hz = 25 * 1000 * 1000;
+	u64 delay_ms = 100;
 	int opt;
 
 	TEST_REQUIRE(kvm_has_cap(KVM_CAP_X86_APIC_BUS_CYCLES_NS));

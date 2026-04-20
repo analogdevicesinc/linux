@@ -74,11 +74,11 @@
  * the host. READ/WRITE_ONCE() should also be used with anything
  * that may change.
  */
-static uint64_t host_page_size;
-static uint64_t guest_page_size;
-static uint64_t guest_num_pages;
-static uint64_t iteration;
-static uint64_t nr_writes;
+static u64 host_page_size;
+static u64 guest_page_size;
+static u64 guest_num_pages;
+static u64 iteration;
+static u64 nr_writes;
 static bool vcpu_stop;
 
 /*
@@ -86,13 +86,13 @@ static bool vcpu_stop;
  * This will be set to the topmost valid physical address minus
  * the test memory size.
  */
-static uint64_t guest_test_phys_mem;
+static u64 guest_test_phys_mem;
 
 /*
  * Guest virtual memory offset of the testing memory slot.
  * Must not conflict with identity mapped test code.
  */
-static uint64_t guest_test_virt_mem = DEFAULT_GUEST_TEST_MEM;
+static u64 guest_test_virt_mem = DEFAULT_GUEST_TEST_MEM;
 
 /*
  * Continuously write to the first 8 bytes of a random pages within
@@ -100,10 +100,10 @@ static uint64_t guest_test_virt_mem = DEFAULT_GUEST_TEST_MEM;
  */
 static void guest_code(void)
 {
-	uint64_t addr;
+	u64 addr;
 
 #ifdef __s390x__
-	uint64_t i;
+	u64 i;
 
 	/*
 	 * On s390x, all pages of a 1M segment are initially marked as dirty
@@ -113,7 +113,7 @@ static void guest_code(void)
 	 */
 	for (i = 0; i < guest_num_pages; i++) {
 		addr = guest_test_virt_mem + i * guest_page_size;
-		vcpu_arch_put_guest(*(uint64_t *)addr, READ_ONCE(iteration));
+		vcpu_arch_put_guest(*(u64 *)addr, READ_ONCE(iteration));
 		nr_writes++;
 	}
 #endif
@@ -125,7 +125,7 @@ static void guest_code(void)
 				* guest_page_size;
 			addr = align_down(addr, host_page_size);
 
-			vcpu_arch_put_guest(*(uint64_t *)addr, READ_ONCE(iteration));
+			vcpu_arch_put_guest(*(u64 *)addr, READ_ONCE(iteration));
 			nr_writes++;
 		}
 
@@ -138,11 +138,11 @@ static bool host_quit;
 
 /* Points to the test VM memory region on which we track dirty logs */
 static void *host_test_mem;
-static uint64_t host_num_pages;
+static u64 host_num_pages;
 
 /* For statistics only */
-static uint64_t host_dirty_count;
-static uint64_t host_clear_count;
+static u64 host_dirty_count;
+static u64 host_clear_count;
 
 /* Whether dirty ring reset is requested, or finished */
 static sem_t sem_vcpu_stop;
@@ -169,7 +169,7 @@ static bool dirty_ring_vcpu_ring_full;
  * dirty gfn we've collected, so that if a mismatch of data found later in the
  * verifying process, we let it pass.
  */
-static uint64_t dirty_ring_last_page = -1ULL;
+static u64 dirty_ring_last_page = -1ULL;
 
 /*
  * In addition to the above, it is possible (especially if this
@@ -213,7 +213,7 @@ static uint64_t dirty_ring_last_page = -1ULL;
  * and also don't fail when it is reported in the next iteration, together with
  * an outdated iteration count.
  */
-static uint64_t dirty_ring_prev_iteration_last_page;
+static u64 dirty_ring_prev_iteration_last_page;
 
 enum log_mode_t {
 	/* Only use KVM_GET_DIRTY_LOG for logging */
@@ -297,7 +297,7 @@ static bool dirty_ring_supported(void)
 
 static void dirty_ring_create_vm_done(struct kvm_vm *vm)
 {
-	uint64_t pages;
+	u64 pages;
 	uint32_t limit;
 
 	/*
@@ -494,11 +494,11 @@ static void *vcpu_worker(void *data)
 
 static void vm_dirty_log_verify(enum vm_guest_mode mode, unsigned long **bmap)
 {
-	uint64_t page, nr_dirty_pages = 0, nr_clean_pages = 0;
-	uint64_t step = vm_num_host_pages(mode, 1);
+	u64 page, nr_dirty_pages = 0, nr_clean_pages = 0;
+	u64 step = vm_num_host_pages(mode, 1);
 
 	for (page = 0; page < host_num_pages; page += step) {
-		uint64_t val = *(uint64_t *)(host_test_mem + page * host_page_size);
+		u64 val = *(u64 *)(host_test_mem + page * host_page_size);
 		bool bmap0_dirty = __test_and_clear_bit_le(page, bmap[0]);
 
 		/*
@@ -575,7 +575,7 @@ static void vm_dirty_log_verify(enum vm_guest_mode mode, unsigned long **bmap)
 }
 
 static struct kvm_vm *create_vm(enum vm_guest_mode mode, struct kvm_vcpu **vcpu,
-				uint64_t extra_mem_pages, void *guest_code)
+				u64 extra_mem_pages, void *guest_code)
 {
 	struct kvm_vm *vm;
 
@@ -592,7 +592,7 @@ static struct kvm_vm *create_vm(enum vm_guest_mode mode, struct kvm_vcpu **vcpu,
 struct test_params {
 	unsigned long iterations;
 	unsigned long interval;
-	uint64_t phys_offset;
+	u64 phys_offset;
 };
 
 static void run_test(enum vm_guest_mode mode, void *arg)

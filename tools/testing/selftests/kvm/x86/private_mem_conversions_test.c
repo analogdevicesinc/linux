@@ -23,8 +23,8 @@
 #include <processor.h>
 
 #define BASE_DATA_SLOT		10
-#define BASE_DATA_GPA		((uint64_t)(1ull << 32))
-#define PER_CPU_DATA_SIZE	((uint64_t)(SZ_2M + PAGE_SIZE))
+#define BASE_DATA_GPA		((u64)(1ull << 32))
+#define PER_CPU_DATA_SIZE	((u64)(SZ_2M + PAGE_SIZE))
 
 /* Horrific macro so that the line info is captured accurately :-( */
 #define memcmp_g(gpa, pattern,  size)								\
@@ -38,7 +38,7 @@ do {												\
 			       pattern, i, gpa + i, mem[i]);					\
 } while (0)
 
-static void memcmp_h(uint8_t *mem, uint64_t gpa, uint8_t pattern, size_t size)
+static void memcmp_h(uint8_t *mem, u64 gpa, uint8_t pattern, size_t size)
 {
 	size_t i;
 
@@ -70,13 +70,13 @@ enum ucall_syncs {
 	SYNC_PRIVATE,
 };
 
-static void guest_sync_shared(uint64_t gpa, uint64_t size,
+static void guest_sync_shared(u64 gpa, u64 size,
 			      uint8_t current_pattern, uint8_t new_pattern)
 {
 	GUEST_SYNC5(SYNC_SHARED, gpa, size, current_pattern, new_pattern);
 }
 
-static void guest_sync_private(uint64_t gpa, uint64_t size, uint8_t pattern)
+static void guest_sync_private(u64 gpa, u64 size, uint8_t pattern)
 {
 	GUEST_SYNC4(SYNC_PRIVATE, gpa, size, pattern);
 }
@@ -86,10 +86,10 @@ static void guest_sync_private(uint64_t gpa, uint64_t size, uint8_t pattern)
 #define MAP_GPA_SHARED		BIT(1)
 #define MAP_GPA_DO_FALLOCATE	BIT(2)
 
-static void guest_map_mem(uint64_t gpa, uint64_t size, bool map_shared,
+static void guest_map_mem(u64 gpa, u64 size, bool map_shared,
 			  bool do_fallocate)
 {
-	uint64_t flags = MAP_GPA_SET_ATTRIBUTES;
+	u64 flags = MAP_GPA_SET_ATTRIBUTES;
 
 	if (map_shared)
 		flags |= MAP_GPA_SHARED;
@@ -98,19 +98,19 @@ static void guest_map_mem(uint64_t gpa, uint64_t size, bool map_shared,
 	kvm_hypercall_map_gpa_range(gpa, size, flags);
 }
 
-static void guest_map_shared(uint64_t gpa, uint64_t size, bool do_fallocate)
+static void guest_map_shared(u64 gpa, u64 size, bool do_fallocate)
 {
 	guest_map_mem(gpa, size, true, do_fallocate);
 }
 
-static void guest_map_private(uint64_t gpa, uint64_t size, bool do_fallocate)
+static void guest_map_private(u64 gpa, u64 size, bool do_fallocate)
 {
 	guest_map_mem(gpa, size, false, do_fallocate);
 }
 
 struct {
-	uint64_t offset;
-	uint64_t size;
+	u64 offset;
+	u64 size;
 } static const test_ranges[] = {
 	GUEST_STAGE(0, PAGE_SIZE),
 	GUEST_STAGE(0, SZ_2M),
@@ -119,11 +119,11 @@ struct {
 	GUEST_STAGE(SZ_2M, PAGE_SIZE),
 };
 
-static void guest_test_explicit_conversion(uint64_t base_gpa, bool do_fallocate)
+static void guest_test_explicit_conversion(u64 base_gpa, bool do_fallocate)
 {
 	const uint8_t def_p = 0xaa;
 	const uint8_t init_p = 0xcc;
-	uint64_t j;
+	u64 j;
 	int i;
 
 	/* Memory should be shared by default. */
@@ -134,8 +134,8 @@ static void guest_test_explicit_conversion(uint64_t base_gpa, bool do_fallocate)
 	memcmp_g(base_gpa, init_p, PER_CPU_DATA_SIZE);
 
 	for (i = 0; i < ARRAY_SIZE(test_ranges); i++) {
-		uint64_t gpa = base_gpa + test_ranges[i].offset;
-		uint64_t size = test_ranges[i].size;
+		u64 gpa = base_gpa + test_ranges[i].offset;
+		u64 size = test_ranges[i].size;
 		uint8_t p1 = 0x11;
 		uint8_t p2 = 0x22;
 		uint8_t p3 = 0x33;
@@ -214,10 +214,10 @@ skip:
 	}
 }
 
-static void guest_punch_hole(uint64_t gpa, uint64_t size)
+static void guest_punch_hole(u64 gpa, u64 size)
 {
 	/* "Mapping" memory shared via fallocate() is done via PUNCH_HOLE. */
-	uint64_t flags = MAP_GPA_SHARED | MAP_GPA_DO_FALLOCATE;
+	u64 flags = MAP_GPA_SHARED | MAP_GPA_DO_FALLOCATE;
 
 	kvm_hypercall_map_gpa_range(gpa, size, flags);
 }
@@ -227,7 +227,7 @@ static void guest_punch_hole(uint64_t gpa, uint64_t size)
  * proper conversion.  Freeing (PUNCH_HOLE) should zap SPTEs, and reallocating
  * (subsequent fault) should zero memory.
  */
-static void guest_test_punch_hole(uint64_t base_gpa, bool precise)
+static void guest_test_punch_hole(u64 base_gpa, bool precise)
 {
 	const uint8_t init_p = 0xcc;
 	int i;
@@ -239,8 +239,8 @@ static void guest_test_punch_hole(uint64_t base_gpa, bool precise)
 	guest_map_private(base_gpa, PER_CPU_DATA_SIZE, false);
 
 	for (i = 0; i < ARRAY_SIZE(test_ranges); i++) {
-		uint64_t gpa = base_gpa + test_ranges[i].offset;
-		uint64_t size = test_ranges[i].size;
+		u64 gpa = base_gpa + test_ranges[i].offset;
+		u64 size = test_ranges[i].size;
 
 		/*
 		 * Free all memory before each iteration, even for the !precise
@@ -268,7 +268,7 @@ static void guest_test_punch_hole(uint64_t base_gpa, bool precise)
 	}
 }
 
-static void guest_code(uint64_t base_gpa)
+static void guest_code(u64 base_gpa)
 {
 	/*
 	 * Run the conversion test twice, with and without doing fallocate() on
@@ -289,8 +289,8 @@ static void guest_code(uint64_t base_gpa)
 static void handle_exit_hypercall(struct kvm_vcpu *vcpu)
 {
 	struct kvm_run *run = vcpu->run;
-	uint64_t gpa = run->hypercall.args[0];
-	uint64_t size = run->hypercall.args[1] * PAGE_SIZE;
+	u64 gpa = run->hypercall.args[0];
+	u64 size = run->hypercall.args[1] * PAGE_SIZE;
 	bool set_attributes = run->hypercall.args[2] & MAP_GPA_SET_ATTRIBUTES;
 	bool map_shared = run->hypercall.args[2] & MAP_GPA_SHARED;
 	bool do_fallocate = run->hypercall.args[2] & MAP_GPA_DO_FALLOCATE;
@@ -337,7 +337,7 @@ static void *__test_mem_conversions(void *__vcpu)
 		case UCALL_ABORT:
 			REPORT_GUEST_ASSERT(uc);
 		case UCALL_SYNC: {
-			uint64_t gpa  = uc.args[1];
+			u64 gpa  = uc.args[1];
 			size_t size = uc.args[2];
 			size_t i;
 
@@ -402,7 +402,7 @@ static void test_mem_conversions(enum vm_mem_backing_src_type src_type, uint32_t
 			   KVM_MEM_GUEST_MEMFD, memfd, slot_size * i);
 
 	for (i = 0; i < nr_vcpus; i++) {
-		uint64_t gpa =  BASE_DATA_GPA + i * per_cpu_size;
+		u64 gpa =  BASE_DATA_GPA + i * per_cpu_size;
 
 		vcpu_args_set(vcpus[i], 1, gpa);
 

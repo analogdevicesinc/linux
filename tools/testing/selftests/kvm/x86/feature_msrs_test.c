@@ -41,8 +41,8 @@ static bool is_quirked_msr(uint32_t msr)
 
 static void test_feature_msr(uint32_t msr)
 {
-	const uint64_t supported_mask = kvm_get_feature_msr(msr);
-	uint64_t reset_value = is_quirked_msr(msr) ? supported_mask : 0;
+	const u64 supported_mask = kvm_get_feature_msr(msr);
+	u64 reset_value = is_quirked_msr(msr) ? supported_mask : 0;
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
 

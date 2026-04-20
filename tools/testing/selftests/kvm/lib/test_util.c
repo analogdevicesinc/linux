@@ -38,7 +38,7 @@ struct guest_random_state new_guest_random_state(uint32_t seed)
 
 uint32_t guest_random_u32(struct guest_random_state *state)
 {
-	state->seed = (uint64_t)state->seed * 48271 % ((uint32_t)(1 << 31) - 1);
+	state->seed = (u64)state->seed * 48271 % ((uint32_t)(1 << 31) - 1);
 	return state->seed;
 }
 

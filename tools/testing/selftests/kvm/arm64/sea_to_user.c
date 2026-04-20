@@ -53,16 +53,16 @@
 
 static gpa_t einj_gpa;
 static void *einj_hva;
-static uint64_t einj_hpa;
+static u64 einj_hpa;
 static bool far_invalid;
 
-static uint64_t translate_to_host_paddr(unsigned long vaddr)
+static u64 translate_to_host_paddr(unsigned long vaddr)
 {
-	uint64_t pinfo;
+	u64 pinfo;
 	int64_t offset = vaddr / getpagesize() * sizeof(pinfo);
 	int fd;
-	uint64_t page_addr;
-	uint64_t paddr;
+	u64 page_addr;
+	u64 paddr;
 
 	fd = open("/proc/self/pagemap", O_RDONLY);
 	if (fd < 0)
@@ -82,7 +82,7 @@ static uint64_t translate_to_host_paddr(unsigned long vaddr)
 	return paddr;
 }
 
-static void write_einj_entry(const char *einj_path, uint64_t val)
+static void write_einj_entry(const char *einj_path, u64 val)
 {
 	char cmd[256] = {0};
 	FILE *cmdfile = NULL;
@@ -96,7 +96,7 @@ static void write_einj_entry(const char *einj_path, uint64_t val)
 		ksft_exit_fail_perror("Failed to write EINJ entry");
 }
 
-static void inject_uer(uint64_t paddr)
+static void inject_uer(u64 paddr)
 {
 	if (access("/sys/firmware/acpi/tables/EINJ", R_OK) == -1)
 		ksft_test_result_skip("EINJ table no available in firmware");
@@ -145,10 +145,10 @@ static void setup_sigbus_handler(void)
 
 static void guest_code(void)
 {
-	uint64_t guest_data;
+	u64 guest_data;
 
 	/* Consumes error will cause a SEA. */
-	guest_data = *(uint64_t *)EINJ_GVA;
+	guest_data = *(u64 *)EINJ_GVA;
 
 	GUEST_FAIL("Poison not protected by SEA: gva=%#lx, guest_data=%#lx\n",
 		   EINJ_GVA, guest_data);
@@ -253,7 +253,7 @@ static struct kvm_vm *vm_create_with_sea_handler(struct kvm_vcpu **vcpu)
 	size_t backing_page_size;
 	size_t guest_page_size;
 	size_t alignment;
-	uint64_t num_guest_pages;
+	u64 num_guest_pages;
 	gpa_t start_gpa;
 	enum vm_mem_backing_src_type src_type = VM_MEM_SRC_ANONYMOUS_HUGETLB_1GB;
 	struct kvm_vm *vm;
@@ -292,14 +292,14 @@ static struct kvm_vm *vm_create_with_sea_handler(struct kvm_vcpu **vcpu)
 
 static void vm_inject_memory_uer(struct kvm_vm *vm)
 {
-	uint64_t guest_data;
+	u64 guest_data;
 
 	einj_gpa = addr_gva2gpa(vm, EINJ_GVA);
 	einj_hva = addr_gva2hva(vm, EINJ_GVA);
 
 	/* Populate certain data before injecting UER. */
-	*(uint64_t *)einj_hva = 0xBAADCAFE;
-	guest_data = *(uint64_t *)einj_hva;
+	*(u64 *)einj_hva = 0xBAADCAFE;
+	guest_data = *(u64 *)einj_hva;
 	ksft_print_msg("Before EINJect: data=%#lx\n",
 		guest_data);
 

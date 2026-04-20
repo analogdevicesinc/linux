@@ -17,7 +17,7 @@
 
 static gva_t exception_handlers;
 
-bool __vcpu_has_ext(struct kvm_vcpu *vcpu, uint64_t ext)
+bool __vcpu_has_ext(struct kvm_vcpu *vcpu, u64 ext)
 {
 	unsigned long value = 0;
 	int ret;
@@ -27,18 +27,18 @@ bool __vcpu_has_ext(struct kvm_vcpu *vcpu, uint64_t ext)
 	return !ret && !!value;
 }
 
-static uint64_t pte_addr(struct kvm_vm *vm, uint64_t entry)
+static u64 pte_addr(struct kvm_vm *vm, u64 entry)
 {
 	return ((entry & PGTBL_PTE_ADDR_MASK) >> PGTBL_PTE_ADDR_SHIFT) <<
 		PGTBL_PAGE_SIZE_SHIFT;
 }
 
-static uint64_t ptrs_per_pte(struct kvm_vm *vm)
+static u64 ptrs_per_pte(struct kvm_vm *vm)
 {
-	return PGTBL_PAGE_SIZE / sizeof(uint64_t);
+	return PGTBL_PAGE_SIZE / sizeof(u64);
 }
 
-static uint64_t pte_index_mask[] = {
+static u64 pte_index_mask[] = {
 	PGTBL_L0_INDEX_MASK,
 	PGTBL_L1_INDEX_MASK,
 	PGTBL_L2_INDEX_MASK,
@@ -52,7 +52,7 @@ static uint32_t pte_index_shift[] = {
 	PGTBL_L3_INDEX_SHIFT,
 };
 
-static uint64_t pte_index(struct kvm_vm *vm, gva_t gva, int level)
+static u64 pte_index(struct kvm_vm *vm, gva_t gva, int level)
 {
 	TEST_ASSERT(level > -1,
 		"Negative page table level (%d) not possible", level);
@@ -75,9 +75,9 @@ void virt_arch_pgd_alloc(struct kvm_vm *vm)
 	vm->mmu.pgd_created = true;
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr)
+void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
 {
-	uint64_t *ptep, next_ppn;
+	u64 *ptep, next_ppn;
 	int level = vm->mmu.pgtable_levels - 1;
 
 	TEST_ASSERT((vaddr % vm->page_size) == 0,
@@ -121,7 +121,7 @@ void virt_arch_pg_map(struct kvm_vm *vm, uint64_t vaddr, uint64_t paddr)
 
 gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 {
-	uint64_t *ptep;
+	u64 *ptep;
 	int level = vm->mmu.pgtable_levels - 1;
 
 	if (!vm->mmu.pgd_created)
@@ -149,11 +149,11 @@ unmapped_gva:
 }
 
 static void pte_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent,
-		     uint64_t page, int level)
+		     u64 page, int level)
 {
 #ifdef DEBUG
 	static const char *const type[] = { "pte", "pmd", "pud", "p4d"};
-	uint64_t pte, *ptep;
+	u64 pte, *ptep;
 
 	if (level < 0)
 		return;
@@ -174,7 +174,7 @@ void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
 {
 	struct kvm_mmu *mmu = &vm->mmu;
 	int level = mmu->pgtable_levels - 1;
-	uint64_t pgd, *ptep;
+	u64 pgd, *ptep;
 
 	if (!mmu->pgd_created)
 		return;
@@ -358,7 +358,7 @@ struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, uint32_t vcpu_id)
 void vcpu_args_set(struct kvm_vcpu *vcpu, unsigned int num, ...)
 {
 	va_list ap;
-	uint64_t id = RISCV_CORE_REG(regs.a0);
+	u64 id = RISCV_CORE_REG(regs.a0);
 	int i;
 
 	TEST_ASSERT(num >= 1 && num <= 8, "Unsupported number of args,\n"
@@ -393,7 +393,7 @@ void vcpu_args_set(struct kvm_vcpu *vcpu, unsigned int num, ...)
 			id = RISCV_CORE_REG(regs.a7);
 			break;
 		}
-		vcpu_set_reg(vcpu, id, va_arg(ap, uint64_t));
+		vcpu_set_reg(vcpu, id, va_arg(ap, u64));
 	}
 
 	va_end(ap);
@@ -544,10 +544,10 @@ void kvm_selftest_arch_init(void)
 unsigned long riscv64_get_satp_mode(void)
 {
 	int kvm_fd, vm_fd, vcpu_fd, err;
-	uint64_t val;
+	u64 val;
 	struct kvm_one_reg reg = {
 		.id     = RISCV_CONFIG_REG(satp_mode),
-		.addr   = (uint64_t)&val,
+		.addr   = (u64)&val,
 	};
 
 	kvm_fd = open_kvm_dev_path_or_exit();

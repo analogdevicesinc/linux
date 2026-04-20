@@ -56,7 +56,7 @@ static void guest_validate_irq(unsigned int intid,
 				struct test_vcpu_shared_data *shared_data)
 {
 	enum guest_stage stage = shared_data->guest_stage;
-	uint64_t xcnt = 0, xcnt_diff_us, cval = 0;
+	u64 xcnt = 0, xcnt_diff_us, cval = 0;
 	unsigned long xctl = 0;
 	unsigned int timer_irq = 0;
 	unsigned int accessor;
