@@ -30,7 +30,7 @@ struct reg_ftr_bits {
 	char *name;
 	bool sign;
 	enum ftr_type type;
-	uint8_t shift;
+	u8 shift;
 	u64 mask;
 	/*
 	 * For FTR_EXACT, safe_val is used as the exact safe value.
@@ -384,7 +384,7 @@ u64 get_invalid_value(const struct reg_ftr_bits *ftr_bits, u64 ftr)
 static u64 test_reg_set_success(struct kvm_vcpu *vcpu, u64 reg,
 				const struct reg_ftr_bits *ftr_bits)
 {
-	uint8_t shift = ftr_bits->shift;
+	u8 shift = ftr_bits->shift;
 	u64 mask = ftr_bits->mask;
 	u64 val, new_val, ftr;
 
@@ -407,7 +407,7 @@ static u64 test_reg_set_success(struct kvm_vcpu *vcpu, u64 reg,
 static void test_reg_set_fail(struct kvm_vcpu *vcpu, u64 reg,
 			      const struct reg_ftr_bits *ftr_bits)
 {
-	uint8_t shift = ftr_bits->shift;
+	u8 shift = ftr_bits->shift;
 	u64 mask = ftr_bits->mask;
 	u64 val, old_val, ftr;
 	int r;

@@ -14,12 +14,12 @@
 #define CR0_FETCH_PROTECTION_OVERRIDE	(1UL << (63 - 38))
 #define CR0_STORAGE_PROTECTION_OVERRIDE	(1UL << (63 - 39))
 
-static __aligned(PAGE_SIZE) uint8_t pages[2][PAGE_SIZE];
-static uint8_t *const page_store_prot = pages[0];
-static uint8_t *const page_fetch_prot = pages[1];
+static __aligned(PAGE_SIZE) u8 pages[2][PAGE_SIZE];
+static u8 *const page_store_prot = pages[0];
+static u8 *const page_fetch_prot = pages[1];
 
 /* Nonzero return value indicates that address not mapped */
-static int set_storage_key(void *addr, uint8_t key)
+static int set_storage_key(void *addr, u8 key)
 {
 	int not_mapped = 0;
 
@@ -44,7 +44,7 @@ enum permission {
 	TRANSL_UNAVAIL = 3,
 };
 
-static enum permission test_protection(void *addr, uint8_t key)
+static enum permission test_protection(void *addr, u8 key)
 {
 	u64 mask;
 
@@ -72,7 +72,7 @@ enum stage {
 struct test {
 	enum stage stage;
 	void *addr;
-	uint8_t key;
+	u8 key;
 	enum permission expected;
 } tests[] = {
 	/*

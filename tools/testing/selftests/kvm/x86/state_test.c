@@ -145,7 +145,7 @@ static void __attribute__((__flatten__)) guest_code(void *arg)
 
 	if (this_cpu_has(X86_FEATURE_XSAVE)) {
 		u64 supported_xcr0 = this_cpu_supported_xcr0();
-		uint8_t buffer[PAGE_SIZE];
+		u8 buffer[PAGE_SIZE];
 
 		memset(buffer, 0xcc, sizeof(buffer));
 
@@ -331,7 +331,7 @@ int main(int argc, char *argv[])
 		 * supported features, even if something goes awry in saving
 		 * the original snapshot.
 		 */
-		xstate_bv = (void *)&((uint8_t *)state->xsave->region)[512];
+		xstate_bv = (void *)&((u8 *)state->xsave->region)[512];
 		saved_xstate_bv = *xstate_bv;
 
 		vcpuN = __vm_vcpu_add(vm, vcpu->id + 1);

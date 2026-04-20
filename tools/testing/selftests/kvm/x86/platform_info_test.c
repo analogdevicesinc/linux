@@ -24,7 +24,7 @@
 static void guest_code(void)
 {
 	u64 msr_platform_info;
-	uint8_t vector;
+	u8 vector;
 
 	GUEST_SYNC(true);
 	msr_platform_info = rdmsr(MSR_PLATFORM_INFO);

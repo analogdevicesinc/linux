@@ -2074,7 +2074,7 @@ int main(void)
 {
 	s = sparsebit_alloc();
 	for (;;) {
-		uint8_t op = get8() & 0xf;
+		u8 op = get8() & 0xf;
 		u64 first = get64();
 		u64 last = get64();
 

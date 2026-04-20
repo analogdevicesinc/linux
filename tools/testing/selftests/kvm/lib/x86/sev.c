@@ -15,7 +15,7 @@
  * expression would cause us to quit the loop.
  */
 static void encrypt_region(struct kvm_vm *vm, struct userspace_mem_region *region,
-			   uint8_t page_type, bool private)
+			   u8 page_type, bool private)
 {
 	const struct sparsebit *protected_phy_pages = region->protected_phy_pages;
 	const gpa_t gpa_base = region->region.guest_phys_addr;
@@ -103,7 +103,7 @@ void sev_vm_launch(struct kvm_vm *vm, u32 policy)
 	vm->arch.is_pt_protected = true;
 }
 
-void sev_vm_launch_measure(struct kvm_vm *vm, uint8_t *measurement)
+void sev_vm_launch_measure(struct kvm_vm *vm, u8 *measurement)
 {
 	struct kvm_sev_launch_measure launch_measure;
 	struct kvm_sev_guest_status guest_status;
@@ -174,7 +174,7 @@ struct kvm_vm *vm_sev_create_with_one_vcpu(u32 type, void *guest_code,
 	return vm;
 }
 
-void vm_sev_launch(struct kvm_vm *vm, u64 policy, uint8_t *measurement)
+void vm_sev_launch(struct kvm_vm *vm, u64 policy, u8 *measurement)
 {
 	if (is_sev_snp_vm(vm)) {
 		vm_enable_cap(vm, KVM_CAP_EXIT_HYPERCALL, BIT(KVM_HC_MAP_GPA_RANGE));

@@ -48,13 +48,13 @@ struct mop_desc {
 	void *buf;
 	u32 sida_offset;
 	void *old;
-	uint8_t old_value[16];
+	u8 old_value[16];
 	bool *cmpxchg_success;
-	uint8_t ar;
-	uint8_t key;
+	u8 ar;
+	u8 key;
 };
 
-const uint8_t NO_KEY = 0xff;
+const u8 NO_KEY = 0xff;
 
 static struct kvm_s390_mem_op ksmo_from_desc(struct mop_desc *desc)
 {
@@ -230,8 +230,8 @@ static void memop_ioctl(struct test_info info, struct kvm_s390_mem_op *ksmo,
 #define CR0_FETCH_PROTECTION_OVERRIDE	(1UL << (63 - 38))
 #define CR0_STORAGE_PROTECTION_OVERRIDE	(1UL << (63 - 39))
 
-static uint8_t __aligned(PAGE_SIZE) mem1[65536];
-static uint8_t __aligned(PAGE_SIZE) mem2[65536];
+static u8 __aligned(PAGE_SIZE) mem1[65536];
+static u8 __aligned(PAGE_SIZE) mem2[65536];
 
 struct test_default {
 	struct kvm_vm *kvm_vm;
@@ -296,7 +296,7 @@ static void prepare_mem12(void)
 	TEST_ASSERT(!memcmp(p1, p2, size), "Memory contents do not match!")
 
 static void default_write_read(struct test_info copy_cpu, struct test_info mop_cpu,
-			       enum mop_target mop_target, u32 size, uint8_t key)
+			       enum mop_target mop_target, u32 size, u8 key)
 {
 	prepare_mem12();
 	CHECK_N_DO(MOP, mop_cpu, mop_target, WRITE, mem1, size,
@@ -308,7 +308,7 @@ static void default_write_read(struct test_info copy_cpu, struct test_info mop_c
 }
 
 static void default_read(struct test_info copy_cpu, struct test_info mop_cpu,
-			 enum mop_target mop_target, u32 size, uint8_t key)
+			 enum mop_target mop_target, u32 size, u8 key)
 {
 	prepare_mem12();
 	CHECK_N_DO(MOP, mop_cpu, mop_target, WRITE, mem1, size, GADDR_V(mem1));
@@ -318,12 +318,12 @@ static void default_read(struct test_info copy_cpu, struct test_info mop_cpu,
 	ASSERT_MEM_EQ(mem1, mem2, size);
 }
 
-static void default_cmpxchg(struct test_default *test, uint8_t key)
+static void default_cmpxchg(struct test_default *test, u8 key)
 {
 	for (int size = 1; size <= 16; size *= 2) {
 		for (int offset = 0; offset < 16; offset += size) {
-			uint8_t __aligned(16) new[16] = {};
-			uint8_t __aligned(16) old[16];
+			u8 __aligned(16) new[16] = {};
+			u8 __aligned(16) old[16];
 			bool succ;
 
 			prepare_mem12();
@@ -400,7 +400,7 @@ static void test_copy_access_register(void)
 	kvm_vm_free(t.kvm_vm);
 }
 
-static void set_storage_key_range(void *addr, size_t len, uint8_t key)
+static void set_storage_key_range(void *addr, size_t len, u8 key)
 {
 	uintptr_t _addr, abs, i;
 	int not_mapped = 0;
@@ -483,7 +483,7 @@ static __uint128_t cut_to_size(int size, __uint128_t val)
 {
 	switch (size) {
 	case 1:
-		return (uint8_t)val;
+		return (u8)val;
 	case 2:
 		return (u16)val;
 	case 4:
@@ -553,7 +553,7 @@ static __uint128_t permutate_bits(bool guest, int i, int size, __uint128_t old)
 	if (swap) {
 		int i, j;
 		__uint128_t new;
-		uint8_t byte0, byte1;
+		u8 byte0, byte1;
 
 		rand = rand * 3 + 1;
 		i = rand % size;

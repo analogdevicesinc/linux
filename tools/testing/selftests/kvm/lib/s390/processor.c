@@ -111,7 +111,7 @@ gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 	return (entry[idx] & ~0xffful) + (gva & 0xffful);
 }
 
-static void virt_dump_ptes(FILE *stream, struct kvm_vm *vm, uint8_t indent,
+static void virt_dump_ptes(FILE *stream, struct kvm_vm *vm, u8 indent,
 			   u64 ptea_start)
 {
 	u64 *pte, ptea;
@@ -125,7 +125,7 @@ static void virt_dump_ptes(FILE *stream, struct kvm_vm *vm, uint8_t indent,
 	}
 }
 
-static void virt_dump_region(FILE *stream, struct kvm_vm *vm, uint8_t indent,
+static void virt_dump_region(FILE *stream, struct kvm_vm *vm, u8 indent,
 			     u64 reg_tab_addr)
 {
 	u64 addr, *entry;
@@ -147,7 +147,7 @@ static void virt_dump_region(FILE *stream, struct kvm_vm *vm, uint8_t indent,
 	}
 }
 
-void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
+void virt_arch_dump(FILE *stream, struct kvm_vm *vm, u8 indent)
 {
 	if (!vm->mmu.pgd_created)
 		return;
@@ -212,7 +212,7 @@ void vcpu_args_set(struct kvm_vcpu *vcpu, unsigned int num, ...)
 	va_end(ap);
 }
 
-void vcpu_arch_dump(FILE *stream, struct kvm_vcpu *vcpu, uint8_t indent)
+void vcpu_arch_dump(FILE *stream, struct kvm_vcpu *vcpu, u8 indent)
 {
 	fprintf(stream, "%*spstate: psw: 0x%.16llx:0x%.16llx\n",
 		indent, "", vcpu->run->psw_mask, vcpu->run->psw_addr);

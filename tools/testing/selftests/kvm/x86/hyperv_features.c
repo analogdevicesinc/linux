@@ -41,7 +41,7 @@ static bool is_write_only_msr(u32 msr)
 
 static void guest_msr(struct msr_data *msr)
 {
-	uint8_t vector = 0;
+	u8 vector = 0;
 	u64 msr_val = 0;
 
 	GUEST_ASSERT(msr->idx);
@@ -85,7 +85,7 @@ done:
 static void guest_hcall(gpa_t pgs_gpa, struct hcall_data *hcall)
 {
 	u64 res, input, output;
-	uint8_t vector;
+	u8 vector;
 
 	GUEST_ASSERT_NE(hcall->control, 0);
 

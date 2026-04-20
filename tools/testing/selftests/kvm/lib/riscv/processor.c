@@ -148,7 +148,7 @@ unmapped_gva:
 	exit(1);
 }
 
-static void pte_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent,
+static void pte_dump(FILE *stream, struct kvm_vm *vm, u8 indent,
 		     u64 page, int level)
 {
 #ifdef DEBUG
@@ -170,7 +170,7 @@ static void pte_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent,
 #endif
 }
 
-void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
+void virt_arch_dump(FILE *stream, struct kvm_vm *vm, u8 indent)
 {
 	struct kvm_mmu *mmu = &vm->mmu;
 	int level = mmu->pgtable_levels - 1;
@@ -233,7 +233,7 @@ void riscv_vcpu_mmu_setup(struct kvm_vcpu *vcpu)
 	vcpu_set_reg(vcpu, RISCV_GENERAL_CSR_REG(satp), satp);
 }
 
-void vcpu_arch_dump(FILE *stream, struct kvm_vcpu *vcpu, uint8_t indent)
+void vcpu_arch_dump(FILE *stream, struct kvm_vcpu *vcpu, u8 indent)
 {
 	struct kvm_riscv_core core;
 

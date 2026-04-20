@@ -23,21 +23,21 @@ struct kvm_msr_filter filter_allow = {
 			.nmsrs = 1,
 			/* Test an MSR the kernel knows about. */
 			.base = MSR_IA32_XSS,
-			.bitmap = (uint8_t*)&deny_bits,
+			.bitmap = (u8 *)&deny_bits,
 		}, {
 			.flags = KVM_MSR_FILTER_READ |
 				 KVM_MSR_FILTER_WRITE,
 			.nmsrs = 1,
 			/* Test an MSR the kernel doesn't know about. */
 			.base = MSR_IA32_FLUSH_CMD,
-			.bitmap = (uint8_t*)&deny_bits,
+			.bitmap = (u8 *)&deny_bits,
 		}, {
 			.flags = KVM_MSR_FILTER_READ |
 				 KVM_MSR_FILTER_WRITE,
 			.nmsrs = 1,
 			/* Test a fabricated MSR that no one knows about. */
 			.base = MSR_NON_EXISTENT,
-			.bitmap = (uint8_t*)&deny_bits,
+			.bitmap = (u8 *)&deny_bits,
 		},
 	},
 };
@@ -49,7 +49,7 @@ struct kvm_msr_filter filter_fs = {
 			.flags = KVM_MSR_FILTER_READ,
 			.nmsrs = 1,
 			.base = MSR_FS_BASE,
-			.bitmap = (uint8_t*)&deny_bits,
+			.bitmap = (u8 *)&deny_bits,
 		},
 	},
 };
@@ -61,7 +61,7 @@ struct kvm_msr_filter filter_gs = {
 			.flags = KVM_MSR_FILTER_READ,
 			.nmsrs = 1,
 			.base = MSR_GS_BASE,
-			.bitmap = (uint8_t*)&deny_bits,
+			.bitmap = (u8 *)&deny_bits,
 		},
 	},
 };
@@ -77,7 +77,7 @@ static u8 bitmap_c0000000[KVM_MSR_FILTER_MAX_BITMAP_SIZE];
 static u8 bitmap_c0000000_read[KVM_MSR_FILTER_MAX_BITMAP_SIZE];
 static u8 bitmap_deadbeef[1] = { 0x1 };
 
-static void deny_msr(uint8_t *bitmap, u32 msr)
+static void deny_msr(u8 *bitmap, u32 msr)
 {
 	u32 idx = msr & (KVM_MSR_FILTER_MAX_BITMAP_SIZE - 1);
 
@@ -732,7 +732,7 @@ static void run_msr_filter_flag_test(struct kvm_vm *vm)
 				.flags = KVM_MSR_FILTER_READ,
 				.nmsrs = 1,
 				.base = 0,
-				.bitmap = (uint8_t *)&deny_bits,
+				.bitmap = (u8 *)&deny_bits,
 			},
 		},
 	};

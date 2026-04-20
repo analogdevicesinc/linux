@@ -140,7 +140,7 @@ void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
 	WRITE_ONCE(*ptep, paddr | prot_bits);
 }
 
-static void pte_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent, u64 page, int level)
+static void pte_dump(FILE *stream, struct kvm_vm *vm, u8 indent, u64 page, int level)
 {
 	u64 pte, *ptep;
 	static const char * const type[] = { "pte", "pmd", "pud", "pgd"};
@@ -158,7 +158,7 @@ static void pte_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent, u64 page, 
 	}
 }
 
-void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
+void virt_arch_dump(FILE *stream, struct kvm_vm *vm, u8 indent)
 {
 	int level;
 
@@ -169,7 +169,7 @@ void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
 	pte_dump(stream, vm, indent, vm->mmu.pgd, level);
 }
 
-void vcpu_arch_dump(FILE *stream, struct kvm_vcpu *vcpu, uint8_t indent)
+void vcpu_arch_dump(FILE *stream, struct kvm_vcpu *vcpu, u8 indent)
 {
 }
 

@@ -77,7 +77,7 @@
 #define guest_test_fastop_cl(insn, type_t, __val1, __val2)				\
 ({											\
 	type_t output = __val2, ex_output = __val2, input = __val2;			\
-	uint8_t shift = __val1;								\
+	u8 shift = __val1;								\
 	u64 flags, ex_flags;								\
 											\
 	guest_execute_fastop_cl("", insn, shift, ex_output, ex_flags);			\
@@ -95,7 +95,7 @@
 #define guest_execute_fastop_div(__KVM_ASM_SAFE, insn, __a, __d, __rm, __flags)		\
 ({											\
 	u64 ign_error_code;								\
-	uint8_t vector;									\
+	u8 vector;									\
 											\
 	__asm__ __volatile__(fastop(__KVM_ASM_SAFE(insn " %[denom]"))			\
 			     : "+a"(__a), "+d"(__d), flags_constraint(__flags),		\
@@ -110,7 +110,7 @@
 	type_t _a = __val1, _d = __val1, rm = __val2;					\
 	type_t a = _a, d = _d, ex_a = _a, ex_d = _d;					\
 	u64 flags, ex_flags;								\
-	uint8_t v, ex_v;								\
+	u8 v, ex_v;									\
 											\
 	ex_v = guest_execute_fastop_div(KVM_ASM_SAFE, insn, ex_a, ex_d, rm, ex_flags);	\
 	v = guest_execute_fastop_div(KVM_ASM_SAFE_FEP, insn, a, d, rm, flags);		\
@@ -185,7 +185,7 @@ if (sizeof(type_t) != 1) {							\
 
 static void guest_code(void)
 {
-	guest_test_fastops(uint8_t, "b");
+	guest_test_fastops(u8, "b");
 	guest_test_fastops(u16, "w");
 	guest_test_fastops(u32, "l");
 	guest_test_fastops(u64, "q");

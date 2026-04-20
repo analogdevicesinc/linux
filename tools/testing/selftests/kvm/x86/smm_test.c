@@ -34,7 +34,7 @@
  * independent subset of asm here.
  * SMI handler always report back fixed stage SMRAM_STAGE.
  */
-uint8_t smi_handler[] = {
+u8 smi_handler[] = {
 	0xb0, SMRAM_STAGE,    /* mov $SMRAM_STAGE, %al */
 	0xe4, SYNC_PORT,      /* in $SYNC_PORT, %al */
 	0x0f, 0xaa,           /* rsm */

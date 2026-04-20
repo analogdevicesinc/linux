@@ -99,14 +99,14 @@ static inline u64 x2apic_read_reg(unsigned int reg)
 	return rdmsr(APIC_BASE_MSR + (reg >> 4));
 }
 
-static inline uint8_t x2apic_write_reg_safe(unsigned int reg, u64 value)
+static inline u8 x2apic_write_reg_safe(unsigned int reg, u64 value)
 {
 	return wrmsr_safe(APIC_BASE_MSR + (reg >> 4), value);
 }
 
 static inline void x2apic_write_reg(unsigned int reg, u64 value)
 {
-	uint8_t fault = x2apic_write_reg_safe(reg, value);
+	u8 fault = x2apic_write_reg_safe(reg, value);
 
 	__GUEST_ASSERT(!fault, "Unexpected fault 0x%x on WRMSR(%x) = %lx\n",
 		       fault, APIC_BASE_MSR + (reg >> 4), value);
@@ -114,7 +114,7 @@ static inline void x2apic_write_reg(unsigned int reg, u64 value)
 
 static inline void x2apic_write_reg_fault(unsigned int reg, u64 value)
 {
-	uint8_t fault = x2apic_write_reg_safe(reg, value);
+	u8 fault = x2apic_write_reg_safe(reg, value);
 
 	__GUEST_ASSERT(fault == GP_VECTOR,
 		       "Wanted #GP on WRMSR(%x) = %lx, got 0x%x\n",

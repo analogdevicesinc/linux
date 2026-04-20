@@ -294,7 +294,7 @@ struct vmx_msr_entry {
 
 static inline int vmxon(u64 phys)
 {
-	uint8_t ret;
+	u8 ret;
 
 	__asm__ __volatile__ ("vmxon %[pa]; setna %[ret]"
 		: [ret]"=rm"(ret)
@@ -311,7 +311,7 @@ static inline void vmxoff(void)
 
 static inline int vmclear(u64 vmcs_pa)
 {
-	uint8_t ret;
+	u8 ret;
 
 	__asm__ __volatile__ ("vmclear %[pa]; setna %[ret]"
 		: [ret]"=rm"(ret)
@@ -323,7 +323,7 @@ static inline int vmclear(u64 vmcs_pa)
 
 static inline int vmptrld(u64 vmcs_pa)
 {
-	uint8_t ret;
+	u8 ret;
 
 	if (enable_evmcs)
 		return -1;
@@ -339,7 +339,7 @@ static inline int vmptrld(u64 vmcs_pa)
 static inline int vmptrst(u64 *value)
 {
 	u64 tmp;
-	uint8_t ret;
+	u8 ret;
 
 	if (enable_evmcs)
 		return evmcs_vmptrst(value);
@@ -450,7 +450,7 @@ static inline void vmcall(void)
 static inline int vmread(u64 encoding, u64 *value)
 {
 	u64 tmp;
-	uint8_t ret;
+	u8 ret;
 
 	if (enable_evmcs)
 		return evmcs_vmread(encoding, value);
@@ -477,7 +477,7 @@ static inline u64 vmreadz(u64 encoding)
 
 static inline int vmwrite(u64 encoding, u64 value)
 {
-	uint8_t ret;
+	u8 ret;
 
 	if (enable_evmcs)
 		return evmcs_vmwrite(encoding, value);

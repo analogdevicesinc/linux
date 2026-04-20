@@ -724,8 +724,7 @@ static inline bool this_cpu_is_hygon(void)
 	return this_cpu_vendor_string_is("HygonGenuine");
 }
 
-static inline u32 __this_cpu_has(u32 function, u32 index,
-				 uint8_t reg, uint8_t lo, uint8_t hi)
+static inline u32 __this_cpu_has(u32 function, u32 index, u8 reg, u8 lo, u8 hi)
 {
 	u32 gprs[4];
 
@@ -1105,7 +1104,7 @@ static inline void vcpu_set_cpuid(struct kvm_vcpu *vcpu)
 void vcpu_set_cpuid_property(struct kvm_vcpu *vcpu,
 			     struct kvm_x86_cpu_property property,
 			     u32 value);
-void vcpu_set_cpuid_maxphyaddr(struct kvm_vcpu *vcpu, uint8_t maxphyaddr);
+void vcpu_set_cpuid_maxphyaddr(struct kvm_vcpu *vcpu, u8 maxphyaddr);
 
 void vcpu_clear_cpuid_entry(struct kvm_vcpu *vcpu, u32 function);
 
@@ -1262,8 +1261,8 @@ void vm_install_exception_handler(struct kvm_vm *vm, int vector,
 
 #define kvm_asm_safe(insn, inputs...)					\
 ({									\
-	u64 ign_error_code;					\
-	uint8_t vector;							\
+	u64 ign_error_code;						\
+	u8 vector;							\
 									\
 	asm volatile(KVM_ASM_SAFE(insn)					\
 		     : KVM_ASM_SAFE_OUTPUTS(vector, ign_error_code)	\
@@ -1274,7 +1273,7 @@ void vm_install_exception_handler(struct kvm_vm *vm, int vector,
 
 #define kvm_asm_safe_ec(insn, error_code, inputs...)			\
 ({									\
-	uint8_t vector;							\
+	u8 vector;							\
 									\
 	asm volatile(KVM_ASM_SAFE(insn)					\
 		     : KVM_ASM_SAFE_OUTPUTS(vector, error_code)		\
@@ -1285,8 +1284,8 @@ void vm_install_exception_handler(struct kvm_vm *vm, int vector,
 
 #define kvm_asm_safe_fep(insn, inputs...)				\
 ({									\
-	u64 ign_error_code;					\
-	uint8_t vector;							\
+	u64 ign_error_code;						\
+	u8 vector;							\
 									\
 	asm volatile(KVM_ASM_SAFE_FEP(insn)				\
 		     : KVM_ASM_SAFE_OUTPUTS(vector, ign_error_code)	\
@@ -1297,7 +1296,7 @@ void vm_install_exception_handler(struct kvm_vm *vm, int vector,
 
 #define kvm_asm_safe_ec_fep(insn, error_code, inputs...)		\
 ({									\
-	uint8_t vector;							\
+	u8 vector;							\
 									\
 	asm volatile(KVM_ASM_SAFE_FEP(insn)				\
 		     : KVM_ASM_SAFE_OUTPUTS(vector, error_code)		\
@@ -1307,10 +1306,10 @@ void vm_install_exception_handler(struct kvm_vm *vm, int vector,
 })
 
 #define BUILD_READ_U64_SAFE_HELPER(insn, _fep, _FEP)			\
-static inline uint8_t insn##_safe ##_fep(u32 idx, u64 *val)	\
+static inline u8 insn##_safe ##_fep(u32 idx, u64 *val)			\
 {									\
-	u64 error_code;						\
-	uint8_t vector;							\
+	u64 error_code;							\
+	u8 vector;							\
 	u32 a, d;							\
 									\
 	asm volatile(KVM_ASM_SAFE##_FEP(#insn)				\
@@ -1335,12 +1334,12 @@ BUILD_READ_U64_SAFE_HELPERS(rdmsr)
 BUILD_READ_U64_SAFE_HELPERS(rdpmc)
 BUILD_READ_U64_SAFE_HELPERS(xgetbv)
 
-static inline uint8_t wrmsr_safe(u32 msr, u64 val)
+static inline u8 wrmsr_safe(u32 msr, u64 val)
 {
 	return kvm_asm_safe("wrmsr", "a"(val & -1u), "d"(val >> 32), "c"(msr));
 }
 
-static inline uint8_t xsetbv_safe(u32 index, u64 value)
+static inline u8 xsetbv_safe(u32 index, u64 value)
 {
 	u32 eax = value;
 	u32 edx = value >> 32;

@@ -1951,7 +1951,7 @@ void kvm_gsi_routing_write(struct kvm_vm *vm, struct kvm_irq_routing *routing)
  * Dumps the current state of the VM given by vm, to the FILE stream
  * given by stream.
  */
-void vm_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
+void vm_dump(FILE *stream, struct kvm_vm *vm, u8 indent)
 {
 	int ctr;
 	struct userspace_mem_region *region;

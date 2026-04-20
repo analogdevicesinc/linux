@@ -41,7 +41,7 @@ static struct msr_data msrs_to_test[] = {
 static void test_msr(struct msr_data *msr)
 {
 	u64 ignored;
-	uint8_t vector;
+	u8 vector;
 
 	PR_MSR(msr);
 

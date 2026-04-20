@@ -217,7 +217,7 @@ static void *vm_gpa2hva(struct vm_data *data, u64 gpa, u64 *rempages)
 	}
 
 	base = data->hva_slots[slot];
-	return (uint8_t *)base + slotoffs * guest_page_size + pgoffs;
+	return (u8 *)base + slotoffs * guest_page_size + pgoffs;
 }
 
 static u64 vm_slot2gpa(struct vm_data *data, u32 slot)

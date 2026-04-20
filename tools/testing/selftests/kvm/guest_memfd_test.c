@@ -470,7 +470,7 @@ static void test_guest_memfd(unsigned long vm_type)
 	kvm_vm_free(vm);
 }
 
-static void guest_code(uint8_t *mem, u64 size)
+static void guest_code(u8 *mem, u64 size)
 {
 	size_t i;
 
@@ -494,7 +494,7 @@ static void test_guest_memfd_guest(void)
 
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
-	uint8_t *mem;
+	u8 *mem;
 	size_t size;
 	int fd, i;
 

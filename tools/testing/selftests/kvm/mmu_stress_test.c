@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
 
 	/* Pre-fault the memory to avoid taking mmap_sem on guest page faults. */
 	for (i = 0; i < slot_size; i += vm->page_size)
-		((uint8_t *)mem)[i] = 0xaa;
+		((u8 *)mem)[i] = 0xaa;
 
 	gpa = 0;
 	for (slot = first_slot; slot < max_slots; slot++) {

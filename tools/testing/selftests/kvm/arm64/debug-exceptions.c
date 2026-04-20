@@ -102,7 +102,7 @@ GEN_DEBUG_WRITE_REG(dbgwvr)
 
 static void reset_debug_state(void)
 {
-	uint8_t brps, wrps, i;
+	u8 brps, wrps, i;
 	u64 dfr0;
 
 	asm volatile("msr daifset, #8");
@@ -149,7 +149,7 @@ static void enable_monitor_debug_exceptions(void)
 	isb();
 }
 
-static void install_wp(uint8_t wpn, u64 addr)
+static void install_wp(u8 wpn, u64 addr)
 {
 	u32 wcr;
 
@@ -162,7 +162,7 @@ static void install_wp(uint8_t wpn, u64 addr)
 	enable_monitor_debug_exceptions();
 }
 
-static void install_hw_bp(uint8_t bpn, u64 addr)
+static void install_hw_bp(u8 bpn, u64 addr)
 {
 	u32 bcr;
 
@@ -174,8 +174,7 @@ static void install_hw_bp(uint8_t bpn, u64 addr)
 	enable_monitor_debug_exceptions();
 }
 
-static void install_wp_ctx(uint8_t addr_wp, uint8_t ctx_bp, u64 addr,
-			   u64 ctx)
+static void install_wp_ctx(u8 addr_wp, u8 ctx_bp, u64 addr, u64 ctx)
 {
 	u32 wcr;
 	u64 ctx_bcr;
@@ -196,8 +195,7 @@ static void install_wp_ctx(uint8_t addr_wp, uint8_t ctx_bp, u64 addr,
 	enable_monitor_debug_exceptions();
 }
 
-void install_hw_bp_ctx(uint8_t addr_bp, uint8_t ctx_bp, u64 addr,
-		       u64 ctx)
+void install_hw_bp_ctx(u8 addr_bp, u8 ctx_bp, u64 addr, u64 ctx)
 {
 	u32 addr_bcr, ctx_bcr;
 
@@ -234,7 +232,7 @@ static void install_ss(void)
 
 static volatile char write_data;
 
-static void guest_code(uint8_t bpn, uint8_t wpn, uint8_t ctx_bpn)
+static void guest_code(u8 bpn, u8 wpn, u8 ctx_bpn)
 {
 	u64 ctx = 0xabcdef;	/* a random context number */
 
@@ -421,7 +419,7 @@ static int debug_version(u64 id_aa64dfr0)
 	return FIELD_GET(ID_AA64DFR0_EL1_DebugVer, id_aa64dfr0);
 }
 
-static void test_guest_debug_exceptions(uint8_t bpn, uint8_t wpn, uint8_t ctx_bpn)
+static void test_guest_debug_exceptions(u8 bpn, u8 wpn, u8 ctx_bpn)
 {
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
@@ -535,7 +533,7 @@ void test_single_step_from_userspace(int test_cnt)
  */
 void test_guest_debug_exceptions_all(u64 aa64dfr0)
 {
-	uint8_t brp_num, wrp_num, ctx_brp_num, normal_brp_num, ctx_brp_base;
+	u8 brp_num, wrp_num, ctx_brp_num, normal_brp_num, ctx_brp_base;
 	int b, w, c;
 
 	/* Number of breakpoints */

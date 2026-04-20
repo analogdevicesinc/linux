@@ -108,7 +108,7 @@ static void guest_code(void *nested_test_data)
 static void guest_no_aperfmperf(void)
 {
 	u64 msr_val;
-	uint8_t vector;
+	u8 vector;
 
 	vector = rdmsr_safe(MSR_IA32_APERF, &msr_val);
 	GUEST_ASSERT(vector == GP_VECTOR);

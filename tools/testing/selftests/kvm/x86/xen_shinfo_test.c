@@ -133,8 +133,8 @@ struct arch_vcpu_info {
 };
 
 struct vcpu_info {
-	uint8_t evtchn_upcall_pending;
-	uint8_t evtchn_upcall_mask;
+	u8 evtchn_upcall_pending;
+	u8 evtchn_upcall_mask;
 	unsigned long evtchn_pending_sel;
 	struct arch_vcpu_info arch;
 	struct pvclock_vcpu_time_info time;

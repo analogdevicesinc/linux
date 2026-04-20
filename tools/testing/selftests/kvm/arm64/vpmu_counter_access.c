@@ -402,7 +402,7 @@ static void guest_code(u64 expected_pmcr_n)
 static void create_vpmu_vm(void *guest_code)
 {
 	struct kvm_vcpu_init init;
-	uint8_t pmuver, ec;
+	u8 pmuver, ec;
 	u64 dfr0, irq = 23;
 	struct kvm_device_attr irq_attr = {
 		.group = KVM_ARM_VCPU_PMU_V3_CTRL,

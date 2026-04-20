@@ -62,7 +62,7 @@ const char *ex_str(int vector)
 	}
 }
 
-static void regs_dump(FILE *stream, struct kvm_regs *regs, uint8_t indent)
+static void regs_dump(FILE *stream, struct kvm_regs *regs, u8 indent)
 {
 	fprintf(stream, "%*srax: 0x%.16llx rbx: 0x%.16llx "
 		"rcx: 0x%.16llx rdx: 0x%.16llx\n",
@@ -86,7 +86,7 @@ static void regs_dump(FILE *stream, struct kvm_regs *regs, uint8_t indent)
 }
 
 static void segment_dump(FILE *stream, struct kvm_segment *segment,
-			 uint8_t indent)
+			 u8 indent)
 {
 	fprintf(stream, "%*sbase: 0x%.16llx limit: 0x%.8x "
 		"selector: 0x%.4x type: 0x%.2x\n",
@@ -103,7 +103,7 @@ static void segment_dump(FILE *stream, struct kvm_segment *segment,
 }
 
 static void dtable_dump(FILE *stream, struct kvm_dtable *dtable,
-			uint8_t indent)
+			u8 indent)
 {
 	fprintf(stream, "%*sbase: 0x%.16llx limit: 0x%.4x "
 		"padding: 0x%.4x 0x%.4x 0x%.4x\n",
@@ -111,7 +111,7 @@ static void dtable_dump(FILE *stream, struct kvm_dtable *dtable,
 		dtable->padding[0], dtable->padding[1], dtable->padding[2]);
 }
 
-static void sregs_dump(FILE *stream, struct kvm_sregs *sregs, uint8_t indent)
+static void sregs_dump(FILE *stream, struct kvm_sregs *sregs, u8 indent)
 {
 	unsigned int i;
 
@@ -407,7 +407,7 @@ u64 *vm_get_pte(struct kvm_vm *vm, u64 vaddr)
 	return __vm_get_page_table_entry(vm, &vm->mmu, vaddr, &level);
 }
 
-void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
+void virt_arch_dump(FILE *stream, struct kvm_vm *vm, u8 indent)
 {
 	struct kvm_mmu *mmu = &vm->mmu;
 	u64 *pml4e, *pml4e_start;
@@ -909,7 +909,7 @@ const struct kvm_cpuid2 *kvm_get_supported_cpuid(void)
 
 static u32 __kvm_cpu_has(const struct kvm_cpuid2 *cpuid,
 			 u32 function, u32 index,
-			 uint8_t reg, uint8_t lo, uint8_t hi)
+			 u8 reg, u8 lo, u8 hi)
 {
 	const struct kvm_cpuid_entry2 *entry;
 	int i;
@@ -1127,7 +1127,7 @@ void vcpu_args_set(struct kvm_vcpu *vcpu, unsigned int num, ...)
 	va_end(ap);
 }
 
-void vcpu_arch_dump(FILE *stream, struct kvm_vcpu *vcpu, uint8_t indent)
+void vcpu_arch_dump(FILE *stream, struct kvm_vcpu *vcpu, u8 indent)
 {
 	struct kvm_regs regs;
 	struct kvm_sregs sregs;
@@ -1378,7 +1378,7 @@ unsigned long vm_compute_max_gfn(struct kvm_vm *vm)
 {
 	const unsigned long num_ht_pages = 12 << (30 - vm->page_shift); /* 12 GiB */
 	unsigned long ht_gfn, max_gfn, max_pfn;
-	uint8_t maxphyaddr, guest_maxphyaddr;
+	u8 maxphyaddr, guest_maxphyaddr;
 
 	/*
 	 * Use "guest MAXPHYADDR" from KVM if it's available.  Guest MAXPHYADDR

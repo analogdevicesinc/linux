@@ -54,7 +54,7 @@ static const union perf_capabilities format_caps = {
 
 static void guest_test_perf_capabilities_gp(u64 val)
 {
-	uint8_t vector = wrmsr_safe(MSR_IA32_PERF_CAPABILITIES, val);
+	u8 vector = wrmsr_safe(MSR_IA32_PERF_CAPABILITIES, val);
 
 	__GUEST_ASSERT(vector == GP_VECTOR,
 		       "Expected #GP for value '0x%lx', got %s",

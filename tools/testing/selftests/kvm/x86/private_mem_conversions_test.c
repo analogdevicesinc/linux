@@ -29,7 +29,7 @@
 /* Horrific macro so that the line info is captured accurately :-( */
 #define memcmp_g(gpa, pattern,  size)								\
 do {												\
-	uint8_t *mem = (uint8_t *)gpa;								\
+	u8 *mem = (u8 *)gpa;									\
 	size_t i;										\
 												\
 	for (i = 0; i < size; i++)								\
@@ -38,7 +38,7 @@ do {												\
 			       pattern, i, gpa + i, mem[i]);					\
 } while (0)
 
-static void memcmp_h(uint8_t *mem, u64 gpa, uint8_t pattern, size_t size)
+static void memcmp_h(u8 *mem, u64 gpa, u8 pattern, size_t size)
 {
 	size_t i;
 
@@ -71,12 +71,12 @@ enum ucall_syncs {
 };
 
 static void guest_sync_shared(u64 gpa, u64 size,
-			      uint8_t current_pattern, uint8_t new_pattern)
+			      u8 current_pattern, u8 new_pattern)
 {
 	GUEST_SYNC5(SYNC_SHARED, gpa, size, current_pattern, new_pattern);
 }
 
-static void guest_sync_private(u64 gpa, u64 size, uint8_t pattern)
+static void guest_sync_private(u64 gpa, u64 size, u8 pattern)
 {
 	GUEST_SYNC4(SYNC_PRIVATE, gpa, size, pattern);
 }
@@ -121,8 +121,8 @@ struct {
 
 static void guest_test_explicit_conversion(u64 base_gpa, bool do_fallocate)
 {
-	const uint8_t def_p = 0xaa;
-	const uint8_t init_p = 0xcc;
+	const u8 def_p = 0xaa;
+	const u8 init_p = 0xcc;
 	u64 j;
 	int i;
 
@@ -136,10 +136,10 @@ static void guest_test_explicit_conversion(u64 base_gpa, bool do_fallocate)
 	for (i = 0; i < ARRAY_SIZE(test_ranges); i++) {
 		u64 gpa = base_gpa + test_ranges[i].offset;
 		u64 size = test_ranges[i].size;
-		uint8_t p1 = 0x11;
-		uint8_t p2 = 0x22;
-		uint8_t p3 = 0x33;
-		uint8_t p4 = 0x44;
+		u8 p1 = 0x11;
+		u8 p2 = 0x22;
+		u8 p3 = 0x33;
+		u8 p4 = 0x44;
 
 		/*
 		 * Set the test region to pattern one to differentiate it from
@@ -229,7 +229,7 @@ static void guest_punch_hole(u64 gpa, u64 size)
  */
 static void guest_test_punch_hole(u64 base_gpa, bool precise)
 {
-	const uint8_t init_p = 0xcc;
+	const u8 init_p = 0xcc;
 	int i;
 
 	/*
@@ -347,7 +347,7 @@ static void *__test_mem_conversions(void *__vcpu)
 
 			for (i = 0; i < size; i += vm->page_size) {
 				size_t nr_bytes = min_t(size_t, vm->page_size, size - i);
-				uint8_t *hva = addr_gpa2hva(vm, gpa + i);
+				u8 *hva = addr_gpa2hva(vm, gpa + i);
 
 				/* In all cases, the host should observe the shared data. */
 				memcmp_h(hva, gpa + i, uc.args[3], nr_bytes);

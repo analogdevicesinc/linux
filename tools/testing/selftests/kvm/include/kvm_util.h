@@ -214,8 +214,8 @@ enum vm_guest_mode {
 
 struct vm_shape {
 	u32 type;
-	uint8_t  mode;
-	uint8_t  pad0;
+	u8  mode;
+	u8  pad0;
 	u16 pad1;
 };
 
@@ -475,7 +475,7 @@ void kvm_vm_release(struct kvm_vm *vmp);
 void kvm_vm_elf_load(struct kvm_vm *vm, const char *filename);
 int kvm_memfd_alloc(size_t size, bool hugepages);
 
-void vm_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent);
+void vm_dump(FILE *stream, struct kvm_vm *vm, u8 indent);
 
 static inline void kvm_vm_get_dirty_log(struct kvm_vm *vm, int slot, void *log)
 {
@@ -1155,10 +1155,10 @@ vm_adjust_num_guest_pages(enum vm_guest_mode mode, unsigned int num_guest_pages)
 void assert_on_unhandled_exception(struct kvm_vcpu *vcpu);
 
 void vcpu_arch_dump(FILE *stream, struct kvm_vcpu *vcpu,
-		    uint8_t indent);
+		    u8 indent);
 
 static inline void vcpu_dump(FILE *stream, struct kvm_vcpu *vcpu,
-			     uint8_t indent)
+			     u8 indent)
 {
 	vcpu_arch_dump(stream, vcpu, indent);
 }
@@ -1263,9 +1263,9 @@ static inline gpa_t addr_gva2gpa(struct kvm_vm *vm, gva_t gva)
  * Dumps to the FILE stream given by @stream, the contents of all the
  * virtual translation tables for the VM given by @vm.
  */
-void virt_arch_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent);
+void virt_arch_dump(FILE *stream, struct kvm_vm *vm, u8 indent);
 
-static inline void virt_dump(FILE *stream, struct kvm_vm *vm, uint8_t indent)
+static inline void virt_dump(FILE *stream, struct kvm_vm *vm, u8 indent)
 {
 	virt_arch_dump(stream, vm, indent);
 }

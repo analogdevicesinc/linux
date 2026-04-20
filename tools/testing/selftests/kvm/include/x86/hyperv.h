@@ -254,12 +254,12 @@
  * Issue a Hyper-V hypercall. Returns exception vector raised or 0, 'hv_status'
  * is set to the hypercall status (if no exception occurred).
  */
-static inline uint8_t __hyperv_hypercall(u64 control, gva_t input_address,
-					 gva_t output_address,
-					 u64 *hv_status)
+static inline u8 __hyperv_hypercall(u64 control, gva_t input_address,
+				    gva_t output_address,
+				    u64 *hv_status)
 {
 	u64 error_code;
-	uint8_t vector;
+	u8 vector;
 
 	/* Note both the hypercall and the "asm safe" clobber r9-r11. */
 	asm volatile("mov %[output_address], %%r8\n\t"
@@ -278,7 +278,7 @@ static inline void hyperv_hypercall(u64 control, gva_t input_address,
 				    gva_t output_address)
 {
 	u64 hv_status;
-	uint8_t vector;
+	u8 vector;
 
 	vector = __hyperv_hypercall(control, input_address, output_address, &hv_status);
 

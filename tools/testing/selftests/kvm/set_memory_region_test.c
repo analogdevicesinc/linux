@@ -556,7 +556,7 @@ static void guest_code_mmio_during_vectoring(void)
 	set_idt(&idt_desc);
 
 	/* Generate a #GP by dereferencing a non-canonical address */
-	*((uint8_t *)NONCANONICAL) = 0x1;
+	*((u8 *)NONCANONICAL) = 0x1;
 
 	GUEST_ASSERT(0);
 }

@@ -685,7 +685,7 @@ static int set_pmu_single_event_filter(struct kvm_vcpu *vcpu, u64 event,
 
 static void test_filter_ioctl(struct kvm_vcpu *vcpu)
 {
-	uint8_t nr_fixed_counters = kvm_cpu_property(X86_PROPERTY_PMU_NR_FIXED_COUNTERS);
+	u8 nr_fixed_counters = kvm_cpu_property(X86_PROPERTY_PMU_NR_FIXED_COUNTERS);
 	struct __kvm_pmu_event_filter f;
 	u64 e = ~0ul;
 	int r;
@@ -729,7 +729,7 @@ static void test_filter_ioctl(struct kvm_vcpu *vcpu)
 	TEST_ASSERT(!r, "Masking non-existent fixed counters should be allowed");
 }
 
-static void intel_run_fixed_counter_guest_code(uint8_t idx)
+static void intel_run_fixed_counter_guest_code(u8 idx)
 {
 	for (;;) {
 		wrmsr(MSR_CORE_PERF_GLOBAL_CTRL, 0);
@@ -770,8 +770,8 @@ static u64 test_set_gp_and_fixed_event_filter(struct kvm_vcpu *vcpu,
 	return run_vcpu_to_sync(vcpu);
 }
 
-static void __test_fixed_counter_bitmap(struct kvm_vcpu *vcpu, uint8_t idx,
-					uint8_t nr_fixed_counters)
+static void __test_fixed_counter_bitmap(struct kvm_vcpu *vcpu, u8 idx,
+					u8 nr_fixed_counters)
 {
 	unsigned int i;
 	u32 bitmap;
@@ -815,10 +815,10 @@ static void __test_fixed_counter_bitmap(struct kvm_vcpu *vcpu, uint8_t idx,
 
 static void test_fixed_counter_bitmap(void)
 {
-	uint8_t nr_fixed_counters = kvm_cpu_property(X86_PROPERTY_PMU_NR_FIXED_COUNTERS);
+	u8 nr_fixed_counters = kvm_cpu_property(X86_PROPERTY_PMU_NR_FIXED_COUNTERS);
 	struct kvm_vm *vm;
 	struct kvm_vcpu *vcpu;
-	uint8_t idx;
+	u8 idx;
 
 	/*
 	 * Check that pmu_event_filter works as expected when it's applied to

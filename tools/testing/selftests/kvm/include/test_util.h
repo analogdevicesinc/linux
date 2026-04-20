@@ -119,7 +119,7 @@ struct guest_random_state new_guest_random_state(u32 seed);
 u32 guest_random_u32(struct guest_random_state *state);
 
 static inline bool __guest_random_bool(struct guest_random_state *state,
-				       uint8_t percent)
+				       u8 percent)
 {
 	return (guest_random_u32(state) % 100) < percent;
 }

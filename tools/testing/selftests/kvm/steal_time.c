@@ -245,8 +245,8 @@ struct sta_struct {
 	u32 sequence;
 	u32 flags;
 	u64 steal;
-	uint8_t preempted;
-	uint8_t pad[47];
+	u8 preempted;
+	u8 pad[47];
 } __packed;
 
 static void sta_set_shmem(gpa_t gpa, unsigned long flags)

@@ -216,7 +216,7 @@ repeat:
 				while (--field_width > 0)
 					APPEND_BUFFER_SAFE(str, end, ' ');
 			APPEND_BUFFER_SAFE(str, end,
-					    (uint8_t)va_arg(args, int));
+					    (u8)va_arg(args, int));
 			while (--field_width > 0)
 				APPEND_BUFFER_SAFE(str, end, ' ');
 			continue;

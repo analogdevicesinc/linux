@@ -21,7 +21,7 @@ static inline void handle_flds_emulation_failure_exit(struct kvm_vcpu *vcpu)
 {
 	struct kvm_run *run = vcpu->run;
 	struct kvm_regs regs;
-	uint8_t *insn_bytes;
+	u8 *insn_bytes;
 	u64 flags;
 
 	TEST_ASSERT_KVM_EXIT_REASON(vcpu, KVM_EXIT_INTERNAL_ERROR);

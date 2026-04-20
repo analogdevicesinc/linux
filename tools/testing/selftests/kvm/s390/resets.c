@@ -20,7 +20,7 @@
 
 struct kvm_s390_irq buf[ARBITRARY_NON_ZERO_VCPU_ID + LOCAL_IRQS];
 
-static uint8_t regs_null[512];
+static u8 regs_null[512];
 
 static void guest_code_initial(void)
 {

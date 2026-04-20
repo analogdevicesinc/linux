@@ -23,7 +23,7 @@ struct kvm_coalesced_io {
 	 * amount of #ifdeffery and complexity, without having to sacrifice
 	 * verbose error messages.
 	 */
-	uint8_t pio_port;
+	u8 pio_port;
 };
 
 static struct kvm_coalesced_io kvm_builtin_io_ring;
