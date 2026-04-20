@@ -57,11 +57,11 @@ int main(void)
 	vcpu_set_hv_cpuid(vcpu);
 
 	/* Hypercall input */
-	hcall_in_page = vm_vaddr_alloc_pages(vm, 1);
+	hcall_in_page = vm_alloc_pages(vm, 1);
 	memset(addr_gva2hva(vm, hcall_in_page), 0x0, vm->page_size);
 
 	/* Hypercall output */
-	hcall_out_page = vm_vaddr_alloc_pages(vm, 1);
+	hcall_out_page = vm_alloc_pages(vm, 1);
 	memset(addr_gva2hva(vm, hcall_out_page), 0x0, vm->page_size);
 
 	vcpu_args_set(vcpu, 3, addr_gva2gpa(vm, hcall_in_page),

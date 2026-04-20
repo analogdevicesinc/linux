@@ -771,7 +771,7 @@ static void test_vgic(u32 nr_irqs, bool level_sensitive, bool eoi_split)
 	vcpu_init_descriptor_tables(vcpu);
 
 	/* Setup the guest args page (so it gets the args). */
-	args_gva = vm_vaddr_alloc_page(vm);
+	args_gva = vm_alloc_page(vm);
 	memcpy(addr_gva2hva(vm, args_gva), &args, sizeof(args));
 	vcpu_args_set(vcpu, 1, args_gva);
 
@@ -997,7 +997,7 @@ static void test_vgic_two_cpus(void *gcode)
 	vcpu_init_descriptor_tables(vcpus[1]);
 
 	/* Setup the guest args page (so it gets the args). */
-	args_gva = vm_vaddr_alloc_page(vm);
+	args_gva = vm_alloc_page(vm);
 	memcpy(addr_gva2hva(vm, args_gva), &args, sizeof(args));
 	vcpu_args_set(vcpus[0], 2, args_gva, 0);
 	vcpu_args_set(vcpus[1], 2, args_gva, 1);

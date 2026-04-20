@@ -716,14 +716,14 @@ void vm_mem_region_delete(struct kvm_vm *vm, u32 slot);
 struct kvm_vcpu *__vm_vcpu_add(struct kvm_vm *vm, u32 vcpu_id);
 void vm_populate_vaddr_bitmap(struct kvm_vm *vm);
 gva_t vm_vaddr_unused_gap(struct kvm_vm *vm, size_t sz, gva_t vaddr_min);
-gva_t vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min);
-gva_t __vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
-		       enum kvm_mem_region_type type);
-gva_t vm_vaddr_alloc_shared(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
-			    enum kvm_mem_region_type type);
-gva_t vm_vaddr_alloc_pages(struct kvm_vm *vm, int nr_pages);
-gva_t __vm_vaddr_alloc_page(struct kvm_vm *vm, enum kvm_mem_region_type type);
-gva_t vm_vaddr_alloc_page(struct kvm_vm *vm);
+gva_t vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min);
+gva_t __vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+		 enum kvm_mem_region_type type);
+gva_t vm_alloc_shared(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+		      enum kvm_mem_region_type type);
+gva_t vm_alloc_pages(struct kvm_vm *vm, int nr_pages);
+gva_t __vm_alloc_page(struct kvm_vm *vm, enum kvm_mem_region_type type);
+gva_t vm_alloc_page(struct kvm_vm *vm);
 
 void virt_map(struct kvm_vm *vm, u64 vaddr, u64 paddr,
 	      unsigned int npages);

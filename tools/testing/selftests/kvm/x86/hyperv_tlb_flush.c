@@ -593,11 +593,11 @@ int main(int argc, char *argv[])
 	vm = vm_create_with_one_vcpu(&vcpu[0], sender_guest_code);
 
 	/* Test data page */
-	test_data_page = vm_vaddr_alloc_page(vm);
+	test_data_page = vm_alloc_page(vm);
 	data = (struct test_data *)addr_gva2hva(vm, test_data_page);
 
 	/* Hypercall input/output */
-	data->hcall_gva = vm_vaddr_alloc_pages(vm, 2);
+	data->hcall_gva = vm_alloc_pages(vm, 2);
 	data->hcall_gpa = addr_gva2gpa(vm, data->hcall_gva);
 	memset(addr_gva2hva(vm, data->hcall_gva), 0x0, 2 * PAGE_SIZE);
 
@@ -606,7 +606,7 @@ int main(int argc, char *argv[])
 	 * and the test will swap their mappings. The third page keeps the indication
 	 * about the current state of mappings.
 	 */
-	data->test_pages = vm_vaddr_alloc_pages(vm, NTEST_PAGES + 1);
+	data->test_pages = vm_alloc_pages(vm, NTEST_PAGES + 1);
 	for (i = 0; i < NTEST_PAGES; i++)
 		memset(addr_gva2hva(vm, data->test_pages + PAGE_SIZE * i),
 		       (u8)(i + 1), PAGE_SIZE);

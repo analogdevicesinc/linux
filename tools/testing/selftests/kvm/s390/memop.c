@@ -880,8 +880,8 @@ static void test_copy_key_fetch_prot_override(void)
 	struct test_default t = test_default_init(guest_copy_key_fetch_prot_override);
 	gva_t guest_0_page, guest_last_page;
 
-	guest_0_page = vm_vaddr_alloc(t.kvm_vm, PAGE_SIZE, 0);
-	guest_last_page = vm_vaddr_alloc(t.kvm_vm, PAGE_SIZE, last_page_addr);
+	guest_0_page = vm_alloc(t.kvm_vm, PAGE_SIZE, 0);
+	guest_last_page = vm_alloc(t.kvm_vm, PAGE_SIZE, last_page_addr);
 	if (guest_0_page != 0 || guest_last_page != last_page_addr) {
 		print_skip("did not allocate guest pages at required positions");
 		goto out;
@@ -919,8 +919,8 @@ static void test_errors_key_fetch_prot_override_not_enabled(void)
 	struct test_default t = test_default_init(guest_copy_key_fetch_prot_override);
 	gva_t guest_0_page, guest_last_page;
 
-	guest_0_page = vm_vaddr_alloc(t.kvm_vm, PAGE_SIZE, 0);
-	guest_last_page = vm_vaddr_alloc(t.kvm_vm, PAGE_SIZE, last_page_addr);
+	guest_0_page = vm_alloc(t.kvm_vm, PAGE_SIZE, 0);
+	guest_last_page = vm_alloc(t.kvm_vm, PAGE_SIZE, last_page_addr);
 	if (guest_0_page != 0 || guest_last_page != last_page_addr) {
 		print_skip("did not allocate guest pages at required positions");
 		goto out;
@@ -940,8 +940,8 @@ static void test_errors_key_fetch_prot_override_enabled(void)
 	struct test_default t = test_default_init(guest_copy_key_fetch_prot_override);
 	gva_t guest_0_page, guest_last_page;
 
-	guest_0_page = vm_vaddr_alloc(t.kvm_vm, PAGE_SIZE, 0);
-	guest_last_page = vm_vaddr_alloc(t.kvm_vm, PAGE_SIZE, last_page_addr);
+	guest_0_page = vm_alloc(t.kvm_vm, PAGE_SIZE, 0);
+	guest_last_page = vm_alloc(t.kvm_vm, PAGE_SIZE, last_page_addr);
 	if (guest_0_page != 0 || guest_last_page != last_page_addr) {
 		print_skip("did not allocate guest pages at required positions");
 		goto out;

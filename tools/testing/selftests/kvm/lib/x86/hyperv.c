@@ -78,21 +78,21 @@ bool kvm_hv_cpu_has(struct kvm_x86_cpu_feature feature)
 struct hyperv_test_pages *vcpu_alloc_hyperv_test_pages(struct kvm_vm *vm,
 						       gva_t *p_hv_pages_gva)
 {
-	gva_t hv_pages_gva = vm_vaddr_alloc_page(vm);
+	gva_t hv_pages_gva = vm_alloc_page(vm);
 	struct hyperv_test_pages *hv = addr_gva2hva(vm, hv_pages_gva);
 
 	/* Setup of a region of guest memory for the VP Assist page. */
-	hv->vp_assist = (void *)vm_vaddr_alloc_page(vm);
+	hv->vp_assist = (void *)vm_alloc_page(vm);
 	hv->vp_assist_hva = addr_gva2hva(vm, (uintptr_t)hv->vp_assist);
 	hv->vp_assist_gpa = addr_gva2gpa(vm, (uintptr_t)hv->vp_assist);
 
 	/* Setup of a region of guest memory for the partition assist page. */
-	hv->partition_assist = (void *)vm_vaddr_alloc_page(vm);
+	hv->partition_assist = (void *)vm_alloc_page(vm);
 	hv->partition_assist_hva = addr_gva2hva(vm, (uintptr_t)hv->partition_assist);
 	hv->partition_assist_gpa = addr_gva2gpa(vm, (uintptr_t)hv->partition_assist);
 
 	/* Setup of a region of guest memory for the enlightened VMCS. */
-	hv->enlightened_vmcs = (void *)vm_vaddr_alloc_page(vm);
+	hv->enlightened_vmcs = (void *)vm_alloc_page(vm);
 	hv->enlightened_vmcs_hva = addr_gva2hva(vm, (uintptr_t)hv->enlightened_vmcs);
 	hv->enlightened_vmcs_gpa = addr_gva2gpa(vm, (uintptr_t)hv->enlightened_vmcs);
 

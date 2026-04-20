@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
 
 	vm = vm_create_with_one_vcpu(&vcpu, guest_code);
 
-	hcall_page = vm_vaddr_alloc_pages(vm, 1);
+	hcall_page = vm_alloc_pages(vm, 1);
 	memset(addr_gva2hva(vm, hcall_page), 0x0,  getpagesize());
 
 	vcpu_set_hv_cpuid(vcpu);

@@ -1450,8 +1450,8 @@ va_found:
 	return pgidx_start * vm->page_size;
 }
 
-static gva_t ____vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
-				enum kvm_mem_region_type type, bool protected)
+static gva_t ____vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+			  enum kvm_mem_region_type type, bool protected)
 {
 	u64 pages = (sz >> vm->page_shift) + ((sz % vm->page_size) != 0);
 
@@ -1476,84 +1476,44 @@ static gva_t ____vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
 	return vaddr_start;
 }
 
-gva_t __vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
-		       enum kvm_mem_region_type type)
+gva_t __vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+		 enum kvm_mem_region_type type)
 {
-	return ____vm_vaddr_alloc(vm, sz, vaddr_min, type,
-				  vm_arch_has_protected_memory(vm));
+	return ____vm_alloc(vm, sz, vaddr_min, type,
+			    vm_arch_has_protected_memory(vm));
 }
 
-gva_t vm_vaddr_alloc_shared(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
-			    enum kvm_mem_region_type type)
+gva_t vm_alloc_shared(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+		      enum kvm_mem_region_type type)
 {
-	return ____vm_vaddr_alloc(vm, sz, vaddr_min, type, false);
-}
-
-/*
- * VM Virtual Address Allocate
- *
- * Input Args:
- *   vm - Virtual Machine
- *   sz - Size in bytes
- *   vaddr_min - Minimum starting virtual address
- *
- * Output Args: None
- *
- * Return:
- *   Starting guest virtual address
- *
- * Allocates at least sz bytes within the virtual address space of the vm
- * given by vm.  The allocated bytes are mapped to a virtual address >=
- * the address given by vaddr_min.  Note that each allocation uses a
- * a unique set of pages, with the minimum real allocation being at least
- * a page. The allocated physical space comes from the TEST_DATA memory region.
- */
-gva_t vm_vaddr_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min)
-{
-	return __vm_vaddr_alloc(vm, sz, vaddr_min, MEM_REGION_TEST_DATA);
+	return ____vm_alloc(vm, sz, vaddr_min, type, false);
 }
 
 /*
- * VM Virtual Address Allocate Pages
- *
- * Input Args:
- *   vm - Virtual Machine
- *
- * Output Args: None
- *
- * Return:
- *   Starting guest virtual address
- *
- * Allocates at least N system pages worth of bytes within the virtual address
- * space of the vm.
+ * Allocates at least sz bytes within the virtual address space of the VM
+ * given by @vm.  The allocated bytes are mapped to a virtual address >= the
+ * address given by @vaddr_min.  Note that each allocation uses a a unique set
+ * of pages, with the minimum real allocation being at least a page. The
+ * allocated physical space comes from the TEST_DATA memory region.
  */
-gva_t vm_vaddr_alloc_pages(struct kvm_vm *vm, int nr_pages)
+gva_t vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min)
 {
-	return vm_vaddr_alloc(vm, nr_pages * getpagesize(), KVM_UTIL_MIN_VADDR);
+	return __vm_alloc(vm, sz, vaddr_min, MEM_REGION_TEST_DATA);
 }
 
-gva_t __vm_vaddr_alloc_page(struct kvm_vm *vm, enum kvm_mem_region_type type)
+gva_t vm_alloc_pages(struct kvm_vm *vm, int nr_pages)
 {
-	return __vm_vaddr_alloc(vm, getpagesize(), KVM_UTIL_MIN_VADDR, type);
+	return vm_alloc(vm, nr_pages * getpagesize(), KVM_UTIL_MIN_VADDR);
 }
 
-/*
- * VM Virtual Address Allocate Page
- *
- * Input Args:
- *   vm - Virtual Machine
- *
- * Output Args: None
- *
- * Return:
- *   Starting guest virtual address
- *
- * Allocates at least one system page worth of bytes within the virtual address
- * space of the vm.
- */
-gva_t vm_vaddr_alloc_page(struct kvm_vm *vm)
+gva_t __vm_alloc_page(struct kvm_vm *vm, enum kvm_mem_region_type type)
 {
-	return vm_vaddr_alloc_pages(vm, 1);
+	return __vm_alloc(vm, getpagesize(), KVM_UTIL_MIN_VADDR, type);
+}
+
+gva_t vm_alloc_page(struct kvm_vm *vm)
+{
+	return vm_alloc_pages(vm, 1);
 }
 
 /*

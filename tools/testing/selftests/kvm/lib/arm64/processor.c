@@ -422,9 +422,9 @@ static struct kvm_vcpu *__aarch64_vcpu_add(struct kvm_vm *vm, u32 vcpu_id,
 
 	stack_size = vm->page_size == 4096 ? DEFAULT_STACK_PGS * vm->page_size :
 					     vm->page_size;
-	stack_vaddr = __vm_vaddr_alloc(vm, stack_size,
-				       DEFAULT_ARM64_GUEST_STACK_VADDR_MIN,
-				       MEM_REGION_DATA);
+	stack_vaddr = __vm_alloc(vm, stack_size,
+				 DEFAULT_ARM64_GUEST_STACK_VADDR_MIN,
+				 MEM_REGION_DATA);
 
 	aarch64_vcpu_setup(vcpu, init);
 
@@ -536,8 +536,8 @@ unexpected_exception:
 
 void vm_init_descriptor_tables(struct kvm_vm *vm)
 {
-	vm->handlers = __vm_vaddr_alloc(vm, sizeof(struct handlers),
-					vm->page_size, MEM_REGION_DATA);
+	vm->handlers = __vm_alloc(vm, sizeof(struct handlers), vm->page_size,
+				  MEM_REGION_DATA);
 
 	*(gva_t *)addr_gva2hva(vm, (gva_t)(&exception_handlers)) = vm->handlers;
 }

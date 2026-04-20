@@ -146,7 +146,7 @@ static enum stage perform_next_stage(int *i, bool mapped_0)
 		/*
 		 * Some fetch protection override tests require that page 0
 		 * be mapped, however, when the hosts tries to map that page via
-		 * vm_vaddr_alloc, it may happen that some other page gets mapped
+		 * vm_alloc, it may happen that some other page gets mapped
 		 * instead.
 		 * In order to skip these tests we detect this inside the guest
 		 */
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 	mprotect(addr_gva2hva(vm, (gva_t)pages), PAGE_SIZE * 2, PROT_READ);
 	HOST_SYNC(vcpu, TEST_SIMPLE);
 
-	guest_0_page = vm_vaddr_alloc(vm, PAGE_SIZE, 0);
+	guest_0_page = vm_alloc(vm, PAGE_SIZE, 0);
 	if (guest_0_page != 0) {
 		/* Use NO_TAP so we don't get a PASS print */
 		HOST_SYNC_NO_TAP(vcpu, STAGE_INIT_FETCH_PROT_OVERRIDE);
