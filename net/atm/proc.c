@@ -21,11 +21,9 @@
 #include <linux/atm.h>
 #include <linux/atmdev.h>
 #include <linux/netdevice.h>
-#include <linux/atmclip.h>
 #include <linux/init.h> /* for __init */
 #include <linux/slab.h>
 #include <net/net_namespace.h>
-#include <net/atmclip.h>
 #include <linux/uaccess.h>
 #include <linux/param.h> /* for HZ */
 #include <linux/atomic.h>
@@ -155,15 +153,6 @@ static void pvc_info(struct seq_file *seq, struct atm_vcc *vcc)
 		   class_name[vcc->qos.rxtp.traffic_class],
 		   vcc->qos.txtp.min_pcr,
 		   class_name[vcc->qos.txtp.traffic_class]);
-	if (test_bit(ATM_VF_IS_CLIP, &vcc->flags)) {
-		struct clip_vcc *clip_vcc = CLIP_VCC(vcc);
-		struct net_device *dev;
-
-		dev = clip_vcc->entry ? clip_vcc->entry->neigh->dev : NULL;
-		seq_printf(seq, "CLIP, Itf:%s, Encap:",
-		    dev ? dev->name : "none?");
-		seq_printf(seq, "%s", clip_vcc->encap ? "LLC/SNAP" : "None");
-	}
 	seq_putc(seq, '\n');
 }
 

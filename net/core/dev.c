@@ -5862,13 +5862,6 @@ static __latent_entropy void net_tx_action(void)
 	xfrm_dev_backlog(sd);
 }
 
-#if IS_ENABLED(CONFIG_BRIDGE) && IS_ENABLED(CONFIG_ATM_LANE)
-/* This hook is defined here for ATM LANE */
-int (*br_fdb_test_addr_hook)(struct net_device *dev,
-			     unsigned char *addr) __read_mostly;
-EXPORT_SYMBOL_GPL(br_fdb_test_addr_hook);
-#endif
-
 /**
  *	netdev_is_rx_handler_busy - check if receive handler is registered
  *	@dev: device to check

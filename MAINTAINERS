@@ -4151,10 +4151,12 @@ L:	netdev@vger.kernel.org
 S:	Maintained
 W:	http://linux-atm.sourceforge.net
 F:	drivers/atm/
+F:	drivers/usb/atm/
 F:	include/linux/atm*
 F:	include/linux/sonet.h
 F:	include/uapi/linux/atm*
 F:	include/uapi/linux/sonet.h
+F:	net/atm/
 
 ATMEL MACB ETHERNET DRIVER
 M:	Nicolas Ferre <nicolas.ferre@microchip.com>
