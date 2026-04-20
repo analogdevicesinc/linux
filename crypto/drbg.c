@@ -89,7 +89,6 @@
  * Just mix both scenarios above.
  */
 
-#include <crypto/internal/drbg.h>
 #include <crypto/internal/rng.h>
 #include <crypto/sha2.h>
 #include <linux/fips.h>
@@ -144,7 +143,8 @@ struct drbg_state {
 	bool instantiated;
 	bool pr;		/* Prediction resistance enabled? */
 	struct crypto_rng *jent;
-	struct drbg_string test_data;
+	const u8 *test_entropy;
+	size_t test_entropylen;
 };
 
 enum drbg_prefixes {
@@ -159,7 +159,9 @@ static int drbg_uninstantiate(struct drbg_state *drbg);
  ******************************************************************/
 
 /* update function of HMAC DRBG as defined in 10.1.2.2 */
-static void drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed)
+static void drbg_hmac_update(struct drbg_state *drbg,
+			     const u8 *data1, size_t data1_len,
+			     const u8 *data2, size_t data2_len)
 {
 	int i = 0;
 	struct hmac_sha512_ctx hmac_ctx;
@@ -174,13 +176,8 @@ static void drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed)
 		hmac_sha512_init(&hmac_ctx, &drbg->key);
 		hmac_sha512_update(&hmac_ctx, drbg->V, DRBG_STATE_LEN);
 		hmac_sha512_update(&hmac_ctx, &prefix, 1);
-		if (seed) {
-			struct drbg_string *input;
-
-			list_for_each_entry(input, seed, list)
-				hmac_sha512_update(&hmac_ctx, input->buf,
-						   input->len);
-		}
+		hmac_sha512_update(&hmac_ctx, data1, data1_len);
+		hmac_sha512_update(&hmac_ctx, data2, data2_len);
 		hmac_sha512_final(&hmac_ctx, new_key);
 		hmac_sha512_preparekey(&drbg->key, new_key, DRBG_STATE_LEN);
 
@@ -188,7 +185,7 @@ static void drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed)
 		hmac_sha512(&drbg->key, drbg->V, DRBG_STATE_LEN, drbg->V);
 
 		/* 10.1.2.2 step 3 */
-		if (!seed)
+		if (data1_len == 0 && data2_len == 0)
 			break;
 	}
 	memzero_explicit(new_key, sizeof(new_key));
@@ -198,13 +195,13 @@ static void drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed)
 static void drbg_hmac_generate(struct drbg_state *drbg,
 			       unsigned char *buf,
 			       unsigned int buflen,
-			       struct list_head *addtl)
+			       const u8 *addtl, size_t addtl_len)
 {
 	int len = 0;
 
 	/* 10.1.2.5 step 2 */
-	if (addtl && !list_empty(addtl))
-		drbg_hmac_update(drbg, addtl);
+	if (addtl_len)
+		drbg_hmac_update(drbg, addtl, addtl_len, NULL, 0);
 
 	while (len < buflen) {
 		unsigned int outlen = 0;
@@ -220,16 +217,15 @@ static void drbg_hmac_generate(struct drbg_state *drbg,
 	}
 
 	/* 10.1.2.5 step 6 */
-	if (addtl && !list_empty(addtl))
-		drbg_hmac_update(drbg, addtl);
-	else
-		drbg_hmac_update(drbg, NULL);
+	drbg_hmac_update(drbg, addtl, addtl_len, NULL, 0);
 }
 
-static inline void __drbg_seed(struct drbg_state *drbg, struct list_head *seed,
+static inline void __drbg_seed(struct drbg_state *drbg,
+			       const u8 *seed1, size_t seed1_len,
+			       const u8 *seed2, size_t seed2_len,
 			       enum drbg_seed_state new_seed_state)
 {
-	drbg_hmac_update(drbg, seed);
+	drbg_hmac_update(drbg, seed1, seed1_len, seed2, seed2_len);
 
 	drbg->seeded = new_seed_state;
 	drbg->last_seed_time = jiffies;
@@ -260,16 +256,12 @@ static inline void __drbg_seed(struct drbg_state *drbg, struct list_head *seed,
 static void drbg_seed_from_random(struct drbg_state *drbg)
 	__must_hold(&drbg->drbg_mutex)
 {
-	struct drbg_string data;
-	LIST_HEAD(seedlist);
-	unsigned char entropy[DRBG_SEC_STRENGTH];
-
-	drbg_string_fill(&data, entropy, DRBG_SEC_STRENGTH);
-	list_add_tail(&data.list, &seedlist);
+	u8 entropy[DRBG_SEC_STRENGTH];
 
 	get_random_bytes(entropy, DRBG_SEC_STRENGTH);
 
-	__drbg_seed(drbg, &seedlist, DRBG_SEED_STATE_FULL);
+	__drbg_seed(drbg, entropy, DRBG_SEC_STRENGTH, NULL, 0,
+		    DRBG_SEED_STATE_FULL);
 
 	memzero_explicit(entropy, DRBG_SEC_STRENGTH);
 }
@@ -279,7 +271,7 @@ static bool drbg_nopr_reseed_interval_elapsed(struct drbg_state *drbg)
 	unsigned long next_reseed;
 
 	/* Don't ever reseed from get_random_bytes() in test mode. */
-	if (list_empty(&drbg->test_data.list))
+	if (drbg->test_entropylen)
 		return false;
 
 	/*
@@ -299,33 +291,33 @@ static bool drbg_nopr_reseed_interval_elapsed(struct drbg_state *drbg)
  *
  * @drbg: DRBG state struct
  * @pers: personalization / additional information buffer
- * @reseed: 0 for initial seed process, 1 for reseeding
+ * @pers_len: length of @pers in bytes
+ * @reseed: false for initial seeding (instantiation), true for reseeding
  *
  * return:
  *	0 on success
  *	error value otherwise
  */
-static int drbg_seed(struct drbg_state *drbg, struct drbg_string *pers,
+static int drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len,
 		     bool reseed)
 	__must_hold(&drbg->drbg_mutex)
 {
 	int ret;
-	unsigned char entropy[((32 + 16) * 2)];
-	unsigned int entropylen;
-	struct drbg_string data1;
-	LIST_HEAD(seedlist);
+	u8 entropy_buf[(32 + 16) * 2];
+	size_t entropylen;
+	const u8 *entropy;
 	enum drbg_seed_state new_seed_state = DRBG_SEED_STATE_FULL;
 
 	/* 9.1 / 9.2 / 9.3.1 step 3 */
-	if (pers && pers->len > DRBG_MAX_ADDTL) {
+	if (pers_len > DRBG_MAX_ADDTL) {
 		pr_devel("DRBG: personalization string too long %zu\n",
-			 pers->len);
+			 pers_len);
 		return -EINVAL;
 	}
 
-	if (list_empty(&drbg->test_data.list)) {
-		drbg_string_fill(&data1, drbg->test_data.buf,
-				 drbg->test_data.len);
+	if (drbg->test_entropylen) {
+		entropy = drbg->test_entropy;
+		entropylen = drbg->test_entropylen;
 		pr_devel("DRBG: using test entropy\n");
 	} else {
 		/*
@@ -336,21 +328,21 @@ static int drbg_seed(struct drbg_state *drbg, struct drbg_string *pers,
 		 * of the strength. The consideration of a nonce is only
 		 * applicable during initial seeding.
 		 */
+		entropy = entropy_buf;
 		if (!reseed)
 			entropylen = ((DRBG_SEC_STRENGTH + 1) / 2) * 3;
 		else
 			entropylen = DRBG_SEC_STRENGTH;
-		BUG_ON((entropylen * 2) > sizeof(entropy));
+		BUG_ON(entropylen * 2 > sizeof(entropy_buf));
 
 		/* Get seed from in-kernel /dev/urandom */
 		if (!rng_is_initialized())
 			new_seed_state = DRBG_SEED_STATE_PARTIAL;
 
-		get_random_bytes(entropy, entropylen);
+		get_random_bytes(entropy_buf, entropylen);
 
 		if (!drbg->jent) {
-			drbg_string_fill(&data1, entropy, entropylen);
-			pr_devel("DRBG: (re)seeding with %u bytes of entropy\n",
+			pr_devel("DRBG: (re)seeding with %zu bytes of entropy\n",
 				 entropylen);
 		} else {
 			/*
@@ -358,7 +350,7 @@ static int drbg_seed(struct drbg_state *drbg, struct drbg_string *pers,
 			 * fatal only in FIPS mode.
 			 */
 			ret = crypto_rng_get_bytes(drbg->jent,
-						   entropy + entropylen,
+						   &entropy_buf[entropylen],
 						   entropylen);
 			if (fips_enabled && ret) {
 				pr_devel("DRBG: jent failed with %d\n", ret);
@@ -381,28 +373,19 @@ static int drbg_seed(struct drbg_state *drbg, struct drbg_string *pers,
 					goto out;
 			}
 
-			drbg_string_fill(&data1, entropy, entropylen * 2);
-			pr_devel("DRBG: (re)seeding with %u bytes of entropy\n",
-				 entropylen * 2);
+			entropylen *= 2;
+			pr_devel("DRBG: (re)seeding with %zu bytes of entropy\n",
+				 entropylen);
 		}
 	}
-	list_add_tail(&data1.list, &seedlist);
 
-	/*
-	 * concatenation of entropy with personalization str / addtl input)
-	 * the variable pers is directly handed in by the caller, so check its
-	 * contents whether it is appropriate
-	 */
-	if (pers && pers->buf && 0 < pers->len) {
-		list_add_tail(&pers->list, &seedlist);
+	if (pers_len)
 		pr_devel("DRBG: using personalization string\n");
-	}
 
-
-	__drbg_seed(drbg, &seedlist, new_seed_state);
+	__drbg_seed(drbg, entropy, entropylen, pers, pers_len, new_seed_state);
 	ret = 0;
 out:
-	memzero_explicit(entropy, sizeof(entropy));
+	memzero_explicit(entropy_buf, sizeof(entropy_buf));
 
 	return ret;
 }
@@ -427,20 +410,17 @@ static inline void drbg_dealloc_state(struct drbg_state *drbg)
  *      be pre-allocated by caller
  * @buflen Length of output buffer - this value defines the number of random
  *	   bytes pulled from DRBG
- * @addtl Additional input that is mixed into state, may be NULL -- note
- *	  the entropy is pulled by the DRBG internally unconditionally
- *	  as defined in SP800-90A. The additional input is mixed into
- *	  the state in addition to the pulled entropy.
+ * @addtl Optional additional input that is mixed into state
+ * @addtl_len Length of @addtl in bytes, may be 0
  *
  * return: 0 when all bytes are generated; < 0 in case of an error
  */
 static int drbg_generate(struct drbg_state *drbg,
 			 unsigned char *buf, unsigned int buflen,
-			 struct drbg_string *addtl)
+			 const u8 *addtl, size_t addtl_len)
 	__must_hold(&drbg->drbg_mutex)
 {
 	int len = 0;
-	LIST_HEAD(addtllist);
 
 	if (!drbg->instantiated) {
 		pr_devel("DRBG: not yet instantiated\n");
@@ -450,7 +430,7 @@ static int drbg_generate(struct drbg_state *drbg,
 		pr_devel("DRBG: no output buffer provided\n");
 		return -EINVAL;
 	}
-	if (addtl && NULL == addtl->buf && 0 < addtl->len) {
+	if (addtl == NULL && addtl_len != 0) {
 		pr_devel("DRBG: wrong format of additional information\n");
 		return -EINVAL;
 	}
@@ -465,9 +445,9 @@ static int drbg_generate(struct drbg_state *drbg,
 	/* 9.3.1 step 3 is implicit with the chosen DRBG */
 
 	/* 9.3.1 step 4 */
-	if (addtl && addtl->len > DRBG_MAX_ADDTL) {
+	if (addtl_len > DRBG_MAX_ADDTL) {
 		pr_devel("DRBG: additional information string too long %zu\n",
-			 addtl->len);
+			 addtl_len);
 		return -EINVAL;
 	}
 	/* 9.3.1 step 5 is implicit with the chosen DRBG */
@@ -486,21 +466,20 @@ static int drbg_generate(struct drbg_state *drbg,
 			 (drbg->seeded ==  DRBG_SEED_STATE_FULL ?
 			  "seeded" : "unseeded"));
 		/* 9.3.1 steps 7.1 through 7.3 */
-		len = drbg_seed(drbg, addtl, true);
+		len = drbg_seed(drbg, addtl, addtl_len, true);
 		if (len)
 			goto err;
 		/* 9.3.1 step 7.4 */
 		addtl = NULL;
+		addtl_len = 0;
 	} else if (rng_is_initialized() &&
 		   (drbg->seeded == DRBG_SEED_STATE_PARTIAL ||
 		    drbg_nopr_reseed_interval_elapsed(drbg))) {
 		drbg_seed_from_random(drbg);
 	}
 
-	if (addtl && 0 < addtl->len)
-		list_add_tail(&addtl->list, &addtllist);
 	/* 9.3.1 step 8 and 10 */
-	drbg_hmac_generate(drbg, buf, buflen, &addtllist);
+	drbg_hmac_generate(drbg, buf, buflen, addtl, addtl_len);
 
 	/* 10.1.2.5 step 7 */
 	drbg->reseed_ctr++;
@@ -537,7 +516,7 @@ err:
  */
 static int drbg_generate_long(struct drbg_state *drbg,
 			      unsigned char *buf, unsigned int buflen,
-			      struct drbg_string *addtl)
+			      const u8 *addtl, size_t addtl_len)
 {
 	unsigned int len = 0;
 	unsigned int slice = 0;
@@ -547,7 +526,7 @@ static int drbg_generate_long(struct drbg_state *drbg,
 		slice = (buflen - len) / DRBG_MAX_REQUEST_BYTES;
 		chunk = slice ? DRBG_MAX_REQUEST_BYTES : (buflen - len);
 		mutex_lock(&drbg->drbg_mutex);
-		err = drbg_generate(drbg, buf + len, chunk, addtl);
+		err = drbg_generate(drbg, buf + len, chunk, addtl, addtl_len);
 		mutex_unlock(&drbg->drbg_mutex);
 		if (0 > err)
 			return err;
@@ -559,7 +538,7 @@ static int drbg_generate_long(struct drbg_state *drbg,
 static int drbg_prepare_hrng(struct drbg_state *drbg)
 {
 	/* We do not need an HRNG in test mode. */
-	if (list_empty(&drbg->test_data.list))
+	if (drbg->test_entropylen != 0)
 		return 0;
 
 	drbg->jent = crypto_alloc_rng("jitterentropy_rng", 0, 0);
@@ -581,18 +560,16 @@ static int drbg_prepare_hrng(struct drbg_state *drbg)
  * checks required by SP800-90A
  *
  * @drbg memory of state -- if NULL, new memory is allocated
- * @pers Personalization string that is mixed into state, may be NULL -- note
- *	 the entropy is pulled by the DRBG internally unconditionally
- *	 as defined in SP800-90A. The additional input is mixed into
- *	 the state in addition to the pulled entropy.
+ * @pers Optional personalization string that is mixed into state
+ * @pers_len Length of personalization string in bytes, may be 0
  * @pr prediction resistance enabled
  *
  * return
  *	0 on success
  *	error value otherwise
  */
-static int drbg_instantiate(struct drbg_state *drbg, struct drbg_string *pers,
-			    bool pr)
+static int drbg_instantiate(struct drbg_state *drbg,
+			    const u8 *pers, size_t pers_len, bool pr)
 {
 	static const u8 initial_key[DRBG_STATE_LEN]; /* all zeroes */
 	int ret;
@@ -627,7 +604,7 @@ static int drbg_instantiate(struct drbg_state *drbg, struct drbg_string *pers,
 		reseed = false;
 	}
 
-	ret = drbg_seed(drbg, pers, reseed);
+	ret = drbg_seed(drbg, pers, pers_len, reseed);
 
 	if (ret && !reseed)
 		goto free_everything;
@@ -674,7 +651,8 @@ static void drbg_kcapi_set_entropy(struct crypto_rng *tfm,
 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
 
 	mutex_lock(&drbg->drbg_mutex);
-	drbg_string_fill(&drbg->test_data, data, len);
+	drbg->test_entropy = data;
+	drbg->test_entropylen = len;
 	mutex_unlock(&drbg->drbg_mutex);
 }
 
@@ -710,16 +688,8 @@ static int drbg_kcapi_random(struct crypto_rng *tfm,
 			     u8 *dst, unsigned int dlen)
 {
 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
-	struct drbg_string *addtl = NULL;
-	struct drbg_string string;
 
-	if (slen) {
-		/* linked list variable is now local to allow modification */
-		drbg_string_fill(&string, src, slen);
-		addtl = &string;
-	}
-
-	return drbg_generate_long(drbg, dst, dlen, addtl);
+	return drbg_generate_long(drbg, dst, dlen, src, slen);
 }
 
 /* Seed (i.e. instantiate) or re-seed the DRBG. */
@@ -727,15 +697,8 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 			   const u8 *seed, unsigned int slen, bool pr)
 {
 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
-	struct drbg_string string;
-	struct drbg_string *seed_string = NULL;
 
-	if (0 < slen) {
-		drbg_string_fill(&string, seed, slen);
-		seed_string = &string;
-	}
-
-	return drbg_instantiate(drbg, seed_string, pr);
+	return drbg_instantiate(drbg, seed, slen, pr);
 }
 
 static int drbg_kcapi_seed_pr(struct crypto_rng *tfm,
@@ -767,11 +730,9 @@ static int drbg_kcapi_seed_nopr(struct crypto_rng *tfm,
 static inline int __init drbg_healthcheck_sanity(void)
 {
 #define OUTBUFLEN 16
-	unsigned char buf[OUTBUFLEN];
+	u8 buf[OUTBUFLEN];
 	struct drbg_state *drbg = NULL;
 	int ret;
-	int rc = -EFAULT;
-	struct drbg_string addtl;
 
 	/* only perform test in FIPS mode */
 	if (!fips_enabled)
@@ -793,25 +754,23 @@ static inline int __init drbg_healthcheck_sanity(void)
 	 * grave bug.
 	 */
 
-	drbg_string_fill(&addtl, buf, DRBG_MAX_ADDTL + 1);
 	/* overflow addtllen with additional info string */
-	ret = drbg_generate(drbg, buf, OUTBUFLEN, &addtl);
+	ret = drbg_generate(drbg, buf, OUTBUFLEN, buf, DRBG_MAX_ADDTL + 1);
 	BUG_ON(ret == 0);
 	/* overflow max_bits */
-	ret = drbg_generate(drbg, buf, DRBG_MAX_REQUEST_BYTES + 1, NULL);
+	ret = drbg_generate(drbg, buf, DRBG_MAX_REQUEST_BYTES + 1, NULL, 0);
 	BUG_ON(ret == 0);
 
 	/* overflow max addtllen with personalization string */
-	ret = drbg_seed(drbg, &addtl, false);
-	BUG_ON(0 == ret);
+	ret = drbg_seed(drbg, buf, DRBG_MAX_ADDTL + 1, false);
+	BUG_ON(ret == 0);
 	/* all tests passed */
-	rc = 0;
 
 	pr_devel("DRBG: Sanity tests for failure code paths successfully "
 		 "completed\n");
 
 	kfree(drbg);
-	return rc;
+	return 0;
 }
 
 static struct rng_alg drbg_algs[] = {
