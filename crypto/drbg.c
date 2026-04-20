@@ -609,26 +609,8 @@ static int drbg_uninstantiate(struct drbg_state *drbg)
 	return 0;
 }
 
-/*
- * Helper function for setting the test data in the DRBG
- *
- * @drbg DRBG state handle
- * @data test data
- * @len test data length
- */
-static void drbg_kcapi_set_entropy(struct crypto_rng *tfm,
-				   const u8 *data, unsigned int len)
-{
-	struct drbg_state *drbg = crypto_rng_ctx(tfm);
-
-	mutex_lock(&drbg->drbg_mutex);
-	drbg->test_entropy = data;
-	drbg->test_entropylen = len;
-	mutex_unlock(&drbg->drbg_mutex);
-}
-
 /***************************************************************
- * Kernel crypto API interface to register DRBG
+ * Kernel crypto API interface to DRBG
  ***************************************************************/
 
 static int drbg_kcapi_init(struct crypto_tfm *tfm)
@@ -640,42 +622,16 @@ static int drbg_kcapi_init(struct crypto_tfm *tfm)
 	return 0;
 }
 
-static void drbg_kcapi_cleanup(struct crypto_tfm *tfm)
-{
-	drbg_uninstantiate(crypto_tfm_ctx(tfm));
-}
-
-/*
- * Generate random numbers invoked by the kernel crypto API:
- *
- * src is additional input supplied to the RNG.
- * slen is the length of src.
- * dst is the output buffer where random data is to be stored.
- * dlen is the length of dst.
- */
-static int drbg_kcapi_random(struct crypto_rng *tfm,
-			     const u8 *src, unsigned int slen,
-			     u8 *dst, unsigned int dlen)
+/* Set test entropy in the DRBG. */
+static void drbg_kcapi_set_entropy(struct crypto_rng *tfm,
+				   const u8 *data, unsigned int len)
 {
 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
 
-	/*
-	 * Break the request into multiple requests if needed, to avoid
-	 * exceeding the maximum request length of the core algorithm.
-	 */
-	do {
-		unsigned int n = min(dlen, DRBG_MAX_REQUEST_BYTES);
-		int err;
-
-		mutex_lock(&drbg->drbg_mutex);
-		err = drbg_generate(drbg, dst, n, src, slen);
-		mutex_unlock(&drbg->drbg_mutex);
-		if (err < 0)
-			return err;
-		dst += n;
-		dlen -= n;
-	} while (dlen);
-	return 0;
+	mutex_lock(&drbg->drbg_mutex);
+	drbg->test_entropy = data;
+	drbg->test_entropylen = len;
+	mutex_unlock(&drbg->drbg_mutex);
 }
 
 /* Seed (i.e. instantiate) or re-seed the DRBG. */
@@ -699,9 +655,43 @@ static int drbg_kcapi_seed_nopr(struct crypto_rng *tfm,
 	return drbg_kcapi_seed(tfm, seed, slen, /* pr= */ false);
 }
 
-/***************************************************************
- * Kernel module: code to load the module
- ***************************************************************/
+/*
+ * Generate random numbers invoked by the kernel crypto API:
+ *
+ * src is additional input supplied to the RNG.
+ * slen is the length of src.
+ * dst is the output buffer where random data is to be stored.
+ * dlen is the length of dst.
+ */
+static int drbg_kcapi_generate(struct crypto_rng *tfm,
+			       const u8 *src, unsigned int slen,
+			       u8 *dst, unsigned int dlen)
+{
+	struct drbg_state *drbg = crypto_rng_ctx(tfm);
+
+	/*
+	 * Break the request into multiple requests if needed, to avoid
+	 * exceeding the maximum request length of the core algorithm.
+	 */
+	do {
+		unsigned int n = min(dlen, DRBG_MAX_REQUEST_BYTES);
+		int err;
+
+		mutex_lock(&drbg->drbg_mutex);
+		err = drbg_generate(drbg, dst, n, src, slen);
+		mutex_unlock(&drbg->drbg_mutex);
+		if (err < 0)
+			return err;
+		dst += n;
+		dlen -= n;
+	} while (dlen);
+	return 0;
+}
+
+static void drbg_kcapi_exit(struct crypto_tfm *tfm)
+{
+	drbg_uninstantiate(crypto_tfm_ctx(tfm));
+}
 
 /*
  * Tests as defined in 11.3.2 in addition to the cipher tests: testing
@@ -769,8 +759,8 @@ static struct rng_alg drbg_algs[] = {
 		.base.cra_init		= drbg_kcapi_init,
 		.set_ent		= drbg_kcapi_set_entropy,
 		.seed			= drbg_kcapi_seed_pr,
-		.generate		= drbg_kcapi_random,
-		.base.cra_exit		= drbg_kcapi_cleanup,
+		.generate		= drbg_kcapi_generate,
+		.base.cra_exit		= drbg_kcapi_exit,
 	},
 	{
 		.base.cra_name		= "stdrng",
@@ -781,8 +771,8 @@ static struct rng_alg drbg_algs[] = {
 		.base.cra_init		= drbg_kcapi_init,
 		.set_ent		= drbg_kcapi_set_entropy,
 		.seed			= drbg_kcapi_seed_nopr,
-		.generate		= drbg_kcapi_random,
-		.base.cra_exit		= drbg_kcapi_cleanup,
+		.generate		= drbg_kcapi_generate,
+		.base.cra_exit		= drbg_kcapi_exit,
 	},
 };
 
