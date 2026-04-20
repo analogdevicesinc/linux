@@ -220,7 +220,7 @@ static void ledtrig_tty_work(struct work_struct *work)
 			goto out;
 
 		tty = tty_kopen_shared(devno);
-		if (IS_ERR(tty) || !tty)
+		if (IS_ERR_OR_NULL(tty))
 			/* What to do? retry or abort */
 			goto out;
 
