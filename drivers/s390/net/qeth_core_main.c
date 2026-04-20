@@ -7,10 +7,8 @@
  *		 Frank Blaschka <frank.blaschka@de.ibm.com>
  */
 
-#define KMSG_COMPONENT "qeth"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "qeth: " fmt
 
-#include <linux/compat.h>
 #include <linux/export.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -227,7 +225,7 @@ static struct qeth_buffer_pool_entry *qeth_alloc_pool_entry(unsigned int pages)
 	struct qeth_buffer_pool_entry *entry;
 	unsigned int i;
 
-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	entry = kzalloc_obj(*entry);
 	if (!entry)
 		return NULL;
 
@@ -326,7 +324,7 @@ static void qeth_free_qdio_queue(struct qeth_qdio_q *q)
 
 static struct qeth_qdio_q *qeth_alloc_qdio_queue(void)
 {
-	struct qeth_qdio_q *q = kzalloc(sizeof(*q), GFP_KERNEL);
+	struct qeth_qdio_q *q = kzalloc_obj(*q);
 	int i;
 
 	if (!q)
@@ -561,7 +559,7 @@ static void qeth_add_local_addrs4(struct qeth_card *card,
 		if (duplicate)
 			continue;
 
-		addr = kmalloc(sizeof(*addr), GFP_ATOMIC);
+		addr = kmalloc_obj(*addr, GFP_ATOMIC);
 		if (!addr) {
 			dev_err(&card->gdev->dev,
 				"Failed to allocate local addr object. Traffic to %pI4 might suffer.\n",
@@ -604,7 +602,7 @@ static void qeth_add_local_addrs6(struct qeth_card *card,
 		if (duplicate)
 			continue;
 
-		addr = kmalloc(sizeof(*addr), GFP_ATOMIC);
+		addr = kmalloc_obj(*addr, GFP_ATOMIC);
 		if (!addr) {
 			dev_err(&card->gdev->dev,
 				"Failed to allocate local addr object. Traffic to %pI6c might suffer.\n",
@@ -761,7 +759,7 @@ static void qeth_issue_ipa_msg(struct qeth_ipa_cmd *cmd, int rc,
 	if (rc)
 		QETH_DBF_MESSAGE(2, "IPA: %s(%#x) for device %x returned %#x \"%s\"\n",
 				 ipa_name, com, CARD_DEVID(card), rc,
-				 qeth_get_ipa_msg(rc));
+				 qeth_get_ipa_msg(com, rc));
 	else
 		QETH_DBF_MESSAGE(5, "IPA: %s(%#x) for device %x succeeded\n",
 				 ipa_name, com, CARD_DEVID(card));
@@ -932,7 +930,7 @@ static struct qeth_cmd_buffer *qeth_alloc_cmd(struct qeth_channel *channel,
 	if (length > QETH_BUFSIZE)
 		return NULL;
 
-	iob = kzalloc(sizeof(*iob), GFP_KERNEL);
+	iob = kzalloc_obj(*iob);
 	if (!iob)
 		return NULL;
 
@@ -1628,7 +1626,7 @@ static struct qeth_card *qeth_alloc_card(struct ccwgroup_device *gdev)
 	struct qeth_card *card;
 
 	QETH_DBF_TEXT(SETUP, 2, "alloccrd");
-	card = kzalloc(sizeof(*card), GFP_KERNEL);
+	card = kzalloc_obj(*card);
 	if (!card)
 		goto out;
 	QETH_DBF_HEX(SETUP, 2, &card, sizeof(void *));
@@ -1839,8 +1837,8 @@ static enum qeth_discipline_id qeth_vm_detect_layer(struct qeth_card *card)
 	if (rc)
 		goto out;
 
-	request = kzalloc(sizeof(*request), GFP_KERNEL | GFP_DMA);
-	response = kzalloc(sizeof(*response), GFP_KERNEL | GFP_DMA);
+	request = kzalloc_obj(*request, GFP_KERNEL | GFP_DMA);
+	response = kzalloc_obj(*response, GFP_KERNEL | GFP_DMA);
 	if (!request || !response) {
 		rc = -ENOMEM;
 		goto out;
@@ -2593,7 +2591,7 @@ static void qeth_free_output_queue(struct qeth_qdio_out_q *q)
 
 static struct qeth_qdio_out_q *qeth_alloc_output_queue(void)
 {
-	struct qeth_qdio_out_q *q = kzalloc(sizeof(*q), GFP_KERNEL);
+	struct qeth_qdio_out_q *q = kzalloc_obj(*q);
 	unsigned int i;
 
 	if (!q)
@@ -4805,8 +4803,7 @@ static int qeth_query_oat_command(struct qeth_card *card, char __user *udata)
 
 	rc = qeth_send_ipa_cmd(card, iob, qeth_setadpparms_query_oat_cb, &priv);
 	if (!rc) {
-		tmp = is_compat_task() ? compat_ptr(oat_data.ptr) :
-					 u64_to_user_ptr(oat_data.ptr);
+		tmp = u64_to_user_ptr(oat_data.ptr);
 		oat_data.response_len = priv.response_len;
 
 		if (copy_to_user(tmp, priv.buffer, priv.response_len) ||
@@ -4956,8 +4953,8 @@ int qeth_vm_request_mac(struct qeth_card *card)
 
 	QETH_CARD_TEXT(card, 2, "vmreqmac");
 
-	request = kzalloc(sizeof(*request), GFP_KERNEL | GFP_DMA);
-	response = kzalloc(sizeof(*response), GFP_KERNEL | GFP_DMA);
+	request = kzalloc_obj(*request, GFP_KERNEL | GFP_DMA);
+	response = kzalloc_obj(*response, GFP_KERNEL | GFP_DMA);
 	if (!request || !response) {
 		rc = -ENOMEM;
 		goto out;
@@ -6252,7 +6249,7 @@ static int qeth_add_dbf_entry(struct qeth_card *card, char *name)
 	}
 	if (debug_register_view(card->debug, &debug_hex_ascii_view))
 		goto err_dbg;
-	new_entry = kzalloc(sizeof(struct qeth_dbf_entry), GFP_KERNEL);
+	new_entry = kzalloc_obj(struct qeth_dbf_entry);
 	if (!new_entry)
 		goto err_dbg;
 	strscpy(new_entry->dbf_name, name, sizeof(new_entry->dbf_name));

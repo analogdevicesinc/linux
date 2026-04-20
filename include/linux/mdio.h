@@ -29,7 +29,6 @@ struct mdio_device {
 	struct device dev;
 
 	struct mii_bus *bus;
-	char modalias[MDIO_NAME_SIZE];
 
 	int (*bus_match)(struct device *dev, const struct device_driver *drv);
 	void (*device_free)(struct mdio_device *mdiodev);
@@ -648,6 +647,19 @@ static inline int mdiodev_modify_changed(struct mdio_device *mdiodev,
 				      mask, set);
 }
 
+static inline int __mdiodev_c45_read(struct mdio_device *mdiodev, int devad,
+				     u16 regnum)
+{
+	return __mdiobus_c45_read(mdiodev->bus, mdiodev->addr, devad, regnum);
+}
+
+static inline int __mdiodev_c45_write(struct mdio_device *mdiodev, u32 devad,
+				      u16 regnum, u16 val)
+{
+	return __mdiobus_c45_write(mdiodev->bus, mdiodev->addr, devad, regnum,
+				   val);
+}
+
 static inline int mdiodev_c45_modify(struct mdio_device *mdiodev, int devad,
 				     u32 regnum, u16 mask, u16 set)
 {
@@ -689,16 +701,7 @@ struct phy_device *mdiobus_get_phy(struct mii_bus *bus, int addr);
  * init/exit. Each module may only use this macro once, and calling it
  * replaces module_init() and module_exit().
  */
-#define mdio_module_driver(_mdio_driver)				\
-static int __init mdio_module_init(void)				\
-{									\
-	return mdio_driver_register(&_mdio_driver);			\
-}									\
-module_init(mdio_module_init);						\
-static void __exit mdio_module_exit(void)				\
-{									\
-	mdio_driver_unregister(&_mdio_driver);				\
-}									\
-module_exit(mdio_module_exit)
+#define mdio_module_driver(_mdio_driver) \
+	module_driver(_mdio_driver, mdio_driver_register, mdio_driver_unregister)
 
 #endif /* __LINUX_MDIO_H__ */

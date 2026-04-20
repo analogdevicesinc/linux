@@ -6,6 +6,7 @@
 #include <linux/netdevice.h>
 #include <linux/tc_act/tc_csum.h>
 #include <net/flow_offload.h>
+#include <net/ip_tunnels.h>
 #include <net/netfilter/nf_flow_table.h>
 #include <net/netfilter/nf_tables.h>
 #include <net/netfilter/nf_conntrack.h>
@@ -555,7 +556,7 @@ static void flow_offload_redirect(struct net *net,
 	switch (this_tuple->xmit_type) {
 	case FLOW_OFFLOAD_XMIT_DIRECT:
 		this_tuple = &flow->tuplehash[dir].tuple;
-		ifindex = this_tuple->out.hw_ifidx;
+		ifindex = this_tuple->out.ifidx;
 		break;
 	case FLOW_OFFLOAD_XMIT_NEIGH:
 		other_tuple = &flow->tuplehash[!dir].tuple;
@@ -740,7 +741,7 @@ nf_flow_offload_rule_alloc(struct net *net,
 	struct nf_flow_rule *flow_rule;
 	int err = -ENOMEM;
 
-	flow_rule = kzalloc(sizeof(*flow_rule), GFP_KERNEL);
+	flow_rule = kzalloc_obj(*flow_rule);
 	if (!flow_rule)
 		goto err_flow;
 
@@ -1021,7 +1022,7 @@ nf_flow_offload_work_alloc(struct nf_flowtable *flowtable,
 	if (test_and_set_bit(NF_FLOW_HW_PENDING, &flow->flags))
 		return NULL;
 
-	offload = kmalloc(sizeof(struct flow_offload_work), GFP_ATOMIC);
+	offload = kmalloc_obj(struct flow_offload_work, GFP_ATOMIC);
 	if (!offload) {
 		clear_bit(NF_FLOW_HW_PENDING, &flow->flags);
 		return NULL;

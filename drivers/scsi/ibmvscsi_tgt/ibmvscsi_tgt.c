@@ -2214,7 +2214,7 @@ static int ibmvscsis_make_nexus(struct ibmvscsis_tport *tport)
 		return 0;
 	}
 
-	nexus = kzalloc(sizeof(*nexus), GFP_KERNEL);
+	nexus = kzalloc_obj(*nexus);
 	if (!nexus) {
 		dev_err(&vscsi->dev, "Unable to allocate struct ibmvscsis_nexus\n");
 		return -ENOMEM;
@@ -3424,7 +3424,7 @@ static int ibmvscsis_probe(struct vio_dev *vdev,
 	int rc = 0;
 	long hrc = 0;
 
-	vscsi = kzalloc(sizeof(*vscsi), GFP_KERNEL);
+	vscsi = kzalloc_obj(*vscsi);
 	if (!vscsi) {
 		rc = -ENOMEM;
 		dev_err(&vdev->dev, "probe: allocation of adapter failed\n");
@@ -3533,7 +3533,8 @@ static int ibmvscsis_probe(struct vio_dev *vdev,
 	init_completion(&vscsi->wait_idle);
 	init_completion(&vscsi->unconfig);
 
-	vscsi->work_q = alloc_workqueue("ibmvscsis%s", WQ_MEM_RECLAIM, 1,
+	vscsi->work_q = alloc_workqueue("ibmvscsis%s",
+					WQ_MEM_RECLAIM | WQ_PERCPU, 1,
 					dev_name(&vdev->dev));
 	if (!vscsi->work_q) {
 		rc = -ENOMEM;

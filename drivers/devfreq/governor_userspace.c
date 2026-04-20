@@ -9,11 +9,11 @@
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/devfreq.h>
+#include <linux/devfreq-governor.h>
 #include <linux/kstrtox.h>
 #include <linux/pm.h>
 #include <linux/mutex.h>
 #include <linux/module.h>
-#include "governor.h"
 
 struct userspace_data {
 	unsigned long user_frequency;
@@ -87,8 +87,7 @@ static const struct attribute_group dev_attr_group = {
 static int userspace_init(struct devfreq *devfreq)
 {
 	int err = 0;
-	struct userspace_data *data = kzalloc(sizeof(struct userspace_data),
-					      GFP_KERNEL);
+	struct userspace_data *data = kzalloc_obj(struct userspace_data);
 
 	if (!data) {
 		err = -ENOMEM;

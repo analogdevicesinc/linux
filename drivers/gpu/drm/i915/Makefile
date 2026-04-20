@@ -13,6 +13,11 @@ subdir-ccflags-$(CONFIG_DRM_I915_WERROR) += -Werror
 # drivers. Define I915 when building i915.
 subdir-ccflags-y += -DI915
 
+# FIXME: Disable tracepoints on i915 for PREEMPT_RT, unfortunately
+# it's an all or nothing flag. You cannot selectively disable
+# only some tracepoints.
+subdir-ccflags-$(CONFIG_PREEMPT_RT) += -DNOTRACE
+
 subdir-ccflags-y += -I$(src)
 
 # Please keep these build lists sorted!
@@ -22,10 +27,14 @@ i915-y += \
 	i915_config.o \
 	i915_driver.o \
 	i915_drm_client.o \
+	i915_edram.o \
+	i915_freq.o \
 	i915_getparam.o \
+	i915_gmch.o \
 	i915_ioctl.o \
 	i915_irq.o \
 	i915_mitigations.o \
+	i915_mmio_range.o \
 	i915_module.o \
 	i915_params.o \
 	i915_pci.o \
@@ -48,12 +57,6 @@ i915-y += \
 	vlv_iosf_sb.o \
 	vlv_suspend.o
 
-# core peripheral code
-i915-y += \
-	soc/intel_dram.o \
-	soc/intel_gmch.o \
-	soc/intel_rom.o
-
 # core library code
 i915-y += \
 	i915_memcpy.o \
@@ -70,6 +73,13 @@ i915-$(CONFIG_DEBUG_FS) += \
 	i915_debugfs_params.o
 i915-$(CONFIG_PERF_EVENTS) += \
 	i915_pmu.o
+
+# core display adaptation
+i915-y += \
+	i915_display_pc8.o \
+	i915_hdcp_gsc.o \
+	i915_initial_plane.o \
+	i915_panic.o
 
 # "Graphics Technology" (aka we talk to the gpu)
 gt-y += \
@@ -150,6 +160,7 @@ gem-y += \
 	gem/i915_gem_lmem.o \
 	gem/i915_gem_mman.o \
 	gem/i915_gem_object.o \
+	gem/i915_gem_object_frontbuffer.o \
 	gem/i915_gem_pages.o \
 	gem/i915_gem_phys.o \
 	gem/i915_gem_pm.o \
@@ -163,8 +174,7 @@ gem-y += \
 	gem/i915_gem_ttm_move.o \
 	gem/i915_gem_ttm_pm.o \
 	gem/i915_gem_userptr.o \
-	gem/i915_gem_wait.o \
-	gem/i915_gemfs.o
+	gem/i915_gem_wait.o
 i915-y += \
 	$(gem-y) \
 	i915_active.o \
@@ -228,14 +238,18 @@ i915-y += \
 	display/intel_bios.o \
 	display/intel_bo.o \
 	display/intel_bw.o \
+	display/intel_casf.o \
 	display/intel_cdclk.o \
 	display/intel_cmtg.o \
 	display/intel_color.o \
+	display/intel_colorop.o \
+	display/intel_color_pipeline.o \
 	display/intel_combo_phy.o \
 	display/intel_connector.o \
 	display/intel_crtc.o \
 	display/intel_crtc_state_dump.o \
 	display/intel_cursor.o \
+	display/intel_dbuf_bw.o \
 	display/intel_display.o \
 	display/intel_display_conversion.o \
 	display/intel_display_driver.o \
@@ -248,6 +262,7 @@ i915-y += \
 	display/intel_display_rpm.o \
 	display/intel_display_rps.o \
 	display/intel_display_snapshot.o \
+	display/intel_display_utils.o \
 	display/intel_display_wa.o \
 	display/intel_dmc.o \
 	display/intel_dmc_wl.o \
@@ -256,6 +271,7 @@ i915-y += \
 	display/intel_dpll_mgr.o \
 	display/intel_dpt.o \
 	display/intel_dpt_common.o \
+	display/intel_dram.o \
 	display/intel_drrs.o \
 	display/intel_dsb.o \
 	display/intel_dsb_buffer.o \
@@ -269,11 +285,11 @@ i915-y += \
 	display/intel_frontbuffer.o \
 	display/intel_global_state.o \
 	display/intel_hdcp.o \
-	display/intel_hdcp_gsc.o \
 	display/intel_hdcp_gsc_message.o \
 	display/intel_hotplug.o \
 	display/intel_hotplug_irq.o \
 	display/intel_hti.o \
+	display/intel_initial_plane.o \
 	display/intel_link_bw.o \
 	display/intel_load_detect.o \
 	display/intel_lpe_audio.o \
@@ -281,15 +297,15 @@ i915-y += \
 	display/intel_modeset_setup.o \
 	display/intel_modeset_verify.o \
 	display/intel_overlay.o \
-	display/intel_panic.o \
+	display/intel_parent.o \
 	display/intel_pch.o \
 	display/intel_pch_display.o \
 	display/intel_pch_refclk.o \
 	display/intel_plane.o \
-	display/intel_plane_initial.o \
 	display/intel_pmdemand.o \
 	display/intel_psr.o \
 	display/intel_quirks.o \
+	display/intel_rom.o \
 	display/intel_sbi.o \
 	display/intel_sprite.o \
 	display/intel_sprite_uapi.o \
@@ -297,9 +313,11 @@ i915-y += \
 	display/intel_vblank.o \
 	display/intel_vga.o \
 	display/intel_wm.o \
+	display/skl_prefill.o \
 	display/skl_scaler.o \
 	display/skl_universal_plane.o \
 	display/skl_watermark.o \
+	display/vlv_clock.o \
 	display/vlv_sideband.o
 i915-$(CONFIG_ACPI) += \
 	display/intel_acpi.o \
@@ -346,6 +364,7 @@ i915-y += \
 	display/intel_gmbus.o \
 	display/intel_hdmi.o \
 	display/intel_lspcon.o \
+	display/intel_lt_phy.o \
 	display/intel_lvds.o \
 	display/intel_panel.o \
 	display/intel_pfit.o \
@@ -362,6 +381,9 @@ i915-y += \
 
 i915-$(CONFIG_DRM_I915_DP_TUNNEL) += \
 	display/intel_dp_tunnel.o
+
+i915-$(CONFIG_DRM_I915_GVT) += \
+	display/intel_gvt_api.o
 
 i915-y += \
 	i915_perf.o
@@ -428,7 +450,7 @@ always-$(CONFIG_DRM_I915_WERROR) += \
 
 quiet_cmd_hdrtest = HDRTEST $(patsubst %.hdrtest,%.h,$@)
       cmd_hdrtest = $(CC) $(filter-out $(CFLAGS_GCOV), $(c_flags)) -S -o /dev/null -x c /dev/null -include $<; \
-		$(srctree)/scripts/kernel-doc -none -Werror $<; touch $@
+		$(KERNELDOC) -none -Werror $<; touch $@
 
 $(obj)/%.hdrtest: $(src)/%.h FORCE
 	$(call if_changed_dep,hdrtest)

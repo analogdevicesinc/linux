@@ -72,7 +72,7 @@ static int imx_rpmsg_late_probe(struct snd_soc_card *card)
 					of_property_read_string_index(data->card.dev->of_node,
 								      "ignore-suspend-widgets",
 								      i, &widgets);
-					dapm = snd_soc_component_get_dapm(codec_comp);
+					dapm = snd_soc_component_to_dapm(codec_comp);
 					snd_soc_dapm_ignore_suspend(dapm, widgets);
 				}
 			}
@@ -145,7 +145,7 @@ static int imx_rpmsg_probe(struct platform_device *pdev)
 	data->dai.ignore_pmdown_time = 1;
 
 	data->dai.cpus->dai_name = pdev->dev.platform_data;
-	cpu_dai = snd_soc_find_dai(data->dai.cpus);
+	cpu_dai = snd_soc_find_dai_with_mutex(data->dai.cpus);
 	if (!cpu_dai) {
 		ret = -EPROBE_DEFER;
 		goto fail;

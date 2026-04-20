@@ -276,7 +276,7 @@ static int pit_timer_init(struct device_node *np)
 	unsigned long clk_rate;
 	int irq, ret;
 
-	pit = kzalloc(sizeof(*pit), GFP_KERNEL);
+	pit = kzalloc_obj(*pit);
 	if (!pit)
 		return -ENOMEM;
 
@@ -374,9 +374,10 @@ static struct platform_driver nxp_pit_driver = {
 	.driver = {
 		.name = "nxp-pit",
 		.of_match_table = pit_timer_of_match,
+		.suppress_bind_attrs = true,
 	},
 	.probe = pit_timer_probe,
 };
-module_platform_driver(nxp_pit_driver);
+builtin_platform_driver(nxp_pit_driver);
 
 TIMER_OF_DECLARE(vf610, "fsl,vf610-pit", pit_timer_init);

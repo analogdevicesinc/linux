@@ -8,7 +8,7 @@
 
 #include <uapi/drm/i915_drm.h>
 
-#include "xe_ggtt_types.h"
+#include "xe_ggtt.h"
 
 #include <linux/refcount.h>
 
@@ -26,13 +26,11 @@ struct i915_vma {
 	struct xe_ggtt_node *node;
 };
 
-#define i915_ggtt_clear_scanout(bo) do { } while (0)
-
 #define i915_vma_fence_id(vma) -1
 
 static inline u32 i915_ggtt_offset(const struct i915_vma *vma)
 {
-	return vma->node->base.start;
+	return xe_ggtt_node_addr(vma->node);
 }
 
 #endif

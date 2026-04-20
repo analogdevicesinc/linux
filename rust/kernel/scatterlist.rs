@@ -35,10 +35,11 @@ use crate::{
     device::{Bound, Device},
     devres::Devres,
     dma, error,
-    io::resource::ResourceSize,
+    io::ResourceSize,
     page,
     prelude::*,
-    types::{ARef, Opaque},
+    sync::aref::ARef,
+    types::Opaque,
 };
 use core::{ops::Deref, ptr::NonNull};
 

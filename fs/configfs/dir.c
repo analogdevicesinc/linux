@@ -159,7 +159,7 @@ static struct configfs_fragment *new_fragment(void)
 {
 	struct configfs_fragment *p;
 
-	p = kmalloc(sizeof(struct configfs_fragment), GFP_KERNEL);
+	p = kmalloc_obj(struct configfs_fragment);
 	if (p) {
 		atomic_set(&p->frag_count, 1);
 		init_rwsem(&p->frag_sem);
@@ -400,8 +400,14 @@ static void remove_dir(struct dentry * d)
 
 	configfs_remove_dirent(d);
 
-	if (d_really_is_positive(d))
-		simple_rmdir(d_inode(parent),d);
+	if (d_really_is_positive(d)) {
+		if (likely(simple_empty(d))) {
+			__simple_rmdir(d_inode(parent),d);
+			dput(d);
+		} else {
+			pr_warn("remove_dir (%pd): attributes remain", d);
+		}
+	}
 
 	pr_debug(" o %pd removing done (%d)\n", d, d_count(d));
 
@@ -598,7 +604,7 @@ static void detach_attrs(struct config_item * item)
 static int populate_attrs(struct config_item *item)
 {
 	const struct config_item_type *t = item->ci_type;
-	struct configfs_group_operations *ops;
+	const struct configfs_group_operations *ops;
 	struct configfs_attribute *attr;
 	struct configfs_bin_attribute *bin_attr;
 	int error = 0;
@@ -1841,7 +1847,7 @@ configfs_register_default_group(struct config_group *parent_group,
 	int ret;
 	struct config_group *group;
 
-	group = kzalloc(sizeof(*group), GFP_KERNEL);
+	group = kzalloc_obj(*group);
 	if (!group)
 		return ERR_PTR(-ENOMEM);
 	config_group_init_type_name(group, name, item_type);

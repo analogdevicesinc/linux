@@ -14,13 +14,9 @@ use kernel::{
             Operations, TagSet,
         },
     },
-    error::Result,
-    pr_info,
     prelude::*,
-    sync::Arc,
-    types::ARef,
+    sync::{aref::ARef, Arc},
 };
-use pin_init::PinInit;
 
 module! {
     type: NullBlkModule,

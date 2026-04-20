@@ -609,7 +609,6 @@ static const struct net_device_ops softing_netdev_ops = {
 	.ndo_open = softing_netdev_open,
 	.ndo_stop = softing_netdev_stop,
 	.ndo_start_xmit	= softing_netdev_start_xmit,
-	.ndo_change_mtu = can_change_mtu,
 };
 
 static const struct ethtool_ops softing_ethtool_ops = {
@@ -768,7 +767,7 @@ static int softing_pdev_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	card = kzalloc(sizeof(*card), GFP_KERNEL);
+	card = kzalloc_obj(*card);
 	if (!card)
 		return -ENOMEM;
 	card->pdat = pdat;

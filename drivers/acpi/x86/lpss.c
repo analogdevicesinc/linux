@@ -181,7 +181,7 @@ static void byt_i2c_setup(struct lpss_private_data *pdata)
 	acpi_status status;
 	u64 uid;
 
-	/* Expected to always be successfull, but better safe then sorry */
+	/* Expected to always be successful, but better safe then sorry */
 	if (!acpi_dev_uid_to_integer(pdata->adev, &uid) && uid) {
 		/* Detect I2C bus shared with PUNIT and ignore its d3 status */
 		status = acpi_evaluate_integer(handle, "_SEM", NULL, &shared_host);
@@ -623,7 +623,7 @@ static int acpi_lpss_create_device(struct acpi_device *adev,
 	if (!dev_desc)
 		return -EINVAL;
 
-	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	pdata = kzalloc_obj(*pdata);
 	if (!pdata)
 		return -ENOMEM;
 

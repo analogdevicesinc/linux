@@ -7,8 +7,7 @@
  * Copyright IBM Corp. 2002, 2020
  */
 
-#define KMSG_COMPONENT "zfcp"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "zfcp: " fmt
 
 #include <linux/lockdep.h>
 #include <linux/slab.h>
@@ -550,7 +549,7 @@ int zfcp_qdio_setup(struct zfcp_adapter *adapter)
 {
 	struct zfcp_qdio *qdio;
 
-	qdio = kzalloc(sizeof(struct zfcp_qdio), GFP_KERNEL);
+	qdio = kzalloc_obj(struct zfcp_qdio);
 	if (!qdio)
 		return -ENOMEM;
 

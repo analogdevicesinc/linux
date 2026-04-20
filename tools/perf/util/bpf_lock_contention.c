@@ -42,7 +42,7 @@ static void check_slab_cache_iter(struct lock_contention *con)
 
 	con->btf = btf__load_vmlinux_btf();
 	if (con->btf == NULL) {
-		pr_debug("BTF loading failed: %s\n", strerror(errno));
+		pr_debug("BTF loading failed: %m\n");
 		return;
 	}
 
@@ -117,6 +117,9 @@ static void init_numa_data(struct lock_contention *con)
 	long last = -1;
 	int ret;
 
+	if (!con->btf)
+		return;
+
 	/*
 	 * 'struct zone' is embedded in 'struct pglist_data' as an array.
 	 * As we may not have full information of the struct zone in the
@@ -183,6 +186,9 @@ int lock_contention_prepare(struct lock_contention *con)
 	int ncpus = 1, ntasks = 1, ntypes = 1, naddrs = 1, ncgrps = 1, nslabs = 1;
 	struct evlist *evlist = con->evlist;
 	struct target *target = con->target;
+
+	/* make sure it loads the kernel map before lookup */
+	map__load(machine__kernel_map(con->machine));
 
 	skel = lock_contention_bpf__open();
 	if (!skel) {
@@ -748,9 +754,6 @@ int lock_contention_read(struct lock_contention *con)
 
 		bpf_prog_test_run_opts(prog_fd, &opts);
 	}
-
-	/* make sure it loads the kernel map */
-	maps__load_first(machine->kmaps);
 
 	prev_key = NULL;
 	while (!bpf_map_get_next_key(fd, prev_key, &key)) {

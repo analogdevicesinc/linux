@@ -129,7 +129,7 @@ static const struct super_operations ocfs2_sops = {
 	.statfs		= ocfs2_statfs,
 	.alloc_inode	= ocfs2_alloc_inode,
 	.free_inode	= ocfs2_free_inode,
-	.drop_inode	= ocfs2_drop_inode,
+	.drop_inode	= inode_just_drop,
 	.evict_inode	= ocfs2_evict_inode,
 	.sync_fs	= ocfs2_sync_fs,
 	.put_super	= ocfs2_put_super,
@@ -1200,7 +1200,7 @@ static int ocfs2_init_fs_context(struct fs_context *fc)
 {
 	struct mount_options *mopt;
 
-	mopt = kzalloc(sizeof(struct mount_options), GFP_KERNEL);
+	mopt = kzalloc_obj(struct mount_options);
 	if (!mopt)
 		return -EINVAL;
 
@@ -1953,7 +1953,7 @@ static int ocfs2_initialize_super(struct super_block *sb,
 	struct ocfs2_super *osb;
 	u64 total_blocks;
 
-	osb = kzalloc(sizeof(struct ocfs2_super), GFP_KERNEL);
+	osb = kzalloc_obj(struct ocfs2_super);
 	if (!osb) {
 		status = -ENOMEM;
 		mlog_errno(status);
@@ -2487,7 +2487,7 @@ static int ocfs2_handle_error(struct super_block *sb)
 		rv = -EIO;
 	} else { /* default option */
 		rv = -EROFS;
-		if (sb_rdonly(sb) && (ocfs2_is_soft_readonly(osb) || ocfs2_is_hard_readonly(osb)))
+		if (sb_rdonly(sb) && ocfs2_emergency_state(osb))
 			return rv;
 
 		pr_crit("OCFS2: File system is now read-only.\n");

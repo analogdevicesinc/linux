@@ -7,8 +7,7 @@
  * Copyright IBM Corp. 2008, 2017
  */
 
-#define KMSG_COMPONENT "zfcp"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "zfcp: " fmt
 
 #include <linux/types.h>
 #include <linux/slab.h>
@@ -129,7 +128,7 @@ void zfcp_fc_enqueue_event(struct zfcp_adapter *adapter,
 {
 	struct zfcp_fc_event *event;
 
-	event = kmalloc(sizeof(struct zfcp_fc_event), GFP_ATOMIC);
+	event = kmalloc_obj(struct zfcp_fc_event, GFP_ATOMIC);
 	if (!event)
 		return;
 
@@ -1117,7 +1116,7 @@ int zfcp_fc_gs_setup(struct zfcp_adapter *adapter)
 {
 	struct zfcp_fc_wka_ports *wka_ports;
 
-	wka_ports = kzalloc(sizeof(struct zfcp_fc_wka_ports), GFP_KERNEL);
+	wka_ports = kzalloc_obj(struct zfcp_fc_wka_ports);
 	if (!wka_ports)
 		return -ENOMEM;
 

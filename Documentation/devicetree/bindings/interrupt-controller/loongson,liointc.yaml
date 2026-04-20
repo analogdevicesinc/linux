@@ -40,6 +40,9 @@ properties:
       - const: isr1
     minItems: 2
 
+  '#address-cells':
+    const: 0
+
   interrupt-controller: true
 
   interrupts:
@@ -77,7 +80,6 @@ required:
   - interrupt-controller
   - '#interrupt-cells'
   - loongson,parent_int_map
-
 
 unevaluatedProperties: false
 

@@ -355,7 +355,7 @@ int coda_jpeg_decode_header(struct coda_ctx *ctx, struct vb2_buffer *vb)
 	}
 	huff_tab = ctx->params.jpeg_huff_tab;
 	if (!huff_tab) {
-		huff_tab = kzalloc(sizeof(struct coda_huff_tab), GFP_KERNEL);
+		huff_tab = kzalloc_obj(struct coda_huff_tab);
 		if (!huff_tab)
 			return -ENOMEM;
 		ctx->params.jpeg_huff_tab = huff_tab;
@@ -593,7 +593,7 @@ static int coda9_jpeg_gen_enc_huff_tab(struct coda_ctx *ctx, int tab_num,
 	};
 	int ret = -EINVAL;
 
-	huff = kzalloc(sizeof(*huff), GFP_KERNEL);
+	huff = kzalloc_obj(*huff);
 	if (!huff)
 		return -ENOMEM;
 
@@ -723,7 +723,7 @@ static int coda9_jpeg_load_huff_tab(struct coda_ctx *ctx)
 	int i, j;
 	int ret;
 
-	huff = kzalloc(sizeof(*huff), GFP_KERNEL);
+	huff = kzalloc_obj(*huff);
 	if (!huff)
 		return -ENOMEM;
 
@@ -1245,7 +1245,7 @@ static void coda9_jpeg_finish_encode(struct coda_ctx *ctx)
 	dst_buf->flags |= V4L2_BUF_FLAG_KEYFRAME;
 	dst_buf->flags |= src_buf->flags & V4L2_BUF_FLAG_LAST;
 
-	v4l2_m2m_buf_copy_metadata(src_buf, dst_buf, false);
+	v4l2_m2m_buf_copy_metadata(src_buf, dst_buf);
 
 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
 	coda_m2m_buf_done(ctx, dst_buf, err_mb ? VB2_BUF_STATE_ERROR :
@@ -1472,7 +1472,7 @@ static void coda9_jpeg_finish_decode(struct coda_ctx *ctx)
 	dst_buf->flags |= V4L2_BUF_FLAG_KEYFRAME;
 	dst_buf->flags |= src_buf->flags & V4L2_BUF_FLAG_LAST;
 
-	v4l2_m2m_buf_copy_metadata(src_buf, dst_buf, false);
+	v4l2_m2m_buf_copy_metadata(src_buf, dst_buf);
 
 	q_data_dst = get_q_data(ctx, V4L2_BUF_TYPE_VIDEO_CAPTURE);
 	vb2_set_plane_payload(&dst_buf->vb2_buf, 0, q_data_dst->sizeimage);

@@ -126,7 +126,7 @@ static struct test_suite *generic_tests[] = {
 	&suite__jit_write_elf,
 	&suite__pfm,
 	&suite__api_io,
-	&suite__maps__merge_in,
+	&suite__maps,
 	&suite__demangle_java,
 	&suite__demangle_ocaml,
 	&suite__demangle_rust,
@@ -140,6 +140,7 @@ static struct test_suite *generic_tests[] = {
 	&suite__symbols,
 	&suite__util,
 	&suite__subcmd_help,
+	&suite__kallsyms_split,
 	NULL,
 };
 
@@ -152,6 +153,11 @@ static struct test_workload *workloads[] = {
 	&workload__datasym,
 	&workload__landlock,
 	&workload__traploop,
+	&workload__inlineloop,
+
+#ifdef HAVE_RUST_SUPPORT
+	&workload__code_with_type,
+#endif
 };
 
 #define workloads__for_each(workload) \

@@ -12,7 +12,6 @@
 
 #include "xe_device.h"
 #include "xe_force_wake.h"
-#include "xe_ggtt.h"
 #include "xe_gt.h"
 #include "xe_gt_mcr.h"
 #include "xe_gt_idle.h"
@@ -23,7 +22,6 @@
 #include "xe_guc_hwconfig.h"
 #include "xe_hw_engine.h"
 #include "xe_lrc.h"
-#include "xe_macros.h"
 #include "xe_mocs.h"
 #include "xe_pat.h"
 #include "xe_pm.h"
@@ -35,6 +33,11 @@
 #include "xe_tuning.h"
 #include "xe_uc_debugfs.h"
 #include "xe_wa.h"
+
+static struct xe_gt *node_to_gt(struct drm_info_node *node)
+{
+	return node->dent->d_parent->d_inode->i_private;
+}
 
 /**
  * xe_gt_debugfs_simple_show - A show callback for struct drm_info_list
@@ -78,8 +81,7 @@ int xe_gt_debugfs_simple_show(struct seq_file *m, void *data)
 {
 	struct drm_printer p = drm_seq_file_printer(m);
 	struct drm_info_node *node = m->private;
-	struct dentry *parent = node->dent->d_parent;
-	struct xe_gt *gt = parent->d_inode->i_private;
+	struct xe_gt *gt = node_to_gt(node);
 	int (*print)(struct xe_gt *, struct drm_printer *) = node->info_ent->data;
 
 	if (WARN_ON(!print))
@@ -88,77 +90,50 @@ int xe_gt_debugfs_simple_show(struct seq_file *m, void *data)
 	return print(gt, &p);
 }
 
+/**
+ * xe_gt_debugfs_show_with_rpm - A show callback for struct drm_info_list
+ * @m: the &seq_file
+ * @data: data used by the drm debugfs helpers
+ *
+ * Similar to xe_gt_debugfs_simple_show() but implicitly takes a RPM ref.
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_gt_debugfs_show_with_rpm(struct seq_file *m, void *data)
+{
+	struct drm_info_node *node = m->private;
+	struct xe_gt *gt = node_to_gt(node);
+	struct xe_device *xe = gt_to_xe(gt);
+
+	guard(xe_pm_runtime)(xe);
+	return xe_gt_debugfs_simple_show(m, data);
+}
+
 static int hw_engines(struct xe_gt *gt, struct drm_printer *p)
 {
-	struct xe_device *xe = gt_to_xe(gt);
 	struct xe_hw_engine *hwe;
 	enum xe_hw_engine_id id;
-	unsigned int fw_ref;
-	int ret = 0;
 
-	xe_pm_runtime_get(xe);
-	fw_ref = xe_force_wake_get(gt_to_fw(gt), XE_FORCEWAKE_ALL);
-	if (!xe_force_wake_ref_has_domain(fw_ref, XE_FORCEWAKE_ALL)) {
-		ret = -ETIMEDOUT;
-		goto fw_put;
-	}
+	CLASS(xe_force_wake, fw_ref)(gt_to_fw(gt), XE_FORCEWAKE_ALL);
+	if (!xe_force_wake_ref_has_domain(fw_ref.domains, XE_FORCEWAKE_ALL))
+		return -ETIMEDOUT;
 
 	for_each_hw_engine(hwe, gt, id)
 		xe_hw_engine_print(hwe, p);
-
-fw_put:
-	xe_force_wake_put(gt_to_fw(gt), fw_ref);
-	xe_pm_runtime_put(xe);
-
-	return ret;
-}
-
-static int powergate_info(struct xe_gt *gt, struct drm_printer *p)
-{
-	int ret;
-
-	xe_pm_runtime_get(gt_to_xe(gt));
-	ret = xe_gt_idle_pg_print(gt, p);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
-	return ret;
-}
-
-static int topology(struct xe_gt *gt, struct drm_printer *p)
-{
-	xe_pm_runtime_get(gt_to_xe(gt));
-	xe_gt_topology_dump(gt, p);
-	xe_pm_runtime_put(gt_to_xe(gt));
 
 	return 0;
 }
 
 static int steering(struct xe_gt *gt, struct drm_printer *p)
 {
-	xe_pm_runtime_get(gt_to_xe(gt));
 	xe_gt_mcr_steering_dump(gt, p);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
 	return 0;
-}
-
-static int ggtt(struct xe_gt *gt, struct drm_printer *p)
-{
-	int ret;
-
-	xe_pm_runtime_get(gt_to_xe(gt));
-	ret = xe_ggtt_dump(gt_to_tile(gt)->mem.ggtt, p);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
-	return ret;
 }
 
 static int register_save_restore(struct xe_gt *gt, struct drm_printer *p)
 {
 	struct xe_hw_engine *hwe;
 	enum xe_hw_engine_id id;
-
-	xe_pm_runtime_get(gt_to_xe(gt));
 
 	xe_reg_sr_dump(&gt->reg_sr, p);
 	drm_printf(p, "\n");
@@ -177,98 +152,42 @@ static int register_save_restore(struct xe_gt *gt, struct drm_printer *p)
 	for_each_hw_engine(hwe, gt, id)
 		xe_reg_whitelist_dump(&hwe->reg_whitelist, p);
 
-	xe_pm_runtime_put(gt_to_xe(gt));
-
-	return 0;
-}
-
-static int workarounds(struct xe_gt *gt, struct drm_printer *p)
-{
-	xe_pm_runtime_get(gt_to_xe(gt));
-	xe_wa_dump(gt, p);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
-	return 0;
-}
-
-static int tunings(struct xe_gt *gt, struct drm_printer *p)
-{
-	xe_pm_runtime_get(gt_to_xe(gt));
-	xe_tuning_dump(gt, p);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
-	return 0;
-}
-
-static int pat(struct xe_gt *gt, struct drm_printer *p)
-{
-	xe_pm_runtime_get(gt_to_xe(gt));
-	xe_pat_dump(gt, p);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
-	return 0;
-}
-
-static int mocs(struct xe_gt *gt, struct drm_printer *p)
-{
-	xe_pm_runtime_get(gt_to_xe(gt));
-	xe_mocs_dump(gt, p);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
 	return 0;
 }
 
 static int rcs_default_lrc(struct xe_gt *gt, struct drm_printer *p)
 {
-	xe_pm_runtime_get(gt_to_xe(gt));
 	xe_lrc_dump_default(p, gt, XE_ENGINE_CLASS_RENDER);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
 	return 0;
 }
 
 static int ccs_default_lrc(struct xe_gt *gt, struct drm_printer *p)
 {
-	xe_pm_runtime_get(gt_to_xe(gt));
 	xe_lrc_dump_default(p, gt, XE_ENGINE_CLASS_COMPUTE);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
 	return 0;
 }
 
 static int bcs_default_lrc(struct xe_gt *gt, struct drm_printer *p)
 {
-	xe_pm_runtime_get(gt_to_xe(gt));
 	xe_lrc_dump_default(p, gt, XE_ENGINE_CLASS_COPY);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
 	return 0;
 }
 
 static int vcs_default_lrc(struct xe_gt *gt, struct drm_printer *p)
 {
-	xe_pm_runtime_get(gt_to_xe(gt));
 	xe_lrc_dump_default(p, gt, XE_ENGINE_CLASS_VIDEO_DECODE);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
 	return 0;
 }
 
 static int vecs_default_lrc(struct xe_gt *gt, struct drm_printer *p)
 {
-	xe_pm_runtime_get(gt_to_xe(gt));
 	xe_lrc_dump_default(p, gt, XE_ENGINE_CLASS_VIDEO_ENHANCE);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
 	return 0;
 }
 
 static int hwconfig(struct xe_gt *gt, struct drm_printer *p)
 {
-	xe_pm_runtime_get(gt_to_xe(gt));
 	xe_guc_hwconfig_dump(&gt->uc.guc, p);
-	xe_pm_runtime_put(gt_to_xe(gt));
-
 	return 0;
 }
 
@@ -278,26 +197,27 @@ static int hwconfig(struct xe_gt *gt, struct drm_printer *p)
  * - without access to the PF specific data
  */
 static const struct drm_info_list vf_safe_debugfs_list[] = {
-	{"topology", .show = xe_gt_debugfs_simple_show, .data = topology},
-	{"ggtt", .show = xe_gt_debugfs_simple_show, .data = ggtt},
-	{"register-save-restore", .show = xe_gt_debugfs_simple_show, .data = register_save_restore},
-	{"workarounds", .show = xe_gt_debugfs_simple_show, .data = workarounds},
-	{"tunings", .show = xe_gt_debugfs_simple_show, .data = tunings},
-	{"default_lrc_rcs", .show = xe_gt_debugfs_simple_show, .data = rcs_default_lrc},
-	{"default_lrc_ccs", .show = xe_gt_debugfs_simple_show, .data = ccs_default_lrc},
-	{"default_lrc_bcs", .show = xe_gt_debugfs_simple_show, .data = bcs_default_lrc},
-	{"default_lrc_vcs", .show = xe_gt_debugfs_simple_show, .data = vcs_default_lrc},
-	{"default_lrc_vecs", .show = xe_gt_debugfs_simple_show, .data = vecs_default_lrc},
-	{"hwconfig", .show = xe_gt_debugfs_simple_show, .data = hwconfig},
+	{ "topology", .show = xe_gt_debugfs_show_with_rpm, .data = xe_gt_topology_dump },
+	{ "register-save-restore",
+		.show = xe_gt_debugfs_show_with_rpm, .data = register_save_restore },
+	{ "workarounds", .show = xe_gt_debugfs_show_with_rpm, .data = xe_wa_gt_dump },
+	{ "tunings", .show = xe_gt_debugfs_show_with_rpm, .data = xe_tuning_dump },
+	{ "default_lrc_rcs", .show = xe_gt_debugfs_show_with_rpm, .data = rcs_default_lrc },
+	{ "default_lrc_ccs", .show = xe_gt_debugfs_show_with_rpm, .data = ccs_default_lrc },
+	{ "default_lrc_bcs", .show = xe_gt_debugfs_show_with_rpm, .data = bcs_default_lrc },
+	{ "default_lrc_vcs", .show = xe_gt_debugfs_show_with_rpm, .data = vcs_default_lrc },
+	{ "default_lrc_vecs", .show = xe_gt_debugfs_show_with_rpm, .data = vecs_default_lrc },
+	{ "hwconfig", .show = xe_gt_debugfs_show_with_rpm, .data = hwconfig },
+	{ "pat_sw_config", .show = xe_gt_debugfs_simple_show, .data = xe_pat_dump_sw_config },
 };
 
 /* everything else should be added here */
 static const struct drm_info_list pf_only_debugfs_list[] = {
-	{"hw_engines", .show = xe_gt_debugfs_simple_show, .data = hw_engines},
-	{"mocs", .show = xe_gt_debugfs_simple_show, .data = mocs},
-	{"pat", .show = xe_gt_debugfs_simple_show, .data = pat},
-	{"powergate_info", .show = xe_gt_debugfs_simple_show, .data = powergate_info},
-	{"steering", .show = xe_gt_debugfs_simple_show, .data = steering},
+	{ "hw_engines", .show = xe_gt_debugfs_show_with_rpm, .data = hw_engines },
+	{ "mocs", .show = xe_gt_debugfs_show_with_rpm, .data = xe_mocs_dump },
+	{ "pat", .show = xe_gt_debugfs_show_with_rpm, .data = xe_pat_dump },
+	{ "powergate_info", .show = xe_gt_debugfs_show_with_rpm, .data = xe_gt_idle_pg_print },
+	{ "steering", .show = xe_gt_debugfs_show_with_rpm, .data = steering },
 };
 
 static ssize_t write_to_gt_call(const char __user *userbuf, size_t count, loff_t *ppos,
@@ -338,9 +258,8 @@ static void force_reset(struct xe_gt *gt)
 {
 	struct xe_device *xe = gt_to_xe(gt);
 
-	xe_pm_runtime_get(xe);
+	guard(xe_pm_runtime)(xe);
 	xe_gt_reset_async(gt);
-	xe_pm_runtime_put(xe);
 }
 
 static ssize_t force_reset_write(struct file *file,
@@ -366,9 +285,8 @@ static void force_reset_sync(struct xe_gt *gt)
 {
 	struct xe_device *xe = gt_to_xe(gt);
 
-	xe_pm_runtime_get(xe);
+	guard(xe_pm_runtime)(xe);
 	xe_gt_reset(gt);
-	xe_pm_runtime_put(xe);
 }
 
 static ssize_t force_reset_sync_write(struct file *file,

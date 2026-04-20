@@ -632,12 +632,7 @@ static int vidioc_s_fmt_cap(struct file *file, void *priv, struct v4l2_format *f
 static int vidioc_g_fmt(struct file *file, void *priv, struct v4l2_format *f)
 {
 	struct ge2d_ctx *ctx = file_to_ge2d_ctx(file);
-	struct vb2_queue *vq;
 	struct ge2d_frame *frm;
-
-	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
-	if (!vq)
-		return -EINVAL;
 
 	frm = get_frame(ctx, f->type);
 
@@ -839,7 +834,7 @@ static int ge2d_open(struct file *file)
 	struct ge2d_ctx *ctx = NULL;
 	int ret = 0;
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	ctx = kzalloc_obj(*ctx);
 	if (!ctx)
 		return -ENOMEM;
 	ctx->ge2d = ge2d;

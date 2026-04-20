@@ -14,6 +14,7 @@
 #include <drm/drm_gem_atomic_helper.h>
 #include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_managed.h>
+#include <drm/drm_print.h>
 
 #include <video/imx-ipu-v3.h>
 
@@ -307,7 +308,7 @@ static void ipu_plane_state_reset(struct drm_plane *plane)
 		plane->state = NULL;
 	}
 
-	ipu_state = kzalloc(sizeof(*ipu_state), GFP_KERNEL);
+	ipu_state = kzalloc_obj(*ipu_state);
 
 	if (ipu_state)
 		__drm_atomic_helper_plane_reset(plane, &ipu_state->base);
@@ -321,7 +322,7 @@ ipu_plane_duplicate_state(struct drm_plane *plane)
 	if (WARN_ON(!plane->state))
 		return NULL;
 
-	state = kmalloc(sizeof(*state), GFP_KERNEL);
+	state = kmalloc_obj(*state);
 	if (state)
 		__drm_atomic_helper_plane_duplicate_state(plane, &state->base);
 
@@ -386,8 +387,7 @@ static int ipu_plane_atomic_check(struct drm_plane *plane,
 		return -EINVAL;
 
 	crtc_state =
-		drm_atomic_get_existing_crtc_state(state,
-						   new_state->crtc);
+		drm_atomic_get_new_crtc_state(state, new_state->crtc);
 	if (WARN_ON(!crtc_state))
 		return -EINVAL;
 

@@ -11,8 +11,7 @@
  *		 Stefan Bader <shbader@de.ibm.com>
  */
 
-#define KMSG_COMPONENT "tape"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "tape: " fmt
 
 #include <linux/export.h>
 #include <linux/module.h>
@@ -29,6 +28,7 @@
 
 #include "tape.h"
 #include "tape_std.h"
+#include "tape_class.h"
 
 #define LONG_BUSY_TIMEOUT 180 /* seconds */
 
@@ -75,9 +75,7 @@ const char *tape_op_verbose[TO_SIZE] =
 	[TO_LOAD] = "LOA",	[TO_READ_CONFIG] = "RCF",
 	[TO_READ_ATTMSG] = "RAT",
 	[TO_DIS] = "DIS",	[TO_ASSIGN] = "ASS",
-	[TO_UNASSIGN] = "UAS",  [TO_CRYPT_ON] = "CON",
-	[TO_CRYPT_OFF] = "COF",	[TO_KEKL_SET] = "KLS",
-	[TO_KEKL_QUERY] = "KLQ",[TO_RDC] = "RDC",
+	[TO_UNASSIGN] = "UAS",  [TO_RDC] = "RDC",
 };
 
 static int devid_to_int(struct ccw_dev_id *dev_id)
@@ -251,7 +249,7 @@ tape_med_state_work(struct tape_device *device, enum tape_medium_state state)
 {
 	struct tape_med_state_work_data *p;
 
-	p = kzalloc(sizeof(*p), GFP_ATOMIC);
+	p = kzalloc_obj(*p, GFP_ATOMIC);
 	if (p) {
 		INIT_WORK(&p->work, tape_med_state_work_handler);
 		p->device = tape_get_device(device);
@@ -479,7 +477,7 @@ tape_alloc_device(void)
 {
 	struct tape_device *device;
 
-	device = kzalloc(sizeof(struct tape_device), GFP_KERNEL);
+	device = kzalloc_obj(struct tape_device);
 	if (device == NULL) {
 		DBF_EXCEPTION(2, "ti:no mem\n");
 		return ERR_PTR(-ENOMEM);
@@ -680,15 +678,15 @@ tape_alloc_request(int cplength, int datasize)
 
 	DBF_LH(6, "tape_alloc_request(%d, %d)\n", cplength, datasize);
 
-	request = kzalloc(sizeof(struct tape_request), GFP_KERNEL);
+	request = kzalloc_obj(struct tape_request);
 	if (request == NULL) {
 		DBF_EXCEPTION(1, "cqra nomem\n");
 		return ERR_PTR(-ENOMEM);
 	}
 	/* allocate channel program */
 	if (cplength > 0) {
-		request->cpaddr = kcalloc(cplength, sizeof(struct ccw1),
-					  GFP_ATOMIC | GFP_DMA);
+		request->cpaddr = kzalloc_objs(struct ccw1, cplength,
+					       GFP_ATOMIC | GFP_DMA);
 		if (request->cpaddr == NULL) {
 			DBF_EXCEPTION(1, "cqra nomem\n");
 			kfree(request);
@@ -724,6 +722,36 @@ tape_free_request (struct tape_request * request)
 	kfree(request->cpdata);
 	kfree(request->cpaddr);
 	kfree(request);
+}
+
+int
+tape_check_idalbuffer(struct tape_device *device, size_t size)
+{
+	struct idal_buffer **new;
+	size_t old_size = 0;
+
+	old_size = idal_buffer_array_datasize(device->char_data.ibs);
+	if (old_size == size)
+		return 0;
+
+	if (size > MAX_BLOCKSIZE) {
+		DBF_EVENT(3, "Invalid blocksize (%zd > %d)\n",
+			  size, MAX_BLOCKSIZE);
+		return -EINVAL;
+	}
+
+	/* The current idal buffer is not correct. Allocate a new one. */
+	new = idal_buffer_array_alloc(size, 0);
+	if (IS_ERR(new))
+		return -ENOMEM;
+
+	/* Free old idal buffer array */
+	if (device->char_data.ibs)
+		idal_buffer_array_free(&device->char_data.ibs);
+
+	device->char_data.ibs = new;
+
+	return 0;
 }
 
 static int
@@ -1099,9 +1127,10 @@ __tape_do_irq (struct ccw_device *cdev, unsigned long intparm, struct irb *irb)
 	}
 
 	/* May be an unsolicited irq */
-	if(request != NULL)
+	if (request != NULL) {
 		request->rescnt = irb->scsw.cmd.count;
-	else if ((irb->scsw.cmd.dstat == 0x85 || irb->scsw.cmd.dstat == 0x80) &&
+		memcpy(&request->irb, irb, sizeof(*irb));
+	} else if ((irb->scsw.cmd.dstat == 0x85 || irb->scsw.cmd.dstat == 0x80) &&
 		 !list_empty(&device->req_queue)) {
 		/* Not Ready to Ready after long busy ? */
 		struct tape_request *req;
@@ -1282,7 +1311,9 @@ tape_init (void)
 #endif
 	DBF_EVENT(3, "tape init\n");
 	tape_proc_init();
+	tape_class_init();
 	tapechar_init ();
+	tape_3490_init();
 	return 0;
 }
 
@@ -1295,14 +1326,15 @@ tape_exit(void)
 	DBF_EVENT(6, "tape exit\n");
 
 	/* Get rid of the frontends */
+	tape_3490_exit();
 	tapechar_exit();
+	tape_class_exit();
 	tape_proc_cleanup();
 	debug_unregister (TAPE_DBF_AREA);
 }
 
-MODULE_AUTHOR("(C) 2001 IBM Deutschland Entwicklung GmbH by Carsten Otte and "
-	      "Michael Holzheu (cotte@de.ibm.com,holzheu@de.ibm.com)");
-MODULE_DESCRIPTION("Linux on zSeries channel attached tape device driver");
+MODULE_AUTHOR("IBM Corporation");
+MODULE_DESCRIPTION("s390 channel-attached tape device driver");
 MODULE_LICENSE("GPL");
 
 module_init(tape_init);

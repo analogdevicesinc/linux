@@ -57,7 +57,8 @@ static void subtest_kmem_cache_iter_check_slabinfo(struct kmem_cache_iter *skel)
 		if (!ASSERT_OK(ret, "kmem_cache_lookup"))
 			break;
 
-		ASSERT_STREQ(r.name, name, "kmem_cache_name");
+		ASSERT_STRNEQ(r.name, name, sizeof(r.name) - 1,
+			      "kmem_cache_name");
 		ASSERT_EQ(r.obj_size, objsize, "kmem_cache_objsize");
 
 		seen++;
@@ -103,11 +104,8 @@ void test_kmem_cache_iter(void)
 	if (!ASSERT_GE(iter_fd, 0, "iter_create"))
 		goto destroy;
 
-	memset(buf, 0, sizeof(buf));
-	while (read(iter_fd, buf, sizeof(buf)) > 0) {
-		/* Read out all contents */
-		printf("%s", buf);
-	}
+	while (read(iter_fd, buf, sizeof(buf)) > 0)
+		; /* Read out all contents */
 
 	/* Next reads should return 0 */
 	ASSERT_EQ(read(iter_fd, buf, sizeof(buf)), 0, "read");

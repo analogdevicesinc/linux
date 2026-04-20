@@ -131,7 +131,7 @@ static struct ubi_ainf_volume *find_or_add_av(struct ubi_attach_info *ai,
 		return NULL;
 
 	/* The volume is absent - add it */
-	av = kzalloc(sizeof(*av), GFP_KERNEL);
+	av = kzalloc_obj(*av);
 	if (!av)
 		return ERR_PTR(-ENOMEM);
 
@@ -1451,7 +1451,7 @@ static struct ubi_attach_info *alloc_ai(const char *slab_name)
 {
 	struct ubi_attach_info *ai;
 
-	ai = kzalloc(sizeof(struct ubi_attach_info), GFP_KERNEL);
+	ai = kzalloc_obj(struct ubi_attach_info);
 	if (!ai)
 		return ai;
 
@@ -1600,7 +1600,7 @@ int ubi_attach(struct ubi_device *ubi, int force_scan)
 
 	err = ubi_read_volume_table(ubi, ai);
 	if (err)
-		goto out_ai;
+		goto out_fm;
 
 	err = ubi_wl_init(ubi, ai);
 	if (err)
@@ -1642,6 +1642,8 @@ out_wl:
 out_vtbl:
 	ubi_free_all_volumes(ubi);
 	vfree(ubi->vtbl);
+out_fm:
+	ubi_free_fastmap(ubi);
 out_ai:
 	destroy_ai(ai);
 	return err;

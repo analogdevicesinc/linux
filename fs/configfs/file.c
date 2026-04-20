@@ -30,7 +30,7 @@ struct configfs_buffer {
 	size_t			count;
 	loff_t			pos;
 	char			* page;
-	struct configfs_item_operations	* ops;
+	const struct configfs_item_operations	*ops;
 	struct mutex		mutex;
 	int			needs_read_fill;
 	bool			read_in_progress;
@@ -296,7 +296,7 @@ static int __configfs_open_file(struct inode *inode, struct file *file, int type
 	int error;
 
 	error = -ENOMEM;
-	buffer = kzalloc(sizeof(struct configfs_buffer), GFP_KERNEL);
+	buffer = kzalloc_obj(struct configfs_buffer);
 	if (!buffer)
 		goto out;
 

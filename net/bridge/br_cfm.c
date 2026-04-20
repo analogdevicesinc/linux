@@ -547,7 +547,7 @@ int br_cfm_mep_create(struct net_bridge *br,
 		}
 	}
 
-	mep = kzalloc(sizeof(*mep), GFP_KERNEL);
+	mep = kzalloc_obj(*mep);
 	if (!mep)
 		return -ENOMEM;
 
@@ -576,7 +576,7 @@ static void mep_delete_implementation(struct net_bridge *br,
 
 	/* Empty and free peer MEP list */
 	hlist_for_each_entry_safe(peer_mep, n_store, &mep->peer_mep_list, head) {
-		cancel_delayed_work_sync(&peer_mep->ccm_rx_dwork);
+		disable_delayed_work_sync(&peer_mep->ccm_rx_dwork);
 		hlist_del_rcu(&peer_mep->head);
 		kfree_rcu(peer_mep, rcu);
 	}
@@ -693,7 +693,7 @@ int br_cfm_cc_peer_mep_add(struct net_bridge *br, const u32 instance,
 		return -EEXIST;
 	}
 
-	peer_mep = kzalloc(sizeof(*peer_mep), GFP_KERNEL);
+	peer_mep = kzalloc_obj(*peer_mep);
 	if (!peer_mep)
 		return -ENOMEM;
 
@@ -732,7 +732,7 @@ int br_cfm_cc_peer_mep_remove(struct net_bridge *br, const u32 instance,
 		return -ENOENT;
 	}
 
-	cc_peer_disable(peer_mep);
+	disable_delayed_work_sync(&peer_mep->ccm_rx_dwork);
 
 	hlist_del_rcu(&peer_mep->head);
 	kfree_rcu(peer_mep, rcu);

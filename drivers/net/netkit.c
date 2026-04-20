@@ -16,17 +16,19 @@
 #define DRV_NAME "netkit"
 
 struct netkit {
-	/* Needed in fast-path */
+	__cacheline_group_begin(netkit_fastpath);
 	struct net_device __rcu *peer;
 	struct bpf_mprog_entry __rcu *active;
 	enum netkit_action policy;
 	enum netkit_scrub scrub;
 	struct bpf_mprog_bundle	bundle;
+	__cacheline_group_end(netkit_fastpath);
 
-	/* Needed in slow-path */
+	__cacheline_group_begin(netkit_slowpath);
 	enum netkit_mode mode;
 	bool primary;
 	u32 headroom;
+	__cacheline_group_end(netkit_slowpath);
 };
 
 struct netkit_link {
@@ -794,7 +796,7 @@ int netkit_link_attach(const union bpf_attr *attr, struct bpf_prog *prog)
 		ret = PTR_ERR(dev);
 		goto out;
 	}
-	nkl = kzalloc(sizeof(*nkl), GFP_KERNEL_ACCOUNT);
+	nkl = kzalloc_obj(*nkl, GFP_KERNEL_ACCOUNT);
 	if (!nkl) {
 		ret = -ENOMEM;
 		goto out;

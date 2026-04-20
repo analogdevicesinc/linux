@@ -165,7 +165,7 @@ lpfc_ct_reject_event(struct lpfc_nodelist *ndlp,
 	u32 tmo;
 
 	/* fill in BDEs for command */
-	mp = kmalloc(sizeof(*mp), GFP_KERNEL);
+	mp = kmalloc_obj(*mp);
 	if (!mp) {
 		rc = 1;
 		goto ct_exit;
@@ -178,7 +178,7 @@ lpfc_ct_reject_event(struct lpfc_nodelist *ndlp,
 	}
 
 	/* Allocate buffer for Buffer ptr list */
-	bmp = kmalloc(sizeof(*bmp), GFP_KERNEL);
+	bmp = kmalloc_obj(*bmp);
 	if (!bmp) {
 		rc = 3;
 		goto ct_free_mpvirt;
@@ -498,7 +498,7 @@ lpfc_alloc_ct_rsp(struct lpfc_hba *phba, __be16 cmdcode, struct ulp_bde64 *bpl,
 
 	while (size) {
 		/* Allocate buffer for rsp payload */
-		mp = kmalloc(sizeof(struct lpfc_dmabuf), GFP_KERNEL);
+		mp = kmalloc_obj(struct lpfc_dmabuf);
 		if (!mp) {
 			if (mlist)
 				lpfc_free_ct_rsp(phba, mlist);
@@ -1743,6 +1743,28 @@ lpfc_cmpl_ct_cmd_rsnn_nn(struct lpfc_hba *phba, struct lpfc_iocbq *cmdiocb,
 }
 
 static void
+lpfc_cmpl_ct_cmd_rspni_pni(struct lpfc_hba *phba, struct lpfc_iocbq *cmdiocb,
+			   struct lpfc_iocbq *rspiocb)
+{
+	struct lpfc_vport *vport;
+	struct lpfc_dmabuf *outp;
+	struct lpfc_sli_ct_request *ctrsp;
+	u32 ulp_status;
+
+	vport = cmdiocb->vport;
+	ulp_status = get_job_ulpstatus(phba, rspiocb);
+
+	if (ulp_status == IOSTAT_SUCCESS) {
+		outp = cmdiocb->rsp_dmabuf;
+		ctrsp = (struct lpfc_sli_ct_request *)outp->virt;
+		if (be16_to_cpu(ctrsp->CommandResponse.bits.CmdRsp) ==
+		    SLI_CT_RESPONSE_FS_ACC)
+			vport->ct_flags |= FC_CT_RSPNI_PNI;
+	}
+	lpfc_cmpl_ct(phba, cmdiocb, rspiocb);
+}
+
+static void
 lpfc_cmpl_ct_cmd_da_id(struct lpfc_hba *phba, struct lpfc_iocbq *cmdiocb,
  struct lpfc_iocbq *rspiocb)
 {
@@ -1902,7 +1924,7 @@ lpfc_ns_cmd(struct lpfc_vport *vport, int cmdcode,
 
 	/* fill in BDEs for command */
 	/* Allocate buffer for command payload */
-	mp = kmalloc(sizeof(struct lpfc_dmabuf), GFP_KERNEL);
+	mp = kmalloc_obj(struct lpfc_dmabuf);
 	if (!mp) {
 		rc=2;
 		goto ns_cmd_exit;
@@ -1916,7 +1938,7 @@ lpfc_ns_cmd(struct lpfc_vport *vport, int cmdcode,
 	}
 
 	/* Allocate buffer for Buffer ptr list */
-	bmp = kmalloc(sizeof(struct lpfc_dmabuf), GFP_KERNEL);
+	bmp = kmalloc_obj(struct lpfc_dmabuf);
 	if (!bmp) {
 		rc=4;
 		goto ns_cmd_free_mpvirt;
@@ -1956,6 +1978,8 @@ lpfc_ns_cmd(struct lpfc_vport *vport, int cmdcode,
 		bpl->tus.f.bdeSize = RSPN_REQUEST_SZ;
 	else if (cmdcode == SLI_CTNS_RSNN_NN)
 		bpl->tus.f.bdeSize = RSNN_REQUEST_SZ;
+	else if (cmdcode == SLI_CTNS_RSPNI_PNI)
+		bpl->tus.f.bdeSize = RSPNI_REQUEST_SZ;
 	else if (cmdcode == SLI_CTNS_DA_ID)
 		bpl->tus.f.bdeSize = DA_ID_REQUEST_SZ;
 	else if (cmdcode == SLI_CTNS_RFF_ID)
@@ -2076,6 +2100,18 @@ lpfc_ns_cmd(struct lpfc_vport *vport, int cmdcode,
 			lpfc_vport_symbolic_node_name(vport,
 			CtReq->un.rsnn.symbname, size);
 		cmpl = lpfc_cmpl_ct_cmd_rsnn_nn;
+		break;
+	case SLI_CTNS_RSPNI_PNI:
+		vport->ct_flags &= ~FC_CT_RSPNI_PNI;
+		CtReq->CommandResponse.bits.CmdRsp =
+		    cpu_to_be16(SLI_CTNS_RSPNI_PNI);
+		CtReq->un.rspni.pni = cpu_to_be64(phba->pni);
+		scnprintf(CtReq->un.rspni.symbname,
+			  sizeof(CtReq->un.rspni.symbname), "OS Host Name::%s",
+			  phba->os_host_name);
+		CtReq->un.rspni.len = strnlen(CtReq->un.rspni.symbname,
+					      sizeof(CtReq->un.rspni.symbname));
+		cmpl = lpfc_cmpl_ct_cmd_rspni_pni;
 		break;
 	case SLI_CTNS_DA_ID:
 		/* Implement DA_ID Nameserver request */
@@ -3184,7 +3220,7 @@ lpfc_fdmi_cmd(struct lpfc_vport *vport, struct lpfc_nodelist *ndlp,
 
 	/* fill in BDEs for command */
 	/* Allocate buffer for command payload */
-	rq = kmalloc(sizeof(*rq), GFP_KERNEL);
+	rq = kmalloc_obj(*rq);
 	if (!rq)
 		goto fdmi_cmd_exit;
 
@@ -3193,7 +3229,7 @@ lpfc_fdmi_cmd(struct lpfc_vport *vport, struct lpfc_nodelist *ndlp,
 		goto fdmi_cmd_free_rq;
 
 	/* Allocate buffer for Buffer ptr list */
-	rsp = kmalloc(sizeof(*rsp), GFP_KERNEL);
+	rsp = kmalloc_obj(*rsp);
 	if (!rsp)
 		goto fdmi_cmd_free_rqvirt;
 
@@ -3680,7 +3716,7 @@ lpfc_vmid_cmd(struct lpfc_vport *vport,
 
 	/* fill in BDEs for command */
 	/* Allocate buffer for command payload */
-	mp = kmalloc(sizeof(*mp), GFP_KERNEL);
+	mp = kmalloc_obj(*mp);
 	if (!mp)
 		goto vmid_free_mp_exit;
 
@@ -3689,7 +3725,7 @@ lpfc_vmid_cmd(struct lpfc_vport *vport,
 		goto vmid_free_mp_virt_exit;
 
 	/* Allocate buffer for Buffer ptr list */
-	bmp = kmalloc(sizeof(*bmp), GFP_KERNEL);
+	bmp = kmalloc_obj(*bmp);
 	if (!bmp)
 		goto vmid_free_bmp_exit;
 

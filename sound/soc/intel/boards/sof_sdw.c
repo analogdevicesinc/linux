@@ -231,6 +231,20 @@ static const struct dmi_system_id sof_sdw_quirk_table[] = {
 					RT711_JD1),
 	},
 	{
+		/*
+		 * Avell B.ON (OEM rebrand of NUC15 'Bishop County' LAPBC510 and
+		 * LAPBC710)
+		 */
+		.callback = sof_sdw_quirk_cb,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Avell High Performance"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "B.ON"),
+		},
+		.driver_data = (void *)(SOF_SDW_TGL_HDMI |
+					SOC_SDW_PCH_DMIC |
+					RT711_JD1),
+	},
+	{
 		/* NUC15 'Rooks County' LAPRC510 and LAPRC710 skews */
 		.callback = sof_sdw_quirk_cb,
 		.matches = {
@@ -749,13 +763,51 @@ static const struct dmi_system_id sof_sdw_quirk_table[] = {
 		},
 		.driver_data = (void *)(SOC_SDW_CODEC_SPKR),
 	},
+	{
+		.callback = sof_sdw_quirk_cb,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "0CCD")
+		},
+		.driver_data = (void *)(SOC_SDW_CODEC_SPKR),
+	},
 	/* Pantherlake devices*/
+	{
+		.callback = sof_sdw_quirk_cb,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "0DD6")
+		},
+		.driver_data = (void *)(SOC_SDW_SIDECAR_AMPS),
+	},
 	{
 		.callback = sof_sdw_quirk_cb,
 		.matches = {
 			DMI_MATCH(DMI_PRODUCT_FAMILY, "Intel_ptlrvp"),
 		},
 		.driver_data = (void *)(SOC_SDW_PCH_DMIC),
+	},
+	{
+		.callback = sof_sdw_quirk_cb,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Google"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Lapis"),
+		},
+		.driver_data = (void *)(SOC_SDW_CODEC_SPKR |
+					SOC_SDW_PCH_DMIC |
+					SOF_BT_OFFLOAD_SSP(2) |
+					SOF_SSP_BT_OFFLOAD_PRESENT),
+	},
+	{
+		.callback = sof_sdw_quirk_cb,
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Google"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Francka"),
+		},
+		.driver_data = (void *)(SOC_SDW_CODEC_SPKR |
+					SOC_SDW_PCH_DMIC |
+					SOF_BT_OFFLOAD_SSP(2) |
+					SOF_SSP_BT_OFFLOAD_PRESENT),
 	},
 	{
 		.callback = sof_sdw_quirk_cb,
@@ -794,6 +846,7 @@ static const struct snd_pci_quirk sof_sdw_ssid_quirk_table[] = {
 	SND_PCI_QUIRK(0x17aa, 0x2347, "Lenovo P16", SOC_SDW_CODEC_MIC),
 	SND_PCI_QUIRK(0x17aa, 0x2348, "Lenovo P16", SOC_SDW_CODEC_MIC),
 	SND_PCI_QUIRK(0x17aa, 0x2349, "Lenovo P1", SOC_SDW_CODEC_MIC),
+	SND_PCI_QUIRK(0x17aa, 0x3821, "Lenovo 0x3821", SOC_SDW_SIDECAR_AMPS),
 	{}
 };
 
@@ -1113,14 +1166,21 @@ static int create_bt_dailinks(struct snd_soc_card *card,
 			      struct snd_soc_dai_link **dai_links, int *be_id)
 {
 	struct device *dev = card->dev;
-	int port = (sof_sdw_quirk & SOF_BT_OFFLOAD_SSP_MASK) >>
-			SOF_BT_OFFLOAD_SSP_SHIFT;
-	char *name = devm_kasprintf(dev, GFP_KERNEL, "SSP%d-BT", port);
-	char *cpu_dai_name = devm_kasprintf(dev, GFP_KERNEL, "SSP%d Pin", port);
+	struct snd_soc_acpi_mach *mach = dev_get_platdata(dev);
+	char *cpu_dai_name;
+	char *name;
+	int port;
+	int ret;
+
+	if (sof_sdw_quirk & SOF_SSP_BT_OFFLOAD_PRESENT)
+		port = (sof_sdw_quirk & SOF_BT_OFFLOAD_SSP_MASK) >> SOF_BT_OFFLOAD_SSP_SHIFT;
+	else
+		port = fls(mach->mach_params.bt_link_mask) - 1;
+
+	name = devm_kasprintf(dev, GFP_KERNEL, "SSP%d-BT", port);
+	cpu_dai_name = devm_kasprintf(dev, GFP_KERNEL, "SSP%d Pin", port);
 	if (!name || !cpu_dai_name)
 		return -ENOMEM;
-
-	int ret;
 
 	ret = asoc_sdw_init_simple_dai_link(dev, *dai_links, be_id, name,
 					    1, 1, cpu_dai_name, "dummy",
@@ -1130,6 +1190,34 @@ static int create_bt_dailinks(struct snd_soc_card *card,
 		return ret;
 
 	(*dai_links)++;
+
+	return 0;
+}
+
+static int create_echoref_dailink(struct snd_soc_card *card,
+				  struct snd_soc_dai_link **dai_links, int *be_id)
+{
+	struct device *dev = card->dev;
+	int ret;
+	char *name = devm_kasprintf(dev, GFP_KERNEL, "Loopback_Virtual");
+
+	if (!name)
+		return -ENOMEM;
+
+	/*
+	 * use dummy DAI names as this won't be connected to an actual DAI but just to establish a
+	 * fe <-> be connection for loopback capture for echo reference
+	 */
+	ret = asoc_sdw_init_simple_dai_link(dev, *dai_links, be_id, name,
+					    0, 1, "Loopback Virtual Pin", "dummy",
+					    snd_soc_dummy_dlc.name, snd_soc_dummy_dlc.dai_name,
+					    1, NULL, NULL);
+	if (ret)
+		return ret;
+
+	(*dai_links)++;
+
+	dev_dbg(dev, "Added echo reference DAI link\n");
 
 	return 0;
 }
@@ -1146,8 +1234,11 @@ static int sof_card_dai_links_create(struct snd_soc_card *card)
 	struct asoc_sdw_codec_info *ssp_info;
 	struct asoc_sdw_endpoint *sof_ends;
 	struct asoc_sdw_dailink *sof_dais;
+	struct snd_soc_aux_dev *sof_aux;
 	int num_devs = 0;
 	int num_ends = 0;
+	int num_aux = 0;
+	int num_confs;
 	struct snd_soc_dai_link *dai_links;
 	int num_links;
 	int be_id = 0;
@@ -1155,29 +1246,37 @@ static int sof_card_dai_links_create(struct snd_soc_card *card)
 	unsigned long ssp_mask;
 	int ret;
 
-	ret = asoc_sdw_count_sdw_endpoints(card, &num_devs, &num_ends);
+	ret = asoc_sdw_count_sdw_endpoints(card, &num_devs, &num_ends, &num_aux);
 	if (ret < 0) {
 		dev_err(dev, "failed to count devices/endpoints: %d\n", ret);
 		return ret;
 	}
+
+	num_confs = num_ends;
 
 	/*
 	 * One per DAI link, worst case is a DAI link for every endpoint, also
 	 * add one additional to act as a terminator such that code can iterate
 	 * until it hits an uninitialised DAI.
 	 */
-	sof_dais = kcalloc(num_ends + 1, sizeof(*sof_dais), GFP_KERNEL);
+	sof_dais = kzalloc_objs(*sof_dais, num_ends + 1);
 	if (!sof_dais)
 		return -ENOMEM;
 
 	/* One per endpoint, ie. each DAI on each codec/amp */
-	sof_ends = kcalloc(num_ends, sizeof(*sof_ends), GFP_KERNEL);
+	sof_ends = kzalloc_objs(*sof_ends, num_ends);
 	if (!sof_ends) {
 		ret = -ENOMEM;
 		goto err_dai;
 	}
 
-	ret = asoc_sdw_parse_sdw_endpoints(card, sof_dais, sof_ends, &num_devs);
+	sof_aux = devm_kcalloc(dev, num_aux, sizeof(*sof_aux), GFP_KERNEL);
+	if (!sof_aux) {
+		ret = -ENOMEM;
+		goto err_dai;
+	}
+
+	ret = asoc_sdw_parse_sdw_endpoints(card, sof_aux, sof_dais, sof_ends, &num_confs);
 	if (ret < 0)
 		goto err_end;
 
@@ -1218,21 +1317,25 @@ static int sof_card_dai_links_create(struct snd_soc_card *card)
 		mach_params->dmic_num = DMIC_DEFAULT_CHANNELS;
 	}
 
-	if (sof_sdw_quirk & SOF_SSP_BT_OFFLOAD_PRESENT)
+	if (sof_sdw_quirk & SOF_SSP_BT_OFFLOAD_PRESENT || mach_params->bt_link_mask)
 		bt_num = 1;
 
 	dev_dbg(dev, "DAI link numbers: sdw %d, ssp %d, dmic %d, hdmi %d, bt: %d\n",
 		sdw_be_num, ssp_num, dmic_num,
 		intel_ctx->hdmi.idisp_codec ? hdmi_num : 0, bt_num);
 
-	codec_conf = devm_kcalloc(dev, num_devs, sizeof(*codec_conf), GFP_KERNEL);
+	codec_conf = devm_kcalloc(dev, num_confs, sizeof(*codec_conf), GFP_KERNEL);
 	if (!codec_conf) {
 		ret = -ENOMEM;
 		goto err_end;
 	}
 
-	/* allocate BE dailinks */
-	num_links = sdw_be_num + ssp_num + dmic_num + hdmi_num + bt_num;
+	/*
+	 * allocate BE dailinks, add an extra DAI link for echo reference capture.
+	 * This should be the last DAI link and it is expected both for monolithic
+	 * and functional SOF topologies to support echo reference.
+	 */
+	num_links = sdw_be_num + ssp_num + dmic_num + hdmi_num + bt_num + 1;
 	dai_links = devm_kcalloc(dev, num_links, sizeof(*dai_links), GFP_KERNEL);
 	if (!dai_links) {
 		ret = -ENOMEM;
@@ -1240,9 +1343,11 @@ static int sof_card_dai_links_create(struct snd_soc_card *card)
 	}
 
 	card->codec_conf = codec_conf;
-	card->num_configs = num_devs;
+	card->num_configs = num_confs;
 	card->dai_link = dai_links;
 	card->num_links = num_links;
+	card->aux_dev = sof_aux;
+	card->num_aux_devs = num_aux;
 
 	/* SDW */
 	if (sdw_be_num) {
@@ -1273,10 +1378,17 @@ static int sof_card_dai_links_create(struct snd_soc_card *card)
 		goto err_end;
 
 	/* BT */
-	if (sof_sdw_quirk & SOF_SSP_BT_OFFLOAD_PRESENT) {
+	if (bt_num) {
 		ret = create_bt_dailinks(card, &dai_links, &be_id);
 		if (ret)
 			goto err_end;
+	}
+
+	/* dummy echo ref link. keep this as the last DAI link. The DAI link ID does not matter */
+	ret = create_echoref_dailink(card, &dai_links, &be_id);
+	if (ret) {
+		dev_err(dev, "failed to create echo ref dai link: %d\n", ret);
+		goto err_end;
 	}
 
 	WARN_ON(codec_conf != card->codec_conf + card->num_configs);

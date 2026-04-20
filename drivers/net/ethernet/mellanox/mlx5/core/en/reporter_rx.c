@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2019 Mellanox Technologies.
 
+#include <net/netdev_lock.h>
+
 #include "health.h"
 #include "params.h"
 #include "txrx.h"
@@ -177,6 +179,16 @@ static int mlx5e_rx_reporter_timeout_recover(void *ctx)
 	rq = ctx;
 	priv = rq->priv;
 
+	/* Acquire netdev instance lock to synchronize with channel close and
+	 * reopen flows. Either successfully obtain the lock, or detect that
+	 * channels are closing for another reason, making this work no longer
+	 * necessary.
+	 */
+	while (!netdev_trylock(rq->netdev)) {
+		if (!test_bit(MLX5E_STATE_CHANNELS_ACTIVE, &rq->priv->state))
+			return 0;
+		msleep(20);
+	}
 	mutex_lock(&priv->state_lock);
 
 	eq = rq->cq.mcq.eq;
@@ -186,6 +198,7 @@ static int mlx5e_rx_reporter_timeout_recover(void *ctx)
 		clear_bit(MLX5E_SQ_STATE_ENABLED, &rq->icosq->state);
 
 	mutex_unlock(&priv->state_lock);
+	netdev_unlock(rq->netdev);
 
 	return err;
 }
@@ -318,7 +331,8 @@ mlx5e_rx_reporter_diagnose_common_ptp_config(struct mlx5e_priv *priv, struct mlx
 					     struct devlink_fmsg *fmsg)
 {
 	mlx5e_health_fmsg_named_obj_nest_start(fmsg, "PTP");
-	devlink_fmsg_u32_pair_put(fmsg, "filter_type", priv->tstamp.rx_filter);
+	devlink_fmsg_u32_pair_put(fmsg, "filter_type",
+				  priv->hwtstamp_config.rx_filter);
 	mlx5e_rx_reporter_diagnose_generic_rq(&ptp_ch->rq, fmsg);
 	mlx5e_health_fmsg_named_obj_nest_end(fmsg);
 }

@@ -52,6 +52,10 @@ struct irq_info {
 static DEFINE_HASHTABLE(irq_lists, IRQ_HASH_BITS);
 static DEFINE_MUTEX(hash_mutex);	/* Used to walk the hash */
 
+static bool skip_txen_test;
+module_param(skip_txen_test, bool, 0644);
+MODULE_PARM_DESC(skip_txen_test, "Skip checking for the TXEN bug at init time");
+
 /*
  * This is the serial driver's interrupt routine.
  *
@@ -136,7 +140,7 @@ static struct irq_info *serial_get_or_create_irq_info(const struct uart_8250_por
 		if (i->irq == up->port.irq)
 			return i;
 
-	i = kzalloc(sizeof(*i), GFP_KERNEL);
+	i = kzalloc_obj(*i);
 	if (i == NULL)
 		return ERR_PTR(-ENOMEM);
 

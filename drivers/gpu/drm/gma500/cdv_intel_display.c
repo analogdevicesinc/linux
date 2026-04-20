@@ -11,6 +11,7 @@
 
 #include <drm/drm_crtc.h>
 #include <drm/drm_modeset_helper_vtables.h>
+#include <drm/drm_print.h>
 
 #include "cdv_device.h"
 #include "framebuffer.h"
@@ -938,7 +939,7 @@ struct drm_display_mode *cdv_intel_crtc_mode_get(struct drm_device *dev,
 		vsync = p->vsync;
 	}
 
-	mode = kzalloc(sizeof(*mode), GFP_KERNEL);
+	mode = kzalloc_obj(*mode);
 	if (!mode)
 		return NULL;
 

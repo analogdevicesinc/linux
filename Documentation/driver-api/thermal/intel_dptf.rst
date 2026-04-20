@@ -375,6 +375,9 @@ based on the processor generation.
 ``workload_hint_enable`` (RW)
 	Enable firmware to send workload type hints to user space.
 
+``workload_slow_hint_enable`` (RW)
+	Enable firmware to send slow workload type hints to user space.
+
 ``notification_delay_ms`` (RW)
 	Minimum delay in milliseconds before firmware will notify OS. This is
 	for the rate control of notifications. This delay is between changing
@@ -409,3 +412,26 @@ based on the processor generation.
 		Limit 1 from being exhausted.
 
 	4 – Unknown: Can't classify.
+
+	On processors starting from Panther Lake additional hints are provided.
+	The hardware analyzes workload residencies over an extended period to
+	determine whether the workload classification tends toward idle/battery
+	life states or sustained/performance states. Based on this long-term
+	analysis, it classifies:
+
+	Power Classification: If the workload exhibits more idle or battery life
+	residencies, it is classified as "power".
+
+	Performance Classification: If the workload exhibits more sustained or
+	performance residencies, it is classified as "performance".
+
+	This approach enables applications to ignore short-term workload
+	fluctuations and instead respond to longer-term power vs. performance
+	trends.
+
+	Residency thresholds for this classification are CPU generation-specific.
+	Classification is reported via bit 4 of the workload_type_index:
+
+	Bit 4 = 1: Power classification
+
+	Bit 4 = 0: Performance classification

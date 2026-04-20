@@ -258,6 +258,15 @@ end_attr_file_creation:
 	return err;
 }
 
+static inline
+bool is_xattr_operation_supported(struct inode *inode)
+{
+	if (HFSPLUS_IS_RSRC(inode))
+		return false;
+
+	return true;
+}
+
 int __hfsplus_setxattr(struct inode *inode, const char *name,
 			const void *value, size_t size, int flags)
 {
@@ -265,14 +274,14 @@ int __hfsplus_setxattr(struct inode *inode, const char *name,
 	struct hfs_find_data cat_fd;
 	hfsplus_cat_entry entry;
 	u16 cat_entry_flags, cat_entry_type;
-	u16 folder_finderinfo_len = sizeof(struct DInfo) +
-					sizeof(struct DXInfo);
-	u16 file_finderinfo_len = sizeof(struct FInfo) +
-					sizeof(struct FXInfo);
+	u16 folder_finderinfo_len = sizeof(DInfo) + sizeof(DXInfo);
+	u16 file_finderinfo_len = sizeof(FInfo) + sizeof(FXInfo);
 
-	if ((!S_ISREG(inode->i_mode) &&
-			!S_ISDIR(inode->i_mode)) ||
-				HFSPLUS_IS_RSRC(inode))
+	hfs_dbg("ino %lu, name %s, value %p, size %zu\n",
+		inode->i_ino, name ? name : NULL,
+		value, size);
+
+	if (!is_xattr_operation_supported(inode))
 		return -EOPNOTSUPP;
 
 	if (value == NULL)
@@ -343,12 +352,11 @@ int __hfsplus_setxattr(struct inode *inode, const char *name,
 			err = -EOPNOTSUPP;
 			goto end_setxattr;
 		}
-		err = hfsplus_delete_attr(inode, name);
-		if (err)
+		err = hfsplus_replace_attr(inode, name, value, size);
+		if (err) {
+			hfs_dbg("unable to replace xattr: err %d\n", err);
 			goto end_setxattr;
-		err = hfsplus_create_attr(inode, name, value, size);
-		if (err)
-			goto end_setxattr;
+		}
 	} else {
 		if (flags & XATTR_REPLACE) {
 			pr_err("cannot replace xattr\n");
@@ -356,8 +364,10 @@ int __hfsplus_setxattr(struct inode *inode, const char *name,
 			goto end_setxattr;
 		}
 		err = hfsplus_create_attr(inode, name, value, size);
-		if (err)
+		if (err) {
+			hfs_dbg("unable to store value: err %d\n", err);
 			goto end_setxattr;
+		}
 	}
 
 	cat_entry_type = hfs_bnode_read_u16(cat_fd.bnode, cat_fd.entryoffset);
@@ -391,12 +401,13 @@ int __hfsplus_setxattr(struct inode *inode, const char *name,
 
 end_setxattr:
 	hfs_find_exit(&cat_fd);
+	hfs_dbg("finished: res %d\n", err);
 	return err;
 }
 
-static int name_len(const char *xattr_name, int xattr_name_len)
+static size_t name_len(const char *xattr_name, size_t xattr_name_len)
 {
-	int len = xattr_name_len + 1;
+	size_t len = xattr_name_len + 1;
 
 	if (!is_known_namespace(xattr_name))
 		len += XATTR_MAC_OSX_PREFIX_LEN;
@@ -404,15 +415,22 @@ static int name_len(const char *xattr_name, int xattr_name_len)
 	return len;
 }
 
-static ssize_t copy_name(char *buffer, const char *xattr_name, int name_len)
+static ssize_t copy_name(char *buffer, const char *xattr_name, size_t name_len)
 {
 	ssize_t len;
 
-	if (!is_known_namespace(xattr_name))
+	memset(buffer, 0, name_len);
+
+	if (!is_known_namespace(xattr_name)) {
 		len = scnprintf(buffer, name_len + XATTR_MAC_OSX_PREFIX_LEN,
 				 "%s%s", XATTR_MAC_OSX_PREFIX, xattr_name);
-	else
+	} else {
 		len = strscpy(buffer, xattr_name, name_len + 1);
+		if (len < 0) {
+			pr_err("fail to copy name: err %zd\n", len);
+			len = 0;
+		}
+	}
 
 	/* include NUL-byte in length for non-empty name */
 	if (len >= 0)
@@ -425,16 +443,26 @@ int hfsplus_setxattr(struct inode *inode, const char *name,
 		     const char *prefix, size_t prefixlen)
 {
 	char *xattr_name;
+	size_t xattr_name_len =
+		NLS_MAX_CHARSET_SIZE * HFSPLUS_ATTR_MAX_STRLEN + 1;
 	int res;
 
-	xattr_name = kmalloc(NLS_MAX_CHARSET_SIZE * HFSPLUS_ATTR_MAX_STRLEN + 1,
-		GFP_KERNEL);
+	hfs_dbg("ino %lu, name %s, prefix %s, prefixlen %zu, "
+		"value %p, size %zu\n",
+		inode->i_ino, name ? name : NULL,
+		prefix ? prefix : NULL, prefixlen,
+		value, size);
+
+	xattr_name = kmalloc(xattr_name_len, GFP_KERNEL);
 	if (!xattr_name)
 		return -ENOMEM;
 	strcpy(xattr_name, prefix);
 	strcpy(xattr_name + prefixlen, name);
 	res = __hfsplus_setxattr(inode, xattr_name, value, size, flags);
 	kfree(xattr_name);
+
+	hfs_dbg("finished: res %d\n", res);
+
 	return res;
 }
 
@@ -444,11 +472,11 @@ static ssize_t hfsplus_getxattr_finder_info(struct inode *inode,
 	ssize_t res = 0;
 	struct hfs_find_data fd;
 	u16 entry_type;
-	u16 folder_rec_len = sizeof(struct DInfo) + sizeof(struct DXInfo);
-	u16 file_rec_len = sizeof(struct FInfo) + sizeof(struct FXInfo);
+	u16 folder_rec_len = sizeof(DInfo) + sizeof(DXInfo);
+	u16 file_rec_len = sizeof(FInfo) + sizeof(FXInfo);
 	u16 record_len = max(folder_rec_len, file_rec_len);
-	u8 folder_finder_info[sizeof(struct DInfo) + sizeof(struct DXInfo)];
-	u8 file_finder_info[sizeof(struct FInfo) + sizeof(struct FXInfo)];
+	u8 folder_finder_info[sizeof(DInfo) + sizeof(DXInfo)];
+	u8 file_finder_info[sizeof(FInfo) + sizeof(FXInfo)];
 
 	if (size >= record_len) {
 		res = hfs_find_init(HFSPLUS_SB(inode->i_sb)->cat_tree, &fd);
@@ -498,9 +526,7 @@ ssize_t __hfsplus_getxattr(struct inode *inode, const char *name,
 	u16 record_length = 0;
 	ssize_t res;
 
-	if ((!S_ISREG(inode->i_mode) &&
-			!S_ISDIR(inode->i_mode)) ||
-				HFSPLUS_IS_RSRC(inode))
+	if (!is_xattr_operation_supported(inode))
 		return -EOPNOTSUPP;
 
 	if (!strcmp_xattr_finder_info(name))
@@ -581,6 +607,10 @@ ssize_t hfsplus_getxattr(struct inode *inode, const char *name,
 	int res;
 	char *xattr_name;
 
+	hfs_dbg("ino %lu, name %s, prefix %s\n",
+		inode->i_ino, name ? name : NULL,
+		prefix ? prefix : NULL);
+
 	xattr_name = kmalloc(NLS_MAX_CHARSET_SIZE * HFSPLUS_ATTR_MAX_STRLEN + 1,
 			     GFP_KERNEL);
 	if (!xattr_name)
@@ -591,6 +621,9 @@ ssize_t hfsplus_getxattr(struct inode *inode, const char *name,
 
 	res = __hfsplus_getxattr(inode, xattr_name, value, size);
 	kfree(xattr_name);
+
+	hfs_dbg("finished: res %d\n", res);
+
 	return res;
 
 }
@@ -612,8 +645,8 @@ static ssize_t hfsplus_listxattr_finder_info(struct dentry *dentry,
 	struct inode *inode = d_inode(dentry);
 	struct hfs_find_data fd;
 	u16 entry_type;
-	u8 folder_finder_info[sizeof(struct DInfo) + sizeof(struct DXInfo)];
-	u8 file_finder_info[sizeof(struct FInfo) + sizeof(struct FXInfo)];
+	u8 folder_finder_info[sizeof(DInfo) + sizeof(DXInfo)];
+	u8 file_finder_info[sizeof(FInfo) + sizeof(FXInfo)];
 	unsigned long len, found_bit;
 	int xattr_name_len, symbols_count;
 
@@ -629,14 +662,14 @@ static ssize_t hfsplus_listxattr_finder_info(struct dentry *dentry,
 
 	entry_type = hfs_bnode_read_u16(fd.bnode, fd.entryoffset);
 	if (entry_type == HFSPLUS_FOLDER) {
-		len = sizeof(struct DInfo) + sizeof(struct DXInfo);
+		len = sizeof(DInfo) + sizeof(DXInfo);
 		hfs_bnode_read(fd.bnode, folder_finder_info,
 				fd.entryoffset +
 				offsetof(struct hfsplus_cat_folder, user_info),
 				len);
 		found_bit = find_first_bit((void *)folder_finder_info, len*8);
 	} else if (entry_type == HFSPLUS_FILE) {
-		len = sizeof(struct FInfo) + sizeof(struct FXInfo);
+		len = sizeof(FInfo) + sizeof(FXInfo);
 		hfs_bnode_read(fd.bnode, file_finder_info,
 				fd.entryoffset +
 				offsetof(struct hfsplus_cat_file, user_info),
@@ -681,11 +714,12 @@ ssize_t hfsplus_listxattr(struct dentry *dentry, char *buffer, size_t size)
 	struct hfs_find_data fd;
 	struct hfsplus_attr_key attr_key;
 	char *strbuf;
+	size_t strbuf_size;
 	int xattr_name_len;
 
-	if ((!S_ISREG(inode->i_mode) &&
-			!S_ISDIR(inode->i_mode)) ||
-				HFSPLUS_IS_RSRC(inode))
+	hfs_dbg("ino %lu\n", inode->i_ino);
+
+	if (!is_xattr_operation_supported(inode))
 		return -EOPNOTSUPP;
 
 	res = hfsplus_listxattr_finder_info(dentry, buffer, size);
@@ -700,8 +734,9 @@ ssize_t hfsplus_listxattr(struct dentry *dentry, char *buffer, size_t size)
 		return err;
 	}
 
-	strbuf = kzalloc(NLS_MAX_CHARSET_SIZE * HFSPLUS_ATTR_MAX_STRLEN +
-			XATTR_MAC_OSX_PREFIX_LEN + 1, GFP_KERNEL);
+	strbuf_size = NLS_MAX_CHARSET_SIZE * HFSPLUS_ATTR_MAX_STRLEN +
+			XATTR_MAC_OSX_PREFIX_LEN + 1;
+	strbuf = kzalloc(strbuf_size, GFP_KERNEL);
 	if (!strbuf) {
 		res = -ENOMEM;
 		goto out;
@@ -710,8 +745,7 @@ ssize_t hfsplus_listxattr(struct dentry *dentry, char *buffer, size_t size)
 	err = hfsplus_find_attr(inode->i_sb, inode->i_ino, NULL, &fd);
 	if (err) {
 		if (err == -ENOENT) {
-			if (res == 0)
-				res = -ENODATA;
+			res = 0;
 			goto end_listxattr;
 		} else {
 			res = err;
@@ -748,12 +782,19 @@ ssize_t hfsplus_listxattr(struct dentry *dentry, char *buffer, size_t size)
 				res += name_len(strbuf, xattr_name_len);
 		} else if (can_list(strbuf)) {
 			if (size < (res + name_len(strbuf, xattr_name_len))) {
+				pr_err("size %zu, res %zd, name_len %zu\n",
+					size, res,
+					name_len(strbuf, xattr_name_len));
 				res = -ERANGE;
 				goto end_listxattr;
 			} else
 				res += copy_name(buffer + res,
 						strbuf, xattr_name_len);
 		}
+
+		memset(fd.key->attr.key_name.unicode, 0,
+			sizeof(fd.key->attr.key_name.unicode));
+		memset(strbuf, 0, strbuf_size);
 
 		if (hfs_brec_goto(&fd, 1))
 			goto end_listxattr;
@@ -763,6 +804,9 @@ end_listxattr:
 	kfree(strbuf);
 out:
 	hfs_find_exit(&fd);
+
+	hfs_dbg("finished: res %zd\n", res);
+
 	return res;
 }
 
@@ -774,6 +818,9 @@ static int hfsplus_removexattr(struct inode *inode, const char *name)
 	u16 cat_entry_type;
 	int is_xattr_acl_deleted;
 	int is_all_xattrs_deleted;
+
+	hfs_dbg("ino %lu, name %s\n",
+		inode->i_ino, name ? name : NULL);
 
 	if (!HFSPLUS_SB(inode->i_sb)->attr_tree)
 		return -EOPNOTSUPP;
@@ -835,6 +882,9 @@ static int hfsplus_removexattr(struct inode *inode, const char *name)
 
 end_removexattr:
 	hfs_find_exit(&cat_fd);
+
+	hfs_dbg("finished: err %d\n", err);
+
 	return err;
 }
 

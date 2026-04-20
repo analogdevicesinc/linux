@@ -16,6 +16,7 @@ static void idxd_cmd_exec(struct idxd_device *idxd, int cmd_code, u32 operand,
 			  u32 *status);
 static void idxd_device_wqs_clear_state(struct idxd_device *idxd);
 static void idxd_wq_disable_cleanup(struct idxd_wq *wq);
+static int idxd_wq_config_write(struct idxd_wq *wq);
 
 /* Interrupt control bits */
 void idxd_unmask_error_interrupts(struct idxd_device *idxd)
@@ -215,13 +216,27 @@ int idxd_wq_disable(struct idxd_wq *wq, bool reset_config)
 		return 0;
 	}
 
+	/*
+	 * Disable WQ does not drain address translations, if WQ attributes are
+	 * changed before translations are drained, pending translations can
+	 * be issued using updated WQ attibutes, resulting in invalid
+	 * translations being cached in the device translation cache.
+	 *
+	 * To make sure pending translations are drained before WQ
+	 * attributes are changed, we use a WQ Drain followed by WQ Reset and
+	 * then restore the WQ configuration.
+	 */
+	idxd_wq_drain(wq);
+
 	operand = BIT(wq->id % 16) | ((wq->id / 16) << 16);
-	idxd_cmd_exec(idxd, IDXD_CMD_DISABLE_WQ, operand, &status);
+	idxd_cmd_exec(idxd, IDXD_CMD_RESET_WQ, operand, &status);
 
 	if (status != IDXD_CMDSTS_SUCCESS) {
-		dev_dbg(dev, "WQ disable failed: %#x\n", status);
+		dev_dbg(dev, "WQ reset failed: %#x\n", status);
 		return -ENXIO;
 	}
+
+	idxd_wq_config_write(wq);
 
 	if (reset_config)
 		idxd_wq_disable_cleanup(wq);
@@ -375,6 +390,7 @@ static void idxd_wq_disable_cleanup(struct idxd_wq *wq)
 	memset(wq->name, 0, WQ_NAME_SIZE);
 	wq->max_xfer_bytes = WQ_DEFAULT_MAX_XFER;
 	idxd_wq_set_max_batch_size(idxd->data->type, wq, WQ_DEFAULT_MAX_BATCH);
+	idxd_wq_set_init_max_sgl_size(idxd, wq);
 	if (wq->opcap_bmap)
 		bitmap_copy(wq->opcap_bmap, idxd->opcap_bmap, IDXD_MAX_OPCAP_BITS);
 }
@@ -974,6 +990,8 @@ static int idxd_wq_config_write(struct idxd_wq *wq)
 	/* bytes 12-15 */
 	wq->wqcfg->max_xfer_shift = ilog2(wq->max_xfer_bytes);
 	idxd_wqcfg_set_max_batch_shift(idxd->data->type, wq->wqcfg, ilog2(wq->max_batch_size));
+	if (idxd_sgl_supported(idxd))
+		wq->wqcfg->max_sgl_shift = ilog2(wq->max_sgl_size);
 
 	/* bytes 32-63 */
 	if (idxd->hw.wq_cap.op_config && wq->opcap_bmap) {
@@ -1152,6 +1170,8 @@ static int idxd_wq_load_config(struct idxd_wq *wq)
 
 	wq->max_xfer_bytes = 1ULL << wq->wqcfg->max_xfer_shift;
 	idxd_wq_set_max_batch_size(idxd->data->type, wq, 1U << wq->wqcfg->max_batch_shift);
+	if (idxd_sgl_supported(idxd))
+		wq->max_sgl_size = 1U << wq->wqcfg->max_sgl_shift;
 
 	for (i = 0; i < WQCFG_STRIDES(idxd); i++) {
 		wqcfg_offset = WQCFG_OFFSET(idxd, wq->id, i);

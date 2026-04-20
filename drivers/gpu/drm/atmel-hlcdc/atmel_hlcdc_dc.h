@@ -350,6 +350,7 @@ struct atmel_hlcdc_dc {
 	struct dma_pool *dscrpool;
 	struct atmel_hlcdc *hlcdc;
 	struct drm_crtc *crtc;
+	struct drm_device dev;
 	struct atmel_hlcdc_layer *layers[ATMEL_HLCDC_MAX_LAYERS];
 	struct {
 		u32 imr;
@@ -378,7 +379,8 @@ struct atmel_lcdc_dc_ops {
 	void (*lcdc_update_buffers)(struct atmel_hlcdc_plane *plane,
 				    struct atmel_hlcdc_plane_state *state,
 				    u32 sr, int i);
-	void (*lcdc_atomic_disable)(struct atmel_hlcdc_plane *plane);
+	void (*lcdc_atomic_disable)(struct atmel_hlcdc_plane *plane,
+				    struct atmel_hlcdc_dc *dc);
 	void (*lcdc_update_general_settings)(struct atmel_hlcdc_plane *plane,
 					     struct atmel_hlcdc_plane_state *state);
 	void (*lcdc_atomic_update)(struct atmel_hlcdc_plane *plane,

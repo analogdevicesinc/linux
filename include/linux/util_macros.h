@@ -119,7 +119,7 @@
  * a fuss about it. This makes the programmer responsible for tagging
  * the functions that can be garbage-collected.
  *
- * With the macro it is possible to write the following:
+ * With the macro it is possible to write the following::
  *
  *     static int foo_suspend(struct device *dev)
  *     {
@@ -136,10 +136,10 @@
 #define PTR_IF(cond, ptr)	((cond) ? (ptr) : NULL)
 
 /**
- * to_user_ptr - cast a pointer passed as u64 from user space to void __user *
+ * u64_to_user_ptr - cast a pointer passed as u64 from user space to void __user *
  * @x: The u64 value from user space, usually via IOCTL
  *
- * to_user_ptr() simply casts a pointer passed as u64 from user space to void
+ * u64_to_user_ptr() simply casts a pointer passed as u64 from user space to void
  * __user * correctly. Using this lets us get rid of all the tiresome casts.
  */
 #define u64_to_user_ptr(x)		\

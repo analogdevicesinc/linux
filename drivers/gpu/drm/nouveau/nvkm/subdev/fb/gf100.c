@@ -80,6 +80,9 @@ gf100_fb_init_page(struct nvkm_fb *fb)
 void
 gf100_fb_sysmem_flush_page_init(struct nvkm_fb *fb)
 {
+	// Ensure that the address can actually fit in the register
+	WARN_ON(fb->sysmem.flush_page_addr > DMA_BIT_MASK(40));
+
 	nvkm_wr32(fb->subdev.device, 0x100c10, fb->sysmem.flush_page_addr >> 8);
 }
 
@@ -109,7 +112,7 @@ gf100_fb_new_(const struct nvkm_fb_func *func, struct nvkm_device *device,
 {
 	struct gf100_fb *fb;
 
-	if (!(fb = kzalloc(sizeof(*fb), GFP_KERNEL)))
+	if (!(fb = kzalloc_obj(*fb)))
 		return -ENOMEM;
 	nvkm_fb_ctor(func, device, type, inst, &fb->base);
 	*pfb = &fb->base;

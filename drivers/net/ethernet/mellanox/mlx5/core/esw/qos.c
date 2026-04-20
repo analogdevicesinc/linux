@@ -38,7 +38,7 @@ static struct mlx5_qos_domain *esw_qos_domain_alloc(void)
 {
 	struct mlx5_qos_domain *qos_domain;
 
-	qos_domain = kzalloc(sizeof(*qos_domain), GFP_KERNEL);
+	qos_domain = kzalloc_obj(*qos_domain);
 	if (!qos_domain)
 		return NULL;
 
@@ -341,13 +341,6 @@ static u32 esw_qos_calculate_min_rate_divider(struct mlx5_eswitch *esw,
 	if (max_guarantee)
 		return max_t(u32, max_guarantee / fw_max_bw_share, 1);
 
-	/* If nodes max min_rate divider is 0 but their parent has bw_share
-	 * configured, then set bw_share for nodes to minimal value.
-	 */
-
-	if (parent && parent->bw_share)
-		return 1;
-
 	/* If the node nodes has min_rate configured, a divider of 0 sets all
 	 * nodes' bw_share to 0, effectively disabling min guarantees.
 	 */
@@ -525,7 +518,7 @@ __esw_qos_alloc_node(struct mlx5_eswitch *esw, u32 tsar_ix, enum sched_node_type
 {
 	struct mlx5_esw_sched_node *node;
 
-	node = kzalloc(sizeof(*node), GFP_KERNEL);
+	node = kzalloc_obj(*node);
 	if (!node)
 		return NULL;
 
@@ -923,9 +916,8 @@ esw_qos_create_vport_tc_sched_elements(struct mlx5_vport *vport,
 	int err, num_tcs = esw_qos_num_tcs(vport_node->esw->dev);
 	u32 rate_limit_elem_ix;
 
-	vport->qos.sched_nodes = kcalloc(num_tcs,
-					 sizeof(struct mlx5_esw_sched_node *),
-					 GFP_KERNEL);
+	vport->qos.sched_nodes = kzalloc_objs(struct mlx5_esw_sched_node *,
+					      num_tcs);
 	if (!vport->qos.sched_nodes) {
 		NL_SET_ERR_MSG_MOD(extack,
 				   "Allocating the vport TC scheduling elements failed.");
@@ -1497,24 +1489,24 @@ out:
 	return err;
 }
 
-static u32 mlx5_esw_qos_lag_link_speed_get_locked(struct mlx5_core_dev *mdev)
+static u32 mlx5_esw_qos_lag_link_speed_get(struct mlx5_core_dev *mdev,
+					   bool take_rtnl)
 {
 	struct ethtool_link_ksettings lksettings;
 	struct net_device *slave, *master;
 	u32 speed = SPEED_UNKNOWN;
 
-	/* Lock ensures a stable reference to master and slave netdevice
-	 * while port speed of master is queried.
-	 */
-	ASSERT_RTNL();
-
 	slave = mlx5_uplink_netdev_get(mdev);
 	if (!slave)
 		goto out;
 
+	if (take_rtnl)
+		rtnl_lock();
 	master = netdev_master_upper_dev_get(slave);
 	if (master && !__ethtool_get_link_ksettings(master, &lksettings))
 		speed = lksettings.base.speed;
+	if (take_rtnl)
+		rtnl_unlock();
 
 out:
 	mlx5_uplink_netdev_put(mdev, slave);
@@ -1522,20 +1514,15 @@ out:
 }
 
 static int mlx5_esw_qos_max_link_speed_get(struct mlx5_core_dev *mdev, u32 *link_speed_max,
-					   bool hold_rtnl_lock, struct netlink_ext_ack *extack)
+					   bool take_rtnl,
+					   struct netlink_ext_ack *extack)
 {
 	int err;
 
 	if (!mlx5_lag_is_active(mdev))
 		goto skip_lag;
 
-	if (hold_rtnl_lock)
-		rtnl_lock();
-
-	*link_speed_max = mlx5_esw_qos_lag_link_speed_get_locked(mdev);
-
-	if (hold_rtnl_lock)
-		rtnl_unlock();
+	*link_speed_max = mlx5_esw_qos_lag_link_speed_get(mdev, take_rtnl);
 
 	if (*link_speed_max != (u32)SPEED_UNKNOWN)
 		return 0;

@@ -261,7 +261,7 @@ qat_vf_save_device_data(struct qat_vf_core_device *qat_vdev, bool pre_copy)
 	struct qat_vf_migration_file *migf;
 	int ret;
 
-	migf = kzalloc(sizeof(*migf), GFP_KERNEL);
+	migf = kzalloc_obj(*migf);
 	if (!migf)
 		return ERR_PTR(-ENOMEM);
 
@@ -352,7 +352,7 @@ qat_vf_resume_device_data(struct qat_vf_core_device *qat_vdev)
 	struct qat_vf_migration_file *migf;
 	int ret;
 
-	migf = kzalloc(sizeof(*migf), GFP_KERNEL);
+	migf = kzalloc_obj(*migf);
 	if (!migf)
 		return ERR_PTR(-ENOMEM);
 
@@ -609,6 +609,7 @@ static const struct vfio_device_ops qat_vf_pci_ops = {
 	.open_device = qat_vf_pci_open_device,
 	.close_device = qat_vf_pci_close_device,
 	.ioctl = vfio_pci_core_ioctl,
+	.get_region_info_caps = vfio_pci_ioctl_get_region_info,
 	.read = vfio_pci_core_read,
 	.write = vfio_pci_core_write,
 	.mmap = vfio_pci_core_mmap,

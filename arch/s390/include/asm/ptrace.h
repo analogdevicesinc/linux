@@ -8,16 +8,19 @@
 #define _S390_PTRACE_H
 
 #include <linux/bits.h>
+#include <linux/typecheck.h>
 #include <uapi/asm/ptrace.h>
 #include <asm/thread_info.h>
 #include <asm/tpi.h>
 
 #define PIF_SYSCALL			0	/* inside a system call */
+#define PIF_PSW_ADDR_ADJUSTED		1	/* psw address has been adjusted */
 #define PIF_SYSCALL_RET_SET		2	/* return value was set via ptrace */
 #define PIF_GUEST_FAULT			3	/* indicates program check in sie64a */
 #define PIF_FTRACE_FULL_REGS		4	/* all register contents valid (ftrace) */
 
 #define _PIF_SYSCALL			BIT(PIF_SYSCALL)
+#define _PIF_ADDR_PSW_ADJUSTED		BIT(PIF_PSW_ADDR_ADJUSTED)
 #define _PIF_SYSCALL_RET_SET		BIT(PIF_SYSCALL_RET_SET)
 #define _PIF_GUEST_FAULT		BIT(PIF_GUEST_FAULT)
 #define _PIF_FTRACE_FULL_REGS		BIT(PIF_FTRACE_FULL_REGS)
@@ -99,7 +102,7 @@ enum {
 typedef struct {
 	unsigned int mask;
 	unsigned int addr;
-} psw_t32 __aligned(8);
+} psw32_t __aligned(8);
 
 #define PGM_INT_CODE_MASK	0x7f
 #define PGM_INT_CODE_PER	0x80
@@ -117,7 +120,10 @@ struct pt_regs {
 			unsigned long gprs[NUM_GPRS];
 		};
 	};
-	unsigned long orig_gpr2;
+	union {
+		unsigned long orig_gpr2;
+		unsigned long monitor_code;
+	};
 	union {
 		struct {
 			unsigned int int_code;
@@ -211,14 +217,21 @@ void update_cr_regs(struct task_struct *task);
 #define arch_has_single_step()	(1)
 #define arch_has_block_step()	(1)
 
-#define user_mode(regs) (((regs)->psw.mask & PSW_MASK_PSTATE) != 0)
-#define instruction_pointer(regs) ((regs)->psw.addr)
-#define user_stack_pointer(regs)((regs)->gprs[15])
 #define profile_pc(regs) instruction_pointer(regs)
 
-static inline long regs_return_value(struct pt_regs *regs)
+static __always_inline bool user_mode(const struct pt_regs *regs)
+{
+	return psw_bits(regs->psw).pstate;
+}
+
+static inline long regs_return_value(const struct pt_regs *regs)
 {
 	return regs->gprs[2];
+}
+
+static __always_inline unsigned long instruction_pointer(const struct pt_regs *regs)
+{
+	return regs->psw.addr;
 }
 
 static inline void instruction_pointer_set(struct pt_regs *regs,
@@ -230,19 +243,26 @@ static inline void instruction_pointer_set(struct pt_regs *regs,
 int regs_query_register_offset(const char *name);
 const char *regs_query_register_name(unsigned int offset);
 
-static __always_inline unsigned long kernel_stack_pointer(struct pt_regs *regs)
+static __always_inline unsigned long kernel_stack_pointer(const struct pt_regs *regs)
 {
 	return regs->gprs[15];
 }
 
-static __always_inline unsigned long regs_get_register(struct pt_regs *regs, unsigned int offset)
+static __always_inline unsigned long user_stack_pointer(const struct pt_regs *regs)
+{
+	return regs->gprs[15];
+}
+
+static __always_inline unsigned long regs_get_register(const struct pt_regs *regs,
+						       unsigned int offset)
 {
 	if (offset >= NUM_GPRS)
 		return 0;
 	return regs->gprs[offset];
 }
 
-static __always_inline int regs_within_kernel_stack(struct pt_regs *regs, unsigned long addr)
+static __always_inline int regs_within_kernel_stack(const struct pt_regs *regs,
+						    unsigned long addr)
 {
 	unsigned long ksp = kernel_stack_pointer(regs);
 
@@ -258,7 +278,8 @@ static __always_inline int regs_within_kernel_stack(struct pt_regs *regs, unsign
  * is specifined by @regs. If the @n th entry is NOT in the kernel stack,
  * this returns 0.
  */
-static __always_inline unsigned long regs_get_kernel_stack_nth(struct pt_regs *regs, unsigned int n)
+static __always_inline unsigned long regs_get_kernel_stack_nth(const struct pt_regs *regs,
+							       unsigned int n)
 {
 	unsigned long addr;
 
@@ -275,8 +296,8 @@ static __always_inline unsigned long regs_get_kernel_stack_nth(struct pt_regs *r
  *
  * regs_get_kernel_argument() returns @n th argument of the function call.
  */
-static inline unsigned long regs_get_kernel_argument(struct pt_regs *regs,
-						     unsigned int n)
+static __always_inline unsigned long regs_get_kernel_argument(const struct pt_regs *regs,
+							      unsigned int n)
 {
 	unsigned int argoffset = STACK_FRAME_OVERHEAD / sizeof(long);
 
@@ -287,7 +308,7 @@ static inline unsigned long regs_get_kernel_argument(struct pt_regs *regs,
 	return regs_get_kernel_stack_nth(regs, argoffset + n);
 }
 
-static inline void regs_set_return_value(struct pt_regs *regs, unsigned long rc)
+static __always_inline void regs_set_return_value(struct pt_regs *regs, unsigned long rc)
 {
 	regs->gprs[2] = rc;
 }

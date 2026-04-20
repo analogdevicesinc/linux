@@ -32,15 +32,28 @@
 //! ```
 
 use core::str::FromStr;
-use core::sync::atomic::AtomicUsize;
-use core::sync::atomic::Ordering;
-use kernel::c_str;
-use kernel::debugfs::{Dir, File};
-use kernel::new_mutex;
-use kernel::prelude::*;
-use kernel::sync::Mutex;
-
-use kernel::{acpi, device::Core, of, platform, str::CString, types::ARef};
+use kernel::{
+    acpi,
+    debugfs::{
+        Dir,
+        File, //
+    },
+    device::Core,
+    new_mutex,
+    of,
+    platform,
+    prelude::*,
+    sizes::*,
+    str::CString,
+    sync::{
+        aref::ARef,
+        atomic::{
+            Atomic,
+            Relaxed, //
+        },
+        Mutex,
+    }, //
+};
 
 kernel::module_platform_driver! {
     type: RustDebugFs,
@@ -59,9 +72,13 @@ struct RustDebugFs {
     #[pin]
     _compatible: File<CString>,
     #[pin]
-    counter: File<AtomicUsize>,
+    counter: File<Atomic<usize>>,
     #[pin]
     inner: File<Mutex<Inner>>,
+    #[pin]
+    array_blob: File<Mutex<[u8; 4]>>,
+    #[pin]
+    vector_blob: File<Mutex<KVec<u8>>>,
 }
 
 #[derive(Debug)]
@@ -95,7 +112,7 @@ kernel::acpi_device_table!(
     ACPI_TABLE,
     MODULE_ACPI_TABLE,
     <RustDebugFs as platform::Driver>::IdInfo,
-    [(acpi::DeviceId::new(c_str!("LNUXBEEF")), ())]
+    [(acpi::DeviceId::new(c"LNUXBEEF"), ())]
 );
 
 impl platform::Driver for RustDebugFs {
@@ -106,43 +123,52 @@ impl platform::Driver for RustDebugFs {
     fn probe(
         pdev: &platform::Device<Core>,
         _info: Option<&Self::IdInfo>,
-    ) -> Result<Pin<KBox<Self>>> {
-        let result = KBox::try_pin_init(RustDebugFs::new(pdev), GFP_KERNEL)?;
-        // We can still mutate fields through the files which are atomic or mutexed:
-        result.counter.store(91, Ordering::Relaxed);
-        {
-            let mut guard = result.inner.lock();
-            guard.x = guard.y;
-            guard.y = 42;
-        }
-        Ok(result)
+    ) -> impl PinInit<Self, Error> {
+        RustDebugFs::new(pdev).pin_chain(|this| {
+            this.counter.store(91, Relaxed);
+            {
+                let mut guard = this.inner.lock();
+                guard.x = guard.y;
+                guard.y = 42;
+            }
+
+            Ok(())
+        })
     }
 }
 
 impl RustDebugFs {
-    fn build_counter(dir: &Dir) -> impl PinInit<File<AtomicUsize>> + '_ {
-        dir.read_write_file(c_str!("counter"), AtomicUsize::new(0))
+    fn build_counter(dir: &Dir) -> impl PinInit<File<Atomic<usize>>> + '_ {
+        dir.read_write_file(c"counter", Atomic::<usize>::new(0))
     }
 
     fn build_inner(dir: &Dir) -> impl PinInit<File<Mutex<Inner>>> + '_ {
-        dir.read_write_file(c_str!("pair"), new_mutex!(Inner { x: 3, y: 10 }))
+        dir.read_write_file(c"pair", new_mutex!(Inner { x: 3, y: 10 }))
     }
 
     fn new(pdev: &platform::Device<Core>) -> impl PinInit<Self, Error> + '_ {
-        let debugfs = Dir::new(c_str!("sample_debugfs"));
+        let debugfs = Dir::new(c"sample_debugfs");
         let dev = pdev.as_ref();
 
         try_pin_init! {
             Self {
                 _compatible <- debugfs.read_only_file(
-                    c_str!("compatible"),
+                    c"compatible",
                     dev.fwnode()
                         .ok_or(ENOENT)?
-                        .property_read::<CString>(c_str!("compatible"))
+                        .property_read::<CString>(c"compatible")
                         .required_by(dev)?,
                 ),
                 counter <- Self::build_counter(&debugfs),
                 inner <- Self::build_inner(&debugfs),
+                array_blob <- debugfs.read_write_binary_file(
+                    c"array_blob",
+                    new_mutex!([0x62, 0x6c, 0x6f, 0x62]),
+                ),
+                vector_blob <- debugfs.read_write_binary_file(
+                    c"vector_blob",
+                    new_mutex!(kernel::kvec!(0x42; SZ_4K)?),
+                ),
                 _debugfs: debugfs,
                 pdev: pdev.into(),
             }

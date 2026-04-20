@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/utsname.h>
 #include <linux/vmalloc.h>
+#include <linux/hex.h>
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -291,6 +292,16 @@ static struct qla_tgt_cmd *tcm_qla2xxx_get_cmd(struct fc_port *sess)
 	return cmd;
 }
 
+static int tcm_qla2xxx_get_cmd_ref(struct qla_tgt_cmd *cmd)
+{
+	return target_get_sess_cmd(&cmd->se_cmd, true);
+}
+
+static void tcm_qla2xxx_put_cmd_ref(struct qla_tgt_cmd *cmd)
+{
+	target_put_sess_cmd(&cmd->se_cmd);
+}
+
 static void tcm_qla2xxx_rel_cmd(struct qla_tgt_cmd *cmd)
 {
 	target_free_tag(cmd->sess->se_sess, &cmd->se_cmd);
@@ -303,6 +314,8 @@ static void tcm_qla2xxx_rel_cmd(struct qla_tgt_cmd *cmd)
  */
 static void tcm_qla2xxx_free_cmd(struct qla_tgt_cmd *cmd)
 {
+	cmd->state = QLA_TGT_STATE_DONE;
+
 	cmd->qpair->tgt_counters.core_qla_free_cmd++;
 	cmd->cmd_in_wq = 1;
 
@@ -529,6 +542,9 @@ static void tcm_qla2xxx_handle_data_work(struct work_struct *work)
 		if (cmd->se_cmd.pi_err)
 			transport_generic_request_failure(&cmd->se_cmd,
 				cmd->se_cmd.pi_err);
+		else if (cmd->srr_failed)
+			transport_generic_request_failure(&cmd->se_cmd,
+				TCM_SNACK_REJECTED);
 		else
 			transport_generic_request_failure(&cmd->se_cmd,
 				TCM_CHECK_CONDITION_ABORT_CMD);
@@ -999,7 +1015,7 @@ static struct se_portal_group *tcm_qla2xxx_make_tpg(struct se_wwn *wwn,
 		return ERR_PTR(-ENOSYS);
 	}
 
-	tpg = kzalloc(sizeof(struct tcm_qla2xxx_tpg), GFP_KERNEL);
+	tpg = kzalloc_obj(struct tcm_qla2xxx_tpg);
 	if (!tpg) {
 		pr_err("Unable to allocate struct tcm_qla2xxx_tpg\n");
 		return ERR_PTR(-ENOMEM);
@@ -1090,7 +1106,7 @@ static struct se_portal_group *tcm_qla2xxx_npiv_make_tpg(struct se_wwn *wwn,
 	if (kstrtoul(name + 5, 10, &tpgt) || tpgt > USHRT_MAX)
 		return ERR_PTR(-EINVAL);
 
-	tpg = kzalloc(sizeof(struct tcm_qla2xxx_tpg), GFP_KERNEL);
+	tpg = kzalloc_obj(struct tcm_qla2xxx_tpg);
 	if (!tpg) {
 		pr_err("Unable to allocate struct tcm_qla2xxx_tpg\n");
 		return ERR_PTR(-ENOMEM);
@@ -1524,6 +1540,8 @@ static const struct qla_tgt_func_tmpl tcm_qla2xxx_template = {
 	.handle_data		= tcm_qla2xxx_handle_data,
 	.handle_tmr		= tcm_qla2xxx_handle_tmr,
 	.get_cmd		= tcm_qla2xxx_get_cmd,
+	.get_cmd_ref		= tcm_qla2xxx_get_cmd_ref,
+	.put_cmd_ref		= tcm_qla2xxx_put_cmd_ref,
 	.rel_cmd		= tcm_qla2xxx_rel_cmd,
 	.free_cmd		= tcm_qla2xxx_free_cmd,
 	.free_mcmd		= tcm_qla2xxx_free_mcmd,
@@ -1591,7 +1609,7 @@ static struct se_wwn *tcm_qla2xxx_make_lport(
 	if (tcm_qla2xxx_parse_wwn(name, &wwpn, 1) < 0)
 		return ERR_PTR(-EINVAL);
 
-	lport = kzalloc(sizeof(struct tcm_qla2xxx_lport), GFP_KERNEL);
+	lport = kzalloc_obj(struct tcm_qla2xxx_lport);
 	if (!lport) {
 		pr_err("Unable to allocate struct tcm_qla2xxx_lport\n");
 		return ERR_PTR(-ENOMEM);
@@ -1717,7 +1735,7 @@ static struct se_wwn *tcm_qla2xxx_npiv_make_lport(
 				       &npiv_wwpn, &npiv_wwnn) < 0)
 		return ERR_PTR(-EINVAL);
 
-	lport = kzalloc(sizeof(struct tcm_qla2xxx_lport), GFP_KERNEL);
+	lport = kzalloc_obj(struct tcm_qla2xxx_lport);
 	if (!lport) {
 		pr_err("Unable to allocate struct tcm_qla2xxx_lport for NPIV\n");
 		return ERR_PTR(-ENOMEM);
@@ -1884,7 +1902,7 @@ static int tcm_qla2xxx_register_configfs(void)
 		goto out_fabric;
 
 	tcm_qla2xxx_free_wq = alloc_workqueue("tcm_qla2xxx_free",
-						WQ_MEM_RECLAIM, 0);
+						WQ_MEM_RECLAIM | WQ_PERCPU, 0);
 	if (!tcm_qla2xxx_free_wq) {
 		ret = -ENOMEM;
 		goto out_fabric_npiv;

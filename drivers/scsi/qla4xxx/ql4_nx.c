@@ -1058,7 +1058,7 @@ qla4_82xx_pinit_from_rom(struct scsi_qla_host *ha, int verbose)
 	ql4_printk(KERN_INFO, ha,
 		"%s: %d CRB init values found in ROM.\n", DRIVER_NAME, n);
 
-	buf = kmalloc_array(n, sizeof(struct crb_addr_pair), GFP_KERNEL);
+	buf = kmalloc_objs(struct crb_addr_pair, n);
 	if (buf == NULL) {
 		ql4_printk(KERN_WARNING, ha,
 		    "%s: [ERROR] Unable to malloc memory.\n", DRIVER_NAME);
@@ -1552,7 +1552,7 @@ static int qla4_82xx_cmdpeg_ready(struct scsi_qla_host *ha, int pegtune_val)
 			    (val == PHAN_INITIALIZE_ACK))
 				return 0;
 			set_current_state(TASK_UNINTERRUPTIBLE);
-			schedule_timeout(500);
+			schedule_timeout(msecs_to_jiffies(500));
 
 		} while (--retries);
 

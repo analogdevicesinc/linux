@@ -10,6 +10,7 @@
  * Hardware interface for SoundWire BPT support with HDA DMA
  */
 
+#include <linux/lcm.h>
 #include <sound/hdaudio_ext.h>
 #include <sound/hda-mlink.h>
 #include <sound/hda-sdw-bpt.h>
@@ -97,6 +98,17 @@ static int hda_sdw_bpt_dma_prepare(struct device *dev, struct hdac_ext_stream **
 	struct hdac_ext_stream *bpt_stream;
 	unsigned int format = HDA_CL_STREAM_FORMAT;
 
+	if (!sdev->dspless_mode_selected) {
+		int ret;
+
+		/*
+		 * Make sure that the DSP is booted up, which might not be the
+		 * case if the on-demand DSP boot is used
+		 */
+		ret = snd_sof_boot_dsp_firmware(sdev);
+		if (ret)
+			return ret;
+	}
 	/*
 	 * the baseline format needs to be adjusted to
 	 * bandwidth requirements
@@ -106,7 +118,8 @@ static int hda_sdw_bpt_dma_prepare(struct device *dev, struct hdac_ext_stream **
 
 	dev_dbg(dev, "direction %d format_val %#x\n", direction, format);
 
-	bpt_stream = hda_cl_prepare(dev, format, bpt_num_bytes, dmab_bdl, false, direction, false);
+	bpt_stream = hda_data_stream_prepare(dev, format, bpt_num_bytes, dmab_bdl,
+					     false, direction, false, true);
 	if (IS_ERR(bpt_stream)) {
 		dev_err(sdev->dev, "%s: SDW BPT DMA prepare failed: dir %d\n",
 			__func__, direction);
@@ -150,7 +163,7 @@ static int hda_sdw_bpt_dma_deprepare(struct device *dev, struct hdac_ext_stream 
 	u32 mask;
 	int ret;
 
-	ret = hda_cl_cleanup(sdev->dev, dmab_bdl, false, sdw_bpt_stream);
+	ret = hda_data_stream_cleanup(sdev->dev, dmab_bdl, false, sdw_bpt_stream, true);
 	if (ret < 0) {
 		dev_err(sdev->dev, "%s: SDW BPT DMA cleanup failed\n",
 			__func__);
@@ -235,6 +248,18 @@ static int hda_sdw_bpt_dma_disable(struct device *dev, struct hdac_ext_stream *s
 
 	return ret;
 }
+
+#define FIFO_ALIGNMENT	64
+
+unsigned int hda_sdw_bpt_get_buf_size_alignment(unsigned int dma_bandwidth)
+{
+	unsigned int num_channels = DIV_ROUND_UP(dma_bandwidth, BPT_FREQUENCY * 32);
+	unsigned int data_block = num_channels * 4;
+	unsigned int alignment = lcm(data_block, FIFO_ALIGNMENT);
+
+	return alignment;
+}
+EXPORT_SYMBOL_NS(hda_sdw_bpt_get_buf_size_alignment, "SND_SOC_SOF_INTEL_HDA_SDW_BPT");
 
 int hda_sdw_bpt_open(struct device *dev, int link_id, struct hdac_ext_stream **bpt_tx_stream,
 		     struct snd_dma_buffer *dmab_tx_bdl, u32 bpt_tx_num_bytes,

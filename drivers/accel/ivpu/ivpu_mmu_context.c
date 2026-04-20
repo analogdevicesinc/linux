@@ -429,11 +429,12 @@ static void ivpu_mmu_context_unmap_pages(struct ivpu_mmu_context *ctx, u64 vpu_a
 }
 
 int
-ivpu_mmu_context_map_sgt(struct ivpu_device *vdev, struct ivpu_mmu_context *ctx,
-			 u64 vpu_addr, struct sg_table *sgt,  bool llc_coherent)
+ivpu_mmu_context_map_sgt(struct ivpu_device *vdev, struct ivpu_mmu_context *ctx, u64 vpu_addr,
+			 struct sg_table *sgt, size_t bo_size, bool llc_coherent, bool read_only)
 {
 	size_t start_vpu_addr = vpu_addr;
 	struct scatterlist *sg;
+	size_t sgt_size = 0;
 	int ret;
 	u64 prot;
 	u64 i;
@@ -450,6 +451,8 @@ ivpu_mmu_context_map_sgt(struct ivpu_device *vdev, struct ivpu_mmu_context *ctx,
 	prot = IVPU_MMU_ENTRY_MAPPED;
 	if (llc_coherent)
 		prot |= IVPU_MMU_ENTRY_FLAG_LLC_COHERENT;
+	if (read_only)
+		prot |= IVPU_MMU_ENTRY_FLAG_RO;
 
 	mutex_lock(&ctx->lock);
 
@@ -460,12 +463,25 @@ ivpu_mmu_context_map_sgt(struct ivpu_device *vdev, struct ivpu_mmu_context *ctx,
 		ivpu_dbg(vdev, MMU_MAP, "Map ctx: %u dma_addr: 0x%llx vpu_addr: 0x%llx size: %lu\n",
 			 ctx->id, dma_addr, vpu_addr, size);
 
+		if (sgt_size + size > bo_size) {
+			ivpu_err(vdev, "Scatter-gather table size exceeds buffer object size\n");
+			ret = -EINVAL;
+			goto err_unmap_pages;
+		}
+
 		ret = ivpu_mmu_context_map_pages(vdev, ctx, vpu_addr, dma_addr, size, prot);
 		if (ret) {
 			ivpu_err(vdev, "Failed to map context pages\n");
 			goto err_unmap_pages;
 		}
 		vpu_addr += size;
+		sgt_size += size;
+	}
+
+	if (sgt_size < bo_size) {
+		ivpu_err(vdev, "Scatter-gather table size too small to cover buffer object size\n");
+		ret = -EINVAL;
+		goto err_unmap_pages;
 	}
 
 	if (!ctx->is_cd_valid) {
@@ -491,7 +507,7 @@ ivpu_mmu_context_map_sgt(struct ivpu_device *vdev, struct ivpu_mmu_context *ctx,
 	return 0;
 
 err_unmap_pages:
-	ivpu_mmu_context_unmap_pages(ctx, start_vpu_addr, vpu_addr - start_vpu_addr);
+	ivpu_mmu_context_unmap_pages(ctx, start_vpu_addr, sgt_size);
 	mutex_unlock(&ctx->lock);
 	return ret;
 }
@@ -527,7 +543,8 @@ ivpu_mmu_context_unmap_sgt(struct ivpu_device *vdev, struct ivpu_mmu_context *ct
 
 	ret = ivpu_mmu_invalidate_tlb(vdev, ctx->id);
 	if (ret)
-		ivpu_warn(vdev, "Failed to invalidate TLB for ctx %u: %d\n", ctx->id, ret);
+		ivpu_warn_ratelimited(vdev, "Failed to invalidate TLB for ctx %u: %d\n",
+				      ctx->id, ret);
 }
 
 int
@@ -568,7 +585,7 @@ void ivpu_mmu_context_init(struct ivpu_device *vdev, struct ivpu_mmu_context *ct
 	mutex_init(&ctx->lock);
 
 	if (!context_id) {
-		start = vdev->hw->ranges.global.start;
+		start = vdev->hw->ranges.runtime.start;
 		end = vdev->hw->ranges.shave.end;
 	} else {
 		start = min_t(u64, vdev->hw->ranges.user.start, vdev->hw->ranges.shave.start);

@@ -1017,8 +1017,7 @@ static void igbvf_set_interrupt_capability(struct igbvf_adapter *adapter)
 	int i;
 
 	/* we allocate 3 vectors, 1 for Tx, 1 for Rx, one for PF messages */
-	adapter->msix_entries = kcalloc(3, sizeof(struct msix_entry),
-					GFP_KERNEL);
+	adapter->msix_entries = kzalloc_objs(struct msix_entry, 3);
 	if (adapter->msix_entries) {
 		for (i = 0; i < 3; i++)
 			adapter->msix_entries[i].entry = i;
@@ -1098,11 +1097,11 @@ static int igbvf_alloc_queues(struct igbvf_adapter *adapter)
 {
 	struct net_device *netdev = adapter->netdev;
 
-	adapter->tx_ring = kzalloc(sizeof(struct igbvf_ring), GFP_KERNEL);
+	adapter->tx_ring = kzalloc_obj(struct igbvf_ring);
 	if (!adapter->tx_ring)
 		return -ENOMEM;
 
-	adapter->rx_ring = kzalloc(sizeof(struct igbvf_ring), GFP_KERNEL);
+	adapter->rx_ring = kzalloc_obj(struct igbvf_ring);
 	if (!adapter->rx_ring) {
 		kfree(adapter->tx_ring);
 		return -ENOMEM;
@@ -1235,7 +1234,7 @@ static int igbvf_vlan_rx_add_vid(struct net_device *netdev,
 	spin_lock_bh(&hw->mbx_lock);
 
 	if (hw->mac.ops.set_vfta(hw, vid, true)) {
-		dev_warn(&adapter->pdev->dev, "Vlan id %d\n is not added", vid);
+		dev_warn(&adapter->pdev->dev, "Vlan id %d is not added\n", vid);
 		spin_unlock_bh(&hw->mbx_lock);
 		return -EINVAL;
 	}

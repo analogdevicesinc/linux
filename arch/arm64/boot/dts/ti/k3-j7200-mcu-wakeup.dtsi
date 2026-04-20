@@ -212,7 +212,7 @@
 		reg = <0x0 0x40f04200 0x0 0x28>;
 		#pinctrl-cells = <1>;
 		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0x0000000F>;
+		pinctrl-single,function-mask = <0x0000000f>;
 		status = "reserved";
 	};
 
@@ -222,7 +222,7 @@
 		reg = <0x0 0x40f04280 0x0 0x28>;
 		#pinctrl-cells = <1>;
 		pinctrl-single,register-width = <32>;
-		pinctrl-single,function-mask = <0x0000000F>;
+		pinctrl-single,function-mask = <0x0000000f>;
 		status = "reserved";
 	};
 
@@ -431,6 +431,8 @@
 		dma-names = "tx0", "tx1", "tx2", "tx3",
 			    "tx4", "tx5", "tx6", "tx7",
 			    "rx";
+
+		status = "disabled";
 
 		ethernet-ports {
 			#address-cells = <1>;

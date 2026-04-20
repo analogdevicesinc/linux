@@ -20,6 +20,9 @@
 #include <asm/uv.h>
 #include <asm/abs_lowcore.h>
 #include <asm/physmem_info.h>
+#include <asm/stacktrace.h>
+#include <asm/asm-offsets.h>
+#include <asm/arch-stackprotector.h>
 #include "decompressor.h"
 #include "boot.h"
 #include "uv.h"
@@ -333,6 +336,7 @@ static unsigned long setup_kernel_memory_layout(unsigned long kernel_size)
 	BUILD_BUG_ON(!IS_ALIGNED(TEXT_OFFSET, THREAD_SIZE));
 	BUILD_BUG_ON(!IS_ALIGNED(__NO_KASLR_START_KERNEL, THREAD_SIZE));
 	BUILD_BUG_ON(__NO_KASLR_END_KERNEL > _REGION1_SIZE);
+	BUILD_BUG_ON(CONFIG_ILLEGAL_POINTER_VALUE < _REGION1_SIZE);
 	vsize = get_vmem_size(ident_map_size, vmemmap_size, vmalloc_size, _REGION3_SIZE);
 	boot_debug("vmem size estimated: 0x%016lx\n", vsize);
 	if (IS_ENABLED(CONFIG_KASAN) || __NO_KASLR_END_KERNEL > _REGION2_SIZE ||
@@ -477,6 +481,10 @@ static void kaslr_adjust_vmlinux_info(long offset)
 	vmlinux.invalid_pg_dir_off += offset;
 	vmlinux.alt_instructions += offset;
 	vmlinux.alt_instructions_end += offset;
+#ifdef CONFIG_STACKPROTECTOR
+	vmlinux.stack_prot_start += offset;
+	vmlinux.stack_prot_end += offset;
+#endif
 #ifdef CONFIG_KASAN
 	vmlinux.kasan_early_shadow_page_off += offset;
 	vmlinux.kasan_early_shadow_pte_off += offset;
@@ -622,6 +630,7 @@ void startup_kernel(void)
 	__apply_alternatives((struct alt_instr *)_vmlinux_info.alt_instructions,
 			     (struct alt_instr *)_vmlinux_info.alt_instructions_end,
 			     ALT_CTX_EARLY);
+	stack_protector_apply_early(text_lma);
 
 	/*
 	 * Save KASLR offset for early dumps, before vmcore_info is set.

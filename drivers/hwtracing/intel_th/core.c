@@ -166,7 +166,7 @@ static void intel_th_remove(struct device *dev)
 	pm_runtime_enable(dev);
 }
 
-static struct bus_type intel_th_bus = {
+static const struct bus_type intel_th_bus = {
 	.name		= "intel_th",
 	.match		= intel_th_match,
 	.probe		= intel_th_probe,
@@ -810,13 +810,20 @@ static int intel_th_output_open(struct inode *inode, struct file *file)
 	int err;
 
 	dev = bus_find_device_by_devt(&intel_th_bus, inode->i_rdev);
-	if (!dev || !dev->driver)
+	if (!dev)
 		return -ENODEV;
+
+	if (!dev->driver) {
+		err = -ENODEV;
+		goto err_put_dev;
+	}
 
 	thdrv = to_intel_th_driver(dev->driver);
 	fops = fops_get(thdrv->fops);
-	if (!fops)
-		return -ENODEV;
+	if (!fops) {
+		err = -ENODEV;
+		goto err_put_dev;
+	}
 
 	replace_fops(file, fops);
 
@@ -824,14 +831,30 @@ static int intel_th_output_open(struct inode *inode, struct file *file)
 
 	if (file->f_op->open) {
 		err = file->f_op->open(inode, file);
-		return err;
+		if (err)
+			goto err_put_dev;
 	}
+
+	return 0;
+
+err_put_dev:
+	put_device(dev);
+
+	return err;
+}
+
+static int intel_th_output_release(struct inode *inode, struct file *file)
+{
+	struct intel_th_device *thdev = file->private_data;
+
+	put_device(&thdev->dev);
 
 	return 0;
 }
 
 static const struct file_operations intel_th_output_fops = {
 	.open	= intel_th_output_open,
+	.release = intel_th_output_release,
 	.llseek	= noop_llseek,
 };
 
@@ -868,7 +891,7 @@ intel_th_alloc(struct device *dev, const struct intel_th_drvdata *drvdata,
 	int err, r, nr_mmios = 0;
 	struct intel_th *th;
 
-	th = kzalloc(sizeof(*th), GFP_KERNEL);
+	th = kzalloc_obj(*th);
 	if (!th)
 		return ERR_PTR(-ENOMEM);
 

@@ -48,7 +48,7 @@
 #include "dce/dce_clock_source.h"
 #include "dce/dce_audio.h"
 #include "dce/dce_hwseq.h"
-#include "virtual/virtual_stream_encoder.h"
+#include "dio/virtual/virtual_stream_encoder.h"
 #include "dce110/dce110_resource.h"
 #include "dce112/dce112_resource.h"
 #include "dcn10/dcn10_hubp.h"
@@ -556,8 +556,11 @@ static const struct dc_debug_options debug_defaults_drv = {
 		.recovery_enabled = false, /*enable this by default after testing.*/
 		.max_downscale_src_width = 3840,
 		.underflow_assert_delay_us = 0xFFFFFFFF,
-		.enable_legacy_fast_update = true,
 		.using_dml2 = false,
+};
+
+static const struct dc_check_config config_defaults = {
+		.enable_legacy_fast_update = true,
 };
 
 static void dcn10_dpp_destroy(struct dpp **dpp)
@@ -571,7 +574,7 @@ static struct dpp *dcn10_dpp_create(
 	uint32_t inst)
 {
 	struct dcn10_dpp *dpp =
-		kzalloc(sizeof(struct dcn10_dpp), GFP_KERNEL);
+		kzalloc_obj(struct dcn10_dpp);
 
 	if (!dpp)
 		return NULL;
@@ -585,7 +588,7 @@ static struct input_pixel_processor *dcn10_ipp_create(
 	struct dc_context *ctx, uint32_t inst)
 {
 	struct dcn10_ipp *ipp =
-		kzalloc(sizeof(struct dcn10_ipp), GFP_KERNEL);
+		kzalloc_obj(struct dcn10_ipp);
 
 	if (!ipp) {
 		BREAK_TO_DEBUGGER();
@@ -602,7 +605,7 @@ static struct output_pixel_processor *dcn10_opp_create(
 	struct dc_context *ctx, uint32_t inst)
 {
 	struct dcn10_opp *opp =
-		kzalloc(sizeof(struct dcn10_opp), GFP_KERNEL);
+		kzalloc_obj(struct dcn10_opp);
 
 	if (!opp) {
 		BREAK_TO_DEBUGGER();
@@ -618,7 +621,7 @@ static struct dce_aux *dcn10_aux_engine_create(struct dc_context *ctx,
 					       uint32_t inst)
 {
 	struct aux_engine_dce110 *aux_engine =
-		kzalloc(sizeof(struct aux_engine_dce110), GFP_KERNEL);
+		kzalloc_obj(struct aux_engine_dce110);
 
 	if (!aux_engine)
 		return NULL;
@@ -655,7 +658,7 @@ static struct dce_i2c_hw *dcn10_i2c_hw_create(struct dc_context *ctx,
 					      uint32_t inst)
 {
 	struct dce_i2c_hw *dce_i2c_hw =
-		kzalloc(sizeof(struct dce_i2c_hw), GFP_KERNEL);
+		kzalloc_obj(struct dce_i2c_hw);
 
 	if (!dce_i2c_hw)
 		return NULL;
@@ -667,8 +670,7 @@ static struct dce_i2c_hw *dcn10_i2c_hw_create(struct dc_context *ctx,
 }
 static struct mpc *dcn10_mpc_create(struct dc_context *ctx)
 {
-	struct dcn10_mpc *mpc10 = kzalloc(sizeof(struct dcn10_mpc),
-					  GFP_KERNEL);
+	struct dcn10_mpc *mpc10 = kzalloc_obj(struct dcn10_mpc);
 
 	if (!mpc10)
 		return NULL;
@@ -684,8 +686,7 @@ static struct mpc *dcn10_mpc_create(struct dc_context *ctx)
 
 static struct hubbub *dcn10_hubbub_create(struct dc_context *ctx)
 {
-	struct dcn10_hubbub *dcn10_hubbub = kzalloc(sizeof(struct dcn10_hubbub),
-					  GFP_KERNEL);
+	struct dcn10_hubbub *dcn10_hubbub = kzalloc_obj(struct dcn10_hubbub);
 
 	if (!dcn10_hubbub)
 		return NULL;
@@ -703,7 +704,7 @@ static struct timing_generator *dcn10_timing_generator_create(
 		uint32_t instance)
 {
 	struct optc *tgn10 =
-		kzalloc(sizeof(struct optc), GFP_KERNEL);
+		kzalloc_obj(struct optc);
 
 	if (!tgn10)
 		return NULL;
@@ -736,7 +737,7 @@ static struct link_encoder *dcn10_link_encoder_create(
 	const struct encoder_init_data *enc_init_data)
 {
 	struct dcn10_link_encoder *enc10 =
-		kzalloc(sizeof(struct dcn10_link_encoder), GFP_KERNEL);
+		kzalloc_obj(struct dcn10_link_encoder);
 	int link_regs_id;
 
 	if (!enc10 || enc_init_data->hpd_source >= ARRAY_SIZE(link_enc_hpd_regs))
@@ -760,7 +761,7 @@ static struct link_encoder *dcn10_link_encoder_create(
 static struct panel_cntl *dcn10_panel_cntl_create(const struct panel_cntl_init_data *init_data)
 {
 	struct dce_panel_cntl *panel_cntl =
-		kzalloc(sizeof(struct dce_panel_cntl), GFP_KERNEL);
+		kzalloc_obj(struct dce_panel_cntl);
 
 	if (!panel_cntl)
 		return NULL;
@@ -782,7 +783,7 @@ static struct clock_source *dcn10_clock_source_create(
 	bool dp_clk_src)
 {
 	struct dce110_clk_src *clk_src =
-		kzalloc(sizeof(struct dce110_clk_src), GFP_KERNEL);
+		kzalloc_obj(struct dce110_clk_src);
 
 	if (!clk_src)
 		return NULL;
@@ -818,7 +819,7 @@ static struct stream_encoder *dcn10_stream_encoder_create(
 	struct dc_context *ctx)
 {
 	struct dcn10_stream_encoder *enc1 =
-		kzalloc(sizeof(struct dcn10_stream_encoder), GFP_KERNEL);
+		kzalloc_obj(struct dcn10_stream_encoder);
 
 	if (!enc1)
 		return NULL;
@@ -844,7 +845,7 @@ static const struct dce_hwseq_mask hwseq_mask = {
 static struct dce_hwseq *dcn10_hwseq_create(
 	struct dc_context *ctx)
 {
-	struct dce_hwseq *hws = kzalloc(sizeof(struct dce_hwseq), GFP_KERNEL);
+	struct dce_hwseq *hws = kzalloc_obj(struct dce_hwseq);
 
 	if (hws) {
 		hws->ctx = ctx;
@@ -888,7 +889,7 @@ static void dcn10_clock_source_destroy(struct clock_source **clk_src)
 
 static struct pp_smu_funcs *dcn10_pp_smu_create(struct dc_context *ctx)
 {
-	struct pp_smu_funcs *pp_smu = kzalloc(sizeof(*pp_smu), GFP_KERNEL);
+	struct pp_smu_funcs *pp_smu = kzalloc_obj(*pp_smu);
 
 	if (!pp_smu)
 		return pp_smu;
@@ -981,7 +982,7 @@ static struct hubp *dcn10_hubp_create(
 	uint32_t inst)
 {
 	struct dcn10_hubp *hubp1 =
-		kzalloc(sizeof(struct dcn10_hubp), GFP_KERNEL);
+		kzalloc_obj(struct dcn10_hubp);
 
 	if (!hubp1)
 		return NULL;
@@ -1395,6 +1396,8 @@ static bool dcn10_resource_construct(
 	dc->caps.color.mpc.ogam_rom_caps.pq = 0;
 	dc->caps.color.mpc.ogam_rom_caps.hlg = 0;
 	dc->caps.color.mpc.ocsc = 0;
+	dc->debug = debug_defaults_drv;
+	dc->check_config = config_defaults;
 
 	if (dc->ctx->dce_environment == DCE_ENV_PRODUCTION_DRV)
 		dc->debug = debug_defaults_drv;
@@ -1676,7 +1679,7 @@ struct resource_pool *dcn10_create_resource_pool(
 		struct dc *dc)
 {
 	struct dcn10_resource_pool *pool =
-		kzalloc(sizeof(struct dcn10_resource_pool), GFP_KERNEL);
+		kzalloc_obj(struct dcn10_resource_pool);
 
 	if (!pool)
 		return NULL;

@@ -28,6 +28,10 @@ static bool sleep_no_lps0 __read_mostly;
 module_param(sleep_no_lps0, bool, 0644);
 MODULE_PARM_DESC(sleep_no_lps0, "Do not use the special LPS0 device interface");
 
+static bool check_lps0_constraints __read_mostly;
+module_param(check_lps0_constraints, bool, 0644);
+MODULE_PARM_DESC(check_lps0_constraints, "Check LPS0 device constraints");
+
 static const struct acpi_device_id lps0_device_ids[] = {
 	{"PNP0D80", },
 	{"", },
@@ -45,6 +49,7 @@ static const struct acpi_device_id lps0_device_ids[] = {
 #define ACPI_LPS0_EXIT		6
 #define ACPI_LPS0_MS_ENTRY      7
 #define ACPI_LPS0_MS_EXIT       8
+#define ACPI_MS_TURN_ON_DISPLAY 9
 
 /* AMD */
 #define ACPI_LPS0_DSM_UUID_AMD      "e3f32452-febc-43ce-9039-932122d37721"
@@ -124,9 +129,8 @@ static void lpi_device_get_constraints_amd(void)
 				goto free_acpi_buffer;
 			}
 
-			lpi_constraints_table = kcalloc(package->package.count,
-							sizeof(*lpi_constraints_table),
-							GFP_KERNEL);
+			lpi_constraints_table = kzalloc_objs(*lpi_constraints_table,
+							     package->package.count);
 
 			if (!lpi_constraints_table)
 				goto free_acpi_buffer;
@@ -204,9 +208,8 @@ static void lpi_device_get_constraints(void)
 	if (!out_obj)
 		return;
 
-	lpi_constraints_table = kcalloc(out_obj->package.count,
-					sizeof(*lpi_constraints_table),
-					GFP_KERNEL);
+	lpi_constraints_table = kzalloc_objs(*lpi_constraints_table,
+					     out_obj->package.count);
 	if (!lpi_constraints_table)
 		goto free_acpi_buffer;
 
@@ -299,33 +302,12 @@ free_acpi_buffer:
 	ACPI_FREE(out_obj);
 }
 
-/**
- * acpi_get_lps0_constraint - Get the LPS0 constraint for a device.
- * @adev: Device to get the constraint for.
- *
- * The LPS0 constraint is the shallowest (minimum) power state in which the
- * device can be so as to allow the platform as a whole to achieve additional
- * energy conservation by utilizing a system-wide low-power state.
- *
- * Returns:
- *  - ACPI power state value of the constraint for @adev on success.
- *  - Otherwise, ACPI_STATE_UNKNOWN.
- */
-int acpi_get_lps0_constraint(struct acpi_device *adev)
-{
-	struct lpi_constraints *entry;
-
-	for_each_lpi_constraint(entry) {
-		if (adev->handle == entry->handle)
-			return entry->min_dstate;
-	}
-
-	return ACPI_STATE_UNKNOWN;
-}
-
 static void lpi_check_constraints(void)
 {
 	struct lpi_constraints *entry;
+
+	if (IS_ERR_OR_NULL(lpi_constraints_table))
+		return;
 
 	for_each_lpi_constraint(entry) {
 		struct acpi_device *adev = acpi_fetch_acpi_dev(entry->handle);
@@ -373,6 +355,8 @@ static const char *acpi_sleep_dsm_state_to_str(unsigned int state)
 			return "lps0 ms entry";
 		case ACPI_LPS0_MS_EXIT:
 			return "lps0 ms exit";
+		case ACPI_MS_TURN_ON_DISPLAY:
+			return "lps0 ms turn on display";
 		}
 	} else {
 		switch (state) {
@@ -480,9 +464,6 @@ static int lps0_device_attach(struct acpi_device *adev,
 			lps0_dsm_func_mask = (lps0_dsm_func_mask << 1) | 0x1;
 			acpi_handle_debug(adev->handle, "_DSM UUID %s: Adjusted function mask: 0x%x\n",
 					  ACPI_LPS0_DSM_UUID_AMD, lps0_dsm_func_mask);
-		} else if (lps0_dsm_func_mask_microsoft > 0 && rev_id) {
-			lps0_dsm_func_mask_microsoft = -EINVAL;
-			acpi_handle_debug(adev->handle, "_DSM Using AMD method\n");
 		}
 	} else {
 		rev_id = 1;
@@ -507,11 +488,6 @@ static int lps0_device_attach(struct acpi_device *adev,
 		return 0; //function evaluation failed
 
 	lps0_device_handle = adev->handle;
-
-	if (acpi_s2idle_vendor_amd())
-		lpi_device_get_constraints_amd();
-	else
-		lpi_device_get_constraints();
 
 	/*
 	 * Use suspend-to-idle by default if ACPI_FADT_LOW_POWER_S0 is set in
@@ -539,14 +515,34 @@ static struct acpi_scan_handler lps0_handler = {
 	.attach = lps0_device_attach,
 };
 
-int acpi_s2idle_prepare_late(void)
+static int acpi_s2idle_begin_lps0(void)
+{
+	if (lps0_device_handle && !sleep_no_lps0 && check_lps0_constraints &&
+	    !lpi_constraints_table) {
+		if (acpi_s2idle_vendor_amd())
+			lpi_device_get_constraints_amd();
+		else
+			lpi_device_get_constraints();
+
+		/*
+		 * Try to retrieve the constraints only once because failures
+		 * to do so usually are sticky.
+		 */
+		if (!lpi_constraints_table)
+			lpi_constraints_table = ERR_PTR(-ENODATA);
+	}
+
+	return acpi_s2idle_begin();
+}
+
+static int acpi_s2idle_prepare_late_lps0(void)
 {
 	struct acpi_s2idle_dev_ops *handler;
 
 	if (!lps0_device_handle || sleep_no_lps0)
 		return 0;
 
-	if (pm_debug_messages_on)
+	if (check_lps0_constraints)
 		lpi_check_constraints();
 
 	/* Screen off */
@@ -585,7 +581,7 @@ int acpi_s2idle_prepare_late(void)
 	return 0;
 }
 
-void acpi_s2idle_check(void)
+static void acpi_s2idle_check_lps0(void)
 {
 	struct acpi_s2idle_dev_ops *handler;
 
@@ -598,7 +594,7 @@ void acpi_s2idle_check(void)
 	}
 }
 
-void acpi_s2idle_restore_early(void)
+static void acpi_s2idle_restore_early_lps0(void)
 {
 	struct acpi_s2idle_dev_ops *handler;
 
@@ -619,6 +615,9 @@ void acpi_s2idle_restore_early(void)
 	if (lps0_dsm_func_mask_microsoft > 0) {
 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_EXIT,
 				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
+		/* Intent to turn on display */
+		acpi_sleep_run_lps0_dsm(ACPI_MS_TURN_ON_DISPLAY,
+				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
 		/* Modern Standby exit */
 		acpi_sleep_run_lps0_dsm(ACPI_LPS0_MS_EXIT,
 				lps0_dsm_func_mask_microsoft, lps0_dsm_guid_microsoft);
@@ -636,12 +635,12 @@ void acpi_s2idle_restore_early(void)
 }
 
 static const struct platform_s2idle_ops acpi_s2idle_ops_lps0 = {
-	.begin = acpi_s2idle_begin,
+	.begin = acpi_s2idle_begin_lps0,
 	.prepare = acpi_s2idle_prepare,
-	.prepare_late = acpi_s2idle_prepare_late,
-	.check = acpi_s2idle_check,
+	.prepare_late = acpi_s2idle_prepare_late_lps0,
+	.check = acpi_s2idle_check_lps0,
 	.wake = acpi_s2idle_wake,
-	.restore_early = acpi_s2idle_restore_early,
+	.restore_early = acpi_s2idle_restore_early_lps0,
 	.restore = acpi_s2idle_restore,
 	.end = acpi_s2idle_end,
 };

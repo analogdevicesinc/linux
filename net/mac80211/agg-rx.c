@@ -9,7 +9,7 @@
  * Copyright 2007, Michael Wu <flamingice@sourmilk.net>
  * Copyright 2007-2010, Intel Corporation
  * Copyright(c) 2015-2017 Intel Deutschland GmbH
- * Copyright (C) 2018-2024 Intel Corporation
+ * Copyright (C) 2018-2025 Intel Corporation
  */
 
 /**
@@ -206,7 +206,10 @@ u8 ieee80211_retrieve_addba_ext_data(struct sta_info *sta,
 	if (elem_len <= 0)
 		return 0;
 
-	elems = ieee802_11_parse_elems(elem_data, elem_len, true, NULL);
+	elems = ieee802_11_parse_elems(elem_data, elem_len,
+				       IEEE80211_FTYPE_MGMT |
+				       IEEE80211_STYPE_ACTION,
+				       NULL);
 
 	if (!elems || elems->parse_error || !elems->addba_ext_ie)
 		goto free;
@@ -392,7 +395,7 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
 	}
 
 	/* prepare A-MPDU MLME for Rx aggregation */
-	tid_agg_rx = kzalloc(sizeof(*tid_agg_rx), GFP_KERNEL);
+	tid_agg_rx = kzalloc_obj(*tid_agg_rx);
 	if (!tid_agg_rx)
 		goto end;
 
@@ -408,7 +411,7 @@ void __ieee80211_start_rx_ba_session(struct sta_info *sta,
 
 	/* prepare reordering buffer */
 	tid_agg_rx->reorder_buf =
-		kcalloc(buf_size, sizeof(struct sk_buff_head), GFP_KERNEL);
+		kzalloc_objs(struct sk_buff_head, buf_size);
 	tid_agg_rx->reorder_time =
 		kcalloc(buf_size, sizeof(unsigned long), GFP_KERNEL);
 	if (!tid_agg_rx->reorder_buf || !tid_agg_rx->reorder_time) {

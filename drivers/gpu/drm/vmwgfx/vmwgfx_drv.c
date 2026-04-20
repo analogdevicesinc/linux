@@ -1023,8 +1023,8 @@ static int vmw_driver_load(struct vmw_private *dev_priv, u32 pci_id)
 			      dev_priv->drm.dev,
 			      dev_priv->drm.anon_inode->i_mapping,
 			      dev_priv->drm.vma_offset_manager,
-			      dev_priv->map_mode == vmw_dma_alloc_coherent,
-			      false);
+			      (dev_priv->map_mode == vmw_dma_alloc_coherent) ?
+			      TTM_ALLOCATION_POOL_USE_DMA_ALLOC : 0);
 	if (unlikely(ret != 0)) {
 		drm_err(&dev_priv->drm,
 			"Failed initializing TTM buffer object driver.\n");
@@ -1209,7 +1209,7 @@ static int vmw_driver_open(struct drm_device *dev, struct drm_file *file_priv)
 	struct vmw_fpriv *vmw_fp;
 	int ret = -ENOMEM;
 
-	vmw_fp = kzalloc(sizeof(*vmw_fp), GFP_KERNEL);
+	vmw_fp = kzalloc_obj(*vmw_fp);
 	if (unlikely(!vmw_fp))
 		return ret;
 

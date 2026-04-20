@@ -460,7 +460,7 @@ int ceph_tcp_connect(struct ceph_connection *con)
 	set_sock_callbacks(sock, con);
 
 	con_sock_state_connecting(con);
-	ret = kernel_connect(sock, (struct sockaddr *)&ss, sizeof(ss),
+	ret = kernel_connect(sock, (struct sockaddr_unsized *)&ss, sizeof(ss),
 			     O_NONBLOCK);
 	if (ret == -EINPROGRESS) {
 		dout("connect %s EINPROGRESS sk_state = %u\n",
@@ -1993,8 +1993,7 @@ struct ceph_msg *ceph_msg_new2(int type, int front_len, int max_data_items,
 	m->front_alloc_len = m->front.iov_len = front_len;
 
 	if (max_data_items) {
-		m->data = kmalloc_array(max_data_items, sizeof(*m->data),
-					flags);
+		m->data = kmalloc_objs(*m->data, max_data_items, flags);
 		if (!m->data)
 			goto out2;
 

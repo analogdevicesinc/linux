@@ -4,6 +4,7 @@
  */
 #include <linux/export.h>
 #include <linux/phy.h>
+#include <linux/phy_port.h>
 #include <linux/of.h>
 
 #include "phylib.h"
@@ -17,7 +18,7 @@
  */
 const char *phy_speed_to_str(int speed)
 {
-	BUILD_BUG_ON_MSG(__ETHTOOL_LINK_MODE_MASK_NBITS != 121,
+	BUILD_BUG_ON_MSG(__ETHTOOL_LINK_MODE_MASK_NBITS != 125,
 		"Enum ethtool_link_mode_bit_indices and phylib are out of sync. "
 		"If a speed or mode has been added please update phy_speed_to_str "
 		"and the PHY settings array.\n");
@@ -47,6 +48,8 @@ const char *phy_speed_to_str(int speed)
 		return "50Gbps";
 	case SPEED_56000:
 		return "56Gbps";
+	case SPEED_80000:
+		return "80Gbps";
 	case SPEED_100000:
 		return "100Gbps";
 	case SPEED_200000:
@@ -55,6 +58,8 @@ const char *phy_speed_to_str(int speed)
 		return "400Gbps";
 	case SPEED_800000:
 		return "800Gbps";
+	case SPEED_1600000:
+		return "1600Gbps";
 	case SPEED_UNKNOWN:
 		return "Unknown";
 	default:
@@ -100,6 +105,49 @@ const char *phy_rate_matching_to_str(int rate_matching)
 	return "Unsupported (update phy-core.c)";
 }
 EXPORT_SYMBOL_GPL(phy_rate_matching_to_str);
+
+/**
+ * phy_fix_phy_mode_for_mac_delays - Convenience function for fixing PHY
+ * mode based on whether mac adds internal delay
+ *
+ * @interface: The current interface mode of the port
+ * @mac_txid: True if the mac adds internal tx delay
+ * @mac_rxid: True if the mac adds internal rx delay
+ *
+ * Return: fixed PHY mode, or PHY_INTERFACE_MODE_NA if the interface can
+ * not apply the internal delay
+ */
+phy_interface_t phy_fix_phy_mode_for_mac_delays(phy_interface_t interface,
+						bool mac_txid, bool mac_rxid)
+{
+	if (!phy_interface_mode_is_rgmii(interface))
+		return interface;
+
+	if (mac_txid && mac_rxid) {
+		if (interface == PHY_INTERFACE_MODE_RGMII_ID)
+			return PHY_INTERFACE_MODE_RGMII;
+		return PHY_INTERFACE_MODE_NA;
+	}
+
+	if (mac_txid) {
+		if (interface == PHY_INTERFACE_MODE_RGMII_ID)
+			return PHY_INTERFACE_MODE_RGMII_RXID;
+		if (interface == PHY_INTERFACE_MODE_RGMII_TXID)
+			return PHY_INTERFACE_MODE_RGMII;
+		return PHY_INTERFACE_MODE_NA;
+	}
+
+	if (mac_rxid) {
+		if (interface == PHY_INTERFACE_MODE_RGMII_ID)
+			return PHY_INTERFACE_MODE_RGMII_TXID;
+		if (interface == PHY_INTERFACE_MODE_RGMII_RXID)
+			return PHY_INTERFACE_MODE_RGMII;
+		return PHY_INTERFACE_MODE_NA;
+	}
+
+	return interface;
+}
+EXPORT_SYMBOL_GPL(phy_fix_phy_mode_for_mac_delays);
 
 /**
  * phy_interface_num_ports - Return the number of links that can be carried by
@@ -163,7 +211,12 @@ EXPORT_SYMBOL_GPL(phy_interface_num_ports);
 
 static void __set_phy_supported(struct phy_device *phydev, u32 max_speed)
 {
+	struct phy_port *port;
+
 	phy_caps_linkmode_max_speed(max_speed, phydev->supported);
+
+	phy_for_each_port(phydev, port)
+		phy_caps_linkmode_max_speed(max_speed, port->supported);
 }
 
 /**

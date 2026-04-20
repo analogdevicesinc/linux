@@ -5,6 +5,7 @@
  * Copyright (C) 2025 Intel Corporation.
  */
 
+#include <drm/drm_print.h>
 #include <linux/array_size.h>
 #include <linux/container_of.h>
 #include <linux/device.h>
@@ -26,11 +27,11 @@
 #include "regs/xe_i2c_regs.h"
 #include "regs/xe_irq_regs.h"
 
-#include "xe_device.h"
 #include "xe_device_types.h"
 #include "xe_i2c.h"
 #include "xe_mmio.h"
-#include "xe_platform_types.h"
+#include "xe_sriov.h"
+#include "xe_survivability_mode.h"
 
 /**
  * DOC: Xe I2C devices
@@ -160,6 +161,11 @@ bool xe_i2c_present(struct xe_device *xe)
 	return xe->i2c && xe->i2c->ep.cookie == XE_I2C_EP_COOKIE_DEVICE;
 }
 
+static bool xe_i2c_irq_present(struct xe_device *xe)
+{
+	return xe->i2c && xe->i2c->adapter_irq;
+}
+
 /**
  * xe_i2c_irq_handler: Handler for I2C interrupts
  * @xe: xe device instance
@@ -170,11 +176,31 @@ bool xe_i2c_present(struct xe_device *xe)
  */
 void xe_i2c_irq_handler(struct xe_device *xe, u32 master_ctl)
 {
-	if (!xe->i2c || !xe->i2c->adapter_irq)
+	if (!xe_i2c_irq_present(xe))
 		return;
 
 	if (master_ctl & I2C_IRQ)
 		generic_handle_irq_safe(xe->i2c->adapter_irq);
+}
+
+void xe_i2c_irq_reset(struct xe_device *xe)
+{
+	struct xe_mmio *mmio = xe_root_tile_mmio(xe);
+
+	if (!xe_i2c_irq_present(xe))
+		return;
+
+	xe_mmio_rmw32(mmio, I2C_BRIDGE_PCICFGCTL, ACPI_INTR_EN, 0);
+}
+
+void xe_i2c_irq_postinstall(struct xe_device *xe)
+{
+	struct xe_mmio *mmio = xe_root_tile_mmio(xe);
+
+	if (!xe_i2c_irq_present(xe))
+		return;
+
+	xe_mmio_rmw32(mmio, I2C_BRIDGE_PCICFGCTL, 0, ACPI_INTR_EN);
 }
 
 static int xe_i2c_irq_map(struct irq_domain *h, unsigned int virq,
@@ -188,11 +214,13 @@ static const struct irq_domain_ops xe_i2c_irq_ops = {
 	.map = xe_i2c_irq_map,
 };
 
-static int xe_i2c_create_irq(struct xe_i2c *i2c)
+static int xe_i2c_create_irq(struct xe_device *xe)
 {
+	struct xe_i2c *i2c = xe->i2c;
 	struct irq_domain *domain;
 
-	if (!(i2c->ep.capabilities & XE_I2C_EP_CAP_IRQ))
+	if (!(i2c->ep.capabilities & XE_I2C_EP_CAP_IRQ) ||
+	    xe_survivability_mode_is_boot_enabled(xe))
 		return 0;
 
 	domain = irq_domain_create_linear(dev_fwnode(i2c->drm_dev), 1, &xe_i2c_irq_ops, NULL);
@@ -294,7 +322,7 @@ int xe_i2c_probe(struct xe_device *xe)
 	struct xe_i2c *i2c;
 	int ret;
 
-	if (xe->info.platform != XE_BATTLEMAGE)
+	if (!xe->info.has_i2c)
 		return 0;
 
 	if (IS_SRIOV_VF(xe))
@@ -326,7 +354,7 @@ int xe_i2c_probe(struct xe_device *xe)
 	if (ret)
 		return ret;
 
-	ret = xe_i2c_create_irq(i2c);
+	ret = xe_i2c_create_irq(xe);
 	if (ret)
 		goto err_unregister_notifier;
 
@@ -334,6 +362,7 @@ int xe_i2c_probe(struct xe_device *xe)
 	if (ret)
 		goto err_remove_irq;
 
+	xe_i2c_irq_postinstall(xe);
 	return devm_add_action_or_reset(drm_dev, xe_i2c_remove, i2c);
 
 err_remove_irq:

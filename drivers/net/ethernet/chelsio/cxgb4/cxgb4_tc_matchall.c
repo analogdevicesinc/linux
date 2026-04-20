@@ -56,7 +56,7 @@ static int cxgb4_matchall_egress_validate(struct net_device *dev,
 	struct port_info *pi = netdev2pinfo(dev);
 	struct flow_action_entry *entry;
 	struct ch_sched_queue qe;
-	struct sched_class *e;
+	struct ch_sched_class *e;
 	u64 max_link_rate;
 	u32 i, speed;
 	int ret;
@@ -180,7 +180,7 @@ static int cxgb4_matchall_alloc_tc(struct net_device *dev,
 	struct port_info *pi = netdev2pinfo(dev);
 	struct adapter *adap = netdev2adap(dev);
 	struct flow_action_entry *entry;
-	struct sched_class *e;
+	struct ch_sched_class *e;
 	int ret;
 	u32 i;
 
@@ -531,13 +531,11 @@ int cxgb4_init_tc_matchall(struct adapter *adap)
 	struct cxgb4_tc_matchall *tc_matchall;
 	int ret;
 
-	tc_matchall = kzalloc(sizeof(*tc_matchall), GFP_KERNEL);
+	tc_matchall = kzalloc_obj(*tc_matchall);
 	if (!tc_matchall)
 		return -ENOMEM;
 
-	tc_port_matchall = kcalloc(adap->params.nports,
-				   sizeof(*tc_port_matchall),
-				   GFP_KERNEL);
+	tc_port_matchall = kzalloc_objs(*tc_port_matchall, adap->params.nports);
 	if (!tc_port_matchall) {
 		ret = -ENOMEM;
 		goto out_free_matchall;

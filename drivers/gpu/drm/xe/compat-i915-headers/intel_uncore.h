@@ -10,8 +10,6 @@
 #include "xe_device_types.h"
 #include "xe_mmio.h"
 
-#define FORCEWAKE_ALL XE_FORCEWAKE_ALL
-
 static inline struct intel_uncore *to_intel_uncore(struct drm_device *drm)
 {
 	return &to_xe_device(drm)->uncore;
@@ -91,27 +89,6 @@ static inline u32 intel_uncore_rmw(struct intel_uncore *uncore,
 	return xe_mmio_rmw32(__compat_uncore_to_mmio(uncore), reg, clear, set);
 }
 
-static inline int intel_wait_for_register(struct intel_uncore *uncore,
-					  i915_reg_t i915_reg, u32 mask,
-					  u32 value, unsigned int timeout)
-{
-	struct xe_reg reg = XE_REG(i915_mmio_reg_offset(i915_reg));
-
-	return xe_mmio_wait32(__compat_uncore_to_mmio(uncore), reg, mask, value,
-			      timeout * USEC_PER_MSEC, NULL, false);
-}
-
-static inline int intel_wait_for_register_fw(struct intel_uncore *uncore,
-					     i915_reg_t i915_reg, u32 mask,
-					     u32 value, unsigned int timeout,
-					     u32 *out_value)
-{
-	struct xe_reg reg = XE_REG(i915_mmio_reg_offset(i915_reg));
-
-	return xe_mmio_wait32(__compat_uncore_to_mmio(uncore), reg, mask, value,
-			      timeout * USEC_PER_MSEC, out_value, false);
-}
-
 static inline int
 __intel_wait_for_register(struct intel_uncore *uncore, i915_reg_t i915_reg,
 			  u32 mask, u32 value, unsigned int fast_timeout_us,
@@ -131,6 +108,16 @@ __intel_wait_for_register(struct intel_uncore *uncore, i915_reg_t i915_reg,
 	return xe_mmio_wait32(__compat_uncore_to_mmio(uncore), reg, mask, value,
 			      fast_timeout_us + 1000 * slow_timeout_ms,
 			      out_value, atomic);
+}
+
+static inline int
+__intel_wait_for_register_fw(struct intel_uncore *uncore, i915_reg_t i915_reg,
+			     u32 mask, u32 value, unsigned int fast_timeout_us,
+			     unsigned int slow_timeout_ms, u32 *out_value)
+{
+	return __intel_wait_for_register(uncore, i915_reg, mask, value,
+					 fast_timeout_us, slow_timeout_ms,
+					 out_value);
 }
 
 static inline u32 intel_uncore_read_fw(struct intel_uncore *uncore,
@@ -165,9 +152,10 @@ static inline void intel_uncore_write_notrace(struct intel_uncore *uncore,
 	xe_mmio_write32(__compat_uncore_to_mmio(uncore), reg, val);
 }
 
-#define intel_uncore_forcewake_get(x, y) do { } while (0)
-#define intel_uncore_forcewake_put(x, y) do { } while (0)
-
-#define intel_uncore_arm_unclaimed_mmio_detection(x) do { } while (0)
+static inline bool
+intel_uncore_arm_unclaimed_mmio_detection(struct intel_uncore *uncore)
+{
+	return false;
+}
 
 #endif /* __INTEL_UNCORE_H__ */

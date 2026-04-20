@@ -1143,7 +1143,8 @@ void dce_aud_wall_dto_setup(
 		REG_UPDATE(DCCG_AUDIO_DTO1_PHASE,
 				DCCG_AUDIO_DTO1_PHASE, clock_info.audio_dto_phase);
 
-		REG_UPDATE(DCCG_AUDIO_DTO_SOURCE,
+		if (aud->masks->DCCG_AUDIO_DTO2_USE_512FBR_DTO)
+			REG_UPDATE(DCCG_AUDIO_DTO_SOURCE,
 				DCCG_AUDIO_DTO2_USE_512FBR_DTO, 1);
 
 	}
@@ -1330,7 +1331,7 @@ struct audio *dce_audio_create(
 		const struct dce_audio_mask *masks
 		)
 {
-	struct dce_audio *audio = kzalloc(sizeof(*audio), GFP_KERNEL);
+	struct dce_audio *audio = kzalloc_obj(*audio);
 
 	if (audio == NULL) {
 		ASSERT_CRITICAL(audio);
@@ -1356,7 +1357,7 @@ struct audio *dce60_audio_create(
 		const struct dce_audio_mask *masks
 		)
 {
-	struct dce_audio *audio = kzalloc(sizeof(*audio), GFP_KERNEL);
+	struct dce_audio *audio = kzalloc_obj(*audio);
 
 	if (audio == NULL) {
 		ASSERT_CRITICAL(audio);

@@ -25,11 +25,13 @@ properties:
     oneOf:
       - items:
           - enum:
+              - anvo,anv32c81w
               - anvo,anv32e61w
               - atmel,at25256B
               - fujitsu,mb85rs1mt
               - fujitsu,mb85rs256
               - fujitsu,mb85rs64
+              - microchip,25aa010a
               - microchip,at25160bn
               - microchip,25lc040
               - st,m95m02

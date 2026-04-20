@@ -134,7 +134,7 @@ static void __init versatile_dt_pci_init(void)
 	val = readl(versatile_sys_base + VERSATILE_SYS_PCICTL_OFFSET);
 	if (val & 1) {
 		/*
-		 * Enable PCI accesses. Note that the documentaton is
+		 * Enable PCI accesses. Note that the documentation is
 		 * inconsistent whether or not this is needed, but the old
 		 * driver had it so we will keep it.
 		 */
@@ -142,7 +142,7 @@ static void __init versatile_dt_pci_init(void)
 		goto out_put_node;
 	}
 
-	newprop = kzalloc(sizeof(*newprop), GFP_KERNEL);
+	newprop = kzalloc_obj(*newprop);
 	if (!newprop)
 		goto out_put_node;
 

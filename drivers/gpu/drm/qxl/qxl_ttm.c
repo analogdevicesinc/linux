@@ -28,6 +28,7 @@
 #include <drm/drm.h>
 #include <drm/drm_file.h>
 #include <drm/drm_debugfs.h>
+#include <drm/drm_print.h>
 #include <drm/qxl_drm.h>
 #include <drm/ttm/ttm_bo.h>
 #include <drm/ttm/ttm_placement.h>
@@ -108,7 +109,7 @@ static struct ttm_tt *qxl_ttm_tt_create(struct ttm_buffer_object *bo,
 {
 	struct ttm_tt *ttm;
 
-	ttm = kzalloc(sizeof(struct ttm_tt), GFP_KERNEL);
+	ttm = kzalloc_obj(struct ttm_tt);
 	if (ttm == NULL)
 		return NULL;
 	if (ttm_tt_init(ttm, bo, page_flags, ttm_cached, 0)) {
@@ -196,7 +197,7 @@ int qxl_ttm_init(struct qxl_device *qdev)
 	r = ttm_device_init(&qdev->mman.bdev, &qxl_bo_driver, NULL,
 			    qdev->ddev.anon_inode->i_mapping,
 			    qdev->ddev.vma_offset_manager,
-			    false, false);
+			    0);
 	if (r) {
 		DRM_ERROR("failed initializing buffer object driver(%d).\n", r);
 		return r;

@@ -156,7 +156,7 @@ fail:
 static struct trace_probe_log trace_probe_log;
 extern struct mutex dyn_event_ops_mutex;
 
-void trace_probe_log_init(const char *subsystem, int argc, const char **argv)
+const char *trace_probe_log_init(const char *subsystem, int argc, const char **argv)
 {
 	lockdep_assert_held(&dyn_event_ops_mutex);
 
@@ -164,6 +164,7 @@ void trace_probe_log_init(const char *subsystem, int argc, const char **argv)
 	trace_probe_log.argc = argc;
 	trace_probe_log.argv = argv;
 	trace_probe_log.index = 0;
+	return subsystem;
 }
 
 void trace_probe_log_clear(void)
@@ -214,7 +215,7 @@ void __trace_probe_log_err(int offset, int err_type)
 	p = command;
 	for (i = 0; i < trace_probe_log.argc; i++) {
 		len = strlen(trace_probe_log.argv[i]);
-		strcpy(p, trace_probe_log.argv[i]);
+		memcpy(p, trace_probe_log.argv[i], len);
 		p[len] = ' ';
 		p += len + 1;
 	}
@@ -516,7 +517,7 @@ static void clear_btf_context(struct traceprobe_parse_context *ctx)
 	}
 }
 
-/* Return 1 if the field separater is arrow operator ('->') */
+/* Return 1 if the field separator is arrow operator ('->') */
 static int split_next_field(char *varname, char **next_field,
 			    struct traceprobe_parse_context *ctx)
 {
@@ -837,12 +838,11 @@ static int __store_entry_arg(struct trace_probe *tp, int argnum)
 	int i, offset, last_offset = 0;
 
 	if (!earg) {
-		earg = kzalloc(sizeof(*tp->entry_arg), GFP_KERNEL);
+		earg = kzalloc_obj(*tp->entry_arg);
 		if (!earg)
 			return -ENOMEM;
 		earg->size = 2 * tp->nr_args + 1;
-		earg->code = kcalloc(earg->size, sizeof(struct fetch_insn),
-				     GFP_KERNEL);
+		earg->code = kzalloc_objs(struct fetch_insn, earg->size);
 		if (!earg->code) {
 			kfree(earg);
 			return -ENOMEM;
@@ -1498,7 +1498,7 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 	if (IS_ERR(type))
 		return PTR_ERR(type);
 
-	code = tmp = kcalloc(FETCH_INSN_MAX, sizeof(*code), GFP_KERNEL);
+	code = tmp = kzalloc_objs(*code, FETCH_INSN_MAX);
 	if (!code)
 		return -ENOMEM;
 	code[FETCH_INSN_MAX - 1].op = FETCH_OP_END;
@@ -1542,7 +1542,7 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 		if (code->op == FETCH_OP_END)
 			break;
 	/* Shrink down the code buffer */
-	parg->code = kcalloc(code - tmp + 1, sizeof(*code), GFP_KERNEL);
+	parg->code = kzalloc_objs(*code, code - tmp + 1);
 	if (!parg->code)
 		ret = -ENOMEM;
 	else
@@ -2148,7 +2148,7 @@ int trace_probe_add_file(struct trace_probe *tp, struct trace_event_file *file)
 {
 	struct event_file_link *link;
 
-	link = kmalloc(sizeof(*link), GFP_KERNEL);
+	link = kmalloc_obj(*link);
 	if (!link)
 		return -ENOMEM;
 

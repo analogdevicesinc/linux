@@ -22,6 +22,8 @@
 
 #include <linux/delay.h>
 
+#include <drm/drm_print.h>
+
 #include <trace/events/dma_fence.h>
 
 #include "qxl_drv.h"
@@ -175,7 +177,7 @@ int qxl_release_list_add(struct qxl_release *release, struct qxl_bo *bo)
 			return 0;
 	}
 
-	entry = kmalloc(sizeof(struct qxl_bo_list), GFP_KERNEL);
+	entry = kmalloc_obj(struct qxl_bo_list);
 	if (!entry)
 		return -ENOMEM;
 

@@ -19,6 +19,8 @@
 #include <rdma/rdma_cm.h>
 #include <rdma/rw.h>
 
+#define __SMBDIRECT_SOCKET_DISCONNECT(__sc) smb_direct_disconnect_rdma_connection(__sc)
+
 #include "glob.h"
 #include "connection.h"
 #include "smb_common.h"
@@ -59,9 +61,6 @@
  * Those may change after a SMB_DIRECT negotiation
  */
 
-/* Set 445 port to SMB Direct port by default */
-static int smb_direct_port = SMB_DIRECT_PORT_INFINIBAND;
-
 /* The local peer's maximum number of credits to grant to the peer */
 static int smb_direct_receive_credit_max = 255;
 
@@ -71,8 +70,23 @@ static int smb_direct_send_credit_target = 255;
 /* The maximum single message size can be sent to remote peer */
 static int smb_direct_max_send_size = 1364;
 
-/*  The maximum fragmented upper-layer payload receive size supported */
-static int smb_direct_max_fragmented_recv_size = 1024 * 1024;
+/*
+ * The maximum fragmented upper-layer payload receive size supported
+ *
+ * Assume max_payload_per_credit is
+ * smb_direct_receive_credit_max - 24 = 1340
+ *
+ * The maximum number would be
+ * smb_direct_receive_credit_max * max_payload_per_credit
+ *
+ *                       1340 * 255 = 341700 (0x536C4)
+ *
+ * The minimum value from the spec is 131072 (0x20000)
+ *
+ * For now we use the logic we used before:
+ *                 (1364 * 255) / 2 = 173910 (0x2A756)
+ */
+static int smb_direct_max_fragmented_recv_size = (1364 * 255) / 2;
 
 /*  The maximum single-message size which can be received */
 static int smb_direct_max_receive_size = 1364;
@@ -88,8 +102,9 @@ struct smb_direct_device {
 };
 
 static struct smb_direct_listener {
+	int			port;
 	struct rdma_cm_id	*cm_id;
-} smb_direct_listener;
+} smb_direct_ib_listener, smb_direct_iw_listener;
 
 static struct workqueue_struct *smb_direct_wq;
 
@@ -219,6 +234,7 @@ static void smb_direct_disconnect_wake_up_all(struct smbdirect_socket *sc)
 	 * in order to notice the broken connection.
 	 */
 	wake_up_all(&sc->status_wait);
+	wake_up_all(&sc->send_io.bcredits.wait_queue);
 	wake_up_all(&sc->send_io.lcredits.wait_queue);
 	wake_up_all(&sc->send_io.credits.wait_queue);
 	wake_up_all(&sc->send_io.pending.zero_wait_queue);
@@ -231,18 +247,19 @@ static void smb_direct_disconnect_rdma_work(struct work_struct *work)
 	struct smbdirect_socket *sc =
 		container_of(work, struct smbdirect_socket, disconnect_work);
 
+	if (sc->first_error == 0)
+		sc->first_error = -ECONNABORTED;
+
 	/*
 	 * make sure this and other work is not queued again
 	 * but here we don't block and avoid
 	 * disable[_delayed]_work_sync()
 	 */
 	disable_work(&sc->disconnect_work);
+	disable_work(&sc->connect.work);
 	disable_work(&sc->recv_io.posted.refill_work);
 	disable_delayed_work(&sc->idle.timer_work);
 	disable_work(&sc->idle.immediate_work);
-
-	if (sc->first_error == 0)
-		sc->first_error = -ECONNABORTED;
 
 	switch (sc->status) {
 	case SMBDIRECT_SOCKET_NEGOTIATE_NEEDED:
@@ -287,17 +304,18 @@ static void smb_direct_disconnect_rdma_work(struct work_struct *work)
 static void
 smb_direct_disconnect_rdma_connection(struct smbdirect_socket *sc)
 {
+	if (sc->first_error == 0)
+		sc->first_error = -ECONNABORTED;
+
 	/*
 	 * make sure other work (than disconnect_work) is
 	 * not queued again but here we don't block and avoid
 	 * disable[_delayed]_work_sync()
 	 */
+	disable_work(&sc->connect.work);
 	disable_work(&sc->recv_io.posted.refill_work);
 	disable_work(&sc->idle.immediate_work);
 	disable_delayed_work(&sc->idle.timer_work);
-
-	if (sc->first_error == 0)
-		sc->first_error = -ECONNABORTED;
 
 	switch (sc->status) {
 	case SMBDIRECT_SOCKET_RESOLVE_ADDR_FAILED:
@@ -393,7 +411,7 @@ static struct smb_direct_transport *alloc_transport(struct rdma_cm_id *cm_id)
 	struct smbdirect_socket_parameters *sp;
 	struct ksmbd_conn *conn;
 
-	t = kzalloc(sizeof(*t), KSMBD_DEFAULT_GFP);
+	t = kzalloc_obj(*t, KSMBD_DEFAULT_GFP);
 	if (!t)
 		return NULL;
 	sc = &t->socket;
@@ -465,6 +483,7 @@ static void free_transport(struct smb_direct_transport *t)
 	 */
 	smb_direct_disconnect_wake_up_all(sc);
 
+	disable_work_sync(&sc->connect.work);
 	disable_work_sync(&sc->recv_io.posted.refill_work);
 	disable_delayed_work_sync(&sc->idle.timer_work);
 	disable_work_sync(&sc->idle.immediate_work);
@@ -633,21 +652,13 @@ static void recv_done(struct ib_cq *cq, struct ib_wc *wc)
 
 	switch (sc->recv_io.expected) {
 	case SMBDIRECT_EXPECT_NEGOTIATE_REQ:
-		if (wc->byte_len < sizeof(struct smbdirect_negotiate_req)) {
-			put_recvmsg(sc, recvmsg);
-			smb_direct_disconnect_rdma_connection(sc);
-			return;
-		}
-		sc->recv_io.reassembly.full_packet_received = true;
-		WARN_ON_ONCE(sc->status != SMBDIRECT_SOCKET_NEGOTIATE_NEEDED);
-		sc->status = SMBDIRECT_SOCKET_NEGOTIATE_RUNNING;
-		enqueue_reassembly(sc, recvmsg, 0);
-		wake_up(&sc->status_wait);
-		return;
+		/* see smb_direct_negotiate_recv_done */
+		break;
 	case SMBDIRECT_EXPECT_DATA_TRANSFER: {
 		struct smbdirect_data_transfer *data_transfer =
 			(struct smbdirect_data_transfer *)recvmsg->packet;
 		u32 remaining_data_length, data_offset, data_length;
+		int current_recv_credits;
 		u16 old_recv_credit_target;
 
 		if (wc->byte_len <
@@ -686,7 +697,7 @@ static void recv_done(struct ib_cq *cq, struct ib_wc *wc)
 		}
 
 		atomic_dec(&sc->recv_io.posted.count);
-		atomic_dec(&sc->recv_io.credits.count);
+		current_recv_credits = atomic_dec_return(&sc->recv_io.credits.count);
 
 		old_recv_credit_target = sc->recv_io.credits.target;
 		sc->recv_io.credits.target =
@@ -706,7 +717,8 @@ static void recv_done(struct ib_cq *cq, struct ib_wc *wc)
 			wake_up(&sc->send_io.credits.wait_queue);
 
 		if (data_length) {
-			if (sc->recv_io.credits.target > old_recv_credit_target)
+			if (current_recv_credits <= (sc->recv_io.credits.target / 4) ||
+			    sc->recv_io.credits.target > old_recv_credit_target)
 				queue_work(sc->workqueue, &sc->recv_io.posted.refill_work);
 
 			enqueue_reassembly(sc, recvmsg, (int)data_length);
@@ -729,6 +741,126 @@ static void recv_done(struct ib_cq *cq, struct ib_wc *wc)
 	smb_direct_disconnect_rdma_connection(sc);
 }
 
+static void smb_direct_negotiate_recv_work(struct work_struct *work);
+
+static void smb_direct_negotiate_recv_done(struct ib_cq *cq, struct ib_wc *wc)
+{
+	struct smbdirect_recv_io *recv_io =
+		container_of(wc->wr_cqe, struct smbdirect_recv_io, cqe);
+	struct smbdirect_socket *sc = recv_io->socket;
+	unsigned long flags;
+
+	/*
+	 * reset the common recv_done for later reuse.
+	 */
+	recv_io->cqe.done = recv_done;
+
+	if (wc->status != IB_WC_SUCCESS || wc->opcode != IB_WC_RECV) {
+		put_recvmsg(sc, recv_io);
+		if (wc->status != IB_WC_WR_FLUSH_ERR) {
+			pr_err("Negotiate Recv error. status='%s (%d)' opcode=%d\n",
+			       ib_wc_status_msg(wc->status), wc->status,
+			       wc->opcode);
+			smb_direct_disconnect_rdma_connection(sc);
+		}
+		return;
+	}
+
+	ksmbd_debug(RDMA, "Negotiate Recv completed. status='%s (%d)', opcode=%d\n",
+		    ib_wc_status_msg(wc->status), wc->status,
+		    wc->opcode);
+
+	ib_dma_sync_single_for_cpu(sc->ib.dev,
+				   recv_io->sge.addr,
+				   recv_io->sge.length,
+				   DMA_FROM_DEVICE);
+
+	/*
+	 * This is an internal error!
+	 */
+	if (WARN_ON_ONCE(sc->recv_io.expected != SMBDIRECT_EXPECT_NEGOTIATE_REQ)) {
+		put_recvmsg(sc, recv_io);
+		smb_direct_disconnect_rdma_connection(sc);
+		return;
+	}
+
+	/*
+	 * Don't reset timer to the keepalive interval in
+	 * this will be done in smb_direct_negotiate_recv_work.
+	 */
+
+	/*
+	 * Only remember the recv_io if it has enough bytes,
+	 * this gives smb_direct_negotiate_recv_work enough
+	 * information in order to disconnect if it was not
+	 * valid.
+	 */
+	sc->recv_io.reassembly.full_packet_received = true;
+	if (wc->byte_len >= sizeof(struct smbdirect_negotiate_req))
+		enqueue_reassembly(sc, recv_io, 0);
+	else
+		put_recvmsg(sc, recv_io);
+
+	/*
+	 * Some drivers (at least mlx5_ib and irdma in roce mode)
+	 * might post a recv completion before RDMA_CM_EVENT_ESTABLISHED,
+	 * we need to adjust our expectation in that case.
+	 *
+	 * So we defer further processing of the negotiation
+	 * to smb_direct_negotiate_recv_work().
+	 *
+	 * If we are already in SMBDIRECT_SOCKET_NEGOTIATE_NEEDED
+	 * we queue the work directly otherwise
+	 * smb_direct_cm_handler() will do it, when
+	 * RDMA_CM_EVENT_ESTABLISHED arrived.
+	 */
+	spin_lock_irqsave(&sc->connect.lock, flags);
+	if (!sc->first_error) {
+		INIT_WORK(&sc->connect.work, smb_direct_negotiate_recv_work);
+		if (sc->status == SMBDIRECT_SOCKET_NEGOTIATE_NEEDED)
+			queue_work(sc->workqueue, &sc->connect.work);
+	}
+	spin_unlock_irqrestore(&sc->connect.lock, flags);
+}
+
+static void smb_direct_negotiate_recv_work(struct work_struct *work)
+{
+	struct smbdirect_socket *sc =
+		container_of(work, struct smbdirect_socket, connect.work);
+	const struct smbdirect_socket_parameters *sp = &sc->parameters;
+	struct smbdirect_recv_io *recv_io;
+
+	if (sc->first_error)
+		return;
+
+	ksmbd_debug(RDMA, "Negotiate Recv Work running\n");
+
+	/*
+	 * Reset timer to the keepalive interval in
+	 * order to trigger our next keepalive message.
+	 */
+	sc->idle.keepalive = SMBDIRECT_KEEPALIVE_NONE;
+	mod_delayed_work(sc->workqueue, &sc->idle.timer_work,
+			 msecs_to_jiffies(sp->keepalive_interval_msec));
+
+	/*
+	 * If smb_direct_negotiate_recv_done() detected an
+	 * invalid request we want to disconnect.
+	 */
+	recv_io = get_first_reassembly(sc);
+	if (!recv_io) {
+		smb_direct_disconnect_rdma_connection(sc);
+		return;
+	}
+
+	if (SMBDIRECT_CHECK_STATUS_WARN(sc, SMBDIRECT_SOCKET_NEGOTIATE_NEEDED)) {
+		smb_direct_disconnect_rdma_connection(sc);
+		return;
+	}
+	sc->status = SMBDIRECT_SOCKET_NEGOTIATE_RUNNING;
+	wake_up(&sc->status_wait);
+}
+
 static int smb_direct_post_recv(struct smbdirect_socket *sc,
 				struct smbdirect_recv_io *recvmsg)
 {
@@ -745,7 +877,6 @@ static int smb_direct_post_recv(struct smbdirect_socket *sc,
 		return ret;
 	recvmsg->sge.length = sp->max_recv_size;
 	recvmsg->sge.lkey = sc->ib.pd->local_dma_lkey;
-	recvmsg->cqe.done = recv_done;
 
 	wr.wr_cqe = &recvmsg->cqe;
 	wr.next = NULL;
@@ -913,6 +1044,17 @@ static void smb_direct_post_recv_credits(struct work_struct *work)
 		}
 	}
 
+	atomic_add(credits, &sc->recv_io.credits.available);
+
+	/*
+	 * If the last send credit is waiting for credits
+	 * it can grant we need to wake it up
+	 */
+	if (credits &&
+	    atomic_read(&sc->send_io.bcredits.count) == 0 &&
+	    atomic_read(&sc->send_io.credits.count) == 0)
+		wake_up(&sc->send_io.credits.wait_queue);
+
 	if (credits)
 		queue_work(sc->workqueue, &sc->idle.immediate_work);
 }
@@ -930,6 +1072,31 @@ static void send_done(struct ib_cq *cq, struct ib_wc *wc)
 		    ib_wc_status_msg(wc->status), wc->status,
 		    wc->opcode);
 
+	if (unlikely(!(sendmsg->wr.send_flags & IB_SEND_SIGNALED))) {
+		/*
+		 * This happens when smbdirect_send_io is a sibling
+		 * before the final message, it is signaled on
+		 * error anyway, so we need to skip
+		 * smbdirect_connection_free_send_io here,
+		 * otherwise is will destroy the memory
+		 * of the siblings too, which will cause
+		 * use after free problems for the others
+		 * triggered from ib_drain_qp().
+		 */
+		if (wc->status != IB_WC_SUCCESS)
+			goto skip_free;
+
+		/*
+		 * This should not happen!
+		 * But we better just close the
+		 * connection...
+		 */
+		pr_err("unexpected send completion wc->status=%s (%d) wc->opcode=%d\n",
+		       ib_wc_status_msg(wc->status), wc->status, wc->opcode);
+		smb_direct_disconnect_rdma_connection(sc);
+		return;
+	}
+
 	/*
 	 * Free possible siblings and then the main send_io
 	 */
@@ -943,6 +1110,7 @@ static void send_done(struct ib_cq *cq, struct ib_wc *wc)
 	lcredits += 1;
 
 	if (wc->status != IB_WC_SUCCESS || wc->opcode != IB_WC_SEND) {
+skip_free:
 		pr_err("Send error. status='%s (%d)', opcode=%d\n",
 		       ib_wc_status_msg(wc->status), wc->status,
 		       wc->opcode);
@@ -959,19 +1127,37 @@ static void send_done(struct ib_cq *cq, struct ib_wc *wc)
 
 static int manage_credits_prior_sending(struct smbdirect_socket *sc)
 {
+	int missing;
+	int available;
 	int new_credits;
 
 	if (atomic_read(&sc->recv_io.credits.count) >= sc->recv_io.credits.target)
 		return 0;
 
-	new_credits = atomic_read(&sc->recv_io.posted.count);
-	if (new_credits == 0)
+	missing = (int)sc->recv_io.credits.target - atomic_read(&sc->recv_io.credits.count);
+	available = atomic_xchg(&sc->recv_io.credits.available, 0);
+	new_credits = (u16)min3(U16_MAX, missing, available);
+	if (new_credits <= 0) {
+		/*
+		 * If credits are available, but not granted
+		 * we need to re-add them again.
+		 */
+		if (available)
+			atomic_add(available, &sc->recv_io.credits.available);
 		return 0;
+	}
 
-	new_credits -= atomic_read(&sc->recv_io.credits.count);
-	if (new_credits <= 0)
-		return 0;
+	if (new_credits < available) {
+		/*
+		 * Readd the remaining available again.
+		 */
+		available -= new_credits;
+		atomic_add(available, &sc->recv_io.credits.available);
+	}
 
+	/*
+	 * Remember we granted the credits
+	 */
 	atomic_add(new_credits, &sc->recv_io.credits.count);
 	return new_credits;
 }
@@ -1015,6 +1201,7 @@ static void smb_direct_send_ctx_init(struct smbdirect_send_batch *send_ctx,
 	send_ctx->wr_cnt = 0;
 	send_ctx->need_invalidate_rkey = need_invalidate_rkey;
 	send_ctx->remote_key = remote_key;
+	send_ctx->credit = 0;
 }
 
 static int smb_direct_flush_send_list(struct smbdirect_socket *sc,
@@ -1022,10 +1209,10 @@ static int smb_direct_flush_send_list(struct smbdirect_socket *sc,
 				      bool is_last)
 {
 	struct smbdirect_send_io *first, *last;
-	int ret;
+	int ret = 0;
 
 	if (list_empty(&send_ctx->msg_list))
-		return 0;
+		goto release_credit;
 
 	first = list_first_entry(&send_ctx->msg_list,
 				 struct smbdirect_send_io,
@@ -1067,6 +1254,13 @@ static int smb_direct_flush_send_list(struct smbdirect_socket *sc,
 		smb_direct_free_sendmsg(sc, last);
 	}
 
+release_credit:
+	if (is_last && !ret && send_ctx->credit) {
+		atomic_add(send_ctx->credit, &sc->send_io.bcredits.count);
+		send_ctx->credit = 0;
+		wake_up(&sc->send_io.bcredits.wait_queue);
+	}
+
 	return ret;
 }
 
@@ -1090,6 +1284,25 @@ static int wait_for_credits(struct smbdirect_socket *sc,
 		else if (ret < 0)
 			return ret;
 	} while (true);
+}
+
+static int wait_for_send_bcredit(struct smbdirect_socket *sc,
+				 struct smbdirect_send_batch *send_ctx)
+{
+	int ret;
+
+	if (send_ctx->credit)
+		return 0;
+
+	ret = wait_for_credits(sc,
+			       &sc->send_io.bcredits.wait_queue,
+			       &sc->send_io.bcredits.count,
+			       1);
+	if (ret)
+		return ret;
+
+	send_ctx->credit = 1;
+	return 0;
 }
 
 static int wait_for_send_lcredit(struct smbdirect_socket *sc,
@@ -1141,6 +1354,7 @@ static int calc_rw_credits(struct smbdirect_socket *sc,
 
 static int smb_direct_create_header(struct smbdirect_socket *sc,
 				    int size, int remaining_data_length,
+				    int new_credits,
 				    struct smbdirect_send_io **sendmsg_out)
 {
 	struct smbdirect_socket_parameters *sp = &sc->parameters;
@@ -1156,7 +1370,7 @@ static int smb_direct_create_header(struct smbdirect_socket *sc,
 	/* Fill in the packet header */
 	packet = (struct smbdirect_data_transfer *)sendmsg->packet;
 	packet->credits_requested = cpu_to_le16(sp->send_credit_target);
-	packet->credits_granted = cpu_to_le16(manage_credits_prior_sending(sc));
+	packet->credits_granted = cpu_to_le16(new_credits);
 
 	packet->flags = 0;
 	if (manage_keep_alive_before_sending(sc))
@@ -1238,14 +1452,12 @@ static int get_sg_list(void *buf, int size, struct scatterlist *sg_list, int nen
 
 static int get_mapped_sg_list(struct ib_device *device, void *buf, int size,
 			      struct scatterlist *sg_list, int nentries,
-			      enum dma_data_direction dir)
+			      enum dma_data_direction dir, int *npages)
 {
-	int npages;
-
-	npages = get_sg_list(buf, size, sg_list, nentries);
-	if (npages < 0)
+	*npages = get_sg_list(buf, size, sg_list, nentries);
+	if (*npages < 0)
 		return -EINVAL;
-	return ib_dma_map_sg(device, sg_list, npages, dir);
+	return ib_dma_map_sg(device, sg_list, *npages, dir);
 }
 
 static int post_sendmsg(struct smbdirect_socket *sc,
@@ -1295,6 +1507,17 @@ static int smb_direct_post_send_data(struct smbdirect_socket *sc,
 	struct smbdirect_send_io *msg;
 	int data_length;
 	struct scatterlist sg[SMBDIRECT_SEND_IO_MAX_SGE - 1];
+	struct smbdirect_send_batch _send_ctx;
+	int new_credits;
+
+	if (!send_ctx) {
+		smb_direct_send_ctx_init(&_send_ctx, false, 0);
+		send_ctx = &_send_ctx;
+	}
+
+	ret = wait_for_send_bcredit(sc, send_ctx);
+	if (ret)
+		goto bcredit_failed;
 
 	ret = wait_for_send_lcredit(sc, send_ctx);
 	if (ret)
@@ -1304,24 +1527,42 @@ static int smb_direct_post_send_data(struct smbdirect_socket *sc,
 	if (ret)
 		goto credit_failed;
 
+	new_credits = manage_credits_prior_sending(sc);
+	if (new_credits == 0 &&
+	    atomic_read(&sc->send_io.credits.count) == 0 &&
+	    atomic_read(&sc->recv_io.credits.count) == 0) {
+		queue_work(sc->workqueue, &sc->recv_io.posted.refill_work);
+		ret = wait_event_interruptible(sc->send_io.credits.wait_queue,
+					       atomic_read(&sc->send_io.credits.count) >= 1 ||
+					       atomic_read(&sc->recv_io.credits.available) >= 1 ||
+					       sc->status != SMBDIRECT_SOCKET_CONNECTED);
+		if (sc->status != SMBDIRECT_SOCKET_CONNECTED)
+			ret = -ENOTCONN;
+		if (ret < 0)
+			goto credit_failed;
+
+		new_credits = manage_credits_prior_sending(sc);
+	}
+
 	data_length = 0;
 	for (i = 0; i < niov; i++)
 		data_length += iov[i].iov_len;
 
 	ret = smb_direct_create_header(sc, data_length, remaining_data_length,
-				       &msg);
+				       new_credits, &msg);
 	if (ret)
 		goto header_failed;
 
 	for (i = 0; i < niov; i++) {
 		struct ib_sge *sge;
 		int sg_cnt;
+		int npages;
 
 		sg_init_table(sg, SMBDIRECT_SEND_IO_MAX_SGE - 1);
 		sg_cnt = get_mapped_sg_list(sc->ib.dev,
 					    iov[i].iov_base, iov[i].iov_len,
 					    sg, SMBDIRECT_SEND_IO_MAX_SGE - 1,
-					    DMA_TO_DEVICE);
+					    DMA_TO_DEVICE, &npages);
 		if (sg_cnt <= 0) {
 			pr_err("failed to map buffer\n");
 			ret = -ENOMEM;
@@ -1329,7 +1570,7 @@ static int smb_direct_post_send_data(struct smbdirect_socket *sc,
 		} else if (sg_cnt + msg->num_sge > SMBDIRECT_SEND_IO_MAX_SGE) {
 			pr_err("buffer not fitted into sges\n");
 			ret = -E2BIG;
-			ib_dma_unmap_sg(sc->ib.dev, sg, sg_cnt,
+			ib_dma_unmap_sg(sc->ib.dev, sg, npages,
 					DMA_TO_DEVICE);
 			goto err;
 		}
@@ -1346,6 +1587,13 @@ static int smb_direct_post_send_data(struct smbdirect_socket *sc,
 	ret = post_sendmsg(sc, send_ctx, msg);
 	if (ret)
 		goto err;
+
+	if (send_ctx == &_send_ctx) {
+		ret = smb_direct_flush_send_list(sc, send_ctx, true);
+		if (ret)
+			goto err;
+	}
+
 	return 0;
 err:
 	smb_direct_free_sendmsg(sc, msg);
@@ -1354,6 +1602,9 @@ header_failed:
 credit_failed:
 	atomic_inc(&sc->send_io.lcredits.count);
 lcredit_failed:
+	atomic_add(send_ctx->credit, &sc->send_io.bcredits.count);
+	send_ctx->credit = 0;
+bcredit_failed:
 	return ret;
 }
 
@@ -1601,8 +1852,8 @@ static int smb_direct_rdma_xmit(struct smb_direct_transport *t,
 	/* build rdma_rw_ctx for each descriptor */
 	desc_buf = buf;
 	for (i = 0; i < desc_num; i++) {
-		msg = kzalloc(struct_size(msg, sg_list, SG_CHUNK_SIZE),
-			      KSMBD_DEFAULT_GFP);
+		msg = kzalloc_flex(*msg, sg_list, SG_CHUNK_SIZE,
+				   KSMBD_DEFAULT_GFP);
 		if (!msg) {
 			ret = -ENOMEM;
 			goto out;
@@ -1719,14 +1970,35 @@ static int smb_direct_cm_handler(struct rdma_cm_id *cm_id,
 				 struct rdma_cm_event *event)
 {
 	struct smbdirect_socket *sc = cm_id->context;
+	unsigned long flags;
 
 	ksmbd_debug(RDMA, "RDMA CM event. cm_id=%p event=%s (%d)\n",
 		    cm_id, rdma_event_msg(event->event), event->event);
 
 	switch (event->event) {
 	case RDMA_CM_EVENT_ESTABLISHED: {
-		WARN_ON_ONCE(sc->status != SMBDIRECT_SOCKET_RDMA_CONNECT_RUNNING);
+		/*
+		 * Some drivers (at least mlx5_ib and irdma in roce mode)
+		 * might post a recv completion before RDMA_CM_EVENT_ESTABLISHED,
+		 * we need to adjust our expectation in that case.
+		 *
+		 * If smb_direct_negotiate_recv_done was called first
+		 * it initialized sc->connect.work only for us to
+		 * start, so that we turned into
+		 * SMBDIRECT_SOCKET_NEGOTIATE_NEEDED, before
+		 * smb_direct_negotiate_recv_work() runs.
+		 *
+		 * If smb_direct_negotiate_recv_done didn't happen
+		 * yet. sc->connect.work is still be disabled and
+		 * queue_work() is a no-op.
+		 */
+		if (SMBDIRECT_CHECK_STATUS_DISCONNECT(sc, SMBDIRECT_SOCKET_RDMA_CONNECT_RUNNING))
+			break;
 		sc->status = SMBDIRECT_SOCKET_NEGOTIATE_NEEDED;
+		spin_lock_irqsave(&sc->connect.lock, flags);
+		if (!sc->first_error)
+			queue_work(sc->workqueue, &sc->connect.work);
+		spin_unlock_irqrestore(&sc->connect.lock, flags);
 		wake_up(&sc->status_wait);
 		break;
 	}
@@ -1804,6 +2076,7 @@ static int smb_direct_send_negotiate_response(struct smbdirect_socket *sc,
 		resp->max_fragmented_size =
 				cpu_to_le32(sp->max_fragmented_recv_size);
 
+		atomic_set(&sc->send_io.bcredits.count, 1);
 		sc->recv_io.expected = SMBDIRECT_EXPECT_DATA_TRANSFER;
 		sc->status = SMBDIRECT_SOCKET_CONNECTED;
 	}
@@ -1897,6 +2170,7 @@ static int smb_direct_prepare_negotiation(struct smbdirect_socket *sc)
 	recvmsg = get_free_recvmsg(sc);
 	if (!recvmsg)
 		return -ENOMEM;
+	recvmsg->cqe.done = smb_direct_negotiate_recv_done;
 
 	ret = smb_direct_post_recv(sc, recvmsg);
 	if (ret) {
@@ -2266,12 +2540,35 @@ static int smb_direct_prepare(struct ksmbd_transport *t)
 		goto put;
 
 	req = (struct smbdirect_negotiate_req *)recvmsg->packet;
-	sp->max_recv_size = min_t(int, sp->max_recv_size,
+	sp->max_recv_size = min_t(u32, sp->max_recv_size,
 				  le32_to_cpu(req->preferred_send_size));
-	sp->max_send_size = min_t(int, sp->max_send_size,
+	sp->max_send_size = min_t(u32, sp->max_send_size,
 				  le32_to_cpu(req->max_receive_size));
 	sp->max_fragmented_send_size =
 		le32_to_cpu(req->max_fragmented_size);
+	/*
+	 * The maximum fragmented upper-layer payload receive size supported
+	 *
+	 * Assume max_payload_per_credit is
+	 * smb_direct_receive_credit_max - 24 = 1340
+	 *
+	 * The maximum number would be
+	 * smb_direct_receive_credit_max * max_payload_per_credit
+	 *
+	 *                       1340 * 255 = 341700 (0x536C4)
+	 *
+	 * The minimum value from the spec is 131072 (0x20000)
+	 *
+	 * For now we use the logic we used before:
+	 *                 (1364 * 255) / 2 = 173910 (0x2A756)
+	 *
+	 * We need to adjust this here in case the peer
+	 * lowered sp->max_recv_size.
+	 *
+	 * TODO: instead of adjusting max_fragmented_recv_size
+	 * we should adjust the number of available buffers,
+	 * but for now we keep the current logic.
+	 */
 	sp->max_fragmented_recv_size =
 		(sp->recv_credit_max * sp->max_recv_size) / 2;
 	sc->recv_io.credits.target = le16_to_cpu(req->credits_requested);
@@ -2315,6 +2612,7 @@ respond:
 
 static int smb_direct_connect(struct smbdirect_socket *sc)
 {
+	struct smbdirect_recv_io *recv_io;
 	int ret;
 
 	ret = smb_direct_init_params(sc);
@@ -2328,6 +2626,9 @@ static int smb_direct_connect(struct smbdirect_socket *sc)
 		pr_err("Can't init RDMA pool: %d\n", ret);
 		return ret;
 	}
+
+	list_for_each_entry(recv_io, &sc->recv_io.free.list, list)
+		recv_io->cqe.done = recv_done;
 
 	ret = smb_direct_create_qpair(sc);
 	if (ret) {
@@ -2355,6 +2656,7 @@ static bool rdma_frwr_is_supported(struct ib_device_attr *attrs)
 static int smb_direct_handle_connect_request(struct rdma_cm_id *new_cm_id,
 					     struct rdma_cm_event *event)
 {
+	struct smb_direct_listener *listener = new_cm_id->context;
 	struct smb_direct_transport *t;
 	struct smbdirect_socket *sc;
 	struct smbdirect_socket_parameters *sp;
@@ -2443,7 +2745,7 @@ static int smb_direct_handle_connect_request(struct rdma_cm_id *new_cm_id,
 
 	handler = kthread_run(ksmbd_conn_handler_loop,
 			      KSMBD_TRANS(t)->conn, "ksmbd:r%u",
-			      smb_direct_port);
+			      listener->port);
 	if (IS_ERR(handler)) {
 		ret = PTR_ERR(handler);
 		pr_err("Can't start thread\n");
@@ -2480,21 +2782,52 @@ static int smb_direct_listen_handler(struct rdma_cm_id *cm_id,
 	return 0;
 }
 
-static int smb_direct_listen(int port)
+static int smb_direct_listen(struct smb_direct_listener *listener,
+			     int port)
 {
 	int ret;
 	struct rdma_cm_id *cm_id;
+	u8 node_type = RDMA_NODE_UNSPECIFIED;
 	struct sockaddr_in sin = {
 		.sin_family		= AF_INET,
 		.sin_addr.s_addr	= htonl(INADDR_ANY),
 		.sin_port		= htons(port),
 	};
 
+	switch (port) {
+	case SMB_DIRECT_PORT_IWARP:
+		/*
+		 * only allow iWarp devices
+		 * for port 5445.
+		 */
+		node_type = RDMA_NODE_RNIC;
+		break;
+	case SMB_DIRECT_PORT_INFINIBAND:
+		/*
+		 * only allow InfiniBand, RoCEv1 or RoCEv2
+		 * devices for port 445.
+		 *
+		 * (Basically don't allow iWarp devices)
+		 */
+		node_type = RDMA_NODE_IB_CA;
+		break;
+	default:
+		pr_err("unsupported smbdirect port=%d!\n", port);
+		return -ENODEV;
+	}
+
 	cm_id = rdma_create_id(&init_net, smb_direct_listen_handler,
-			       &smb_direct_listener, RDMA_PS_TCP, IB_QPT_RC);
+			       listener, RDMA_PS_TCP, IB_QPT_RC);
 	if (IS_ERR(cm_id)) {
 		pr_err("Can't create cm id: %ld\n", PTR_ERR(cm_id));
 		return PTR_ERR(cm_id);
+	}
+
+	ret = rdma_restrict_node_type(cm_id, node_type);
+	if (ret) {
+		pr_err("rdma_restrict_node_type(%u) failed %d\n",
+		       node_type, ret);
+		goto err;
 	}
 
 	ret = rdma_bind_addr(cm_id, (struct sockaddr *)&sin);
@@ -2503,16 +2836,19 @@ static int smb_direct_listen(int port)
 		goto err;
 	}
 
-	smb_direct_listener.cm_id = cm_id;
-
 	ret = rdma_listen(cm_id, 10);
 	if (ret) {
 		pr_err("Can't listen: %d\n", ret);
 		goto err;
 	}
+
+	listener->port = port;
+	listener->cm_id = cm_id;
+
 	return 0;
 err:
-	smb_direct_listener.cm_id = NULL;
+	listener->port = 0;
+	listener->cm_id = NULL;
 	rdma_destroy_id(cm_id);
 	return ret;
 }
@@ -2521,14 +2857,10 @@ static int smb_direct_ib_client_add(struct ib_device *ib_dev)
 {
 	struct smb_direct_device *smb_dev;
 
-	/* Set 5445 port if device type is iWARP(No IB) */
-	if (ib_dev->node_type != RDMA_NODE_IB_CA)
-		smb_direct_port = SMB_DIRECT_PORT_IWARP;
-
 	if (!rdma_frwr_is_supported(&ib_dev->attrs))
 		return 0;
 
-	smb_dev = kzalloc(sizeof(*smb_dev), KSMBD_DEFAULT_GFP);
+	smb_dev = kzalloc_obj(*smb_dev, KSMBD_DEFAULT_GFP);
 	if (!smb_dev)
 		return -ENOMEM;
 	smb_dev->ib_dev = ib_dev;
@@ -2567,7 +2899,9 @@ int ksmbd_rdma_init(void)
 {
 	int ret;
 
-	smb_direct_listener.cm_id = NULL;
+	smb_direct_ib_listener = smb_direct_iw_listener = (struct smb_direct_listener) {
+		.cm_id = NULL,
+	};
 
 	ret = ib_register_client(&smb_direct_ib_client);
 	if (ret) {
@@ -2583,31 +2917,53 @@ int ksmbd_rdma_init(void)
 	smb_direct_wq = alloc_workqueue("ksmbd-smb_direct-wq",
 					WQ_HIGHPRI | WQ_MEM_RECLAIM | WQ_PERCPU,
 					0);
-	if (!smb_direct_wq)
-		return -ENOMEM;
-
-	ret = smb_direct_listen(smb_direct_port);
-	if (ret) {
-		destroy_workqueue(smb_direct_wq);
-		smb_direct_wq = NULL;
-		pr_err("Can't listen: %d\n", ret);
-		return ret;
+	if (!smb_direct_wq) {
+		ret = -ENOMEM;
+		goto err;
 	}
 
-	ksmbd_debug(RDMA, "init RDMA listener. cm_id=%p\n",
-		    smb_direct_listener.cm_id);
+	ret = smb_direct_listen(&smb_direct_ib_listener,
+				SMB_DIRECT_PORT_INFINIBAND);
+	if (ret) {
+		pr_err("Can't listen on InfiniBand/RoCEv1/RoCEv2: %d\n", ret);
+		goto err;
+	}
+
+	ksmbd_debug(RDMA, "InfiniBand/RoCEv1/RoCEv2 RDMA listener. cm_id=%p\n",
+		    smb_direct_ib_listener.cm_id);
+
+	ret = smb_direct_listen(&smb_direct_iw_listener,
+				SMB_DIRECT_PORT_IWARP);
+	if (ret) {
+		pr_err("Can't listen on iWarp: %d\n", ret);
+		goto err;
+	}
+
+	ksmbd_debug(RDMA, "iWarp RDMA listener. cm_id=%p\n",
+		    smb_direct_iw_listener.cm_id);
+
 	return 0;
+err:
+	ksmbd_rdma_stop_listening();
+	ksmbd_rdma_destroy();
+	return ret;
 }
 
 void ksmbd_rdma_stop_listening(void)
 {
-	if (!smb_direct_listener.cm_id)
+	if (!smb_direct_ib_listener.cm_id && !smb_direct_iw_listener.cm_id)
 		return;
 
 	ib_unregister_client(&smb_direct_ib_client);
-	rdma_destroy_id(smb_direct_listener.cm_id);
 
-	smb_direct_listener.cm_id = NULL;
+	if (smb_direct_ib_listener.cm_id)
+		rdma_destroy_id(smb_direct_ib_listener.cm_id);
+	if (smb_direct_iw_listener.cm_id)
+		rdma_destroy_id(smb_direct_iw_listener.cm_id);
+
+	smb_direct_ib_listener = smb_direct_iw_listener = (struct smb_direct_listener) {
+		.cm_id = NULL,
+	};
 }
 
 void ksmbd_rdma_destroy(void)

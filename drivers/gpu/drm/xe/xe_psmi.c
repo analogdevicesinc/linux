@@ -6,7 +6,7 @@
 #include <linux/debugfs.h>
 
 #include "xe_bo.h"
-#include "xe_device.h"
+#include "xe_device_types.h"
 #include "xe_configfs.h"
 #include "xe_psmi.h"
 
@@ -70,8 +70,8 @@ static struct xe_bo *psmi_alloc_object(struct xe_device *xe,
 {
 	struct xe_tile *tile;
 
-	if (!id || !bo_size)
-		return NULL;
+	xe_assert(xe, id);
+	xe_assert(xe, bo_size);
 
 	tile = &xe->tiles[id - 1];
 

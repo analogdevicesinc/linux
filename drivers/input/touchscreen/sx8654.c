@@ -117,12 +117,11 @@ static inline void sx865x_penrelease(struct sx8654 *ts)
 static void sx865x_penrelease_timer_handler(struct timer_list *t)
 {
 	struct sx8654 *ts = timer_container_of(ts, t, timer);
-	unsigned long flags;
 
-	spin_lock_irqsave(&ts->lock, flags);
-	sx865x_penrelease(ts);
-	spin_unlock_irqrestore(&ts->lock, flags);
 	dev_dbg(&ts->client->dev, "penrelease by timer\n");
+
+	guard(spinlock_irqsave)(&ts->lock);
+	sx865x_penrelease(ts);
 }
 
 static irqreturn_t sx8650_irq(int irq, void *handle)
@@ -130,7 +129,6 @@ static irqreturn_t sx8650_irq(int irq, void *handle)
 	struct sx8654 *ts = handle;
 	struct device *dev = &ts->client->dev;
 	int len, i;
-	unsigned long flags;
 	u8 stat;
 	u16 x, y;
 	u16 ch;
@@ -153,7 +151,7 @@ static irqreturn_t sx8650_irq(int irq, void *handle)
 		return IRQ_HANDLED;
 	}
 
-	spin_lock_irqsave(&ts->lock, flags);
+	guard(spinlock_irqsave)(&ts->lock);
 
 	x = 0;
 	y = 0;
@@ -184,7 +182,6 @@ static irqreturn_t sx8650_irq(int irq, void *handle)
 	dev_dbg(dev, "point(%4d,%4d)\n", x, y);
 
 	mod_timer(&ts->timer, jiffies + SX8650_PENIRQ_TIMEOUT);
-	spin_unlock_irqrestore(&ts->lock, flags);
 
 	return IRQ_HANDLED;
 }
@@ -394,9 +391,13 @@ static int sx8654_probe(struct i2c_client *client)
 		return error;
 	}
 
+	/*
+	 * Start with the interrupt disabled, it will be enabled in
+	 * sx8654_open().
+	 */
 	error = devm_request_threaded_irq(&client->dev, client->irq,
 					  NULL, sx8654->data->irqh,
-					  IRQF_ONESHOT,
+					  IRQF_ONESHOT | IRQF_NO_AUTOEN,
 					  client->name, sx8654);
 	if (error) {
 		dev_err(&client->dev,
@@ -404,9 +405,6 @@ static int sx8654_probe(struct i2c_client *client)
 			client->irq, error);
 		return error;
 	}
-
-	/* Disable the IRQ, we'll enable it in sx8654_open() */
-	disable_irq(client->irq);
 
 	error = input_register_device(sx8654->input);
 	if (error)

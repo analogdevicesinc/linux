@@ -395,7 +395,7 @@ static unsigned int check_freqs(struct cpufreq_policy *policy,
 		cur_freq = extract_freq(policy, get_cur_val(mask, data));
 		if (cur_freq == freq)
 			return 1;
-		udelay(10);
+		usleep_range(10, 15);
 	}
 	return 0;
 }
@@ -700,7 +700,7 @@ static int acpi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		return blacklisted;
 #endif
 
-	data = kzalloc(sizeof(*data), GFP_KERNEL);
+	data = kzalloc_obj(*data);
 	if (!data)
 		return -ENOMEM;
 
@@ -798,8 +798,7 @@ static int acpi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		goto err_unreg;
 	}
 
-	freq_table = kcalloc(perf->state_count + 1, sizeof(*freq_table),
-			     GFP_KERNEL);
+	freq_table = kzalloc_objs(*freq_table, perf->state_count + 1);
 	if (!freq_table) {
 		result = -ENOMEM;
 		goto err_unreg;

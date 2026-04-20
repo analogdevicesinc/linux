@@ -2,6 +2,7 @@
 /* Do not edit directly, auto-generated from: */
 /*	Documentation/netlink/specs/net_shaper.yaml */
 /* YNL-GEN kernel header */
+/* To regenerate run: tools/net/ynl/ynl-regen.sh */
 
 #ifndef _LINUX_NET_SHAPER_GEN_H
 #define _LINUX_NET_SHAPER_GEN_H
@@ -17,11 +18,16 @@ extern const struct nla_policy net_shaper_leaf_info_nl_policy[NET_SHAPER_A_WEIGH
 
 int net_shaper_nl_pre_doit(const struct genl_split_ops *ops,
 			   struct sk_buff *skb, struct genl_info *info);
+int net_shaper_nl_pre_doit_write(const struct genl_split_ops *ops,
+				 struct sk_buff *skb, struct genl_info *info);
 int net_shaper_nl_cap_pre_doit(const struct genl_split_ops *ops,
 			       struct sk_buff *skb, struct genl_info *info);
 void
 net_shaper_nl_post_doit(const struct genl_split_ops *ops, struct sk_buff *skb,
 			struct genl_info *info);
+void
+net_shaper_nl_post_doit_write(const struct genl_split_ops *ops,
+			      struct sk_buff *skb, struct genl_info *info);
 void
 net_shaper_nl_cap_post_doit(const struct genl_split_ops *ops,
 			    struct sk_buff *skb, struct genl_info *info);

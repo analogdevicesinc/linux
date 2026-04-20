@@ -124,7 +124,7 @@ static int cp2615_check_status(enum cp2615_i2c_status status)
 static int
 cp2615_i2c_send(struct usb_interface *usbif, struct cp2615_i2c_transfer *i2c_w)
 {
-	struct cp2615_iop_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+	struct cp2615_iop_msg *msg = kzalloc_obj(*msg);
 	struct usb_device *usbdev = interface_to_usbdev(usbif);
 	int res = cp2615_init_i2c_msg(msg, i2c_w);
 
@@ -143,7 +143,7 @@ cp2615_i2c_recv(struct usb_interface *usbif, unsigned char tag, void *buf)
 	struct cp2615_i2c_transfer_result *i2c_r;
 	int res;
 
-	msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+	msg = kzalloc_obj(*msg);
 	if (!msg)
 		return -ENOMEM;
 
@@ -171,7 +171,7 @@ cp2615_i2c_recv(struct usb_interface *usbif, unsigned char tag, void *buf)
 /* Checks if the IOP is functional by querying the part's ID */
 static int cp2615_check_iop(struct usb_interface *usbif)
 {
-	struct cp2615_iop_msg *msg = kzalloc(sizeof(*msg), GFP_KERNEL);
+	struct cp2615_iop_msg *msg = kzalloc_obj(*msg);
 	struct cp2615_iop_accessory_info *info = (struct cp2615_iop_accessory_info *)&msg->data;
 	struct usb_device *usbdev = interface_to_usbdev(usbif);
 	int res = cp2615_init_iop_msg(msg, iop_GetAccessoryInfo, NULL, 0);
@@ -297,6 +297,9 @@ cp2615_i2c_probe(struct usb_interface *usbif, const struct usb_device_id *id)
 	adap = devm_kzalloc(&usbif->dev, sizeof(struct i2c_adapter), GFP_KERNEL);
 	if (!adap)
 		return -ENOMEM;
+
+	if (!usbdev->serial)
+		return -EINVAL;
 
 	strscpy(adap->name, usbdev->serial, sizeof(adap->name));
 	adap->owner = THIS_MODULE;

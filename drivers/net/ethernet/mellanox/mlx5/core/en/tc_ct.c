@@ -812,7 +812,7 @@ mlx5_tc_ct_entry_add_rule(struct mlx5_tc_ct_priv *ct_priv,
 
 	zone_rule->nat = nat;
 
-	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
+	spec = kvzalloc_obj(*spec);
 	if (!spec)
 		return -ENOMEM;
 
@@ -887,7 +887,7 @@ mlx5_tc_ct_entry_update_rule(struct mlx5_tc_ct_priv *ct_priv,
 	struct mlx5_flow_spec *spec;
 	int err;
 
-	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
+	spec = kvzalloc_obj(*spec);
 	if (!spec)
 		return -ENOMEM;
 
@@ -1021,7 +1021,7 @@ mlx5_tc_ct_counter_create(struct mlx5_tc_ct_priv *ct_priv)
 	struct mlx5_ct_counter *counter;
 	int ret;
 
-	counter = kzalloc(sizeof(*counter), GFP_KERNEL);
+	counter = kzalloc_obj(*counter);
 	if (!counter)
 		return ERR_PTR(-ENOMEM);
 
@@ -1219,7 +1219,7 @@ mlx5_tc_ct_block_flow_offload_add(struct mlx5_ct_ft *ft,
 	}
 	spin_unlock_bh(&ct_priv->ht_lock);
 
-	entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+	entry = kzalloc_obj(*entry);
 	if (!entry)
 		return -ENOMEM;
 
@@ -1620,7 +1620,7 @@ static int tc_ct_pre_ct_add_rules(struct mlx5_ct_ft *ct_ft,
 	u16 zone;
 	int err;
 
-	spec = kvzalloc(sizeof(*spec), GFP_KERNEL);
+	spec = kvzalloc_obj(*spec);
 	if (!spec)
 		return -ENOMEM;
 
@@ -1856,7 +1856,7 @@ mlx5_tc_ct_add_ft_cb(struct mlx5_tc_ct_priv *ct_priv, u16 zone,
 		return ft;
 	}
 
-	ft = kzalloc(sizeof(*ft), GFP_KERNEL);
+	ft = kzalloc_obj(*ft);
 	if (!ft)
 		return ERR_PTR(-ENOMEM);
 
@@ -2287,9 +2287,10 @@ mlx5_tc_ct_init(struct mlx5e_priv *priv, struct mlx5_fs_chains *chains,
 		enum mlx5_flow_namespace_type ns_type,
 		struct mlx5e_post_act *post_act)
 {
+	u8 mapping_id[MLX5_SW_IMAGE_GUID_MAX_BYTES];
 	struct mlx5_tc_ct_priv *ct_priv;
 	struct mlx5_core_dev *dev;
-	u64 mapping_id;
+	u8 id_len;
 	int err;
 
 	dev = priv->mdev;
@@ -2297,20 +2298,22 @@ mlx5_tc_ct_init(struct mlx5e_priv *priv, struct mlx5_fs_chains *chains,
 	if (err)
 		goto err_support;
 
-	ct_priv = kzalloc(sizeof(*ct_priv), GFP_KERNEL);
+	ct_priv = kzalloc_obj(*ct_priv);
 	if (!ct_priv)
 		goto err_alloc;
 
-	mapping_id = mlx5_query_nic_system_image_guid(dev);
+	mlx5_query_nic_sw_system_image_guid(dev, mapping_id, &id_len);
 
-	ct_priv->zone_mapping = mapping_create_for_id(mapping_id, MAPPING_TYPE_ZONE,
+	ct_priv->zone_mapping = mapping_create_for_id(mapping_id, id_len,
+						      MAPPING_TYPE_ZONE,
 						      sizeof(u16), 0, true);
 	if (IS_ERR(ct_priv->zone_mapping)) {
 		err = PTR_ERR(ct_priv->zone_mapping);
 		goto err_mapping_zone;
 	}
 
-	ct_priv->labels_mapping = mapping_create_for_id(mapping_id, MAPPING_TYPE_LABELS,
+	ct_priv->labels_mapping = mapping_create_for_id(mapping_id, id_len,
+							MAPPING_TYPE_LABELS,
 							sizeof(u32) * 4, 0, true);
 	if (IS_ERR(ct_priv->labels_mapping)) {
 		err = PTR_ERR(ct_priv->labels_mapping);

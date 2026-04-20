@@ -41,6 +41,8 @@
 #define DC_LOGGER CTX->logger
 #define GPINT_RETRY_NUM 20
 
+#define MAX_WAIT_US 100000
+
 static void dc_dmub_srv_construct(struct dc_dmub_srv *dc_srv, struct dc *dc,
 				  struct dmub_srv *dmub)
 {
@@ -48,10 +50,17 @@ static void dc_dmub_srv_construct(struct dc_dmub_srv *dc_srv, struct dc *dc,
 	dc_srv->ctx = dc->ctx;
 }
 
+static void dc_dmub_srv_handle_failure(struct dc_dmub_srv *dc_dmub_srv)
+{
+	dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
+	if (dc_dmub_srv->ctx->dc->debug.enable_dmu_recovery)
+		dm_helpers_dmu_timeout(dc_dmub_srv->ctx);
+}
+
 struct dc_dmub_srv *dc_dmub_srv_create(struct dc *dc, struct dmub_srv *dmub)
 {
 	struct dc_dmub_srv *dc_srv =
-		kzalloc(sizeof(struct dc_dmub_srv), GFP_KERNEL);
+		kzalloc_obj(struct dc_dmub_srv);
 
 	if (dc_srv == NULL) {
 		BREAK_TO_DEBUGGER();
@@ -84,12 +93,12 @@ bool dc_dmub_srv_wait_for_pending(struct dc_dmub_srv *dc_dmub_srv)
 	dmub = dc_dmub_srv->dmub;
 
 	do {
-		status = dmub_srv_wait_for_pending(dmub, 100000);
+		status = dmub_srv_wait_for_pending(dmub, MAX_WAIT_US);
 	} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
 
 	if (status != DMUB_STATUS_OK) {
 		DC_ERROR("Error waiting for DMUB idle: status=%d\n", status);
-		dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
+		dc_dmub_srv_handle_failure(dc_dmub_srv);
 	}
 
 	return status == DMUB_STATUS_OK;
@@ -104,7 +113,7 @@ void dc_dmub_srv_clear_inbox0_ack(struct dc_dmub_srv *dc_dmub_srv)
 	status = dmub_srv_clear_inbox0_ack(dmub);
 	if (status != DMUB_STATUS_OK) {
 		DC_ERROR("Error clearing INBOX0 ack: status=%d\n", status);
-		dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
+		dc_dmub_srv_handle_failure(dc_dmub_srv);
 	}
 }
 
@@ -114,10 +123,10 @@ void dc_dmub_srv_wait_for_inbox0_ack(struct dc_dmub_srv *dc_dmub_srv)
 	struct dc_context *dc_ctx = dc_dmub_srv->ctx;
 	enum dmub_status status = DMUB_STATUS_OK;
 
-	status = dmub_srv_wait_for_inbox0_ack(dmub, 100000);
+	status = dmub_srv_wait_for_inbox0_ack(dmub, MAX_WAIT_US);
 	if (status != DMUB_STATUS_OK) {
 		DC_ERROR("Error waiting for INBOX0 HW Lock Ack\n");
-		dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
+		dc_dmub_srv_handle_failure(dc_dmub_srv);
 	}
 }
 
@@ -131,7 +140,7 @@ void dc_dmub_srv_send_inbox0_cmd(struct dc_dmub_srv *dc_dmub_srv,
 	status = dmub_srv_send_inbox0_cmd(dmub, data);
 	if (status != DMUB_STATUS_OK) {
 		DC_ERROR("Error sending INBOX0 cmd\n");
-		dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
+		dc_dmub_srv_handle_failure(dc_dmub_srv);
 	}
 }
 
@@ -153,7 +162,7 @@ static bool dc_dmub_srv_reg_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_s
 	for (i = 0 ; i < count; i++) {
 		/* confirm no messages pending */
 		do {
-			status = dmub_srv_wait_for_idle(dmub, 100000);
+			status = dmub_srv_wait_for_idle(dmub, MAX_WAIT_US);
 		} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
 
 		/* queue command */
@@ -169,7 +178,7 @@ static bool dc_dmub_srv_reg_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_s
 	if (status != DMUB_STATUS_OK) {
 		if (status != DMUB_STATUS_POWER_STATE_D3) {
 			DC_ERROR("Error starting DMUB execution: status=%d\n", status);
-			dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
+			dc_dmub_srv_handle_failure(dc_dmub_srv);
 		}
 		return false;
 	}
@@ -208,7 +217,7 @@ static bool dc_dmub_srv_fb_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_sr
 				return false;
 
 			do {
-					status = dmub_srv_wait_for_inbox_free(dmub, 100000, count - i);
+					status = dmub_srv_wait_for_inbox_free(dmub, MAX_WAIT_US, count - i);
 			} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
 
 			/* Requeue the command. */
@@ -218,7 +227,7 @@ static bool dc_dmub_srv_fb_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_sr
 		if (status != DMUB_STATUS_OK) {
 			if (status != DMUB_STATUS_POWER_STATE_D3) {
 				DC_ERROR("Error queueing DMUB command: status=%d\n", status);
-				dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
+				dc_dmub_srv_handle_failure(dc_dmub_srv);
 			}
 			return false;
 		}
@@ -228,7 +237,7 @@ static bool dc_dmub_srv_fb_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_sr
 	if (status != DMUB_STATUS_OK) {
 		if (status != DMUB_STATUS_POWER_STATE_D3) {
 			DC_ERROR("Error starting DMUB execution: status=%d\n", status);
-			dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
+			dc_dmub_srv_handle_failure(dc_dmub_srv);
 		}
 		return false;
 	}
@@ -271,7 +280,7 @@ bool dc_dmub_srv_wait_for_idle(struct dc_dmub_srv *dc_dmub_srv,
 	// Wait for DMUB to process command
 	if (wait_type != DM_DMUB_WAIT_TYPE_NO_WAIT) {
 		do {
-			status = dmub_srv_wait_for_idle(dmub, 100000);
+			status = dmub_srv_wait_for_idle(dmub, MAX_WAIT_US);
 		} while (dc_dmub_srv->ctx->dc->debug.disable_timeout && status != DMUB_STATUS_OK);
 
 		if (status != DMUB_STATUS_OK) {
@@ -282,7 +291,7 @@ bool dc_dmub_srv_wait_for_idle(struct dc_dmub_srv *dc_dmub_srv,
 					dmub->debug.timeout_info.timeout_cmd = *cmd_list;
 				dmub->debug.timeout_info.timestamp = dm_get_timestamp(dc_dmub_srv->ctx);
 			}
-			dc_dmub_srv_log_diagnostic_data(dc_dmub_srv);
+			dc_dmub_srv_handle_failure(dc_dmub_srv);
 			return false;
 		}
 
@@ -442,7 +451,6 @@ bool dc_dmub_srv_p_state_delegate(struct dc *dc, bool should_manage_pstate, stru
 	int i = 0, k = 0;
 	int ramp_up_num_steps = 1; // TODO: Ramp is currently disabled. Reenable it.
 	uint8_t visual_confirm_enabled;
-	int pipe_idx = 0;
 	struct dc_stream_status *stream_status = NULL;
 
 	if (dc == NULL)
@@ -457,7 +465,7 @@ bool dc_dmub_srv_p_state_delegate(struct dc *dc, bool should_manage_pstate, stru
 	cmd.fw_assisted_mclk_switch.config_data.visual_confirm_enabled = visual_confirm_enabled;
 
 	if (should_manage_pstate) {
-		for (i = 0, pipe_idx = 0; i < dc->res_pool->pipe_count; i++) {
+		for (i = 0; i < dc->res_pool->pipe_count; i++) {
 			struct pipe_ctx *pipe = &context->res_ctx.pipe_ctx[i];
 
 			if (!pipe->stream)
@@ -472,7 +480,6 @@ bool dc_dmub_srv_p_state_delegate(struct dc *dc, bool should_manage_pstate, stru
 				cmd.fw_assisted_mclk_switch.config_data.vactive_stretch_margin_us = dc->debug.fpo_vactive_margin_us;
 				break;
 			}
-			pipe_idx++;
 		}
 	}
 
@@ -872,7 +879,7 @@ void dc_dmub_setup_subvp_dmub_command(struct dc *dc,
 		bool enable)
 {
 	uint8_t cmd_pipe_index = 0;
-	uint32_t i, pipe_idx;
+	uint32_t i;
 	uint8_t subvp_count = 0;
 	union dmub_rb_cmd cmd;
 	struct pipe_ctx *subvp_pipes[2];
@@ -899,7 +906,7 @@ void dc_dmub_setup_subvp_dmub_command(struct dc *dc,
 
 	if (enable) {
 		// For each pipe that is a "main" SUBVP pipe, fill in pipe data for DMUB SUBVP cmd
-		for (i = 0, pipe_idx = 0; i < dc->res_pool->pipe_count; i++) {
+		for (i = 0; i < dc->res_pool->pipe_count; i++) {
 			struct pipe_ctx *pipe = &context->res_ctx.pipe_ctx[i];
 			pipe_mall_type = dc_state_get_pipe_subvp_type(context, pipe);
 
@@ -922,7 +929,6 @@ void dc_dmub_setup_subvp_dmub_command(struct dc *dc,
 				populate_subvp_cmd_vblank_pipe_info(dc, context, &cmd, pipe, cmd_pipe_index++);
 
 			}
-			pipe_idx++;
 		}
 		if (subvp_count == 2) {
 			update_subvp_prefetch_end_to_mall_start(dc, context, &cmd, subvp_pipes);
@@ -1002,6 +1008,7 @@ void dc_dmub_srv_log_diagnostic_data(struct dc_dmub_srv *dc_dmub_srv)
 	DC_LOG_DEBUG("    is_traceport_en    : %d", dc_dmub_srv->dmub->debug.is_traceport_en);
 	DC_LOG_DEBUG("    is_cw0_en          : %d", dc_dmub_srv->dmub->debug.is_cw0_enabled);
 	DC_LOG_DEBUG("    is_cw6_en          : %d", dc_dmub_srv->dmub->debug.is_cw6_enabled);
+	DC_LOG_DEBUG("    is_pwait           : %d", dc_dmub_srv->dmub->debug.is_pwait);
 }
 
 static bool dc_dmub_should_update_cursor_data(struct pipe_ctx *pipe_ctx)
@@ -1027,12 +1034,19 @@ static void dc_build_cursor_update_payload0(
 		struct pipe_ctx *pipe_ctx, uint8_t p_idx,
 		struct dmub_cmd_update_cursor_payload0 *payload)
 {
+	struct dc *dc = pipe_ctx->stream->ctx->dc;
 	struct hubp *hubp = pipe_ctx->plane_res.hubp;
 	unsigned int panel_inst = 0;
 
-	if (!dc_get_edp_link_panel_inst(hubp->ctx->dc,
-		pipe_ctx->stream->link, &panel_inst))
-		return;
+	if (dc->config.frame_update_cmd_version2 == true) {
+		/* Don't need panel_inst for command version2 */
+		payload->cmd_version = DMUB_CMD_CURSOR_UPDATE_VERSION_2;
+	} else {
+		if (!dc_get_edp_link_panel_inst(hubp->ctx->dc,
+			pipe_ctx->stream->link, &panel_inst))
+			return;
+		payload->cmd_version = DMUB_CMD_CURSOR_UPDATE_VERSION_1;
+	}
 
 	/* Payload: Cursor Rect is built from position & attribute
 	 * x & y are obtained from postion
@@ -1045,8 +1059,8 @@ static void dc_build_cursor_update_payload0(
 
 	payload->enable      = hubp->pos.cur_ctl.bits.cur_enable;
 	payload->pipe_idx    = p_idx;
-	payload->cmd_version = DMUB_CMD_PSR_CONTROL_VERSION_1;
 	payload->panel_inst  = panel_inst;
+	payload->otg_inst    = pipe_ctx->stream_res.tg->inst;
 }
 
 static void dc_build_cursor_position_update_payload0(
@@ -1172,6 +1186,100 @@ void dc_dmub_srv_enable_dpia_trace(const struct dc *dc)
 void dc_dmub_srv_subvp_save_surf_addr(const struct dc_dmub_srv *dc_dmub_srv, const struct dc_plane_address *addr, uint8_t subvp_index)
 {
 	dmub_srv_subvp_save_surf_addr(dc_dmub_srv->dmub, addr, subvp_index);
+}
+
+void dc_dmub_srv_cursor_offload_init(struct dc *dc)
+{
+	struct dmub_rb_cmd_cursor_offload_init *init;
+	struct dc_dmub_srv *dc_dmub_srv = dc->ctx->dmub_srv;
+	union dmub_rb_cmd cmd;
+
+	if (!dc->config.enable_cursor_offload)
+		return;
+
+	if (!dc_dmub_srv->dmub->meta_info.feature_bits.bits.cursor_offload_v1_support)
+		return;
+
+	if (!dc_dmub_srv->dmub->cursor_offload_fb.gpu_addr || !dc_dmub_srv->dmub->cursor_offload_fb.cpu_addr)
+		return;
+
+	if (!dc_dmub_srv->dmub->cursor_offload_v1)
+		return;
+
+	if (!dc_dmub_srv->dmub->shared_state)
+		return;
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	init = &cmd.cursor_offload_init;
+	init->header.type = DMUB_CMD__CURSOR_OFFLOAD;
+	init->header.sub_type = DMUB_CMD__CURSOR_OFFLOAD_INIT;
+	init->header.payload_bytes = sizeof(init->init_data);
+	init->init_data.state_addr.quad_part = dc_dmub_srv->dmub->cursor_offload_fb.gpu_addr;
+	init->init_data.state_size = dc_dmub_srv->dmub->cursor_offload_fb.size;
+
+	dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
+
+	dc_dmub_srv->cursor_offload_enabled = true;
+}
+
+void dc_dmub_srv_control_cursor_offload(struct dc *dc, struct dc_state *context,
+					const struct dc_stream_state *stream, bool enable)
+{
+	struct pipe_ctx const *pipe_ctx;
+	struct dmub_rb_cmd_cursor_offload_stream_cntl *cntl;
+	union dmub_rb_cmd cmd;
+
+	if (!dc_dmub_srv_is_cursor_offload_enabled(dc))
+		return;
+
+	if (!stream)
+		return;
+
+	pipe_ctx = resource_get_otg_master_for_stream(&context->res_ctx, stream);
+	if (!pipe_ctx || !pipe_ctx->stream_res.tg || pipe_ctx->stream != stream)
+		return;
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cntl = &cmd.cursor_offload_stream_ctnl;
+	cntl->header.type = DMUB_CMD__CURSOR_OFFLOAD;
+	cntl->header.sub_type =
+		enable ? DMUB_CMD__CURSOR_OFFLOAD_STREAM_ENABLE : DMUB_CMD__CURSOR_OFFLOAD_STREAM_DISABLE;
+	cntl->header.payload_bytes = sizeof(cntl->data);
+
+	cntl->data.otg_inst = pipe_ctx->stream_res.tg->inst;
+	cntl->data.line_time_in_ns = 1u + (uint32_t)(div64_u64(stream->timing.h_total * 1000000ull,
+							       stream->timing.pix_clk_100hz / 10));
+
+	cntl->data.v_total_max = stream->adjust.v_total_max > stream->timing.v_total ?
+					 stream->adjust.v_total_max :
+					 stream->timing.v_total;
+
+	dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd,
+				     enable ? DM_DMUB_WAIT_TYPE_NO_WAIT : DM_DMUB_WAIT_TYPE_WAIT);
+}
+
+void dc_dmub_srv_program_cursor_now(struct dc *dc, const struct pipe_ctx *pipe)
+{
+	struct dmub_rb_cmd_cursor_offload_stream_cntl *cntl;
+	union dmub_rb_cmd cmd;
+
+	if (!dc_dmub_srv_is_cursor_offload_enabled(dc))
+		return;
+
+	if (!pipe || !pipe->stream || !pipe->stream_res.tg)
+		return;
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cntl = &cmd.cursor_offload_stream_ctnl;
+	cntl->header.type = DMUB_CMD__CURSOR_OFFLOAD;
+	cntl->header.sub_type = DMUB_CMD__CURSOR_OFFLOAD_STREAM_PROGRAM;
+	cntl->header.payload_bytes = sizeof(cntl->data);
+	cntl->data.otg_inst = pipe->stream_res.tg->inst;
+
+	dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_NO_WAIT);
 }
 
 bool dc_dmub_srv_is_hw_pwr_up(struct dc_dmub_srv *dc_dmub_srv, bool wait)
@@ -1742,9 +1850,10 @@ static void dc_dmub_srv_rb_based_fams2_update_config(struct dc *dc,
 
 	/* apply feature configuration based on current driver state */
 	global_cmd->config.global.features.bits.enable_visual_confirm = dc->debug.visual_confirm == VISUAL_CONFIRM_FAMS2;
-	global_cmd->config.global.features.bits.enable = enable;
+	global_cmd->config.global.features.bits.enable = enable && context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable;
+	global_cmd->config.global.features.bits.enable_ppt_check = dc->debug.fams2_config.bits.enable_ppt_check;
 
-	if (enable && context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable) {
+	if (enable) {
 		/* set multi pending for global, and unset for last stream cmd */
 		global_cmd->header.multi_cmd_pending = 1;
 		cmd[2 * context->bw_ctx.bw.dcn.fams2_global_config.num_streams].fams2_config.header.multi_cmd_pending = 0;
@@ -1771,15 +1880,15 @@ static void dc_dmub_srv_ib_based_fams2_update_config(struct dc *dc,
 	cmd.ib_fams2_config.ib_data.src.quad_part = dc->ctx->dmub_srv->dmub->ib_mem_gart.gpu_addr;
 	cmd.ib_fams2_config.ib_data.size = sizeof(*config);
 
-	if (enable && context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable) {
+	if (enable) {
+		/* send global configuration parameters */
+		memcpy(&config->global, &context->bw_ctx.bw.dcn.fams2_global_config,
+			sizeof(struct dmub_cmd_fams2_global_config));
+
 		/* copy static feature configuration overrides */
 		config->global.features.bits.enable_stall_recovery = dc->debug.fams2_config.bits.enable_stall_recovery;
 		config->global.features.bits.enable_offload_flip = dc->debug.fams2_config.bits.enable_offload_flip;
 		config->global.features.bits.enable_debug = dc->debug.fams2_config.bits.enable_debug;
-
-		/* send global configuration parameters */
-		memcpy(&config->global, &context->bw_ctx.bw.dcn.fams2_global_config,
-			sizeof(struct dmub_cmd_fams2_global_config));
 
 		/* construct per-stream configs */
 		for (i = 0; i < context->bw_ctx.bw.dcn.fams2_global_config.num_streams; i++) {
@@ -1796,7 +1905,8 @@ static void dc_dmub_srv_ib_based_fams2_update_config(struct dc *dc,
 	}
 
 	config->global.features.bits.enable_visual_confirm = dc->debug.visual_confirm == VISUAL_CONFIRM_FAMS2;
-	config->global.features.bits.enable = enable;
+	config->global.features.bits.enable = enable && context->bw_ctx.bw.dcn.fams2_global_config.features.bits.enable;
+	config->global.features.bits.enable_ppt_check = dc->debug.fams2_config.bits.enable_ppt_check;
 
 	dm_execute_dmub_cmd_list(dc->ctx, 1, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 }
@@ -1992,6 +2102,9 @@ bool dmub_lsdma_init(struct dc_dmub_srv *dc_dmub_srv)
 	enum dm_dmub_wait_type wait_type;
 	struct dmub_cmd_lsdma_data *lsdma_data = &cmd.lsdma.lsdma_data;
 	bool result;
+
+	if (!dc_dmub_srv->dmub->feature_caps.lsdma_support_in_dmu)
+		return false;
 
 	memset(&cmd, 0, sizeof(cmd));
 
@@ -2231,6 +2344,11 @@ bool dmub_lsdma_send_poll_reg_write_command(struct dc_dmub_srv *dc_dmub_srv, uin
 	return result;
 }
 
+bool dc_dmub_srv_is_cursor_offload_enabled(const struct dc *dc)
+{
+	return dc->ctx->dmub_srv && dc->ctx->dmub_srv->cursor_offload_enabled;
+}
+
 void dc_dmub_srv_release_hw(const struct dc *dc)
 {
 	struct dc_dmub_srv *dc_dmub_srv = dc->ctx->dmub_srv;
@@ -2247,4 +2365,25 @@ void dc_dmub_srv_release_hw(const struct dc *dc)
 		sizeof(cmd.idle_opt_notify_idle.header);
 
 	dm_execute_dmub_cmd(dc->ctx, &cmd,  DM_DMUB_WAIT_TYPE_WAIT);
+}
+
+void dc_dmub_srv_log_preos_dmcub_info(struct dc_dmub_srv *dc_dmub_srv)
+{
+	struct dmub_srv *dmub;
+
+	if (!dc_dmub_srv || !dc_dmub_srv->dmub)
+		return;
+
+	dmub = dc_dmub_srv->dmub;
+
+	if (dmub_srv_get_preos_info(dmub)) {
+		DC_LOG_DEBUG("%s: PreOS DMCUB Info", __func__);
+		DC_LOG_DEBUG("fw_version				: 0x%08x", dmub->preos_info.fw_version);
+		DC_LOG_DEBUG("boot_options				: 0x%08x", dmub->preos_info.boot_options);
+		DC_LOG_DEBUG("boot_status				: 0x%08x", dmub->preos_info.boot_status);
+		DC_LOG_DEBUG("trace_buffer_phy_addr		: 0x%016llx", dmub->preos_info.trace_buffer_phy_addr);
+		DC_LOG_DEBUG("trace_buffer_size_bytes	: 0x%08x", dmub->preos_info.trace_buffer_size);
+		DC_LOG_DEBUG("fb_base					: 0x%016llx", dmub->preos_info.fb_base);
+		DC_LOG_DEBUG("fb_offset					: 0x%016llx", dmub->preos_info.fb_offset);
+	}
 }

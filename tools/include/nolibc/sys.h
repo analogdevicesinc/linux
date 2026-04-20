@@ -22,7 +22,7 @@
 #include <linux/time.h>
 #include <linux/auxvec.h>
 #include <linux/fcntl.h> /* for O_* and AT_* */
-#include <linux/sched.h> /* for clone_args */
+#include <linux/sched.h> /* for CLONE_* */
 #include <linux/stat.h>  /* for statx() */
 
 #include "errno.h"
@@ -106,7 +106,7 @@ static __attribute__((unused))
 void *sbrk(intptr_t inc)
 {
 	/* first call to find current end */
-	void *ret = sys_brk(0);
+	void *ret = sys_brk(NULL);
 
 	if (ret && sys_brk(ret + inc) == ret + inc)
 		return ret + inc;
@@ -118,6 +118,7 @@ void *sbrk(intptr_t inc)
 
 /*
  * int chdir(const char *path);
+ * int fchdir(int fildes);
  */
 
 static __attribute__((unused))
@@ -130,6 +131,18 @@ static __attribute__((unused))
 int chdir(const char *path)
 {
 	return __sysret(sys_chdir(path));
+}
+
+static __attribute__((unused))
+int sys_fchdir(int fildes)
+{
+	return my_syscall1(__NR_fchdir, fildes);
+}
+
+static __attribute__((unused))
+int fchdir(int fildes)
+{
+	return __sysret(sys_fchdir(fildes));
 }
 
 
@@ -350,19 +363,11 @@ pid_t fork(void)
 static __attribute__((unused))
 pid_t sys_vfork(void)
 {
-#if defined(__NR_vfork)
+#if defined(__NR_clone)
+	/* See the note in sys_fork(). */
+	return my_syscall5(__NR_clone, CLONE_VM | CLONE_VFORK | SIGCHLD, 0, 0, 0, 0);
+#elif defined(__NR_vfork)
 	return my_syscall0(__NR_vfork);
-#else
-	/*
-	 * clone() could be used but has different argument orders per
-	 * architecture.
-	 */
-	struct clone_args args = {
-		.flags		= CLONE_VM | CLONE_VFORK,
-		.exit_signal	= SIGCHLD,
-	};
-
-	return my_syscall2(__NR_clone3, &args, sizeof(args));
 #endif
 }
 #endif
@@ -512,6 +517,7 @@ pid_t gettid(void)
 	return sys_gettid();
 }
 
+#ifndef NOLIBC_NO_RUNTIME
 static unsigned long getauxval(unsigned long key);
 
 /*
@@ -523,7 +529,7 @@ int getpagesize(void)
 {
 	return __sysret((int)getauxval(AT_PAGESZ) ?: -ENOENT);
 }
-
+#endif /* NOLIBC_NO_RUNTIME */
 
 /*
  * uid_t getuid(void);
@@ -591,23 +597,20 @@ int link(const char *old, const char *new)
 static __attribute__((unused))
 off_t sys_lseek(int fd, off_t offset, int whence)
 {
-#if defined(__NR_lseek)
-	return my_syscall3(__NR_lseek, fd, offset, whence);
-#else
+#if defined(__NR_llseek)
 	__kernel_loff_t loff = 0;
 	off_t result;
 	int ret;
 
-	/* Only exists on 32bit where nolibc off_t is also 32bit */
-	ret = my_syscall5(__NR_llseek, fd, 0, offset, &loff, whence);
+	ret = my_syscall5(__NR_llseek, fd, offset >> 32, (uint32_t)offset, &loff, whence);
 	if (ret < 0)
 		result = ret;
-	else if (loff != (off_t)loff)
-		result = -EOVERFLOW;
 	else
 		result = loff;
 
 	return result;
+#else
+	return my_syscall3(__NR_lseek, fd, offset, whence);
 #endif
 }
 
@@ -752,51 +755,6 @@ static __attribute__((unused))
 int sched_yield(void)
 {
 	return __sysret(sys_sched_yield());
-}
-
-
-/*
- * int select(int nfds, fd_set *read_fds, fd_set *write_fds,
- *            fd_set *except_fds, struct timeval *timeout);
- */
-
-static __attribute__((unused))
-int sys_select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeout)
-{
-#if defined(__ARCH_WANT_SYS_OLD_SELECT) && !defined(__NR__newselect)
-	struct sel_arg_struct {
-		unsigned long n;
-		fd_set *r, *w, *e;
-		struct timeval *t;
-	} arg = { .n = nfds, .r = rfds, .w = wfds, .e = efds, .t = timeout };
-	return my_syscall1(__NR_select, &arg);
-#elif defined(__NR__newselect)
-	return my_syscall5(__NR__newselect, nfds, rfds, wfds, efds, timeout);
-#elif defined(__NR_select)
-	return my_syscall5(__NR_select, nfds, rfds, wfds, efds, timeout);
-#elif defined(__NR_pselect6)
-	struct timespec t;
-
-	if (timeout) {
-		t.tv_sec  = timeout->tv_sec;
-		t.tv_nsec = timeout->tv_usec * 1000;
-	}
-	return my_syscall6(__NR_pselect6, nfds, rfds, wfds, efds, timeout ? &t : NULL, NULL);
-#else
-	struct __kernel_timespec t;
-
-	if (timeout) {
-		t.tv_sec  = timeout->tv_sec;
-		t.tv_nsec = timeout->tv_usec * 1000;
-	}
-	return my_syscall6(__NR_pselect6_time64, nfds, rfds, wfds, efds, timeout ? &t : NULL, NULL);
-#endif
-}
-
-static __attribute__((unused))
-int select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds, struct timeval *timeout)
-{
-	return __sysret(sys_select(nfds, rfds, wfds, efds, timeout));
 }
 
 

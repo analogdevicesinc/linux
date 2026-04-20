@@ -151,6 +151,7 @@ static void dc_stream_free(struct kref *kref)
 	struct dc_stream_state *stream = container_of(kref, struct dc_stream_state, refcount);
 
 	dc_stream_destruct(stream);
+	kfree(stream->update_scratch);
 	kfree(stream);
 }
 
@@ -164,26 +165,32 @@ void dc_stream_release(struct dc_stream_state *stream)
 struct dc_stream_state *dc_create_stream_for_sink(
 		struct dc_sink *sink)
 {
-	struct dc_stream_state *stream;
+	struct dc_stream_state *stream = NULL;
 
 	if (sink == NULL)
-		return NULL;
+		goto fail;
 
-	stream = kzalloc(sizeof(struct dc_stream_state), GFP_KERNEL);
+	stream = kzalloc_obj(struct dc_stream_state, GFP_ATOMIC);
 	if (stream == NULL)
-		goto alloc_fail;
+		goto fail;
+
+	stream->update_scratch = kzalloc((int32_t) dc_update_scratch_space_size(), GFP_ATOMIC);
+	if (stream->update_scratch == NULL)
+		goto fail;
 
 	if (dc_stream_construct(stream, sink) == false)
-		goto construct_fail;
+		goto fail;
 
 	kref_init(&stream->refcount);
 
 	return stream;
 
-construct_fail:
-	kfree(stream);
+fail:
+	if (stream) {
+		kfree(stream->update_scratch);
+		kfree(stream);
+	}
 
-alloc_fail:
 	return NULL;
 }
 
@@ -194,6 +201,16 @@ struct dc_stream_state *dc_copy_stream(const struct dc_stream_state *stream)
 	new_stream = kmemdup(stream, sizeof(struct dc_stream_state), GFP_KERNEL);
 	if (!new_stream)
 		return NULL;
+
+	// Scratch is not meant to be reused across copies, as might have self-referential pointers
+	new_stream->update_scratch = kzalloc(
+			(int32_t) dc_update_scratch_space_size(),
+			GFP_KERNEL
+	);
+	if (!new_stream->update_scratch) {
+		kfree(new_stream);
+		return NULL;
+	}
 
 	if (new_stream->sink)
 		dc_sink_retain(new_stream->sink);
@@ -224,6 +241,14 @@ struct dc_stream_status *dc_stream_get_status(
 	return dc_state_get_stream_status(dc->current_state, stream);
 }
 
+const struct dc_stream_status *dc_stream_get_status_const(
+	const struct dc_stream_state *stream)
+{
+	struct dc *dc = stream->ctx->dc;
+
+	return dc_state_get_stream_status(dc->current_state, stream);
+}
+
 void program_cursor_attributes(
 	struct dc *dc,
 	struct dc_stream_state *stream)
@@ -231,6 +256,7 @@ void program_cursor_attributes(
 	int i;
 	struct resource_context *res_ctx;
 	struct pipe_ctx *pipe_to_program = NULL;
+	bool enable_cursor_offload = dc_dmub_srv_is_cursor_offload_enabled(dc);
 
 	if (!stream)
 		return;
@@ -245,9 +271,14 @@ void program_cursor_attributes(
 
 		if (!pipe_to_program) {
 			pipe_to_program = pipe_ctx;
-			dc->hwss.cursor_lock(dc, pipe_to_program, true);
-			if (pipe_to_program->next_odm_pipe)
-				dc->hwss.cursor_lock(dc, pipe_to_program->next_odm_pipe, true);
+
+			if (enable_cursor_offload && dc->hwss.begin_cursor_offload_update) {
+				dc->hwss.begin_cursor_offload_update(dc, pipe_ctx);
+			} else {
+				dc->hwss.cursor_lock(dc, pipe_to_program, true);
+				if (pipe_to_program->next_odm_pipe)
+					dc->hwss.cursor_lock(dc, pipe_to_program->next_odm_pipe, true);
+			}
 		}
 
 		dc->hwss.set_cursor_attribute(pipe_ctx);
@@ -255,12 +286,18 @@ void program_cursor_attributes(
 			dc_send_update_cursor_info_to_dmu(pipe_ctx, i);
 		if (dc->hwss.set_cursor_sdr_white_level)
 			dc->hwss.set_cursor_sdr_white_level(pipe_ctx);
+		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe)
+			dc->hwss.update_cursor_offload_pipe(dc, pipe_ctx);
 	}
 
 	if (pipe_to_program) {
-		dc->hwss.cursor_lock(dc, pipe_to_program, false);
-		if (pipe_to_program->next_odm_pipe)
-			dc->hwss.cursor_lock(dc, pipe_to_program->next_odm_pipe, false);
+		if (enable_cursor_offload && dc->hwss.commit_cursor_offload_update) {
+			dc->hwss.commit_cursor_offload_update(dc, pipe_to_program);
+		} else {
+			dc->hwss.cursor_lock(dc, pipe_to_program, false);
+			if (pipe_to_program->next_odm_pipe)
+				dc->hwss.cursor_lock(dc, pipe_to_program->next_odm_pipe, false);
+		}
 	}
 }
 
@@ -366,6 +403,7 @@ void program_cursor_position(
 	int i;
 	struct resource_context *res_ctx;
 	struct pipe_ctx *pipe_to_program = NULL;
+	bool enable_cursor_offload = dc_dmub_srv_is_cursor_offload_enabled(dc);
 
 	if (!stream)
 		return;
@@ -384,16 +422,27 @@ void program_cursor_position(
 
 		if (!pipe_to_program) {
 			pipe_to_program = pipe_ctx;
-			dc->hwss.cursor_lock(dc, pipe_to_program, true);
+
+			if (enable_cursor_offload && dc->hwss.begin_cursor_offload_update)
+				dc->hwss.begin_cursor_offload_update(dc, pipe_ctx);
+			else
+				dc->hwss.cursor_lock(dc, pipe_to_program, true);
 		}
 
 		dc->hwss.set_cursor_position(pipe_ctx);
+		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe)
+			dc->hwss.update_cursor_offload_pipe(dc, pipe_ctx);
+
 		if (dc->ctx->dmub_srv)
 			dc_send_update_cursor_info_to_dmu(pipe_ctx, i);
 	}
 
-	if (pipe_to_program)
-		dc->hwss.cursor_lock(dc, pipe_to_program, false);
+	if (pipe_to_program) {
+		if (enable_cursor_offload && dc->hwss.commit_cursor_offload_update)
+			dc->hwss.commit_cursor_offload_update(dc, pipe_to_program);
+		else
+			dc->hwss.cursor_lock(dc, pipe_to_program, false);
+	}
 }
 
 bool dc_stream_set_cursor_position(
@@ -462,6 +511,21 @@ bool dc_stream_program_cursor_position(
 					if (pipe_ctx->plane_state)
 						dc->hwss.update_visual_confirm_color(dc, pipe_ctx,
 								pipe_ctx->plane_res.hubp->mpcc_id);
+				}
+			}
+		}
+
+		if (stream->drr_trigger_mode == DRR_TRIGGER_ON_FLIP_AND_CURSOR) {
+			/* apply manual trigger */
+			int i;
+
+			for (i = 0; i < dc->res_pool->pipe_count; i++) {
+				struct pipe_ctx *pipe_ctx = &dc->current_state->res_ctx.pipe_ctx[i];
+
+				/* trigger event on first pipe with current stream */
+				if (stream == pipe_ctx->stream) {
+					pipe_ctx->stream_res.tg->funcs->program_manual_trigger(pipe_ctx->stream_res.tg);
+					break;
 				}
 			}
 		}
@@ -860,9 +924,11 @@ void dc_stream_log(const struct dc *dc, const struct dc_stream_state *stream)
 			stream->sink->sink_signal != SIGNAL_TYPE_NONE) {
 
 			DC_LOG_DC(
-					"\tdispname: %s signal: %x\n",
+					"\tsignal: %x dispname: %s manufacturer_id: 0x%x product_id: 0x%x\n",
+					stream->signal,
 					stream->sink->edid_caps.display_name,
-					stream->signal);
+					stream->sink->edid_caps.manufacturer_id,
+					stream->sink->edid_caps.product_id);
 		}
 	}
 }

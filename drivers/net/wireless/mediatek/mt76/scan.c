@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: ISC
+// SPDX-License-Identifier: BSD-3-Clause-Clear
 /*
  * Copyright (C) 2024 Felix Fietkau <nbd@nbd.name>
  */
@@ -63,10 +63,8 @@ mt76_scan_send_probe(struct mt76_dev *dev, struct cfg80211_ssid *ssid)
 
 	rcu_read_lock();
 
-	if (!ieee80211_tx_prepare_skb(phy->hw, vif, skb, band, NULL)) {
-		ieee80211_free_txskb(phy->hw, skb);
+	if (!ieee80211_tx_prepare_skb(phy->hw, vif, skb, band, NULL))
 		goto out;
-	}
 
 	info = IEEE80211_SKB_CB(skb);
 	if (req->no_cck)

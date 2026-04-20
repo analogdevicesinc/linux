@@ -227,7 +227,7 @@ static int rt298_jack_detect(struct rt298_priv *rt298, bool *hp, bool *mic)
 	if (!rt298->component)
 		return -EINVAL;
 
-	dapm = snd_soc_component_get_dapm(rt298->component);
+	dapm = snd_soc_component_to_dapm(rt298->component);
 
 	if (rt298->pdata.cbj_en) {
 		regmap_read(rt298->regmap, RT298_GET_HP_SENSE, &buf);
@@ -329,7 +329,7 @@ static void rt298_jack_detect_work(struct work_struct *work)
 static int rt298_mic_detect(struct snd_soc_component *component,
 			    struct snd_soc_jack *jack, void *data)
 {
-	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 	struct rt298_priv *rt298 = snd_soc_component_get_drvdata(component);
 
 	rt298->jack = jack;
@@ -949,10 +949,11 @@ static int rt298_set_bclk_ratio(struct snd_soc_dai *dai, unsigned int ratio)
 static int rt298_set_bias_level(struct snd_soc_component *component,
 				 enum snd_soc_bias_level level)
 {
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
+
 	switch (level) {
 	case SND_SOC_BIAS_PREPARE:
-		if (SND_SOC_BIAS_STANDBY ==
-			snd_soc_component_get_bias_level(component)) {
+		if (SND_SOC_BIAS_STANDBY == snd_soc_dapm_get_bias_level(dapm)) {
 			snd_soc_component_write(component,
 				RT298_SET_AUDIO_POWER, AC_PWRST_D0);
 			snd_soc_component_update_bits(component, 0x0d, 0x200, 0x200);
@@ -1281,7 +1282,7 @@ static int rt298_i2c_probe(struct i2c_client *i2c)
 	rt298->is_hp_in = -1;
 
 	if (rt298->i2c->irq) {
-		ret = request_threaded_irq(rt298->i2c->irq, NULL, rt298_irq,
+		ret = devm_request_threaded_irq(&rt298->i2c->dev, rt298->i2c->irq, NULL, rt298_irq,
 			IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "rt298", rt298);
 		if (ret != 0) {
 			dev_err(&i2c->dev,
@@ -1297,22 +1298,12 @@ static int rt298_i2c_probe(struct i2c_client *i2c)
 	return ret;
 }
 
-static void rt298_i2c_remove(struct i2c_client *i2c)
-{
-	struct rt298_priv *rt298 = i2c_get_clientdata(i2c);
-
-	if (i2c->irq)
-		free_irq(i2c->irq, rt298);
-}
-
-
 static struct i2c_driver rt298_i2c_driver = {
 	.driver = {
 		   .name = "rt298",
 		   .acpi_match_table = ACPI_PTR(rt298_acpi_match),
 		   },
 	.probe = rt298_i2c_probe,
-	.remove = rt298_i2c_remove,
 	.id_table = rt298_i2c_id,
 };
 

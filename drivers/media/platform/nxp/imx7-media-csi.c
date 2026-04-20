@@ -2218,11 +2218,9 @@ static int imx7_csi_probe(struct platform_device *pdev)
 
 	/* Acquire resources and install interrupt handler. */
 	csi->mclk = devm_clk_get(&pdev->dev, "mclk");
-	if (IS_ERR(csi->mclk)) {
-		ret = PTR_ERR(csi->mclk);
-		dev_err(dev, "Failed to get mclk: %d", ret);
-		return ret;
-	}
+	if (IS_ERR(csi->mclk))
+		return dev_err_probe(dev, PTR_ERR(csi->mclk),
+				     "Failed to get mclk\n");
 
 	csi->irq = platform_get_irq(pdev, 0);
 	if (csi->irq < 0)
@@ -2236,10 +2234,8 @@ static int imx7_csi_probe(struct platform_device *pdev)
 
 	ret = devm_request_irq(dev, csi->irq, imx7_csi_irq_handler, 0, "csi",
 			       (void *)csi);
-	if (ret < 0) {
-		dev_err(dev, "Request CSI IRQ failed.\n");
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Request CSI IRQ failed.\n");
 
 	/* Initialize all the media device infrastructure. */
 	ret = imx7_csi_media_init(csi);
@@ -2290,4 +2286,3 @@ module_platform_driver(imx7_csi_driver);
 MODULE_DESCRIPTION("i.MX7 CSI subdev driver");
 MODULE_AUTHOR("Rui Miguel Silva <rui.silva@linaro.org>");
 MODULE_LICENSE("GPL v2");
-MODULE_ALIAS("platform:imx7-csi");

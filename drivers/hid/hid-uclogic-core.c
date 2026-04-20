@@ -268,7 +268,6 @@ failure:
 	return rc;
 }
 
-#ifdef CONFIG_PM
 static int uclogic_resume(struct hid_device *hdev)
 {
 	int rc;
@@ -283,7 +282,6 @@ static int uclogic_resume(struct hid_device *hdev)
 
 	return rc;
 }
-#endif
 
 /**
  * uclogic_exec_event_hook - if the received event is hooked schedules the
@@ -361,6 +359,23 @@ static int uclogic_raw_event_pen(struct uclogic_drvdata *drvdata,
 		/* Place pressure bytes */
 		data[8] = pressure_low_byte;
 		data[9] = pressure_high_byte;
+	}
+	if (size == 12 && pen->fragmented_hires2) {
+		// 00 00 when on the left side, 01 00 in the right
+		// we move these to the end of the x coord (u16) to create a correct x coord (u32)
+		u8 lsb_low_byte = data[10];
+		u8 lsb_high_byte = data[11];
+
+		// shift everything right by 2 bytes, to make space for the moved lsb
+		data[11] = data[9];
+		data[10] = data[8];
+		data[9] = data[7];
+		data[8] = data[6];
+		data[7] = data[5];
+		data[6] = data[4];
+
+		data[4] = lsb_low_byte;
+		data[5] = lsb_high_byte;
 	}
 	/* If we need to emulate in-range detection */
 	if (pen->inrange == UCLOGIC_PARAMS_PEN_INRANGE_NONE) {
@@ -604,6 +619,8 @@ static const struct hid_device_id uclogic_devices[] = {
 				USB_DEVICE_ID_UGEE_XPPEN_TABLET_STAR06) },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_UGEE,
 				USB_DEVICE_ID_UGEE_XPPEN_TABLET_22R_PRO) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_UGEE,
+				USB_DEVICE_ID_UGEE_XPPEN_TABLET_24_PRO) },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, uclogic_devices);
@@ -617,10 +634,8 @@ static struct hid_driver uclogic_driver = {
 	.raw_event = uclogic_raw_event,
 	.input_mapping = uclogic_input_mapping,
 	.input_configured = uclogic_input_configured,
-#ifdef CONFIG_PM
-	.resume	          = uclogic_resume,
-	.reset_resume     = uclogic_resume,
-#endif
+	.resume	          = pm_ptr(uclogic_resume),
+	.reset_resume     = pm_ptr(uclogic_resume),
 };
 module_hid_driver(uclogic_driver);
 

@@ -365,9 +365,21 @@ void __init loongson_smp_setup(void)
 void __init loongson_prepare_cpus(unsigned int max_cpus)
 {
 	int i = 0;
+	int threads_per_core = 0;
 
 	parse_acpi_topology();
 	cpu_data[0].global_id = cpu_logical_map(0);
+
+	if (!pptt_enabled)
+		threads_per_core = 1;
+	else {
+		for_each_possible_cpu(i) {
+			if (cpu_to_node(i) != 0)
+				continue;
+			if (cpus_are_siblings(0, i))
+				threads_per_core++;
+		}
+	}
 
 	for (i = 0; i < loongson_sysconf.nr_cpus; i++) {
 		set_cpu_present(i, true);
@@ -375,6 +387,7 @@ void __init loongson_prepare_cpus(unsigned int max_cpus)
 	}
 
 	per_cpu(cpu_state, smp_processor_id()) = CPU_ONLINE;
+	cpu_smt_set_num_threads(threads_per_core, threads_per_core);
 }
 
 /*
@@ -535,19 +548,23 @@ int hibernate_resume_nonboot_cpu_disable(void)
  */
 #ifdef CONFIG_PM
 
-static int loongson_ipi_suspend(void)
+static int loongson_ipi_suspend(void *data)
 {
 	return 0;
 }
 
-static void loongson_ipi_resume(void)
+static void loongson_ipi_resume(void *data)
 {
 	iocsr_write32(0xffffffff, LOONGARCH_IOCSR_IPI_EN);
 }
 
-static struct syscore_ops loongson_ipi_syscore_ops = {
+static const struct syscore_ops loongson_ipi_syscore_ops = {
 	.resume         = loongson_ipi_resume,
 	.suspend        = loongson_ipi_suspend,
+};
+
+static struct syscore loongson_ipi_syscore = {
+	.ops = &loongson_ipi_syscore_ops,
 };
 
 /*
@@ -556,7 +573,7 @@ static struct syscore_ops loongson_ipi_syscore_ops = {
  */
 static int __init ipi_pm_init(void)
 {
-	register_syscore_ops(&loongson_ipi_syscore_ops);
+	register_syscore(&loongson_ipi_syscore);
 	return 0;
 }
 

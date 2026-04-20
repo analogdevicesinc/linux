@@ -12,6 +12,7 @@ use crate::{
     sync::aref::ARef,
     transmute::{AsBytes, FromBytes},
 };
+use core::ptr::NonNull;
 
 /// DMA address type.
 ///
@@ -26,8 +27,9 @@ pub type DmaAddress = bindings::dma_addr_t;
 /// Trait to be implemented by DMA capable bus devices.
 ///
 /// The [`dma::Device`](Device) trait should be implemented by bus specific device representations,
-/// where the underlying bus is DMA capable, such as [`pci::Device`](::kernel::pci::Device) or
-/// [`platform::Device`](::kernel::platform::Device).
+/// where the underlying bus is DMA capable, such as:
+#[cfg_attr(CONFIG_PCI, doc = "* [`pci::Device`](kernel::pci::Device)")]
+/// * [`platform::Device`](::kernel::platform::Device)
 pub trait Device: AsRef<device::Device<Core>> {
     /// Set up the device's DMA streaming addressing capabilities.
     ///
@@ -82,6 +84,23 @@ pub trait Device: AsRef<device::Device<Core>> {
         to_result(unsafe {
             bindings::dma_set_mask_and_coherent(self.as_ref().as_raw(), mask.value())
         })
+    }
+
+    /// Set the maximum size of a single DMA segment the device may request.
+    ///
+    /// This method is usually called once from `probe()` as soon as the device capabilities are
+    /// known.
+    ///
+    /// # Safety
+    ///
+    /// This method must not be called concurrently with any DMA allocation or mapping primitives,
+    /// such as [`CoherentAllocation::alloc_attrs`].
+    unsafe fn dma_set_max_seg_size(&self, size: u32) {
+        // SAFETY:
+        // - By the type invariant of `device::Device`, `self.as_ref().as_raw()` is valid.
+        // - The safety requirement of this function guarantees that there are no concurrent calls
+        //   to DMA allocation and mapping primitives using this parameter.
+        unsafe { bindings::dma_set_max_seg_size(self.as_ref().as_raw(), size) }
     }
 }
 
@@ -358,7 +377,7 @@ pub struct CoherentAllocation<T: AsBytes + FromBytes> {
     dev: ARef<device::Device>,
     dma_handle: DmaAddress,
     count: usize,
-    cpu_addr: *mut T,
+    cpu_addr: NonNull<T>,
     dma_attrs: Attrs,
 }
 
@@ -392,7 +411,7 @@ impl<T: AsBytes + FromBytes> CoherentAllocation<T> {
             .ok_or(EOVERFLOW)?;
         let mut dma_handle = 0;
         // SAFETY: Device pointer is guaranteed as valid by the type invariant on `Device`.
-        let ret = unsafe {
+        let addr = unsafe {
             bindings::dma_alloc_attrs(
                 dev.as_raw(),
                 size,
@@ -401,9 +420,7 @@ impl<T: AsBytes + FromBytes> CoherentAllocation<T> {
                 dma_attrs.as_raw(),
             )
         };
-        if ret.is_null() {
-            return Err(ENOMEM);
-        }
+        let addr = NonNull::new(addr).ok_or(ENOMEM)?;
         // INVARIANT:
         // - We just successfully allocated a coherent region which is accessible for
         //   `count` elements, hence the cpu address is valid. We also hold a refcounted reference
@@ -414,7 +431,7 @@ impl<T: AsBytes + FromBytes> CoherentAllocation<T> {
             dev: dev.into(),
             dma_handle,
             count,
-            cpu_addr: ret.cast::<T>(),
+            cpu_addr: addr.cast(),
             dma_attrs,
         })
     }
@@ -444,15 +461,28 @@ impl<T: AsBytes + FromBytes> CoherentAllocation<T> {
         self.count * core::mem::size_of::<T>()
     }
 
+    /// Returns the raw pointer to the allocated region in the CPU's virtual address space.
+    #[inline]
+    pub fn as_ptr(&self) -> *const [T] {
+        core::ptr::slice_from_raw_parts(self.cpu_addr.as_ptr(), self.count)
+    }
+
+    /// Returns the raw pointer to the allocated region in the CPU's virtual address space as
+    /// a mutable pointer.
+    #[inline]
+    pub fn as_mut_ptr(&self) -> *mut [T] {
+        core::ptr::slice_from_raw_parts_mut(self.cpu_addr.as_ptr(), self.count)
+    }
+
     /// Returns the base address to the allocated region in the CPU's virtual address space.
     pub fn start_ptr(&self) -> *const T {
-        self.cpu_addr
+        self.cpu_addr.as_ptr()
     }
 
     /// Returns the base address to the allocated region in the CPU's virtual address space as
     /// a mutable pointer.
     pub fn start_ptr_mut(&mut self) -> *mut T {
-        self.cpu_addr
+        self.cpu_addr.as_ptr()
     }
 
     /// Returns a DMA handle which may be given to the device as the DMA address base of
@@ -505,7 +535,7 @@ impl<T: AsBytes + FromBytes> CoherentAllocation<T> {
         //   data is also guaranteed by the safety requirements of the function.
         // - `offset + count` can't overflow since it is smaller than `self.count` and we've checked
         //   that `self.count` won't overflow early in the constructor.
-        Ok(unsafe { core::slice::from_raw_parts(self.cpu_addr.add(offset), count) })
+        Ok(unsafe { core::slice::from_raw_parts(self.start_ptr().add(offset), count) })
     }
 
     /// Performs the same functionality as [`CoherentAllocation::as_slice`], except that a mutable
@@ -525,7 +555,7 @@ impl<T: AsBytes + FromBytes> CoherentAllocation<T> {
         //   data is also guaranteed by the safety requirements of the function.
         // - `offset + count` can't overflow since it is smaller than `self.count` and we've checked
         //   that `self.count` won't overflow early in the constructor.
-        Ok(unsafe { core::slice::from_raw_parts_mut(self.cpu_addr.add(offset), count) })
+        Ok(unsafe { core::slice::from_raw_parts_mut(self.start_ptr_mut().add(offset), count) })
     }
 
     /// Writes data to the region starting from `offset`. `offset` is in units of `T`, not the
@@ -533,8 +563,6 @@ impl<T: AsBytes + FromBytes> CoherentAllocation<T> {
     ///
     /// # Safety
     ///
-    /// * Callers must ensure that the device does not read/write to/from memory while the returned
-    ///   slice is live.
     /// * Callers must ensure that this call does not race with a read or write to the same region
     ///   that overlaps with this write.
     ///
@@ -557,26 +585,13 @@ impl<T: AsBytes + FromBytes> CoherentAllocation<T> {
         // - `offset + count` can't overflow since it is smaller than `self.count` and we've checked
         //   that `self.count` won't overflow early in the constructor.
         unsafe {
-            core::ptr::copy_nonoverlapping(src.as_ptr(), self.cpu_addr.add(offset), src.len())
+            core::ptr::copy_nonoverlapping(
+                src.as_ptr(),
+                self.start_ptr_mut().add(offset),
+                src.len(),
+            )
         };
         Ok(())
-    }
-
-    /// Returns a pointer to an element from the region with bounds checking. `offset` is in
-    /// units of `T`, not the number of bytes.
-    ///
-    /// Public but hidden since it should only be used from [`dma_read`] and [`dma_write`] macros.
-    #[doc(hidden)]
-    pub fn item_from_index(&self, offset: usize) -> Result<*mut T> {
-        if offset >= self.count {
-            return Err(EINVAL);
-        }
-        // SAFETY:
-        // - The pointer is valid due to type invariant on `CoherentAllocation`
-        // and we've just checked that the range and index is within bounds.
-        // - `offset` can't overflow since it is smaller than `self.count` and we've checked
-        // that `self.count` won't overflow early in the constructor.
-        Ok(unsafe { self.cpu_addr.add(offset) })
     }
 
     /// Reads the value of `field` and ensures that its type is [`FromBytes`].
@@ -637,7 +652,7 @@ impl<T: AsBytes + FromBytes> Drop for CoherentAllocation<T> {
             bindings::dma_free_attrs(
                 self.dev.as_raw(),
                 size,
-                self.cpu_addr.cast(),
+                self.start_ptr_mut().cast(),
                 self.dma_handle,
                 self.dma_attrs.as_raw(),
             )
@@ -650,6 +665,9 @@ impl<T: AsBytes + FromBytes> Drop for CoherentAllocation<T> {
 unsafe impl<T: AsBytes + FromBytes + Send> Send for CoherentAllocation<T> {}
 
 /// Reads a field of an item from an allocated region of structs.
+///
+/// The syntax is of the form `kernel::dma_read!(dma, proj)` where `dma` is an expression evaluating
+/// to a [`CoherentAllocation`] and `proj` is a [projection specification](kernel::ptr::project!).
 ///
 /// # Examples
 ///
@@ -665,35 +683,28 @@ unsafe impl<T: AsBytes + FromBytes + Send> Send for CoherentAllocation<T> {}
 /// unsafe impl kernel::transmute::AsBytes for MyStruct{};
 ///
 /// # fn test(alloc: &kernel::dma::CoherentAllocation<MyStruct>) -> Result {
-/// let whole = kernel::dma_read!(alloc[2]);
-/// let field = kernel::dma_read!(alloc[1].field);
+/// let whole = kernel::dma_read!(alloc, [2]?);
+/// let field = kernel::dma_read!(alloc, [1]?.field);
 /// # Ok::<(), Error>(()) }
 /// ```
 #[macro_export]
 macro_rules! dma_read {
-    ($dma:expr, $idx: expr, $($field:tt)*) => {{
-        (|| -> ::core::result::Result<_, $crate::error::Error> {
-            let item = $crate::dma::CoherentAllocation::item_from_index(&$dma, $idx)?;
-            // SAFETY: `item_from_index` ensures that `item` is always a valid pointer and can be
-            // dereferenced. The compiler also further validates the expression on whether `field`
-            // is a member of `item` when expanded by the macro.
-            unsafe {
-                let ptr_field = ::core::ptr::addr_of!((*item) $($field)*);
-                ::core::result::Result::Ok(
-                    $crate::dma::CoherentAllocation::field_read(&$dma, ptr_field)
-                )
-            }
-        })()
+    ($dma:expr, $($proj:tt)*) => {{
+        let dma = &$dma;
+        let ptr = $crate::ptr::project!(
+            $crate::dma::CoherentAllocation::as_ptr(dma), $($proj)*
+        );
+        // SAFETY: The pointer created by the projection is within the DMA region.
+        unsafe { $crate::dma::CoherentAllocation::field_read(dma, ptr) }
     }};
-    ($dma:ident [ $idx:expr ] $($field:tt)* ) => {
-        $crate::dma_read!($dma, $idx, $($field)*)
-    };
-    ($($dma:ident).* [ $idx:expr ] $($field:tt)* ) => {
-        $crate::dma_read!($($dma).*, $idx, $($field)*)
-    };
 }
 
 /// Writes to a field of an item from an allocated region of structs.
+///
+/// The syntax is of the form `kernel::dma_write!(dma, proj, val)` where `dma` is an expression
+/// evaluating to a [`CoherentAllocation`], `proj` is a
+/// [projection specification](kernel::ptr::project!), and `val` is the value to be written to the
+/// projected location.
 ///
 /// # Examples
 ///
@@ -709,37 +720,31 @@ macro_rules! dma_read {
 /// unsafe impl kernel::transmute::AsBytes for MyStruct{};
 ///
 /// # fn test(alloc: &kernel::dma::CoherentAllocation<MyStruct>) -> Result {
-/// kernel::dma_write!(alloc[2].member = 0xf);
-/// kernel::dma_write!(alloc[1] = MyStruct { member: 0xf });
+/// kernel::dma_write!(alloc, [2]?.member, 0xf);
+/// kernel::dma_write!(alloc, [1]?, MyStruct { member: 0xf });
 /// # Ok::<(), Error>(()) }
 /// ```
 #[macro_export]
 macro_rules! dma_write {
-    ($dma:ident [ $idx:expr ] $($field:tt)*) => {{
-        $crate::dma_write!($dma, $idx, $($field)*)
+    (@parse [$dma:expr] [$($proj:tt)*] [, $val:expr]) => {{
+        let dma = &$dma;
+        let ptr = $crate::ptr::project!(
+            mut $crate::dma::CoherentAllocation::as_mut_ptr(dma), $($proj)*
+        );
+        let val = $val;
+        // SAFETY: The pointer created by the projection is within the DMA region.
+        unsafe { $crate::dma::CoherentAllocation::field_write(dma, ptr, val) }
     }};
-    ($($dma:ident).* [ $idx:expr ] $($field:tt)* ) => {{
-        $crate::dma_write!($($dma).*, $idx, $($field)*)
-    }};
-    ($dma:expr, $idx: expr, = $val:expr) => {
-        (|| -> ::core::result::Result<_, $crate::error::Error> {
-            let item = $crate::dma::CoherentAllocation::item_from_index(&$dma, $idx)?;
-            // SAFETY: `item_from_index` ensures that `item` is always a valid item.
-            unsafe { $crate::dma::CoherentAllocation::field_write(&$dma, item, $val) }
-            ::core::result::Result::Ok(())
-        })()
+    (@parse [$dma:expr] [$($proj:tt)*] [.$field:tt $($rest:tt)*]) => {
+        $crate::dma_write!(@parse [$dma] [$($proj)* .$field] [$($rest)*])
     };
-    ($dma:expr, $idx: expr, $(.$field:ident)* = $val:expr) => {
-        (|| -> ::core::result::Result<_, $crate::error::Error> {
-            let item = $crate::dma::CoherentAllocation::item_from_index(&$dma, $idx)?;
-            // SAFETY: `item_from_index` ensures that `item` is always a valid pointer and can be
-            // dereferenced. The compiler also further validates the expression on whether `field`
-            // is a member of `item` when expanded by the macro.
-            unsafe {
-                let ptr_field = ::core::ptr::addr_of_mut!((*item) $(.$field)*);
-                $crate::dma::CoherentAllocation::field_write(&$dma, ptr_field, $val)
-            }
-            ::core::result::Result::Ok(())
-        })()
+    (@parse [$dma:expr] [$($proj:tt)*] [[$index:expr]? $($rest:tt)*]) => {
+        $crate::dma_write!(@parse [$dma] [$($proj)* [$index]?] [$($rest)*])
+    };
+    (@parse [$dma:expr] [$($proj:tt)*] [[$index:expr] $($rest:tt)*]) => {
+        $crate::dma_write!(@parse [$dma] [$($proj)* [$index]] [$($rest)*])
+    };
+    ($dma:expr, $($rest:tt)*) => {
+        $crate::dma_write!(@parse [$dma] [] [$($rest)*])
     };
 }

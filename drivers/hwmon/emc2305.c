@@ -578,6 +578,7 @@ static int emc2305_of_parse_pwm_child(struct device *dev,
 		data->pwm_output_mask |= EMC2305_OPEN_DRAIN << ch;
 	}
 
+	of_node_put(args.np);
 	return 0;
 }
 
@@ -593,10 +594,8 @@ static int emc2305_probe_childs_from_dt(struct device *dev)
 	for_each_child_of_node(dev->of_node, child) {
 		if (of_property_present(child, "reg")) {
 			ret = emc2305_of_parse_pwm_child(dev, child, data);
-			if (ret) {
-				of_node_put(child);
+			if (ret)
 				continue;
-			}
 			count++;
 		}
 	}
@@ -607,7 +606,6 @@ static int emc2305_probe(struct i2c_client *client)
 {
 	struct i2c_adapter *adapter = client->adapter;
 	struct device *dev = &client->dev;
-	struct device_node *child;
 	struct emc2305_data *data;
 	struct emc2305_platform_data *pdata;
 	int vendor;
@@ -683,7 +681,7 @@ static int emc2305_probe(struct i2c_client *client)
 		/* Parse and check for the available PWM child nodes */
 		if (pwm_childs > 0) {
 			i = 0;
-			for_each_child_of_node(dev->of_node, child) {
+			for_each_child_of_node_scoped(dev->of_node, child) {
 				ret = emc2305_set_single_tz(dev, child, i);
 				if (ret != 0)
 					return ret;

@@ -5,8 +5,7 @@
  * Author(s): Peter Oberparleiter <peter.oberparleiter@de.ibm.com>
  */
 
-#define KMSG_COMPONENT "sclp_cmd"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "sclp_cmd: " fmt
 
 #include <linux/completion.h>
 #include <linux/err.h>
@@ -67,7 +66,7 @@ int sclp_sync_request_timeout(sclp_cmdw_t cmd, void *sccb, int timeout)
 	struct sclp_req *request;
 	int rc;
 
-	request = kzalloc(sizeof(*request), GFP_KERNEL);
+	request = kzalloc_obj(*request);
 	if (!request)
 		return -ENOMEM;
 	if (timeout)
@@ -135,7 +134,7 @@ static int do_core_configure(sclp_cmdw_t cmd)
 	 * Use kmalloc to have a minimum alignment of 8 bytes and ensure sccb
 	 * is not going to cross a page boundary.
 	 */
-	sccb = kzalloc(sizeof(*sccb), GFP_KERNEL | GFP_DMA);
+	sccb = kzalloc_obj(*sccb, GFP_KERNEL | GFP_DMA);
 	if (!sccb)
 		return -ENOMEM;
 	sccb->header.length = sizeof(*sccb);

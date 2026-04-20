@@ -91,7 +91,7 @@ static struct phylink_pcs *renesas_gmac_select_pcs(struct stmmac_priv *priv,
 	return priv->hw->phylink_pcs;
 }
 
-static int renesas_gbeth_init(struct platform_device *pdev, void *priv)
+static int renesas_gbeth_init(struct device *dev, void *priv)
 {
 	struct plat_stmmacenet_data *plat_dat;
 	struct renesas_gbeth *gbeth = priv;
@@ -113,7 +113,7 @@ static int renesas_gbeth_init(struct platform_device *pdev, void *priv)
 	return ret;
 }
 
-static void renesas_gbeth_exit(struct platform_device *pdev, void *priv)
+static void renesas_gbeth_exit(struct device *dev, void *priv)
 {
 	struct plat_stmmacenet_data *plat_dat;
 	struct renesas_gbeth *gbeth = priv;
@@ -214,6 +214,7 @@ static const struct renesas_gbeth_of_data renesas_gmac_of_data = {
 };
 
 static const struct of_device_id renesas_gbeth_match[] = {
+	{ .compatible = "renesas,r9a08g046-gbeth", .data = &renesas_gbeth_of_data },
 	{ .compatible = "renesas,r9a09g077-gbeth", .data = &renesas_gmac_of_data },
 	{ .compatible = "renesas,rzv2h-gbeth", .data = &renesas_gbeth_of_data },
 	{ /* Sentinel */ }

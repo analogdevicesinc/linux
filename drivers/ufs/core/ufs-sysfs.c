@@ -141,7 +141,7 @@ static inline ssize_t ufs_sysfs_pm_lvl_store(struct device *dev,
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
 
-	if (value >= UFS_PM_LVL_MAX)
+	if (value >= UFS_PM_LVL_MAX || value < hba->pm_lvl_min)
 		return -EINVAL;
 
 	if (ufs_pm_lvl_states[value].dev_state == UFS_DEEPSLEEP_PWR_MODE &&
@@ -235,7 +235,7 @@ static int ufshcd_ahit_to_us(u32 ahit)
 }
 
 /* Convert microseconds to Auto-Hibernate Idle Timer register value */
-static u32 ufshcd_us_to_ahit(unsigned int timer)
+u32 ufshcd_us_to_ahit(unsigned int timer)
 {
 	unsigned int scale;
 
@@ -245,6 +245,7 @@ static u32 ufshcd_us_to_ahit(unsigned int timer)
 	return FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, timer) |
 	       FIELD_PREP(UFSHCI_AHIBERN8_SCALE_MASK, scale);
 }
+EXPORT_SYMBOL_GPL(ufshcd_us_to_ahit);
 
 static int ufshcd_read_hci_reg(struct ufs_hba *hba, u32 *val, unsigned int reg)
 {
@@ -1846,6 +1847,7 @@ static ssize_t defrag_trigger_store(struct device *dev,
 
 static DEVICE_ATTR_WO(defrag_trigger);
 
+#define UFS_HID_AVAILABLE_SIZE_INVALID 0xFFFFFFFFU
 static ssize_t fragmented_size_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1857,6 +1859,9 @@ static ssize_t fragmented_size_show(struct device *dev,
 			QUERY_ATTR_IDN_HID_AVAILABLE_SIZE, &value);
 	if (ret)
 		return ret;
+
+	if (value == UFS_HID_AVAILABLE_SIZE_INVALID)
+		return -ENODATA;
 
 	return sysfs_emit(buf, "%u\n", value);
 }

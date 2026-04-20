@@ -858,7 +858,7 @@ tb_xdp_schedule_request(struct tb *tb, const struct tb_xdp_header *hdr,
 {
 	struct xdomain_request_work *xw;
 
-	xw = kmalloc(sizeof(*xw), GFP_KERNEL);
+	xw = kmalloc_obj(*xw);
 	if (!xw)
 		return false;
 
@@ -1094,7 +1094,7 @@ static void enumerate_services(struct tb_xdomain *xd)
 			continue;
 		}
 
-		svc = kzalloc(sizeof(*svc), GFP_KERNEL);
+		svc = kzalloc_obj(*svc);
 		if (!svc)
 			break;
 
@@ -1951,8 +1951,8 @@ static void tb_xdomain_link_exit(struct tb_xdomain *xd)
 /**
  * tb_xdomain_alloc() - Allocate new XDomain object
  * @tb: Domain where the XDomain belongs
- * @parent: Parent device (the switch through the connection to the
- *	    other domain is reached).
+ * @parent: Parent device (the switch through which the other domain
+ *	    is reached).
  * @route: Route string used to reach the other domain
  * @local_uuid: Our local domain UUID
  * @remote_uuid: UUID of the other domain (optional)
@@ -1974,7 +1974,7 @@ struct tb_xdomain *tb_xdomain_alloc(struct tb *tb, struct device *parent,
 	down = tb_port_at(route, parent_sw);
 	tb_port_unlock(down);
 
-	xd = kzalloc(sizeof(*xd), GFP_KERNEL);
+	xd = kzalloc_obj(*xd);
 	if (!xd)
 		return NULL;
 

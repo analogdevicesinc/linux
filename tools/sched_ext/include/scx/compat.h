@@ -125,6 +125,7 @@ static inline long scx_hotplug_seq(void)
 {
 	int fd;
 	char buf[32];
+	char *endptr;
 	ssize_t len;
 	long val;
 
@@ -137,8 +138,10 @@ static inline long scx_hotplug_seq(void)
 	buf[len] = 0;
 	close(fd);
 
-	val = strtoul(buf, NULL, 10);
-	SCX_BUG_ON(val < 0, "invalid num hotplug events: %lu", val);
+	errno = 0;
+	val = strtoul(buf, &endptr, 10);
+	SCX_BUG_ON(errno == ERANGE || endptr == buf ||
+		   (*endptr != '\n' && *endptr != '\0'), "invalid num hotplug events: %ld", val);
 
 	return val;
 }
@@ -151,6 +154,10 @@ static inline long scx_hotplug_seq(void)
  *
  * ec7e3b0463e1 ("implement-ops") in https://github.com/sched-ext/sched_ext is
  * the current minimum required kernel version.
+ *
+ * COMPAT:
+ * - v6.17: ops.cgroup_set_bandwidth()
+ * - v6.19: ops.cgroup_set_idle()
  */
 #define SCX_OPS_OPEN(__ops_name, __scx_name) ({					\
 	struct __scx_name *__skel;						\
@@ -162,6 +169,16 @@ static inline long scx_hotplug_seq(void)
 	SCX_BUG_ON(!__skel, "Could not open " #__scx_name);			\
 	__skel->struct_ops.__ops_name->hotplug_seq = scx_hotplug_seq();		\
 	SCX_ENUM_INIT(__skel);							\
+	if (__skel->struct_ops.__ops_name->cgroup_set_bandwidth &&		\
+	    !__COMPAT_struct_has_field("sched_ext_ops", "cgroup_set_bandwidth")) { \
+		fprintf(stderr, "WARNING: kernel doesn't support ops.cgroup_set_bandwidth()\n"); \
+		__skel->struct_ops.__ops_name->cgroup_set_bandwidth = NULL;	\
+	}									\
+	if (__skel->struct_ops.__ops_name->cgroup_set_idle &&			\
+	    !__COMPAT_struct_has_field("sched_ext_ops", "cgroup_set_idle")) { \
+		fprintf(stderr, "WARNING: kernel doesn't support ops.cgroup_set_idle()\n"); \
+		__skel->struct_ops.__ops_name->cgroup_set_idle = NULL;	\
+	}									\
 	__skel; 								\
 })
 

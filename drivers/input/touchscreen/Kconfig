@@ -723,18 +723,6 @@ config TOUCHSCREEN_INEXIO
 	  To compile this driver as a module, choose M here: the
 	  module will be called inexio.
 
-config TOUCHSCREEN_MK712
-	tristate "ICS MicroClock MK712 touchscreen"
-	depends on ISA
-	help
-	  Say Y here if you have the ICS MicroClock MK712 touchscreen
-	  controller chip in your system.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called mk712.
-
 config TOUCHSCREEN_HP600
 	tristate "HP Jornada 6xx touchscreen"
 	depends on SH_HP6XX && SH_ADC

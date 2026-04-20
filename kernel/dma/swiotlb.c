@@ -61,8 +61,6 @@
  */
 #define IO_TLB_MIN_SLABS ((1<<20) >> IO_TLB_SHIFT)
 
-#define INVALID_PHYS_ADDR (~(phys_addr_t)0)
-
 /**
  * struct io_tlb_slot - IO TLB slot descriptor
  * @orig_addr:	The original address corresponding to a mapped entry.
@@ -1811,19 +1809,18 @@ static int rmem_swiotlb_device_init(struct reserved_mem *rmem,
 	if (!mem) {
 		struct io_tlb_pool *pool;
 
-		mem = kzalloc(sizeof(*mem), GFP_KERNEL);
+		mem = kzalloc_obj(*mem);
 		if (!mem)
 			return -ENOMEM;
 		pool = &mem->defpool;
 
-		pool->slots = kcalloc(nslabs, sizeof(*pool->slots), GFP_KERNEL);
+		pool->slots = kzalloc_objs(*pool->slots, nslabs);
 		if (!pool->slots) {
 			kfree(mem);
 			return -ENOMEM;
 		}
 
-		pool->areas = kcalloc(nareas, sizeof(*pool->areas),
-				GFP_KERNEL);
+		pool->areas = kzalloc_objs(*pool->areas, nareas);
 		if (!pool->areas) {
 			kfree(pool->slots);
 			kfree(mem);

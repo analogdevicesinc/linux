@@ -813,56 +813,46 @@ static int wdt87xx_load_chunk(struct i2c_client *client,
 	return 0;
 }
 
-static int wdt87xx_do_update_firmware(struct i2c_client *client,
+static int wdt87xx_do_update_firmware(struct wdt87xx_data *wdt,
 				      const struct firmware *fw,
 				      unsigned int chunk_id)
 {
-	struct wdt87xx_data *wdt = i2c_get_clientdata(client);
+	struct i2c_client *client = wdt->client;
 	int error;
-
-	error = wdt87xx_validate_firmware(wdt, fw);
-	if (error)
-		return error;
-
-	error = mutex_lock_interruptible(&wdt->fw_mutex);
-	if (error)
-		return error;
-
-	disable_irq(client->irq);
 
 	error = wdt87xx_load_chunk(client, fw, chunk_id);
 	if (error) {
 		dev_err(&client->dev,
 			"firmware load failed (type: %d): %d\n",
 			chunk_id, error);
-		goto out;
+		return error;
 	}
 
 	error = wdt87xx_sw_reset(client);
 	if (error) {
 		dev_err(&client->dev, "soft reset failed: %d\n", error);
-		goto out;
+		return error;
 	}
 
 	/* Refresh the parameters */
 	error = wdt87xx_get_sysparam(client, &wdt->param);
-	if (error)
+	if (error) {
 		dev_err(&client->dev,
 			"failed to refresh system parameters: %d\n", error);
-out:
-	enable_irq(client->irq);
-	mutex_unlock(&wdt->fw_mutex);
+		return error;
+	}
 
-	return error ? error : 0;
+	return 0;
 }
 
 static int wdt87xx_update_firmware(struct device *dev,
 				   const char *fw_name, unsigned int chunk_id)
 {
 	struct i2c_client *client = to_i2c_client(dev);
-	const struct firmware *fw;
+	struct wdt87xx_data *wdt = i2c_get_clientdata(client);
 	int error;
 
+	const struct firmware *fw __free(firmware) = NULL;
 	error = request_firmware(&fw, fw_name, dev);
 	if (error) {
 		dev_err(&client->dev, "unable to retrieve firmware %s: %d\n",
@@ -870,11 +860,19 @@ static int wdt87xx_update_firmware(struct device *dev,
 		return error;
 	}
 
-	error = wdt87xx_do_update_firmware(client, fw, chunk_id);
+	error = wdt87xx_validate_firmware(wdt, fw);
+	if (error)
+		return error;
 
-	release_firmware(fw);
+	scoped_cond_guard(mutex_intr, return -EINTR, &wdt->fw_mutex) {
+		guard(disable_irq)(&client->irq);
 
-	return error ? error : 0;
+		error = wdt87xx_do_update_firmware(wdt, fw, chunk_id);
+		if (error)
+			return error;
+	}
+
+	return 0;
 }
 
 static ssize_t config_csum_show(struct device *dev,

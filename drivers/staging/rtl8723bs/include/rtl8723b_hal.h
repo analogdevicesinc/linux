@@ -223,8 +223,6 @@ void C2HPacketHandler_8723B(struct adapter *padapter, u8 *pbuffer, u16 length);
 
 void SetHwReg8723B(struct adapter *padapter, u8 variable, u8 *val);
 void GetHwReg8723B(struct adapter *padapter, u8 variable, u8 *val);
-u8 SetHalDefVar8723B(struct adapter *padapter, enum hal_def_variable variable,
-		     void *pval);
 u8 GetHalDefVar8723B(struct adapter *padapter, enum hal_def_variable variable,
 		     void *pval);
 
@@ -232,9 +230,6 @@ u8 GetHalDefVar8723B(struct adapter *padapter, enum hal_def_variable variable,
 void rtl8723b_InitBeaconParameters(struct adapter *padapter);
 void _InitBurstPktLen_8723BS(struct adapter *adapter);
 void _8051Reset8723(struct adapter *padapter);
-
-void rtl8723b_start_thread(struct adapter *padapter);
-void rtl8723b_stop_thread(struct adapter *padapter);
 
 int FirmwareDownloadBT(struct adapter *adapter, struct rt_firmware *firmware);
 

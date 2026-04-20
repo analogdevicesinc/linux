@@ -102,7 +102,7 @@ static int mac_hid_emumouse_connect(struct input_handler *handler,
 	if (dev == mac_hid_emumouse_dev)
 		return -ENODEV;
 
-	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+	handle = kzalloc_obj(struct input_handle);
 	if (!handle)
 		return -ENOMEM;
 
@@ -187,13 +187,14 @@ static int mac_hid_toggle_emumouse(const struct ctl_table *table, int write,
 				   void *buffer, size_t *lenp, loff_t *ppos)
 {
 	int *valp = table->data;
-	int old_val = *valp;
+	int old_val;
 	int rc;
 
 	rc = mutex_lock_killable(&mac_hid_emumouse_mutex);
 	if (rc)
 		return rc;
 
+	old_val = *valp;
 	rc = proc_dointvec(table, write, buffer, lenp, ppos);
 
 	if (rc == 0 && write && *valp != old_val) {

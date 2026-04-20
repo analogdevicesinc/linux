@@ -88,7 +88,7 @@ static void cfg80211_leave_all(struct cfg80211_registered_device *rdev)
 	struct wireless_dev *wdev;
 
 	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list)
-		cfg80211_leave(rdev, wdev);
+		cfg80211_leave(rdev, wdev, -1);
 }
 
 static int wiphy_suspend(struct device *dev)
@@ -137,7 +137,7 @@ static int wiphy_resume(struct device *dev)
 	if (rdev->wiphy.registered && rdev->ops->resume)
 		ret = rdev_resume(rdev);
 	rdev->suspended = false;
-	queue_work(system_unbound_wq, &rdev->wiphy_work);
+	queue_work(system_dfl_wq, &rdev->wiphy_work);
 	wiphy_unlock(&rdev->wiphy);
 
 	if (ret)

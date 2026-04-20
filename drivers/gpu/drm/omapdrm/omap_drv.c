@@ -19,6 +19,7 @@
 #include <drm/drm_ioctl.h>
 #include <drm/drm_panel.h>
 #include <drm/drm_prime.h>
+#include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
 
@@ -145,7 +146,7 @@ static int omap_atomic_update_normalize_zpos(struct drm_device *dev,
 	struct drm_plane_state **states;
 	int ret = 0;
 
-	states = kmalloc_array(total_planes, sizeof(*states), GFP_KERNEL);
+	states = kmalloc_objs(*states, total_planes);
 	if (!states)
 		return -ENOMEM;
 
@@ -284,7 +285,7 @@ static int omap_global_obj_init(struct drm_device *dev)
 	struct omap_drm_private *priv = dev->dev_private;
 	struct omap_global_state *state;
 
-	state = kzalloc(sizeof(*state), GFP_KERNEL);
+	state = kzalloc_obj(*state);
 	if (!state)
 		return -ENOMEM;
 
@@ -797,7 +798,7 @@ static int pdev_probe(struct platform_device *pdev)
 	}
 
 	/* Allocate and initialize the driver private structure. */
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+	priv = kzalloc_obj(*priv);
 	if (!priv)
 		return -ENOMEM;
 

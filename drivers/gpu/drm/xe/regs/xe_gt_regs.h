@@ -37,6 +37,12 @@
 #define GMD_ID					XE_REG(0xd8c)
 #define   GMD_ID_ARCH_MASK			REG_GENMASK(31, 22)
 #define   GMD_ID_RELEASE_MASK			REG_GENMASK(21, 14)
+/*
+ * Spec defines these bits as "Reserved", but then make them assume some
+ * meaning that depends on the ARCH. To avoid any confusion, call them
+ * SUBIP_FLAG_MASK.
+ */
+#define   GMD_ID_SUBIP_FLAG_MASK		REG_GENMASK(13, 6)
 #define   GMD_ID_REVID				REG_GENMASK(5, 0)
 
 #define FORCEWAKE_ACK_GSC			XE_REG(0xdf8)
@@ -83,6 +89,7 @@
 #define   UNIFIED_COMPRESSION_FORMAT		REG_GENMASK(3, 0)
 
 #define XE2_GAMREQSTRM_CTRL			XE_REG_MCR(0x4194)
+#define   EN_CMP_1WCOH				REG_BIT(15)
 #define   CG_DIS_CNTLBUS			REG_BIT(6)
 
 #define CCS_AUX_INV				XE_REG(0x4208)
@@ -95,7 +102,11 @@
 
 #define XE2_LMEM_CFG				XE_REG(0x48b0)
 
-#define XEHP_TILE_ADDR_RANGE(_idx)		XE_REG_MCR(0x4900 + (_idx) * 4)
+#define XE2_GAMWALK_CTRL			0x47e4
+#define XE2_GAMWALK_CTRL_MEDIA			XE_REG(XE2_GAMWALK_CTRL + MEDIA_GT_GSI_OFFSET)
+#define XE2_GAMWALK_CTRL_3D			XE_REG_MCR(XE2_GAMWALK_CTRL)
+#define   EN_CMP_1WCOH_GW			REG_BIT(14)
+
 #define XEHP_FLAT_CCS_BASE_ADDR			XE_REG_MCR(0x4910)
 #define XEHP_FLAT_CCS_PTR			REG_GENMASK(31, 8)
 
@@ -222,6 +233,9 @@
 
 #define MIRROR_FUSE1				XE_REG(0x911c)
 
+#define FUSE2					XE_REG(0x9120)
+#define   PRODUCTION_HW				REG_BIT(2)
+
 #define MIRROR_L3BANK_ENABLE			XE_REG(0x9130)
 #define   XE3_L3BANK_ENABLE			REG_GENMASK(31, 0)
 
@@ -239,6 +253,9 @@
 #define XE2_GT_COMPUTE_DSS_2			XE_REG(0x914c)
 #define XE2_GT_GEOMETRY_DSS_1			XE_REG(0x9150)
 #define XE2_GT_GEOMETRY_DSS_2			XE_REG(0x9154)
+
+#define SERVICE_COPY_ENABLE			XE_REG(0x9170)
+#define   FUSE_SERVICE_COPY_ENABLE_MASK		REG_GENMASK(7, 0)
 
 #define GDRST					XE_REG(0x941c)
 #define   GRDOM_GUC				REG_BIT(3)
@@ -346,10 +363,6 @@
 #define   MEDIA_SAMPLERS_POWERGATE_ENABLE	REG_BIT(2)
 #define   VDN_HCP_POWERGATE_ENABLE(n)		REG_BIT(3 + 2 * (n))
 #define   VDN_MFXVDENC_POWERGATE_ENABLE(n)	REG_BIT(4 + 2 * (n))
-
-#define CTC_MODE				XE_REG(0xa26c)
-#define   CTC_SHIFT_PARAMETER_MASK		REG_GENMASK(2, 1)
-#define   CTC_SOURCE_DIVIDE_LOGIC		REG_BIT(0)
 
 #define FORCEWAKE_RENDER			XE_REG(0xa278)
 
@@ -546,6 +559,9 @@
 #define SARB_CHICKEN1				XE_REG_MCR(0xe90c)
 #define   COMP_CKN_IN				REG_GENMASK(30, 29)
 
+#define MAIN_GAMCTRL_MODE			XE_REG(0xef00)
+#define   MAIN_GAMCTRL_QUEUE_SELECT		REG_BIT(0)
+
 #define RCU_MODE				XE_REG(0x14800, XE_REG_OPTION_MASKED)
 #define   RCU_MODE_FIXED_SLICE_CCS_MODE		REG_BIT(1)
 #define   RCU_MODE_CCS_ENABLE			REG_BIT(0)
@@ -582,6 +598,7 @@
 #define GT_GFX_RC6				XE_REG(0x138108)
 
 #define GT0_PERF_LIMIT_REASONS			XE_REG(0x1381a8)
+/* Common performance limit reason bits - available on all platforms */
 #define   GT0_PERF_LIMIT_REASONS_MASK		0xde3
 #define   PROCHOT_MASK				REG_BIT(0)
 #define   THERMAL_LIMIT_MASK			REG_BIT(1)
@@ -591,6 +608,18 @@
 #define   POWER_LIMIT_4_MASK			REG_BIT(8)
 #define   POWER_LIMIT_1_MASK			REG_BIT(10)
 #define   POWER_LIMIT_2_MASK			REG_BIT(11)
+/* Platform-specific performance limit reason bits - for Crescent Island */
+#define   CRI_PERF_LIMIT_REASONS_MASK		0xfdff
+#define   SOC_THERMAL_LIMIT_MASK		REG_BIT(1)
+#define   MEM_THERMAL_MASK			REG_BIT(2)
+#define   VR_THERMAL_MASK			REG_BIT(3)
+#define   ICCMAX_MASK				REG_BIT(4)
+#define   SOC_AVG_THERMAL_MASK			REG_BIT(6)
+#define   FASTVMODE_MASK			REG_BIT(7)
+#define   PSYS_PL1_MASK				REG_BIT(12)
+#define   PSYS_PL2_MASK				REG_BIT(13)
+#define   P0_FREQ_MASK				REG_BIT(14)
+#define   PSYS_CRIT_MASK			REG_BIT(15)
 
 #define GT_PERF_STATUS				XE_REG(0x1381b4)
 #define   VOLTAGE_MASK				REG_GENMASK(10, 0)

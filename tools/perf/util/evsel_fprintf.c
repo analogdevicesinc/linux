@@ -168,7 +168,10 @@ int sample__fprintf_callchain(struct perf_sample *sample, int left_alignment,
 				node_al.addr = addr;
 				node_al.map  = map__get(map);
 
-				if (print_symoffset) {
+				if (sample->deferred_callchain &&
+				    sample->deferred_cookie == node->ip) {
+					printed += fprintf(fp, "(cookie)");
+				} else if (print_symoffset) {
 					printed += __symbol__fprintf_symname_offs(sym, &node_al,
 										  print_unknown_as_addr,
 										  true, fp);
@@ -182,8 +185,12 @@ int sample__fprintf_callchain(struct perf_sample *sample, int left_alignment,
 			if (print_dso && (!sym || !sym->inlined))
 				printed += map__fprintf_dsoname_dsoff(map, print_dsoff, addr, fp);
 
-			if (print_srcline)
-				printed += map__fprintf_srcline(map, addr, "\n  ", fp);
+			if (print_srcline) {
+				if (node->srcline)
+					printed += fprintf(fp, "\n  %s", node->srcline);
+				else
+					printed += map__fprintf_srcline(map, addr, "\n  ", fp);
+			}
 
 			if (sym && sym->inlined)
 				printed += fprintf(fp, " (inlined)");

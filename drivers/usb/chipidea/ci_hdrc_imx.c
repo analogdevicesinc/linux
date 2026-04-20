@@ -79,6 +79,10 @@ static const struct ci_hdrc_imx_platform_flag imx8ulp_usb_data = {
 		CI_HDRC_HAS_PORTSC_PEC_MISSED,
 };
 
+static const struct ci_hdrc_imx_platform_flag imx95_usb_data = {
+	.flags = CI_HDRC_SUPPORTS_RUNTIME_PM | CI_HDRC_OUT_BAND_WAKEUP,
+};
+
 static const struct ci_hdrc_imx_platform_flag s32g_usb_data = {
 	.flags = CI_HDRC_DISABLE_HOST_STREAMING,
 };
@@ -94,6 +98,7 @@ static const struct of_device_id ci_hdrc_imx_dt_ids[] = {
 	{ .compatible = "fsl,imx7d-usb", .data = &imx7d_usb_data},
 	{ .compatible = "fsl,imx7ulp-usb", .data = &imx7ulp_usb_data},
 	{ .compatible = "fsl,imx8ulp-usb", .data = &imx8ulp_usb_data},
+	{ .compatible = "fsl,imx95-usb", .data = &imx95_usb_data},
 	{ .compatible = "nxp,s32g2-usb", .data = &s32g_usb_data},
 	{ /* sentinel */ }
 };
@@ -380,6 +385,7 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
 	const struct ci_hdrc_imx_platform_flag *imx_platform_flag;
 	struct device_node *np = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
+	const char *irq_name;
 
 	imx_platform_flag = of_device_get_match_data(&pdev->dev);
 
@@ -520,10 +526,16 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
 
 	data->wakeup_irq = platform_get_irq_optional(pdev, 1);
 	if (data->wakeup_irq > 0) {
+		irq_name = devm_kasprintf(dev, GFP_KERNEL, "%s:wakeup", pdata.name);
+		if (!irq_name) {
+			dev_err_probe(dev, -ENOMEM, "failed to create irq_name\n");
+			goto err_clk;
+		}
+
 		ret = devm_request_threaded_irq(dev, data->wakeup_irq,
 						NULL, ci_wakeup_irq_handler,
 						IRQF_ONESHOT | IRQF_NO_AUTOEN,
-						pdata.name, data);
+						irq_name, data);
 		if (ret)
 			goto err_clk;
 	}
@@ -704,8 +716,12 @@ static int ci_hdrc_imx_suspend(struct device *dev)
 
 	pinctrl_pm_select_sleep_state(dev);
 
-	if (data->wakeup_irq > 0 && device_may_wakeup(dev))
+	if (data->wakeup_irq > 0 && device_may_wakeup(dev)) {
 		enable_irq_wake(data->wakeup_irq);
+
+		if (data->plat_data->flags & CI_HDRC_OUT_BAND_WAKEUP)
+			device_set_out_band_wakeup(dev);
+	}
 
 	return ret;
 }

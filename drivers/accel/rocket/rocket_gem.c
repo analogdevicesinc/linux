@@ -2,6 +2,7 @@
 /* Copyright 2024-2025 Tomeu Vizoso <tomeu@tomeuvizoso.net> */
 
 #include <drm/drm_device.h>
+#include <drm/drm_print.h>
 #include <drm/drm_utils.h>
 #include <drm/rocket_accel.h>
 #include <linux/dma-mapping.h>
@@ -47,7 +48,7 @@ struct drm_gem_object *rocket_gem_create_object(struct drm_device *dev, size_t s
 {
 	struct rocket_gem_object *obj;
 
-	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	obj = kzalloc_obj(*obj);
 	if (!obj)
 		return ERR_PTR(-ENOMEM);
 

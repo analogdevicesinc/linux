@@ -165,8 +165,10 @@ static void gf2k_read(struct gf2k *gf2k, unsigned char *data)
 
 	t = GB(40,4,0);
 
-	for (i = 0; i < gf2k_hats[gf2k->id]; i++)
-		input_report_abs(dev, ABS_HAT0X + i, gf2k_hat_to_axis[t][i]);
+	if (t < ARRAY_SIZE(gf2k_hat_to_axis))
+		for (i = 0; i < gf2k_hats[gf2k->id]; i++)
+			input_report_abs(dev, ABS_HAT0X + i,
+					 gf2k_hat_to_axis[t][i]);
 
 	t = GB(44,2,0) | GB(32,8,2) | GB(78,2,10);
 
@@ -222,7 +224,7 @@ static int gf2k_connect(struct gameport *gameport, struct gameport_driver *drv)
 	unsigned char data[GF2K_LENGTH];
 	int i, err;
 
-	gf2k = kzalloc(sizeof(*gf2k), GFP_KERNEL);
+	gf2k = kzalloc_obj(*gf2k);
 	input_dev = input_allocate_device();
 	if (!gf2k || !input_dev) {
 		err = -ENOMEM;

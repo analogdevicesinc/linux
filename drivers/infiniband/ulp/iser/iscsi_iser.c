@@ -802,7 +802,7 @@ static struct iscsi_endpoint *iscsi_iser_ep_connect(struct Scsi_Host *shost,
 	if (!ep)
 		return ERR_PTR(-ENOMEM);
 
-	iser_conn = kzalloc(sizeof(*iser_conn), GFP_KERNEL);
+	iser_conn = kzalloc_obj(*iser_conn);
 	if (!iser_conn) {
 		err = -ENOMEM;
 		goto failure;
@@ -1029,7 +1029,7 @@ static int __init iser_init(void)
 	mutex_init(&ig.connlist_mutex);
 	INIT_LIST_HEAD(&ig.connlist);
 
-	release_wq = alloc_workqueue("release workqueue", 0, 0);
+	release_wq = alloc_workqueue("release workqueue", WQ_PERCPU, 0);
 	if (!release_wq) {
 		iser_err("failed to allocate release workqueue\n");
 		err = -ENOMEM;

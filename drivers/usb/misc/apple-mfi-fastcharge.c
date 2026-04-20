@@ -134,7 +134,6 @@ static int apple_mfi_fc_set_property(struct power_supply *psy,
 		ret = -EINVAL;
 	}
 
-	pm_runtime_mark_last_busy(&mfi->udev->dev);
 	pm_runtime_put_autosuspend(&mfi->udev->dev);
 
 	return ret;
@@ -185,7 +184,7 @@ static int mfi_fc_probe(struct usb_device *udev)
 	if (!mfi_fc_match(udev))
 		return -ENODEV;
 
-	mfi = kzalloc(sizeof(struct mfi_device), GFP_KERNEL);
+	mfi = kzalloc_obj(struct mfi_device);
 	if (!mfi)
 		return -ENOMEM;
 

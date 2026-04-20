@@ -40,6 +40,11 @@ properties:
   dmas:
     maxItems: 1
 
+  dma-coherent: true
+
+  iommus:
+    maxItems: 1
+
   cdns,board-delay-ps:
     description: |
       Estimated Board delay. The value includes the total round trip

@@ -7,7 +7,7 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: Synopsys DesignWare APB I2C Controller
 
 maintainers:
-  - Jarkko Nikula <jarkko.nikula@linux.intel.com>
+  - Mika Westerberg <mika.westerberg@linux.intel.com>
 
 allOf:
   - $ref: /schemas/i2c/i2c-controller.yaml#
@@ -34,8 +34,15 @@ properties:
           - const: snps,designware-i2c
       - description: Baikal-T1 SoC System I2C controller
         const: baikal,bt1-sys-i2c
+      - description: Mobileye EyeQ DesignWare I2C controller
+        items:
+          - enum:
+              - mobileye,eyeq7h-i2c
+          - const: mobileye,eyeq6lplus-i2c
+          - const: snps,designware-i2c
       - items:
           - enum:
+              - mobileye,eyeq6lplus-i2c
               - mscc,ocelot-i2c
               - sophgo,sg2044-i2c
               - thead,th1520-i2c

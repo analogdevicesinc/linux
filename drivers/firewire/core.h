@@ -65,6 +65,9 @@ struct fw_card_driver {
 	int (*enable)(struct fw_card *card,
 		      const __be32 *config_rom, size_t length);
 
+	// After returning the call, any function is no longer triggered to handle hardware event.
+	void (*disable)(struct fw_card *card);
+
 	int (*read_phy_reg)(struct fw_card *card, int address);
 	int (*update_phy_reg)(struct fw_card *card, int address,
 			      int clear_bits, int set_bits);
@@ -97,8 +100,8 @@ struct fw_card_driver {
 	void (*write_csr)(struct fw_card *card, int csr_offset, u32 value);
 
 	struct fw_iso_context *
-	(*allocate_iso_context)(struct fw_card *card,
-				int type, int channel, size_t header_size);
+	(*allocate_iso_context)(struct fw_card *card, int type, int channel, size_t header_size,
+				size_t header_storage_size);
 	void (*free_iso_context)(struct fw_iso_context *ctx);
 
 	int (*start_iso)(struct fw_iso_context *ctx,
@@ -163,10 +166,20 @@ void fw_node_event(struct fw_card *card, struct fw_node *node, int event);
 int fw_iso_buffer_alloc(struct fw_iso_buffer *buffer, int page_count);
 int fw_iso_buffer_map_dma(struct fw_iso_buffer *buffer, struct fw_card *card,
 			  enum dma_data_direction direction);
+size_t fw_iso_buffer_lookup(struct fw_iso_buffer *buffer, dma_addr_t completed);
 
 static inline void fw_iso_context_init_work(struct fw_iso_context *ctx, work_func_t func)
 {
 	INIT_WORK(&ctx->work, func);
+}
+
+static inline struct fw_iso_context *fw_iso_mc_context_create(struct fw_card *card,
+		fw_iso_mc_callback_t callback, void *callback_data)
+{
+	union fw_iso_callback cb = { .mc = callback };
+
+	return __fw_iso_context_create(card, FW_ISO_CONTEXT_RECEIVE_MULTICHANNEL, 0, 0, 0, 0, cb,
+				       callback_data);
 }
 
 
@@ -283,6 +296,8 @@ void fw_fill_response(struct fw_packet *response, u32 *request_header,
 
 void fw_request_get(struct fw_request *request);
 void fw_request_put(struct fw_request *request);
+
+void fw_cancel_pending_transactions(struct fw_card *card);
 
 // Convert the value of IEEE 1394 CYCLE_TIME register to the format of timeStamp field in
 // descriptors of 1394 OHCI.

@@ -900,10 +900,10 @@
 
 &gpu {
 	status = "okay";
+};
 
-	zap-shader {
-		firmware-name = "qcom/sm8650/gen70900_zap.mbn";
-	};
+&gpu_zap_shader {
+	firmware-name = "qcom/sm8650/gen70900_zap.mbn";
 };
 
 &lpass_tlmm {
@@ -1044,6 +1044,22 @@
 &pm8550b_eusb2_repeater {
 	vdd18-supply = <&vreg_l15b_1p8>;
 	vdd3-supply = <&vreg_l5b_3p1>;
+};
+
+&pm8550vs_c {
+	status = "okay";
+};
+
+&pm8550vs_d {
+	status = "okay";
+};
+
+&pm8550vs_e {
+	status = "okay";
+};
+
+&pm8550vs_g {
+	status = "okay";
 };
 
 &pon_pwrkey {

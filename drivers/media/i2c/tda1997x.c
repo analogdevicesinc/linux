@@ -2538,7 +2538,7 @@ static int tda1997x_probe(struct i2c_client *client)
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		return -EIO;
 
-	state = kzalloc(sizeof(struct tda1997x_state), GFP_KERNEL);
+	state = kzalloc_obj(struct tda1997x_state);
 	if (!state)
 		return -ENOMEM;
 
@@ -2797,7 +2797,6 @@ err_free_media:
 err_free_handler:
 	v4l2_ctrl_handler_free(&state->hdl);
 err_free_mutex:
-	cancel_delayed_work(&state->delayed_work_enable_hpd);
 	mutex_destroy(&state->page_lock);
 	mutex_destroy(&state->lock);
 	tda1997x_set_power(state, 0);

@@ -382,7 +382,7 @@
 
 		pinctrl0: pinctrl@ffd13000 {
 			compatible = "pinctrl-single";
-			reg = <0xffd13000 0xA0>;
+			reg = <0xffd13000 0xa0>;
 			#pinctrl-cells = <1>;
 			pinctrl-single,register-width = <32>;
 			pinctrl-single,function-mask = <0x0000000f>;
@@ -628,6 +628,15 @@
 				reg = <0xff8c0400 0x100>;
 				altr,ecc-parent = <&gmac0>;
 				interrupts = <5 4>;
+			};
+
+			sdmmca-ecc@ff8c8c00 {
+				compatible = "altr,socfpga-s10-sdmmc-ecc",
+					     "altr,socfpga-sdmmc-ecc";
+				reg = <0xff8c8c00 0x100>;
+				altr,ecc-parent = <&mmc>;
+				interrupts = <14 4>,
+					     <15 4>;
 			};
 
 		};

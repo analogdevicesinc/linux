@@ -121,7 +121,7 @@ enum CMD_MODE {
 #define DEF_CMD_PAYLOAD_SIZE 320
 
 /**
- * struct iwl_device_cmd
+ * struct iwl_device_cmd - device command structure
  *
  * For allocation of the command and tx queues, this establishes the overall
  * size of the largest command we send to uCode, except for commands that
@@ -516,7 +516,7 @@ enum iwl_trans_state {
  */
 
 /**
- * enum iwl_ini_cfg_state
+ * enum iwl_ini_cfg_state - debug config state
  * @IWL_INI_CFG_STATE_NOT_LOADED: no debug cfg was given
  * @IWL_INI_CFG_STATE_LOADED: debug cfg was found and loaded
  * @IWL_INI_CFG_STATE_CORRUPTED: debug cfg was found and some of the TLVs
@@ -532,7 +532,7 @@ enum iwl_ini_cfg_state {
 #define IWL_TRANS_NMI_TIMEOUT (HZ / 4)
 
 /**
- * struct iwl_dram_data
+ * struct iwl_dram_data - DRAM data descriptor
  * @physical: page phy pointer
  * @block: pointer to the allocated block/page
  * @size: size of the block/page
@@ -1063,11 +1063,7 @@ int iwl_trans_sw_reset(struct iwl_trans *trans);
 void iwl_trans_set_bits_mask(struct iwl_trans *trans, u32 reg,
 			     u32 mask, u32 value);
 
-bool _iwl_trans_grab_nic_access(struct iwl_trans *trans);
-
-#define iwl_trans_grab_nic_access(trans)		\
-	__cond_lock(nic_access,				\
-		    likely(_iwl_trans_grab_nic_access(trans)))
+bool iwl_trans_grab_nic_access(struct iwl_trans *trans);
 
 void __releases(nic_access)
 iwl_trans_release_nic_access(struct iwl_trans *trans);

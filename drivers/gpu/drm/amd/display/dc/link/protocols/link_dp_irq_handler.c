@@ -34,10 +34,12 @@
 #include "link_dp_training.h"
 #include "link_dp_capability.h"
 #include "link_edp_panel_control.h"
+#include "link_dp_panel_replay.h"
 #include "link/accessories/link_dp_trace.h"
 #include "link/link_dpms.h"
 #include "dm_helpers.h"
 #include "link_dp_dpia_bw.h"
+#include "link_dp_panel_replay.h"
 
 #define DC_LOGGER \
 	link->ctx->logger
@@ -185,6 +187,42 @@ static bool handle_hpd_irq_psr_sink(struct dc_link *link)
 	return false;
 }
 
+static void handle_hpd_irq_vesa_replay_sink(struct dc_link *link)
+{
+	union pr_error_status pr_error_status = {0};
+
+	if (!link->replay_settings.replay_feature_enabled ||
+			link->replay_settings.config.replay_version != DC_VESA_PANEL_REPLAY)
+		return;
+
+	dm_helpers_dp_read_dpcd(
+		link->ctx,
+		link,
+		DP_PR_ERROR_STATUS,
+		&pr_error_status.raw,
+		sizeof(pr_error_status.raw));
+
+	if (pr_error_status.bits.LINK_CRC_ERROR ||
+			pr_error_status.bits.RFB_STORAGE_ERROR ||
+			pr_error_status.bits.VSC_SDP_ERROR ||
+			pr_error_status.bits.ASSDP_MISSING_ERROR) {
+
+		/* Acknowledge and clear error bits */
+		dm_helpers_dp_write_dpcd(
+			link->ctx,
+			link,
+			DP_PR_ERROR_STATUS, /*DpcdAddress_PR_Error_Status*/
+			&pr_error_status.raw,
+			sizeof(pr_error_status.raw));
+
+		/* Replay error, disable and re-enable Replay */
+		if (link->replay_settings.replay_allow_active) {
+			dp_pr_enable(link, false);
+			dp_pr_enable(link, true);
+		}
+	}
+}
+
 static void handle_hpd_irq_replay_sink(struct dc_link *link)
 {
 	union dpcd_replay_configuration replay_configuration = {0};
@@ -195,6 +233,11 @@ static void handle_hpd_irq_replay_sink(struct dc_link *link)
 
 	if (!link->replay_settings.replay_feature_enabled)
 		return;
+
+	if (link->replay_settings.config.replay_version != DC_FREESYNC_REPLAY) {
+		handle_hpd_irq_vesa_replay_sink(link);
+		return;
+	}
 
 	while (retries < 10) {
 		ret = dm_helpers_dp_read_dpcd(
@@ -398,10 +441,12 @@ bool dp_should_allow_hpd_rx_irq(const struct dc_link *link)
 	 * Don't handle RX IRQ unless one of following is met:
 	 * 1) The link is established (cur_link_settings != unknown)
 	 * 2) We know we're dealing with a branch device, SST or MST
+	 * 3) The link is bw_alloc enabled.
 	 */
 
 	if ((link->cur_link_settings.lane_count != LANE_COUNT_UNKNOWN) ||
-		is_dp_branch_device(link))
+		is_dp_branch_device(link) ||
+		link->dpia_bw_alloc_config.bw_alloc_enabled)
 		return true;
 
 	return false;

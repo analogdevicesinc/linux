@@ -83,7 +83,7 @@ struct pps_device *pps_register_source(struct pps_source_info *info,
 	}
 
 	/* Allocate memory for the new PPS source struct */
-	pps = kzalloc(sizeof(struct pps_device), GFP_KERNEL);
+	pps = kzalloc_obj(struct pps_device);
 	if (pps == NULL) {
 		err = -ENOMEM;
 		goto pps_register_source_exit;
@@ -163,8 +163,7 @@ void pps_event(struct pps_device *pps, struct pps_event_time *ts, int event,
 	/* check event type */
 	BUG_ON((event & (PPS_CAPTUREASSERT | PPS_CAPTURECLEAR)) == 0);
 
-	dev_dbg(&pps->dev, "PPS event at %lld.%09ld\n",
-			(s64)ts->ts_real.tv_sec, ts->ts_real.tv_nsec);
+	dev_dbg(&pps->dev, "PPS event at %ptSp\n", &ts->ts_real);
 
 	timespec_to_pps_ktime(&ts_real, ts->ts_real);
 

@@ -48,6 +48,7 @@ enum sysc_soc {
 	SOC_UNKNOWN,
 	SOC_2420,
 	SOC_2430,
+	SOC_AM33,
 	SOC_3430,
 	SOC_AM35,
 	SOC_3630,
@@ -353,7 +354,7 @@ static int sysc_add_named_clock_from_child(struct sysc *ddata,
 	 * limit for clk_get(). If cl ever needs to be freed, it should be done
 	 * with clkdev_drop().
 	 */
-	cl = kzalloc(sizeof(*cl), GFP_KERNEL);
+	cl = kzalloc_obj(*cl);
 	if (!cl)
 		return -ENOMEM;
 
@@ -2469,7 +2470,7 @@ static void sysc_add_restored(struct sysc *ddata)
 {
 	struct sysc_module *restored_module;
 
-	restored_module = kzalloc(sizeof(*restored_module), GFP_KERNEL);
+	restored_module = kzalloc_obj(*restored_module);
 	if (!restored_module)
 		return;
 
@@ -2912,6 +2913,7 @@ static void ti_sysc_idle(struct work_struct *work)
 static const struct soc_device_attribute sysc_soc_match[] = {
 	SOC_FLAG("OMAP242*", SOC_2420),
 	SOC_FLAG("OMAP243*", SOC_2430),
+	SOC_FLAG("AM33*", SOC_AM33),
 	SOC_FLAG("AM35*", SOC_AM35),
 	SOC_FLAG("OMAP3[45]*", SOC_3430),
 	SOC_FLAG("OMAP3[67]*", SOC_3630),
@@ -2951,7 +2953,7 @@ static int sysc_add_disabled(unsigned long base)
 {
 	struct sysc_address *disabled_module;
 
-	disabled_module = kzalloc(sizeof(*disabled_module), GFP_KERNEL);
+	disabled_module = kzalloc_obj(*disabled_module);
 	if (!disabled_module)
 		return -ENOMEM;
 
@@ -2982,7 +2984,7 @@ static int sysc_init_static_data(struct sysc *ddata)
 	if (sysc_soc)
 		return 0;
 
-	sysc_soc = kzalloc(sizeof(*sysc_soc), GFP_KERNEL);
+	sysc_soc = kzalloc_obj(*sysc_soc);
 	if (!sysc_soc)
 		return -ENOMEM;
 
@@ -3117,10 +3119,15 @@ static int sysc_check_active_timer(struct sysc *ddata)
 	 * can be dropped if we stop supporting old beagleboard revisions
 	 * A to B4 at some point.
 	 */
-	if (sysc_soc->soc == SOC_3430 || sysc_soc->soc == SOC_AM35)
+	switch (sysc_soc->soc) {
+	case SOC_AM33:
+	case SOC_3430:
+	case SOC_AM35:
 		error = -ENXIO;
-	else
+		break;
+	default:
 		error = -EBUSY;
+	}
 
 	if ((ddata->cfg.quirks & SYSC_QUIRK_NO_RESET_ON_INIT) &&
 	    (ddata->cfg.quirks & SYSC_QUIRK_NO_IDLE))

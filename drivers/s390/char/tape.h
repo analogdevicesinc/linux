@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- *    tape device driver for 3480/3490E/3590 tapes.
+ *    tape device driver for 3490E tapes.
  *
  *  S390 and zSeries version
  *    Copyright IBM Corp. 2001, 2009
@@ -98,10 +98,6 @@ enum tape_op {
 	TO_DIS,		/* Tape display */
 	TO_ASSIGN,	/* Assign tape to channel path */
 	TO_UNASSIGN,	/* Unassign tape from channel path */
-	TO_CRYPT_ON,	/* Enable encrpytion */
-	TO_CRYPT_OFF,	/* Disable encrpytion */
-	TO_KEKL_SET,	/* Set KEK label */
-	TO_KEKL_QUERY,	/* Query KEK label */
 	TO_RDC,		/* Read device characteristics */
 	TO_SIZE,	/* #entries in tape_op_t */
 };
@@ -130,6 +126,7 @@ struct tape_request {
 	int retries;			/* retry counter for error recovery. */
 	int rescnt;			/* residual count from devstat. */
 	struct timer_list timer;	/* timer for std_assign_timeout(). */
+	struct irb irb;			/* device status */
 
 	/* Callback for delivering final status. */
 	void (*callback)(struct tape_request *, void *);
@@ -151,11 +148,9 @@ struct tape_discipline {
 	int  (*setup_device)(struct tape_device *);
 	void (*cleanup_device)(struct tape_device *);
 	int (*irq)(struct tape_device *, struct tape_request *, struct irb *);
-	struct tape_request *(*read_block)(struct tape_device *, size_t);
-	struct tape_request *(*write_block)(struct tape_device *, size_t);
+	struct tape_request *(*read_block)(struct tape_device *);
+	struct tape_request *(*write_block)(struct tape_device *);
 	void (*process_eov)(struct tape_device*);
-	/* ioctl function for additional ioctls. */
-	int (*ioctl_fn)(struct tape_device *, unsigned int, unsigned long);
 	/* Array of tape commands with TAPE_NR_MTOPS entries */
 	tape_mtop_fn *mtop_array;
 };
@@ -172,7 +167,7 @@ struct tape_discipline {
 
 /* Char Frontend Data */
 struct tape_char_data {
-	struct idal_buffer *idal_buf;	/* idal buffer for user char data */
+	struct idal_buffer **ibs;	/* idal buffer array for user char data */
 	int block_size;			/*   of size block_size. */
 };
 
@@ -191,7 +186,6 @@ struct tape_device {
 
 	/* Device discipline information. */
 	struct tape_discipline *	discipline;
-	void *				discdata;
 
 	/* Generic status flags */
 	long				tape_generic_status;
@@ -234,6 +228,7 @@ struct tape_device {
 /* Externals from tape_core.c */
 extern struct tape_request *tape_alloc_request(int cplength, int datasize);
 extern void tape_free_request(struct tape_request *);
+extern int tape_check_idalbuffer(struct tape_device *device, size_t size);
 extern int tape_do_io(struct tape_device *, struct tape_request *);
 extern int tape_do_io_async(struct tape_device *, struct tape_request *);
 extern int tape_do_io_interruptible(struct tape_device *, struct tape_request *);
@@ -278,6 +273,10 @@ extern int tapechar_init(void);
 extern void tapechar_exit(void);
 extern int  tapechar_setup_device(struct tape_device *);
 extern void tapechar_cleanup_device(struct tape_device *);
+
+/* Externals from tape_3490.c */
+extern int tape_3490_init(void);
+extern void tape_3490_exit(void);
 
 /* tape initialisation functions */
 #ifdef CONFIG_PROC_FS
@@ -347,12 +346,21 @@ tape_ccw_repeat(struct ccw1 *ccw, __u8 cmd_code, int count)
 }
 
 static inline struct ccw1 *
+tape_ccw_dc_idal(struct ccw1 *ccw, __u8 cmd_code, struct idal_buffer *idal)
+{
+	ccw->cmd_code = cmd_code;
+	ccw->flags    = CCW_FLAG_DC;
+	idal_buffer_set_cda(idal, ccw);
+	return ccw + 1;
+}
+
+static inline struct ccw1 *
 tape_ccw_cc_idal(struct ccw1 *ccw, __u8 cmd_code, struct idal_buffer *idal)
 {
 	ccw->cmd_code = cmd_code;
 	ccw->flags    = CCW_FLAG_CC;
 	idal_buffer_set_cda(idal, ccw);
-	return ccw++;
+	return ccw + 1;
 }
 
 static inline struct ccw1 *
@@ -361,7 +369,7 @@ tape_ccw_end_idal(struct ccw1 *ccw, __u8 cmd_code, struct idal_buffer *idal)
 	ccw->cmd_code = cmd_code;
 	ccw->flags    = 0;
 	idal_buffer_set_cda(idal, ccw);
-	return ccw++;
+	return ccw + 1;
 }
 
 /* Global vars */

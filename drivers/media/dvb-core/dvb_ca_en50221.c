@@ -785,7 +785,7 @@ exit:
  *	 be written.
  * @bytes_write: Size of ebuf.
  * @size_write_flag: A flag on Command Register which says whether the link size
- * information will be writen or not.
+ * information will be written or not.
  *
  * return: Number of bytes written, or < 0 on error.
  */
@@ -1880,7 +1880,7 @@ int dvb_ca_en50221_init(struct dvb_adapter *dvb_adapter,
 		return -EINVAL;
 
 	/* initialise the system data */
-	ca = kzalloc(sizeof(*ca), GFP_KERNEL);
+	ca = kzalloc_obj(*ca);
 	if (!ca) {
 		ret = -ENOMEM;
 		goto exit;
@@ -1889,8 +1889,7 @@ int dvb_ca_en50221_init(struct dvb_adapter *dvb_adapter,
 	ca->pub = pubca;
 	ca->flags = flags;
 	ca->slot_count = slot_count;
-	ca->slot_info = kcalloc(slot_count, sizeof(struct dvb_ca_slot),
-				GFP_KERNEL);
+	ca->slot_info = kzalloc_objs(struct dvb_ca_slot, slot_count);
 	if (!ca->slot_info) {
 		ret = -ENOMEM;
 		goto free_ca;

@@ -34,6 +34,18 @@ static unsigned int bnge_get_max_func_stat_ctxs(struct bnge_dev *bd)
 	return bd->hw_resc.max_stat_ctxs;
 }
 
+bool bnge_aux_has_enough_resources(struct bnge_dev *bd)
+{
+	unsigned int max_stat_ctxs;
+
+	max_stat_ctxs = bnge_get_max_func_stat_ctxs(bd);
+	if (max_stat_ctxs <= BNGE_MIN_ROCE_STAT_CTXS ||
+	    bd->nq_nr_rings == max_stat_ctxs)
+		return false;
+
+	return true;
+}
+
 static unsigned int bnge_get_max_func_cp_rings(struct bnge_dev *bd)
 {
 	return bd->hw_resc.max_cp_rings;
@@ -377,7 +389,7 @@ int bnge_alloc_irqs(struct bnge_dev *bd)
 	num_entries = irqs_demand;
 	if (pci_msix_can_alloc_dyn(bd->pdev))
 		num_entries = max;
-	bd->irq_tbl = kcalloc(num_entries, sizeof(*bd->irq_tbl), GFP_KERNEL);
+	bd->irq_tbl = kzalloc_objs(*bd->irq_tbl, num_entries);
 	if (!bd->irq_tbl) {
 		rc = -ENOMEM;
 		goto err_free_irqs;

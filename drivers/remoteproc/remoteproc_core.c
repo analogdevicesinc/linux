@@ -16,29 +16,25 @@
 
 #define pr_fmt(fmt)    "%s: " fmt, __func__
 
+#include <asm/byteorder.h>
 #include <linux/delay.h>
+#include <linux/device.h>
+#include <linux/dma-mapping.h>
+#include <linux/elf.h>
+#include <linux/firmware.h>
+#include <linux/idr.h>
+#include <linux/iommu.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/device.h>
-#include <linux/panic_notifier.h>
-#include <linux/slab.h>
 #include <linux/mutex.h>
-#include <linux/dma-mapping.h>
-#include <linux/firmware.h>
-#include <linux/string.h>
-#include <linux/debugfs.h>
+#include <linux/of_platform.h>
+#include <linux/panic_notifier.h>
+#include <linux/platform_device.h>
 #include <linux/rculist.h>
 #include <linux/remoteproc.h>
-#include <linux/iommu.h>
-#include <linux/idr.h>
-#include <linux/elf.h>
-#include <linux/crc32.h>
-#include <linux/of_platform.h>
-#include <linux/of_reserved_mem.h>
-#include <linux/virtio_ids.h>
+#include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/virtio_ring.h>
-#include <asm/byteorder.h>
-#include <linux/platform_device.h>
 
 #include "remoteproc_internal.h"
 
@@ -159,7 +155,6 @@ phys_addr_t rproc_va_to_pa(void *cpu_addr)
 	WARN_ON(!virt_addr_valid(cpu_addr));
 	return virt_to_phys(cpu_addr);
 }
-EXPORT_SYMBOL(rproc_va_to_pa);
 
 /**
  * rproc_da_to_va() - lookup the kernel virtual address for a remoteproc address
@@ -562,7 +557,7 @@ static int rproc_handle_trace(struct rproc *rproc, void *ptr,
 		return -EINVAL;
 	}
 
-	trace = kzalloc(sizeof(*trace), GFP_KERNEL);
+	trace = kzalloc_obj(*trace);
 	if (!trace)
 		return -ENOMEM;
 
@@ -640,7 +635,7 @@ static int rproc_handle_devmem(struct rproc *rproc, void *ptr,
 		return -EINVAL;
 	}
 
-	mapping = kzalloc(sizeof(*mapping), GFP_KERNEL);
+	mapping = kzalloc_obj(*mapping);
 	if (!mapping)
 		return -ENOMEM;
 
@@ -732,7 +727,7 @@ static int rproc_alloc_carveout(struct rproc *rproc,
 	 * physical address in this case.
 	 */
 	if (mem->da != FW_RSC_ADDR_ANY && rproc->domain) {
-		mapping = kzalloc(sizeof(*mapping), GFP_KERNEL);
+		mapping = kzalloc_obj(*mapping);
 		if (!mapping) {
 			ret = -ENOMEM;
 			goto dma_free;
@@ -922,7 +917,7 @@ rproc_mem_entry_init(struct device *dev,
 	struct rproc_mem_entry *mem;
 	va_list args;
 
-	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
+	mem = kzalloc_obj(*mem);
 	if (!mem)
 		return mem;
 
@@ -965,7 +960,7 @@ rproc_of_resm_mem_entry_init(struct device *dev, u32 of_resm_idx, size_t len,
 	struct rproc_mem_entry *mem;
 	va_list args;
 
-	mem = kzalloc(sizeof(*mem), GFP_KERNEL);
+	mem = kzalloc_obj(*mem);
 	if (!mem)
 		return mem;
 
@@ -1989,7 +1984,7 @@ EXPORT_SYMBOL(rproc_boot);
 int rproc_shutdown(struct rproc *rproc)
 {
 	struct device *dev = &rproc->dev;
-	int ret = 0;
+	int ret;
 
 	ret = mutex_lock_interruptible(&rproc->lock);
 	if (ret) {

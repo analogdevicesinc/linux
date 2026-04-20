@@ -135,7 +135,7 @@ acpi_parse_prmt(union acpi_subtable_headers *header, const unsigned long end)
 			goto parse_prmt_out4;
 		memmove(tm->mmio_info, temp_mmio, mmio_range_size);
 	} else {
-		tm->mmio_info = kmalloc(sizeof(*tm->mmio_info), GFP_KERNEL);
+		tm->mmio_info = kmalloc_obj(*tm->mmio_info);
 		if (!tm->mmio_info)
 			goto parse_prmt_out2;
 
@@ -243,6 +243,12 @@ static struct prm_handler_info *find_prm_handler(const guid_t *guid)
 {
 	return (struct prm_handler_info *) find_guid_info(guid, GET_HANDLER);
 }
+
+bool acpi_prm_handler_available(const guid_t *guid)
+{
+	return find_prm_handler(guid) && find_prm_module(guid);
+}
+EXPORT_SYMBOL_GPL(acpi_prm_handler_available);
 
 /* In-coming PRM commands */
 

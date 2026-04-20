@@ -678,13 +678,8 @@ static int alc5623_set_dai_fmt(struct snd_soc_dai *codec_dai,
 	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
 	case SND_SOC_DAIFMT_NB_NF:
 		break;
-	case SND_SOC_DAIFMT_IB_IF:
-		iface |= ALC5623_DAI_MAIN_I2S_BCLK_POL_CTRL;
-		break;
 	case SND_SOC_DAIFMT_IB_NF:
 		iface |= ALC5623_DAI_MAIN_I2S_BCLK_POL_CTRL;
-		break;
-	case SND_SOC_DAIFMT_NB_IF:
 		break;
 	default:
 		return -EINVAL;
@@ -888,7 +883,7 @@ static int alc5623_resume(struct snd_soc_component *component)
 static int alc5623_probe(struct snd_soc_component *component)
 {
 	struct alc5623_priv *alc5623 = snd_soc_component_get_drvdata(component);
-	struct snd_soc_dapm_context *dapm = snd_soc_component_get_dapm(component);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 
 	alc5623_reset(component);
 

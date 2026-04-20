@@ -6,6 +6,7 @@
 #include <drm/drm_modeset_helper.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_print.h>
 
 #include "armada_drm.h"
 #include "armada_fb.h"
@@ -56,7 +57,7 @@ struct armada_framebuffer *armada_framebuffer_create(struct drm_device *dev,
 		return ERR_PTR(-EINVAL);
 	}
 
-	dfb = kzalloc(sizeof(*dfb), GFP_KERNEL);
+	dfb = kzalloc_obj(*dfb);
 	if (!dfb) {
 		DRM_ERROR("failed to allocate Armada fb object\n");
 		return ERR_PTR(-ENOMEM);

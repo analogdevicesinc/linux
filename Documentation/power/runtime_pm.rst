@@ -443,13 +443,11 @@ drivers/base/power/runtime.c and include/linux/pm_runtime.h:
       necessary to execute the subsystem-level resume callback for the device
       to satisfy that request, otherwise 0 is returned
 
-  `int pm_runtime_barrier(struct device *dev);`
+  `void pm_runtime_barrier(struct device *dev);`
     - check if there's a resume request pending for the device and resume it
       (synchronously) in that case, cancel any other pending runtime PM requests
       regarding it and wait for all runtime PM operations on it in progress to
-      complete; returns 1 if there was a resume request pending and it was
-      necessary to execute the subsystem-level resume callback for the device to
-      satisfy that request, otherwise 0 is returned
+      complete
 
   `void pm_suspend_ignore_children(struct device *dev, bool enable);`
     - set/unset the power.ignore_children flag of the device
@@ -479,16 +477,6 @@ drivers/base/power/runtime.c and include/linux/pm_runtime.h:
 
   `bool pm_runtime_status_suspended(struct device *dev);`
     - return true if the device's runtime PM status is 'suspended'
-
-  `void pm_runtime_allow(struct device *dev);`
-    - set the power.runtime_auto flag for the device and decrease its usage
-      counter (used by the /sys/devices/.../power/control interface to
-      effectively allow the device to be power managed at run time)
-
-  `void pm_runtime_forbid(struct device *dev);`
-    - unset the power.runtime_auto flag for the device and increase its usage
-      counter (used by the /sys/devices/.../power/control interface to
-      effectively prevent the device from being power managed at run time)
 
   `void pm_runtime_no_callbacks(struct device *dev);`
     - set the power.no_callbacks flag for the device and remove the runtime
@@ -724,10 +712,9 @@ out the following operations:
   * During system suspend pm_runtime_get_noresume() is called for every device
     right before executing the subsystem-level .prepare() callback for it and
     pm_runtime_barrier() is called for every device right before executing the
-    subsystem-level .suspend() callback for it.  In addition to that the PM core
-    calls __pm_runtime_disable() with 'false' as the second argument for every
-    device right before executing the subsystem-level .suspend_late() callback
-    for it.
+    subsystem-level .suspend() callback for it.  In addition to that, the PM
+    core disables runtime PM for every device right before executing the
+    subsystem-level .suspend_late() callback for it.
 
   * During system resume pm_runtime_enable() and pm_runtime_put() are called for
     every device right after executing the subsystem-level .resume_early()

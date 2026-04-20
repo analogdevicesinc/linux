@@ -46,6 +46,7 @@
 #include <linux/dma-mapping.h>
 
 #include "hub.h"
+#include "trace.h"
 
 const char *usbcore_name = "usbcore";
 
@@ -647,7 +648,7 @@ struct usb_device *usb_alloc_dev(struct usb_device *parent,
 	struct usb_hcd *usb_hcd = bus_to_hcd(bus);
 	unsigned raw_port = port1;
 
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	dev = kzalloc_obj(*dev);
 	if (!dev)
 		return NULL;
 
@@ -746,6 +747,7 @@ struct usb_device *usb_alloc_dev(struct usb_device *parent,
 #endif
 
 	dev->authorized = usb_dev_authorized(dev, usb_hcd);
+	trace_usb_alloc_dev(dev);
 	return dev;
 }
 EXPORT_SYMBOL_GPL(usb_alloc_dev);

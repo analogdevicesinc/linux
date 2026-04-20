@@ -60,7 +60,9 @@ static void rnbd_clt_put_dev(struct rnbd_clt_dev *dev)
 	kfree(dev->pathname);
 	rnbd_clt_put_sess(dev->sess);
 	mutex_destroy(&dev->lock);
-	kfree(dev);
+
+	if (dev->kobj.state_initialized)
+		kobject_put(&dev->kobj);
 }
 
 static inline bool rnbd_clt_get_dev(struct rnbd_clt_dev *dev)
@@ -322,7 +324,7 @@ static struct rnbd_iu *rnbd_get_iu(struct rnbd_clt_session *sess,
 	struct rnbd_iu *iu;
 	struct rtrs_permit *permit;
 
-	iu = kzalloc(sizeof(*iu), GFP_KERNEL);
+	iu = kzalloc_obj(*iu);
 	if (!iu)
 		return NULL;
 
@@ -539,7 +541,7 @@ static int send_msg_open(struct rnbd_clt_dev *dev, enum wait_type wait)
 	};
 	int err, errno;
 
-	rsp = kzalloc(sizeof(*rsp), GFP_KERNEL);
+	rsp = kzalloc_obj(*rsp);
 	if (!rsp)
 		return -ENOMEM;
 
@@ -585,7 +587,7 @@ static int send_msg_sess_info(struct rnbd_clt_session *sess, enum wait_type wait
 	};
 	int err, errno;
 
-	rsp = kzalloc(sizeof(*rsp), GFP_KERNEL);
+	rsp = kzalloc_obj(*rsp);
 	if (!rsp)
 		return -ENOMEM;
 
@@ -1415,17 +1417,18 @@ static struct rnbd_clt_dev *init_dev(struct rnbd_clt_session *sess,
 	 * nr_cpu_ids: the number of softirq queues
 	 * nr_poll_queues: the number of polling queues
 	 */
-	dev->hw_queues = kcalloc(nr_cpu_ids + nr_poll_queues,
-				 sizeof(*dev->hw_queues),
-				 GFP_KERNEL);
+	dev->hw_queues = kzalloc_objs(*dev->hw_queues,
+				      nr_cpu_ids + nr_poll_queues);
 	if (!dev->hw_queues) {
 		ret = -ENOMEM;
 		goto out_alloc;
 	}
 
-	ret = ida_alloc_max(&index_ida, (1 << (MINORBITS - RNBD_PART_BITS)) - 1,
-			    GFP_KERNEL);
-	if (ret < 0) {
+	dev->clt_device_id = ida_alloc_max(&index_ida,
+					   (1 << (MINORBITS - RNBD_PART_BITS)) - 1,
+					   GFP_KERNEL);
+	if (dev->clt_device_id < 0) {
+		ret = dev->clt_device_id;
 		pr_err("Failed to initialize device '%s' from session %s, allocating idr failed, err: %d\n",
 		       pathname, sess->sessname, ret);
 		goto out_queues;
@@ -1434,10 +1437,9 @@ static struct rnbd_clt_dev *init_dev(struct rnbd_clt_session *sess,
 	dev->pathname = kstrdup(pathname, GFP_KERNEL);
 	if (!dev->pathname) {
 		ret = -ENOMEM;
-		goto out_queues;
+		goto out_ida;
 	}
 
-	dev->clt_device_id	= ret;
 	dev->sess		= sess;
 	dev->access_mode	= access_mode;
 	dev->nr_poll_queues	= nr_poll_queues;
@@ -1453,6 +1455,8 @@ static struct rnbd_clt_dev *init_dev(struct rnbd_clt_session *sess,
 
 	return dev;
 
+out_ida:
+	ida_free(&index_ida, dev->clt_device_id);
 out_queues:
 	kfree(dev->hw_queues);
 out_alloc:
@@ -1514,7 +1518,7 @@ static bool insert_dev_if_not_exists_devpath(struct rnbd_clt_dev *dev)
 	return found;
 }
 
-static void delete_dev(struct rnbd_clt_dev *dev)
+static void rnbd_delete_dev(struct rnbd_clt_dev *dev)
 {
 	struct rnbd_clt_session *sess = dev->sess;
 
@@ -1560,7 +1564,7 @@ struct rnbd_clt_dev *rnbd_clt_map_device(const char *sessname,
 		goto put_dev;
 	}
 
-	rsp = kzalloc(sizeof(*rsp), GFP_KERNEL);
+	rsp = kzalloc_obj(*rsp);
 	if (!rsp) {
 		ret = -ENOMEM;
 		goto del_dev;
@@ -1635,7 +1639,7 @@ put_iu:
 	kfree(rsp);
 	rnbd_put_iu(sess, iu);
 del_dev:
-	delete_dev(dev);
+	rnbd_delete_dev(dev);
 put_dev:
 	rnbd_clt_put_dev(dev);
 put_sess:
@@ -1644,13 +1648,13 @@ put_sess:
 	return ERR_PTR(ret);
 }
 
-static void destroy_gen_disk(struct rnbd_clt_dev *dev)
+static void rnbd_destroy_gen_disk(struct rnbd_clt_dev *dev)
 {
 	del_gendisk(dev->gd);
 	put_disk(dev->gd);
 }
 
-static void destroy_sysfs(struct rnbd_clt_dev *dev,
+static void rnbd_destroy_sysfs(struct rnbd_clt_dev *dev,
 			  const struct attribute *sysfs_self)
 {
 	rnbd_clt_remove_dev_symlink(dev);
@@ -1659,7 +1663,6 @@ static void destroy_sysfs(struct rnbd_clt_dev *dev,
 			/* To avoid deadlock firstly remove itself */
 			sysfs_remove_file_self(&dev->kobj, sysfs_self);
 		kobject_del(&dev->kobj);
-		kobject_put(&dev->kobj);
 	}
 }
 
@@ -1688,9 +1691,9 @@ int rnbd_clt_unmap_device(struct rnbd_clt_dev *dev, bool force,
 	dev->dev_state = DEV_STATE_UNMAPPED;
 	mutex_unlock(&dev->lock);
 
-	delete_dev(dev);
-	destroy_sysfs(dev, sysfs_self);
-	destroy_gen_disk(dev);
+	rnbd_delete_dev(dev);
+	rnbd_destroy_sysfs(dev, sysfs_self);
+	rnbd_destroy_gen_disk(dev);
 	if (was_mapped && sess->rtrs)
 		send_msg_close(dev, dev->device_id, RTRS_PERMIT_WAIT);
 

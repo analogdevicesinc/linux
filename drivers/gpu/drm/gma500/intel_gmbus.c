@@ -32,6 +32,8 @@
 #include <linux/i2c.h>
 #include <linux/module.h>
 
+#include <drm/drm_print.h>
+
 #include "psb_drv.h"
 #include "psb_intel_drv.h"
 #include "psb_intel_reg.h"
@@ -185,7 +187,7 @@ intel_gpio_create(struct drm_psb_private *dev_priv, u32 pin)
 	if (pin >= ARRAY_SIZE(map_pin_to_reg) || !map_pin_to_reg[pin])
 		return NULL;
 
-	gpio = kzalloc(sizeof(struct intel_gpio), GFP_KERNEL);
+	gpio = kzalloc_obj(struct intel_gpio);
 	if (gpio == NULL)
 		return NULL;
 
@@ -397,8 +399,7 @@ int gma_intel_setup_gmbus(struct drm_device *dev)
 	struct drm_psb_private *dev_priv = to_drm_psb_private(dev);
 	int ret, i;
 
-	dev_priv->gmbus = kcalloc(GMBUS_NUM_PORTS, sizeof(struct intel_gmbus),
-				  GFP_KERNEL);
+	dev_priv->gmbus = kzalloc_objs(struct intel_gmbus, GMBUS_NUM_PORTS);
 	if (dev_priv->gmbus == NULL)
 		return -ENOMEM;
 

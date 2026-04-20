@@ -27,6 +27,7 @@
 #include "sof_board_helpers.h"
 #include "sof_maxim_common.h"
 #include "sof_realtek_common.h"
+#include "sof_ti_common.h"
 
 /* Driver-specific board quirks: from bit 0 to 7 */
 #define SOF_RT5682_MCLK_EN			BIT(0)
@@ -34,6 +35,10 @@
 /* Default: MCLK on, MCLK 19.2M, SSP0  */
 static unsigned long sof_rt5682_quirk = SOF_RT5682_MCLK_EN |
 					SOF_SSP_PORT_CODEC(0);
+
+static int quirk_override = -1;
+module_param_named(quirk, quirk_override, int, 0444);
+MODULE_PARM_DESC(quirk, "Board-specific quirk override");
 
 static int sof_rt5682_quirk_cb(const struct dmi_system_id *id)
 {
@@ -404,7 +409,7 @@ static const struct snd_soc_ops sof_rt5682_ops = {
 static int sof_card_late_probe(struct snd_soc_card *card)
 {
 	struct sof_card_private *ctx = snd_soc_card_get_drvdata(card);
-	struct snd_soc_dapm_context *dapm = &card->dapm;
+	struct snd_soc_dapm_context *dapm = snd_soc_card_to_dapm(card);
 	int err;
 
 	if (ctx->amp_type == CODEC_MAX98373) {
@@ -458,9 +463,10 @@ static const struct snd_soc_dapm_route rt5650_spk_dapm_routes[] = {
 static int rt5650_spk_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_card *card = rtd->card;
+	struct snd_soc_dapm_context *dapm = snd_soc_card_to_dapm(card);
 	int ret;
 
-	ret = snd_soc_dapm_new_controls(&card->dapm, rt5650_spk_widgets,
+	ret = snd_soc_dapm_new_controls(dapm, rt5650_spk_widgets,
 					ARRAY_SIZE(rt5650_spk_widgets));
 	if (ret) {
 		dev_err(rtd->dev, "fail to add rt5650 spk widgets, ret %d\n",
@@ -476,7 +482,7 @@ static int rt5650_spk_init(struct snd_soc_pcm_runtime *rtd)
 		return ret;
 	}
 
-	ret = snd_soc_dapm_add_routes(&card->dapm, rt5650_spk_dapm_routes,
+	ret = snd_soc_dapm_add_routes(dapm, rt5650_spk_dapm_routes,
 				      ARRAY_SIZE(rt5650_spk_dapm_routes));
 	if (ret)
 		dev_err(rtd->dev, "fail to add dapm routes, ret=%d\n", ret);
@@ -615,6 +621,9 @@ sof_card_dai_links_create(struct device *dev, struct snd_soc_card *card,
 		ctx->amp_link->init = rt5650_spk_init;
 		ctx->amp_link->ops = &sof_rt5682_ops;
 		break;
+	case CODEC_TAS2563:
+		sof_tas2563_dai_link(ctx->amp_link);
+		break;
 	default:
 		dev_err(dev, "invalid amp type %d\n", ctx->amp_type);
 		return -EINVAL;
@@ -642,6 +651,12 @@ static int sof_audio_probe(struct platform_device *pdev)
 		sof_rt5682_quirk = (unsigned long)pdev->id_entry->driver_data;
 
 	dmi_check_system(sof_rt5682_quirk_table);
+
+	if (quirk_override != -1) {
+		dev_info(&pdev->dev, "Overriding quirk 0x%lx => 0x%x\n",
+			 sof_rt5682_quirk, quirk_override);
+		sof_rt5682_quirk = quirk_override;
+	}
 
 	dev_dbg(&pdev->dev, "sof_rt5682_quirk = %lx\n", sof_rt5682_quirk);
 
@@ -756,6 +771,7 @@ static int sof_audio_probe(struct platform_device *pdev)
 	case CODEC_MAX98360A:
 	case CODEC_RT1019P:
 	case CODEC_RT5650:
+	case CODEC_TAS2563:
 	case CODEC_NONE:
 		/* no codec conf required */
 		break;
@@ -923,3 +939,4 @@ MODULE_LICENSE("GPL v2");
 MODULE_IMPORT_NS("SND_SOC_INTEL_SOF_BOARD_HELPERS");
 MODULE_IMPORT_NS("SND_SOC_INTEL_SOF_MAXIM_COMMON");
 MODULE_IMPORT_NS("SND_SOC_INTEL_SOF_REALTEK_COMMON");
+MODULE_IMPORT_NS("SND_SOC_INTEL_SOF_TI_COMMON");

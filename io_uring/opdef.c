@@ -221,8 +221,10 @@ const struct io_issue_def io_issue_defs[] = {
 		.issue			= io_fallocate,
 	},
 	[IORING_OP_OPENAT] = {
+		.filter_pdu_size	= sizeof_field(struct io_uring_bpf_ctx, open),
 		.prep			= io_openat_prep,
 		.issue			= io_openat,
+		.filter_populate	= io_openat_bpf_populate,
 	},
 	[IORING_OP_CLOSE] = {
 		.prep			= io_close_prep,
@@ -309,8 +311,10 @@ const struct io_issue_def io_issue_defs[] = {
 #endif
 	},
 	[IORING_OP_OPENAT2] = {
+		.filter_pdu_size	= sizeof_field(struct io_uring_bpf_ctx, open),
 		.prep			= io_openat2_prep,
 		.issue			= io_openat2,
+		.filter_populate	= io_openat_bpf_populate,
 	},
 	[IORING_OP_EPOLL_CTL] = {
 		.unbound_nonreg_file	= 1,
@@ -406,8 +410,10 @@ const struct io_issue_def io_issue_defs[] = {
 	[IORING_OP_SOCKET] = {
 		.audit_skip		= 1,
 #if defined(CONFIG_NET)
+		.filter_pdu_size	= sizeof_field(struct io_uring_bpf_ctx, socket),
 		.prep			= io_socket_prep,
 		.issue			= io_socket,
+		.filter_populate	= io_socket_bpf_populate,
 #else
 		.prep			= io_eopnotsupp_prep,
 #endif
@@ -574,6 +580,24 @@ const struct io_issue_def io_issue_defs[] = {
 	[IORING_OP_PIPE] = {
 		.prep			= io_pipe_prep,
 		.issue			= io_pipe,
+	},
+	[IORING_OP_NOP128] = {
+		.audit_skip		= 1,
+		.iopoll			= 1,
+		.is_128			= 1,
+		.prep			= io_nop_prep,
+		.issue			= io_nop,
+	},
+	[IORING_OP_URING_CMD128] = {
+		.buffer_select		= 1,
+		.needs_file		= 1,
+		.plug			= 1,
+		.iopoll			= 1,
+		.iopoll_queue		= 1,
+		.is_128			= 1,
+		.async_size		= sizeof(struct io_async_cmd),
+		.prep			= io_uring_cmd_prep,
+		.issue			= io_uring_cmd,
 	},
 };
 
@@ -824,6 +848,14 @@ const struct io_cold_def io_cold_defs[] = {
 	},
 	[IORING_OP_PIPE] = {
 		.name			= "PIPE",
+	},
+	[IORING_OP_NOP128] = {
+		.name			= "NOP128",
+	},
+	[IORING_OP_URING_CMD128] = {
+		.name			= "URING_CMD128",
+		.sqe_copy		= io_uring_cmd_sqe_copy,
+		.cleanup		= io_uring_cmd_cleanup,
 	},
 };
 

@@ -175,19 +175,24 @@
 #define MT_DEVICE_nGnRE		4
 
 /*
- * Memory types for Stage-2 translation
+ * Memory types for Stage-2 translation when HCR_EL2.FWB=0. See R_HMNDG,
+ * R_TNHFM, R_GQFSF and I_MCQKW for the details on how these attributes get
+ * combined with Stage-1.
  */
 #define MT_S2_NORMAL		0xf
 #define MT_S2_NORMAL_NC		0x5
 #define MT_S2_DEVICE_nGnRE	0x1
+#define MT_S2_AS_S1		MT_S2_NORMAL
 
 /*
- * Memory types for Stage-2 translation when ID_AA64MMFR2_EL1.FWB is 0001
- * Stage-2 enforces Normal-WB and Device-nGnRE
+ * Memory types for Stage-2 translation when HCR_EL2.FWB=1. Stage-2 enforces
+ * Normal-WB and Device-nGnRE, unless we actively say that S1 wins. See
+ * R_VRJSW and R_RHWZM for details.
  */
 #define MT_S2_FWB_NORMAL	6
 #define MT_S2_FWB_NORMAL_NC	5
 #define MT_S2_FWB_DEVICE_nGnRE	1
+#define MT_S2_FWB_AS_S1		7
 
 #ifdef CONFIG_ARM64_4K_PAGES
 #define IOREMAP_MAX_ORDER	(PUD_SHIFT)
@@ -207,7 +212,7 @@
  */
 #define TRAMP_SWAPPER_OFFSET	(2 * PAGE_SIZE)
 
-#ifndef __ASSEMBLY__
+#ifndef __ASSEMBLER__
 
 #include <linux/bitops.h>
 #include <linux/compiler.h>
@@ -392,7 +397,6 @@ static inline unsigned long virt_to_pfn(const void *kaddr)
  *  virt_to_page(x)	convert a _valid_ virtual address to struct page *
  *  virt_addr_valid(x)	indicates whether a virtual address is valid
  */
-#define ARCH_PFN_OFFSET		((unsigned long)PHYS_PFN_OFFSET)
 
 #if defined(CONFIG_DEBUG_VIRTUAL)
 #define page_to_virt(x)	({						\
@@ -422,7 +426,7 @@ static inline unsigned long virt_to_pfn(const void *kaddr)
 })
 
 void dump_mem_limit(void);
-#endif /* !ASSEMBLY */
+#endif /* !__ASSEMBLER__ */
 
 /*
  * Given that the GIC architecture permits ITS implementations that can only be

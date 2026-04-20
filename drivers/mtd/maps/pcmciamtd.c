@@ -665,6 +665,7 @@ static void pcmciamtd_detach(struct pcmcia_device *link)
 	}
 
 	pcmciamtd_release(link);
+	kfree(dev);
 }
 
 
@@ -673,7 +674,7 @@ static int pcmciamtd_probe(struct pcmcia_device *link)
 	struct pcmciamtd_dev *dev;
 
 	/* Create new memory card device */
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	dev = kzalloc_obj(*dev);
 	if (!dev) return -ENOMEM;
 	pr_debug("dev=0x%p\n", dev);
 

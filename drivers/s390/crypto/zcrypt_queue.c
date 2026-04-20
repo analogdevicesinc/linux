@@ -19,7 +19,6 @@
 #include <linux/fs.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <linux/compat.h>
 #include <linux/slab.h>
 #include <linux/atomic.h>
 #include <linux/uaccess.h>
@@ -116,7 +115,7 @@ struct zcrypt_queue *zcrypt_queue_alloc(size_t reply_buf_size)
 {
 	struct zcrypt_queue *zq;
 
-	zq = kzalloc(sizeof(*zq), GFP_KERNEL);
+	zq = kzalloc_obj(*zq);
 	if (!zq)
 		return NULL;
 	zq->reply.msg = kmalloc(reply_buf_size, GFP_KERNEL);

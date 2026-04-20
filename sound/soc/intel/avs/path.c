@@ -134,7 +134,7 @@ static struct avs_tplg_path *avs_condpath_find_variant(struct avs_dev *adev,
 static bool avs_tplg_path_template_id_equal(struct avs_tplg_path_template_id *id,
 					    struct avs_tplg_path_template_id *id2)
 {
-	return id->id == id2->id && !strcmp(id->tplg_name, id2->tplg_name);
+	return id->id == id2->id && !sysfs_streq(id->tplg_name, id2->tplg_name);
 }
 
 static struct avs_path *avs_condpath_find_match(struct avs_dev *adev,
@@ -210,9 +210,11 @@ int avs_path_set_constraint(struct avs_dev *adev, struct avs_tplg_path_template 
 					continue;
 				}
 
-				blob = avs_nhlt_config_or_default(adev, module_template);
-				if (IS_ERR(blob))
-					continue;
+				if (!module_template->nhlt_config) {
+					blob = avs_nhlt_config_or_default(adev, module_template);
+					if (IS_ERR(blob))
+						continue;
+				}
 
 				rlist[i] = path_template->fe_fmt->sampling_freq;
 				clist[i] = path_template->fe_fmt->num_channels;
@@ -382,7 +384,10 @@ static int avs_fill_gtw_config(struct avs_dev *adev, struct avs_copier_gtw_cfg *
 	struct acpi_nhlt_config *blob;
 	size_t gtw_size;
 
-	blob = avs_nhlt_config_or_default(adev, t);
+	if (t->nhlt_config)
+		blob = t->nhlt_config->blob;
+	else
+		blob = avs_nhlt_config_or_default(adev, t);
 	if (IS_ERR(blob))
 		return PTR_ERR(blob);
 
@@ -875,7 +880,7 @@ avs_path_module_create(struct avs_dev *adev,
 	if (module_id < 0)
 		return ERR_PTR(module_id);
 
-	mod = kzalloc(sizeof(*mod), GFP_KERNEL);
+	mod = kzalloc_obj(*mod);
 	if (!mod)
 		return ERR_PTR(-ENOMEM);
 
@@ -963,7 +968,7 @@ static struct avs_path_binding *avs_path_binding_create(struct avs_dev *adev,
 {
 	struct avs_path_binding *binding;
 
-	binding = kzalloc(sizeof(*binding), GFP_KERNEL);
+	binding = kzalloc_obj(*binding);
 	if (!binding)
 		return ERR_PTR(-ENOMEM);
 
@@ -1038,7 +1043,7 @@ avs_path_pipeline_create(struct avs_dev *adev, struct avs_path *owner,
 	struct avs_tplg_module *tmod;
 	int ret, i;
 
-	ppl = kzalloc(sizeof(*ppl), GFP_KERNEL);
+	ppl = kzalloc_obj(*ppl);
 	if (!ppl)
 		return ERR_PTR(-ENOMEM);
 
@@ -1168,7 +1173,7 @@ static struct avs_path *avs_path_create_unlocked(struct avs_dev *adev, u32 dma_i
 	struct avs_path *path;
 	int ret;
 
-	path = kzalloc(sizeof(*path), GFP_KERNEL);
+	path = kzalloc_obj(*path);
 	if (!path)
 		return ERR_PTR(-ENOMEM);
 

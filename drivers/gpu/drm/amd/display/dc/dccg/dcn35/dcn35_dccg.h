@@ -41,8 +41,9 @@
 	SR(SYMCLKA_CLOCK_ENABLE),\
 	SR(SYMCLKB_CLOCK_ENABLE),\
 	SR(SYMCLKC_CLOCK_ENABLE),\
-	SR(SYMCLKD_CLOCK_ENABLE),\
-	SR(SYMCLKE_CLOCK_ENABLE)
+	SR(SYMCLKD_CLOCK_ENABLE), \
+	SR(SYMCLKE_CLOCK_ENABLE),\
+	SR(SYMCLK_PSP_CNTL)
 
 #define DCCG_MASK_SH_LIST_DCN35(mask_sh) \
 	DCCG_SFI(DPPCLK_DTO_CTRL, DTO_DB_EN, DPPCLK, 0, mask_sh),\
@@ -231,6 +232,14 @@
 	DCCG_SF(DCCG_GATE_DISABLE_CNTL5, DPSTREAMCLK1_GATE_DISABLE, mask_sh),\
 	DCCG_SF(DCCG_GATE_DISABLE_CNTL5, DPSTREAMCLK2_GATE_DISABLE, mask_sh),\
 	DCCG_SF(DCCG_GATE_DISABLE_CNTL5, DPSTREAMCLK3_GATE_DISABLE, mask_sh),\
+	DCCG_SF(DISPCLK_FREQ_CHANGE_CNTL, DISPCLK_STEP_DELAY, mask_sh),\
+	DCCG_SF(DISPCLK_FREQ_CHANGE_CNTL, DISPCLK_STEP_SIZE, mask_sh),\
+	DCCG_SF(DISPCLK_FREQ_CHANGE_CNTL, DISPCLK_FREQ_RAMP_DONE, mask_sh),\
+	DCCG_SF(DISPCLK_FREQ_CHANGE_CNTL, DISPCLK_MAX_ERRDET_CYCLES, mask_sh),\
+	DCCG_SF(DISPCLK_FREQ_CHANGE_CNTL, DCCG_FIFO_ERRDET_RESET, mask_sh),\
+	DCCG_SF(DISPCLK_FREQ_CHANGE_CNTL, DCCG_FIFO_ERRDET_STATE, mask_sh),\
+	DCCG_SF(DISPCLK_FREQ_CHANGE_CNTL, DCCG_FIFO_ERRDET_OVR_EN, mask_sh),\
+	DCCG_SF(DISPCLK_FREQ_CHANGE_CNTL, DISPCLK_CHG_FWD_CORR_DISABLE, mask_sh),\
 
 struct dccg *dccg35_create(
 		struct dc_context *ctx,
@@ -240,8 +249,25 @@ struct dccg *dccg35_create(
 
 void dccg35_init(struct dccg *dccg);
 
+void dccg35_trigger_dio_fifo_resync(struct dccg *dccg);
+
+void dccg35_update_dpp_dto(struct dccg *dccg, int dpp_inst, int req_dppclk);
+
 void dccg35_enable_global_fgcg_rep(struct dccg *dccg, bool value);
 void dccg35_root_gate_disable_control(struct dccg *dccg, uint32_t pipe_idx, uint32_t disable_clock_gating);
 
+void dccg35_set_dpstreamclk_root_clock_gating(struct dccg *dccg, int dp_hpo_inst, bool enable);
+
+void dccg35_set_hdmistreamclk_root_clock_gating(struct dccg *dccg, bool enable);
+
+void dccg35_dpp_root_clock_control(struct dccg *dccg, unsigned int dpp_inst, bool clock_on);
+
+void dccg35_disable_symclk32_se(struct dccg *dccg, int hpo_se_inst);
+
+void dccg35_enable_dscclk(struct dccg *dccg, int inst);
+void dccg35_disable_dscclk(struct dccg *dccg, int inst);
+
+void dccg35_enable_symclk_se(struct dccg *dccg, uint32_t stream_enc_inst, uint32_t link_enc_inst);
+void dccg35_disable_symclk_se(struct dccg *dccg, uint32_t stream_enc_inst, uint32_t link_enc_inst);
 
 #endif //__DCN35_DCCG_H__

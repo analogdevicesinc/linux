@@ -75,7 +75,7 @@ static int max7360_pwm_round_waveform_tohw(struct pwm_chip *chip,
 			duty_steps = MAX7360_PWM_MAX - 1;
 	}
 
-	wfhw->duty_steps = min(MAX7360_PWM_MAX, duty_steps);
+	wfhw->duty_steps = duty_steps;
 	wfhw->enabled = !!wf->period_length_ns;
 
 	if (wf->period_length_ns && wf->period_length_ns < MAX7360_PWM_PERIOD_NS)
@@ -153,6 +153,7 @@ static int max7360_pwm_read_waveform(struct pwm_chip *chip,
 }
 
 static const struct pwm_ops max7360_pwm_ops = {
+	.sizeof_wfhw = sizeof(struct max7360_pwm_waveform),
 	.request = max7360_pwm_request,
 	.round_waveform_tohw = max7360_pwm_round_waveform_tohw,
 	.round_waveform_fromhw = max7360_pwm_round_waveform_fromhw,

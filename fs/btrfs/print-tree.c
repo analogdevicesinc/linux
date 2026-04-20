@@ -38,6 +38,7 @@ static const struct root_name_map root_map[] = {
 	{ BTRFS_BLOCK_GROUP_TREE_OBJECTID,	"BLOCK_GROUP_TREE"	},
 	{ BTRFS_DATA_RELOC_TREE_OBJECTID,	"DATA_RELOC_TREE"	},
 	{ BTRFS_RAID_STRIPE_TREE_OBJECTID,	"RAID_STRIPE_TREE"	},
+	{ BTRFS_REMAP_TREE_OBJECTID,		"REMAP_TREE"		},
 };
 
 const char *btrfs_root_name(const struct btrfs_key *key, char *buf)
@@ -131,7 +132,7 @@ static void print_extent_item(const struct extent_buffer *eb, int slot, int type
 		struct btrfs_tree_block_info *info;
 		info = (struct btrfs_tree_block_info *)(ei + 1);
 		btrfs_tree_block_key(eb, info, &key);
-		pr_info("\t\ttree block key (%llu %u %llu) level %d\n",
+		pr_info("\t\ttree block key " BTRFS_KEY_FMT " level %d\n",
 		       btrfs_disk_key_objectid(&key), key.type,
 		       btrfs_disk_key_offset(&key),
 		       btrfs_tree_block_level(eb, info));
@@ -277,9 +278,8 @@ static void print_dir_item(const struct extent_buffer *eb, int i)
 		struct btrfs_key location;
 
 		btrfs_dir_item_key_to_cpu(eb, di, &location);
-		pr_info("\t\tlocation key (%llu %u %llu) type %d\n",
-			location.objectid, location.type, location.offset,
-			btrfs_dir_ftype(eb, di));
+		pr_info("\t\tlocation key " BTRFS_KEY_FMT " type %d\n",
+			BTRFS_KEY_FMT_VALUE(&location), btrfs_dir_ftype(eb, di));
 		pr_info("\t\ttransid %llu data_len %u name_len %u\n",
 			btrfs_dir_transid(eb, di), data_len, name_len);
 		di = (struct btrfs_dir_item *)((char *)di + len);
@@ -416,12 +416,15 @@ static void key_type_string(const struct btrfs_key *key, char *buf, int buf_size
 		[BTRFS_UUID_KEY_SUBVOL]			= "UUID_KEY_SUBVOL",
 		[BTRFS_UUID_KEY_RECEIVED_SUBVOL]	= "UUID_KEY_RECEIVED_SUBVOL",
 		[BTRFS_RAID_STRIPE_KEY]			= "RAID_STRIPE",
+		[BTRFS_IDENTITY_REMAP_KEY]		= "IDENTITY_REMAP",
+		[BTRFS_REMAP_KEY]			= "REMAP",
+		[BTRFS_REMAP_BACKREF_KEY]		= "REMAP_BACKREF",
 	};
 
 	if (key->type == 0 && key->objectid == BTRFS_FREE_SPACE_OBJECTID)
 		scnprintf(buf, buf_size, "UNTYPED");
 	else if (key_to_str[key->type])
-		scnprintf(buf, buf_size, key_to_str[key->type]);
+		scnprintf(buf, buf_size, "%s", key_to_str[key->type]);
 	else
 		scnprintf(buf, buf_size, "UNKNOWN.%d", key->type);
 }
@@ -436,6 +439,7 @@ void btrfs_print_leaf(const struct extent_buffer *l)
 	struct btrfs_extent_data_ref *dref;
 	struct btrfs_shared_data_ref *sref;
 	struct btrfs_dev_extent *dev_extent;
+	struct btrfs_remap_item *remap;
 	struct btrfs_key key;
 
 	if (!l)
@@ -570,6 +574,11 @@ void btrfs_print_leaf(const struct extent_buffer *l)
 			print_raid_stripe_key(l, btrfs_item_size(l, i),
 				btrfs_item_ptr(l, i, struct btrfs_stripe_extent));
 			break;
+		case BTRFS_REMAP_KEY:
+		case BTRFS_REMAP_BACKREF_KEY:
+			remap = btrfs_item_ptr(l, i, struct btrfs_remap_item);
+			pr_info("\t\taddress %llu\n", btrfs_remap_address(l, remap));
+			break;
 		}
 	}
 }
@@ -598,10 +607,9 @@ void btrfs_print_tree(const struct extent_buffer *c, bool follow)
 	print_eb_refs_lock(c);
 	for (i = 0; i < nr; i++) {
 		btrfs_node_key_to_cpu(c, &key, i);
-		pr_info("\tkey %d (%llu %u %llu) block %llu gen %llu\n",
-		       i, key.objectid, key.type, key.offset,
-		       btrfs_node_blockptr(c, i),
-		       btrfs_node_ptr_generation(c, i));
+		pr_info("\tkey %d " BTRFS_KEY_FMT " block %llu gen %llu\n",
+			i, BTRFS_KEY_FMT_VALUE(&key), btrfs_node_blockptr(c, i),
+			btrfs_node_ptr_generation(c, i));
 	}
 	if (!follow)
 		return;

@@ -10,6 +10,7 @@
 
 #include <drm/armada_drm.h>
 #include <drm/drm_prime.h>
+#include <drm/drm_print.h>
 
 #include "armada_drm.h"
 #include "armada_gem.h"
@@ -136,7 +137,7 @@ armada_gem_linear_back(struct drm_device *dev, struct armada_gem_object *obj)
 		void __iomem *ptr;
 		int ret;
 
-		node = kzalloc(sizeof(*node), GFP_KERNEL);
+		node = kzalloc_obj(*node);
 		if (!node)
 			return -ENOSPC;
 
@@ -199,7 +200,7 @@ armada_gem_alloc_private_object(struct drm_device *dev, size_t size)
 
 	size = roundup_gem_size(size);
 
-	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	obj = kzalloc_obj(*obj);
 	if (!obj)
 		return NULL;
 
@@ -220,7 +221,7 @@ static struct armada_gem_object *armada_gem_alloc_object(struct drm_device *dev,
 
 	size = roundup_gem_size(size);
 
-	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	obj = kzalloc_obj(*obj);
 	if (!obj)
 		return NULL;
 
@@ -392,7 +393,7 @@ armada_gem_prime_map_dma_buf(struct dma_buf_attachment *attach,
 	struct sg_table *sgt;
 	int i;
 
-	sgt = kmalloc(sizeof(*sgt), GFP_KERNEL);
+	sgt = kmalloc_obj(*sgt);
 	if (!sgt)
 		return NULL;
 

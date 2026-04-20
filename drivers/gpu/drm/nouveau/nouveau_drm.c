@@ -739,7 +739,7 @@ nouveau_drm_device_new(const struct drm_driver *drm_driver, struct device *paren
 	struct nouveau_drm *drm;
 	int ret;
 
-	drm = kzalloc(sizeof(*drm), GFP_KERNEL);
+	drm = kzalloc_obj(*drm);
 	if (!drm)
 		return ERR_PTR(-ENOMEM);
 
@@ -983,7 +983,7 @@ nouveau_do_suspend(struct nouveau_drm *drm, bool runtime)
 	}
 
 	NV_DEBUG(drm, "suspending object tree...\n");
-	ret = nvif_client_suspend(&drm->_client);
+	ret = nvif_client_suspend(&drm->_client, runtime);
 	if (ret)
 		goto fail_client;
 
@@ -1203,7 +1203,7 @@ nouveau_drm_open(struct drm_device *dev, struct drm_file *fpriv)
 		 current->comm, pid_nr(rcu_dereference(fpriv->pid)));
 	rcu_read_unlock();
 
-	if (!(cli = kzalloc(sizeof(*cli), GFP_KERNEL))) {
+	if (!(cli = kzalloc_obj(*cli))) {
 		ret = -ENOMEM;
 		goto done;
 	}

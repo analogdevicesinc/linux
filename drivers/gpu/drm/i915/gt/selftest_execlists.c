@@ -5,12 +5,15 @@
 
 #include <linux/prime_numbers.h>
 
+#include <drm/drm_print.h>
+
 #include "gem/i915_gem_internal.h"
 #include "gem/i915_gem_pm.h"
 #include "gt/intel_engine_heartbeat.h"
 #include "gt/intel_reset.h"
 #include "gt/selftest_engine_heartbeat.h"
 
+#include "i915_jiffies.h"
 #include "i915_selftest.h"
 #include "selftests/i915_random.h"
 #include "selftests/igt_flush_test.h"
@@ -3561,7 +3564,7 @@ static int smoke_crescendo(struct preempt_smoke *smoke, unsigned int flags)
 	unsigned long count;
 	int err = 0;
 
-	arg = kmalloc_array(I915_NUM_ENGINES, sizeof(*arg), GFP_KERNEL);
+	arg = kmalloc_objs(*arg, I915_NUM_ENGINES);
 	if (!arg)
 		return -ENOMEM;
 
@@ -3645,9 +3648,7 @@ static int live_preempt_smoke(void *arg)
 	u32 *cs;
 	int n;
 
-	smoke.contexts = kmalloc_array(smoke.ncontext,
-				       sizeof(*smoke.contexts),
-				       GFP_KERNEL);
+	smoke.contexts = kmalloc_objs(*smoke.contexts, smoke.ncontext);
 	if (!smoke.contexts)
 		return -ENOMEM;
 

@@ -44,8 +44,7 @@ static ssize_t sm_attr_show(struct device *dev, struct device_attribute *attr,
 	struct sm_sysfs_attribute *sm_attr =
 		container_of(attr, struct sm_sysfs_attribute, dev_attr);
 
-	strncpy(buf, sm_attr->data, sm_attr->len);
-	return sm_attr->len;
+	return sysfs_emit(buf, "%.*s", sm_attr->len, sm_attr->data);
 }
 
 
@@ -65,7 +64,7 @@ static struct attribute_group *sm_create_sysfs_attributes(struct sm_ftl *ftl)
 
 	/* Initialize sysfs attributes */
 	vendor_attribute =
-		kzalloc(sizeof(struct sm_sysfs_attribute), GFP_KERNEL);
+		kzalloc_obj(struct sm_sysfs_attribute);
 	if (!vendor_attribute)
 		goto error2;
 
@@ -79,14 +78,13 @@ static struct attribute_group *sm_create_sysfs_attributes(struct sm_ftl *ftl)
 
 
 	/* Create array of pointers to the attributes */
-	attributes = kcalloc(NUM_ATTRIBUTES + 1, sizeof(struct attribute *),
-								GFP_KERNEL);
+	attributes = kzalloc_objs(struct attribute *, NUM_ATTRIBUTES + 1);
 	if (!attributes)
 		goto error3;
 	attributes[0] = &vendor_attribute->dev_attr.attr;
 
 	/* Finally create the attribute group */
-	attr_group = kzalloc(sizeof(struct attribute_group), GFP_KERNEL);
+	attr_group = kzalloc_obj(struct attribute_group);
 	if (!attr_group)
 		goto error4;
 	attr_group->attrs = attributes;
@@ -157,7 +155,7 @@ static int sm_read_lba(struct sm_oob *oob)
 	if (!memcmp(oob, erased_pattern, SM_OOB_SIZE))
 		return -1;
 
-	/* Now check is both copies of the LBA differ too much */
+	/* Now check if both copies of the LBA differ too much */
 	lba_test = *(uint16_t *)oob->lba_copy1 ^ *(uint16_t*)oob->lba_copy2;
 	if (lba_test && !is_power_of_2(lba_test))
 		return -2;
@@ -1135,7 +1133,7 @@ static void sm_add_mtd(struct mtd_blktrans_ops *tr, struct mtd_info *mtd)
 	struct sm_ftl *ftl;
 
 	/* Allocate & initialize our private structure */
-	ftl = kzalloc(sizeof(struct sm_ftl), GFP_KERNEL);
+	ftl = kzalloc_obj(struct sm_ftl);
 	if (!ftl)
 		goto error1;
 
@@ -1157,8 +1155,7 @@ static void sm_add_mtd(struct mtd_blktrans_ops *tr, struct mtd_info *mtd)
 		goto error2;
 
 	/* Allocate zone array, it will be initialized on demand */
-	ftl->zones = kcalloc(ftl->zone_count, sizeof(struct ftl_zone),
-								GFP_KERNEL);
+	ftl->zones = kzalloc_objs(struct ftl_zone, ftl->zone_count);
 	if (!ftl->zones)
 		goto error3;
 
@@ -1172,7 +1169,7 @@ static void sm_add_mtd(struct mtd_blktrans_ops *tr, struct mtd_info *mtd)
 
 
 	/* Allocate upper layer structure and initialize it */
-	trans = kzalloc(sizeof(struct mtd_blktrans_dev), GFP_KERNEL);
+	trans = kzalloc_obj(struct mtd_blktrans_dev);
 	if (!trans)
 		goto error5;
 

@@ -13,6 +13,7 @@
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_gem_framebuffer_helper.h>
 #include <drm/drm_modeset_helper.h>
+#include <drm/drm_print.h>
 
 #include "drm.h"
 #include "gem.h"
@@ -111,7 +112,7 @@ struct drm_framebuffer *tegra_fb_alloc(struct drm_device *drm,
 	unsigned int i;
 	int err;
 
-	fb = kzalloc(sizeof(*fb), GFP_KERNEL);
+	fb = kzalloc_obj(*fb);
 	if (!fb)
 		return ERR_PTR(-ENOMEM);
 

@@ -160,7 +160,13 @@ static void std_init_compound(const struct v4l2_ctrl *ctrl, u32 idx,
 		break;
 	case V4L2_CTRL_TYPE_AV1_SEQUENCE:
 		p_av1_sequence = p;
+		/*
+		 * The initial profile is 0 which only allows YUV 420 subsampled
+		 * data. Set the subsampling flags accordingly.
+		 */
 		p_av1_sequence->bit_depth = 8;
+		p_av1_sequence->flags |= V4L2_AV1_SEQUENCE_FLAG_SUBSAMPLING_X |
+					 V4L2_AV1_SEQUENCE_FLAG_SUBSAMPLING_Y;
 		break;
 	case V4L2_CTRL_TYPE_FWHT_PARAMS:
 		p_fwht_params = p;
@@ -417,6 +423,12 @@ void v4l2_ctrl_type_op_log(const struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS:
 		pr_cont("HEVC_SLICE_PARAMS");
+		break;
+	case V4L2_CTRL_TYPE_HEVC_EXT_SPS_ST_RPS:
+		pr_cont("HEVC_EXT_SPS_ST_RPS");
+		break;
+	case V4L2_CTRL_TYPE_HEVC_EXT_SPS_LT_RPS:
+		pr_cont("HEVC_EXT_SPS_LT_RPS");
 		break;
 	case V4L2_CTRL_TYPE_HEVC_SCALING_MATRIX:
 		pr_cont("HEVC_SCALING_MATRIX");
@@ -827,39 +839,114 @@ static int validate_av1_frame(struct v4l2_ctrl_av1_frame *f)
 	return 0;
 }
 
+/**
+ * validate_av1_sequence - validate AV1 sequence header fields
+ * @s: control struct from userspace
+ *
+ * Implements AV1 spec §5.5.2 color_config() checks that are
+ * possible with the current v4l2_ctrl_av1_sequence definition.
+ *
+ * TODO: extend validation once additional fields such as
+ *       color_primaries, transfer_characteristics,
+ *       matrix_coefficients, and chroma_sample_position
+ *       are added to the uAPI.
+ *
+ * Returns 0 if valid, -EINVAL otherwise.
+ */
 static int validate_av1_sequence(struct v4l2_ctrl_av1_sequence *s)
 {
+	const bool mono  = s->flags & V4L2_AV1_SEQUENCE_FLAG_MONO_CHROME;
+	const bool sx    = s->flags & V4L2_AV1_SEQUENCE_FLAG_SUBSAMPLING_X;
+	const bool sy    = s->flags & V4L2_AV1_SEQUENCE_FLAG_SUBSAMPLING_Y;
+	const bool uv_dq = s->flags & V4L2_AV1_SEQUENCE_FLAG_SEPARATE_UV_DELTA_Q;
+
+	/* 1. Reject unknown flags */
 	if (s->flags &
-	~(V4L2_AV1_SEQUENCE_FLAG_STILL_PICTURE |
-	 V4L2_AV1_SEQUENCE_FLAG_USE_128X128_SUPERBLOCK |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_FILTER_INTRA |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_INTRA_EDGE_FILTER |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_INTERINTRA_COMPOUND |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_MASKED_COMPOUND |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_WARPED_MOTION |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_DUAL_FILTER |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_ORDER_HINT |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_JNT_COMP |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_REF_FRAME_MVS |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_SUPERRES |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_CDEF |
-	 V4L2_AV1_SEQUENCE_FLAG_ENABLE_RESTORATION |
-	 V4L2_AV1_SEQUENCE_FLAG_MONO_CHROME |
-	 V4L2_AV1_SEQUENCE_FLAG_COLOR_RANGE |
-	 V4L2_AV1_SEQUENCE_FLAG_SUBSAMPLING_X |
-	 V4L2_AV1_SEQUENCE_FLAG_SUBSAMPLING_Y |
-	 V4L2_AV1_SEQUENCE_FLAG_FILM_GRAIN_PARAMS_PRESENT |
-	 V4L2_AV1_SEQUENCE_FLAG_SEPARATE_UV_DELTA_Q))
+	    ~(V4L2_AV1_SEQUENCE_FLAG_STILL_PICTURE |
+	      V4L2_AV1_SEQUENCE_FLAG_USE_128X128_SUPERBLOCK |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_FILTER_INTRA |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_INTRA_EDGE_FILTER |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_INTERINTRA_COMPOUND |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_MASKED_COMPOUND |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_WARPED_MOTION |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_DUAL_FILTER |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_ORDER_HINT |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_JNT_COMP |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_REF_FRAME_MVS |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_SUPERRES |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_CDEF |
+	      V4L2_AV1_SEQUENCE_FLAG_ENABLE_RESTORATION |
+	      V4L2_AV1_SEQUENCE_FLAG_MONO_CHROME |
+	      V4L2_AV1_SEQUENCE_FLAG_COLOR_RANGE |
+	      V4L2_AV1_SEQUENCE_FLAG_SUBSAMPLING_X |
+	      V4L2_AV1_SEQUENCE_FLAG_SUBSAMPLING_Y |
+	      V4L2_AV1_SEQUENCE_FLAG_FILM_GRAIN_PARAMS_PRESENT |
+	      V4L2_AV1_SEQUENCE_FLAG_SEPARATE_UV_DELTA_Q))
 		return -EINVAL;
 
-	if (s->seq_profile == 1 && s->flags & V4L2_AV1_SEQUENCE_FLAG_MONO_CHROME)
-		return -EINVAL;
-
-	/* reserved */
+	/* 2. Profile range */
 	if (s->seq_profile > 2)
 		return -EINVAL;
 
-	/* TODO: PROFILES */
+	/* 3. Monochrome shortcut */
+	if (mono) {
+		/* Profile 1 forbids monochrome */
+		if (s->seq_profile == 1)
+			return -EINVAL;
+
+		/* Mono → subsampling must look like 4:0:0: sx=1, sy=1 */
+		if (!sx || !sy)
+			return -EINVAL;
+
+		/* separate_uv_delta_q must be 0 */
+		if (uv_dq)
+			return -EINVAL;
+
+		return 0;
+	}
+
+	/* 4. Profile-specific rules */
+	switch (s->seq_profile) {
+	case 0:
+		/* Profile 0: only 8/10-bit, subsampling=4:2:0 (sx=1, sy=1) */
+		if (s->bit_depth != 8 && s->bit_depth != 10)
+			return -EINVAL;
+		if (!(sx && sy))
+			return -EINVAL;
+		break;
+
+	case 1:
+		/* Profile 1: only 8/10-bit, subsampling=4:4:4 (sx=0, sy=0) */
+		if (s->bit_depth != 8 && s->bit_depth != 10)
+			return -EINVAL;
+		if (sx || sy)
+			return -EINVAL;
+		break;
+
+	case 2:
+		/* Profile 2: 8/10/12-bit allowed */
+		if (s->bit_depth != 8 && s->bit_depth != 10 &&
+		    s->bit_depth != 12)
+			return -EINVAL;
+
+		if (s->bit_depth == 12) {
+			if (!sx) {
+				/* 4:4:4 → sy must be 0 */
+				if (sy)
+					return -EINVAL;
+			} else {
+				/* sx=1 → sy=0 (4:2:2) or sy=1 (4:2:0) */
+				if (sy != 0 && sy != 1)
+					return -EINVAL;
+			}
+		} else {
+			/* 8/10-bit → only 4:2:2 allowed (sx=1, sy=0) */
+			if (!(sx && !sy))
+				return -EINVAL;
+		}
+		break;
+	}
+
 	return 0;
 }
 
@@ -880,6 +967,8 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
 	struct v4l2_ctrl_h264_pred_weights *p_h264_pred_weights;
 	struct v4l2_ctrl_h264_slice_params *p_h264_slice_params;
 	struct v4l2_ctrl_h264_decode_params *p_h264_dec_params;
+	struct v4l2_ctrl_hevc_ext_sps_lt_rps *p_hevc_lt_rps;
+	struct v4l2_ctrl_hevc_ext_sps_st_rps *p_hevc_st_rps;
 	struct v4l2_ctrl_hevc_sps *p_hevc_sps;
 	struct v4l2_ctrl_hevc_pps *p_hevc_pps;
 	struct v4l2_ctrl_hdr10_mastering_display *p_hdr10_mastering;
@@ -1171,6 +1260,20 @@ static int std_validate_compound(const struct v4l2_ctrl *ctrl, u32 idx,
 		break;
 
 	case V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS:
+		break;
+
+	case V4L2_CTRL_TYPE_HEVC_EXT_SPS_ST_RPS:
+		p_hevc_st_rps = p;
+
+		if (p_hevc_st_rps->flags & ~V4L2_HEVC_EXT_SPS_ST_RPS_FLAG_INTER_REF_PIC_SET_PRED)
+			return -EINVAL;
+		break;
+
+	case V4L2_CTRL_TYPE_HEVC_EXT_SPS_LT_RPS:
+		p_hevc_lt_rps = p;
+
+		if (p_hevc_lt_rps->flags & ~V4L2_HEVC_EXT_SPS_LT_RPS_FLAG_USED_LT)
+			return -EINVAL;
 		break;
 
 	case V4L2_CTRL_TYPE_HDR10_CLL_INFO:
@@ -1622,8 +1725,7 @@ int v4l2_ctrl_handler_init_class(struct v4l2_ctrl_handler *hdl,
 	INIT_LIST_HEAD(&hdl->ctrls);
 	INIT_LIST_HEAD(&hdl->ctrl_refs);
 	hdl->nr_of_buckets = 1 + nr_of_controls_hint / 8;
-	hdl->buckets = kvcalloc(hdl->nr_of_buckets, sizeof(hdl->buckets[0]),
-				GFP_KERNEL);
+	hdl->buckets = kvzalloc_objs(hdl->buckets[0], hdl->nr_of_buckets);
 	hdl->error = hdl->buckets ? 0 : -ENOMEM;
 	v4l2_ctrl_handler_init_request(hdl);
 	return hdl->error;
@@ -1924,6 +2026,12 @@ static struct v4l2_ctrl *v4l2_ctrl_new(struct v4l2_ctrl_handler *hdl,
 		break;
 	case V4L2_CTRL_TYPE_HEVC_SLICE_PARAMS:
 		elem_size = sizeof(struct v4l2_ctrl_hevc_slice_params);
+		break;
+	case V4L2_CTRL_TYPE_HEVC_EXT_SPS_ST_RPS:
+		elem_size = sizeof(struct v4l2_ctrl_hevc_ext_sps_st_rps);
+		break;
+	case V4L2_CTRL_TYPE_HEVC_EXT_SPS_LT_RPS:
+		elem_size = sizeof(struct v4l2_ctrl_hevc_ext_sps_lt_rps);
 		break;
 	case V4L2_CTRL_TYPE_HEVC_SCALING_MATRIX:
 		elem_size = sizeof(struct v4l2_ctrl_hevc_scaling_matrix);
@@ -2699,7 +2807,8 @@ int v4l2_ctrl_new_fwnode_properties(struct v4l2_ctrl_handler *hdl,
 			orientation_ctrl = V4L2_CAMERA_ORIENTATION_EXTERNAL;
 			break;
 		default:
-			return -EINVAL;
+			hdl->error = -EINVAL;
+			return hdl->error;
 		}
 		if (!v4l2_ctrl_new_std_menu(hdl, ctrl_ops,
 					    V4L2_CID_CAMERA_ORIENTATION,

@@ -2,11 +2,14 @@
 
 //! Types and functions to work with pointers and addresses.
 
-use core::fmt::Debug;
-use core::mem::align_of;
-use core::num::NonZero;
+pub mod projection;
+pub use crate::project_pointer as project;
 
-use crate::build_assert;
+use core::mem::{
+    align_of,
+    size_of, //
+};
+use core::num::NonZero;
 
 /// Type representing an alignment, which is always a power of two.
 ///
@@ -41,10 +44,12 @@ impl Alignment {
     /// ```
     #[inline(always)]
     pub const fn new<const ALIGN: usize>() -> Self {
-        build_assert!(
-            ALIGN.is_power_of_two(),
-            "Provided alignment is not a power of two."
-        );
+        const {
+            assert!(
+                ALIGN.is_power_of_two(),
+                "Provided alignment is not a power of two."
+            );
+        }
 
         // INVARIANT: `align` is a power of two.
         // SAFETY: `align` is a power of two, and thus non-zero.
@@ -226,3 +231,25 @@ macro_rules! impl_alignable_uint {
 }
 
 impl_alignable_uint!(u8, u16, u32, u64, usize);
+
+/// Trait to represent compile-time known size information.
+///
+/// This is a generalization of [`size_of`] that works for dynamically sized types.
+pub trait KnownSize {
+    /// Get the size of an object of this type in bytes, with the metadata of the given pointer.
+    fn size(p: *const Self) -> usize;
+}
+
+impl<T> KnownSize for T {
+    #[inline(always)]
+    fn size(_: *const Self) -> usize {
+        size_of::<T>()
+    }
+}
+
+impl<T> KnownSize for [T] {
+    #[inline(always)]
+    fn size(p: *const Self) -> usize {
+        p.len() * size_of::<T>()
+    }
+}

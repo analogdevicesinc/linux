@@ -41,8 +41,6 @@ static pci_ers_result_t adf_error_detected(struct pci_dev *pdev,
 	adf_error_notifier(accel_dev);
 	adf_pf2vf_notify_fatal_error(accel_dev);
 	adf_dev_restarting_notify(accel_dev);
-	adf_pf2vf_notify_restarting(accel_dev);
-	adf_pf2vf_wait_for_restarting_complete(accel_dev);
 	pci_clear_master(pdev);
 	adf_dev_down(accel_dev);
 
@@ -105,7 +103,6 @@ void adf_dev_restore(struct adf_accel_dev *accel_dev)
 			 accel_dev->accel_id);
 		hw_device->reset_device(accel_dev);
 		pci_restore_state(pdev);
-		pci_save_state(pdev);
 	}
 }
 
@@ -163,7 +160,7 @@ static int adf_dev_aer_schedule_reset(struct adf_accel_dev *accel_dev,
 		return 0;
 
 	set_bit(ADF_STATUS_RESTARTING, &accel_dev->status);
-	reset_data = kzalloc(sizeof(*reset_data), GFP_KERNEL);
+	reset_data = kzalloc_obj(*reset_data);
 	if (!reset_data)
 		return -ENOMEM;
 	reset_data->accel_dev = accel_dev;
@@ -204,7 +201,6 @@ static pci_ers_result_t adf_slot_reset(struct pci_dev *pdev)
 	if (!pdev->is_busmaster)
 		pci_set_master(pdev);
 	pci_restore_state(pdev);
-	pci_save_state(pdev);
 	res = adf_dev_up(accel_dev, false);
 	if (res && res != -EALREADY)
 		return PCI_ERS_RESULT_DISCONNECT;
@@ -262,7 +258,7 @@ int adf_notify_fatal_error(struct adf_accel_dev *accel_dev)
 {
 	struct adf_fatal_error_data *wq_data;
 
-	wq_data = kzalloc(sizeof(*wq_data), GFP_ATOMIC);
+	wq_data = kzalloc_obj(*wq_data, GFP_ATOMIC);
 	if (!wq_data)
 		return -ENOMEM;
 
@@ -276,11 +272,11 @@ int adf_notify_fatal_error(struct adf_accel_dev *accel_dev)
 int adf_init_aer(void)
 {
 	device_reset_wq = alloc_workqueue("qat_device_reset_wq",
-					  WQ_MEM_RECLAIM, 0);
+					  WQ_MEM_RECLAIM | WQ_PERCPU, 0);
 	if (!device_reset_wq)
 		return -EFAULT;
 
-	device_sriov_wq = alloc_workqueue("qat_device_sriov_wq", 0, 0);
+	device_sriov_wq = alloc_workqueue("qat_device_sriov_wq", WQ_PERCPU, 0);
 	if (!device_sriov_wq) {
 		destroy_workqueue(device_reset_wq);
 		device_reset_wq = NULL;

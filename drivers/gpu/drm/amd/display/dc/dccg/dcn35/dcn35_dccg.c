@@ -26,6 +26,7 @@
 #include "core_types.h"
 #include "resource.h"
 #include "dcn35_dccg.h"
+#include "dcn20/dcn20_dccg.h"
 
 #define TO_DCN_DCCG(dccg)\
 	container_of(dccg, struct dcn_dccg, base)
@@ -1105,7 +1106,7 @@ static void dccg35_enable_dpstreamclk_new(struct dccg *dccg,
 	dccg35_set_dpstreamclk_src_new(dccg, src, inst);
 }
 
-static void dccg35_trigger_dio_fifo_resync(struct dccg *dccg)
+void dccg35_trigger_dio_fifo_resync(struct dccg *dccg)
 {
 	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
 	uint32_t dispclk_rdivider_value = 0;
@@ -1113,6 +1114,17 @@ static void dccg35_trigger_dio_fifo_resync(struct dccg *dccg)
 	REG_GET(DENTIST_DISPCLK_CNTL, DENTIST_DISPCLK_RDIVIDER, &dispclk_rdivider_value);
 	if (dispclk_rdivider_value != 0)
 		REG_UPDATE(DENTIST_DISPCLK_CNTL, DENTIST_DISPCLK_WDIVIDER, dispclk_rdivider_value);
+}
+
+static void dccg35_wait_for_dentist_change_done(
+	struct dccg *dccg)
+{
+	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
+
+	uint32_t dentist_dispclk_value = REG_READ(DENTIST_DISPCLK_CNTL);
+
+	REG_WRITE(DENTIST_DISPCLK_CNTL, dentist_dispclk_value);
+	REG_WAIT(DENTIST_DISPCLK_CNTL, DENTIST_DISPCLK_CHG_DONE, 1, 50, 2000);
 }
 
 static void dcn35_set_dppclk_enable(struct dccg *dccg,
@@ -1141,8 +1153,7 @@ static void dcn35_set_dppclk_enable(struct dccg *dccg,
 
 }
 
-static void dccg35_update_dpp_dto(struct dccg *dccg, int dpp_inst,
-				  int req_dppclk)
+void dccg35_update_dpp_dto(struct dccg *dccg, int dpp_inst, int req_dppclk)
 {
 	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
 
@@ -1174,9 +1185,9 @@ static void dccg35_update_dpp_dto(struct dccg *dccg, int dpp_inst,
 		dcn35_set_dppclk_enable(dccg, dpp_inst, true);
 	} else {
 		dcn35_set_dppclk_enable(dccg, dpp_inst, false);
-		/*we have this in hwss: disable_plane*/
-		//dccg35_set_dppclk_rcg(dccg, dpp_inst, true);
+		dccg35_set_dppclk_rcg(dccg, dpp_inst, true);
 	}
+	udelay(10);
 	dccg->pipe_dppclk_khz[dpp_inst] = req_dppclk;
 }
 
@@ -1300,6 +1311,8 @@ static void dccg35_set_pixel_rate_div(
 		BREAK_TO_DEBUGGER();
 		return;
 	}
+	if (otg_inst < 4)
+		dccg35_wait_for_dentist_change_done(dccg);
 }
 
 static void dccg35_set_dtbclk_p_src(
@@ -1486,11 +1499,7 @@ static void dccg35_set_dpstreamclk(
 			__func__, dp_hpo_inst, (src == REFCLK) ? 0 : 1, otg_inst);
 }
 
-
-static void dccg35_set_dpstreamclk_root_clock_gating(
-		struct dccg *dccg,
-		int dp_hpo_inst,
-		bool enable)
+void dccg35_set_dpstreamclk_root_clock_gating(struct dccg *dccg, int dp_hpo_inst, bool enable)
 {
 	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
 
@@ -1657,14 +1666,11 @@ static void dccg35_set_valid_pixel_rate(
 	dccg35_set_dtbclk_dto(dccg, &dto_params);
 }
 
-static void dccg35_dpp_root_clock_control(
-		struct dccg *dccg,
-		unsigned int dpp_inst,
-		bool clock_on)
+void dccg35_dpp_root_clock_control(struct dccg *dccg, unsigned int dpp_inst, bool clock_on)
 {
 	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
 
-	if (dccg->dpp_clock_gated[dpp_inst] == clock_on)
+	if (dccg->dpp_clock_gated[dpp_inst] != clock_on)
 		return;
 
 	if (clock_on) {
@@ -1682,16 +1688,17 @@ static void dccg35_dpp_root_clock_control(
 			  DPPCLK0_DTO_PHASE, 0,
 			  DPPCLK0_DTO_MODULO, 1);
 		/*we have this in hwss: disable_plane*/
-		//dccg35_set_dppclk_rcg(dccg, dpp_inst, true);
+		dccg35_set_dppclk_rcg(dccg, dpp_inst, true);
 	}
+
+	// wait for clock to fully ramp
+	udelay(10);
 
 	dccg->dpp_clock_gated[dpp_inst] = !clock_on;
 	DC_LOG_DEBUG("%s: dpp_inst(%d) clock_on = %d\n", __func__, dpp_inst, clock_on);
 }
 
-static void dccg35_disable_symclk32_se(
-		struct dccg *dccg,
-		int hpo_se_inst)
+void dccg35_disable_symclk32_se(struct dccg *dccg, int hpo_se_inst)
 {
 	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
 
@@ -1798,7 +1805,7 @@ void dccg35_enable_global_fgcg_rep(struct dccg *dccg, bool value)
 	REG_UPDATE(DCCG_GLOBAL_FGCG_REP_CNTL, DCCG_GLOBAL_FGCG_REP_DIS, !value);
 }
 
-static void dccg35_enable_dscclk(struct dccg *dccg, int inst)
+void dccg35_enable_dscclk(struct dccg *dccg, int inst)
 {
 	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
 
@@ -1845,8 +1852,7 @@ static void dccg35_enable_dscclk(struct dccg *dccg, int inst)
 	udelay(10);
 }
 
-static void dccg35_disable_dscclk(struct dccg *dccg,
-				int inst)
+void dccg35_disable_dscclk(struct dccg *dccg, int inst)
 {
 	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
 
@@ -1891,7 +1897,7 @@ static void dccg35_disable_dscclk(struct dccg *dccg,
 	udelay(10);
 }
 
-static void dccg35_enable_symclk_se(struct dccg *dccg, uint32_t stream_enc_inst, uint32_t link_enc_inst)
+void dccg35_enable_symclk_se(struct dccg *dccg, uint32_t stream_enc_inst, uint32_t link_enc_inst)
 {
 	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
 
@@ -1998,7 +2004,7 @@ static uint8_t dccg35_get_number_enabled_symclk_fe_connected_to_be(struct dccg *
 	return num_enabled_symclk_fe;
 }
 
-static void dccg35_disable_symclk_se(struct dccg *dccg, uint32_t stream_enc_inst, uint32_t link_enc_inst)
+void dccg35_disable_symclk_se(struct dccg *dccg, uint32_t stream_enc_inst, uint32_t link_enc_inst)
 {
 	uint8_t num_enabled_symclk_fe = 0;
 	struct dcn_dccg *dccg_dcn = TO_DCN_DCCG(dccg);
@@ -2406,6 +2412,10 @@ static const struct dccg_funcs dccg35_funcs_new = {
 	.enable_symclk_se = dccg35_enable_symclk_se_cb,
 	.disable_symclk_se = dccg35_disable_symclk_se_cb,
 	.set_dtbclk_p_src = dccg35_set_dtbclk_p_src_cb,
+	.refclk_setup = dccg2_refclk_setup, /* Deprecated - for backward compatibility only */
+	.allow_clock_gating = dccg2_allow_clock_gating,
+	.enable_memory_low_power = dccg2_enable_memory_low_power,
+	.is_s0i3_golden_init_wa_done = dccg2_is_s0i3_golden_init_wa_done /* Deprecated - for backward compatibility only */
 };
 
 static const struct dccg_funcs dccg35_funcs = {
@@ -2437,7 +2447,12 @@ static const struct dccg_funcs dccg35_funcs = {
 	.enable_symclk_se = dccg35_enable_symclk_se,
 	.disable_symclk_se = dccg35_disable_symclk_se,
 	.set_dtbclk_p_src = dccg35_set_dtbclk_p_src,
+	.refclk_setup = dccg2_refclk_setup, /* Deprecated - for backward compatibility only */
+	.allow_clock_gating = dccg2_allow_clock_gating,
+	.enable_memory_low_power = dccg2_enable_memory_low_power,
+	.is_s0i3_golden_init_wa_done = dccg2_is_s0i3_golden_init_wa_done, /* Deprecated - for backward compatibility only */
 	.dccg_root_gate_disable_control = dccg35_root_gate_disable_control,
+	.dccg_read_reg_state = dccg31_read_reg_state
 };
 
 struct dccg *dccg35_create(
@@ -2446,7 +2461,7 @@ struct dccg *dccg35_create(
 	const struct dccg_shift *dccg_shift,
 	const struct dccg_mask *dccg_mask)
 {
-	struct dcn_dccg *dccg_dcn = kzalloc(sizeof(*dccg_dcn), GFP_KERNEL);
+	struct dcn_dccg *dccg_dcn = kzalloc_obj(*dccg_dcn);
 	struct dccg *base;
 
 	if (dccg_dcn == NULL) {

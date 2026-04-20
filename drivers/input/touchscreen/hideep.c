@@ -869,8 +869,6 @@ static ssize_t hideep_update_fw(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct hideep_ts *ts = i2c_get_clientdata(client);
-	const struct firmware *fw_entry;
-	char *fw_name;
 	int mode;
 	int error;
 
@@ -878,46 +876,42 @@ static ssize_t hideep_update_fw(struct device *dev,
 	if (error)
 		return error;
 
-	fw_name = kasprintf(GFP_KERNEL, "hideep_ts_%04x.bin",
-			    be16_to_cpu(ts->dwz_info.product_id));
+	const char *fw_name __free(kfree) =
+			kasprintf(GFP_KERNEL, "hideep_ts_%04x.bin",
+				  be16_to_cpu(ts->dwz_info.product_id));
 	if (!fw_name)
 		return -ENOMEM;
 
+	const struct firmware *fw_entry __free(firmware) = NULL;
 	error = request_firmware(&fw_entry, fw_name, dev);
 	if (error) {
 		dev_err(dev, "failed to request firmware %s: %d",
 			fw_name, error);
-		goto out_free_fw_name;
+		return error;
 	}
 
 	if (fw_entry->size % sizeof(__be32)) {
 		dev_err(dev, "invalid firmware size %zu\n", fw_entry->size);
-		error = -EINVAL;
-		goto out_release_fw;
+		return -EINVAL;
 	}
 
 	if (fw_entry->size > ts->fw_size) {
 		dev_err(dev, "fw size (%zu) is too big (memory size %d)\n",
 			fw_entry->size, ts->fw_size);
-		error = -EFBIG;
-		goto out_release_fw;
+		return -EFBIG;
 	}
 
-	mutex_lock(&ts->dev_mutex);
-	disable_irq(client->irq);
+	scoped_guard(mutex, &ts->dev_mutex) {
+		guard(disable_irq)(&client->irq);
 
-	error = hideep_update_firmware(ts, (const __be32 *)fw_entry->data,
-				       fw_entry->size);
+		error = hideep_update_firmware(ts,
+					       (const __be32 *)fw_entry->data,
+					       fw_entry->size);
+		if (error)
+			return error;
+	}
 
-	enable_irq(client->irq);
-	mutex_unlock(&ts->dev_mutex);
-
-out_release_fw:
-	release_firmware(fw_entry);
-out_free_fw_name:
-	kfree(fw_name);
-
-	return error ?: count;
+	return count;
 }
 
 static ssize_t hideep_fw_version_show(struct device *dev,
@@ -925,13 +919,9 @@ static ssize_t hideep_fw_version_show(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct hideep_ts *ts = i2c_get_clientdata(client);
-	ssize_t len;
 
-	mutex_lock(&ts->dev_mutex);
-	len = sysfs_emit(buf, "%04x\n", be16_to_cpu(ts->dwz_info.release_ver));
-	mutex_unlock(&ts->dev_mutex);
-
-	return len;
+	guard(mutex)(&ts->dev_mutex);
+	return sysfs_emit(buf, "%04x\n", be16_to_cpu(ts->dwz_info.release_ver));
 }
 
 static ssize_t hideep_product_id_show(struct device *dev,
@@ -939,13 +929,9 @@ static ssize_t hideep_product_id_show(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct hideep_ts *ts = i2c_get_clientdata(client);
-	ssize_t len;
 
-	mutex_lock(&ts->dev_mutex);
-	len = sysfs_emit(buf, "%04x\n", be16_to_cpu(ts->dwz_info.product_id));
-	mutex_unlock(&ts->dev_mutex);
-
-	return len;
+	guard(mutex)(&ts->dev_mutex);
+	return sysfs_emit(buf, "%04x\n", be16_to_cpu(ts->dwz_info.product_id));
 }
 
 static DEVICE_ATTR(version, 0664, hideep_fw_version_show, NULL);

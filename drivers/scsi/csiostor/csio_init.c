@@ -516,7 +516,7 @@ static struct csio_hw *csio_hw_alloc(struct pci_dev *pdev)
 {
 	struct csio_hw *hw;
 
-	hw = kzalloc(sizeof(struct csio_hw), GFP_KERNEL);
+	hw = kzalloc_obj(struct csio_hw);
 	if (!hw)
 		goto err;
 
@@ -1093,7 +1093,6 @@ csio_pci_slot_reset(struct pci_dev *pdev)
 
 	pci_set_master(pdev);
 	pci_restore_state(pdev);
-	pci_save_state(pdev);
 
 	/* Bring HW s/m to ready state.
 	 * but don't resume IOs.

@@ -462,7 +462,7 @@ static const struct target_core_fabric_ops xcopy_pt_tfo = {
 
 int target_xcopy_setup_pt(void)
 {
-	xcopy_wq = alloc_workqueue("xcopy_wq", WQ_MEM_RECLAIM, 0);
+	xcopy_wq = alloc_workqueue("xcopy_wq", WQ_MEM_RECLAIM | WQ_PERCPU, 0);
 	if (!xcopy_wq) {
 		pr_err("Unable to allocate xcopy_wq\n");
 		return -ENOMEM;
@@ -898,7 +898,7 @@ sense_reason_t target_do_xcopy(struct se_cmd *se_cmd)
 		return TCM_PARAMETER_LIST_LENGTH_ERROR;
 	}
 
-	xop = kzalloc(sizeof(struct xcopy_op), GFP_KERNEL);
+	xop = kzalloc_obj(struct xcopy_op);
 	if (!xop)
 		goto err;
 	xop->xop_se_cmd = se_cmd;

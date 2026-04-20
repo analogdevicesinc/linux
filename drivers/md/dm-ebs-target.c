@@ -103,7 +103,7 @@ static int __ebs_rw_bvec(struct ebs_c *ec, enum req_op op, struct bio_vec *bv,
 			} else {
 				flush_dcache_page(bv->bv_page);
 				memcpy(ba, pa, cur_len);
-				dm_bufio_mark_partial_buffer_dirty(b, buf_off, buf_off + cur_len);
+				dm_bufio_mark_buffer_dirty(b);
 			}
 
 			dm_bufio_release(b);
@@ -257,7 +257,7 @@ static int ebs_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		return -EINVAL;
 	}
 
-	ec = ti->private = kzalloc(sizeof(*ec), GFP_KERNEL);
+	ec = ti->private = kzalloc_obj(*ec);
 	if (!ec) {
 		ti->error = "Cannot allocate ebs context";
 		return -ENOMEM;

@@ -425,9 +425,6 @@ void dma_direct_sync_sg_for_cpu(struct device *dev,
 			arch_sync_dma_for_cpu(paddr, sg->length, dir);
 
 		swiotlb_sync_single_for_cpu(dev, paddr, sg->length, dir);
-
-		if (dir == DMA_FROM_DEVICE)
-			arch_dma_mark_clean(paddr, sg->length);
 	}
 
 	if (!dev_is_dma_coherent(dev))
@@ -479,8 +476,8 @@ int dma_direct_map_sg(struct device *dev, struct scatterlist *sgl, int nents,
 			}
 			break;
 		case PCI_P2PDMA_MAP_BUS_ADDR:
-			sg->dma_address = pci_p2pdma_bus_addr_map(&p2pdma_state,
-					sg_phys(sg));
+			sg->dma_address = pci_p2pdma_bus_addr_map(
+				p2pdma_state.mem, sg_phys(sg));
 			sg_dma_len(sg) = sg->length;
 			sg_dma_mark_bus_address(sg);
 			continue;
@@ -657,7 +654,7 @@ int dma_direct_set_offset(struct device *dev, phys_addr_t cpu_start,
 	if (!offset)
 		return 0;
 
-	map = kcalloc(2, sizeof(*map), GFP_KERNEL);
+	map = kzalloc_objs(*map, 2);
 	if (!map)
 		return -ENOMEM;
 	map[0].cpu_start = cpu_start;

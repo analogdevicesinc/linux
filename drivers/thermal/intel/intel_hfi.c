@@ -212,7 +212,7 @@ static void update_capabilities(struct hfi_instance *hfi_instance)
 	if (!cpu_count)
 		goto out;
 
-	cpu_caps = kcalloc(cpu_count, sizeof(*cpu_caps), GFP_KERNEL);
+	cpu_caps = kzalloc_objs(*cpu_caps, cpu_count);
 	if (!cpu_caps)
 		goto out;
 
@@ -592,7 +592,7 @@ static void hfi_disable_instance(void *ptr)
 	hfi_disable();
 }
 
-static void hfi_syscore_resume(void)
+static void hfi_syscore_resume(void *data)
 {
 	/* This code runs only on the boot CPU. */
 	struct hfi_cpu_info *info = &per_cpu(hfi_cpu_info, 0);
@@ -603,7 +603,7 @@ static void hfi_syscore_resume(void)
 		hfi_enable_instance(hfi_instance);
 }
 
-static int hfi_syscore_suspend(void)
+static int hfi_syscore_suspend(void *data)
 {
 	/* No locking needed. There is no concurrency with CPU offline. */
 	hfi_disable();
@@ -611,9 +611,13 @@ static int hfi_syscore_suspend(void)
 	return 0;
 }
 
-static struct syscore_ops hfi_pm_ops = {
+static const struct syscore_ops hfi_pm_ops = {
 	.resume = hfi_syscore_resume,
 	.suspend = hfi_syscore_suspend,
+};
+
+static struct syscore hfi_pm = {
+	.ops = &hfi_pm_ops,
 };
 
 static int hfi_thermal_notify(struct notifier_block *nb, unsigned long state,
@@ -686,8 +690,7 @@ void __init intel_hfi_init(void)
 	 * This allocation may fail. CPU hotplug callbacks must check
 	 * for a null pointer.
 	 */
-	hfi_instances = kcalloc(max_hfi_instances, sizeof(*hfi_instances),
-				GFP_KERNEL);
+	hfi_instances = kzalloc_objs(*hfi_instances, max_hfi_instances);
 	if (!hfi_instances)
 		return;
 
@@ -710,7 +713,7 @@ void __init intel_hfi_init(void)
 	if (thermal_genl_register_notifier(&hfi_thermal_nb))
 		goto err_nl_notif;
 
-	register_syscore_ops(&hfi_pm_ops);
+	register_syscore(&hfi_pm);
 
 	return;
 

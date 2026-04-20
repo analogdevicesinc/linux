@@ -28,6 +28,7 @@
 #include <linux/usb/otg.h>
 #include <linux/usb/quirks.h>
 #include <linux/workqueue.h>
+#include <linux/minmax.h>
 #include <linux/mutex.h>
 #include <linux/random.h>
 #include <linux/pm_qos.h>
@@ -40,6 +41,7 @@
 #include "hub.h"
 #include "phy.h"
 #include "otg_productlist.h"
+#include "trace.h"
 
 #define USB_VENDOR_GENESYS_LOGIC		0x05e3
 #define USB_VENDOR_SMSC				0x0424
@@ -277,10 +279,7 @@ static void usb_set_lpm_pel(struct usb_device *udev,
 	 * device and the parent hub into U0.  The exit latency is the bigger of
 	 * the device exit latency or the hub exit latency.
 	 */
-	if (udev_exit_latency > hub_exit_latency)
-		first_link_pel = udev_exit_latency * 1000;
-	else
-		first_link_pel = hub_exit_latency * 1000;
+	first_link_pel = max(udev_exit_latency, hub_exit_latency) * 1000;
 
 	/*
 	 * When the hub starts to receive the LFPS, there is a slight delay for
@@ -294,10 +293,7 @@ static void usb_set_lpm_pel(struct usb_device *udev,
 	 * According to figure C-7 in the USB 3.0 spec, the PEL for this device
 	 * is the greater of the two exit latencies.
 	 */
-	if (first_link_pel > hub_pel)
-		udev_lpm_params->pel = first_link_pel;
-	else
-		udev_lpm_params->pel = hub_pel;
+	udev_lpm_params->pel = max(first_link_pel, hub_pel);
 }
 
 /*
@@ -933,7 +929,7 @@ int usb_hub_clear_tt_buffer(struct urb *urb)
 	 * since each TT has "at least two" buffers that can need it (and
 	 * there can be many TTs per hub).  even if they're uncommon.
 	 */
-	clear = kmalloc(sizeof *clear, GFP_ATOMIC);
+	clear = kmalloc_obj(*clear, GFP_ATOMIC);
 	if (clear == NULL) {
 		dev_err(&udev->dev, "can't save CLEAR_TT_BUFFER state\n");
 		/* FIXME recover somehow ... RESET_TT? */
@@ -1465,20 +1461,20 @@ static int hub_configure(struct usb_hub *hub,
 	unsigned full_load;
 	unsigned maxchild;
 
-	hub->buffer = kmalloc(sizeof(*hub->buffer), GFP_KERNEL);
+	hub->buffer = kmalloc_obj(*hub->buffer);
 	if (!hub->buffer) {
 		ret = -ENOMEM;
 		goto fail;
 	}
 
-	hub->status = kmalloc(sizeof(*hub->status), GFP_KERNEL);
+	hub->status = kmalloc_obj(*hub->status);
 	if (!hub->status) {
 		ret = -ENOMEM;
 		goto fail;
 	}
 	mutex_init(&hub->status_mutex);
 
-	hub->descriptor = kzalloc(sizeof(*hub->descriptor), GFP_KERNEL);
+	hub->descriptor = kzalloc_obj(*hub->descriptor);
 	if (!hub->descriptor) {
 		ret = -ENOMEM;
 		goto fail;
@@ -1526,7 +1522,7 @@ static int hub_configure(struct usb_hub *hub,
 	dev_info(hub_dev, "%d port%s detected\n", maxchild,
 			str_plural(maxchild));
 
-	hub->ports = kcalloc(maxchild, sizeof(struct usb_port *), GFP_KERNEL);
+	hub->ports = kzalloc_objs(struct usb_port *, maxchild);
 	if (!hub->ports) {
 		ret = -ENOMEM;
 		goto fail;
@@ -1962,7 +1958,7 @@ static int hub_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	/* We found a hub */
 	dev_info(&intf->dev, "USB hub found\n");
 
-	hub = kzalloc(sizeof(*hub), GFP_KERNEL);
+	hub = kzalloc_obj(*hub);
 	if (!hub)
 		return -ENOMEM;
 
@@ -2147,6 +2143,21 @@ static void update_port_device_state(struct usb_device *udev)
 	}
 }
 
+static void update_usb_device_state(struct usb_device *udev,
+				    enum usb_device_state new_state)
+{
+	if (udev->state == USB_STATE_SUSPENDED &&
+	    new_state != USB_STATE_SUSPENDED)
+		udev->active_duration -= jiffies;
+	else if (new_state == USB_STATE_SUSPENDED &&
+		 udev->state != USB_STATE_SUSPENDED)
+		udev->active_duration += jiffies;
+
+	udev->state = new_state;
+	update_port_device_state(udev);
+	trace_usb_set_device_state(udev);
+}
+
 static void recursively_mark_NOTATTACHED(struct usb_device *udev)
 {
 	struct usb_hub *hub = usb_hub_to_struct_hub(udev);
@@ -2156,10 +2167,7 @@ static void recursively_mark_NOTATTACHED(struct usb_device *udev)
 		if (hub->ports[i]->child)
 			recursively_mark_NOTATTACHED(hub->ports[i]->child);
 	}
-	if (udev->state == USB_STATE_SUSPENDED)
-		udev->active_duration -= jiffies;
-	udev->state = USB_STATE_NOTATTACHED;
-	update_port_device_state(udev);
+	update_usb_device_state(udev, USB_STATE_NOTATTACHED);
 }
 
 /**
@@ -2209,14 +2217,7 @@ void usb_set_device_state(struct usb_device *udev,
 			else
 				wakeup = 0;
 		}
-		if (udev->state == USB_STATE_SUSPENDED &&
-			new_state != USB_STATE_SUSPENDED)
-			udev->active_duration -= jiffies;
-		else if (new_state == USB_STATE_SUSPENDED &&
-				udev->state != USB_STATE_SUSPENDED)
-			udev->active_duration += jiffies;
-		udev->state = new_state;
-		update_port_device_state(udev);
+		update_usb_device_state(udev, new_state);
 	} else
 		recursively_mark_NOTATTACHED(udev);
 	spin_unlock_irqrestore(&device_state_lock, flags);
@@ -4141,7 +4142,7 @@ static int usb_req_set_sel(struct usb_device *udev)
 	 * which may be initiated by an error path of a mass storage driver.
 	 * Therefore, use GFP_NOIO.
 	 */
-	sel_values = kmalloc(sizeof *(sel_values), GFP_NOIO);
+	sel_values = kmalloc_obj(*(sel_values), GFP_NOIO);
 	if (!sel_values)
 		return -ENOMEM;
 
@@ -5235,7 +5236,7 @@ check_highspeed(struct usb_hub *hub, struct usb_device *udev, int port1)
 	if (udev->quirks & USB_QUIRK_DEVICE_QUALIFIER)
 		return;
 
-	qual = kmalloc(sizeof *qual, GFP_KERNEL);
+	qual = kmalloc_obj(*qual);
 	if (qual == NULL)
 		return;
 
@@ -6077,7 +6078,7 @@ int usb_hub_init(void)
 	 * device was gone before the EHCI controller had handed its port
 	 * over to the companion full-speed controller.
 	 */
-	hub_wq = alloc_workqueue("usb_hub_wq", WQ_FREEZABLE, 0);
+	hub_wq = alloc_workqueue("usb_hub_wq", WQ_FREEZABLE | WQ_PERCPU, 0);
 	if (hub_wq)
 		return 0;
 

@@ -9,6 +9,7 @@
 #include <drm/drm_gem.h>
 #include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_print.h>
 
 #include "komeda_framebuffer.h"
 #include "komeda_dev.h"
@@ -164,7 +165,7 @@ komeda_fb_create(struct drm_device *dev, struct drm_file *file,
 	struct komeda_fb *kfb;
 	int ret = 0, i;
 
-	kfb = kzalloc(sizeof(*kfb), GFP_KERNEL);
+	kfb = kzalloc_obj(*kfb);
 	if (!kfb)
 		return ERR_PTR(-ENOMEM);
 

@@ -827,7 +827,7 @@ static int ads131e08_probe(struct spi_device *spi)
 	if (spi->irq) {
 		ret = devm_request_irq(&spi->dev, spi->irq,
 			ads131e08_interrupt,
-			IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+			IRQF_TRIGGER_FALLING | IRQF_NO_THREAD,
 			spi->dev.driver->name, indio_dev);
 		if (ret)
 			return dev_err_probe(&spi->dev, ret,
@@ -848,7 +848,7 @@ static int ads131e08_probe(struct spi_device *spi)
 	ret = devm_iio_trigger_register(&spi->dev, st->trig);
 	if (ret) {
 		dev_err(&spi->dev, "failed to register IIO trigger\n");
-		return -ENOMEM;
+		return ret;
 	}
 
 	indio_dev->trig = iio_trigger_get(st->trig);

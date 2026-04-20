@@ -4,13 +4,21 @@
 //! Adapters which allow the user to supply a write or read implementation as a value rather
 //! than a trait implementation. If provided, it will override the trait implementation.
 
-use super::{Reader, Writer};
-use crate::prelude::*;
-use crate::uaccess::UserSliceReader;
-use core::fmt;
-use core::fmt::Formatter;
-use core::marker::PhantomData;
-use core::ops::Deref;
+use super::{
+    Reader,
+    Writer, //
+};
+
+use crate::{
+    fmt,
+    prelude::*,
+    uaccess::UserSliceReader, //
+};
+
+use core::{
+    marker::PhantomData,
+    ops::Deref, //
+};
 
 /// # Safety
 ///
@@ -76,9 +84,9 @@ impl<D, F> Deref for FormatAdapter<D, F> {
 
 impl<D, F> Writer for FormatAdapter<D, F>
 where
-    F: Fn(&D, &mut Formatter<'_>) -> fmt::Result + 'static,
+    F: Fn(&D, &mut fmt::Formatter<'_>) -> fmt::Result + 'static,
 {
-    fn write(&self, fmt: &mut Formatter<'_>) -> fmt::Result {
+    fn write(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // SAFETY: FormatAdapter<_, F> can only be constructed if F is inhabited
         let f: &F = unsafe { materialize_zst() };
         f(&self.inner, fmt)

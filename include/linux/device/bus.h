@@ -35,6 +35,8 @@ struct fwnode_handle;
  *		otherwise. It may also return error code if determining that
  *		the driver supports the device is not possible. In case of
  *		-EPROBE_DEFER it will queue the device for deferred probing.
+ *		Note: This callback may be invoked with or without the device
+ *		lock held.
  * @uevent:	Called when a device is added, removed, or a few other things
  *		that generate uevents to add the environment variables.
  * @probe:	Called when a new device or driver add to this bus, and callback
@@ -63,6 +65,9 @@ struct fwnode_handle;
  *			this bus.
  * @pm:		Power management operations of this bus, callback the specific
  *		device driver's pm-ops.
+ * @driver_override:	Set to true if this bus supports the driver_override
+ *			mechanism, which allows userspace to force a specific
+ *			driver to bind to a device via a sysfs attribute.
  * @need_parent_lock:	When probing or removing a device on this bus, the
  *			device core should lock the device's parent.
  *
@@ -104,6 +109,7 @@ struct bus_type {
 
 	const struct dev_pm_ops *pm;
 
+	bool driver_override;
 	bool need_parent_lock;
 };
 
@@ -150,6 +156,9 @@ int bus_for_each_dev(const struct bus_type *bus, struct device *start,
 		     void *data, device_iter_t fn);
 struct device *bus_find_device(const struct bus_type *bus, struct device *start,
 			       const void *data, device_match_t match);
+struct device *bus_find_device_reverse(const struct bus_type *bus,
+				       struct device *start, const void *data,
+				       device_match_t match);
 /**
  * bus_find_device_by_name - device iterator for locating a particular device
  * of a specific name.
@@ -212,9 +221,9 @@ bus_find_next_device(const struct bus_type *bus,struct device *cur)
 	return bus_find_device(bus, cur, NULL, device_match_any);
 }
 
-#ifdef CONFIG_ACPI
 struct acpi_device;
 
+#ifdef CONFIG_ACPI
 /**
  * bus_find_device_by_acpi_dev : device iterator for locating a particular device
  * matching the ACPI COMPANION device.
@@ -228,7 +237,7 @@ bus_find_device_by_acpi_dev(const struct bus_type *bus, const struct acpi_device
 }
 #else
 static inline struct device *
-bus_find_device_by_acpi_dev(const struct bus_type *bus, const void *adev)
+bus_find_device_by_acpi_dev(const struct bus_type *bus, const struct acpi_device *adev)
 {
 	return NULL;
 }

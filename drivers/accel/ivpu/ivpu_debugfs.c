@@ -20,6 +20,7 @@
 #include "ivpu_hw.h"
 #include "ivpu_jsm_msg.h"
 #include "ivpu_pm.h"
+#include "vpu_boot_api.h"
 
 static inline struct ivpu_device *seq_to_ivpu(struct seq_file *s)
 {
@@ -96,7 +97,8 @@ static int last_bootmode_show(struct seq_file *s, void *v)
 {
 	struct ivpu_device *vdev = seq_to_ivpu(s);
 
-	seq_printf(s, "%s\n", (vdev->pm->is_warmboot) ? "warmboot" : "coldboot");
+	seq_printf(s, "%s\n", (vdev->fw->last_boot_mode == VPU_BOOT_TYPE_WARMBOOT) ?
+		   "warm boot" : "cold boot");
 
 	return 0;
 }
@@ -398,35 +400,25 @@ static int dct_active_set(void *data, u64 active_percent)
 
 DEFINE_DEBUGFS_ATTRIBUTE(ivpu_dct_fops, dct_active_get, dct_active_set, "%llu\n");
 
+static void print_priority_band(struct seq_file *s, struct ivpu_hw_info *hw,
+				int band, const char *name)
+{
+	seq_printf(s, "%-9s: grace_period %9u process_grace_period %9u process_quantum %9u\n",
+		   name,
+		   hw->hws.grace_period[band],
+		   hw->hws.process_grace_period[band],
+		   hw->hws.process_quantum[band]);
+}
+
 static int priority_bands_show(struct seq_file *s, void *v)
 {
 	struct ivpu_device *vdev = s->private;
 	struct ivpu_hw_info *hw = vdev->hw;
 
-	for (int band = VPU_JOB_SCHEDULING_PRIORITY_BAND_IDLE;
-	     band < VPU_JOB_SCHEDULING_PRIORITY_BAND_COUNT; band++) {
-		switch (band) {
-		case VPU_JOB_SCHEDULING_PRIORITY_BAND_IDLE:
-			seq_puts(s, "Idle:     ");
-			break;
-
-		case VPU_JOB_SCHEDULING_PRIORITY_BAND_NORMAL:
-			seq_puts(s, "Normal:   ");
-			break;
-
-		case VPU_JOB_SCHEDULING_PRIORITY_BAND_FOCUS:
-			seq_puts(s, "Focus:    ");
-			break;
-
-		case VPU_JOB_SCHEDULING_PRIORITY_BAND_REALTIME:
-			seq_puts(s, "Realtime: ");
-			break;
-		}
-
-		seq_printf(s, "grace_period %9u process_grace_period %9u process_quantum %9u\n",
-			   hw->hws.grace_period[band], hw->hws.process_grace_period[band],
-			   hw->hws.process_quantum[band]);
-	}
+	print_priority_band(s, hw, VPU_JOB_SCHEDULING_PRIORITY_BAND_IDLE, "Idle");
+	print_priority_band(s, hw, VPU_JOB_SCHEDULING_PRIORITY_BAND_NORMAL, "Normal");
+	print_priority_band(s, hw, VPU_JOB_SCHEDULING_PRIORITY_BAND_FOCUS, "Focus");
+	print_priority_band(s, hw, VPU_JOB_SCHEDULING_PRIORITY_BAND_REALTIME, "Realtime");
 
 	return 0;
 }

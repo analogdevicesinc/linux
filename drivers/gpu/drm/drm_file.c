@@ -136,7 +136,7 @@ struct drm_file *drm_file_alloc(struct drm_minor *minor)
 	struct drm_file *file;
 	int ret;
 
-	file = kzalloc(sizeof(*file), GFP_KERNEL);
+	file = kzalloc_obj(*file);
 	if (!file)
 		return ERR_PTR(-ENOMEM);
 
@@ -233,6 +233,7 @@ static void drm_events_release(struct drm_file *file_priv)
 void drm_file_free(struct drm_file *file)
 {
 	struct drm_device *dev;
+	int idx;
 
 	if (!file)
 		return;
@@ -249,9 +250,11 @@ void drm_file_free(struct drm_file *file)
 
 	drm_events_release(file);
 
-	if (drm_core_check_feature(dev, DRIVER_MODESET)) {
+	if (drm_core_check_feature(dev, DRIVER_MODESET) &&
+	    drm_dev_enter(dev, &idx)) {
 		drm_fb_release(file);
 		drm_property_destroy_user_blobs(dev, file);
+		drm_dev_exit(idx);
 	}
 
 	if (drm_core_check_feature(dev, DRIVER_SYNCOBJ))
@@ -405,7 +408,7 @@ EXPORT_SYMBOL(drm_open);
 
 static void drm_lastclose(struct drm_device *dev)
 {
-	drm_client_dev_restore(dev);
+	drm_client_dev_restore(dev, false);
 
 	if (dev_is_pci(dev->dev))
 		vga_switcheroo_process_delayed_switch();

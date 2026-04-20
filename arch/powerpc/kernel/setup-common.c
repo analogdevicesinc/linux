@@ -994,15 +994,6 @@ void __init setup_arch(char **cmdline_p)
 
 	initmem_init();
 
-	/*
-	 * Reserve large chunks of memory for use by CMA for fadump, KVM and
-	 * hugetlb. These must be called after initmem_init(), so that
-	 * pageblock_order is initialised.
-	 */
-	fadump_cma_init();
-	kvm_cma_reserve();
-	gigantic_hugetlb_cma_reserve();
-
 	early_memtest(min_low_pfn << PAGE_SHIFT, max_low_pfn << PAGE_SHIFT);
 
 	if (ppc_md.setup_arch)

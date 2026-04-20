@@ -23,29 +23,11 @@ struct tee_shm_dma_mem {
 	struct page *page;
 };
 
-static void shm_put_kernel_pages(struct page **pages, size_t page_count)
-{
-	size_t n;
-
-	for (n = 0; n < page_count; n++)
-		put_page(pages[n]);
-}
-
-static void shm_get_kernel_pages(struct page **pages, size_t page_count)
-{
-	size_t n;
-
-	for (n = 0; n < page_count; n++)
-		get_page(pages[n]);
-}
-
 static void release_registered_pages(struct tee_shm *shm)
 {
 	if (shm->pages) {
 		if (shm->flags & TEE_SHM_USER_MAPPED)
 			unpin_user_pages(shm->pages, shm->num_pages);
-		else
-			shm_put_kernel_pages(shm->pages, shm->num_pages);
 
 		kfree(shm->pages);
 	}
@@ -106,7 +88,7 @@ static struct tee_shm *shm_alloc_helper(struct tee_context *ctx, size_t size,
 		goto err_dev_put;
 	}
 
-	shm = kzalloc(sizeof(*shm), GFP_KERNEL);
+	shm = kzalloc_obj(*shm);
 	if (!shm) {
 		ret = ERR_PTR(-ENOMEM);
 		goto err_dev_put;
@@ -214,7 +196,7 @@ struct tee_shm *tee_shm_register_fd(struct tee_context *ctx, int fd)
 
 	teedev_ctx_get(ctx);
 
-	ref = kzalloc(sizeof(*ref), GFP_KERNEL);
+	ref = kzalloc_obj(*ref);
 	if (!ref) {
 		rc = -ENOMEM;
 		goto err_put_tee;
@@ -315,7 +297,7 @@ struct tee_shm *tee_shm_alloc_dma_mem(struct tee_context *ctx,
 	if (!page)
 		goto err_put_teedev;
 
-	dma_mem = kzalloc(sizeof(*dma_mem), GFP_KERNEL);
+	dma_mem = kzalloc_obj(*dma_mem);
 	if (!dma_mem)
 		goto err_free_pages;
 
@@ -373,7 +355,7 @@ int tee_dyn_shm_alloc_helper(struct tee_shm *shm, size_t size, size_t align,
 	shm->paddr = virt_to_phys(shm->kaddr);
 	shm->size = nr_pages * PAGE_SIZE;
 
-	pages = kcalloc(nr_pages, sizeof(*pages), GFP_KERNEL);
+	pages = kzalloc_objs(*pages, nr_pages);
 	if (!pages) {
 		rc = -ENOMEM;
 		goto err_pages;
@@ -438,7 +420,7 @@ register_shm_helper(struct tee_context *ctx, struct iov_iter *iter, u32 flags,
 
 	teedev_ctx_get(ctx);
 
-	shm = kzalloc(sizeof(*shm), GFP_KERNEL);
+	shm = kzalloc_obj(*shm);
 	if (!shm) {
 		ret = ERR_PTR(-ENOMEM);
 		goto err_ctx_put;
@@ -456,7 +438,7 @@ register_shm_helper(struct tee_context *ctx, struct iov_iter *iter, u32 flags,
 		goto err_ctx_put;
 	}
 
-	shm->pages = kcalloc(num_pages, sizeof(*shm->pages), GFP_KERNEL);
+	shm->pages = kzalloc_objs(*shm->pages, num_pages);
 	if (!shm->pages) {
 		ret = ERR_PTR(-ENOMEM);
 		goto err_free_shm;
@@ -477,13 +459,6 @@ register_shm_helper(struct tee_context *ctx, struct iov_iter *iter, u32 flags,
 		goto err_put_shm_pages;
 	}
 
-	/*
-	 * iov_iter_extract_kvec_pages does not get reference on the pages,
-	 * get a reference on them.
-	 */
-	if (iov_iter_is_kvec(iter))
-		shm_get_kernel_pages(shm->pages, num_pages);
-
 	shm->offset = off;
 	shm->size = len;
 	shm->num_pages = num_pages;
@@ -499,8 +474,6 @@ register_shm_helper(struct tee_context *ctx, struct iov_iter *iter, u32 flags,
 err_put_shm_pages:
 	if (!iov_iter_is_kvec(iter))
 		unpin_user_pages(shm->pages, shm->num_pages);
-	else
-		shm_put_kernel_pages(shm->pages, shm->num_pages);
 err_free_shm_pages:
 	kfree(shm->pages);
 err_free_shm:

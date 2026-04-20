@@ -2303,7 +2303,7 @@ void iwl_trans_pcie_reset(struct iwl_trans *trans, enum iwl_reset_mode mode)
 		return;
 	}
 
-	removal = kzalloc(sizeof(*removal), GFP_ATOMIC);
+	removal = kzalloc_obj(*removal, GFP_ATOMIC);
 	if (!removal) {
 		module_put(THIS_MODULE);
 		return;
@@ -2327,7 +2327,7 @@ EXPORT_SYMBOL(iwl_trans_pcie_reset);
  * This version doesn't disable BHs but rather assumes they're
  * already disabled.
  */
-bool __iwl_trans_pcie_grab_nic_access(struct iwl_trans *trans, bool silent)
+bool _iwl_trans_pcie_grab_nic_access(struct iwl_trans *trans, bool silent)
 {
 	int ret;
 	struct iwl_trans_pcie *trans_pcie = IWL_TRANS_GET_PCIE_TRANS(trans);
@@ -2415,7 +2415,7 @@ bool iwl_trans_pcie_grab_nic_access(struct iwl_trans *trans)
 	bool ret;
 
 	local_bh_disable();
-	ret = __iwl_trans_pcie_grab_nic_access(trans, false);
+	ret = _iwl_trans_pcie_grab_nic_access(trans, false);
 	if (ret) {
 		/* keep BHs disabled until iwl_trans_pcie_release_nic_access */
 		return ret;
@@ -2748,7 +2748,7 @@ static void *iwl_dbgfs_tx_queue_seq_start(struct seq_file *seq, loff_t *pos)
 	if (*pos >= priv->trans->mac_cfg->base->num_of_queues)
 		return NULL;
 
-	state = kmalloc(sizeof(*state), GFP_KERNEL);
+	state = kmalloc_obj(*state);
 	if (!state)
 		return NULL;
 	state->pos = *pos;
@@ -4217,6 +4217,15 @@ int iwl_pci_gen1_2_probe(struct pci_dev *pdev,
 	IWL_INFO(iwl_trans, "PCI dev %04x/%04x, rev=0x%x, rfid=0x%x\n",
 		 pdev->device, pdev->subsystem_device,
 		 info.hw_rev, info.hw_rf_id);
+
+#if !IS_ENABLED(CONFIG_IWLMLD)
+	if (iwl_drv_is_wifi7_supported(iwl_trans)) {
+		IWL_ERR(iwl_trans,
+			"IWLMLD needs to be compiled to support this device\n");
+		ret = -EOPNOTSUPP;
+		goto out_free_trans;
+	}
+#endif
 
 	dev_info = iwl_pci_find_dev_info(pdev->device, pdev->subsystem_device,
 					 CSR_HW_RFID_TYPE(info.hw_rf_id),

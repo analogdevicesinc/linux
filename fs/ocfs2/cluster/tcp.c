@@ -415,7 +415,7 @@ static struct o2net_sock_container *sc_alloc(struct o2nm_node *node)
 	int status = 0;
 
 	page = alloc_page(GFP_NOFS);
-	sc = kzalloc(sizeof(*sc), GFP_NOFS);
+	sc = kzalloc_obj(*sc, GFP_NOFS);
 	if (sc == NULL || page == NULL)
 		goto out;
 
@@ -825,7 +825,7 @@ int o2net_register_handler(u32 msg_type, u32 key, u32 max_len,
 		goto out;
 	}
 
-       	nmh = kzalloc(sizeof(struct o2net_msg_handler), GFP_NOFS);
+       	nmh = kzalloc_obj(struct o2net_msg_handler, GFP_NOFS);
 	if (nmh == NULL) {
 		ret = -ENOMEM;
 		goto out;
@@ -1064,14 +1064,14 @@ int o2net_send_message_vec(u32 msg_type, u32 key, struct kvec *caller_vec,
 	o2net_set_nst_sock_container(&nst, sc);
 
 	veclen = caller_veclen + 1;
-	vec = kmalloc_array(veclen, sizeof(struct kvec), GFP_ATOMIC);
+	vec = kmalloc_objs(struct kvec, veclen, GFP_ATOMIC);
 	if (vec == NULL) {
 		mlog(0, "failed to %zu element kvec!\n", veclen);
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	msg = kmalloc(sizeof(struct o2net_msg), GFP_ATOMIC);
+	msg = kmalloc_obj(struct o2net_msg, GFP_ATOMIC);
 	if (!msg) {
 		mlog(0, "failed to allocate a o2net_msg!\n");
 		ret = -ENOMEM;
@@ -1615,7 +1615,7 @@ static void o2net_start_connect(struct work_struct *work)
 	myaddr.sin_addr.s_addr = mynode->nd_ipv4_address;
 	myaddr.sin_port = htons(0); /* any port */
 
-	ret = sock->ops->bind(sock, (struct sockaddr *)&myaddr,
+	ret = sock->ops->bind(sock, (struct sockaddr_unsized *)&myaddr,
 			      sizeof(myaddr));
 	if (ret) {
 		mlog(ML_ERROR, "bind failed with %d at address %pI4\n",
@@ -1638,7 +1638,7 @@ static void o2net_start_connect(struct work_struct *work)
 	remoteaddr.sin_port = node->nd_ipv4_port;
 
 	ret = sc->sc_sock->ops->connect(sc->sc_sock,
-					(struct sockaddr *)&remoteaddr,
+					(struct sockaddr_unsized *)&remoteaddr,
 					sizeof(remoteaddr),
 					O_NONBLOCK);
 	if (ret == -EINPROGRESS)
@@ -2002,7 +2002,7 @@ static int o2net_open_listening_sock(__be32 addr, __be16 port)
 	INIT_WORK(&o2net_listen_work, o2net_accept_many);
 
 	sock->sk->sk_reuse = SK_CAN_REUSE;
-	ret = sock->ops->bind(sock, (struct sockaddr *)&sin, sizeof(sin));
+	ret = sock->ops->bind(sock, (struct sockaddr_unsized *)&sin, sizeof(sin));
 	if (ret < 0) {
 		printk(KERN_ERR "o2net: Error %d while binding socket at "
 		       "%pI4:%u\n", ret, &addr, ntohs(port)); 

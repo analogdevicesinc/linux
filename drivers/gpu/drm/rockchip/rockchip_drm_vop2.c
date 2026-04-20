@@ -29,6 +29,7 @@
 #include <drm/drm_flip_work.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_gem_framebuffer_helper.h>
+#include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
 
@@ -101,7 +102,7 @@ enum vop2_afbc_format {
 	VOP2_AFBC_FMT_INVALID = -1,
 };
 
-#define VOP2_MAX_DCLK_RATE		600000000
+#define VOP2_MAX_DCLK_RATE		600000000UL
 
 /*
  * bus-format types.
@@ -366,59 +367,47 @@ static bool is_yuv_output(u32 bus_format)
 	}
 }
 
-static bool rockchip_afbc(struct drm_plane *plane, u64 modifier)
-{
-	int i;
-
-	if (modifier == DRM_FORMAT_MOD_LINEAR)
-		return false;
-
-	for (i = 0 ; i < plane->modifier_count; i++)
-		if (plane->modifiers[i] == modifier)
-			return true;
-
-	return false;
-}
-
 static bool rockchip_vop2_mod_supported(struct drm_plane *plane, u32 format,
 					u64 modifier)
 {
 	struct vop2_win *win = to_vop2_win(plane);
 	struct vop2 *vop2 = win->vop2;
+	int i;
 
+	/* No support for implicit modifiers */
 	if (modifier == DRM_FORMAT_MOD_INVALID)
 		return false;
 
-	if (vop2->version == VOP_VERSION_RK3568) {
-		if (vop2_cluster_window(win)) {
-			if (modifier == DRM_FORMAT_MOD_LINEAR) {
-				drm_dbg_kms(vop2->drm,
-					    "Cluster window only supports format with afbc\n");
-				return false;
-			}
-		}
-	}
-
-	if (format == DRM_FORMAT_XRGB2101010 || format == DRM_FORMAT_XBGR2101010) {
-		if (vop2->version == VOP_VERSION_RK3588) {
-			if (!rockchip_afbc(plane, modifier)) {
-				drm_dbg_kms(vop2->drm, "Only support 32 bpp format with afbc\n");
-				return false;
-			}
-		}
-	}
-
-	if (modifier == DRM_FORMAT_MOD_LINEAR)
-		return true;
-
-	if (!rockchip_afbc(plane, modifier)) {
-		drm_dbg_kms(vop2->drm, "Unsupported format modifier 0x%llx\n",
-			    modifier);
-
+	/* The cluster window on 3568 is AFBC-only */
+	if (vop2->version == VOP_VERSION_RK3568 && vop2_cluster_window(win) &&
+	    !drm_is_afbc(modifier)) {
+		drm_dbg_kms(vop2->drm,
+			    "Cluster window only supports format with afbc\n");
 		return false;
 	}
 
-	return vop2_convert_afbc_format(format) >= 0;
+	/* 10bpc formats on 3588 are AFBC-only */
+	if (vop2->version == VOP_VERSION_RK3588 && !drm_is_afbc(modifier) &&
+	    (format == DRM_FORMAT_XRGB2101010 || format == DRM_FORMAT_XBGR2101010)) {
+		drm_dbg_kms(vop2->drm, "Only support 10bpc format with afbc\n");
+		return false;
+	}
+
+	/* Linear is otherwise supported everywhere */
+	if (modifier == DRM_FORMAT_MOD_LINEAR)
+		return true;
+
+	/* Not all format+modifier combinations are allowable */
+	if (vop2_convert_afbc_format(format) == VOP2_AFBC_FMT_INVALID)
+		return false;
+
+	/* Different windows have different format/modifier support */
+	for (i = 0; i < plane->modifier_count; i++) {
+		if (plane->modifiers[i] == modifier)
+			return true;
+	}
+
+	return false;
 }
 
 /*
@@ -997,12 +986,15 @@ static int vop2_plane_atomic_check(struct drm_plane *plane,
 	struct drm_crtc *crtc = pstate->crtc;
 	struct drm_crtc_state *cstate;
 	struct vop2_video_port *vp;
+	struct vop2_win *win = to_vop2_win(plane);
 	struct vop2 *vop2;
 	const struct vop2_data *vop2_data;
 	struct drm_rect *dest = &pstate->dst;
 	struct drm_rect *src = &pstate->src;
 	int min_scale = FRAC_16_16(1, 8);
 	int max_scale = FRAC_16_16(8, 1);
+	int src_x, src_w, src_h;
+	int dest_w, dest_h;
 	int format;
 	int ret;
 
@@ -1013,7 +1005,7 @@ static int vop2_plane_atomic_check(struct drm_plane *plane,
 	vop2 = vp->vop2;
 	vop2_data = vop2->data;
 
-	cstate = drm_atomic_get_existing_crtc_state(pstate->state, crtc);
+	cstate = drm_atomic_get_new_crtc_state(pstate->state, crtc);
 	if (WARN_ON(!cstate))
 		return -EINVAL;
 
@@ -1027,25 +1019,29 @@ static int vop2_plane_atomic_check(struct drm_plane *plane,
 		return 0;
 
 	format = vop2_convert_format(fb->format->format);
-	if (format < 0)
+	/* We shouldn't be able to create a fb for an unsupported format */
+	if (WARN_ON(format < 0))
 		return format;
 
-	if (drm_rect_width(src) >> 16 < 4 || drm_rect_height(src) >> 16 < 4 ||
-	    drm_rect_width(dest) < 4 || drm_rect_height(dest) < 4) {
-		drm_err(vop2->drm, "Invalid size: %dx%d->%dx%d, min size is 4x4\n",
-			drm_rect_width(src) >> 16, drm_rect_height(src) >> 16,
-			drm_rect_width(dest), drm_rect_height(dest));
-		pstate->visible = false;
-		return 0;
+	/* Co-ordinates have now been clipped */
+	src_x = src->x1 >> 16;
+	src_w = drm_rect_width(src) >> 16;
+	src_h = drm_rect_height(src) >> 16;
+	dest_w = drm_rect_width(dest);
+	dest_h = drm_rect_height(dest);
+
+	if (src_w < 4 || src_h < 4 || dest_w < 4 || dest_h < 4) {
+		drm_dbg_kms(vop2->drm, "Invalid size: %dx%d->%dx%d, min size is 4x4\n",
+			    src_w, src_h, dest_w, dest_h);
+		return -EINVAL;
 	}
 
-	if (drm_rect_width(src) >> 16 > vop2_data->max_input.width ||
-	    drm_rect_height(src) >> 16 > vop2_data->max_input.height) {
-		drm_err(vop2->drm, "Invalid source: %dx%d. max input: %dx%d\n",
-			drm_rect_width(src) >> 16,
-			drm_rect_height(src) >> 16,
-			vop2_data->max_input.width,
-			vop2_data->max_input.height);
+	if (src_w > vop2_data->max_input.width ||
+	    src_h > vop2_data->max_input.height) {
+		drm_dbg_kms(vop2->drm, "Invalid source: %dx%d. max input: %dx%d\n",
+			    src_w, src_h,
+			    vop2_data->max_input.width,
+			    vop2_data->max_input.height);
 		return -EINVAL;
 	}
 
@@ -1053,8 +1049,34 @@ static int vop2_plane_atomic_check(struct drm_plane *plane,
 	 * Src.x1 can be odd when do clip, but yuv plane start point
 	 * need align with 2 pixel.
 	 */
-	if (fb->format->is_yuv && ((pstate->src.x1 >> 16) % 2)) {
-		drm_err(vop2->drm, "Invalid Source: Yuv format not support odd xpos\n");
+	if (fb->format->is_yuv && src_x % 2) {
+		drm_dbg_kms(vop2->drm, "Invalid Source: Yuv format not support odd xpos\n");
+		return -EINVAL;
+	}
+
+	/*
+	 * This is workaround solution for IC design:
+	 * esmart can't support scale down when src_w % 16 == 1.
+	 */
+	if (!vop2_cluster_window(win) && src_w > dest_w && (src_w & 1)) {
+		drm_dbg_kms(vop2->drm,
+			    "Esmart windows cannot downscale odd-width source regions\n");
+		return -EINVAL;
+	}
+
+	if (vop2->version == VOP_VERSION_RK3568 && drm_is_afbc(fb->modifier) && src_w % 4) {
+		drm_dbg_kms(vop2->drm,
+			    "AFBC source rectangles must be 4-pixel aligned; is %d\n",
+			    src_w);
+		return -EINVAL;
+	}
+
+	if (drm_is_afbc(fb->modifier) &&
+	    pstate->rotation &
+		(DRM_MODE_REFLECT_X | DRM_MODE_ROTATE_90 | DRM_MODE_ROTATE_270) &&
+	    (fb->pitches[0] << 3) / vop2_get_bpp(fb->format) % 64) {
+		drm_dbg_kms(vop2->drm,
+			    "AFBC buffers must be 64-pixel aligned for horizontal rotation or mirroring\n");
 		return -EINVAL;
 	}
 
@@ -1140,7 +1162,7 @@ static void vop2_plane_atomic_update(struct drm_plane *plane,
 	struct vop2 *vop2 = win->vop2;
 	struct drm_framebuffer *fb = pstate->fb;
 	u32 bpp = vop2_get_bpp(fb->format);
-	u32 actual_w, actual_h, dsp_w, dsp_h;
+	u32 src_w, src_h, dsp_w, dsp_h;
 	u32 act_info, dsp_info;
 	u32 format;
 	u32 afbc_format;
@@ -1173,7 +1195,7 @@ static void vop2_plane_atomic_update(struct drm_plane *plane,
 		return;
 	}
 
-	afbc_en = rockchip_afbc(plane, fb->modifier);
+	afbc_en = drm_is_afbc(fb->modifier);
 
 	offset = (src->x1 >> 16) * fb->format->cpp[0];
 
@@ -1204,58 +1226,32 @@ static void vop2_plane_atomic_update(struct drm_plane *plane,
 		uv_mst = rk_obj->dma_addr + offset + fb->offsets[1];
 	}
 
-	actual_w = drm_rect_width(src) >> 16;
-	actual_h = drm_rect_height(src) >> 16;
+	src_w = drm_rect_width(src) >> 16;
+	src_h = drm_rect_height(src) >> 16;
 	dsp_w = drm_rect_width(dest);
-
-	if (dest->x1 + dsp_w > adjusted_mode->hdisplay) {
-		drm_dbg_kms(vop2->drm,
-			    "vp%d %s dest->x1[%d] + dsp_w[%d] exceed mode hdisplay[%d]\n",
-			    vp->id, win->data->name, dest->x1, dsp_w, adjusted_mode->hdisplay);
-		dsp_w = adjusted_mode->hdisplay - dest->x1;
-		if (dsp_w < 4)
-			dsp_w = 4;
-		actual_w = dsp_w * actual_w / drm_rect_width(dest);
-	}
-
 	dsp_h = drm_rect_height(dest);
 
-	if (dest->y1 + dsp_h > adjusted_mode->vdisplay) {
-		drm_dbg_kms(vop2->drm,
-			    "vp%d %s dest->y1[%d] + dsp_h[%d] exceed mode vdisplay[%d]\n",
-			    vp->id, win->data->name, dest->y1, dsp_h, adjusted_mode->vdisplay);
-		dsp_h = adjusted_mode->vdisplay - dest->y1;
-		if (dsp_h < 4)
-			dsp_h = 4;
-		actual_h = dsp_h * actual_h / drm_rect_height(dest);
-	}
-
-	/*
-	 * This is workaround solution for IC design:
-	 * esmart can't support scale down when actual_w % 16 == 1.
+	/* drm_atomic_helper_check_plane_state calls drm_rect_clip_scaled for
+	 * us, which keeps our planes bounded within the CRTC active area
 	 */
-	if (!(win->data->feature & WIN_FEATURE_AFBDC)) {
-		if (actual_w > dsp_w && (actual_w & 0xf) == 1) {
-			drm_dbg_kms(vop2->drm, "vp%d %s act_w[%d] MODE 16 == 1\n",
-				    vp->id, win->data->name, actual_w);
-			actual_w -= 1;
-		}
-	}
+	if (WARN_ON(dest->x1 + dsp_w > adjusted_mode->hdisplay) ||
+	    WARN_ON(dest->y1 + dsp_h > adjusted_mode->vdisplay) ||
+	    WARN_ON(dsp_w < 4) || WARN_ON(dsp_h < 4) ||
+	    WARN_ON(src_w < 4) || WARN_ON(src_h < 4))
+		return;
 
-	if (afbc_en && actual_w % 4) {
-		drm_dbg_kms(vop2->drm, "vp%d %s actual_w[%d] not 4 pixel aligned\n",
-			    vp->id, win->data->name, actual_w);
-		actual_w = ALIGN_DOWN(actual_w, 4);
-	}
+	if (vop2->version == VOP_VERSION_RK3568 && drm_is_afbc(fb->modifier))
+		if (WARN_ON(src_w % 4))
+			return;
 
-	act_info = (actual_h - 1) << 16 | ((actual_w - 1) & 0xffff);
+	act_info = (src_h - 1) << 16 | ((src_w - 1) & 0xffff);
 	dsp_info = (dsp_h - 1) << 16 | ((dsp_w - 1) & 0xffff);
 
 	format = vop2_convert_format(fb->format->format);
 	half_block_en = vop2_half_block_enable(pstate);
 
 	drm_dbg(vop2->drm, "vp%d update %s[%dx%d->%dx%d@%dx%d] fmt[%p4cc_%s] addr[%pad]\n",
-		vp->id, win->data->name, actual_w, actual_h, dsp_w, dsp_h,
+		vp->id, win->data->name, src_w, src_h, dsp_w, dsp_h,
 		dest->x1, dest->y1,
 		&fb->format->format,
 		afbc_en ? "AFBC" : "", &yrgb_mst);
@@ -1284,16 +1280,13 @@ static void vop2_plane_atomic_update(struct drm_plane *plane,
 		if (fb->modifier & AFBC_FORMAT_MOD_YTR)
 			afbc_format |= (1 << 4);
 
-		afbc_tile_num = ALIGN(actual_w, block_w) / block_w;
+		afbc_tile_num = ALIGN(src_w, block_w) / block_w;
 
 		/*
 		 * AFBC pic_vir_width is count by pixel, this is different
 		 * with WIN_VIR_STRIDE.
 		 */
 		stride = (fb->pitches[0] << 3) / bpp;
-		if ((stride & 0x3f) && (xmirror || rotate_90 || rotate_270))
-			drm_dbg_kms(vop2->drm, "vp%d %s stride[%d] not 64 pixel aligned\n",
-				    vp->id, win->data->name, stride);
 
 		 /* It's for head stride, each head size is 16 byte */
 		stride = ALIGN(stride, block_w) / block_w * 16;
@@ -1362,8 +1355,8 @@ static void vop2_plane_atomic_update(struct drm_plane *plane,
 
 	if (rotate_90 || rotate_270) {
 		act_info = swahw32(act_info);
-		actual_w = drm_rect_height(src) >> 16;
-		actual_h = drm_rect_width(src) >> 16;
+		src_w = drm_rect_height(src) >> 16;
+		src_h = drm_rect_width(src) >> 16;
 	}
 
 	vop2_win_write(win, VOP2_WIN_FORMAT, format);
@@ -1379,7 +1372,7 @@ static void vop2_plane_atomic_update(struct drm_plane *plane,
 		vop2_win_write(win, VOP2_WIN_UV_MST, uv_mst);
 	}
 
-	vop2_setup_scale(vop2, win, actual_w, actual_h, dsp_w, dsp_h, fb->format->format);
+	vop2_setup_scale(vop2, win, src_w, src_h, dsp_w, dsp_h, fb->format->format);
 	if (!vop2_cluster_window(win))
 		vop2_plane_setup_color_key(plane, 0);
 	vop2_win_write(win, VOP2_WIN_ACT_INFO, act_info);
@@ -1431,6 +1424,17 @@ static void vop2_crtc_disable_vblank(struct drm_crtc *crtc)
 	struct vop2_video_port *vp = to_vop2_video_port(crtc);
 
 	vop2_crtc_disable_irq(vp, VP_INT_FS_FIELD);
+}
+
+static enum drm_mode_status vop2_crtc_mode_valid(struct drm_crtc *crtc,
+						 const struct drm_display_mode *mode)
+{
+	struct vop2_video_port *vp = to_vop2_video_port(crtc);
+
+	if (mode->hdisplay > vp->data->max_output.width)
+		return MODE_BAD_HVALUE;
+
+	return MODE_OK;
 }
 
 static bool vop2_crtc_mode_fixup(struct drm_crtc *crtc,
@@ -1737,36 +1741,42 @@ static void vop2_crtc_atomic_enable(struct drm_crtc *crtc,
 	 * Switch to HDMI PHY PLL as DCLK source for display modes up
 	 * to 4K@60Hz, if available, otherwise keep using the system CRU.
 	 */
-	if ((vop2->pll_hdmiphy0 || vop2->pll_hdmiphy1) && clock <= VOP2_MAX_DCLK_RATE) {
-		drm_for_each_encoder_mask(encoder, crtc->dev, crtc_state->encoder_mask) {
-			struct rockchip_encoder *rkencoder = to_rockchip_encoder(encoder);
+	if (vop2->pll_hdmiphy0 || vop2->pll_hdmiphy1) {
+		unsigned long max_dclk = DIV_ROUND_CLOSEST_ULL(VOP2_MAX_DCLK_RATE * 8,
+							       vcstate->output_bpc);
+		if (clock <= max_dclk) {
+			drm_for_each_encoder_mask(encoder, crtc->dev, crtc_state->encoder_mask) {
+				struct rockchip_encoder *rkencoder = to_rockchip_encoder(encoder);
 
-			if (rkencoder->crtc_endpoint_id == ROCKCHIP_VOP2_EP_HDMI0) {
-				if (!vop2->pll_hdmiphy0)
+				if (rkencoder->crtc_endpoint_id == ROCKCHIP_VOP2_EP_HDMI0) {
+					if (!vop2->pll_hdmiphy0)
+						break;
+
+					if (!vp->dclk_src)
+						vp->dclk_src = clk_get_parent(vp->dclk);
+
+					ret = clk_set_parent(vp->dclk, vop2->pll_hdmiphy0);
+					if (ret < 0)
+						drm_warn(vop2->drm,
+							 "Could not switch to HDMI0 PHY PLL: %d\n",
+							 ret);
 					break;
+				}
 
-				if (!vp->dclk_src)
-					vp->dclk_src = clk_get_parent(vp->dclk);
+				if (rkencoder->crtc_endpoint_id == ROCKCHIP_VOP2_EP_HDMI1) {
+					if (!vop2->pll_hdmiphy1)
+						break;
 
-				ret = clk_set_parent(vp->dclk, vop2->pll_hdmiphy0);
-				if (ret < 0)
-					drm_warn(vop2->drm,
-						 "Could not switch to HDMI0 PHY PLL: %d\n", ret);
-				break;
-			}
+					if (!vp->dclk_src)
+						vp->dclk_src = clk_get_parent(vp->dclk);
 
-			if (rkencoder->crtc_endpoint_id == ROCKCHIP_VOP2_EP_HDMI1) {
-				if (!vop2->pll_hdmiphy1)
+					ret = clk_set_parent(vp->dclk, vop2->pll_hdmiphy1);
+					if (ret < 0)
+						drm_warn(vop2->drm,
+							 "Could not switch to HDMI1 PHY PLL: %d\n",
+							 ret);
 					break;
-
-				if (!vp->dclk_src)
-					vp->dclk_src = clk_get_parent(vp->dclk);
-
-				ret = clk_set_parent(vp->dclk, vop2->pll_hdmiphy1);
-				if (ret < 0)
-					drm_warn(vop2->drm,
-						 "Could not switch to HDMI1 PHY PLL: %d\n", ret);
-				break;
+				}
 			}
 		}
 	}
@@ -1872,6 +1882,7 @@ static void vop2_crtc_atomic_flush(struct drm_crtc *crtc,
 
 static const struct drm_crtc_helper_funcs vop2_crtc_helper_funcs = {
 	.mode_fixup = vop2_crtc_mode_fixup,
+	.mode_valid = vop2_crtc_mode_valid,
 	.atomic_check = vop2_crtc_atomic_check,
 	.atomic_begin = vop2_crtc_atomic_begin,
 	.atomic_flush = vop2_crtc_atomic_flush,
@@ -2129,8 +2140,7 @@ static void vop2_crtc_destroy_state(struct drm_crtc *crtc,
 
 static void vop2_crtc_reset(struct drm_crtc *crtc)
 {
-	struct rockchip_crtc_state *vcstate =
-		kzalloc(sizeof(*vcstate), GFP_KERNEL);
+	struct rockchip_crtc_state *vcstate = kzalloc_obj(*vcstate);
 
 	if (crtc->state)
 		vop2_crtc_destroy_state(crtc, crtc->state);
@@ -2646,6 +2656,12 @@ static int vop2_bind(struct device *dev, struct device *master, void *data)
 	vop2->map = devm_regmap_init_mmio(dev, vop2->regs, &vop2_regmap_config);
 	if (IS_ERR(vop2->map))
 		return PTR_ERR(vop2->map);
+
+	/* Set the bounds for framebuffer creation */
+	drm->mode_config.min_width = 4;
+	drm->mode_config.min_height = 4;
+	drm->mode_config.max_width = vop2_data->max_input.width;
+	drm->mode_config.max_height = vop2_data->max_input.height;
 
 	ret = vop2_win_init(vop2);
 	if (ret)

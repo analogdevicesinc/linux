@@ -26,21 +26,21 @@ struct cs_dsp_test {
 
 	struct cs_dsp_test_local *local;
 
-	/* Following members are private */
+	/* private: Following members are private */
 	bool saw_bus_write;
 };
 
 /**
  * struct cs_dsp_mock_alg_def - Info for creating a mock algorithm entry.
  *
- * @id		  Algorithm ID.
- * @ver;	  Algorithm version.
- * @xm_base_words XM base address in DSP words.
- * @xm_size_words XM size in DSP words.
- * @ym_base_words YM base address in DSP words.
- * @ym_size_words YM size in DSP words.
- * @zm_base_words ZM base address in DSP words.
- * @zm_size_words ZM size in DSP words.
+ * @id:		   Algorithm ID.
+ * @ver:	   Algorithm version.
+ * @xm_base_words: XM base address in DSP words.
+ * @xm_size_words: XM size in DSP words.
+ * @ym_base_words: YM base address in DSP words.
+ * @ym_size_words: YM size in DSP words.
+ * @zm_base_words: ZM base address in DSP words.
+ * @zm_size_words: ZM size in DSP words.
  */
 struct cs_dsp_mock_alg_def {
 	unsigned int id;
@@ -126,7 +126,7 @@ struct cs_dsp_mock_bin_builder *cs_dsp_mock_bin_init(struct cs_dsp_test *priv,
 						     unsigned int fw_version);
 void cs_dsp_mock_bin_add_raw_block(struct cs_dsp_mock_bin_builder *builder,
 				   unsigned int alg_id, unsigned int alg_ver,
-				   int type, unsigned int offset,
+				   int type, u16 offset, u32 offset32,
 				   const void *payload_data, size_t payload_len_bytes);
 void cs_dsp_mock_bin_add_info(struct cs_dsp_mock_bin_builder *builder,
 			      const char *info);
@@ -136,6 +136,10 @@ void cs_dsp_mock_bin_add_patch(struct cs_dsp_mock_bin_builder *builder,
 			       unsigned int alg_id, unsigned int alg_ver,
 			       int mem_region, unsigned int reg_addr_offset,
 			       const void *payload_data, size_t payload_len_bytes);
+void cs_dsp_mock_bin_add_patch_off32(struct cs_dsp_mock_bin_builder *builder,
+				     unsigned int alg_id, unsigned int alg_ver,
+				     int mem_region, unsigned int reg_addr_offset,
+				     const void *payload_data, size_t payload_len_bytes);
 struct firmware *cs_dsp_mock_bin_get_firmware(struct cs_dsp_mock_bin_builder *builder);
 
 struct cs_dsp_mock_wmfw_builder *cs_dsp_mock_wmfw_init(struct cs_dsp_test *priv,

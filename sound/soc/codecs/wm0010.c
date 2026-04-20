@@ -326,7 +326,7 @@ static void byte_swap_64(u64 *data_in, u64 *data_out, u32 len)
 	int i;
 
 	for (i = 0; i < len / 8; i++)
-		data_out[i] = cpu_to_be64(le64_to_cpu(data_in[i]));
+		data_out[i] = swab64(data_in[i]);
 }
 
 static int wm0010_firmware_load(const char *name, struct snd_soc_component *component)
@@ -396,7 +396,7 @@ static int wm0010_firmware_load(const char *name, struct snd_soc_component *comp
 			rec->command, rec->length);
 		len = rec->length + 8;
 
-		xfer = kzalloc(sizeof(*xfer), GFP_KERNEL);
+		xfer = kzalloc_obj(*xfer);
 		if (!xfer) {
 			ret = -ENOMEM;
 			goto abort;
@@ -723,16 +723,17 @@ static int wm0010_set_bias_level(struct snd_soc_component *component,
 				 enum snd_soc_bias_level level)
 {
 	struct wm0010_priv *wm0010 = snd_soc_component_get_drvdata(component);
+	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 
 	switch (level) {
 	case SND_SOC_BIAS_ON:
-		if (snd_soc_component_get_bias_level(component) == SND_SOC_BIAS_PREPARE)
+		if (snd_soc_dapm_get_bias_level(dapm) == SND_SOC_BIAS_PREPARE)
 			wm0010_boot(component);
 		break;
 	case SND_SOC_BIAS_PREPARE:
 		break;
 	case SND_SOC_BIAS_STANDBY:
-		if (snd_soc_component_get_bias_level(component) == SND_SOC_BIAS_PREPARE) {
+		if (snd_soc_dapm_get_bias_level(dapm) == SND_SOC_BIAS_PREPARE) {
 			mutex_lock(&wm0010->lock);
 			wm0010_halt(component);
 			mutex_unlock(&wm0010->lock);

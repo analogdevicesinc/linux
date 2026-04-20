@@ -91,8 +91,8 @@ int null_init_zoned_dev(struct nullb_device *dev,
 	dev->nr_zones = round_up(dev_capacity_sects, dev->zone_size_sects)
 		>> ilog2(dev->zone_size_sects);
 
-	dev->zones = kvmalloc_array(dev->nr_zones, sizeof(struct nullb_zone),
-				    GFP_KERNEL | __GFP_ZERO);
+	dev->zones = kvmalloc_objs(struct nullb_zone, dev->nr_zones,
+				   GFP_KERNEL | __GFP_ZERO);
 	if (!dev->zones)
 		return -ENOMEM;
 
@@ -191,7 +191,7 @@ void null_free_zoned_dev(struct nullb_device *dev)
 }
 
 int null_report_zones(struct gendisk *disk, sector_t sector,
-		unsigned int nr_zones, report_zones_cb cb, void *data)
+		unsigned int nr_zones, struct blk_report_zones_args *args)
 {
 	struct nullb *nullb = disk->private_data;
 	struct nullb_device *dev = nullb->dev;
@@ -225,7 +225,7 @@ int null_report_zones(struct gendisk *disk, sector_t sector,
 		blkz.capacity = zone->capacity;
 		null_unlock_zone(dev, zone);
 
-		error = cb(&blkz, i, data);
+		error = disk_report_zone(disk, &blkz, i, args);
 		if (error)
 			return error;
 	}
@@ -242,7 +242,7 @@ size_t null_zone_valid_read_len(struct nullb *nullb,
 {
 	struct nullb_device *dev = nullb->dev;
 	struct nullb_zone *zone = &dev->zones[null_zone_no(dev, sector)];
-	unsigned int nr_sectors = len >> SECTOR_SHIFT;
+	unsigned int nr_sectors = DIV_ROUND_UP(len, SECTOR_SIZE);
 
 	/* Read must be below the write pointer position */
 	if (zone->type == BLK_ZONE_TYPE_CONVENTIONAL ||

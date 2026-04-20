@@ -2,6 +2,7 @@
 // Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/mlx5/transobj.h>
 #include "lib/clock.h"
 #include "mlx5_core.h"
@@ -9,12 +10,13 @@
 
 #if IS_ENABLED(CONFIG_KERNEL_MODE_NEON) && IS_ENABLED(CONFIG_ARM64)
 #include <asm/neon.h>
+#include <asm/simd.h>
 #endif
 
 #define TEST_WC_NUM_WQES 255
 #define TEST_WC_LOG_CQ_SZ (order_base_2(TEST_WC_NUM_WQES))
 #define TEST_WC_SQ_LOG_WQ_SZ TEST_WC_LOG_CQ_SZ
-#define TEST_WC_POLLING_MAX_TIME_JIFFIES msecs_to_jiffies(100)
+#define TEST_WC_POLLING_MAX_TIME_USEC (100 * USEC_PER_MSEC)
 
 struct mlx5_wc_cq {
 	/* data path - accessed per cqe */
@@ -264,15 +266,15 @@ static void mlx5_iowrite64_copy(struct mlx5_wc_sq *sq, __be32 mmio_wqe[16],
 {
 #if IS_ENABLED(CONFIG_KERNEL_MODE_NEON) && IS_ENABLED(CONFIG_ARM64)
 	if (cpu_has_neon()) {
-		kernel_neon_begin();
-		asm volatile
-		(".arch_extension simd\n\t"
-		"ld1 {v0.16b, v1.16b, v2.16b, v3.16b}, [%0]\n\t"
-		"st1 {v0.16b, v1.16b, v2.16b, v3.16b}, [%1]"
-		:
-		: "r"(mmio_wqe), "r"(sq->bfreg.map + offset)
-		: "memory", "v0", "v1", "v2", "v3");
-		kernel_neon_end();
+		scoped_ksimd() {
+			asm volatile(
+				".arch_extension simd\n\t"
+				"ld1 {v0.16b, v1.16b, v2.16b, v3.16b}, [%0]\n\t"
+				"st1 {v0.16b, v1.16b, v2.16b, v3.16b}, [%1]"
+				:
+				: "r"(mmio_wqe), "r"(sq->bfreg.map + offset)
+				: "memory", "v0", "v1", "v2", "v3");
+		}
 		return;
 	}
 #endif
@@ -358,14 +360,13 @@ static int mlx5_wc_poll_cq(struct mlx5_wc_sq *sq)
 static void mlx5_core_test_wc(struct mlx5_core_dev *mdev)
 {
 	unsigned int offset = 0;
-	unsigned long expires;
 	struct mlx5_wc_sq *sq;
 	int i, err;
 
 	if (mdev->wc_state != MLX5_WC_STATE_UNINITIALIZED)
 		return;
 
-	sq = kzalloc(sizeof(*sq), GFP_KERNEL);
+	sq = kzalloc_obj(*sq);
 	if (!sq)
 		return;
 
@@ -388,13 +389,9 @@ static void mlx5_core_test_wc(struct mlx5_core_dev *mdev)
 
 	mlx5_wc_post_nop(sq, &offset, true);
 
-	expires = jiffies + TEST_WC_POLLING_MAX_TIME_JIFFIES;
-	do {
-		err = mlx5_wc_poll_cq(sq);
-		if (err)
-			usleep_range(2, 10);
-	} while (mdev->wc_state == MLX5_WC_STATE_UNINITIALIZED &&
-		 time_is_after_jiffies(expires));
+	poll_timeout_us(mlx5_wc_poll_cq(sq),
+			mdev->wc_state != MLX5_WC_STATE_UNINITIALIZED, 10,
+			TEST_WC_POLLING_MAX_TIME_USEC, false);
 
 	mlx5_wc_destroy_sq(sq);
 

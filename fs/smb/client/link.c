@@ -11,7 +11,6 @@
 #include <linux/slab.h>
 #include <linux/namei.h>
 #include "cifsfs.h"
-#include "cifspdu.h"
 #include "cifsglob.h"
 #include "cifsproto.h"
 #include "cifs_debug.h"
@@ -160,7 +159,8 @@ create_mf_symlink(const unsigned int xid, struct cifs_tcon *tcon,
 		goto out;
 
 	if (bytes_written != CIFS_MF_SYMLINK_FILE_SIZE)
-		rc = -EIO;
+		rc = smb_EIO2(smb_eio_trace_symlink_file_size,
+			      bytes_written, CIFS_MF_SYMLINK_FILE_SIZE);
 out:
 	kfree(buf);
 	return rc;
@@ -424,7 +424,8 @@ smb3_create_mf_symlink(unsigned int xid, struct cifs_tcon *tcon,
 
 	/* Make sure we wrote all of the symlink data */
 	if ((rc == 0) && (*pbytes_written != CIFS_MF_SYMLINK_FILE_SIZE))
-		rc = -EIO;
+		rc = smb_EIO2(smb_eio_trace_short_symlink_write,
+			      *pbytes_written, CIFS_MF_SYMLINK_FILE_SIZE);
 
 	SMB2_close(xid, tcon, fid.persistent_fid, fid.volatile_fid);
 
@@ -451,7 +452,7 @@ cifs_hardlink(struct dentry *old_file, struct inode *inode,
 	struct cifsInodeInfo *cifsInode;
 
 	if (unlikely(cifs_forced_shutdown(cifs_sb)))
-		return -EIO;
+		return smb_EIO(smb_eio_trace_forced_shutdown);
 
 	tlink = cifs_sb_tlink(cifs_sb);
 	if (IS_ERR(tlink))
@@ -543,17 +544,18 @@ int
 cifs_symlink(struct mnt_idmap *idmap, struct inode *inode,
 	     struct dentry *direntry, const char *symname)
 {
-	int rc = -EOPNOTSUPP;
-	unsigned int xid;
-	struct cifs_sb_info *cifs_sb = CIFS_SB(inode->i_sb);
+	struct cifs_sb_info *cifs_sb = CIFS_SB(inode);
+	struct inode *newinode = NULL;
 	struct tcon_link *tlink;
 	struct cifs_tcon *pTcon;
 	const char *full_path;
+	int rc = -EOPNOTSUPP;
+	unsigned int sbflags;
+	unsigned int xid;
 	void *page;
-	struct inode *newinode = NULL;
 
 	if (unlikely(cifs_forced_shutdown(cifs_sb)))
-		return -EIO;
+		return smb_EIO(smb_eio_trace_forced_shutdown);
 
 	page = alloc_dentry_path();
 	if (!page)
@@ -579,6 +581,7 @@ cifs_symlink(struct mnt_idmap *idmap, struct inode *inode,
 	cifs_dbg(FYI, "symname is %s\n", symname);
 
 	/* BB what if DFS and this volume is on different share? BB */
+	sbflags = cifs_sb_flags(cifs_sb);
 	rc = -EOPNOTSUPP;
 	switch (cifs_symlink_type(cifs_sb)) {
 	case CIFS_SYMLINK_TYPE_UNIX:
@@ -593,14 +596,14 @@ cifs_symlink(struct mnt_idmap *idmap, struct inode *inode,
 		break;
 
 	case CIFS_SYMLINK_TYPE_MFSYMLINKS:
-		if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_MF_SYMLINKS) {
+		if (sbflags & CIFS_MOUNT_MF_SYMLINKS) {
 			rc = create_mf_symlink(xid, pTcon, cifs_sb,
 					       full_path, symname);
 		}
 		break;
 
 	case CIFS_SYMLINK_TYPE_SFU:
-		if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_UNX_EMUL) {
+		if (sbflags & CIFS_MOUNT_UNX_EMUL) {
 			rc = __cifs_sfu_make_node(xid, inode, direntry, pTcon,
 						  full_path, S_IFLNK,
 						  0, symname);

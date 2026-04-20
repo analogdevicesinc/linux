@@ -4,6 +4,7 @@
 #include <linux/iosys-map.h>
 #include <linux/rwsem.h>
 
+#include <drm/drm_print.h>
 #include <drm/panthor_drm.h>
 
 #include "panthor_device.h"
@@ -144,7 +145,7 @@ static int panthor_alloc_heap_chunk(struct panthor_heap_pool *pool,
 	struct panthor_heap_chunk_header *hdr;
 	int ret;
 
-	chunk = kmalloc(sizeof(*chunk), GFP_KERNEL);
+	chunk = kmalloc_obj(*chunk);
 	if (!chunk)
 		return -ENOMEM;
 
@@ -302,7 +303,7 @@ int panthor_heap_create(struct panthor_heap_pool *pool,
 	if (!vm)
 		return -EINVAL;
 
-	heap = kzalloc(sizeof(*heap), GFP_KERNEL);
+	heap = kzalloc_obj(*heap);
 	if (!heap) {
 		ret = -ENOMEM;
 		goto err_put_vm;
@@ -540,7 +541,7 @@ panthor_heap_pool_create(struct panthor_device *ptdev, struct panthor_vm *vm)
 	struct panthor_heap_pool *pool;
 	int ret = 0;
 
-	pool = kzalloc(sizeof(*pool), GFP_KERNEL);
+	pool = kzalloc_obj(*pool);
 	if (!pool)
 		return ERR_PTR(-ENOMEM);
 

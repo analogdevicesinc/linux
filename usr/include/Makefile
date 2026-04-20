@@ -6,16 +6,9 @@
 #
 # -std=c90 (equivalent to -ansi) catches the violation of those.
 # We cannot go as far as adding -Wpedantic since it emits too many warnings.
-UAPI_CFLAGS := -std=c90 -Wall -Werror=implicit-function-declaration
+UAPI_CFLAGS := -std=c90 -Werror=implicit-function-declaration
 
-# In theory, we do not care -m32 or -m64 for header compile tests.
-# It is here just because CONFIG_CC_CAN_LINK is tested with -m32 or -m64.
-UAPI_CFLAGS += $(filter -m32 -m64 --target=%, $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS))
-
-# USERCFLAGS might contain sysroot location for CC.
-UAPI_CFLAGS += $(USERCFLAGS)
-
-override c_flags = $(UAPI_CFLAGS) -Wp,-MMD,$(depfile) -I $(obj) -I $(srctree)/usr/dummy-include
+override c_flags = $(KBUILD_USERCFLAGS) $(UAPI_CFLAGS) -Wp,-MMD,$(depfile) -I $(obj) -I $(srctree)/usr/dummy-include
 
 # The following are excluded for now because they fail to build.
 #
@@ -72,16 +65,101 @@ no-header-test += asm/uctx.h
 no-header-test += asm/fbio.h
 endif
 
+ifeq ($(SRCARCH),xtensa)
+no-header-test += linux/bpf_perf_event.h
+endif
+
 # asm-generic/*.h is used by asm/*.h, and should not be included directly
 no-header-test += asm-generic/%
 
+# The following are using libc header and types.
+#
+# Do not add a new header to the list without legitimate reason.
+# Please consider to fix the header first.
+#
+# Sorted alphabetically.
+uses-libc += linux/a.out.h
+uses-libc += linux/atmbr2684.h
+uses-libc += linux/auto_dev-ioctl.h
+uses-libc += linux/auto_fs.h
+uses-libc += linux/auto_fs4.h
+uses-libc += linux/btrfs_tree.h
+uses-libc += linux/cec-funcs.h
+uses-libc += linux/cec.h
+uses-libc += linux/dvb/dmx.h
+uses-libc += linux/dvb/video.h
+uses-libc += linux/ethtool.h
+uses-libc += linux/ethtool_netlink.h
+uses-libc += linux/fuse.h
+uses-libc += linux/gsmmux.h
+uses-libc += linux/icmp.h
+uses-libc += linux/idxd.h
+uses-libc += linux/if.h
+uses-libc += linux/if_arp.h
+uses-libc += linux/if_bonding.h
+uses-libc += linux/if_pppox.h
+uses-libc += linux/if_tunnel.h
+uses-libc += linux/input.h
+uses-libc += linux/ip6_tunnel.h
+uses-libc += linux/joystick.h
+uses-libc += linux/llc.h
+uses-libc += linux/mctp.h
+uses-libc += linux/mdio.h
+uses-libc += linux/mii.h
+uses-libc += linux/mptcp.h
+uses-libc += linux/netdevice.h
+uses-libc += linux/netfilter/xt_RATEEST.h
+uses-libc += linux/netfilter/xt_hashlimit.h
+uses-libc += linux/netfilter/xt_physdev.h
+uses-libc += linux/netfilter/xt_rateest.h
+uses-libc += linux/netfilter_arp/arp_tables.h
+uses-libc += linux/netfilter_arp/arpt_mangle.h
+uses-libc += linux/netfilter_bridge.h
+uses-libc += linux/netfilter_bridge/ebtables.h
+uses-libc += linux/netfilter_ipv4.h
+uses-libc += linux/netfilter_ipv4/ip_tables.h
+uses-libc += linux/netfilter_ipv6.h
+uses-libc += linux/netfilter_ipv6/ip6_tables.h
+uses-libc += linux/route.h
+uses-libc += linux/shm.h
+uses-libc += linux/soundcard.h
+uses-libc += linux/string.h
+uses-libc += linux/tipc_config.h
+uses-libc += linux/uhid.h
+uses-libc += linux/uinput.h
+uses-libc += linux/vhost.h
+uses-libc += linux/vhost_types.h
+uses-libc += linux/virtio_ring.h
+uses-libc += linux/wireless.h
+uses-libc += regulator/regulator.h
+uses-libc += scsi/fc/fc_els.h
+
+ifeq ($(SRCARCH),hexagon)
+uses-libc += asm/sigcontext.h
+endif
+
+ifeq ($(SRCARCH),nios2)
+uses-libc += asm/ptrace.h
+uses-libc += linux/bpf_perf_event.h
+endif
+
+ifeq ($(SRCARCH),s390)
+uses-libc += asm/chpid.h
+uses-libc += asm/chsc.h
+endif
+
 always-y := $(patsubst $(obj)/%.h,%.hdrtest, $(shell find $(obj) -name '*.h' 2>/dev/null))
+
+target-no-libc = $(filter-out $(uses-libc), $*.h)
+target-can-compile = $(and $(filter-out $(no-header-test), $*.h), \
+                           $(or $(CONFIG_CC_CAN_LINK), $(target-no-libc)))
 
 # Include the header twice to detect missing include guard.
 quiet_cmd_hdrtest = HDRTEST $<
       cmd_hdrtest = \
 		$(CC) $(c_flags) -fsyntax-only -Werror -x c /dev/null \
-			$(if $(filter-out $(no-header-test), $*.h), -include $< -include $<); \
+			$(if $(target-no-libc), -nostdinc) \
+			$(if $(target-can-compile), -include $< -include $<); \
 		$(PERL) $(src)/headers_check.pl $(obj) $<; \
 		touch $@
 

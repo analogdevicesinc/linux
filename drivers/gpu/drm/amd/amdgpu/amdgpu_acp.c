@@ -246,7 +246,7 @@ static int acp_hw_init(struct amdgpu_ip_block *ip_block)
 		return -EINVAL;
 
 	acp_base = adev->rmmio_base;
-	adev->acp.acp_genpd = kzalloc(sizeof(struct acp_pm_domain), GFP_KERNEL);
+	adev->acp.acp_genpd = kzalloc_obj(struct acp_pm_domain);
 	if (!adev->acp.acp_genpd)
 		return -ENOMEM;
 
@@ -260,20 +260,19 @@ static int acp_hw_init(struct amdgpu_ip_block *ip_block)
 	switch (acp_machine_id) {
 	case ST_JADEITE:
 	{
-		adev->acp.acp_cell = kcalloc(2, sizeof(struct mfd_cell),
-					     GFP_KERNEL);
+		adev->acp.acp_cell = kzalloc_objs(struct mfd_cell, 2);
 		if (!adev->acp.acp_cell) {
 			r = -ENOMEM;
 			goto failure;
 		}
 
-		adev->acp.acp_res = kcalloc(3, sizeof(struct resource), GFP_KERNEL);
+		adev->acp.acp_res = kzalloc_objs(struct resource, 3);
 		if (!adev->acp.acp_res) {
 			r = -ENOMEM;
 			goto failure;
 		}
 
-		i2s_pdata = kcalloc(1, sizeof(struct i2s_platform_data), GFP_KERNEL);
+		i2s_pdata = kzalloc_objs(struct i2s_platform_data, 1);
 		if (!i2s_pdata) {
 			r = -ENOMEM;
 			goto failure;
@@ -302,17 +301,19 @@ static int acp_hw_init(struct amdgpu_ip_block *ip_block)
 		adev->acp.acp_res[2].end = adev->acp.acp_res[2].start;
 
 		adev->acp.acp_cell[0].name = "acp_audio_dma";
+		adev->acp.acp_cell[0].id = 0;
 		adev->acp.acp_cell[0].num_resources = 3;
 		adev->acp.acp_cell[0].resources = &adev->acp.acp_res[0];
 		adev->acp.acp_cell[0].platform_data = &adev->asic_type;
 		adev->acp.acp_cell[0].pdata_size = sizeof(adev->asic_type);
 
 		adev->acp.acp_cell[1].name = "designware-i2s";
+		adev->acp.acp_cell[1].id = 1;
 		adev->acp.acp_cell[1].num_resources = 1;
 		adev->acp.acp_cell[1].resources = &adev->acp.acp_res[1];
 		adev->acp.acp_cell[1].platform_data = &i2s_pdata[0];
 		adev->acp.acp_cell[1].pdata_size = sizeof(struct i2s_platform_data);
-		r = mfd_add_hotplug_devices(adev->acp.parent, adev->acp.acp_cell, 2);
+		r = mfd_add_devices(adev->acp.parent, 0, adev->acp.acp_cell, 2, NULL, 0, NULL);
 		if (r)
 			goto failure;
 		r = device_for_each_child(adev->acp.parent, &adev->acp.acp_genpd->gpd,
@@ -322,21 +323,20 @@ static int acp_hw_init(struct amdgpu_ip_block *ip_block)
 		break;
 	}
 	default:
-		adev->acp.acp_cell = kcalloc(ACP_DEVS, sizeof(struct mfd_cell),
-					     GFP_KERNEL);
+		adev->acp.acp_cell = kzalloc_objs(struct mfd_cell, ACP_DEVS);
 
 		if (!adev->acp.acp_cell) {
 			r = -ENOMEM;
 			goto failure;
 		}
 
-		adev->acp.acp_res = kcalloc(5, sizeof(struct resource), GFP_KERNEL);
+		adev->acp.acp_res = kzalloc_objs(struct resource, 5);
 		if (!adev->acp.acp_res) {
 			r = -ENOMEM;
 			goto failure;
 		}
 
-		i2s_pdata = kcalloc(3, sizeof(struct i2s_platform_data), GFP_KERNEL);
+		i2s_pdata = kzalloc_objs(struct i2s_platform_data, 3);
 		if (!i2s_pdata) {
 			r = -ENOMEM;
 			goto failure;
@@ -410,30 +410,34 @@ static int acp_hw_init(struct amdgpu_ip_block *ip_block)
 		adev->acp.acp_res[4].end = adev->acp.acp_res[4].start;
 
 		adev->acp.acp_cell[0].name = "acp_audio_dma";
+		adev->acp.acp_cell[0].id = 0;
 		adev->acp.acp_cell[0].num_resources = 5;
 		adev->acp.acp_cell[0].resources = &adev->acp.acp_res[0];
 		adev->acp.acp_cell[0].platform_data = &adev->asic_type;
 		adev->acp.acp_cell[0].pdata_size = sizeof(adev->asic_type);
 
 		adev->acp.acp_cell[1].name = "designware-i2s";
+		adev->acp.acp_cell[1].id = 1;
 		adev->acp.acp_cell[1].num_resources = 1;
 		adev->acp.acp_cell[1].resources = &adev->acp.acp_res[1];
 		adev->acp.acp_cell[1].platform_data = &i2s_pdata[0];
 		adev->acp.acp_cell[1].pdata_size = sizeof(struct i2s_platform_data);
 
 		adev->acp.acp_cell[2].name = "designware-i2s";
+		adev->acp.acp_cell[2].id = 2;
 		adev->acp.acp_cell[2].num_resources = 1;
 		adev->acp.acp_cell[2].resources = &adev->acp.acp_res[2];
 		adev->acp.acp_cell[2].platform_data = &i2s_pdata[1];
 		adev->acp.acp_cell[2].pdata_size = sizeof(struct i2s_platform_data);
 
 		adev->acp.acp_cell[3].name = "designware-i2s";
+		adev->acp.acp_cell[3].id = 3;
 		adev->acp.acp_cell[3].num_resources = 1;
 		adev->acp.acp_cell[3].resources = &adev->acp.acp_res[3];
 		adev->acp.acp_cell[3].platform_data = &i2s_pdata[2];
 		adev->acp.acp_cell[3].pdata_size = sizeof(struct i2s_platform_data);
 
-		r = mfd_add_hotplug_devices(adev->acp.parent, adev->acp.acp_cell, ACP_DEVS);
+		r = mfd_add_devices(adev->acp.parent, 0, adev->acp.acp_cell, ACP_DEVS, NULL, 0, NULL);
 		if (r)
 			goto failure;
 

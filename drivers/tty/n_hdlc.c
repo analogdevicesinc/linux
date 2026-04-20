@@ -127,6 +127,8 @@ struct n_hdlc_buf_list {
  * @rx_buf_list: list of received frame buffers
  * @tx_free_buf_list: list unused transmit frame buffers
  * @rx_free_buf_list: list unused received frame buffers
+ * @write_work: work struct for deferred frame transmission
+ * @tty_for_write_work: pointer to tty instance used by the @write_work
  */
 struct n_hdlc {
 	bool			tbusy;
@@ -263,21 +265,18 @@ static int n_hdlc_tty_open(struct tty_struct *tty)
  */
 static void n_hdlc_send_frames(struct n_hdlc *n_hdlc, struct tty_struct *tty)
 {
-	unsigned long flags;
 	struct n_hdlc_buf *tbuf;
 	ssize_t actual;
 
 check_again:
-
-	spin_lock_irqsave(&n_hdlc->tx_buf_list.spinlock, flags);
-	if (n_hdlc->tbusy) {
-		n_hdlc->woke_up = true;
-		spin_unlock_irqrestore(&n_hdlc->tx_buf_list.spinlock, flags);
-		return;
+	scoped_guard(spinlock_irqsave, &n_hdlc->tx_buf_list.spinlock) {
+		if (n_hdlc->tbusy) {
+			n_hdlc->woke_up = true;
+			return;
+		}
+		n_hdlc->tbusy = true;
+		n_hdlc->woke_up = false;
 	}
-	n_hdlc->tbusy = true;
-	n_hdlc->woke_up = false;
-	spin_unlock_irqrestore(&n_hdlc->tx_buf_list.spinlock, flags);
 
 	tbuf = n_hdlc_buf_get(&n_hdlc->tx_buf_list);
 	while (tbuf) {
@@ -324,9 +323,8 @@ check_again:
 		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 
 	/* Clear the re-entry flag */
-	spin_lock_irqsave(&n_hdlc->tx_buf_list.spinlock, flags);
-	n_hdlc->tbusy = false;
-	spin_unlock_irqrestore(&n_hdlc->tx_buf_list.spinlock, flags);
+	scoped_guard(spinlock_irqsave, &n_hdlc->tx_buf_list.spinlock)
+		n_hdlc->tbusy = false;
 
 	if (n_hdlc->woke_up)
 		goto check_again;
@@ -390,8 +388,7 @@ static void n_hdlc_tty_receive(struct tty_struct *tty, const u8 *data,
 		 * buffer unless the maximum count has been reached
 		 */
 		if (n_hdlc->rx_buf_list.count < MAX_RX_BUF_COUNT)
-			buf = kmalloc(struct_size(buf, buf, maxframe),
-				      GFP_ATOMIC);
+			buf = kmalloc_flex(*buf, buf, maxframe, GFP_ATOMIC);
 	}
 
 	if (!buf) {
@@ -584,9 +581,7 @@ static int n_hdlc_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 			    unsigned long arg)
 {
 	struct n_hdlc *n_hdlc = tty->disc_data;
-	int error = 0;
 	int count;
-	unsigned long flags;
 	struct n_hdlc_buf *buf = NULL;
 
 	pr_debug("%s() called %d\n", __func__, cmd);
@@ -595,29 +590,27 @@ static int n_hdlc_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 	case FIONREAD:
 		/* report count of read data available */
 		/* in next available frame (if any) */
-		spin_lock_irqsave(&n_hdlc->rx_buf_list.spinlock, flags);
-		buf = list_first_entry_or_null(&n_hdlc->rx_buf_list.list,
-						struct n_hdlc_buf, list_item);
-		if (buf)
-			count = buf->count;
-		else
-			count = 0;
-		spin_unlock_irqrestore(&n_hdlc->rx_buf_list.spinlock, flags);
-		error = put_user(count, (int __user *)arg);
-		break;
+		scoped_guard(spinlock_irqsave, &n_hdlc->rx_buf_list.spinlock) {
+			buf = list_first_entry_or_null(&n_hdlc->rx_buf_list.list,
+						       struct n_hdlc_buf, list_item);
+			if (buf)
+				count = buf->count;
+			else
+				count = 0;
+		}
+		return put_user(count, (int __user *)arg);
 
 	case TIOCOUTQ:
 		/* get the pending tx byte count in the driver */
 		count = tty_chars_in_buffer(tty);
 		/* add size of next output frame in queue */
-		spin_lock_irqsave(&n_hdlc->tx_buf_list.spinlock, flags);
-		buf = list_first_entry_or_null(&n_hdlc->tx_buf_list.list,
-						struct n_hdlc_buf, list_item);
-		if (buf)
-			count += buf->count;
-		spin_unlock_irqrestore(&n_hdlc->tx_buf_list.spinlock, flags);
-		error = put_user(count, (int __user *)arg);
-		break;
+		scoped_guard(spinlock_irqsave, &n_hdlc->tx_buf_list.spinlock) {
+			buf = list_first_entry_or_null(&n_hdlc->tx_buf_list.list,
+						       struct n_hdlc_buf, list_item);
+			if (buf)
+				count += buf->count;
+		}
+		return put_user(count, (int __user *)arg);
 
 	case TCFLSH:
 		switch (arg) {
@@ -628,11 +621,8 @@ static int n_hdlc_tty_ioctl(struct tty_struct *tty, unsigned int cmd,
 		fallthrough;	/* to default */
 
 	default:
-		error = n_tty_ioctl_helper(tty, cmd, arg);
-		break;
+		return n_tty_ioctl_helper(tty, cmd, arg);
 	}
-	return error;
-
 }	/* end of n_hdlc_tty_ioctl() */
 
 /**
@@ -679,7 +669,7 @@ static void n_hdlc_alloc_buf(struct n_hdlc_buf_list *list, unsigned int count,
 	unsigned int i;
 
 	for (i = 0; i < count; i++) {
-		buf = kmalloc(struct_size(buf, buf, maxframe), GFP_KERNEL);
+		buf = kmalloc_flex(*buf, buf, maxframe);
 		if (!buf) {
 			pr_debug("%s(), kmalloc() failed for %s buffer %u\n",
 					__func__, name, i);
@@ -696,7 +686,7 @@ static void n_hdlc_alloc_buf(struct n_hdlc_buf_list *list, unsigned int count,
  */
 static struct n_hdlc *n_hdlc_alloc(void)
 {
-	struct n_hdlc *n_hdlc = kzalloc(sizeof(*n_hdlc), GFP_KERNEL);
+	struct n_hdlc *n_hdlc = kzalloc_obj(*n_hdlc);
 
 	if (!n_hdlc)
 		return NULL;
@@ -726,14 +716,10 @@ static struct n_hdlc *n_hdlc_alloc(void)
 static void n_hdlc_buf_return(struct n_hdlc_buf_list *buf_list,
 						struct n_hdlc_buf *buf)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&buf_list->spinlock, flags);
+	guard(spinlock_irqsave)(&buf_list->spinlock);
 
 	list_add(&buf->list_item, &buf_list->list);
 	buf_list->count++;
-
-	spin_unlock_irqrestore(&buf_list->spinlock, flags);
 }
 
 /**
@@ -744,14 +730,10 @@ static void n_hdlc_buf_return(struct n_hdlc_buf_list *buf_list,
 static void n_hdlc_buf_put(struct n_hdlc_buf_list *buf_list,
 			   struct n_hdlc_buf *buf)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&buf_list->spinlock, flags);
+	guard(spinlock_irqsave)(&buf_list->spinlock);
 
 	list_add_tail(&buf->list_item, &buf_list->list);
 	buf_list->count++;
-
-	spin_unlock_irqrestore(&buf_list->spinlock, flags);
 }	/* end of n_hdlc_buf_put() */
 
 /**
@@ -764,10 +746,9 @@ static void n_hdlc_buf_put(struct n_hdlc_buf_list *buf_list,
  */
 static struct n_hdlc_buf *n_hdlc_buf_get(struct n_hdlc_buf_list *buf_list)
 {
-	unsigned long flags;
 	struct n_hdlc_buf *buf;
 
-	spin_lock_irqsave(&buf_list->spinlock, flags);
+	guard(spinlock_irqsave)(&buf_list->spinlock);
 
 	buf = list_first_entry_or_null(&buf_list->list,
 						struct n_hdlc_buf, list_item);
@@ -776,7 +757,6 @@ static struct n_hdlc_buf *n_hdlc_buf_get(struct n_hdlc_buf_list *buf_list)
 		buf_list->count--;
 	}
 
-	spin_unlock_irqrestore(&buf_list->spinlock, flags);
 	return buf;
 }	/* end of n_hdlc_buf_get() */
 

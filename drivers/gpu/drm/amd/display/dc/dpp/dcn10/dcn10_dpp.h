@@ -545,6 +545,7 @@
 	type SCL_COEF_RAM_SELECT_CURRENT; \
 	type LUT_MEM_PWR_FORCE; \
 	type LUT_MEM_PWR_STATE; \
+	type LUT_MEM_PWR_DIS; \
 	type CM_GAMUT_REMAP_MODE; \
 	type CM_GAMUT_REMAP_C11; \
 	type CM_GAMUT_REMAP_C12; \
@@ -1348,7 +1349,8 @@ struct dcn_dpp_mask {
 	uint32_t CURSOR0_COLOR1; \
 	uint32_t DPP_CONTROL; \
 	uint32_t CM_HDR_MULT_COEF; \
-	uint32_t CURSOR0_FP_SCALE_BIAS;
+	uint32_t CURSOR0_FP_SCALE_BIAS; \
+	uint32_t OBUF_CONTROL;
 
 struct dcn_dpp_registers {
 	DPP_COMMON_REG_VARIABLE_LIST
@@ -1449,7 +1451,6 @@ void dpp1_set_degamma(
 
 void dpp1_set_degamma_pwl(struct dpp *dpp_base,
 		const struct pwl_params *params);
-
 
 void dpp_read_state(struct dpp *dpp_base,
 		struct dcn_dpp_state *s);

@@ -61,8 +61,7 @@ static int push_cxx_to_hypervisor(struct acpi_processor *_pr)
 	unsigned int i, ok;
 	int ret = 0;
 
-	dst_cx_states = kcalloc(_pr->power.count,
-				sizeof(struct xen_processor_cx), GFP_KERNEL);
+	dst_cx_states = kzalloc_objs(struct xen_processor_cx, _pr->power.count);
 	if (!dst_cx_states)
 		return -ENOMEM;
 
@@ -142,8 +141,8 @@ xen_copy_pss_data(struct acpi_processor *_pr,
 	BUILD_BUG_ON(sizeof(struct xen_processor_px) !=
 		     sizeof(struct acpi_processor_px));
 
-	dst_states = kcalloc(_pr->performance->state_count,
-			     sizeof(struct xen_processor_px), GFP_KERNEL);
+	dst_states = kzalloc_objs(struct xen_processor_px,
+				  _pr->performance->state_count);
 	if (!dst_states)
 		return ERR_PTR(-ENOMEM);
 
@@ -379,11 +378,8 @@ read_acpi_id(acpi_handle handle, u32 lvl, void *context, void **rv)
 			 acpi_psd[acpi_id].domain);
 	}
 
-	status = acpi_evaluate_object(handle, "_CST", NULL, &buffer);
-	if (ACPI_FAILURE(status)) {
-		if (!pblk)
-			return AE_OK;
-	}
+	if (!pblk && !acpi_has_method(handle, "_CST"))
+		return AE_OK;
 	/* .. and it has a C-state */
 	__set_bit(acpi_id, acpi_id_cst_present);
 
@@ -412,8 +408,7 @@ static int check_acpi_ids(struct acpi_processor *pr_backup)
 		return -ENOMEM;
 	}
 
-	acpi_psd = kcalloc(nr_acpi_bits, sizeof(struct acpi_psd_package),
-			   GFP_KERNEL);
+	acpi_psd = kzalloc_objs(struct acpi_psd_package, nr_acpi_bits);
 	if (!acpi_psd) {
 		bitmap_free(acpi_id_present);
 		bitmap_free(acpi_id_cst_present);
@@ -495,7 +490,7 @@ static void xen_acpi_processor_resume_worker(struct work_struct *dummy)
 		pr_info("ACPI data upload failed, error = %d\n", rc);
 }
 
-static void xen_acpi_processor_resume(void)
+static void xen_acpi_processor_resume(void *data)
 {
 	static DECLARE_WORK(wq, xen_acpi_processor_resume_worker);
 
@@ -509,8 +504,12 @@ static void xen_acpi_processor_resume(void)
 	schedule_work(&wq);
 }
 
-static struct syscore_ops xap_syscore_ops = {
+static const struct syscore_ops xap_syscore_ops = {
 	.resume	= xen_acpi_processor_resume,
+};
+
+static struct syscore xap_syscore = {
+	.ops = &xap_syscore_ops,
 };
 
 static int __init xen_acpi_processor_init(void)
@@ -563,7 +562,7 @@ static int __init xen_acpi_processor_init(void)
 	if (rc)
 		goto err_unregister;
 
-	register_syscore_ops(&xap_syscore_ops);
+	register_syscore(&xap_syscore);
 
 	return 0;
 err_unregister:
@@ -580,7 +579,7 @@ static void __exit xen_acpi_processor_exit(void)
 {
 	int i;
 
-	unregister_syscore_ops(&xap_syscore_ops);
+	unregister_syscore(&xap_syscore);
 	bitmap_free(acpi_ids_done);
 	bitmap_free(acpi_id_present);
 	bitmap_free(acpi_id_cst_present);

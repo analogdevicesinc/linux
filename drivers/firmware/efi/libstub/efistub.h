@@ -34,6 +34,10 @@
 #define EFI_ALLOC_LIMIT		ULONG_MAX
 #endif
 
+struct edid_info;
+struct screen_info;
+struct sysfb_display_info;
+
 extern bool efi_no5lvl;
 extern bool efi_nochunk;
 extern bool efi_nokaslr;
@@ -578,6 +582,32 @@ union efi_graphics_output_protocol {
 	} mixed_mode;
 };
 
+typedef union efi_edid_discovered_protocol efi_edid_discovered_protocol_t;
+
+union efi_edid_discovered_protocol {
+	struct {
+		u32 size_of_edid;
+		u8 *edid;
+	};
+	struct {
+		u32 size_of_edid;
+		u32 edid;
+	} mixed_mode;
+};
+
+typedef union efi_edid_active_protocol efi_edid_active_protocol_t;
+
+union efi_edid_active_protocol {
+	struct {
+		u32 size_of_edid;
+		u8 *edid;
+	};
+	struct {
+		u32 size_of_edid;
+		u32 edid;
+	} mixed_mode;
+};
+
 typedef union {
 	struct {
 		u32			revision;
@@ -1085,7 +1115,7 @@ efi_status_t efi_parse_options(char const *cmdline);
 
 void efi_parse_option_graphics(char *option);
 
-efi_status_t efi_setup_gop(struct screen_info *si);
+efi_status_t efi_setup_graphics(struct screen_info *si, struct edid_info *edid);
 
 efi_status_t handle_cmdline_files(efi_loaded_image_t *image,
 				  const efi_char16_t *optstr,
@@ -1146,9 +1176,9 @@ efi_enable_reset_attack_mitigation(void) { }
 
 void efi_retrieve_eventlog(void);
 
-struct screen_info *alloc_screen_info(void);
-struct screen_info *__alloc_screen_info(void);
-void free_screen_info(struct screen_info *si);
+struct sysfb_display_info *alloc_primary_display(void);
+struct sysfb_display_info *__alloc_primary_display(void);
+void free_primary_display(struct sysfb_display_info *dpy);
 
 void efi_cache_sync_image(unsigned long image_base,
 			  unsigned long alloc_size);

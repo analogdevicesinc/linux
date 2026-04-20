@@ -26,6 +26,8 @@
 #include <linux/dma-mapping.h>
 #include <linux/moduleparam.h>
 
+#include <drm/drm_print.h>
+
 #include "virtgpu_drv.h"
 
 static int virtio_gpu_virglrenderer_workaround = 1;
@@ -147,7 +149,7 @@ struct drm_gem_object *virtio_gpu_create_object(struct drm_device *dev,
 	struct virtio_gpu_object_shmem *shmem;
 	struct drm_gem_shmem_object *dshmem;
 
-	shmem = kzalloc(sizeof(*shmem), GFP_KERNEL);
+	shmem = kzalloc_obj(*shmem);
 	if (!shmem)
 		return ERR_PTR(-ENOMEM);
 
@@ -175,9 +177,7 @@ static int virtio_gpu_object_shmem_init(struct virtio_gpu_device *vgdev,
 	else
 		*nents = pages->orig_nents;
 
-	*ents = kvmalloc_array(*nents,
-			       sizeof(struct virtio_gpu_mem_entry),
-			       GFP_KERNEL);
+	*ents = kvmalloc_objs(struct virtio_gpu_mem_entry, *nents);
 	if (!(*ents)) {
 		DRM_ERROR("failed to allocate ent list\n");
 		return -ENOMEM;

@@ -31,6 +31,11 @@
 
 struct hci_cmd_ops;
 
+struct dat_words {
+	u32 w0;
+	u32 w1;
+};
+
 /* Our main structure */
 struct i3c_hci {
 	struct i3c_master_controller master;
@@ -45,23 +50,27 @@ struct i3c_hci {
 	const struct hci_io_ops *io;
 	void *io_data;
 	const struct hci_cmd_ops *cmd;
+	spinlock_t lock;
+	struct mutex control_mutex;
 	atomic_t next_cmd_tid;
+	bool irq_inactive;
 	u32 caps;
 	unsigned int quirks;
 	unsigned int DAT_entries;
 	unsigned int DAT_entry_size;
 	void *DAT_data;
+	struct dat_words *DAT;
 	unsigned int DCT_entries;
 	unsigned int DCT_entry_size;
 	u8 version_major;
 	u8 version_minor;
 	u8 revision;
+	u8 dyn_addr;
 	u32 vendor_mipi_id;
 	u32 vendor_version_id;
 	u32 vendor_product_id;
 	void *vendor_data;
 };
-
 
 /*
  * Structure to represent a master initiated transfer.
@@ -80,6 +89,7 @@ struct hci_xfer {
 	unsigned int data_len;
 	unsigned int cmd_tid;
 	struct completion *completion;
+	unsigned long timeout;
 	union {
 		struct {
 			/* PIO specific */
@@ -100,7 +110,7 @@ struct hci_xfer {
 
 static inline struct hci_xfer *hci_alloc_xfer(unsigned int n)
 {
-	return kcalloc(n, sizeof(struct hci_xfer), GFP_KERNEL);
+	return kzalloc_objs(struct hci_xfer, n);
 }
 
 static inline void hci_free_xfer(struct hci_xfer *xfer, unsigned int n)
@@ -108,12 +118,12 @@ static inline void hci_free_xfer(struct hci_xfer *xfer, unsigned int n)
 	kfree(xfer);
 }
 
-
 /* This abstracts PIO vs DMA operations */
 struct hci_io_ops {
 	bool (*irq_handler)(struct i3c_hci *hci);
 	int (*queue_xfer)(struct i3c_hci *hci, struct hci_xfer *xfer, int n);
 	bool (*dequeue_xfer)(struct i3c_hci *hci, struct hci_xfer *xfer, int n);
+	int (*handle_error)(struct i3c_hci *hci, struct hci_xfer *xfer, int n);
 	int (*request_ibi)(struct i3c_hci *hci, struct i3c_dev_desc *dev,
 			   const struct i3c_ibi_setup *req);
 	void (*free_ibi)(struct i3c_hci *hci, struct i3c_dev_desc *dev);
@@ -121,11 +131,12 @@ struct hci_io_ops {
 				struct i3c_ibi_slot *slot);
 	int (*init)(struct i3c_hci *hci);
 	void (*cleanup)(struct i3c_hci *hci);
+	void (*suspend)(struct i3c_hci *hci);
+	void (*resume)(struct i3c_hci *hci);
 };
 
 extern const struct hci_io_ops mipi_i3c_hci_pio;
 extern const struct hci_io_ops mipi_i3c_hci_dma;
-
 
 /* Our per device master private data */
 struct i3c_hci_dev_data {
@@ -133,13 +144,12 @@ struct i3c_hci_dev_data {
 	void *ibi_data;
 };
 
-
 /* list of quirks */
 #define HCI_QUIRK_RAW_CCC	BIT(1)	/* CCC framing must be explicit */
 #define HCI_QUIRK_PIO_MODE	BIT(2)  /* Set PIO mode for AMD platforms */
 #define HCI_QUIRK_OD_PP_TIMING		BIT(3)  /* Set OD and PP timings for AMD platforms */
 #define HCI_QUIRK_RESP_BUF_THLD		BIT(4)  /* Set resp buf thld to 0 for AMD platforms */
-
+#define HCI_QUIRK_RPM_ALLOWED		BIT(5)  /* Runtime PM allowed */
 
 /* global functions */
 void mipi_i3c_hci_resume(struct i3c_hci *hci);
@@ -147,5 +157,7 @@ void mipi_i3c_hci_pio_reset(struct i3c_hci *hci);
 void mipi_i3c_hci_dct_index_reset(struct i3c_hci *hci);
 void amd_set_od_pp_timing(struct i3c_hci *hci);
 void amd_set_resp_buf_thld(struct i3c_hci *hci);
+void i3c_hci_sync_irq_inactive(struct i3c_hci *hci);
+int i3c_hci_process_xfer(struct i3c_hci *hci, struct hci_xfer *xfer, int n);
 
 #endif

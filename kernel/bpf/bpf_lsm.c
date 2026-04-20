@@ -18,10 +18,11 @@
 #include <linux/bpf-cgroup.h>
 
 /* For every LSM hook that allows attachment of BPF programs, declare a nop
- * function where a BPF program can be attached.
+ * function where a BPF program can be attached. Notably, we qualify each with
+ * weak linkage such that strong overrides can be implemented if need be.
  */
 #define LSM_HOOK(RET, DEFAULT, NAME, ...)	\
-noinline RET bpf_lsm_##NAME(__VA_ARGS__)	\
+__weak noinline RET bpf_lsm_##NAME(__VA_ARGS__)	\
 {						\
 	return DEFAULT;				\
 }
@@ -51,6 +52,7 @@ BTF_ID(func, bpf_lsm_key_getsecurity)
 BTF_ID(func, bpf_lsm_audit_rule_match)
 #endif
 BTF_ID(func, bpf_lsm_ismaclabel)
+BTF_ID(func, bpf_lsm_file_alloc_security)
 BTF_SET_END(bpf_lsm_disabled_hooks)
 
 /* List of LSM hooks that should operate on 'current' cgroup regardless

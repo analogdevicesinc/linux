@@ -11,7 +11,6 @@
 
 #include <linux/fs.h>
 #include <linux/slab.h>
-#include "cifspdu.h"
 #include "cifsglob.h"
 #include "cifs_debug.h"
 #include "cifs_unicode.h"
@@ -75,48 +74,35 @@ static int cifs_sig_iter(const struct iov_iter *iter, size_t maxsize,
 			 struct cifs_calc_sig_ctx *ctx)
 {
 	struct iov_iter tmp_iter = *iter;
-	int err = -EIO;
+	size_t did;
+	int err;
 
-	if (iterate_and_advance_kernel(&tmp_iter, maxsize, ctx, &err,
-				       cifs_sig_step) != maxsize)
-		return err;
+	did = iterate_and_advance_kernel(&tmp_iter, maxsize, ctx, &err,
+					 cifs_sig_step);
+	if (did != maxsize)
+		return smb_EIO2(smb_eio_trace_sig_iter, did, maxsize);
 	return 0;
 }
 
 int __cifs_calc_signature(struct smb_rqst *rqst, struct TCP_Server_Info *server,
 			  char *signature, struct cifs_calc_sig_ctx *ctx)
 {
-	int i;
+	struct iov_iter iter;
 	ssize_t rc;
-	struct kvec *iov = rqst->rq_iov;
-	int n_vec = rqst->rq_nvec;
+	size_t size = 0;
 
-	/* iov[0] is actual data and not the rfc1002 length for SMB2+ */
-	if (!is_smb1(server)) {
-		if (iov[0].iov_len <= 4)
-			return -EIO;
-		i = 0;
-	} else {
-		if (n_vec < 2 || iov[0].iov_len != 4)
-			return -EIO;
-		i = 1; /* skip rfc1002 length */
-	}
+	for (int i = 0; i < rqst->rq_nvec; i++)
+		size += rqst->rq_iov[i].iov_len;
 
-	for (; i < n_vec; i++) {
-		if (iov[i].iov_len == 0)
-			continue;
-		if (iov[i].iov_base == NULL) {
-			cifs_dbg(VFS, "null iovec entry\n");
-			return -EIO;
-		}
+	iov_iter_kvec(&iter, ITER_SOURCE, rqst->rq_iov, rqst->rq_nvec, size);
 
-		rc = cifs_sig_update(ctx, iov[i].iov_base, iov[i].iov_len);
-		if (rc) {
-			cifs_dbg(VFS, "%s: Could not update with payload\n",
-				 __func__);
-			return rc;
-		}
-	}
+	if (iov_iter_count(&iter) <= 4)
+		return smb_EIO2(smb_eio_trace_sig_data_too_small,
+				iov_iter_count(&iter), 4);
+
+	rc = cifs_sig_iter(&iter, iov_iter_count(&iter), ctx);
+	if (rc < 0)
+		return rc;
 
 	rc = cifs_sig_iter(&rqst->rq_iter, iov_iter_count(&rqst->rq_iter), ctx);
 	if (rc < 0)
@@ -127,161 +113,6 @@ int __cifs_calc_signature(struct smb_rqst *rqst, struct TCP_Server_Info *server,
 		cifs_dbg(VFS, "%s: Could not generate hash\n", __func__);
 
 	return rc;
-}
-
-/*
- * Calculate and return the CIFS signature based on the mac key and SMB PDU.
- * The 16 byte signature must be allocated by the caller. Note we only use the
- * 1st eight bytes and that the smb header signature field on input contains
- * the sequence number before this function is called. Also, this function
- * should be called with the server->srv_mutex held.
- */
-static int cifs_calc_signature(struct smb_rqst *rqst,
-			struct TCP_Server_Info *server, char *signature)
-{
-	struct md5_ctx ctx;
-
-	if (!rqst->rq_iov || !signature || !server)
-		return -EINVAL;
-	if (fips_enabled) {
-		cifs_dbg(VFS,
-			 "MD5 signature support is disabled due to FIPS\n");
-		return -EOPNOTSUPP;
-	}
-
-	md5_init(&ctx);
-	md5_update(&ctx, server->session_key.response, server->session_key.len);
-
-	return __cifs_calc_signature(
-		rqst, server, signature,
-		&(struct cifs_calc_sig_ctx){ .md5 = &ctx });
-}
-
-/* must be called with server->srv_mutex held */
-int cifs_sign_rqst(struct smb_rqst *rqst, struct TCP_Server_Info *server,
-		   __u32 *pexpected_response_sequence_number)
-{
-	int rc = 0;
-	char smb_signature[20];
-	struct smb_hdr *cifs_pdu = (struct smb_hdr *)rqst->rq_iov[0].iov_base;
-
-	if (rqst->rq_iov[0].iov_len != 4 ||
-	    rqst->rq_iov[0].iov_base + 4 != rqst->rq_iov[1].iov_base)
-		return -EIO;
-
-	if ((cifs_pdu == NULL) || (server == NULL))
-		return -EINVAL;
-
-	spin_lock(&server->srv_lock);
-	if (!(cifs_pdu->Flags2 & SMBFLG2_SECURITY_SIGNATURE) ||
-	    server->tcpStatus == CifsNeedNegotiate) {
-		spin_unlock(&server->srv_lock);
-		return rc;
-	}
-	spin_unlock(&server->srv_lock);
-
-	if (!server->session_estab) {
-		memcpy(cifs_pdu->Signature.SecuritySignature, "BSRSPYL", 8);
-		return rc;
-	}
-
-	cifs_pdu->Signature.Sequence.SequenceNumber =
-				cpu_to_le32(server->sequence_number);
-	cifs_pdu->Signature.Sequence.Reserved = 0;
-
-	*pexpected_response_sequence_number = ++server->sequence_number;
-	++server->sequence_number;
-
-	rc = cifs_calc_signature(rqst, server, smb_signature);
-	if (rc)
-		memset(cifs_pdu->Signature.SecuritySignature, 0, 8);
-	else
-		memcpy(cifs_pdu->Signature.SecuritySignature, smb_signature, 8);
-
-	return rc;
-}
-
-int cifs_sign_smbv(struct kvec *iov, int n_vec, struct TCP_Server_Info *server,
-		   __u32 *pexpected_response_sequence)
-{
-	struct smb_rqst rqst = { .rq_iov = iov,
-				 .rq_nvec = n_vec };
-
-	return cifs_sign_rqst(&rqst, server, pexpected_response_sequence);
-}
-
-/* must be called with server->srv_mutex held */
-int cifs_sign_smb(struct smb_hdr *cifs_pdu, struct TCP_Server_Info *server,
-		  __u32 *pexpected_response_sequence_number)
-{
-	struct kvec iov[2];
-
-	iov[0].iov_base = cifs_pdu;
-	iov[0].iov_len = 4;
-	iov[1].iov_base = (char *)cifs_pdu + 4;
-	iov[1].iov_len = be32_to_cpu(cifs_pdu->smb_buf_length);
-
-	return cifs_sign_smbv(iov, 2, server,
-			      pexpected_response_sequence_number);
-}
-
-int cifs_verify_signature(struct smb_rqst *rqst,
-			  struct TCP_Server_Info *server,
-			  __u32 expected_sequence_number)
-{
-	unsigned int rc;
-	char server_response_sig[8];
-	char what_we_think_sig_should_be[20];
-	struct smb_hdr *cifs_pdu = (struct smb_hdr *)rqst->rq_iov[0].iov_base;
-
-	if (rqst->rq_iov[0].iov_len != 4 ||
-	    rqst->rq_iov[0].iov_base + 4 != rqst->rq_iov[1].iov_base)
-		return -EIO;
-
-	if (cifs_pdu == NULL || server == NULL)
-		return -EINVAL;
-
-	if (!server->session_estab)
-		return 0;
-
-	if (cifs_pdu->Command == SMB_COM_LOCKING_ANDX) {
-		struct smb_com_lock_req *pSMB =
-			(struct smb_com_lock_req *)cifs_pdu;
-		if (pSMB->LockType & LOCKING_ANDX_OPLOCK_RELEASE)
-			return 0;
-	}
-
-	/* BB what if signatures are supposed to be on for session but
-	   server does not send one? BB */
-
-	/* Do not need to verify session setups with signature "BSRSPYL "  */
-	if (memcmp(cifs_pdu->Signature.SecuritySignature, "BSRSPYL ", 8) == 0)
-		cifs_dbg(FYI, "dummy signature received for smb command 0x%x\n",
-			 cifs_pdu->Command);
-
-	/* save off the original signature so we can modify the smb and check
-		its signature against what the server sent */
-	memcpy(server_response_sig, cifs_pdu->Signature.SecuritySignature, 8);
-
-	cifs_pdu->Signature.Sequence.SequenceNumber =
-					cpu_to_le32(expected_sequence_number);
-	cifs_pdu->Signature.Sequence.Reserved = 0;
-
-	cifs_server_lock(server);
-	rc = cifs_calc_signature(rqst, server, what_we_think_sig_should_be);
-	cifs_server_unlock(server);
-
-	if (rc)
-		return rc;
-
-/*	cifs_dump_mem("what we think it should be: ",
-		      what_we_think_sig_should_be, 16); */
-
-	if (memcmp(server_response_sig, what_we_think_sig_should_be, 8))
-		return -EACCES;
-	else
-		return 0;
-
 }
 
 /* Build a proper attribute value/target info pairs blob.
@@ -669,7 +500,7 @@ calc_seckey(struct cifs_ses *ses)
 
 	get_random_bytes(sec_key, CIFS_SESS_KEY_SIZE);
 
-	ctx_arc4 = kmalloc(sizeof(*ctx_arc4), GFP_KERNEL);
+	ctx_arc4 = kmalloc_obj(*ctx_arc4);
 	if (!ctx_arc4) {
 		cifs_dbg(VFS, "Could not allocate arc4 context\n");
 		return -ENOMEM;

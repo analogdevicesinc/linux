@@ -8,6 +8,7 @@
  *	    Gopal Saranya <saranya.gopal@intel.com>
  */
 #include <linux/debugfs.h>
+#include <linux/hex.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/types.h>
@@ -35,6 +36,7 @@ static int ucsi_cmd(void *data, u64 val)
 	case UCSI_SET_SINK_PATH:
 	case UCSI_SET_NEW_CAM:
 	case UCSI_SET_USB:
+	case UCSI_SET_POWER_LEVEL:
 	case UCSI_READ_POWER_LEVEL:
 		ret = ucsi_send_command(ucsi, val, NULL, 0);
 		break;
@@ -110,7 +112,7 @@ DEFINE_SHOW_ATTRIBUTE(ucsi_vbus_volt);
 
 void ucsi_debugfs_register(struct ucsi *ucsi)
 {
-	ucsi->debugfs = kzalloc(sizeof(*ucsi->debugfs), GFP_KERNEL);
+	ucsi->debugfs = kzalloc_obj(*ucsi->debugfs);
 	if (!ucsi->debugfs)
 		return;
 

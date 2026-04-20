@@ -6,6 +6,7 @@
 #include <linux/debugfs.h>
 #include <drm/drm_debugfs.h>
 
+#include "xe_ggtt.h"
 #include "xe_pm.h"
 #include "xe_sa.h"
 #include "xe_tile_debugfs.h"
@@ -16,7 +17,7 @@ static struct xe_tile *node_to_tile(struct drm_info_node *node)
 }
 
 /**
- * tile_debugfs_simple_show - A show callback for struct drm_info_list
+ * xe_tile_debugfs_simple_show() - A show callback for struct drm_info_list
  * @m: the &seq_file
  * @data: data used by the drm debugfs helpers
  *
@@ -57,7 +58,7 @@ static struct xe_tile *node_to_tile(struct drm_info_node *node)
  *
  * Return: 0 on success or a negative error code on failure.
  */
-static int tile_debugfs_simple_show(struct seq_file *m, void *data)
+int xe_tile_debugfs_simple_show(struct seq_file *m, void *data)
 {
 	struct drm_printer p = drm_seq_file_printer(m);
 	struct drm_info_node *node = m->private;
@@ -68,7 +69,7 @@ static int tile_debugfs_simple_show(struct seq_file *m, void *data)
 }
 
 /**
- * tile_debugfs_show_with_rpm - A show callback for struct drm_info_list
+ * xe_tile_debugfs_show_with_rpm() - A show callback for struct drm_info_list
  * @m: the &seq_file
  * @data: data used by the drm debugfs helpers
  *
@@ -76,18 +77,19 @@ static int tile_debugfs_simple_show(struct seq_file *m, void *data)
  *
  * Return: 0 on success or a negative error code on failure.
  */
-static int tile_debugfs_show_with_rpm(struct seq_file *m, void *data)
+int xe_tile_debugfs_show_with_rpm(struct seq_file *m, void *data)
 {
 	struct drm_info_node *node = m->private;
 	struct xe_tile *tile = node_to_tile(node);
 	struct xe_device *xe = tile_to_xe(tile);
-	int ret;
 
-	xe_pm_runtime_get(xe);
-	ret = tile_debugfs_simple_show(m, data);
-	xe_pm_runtime_put(xe);
+	guard(xe_pm_runtime)(xe);
+	return xe_tile_debugfs_simple_show(m, data);
+}
 
-	return ret;
+static int ggtt(struct xe_tile *tile, struct drm_printer *p)
+{
+	return xe_ggtt_dump(tile->mem.ggtt, p);
 }
 
 static int sa_info(struct xe_tile *tile, struct drm_printer *p)
@@ -100,8 +102,16 @@ static int sa_info(struct xe_tile *tile, struct drm_printer *p)
 
 /* only for debugfs files which can be safely used on the VF */
 static const struct drm_info_list vf_safe_debugfs_list[] = {
-	{ "sa_info", .show = tile_debugfs_show_with_rpm, .data = sa_info },
+	{ "ggtt", .show = xe_tile_debugfs_show_with_rpm, .data = ggtt },
+	{ "sa_info", .show = xe_tile_debugfs_show_with_rpm, .data = sa_info },
 };
+
+static void tile_debugfs_create_vram_mm(struct xe_tile *tile)
+{
+	if (tile->mem.vram)
+		ttm_resource_manager_create_debugfs(&tile->mem.vram->ttm.manager, tile->debugfs,
+						    "vram_mm");
+}
 
 /**
  * xe_tile_debugfs_register - Register tile's debugfs attributes
@@ -132,4 +142,6 @@ void xe_tile_debugfs_register(struct xe_tile *tile)
 	drm_debugfs_create_files(vf_safe_debugfs_list,
 				 ARRAY_SIZE(vf_safe_debugfs_list),
 				 tile->debugfs, minor);
+
+	tile_debugfs_create_vram_mm(tile);
 }

@@ -415,9 +415,9 @@ static int auo_pixcir_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct auo_pixcir_ts *ts = i2c_get_clientdata(client);
 	struct input_dev *input = ts->input;
-	int ret = 0;
+	int error;
 
-	mutex_lock(&input->mutex);
+	guard(mutex)(&input->mutex);
 
 	/* when configured as wakeup source, device should always wake system
 	 * therefore start device if necessary
@@ -425,21 +425,23 @@ static int auo_pixcir_suspend(struct device *dev)
 	if (device_may_wakeup(&client->dev)) {
 		/* need to start device if not open, to be wakeup source */
 		if (!input_device_enabled(input)) {
-			ret = auo_pixcir_start(ts);
-			if (ret)
-				goto unlock;
+			error = auo_pixcir_start(ts);
+			if (error)
+				return error;
 		}
 
 		enable_irq_wake(client->irq);
-		ret = auo_pixcir_power_mode(ts, AUO_PIXCIR_POWER_SLEEP);
+		error = auo_pixcir_power_mode(ts, AUO_PIXCIR_POWER_SLEEP);
+		if (error)
+			return error;
+
 	} else if (input_device_enabled(input)) {
-		ret = auo_pixcir_stop(ts);
+		error = auo_pixcir_stop(ts);
+		if (error)
+			return error;
 	}
 
-unlock:
-	mutex_unlock(&input->mutex);
-
-	return ret;
+	return 0;
 }
 
 static int auo_pixcir_resume(struct device *dev)
@@ -447,29 +449,28 @@ static int auo_pixcir_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct auo_pixcir_ts *ts = i2c_get_clientdata(client);
 	struct input_dev *input = ts->input;
-	int ret = 0;
+	int error;
 
-	mutex_lock(&input->mutex);
+	guard(mutex)(&input->mutex);
 
 	if (device_may_wakeup(&client->dev)) {
 		disable_irq_wake(client->irq);
 
 		/* need to stop device if it was not open on suspend */
 		if (!input_device_enabled(input)) {
-			ret = auo_pixcir_stop(ts);
-			if (ret)
-				goto unlock;
+			error = auo_pixcir_stop(ts);
+			if (error)
+				return error;
 		}
 
 		/* device wakes automatically from SLEEP */
 	} else if (input_device_enabled(input)) {
-		ret = auo_pixcir_start(ts);
+		error = auo_pixcir_start(ts);
+		if (error)
+			return error;
 	}
 
-unlock:
-	mutex_unlock(&input->mutex);
-
-	return ret;
+	return 0;
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(auo_pixcir_pm_ops,

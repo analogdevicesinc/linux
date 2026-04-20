@@ -253,7 +253,7 @@ static void do_notify_work(struct work_struct *work)
 
 static int notify_push(unsigned int event_type, u32 controller)
 {
-	struct capictr_event *event = kmalloc(sizeof(*event), GFP_ATOMIC);
+	struct capictr_event *event = kmalloc_obj(*event, GFP_ATOMIC);
 
 	if (!event)
 		return -ENOMEM;
@@ -907,7 +907,7 @@ int __init kcapi_init(void)
 {
 	int err;
 
-	kcapi_wq = alloc_workqueue("kcapi", 0, 0);
+	kcapi_wq = alloc_workqueue("kcapi", WQ_PERCPU, 0);
 	if (!kcapi_wq)
 		return -ENOMEM;
 

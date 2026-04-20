@@ -2,6 +2,7 @@
 /* Do not edit directly, auto-generated from: */
 /*	Documentation/netlink/specs/net_shaper.yaml */
 /* YNL-GEN kernel source */
+/* To regenerate run: tools/net/ynl/ynl-regen.sh */
 
 #include <net/netlink.h>
 #include <net/genetlink.h>
@@ -98,27 +99,27 @@ static const struct genl_split_ops net_shaper_nl_ops[] = {
 	},
 	{
 		.cmd		= NET_SHAPER_CMD_SET,
-		.pre_doit	= net_shaper_nl_pre_doit,
+		.pre_doit	= net_shaper_nl_pre_doit_write,
 		.doit		= net_shaper_nl_set_doit,
-		.post_doit	= net_shaper_nl_post_doit,
+		.post_doit	= net_shaper_nl_post_doit_write,
 		.policy		= net_shaper_set_nl_policy,
 		.maxattr	= NET_SHAPER_A_IFINDEX,
 		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
 	},
 	{
 		.cmd		= NET_SHAPER_CMD_DELETE,
-		.pre_doit	= net_shaper_nl_pre_doit,
+		.pre_doit	= net_shaper_nl_pre_doit_write,
 		.doit		= net_shaper_nl_delete_doit,
-		.post_doit	= net_shaper_nl_post_doit,
+		.post_doit	= net_shaper_nl_post_doit_write,
 		.policy		= net_shaper_delete_nl_policy,
 		.maxattr	= NET_SHAPER_A_IFINDEX,
 		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
 	},
 	{
 		.cmd		= NET_SHAPER_CMD_GROUP,
-		.pre_doit	= net_shaper_nl_pre_doit,
+		.pre_doit	= net_shaper_nl_pre_doit_write,
 		.doit		= net_shaper_nl_group_doit,
-		.post_doit	= net_shaper_nl_post_doit,
+		.post_doit	= net_shaper_nl_post_doit_write,
 		.policy		= net_shaper_group_nl_policy,
 		.maxattr	= NET_SHAPER_A_LEAVES,
 		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,

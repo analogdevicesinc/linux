@@ -102,6 +102,7 @@ static const struct link_encoder_funcs dce110_lnk_enc_funcs = {
 	.enable_dp_output = dce110_link_encoder_enable_dp_output,
 	.enable_dp_mst_output = dce110_link_encoder_enable_dp_mst_output,
 	.enable_lvds_output = dce110_link_encoder_enable_lvds_output,
+	.enable_analog_output = dce110_link_encoder_enable_analog_output,
 	.disable_output = dce110_link_encoder_disable_output,
 	.dp_set_lane_settings = dce110_link_encoder_dp_set_lane_settings,
 	.dp_set_phy_pattern = dce110_link_encoder_dp_set_phy_pattern,
@@ -117,6 +118,8 @@ static const struct link_encoder_funcs dce110_lnk_enc_funcs = {
 	.destroy = dce110_link_encoder_destroy,
 	.get_max_link_cap = dce110_link_encoder_get_max_link_cap,
 	.get_dig_frontend = dce110_get_dig_frontend,
+	.get_hpd_state = dce110_get_hpd_state,
+	.program_hpd_filter = dce110_program_hpd_filter,
 };
 
 static enum bp_result link_transmitter_control(
@@ -129,6 +132,21 @@ static enum bp_result link_transmitter_control(
 	result = bp->funcs->transmitter_control(bp, cntl);
 
 	return result;
+}
+
+static enum bp_result link_dac_encoder_control(
+	struct dce110_link_encoder *link_enc,
+	enum bp_encoder_control_action action,
+	uint32_t pix_clk_100hz)
+{
+	struct dc_bios *bios = link_enc->base.ctx->dc_bios;
+	struct bp_encoder_control encoder_control = {0};
+
+	encoder_control.action = action;
+	encoder_control.engine_id = link_enc->base.analog_engine;
+	encoder_control.pixel_clock = pix_clk_100hz / 10;
+
+	return bios->funcs->encoder_control(bios, &encoder_control);
 }
 
 static void enable_phy_bypass_mode(
@@ -300,6 +318,10 @@ static void setup_panel_mode(
 
 	/* if psp set panel mode, dal should be program it */
 	if (ctx->dc->caps.psp_setup_panel_mode)
+		return;
+
+	/* The code below is only applicable to encoders with a digital transmitter. */
+	if (enc110->base.transmitter == TRANSMITTER_UNKNOWN)
 		return;
 
 	ASSERT(REG(DP_DPHY_INTERNAL_CTRL));
@@ -804,6 +826,33 @@ bool dce110_link_encoder_validate_dp_output(
 	return true;
 }
 
+static bool dce110_link_encoder_validate_rgb_output(
+	const struct dce110_link_encoder *enc110,
+	const struct dc_crtc_timing *crtc_timing)
+{
+	/* When the VBIOS doesn't specify any limits, use 400 MHz.
+	 * The value comes from amdgpu_atombios_get_clock_info.
+	 */
+	uint32_t max_pixel_clock_khz = 400000;
+
+	if (enc110->base.ctx->dc_bios->fw_info_valid &&
+	    enc110->base.ctx->dc_bios->fw_info.max_pixel_clock) {
+		max_pixel_clock_khz =
+			enc110->base.ctx->dc_bios->fw_info.max_pixel_clock;
+	}
+
+	if (crtc_timing->pix_clk_100hz > max_pixel_clock_khz * 10)
+		return false;
+
+	if (crtc_timing->display_color_depth != COLOR_DEPTH_888)
+		return false;
+
+	if (crtc_timing->pixel_encoding != PIXEL_ENCODING_RGB)
+		return false;
+
+	return true;
+}
+
 void dce110_link_encoder_construct(
 	struct dce110_link_encoder *enc110,
 	const struct encoder_init_data *init_data,
@@ -819,11 +868,14 @@ void dce110_link_encoder_construct(
 	enc110->base.funcs = &dce110_lnk_enc_funcs;
 	enc110->base.ctx = init_data->ctx;
 	enc110->base.id = init_data->encoder;
+	enc110->base.analog_id = init_data->analog_encoder;
 
+	enc110->base.hpd_gpio = init_data->hpd_gpio;
 	enc110->base.hpd_source = init_data->hpd_source;
 	enc110->base.connector = init_data->connector;
 
 	enc110->base.preferred_engine = ENGINE_ID_UNKNOWN;
+	enc110->base.analog_engine = init_data->analog_engine;
 
 	enc110->base.features = *enc_features;
 
@@ -846,6 +898,11 @@ void dce110_link_encoder_construct(
 		SIGNAL_TYPE_DISPLAY_PORT_MST |
 		SIGNAL_TYPE_EDP |
 		SIGNAL_TYPE_HDMI_TYPE_A;
+
+	if ((enc110->base.connector.id == CONNECTOR_ID_DUAL_LINK_DVII ||
+	     enc110->base.connector.id == CONNECTOR_ID_SINGLE_LINK_DVII) &&
+		enc110->base.analog_engine != ENGINE_ID_UNKNOWN)
+		enc110->base.output_signals |= SIGNAL_TYPE_RGB;
 
 	/* For DCE 8.0 and 8.1, by design, UNIPHY is hardwired to DIG_BE.
 	 * SW always assign DIG_FE 1:1 mapped to DIG_FE for non-MST UNIPHY.
@@ -885,6 +942,13 @@ void dce110_link_encoder_construct(
 		enc110->base.preferred_engine = ENGINE_ID_DIGG;
 	break;
 	default:
+		if (init_data->analog_engine != ENGINE_ID_UNKNOWN) {
+			/* The connector is analog-only, ie. VGA */
+			enc110->base.preferred_engine = init_data->analog_engine;
+			enc110->base.output_signals = SIGNAL_TYPE_RGB;
+			enc110->base.transmitter = TRANSMITTER_UNKNOWN;
+			break;
+		}
 		ASSERT_CRITICAL(false);
 		enc110->base.preferred_engine = ENGINE_ID_UNKNOWN;
 	}
@@ -939,6 +1003,10 @@ bool dce110_link_encoder_validate_output_with_stream(
 		is_valid = dce110_link_encoder_validate_dp_output(
 					enc110, &stream->timing);
 	break;
+	case SIGNAL_TYPE_RGB:
+		is_valid = dce110_link_encoder_validate_rgb_output(
+					enc110, &stream->timing);
+	break;
 	case SIGNAL_TYPE_EDP:
 	case SIGNAL_TYPE_LVDS:
 		is_valid = stream->timing.pixel_encoding == PIXEL_ENCODING_RGB;
@@ -968,6 +1036,20 @@ void dce110_link_encoder_hw_init(
 	cntl.lanes_number = LANE_COUNT_FOUR;
 	cntl.coherent = false;
 	cntl.hpd_sel = enc110->base.hpd_source;
+
+	if (enc110->base.analog_engine != ENGINE_ID_UNKNOWN) {
+		result = link_dac_encoder_control(enc110, ENCODER_CONTROL_INIT, 0);
+		if (result != BP_RESULT_OK) {
+			DC_LOG_ERROR("%s: Failed to execute VBIOS command table for DAC!\n",
+				__func__);
+			BREAK_TO_DEBUGGER();
+			return;
+		}
+	}
+
+	/* The code below is only applicable to encoders with a digital transmitter. */
+	if (enc110->base.transmitter == TRANSMITTER_UNKNOWN)
+		return;
 
 	if (enc110->base.connector.id == CONNECTOR_ID_EDP)
 		cntl.signal = SIGNAL_TYPE_EDP;
@@ -1001,6 +1083,11 @@ void dce110_link_encoder_hw_init(
 
 void dce110_link_encoder_destroy(struct link_encoder **enc)
 {
+	if ((*enc)->hpd_gpio) {
+		dal_gpio_destroy_irq(&(*enc)->hpd_gpio);
+		(*enc)->hpd_gpio = NULL;
+	}
+
 	kfree(TO_DCE110_LINK_ENC(*enc));
 	*enc = NULL;
 }
@@ -1033,6 +1120,8 @@ void dce110_link_encoder_setup(
 	case SIGNAL_TYPE_DISPLAY_PORT_MST:
 		/* DP MST */
 		REG_UPDATE(DIG_BE_CNTL, DIG_MODE, 5);
+		break;
+	case SIGNAL_TYPE_RGB:
 		break;
 	default:
 		ASSERT_CRITICAL(false);
@@ -1104,6 +1193,22 @@ void dce110_link_encoder_enable_lvds_output(
 	cntl.pixel_clock = pixel_clock;
 
 	result = link_transmitter_control(enc110, &cntl);
+
+	if (result != BP_RESULT_OK) {
+		DC_LOG_ERROR("%s: Failed to execute VBIOS command table!\n",
+			__func__);
+		BREAK_TO_DEBUGGER();
+	}
+}
+
+void dce110_link_encoder_enable_analog_output(
+	struct link_encoder *enc,
+	uint32_t pixel_clock)
+{
+	struct dce110_link_encoder *enc110 = TO_DCE110_LINK_ENC(enc);
+	enum bp_result result;
+
+	result = link_dac_encoder_control(enc110, ENCODER_CONTROL_ENABLE, pixel_clock);
 
 	if (result != BP_RESULT_OK) {
 		DC_LOG_ERROR("%s: Failed to execute VBIOS command table!\n",
@@ -1281,6 +1386,13 @@ void dce110_link_encoder_disable_output(
 	struct dce110_link_encoder *enc110 = TO_DCE110_LINK_ENC(enc);
 	struct bp_transmitter_control cntl = { 0 };
 	enum bp_result result;
+
+	if (enc->analog_engine != ENGINE_ID_UNKNOWN)
+		link_dac_encoder_control(enc110, ENCODER_CONTROL_DISABLE, 0);
+
+	/* The code below only applies to connectors that support digital signals. */
+	if (enc->transmitter == TRANSMITTER_UNKNOWN)
+		return;
 
 	if (!dce110_is_dig_enabled(enc)) {
 		/* OF_SKIP_POWER_DOWN_INACTIVE_ENCODER */
@@ -1679,6 +1791,40 @@ void dce110_link_encoder_get_max_link_cap(struct link_encoder *enc,
 	*link_settings = max_link_cap;
 }
 
+bool dce110_get_hpd_state(struct link_encoder *enc)
+{
+	uint32_t state = 0;
+
+	if (!enc->hpd_gpio)
+		return false;
+
+	dal_gpio_lock_pin(enc->hpd_gpio);
+	dal_gpio_get_value(enc->hpd_gpio, &state);
+	dal_gpio_unlock_pin(enc->hpd_gpio);
+
+	return state;
+}
+
+bool dce110_program_hpd_filter(struct link_encoder *enc, int delay_on_connect_in_ms, int delay_on_disconnect_in_ms)
+{
+	/* Setup HPD filtering */
+	if (enc->hpd_gpio && dal_gpio_lock_pin(enc->hpd_gpio) == GPIO_RESULT_OK) {
+		struct gpio_hpd_config config;
+
+		config.delay_on_connect = delay_on_connect_in_ms;
+		config.delay_on_disconnect = delay_on_disconnect_in_ms;
+
+		dal_irq_setup_hpd_filter(enc->hpd_gpio, &config);
+
+		dal_gpio_unlock_pin(enc->hpd_gpio);
+
+		return true;
+	} else {
+		ASSERT(0);
+		return false;
+	}
+}
+
 #if defined(CONFIG_DRM_AMD_DC_SI)
 static const struct link_encoder_funcs dce60_lnk_enc_funcs = {
 	.validate_output_with_stream =
@@ -1689,6 +1835,7 @@ static const struct link_encoder_funcs dce60_lnk_enc_funcs = {
 	.enable_dp_output = dce60_link_encoder_enable_dp_output,
 	.enable_dp_mst_output = dce60_link_encoder_enable_dp_mst_output,
 	.enable_lvds_output = dce110_link_encoder_enable_lvds_output,
+	.enable_analog_output = dce110_link_encoder_enable_analog_output,
 	.disable_output = dce110_link_encoder_disable_output,
 	.dp_set_lane_settings = dce110_link_encoder_dp_set_lane_settings,
 	.dp_set_phy_pattern = dce60_link_encoder_dp_set_phy_pattern,
@@ -1703,7 +1850,9 @@ static const struct link_encoder_funcs dce60_lnk_enc_funcs = {
 	.is_dig_enabled = dce110_is_dig_enabled,
 	.destroy = dce110_link_encoder_destroy,
 	.get_max_link_cap = dce110_link_encoder_get_max_link_cap,
-	.get_dig_frontend = dce110_get_dig_frontend
+	.get_dig_frontend = dce110_get_dig_frontend,
+	.get_hpd_state = dce110_get_hpd_state,
+	.program_hpd_filter = dce110_program_hpd_filter,
 };
 
 void dce60_link_encoder_construct(
@@ -1721,11 +1870,14 @@ void dce60_link_encoder_construct(
 	enc110->base.funcs = &dce60_lnk_enc_funcs;
 	enc110->base.ctx = init_data->ctx;
 	enc110->base.id = init_data->encoder;
+	enc110->base.analog_id = init_data->analog_encoder;
 
+	enc110->base.hpd_gpio = init_data->hpd_gpio;
 	enc110->base.hpd_source = init_data->hpd_source;
 	enc110->base.connector = init_data->connector;
 
 	enc110->base.preferred_engine = ENGINE_ID_UNKNOWN;
+	enc110->base.analog_engine = init_data->analog_engine;
 
 	enc110->base.features = *enc_features;
 
@@ -1748,6 +1900,11 @@ void dce60_link_encoder_construct(
 		SIGNAL_TYPE_DISPLAY_PORT_MST |
 		SIGNAL_TYPE_EDP |
 		SIGNAL_TYPE_HDMI_TYPE_A;
+
+	if ((enc110->base.connector.id == CONNECTOR_ID_DUAL_LINK_DVII ||
+	     enc110->base.connector.id == CONNECTOR_ID_SINGLE_LINK_DVII) &&
+		enc110->base.analog_engine != ENGINE_ID_UNKNOWN)
+		enc110->base.output_signals |= SIGNAL_TYPE_RGB;
 
 	/* For DCE 8.0 and 8.1, by design, UNIPHY is hardwired to DIG_BE.
 	 * SW always assign DIG_FE 1:1 mapped to DIG_FE for non-MST UNIPHY.
@@ -1787,6 +1944,13 @@ void dce60_link_encoder_construct(
 		enc110->base.preferred_engine = ENGINE_ID_DIGG;
 	break;
 	default:
+		if (init_data->analog_engine != ENGINE_ID_UNKNOWN) {
+			/* The connector is analog-only, ie. VGA */
+			enc110->base.preferred_engine = init_data->analog_engine;
+			enc110->base.output_signals = SIGNAL_TYPE_RGB;
+			enc110->base.transmitter = TRANSMITTER_UNKNOWN;
+			break;
+		}
 		ASSERT_CRITICAL(false);
 		enc110->base.preferred_engine = ENGINE_ID_UNKNOWN;
 	}

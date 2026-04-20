@@ -48,6 +48,71 @@ __naked void bswap_64(void)
 	: __clobber_all);
 }
 
+#define BSWAP_RANGE_TEST(name, op, in_value, out_value) \
+	SEC("socket") \
+	__success __log_level(2) \
+	__msg("r0 &= {{.*}}; R0=scalar({{.*}},var_off=(0x0; " #in_value "))") \
+	__msg("r0 = " op " r0 {{.*}}; R0=scalar({{.*}},var_off=(0x0; " #out_value "))") \
+	__naked void name(void) \
+	{ \
+		asm volatile (				\
+		"call %[bpf_get_prandom_u32];"		\
+		"r0 &= " #in_value ";"			\
+		"r0 =  " op " r0;"			\
+		"r2 =  " #out_value " ll;"		\
+		"if r0 > r2 goto trap_%=;"		\
+		"r0 = 0;"				\
+		"exit;"					\
+	"trap_%=:"					\
+		"r1 = 42;"				\
+		"r0 = *(u64 *)(r1 + 0);"		\
+		"exit;"					\
+	:						\
+	: __imm(bpf_get_prandom_u32)			\
+	: __clobber_all);				\
+	}
+
+BSWAP_RANGE_TEST(bswap16_range, "bswap16", 0x3f00, 0x3f)
+BSWAP_RANGE_TEST(bswap32_range, "bswap32", 0x3f00, 0x3f0000)
+BSWAP_RANGE_TEST(bswap64_range, "bswap64", 0x3f00, 0x3f000000000000)
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+BSWAP_RANGE_TEST(be16_range, "be16", 0x3f00, 0x3f)
+BSWAP_RANGE_TEST(be32_range, "be32", 0x3f00, 0x3f0000)
+BSWAP_RANGE_TEST(be64_range, "be64", 0x3f00, 0x3f000000000000)
+BSWAP_RANGE_TEST(le16_range, "le16", 0x3f00, 0x3f00)
+BSWAP_RANGE_TEST(le32_range, "le32", 0x3f00, 0x3f00)
+BSWAP_RANGE_TEST(le64_range, "le64", 0x3f00, 0x3f00)
+#else
+BSWAP_RANGE_TEST(be16_range, "be16", 0x3f00, 0x3f00)
+BSWAP_RANGE_TEST(be32_range, "be32", 0x3f00, 0x3f00)
+BSWAP_RANGE_TEST(be64_range, "be64", 0x3f00, 0x3f00)
+BSWAP_RANGE_TEST(le16_range, "le16", 0x3f00, 0x3f)
+BSWAP_RANGE_TEST(le32_range, "le32", 0x3f00, 0x3f0000)
+BSWAP_RANGE_TEST(le64_range, "le64", 0x3f00, 0x3f000000000000)
+#endif
+
+SEC("socket")
+__description("BSWAP, reset reg id")
+__failure __msg("math between fp pointer and register with unbounded min value is not allowed")
+__naked void bswap_reset_reg_id(void)
+{
+	asm volatile ("					\
+	call %[bpf_ktime_get_ns];			\
+	r1 = r0;					\
+	r0 = be16 r0;					\
+	if r0 != 1 goto l0_%=;				\
+	r2 = r10;					\
+	r2 += -512;					\
+	r2 += r1;					\
+	*(u8 *)(r2 + 0) = 0;				\
+l0_%=:							\
+	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_ktime_get_ns)
+	: __clobber_all);
+}
+
 #else
 
 SEC("socket")

@@ -42,7 +42,7 @@ static struct sctp_stream_priorities *sctp_sched_prio_new_head(
 {
 	struct sctp_stream_priorities *p;
 
-	p = kmalloc(sizeof(*p), gfp);
+	p = kmalloc_obj(*p, gfp);
 	if (!p)
 		return NULL;
 
@@ -300,7 +300,7 @@ static void sctp_sched_prio_unsched_all(struct sctp_stream *stream)
 			sctp_sched_prio_unsched(soute);
 }
 
-static struct sctp_sched_ops sctp_sched_prio = {
+static const struct sctp_sched_ops sctp_sched_prio = {
 	.set = sctp_sched_prio_set,
 	.get = sctp_sched_prio_get,
 	.init = sctp_sched_prio_init,

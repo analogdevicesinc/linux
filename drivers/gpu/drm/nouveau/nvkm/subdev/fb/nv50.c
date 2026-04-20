@@ -214,6 +214,9 @@ nv50_fb_tags(struct nvkm_fb *base)
 static void
 nv50_fb_sysmem_flush_page_init(struct nvkm_fb *fb)
 {
+	// Ensure that the address can actually fit in the register
+	WARN_ON(fb->sysmem.flush_page_addr > DMA_BIT_MASK(40));
+
 	nvkm_wr32(fb->subdev.device, 0x100c08, fb->sysmem.flush_page_addr >> 8);
 }
 
@@ -241,7 +244,7 @@ nv50_fb_new_(const struct nv50_fb_func *func, struct nvkm_device *device,
 {
 	struct nv50_fb *fb;
 
-	if (!(fb = kzalloc(sizeof(*fb), GFP_KERNEL)))
+	if (!(fb = kzalloc_obj(*fb)))
 		return -ENOMEM;
 	nvkm_fb_ctor(&nv50_fb_, device, type, inst, &fb->base);
 	fb->func = func;

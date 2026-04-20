@@ -405,9 +405,8 @@ INDIRECT_CALLABLE_DECLARE(struct sk_buff *udp4_gro_receive(struct list_head *,
 							   struct sk_buff *));
 INDIRECT_CALLABLE_DECLARE(int udp4_gro_complete(struct sk_buff *, int));
 
-INDIRECT_CALLABLE_DECLARE(struct sk_buff *udp6_gro_receive(struct list_head *,
-							   struct sk_buff *));
-INDIRECT_CALLABLE_DECLARE(int udp6_gro_complete(struct sk_buff *, int));
+struct sk_buff *udp6_gro_receive(struct list_head *, struct sk_buff *);
+int udp6_gro_complete(struct sk_buff *, int);
 
 #define indirect_call_gro_receive_inet(cb, f2, f1, head, skb)	\
 ({								\
@@ -592,5 +591,32 @@ static inline void inet6_get_iif_sdif(const struct sk_buff *skb, int *iif, int *
 
 struct packet_offload *gro_find_receive_by_type(__be16 type);
 struct packet_offload *gro_find_complete_by_type(__be16 type);
+
+static inline struct tcphdr *tcp_gro_pull_header(struct sk_buff *skb)
+{
+	unsigned int thlen, hlen, off;
+	struct tcphdr *th;
+
+	off = skb_gro_offset(skb);
+	hlen = off + sizeof(*th);
+	th = skb_gro_header(skb, hlen, off);
+	if (unlikely(!th))
+		return NULL;
+
+	thlen = th->doff * 4;
+	if (unlikely(thlen < sizeof(*th)))
+		return NULL;
+
+	hlen = off + thlen;
+	if (!skb_gro_may_pull(skb, hlen)) {
+		th = skb_gro_header_slow(skb, hlen, off);
+		if (unlikely(!th))
+			return NULL;
+	}
+
+	skb_gro_pull(skb, thlen);
+
+	return th;
+}
 
 #endif /* _NET_GRO_H */

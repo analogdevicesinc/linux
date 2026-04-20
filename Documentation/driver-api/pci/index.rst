@@ -10,10 +10,4 @@ The Linux PCI driver implementer's API guide
 
    pci
    p2pdma
-
-.. only::  subproject and html
-
-   Indices
-   =======
-
-   * :ref:`genindex`
+   tsm

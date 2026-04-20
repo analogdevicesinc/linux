@@ -29,6 +29,8 @@ properties:
     enum:
       - aspeed,ast2600-adc0
       - aspeed,ast2600-adc1
+      - aspeed,ast2700-adc0
+      - aspeed,ast2700-adc1
     description:
       Their trimming data, which is used to calibrate internal reference volage,
       locates in different address of OTP.
@@ -41,6 +43,9 @@ properties:
     description:
       Input clock used to derive the sample clock. Expected to be the
       SoC's APB clock.
+
+  interrupts:
+    maxItems: 1
 
   resets:
     maxItems: 1

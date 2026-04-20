@@ -76,10 +76,10 @@ What is rootfs?
 ---------------
 
 Rootfs is a special instance of ramfs (or tmpfs, if that's enabled), which is
-always present in 2.6 systems.  You can't unmount rootfs for approximately the
-same reason you can't kill the init process; rather than having special code
-to check for and handle an empty list, it's smaller and simpler for the kernel
-to just make sure certain lists can't become empty.
+always present in Linux systems.  The kernel uses an immutable empty filesystem
+called nullfs as the true root of the VFS hierarchy, with the mutable rootfs
+(tmpfs/ramfs) mounted on top of it.  This allows pivot_root() and unmounting
+of the initramfs to work normally.
 
 Most systems just mount another filesystem over rootfs and ignore it.  The
 amount of space an empty instance of ramfs takes up is tiny.
@@ -121,16 +121,14 @@ All this differs from the old initrd in several ways:
     program.  See the switch_root utility, below.)
 
   - When switching another root device, initrd would pivot_root and then
-    umount the ramdisk.  But initramfs is rootfs: you can neither pivot_root
-    rootfs, nor unmount it.  Instead delete everything out of rootfs to
-    free up the space (find -xdev / -exec rm '{}' ';'), overmount rootfs
-    with the new root (cd /newmount; mount --move . /; chroot .), attach
-    stdin/stdout/stderr to the new /dev/console, and exec the new init.
+    umount the ramdisk.  With nullfs as the true root, pivot_root() works
+    normally from the initramfs.  Userspace can simply do::
 
-    Since this is a remarkably persnickety process (and involves deleting
-    commands before you can run them), the klibc package introduced a helper
-    program (utils/run_init.c) to do all this for you.  Most other packages
-    (such as busybox) have named this command "switch_root".
+      chdir(new_root);
+      pivot_root(".", ".");
+      umount2(".", MNT_DETACH);
+
+    This is the preferred method for switching root filesystems.
 
 Populating initramfs:
 ---------------------
@@ -290,11 +288,11 @@ Why cpio rather than tar?
 
 This decision was made back in December, 2001.  The discussion started here:
 
-  http://www.uwsg.iu.edu/hypermail/linux/kernel/0112.2/1538.html
+- https://lore.kernel.org/lkml/a03cke$640$1@cesium.transmeta.com/
 
 And spawned a second thread (specifically on tar vs cpio), starting here:
 
-  http://www.uwsg.iu.edu/hypermail/linux/kernel/0112.2/1587.html
+- https://lore.kernel.org/lkml/3C25A06D.7030408@zytor.com/
 
 The quick and dirty summary version (which is no substitute for reading
 the above threads) is:
@@ -310,7 +308,7 @@ the above threads) is:
    either way about the archive format, and there are alternative tools,
    such as:
 
-     http://freecode.com/projects/afio
+      https://linux.die.net/man/1/afio
 
 2) The cpio archive format chosen by the kernel is simpler and cleaner (and
    thus easier to create and parse) than any of the (literally dozens of)
@@ -331,12 +329,12 @@ the above threads) is:
 5) Al Viro made the decision (quote: "tar is ugly as hell and not going to be
    supported on the kernel side"):
 
-      http://www.uwsg.iu.edu/hypermail/linux/kernel/0112.2/1540.html
+    - https://lore.kernel.org/lkml/Pine.GSO.4.21.0112222109050.21702-100000@weyl.math.psu.edu/
 
    explained his reasoning:
 
-     - http://www.uwsg.iu.edu/hypermail/linux/kernel/0112.2/1550.html
-     - http://www.uwsg.iu.edu/hypermail/linux/kernel/0112.2/1638.html
+    - https://lore.kernel.org/lkml/Pine.GSO.4.21.0112222240530.21702-100000@weyl.math.psu.edu/
+    - https://lore.kernel.org/lkml/Pine.GSO.4.21.0112230849550.23300-100000@weyl.math.psu.edu/
 
    and, most importantly, designed and implemented the initramfs code.
 

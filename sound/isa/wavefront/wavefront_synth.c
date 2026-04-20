@@ -950,9 +950,9 @@ wavefront_send_sample (snd_wavefront_t *dev,
 	if (header->size) {
 		dev->freemem = wavefront_freemem (dev);
 
-		if (dev->freemem < (int)header->size) {
+		if (dev->freemem < 0 || dev->freemem < header->size) {
 			dev_err(dev->card->dev,
-				"insufficient memory to load %d byte sample.\n",
+				"insufficient memory to load %u byte sample.\n",
 				header->size);
 			return -ENOMEM;
 		}
@@ -1381,7 +1381,7 @@ wavefront_load_patch (snd_wavefront_t *dev, const char __user *addr)
 	wavefront_patch_info *header;
 	int err;
 	
-	header = kmalloc(sizeof(*header), GFP_KERNEL);
+	header = kmalloc_obj(*header);
 	if (! header)
 		return -ENOMEM;
 

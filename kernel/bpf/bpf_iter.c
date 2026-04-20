@@ -86,7 +86,7 @@ static bool bpf_iter_support_resched(struct seq_file *seq)
 
 /* bpf_seq_read, a customized and simpler version for bpf iterator.
  * The following are differences from seq_read():
- *  . fixed buffer size (PAGE_SIZE)
+ *  . fixed buffer size (PAGE_SIZE << 3)
  *  . assuming NULL ->llseek()
  *  . stop() may call bpf program, handling potential overflow there
  */
@@ -295,7 +295,7 @@ int bpf_iter_reg_target(const struct bpf_iter_reg *reg_info)
 {
 	struct bpf_iter_target_info *tinfo;
 
-	tinfo = kzalloc(sizeof(*tinfo), GFP_KERNEL);
+	tinfo = kzalloc_obj(*tinfo);
 	if (!tinfo)
 		return -ENOMEM;
 
@@ -548,7 +548,7 @@ int bpf_iter_link_attach(const union bpf_attr *attr, bpfptr_t uattr,
 	if (prog->sleepable && !bpf_iter_target_support_resched(tinfo))
 		return -EINVAL;
 
-	link = kzalloc(sizeof(*link), GFP_USER | __GFP_NOWARN);
+	link = kzalloc_obj(*link, GFP_USER | __GFP_NOWARN);
 	if (!link)
 		return -ENOMEM;
 
@@ -634,37 +634,24 @@ release_prog:
 int bpf_iter_new_fd(struct bpf_link *link)
 {
 	struct bpf_iter_link *iter_link;
-	struct file *file;
 	unsigned int flags;
-	int err, fd;
+	int err;
 
 	if (link->ops != &bpf_iter_link_lops)
 		return -EINVAL;
 
 	flags = O_RDONLY | O_CLOEXEC;
-	fd = get_unused_fd_flags(flags);
-	if (fd < 0)
-		return fd;
 
-	file = anon_inode_getfile("bpf_iter", &bpf_iter_fops, NULL, flags);
-	if (IS_ERR(file)) {
-		err = PTR_ERR(file);
-		goto free_fd;
-	}
+	FD_PREPARE(fdf, flags, anon_inode_getfile("bpf_iter", &bpf_iter_fops, NULL, flags));
+	if (fdf.err)
+		return fdf.err;
 
 	iter_link = container_of(link, struct bpf_iter_link, link);
-	err = prepare_seq_file(file, iter_link);
+	err = prepare_seq_file(fd_prepare_file(fdf), iter_link);
 	if (err)
-		goto free_file;
+		return err; /* Automatic cleanup handles fput */
 
-	fd_install(fd, file);
-	return fd;
-
-free_file:
-	fput(file);
-free_fd:
-	put_unused_fd(fd);
-	return err;
+	return fd_publish(fdf);
 }
 
 struct bpf_prog *bpf_iter_get_info(struct bpf_iter_meta *meta, bool in_stop)

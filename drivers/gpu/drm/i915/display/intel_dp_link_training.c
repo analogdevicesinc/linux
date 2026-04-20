@@ -27,9 +27,10 @@
 #include <drm/display/drm_dp_helper.h>
 #include <drm/drm_print.h>
 
-#include "i915_utils.h"
 #include "intel_display_core.h"
+#include "intel_display_jiffies.h"
 #include "intel_display_types.h"
+#include "intel_display_utils.h"
 #include "intel_dp.h"
 #include "intel_dp_link_training.h"
 #include "intel_encoder.h"
@@ -1194,7 +1195,9 @@ static bool intel_dp_can_link_train_fallback_for_edp(struct intel_dp *intel_dp,
 		intel_panel_preferred_fixed_mode(intel_dp->attached_connector);
 	int mode_rate, max_rate;
 
-	mode_rate = intel_dp_link_required(fixed_mode->clock, 18);
+	mode_rate = intel_dp_link_required(link_rate, lane_count,
+					   fixed_mode->clock, fixed_mode->hdisplay,
+					   fxp_q4_from_int(18), 0);
 	max_rate = intel_dp_max_link_data_rate(intel_dp, link_rate, lane_count);
 	if (mode_rate > max_rate)
 		return false;

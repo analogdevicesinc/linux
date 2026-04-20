@@ -12,18 +12,18 @@
 #include <linux/io.h>
 #include <linux/memblock.h>
 #include <linux/mm_types.h>
+#include <linux/pgalloc.h>
+#include <linux/pgtable.h>
 #include <linux/preempt.h>
 #include <linux/rbtree.h>
 #include <linux/rwsem.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
-#include <linux/pgtable.h>
 
 #include <asm/cacheflush.h>
 #include <asm/efi.h>
 #include <asm/mmu.h>
-#include <asm/pgalloc.h>
 
 #if defined(CONFIG_PTDUMP_DEBUGFS) || defined(CONFIG_ARM_PTDUMP_DEBUGFS)
 #include <asm/ptdump.h>
@@ -113,7 +113,7 @@ static int __init arm_enable_runtime_services(void)
 			if (!(md->attribute & EFI_MEMORY_SP))
 				continue;
 
-			res = kzalloc(sizeof(*res), GFP_KERNEL);
+			res = kzalloc_obj(*res);
 			if (WARN_ON(!res))
 				break;
 

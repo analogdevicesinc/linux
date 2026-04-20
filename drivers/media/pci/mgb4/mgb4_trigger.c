@@ -17,6 +17,7 @@
 #include <linux/iio/triggered_buffer.h>
 #include <linux/pci.h>
 #include <linux/dma/amd_xdma.h>
+#include <linux/types.h>
 #include "mgb4_core.h"
 #include "mgb4_trigger.h"
 
@@ -90,13 +91,13 @@ static irqreturn_t trigger_handler(int irq, void *p)
 	struct trigger_data *st = iio_priv(indio_dev);
 	struct {
 		u32 data;
-		s64 ts __aligned(8);
+		aligned_s64 ts;
 	} scan = { };
 
 	scan.data = mgb4_read_reg(&st->mgbdev->video, 0xA0);
 	mgb4_write_reg(&st->mgbdev->video, 0xA0, scan.data);
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &scan, pf->timestamp);
+	iio_push_to_buffers_with_ts(indio_dev, &scan, sizeof(scan), pf->timestamp);
 	iio_trigger_notify_done(indio_dev->trig);
 
 	mgb4_write_reg(&st->mgbdev->video, 0xB4, 1U << 11);
@@ -114,7 +115,7 @@ static int probe_trigger(struct iio_dev *indio_dev, int irq)
 	if (!st->trig)
 		return -ENOMEM;
 
-	ret = request_irq(irq, &iio_trigger_generic_data_rdy_poll, 0,
+	ret = request_irq(irq, &iio_trigger_generic_data_rdy_poll, IRQF_NO_THREAD,
 			  "mgb4-trigger", st->trig);
 	if (ret)
 		goto error_free_trig;

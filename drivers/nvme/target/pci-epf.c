@@ -320,12 +320,14 @@ static void nvmet_pci_epf_init_dma(struct nvmet_pci_epf *nvme_epf)
 	nvme_epf->dma_enabled = true;
 
 	dev_dbg(dev, "Using DMA RX channel %s, maximum segment size %u B\n",
-		dma_chan_name(chan),
-		dma_get_max_seg_size(dmaengine_get_dma_device(chan)));
+		dma_chan_name(nvme_epf->dma_rx_chan),
+		dma_get_max_seg_size(dmaengine_get_dma_device(nvme_epf->
+							      dma_rx_chan)));
 
 	dev_dbg(dev, "Using DMA TX channel %s, maximum segment size %u B\n",
-		dma_chan_name(chan),
-		dma_get_max_seg_size(dmaengine_get_dma_device(chan)));
+		dma_chan_name(nvme_epf->dma_tx_chan),
+		dma_get_max_seg_size(dmaengine_get_dma_device(nvme_epf->
+							      dma_tx_chan)));
 
 	return;
 
@@ -500,9 +502,8 @@ static inline int nvmet_pci_epf_transfer(struct nvmet_pci_epf_ctrl *ctrl,
 
 static int nvmet_pci_epf_alloc_irq_vectors(struct nvmet_pci_epf_ctrl *ctrl)
 {
-	ctrl->irq_vectors = kcalloc(ctrl->nr_queues,
-				    sizeof(struct nvmet_pci_epf_irq_vector),
-				    GFP_KERNEL);
+	ctrl->irq_vectors = kzalloc_objs(struct nvmet_pci_epf_irq_vector,
+					 ctrl->nr_queues);
 	if (!ctrl->irq_vectors)
 		return -ENOMEM;
 
@@ -1561,13 +1562,11 @@ static int nvmet_pci_epf_alloc_queues(struct nvmet_pci_epf_ctrl *ctrl)
 {
 	unsigned int qid;
 
-	ctrl->sq = kcalloc(ctrl->nr_queues,
-			   sizeof(struct nvmet_pci_epf_queue), GFP_KERNEL);
+	ctrl->sq = kzalloc_objs(struct nvmet_pci_epf_queue, ctrl->nr_queues);
 	if (!ctrl->sq)
 		return -ENOMEM;
 
-	ctrl->cq = kcalloc(ctrl->nr_queues,
-			   sizeof(struct nvmet_pci_epf_queue), GFP_KERNEL);
+	ctrl->cq = kzalloc_objs(struct nvmet_pci_epf_queue, ctrl->nr_queues);
 	if (!ctrl->cq) {
 		kfree(ctrl->sq);
 		ctrl->sq = NULL;
@@ -2325,6 +2324,8 @@ static int nvmet_pci_epf_epc_init(struct pci_epf *epf)
 		return ret;
 	}
 
+	nvmet_pci_epf_init_dma(nvme_epf);
+
 	/* Set device ID, class, etc. */
 	epf->header->vendorid = ctrl->tctrl->subsys->vendor_id;
 	epf->header->subsys_vendor_id = ctrl->tctrl->subsys->subsys_vendor_id;
@@ -2421,8 +2422,6 @@ static int nvmet_pci_epf_bind(struct pci_epf *epf)
 	ret = nvmet_pci_epf_configure_bar(nvme_epf);
 	if (ret)
 		return ret;
-
-	nvmet_pci_epf_init_dma(nvme_epf);
 
 	return 0;
 }

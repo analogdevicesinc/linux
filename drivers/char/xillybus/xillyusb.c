@@ -495,7 +495,7 @@ static struct xillyusb_endpoint
 
 	struct xillyusb_endpoint *ep;
 
-	ep = kzalloc(sizeof(*ep), GFP_KERNEL);
+	ep = kzalloc_obj(*ep);
 
 	if (!ep)
 		return NULL;
@@ -522,7 +522,7 @@ static struct xillyusb_endpoint
 		struct xillybuffer *xb;
 		unsigned long addr;
 
-		xb = kzalloc(sizeof(*xb), GFP_KERNEL);
+		xb = kzalloc_obj(*xb);
 
 		if (!xb) {
 			endpoint_dealloc(ep);
@@ -1336,7 +1336,7 @@ static int xillyusb_open(struct inode *inode, struct file *filp)
 	}
 
 	if (filp->f_mode & FMODE_READ) {
-		in_fifo = kzalloc(sizeof(*in_fifo), GFP_KERNEL);
+		in_fifo = kzalloc_obj(*in_fifo);
 
 		if (!in_fifo) {
 			rc = -ENOMEM;
@@ -1943,7 +1943,7 @@ static int setup_channels(struct xillyusb_dev *xdev,
 	struct xillyusb_channel *chan, *new_channels;
 	int i;
 
-	chan = kcalloc(num_channels, sizeof(*chan), GFP_KERNEL);
+	chan = kzalloc_objs(*chan, num_channels);
 	if (!chan)
 		return -ENOMEM;
 
@@ -2149,7 +2149,7 @@ static int xillyusb_probe(struct usb_interface *interface,
 	struct xillyusb_dev *xdev;
 	int rc;
 
-	xdev = kzalloc(sizeof(*xdev), GFP_KERNEL);
+	xdev = kzalloc_obj(*xdev);
 	if (!xdev)
 		return -ENOMEM;
 
@@ -2163,7 +2163,7 @@ static int xillyusb_probe(struct usb_interface *interface,
 	spin_lock_init(&xdev->error_lock);
 	xdev->in_counter = 0;
 	xdev->in_bytes_left = 0;
-	xdev->workq = alloc_workqueue(xillyname, WQ_HIGHPRI, 0);
+	xdev->workq = alloc_workqueue(xillyname, WQ_HIGHPRI | WQ_UNBOUND, 0);
 
 	if (!xdev->workq) {
 		dev_err(&interface->dev, "Failed to allocate work queue\n");
@@ -2275,7 +2275,7 @@ static int __init xillyusb_init(void)
 {
 	int rc = 0;
 
-	wakeup_wq = alloc_workqueue(xillyname, 0, 0);
+	wakeup_wq = alloc_workqueue(xillyname, WQ_UNBOUND, 0);
 	if (!wakeup_wq)
 		return -ENOMEM;
 

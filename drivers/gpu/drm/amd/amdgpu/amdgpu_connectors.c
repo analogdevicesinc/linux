@@ -734,10 +734,8 @@ amdgpu_connector_lvds_detect(struct drm_connector *connector, bool force)
 
 	amdgpu_connector_update_scratch_regs(connector, ret);
 
-	if (!drm_kms_helper_is_poll_worker()) {
-		pm_runtime_mark_last_busy(connector->dev->dev);
+	if (!drm_kms_helper_is_poll_worker())
 		pm_runtime_put_autosuspend(connector->dev->dev);
-	}
 
 	return ret;
 }
@@ -879,8 +877,9 @@ amdgpu_connector_vga_detect(struct drm_connector *connector, bool force)
 		amdgpu_connector_get_edid(connector);
 
 		if (!amdgpu_connector->edid) {
-			DRM_ERROR("%s: probed a monitor but no|invalid EDID\n",
-					connector->name);
+			drm_err(connector->dev,
+				"%s: probed a monitor but no|invalid EDID\n",
+				connector->name);
 			ret = connector_status_connected;
 		} else {
 			amdgpu_connector->use_digital =
@@ -919,10 +918,8 @@ amdgpu_connector_vga_detect(struct drm_connector *connector, bool force)
 	amdgpu_connector_update_scratch_regs(connector, ret);
 
 out:
-	if (!drm_kms_helper_is_poll_worker()) {
-		pm_runtime_mark_last_busy(connector->dev->dev);
+	if (!drm_kms_helper_is_poll_worker())
 		pm_runtime_put_autosuspend(connector->dev->dev);
-	}
 
 	return ret;
 }
@@ -1060,7 +1057,7 @@ amdgpu_connector_dvi_detect(struct drm_connector *connector, bool force)
 		amdgpu_connector_get_edid(connector);
 
 		if (!amdgpu_connector->edid) {
-			DRM_ERROR("%s: probed a monitor but no|invalid EDID\n",
+			drm_err(adev_to_drm(adev), "%s: probed a monitor but no|invalid EDID\n",
 					connector->name);
 			ret = connector_status_connected;
 			broken_edid = true; /* defer use_digital to later */
@@ -1146,10 +1143,8 @@ out:
 	amdgpu_connector_update_scratch_regs(connector, ret);
 
 exit:
-	if (!drm_kms_helper_is_poll_worker()) {
-		pm_runtime_mark_last_busy(connector->dev->dev);
+	if (!drm_kms_helper_is_poll_worker())
 		pm_runtime_put_autosuspend(connector->dev->dev);
-	}
 
 	return ret;
 }
@@ -1486,10 +1481,8 @@ amdgpu_connector_dp_detect(struct drm_connector *connector, bool force)
 
 	amdgpu_connector_update_scratch_regs(connector, ret);
 out:
-	if (!drm_kms_helper_is_poll_worker()) {
-		pm_runtime_mark_last_busy(connector->dev->dev);
+	if (!drm_kms_helper_is_poll_worker())
 		pm_runtime_put_autosuspend(connector->dev->dev);
-	}
 
 	if (connector->connector_type == DRM_MODE_CONNECTOR_DisplayPort ||
 	    connector->connector_type == DRM_MODE_CONNECTOR_eDP)
@@ -1659,7 +1652,7 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 		}
 	}
 
-	amdgpu_connector = kzalloc(sizeof(struct amdgpu_connector), GFP_KERNEL);
+	amdgpu_connector = kzalloc_obj(struct amdgpu_connector);
 	if (!amdgpu_connector)
 		return;
 
@@ -1675,11 +1668,12 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 	if (router->ddc_valid || router->cd_valid) {
 		amdgpu_connector->router_bus = amdgpu_i2c_lookup(adev, &router->i2c_info);
 		if (!amdgpu_connector->router_bus)
-			DRM_ERROR("Failed to assign router i2c bus! Check dmesg for i2c errors.\n");
+			drm_err(adev_to_drm(adev),
+				"Failed to assign router i2c bus! Check dmesg for i2c errors.\n");
 	}
 
 	if (is_dp_bridge) {
-		amdgpu_dig_connector = kzalloc(sizeof(struct amdgpu_connector_atom_dig), GFP_KERNEL);
+		amdgpu_dig_connector = kzalloc_obj(struct amdgpu_connector_atom_dig);
 		if (!amdgpu_dig_connector)
 			goto failed;
 		amdgpu_connector->con_priv = amdgpu_dig_connector;
@@ -1689,7 +1683,8 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 				has_aux = true;
 				ddc = &amdgpu_connector->ddc_bus->adapter;
 			} else {
-				DRM_ERROR("DP: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
+				drm_err(adev_to_drm(adev),
+					"DP: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
 			}
 		}
 		switch (connector_type) {
@@ -1783,7 +1778,8 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 			if (i2c_bus->valid) {
 				amdgpu_connector->ddc_bus = amdgpu_i2c_lookup(adev, i2c_bus);
 				if (!amdgpu_connector->ddc_bus)
-					DRM_ERROR("VGA: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
+					drm_err(adev_to_drm(adev),
+						"VGA: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
 				else
 					ddc = &amdgpu_connector->ddc_bus->adapter;
 			}
@@ -1808,7 +1804,8 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 			if (i2c_bus->valid) {
 				amdgpu_connector->ddc_bus = amdgpu_i2c_lookup(adev, i2c_bus);
 				if (!amdgpu_connector->ddc_bus)
-					DRM_ERROR("DVIA: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
+					drm_err(adev_to_drm(adev),
+						"DVIA: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
 				else
 					ddc = &amdgpu_connector->ddc_bus->adapter;
 			}
@@ -1831,14 +1828,15 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 			break;
 		case DRM_MODE_CONNECTOR_DVII:
 		case DRM_MODE_CONNECTOR_DVID:
-			amdgpu_dig_connector = kzalloc(sizeof(struct amdgpu_connector_atom_dig), GFP_KERNEL);
+			amdgpu_dig_connector = kzalloc_obj(struct amdgpu_connector_atom_dig);
 			if (!amdgpu_dig_connector)
 				goto failed;
 			amdgpu_connector->con_priv = amdgpu_dig_connector;
 			if (i2c_bus->valid) {
 				amdgpu_connector->ddc_bus = amdgpu_i2c_lookup(adev, i2c_bus);
 				if (!amdgpu_connector->ddc_bus)
-					DRM_ERROR("DVI: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
+					drm_err(adev_to_drm(adev),
+						"DVI: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
 				else
 					ddc = &amdgpu_connector->ddc_bus->adapter;
 			}
@@ -1887,14 +1885,15 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 			break;
 		case DRM_MODE_CONNECTOR_HDMIA:
 		case DRM_MODE_CONNECTOR_HDMIB:
-			amdgpu_dig_connector = kzalloc(sizeof(struct amdgpu_connector_atom_dig), GFP_KERNEL);
+			amdgpu_dig_connector = kzalloc_obj(struct amdgpu_connector_atom_dig);
 			if (!amdgpu_dig_connector)
 				goto failed;
 			amdgpu_connector->con_priv = amdgpu_dig_connector;
 			if (i2c_bus->valid) {
 				amdgpu_connector->ddc_bus = amdgpu_i2c_lookup(adev, i2c_bus);
 				if (!amdgpu_connector->ddc_bus)
-					DRM_ERROR("HDMI: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
+					drm_err(adev_to_drm(adev),
+						"HDMI: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
 				else
 					ddc = &amdgpu_connector->ddc_bus->adapter;
 			}
@@ -1935,7 +1934,7 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 				connector->doublescan_allowed = false;
 			break;
 		case DRM_MODE_CONNECTOR_DisplayPort:
-			amdgpu_dig_connector = kzalloc(sizeof(struct amdgpu_connector_atom_dig), GFP_KERNEL);
+			amdgpu_dig_connector = kzalloc_obj(struct amdgpu_connector_atom_dig);
 			if (!amdgpu_dig_connector)
 				goto failed;
 			amdgpu_connector->con_priv = amdgpu_dig_connector;
@@ -1945,7 +1944,8 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 					has_aux = true;
 					ddc = &amdgpu_connector->ddc_bus->adapter;
 				} else {
-					DRM_ERROR("DP: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
+					drm_err(adev_to_drm(adev),
+						"DP: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
 				}
 			}
 			drm_connector_init_with_ddc(dev, &amdgpu_connector->base,
@@ -1983,7 +1983,7 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 			connector->doublescan_allowed = false;
 			break;
 		case DRM_MODE_CONNECTOR_eDP:
-			amdgpu_dig_connector = kzalloc(sizeof(struct amdgpu_connector_atom_dig), GFP_KERNEL);
+			amdgpu_dig_connector = kzalloc_obj(struct amdgpu_connector_atom_dig);
 			if (!amdgpu_dig_connector)
 				goto failed;
 			amdgpu_connector->con_priv = amdgpu_dig_connector;
@@ -1993,7 +1993,8 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 					has_aux = true;
 					ddc = &amdgpu_connector->ddc_bus->adapter;
 				} else {
-					DRM_ERROR("DP: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
+					drm_err(adev_to_drm(adev),
+						"eDP: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
 				}
 			}
 			drm_connector_init_with_ddc(dev, &amdgpu_connector->base,
@@ -2009,14 +2010,15 @@ amdgpu_connector_add(struct amdgpu_device *adev,
 			connector->doublescan_allowed = false;
 			break;
 		case DRM_MODE_CONNECTOR_LVDS:
-			amdgpu_dig_connector = kzalloc(sizeof(struct amdgpu_connector_atom_dig), GFP_KERNEL);
+			amdgpu_dig_connector = kzalloc_obj(struct amdgpu_connector_atom_dig);
 			if (!amdgpu_dig_connector)
 				goto failed;
 			amdgpu_connector->con_priv = amdgpu_dig_connector;
 			if (i2c_bus->valid) {
 				amdgpu_connector->ddc_bus = amdgpu_i2c_lookup(adev, i2c_bus);
 				if (!amdgpu_connector->ddc_bus)
-					DRM_ERROR("LVDS: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
+					drm_err(adev_to_drm(adev),
+						"LVDS: Failed to assign ddc bus! Check dmesg for i2c errors.\n");
 				else
 					ddc = &amdgpu_connector->ddc_bus->adapter;
 			}

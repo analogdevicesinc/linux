@@ -212,15 +212,14 @@ void nfs_sb_deactive(struct super_block *sb)
 }
 EXPORT_SYMBOL_GPL(nfs_sb_deactive);
 
-static int __nfs_list_for_each_server(struct list_head *head,
-		int (*fn)(struct nfs_server *, void *),
-		void *data)
+int nfs_client_for_each_server(struct nfs_client *clp,
+		int (*fn)(struct nfs_server *server, void *data), void *data)
 {
 	struct nfs_server *server, *last = NULL;
 	int ret = 0;
 
 	rcu_read_lock();
-	list_for_each_entry_rcu(server, head, client_link) {
+	list_for_each_entry_rcu(server, &clp->cl_superblocks, client_link) {
 		if (!(server->super && nfs_sb_active(server->super)))
 			continue;
 		rcu_read_unlock();
@@ -238,13 +237,6 @@ out:
 	if (last)
 		nfs_sb_deactive(last->super);
 	return ret;
-}
-
-int nfs_client_for_each_server(struct nfs_client *clp,
-		int (*fn)(struct nfs_server *, void *),
-		void *data)
-{
-	return __nfs_list_for_each_server(&clp->cl_superblocks, fn, data);
 }
 EXPORT_SYMBOL_GPL(nfs_client_for_each_server);
 
@@ -597,18 +589,13 @@ static void show_lease(struct seq_file *m, struct nfs_server *server)
 	seq_printf(m, ",lease_expired=%ld",
 		   time_after(expire, jiffies) ?  0 : (jiffies - expire) / HZ);
 }
-#ifdef CONFIG_NFS_V4_1
+
 static void show_sessions(struct seq_file *m, struct nfs_server *server)
 {
 	if (nfs4_has_session(server->nfs_client))
 		seq_puts(m, ",sessions");
 }
-#else
-static void show_sessions(struct seq_file *m, struct nfs_server *server) {}
-#endif
-#endif
 
-#ifdef CONFIG_NFS_V4_1
 static void show_pnfs(struct seq_file *m, struct nfs_server *server)
 {
 	seq_printf(m, ",pnfs=");
@@ -628,16 +615,11 @@ static void show_implementation_id(struct seq_file *m, struct nfs_server *nfss)
 			   impl_id->date.seconds, impl_id->date.nseconds);
 	}
 }
-#else
-#if IS_ENABLED(CONFIG_NFS_V4)
-static void show_pnfs(struct seq_file *m, struct nfs_server *server)
-{
-}
-#endif
+#else /* CONFIG_NFS_V4 */
 static void show_implementation_id(struct seq_file *m, struct nfs_server *nfss)
 {
 }
-#endif
+#endif /* CONFIG_NFS_V4 */
 
 int nfs_show_devname(struct seq_file *m, struct dentry *root)
 {
@@ -1052,16 +1034,6 @@ int nfs_reconfigure(struct fs_context *fc)
 	sync_filesystem(sb);
 
 	/*
-	 * The SB_RDONLY flag has been removed from the superblock during
-	 * mounts to prevent interference between different filesystems.
-	 * Similarly, it is also necessary to ignore the SB_RDONLY flag
-	 * during reconfiguration; otherwise, it may also result in the
-	 * creation of redundant superblocks when mounting a directory with
-	 * different rw and ro flags multiple times.
-	 */
-	fc->sb_flags_mask &= ~SB_RDONLY;
-
-	/*
 	 * Userspace mount programs that send binary options generally send
 	 * them populated with default values. We have no way to know which
 	 * ones were explicitly specified. Fall back to legacy behavior and
@@ -1101,8 +1073,9 @@ static void nfs_fill_super(struct super_block *sb, struct nfs_fs_context *ctx)
 	sb->s_blocksize = 0;
 	sb->s_xattr = server->nfs_client->cl_nfs_mod->xattr;
 	sb->s_op = server->nfs_client->cl_nfs_mod->sops;
-	if (ctx->bsize)
-		sb->s_blocksize = nfs_block_size(ctx->bsize, &sb->s_blocksize_bits);
+	if (server->bsize)
+		sb->s_blocksize =
+			nfs_block_size(server->bsize, &sb->s_blocksize_bits);
 
 	switch (server->nfs_client->rpc_ops->version) {
 	case 2:
@@ -1318,25 +1291,12 @@ int nfs_get_tree_common(struct fs_context *fc)
 	if (IS_ERR(server))
 		return PTR_ERR(server);
 
-	/*
-	 * When NFS_MOUNT_UNSHARED is not set, NFS forces the sharing of a
-	 * superblock among each filesystem that mounts sub-directories
-	 * belonging to a single exported root path.
-	 * To prevent interference between different filesystems, the
-	 * SB_RDONLY flag should be removed from the superblock.
-	 */
 	if (server->flags & NFS_MOUNT_UNSHARED)
 		compare_super = NULL;
-	else
-		fc->sb_flags &= ~SB_RDONLY;
 
 	/* -o noac implies -o sync */
 	if (server->flags & NFS_MOUNT_NOAC)
 		fc->sb_flags |= SB_SYNCHRONOUS;
-
-	if (ctx->clone_data.sb)
-		if (ctx->clone_data.sb->s_flags & SB_SYNCHRONOUS)
-			fc->sb_flags |= SB_SYNCHRONOUS;
 
 	/* Get a superblock - note that we may end up sharing one that already exists */
 	fc->s_fs_info = server;
@@ -1361,13 +1321,8 @@ int nfs_get_tree_common(struct fs_context *fc)
 	}
 
 	if (!s->s_root) {
-		unsigned bsize = ctx->clone_data.inherited_bsize;
 		/* initial superblock/root creation */
 		nfs_fill_super(s, ctx);
-		if (bsize) {
-			s->s_blocksize_bits = bsize;
-			s->s_blocksize = 1U << bsize;
-		}
 		error = nfs_get_cache_cookie(s, ctx);
 		if (error < 0)
 			goto error_splat_super;

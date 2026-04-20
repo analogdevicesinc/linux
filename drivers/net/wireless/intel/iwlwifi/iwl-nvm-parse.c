@@ -1377,13 +1377,9 @@ iwl_parse_mei_nvm_data(struct iwl_trans *trans, const struct iwl_rf_cfg *cfg,
 	u8 tx_chains = fw->valid_rx_ant;
 
 	if (cfg->uhb_supported)
-		data = kzalloc(struct_size(data, channels,
-					   IWL_NVM_NUM_CHANNELS_UHB),
-					   GFP_KERNEL);
+		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS_UHB);
 	else
-		data = kzalloc(struct_size(data, channels,
-					   IWL_NVM_NUM_CHANNELS_EXT),
-					   GFP_KERNEL);
+		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS_EXT);
 	if (!data)
 		return NULL;
 
@@ -1446,17 +1442,11 @@ iwl_parse_nvm_data(struct iwl_trans *trans, const struct iwl_rf_cfg *cfg,
 	const __le16 *ch_section;
 
 	if (cfg->uhb_supported)
-		data = kzalloc(struct_size(data, channels,
-					   IWL_NVM_NUM_CHANNELS_UHB),
-					   GFP_KERNEL);
+		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS_UHB);
 	else if (cfg->nvm_type != IWL_NVM_EXT)
-		data = kzalloc(struct_size(data, channels,
-					   IWL_NVM_NUM_CHANNELS),
-					   GFP_KERNEL);
+		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS);
 	else
-		data = kzalloc(struct_size(data, channels,
-					   IWL_NVM_NUM_CHANNELS_EXT),
-					   GFP_KERNEL);
+		data = kzalloc_flex(*data, channels, IWL_NVM_NUM_CHANNELS_EXT);
 	if (!data)
 		return NULL;
 
@@ -1692,7 +1682,7 @@ iwl_parse_nvm_mcc_info(struct iwl_trans *trans,
 		      num_of_ch);
 
 	/* build a regdomain rule for every valid channel */
-	regd = kzalloc(struct_size(regd, reg_rules, num_of_ch), GFP_KERNEL);
+	regd = kzalloc_flex(*regd, reg_rules, num_of_ch);
 	if (!regd)
 		return ERR_PTR(-ENOMEM);
 
@@ -2041,7 +2031,7 @@ struct iwl_nvm_data *iwl_get_nvm(struct iwl_trans *trans,
 	if (empty_otp)
 		IWL_INFO(trans, "OTP is empty\n");
 
-	nvm = kzalloc(struct_size(nvm, channels, IWL_NUM_CHANNELS), GFP_KERNEL);
+	nvm = kzalloc_flex(*nvm, channels, IWL_NUM_CHANNELS);
 	if (!nvm) {
 		ret = -ENOMEM;
 		goto out;
@@ -2080,7 +2070,7 @@ struct iwl_nvm_data *iwl_get_nvm(struct iwl_trans *trans,
 		!!(mac_flags & NVM_MAC_SKU_FLAGS_BAND_5_2_ENABLED);
 	nvm->sku_cap_mimo_disabled =
 		!!(mac_flags & NVM_MAC_SKU_FLAGS_MIMO_DISABLED);
-	if (CSR_HW_RFID_TYPE(trans->info.hw_rf_id) >= IWL_CFG_RF_TYPE_FM)
+	if (trans->cfg->eht_supported)
 		nvm->sku_cap_11be_enable = true;
 
 	/* Initialize PHY sku data */

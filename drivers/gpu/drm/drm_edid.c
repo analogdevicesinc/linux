@@ -250,6 +250,9 @@ static const struct edid_quirk {
 	EDID_QUIRK('S', 'V', 'R', 0x1019, BIT(EDID_QUIRK_NON_DESKTOP)),
 	EDID_QUIRK('A', 'U', 'O', 0x1111, BIT(EDID_QUIRK_NON_DESKTOP)),
 
+	/* LQ116M1JW10 displays noise when 8 bpc, but display fine as 6 bpc */
+	EDID_QUIRK('S', 'H', 'P', 0x154c, BIT(EDID_QUIRK_FORCE_6BPC)),
+
 	/*
 	 * @drm_edid_internal_quirk entries end here, following with the
 	 * @drm_edid_quirk entries.
@@ -2500,7 +2503,7 @@ static const struct drm_edid *_drm_edid_alloc(const void *edid, size_t size)
 	if (!edid || !size || size < EDID_LENGTH)
 		return NULL;
 
-	drm_edid = kzalloc(sizeof(*drm_edid), GFP_KERNEL);
+	drm_edid = kzalloc_obj(*drm_edid);
 	if (drm_edid) {
 		drm_edid->edid = edid;
 		drm_edid->size = size;
@@ -5761,7 +5764,7 @@ static int _drm_edid_to_sad(const struct drm_edid *drm_edid,
 			int i;
 
 			count = cea_db_payload_len(db) / 3; /* SAD is 3B */
-			sads = kcalloc(count, sizeof(*sads), GFP_KERNEL);
+			sads = kzalloc_objs(*sads, count);
 			*psads = sads;
 			if (!sads)
 				return -ENOMEM;

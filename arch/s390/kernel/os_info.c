@@ -6,8 +6,7 @@
  * Author(s): Michael Holzheu <holzheu@linux.vnet.ibm.com>
  */
 
-#define KMSG_COMPONENT "os_info"
-#define pr_fmt(fmt) KMSG_COMPONENT ": " fmt
+#define pr_fmt(fmt) "os_info: " fmt
 
 #include <linux/crash_dump.h>
 #include <linux/kernel.h>
@@ -155,7 +154,7 @@ static void os_info_old_init(void)
 		goto fail;
 	if (addr == 0 || addr % PAGE_SIZE)
 		goto fail;
-	os_info_old = kzalloc(sizeof(*os_info_old), GFP_KERNEL);
+	os_info_old = kzalloc_obj(*os_info_old);
 	if (!os_info_old)
 		goto fail;
 	if (copy_oldmem_kernel(os_info_old, addr, sizeof(*os_info_old)))

@@ -249,7 +249,7 @@ static int proc_fill_super(struct super_block *s, struct fs_context *fc)
 	struct proc_fs_info *fs_info;
 	int ret;
 
-	fs_info = kzalloc(sizeof(*fs_info), GFP_KERNEL);
+	fs_info = kzalloc_obj(*fs_info);
 	if (!fs_info)
 		return -ENOMEM;
 
@@ -331,7 +331,7 @@ static int proc_init_fs_context(struct fs_context *fc)
 {
 	struct proc_fs_context *ctx;
 
-	ctx = kzalloc(sizeof(struct proc_fs_context), GFP_KERNEL);
+	ctx = kzalloc_obj(struct proc_fs_context);
 	if (!ctx)
 		return -ENOMEM;
 
@@ -347,17 +347,11 @@ static void proc_kill_sb(struct super_block *sb)
 {
 	struct proc_fs_info *fs_info = proc_sb_info(sb);
 
-	if (!fs_info) {
-		kill_anon_super(sb);
-		return;
-	}
-
-	dput(fs_info->proc_self);
-	dput(fs_info->proc_thread_self);
-
 	kill_anon_super(sb);
-	put_pid_ns(fs_info->pid_ns);
-	kfree_rcu(fs_info, rcu);
+	if (fs_info) {
+		put_pid_ns(fs_info->pid_ns);
+		kfree_rcu(fs_info, rcu);
+	}
 }
 
 static struct file_system_type proc_fs_type = {

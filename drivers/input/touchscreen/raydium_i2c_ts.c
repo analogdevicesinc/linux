@@ -169,10 +169,9 @@ static int raydium_i2c_send(struct i2c_client *client,
 {
 	int tries = 0;
 	int error;
-	u8 *tx_buf;
 	u8 reg_addr = addr & 0xff;
 
-	tx_buf = kmalloc(len + 1, GFP_KERNEL);
+	u8 *tx_buf __free(kfree) = kmalloc(len + 1, GFP_KERNEL);
 	if (!tx_buf)
 		return -ENOMEM;
 
@@ -210,14 +209,12 @@ static int raydium_i2c_send(struct i2c_client *client,
 
 		error = raydium_i2c_xfer(client, addr, xfer, ARRAY_SIZE(xfer));
 		if (likely(!error))
-			goto out;
+			return 0;
 
 		msleep(RM_RETRY_DELAY_MS);
 	} while (++tries < RM_MAX_RETRIES);
 
 	dev_err(&client->dev, "%s failed: %d\n", __func__, error);
-out:
-	kfree(tx_buf);
 	return error;
 }
 
@@ -815,21 +812,21 @@ static int raydium_i2c_do_update_firmware(struct raydium_data *ts,
 static int raydium_i2c_fw_update(struct raydium_data *ts)
 {
 	struct i2c_client *client = ts->client;
-	const struct firmware *fw = NULL;
-	char *fw_file;
 	int error;
 
-	fw_file = kasprintf(GFP_KERNEL, "raydium_%#04x.fw",
-			    le32_to_cpu(ts->info.hw_ver));
+	const char *fw_file __free(kfree) =
+		kasprintf(GFP_KERNEL, "raydium_%#04x.fw",
+			  le32_to_cpu(ts->info.hw_ver));
 	if (!fw_file)
 		return -ENOMEM;
 
 	dev_dbg(&client->dev, "firmware name: %s\n", fw_file);
 
+	const struct firmware *fw __free(firmware) = NULL;
 	error = request_firmware(&fw, fw_file, &client->dev);
 	if (error) {
 		dev_err(&client->dev, "Unable to open firmware %s\n", fw_file);
-		goto out_free_fw_file;
+		return error;
 	}
 
 	disable_irq(client->irq);
@@ -855,11 +852,6 @@ static int raydium_i2c_fw_update(struct raydium_data *ts)
 out_enable_irq:
 	enable_irq(client->irq);
 	msleep(100);
-
-	release_firmware(fw);
-
-out_free_fw_file:
-	kfree(fw_file);
 
 	return error;
 }
@@ -965,15 +957,12 @@ static ssize_t raydium_i2c_update_fw_store(struct device *dev,
 	struct raydium_data *ts = i2c_get_clientdata(client);
 	int error;
 
-	error = mutex_lock_interruptible(&ts->sysfs_mutex);
-	if (error)
-		return error;
+	scoped_guard(mutex_intr, &ts->sysfs_mutex) {
+		error = raydium_i2c_fw_update(ts);
+		return error ?: count;
+	}
 
-	error = raydium_i2c_fw_update(ts);
-
-	mutex_unlock(&ts->sysfs_mutex);
-
-	return error ?: count;
+	return -EINTR;
 }
 
 static ssize_t raydium_i2c_calibrate_store(struct device *dev,
@@ -985,17 +974,20 @@ static ssize_t raydium_i2c_calibrate_store(struct device *dev,
 	static const u8 cal_cmd[] = { 0x00, 0x01, 0x9E };
 	int error;
 
-	error = mutex_lock_interruptible(&ts->sysfs_mutex);
-	if (error)
-		return error;
+	scoped_guard(mutex_intr, &ts->sysfs_mutex) {
+		error = raydium_i2c_write_object(client,
+						 cal_cmd, sizeof(cal_cmd),
+						 RAYDIUM_WAIT_READY);
+		if (error) {
+			dev_err(&client->dev,
+				"calibrate command failed: %d\n", error);
+			return error;
+		}
 
-	error = raydium_i2c_write_object(client, cal_cmd, sizeof(cal_cmd),
-					 RAYDIUM_WAIT_READY);
-	if (error)
-		dev_err(&client->dev, "calibrate command failed: %d\n", error);
+		return count;
+	}
 
-	mutex_unlock(&ts->sysfs_mutex);
-	return error ?: count;
+	return -EINTR;
 }
 
 static DEVICE_ATTR(fw_version, S_IRUGO, raydium_i2c_fw_ver_show, NULL);

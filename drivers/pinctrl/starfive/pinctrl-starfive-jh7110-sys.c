@@ -7,14 +7,11 @@
  */
 
 #include <linux/bits.h>
-#include <linux/clk.h>
 #include <linux/gpio/driver.h>
 #include <linux/io.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
-#include <linux/mutex.h>
 #include <linux/platform_device.h>
-#include <linux/reset.h>
 #include <linux/spinlock.h>
 
 #include <linux/pinctrl/pinctrl.h>
@@ -29,7 +26,6 @@
 #include "pinctrl-starfive-jh7110.h"
 
 #define JH7110_SYS_NGPIO		64
-#define JH7110_SYS_GC_BASE		0
 
 #define JH7110_SYS_REGS_NUM		174
 
@@ -410,7 +406,6 @@ static const struct jh7110_pinctrl_soc_info jh7110_sys_pinctrl_info = {
 	.pins		= jh7110_sys_pins,
 	.npins		= ARRAY_SIZE(jh7110_sys_pins),
 	.ngpios		= JH7110_SYS_NGPIO,
-	.gc_base	= JH7110_SYS_GC_BASE,
 	.dout_reg_base	= JH7110_SYS_DOUT,
 	.dout_mask	= GENMASK(6, 0),
 	.doen_reg_base	= JH7110_SYS_DOEN,
