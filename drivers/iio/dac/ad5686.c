@@ -12,6 +12,7 @@
 #include <linux/export.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
+#include <linux/reset.h>
 #include <linux/sysfs.h>
 #include <linux/wordpart.h>
 
@@ -448,6 +449,7 @@ int ad5686_probe(struct device *dev,
 		 const struct ad5686_chip_info *chip_info,
 		 const char *name, const struct ad5686_bus_ops *ops)
 {
+	struct reset_control *rstc;
 	struct iio_dev *indio_dev;
 	struct ad5686_state *st;
 	unsigned int i, shift;
@@ -483,6 +485,11 @@ int ad5686_probe(struct device *dev,
 	if (!st->vref_mv)
 		return dev_err_probe(dev, -EINVAL,
 				     "invalid or not provided vref voltage\n");
+
+	rstc = devm_reset_control_get_optional_exclusive_deasserted(dev, NULL);
+	if (IS_ERR(rstc))
+		return dev_err_probe(dev, PTR_ERR(rstc),
+				     "Failed to get reset controller\n");
 
 	/* Set all the power down mode for all channels to 1K pulldown */
 	st->pwr_down_mode = ~0U;
