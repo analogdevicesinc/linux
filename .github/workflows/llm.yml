@@ -74,8 +74,8 @@ jobs:
           Your review should be based on the current Kernel documentation at
           ./Documentation/ . Never says things you are unsure.
 
-          You have access to multi-architecture compilers and `./ci/build.sh`
-          contain multiple methods that run during the CI/CD that you can use to
+          You have access to multi-architecture compilers and `$sh_source` (already sourced)
+          contain multiple bash methods that run during the CI/CD that you can use to
           replicate the CI/CD steps, for example, to compile for 'arm' a minimal
           defconfig, do
           ```
@@ -87,6 +87,7 @@ jobs:
           $ auto_set_kconfig
           $ make
           ```
+          You can always do `type auto_set_kconfig` to get the bash method body or the command source.
           You must use the set_arch command, it properly sets the correct compilers for all
           architectures, for example, `set_arch gcc_aarch64` sets `CROSS_COMPILE=aarch64-linux-`.
           The available compilers are $set_arch_available
