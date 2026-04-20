@@ -526,70 +526,6 @@ static int drbg_prepare_hrng(struct drbg_state *drbg)
 }
 
 /*
- * DRBG instantiation function as required by SP800-90A - this function
- * sets up the DRBG handle, performs the initial seeding and all sanity
- * checks required by SP800-90A
- *
- * @drbg memory of state -- if NULL, new memory is allocated
- * @pers Optional personalization string that is mixed into state
- * @pers_len Length of personalization string in bytes, may be 0
- * @pr prediction resistance enabled
- *
- * return
- *	0 on success
- *	error value otherwise
- */
-static int drbg_instantiate(struct drbg_state *drbg,
-			    const u8 *pers, size_t pers_len, bool pr)
-{
-	static const u8 initial_key[DRBG_STATE_LEN]; /* all zeroes */
-	int ret;
-	bool reseed = true;
-
-	pr_devel("DRBG: Initializing DRBG with prediction resistance %s\n",
-		 str_enabled_disabled(pr));
-	mutex_lock(&drbg->drbg_mutex);
-
-	/* 9.1 step 1 is implicit with the selected DRBG type */
-
-	/*
-	 * 9.1 step 2 is implicit as caller can select prediction resistance
-	 * all DRBG types support prediction resistance
-	 */
-
-	/* 9.1 step 4 is implicit in DRBG_SEC_STRENGTH */
-
-	if (!drbg->instantiated) {
-		drbg->instantiated = true;
-		drbg->pr = pr;
-		drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
-		drbg->last_seed_time = 0;
-		drbg->reseed_threshold = DRBG_MAX_REQUESTS;
-		memset(drbg->V, 1, DRBG_STATE_LEN);
-		hmac_sha512_preparekey(&drbg->key, initial_key, DRBG_STATE_LEN);
-
-		ret = drbg_prepare_hrng(drbg);
-		if (ret)
-			goto free_everything;
-
-		reseed = false;
-	}
-
-	ret = drbg_seed(drbg, pers, pers_len, reseed);
-
-	if (ret && !reseed)
-		goto free_everything;
-
-	mutex_unlock(&drbg->drbg_mutex);
-	return ret;
-
-free_everything:
-	mutex_unlock(&drbg->drbg_mutex);
-	drbg_uninstantiate(drbg);
-	return ret;
-}
-
-/*
  * DRBG uninstantiate function as required by SP800-90A - this function
  * frees all buffers and the DRBG handle
  *
@@ -636,11 +572,54 @@ static void drbg_kcapi_set_entropy(struct crypto_rng *tfm,
 
 /* Seed (i.e. instantiate) or re-seed the DRBG. */
 static int drbg_kcapi_seed(struct crypto_rng *tfm,
-			   const u8 *seed, unsigned int slen, bool pr)
+			   const u8 *pers, size_t pers_len, bool pr)
 {
+	static const u8 initial_key[DRBG_STATE_LEN]; /* all zeroes */
 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
+	int ret;
+	bool reseed = true;
 
-	return drbg_instantiate(drbg, seed, slen, pr);
+	pr_devel("DRBG: Initializing DRBG with prediction resistance %s\n",
+		 str_enabled_disabled(pr));
+	mutex_lock(&drbg->drbg_mutex);
+
+	/* 9.1 step 1 is implicit with the selected DRBG type */
+
+	/*
+	 * 9.1 step 2 is implicit as caller can select prediction resistance
+	 * all DRBG types support prediction resistance
+	 */
+
+	/* 9.1 step 4 is implicit in DRBG_SEC_STRENGTH */
+
+	if (!drbg->instantiated) {
+		drbg->instantiated = true;
+		drbg->pr = pr;
+		drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
+		drbg->last_seed_time = 0;
+		drbg->reseed_threshold = DRBG_MAX_REQUESTS;
+		memset(drbg->V, 1, DRBG_STATE_LEN);
+		hmac_sha512_preparekey(&drbg->key, initial_key, DRBG_STATE_LEN);
+
+		ret = drbg_prepare_hrng(drbg);
+		if (ret)
+			goto free_everything;
+
+		reseed = false;
+	}
+
+	ret = drbg_seed(drbg, pers, pers_len, reseed);
+
+	if (ret && !reseed)
+		goto free_everything;
+
+	mutex_unlock(&drbg->drbg_mutex);
+	return ret;
+
+free_everything:
+	mutex_unlock(&drbg->drbg_mutex);
+	drbg_uninstantiate(drbg);
+	return ret;
 }
 
 static int drbg_kcapi_seed_pr(struct crypto_rng *tfm,
