@@ -136,7 +136,6 @@ struct drbg_state {
 	struct mutex drbg_mutex;	/* lock around DRBG */
 	u8 V[DRBG_STATE_LEN];		/* internal state -- 10.1.2.1 1a */
 	struct hmac_sha512_key key;	/* current key -- 10.1.2.1 1b */
-	u8 C[DRBG_STATE_LEN];		/* current key -- 10.1.2.1 1b */
 	/* Number of RNG requests since last reseed -- 10.1.2.1 1c */
 	size_t reseed_ctr;
 	size_t reseed_threshold;
@@ -160,17 +159,11 @@ static int drbg_uninstantiate(struct drbg_state *drbg);
  ******************************************************************/
 
 /* update function of HMAC DRBG as defined in 10.1.2.2 */
-static void drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed,
-			     int reseed)
+static void drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed)
 {
 	int i = 0;
 	struct hmac_sha512_ctx hmac_ctx;
-
-	if (!reseed) {
-		/* 10.1.2.3 step 2 -- memset(0) of C is implicit with kzalloc */
-		memset(drbg->V, 1, DRBG_STATE_LEN);
-		hmac_sha512_preparekey(&drbg->key, drbg->C, DRBG_STATE_LEN);
-	}
+	u8 new_key[DRBG_STATE_LEN];
 
 	for (i = 2; 0 < i; i--) {
 		/* first round uses 0x0, second 0x1 */
@@ -188,8 +181,8 @@ static void drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed,
 				hmac_sha512_update(&hmac_ctx, input->buf,
 						   input->len);
 		}
-		hmac_sha512_final(&hmac_ctx, drbg->C);
-		hmac_sha512_preparekey(&drbg->key, drbg->C, DRBG_STATE_LEN);
+		hmac_sha512_final(&hmac_ctx, new_key);
+		hmac_sha512_preparekey(&drbg->key, new_key, DRBG_STATE_LEN);
 
 		/* 10.1.2.2 step 2 and 5 -- HMAC for V */
 		hmac_sha512(&drbg->key, drbg->V, DRBG_STATE_LEN, drbg->V);
@@ -198,6 +191,7 @@ static void drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed,
 		if (!seed)
 			break;
 	}
+	memzero_explicit(new_key, sizeof(new_key));
 }
 
 /* generate function of HMAC DRBG as defined in 10.1.2.5 */
@@ -210,7 +204,7 @@ static void drbg_hmac_generate(struct drbg_state *drbg,
 
 	/* 10.1.2.5 step 2 */
 	if (addtl && !list_empty(addtl))
-		drbg_hmac_update(drbg, addtl, 1);
+		drbg_hmac_update(drbg, addtl);
 
 	while (len < buflen) {
 		unsigned int outlen = 0;
@@ -227,15 +221,15 @@ static void drbg_hmac_generate(struct drbg_state *drbg,
 
 	/* 10.1.2.5 step 6 */
 	if (addtl && !list_empty(addtl))
-		drbg_hmac_update(drbg, addtl, 1);
+		drbg_hmac_update(drbg, addtl);
 	else
-		drbg_hmac_update(drbg, NULL, 1);
+		drbg_hmac_update(drbg, NULL);
 }
 
 static inline void __drbg_seed(struct drbg_state *drbg, struct list_head *seed,
-			       int reseed, enum drbg_seed_state new_seed_state)
+			       enum drbg_seed_state new_seed_state)
 {
-	drbg_hmac_update(drbg, seed, reseed);
+	drbg_hmac_update(drbg, seed);
 
 	drbg->seeded = new_seed_state;
 	drbg->last_seed_time = jiffies;
@@ -275,7 +269,7 @@ static void drbg_seed_from_random(struct drbg_state *drbg)
 
 	get_random_bytes(entropy, DRBG_SEC_STRENGTH);
 
-	__drbg_seed(drbg, &seedlist, true, DRBG_SEED_STATE_FULL);
+	__drbg_seed(drbg, &seedlist, DRBG_SEED_STATE_FULL);
 
 	memzero_explicit(entropy, DRBG_SEC_STRENGTH);
 }
@@ -404,12 +398,8 @@ static int drbg_seed(struct drbg_state *drbg, struct drbg_string *pers,
 		pr_devel("DRBG: using personalization string\n");
 	}
 
-	if (!reseed) {
-		memset(drbg->V, 0, DRBG_STATE_LEN);
-		memset(drbg->C, 0, DRBG_STATE_LEN);
-	}
 
-	__drbg_seed(drbg, &seedlist, reseed, new_seed_state);
+	__drbg_seed(drbg, &seedlist, new_seed_state);
 	ret = 0;
 out:
 	memzero_explicit(entropy, sizeof(entropy));
@@ -424,7 +414,6 @@ static inline void drbg_dealloc_state(struct drbg_state *drbg)
 		return;
 	memzero_explicit(&drbg->key, sizeof(drbg->key));
 	memzero_explicit(drbg->V, sizeof(drbg->V));
-	memzero_explicit(drbg->C, sizeof(drbg->C));
 	drbg->reseed_ctr = 0;
 	drbg->instantiated = false;
 }
@@ -605,6 +594,7 @@ static int drbg_prepare_hrng(struct drbg_state *drbg)
 static int drbg_instantiate(struct drbg_state *drbg, struct drbg_string *pers,
 			    bool pr)
 {
+	static const u8 initial_key[DRBG_STATE_LEN]; /* all zeroes */
 	int ret;
 	bool reseed = true;
 
@@ -627,6 +617,8 @@ static int drbg_instantiate(struct drbg_state *drbg, struct drbg_string *pers,
 		drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
 		drbg->last_seed_time = 0;
 		drbg->reseed_threshold = DRBG_MAX_REQUESTS;
+		memset(drbg->V, 1, DRBG_STATE_LEN);
+		hmac_sha512_preparekey(&drbg->key, initial_key, DRBG_STATE_LEN);
 
 		ret = drbg_prepare_hrng(drbg);
 		if (ret)
