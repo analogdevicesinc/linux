@@ -3504,8 +3504,19 @@ static int drbg_cavs_test(const struct drbg_testvec *test, int pr,
 	crypto_rng_set_entropy(drng, test->entropy, test->entropylen);
 	ret = crypto_rng_reset(drng, test->pers, test->perslen);
 	if (ret) {
-		printk(KERN_ERR "alg: drbg: Failed to reset rng\n");
+		printk(KERN_ERR "alg: drbg: Failed to instantiate rng\n");
 		goto outbuf;
+	}
+
+	if (test->ent_reseed_len) {
+		crypto_rng_set_entropy(drng, test->ent_reseed,
+				       test->ent_reseed_len);
+		ret = crypto_rng_reset(drng, test->addtl_reseed,
+				       test->addtl_reseed_len);
+		if (ret) {
+			printk(KERN_ERR "alg: drbg: Failed to reseed rng\n");
+			goto outbuf;
+		}
 	}
 
 	if (pr)
