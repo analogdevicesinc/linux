@@ -2615,6 +2615,18 @@ nl80211_send_pmsr_ftm_capa(const struct cfg80211_pmsr_capabilities *cap,
 	if (cap->ftm.concurrent_ista_rsta_support &&
 	    nla_put_flag(msg, NL80211_PMSR_FTM_CAPA_ATTR_CONCURRENT_ISTA_RSTA_SUPPORT))
 		return -ENOBUFS;
+
+	if (cap->ftm.type.pd_support) {
+		if (cap->ftm.pd_preambles &&
+		    nla_put_u32(msg, NL80211_PMSR_FTM_CAPA_ATTR_PD_PREAMBLES,
+				cap->ftm.pd_preambles))
+			return -ENOBUFS;
+		if (cap->ftm.pd_bandwidths &&
+		    nla_put_u32(msg, NL80211_PMSR_FTM_CAPA_ATTR_PD_BANDWIDTHS,
+				cap->ftm.pd_bandwidths))
+			return -ENOBUFS;
+	}
+
 	nla_nest_end(msg, ftm);
 	return 0;
 }

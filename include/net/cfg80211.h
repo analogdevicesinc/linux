@@ -6053,6 +6053,10 @@ cfg80211_get_iftype_ext_capa(struct wiphy *wiphy, enum nl80211_iftype type);
  * @ftm.concurrent_ista_rsta_support: indicates if the device can
  *	simultaneously act as initiator and responder in a multi-peer
  *	measurement request. Only valid if @ftm.rsta_support is set.
+ * @ftm.pd_preambles: bitmap of preambles supported (&enum nl80211_preamble)
+ *	for PD ranging requests. Ignored if @ftm.type.pd_support is not set.
+ * @ftm.pd_bandwidths: bitmap of bandwidths supported (&enum nl80211_chan_width)
+ *	for PD ranging requests. Ignored if @ftm.type.pd_support is not set.
  */
 struct cfg80211_pmsr_capabilities {
 	unsigned int max_peers;
@@ -6099,6 +6103,8 @@ struct cfg80211_pmsr_capabilities {
 			   pd_support:1;
 		} type;
 		u8 concurrent_ista_rsta_support:1;
+		u32 pd_preambles;
+		u32 pd_bandwidths;
 	} ftm;
 };
 

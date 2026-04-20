@@ -17,8 +17,16 @@ static int pmsr_parse_ftm(struct cfg80211_registered_device *rdev,
 	u32 preamble = NL80211_PREAMBLE_DMG; /* only optional in DMG */
 
 	/* validate existing data */
-	if (!(rdev->wiphy.pmsr_capa->ftm.bandwidths & BIT(out->chandef.width))) {
+	if (out->ftm.request_type == NL80211_PMSR_FTM_REQ_TYPE_INFRA &&
+	    !(capa->ftm.bandwidths & BIT(out->chandef.width))) {
 		NL_SET_ERR_MSG(info->extack, "FTM: unsupported bandwidth");
+		return -EINVAL;
+	}
+
+	if (out->ftm.request_type == NL80211_PMSR_FTM_REQ_TYPE_PD &&
+	    !(capa->ftm.pd_bandwidths & BIT(out->chandef.width))) {
+		NL_SET_ERR_MSG(info->extack,
+			       "FTM: unsupported bandwidth for PD request");
 		return -EINVAL;
 	}
 
@@ -44,10 +52,19 @@ static int pmsr_parse_ftm(struct cfg80211_registered_device *rdev,
 		}
 	}
 
-	if (!(capa->ftm.preambles & BIT(preamble))) {
+	if (out->ftm.request_type == NL80211_PMSR_FTM_REQ_TYPE_INFRA &&
+	    !(capa->ftm.preambles & BIT(preamble))) {
 		NL_SET_ERR_MSG_ATTR(info->extack,
 				    tb[NL80211_PMSR_FTM_REQ_ATTR_PREAMBLE],
 				    "FTM: invalid preamble");
+		return -EINVAL;
+	}
+
+	if (out->ftm.request_type == NL80211_PMSR_FTM_REQ_TYPE_PD &&
+	    !(capa->ftm.pd_preambles & BIT(preamble))) {
+		NL_SET_ERR_MSG_ATTR(info->extack,
+				    tb[NL80211_PMSR_FTM_REQ_ATTR_PREAMBLE],
+				    "FTM: invalid preamble for PD request");
 		return -EINVAL;
 	}
 
