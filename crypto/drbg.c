@@ -93,17 +93,10 @@
 #include <crypto/sha2.h>
 #include <linux/fips.h>
 #include <linux/kernel.h>
-#include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/string_choices.h>
 #include <linux/unaligned.h>
-
-enum drbg_seed_state {
-	DRBG_SEED_STATE_UNSEEDED,
-	DRBG_SEED_STATE_PARTIAL, /* Seeded with !rng_is_initialized() */
-	DRBG_SEED_STATE_FULL,
-};
 
 /* State length in bytes */
 #define DRBG_STATE_LEN		SHA512_DIGEST_SIZE
@@ -137,9 +130,6 @@ struct drbg_state {
 	struct hmac_sha512_key key;	/* current key -- 10.1.2.1 1b */
 	/* Number of RNG requests since last reseed -- 10.1.2.1 1c */
 	size_t reseed_ctr;
-	size_t reseed_threshold;
-	enum drbg_seed_state seeded;		/* DRBG fully seeded? */
-	unsigned long last_seed_time;
 	bool instantiated;
 	bool pr;		/* Prediction resistance enabled? */
 	struct crypto_rng *jent;
@@ -239,72 +229,6 @@ static void drbg_hmac_generate(struct drbg_state *drbg,
 	memzero_explicit(addtl2, sizeof(addtl2));
 }
 
-static inline void __drbg_seed(struct drbg_state *drbg,
-			       const u8 *seed1, size_t seed1_len,
-			       const u8 *seed2, size_t seed2_len,
-			       enum drbg_seed_state new_seed_state)
-{
-	drbg_hmac_update(drbg, seed1, seed1_len, seed2, seed2_len);
-
-	drbg->seeded = new_seed_state;
-	drbg->last_seed_time = jiffies;
-	drbg->reseed_ctr = 1;
-
-	switch (drbg->seeded) {
-	case DRBG_SEED_STATE_UNSEEDED:
-		/* Impossible, but handle it to silence compiler warnings. */
-		fallthrough;
-	case DRBG_SEED_STATE_PARTIAL:
-		/*
-		 * Require frequent reseeds until the seed source is
-		 * fully initialized.
-		 */
-		drbg->reseed_threshold = 50;
-		break;
-
-	case DRBG_SEED_STATE_FULL:
-		/*
-		 * Seed source has become fully initialized, frequent
-		 * reseeds no longer required.
-		 */
-		drbg->reseed_threshold = DRBG_MAX_REQUESTS;
-		break;
-	}
-}
-
-static void drbg_seed_from_random(struct drbg_state *drbg)
-	__must_hold(&drbg->drbg_mutex)
-{
-	u8 entropy[DRBG_SEC_STRENGTH];
-
-	get_random_bytes(entropy, DRBG_SEC_STRENGTH);
-
-	__drbg_seed(drbg, entropy, DRBG_SEC_STRENGTH, NULL, 0,
-		    DRBG_SEED_STATE_FULL);
-
-	memzero_explicit(entropy, DRBG_SEC_STRENGTH);
-}
-
-static bool drbg_nopr_reseed_interval_elapsed(struct drbg_state *drbg)
-{
-	unsigned long next_reseed;
-
-	/* Don't ever reseed from get_random_bytes() in test mode. */
-	if (drbg->test_entropylen)
-		return false;
-
-	/*
-	 * Obtain fresh entropy for the nopr DRBGs after 300s have
-	 * elapsed in order to still achieve sort of partial
-	 * prediction resistance over the time domain at least. Note
-	 * that the period of 300s has been chosen to match the
-	 * CRNG_RESEED_INTERVAL of the get_random_bytes()' chacha
-	 * rngs.
-	 */
-	next_reseed = drbg->last_seed_time + 300 * HZ;
-	return time_after(jiffies, next_reseed);
-}
-
 /*
  * Seeding or reseeding of the DRBG
  *
@@ -325,7 +249,6 @@ static int drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len,
 	u8 entropy_buf[(32 + 16) * 2];
 	size_t entropylen;
 	const u8 *entropy;
-	enum drbg_seed_state new_seed_state = DRBG_SEED_STATE_FULL;
 
 	/* 9.1 / 9.2 / 9.3.1 step 3 */
 	if (pers_len > DRBG_MAX_ADDTL) {
@@ -355,9 +278,6 @@ static int drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len,
 		BUG_ON(entropylen * 2 > sizeof(entropy_buf));
 
 		/* Get seed from in-kernel /dev/urandom */
-		if (!rng_is_initialized())
-			new_seed_state = DRBG_SEED_STATE_PARTIAL;
-
 		get_random_bytes(entropy_buf, entropylen);
 
 		if (!drbg->jent) {
@@ -401,7 +321,8 @@ static int drbg_seed(struct drbg_state *drbg, const u8 *pers, size_t pers_len,
 	if (pers_len)
 		pr_devel("DRBG: using personalization string\n");
 
-	__drbg_seed(drbg, entropy, entropylen, pers, pers_len, new_seed_state);
+	drbg_hmac_update(drbg, entropy, entropylen, pers, pers_len);
+	drbg->reseed_ctr = 1;
 	ret = 0;
 out:
 	memzero_explicit(entropy_buf, sizeof(entropy_buf));
@@ -463,16 +384,14 @@ static int drbg_generate(struct drbg_state *drbg,
 	/*
 	 * 9.3.1 step 6 and 9 supplemented by 9.3.2 step c is implemented
 	 * here. The spec is a bit convoluted here, we make it simpler.
+	 *
+	 * We no longer try to detect when random.c has reseeded itself and call
+	 * drbg_seed() then too, since drbg_hmac_generate() adds bytes from
+	 * random.c to the additional input, which is a de facto reseed anyway.
 	 */
-	if (drbg->reseed_threshold < drbg->reseed_ctr)
-		drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
-
-	if (drbg->pr || drbg->seeded == DRBG_SEED_STATE_UNSEEDED) {
-		pr_devel("DRBG: reseeding before generation (prediction "
-			 "resistance: %s, state %s)\n",
-			 str_true_false(drbg->pr),
-			 (drbg->seeded ==  DRBG_SEED_STATE_FULL ?
-			  "seeded" : "unseeded"));
+	if (drbg->pr || drbg->reseed_ctr > DRBG_MAX_REQUESTS) {
+		pr_devel("DRBG: reseeding before generation (prediction resistance: %s)\n",
+			 str_true_false(drbg->pr));
 		/* 9.3.1 steps 7.1 through 7.3 */
 		len = drbg_seed(drbg, addtl, addtl_len, true);
 		if (len)
@@ -480,10 +399,6 @@ static int drbg_generate(struct drbg_state *drbg,
 		/* 9.3.1 step 7.4 */
 		addtl = NULL;
 		addtl_len = 0;
-	} else if (rng_is_initialized() &&
-		   (drbg->seeded == DRBG_SEED_STATE_PARTIAL ||
-		    drbg_nopr_reseed_interval_elapsed(drbg))) {
-		drbg_seed_from_random(drbg);
 	}
 
 	/* 9.3.1 step 8 and 10 */
@@ -564,9 +479,6 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 	/* 9.1 step 4 is implicit in DRBG_SEC_STRENGTH */
 
 	drbg->pr = pr;
-	drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
-	drbg->last_seed_time = 0;
-	drbg->reseed_threshold = DRBG_MAX_REQUESTS;
 	memset(drbg->V, 1, DRBG_STATE_LEN);
 	hmac_sha512_preparekey(&drbg->key, initial_key, DRBG_STATE_LEN);
 
@@ -673,7 +585,6 @@ static inline int __init drbg_healthcheck_sanity(void)
 
 	guard(mutex_init)(&drbg->drbg_mutex);
 	drbg->instantiated = true;
-	drbg->reseed_threshold = DRBG_MAX_REQUESTS;
 
 	/*
 	 * if the following tests fail, it is likely that there is a buffer
