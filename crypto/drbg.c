@@ -205,55 +205,6 @@ static inline unsigned short drbg_sec_strength(drbg_flag_t flags)
 	}
 }
 
-/*
- * FIPS 140-2 continuous self test for the noise source
- * The test is performed on the noise source input data. Thus, the function
- * implicitly knows the size of the buffer to be equal to the security
- * strength.
- *
- * Note, this function disregards the nonce trailing the entropy data during
- * initial seeding.
- *
- * drbg->drbg_mutex must have been taken.
- *
- * @drbg DRBG handle
- * @entropy buffer of seed data to be checked
- *
- * return:
- *	%true on success
- *	%false when the CTRNG is not yet primed
- */
-static bool drbg_fips_continuous_test(struct drbg_state *drbg,
-				      const unsigned char *entropy)
-	__must_hold(&drbg->drbg_mutex)
-{
-	unsigned short entropylen = drbg_sec_strength(drbg->core->flags);
-
-	if (!IS_ENABLED(CONFIG_CRYPTO_FIPS))
-		return true;
-
-	/* skip test if we test the overall system */
-	if (list_empty(&drbg->test_data.list))
-		return true;
-	/* only perform test in FIPS mode */
-	if (!fips_enabled)
-		return true;
-
-	if (!drbg->fips_primed) {
-		/* Priming of FIPS test */
-		memcpy(drbg->prev, entropy, entropylen);
-		drbg->fips_primed = true;
-		/* priming: another round is needed */
-		return false;
-	}
-	if (!memcmp(drbg->prev, entropy, entropylen))
-		panic("DRBG continuous self test failed\n");
-	memcpy(drbg->prev, entropy, entropylen);
-
-	/* the test shall pass when the two values are not equal */
-	return true;
-}
-
 /******************************************************************
  * CTR DRBG callback functions
  ******************************************************************/
@@ -833,16 +784,6 @@ static inline int __drbg_seed(struct drbg_state *drbg, struct list_head *seed,
 	return ret;
 }
 
-static inline void drbg_get_random_bytes(struct drbg_state *drbg,
-					 unsigned char *entropy,
-					 unsigned int entropylen)
-	__must_hold(&drbg->drbg_mutex)
-{
-	do
-		get_random_bytes(entropy, entropylen);
-	while (!drbg_fips_continuous_test(drbg, entropy));
-}
-
 static int drbg_seed_from_random(struct drbg_state *drbg)
 	__must_hold(&drbg->drbg_mutex)
 {
@@ -858,7 +799,7 @@ static int drbg_seed_from_random(struct drbg_state *drbg)
 	drbg_string_fill(&data, entropy, entropylen);
 	list_add_tail(&data.list, &seedlist);
 
-	drbg_get_random_bytes(drbg, entropy, entropylen);
+	get_random_bytes(entropy, entropylen);
 
 	ret = __drbg_seed(drbg, &seedlist, true, DRBG_SEED_STATE_FULL);
 
@@ -937,7 +878,7 @@ static int drbg_seed(struct drbg_state *drbg, struct drbg_string *pers,
 		if (!rng_is_initialized())
 			new_seed_state = DRBG_SEED_STATE_PARTIAL;
 
-		drbg_get_random_bytes(drbg, entropy, entropylen);
+		get_random_bytes(entropy, entropylen);
 
 		if (!drbg->jent) {
 			drbg_string_fill(&data1, entropy, entropylen);
@@ -1018,11 +959,6 @@ static inline void drbg_dealloc_state(struct drbg_state *drbg)
 	drbg->reseed_ctr = 0;
 	drbg->d_ops = NULL;
 	drbg->core = NULL;
-	if (IS_ENABLED(CONFIG_CRYPTO_FIPS)) {
-		kfree_sensitive(drbg->prev);
-		drbg->prev = NULL;
-		drbg->fips_primed = false;
-	}
 }
 
 /*
@@ -1086,16 +1022,6 @@ static inline int drbg_alloc_state(struct drbg_state *drbg)
 			goto fini;
 		}
 		drbg->scratchpad = PTR_ALIGN(drbg->scratchpadbuf, ret + 1);
-	}
-
-	if (IS_ENABLED(CONFIG_CRYPTO_FIPS)) {
-		drbg->prev = kzalloc(drbg_sec_strength(drbg->core->flags),
-				     GFP_KERNEL);
-		if (!drbg->prev) {
-			ret = -ENOMEM;
-			goto fini;
-		}
-		drbg->fips_primed = false;
 	}
 
 	return 0;
