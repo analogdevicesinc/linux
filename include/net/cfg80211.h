@@ -4527,7 +4527,8 @@ struct cfg80211_pmsr_result {
  * @burst_duration: burst duration. If @trigger_based or @non_trigger_based is
  *	set, this is the burst duration in milliseconds, and zero means the
  *	device should pick an appropriate value based on @ftms_per_burst.
- * @ftms_per_burst: number of FTMs per burst
+ * @ftms_per_burst: number of FTMs per burst. If set to 0, the firmware or
+ *	driver can automatically select an appropriate value.
  * @ftmr_retries: number of retries for FTM request
  * @request_lci: request LCI information
  * @request_civicloc: request civic location information
@@ -4544,6 +4545,31 @@ struct cfg80211_pmsr_result {
  * @bss_color: the bss color of the responder. Optional. Set to zero to
  *	indicate the driver should set the BSS color. Only valid if
  *	@non_trigger_based or @trigger_based is set.
+ * @request_type: ranging request type, one of
+ *	&enum nl80211_peer_measurement_ftm_req_type. Defaults to
+ *	%NL80211_PMSR_FTM_REQ_TYPE_INFRA if not specified.
+ * @min_time_between_measurements: minimum time between two consecutive range
+ *	measurements in units of 100 microseconds, for non-trigger based
+ *	ranging. Should be set as short as possible to minimize turnaround
+ *	time, since two-way ranging with delayed LMR requires two measurements.
+ *	Only valid if @non_trigger_based is set.
+ * @max_time_between_measurements: maximum time between two consecutive range
+ *	measurements in units of 10 milliseconds, for non-trigger based
+ *	ranging. Acts as a session timeout; if exceeded, the ranging session
+ *	should be terminated. Only valid if @non_trigger_based is set.
+ * @availability_window: duration of the availability window (AW) in units of
+ *	1 millisecond (0-255 ms). Only valid if @non_trigger_based is set.
+ *	If set to 0, the firmware or driver can automatically select an
+ *	appropriate value.
+ * @nominal_time: Nominal duration between adjacent availability windows
+ *	in units of milli seconds. Only valid if @non_trigger_based is set.
+ *	If set to 0, the firmware or driver can automatically select an
+ *	appropriate value.
+ * @num_measurements: number of Availability Windows (AWs) to schedule
+ *	for non-trigger-based ranging. Each AW may contain multiple FTM
+ *	exchanges as configured by @ftms_per_burst. Only valid if
+ *	@non_trigger_based is set. If set to 0, the firmware or driver
+ *	can automatically select an appropriate value.
  *
  * See also nl80211 for the respective attribute documentation.
  */
@@ -4563,6 +4589,13 @@ struct cfg80211_pmsr_ftm_request_peer {
 	u8 ftms_per_burst;
 	u8 ftmr_retries;
 	u8 bss_color;
+
+	u32 request_type;
+	u32 min_time_between_measurements;
+	u32 max_time_between_measurements;
+	u8 availability_window;
+	u32 nominal_time;
+	u32 num_measurements;
 };
 
 /**
