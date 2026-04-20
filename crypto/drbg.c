@@ -193,13 +193,32 @@ static void drbg_hmac_update(struct drbg_state *drbg,
 static void drbg_hmac_generate(struct drbg_state *drbg,
 			       unsigned char *buf,
 			       unsigned int buflen,
-			       const u8 *addtl, size_t addtl_len)
+			       const u8 *addtl1, size_t addtl1_len)
 {
 	int len = 0;
+	u8 addtl2[32];
+	size_t addtl2_len = 0;
+
+	/*
+	 * Append some bytes from get_random_bytes() to the additional input
+	 * string, except when in test mode (as it would break the tests).
+	 * Using a nonempty additional input string works around the forward
+	 * secrecy bug in HMAC_DRBG described by Woodage & Shumow (2018)
+	 * (https://eprint.iacr.org/2018/349.pdf).  Filling the string with
+	 * get_random_bytes() rather than a fixed value is safer still, and in
+	 * particular makes random.c reseeds be immediately reflected.
+	 *
+	 * Note that there's no need to pull bytes from jitterentropy here too,
+	 * since FIPS doesn't require any entropy in the additional input.
+	 */
+	if (drbg->test_entropylen == 0) {
+		get_random_bytes(addtl2, sizeof(addtl2));
+		addtl2_len = sizeof(addtl2);
+	}
 
 	/* 10.1.2.5 step 2 */
-	if (addtl_len)
-		drbg_hmac_update(drbg, addtl, addtl_len, NULL, 0);
+	if (addtl1_len || addtl2_len)
+		drbg_hmac_update(drbg, addtl1, addtl1_len, addtl2, addtl2_len);
 
 	while (len < buflen) {
 		unsigned int outlen = 0;
@@ -215,7 +234,9 @@ static void drbg_hmac_generate(struct drbg_state *drbg,
 	}
 
 	/* 10.1.2.5 step 6 */
-	drbg_hmac_update(drbg, addtl, addtl_len, NULL, 0);
+	drbg_hmac_update(drbg, addtl1, addtl1_len, addtl2, addtl2_len);
+
+	memzero_explicit(addtl2, sizeof(addtl2));
 }
 
 static inline void __drbg_seed(struct drbg_state *drbg,
