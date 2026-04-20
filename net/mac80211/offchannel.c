@@ -895,6 +895,7 @@ int ieee80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 		}
 		break;
 	case NL80211_IFTYPE_P2P_DEVICE:
+	case NL80211_IFTYPE_PD:
 		need_offchan = true;
 		break;
 	case NL80211_IFTYPE_NAN:
