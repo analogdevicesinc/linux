@@ -93,7 +93,6 @@
  */
 
 #include <crypto/df_sp80090a.h>
-#include <crypto/internal/cipher.h>
 #include <crypto/internal/drbg.h>
 #include <crypto/internal/rng.h>
 #include <crypto/hash.h>
@@ -1908,4 +1907,3 @@ MODULE_DESCRIPTION("NIST SP800-90A Deterministic Random Bit Generator (DRBG) "
 		   CRYPTO_DRBG_HMAC_STRING
 		   CRYPTO_DRBG_CTR_STRING);
 MODULE_ALIAS_CRYPTO("stdrng");
-MODULE_IMPORT_NS("CRYPTO_INTERNAL");
