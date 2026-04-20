@@ -461,6 +461,11 @@ static void steal_time_dump(struct kvm_vm *vm, uint32_t vcpu_idx)
 	ksft_print_msg("    version:   %d\n", st->version);
 	ksft_print_msg("    preempted: %d\n", st->preempted);
 }
+
+static void check_steal_time_uapi(void)
+{
+
+}
 #endif
 
 static void *do_steal_time(void *arg)
