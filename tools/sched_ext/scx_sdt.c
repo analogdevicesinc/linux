@@ -20,7 +20,7 @@ const char help_fmt[] =
 "\n"
 "Modified version of scx_simple that demonstrates arena-based data structures.\n"
 "\n"
-"Usage: %s [-f] [-v]\n"
+"Usage: %s [-v]\n"
 "\n"
 "  -v            Print libbpf debug messages\n"
 "  -h            Display this help and exit\n";
@@ -54,7 +54,7 @@ restart:
 	optind = 1;
 	skel = SCX_OPS_OPEN(sdt_ops, scx_sdt);
 
-	while ((opt = getopt(argc, argv, "fvh")) != -1) {
+	while ((opt = getopt(argc, argv, "vh")) != -1) {
 		switch (opt) {
 		case 'v':
 			verbose = true;

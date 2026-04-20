@@ -502,6 +502,15 @@ do {									\
 	___locked;							\
 })
 
+#define raw_spin_trylock_irqsave_rcu_node(p, flags)			\
+({									\
+	bool ___locked = raw_spin_trylock_irqsave(&ACCESS_PRIVATE(p, lock), flags); \
+									\
+	if (___locked)							\
+		smp_mb__after_unlock_lock();				\
+	___locked;							\
+})
+
 #define raw_lockdep_assert_held_rcu_node(p)				\
 	lockdep_assert_held(&ACCESS_PRIVATE(p, lock))
 
@@ -681,5 +690,9 @@ int rcu_stall_notifier_call_chain(unsigned long val, void *v);
 #else // #if defined(CONFIG_RCU_STALL_COMMON) && defined(CONFIG_RCU_CPU_STALL_NOTIFIER)
 static inline int rcu_stall_notifier_call_chain(unsigned long val, void *v) { return NOTIFY_DONE; }
 #endif // #else // #if defined(CONFIG_RCU_STALL_COMMON) && defined(CONFIG_RCU_CPU_STALL_NOTIFIER)
+
+#ifdef CONFIG_TRIVIAL_PREEMPT_RCU
+void synchronize_rcu_trivial_preempt(void);
+#endif // #ifdef CONFIG_TRIVIAL_PREEMPT_RCU
 
 #endif /* __LINUX_RCU_H */

@@ -23,10 +23,8 @@
 #include "hda_dsp_common.h"
 #include "../../codecs/rt5660.h"
 
-#define DUAL_CHANNEL 2
 #define HDMI_LINK_START 3
 #define HDMI_LINE_END 6
-#define NAME_SIZE	32
 #define IDISP_CODEC_MASK	0x4
 
 struct sof_card_private {
@@ -127,7 +125,7 @@ static int rt5660_hw_params(struct snd_pcm_substream *substream,
 				  params_rate(params) * 50,
 				  params_rate(params) * 512);
 	if (ret < 0)
-		dev_err(codec_dai->dev, "can't set codec pll: %d\n", ret);
+		dev_err(rtd->dev, "can't set codec pll: %d\n", ret);
 
 	return ret;
 }

@@ -90,11 +90,11 @@ pvr_power_request_pwr_off(struct pvr_device *pvr_dev)
 }
 
 static int
-pvr_power_fw_disable(struct pvr_device *pvr_dev, bool hard_reset)
+pvr_power_fw_disable(struct pvr_device *pvr_dev, bool hard_reset, bool rpm_suspend)
 {
-	if (!hard_reset) {
-		int err;
+	int err;
 
+	if (!hard_reset) {
 		cancel_delayed_work_sync(&pvr_dev->watchdog.work);
 
 		err = pvr_power_request_idle(pvr_dev);
@@ -106,29 +106,47 @@ pvr_power_fw_disable(struct pvr_device *pvr_dev, bool hard_reset)
 			return err;
 	}
 
-	return pvr_fw_stop(pvr_dev);
+	if (rpm_suspend) {
+		/* This also waits for late processing of GPU or firmware IRQs in other cores */
+		disable_irq(pvr_dev->irq);
+	}
+
+	err = pvr_fw_stop(pvr_dev);
+	if (err && rpm_suspend)
+		enable_irq(pvr_dev->irq);
+
+	return err;
 }
 
 static int
-pvr_power_fw_enable(struct pvr_device *pvr_dev)
+pvr_power_fw_enable(struct pvr_device *pvr_dev, bool rpm_resume)
 {
 	int err;
 
+	if (rpm_resume)
+		enable_irq(pvr_dev->irq);
+
 	err = pvr_fw_start(pvr_dev);
 	if (err)
-		return err;
+		goto out;
 
 	err = pvr_wait_for_fw_boot(pvr_dev);
 	if (err) {
 		drm_err(from_pvr_device(pvr_dev), "Firmware failed to boot\n");
 		pvr_fw_stop(pvr_dev);
-		return err;
+		goto out;
 	}
 
 	queue_delayed_work(pvr_dev->sched_wq, &pvr_dev->watchdog.work,
 			   msecs_to_jiffies(WATCHDOG_TIME_MS));
 
 	return 0;
+
+out:
+	if (rpm_resume)
+		disable_irq(pvr_dev->irq);
+
+	return err;
 }
 
 bool
@@ -361,7 +379,7 @@ pvr_power_device_suspend(struct device *dev)
 		return -EIO;
 
 	if (pvr_dev->fw_dev.booted) {
-		err = pvr_power_fw_disable(pvr_dev, false);
+		err = pvr_power_fw_disable(pvr_dev, false, true);
 		if (err)
 			goto err_drm_dev_exit;
 	}
@@ -391,7 +409,7 @@ pvr_power_device_resume(struct device *dev)
 		goto err_drm_dev_exit;
 
 	if (pvr_dev->fw_dev.booted) {
-		err = pvr_power_fw_enable(pvr_dev);
+		err = pvr_power_fw_enable(pvr_dev, true);
 		if (err)
 			goto err_power_off;
 	}
@@ -510,7 +528,16 @@ pvr_power_reset(struct pvr_device *pvr_dev, bool hard_reset)
 	}
 
 	/* Disable IRQs for the duration of the reset. */
-	disable_irq(pvr_dev->irq);
+	if (hard_reset) {
+		disable_irq(pvr_dev->irq);
+	} else {
+		/*
+		 * Soft reset is triggered as a response to a FW command to the Host and is
+		 * processed from the threaded IRQ handler. This code cannot (nor needs to)
+		 * wait for any IRQ processing to complete.
+		 */
+		disable_irq_nosync(pvr_dev->irq);
+	}
 
 	do {
 		if (hard_reset) {
@@ -518,7 +545,7 @@ pvr_power_reset(struct pvr_device *pvr_dev, bool hard_reset)
 			queues_disabled = true;
 		}
 
-		err = pvr_power_fw_disable(pvr_dev, hard_reset);
+		err = pvr_power_fw_disable(pvr_dev, hard_reset, false);
 		if (!err) {
 			if (hard_reset) {
 				pvr_dev->fw_dev.booted = false;
@@ -541,7 +568,7 @@ pvr_power_reset(struct pvr_device *pvr_dev, bool hard_reset)
 
 			pvr_fw_irq_clear(pvr_dev);
 
-			err = pvr_power_fw_enable(pvr_dev);
+			err = pvr_power_fw_enable(pvr_dev, false);
 		}
 
 		if (err && hard_reset)
@@ -593,65 +620,61 @@ pvr_watchdog_fini(struct pvr_device *pvr_dev)
 
 int pvr_power_domains_init(struct pvr_device *pvr_dev)
 {
-	struct device *dev = from_pvr_device(pvr_dev)->dev;
+	static const char *const ROGUE_PD_NAMES[] = { "a", "b", "c", "d", "e" };
 
-	struct device_link **domain_links __free(kfree) = NULL;
-	struct device **domain_devs __free(kfree) = NULL;
+	struct drm_device *drm_dev = from_pvr_device(pvr_dev);
+	struct device *dev = drm_dev->dev;
+
+	struct dev_pm_domain_list *domains = NULL;
+	struct device_link **domain_links = NULL;
 	int domain_count;
 	int link_count;
 
-	char dev_name[2] = "a";
 	int err;
 	int i;
 
 	domain_count = of_count_phandle_with_args(dev->of_node, "power-domains",
 						  "#power-domain-cells");
-	if (domain_count < 0)
-		return domain_count;
+	if (domain_count < 0) {
+		err = domain_count;
+		goto out;
+	}
 
-	if (domain_count <= 1)
-		return 0;
+	if (domain_count <= 1) {
+		err = 0;
+		goto out;
+	}
 
-	link_count = domain_count + (domain_count - 1);
+	if (domain_count > ARRAY_SIZE(ROGUE_PD_NAMES)) {
+		drm_err(drm_dev, "%s() only supports %zu domains on Rogue",
+			__func__, ARRAY_SIZE(ROGUE_PD_NAMES));
+		err = -EOPNOTSUPP;
+		goto out;
+	}
 
-	domain_devs = kzalloc_objs(*domain_devs, domain_count);
-	if (!domain_devs)
-		return -ENOMEM;
+	link_count = domain_count - 1;
 
 	domain_links = kzalloc_objs(*domain_links, link_count);
-	if (!domain_links)
-		return -ENOMEM;
-
-	for (i = 0; i < domain_count; i++) {
-		struct device *domain_dev;
-
-		dev_name[0] = 'a' + i;
-		domain_dev = dev_pm_domain_attach_by_name(dev, dev_name);
-		if (IS_ERR_OR_NULL(domain_dev)) {
-			err = domain_dev ? PTR_ERR(domain_dev) : -ENODEV;
-			goto err_detach;
-		}
-
-		domain_devs[i] = domain_dev;
+	if (!domain_links) {
+		err = -ENOMEM;
+		goto out;
 	}
 
-	for (i = 0; i < domain_count; i++) {
+	const struct dev_pm_domain_attach_data pd_attach_data = {
+		.pd_names = ROGUE_PD_NAMES,
+		.num_pd_names = domain_count,
+		.pd_flags = 0,
+	};
+
+	err = dev_pm_domain_attach_list(dev, &pd_attach_data, &domains);
+	if (err < 0)
+		goto err_free_links;
+
+	for (i = 0; i < link_count; i++) {
 		struct device_link *link;
 
-		link = device_link_add(dev, domain_devs[i], DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
-		if (!link) {
-			err = -ENODEV;
-			goto err_unlink;
-		}
-
-		domain_links[i] = link;
-	}
-
-	for (i = domain_count; i < link_count; i++) {
-		struct device_link *link;
-
-		link = device_link_add(domain_devs[i - domain_count + 1],
-				       domain_devs[i - domain_count],
+		link = device_link_add(domains->pd_devs[i + 1],
+				       domains->pd_devs[i],
 				       DL_FLAG_STATELESS | DL_FLAG_PM_RUNTIME);
 		if (!link) {
 			err = -ENODEV;
@@ -661,43 +684,43 @@ int pvr_power_domains_init(struct pvr_device *pvr_dev)
 		domain_links[i] = link;
 	}
 
-	pvr_dev->power = (struct pvr_device_power){
-		.domain_devs = no_free_ptr(domain_devs),
-		.domain_links = no_free_ptr(domain_links),
-		.domain_count = domain_count,
-	};
-
-	return 0;
+	err = 0;
+	goto out;
 
 err_unlink:
 	while (--i >= 0)
 		device_link_del(domain_links[i]);
 
-	i = domain_count;
+	dev_pm_domain_detach_list(domains);
+	domains = NULL;
 
-err_detach:
-	while (--i >= 0)
-		dev_pm_domain_detach(domain_devs[i], true);
+err_free_links:
+	kfree(domain_links);
+	domain_links = NULL;
+
+out:
+	pvr_dev->power = (struct pvr_device_power){
+		.domains = domains,
+		.domain_links = domain_links,
+	};
 
 	return err;
 }
 
 void pvr_power_domains_fini(struct pvr_device *pvr_dev)
 {
-	const int domain_count = pvr_dev->power.domain_count;
+	struct pvr_device_power *pvr_power = &pvr_dev->power;
 
-	int i = domain_count + (domain_count - 1);
+	if (!pvr_power->domains)
+		goto out;
 
-	while (--i >= 0)
-		device_link_del(pvr_dev->power.domain_links[i]);
+	for (int i = (int)pvr_power->domains->num_pds - 2; i >= 0; --i)
+		device_link_del(pvr_power->domain_links[i]);
 
-	i = domain_count;
+	dev_pm_domain_detach_list(pvr_power->domains);
 
-	while (--i >= 0)
-		dev_pm_domain_detach(pvr_dev->power.domain_devs[i], true);
+	kfree(pvr_power->domain_links);
 
-	kfree(pvr_dev->power.domain_links);
-	kfree(pvr_dev->power.domain_devs);
-
-	pvr_dev->power = (struct pvr_device_power){ 0 };
+out:
+	*pvr_power = (struct pvr_device_power){ 0 };
 }

@@ -15,7 +15,6 @@
 #include <signal.h>
 #include <bpf/bpf.h>
 #include <scx/common.h>
-#include <unistd.h>
 #include "rt_stall.bpf.skel.h"
 #include "scx_test.h"
 #include "../kselftest.h"
@@ -119,6 +118,11 @@ static float get_process_runtime(int pid)
 static enum scx_test_status setup(void **ctx)
 {
 	struct rt_stall *skel;
+
+	if (!__COMPAT_struct_has_field("rq", "ext_server")) {
+		fprintf(stderr, "SKIP: ext DL server not supported\n");
+		return SCX_TEST_SKIP;
+	}
 
 	skel = rt_stall__open();
 	SCX_FAIL_IF(!skel, "Failed to open");

@@ -8,6 +8,11 @@
 #include "bpf_experimental.h"
 
 extern void bpf_rcu_read_lock(void) __ksym;
+extern void bpf_rcu_read_unlock(void) __ksym;
+extern void bpf_preempt_disable(void) __ksym;
+extern void bpf_preempt_enable(void) __ksym;
+extern void bpf_local_irq_save(unsigned long *) __ksym;
+extern void bpf_local_irq_restore(unsigned long *) __ksym;
 
 #define private(name) SEC(".bss." #name) __hidden __attribute__((aligned(8)))
 
@@ -29,9 +34,13 @@ struct {
 private(A) struct bpf_spin_lock lock;
 private(A) struct bpf_rb_root rbtree __contains(foo, node);
 
-__noinline void *exception_cb_bad_ret_type(u64 cookie)
+__noinline void *exception_cb_bad_ret_type1(u64 cookie)
 {
 	return NULL;
+}
+
+__noinline void exception_cb_bad_ret_type2(u64 cookie)
+{
 }
 
 __noinline int exception_cb_bad_arg_0(void)
@@ -50,8 +59,8 @@ __noinline int exception_cb_ok_arg_small(int a)
 }
 
 SEC("?tc")
-__exception_cb(exception_cb_bad_ret_type)
-__failure __msg("Global function exception_cb_bad_ret_type() doesn't return scalar.")
+__exception_cb(exception_cb_bad_ret_type1)
+__failure __msg("Global function exception_cb_bad_ret_type1() return value not void or scalar.")
 int reject_exception_cb_type_1(struct __sk_buff *ctx)
 {
 	bpf_throw(0);
@@ -80,6 +89,15 @@ SEC("?tc")
 __exception_cb(exception_cb_ok_arg_small)
 __success
 int reject_exception_cb_type_4(struct __sk_buff *ctx)
+{
+	bpf_throw(0);
+	return 0;
+}
+
+SEC("?tc")
+__exception_cb(exception_cb_bad_ret_type2)
+__failure __msg("exception cb cannot return void")
+int reject_exception_cb_type_5(struct __sk_buff *ctx)
 {
 	bpf_throw(0);
 	return 0;
@@ -131,7 +149,7 @@ int reject_subprog_with_lock(void *ctx)
 }
 
 SEC("?tc")
-__failure __msg("BPF_EXIT instruction in main prog cannot be used inside bpf_rcu_read_lock-ed region")
+__failure __msg("bpf_throw cannot be used inside bpf_rcu_read_lock-ed region")
 int reject_with_rcu_read_lock(void *ctx)
 {
 	bpf_rcu_read_lock();
@@ -147,11 +165,13 @@ __noinline static int throwing_subprog(struct __sk_buff *ctx)
 }
 
 SEC("?tc")
-__failure __msg("BPF_EXIT instruction in main prog cannot be used inside bpf_rcu_read_lock-ed region")
+__failure __msg("bpf_throw cannot be used inside bpf_rcu_read_lock-ed region")
 int reject_subprog_with_rcu_read_lock(void *ctx)
 {
 	bpf_rcu_read_lock();
-	return throwing_subprog(ctx);
+	throwing_subprog(ctx);
+	bpf_rcu_read_unlock();
+	return 0;
 }
 
 static bool rbless(struct bpf_rb_node *n1, const struct bpf_rb_node *n2)
@@ -343,6 +363,64 @@ int reject_exception_throw_cb_diff(struct __sk_buff *ctx)
 		bpf_loop(5, loop_cb1, NULL, 0);
 	else
 		bpf_loop(5, loop_cb2, NULL, 0);
+	return 0;
+}
+
+__weak
+void foo(void)
+{
+	bpf_throw(1);
+}
+
+SEC("?fentry/bpf_check")
+__failure __msg("At program exit the register R1 has smin=1 smax=1 should")
+int reject_out_of_range_global_throw(struct __sk_buff *skb)
+{
+	foo();
+
+	return 0;
+}
+
+__noinline static int always_throws(void)
+{
+	bpf_throw(0);
+	return 0;
+}
+
+__noinline static int rcu_lock_then_throw(void)
+{
+	bpf_rcu_read_lock();
+	bpf_throw(0);
+	return 0;
+}
+
+SEC("?tc")
+__failure __msg("bpf_throw cannot be used inside bpf_rcu_read_lock-ed region")
+int reject_subprog_rcu_lock_throw(void *ctx)
+{
+	rcu_lock_then_throw();
+	return 0;
+}
+
+SEC("?tc")
+__failure __msg("bpf_throw cannot be used inside bpf_preempt_disable-ed region")
+int reject_subprog_throw_preempt_lock(void *ctx)
+{
+	bpf_preempt_disable();
+	always_throws();
+	bpf_preempt_enable();
+	return 0;
+}
+
+SEC("?tc")
+__failure __msg("bpf_throw cannot be used inside bpf_local_irq_save-ed region")
+int reject_subprog_throw_irq_lock(void *ctx)
+{
+	unsigned long flags;
+
+	bpf_local_irq_save(&flags);
+	always_throws();
+	bpf_local_irq_restore(&flags);
 	return 0;
 }
 

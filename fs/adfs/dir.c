@@ -389,7 +389,7 @@ const struct file_operations adfs_dir_operations = {
 	.read		= generic_read_dir,
 	.llseek		= generic_file_llseek,
 	.iterate_shared	= adfs_iterate,
-	.fsync		= generic_file_fsync,
+	.fsync		= simple_fsync,
 };
 
 static int
@@ -454,5 +454,5 @@ adfs_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
  */
 const struct inode_operations adfs_dir_inode_operations = {
 	.lookup		= adfs_lookup,
-	.setattr	= adfs_notify_change,
+	.setattr	= adfs_setattr,
 };

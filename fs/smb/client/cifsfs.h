@@ -10,8 +10,12 @@
 #define _CIFSFS_H
 
 #include <linux/hash.h>
+#include <linux/dcache.h>
 
 #define ROOT_I 2
+
+extern atomic_t cifs_sillycounter;
+extern atomic_t cifs_tmpcounter;
 
 /*
  * ino_t is 32-bits on 32-bit arch. We have to squash the 64-bit value down
@@ -49,10 +53,12 @@ void cifs_sb_deactive(struct super_block *sb);
 /* Functions related to inodes */
 extern const struct inode_operations cifs_dir_inode_ops;
 struct inode *cifs_root_iget(struct super_block *sb);
-int cifs_create(struct mnt_idmap *idmap, struct inode *inode,
+int cifs_create(struct mnt_idmap *idmap, struct inode *dir,
 		struct dentry *direntry, umode_t mode, bool excl);
-int cifs_atomic_open(struct inode *inode, struct dentry *direntry,
+int cifs_atomic_open(struct inode *dir, struct dentry *direntry,
 		     struct file *file, unsigned int oflags, umode_t mode);
+int cifs_tmpfile(struct mnt_idmap *idmap, struct inode *dir,
+		 struct file *file, umode_t mode);
 struct dentry *cifs_lookup(struct inode *parent_dir_inode,
 			   struct dentry *direntry, unsigned int flags);
 int cifs_unlink(struct inode *dir, struct dentry *dentry);
@@ -141,6 +147,14 @@ void cifs_setsize(struct inode *inode, loff_t offset);
 struct smb3_fs_context;
 struct dentry *cifs_smb3_do_mount(struct file_system_type *fs_type, int flags,
 				  struct smb3_fs_context *old_ctx);
+
+char *cifs_silly_fullpath(struct dentry *dentry);
+
+#define CIFS_TMPNAME_PREFIX	".__smbfile_tmp"
+#define CIFS_TMPNAME_LEN	(DNAME_INLINE_LEN - 1)
+
+#define CIFS_SILLYNAME_PREFIX	".__smbfile_silly"
+#define CIFS_SILLYNAME_LEN	(DNAME_INLINE_LEN - 1)
 
 #ifdef CONFIG_CIFS_NFSD_EXPORT
 extern const struct export_operations cifs_export_ops;

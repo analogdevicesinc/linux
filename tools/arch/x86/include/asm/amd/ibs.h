@@ -77,7 +77,7 @@ union ibs_op_data {
 	__u64 val;
 	struct {
 		__u64	comp_to_ret_ctr:16,	/* 0-15: op completion to retire count */
-			tag_to_ret_ctr:16,	/* 15-31: op tag to retire count */
+			tag_to_ret_ctr:16,	/* 16-31: op tag to retire count */
 			reserved1:2,		/* 32-33: reserved */
 			op_return:1,		/* 34: return op */
 			op_brn_taken:1,		/* 35: taken branch op */
@@ -110,7 +110,7 @@ union ibs_op_data3 {
 		__u64	ld_op:1,			/* 0: load op */
 			st_op:1,			/* 1: store op */
 			dc_l1tlb_miss:1,		/* 2: data cache L1TLB miss */
-			dc_l2tlb_miss:1,		/* 3: data cache L2TLB hit in 2M page */
+			dc_l2tlb_miss:1,		/* 3: data cache L2TLB miss in 2M page */
 			dc_l1tlb_hit_2m:1,		/* 4: data cache L1TLB hit in 2M page */
 			dc_l1tlb_hit_1g:1,		/* 5: data cache L1TLB hit in 1G page */
 			dc_l2tlb_hit_2m:1,		/* 6: data cache L2TLB hit in 2M page */

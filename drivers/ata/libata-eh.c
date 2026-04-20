@@ -560,21 +560,27 @@ void ata_scsi_error(struct Scsi_Host *host)
 {
 	struct ata_port *ap = ata_shost_to_port(host);
 	unsigned long flags;
+	int nr_timedout;
 	LIST_HEAD(eh_work_q);
 
 	spin_lock_irqsave(host->host_lock, flags);
 	list_splice_init(&host->eh_cmd_q, &eh_work_q);
 	spin_unlock_irqrestore(host->host_lock, flags);
 
-	ata_scsi_cmd_error_handler(host, ap, &eh_work_q);
+	/*
+	 * First check what errors we got with ata_scsi_cmd_error_handler().
+	 * If we had no command timeouts and EH is not scheduled for this port,
+	 * meaning that we do not have any failed command, then there is no
+	 * need to go through the full port error handling. We only need to
+	 * flush the completed commands we have.
+	 */
+	nr_timedout = ata_scsi_cmd_error_handler(host, ap, &eh_work_q);
+	if (nr_timedout || ata_port_eh_scheduled(ap))
+		ata_scsi_port_error_handler(host, ap);
+	else
+		scsi_eh_flush_done_q(&ap->eh_done_q);
 
-	/* If we timed raced normal completion and there is nothing to
-	   recover nr_timedout == 0 why exactly are we doing error recovery ? */
-	ata_scsi_port_error_handler(host, ap);
-
-	/* finish or retry handled scmd's and clean up */
 	WARN_ON(!list_empty(&eh_work_q));
-
 }
 
 /**
@@ -586,9 +592,11 @@ void ata_scsi_error(struct Scsi_Host *host)
  * process the given list of commands and return those finished to the
  * ap->eh_done_q.  This function is the first part of the libata error
  * handler which processes a given list of failed commands.
+ *
+ * Return the number of commands that timed out.
  */
-void ata_scsi_cmd_error_handler(struct Scsi_Host *host, struct ata_port *ap,
-				struct list_head *eh_work_q)
+int ata_scsi_cmd_error_handler(struct Scsi_Host *host, struct ata_port *ap,
+			       struct list_head *eh_work_q)
 {
 	int i;
 	unsigned long flags;
@@ -647,7 +655,7 @@ void ata_scsi_cmd_error_handler(struct Scsi_Host *host, struct ata_port *ap,
 				break;
 		}
 
-		if (qc == ap->deferred_qc) {
+		if (i < ATA_MAX_QUEUE && qc == ap->deferred_qc) {
 			/*
 			 * This is a deferred command that timed out while
 			 * waiting for the command queue to drain. Since the qc
@@ -659,6 +667,7 @@ void ata_scsi_cmd_error_handler(struct Scsi_Host *host, struct ata_port *ap,
 			 */
 			WARN_ON_ONCE(qc->flags & ATA_QCFLAG_ACTIVE);
 			ap->deferred_qc = NULL;
+			cancel_work(&ap->deferred_qc_work);
 			set_host_byte(scmd, DID_TIME_OUT);
 			scsi_eh_finish_cmd(scmd, &ap->eh_done_q);
 		} else if (i < ATA_MAX_QUEUE) {
@@ -694,6 +703,8 @@ void ata_scsi_cmd_error_handler(struct Scsi_Host *host, struct ata_port *ap,
 	ap->eh_tries = ATA_EH_MAX_TRIES;
 
 	spin_unlock_irqrestore(ap->lock, flags);
+
+	return nr_timedout;
 }
 EXPORT_SYMBOL(ata_scsi_cmd_error_handler);
 
@@ -3170,7 +3181,7 @@ int ata_eh_reset(struct ata_link *link, int classify,
 	    sata_scr_read(link, SCR_STATUS, &sstatus))
 		rc = -ERESTART;
 
-	if (try >= max_tries) {
+	if (try >= max_tries || rc == -ENODEV) {
 		/*
 		 * Thaw host port even if reset failed, so that the port
 		 * can be retried on the next phy event.  This risks

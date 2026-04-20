@@ -1618,14 +1618,22 @@ config LOCKDEP_STACK_TRACE_BITS
 	int "Size for MAX_STACK_TRACE_ENTRIES (as Nth power of 2)"
 	depends on LOCKDEP && !LOCKDEP_SMALL
 	range 10 26
+	default 21 if KASAN
 	default 19
 	help
 	  Try increasing this value if you hit "BUG: MAX_STACK_TRACE_ENTRIES too low!" message.
+
+	  KASAN significantly increases stack trace consumption because its
+	  slab tracking interacts with lockdep's dependency validation under
+	  PREEMPT_FULL, creating a feedback loop.  The higher default when
+	  KASAN is enabled costs ~12MB extra, which is negligible compared to
+	  KASAN's own shadow memory overhead.
 
 config LOCKDEP_STACK_TRACE_HASH_BITS
 	int "Size for STACK_TRACE_HASH_SIZE (as Nth power of 2)"
 	depends on LOCKDEP && !LOCKDEP_SMALL
 	range 10 26
+	default 16 if KASAN
 	default 14
 	help
 	  Try increasing this value if you need large STACK_TRACE_HASH_SIZE.
@@ -2628,6 +2636,16 @@ config TEST_VMALLOC
 
 	  If unsure, say N.
 
+config TEST_WORKQUEUE
+	tristate "Test module for stress/performance analysis of workqueue"
+	default n
+	help
+	  This builds the "test_workqueue" module for benchmarking
+	  workqueue throughput under contention. Useful for evaluating
+	  affinity scope changes (e.g., cache_shard vs cache).
+
+	  If unsure, say N.
+
 config TEST_BPF
 	tristate "Test BPF filter functionality"
 	depends on m && NET
@@ -3057,6 +3075,8 @@ config HW_BREAKPOINT_KUNIT_TEST
 	  Tests for hw_breakpoint constraints accounting.
 
 	  If unsure, say N.
+
+source "lib/crypto/tests/Kconfig"
 
 config SIPHASH_KUNIT_TEST
 	tristate "Perform selftest on siphash functions" if !KUNIT_ALL_TESTS
@@ -3576,6 +3596,23 @@ config RUST_KERNEL_DOCTESTS
 	  please refer to the KUnit documentation in Documentation/dev-tools/kunit/.
 
 	  If unsure, say N.
+
+config RUST_INLINE_HELPERS
+	bool "Inline C helpers into Rust code (EXPERIMENTAL)"
+	depends on RUST && RUSTC_CLANG_LLVM_COMPATIBLE
+	depends on EXPERT
+	depends on ARM64 || X86_64
+	depends on !UML
+	help
+	  Inlines C helpers into Rust code using Link Time Optimization.
+
+	  If this option is enabled, C helper functions declared in
+	  rust/helpers/ are inlined into Rust code, which is helpful for
+	  performance of Rust code. This requires a matching LLVM version for
+	  Clang and rustc.
+
+	  If you are sure that you're using Clang and rustc with matching LLVM
+	  versions, say Y. Otherwise say N.
 
 endmenu # "Rust"
 

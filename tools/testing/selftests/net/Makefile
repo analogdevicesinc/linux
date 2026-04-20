@@ -15,6 +15,8 @@ TEST_PROGS := \
 	big_tcp.sh \
 	bind_bhash.sh \
 	bpf_offload.py \
+	bridge_stp_mode.sh \
+	bridge_vlan_dump.sh \
 	broadcast_ether_dst.sh \
 	broadcast_pmtu.sh \
 	busy_poll_test.sh \
@@ -44,6 +46,7 @@ TEST_PROGS := \
 	io_uring_zerocopy_tx.sh \
 	ioam6.sh \
 	ip6_gre_headroom.sh \
+	ip6_tunnel.sh \
 	ip_defrag.sh \
 	ip_local_port_range.sh \
 	ipv6_flowlabel.sh \
@@ -54,6 +57,7 @@ TEST_PROGS := \
 	l2tp.sh \
 	link_netns.py \
 	lwt_dst_cache_ref_loop.sh \
+	macvlan_mcast_shared_mac.sh \
 	msg_zerocopy.sh \
 	nat6to4.sh \
 	ndisc_unsolicited_na_test.sh \
@@ -61,7 +65,9 @@ TEST_PROGS := \
 	netdevice.sh \
 	netns-name.sh \
 	netns-sysctl.sh \
+	nk_qlease.py \
 	nl_netdev.py \
+	nl_nlctrl.py \
 	pmtu.sh \
 	psock_snd.sh \
 	reuseaddr_ports_exhausted.sh \
@@ -88,6 +94,7 @@ TEST_PROGS := \
 	srv6_end_x_next_csid_l3vpn_test.sh \
 	srv6_hencap_red_l3vpn_test.sh \
 	srv6_hl2encap_red_l2vpn_test.sh \
+	srv6_iptunnel_cache.sh \
 	stress_reuseport_listen.sh \
 	tcp_fastopen_backup_key.sh \
 	test_bpf.sh \
@@ -119,6 +126,7 @@ TEST_PROGS := \
 	vrf_route_leaking.sh \
 	vrf_strict_mode_test.sh \
 	xfrm_policy.sh \
+	xfrm_state.sh \
 # end of TEST_PROGS
 
 TEST_PROGS_EXTENDED := \

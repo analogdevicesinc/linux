@@ -37,9 +37,8 @@ void debug_mutex_lock_common(struct mutex *lock, struct mutex_waiter *waiter)
 void debug_mutex_wake_waiter(struct mutex *lock, struct mutex_waiter *waiter)
 {
 	lockdep_assert_held(&lock->wait_lock);
-	DEBUG_LOCKS_WARN_ON(list_empty(&lock->wait_list));
+	DEBUG_LOCKS_WARN_ON(!lock->first_waiter);
 	DEBUG_LOCKS_WARN_ON(waiter->magic != waiter);
-	DEBUG_LOCKS_WARN_ON(list_empty(&waiter->list));
 }
 
 void debug_mutex_free_waiter(struct mutex_waiter *waiter)
@@ -54,15 +53,14 @@ void debug_mutex_add_waiter(struct mutex *lock, struct mutex_waiter *waiter,
 	lockdep_assert_held(&lock->wait_lock);
 
 	/* Current thread can't be already blocked (since it's executing!) */
-	DEBUG_LOCKS_WARN_ON(__get_task_blocked_on(task));
+	DEBUG_LOCKS_WARN_ON(get_task_blocked_on(task));
 }
 
 void debug_mutex_remove_waiter(struct mutex *lock, struct mutex_waiter *waiter,
 			 struct task_struct *task)
 {
-	struct mutex *blocked_on = __get_task_blocked_on(task);
+	struct mutex *blocked_on = get_task_blocked_on(task);
 
-	DEBUG_LOCKS_WARN_ON(list_empty(&waiter->list));
 	DEBUG_LOCKS_WARN_ON(waiter->task != task);
 	DEBUG_LOCKS_WARN_ON(blocked_on && blocked_on != lock);
 
@@ -74,7 +72,6 @@ void debug_mutex_unlock(struct mutex *lock)
 {
 	if (likely(debug_locks)) {
 		DEBUG_LOCKS_WARN_ON(lock->magic != lock);
-		DEBUG_LOCKS_WARN_ON(!lock->wait_list.prev && !lock->wait_list.next);
 	}
 }
 

@@ -9,6 +9,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/mfd/bcm2835-pm.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -153,7 +154,6 @@ struct bcm2835_power {
 static int bcm2835_asb_control(struct bcm2835_power *power, u32 reg, bool enable)
 {
 	void __iomem *base = power->asb;
-	u64 start;
 	u32 val;
 
 	switch (reg) {
@@ -166,8 +166,6 @@ static int bcm2835_asb_control(struct bcm2835_power *power, u32 reg, bool enable
 		break;
 	}
 
-	start = ktime_get_ns();
-
 	/* Enable the module's async AXI bridges. */
 	if (enable) {
 		val = readl(base + reg) & ~ASB_REQ_STOP;
@@ -176,11 +174,9 @@ static int bcm2835_asb_control(struct bcm2835_power *power, u32 reg, bool enable
 	}
 	writel(PM_PASSWORD | val, base + reg);
 
-	while (!!(readl(base + reg) & ASB_ACK) == enable) {
-		cpu_relax();
-		if (ktime_get_ns() - start >= 1000)
-			return -ETIMEDOUT;
-	}
+	if (readl_poll_timeout_atomic(base + reg, val,
+				      !!(val & ASB_ACK) != enable, 0, 5))
+		return -ETIMEDOUT;
 
 	return 0;
 }
@@ -219,10 +215,10 @@ static int bcm2835_power_power_on(struct bcm2835_power_domain *pd, u32 pm_reg)
 {
 	struct bcm2835_power *power = pd->power;
 	struct device *dev = power->dev;
-	u64 start;
 	int ret;
 	int inrush;
 	bool powok;
+	u32 val;
 
 	/* We don't run this on BCM2711 */
 	if (power->rpivid_asb)
@@ -243,12 +239,8 @@ static int bcm2835_power_power_on(struct bcm2835_power_domain *pd, u32 pm_reg)
 			 (inrush << PM_INRUSH_SHIFT) |
 			 PM_POWUP);
 
-		start = ktime_get_ns();
-		while (!(powok = !!(PM_READ(pm_reg) & PM_POWOK))) {
-			cpu_relax();
-			if (ktime_get_ns() - start >= 3000)
-				break;
-		}
+		powok = !readl_poll_timeout_atomic(power->base + pm_reg,
+						   val, val & PM_POWOK, 0, 3);
 	}
 	if (!powok) {
 		dev_err(dev, "Timeout waiting for %s power OK\n",
@@ -262,15 +254,12 @@ static int bcm2835_power_power_on(struct bcm2835_power_domain *pd, u32 pm_reg)
 
 	/* Repair memory */
 	PM_WRITE(pm_reg, PM_READ(pm_reg) | PM_MEMREP);
-	start = ktime_get_ns();
-	while (!(PM_READ(pm_reg) & PM_MRDONE)) {
-		cpu_relax();
-		if (ktime_get_ns() - start >= 1000) {
-			dev_err(dev, "Timeout waiting for %s memory repair\n",
-				pd->base.name);
-			ret = -ETIMEDOUT;
-			goto err_disable_ispow;
-		}
+	if (readl_poll_timeout_atomic(power->base + pm_reg, val,
+				      val & PM_MRDONE, 0, 1)) {
+		dev_err(dev, "Timeout waiting for %s memory repair\n",
+			pd->base.name);
+		ret = -ETIMEDOUT;
+		goto err_disable_ispow;
 	}
 
 	/* Disable functional isolation */
@@ -580,11 +569,11 @@ static int bcm2835_reset_status(struct reset_controller_dev *rcdev,
 
 	switch (id) {
 	case BCM2835_RESET_V3D:
-		return !PM_READ(PM_GRAFX & PM_V3DRSTN);
+		return !(PM_READ(PM_GRAFX) & PM_V3DRSTN);
 	case BCM2835_RESET_H264:
-		return !PM_READ(PM_IMAGE & PM_H264RSTN);
+		return !(PM_READ(PM_IMAGE) & PM_H264RSTN);
 	case BCM2835_RESET_ISP:
-		return !PM_READ(PM_IMAGE & PM_ISPRSTN);
+		return !(PM_READ(PM_IMAGE) & PM_ISPRSTN);
 	default:
 		return -EINVAL;
 	}

@@ -50,8 +50,8 @@ struct fwnode_handle;
 struct class {
 	const char		*name;
 
-	const struct attribute_group	**class_groups;
-	const struct attribute_group	**dev_groups;
+	const struct attribute_group	*const *class_groups;
+	const struct attribute_group	*const *dev_groups;
 
 	int (*dev_uevent)(const struct device *dev, struct kobj_uevent_env *env);
 	char *(*devnode)(const struct device *dev, umode_t *mode);
@@ -62,7 +62,7 @@ struct class {
 	int (*shutdown_pre)(struct device *dev);
 
 	const struct kobj_ns_type_operations *ns_type;
-	const void *(*namespace)(const struct device *dev);
+	const struct ns_common *(*namespace)(const struct device *dev);
 
 	void (*get_ownership)(const struct device *dev, kuid_t *uid, kgid_t *gid);
 
@@ -180,9 +180,9 @@ struct class_attribute {
 	struct class_attribute class_attr_##_name = __ATTR_WO(_name)
 
 int __must_check class_create_file_ns(const struct class *class, const struct class_attribute *attr,
-				      const void *ns);
+				      const struct ns_common *ns);
 void class_remove_file_ns(const struct class *class, const struct class_attribute *attr,
-			  const void *ns);
+			  const struct ns_common *ns);
 
 static inline int __must_check class_create_file(const struct class *class,
 						 const struct class_attribute *attr)

@@ -71,7 +71,7 @@ const struct inode_operations affs_dir_inode_operations = {
 	.mkdir		= affs_mkdir,
 	.rmdir		= affs_rmdir,
 	.rename		= affs_rename2,
-	.setattr	= affs_notify_change,
+	.setattr	= affs_setattr,
 };
 
 static int
@@ -90,7 +90,7 @@ affs_readdir(struct file *file, struct dir_context *ctx)
 	u32			 ino;
 	int			 error = 0;
 
-	pr_debug("%s(ino=%lu,f_pos=%llx)\n", __func__, inode->i_ino, ctx->pos);
+	pr_debug("%s(ino=%llu,f_pos=%llx)\n", __func__, inode->i_ino, ctx->pos);
 
 	if (ctx->pos < 2) {
 		data->ino = 0;
@@ -119,6 +119,8 @@ affs_readdir(struct file *file, struct dir_context *ctx)
 		pr_debug("readdir() left off=%d\n", ino);
 		goto inside;
 	}
+	if (hash_pos >= AFFS_SB(sb)->s_hashsize)
+		goto done;
 
 	ino = be32_to_cpu(AFFS_HEAD(dir_bh)->table[hash_pos]);
 	for (i = 0; ino && i < chain_pos; i++) {

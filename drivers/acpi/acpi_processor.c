@@ -48,11 +48,6 @@ acpi_handle acpi_get_processor_handle(int cpu)
 
 static int acpi_processor_errata_piix4(struct pci_dev *dev)
 {
-	u8 value1 = 0;
-	u8 value2 = 0;
-	struct pci_dev *ide_dev = NULL, *isa_dev = NULL;
-
-
 	if (!dev)
 		return -EINVAL;
 
@@ -108,12 +103,16 @@ static int acpi_processor_errata_piix4(struct pci_dev *dev)
 		 * each IDE controller's DMA status to make sure we catch all
 		 * DMA activity.
 		 */
-		ide_dev = pci_get_subsys(PCI_VENDOR_ID_INTEL,
+		dev = pci_get_subsys(PCI_VENDOR_ID_INTEL,
 				     PCI_DEVICE_ID_INTEL_82371AB,
 				     PCI_ANY_ID, PCI_ANY_ID, NULL);
-		if (ide_dev) {
-			errata.piix4.bmisx = pci_resource_start(ide_dev, 4);
-			pci_dev_put(ide_dev);
+		if (dev) {
+			errata.piix4.bmisx = pci_resource_start(dev, 4);
+			if (errata.piix4.bmisx)
+				dev_dbg(&dev->dev,
+					"Bus master activity detection (BM-IDE) erratum enabled\n");
+
+			pci_dev_put(dev);
 		}
 
 		/*
@@ -125,25 +124,24 @@ static int acpi_processor_errata_piix4(struct pci_dev *dev)
 		 * disable C3 support if this is enabled, as some legacy
 		 * devices won't operate well if fast DMA is disabled.
 		 */
-		isa_dev = pci_get_subsys(PCI_VENDOR_ID_INTEL,
+		dev = pci_get_subsys(PCI_VENDOR_ID_INTEL,
 				     PCI_DEVICE_ID_INTEL_82371AB_0,
 				     PCI_ANY_ID, PCI_ANY_ID, NULL);
-		if (isa_dev) {
-			pci_read_config_byte(isa_dev, 0x76, &value1);
-			pci_read_config_byte(isa_dev, 0x77, &value2);
-			if ((value1 & 0x80) || (value2 & 0x80))
+		if (dev) {
+			u8 value1 = 0, value2 = 0;
+
+			pci_read_config_byte(dev, 0x76, &value1);
+			pci_read_config_byte(dev, 0x77, &value2);
+			if ((value1 & 0x80) || (value2 & 0x80)) {
 				errata.piix4.fdma = 1;
-			pci_dev_put(isa_dev);
+				dev_dbg(&dev->dev,
+					"Type-F DMA livelock erratum (C3 disabled)\n");
+			}
+			pci_dev_put(dev);
 		}
 
 		break;
 	}
-
-	if (ide_dev)
-		dev_dbg(&ide_dev->dev, "Bus master activity detection (BM-IDE) erratum enabled\n");
-
-	if (isa_dev)
-		dev_dbg(&isa_dev->dev, "Type-F DMA livelock erratum (C3 disabled)\n");
 
 	return 0;
 }
@@ -438,8 +436,6 @@ static int acpi_processor_add(struct acpi_device *device,
 	}
 
 	pr->handle = device->handle;
-	strscpy(acpi_device_name(device), ACPI_PROCESSOR_DEVICE_NAME);
-	strscpy(acpi_device_class(device), ACPI_PROCESSOR_CLASS);
 	device->driver_data = pr;
 
 	result = acpi_processor_get_info(device);

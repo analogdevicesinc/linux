@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 TEST_GEN_PROGS := open_tree_ns_test
 
-CFLAGS := -Wall -Werror -g $(KHDR_INCLUDES)
+CFLAGS += -Wall -O0 -g $(KHDR_INCLUDES) $(TOOLS_INCLUDES)
 LDLIBS := -lcap
 
 include ../../lib.mk

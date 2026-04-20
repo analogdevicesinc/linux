@@ -893,14 +893,15 @@ panthor_queue_get_syncwait_obj(struct panthor_group *group, struct panthor_queue
 
 out_sync:
 	/* Make sure the CPU caches are invalidated before the seqno is read.
-	 * drm_gem_shmem_sync() is a NOP if map_wc=true, so no need to check
+	 * panthor_gem_sync() is a NOP if map_wc=true, so no need to check
 	 * it here.
 	 */
-	panthor_gem_sync(&bo->base.base, queue->syncwait.offset,
+	panthor_gem_sync(&bo->base.base,
+			 DRM_PANTHOR_BO_SYNC_CPU_CACHE_FLUSH_AND_INVALIDATE,
+			 queue->syncwait.offset,
 			 queue->syncwait.sync64 ?
 			 sizeof(struct panthor_syncobj_64b) :
-			 sizeof(struct panthor_syncobj_32b),
-			 DRM_PANTHOR_BO_SYNC_CPU_CACHE_FLUSH_AND_INVALIDATE);
+			 sizeof(struct panthor_syncobj_32b));
 
 	return queue->syncwait.kmap + queue->syncwait.offset;
 
@@ -3915,7 +3916,7 @@ static void job_release(struct kref *ref)
 	if (job->base.s_fence)
 		drm_sched_job_cleanup(&job->base);
 
-	if (job->done_fence && job->done_fence->ops)
+	if (dma_fence_was_initialized(job->done_fence))
 		dma_fence_put(job->done_fence);
 	else
 		dma_fence_free(job->done_fence);

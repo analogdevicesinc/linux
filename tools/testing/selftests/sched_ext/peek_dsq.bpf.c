@@ -58,14 +58,14 @@ static void record_peek_result(long pid)
 {
 	u32 slot_key;
 	long *slot_pid_ptr;
-	int ix;
+	u32 ix;
 
 	if (pid <= 0)
 		return;
 
 	/* Find an empty slot or one with the same PID */
 	bpf_for(ix, 0, 10) {
-		slot_key = (pid + ix) % MAX_SAMPLES;
+		slot_key = ((u64)pid + ix) % MAX_SAMPLES;
 		slot_pid_ptr = bpf_map_lookup_elem(&peek_results, &slot_key);
 		if (!slot_pid_ptr)
 			continue;
@@ -95,7 +95,7 @@ static int scan_dsq_pool(void)
 			record_peek_result(task->pid);
 
 			/* Try to move this task to local */
-			if (!moved && scx_bpf_dsq_move_to_local(dsq_id) == 0) {
+			if (!moved && scx_bpf_dsq_move_to_local(dsq_id, 0) == 0) {
 				moved = 1;
 				break;
 			}
@@ -156,19 +156,19 @@ void BPF_STRUCT_OPS(peek_dsq_dispatch, s32 cpu, struct task_struct *prev)
 		dsq_peek_result2_pid = peek_result ? peek_result->pid : -1;
 
 		/* Now consume the task since we've peeked at it */
-		scx_bpf_dsq_move_to_local(test_dsq_id);
+		scx_bpf_dsq_move_to_local(test_dsq_id, 0);
 
 		/* Mark phase 1 as complete */
 		phase1_complete = 1;
 		bpf_printk("Phase 1 complete, starting phase 2 stress testing");
 	} else if (!phase1_complete) {
 		/* Still in phase 1, use real DSQ */
-		scx_bpf_dsq_move_to_local(real_dsq_id);
+		scx_bpf_dsq_move_to_local(real_dsq_id, 0);
 	} else {
 		/* Phase 2: Scan all DSQs in the pool and try to move a task */
 		if (!scan_dsq_pool()) {
 			/* No tasks found in DSQ pool, fall back to real DSQ */
-			scx_bpf_dsq_move_to_local(real_dsq_id);
+			scx_bpf_dsq_move_to_local(real_dsq_id, 0);
 		}
 	}
 }
@@ -197,7 +197,7 @@ s32 BPF_STRUCT_OPS_SLEEPABLE(peek_dsq_init)
 	}
 	err = scx_bpf_create_dsq(real_dsq_id, -1);
 	if (err) {
-		scx_bpf_error("Failed to create DSQ %d: %d", test_dsq_id, err);
+		scx_bpf_error("Failed to create DSQ %d: %d", real_dsq_id, err);
 		return err;
 	}
 

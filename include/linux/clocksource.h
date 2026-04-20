@@ -25,8 +25,7 @@ struct clocksource_base;
 struct clocksource;
 struct module;
 
-#if defined(CONFIG_ARCH_CLOCKSOURCE_DATA) || \
-    defined(CONFIG_GENERIC_GETTIMEOFDAY)
+#if defined(CONFIG_GENERIC_GETTIMEOFDAY)
 #include <asm/clocksource.h>
 #endif
 
@@ -44,8 +43,6 @@ struct module;
  * @shift:		Cycle to nanosecond divisor (power of two)
  * @max_idle_ns:	Maximum idle time permitted by the clocksource (nsecs)
  * @maxadj:		Maximum adjustment value to mult (~11%)
- * @uncertainty_margin:	Maximum uncertainty in nanoseconds per half second.
- *			Zero says to use default WATCHDOG_THRESHOLD.
  * @archdata:		Optional arch-specific data
  * @max_cycles:		Maximum safe cycle value which won't overflow on
  *			multiplication
@@ -105,10 +102,6 @@ struct clocksource {
 	u32			shift;
 	u64			max_idle_ns;
 	u32			maxadj;
-	u32			uncertainty_margin;
-#ifdef CONFIG_ARCH_CLOCKSOURCE_DATA
-	struct arch_clocksource_data archdata;
-#endif
 	u64			max_cycles;
 	u64			max_raw_delta;
 	const char		*name;
@@ -133,6 +126,7 @@ struct clocksource {
 	struct list_head	wd_list;
 	u64			cs_last;
 	u64			wd_last;
+	unsigned int		wd_cpu;
 #endif
 	struct module		*owner;
 };
@@ -142,13 +136,19 @@ struct clocksource {
  */
 #define CLOCK_SOURCE_IS_CONTINUOUS		0x01
 #define CLOCK_SOURCE_MUST_VERIFY		0x02
+#define CLOCK_SOURCE_CALIBRATED			0x04
 
 #define CLOCK_SOURCE_WATCHDOG			0x10
 #define CLOCK_SOURCE_VALID_FOR_HRES		0x20
 #define CLOCK_SOURCE_UNSTABLE			0x40
 #define CLOCK_SOURCE_SUSPEND_NONSTOP		0x80
 #define CLOCK_SOURCE_RESELECT			0x100
-#define CLOCK_SOURCE_VERIFY_PERCPU		0x200
+#define CLOCK_SOURCE_CAN_INLINE_READ		0x200
+#define CLOCK_SOURCE_HAS_COUPLED_CLOCK_EVENT	0x400
+
+#define CLOCK_SOURCE_WDTEST			0x800
+#define CLOCK_SOURCE_WDTEST_PERCPU		0x1000
+
 /* simplify initialization of mask field */
 #define CLOCKSOURCE_MASK(bits) GENMASK_ULL((bits) - 1, 0)
 
@@ -297,21 +297,6 @@ static inline void timer_probe(void) {}
 
 #define TIMER_ACPI_DECLARE(name, table_id, fn)		\
 	ACPI_DECLARE_PROBE_ENTRY(timer, name, table_id, 0, NULL, 0, fn)
-
-static inline unsigned int clocksource_get_max_watchdog_retry(void)
-{
-	/*
-	 * When system is in the boot phase or under heavy workload, there
-	 * can be random big latencies during the clocksource/watchdog
-	 * read, so allow retries to filter the noise latency. As the
-	 * latency's frequency and maximum value goes up with the number of
-	 * CPUs, scale the number of retries with the number of online
-	 * CPUs.
-	 */
-	return (ilog2(num_online_cpus()) / 2) + 1;
-}
-
-void clocksource_verify_percpu(struct clocksource *cs);
 
 /**
  * struct clocksource_base - hardware abstraction for clock on which a clocksource

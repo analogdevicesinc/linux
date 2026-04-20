@@ -161,6 +161,8 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_hyperv_callback)
 	if (vmbus_handler)
 		vmbus_handler();
 
+	add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR);
+
 	if (ms_hyperv.hints & HV_DEPRECATING_AEOI_RECOMMENDED)
 		apic_eoi();
 
@@ -496,8 +498,9 @@ static void hv_reserve_irq_vectors(void)
 	    test_and_set_bit(HYPERV_DBG_FASTFAIL_VECTOR, system_vectors))
 		BUG();
 
-	pr_info("Hyper-V: reserve vectors: %d %d %d\n", HYPERV_DBG_ASSERT_VECTOR,
-		HYPERV_DBG_SERVICE_VECTOR, HYPERV_DBG_FASTFAIL_VECTOR);
+	pr_info("Hyper-V: reserve vectors: 0x%x 0x%x 0x%x\n",
+		HYPERV_DBG_ASSERT_VECTOR, HYPERV_DBG_SERVICE_VECTOR,
+		HYPERV_DBG_FASTFAIL_VECTOR);
 }
 
 static void __init ms_hyperv_init_platform(void)
