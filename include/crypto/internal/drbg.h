@@ -9,6 +9,9 @@
 #ifndef _INTERNAL_DRBG_H
 #define _INTERNAL_DRBG_H
 
+#include <linux/list.h>
+#include <linux/types.h>
+
 /*
  * Concatenation Helper and string operation helper
  *

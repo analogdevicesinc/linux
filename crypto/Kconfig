@@ -1130,14 +1130,6 @@ config CRYPTO_DRBG_HASH
 
 	  This uses the SHA-1, SHA-256, SHA-384, or SHA-512 hash algorithms.
 
-config CRYPTO_DRBG_CTR
-	bool "CTR_DRBG"
-	select CRYPTO_DF80090A
-	help
-	  CTR_DRBG variant as defined in NIST SP800-90A.
-
-	  This uses the AES cipher algorithm with the counter block mode.
-
 config CRYPTO_DRBG
 	tristate
 	default CRYPTO_DRBG_MENU

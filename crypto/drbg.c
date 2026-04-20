@@ -2,7 +2,6 @@
  * DRBG: Deterministic Random Bits Generator
  *       Based on NIST Recommended DRBG from NIST SP800-90A with the following
  *       properties:
- *		* CTR DRBG with DF with AES-128, AES-192, AES-256 cores
  *		* Hash DRBG with DF with SHA-1, SHA-256, SHA-384, SHA-512 cores
  *		* HMAC DRBG with DF with SHA-1, SHA-256, SHA-384, SHA-512 cores
  *		* with and without prediction resistance
@@ -92,17 +91,14 @@
  * Just mix both scenarios above.
  */
 
-#include <crypto/df_sp80090a.h>
 #include <crypto/internal/drbg.h>
 #include <crypto/internal/rng.h>
 #include <crypto/hash.h>
-#include <crypto/skcipher.h>
 #include <linux/fips.h>
 #include <linux/kernel.h>
 #include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
-#include <linux/scatterlist.h>
 #include <linux/string_choices.h>
 #include <linux/unaligned.h>
 
@@ -139,7 +135,7 @@ struct drbg_state {
 	struct mutex drbg_mutex;	/* lock around DRBG */
 	unsigned char *V;	/* internal state 10.1.1.1 1a) */
 	unsigned char *Vbuf;
-	/* hash: static value 10.1.1.1 1b) hmac / ctr: key */
+	/* hash: static value 10.1.1.1 1b) hmac: key */
 	unsigned char *C;
 	unsigned char *Cbuf;
 	/* Number of RNG requests since last reseed -- 10.1.1.1 1c) */
@@ -149,13 +145,6 @@ struct drbg_state {
 	unsigned char *scratchpad;
 	unsigned char *scratchpadbuf;
 	void *priv_data;	/* Cipher handle */
-
-	struct crypto_skcipher *ctr_handle;	/* CTR mode cipher handle */
-	struct skcipher_request *ctr_req;	/* CTR mode request handle */
-	__u8 *outscratchpadbuf;			/* CTR mode output scratchpad */
-        __u8 *outscratchpad;			/* CTR mode aligned outbuf */
-	struct crypto_wait ctr_wait;		/* CTR mode async wait obj */
-	struct scatterlist sg_in, sg_out;	/* CTR mode SGLs */
 
 	enum drbg_seed_state seeded;		/* DRBG fully seeded? */
 	unsigned long last_seed_time;
@@ -177,13 +166,6 @@ static inline __u8 drbg_blocklen(struct drbg_state *drbg)
 {
 	if (drbg && drbg->core)
 		return drbg->core->blocklen_bytes;
-	return 0;
-}
-
-static inline __u8 drbg_keylen(struct drbg_state *drbg)
-{
-	if (drbg && drbg->core)
-		return (drbg->core->statelen - drbg->core->blocklen_bytes);
 	return 0;
 }
 
@@ -211,10 +193,9 @@ static inline size_t drbg_max_requests(struct drbg_state *drbg)
 }
 
 /* DRBG type flags */
-#define DRBG_CTR	((drbg_flag_t)1<<0)
 #define DRBG_HMAC	((drbg_flag_t)1<<1)
 #define DRBG_HASH	((drbg_flag_t)1<<2)
-#define DRBG_TYPE_MASK	(DRBG_CTR | DRBG_HMAC | DRBG_HASH)
+#define DRBG_TYPE_MASK	(DRBG_HMAC | DRBG_HASH)
 /* DRBG strength flags */
 #define DRBG_STRENGTH128	((drbg_flag_t)1<<3)
 #define DRBG_STRENGTH192	((drbg_flag_t)1<<4)
@@ -238,32 +219,9 @@ enum drbg_prefixes {
  * as stdrng. Each DRBG receives an increasing cra_priority values the later
  * they are defined in this array (see drbg_fill_array).
  *
- * HMAC DRBGs are favored over Hash DRBGs over CTR DRBGs, and the
- * HMAC-SHA512 / SHA256 / AES 256 over other ciphers. Thus, the
- * favored DRBGs are the latest entries in this array.
+ * Thus, the favored DRBGs are the latest entries in this array.
  */
 static const struct drbg_core drbg_cores[] = {
-#ifdef CONFIG_CRYPTO_DRBG_CTR
-	{
-		.flags = DRBG_CTR | DRBG_STRENGTH128,
-		.statelen = 32, /* 256 bits as defined in 10.2.1 */
-		.blocklen_bytes = 16,
-		.cra_name = "ctr_aes128",
-		.backend_cra_name = "aes",
-	}, {
-		.flags = DRBG_CTR | DRBG_STRENGTH192,
-		.statelen = 40, /* 320 bits as defined in 10.2.1 */
-		.blocklen_bytes = 16,
-		.cra_name = "ctr_aes192",
-		.backend_cra_name = "aes",
-	}, {
-		.flags = DRBG_CTR | DRBG_STRENGTH256,
-		.statelen = 48, /* 384 bits as defined in 10.2.1 */
-		.blocklen_bytes = 16,
-		.cra_name = "ctr_aes256",
-		.backend_cra_name = "aes",
-	},
-#endif /* CONFIG_CRYPTO_DRBG_CTR */
 #ifdef CONFIG_CRYPTO_DRBG_HASH
 	{
 		.flags = DRBG_HASH | DRBG_STRENGTH256,
@@ -333,147 +291,6 @@ static inline unsigned short drbg_sec_strength(drbg_flag_t flags)
 		return 32;
 	}
 }
-
-/******************************************************************
- * CTR DRBG callback functions
- ******************************************************************/
-
-#ifdef CONFIG_CRYPTO_DRBG_CTR
-#define CRYPTO_DRBG_CTR_STRING "CTR "
-MODULE_ALIAS_CRYPTO("drbg_pr_ctr_aes256");
-MODULE_ALIAS_CRYPTO("drbg_nopr_ctr_aes256");
-MODULE_ALIAS_CRYPTO("drbg_pr_ctr_aes192");
-MODULE_ALIAS_CRYPTO("drbg_nopr_ctr_aes192");
-MODULE_ALIAS_CRYPTO("drbg_pr_ctr_aes128");
-MODULE_ALIAS_CRYPTO("drbg_nopr_ctr_aes128");
-
-static int drbg_init_sym_kernel(struct drbg_state *drbg);
-static int drbg_fini_sym_kernel(struct drbg_state *drbg);
-static int drbg_kcapi_sym_ctr(struct drbg_state *drbg,
-			      u8 *inbuf, u32 inbuflen,
-			      u8 *outbuf, u32 outlen);
-#define DRBG_OUTSCRATCHLEN 256
-
-static int drbg_ctr_df(struct drbg_state *drbg,
-		       unsigned char *df_data, size_t bytes_to_return,
-		       struct list_head *seedlist)
-{
-	return crypto_drbg_ctr_df(drbg->priv_data, df_data, drbg_statelen(drbg),
-				  seedlist, drbg_blocklen(drbg), drbg_statelen(drbg));
-}
-
-/*
- * update function of CTR DRBG as defined in 10.2.1.2
- *
- * The reseed variable has an enhanced meaning compared to the update
- * functions of the other DRBGs as follows:
- * 0 => initial seed from initialization
- * 1 => reseed via drbg_seed
- * 2 => first invocation from drbg_ctr_update when addtl is present. In
- *      this case, the df_data scratchpad is not deleted so that it is
- *      available for another calls to prevent calling the DF function
- *      again.
- * 3 => second invocation from drbg_ctr_update. When the update function
- *      was called with addtl, the df_data memory already contains the
- *      DFed addtl information and we do not need to call DF again.
- */
-static int drbg_ctr_update(struct drbg_state *drbg, struct list_head *seed,
-			   int reseed)
-{
-	int ret = -EFAULT;
-	/* 10.2.1.2 step 1 */
-	unsigned char *temp = drbg->scratchpad;
-	unsigned char *df_data = drbg->scratchpad + drbg_statelen(drbg) +
-				 drbg_blocklen(drbg);
-
-	if (3 > reseed)
-		memset(df_data, 0, drbg_statelen(drbg));
-
-	if (!reseed) {
-		/*
-		 * The DRBG uses the CTR mode of the underlying AES cipher. The
-		 * CTR mode increments the counter value after the AES operation
-		 * but SP800-90A requires that the counter is incremented before
-		 * the AES operation. Hence, we increment it at the time we set
-		 * it by one.
-		 */
-		crypto_inc(drbg->V, drbg_blocklen(drbg));
-
-		ret = crypto_skcipher_setkey(drbg->ctr_handle, drbg->C,
-					     drbg_keylen(drbg));
-		if (ret)
-			goto out;
-	}
-
-	/* 10.2.1.3.2 step 2 and 10.2.1.4.2 step 2 */
-	if (seed) {
-		ret = drbg_ctr_df(drbg, df_data, drbg_statelen(drbg), seed);
-		if (ret)
-			goto out;
-	}
-
-	ret = drbg_kcapi_sym_ctr(drbg, df_data, drbg_statelen(drbg),
-				 temp, drbg_statelen(drbg));
-	if (ret)
-		return ret;
-
-	/* 10.2.1.2 step 5 */
-	ret = crypto_skcipher_setkey(drbg->ctr_handle, temp,
-				     drbg_keylen(drbg));
-	if (ret)
-		goto out;
-	/* 10.2.1.2 step 6 */
-	memcpy(drbg->V, temp + drbg_keylen(drbg), drbg_blocklen(drbg));
-	/* See above: increment counter by one to compensate timing of CTR op */
-	crypto_inc(drbg->V, drbg_blocklen(drbg));
-	ret = 0;
-
-out:
-	memset(temp, 0, drbg_statelen(drbg) + drbg_blocklen(drbg));
-	if (2 != reseed)
-		memset(df_data, 0, drbg_statelen(drbg));
-	return ret;
-}
-
-/*
- * scratchpad use: drbg_ctr_update is called independently from
- * drbg_ctr_extract_bytes. Therefore, the scratchpad is reused
- */
-/* Generate function of CTR DRBG as defined in 10.2.1.5.2 */
-static int drbg_ctr_generate(struct drbg_state *drbg,
-			     unsigned char *buf, unsigned int buflen,
-			     struct list_head *addtl)
-{
-	int ret;
-	int len = min_t(int, buflen, INT_MAX);
-
-	/* 10.2.1.5.2 step 2 */
-	if (addtl && !list_empty(addtl)) {
-		ret = drbg_ctr_update(drbg, addtl, 2);
-		if (ret)
-			return ret;
-	}
-
-	/* 10.2.1.5.2 step 4.1 */
-	ret = drbg_kcapi_sym_ctr(drbg, NULL, 0, buf, len);
-	if (ret)
-		return ret;
-
-	/* 10.2.1.5.2 step 6 */
-	ret = drbg_ctr_update(drbg, NULL, 3);
-	if (ret)
-		len = ret;
-
-	return len;
-}
-
-static const struct drbg_state_ops drbg_ctr_ops = {
-	.update		= drbg_ctr_update,
-	.generate	= drbg_ctr_generate,
-	.crypto_init	= drbg_init_sym_kernel,
-	.crypto_fini	= drbg_fini_sym_kernel,
-};
-#endif /* CONFIG_CRYPTO_DRBG_CTR */
 
 /******************************************************************
  * HMAC DRBG callback functions
@@ -1108,11 +925,6 @@ static inline int drbg_alloc_state(struct drbg_state *drbg)
 		drbg->d_ops = &drbg_hash_ops;
 		break;
 #endif /* CONFIG_CRYPTO_DRBG_HASH */
-#ifdef CONFIG_CRYPTO_DRBG_CTR
-	case DRBG_CTR:
-		drbg->d_ops = &drbg_ctr_ops;
-		break;
-#endif /* CONFIG_CRYPTO_DRBG_CTR */
 	default:
 		ret = -EOPNOTSUPP;
 		goto err;
@@ -1134,13 +946,9 @@ static inline int drbg_alloc_state(struct drbg_state *drbg)
 		goto fini;
 	}
 	drbg->C = PTR_ALIGN(drbg->Cbuf, ret + 1);
-	/* scratchpad is only generated for CTR and Hash */
+	/* scratchpad is only generated for Hash */
 	if (drbg->core->flags & DRBG_HMAC)
 		sb_size = 0;
-	else if (drbg->core->flags & DRBG_CTR)
-		sb_size = drbg_statelen(drbg) + drbg_blocklen(drbg) + /* temp */
-			  crypto_drbg_ctr_df_datalen(drbg_statelen(drbg),
-						     drbg_blocklen(drbg));
 	else
 		sb_size = drbg_statelen(drbg) + drbg_blocklen(drbg);
 
@@ -1253,7 +1061,7 @@ static int drbg_generate(struct drbg_state *drbg,
 	/* 9.3.1 step 8 and 10 */
 	len = drbg->d_ops->generate(drbg, buf, buflen, &addtllist);
 
-	/* 10.1.1.4 step 6, 10.1.2.5 step 7, 10.2.1.5.2 step 7 */
+	/* 10.1.1.4 step 6, 10.1.2.5 step 7 */
 	drbg->reseed_ctr++;
 	if (0 >= len)
 		goto err;
@@ -1504,127 +1312,6 @@ static int drbg_kcapi_hash(struct drbg_state *drbg, unsigned char *outval,
 	return crypto_shash_final(&sdesc->shash, outval);
 }
 
-#ifdef CONFIG_CRYPTO_DRBG_CTR
-static int drbg_fini_sym_kernel(struct drbg_state *drbg)
-{
-	struct aes_enckey *aeskey = drbg->priv_data;
-
-	kfree(aeskey);
-	drbg->priv_data = NULL;
-
-	if (drbg->ctr_handle)
-		crypto_free_skcipher(drbg->ctr_handle);
-	drbg->ctr_handle = NULL;
-
-	if (drbg->ctr_req)
-		skcipher_request_free(drbg->ctr_req);
-	drbg->ctr_req = NULL;
-
-	kfree(drbg->outscratchpadbuf);
-	drbg->outscratchpadbuf = NULL;
-
-	return 0;
-}
-
-static int drbg_init_sym_kernel(struct drbg_state *drbg)
-{
-	struct aes_enckey *aeskey;
-	struct crypto_skcipher *sk_tfm;
-	struct skcipher_request *req;
-	unsigned int alignmask;
-	char ctr_name[CRYPTO_MAX_ALG_NAME];
-
-	aeskey = kzalloc_obj(*aeskey);
-	if (!aeskey)
-		return -ENOMEM;
-	drbg->priv_data = aeskey;
-
-	if (snprintf(ctr_name, CRYPTO_MAX_ALG_NAME, "ctr(%s)",
-	    drbg->core->backend_cra_name) >= CRYPTO_MAX_ALG_NAME) {
-		drbg_fini_sym_kernel(drbg);
-		return -EINVAL;
-	}
-	sk_tfm = crypto_alloc_skcipher(ctr_name, 0, 0);
-	if (IS_ERR(sk_tfm)) {
-		pr_info("DRBG: could not allocate CTR cipher TFM handle: %s\n",
-				ctr_name);
-		drbg_fini_sym_kernel(drbg);
-		return PTR_ERR(sk_tfm);
-	}
-	drbg->ctr_handle = sk_tfm;
-	crypto_init_wait(&drbg->ctr_wait);
-
-	req = skcipher_request_alloc(sk_tfm, GFP_KERNEL);
-	if (!req) {
-		pr_info("DRBG: could not allocate request queue\n");
-		drbg_fini_sym_kernel(drbg);
-		return -ENOMEM;
-	}
-	drbg->ctr_req = req;
-	skcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG |
-						CRYPTO_TFM_REQ_MAY_SLEEP,
-					crypto_req_done, &drbg->ctr_wait);
-
-	alignmask = crypto_skcipher_alignmask(sk_tfm);
-	drbg->outscratchpadbuf = kmalloc(DRBG_OUTSCRATCHLEN + alignmask,
-					 GFP_KERNEL);
-	if (!drbg->outscratchpadbuf) {
-		drbg_fini_sym_kernel(drbg);
-		return -ENOMEM;
-	}
-	drbg->outscratchpad = (u8 *)PTR_ALIGN(drbg->outscratchpadbuf,
-					      alignmask + 1);
-
-	sg_init_table(&drbg->sg_in, 1);
-	sg_init_one(&drbg->sg_out, drbg->outscratchpad, DRBG_OUTSCRATCHLEN);
-
-	return alignmask;
-}
-
-static int drbg_kcapi_sym_ctr(struct drbg_state *drbg,
-			      u8 *inbuf, u32 inlen,
-			      u8 *outbuf, u32 outlen)
-{
-	struct scatterlist *sg_in = &drbg->sg_in, *sg_out = &drbg->sg_out;
-	u32 scratchpad_use = min_t(u32, outlen, DRBG_OUTSCRATCHLEN);
-	int ret;
-
-	if (inbuf) {
-		/* Use caller-provided input buffer */
-		sg_set_buf(sg_in, inbuf, inlen);
-	} else {
-		/* Use scratchpad for in-place operation */
-		inlen = scratchpad_use;
-		memset(drbg->outscratchpad, 0, scratchpad_use);
-		sg_set_buf(sg_in, drbg->outscratchpad, scratchpad_use);
-	}
-
-	while (outlen) {
-		u32 cryptlen = min3(inlen, outlen, (u32)DRBG_OUTSCRATCHLEN);
-
-		/* Output buffer may not be valid for SGL, use scratchpad */
-		skcipher_request_set_crypt(drbg->ctr_req, sg_in, sg_out,
-					   cryptlen, drbg->V);
-		ret = crypto_wait_req(crypto_skcipher_encrypt(drbg->ctr_req),
-					&drbg->ctr_wait);
-		if (ret)
-			goto out;
-
-		crypto_init_wait(&drbg->ctr_wait);
-
-		memcpy(outbuf, drbg->outscratchpad, cryptlen);
-		memzero_explicit(drbg->outscratchpad, cryptlen);
-
-		outlen -= cryptlen;
-		outbuf += cryptlen;
-	}
-	ret = 0;
-
-out:
-	return ret;
-}
-#endif /* CONFIG_CRYPTO_DRBG_CTR */
-
 /***************************************************************
  * Kernel crypto API interface to register DRBG
  ***************************************************************/
@@ -1762,9 +1449,6 @@ static inline int __init drbg_healthcheck_sanity(void)
 	if (!fips_enabled)
 		return 0;
 
-#ifdef CONFIG_CRYPTO_DRBG_CTR
-	drbg_convert_tfm_core("drbg_nopr_ctr_aes256", &coreref, &pr);
-#endif
 #ifdef CONFIG_CRYPTO_DRBG_HASH
 	drbg_convert_tfm_core("drbg_nopr_sha256", &coreref, &pr);
 #endif
@@ -1896,14 +1580,10 @@ module_exit(drbg_exit);
 #ifndef CRYPTO_DRBG_HASH_STRING
 #define CRYPTO_DRBG_HASH_STRING ""
 #endif
-#ifndef CRYPTO_DRBG_CTR_STRING
-#define CRYPTO_DRBG_CTR_STRING ""
-#endif
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Stephan Mueller <smueller@chronox.de>");
 MODULE_DESCRIPTION("NIST SP800-90A Deterministic Random Bit Generator (DRBG) "
 		   "using following cores: "
 		   CRYPTO_DRBG_HASH_STRING
-		   CRYPTO_DRBG_HMAC_STRING
-		   CRYPTO_DRBG_CTR_STRING);
+		   CRYPTO_DRBG_HMAC_STRING);
 MODULE_ALIAS_CRYPTO("stdrng");
