@@ -14133,6 +14133,7 @@ static int nl80211_remain_on_channel(struct sk_buff *skb,
 	unsigned int link_id = nl80211_link_id(info->attrs);
 	struct wireless_dev *wdev = info->user_ptr[1];
 	struct cfg80211_chan_def chandef;
+	const u8 *rx_addr = NULL;
 	struct sk_buff *msg;
 	void *hdr;
 	u64 cookie;
@@ -14144,6 +14145,14 @@ static int nl80211_remain_on_channel(struct sk_buff *skb,
 		return -EINVAL;
 
 	duration = nla_get_u32(info->attrs[NL80211_ATTR_DURATION]);
+
+	if (info->attrs[NL80211_ATTR_MAC])
+		rx_addr = nla_data(info->attrs[NL80211_ATTR_MAC]);
+
+	if (rx_addr &&
+	    !wiphy_ext_feature_isset(wdev->wiphy,
+				     NL80211_EXT_FEATURE_ROC_ADDR_FILTER))
+		return -EOPNOTSUPP;
 
 	if (!rdev->ops->remain_on_channel ||
 	    !(rdev->wiphy.flags & WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL))
@@ -14192,7 +14201,7 @@ static int nl80211_remain_on_channel(struct sk_buff *skb,
 	}
 
 	err = rdev_remain_on_channel(rdev, wdev, chandef.chan,
-				     duration, &cookie);
+				     duration, &cookie, rx_addr);
 
 	if (err)
 		goto free_msg;
