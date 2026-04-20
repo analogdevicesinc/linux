@@ -4650,39 +4650,12 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.alg = "digest_null",
 		.test = alg_test_null,
 	}, {
-		.alg = "drbg_nopr_hmac_sha256",
-		.test = alg_test_drbg,
-		.fips_allowed = 1,
-		.suite = {
-			.drbg = __VECS(drbg_nopr_hmac_sha256_tv_template)
-		}
-	}, {
-		/*
-		 * There is no need to specifically test the DRBG with every
-		 * backend cipher -- covered by drbg_nopr_hmac_sha512 test
-		 */
-		.alg = "drbg_nopr_hmac_sha384",
-		.test = alg_test_null,
-		.fips_allowed = 1
-	}, {
 		.alg = "drbg_nopr_hmac_sha512",
 		.test = alg_test_drbg,
 		.fips_allowed = 1,
 		.suite = {
 			.drbg = __VECS(drbg_nopr_hmac_sha512_tv_template)
 		}
-	}, {
-		.alg = "drbg_pr_hmac_sha256",
-		.test = alg_test_drbg,
-		.fips_allowed = 1,
-		.suite = {
-			.drbg = __VECS(drbg_pr_hmac_sha256_tv_template)
-		}
-	}, {
-		/* covered by drbg_pr_hmac_sha256 test */
-		.alg = "drbg_pr_hmac_sha384",
-		.test = alg_test_null,
-		.fips_allowed = 1
 	}, {
 		.alg = "drbg_pr_hmac_sha512",
 		.test = alg_test_drbg,

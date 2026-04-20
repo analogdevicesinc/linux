@@ -1,9 +1,7 @@
 /*
  * DRBG: Deterministic Random Bits Generator
- *       Based on NIST Recommended DRBG from NIST SP800-90A with the following
- *       properties:
- *		* HMAC DRBG with DF with SHA-1, SHA-256, SHA-384, SHA-512 cores
- *		* with and without prediction resistance
+ *       Implementation of the HMAC SHA-512 DRBG from NIST SP800-90A,
+ *       both with and without prediction resistance
  *
  * Copyright Stephan Mueller <smueller@chronox.de>, 2014
  *
@@ -216,18 +214,6 @@ enum drbg_prefixes {
 static const struct drbg_core drbg_cores[] = {
 	{
 		.flags = DRBG_HMAC | DRBG_STRENGTH256,
-		.statelen = 48, /* block length of cipher */
-		.blocklen_bytes = 48,
-		.cra_name = "hmac_sha384",
-		.backend_cra_name = "hmac(sha384)",
-	}, {
-		.flags = DRBG_HMAC | DRBG_STRENGTH256,
-		.statelen = 32, /* block length of cipher */
-		.blocklen_bytes = 32,
-		.cra_name = "hmac_sha256",
-		.backend_cra_name = "hmac(sha256)",
-	}, {
-		.flags = DRBG_HMAC | DRBG_STRENGTH256,
 		.statelen = 64, /* block length of cipher */
 		.blocklen_bytes = 64,
 		.cra_name = "hmac_sha512",
@@ -276,10 +262,6 @@ static int drbg_fini_hash_kernel(struct drbg_state *drbg);
 
 MODULE_ALIAS_CRYPTO("drbg_pr_hmac_sha512");
 MODULE_ALIAS_CRYPTO("drbg_nopr_hmac_sha512");
-MODULE_ALIAS_CRYPTO("drbg_pr_hmac_sha384");
-MODULE_ALIAS_CRYPTO("drbg_nopr_hmac_sha384");
-MODULE_ALIAS_CRYPTO("drbg_pr_hmac_sha256");
-MODULE_ALIAS_CRYPTO("drbg_nopr_hmac_sha256");
 
 /* update function of HMAC DRBG as defined in 10.1.2.2 */
 static int drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed,
