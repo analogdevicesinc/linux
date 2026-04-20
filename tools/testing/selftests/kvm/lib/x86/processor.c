@@ -495,26 +495,24 @@ bool kvm_cpu_has_tdp(void)
 	return kvm_cpu_has_ept() || kvm_cpu_has_npt();
 }
 
-void __tdp_map(struct kvm_vm *vm, u64 nested_paddr, u64 paddr,
-	       u64 size, int level)
+void __tdp_map(struct kvm_vm *vm, gpa_t l2_gpa, u64 paddr, u64 size, int level)
 {
 	size_t page_size = PG_LEVEL_SIZE(level);
 	size_t npages = size / page_size;
 
-	TEST_ASSERT(nested_paddr + size > nested_paddr, "Vaddr overflow");
+	TEST_ASSERT(l2_gpa + size > l2_gpa, "L2 GPA overflow");
 	TEST_ASSERT(paddr + size > paddr, "Paddr overflow");
 
 	while (npages--) {
-		__virt_pg_map(vm, &vm->stage2_mmu, nested_paddr, paddr, level);
-		nested_paddr += page_size;
+		__virt_pg_map(vm, &vm->stage2_mmu, l2_gpa, paddr, level);
+		l2_gpa += page_size;
 		paddr += page_size;
 	}
 }
 
-void tdp_map(struct kvm_vm *vm, u64 nested_paddr, u64 paddr,
-	     u64 size)
+void tdp_map(struct kvm_vm *vm, gpa_t l2_gpa, u64 paddr, u64 size)
 {
-	__tdp_map(vm, nested_paddr, paddr, size, PG_LEVEL_4K);
+	__tdp_map(vm, l2_gpa, paddr, size, PG_LEVEL_4K);
 }
 
 /* Prepare an identity extended page table that maps all the
