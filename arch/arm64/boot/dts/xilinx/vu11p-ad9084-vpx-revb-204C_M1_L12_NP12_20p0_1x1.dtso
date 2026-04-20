@@ -5,7 +5,7 @@
 #include <dt-bindings/jesd204/adxcvr.h>
 
 #ifndef DEVICE_PROFILE_NAME
-#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP16_8p0_4x2.bin"
+#define DEVICE_PROFILE_NAME	"204C_M1_L12_NP12_20p0_1x1.bin"
 #endif
 
 #ifndef OUT_CLK_SELECT
@@ -37,14 +37,14 @@
 	#size-cells = <2>;
 
 	firmware-name = VU11_FIRMWARE_NAME;
-
+	
 	mig_clkout1: clock@0 {
 		#clock-cells = <0>;
 		clock-frequency = <100000000>;
 		clock-output-names = "vu11p_mig_1";
 		compatible = "fixed-clock";
 	};
-
+	
 	clkin_125: clock@1 {
 		#clock-cells = <0>;
 		clock-frequency = <125000000>;
@@ -103,8 +103,7 @@
 			clock-names = "ref_clk";
 			adi,ref-doubler-enable;
 			clock-output-names = "adf4382_out_clk";
-			adi,power-up-frequency = /bits/ 64 <8000000000>;
-			#io-channel-cells = <1>;
+			adi,power-up-frequency = /bits/ 64 <20000000000>;
 		};
 	};
 
@@ -159,10 +158,9 @@
 			channel@0 {
 				reg = <0>;
 				adi,extended-name = "ADF4030_BSYNC0";
-				adi,divider = <640>;
+				adi,divider = <256>;
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
-				adi,jesd204-sysref-chan;
 			};
 #endif /* WITH_AION */
 			// channel@1 {
@@ -256,7 +254,7 @@
 			clock-scales = <1 10>;
 		};
 	};
-
+	
 #if WITH_AION
 	adf4030_spi: spi@88260000 {
 		bits-per-word = <8>;
@@ -297,18 +295,18 @@
 			jesd204-sysref-provider;
 
 			adi,vco-frequency-hz = <2500000000>; /* 2.5 GHz */
-			adi,bsync-frequency-hz = <3906250>; // Div 640
+			adi,bsync-frequency-hz = <9765625>;
 			adi,bsync-autoalign-reference-channel = <0>;
 			adi,bsync-autoalign-iteration-count = <6>;
-			adi,bsync-secondary-frequency-hz = <3906250>;
+			adi,bsync-secondary-frequency-hz = <9765625>;
 
 			channel@0 {
 				reg = <0>;
 				adi,extended-name = "ADF4030_BSYNC0";
+				auto-align-on-sync-en;
 				adi,rcm = <62>; // LVDS
 				adi,link-rx-en;
 				adi,float-rx-en;
-				adi,ac-coupled-en;
 			};
 			channel@1 {
 				reg = <1>;
@@ -316,7 +314,7 @@
 				auto-align-on-sync-en;
 				adi,output-en;
 				adi,input-output-reconfig-en;
-				adi,rcm = <1>;
+				adi,rcm = <62>; // LVDS
 				adi,link-rx-en;
 				adi,float-rx-en;
 			};
@@ -330,7 +328,6 @@
 				adi,link-rx-en;
 				adi,float-rx-en;
 			};
-			// To be connected to upstream AIONs
 			channel@9 {
 				reg = <9>;
 				adi,extended-name = "ADF4030_BSYNC9";
@@ -563,15 +560,13 @@
 			clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
 			#clock-cells = <1>;
 
-			// interrupt-names = "fft_done_A", "fft_done_B";
-			// interrupt-parent = <&axi_gpio>;
-			// interrupts = <17 1 18 1>;
 
 #if HSCI_ENABLE
 			adi,axi-hsci-connected = <&axi_hsci>;
 			adi,hsci-auto-linkup-mode-en;
 			adi,hsci-disable-after-boot-en;
 #endif
+
 			jesd204-device;
 			#jesd204-cells = <2>;
 			jesd204-top-device = <0>; /* This is the TOP device */
@@ -597,11 +592,11 @@
 
 			reset-gpios = <&axi_gpio_2 0x31 0>;
 			adi,device-profile-fw-name = DEVICE_PROFILE_NAME;
-
+			
 			adi,jrx0-physical-lane-mapping = <11 4  6 10 9 8 7 2 0 3 5 1>;
-			adi,jtx0-logical-lane-mapping =  < 8 6 10 11 9 4 7 2 5 0 3 1>;
+			adi,jtx0-logical-lane-mapping =  < 8 6 10 11 9 4 7 2 5 0 3 1>; 
 			adi,jrx1-physical-lane-mapping = <3 1 5 0 7 2 8  6 4  9 10 11>;
-			adi,jtx1-logical-lane-mapping =  <0 2 1 4 3 5 6 10 7 11  8  9>;
+			adi,jtx1-logical-lane-mapping =  <0 2 1 4 3 5 6 10 7 11  8  9>; 
 
 			adi,subclass = <JESD_SUBCLASS>;
 
@@ -609,8 +604,6 @@
 			io-channels = <&adf4030 1>, <&adf4382 0>;
 			io-channel-names = "bsync", "clk";
 #endif /* WITH_AION */
-			adi,clock-align-delay-adjust-gpio-num = /bits/ 8 <29 0>;
-			adi,clock-align-delay-strobe-gpio-num = /bits/ 8 <30 0>;
 
 			//adi,standalone-enable;
 		};
