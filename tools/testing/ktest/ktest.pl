@@ -1878,6 +1878,12 @@ sub save_logs {
 	"testlog" => $testlog,
     );
 
+    if (defined($opt{"LOG_FILE"})) {
+	if (-f $opt{"LOG_FILE"}) {
+	    cp $opt{"LOG_FILE"}, "$dir/logfile";
+	}
+    }
+
     while (my ($name, $source) = each(%files)) {
 	if (-f "$source") {
 	    cp "$source", "$dir/$name" or
