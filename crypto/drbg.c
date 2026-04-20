@@ -180,12 +180,9 @@ static void drbg_hmac_update(struct drbg_state *drbg,
 }
 
 /* generate function of HMAC DRBG as defined in 10.1.2.5 */
-static void drbg_hmac_generate(struct drbg_state *drbg,
-			       unsigned char *buf,
-			       unsigned int buflen,
+static void drbg_hmac_generate(struct drbg_state *drbg, u8 *out, size_t outlen,
 			       const u8 *addtl1, size_t addtl1_len)
 {
-	int len = 0;
 	u8 addtl2[32];
 	size_t addtl2_len = 0;
 
@@ -210,17 +207,16 @@ static void drbg_hmac_generate(struct drbg_state *drbg,
 	if (addtl1_len || addtl2_len)
 		drbg_hmac_update(drbg, addtl1, addtl1_len, addtl2, addtl2_len);
 
-	while (len < buflen) {
-		unsigned int outlen = 0;
+	while (outlen) {
+		size_t n = min(DRBG_STATE_LEN, outlen);
 
 		/* 10.1.2.5 step 4.1 */
 		hmac_sha512(&drbg->key, drbg->V, DRBG_STATE_LEN, drbg->V);
-		outlen = (DRBG_STATE_LEN < (buflen - len)) ?
-			  DRBG_STATE_LEN : (buflen - len);
 
 		/* 10.1.2.5 step 4.2 */
-		memcpy(buf + len, drbg->V, outlen);
-		len += outlen;
+		memcpy(out, drbg->V, n);
+		out += n;
+		outlen -= n;
 	}
 
 	/* 10.1.2.5 step 6 */
@@ -331,31 +327,27 @@ out:
 }
 
 /*
- * DRBG generate function as required by SP800-90A - this function
- * generates random numbers
+ * Generate random bytes from an SP800-90A DRBG.
  *
  * @drbg DRBG state handle
- * @buf Buffer where to store the random numbers -- the buffer must already
- *      be pre-allocated by caller
- * @buflen Length of output buffer - this value defines the number of random
- *	   bytes pulled from DRBG
+ * @out Buffer where to store the random bytes
+ * @outlen Number of random bytes to generate
  * @addtl Optional additional input that is mixed into state
  * @addtl_len Length of @addtl in bytes, may be 0
  *
  * return: 0 when all bytes are generated; < 0 in case of an error
  */
-static int drbg_generate(struct drbg_state *drbg,
-			 unsigned char *buf, unsigned int buflen,
+static int drbg_generate(struct drbg_state *drbg, u8 *out, size_t outlen,
 			 const u8 *addtl, size_t addtl_len)
 	__must_hold(&drbg->drbg_mutex)
 {
-	int len = 0;
+	int err;
 
 	if (!drbg->instantiated) {
 		pr_devel("DRBG: not yet instantiated\n");
 		return -EINVAL;
 	}
-	if (0 == buflen || !buf) {
+	if (out == NULL || outlen == 0) {
 		pr_devel("DRBG: no output buffer provided\n");
 		return -EINVAL;
 	}
@@ -365,9 +357,8 @@ static int drbg_generate(struct drbg_state *drbg,
 	}
 
 	/* 9.3.1 step 2 */
-	if (buflen > DRBG_MAX_REQUEST_BYTES) {
-		pr_devel("DRBG: requested random numbers too large %u\n",
-			 buflen);
+	if (outlen > DRBG_MAX_REQUEST_BYTES) {
+		pr_devel("DRBG: request length is too long %zu\n", outlen);
 		return -EINVAL;
 	}
 
@@ -393,16 +384,16 @@ static int drbg_generate(struct drbg_state *drbg,
 		pr_devel("DRBG: reseeding before generation (prediction resistance: %s)\n",
 			 str_true_false(drbg->pr));
 		/* 9.3.1 steps 7.1 through 7.3 */
-		len = drbg_seed(drbg, addtl, addtl_len, true);
-		if (len)
-			goto err;
+		err = drbg_seed(drbg, addtl, addtl_len, true);
+		if (err)
+			return err;
 		/* 9.3.1 step 7.4 */
 		addtl = NULL;
 		addtl_len = 0;
 	}
 
 	/* 9.3.1 step 8 and 10 */
-	drbg_hmac_generate(drbg, buf, buflen, addtl, addtl_len);
+	drbg_hmac_generate(drbg, out, outlen, addtl, addtl_len);
 
 	/* 10.1.2.5 step 7 */
 	drbg->reseed_ctr++;
@@ -420,13 +411,7 @@ static int drbg_generate(struct drbg_state *drbg,
 	 * correct operation of the DRBG.
 	 */
 
-	/*
-	 * All operations were successful, return 0 as mandated by
-	 * the kernel crypto API interface.
-	 */
-	len = 0;
-err:
-	return len;
+	return 0;
 }
 
 /***************************************************************
