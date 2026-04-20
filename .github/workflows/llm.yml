@@ -74,7 +74,7 @@ jobs:
           Your review should be based on the current Kernel documentation at
           ./Documentation/ . Never says things you are unsure.
 
-          You have access to multi-architecture compilers and `$sh_source` (already sourced)
+          You have access to multi-architecture compilers and `$CI_WORKTREE/ci/build.sh` (already sourced)
           contain multiple bash methods that run during the CI/CD that you can use to
           replicate the CI/CD steps, for example, to compile for 'arm' a minimal
           defconfig, do
@@ -110,10 +110,11 @@ jobs:
           can be fetched with:
             https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling/media/en/technical-documentation/data-sheets/max17335.md
 
-          `python3 -m ci.extract_register_map ./datasheet.pdf` extract register maps from datasheets,
-          should work on most cases, if not, install docling and use it to convert.
+          If not available,
+          `python3 $CI_WORKTREE/ci/extract_register_map.py ./datasheet.pdf`
+          extract register maps from datasheets and should work on most cases.
 
-          A sitemap with all pdfs, including the datasheets, are available at:
+          A sitemap with all pdfs, including the datasheets, is available at:
             https://www.analog.com/media/en/en-pdf-sitemap.xml
           EOF
 
