@@ -137,11 +137,6 @@ struct drbg_state {
 	size_t test_entropylen;
 };
 
-enum drbg_prefixes {
-	DRBG_PREFIX0 = 0x00,
-	DRBG_PREFIX1,
-};
-
 /******************************************************************
  * HMAC DRBG functions
  ******************************************************************/
@@ -151,19 +146,14 @@ static void drbg_hmac_update(struct drbg_state *drbg,
 			     const u8 *data1, size_t data1_len,
 			     const u8 *data2, size_t data2_len)
 {
-	int i = 0;
 	struct hmac_sha512_ctx hmac_ctx;
 	u8 new_key[DRBG_STATE_LEN];
 
-	for (i = 2; 0 < i; i--) {
-		/* first round uses 0x0, second 0x1 */
-		unsigned char prefix = DRBG_PREFIX0;
-		if (1 == i)
-			prefix = DRBG_PREFIX1;
+	for (u8 i = 0; i < 2; i++) {
 		/* 10.1.2.2 step 1 and 4 -- concatenation and HMAC for key */
 		hmac_sha512_init(&hmac_ctx, &drbg->key);
 		hmac_sha512_update(&hmac_ctx, drbg->V, DRBG_STATE_LEN);
-		hmac_sha512_update(&hmac_ctx, &prefix, 1);
+		hmac_sha512_update(&hmac_ctx, &i, 1);
 		hmac_sha512_update(&hmac_ctx, data1, data1_len);
 		hmac_sha512_update(&hmac_ctx, data2, data2_len);
 		hmac_sha512_final(&hmac_ctx, new_key);
