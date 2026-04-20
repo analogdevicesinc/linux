@@ -115,7 +115,7 @@ enum drbg_seed_state {
  * Maximum number of requests before reseeding is forced.
  * SP800-90A allows this to be up to 2**48.  We use a lower value.
  */
-#define DRBG_MAX_REQUESTS	(1 << 20)
+#define DRBG_MAX_REQUESTS	4096
 
 /*
  * Maximum number of random bytes that can be requested at once.
