@@ -831,11 +831,23 @@ int32_t adi_ad9083_rx_adc_vti_set(adi_ad9083_device_t *device, uint32_t fc,
   temp = 2 * 314 * 2 * temp;
   kcap_temp = (uint64_t)1000000000000000ul - temp * 700;
 #ifdef __KERNEL__
-  kcap_temp = div_u64(kcap_temp + (temp / 2) * 115, temp * 115);
+  {
+    /* div_u64 takes a u32 divisor — temp*115 overflows u32 for fc > ~34 MHz.
+     * Use div64_u64 for the full 64-bit divisor.
+     */
+    uint64_t divisor = temp * 115;
+    uint64_t dividend = kcap_temp + (temp / 2) * 115;
+    kcap_temp = div64_u64(dividend, divisor);
+    printk(KERN_INFO "AD9083 vti_set: fc=%u temp=%llu kcap_temp=%llu divisor=%llu\n",
+           fc, temp, kcap_temp, divisor);
+  }
 #else
   kcap_temp = (kcap_temp + (temp / 2) * 115) / (temp * 115);
 #endif
   kcap = (kcap_temp > 63) ? 63 : (uint8_t)kcap_temp;
+#ifdef __KERNEL__
+  printk(KERN_INFO "AD9083 vti_set: kcap=%u kvti=%u\n", kcap, kvti);
+#endif
 
 #ifdef R0
   kgain_temp =
