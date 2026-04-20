@@ -55,7 +55,7 @@
  * char data[DATALEN];
  *
  * drng = crypto_alloc_rng(drng_name, 0, 0);
- * err = crypto_rng_get_bytes(drng, &data, DATALEN);
+ * err = crypto_rng_get_bytes(drng, data, DATALEN);
  * crypto_free_rng(drng);
  *
  *
@@ -64,15 +64,13 @@
  * struct crypto_rng *drng;
  * int err;
  * char data[DATALEN];
- * struct drbg_string pers;
  * char personalization[11] = "some-string";
  *
- * drbg_string_fill(&pers, personalization, strlen(personalization));
  * drng = crypto_alloc_rng(drng_name, 0, 0);
  * // The reset completely re-initializes the DRBG with the provided
  * // personalization string
- * err = crypto_rng_reset(drng, &personalization, strlen(personalization));
- * err = crypto_rng_get_bytes(drng, &data, DATALEN);
+ * err = crypto_rng_reset(drng, personalization, strlen(personalization));
+ * err = crypto_rng_get_bytes(drng, data, DATALEN);
  * crypto_free_rng(drng);
  *
  *
@@ -82,13 +80,10 @@
  * int err;
  * char data[DATALEN];
  * char addtl_string[11] = "some-string";
- * string drbg_string addtl;
  *
- * drbg_string_fill(&addtl, addtl_string, strlen(addtl_string));
  * drng = crypto_alloc_rng(drng_name, 0, 0);
- * // The following call is a wrapper to crypto_rng_get_bytes() and returns
- * // the same error codes.
- * err = crypto_drbg_get_bytes_addtl(drng, &data, DATALEN, &addtl);
+ * err = crypto_rng_generate(drng, addtl_string, strlen(addtl_string),
+			     data, DATALEN);
  * crypto_free_rng(drng);
  *
  *
