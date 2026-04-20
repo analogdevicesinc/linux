@@ -112,7 +112,7 @@ static struct kvm_vm *spawn_vm(struct kvm_vcpu **vcpu, pthread_t *vcpu_thread,
 {
 	struct kvm_vm *vm;
 	u64 *hva;
-	u64 gpa;
+	gpa_t gpa;
 
 	vm = vm_create_with_one_vcpu(vcpu, guest_code);
 

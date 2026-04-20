@@ -114,7 +114,7 @@ struct kvm_vm {
 	gpa_t ucall_mmio_addr;
 	gva_t handlers;
 	u32 dirty_ring_size;
-	u64 gpa_tag_mask;
+	gpa_t gpa_tag_mask;
 
 	/*
 	 * "mmu" is the guest's stage-1, with a short name because the vast
@@ -418,7 +418,7 @@ static inline void vm_enable_cap(struct kvm_vm *vm, u32 cap, u64 arg0)
 	vm_ioctl(vm, KVM_ENABLE_CAP, &enable_cap);
 }
 
-static inline void vm_set_memory_attributes(struct kvm_vm *vm, u64 gpa,
+static inline void vm_set_memory_attributes(struct kvm_vm *vm, gpa_t gpa,
 					    u64 size, u64 attributes)
 {
 	struct kvm_memory_attributes attr = {
@@ -439,28 +439,28 @@ static inline void vm_set_memory_attributes(struct kvm_vm *vm, u64 gpa,
 }
 
 
-static inline void vm_mem_set_private(struct kvm_vm *vm, u64 gpa,
+static inline void vm_mem_set_private(struct kvm_vm *vm, gpa_t gpa,
 				      u64 size)
 {
 	vm_set_memory_attributes(vm, gpa, size, KVM_MEMORY_ATTRIBUTE_PRIVATE);
 }
 
-static inline void vm_mem_set_shared(struct kvm_vm *vm, u64 gpa,
+static inline void vm_mem_set_shared(struct kvm_vm *vm, gpa_t gpa,
 				     u64 size)
 {
 	vm_set_memory_attributes(vm, gpa, size, 0);
 }
 
-void vm_guest_mem_fallocate(struct kvm_vm *vm, u64 gpa, u64 size,
+void vm_guest_mem_fallocate(struct kvm_vm *vm, gpa_t gpa, u64 size,
 			    bool punch_hole);
 
-static inline void vm_guest_mem_punch_hole(struct kvm_vm *vm, u64 gpa,
+static inline void vm_guest_mem_punch_hole(struct kvm_vm *vm, gpa_t gpa,
 					   u64 size)
 {
 	vm_guest_mem_fallocate(vm, gpa, size, true);
 }
 
-static inline void vm_guest_mem_allocate(struct kvm_vm *vm, u64 gpa,
+static inline void vm_guest_mem_allocate(struct kvm_vm *vm, gpa_t gpa,
 					 u64 size)
 {
 	vm_guest_mem_fallocate(vm, gpa, size, false);
@@ -685,21 +685,21 @@ static inline int vm_create_guest_memfd(struct kvm_vm *vm, u64 size,
 }
 
 void vm_set_user_memory_region(struct kvm_vm *vm, u32 slot, u32 flags,
-			       u64 gpa, u64 size, void *hva);
+			       gpa_t gpa, u64 size, void *hva);
 int __vm_set_user_memory_region(struct kvm_vm *vm, u32 slot, u32 flags,
-				u64 gpa, u64 size, void *hva);
+				gpa_t gpa, u64 size, void *hva);
 void vm_set_user_memory_region2(struct kvm_vm *vm, u32 slot, u32 flags,
-				u64 gpa, u64 size, void *hva,
+				gpa_t gpa, u64 size, void *hva,
 				u32 guest_memfd, u64 guest_memfd_offset);
 int __vm_set_user_memory_region2(struct kvm_vm *vm, u32 slot, u32 flags,
-				 u64 gpa, u64 size, void *hva,
+				 gpa_t gpa, u64 size, void *hva,
 				 u32 guest_memfd, u64 guest_memfd_offset);
 
 void vm_userspace_mem_region_add(struct kvm_vm *vm,
 				 enum vm_mem_backing_src_type src_type,
-				 u64 gpa, u32 slot, u64 npages, u32 flags);
+				 gpa_t gpa, u32 slot, u64 npages, u32 flags);
 void vm_mem_add(struct kvm_vm *vm, enum vm_mem_backing_src_type src_type,
-		u64 gpa, u32 slot, u64 npages, u32 flags,
+		gpa_t gpa, u32 slot, u64 npages, u32 flags,
 		int guest_memfd_fd, u64 guest_memfd_offset);
 
 #ifndef vm_arch_has_protected_memory

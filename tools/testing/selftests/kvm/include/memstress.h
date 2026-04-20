@@ -20,7 +20,7 @@
 #define MEMSTRESS_MEM_SLOT_INDEX	1
 
 struct memstress_vcpu_args {
-	u64 gpa;
+	gpa_t gpa;
 	gva_t gva;
 	u64 pages;
 
@@ -32,7 +32,7 @@ struct memstress_vcpu_args {
 struct memstress_args {
 	struct kvm_vm *vm;
 	/* The starting address and size of the guest test region. */
-	u64 gpa;
+	gpa_t gpa;
 	u64 size;
 	u64 guest_page_size;
 	u32 random_seed;

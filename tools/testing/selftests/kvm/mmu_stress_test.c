@@ -22,7 +22,7 @@ static bool all_vcpus_hit_ro_fault;
 
 static void guest_code(u64 start_gpa, u64 end_gpa, u64 stride)
 {
-	u64 gpa;
+	gpa_t gpa;
 	int i;
 
 	for (i = 0; i < 2; i++) {
@@ -206,7 +206,7 @@ static pthread_t *spawn_workers(struct kvm_vm *vm, struct kvm_vcpu **vcpus,
 				u64 start_gpa, u64 end_gpa)
 {
 	struct vcpu_info *info;
-	u64 gpa, nr_bytes;
+	gpa_t gpa, nr_bytes;
 	pthread_t *threads;
 	int i;
 

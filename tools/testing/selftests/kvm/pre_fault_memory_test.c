@@ -33,7 +33,7 @@ static void guest_code(u64 base_gva)
 
 struct slot_worker_data {
 	struct kvm_vm *vm;
-	u64 gpa;
+	gpa_t gpa;
 	u32 flags;
 	bool worker_ready;
 	bool prefault_ready;
@@ -161,7 +161,7 @@ static void pre_fault_memory(struct kvm_vcpu *vcpu, u64 base_gpa, u64 offset,
 
 static void __test_pre_fault_memory(unsigned long vm_type, bool private)
 {
-	u64 gpa, gva, alignment, guest_page_size;
+	gpa_t gpa, gva, alignment, guest_page_size;
 	const struct vm_shape shape = {
 		.mode = VM_MODE_DEFAULT,
 		.type = vm_type,

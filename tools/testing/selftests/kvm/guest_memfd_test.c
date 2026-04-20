@@ -489,7 +489,7 @@ static void test_guest_memfd_guest(void)
 	 * the guest's code, stack, and page tables, and low memory contains
 	 * the PCI hole and other MMIO regions that need to be avoided.
 	 */
-	const u64 gpa = SZ_4G;
+	const gpa_t gpa = SZ_4G;
 	const int slot = 1;
 
 	struct kvm_vcpu *vcpu;

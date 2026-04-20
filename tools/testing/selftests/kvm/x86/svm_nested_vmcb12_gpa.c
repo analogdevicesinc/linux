@@ -28,28 +28,28 @@ static void l2_code(void)
 	vmcall();
 }
 
-static void l1_vmrun(struct svm_test_data *svm, u64 gpa)
+static void l1_vmrun(struct svm_test_data *svm, gpa_t gpa)
 {
 	generic_svm_setup(svm, l2_code, &l2_guest_stack[L2_GUEST_STACK_SIZE]);
 
 	asm volatile ("vmrun %[gpa]" : : [gpa] "a" (gpa) : "memory");
 }
 
-static void l1_vmload(struct svm_test_data *svm, u64 gpa)
+static void l1_vmload(struct svm_test_data *svm, gpa_t gpa)
 {
 	generic_svm_setup(svm, l2_code, &l2_guest_stack[L2_GUEST_STACK_SIZE]);
 
 	asm volatile ("vmload %[gpa]" : : [gpa] "a" (gpa) : "memory");
 }
 
-static void l1_vmsave(struct svm_test_data *svm, u64 gpa)
+static void l1_vmsave(struct svm_test_data *svm, gpa_t gpa)
 {
 	generic_svm_setup(svm, l2_code, &l2_guest_stack[L2_GUEST_STACK_SIZE]);
 
 	asm volatile ("vmsave %[gpa]" : : [gpa] "a" (gpa) : "memory");
 }
 
-static void l1_vmexit(struct svm_test_data *svm, u64 gpa)
+static void l1_vmexit(struct svm_test_data *svm, gpa_t gpa)
 {
 	generic_svm_setup(svm, l2_code, &l2_guest_stack[L2_GUEST_STACK_SIZE]);
 

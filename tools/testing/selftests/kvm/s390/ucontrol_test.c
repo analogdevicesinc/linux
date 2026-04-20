@@ -269,7 +269,7 @@ TEST(uc_cap_hpage)
 }
 
 /* calculate host virtual addr from guest physical addr */
-static void *gpa2hva(FIXTURE_DATA(uc_kvm) *self, u64 gpa)
+static void *gpa2hva(FIXTURE_DATA(uc_kvm) *self, gpa_t gpa)
 {
 	return (void *)(self->base_hva - self->base_gpa + gpa);
 }

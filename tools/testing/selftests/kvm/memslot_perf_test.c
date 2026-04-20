@@ -186,9 +186,9 @@ static void wait_for_vcpu(void)
 		    "sem_timedwait() failed: %d", errno);
 }
 
-static void *vm_gpa2hva(struct vm_data *data, u64 gpa, u64 *rempages)
+static void *vm_gpa2hva(struct vm_data *data, gpa_t gpa, u64 *rempages)
 {
-	u64 gpage, pgoffs;
+	gpa_t gpage, pgoffs;
 	u32 slot, slotoffs;
 	void *base;
 	u32 guest_page_size = data->vm->page_size;
@@ -332,7 +332,7 @@ static bool prepare_vm(struct vm_data *data, int nslots, u64 *maxslots,
 
 	for (slot = 1, guest_addr = MEM_GPA; slot <= data->nslots; slot++) {
 		u64 npages;
-		u64 gpa;
+		gpa_t gpa;
 
 		npages = data->pages_per_slot;
 		if (slot == data->nslots)
@@ -638,7 +638,7 @@ static void test_memslot_move_loop(struct vm_data *data, struct sync_area *sync)
 static void test_memslot_do_unmap(struct vm_data *data,
 				  u64 offsp, u64 count)
 {
-	u64 gpa, ctr;
+	gpa_t gpa, ctr;
 	u32 guest_page_size = data->vm->page_size;
 
 	for (gpa = MEM_TEST_GPA + offsp * guest_page_size, ctr = 0; ctr < count; ) {
@@ -663,7 +663,7 @@ static void test_memslot_do_unmap(struct vm_data *data,
 static void test_memslot_map_unmap_check(struct vm_data *data,
 					 u64 offsp, u64 valexp)
 {
-	u64 gpa;
+	gpa_t gpa;
 	u64 *val;
 	u32 guest_page_size = data->vm->page_size;
 

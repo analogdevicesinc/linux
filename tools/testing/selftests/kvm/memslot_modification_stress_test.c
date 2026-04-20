@@ -58,7 +58,7 @@ static void add_remove_memslot(struct kvm_vm *vm, useconds_t delay,
 			       u64 nr_modifications)
 {
 	u64 pages = max_t(int, vm->page_size, getpagesize()) / vm->page_size;
-	u64 gpa;
+	gpa_t gpa;
 	int i;
 
 	/*

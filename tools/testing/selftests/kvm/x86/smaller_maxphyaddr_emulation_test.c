@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 	struct kvm_vm *vm;
 	struct ucall uc;
 	u64 *hva;
-	u64 gpa;
+	gpa_t gpa;
 	int rc;
 
 	TEST_REQUIRE(kvm_has_cap(KVM_CAP_SMALLER_MAXPHYADDR));

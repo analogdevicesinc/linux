@@ -1400,12 +1400,12 @@ u64 kvm_hypercall(u64 nr, u64 a0, u64 a1, u64 a2, u64 a3);
 u64 __xen_hypercall(u64 nr, u64 a0, void *a1);
 void xen_hypercall(u64 nr, u64 a0, void *a1);
 
-static inline u64 __kvm_hypercall_map_gpa_range(u64 gpa, u64 size, u64 flags)
+static inline u64 __kvm_hypercall_map_gpa_range(gpa_t gpa, u64 size, u64 flags)
 {
 	return kvm_hypercall(KVM_HC_MAP_GPA_RANGE, gpa, size >> PAGE_SHIFT, flags, 0);
 }
 
-static inline void kvm_hypercall_map_gpa_range(u64 gpa, u64 size, u64 flags)
+static inline void kvm_hypercall_map_gpa_range(gpa_t gpa, u64 size, u64 flags)
 {
 	u64 ret = __kvm_hypercall_map_gpa_range(gpa, size, flags);
 

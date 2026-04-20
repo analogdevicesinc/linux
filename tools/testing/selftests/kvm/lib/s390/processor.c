@@ -47,7 +47,7 @@ static u64 virt_alloc_region(struct kvm_vm *vm, int ri)
 		| ((ri < 4 ? (PAGES_PER_REGION - 1) : 0) & REGION_ENTRY_LENGTH);
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 gpa)
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, gpa_t gpa)
 {
 	int ri, idx;
 	u64 *entry;
