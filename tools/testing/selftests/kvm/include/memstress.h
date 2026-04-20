@@ -21,7 +21,7 @@
 
 struct memstress_vcpu_args {
 	u64 gpa;
-	u64 gva;
+	gva_t gva;
 	u64 pages;
 
 	/* Only used by the host userspace part of the vCPU thread */

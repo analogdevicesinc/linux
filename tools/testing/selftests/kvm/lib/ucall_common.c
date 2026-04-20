@@ -29,12 +29,12 @@ void ucall_init(struct kvm_vm *vm, gpa_t mmio_gpa)
 {
 	struct ucall_header *hdr;
 	struct ucall *uc;
-	gva_t vaddr;
+	gva_t gva;
 	int i;
 
-	vaddr = vm_alloc_shared(vm, sizeof(*hdr), KVM_UTIL_MIN_VADDR,
+	gva = vm_alloc_shared(vm, sizeof(*hdr), KVM_UTIL_MIN_VADDR,
 				MEM_REGION_DATA);
-	hdr = (struct ucall_header *)addr_gva2hva(vm, vaddr);
+	hdr = (struct ucall_header *)addr_gva2hva(vm, gva);
 	memset(hdr, 0, sizeof(*hdr));
 
 	for (i = 0; i < KVM_MAX_VCPUS; ++i) {
@@ -42,7 +42,7 @@ void ucall_init(struct kvm_vm *vm, gpa_t mmio_gpa)
 		uc->hva = uc;
 	}
 
-	write_guest_global(vm, ucall_pool, (struct ucall_header *)vaddr);
+	write_guest_global(vm, ucall_pool, (struct ucall_header *)gva);
 
 	ucall_arch_init(vm, mmio_gpa);
 }

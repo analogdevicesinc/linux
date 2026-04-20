@@ -393,7 +393,7 @@ int main(int argc, char *argv[])
 	int run_secs = 0;
 	int delay_usecs = 0;
 	struct test_data_page *data;
-	gva_t test_data_page_vaddr;
+	gva_t test_data_page_gva;
 	bool migrate = false;
 	pthread_t threads[2];
 	struct thread_params params[2];
@@ -414,14 +414,14 @@ int main(int argc, char *argv[])
 
 	params[1].vcpu = vm_vcpu_add(vm, 1, sender_guest_code);
 
-	test_data_page_vaddr = vm_alloc_page(vm);
-	data = addr_gva2hva(vm, test_data_page_vaddr);
+	test_data_page_gva = vm_alloc_page(vm);
+	data = addr_gva2hva(vm, test_data_page_gva);
 	memset(data, 0, sizeof(*data));
 	params[0].data = data;
 	params[1].data = data;
 
-	vcpu_args_set(params[0].vcpu, 1, test_data_page_vaddr);
-	vcpu_args_set(params[1].vcpu, 1, test_data_page_vaddr);
+	vcpu_args_set(params[0].vcpu, 1, test_data_page_gva);
+	vcpu_args_set(params[1].vcpu, 1, test_data_page_gva);
 
 	pipis_rcvd = (u64 *)addr_gva2hva(vm, (u64)&ipis_rcvd);
 	params[0].pipis_rcvd = pipis_rcvd;

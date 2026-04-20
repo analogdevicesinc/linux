@@ -111,22 +111,21 @@ gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 	u64 *ptep;
 
 	ptep = virt_populate_pte(vm, gva, 0);
-	TEST_ASSERT(*ptep != 0, "Virtual address vaddr: 0x%lx not mapped\n", gva);
+	TEST_ASSERT(*ptep != 0, "Virtual address gva: 0x%lx not mapped\n", gva);
 
 	return pte_addr(vm, *ptep) + (gva & (vm->page_size - 1));
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
 {
 	u32 prot_bits;
 	u64 *ptep;
 
-	TEST_ASSERT((vaddr % vm->page_size) == 0,
+	TEST_ASSERT((gva % vm->page_size) == 0,
 			"Virtual address not on page boundary,\n"
-			"vaddr: 0x%lx vm->page_size: 0x%x", vaddr, vm->page_size);
-	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid,
-			(vaddr >> vm->page_shift)),
-			"Invalid virtual address, vaddr: 0x%lx", vaddr);
+			"gva: 0x%lx vm->page_size: 0x%x", gva, vm->page_size);
+	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid, (gva >> vm->page_shift)),
+			"Invalid virtual address, gva: 0x%lx", gva);
 	TEST_ASSERT((paddr % vm->page_size) == 0,
 			"Physical address not on page boundary,\n"
 			"paddr: 0x%lx vm->page_size: 0x%x", paddr, vm->page_size);
@@ -135,7 +134,7 @@ void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
 			"paddr: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
 			paddr, vm->max_gfn, vm->page_size);
 
-	ptep = virt_populate_pte(vm, vaddr, 1);
+	ptep = virt_populate_pte(vm, gva, 1);
 	prot_bits = _PAGE_PRESENT | __READABLE | __WRITEABLE | _CACHE_CC | _PAGE_USER;
 	WRITE_ONCE(*ptep, paddr | prot_bits);
 }
@@ -373,20 +372,20 @@ void loongarch_vcpu_setup(struct kvm_vcpu *vcpu)
 struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 {
 	size_t stack_size;
-	u64 stack_vaddr;
+	u64 stack_gva;
 	struct kvm_regs regs;
 	struct kvm_vcpu *vcpu;
 
 	vcpu = __vm_vcpu_add(vm, vcpu_id);
 	stack_size = vm->page_size;
-	stack_vaddr = __vm_alloc(vm, stack_size,
-				 LOONGARCH_GUEST_STACK_VADDR_MIN, MEM_REGION_DATA);
-	TEST_ASSERT(stack_vaddr != 0,  "No memory for vm stack");
+	stack_gva = __vm_alloc(vm, stack_size,
+			       LOONGARCH_GUEST_STACK_VADDR_MIN, MEM_REGION_DATA);
+	TEST_ASSERT(stack_gva != 0,  "No memory for vm stack");
 
 	loongarch_vcpu_setup(vcpu);
 	/* Setup guest general purpose registers */
 	vcpu_regs_get(vcpu, &regs);
-	regs.gpr[3] = stack_vaddr + stack_size;
+	regs.gpr[3] = stack_gva + stack_size;
 	vcpu_regs_set(vcpu, &regs);
 
 	return vcpu;

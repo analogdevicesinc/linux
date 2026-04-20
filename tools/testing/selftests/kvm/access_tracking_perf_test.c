@@ -123,7 +123,7 @@ static u64 pread_u64(int fd, const char *filename, u64 index)
 #define PAGEMAP_PRESENT (1ULL << 63)
 #define PAGEMAP_PFN_MASK ((1ULL << 55) - 1)
 
-static u64 lookup_pfn(int pagemap_fd, struct kvm_vm *vm, u64 gva)
+static u64 lookup_pfn(int pagemap_fd, struct kvm_vm *vm, gva_t gva)
 {
 	u64 hva = (u64)addr_gva2hva(vm, gva);
 	u64 entry;
@@ -174,7 +174,7 @@ static void pageidle_mark_vcpu_memory_idle(struct kvm_vm *vm,
 					   struct memstress_vcpu_args *vcpu_args)
 {
 	int vcpu_idx = vcpu_args->vcpu_idx;
-	u64 base_gva = vcpu_args->gva;
+	gva_t base_gva = vcpu_args->gva;
 	u64 pages = vcpu_args->pages;
 	u64 page;
 	u64 still_idle = 0;
@@ -193,7 +193,7 @@ static void pageidle_mark_vcpu_memory_idle(struct kvm_vm *vm,
 	TEST_ASSERT(pagemap_fd > 0, "Failed to open pagemap.");
 
 	for (page = 0; page < pages; page++) {
-		u64 gva = base_gva + page * memstress_args.guest_page_size;
+		gva_t gva = base_gva + page * memstress_args.guest_page_size;
 		u64 pfn = lookup_pfn(pagemap_fd, vm, gva);
 
 		if (!pfn) {

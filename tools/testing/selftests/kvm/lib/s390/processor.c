@@ -47,19 +47,17 @@ static u64 virt_alloc_region(struct kvm_vm *vm, int ri)
 		| ((ri < 4 ? (PAGES_PER_REGION - 1) : 0) & REGION_ENTRY_LENGTH);
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, u64 gva, u64 gpa)
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 gpa)
 {
 	int ri, idx;
 	u64 *entry;
 
 	TEST_ASSERT((gva % vm->page_size) == 0,
-		"Virtual address not on page boundary,\n"
-		"  vaddr: 0x%lx vm->page_size: 0x%x",
-		gva, vm->page_size);
-	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid,
-		(gva >> vm->page_shift)),
-		"Invalid virtual address, vaddr: 0x%lx",
-		gva);
+		    "Virtual address not on page boundary,\n"
+		    "  gva: 0x%lx vm->page_size: 0x%x",
+		    gva, vm->page_size);
+	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid, (gva >> vm->page_shift)),
+		    "Invalid virtual address, gva: 0x%lx", gva);
 	TEST_ASSERT((gpa % vm->page_size) == 0,
 		"Physical address not on page boundary,\n"
 		"  paddr: 0x%lx vm->page_size: 0x%x",
@@ -163,7 +161,7 @@ void vcpu_arch_set_entry_point(struct kvm_vcpu *vcpu, void *guest_code)
 struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 {
 	size_t stack_size =  DEFAULT_STACK_PGS * getpagesize();
-	u64 stack_vaddr;
+	u64 stack_gva;
 	struct kvm_regs regs;
 	struct kvm_sregs sregs;
 	struct kvm_vcpu *vcpu;
@@ -171,15 +169,14 @@ struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 	TEST_ASSERT(vm->page_size == PAGE_SIZE, "Unsupported page size: 0x%x",
 		    vm->page_size);
 
-	stack_vaddr = __vm_alloc(vm, stack_size,
-				       DEFAULT_GUEST_STACK_VADDR_MIN,
-				       MEM_REGION_DATA);
+	stack_gva = __vm_alloc(vm, stack_size, DEFAULT_GUEST_STACK_VADDR_MIN,
+			       MEM_REGION_DATA);
 
 	vcpu = __vm_vcpu_add(vm, vcpu_id);
 
 	/* Setup guest registers */
 	vcpu_regs_get(vcpu, &regs);
-	regs.gprs[15] = stack_vaddr + (DEFAULT_STACK_PGS * getpagesize()) - 160;
+	regs.gprs[15] = stack_gva + (DEFAULT_STACK_PGS * getpagesize()) - 160;
 	vcpu_regs_set(vcpu, &regs);
 
 	vcpu_sregs_get(vcpu, &sregs);

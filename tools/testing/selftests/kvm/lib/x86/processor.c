@@ -207,15 +207,15 @@ void tdp_mmu_init(struct kvm_vm *vm, int pgtable_levels,
 }
 
 static void *virt_get_pte(struct kvm_vm *vm, struct kvm_mmu *mmu,
-			  u64 *parent_pte, u64 vaddr, int level)
+			  u64 *parent_pte, gva_t gva, int level)
 {
 	u64 pt_gpa = PTE_GET_PA(*parent_pte);
 	u64 *page_table = addr_gpa2hva(vm, pt_gpa);
-	int index = (vaddr >> PG_LEVEL_SHIFT(level)) & 0x1ffu;
+	int index = (gva >> PG_LEVEL_SHIFT(level)) & 0x1ffu;
 
 	TEST_ASSERT((*parent_pte == mmu->pgd) || is_present_pte(mmu, parent_pte),
 		    "Parent PTE (level %d) not PRESENT for gva: 0x%08lx",
-		    level + 1, vaddr);
+		    level + 1, gva);
 
 	return &page_table[index];
 }
@@ -223,12 +223,12 @@ static void *virt_get_pte(struct kvm_vm *vm, struct kvm_mmu *mmu,
 static u64 *virt_create_upper_pte(struct kvm_vm *vm,
 				  struct kvm_mmu *mmu,
 				  u64 *parent_pte,
-				  u64 vaddr,
+				  gva_t gva,
 				  u64 paddr,
 				  int current_level,
 				  int target_level)
 {
-	u64 *pte = virt_get_pte(vm, mmu, parent_pte, vaddr, current_level);
+	u64 *pte = virt_get_pte(vm, mmu, parent_pte, gva, current_level);
 
 	paddr = vm_untag_gpa(vm, paddr);
 
@@ -247,16 +247,16 @@ static u64 *virt_create_upper_pte(struct kvm_vm *vm,
 		 * this level.
 		 */
 		TEST_ASSERT(current_level != target_level,
-			    "Cannot create hugepage at level: %u, vaddr: 0x%lx",
-			    current_level, vaddr);
+			    "Cannot create hugepage at level: %u, gva: 0x%lx",
+			    current_level, gva);
 		TEST_ASSERT(!is_huge_pte(mmu, pte),
-			    "Cannot create page table at level: %u, vaddr: 0x%lx",
-			    current_level, vaddr);
+			    "Cannot create page table at level: %u, gva: 0x%lx",
+			    current_level, gva);
 	}
 	return pte;
 }
 
-void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, u64 vaddr,
+void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, gva_t gva,
 		   u64 paddr, int level)
 {
 	const u64 pg_size = PG_LEVEL_SIZE(level);
@@ -266,11 +266,11 @@ void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, u64 vaddr,
 	TEST_ASSERT(vm->mode == VM_MODE_PXXVYY_4K,
 		    "Unknown or unsupported guest mode: 0x%x", vm->mode);
 
-	TEST_ASSERT((vaddr % pg_size) == 0,
+	TEST_ASSERT((gva % pg_size) == 0,
 		    "Virtual address not aligned,\n"
-		    "vaddr: 0x%lx page size: 0x%lx", vaddr, pg_size);
-	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid, (vaddr >> vm->page_shift)),
-		    "Invalid virtual address, vaddr: 0x%lx", vaddr);
+		    "gva: 0x%lx page size: 0x%lx", gva, pg_size);
+	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid, (gva >> vm->page_shift)),
+		    "Invalid virtual address, gva: 0x%lx", gva);
 	TEST_ASSERT((paddr % pg_size) == 0,
 		    "Physical address not aligned,\n"
 		    "  paddr: 0x%lx page size: 0x%lx", paddr, pg_size);
@@ -291,16 +291,16 @@ void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, u64 vaddr,
 	for (current_level = mmu->pgtable_levels;
 	     current_level > PG_LEVEL_4K;
 	     current_level--) {
-		pte = virt_create_upper_pte(vm, mmu, pte, vaddr, paddr,
+		pte = virt_create_upper_pte(vm, mmu, pte, gva, paddr,
 					    current_level, level);
 		if (is_huge_pte(mmu, pte))
 			return;
 	}
 
 	/* Fill in page table entry. */
-	pte = virt_get_pte(vm, mmu, pte, vaddr, PG_LEVEL_4K);
+	pte = virt_get_pte(vm, mmu, pte, gva, PG_LEVEL_4K);
 	TEST_ASSERT(!is_present_pte(mmu, pte),
-		    "PTE already present for 4k page at vaddr: 0x%lx", vaddr);
+		    "PTE already present for 4k page at gva: 0x%lx", gva);
 	*pte = PTE_PRESENT_MASK(mmu) | PTE_READABLE_MASK(mmu) |
 	       PTE_WRITABLE_MASK(mmu) | PTE_EXECUTABLE_MASK(mmu) |
 	       PTE_ALWAYS_SET_MASK(mmu) | (paddr & PHYSICAL_PAGE_MASK);
@@ -315,12 +315,12 @@ void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, u64 vaddr,
 		*pte |= PTE_S_BIT_MASK(mmu);
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
 {
-	__virt_pg_map(vm, &vm->mmu, vaddr, paddr, PG_LEVEL_4K);
+	__virt_pg_map(vm, &vm->mmu, gva, paddr, PG_LEVEL_4K);
 }
 
-void virt_map_level(struct kvm_vm *vm, u64 vaddr, u64 paddr,
+void virt_map_level(struct kvm_vm *vm, gva_t gva, u64 paddr,
 		    u64 nr_bytes, int level)
 {
 	u64 pg_size = PG_LEVEL_SIZE(level);
@@ -332,11 +332,11 @@ void virt_map_level(struct kvm_vm *vm, u64 vaddr, u64 paddr,
 		    nr_bytes, pg_size);
 
 	for (i = 0; i < nr_pages; i++) {
-		__virt_pg_map(vm, &vm->mmu, vaddr, paddr, level);
-		sparsebit_set_num(vm->vpages_mapped, vaddr >> vm->page_shift,
+		__virt_pg_map(vm, &vm->mmu, gva, paddr, level);
+		sparsebit_set_num(vm->vpages_mapped, gva >> vm->page_shift,
 				  nr_bytes / PAGE_SIZE);
 
-		vaddr += pg_size;
+		gva += pg_size;
 		paddr += pg_size;
 	}
 }
@@ -356,7 +356,7 @@ static bool vm_is_target_pte(struct kvm_mmu *mmu, u64 *pte,
 
 static u64 *__vm_get_page_table_entry(struct kvm_vm *vm,
 				      struct kvm_mmu *mmu,
-				      u64 vaddr,
+				      gva_t gva,
 				      int *level)
 {
 	int va_width = 12 + (mmu->pgtable_levels) * 9;
@@ -371,26 +371,23 @@ static u64 *__vm_get_page_table_entry(struct kvm_vm *vm,
 
 	TEST_ASSERT(vm->mode == VM_MODE_PXXVYY_4K,
 		    "Unknown or unsupported guest mode: 0x%x", vm->mode);
-	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid,
-		(vaddr >> vm->page_shift)),
-		"Invalid virtual address, vaddr: 0x%lx",
-		vaddr);
+	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid, (gva >> vm->page_shift)),
+		    "Invalid virtual address, gva: 0x%lx", gva);
 	/*
-	 * Check that the vaddr is a sign-extended va_width value.
+	 * Check that the gva is a sign-extended va_width value.
 	 */
-	TEST_ASSERT(vaddr ==
-		    (((s64)vaddr << (64 - va_width) >> (64 - va_width))),
+	TEST_ASSERT(gva == (((s64)gva << (64 - va_width) >> (64 - va_width))),
 		    "Canonical check failed.  The virtual address is invalid.");
 
 	for (current_level = mmu->pgtable_levels;
 	     current_level > PG_LEVEL_4K;
 	     current_level--) {
-		pte = virt_get_pte(vm, mmu, pte, vaddr, current_level);
+		pte = virt_get_pte(vm, mmu, pte, gva, current_level);
 		if (vm_is_target_pte(mmu, pte, level, current_level))
 			return pte;
 	}
 
-	return virt_get_pte(vm, mmu, pte, vaddr, PG_LEVEL_4K);
+	return virt_get_pte(vm, mmu, pte, gva, PG_LEVEL_4K);
 }
 
 u64 *tdp_get_pte(struct kvm_vm *vm, u64 l2_gpa)
@@ -400,11 +397,11 @@ u64 *tdp_get_pte(struct kvm_vm *vm, u64 l2_gpa)
 	return __vm_get_page_table_entry(vm, &vm->stage2_mmu, l2_gpa, &level);
 }
 
-u64 *vm_get_pte(struct kvm_vm *vm, u64 vaddr)
+u64 *vm_get_pte(struct kvm_vm *vm, gva_t gva)
 {
 	int level = PG_LEVEL_4K;
 
-	return __vm_get_page_table_entry(vm, &vm->mmu, vaddr, &level);
+	return __vm_get_page_table_entry(vm, &vm->mmu, gva, &level);
 }
 
 void virt_arch_dump(FILE *stream, struct kvm_vm *vm, u8 indent)
@@ -825,14 +822,13 @@ struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 {
 	struct kvm_mp_state mp_state;
 	struct kvm_regs regs;
-	gva_t stack_vaddr;
+	gva_t stack_gva;
 	struct kvm_vcpu *vcpu;
 
-	stack_vaddr = __vm_alloc(vm, DEFAULT_STACK_PGS * getpagesize(),
-				       DEFAULT_GUEST_STACK_VADDR_MIN,
-				       MEM_REGION_DATA);
+	stack_gva = __vm_alloc(vm, DEFAULT_STACK_PGS * getpagesize(),
+			       DEFAULT_GUEST_STACK_VADDR_MIN, MEM_REGION_DATA);
 
-	stack_vaddr += DEFAULT_STACK_PGS * getpagesize();
+	stack_gva += DEFAULT_STACK_PGS * getpagesize();
 
 	/*
 	 * Align stack to match calling sequence requirements in section "The
@@ -843,9 +839,9 @@ struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 	 * If this code is ever used to launch a vCPU with 32-bit entry point it
 	 * may need to subtract 4 bytes instead of 8 bytes.
 	 */
-	TEST_ASSERT(IS_ALIGNED(stack_vaddr, PAGE_SIZE),
+	TEST_ASSERT(IS_ALIGNED(stack_gva, PAGE_SIZE),
 		    "__vm_alloc() did not provide a page-aligned address");
-	stack_vaddr -= 8;
+	stack_gva -= 8;
 
 	vcpu = __vm_vcpu_add(vm, vcpu_id);
 	vcpu_init_cpuid(vcpu, kvm_get_supported_cpuid());
@@ -855,7 +851,7 @@ struct kvm_vcpu *vm_arch_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 	/* Setup guest general purpose registers */
 	vcpu_regs_get(vcpu, &regs);
 	regs.rflags = regs.rflags | 0x2;
-	regs.rsp = stack_vaddr;
+	regs.rsp = stack_gva;
 	vcpu_regs_set(vcpu, &regs);
 
 	/* Setup the MP state */

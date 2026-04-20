@@ -70,9 +70,9 @@ struct test_params {
 	struct test_desc *test_desc;
 };
 
-static inline void flush_tlb_page(u64 vaddr)
+static inline void flush_tlb_page(gva_t gva)
 {
-	u64 page = vaddr >> 12;
+	gva_t page = gva >> 12;
 
 	dsb(ishst);
 	asm volatile("tlbi vaae1is, %0" :: "r" (page));

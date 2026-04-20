@@ -49,7 +49,7 @@ void memstress_guest_code(u32 vcpu_idx)
 	struct memstress_args *args = &memstress_args;
 	struct memstress_vcpu_args *vcpu_args = &args->vcpu_args[vcpu_idx];
 	struct guest_random_state rand_state;
-	u64 gva;
+	gva_t gva;
 	u64 pages;
 	u64 addr;
 	u64 page;

@@ -162,14 +162,14 @@ void kvm_vm_elf_load(struct kvm_vm *vm, const char *filename)
 		seg_vend |= vm->page_size - 1;
 		size_t seg_size = seg_vend - seg_vstart + 1;
 
-		gva_t vaddr = __vm_alloc(vm, seg_size, seg_vstart, MEM_REGION_CODE);
-		TEST_ASSERT(vaddr == seg_vstart, "Unable to allocate "
+		gva_t gva = __vm_alloc(vm, seg_size, seg_vstart, MEM_REGION_CODE);
+		TEST_ASSERT(gva == seg_vstart, "Unable to allocate "
 			"virtual memory for segment at requested min addr,\n"
 			"  segment idx: %u\n"
 			"  seg_vstart: 0x%lx\n"
-			"  vaddr: 0x%lx",
-			n1, seg_vstart, vaddr);
-		memset(addr_gva2hva(vm, vaddr), 0, seg_size);
+			"  gva: 0x%lx",
+			n1, seg_vstart, gva);
+		memset(addr_gva2hva(vm, gva), 0, seg_size);
 		/* TODO(lhuemill): Set permissions of each memory segment
 		 * based on the least-significant 3 bits of phdr.p_flags.
 		 */

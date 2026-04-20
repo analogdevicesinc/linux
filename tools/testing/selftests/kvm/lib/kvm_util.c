@@ -1367,17 +1367,17 @@ struct kvm_vcpu *__vm_vcpu_add(struct kvm_vm *vm, u32 vcpu_id)
 
 /*
  * Within the VM specified by @vm, locates the lowest starting guest virtual
- * address >= @vaddr_min, that has at least @sz unallocated bytes.  A
+ * address >= @min_gva, that has at least @sz unallocated bytes.  A
  * TEST_ASSERT failure occurs for invalid input or no area of at least
  * @sz unallocated bytes >= @min_gva is available.
  */
-gva_t vm_unused_gva_gap(struct kvm_vm *vm, size_t sz, gva_t vaddr_min)
+gva_t vm_unused_gva_gap(struct kvm_vm *vm, size_t sz, gva_t min_gva)
 {
 	u64 pages = (sz + vm->page_size - 1) >> vm->page_shift;
 
 	/* Determine lowest permitted virtual page index. */
-	u64 pgidx_start = (vaddr_min + vm->page_size - 1) >> vm->page_shift;
-	if ((pgidx_start * vm->page_size) < vaddr_min)
+	u64 pgidx_start = (min_gva + vm->page_size - 1) >> vm->page_shift;
+	if ((pgidx_start * vm->page_size) < min_gva)
 		goto no_va_found;
 
 	/* Loop over section with enough valid virtual page indexes. */
@@ -1414,7 +1414,7 @@ gva_t vm_unused_gva_gap(struct kvm_vm *vm, size_t sz, gva_t vaddr_min)
 	} while (pgidx_start != 0);
 
 no_va_found:
-	TEST_FAIL("No vaddr of specified pages available, pages: 0x%lx", pages);
+	TEST_FAIL("No gva of specified pages available, pages: 0x%lx", pages);
 
 	/* NOT REACHED */
 	return -1;
@@ -1436,7 +1436,7 @@ va_found:
 	return pgidx_start * vm->page_size;
 }
 
-static gva_t ____vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+static gva_t ____vm_alloc(struct kvm_vm *vm, size_t sz, gva_t min_gva,
 			  enum kvm_mem_region_type type, bool protected)
 {
 	u64 pages = (sz >> vm->page_shift) + ((sz % vm->page_size) != 0);
@@ -1450,41 +1450,41 @@ static gva_t ____vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
 	 * Find an unused range of virtual page addresses of at least
 	 * pages in length.
 	 */
-	gva_t vaddr_start = vm_unused_gva_gap(vm, sz, vaddr_min);
+	gva_t gva_start = vm_unused_gva_gap(vm, sz, min_gva);
 
 	/* Map the virtual pages. */
-	for (gva_t vaddr = vaddr_start; pages > 0;
-		pages--, vaddr += vm->page_size, paddr += vm->page_size) {
+	for (gva_t gva = gva_start; pages > 0;
+		pages--, gva += vm->page_size, paddr += vm->page_size) {
 
-		virt_pg_map(vm, vaddr, paddr);
+		virt_pg_map(vm, gva, paddr);
 	}
 
-	return vaddr_start;
+	return gva_start;
 }
 
-gva_t __vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+gva_t __vm_alloc(struct kvm_vm *vm, size_t sz, gva_t min_gva,
 		 enum kvm_mem_region_type type)
 {
-	return ____vm_alloc(vm, sz, vaddr_min, type,
+	return ____vm_alloc(vm, sz, min_gva, type,
 			    vm_arch_has_protected_memory(vm));
 }
 
-gva_t vm_alloc_shared(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+gva_t vm_alloc_shared(struct kvm_vm *vm, size_t sz, gva_t min_gva,
 		      enum kvm_mem_region_type type)
 {
-	return ____vm_alloc(vm, sz, vaddr_min, type, false);
+	return ____vm_alloc(vm, sz, min_gva, type, false);
 }
 
 /*
  * Allocates at least sz bytes within the virtual address space of the VM
  * given by @vm.  The allocated bytes are mapped to a virtual address >= the
- * address given by @vaddr_min.  Note that each allocation uses a a unique set
+ * address given by @min_gva.  Note that each allocation uses a a unique set
  * of pages, with the minimum real allocation being at least a page. The
  * allocated physical space comes from the TEST_DATA memory region.
  */
-gva_t vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min)
+gva_t vm_alloc(struct kvm_vm *vm, size_t sz, gva_t min_gva)
 {
-	return __vm_alloc(vm, sz, vaddr_min, MEM_REGION_TEST_DATA);
+	return __vm_alloc(vm, sz, min_gva, MEM_REGION_TEST_DATA);
 }
 
 gva_t vm_alloc_pages(struct kvm_vm *vm, int nr_pages)
@@ -1503,34 +1503,24 @@ gva_t vm_alloc_page(struct kvm_vm *vm)
 }
 
 /*
- * Map a range of VM virtual address to the VM's physical address
+ * Map a range of VM virtual address to the VM's physical address.
  *
- * Input Args:
- *   vm - Virtual Machine
- *   vaddr - Virtuall address to map
- *   paddr - VM Physical Address
- *   npages - The number of pages to map
- *
- * Output Args: None
- *
- * Return: None
- *
- * Within the VM given by @vm, creates a virtual translation for
- * @npages starting at @vaddr to the page range starting at @paddr.
+ * Within the VM given by @vm, creates a virtual translation for @npages
+ * starting at @gva to the page range starting at @paddr.
  */
-void virt_map(struct kvm_vm *vm, u64 vaddr, u64 paddr,
+void virt_map(struct kvm_vm *vm, gva_t gva, u64 paddr,
 	      unsigned int npages)
 {
 	size_t page_size = vm->page_size;
 	size_t size = npages * page_size;
 
-	TEST_ASSERT(vaddr + size > vaddr, "Vaddr overflow");
+	TEST_ASSERT(gva + size > gva, "Vaddr overflow");
 	TEST_ASSERT(paddr + size > paddr, "Paddr overflow");
 
 	while (npages--) {
-		virt_pg_map(vm, vaddr, paddr);
+		virt_pg_map(vm, gva, paddr);
 
-		vaddr += page_size;
+		gva += page_size;
 		paddr += page_size;
 	}
 }

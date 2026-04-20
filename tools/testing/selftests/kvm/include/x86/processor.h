@@ -1394,7 +1394,7 @@ static inline bool kvm_is_lbrv_enabled(void)
 	return !!get_kvm_amd_param_integer("lbrv");
 }
 
-u64 *vm_get_pte(struct kvm_vm *vm, u64 vaddr);
+u64 *vm_get_pte(struct kvm_vm *vm, gva_t gva);
 
 u64 kvm_hypercall(u64 nr, u64 a0, u64 a1, u64 a2, u64 a3);
 u64 __xen_hypercall(u64 nr, u64 a0, void *a1);
@@ -1507,9 +1507,9 @@ enum pg_level {
 void tdp_mmu_init(struct kvm_vm *vm, int pgtable_levels,
 		  struct pte_masks *pte_masks);
 
-void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, u64 vaddr,
+void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, gva_t gva,
 		   u64 paddr,  int level);
-void virt_map_level(struct kvm_vm *vm, u64 vaddr, u64 paddr,
+void virt_map_level(struct kvm_vm *vm, gva_t gva, u64 paddr,
 		    u64 nr_bytes, int level);
 
 void vm_enable_tdp(struct kvm_vm *vm);

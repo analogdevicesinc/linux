@@ -715,17 +715,17 @@ void vm_mem_region_move(struct kvm_vm *vm, u32 slot, u64 new_gpa);
 void vm_mem_region_delete(struct kvm_vm *vm, u32 slot);
 struct kvm_vcpu *__vm_vcpu_add(struct kvm_vm *vm, u32 vcpu_id);
 void vm_populate_gva_bitmap(struct kvm_vm *vm);
-gva_t vm_unused_gva_gap(struct kvm_vm *vm, size_t sz, gva_t vaddr_min);
-gva_t vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min);
-gva_t __vm_alloc(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+gva_t vm_unused_gva_gap(struct kvm_vm *vm, size_t sz, gva_t min_gva);
+gva_t vm_alloc(struct kvm_vm *vm, size_t sz, gva_t min_gva);
+gva_t __vm_alloc(struct kvm_vm *vm, size_t sz, gva_t min_gva,
 		 enum kvm_mem_region_type type);
-gva_t vm_alloc_shared(struct kvm_vm *vm, size_t sz, gva_t vaddr_min,
+gva_t vm_alloc_shared(struct kvm_vm *vm, size_t sz, gva_t min_gva,
 		      enum kvm_mem_region_type type);
 gva_t vm_alloc_pages(struct kvm_vm *vm, int nr_pages);
 gva_t __vm_alloc_page(struct kvm_vm *vm, enum kvm_mem_region_type type);
 gva_t vm_alloc_page(struct kvm_vm *vm);
 
-void virt_map(struct kvm_vm *vm, u64 vaddr, u64 paddr,
+void virt_map(struct kvm_vm *vm, gva_t gva, u64 paddr,
 	      unsigned int npages);
 void *addr_gpa2hva(struct kvm_vm *vm, gpa_t gpa);
 void *addr_gva2hva(struct kvm_vm *vm, gva_t gva);
@@ -1202,27 +1202,15 @@ static inline void virt_pgd_alloc(struct kvm_vm *vm)
 }
 
 /*
- * VM Virtual Page Map
- *
- * Input Args:
- *   vm - Virtual Machine
- *   vaddr - VM Virtual Address
- *   paddr - VM Physical Address
- *   memslot - Memory region slot for new virtual translation tables
- *
- * Output Args: None
- *
- * Return: None
- *
  * Within @vm, creates a virtual translation for the page starting
- * at @vaddr to the page starting at @paddr.
+ * at @gva to the page starting at @paddr.
  */
-void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr);
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr);
 
-static inline void virt_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
+static inline void virt_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
 {
-	virt_arch_pg_map(vm, vaddr, paddr);
-	sparsebit_set(vm->vpages_mapped, vaddr >> vm->page_shift);
+	virt_arch_pg_map(vm, gva, paddr);
+	sparsebit_set(vm->vpages_mapped, gva >> vm->page_shift);
 }
 
 

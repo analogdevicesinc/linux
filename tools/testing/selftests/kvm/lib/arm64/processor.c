@@ -121,19 +121,18 @@ void virt_arch_pgd_alloc(struct kvm_vm *vm)
 	vm->mmu.pgd_created = true;
 }
 
-static void _virt_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr,
+static void _virt_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr,
 			 u64 flags)
 {
 	u8 attr_idx = flags & (PTE_ATTRINDX_MASK >> PTE_ATTRINDX_SHIFT);
 	u64 pg_attr;
 	u64 *ptep;
 
-	TEST_ASSERT((vaddr % vm->page_size) == 0,
+	TEST_ASSERT((gva % vm->page_size) == 0,
 		"Virtual address not on page boundary,\n"
-		"  vaddr: 0x%lx vm->page_size: 0x%x", vaddr, vm->page_size);
-	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid,
-		(vaddr >> vm->page_shift)),
-		"Invalid virtual address, vaddr: 0x%lx", vaddr);
+		"  gva: 0x%lx vm->page_size: 0x%x", gva, vm->page_size);
+	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid, (gva >> vm->page_shift)),
+		    "Invalid virtual address, gva: 0x%lx", gva);
 	TEST_ASSERT((paddr % vm->page_size) == 0,
 		"Physical address not on page boundary,\n"
 		"  paddr: 0x%lx vm->page_size: 0x%x", paddr, vm->page_size);
@@ -142,26 +141,26 @@ static void _virt_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr,
 		"  paddr: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
 		paddr, vm->max_gfn, vm->page_size);
 
-	ptep = addr_gpa2hva(vm, vm->mmu.pgd) + pgd_index(vm, vaddr) * 8;
+	ptep = addr_gpa2hva(vm, vm->mmu.pgd) + pgd_index(vm, gva) * 8;
 	if (!*ptep)
 		*ptep = addr_pte(vm, vm_alloc_page_table(vm),
 				 PGD_TYPE_TABLE | PTE_VALID);
 
 	switch (vm->mmu.pgtable_levels) {
 	case 4:
-		ptep = addr_gpa2hva(vm, pte_addr(vm, *ptep)) + pud_index(vm, vaddr) * 8;
+		ptep = addr_gpa2hva(vm, pte_addr(vm, *ptep)) + pud_index(vm, gva) * 8;
 		if (!*ptep)
 			*ptep = addr_pte(vm, vm_alloc_page_table(vm),
 					 PUD_TYPE_TABLE | PTE_VALID);
 		/* fall through */
 	case 3:
-		ptep = addr_gpa2hva(vm, pte_addr(vm, *ptep)) + pmd_index(vm, vaddr) * 8;
+		ptep = addr_gpa2hva(vm, pte_addr(vm, *ptep)) + pmd_index(vm, gva) * 8;
 		if (!*ptep)
 			*ptep = addr_pte(vm, vm_alloc_page_table(vm),
 					 PMD_TYPE_TABLE | PTE_VALID);
 		/* fall through */
 	case 2:
-		ptep = addr_gpa2hva(vm, pte_addr(vm, *ptep)) + pte_index(vm, vaddr) * 8;
+		ptep = addr_gpa2hva(vm, pte_addr(vm, *ptep)) + pte_index(vm, gva) * 8;
 		break;
 	default:
 		TEST_FAIL("Page table levels must be 2, 3, or 4");
@@ -174,11 +173,11 @@ static void _virt_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr,
 	*ptep = addr_pte(vm, paddr, pg_attr);
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, u64 vaddr, u64 paddr)
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
 {
 	u64 attr_idx = MT_NORMAL;
 
-	_virt_pg_map(vm, vaddr, paddr, attr_idx);
+	_virt_pg_map(vm, gva, paddr, attr_idx);
 }
 
 u64 *virt_get_pte_hva_at_level(struct kvm_vm *vm, gva_t gva, int level)
@@ -417,18 +416,18 @@ static struct kvm_vcpu *__aarch64_vcpu_add(struct kvm_vm *vm, u32 vcpu_id,
 					   struct kvm_vcpu_init *init)
 {
 	size_t stack_size;
-	u64 stack_vaddr;
+	gva_t stack_gva;
 	struct kvm_vcpu *vcpu = __vm_vcpu_add(vm, vcpu_id);
 
 	stack_size = vm->page_size == 4096 ? DEFAULT_STACK_PGS * vm->page_size :
 					     vm->page_size;
-	stack_vaddr = __vm_alloc(vm, stack_size,
-				 DEFAULT_ARM64_GUEST_STACK_VADDR_MIN,
-				 MEM_REGION_DATA);
+	stack_gva = __vm_alloc(vm, stack_size,
+			       DEFAULT_ARM64_GUEST_STACK_VADDR_MIN,
+			       MEM_REGION_DATA);
 
 	aarch64_vcpu_setup(vcpu, init);
 
-	vcpu_set_reg(vcpu, ctxt_reg_alias(vcpu, SYS_SP_EL1), stack_vaddr + stack_size);
+	vcpu_set_reg(vcpu, ctxt_reg_alias(vcpu, SYS_SP_EL1), stack_gva + stack_size);
 	return vcpu;
 }
 
