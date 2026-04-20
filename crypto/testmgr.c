@@ -4674,8 +4674,11 @@ static const struct alg_test_desc alg_test_descs[] = {
 		.fips_allowed = 1
 	}, {
 		.alg = "drbg_pr_hmac_sha512",
-		.test = alg_test_null,
+		.test = alg_test_drbg,
 		.fips_allowed = 1,
+		.suite = {
+			.drbg = __VECS(drbg_pr_hmac_sha512_tv_template)
+		}
 	}, {
 		.alg = "ecb(aes)",
 		.generic_driver = "ecb(aes-lib)",
