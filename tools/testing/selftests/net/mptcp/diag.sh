@@ -322,6 +322,33 @@ wait_connected()
 	done
 }
 
+chk_sndbuf()
+{
+	local server_sndbuf client_sndbuf msg
+	local port=${1}
+
+	msg="....chk sndbuf server/client"
+	server_sndbuf=$(ss -N "${ns}" -inmHM "sport" "${port}" | \
+			sed -n 's/.*tb\([0-9]\+\).*/\1/p')
+	client_sndbuf=$(ss -N "${ns}" -inmHM "dport" "${port}" | \
+			sed -n 's/.*tb\([0-9]\+\).*/\1/p')
+
+	mptcp_lib_print_title "${msg}"
+	if [ -z "${server_sndbuf}" ] || [ -z "${client_sndbuf}" ]; then
+		mptcp_lib_pr_fail "sndbuf S=${server_sndbuf} C=${client_sndbuf}"
+		mptcp_lib_result_fail "${msg}"
+		ret=${KSFT_FAIL}
+	elif [ "${server_sndbuf}" != "${client_sndbuf}" ]; then
+		mptcp_lib_pr_fail "sndbuf S=${server_sndbuf} != C=${client_sndbuf}"
+		mptcp_lib_result_fail "${msg}"
+		ret=${KSFT_FAIL}
+	else
+		mptcp_lib_pr_ok
+		mptcp_lib_result_pass "${msg}"
+	fi
+}
+
+
 trap cleanup EXIT
 mptcp_lib_ns_init ns
 
@@ -341,6 +368,7 @@ echo "b" | \
 				127.0.0.1 >/dev/null &
 wait_connected $ns 10000
 chk_msk_nr 2 "after MPC handshake"
+chk_sndbuf 10000
 chk_last_time_info 10000
 chk_msk_remote_key_nr 2 "....chk remote_key"
 chk_msk_fallback_nr 0 "....chk no fallback"
