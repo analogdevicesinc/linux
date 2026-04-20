@@ -339,6 +339,11 @@ The following briefly shows how a waking task is scheduled and executed.
      leaves (e.g., when ``ops.dispatch()`` moves it to a terminal DSQ, or
      on property change / sleep).
 
+   Note that ``ops.enqueue()`` can be called multiple times in a row without
+   an intervening call to ``ops.dequeue()``. This can happen, for example,
+   when a task on a user-created DSQ is re-enqueued using
+   ``scx_bpf_dsq_reenq()``. The task stays in BPF custody the entire time.
+
    When a task leaves BPF scheduler custody, ``ops.dequeue()`` is invoked.
    The dequeue can happen for different reasons, distinguished by flags:
 
