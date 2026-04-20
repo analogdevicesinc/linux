@@ -2076,7 +2076,7 @@ void __bpf_trace_run(struct bpf_raw_tp_link *link, u64 *args)
 	struct bpf_run_ctx *old_run_ctx;
 	struct bpf_trace_run_ctx run_ctx;
 
-	cant_sleep();
+	rcu_read_lock_dont_migrate();
 	if (unlikely(!bpf_prog_get_recursion_context(prog))) {
 		bpf_prog_inc_misses_counter(prog);
 		goto out;
@@ -2085,13 +2085,12 @@ void __bpf_trace_run(struct bpf_raw_tp_link *link, u64 *args)
 	run_ctx.bpf_cookie = link->cookie;
 	old_run_ctx = bpf_set_run_ctx(&run_ctx.run_ctx);
 
-	rcu_read_lock();
 	(void) bpf_prog_run(prog, args);
-	rcu_read_unlock();
 
 	bpf_reset_run_ctx(old_run_ctx);
 out:
 	bpf_prog_put_recursion_context(prog);
+	rcu_read_unlock_migrate();
 }
 
 #define UNPACK(...)			__VA_ARGS__
@@ -2244,7 +2243,7 @@ static int bpf_event_notify(struct notifier_block *nb, unsigned long op,
 
 	switch (op) {
 	case MODULE_STATE_COMING:
-		btm = kzalloc(sizeof(*btm), GFP_KERNEL);
+		btm = kzalloc_obj(*btm);
 		if (btm) {
 			btm->module = module;
 			list_add(&btm->list, &bpf_trace_modules);
@@ -2820,7 +2819,7 @@ int bpf_kprobe_multi_link_attach(const union bpf_attr *attr, struct bpf_prog *pr
 		goto error;
 	}
 
-	link = kzalloc(sizeof(*link), GFP_KERNEL);
+	link = kzalloc_obj(*link);
 	if (!link) {
 		err = -ENOMEM;
 		goto error;
@@ -3239,8 +3238,8 @@ int bpf_uprobe_multi_link_attach(const union bpf_attr *attr, struct bpf_prog *pr
 
 	err = -ENOMEM;
 
-	link = kzalloc(sizeof(*link), GFP_KERNEL);
-	uprobes = kvcalloc(cnt, sizeof(*uprobes), GFP_KERNEL);
+	link = kzalloc_obj(*link);
+	uprobes = kvzalloc_objs(*uprobes, cnt);
 
 	if (!uprobes || !link)
 		goto error_free;

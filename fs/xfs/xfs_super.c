@@ -825,15 +825,6 @@ xfs_fs_sync_fs(
 	if (error)
 		return error;
 
-	if (laptop_mode) {
-		/*
-		 * The disk must be active because we're syncing.
-		 * We schedule log work now (now that the disk is
-		 * active) instead of later (when it might not be).
-		 */
-		flush_delayed_work(&mp->m_log->l_work);
-	}
-
 	/*
 	 * If we are called with page faults frozen out, it means we are about
 	 * to freeze the transaction subsystem. Take the opportunity to shut
@@ -2244,12 +2235,11 @@ xfs_init_fs_context(
 	struct xfs_mount	*mp;
 	int			i;
 
-	mp = kzalloc(sizeof(struct xfs_mount), GFP_KERNEL);
+	mp = kzalloc_obj(struct xfs_mount);
 	if (!mp)
 		return -ENOMEM;
 #ifdef DEBUG
-	mp->m_errortag = kcalloc(XFS_ERRTAG_MAX, sizeof(*mp->m_errortag),
-			GFP_KERNEL);
+	mp->m_errortag = kzalloc_objs(*mp->m_errortag, XFS_ERRTAG_MAX);
 	if (!mp->m_errortag) {
 		kfree(mp);
 		return -ENOMEM;

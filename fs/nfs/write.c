@@ -113,7 +113,7 @@ static void nfs_writehdr_free(struct nfs_pgio_header *hdr)
 
 static struct nfs_io_completion *nfs_io_completion_alloc(gfp_t gfp_flags)
 {
-	return kmalloc(sizeof(struct nfs_io_completion), gfp_flags);
+	return kmalloc_obj(struct nfs_io_completion, gfp_flags);
 }
 
 static void nfs_io_completion_init(struct nfs_io_completion *ioc,
@@ -1402,7 +1402,7 @@ void nfs_pageio_init_write(struct nfs_pageio_descriptor *pgio,
 	struct nfs_server *server = NFS_SERVER(inode);
 	const struct nfs_pageio_ops *pg_ops = &nfs_pgio_rw_ops;
 
-#ifdef CONFIG_NFS_V4_1
+#if IS_ENABLED(CONFIG_NFS_V4)
 	if (server->pnfs_curr_ld && !force_mds)
 		pg_ops = server->pnfs_curr_ld->pg_write_ops;
 #endif

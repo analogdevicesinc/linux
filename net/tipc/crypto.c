@@ -460,7 +460,7 @@ static void tipc_aead_users_dec(struct tipc_aead __rcu *aead, int lim)
 	rcu_read_lock();
 	tmp = rcu_dereference(aead);
 	if (tmp)
-		atomic_add_unless(&rcu_dereference(aead)->users, -1, lim);
+		atomic_add_unless(&tmp->users, -1, lim);
 	rcu_read_unlock();
 }
 
@@ -524,7 +524,7 @@ static int tipc_aead_init(struct tipc_aead **aead, struct tipc_aead_key *ukey,
 		return -EEXIST;
 
 	/* Allocate a new AEAD */
-	tmp = kzalloc(sizeof(*tmp), GFP_ATOMIC);
+	tmp = kzalloc_obj(*tmp, GFP_ATOMIC);
 	if (unlikely(!tmp))
 		return -ENOMEM;
 
@@ -560,7 +560,7 @@ static int tipc_aead_init(struct tipc_aead **aead, struct tipc_aead_key *ukey,
 			break;
 		}
 
-		tfm_entry = kmalloc(sizeof(*tfm_entry), GFP_KERNEL);
+		tfm_entry = kmalloc_obj(*tfm_entry);
 		if (unlikely(!tfm_entry)) {
 			crypto_free_aead(tfm);
 			err = -ENOMEM;
@@ -637,7 +637,7 @@ static int tipc_aead_clone(struct tipc_aead **dst, struct tipc_aead *src)
 	if (unlikely(*dst))
 		return -EEXIST;
 
-	aead = kzalloc(sizeof(*aead), GFP_ATOMIC);
+	aead = kzalloc_obj(*aead, GFP_ATOMIC);
 	if (unlikely(!aead))
 		return -ENOMEM;
 
@@ -1472,7 +1472,7 @@ int tipc_crypto_start(struct tipc_crypto **crypto, struct net *net,
 		return -EEXIST;
 
 	/* Allocate crypto */
-	c = kzalloc(sizeof(*c), GFP_ATOMIC);
+	c = kzalloc_obj(*c, GFP_ATOMIC);
 	if (!c)
 		return -ENOMEM;
 

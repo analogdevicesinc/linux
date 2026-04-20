@@ -9,6 +9,7 @@
 #include <keys/asymmetric-subtype.h>
 #include <keys/asymmetric-parser.h>
 #include <crypto/public_key.h>
+#include <linux/hex.h>
 #include <linux/seq_file.h>
 #include <linux/module.h>
 #include <linux/overflow.h>
@@ -485,7 +486,7 @@ static struct key_restriction *asymmetric_restriction_alloc(
 	struct key *key)
 {
 	struct key_restriction *keyres =
-		kzalloc(sizeof(struct key_restriction), GFP_KERNEL);
+		kzalloc_obj(struct key_restriction);
 
 	if (!keyres)
 		return ERR_PTR(-ENOMEM);

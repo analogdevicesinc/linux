@@ -946,6 +946,20 @@ void nbcon_reacquire_nobuf(struct nbcon_write_context *wctxt)
 }
 EXPORT_SYMBOL_GPL(nbcon_reacquire_nobuf);
 
+#ifdef CONFIG_PRINTK_EXECUTION_CTX
+static void wctxt_load_execution_ctx(struct nbcon_write_context *wctxt,
+				     struct printk_message *pmsg)
+{
+	wctxt->cpu = pmsg->cpu;
+	wctxt->pid = pmsg->pid;
+	memcpy(wctxt->comm, pmsg->comm, sizeof(wctxt->comm));
+	static_assert(sizeof(wctxt->comm) == sizeof(pmsg->comm));
+}
+#else
+static void wctxt_load_execution_ctx(struct nbcon_write_context *wctxt,
+				     struct printk_message *pmsg) {}
+#endif
+
 /**
  * nbcon_emit_next_record - Emit a record in the acquired context
  * @wctxt:	The write context that will be handed to the write function
@@ -1047,6 +1061,8 @@ static bool nbcon_emit_next_record(struct nbcon_write_context *wctxt, bool use_a
 
 	/* Initialize the write context for driver callbacks. */
 	nbcon_write_context_set_buf(wctxt, &pmsg.pbufs->outbuf[0], pmsg.outbuf_len);
+
+	wctxt_load_execution_ctx(wctxt, &pmsg);
 
 	if (use_atomic)
 		con->write_atomic(con, wctxt);
@@ -1785,7 +1801,7 @@ bool nbcon_alloc(struct console *con)
 		 */
 		con->pbufs = &printk_shared_pbufs;
 	} else {
-		con->pbufs = kmalloc(sizeof(*con->pbufs), GFP_KERNEL);
+		con->pbufs = kmalloc_obj(*con->pbufs);
 		if (!con->pbufs) {
 			con_printk(KERN_ERR, con, "failed to allocate printing buffer\n");
 			return false;

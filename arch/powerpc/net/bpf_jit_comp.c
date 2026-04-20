@@ -165,7 +165,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
 
 	jit_data = fp->aux->jit_data;
 	if (!jit_data) {
-		jit_data = kzalloc(sizeof(*jit_data), GFP_KERNEL);
+		jit_data = kzalloc_obj(*jit_data);
 		if (!jit_data) {
 			fp = org_fp;
 			goto out;
@@ -1194,7 +1194,7 @@ int bpf_arch_text_poke(void *ip, enum bpf_text_poke_type old_t,
 	bpf_func = (unsigned long)ip;
 
 	/* We currently only support poking bpf programs */
-	if (!__bpf_address_lookup(bpf_func, &size, &offset, name)) {
+	if (!bpf_address_lookup(bpf_func, &size, &offset, name)) {
 		pr_err("%s (0x%lx): kernel/modules are not supported\n", __func__, bpf_func);
 		return -EOPNOTSUPP;
 	}

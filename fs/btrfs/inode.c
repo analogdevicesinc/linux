@@ -34,7 +34,6 @@
 #include <linux/sched/mm.h>
 #include <linux/iomap.h>
 #include <linux/unaligned.h>
-#include <linux/fsverity.h>
 #include "misc.h"
 #include "ctree.h"
 #include "disk-io.h"
@@ -782,7 +781,7 @@ static int add_async_extent(struct async_chunk *cow, u64 start, u64 ram_size,
 {
 	struct async_extent *async_extent;
 
-	async_extent = kmalloc(sizeof(*async_extent), GFP_NOFS);
+	async_extent = kmalloc_obj(*async_extent, GFP_NOFS);
 	if (!async_extent)
 		return -ENOMEM;
 	ASSERT(ram_size < U32_MAX);
@@ -1693,7 +1692,7 @@ static bool run_delalloc_compressed(struct btrfs_inode *inode,
 	const blk_opf_t write_flags = wbc_to_write_flags(wbc);
 
 	nofs_flag = memalloc_nofs_save();
-	ctx = kvmalloc(struct_size(ctx, chunks, num_chunks), GFP_KERNEL);
+	ctx = kvmalloc_flex(*ctx, chunks, num_chunks);
 	memalloc_nofs_restore(nofs_flag);
 	if (!ctx)
 		return false;
@@ -2992,7 +2991,7 @@ int btrfs_writepage_cow_fixup(struct folio *folio)
 	if (folio_test_checked(folio))
 		return -EAGAIN;
 
-	fixup = kzalloc(sizeof(*fixup), GFP_NOFS);
+	fixup = kzalloc_obj(*fixup, GFP_NOFS);
 	if (!fixup)
 		return -EAGAIN;
 
@@ -3968,7 +3967,7 @@ static int btrfs_init_file_extent_tree(struct btrfs_inode *inode)
 	if (btrfs_is_free_space_inode(inode))
 		return 0;
 
-	inode->file_extent_tree = kmalloc(sizeof(struct extent_io_tree), GFP_KERNEL);
+	inode->file_extent_tree = kmalloc_obj(struct extent_io_tree);
 	if (!inode->file_extent_tree)
 		return -ENOMEM;
 
@@ -5616,11 +5615,8 @@ void btrfs_evict_inode(struct inode *inode)
 
 	trace_btrfs_inode_evict(inode);
 
-	if (!root) {
-		fsverity_cleanup_inode(inode);
-		clear_inode(inode);
-		return;
-	}
+	if (!root)
+		goto clear_inode;
 
 	fs_info = inode_to_fs_info(inode);
 	evict_inode_truncate_pages(inode);
@@ -5720,7 +5716,7 @@ out:
 	 * to retry these periodically in the future.
 	 */
 	btrfs_remove_delayed_node(BTRFS_I(inode));
-	fsverity_cleanup_inode(inode);
+clear_inode:
 	clear_inode(inode);
 }
 
@@ -6150,9 +6146,18 @@ static int btrfs_set_inode_index_count(struct btrfs_inode *inode)
 	ret = btrfs_search_slot(NULL, root, &key, path, 0, 0);
 	if (ret < 0)
 		return ret;
-	/* FIXME: we should be able to handle this */
-	if (ret == 0)
-		return ret;
+
+	if (unlikely(ret == 0)) {
+		/*
+		 * Key with offset -1 found, there would have to exist a dir
+		 * index item with such offset, but this is out of the valid
+		 * range.
+		 */
+		btrfs_err(root->fs_info,
+			  "unexpected exact match for DIR_INDEX key, inode %llu",
+			  btrfs_ino(inode));
+		return -EUCLEAN;
+	}
 
 	if (path->slots[0] == 0) {
 		inode->index_cnt = BTRFS_DIR_START_INDEX;
@@ -6216,7 +6221,7 @@ static int btrfs_opendir(struct inode *inode, struct file *file)
 	if (ret)
 		return ret;
 
-	private = kzalloc(sizeof(struct btrfs_file_private), GFP_KERNEL);
+	private = kzalloc_obj(struct btrfs_file_private);
 	if (!private)
 		return -ENOMEM;
 	private->last_index = last_index;
@@ -8151,9 +8156,6 @@ static void init_once(void *foo)
 	struct btrfs_inode *ei = foo;
 
 	inode_init_once(&ei->vfs_inode);
-#ifdef CONFIG_FS_VERITY
-	ei->i_verity_info = NULL;
-#endif
 }
 
 void __cold btrfs_destroy_cachep(void)
@@ -8837,7 +8839,7 @@ static struct btrfs_delalloc_work *btrfs_alloc_delalloc_work(struct inode *inode
 {
 	struct btrfs_delalloc_work *work;
 
-	work = kmalloc(sizeof(*work), GFP_NOFS);
+	work = kmalloc_obj(*work, GFP_NOFS);
 	if (!work)
 		return NULL;
 
@@ -9536,7 +9538,7 @@ int btrfs_encoded_read_regular_fill_pages(struct btrfs_inode *inode,
 	 * needs longer time span.
 	 */
 	if (uring_ctx) {
-		priv = kmalloc(sizeof(struct btrfs_encoded_read_private), GFP_NOFS);
+		priv = kmalloc_obj(struct btrfs_encoded_read_private, GFP_NOFS);
 		if (!priv)
 			return -ENOMEM;
 	} else {
@@ -9606,7 +9608,7 @@ ssize_t btrfs_encoded_read_regular(struct kiocb *iocb, struct iov_iter *iter,
 	ssize_t ret;
 
 	nr_pages = DIV_ROUND_UP(disk_io_size, PAGE_SIZE);
-	pages = kcalloc(nr_pages, sizeof(struct page *), GFP_NOFS);
+	pages = kzalloc_objs(struct page *, nr_pages, GFP_NOFS);
 	if (!pages)
 		return -ENOMEM;
 	ret = btrfs_alloc_page_array(nr_pages, pages, false);
@@ -10090,7 +10092,7 @@ static int btrfs_add_swapfile_pin(struct inode *inode, void *ptr,
 	struct rb_node **p;
 	struct rb_node *parent = NULL;
 
-	sp = kmalloc(sizeof(*sp), GFP_NOFS);
+	sp = kmalloc_obj(*sp, GFP_NOFS);
 	if (!sp)
 		return -ENOMEM;
 	sp->ptr = ptr;

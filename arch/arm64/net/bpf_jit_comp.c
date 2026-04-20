@@ -2040,7 +2040,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 
 	jit_data = prog->aux->jit_data;
 	if (!jit_data) {
-		jit_data = kzalloc(sizeof(*jit_data), GFP_KERNEL);
+		jit_data = kzalloc_obj(*jit_data);
 		if (!jit_data) {
 			prog = orig_prog;
 			goto out;
@@ -2078,7 +2078,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
 	memset(&ctx, 0, sizeof(ctx));
 	ctx.prog = prog;
 
-	ctx.offset = kvcalloc(prog->len + 1, sizeof(int), GFP_KERNEL);
+	ctx.offset = kvzalloc_objs(int, prog->len + 1);
 	if (ctx.offset == NULL) {
 		prog = orig_prog;
 		goto out_off;
@@ -2997,7 +2997,7 @@ int bpf_arch_text_poke(void *ip, enum bpf_text_poke_type old_t,
 	u64 plt_target = 0ULL;
 	bool poking_bpf_entry;
 
-	if (!__bpf_address_lookup((unsigned long)ip, &size, &offset, namebuf))
+	if (!bpf_address_lookup((unsigned long)ip, &size, &offset, namebuf))
 		/* Only poking bpf text is supported. Since kernel function
 		 * entry is set up by ftrace, we reply on ftrace to poke kernel
 		 * functions.

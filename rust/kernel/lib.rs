@@ -105,6 +105,7 @@ pub mod impl_flags;
 pub mod init;
 pub mod io;
 pub mod ioctl;
+pub mod iommu;
 pub mod iov;
 pub mod irq;
 pub mod jump_label;
@@ -141,6 +142,8 @@ pub mod security;
 pub mod seq_file;
 pub mod sizes;
 pub mod slice;
+#[cfg(CONFIG_SOC_BUS)]
+pub mod soc;
 mod static_assert;
 #[doc(hidden)]
 pub mod std_vendor;

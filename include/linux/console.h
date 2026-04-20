@@ -290,12 +290,20 @@ struct nbcon_context {
  * @outbuf:		Pointer to the text buffer for output
  * @len:		Length to write
  * @unsafe_takeover:	If a hostile takeover in an unsafe state has occurred
+ * @cpu:		CPU on which the message was generated
+ * @pid:		PID of the task that generated the message
+ * @comm:		Name of the task that generated the message
  */
 struct nbcon_write_context {
 	struct nbcon_context	__private ctxt;
 	char			*outbuf;
 	unsigned int		len;
 	bool			unsafe_takeover;
+#ifdef CONFIG_PRINTK_EXECUTION_CTX
+	int			cpu;
+	pid_t			pid;
+	char			comm[TASK_COMM_LEN];
+#endif
 };
 
 /**
@@ -689,7 +697,6 @@ extern int unregister_console(struct console *);
 extern void console_lock(void);
 extern int console_trylock(void);
 extern void console_unlock(void);
-extern void console_conditional_schedule(void);
 extern void console_unblank(void);
 extern void console_flush_on_panic(enum con_flush_mode mode);
 extern struct tty_driver *console_device(int *);

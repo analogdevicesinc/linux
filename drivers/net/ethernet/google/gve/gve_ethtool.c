@@ -176,8 +176,7 @@ gve_get_ethtool_stats(struct net_device *netdev,
 	priv = netdev_priv(netdev);
 	num_tx_queues = gve_num_tx_queues(priv);
 	report_stats = priv->stats_report->stats;
-	rx_qid_to_stats_idx = kmalloc_array(priv->rx_cfg.num_queues,
-					    sizeof(int), GFP_KERNEL);
+	rx_qid_to_stats_idx = kmalloc_objs(int, priv->rx_cfg.num_queues);
 	if (!rx_qid_to_stats_idx)
 		return;
 	for (ring = 0; ring < priv->rx_cfg.num_queues; ring++) {
@@ -185,8 +184,7 @@ gve_get_ethtool_stats(struct net_device *netdev,
 		if (!gve_rx_was_added_to_block(priv, ring))
 			num_stopped_rxqs++;
 	}
-	tx_qid_to_stats_idx = kmalloc_array(num_tx_queues,
-					    sizeof(int), GFP_KERNEL);
+	tx_qid_to_stats_idx = kmalloc_objs(int, num_tx_queues);
 	if (!tx_qid_to_stats_idx) {
 		kfree(rx_qid_to_stats_idx);
 		return;
@@ -840,15 +838,19 @@ static int gve_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
 	return err;
 }
 
+static u32 gve_get_rx_ring_count(struct net_device *netdev)
+{
+	struct gve_priv *priv = netdev_priv(netdev);
+
+	return priv->rx_cfg.num_queues;
+}
+
 static int gve_get_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd, u32 *rule_locs)
 {
 	struct gve_priv *priv = netdev_priv(netdev);
 	int err = 0;
 
 	switch (cmd->cmd) {
-	case ETHTOOL_GRXRINGS:
-		cmd->data = priv->rx_cfg.num_queues;
-		break;
 	case ETHTOOL_GRXCLSRLCNT:
 		if (!priv->max_flow_rules)
 			return -EOPNOTSUPP;
@@ -991,6 +993,7 @@ const struct ethtool_ops gve_ethtool_ops = {
 	.get_channels = gve_get_channels,
 	.set_rxnfc = gve_set_rxnfc,
 	.get_rxnfc = gve_get_rxnfc,
+	.get_rx_ring_count = gve_get_rx_ring_count,
 	.get_rxfh_indir_size = gve_get_rxfh_indir_size,
 	.get_rxfh_key_size = gve_get_rxfh_key_size,
 	.get_rxfh = gve_get_rxfh,

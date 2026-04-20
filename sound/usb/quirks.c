@@ -566,7 +566,7 @@ static int snd_usb_extigy_boot_quirk(struct usb_device *dev, struct usb_interfac
 		if (err < 0)
 			dev_dbg(&dev->dev, "error sending boot message: %d\n", err);
 		struct usb_device_descriptor *new_device_descriptor __free(kfree) =
-			kmalloc(sizeof(*new_device_descriptor), GFP_KERNEL);
+			kmalloc_obj(*new_device_descriptor);
 		if (!new_device_descriptor)
 			return -ENOMEM;
 		err = usb_get_descriptor(dev, USB_DT_DEVICE, 0,
@@ -944,7 +944,7 @@ static int snd_usb_mbox2_boot_quirk(struct usb_device *dev)
 	dev_dbg(&dev->dev, "device initialised!\n");
 
 	struct usb_device_descriptor *new_device_descriptor __free(kfree) =
-		kmalloc(sizeof(*new_device_descriptor), GFP_KERNEL);
+		kmalloc_obj(*new_device_descriptor);
 	if (!new_device_descriptor)
 		return -ENOMEM;
 
@@ -1279,7 +1279,7 @@ static int snd_usb_mbox3_boot_quirk(struct usb_device *dev)
 	dev_dbg(&dev->dev, "MBOX3: device initialised!\n");
 
 	struct usb_device_descriptor *new_device_descriptor __free(kfree) =
-		kmalloc(sizeof(*new_device_descriptor), GFP_KERNEL);
+		kmalloc_obj(*new_device_descriptor);
 	if (!new_device_descriptor)
 		return -ENOMEM;
 
@@ -2147,6 +2147,8 @@ struct usb_audio_quirk_flags_table {
 static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 	/* Device matches */
 	DEVICE_FLG(0x001f, 0x0b21, /* AB13X USB Audio */
+		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
+	DEVICE_FLG(0x0020, 0x0b21, /* GHW-123P */
 		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
 	DEVICE_FLG(0x03f0, 0x654a, /* HP 320 FHD Webcam */
 		   QUIRK_FLAG_GET_SAMPLE_RATE | QUIRK_FLAG_MIC_RES_16),

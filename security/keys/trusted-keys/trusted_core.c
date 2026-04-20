@@ -15,6 +15,7 @@
 #include <keys/trusted_pkwm.h>
 #include <linux/capability.h>
 #include <linux/err.h>
+#include <linux/hex.h>
 #include <linux/init.h>
 #include <linux/key-type.h>
 #include <linux/module.h>
@@ -133,7 +134,7 @@ static struct trusted_key_payload *trusted_payload_alloc(struct key *key)
 	ret = key_payload_reserve(key, sizeof(*p));
 	if (ret < 0)
 		goto err;
-	p = kzalloc(sizeof(*p), GFP_KERNEL);
+	p = kzalloc_obj(*p);
 	if (!p)
 		goto err;
 

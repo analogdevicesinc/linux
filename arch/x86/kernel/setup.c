@@ -437,8 +437,14 @@ int __init ima_free_kexec_buffer(void)
 
 int __init ima_get_kexec_buffer(void **addr, size_t *size)
 {
+	int ret;
+
 	if (!ima_kexec_buffer_size)
 		return -ENOENT;
+
+	ret = ima_validate_range(ima_kexec_buffer_phys, ima_kexec_buffer_size);
+	if (ret)
+		return ret;
 
 	*addr = __va(ima_kexec_buffer_phys);
 	*size = ima_kexec_buffer_size;
@@ -1184,11 +1190,6 @@ void __init setup_arch(char **cmdline_p)
 
 	initmem_init();
 	dma_contiguous_reserve(max_pfn_mapped << PAGE_SHIFT);
-
-	if (boot_cpu_has(X86_FEATURE_GBPAGES)) {
-		hugetlb_cma_reserve(PUD_SHIFT - PAGE_SHIFT);
-		hugetlb_bootmem_alloc();
-	}
 
 	/*
 	 * Reserve memory for crash kernel after SRAT is parsed so that it

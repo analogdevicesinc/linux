@@ -706,7 +706,7 @@ ice_ptp_alloc_tx_tracker(struct ice_ptp_tx *tx)
 	unsigned long *in_use, *stale;
 	struct ice_tx_tstamp *tstamps;
 
-	tstamps = kcalloc(tx->len, sizeof(*tstamps), GFP_KERNEL);
+	tstamps = kzalloc_objs(*tstamps, tx->len);
 	in_use = bitmap_zalloc(tx->len, GFP_KERNEL);
 	stale = bitmap_zalloc(tx->len, GFP_KERNEL);
 
@@ -1295,6 +1295,38 @@ void ice_ptp_link_change(struct ice_pf *pf, bool linkup)
 	/* Skip HW writes if reset is in progress */
 	if (pf->hw.reset_ongoing)
 		return;
+
+	if (hw->mac_type == ICE_MAC_GENERIC_3K_E825) {
+		int pin, err;
+
+		if (!test_bit(ICE_FLAG_DPLL, pf->flags))
+			return;
+
+		mutex_lock(&pf->dplls.lock);
+		for (pin = 0; pin < ICE_SYNCE_CLK_NUM; pin++) {
+			enum ice_synce_clk clk_pin;
+			bool active;
+			u8 port_num;
+
+			port_num = ptp_port->port_num;
+			clk_pin = (enum ice_synce_clk)pin;
+			err = ice_tspll_bypass_mux_active_e825c(hw,
+								port_num,
+								&active,
+								clk_pin);
+			if (WARN_ON_ONCE(err)) {
+				mutex_unlock(&pf->dplls.lock);
+				return;
+			}
+
+			err = ice_tspll_cfg_synce_ethdiv_e825c(hw, clk_pin);
+			if (active && WARN_ON_ONCE(err)) {
+				mutex_unlock(&pf->dplls.lock);
+				return;
+			}
+		}
+		mutex_unlock(&pf->dplls.lock);
+	}
 
 	switch (hw->mac_type) {
 	case ICE_MAC_E810:

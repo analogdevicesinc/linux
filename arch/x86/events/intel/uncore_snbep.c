@@ -3748,12 +3748,12 @@ static int pmu_alloc_topology(struct intel_uncore_type *type, int topology_type)
 	if (!type->num_boxes)
 		return -EPERM;
 
-	topology = kcalloc(uncore_max_dies(), sizeof(*topology), GFP_KERNEL);
+	topology = kzalloc_objs(*topology, uncore_max_dies());
 	if (!topology)
 		goto err;
 
 	for (die = 0; die < uncore_max_dies(); die++) {
-		topology[die] = kcalloc(type->num_boxes, sizeof(**topology), GFP_KERNEL);
+		topology[die] = kzalloc_objs(**topology, type->num_boxes);
 		if (!topology[die])
 			goto clear;
 		for (idx = 0; idx < type->num_boxes; idx++) {
@@ -3882,11 +3882,11 @@ pmu_set_mapping(struct intel_uncore_type *type, struct attribute_group *ag,
 		goto clear_topology;
 
 	/* One more for NULL. */
-	attrs = kcalloc((uncore_max_dies() + 1), sizeof(*attrs), GFP_KERNEL);
+	attrs = kzalloc_objs(*attrs, (uncore_max_dies() + 1));
 	if (!attrs)
 		goto clear_topology;
 
-	eas = kcalloc(uncore_max_dies(), sizeof(*eas), GFP_KERNEL);
+	eas = kzalloc_objs(*eas, uncore_max_dies());
 	if (!eas)
 		goto clear_attrs;
 
@@ -6411,7 +6411,7 @@ static void spr_update_device_location(int type_id)
 	} else
 		return;
 
-	root = kzalloc(sizeof(struct rb_root), GFP_KERNEL);
+	root = kzalloc_obj(struct rb_root);
 	if (!root) {
 		type->num_boxes = 0;
 		return;
@@ -6424,7 +6424,7 @@ static void spr_update_device_location(int type_id)
 		if (die < 0)
 			continue;
 
-		unit = kzalloc(sizeof(*unit), GFP_KERNEL);
+		unit = kzalloc_obj(*unit);
 		if (!unit)
 			continue;
 		unit->die = die;

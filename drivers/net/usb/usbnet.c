@@ -18,6 +18,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/hex.h>
 #include <linux/init.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
@@ -1085,6 +1086,14 @@ int usbnet_nway_reset(struct net_device *net)
 }
 EXPORT_SYMBOL_GPL(usbnet_nway_reset);
 
+int usbnet_mii_ioctl(struct net_device *net, struct ifreq *rq, int cmd)
+{
+	struct usbnet *dev = netdev_priv(net);
+
+	return generic_mii_ioctl(&dev->mii, if_mii(rq), cmd, NULL);
+}
+EXPORT_SYMBOL_GPL(usbnet_mii_ioctl);
+
 void usbnet_get_drvinfo(struct net_device *net, struct ethtool_drvinfo *info)
 {
 	struct usbnet *dev = netdev_priv(net);
@@ -1368,8 +1377,7 @@ static int build_dma_sg(const struct sk_buff *skb, struct urb *urb)
 		return 0;
 
 	/* reserve one for zero packet */
-	urb->sg = kmalloc_array(num_sgs + 1, sizeof(struct scatterlist),
-				GFP_ATOMIC);
+	urb->sg = kmalloc_objs(struct scatterlist, num_sgs + 1, GFP_ATOMIC);
 	if (!urb->sg)
 		return -ENOMEM;
 
@@ -2225,7 +2233,7 @@ int usbnet_write_cmd_async(struct usbnet *dev, u8 cmd, u8 reqtype,
 		}
 	}
 
-	req = kmalloc(sizeof(struct usb_ctrlrequest), GFP_ATOMIC);
+	req = kmalloc_obj(struct usb_ctrlrequest, GFP_ATOMIC);
 	if (!req)
 		goto fail_free_buf;
 

@@ -1665,7 +1665,7 @@ static int tcpm_queue_vdm_unlocked(struct tcpm_port *port, const u32 header,
 	u32 *data_cpy;
 	int ret = -ENOMEM;
 
-	event = kzalloc(sizeof(*event), GFP_KERNEL);
+	event = kzalloc_obj(*event);
 	if (!event)
 		goto err_event;
 
@@ -1808,7 +1808,7 @@ static bool svdm_consume_svids(struct tcpm_port *port, const u32 *p, int cnt,
 	/*
 	 * PD3.0 Spec 6.4.4.3.2: The SVIDs are returned 2 per VDO (see Table
 	 * 6-43), and can be returned maximum 6 VDOs per response (see Figure
-	 * 6-19). If the Respondersupports 12 or more SVID then the Discover
+	 * 6-19). If the Responder supports 12 or more SVID then the Discover
 	 * SVIDs Command Shall be executed multiple times until a Discover
 	 * SVIDs VDO is returned ending either with a SVID value of 0x0000 in
 	 * the last part of the last VDO or with a VDO containing two SVIDs
@@ -3803,7 +3803,7 @@ void tcpm_pd_receive(struct tcpm_port *port, const struct pd_message *msg,
 {
 	struct pd_rx_event *event;
 
-	event = kzalloc(sizeof(*event), GFP_ATOMIC);
+	event = kzalloc_obj(*event, GFP_ATOMIC);
 	if (!event)
 		return;
 

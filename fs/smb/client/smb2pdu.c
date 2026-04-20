@@ -1009,8 +1009,7 @@ create_posix_buf(umode_t mode)
 {
 	struct create_posix *buf;
 
-	buf = kzalloc(sizeof(struct create_posix),
-			GFP_KERNEL);
+	buf = kzalloc_obj(struct create_posix);
 	if (!buf)
 		return NULL;
 
@@ -1359,7 +1358,7 @@ int smb3_validate_negotiate(const unsigned int xid, struct cifs_tcon *tcon)
 	if (tcon->ses->session_flags & SMB2_SESSION_FLAG_IS_NULL)
 		cifs_tcon_dbg(VFS, "Unexpected null user (anonymous) auth flag sent by server\n");
 
-	pneg_inbuf = kmalloc(sizeof(*pneg_inbuf), GFP_NOFS);
+	pneg_inbuf = kmalloc_obj(*pneg_inbuf, GFP_NOFS);
 	if (!pneg_inbuf)
 		return -ENOMEM;
 
@@ -1786,7 +1785,7 @@ SMB2_sess_auth_rawntlmssp_negotiate(struct SMB2_sess_data *sess_data)
 	 * If memory allocation is successful, caller of this function
 	 * frees it.
 	 */
-	ses->ntlmssp = kmalloc(sizeof(struct ntlmssp_auth), GFP_KERNEL);
+	ses->ntlmssp = kmalloc_obj(struct ntlmssp_auth);
 	if (!ses->ntlmssp) {
 		rc = -ENOMEM;
 		goto out_err;
@@ -1984,7 +1983,7 @@ SMB2_sess_setup(const unsigned int xid, struct cifs_ses *ses,
 		return smb_EIO(smb_eio_trace_null_pointers);
 	}
 
-	sess_data = kzalloc(sizeof(struct SMB2_sess_data), GFP_KERNEL);
+	sess_data = kzalloc_obj(struct SMB2_sess_data);
 	if (!sess_data)
 		return -ENOMEM;
 
@@ -2298,7 +2297,7 @@ create_durable_buf(void)
 {
 	create_durable_req_t *buf;
 
-	buf = kzalloc(sizeof(create_durable_req_t), GFP_KERNEL);
+	buf = kzalloc_obj(create_durable_req_t);
 	if (!buf)
 		return NULL;
 
@@ -2321,7 +2320,7 @@ create_reconnect_durable_buf(struct cifs_fid *fid)
 {
 	create_durable_req_t *buf;
 
-	buf = kzalloc(sizeof(create_durable_req_t), GFP_KERNEL);
+	buf = kzalloc_obj(create_durable_req_t);
 	if (!buf)
 		return NULL;
 
@@ -2493,7 +2492,7 @@ create_durable_v2_buf(struct cifs_open_parms *oparms)
 	struct cifs_fid *pfid = oparms->fid;
 	struct create_durable_req_v2 *buf;
 
-	buf = kzalloc(sizeof(struct create_durable_req_v2), GFP_KERNEL);
+	buf = kzalloc_obj(struct create_durable_req_v2);
 	if (!buf)
 		return NULL;
 
@@ -2534,8 +2533,7 @@ create_reconnect_durable_v2_buf(struct cifs_fid *fid)
 {
 	struct create_durable_handle_reconnect_v2 *buf;
 
-	buf = kzalloc(sizeof(struct create_durable_handle_reconnect_v2),
-			GFP_KERNEL);
+	buf = kzalloc_obj(struct create_durable_handle_reconnect_v2);
 	if (!buf)
 		return NULL;
 
@@ -2626,7 +2624,7 @@ create_twarp_buf(__u64 timewarp)
 {
 	struct crt_twarp_ctxt *buf;
 
-	buf = kzalloc(sizeof(struct crt_twarp_ctxt), GFP_KERNEL);
+	buf = kzalloc_obj(struct crt_twarp_ctxt);
 	if (!buf)
 		return NULL;
 
@@ -2793,7 +2791,7 @@ create_query_id_buf(void)
 {
 	struct crt_query_id_ctxt *buf;
 
-	buf = kzalloc(sizeof(struct crt_query_id_ctxt), GFP_KERNEL);
+	buf = kzalloc_obj(struct crt_query_id_ctxt);
 	if (!buf)
 		return NULL;
 
@@ -2908,6 +2906,7 @@ int smb311_posix_mkdir(const unsigned int xid, struct inode *inode,
 
 replay_again:
 	/* reinitialize for possible replay */
+	pc_buf = NULL;
 	flags = 0;
 	n_iov = 2;
 	server = cifs_pick_channel(ses);
@@ -5844,7 +5843,7 @@ replay_again:
 	if (smb3_encryption_required(tcon))
 		flags |= CIFS_TRANSFORM_REQ;
 
-	iov = kmalloc_array(num, sizeof(struct kvec), GFP_KERNEL);
+	iov = kmalloc_objs(struct kvec, num);
 	if (!iov)
 		return -ENOMEM;
 

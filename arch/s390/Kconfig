@@ -32,9 +32,6 @@ config GENERIC_BUG_RELATIVE_POINTERS
 config GENERIC_LOCKBREAK
 	def_bool y if PREEMPTION
 
-config PGSTE
-	def_bool y if KVM
-
 config AUDIT_ARCH
 	def_bool y
 
@@ -282,6 +279,7 @@ config S390
 	select SPARSE_IRQ
 	select SWIOTLB
 	select SYSCTL_EXCEPTION_TRACE
+	select SYSTEM_DATA_VERIFICATION if KEXEC_SIG
 	select THREAD_INFO_IN_TASK
 	select TRACE_IRQFLAGS_SUPPORT
 	select TTY
@@ -316,7 +314,7 @@ config ARCH_SUPPORTS_KEXEC_FILE
 	def_bool y
 
 config ARCH_SUPPORTS_KEXEC_SIG
-	def_bool MODULE_SIG_FORMAT
+	def_bool y
 
 config ARCH_SUPPORTS_KEXEC_PURGATORY
 	def_bool y

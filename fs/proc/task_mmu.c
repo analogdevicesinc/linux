@@ -780,7 +780,7 @@ static int do_procmap_query(struct mm_struct *mm, void __user *uarg)
 		} else {
 			if (karg.build_id_size < build_id_sz) {
 				err = -ENAMETOOLONG;
-				goto out;
+				goto out_file;
 			}
 			karg.build_id_size = build_id_sz;
 		}
@@ -808,6 +808,7 @@ static int do_procmap_query(struct mm_struct *mm, void __user *uarg)
 out:
 	query_vma_teardown(&lock_ctx);
 	mmput(mm);
+out_file:
 	if (vm_file)
 		fput(vm_file);
 	kfree(name_buf);
@@ -1533,7 +1534,7 @@ static int smaps_rollup_open(struct inode *inode, struct file *file)
 	int ret;
 	struct proc_maps_private *priv;
 
-	priv = kzalloc(sizeof(*priv), GFP_KERNEL_ACCOUNT);
+	priv = kzalloc_obj(*priv, GFP_KERNEL_ACCOUNT);
 	if (!priv)
 		return -ENOMEM;
 
@@ -2751,7 +2752,7 @@ static int pagemap_scan_pmd_entry(pmd_t *pmd, unsigned long start,
 		return 0;
 	}
 
-	arch_enter_lazy_mmu_mode();
+	lazy_mmu_mode_enable();
 
 	if ((p->arg.flags & PM_SCAN_WP_MATCHING) && !p->vec_out) {
 		/* Fast path for performing exclusive WP */
@@ -2821,7 +2822,7 @@ flush_and_return:
 	if (flush_end)
 		flush_tlb_range(vma, start, addr);
 
-	arch_leave_lazy_mmu_mode();
+	lazy_mmu_mode_disable();
 	pte_unmap_unlock(start_pte, ptl);
 
 	cond_resched();
@@ -2980,8 +2981,7 @@ static int pagemap_scan_init_bounce_buffer(struct pagemap_scan_private *p)
 
 	p->vec_buf_len = min_t(size_t, PAGEMAP_WALK_SIZE >> PAGE_SHIFT,
 			       p->arg.vec_len);
-	p->vec_buf = kmalloc_array(p->vec_buf_len, sizeof(*p->vec_buf),
-				   GFP_KERNEL);
+	p->vec_buf = kmalloc_objs(*p->vec_buf, p->vec_buf_len);
 	if (!p->vec_buf)
 		return -ENOMEM;
 

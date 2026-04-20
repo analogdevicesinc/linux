@@ -9,6 +9,7 @@
 #include <linux/bpf_verifier.h>
 #include <linux/bsearch.h>
 #include <linux/btf.h>
+#include <linux/hex.h>
 #include <linux/syscalls.h>
 #include <linux/slab.h>
 #include <linux/sched/signal.h>
@@ -3632,7 +3633,7 @@ static int bpf_tracing_prog_attach(struct bpf_prog *prog,
 	if (prog->expected_attach_type == BPF_TRACE_FSESSION) {
 		struct bpf_fsession_link *fslink;
 
-		fslink = kzalloc(sizeof(*fslink), GFP_USER);
+		fslink = kzalloc_obj(*fslink, GFP_USER);
 		if (fslink) {
 			bpf_link_init(&fslink->fexit.link, BPF_LINK_TYPE_TRACING,
 				      &bpf_tracing_link_lops, prog, attach_type);
@@ -3642,7 +3643,7 @@ static int bpf_tracing_prog_attach(struct bpf_prog *prog,
 			link = NULL;
 		}
 	} else {
-		link = kzalloc(sizeof(*link), GFP_USER);
+		link = kzalloc_obj(*link, GFP_USER);
 	}
 	if (!link) {
 		err = -ENOMEM;
@@ -4182,7 +4183,7 @@ static int bpf_perf_link_attach(const union bpf_attr *attr, struct bpf_prog *pro
 	if (IS_ERR(perf_file))
 		return PTR_ERR(perf_file);
 
-	link = kzalloc(sizeof(*link), GFP_USER);
+	link = kzalloc_obj(*link, GFP_USER);
 	if (!link) {
 		err = -ENOMEM;
 		goto out_put_file;
@@ -4260,7 +4261,7 @@ static int bpf_raw_tp_link_attach(struct bpf_prog *prog,
 	if (!btp)
 		return -ENOENT;
 
-	link = kzalloc(sizeof(*link), GFP_USER);
+	link = kzalloc_obj(*link, GFP_USER);
 	if (!link) {
 		err = -ENOMEM;
 		goto out_put_btp;
@@ -6075,9 +6076,8 @@ static int bpf_prog_bind_map(union bpf_attr *attr)
 			goto out_unlock;
 		}
 
-	used_maps_new = kmalloc_array(prog->aux->used_map_cnt + 1,
-				      sizeof(used_maps_new[0]),
-				      GFP_KERNEL);
+	used_maps_new = kmalloc_objs(used_maps_new[0],
+				     prog->aux->used_map_cnt + 1);
 	if (!used_maps_new) {
 		ret = -ENOMEM;
 		goto out_unlock;

@@ -823,9 +823,6 @@ void blk_mq_free_request(struct request *rq)
 
 	blk_mq_finish_request(rq);
 
-	if (unlikely(laptop_mode && !blk_rq_is_passthrough(rq)))
-		laptop_io_completion(q->disk->bdi);
-
 	rq_qos_done(q, rq);
 
 	WRITE_ONCE(rq->state, MQ_RQ_IDLE);
@@ -4365,7 +4362,7 @@ static int blk_mq_alloc_ctxs(struct request_queue *q)
 	struct blk_mq_ctxs *ctxs;
 	int cpu;
 
-	ctxs = kzalloc(sizeof(*ctxs), GFP_KERNEL);
+	ctxs = kzalloc_obj(*ctxs);
 	if (!ctxs)
 		return -ENOMEM;
 
@@ -4882,7 +4879,7 @@ int blk_mq_alloc_tag_set(struct blk_mq_tag_set *set)
 		set->nr_hw_queues = nr_cpu_ids;
 
 	if (set->flags & BLK_MQ_F_BLOCKING) {
-		set->srcu = kmalloc(sizeof(*set->srcu), GFP_KERNEL);
+		set->srcu = kmalloc_obj(*set->srcu);
 		if (!set->srcu)
 			return -ENOMEM;
 		ret = init_srcu_struct(set->srcu);
