@@ -3772,18 +3772,6 @@ YAMAHA_DEVICE(0x7010, "UB99"),
 		}
 	}
 },
-{
-	/*
-	 * SmartlinkTechnology M01
-	 * USB audio device that needs standard mixer quirk
-	 */
-	USB_DEVICE(0x301a, 0x159b),
-	QUIRK_DRIVER_INFO {
-		.vendor_name = "SmartlinkTechnology",
-		.product_name = "M01",
-		QUIRK_DATA_STANDARD_MIXER(QUIRK_ANY_INTERFACE)
-	}
-},
 #define QUIRK_RME_DIGIFACE(pid) \
 { \
 	/* Only claim interface 0 */ \
