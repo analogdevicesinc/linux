@@ -4622,6 +4622,18 @@ struct cfg80211_pmsr_result {
  *	exchanges as configured by @ftms_per_burst. Only valid if
  *	@non_trigger_based is set. If set to 0, the firmware or driver
  *	can automatically select an appropriate value.
+ * @ingress_distance: optional ingress threshold in units of mm. When set,
+ *	the measurement result of the peer needs to be indicated if the device
+ *	moves into this range. Measurement results need to be sent on a burst
+ *	index basis in this case.
+ * @egress_distance: optional egress threshold in units of mm. When set,
+ *	the measurement result of the peer needs to be indicated if the device
+ *	moves out of this range. Measurement results need to be sent on a burst
+ *	index basis in this case.
+ *	If neither or only one of @ingress_distance and @egress_distance
+ *	is set, only the specified threshold is used. If both are set, both
+ *	thresholds are applied. If neither is set, results are reported without
+ *	threshold filtering.
  *
  * See also nl80211 for the respective attribute documentation.
  */
@@ -4648,6 +4660,8 @@ struct cfg80211_pmsr_ftm_request_peer {
 	u8 availability_window;
 	u32 nominal_time;
 	u32 num_measurements;
+	u64 ingress_distance;
+	u64 egress_distance;
 };
 
 /**

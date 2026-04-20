@@ -8341,6 +8341,18 @@ enum nl80211_peer_measurement_ftm_type_capa {
  *	%NL80211_PMSR_FTM_REQ_ATTR_NON_TRIGGER_BASED is set.
  *	If the attribute is absent ("no preference"), the driver or firmware
  *	can choose a suitable value.
+ * @NL80211_PMSR_FTM_REQ_ATTR_PAD: ignore, for u64/s64 padding only.
+ * @NL80211_PMSR_FTM_REQ_ATTR_INGRESS: optional u64 attribute in units of mm.
+ *	When specified, the measurement result of the peer needs to be
+ *	indicated if the device moves into this range.
+ * @NL80211_PMSR_FTM_REQ_ATTR_EGRESS: optional u64 attribute in units of mm.
+ *	When specified, the measurement result of the peer needs to be
+ *	indicated if the device moves out of this range.
+ *	If neither or only one of @NL80211_PMSR_FTM_REQ_ATTR_INGRESS and
+ *	@NL80211_PMSR_FTM_REQ_ATTR_EGRESS is specified, only the specified
+ *	threshold is used. If both are specified, both thresholds are applied.
+ *	If neither is specified, results are reported without threshold
+ *	filtering.
  *
  * @NUM_NL80211_PMSR_FTM_REQ_ATTR: internal
  * @NL80211_PMSR_FTM_REQ_ATTR_MAX: highest attribute number
@@ -8367,6 +8379,9 @@ enum nl80211_peer_measurement_ftm_req {
 	NL80211_PMSR_FTM_REQ_ATTR_NOMINAL_TIME,
 	NL80211_PMSR_FTM_REQ_ATTR_AW_DURATION,
 	NL80211_PMSR_FTM_REQ_ATTR_NUM_MEASUREMENTS,
+	NL80211_PMSR_FTM_REQ_ATTR_PAD,
+	NL80211_PMSR_FTM_REQ_ATTR_INGRESS,
+	NL80211_PMSR_FTM_REQ_ATTR_EGRESS,
 
 	/* keep last */
 	NUM_NL80211_PMSR_FTM_REQ_ATTR,
