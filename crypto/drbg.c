@@ -577,11 +577,13 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 	static const u8 initial_key[DRBG_STATE_LEN]; /* all zeroes */
 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
 	int ret;
-	bool reseed = true;
 
 	pr_devel("DRBG: Initializing DRBG with prediction resistance %s\n",
 		 str_enabled_disabled(pr));
-	mutex_lock(&drbg->drbg_mutex);
+	guard(mutex)(&drbg->drbg_mutex);
+
+	if (drbg->instantiated)
+		return drbg_seed(drbg, pers, pers_len, /* reseed= */ true);
 
 	/* 9.1 step 1 is implicit with the selected DRBG type */
 
@@ -592,32 +594,24 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 
 	/* 9.1 step 4 is implicit in DRBG_SEC_STRENGTH */
 
-	if (!drbg->instantiated) {
-		drbg->instantiated = true;
-		drbg->pr = pr;
-		drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
-		drbg->last_seed_time = 0;
-		drbg->reseed_threshold = DRBG_MAX_REQUESTS;
-		memset(drbg->V, 1, DRBG_STATE_LEN);
-		hmac_sha512_preparekey(&drbg->key, initial_key, DRBG_STATE_LEN);
+	drbg->instantiated = true;
+	drbg->pr = pr;
+	drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
+	drbg->last_seed_time = 0;
+	drbg->reseed_threshold = DRBG_MAX_REQUESTS;
+	memset(drbg->V, 1, DRBG_STATE_LEN);
+	hmac_sha512_preparekey(&drbg->key, initial_key, DRBG_STATE_LEN);
 
-		ret = drbg_prepare_hrng(drbg);
-		if (ret)
-			goto free_everything;
-
-		reseed = false;
-	}
-
-	ret = drbg_seed(drbg, pers, pers_len, reseed);
-
-	if (ret && !reseed)
+	ret = drbg_prepare_hrng(drbg);
+	if (ret)
+		goto free_everything;
+	ret = drbg_seed(drbg, pers, pers_len, /* reseed= */ false);
+	if (ret)
 		goto free_everything;
 
-	mutex_unlock(&drbg->drbg_mutex);
 	return ret;
 
 free_everything:
-	mutex_unlock(&drbg->drbg_mutex);
 	drbg_uninstantiate(drbg);
 	return ret;
 }
