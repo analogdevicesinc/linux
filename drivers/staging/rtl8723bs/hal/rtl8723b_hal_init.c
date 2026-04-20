@@ -68,8 +68,6 @@ static int _BlockWrite(struct adapter *padapter, void *buffer, u32 buffSize)
 
 	/* 3 Phase #2 */
 	if (remainSize_p1) {
-		offset = blockCount_p1 * blockSize_p1;
-
 		blockCount_p2 = remainSize_p1/blockSize_p2;
 		remainSize_p2 = remainSize_p1%blockSize_p2;
 	}
