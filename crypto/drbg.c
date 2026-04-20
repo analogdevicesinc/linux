@@ -159,9 +159,6 @@ static int drbg_uninstantiate(struct drbg_state *drbg);
  * HMAC DRBG functions
  ******************************************************************/
 
-MODULE_ALIAS_CRYPTO("drbg_pr_hmac_sha512");
-MODULE_ALIAS_CRYPTO("drbg_nopr_hmac_sha512");
-
 /* update function of HMAC DRBG as defined in 10.1.2.2 */
 static void drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed,
 			     int reseed)
@@ -883,3 +880,5 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Stephan Mueller <smueller@chronox.de>");
 MODULE_DESCRIPTION("NIST SP800-90A Deterministic Random Bit Generator (DRBG)");
 MODULE_ALIAS_CRYPTO("stdrng");
+MODULE_ALIAS_CRYPTO("drbg_pr_hmac_sha512");
+MODULE_ALIAS_CRYPTO("drbg_nopr_hmac_sha512");
