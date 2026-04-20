@@ -142,10 +142,8 @@ enum drbg_seed_state {
 
 struct drbg_state {
 	struct mutex drbg_mutex;	/* lock around DRBG */
-	unsigned char *V;	/* internal state -- 10.1.2.1 1a */
-	unsigned char *Vbuf;
-	unsigned char *C;	/* current key -- 10.1.2.1 1b */
-	unsigned char *Cbuf;
+	u8 V[DRBG_STATE_LEN];		/* internal state -- 10.1.2.1 1a */
+	u8 C[DRBG_STATE_LEN];		/* current key -- 10.1.2.1 1b */
 	/* Number of RNG requests since last reseed -- 10.1.2.1 1c */
 	size_t reseed_ctr;
 	size_t reseed_threshold;
@@ -492,12 +490,8 @@ static inline void drbg_dealloc_state(struct drbg_state *drbg)
 {
 	if (!drbg)
 		return;
-	kfree_sensitive(drbg->Vbuf);
-	drbg->Vbuf = NULL;
-	drbg->V = NULL;
-	kfree_sensitive(drbg->Cbuf);
-	drbg->Cbuf = NULL;
-	drbg->C = NULL;
+	memzero_explicit(drbg->V, sizeof(drbg->V));
+	memzero_explicit(drbg->C, sizeof(drbg->C));
 	drbg->reseed_ctr = 0;
 	drbg->core = NULL;
 }
@@ -513,24 +507,8 @@ static inline int drbg_alloc_state(struct drbg_state *drbg)
 	ret = drbg_init_hash_kernel(drbg);
 	if (ret < 0)
 		goto err;
-
-	drbg->Vbuf = kmalloc(DRBG_STATE_LEN + ret, GFP_KERNEL);
-	if (!drbg->Vbuf) {
-		ret = -ENOMEM;
-		goto fini;
-	}
-	drbg->V = PTR_ALIGN(drbg->Vbuf, ret + 1);
-	drbg->Cbuf = kmalloc(DRBG_STATE_LEN + ret, GFP_KERNEL);
-	if (!drbg->Cbuf) {
-		ret = -ENOMEM;
-		goto fini;
-	}
-	drbg->C = PTR_ALIGN(drbg->Cbuf, ret + 1);
-
 	return 0;
 
-fini:
-	drbg_fini_hash_kernel(drbg);
 err:
 	drbg_dealloc_state(drbg);
 	return ret;
