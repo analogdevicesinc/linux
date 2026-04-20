@@ -7,10 +7,13 @@
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include <linux/align.h>
 #include <linux/fs.h>
 #include <linux/dmi.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
+#include <linux/string.h>
+#include <linux/sysfs.h>
 #include <linux/wmi.h>
 #include "dell-wmi-sysman.h"
 #include "../../firmware_attributes_class.h"
@@ -72,13 +75,9 @@ size_t calculate_string_buffer(const char *str)
  *
  * Currently only supported type is Admin password
  */
-size_t calculate_security_buffer(char *authentication)
+size_t calculate_security_buffer(const char *authentication)
 {
-	if (strlen(authentication) > 0) {
-		return (sizeof(u32) * 2) + strlen(authentication) +
-			strlen(authentication) % 2;
-	}
-	return sizeof(u32) * 2;
+	return sizeof(u32) * 2 + ALIGN(strlen(authentication), 2);
 }
 
 /**
@@ -88,18 +87,18 @@ size_t calculate_security_buffer(char *authentication)
  *
  * Currently only supported type is PLAIN TEXT
  */
-void populate_security_buffer(char *buffer, char *authentication)
+void populate_security_buffer(char *buffer, const char *authentication)
 {
+	size_t seclen = strlen(authentication);
 	char *auth = buffer + sizeof(u32) * 2;
 	u32 *sectype = (u32 *) buffer;
-	u32 *seclen = sectype + 1;
+	u32 *seclenp = sectype + 1;
 
-	*sectype = strlen(authentication) > 0 ? 1 : 0;
-	*seclen = strlen(authentication);
+	*sectype = !!seclen;
+	*seclenp = seclen;
 
 	/* plain text */
-	if (strlen(authentication) > 0)
-		memcpy(auth, authentication, *seclen);
+	memcpy(auth, authentication, seclen);
 }
 
 /**
@@ -143,17 +142,17 @@ int map_wmi_error(int error_code)
  */
 static ssize_t reset_bios_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	char *start = buf;
+	ssize_t len = 0;
 	int i;
 
 	for (i = 0; i < MAX_TYPES; i++) {
 		if (i == reset_option)
-			buf += sprintf(buf, "[%s] ", reset_types[i]);
+			len += sysfs_emit_at(buf, len, "[%s] ", reset_types[i]);
 		else
-			buf += sprintf(buf, "%s ", reset_types[i]);
+			len += sysfs_emit_at(buf, len, "%s ", reset_types[i]);
 	}
-	buf += sprintf(buf, "\n");
-	return buf-start;
+	len += sysfs_emit_at(buf, len, "\n");
+	return len;
 }
 
 /**
@@ -194,7 +193,7 @@ static ssize_t reset_bios_store(struct kobject *kobj,
 static ssize_t pending_reboot_show(struct kobject *kobj, struct kobj_attribute *attr,
 				   char *buf)
 {
-	return sprintf(buf, "%d\n", wmi_priv.pending_changes);
+	return sysfs_emit(buf, "%d\n", wmi_priv.pending_changes);
 }
 
 static struct kobj_attribute reset_bios = __ATTR_RW(reset_bios);
@@ -220,35 +219,6 @@ static int create_attributes_level_sysfs_files(void)
 	return 0;
 }
 
-static ssize_t wmi_sysman_attr_show(struct kobject *kobj, struct attribute *attr,
-				    char *buf)
-{
-	struct kobj_attribute *kattr;
-	ssize_t ret = -EIO;
-
-	kattr = container_of(attr, struct kobj_attribute, attr);
-	if (kattr->show)
-		ret = kattr->show(kobj, kattr, buf);
-	return ret;
-}
-
-static ssize_t wmi_sysman_attr_store(struct kobject *kobj, struct attribute *attr,
-				     const char *buf, size_t count)
-{
-	struct kobj_attribute *kattr;
-	ssize_t ret = -EIO;
-
-	kattr = container_of(attr, struct kobj_attribute, attr);
-	if (kattr->store)
-		ret = kattr->store(kobj, kattr, buf, count);
-	return ret;
-}
-
-static const struct sysfs_ops wmi_sysman_kobj_sysfs_ops = {
-	.show	= wmi_sysman_attr_show,
-	.store	= wmi_sysman_attr_store,
-};
-
 static void attr_name_release(struct kobject *kobj)
 {
 	kfree(kobj);
@@ -256,7 +226,7 @@ static void attr_name_release(struct kobject *kobj)
 
 static const struct kobj_type attr_name_ktype = {
 	.release	= attr_name_release,
-	.sysfs_ops	= &wmi_sysman_kobj_sysfs_ops,
+	.sysfs_ops	= &kobj_sysfs_ops,
 };
 
 /**
@@ -343,7 +313,7 @@ static int alloc_attributes_data(int attr_type)
  * destroy_attribute_objs() - Free a kset of kobjects
  * @kset: The kset to destroy
  *
- * Fress kobjects created for each attribute_name under attribute type kset
+ * Frees kobjects created for each attribute_name under attribute type kset.
  */
 static void destroy_attribute_objs(struct kset *kset)
 {

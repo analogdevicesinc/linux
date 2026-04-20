@@ -83,6 +83,7 @@ static struct wmi_driver xiaomi_wmi_driver = {
 		.name = "xiaomi-wmi",
 	},
 	.id_table = xiaomi_wmi_id_table,
+	.min_event_size = 0,
 	.probe = xiaomi_wmi_probe,
 	.notify_new = xiaomi_wmi_notify,
 	.no_singleton = true,
