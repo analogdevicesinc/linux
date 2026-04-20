@@ -91,6 +91,7 @@
 #include <crypto/internal/drbg.h>
 #include <crypto/internal/rng.h>
 #include <crypto/hash.h>
+#include <crypto/sha2.h>
 #include <linux/fips.h>
 #include <linux/kernel.h>
 #include <linux/jiffies.h>
@@ -100,12 +101,8 @@
 #include <linux/unaligned.h>
 
 struct drbg_state;
-typedef uint32_t drbg_flag_t;
 
 struct drbg_core {
-	drbg_flag_t flags;	/* flags for the cipher */
-	__u8 statelen;		/* maximum state length */
-	__u8 blocklen_bytes;	/* block size of output in bytes */
 	char cra_name[CRYPTO_MAX_ALG_NAME]; /* mapping to kernel crypto API */
 	 /* kernel crypto API backend cipher name */
 	char backend_cra_name[CRYPTO_MAX_ALG_NAME];
@@ -116,6 +113,32 @@ enum drbg_seed_state {
 	DRBG_SEED_STATE_PARTIAL, /* Seeded with !rng_is_initialized() */
 	DRBG_SEED_STATE_FULL,
 };
+
+/* State length in bytes */
+#define DRBG_STATE_LEN		SHA512_DIGEST_SIZE
+
+/* Security strength in bytes */
+#define DRBG_SEC_STRENGTH	(SHA512_DIGEST_SIZE / 2)
+
+/*
+ * Maximum number of requests before reseeding is forced.
+ * SP800-90A allows this to be up to 2**48.  We use a lower value.
+ */
+#define DRBG_MAX_REQUESTS	(1 << 20)
+
+/*
+ * Maximum number of random bytes that can be requested at once.
+ * SP800-90A allows up to 2**19 bits, which is 2**16 bytes.
+ */
+#define DRBG_MAX_REQUEST_BYTES	(1 << 16)
+
+/*
+ * Maximum length of additional info and personalization strings, in bytes.
+ * SP800-90A allows up to 2**35 bits, i.e. 2**32 bytes.  We use 2**32 - 2 bytes
+ * so that the value never quite completely fills the range of a size_t,
+ * allowing the health check to verify that larger values are rejected.
+ */
+#define DRBG_MAX_ADDTL		(U32_MAX - 1)
 
 struct drbg_state {
 	struct mutex drbg_mutex;	/* lock around DRBG */
@@ -136,53 +159,6 @@ struct drbg_state {
 	struct drbg_string test_data;
 };
 
-static inline __u8 drbg_statelen(struct drbg_state *drbg)
-{
-	if (drbg && drbg->core)
-		return drbg->core->statelen;
-	return 0;
-}
-
-static inline __u8 drbg_blocklen(struct drbg_state *drbg)
-{
-	if (drbg && drbg->core)
-		return drbg->core->blocklen_bytes;
-	return 0;
-}
-
-static inline size_t drbg_max_request_bytes(struct drbg_state *drbg)
-{
-	/* SP800-90A requires the limit 2**19 bits, but we return bytes */
-	return (1 << 16);
-}
-
-/*
- * SP800-90A allows implementations to support additional info / personalization
- * strings of up to 2**35 bits.  Implementations can have a smaller maximum.  We
- * use 2**35 - 16 bits == U32_MAX - 1 bytes so that the max + 1 always fits in a
- * size_t, allowing drbg_healthcheck_sanity() to verify its enforcement.
- */
-static inline size_t drbg_max_addtl(struct drbg_state *drbg)
-{
-	return U32_MAX - 1;
-}
-
-static inline size_t drbg_max_requests(struct drbg_state *drbg)
-{
-	/* SP800-90A requires 2**48 maximum requests before reseeding */
-	return (1<<20);
-}
-
-/* DRBG type flags */
-#define DRBG_HMAC	((drbg_flag_t)1<<1)
-#define DRBG_TYPE_MASK	DRBG_HMAC
-/* DRBG strength flags */
-#define DRBG_STRENGTH128	((drbg_flag_t)1<<3)
-#define DRBG_STRENGTH192	((drbg_flag_t)1<<4)
-#define DRBG_STRENGTH256	((drbg_flag_t)1<<5)
-#define DRBG_STRENGTH_MASK	(DRBG_STRENGTH128 | DRBG_STRENGTH192 | \
-				 DRBG_STRENGTH256)
-
 enum drbg_prefixes {
 	DRBG_PREFIX0 = 0x00,
 	DRBG_PREFIX1,
@@ -201,41 +177,12 @@ enum drbg_prefixes {
  */
 static const struct drbg_core drbg_cores[] = {
 	{
-		.flags = DRBG_HMAC | DRBG_STRENGTH256,
-		.statelen = 64, /* block length of cipher */
-		.blocklen_bytes = 64,
 		.cra_name = "hmac_sha512",
 		.backend_cra_name = "hmac(sha512)",
 	},
 };
 
 static int drbg_uninstantiate(struct drbg_state *drbg);
-
-/******************************************************************
- * Generic helper functions
- ******************************************************************/
-
-/*
- * Return strength of DRBG according to SP800-90A section 8.4
- *
- * @flags DRBG flags reference
- *
- * Return: normalized strength in *bytes* value or 32 as default
- *	   to counter programming errors
- */
-static inline unsigned short drbg_sec_strength(drbg_flag_t flags)
-{
-	switch (flags & DRBG_STRENGTH_MASK) {
-	case DRBG_STRENGTH128:
-		return 16;
-	case DRBG_STRENGTH192:
-		return 24;
-	case DRBG_STRENGTH256:
-		return 32;
-	default:
-		return 32;
-	}
-}
 
 /******************************************************************
  * HMAC DRBG functions
@@ -263,11 +210,11 @@ static int drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed,
 
 	if (!reseed) {
 		/* 10.1.2.3 step 2 -- memset(0) of C is implicit with kzalloc */
-		memset(drbg->V, 1, drbg_statelen(drbg));
+		memset(drbg->V, 1, DRBG_STATE_LEN);
 		drbg_kcapi_hmacsetkey(drbg, drbg->C);
 	}
 
-	drbg_string_fill(&seed1, drbg->V, drbg_statelen(drbg));
+	drbg_string_fill(&seed1, drbg->V, DRBG_STATE_LEN);
 	list_add_tail(&seed1.list, &seedlist);
 	/* buffer of seed2 will be filled in for loop below with one byte */
 	drbg_string_fill(&seed2, NULL, 1);
@@ -276,7 +223,7 @@ static int drbg_hmac_update(struct drbg_state *drbg, struct list_head *seed,
 	if (seed)
 		list_splice_tail(seed, &seedlist);
 
-	drbg_string_fill(&vdata, drbg->V, drbg_statelen(drbg));
+	drbg_string_fill(&vdata, drbg->V, DRBG_STATE_LEN);
 	list_add_tail(&vdata.list, &vdatalist);
 	for (i = 2; 0 < i; i--) {
 		/* first round uses 0x0, second 0x1 */
@@ -321,7 +268,7 @@ static int drbg_hmac_generate(struct drbg_state *drbg,
 			return ret;
 	}
 
-	drbg_string_fill(&data, drbg->V, drbg_statelen(drbg));
+	drbg_string_fill(&data, drbg->V, DRBG_STATE_LEN);
 	list_add_tail(&data.list, &datalist);
 	while (len < buflen) {
 		unsigned int outlen = 0;
@@ -329,8 +276,8 @@ static int drbg_hmac_generate(struct drbg_state *drbg,
 		ret = drbg_kcapi_hash(drbg, drbg->V, &datalist);
 		if (ret)
 			return ret;
-		outlen = (drbg_blocklen(drbg) < (buflen - len)) ?
-			  drbg_blocklen(drbg) : (buflen - len);
+		outlen = (DRBG_STATE_LEN < (buflen - len)) ?
+			  DRBG_STATE_LEN : (buflen - len);
 
 		/* 10.1.2.5 step 4.2 */
 		memcpy(buf + len, drbg->V, outlen);
@@ -377,7 +324,7 @@ static inline int __drbg_seed(struct drbg_state *drbg, struct list_head *seed,
 		 * Seed source has become fully initialized, frequent
 		 * reseeds no longer required.
 		 */
-		drbg->reseed_threshold = drbg_max_requests(drbg);
+		drbg->reseed_threshold = DRBG_MAX_REQUESTS;
 		break;
 	}
 
@@ -389,21 +336,17 @@ static int drbg_seed_from_random(struct drbg_state *drbg)
 {
 	struct drbg_string data;
 	LIST_HEAD(seedlist);
-	unsigned int entropylen = drbg_sec_strength(drbg->core->flags);
-	unsigned char entropy[32];
+	unsigned char entropy[DRBG_SEC_STRENGTH];
 	int ret;
 
-	BUG_ON(!entropylen);
-	BUG_ON(entropylen > sizeof(entropy));
-
-	drbg_string_fill(&data, entropy, entropylen);
+	drbg_string_fill(&data, entropy, DRBG_SEC_STRENGTH);
 	list_add_tail(&data.list, &seedlist);
 
-	get_random_bytes(entropy, entropylen);
+	get_random_bytes(entropy, DRBG_SEC_STRENGTH);
 
 	ret = __drbg_seed(drbg, &seedlist, true, DRBG_SEED_STATE_FULL);
 
-	memzero_explicit(entropy, entropylen);
+	memzero_explicit(entropy, DRBG_SEC_STRENGTH);
 	return ret;
 }
 
@@ -444,13 +387,13 @@ static int drbg_seed(struct drbg_state *drbg, struct drbg_string *pers,
 {
 	int ret;
 	unsigned char entropy[((32 + 16) * 2)];
-	unsigned int entropylen = drbg_sec_strength(drbg->core->flags);
+	unsigned int entropylen;
 	struct drbg_string data1;
 	LIST_HEAD(seedlist);
 	enum drbg_seed_state new_seed_state = DRBG_SEED_STATE_FULL;
 
 	/* 9.1 / 9.2 / 9.3.1 step 3 */
-	if (pers && pers->len > (drbg_max_addtl(drbg))) {
+	if (pers && pers->len > DRBG_MAX_ADDTL) {
 		pr_devel("DRBG: personalization string too long %zu\n",
 			 pers->len);
 		return -EINVAL;
@@ -469,9 +412,10 @@ static int drbg_seed(struct drbg_state *drbg, struct drbg_string *pers,
 		 * of the strength. The consideration of a nonce is only
 		 * applicable during initial seeding.
 		 */
-		BUG_ON(!entropylen);
 		if (!reseed)
-			entropylen = ((entropylen + 1) / 2) * 3;
+			entropylen = ((DRBG_SEC_STRENGTH + 1) / 2) * 3;
+		else
+			entropylen = DRBG_SEC_STRENGTH;
 		BUG_ON((entropylen * 2) > sizeof(entropy));
 
 		/* Get seed from in-kernel /dev/urandom */
@@ -531,14 +475,14 @@ static int drbg_seed(struct drbg_state *drbg, struct drbg_string *pers,
 	}
 
 	if (!reseed) {
-		memset(drbg->V, 0, drbg_statelen(drbg));
-		memset(drbg->C, 0, drbg_statelen(drbg));
+		memset(drbg->V, 0, DRBG_STATE_LEN);
+		memset(drbg->C, 0, DRBG_STATE_LEN);
 	}
 
 	ret = __drbg_seed(drbg, &seedlist, reseed, new_seed_state);
 
 out:
-	memzero_explicit(entropy, entropylen * 2);
+	memzero_explicit(entropy, sizeof(entropy));
 
 	return ret;
 }
@@ -570,13 +514,13 @@ static inline int drbg_alloc_state(struct drbg_state *drbg)
 	if (ret < 0)
 		goto err;
 
-	drbg->Vbuf = kmalloc(drbg_statelen(drbg) + ret, GFP_KERNEL);
+	drbg->Vbuf = kmalloc(DRBG_STATE_LEN + ret, GFP_KERNEL);
 	if (!drbg->Vbuf) {
 		ret = -ENOMEM;
 		goto fini;
 	}
 	drbg->V = PTR_ALIGN(drbg->Vbuf, ret + 1);
-	drbg->Cbuf = kmalloc(drbg_statelen(drbg) + ret, GFP_KERNEL);
+	drbg->Cbuf = kmalloc(DRBG_STATE_LEN + ret, GFP_KERNEL);
 	if (!drbg->Cbuf) {
 		ret = -ENOMEM;
 		goto fini;
@@ -630,20 +574,19 @@ static int drbg_generate(struct drbg_state *drbg,
 	}
 
 	/* 9.3.1 step 2 */
-	len = -EINVAL;
-	if (buflen > (drbg_max_request_bytes(drbg))) {
+	if (buflen > DRBG_MAX_REQUEST_BYTES) {
 		pr_devel("DRBG: requested random numbers too large %u\n",
 			 buflen);
-		goto err;
+		return -EINVAL;
 	}
 
 	/* 9.3.1 step 3 is implicit with the chosen DRBG */
 
 	/* 9.3.1 step 4 */
-	if (addtl && addtl->len > (drbg_max_addtl(drbg))) {
+	if (addtl && addtl->len > DRBG_MAX_ADDTL) {
 		pr_devel("DRBG: additional information string too long %zu\n",
 			 addtl->len);
-		goto err;
+		return -EINVAL;
 	}
 	/* 9.3.1 step 5 is implicit with the chosen DRBG */
 
@@ -723,8 +666,8 @@ static int drbg_generate_long(struct drbg_state *drbg,
 	do {
 		int err = 0;
 		unsigned int chunk = 0;
-		slice = ((buflen - len) / drbg_max_request_bytes(drbg));
-		chunk = slice ? drbg_max_request_bytes(drbg) : (buflen - len);
+		slice = (buflen - len) / DRBG_MAX_REQUEST_BYTES;
+		chunk = slice ? DRBG_MAX_REQUEST_BYTES : (buflen - len);
 		mutex_lock(&drbg->drbg_mutex);
 		err = drbg_generate(drbg, buf + len, chunk, addtl);
 		mutex_unlock(&drbg->drbg_mutex);
@@ -785,18 +728,17 @@ static int drbg_instantiate(struct drbg_state *drbg, struct drbg_string *pers,
 
 	/*
 	 * 9.1 step 2 is implicit as caller can select prediction resistance
-	 * and the flag is copied into drbg->flags --
 	 * all DRBG types support prediction resistance
 	 */
 
-	/* 9.1 step 4 is implicit in  drbg_sec_strength */
+	/* 9.1 step 4 is implicit in DRBG_SEC_STRENGTH */
 
 	if (!drbg->core) {
 		drbg->core = &drbg_cores[coreref];
 		drbg->pr = pr;
 		drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
 		drbg->last_seed_time = 0;
-		drbg->reseed_threshold = drbg_max_requests(drbg);
+		drbg->reseed_threshold = DRBG_MAX_REQUESTS;
 
 		ret = drbg_alloc_state(drbg);
 		if (ret)
@@ -884,7 +826,7 @@ static int drbg_init_hash_kernel(struct drbg_state *drbg)
 				drbg->core->backend_cra_name);
 		return PTR_ERR(tfm);
 	}
-	BUG_ON(drbg_blocklen(drbg) != crypto_shash_digestsize(tfm));
+	BUG_ON(DRBG_STATE_LEN != crypto_shash_digestsize(tfm));
 	sdesc = kzalloc(sizeof(struct shash_desc) + crypto_shash_descsize(tfm),
 			GFP_KERNEL);
 	if (!sdesc) {
@@ -914,7 +856,7 @@ static void drbg_kcapi_hmacsetkey(struct drbg_state *drbg,
 {
 	struct sdesc *sdesc = drbg->priv_data;
 
-	crypto_shash_setkey(sdesc->shash.tfm, key, drbg_statelen(drbg));
+	crypto_shash_setkey(sdesc->shash.tfm, key, DRBG_STATE_LEN);
 }
 
 static int drbg_kcapi_hash(struct drbg_state *drbg, unsigned char *outval,
@@ -1060,7 +1002,6 @@ static inline int __init drbg_healthcheck_sanity(void)
 	bool pr = false;
 	int coreref = 0;
 	struct drbg_string addtl;
-	size_t max_addtllen, max_request_bytes;
 
 	/* only perform test in FIPS mode */
 	if (!fips_enabled)
@@ -1074,7 +1015,7 @@ static inline int __init drbg_healthcheck_sanity(void)
 
 	guard(mutex_init)(&drbg->drbg_mutex);
 	drbg->core = &drbg_cores[coreref];
-	drbg->reseed_threshold = drbg_max_requests(drbg);
+	drbg->reseed_threshold = DRBG_MAX_REQUESTS;
 
 	/*
 	 * if the following tests fail, it is likely that there is a buffer
@@ -1084,14 +1025,12 @@ static inline int __init drbg_healthcheck_sanity(void)
 	 * grave bug.
 	 */
 
-	max_addtllen = drbg_max_addtl(drbg);
-	max_request_bytes = drbg_max_request_bytes(drbg);
-	drbg_string_fill(&addtl, buf, max_addtllen + 1);
+	drbg_string_fill(&addtl, buf, DRBG_MAX_ADDTL + 1);
 	/* overflow addtllen with additional info string */
 	ret = drbg_generate(drbg, buf, OUTBUFLEN, &addtl);
 	BUG_ON(ret == 0);
 	/* overflow max_bits */
-	ret = drbg_generate(drbg, buf, max_request_bytes + 1, NULL);
+	ret = drbg_generate(drbg, buf, DRBG_MAX_REQUEST_BYTES + 1, NULL);
 	BUG_ON(ret == 0);
 
 	/* overflow max addtllen with personalization string */
