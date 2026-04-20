@@ -454,11 +454,10 @@ void nvme_end_req(struct request *req)
 	blk_mq_end_request(req, status);
 }
 
-void nvme_complete_rq(struct request *req)
+static void __nvme_complete_rq(struct request *req)
 {
 	struct nvme_ctrl *ctrl = nvme_req(req)->ctrl;
 
-	trace_nvme_complete_rq(req);
 	nvme_cleanup_cmd(req);
 
 	/*
@@ -493,6 +492,12 @@ void nvme_complete_rq(struct request *req)
 		return;
 	}
 }
+
+void nvme_complete_rq(struct request *req)
+{
+	trace_nvme_complete_rq(req);
+	__nvme_complete_rq(req);
+}
 EXPORT_SYMBOL_GPL(nvme_complete_rq);
 
 void nvme_complete_batch_req(struct request *req)
@@ -513,7 +518,7 @@ blk_status_t nvme_host_path_error(struct request *req)
 {
 	nvme_req(req)->status = NVME_SC_HOST_PATH_ERROR;
 	blk_mq_set_request_complete(req);
-	nvme_complete_rq(req);
+	__nvme_complete_rq(req);
 	return BLK_STS_OK;
 }
 EXPORT_SYMBOL_GPL(nvme_host_path_error);
