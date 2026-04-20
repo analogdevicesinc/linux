@@ -75,7 +75,7 @@ void virt_arch_pgd_alloc(struct kvm_vm *vm)
 	vm->mmu.pgd_created = true;
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, gpa_t gpa)
 {
 	u64 *ptep, next_ppn;
 	int level = vm->mmu.pgtable_levels - 1;
@@ -85,13 +85,13 @@ void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
 		"  gva: 0x%lx vm->page_size: 0x%x", gva, vm->page_size);
 	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid, (gva >> vm->page_shift)),
 		    "Invalid virtual address, gva: 0x%lx", gva);
-	TEST_ASSERT((paddr % vm->page_size) == 0,
+	TEST_ASSERT((gpa % vm->page_size) == 0,
 		"Physical address not on page boundary,\n"
-		"  paddr: 0x%lx vm->page_size: 0x%x", paddr, vm->page_size);
-	TEST_ASSERT((paddr >> vm->page_shift) <= vm->max_gfn,
+		"  gpa: 0x%lx vm->page_size: 0x%x", gpa, vm->page_size);
+	TEST_ASSERT((gpa >> vm->page_shift) <= vm->max_gfn,
 		"Physical address beyond maximum supported,\n"
-		"  paddr: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
-		paddr, vm->max_gfn, vm->page_size);
+		"  gpa: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
+		gpa, vm->max_gfn, vm->page_size);
 
 	ptep = addr_gpa2hva(vm, vm->mmu.pgd) + pte_index(vm, gva, level) * 8;
 	if (!*ptep) {
@@ -113,8 +113,8 @@ void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
 		level--;
 	}
 
-	paddr = paddr >> PGTBL_PAGE_SIZE_SHIFT;
-	*ptep = (paddr << PGTBL_PTE_ADDR_SHIFT) |
+	gpa = gpa >> PGTBL_PAGE_SIZE_SHIFT;
+	*ptep = (gpa << PGTBL_PTE_ADDR_SHIFT) |
 		PGTBL_PTE_PERM_MASK | PGTBL_PTE_VALID_MASK;
 }
 

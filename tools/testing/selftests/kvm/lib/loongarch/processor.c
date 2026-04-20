@@ -116,7 +116,7 @@ gpa_t addr_arch_gva2gpa(struct kvm_vm *vm, gva_t gva)
 	return pte_addr(vm, *ptep) + (gva & (vm->page_size - 1));
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, gpa_t gpa)
 {
 	u32 prot_bits;
 	u64 *ptep;
@@ -126,17 +126,17 @@ void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
 			"gva: 0x%lx vm->page_size: 0x%x", gva, vm->page_size);
 	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid, (gva >> vm->page_shift)),
 			"Invalid virtual address, gva: 0x%lx", gva);
-	TEST_ASSERT((paddr % vm->page_size) == 0,
+	TEST_ASSERT((gpa % vm->page_size) == 0,
 			"Physical address not on page boundary,\n"
-			"paddr: 0x%lx vm->page_size: 0x%x", paddr, vm->page_size);
-	TEST_ASSERT((paddr >> vm->page_shift) <= vm->max_gfn,
+			"gpa: 0x%lx vm->page_size: 0x%x", gpa, vm->page_size);
+	TEST_ASSERT((gpa >> vm->page_shift) <= vm->max_gfn,
 			"Physical address beyond maximum supported,\n"
-			"paddr: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
-			paddr, vm->max_gfn, vm->page_size);
+			"gpa: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
+			gpa, vm->max_gfn, vm->page_size);
 
 	ptep = virt_populate_pte(vm, gva, 1);
 	prot_bits = _PAGE_PRESENT | __READABLE | __WRITEABLE | _CACHE_CC | _PAGE_USER;
-	WRITE_ONCE(*ptep, paddr | prot_bits);
+	WRITE_ONCE(*ptep, gpa | prot_bits);
 }
 
 static void pte_dump(FILE *stream, struct kvm_vm *vm, u8 indent, u64 page, int level)

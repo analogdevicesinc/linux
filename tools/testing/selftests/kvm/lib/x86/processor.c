@@ -224,20 +224,20 @@ static u64 *virt_create_upper_pte(struct kvm_vm *vm,
 				  struct kvm_mmu *mmu,
 				  u64 *parent_pte,
 				  gva_t gva,
-				  u64 paddr,
+				  gpa_t gpa,
 				  int current_level,
 				  int target_level)
 {
 	u64 *pte = virt_get_pte(vm, mmu, parent_pte, gva, current_level);
 
-	paddr = vm_untag_gpa(vm, paddr);
+	gpa = vm_untag_gpa(vm, gpa);
 
 	if (!is_present_pte(mmu, pte)) {
 		*pte = PTE_PRESENT_MASK(mmu) | PTE_READABLE_MASK(mmu) |
 		       PTE_WRITABLE_MASK(mmu) | PTE_EXECUTABLE_MASK(mmu) |
 		       PTE_ALWAYS_SET_MASK(mmu);
 		if (current_level == target_level)
-			*pte |= PTE_HUGE_MASK(mmu) | (paddr & PHYSICAL_PAGE_MASK);
+			*pte |= PTE_HUGE_MASK(mmu) | (gpa & PHYSICAL_PAGE_MASK);
 		else
 			*pte |= vm_alloc_page_table(vm) & PHYSICAL_PAGE_MASK;
 	} else {
@@ -257,7 +257,7 @@ static u64 *virt_create_upper_pte(struct kvm_vm *vm,
 }
 
 void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, gva_t gva,
-		   u64 paddr, int level)
+		   gpa_t gpa, int level)
 {
 	const u64 pg_size = PG_LEVEL_SIZE(level);
 	u64 *pte = &mmu->pgd;
@@ -271,15 +271,15 @@ void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, gva_t gva,
 		    "gva: 0x%lx page size: 0x%lx", gva, pg_size);
 	TEST_ASSERT(sparsebit_is_set(vm->vpages_valid, (gva >> vm->page_shift)),
 		    "Invalid virtual address, gva: 0x%lx", gva);
-	TEST_ASSERT((paddr % pg_size) == 0,
+	TEST_ASSERT((gpa % pg_size) == 0,
 		    "Physical address not aligned,\n"
-		    "  paddr: 0x%lx page size: 0x%lx", paddr, pg_size);
-	TEST_ASSERT((paddr >> vm->page_shift) <= vm->max_gfn,
+		    "  gpa: 0x%lx page size: 0x%lx", gpa, pg_size);
+	TEST_ASSERT((gpa >> vm->page_shift) <= vm->max_gfn,
 		    "Physical address beyond maximum supported,\n"
-		    "  paddr: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
-		    paddr, vm->max_gfn, vm->page_size);
-	TEST_ASSERT(vm_untag_gpa(vm, paddr) == paddr,
-		    "Unexpected bits in paddr: %lx", paddr);
+		    "  gpa: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
+		    gpa, vm->max_gfn, vm->page_size);
+	TEST_ASSERT(vm_untag_gpa(vm, gpa) == gpa,
+		    "Unexpected bits in gpa: %lx", gpa);
 
 	TEST_ASSERT(!PTE_EXECUTABLE_MASK(mmu) || !PTE_NX_MASK(mmu),
 		    "X and NX bit masks cannot be used simultaneously");
@@ -291,7 +291,7 @@ void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, gva_t gva,
 	for (current_level = mmu->pgtable_levels;
 	     current_level > PG_LEVEL_4K;
 	     current_level--) {
-		pte = virt_create_upper_pte(vm, mmu, pte, gva, paddr,
+		pte = virt_create_upper_pte(vm, mmu, pte, gva, gpa,
 					    current_level, level);
 		if (is_huge_pte(mmu, pte))
 			return;
@@ -303,24 +303,24 @@ void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, gva_t gva,
 		    "PTE already present for 4k page at gva: 0x%lx", gva);
 	*pte = PTE_PRESENT_MASK(mmu) | PTE_READABLE_MASK(mmu) |
 	       PTE_WRITABLE_MASK(mmu) | PTE_EXECUTABLE_MASK(mmu) |
-	       PTE_ALWAYS_SET_MASK(mmu) | (paddr & PHYSICAL_PAGE_MASK);
+	       PTE_ALWAYS_SET_MASK(mmu) | (gpa & PHYSICAL_PAGE_MASK);
 
 	/*
 	 * Neither SEV nor TDX supports shared page tables, so only the final
 	 * leaf PTE needs manually set the C/S-bit.
 	 */
-	if (vm_is_gpa_protected(vm, paddr))
+	if (vm_is_gpa_protected(vm, gpa))
 		*pte |= PTE_C_BIT_MASK(mmu);
 	else
 		*pte |= PTE_S_BIT_MASK(mmu);
 }
 
-void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, gpa_t gpa)
 {
-	__virt_pg_map(vm, &vm->mmu, gva, paddr, PG_LEVEL_4K);
+	__virt_pg_map(vm, &vm->mmu, gva, gpa, PG_LEVEL_4K);
 }
 
-void virt_map_level(struct kvm_vm *vm, gva_t gva, u64 paddr,
+void virt_map_level(struct kvm_vm *vm, gva_t gva, gpa_t gpa,
 		    u64 nr_bytes, int level)
 {
 	u64 pg_size = PG_LEVEL_SIZE(level);
@@ -332,12 +332,12 @@ void virt_map_level(struct kvm_vm *vm, gva_t gva, u64 paddr,
 		    nr_bytes, pg_size);
 
 	for (i = 0; i < nr_pages; i++) {
-		__virt_pg_map(vm, &vm->mmu, gva, paddr, level);
+		__virt_pg_map(vm, &vm->mmu, gva, gpa, level);
 		sparsebit_set_num(vm->vpages_mapped, gva >> vm->page_shift,
 				  nr_bytes / PAGE_SIZE);
 
 		gva += pg_size;
-		paddr += pg_size;
+		gpa += pg_size;
 	}
 }
 
@@ -495,24 +495,24 @@ bool kvm_cpu_has_tdp(void)
 	return kvm_cpu_has_ept() || kvm_cpu_has_npt();
 }
 
-void __tdp_map(struct kvm_vm *vm, gpa_t l2_gpa, u64 paddr, u64 size, int level)
+void __tdp_map(struct kvm_vm *vm, gpa_t l2_gpa, gpa_t gpa, u64 size, int level)
 {
 	size_t page_size = PG_LEVEL_SIZE(level);
 	size_t npages = size / page_size;
 
 	TEST_ASSERT(l2_gpa + size > l2_gpa, "L2 GPA overflow");
-	TEST_ASSERT(paddr + size > paddr, "Paddr overflow");
+	TEST_ASSERT(gpa + size > gpa, "GPA overflow");
 
 	while (npages--) {
-		__virt_pg_map(vm, &vm->stage2_mmu, l2_gpa, paddr, level);
+		__virt_pg_map(vm, &vm->stage2_mmu, l2_gpa, gpa, level);
 		l2_gpa += page_size;
-		paddr += page_size;
+		gpa += page_size;
 	}
 }
 
-void tdp_map(struct kvm_vm *vm, gpa_t l2_gpa, u64 paddr, u64 size)
+void tdp_map(struct kvm_vm *vm, gpa_t l2_gpa, gpa_t gpa, u64 size)
 {
-	__tdp_map(vm, l2_gpa, paddr, size, PG_LEVEL_4K);
+	__tdp_map(vm, l2_gpa, gpa, size, PG_LEVEL_4K);
 }
 
 /* Prepare an identity extended page table that maps all the

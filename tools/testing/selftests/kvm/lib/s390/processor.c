@@ -12,7 +12,7 @@
 
 void virt_arch_pgd_alloc(struct kvm_vm *vm)
 {
-	gpa_t paddr;
+	gpa_t gpa;
 
 	TEST_ASSERT(vm->page_size == PAGE_SIZE, "Unsupported page size: 0x%x",
 		    vm->page_size);
@@ -20,12 +20,12 @@ void virt_arch_pgd_alloc(struct kvm_vm *vm)
 	if (vm->mmu.pgd_created)
 		return;
 
-	paddr = vm_phy_pages_alloc(vm, PAGES_PER_REGION,
+	gpa = vm_phy_pages_alloc(vm, PAGES_PER_REGION,
 				   KVM_GUEST_PAGE_TABLE_MIN_PADDR,
 				   vm->memslots[MEM_REGION_PT]);
-	memset(addr_gpa2hva(vm, paddr), 0xff, PAGES_PER_REGION * vm->page_size);
+	memset(addr_gpa2hva(vm, gpa), 0xff, PAGES_PER_REGION * vm->page_size);
 
-	vm->mmu.pgd = paddr;
+	vm->mmu.pgd = gpa;
 	vm->mmu.pgd_created = true;
 }
 
@@ -60,11 +60,11 @@ void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, gpa_t gpa)
 		    "Invalid virtual address, gva: 0x%lx", gva);
 	TEST_ASSERT((gpa % vm->page_size) == 0,
 		"Physical address not on page boundary,\n"
-		"  paddr: 0x%lx vm->page_size: 0x%x",
+		"  gpa: 0x%lx vm->page_size: 0x%x",
 		gva, vm->page_size);
 	TEST_ASSERT((gpa >> vm->page_shift) <= vm->max_gfn,
 		"Physical address beyond beyond maximum supported,\n"
-		"  paddr: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
+		"  gpa: 0x%lx vm->max_gfn: 0x%lx vm->page_size: 0x%x",
 		gva, vm->max_gfn, vm->page_size);
 
 	/* Walk through region and segment tables */

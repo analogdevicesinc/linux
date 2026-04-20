@@ -1508,13 +1508,13 @@ void tdp_mmu_init(struct kvm_vm *vm, int pgtable_levels,
 		  struct pte_masks *pte_masks);
 
 void __virt_pg_map(struct kvm_vm *vm, struct kvm_mmu *mmu, gva_t gva,
-		   u64 paddr,  int level);
-void virt_map_level(struct kvm_vm *vm, gva_t gva, u64 paddr,
+		   gpa_t gpa,  int level);
+void virt_map_level(struct kvm_vm *vm, gva_t gva, gpa_t gpa,
 		    u64 nr_bytes, int level);
 
 void vm_enable_tdp(struct kvm_vm *vm);
 bool kvm_cpu_has_tdp(void);
-void tdp_map(struct kvm_vm *vm, gpa_t l2_gpa, u64 paddr, u64 size);
+void tdp_map(struct kvm_vm *vm, gpa_t l2_gpa, gpa_t gpa, u64 size);
 void tdp_identity_map_default_memslots(struct kvm_vm *vm);
 void tdp_identity_map_1g(struct kvm_vm *vm,  u64 addr, u64 size);
 u64 *tdp_get_pte(struct kvm_vm *vm, u64 l2_gpa);

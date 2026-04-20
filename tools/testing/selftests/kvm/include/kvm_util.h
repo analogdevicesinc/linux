@@ -725,7 +725,7 @@ gva_t vm_alloc_pages(struct kvm_vm *vm, int nr_pages);
 gva_t __vm_alloc_page(struct kvm_vm *vm, enum kvm_mem_region_type type);
 gva_t vm_alloc_page(struct kvm_vm *vm);
 
-void virt_map(struct kvm_vm *vm, gva_t gva, u64 paddr,
+void virt_map(struct kvm_vm *vm, gva_t gva, gpa_t gpa,
 	      unsigned int npages);
 void *addr_gpa2hva(struct kvm_vm *vm, gpa_t gpa);
 void *addr_gva2hva(struct kvm_vm *vm, gva_t gva);
@@ -990,21 +990,20 @@ void kvm_gsi_routing_write(struct kvm_vm *vm, struct kvm_irq_routing *routing);
 
 const char *exit_reason_str(unsigned int exit_reason);
 
-gpa_t vm_phy_page_alloc(struct kvm_vm *vm, gpa_t paddr_min, u32 memslot);
-gpa_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
-			   gpa_t paddr_min, u32 memslot,
-			   bool protected);
+gpa_t vm_phy_page_alloc(struct kvm_vm *vm, gpa_t min_gpa, u32 memslot);
+gpa_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num, gpa_t min_gpa,
+			   u32 memslot, bool protected);
 gpa_t vm_alloc_page_table(struct kvm_vm *vm);
 
 static inline gpa_t vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
-				       gpa_t paddr_min, u32 memslot)
+				       gpa_t min_gpa, u32 memslot)
 {
 	/*
 	 * By default, allocate memory as protected for VMs that support
 	 * protected memory, as the majority of memory for such VMs is
 	 * protected, i.e. using shared memory is effectively opt-in.
 	 */
-	return __vm_phy_pages_alloc(vm, num, paddr_min, memslot,
+	return __vm_phy_pages_alloc(vm, num, min_gpa, memslot,
 				    vm_arch_has_protected_memory(vm));
 }
 
@@ -1203,13 +1202,13 @@ static inline void virt_pgd_alloc(struct kvm_vm *vm)
 
 /*
  * Within @vm, creates a virtual translation for the page starting
- * at @gva to the page starting at @paddr.
+ * at @gva to the page starting at @gpa.
  */
-void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr);
+void virt_arch_pg_map(struct kvm_vm *vm, gva_t gva, gpa_t gpa);
 
-static inline void virt_pg_map(struct kvm_vm *vm, gva_t gva, u64 paddr)
+static inline void virt_pg_map(struct kvm_vm *vm, gva_t gva, gpa_t gpa)
 {
-	virt_arch_pg_map(vm, gva, paddr);
+	virt_arch_pg_map(vm, gva, gpa);
 	sparsebit_set(vm->vpages_mapped, gva >> vm->page_shift);
 }
 
@@ -1280,7 +1279,7 @@ void kvm_arch_vm_post_create(struct kvm_vm *vm, unsigned int nr_vcpus);
 void kvm_arch_vm_finalize_vcpus(struct kvm_vm *vm);
 void kvm_arch_vm_release(struct kvm_vm *vm);
 
-bool vm_is_gpa_protected(struct kvm_vm *vm, gpa_t paddr);
+bool vm_is_gpa_protected(struct kvm_vm *vm, gpa_t gpa);
 
 u32 guest_get_vcpuid(void);
 

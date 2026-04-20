@@ -275,7 +275,7 @@ static struct kvm_vm *vm_create_with_sea_handler(struct kvm_vcpu **vcpu)
 	vm_userspace_mem_region_add(
 		/*vm=*/vm,
 		/*src_type=*/src_type,
-		/*guest_paddr=*/start_gpa,
+		/*gpa=*/start_gpa,
 		/*slot=*/1,
 		/*npages=*/num_guest_pages,
 		/*flags=*/0);

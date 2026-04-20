@@ -1027,8 +1027,8 @@ void vm_mem_add(struct kvm_vm *vm, enum vm_mem_backing_src_type src_type,
 
 		TEST_FAIL("A mem region with the requested slot "
 			"already exists.\n"
-			"  requested slot: %u paddr: 0x%lx npages: 0x%lx\n"
-			"  existing slot: %u paddr: 0x%lx size: 0x%lx",
+			"  requested slot: %u gpa: 0x%lx npages: 0x%lx\n"
+			"  existing slot: %u gpa: 0x%lx size: 0x%lx",
 			slot, gpa, npages, region->region.slot,
 			(u64)region->region.guest_phys_addr,
 			(u64)region->region.memory_size);
@@ -1442,7 +1442,7 @@ static gva_t ____vm_alloc(struct kvm_vm *vm, size_t sz, gva_t min_gva,
 	u64 pages = (sz >> vm->page_shift) + ((sz % vm->page_size) != 0);
 
 	virt_pgd_alloc(vm);
-	gpa_t paddr = __vm_phy_pages_alloc(vm, pages,
+	gpa_t gpa = __vm_phy_pages_alloc(vm, pages,
 					   KVM_UTIL_MIN_PFN * vm->page_size,
 					   vm->memslots[type], protected);
 
@@ -1454,9 +1454,9 @@ static gva_t ____vm_alloc(struct kvm_vm *vm, size_t sz, gva_t min_gva,
 
 	/* Map the virtual pages. */
 	for (gva_t gva = gva_start; pages > 0;
-		pages--, gva += vm->page_size, paddr += vm->page_size) {
+		pages--, gva += vm->page_size, gpa += vm->page_size) {
 
-		virt_pg_map(vm, gva, paddr);
+		virt_pg_map(vm, gva, gpa);
 	}
 
 	return gva_start;
@@ -1506,22 +1506,21 @@ gva_t vm_alloc_page(struct kvm_vm *vm)
  * Map a range of VM virtual address to the VM's physical address.
  *
  * Within the VM given by @vm, creates a virtual translation for @npages
- * starting at @gva to the page range starting at @paddr.
+ * starting at @gva to the page range starting at @gpa.
  */
-void virt_map(struct kvm_vm *vm, gva_t gva, u64 paddr,
-	      unsigned int npages)
+void virt_map(struct kvm_vm *vm, gva_t gva, gpa_t gpa, unsigned int npages)
 {
 	size_t page_size = vm->page_size;
 	size_t size = npages * page_size;
 
 	TEST_ASSERT(gva + size > gva, "Vaddr overflow");
-	TEST_ASSERT(paddr + size > paddr, "Paddr overflow");
+	TEST_ASSERT(gpa + size > gpa, "Paddr overflow");
 
 	while (npages--) {
-		virt_pg_map(vm, gva, paddr);
+		virt_pg_map(vm, gva, gpa);
 
 		gva += page_size;
-		paddr += page_size;
+		gpa += page_size;
 	}
 }
 
@@ -2008,7 +2007,7 @@ const char *exit_reason_str(unsigned int exit_reason)
  * Input Args:
  *   vm - Virtual Machine
  *   num - number of pages
- *   paddr_min - Physical address minimum
+ *   min_gpa - Physical address minimum
  *   memslot - Memory region to allocate page from
  *   protected - True if the pages will be used as protected/private memory
  *
@@ -2018,12 +2017,12 @@ const char *exit_reason_str(unsigned int exit_reason)
  *   Starting physical address
  *
  * Within the VM specified by vm, locates a range of available physical
- * pages at or above paddr_min. If found, the pages are marked as in use
+ * pages at or above min_gpa. If found, the pages are marked as in use
  * and their base address is returned. A TEST_ASSERT failure occurs if
- * not enough pages are available at or above paddr_min.
+ * not enough pages are available at or above min_gpa.
  */
 gpa_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
-			   gpa_t paddr_min, u32 memslot,
+			   gpa_t min_gpa, u32 memslot,
 			   bool protected)
 {
 	struct userspace_mem_region *region;
@@ -2031,16 +2030,16 @@ gpa_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
 
 	TEST_ASSERT(num > 0, "Must allocate at least one page");
 
-	TEST_ASSERT((paddr_min % vm->page_size) == 0, "Min physical address "
+	TEST_ASSERT((min_gpa % vm->page_size) == 0, "Min physical address "
 		"not divisible by page size.\n"
-		"  paddr_min: 0x%lx page_size: 0x%x",
-		paddr_min, vm->page_size);
+		"  min_gpa: 0x%lx page_size: 0x%x",
+		min_gpa, vm->page_size);
 
 	region = memslot2region(vm, memslot);
 	TEST_ASSERT(!protected || region->protected_phy_pages,
 		    "Region doesn't support protected memory");
 
-	base = pg = paddr_min >> vm->page_shift;
+	base = pg = min_gpa >> vm->page_shift;
 	do {
 		for (; pg < base + num; ++pg) {
 			if (!sparsebit_is_set(region->unused_phy_pages, pg)) {
@@ -2052,8 +2051,8 @@ gpa_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
 
 	if (pg == 0) {
 		fprintf(stderr, "No guest physical page available, "
-			"paddr_min: 0x%lx page_size: 0x%x memslot: %u\n",
-			paddr_min, vm->page_size, memslot);
+			"min_gpa: 0x%lx page_size: 0x%x memslot: %u\n",
+			min_gpa, vm->page_size, memslot);
 		fputs("---- vm dump ----\n", stderr);
 		vm_dump(stderr, vm, 2);
 		abort();
@@ -2068,9 +2067,9 @@ gpa_t __vm_phy_pages_alloc(struct kvm_vm *vm, size_t num,
 	return base * vm->page_size;
 }
 
-gpa_t vm_phy_page_alloc(struct kvm_vm *vm, gpa_t paddr_min, u32 memslot)
+gpa_t vm_phy_page_alloc(struct kvm_vm *vm, gpa_t min_gpa, u32 memslot)
 {
-	return vm_phy_pages_alloc(vm, 1, paddr_min, memslot);
+	return vm_phy_pages_alloc(vm, 1, min_gpa, memslot);
 }
 
 gpa_t vm_alloc_page_table(struct kvm_vm *vm)
@@ -2287,7 +2286,7 @@ void __attribute((constructor)) kvm_selftest_init(void)
 	kvm_selftest_arch_init();
 }
 
-bool vm_is_gpa_protected(struct kvm_vm *vm, gpa_t paddr)
+bool vm_is_gpa_protected(struct kvm_vm *vm, gpa_t gpa)
 {
 	sparsebit_idx_t pg = 0;
 	struct userspace_mem_region *region;
@@ -2295,10 +2294,10 @@ bool vm_is_gpa_protected(struct kvm_vm *vm, gpa_t paddr)
 	if (!vm_arch_has_protected_memory(vm))
 		return false;
 
-	region = userspace_mem_region_find(vm, paddr, paddr);
-	TEST_ASSERT(region, "No vm physical memory at 0x%lx", paddr);
+	region = userspace_mem_region_find(vm, gpa, gpa);
+	TEST_ASSERT(region, "No vm physical memory at 0x%lx", gpa);
 
-	pg = paddr >> vm->page_shift;
+	pg = gpa >> vm->page_shift;
 	return sparsebit_is_set(region->protected_phy_pages, pg);
 }
 
