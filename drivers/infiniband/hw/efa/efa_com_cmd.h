@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 OR BSD-2-Clause */
 /*
- * Copyright 2018-2025 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2018-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #ifndef _EFA_COM_CMD_H_
@@ -127,6 +127,7 @@ struct efa_com_get_device_attr_result {
 	u32 max_cq;
 	u32 max_cq_depth; /* cqes */
 	u32 inline_buf_size;
+	u32 inline_buf_size_ex;
 	u32 max_mr;
 	u32 max_pd;
 	u32 max_ah;

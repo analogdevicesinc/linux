@@ -35,8 +35,8 @@
  */
 
 #include <rdma/ib_smi.h>
-#include <rdma/ib_umem.h>
 #include <rdma/ib_user_verbs.h>
+#include <rdma/iter.h>
 #include <rdma/uverbs_ioctl.h>
 
 #include <linux/sched.h>
@@ -402,8 +402,9 @@ static int mthca_create_srq(struct ib_srq *ibsrq,
 		return -EOPNOTSUPP;
 
 	if (udata) {
-		if (ib_copy_from_udata(&ucmd, udata, sizeof(ucmd)))
-			return -EFAULT;
+		err = ib_copy_validate_udata_in(udata, ucmd, db_page);
+		if (err)
+			return err;
 
 		err = mthca_map_user_db(to_mdev(ibsrq->device), &context->uar,
 					context->db_tab, ucmd.db_index,
@@ -472,8 +473,9 @@ static int mthca_create_qp(struct ib_qp *ibqp,
 	case IB_QPT_UD:
 	{
 		if (udata) {
-			if (ib_copy_from_udata(&ucmd, udata, sizeof(ucmd)))
-				return -EFAULT;
+			err = ib_copy_validate_udata_in(udata, ucmd, rq_db_index);
+			if (err)
+				return err;
 
 			err = mthca_map_user_db(dev, &context->uar,
 						context->db_tab,
@@ -594,8 +596,9 @@ static int mthca_create_cq(struct ib_cq *ibcq,
 		return -EINVAL;
 
 	if (udata) {
-		if (ib_copy_from_udata(&ucmd, udata, sizeof(ucmd)))
-			return -EFAULT;
+		err = ib_copy_validate_udata_in(udata, ucmd, set_db_index);
+		if (err)
+			return err;
 
 		err = mthca_map_user_db(to_mdev(ibdev), &context->uar,
 					context->db_tab, ucmd.set_db_index,
@@ -695,7 +698,8 @@ unlock:
 	return 0;
 }
 
-static int mthca_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
+static int mthca_resize_cq(struct ib_cq *ibcq, unsigned int entries,
+			   struct ib_udata *udata)
 {
 	struct mthca_dev *dev = to_mdev(ibcq->device);
 	struct mthca_cq *cq = to_mcq(ibcq);
@@ -703,7 +707,7 @@ static int mthca_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *uda
 	u32 lkey;
 	int ret;
 
-	if (entries < 1 || entries > dev->limits.max_cqes)
+	if (entries > dev->limits.max_cqes)
 		return -EINVAL;
 
 	mutex_lock(&cq->mutex);
@@ -720,10 +724,9 @@ static int mthca_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *uda
 			goto out;
 		lkey = cq->resize_buf->buf.mr.ibmr.lkey;
 	} else {
-		if (ib_copy_from_udata(&ucmd, udata, sizeof ucmd)) {
-			ret = -EFAULT;
+		ret = ib_copy_validate_udata_in(udata, ucmd, reserved);
+		if (ret)
 			goto out;
-		}
 		lkey = ucmd.lkey;
 	}
 
@@ -851,8 +854,11 @@ static struct ib_mr *mthca_reg_user_mr(struct ib_pd *pd, u64 start, u64 length,
 		}
 		++context->reg_mr_warned;
 		ucmd.mr_attrs = 0;
-	} else if (ib_copy_from_udata(&ucmd, udata, sizeof ucmd))
-		return ERR_PTR(-EFAULT);
+	} else {
+		err = ib_copy_validate_udata_in(udata, ucmd, reserved);
+		if (err)
+			return ERR_PTR(err);
+	}
 
 	mr = kmalloc_obj(*mr);
 	if (!mr)
@@ -1096,7 +1102,7 @@ static const struct ib_device_ops mthca_dev_ops = {
 	.query_port = mthca_query_port,
 	.query_qp = mthca_query_qp,
 	.reg_user_mr = mthca_reg_user_mr,
-	.resize_cq = mthca_resize_cq,
+	.resize_user_cq = mthca_resize_cq,
 
 	INIT_RDMA_OBJ_SIZE(ib_ah, mthca_ah, ibah),
 	INIT_RDMA_OBJ_SIZE(ib_cq, mthca_cq, ibcq),

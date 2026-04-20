@@ -1373,11 +1373,7 @@ struct ib_mr *siw_reg_user_mr(struct ib_pd *pd, u64 start, u64 len,
 		struct siw_uresp_reg_mr uresp = {};
 		struct siw_mem *mem = mr->mem;
 
-		if (udata->inlen < sizeof(ureq)) {
-			rv = -EINVAL;
-			goto err_out;
-		}
-		rv = ib_copy_from_udata(&ureq, udata, sizeof(ureq));
+		rv = ib_copy_validate_udata_in(udata, ureq, pad);
 		if (rv)
 			goto err_out;
 

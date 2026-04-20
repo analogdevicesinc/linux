@@ -622,6 +622,8 @@ struct irdma_hmc_fpm_misc {
 	u32 timer_bucket;
 	u32 rrf_block_size;
 	u32 ooiscf_block_size;
+	struct irdma_dma_mem fw_scratch_buf0;
+	struct irdma_dma_mem fw_scratch_buf1;
 };
 
 #define IRDMA_VCHNL_MAX_MSG_SIZE 512

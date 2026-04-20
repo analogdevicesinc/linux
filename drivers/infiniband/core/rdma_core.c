@@ -590,11 +590,11 @@ static void alloc_commit_idr_uobject(struct ib_uobject *uobj)
 	void *old;
 
 	/*
-	 * We already allocated this IDR with a NULL object, so
+	 * We already allocated this XArray entry with a NULL pointer, so
 	 * this shouldn't fail.
 	 *
 	 * NOTE: Storing the uobj transfers our kref on uobj to the XArray.
-	 * It will be put by remove_commit_idr_uobject()
+	 * It will be put by remove_handle_idr_uobject()
 	 */
 	old = xa_store(&ufile->idr, uobj->id, uobj, GFP_KERNEL);
 	WARN_ON(old != NULL);
