@@ -411,6 +411,7 @@ struct amdgpu_vm_manager {
 
 	/* Global registration of recent page fault information */
 	struct amdgpu_vm_fault_info	fault_info;
+	unsigned int				npa_vmid;
 };
 
 struct amdgpu_bo_va_mapping;
