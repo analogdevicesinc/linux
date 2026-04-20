@@ -205,6 +205,19 @@ void amdgpu_userq_start_hang_detect_work(struct amdgpu_usermode_queue *queue)
 		     msecs_to_jiffies(timeout_ms));
 }
 
+void amdgpu_userq_process_fence_irq(struct amdgpu_device *adev, u32 doorbell)
+{
+	struct xarray *xa = &adev->userq_doorbell_xa;
+	struct amdgpu_usermode_queue *queue;
+	unsigned long flags;
+
+	xa_lock_irqsave(xa, flags);
+	queue = xa_load(xa, doorbell);
+	if (queue)
+		amdgpu_userq_fence_driver_process(queue->fence_drv);
+	xa_unlock_irqrestore(xa, flags);
+}
+
 static void amdgpu_userq_init_hang_detect_work(struct amdgpu_usermode_queue *queue)
 {
 	INIT_DELAYED_WORK(&queue->hang_detect_work, amdgpu_userq_hang_detect_work);
