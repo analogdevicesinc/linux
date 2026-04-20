@@ -733,16 +733,11 @@ static int drbg_kcapi_random(struct crypto_rng *tfm,
 	return drbg_generate_long(drbg, dst, dlen, addtl);
 }
 
-/*
- * Seed the DRBG invoked by the kernel crypto API
- */
+/* Seed (i.e. instantiate) or re-seed the DRBG. */
 static int drbg_kcapi_seed(struct crypto_rng *tfm,
-			   const u8 *seed, unsigned int slen)
+			   const u8 *seed, unsigned int slen, bool pr)
 {
 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
-	struct crypto_tfm *tfm_base = crypto_rng_tfm(tfm);
-	bool pr = memcmp(crypto_tfm_alg_driver_name(tfm_base),
-			 "drbg_nopr_", 10) != 0;
 	struct drbg_string string;
 	struct drbg_string *seed_string = NULL;
 
@@ -752,6 +747,18 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 	}
 
 	return drbg_instantiate(drbg, seed_string, pr);
+}
+
+static int drbg_kcapi_seed_pr(struct crypto_rng *tfm,
+			      const u8 *seed, unsigned int slen)
+{
+	return drbg_kcapi_seed(tfm, seed, slen, /* pr= */ true);
+}
+
+static int drbg_kcapi_seed_nopr(struct crypto_rng *tfm,
+				const u8 *seed, unsigned int slen)
+{
+	return drbg_kcapi_seed(tfm, seed, slen, /* pr= */ false);
 }
 
 /***************************************************************
@@ -827,7 +834,7 @@ static struct rng_alg drbg_algs[] = {
 		.base.cra_module	= THIS_MODULE,
 		.base.cra_init		= drbg_kcapi_init,
 		.set_ent		= drbg_kcapi_set_entropy,
-		.seed			= drbg_kcapi_seed,
+		.seed			= drbg_kcapi_seed_pr,
 		.generate		= drbg_kcapi_random,
 		.base.cra_exit		= drbg_kcapi_cleanup,
 	},
@@ -839,7 +846,7 @@ static struct rng_alg drbg_algs[] = {
 		.base.cra_module	= THIS_MODULE,
 		.base.cra_init		= drbg_kcapi_init,
 		.set_ent		= drbg_kcapi_set_entropy,
-		.seed			= drbg_kcapi_seed,
+		.seed			= drbg_kcapi_seed_nopr,
 		.generate		= drbg_kcapi_random,
 		.base.cra_exit		= drbg_kcapi_cleanup,
 	},
