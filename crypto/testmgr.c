@@ -28,13 +28,12 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/uio.h>
-#include <crypto/rng.h>
-#include <crypto/drbg.h>
 #include <crypto/akcipher.h>
 #include <crypto/kpp.h>
 #include <crypto/acompress.h>
 #include <crypto/sig.h>
 #include <crypto/internal/cipher.h>
+#include <crypto/internal/rng.h>
 #include <crypto/internal/simd.h>
 
 #include "internal.h"

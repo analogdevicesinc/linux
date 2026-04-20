@@ -92,13 +92,143 @@
  * Just mix both scenarios above.
  */
 
-#include <crypto/drbg.h>
 #include <crypto/df_sp80090a.h>
 #include <crypto/internal/cipher.h>
+#include <crypto/internal/drbg.h>
+#include <crypto/internal/rng.h>
+#include <crypto/hash.h>
+#include <crypto/skcipher.h>
+#include <linux/fips.h>
 #include <linux/kernel.h>
 #include <linux/jiffies.h>
+#include <linux/module.h>
+#include <linux/mutex.h>
+#include <linux/scatterlist.h>
 #include <linux/string_choices.h>
 #include <linux/unaligned.h>
+
+struct drbg_state;
+typedef uint32_t drbg_flag_t;
+
+struct drbg_core {
+	drbg_flag_t flags;	/* flags for the cipher */
+	__u8 statelen;		/* maximum state length */
+	__u8 blocklen_bytes;	/* block size of output in bytes */
+	char cra_name[CRYPTO_MAX_ALG_NAME]; /* mapping to kernel crypto API */
+	 /* kernel crypto API backend cipher name */
+	char backend_cra_name[CRYPTO_MAX_ALG_NAME];
+};
+
+struct drbg_state_ops {
+	int (*update)(struct drbg_state *drbg, struct list_head *seed,
+		      int reseed);
+	int (*generate)(struct drbg_state *drbg,
+			unsigned char *buf, unsigned int buflen,
+			struct list_head *addtl);
+	int (*crypto_init)(struct drbg_state *drbg);
+	int (*crypto_fini)(struct drbg_state *drbg);
+
+};
+
+enum drbg_seed_state {
+	DRBG_SEED_STATE_UNSEEDED,
+	DRBG_SEED_STATE_PARTIAL, /* Seeded with !rng_is_initialized() */
+	DRBG_SEED_STATE_FULL,
+};
+
+struct drbg_state {
+	struct mutex drbg_mutex;	/* lock around DRBG */
+	unsigned char *V;	/* internal state 10.1.1.1 1a) */
+	unsigned char *Vbuf;
+	/* hash: static value 10.1.1.1 1b) hmac / ctr: key */
+	unsigned char *C;
+	unsigned char *Cbuf;
+	/* Number of RNG requests since last reseed -- 10.1.1.1 1c) */
+	size_t reseed_ctr;
+	size_t reseed_threshold;
+	 /* some memory the DRBG can use for its operation */
+	unsigned char *scratchpad;
+	unsigned char *scratchpadbuf;
+	void *priv_data;	/* Cipher handle */
+
+	struct crypto_skcipher *ctr_handle;	/* CTR mode cipher handle */
+	struct skcipher_request *ctr_req;	/* CTR mode request handle */
+	__u8 *outscratchpadbuf;			/* CTR mode output scratchpad */
+        __u8 *outscratchpad;			/* CTR mode aligned outbuf */
+	struct crypto_wait ctr_wait;		/* CTR mode async wait obj */
+	struct scatterlist sg_in, sg_out;	/* CTR mode SGLs */
+
+	enum drbg_seed_state seeded;		/* DRBG fully seeded? */
+	unsigned long last_seed_time;
+	bool pr;		/* Prediction resistance enabled? */
+	struct crypto_rng *jent;
+	const struct drbg_state_ops *d_ops;
+	const struct drbg_core *core;
+	struct drbg_string test_data;
+};
+
+static inline __u8 drbg_statelen(struct drbg_state *drbg)
+{
+	if (drbg && drbg->core)
+		return drbg->core->statelen;
+	return 0;
+}
+
+static inline __u8 drbg_blocklen(struct drbg_state *drbg)
+{
+	if (drbg && drbg->core)
+		return drbg->core->blocklen_bytes;
+	return 0;
+}
+
+static inline __u8 drbg_keylen(struct drbg_state *drbg)
+{
+	if (drbg && drbg->core)
+		return (drbg->core->statelen - drbg->core->blocklen_bytes);
+	return 0;
+}
+
+static inline size_t drbg_max_request_bytes(struct drbg_state *drbg)
+{
+	/* SP800-90A requires the limit 2**19 bits, but we return bytes */
+	return (1 << 16);
+}
+
+/*
+ * SP800-90A allows implementations to support additional info / personalization
+ * strings of up to 2**35 bits.  Implementations can have a smaller maximum.  We
+ * use 2**35 - 16 bits == U32_MAX - 1 bytes so that the max + 1 always fits in a
+ * size_t, allowing drbg_healthcheck_sanity() to verify its enforcement.
+ */
+static inline size_t drbg_max_addtl(struct drbg_state *drbg)
+{
+	return U32_MAX - 1;
+}
+
+static inline size_t drbg_max_requests(struct drbg_state *drbg)
+{
+	/* SP800-90A requires 2**48 maximum requests before reseeding */
+	return (1<<20);
+}
+
+/* DRBG type flags */
+#define DRBG_CTR	((drbg_flag_t)1<<0)
+#define DRBG_HMAC	((drbg_flag_t)1<<1)
+#define DRBG_HASH	((drbg_flag_t)1<<2)
+#define DRBG_TYPE_MASK	(DRBG_CTR | DRBG_HMAC | DRBG_HASH)
+/* DRBG strength flags */
+#define DRBG_STRENGTH128	((drbg_flag_t)1<<3)
+#define DRBG_STRENGTH192	((drbg_flag_t)1<<4)
+#define DRBG_STRENGTH256	((drbg_flag_t)1<<5)
+#define DRBG_STRENGTH_MASK	(DRBG_STRENGTH128 | DRBG_STRENGTH192 | \
+				 DRBG_STRENGTH256)
+
+enum drbg_prefixes {
+	DRBG_PREFIX0 = 0x00,
+	DRBG_PREFIX1,
+	DRBG_PREFIX2,
+	DRBG_PREFIX3
+};
 
 /***************************************************************
  * Backend cipher definitions available to DRBG
