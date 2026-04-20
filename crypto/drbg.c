@@ -506,35 +506,6 @@ err:
 	return len;
 }
 
-/*
- * Wrapper around drbg_generate which can pull arbitrary long strings
- * from the DRBG without hitting the maximum request limitation.
- *
- * Parameters: see drbg_generate
- * Return codes: see drbg_generate -- if one drbg_generate request fails,
- *		 the entire drbg_generate_long request fails
- */
-static int drbg_generate_long(struct drbg_state *drbg,
-			      unsigned char *buf, unsigned int buflen,
-			      const u8 *addtl, size_t addtl_len)
-{
-	unsigned int len = 0;
-	unsigned int slice = 0;
-	do {
-		int err = 0;
-		unsigned int chunk = 0;
-		slice = (buflen - len) / DRBG_MAX_REQUEST_BYTES;
-		chunk = slice ? DRBG_MAX_REQUEST_BYTES : (buflen - len);
-		mutex_lock(&drbg->drbg_mutex);
-		err = drbg_generate(drbg, buf + len, chunk, addtl, addtl_len);
-		mutex_unlock(&drbg->drbg_mutex);
-		if (0 > err)
-			return err;
-		len += chunk;
-	} while (slice > 0 && (len < buflen));
-	return 0;
-}
-
 static int drbg_prepare_hrng(struct drbg_state *drbg)
 {
 	/* We do not need an HRNG in test mode. */
@@ -676,7 +647,6 @@ static void drbg_kcapi_cleanup(struct crypto_tfm *tfm)
 
 /*
  * Generate random numbers invoked by the kernel crypto API:
- * The API of the kernel crypto API is extended as follows:
  *
  * src is additional input supplied to the RNG.
  * slen is the length of src.
@@ -689,7 +659,23 @@ static int drbg_kcapi_random(struct crypto_rng *tfm,
 {
 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
 
-	return drbg_generate_long(drbg, dst, dlen, src, slen);
+	/*
+	 * Break the request into multiple requests if needed, to avoid
+	 * exceeding the maximum request length of the core algorithm.
+	 */
+	do {
+		unsigned int n = min(dlen, DRBG_MAX_REQUEST_BYTES);
+		int err;
+
+		mutex_lock(&drbg->drbg_mutex);
+		err = drbg_generate(drbg, dst, n, src, slen);
+		mutex_unlock(&drbg->drbg_mutex);
+		if (err < 0)
+			return err;
+		dst += n;
+		dlen -= n;
+	} while (dlen);
+	return 0;
 }
 
 /* Seed (i.e. instantiate) or re-seed the DRBG. */
