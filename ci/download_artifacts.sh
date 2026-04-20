@@ -265,6 +265,8 @@ _get_artifact () {
 		echo -n " (cached dir)"
 	echo ""
 
+	[ "$SKIP_DIST" == "true" ] && return 0 || :
+
 	[[ "$name" == "dtb-gcc" ]] && \
 		_unpack_dtb "$name" || \
 		_unpack_kernel "$name"
@@ -337,6 +339,6 @@ download_artifacts() {
 	command rm -r $tmpdir
 	touch .get_artifacts
 
-	log_info "Wrote to dist/"
+	[ "$SKIP_DIST" == "true" ] && log_info "Wrote to raw/" || log_info "Wrote to dist/"
 }
 
