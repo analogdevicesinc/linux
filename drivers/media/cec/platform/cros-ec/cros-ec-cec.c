@@ -338,6 +338,8 @@ static const struct cec_dmi_match cec_dmi_match_table[] = {
 	{ "Google", "Kulnex", "0000:00:02.0", port_b_conns },
 	/* Google Moxoe */
 	{ "Google", "Moxoe", "0000:00:02.0", port_b_conns },
+	/* Google Dirkson */
+	{ "Google", "Dirkson", "0000:00:02.0", port_ab_conns },
 };
 
 static struct device *cros_ec_cec_find_hdmi_dev(struct device *dev,
