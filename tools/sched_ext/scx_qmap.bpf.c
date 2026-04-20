@@ -10,7 +10,7 @@
  *
  * This scheduler demonstrates:
  *
- * - BPF-side queueing using PIDs.
+ * - BPF-side queueing using TIDs.
  * - BPF arena for scheduler state.
  * - Core-sched support.
  *

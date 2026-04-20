@@ -508,7 +508,7 @@ Where to Look
     custom DSQ.
 
   * ``scx_qmap[.bpf].c``: A multi-level FIFO scheduler supporting five
-    levels of priority implemented with ``BPF_MAP_TYPE_QUEUE``.
+    levels of priority implemented with arena-backed doubly-linked lists.
 
   * ``scx_central[.bpf].c``: A central FIFO scheduler where all scheduling
     decisions are made on one CPU, demonstrating ``LOCAL_ON`` dispatching,
