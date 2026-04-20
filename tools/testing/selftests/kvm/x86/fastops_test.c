@@ -186,7 +186,7 @@ if (sizeof(type_t) != 1) {							\
 static void guest_code(void)
 {
 	guest_test_fastops(uint8_t, "b");
-	guest_test_fastops(uint16_t, "w");
+	guest_test_fastops(u16, "w");
 	guest_test_fastops(u32, "l");
 	guest_test_fastops(u64, "q");
 
