@@ -100,14 +100,6 @@
 #include <linux/string_choices.h>
 #include <linux/unaligned.h>
 
-struct drbg_state;
-
-struct drbg_core {
-	char cra_name[CRYPTO_MAX_ALG_NAME]; /* mapping to kernel crypto API */
-	 /* kernel crypto API backend cipher name */
-	char backend_cra_name[CRYPTO_MAX_ALG_NAME];
-};
-
 enum drbg_seed_state {
 	DRBG_SEED_STATE_UNSEEDED,
 	DRBG_SEED_STATE_PARTIAL, /* Seeded with !rng_is_initialized() */
@@ -150,33 +142,15 @@ struct drbg_state {
 	size_t reseed_threshold;
 	enum drbg_seed_state seeded;		/* DRBG fully seeded? */
 	unsigned long last_seed_time;
+	bool instantiated;
 	bool pr;		/* Prediction resistance enabled? */
 	struct crypto_rng *jent;
-	const struct drbg_core *core;
 	struct drbg_string test_data;
 };
 
 enum drbg_prefixes {
 	DRBG_PREFIX0 = 0x00,
 	DRBG_PREFIX1,
-};
-
-/***************************************************************
- * Backend cipher definitions available to DRBG
- ***************************************************************/
-
-/*
- * The order of the DRBG definitions here matter: every DRBG is registered
- * as stdrng. Each DRBG receives an increasing cra_priority values the later
- * they are defined in this array (see drbg_fill_array).
- *
- * Thus, the favored DRBGs are the latest entries in this array.
- */
-static const struct drbg_core drbg_cores[] = {
-	{
-		.cra_name = "hmac_sha512",
-		.backend_cra_name = "hmac(sha512)",
-	},
 };
 
 static int drbg_uninstantiate(struct drbg_state *drbg);
@@ -455,7 +429,7 @@ static inline void drbg_dealloc_state(struct drbg_state *drbg)
 	memzero_explicit(drbg->V, sizeof(drbg->V));
 	memzero_explicit(drbg->C, sizeof(drbg->C));
 	drbg->reseed_ctr = 0;
-	drbg->core = NULL;
+	drbg->instantiated = false;
 }
 
 /*
@@ -482,8 +456,8 @@ static int drbg_generate(struct drbg_state *drbg,
 	int len = 0;
 	LIST_HEAD(addtllist);
 
-	if (!drbg->core) {
-		pr_devel("DRBG: not yet seeded\n");
+	if (!drbg->instantiated) {
+		pr_devel("DRBG: not yet instantiated\n");
 		return -EINVAL;
 	}
 	if (0 == buflen || !buf) {
@@ -625,7 +599,6 @@ static int drbg_prepare_hrng(struct drbg_state *drbg)
  *	 the entropy is pulled by the DRBG internally unconditionally
  *	 as defined in SP800-90A. The additional input is mixed into
  *	 the state in addition to the pulled entropy.
- * @coreref reference to core
  * @pr prediction resistance enabled
  *
  * return
@@ -633,13 +606,13 @@ static int drbg_prepare_hrng(struct drbg_state *drbg)
  *	error value otherwise
  */
 static int drbg_instantiate(struct drbg_state *drbg, struct drbg_string *pers,
-			    int coreref, bool pr)
+			    bool pr)
 {
 	int ret;
 	bool reseed = true;
 
-	pr_devel("DRBG: Initializing DRBG core %d with prediction resistance "
-		 "%s\n", coreref, str_enabled_disabled(pr));
+	pr_devel("DRBG: Initializing DRBG with prediction resistance %s\n",
+		 str_enabled_disabled(pr));
 	mutex_lock(&drbg->drbg_mutex);
 
 	/* 9.1 step 1 is implicit with the selected DRBG type */
@@ -651,8 +624,8 @@ static int drbg_instantiate(struct drbg_state *drbg, struct drbg_string *pers,
 
 	/* 9.1 step 4 is implicit in DRBG_SEC_STRENGTH */
 
-	if (!drbg->core) {
-		drbg->core = &drbg_cores[coreref];
+	if (!drbg->instantiated) {
+		drbg->instantiated = true;
 		drbg->pr = pr;
 		drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
 		drbg->last_seed_time = 0;
@@ -720,46 +693,6 @@ static void drbg_kcapi_set_entropy(struct crypto_rng *tfm,
  * Kernel crypto API interface to register DRBG
  ***************************************************************/
 
-/*
- * Look up the DRBG flags by given kernel crypto API cra_name
- * The code uses the drbg_cores definition to do this
- *
- * @cra_name kernel crypto API cra_name
- * @coreref reference to integer which is filled with the pointer to
- *  the applicable core
- * @pr reference for setting prediction resistance
- *
- * return: flags
- */
-static inline void drbg_convert_tfm_core(const char *cra_driver_name,
-					 int *coreref, bool *pr)
-{
-	int i = 0;
-	size_t start = 0;
-	int len = 0;
-
-	*pr = true;
-	/* disassemble the names */
-	if (!memcmp(cra_driver_name, "drbg_nopr_", 10)) {
-		start = 10;
-		*pr = false;
-	} else if (!memcmp(cra_driver_name, "drbg_pr_", 8)) {
-		start = 8;
-	} else {
-		return;
-	}
-
-	/* remove the first part */
-	len = strlen(cra_driver_name) - start;
-	for (i = 0; ARRAY_SIZE(drbg_cores) > i; i++) {
-		if (!memcmp(cra_driver_name + start, drbg_cores[i].cra_name,
-			    len)) {
-			*coreref = i;
-			return;
-		}
-	}
-}
-
 static int drbg_kcapi_init(struct crypto_tfm *tfm)
 {
 	struct drbg_state *drbg = crypto_tfm_ctx(tfm);
@@ -808,19 +741,17 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 {
 	struct drbg_state *drbg = crypto_rng_ctx(tfm);
 	struct crypto_tfm *tfm_base = crypto_rng_tfm(tfm);
-	bool pr = false;
+	bool pr = memcmp(crypto_tfm_alg_driver_name(tfm_base),
+			 "drbg_nopr_", 10) != 0;
 	struct drbg_string string;
 	struct drbg_string *seed_string = NULL;
-	int coreref = 0;
 
-	drbg_convert_tfm_core(crypto_tfm_alg_driver_name(tfm_base), &coreref,
-			      &pr);
 	if (0 < slen) {
 		drbg_string_fill(&string, seed, slen);
 		seed_string = &string;
 	}
 
-	return drbg_instantiate(drbg, seed_string, coreref, pr);
+	return drbg_instantiate(drbg, seed_string, pr);
 }
 
 /***************************************************************
@@ -844,22 +775,18 @@ static inline int __init drbg_healthcheck_sanity(void)
 	struct drbg_state *drbg = NULL;
 	int ret;
 	int rc = -EFAULT;
-	bool pr = false;
-	int coreref = 0;
 	struct drbg_string addtl;
 
 	/* only perform test in FIPS mode */
 	if (!fips_enabled)
 		return 0;
 
-	drbg_convert_tfm_core("drbg_nopr_hmac_sha512", &coreref, &pr);
-
 	drbg = kzalloc_obj(struct drbg_state);
 	if (!drbg)
 		return -ENOMEM;
 
 	guard(mutex_init)(&drbg->drbg_mutex);
-	drbg->core = &drbg_cores[coreref];
+	drbg->instantiated = true;
 	drbg->reseed_threshold = DRBG_MAX_REQUESTS;
 
 	/*
