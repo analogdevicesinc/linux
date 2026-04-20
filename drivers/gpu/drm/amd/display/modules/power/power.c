@@ -70,7 +70,7 @@ struct power_entity {
 	unsigned int replay_events;
 };
 
-struct backlight_properties {
+struct pwr_backlight_properties {
 	bool use_nits_based_brightness;
 	bool disable_fractional_pwm;
 
@@ -118,7 +118,7 @@ struct core_power {
 	struct dc *dc;
 	struct power_entity *map;
 	struct dmcu_varibright_cached_properties varibright_prop;
-	struct backlight_properties bl_prop[MAX_NUM_EDP];
+	struct pwr_backlight_properties bl_prop[MAX_NUM_EDP];
 	struct backlight_state bl_state[MAX_NUM_EDP];
 	unsigned int edp_num;
 
@@ -1103,7 +1103,7 @@ static void fill_backlight_level_params(struct core_power *core_power,
 	unsigned int backlight_millinit, unsigned int transition_time_millisec,
 	bool is_hdr)
 {
-	struct backlight_properties *bl_prop = &core_power->bl_prop[panel_inst];
+	struct pwr_backlight_properties *bl_prop = &core_power->bl_prop[panel_inst];
 
 	backlight_level_params->aux_inst = aux_inst;
 	backlight_level_params->backlight_pwm_u16_16 = backlight_pwm;
