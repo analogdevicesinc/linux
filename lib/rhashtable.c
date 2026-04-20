@@ -538,7 +538,7 @@ static void *rhashtable_lookup_one(struct rhashtable *ht,
 		return NULL;
 	}
 
-	if (elasticity <= 0)
+	if (elasticity <= 0 && !ht->p.insecure_elasticity)
 		return ERR_PTR(-EAGAIN);
 
 	return ERR_PTR(-ENOENT);
@@ -568,7 +568,8 @@ static struct bucket_table *rhashtable_insert_one(
 	if (unlikely(rht_grow_above_max(ht, tbl)))
 		return ERR_PTR(-E2BIG);
 
-	if (unlikely(rht_grow_above_100(ht, tbl)))
+	if (unlikely(rht_grow_above_100(ht, tbl)) &&
+	    !ht->p.insecure_elasticity)
 		return ERR_PTR(-EAGAIN);
 
 	head = rht_ptr(bkt, tbl, hash);
