@@ -1115,10 +1115,9 @@ menu "Random number generation"
 
 config CRYPTO_DRBG
 	tristate "NIST SP800-90A DRBG (Deterministic Random Bit Generator)"
-	select CRYPTO_HMAC
 	select CRYPTO_JITTERENTROPY
+	select CRYPTO_LIB_SHA512
 	select CRYPTO_RNG
-	select CRYPTO_SHA512
 	help
 	  DRBG (Deterministic Random Bit Generator) (NIST SP800-90A)
 
