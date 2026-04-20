@@ -12,6 +12,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/cleanup.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/init.h>
@@ -198,6 +199,8 @@ static int ads7924_get_adc_result(struct ads7924_data *data,
 	if (chan->channel < 0 || chan->channel >= ADS7924_CHANNELS)
 		return -EINVAL;
 
+	guard(mutex)(&data->lock);
+
 	if (data->conv_invalid) {
 		int conv_time;
 
@@ -227,9 +230,7 @@ static int ads7924_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		mutex_lock(&data->lock);
 		ret = ads7924_get_adc_result(data, chan, val);
-		mutex_unlock(&data->lock);
 		if (ret < 0)
 			return ret;
 
