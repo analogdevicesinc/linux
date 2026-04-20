@@ -196,9 +196,6 @@ struct ntfs_index {
 	struct rw_semaphore run_lock;
 	size_t version; /* increment each change */
 
-	/*TODO: Remove 'cmp'. */
-	NTFS_CMP_FUNC cmp;
-
 	u8 index_bits; // log2(root->index_block_size)
 	u8 idx2vbn_bits; // log2(root->index_block_clst)
 	u8 vbn2vbo_bits; // index_block_size < cluster? 9 : cluster_bits
