@@ -27,6 +27,8 @@ static struct kmem_cache *nfs4_layout_stateid_cache;
 static const struct nfsd4_callback_ops nfsd4_cb_layout_ops;
 static const struct lease_manager_operations nfsd4_layouts_lm_ops;
 
+static void nfsd4_layout_fence_worker(struct work_struct *work);
+
 const struct nfsd4_layout_ops *nfsd4_layout_ops[LAYOUT_TYPE_MAX] =  {
 #ifdef CONFIG_NFSD_FLEXFILELAYOUT
 	[LAYOUT_FLEX_FILES]	= &ff_layout_ops,
@@ -177,6 +179,13 @@ nfsd4_free_layout_stateid(struct nfs4_stid *stid)
 
 	trace_nfsd_layoutstate_free(&ls->ls_stid.sc_stateid);
 
+	spin_lock(&ls->ls_lock);
+	if (delayed_work_pending(&ls->ls_fence_work)) {
+		spin_unlock(&ls->ls_lock);
+		cancel_delayed_work_sync(&ls->ls_fence_work);
+	} else
+		spin_unlock(&ls->ls_lock);
+
 	spin_lock(&clp->cl_lock);
 	list_del_init(&ls->ls_perclnt);
 	spin_unlock(&clp->cl_lock);
@@ -270,6 +279,10 @@ nfsd4_alloc_layout_stateid(struct nfsd4_compound_state *cstate,
 	spin_lock(&fp->fi_lock);
 	list_add(&ls->ls_perfile, &fp->fi_lo_states);
 	spin_unlock(&fp->fi_lock);
+
+	ls->ls_fenced = false;
+	ls->ls_fence_delay = 0;
+	INIT_DELAYED_WORK(&ls->ls_fence_work, nfsd4_layout_fence_worker);
 
 	trace_nfsd_layoutstate_alloc(&ls->ls_stid.sc_stateid);
 	return ls;
@@ -747,11 +760,9 @@ static bool
 nfsd4_layout_lm_break(struct file_lease *fl)
 {
 	/*
-	 * We don't want the locks code to timeout the lease for us;
-	 * we'll remove it ourself if a layout isn't returned
-	 * in time:
+	 * Enforce break lease timeout to prevent NFSD
+	 * thread from hanging in __break_lease.
 	 */
-	fl->fl_break_time = 0;
 	nfsd4_recall_file_layout(fl->c.flc_owner);
 	return false;
 }
@@ -782,10 +793,143 @@ nfsd4_layout_lm_open_conflict(struct file *filp, int arg)
 	return 0;
 }
 
+static void
+nfsd4_layout_fence_worker(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct nfs4_layout_stateid *ls = container_of(dwork,
+			struct nfs4_layout_stateid, ls_fence_work);
+	struct nfsd_file *nf;
+	struct block_device *bdev;
+	struct nfs4_client *clp;
+	struct nfsd_net *nn;
+
+	/*
+	 * The workqueue clears WORK_STRUCT_PENDING before invoking
+	 * this callback. Re-arm immediately so that
+	 * delayed_work_pending() returns true while the fence
+	 * operation is in progress, preventing
+	 * lm_breaker_timedout() from taking a duplicate reference.
+	 */
+	mod_delayed_work(system_dfl_wq, &ls->ls_fence_work, 0);
+
+	spin_lock(&ls->ls_lock);
+	if (list_empty(&ls->ls_layouts)) {
+		spin_unlock(&ls->ls_lock);
+dispose:
+		cancel_delayed_work(&ls->ls_fence_work);
+		/* unlock the lease so that tasks waiting on it can proceed */
+		nfsd4_close_layout(ls);
+
+		ls->ls_fenced = true;
+		nfs4_put_stid(&ls->ls_stid);
+		return;
+	}
+	spin_unlock(&ls->ls_lock);
+
+	rcu_read_lock();
+	nf = nfsd_file_get(ls->ls_file);
+	rcu_read_unlock();
+	if (!nf)
+		goto dispose;
+
+	clp = ls->ls_stid.sc_client;
+	nn = net_generic(clp->net, nfsd_net_id);
+	bdev = nf->nf_file->f_path.mnt->mnt_sb->s_bdev;
+	if (nfsd4_layout_ops[ls->ls_layout_type]->fence_client(ls, nf)) {
+		/* fenced ok */
+		nfsd_file_put(nf);
+		pr_warn("%s: FENCED client[%pISpc] clid[%d] to device[%s]\n",
+			__func__, (struct sockaddr *)&clp->cl_addr,
+			clp->cl_clientid.cl_id - nn->clientid_base,
+			bdev->bd_disk->disk_name);
+		goto dispose;
+	}
+	/* fence failed */
+	nfsd_file_put(nf);
+
+	if (!clp->cl_fence_retry_warn) {
+		pr_warn("%s: FENCE failed client[%pISpc] clid[%d] device[%s]\n",
+			__func__, (struct sockaddr *)&clp->cl_addr,
+			clp->cl_clientid.cl_id - nn->clientid_base,
+			bdev->bd_disk->disk_name);
+		clp->cl_fence_retry_warn = true;
+	}
+	/*
+	 * The fence worker retries the fencing operation indefinitely to
+	 * prevent data corruption. The admin needs to take the following
+	 * actions to restore access to the file for other clients:
+	 *
+	 *  . shutdown or power off the client being fenced.
+	 *  . manually expire the client to release all its state on the server;
+	 *    echo 'expire' > /proc/fs/nfsd/clients/clid/ctl'.
+	 *
+	 *    Where:
+	 *
+	 *    clid: is the unique client identifier displayed in
+	 *          the warning message above.
+	 */
+	if (!ls->ls_fence_delay)
+		ls->ls_fence_delay = HZ;
+	else
+		ls->ls_fence_delay = min(ls->ls_fence_delay << 1,
+					 MAX_FENCE_DELAY);
+	mod_delayed_work(system_dfl_wq, &ls->ls_fence_work, ls->ls_fence_delay);
+}
+
+/**
+ * nfsd4_layout_lm_breaker_timedout - The layout recall has timed out.
+ * @fl: file to check
+ *
+ * If the layout type supports a fence operation, schedule a worker to
+ * fence the client from accessing the block device.
+ *
+ * This function runs under the protection of the spin_lock flc_lock.
+ * At this time, the file_lease associated with the layout stateid is
+ * on the flc_list. A reference count is incremented on the layout
+ * stateid to prevent it from being freed while the fence worker is
+ * executing. Once the fence worker finishes its operation, it releases
+ * this reference.
+ *
+ * The fence worker continues to run until either the client has been
+ * fenced or the layout becomes invalid. The layout can become invalid
+ * as a result of a LAYOUTRETURN or when the CB_LAYOUT recall callback
+ * has completed.
+ *
+ * Return true if the file_lease should be disposed of by the caller;
+ * otherwise, return false.
+ */
+static bool
+nfsd4_layout_lm_breaker_timedout(struct file_lease *fl)
+{
+	struct nfs4_layout_stateid *ls = fl->c.flc_owner;
+
+	if ((!nfsd4_layout_ops[ls->ls_layout_type]->fence_client) ||
+			ls->ls_fenced)
+		return true;
+	if (delayed_work_pending(&ls->ls_fence_work))
+		return false;
+	/*
+	 * Make sure layout has not been returned yet before
+	 * taking a reference count on the layout stateid.
+	 */
+	spin_lock(&ls->ls_lock);
+	if (list_empty(&ls->ls_layouts) ||
+			!refcount_inc_not_zero(&ls->ls_stid.sc_count)) {
+		spin_unlock(&ls->ls_lock);
+		return true;
+	}
+	spin_unlock(&ls->ls_lock);
+
+	mod_delayed_work(system_dfl_wq, &ls->ls_fence_work, 0);
+	return false;
+}
+
 static const struct lease_manager_operations nfsd4_layouts_lm_ops = {
 	.lm_break		= nfsd4_layout_lm_break,
 	.lm_change		= nfsd4_layout_lm_change,
 	.lm_open_conflict	= nfsd4_layout_lm_open_conflict,
+	.lm_breaker_timedout	= nfsd4_layout_lm_breaker_timedout,
 };
 
 int
