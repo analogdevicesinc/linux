@@ -44,8 +44,9 @@
 #define AD5686_CMD_READBACK_ENABLE_V2		0x5
 
 #define AD5310_REF_BIT_MSK			BIT(8)
+#define AD5310_PD_MSK				GENMASK(10, 9)
 #define AD5683_REF_BIT_MSK			BIT(12)
-
+#define AD5683_PD_MSK				GENMASK(14, 13)
 
 enum ad5686_regmap_type {
 	AD5310_REGMAP,
