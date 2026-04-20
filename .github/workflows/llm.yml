@@ -99,10 +99,21 @@ jobs:
           Do **not** review commits starting with "[TMP]", "[ADI]", ".github:" or "ci:",
           they are not part of the series but to change the CI/CD or temporally change behaviour.
           You **must** check the appropriate datasheets for devices drivers, always convert pdfs
-          before reading it, in particular, camelot-py is great to get the register map.
-          `python3 -m  ci.extract_register_map ./datasheet.pdf` extract register maps from datasheets,
-          should work on most cases, modify if needed. Tip: a sitemap with all pdfs, including the datasheets,
-          are available at https://www.analog.com/media/en/en-pdf-sitemap.xml
+          before reading it, in particular, camelot-py is already installed.
+
+          Pre-converted (with docling), may be available at the git tree:
+            https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling
+
+          for example:
+            https://www.analog.com/media/en/technical-documentation/data-sheets/max17335.pdf
+          can be fetched with:
+            https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling/media/en/technical-documentation/data-sheets/max17335.md
+
+          `python3 -m ci.extract_register_map ./datasheet.pdf` extract register maps from datasheets,
+          should work on most cases, if not, install docling and use it to convert.
+
+          A sitemap with all pdfs, including the datasheets, are available at:
+            https://www.analog.com/media/en/en-pdf-sitemap.xml
           EOF
 
           cat <<'EOF' >> "$prompt_file"
