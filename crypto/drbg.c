@@ -161,7 +161,6 @@ static const struct drbg_core drbg_cores[] = {
 		.backend_cra_name = "sha256",
 	},
 #endif /* CONFIG_CRYPTO_DRBG_HASH */
-#ifdef CONFIG_CRYPTO_DRBG_HMAC
 	{
 		.flags = DRBG_HMAC | DRBG_STRENGTH256,
 		.statelen = 48, /* block length of cipher */
@@ -181,7 +180,6 @@ static const struct drbg_core drbg_cores[] = {
 		.cra_name = "hmac_sha512",
 		.backend_cra_name = "hmac(sha512)",
 	},
-#endif /* CONFIG_CRYPTO_DRBG_HMAC */
 };
 
 static int drbg_uninstantiate(struct drbg_state *drbg);
@@ -406,16 +404,13 @@ static const struct drbg_state_ops drbg_ctr_ops = {
  * HMAC DRBG callback functions
  ******************************************************************/
 
-#if defined(CONFIG_CRYPTO_DRBG_HASH) || defined(CONFIG_CRYPTO_DRBG_HMAC)
 static int drbg_kcapi_hash(struct drbg_state *drbg, unsigned char *outval,
 			   const struct list_head *in);
 static void drbg_kcapi_hmacsetkey(struct drbg_state *drbg,
 				  const unsigned char *key);
 static int drbg_init_hash_kernel(struct drbg_state *drbg);
 static int drbg_fini_hash_kernel(struct drbg_state *drbg);
-#endif /* (CONFIG_CRYPTO_DRBG_HASH || CONFIG_CRYPTO_DRBG_HMAC) */
 
-#ifdef CONFIG_CRYPTO_DRBG_HMAC
 #define CRYPTO_DRBG_HMAC_STRING "HMAC "
 MODULE_ALIAS_CRYPTO("drbg_pr_hmac_sha512");
 MODULE_ALIAS_CRYPTO("drbg_nopr_hmac_sha512");
@@ -527,7 +522,6 @@ static const struct drbg_state_ops drbg_hmac_ops = {
 	.crypto_init	= drbg_init_hash_kernel,
 	.crypto_fini	= drbg_fini_hash_kernel,
 };
-#endif /* CONFIG_CRYPTO_DRBG_HMAC */
 
 /******************************************************************
  * Hash DRBG callback functions
@@ -1046,11 +1040,9 @@ static inline int drbg_alloc_state(struct drbg_state *drbg)
 	unsigned int sb_size = 0;
 
 	switch (drbg->core->flags & DRBG_TYPE_MASK) {
-#ifdef CONFIG_CRYPTO_DRBG_HMAC
 	case DRBG_HMAC:
 		drbg->d_ops = &drbg_hmac_ops;
 		break;
-#endif /* CONFIG_CRYPTO_DRBG_HMAC */
 #ifdef CONFIG_CRYPTO_DRBG_HASH
 	case DRBG_HASH:
 		drbg->d_ops = &drbg_hash_ops;
@@ -1431,7 +1423,6 @@ static void drbg_kcapi_set_entropy(struct crypto_rng *tfm,
  * Kernel crypto API cipher invocations requested by DRBG
  ***************************************************************/
 
-#if defined(CONFIG_CRYPTO_DRBG_HASH) || defined(CONFIG_CRYPTO_DRBG_HMAC)
 struct sdesc {
 	struct shash_desc shash;
 };
@@ -1491,7 +1482,6 @@ static int drbg_kcapi_hash(struct drbg_state *drbg, unsigned char *outval,
 		crypto_shash_update(&sdesc->shash, input->buf, input->len);
 	return crypto_shash_final(&sdesc->shash, outval);
 }
-#endif /* (CONFIG_CRYPTO_DRBG_HASH || CONFIG_CRYPTO_DRBG_HMAC) */
 
 #ifdef CONFIG_CRYPTO_DRBG_CTR
 static int drbg_fini_sym_kernel(struct drbg_state *drbg)
@@ -1757,9 +1747,7 @@ static inline int __init drbg_healthcheck_sanity(void)
 #ifdef CONFIG_CRYPTO_DRBG_HASH
 	drbg_convert_tfm_core("drbg_nopr_sha256", &coreref, &pr);
 #endif
-#ifdef CONFIG_CRYPTO_DRBG_HMAC
 	drbg_convert_tfm_core("drbg_nopr_hmac_sha512", &coreref, &pr);
-#endif
 
 	drbg = kzalloc_obj(struct drbg_state);
 	if (!drbg)
@@ -1886,9 +1874,6 @@ module_init(drbg_init);
 module_exit(drbg_exit);
 #ifndef CRYPTO_DRBG_HASH_STRING
 #define CRYPTO_DRBG_HASH_STRING ""
-#endif
-#ifndef CRYPTO_DRBG_HMAC_STRING
-#define CRYPTO_DRBG_HMAC_STRING ""
 #endif
 #ifndef CRYPTO_DRBG_CTR_STRING
 #define CRYPTO_DRBG_CTR_STRING ""

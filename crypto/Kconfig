@@ -1122,12 +1122,6 @@ menuconfig CRYPTO_DRBG_MENU
 
 if CRYPTO_DRBG_MENU
 
-config CRYPTO_DRBG_HMAC
-	bool
-	default y
-	select CRYPTO_HMAC
-	select CRYPTO_SHA512
-
 config CRYPTO_DRBG_HASH
 	bool "Hash_DRBG"
 	select CRYPTO_SHA256
@@ -1147,8 +1141,10 @@ config CRYPTO_DRBG_CTR
 config CRYPTO_DRBG
 	tristate
 	default CRYPTO_DRBG_MENU
-	select CRYPTO_RNG
+	select CRYPTO_HMAC
 	select CRYPTO_JITTERENTROPY
+	select CRYPTO_RNG
+	select CRYPTO_SHA512
 
 endif	# if CRYPTO_DRBG_MENU
 
