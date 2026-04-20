@@ -152,8 +152,6 @@ enum drbg_prefixes {
 	DRBG_PREFIX1,
 };
 
-static int drbg_uninstantiate(struct drbg_state *drbg);
-
 /******************************************************************
  * HMAC DRBG functions
  ******************************************************************/
@@ -390,17 +388,6 @@ out:
 	return ret;
 }
 
-/* Free all substructures in a DRBG state without the DRBG state structure */
-static inline void drbg_dealloc_state(struct drbg_state *drbg)
-{
-	if (!drbg)
-		return;
-	memzero_explicit(&drbg->key, sizeof(drbg->key));
-	memzero_explicit(drbg->V, sizeof(drbg->V));
-	drbg->reseed_ctr = 0;
-	drbg->instantiated = false;
-}
-
 /*
  * DRBG generate function as required by SP800-90A - this function
  * generates random numbers
@@ -506,26 +493,6 @@ err:
 	return len;
 }
 
-/*
- * DRBG uninstantiate function as required by SP800-90A - this function
- * frees all buffers and the DRBG handle
- *
- * @drbg DRBG state handle
- *
- * return
- *	0 on success
- */
-static int drbg_uninstantiate(struct drbg_state *drbg)
-{
-	if (!IS_ERR_OR_NULL(drbg->jent))
-		crypto_free_rng(drbg->jent);
-	drbg->jent = NULL;
-
-	drbg_dealloc_state(drbg);
-	/* no scrubbing of test_data -- this shall survive an uninstantiate */
-	return 0;
-}
-
 /***************************************************************
  * Kernel crypto API interface to DRBG
  ***************************************************************/
@@ -575,7 +542,6 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 
 	/* 9.1 step 4 is implicit in DRBG_SEC_STRENGTH */
 
-	drbg->instantiated = true;
 	drbg->pr = pr;
 	drbg->seeded = DRBG_SEED_STATE_UNSEEDED;
 	drbg->last_seed_time = 0;
@@ -590,20 +556,19 @@ static int drbg_kcapi_seed(struct crypto_rng *tfm,
 			ret = PTR_ERR(drbg->jent);
 			drbg->jent = NULL;
 			if (fips_enabled)
-				goto free_everything;
+				return ret;
 			pr_info("DRBG: Continuing without Jitter RNG\n");
 		}
 	}
 
 	ret = drbg_seed(drbg, pers, pers_len, /* reseed= */ false);
-	if (ret)
-		goto free_everything;
-
-	return ret;
-
-free_everything:
-	drbg_uninstantiate(drbg);
-	return ret;
+	if (ret) {
+		crypto_free_rng(drbg->jent);
+		drbg->jent = NULL;
+		return ret;
+	}
+	drbg->instantiated = true;
+	return 0;
 }
 
 static int drbg_kcapi_seed_pr(struct crypto_rng *tfm,
@@ -651,9 +616,13 @@ static int drbg_kcapi_generate(struct crypto_rng *tfm,
 	return 0;
 }
 
+/* Uninstantiate the DRBG. */
 static void drbg_kcapi_exit(struct crypto_tfm *tfm)
 {
-	drbg_uninstantiate(crypto_tfm_ctx(tfm));
+	struct drbg_state *drbg = crypto_tfm_ctx(tfm);
+
+	crypto_free_rng(drbg->jent);
+	memzero_explicit(drbg, sizeof(*drbg));
 }
 
 /*
