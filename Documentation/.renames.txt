@@ -783,7 +783,6 @@ namespaces/compatibility-list admin-guide/namespaces/compatibility-list
 namespaces/index admin-guide/namespaces/index
 namespaces/resource-control admin-guide/namespaces/resource-control
 networking/altera_tse networking/device_drivers/ethernet/altera/altera_tse
-networking/baycom networking/device_drivers/hamradio/baycom
 networking/bpf_flow_dissector bpf/prog_flow_dissector
 networking/cxacru networking/device_drivers/atm/cxacru
 networking/defza networking/device_drivers/fddi/defza
@@ -848,7 +847,6 @@ networking/ixgbe networking/device_drivers/ethernet/intel/ixgbe
 networking/ixgbevf networking/device_drivers/ethernet/intel/ixgbevf
 networking/netdev-FAQ process/maintainer-netdev
 networking/skfp networking/device_drivers/fddi/skfp
-networking/z8530drv networking/device_drivers/hamradio/z8530drv
 nfc/index driver-api/nfc/index
 nfc/nfc-hci driver-api/nfc/nfc-hci
 nfc/nfc-pn544 driver-api/nfc/nfc-pn544
