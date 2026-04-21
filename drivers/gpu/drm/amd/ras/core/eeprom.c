@@ -1390,3 +1390,90 @@ int ras_eeprom_get_version(struct ras_core_context *ras_core, uint32_t *version)
 
 	return 0;
 }
+
+static int ras_eeprom_get_records(struct ras_core_context *ras_core, u32 start,
+		struct eeprom_umc_record *record, u32 num)
+{
+	if (!record)
+		return -EINVAL;
+
+	return ras_eeprom_read(ras_core, record, num);
+}
+
+static int __check_ras_table(struct ras_core_context *ras_core,
+			struct ras_eeprom_control *control)
+{
+	int res = 0;
+
+	mutex_lock(&control->ras_tbl_mutex);
+	res = __verify_ras_table_checksum(control);
+	mutex_unlock(&control->ras_tbl_mutex);
+	if (res)
+		RAS_DEV_ERR(ras_core->dev,
+			"RAS table checksum is incorrect! ret: %d\n", res);
+
+	return res;
+}
+
+static void __get_eeprom_status(struct ras_core_context *ras_core,
+		u32 *status, bool fast_mode)
+{
+	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
+	struct ras_eeprom_table_header *hdr;
+
+	if (!control)
+		return;
+
+	hdr = &control->tbl_hdr;
+	if (!fast_mode && __check_ras_table(ras_core, control))
+		*status = RAS_EEPROM_FAULT;
+	else if (hdr->header == RAS_TABLE_HDR_VAL)
+		*status = RAS_EEPROM_OK;
+	else if (hdr->header == RAS_TABLE_HDR_BAD)
+		*status = RAS_EEPROM_LOCKED;
+	else
+		*status = RAS_EEPROM_UNKNOWN;
+}
+
+static int ras_eeprom_get_eeprom_info(struct ras_core_context *ras_core,
+		struct ras_eeprom_info *eeprom_info, bool fast_mode)
+{
+	struct ras_eeprom_control *ctl = ras_core->eeprom_mgr.ras_eeprom;
+	struct ras_eeprom_table_header *hdr;
+
+	if (!ctl || !eeprom_info)
+		return -EINVAL;
+
+	hdr = &ctl->tbl_hdr;
+	__get_eeprom_status(ras_core, &eeprom_info->eeprom_status, fast_mode);
+	eeprom_info->record_format_version = hdr->version;
+	eeprom_info->record_count = ctl->ras_num_recs;
+	eeprom_info->max_record_count = ctl->ras_max_record_count;
+	eeprom_info->bad_channel_bitmap = ctl->bad_channel_bitmap;
+
+	return 0;
+}
+
+static int ras_eeprom_unlock(struct ras_core_context *ras_core)
+{
+	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
+	int ret;
+
+	if (!control)
+		return -EINVAL;
+
+	ret = __check_ras_table(ras_core, control);
+	if (ret)
+		return ret;
+
+	return ras_eeprom_correct_header_tag(control, RAS_TABLE_HDR_VAL);
+}
+
+struct ras_eeprom_ops ras_drv_eeprom_ops = {
+	.reset_table = ras_eeprom_reset_table,
+	.get_records = ras_eeprom_get_records,
+	.append_records = ras_eeprom_append,
+	.get_record_count = ras_eeprom_get_record_count,
+	.get_eeprom_info = ras_eeprom_get_eeprom_info,
+	.unlock_eeprom = ras_eeprom_unlock,
+};
