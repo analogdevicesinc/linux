@@ -199,6 +199,9 @@ static void pci_pwrctrl_power_off_device(struct device_node *np)
 	for_each_available_child_of_node_scoped(np, child)
 		pci_pwrctrl_power_off_device(child);
 
+	if (!pci_pwrctrl_is_required(np))
+		return;
+
 	pdev = of_find_device_by_node(np);
 	if (!pdev)
 		return;
@@ -254,6 +257,9 @@ static int pci_pwrctrl_power_on_device(struct device_node *np)
 		if (ret)
 			return ret;
 	}
+
+	if (!pci_pwrctrl_is_required(np))
+		return 0;
 
 	pdev = of_find_device_by_node(np);
 	if (!pdev)
