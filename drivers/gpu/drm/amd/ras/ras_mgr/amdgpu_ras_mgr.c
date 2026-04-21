@@ -600,10 +600,7 @@ bool amdgpu_ras_mgr_check_eeprom_safety_watermark(struct amdgpu_device *adev)
 	if (!amdgpu_ras_mgr_is_ready(adev))
 		return false;
 
-	if (ras_fw_eeprom_supported(ras_mgr->ras_core))
-		return ras_fw_eeprom_check_safety_watermark(ras_mgr->ras_core);
-
-	return ras_eeprom_check_safety_watermark(ras_mgr->ras_core);
+	return ras_core_check_safety_watermark(ras_mgr->ras_core);
 }
 
 int amdgpu_ras_mgr_get_curr_nps_mode(struct amdgpu_device *adev,

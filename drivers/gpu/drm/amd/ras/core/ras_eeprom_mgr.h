@@ -24,6 +24,7 @@
 
 #ifndef __RAS_EEPROM_MGR_H__
 #define __RAS_EEPROM_MGR_H__
+#include "ras_sys.h"
 
 enum ras_gpu_op_status {
 	RAS_GPU_OP_STATUS_UNKNOWN = 0,

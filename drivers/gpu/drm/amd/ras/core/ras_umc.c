@@ -645,6 +645,9 @@ static int ras_umc_add_bad_pages(struct ras_core_context *ras_core,
 		if (ret)
 			goto out;
 	}
+
+	ras_eeprom_mgr_check_and_report_status(ras_core, true);
+
 out:
 	mutex_unlock(&ras_umc->umc_lock);
 
@@ -661,29 +664,18 @@ int ras_umc_load_bad_pages(struct ras_core_context *ras_core)
 	uint32_t ras_num_recs;
 	int ret;
 
-	if (ras_fw_eeprom_supported(ras_core)) {
-		ras_num_recs = ras_fw_eeprom_get_record_count(ras_core);
-		/* no bad page record, skip eeprom access */
-		if (!ras_num_recs ||
-		    ras_core->ras_fw_eeprom.record_threshold_config == DISABLE_RETIRE_PAGE)
-			return 0;
-	} else {
-		ras_num_recs = ras_eeprom_get_record_count(ras_core);
-		if (!ras_num_recs ||
-		    ras_core->ras_eeprom.record_threshold_config == DISABLE_RETIRE_PAGE)
-			return 0;
-	}
+	ras_num_recs = ras_eeprom_mgr_get_record_count(ras_core);
+	if (!ras_num_recs)
+		return 0;
 
 	bps = kzalloc_objs(*bps, ras_num_recs);
 	if (!bps)
 		return -ENOMEM;
 
-	if (ras_fw_eeprom_supported(ras_core))
-		ret = ras_fw_eeprom_read_idx(ras_core, bps, 0, 0, ras_num_recs);
-	else
-		ret = ras_eeprom_read(ras_core, bps, ras_num_recs);
+	ret = ras_eeprom_mgr_get_records(ras_core, 0, bps, ras_num_recs);
 	if (ret) {
-		RAS_DEV_ERR(ras_core->dev, "Failed to load EEPROM table records!");
+		RAS_DEV_ERR(ras_core->dev,
+			"Failed to load EEPROM table records! ret:%d\n", ret);
 	} else {
 		ras_core->ras_umc.umc_err_data.last_retired_pfn = UMC_INV_MEM_PFN;
 		ret = ras_umc_add_bad_pages(ras_core, bps, ras_num_recs, true);
@@ -711,23 +703,17 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 	if (!data->bps)
 		return 0;
 
-	if (ras_fw_eeprom_supported(ras_core))
-		eeprom_record_num = ras_fw_eeprom_get_record_count(ras_core);
-	else
-		eeprom_record_num = ras_eeprom_get_record_count(ras_core);
+	eeprom_record_num = ras_eeprom_mgr_get_record_count(ras_core);
 	mutex_lock(&ras_umc->umc_lock);
 	save_count = data->count - eeprom_record_num;
 	logical_count = ram_data->bad_page_num - ram_data->bad_page_num_old;
 	/* only new entries are saved */
 	if (save_count > 0) {
-		if (ras_fw_eeprom_supported(ras_core))
-			ret = ras_fw_eeprom_append(ras_core, &data->bps[eeprom_record_num],
-					save_count);
-		else
-			ret = ras_eeprom_append(ras_core, &data->bps[eeprom_record_num],
-					save_count);
+		ret = ras_eeprom_mgr_append_records(ras_core,
+				&data->bps[eeprom_record_num], save_count);
 		if (ret) {
-			RAS_DEV_ERR(ras_core->dev, "Failed to save EEPROM table data!");
+			RAS_DEV_ERR(ras_core->dev,
+				"Failed to save EEPROM table data! ret:%d\n", ret);
 			ret = -EIO;
 			goto exit;
 		}

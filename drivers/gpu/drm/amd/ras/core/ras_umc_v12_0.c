@@ -395,7 +395,7 @@ static int umc_v12_0_bank_to_eeprom_record(struct ras_core_context *ras_core,
 		ACA_ADDR_2_ERR_ADDR(bank->addr), ACA_IPID_2_UMC_INST(bank->ipid),
 		&nps_addr, bank->nps, record);
 
-	if (ras_fw_eeprom_supported(ras_core) && bank->ts)
+	if (bank->ts)
 		record->ts = bank->ts;
 
 	/* If the bank being converted already has a timestamp,

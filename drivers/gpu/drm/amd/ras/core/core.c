@@ -273,10 +273,7 @@ static int ras_core_eeprom_recovery(struct ras_core_context *ras_core)
 	int count;
 	int ret;
 
-	if (ras_fw_eeprom_supported(ras_core))
-		count = ras_fw_eeprom_get_record_count(ras_core);
-	else
-		count = ras_eeprom_get_record_count(ras_core);
+	count = ras_eeprom_mgr_get_record_count(ras_core);
 	if (!count)
 		return 0;
 
@@ -289,11 +286,6 @@ static int ras_core_eeprom_recovery(struct ras_core_context *ras_core)
 		RAS_DEV_ERR(ras_core->dev, "ras_umc_load_bad_pages failed: %d\n", ret);
 		return ret;
 	}
-
-	if (ras_fw_eeprom_supported(ras_core))
-		ras_fw_eeprom_sync_info(ras_core);
-	else
-		ras_eeprom_sync_info(ras_core);
 
 	return ret;
 }
@@ -430,12 +422,7 @@ int ras_core_hw_init(struct ras_core_context *ras_core)
 	if (ret)
 		goto init_err5;
 
-	ras_fw_init_feature_flags(ras_core);
-
-	if (ras_fw_eeprom_supported(ras_core))
-		ret = ras_fw_eeprom_hw_init(ras_core);
-	else
-		ret = ras_eeprom_hw_init(ras_core);
+	ret = ras_eeprom_mgr_hw_init(ras_core);
 
 	/*
 	 * NOTE:
@@ -457,19 +444,9 @@ int ras_core_hw_init(struct ras_core_context *ras_core)
 			ret);
 	} else {
 		ret = ras_core_eeprom_recovery(ras_core);
-		if (ret) {
+		if (ret)
 			RAS_DEV_ERR(ras_core->dev,
 				"Failed to recovery ras core, ret:%d\n", ret);
-		} else {
-			if (ras_fw_eeprom_supported(ras_core))
-				ret = ras_fw_eeprom_check_storage_status(ras_core);
-			else
-				ret = ras_eeprom_check_storage_status(ras_core);
-
-			if (ret)
-				RAS_DEV_WARN(ras_core->dev,
-					"Failed to check eeprom storage status, ret:%d\n", ret);
-		}
 	}
 
 	ret = ras_process_init(ras_core);
@@ -481,10 +458,7 @@ int ras_core_hw_init(struct ras_core_context *ras_core)
 	return 0;
 
 init_err6:
-	if (ras_fw_eeprom_supported(ras_core))
-		ras_fw_eeprom_hw_fini(ras_core);
-	else
-		ras_eeprom_hw_fini(ras_core);
+	ras_eeprom_mgr_hw_fini(ras_core);
 
 	ras_gfx_hw_fini(ras_core);
 init_err5:
@@ -505,10 +479,7 @@ int ras_core_hw_fini(struct ras_core_context *ras_core)
 	ras_core->is_initialized = false;
 
 	ras_process_fini(ras_core);
-	if (ras_fw_eeprom_supported(ras_core))
-		ras_fw_eeprom_hw_fini(ras_core);
-	else
-		ras_eeprom_hw_fini(ras_core);
+	ras_eeprom_mgr_hw_fini(ras_core);
 	ras_gfx_hw_fini(ras_core);
 	ras_nbio_hw_fini(ras_core);
 	ras_umc_hw_fini(ras_core);
@@ -686,10 +657,7 @@ bool ras_core_is_ready(struct ras_core_context *ras_core)
 
 bool ras_core_check_safety_watermark(struct ras_core_context *ras_core)
 {
-	if (ras_fw_eeprom_supported(ras_core))
-		return ras_fw_eeprom_check_safety_watermark(ras_core);
-
-	return ras_eeprom_check_safety_watermark(ras_core);
+	return ras_eeprom_mgr_check_safety_watermark(ras_core);
 }
 
 int ras_core_down_trylock_gpu_reset_lock(struct ras_core_context *ras_core)
@@ -794,8 +762,7 @@ int ras_core_get_ip_version(struct ras_core_context *ras_core,
 		*version = ras_core->ras_aca.aca_ip_version;
 		return 0;
 	case RAS_UNIT_ID_EEPROM:
-		*version = ras_core->ras_eeprom.tbl_hdr.version;
-		return 0;
+		return ras_eeprom_mgr_get_version(ras_core, version);
 	default:
 		break;
 	}
@@ -806,7 +773,7 @@ int ras_core_get_ip_version(struct ras_core_context *ras_core,
 int ras_core_get_eeprom_version(struct ras_core_context *ras_core,
 	uint32_t *version)
 {
-	return ras_eeprom_get_version(ras_core, version);
+	return ras_eeprom_mgr_get_version(ras_core, version);
 }
 
 uint64_t ras_core_get_ras_caps(struct ras_core_context *ras_core)
