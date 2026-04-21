@@ -214,14 +214,14 @@ export KHDR_INCLUDES
 .DEFAULT_GOAL := all
 
 all:
-	@ret=0;							\
+	@ret=1;							\
 	for TARGET in $(TARGETS) $(INSTALL_DEP_TARGETS); do	\
 		BUILD_TARGET=$$BUILD/$$TARGET;			\
 		mkdir $$BUILD_TARGET  -p;			\
 		$(MAKE) OUTPUT=$$BUILD_TARGET -C $$TARGET	\
 				O=$(abs_objtree)		\
 				$(if $(FORCE_TARGETS),|| exit);	\
-		[ $$? -eq 0 ] || ret=1;			\
+		ret=$$((ret * $$?));				\
 	done; exit $$ret;
 
 run_tests: all
@@ -279,7 +279,7 @@ ifdef INSTALL_PATH
 	install -m 744 kselftest/ksft.py $(INSTALL_PATH)/kselftest/
 	install -m 744 run_kselftest.sh $(INSTALL_PATH)/
 	rm -f $(TEST_LIST)
-	@ret=0;	\
+	@ret=1;	\
 	for TARGET in $(TARGETS) $(INSTALL_DEP_TARGETS); do \
 		BUILD_TARGET=$$BUILD/$$TARGET;	\
 		$(MAKE) OUTPUT=$$BUILD_TARGET -C $$TARGET install \
@@ -288,7 +288,7 @@ ifdef INSTALL_PATH
 				OBJ_PATH=$(INSTALL_PATH) \
 				O=$(abs_objtree)		\
 				$(if $(FORCE_TARGETS),|| exit);	\
-		[ $$? -eq 0 ] || ret=1;		\
+		ret=$$((ret * $$?));		\
 	done; exit $$ret;
 
 
