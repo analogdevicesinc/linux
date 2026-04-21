@@ -161,16 +161,12 @@ static bool __is_ras_eeprom_supported(struct ras_core_context *ras_core)
 static bool __get_eeprom_i2c_addr(struct ras_core_context *ras_core,
 				  struct ras_eeprom_control *control)
 {
-	int ret = -EINVAL;
+	if (!control->i2c_address) {
+		RAS_DEV_WARN(ras_core->dev, "Not config eeprom i2c address!\n");
+		return false;
+	}
 
-	if (control->sys_func &&
-		control->sys_func->update_eeprom_i2c_config)
-		ret = control->sys_func->update_eeprom_i2c_config(ras_core);
-	else
-		RAS_DEV_WARN(ras_core->dev,
-			"No eeprom i2c system config!\n");
-
-	return !ret ? true : false;
+	return true;
 }
 
 static int __ras_eeprom_xfer(struct ras_core_context *ras_core, u32 eeprom_addr,
@@ -1286,6 +1282,8 @@ int ras_eeprom_hw_init(struct ras_core_context *ras_core)
 {
 	struct ras_eeprom_control *control;
 	struct ras_eeprom_config *eeprom_cfg;
+	struct ras_eeprom_param_config  param_config = {0};
+	int ret;
 
 	if (!ras_core)
 		return -EINVAL;
@@ -1297,21 +1295,35 @@ int ras_eeprom_hw_init(struct ras_core_context *ras_core)
 	memset(control, 0, sizeof(*control));
 
 	eeprom_cfg = &ras_core->config->eeprom_cfg;
-	control->record_threshold_config =
-		eeprom_cfg->eeprom_record_threshold_config;
-
-	control->record_threshold_count = ras_eeprom_max_record_count(ras_core);
-	if (eeprom_cfg->eeprom_record_threshold_count <
-		control->record_threshold_count)
-		control->record_threshold_count =
-			eeprom_cfg->eeprom_record_threshold_count;
+	if (!eeprom_cfg || !eeprom_cfg->eeprom_sys_fn ||
+		!eeprom_cfg->eeprom_sys_fn->get_eeprom_config) {
+		RAS_DEV_ERR(ras_core->dev, "Ras eeprom not configured!\n");
+		return -EINVAL;
+	}
 
 	control->sys_func = eeprom_cfg->eeprom_sys_fn;
-	control->max_read_len = eeprom_cfg->max_i2c_read_len;
-	control->max_write_len = eeprom_cfg->max_i2c_write_len;
-	control->i2c_adapter = eeprom_cfg->eeprom_i2c_adapter;
-	control->i2c_port = eeprom_cfg->eeprom_i2c_port;
-	control->i2c_address = eeprom_cfg->eeprom_i2c_addr;
+
+	ret = eeprom_cfg->eeprom_sys_fn->get_eeprom_config(ras_core,
+				&param_config);
+	if (ret) {
+		RAS_DEV_ERR(ras_core->dev, "Failed to get ras eeprom config!\n");
+		return -EPERM;
+	}
+
+	control->record_threshold_config =
+		param_config.eeprom_record_threshold_config;
+
+	control->record_threshold_count = ras_eeprom_max_record_count(ras_core);
+	if (param_config.eeprom_record_threshold_count <
+		control->record_threshold_count)
+		control->record_threshold_count =
+			param_config.eeprom_record_threshold_count;
+
+	control->max_read_len = param_config.max_i2c_read_len;
+	control->max_write_len = param_config.max_i2c_write_len;
+	control->i2c_adapter = param_config.eeprom_i2c_adapter;
+	control->i2c_port = param_config.eeprom_i2c_port;
+	control->i2c_address = param_config.eeprom_i2c_addr;
 
 	control->update_channel_flag = false;
 

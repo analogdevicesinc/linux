@@ -43,16 +43,10 @@
 #define MAX_AID_NUM_PER_SOCKET_GFX12    2
 #define MAX_XCD_NUM_PER_AID_GFX12       4
 
-/* typical ECC bad page rate is 1 bad page per 100MB VRAM */
-#define TYPICAL_ECC_BAD_PAGE_RATE (100ULL * SZ_1M)
-
-#define COUNT_BAD_PAGE_THRESHOLD(size) (((size) >> 21) << 4)
-
 /* Reserve 8 physical dram row for possible retirement.
  * In worst cases, it will lose 8 * 2MB memory in vram domain
  */
 #define RAS_RESERVED_VRAM_SIZE_DEFAULT	(16ULL << 20)
-
 
 static void ras_mgr_init_event_mgr(struct ras_event_manager *mgr)
 {
@@ -114,73 +108,12 @@ static int amdgpu_ras_mgr_init_aca_config(struct amdgpu_device *adev,
 	return 0;
 }
 
-static uint64_t amdgpu_ras_mgr_reserved_vram_size(struct amdgpu_device *adev)
-{
-	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
-	uint64_t reserved_pages_in_bytes = 0;
-
-	if (!con || (adev->flags & AMD_IS_APU))
-		return 0;
-
-	switch (amdgpu_ip_version(adev, MP0_HWIP, 0)) {
-	case IP_VERSION(13, 0, 6):
-	case IP_VERSION(13, 0, 12):
-		reserved_pages_in_bytes = RAS_RESERVED_VRAM_SIZE_DEFAULT;
-		break;
-	case IP_VERSION(13, 0, 14):
-		reserved_pages_in_bytes = (RAS_RESERVED_VRAM_SIZE_DEFAULT << 1);
-		break;
-	default:
-		break;
-	}
-	return reserved_pages_in_bytes;
-}
-
 static int amdgpu_ras_mgr_init_eeprom_config(struct amdgpu_device *adev,
 		struct ras_core_config *config)
 {
 	struct ras_eeprom_config *eeprom_cfg = &config->eeprom_cfg;
-	uint64_t ras_reserved_vram_size;
 
-	ras_reserved_vram_size = amdgpu_ras_mgr_reserved_vram_size(adev);
 	eeprom_cfg->eeprom_sys_fn = &amdgpu_ras_eeprom_i2c_sys_func;
-	eeprom_cfg->eeprom_i2c_adapter = adev->pm.ras_eeprom_i2c_bus;
-	if (eeprom_cfg->eeprom_i2c_adapter) {
-		const struct i2c_adapter_quirks *quirks =
-			((struct i2c_adapter *)eeprom_cfg->eeprom_i2c_adapter)->quirks;
-
-		if (quirks) {
-			eeprom_cfg->max_i2c_read_len = quirks->max_read_len;
-			eeprom_cfg->max_i2c_write_len = quirks->max_write_len;
-		}
-	}
-
-	/*
-	 * amdgpu_bad_page_threshold is used to config
-	 * the threshold for the number of bad pages.
-	 * -1:  Threshold is set to default value
-	 *      Driver will issue a warning message when threshold is reached
-	 *      and continue runtime services.
-	 * 0:   Disable bad page retirement
-	 *      Driver will not retire bad pages
-	 *      which is intended for debugging purpose.
-	 * -2:  Threshold is determined by a formula
-	 *      that assumes 1 bad page per 100M of local memory.
-	 *      Driver will continue runtime services when threhold is reached.
-	 * 0 < threshold < max number of bad page records in EEPROM,
-	 *      A user-defined threshold is set
-	 *      Driver will halt runtime services when this custom threshold is reached.
-	 */
-	if (amdgpu_bad_page_threshold == NONSTOP_OVER_THRESHOLD)
-		eeprom_cfg->eeprom_record_threshold_count =
-			div64_u64(adev->gmc.mc_vram_size, TYPICAL_ECC_BAD_PAGE_RATE);
-	else if (amdgpu_bad_page_threshold == WARN_NONSTOP_OVER_THRESHOLD)
-		eeprom_cfg->eeprom_record_threshold_count =
-				COUNT_BAD_PAGE_THRESHOLD(ras_reserved_vram_size);
-	else
-		eeprom_cfg->eeprom_record_threshold_count = amdgpu_bad_page_threshold;
-
-	eeprom_cfg->eeprom_record_threshold_config = amdgpu_bad_page_threshold;
 
 	return 0;
 }

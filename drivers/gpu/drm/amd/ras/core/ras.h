@@ -27,7 +27,7 @@
 #include "ras_sys.h"
 #include "ras_umc.h"
 #include "aca.h"
-#include "eeprom.h"
+#include "ras_eeprom_mgr.h"
 #include "core_status.h"
 #include "ras_process.h"
 #include "ras_gfx.h"
@@ -185,6 +185,13 @@ enum ras_unit_id {
 	RAS_UNIT_ID_MAX
 };
 
+enum ras_work_mode_over_thresh {
+	RAS_WORK_MODE_OVER_THRESH_STRICT,
+	RAS_WORK_MODE_OVER_THRESH_NORMAL,
+	RAS_WORK_MODE_OVER_THRESH_DEBUG,
+	RAS_WORK_MODE_OVER_THRESH_RMA,
+};
+
 struct ras_core_context;
 struct ras_bank_ecc;
 struct ras_umc;
@@ -193,6 +200,7 @@ struct ras_process;
 struct ras_nbio;
 struct ras_log_ring;
 struct ras_psp;
+struct ras_eeprom_mgr;
 
 struct ras_mp1_sys_func {
 	int (*mp1_get_valid_bank_count)(struct ras_core_context *ras_core,
@@ -206,10 +214,23 @@ struct ras_mp1_sys_func {
 	int (*mp1_set_debug_mode)(struct ras_core_context *ras_core, bool enable);
 };
 
+struct ras_eeprom_param_config {
+	int eeprom_record_threshold_config;
+	u32 eeprom_ip_version;
+	u64 eeprom_record_threshold_count;
+	enum ras_work_mode_over_thresh work_mode_over_thresh;
+	void *eeprom_i2c_adapter;
+	u32 eeprom_i2c_addr;
+	u32 eeprom_i2c_port;
+	u16 max_i2c_read_len;
+	u16 max_i2c_write_len;
+};
+
 struct ras_eeprom_sys_func {
 	int (*eeprom_i2c_xfer)(struct ras_core_context *ras_core,
 			u32 eeprom_addr, u8 *eeprom_buf, u32 buf_size, bool read);
-	int (*update_eeprom_i2c_config)(struct ras_core_context *ras_core);
+	int (*get_eeprom_config)(struct ras_core_context *ras_core,
+			struct ras_eeprom_param_config *param_cfg);
 };
 
 struct ras_nbio_sys_func {
@@ -367,6 +388,7 @@ struct ras_core_context {
 
 	bool ras_eeprom_supported;
 	struct ras_eeprom_control ras_eeprom;
+	struct ras_eeprom_mgr eeprom_mgr;
 	struct ras_fw_eeprom_control ras_fw_eeprom;
 
 	struct ras_psp ras_psp;
