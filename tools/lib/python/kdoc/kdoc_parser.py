@@ -439,6 +439,11 @@ class KernelDoc:
             # Ignore argument attributes
             arg = KernRe(r'\sPOS0?\s').sub(' ', arg)
 
+            # Replace '[at_least ' with '[static '.  This allows sphinx to parse
+            # array parameter declarations like 'char A[at_least 4]', where
+            # 'at_least' is #defined to 'static' by the kernel headers.
+            arg = arg.replace('[at_least ', '[static ')
+
             # Strip leading/trailing spaces
             arg = arg.strip()
             arg = KernRe(r'\s+').sub(' ', arg, count=1)
