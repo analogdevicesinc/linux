@@ -201,6 +201,9 @@ static const struct clk_ops samsung_pll3000_clk_ops = {
 #define PLL35XX_LOCK_STAT_SHIFT	(29)
 #define PLL35XX_ENABLE_SHIFT	(31)
 
+/* A9FRACM is similar to PLL35xx, except that MDIV is bit different */
+#define PLLA9FRACM_MDIV_SHIFT	(14)
+
 static unsigned long samsung_pll35xx_recalc_rate(struct clk_hw *hw,
 				unsigned long parent_rate)
 {
@@ -209,7 +212,12 @@ static unsigned long samsung_pll35xx_recalc_rate(struct clk_hw *hw,
 	u64 fvco = parent_rate;
 
 	pll_con = readl_relaxed(pll->con_reg);
-	mdiv = (pll_con >> PLL35XX_MDIV_SHIFT) & PLL35XX_MDIV_MASK;
+
+	if (pll->type == pll_a9fracm)
+		mdiv = (pll_con >> PLLA9FRACM_MDIV_SHIFT) & PLL35XX_MDIV_MASK;
+	else
+		mdiv = (pll_con >> PLL35XX_MDIV_SHIFT) & PLL35XX_MDIV_MASK;
+
 	pdiv = (pll_con >> PLL35XX_PDIV_SHIFT) & PLL35XX_PDIV_MASK;
 	sdiv = (pll_con >> PLL35XX_SDIV_SHIFT) & PLL35XX_SDIV_MASK;
 
@@ -219,12 +227,15 @@ static unsigned long samsung_pll35xx_recalc_rate(struct clk_hw *hw,
 	return (unsigned long)fvco;
 }
 
-static inline bool samsung_pll35xx_mp_change(
-		const struct samsung_pll_rate_table *rate, u32 pll_con)
+static inline bool samsung_pll35xx_mp_change(u32 pll_type,
+					     const struct samsung_pll_rate_table *rate, u32 pll_con)
 {
 	u32 old_mdiv, old_pdiv;
 
-	old_mdiv = (pll_con >> PLL35XX_MDIV_SHIFT) & PLL35XX_MDIV_MASK;
+	if (pll_type == pll_a9fracm)
+		old_mdiv = (pll_con >> PLLA9FRACM_MDIV_SHIFT) & PLL35XX_MDIV_MASK;
+	else
+		old_mdiv = (pll_con >> PLL35XX_MDIV_SHIFT) & PLL35XX_MDIV_MASK;
 	old_pdiv = (pll_con >> PLL35XX_PDIV_SHIFT) & PLL35XX_PDIV_MASK;
 
 	return (rate->mdiv != old_mdiv || rate->pdiv != old_pdiv);
@@ -236,6 +247,12 @@ static int samsung_pll35xx_set_rate(struct clk_hw *hw, unsigned long drate,
 	struct samsung_clk_pll *pll = to_clk_pll(hw);
 	const struct samsung_pll_rate_table *rate;
 	u32 tmp;
+	u32 mdiv_shift;
+
+	if (pll->type == pll_a9fracm)
+		mdiv_shift = PLLA9FRACM_MDIV_SHIFT;
+	else
+		mdiv_shift = PLL35XX_MDIV_SHIFT;
 
 	/* Get required rate settings from table */
 	rate = samsung_get_pll_settings(pll, drate);
@@ -247,7 +264,7 @@ static int samsung_pll35xx_set_rate(struct clk_hw *hw, unsigned long drate,
 
 	tmp = readl_relaxed(pll->con_reg);
 
-	if (!(samsung_pll35xx_mp_change(rate, tmp))) {
+	if (!(samsung_pll35xx_mp_change(pll->type, rate, tmp))) {
 		/* If only s change, change just s value only*/
 		tmp &= ~(PLL35XX_SDIV_MASK << PLL35XX_SDIV_SHIFT);
 		tmp |= rate->sdiv << PLL35XX_SDIV_SHIFT;
@@ -257,7 +274,7 @@ static int samsung_pll35xx_set_rate(struct clk_hw *hw, unsigned long drate,
 	}
 
 	/* Set PLL lock time. */
-	if (pll->type == pll_142xx || pll->type == pll_1017x)
+	if (pll->type == pll_142xx || pll->type == pll_1017x || pll->type == pll_a9fracm)
 		writel_relaxed(rate->pdiv * PLL142XX_LOCK_FACTOR,
 			pll->lock_reg);
 	else
@@ -265,10 +282,10 @@ static int samsung_pll35xx_set_rate(struct clk_hw *hw, unsigned long drate,
 			pll->lock_reg);
 
 	/* Change PLL PMS values */
-	tmp &= ~((PLL35XX_MDIV_MASK << PLL35XX_MDIV_SHIFT) |
+	tmp &= ~((PLL35XX_MDIV_MASK << mdiv_shift) |
 			(PLL35XX_PDIV_MASK << PLL35XX_PDIV_SHIFT) |
 			(PLL35XX_SDIV_MASK << PLL35XX_SDIV_SHIFT));
-	tmp |= (rate->mdiv << PLL35XX_MDIV_SHIFT) |
+	tmp |= (rate->mdiv << mdiv_shift) |
 			(rate->pdiv << PLL35XX_PDIV_SHIFT) |
 			(rate->sdiv << PLL35XX_SDIV_SHIFT);
 	writel_relaxed(tmp, pll->con_reg);
@@ -1428,6 +1445,149 @@ static const struct clk_ops samsung_pll1031x_clk_min_ops = {
 	.recalc_rate = samsung_pll1031x_recalc_rate,
 };
 
+/*
+ * PLLA9FRACO Clock Type
+ */
+#define PLLA9FRACO_LOCK_FACTOR		(500)
+
+#define PLLA9FRACO_MDIV_MASK		(0x3ff)
+#define PLLA9FRACO_PDIV_MASK		(0x3f)
+#define PLLA9FRACO_SDIV_MASK		(0x7)
+#define PLLA9FRACO_MDIV_SHIFT		(14)
+#define PLLA9FRACO_PDIV_SHIFT		(8)
+#define PLLA9FRACO_SDIV_SHIFT		(0)
+
+#define PLLA9FRACO_PLL_CON5_DIV_FRAC	(0x14)
+#define PLLA9FRACO_KDIV_MASK		(0xffffff)
+#define PLLA9FRACO_KDIV_SHIFT		(0)
+#define PLLA9FRACO_DAC_MODE		BIT(30)
+#define PLLA9FRACO_DSM_EN		BIT(31)
+#define PLLA9FRACO_FOUTPOSTDIVEN	BIT(3)
+#define PLLA9FRACO_MUX_SEL		BIT(4)
+#define PLLA9FRACO_ENABLE_SHIFT		(31)
+#define PLLA9FRACO_LOCK_STAT_SHIFT	(29)
+
+static unsigned long samsung_a9fraco_recalc_rate(struct clk_hw *hw,
+						 unsigned long parent_rate)
+{
+	struct samsung_clk_pll *pll = to_clk_pll(hw);
+	u32 pll_con0, pll_con5;
+	u64 mdiv, pdiv, sdiv, kdiv;
+	u64 fvco = parent_rate;
+
+	pll_con0 = readl_relaxed(pll->con_reg);
+	pll_con5 = readl_relaxed(pll->con_reg + PLLA9FRACO_PLL_CON5_DIV_FRAC);
+	mdiv = (pll_con0 >> PLLA9FRACO_MDIV_SHIFT) & PLLA9FRACO_MDIV_MASK;
+	pdiv = (pll_con0 >> PLLA9FRACO_PDIV_SHIFT) & PLLA9FRACO_PDIV_MASK;
+	sdiv = (pll_con0 >> PLLA9FRACO_SDIV_SHIFT) & PLLA9FRACO_SDIV_MASK;
+	kdiv = (pll_con5 & PLLA9FRACO_KDIV_MASK);
+
+	/* fvco = fref * (M + K/2^24) / p * (S+1) */
+	fvco *= mdiv;
+	fvco = (fvco << 24) + kdiv;
+	fvco = div64_u64(fvco, ((pdiv * (sdiv + 1)) << 24));
+
+	return (unsigned long)fvco;
+}
+
+static bool samsung_a9fraco_mpk_change(u32 pll_con0, u32 pll_con5,
+				       const struct samsung_pll_rate_table *rate)
+{
+	u32 old_mdiv, old_pdiv, old_kdiv;
+
+	old_mdiv = (pll_con0 >> PLLA9FRACO_MDIV_SHIFT) & PLLA9FRACO_MDIV_MASK;
+	old_pdiv = (pll_con0 >> PLLA9FRACO_PDIV_SHIFT) & PLLA9FRACO_PDIV_MASK;
+	old_kdiv = (pll_con5 >> PLLA9FRACO_KDIV_SHIFT) & PLLA9FRACO_KDIV_MASK;
+
+	return (old_mdiv != rate->mdiv || old_pdiv != rate->pdiv || old_kdiv != rate->kdiv);
+}
+
+static int samsung_a9fraco_set_rate(struct clk_hw *hw, unsigned long drate, unsigned long prate)
+{
+	struct samsung_clk_pll *pll = to_clk_pll(hw);
+	const struct samsung_pll_rate_table *rate;
+	u32 con0, con5;
+	int ret;
+
+	/* Get required rate settings from table */
+	rate = samsung_get_pll_settings(pll, drate);
+	if (!rate) {
+		pr_err("%s: Invalid rate : %lu for pll clk %s\n", __func__,
+		       drate, clk_hw_get_name(hw));
+		return -EINVAL;
+	}
+
+	con0 = readl_relaxed(pll->con_reg);
+	con5 = readl_relaxed(pll->con_reg + PLLA9FRACO_PLL_CON5_DIV_FRAC);
+
+	if (!(samsung_a9fraco_mpk_change(con0, con5, rate))) {
+		/* If only s change, change just s value only */
+		con0 &= ~(PLLA9FRACO_SDIV_MASK << PLLA9FRACO_SDIV_SHIFT);
+		con0 |= rate->sdiv << PLLA9FRACO_SDIV_SHIFT;
+		writel_relaxed(con0, pll->con_reg);
+
+		return 0;
+	}
+
+	/* Select OSCCLK (0) */
+	con0 = readl_relaxed(pll->con_reg);
+	con0 &= ~(PLLA9FRACO_MUX_SEL);
+	writel_relaxed(con0, pll->con_reg);
+
+	/* Disable PLL */
+	con0 &= ~BIT(PLLA9FRACO_ENABLE_SHIFT);
+	writel_relaxed(con0, pll->con_reg);
+
+	/* Set PLL lock time. */
+	writel_relaxed(rate->pdiv * PLLA9FRACO_LOCK_FACTOR, pll->lock_reg);
+
+	/* Set PLL M, P, and S values. */
+	con0 &= ~((PLLA9FRACO_MDIV_MASK << PLLA9FRACO_MDIV_SHIFT) |
+		  (PLLA9FRACO_PDIV_MASK << PLLA9FRACO_PDIV_SHIFT) |
+		  (PLLA9FRACO_SDIV_MASK << PLLA9FRACO_SDIV_SHIFT));
+
+	/* The field FOUTPOSTDIVEN should always be 1, else FOUT might be 0 Hz. */
+	con0 |= (rate->mdiv << PLLA9FRACO_MDIV_SHIFT) |
+		(rate->pdiv << PLLA9FRACO_PDIV_SHIFT) |
+		(rate->sdiv << PLLA9FRACO_SDIV_SHIFT) | (PLLA9FRACO_FOUTPOSTDIVEN);
+
+	/* Set PLL K, DSM_EN and DAC_MODE values. */
+	con5 = readl_relaxed(pll->con_reg + PLLA9FRACO_PLL_CON5_DIV_FRAC);
+	con5 &= ~((PLLA9FRACO_KDIV_MASK << PLLA9FRACO_KDIV_SHIFT) |
+		  PLLA9FRACO_DSM_EN | PLLA9FRACO_DAC_MODE);
+	con5 |= (rate->kdiv << PLLA9FRACO_KDIV_SHIFT) | PLLA9FRACO_DSM_EN | PLLA9FRACO_DAC_MODE;
+
+	/* Write configuration to PLL */
+	writel_relaxed(con0, pll->con_reg);
+	writel_relaxed(con5, pll->con_reg + PLLA9FRACO_PLL_CON5_DIV_FRAC);
+
+	/* Enable PLL */
+	con0 = readl_relaxed(pll->con_reg);
+	con0 |= BIT(PLLA9FRACO_ENABLE_SHIFT);
+	writel_relaxed(con0, pll->con_reg);
+
+	/* Wait for PLL lock if the PLL is enabled */
+	ret = samsung_pll_lock_wait(pll, BIT(pll->lock_offs));
+	if (ret < 0)
+		return ret;
+
+	/* Select FOUT (1) */
+	con0 |= (PLLA9FRACO_MUX_SEL);
+	writel_relaxed(con0, pll->con_reg);
+
+	return 0;
+}
+
+static const struct clk_ops samsung_a9fraco_clk_ops = {
+	.recalc_rate = samsung_a9fraco_recalc_rate,
+	.determine_rate = samsung_pll_determine_rate,
+	.set_rate = samsung_a9fraco_set_rate,
+};
+
+static const struct clk_ops samsung_a9fraco_clk_min_ops = {
+	.recalc_rate = samsung_a9fraco_recalc_rate,
+};
+
 static void __init _samsung_clk_register_pll(struct samsung_clk_provider *ctx,
 				const struct samsung_pll_clock *pll_clk)
 {
@@ -1477,6 +1637,7 @@ static void __init _samsung_clk_register_pll(struct samsung_clk_provider *ctx,
 	case pll_1452x:
 	case pll_142xx:
 	case pll_1017x:
+	case pll_a9fracm:
 		pll->enable_offs = PLL35XX_ENABLE_SHIFT;
 		pll->lock_offs = PLL35XX_LOCK_STAT_SHIFT;
 		if (!pll->rate_table)
@@ -1577,6 +1738,14 @@ static void __init _samsung_clk_register_pll(struct samsung_clk_provider *ctx,
 			init.ops = &samsung_pll1031x_clk_min_ops;
 		else
 			init.ops = &samsung_pll1031x_clk_ops;
+		break;
+	case pll_a9fraco:
+		pll->enable_offs = PLLA9FRACO_ENABLE_SHIFT;
+		pll->lock_offs = PLLA9FRACO_LOCK_STAT_SHIFT;
+		if (!pll->rate_table)
+			init.ops = &samsung_a9fraco_clk_min_ops;
+		else
+			init.ops = &samsung_a9fraco_clk_ops;
 		break;
 	default:
 		pr_warn("%s: Unknown pll type for pll clk %s\n",
