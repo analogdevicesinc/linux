@@ -1052,6 +1052,64 @@ static void hcm7044_clk_del_provider(void *dev)
 	of_clk_del_provider(spi->dev.of_node);
 }
 
+static int hmc704x_register_clocks(struct iio_dev *indio_dev)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	struct hmc7044_chan_spec *chan;
+	int i, ret;
+	unsigned int parent_clkin;
+	const char *parent_name;
+
+	if (hmc->device_id == HMC7044) {
+		/* Get active clkin */
+		if (!hmc->clkin1_vcoin_en) {
+			u32 pll1_stat;
+
+			ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
+			if (ret < 0)
+				return ret;
+
+			parent_clkin = HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat);
+		} else {
+			parent_clkin = 1; /* CLKIN1 */
+		}
+
+		ret = hmc7044_pll2_register(indio_dev,
+					    __clk_get_name(hmc->clk_input[parent_clkin]));
+		if (ret)
+			return ret;
+
+		parent_name = __clk_get_name(hmc->pll2_clk);
+	} else {
+		parent_clkin = 0;
+		parent_name = __clk_get_name(hmc->clk_input[parent_clkin]);
+		hmc->pll2_output.address = UINT_MAX; /* Not used */
+	}
+
+	for (i = 0; i < hmc->num_channels; i++) {
+		chan = &hmc->channels[i];
+
+		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
+			continue;
+
+		ret = hmc7044_clk_register(indio_dev, chan->num, i, parent_name);
+		if (ret)
+			return ret;
+	}
+
+	hmc->clk_data.clks = hmc->clks;
+	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
+
+	ret = of_clk_add_provider(hmc->spi->dev.of_node,
+				  of_clk_src_onecell_get,
+				  &hmc->clk_data);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(&hmc->spi->dev,
+					hcm7044_clk_del_provider, hmc->spi);
+}
+
 static int hmc7044_setup(struct iio_dev *indio_dev)
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
@@ -1067,7 +1125,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	unsigned long n, r;
 	unsigned long pfd1_freq;
 	unsigned long vco_limit;
-	unsigned int i, c, ref_en = 0;
+	unsigned int i, ref_en = 0;
 	int ret;
 
 	vcxo_freq = hmc->vcxo_freq / 1000;
@@ -1438,38 +1496,6 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	if (!hmc->clkin1_vcoin_en) {
-		u32 pll1_stat;
-
-		ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
-		if (ret < 0)
-			return ret;
-
-		c = HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat);
-	} else {
-		c = 1; /* CLKIN1 */
-	}
-
-	ret = hmc7044_pll2_register(indio_dev,
-				    __clk_get_name(hmc->clk_input[c]));
-	if (ret)
-		return ret;
-
-	for (i = 0; i < hmc->num_channels; i++) {
-		chan = &hmc->channels[i];
-
-		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
-			continue;
-
-		ret = hmc7044_clk_register(indio_dev, chan->num, i,
-					   __clk_get_name(hmc->pll2_clk));
-		if (ret)
-			return ret;
-	}
-
-	hmc->clk_data.clks = hmc->clks;
-	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
-
 	if (hmc->oscout_path_en) {
 		ret = hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_PATH,
 				    HMC7044_OSCOUT_DIVIDER(hmc->oscout_divider_ratio) |
@@ -1496,17 +1522,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			return ret;
 	}
 
-	ret = hmc7044_info(indio_dev);
-	if (ret)
-		return ret;
-
-	ret = of_clk_add_provider(hmc->spi->dev.of_node,
-				  of_clk_src_onecell_get,
-				  &hmc->clk_data);
-	if (ret)
-		return ret;
-
-	return devm_add_action_or_reset(&hmc->spi->dev, hcm7044_clk_del_provider, hmc->spi);
+	return hmc7044_info(indio_dev);
 }
 
 static int hmc7043_setup(struct iio_dev *indio_dev)
@@ -1676,32 +1692,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < hmc->num_channels; i++) {
-		chan = &hmc->channels[i];
-
-		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
-			continue;
-
-		ret = hmc7044_clk_register(indio_dev, chan->num, i,
-			__clk_get_name(hmc->clk_input[0]));
-		if (ret)
-			return ret;
-	}
-
-	hmc->clk_data.clks = hmc->clks;
-	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
-
-	ret = hmc7044_info(indio_dev);
-	if (ret)
-		return ret;
-
-	ret = of_clk_add_provider(hmc->spi->dev.of_node,
-				  of_clk_src_onecell_get,
-				  &hmc->clk_data);
-	if (ret)
-		return ret;
-
-	return devm_add_action_or_reset(&hmc->spi->dev, hcm7044_clk_del_provider, hmc->spi);
+	return hmc7044_info(indio_dev);
 }
 
 static int hmc7044_parse_dt(struct device *dev,
@@ -2503,6 +2494,10 @@ static int hmc7044_probe(struct spi_device *spi)
 	else
 		ret = hmc7043_setup(indio_dev);
 
+	if (ret)
+		return ret;
+
+	ret = hmc704x_register_clocks(indio_dev);
 	if (ret)
 		return ret;
 
