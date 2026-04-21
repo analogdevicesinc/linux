@@ -635,7 +635,7 @@ static int cdns_target_abort(struct spi_controller *ctlr)
  */
 static int cdns_spi_probe(struct platform_device *pdev)
 {
-	int ret = 0, irq;
+	int ret, irq;
 	struct spi_controller *ctlr;
 	struct cdns_spi *xspi;
 	u32 num_cs;
@@ -754,7 +754,7 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	if (!spi_controller_is_target(ctlr))
 		pm_runtime_put_autosuspend(&pdev->dev);
 
-	return ret;
+	return 0;
 
 err_disable_rpm:
 	if (!spi_controller_is_target(ctlr)) {
