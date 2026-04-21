@@ -109,7 +109,7 @@ static inline char *offstr(struct section *sec, unsigned long offset)
 #define ERROR_FUNC(sec, offset, format, ...) __WARN_FUNC(ERROR_STR, sec, offset, format, ##__VA_ARGS__)
 #define ERROR_INSN(insn, format, ...) ERROR_FUNC(insn->sec, insn->offset, format, ##__VA_ARGS__)
 
-extern bool debug;
+extern bool debug, debug_correlate, debug_clone;
 extern int indent;
 
 static inline void unindent(int *unused) { indent--; }
@@ -148,15 +148,21 @@ static inline void unindent(int *unused) { indent--; }
 		      (unsigned long long)checksum);			\
 })
 
-#define __dbg_indent(format, ...)					\
+#define dbg_correlate(args...)						\
 ({									\
-	if (unlikely(debug))						\
+	if (unlikely(debug_correlate))					\
+		__dbg(args);						\
+})
+
+#define __dbg_clone(format, ...)					\
+({									\
+	if (unlikely(debug_clone))					\
 		__dbg("%*s" format, indent * 8, "", ##__VA_ARGS__);	\
 })
 
-#define dbg_indent(args...)						\
+#define dbg_clone(args...)						\
 	int __cleanup(unindent) __dummy_##__COUNTER__;			\
-	__dbg_indent(args);						\
+	__dbg_clone(args);						\
 	indent++
 
 #endif /* _WARN_H */

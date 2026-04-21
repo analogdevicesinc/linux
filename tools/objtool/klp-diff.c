@@ -33,6 +33,9 @@ struct export {
 	char *mod, *sym;
 };
 
+bool debug, debug_correlate, debug_clone;
+int indent;
+
 static const char * const klp_diff_usage[] = {
 	"objtool klp diff [<options>] <in1.o> <in2.o> <out.o>",
 	NULL,
@@ -40,7 +43,9 @@ static const char * const klp_diff_usage[] = {
 
 static const struct option klp_diff_options[] = {
 	OPT_GROUP("Options:"),
-	OPT_BOOLEAN('d', "debug", &debug, "enable debug output"),
+	OPT_BOOLEAN('d', "debug", &debug, "enable all debug output"),
+	OPT_BOOLEAN(0, "debug-correlate", &debug_correlate, "enable correlation debug output"),
+	OPT_BOOLEAN(0, "debug-clone", &debug_clone, "enable cloning debug output"),
 	OPT_END(),
 };
 
@@ -583,6 +588,14 @@ static struct symbol *find_twin(struct elfs *e, struct symbol *sym1)
 	else if (csum_orig == 1 && csum_patched == 1)
 		match = csum_last;
 
+	if (!match)
+		return NULL;
+
+	if (name_orig != 1 || name_patched != 1)
+		dbg_correlate("find_twin(): %s%s -> %s%s",
+			      sym1->name, is_func_sym(sym1) ? "()" : "",
+			      match->name, is_func_sym(match) ? "()" : "");
+
 	return match;
 }
 
@@ -686,10 +699,14 @@ static struct symbol *find_twin_suffixed(struct elf *elf, struct symbol *sym1)
 		match = sym2;
 	}
 
-	if (count == 1)
-		return match;
+	if (count != 1)
+		return NULL;
 
-	return NULL;
+	dbg_correlate("find_suffixed_twin(): %s%s -> %s%s",
+		      sym1->name, is_func_sym(sym1) ? "()" : "",
+		      match->name, is_func_sym(match) ? "()" : "");
+
+	return match;
 }
 
 /*
@@ -741,6 +758,10 @@ static struct symbol *find_twin_positional(struct elfs *e, struct symbol *sym1)
 
 	if (idx_orig != idx_patched)
 		return NULL;
+
+	dbg_correlate("find_twin_positional(): %s%s -> %s%s",
+	    sym1->name, is_func_sym(sym1) ? "()" : "",
+	    match->name, is_func_sym(match) ? "()" : "");
 
 	return match;
 }
@@ -998,7 +1019,7 @@ static struct symbol *clone_symbol(struct elfs *e, struct symbol *patched_sym,
 	if (patched_sym->clone)
 		return patched_sym->clone;
 
-	dbg_indent("%s%s", patched_sym->name, data_too ? " [+DATA]" : "");
+	dbg_clone("%s%s", patched_sym->name, data_too ? " [+DATA]" : "");
 
 	/* Make sure the prefix gets cloned first */
 	if (is_func_sym(patched_sym) && data_too) {
@@ -1375,7 +1396,7 @@ static int clone_reloc_klp(struct elfs *e, struct reloc *patched_reloc,
 
 	klp_sym = find_symbol_by_name(e->out, sym_name);
 	if (!klp_sym) {
-		__dbg_indent("%s", sym_name);
+		__dbg_clone("%s", sym_name);
 
 		/* STB_WEAK: avoid modpost undefined symbol warnings */
 		klp_sym = elf_create_symbol(e->out, sym_name, NULL,
@@ -1426,7 +1447,7 @@ static int clone_reloc_klp(struct elfs *e, struct reloc *patched_reloc,
 }
 
 #define dbg_clone_reloc(sec, offset, patched_sym, addend, export, klp)			\
-	dbg_indent("%s+0x%lx: %s%s0x%lx [%s%s%s%s%s%s]",				\
+	dbg_clone("%s+0x%lx: %s%s0x%lx [%s%s%s%s%s%s]",					\
 		   sec->name, offset, patched_sym->name,				\
 		   addend >= 0 ? "+" : "-", labs(addend),				\
 		   sym_type(patched_sym),						\
@@ -1481,7 +1502,7 @@ static int clone_reloc(struct elfs *e, struct reloc *patched_reloc,
 	if (is_string_sec(patched_sym->sec)) {
 		const char *str = patched_sym->sec->data->d_buf + addend;
 
-		__dbg_indent("\"%s\"", escape_str(str));
+		__dbg_clone("\"%s\"", escape_str(str));
 
 		addend = elf_add_string(e->out, out_sym->sec, str);
 		if (addend == -1)
@@ -2120,6 +2141,11 @@ int cmd_klp_diff(int argc, const char **argv)
 	argc = parse_options(argc, argv, klp_diff_options, klp_diff_usage, 0);
 	if (argc != 3)
 		usage_with_options(klp_diff_usage, klp_diff_options);
+
+	if (debug) {
+		debug_correlate = true;
+		debug_clone = true;
+	}
 
 	objname = argv[0];
 
