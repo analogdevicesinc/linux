@@ -297,7 +297,7 @@ download_artifacts() {
 	[[ $ref == refs/heads/* ]] || [[ $ref == refs/tags/* ]] && git_sha=$(_get_latest_commit "$cloudsmith_token" "$org_repository" "$ref") || git_sha=${ref:0:12}
 
 	[[ -z "$cloudsmith_token" ]] && cloudsmith_token="$CLOUDSMITH_API_KEY"
-	[[ -z "$cloudsmith_token" ]] && { log_error "At this time, a CLOUDSMITH_API_KEY is required." ; return 1 ; }
+	[[ -z "$cloudsmith_token" ]] && { log_warn "CLOUDSMITH_API_KEY is not set, only public artifacts will be accessible." ; } || :
 	[[ -z "$git_sha" ]] && { log_error "No git sha provided." ; return 1 ;}
 	[[ "${#git_sha}" != "12" ]] && { log_error "Git sha is not 12 characters long." ; return 1 ; }
 
@@ -325,7 +325,7 @@ download_artifacts() {
 	if command -v parallel &>/dev/null ; then
 		echo "$tuple" |
 			parallel --jobs 8 \
-				_get_artifact "$cloudsmith_token" "$git_sha" "{}"
+				"_get_artifact \"$cloudsmith_token\" \"$git_sha\" {}"
 	else
 		log_info "Tip: install gnu_parallel to fetch in parallel."
 		for url in $tuple; do
