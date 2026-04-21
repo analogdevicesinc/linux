@@ -370,6 +370,12 @@ static bool is_abs_sym(struct symbol *sym)
 	return sym->sym.st_shndx == SHN_ABS && !is_file_sym(sym);
 }
 
+static bool is_initcall_sym(struct symbol *sym)
+{
+	return strstarts(sym->name, "__initcall__") ||
+	       strstarts(sym->name, "__initstub__");
+}
+
 /*
  * These symbols should never be correlated, so their local patched versions
  * are used instead of linking to the originals.
@@ -384,10 +390,10 @@ static bool dont_correlate(struct symbol *sym)
 	       is_uncorrelated_static_local(sym) ||
 	       is_clang_tmp_label(sym) ||
 	       is_string_sec(sym->sec) ||
+	       is_initcall_sym(sym) ||
 	       is_addressable_sym(sym) ||
 	       is_special_section(sym->sec) ||
-	       is_special_section_aux(sym->sec) ||
-	       strstarts(sym->name, "__initcall__");
+	       is_special_section_aux(sym->sec);
 }
 
 struct process_demangled_name_data {
