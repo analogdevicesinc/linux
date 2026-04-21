@@ -676,11 +676,9 @@ static struct fuse_sync_bucket *fuse_sync_bucket_alloc(void)
 	struct fuse_sync_bucket *bucket;
 
 	bucket = kzalloc_obj(*bucket, GFP_KERNEL | __GFP_NOFAIL);
-	if (bucket) {
-		init_waitqueue_head(&bucket->waitq);
-		/* Initial active count */
-		atomic_set(&bucket->count, 1);
-	}
+	init_waitqueue_head(&bucket->waitq);
+	/* Initial active count */
+	atomic_set(&bucket->count, 1);
 	return bucket;
 }
 
