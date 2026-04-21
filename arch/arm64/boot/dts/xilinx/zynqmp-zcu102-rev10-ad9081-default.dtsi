@@ -134,6 +134,17 @@
 			clocks = <&zynqmp_clk 73>;
 		};
 
+		rx_cmd_dma: dma-controller@9c470000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c470000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			dma-coherent;
+			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+		};
+
+
 		tx_dma: dma-controller@9c430000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c430000 0x10000>;
@@ -144,11 +155,21 @@
 			clocks = <&zynqmp_clk 73>;
 		};
 
+		tx_cmd_dma: dma-controller@9c460000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x9c460000 0x10000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			dma-coherent;
+			interrupts = <0 104 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+		};
+
 		axi_ad9081_core_rx: axi-ad9081-rx-hpc@84a10000 {
 			compatible = "adi,axi-ad9081-rx-1.0";
 			reg = <0x84a10000 0x8000>;
-			dmas = <&rx_dma 0>;
-			dma-names = "rx";
+			dmas = <&rx_dma 0>, <&rx_cmd_dma 1>;
+			dma-names = "rx", "rx_cmd";
 			clocks = <&fixed_400>;
 			clock-names = "sampl_clk";
 		};
@@ -156,8 +177,8 @@
 		axi_ad9081_core_tx: axi-ad9081-tx-hpc@84b10000 {
 			compatible = "adi,axi-ad9081-tx-1.0";
 			reg = <0x84b10000 0x4000>;
-			dmas = <&tx_dma 0>;
-			dma-names = "tx";
+			dmas = <&tx_dma 0>, <&tx_cmd_dma 1>;
+			dma-names = "tx", "tx_cmd";
 			clocks = <&fixed_400>;
 			clock-names = "sampl_clk";
 			adi,axi-data-offload-connected = <&axi_data_offload_tx>;
