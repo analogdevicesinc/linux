@@ -2001,12 +2001,9 @@ disable_clks:
 
 static void cqspi_remove(struct platform_device *pdev)
 {
-	const struct cqspi_driver_platdata *ddata;
 	struct cqspi_st *cqspi = platform_get_drvdata(pdev);
-	struct device *dev = &pdev->dev;
+	const struct cqspi_driver_platdata *ddata = cqspi->ddata;
 	int ret = 0;
-
-	ddata = of_device_get_match_data(dev);
 
 	spi_unregister_controller(cqspi->host);
 
