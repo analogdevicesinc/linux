@@ -33,6 +33,7 @@ struct dev_dax *devm_create_dev_dax(struct dev_dax_data *data);
 enum dax_driver_type {
 	DAXDRV_KMEM_TYPE,
 	DAXDRV_DEVICE_TYPE,
+	DAXDRV_FSDEV_TYPE,
 };
 
 struct dax_device_driver {
@@ -42,6 +43,8 @@ struct dax_device_driver {
 	int (*probe)(struct dev_dax *dev);
 	void (*remove)(struct dev_dax *dev);
 };
+
+#define to_dax_drv(__drv) container_of_const(__drv, struct dax_device_driver, drv)
 
 int __dax_driver_register(struct dax_device_driver *dax_drv,
 		struct module *module, const char *mod_name);

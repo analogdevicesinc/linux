@@ -65,6 +65,11 @@ config DEV_DAX_HMEM_DEVICES
 	depends on DEV_DAX_HMEM && DAX
 	def_bool y
 
+config DEV_DAX_FSDEV
+	tristate
+	depends on DEV_DAX && FS_DAX
+	default DEV_DAX
+
 config DEV_DAX_KMEM
 	tristate "KMEM DAX: map dax-devices as System-RAM"
 	default DEV_DAX
