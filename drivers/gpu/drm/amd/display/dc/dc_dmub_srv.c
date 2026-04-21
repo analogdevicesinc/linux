@@ -2255,6 +2255,8 @@ bool dmub_lsdma_send_tiled_to_tiled_copy_command(
 	lsdma_data->u.tiled_copy_data.data_format      = params.data_format;
 	lsdma_data->u.tiled_copy_data.max_com          = params.max_com;
 	lsdma_data->u.tiled_copy_data.max_uncom        = params.max_uncom;
+	lsdma_data->u.tiled_copy_data.cache_policy_src = params.src_cache_policy;
+	lsdma_data->u.tiled_copy_data.cache_policy_dst = params.dst_cache_policy;
 
 	result = dc_wake_and_execute_dmub_cmd(dc_ctx, &cmd, wait_type);
 
