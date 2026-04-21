@@ -125,7 +125,7 @@ struct core_power {
 	bool psr_smu_optimizations_support;
 	bool multi_disp_optimizations_support;
 
-	int num_entities;
+	unsigned int num_entities;
 };
 
 union dmcu_abm_set_bl_params {
@@ -628,7 +628,7 @@ bool mod_power_hw_init(struct mod_power *mod_power)
 	struct dc *dc = NULL;
 	struct dmcu *dmcu = NULL;
 	struct dmcu_iram_parameters params;
-	int i;
+	unsigned int i;
 
 	if (mod_power == NULL)
 		return false;
@@ -668,7 +668,7 @@ struct mod_power *mod_power_create(struct dc *dc,
 {
 	struct core_power *core_power = NULL;
 	int i = 0;
-	int abm_max_config = 0;
+	unsigned int abm_max_config = 0;
 	unsigned int inst = 0;
 	bool is_brightness_range_valid = false;
 
@@ -854,7 +854,7 @@ fail_dc_null:
 void mod_power_destroy(struct mod_power *mod_power)
 {
 	if (mod_power != NULL) {
-		int i;
+		unsigned int i;
 		struct core_power *core_power =
 				MOD_POWER_TO_CORE(mod_power);
 
@@ -903,7 +903,7 @@ bool mod_power_add_stream(struct mod_power *mod_power,
 
 	DC_TRACE_LEVEL_MESSAGE(DAL_TRACE_LEVEL_ERROR,
 						WPP_BIT_FLAG_Firmware_PsrState,
-						"mod_power: add_stream: ERROR: stream=%p num_entities=%d >= MOD_POWER_MAX_CONCURRENT_STREAMS",
+						"mod_power: add_stream: ERROR: stream=%p num_entities=%u >= MOD_POWER_MAX_CONCURRENT_STREAMS",
 						stream,
 						core_power->num_entities);
 
@@ -913,7 +913,7 @@ bool mod_power_add_stream(struct mod_power *mod_power,
 bool mod_power_remove_stream(struct mod_power *mod_power,
 		const struct dc_stream_state *stream)
 {
-	int i = 0;
+	unsigned int i = 0;
 	struct core_power *core_power = NULL;
 	unsigned int index = 0;
 
@@ -938,7 +938,7 @@ bool mod_power_remove_stream(struct mod_power *mod_power,
 		BREAK_TO_DEBUGGER();
 		DC_TRACE_LEVEL_MESSAGE(DAL_TRACE_LEVEL_ERROR,
 							WPP_BIT_FLAG_Firmware_PsrState,
-							"mod_power: remove_stream: ERROR: index=%u >= num_entities=%d stream=%p",
+							"mod_power: remove_stream: ERROR: index=%u >= num_entities=%u stream=%p",
 							index,
 							core_power->num_entities,
 							stream);
@@ -1004,7 +1004,7 @@ bool mod_power_replace_stream(struct mod_power *mod_power,
 		BREAK_TO_DEBUGGER();
 		DC_TRACE_LEVEL_MESSAGE(DAL_TRACE_LEVEL_ERROR,
 							WPP_BIT_FLAG_Firmware_PsrState,
-							"mod_power: replace_stream: ERROR: index=%u >= num_entities=%d stream=%p",
+							"mod_power: replace_stream: ERROR: index=%u >= num_entities=%u stream=%p",
 							index,
 							core_power->num_entities,
 							current_stream);
@@ -1432,7 +1432,7 @@ bool mod_power_get_hw_backlight_aux_nits(struct mod_power *mod_power,
 {
 	struct core_power *core_power = NULL;
 	struct dc_link *link = NULL;
-	unsigned int stream_index;
+	int stream_index;
 
 	if (mod_power == NULL)
 		return false;
@@ -1910,7 +1910,7 @@ static bool set_psr_enable(struct mod_power *mod_power,
 	if (core_power->num_entities == 0) {
 		DC_TRACE_LEVEL_MESSAGE(DAL_TRACE_LEVEL_ERROR,
 							WPP_BIT_FLAG_Firmware_PsrState,
-							"set psr enable: ERROR: stream=%p num_entities=%d",
+							"set psr enable: ERROR: stream=%p num_entities=%u",
 							stream,
 							core_power->num_entities);
 		return false;
@@ -2043,7 +2043,7 @@ bool mod_power_set_psr_event(struct mod_power *mod_power,
 	if (core_power->num_entities == 0) {
 		DC_TRACE_LEVEL_MESSAGE(DAL_TRACE_LEVEL_ERROR,
 							WPP_BIT_FLAG_Firmware_PsrState,
-							"mod_power set_psr_event: ERROR: stream=%p event=%d num_entities=%d",
+							"mod_power set_psr_event: ERROR: stream=%p event=%d num_entities=%u",
 							stream,
 							(int)event,
 							core_power->num_entities);
