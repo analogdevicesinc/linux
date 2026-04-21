@@ -751,9 +751,9 @@ static const struct spi_controller_mem_ops ax_spi_mem_ops = {
  */
 static int ax_spi_probe(struct platform_device *pdev)
 {
-	int ret = 0, irq;
 	struct spi_controller *ctlr;
 	struct ax_spi *xspi;
+	int ret, irq;
 	u32 num_cs;
 
 	ctlr = devm_spi_alloc_host(&pdev->dev, sizeof(*xspi));
@@ -852,7 +852,7 @@ static int ax_spi_probe(struct platform_device *pdev)
 
 	pm_runtime_put_autosuspend(&pdev->dev);
 
-	return ret;
+	return 0;
 
 err_disable_rpm:
 	pm_runtime_disable(&pdev->dev);
