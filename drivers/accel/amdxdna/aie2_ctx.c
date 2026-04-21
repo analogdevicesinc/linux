@@ -64,6 +64,7 @@ static void aie2_job_release(struct kref *ref)
 	struct amdxdna_sched_job *job;
 
 	job = container_of(ref, struct amdxdna_sched_job, refcnt);
+
 	amdxdna_sched_job_cleanup(job);
 	atomic64_inc(&job->hwctx->job_free_cnt);
 	wake_up(&job->hwctx->priv->job_free_wq);
@@ -195,7 +196,8 @@ aie2_sched_notify(struct amdxdna_sched_job *job)
 {
 	struct dma_fence *fence = job->fence;
 
-	trace_xdna_job(&job->base, job->hwctx->name, "signaled fence", job->seq);
+	trace_xdna_job(&job->base, job->hwctx->name, "signaling fence",
+		       job->seq, job->drv_cmd ? job->drv_cmd->opcode : DEFAULT_IO);
 
 	aie2_tdr_signal(job->hwctx->client->xdna);
 	job->hwctx->priv->completed++;
@@ -366,6 +368,9 @@ aie2_sched_job_run(struct drm_sched_job *sched_job)
 	struct dma_fence *fence;
 	int ret;
 
+	trace_xdna_job(sched_job, hwctx->name, "job run",
+		       job->seq, job->drv_cmd ? job->drv_cmd->opcode : DEFAULT_IO);
+
 	if (!hwctx->priv->mbox_chann)
 		return NULL;
 
@@ -409,7 +414,8 @@ out:
 	} else {
 		aie2_tdr_signal(hwctx->client->xdna);
 	}
-	trace_xdna_job(sched_job, hwctx->name, "sent to device", job->seq);
+	trace_xdna_job(sched_job, hwctx->name, "sent to device",
+		       job->seq, job->drv_cmd ? job->drv_cmd->opcode : DEFAULT_IO);
 
 	return fence;
 }
@@ -419,7 +425,8 @@ static void aie2_sched_job_free(struct drm_sched_job *sched_job)
 	struct amdxdna_sched_job *job = drm_job_to_xdna_job(sched_job);
 	struct amdxdna_hwctx *hwctx = job->hwctx;
 
-	trace_xdna_job(sched_job, hwctx->name, "job free", job->seq);
+	trace_xdna_job(sched_job, hwctx->name, "job free",
+		       job->seq, job->drv_cmd ? job->drv_cmd->opcode : DEFAULT_IO);
 	if (!job->job_done)
 		up(&hwctx->priv->job_sem);
 
@@ -437,7 +444,6 @@ aie2_sched_job_timedout(struct drm_sched_job *sched_job)
 	int ret;
 
 	xdna = hwctx->client->xdna;
-	trace_xdna_job(sched_job, hwctx->name, "job timedout", job->seq);
 
 	guard(mutex)(&xdna->dev_lock);
 
