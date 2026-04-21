@@ -195,10 +195,8 @@ static task_ctx_t *lookup_task_ctx(struct task_struct *p)
 	QMAP_TOUCH_ARENA();
 
 	v = bpf_task_storage_get(&task_ctx_stor, p, 0, 0);
-	if (!v || !v->taskc) {
-		scx_bpf_error("task_ctx lookup failed");
+	if (!v || !v->taskc)
 		return NULL;
-	}
 	return v->taskc;
 }
 
@@ -283,7 +281,7 @@ s32 BPF_STRUCT_OPS(qmap_select_cpu, struct task_struct *p,
 	s32 cpu;
 
 	if (!(taskc = lookup_task_ctx(p)))
-		return -ESRCH;
+		return prev_cpu;
 
 	if (p->scx.weight < 2 && !(p->flags & PF_KTHREAD))
 		return prev_cpu;
