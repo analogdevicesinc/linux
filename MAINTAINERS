@@ -13599,25 +13599,6 @@ S:	Supported
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/nab/target-pending.git master
 F:	drivers/infiniband/ulp/isert
 
-ISDN/CMTP OVER BLUETOOTH
-L:	netdev@vger.kernel.org
-S:	Orphan
-W:	http://www.isdn4linux.de
-F:	Documentation/isdn/
-F:	drivers/isdn/capi/
-F:	include/linux/isdn/
-F:	include/uapi/linux/isdn/
-F:	net/bluetooth/cmtp/
-
-ISDN/mISDN SUBSYSTEM
-L:	netdev@vger.kernel.org
-S:	Orphan
-W:	http://www.isdn4linux.de
-F:	drivers/isdn/Kconfig
-F:	drivers/isdn/Makefile
-F:	drivers/isdn/hardware/
-F:	drivers/isdn/mISDN/
-
 ISL28022 HARDWARE MONITORING DRIVER
 M:	Carsten Spieß <mail@carsten-spiess.de>
 L:	linux-hwmon@vger.kernel.org
