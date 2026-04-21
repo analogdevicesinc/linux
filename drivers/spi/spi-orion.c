@@ -648,8 +648,8 @@ static int orion_spi_probe(struct platform_device *pdev)
 	struct orion_spi *spi;
 	struct resource *r;
 	unsigned long tclk_hz;
-	int status = 0;
 	struct device_node *np;
+	int status;
 
 	host = spi_alloc_host(&pdev->dev, sizeof(*spi));
 	if (host == NULL) {
@@ -787,7 +787,7 @@ static int orion_spi_probe(struct platform_device *pdev)
 
 	pm_runtime_put_autosuspend(&pdev->dev);
 
-	return status;
+	return 0;
 
 out_rel_pm:
 	pm_runtime_disable(&pdev->dev);
