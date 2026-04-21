@@ -184,6 +184,13 @@ Available options:
    Override checking of perl version.  Runtime errors may be encountered after
    enabling this flag if the perl version does not meet the minimum specified.
 
+ - --spdx-cxx-comments
+
+   Don't force C comments ``/* */`` for SPDX license (required by old
+   toolchains), allow also C++ comments ``//``.
+
+   NOTE: it should *not* be used for Linux mainline.
+
  - --codespell
 
    Use the codespell dictionary for checking spelling errors.
