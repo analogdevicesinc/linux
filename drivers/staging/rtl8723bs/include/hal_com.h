@@ -92,8 +92,6 @@ enum rt_media_status {
 u8 rtw_hal_data_init(struct adapter *padapter);
 void rtw_hal_data_deinit(struct adapter *padapter);
 
-void dump_chip_info(struct hal_version	ChipVersion);
-
 u8 /* return the final channel plan decision */
 hal_com_config_channel_plan(
 struct adapter *padapter,
