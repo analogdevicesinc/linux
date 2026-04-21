@@ -785,7 +785,7 @@ static int ax_spi_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(xspi->ref_clk);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to enable device clock.\n");
-		goto clk_dis_apb;
+		goto err_disable_apb;
 	}
 
 	pm_runtime_use_autosuspend(&pdev->dev);
@@ -815,7 +815,7 @@ static int ax_spi_probe(struct platform_device *pdev)
 	irq = platform_get_irq(pdev, 0);
 	if (irq <= 0) {
 		ret = -ENXIO;
-		goto clk_dis_all;
+		goto err_disable_rpm;
 	}
 
 	ret = devm_request_irq(&pdev->dev, irq, ax_spi_irq,
@@ -823,7 +823,7 @@ static int ax_spi_probe(struct platform_device *pdev)
 	if (ret != 0) {
 		ret = -ENXIO;
 		dev_err(&pdev->dev, "request_irq failed\n");
-		goto clk_dis_all;
+		goto err_disable_rpm;
 	}
 
 	ctlr->use_gpio_descriptors = true;
@@ -847,21 +847,21 @@ static int ax_spi_probe(struct platform_device *pdev)
 	ret = spi_register_controller(ctlr);
 	if (ret) {
 		dev_err(&pdev->dev, "spi_register_controller failed\n");
-		goto clk_dis_all;
+		goto err_disable_rpm;
 	}
 
 	pm_runtime_put_autosuspend(&pdev->dev);
 
 	return ret;
 
-clk_dis_all:
+err_disable_rpm:
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_put_noidle(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	pm_runtime_dont_use_autosuspend(&pdev->dev);
 
 	clk_disable_unprepare(xspi->ref_clk);
-clk_dis_apb:
+err_disable_apb:
 	clk_disable_unprepare(xspi->pclk);
 
 	return ret;
