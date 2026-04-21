@@ -1330,7 +1330,7 @@ static inline int __compat_vma_mmap(struct vm_area_desc *desc,
 	/* Update the VMA from the descriptor. */
 	compat_set_vma_from_desc(vma, desc);
 	/* Complete any specified mmap actions. */
-	return mmap_action_complete(vma, &desc->action);
+	return mmap_action_complete(vma, &desc->action, /*is_compat=*/true);
 }
 
 static inline int compat_vma_mmap(struct file *file, struct vm_area_struct *vma)
