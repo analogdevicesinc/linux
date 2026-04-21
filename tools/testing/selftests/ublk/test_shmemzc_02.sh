@@ -63,6 +63,6 @@ umount "$HTLB_MNT"
 rmdir "$HTLB_MNT"
 echo "$OLD_NR_HP" > /proc/sys/vm/nr_hugepages
 
-_cleanup_test "shmem_zc"
+_cleanup_test
 
 _show_result $TID $ERR_CODE
