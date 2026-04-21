@@ -436,7 +436,8 @@ static int ras_umc_eeprom_rec2nps_rec(struct ras_core_context *ras_core,
 	record->cur_nps = nps;
 
 	if (save_nps || ch_idx_v2) {
-		if ((nps == save_nps) && !ras_fw_eeprom_supported(ras_core)) {
+		if ((nps == save_nps) &&
+		    !ras_eeprom_mgr_fw_record_enabled(ras_core)) {
 			record->cur_nps_retired_row_pfn =
 				EEPROM_RECORD_UMC_ADDR_PFN(record);
 		} else {

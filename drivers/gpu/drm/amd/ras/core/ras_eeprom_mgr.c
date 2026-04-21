@@ -25,6 +25,7 @@
 #include "ras_eeprom_mgr.h"
 #include "ras.h"
 #include "eeprom.h"
+#include "eeprom_fw.h"
 
 static bool __ras_eeprom_disabled(struct ras_core_context *ras_core)
 {
@@ -42,6 +43,10 @@ static const struct ras_eeprom_ops *ras_eeprom_mgr_get_ip_func(
 	case IP_VERSION(13, 0, 12):
 		mgr->eeprom_early_init_service_supported = false;
 		return &ras_drv_eeprom_ops;
+	case IP_VERSION(15, 0, 8):
+		mgr->eeprom_early_init_service_supported = true;
+		mgr->fw_record_enabled = true;
+		return &ras_fw_eeprom_ops;
 	default:
 		RAS_DEV_ERR(ras_core->dev,
 			"EEPROM(MP1) ip version(0x%x) is not supported!\n", ip_version);
