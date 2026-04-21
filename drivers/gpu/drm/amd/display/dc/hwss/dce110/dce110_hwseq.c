@@ -504,7 +504,7 @@ dce110_translate_regamma_to_hw_format(const struct dc_transfer_func *output_tf,
 	}
 
 	j = 0;
-	for (k = 0; k < (region_end - region_start); k++) {
+	for (k = 0; k < (uint32_t)(region_end - region_start); k++) {
 		increment = NUMBER_SW_SEGMENTS / (1 << seg_distr[k]);
 		start_index = (region_start + k + MAX_LOW_POINT) *
 				NUMBER_SW_SEGMENTS;
@@ -1810,7 +1810,7 @@ static void power_down_encoders(struct dc *dc)
 
 static void power_down_controllers(struct dc *dc)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < dc->res_pool->timing_generator_count; i++) {
 		dc->res_pool->timing_generators[i]->funcs->disable_crtc(
@@ -1820,7 +1820,7 @@ static void power_down_controllers(struct dc *dc)
 
 static void power_down_clock_sources(struct dc *dc)
 {
-	int i;
+	unsigned int i;
 
 	if (dc->res_pool->dp_clock_source->funcs->cs_power_down(
 		dc->res_pool->dp_clock_source) == false)
@@ -1829,7 +1829,7 @@ static void power_down_clock_sources(struct dc *dc)
 	for (i = 0; i < dc->res_pool->clk_src_count; i++) {
 		if (dc->res_pool->clock_sources[i]->funcs->cs_power_down(
 				dc->res_pool->clock_sources[i]) == false)
-			dm_error("Failed to power down pll! (clk src index=%d)\n", i);
+			dm_error("Failed to power down pll! (clk src index=%u)\n", i);
 	}
 }
 
@@ -1916,13 +1916,13 @@ static void clean_up_dsc_blocks(struct dc *dc)
 	struct stream_encoder *se = NULL;
 	struct dccg *dccg = dc->res_pool->dccg;
 	struct pg_cntl *pg_cntl = dc->res_pool->pg_cntl;
-	int i;
+	unsigned int i;
 
 	if (!dc->caps.is_apu ||
 		dc->ctx->dce_version < DCN_VERSION_3_15)
 		return;
 	/*VBIOS supports dsc starts from dcn315*/
-	for (i = 0; i < dc->res_pool->res_cap->num_dsc; i++) {
+	for (i = 0; i < (unsigned int)dc->res_pool->res_cap->num_dsc; i++) {
 		struct dcn_dsc_state s  = {0};
 
 		dsc = dc->res_pool->dscs[i];
@@ -2000,7 +2000,7 @@ void dce110_enable_accelerated_mode(struct dc *dc, struct dc_state *context)
 	struct pipe_ctx *pipe_ctx = NULL;
 	struct dce_hwseq *hws = dc->hwseq;
 	int edp_with_sink_num;
-	unsigned int edp_num;
+	unsigned int j, edp_num;
 	int edp_stream_num;
 	int i;
 	bool can_apply_edp_fast_boot = false;
@@ -2020,8 +2020,8 @@ void dce110_enable_accelerated_mode(struct dc *dc, struct dc_state *context)
 
 	/* Check fastboot support, disable on DCE 6-8-10 because of blank screens */
 	if (edp_num && edp_stream_num && dc->ctx->dce_version > DCE_VERSION_10_0) {
-		for (i = 0; i < edp_num; i++) {
-			edp_link = edp_links[i];
+		for (j = 0; j < edp_num; j++) {
+			edp_link = edp_links[j];
 			if (edp_link != edp_streams[0]->link)
 				continue;
 			// enable fastboot if backend is enabled on eDP
@@ -2262,7 +2262,7 @@ static void get_position(struct pipe_ctx **pipe_ctx,
 static void set_static_screen_control(struct pipe_ctx **pipe_ctx,
 		int num_pipes, const struct dc_static_screen_params *params)
 {
-	unsigned int i;
+	int i;
 	unsigned int triggers = 0;
 
 	if (params->triggers.overlay_update)
@@ -2549,7 +2549,7 @@ enum dc_status dce110_apply_ctx_to_hw(
 	struct dce_hwseq *hws = dc->hwseq;
 	struct dc_bios *dcb = dc->ctx->dc_bios;
 	enum dc_status status;
-	int i;
+	unsigned int i;
 	bool was_hpo_acquired = resource_is_hpo_acquired(dc->current_state);
 	bool is_hpo_acquired = resource_is_hpo_acquired(context);
 
@@ -2915,7 +2915,7 @@ static void dce110_init_pipes(struct dc *dc, struct dc_state *context)
 
 static void dce110_init_hw(struct dc *dc)
 {
-	int i;
+	unsigned int i;
 	struct dc_bios *bp;
 	struct transform *xfm;
 	struct abm *abm;
@@ -3137,7 +3137,7 @@ static void dce110_apply_ctx_for_surface(
 		int num_planes,
 		struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 
 	if (num_planes == 0)
 		return;

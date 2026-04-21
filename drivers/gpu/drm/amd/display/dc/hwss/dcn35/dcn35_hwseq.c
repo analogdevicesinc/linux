@@ -145,7 +145,7 @@ void dcn35_init_hw(struct dc *dc)
 	struct resource_pool *res_pool = dc->res_pool;
 	uint32_t backlight = MAX_BACKLIGHT_LEVEL;
 	uint32_t user_level = MAX_BACKLIGHT_LEVEL;
-	int i;
+	unsigned int i;
 
 	print_pg_status(dc, __func__, ": start");
 
@@ -930,14 +930,15 @@ void dcn35_calc_blocks_to_gate(struct dc *dc, struct dc_state *context,
 	bool hpo_frl_stream_enc_acquired = false;
 	bool hpo_dp_stream_enc_acquired = false;
 	int i = 0, j = 0;
+	unsigned int ui = 0, uj = 0;
 	unsigned int edp_num = 0;
 	struct dc_link *edp_links[MAX_NUM_EDP] = { NULL };
 
 	memset(update_state, 0, sizeof(struct pg_block_update));
 
-	for (i = 0; i < dc->res_pool->hpo_dp_stream_enc_count; i++) {
-		if (context->res_ctx.is_hpo_dp_stream_enc_acquired[i] &&
-				dc->res_pool->hpo_dp_stream_enc[i]) {
+	for (ui = 0; ui < dc->res_pool->hpo_dp_stream_enc_count; ui++) {
+		if (context->res_ctx.is_hpo_dp_stream_enc_acquired[ui] &&
+				dc->res_pool->hpo_dp_stream_enc[ui]) {
 			hpo_dp_stream_enc_acquired = true;
 			break;
 		}
@@ -948,11 +949,11 @@ void dcn35_calc_blocks_to_gate(struct dc *dc, struct dc_state *context,
 
 	update_state->pg_res_update[PG_DWB] = true;
 
-	for (i = 0; i < dc->res_pool->pipe_count; i++) {
-		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
+	for (ui = 0; ui < dc->res_pool->pipe_count; ui++) {
+		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[ui];
 
 		for (j = 0; j < PG_HW_PIPE_RESOURCES_NUM_ELEMENT; j++)
-			update_state->pg_pipe_res_update[j][i] = true;
+			update_state->pg_pipe_res_update[j][ui] = true;
 
 		if (!pipe_ctx)
 			continue;
@@ -975,9 +976,9 @@ void dcn35_calc_blocks_to_gate(struct dc *dc, struct dc_state *context,
 				/* All HUBP/DPP instances must be powered if the DSC inst != HUBP inst */
 				if (!pipe_ctx->top_pipe && pipe_ctx->plane_res.hubp &&
 				    pipe_ctx->plane_res.hubp->inst != pipe_ctx->stream_res.dsc->inst) {
-					for (j = 0; j < dc->res_pool->pipe_count; ++j) {
-						update_state->pg_pipe_res_update[PG_HUBP][j] = false;
-						update_state->pg_pipe_res_update[PG_DPP][j] = false;
+					for (uj = 0; uj < dc->res_pool->pipe_count; ++uj) {
+						update_state->pg_pipe_res_update[PG_HUBP][uj] = false;
+						update_state->pg_pipe_res_update[PG_DPP][uj] = false;
 					}
 				}
 			}
@@ -997,10 +998,10 @@ void dcn35_calc_blocks_to_gate(struct dc *dc, struct dc_state *context,
 	}
 
 	/*domain24 controls all the otg, mpc, opp, as long as one otg is still up, avoid enabling OTG PG*/
-	for (i = 0; i < dc->res_pool->timing_generator_count; i++) {
-		struct timing_generator *tg = dc->res_pool->timing_generators[i];
+	for (ui = 0; ui < dc->res_pool->timing_generator_count; ui++) {
+		struct timing_generator *tg = dc->res_pool->timing_generators[ui];
 		if (tg && tg->funcs->is_tg_enabled(tg)) {
-			update_state->pg_pipe_res_update[PG_OPTC][i] = false;
+			update_state->pg_pipe_res_update[PG_OPTC][ui] = false;
 			break;
 		}
 	}
@@ -1034,10 +1035,11 @@ void dcn35_calc_blocks_to_ungate(struct dc *dc, struct dc_state *context,
 	bool hpo_frl_stream_enc_acquired = false;
 	bool hpo_dp_stream_enc_acquired = false;
 	int i = 0, j = 0;
+	unsigned int ui = 0, uj = 0;
 
 	memset(update_state, 0, sizeof(struct pg_block_update));
 
-	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+	for (i = 0; i < (int)dc->res_pool->pipe_count; i++) {
 		struct pipe_ctx *cur_pipe = &dc->current_state->res_ctx.pipe_ctx[i];
 		struct pipe_ctx *new_pipe = &context->res_ctx.pipe_ctx[i];
 
@@ -1111,9 +1113,9 @@ void dcn35_calc_blocks_to_ungate(struct dc *dc, struct dc_state *context,
 		if (dc->links[i]->type != dc_connection_none)
 			update_state->pg_pipe_res_update[PG_PHYSYMCLK][dc->links[i]->link_enc_hw_inst] = true;
 
-	for (i = 0; i < dc->res_pool->hpo_dp_stream_enc_count; i++) {
-		if (context->res_ctx.is_hpo_dp_stream_enc_acquired[i] &&
-				dc->res_pool->hpo_dp_stream_enc[i]) {
+	for (ui = 0; ui < dc->res_pool->hpo_dp_stream_enc_count; ui++) {
+		if (context->res_ctx.is_hpo_dp_stream_enc_acquired[ui] &&
+				dc->res_pool->hpo_dp_stream_enc[ui]) {
 			hpo_dp_stream_enc_acquired = true;
 			break;
 		}
@@ -1126,8 +1128,8 @@ void dcn35_calc_blocks_to_ungate(struct dc *dc, struct dc_state *context,
 		update_state->pg_pipe_res_update[PG_HDMISTREAM][0] = true;
 
 	if (dc->caps.sequential_ono) {
-		for (i = 0; i < dc->res_pool->pipe_count; i++) {
-			struct pipe_ctx *new_pipe = &context->res_ctx.pipe_ctx[i];
+		for (ui = 0; ui < dc->res_pool->pipe_count; ui++) {
+			struct pipe_ctx *new_pipe = &context->res_ctx.pipe_ctx[ui];
 
 			if (new_pipe->stream_res.dsc && !new_pipe->top_pipe &&
 			    update_state->pg_pipe_res_update[PG_DSC][new_pipe->stream_res.dsc->inst]) {
@@ -1137,9 +1139,9 @@ void dcn35_calc_blocks_to_ungate(struct dc *dc, struct dc_state *context,
 				/* All HUBP/DPP instances must be powered if the DSC inst != HUBP inst */
 				if (new_pipe->plane_res.hubp &&
 				    new_pipe->plane_res.hubp->inst != new_pipe->stream_res.dsc->inst) {
-					for (j = 0; j < dc->res_pool->pipe_count; ++j) {
-						update_state->pg_pipe_res_update[PG_HUBP][j] = true;
-						update_state->pg_pipe_res_update[PG_DPP][j] = true;
+					for (uj = 0; uj < dc->res_pool->pipe_count; ++uj) {
+						update_state->pg_pipe_res_update[PG_HUBP][uj] = true;
+						update_state->pg_pipe_res_update[PG_DPP][uj] = true;
 					}
 				}
 			}
@@ -1186,6 +1188,7 @@ void dcn35_hw_block_power_down(struct dc *dc,
 	struct pg_block_update *update_state)
 {
 	int i = 0;
+	unsigned int pipe_idx = 0;
 	struct pg_cntl *pg_cntl = dc->res_pool->pg_cntl;
 
 	if (!pg_cntl)
@@ -1199,11 +1202,11 @@ void dcn35_hw_block_power_down(struct dc *dc,
 	}
 
 	if (!dc->caps.sequential_ono) {
-		for (i = 0; i < dc->res_pool->pipe_count; i++) {
-			if (update_state->pg_pipe_res_update[PG_HUBP][i] &&
-			    update_state->pg_pipe_res_update[PG_DPP][i]) {
+		for (pipe_idx = 0; pipe_idx < dc->res_pool->pipe_count; pipe_idx++) {
+			if (update_state->pg_pipe_res_update[PG_HUBP][pipe_idx] &&
+			    update_state->pg_pipe_res_update[PG_DPP][pipe_idx]) {
 				if (pg_cntl->funcs->hubp_dpp_pg_control)
-					pg_cntl->funcs->hubp_dpp_pg_control(pg_cntl, i, false);
+					pg_cntl->funcs->hubp_dpp_pg_control(pg_cntl, pipe_idx, false);
 			}
 		}
 
@@ -1262,7 +1265,7 @@ void dcn35_hw_block_power_down(struct dc *dc,
 void dcn35_hw_block_power_up(struct dc *dc,
 	struct pg_block_update *update_state)
 {
-	int i = 0;
+	unsigned int i = 0;
 	struct pg_cntl *pg_cntl = dc->res_pool->pg_cntl;
 
 	if (!pg_cntl)
@@ -1275,7 +1278,7 @@ void dcn35_hw_block_power_up(struct dc *dc,
 		pg_cntl->funcs->plane_otg_pg_control(pg_cntl, true);
 
 	if (!dc->caps.sequential_ono) {
-		for (i = 0; i < dc->res_pool->res_cap->num_dsc; i++)
+		for (i = 0; i < (unsigned int)dc->res_pool->res_cap->num_dsc; i++)
 			if (update_state->pg_pipe_res_update[PG_DSC][i]) {
 				if (pg_cntl->funcs->dsc_pg_control)
 					pg_cntl->funcs->dsc_pg_control(pg_cntl, i, true);
@@ -1304,7 +1307,7 @@ void dcn35_hw_block_power_up(struct dc *dc,
 void dcn35_root_clock_control(struct dc *dc,
 	struct pg_block_update *update_state, bool power_on)
 {
-	int i = 0;
+	unsigned int i = 0;
 	struct pg_cntl *pg_cntl = dc->res_pool->pg_cntl;
 
 	if (!pg_cntl)
@@ -1328,7 +1331,7 @@ void dcn35_root_clock_control(struct dc *dc,
 					dc->hwseq->funcs.physymclk_root_clock_control(dc->hwseq, i, power_on);
 
 	}
-	for (i = 0; i < dc->res_pool->res_cap->num_dsc; i++) {
+	for (i = 0; i < (unsigned int)dc->res_pool->res_cap->num_dsc; i++) {
 		if (update_state->pg_pipe_res_update[PG_DSC][i]) {
 			if (power_on) {
 				if (dc->res_pool->dccg->funcs->enable_dsc)
@@ -1449,7 +1452,7 @@ void dcn35_set_drr(struct pipe_ctx **pipe_ctx,
 void dcn35_set_static_screen_control(struct pipe_ctx **pipe_ctx,
 		int num_pipes, const struct dc_static_screen_params *params)
 {
-	unsigned int i;
+	int i;
 	unsigned int triggers = 0;
 
 	if (params->triggers.surface_update)
@@ -1569,7 +1572,8 @@ bool dcn35_is_dp_dig_pixel_rate_div_policy(struct pipe_ctx *pipe_ctx)
  */
 static void dcn35_calc_blocks_to_ungate_for_hw_release(struct dc *dc, struct pg_block_update *update_state)
 {
-	int i = 0, j = 0;
+	unsigned int i = 0;
+	int j = 0;
 
 	memset(update_state, 0, sizeof(struct pg_block_update));
 

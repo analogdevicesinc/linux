@@ -168,8 +168,9 @@ bool dsc2_validate_stream(struct display_stream_compressor *dsc, const struct ds
 {
 	struct dsc_optc_config dsc_optc_cfg;
 	struct dcn20_dsc *dsc20 = TO_DCN20_DSC(dsc);
+	uint32_t max_image_width = (uint32_t)dsc20->max_image_width;
 
-	if (dsc_cfg->pic_width > dsc20->max_image_width)
+	if (dsc_cfg->pic_width > max_image_width)
 		return false;
 
 	return dsc_prepare_config(dsc_cfg, &dsc20->reg_vals, &dsc_optc_cfg);

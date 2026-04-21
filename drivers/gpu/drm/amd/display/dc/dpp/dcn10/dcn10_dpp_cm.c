@@ -824,7 +824,7 @@ void dpp1_program_input_lut(
 		struct dpp *dpp_base,
 		const struct dc_gamma *gamma)
 {
-	int i;
+	unsigned int i;
 	struct dcn10_dpp *dpp = TO_DCN10_DPP(dpp_base);
 	bool rama_occupied = false;
 	uint32_t ram_num;

@@ -197,7 +197,7 @@ static void link_dpia_send_bw_alloc_request(struct dc_link *link, int req_bw)
 
 	request_bw = request_reg_val * (Kbps_TO_Gbps / link->dpia_bw_alloc_config.bw_granularity);
 
-	if (request_bw > link->dpia_bw_alloc_config.estimated_bw) {
+	if (request_bw > (uint32_t)link->dpia_bw_alloc_config.estimated_bw) {
 		DC_LOG_ERROR("%s:  Link[%d]:  Request BW (%d --> %d) > Estimated BW (%d)... Set to Estimated BW!",
 				__func__, link->link_index,
 				req_bw, request_bw, link->dpia_bw_alloc_config.estimated_bw);

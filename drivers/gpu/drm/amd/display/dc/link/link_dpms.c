@@ -2109,7 +2109,7 @@ static bool allocate_usb4_bandwidth_for_stream(struct dc_stream_state *stream, i
 
 	if (stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST) {
 		int sink_index = 0;
-		int i = 0;
+		unsigned int i = 0;
 
 		for (i = 0; i < link->sink_count; i++) {
 			if (link->remote_sinks[i] == NULL)
@@ -2130,7 +2130,7 @@ static bool allocate_usb4_bandwidth_for_stream(struct dc_stream_state *stream, i
 	link_dp_dpia_allocate_usb4_bandwidth_for_stream(link, req_bw);
 
 	if (stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST) {
-		int i = 0;
+		unsigned int i = 0;
 
 		for (i = 0; i < link->sink_count; i++) {
 			if (link->remote_sinks[i] == NULL)

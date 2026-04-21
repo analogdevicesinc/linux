@@ -446,7 +446,7 @@ bool resource_construct(
 {
 	struct dc_context *ctx = dc->ctx;
 	const struct resource_caps *caps = pool->res_cap;
-	int i;
+	unsigned int i;
 	unsigned int num_audio = caps->num_audio;
 	struct resource_straps straps = {0};
 
@@ -463,7 +463,7 @@ bool resource_construct(
 		 * PORT_CONNECTIVITY == 1 (as instructed by HW team).
 		 */
 		update_num_audio(&straps, &num_audio, &pool->audio_support);
-		for (i = 0; i < caps->num_audio; i++) {
+		for (i = 0; i < (unsigned int)caps->num_audio; i++) {
 			struct audio *aud = create_funcs->create_audio(ctx, i);
 
 			if (aud == NULL) {
@@ -481,14 +481,14 @@ bool resource_construct(
 
 	pool->stream_enc_count = 0;
 	if (create_funcs->create_stream_encoder) {
-		for (i = 0; i < caps->num_stream_encoder; i++) {
+		for (i = 0; i < (unsigned int)caps->num_stream_encoder; i++) {
 			pool->stream_enc[i] = create_funcs->create_stream_encoder(i, ctx);
 			if (pool->stream_enc[i] == NULL)
 				DC_ERR("DC: failed to create stream_encoder!\n");
 			pool->stream_enc_count++;
 		}
 
-		for (i = 0; i < caps->num_analog_stream_encoder; i++) {
+		for (i = 0; i < (unsigned int)caps->num_analog_stream_encoder; i++) {
 			pool->stream_enc[caps->num_stream_encoder + i] =
 				create_funcs->create_stream_encoder(ENGINE_ID_DACA + i, ctx);
 			if (pool->stream_enc[caps->num_stream_encoder + i] == NULL)
@@ -499,7 +499,7 @@ bool resource_construct(
 
 	pool->hpo_dp_stream_enc_count = 0;
 	if (create_funcs->create_hpo_dp_stream_encoder) {
-		for (i = 0; i < caps->num_hpo_dp_stream_encoder; i++) {
+		for (i = 0; i < (unsigned int)caps->num_hpo_dp_stream_encoder; i++) {
 			pool->hpo_dp_stream_enc[i] = create_funcs->create_hpo_dp_stream_encoder(i+ENGINE_ID_HPO_DP_0, ctx);
 			if (pool->hpo_dp_stream_enc[i] == NULL)
 				DC_ERR("DC: failed to create HPO DP stream encoder!\n");
@@ -510,7 +510,7 @@ bool resource_construct(
 
 	pool->hpo_dp_link_enc_count = 0;
 	if (create_funcs->create_hpo_dp_link_encoder) {
-		for (i = 0; i < caps->num_hpo_dp_link_encoder; i++) {
+		for (i = 0; i < (unsigned int)caps->num_hpo_dp_link_encoder; i++) {
 			pool->hpo_dp_link_enc[i] = create_funcs->create_hpo_dp_link_encoder((uint8_t)i, ctx);
 			if (pool->hpo_dp_link_enc[i] == NULL)
 				DC_ERR("DC: failed to create HPO DP link encoder!\n");
@@ -518,7 +518,7 @@ bool resource_construct(
 		}
 	}
 
-	for (i = 0; i < caps->num_mpc_3dlut; i++) {
+	for (i = 0; i < (unsigned int)caps->num_mpc_3dlut; i++) {
 		pool->mpc_lut[i] = dc_create_3dlut_func();
 		if (pool->mpc_lut[i] == NULL)
 			DC_ERR("DC: failed to create MPC 3dlut!\n");
@@ -551,11 +551,11 @@ static int find_matching_clock_source(
 		struct clock_source *clock_source)
 {
 
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->clk_src_count; i++) {
 		if (pool->clock_sources[i] == clock_source)
-			return i;
+			return (int)i;
 	}
 	return -1;
 }
@@ -1876,7 +1876,7 @@ int recource_find_free_pipe_not_used_in_cur_res_ctx(
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe, *cur_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		cur_pipe = &cur_res_ctx->pipe_ctx[i];
@@ -1899,7 +1899,7 @@ int recource_find_free_pipe_used_as_otg_master_in_cur_res_ctx(
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe, *cur_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		cur_pipe = &cur_res_ctx->pipe_ctx[i];
@@ -1922,7 +1922,7 @@ int resource_find_free_pipe_used_as_cur_sec_dpp(
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe, *cur_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		cur_pipe = &cur_res_ctx->pipe_ctx[i];
@@ -1946,7 +1946,7 @@ int resource_find_free_pipe_used_as_cur_sec_dpp_in_mpcc_combine(
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe, *cur_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		cur_pipe = &cur_res_ctx->pipe_ctx[i];
@@ -1969,7 +1969,7 @@ int resource_find_any_free_pipe(struct resource_context *new_res_ctx,
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		new_pipe = &new_res_ctx->pipe_ctx[i];
@@ -2564,7 +2564,7 @@ static bool update_pipe_params_after_odm_slice_count_change(
 		struct dc_state *context,
 		const struct resource_pool *pool)
 {
-	int i;
+	unsigned int i;
 	struct pipe_ctx *pipe;
 	bool result = true;
 
@@ -2587,7 +2587,7 @@ static bool update_pipe_params_after_mpc_slice_count_change(
 		struct dc_state *context,
 		const struct resource_pool *pool)
 {
-	int i;
+	unsigned int i;
 	struct pipe_ctx *pipe;
 	bool result = true;
 
@@ -2604,7 +2604,7 @@ static int acquire_first_split_pipe(
 		const struct resource_pool *pool,
 		struct dc_stream_state *stream)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		struct pipe_ctx *split_pipe = &res_ctx->pipe_ctx[i];
@@ -2628,7 +2628,7 @@ static int acquire_first_split_pipe(
 			split_pipe->pipe_idx = (uint8_t)i;
 
 			split_pipe->stream = stream;
-			return i;
+			return (int)i;
 		}
 	}
 	return FREE_PIPE_INDEX_NOT_FOUND;
@@ -2640,7 +2640,7 @@ static void update_stream_engine_usage(
 		struct stream_encoder *stream_enc,
 		bool acquired)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->stream_enc_count; i++) {
 		if (pool->stream_enc[i] == stream_enc)
@@ -2654,7 +2654,7 @@ static void update_hpo_dp_stream_engine_usage(
 		struct hpo_dp_stream_encoder *hpo_dp_stream_enc,
 		bool acquired)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->hpo_dp_stream_enc_count; i++) {
 		if (pool->hpo_dp_stream_enc[i] == hpo_dp_stream_enc)
@@ -2679,14 +2679,14 @@ static inline int find_acquired_hpo_dp_link_enc_for_link(
 static inline int find_free_hpo_dp_link_enc(const struct resource_context *res_ctx,
 		const struct resource_pool *pool)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(res_ctx->hpo_dp_link_enc_ref_cnts); i++)
 		if (res_ctx->hpo_dp_link_enc_ref_cnts[i] == 0)
 			break;
 
 	return (i < ARRAY_SIZE(res_ctx->hpo_dp_link_enc_ref_cnts) &&
-			i < pool->hpo_dp_link_enc_count) ? i : -1;
+			i < pool->hpo_dp_link_enc_count) ? (int)i : -1;
 }
 
 static inline void acquire_hpo_dp_link_enc(
@@ -2773,9 +2773,10 @@ static inline int find_fixed_dio_link_enc(const struct dc_link *link)
 static inline int find_free_dio_link_enc(const struct resource_context *res_ctx,
 		const struct dc_link *link, const struct resource_pool *pool, struct dc_stream_state *stream)
 {
-	int i, j = -1;
+	unsigned int i;
+	int j = -1;
 	int stream_enc_inst = -1;
-	int enc_count = pool->dig_link_enc_count;
+	unsigned int enc_count = pool->dig_link_enc_count;
 
 	/* Find stream encoder instance for the stream */
 	if (stream) {
@@ -2931,7 +2932,7 @@ static void remove_dio_link_enc_from_ctx(struct resource_context *res_ctx,
 
 static int get_num_of_free_pipes(const struct resource_pool *pool, const struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 	int count = 0;
 
 	for (i = 0; i < pool->pipe_count; i++)
@@ -3608,7 +3609,7 @@ void update_audio_usage(
 		struct audio *audio,
 		bool acquired)
 {
-	int i;
+	unsigned int i;
 	for (i = 0; i < pool->audio_count; i++) {
 		if (pool->audios[i] == audio)
 			res_ctx->is_audio_acquired[i] = acquired;
@@ -3621,7 +3622,7 @@ static struct hpo_dp_stream_encoder *find_first_free_match_hpo_dp_stream_enc_for
 		struct dc_stream_state *stream)
 {
 	(void)stream;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->hpo_dp_stream_enc_count; i++) {
 		if (!res_ctx->is_hpo_dp_stream_enc_acquired[i] &&
@@ -3950,7 +3951,7 @@ static bool acquire_otg_master_pipe_for_stream(
 		if (pool->dpps[pipe_idx])
 			pipe_ctx->plane_res.mpcc_inst = (uint8_t)pool->dpps[pipe_idx]->inst;
 
-		if (pipe_idx >= pool->timing_generator_count && pool->timing_generator_count != 0) {
+		if ((unsigned int)pipe_idx >= pool->timing_generator_count && pool->timing_generator_count != 0) {
 			int tg_inst = pool->timing_generator_count - 1;
 
 			pipe_ctx->stream_res.tg = pool->timing_generators[tg_inst];
@@ -4194,7 +4195,8 @@ enum dc_status dc_validate_with_context(struct dc *dc,
 	int del_streams_count = 0;
 	int add_streams_count = 0;
 	bool found = false;
-	int i, j, k;
+	int i, j;
+	unsigned int k;
 
 	DC_LOGGER_INIT(dc->ctx->logger);
 
@@ -4421,7 +4423,8 @@ enum dc_status dc_validate_global_state(
 		enum dc_validate_mode validate_mode)
 {
 	enum dc_status result = DC_ERROR_UNEXPECTED;
-	int i, j;
+	int i;
+	unsigned int j;
 
 	if (!new_ctx)
 		return DC_ERROR_UNEXPECTED;
@@ -4880,7 +4883,7 @@ struct clock_source *dc_resource_find_first_free_pll(
 		struct resource_context *res_ctx,
 		const struct resource_pool *pool)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->clk_src_count; ++i) {
 		if (res_ctx->clock_source_ref_count[i] == 0)
@@ -5398,7 +5401,7 @@ void check_syncd_pipes_for_disabled_master_pipe(struct dc *dc,
 	struct dc_state *context,
 	uint8_t disabled_master_pipe_idx)
 {
-	int i;
+	unsigned int i;
 	struct pipe_ctx *pipe_ctx, *pipe_ctx_check;
 
 	pipe_ctx = &context->res_ctx.pipe_ctx[disabled_master_pipe_idx];

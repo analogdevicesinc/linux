@@ -143,7 +143,7 @@ void dcn401_init_hw(struct dc *dc)
 	struct dce_hwseq *hws = dc->hwseq;
 	struct dc_bios *dcb = dc->ctx->dc_bios;
 	struct resource_pool *res_pool = dc->res_pool;
-	int i;
+	unsigned int i;
 	unsigned int edp_num;
 	uint32_t backlight = MAX_BACKLIGHT_LEVEL;
 	uint32_t user_level = MAX_BACKLIGHT_LEVEL;
@@ -1281,7 +1281,7 @@ static bool dcn401_check_no_memory_request_for_cab(struct dc *dc)
 
 static uint32_t dcn401_calculate_cab_allocation(struct dc *dc, struct dc_state *ctx)
 {
-	int i;
+	unsigned int i;
 	uint32_t num_ways = 0;
 	uint32_t mall_ss_size_bytes = 0;
 
@@ -1423,10 +1423,13 @@ void dcn401_prepare_bandwidth(struct dc *dc,
 		context->bw_ctx.bw.dcn.clk.p_state_change_support = false;
 	}
 
-	if (dc->clk_mgr->dc_mode_softmax_enabled)
-		if (dc->clk_mgr->clks.dramclk_khz <= dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000 &&
-				context->bw_ctx.bw.dcn.clk.dramclk_khz > dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000)
+	if (dc->clk_mgr->dc_mode_softmax_enabled) {
+		int softmax_memclk_khz = dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000;
+
+		if (dc->clk_mgr->clks.dramclk_khz <= softmax_memclk_khz &&
+				context->bw_ctx.bw.dcn.clk.dramclk_khz > softmax_memclk_khz)
 			dc->clk_mgr->funcs->set_max_memclk(dc->clk_mgr, dc->clk_mgr->bw_params->clk_table.entries[dc->clk_mgr->bw_params->clk_table.num_entries - 1].memclk_mhz);
+	}
 
 	/* Increase clocks */
 	dc->clk_mgr->funcs->update_clocks(
@@ -1472,7 +1475,7 @@ void dcn401_optimize_bandwidth(
 		struct dc *dc,
 		struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 	struct hubbub *hubbub = dc->res_pool->hubbub;
 
 	/* enable fams2 if needed */
@@ -1492,10 +1495,13 @@ void dcn401_optimize_bandwidth(
 		hubbub->funcs->program_arbiter(hubbub, &context->bw_ctx.bw.dcn.arb_regs, true);
 	}
 
-	if (dc->clk_mgr->dc_mode_softmax_enabled)
-		if (dc->clk_mgr->clks.dramclk_khz > dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000 &&
-				context->bw_ctx.bw.dcn.clk.dramclk_khz <= dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000)
+	if (dc->clk_mgr->dc_mode_softmax_enabled) {
+		int softmax_memclk_khz = dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000;
+
+		if (dc->clk_mgr->clks.dramclk_khz > softmax_memclk_khz &&
+				context->bw_ctx.bw.dcn.clk.dramclk_khz <= softmax_memclk_khz)
 			dc->clk_mgr->funcs->set_max_memclk(dc->clk_mgr, dc->clk_mgr->bw_params->dc_mode_softmax_memclk);
+	}
 
 	/* increase compbuf size */
 	if (hubbub->funcs->program_compbuf_segments)
@@ -2466,7 +2472,7 @@ void dcn401_program_front_end_for_ctx(
 	struct dc *dc,
 	struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 	unsigned int prev_hubp_count = 0;
 	unsigned int hubp_count = 0;
 	struct dce_hwseq *hws = dc->hwseq;
@@ -2633,7 +2639,7 @@ void dcn401_post_unlock_program_front_end(
 	unsigned int timeout_us = 100000;
 	unsigned int polling_interval_us = 1;
 	struct dce_hwseq *hwseq = dc->hwseq;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < dc->res_pool->pipe_count; i++)
 		if (resource_is_pipe_type(&dc->current_state->res_ctx.pipe_ctx[i], OPP_HEAD) &&
@@ -2657,7 +2663,7 @@ void dcn401_post_unlock_program_front_end(
 		if (pipe->plane_state && !pipe->top_pipe && pipe->update_flags.bits.enable &&
 			dc_state_get_pipe_subvp_type(context, pipe) != SUBVP_PHANTOM) {
 			struct hubp *hubp = pipe->plane_res.hubp;
-			int j = 0;
+			unsigned int j = 0;
 
 			for (j = 0; j < timeout_us / polling_interval_us
 				&& hubp->funcs->hubp_is_flip_pending(hubp); j++)
@@ -2676,7 +2682,7 @@ void dcn401_post_unlock_program_front_end(
 		if (resource_is_pipe_type(old_pipe, OTG_MASTER) && resource_is_pipe_type(pipe, OTG_MASTER) &&
 			resource_get_odm_slice_count(old_pipe) < resource_get_odm_slice_count(pipe) &&
 			dc_state_get_pipe_subvp_type(context, pipe) != SUBVP_PHANTOM) {
-			int j = 0;
+			unsigned int j = 0;
 			struct timing_generator *tg = pipe->stream_res.tg;
 
 			if (tg->funcs->get_optc_double_buffer_pending) {
@@ -2761,7 +2767,7 @@ bool dcn401_update_bandwidth(
 	struct dc *dc,
 	struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 	struct dce_hwseq *hws = dc->hwseq;
 
 	/* recalculate DML parameters */
@@ -3262,9 +3268,10 @@ void dcn401_program_all_writeback_pipes_in_tree_sequence(
 		struct block_sequence_state *seq_state)
 {
 	struct dwbc *dwb;
-	int i_wb, i_pipe;
+	unsigned int i_wb, i_pipe;
+	unsigned int num_dwb_cap = (unsigned int)dc->res_pool->res_cap->num_dwb;
 
-	if (!stream || stream->num_wb_info > dc->res_pool->res_cap->num_dwb)
+	if (!stream || (unsigned int)stream->num_wb_info > num_dwb_cap)
 		return;
 
 	/* For each writeback pipe */
@@ -3912,7 +3919,7 @@ void dcn401_update_mpcc_sequence(struct dc *dc,
 
 static struct hubp *get_hubp_by_inst(struct resource_pool *res_pool, int mpcc_inst)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < res_pool->pipe_count; i++) {
 		if (res_pool->hubps[i]->inst == mpcc_inst)
@@ -3987,7 +3994,7 @@ void dcn401_set_hdr_multiplier_sequence(struct pipe_ctx *pipe_ctx,
 void dcn401_program_mall_pipe_config_sequence(struct dc *dc, struct dc_state *context,
 		struct block_sequence_state *seq_state)
 {
-	int i;
+	unsigned int i;
 	unsigned int num_ways = dcn401_calculate_cab_allocation(dc, context);
 	bool cache_cursor = false;
 

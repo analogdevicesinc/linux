@@ -858,19 +858,20 @@ static bool decide_dsc_target_bpp_x16(
 		int *target_bpp_x16)
 {
 	struct dc_dsc_bw_range range;
+	uint32_t target_bandwidth_kbps_u = (uint32_t)target_bandwidth_kbps;
 
 	*target_bpp_x16 = 0;
 
 	if (decide_dsc_bandwidth_range(policy->min_target_bpp * 16, policy->max_target_bpp * 16,
 			num_slices_h, dsc_common_caps, timing, link_encoding, &range)) {
-		if (target_bandwidth_kbps >= range.stream_kbps) {
+		if (target_bandwidth_kbps_u >= range.stream_kbps) {
 			if (policy->enable_dsc_when_not_needed || options->force_dsc_when_not_needed)
 				/* enable max bpp even dsc is not needed */
 				*target_bpp_x16 = range.max_target_bpp_x16;
-		} else if (target_bandwidth_kbps >= range.max_kbps) {
+		} else if (target_bandwidth_kbps_u >= range.max_kbps) {
 			/* use max target bpp allowed */
 			*target_bpp_x16 = range.max_target_bpp_x16;
-		} else if (target_bandwidth_kbps >= range.min_kbps) {
+		} else if (target_bandwidth_kbps_u >= range.min_kbps) {
 			/* use target bpp that can take entire target bandwidth */
 			*target_bpp_x16 = compute_bpp_x16_from_target_bandwidth(
 					target_bandwidth_kbps, timing, num_slices_h,
@@ -1053,10 +1054,11 @@ static bool setup_dsc_config(
 	int max_slices_h = 0;
 	int num_slices_h = 0;
 	int pic_width;
+	uint32_t pic_width_u;
 	int slice_width;
 	int target_bpp;
 	int sink_per_slice_throughput_mps;
-	int branch_max_throughput_mps = 0;
+	uint32_t branch_max_throughput_mps = 0;
 	bool is_dsc_possible = false;
 	int pic_height;
 	int slice_height;
@@ -1066,12 +1068,13 @@ static bool setup_dsc_config(
 
 	dc_dsc_get_policy_for_timing(timing, options->max_target_bpp_limit_override_x16, &policy, link_encoding);
 	pic_width = timing->h_addressable + timing->h_border_left + timing->h_border_right;
+	pic_width_u = (uint32_t)pic_width;
 	pic_height = timing->v_addressable + timing->v_border_top + timing->v_border_bottom;
 
 	if (!dsc_sink_caps->is_dsc_supported)
 		goto done;
 
-	if (dsc_sink_caps->branch_max_line_width && dsc_sink_caps->branch_max_line_width < pic_width)
+	if (dsc_sink_caps->branch_max_line_width && dsc_sink_caps->branch_max_line_width < pic_width_u)
 		goto done;
 
 	// Intersect decoder with encoder DSC caps and validate DSC settings

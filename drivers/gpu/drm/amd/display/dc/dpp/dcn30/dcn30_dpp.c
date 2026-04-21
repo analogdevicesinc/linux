@@ -517,11 +517,16 @@ bool dpp3_get_optimal_number_of_taps(
 	else if (max_taps_c < min_taps_c)
 		return false;
 
-	if (scl_data->taps.v_taps > max_taps_y)
-		scl_data->taps.v_taps = max_taps_y;
+	{
+		uint32_t max_supported_taps_y = (uint32_t)max_taps_y;
+		uint32_t max_supported_taps_c = (uint32_t)max_taps_c;
 
-	if (scl_data->taps.v_taps_c > max_taps_c)
-		scl_data->taps.v_taps_c = max_taps_c;
+		if (scl_data->taps.v_taps > max_supported_taps_y)
+			scl_data->taps.v_taps = max_supported_taps_y;
+
+		if (scl_data->taps.v_taps_c > max_supported_taps_c)
+			scl_data->taps.v_taps_c = max_supported_taps_c;
+	}
 
 	if (!dpp->ctx->dc->debug.always_scale) {
 		if (IDENTITY_RATIO(scl_data->ratios.horz)) {

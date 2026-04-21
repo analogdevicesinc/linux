@@ -64,7 +64,7 @@ void dcn42_init_hw(struct dc *dc)
 	struct dce_hwseq *hws = dc->hwseq;
 	struct dc_bios *dcb = dc->ctx->dc_bios;
 	struct resource_pool *res_pool = dc->res_pool;
-	int i;
+	unsigned int i;
 	unsigned int edp_num;
 	uint32_t backlight = MAX_BACKLIGHT_LEVEL;
 	uint32_t user_level = MAX_BACKLIGHT_LEVEL;
@@ -966,7 +966,8 @@ void dcn42_calc_blocks_to_gate(struct dc *dc, struct dc_state *context,
 {
 	bool hpo_frl_stream_enc_acquired = false;
 	bool hpo_dp_stream_enc_acquired = false;
-	int i = 0, j = 0;
+	unsigned int i = 0;
+	int j = 0;
 
 	memset(update_state, 0, sizeof(struct pg_block_update));
 
@@ -1089,7 +1090,8 @@ void dcn42_calc_blocks_to_ungate(struct dc *dc, struct dc_state *context,
 	struct pg_block_update *update_state)
 {
 	bool hpo_dp_stream_enc_acquired = false;
-	int i = 0, j = 0;
+	unsigned int i = 0;
+	int j = 0;
 
 	memset(update_state, 0, sizeof(struct pg_block_update));
 
@@ -1221,6 +1223,7 @@ void dcn42_calc_blocks_to_ungate(struct dc *dc, struct dc_state *context,
 	struct pg_block_update *update_state)
 {
 	int i = 0;
+	int pipe_count = dc->res_pool->pipe_count;
 	struct pg_cntl *pg_cntl = dc->res_pool->pg_cntl;
 	bool block_disabled = true;
 
@@ -1234,7 +1237,7 @@ void dcn42_calc_blocks_to_ungate(struct dc *dc, struct dc_state *context,
 			pg_cntl->funcs->hpo_pg_control(pg_cntl, false);
 	}
 
-	for (i = dc->res_pool->pipe_count - 1; i >= 0; i--) {
+	for (i = pipe_count - 1; i >= 0; i--) {
 		if (update_state->pg_pipe_res_update[PG_HUBP][i] &&
 			update_state->pg_pipe_res_update[PG_DPP][i]) {
 			if (pg_cntl->funcs->hubp_dpp_pg_control)
@@ -1254,7 +1257,7 @@ void dcn42_calc_blocks_to_ungate(struct dc *dc, struct dc_state *context,
 		}
 	}
 
-	for (i = 0; i < dc->res_pool->pipe_count; i++) {
+	for (i = 0; i < pipe_count; i++) {
 		if (!update_state->pg_pipe_res_update[PG_MPCC][i] ||
 			!update_state->pg_pipe_res_update[PG_OPP][i] ||
 			!update_state->pg_pipe_res_update[PG_OPTC][i]) {
@@ -1309,7 +1312,7 @@ void dcn42_calc_blocks_to_ungate(struct dc *dc, struct dc_state *context,
 void dcn42_hw_block_power_up(struct dc *dc,
 	struct pg_block_update *update_state)
 {
-	int i = 0;
+	unsigned int i = 0;
 	struct pg_cntl *pg_cntl = dc->res_pool->pg_cntl;
 	bool block_enabled = false;
 
@@ -1343,7 +1346,7 @@ void dcn42_hw_block_power_up(struct dc *dc,
 			pg_cntl->funcs->plane_otg_pg_control(pg_cntl, true);
 	}
 
-	for (i = 0; i < dc->res_pool->res_cap->num_dsc; i++) {
+	for (i = 0; i < (unsigned int)dc->res_pool->res_cap->num_dsc; i++) {
 		if (update_state->pg_pipe_res_update[PG_DSC][i]) {
 			if (pg_cntl->funcs->dsc_pg_control)
 				pg_cntl->funcs->dsc_pg_control(pg_cntl, i, true);
@@ -1370,7 +1373,7 @@ void dcn42_hw_block_power_up(struct dc *dc,
 void dcn42_root_clock_control(struct dc *dc,
 	struct pg_block_update *update_state, bool power_on)
 {
-	int i = 0;
+	unsigned int i = 0;
 	struct pg_cntl *pg_cntl = dc->res_pool->pg_cntl;
 
 	if (!pg_cntl)
@@ -1394,7 +1397,7 @@ void dcn42_root_clock_control(struct dc *dc,
 					dc->hwseq->funcs.physymclk_root_clock_control(dc->hwseq, i, power_on);
 
 	}
-	for (i = 0; i < dc->res_pool->res_cap->num_dsc; i++) {
+	for (i = 0; i < (unsigned int)dc->res_pool->res_cap->num_dsc; i++) {
 		if (update_state->pg_pipe_res_update[PG_DSC][i]) {
 			if (power_on) {
 				if (dc->res_pool->dccg->funcs->enable_dsc)

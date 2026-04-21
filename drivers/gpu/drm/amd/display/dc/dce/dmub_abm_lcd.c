@@ -58,7 +58,7 @@ static void dmub_abm_enable_fractional_pwm(struct dc_context *dc)
 	union dmub_rb_cmd cmd;
 	uint32_t fractional_pwm = (dc->dc->config.disable_fractional_pwm == false) ? 1 : 0;
 	uint32_t edp_id_count = dc->dc_edp_id_count;
-	int i;
+	unsigned int i;
 	uint8_t panel_mask = 0;
 
 	for (i = 0; i < edp_id_count; i++)

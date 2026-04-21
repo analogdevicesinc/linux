@@ -63,11 +63,11 @@ static const struct state_dependent_clocks dce110_max_clks_by_state[] = {
 /*ClocksStatePerformance*/
 { .display_clk_khz = 643000, .pixel_clk_khz = 400000 } };
 
-static int determine_sclk_from_bounding_box(
+static uint32_t determine_sclk_from_bounding_box(
 		const struct dc *dc,
-		int required_sclk)
+		uint32_t required_sclk)
 {
-	int i;
+	uint32_t i;
 
 	/*
 	 * Some asics do not give us sclk levels, so we just report the actual

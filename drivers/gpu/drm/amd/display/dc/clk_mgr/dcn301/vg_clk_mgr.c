@@ -533,7 +533,7 @@ static struct clk_bw_params vg_bw_params = {
 static uint32_t find_max_clk_value(const uint32_t clocks[], uint32_t num_clocks)
 {
 	uint32_t max = 0;
-	int i;
+	uint32_t i;
 
 	for (i = 0; i < num_clocks; ++i) {
 		if (clocks[i] > max)
@@ -565,6 +565,7 @@ static void vg_clk_mgr_helper_populate_bw_params(
 		const struct vg_dpm_clocks *clock_table)
 {
 	int i, j;
+	unsigned int entry_idx;
 	struct clk_bw_params *bw_params = clk_mgr->base.bw_params;
 	uint32_t max_dispclk = 0, max_dppclk = 0;
 
@@ -599,16 +600,17 @@ static void vg_clk_mgr_helper_populate_bw_params(
 
 	bw_params->clk_table.num_entries = j + 1;
 
-	for (i = 0; i < bw_params->clk_table.num_entries - 1; i++, j--) {
-		bw_params->clk_table.entries[i].fclk_mhz = clock_table->DfPstateTable[j].fclk;
-		bw_params->clk_table.entries[i].memclk_mhz = clock_table->DfPstateTable[j].memclk;
-		bw_params->clk_table.entries[i].voltage = clock_table->DfPstateTable[j].voltage;
-		bw_params->clk_table.entries[i].dcfclk_mhz = find_dcfclk_for_voltage(clock_table, clock_table->DfPstateTable[j].voltage);
+	for (entry_idx = 0; entry_idx < bw_params->clk_table.num_entries - 1; entry_idx++, j--) {
+		bw_params->clk_table.entries[entry_idx].fclk_mhz = clock_table->DfPstateTable[j].fclk;
+		bw_params->clk_table.entries[entry_idx].memclk_mhz = clock_table->DfPstateTable[j].memclk;
+		bw_params->clk_table.entries[entry_idx].voltage = clock_table->DfPstateTable[j].voltage;
+		bw_params->clk_table.entries[entry_idx].dcfclk_mhz = find_dcfclk_for_voltage(clock_table, clock_table->DfPstateTable[j].voltage);
 
 		/* Now update clocks we do read */
-		bw_params->clk_table.entries[i].dispclk_mhz = max_dispclk;
-		bw_params->clk_table.entries[i].dppclk_mhz = max_dppclk;
+		bw_params->clk_table.entries[entry_idx].dispclk_mhz = max_dispclk;
+		bw_params->clk_table.entries[entry_idx].dppclk_mhz = max_dppclk;
 	}
+	i = (int)entry_idx;
 	bw_params->clk_table.entries[i].fclk_mhz = clock_table->DfPstateTable[j].fclk;
 	bw_params->clk_table.entries[i].memclk_mhz = clock_table->DfPstateTable[j].memclk;
 	bw_params->clk_table.entries[i].voltage = clock_table->DfPstateTable[j].voltage;
@@ -619,16 +621,16 @@ static void vg_clk_mgr_helper_populate_bw_params(
 	bw_params->vram_type = bios_info->memory_type;
 	bw_params->num_channels = bios_info->ma_channel_number;
 
-	for (i = 0; i < WM_SET_COUNT; i++) {
-		bw_params->wm_table.entries[i].wm_inst = i;
+	for (entry_idx = 0; entry_idx < (unsigned int)WM_SET_COUNT; entry_idx++) {
+		bw_params->wm_table.entries[entry_idx].wm_inst = entry_idx;
 
-		if (i >= bw_params->clk_table.num_entries) {
-			bw_params->wm_table.entries[i].valid = false;
+		if (entry_idx >= bw_params->clk_table.num_entries) {
+			bw_params->wm_table.entries[entry_idx].valid = false;
 			continue;
 		}
 
-		bw_params->wm_table.entries[i].wm_type = WM_TYPE_PSTATE_CHG;
-		bw_params->wm_table.entries[i].valid = true;
+		bw_params->wm_table.entries[entry_idx].wm_type = WM_TYPE_PSTATE_CHG;
+		bw_params->wm_table.entries[entry_idx].valid = true;
 	}
 
 	if (bw_params->vram_type == LpDdr4MemType) {

@@ -151,7 +151,7 @@ static bool dc_dmub_srv_reg_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_s
 	struct dc_context *dc_ctx;
 	struct dmub_srv *dmub;
 	enum dmub_status status = DMUB_STATUS_OK;
-	int i;
+	unsigned int i;
 
 	if (!dc_dmub_srv || !dc_dmub_srv->dmub)
 		return false;
@@ -193,7 +193,7 @@ static bool dc_dmub_srv_fb_cmd_list_queue_execute(struct dc_dmub_srv *dc_dmub_sr
 	struct dc_context *dc_ctx;
 	struct dmub_srv *dmub;
 	enum dmub_status status;
-	int i;
+	unsigned int i;
 
 	if (!dc_dmub_srv || !dc_dmub_srv->dmub)
 		return false;
@@ -430,7 +430,7 @@ static void dc_dmub_srv_populate_fams_pipe_info(struct dc *dc, struct dc_state *
 		struct pipe_ctx *head_pipe,
 		struct dmub_cmd_fw_assisted_mclk_switch_pipe_data *fams_pipe_data)
 {
-	int j;
+	unsigned int j;
 	int pipe_idx = 0;
 
 	fams_pipe_data->pipe_index[pipe_idx++] = (uint8_t)head_pipe->plane_res.hubp->inst;
@@ -448,7 +448,8 @@ bool dc_dmub_srv_p_state_delegate(struct dc *dc, bool should_manage_pstate, stru
 {
 	union dmub_rb_cmd cmd = { 0 };
 	struct dmub_cmd_fw_assisted_mclk_switch_config *config_data = &cmd.fw_assisted_mclk_switch.config_data;
-	int i = 0, k = 0;
+	unsigned int i = 0;
+	int k = 0;
 	int ramp_up_num_steps = 1; // TODO: Ramp is currently disabled. Reenable it.
 	uint8_t visual_confirm_enabled;
 	struct dc_stream_status *stream_status = NULL;

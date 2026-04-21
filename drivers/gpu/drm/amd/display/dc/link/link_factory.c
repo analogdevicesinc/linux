@@ -381,7 +381,7 @@ static bool encoder_is_external_dp(
 
 static void link_destruct(struct dc_link *link)
 {
-	int i;
+	unsigned int i;
 
 	if (link->ddc)
 		link_destroy_ddc_service(&link->ddc);

@@ -65,7 +65,7 @@ bool dp_parse_link_loss_status(
 	/*1. Check that Link Status changed, before re-training.*/
 
 	/*parse lane status*/
-	for (lane = 0; lane < link->cur_link_settings.lane_count; lane++) {
+	for (lane = 0; lane < (uint32_t)link->cur_link_settings.lane_count; lane++) {
 		/* check status of lanes 0,1
 		 * changed DpcdAddress_Lane01Status (0x202)
 		 */

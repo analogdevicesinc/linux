@@ -666,7 +666,7 @@ void set_p_state_switch_method(
 		/* SubVP */
 		enable_subvp = false;
 
-		for (int i = 0; i < dc->res_pool->pipe_count; i++) {
+		for (unsigned int i = 0; i < dc->res_pool->pipe_count; i++) {
 			struct pipe_ctx *pipe = &context->res_ctx.pipe_ctx[i];
 
 			if (pipe->stream && dc_state_get_paired_subvp_stream(context, pipe->stream) &&
@@ -1211,7 +1211,7 @@ void hwss_execute_sequence(struct dc *dc,
 		struct block_sequence block_sequence[MAX_HWSS_BLOCK_SEQUENCE_SIZE],
 		int num_steps)
 {
-	unsigned int i;
+	int i;
 	union block_sequence_params *params;
 	struct dce_hwseq *hws = dc->hwseq;
 
@@ -2550,7 +2550,7 @@ void hwss_wait_for_outstanding_hw_updates(struct dc *dc, struct dc_state *dc_con
  * operations to complete. It should be invoked as a pre-amble prior
  * to full update programming before asserting any HW locks.
  */
-	int pipe_idx;
+	unsigned int pipe_idx;
 	int opp_inst;
 	int opp_count = dc->res_pool->res_cap->num_opp;
 	struct hubp *hubp;
@@ -3019,7 +3019,7 @@ void hwss_hubp_wait_flip_pending(union block_sequence_params *params)
 	struct hubp *hubp = params->hubp_wait_flip_pending_params.hubp;
 	unsigned int timeout_us = params->hubp_wait_flip_pending_params.timeout_us;
 	unsigned int polling_interval_us = params->hubp_wait_flip_pending_params.polling_interval_us;
-	int j = 0;
+	unsigned int j = 0;
 
 	for (j = 0; j < timeout_us / polling_interval_us
 		&& hubp->funcs->hubp_is_flip_pending(hubp); j++)
@@ -3031,7 +3031,7 @@ void hwss_tg_wait_double_buffer_pending(union block_sequence_params *params)
 	struct timing_generator *tg = params->tg_wait_double_buffer_pending_params.tg;
 	unsigned int timeout_us = params->tg_wait_double_buffer_pending_params.timeout_us;
 	unsigned int polling_interval_us = params->tg_wait_double_buffer_pending_params.polling_interval_us;
-	int j = 0;
+	unsigned int j = 0;
 
 	if (tg->funcs->get_optc_double_buffer_pending) {
 		for (j = 0; j < timeout_us / polling_interval_us

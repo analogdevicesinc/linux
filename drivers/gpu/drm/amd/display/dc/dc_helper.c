@@ -432,7 +432,7 @@ void generic_reg_wait(const struct dc_context *ctx,
 {
 	uint32_t field_value;
 	uint32_t reg_val;
-	int i;
+	unsigned int i;
 
 	if (ctx->dmub_srv &&
 	    ctx->dmub_srv->reg_helper_offload.gather_in_progress) {
@@ -447,7 +447,7 @@ void generic_reg_wait(const struct dc_context *ctx,
 	 * This value comes from experiments.
 	 *
 	 */
-	ASSERT(delay_between_poll_us * time_out_num_tries <= 3000000);
+	ASSERT(delay_between_poll_us * time_out_num_tries <= 3000000u);
 
 	for (i = 0; i <= time_out_num_tries; i++) {
 		if (i) {

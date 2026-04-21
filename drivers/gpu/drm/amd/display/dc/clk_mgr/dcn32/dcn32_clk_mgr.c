@@ -236,9 +236,9 @@ void dcn32_init_clocks(struct clk_mgr *clk_mgr_base)
 	if (clk_mgr_base->ctx->dc->debug.min_disp_clk_khz) {
 		for (i = 0; i < num_levels; i++)
 			if (clk_mgr_base->bw_params->clk_table.entries[i].dispclk_mhz
-					< khz_to_mhz_ceil(clk_mgr_base->ctx->dc->debug.min_disp_clk_khz))
+					< (unsigned int)khz_to_mhz_ceil(clk_mgr_base->ctx->dc->debug.min_disp_clk_khz))
 				clk_mgr_base->bw_params->clk_table.entries[i].dispclk_mhz
-					= khz_to_mhz_ceil(clk_mgr_base->ctx->dc->debug.min_disp_clk_khz);
+					= (unsigned int)khz_to_mhz_ceil(clk_mgr_base->ctx->dc->debug.min_disp_clk_khz);
 	}
 	for (i = 0; i < num_levels; i++)
 		if (clk_mgr_base->bw_params->clk_table.entries[i].dispclk_mhz > 1950)
@@ -247,9 +247,9 @@ void dcn32_init_clocks(struct clk_mgr *clk_mgr_base)
 	if (clk_mgr_base->ctx->dc->debug.min_dpp_clk_khz) {
 		for (i = 0; i < num_levels; i++)
 			if (clk_mgr_base->bw_params->clk_table.entries[i].dppclk_mhz
-					< khz_to_mhz_ceil(clk_mgr_base->ctx->dc->debug.min_dpp_clk_khz))
+					< (unsigned int)khz_to_mhz_ceil(clk_mgr_base->ctx->dc->debug.min_dpp_clk_khz))
 				clk_mgr_base->bw_params->clk_table.entries[i].dppclk_mhz
-					= khz_to_mhz_ceil(clk_mgr_base->ctx->dc->debug.min_dpp_clk_khz);
+					= (unsigned int)khz_to_mhz_ceil(clk_mgr_base->ctx->dc->debug.min_dpp_clk_khz);
 	}
 
 	for (i = 0; i < num_levels; i++)
@@ -269,7 +269,7 @@ static void dcn32_update_clocks_update_dtb_dto(struct clk_mgr_internal *clk_mgr,
 {
 	struct dccg *dccg = clk_mgr->dccg;
 	uint32_t tg_mask = 0;
-	int i;
+	uint32_t i;
 
 	for (i = 0; i < clk_mgr->base.ctx->dc->res_pool->pipe_count; i++) {
 		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
@@ -314,7 +314,7 @@ static void dcn32_update_dppclk_dispclk_freq(struct clk_mgr_internal *clk_mgr, s
 void dcn32_update_clocks_update_dpp_dto(struct clk_mgr_internal *clk_mgr,
 		struct dc_state *context, bool safe_to_lower)
 {
-	int i;
+	uint32_t i;
 
 	clk_mgr->dccg->ref_dppclk = clk_mgr->base.clks.dppclk_khz;
 	for (i = 0; i < clk_mgr->base.ctx->dc->res_pool->pipe_count; i++) {
@@ -673,9 +673,12 @@ static void dcn32_update_clocks(struct clk_mgr *clk_mgr_base,
 			}
 		}
 
-		if (dc->debug.force_min_dcfclk_mhz > 0)
-			new_clocks->dcfclk_khz = (new_clocks->dcfclk_khz > (dc->debug.force_min_dcfclk_mhz * 1000)) ?
-					new_clocks->dcfclk_khz : (dc->debug.force_min_dcfclk_mhz * 1000);
+		if (dc->debug.force_min_dcfclk_mhz > 0) {
+			int force_min_dcfclk_khz = dc->debug.force_min_dcfclk_mhz * 1000;
+
+			new_clocks->dcfclk_khz = (new_clocks->dcfclk_khz > force_min_dcfclk_khz) ?
+					new_clocks->dcfclk_khz : force_min_dcfclk_khz;
+		}
 
 		if (should_set_clock(safe_to_lower, new_clocks->dcfclk_khz, clk_mgr_base->clks.dcfclk_khz) &&
 				!dc->work_arounds.clock_update_disable_mask.dcfclk) {

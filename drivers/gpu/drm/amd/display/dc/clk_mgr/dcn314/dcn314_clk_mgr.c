@@ -295,7 +295,7 @@ void dcn314_update_clocks(struct clk_mgr *clk_mgr_base,
 
 	if (should_set_clock(safe_to_lower, new_clocks->dispclk_khz, clk_mgr_base->clks.dispclk_khz) &&
 		(new_clocks->dispclk_khz > 0 || (safe_to_lower && display_count == 0))) {
-		int requested_dispclk_khz = new_clocks->dispclk_khz;
+		uint32_t requested_dispclk_khz = new_clocks->dispclk_khz;
 
 		dcn314_disable_otg_wa(clk_mgr_base, context, safe_to_lower, true);
 
@@ -616,7 +616,7 @@ static unsigned int convert_wck_ratio(uint8_t wck_ratio)
 static uint32_t find_max_clk_value(const uint32_t clocks[], uint32_t num_clocks)
 {
 	uint32_t max = 0;
-	int i;
+	uint32_t i;
 
 	for (i = 0; i < num_clocks; ++i) {
 		if (clocks[i] > max)
@@ -634,6 +634,7 @@ static void dcn314_clk_mgr_helper_populate_bw_params(struct clk_mgr_internal *cl
 	struct clk_limit_table_entry def_max = bw_params->clk_table.entries[bw_params->clk_table.num_entries - 1];
 	uint32_t max_pstate = 0,  max_fclk = 0,  min_pstate = 0, max_dispclk = 0, max_dppclk = 0;
 	int i;
+	unsigned int entry_idx;
 
 	/* Find highest valid fclk pstate */
 	for (i = 0; i < clock_table->NumDfPstatesEnabled; i++) {
@@ -723,26 +724,26 @@ static void dcn314_clk_mgr_helper_populate_bw_params(struct clk_mgr_internal *cl
 	 * Set any 0 clocks to max default setting. Not an issue for
 	 * power since we aren't doing switching in such case anyway
 	 */
-	for (i = 0; i < bw_params->clk_table.num_entries; i++) {
-		if (!bw_params->clk_table.entries[i].fclk_mhz) {
-			bw_params->clk_table.entries[i].fclk_mhz = def_max.fclk_mhz;
-			bw_params->clk_table.entries[i].memclk_mhz = def_max.memclk_mhz;
-			bw_params->clk_table.entries[i].voltage = def_max.voltage;
+	for (entry_idx = 0; entry_idx < bw_params->clk_table.num_entries; entry_idx++) {
+		if (!bw_params->clk_table.entries[entry_idx].fclk_mhz) {
+			bw_params->clk_table.entries[entry_idx].fclk_mhz = def_max.fclk_mhz;
+			bw_params->clk_table.entries[entry_idx].memclk_mhz = def_max.memclk_mhz;
+			bw_params->clk_table.entries[entry_idx].voltage = def_max.voltage;
 		}
-		if (!bw_params->clk_table.entries[i].dcfclk_mhz)
-			bw_params->clk_table.entries[i].dcfclk_mhz = def_max.dcfclk_mhz;
-		if (!bw_params->clk_table.entries[i].socclk_mhz)
-			bw_params->clk_table.entries[i].socclk_mhz = def_max.socclk_mhz;
-		if (!bw_params->clk_table.entries[i].dispclk_mhz)
-			bw_params->clk_table.entries[i].dispclk_mhz = def_max.dispclk_mhz;
-		if (!bw_params->clk_table.entries[i].dppclk_mhz)
-			bw_params->clk_table.entries[i].dppclk_mhz = def_max.dppclk_mhz;
-		if (!bw_params->clk_table.entries[i].phyclk_mhz)
-			bw_params->clk_table.entries[i].phyclk_mhz = def_max.phyclk_mhz;
-		if (!bw_params->clk_table.entries[i].phyclk_d18_mhz)
-			bw_params->clk_table.entries[i].phyclk_d18_mhz = def_max.phyclk_d18_mhz;
-		if (!bw_params->clk_table.entries[i].dtbclk_mhz)
-			bw_params->clk_table.entries[i].dtbclk_mhz = def_max.dtbclk_mhz;
+		if (!bw_params->clk_table.entries[entry_idx].dcfclk_mhz)
+			bw_params->clk_table.entries[entry_idx].dcfclk_mhz = def_max.dcfclk_mhz;
+		if (!bw_params->clk_table.entries[entry_idx].socclk_mhz)
+			bw_params->clk_table.entries[entry_idx].socclk_mhz = def_max.socclk_mhz;
+		if (!bw_params->clk_table.entries[entry_idx].dispclk_mhz)
+			bw_params->clk_table.entries[entry_idx].dispclk_mhz = def_max.dispclk_mhz;
+		if (!bw_params->clk_table.entries[entry_idx].dppclk_mhz)
+			bw_params->clk_table.entries[entry_idx].dppclk_mhz = def_max.dppclk_mhz;
+		if (!bw_params->clk_table.entries[entry_idx].phyclk_mhz)
+			bw_params->clk_table.entries[entry_idx].phyclk_mhz = def_max.phyclk_mhz;
+		if (!bw_params->clk_table.entries[entry_idx].phyclk_d18_mhz)
+			bw_params->clk_table.entries[entry_idx].phyclk_d18_mhz = def_max.phyclk_d18_mhz;
+		if (!bw_params->clk_table.entries[entry_idx].dtbclk_mhz)
+			bw_params->clk_table.entries[entry_idx].dtbclk_mhz = def_max.dtbclk_mhz;
 	}
 	ASSERT(bw_params->clk_table.entries[i-1].dcfclk_mhz);
 	bw_params->vram_type = bios_info->memory_type;
@@ -750,16 +751,16 @@ static void dcn314_clk_mgr_helper_populate_bw_params(struct clk_mgr_internal *cl
 	bw_params->dram_channel_width_bytes = bios_info->memory_type == 0x22 ? 8 : 4;
 	bw_params->num_channels = bios_info->ma_channel_number ? bios_info->ma_channel_number : 4;
 
-	for (i = 0; i < WM_SET_COUNT; i++) {
-		bw_params->wm_table.entries[i].wm_inst = i;
+	for (entry_idx = 0; entry_idx < (unsigned int)WM_SET_COUNT; entry_idx++) {
+		bw_params->wm_table.entries[entry_idx].wm_inst = entry_idx;
 
-		if (i >= bw_params->clk_table.num_entries) {
-			bw_params->wm_table.entries[i].valid = false;
+		if (entry_idx >= bw_params->clk_table.num_entries) {
+			bw_params->wm_table.entries[entry_idx].valid = false;
 			continue;
 		}
 
-		bw_params->wm_table.entries[i].wm_type = WM_TYPE_PSTATE_CHG;
-		bw_params->wm_table.entries[i].valid = true;
+		bw_params->wm_table.entries[entry_idx].wm_type = WM_TYPE_PSTATE_CHG;
+		bw_params->wm_table.entries[entry_idx].valid = true;
 	}
 }
 

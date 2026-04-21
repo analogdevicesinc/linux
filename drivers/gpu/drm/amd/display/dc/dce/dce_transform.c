@@ -1173,13 +1173,13 @@ bool dce_transform_get_optimal_number_of_taps(
 {
 	struct dce_transform *xfm_dce = TO_DCE_TRANSFORM(xfm);
 	int pixel_width = scl_data->viewport.width;
-	int max_num_of_lines;
+	uint32_t max_num_of_lines;
 
 	if (xfm_dce->prescaler_on &&
 			(scl_data->viewport.width > scl_data->recout.width))
 		pixel_width = scl_data->recout.width;
 
-	max_num_of_lines = dce_transform_get_max_num_of_supported_lines(
+	max_num_of_lines = (uint32_t)dce_transform_get_max_num_of_supported_lines(
 		xfm_dce,
 		scl_data->lb_params.depth,
 		pixel_width);

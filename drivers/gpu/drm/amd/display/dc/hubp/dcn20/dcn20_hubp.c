@@ -710,7 +710,7 @@ void hubp2_dmdata_load(
 		uint32_t dmdata_sw_size,
 		const uint32_t *dmdata_sw_data)
 {
-	int i;
+	unsigned int i;
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
 
 	/* load dmdata into HUBP buffer in SW mode */

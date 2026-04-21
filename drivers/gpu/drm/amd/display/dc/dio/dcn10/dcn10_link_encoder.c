@@ -622,10 +622,11 @@ static bool dcn10_link_encoder_validate_hdmi_output(
 {
 	enum dc_color_depth max_deep_color =
 			enc10->base.features.max_hdmi_deep_color;
+	uint32_t pix_clk_100hz = (uint32_t)adjusted_pix_clk_100hz;
 
 	// check pixel clock against edid specified max TMDS clk
 	if (edid_caps->max_tmds_clk_mhz != 0 &&
-			adjusted_pix_clk_100hz > edid_caps->max_tmds_clk_mhz * 10000)
+			pix_clk_100hz > edid_caps->max_tmds_clk_mhz * 10000)
 		return false;
 
 	if (max_deep_color < crtc_timing->display_color_depth)
@@ -633,11 +634,11 @@ static bool dcn10_link_encoder_validate_hdmi_output(
 
 	if (crtc_timing->display_color_depth < COLOR_DEPTH_888)
 		return false;
-	if (adjusted_pix_clk_100hz < (TMDS_MIN_PIXEL_CLOCK * 10))
+	if (pix_clk_100hz < (TMDS_MIN_PIXEL_CLOCK * 10))
 		return false;
 
-	if ((adjusted_pix_clk_100hz == 0) ||
-		(adjusted_pix_clk_100hz > (enc10->base.features.max_hdmi_pixel_clock * 10)))
+	if ((pix_clk_100hz == 0) ||
+		(pix_clk_100hz > (enc10->base.features.max_hdmi_pixel_clock * 10)))
 		return false;
 
 	/* DCE11 HW does not support 420 */
@@ -647,7 +648,7 @@ static bool dcn10_link_encoder_validate_hdmi_output(
 
 	if ((!enc10->base.features.flags.bits.HDMI_6GB_EN ||
 			enc10->base.ctx->dc->debug.hdmi20_disable) &&
-			adjusted_pix_clk_100hz >= 3000000)
+			pix_clk_100hz >= 3000000)
 		return false;
 	if (enc10->base.ctx->dc->debug.hdmi20_disable &&
 		crtc_timing->pixel_encoding == PIXEL_ENCODING_YCBCR420)

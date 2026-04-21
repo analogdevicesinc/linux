@@ -228,9 +228,12 @@ static void dcn3_update_clocks(struct clk_mgr *clk_mgr_base,
 	if (enter_display_off == safe_to_lower)
 		dcn30_smu_set_num_of_displays(clk_mgr, display_count);
 
-	if (dc->debug.force_min_dcfclk_mhz > 0)
-		new_clocks->dcfclk_khz = (new_clocks->dcfclk_khz > (dc->debug.force_min_dcfclk_mhz * 1000)) ?
-				new_clocks->dcfclk_khz : (dc->debug.force_min_dcfclk_mhz * 1000);
+	if (dc->debug.force_min_dcfclk_mhz > 0) {
+		int force_min_dcfclk_khz = dc->debug.force_min_dcfclk_mhz * 1000;
+
+		new_clocks->dcfclk_khz = (new_clocks->dcfclk_khz > force_min_dcfclk_khz) ?
+				new_clocks->dcfclk_khz : force_min_dcfclk_khz;
+	}
 
 	if (should_set_clock(safe_to_lower, new_clocks->dcfclk_khz, clk_mgr_base->clks.dcfclk_khz)) {
 		clk_mgr_base->clks.dcfclk_khz = new_clocks->dcfclk_khz;
@@ -251,8 +254,10 @@ static void dcn3_update_clocks(struct clk_mgr *clk_mgr_base,
 
 	// invalidate the current P-State forced min in certain dc_mode_softmax situations
 	if (dc->clk_mgr->dc_mode_softmax_enabled && safe_to_lower && !p_state_change_support) {
-		if ((new_clocks->dramclk_khz <= dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000) !=
-				(clk_mgr_base->clks.dramclk_khz <= dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000))
+		int softmax_memclk_khz = dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000;
+
+		if ((new_clocks->dramclk_khz <= softmax_memclk_khz) !=
+				(clk_mgr_base->clks.dramclk_khz <= softmax_memclk_khz))
 			update_pstate_unsupported_clk = true;
 	}
 
@@ -263,7 +268,7 @@ static void dcn3_update_clocks(struct clk_mgr *clk_mgr_base,
 		/* to disable P-State switching, set UCLK min = max */
 		if (!clk_mgr_base->clks.p_state_change_support) {
 			if (dc->clk_mgr->dc_mode_softmax_enabled &&
-				new_clocks->dramclk_khz <= dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000)
+				new_clocks->dramclk_khz <= (int)(dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000))
 				dcn30_smu_set_hard_min_by_freq(clk_mgr, PPCLK_UCLK,
 					(uint16_t)dc->clk_mgr->bw_params->dc_mode_softmax_memclk);
 			else
