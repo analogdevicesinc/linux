@@ -374,13 +374,13 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usb0_default>;
+	phy-names = "usb3-phy";
+	phys = <&psgtr 0 PHY_TYPE_USB3 0 0>;
 };
 
 &dwc3_0 {
 	status = "okay";
 	dr_mode = "otg";
-	phy-names = "usb3-phy";
-	phys = <&psgtr 0 PHY_TYPE_USB3 0 0>;
 	maximum-speed = "super-speed";
 #ifdef JUPITER_SDR_USB_ROLE_SW
 	usb-role-switch;
