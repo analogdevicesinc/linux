@@ -25,6 +25,7 @@
 #include "ras.h"
 #include "ras_mp1.h"
 #include "ras_mp1_v13_0.h"
+#include "ras_mp1_v15_0.h"
 
 static const struct ras_mp1_ip_func *ras_mp1_get_ip_funcs(
 				struct ras_core_context *ras_core, uint32_t ip_version)
@@ -35,8 +36,7 @@ static const struct ras_mp1_ip_func *ras_mp1_get_ip_funcs(
 	case IP_VERSION(13, 0, 12):
 		return &mp1_ras_func_v13_0;
 	case IP_VERSION(15, 0, 8):
-		//TBD for dGPU
-		break;
+		return &mp1_ras_func_v15_0;
 	default:
 		RAS_DEV_ERR(ras_core->dev,
 			"MP1 ip version(0x%x) is not supported!\n", ip_version);

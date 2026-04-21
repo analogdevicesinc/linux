@@ -31,6 +31,7 @@
 #include "amdgpu_ras_process.h"
 #include "amdgpu_ras_eeprom_i2c.h"
 #include "amdgpu_ras_mp1_v13_0.h"
+#include "amdgpu_ras_mp1.h"
 #include "amdgpu_ras_nbio_v7_9.h"
 #include "amdgpu_ras_mce.h"
 
@@ -212,7 +213,7 @@ static int amdgpu_ras_mgr_init_mp1_config(struct amdgpu_device *adev,
 		mp1_cfg->mp1_sys_fn = &amdgpu_ras_mp1_sys_func_v13_0;
 		break;
 	case IP_VERSION(15, 0, 8):
-		//TBD for dGPU
+		mp1_cfg->mp1_sys_fn = &amdgpu_ras_mp1_sys_func;
 		break;
 	default:
 		RAS_DEV_ERR(adev,

@@ -25,6 +25,20 @@
 #define __RAS_MP1_H__
 #include "ras.h"
 
+enum ras_mp1_msg_id {
+	RAS_MP1_MSG_GetRasTableVersion,
+	RAS_MP1_MSG_GetRmaStatus,
+	RAS_MP1_MSG_GetBadPageCount,
+	RAS_MP1_MSG_GetBadPageMcaAddr,
+	RAS_MP1_MSG_GetBadPagePaAddr,
+	RAS_MP1_MSG_SetTimestamp,
+	RAS_MP1_MSG_GetTimestamp,
+	RAS_MP1_MSG_GetRasPolicy,
+	RAS_MP1_MSG_GetBadPageIpId,
+	RAS_MP1_MSG_EraseRasTable,
+	RAS_MP1_MSG_MAX
+};
+
 struct eeprom_err_record {
 	u32 timestamp;
 
