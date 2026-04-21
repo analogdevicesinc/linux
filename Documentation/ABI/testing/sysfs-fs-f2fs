@@ -407,6 +407,12 @@ Contact:	"Hridya Valsaraju" <hridya@google.com>
 Description:	Average number of valid blocks.
 		Available when CONFIG_F2FS_STAT_FS=y.
 
+What:		/sys/fs/f2fs/<disk>/defrag_blocks
+Date:		February 2026
+Contact:	"Jinbao Liu" <liujinbao1@xiaomi.com>
+Description:	Number of blocks moved by defragment.
+		Available when CONFIG_F2FS_STAT_FS=y.
+
 What:		/sys/fs/f2fs/<disk>/mounted_time_sec
 Date:		February 2020
 Contact:	"Jaegeuk Kim" <jaegeuk@kernel.org>

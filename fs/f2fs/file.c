@@ -81,8 +81,17 @@ static vm_fault_t f2fs_vm_page_mkwrite(struct vm_fault *vmf)
 	int err = 0;
 	vm_fault_t ret;
 
-	if (unlikely(IS_IMMUTABLE(inode)))
+	/*
+	 * We only support large folio on the read case.
+	 * Don't make any dirty pages.
+	 */
+	if (unlikely(IS_IMMUTABLE(inode)) ||
+	    mapping_large_folio_support(inode->i_mapping)) {
+		f2fs_err(sbi, "Not expected: immutable: %d large_folio: %d",
+				IS_IMMUTABLE(inode),
+				mapping_large_folio_support(inode->i_mapping));
 		return VM_FAULT_SIGBUS;
+	}
 
 	if (is_inode_flag_set(inode, FI_COMPRESS_RELEASED)) {
 		err = -EIO;
@@ -3042,8 +3051,10 @@ out:
 	clear_inode_flag(inode, FI_OPU_WRITE);
 unlock_out:
 	inode_unlock(inode);
-	if (!err)
+	if (!err) {
 		range->len = (u64)total << PAGE_SHIFT;
+		stat_inc_defrag_blk_count(sbi, total);
+	}
 	return err;
 }
 
