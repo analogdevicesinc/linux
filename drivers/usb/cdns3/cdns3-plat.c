@@ -21,6 +21,7 @@
 
 #include "core.h"
 #include "gadget-export.h"
+#include "host-export.h"
 #include "drd.h"
 
 static int set_phy_power_on(struct cdns *cdns)
@@ -44,6 +45,19 @@ static void set_phy_power_off(struct cdns *cdns)
 	phy_power_off(cdns->usb2_phy);
 }
 
+static int cdns3_plat_gadget_init(struct cdns *cdns)
+{
+	if (cdns->version < CDNSP_CONTROLLER_V2)
+		return cdns3_gadget_init(cdns);
+	else
+		return cdnsp_gadget_init(cdns);
+}
+
+static int cdns3_plat_host_init(struct cdns *cdns)
+{
+	return cdns_host_init(cdns);
+}
+
 /**
  * cdns3_plat_probe - probe for cdns3 core device
  * @pdev: Pointer to cdns3 core platform device
@@ -64,6 +78,8 @@ static int cdns3_plat_probe(struct platform_device *pdev)
 
 	cdns->dev = dev;
 	cdns->pdata = dev_get_platdata(dev);
+	if (cdns->pdata && cdns->pdata->override_apb_timeout)
+		cdns->override_apb_timeout = cdns->pdata->override_apb_timeout;
 
 	platform_set_drvdata(pdev, cdns);
 
@@ -143,9 +159,13 @@ static int cdns3_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_phy_power_on;
 
-	cdns->gadget_init = cdns3_gadget_init;
-
 	ret = cdns_init(cdns);
+	if (ret)
+		goto err_cdns_init;
+
+	cdns->gadget_init = cdns3_plat_gadget_init;
+	cdns->host_init = cdns3_plat_host_init;
+	ret = cdns_core_init_role(cdns);
 	if (ret)
 		goto err_cdns_init;
 
@@ -336,6 +356,3 @@ static struct platform_driver cdns3_driver = {
 module_platform_driver(cdns3_driver);
 
 MODULE_ALIAS("platform:cdns3");
-MODULE_AUTHOR("Pawel Laszczak <pawell@cadence.com>");
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Cadence USB3 DRD Controller Driver");
