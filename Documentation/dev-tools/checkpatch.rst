@@ -210,6 +210,13 @@ Available options:
 
    Display the help text.
 
+Configuration file
+==================
+
+Default configuration options can be stored in ``.checkpatch.conf``, search
+path: ``.:$HOME:.scripts`` or in a directory specified by ``$CHECKPATCH_CONFIG_DIR``
+environment variable (falling back to the default search path).
+
 Message Levels
 ==============
 
