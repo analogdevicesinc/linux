@@ -8,8 +8,6 @@
 #include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
 #include <dt-bindings/phy/phy.h>
 
-#undef JUPITER_SDR_USB_ROLE_SW
-
 / {
 	model = "Analog Devices, Inc. Jupiter SDR";
 	compatible = "xlnx,zynqmp";
@@ -315,7 +313,6 @@
 		interrupts = <31 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "irq";
 
-#ifdef JUPITER_SDR_USB_ROLE_SW
 		typec_con: connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
@@ -325,7 +322,6 @@
 				};
 			};
 		};
-#endif
 	};
 
 	typec_pd1: usb-pd@3f {
@@ -382,18 +378,15 @@
 	status = "okay";
 	dr_mode = "otg";
 	maximum-speed = "super-speed";
-#ifdef JUPITER_SDR_USB_ROLE_SW
+
 	usb-role-switch;
 	role-switch-default-mode = "device";
 
-	port@0 {
-		reg = <0>;
-
+	port {
 		otg_ep: endpoint {
-			remote-endpoint = <&typec_con>;
+			remote-endpoint = <&typec_ep>;
 		};
 	};
-#endif
 };
 
 &gpio {
