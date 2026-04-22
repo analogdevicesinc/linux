@@ -28,6 +28,7 @@
 #include "amdgpu.h"
 #include "amdgpu_ualink.h"
 #include "amdgpu_xgmi.h"
+#include "amdgpu_dma_buf.h"
 #include <linux/math.h>
 #include <linux/sysfs.h>
 #include <linux/string.h>
@@ -571,6 +572,37 @@ static const struct kobj_type ualink_ppod_setup_ktype = {
 	.sysfs_ops = &kobj_sysfs_ops
 };
 
+static struct amdgpu_device *find_peer_adev(unsigned int accel_id)
+{
+	unsigned int i;
+
+	for (i = 0; i < mgpu_info.num_gpu; i++) {
+		struct amdgpu_device *peer_adev = mgpu_info.gpu_ins[i].adev;
+
+		if (peer_adev->ualink.info &&
+		    peer_adev->ualink.info->ppod.accel_id == accel_id)
+			return peer_adev;
+	}
+
+	return NULL;
+}
+
+static bool amdgpu_ualink_is_local_accel(struct amdgpu_device *adev,
+					 u32 accel_id)
+{
+	struct amdgpu_ualink_info *info = adev->ualink.info;
+	unsigned int i;
+
+	if (!info)
+		return false;
+
+	for (i = 0; i < info->n_local_accels; i++) {
+		if (info->local_accels[i] == accel_id)
+			return true;
+	}
+	return false;
+}
+
 #ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
 UALINK_VALUE_SHOW(vpod_config, vpod_id,   vpod.id,   "%u");
 UALINK_VALUE_SHOW(vpod_config, vpod_size, vpod.size, "%u");
@@ -619,21 +651,6 @@ static bool check_vpod_info(struct amdgpu_device *adev,
 	}
 
 	return true;
-}
-
-static struct amdgpu_device *find_peer_adev(unsigned int accel_id)
-{
-	unsigned int i;
-
-	for (i = 0; i < mgpu_info.num_gpu; i++) {
-		struct amdgpu_device *peer_adev = mgpu_info.gpu_ins[i].adev;
-
-		if (peer_adev->ualink.info &&
-		    peer_adev->ualink.info->ppod.accel_id == accel_id)
-			return peer_adev;
-	}
-
-	return NULL;
 }
 
 static bool check_local_vpod_integrity(struct amdgpu_device *adev)
@@ -3102,6 +3119,55 @@ reset_conn:
 	return r;
 }
 
+static int amdgpu_ualink_local_import(struct amdgpu_device *adev,
+				      u32 remote_acc_id,
+				      struct amdgpu_ualink_handle *handle,
+				      int *fd_out)
+{
+	struct amdgpu_ualink_exp_xa_node *exp_xa_node;
+	struct amdgpu_device *peer_adev;
+	int fd;
+
+	mutex_lock(&mgpu_info.mutex);
+	peer_adev = find_peer_adev(remote_acc_id);
+	mutex_unlock(&mgpu_info.mutex);
+	if (!peer_adev) {
+		dev_err(adev->dev,
+			"IMPORT LOCAL: peer adev not found for AccId:%u\n",
+			remote_acc_id);
+		return -ENODEV;
+	}
+
+	xa_lock(&peer_adev->ualink.exp_xa);
+	exp_xa_node = xa_load(&peer_adev->ualink.exp_xa, handle->handle_lo);
+	if (!exp_xa_node ||
+	    exp_xa_node->handle.handle_hi != handle->handle_hi ||
+	    !amdgpu_ualink_exp_xa_entry_get(exp_xa_node)) {
+		xa_unlock(&peer_adev->ualink.exp_xa);
+		dev_err(adev->dev,
+			"IMPORT LOCAL: handle:%llx:%llx not found in peer exp_xa\n",
+			handle->handle_hi, handle->handle_lo);
+		return -EINVAL;
+	}
+	xa_unlock(&peer_adev->ualink.exp_xa);
+
+	get_dma_buf(exp_xa_node->dmabuf);
+	/* Get a new fd for the DMABuf */
+	fd = dma_buf_fd(exp_xa_node->dmabuf, O_CLOEXEC | O_RDWR);
+	if (fd < 0) {
+		dev_err(adev->dev,
+			"IMPORT LOCAL: dma-buf fd failed handle:%llx:%llx\n",
+			handle->handle_hi, handle->handle_lo);
+		dma_buf_put(exp_xa_node->dmabuf);
+		amdgpu_ualink_exp_xa_entry_put(exp_xa_node);
+		return fd;
+	}
+
+	amdgpu_ualink_exp_xa_entry_put(exp_xa_node);
+	*fd_out = fd;
+	return 0;
+}
+
 int amdgpu_ualink_import_handle(struct drm_device *dev,
 				const struct amdgpu_ualink_handle *ualink_handle,
 				int *fd_out)
@@ -3120,6 +3186,10 @@ int amdgpu_ualink_import_handle(struct drm_device *dev,
 			"IMPORT: invalid remote AccId:%u\n", remote_acc_id);
 		return -EINVAL;
 	}
+
+	if (amdgpu_ualink_is_local_accel(adev, remote_acc_id))
+		return amdgpu_ualink_local_import(adev, remote_acc_id,
+						  &handle, fd_out);
 
 	xa_lock(&adev->ualink.imp_xa);
 	imp_xa_node = xa_load(&adev->ualink.imp_xa, handle.handle_lo);
