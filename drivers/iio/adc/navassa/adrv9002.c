@@ -3730,6 +3730,7 @@ int adrv9002_intf_change_delay(const struct adrv9002_rf_phy *phy, const int chan
 			       u8 data_delay, const bool tx)
 {
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
+	int ret;
 
 	dev_dbg(&phy->spi->dev, "Set intf delay clk:%u, d:%u, tx:%d c:%d\n", clk_delay,
 		data_delay, tx, channel);
@@ -3758,7 +3759,16 @@ int adrv9002_intf_change_delay(const struct adrv9002_rf_phy *phy, const int chan
 		}
 	}
 
-	return api_call(phy, adi_adrv9001_Ssi_Delay_Configure, phy->ssi_type, &delays);
+	ret = api_call(phy, adi_adrv9001_Ssi_Delay_Configure, ADI_CHANNEL_1 + channel,
+		       phy->ssi_type, &delays);
+	if (ret)
+		return ret;
+
+	if (phy->rx2tx2)
+		ret = api_call(phy, adi_adrv9001_Ssi_Delay_Configure, ADI_CHANNEL_2,
+			       phy->ssi_type, &delays);
+
+	return ret;
 }
 
 adi_adrv9001_SsiTestModeData_e adrv9002_get_test_pattern(const struct adrv9002_rf_phy *phy,
@@ -3946,8 +3956,13 @@ static int adrv9002_intf_tuning(const struct adrv9002_rf_phy *phy)
 		}
 	}
 
-	return api_call(phy, adi_adrv9001_Ssi_Delay_Configure, phy->ssi_type, &delays);
+	ret = api_call(phy, adi_adrv9001_Ssi_Delay_Configure,
+		       ADI_CHANNEL_1, phy->ssi_type, &delays);
+	if (ret)
+		return ret;
 
+	return api_call(phy, adi_adrv9001_Ssi_Delay_Configure, ADI_CHANNEL_2, phy->ssi_type,
+			&delays);
 }
 
 static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
