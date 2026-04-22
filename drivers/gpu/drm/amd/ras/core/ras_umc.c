@@ -130,8 +130,6 @@ static int ras_umc_log_ecc(struct ras_core_context *ras_core,
 
 	mutex_lock(&ras_umc->tree_lock);
 	ret = radix_tree_insert(&ras_umc->root, idx, data);
-	if (!ret)
-		radix_tree_tag_set(&ras_umc->root, idx, UMC_ECC_NEW_DETECTED_TAG);
 	mutex_unlock(&ras_umc->tree_lock);
 
 	return ret;
@@ -269,39 +267,24 @@ int ras_umc_log_pending_bad_bank(struct ras_core_context *ras_core)
 int ras_umc_log_bad_bank(struct ras_core_context *ras_core, struct ras_bank_ecc *bank)
 {
 	struct ras_umc *ras_umc = &ras_core->ras_umc;
-	struct eeprom_umc_record umc_rec;
-	struct eeprom_umc_record *err_rec;
+	struct eeprom_umc_record umc_rec = {0};
+	uint32_t c = 0;
 	int ret;
 
-	memset(&umc_rec, 0, sizeof(umc_rec));
-
 	mutex_lock(&ras_umc->bank_log_lock);
-	ret = ras_umc->ip_func->bank_to_eeprom_record(ras_core, bank, &umc_rec);
+	ret = ras_umc_bank_to_umc_record(ras_core, bank, &umc_rec);
 	if (ret)
 		goto out;
 
-	err_rec = kzalloc_obj(*err_rec);
-	if (!err_rec) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	memcpy(err_rec, &umc_rec, sizeof(umc_rec));
-	ret = ras_umc_log_ecc(ras_core, err_rec->cur_nps_retired_row_pfn, err_rec);
+	ret = ras_umc_add_bad_pages(ras_core, &umc_rec, 1, &c);
 	if (ret) {
-		if (ret == -EEXIST) {
-			RAS_DEV_INFO(ras_core->dev, "The bad pages have been logged before.\n");
-			ret = 0;
-		}
-
-		kfree(err_rec);
+		RAS_DEV_ERR(ras_core->dev, "Failed to log bad bank! ret:%x\n", ret);
 		goto out;
 	}
 
-	ras_umc_reserve_eeprom_record(ras_core, err_rec);
-
-	ret = ras_core_event_notify(ras_core,
-			RAS_EVENT_ID__BAD_PAGE_DETECTED, NULL);
+	if (c)
+		ret = ras_core_event_notify(ras_core,
+				RAS_EVENT_ID__BAD_PAGE_DETECTED, NULL);
 
 out:
 	mutex_unlock(&ras_umc->bank_log_lock);
@@ -469,57 +452,50 @@ static int ras_umc_eeprom_rec2nps_rec(struct ras_core_context *ras_core,
 	return ret;
 }
 
-static int ras_umc_get_new_records(struct ras_core_context *ras_core,
-			struct eeprom_umc_record *records, u32 num)
+static bool ras_umc_check_logged_record(struct ras_core_context *ras_core,
+			struct eeprom_umc_record *record)
 {
 	struct ras_umc *ras_umc = &ras_core->ras_umc;
-	struct eeprom_umc_record *entries[MAX_ECC_NUM_PER_RETIREMENT];
-	u32 entry_num = num < MAX_ECC_NUM_PER_RETIREMENT ? num : MAX_ECC_NUM_PER_RETIREMENT;
-	int count = 0;
-	int new_detected, i;
+	void *res = NULL;
 
 	mutex_lock(&ras_umc->tree_lock);
-	new_detected = radix_tree_gang_lookup_tag(&ras_umc->root, (void **)entries,
-			0, entry_num, UMC_ECC_NEW_DETECTED_TAG);
-	for (i = 0; i < new_detected; i++) {
-		if (!entries[i])
-			continue;
-
-		memcpy(&records[i], entries[i], sizeof(struct eeprom_umc_record));
-		count++;
-		radix_tree_tag_clear(&ras_umc->root,
-				entries[i]->cur_nps_retired_row_pfn, UMC_ECC_NEW_DETECTED_TAG);
-	}
+	res = radix_tree_lookup(&ras_umc->root, record->cur_nps_retired_row_pfn);
 	mutex_unlock(&ras_umc->tree_lock);
 
-	return count;
+	return res ? true : false;
 }
 
 static bool ras_umc_check_retired_record(struct ras_core_context *ras_core,
-				struct eeprom_umc_record *record, bool from_eeprom)
+				struct eeprom_umc_record *record)
 {
-	struct ras_umc *ras_umc = &ras_core->ras_umc;
-	struct eeprom_store_record *data = &ras_umc->umc_err_data.rom_data;
 	uint32_t nps = 0;
-	int i, ret;
+	int ret;
 
-	if (from_eeprom) {
-		nps = ras_core_get_curr_nps_mode(ras_core);
-		ret = ras_umc_eeprom_rec2nps_rec(ras_core, record, nps);
-		if (ret)
-			RAS_DEV_WARN_RATELIMITED(ras_core->dev,
-				"Failed to adjust eeprom record, ret:%d", ret);
-
-		return false;
+	nps = ras_core_get_curr_nps_mode(ras_core);
+	ret = ras_umc_eeprom_rec2nps_rec(ras_core, record, nps);
+	if (ret) {
+		RAS_DEV_ERR(ras_core->dev, "Failed to translate nps record! ret:%d\n", ret);
+		return true;
 	}
 
-	for (i = 0; i < data->count; i++) {
-		if ((data->bps[i].retired_row_pfn == record->retired_row_pfn) &&
-		    (data->bps[i].cur_nps_retired_row_pfn == record->cur_nps_retired_row_pfn))
-			return true;
-	}
+	if (ras_umc_check_logged_record(ras_core, record))
+		return true;
 
 	return false;
+}
+
+static int ras_umc_log_record(struct ras_core_context *ras_core,
+				struct eeprom_umc_record *record)
+{
+	struct eeprom_umc_record *rec;
+
+	rec = kzalloc(sizeof(*rec), GFP_KERNEL);
+	if (!rec)
+		return -ENOMEM;
+
+	memcpy(rec, record, sizeof(*rec));
+
+	return ras_umc_log_ecc(ras_core, rec->cur_nps_retired_row_pfn, rec);
 }
 
 /* alloc/realloc bps array */
@@ -613,41 +589,41 @@ static void ras_umc_update_bad_pages(struct ras_core_context *ras_core)
 	data->bad_page_num_old = data->bad_page_num;
 }
 
-/* it deal with vram only. */
-static int ras_umc_add_bad_pages(struct ras_core_context *ras_core,
-				 struct eeprom_umc_record *bps,
-				 int pages, bool from_eeprom)
+int ras_umc_add_bad_pages(struct ras_core_context *ras_core,
+	struct eeprom_umc_record *bps, uint32_t bps_sz, uint32_t *valid_sz)
 {
 	struct ras_umc *ras_umc = &ras_core->ras_umc;
-	struct ras_umc_err_data *data = &ras_umc->umc_err_data;
-	int i, ret = 0;
+	uint32_t i, c = 0;
+	int ret = 0;
 
-	if (!bps || pages <= 0)
-		return 0;
+	if (!bps || !bps_sz || !valid_sz)
+		return -EINVAL;
 
 	mutex_lock(&ras_umc->umc_lock);
-	for (i = 0; i < pages; i++) {
-		if (ras_umc_check_retired_record(ras_core, &bps[i], from_eeprom))
+	for (i = 0; i < bps_sz; i++) {
+		if (ras_umc_check_retired_record(ras_core, &bps[i]))
 			continue;
 
 		ret = ras_umc_update_eeprom_rom_data(ras_core, &bps[i]);
 		if (ret)
 			goto out;
 
-		if (data->last_retired_pfn == bps[i].cur_nps_retired_row_pfn)
-			continue;
+		ret = ras_umc_log_record(ras_core, &bps[i]);
+		if (ret)
+			goto out;
 
-		data->last_retired_pfn = bps[i].cur_nps_retired_row_pfn;
-
-		if (from_eeprom)
-			ras_umc_reserve_eeprom_record(ras_core, &bps[i]);
+		ras_umc_reserve_eeprom_record(ras_core, &bps[i]);
 
 		ret = ras_umc_update_eeprom_ram_data(ras_core, &bps[i]);
 		if (ret)
 			goto out;
+		c++;
 	}
 
-	ras_eeprom_mgr_check_and_report_status(ras_core, true);
+	*valid_sz = c;
+
+	if (c)
+		ras_eeprom_mgr_check_and_report_status(ras_core, true);
 
 out:
 	mutex_unlock(&ras_umc->umc_lock);
@@ -662,7 +638,7 @@ out:
 int ras_umc_load_bad_pages(struct ras_core_context *ras_core)
 {
 	struct eeprom_umc_record *bps;
-	uint32_t ras_num_recs;
+	uint32_t ras_num_recs, c = 0;
 	int ret;
 
 	ras_num_recs = ras_eeprom_mgr_get_record_count(ras_core);
@@ -674,12 +650,11 @@ int ras_umc_load_bad_pages(struct ras_core_context *ras_core)
 		return -ENOMEM;
 
 	ret = ras_eeprom_mgr_get_records(ras_core, 0, bps, ras_num_recs);
-	if (ret) {
+	if (ret)
 		RAS_DEV_ERR(ras_core->dev,
 			"Failed to load EEPROM table records! ret:%d\n", ret);
-	} else {
-		ras_core->ras_umc.umc_err_data.last_retired_pfn = UMC_INV_MEM_PFN;
-		ret = ras_umc_add_bad_pages(ras_core, bps, ras_num_recs, true);
+	else {
+		ret = ras_umc_add_bad_pages(ras_core, bps, ras_num_recs, &c);
 		ras_umc_update_bad_pages(ras_core);
 	}
 
@@ -699,10 +674,10 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 	struct eeprom_store_record *ram_data = &ras_umc->umc_err_data.ram_data;
 	uint32_t eeprom_record_num, logical_count = 0;
 	int save_count;
-	int ret = 0;
+	int ret = -ENODATA;
 
 	if (!data->bps)
-		return 0;
+		return -EINVAL;
 
 	eeprom_record_num = ras_eeprom_mgr_get_record_count(ras_core);
 	mutex_lock(&ras_umc->umc_lock);
@@ -718,8 +693,9 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 			ret = -EIO;
 			goto exit;
 		}
+
 		ras_umc_update_bad_pages(ras_core);
-		RAS_DEV_INFO(ras_core->dev, "Saved %d pages to EEPROM table.\n", logical_count);
+		RAS_DEV_INFO(ras_core->dev, "Saved %d records to EEPROM table.\n", logical_count);
 	}
 
 exit:
@@ -729,39 +705,7 @@ exit:
 
 int ras_umc_handle_bad_pages(struct ras_core_context *ras_core, void *data)
 {
-	struct eeprom_umc_record *records;
-	int count, ret;
-
-	records = kzalloc_objs(*records, MAX_ECC_NUM_PER_RETIREMENT);
-	if (!records)
-		return -ENOMEM;
-
-	count = ras_umc_get_new_records(ras_core, records,
-					MAX_ECC_NUM_PER_RETIREMENT);
-	if (count <= 0) {
-		ret = -ENODATA;
-		goto out;
-	}
-
-	ret = ras_umc_add_bad_pages(ras_core, records, count, false);
-	if (ret) {
-		RAS_DEV_ERR(ras_core->dev, "Failed to add ras bad page!\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	ret = ras_umc_save_bad_pages(ras_core);
-	if (ret) {
-		RAS_DEV_ERR(ras_core->dev, "Failed to save ras bad page\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	ret = 0;
-
-out:
-	kfree(records);
-	return ret;
+	return ras_umc_save_bad_pages(ras_core);
 }
 
 int ras_umc_sw_init(struct ras_core_context *ras_core)
@@ -967,4 +911,14 @@ int ras_umc_bank_to_umc_record(struct ras_core_context *ras_core,
 	record->ipid = bank->ipid;
 
 	return 0;
+}
+
+int ras_umc_record_to_nps_record(struct ras_core_context *ras_core,
+		struct eeprom_umc_record *record,  uint32_t nps)
+{
+	if (!record || !nps ||
+		(nps >= UMC_MEMORY_PARTITION_MODE_UNKNOWN))
+		return -EINVAL;
+
+	return ras_umc_eeprom_rec2nps_rec(ras_core, record, nps);
 }

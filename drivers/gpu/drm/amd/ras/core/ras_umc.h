@@ -161,7 +161,6 @@ struct eeprom_store_record {
 struct ras_umc_err_data {
 	struct eeprom_store_record rom_data;
 	struct eeprom_store_record ram_data;
-	uint64_t last_retired_pfn;
 };
 
 struct ras_umc {
@@ -206,6 +205,8 @@ int ras_umc_log_bad_bank_pending(struct ras_core_context *ras_core, struct ras_b
 int ras_umc_log_pending_bad_bank(struct ras_core_context *ras_core);
 int ras_umc_clear_logged_ecc(struct ras_core_context *ras_core);
 int ras_umc_load_bad_pages(struct ras_core_context *ras_core);
+int ras_umc_add_bad_pages(struct ras_core_context *ras_core,
+	struct eeprom_umc_record *bps, uint32_t bps_sz, uint32_t *valid_sz);
 int ras_umc_get_saved_eeprom_count(struct ras_core_context *ras_core);
 int ras_umc_clean_badpage_data(struct ras_core_context *ras_core);
 int ras_umc_fill_eeprom_record(struct ras_core_context *ras_core,
@@ -226,4 +227,6 @@ int ras_umc_ma2pa(struct ras_core_context *ras_core,
 	uint32_t nps);
 int ras_umc_bank_to_umc_record(struct ras_core_context *ras_core,
 		struct ras_bank_ecc *bank, struct eeprom_umc_record *record);
+int ras_umc_record_to_nps_record(struct ras_core_context *ras_core,
+		struct eeprom_umc_record *record,  uint32_t nps);
 #endif
