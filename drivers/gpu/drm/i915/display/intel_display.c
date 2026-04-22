@@ -5939,17 +5939,6 @@ static int intel_atomic_check_joiner(struct intel_atomic_state *state,
 			return -EINVAL;
 		}
 
-		/*
-		 * The state copy logic assumes the primary crtc gets processed
-		 * before the secondary crtc during the main compute_config loop.
-		 * This works because the crtcs are created in pipe order,
-		 * and the hardware requires primary pipe < secondary pipe as well.
-		 * Should that change we need to rethink the logic.
-		 */
-		if (WARN_ON(drm_crtc_index(&primary_crtc->base) >
-			    drm_crtc_index(&secondary_crtc->base)))
-			return -EINVAL;
-
 		drm_dbg_kms(display->drm,
 			    "[CRTC:%d:%s] Used as secondary for joiner primary [CRTC:%d:%s]\n",
 			    secondary_crtc->base.base.id, secondary_crtc->base.name,
@@ -6327,9 +6316,7 @@ static int intel_atomic_check_config(struct intel_atomic_state *state,
 
 	for_each_new_intel_crtc_in_state(state, crtc, new_crtc_state, i) {
 		if (!intel_crtc_needs_modeset(new_crtc_state)) {
-			if (intel_crtc_is_joiner_secondary(new_crtc_state))
-				copy_joiner_crtc_state_nomodeset(state, crtc);
-			else
+			if (!intel_crtc_is_joiner_secondary(new_crtc_state))
 				intel_crtc_copy_uapi_to_hw_state_nomodeset(state, crtc);
 			continue;
 		}
@@ -6460,8 +6447,11 @@ int intel_atomic_check(struct drm_device *dev,
 		goto fail;
 
 	for_each_new_intel_crtc_in_state(state, crtc, new_crtc_state, i) {
-		if (!intel_crtc_needs_modeset(new_crtc_state))
+		if (!intel_crtc_needs_modeset(new_crtc_state)) {
+			if (intel_crtc_is_joiner_secondary(new_crtc_state))
+				copy_joiner_crtc_state_nomodeset(state, crtc);
 			continue;
+		}
 
 		if (intel_crtc_is_joiner_secondary(new_crtc_state)) {
 			drm_WARN_ON(display->drm, new_crtc_state->uapi.enable);

@@ -1104,6 +1104,18 @@ int smu_cmn_update_table(struct smu_context *smu,
 	return 0;
 }
 
+int smu_cmn_vram_cpy(struct smu_context *smu, void *dst, const void *src,
+		     size_t len)
+{
+	memcpy(dst, src, len);
+
+	/* Don't trust the copy operation if RAS fatal error happened. */
+	if (amdgpu_ras_get_fed_status(smu->adev))
+		return -EHWPOISON;
+
+	return 0;
+}
+
 int smu_cmn_write_watermarks_table(struct smu_context *smu)
 {
 	void *watermarks_table = smu->smu_table.watermarks_table;

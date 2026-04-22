@@ -2010,8 +2010,6 @@ static int gmc_v9_0_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		return r;
 
-	amdgpu_gmc_get_vbios_allocations(adev);
-
 	if (amdgpu_is_multi_aid(adev)) {
 		r = amdgpu_gmc_init_mem_ranges(adev);
 		if (r)
