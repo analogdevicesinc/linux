@@ -22,7 +22,7 @@ RUN bash ./install-deps.sh && rm ./install-deps.sh
 COPY container/install-utils.sh .
 RUN bash ./install-utils.sh && rm ./install-utils.sh
 COPY container/install-compilers.sh .
-RUN bash ./install-compilers.sh && rm ./install-compilers.sh
+RUN source ./install-compilers.sh && suse_install && gcc_install && rm ./install-compilers.sh
 COPY container/set-alternatives.sh .
 RUN bash ./set-alternatives.sh && rm ./set-alternatives.sh
 COPY container/install-extra.sh .
