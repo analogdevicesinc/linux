@@ -6,6 +6,19 @@
 #define MUTEX_WAITER	mutex_waiter
 #define WAIT_LOCK	wait_lock
 
+/*
+ *           +--------+
+ *           | first  |
+ *           +--------+
+ *                |
+ *                v
+ *  +----+     +----+     +----+
+ *  | W3 | <-> | W1 | <-> | W2 |
+ *  +----+     +----+     +----+
+ *    ^                     ^
+ *    +---------------------+
+ */
+
 static inline struct mutex_waiter *
 __ww_waiter_first(struct mutex *lock)
 	__must_hold(&lock->wait_lock)
@@ -13,26 +26,43 @@ __ww_waiter_first(struct mutex *lock)
 	return lock->first_waiter;
 }
 
+/*
+ * for (cur = __ww_waiter_first(); cur; cur = __ww_waiter_next())
+ *
+ * Should iterate like: W1, W2, W3
+ */
 static inline struct mutex_waiter *
 __ww_waiter_next(struct mutex *lock, struct mutex_waiter *w)
 	__must_hold(&lock->wait_lock)
 {
 	w = list_next_entry(w, list);
+	/*
+	 * Terminate if the next entry is the first again, that has already
+	 * been observed.
+	 */
 	if (lock->first_waiter == w)
 		return NULL;
 
 	return w;
 }
 
+/*
+ * for (cur = __ww_waiter_last(); cur; cur = __ww_waiter_prev())
+ *
+ * Should iterate like: W3, W2, W1
+ */
 static inline struct mutex_waiter *
 __ww_waiter_prev(struct mutex *lock, struct mutex_waiter *w)
 	__must_hold(&lock->wait_lock)
 {
-	w = list_prev_entry(w, list);
+	/*
+	 * Terminate at the first entry, the previous entry of first is the
+	 * last and that has already been observed.
+	 */
 	if (lock->first_waiter == w)
 		return NULL;
 
-	return w;
+	return list_prev_entry(w, list);
 }
 
 static inline struct mutex_waiter *
