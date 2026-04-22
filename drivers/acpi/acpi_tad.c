@@ -792,9 +792,9 @@ static int acpi_tad_disable_timer(struct device *dev, u32 timer_id)
 	return acpi_tad_wake_set(dev, "_STV", timer_id, ACPI_TAD_WAKE_DISABLED);
 }
 
-static void acpi_tad_remove(struct platform_device *pdev)
+static void acpi_tad_remove(void *data)
 {
-	struct device *dev = &pdev->dev;
+	struct device *dev = data;
 	struct acpi_tad_driver_data *dd = dev_get_drvdata(dev);
 
 	device_init_wakeup(dev, false);
@@ -821,6 +821,7 @@ static int acpi_tad_probe(struct platform_device *pdev)
 	struct acpi_tad_driver_data *dd;
 	acpi_status status;
 	unsigned long long caps;
+	int ret;
 
 	/*
 	 * Initialization failure messages are mostly about firmware issues, so
@@ -867,6 +868,14 @@ static int acpi_tad_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	pm_runtime_suspend(dev);
 
+	/*
+	 * acpi_tad_remove() needs to run after unregistering the RTC class
+	 * device to avoid racing with the latter's callbacks.
+	 */
+	ret = devm_add_action_or_reset(&pdev->dev, acpi_tad_remove, &pdev->dev);
+	if (ret)
+		return ret;
+
 	if (caps & ACPI_TAD_RT)
 		acpi_tad_register_rtc(dev, caps);
 
@@ -885,7 +894,6 @@ static struct platform_driver acpi_tad_driver = {
 		.dev_groups = acpi_tad_groups,
 	},
 	.probe = acpi_tad_probe,
-	.remove = acpi_tad_remove,
 };
 MODULE_DEVICE_TABLE(acpi, acpi_tad_ids);
 
