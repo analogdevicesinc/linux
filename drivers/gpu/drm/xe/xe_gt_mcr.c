@@ -428,19 +428,6 @@ void xe_gt_mcr_get_dss_steering(const struct xe_gt *gt, unsigned int dss, u16 *g
 	*instance = dss % gt->steering_dss_per_grp;
 }
 
-/**
- * xe_gt_mcr_steering_info_to_dss_id - Get DSS ID from group/instance steering
- * @gt: GT structure
- * @group: steering group ID
- * @instance: steering instance ID
- *
- * Return: the converted DSS id.
- */
-u32 xe_gt_mcr_steering_info_to_dss_id(struct xe_gt *gt, u16 group, u16 instance)
-{
-	return group * dss_per_group(gt) + instance;
-}
-
 static void init_steering_dss(struct xe_gt *gt)
 {
 	gt->steering_dss_per_grp = dss_per_group(gt);
