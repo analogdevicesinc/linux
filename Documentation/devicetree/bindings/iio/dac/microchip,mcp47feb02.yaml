@@ -161,8 +161,8 @@ patternProperties:
     properties:
       reg:
         description: The channel number.
-        minItems: 1
-        maxItems: 8
+        minimum: 0
+        maximum: 7
 
       label:
         description: Unique name to identify which channel this is.
