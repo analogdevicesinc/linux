@@ -36,10 +36,6 @@ extern unsigned long shm_align_mask;
 
 struct page;
 struct vm_area_struct;
-void copy_user_highpage(struct page *to, struct page *from,
-	      unsigned long vaddr, struct vm_area_struct *vma);
-
-#define __HAVE_ARCH_COPY_USER_HIGHPAGE
 
 typedef struct { unsigned long pte; } pte_t;
 #define pte_val(x)	((x).pte)
