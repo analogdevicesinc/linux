@@ -1628,23 +1628,43 @@ int bpf_arch_text_invalidate(void *dst, size_t len)
 	return ret;
 }
 
-static void store_args(struct jit_ctx *ctx, int nregs, int args_off)
+static void store_args(struct jit_ctx *ctx, int nr_arg_slots, int args_off)
 {
 	int i;
 
-	for (i = 0; i < nregs; i++) {
-		emit_insn(ctx, std, LOONGARCH_GPR_A0 + i, LOONGARCH_GPR_FP, -args_off);
+	for (i = 0; i < nr_arg_slots; i++) {
+		if (i < LOONGARCH_MAX_REG_ARGS)
+			emit_insn(ctx, std, LOONGARCH_GPR_A0 + i, LOONGARCH_GPR_FP, -args_off);
+		else {
+			/* Skip slots for T0 and FP of traced function */
+			emit_insn(ctx, ldd, LOONGARCH_GPR_T1, LOONGARCH_GPR_FP,
+				  16 + (i - LOONGARCH_MAX_REG_ARGS) * 8);
+			emit_insn(ctx, std, LOONGARCH_GPR_T1, LOONGARCH_GPR_FP, -args_off);
+		}
 		args_off -= 8;
 	}
 }
 
-static void restore_args(struct jit_ctx *ctx, int nregs, int args_off)
+static void restore_args(struct jit_ctx *ctx, int nr_reg_args, int args_off)
 {
 	int i;
 
-	for (i = 0; i < nregs; i++) {
+	for (i = 0; i < nr_reg_args; i++) {
 		emit_insn(ctx, ldd, LOONGARCH_GPR_A0 + i, LOONGARCH_GPR_FP, -args_off);
 		args_off -= 8;
+	}
+}
+
+static void restore_stk_args(struct jit_ctx *ctx, int nr_stk_args, int args_off, int stk_args_off)
+{
+	int i;
+
+	for (i = 0; i < nr_stk_args; i++) {
+		emit_insn(ctx, ldd, LOONGARCH_GPR_T1, LOONGARCH_GPR_FP,
+			  -(args_off - LOONGARCH_MAX_REG_ARGS * 8));
+		emit_insn(ctx, std, LOONGARCH_GPR_T1, LOONGARCH_GPR_FP, -stk_args_off);
+		args_off -= 8;
+		stk_args_off -= 8;
 	}
 }
 
@@ -1763,8 +1783,8 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 					 void *func_addr, u32 flags)
 {
 	int i, ret, save_ret;
-	int stack_size, nregs = m->nr_args;
-	int retval_off, args_off, nregs_off, ip_off, run_ctx_off, sreg_off, tcc_ptr_off;
+	int stack_size, args_off, stk_args_off, nr_arg_slots = 0;
+	int retval_off, nregs_off, ip_off, run_ctx_off, sreg_off, tcc_ptr_off;
 	bool is_struct_ops = flags & BPF_TRAMP_F_INDIRECT;
 	void *orig_call = func_addr;
 	struct bpf_tramp_links *fentry = &tlinks[BPF_TRAMP_FENTRY];
@@ -1782,39 +1802,41 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	 * FP - 16      [ FP of traced func ] frame pointer of traced
 	 *                    function
 	 *
-	 * FP - retval_off  [ return value      ] BPF_TRAMP_F_CALL_ORIG or
-	 *                    BPF_TRAMP_F_RET_FENTRY_RET
-	 *                  [ arg regN          ]
-	 *                  [ ...               ]
-	 * FP - args_off    [ arg reg1          ]
+	 * FP - retval_off   [ return value      ] BPF_TRAMP_F_CALL_ORIG or
+	 *                                         BPF_TRAMP_F_RET_FENTRY_RET
+	 *                   [ arg regN          ]
+	 *                   [ ...               ]
+	 * FP - args_off     [ arg reg1          ]
 	 *
-	 * FP - nregs_off   [ arg regs count    ]
+	 * FP - nregs_off    [ arg regs count    ]
 	 *
-	 * FP - ip_off      [ traced func   ] BPF_TRAMP_F_IP_ARG
+	 * FP - ip_off       [ traced func       ] BPF_TRAMP_F_IP_ARG
 	 *
-	 * FP - run_ctx_off [ bpf_tramp_run_ctx ]
+	 * FP - run_ctx_off  [ bpf_tramp_run_ctx ]
 	 *
-	 * FP - sreg_off    [ callee saved reg  ]
+	 * FP - sreg_off     [ callee saved reg  ]
 	 *
-	 * FP - tcc_ptr_off [ tail_call_cnt_ptr ]
+	 * FP - tcc_ptr_off  [ tail_call_cnt_ptr ]
+	 *
+	 *                   [ stack_argN        ]
+	 *                   [ ...               ]
+	 * FP - stk_args_off [ stack_arg1        ] BPF_TRAMP_F_CALL_ORIG
 	 */
+
+	if (m->nr_args > MAX_BPF_FUNC_ARGS)
+		return -ENOTSUPP;
 
 	/* Extra registers for struct arguments */
 	for (i = 0; i < m->nr_args; i++) {
-		if (m->arg_flags[i] & BTF_FMODEL_STRUCT_ARG) {
-			/*
-			 * The struct argument size is at most 16 bytes,
-			 * enforced by the verifier. The struct argument
-			 * may be passed in a pair of registers if its
-			 * size is more than 8 bytes and no more than 16
-			 * bytes.
-			 */
-			nregs += round_up(m->arg_size[i], 8) / 8 - 1;
-		}
+		/*
+		 * The struct argument size is at most 16 bytes,
+		 * enforced by the verifier. The struct argument
+		 * may be passed in a pair of registers if its
+		 * size is more than 8 bytes and no more than 16
+		 * bytes.
+		 */
+		nr_arg_slots += round_up(m->arg_size[i], 8) / 8;
 	}
-
-	if (nregs > LOONGARCH_MAX_REG_ARGS)
-		return -ENOTSUPP;
 
 	if (flags & (BPF_TRAMP_F_ORIG_STACK | BPF_TRAMP_F_SHARE_IPMODIFY))
 		return -ENOTSUPP;
@@ -1829,7 +1851,7 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	retval_off = stack_size;
 
 	/* Room of trampoline frame to store args */
-	stack_size += nregs * 8;
+	stack_size += nr_arg_slots * 8;
 	args_off = stack_size;
 
 	/* Room of trampoline frame to store args number */
@@ -1855,7 +1877,13 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 		tcc_ptr_off = stack_size;
 	}
 
+	if ((flags & BPF_TRAMP_F_CALL_ORIG) && (nr_arg_slots - LOONGARCH_MAX_REG_ARGS > 0))
+		stack_size += (nr_arg_slots - LOONGARCH_MAX_REG_ARGS) * 8;
+
 	stack_size = round_up(stack_size, 16);
+
+	/* Room for args on stack must be at the top of stack */
+	stk_args_off = stack_size;
 
 	if (is_struct_ops) {
 		/*
@@ -1898,10 +1926,10 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	}
 
 	/* store arg regs count */
-	move_imm(ctx, LOONGARCH_GPR_T1, nregs, false);
+	move_imm(ctx, LOONGARCH_GPR_T1, nr_arg_slots, false);
 	emit_insn(ctx, std, LOONGARCH_GPR_T1, LOONGARCH_GPR_FP, -nregs_off);
 
-	store_args(ctx, nregs, args_off);
+	store_args(ctx, nr_arg_slots, args_off);
 
 	/* To traced function */
 	/* Ftrace jump skips 2 NOP instructions */
@@ -1943,7 +1971,8 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	}
 
 	if (flags & BPF_TRAMP_F_CALL_ORIG) {
-		restore_args(ctx, nregs, args_off);
+		restore_args(ctx, min_t(int, nr_arg_slots, LOONGARCH_MAX_REG_ARGS), args_off);
+		restore_stk_args(ctx, nr_arg_slots - LOONGARCH_MAX_REG_ARGS, args_off, stk_args_off);
 
 		if (flags & BPF_TRAMP_F_TAIL_CALL_CTX)
 			emit_insn(ctx, ldd, REG_TCC, LOONGARCH_GPR_FP, -tcc_ptr_off);
@@ -1979,7 +2008,7 @@ static int __arch_prepare_bpf_trampoline(struct jit_ctx *ctx, struct bpf_tramp_i
 	}
 
 	if (flags & BPF_TRAMP_F_RESTORE_REGS)
-		restore_args(ctx, nregs, args_off);
+		restore_args(ctx, min_t(int, nr_arg_slots, LOONGARCH_MAX_REG_ARGS), args_off);
 
 	if (save_ret) {
 		emit_insn(ctx, ldd, regmap[BPF_REG_0], LOONGARCH_GPR_FP, -(retval_off - 8));
