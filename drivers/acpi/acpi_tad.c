@@ -680,9 +680,8 @@ static int acpi_tad_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *t)
 
 		acpi_tad_rt_to_tm(&rt, &tm_now);
 
-		value = ktime_divns(ktime_sub(rtc_tm_to_ktime(t->time),
-					      rtc_tm_to_ktime(tm_now)), NSEC_PER_SEC);
-		if (value <= 0 || value > U32_MAX)
+		value = rtc_tm_to_time64(&t->time) - rtc_tm_to_time64(&tm_now);
+		if (value <= 0 || value >= U32_MAX)
 			return -EINVAL;
 	}
 
@@ -745,8 +744,7 @@ static int acpi_tad_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *t)
 
 	if (retval != ACPI_TAD_WAKE_DISABLED) {
 		t->enabled = 1;
-		t->time = rtc_ktime_to_tm(ktime_add_ns(rtc_tm_to_ktime(tm_now),
-						       (u64)retval * NSEC_PER_SEC));
+		rtc_time64_to_tm(rtc_tm_to_time64(&tm_now) + retval, &t->time);
 	} else {
 		t->enabled = 0;
 		t->time = tm_now;
