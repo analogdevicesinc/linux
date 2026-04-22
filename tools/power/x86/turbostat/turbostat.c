@@ -6219,55 +6219,6 @@ static int parse_cpu_str(char *cpu_str, cpu_set_t *cpu_set, int cpu_set_size)
 	return 0;
 }
 
-int set_thread_siblings(struct cpu_topology *thiscpu)
-{
-	char path[80], character;
-	FILE *filep;
-	unsigned long map;
-	int so, shift, sib_core;
-	int cpu = thiscpu->cpu_id;
-	int offset = topo.max_cpu_num + 1;
-	size_t size;
-	int ht_id = 0;
-
-	thiscpu->put_ids = CPU_ALLOC((topo.max_cpu_num + 1));
-	if (thiscpu->ht_id < 0)
-		thiscpu->ht_id = 0;	/* first CPU in core */
-	if (!thiscpu->put_ids)
-		return -1;
-
-	size = CPU_ALLOC_SIZE((topo.max_cpu_num + 1));
-	CPU_ZERO_S(size, thiscpu->put_ids);
-
-	sprintf(path, "/sys/devices/system/cpu/cpu%d/topology/thread_siblings", cpu);
-	filep = fopen(path, "r");
-
-	if (!filep) {
-		warnx("%s: open failed", path);
-		return -1;
-	}
-	do {
-		offset -= BITMASK_SIZE;
-		if (fscanf(filep, "%lx%c", &map, &character) != 2)
-			err(1, "%s: failed to parse file", path);
-		for (shift = 0; shift < BITMASK_SIZE; shift++) {
-			if ((map >> shift) & 0x1) {
-				so = shift + offset;
-				sib_core = get_core_id(so);
-				if (sib_core == thiscpu->core_id) {
-					CPU_SET_S(so, size, thiscpu->put_ids);
-					cpus[so].ht_id = ht_id;
-					cpus[cpu].ht_sibling_cpu_id[ht_id] = so;
-					ht_id += 1;
-				}
-			}
-		}
-	} while (character == ',');
-	fclose(filep);
-
-	return CPU_COUNT_S(size, thiscpu->put_ids);
-}
-
 /*
  * run func(thread, core, package) in topology order
  * skip non-present cpus
@@ -9537,6 +9488,37 @@ int dir_filter(const struct dirent *dirp)
 		return 1;
 	else
 		return 0;
+}
+
+int set_thread_siblings(struct cpu_topology *thiscpu)
+{
+	char path[80];
+	int cpu = thiscpu->cpu_id;
+	size_t size;
+	int ht_id = 0;
+	int i;
+
+	thiscpu->put_ids = CPU_ALLOC((topo.max_cpu_num + 1));
+	if (thiscpu->ht_id < 0)
+		thiscpu->ht_id = 0;	/* first CPU in core */
+	if (!thiscpu->put_ids)
+		return -1;
+
+	size = CPU_ALLOC_SIZE((topo.max_cpu_num + 1));
+	CPU_ZERO_S(size, thiscpu->put_ids);
+
+	sprintf(path, "/sys/devices/system/cpu/cpu%d/topology", cpu);
+
+	initialize_cpu_set_from_sysfs(thiscpu->put_ids, path, "thread_siblings_list");
+
+	for (i = 0; i <= topo.max_cpu_num; ++i)
+		if (CPU_ISSET_S(i, size, thiscpu->put_ids)) {
+			cpus[i].ht_id = ht_id;
+			cpus[cpu].ht_sibling_cpu_id[ht_id] = i;
+			ht_id += 1;
+		}
+
+	return (ht_id - 1);
 }
 
 void topology_probe(bool startup)
