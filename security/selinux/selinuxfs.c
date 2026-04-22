@@ -2107,8 +2107,7 @@ struct path selinux_null __ro_after_init;
 
 int __init init_sel_fs(void)
 {
-	struct qstr null_name = QSTR_INIT(NULL_FILE_NAME,
-					  sizeof(NULL_FILE_NAME)-1);
+	struct qstr null_name = QSTR(NULL_FILE_NAME);
 	int err;
 
 	if (!selinux_enabled_boot)
