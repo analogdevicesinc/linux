@@ -363,10 +363,28 @@ static int emit_atomic_rmw(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	switch (imm) {
 	/* lock *(size *)(dst + off) <op>= src */
 	case BPF_ADD:
-		if (isdw)
-			emit_insn(ctx, amaddd, t2, t1, src);
-		else
+		switch (BPF_SIZE(insn->code)) {
+		case BPF_B:
+			if (!cpu_has_lam_bh) {
+				pr_err_once("bpf-jit: amadd.b instruction is not supported\n");
+				return -EINVAL;
+			}
+			emit_insn(ctx, amaddb, t2, t1, src);
+			break;
+		case BPF_H:
+			if (!cpu_has_lam_bh) {
+				pr_err_once("bpf-jit: amadd.h instruction is not supported\n");
+				return -EINVAL;
+			}
+			emit_insn(ctx, amaddh, t2, t1, src);
+			break;
+		case BPF_W:
 			emit_insn(ctx, amaddw, t2, t1, src);
+			break;
+		case BPF_DW:
+			emit_insn(ctx, amaddd, t2, t1, src);
+			break;
+		}
 		break;
 	case BPF_AND:
 		if (isdw)
@@ -388,11 +406,30 @@ static int emit_atomic_rmw(const struct bpf_insn *insn, struct jit_ctx *ctx)
 		break;
 	/* src = atomic_fetch_<op>(dst + off, src) */
 	case BPF_ADD | BPF_FETCH:
-		if (isdw) {
-			emit_insn(ctx, amaddd, src, t1, t3);
-		} else {
+		switch (BPF_SIZE(insn->code)) {
+		case BPF_B:
+			if (!cpu_has_lam_bh) {
+				pr_err_once("bpf-jit: amadd.b instruction is not supported\n");
+				return -EINVAL;
+			}
+			emit_insn(ctx, amaddb, src, t1, t3);
+			emit_zext_32(ctx, src, true);
+			break;
+		case BPF_H:
+			if (!cpu_has_lam_bh) {
+				pr_err_once("bpf-jit: amadd.h instruction is not supported\n");
+				return -EINVAL;
+			}
+			emit_insn(ctx, amaddh, src, t1, t3);
+			emit_zext_32(ctx, src, true);
+			break;
+		case BPF_W:
 			emit_insn(ctx, amaddw, src, t1, t3);
 			emit_zext_32(ctx, src, true);
+			break;
+		case BPF_DW:
+			emit_insn(ctx, amaddd, src, t1, t3);
+			break;
 		}
 		break;
 	case BPF_AND | BPF_FETCH:
@@ -421,11 +458,30 @@ static int emit_atomic_rmw(const struct bpf_insn *insn, struct jit_ctx *ctx)
 		break;
 	/* src = atomic_xchg(dst + off, src); */
 	case BPF_XCHG:
-		if (isdw) {
-			emit_insn(ctx, amswapd, src, t1, t3);
-		} else {
+		switch (BPF_SIZE(insn->code)) {
+		case BPF_B:
+			if (!cpu_has_lam_bh) {
+				pr_err_once("bpf-jit: amswap.b instruction is not supported\n");
+				return -EINVAL;
+			}
+			emit_insn(ctx, amswapb, src, t1, t3);
+			emit_zext_32(ctx, src, true);
+			break;
+		case BPF_H:
+			if (!cpu_has_lam_bh) {
+				pr_err_once("bpf-jit: amswap.h instruction is not supported\n");
+				return -EINVAL;
+			}
+			emit_insn(ctx, amswaph, src, t1, t3);
+			emit_zext_32(ctx, src, true);
+			break;
+		case BPF_W:
 			emit_insn(ctx, amswapw, src, t1, t3);
 			emit_zext_32(ctx, src, true);
+			break;
+		case BPF_DW:
+			emit_insn(ctx, amswapd, src, t1, t3);
+			break;
 		}
 		break;
 	/* r0 = atomic_cmpxchg(dst + off, r0, src); */
@@ -1259,6 +1315,9 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx, bool ext
 			return ret;
 		break;
 
+	/* Atomics */
+	case BPF_STX | BPF_ATOMIC | BPF_B:
+	case BPF_STX | BPF_ATOMIC | BPF_H:
 	case BPF_STX | BPF_ATOMIC | BPF_W:
 	case BPF_STX | BPF_ATOMIC | BPF_DW:
 		ret = emit_atomic_rmw(insn, ctx);
