@@ -200,9 +200,6 @@ static int __init probe_list2(int unit, struct devprobe2 *p, int autoprobe)
  * look for EISA/PCI cards in addition to ISA cards).
  */
 static struct devprobe2 isa_probes[] __initdata = {
-#ifdef CONFIG_ULTRA
-	{ultra_probe, 0},
-#endif
 #ifdef CONFIG_WD80x3
 	{wd_probe, 0},
 #endif
