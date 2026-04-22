@@ -119,6 +119,7 @@ static const struct i2c_device_id tasdevice_id[] = {
 	{ "tas5827", TAS5827 },
 	{ "tas5828", TAS5828 },
 	{ "tas5830", TAS5830 },
+	{ "tas5832", TAS5832 },
 	{}
 };
 
@@ -142,6 +143,7 @@ static const struct of_device_id tasdevice_of_match[] = {
 	{ .compatible = "ti,tas5827", .data = &tasdevice_id[TAS5827] },
 	{ .compatible = "ti,tas5828", .data = &tasdevice_id[TAS5828] },
 	{ .compatible = "ti,tas5830", .data = &tasdevice_id[TAS5830] },
+	{ .compatible = "ti,tas5832", .data = &tasdevice_id[TAS5832] },
 	{},
 };
 MODULE_DEVICE_TABLE(of, tasdevice_of_match);
@@ -1744,6 +1746,7 @@ out:
 		case TAS5827:
 		case TAS5828:
 		case TAS5830:
+		case TAS5832:
 			/* If DSP FW fail, DSP kcontrol won't be created. */
 			tasdevice_dsp_remove(tas_priv);
 		}
@@ -1915,6 +1918,7 @@ static int tasdevice_codec_probe(struct snd_soc_component *codec)
 	case TAS5827:
 	case TAS5828:
 	case TAS5830:
+	case TAS5832:
 		p = (struct snd_kcontrol_new *)tas5825_snd_controls;
 		size = ARRAY_SIZE(tas5825_snd_controls);
 		break;
@@ -2101,6 +2105,7 @@ static const struct acpi_device_id tasdevice_acpi_match[] = {
 	{ "TXNW5827", (kernel_ulong_t)&tasdevice_id[TAS5827] },
 	{ "TXNW5828", (kernel_ulong_t)&tasdevice_id[TAS5828] },
 	{ "TXNW5830", (kernel_ulong_t)&tasdevice_id[TAS5830] },
+	{ "TXNW5832", (kernel_ulong_t)&tasdevice_id[TAS5832] },
 	{},
 };
 
