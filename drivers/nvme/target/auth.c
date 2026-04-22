@@ -447,18 +447,19 @@ int nvmet_auth_ctrl_sesskey(struct nvmet_req *req,
 	struct nvmet_ctrl *ctrl = req->sq->ctrl;
 	int ret;
 
-	req->sq->dhchap_skey_len = ctrl->dh_keysize;
+	req->sq->dhchap_skey_len = nvme_auth_hmac_hash_len(ctrl->shash_id);
 	req->sq->dhchap_skey = kzalloc(req->sq->dhchap_skey_len, GFP_KERNEL);
 	if (!req->sq->dhchap_skey)
 		return -ENOMEM;
-	ret = nvme_auth_gen_shared_secret(ctrl->dh_tfm,
-					  pkey, pkey_size,
-					  req->sq->dhchap_skey,
-					  req->sq->dhchap_skey_len);
+	ret = nvme_auth_gen_session_key(ctrl->dh_tfm,
+					pkey, pkey_size,
+					req->sq->dhchap_skey,
+					req->sq->dhchap_skey_len,
+					ctrl->shash_id);
 	if (ret)
-		pr_debug("failed to compute shared secret, err %d\n", ret);
+		pr_debug("failed to compute session key, err %d\n", ret);
 	else
-		pr_debug("%s: shared secret %*ph\n", __func__,
+		pr_debug("%s: session key %*ph\n", __func__,
 			 (int)req->sq->dhchap_skey_len,
 			 req->sq->dhchap_skey);
 

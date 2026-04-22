@@ -588,7 +588,7 @@ static int nvme_auth_dhchap_exponential(struct nvme_ctrl *ctrl,
 	}
 
 gen_sesskey:
-	chap->sess_key_len = chap->host_key_len;
+	chap->sess_key_len = chap->hash_len;
 	chap->sess_key = kmalloc(chap->sess_key_len, GFP_KERNEL);
 	if (!chap->sess_key) {
 		chap->sess_key_len = 0;
@@ -596,16 +596,17 @@ gen_sesskey:
 		return -ENOMEM;
 	}
 
-	ret = nvme_auth_gen_shared_secret(chap->dh_tfm,
-					  chap->ctrl_key, chap->ctrl_key_len,
-					  chap->sess_key, chap->sess_key_len);
+	ret = nvme_auth_gen_session_key(chap->dh_tfm,
+					chap->ctrl_key, chap->ctrl_key_len,
+					chap->sess_key, chap->sess_key_len,
+					chap->hash_id);
 	if (ret) {
 		dev_dbg(ctrl->device,
-			"failed to generate shared secret, error %d\n", ret);
+			"failed to generate session key, error %d\n", ret);
 		chap->status = NVME_AUTH_DHCHAP_FAILURE_INCORRECT_PAYLOAD;
 		return ret;
 	}
-	dev_dbg(ctrl->device, "shared secret %*ph\n",
+	dev_dbg(ctrl->device, "session key %*ph\n",
 		(int)chap->sess_key_len, chap->sess_key);
 	return 0;
 }
