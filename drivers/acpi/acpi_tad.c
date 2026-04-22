@@ -605,15 +605,12 @@ static umode_t acpi_tad_attr_is_visible(struct kobject *kobj,
 	return 0;
 }
 
-static const struct attribute_group acpi_tad_attr_group = {
+static const struct attribute_group acpi_tad_group = {
 	.attrs	= acpi_tad_attrs,
 	.is_visible = acpi_tad_attr_is_visible,
 };
 
-static const struct attribute_group *acpi_tad_attr_groups[] = {
-	&acpi_tad_attr_group,
-	NULL,
-};
+__ATTRIBUTE_GROUPS(acpi_tad);
 
 #ifdef CONFIG_RTC_CLASS
 /* RTC class device interface */
@@ -885,7 +882,7 @@ static struct platform_driver acpi_tad_driver = {
 	.driver = {
 		.name = "acpi-tad",
 		.acpi_match_table = acpi_tad_ids,
-		.dev_groups = acpi_tad_attr_groups,
+		.dev_groups = acpi_tad_groups,
 	},
 	.probe = acpi_tad_probe,
 	.remove = acpi_tad_remove,
