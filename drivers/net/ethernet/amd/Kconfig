@@ -109,16 +109,6 @@ config MVME147_NET
 	  driver for this chip in your kernel.
 	  To compile this driver as a module, choose M here.
 
-config PCMCIA_NMCLAN
-	tristate "New Media PCMCIA support"
-	depends on PCMCIA && HAS_IOPORT
-	help
-	  Say Y here if you intend to attach a New Media Ethernet or LiveWire
-	  PCMCIA (PC-card) Ethernet card to your computer.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called nmclan_cs.  If unsure, say N.
-
 config SUN3LANCE
 	tristate "Sun3/Sun3x on-board LANCE support"
 	depends on (SUN3 || SUN3X)
