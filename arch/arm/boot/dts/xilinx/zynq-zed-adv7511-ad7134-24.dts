@@ -58,7 +58,7 @@
 		cnv_ext_clk: ext-clk {
 			#clock-cells = <0x0>;
 			compatible = "fixed-clock";
-			clock-frequency = <100000000>;
+			clock-frequency = <48000000>;
 			clock-output-names = "cnv_ext_clk";
 		};
 	};
