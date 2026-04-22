@@ -153,10 +153,6 @@
 
 #define to_ras_core_context(x) (container_of(x, struct ras_core_context, eeprom_mgr))
 
-static bool __is_ras_eeprom_supported(struct ras_core_context *ras_core)
-{
-	return ras_core->ras_eeprom_supported;
-}
 
 static bool __get_eeprom_i2c_addr(struct ras_core_context *ras_core,
 				  struct ras_eeprom_control *control)
@@ -326,19 +322,6 @@ __encode_table_ras_info_to_buf(struct ras_eeprom_table_ras_info *rai,
 	pp[0] = cpu_to_le32(tmp);
 }
 
-static void
-__decode_table_ras_info_from_buf(struct ras_eeprom_table_ras_info *rai,
-				 unsigned char *buf)
-{
-	u32 *pp = (uint32_t *)buf;
-	u32 tmp;
-
-	tmp = le32_to_cpu(pp[0]);
-	rai->rma_status = tmp & 0xFF;
-	rai->health_percent = (tmp >> 8) & 0xFF;
-	rai->ecc_page_threshold = (tmp >> 16) & 0xFFFF;
-}
-
 static int __write_table_ras_info(struct ras_eeprom_control *control)
 {
 	struct ras_core_context *ras_core = to_ras_core_context(control->mgr);
@@ -439,7 +422,7 @@ static void ras_set_eeprom_table_version(struct ras_eeprom_control *control)
 	hdr->version = RAS_TABLE_VER_V3;
 }
 
-int ras_eeprom_reset_table(struct ras_core_context *ras_core)
+static int ras_eeprom_reset_table(struct ras_core_context *ras_core)
 {
 	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
 	struct ras_eeprom_table_header *hdr = &control->tbl_hdr;
@@ -547,38 +530,6 @@ __decode_table_record_from_buf(struct ras_eeprom_control *control,
 
 	memcpy(&tmp, buf + i,  6);
 	record->retired_row_pfn = (le64_to_cpu(tmp) & 0xffffffffffff);
-}
-
-bool ras_eeprom_check_safety_watermark(struct ras_core_context *ras_core)
-{
-	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
-	bool ret = false;
-	int bad_page_count;
-
-	if (!__is_ras_eeprom_supported(ras_core) ||
-	    !control->record_threshold_config)
-		return false;
-
-	bad_page_count = ras_umc_get_badpage_count(ras_core);
-	if (control->tbl_hdr.header == RAS_TABLE_HDR_BAD) {
-		if (bad_page_count > control->record_threshold_count)
-			RAS_DEV_WARN(ras_core->dev, "RAS records:%d exceed threshold:%d",
-				bad_page_count, control->record_threshold_count);
-
-		if ((control->record_threshold_config == WARN_NONSTOP_OVER_THRESHOLD) ||
-			(control->record_threshold_config == NONSTOP_OVER_THRESHOLD)) {
-			RAS_DEV_WARN(ras_core->dev,
-				"Please consult AMD Service Action Guide (SAG) for appropriate service procedures.\n");
-			ret = false;
-		} else {
-			ras_core->is_rma = true;
-			RAS_DEV_WARN(ras_core->dev,
-				"Please consider adjusting the customized threshold.\n");
-			ret = true;
-		}
-	}
-
-	return ret;
 }
 
 /**
@@ -1034,41 +985,6 @@ Out:
 	return res < 0 ? res : csum;
 }
 
-static int __read_table_ras_info(struct ras_eeprom_control *control)
-{
-	struct ras_eeprom_table_ras_info *rai = &control->tbl_rai;
-	struct ras_core_context *ras_core = to_ras_core_context(control->mgr);
-	unsigned char *buf;
-	int res;
-
-	buf = kzalloc(RAS_TABLE_V2_1_INFO_SIZE, GFP_KERNEL);
-	if (!buf) {
-		RAS_DEV_ERR(ras_core->dev,
-			"Failed to alloc buf to read EEPROM table ras info\n");
-		return -ENOMEM;
-	}
-
-	/**
-	 * EEPROM table V2_1 supports ras info,
-	 * read EEPROM table ras info
-	 */
-	res = __eeprom_read(ras_core,
-			      control->i2c_address + control->ras_info_offset,
-			      buf, RAS_TABLE_V2_1_INFO_SIZE);
-	if (res < RAS_TABLE_V2_1_INFO_SIZE) {
-		RAS_DEV_ERR(ras_core->dev,
-			"Failed to read EEPROM table ras info, res:%d\n", res);
-		res = res >= 0 ? -EIO : res;
-		goto Out;
-	}
-
-	__decode_table_ras_info_from_buf(rai, buf);
-
-Out:
-	kfree(buf);
-	return res == RAS_TABLE_V2_1_INFO_SIZE ? 0 : res;
-}
-
 static int __ras_table_init(struct ras_core_context *ras_core)
 {
 	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
@@ -1156,95 +1072,6 @@ static int __ras_table_init(struct ras_core_context *ras_core)
 	return 0;
 }
 
-int ras_eeprom_check_storage_status(struct ras_core_context *ras_core)
-{
-	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
-	struct ras_eeprom_table_header *hdr;
-	int bad_page_count;
-	int res = 0;
-
-	if (!__is_ras_eeprom_supported(ras_core))
-		return 0;
-
-	if (!__get_eeprom_i2c_addr(ras_core, control))
-		return -EINVAL;
-
-	hdr = &control->tbl_hdr;
-
-	bad_page_count = ras_umc_get_badpage_count(ras_core);
-	if (hdr->header == RAS_TABLE_HDR_VAL) {
-		RAS_DEV_INFO(ras_core->dev,
-			"Found existing EEPROM table with %d records\n",
-			bad_page_count);
-
-		if (hdr->version >= RAS_TABLE_VER_V2_1) {
-			res = __read_table_ras_info(control);
-			if (res)
-				return res;
-		}
-
-		res = __verify_ras_table_checksum(control);
-		if (res)
-			RAS_DEV_ERR(ras_core->dev,
-				"RAS table incorrect checksum or error:%d\n", res);
-
-		/* Warn if we are at 90% of the threshold or above
-		 */
-		if (10 * bad_page_count >= 9 * control->record_threshold_count)
-			RAS_DEV_WARN(ras_core->dev,
-				"RAS records:%u exceeds 90%% of threshold:%d\n",
-				bad_page_count,
-				control->record_threshold_count);
-
-	} else if (hdr->header == RAS_TABLE_HDR_BAD &&
-		   control->record_threshold_config != 0) {
-		if (hdr->version >= RAS_TABLE_VER_V2_1) {
-			res = __read_table_ras_info(control);
-			if (res)
-				return res;
-		}
-
-		res = __verify_ras_table_checksum(control);
-		if (res)
-			RAS_DEV_ERR(ras_core->dev,
-				"RAS Table incorrect checksum or error:%d\n", res);
-
-		if (control->record_threshold_count >= bad_page_count) {
-			/* This means that, the threshold was increased since
-			 * the last time the system was booted, and now,
-			 * ras->record_threshold_count - control->num_recs > 0,
-			 * so that at least one more record can be saved,
-			 * before the page count threshold is reached.
-			 */
-			RAS_DEV_INFO(ras_core->dev,
-				"records:%d threshold:%d, resetting RAS table header signature",
-				bad_page_count,
-				control->record_threshold_count);
-			res = ras_eeprom_correct_header_tag(control, RAS_TABLE_HDR_VAL);
-		} else {
-			RAS_DEV_ERR(ras_core->dev, "RAS records:%d exceed threshold:%d",
-				bad_page_count, control->record_threshold_count);
-			/* send the event when threshold is exceeded, and ignore the
-			 * return value here
-			 */
-			ras_core_event_notify(ras_core, RAS_EVENT_ID__DEVICE_RMA, NULL);
-
-			if ((control->record_threshold_config == WARN_NONSTOP_OVER_THRESHOLD) ||
-				(control->record_threshold_config == NONSTOP_OVER_THRESHOLD)) {
-				RAS_DEV_WARN(ras_core->dev,
-				"Please consult AMD Service Action Guide (SAG) for appropriate service procedures\n");
-				res = 0;
-			} else {
-				ras_core->is_rma = true;
-				RAS_DEV_ERR(ras_core->dev,
-				"User defined threshold is set, runtime service will be halt when threshold is reached\n");
-			}
-		}
-	}
-
-	return res < 0 ? res : 0;
-}
-
 static int ras_eeprom_sw_init(struct ras_core_context *ras_core,
 		struct ras_eeprom_param *param)
 {
@@ -1322,46 +1149,6 @@ static uint32_t ras_eeprom_get_record_count(struct ras_core_context *ras_core)
 		return 0;
 
 	return control->ras_num_recs;
-}
-
-void ras_eeprom_sync_info(struct ras_core_context *ras_core)
-{
-	struct ras_eeprom_control *control;
-
-	if (!ras_core)
-		return;
-
-	control = ras_core->eeprom_mgr.ras_eeprom;
-	ras_core_event_notify(ras_core, RAS_EVENT_ID__UPDATE_BAD_PAGE_NUM,
-		&control->ras_num_recs);
-	ras_core_event_notify(ras_core, RAS_EVENT_ID__UPDATE_BAD_CHANNEL_BITMAP,
-		&control->bad_channel_bitmap);
-}
-
-enum ras_gpu_health_status
-	ras_eeprom_check_gpu_status(struct ras_core_context *ras_core)
-{
-	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
-	struct ras_eeprom_table_ras_info *rai = &control->tbl_rai;
-
-	if (!__is_ras_eeprom_supported(ras_core) ||
-	    !control->record_threshold_config)
-		return RAS_GPU_HEALTH_NONE;
-
-	if (control->tbl_hdr.header == RAS_TABLE_HDR_BAD)
-		return RAS_GPU_IN_BAD_STATUS;
-
-	return rai->rma_status;
-}
-
-int ras_eeprom_get_version(struct ras_core_context *ras_core, uint32_t *version)
-{
-	if (!ras_core || !version)
-		return -EINVAL;
-
-	*version = ras_core->ras_eeprom.tbl_hdr.version;
-
-	return 0;
 }
 
 static int ras_eeprom_get_records(struct ras_core_context *ras_core, u32 start,

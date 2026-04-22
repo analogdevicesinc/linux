@@ -216,7 +216,6 @@ struct ras_mp1_sys_func {
 };
 
 struct ras_eeprom_param_config {
-	int eeprom_record_threshold_config;
 	u32 eeprom_ip_version;
 	u64 eeprom_record_threshold_count;
 	enum ras_work_mode_over_thresh work_mode_over_thresh;
@@ -347,13 +346,6 @@ struct ras_umc_config {
 
 struct ras_eeprom_config {
 	const struct ras_eeprom_sys_func *eeprom_sys_fn;
-	int eeprom_record_threshold_config;
-	uint32_t eeprom_record_threshold_count;
-	void *eeprom_i2c_adapter;
-	u32 eeprom_i2c_addr;
-	u32 eeprom_i2c_port;
-	u16 max_i2c_read_len;
-	u16 max_i2c_write_len;
 };
 
 struct ras_core_config {
@@ -389,7 +381,6 @@ struct ras_core_context {
 	struct ras_aca ras_aca;
 
 	bool ras_eeprom_supported;
-	struct ras_eeprom_control ras_eeprom;
 	struct ras_eeprom_mgr eeprom_mgr;
 
 	struct ras_psp ras_psp;

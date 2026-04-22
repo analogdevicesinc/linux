@@ -86,7 +86,6 @@ struct ras_eeprom_control {
 	struct ras_eeprom_table_ras_info tbl_rai;
 
 	/* record threshold */
-	int record_threshold_config;
 	uint32_t record_threshold_count;
 	bool update_channel_flag;
 
@@ -171,15 +170,11 @@ struct eeprom_umc_record {
 
 struct ras_core_context;
 
-int ras_eeprom_reset_table(struct ras_core_context *ras_core);
-
 bool ras_eeprom_check_safety_watermark(struct ras_core_context *ras_core);
 
 int ras_eeprom_check_storage_status(struct ras_core_context *ras_core);
 enum ras_gpu_health_status
 	ras_eeprom_check_gpu_status(struct ras_core_context *ras_core);
-void ras_eeprom_sync_info(struct ras_core_context *ras_core);
-int ras_eeprom_get_version(struct ras_core_context *ras_core, uint32_t *version);
 
 extern struct ras_eeprom_ops ras_drv_eeprom_ops;
 #endif
