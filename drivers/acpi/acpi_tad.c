@@ -859,8 +859,8 @@ static int acpi_tad_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * The platform bus type layer tells the ACPI PM domain powers up the
-	 * device, so set the runtime PM status of it to "active".
+	 * The platform bus type probe callback tells the ACPI PM domain to
+	 * power up the device, so set the runtime PM status of it to "active".
 	 */
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
