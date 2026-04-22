@@ -51,7 +51,6 @@ Contents:
    pensando/ionic
    pensando/ionic_rdma
    qualcomm/ppe/ppe
-   smsc/smc9
    stmicro/stmmac
    ti/cpsw
    ti/cpsw_switchdev

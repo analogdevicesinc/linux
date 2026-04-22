@@ -820,7 +820,6 @@ networking/device_drivers/microsoft/netvsc networking/device_drivers/ethernet/mi
 networking/device_drivers/netronome/nfp networking/device_drivers/ethernet/netronome/nfp
 networking/device_drivers/pensando/ionic networking/device_drivers/ethernet/pensando/ionic
 networking/device_drivers/qualcomm/rmnet networking/device_drivers/cellular/qualcomm/rmnet
-networking/device_drivers/smsc/smc9 networking/device_drivers/ethernet/smsc/smc9
 networking/device_drivers/stmicro/stmmac networking/device_drivers/ethernet/stmicro/stmmac
 networking/device_drivers/ti/cpsw networking/device_drivers/ethernet/ti/cpsw
 networking/device_drivers/ti/cpsw_switchdev networking/device_drivers/ethernet/ti/cpsw_switchdev
