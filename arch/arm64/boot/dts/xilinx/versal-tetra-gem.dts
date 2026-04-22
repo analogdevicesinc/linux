@@ -35,6 +35,11 @@
 		stdout-path = "serial1:115200";
 	};
 
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio1 24 0>;
+	};
+
 	aliases {
 		serial0 = &serial0;
 		serial1 = &serial1;
@@ -108,6 +113,10 @@
 	no-1-8-v;
 };
 
+&gpio1 {
+	status = "okay";
+};
+
 &i2c1 {
 	status = "okay";
 };
@@ -115,29 +124,6 @@
 &i2c2 {
 	status = "okay";
 };
-
-/* PS GEM0 — no longer used, replaced by AXI Ethernet for SGMII */
-/* &gem0 {
-	status = "okay";
-	phy-mode = "gmii";
-	phy-handle = <&adin_phy>;
-	local-mac-address = [00 0a 35 7b 3e 11];
-
-	fixed-link {
-		speed = <1000>;
-		full-duplex;
-	};
-
-	mdio {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		adin_phy: ethernet-phy@8 {
-			reg = <8>;
-			compatible = "ethernet-phy-id0283.bc30";
-		};
-	};
-}; */
 
 &gem0 {
 	status = "disabled";
@@ -236,7 +222,7 @@
 		#size-cells = <0>;
 
 		/* SPI Setup */
-		spi-max-frequency = <20000000>;
+		spi-max-frequency = <15000000>;
 
 		interrupt-parent = <&axi_gpio>;
 		interrupts = <24 IRQ_TYPE_EDGE_RISING>; /* adrv903x_gpint1 - CHECK */
