@@ -724,103 +724,117 @@ int32_t adi_adrv9001_Ssi_Loopback_Set(adi_adrv9001_Device_t *device,
 }
 
 static __maybe_unused int32_t adi_adrv9001_Ssi_LvdsDelayConfigSet(adi_adrv9001_Device_t *device,
-                                                   adi_adrv9001_SsiCalibrationCfg_t *ssiCalibrationCfg)
+	                                                                adi_common_ChannelNumber_e channel,
+                                                                    adi_adrv9001_SsiCalibrationCfg_t *ssiCalibrationCfg)
 {
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1ClkLvdsDelay_Set,      device, ssiCalibrationCfg->rxClkDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1StrobeLvdsDelay_Set,   device, ssiCalibrationCfg->rxStrobeDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1IdataLvdsDelay_Set,    device, ssiCalibrationCfg->rxIDataDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1QdataLvdsDelay_Set,    device, ssiCalibrationCfg->rxQDataDelay[0]);
+	if (channel == ADI_CHANNEL_1)
+	{
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1ClkLvdsDelay_Set, device, ssiCalibrationCfg->rxClkDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1StrobeLvdsDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1IdataLvdsDelay_Set, device, ssiCalibrationCfg->rxIDataDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Rx1QdataLvdsDelay_Set, device, ssiCalibrationCfg->rxQDataDelay[0]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2ClkLvdsDelay_Set,      device, ssiCalibrationCfg->rxClkDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2StrobeLvdsDelay_Set,   device, ssiCalibrationCfg->rxStrobeDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2IdataLvdsDelay_Set,    device, ssiCalibrationCfg->rxIDataDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2QdataLvdsDelay_Set,    device, ssiCalibrationCfg->rxQDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1ClkLvdsDelay_Set, device, ssiCalibrationCfg->txClkDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkLvdsDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1StrobeLvdsDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1IdataLvdsDelay_Set, device, ssiCalibrationCfg->txIDataDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1QdataLvdsDelay_Set, device, ssiCalibrationCfg->txQDataDelay[0]);
+	}
+	else if(channel == ADI_CHANNEL_2)
+	{
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2ClkLvdsDelay_Set, device, ssiCalibrationCfg->rxClkDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2StrobeLvdsDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2IdataLvdsDelay_Set, device, ssiCalibrationCfg->rxIDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Rx2QdataLvdsDelay_Set, device, ssiCalibrationCfg->rxQDataDelay[1]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1ClkLvdsDelay_Set,      device, ssiCalibrationCfg->txClkDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkLvdsDelay_Set,   device, ssiCalibrationCfg->txRefClkDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1StrobeLvdsDelay_Set,   device, ssiCalibrationCfg->txStrobeDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1IdataLvdsDelay_Set,    device, ssiCalibrationCfg->txIDataDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1QdataLvdsDelay_Set,    device, ssiCalibrationCfg->txQDataDelay[0]);
-
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2ClkLvdsDelay_Set,      device, ssiCalibrationCfg->txClkDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkLvdsDelay_Set,   device, ssiCalibrationCfg->txRefClkDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2StrobeLvdsDelay_Set,   device, ssiCalibrationCfg->txStrobeDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2IdataLvdsDelay_Set,    device, ssiCalibrationCfg->txIDataDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2QdataLvdsDelay_Set,    device, ssiCalibrationCfg->txQDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2ClkLvdsDelay_Set, device, ssiCalibrationCfg->txClkDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkLvdsDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2StrobeLvdsDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2IdataLvdsDelay_Set, device, ssiCalibrationCfg->txIDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2QdataLvdsDelay_Set, device, ssiCalibrationCfg->txQDataDelay[1]);	    
+	}
 
     ADI_API_RETURN(device);
 }
 
 static __maybe_unused int32_t adi_adrv9001_Ssi_CmosDelayConfigSet(adi_adrv9001_Device_t *device,
-                                                   adi_adrv9001_SsiCalibrationCfg_t *ssiCalibrationCfg)
+	                                                                        adi_common_ChannelNumber_e channel,
+                                                                            adi_adrv9001_SsiCalibrationCfg_t *ssiCalibrationCfg)
 {
-    /* Rx1 */
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1ClkCmosNDelay_Set,    device, ssiCalibrationCfg->rxClkDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1ClkCmosPDelay_Set,    device, ssiCalibrationCfg->rxClkDelay[0]);
+	if (channel == ADI_CHANNEL_1)
+	{
+		/* Rx1 */
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1ClkCmosNDelay_Set, device, ssiCalibrationCfg->rxClkDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1ClkCmosPDelay_Set, device, ssiCalibrationCfg->rxClkDelay[0]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1StrobeCmosNDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1StrobeCmosPDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1StrobeCmosNDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1StrobeCmosPDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[0]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1IdataCmosNDelay_Set,  device, ssiCalibrationCfg->rxIDataDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1IdataCmosPDelay_Set,  device, ssiCalibrationCfg->rxIDataDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1IdataCmosNDelay_Set, device, ssiCalibrationCfg->rxIDataDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1IdataCmosPDelay_Set, device, ssiCalibrationCfg->rxIDataDelay[0]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1QdataCmosNDelay_Set,  device, ssiCalibrationCfg->rxQDataDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1QdataCmosPDelay_Set,  device, ssiCalibrationCfg->rxQDataDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1QdataCmosNDelay_Set, device, ssiCalibrationCfg->rxQDataDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx1QdataCmosPDelay_Set, device, ssiCalibrationCfg->rxQDataDelay[0]);
 
-    /* Rx2 */
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2ClkCmosNDelay_Set,    device, ssiCalibrationCfg->rxClkDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2ClkCmosPDelay_Set,    device, ssiCalibrationCfg->rxClkDelay[1]);
+		/* Tx1 */
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1ClkCmosNDelay_Set, device, ssiCalibrationCfg->txClkDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1ClkCmosPDelay_Set, device, ssiCalibrationCfg->txClkDelay[0]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2StrobeCmosNDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2StrobeCmosPDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1RefclkCmosNDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1RefclkCmosPDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[0]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2IdataCmosNDelay_Set,  device, ssiCalibrationCfg->rxIDataDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2IdataCmosPDelay_Set,  device, ssiCalibrationCfg->rxIDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1StrobeCmosNDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1StrobeCmosPDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[0]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2QdataCmosNDelay_Set,  device, ssiCalibrationCfg->rxQDataDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2QdataCmosPDelay_Set,  device, ssiCalibrationCfg->rxQDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1IdataCmosNDelay_Set, device, ssiCalibrationCfg->txIDataDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1IdataCmosPDelay_Set, device, ssiCalibrationCfg->txIDataDelay[0]);
 
-    /* Tx1 */
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1ClkCmosNDelay_Set,    device, ssiCalibrationCfg->txClkDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1ClkCmosPDelay_Set,    device, ssiCalibrationCfg->txClkDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1QdataCmosNDelay_Set, device, ssiCalibrationCfg->txQDataDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1QdataCmosPDelay_Set, device, ssiCalibrationCfg->txQDataDelay[0]);
+	}
+	else if (channel == ADI_CHANNEL_2)
+	{
+		/* Rx2 */
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2ClkCmosNDelay_Set, device, ssiCalibrationCfg->rxClkDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2ClkCmosPDelay_Set, device, ssiCalibrationCfg->rxClkDelay[1]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1RefclkCmosNDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1RefclkCmosPDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2StrobeCmosNDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2StrobeCmosPDelay_Set, device, ssiCalibrationCfg->rxStrobeDelay[1]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1StrobeCmosNDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1StrobeCmosPDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2IdataCmosNDelay_Set, device, ssiCalibrationCfg->rxIDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2IdataCmosPDelay_Set, device, ssiCalibrationCfg->rxIDataDelay[1]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1IdataCmosNDelay_Set,  device, ssiCalibrationCfg->txIDataDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1IdataCmosPDelay_Set,  device, ssiCalibrationCfg->txIDataDelay[0]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2QdataCmosNDelay_Set, device, ssiCalibrationCfg->rxQDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Rx2QdataCmosPDelay_Set, device, ssiCalibrationCfg->rxQDataDelay[1]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1QdataCmosNDelay_Set,  device, ssiCalibrationCfg->txQDataDelay[0]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx1QdataCmosPDelay_Set,  device, ssiCalibrationCfg->txQDataDelay[0]);
+		/* Tx2 */
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2ClkCmosNDelay_Set, device, ssiCalibrationCfg->txClkDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2ClkCmosPDelay_Set, device, ssiCalibrationCfg->txClkDelay[1]);
 
-    /* Tx2 */
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2ClkCmosNDelay_Set,    device, ssiCalibrationCfg->txClkDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2ClkCmosPDelay_Set,    device, ssiCalibrationCfg->txClkDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2RefclkCmosNDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2RefclkCmosPDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[1]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2RefclkCmosNDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2RefclkCmosPDelay_Set, device, ssiCalibrationCfg->txRefClkDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2StrobeCmosNDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2StrobeCmosPDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[1]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2StrobeCmosNDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2StrobeCmosPDelay_Set, device, ssiCalibrationCfg->txStrobeDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2IdataCmosNDelay_Set, device, ssiCalibrationCfg->txIDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2IdataCmosPDelay_Set, device, ssiCalibrationCfg->txIDataDelay[1]);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2IdataCmosNDelay_Set,  device, ssiCalibrationCfg->txIDataDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2IdataCmosPDelay_Set,  device, ssiCalibrationCfg->txIDataDelay[1]);
-
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2QdataCmosNDelay_Set,  device, ssiCalibrationCfg->txQDataDelay[1]);
-    ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2QdataCmosPDelay_Set,  device, ssiCalibrationCfg->txQDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2QdataCmosNDelay_Set, device, ssiCalibrationCfg->txQDataDelay[1]);
+		ADI_EXPECT(adrv9001_NvsRegmapCore3_Tx2QdataCmosPDelay_Set, device, ssiCalibrationCfg->txQDataDelay[1]);
+	}
 
     ADI_API_RETURN(device);
 }
 
 static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Delay_Configure_Validate(adi_adrv9001_Device_t *device,
-                                                                        adi_adrv9001_SsiType_e ssiType,
+	                                                                    adi_common_ChannelNumber_e channel,
+	                                                                    adi_adrv9001_SsiType_e ssiType,
                                                                         adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration)
 {
     static const uint8_t MAX_DELAY = 7;
-    ADI_RANGE_CHECK(device, ssiType, ADI_ADRV9001_SSI_TYPE_CMOS, ADI_ADRV9001_SSI_TYPE_LVDS);
+	ADI_RANGE_CHECK(device, ssiType, ADI_ADRV9001_SSI_TYPE_CMOS, ADI_ADRV9001_SSI_TYPE_LVDS);
+	ADI_RANGE_CHECK(device, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
 
     ADI_NULL_PTR_RETURN(&device->common, ssiCalibration);
 
@@ -848,19 +862,35 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Ssi_Delay_Configure_Va
 }
 
 int32_t adi_adrv9001_Ssi_Delay_Configure(adi_adrv9001_Device_t *device,
-                                         adi_adrv9001_SsiType_e ssiType,
+	                                     adi_common_ChannelNumber_e channel,
+	                                     adi_adrv9001_SsiType_e ssiType,
                                          adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration)
 {
-    ADI_PERFORM_VALIDATION(adi_adrv9001_Ssi_Delay_Configure_Validate, device, ssiType, ssiCalibration);
+	ADI_PERFORM_VALIDATION(adi_adrv9001_Ssi_Delay_Configure_Validate, device, channel, ssiType, ssiCalibration);
 
-    if (ADI_ADRV9001_SSI_TYPE_LVDS == ssiType)
-    {
-        ADI_EXPECT(adi_adrv9001_Ssi_LvdsDelayConfigSet, device, ssiCalibration);
-    }
-    else
-    {
-        ADI_EXPECT(adi_adrv9001_Ssi_CmosDelayConfigSet, device, ssiCalibration);
-    }
+	switch (channel)
+	{
+	case ADI_CHANNEL_1:
+		if (ADI_ADRV9001_SSI_TYPE_LVDS == ssiType)
+		{
+			ADI_EXPECT(adi_adrv9001_Ssi_LvdsDelayConfigSet, device, ADI_CHANNEL_1, ssiCalibration);
+		}
+		else
+		{
+			ADI_EXPECT(adi_adrv9001_Ssi_CmosDelayConfigSet, device, ADI_CHANNEL_1, ssiCalibration);
+		}
+		break;
+	case ADI_CHANNEL_2:
+		if (ADI_ADRV9001_SSI_TYPE_LVDS == ssiType)
+		{
+			ADI_EXPECT(adi_adrv9001_Ssi_LvdsDelayConfigSet, device, ADI_CHANNEL_2, ssiCalibration);
+		}
+		else
+		{
+			ADI_EXPECT(adi_adrv9001_Ssi_CmosDelayConfigSet, device, ADI_CHANNEL_2, ssiCalibration);
+		}
+		break;
+	}
 
     ADI_API_RETURN(device);
 }
