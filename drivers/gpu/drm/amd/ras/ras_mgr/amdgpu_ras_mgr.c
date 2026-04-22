@@ -279,9 +279,8 @@ static struct ras_core_context *amdgpu_ras_mgr_create_ras_core(struct amdgpu_dev
 	return ras_core_create(&init_config);
 }
 
-static int amdgpu_ras_mgr_sw_init(struct amdgpu_ip_block *ip_block)
+int amdgpu_ras_mgr_sw_init(struct amdgpu_device *adev)
 {
-	struct amdgpu_device *adev = ip_block->adev;
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
 	struct amdgpu_ras_mgr *ras_mgr;
 	int ret = 0;
@@ -348,9 +347,8 @@ err1:
 	return ret;
 }
 
-static int amdgpu_ras_mgr_sw_fini(struct amdgpu_ip_block *ip_block)
+int amdgpu_ras_mgr_sw_fini(struct amdgpu_device *adev)
 {
-	struct amdgpu_device *adev = ip_block->adev;
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
 	struct amdgpu_ras_mgr *ras_mgr;
 
@@ -466,8 +464,6 @@ struct amdgpu_ras_mgr *amdgpu_ras_mgr_get_context(struct amdgpu_device *adev)
 
 static const struct amd_ip_funcs __maybe_unused ras_v1_0_ip_funcs = {
 	.name = "ras_v1_0",
-	.sw_init = amdgpu_ras_mgr_sw_init,
-	.sw_fini = amdgpu_ras_mgr_sw_fini,
 	.hw_init = amdgpu_ras_mgr_hw_init,
 	.hw_fini = amdgpu_ras_mgr_hw_fini,
 };

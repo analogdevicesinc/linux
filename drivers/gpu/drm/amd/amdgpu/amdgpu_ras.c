@@ -3590,7 +3590,10 @@ int amdgpu_ras_init(struct amdgpu_device *adev)
 
 	amdgpu_ras_check_supported(adev);
 
-	if (!adev->ras_enabled || adev->asic_type == CHIP_VEGA10) {
+	amdgpu_ras_mgr_sw_init(adev);
+
+	if (!con->uniras_enabled &&
+	    (!adev->ras_enabled || adev->asic_type == CHIP_VEGA10)) {
 		/* set gfx block ras context feature for VEGA20 Gaming
 		 * send ras disable cmd to ras ta during ras late init.
 		 */
@@ -3979,6 +3982,8 @@ int amdgpu_ras_fini(struct amdgpu_device *adev)
 	struct amdgpu_ras_block_list *ras_node, *tmp;
 	struct amdgpu_ras_block_object *obj = NULL;
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
+
+	amdgpu_ras_mgr_sw_fini(adev);
 
 	if (!adev->ras_enabled || !con)
 		return 0;

@@ -56,6 +56,7 @@
 #include "amdgpu_amdkfd.h"
 #include "amdgpu_sdma.h"
 #include "amdgpu_ras.h"
+#include "amdgpu_ras_mgr.h"
 #include "amdgpu_hmm.h"
 #include "amdgpu_atomfirmware.h"
 #include "amdgpu_res_cursor.h"
@@ -2163,6 +2164,9 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 	r = amdgpu_ttm_alloc_vram_resv_regions(adev);
 	if (r)
 		return r;
+
+	/* RAS loads and reserves bad pages */
+	amdgpu_ras_mgr_early_init_service(adev);
 
 	if (adev->mman.resv_region[AMDGPU_RESV_MEM_TRAIN].size) {
 		struct psp_memory_training_context *ctx =
