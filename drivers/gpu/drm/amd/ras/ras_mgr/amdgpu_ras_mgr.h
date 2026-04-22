@@ -61,6 +61,7 @@ struct amdgpu_ras_mgr {
 
 extern const struct amdgpu_ip_block_version ras_v1_0_ip_block;
 
+int amdgpu_ras_mgr_early_init_service(struct amdgpu_device *adev);
 struct amdgpu_ras_mgr *amdgpu_ras_mgr_get_context(
 			struct amdgpu_device *adev);
 int amdgpu_enable_uniras(struct amdgpu_device *adev, bool enable);

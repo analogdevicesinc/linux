@@ -183,10 +183,13 @@ int ras_mp1_set_debug_mode(struct ras_core_context *ras_core, bool enable)
 	return mp1->ip_func->set_debug_mode(ras_core, enable);
 }
 
-int ras_mp1_hw_init(struct ras_core_context *ras_core)
+int ras_mp1_sw_init(struct ras_core_context *ras_core)
 {
 	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
 	int ret = 0;
+
+	if (!ras_core->config)
+		return -EINVAL;
 
 	mp1->mp1_ip_version = ras_core->config->mp1_ip_version;
 
@@ -208,7 +211,7 @@ int ras_mp1_hw_init(struct ras_core_context *ras_core)
 	return ret;
 }
 
-int ras_mp1_hw_fini(struct ras_core_context *ras_core)
+int ras_mp1_sw_fini(struct ras_core_context *ras_core)
 {
 	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
 

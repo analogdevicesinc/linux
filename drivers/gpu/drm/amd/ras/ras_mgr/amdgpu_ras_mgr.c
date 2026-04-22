@@ -259,6 +259,9 @@ static struct ras_core_context *amdgpu_ras_mgr_create_ras_core(struct amdgpu_dev
 	    init_config.umc_ip_version == IP_VERSION(12, 5, 0))
 		init_config.aca_ip_version = IP_VERSION(1, 0, 0);
 
+	if (init_config.mp1_ip_version == IP_VERSION(15, 0, 8))
+		init_config.early_init_service_supported = true;
+
 	init_config.sys_fn = &amdgpu_ras_sys_fn;
 	init_config.ras_eeprom_supported =
 		amdgpu_ras_mgr_eeprom_is_supported(adev);
@@ -739,4 +742,26 @@ bool amdgpu_ras_mgr_get_debug_mode(struct amdgpu_device *adev)
 		return true;
 
 	return ras_mgr->is_debug_mode;
+}
+
+int amdgpu_ras_mgr_early_init_service(struct amdgpu_device *adev)
+{
+	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
+	struct amdgpu_ras_mgr *ras_mgr;
+	int ret;
+
+	if (!con->uniras_enabled)
+		return 0;
+
+	ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	if (!ras_mgr || !ras_mgr->ras_core) {
+		RAS_DEV_ERR(adev, "amdgpu ras sw is not ready!\n");
+		return -EPERM;
+	}
+
+	ret = ras_core_eeprom_early_init_service(ras_mgr->ras_core);
+	if (ret)
+		RAS_DEV_WARN(adev, "RAS early init service failure! ret:%d\n", ret);
+
+	return ret;
 }

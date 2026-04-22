@@ -1085,7 +1085,7 @@ Out:
 	return res == RAS_TABLE_V2_1_INFO_SIZE ? 0 : res;
 }
 
-static int __check_ras_table_status(struct ras_core_context *ras_core)
+static int __ras_table_init(struct ras_core_context *ras_core)
 {
 	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
 	unsigned char buf[RAS_TABLE_HEADER_SIZE] = { 0 };
@@ -1102,7 +1102,6 @@ static int __check_ras_table_status(struct ras_core_context *ras_core)
 
 	control->ras_header_offset = RAS_HDR_START;
 	control->ras_info_offset = RAS_TABLE_V2_1_INFO_START;
-	mutex_init(&control->ras_tbl_mutex);
 
 	/* Read the table header from EEPROM address */
 	res = __eeprom_read(ras_core,
@@ -1284,18 +1283,26 @@ static int ras_eeprom_sw_init(struct ras_core_context *ras_core,
 	control->i2c_adapter = param->eeprom_i2c_adapter;
 	control->i2c_port = param->eeprom_i2c_port;
 	control->i2c_address = param->eeprom_i2c_addr;
+	control->record_threshold_count = param->record_threshold;
+	control->sys_func = param->sys_fn;
 
 	control->update_channel_flag = false;
+
+	mutex_init(&control->ras_tbl_mutex);
 
 	return 0;
 }
 
 static int ras_eeprom_sw_fini(struct ras_core_context *ras_core)
 {
-	if (!ras_core)
+	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
+
+	if (!control)
 		return -EINVAL;
 
-	kfree(ras_core->eeprom_mgr.ras_eeprom);
+	mutex_destroy(&control->ras_tbl_mutex);
+
+	kfree(control);
 	ras_core->eeprom_mgr.ras_eeprom = NULL;
 
 	return 0;
@@ -1309,15 +1316,17 @@ static int ras_eeprom_hw_init(struct ras_core_context *ras_core,
 	if (!control)
 		return -EINVAL;
 
-	return __check_ras_table_status(ras_core);
+	control->max_read_len = param->max_i2c_read_len;
+	control->max_write_len = param->max_i2c_write_len;
+	control->i2c_adapter = param->eeprom_i2c_adapter;
+	control->i2c_port = param->eeprom_i2c_port;
+	control->i2c_address = param->eeprom_i2c_addr;
+
+	return __ras_table_init(ras_core);
 }
 
 static int ras_eeprom_hw_fini(struct ras_core_context *ras_core)
 {
-	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
-
-	mutex_destroy(&control->ras_tbl_mutex);
-
 	return 0;
 }
 

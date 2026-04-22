@@ -331,6 +331,12 @@ int ras_core_sw_init(struct ras_core_context *ras_core)
 		return -EINVAL;
 	}
 
+	ras_core->ras_eeprom_supported = ras_core->config->ras_eeprom_supported;
+	ras_core->poison_supported = ras_core->config->poison_supported;
+	ras_core->early_init_service_enabled = ras_core->config->early_init_service_supported;
+
+	ras_core->in_early_init = true;
+
 	ras_core->sys_fn = ras_core->config->sys_fn;
 	if (!ras_core->sys_fn)
 		return -EINVAL;
@@ -367,6 +373,14 @@ int ras_core_sw_init(struct ras_core_context *ras_core)
 	if (ret)
 		return ret;
 
+	ret = ras_mp1_sw_init(ras_core);
+	if (ret)
+		return ret;
+
+	ret = ras_eeprom_mgr_sw_init(ras_core);
+	if (ret)
+		return ret;
+
 	ret = ras_mce_sw_init(ras_core);
 	if (ret)
 		return ret;
@@ -383,7 +397,9 @@ int ras_core_sw_fini(struct ras_core_context *ras_core)
 	ras_log_ring_sw_fini(ras_core);
 	ras_cmd_fini(ras_core);
 	ras_umc_sw_fini(ras_core);
+	ras_mp1_sw_fini(ras_core);
 	ras_aca_sw_fini(ras_core);
+	ras_eeprom_mgr_sw_fini(ras_core);
 	ras_mce_sw_fini(ras_core);
 
 	return 0;
@@ -393,11 +409,6 @@ int ras_core_hw_init(struct ras_core_context *ras_core)
 {
 	int ret;
 
-	ras_core->ras_eeprom_supported =
-			ras_core->config->ras_eeprom_supported;
-
-	ras_core->poison_supported = ras_core->config->poison_supported;
-
 	ret = ras_psp_hw_init(ras_core);
 	if (ret)
 		return ret;
@@ -405,10 +416,6 @@ int ras_core_hw_init(struct ras_core_context *ras_core)
 	ret = ras_aca_hw_init(ras_core);
 	if (ret)
 		goto init_err1;
-
-	ret = ras_mp1_hw_init(ras_core);
-	if (ret)
-		goto init_err2;
 
 	ret = ras_nbio_hw_init(ras_core);
 	if (ret)
@@ -423,6 +430,8 @@ int ras_core_hw_init(struct ras_core_context *ras_core)
 		goto init_err5;
 
 	ret = ras_eeprom_mgr_hw_init(ras_core);
+
+	ras_core->in_early_init = false;
 
 	/*
 	 * NOTE:
@@ -466,8 +475,6 @@ init_err5:
 init_err4:
 	ras_nbio_hw_fini(ras_core);
 init_err3:
-	ras_mp1_hw_fini(ras_core);
-init_err2:
 	ras_aca_hw_fini(ras_core);
 init_err1:
 	ras_psp_hw_fini(ras_core);
@@ -483,7 +490,6 @@ int ras_core_hw_fini(struct ras_core_context *ras_core)
 	ras_gfx_hw_fini(ras_core);
 	ras_nbio_hw_fini(ras_core);
 	ras_umc_hw_fini(ras_core);
-	ras_mp1_hw_fini(ras_core);
 	ras_aca_hw_fini(ras_core);
 	ras_psp_hw_fini(ras_core);
 
@@ -797,4 +803,28 @@ bool ras_core_poison_supported(struct ras_core_context *ras_core)
 	/* For some ASICs, poison flag is detected externally by uniras module. */
 	return ras_core->poison_supported ? true :
 			ras_psp_poison_supported(ras_core);
+}
+
+bool ras_core_in_early_init(struct ras_core_context *ras_core)
+{
+	if (!ras_core)
+		return true;
+
+	return ras_core->in_early_init;
+}
+
+bool ras_core_early_init_service_enabled(struct ras_core_context *ras_core)
+{
+	return ras_core->early_init_service_enabled &&
+		ras_eeprom_mgr_early_init_service_supported(ras_core);
+}
+
+int ras_core_eeprom_early_init_service(struct ras_core_context *ras_core)
+{
+	if (!ras_core_early_init_service_enabled(ras_core))
+		return -EOPNOTSUPP;
+	else if (!ras_core_in_early_init(ras_core))
+		return -EACCES;
+
+	return ras_core_eeprom_recovery(ras_core);
 }

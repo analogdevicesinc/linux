@@ -88,8 +88,8 @@ struct ras_mp1 {
 	struct mutex op_mutex;
 };
 
-int ras_mp1_hw_init(struct ras_core_context *ras_core);
-int ras_mp1_hw_fini(struct ras_core_context *ras_core);
+int ras_mp1_sw_init(struct ras_core_context *ras_core);
+int ras_mp1_sw_fini(struct ras_core_context *ras_core);
 
 int ras_mp1_get_bank_count(struct ras_core_context *ras_core,
 			    enum ras_err_type type, u32 *count);

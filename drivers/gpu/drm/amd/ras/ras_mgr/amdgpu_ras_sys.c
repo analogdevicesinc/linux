@@ -110,6 +110,25 @@ static int amdgpu_ras_sys_gen_seqno(struct ras_core_context *ras_core,
 
 }
 
+static int amdgpu_ras_early_init_reserve_badpage(struct ras_core_context *ras_core,
+			uint64_t pfn)
+{
+	struct amdgpu_bo *bo;
+	void *va;
+	int ret;
+
+	ret = amdgpu_bo_create_kernel_at(ras_core->dev, RAS_PFN_TO_ADDR(pfn),
+			AMDGPU_GPU_PAGE_SIZE, &bo, &va);
+	if (ret) {
+		ras_core->is_rma = true;
+		RAS_DEV_ERR(ras_core->dev,
+			"Early init: RAS failed to reserve: offset=0x%llx size=0x%x ret=%d\n",
+			RAS_PFN_TO_ADDR(pfn), AMDGPU_GPU_PAGE_SIZE, ret);
+	}
+
+	return ret;
+}
+
 static int amdgpu_ras_sys_event_notifier(struct ras_core_context *ras_core,
 				   enum ras_notify_event event_id, void *data)
 {
@@ -125,6 +144,9 @@ static int amdgpu_ras_sys_event_notifier(struct ras_core_context *ras_core,
 		break;
 	case RAS_EVENT_ID__RESERVE_BAD_PAGE:
 		ret = amdgpu_ras_reserve_page(ras_core->dev, *(uint64_t *)data);
+		break;
+	case RAS_EVENT_ID__EARLY_INIT_RESERVE_PAGE:
+		ret = amdgpu_ras_early_init_reserve_badpage(ras_core, *(uint64_t *)data);
 		break;
 	case RAS_EVENT_ID__FATAL_ERROR_DETECTED:
 		ret = amdgpu_ras_sys_detect_fatal_event(ras_core, data);

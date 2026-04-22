@@ -153,6 +153,7 @@ enum ras_notify_event {
 	RAS_EVENT_ID__RAS_EVENT_PROC_BEGIN,
 	RAS_EVENT_ID__RAS_EVENT_PROC_END,
 	RAS_EVENT_ID__UPDATE_ACA_DATA,
+	RAS_EVENT_ID__EARLY_INIT_RESERVE_PAGE,
 };
 
 enum ras_gpu_status {
@@ -363,6 +364,7 @@ struct ras_core_config {
 	u32 nbio_ip_version;
 	u32 psp_ip_version;
 
+	bool early_init_service_supported;
 	bool poison_supported;
 	bool ras_eeprom_supported;
 	uint ras_debug_mask;
@@ -406,6 +408,8 @@ struct ras_core_context {
 
 	bool is_rma;
 	bool is_initialized;
+	bool in_early_init;
+	bool early_init_service_enabled;
 
 	struct kfifo de_seqno_fifo;
 	struct kfifo consumption_seqno_fifo;
@@ -478,4 +482,7 @@ int ras_core_get_ip_version(struct ras_core_context *ras_core,
 	enum ras_unit_id unit_id, uint32_t *version);
 uint64_t ras_core_get_ras_caps(struct ras_core_context *ras_core);
 bool ras_core_poison_supported(struct ras_core_context *ras_core);
+bool ras_core_in_early_init(struct ras_core_context *ras_core);
+bool ras_core_early_init_service_enabled(struct ras_core_context *ras_core);
+int ras_core_eeprom_early_init_service(struct ras_core_context *ras_core);
 #endif

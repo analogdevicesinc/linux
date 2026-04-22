@@ -187,8 +187,9 @@ static void ras_umc_reserve_eeprom_record(struct ras_core_context *ras_core,
 
 	/* Reserve memory */
 	for (i = 0; i < count; i++)
-		ras_core_event_notify(ras_core,
-			RAS_EVENT_ID__RESERVE_BAD_PAGE, &page_pfn[i]);
+		ras_core_event_notify(ras_core, ras_core_in_early_init(ras_core) ?
+			RAS_EVENT_ID__EARLY_INIT_RESERVE_PAGE : RAS_EVENT_ID__RESERVE_BAD_PAGE,
+			&page_pfn[i]);
 }
 
 /* When gpu reset is ongoing, ecc logging operations will be pended.
@@ -727,6 +728,13 @@ int ras_umc_sw_init(struct ras_core_context *ras_core)
 	mutex_init(&ras_umc->umc_lock);
 	mutex_init(&ras_umc->bank_log_lock);
 
+	ras_umc->umc_ip_version = ras_core->config->umc_ip_version;
+	ras_umc->ip_func = ras_umc_get_ip_func(ras_core, ras_umc->umc_ip_version);
+	if (!ras_umc->ip_func) {
+		RAS_DEV_ERR(ras_core->dev, "Failed to get umc ip function!\n");
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -778,11 +786,6 @@ int ras_umc_hw_init(struct ras_core_context *ras_core)
 	ras_umc->num_umc = ras_core->config->umc_cfg.num_umc;
 	ras_umc->pa_base = ras_core->config->umc_cfg.pa_base;
 	ras_umc->lfb_size = ras_core->config->umc_cfg.lfb_size;
-
-	ras_umc->umc_ip_version = ras_core->config->umc_ip_version;
-	ras_umc->ip_func = ras_umc_get_ip_func(ras_core, ras_umc->umc_ip_version);
-	if (!ras_umc->ip_func)
-		return -EINVAL;
 
 	return 0;
 }
