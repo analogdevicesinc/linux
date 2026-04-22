@@ -157,6 +157,9 @@ static void cacheInitInfo(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *
     
     /* Save whether we are in FH mode to state */
     adrv9001->devStateInfo.frequencyHoppingEnabled = init->sysConfig.fhModeOn;
+
+	adrv9001->devStateInfo.txSsiRefClockEnabled[0] = init->tx.txProfile[0].txSsiConfig.txRefClockPin;
+	adrv9001->devStateInfo.txSsiRefClockEnabled[1] = init->tx.txProfile[1].txSsiConfig.txRefClockPin;
 }
 
 int32_t adi_adrv9001_InitAnalog(adi_adrv9001_Device_t *device,
@@ -581,8 +584,14 @@ int32_t adi_adrv9001_Temperature_Get(adi_adrv9001_Device_t *device, adi_adrv9001
 	}
 	else if (tempReadMode == ADI_ADRV9001_TEMPERATURE_READ_SPI)
 	{
+		uint32_t numBytes = 2;
+		const uint16_t address[2] = { ADRV9001_ADDR_CORE_MSB_TDEGC_READBACK, ADRV9001_ADDR_CORE_LSB_TDEGC_READBACK };
+		uint8_t readData[2] = { 0 };
+
 		/* Readback from the aux adc temperature sense result */
-		ADI_EXPECT(adrv9001_NvsRegmapCore_TdegcReadback_Get, device, &temperatureSenseResult);
+        ADI_EXPECT(adi_adrv9001_spi_Bytes_Read, device, address, readData, numBytes);
+
+		temperatureSenseResult = ((readData[0] & 0x0F) << 8) | (readData[1] << 0);
 
 		/* Retrieve temperature in Celsius */
 		*temperature_C = temperatureSenseResult - (TEMP_SENSOR_DFL_OFFSET_CODE_VALUE + KELVIN_TO_CELSIUS);
