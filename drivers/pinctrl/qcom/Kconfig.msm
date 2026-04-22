@@ -16,7 +16,7 @@ config PINCTRL_APQ8084
 	  Qualcomm TLMM block found in the Qualcomm APQ8084 platform.
 
 config PINCTRL_ELIZA
-	tristate "Qualcomm Technologies Inc Eliza pin controller driver"
+	tristate "Qualcomm Eliza pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -26,7 +26,7 @@ config PINCTRL_ELIZA
 	  If unsure, say N.
 
 config PINCTRL_GLYMUR
-	tristate "Qualcomm Technologies Inc Glymur pin controller driver"
+	tristate "Qualcomm Glymur pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -36,7 +36,7 @@ config PINCTRL_GLYMUR
 	  If unsure, say N.
 
 config PINCTRL_HAWI
-	tristate "Qualcomm Technologies Inc Hawi pin controller driver"
+	tristate "Qualcomm Hawi pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -53,7 +53,7 @@ config PINCTRL_IPQ4019
 	  Qualcomm TLMM block found in the Qualcomm IPQ4019 platform.
 
 config PINCTRL_IPQ5018
-	tristate "Qualcomm Technologies, Inc. IPQ5018 pin controller driver"
+	tristate "Qualcomm IPQ5018 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for
@@ -69,7 +69,7 @@ config PINCTRL_IPQ8064
 	  Qualcomm TLMM block found in the Qualcomm IPQ8064 platform.
 
 config PINCTRL_IPQ5210
-	tristate "Qualcomm Technologies Inc IPQ5210 pin controller driver"
+	tristate "Qualcomm IPQ5210 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -77,7 +77,7 @@ config PINCTRL_IPQ5210
 	  Technologies Inc IPQ5210 platform.
 
 config PINCTRL_IPQ5332
-	tristate "Qualcomm Technologies Inc IPQ5332 pin controller driver"
+	tristate "Qualcomm IPQ5332 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -85,7 +85,7 @@ config PINCTRL_IPQ5332
 	  Technologies Inc IPQ5332 platform.
 
 config PINCTRL_IPQ5424
-	tristate "Qualcomm Technologies, Inc. IPQ5424 pin controller driver"
+	tristate "Qualcomm IPQ5424 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for
@@ -94,7 +94,7 @@ config PINCTRL_IPQ5424
           IPQ5424.
 
 config PINCTRL_IPQ8074
-	tristate "Qualcomm Technologies, Inc. IPQ8074 pin controller driver"
+	tristate "Qualcomm IPQ8074 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for
@@ -103,7 +103,7 @@ config PINCTRL_IPQ8074
 	  IPQ8074.
 
 config PINCTRL_IPQ6018
-	tristate "Qualcomm Technologies, Inc. IPQ6018 pin controller driver"
+	tristate "Qualcomm IPQ6018 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for
@@ -112,7 +112,7 @@ config PINCTRL_IPQ6018
 	  IPQ6018.
 
 config PINCTRL_IPQ9574
-	tristate "Qualcomm Technologies, Inc. IPQ9574 pin controller driver"
+	tristate "Qualcomm IPQ9574 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for
@@ -121,7 +121,7 @@ config PINCTRL_IPQ9574
           IPQ9574.
 
 config PINCTRL_IPQ9650
-	tristate "Qualcomm Technologies, Inc. IPQ9650 pin controller driver"
+	tristate "Qualcomm IPQ9650 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for
@@ -130,7 +130,7 @@ config PINCTRL_IPQ9650
           IPQ9650.
 
 config PINCTRL_KAANAPALI
-	tristate "Qualcomm Technologies Inc Kaanapali pin controller driver"
+	tristate "Qualcomm Kaanapali pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -253,28 +253,28 @@ config PINCTRL_QCS404
 	  TLMM block found in the Qualcomm QCS404 platform.
 
 config PINCTRL_QCS615
-	tristate "Qualcomm Technologies QCS615 pin controller driver"
+	tristate "Qualcomm QCS615 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  TLMM block found on the Qualcomm QCS615 platform.
 
 config PINCTRL_QCS8300
-	tristate "Qualcomm Technologies QCS8300 pin controller driver"
+	tristate "Qualcomm QCS8300 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux and pinconf driver for the Qualcomm
 	  TLMM block found on the Qualcomm QCS8300 platform.
 
 config PINCTRL_QDF2XXX
-	tristate "Qualcomm Technologies QDF2xxx pin controller driver"
+	tristate "Qualcomm QDF2xxx pin controller driver"
 	depends on ACPI
 	help
 	  This is the GPIO driver for the TLMM block found on the
 	  Qualcomm Technologies QDF2xxx SOCs.
 
 config PINCTRL_QDU1000
-	tristate "Qualcomm Technologies Inc QDU1000/QRU1000 pin controller driver"
+	tristate "Qualcomm QDU1000/QRU1000 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf, and gpiolib driver for the
@@ -282,14 +282,14 @@ config PINCTRL_QDU1000
 	  Technologies Inc QDU1000 and QRU1000 platforms.
 
 config PINCTRL_SA8775P
-	tristate "Qualcomm Technologies Inc SA8775P pin controller driver"
+	tristate "Qualcomm SA8775P pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux and pinconf driver for the Qualcomm
 	  TLMM block found on the Qualcomm SA8775P platforms.
 
 config PINCTRL_SAR2130P
-	tristate "Qualcomm Technologies Inc SAR2130P pin controller driver"
+	tristate "Qualcomm SAR2130P pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -297,7 +297,7 @@ config PINCTRL_SAR2130P
 	  Technologies Inc SAR2130P platform.
 
 config PINCTRL_SC7180
-	tristate "Qualcomm Technologies Inc SC7180 pin controller driver"
+	tristate "Qualcomm SC7180 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -305,7 +305,7 @@ config PINCTRL_SC7180
 	  Technologies Inc SC7180 platform.
 
 config PINCTRL_SC7280
-	tristate "Qualcomm Technologies Inc SC7280 pin controller driver"
+	tristate "Qualcomm SC7280 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -313,7 +313,7 @@ config PINCTRL_SC7280
 	  Technologies Inc SC7280 platform.
 
 config PINCTRL_SC8180X
-	tristate "Qualcomm Technologies Inc SC8180x pin controller driver"
+	tristate "Qualcomm SC8180x pin controller driver"
 	depends on (OF || ACPI)
 	depends on ARM64 || COMPILE_TEST
 	help
@@ -322,7 +322,7 @@ config PINCTRL_SC8180X
 	  Technologies Inc SC8180x platform.
 
 config PINCTRL_SC8280XP
-	tristate "Qualcomm Technologies Inc SC8280xp pin controller driver"
+	tristate "Qualcomm SC8280xp pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -330,7 +330,7 @@ config PINCTRL_SC8280XP
 	  Technologies Inc SC8280xp platform.
 
 config PINCTRL_SDM660
-	tristate "Qualcomm Technologies Inc SDM660 pin controller driver"
+	tristate "Qualcomm SDM660 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -338,7 +338,7 @@ config PINCTRL_SDM660
 	 Technologies Inc SDM660 platform.
 
 config PINCTRL_SDM670
-	tristate "Qualcomm Technologies Inc SDM670 pin controller driver"
+	tristate "Qualcomm SDM670 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -346,7 +346,7 @@ config PINCTRL_SDM670
 	 Technologies Inc SDM670 platform.
 
 config PINCTRL_SDM845
-	tristate "Qualcomm Technologies Inc SDM845 pin controller driver"
+	tristate "Qualcomm SDM845 pin controller driver"
 	depends on (OF || ACPI)
 	depends on ARM64 || COMPILE_TEST
 	help
@@ -355,7 +355,7 @@ config PINCTRL_SDM845
 	 Technologies Inc SDM845 platform.
 
 config PINCTRL_SDX55
-	tristate "Qualcomm Technologies Inc SDX55 pin controller driver"
+	tristate "Qualcomm SDX55 pin controller driver"
 	depends on ARM || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -363,7 +363,7 @@ config PINCTRL_SDX55
 	 Technologies Inc SDX55 platform.
 
 config PINCTRL_SDX65
-        tristate "Qualcomm Technologies Inc SDX65 pin controller driver"
+        tristate "Qualcomm SDX65 pin controller driver"
         depends on ARM || COMPILE_TEST
         help
          This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -371,7 +371,7 @@ config PINCTRL_SDX65
          Technologies Inc SDX65 platform.
 
 config PINCTRL_SDX75
-        tristate "Qualcomm Technologies Inc SDX75 pin controller driver"
+        tristate "Qualcomm SDX75 pin controller driver"
         depends on ARM64 || COMPILE_TEST
         help
          This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -379,7 +379,7 @@ config PINCTRL_SDX75
          Technologies Inc SDX75 platform.
 
 config PINCTRL_SM4450
-	tristate "Qualcomm Technologies Inc SM4450 pin controller driver"
+	tristate "Qualcomm SM4450 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -387,7 +387,7 @@ config PINCTRL_SM4450
 	 Technologies Inc SM4450 platform.
 
 config PINCTRL_SM6115
-	tristate "Qualcomm Technologies Inc SM6115,SM4250 pin controller driver"
+	tristate "Qualcomm SM6115,SM4250 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -395,7 +395,7 @@ config PINCTRL_SM6115
 	 Technologies Inc SM6115 and SM4250 platforms.
 
 config PINCTRL_SM6125
-	tristate "Qualcomm Technologies Inc SM6125 pin controller driver"
+	tristate "Qualcomm SM6125 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -403,7 +403,7 @@ config PINCTRL_SM6125
 	 Technologies Inc SM6125 platform.
 
 config PINCTRL_SM6350
-	tristate "Qualcomm Technologies Inc SM6350 pin controller driver"
+	tristate "Qualcomm SM6350 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -411,7 +411,7 @@ config PINCTRL_SM6350
 	 Technologies Inc SM6350 platform.
 
 config PINCTRL_SM6375
-	tristate "Qualcomm Technologies Inc SM6375 pin controller driver"
+	tristate "Qualcomm SM6375 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -419,7 +419,7 @@ config PINCTRL_SM6375
 	 Technologies Inc SM6375 platform.
 
 config PINCTRL_SM7150
-	tristate "Qualcomm Technologies Inc SM7150 pin controller driver"
+	tristate "Qualcomm SM7150 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -427,7 +427,7 @@ config PINCTRL_SM7150
 	 Technologies Inc SM7150 platform.
 
 config PINCTRL_MILOS
-	tristate "Qualcomm Technologies Inc Milos pin controller driver"
+	tristate "Qualcomm Milos pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -435,7 +435,7 @@ config PINCTRL_MILOS
 	  Technologies Inc Milos platform.
 
 config PINCTRL_SM8150
-	tristate "Qualcomm Technologies Inc SM8150 pin controller driver"
+	tristate "Qualcomm SM8150 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	 This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -443,7 +443,7 @@ config PINCTRL_SM8150
 	 Technologies Inc SM8150 platform.
 
 config PINCTRL_SM8250
-	tristate "Qualcomm Technologies Inc SM8250 pin controller driver"
+	tristate "Qualcomm SM8250 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -451,7 +451,7 @@ config PINCTRL_SM8250
 	  Technologies Inc SM8250 platform.
 
 config PINCTRL_SM8350
-	tristate "Qualcomm Technologies Inc SM8350 pin controller driver"
+	tristate "Qualcomm SM8350 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -459,7 +459,7 @@ config PINCTRL_SM8350
 	  Technologies Inc SM8350 platform.
 
 config PINCTRL_SM8450
-	tristate "Qualcomm Technologies Inc SM8450 pin controller driver"
+	tristate "Qualcomm SM8450 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -467,7 +467,7 @@ config PINCTRL_SM8450
 	  Technologies Inc SM8450 platform.
 
 config PINCTRL_SM8550
-	tristate "Qualcomm Technologies Inc SM8550 pin controller driver"
+	tristate "Qualcomm SM8550 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -475,7 +475,7 @@ config PINCTRL_SM8550
 	  Technologies Inc SM8550 platform.
 
 config PINCTRL_SM8650
-	tristate "Qualcomm Technologies Inc SM8650 pin controller driver"
+	tristate "Qualcomm SM8650 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -483,7 +483,7 @@ config PINCTRL_SM8650
 	  Technologies Inc SM8650 platform.
 
 config PINCTRL_SM8750
-	tristate "Qualcomm Technologies Inc SM8750 pin controller driver"
+	tristate "Qualcomm SM8750 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
@@ -491,7 +491,7 @@ config PINCTRL_SM8750
 	  Technologies Inc SM8750 platform.
 
 config PINCTRL_X1E80100
-	tristate "Qualcomm Technologies Inc X1E80100 pin controller driver"
+	tristate "Qualcomm X1E80100 pin controller driver"
 	depends on ARM64 || COMPILE_TEST
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
