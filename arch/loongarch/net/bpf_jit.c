@@ -512,6 +512,99 @@ static int emit_atomic_rmw(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	return 0;
 }
 
+static int emit_atomic_ld_st(const struct bpf_insn *insn, struct jit_ctx *ctx)
+{
+	const u8 t1 = LOONGARCH_GPR_T1;
+	const u8 src = regmap[insn->src_reg];
+	const u8 dst = regmap[insn->dst_reg];
+	const s16 off = insn->off;
+	const s32 imm = insn->imm;
+
+	switch (imm) {
+	/* dst_reg = load_acquire(src_reg + off16) */
+	case BPF_LOAD_ACQ:
+		switch (BPF_SIZE(insn->code)) {
+		case BPF_B:
+			if (is_signed_imm12(off)) {
+				emit_insn(ctx, ldbu, dst, src, off);
+			} else {
+				move_imm(ctx, t1, off, false);
+				emit_insn(ctx, ldxbu, dst, src, t1);
+			}
+			break;
+		case BPF_H:
+			if (is_signed_imm12(off)) {
+				emit_insn(ctx, ldhu, dst, src, off);
+			} else {
+				move_imm(ctx, t1, off, false);
+				emit_insn(ctx, ldxhu, dst, src, t1);
+			}
+			break;
+		case BPF_W:
+			if (is_signed_imm12(off)) {
+				emit_insn(ctx, ldwu, dst, src, off);
+			} else {
+				move_imm(ctx, t1, off, false);
+				emit_insn(ctx, ldxwu, dst, src, t1);
+			}
+			break;
+		case BPF_DW:
+			if (is_signed_imm12(off)) {
+				emit_insn(ctx, ldd, dst, src, off);
+			} else {
+				move_imm(ctx, t1, off, false);
+				emit_insn(ctx, ldxd, dst, src, t1);
+			}
+			break;
+		}
+		emit_insn(ctx, dbar, 0b10100);
+		break;
+	/* store_release(dst_reg + off16, src_reg) */
+	case BPF_STORE_REL:
+		emit_insn(ctx, dbar, 0b10010);
+		switch (BPF_SIZE(insn->code)) {
+		case BPF_B:
+			if (is_signed_imm12(off)) {
+				emit_insn(ctx, stb, src, dst, off);
+			} else {
+				move_imm(ctx, t1, off, false);
+				emit_insn(ctx, stxb, src, dst, t1);
+			}
+			break;
+		case BPF_H:
+			if (is_signed_imm12(off)) {
+				emit_insn(ctx, sth, src, dst, off);
+			} else {
+				move_imm(ctx, t1, off, false);
+				emit_insn(ctx, stxh, src, dst, t1);
+			}
+			break;
+		case BPF_W:
+			if (is_signed_imm12(off)) {
+				emit_insn(ctx, stw, src, dst, off);
+			} else {
+				move_imm(ctx, t1, off, false);
+				emit_insn(ctx, stxw, src, dst, t1);
+			}
+			break;
+		case BPF_DW:
+			if (is_signed_imm12(off)) {
+				emit_insn(ctx, std, src, dst, off);
+			} else {
+				move_imm(ctx, t1, off, false);
+				emit_insn(ctx, stxd, src, dst, t1);
+			}
+			break;
+		}
+		break;
+	default:
+		pr_err_once("bpf-jit: invalid atomic load/store opcode %02x\n", imm);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static bool is_signed_bpf_cond(u8 cond)
 {
 	return cond == BPF_JSGT || cond == BPF_JSLT ||
@@ -1320,7 +1413,10 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx, bool ext
 	case BPF_STX | BPF_ATOMIC | BPF_H:
 	case BPF_STX | BPF_ATOMIC | BPF_W:
 	case BPF_STX | BPF_ATOMIC | BPF_DW:
-		ret = emit_atomic_rmw(insn, ctx);
+		if (!bpf_atomic_is_load_store(insn))
+			ret = emit_atomic_rmw(insn, ctx);
+		else
+			ret = emit_atomic_ld_st(insn, ctx);
 		if (ret)
 			return ret;
 		break;
