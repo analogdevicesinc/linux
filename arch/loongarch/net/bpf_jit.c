@@ -344,7 +344,7 @@ toofar:
 #undef jmp_offset
 }
 
-static void emit_atomic(const struct bpf_insn *insn, struct jit_ctx *ctx)
+static int emit_atomic_rmw(const struct bpf_insn *insn, struct jit_ctx *ctx)
 {
 	const u8 t1 = LOONGARCH_GPR_T1;
 	const u8 t2 = LOONGARCH_GPR_T2;
@@ -448,7 +448,12 @@ static void emit_atomic(const struct bpf_insn *insn, struct jit_ctx *ctx)
 			emit_zext_32(ctx, r0, true);
 		}
 		break;
+	default:
+		pr_err_once("bpf-jit: invalid atomic read-modify-write opcode %02x\n", imm);
+		return -EINVAL;
 	}
+
+	return 0;
 }
 
 static bool is_signed_bpf_cond(u8 cond)
@@ -1256,7 +1261,9 @@ static int build_insn(const struct bpf_insn *insn, struct jit_ctx *ctx, bool ext
 
 	case BPF_STX | BPF_ATOMIC | BPF_W:
 	case BPF_STX | BPF_ATOMIC | BPF_DW:
-		emit_atomic(insn, ctx);
+		ret = emit_atomic_rmw(insn, ctx);
+		if (ret)
+			return ret;
 		break;
 
 	/* Speculation barrier */
