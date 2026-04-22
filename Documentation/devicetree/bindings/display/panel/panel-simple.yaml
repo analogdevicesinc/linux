@@ -97,6 +97,8 @@ properties:
       - dataimage,fg1001l0dsswmg01
         # DataImage, Inc. 7" WVGA (800x480) TFT LCD panel with 24-bit parallel interface.
       - dataimage,scf0700c48ggu18
+        # Displaytech DT050BTFT-PTS 5.0" 800x480 TFT LCD Panel
+      - displaytech,dt050btft-pts
         # DLC Display Co. DLC1010GIG 10.1" WXGA TFT LCD Panel
       - dlc,dlc1010gig
         # Emerging Display Technology Corp. 3.5" QVGA TFT LCD panel
