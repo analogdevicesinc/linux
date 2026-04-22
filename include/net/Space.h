@@ -6,5 +6,4 @@
 struct net_device *ultra_probe(int unit);
 struct net_device *wd_probe(int unit);
 struct net_device *ne_probe(int unit);
-struct net_device *smc_init(int unit);
 struct net_device *cs89x0_probe(int unit);
