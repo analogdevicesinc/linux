@@ -91,6 +91,9 @@
 #define ADI_DRP_RDATA(x)			(((x) & 0xFFFF) << 0)
 #define ADI_TO_DRP_RDATA(x)		(((x) >> 0) & 0xFFFF)
 
+#define ADI_REG_ADC_CONFIG_WR		0x0080
+#define ADI_REG_ADC_CONFIG_RD		0x0084
+
 #define ADI_REG_DMA_STATUS		0x0088
 #define ADI_DMA_OVF			(1 << 2)
 #define ADI_DMA_UNF			(1 << 1)
