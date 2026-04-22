@@ -23,8 +23,6 @@
  *
  */
 
-#include <linux/array_size.h>
-
 #include "dm_services.h"
 
 

@@ -205,6 +205,8 @@ struct dc_edid_caps {
 	uint32_t audio_latency;
 	uint32_t video_latency;
 
+	unsigned char freesync_vcp_code;
+
 	uint8_t qs_bit;
 	uint8_t qy_bit;
 
@@ -1311,6 +1313,10 @@ struct dc_panel_config {
 	struct rio {
 		bool disable_rio;
 	} rio;
+};
+
+struct mccs_caps {
+	bool freesync_supported;
 };
 
 #define MAX_SINKS_PER_LINK 4

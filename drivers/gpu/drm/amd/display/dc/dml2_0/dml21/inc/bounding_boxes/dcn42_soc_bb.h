@@ -68,6 +68,7 @@ static const struct dml2_soc_qos_parameters dml_dcn42_variant_a_soc_qos_params =
 	.qos_type = dml2_qos_param_type_dcn3,
 };
 
+/* Default SOC bounding box for DCN42 based on LPDDR5/LPCAMM2 latencies*/
 static const struct dml2_soc_bb dml2_socbb_dcn42 = {
 	.clk_table = {
 		.wck_ratio = {
@@ -185,12 +186,13 @@ static const struct dml2_soc_bb dml2_socbb_dcn42 = {
 		.qos_type = dml2_qos_param_type_dcn3,
 	},
 
+	/* DCN42 params for LPDDR5/LPCAMM2 */
 	.power_management_parameters = {
-		.dram_clk_change_blackout_us = 29,
+		.dram_clk_change_blackout_us = 36,
 		.fclk_change_blackout_us = 0,
 		.g7_ppt_blackout_us = 0,
-		.stutter_enter_plus_exit_latency_us = 11,
-		.stutter_exit_latency_us = 9,
+		.stutter_enter_plus_exit_latency_us = 14,
+		.stutter_exit_latency_us = 12,
 		.z8_stutter_enter_plus_exit_latency_us = 300,
 		.z8_stutter_exit_latency_us = 200,
 	},
@@ -203,12 +205,12 @@ static const struct dml2_soc_bb dml2_socbb_dcn42 = {
 	.xtalclk_mhz = 24,
 	.pcie_refclk_mhz = 100,
 	.dchub_refclk_mhz = 50,
-	.mall_allocated_for_dcn_mbytes = 64,
+	.mall_allocated_for_dcn_mbytes = 0,
 	.max_outstanding_reqs = 256,
 	.fabric_datapath_to_dcn_data_return_bytes = 32,
 	.return_bus_width_bytes = 64,
 	.hostvm_min_page_size_kbytes = 4,
-	.gpuvm_min_page_size_kbytes = 256,
+	.gpuvm_min_page_size_kbytes = 4,
 	.gpuvm_max_page_table_levels = 1,
 	.hostvm_max_non_cached_page_table_levels = 2,
 	.phy_downspread_percent = 0.38,
@@ -220,6 +222,17 @@ static const struct dml2_soc_bb dml2_socbb_dcn42 = {
 	.mcache_size_bytes = 2048,
 	.mcache_line_size_bytes = 32,
 	.max_fclk_for_uclk_dpm_khz = 2200 * 1000,
+};
+
+/* DCN42 params for DDR5 */
+struct dml2_soc_power_management_parameters dcn42_ddr5_power_management_parameters = {
+	.dram_clk_change_blackout_us = 36,
+	.fclk_change_blackout_us = 0,
+	.g7_ppt_blackout_us = 0,
+	.stutter_enter_plus_exit_latency_us = 23.5,
+	.stutter_exit_latency_us = 21.5,
+	.z8_stutter_enter_plus_exit_latency_us = 300,
+	.z8_stutter_exit_latency_us = 200,
 };
 
 static const struct dml2_ip_capabilities dml2_dcn42_max_ip_caps = {
@@ -234,7 +247,7 @@ static const struct dml2_ip_capabilities dml2_dcn42_max_ip_caps = {
 	.config_return_buffer_segment_size_in_kbytes = 64,
 	.meta_fifo_size_in_kentries = 32,
 	.compressed_buffer_segment_size_in_kbytes = 64,
-	.cursor_buffer_size = 24,
+	.cursor_buffer_size = 42,
 	.max_flip_time_us = 110,
 	.max_flip_time_lines = 50,
 	.hostvm_mode = 0,

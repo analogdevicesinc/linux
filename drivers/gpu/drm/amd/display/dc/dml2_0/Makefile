@@ -100,6 +100,7 @@ DML21 += src/dml2_mcg/dml2_mcg_factory.o
 DML21 += src/dml2_pmo/dml2_pmo_dcn3.o
 DML21 += src/dml2_pmo/dml2_pmo_factory.o
 DML21 += src/dml2_pmo/dml2_pmo_dcn4_fams2.o
+DML21 += src/dml2_pmo/dml2_pmo_dcn42.o
 DML21 += src/dml2_standalone_libraries/lib_float_math.o
 DML21 += dml21_translation_helper.o
 DML21 += dml21_wrapper.o

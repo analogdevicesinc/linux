@@ -428,6 +428,7 @@ static void insert_strategy_into_expanded_list(
 	struct dml2_pmo_pstate_strategy *expanded_strategy_list,
 	unsigned int *num_expanded_strategies)
 {
+	(void)stream_count;
 	if (expanded_strategy_list && num_expanded_strategies) {
 		memcpy(&expanded_strategy_list[*num_expanded_strategies], per_stream_pstate_strategy, sizeof(struct dml2_pmo_pstate_strategy));
 
@@ -520,6 +521,7 @@ static bool is_variant_method_valid(const struct dml2_pmo_pstate_strategy *base_
 		const unsigned int num_streams_per_variant_method[PMO_DCN4_MAX_DISPLAYS],
 		const unsigned int stream_count)
 {
+	(void)variant_strategy;
 	bool valid = true;
 	unsigned int i;
 
@@ -1180,6 +1182,7 @@ static bool all_timings_support_svp(const struct dml2_pmo_instance *pmo,
 
 static void insert_into_candidate_list(const struct dml2_pmo_pstate_strategy *pstate_strategy, int stream_count, struct dml2_pmo_scratch *scratch)
 {
+	(void)stream_count;
 	scratch->pmo_dcn4.pstate_strategy_candidates[scratch->pmo_dcn4.num_pstate_candidates] = *pstate_strategy;
 	scratch->pmo_dcn4.num_pstate_candidates++;
 }
@@ -1659,7 +1662,7 @@ static bool validate_pstate_support_strategy_cofunctionality(struct dml2_pmo_ins
 	return is_config_schedulable(pmo, display_cfg, pstate_strategy);
 }
 
-static int get_vactive_pstate_margin(const struct display_configuation_with_meta *display_cfg, int plane_mask)
+int dcn4_get_vactive_pstate_margin(const struct display_configuation_with_meta *display_cfg, int plane_mask)
 {
 	unsigned int i;
 	int min_vactive_margin_us = 0xFFFFFFF;
@@ -1847,6 +1850,7 @@ static void build_subvp_meta_per_stream(struct dml2_pmo_instance *pmo,
 	struct display_configuation_with_meta *display_config,
 	int stream_index)
 {
+	(void)display_config;
 	struct dml2_implicit_svp_meta *stream_svp_meta = &pmo->scratch.pmo_dcn4.stream_svp_meta[stream_index];
 	struct dml2_pstate_meta *stream_pstate_meta = &pmo->scratch.pmo_dcn4.stream_pstate_meta[stream_index];
 
@@ -1903,7 +1907,7 @@ bool pmo_dcn4_fams2_init_for_pstate_support(struct dml2_pmo_init_for_pstate_supp
 
 	// Figure out which streams can do vactive, and also build up implicit SVP and FAMS2 meta
 	for (stream_index = 0; stream_index < display_config->display_config.num_streams; stream_index++) {
-		if (get_vactive_pstate_margin(display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) >= (int)(MIN_VACTIVE_MARGIN_PCT * pmo->soc_bb->power_management_parameters.dram_clk_change_blackout_us))
+		if (dcn4_get_vactive_pstate_margin(display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) >= (int)(MIN_VACTIVE_MARGIN_PCT * pmo->soc_bb->power_management_parameters.dram_clk_change_blackout_us))
 			set_bit_in_bitfield(&s->pmo_dcn4.stream_vactive_capability_mask, stream_index);
 
 		/* FAMS2 meta */
@@ -1990,6 +1994,7 @@ static void setup_planes_for_drr_by_mask(struct display_configuation_with_meta *
 	struct dml2_pmo_instance *pmo,
 	int plane_mask)
 {
+	(void)pmo;
 	unsigned int plane_index;
 	struct dml2_plane_parameters *plane;
 
@@ -2177,7 +2182,9 @@ static bool setup_display_config(struct display_configuation_with_meta *display_
 	return success;
 }
 
-static int get_minimum_reserved_time_us_for_planes(struct display_configuation_with_meta *display_config, int plane_mask)
+int dcn4_get_minimum_reserved_time_us_for_planes(
+	const struct display_configuation_with_meta *display_config,
+	int plane_mask)
 {
 	int min_time_us = 0xFFFFFF;
 	unsigned int plane_index = 0;
@@ -2217,16 +2224,16 @@ bool pmo_dcn4_fams2_test_for_pstate_support(struct dml2_pmo_test_for_pstate_supp
 
 		if (s->pmo_dcn4.pstate_strategy_candidates[s->pmo_dcn4.cur_pstate_candidate].per_stream_pstate_method[stream_index] == dml2_pstate_method_vactive ||
 				s->pmo_dcn4.pstate_strategy_candidates[s->pmo_dcn4.cur_pstate_candidate].per_stream_pstate_method[stream_index] == dml2_pstate_method_fw_vactive_drr) {
-			if (get_vactive_pstate_margin(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) < (MIN_VACTIVE_MARGIN_PCT * in_out->instance->soc_bb->power_management_parameters.dram_clk_change_blackout_us) ||
+			if (dcn4_get_vactive_pstate_margin(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) < (MIN_VACTIVE_MARGIN_PCT * in_out->instance->soc_bb->power_management_parameters.dram_clk_change_blackout_us) ||
 					get_vactive_det_fill_latency_delay_us(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) > stream_pstate_meta->method_vactive.max_vactive_det_fill_delay_us) {
 				p_state_supported = false;
 				break;
 			}
 		} else if (s->pmo_dcn4.pstate_strategy_candidates[s->pmo_dcn4.cur_pstate_candidate].per_stream_pstate_method[stream_index] == dml2_pstate_method_vblank ||
 				s->pmo_dcn4.pstate_strategy_candidates[s->pmo_dcn4.cur_pstate_candidate].per_stream_pstate_method[stream_index] == dml2_pstate_method_fw_vblank_drr) {
-			if (get_minimum_reserved_time_us_for_planes(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) <
+			if (dcn4_get_minimum_reserved_time_us_for_planes(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) <
 				REQUIRED_RESERVED_TIME ||
-				get_vactive_pstate_margin(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) < MIN_VACTIVE_MARGIN_VBLANK) {
+				dcn4_get_vactive_pstate_margin(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) < MIN_VACTIVE_MARGIN_VBLANK) {
 				p_state_supported = false;
 				break;
 			}
@@ -2238,7 +2245,7 @@ bool pmo_dcn4_fams2_test_for_pstate_support(struct dml2_pmo_test_for_pstate_supp
 			}
 		} else if (s->pmo_dcn4.pstate_strategy_candidates[s->pmo_dcn4.cur_pstate_candidate].per_stream_pstate_method[stream_index] == dml2_pstate_method_fw_drr) {
 			if (!all_planes_match_method(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index], dml2_pstate_method_fw_drr) ||
-				get_vactive_pstate_margin(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) < MIN_VACTIVE_MARGIN_DRR) {
+				dcn4_get_vactive_pstate_margin(in_out->base_display_config, s->pmo_dcn4.stream_plane_mask[stream_index]) < MIN_VACTIVE_MARGIN_DRR) {
 				p_state_supported = false;
 				break;
 			}

@@ -3062,9 +3062,6 @@ static int smu7_hwmgr_backend_init(struct pp_hwmgr *hwmgr)
 		smu7_set_private_data_based_on_pptable_v0(hwmgr);
 	}
 
-	if (result)
-		goto fail;
-
 	data->is_tlu_enabled = false;
 
 	hwmgr->platform_descriptor.hardwareActivityPerformanceLevels =
