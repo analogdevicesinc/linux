@@ -154,7 +154,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Write_Val
     ADI_RANGE_CHECK(device, gainTableType, ADI_ADRV9001_RX_GAIN_CORRECTION_TABLE, ADI_ADRV9001_RX_GAIN_COMPENSATION_TABLE);
 
     /*Check that Rx profile or ORx profile is valid*/
-    if (((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_RX_PROFILE_VALID)) == 0) &&
+	if (((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_RX_PROFILE_VALID)) == 0) &&
         ((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_ORX_PROFILE_VALID)) == 0) &&
         ((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_TX_PROFILE_VALID)) == 0))
     {
@@ -356,9 +356,9 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_GainTable_Read_Vali
 
     ADI_RANGE_CHECK(device, gainIndexOffset, minGainIndex, ADI_ADRV9001_RX_GAIN_INDEX_MAX);
     
-    if (((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_RX_PROFILE_VALID)) == 0) &&
-        ((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_ORX_PROFILE_VALID)) == 0) &&
-        ((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_TX_PROFILE_VALID)) == 0))
+	if (((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_RX_PROFILE_VALID)) == 0) &&
+	    ((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_ORX_PROFILE_VALID)) == 0) &&
+	    ((ADRV9001_BF_EQUAL(device->devStateInfo.profilesValid, ADI_ADRV9001_TX_PROFILE_VALID)) == 0))
     {
         ADI_ERROR_REPORT(&device->common,
                          ADI_COMMON_ERRSRC_API,
@@ -1527,13 +1527,6 @@ int32_t adi_adrv9001_Rx_GainIndex_Gpio_Configure(adi_adrv9001_Device_t *device,
     uint8_t gpioCrumb5_4 = 0;
     uint8_t gpioCrumb7_6 = 0;
 
-    uint8_t gpioSource1_0 = 0;
-    uint8_t gpioSource3_2 = 0;
-    uint8_t gpioSource5_4 = 0;
-    uint8_t gpioSource7_6 = 0;
-
-    uint16_t gpioOutEn = 0;
-
     static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX1_1_0 = 0x10;
     static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX1_3_2 = 0x11;
     static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX1_5_4 = 0x12;
@@ -1544,7 +1537,6 @@ int32_t adi_adrv9001_Rx_GainIndex_Gpio_Configure(adi_adrv9001_Device_t *device,
     static const uint8_t ADI_ADRV9001_GPIO_SOURCE_RX2_7_6 = 0x17;
 
     static const int8_t GAIN_INDEX_MUX_ADDRESS = 0x26;
-    static const uint16_t GPIO_SOURCE_SEL_ADDR = 0x56;
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_Rx_GainIndex_Gpio_Configure_Validate, device, channel, gainIndexPinCfgchannel);
 
@@ -1556,58 +1548,65 @@ int32_t adi_adrv9001_Rx_GainIndex_Gpio_Configure(adi_adrv9001_Device_t *device,
     gpioCrumb5_4 = (uint8_t)gainIndexPinCfgchannel->gainIndex_05_04;
     gpioCrumb7_6 = (uint8_t)gainIndexPinCfgchannel->gainChange_gainIndex_06;
 
-    if (ADI_CHANNEL_1 == channel)
-    {
-        gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX1_1_0;
-        gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX1_3_2;
-        gpioSource5_4 = ADI_ADRV9001_GPIO_SOURCE_RX1_5_4;
-        gpioSource7_6 = ADI_ADRV9001_GPIO_SOURCE_RX1_7_6;
-    }
-    else
-    {
-        gpioSource1_0 = ADI_ADRV9001_GPIO_SOURCE_RX2_1_0;
-        gpioSource3_2 = ADI_ADRV9001_GPIO_SOURCE_RX2_3_2;
-        gpioSource5_4 = ADI_ADRV9001_GPIO_SOURCE_RX2_5_4;
-        gpioSource7_6 = ADI_ADRV9001_GPIO_SOURCE_RX2_7_6;
-    }
+	if (ADI_CHANNEL_1 == channel)
+	{
+		if (gpioCrumb1_0 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+		{
+			device->devStateInfo.crumbSrcOffset = ADI_ADRV9001_GPIO_SOURCE_RX1_1_0;
+			ADI_EXPECT(adi_adrv9001_gpio_ManualOutput_Configure, device, gpioCrumb1_0);
+			device->devStateInfo.crumbSrcOffset = 0;
+		}
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Get, device, &gpioOutEn);
+		if (gpioCrumb3_2 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+		{
+			device->devStateInfo.crumbSrcOffset = ADI_ADRV9001_GPIO_SOURCE_RX1_3_2;
+			ADI_EXPECT(adi_adrv9001_gpio_ManualOutput_Configure, device, gpioCrumb3_2);
+			device->devStateInfo.crumbSrcOffset = 0;
+		}
 
-	if (gpioCrumb1_0 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
-	{
-		gpioOutEn |= (1 << (gpioCrumb1_0 * 2 - 1)) | (1 << (gpioCrumb1_0 * 2 - 2));
-	}
-	if(gpioCrumb3_2 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
-	{
-		gpioOutEn |= (1 << (gpioCrumb3_2 * 2 - 1)) | (1 << (gpioCrumb3_2 * 2 - 2));
-	}
-	if (gpioCrumb5_4 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
-	{
-		gpioOutEn |= (1 << (gpioCrumb5_4 * 2 - 1)) | (1 << (gpioCrumb5_4 * 2 - 2));
-	}
-	if (gpioCrumb7_6 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
-	{
-		gpioOutEn |= (1 << (gpioCrumb7_6 * 2 - 1)) | (1 << (gpioCrumb7_6 * 2 - 2));
-	}
+		if (gpioCrumb5_4 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+		{
+			device->devStateInfo.crumbSrcOffset = ADI_ADRV9001_GPIO_SOURCE_RX1_5_4;
+			ADI_EXPECT(adi_adrv9001_gpio_ManualOutput_Configure, device, gpioCrumb5_4);
+			device->devStateInfo.crumbSrcOffset = 0;
+		}
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Set, device, gpioOutEn);
+		if (gpioCrumb7_6 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+		{
+			device->devStateInfo.crumbSrcOffset = ADI_ADRV9001_GPIO_SOURCE_RX1_7_6;
+			ADI_EXPECT(adi_adrv9001_gpio_ManualOutput_Configure, device, gpioCrumb7_6);
+			device->devStateInfo.crumbSrcOffset = 0;
+		}
+	}
+	else
+	{
+		if (gpioCrumb1_0 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+		{
+			device->devStateInfo.crumbSrcOffset = ADI_ADRV9001_GPIO_SOURCE_RX2_1_0;
+			ADI_EXPECT(adi_adrv9001_gpio_ManualOutput_Configure, device, gpioCrumb1_0);
+			device->devStateInfo.crumbSrcOffset = 0;
+		}
 
-    /* Configure source */
-	if (gpioCrumb1_0 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
-	{
-		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb1_0 - 1), gpioSource1_0);
-	}
-	if (gpioCrumb3_2 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
-	{
-		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb3_2 - 1), gpioSource3_2);
-	}
-	if (gpioCrumb5_4 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
-	{
-		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb5_4 - 1), gpioSource5_4);
-	}
-	if (gpioCrumb7_6 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
-	{
-		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb7_6 - 1), gpioSource7_6);
+		if (gpioCrumb3_2 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+		{
+			device->devStateInfo.crumbSrcOffset = ADI_ADRV9001_GPIO_SOURCE_RX2_3_2;
+			ADI_EXPECT(adi_adrv9001_gpio_ManualOutput_Configure, device, gpioCrumb3_2);
+			device->devStateInfo.crumbSrcOffset = 0;
+		}
+
+		if (gpioCrumb5_4 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+		{
+			device->devStateInfo.crumbSrcOffset = ADI_ADRV9001_GPIO_SOURCE_RX2_5_4;
+			ADI_EXPECT(adi_adrv9001_gpio_ManualOutput_Configure, device, gpioCrumb5_4);
+			device->devStateInfo.crumbSrcOffset = 0;
+		}
+
+		if (gpioCrumb7_6 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+		{
+			device->devStateInfo.crumbSrcOffset = ADI_ADRV9001_GPIO_SOURCE_RX2_7_6;
+			ADI_EXPECT(adi_adrv9001_gpio_ManualOutput_Configure, device, gpioCrumb7_6);
+			device->devStateInfo.crumbSrcOffset = 0;
+		}
 	}
 
     ADI_EXPECT(adrv9001_NvsRegmapRx_ControlOutMuxSel_Set, device, instance, GAIN_INDEX_MUX_ADDRESS);

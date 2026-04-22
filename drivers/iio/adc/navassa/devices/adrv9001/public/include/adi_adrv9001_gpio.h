@@ -276,6 +276,60 @@ int32_t adi_adrv9001_gpio_Inspect(adi_adrv9001_Device_t *adrv9001,
                                   adi_adrv9001_GpioSignal_e signal,
                                   adi_adrv9001_GpioCfg_t *gpioConfig);
 
+/**
+ * \brief Configure ADRV9001 GPIO pins 12/13/14/15 for general-purpose (GP) functionality
+ *
+ * This function configures the specified GPIO pins (12-15) for manual input/output operation
+ * when they are not being used for TX SSI reference clock functionality. The function:
+ * - Enables/disables TX1 and TX2 SSI ports as needed
+ * - Configures the reference clock pad source control to use GPIO mode
+ * - Sets pin direction (input or output) for the selected GPIO pair
+ * - Powers up Channel 2 if needed for GPIO 14/15 output configuration
+ *
+ * \note Message type: \ref timing_direct "Direct register access"
+ *
+ * \pre Channel state must be STANDBY or CALIBRATED
+ *
+ * \param[in] adrv9001       Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in] tx1portEn      Enable TX1 SSI port (1 = enable, 0 = disable)
+ * \param[in] tx2portEn      Enable TX2 SSI port (1 = enable, 0 = disable)
+ * \param[in] gpioOptions    The GPIO configuration mode for pins/crumbs 12/13/14/15:
+ *                           - ADI_ADRV9001_GPIO_12_13_INPUT: Configure GPIO 12/13 as inputs
+ *                           - ADI_ADRV9001_GPIO_12_13_OUTPUT: Configure GPIO 12/13 as outputs
+ *                           - ADI_ADRV9001_GPIO_14_15_INPUT: Configure GPIO 14/15 as inputs
+ *                           - ADI_ADRV9001_GPIO_14_15_OUTPUT: Configure GPIO 14/15 as outputs
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t  adrv9001_GpCaseConfig(adi_adrv9001_Device_t *adrv9001,
+                               uint8_t tx1portEn,
+		                       uint8_t tx2portEn,
+		                       adi_adrv9001_GpioOptions_e gpioOptions);
+
+/**
+ * \brief Validate and apply GPIO configuration for ADRV9001 pins 12/13/14/15
+ *
+ * This function validates whether the requested GPIO configuration is compatible with
+ * the current device state (channel enables and TX SSI reference clock configuration),
+ * then applies the configuration if valid. The function evaluates the device against
+ * 11 predefined hardware configuration cases to determine GPIO pin availability.
+ *
+ * \note Message type: \ref timing_direct "Direct register access"
+ *
+ * \pre Channel state any of STANDBY, CALIBRATED
+ *
+ * \param[in] adrv9001       Context variable - Pointer to the ADRV9001 device data structure
+ * \param[in] gpioOptions    The desired GPIO configuration for pins/crumbs 12/13/14/15:
+ *                           - ADI_ADRV9001_GPIO_12_13_INPUT: Request GPIO 12/13 as inputs
+ *                           - ADI_ADRV9001_GPIO_12_13_OUTPUT: Request GPIO 12/13 as outputs
+ *                           - ADI_ADRV9001_GPIO_14_15_INPUT: Request GPIO 14/15 as inputs
+ *                           - ADI_ADRV9001_GPIO_14_15_OUTPUT: Request GPIO 14/15 as outputs
+ *
+ * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
+ */
+int32_t adrv9001_GpCaseSet(adi_adrv9001_Device_t *adrv9001,
+                           adi_adrv9001_GpioOptions_e gpioOptions);
+
 #ifdef __cplusplus
 }
 #endif

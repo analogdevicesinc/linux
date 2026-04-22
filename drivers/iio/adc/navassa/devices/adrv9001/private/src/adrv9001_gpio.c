@@ -323,3 +323,401 @@ int32_t adrv9001_GpInterruptsStatusWordBfGet(adi_adrv9001_Device_t *device, uint
 
     return status;
 }
+
+int32_t adrv9001_GpCaseConfig(adi_adrv9001_Device_t *device, uint8_t tx1portEn, uint8_t tx2portEn, adi_adrv9001_GpioOptions_e gpioOptions)
+{
+	uint8_t tx1portDisable = 0;
+	uint8_t tx2portDisable = 0;
+	uint8_t ch2Powerup = 0;
+
+	/* Check device pointer is not null */
+	ADI_NULL_DEVICE_PTR_RETURN(device);
+
+	if (tx1portEn)
+	{
+		tx1portDisable = 0;
+	}
+	else
+	{
+		tx1portDisable = 1;
+	}
+
+	if (tx2portEn)
+	{
+		tx2portDisable = 0;
+	}
+	else
+	{
+		tx2portDisable = 1;
+	}
+
+	ADI_EXPECT(adrv9001_NvsRegmapCore1_SsiTx1PortDisable_Set, device, tx1portDisable);
+	ADI_EXPECT(adrv9001_NvsRegmapCore1_SsiTx2PortDisable_Set, device, tx2portDisable);
+
+	if (gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT)
+	{
+		/* set refclk pad src ctrl as gpio12-13 */
+		ADI_EXPECT(adrv9001_NvsRegmapCore1_SsiCmosGpioTx1RefclkGpioSel_Set, device, 0x01);
+		/* set adrv pin as input */
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkCmosNOe_Set, device, 0x00);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkCmosPOe_Set, device, 0x00);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkCmosNIe_Set, device, 0x01);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkCmosPIe_Set, device, 0x01);
+	}
+	else if (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT)
+	{
+		/* set refclk pad src ctrl as gpio12-13 */
+		ADI_EXPECT(adrv9001_NvsRegmapCore1_SsiCmosGpioTx1RefclkGpioSel_Set, device, 0x01);
+		/* set adrv pin as output */
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkCmosNOe_Set, device, 0x01);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkCmosPOe_Set, device, 0x01);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkCmosNIe_Set, device, 0x00);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx1RefclkCmosPIe_Set, device, 0x00);
+	}
+	else if (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT)
+	{
+		/* set refclk pad src ctrl as gpio14-15 */
+		ADI_EXPECT(adrv9001_NvsRegmapCore1_SsiCmosGpioTx2RefclkGpioSel_Set, device, 0x01);
+		/* set adrv pin as input */
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkCmosNOe_Set, device, 0x00);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkCmosPOe_Set, device, 0x00);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkCmosNIe_Set, device, 0x01);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkCmosPIe_Set, device, 0x01);
+	}
+	else if (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT)
+	{
+		/* set refclk pad src ctrl as gpio14-15 */
+		ADI_EXPECT(adrv9001_NvsRegmapCore1_SsiCmosGpioTx2RefclkGpioSel_Set, device, 0x01);
+		/* set adrv pin as output */
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkCmosNOe_Set, device, 0x01);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkCmosPOe_Set, device, 0x01);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkCmosNIe_Set, device, 0x00);
+		ADI_EXPECT(adrv9001_NvsRegmapCore_Tx2RefclkCmosPIe_Set, device, 0x00);
+
+		ADI_EXPECT(adrv9001_NvsRegmapCore1_PgChannel2PowerEn_Get, device, &ch2Powerup);
+		if (!ch2Powerup)
+		{
+			/* Power up CH2 */
+			/* Turn on power switch */
+			ADI_EXPECT(adrv9001_NvsRegmapCore1_PgChannel2PowerEn_Set, device, 0x01);
+			/* Turn off ISO cells */
+			ADI_EXPECT(adrv9001_NvsRegmapCore1_PgChannel2PowerIsoDis_Set, device, 0x00);
+			/* Turn on power latches */
+			ADI_EXPECT(adrv9001_NvsRegmapCore1_PgChannel2PowerScanLatchEn_Set, device, 0x01);
+			/* Release reset */
+			ADI_EXPECT(adrv9001_NvsRegmapCore1_PgChannel2PowerResetb_Set, device, 0x01);
+		}
+	}
+
+	ADI_API_RETURN(device);
+}
+
+static __maybe_unused int32_t __maybe_unused adrv9001_GpCaseSet_Validate(adi_adrv9001_Device_t *device, adi_adrv9001_GpioOptions_e gpioOptions)
+{
+	ADI_RANGE_CHECK(device, gpioOptions, ADI_ADRV9001_GPIO_12_13_INPUT, ADI_ADRV9001_GPIO_14_15_OUTPUT);
+	ADI_API_RETURN(device);
+}
+
+int32_t adrv9001_GpCaseSet(adi_adrv9001_Device_t *device, adi_adrv9001_GpioOptions_e gpioOptions)
+{
+	uint8_t txSsiRefClockEnable[2] = { 0 };
+	uint8_t tx1channelEnable = 0;
+	uint8_t tx2channelEnable = 0;
+	uint8_t channel1Enabled = 0;
+	uint8_t channel2Enabled = 0;
+
+	ADI_PERFORM_VALIDATION(adrv9001_GpCaseSet_Validate, device, gpioOptions);
+
+	txSsiRefClockEnable[0] = device->devStateInfo.txSsiRefClockEnabled[0];
+	txSsiRefClockEnable[1] = device->devStateInfo.txSsiRefClockEnabled[1];
+
+	if (ADI_ADRV9001_TX1 == (device->devStateInfo.initializedChannels & ADI_ADRV9001_TX1))
+	{
+		tx1channelEnable = 1;
+	}
+	else
+	{
+		tx1channelEnable = 0;
+	}
+
+	if (ADI_ADRV9001_TX2 == (device->devStateInfo.initializedChannels & ADI_ADRV9001_TX2))
+	{
+		tx2channelEnable = 1;
+	}
+	else
+	{
+		tx2channelEnable = 0;
+	}
+
+	if ((ADI_ADRV9001_RX1 == (device->devStateInfo.initializedChannels & ADI_ADRV9001_RX1)) || (ADI_ADRV9001_TX1 == (device->devStateInfo.initializedChannels & ADI_ADRV9001_TX1)))
+	{
+		channel1Enabled = 1;
+	}
+	else
+	{
+		channel1Enabled = 0;
+	}
+
+	if ((ADI_ADRV9001_RX2 == (device->devStateInfo.initializedChannels & ADI_ADRV9001_RX2)) || (ADI_ADRV9001_TX2 == (device->devStateInfo.initializedChannels & ADI_ADRV9001_TX2)))
+	{
+		channel2Enabled = 1;
+	}
+	else
+	{
+		channel2Enabled = 0;
+	}
+
+	if (tx1channelEnable && txSsiRefClockEnable[0] && tx2channelEnable && txSsiRefClockEnable[1] && channel1Enabled && channel2Enabled)
+	{
+		/* Case - 1 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-1 : GPIO 12-15 already used as Ref Clk, not usable as GPIO.");
+		}
+	}
+	else if (tx1channelEnable && txSsiRefClockEnable[0] && tx2channelEnable && (!txSsiRefClockEnable[1]) && channel1Enabled && channel2Enabled)
+	{
+		/* Case - 2 */
+		if (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT)
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT))
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-2 : GPIO 12-13 already used as Ref Clk, not usable as GPIO.");
+		}
+		else if (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT)
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-2 : GPIO 14-15 not usable as Output");
+		}
+	}
+	else if (tx1channelEnable && txSsiRefClockEnable[0] && (!tx2channelEnable) && (!txSsiRefClockEnable[1]) && channel1Enabled && channel2Enabled)
+	{
+		/* Case - 3 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT))
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-3 : GPIO 12-13 already used as Ref Clk, not usable as GPIO.");
+		}
+	}
+	else if (tx1channelEnable && txSsiRefClockEnable[0] && (!tx2channelEnable) && (!txSsiRefClockEnable[1]) && channel1Enabled && (!channel2Enabled))
+	{
+		/* Case - 4 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT))
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				            "Case-4 : GPIO 12-13 already used as Ref Clk, not usable as GPIO.");
+		}
+	}
+	else if (tx1channelEnable && (!txSsiRefClockEnable[0]) && tx2channelEnable && txSsiRefClockEnable[1] && channel1Enabled && channel2Enabled)
+	{
+		/* Case - 5 */
+		if (gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT)
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if ((gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-5 : GPIO 14-15 already used as Ref Clk, not usable as GPIO.");
+		}
+		else if (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT)
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-5 : GPIO 12-13 not usable as Output.");
+		}
+	}
+	else if (tx1channelEnable && (!txSsiRefClockEnable[0]) && tx2channelEnable && (!txSsiRefClockEnable[1]) && channel1Enabled && channel2Enabled)
+	{
+		/* Case - 6 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-6 : GPIO 12-15 not usable as Output.");
+		}
+	}
+	else if (tx1channelEnable && (!txSsiRefClockEnable[0]) && (!tx2channelEnable) && (!txSsiRefClockEnable[1]) && channel1Enabled && channel2Enabled)
+	{
+		/* Case - 7 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT)
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-7 : GPIO 12-13 not usable as Output.");
+		}
+	}
+	else if (tx1channelEnable && (!txSsiRefClockEnable[0]) && (!tx2channelEnable) && (!txSsiRefClockEnable[1]) && channel1Enabled && (!channel2Enabled))
+	{
+		/* Case - 8 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT)
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-8 : GPIO 12-13 not usable as Output.");
+		}
+	}
+	else if ((!tx1channelEnable) && (!txSsiRefClockEnable[0]) && tx2channelEnable && (txSsiRefClockEnable[1]) && channel1Enabled && channel2Enabled)
+	{
+		/* Case - 9 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if ((gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-9 : GPIO 14-15 already used as Ref Clk, not usable as GPIO.");
+		}
+	}
+	else if ((!tx1channelEnable) && (!txSsiRefClockEnable[0]) && tx2channelEnable && txSsiRefClockEnable[1] && (!channel1Enabled) && channel2Enabled)
+	{
+		/* Case - 10 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if ((gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-10 : GPIO 14-15 already used as Ref Clk, not usable as GPIO.");
+		}
+	}
+	else if ((!tx1channelEnable) && (!txSsiRefClockEnable[0]) && tx2channelEnable && (!txSsiRefClockEnable[1]) && channel1Enabled && channel2Enabled)
+	{
+		/* Case - 11 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT)
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				             "Case-11 : GPIO 14-15 not usable as Output.");
+		}
+	}
+	else if ((!tx1channelEnable) && (!txSsiRefClockEnable[0]) && tx2channelEnable && (!txSsiRefClockEnable[1]) && (!channel1Enabled) && channel2Enabled)
+	{
+		/* Case - 12 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+		else if (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT)
+		{
+			ADI_ERROR_REPORT(&device->common,
+				             ADI_COMMON_ERRSRC_API,
+				             ADI_COMMON_ERR_API_FAIL,
+				             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+				             gpioOptions,
+				            "Case-12 : GPIO 14-15 not usable as Output.");
+		}
+	}
+	else if ((!tx1channelEnable) && (!txSsiRefClockEnable[0]) && (!tx2channelEnable) && (!txSsiRefClockEnable[1]) && channel1Enabled && channel2Enabled)
+	{
+		/* Case - 13 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+	}
+	else if ((!tx1channelEnable) && (!txSsiRefClockEnable[0]) && (!tx2channelEnable) && (!txSsiRefClockEnable[1]) && channel1Enabled && (!channel2Enabled))
+	{
+		/* Case - 14 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+	}
+	else if ((!tx1channelEnable) && (!txSsiRefClockEnable[0]) && (!tx2channelEnable) && (!txSsiRefClockEnable[1]) && (!channel1Enabled) && channel2Enabled)
+	{
+		/* Case - 15 */
+		if ((gpioOptions == ADI_ADRV9001_GPIO_12_13_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_12_13_OUTPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_INPUT) || (gpioOptions == ADI_ADRV9001_GPIO_14_15_OUTPUT))
+		{
+			ADI_EXPECT(adrv9001_GpCaseConfig, device, tx1channelEnable, tx2channelEnable, gpioOptions);
+		}
+	}
+	else
+	{
+		ADI_ERROR_REPORT(&device->common,
+			             ADI_COMMON_ERRSRC_API,
+			             ADI_COMMON_ERR_INV_PARAM,
+			             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+			             NULL,
+			             "Invalid GPIO configuration");
+	}
+
+	ADI_API_RETURN(device);
+}

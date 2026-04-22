@@ -1020,6 +1020,12 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Radio_PllLoopFilter_Se
                         MINIMUM_POWER_SCALE_FACTOR,
                         MAXIMUM_POWER_SCALE_FACTOR);
 
+    /*Check that loop filter coefficent mode is 0-1*/
+    ADI_RANGE_CHECK(adrv9001,
+                        pllLoopFilterConfig->loopCoefficientMode,
+                        ADI_ADRV9001_PLL_LF_COEFFICIENT_CALCULATE,
+                        ADI_ADRV9001_PLL_LF_COEFFICIENT_LOOKUP_TABLE);
+
     ADI_API_RETURN(adrv9001);
 }
 
@@ -1027,7 +1033,7 @@ int32_t adi_adrv9001_Radio_PllLoopFilter_Set(adi_adrv9001_Device_t *adrv9001,
                                              adi_adrv9001_Pll_e pll,
                                              adi_adrv9001_PllLoopFilterCfg_t *pllLoopFilterConfig)
 {
-    uint8_t armData[4] = { 0 };
+    uint8_t armData[5] = { 0 };
     uint8_t extData[3] = { 0 };
 #if !ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
 	int32_t halError = ADI_COMMON_ACT_NO_ACTION;
@@ -1040,6 +1046,7 @@ int32_t adi_adrv9001_Radio_PllLoopFilter_Set(adi_adrv9001_Device_t *adrv9001,
     armData[1] = (uint8_t)(pllLoopFilterConfig->loopBandwidth_kHz & 0x00FF);
     armData[2] = (uint8_t)((pllLoopFilterConfig->loopBandwidth_kHz >> 8) & 0x00FF);
     armData[3] = pllLoopFilterConfig->powerScale;
+    armData[4] = pllLoopFilterConfig->loopCoefficientMode;
 
     /* Write PLL Frequency to ARM mailbox */
     ADI_EXPECT(adi_adrv9001_arm_Memory_Write,
@@ -1097,7 +1104,7 @@ int32_t adi_adrv9001_Radio_PllLoopFilter_Get(adi_adrv9001_Device_t *adrv9001,
                                              adi_adrv9001_Pll_e pll,
                                              adi_adrv9001_PllLoopFilterCfg_t *pllLoopFilterConfig)
 {
-    uint8_t armData[6] = { 0 };
+    uint8_t armData[7] = { 0 };
     uint8_t extData[3] = { 0 };
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_PllLoopFilter_Get_Validate, adrv9001, pll, pllLoopFilterConfig);
@@ -1134,6 +1141,7 @@ int32_t adi_adrv9001_Radio_PllLoopFilter_Get(adi_adrv9001_Device_t *adrv9001,
     pllLoopFilterConfig->powerScale = armData[3];
     pllLoopFilterConfig->effectiveLoopBandwidth_kHz = (((uint16_t)armData[4]) |
                                                        ((uint16_t)armData[5] << 8));
+	pllLoopFilterConfig->loopCoefficientMode = (adi_adrv9001_PllLfCoefficientMode_e)armData[6];
 
     ADI_API_RETURN(adrv9001);
 }
