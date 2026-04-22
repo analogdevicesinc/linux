@@ -535,6 +535,11 @@ static int ras_umc_update_eeprom_rom_data(struct ras_core_context *ras_core,
 	memcpy(&data->bps[data->count], bps, sizeof(*data->bps));
 	data->count++;
 	data->space_left--;
+
+	/* update bad channel bitmap */
+	if (bps->mem_channel < BITS_PER_TYPE(data->umc_channel_bitmap))
+		data->umc_channel_bitmap |= 1 << bps->mem_channel;
+
 	return 0;
 }
 
@@ -579,6 +584,10 @@ static int ras_umc_update_eeprom_ram_data(struct ras_core_context *ras_core,
 		return -EINVAL;
 	}
 
+	/* update bad channel bitmap */
+	if (bps->mem_channel < BITS_PER_TYPE(data->umc_channel_bitmap))
+		data->umc_channel_bitmap |= 1 << bps->mem_channel;
+
 	return 0;
 }
 
@@ -588,6 +597,27 @@ static void ras_umc_update_bad_pages(struct ras_core_context *ras_core)
 	struct eeprom_store_record *data = &ras_umc->umc_err_data.ram_data;
 
 	data->bad_page_num_old = data->bad_page_num;
+}
+
+void ras_umc_report_badpage_info(struct ras_core_context *ras_core)
+{
+	struct ras_umc *ras_umc = &ras_core->ras_umc;
+	struct eeprom_store_record *data = &ras_umc->umc_err_data.ram_data;
+
+	if (ras_umc->last_record_count != data->count) {
+		ras_umc->last_record_count = data->count;
+		ras_core_event_notify(ras_core, RAS_EVENT_ID__UPDATE_BAD_PAGE_NUM,
+			&ras_umc->last_record_count);
+	}
+
+	if (ras_umc->last_channel_bitmap != data->umc_channel_bitmap) {
+		ras_umc->last_channel_bitmap = data->umc_channel_bitmap;
+		ras_core_event_notify(ras_core, RAS_EVENT_ID__UPDATE_BAD_CHANNEL_BITMAP,
+			&ras_umc->last_channel_bitmap);
+	}
+
+	if (ras_core->is_rma)
+		ras_core_event_notify(ras_core, RAS_EVENT_ID__DEVICE_RMA, NULL);
 }
 
 int ras_umc_add_bad_pages(struct ras_core_context *ras_core,
@@ -623,8 +653,11 @@ int ras_umc_add_bad_pages(struct ras_core_context *ras_core,
 
 	*valid_sz = c;
 
-	if (c)
+	if (c) {
 		ras_eeprom_mgr_check_and_report_status(ras_core, true);
+		if (!ras_core_in_early_init(ras_core))
+			ras_umc_report_badpage_info(ras_core);
+	}
 
 out:
 	mutex_unlock(&ras_umc->umc_lock);
@@ -782,10 +815,17 @@ int ras_umc_sw_fini(struct ras_core_context *ras_core)
 int ras_umc_hw_init(struct ras_core_context *ras_core)
 {
 	struct ras_umc *ras_umc = &ras_core->ras_umc;
+	int count = ras_umc_get_badpage_count(ras_core);
 
 	ras_umc->num_umc = ras_core->config->umc_cfg.num_umc;
 	ras_umc->pa_base = ras_core->config->umc_cfg.pa_base;
 	ras_umc->lfb_size = ras_core->config->umc_cfg.lfb_size;
+
+	/* For preloaded bad pages case, bad page info is
+	 * deferred to report in hw init.
+	 */
+	if (count > 0)
+		ras_umc_report_badpage_info(ras_core);
 
 	return 0;
 }

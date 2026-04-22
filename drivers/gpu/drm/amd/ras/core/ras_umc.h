@@ -156,6 +156,7 @@ struct eeprom_store_record {
 	 * ras_num_recs * retire_unit
 	 */
 	int bad_page_num_old;
+	uint64_t umc_channel_bitmap;
 };
 
 struct ras_umc_err_data {
@@ -182,6 +183,9 @@ struct ras_umc {
 	u32 pending_ecc_count;
 	/* number of entries dropped because pending_ecc_list was full */
 	u32 pending_ecc_dropped;
+
+	u32 last_record_count;
+	u64 last_channel_bitmap;
 };
 
 /*
@@ -230,4 +234,5 @@ int ras_umc_bank_to_umc_record(struct ras_core_context *ras_core,
 int ras_umc_record_to_nps_record(struct ras_core_context *ras_core,
 		struct eeprom_umc_record *record,  uint32_t nps);
 int ras_umc_dump_fw_records(struct ras_core_context *ras_core);
+void ras_umc_report_badpage_info(struct ras_core_context *ras_core);
 #endif
