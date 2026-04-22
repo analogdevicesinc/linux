@@ -549,7 +549,7 @@ static inline bool pte_access_permitted(pte_t pte, bool write)
 	return arch_pte_access_permitted(pte_val(pte), write, 0);
 }
 
-static inline bool pte_user_accessible_page(pte_t pte, unsigned long addr)
+static inline bool pte_user_accessible_page(struct mm_struct *mm, unsigned long addr, pte_t pte)
 {
 	return pte_present(pte) && pte_user(pte);
 }
@@ -925,9 +925,9 @@ static inline bool pud_access_permitted(pud_t pud, bool write)
 }
 
 #define pud_user_accessible_page pud_user_accessible_page
-static inline bool pud_user_accessible_page(pud_t pud, unsigned long addr)
+static inline bool pud_user_accessible_page(struct mm_struct *mm, unsigned long addr, pud_t pud)
 {
-	return pud_leaf(pud) && pte_user_accessible_page(pud_pte(pud), addr);
+	return pud_leaf(pud) && pte_user_accessible_page(mm, addr, pud_pte(pud));
 }
 
 #define __p4d_raw(x)	((p4d_t) { __pgd_raw(x) })
@@ -1096,9 +1096,9 @@ static inline bool pmd_access_permitted(pmd_t pmd, bool write)
 }
 
 #define pmd_user_accessible_page pmd_user_accessible_page
-static inline bool pmd_user_accessible_page(pmd_t pmd, unsigned long addr)
+static inline bool pmd_user_accessible_page(struct mm_struct *mm, unsigned long addr, pmd_t pmd)
 {
-	return pmd_leaf(pmd) && pte_user_accessible_page(pmd_pte(pmd), addr);
+	return pmd_leaf(pmd) && pte_user_accessible_page(mm, addr, pmd_pte(pmd));
 }
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE

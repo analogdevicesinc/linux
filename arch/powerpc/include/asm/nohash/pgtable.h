@@ -249,7 +249,7 @@ static inline bool pte_access_permitted(pte_t pte, bool write)
 	return true;
 }
 
-static inline bool pte_user_accessible_page(pte_t pte, unsigned long addr)
+static inline bool pte_user_accessible_page(struct mm_struct *mm, unsigned long addr, pte_t pte)
 {
 	return pte_present(pte) && !is_kernel_addr(addr);
 }
