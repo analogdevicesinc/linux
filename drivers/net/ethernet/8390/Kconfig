@@ -155,17 +155,6 @@ config STNIC
 
 	  If unsure, say N.
 
-config WD80x3
-	tristate "WD80*3 support"
-	depends on ISA
-	select NETDEV_LEGACY_INIT
-	select CRC32
-	help
-	  If you have a network (Ethernet) card of this type, say Y here.
-
-	  To compile this driver as a module, choose M here. The module
-	  will be called wd.
-
 config ZORRO8390
 	tristate "Zorro NS8390-based Ethernet support"
 	depends on ZORRO
