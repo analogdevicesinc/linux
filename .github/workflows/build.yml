@@ -118,6 +118,11 @@ jobs:
         kversion=$(grep -E '^(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION)' ./Makefile | sed -E 's/.*= *//g' | tr '\n' ' ' | sed -E 's/([0-9]+) ([0-9]+) ([0-9]+) (.*) /\1.\2.\3\4+/')
         echo "KBUILD_OUTPUT=$(mktemp -d -t linux.$kversion.build.XXX)" >> $GITHUB_ENV
 
+    - name: Ensure compiler
+      run: |
+        source ./ci/build.sh
+        ensure_compiler
+
     - name: Make defconfig
       run: |
         if [[ -f "arch/$ARCH/configs/$DEFCONFIG" ]] || \

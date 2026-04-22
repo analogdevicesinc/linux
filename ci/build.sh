@@ -1200,6 +1200,7 @@ set_arch () {
 					export ARCH=arm64
 					;;
 				gcc_x86)
+					export CROSS_COMPILE=
 					export ARCH=x86
 					;;
 			esac
@@ -1225,6 +1226,29 @@ set_arch () {
 		echo "  ${arch[@]}"
 	else
 		printenv | grep -i '^LLVM=\|^CXX=\|^ARCH=\|^CROSS_COMPILE='
+	fi
+}
+
+ensure_compiler () {
+	# Helper only for arbitrary run enviroments
+	[[ -n "$ARCH" ]] || { echo "ARCH is not set" ; return 1 ; }
+
+	local arch=
+	[[ "$ARCH" == "arm64" ]] && arch=aarch64 || arch=$ARCH
+	set_arch gcc_$arch # ensure CROSS_COMPILE
+
+	if which "${CROSS_COMPILE}gcc"; then
+		local bearer=
+		[[ -z "$GITHUB_TOKEN" ]] || bearer="Bearer $GITHUB_TOKEN"
+		curl -sL -H "Authorization: $bearer" -o install-compilers.sh \
+		    https://raw.githubusercontent.com/analogdevicesinc/linux/ci/container/install-compilers.sh
+
+		local base_path=$(mktemp -dt linux.XXX)
+		local opt_path="$base_path/opt/gcc"
+		local bin_path="$base_path/usr/local/bin"
+		source ./install-compilers.sh && "gcc_install_$arch" && rm ./install-compilers.sh
+
+		[[ "$GITHUB_ACTIONS" == "true" ]] && echo "$bin_path" >> "$GITHUB_PATH" || export PATH="$PATH:$bin_path"
 	fi
 }
 
