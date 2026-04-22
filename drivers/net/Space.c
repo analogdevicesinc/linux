@@ -209,9 +209,6 @@ static struct devprobe2 isa_probes[] __initdata = {
 #if defined(CONFIG_NE2000) /* ISA (use ne2k-pci for PCI cards) */
 	{ne_probe, 0},
 #endif
-#ifdef CONFIG_LANCE		/* ISA/VLB (use pcnet32 for PCI cards) */
-	{lance_probe, 0},
-#endif
 #ifdef CONFIG_SMC9194
 	{smc_init, 0},
 #endif
