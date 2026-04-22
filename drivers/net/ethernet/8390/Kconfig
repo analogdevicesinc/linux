@@ -17,18 +17,6 @@ config NET_VENDOR_8390
 
 if NET_VENDOR_8390
 
-config PCMCIA_AXNET
-	tristate "Asix AX88190 PCMCIA support"
-	depends on PCMCIA && HAS_IOPORT
-	help
-	  Say Y here if you intend to attach an Asix AX88190-based PCMCIA
-	  (PC-card) Fast Ethernet card to your computer.  These cards are
-	  nearly NE2000 compatible but need a separate driver due to a few
-	  misfeatures.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called axnet_cs.  If unsure, say N.
-
 config AX88796
 	tristate "ASIX AX88796 NE2000 clone support" if !ZORRO
 	depends on (ARM || MIPS || SUPERH || ZORRO || COMPILE_TEST)
