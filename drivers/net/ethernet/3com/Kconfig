@@ -17,16 +17,6 @@ config NET_VENDOR_3COM
 
 if NET_VENDOR_3COM
 
-config PCMCIA_3C589
-	tristate "3Com 3c589 PCMCIA support"
-	depends on PCMCIA && HAS_IOPORT
-	help
-	  Say Y here if you intend to attach a 3Com 3c589 or compatible PCMCIA
-	  (PC-card) Ethernet card to your computer.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called 3c589_cs.  If unsure, say N.
-
 config VORTEX
 	tristate "3c590/3c900 series (592/595/597) \"Vortex/Boomerang\" support"
 	depends on (PCI || EISA) && HAS_IOPORT_MAP
