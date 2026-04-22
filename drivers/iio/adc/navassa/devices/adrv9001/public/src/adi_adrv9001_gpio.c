@@ -56,6 +56,16 @@ int32_t adi_adrv9001_gpio_OutputPinLevel_Set(adi_adrv9001_Device_t *device,
     /* Check device pointer is not null */
     ADI_ENTRY_EXPECT(device);
 
+	/* Work around for swapped bitfield DGPIO12 to DGPIO15 */
+	if (ADI_ADRV9001_GPIO_DIGITAL_12 == pin || ADI_ADRV9001_GPIO_DIGITAL_14 == pin)
+	{
+		pin++;
+	}
+	else if (ADI_ADRV9001_GPIO_DIGITAL_13 == pin || ADI_ADRV9001_GPIO_DIGITAL_15 == pin)
+	{
+		pin--;
+	}
+
     if (ADI_ADRV9001_GPIO_DIGITAL_00 <= pin && pin <= ADI_ADRV9001_GPIO_DIGITAL_15)
     {
         ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioSpiSource_Get, device, &gpioLevels);
@@ -141,20 +151,9 @@ int32_t adi_adrv9001_gpio_InputPinLevel_Get(adi_adrv9001_Device_t *device,
     /* Check device pointer is not null */
     ADI_ENTRY_PTR_EXPECT(device, gpioInPinLevel);
 
-
     if (ADI_ADRV9001_GPIO_DIGITAL_00 <= pin && pin <= ADI_ADRV9001_GPIO_DIGITAL_15)
     {
         ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioSpiRead_Get, device, &pinLevels);
-		
-	    /* Work around for swapped bitfield DGPIO12 to DGPIO15 */
-	    if (ADI_ADRV9001_GPIO_DIGITAL_12 == pin || ADI_ADRV9001_GPIO_DIGITAL_14 == pin)
-	    {
-		    pin++;
-	    }
-	    else if (ADI_ADRV9001_GPIO_DIGITAL_13 == pin || ADI_ADRV9001_GPIO_DIGITAL_15 == pin)
-	    {
-		    pin--;
-	    }
 
         *gpioInPinLevel = (pinLevels & (1 << (pin - 1))) >> (pin - 1);
     }
@@ -181,12 +180,24 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_ManualInput_Confi
 int32_t adi_adrv9001_gpio_ManualInput_Configure(adi_adrv9001_Device_t *device, adi_adrv9001_GpioPin_e pin)
 {
     uint16_t gpioOutEn = 0;
+	adi_adrv9001_GpioOptions_e gpioOptions = ADI_ADRV9001_GPIO_12_13_14_15_NOT_USABLE;
 
-    ADI_PERFORM_VALIDATION(adi_adrv9001_gpio_ManualInput_Configure_Validate, device, pin);
+	ADI_PERFORM_VALIDATION(adi_adrv9001_gpio_ManualInput_Configure_Validate, device, pin);
 
-    ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Get, device, &gpioOutEn);
-    gpioOutEn &= ~(1 << (pin - 1));
-    ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Set, device, gpioOutEn);
+	if ((pin == ADI_ADRV9001_GPIO_DIGITAL_12) || (pin == ADI_ADRV9001_GPIO_DIGITAL_13))
+	{
+		gpioOptions = ADI_ADRV9001_GPIO_12_13_INPUT;
+		ADI_EXPECT(adrv9001_GpCaseSet, device, gpioOptions);
+	}
+	else if ((pin == ADI_ADRV9001_GPIO_DIGITAL_14) || (pin == ADI_ADRV9001_GPIO_DIGITAL_15))
+	{
+		gpioOptions = ADI_ADRV9001_GPIO_14_15_INPUT;
+		ADI_EXPECT(adrv9001_GpCaseSet, device, gpioOptions);
+	}
+
+	ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Get, device, &gpioOutEn);
+	gpioOutEn &= ~(1 << (pin - 1));
+	ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Set, device, gpioOutEn);
 
     ADI_API_RETURN(device);
 }
@@ -203,16 +214,40 @@ int32_t adi_adrv9001_gpio_ManualOutput_Configure(adi_adrv9001_Device_t *device, 
     uint16_t gpioOutEn = 0;
     static const uint8_t GPIO_SOURCE_SEL_ADDR = 0x56;
     static const uint8_t CRUMB_SOURCE_OFFSET = 7;   /* Map crumb enum value to SPI source crumb */
+	adi_adrv9001_GpioOptions_e gpioOptions = ADI_ADRV9001_GPIO_12_13_14_15_NOT_USABLE;
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_gpio_ManualOutput_Configure_Validate, device, crumb);
 
-    /* Configure pins as outputs */
-    ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Get, device, &gpioOutEn);
-    gpioOutEn |= (1 << (crumb * 2 - 1)) | (1 << (crumb * 2 - 2));
-    ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Set, device, gpioOutEn);
+	if (crumb == ADI_ADRV9001_GPIO_PIN_CRUMB_13_12)
+	{
+		gpioOptions = ADI_ADRV9001_GPIO_12_13_OUTPUT;
+		ADI_EXPECT(adrv9001_GpCaseSet, device, gpioOptions);
+	}
+	else if (crumb == ADI_ADRV9001_GPIO_PIN_CRUMB_15_14)
+	{
+		ADI_EXPECT(adrv9001_NvsRegmapRx_LssiRxEnable_Set, device, ADRV9001_BF_RX2_CORE, 0x01);
+		ADI_EXPECT(adrv9001_NvsRegmapRx_LssiRxFifoClkEnable_Set, device, ADRV9001_BF_RX2_CORE, 0x01);
+		ADI_EXPECT(adrv9001_NvsRegmapRx_LssiRxFifoEnable_Set, device, ADRV9001_BF_RX2_CORE, 0x01);
+		ADI_EXPECT(adrv9001_NvsRegmapRx_LssiRxClkEnable_Set, device, ADRV9001_BF_RX2_CORE, 0x01);
 
-    /* Configure source */
-    ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + crumb - 1), crumb + CRUMB_SOURCE_OFFSET);
+		gpioOptions = ADI_ADRV9001_GPIO_14_15_OUTPUT;
+		ADI_EXPECT(adrv9001_GpCaseSet, device, gpioOptions);
+	}
+
+	/* Configure all crumbs as outputs */
+	ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Get, device, &gpioOutEn);
+	gpioOutEn |= (1 << (crumb * 2 - 1)) | (1 << (crumb * 2 - 2));
+	ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Set, device, gpioOutEn);
+
+	/* Configure source */
+	if (device->devStateInfo.crumbSrcOffset != 0)
+	{
+		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + (uint8_t)crumb - 1), (device->devStateInfo.crumbSrcOffset));
+	}
+	else
+	{
+		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + crumb - 1), crumb + CRUMB_SOURCE_OFFSET);
+	}
 
     ADI_API_RETURN(device);
 }
@@ -394,21 +429,21 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_gpio_Configure_Validat
     /*Check that GPIO pin is valid*/
     ADI_RANGE_CHECK(device, gpioConfig->pin, ADI_ADRV9001_GPIO_DIGITAL_00, ADI_ADRV9001_GPIO_ANALOG_11);
 
-    /*Check that GPIO control is valid*/
-    switch (gpioConfig->master)
-    {
-    case ADI_ADRV9001_GPIO_MASTER_BBIC:     /* Falls through */
-    case ADI_ADRV9001_GPIO_MASTER_ADRV9001:
-        break;
-    default:
-        ADI_ERROR_REPORT(&device->common,
-                         ADI_COMMON_ERRSRC_API,
-                         ADI_COMMON_ERR_INV_PARAM,
-                         ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                         armgpioConfig->control,
-                         "Invalid parameter value. armgpioConfig->control must be either ADI_ADRV9001_GPIO_MASTER_BBIC"
-                         " or ADI_ADRV9001_GPIO_MASTER_ADRV9001");
-    }
+	/*Check that GPIO control is valid*/
+	switch (gpioConfig->master)
+	{
+	case ADI_ADRV9001_GPIO_MASTER_BBIC:     /* Falls through */
+	case ADI_ADRV9001_GPIO_MASTER_ADRV9001:
+		break;
+	default:
+		ADI_ERROR_REPORT(&device->common,
+			             ADI_COMMON_ERRSRC_API,
+			             ADI_COMMON_ERR_INV_PARAM,
+			             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+			             armgpioConfig->control,
+			             "Invalid parameter value. armgpioConfig->control must be either ADI_ADRV9001_GPIO_MASTER_BBIC"
+			             " or ADI_ADRV9001_GPIO_MASTER_ADRV9001");
+	}
 
     /*Check that GPIO polarity is valid*/
     ADI_RANGE_CHECK(device, gpioConfig->polarity, ADI_ADRV9001_GPIO_POLARITY_NORMAL, ADI_ADRV9001_GPIO_POLARITY_INVERTED);
@@ -441,8 +476,8 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
                                     adi_adrv9001_GpioCfg_t *gpioConfig)
 {
     static const uint8_t GPIO_ENABLE = 0x04;
-
     uint8_t extData[5] = { 0 };
+	adi_adrv9001_GpioOptions_e gpioOptions = ADI_ADRV9001_GPIO_12_13_14_15_NOT_USABLE;
 #if ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
     uint8_t cmdStatusByte = 0;
 #endif
@@ -451,31 +486,59 @@ int32_t adi_adrv9001_gpio_Configure(adi_adrv9001_Device_t *device,
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_gpio_Configure_Validate, device, signal, gpioConfig);
 
-    /* Command ARM to associate the currently assigned GPIO for the requested signal ID */
-    extData[0] = 0;
-    extData[1] = OBJID_GS_GPIO_CTRL;
-    extData[2] = signal;
-    extData[3] = adrv9001_gpio_PinToMailbox_Convert(gpioConfig->pin);
-    extData[4] = GPIO_ENABLE | gpioConfig->master | gpioConfig->polarity;
+	if ((gpioConfig->pin == ADI_ADRV9001_GPIO_DIGITAL_12) || (gpioConfig->pin == ADI_ADRV9001_GPIO_DIGITAL_13))
+	{
+		if (gpioConfig->master == ADI_ADRV9001_GPIO_MASTER_BBIC)
+		{
+			gpioOptions = ADI_ADRV9001_GPIO_12_13_INPUT;
+			ADI_EXPECT(adrv9001_GpCaseSet, device, gpioOptions);
+		}
+		else
+		{
+			gpioOptions = ADI_ADRV9001_GPIO_12_13_OUTPUT;
+			ADI_EXPECT(adrv9001_GpCaseSet, device, gpioOptions);
+		}
+	}
+	else if ((gpioConfig->pin == ADI_ADRV9001_GPIO_DIGITAL_14) || (gpioConfig->pin == ADI_ADRV9001_GPIO_DIGITAL_15))
+	{
+		if (gpioConfig->master == ADI_ADRV9001_GPIO_MASTER_BBIC)
+		{
+			gpioOptions = ADI_ADRV9001_GPIO_14_15_INPUT;
+			ADI_EXPECT(adrv9001_GpCaseSet, device, gpioOptions);
+		}
+		else
+		{
+			gpioOptions = ADI_ADRV9001_GPIO_14_15_OUTPUT;
+			ADI_EXPECT(adrv9001_GpCaseSet, device, gpioOptions);
+		}
+	}
 
-    recoveryAction = adi_adrv9001_arm_Cmd_Write(device, ADRV9001_ARM_SET_OPCODE, &extData[0], sizeof(extData));
-    ADI_ERROR_RETURN(device->common.error.newAction);
-    
+    /* Command ARM to associate the currently assigned GPIO for the requested signal ID */
+	extData[0] = 0;
+	extData[1] = OBJID_GS_GPIO_CTRL;
+	extData[2] = signal;
+	extData[3] = adrv9001_gpio_PinToMailbox_Convert(gpioConfig->pin);
+	extData[4] = GPIO_ENABLE | gpioConfig->master | gpioConfig->polarity;
+
+	recoveryAction = adi_adrv9001_arm_Cmd_Write(device, ADRV9001_ARM_SET_OPCODE, &extData[0], sizeof(extData));
+	ADI_ERROR_RETURN(device->common.error.newAction);
+
 #if ADI_ADRV9001_PRE_MCS_BROADCAST_DISABLE > 0
-    /* Wait for command to finish executing */
-    recoveryAction = adi_adrv9001_arm_CmdStatus_Wait(device,
-                                                     ADRV9001_ARM_SET_OPCODE,
-                                                     &cmdStatusByte,
-                                                     ADI_ADRV9001_SETARMGPIO_TIMEOUT_US,
-                                                     ADI_ADRV9001_SETARMGPIO_INTERVAL_US);
+	/* Wait for command to finish executing */
+	recoveryAction = adi_adrv9001_arm_CmdStatus_Wait(device,
+		                                             ADRV9001_ARM_SET_OPCODE,
+		                                             &cmdStatusByte,
+		                                             ADI_ADRV9001_SETARMGPIO_TIMEOUT_US,
+		                                             ADI_ADRV9001_SETARMGPIO_INTERVAL_US);
+
 	if (recoveryAction != ADI_COMMON_ACT_NO_ACTION)
 	{
 		/* If cmdStatusByte is non-zero then flag an ARM error and release the acquired shared resource */
 		if ((cmdStatusByte >> 1) > 0)
 		{
 			ADI_EXPECT(adrv9001_ArmCmdErrorHandler,
-				device,
-				ADRV9001_ARMCMD_ERRCODE(ADRV9001_ARM_SET_OPCODE, extData[0], cmdStatusByte));
+				       device,
+				       ADRV9001_ARMCMD_ERRCODE(ADRV9001_ARM_SET_OPCODE, extData[0], cmdStatusByte));
 		}
 	}
 #else
