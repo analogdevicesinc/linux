@@ -258,6 +258,8 @@ typedef struct adi_adrv9001_Info
     adi_adrv9001_RxGainTableType_e gainTableType[ADI_ADRV9001_MAX_RX_ONLY]; /*!< type of gain table loaded during ADRV9001 initialization */
 	uint8_t txAttenMode[ADI_ADRV9001_MAX_TXCHANNELS];					/* TX Attenuation Mode*/
 	uint32_t chProfEnMask[ADI_ADRV9001_MAX_NUM_CHANNELS];				/* Mask for enabled channels and profiles in FW format - used for warmboot*/
+    uint8_t	txSsiRefClockEnabled[ADI_ADRV9001_MAX_TXCHANNELS];          /*!< Tx SSI reference clock enabled flag from currently loaded profile */
+	uint8_t crumbSrcOffset;                                             /*!< Crumb source offset for GPIO configuration */
 } adi_adrv9001_Info_t;
 
 /**
