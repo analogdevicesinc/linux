@@ -5421,18 +5421,40 @@ err_free_pages:
 	return ret;
 }
 
-static int __ublk_ctrl_unreg_buf(struct ublk_device *ub, int buf_index)
+static void ublk_unpin_range_pages(unsigned long base_pfn,
+				   unsigned long nr_pages)
+{
+#define UBLK_UNPIN_BATCH	32
+	struct page *pages[UBLK_UNPIN_BATCH];
+	unsigned long off;
+
+	for (off = 0; off < nr_pages; ) {
+		unsigned int batch = min_t(unsigned long,
+					   nr_pages - off, UBLK_UNPIN_BATCH);
+		unsigned int j;
+
+		for (j = 0; j < batch; j++)
+			pages[j] = pfn_to_page(base_pfn + off + j);
+		unpin_user_pages(pages, batch);
+		off += batch;
+	}
+}
+
+/*
+ * Remove ranges from the maple tree matching buf_index, unpin pages
+ * and free range structs. If buf_index < 0, remove all ranges.
+ */
+static int ublk_shmem_remove_ranges(struct ublk_device *ub, int buf_index)
 {
 	MA_STATE(mas, &ub->buf_tree, 0, ULONG_MAX);
 	struct ublk_buf_range *range;
-	struct page *pages[32];
 	int ret = -ENOENT;
 
 	mas_lock(&mas);
 	mas_for_each(&mas, range, ULONG_MAX) {
-		unsigned long base, nr, off;
+		unsigned long base, nr;
 
-		if (range->buf_index != buf_index)
+		if (buf_index >= 0 && range->buf_index != buf_index)
 			continue;
 
 		ret = 0;
@@ -5440,16 +5462,7 @@ static int __ublk_ctrl_unreg_buf(struct ublk_device *ub, int buf_index)
 		nr = mas.last - base + 1;
 		mas_erase(&mas);
 
-		for (off = 0; off < nr; ) {
-			unsigned int batch = min_t(unsigned long,
-						   nr - off, 32);
-			unsigned int j;
-
-			for (j = 0; j < batch; j++)
-				pages[j] = pfn_to_page(base + off + j);
-			unpin_user_pages(pages, batch);
-			off += batch;
-		}
+		ublk_unpin_range_pages(base, nr);
 		kfree(range);
 	}
 	mas_unlock(&mas);
@@ -5472,7 +5485,7 @@ static int ublk_ctrl_unreg_buf(struct ublk_device *ub,
 
 	memflags = ublk_lock_buf_tree(ub);
 
-	ret = __ublk_ctrl_unreg_buf(ub, index);
+	ret = ublk_shmem_remove_ranges(ub, index);
 	if (!ret)
 		ida_free(&ub->buf_ida, index);
 
@@ -5482,31 +5495,7 @@ static int ublk_ctrl_unreg_buf(struct ublk_device *ub,
 
 static void ublk_buf_cleanup(struct ublk_device *ub)
 {
-	MA_STATE(mas, &ub->buf_tree, 0, ULONG_MAX);
-	struct ublk_buf_range *range;
-	struct page *pages[32];
-
-	mas_lock(&mas);
-	mas_for_each(&mas, range, ULONG_MAX) {
-		unsigned long base = mas.index;
-		unsigned long nr = mas.last - base + 1;
-		unsigned long off;
-
-		mas_erase(&mas);
-
-		for (off = 0; off < nr; ) {
-			unsigned int batch = min_t(unsigned long,
-						   nr - off, 32);
-			unsigned int j;
-
-			for (j = 0; j < batch; j++)
-				pages[j] = pfn_to_page(base + off + j);
-			unpin_user_pages(pages, batch);
-			off += batch;
-		}
-		kfree(range);
-	}
-	mas_unlock(&mas);
+	ublk_shmem_remove_ranges(ub, -1);
 	mtree_destroy(&ub->buf_tree);
 	ida_destroy(&ub->buf_ida);
 }
