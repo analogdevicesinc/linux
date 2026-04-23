@@ -274,9 +274,6 @@ static void gfxhub_v12_1_xcc_init_tlb_regs(struct amdgpu_device *adev,
 				    SYSTEM_APERTURE_UNMAPPED_ACCESS, 0);
 		tmp = REG_SET_FIELD(tmp,
 				    GCMC_VM_MX_L1_TLB_CNTL,
-				    ECO_BITS, 0);
-		tmp = REG_SET_FIELD(tmp,
-				    GCMC_VM_MX_L1_TLB_CNTL,
 				    MTYPE, MTYPE_UC);
 
 		WREG32_SOC15_RLC(GC, GET_INST(GC, i),
@@ -295,9 +292,6 @@ static void gfxhub_v12_1_xcc_init_cache_regs(struct amdgpu_device *adev,
 		tmp = RREG32_SOC15(GC, GET_INST(GC, i), regGCVM_L2_CNTL);
 		tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL,
 				    ENABLE_L2_CACHE, 1);
-		/*TODO: set ENABLE_L2_FRAGMENT_PROCESSING to 1? */
-		tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL,
-				    ENABLE_L2_FRAGMENT_PROCESSING, 0);
 		tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL,
 				    ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY, 1);
 		tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL,
@@ -310,14 +304,6 @@ static void gfxhub_v12_1_xcc_init_cache_regs(struct amdgpu_device *adev,
 				    IDENTITY_MODE_FRAGMENT_SIZE, 0);
 		WREG32_SOC15_RLC(GC, GET_INST(GC, i),
 				 regGCVM_L2_CNTL, tmp);
-
-		tmp = RREG32_SOC15(GC, GET_INST(GC, i), regGCVM_L2_CNTL2);
-		tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL2,
-				    INVALIDATE_ALL_L1_TLBS, 1);
-		tmp = REG_SET_FIELD(tmp, GCVM_L2_CNTL2,
-				    INVALIDATE_L2_CACHE, 1);
-		WREG32_SOC15_RLC(GC, GET_INST(GC, i),
-				 regGCVM_L2_CNTL2, tmp);
 
 		tmp = regGCVM_L2_CNTL3_DEFAULT;
 		if (adev->gmc.translate_further) {
