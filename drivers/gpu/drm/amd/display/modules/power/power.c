@@ -157,20 +157,14 @@ static const unsigned int default_dc_backlight_percent   = 70;
 
 static unsigned int calc_psr_num_static_frames(unsigned int vsync_rate_hz)
 {
-	/* Calculate number of static frames before generating interrupt to
-	 * enter PSR.
-	 */
-	unsigned int frame_time_microsec = 1000000 / vsync_rate_hz;
-
-	// Init fail safe of 2 frames static
+	/* Initialize fail-safe to 2 static frames. */
 	unsigned int num_frames_static = 2;
 
-	/* Round up
-	 * Calculate number of frames such that at least 30 ms of time has
-	 * passed.
+	/* Calculate number of frames such that at least 30 ms has passed.
+	 * Round up to ensure the static period is not shorter than 30 ms.
 	 */
 	if (vsync_rate_hz != 0)
-		num_frames_static = (30000 / frame_time_microsec) + 1;
+		num_frames_static = DIV_ROUND_UP(30000 * vsync_rate_hz, 1000000);
 
 	return num_frames_static;
 }
