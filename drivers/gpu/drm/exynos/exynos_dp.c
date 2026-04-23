@@ -118,7 +118,7 @@ static int exynos_dp_bind(struct device *dev, struct device *master, void *data)
 		return ret;
 	}
 
-	return drm_connector_attach_encoder(connector, dp->plat_data.encoder);
+	return 0;
 }
 
 static void exynos_dp_unbind(struct device *dev, struct device *master,
