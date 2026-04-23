@@ -855,18 +855,18 @@ static struct file *epi_fget(const struct epitem *epi)
 }
 
 /*
- * Called with &file->f_lock held,
- * returns with it released
+ * Takes &file->f_lock; returns with it released.
  */
 static void ep_remove_file(struct eventpoll *ep, struct epitem *epi,
 			     struct file *file)
 {
 	struct epitems_head *to_free = NULL;
-	struct hlist_head *head = file->f_ep;
+	struct hlist_head *head;
 
 	lockdep_assert_held(&ep->mtx);
-	lockdep_assert_held(&file->f_lock);
 
+	spin_lock(&file->f_lock);
+	head = file->f_ep;
 	if (hlist_is_singular_node(&epi->fllink, head)) {
 		/* See eventpoll_release() for details. */
 		WRITE_ONCE(file->f_ep, NULL);
@@ -931,7 +931,6 @@ static void ep_remove(struct eventpoll *ep, struct epitem *epi)
 	if (!file)
 		return;
 
-	spin_lock(&file->f_lock);
 	ep_remove_file(ep, epi, file);
 
 	if (ep_remove_epi(ep, epi))
@@ -1150,7 +1149,6 @@ again:
 
 		ep_unregister_pollwait(ep, epi);
 
-		spin_lock(&file->f_lock);
 		ep_remove_file(ep, epi, file);
 		dispose = ep_remove_epi(ep, epi);
 
