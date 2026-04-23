@@ -5490,6 +5490,9 @@ continue_func:
 	frame = dinfo[idx].frame;
 	i = dinfo[idx].ret_insn;
 
+	/* reset tail_call_reachable to the parent's actual state */
+	tail_call_reachable = subprog[idx].tail_call_reachable;
+
 	goto continue_func;
 }
 
