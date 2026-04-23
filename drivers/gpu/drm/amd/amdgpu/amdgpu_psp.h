@@ -628,6 +628,7 @@ int psp_ta_invoke(struct psp_context *psp,
 			struct ta_context *context);
 
 int psp_xgmi_initialize(struct psp_context *psp, bool set_extended_data, bool load_ta);
+bool psp_is_xgmi_ta_supported(struct psp_context *psp);
 int psp_xgmi_terminate(struct psp_context *psp);
 int psp_xgmi_invoke(struct psp_context *psp, uint32_t ta_cmd_id);
 int psp_xgmi_get_hive_id(struct psp_context *psp, uint64_t *hive_id);

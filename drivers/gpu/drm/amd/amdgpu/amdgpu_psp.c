@@ -2263,14 +2263,19 @@ int psp_xgmi_terminate(struct psp_context *psp)
 	return ret;
 }
 
+bool psp_is_xgmi_ta_supported(struct psp_context *psp)
+{
+	return psp->ta_fw &&
+	       psp->xgmi_context.context.bin_desc.size_bytes &&
+	       psp->xgmi_context.context.bin_desc.start_addr;
+}
+
 int psp_xgmi_initialize(struct psp_context *psp, bool set_extended_data, bool load_ta)
 {
 	struct ta_xgmi_shared_memory *xgmi_cmd;
 	int ret;
 
-	if (!psp->ta_fw ||
-	    !psp->xgmi_context.context.bin_desc.size_bytes ||
-	    !psp->xgmi_context.context.bin_desc.start_addr)
+	if (!psp_is_xgmi_ta_supported(psp))
 		return -ENOENT;
 
 	if (!load_ta)
