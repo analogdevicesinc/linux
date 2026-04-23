@@ -7134,8 +7134,6 @@ static int check_kfunc_mem_size_reg(struct bpf_verifier_env *env, struct bpf_reg
 	struct bpf_call_arg_meta meta;
 	int err;
 
-	WARN_ON_ONCE(regno < BPF_REG_2 || regno > BPF_REG_5);
-
 	memset(&meta, 0, sizeof(meta));
 
 	if (may_be_null) {
