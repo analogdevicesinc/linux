@@ -94,6 +94,7 @@
 			spi-max-frequency = <50000000>;
 
 			spi-cpha;
+			spi-rx-bus-width = <1>, <1>, <1>, <1>; /* 4 lanes of 1 bit each */
 		};
 	};
 
