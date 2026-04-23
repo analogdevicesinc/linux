@@ -1024,8 +1024,6 @@ static int cdn_dp_bind(struct device *dev, struct device *master, void *data)
 		return ret;
 	}
 
-	drm_connector_attach_encoder(connector, encoder);
-
 	for (i = 0; i < dp->ports; i++) {
 		port = dp->port[i];
 
