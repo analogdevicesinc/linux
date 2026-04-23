@@ -453,12 +453,6 @@ static int zynqmp_dpsub_kms_init(struct zynqmp_dpsub *dpsub)
 		goto err_encoder;
 	}
 
-	ret = drm_connector_attach_encoder(connector, encoder);
-	if (ret < 0) {
-		dev_err(dpsub->dev, "failed to attach connector to encoder\n");
-		goto err_encoder;
-	}
-
 	return 0;
 
 err_encoder:
