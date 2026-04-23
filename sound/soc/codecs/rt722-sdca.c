@@ -517,6 +517,61 @@ static int rt722_sdca_fu1e_capture_put(struct snd_kcontrol *kcontrol,
 	return changed;
 }
 
+static int rt722_sdca_set_fu06_playback_ctl(struct rt722_sdca_priv *rt722)
+{
+	int err;
+	unsigned int ch_l, ch_r;
+
+	ch_l = (rt722->fu06_dapm_mute || rt722->fu06_mixer_l_mute) ? 0x01 : 0x00;
+	ch_r = (rt722->fu06_dapm_mute || rt722->fu06_mixer_r_mute) ? 0x01 : 0x00;
+
+	err = regmap_write(rt722->regmap,
+			SDW_SDCA_CTL(FUNC_NUM_AMP, RT722_SDCA_ENT_USER_FU06,
+			RT722_SDCA_CTL_FU_MUTE, CH_L), ch_l);
+	if (err < 0)
+		return err;
+
+	err = regmap_write(rt722->regmap,
+			SDW_SDCA_CTL(FUNC_NUM_AMP, RT722_SDCA_ENT_USER_FU06,
+			RT722_SDCA_CTL_FU_MUTE, CH_R), ch_r);
+	if (err < 0)
+		return err;
+
+	return 0;
+}
+
+static int rt722_sdca_fu06_playback_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct rt722_sdca_priv *rt722 = snd_soc_component_get_drvdata(component);
+
+	ucontrol->value.integer.value[0] = !rt722->fu06_mixer_l_mute;
+	ucontrol->value.integer.value[1] = !rt722->fu06_mixer_r_mute;
+	return 0;
+}
+
+static int rt722_sdca_fu06_playback_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct rt722_sdca_priv *rt722 = snd_soc_component_get_drvdata(component);
+	int err, changed = 0;
+
+	if (rt722->fu06_mixer_l_mute != !ucontrol->value.integer.value[0] ||
+		rt722->fu06_mixer_r_mute != !ucontrol->value.integer.value[1])
+		changed = 1;
+
+	rt722->fu06_mixer_l_mute = !ucontrol->value.integer.value[0];
+	rt722->fu06_mixer_r_mute = !ucontrol->value.integer.value[1];
+
+	err = rt722_sdca_set_fu06_playback_ctl(rt722);
+	if (err < 0)
+		return err;
+
+	return changed;
+}
+
 static int rt722_sdca_set_fu0f_capture_ctl(struct rt722_sdca_priv *rt722)
 {
 	int err;
@@ -718,6 +773,8 @@ static const struct snd_kcontrol_new rt722_sdca_controls[] = {
 			RT722_SDCA_CTL_FU_CH_GAIN, CH_R), 8, 3, 0,
 		rt722_sdca_set_gain_get, rt722_sdca_set_gain_put, boost_vol_tlv),
 	/* AMP playback settings */
+	SOC_DOUBLE_EXT("FU06 Playback Switch", SND_SOC_NOPM, 0, 1, 1, 0,
+		rt722_sdca_fu06_playback_get, rt722_sdca_fu06_playback_put),
 	SOC_DOUBLE_R_EXT_TLV("FU06 Playback Volume",
 		SDW_SDCA_CTL(FUNC_NUM_AMP, RT722_SDCA_ENT_USER_FU06,
 			RT722_SDCA_CTL_FU_VOLUME, CH_L),
@@ -807,27 +864,17 @@ static int rt722_sdca_fu21_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *component =
 		snd_soc_dapm_to_component(w->dapm);
 	struct rt722_sdca_priv *rt722 = snd_soc_component_get_drvdata(component);
-	unsigned char unmute = 0x0, mute = 0x1;
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		regmap_write(rt722->regmap,
-			SDW_SDCA_CTL(FUNC_NUM_AMP, RT722_SDCA_ENT_USER_FU06,
-				RT722_SDCA_CTL_FU_MUTE, CH_L), unmute);
-		regmap_write(rt722->regmap,
-			SDW_SDCA_CTL(FUNC_NUM_AMP, RT722_SDCA_ENT_USER_FU06,
-				RT722_SDCA_CTL_FU_MUTE, CH_R), unmute);
+		rt722->fu06_dapm_mute = false;
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		regmap_write(rt722->regmap,
-			SDW_SDCA_CTL(FUNC_NUM_AMP, RT722_SDCA_ENT_USER_FU06,
-				RT722_SDCA_CTL_FU_MUTE, CH_L), mute);
-		regmap_write(rt722->regmap,
-			SDW_SDCA_CTL(FUNC_NUM_AMP, RT722_SDCA_ENT_USER_FU06,
-				RT722_SDCA_CTL_FU_MUTE, CH_R), mute);
+		rt722->fu06_dapm_mute = true;
 		break;
 	}
-	return 0;
+
+	return rt722_sdca_set_fu06_playback_ctl(rt722);
 }
 
 static int rt722_sdca_fu113_event(struct snd_soc_dapm_widget *w,
@@ -1324,6 +1371,8 @@ int rt722_sdca_init(struct device *dev, struct regmap *regmap, struct sdw_slave 
 	rt722->first_hw_init = false;
 	rt722->fu1e_dapm_mute = true;
 	rt722->fu0f_dapm_mute = true;
+	rt722->fu06_dapm_mute = true;
+	rt722->fu06_mixer_l_mute = rt722->fu06_mixer_r_mute = false;
 	rt722->fu0f_mixer_l_mute = rt722->fu0f_mixer_r_mute = true;
 	rt722->fu1e_mixer_mute[0] = rt722->fu1e_mixer_mute[1] =
 		rt722->fu1e_mixer_mute[2] = rt722->fu1e_mixer_mute[3] = true;

@@ -36,6 +36,10 @@ struct  rt722_sdca_priv {
 	bool fu0f_dapm_mute;
 	bool fu0f_mixer_l_mute;
 	bool fu0f_mixer_r_mute;
+	/* For AMP */
+	bool fu06_dapm_mute;
+	bool fu06_mixer_l_mute;
+	bool fu06_mixer_r_mute;
 	/* For DMIC */
 	bool fu1e_dapm_mute;
 	bool fu1e_mixer_mute[4];
