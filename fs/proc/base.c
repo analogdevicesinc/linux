@@ -3546,8 +3546,7 @@ struct tgid_iter {
 	struct pid_namespace *const pid_ns;
 };
 
-static
-struct tgid_iter
+static struct tgid_iter
 make_tgid_iter(unsigned int init_tgid, struct pid_namespace *pid_ns)
 {
 	return (struct tgid_iter){
