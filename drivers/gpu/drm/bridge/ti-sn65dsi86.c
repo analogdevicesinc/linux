@@ -776,8 +776,6 @@ static int ti_sn_bridge_attach(struct drm_bridge *bridge,
 		goto err_initted_aux;
 	}
 
-	drm_connector_attach_encoder(pdata->connector, pdata->bridge.encoder);
-
 	return 0;
 
 err_initted_aux:
