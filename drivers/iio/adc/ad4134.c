@@ -129,7 +129,8 @@ static const char * const ad7134_filter_enum[] = {
 		.sign = 's',							\
 		.realbits = (_realbits),					\
 		.storagebits = 32,						\
-		.shift = ((_storebits) - (_realbits))				\
+		.shift = 0,							\
+		.endianness = IIO_CPU,						\
 	},									\
 	.ext_info = _ext_info,							\
 }
