@@ -697,8 +697,6 @@ static int it6263_bridge_attach(struct drm_bridge *bridge,
 		return ret;
 	}
 
-	drm_connector_attach_encoder(connector, encoder);
-
 	return 0;
 }
 
