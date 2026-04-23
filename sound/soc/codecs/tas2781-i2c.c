@@ -119,10 +119,10 @@ static const struct i2c_device_id tasdevice_id[] = {
 	{ "tas5827", TAS5827 },
 	{ "tas5828", TAS5828 },
 	{ "tas5830", TAS5830 },
+	{ "tas5832", TAS5832 },
 	{}
 };
 
-#ifdef CONFIG_OF
 static const struct of_device_id tasdevice_of_match[] = {
 	{ .compatible = "ti,tas2020", .data = &tasdevice_id[TAS2020] },
 	{ .compatible = "ti,tas2118", .data = &tasdevice_id[TAS2118] },
@@ -143,10 +143,10 @@ static const struct of_device_id tasdevice_of_match[] = {
 	{ .compatible = "ti,tas5827", .data = &tasdevice_id[TAS5827] },
 	{ .compatible = "ti,tas5828", .data = &tasdevice_id[TAS5828] },
 	{ .compatible = "ti,tas5830", .data = &tasdevice_id[TAS5830] },
+	{ .compatible = "ti,tas5832", .data = &tasdevice_id[TAS5832] },
 	{},
 };
 MODULE_DEVICE_TABLE(of, tasdevice_of_match);
-#endif
 
 /**
  * tas2781_digital_getvol - get the volum control
@@ -1746,6 +1746,7 @@ out:
 		case TAS5827:
 		case TAS5828:
 		case TAS5830:
+		case TAS5832:
 			/* If DSP FW fail, DSP kcontrol won't be created. */
 			tasdevice_dsp_remove(tas_priv);
 		}
@@ -1917,6 +1918,7 @@ static int tasdevice_codec_probe(struct snd_soc_component *codec)
 	case TAS5827:
 	case TAS5828:
 	case TAS5830:
+	case TAS5832:
 		p = (struct snd_kcontrol_new *)tas5825_snd_controls;
 		size = ARRAY_SIZE(tas5825_snd_controls);
 		break;
@@ -2083,7 +2085,6 @@ static void tasdevice_i2c_remove(struct i2c_client *client)
 	tasdevice_remove(tas_priv);
 }
 
-#ifdef CONFIG_ACPI
 static const struct acpi_device_id tasdevice_acpi_match[] = {
 	{ "TXNW2020", (kernel_ulong_t)&tasdevice_id[TAS2020] },
 	{ "TXNW2118", (kernel_ulong_t)&tasdevice_id[TAS2118] },
@@ -2104,19 +2105,17 @@ static const struct acpi_device_id tasdevice_acpi_match[] = {
 	{ "TXNW5827", (kernel_ulong_t)&tasdevice_id[TAS5827] },
 	{ "TXNW5828", (kernel_ulong_t)&tasdevice_id[TAS5828] },
 	{ "TXNW5830", (kernel_ulong_t)&tasdevice_id[TAS5830] },
+	{ "TXNW5832", (kernel_ulong_t)&tasdevice_id[TAS5832] },
 	{},
 };
 
 MODULE_DEVICE_TABLE(acpi, tasdevice_acpi_match);
-#endif
 
 static struct i2c_driver tasdevice_i2c_driver = {
 	.driver = {
 		.name = "tasdev-codec",
-		.of_match_table = of_match_ptr(tasdevice_of_match),
-#ifdef CONFIG_ACPI
-		.acpi_match_table = ACPI_PTR(tasdevice_acpi_match),
-#endif
+		.of_match_table = tasdevice_of_match,
+		.acpi_match_table = tasdevice_acpi_match,
 	},
 	.probe	= tasdevice_i2c_probe,
 	.remove = tasdevice_i2c_remove,
