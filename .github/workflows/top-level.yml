@@ -255,3 +255,64 @@ jobs:
         adi_mb_defconfig-*
         adi_nios2_defconfig-*
         dtb-*
+
+
+  deploy_kuiper_binaries:
+    needs: [assert_build]
+    if: >
+      (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        (
+          github.event.pull_request.base.ref == 'main' ||
+          github.event.pull_request.base.ref == 'next_stable' ||
+          startsWith(github.event.pull_request.base.ref, 'xlnx/release/')
+        )
+      ) ||
+      (
+        github.event_name == 'push' &&
+        (
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/next_stable' ||
+          startsWith(github.ref, 'refs/heads/xlnx/release/')
+        )
+      ) &&
+      (
+        github.repository_owner == 'analogdevicesinc'
+      )
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+      pr-target-branch: ${{ github.event.pull_request.base.ref }}
+      artifacts: >
+        adi_versal_defconfig-*
+        adi_zynqmp_defconfig-*
+        socfpga_adi_defconfig-*
+        zynq_m2k_defconfig-*
+        zynq_pluto_defconfig-*
+        zynq_xcomm_adv7511_defconfig-*
+        adi_mb_defconfig-*
+        adi_nios2_defconfig-*
+        dtb-*
+
+  trigger_harness_job:
+    needs: [deploy_kuiper_binaries]
+    runs-on: ubuntu-SLIM
+    if: needs.deploy_kuiper_binaries.result == 'success'
+    steps:
+      - name: Trigger Jenkins test harness
+        run: |
+          TIMESTAMP=$(date +%Y_%m_%d-%H_%M)
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+          PR_ID="${{ github.event.pull_request.number }}"
+          # to check if for JENKINS_URL we use ngrok or webhook relay  
+          curl ${{ secrets.JENKINS_URL }}/job/Linux_TH/buildWithParameters \
+            --user ${{ secrets.JENKINS_USER }}:${{ secrets.JENKINS_API_KEY }} \
+            --data TIMESTAMP=${TIMESTAMP} \
+            --data BRANCH=${BRANCH} \
+            --data PR_ID=${PR_ID}
