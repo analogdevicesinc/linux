@@ -616,6 +616,15 @@ static int ad4134_offload_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
+	if (st->ad4134_duo) {
+		ret = ad7134_sync(indio_dev);
+		if (ret)
+		{
+			dev_err(&st->spi->dev, "ad7134_sync failed: %d\n", ret);
+			return ret;
+		}
+	}
+
 	ret = spi_offload_trigger_enable(st->offload, st->offload_trigger,
 					 &st->offload_trigger_config);
 	if (ret)
