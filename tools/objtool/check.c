@@ -881,6 +881,31 @@ static int create_ibt_endbr_seal_sections(struct objtool_file *file)
 	return 0;
 }
 
+/*
+* Grow __cfi_ symbols to fill the NOP gap between the 'mov <hash>, %rax' and
+* the start of the function.
+*/
+static int grow_cfi_symbols(struct objtool_file *file)
+{
+	struct symbol *sym;
+
+	for_each_sym(file->elf, sym) {
+		if (!is_func_sym(sym) || !strstarts(sym->name, "__cfi_") ||
+		    sym->len != 5)
+			continue;
+
+		if (!find_func_by_offset(sym->sec, sym->offset + sym->len + opts.prefix))
+			continue;
+
+		sym->len += opts.prefix;
+		sym->sym.st_size = sym->len;
+		if (elf_write_symbol(file->elf, sym))
+			return -1;
+	}
+
+	return 0;
+}
+
 static int create_cfi_sections(struct objtool_file *file)
 {
 	struct section *sec;
@@ -4903,12 +4928,6 @@ int check(struct objtool_file *file)
 			goto out;
 	}
 
-	if (opts.cfi) {
-		ret = create_cfi_sections(file);
-		if (ret)
-			goto out;
-	}
-
 	if (opts.rethunk) {
 		ret = create_return_sites_sections(file);
 		if (ret)
@@ -4928,9 +4947,21 @@ int check(struct objtool_file *file)
 	}
 
 	if (opts.prefix) {
-		ret = create_prefix_symbols(file);
-		if (ret)
-			goto out;
+		if (!opts.cfi) {
+			ret = create_prefix_symbols(file);
+			if (ret)
+				goto out;
+		} else {
+			ret = grow_cfi_symbols(file);
+			if (ret)
+				goto out;
+
+			if (opts.fineibt) {
+				ret = create_cfi_sections(file);
+				if (ret)
+					goto out;
+			}
+		}
 	}
 
 	if (opts.ibt) {
