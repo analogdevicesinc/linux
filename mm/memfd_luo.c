@@ -259,7 +259,7 @@ static int memfd_luo_preserve(struct liveupdate_file_op_args *args)
 	struct inode *inode = file_inode(args->file);
 	struct memfd_luo_folio_ser *folios_ser;
 	struct memfd_luo_ser *ser;
-	u64 nr_folios;
+	u64 nr_folios, inode_size;
 	int err = 0, seals;
 
 	inode_lock(inode);
@@ -285,7 +285,18 @@ static int memfd_luo_preserve(struct liveupdate_file_op_args *args)
 	}
 
 	ser->pos = args->file->f_pos;
-	ser->size = i_size_read(inode);
+	inode_size = i_size_read(inode);
+
+	/*
+	 * memfd_pin_folios() caps at UINT_MAX folios; refuse larger
+	 * files to avoid silently preserving only a prefix.
+	 */
+	if (DIV_ROUND_UP_ULL(inode_size, PAGE_SIZE) > UINT_MAX) {
+		err = -EFBIG;
+		goto err_free_ser;
+	}
+
+	ser->size = inode_size;
 	ser->seals = seals;
 
 	err = memfd_luo_preserve_folios(args->file, &ser->folios,
