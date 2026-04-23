@@ -5486,10 +5486,13 @@ static void ublk_buf_cleanup(struct ublk_device *ub)
 	struct ublk_buf_range *range;
 	struct page *pages[32];
 
+	mas_lock(&mas);
 	mas_for_each(&mas, range, ULONG_MAX) {
 		unsigned long base = mas.index;
 		unsigned long nr = mas.last - base + 1;
 		unsigned long off;
+
+		mas_erase(&mas);
 
 		for (off = 0; off < nr; ) {
 			unsigned int batch = min_t(unsigned long,
@@ -5503,6 +5506,7 @@ static void ublk_buf_cleanup(struct ublk_device *ub)
 		}
 		kfree(range);
 	}
+	mas_unlock(&mas);
 	mtree_destroy(&ub->buf_tree);
 	ida_destroy(&ub->buf_ida);
 }
