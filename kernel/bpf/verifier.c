@@ -11301,9 +11301,9 @@ get_kfunc_ptr_arg_type(struct bpf_verifier_env *env,
 		       struct bpf_kfunc_call_arg_meta *meta,
 		       const struct btf_type *t, const struct btf_type *ref_t,
 		       const char *ref_tname, const struct btf_param *args,
-		       int argno, int nargs, struct bpf_reg_state *reg)
+		       int arg, int nargs, struct bpf_reg_state *reg)
 {
-	u32 regno = argno + 1;
+	u32 regno = arg + 1;
 	struct bpf_reg_state *regs = cur_regs(env);
 	bool arg_mem_size = false;
 
@@ -11312,9 +11312,9 @@ get_kfunc_ptr_arg_type(struct bpf_verifier_env *env,
 	    meta->func_id == special_kfunc_list[KF_bpf_session_cookie])
 		return KF_ARG_PTR_TO_CTX;
 
-	if (argno + 1 < nargs &&
-	    (is_kfunc_arg_mem_size(meta->btf, &args[argno + 1], &regs[regno + 1]) ||
-	     is_kfunc_arg_const_mem_size(meta->btf, &args[argno + 1], &regs[regno + 1])))
+	if (arg + 1 < nargs &&
+	    (is_kfunc_arg_mem_size(meta->btf, &args[arg + 1], &regs[regno + 1]) ||
+	     is_kfunc_arg_const_mem_size(meta->btf, &args[arg + 1], &regs[regno + 1])))
 		arg_mem_size = true;
 
 	/* In this function, we verify the kfunc's BTF as per the argument type,
@@ -11322,68 +11322,68 @@ get_kfunc_ptr_arg_type(struct bpf_verifier_env *env,
 	 * type to our caller. When a set of conditions hold in the BTF type of
 	 * arguments, we resolve it to a known kfunc_ptr_arg_type.
 	 */
-	if (btf_is_prog_ctx_type(&env->log, meta->btf, t, resolve_prog_type(env->prog), argno))
+	if (btf_is_prog_ctx_type(&env->log, meta->btf, t, resolve_prog_type(env->prog), arg))
 		return KF_ARG_PTR_TO_CTX;
 
-	if (is_kfunc_arg_nullable(meta->btf, &args[argno]) && bpf_register_is_null(reg) &&
+	if (is_kfunc_arg_nullable(meta->btf, &args[arg]) && bpf_register_is_null(reg) &&
 	    !arg_mem_size)
 		return KF_ARG_PTR_TO_NULL;
 
-	if (is_kfunc_arg_alloc_obj(meta->btf, &args[argno]))
+	if (is_kfunc_arg_alloc_obj(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_ALLOC_BTF_ID;
 
-	if (is_kfunc_arg_refcounted_kptr(meta->btf, &args[argno]))
+	if (is_kfunc_arg_refcounted_kptr(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_REFCOUNTED_KPTR;
 
-	if (is_kfunc_arg_dynptr(meta->btf, &args[argno]))
+	if (is_kfunc_arg_dynptr(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_DYNPTR;
 
-	if (is_kfunc_arg_iter(meta, argno, &args[argno]))
+	if (is_kfunc_arg_iter(meta, arg, &args[arg]))
 		return KF_ARG_PTR_TO_ITER;
 
-	if (is_kfunc_arg_list_head(meta->btf, &args[argno]))
+	if (is_kfunc_arg_list_head(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_LIST_HEAD;
 
-	if (is_kfunc_arg_list_node(meta->btf, &args[argno]))
+	if (is_kfunc_arg_list_node(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_LIST_NODE;
 
-	if (is_kfunc_arg_rbtree_root(meta->btf, &args[argno]))
+	if (is_kfunc_arg_rbtree_root(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_RB_ROOT;
 
-	if (is_kfunc_arg_rbtree_node(meta->btf, &args[argno]))
+	if (is_kfunc_arg_rbtree_node(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_RB_NODE;
 
-	if (is_kfunc_arg_const_str(meta->btf, &args[argno]))
+	if (is_kfunc_arg_const_str(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_CONST_STR;
 
-	if (is_kfunc_arg_map(meta->btf, &args[argno]))
+	if (is_kfunc_arg_map(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_MAP;
 
-	if (is_kfunc_arg_wq(meta->btf, &args[argno]))
+	if (is_kfunc_arg_wq(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_WORKQUEUE;
 
-	if (is_kfunc_arg_timer(meta->btf, &args[argno]))
+	if (is_kfunc_arg_timer(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_TIMER;
 
-	if (is_kfunc_arg_task_work(meta->btf, &args[argno]))
+	if (is_kfunc_arg_task_work(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_TASK_WORK;
 
-	if (is_kfunc_arg_irq_flag(meta->btf, &args[argno]))
+	if (is_kfunc_arg_irq_flag(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_IRQ_FLAG;
 
-	if (is_kfunc_arg_res_spin_lock(meta->btf, &args[argno]))
+	if (is_kfunc_arg_res_spin_lock(meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_RES_SPIN_LOCK;
 
 	if ((base_type(reg->type) == PTR_TO_BTF_ID || reg2btf_ids[base_type(reg->type)])) {
 		if (!btf_type_is_struct(ref_t)) {
 			verbose(env, "kernel function %s args#%d pointer type %s %s is not supported\n",
-				meta->func_name, argno, btf_type_str(ref_t), ref_tname);
+				meta->func_name, arg, btf_type_str(ref_t), ref_tname);
 			return -EINVAL;
 		}
 		return KF_ARG_PTR_TO_BTF_ID;
 	}
 
-	if (is_kfunc_arg_callback(env, meta->btf, &args[argno]))
+	if (is_kfunc_arg_callback(env, meta->btf, &args[arg]))
 		return KF_ARG_PTR_TO_CALLBACK;
 
 	/* This is the catch all argument type of register types supported by
@@ -11394,7 +11394,7 @@ get_kfunc_ptr_arg_type(struct bpf_verifier_env *env,
 	if (!btf_type_is_scalar(ref_t) && !__btf_type_is_scalar_struct(env, meta->btf, ref_t, 0) &&
 	    (arg_mem_size ? !btf_type_is_void(ref_t) : 1)) {
 		verbose(env, "arg#%d pointer type %s %s must point to %sscalar, or struct with scalar\n",
-			argno, btf_type_str(ref_t), ref_tname, arg_mem_size ? "void, " : "");
+			arg, btf_type_str(ref_t), ref_tname, arg_mem_size ? "void, " : "");
 		return -EINVAL;
 	}
 	return arg_mem_size ? KF_ARG_PTR_TO_MEM_SIZE : KF_ARG_PTR_TO_MEM;
@@ -11405,7 +11405,7 @@ static int process_kf_arg_ptr_to_btf_id(struct bpf_verifier_env *env,
 					const struct btf_type *ref_t,
 					const char *ref_tname, u32 ref_id,
 					struct bpf_kfunc_call_arg_meta *meta,
-					int argno)
+					int arg)
 {
 	const struct btf_type *reg_ref_t;
 	bool strict_type_match = false;
@@ -11464,7 +11464,7 @@ static int process_kf_arg_ptr_to_btf_id(struct bpf_verifier_env *env,
 	taking_projection = btf_is_projection_of(ref_tname, reg_ref_tname);
 	if (!taking_projection && !struct_same) {
 		verbose(env, "kernel function %s args#%d expected pointer to %s %s but R%d has a pointer to %s %s\n",
-			meta->func_name, argno, btf_type_str(ref_t), ref_tname, argno + 1,
+			meta->func_name, arg, btf_type_str(ref_t), ref_tname, arg + 1,
 			btf_type_str(reg_ref_t), reg_ref_tname);
 		return -EINVAL;
 	}
