@@ -6055,10 +6055,7 @@ static struct attribute *md_default_attrs[] = {
 	&md_logical_block_size.attr,
 	NULL,
 };
-
-static const struct attribute_group md_default_group = {
-	.attrs = md_default_attrs,
-};
+ATTRIBUTE_GROUPS(md_default);
 
 static struct attribute *md_redundancy_attrs[] = {
 	&md_scan_mode.attr,
@@ -6081,11 +6078,6 @@ static struct attribute *md_redundancy_attrs[] = {
 static const struct attribute_group md_redundancy_group = {
 	.name = NULL,
 	.attrs = md_redundancy_attrs,
-};
-
-static const struct attribute_group *md_attr_groups[] = {
-	&md_default_group,
-	NULL,
 };
 
 static ssize_t
@@ -6170,7 +6162,7 @@ static const struct sysfs_ops md_sysfs_ops = {
 static const struct kobj_type md_ktype = {
 	.release	= md_kobj_release,
 	.sysfs_ops	= &md_sysfs_ops,
-	.default_groups	= md_attr_groups,
+	.default_groups	= md_default_groups,
 };
 
 int mdp_major = 0;
