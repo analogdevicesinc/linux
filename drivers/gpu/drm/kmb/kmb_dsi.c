@@ -1457,7 +1457,7 @@ int kmb_dsi_encoder_init(struct drm_device *dev, struct kmb_dsi *kmb_dsi)
 		drm_encoder_cleanup(encoder);
 		return PTR_ERR(connector);
 	}
-	drm_connector_attach_encoder(connector, encoder);
+
 	return 0;
 }
 
