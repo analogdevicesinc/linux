@@ -21,6 +21,7 @@
  *
  */
 
+#include <linux/bitmap.h>
 #include <linux/sort.h>
 #include "amdgpu.h"
 #include "umc_v6_7.h"
@@ -426,6 +427,7 @@ static int amdgpu_umc_loop_all_aid(struct amdgpu_device *adev, umc_func func,
 	uint32_t node_inst;
 	uint32_t umc_inst;
 	uint32_t ch_inst;
+	DECLARE_BITMAP(umc_bitmap, 64);
 	int ret;
 
 	/*
@@ -435,9 +437,10 @@ static int amdgpu_umc_loop_all_aid(struct amdgpu_device *adev, umc_func func,
 	 * umc.node_inst_num = maximum number of node instances
 	 * Channel instances are not assumed to be harvested.
 	 */
-	dev_dbg(adev->dev, "active umcs :%lx umc_inst per node: %d",
+	dev_dbg(adev->dev, "active umcs :%llx umc_inst per node: %d",
 		adev->umc.active_mask, adev->umc.umc_inst_num);
-	for_each_set_bit(umc_node_inst, &(adev->umc.active_mask),
+	bitmap_from_u64(umc_bitmap, adev->umc.active_mask);
+	for_each_set_bit(umc_node_inst, umc_bitmap,
 			 adev->umc.node_inst_num * adev->umc.umc_inst_num) {
 		node_inst = umc_node_inst / adev->umc.umc_inst_num;
 		umc_inst = umc_node_inst % adev->umc.umc_inst_num;
@@ -470,12 +473,18 @@ int amdgpu_umc_loop_channels(struct amdgpu_device *adev,
 		return amdgpu_umc_loop_all_aid(adev, func, data);
 
 	if (adev->umc.node_inst_num) {
-		LOOP_UMC_EACH_NODE_INST_AND_CH(node_inst, umc_inst, ch_inst) {
-			ret = func(adev, node_inst, umc_inst, ch_inst, data);
-			if (ret) {
-				dev_err(adev->dev, "Node %d umc %d ch %d func returns %d\n",
-					node_inst, umc_inst, ch_inst, ret);
-				return ret;
+		DECLARE_BITMAP(umc_bitmap, 64);
+
+		bitmap_from_u64(umc_bitmap, adev->umc.active_mask);
+		for_each_set_bit(node_inst, umc_bitmap, adev->umc.node_inst_num) {
+			LOOP_UMC_INST_AND_CH(umc_inst, ch_inst) {
+				ret = func(adev, node_inst, umc_inst, ch_inst, data);
+				if (ret) {
+					dev_err(adev->dev,
+						"Node %d umc %d ch %d func returns %d\n",
+						node_inst, umc_inst, ch_inst, ret);
+					return ret;
+				}
 			}
 		}
 	} else {
