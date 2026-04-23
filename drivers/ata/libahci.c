@@ -2636,7 +2636,7 @@ void ahci_print_info(struct ata_host *host, const char *scc_s)
 		,
 
 		hweight32(impl),
-		(cap & 0x1f) + 1,
+		ahci_nr_ports(cap),
 		impl);
 
 	dev_info(host->dev,
