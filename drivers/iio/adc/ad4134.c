@@ -239,6 +239,7 @@ struct ad4134_state {
 	int				refin_mv;
 	int				output_frame;
 	u8 num_dout_lines;
+	bool ad4134_duo;
 
 };
 
@@ -564,6 +565,7 @@ static void ad4134_prepare_offload_msg(struct iio_dev *indio_dev)
 {
 	struct ad4134_state *st = iio_priv(indio_dev);
 	unsigned int base_len = roundup_pow_of_two(BITS_TO_BYTES(AD4134_CHAN_PRECISION_BITS));
+	unsigned int num_devices;
 	unsigned int bpw;
 
 	switch (st->output_frame) {
@@ -581,9 +583,10 @@ static void ad4134_prepare_offload_msg(struct iio_dev *indio_dev)
 			dev_err(&st->spi->dev, "invalid adi,adc-frame: %d\n", st->output_frame);
 			return;
 	}
+	num_devices = st->ad4134_duo ? 2 : 1;
 
 	st->xfers.bits_per_word = bpw;
-	st->xfers.len = base_len * st->num_dout_lines;
+	st->xfers.len = base_len * st->num_dout_lines * num_devices;
 	if (st->num_dout_lines > 1)
 		st->xfers.multi_lane_mode = SPI_MULTI_LANE_MODE_STRIPE;
 
@@ -1080,6 +1083,7 @@ static int ad4134_probe(struct spi_device *spi)
 	st->regulators[AD4134_REFIN_REGULATOR].supply = "refin";
 
 	ad4134_duo = ad4134_get_ADC_count(st) == 2;
+	st->ad4134_duo = ad4134_duo;
 
 	st->output_frame = AD4134_DATA_PACKET_24BIT_FRAME;
 	ret = device_property_match_property_string(dev, "adi,adc-frame",
