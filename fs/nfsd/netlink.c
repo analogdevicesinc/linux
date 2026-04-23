@@ -88,19 +88,9 @@ static const struct nla_policy nfsd_pool_mode_set_nl_policy[NFSD_A_POOL_MODE_MOD
 	[NFSD_A_POOL_MODE_MODE] = { .type = NLA_NUL_STRING, },
 };
 
-/* NFSD_CMD_SVC_EXPORT_GET_REQS - dump */
-static const struct nla_policy nfsd_svc_export_get_reqs_nl_policy[NFSD_A_SVC_EXPORT_REQS_REQUESTS + 1] = {
-	[NFSD_A_SVC_EXPORT_REQS_REQUESTS] = NLA_POLICY_NESTED(nfsd_svc_export_nl_policy),
-};
-
 /* NFSD_CMD_SVC_EXPORT_SET_REQS - do */
 static const struct nla_policy nfsd_svc_export_set_reqs_nl_policy[NFSD_A_SVC_EXPORT_REQS_REQUESTS + 1] = {
 	[NFSD_A_SVC_EXPORT_REQS_REQUESTS] = NLA_POLICY_NESTED(nfsd_svc_export_nl_policy),
-};
-
-/* NFSD_CMD_EXPKEY_GET_REQS - dump */
-static const struct nla_policy nfsd_expkey_get_reqs_nl_policy[NFSD_A_EXPKEY_REQS_REQUESTS + 1] = {
-	[NFSD_A_EXPKEY_REQS_REQUESTS] = NLA_POLICY_NESTED(nfsd_expkey_nl_policy),
 };
 
 /* NFSD_CMD_EXPKEY_SET_REQS - do */
@@ -169,11 +159,9 @@ static const struct genl_split_ops nfsd_nl_ops[] = {
 		.flags	= GENL_CMD_CAP_DO,
 	},
 	{
-		.cmd		= NFSD_CMD_SVC_EXPORT_GET_REQS,
-		.dumpit		= nfsd_nl_svc_export_get_reqs_dumpit,
-		.policy		= nfsd_svc_export_get_reqs_nl_policy,
-		.maxattr	= NFSD_A_SVC_EXPORT_REQS_REQUESTS,
-		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
+		.cmd	= NFSD_CMD_SVC_EXPORT_GET_REQS,
+		.dumpit	= nfsd_nl_svc_export_get_reqs_dumpit,
+		.flags	= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
 	},
 	{
 		.cmd		= NFSD_CMD_SVC_EXPORT_SET_REQS,
@@ -183,11 +171,9 @@ static const struct genl_split_ops nfsd_nl_ops[] = {
 		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
 	},
 	{
-		.cmd		= NFSD_CMD_EXPKEY_GET_REQS,
-		.dumpit		= nfsd_nl_expkey_get_reqs_dumpit,
-		.policy		= nfsd_expkey_get_reqs_nl_policy,
-		.maxattr	= NFSD_A_EXPKEY_REQS_REQUESTS,
-		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
+		.cmd	= NFSD_CMD_EXPKEY_GET_REQS,
+		.dumpit	= nfsd_nl_expkey_get_reqs_dumpit,
+		.flags	= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
 	},
 	{
 		.cmd		= NFSD_CMD_EXPKEY_SET_REQS,

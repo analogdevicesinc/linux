@@ -101,7 +101,7 @@ operations:
       attribute-set: ip-map-reqs
       flags: [admin-perm]
       dump:
-          request:
+          reply:
             attributes:
               - requests
     -
@@ -119,7 +119,7 @@ operations:
       attribute-set: unix-gid-reqs
       flags: [admin-perm]
       dump:
-          request:
+          reply:
             attributes:
               - requests
     -

@@ -29,19 +29,9 @@ const struct nla_policy sunrpc_unix_gid_nl_policy[SUNRPC_A_UNIX_GID_EXPIRY + 1] 
 	[SUNRPC_A_UNIX_GID_EXPIRY] = { .type = NLA_U64, },
 };
 
-/* SUNRPC_CMD_IP_MAP_GET_REQS - dump */
-static const struct nla_policy sunrpc_ip_map_get_reqs_nl_policy[SUNRPC_A_IP_MAP_REQS_REQUESTS + 1] = {
-	[SUNRPC_A_IP_MAP_REQS_REQUESTS] = NLA_POLICY_NESTED(sunrpc_ip_map_nl_policy),
-};
-
 /* SUNRPC_CMD_IP_MAP_SET_REQS - do */
 static const struct nla_policy sunrpc_ip_map_set_reqs_nl_policy[SUNRPC_A_IP_MAP_REQS_REQUESTS + 1] = {
 	[SUNRPC_A_IP_MAP_REQS_REQUESTS] = NLA_POLICY_NESTED(sunrpc_ip_map_nl_policy),
-};
-
-/* SUNRPC_CMD_UNIX_GID_GET_REQS - dump */
-static const struct nla_policy sunrpc_unix_gid_get_reqs_nl_policy[SUNRPC_A_UNIX_GID_REQS_REQUESTS + 1] = {
-	[SUNRPC_A_UNIX_GID_REQS_REQUESTS] = NLA_POLICY_NESTED(sunrpc_unix_gid_nl_policy),
 };
 
 /* SUNRPC_CMD_UNIX_GID_SET_REQS - do */
@@ -57,11 +47,9 @@ static const struct nla_policy sunrpc_cache_flush_nl_policy[SUNRPC_A_CACHE_FLUSH
 /* Ops table for sunrpc */
 static const struct genl_split_ops sunrpc_nl_ops[] = {
 	{
-		.cmd		= SUNRPC_CMD_IP_MAP_GET_REQS,
-		.dumpit		= sunrpc_nl_ip_map_get_reqs_dumpit,
-		.policy		= sunrpc_ip_map_get_reqs_nl_policy,
-		.maxattr	= SUNRPC_A_IP_MAP_REQS_REQUESTS,
-		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
+		.cmd	= SUNRPC_CMD_IP_MAP_GET_REQS,
+		.dumpit	= sunrpc_nl_ip_map_get_reqs_dumpit,
+		.flags	= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
 	},
 	{
 		.cmd		= SUNRPC_CMD_IP_MAP_SET_REQS,
@@ -71,11 +59,9 @@ static const struct genl_split_ops sunrpc_nl_ops[] = {
 		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DO,
 	},
 	{
-		.cmd		= SUNRPC_CMD_UNIX_GID_GET_REQS,
-		.dumpit		= sunrpc_nl_unix_gid_get_reqs_dumpit,
-		.policy		= sunrpc_unix_gid_get_reqs_nl_policy,
-		.maxattr	= SUNRPC_A_UNIX_GID_REQS_REQUESTS,
-		.flags		= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
+		.cmd	= SUNRPC_CMD_UNIX_GID_GET_REQS,
+		.dumpit	= sunrpc_nl_unix_gid_get_reqs_dumpit,
+		.flags	= GENL_ADMIN_PERM | GENL_CMD_CAP_DUMP,
 	},
 	{
 		.cmd		= SUNRPC_CMD_UNIX_GID_SET_REQS,

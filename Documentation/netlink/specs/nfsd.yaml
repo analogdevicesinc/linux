@@ -416,7 +416,7 @@ operations:
       attribute-set: svc-export-reqs
       flags: [admin-perm]
       dump:
-          request:
+          reply:
             attributes:
               - requests
     -
@@ -434,7 +434,7 @@ operations:
       attribute-set: expkey-reqs
       flags: [admin-perm]
       dump:
-          request:
+          reply:
             attributes:
               - requests
     -
