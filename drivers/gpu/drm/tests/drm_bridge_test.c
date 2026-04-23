@@ -173,8 +173,6 @@ drm_test_bridge_init(struct kunit *test, const struct drm_bridge_funcs *funcs)
 	if (IS_ERR(priv->connector))
 		return ERR_CAST(priv->connector);
 
-	drm_connector_attach_encoder(priv->connector, enc);
-
 	drm_mode_config_reset(drm);
 
 	return priv;
