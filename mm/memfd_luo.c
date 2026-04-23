@@ -50,6 +50,11 @@
  *   memfds are always opened with ``O_RDWR`` and ``O_LARGEFILE``. This property
  *   is maintained.
  *
+ * Seals
+ *   File seals set on the memfd are preserved and re-applied on restore.
+ *   Only seals known to this LUO version (see ``MEMFD_LUO_ALL_SEALS``) may
+ *   be present; preservation fails with ``-EOPNOTSUPP`` otherwise.
+ *
  * Non-Preserved Properties
  * ========================
  *
@@ -61,10 +66,6 @@
  *   A memfd can be created with the ``MFD_CLOEXEC`` flag that sets the
  *   ``FD_CLOEXEC`` on the file. This flag is not preserved and must be set
  *   again after restore via ``fcntl()``.
- *
- * Seals
- *   File seals are not preserved. The file is unsealed on restore and if
- *   needed, must be sealed again via ``fcntl()``.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
