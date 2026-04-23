@@ -936,7 +936,6 @@ static int mtk_dsi_encoder_init(struct drm_device *drm, struct mtk_dsi *dsi)
 		ret = PTR_ERR(dsi->connector);
 		goto err_cleanup_encoder;
 	}
-	drm_connector_attach_encoder(dsi->connector, &dsi->encoder);
 
 	return 0;
 
