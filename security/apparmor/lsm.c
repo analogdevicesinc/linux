@@ -2456,6 +2456,7 @@ static int __init aa_setup_dfa_engine(void)
 			    TO_ACCEPT2_FLAG(YYTD_DATA32));
 	if (IS_ERR(nulldfa)) {
 		error = PTR_ERR(nulldfa);
+		nulldfa = NULL;
 		goto fail;
 	}
 	nullpdb->dfa = aa_get_dfa(nulldfa);
