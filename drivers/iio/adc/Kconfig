@@ -909,10 +909,10 @@ config HMCAD15XX
 	help
 	  Say yes here to build support for Analog Devices HMCAD1511 and
 	  HMCAD1520 high-speed analog-to-digital converters with LVDS outputs.
-	  The HMCAD1511 is a 12-bit ADC supporting up to 1 GSPS in single-channel
+	  The HMCAD1511 is an 8-bit ADC supporting up to 1 GSPS in single-channel
 	  mode. The HMCAD1520 is a 14-bit ADC supporting up to 105 MSPS in
 	  quad-channel precision mode. Both devices support flexible 1/2/4
-	  channel configurations with 8-bit, 12-bit, or 14-bit resolution modes.
+	  channel configurations.
 
 	  To compile this driver as a module, choose M here: the module will
 	  be called hmcad15xx.

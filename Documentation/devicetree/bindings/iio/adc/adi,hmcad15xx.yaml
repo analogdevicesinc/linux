@@ -12,7 +12,7 @@ maintainers:
 
 description: |
   The HMCAD1511 and HMCAD1520 are high-speed analog-to-digital converters
-  with LVDS outputs. The HMCAD1511 is a 12-bit ADC supporting up to 1 GSPS
+  with LVDS outputs. The HMCAD1511 is an 8-bit ADC supporting up to 1 GSPS
   in single-channel mode. The HMCAD1520 is a 14-bit ADC supporting up to
   105 MSPS in quad-channel precision mode.
 
@@ -24,8 +24,8 @@ description: |
   The driver supports 8-bit, 12-bit, and 14-bit resolution modes with
   appropriate LVDS output configurations.
 
-  https://www.ti.com/product/HMCAD1511
-  https://www.ti.com/product/HMCAD1520
+  https://www.analog.com/en/products/hmcad1511.html
+  https://www.analog.com/en/products/hmcad1520.html
 
 properties:
   compatible:
