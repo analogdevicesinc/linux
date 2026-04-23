@@ -305,14 +305,12 @@ static int __maybe_unused ad7879_suspend(struct device *dev)
 {
 	struct ad7879 *ts = dev_get_drvdata(dev);
 
-	mutex_lock(&ts->input->mutex);
+	guard(mutex)(&ts->input->mutex);
 
 	if (!ts->suspended && !ts->disabled && input_device_enabled(ts->input))
 		__ad7879_disable(ts);
 
 	ts->suspended = true;
-
-	mutex_unlock(&ts->input->mutex);
 
 	return 0;
 }
@@ -321,14 +319,12 @@ static int __maybe_unused ad7879_resume(struct device *dev)
 {
 	struct ad7879 *ts = dev_get_drvdata(dev);
 
-	mutex_lock(&ts->input->mutex);
+	guard(mutex)(&ts->input->mutex);
 
 	if (ts->suspended && !ts->disabled && input_device_enabled(ts->input))
 		__ad7879_enable(ts);
 
 	ts->suspended = false;
-
-	mutex_unlock(&ts->input->mutex);
 
 	return 0;
 }
@@ -338,7 +334,7 @@ EXPORT_SYMBOL(ad7879_pm_ops);
 
 static void ad7879_toggle(struct ad7879 *ts, bool disable)
 {
-	mutex_lock(&ts->input->mutex);
+	guard(mutex)(&ts->input->mutex);
 
 	if (!ts->suspended && input_device_enabled(ts->input)) {
 
@@ -352,8 +348,6 @@ static void ad7879_toggle(struct ad7879 *ts, bool disable)
 	}
 
 	ts->disabled = disable;
-
-	mutex_unlock(&ts->input->mutex);
 }
 
 static ssize_t ad7879_disable_show(struct device *dev,
@@ -403,23 +397,20 @@ static int ad7879_gpio_direction_input(struct gpio_chip *chip,
 					unsigned gpio)
 {
 	struct ad7879 *ts = gpiochip_get_data(chip);
-	int err;
 
-	mutex_lock(&ts->mutex);
+	guard(mutex)(&ts->mutex);
+
 	ts->cmd_crtl2 |= AD7879_GPIO_EN | AD7879_GPIODIR | AD7879_GPIOPOL;
-	err = ad7879_write(ts, AD7879_REG_CTRL2, ts->cmd_crtl2);
-	mutex_unlock(&ts->mutex);
-
-	return err;
+	return ad7879_write(ts, AD7879_REG_CTRL2, ts->cmd_crtl2);
 }
 
 static int ad7879_gpio_direction_output(struct gpio_chip *chip,
 					unsigned gpio, int level)
 {
 	struct ad7879 *ts = gpiochip_get_data(chip);
-	int err;
 
-	mutex_lock(&ts->mutex);
+	guard(mutex)(&ts->mutex);
+
 	ts->cmd_crtl2 &= ~AD7879_GPIODIR;
 	ts->cmd_crtl2 |= AD7879_GPIO_EN | AD7879_GPIOPOL;
 	if (level)
@@ -427,21 +418,17 @@ static int ad7879_gpio_direction_output(struct gpio_chip *chip,
 	else
 		ts->cmd_crtl2 &= ~AD7879_GPIO_DATA;
 
-	err = ad7879_write(ts, AD7879_REG_CTRL2, ts->cmd_crtl2);
-	mutex_unlock(&ts->mutex);
-
-	return err;
+	return ad7879_write(ts, AD7879_REG_CTRL2, ts->cmd_crtl2);
 }
 
-static int ad7879_gpio_get_value(struct gpio_chip *chip, unsigned gpio)
+static int ad7879_gpio_get_value(struct gpio_chip *chip, unsigned int gpio)
 {
 	struct ad7879 *ts = gpiochip_get_data(chip);
 	u16 val;
 
-	mutex_lock(&ts->mutex);
-	val = ad7879_read(ts, AD7879_REG_CTRL2);
-	mutex_unlock(&ts->mutex);
+	guard(mutex)(&ts->mutex);
 
+	val = ad7879_read(ts, AD7879_REG_CTRL2);
 	return !!(val & AD7879_GPIO_DATA);
 }
 
@@ -449,18 +436,15 @@ static int ad7879_gpio_set_value(struct gpio_chip *chip, unsigned int gpio,
 				 int value)
 {
 	struct ad7879 *ts = gpiochip_get_data(chip);
-	int ret;
 
-	mutex_lock(&ts->mutex);
+	guard(mutex)(&ts->mutex);
+
 	if (value)
 		ts->cmd_crtl2 |= AD7879_GPIO_DATA;
 	else
 		ts->cmd_crtl2 &= ~AD7879_GPIO_DATA;
 
-	ret = ad7879_write(ts, AD7879_REG_CTRL2, ts->cmd_crtl2);
-	mutex_unlock(&ts->mutex);
-
-	return ret;
+	return ad7879_write(ts, AD7879_REG_CTRL2, ts->cmd_crtl2);
 }
 
 static int ad7879_gpio_add(struct ad7879 *ts)

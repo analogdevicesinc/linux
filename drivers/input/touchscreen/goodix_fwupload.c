@@ -188,13 +188,13 @@ static int goodix_start_firmware(struct i2c_client *client)
 
 static int goodix_firmware_upload(struct goodix_ts_data *ts)
 {
-	const struct firmware *fw;
 	char fw_name[64];
 	const u8 *data;
 	int error;
 
 	snprintf(fw_name, sizeof(fw_name), "goodix/%s", ts->firmware_name);
 
+	const struct firmware *fw __free(firmware) = NULL;
 	error = request_firmware(&fw, fw_name, &ts->client->dev);
 	if (error) {
 		dev_err(&ts->client->dev, "Firmware request error %d\n", error);
@@ -203,60 +203,61 @@ static int goodix_firmware_upload(struct goodix_ts_data *ts)
 
 	error = goodix_firmware_verify(&ts->client->dev, fw);
 	if (error)
-		goto release;
+		return error;
 
 	error = goodix_reset_no_int_sync(ts);
 	if (error)
-		goto release;
+		return error;
 
 	error = goodix_enter_upload_mode(ts->client);
 	if (error)
-		goto release;
+		return error;
 
 	/* Select SRAM bank 0 and upload section 1 & 2 */
 	error = goodix_i2c_write_u8(ts->client,
 				    GOODIX_REG_MISCTL_SRAM_BANK, 0x00);
 	if (error)
-		goto release;
+		return error;
 
 	data = fw->data + GOODIX_FW_HEADER_LENGTH;
 	error = goodix_i2c_write(ts->client, GOODIX_FW_UPLOAD_ADDRESS,
 				 data, 2 * GOODIX_FW_SECTION_LENGTH);
 	if (error)
-		goto release;
+		return error;
 
 	/* Select SRAM bank 1 and upload section 3 & 4 */
 	error = goodix_i2c_write_u8(ts->client,
 				    GOODIX_REG_MISCTL_SRAM_BANK, 0x01);
 	if (error)
-		goto release;
+		return error;
 
 	data += 2 * GOODIX_FW_SECTION_LENGTH;
 	error = goodix_i2c_write(ts->client, GOODIX_FW_UPLOAD_ADDRESS,
 				 data, 2 * GOODIX_FW_SECTION_LENGTH);
 	if (error)
-		goto release;
+		return error;
 
 	/* Select SRAM bank 2 and upload the DSP firmware */
 	error = goodix_i2c_write_u8(ts->client,
 				    GOODIX_REG_MISCTL_SRAM_BANK, 0x02);
 	if (error)
-		goto release;
+		return error;
 
 	data += 2 * GOODIX_FW_SECTION_LENGTH;
 	error = goodix_i2c_write(ts->client, GOODIX_FW_UPLOAD_ADDRESS,
 				 data, GOODIX_FW_DSP_LENGTH);
 	if (error)
-		goto release;
+		return error;
 
 	error = goodix_start_firmware(ts->client);
 	if (error)
-		goto release;
+		return error;
 
 	error = goodix_int_sync(ts);
-release:
-	release_firmware(fw);
-	return error;
+	if (error)
+		return error;
+
+	return 0;
 }
 
 static int goodix_prepare_bak_ref(struct goodix_ts_data *ts)

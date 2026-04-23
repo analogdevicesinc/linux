@@ -366,32 +366,34 @@ static int imagis_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct imagis_ts *ts = i2c_get_clientdata(client);
-	int retval = 0;
+	int error;
 
-	mutex_lock(&ts->input_dev->mutex);
+	guard(mutex)(&ts->input_dev->mutex);
 
-	if (input_device_enabled(ts->input_dev))
-		retval = imagis_stop(ts);
+	if (input_device_enabled(ts->input_dev)) {
+		error = imagis_stop(ts);
+		if (error)
+			return error;
+	}
 
-	mutex_unlock(&ts->input_dev->mutex);
-
-	return retval;
+	return 0;
 }
 
 static int imagis_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct imagis_ts *ts = i2c_get_clientdata(client);
-	int retval = 0;
+	int error;
 
-	mutex_lock(&ts->input_dev->mutex);
+	guard(mutex)(&ts->input_dev->mutex);
 
-	if (input_device_enabled(ts->input_dev))
-		retval = imagis_start(ts);
+	if (input_device_enabled(ts->input_dev)) {
+		error = imagis_start(ts);
+		if (error)
+			return error;
+	}
 
-	mutex_unlock(&ts->input_dev->mutex);
-
-	return retval;
+	return 0;
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(imagis_pm_ops, imagis_suspend, imagis_resume);

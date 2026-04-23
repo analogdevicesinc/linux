@@ -303,15 +303,13 @@ static int elants_i2c_calibrate(struct elants_data *ts)
 	static const u8 rek[] = { CMD_HEADER_WRITE, 0x29, 0x00, 0x01 };
 	static const u8 rek_resp[] = { CMD_HEADER_REK, 0x66, 0x66, 0x66 };
 
-	disable_irq(client->irq);
+	scoped_guard(disable_irq, &client->irq) {
+		ts->state = ELAN_WAIT_RECALIBRATION;
+		reinit_completion(&ts->cmd_done);
 
-	ts->state = ELAN_WAIT_RECALIBRATION;
-	reinit_completion(&ts->cmd_done);
-
-	elants_i2c_send(client, w_flashkey, sizeof(w_flashkey));
-	elants_i2c_send(client, rek, sizeof(rek));
-
-	enable_irq(client->irq);
+		elants_i2c_send(client, w_flashkey, sizeof(w_flashkey));
+		elants_i2c_send(client, rek, sizeof(rek));
+	}
 
 	ret = wait_for_completion_interruptible_timeout(&ts->cmd_done,
 				msecs_to_jiffies(ELAN_CALI_TIMEOUT_MSEC));
@@ -906,17 +904,17 @@ static int elants_i2c_do_update_firmware(struct i2c_client *client,
 static int elants_i2c_fw_update(struct elants_data *ts)
 {
 	struct i2c_client *client = ts->client;
-	const struct firmware *fw;
-	char *fw_name;
 	int error;
 
-	fw_name = kasprintf(GFP_KERNEL, "elants_i2c_%04x.bin", ts->hw_version);
+	const char *fw_name __free(kfree) =
+		kasprintf(GFP_KERNEL, "elants_i2c_%04x.bin", ts->hw_version);
 	if (!fw_name)
 		return -ENOMEM;
 
 	dev_info(&client->dev, "requesting fw name = %s\n", fw_name);
+
+	const struct firmware *fw __free(firmware) = NULL;
 	error = request_firmware(&fw, fw_name, &client->dev);
-	kfree(fw_name);
 	if (error) {
 		dev_err(&client->dev, "failed to request firmware: %d\n",
 			error);
@@ -926,40 +924,32 @@ static int elants_i2c_fw_update(struct elants_data *ts)
 	if (fw->size % ELAN_FW_PAGESIZE) {
 		dev_err(&client->dev, "invalid firmware length: %zu\n",
 			fw->size);
-		error = -EINVAL;
-		goto out;
+		return -EINVAL;
 	}
 
-	disable_irq(client->irq);
+	scoped_guard(disable_irq, &client->irq) {
+		bool force_update = ts->iap_mode == ELAN_IAP_RECOVERY;
 
-	error = elants_i2c_do_update_firmware(client, fw,
-					ts->iap_mode == ELAN_IAP_RECOVERY);
-	if (error) {
-		dev_err(&client->dev, "firmware update failed: %d\n", error);
-		ts->iap_mode = ELAN_IAP_RECOVERY;
-		goto out_enable_irq;
+		error = elants_i2c_do_update_firmware(client, fw, force_update);
+		if (error) {
+			dev_err(&client->dev, "firmware update failed: %d\n",
+				error);
+		} else {
+			error = elants_i2c_initialize(ts);
+			if (error)
+				dev_err(&client->dev,
+					"failed to initialize device after firmware update: %d\n",
+					error);
+		}
+
+		ts->iap_mode = error ? ELAN_IAP_RECOVERY : ELAN_IAP_OPERATIONAL;
+		ts->state = ELAN_STATE_NORMAL;
 	}
-
-	error = elants_i2c_initialize(ts);
-	if (error) {
-		dev_err(&client->dev,
-			"failed to initialize device after firmware update: %d\n",
-			error);
-		ts->iap_mode = ELAN_IAP_RECOVERY;
-		goto out_enable_irq;
-	}
-
-	ts->iap_mode = ELAN_IAP_OPERATIONAL;
-
-out_enable_irq:
-	ts->state = ELAN_STATE_NORMAL;
-	enable_irq(client->irq);
 	msleep(100);
 
 	if (!error)
 		elants_i2c_calibrate(ts);
-out:
-	release_firmware(fw);
+
 	return error;
 }
 
@@ -1186,14 +1176,13 @@ static ssize_t calibrate_store(struct device *dev,
 	struct elants_data *ts = i2c_get_clientdata(client);
 	int error;
 
-	error = mutex_lock_interruptible(&ts->sysfs_mutex);
-	if (error)
-		return error;
+	scoped_cond_guard(mutex_intr, return -EINTR, &ts->sysfs_mutex) {
+		error = elants_i2c_calibrate(ts);
+		if (error)
+			return error;
+	}
 
-	error = elants_i2c_calibrate(ts);
-
-	mutex_unlock(&ts->sysfs_mutex);
-	return error ?: count;
+	return count;
 }
 
 static ssize_t write_update_fw(struct device *dev,
@@ -1204,15 +1193,13 @@ static ssize_t write_update_fw(struct device *dev,
 	struct elants_data *ts = i2c_get_clientdata(client);
 	int error;
 
-	error = mutex_lock_interruptible(&ts->sysfs_mutex);
-	if (error)
-		return error;
+	scoped_cond_guard(mutex_intr, return -EINTR, &ts->sysfs_mutex) {
+		error = elants_i2c_fw_update(ts);
+		if (error)
+			return error;
+	}
 
-	error = elants_i2c_fw_update(ts);
-	dev_dbg(dev, "firmware update result: %d\n", error);
-
-	mutex_unlock(&ts->sysfs_mutex);
-	return error ?: count;
+	return count;
 }
 
 static ssize_t show_iap_mode(struct device *dev,
