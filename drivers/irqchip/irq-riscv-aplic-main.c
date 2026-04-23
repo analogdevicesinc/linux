@@ -116,6 +116,16 @@ static struct syscore aplic_syscore = {
 	.ops = &aplic_syscore_ops,
 };
 
+static bool aplic_syscore_registered __ro_after_init;
+
+static void aplic_syscore_init(void)
+{
+	if (!aplic_syscore_registered) {
+		register_syscore(&aplic_syscore);
+		aplic_syscore_registered = true;
+	}
+}
+
 static int aplic_pm_notifier(struct notifier_block *nb, unsigned long action, void *data)
 {
 	struct aplic_priv *priv = container_of(nb, struct aplic_priv, genpd_nb);
@@ -140,7 +150,7 @@ static void aplic_pm_remove(void *data)
 	struct device *dev = priv->dev;
 
 	list_del(&priv->head);
-	if (dev->pm_domain)
+	if (dev->pm_domain && dev->of_node)
 		dev_pm_genpd_remove_notifier(dev);
 }
 
@@ -155,7 +165,7 @@ static int aplic_pm_add(struct device *dev, struct aplic_priv *priv)
 
 	priv->saved_hw_regs.srcs = srcs;
 	list_add(&priv->head, &aplics);
-	if (dev->pm_domain) {
+	if (dev->pm_domain && dev->of_node) {
 		priv->genpd_nb.notifier_call = aplic_pm_notifier;
 		ret = dev_pm_genpd_add_notifier(dev, &priv->genpd_nb);
 		if (ret)
@@ -372,18 +382,21 @@ static int aplic_probe(struct platform_device *pdev)
 		rc = aplic_msi_setup(dev, regs);
 	else
 		rc = aplic_direct_setup(dev, regs);
-	if (rc)
+
+	if (rc) {
 		dev_err_probe(dev, rc, "failed to setup APLIC in %s mode\n",
 			      msi_mode ? "MSI" : "direct");
-	else
-		register_syscore(&aplic_syscore);
+		return rc;
+	}
+
+	aplic_syscore_init();
 
 #ifdef CONFIG_ACPI
 	if (!acpi_disabled)
 		acpi_dev_clear_dependencies(ACPI_COMPANION(dev));
 #endif
 
-	return rc;
+	return 0;
 }
 
 static const struct of_device_id aplic_match[] = {

@@ -15,6 +15,7 @@ TEST_PROGS := \
 	big_tcp.sh \
 	bind_bhash.sh \
 	bpf_offload.py \
+	bridge_vlan_dump.sh \
 	broadcast_ether_dst.sh \
 	broadcast_pmtu.sh \
 	busy_poll_test.sh \
@@ -88,6 +89,7 @@ TEST_PROGS := \
 	srv6_end_x_next_csid_l3vpn_test.sh \
 	srv6_hencap_red_l3vpn_test.sh \
 	srv6_hl2encap_red_l2vpn_test.sh \
+	srv6_iptunnel_cache.sh \
 	stress_reuseport_listen.sh \
 	tcp_fastopen_backup_key.sh \
 	test_bpf.sh \
