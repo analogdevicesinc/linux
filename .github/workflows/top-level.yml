@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - 'main'
+      - 'next_stable'
+      - 'staging/*'
+      - 'xlnx/release/*'
   pull_request:
 
 concurrency:
@@ -96,7 +99,7 @@ jobs:
         CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
     permissions:
       id-token: write
-      contents: write
+      contents: read
       actions: read
     with:
       artifacts: >
@@ -247,7 +250,7 @@ jobs:
         CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
     permissions:
       id-token: write
-      contents: write
+      contents: read
       actions: read
     with:
       artifacts: >
@@ -260,3 +263,42 @@ jobs:
         adi_mb_defconfig-*
         adi_nios2_defconfig-*
         dtb-*
+
+  deploy_kuiper_binaries:
+    needs: [assert_build]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci
+    secrets: inherit
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    with:
+      pr-number: ${{ github.event.pull_request.number }}
+      pr-target-branch: ${{ github.event.pull_request.base.ref }}
+      artifacts: >
+        adi_versal_defconfig-*
+        adi_zynqmp_defconfig-*
+        socfpga_adi_defconfig-*
+        zynq_m2k_defconfig-*
+        zynq_pluto_defconfig-*
+        zynq_xcomm_adv7511_defconfig-*
+        adi_mb_defconfig-*
+        adi_nios2_defconfig-*
+        dtb-*
+
+  trigger_harness_job:
+    needs: [deploy_kuiper_binaries]
+    runs-on: ubuntu-slim
+    if: needs.deploy_kuiper_binaries.result == 'success'
+    steps:
+      - name: Trigger Jenkins test harness
+        run: |
+          TIMESTAMP=$(date +%Y_%m_%d-%H_%M)
+          BRANCH="${{ github.head_ref || github.ref_name }}"
+          PR_ID="${{ github.event.pull_request.number }}"
+          curl ${{ secrets.JENKINS_URL }}/job/Linux_TH/buildWithParameters \
+            --user ${{ secrets.JENKINS_USER }}:${{ secrets.JENKINS_API_KEY }} \
+            --data TIMESTAMP=${TIMESTAMP} \
+            --data BRANCH=${BRANCH} \
+            --data PR_ID=${PR_ID}
