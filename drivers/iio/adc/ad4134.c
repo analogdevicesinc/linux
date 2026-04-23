@@ -211,7 +211,7 @@ struct ad4134_state {
 
 	unsigned long sys_clk_hz;
 
-	struct spi_transfer xfers[AD4134_NUM_CHANNELS];
+	struct spi_transfer xfers;
 	struct spi_message msg;
 
 	struct spi_offload *offload;
@@ -563,16 +563,33 @@ const struct attribute_group ad4134_offload_attribute_group = {
 static void ad4134_prepare_offload_msg(struct iio_dev *indio_dev)
 {
 	struct ad4134_state *st = iio_priv(indio_dev);
-	unsigned int bpw = roundup_pow_of_two(BITS_TO_BYTES(AD4134_CHAN_PRECISION_BITS));
-	unsigned int i;
+	unsigned int base_len = roundup_pow_of_two(BITS_TO_BYTES(AD4134_CHAN_PRECISION_BITS));
+	unsigned int bpw;
 
-	for (i = 0; i < AD4134_NUM_CHANNELS; i++) {
-		st->xfers[i].bits_per_word = bpw;
-		st->xfers[i].len = bpw / st->num_dout_lines;
-		st->xfers[i].offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+	switch (st->output_frame) {
+		case 0:
+			bpw = 16;
+			break;
+		case 1:
+		case 2:
+			bpw = 24;
+			break;
+		case 3:
+			bpw = 32;
+			break;
+		default:
+			dev_err(&st->spi->dev, "invalid adi,adc-frame: %d\n", st->output_frame);
+			return;
 	}
 
-	spi_message_init_with_transfers(&st->msg, st->xfers, AD4134_NUM_CHANNELS);
+	st->xfers.bits_per_word = bpw;
+	st->xfers.len = base_len * st->num_dout_lines;
+	if (st->num_dout_lines > 1)
+		st->xfers.multi_lane_mode = SPI_MULTI_LANE_MODE_STRIPE;
+
+	st->xfers.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+
+	spi_message_init_with_transfers(&st->msg, &st->xfers, 1);
 }
 
 static int ad4134_offload_buffer_postenable(struct iio_dev *indio_dev)
