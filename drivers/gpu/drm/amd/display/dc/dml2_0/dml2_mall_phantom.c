@@ -594,11 +594,14 @@ static bool subvp_vblank_schedulable(struct dml2_context *ctx, struct dc_state *
 		subvp_active_us = (uint32_t)(main_timing->v_addressable * main_timing->h_total /
 				(double)(main_timing->pix_clk_100hz * 100) * 1000000);
 		max_vblank_mallregion = vblank_blank_us > mall_region_us ? vblank_blank_us : mall_region_us;
+		const uint64_t required_us = (uint64_t)prefetch_us +
+					     (uint64_t)vblank_frame_us +
+					     (uint64_t)max_vblank_mallregion;
 
 		// Schedulable if VACTIVE region of the SubVP pipe can fit the MALL prefetch, VBLANK frame time,
 		// and the max of (VBLANK blanking time, MALL region)
 		// TODO: Possibly add some margin (i.e. the below conditions should be [...] > X instead of [...] > 0)
-		if (subvp_active_us - prefetch_us - vblank_frame_us - max_vblank_mallregion > 0)
+		if ((uint64_t)subvp_active_us > required_us)
 			schedulable = true;
 	}
 	return schedulable;
