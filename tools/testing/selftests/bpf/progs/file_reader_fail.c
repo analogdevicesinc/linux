@@ -30,7 +30,7 @@ int on_nanosleep_unreleased_ref(void *ctx)
 
 SEC("xdp")
 __failure
-__msg("Expected a dynptr of type file as arg #0")
+__msg("Expected a dynptr of type file as R1")
 int xdp_wrong_dynptr_type(struct xdp_md *xdp)
 {
 	struct bpf_dynptr dynptr;
@@ -42,7 +42,7 @@ int xdp_wrong_dynptr_type(struct xdp_md *xdp)
 
 SEC("xdp")
 __failure
-__msg("Expected an initialized dynptr as arg #0")
+__msg("Expected an initialized dynptr as R1")
 int xdp_no_dynptr_type(struct xdp_md *xdp)
 {
 	struct bpf_dynptr dynptr;
