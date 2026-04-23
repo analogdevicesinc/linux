@@ -257,7 +257,6 @@ int smb2_validate_and_copy_iov(unsigned int offset, unsigned int buffer_length,
 			       char *data);
 void smb2_copy_fs_info_to_kstatfs(struct smb2_fs_full_size_info *pfs_inf,
 				  struct kstatfs *kst);
-int smb3_crypto_shash_allocate(struct TCP_Server_Info *server);
 void smb311_update_preauth_hash(struct cifs_ses *ses,
 				struct TCP_Server_Info *server,
 				struct kvec *iov, int nvec);
