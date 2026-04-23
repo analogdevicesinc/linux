@@ -4710,7 +4710,7 @@ static int mark_uptr_ld_reg(struct bpf_verifier_env *env, u32 regno,
 	return 0;
 }
 
-static int check_map_kptr_access(struct bpf_verifier_env *env, u32 regno,
+static int check_map_kptr_access(struct bpf_verifier_env *env,
 				 int value_regno, int insn_idx,
 				 struct btf_field *kptr_field)
 {
@@ -6357,7 +6357,7 @@ static int check_mem_access(struct bpf_verifier_env *env, int insn_idx, u32 regn
 			kptr_field = btf_record_find(reg->map_ptr->record,
 						     off + reg->var_off.value, BPF_KPTR | BPF_UPTR);
 		if (kptr_field) {
-			err = check_map_kptr_access(env, regno, value_regno, insn_idx, kptr_field);
+			err = check_map_kptr_access(env, value_regno, insn_idx, kptr_field);
 		} else if (t == BPF_READ && value_regno >= 0) {
 			struct bpf_map *map = reg->map_ptr;
 
