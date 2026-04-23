@@ -365,7 +365,6 @@ struct vs_bridge *vs_bridge_init(struct drm_device *drm_dev,
 		ret = PTR_ERR(bridge->conn);
 		return ERR_PTR(ret);
 	}
-	drm_connector_attach_encoder(bridge->conn, bridge->enc);
 
 	return bridge;
 }
