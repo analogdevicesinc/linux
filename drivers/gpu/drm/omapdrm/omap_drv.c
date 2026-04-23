@@ -507,8 +507,6 @@ static int omap_modeset_init(struct drm_device *dev)
 			return PTR_ERR(pipe->connector);
 		}
 
-		drm_connector_attach_encoder(pipe->connector, encoder);
-
 		crtc = omap_crtc_init(dev, pipe, priv->planes[i]);
 		if (IS_ERR(crtc))
 			return PTR_ERR(crtc);
