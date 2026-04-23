@@ -4,6 +4,6 @@
 #
 #  Author:	Antonio Quartulli <antonio@openvpn.net>
 
-ALG="chachapoly"
+OVPN_ALG="chachapoly"
 
 source test.sh
