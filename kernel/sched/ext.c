@@ -1389,13 +1389,13 @@ static void call_task_dequeue(struct scx_sched *sch, struct rq *rq,
 	p->scx.flags &= ~SCX_TASK_IN_CUSTODY;
 }
 
-static void local_dsq_post_enq(struct scx_dispatch_q *dsq, struct task_struct *p,
-			       u64 enq_flags)
+static void local_dsq_post_enq(struct scx_sched *sch, struct scx_dispatch_q *dsq,
+			       struct task_struct *p, u64 enq_flags)
 {
 	struct rq *rq = container_of(dsq, struct rq, scx.local_dsq);
 	bool preempt = false;
 
-	call_task_dequeue(scx_root, rq, p, 0);
+	call_task_dequeue(sch, rq, p, 0);
 
 	/*
 	 * If @rq is in balance, the CPU is already vacant and looking for the
@@ -1519,7 +1519,7 @@ static void dispatch_enqueue(struct scx_sched *sch, struct rq *rq,
 	 * concurrently in a non-atomic way.
 	 */
 	if (is_local) {
-		local_dsq_post_enq(dsq, p, enq_flags);
+		local_dsq_post_enq(sch, dsq, p, enq_flags);
 	} else {
 		/*
 		 * Task on global/bypass DSQ: leave custody, task on
@@ -2130,7 +2130,8 @@ static void wakeup_preempt_scx(struct rq *rq, struct task_struct *p, int wake_fl
 		schedule_reenq_local(rq, 0);
 }
 
-static void move_local_task_to_local_dsq(struct task_struct *p, u64 enq_flags,
+static void move_local_task_to_local_dsq(struct scx_sched *sch,
+					 struct task_struct *p, u64 enq_flags,
 					 struct scx_dispatch_q *src_dsq,
 					 struct rq *dst_rq)
 {
@@ -2150,7 +2151,7 @@ static void move_local_task_to_local_dsq(struct task_struct *p, u64 enq_flags,
 	dsq_inc_nr(dst_dsq, p, enq_flags);
 	p->scx.dsq = dst_dsq;
 
-	local_dsq_post_enq(dst_dsq, p, enq_flags);
+	local_dsq_post_enq(sch, dst_dsq, p, enq_flags);
 }
 
 /**
@@ -2371,7 +2372,7 @@ static struct rq *move_task_between_dsqs(struct scx_sched *sch,
 		/* @p is going from a non-local DSQ to a local DSQ */
 		if (src_rq == dst_rq) {
 			task_unlink_from_dsq(p, src_dsq);
-			move_local_task_to_local_dsq(p, enq_flags,
+			move_local_task_to_local_dsq(sch, p, enq_flags,
 						     src_dsq, dst_rq);
 			raw_spin_unlock(&src_dsq->lock);
 		} else {
@@ -2424,7 +2425,7 @@ retry:
 
 		if (rq == task_rq) {
 			task_unlink_from_dsq(p, dsq);
-			move_local_task_to_local_dsq(p, enq_flags, dsq, rq);
+			move_local_task_to_local_dsq(sch, p, enq_flags, dsq, rq);
 			raw_spin_unlock(&dsq->lock);
 			return true;
 		}
