@@ -407,8 +407,6 @@ static int imx_ldb_register(struct drm_device *drm,
 	if (IS_ERR(connector))
 		return PTR_ERR(connector);
 
-	drm_connector_attach_encoder(connector, encoder);
-
 	return 0;
 }
 
