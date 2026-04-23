@@ -344,7 +344,6 @@ static void mmhub_v4_2_0_mid_init_tlb_regs(struct amdgpu_device *adev,
 				    ENABLE_ADVANCED_DRIVER_MODEL, 1);
 		tmp = REG_SET_FIELD(tmp, MMMC_VM_MX_L1_TLB_CNTL,
 				    SYSTEM_APERTURE_UNMAPPED_ACCESS, 0);
-		tmp = REG_SET_FIELD(tmp, MMMC_VM_MX_L1_TLB_CNTL, ECO_BITS, 0);
 		tmp = REG_SET_FIELD(tmp, MMMC_VM_MX_L1_TLB_CNTL,
 				    MTYPE, MTYPE_UC); /* UC, uncached */
 
@@ -369,7 +368,6 @@ static void mmhub_v4_2_0_mid_init_cache_regs(struct amdgpu_device *adev,
 		/* Setup L2 cache */
 		tmp = RREG32_SOC15(MMHUB, GET_INST(MMHUB, i), regMMVM_L2_CNTL);
 		tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL, ENABLE_L2_CACHE, 1);
-		tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL, ENABLE_L2_FRAGMENT_PROCESSING, 0);
 		tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL,
 				    ENABLE_DEFAULT_PAGE_OUT_TO_SYSTEM_MEMORY, 1);
 		/* XXX for emulation, Refer to closed source code.*/
@@ -382,13 +380,6 @@ static void mmhub_v4_2_0_mid_init_cache_regs(struct amdgpu_device *adev,
 		tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL,
 				    IDENTITY_MODE_FRAGMENT_SIZE, 0);
 		WREG32_SOC15(MMHUB, GET_INST(MMHUB, i), regMMVM_L2_CNTL, tmp);
-
-		tmp = RREG32_SOC15(MMHUB, GET_INST(MMHUB, i), regMMVM_L2_CNTL2);
-		tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL2,
-				    INVALIDATE_ALL_L1_TLBS, 1);
-		tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL2,
-				    INVALIDATE_L2_CACHE, 1);
-		WREG32_SOC15(MMHUB, GET_INST(MMHUB, i), regMMVM_L2_CNTL2, tmp);
 
 		tmp = regMMVM_L2_CNTL3_DEFAULT;
 		if (adev->gmc.translate_further) {
