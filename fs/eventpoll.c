@@ -148,13 +148,6 @@ struct epitem {
 	/* The file descriptor information this item refers to */
 	struct epoll_filefd ffd;
 
-	/*
-	 * Protected by file->f_lock, true for to-be-released epitem already
-	 * removed from the "struct file" items list; together with
-	 * eventpoll->refcount orchestrates "struct eventpoll" disposal
-	 */
-	bool dying;
-
 	/* List containing poll wait queues */
 	struct eppoll_entry *pwqlist;
 
@@ -220,10 +213,7 @@ struct eventpoll {
 	struct hlist_head refs;
 	u8 loop_check_depth;
 
-	/*
-	 * usage count, used together with epitem->dying to
-	 * orchestrate the disposal of this struct
-	 */
+	/* usage count, orchestrates "struct eventpoll" disposal */
 	refcount_t refcount;
 
 	/* used to defer freeing past ep_get_upwards_depth_proc() RCU walk */
@@ -918,13 +908,10 @@ static void ep_remove(struct eventpoll *ep, struct epitem *epi)
 
 	ep_unregister_pollwait(ep, epi);
 
-	/* cheap sync with eventpoll_release_file() */
-	if (unlikely(READ_ONCE(epi->dying)))
-		return;
-
 	/*
 	 * If we manage to grab a reference it means we're not in
-	 * eventpoll_release_file() and aren't going to be.
+	 * eventpoll_release_file() and aren't going to be: once @file's
+	 * refcount has reached zero, file_ref_get() cannot bring it back.
 	 */
 	file = epi_fget(epi);
 	if (!file)
@@ -1126,15 +1113,15 @@ void eventpoll_release_file(struct file *file)
 	struct epitem *epi;
 
 	/*
-	 * Use the 'dying' flag to prevent a concurrent ep_clear_and_put() from
-	 * touching the epitems list before eventpoll_release_file() can access
-	 * the ep->mtx.
+	 * A concurrent ep_remove() cannot outrace us: it pins @file via
+	 * epi_fget(), which fails once __fput() has dropped the refcount
+	 * to zero -- the path we're on. So any racing ep_remove() bails
+	 * and leaves the epi for us to clean up here.
 	 */
 again:
 	spin_lock(&file->f_lock);
 	if (file->f_ep && file->f_ep->first) {
 		epi = hlist_entry(file->f_ep->first, struct epitem, fllink);
-		WRITE_ONCE(epi->dying, true);
 		spin_unlock(&file->f_lock);
 
 		/*
