@@ -274,7 +274,7 @@ enum {
  * %__GFP_ZERO returns a zeroed page on success.
  *
  * %__GFP_ZEROTAGS zeroes memory tags at allocation time. Setting memory tags at
- * the same time as zeroing memory (e.g., with __GPF_ZERO) has minimal
+ * the same time as zeroing memory (e.g., with __GFP_ZERO) has minimal
  * additional performance impact. However, __GFP_ZEROTAGS also zeroes the tags
  * even if memory is not getting zeroed at allocation time (e.g.,
  * with init_on_free).
