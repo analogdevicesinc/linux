@@ -137,7 +137,7 @@ static int inno_hdmi_rockchip_bind(struct device *dev, struct device *master, vo
 		return ret;
 	}
 
-	return drm_connector_attach_encoder(connector, encoder);
+	return 0;
 }
 
 static const struct component_ops inno_hdmi_rockchip_ops = {
