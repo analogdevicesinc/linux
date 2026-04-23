@@ -53,7 +53,7 @@ struct drr_params;
 struct dc_underflow_debug_data;
 struct dsc_optc_config;
 struct vm_system_aperture_param;
-struct memory_qos;
+struct dc_measured_memory_qos;
 struct stream_encoder;
 struct hpo_dp_stream_encoder;
 struct hpo_frl_stream_encoder;
@@ -1516,12 +1516,12 @@ struct hw_sequencer_funcs {
 	/**
 	 * measure_memory_qos - Measure memory QoS metrics
 	 * @dc: DC structure
-	 * @qos: Pointer to memory_qos struct to populate with measured values
+	 * @qos: Pointer to dc_measured_memory_qos struct to populate with measured values
 	 *
-	 * Populates the provided memory_qos struct with peak bandwidth, average bandwidth,
+	 * Populates the provided dc_measured_memory_qos struct with peak bandwidth, average bandwidth,
 	 * max latency, min latency, and average latency from hardware performance counters.
 	 */
-	void (*measure_memory_qos)(struct dc *dc, struct memory_qos *qos);
+	void (*measure_memory_qos)(struct dc *dc, struct dc_measured_memory_qos *qos);
 
 };
 

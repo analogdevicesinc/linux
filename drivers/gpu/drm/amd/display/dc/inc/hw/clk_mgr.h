@@ -28,6 +28,7 @@
 #define __DAL_CLK_MGR_H__
 
 #include "dc.h"
+#include "core_types.h"
 #include "dm_pp_smu.h"
 
 /* Constants */
@@ -374,6 +375,15 @@ struct clk_mgr_funcs {
 	unsigned int (*override_memory_bandwidth_request)(
 			struct clk_mgr *clk_mgr,
 			unsigned int bw_kbps);
+	/**
+	 * get_requested_memory_qos - Retrieve current QoS request from the clock manager's
+	 *     current clock state, reflecting any active bandwidth overrides.
+	 * @clk_mgr: clock manager instance
+	 * @qos: pointer to dc_requested_memory_qos structure to populate
+	 */
+	void (*get_requested_memory_qos)(
+			struct clk_mgr *clk_mgr,
+			struct dc_requested_memory_qos *qos);
 };
 
 struct clk_mgr {
