@@ -5441,32 +5441,68 @@ static void ublk_unpin_range_pages(unsigned long base_pfn,
 }
 
 /*
- * Remove ranges from the maple tree matching buf_index, unpin pages
- * and free range structs. If buf_index < 0, remove all ranges.
+ * Inner loop: erase up to UBLK_REMOVE_BATCH matching ranges under
+ * mas_lock, collecting them into an xarray. Then drop the lock and
+ * unpin pages + free ranges outside spinlock context.
+ *
+ * Returns true if the tree walk completed, false if more ranges remain.
+ * Xarray key is the base PFN, value encodes nr_pages via xa_mk_value().
  */
-static int ublk_shmem_remove_ranges(struct ublk_device *ub, int buf_index)
+#define UBLK_REMOVE_BATCH	64
+
+static bool __ublk_shmem_remove_ranges(struct ublk_device *ub,
+					int buf_index, int *ret)
 {
 	MA_STATE(mas, &ub->buf_tree, 0, ULONG_MAX);
 	struct ublk_buf_range *range;
-	int ret = -ENOENT;
+	struct xarray to_unpin;
+	unsigned long idx;
+	unsigned int count = 0;
+	bool done = false;
+	void *entry;
+
+	xa_init(&to_unpin);
 
 	mas_lock(&mas);
 	mas_for_each(&mas, range, ULONG_MAX) {
-		unsigned long base, nr;
+		unsigned long nr;
 
 		if (buf_index >= 0 && range->buf_index != buf_index)
 			continue;
 
-		ret = 0;
-		base = mas.index;
-		nr = mas.last - base + 1;
+		*ret = 0;
+		nr = mas.last - mas.index + 1;
+		if (xa_err(xa_store(&to_unpin, mas.index,
+				    xa_mk_value(nr), GFP_ATOMIC)))
+			goto unlock;
 		mas_erase(&mas);
-
-		ublk_unpin_range_pages(base, nr);
 		kfree(range);
+		if (++count >= UBLK_REMOVE_BATCH)
+			goto unlock;
 	}
+	done = true;
+unlock:
 	mas_unlock(&mas);
 
+	xa_for_each(&to_unpin, idx, entry)
+		ublk_unpin_range_pages(idx, xa_to_value(entry));
+	xa_destroy(&to_unpin);
+
+	return done;
+}
+
+/*
+ * Remove ranges from the maple tree matching buf_index, unpin pages
+ * and free range structs. If buf_index < 0, remove all ranges.
+ * Processes ranges in batches to avoid holding the maple tree spinlock
+ * across potentially expensive page unpinning.
+ */
+static int ublk_shmem_remove_ranges(struct ublk_device *ub, int buf_index)
+{
+	int ret = -ENOENT;
+
+	while (!__ublk_shmem_remove_ranges(ub, buf_index, &ret))
+		cond_resched();
 	return ret;
 }
 
