@@ -7,6 +7,7 @@
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/component.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dmaengine.h>
 #include <linux/gpio/driver.h>
@@ -340,22 +341,16 @@ static const unsigned long ad4134_offload_scan_masks[] = {
 	0
 };
 
-static const struct spi_offload_config ad4134_offload_config = {
-	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER |
-			    SPI_OFFLOAD_CAP_RX_STREAM_DMA,
-};
-
-static int ad4134_update_conversion_rate(struct ad4134_state *st,
-					 unsigned int freq_hz)
+static int ad4134_setup_odr(struct ad4134_state *st, unsigned int freq_hz)
 {
-	struct spi_offload_trigger_config *config = &st->offload_trigger_config;
 	struct pwm_waveform odr_wf = { };
-	u64 offload_period_ns;
-	u64 offload_offset_ns;
 	u64 odr_high_time_ns;
 	unsigned int odr_hz;
 	u64 target = 10;
 	int ret;
+
+	dev_info(&st->spi->dev, "%s: Updating conversion rate to %u Hz\n",
+		 __func__, freq_hz);
 
 	/*
 	 * Every ODR pulse causes each of the 4 ADCs within the AD4134 chip to
@@ -364,11 +359,17 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	 * the controller can fetch data from multiple lanes, the throughput is
 	 * increased proportionally to the number of data lanes in use.
 	 * Conversely, when multiple data lanes are enabled, the requested
-	 * sampling frequency can be reached with slower ODR frequencies.
+	 * sampling frequency can be reached with slower ODR frequencies. ?
 	 */
-	odr_hz = freq_hz / st->num_dout_lines;
-	if (odr_hz < AD4134_MIN_ODR_FREQ_HZ || odr_hz > AD4134_MAX_ODR_FREQ_HZ)
+	//odr_hz = freq_hz / st->num_dout_lines;
+	odr_hz = freq_hz;
+	dev_info(&st->spi->dev, "ODR frequency: %u Hz (DOUT lines: %u)\n",
+		odr_hz, st->num_dout_lines);
+	if (odr_hz < AD4134_MIN_ODR_FREQ_HZ || odr_hz > AD4134_MAX_ODR_FREQ_HZ) {
+		dev_err(&st->spi->dev, "ODR %u Hz out of range [%d, %d]\n",
+			odr_hz, AD4134_MIN_ODR_FREQ_HZ, AD4134_MAX_ODR_FREQ_HZ);
 		return -EINVAL;
+	}
 
 	odr_wf.period_length_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC, odr_hz);
 	/*
@@ -395,13 +396,79 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	if (odr_wf.period_length_ns < 2 * odr_high_time_ns)
 		return -EINVAL;
 
+	ret = pwm_set_waveform_might_sleep(st->odr_trigger, &odr_wf, false);
+
+	return 0;
+}
+
+static const struct spi_offload_config ad4134_offload_config = {
+	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER |
+			    SPI_OFFLOAD_CAP_RX_STREAM_DMA,
+};
+
+static int ad4134_update_conversion_rate(struct ad4134_state *st,
+					 unsigned int freq_hz)
+{
+	struct spi_offload_trigger_config *config = &st->offload_trigger_config;
+	struct pwm_waveform odr_wf = { };
+	u64 offload_period_ns;
+	u64 offload_offset_ns;
+	u64 odr_high_time_ns;
+	unsigned int odr_hz;
+	u64 target = 10;
+	int ret;
+
+	/*
+	 * Every ODR pulse causes each of the 4 ADCs within the AD4134 chip to
+	 * take a sample simultaneously. The peripheral then outputs the data
+	 * from all those channels over one, two, or four data output lanes. If
+	 * the controller can fetch data from multiple lanes, the throughput is
+	 * increased proportionally to the number of data lanes in use.
+	 * Conversely, when multiple data lanes are enabled, the requested
+	 * sampling frequency can be reached with slower ODR frequencies.
+	 */
+	//odr_hz = freq_hz / st->num_dout_lines;
+	odr_hz = freq_hz;
+	if (odr_hz < AD4134_MIN_ODR_FREQ_HZ || odr_hz > AD4134_MAX_ODR_FREQ_HZ)
+		return -EINVAL;
+
+	odr_wf.period_length_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC, odr_hz);
+	/*
+	 * For an arbitrary system clock (fSYSCLK), we have a minimum ODR high
+	 * time of 6/fSYSCLK derived from the device clock and data interface
+	 * timing (with Gated DCLK) specifications. Set the PWM duty cycle to
+	 * keep ODR up for at least that long. If the rounded PWM's value is
+	 * less than the minimum required, increase the target value by 10 and
+	 * attempt to round the waveform again, until the minimum is reached.
+	 */
+	odr_high_time_ns = div64_ul(6ULL * NANO, st->sys_clk_hz);
+	do {
+		odr_wf.duty_length_ns = target;
+		ret = pwm_round_waveform_might_sleep(st->odr_trigger, &odr_wf);
+		if (ret)
+			return ret;
+		target += 10;
+	} while (odr_wf.duty_length_ns < odr_high_time_ns);
+
+	ret = pwm_set_waveform_might_sleep(st->odr_trigger, &odr_wf, false);
+	if (ret)
+		return -EINVAL;
+
+	/*
+	 * PWM waveform rounding might also change the wave period. Double check
+	 * the resulting ODR PWM period is valid.
+	 */
+	if (odr_wf.period_length_ns < 2 * odr_high_time_ns)
+		return -EINVAL;
+
 	/*
 	 * The controller fetches one sample per active lane each time the
 	 * offload module is triggered. If multiple data lanes are enabled, the
-	 * offload trigger frequency can be proportionally slower.
+	 * offload trigger frequency can be proportionally slower. ?
 	 */
 	offload_period_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC,
-					      odr_hz * st->num_dout_lines);
+//					      odr_hz * st->num_dout_lines);
+					      odr_hz);
 
 	config->periodic.frequency_hz = DIV_ROUND_UP_ULL(NSEC_PER_SEC,
 							 offload_period_ns);
@@ -439,7 +506,8 @@ static ssize_t sampling_frequency_show(struct device *dev,
 	 * If the controller can fetch data from multiple lanes, the throughput
 	 * is increased proportionally to the number of data lanes in use.
 	 */
-	return sysfs_emit(buf, "%u\n", st->odr_hz * st->num_dout_lines);
+	//return sysfs_emit(buf, "%u\n", st->odr_hz * st->num_dout_lines);
+	return sysfs_emit(buf, "%u\n", st->odr_hz);
 }
 
 static ssize_t sampling_frequency_store(struct device *dev,
@@ -517,19 +585,13 @@ static int ad4134_offload_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	ret = pwm_set_waveform_might_sleep(st->odr_trigger, &st->odr_wf, false);
-	if (ret)
-		goto out_unoptimize;
-
 	ret = spi_offload_trigger_enable(st->offload, st->offload_trigger,
 					 &st->offload_trigger_config);
 	if (ret)
-		goto out_pwm_disable;
+		goto out_unoptimize;
 
 	return 0;
 
-out_pwm_disable:
-	pwm_disable(st->odr_trigger);
 out_unoptimize:
 	spi_unoptimize_message(&st->msg);
 
@@ -542,7 +604,6 @@ static int ad4134_offload_buffer_predisable(struct iio_dev *indio_dev)
 
 	spi_offload_trigger_disable(st->offload, st->offload_trigger);
 
-	pwm_disable(st->odr_trigger);
 
 	spi_unoptimize_message(&st->msg);
 
@@ -589,7 +650,6 @@ static int ad4134_pwm_get(struct ad4134_state *st)
 		return dev_err_probe(dev, PTR_ERR(st->odr_trigger),
 				     "failed to get ODR PWM\n");
 
-	pwm_disable(st->odr_trigger);
 
 	return 0;
 }
@@ -612,19 +672,6 @@ static int ad4134_offload_buffer_setup(struct iio_dev *indio_dev, struct spi_dev
 		return dev_err_probe(dev, ret,
 				     "failed to setup SPI offload\n");
 
-	ret = ad4134_pwm_get(st);
-	if (ret)
-		return dev_err_probe(dev, ret, "failed to get PWM: %d\n", ret);
-
-	/*
-	 * Start with a slower sampling rate so there is some room for
-	 * adjusting the sampling frequency without hitting the maximum
-	 * conversion rate.
-	 */
-	st->odr_hz = AD4134_MAX_ODR_FREQ_HZ >> 4;
-	ret = ad4134_update_conversion_rate(st, st->odr_hz);
-	if (ret)
-		return dev_err_probe(dev, ret, "failed to set offload samp freq\n");
 
 	return 0;
 }
@@ -735,7 +782,7 @@ static int ad4134_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		mutex_lock(&st->lock);
-		*val = st->odr_hz * st->num_dout_lines;
+		*val = st->odr_hz;
 		mutex_unlock(&st->lock);
 
 		return IIO_VAL_INT;
@@ -878,6 +925,29 @@ static int ad4134_setup(struct ad4134_state *st)
 
 	gpiod_set_value_cansleep(reset_gpio, 0);
 
+	if (device_property_present(&st->spi->dev, "pwms")) {
+		ret = ad4134_pwm_get(st);
+		if (ret)
+			return dev_err_probe(dev, ret, "failed to get PWM: %d\n", ret);
+
+		dev_info(dev, "PWM obtained successfully\n");
+
+		/*
+		 * Start with a slower sampling rate so there is some room for
+		 * adjusting the sampling frequency without hitting the maximum
+		 * conversion rate.
+		 */
+		st->odr_hz = AD4134_MAX_ODR_FREQ_HZ >> 4;
+		dev_info(dev, "Setting initial ODR frequency to %u Hz\n", st->odr_hz);
+		//ret = ad4134_update_conversion_rate(st, st->odr_hz);
+		ret = ad4134_setup_odr(st, st->odr_hz);
+		if (ret)
+			return dev_err_probe(dev, ret, "failed to set odr freq\n");
+
+		dev_info(&st->spi->dev, "wait\n");
+		fsleep(MEGA); /* 10^6 microsecs == 1s settling time so PPL lock */
+	}
+
 
 	ret = regmap_update_bits(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
 				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
@@ -943,6 +1013,10 @@ static int ad4134_bind(struct device *dev)
 	ret = ad4134_offload_buffer_setup(indio_dev, st->spi);
 	if (ret)
 		return ret;
+
+	ret = ad4134_update_conversion_rate(st, st->odr_hz);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to set sampling freq\n");
 
 	return iio_device_register(indio_dev);
 }
