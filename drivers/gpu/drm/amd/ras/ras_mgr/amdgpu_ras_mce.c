@@ -25,6 +25,8 @@
 #include "amdgpu.h"
 #include "amdgpu_ras_mgr.h"
 #include "amdgpu_ras_mce.h"
+
+#ifdef CONFIG_X86_MCE_AMD
 #include <asm/mce.h>
 
 static int amdgpu_sys_mce_notifier(struct notifier_block *nb, unsigned long val, void *data);
@@ -232,6 +234,7 @@ static int amdgpu_ras_mce_notifier(struct amdgpu_device *adev,
 
 	return 0;
 }
+#endif
 
 int amdgpu_ras_mce_hw_init(struct amdgpu_device *adev)
 {
@@ -245,12 +248,16 @@ int amdgpu_ras_mce_hw_fini(struct amdgpu_device *adev)
 
 int amdgpu_ras_mce_sw_init(struct amdgpu_device *adev)
 {
+#ifdef CONFIG_X86_MCE_AMD
 	amdgpu_ras_register_mce_notifier(adev, amdgpu_ras_mce_notifier);
+#endif
 	return 0;
 }
 
 int amdgpu_ras_mce_sw_fini(struct amdgpu_device *adev)
 {
+#ifdef CONFIG_X86_MCE_AMD
 	amdgpu_ras_unregister_mce_notifier(adev);
+#endif
 	return 0;
 }
