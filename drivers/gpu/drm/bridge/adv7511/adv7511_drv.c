@@ -768,8 +768,6 @@ static int adv7511_connector_init(struct adv7511 *adv)
 		return PTR_ERR(connector);
 	}
 
-	drm_connector_attach_encoder(connector, bridge->encoder);
-
 	return 0;
 }
 
