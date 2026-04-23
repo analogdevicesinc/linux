@@ -249,9 +249,7 @@ static ssize_t ad7134_get_sync(struct iio_dev *indio_dev, uintptr_t private,
 	return sprintf(buf, "enable\n");
 }
 
-static ssize_t ad7134_set_sync(struct iio_dev *indio_dev, uintptr_t private,
-			       const struct iio_chan_spec *chan,
-			       const char *buf, size_t len)
+static int ad7134_sync(struct iio_dev *indio_dev)
 {
 	struct ad4134_state *st = iio_priv(indio_dev);
 	int ret;
@@ -262,7 +260,19 @@ static ssize_t ad7134_set_sync(struct iio_dev *indio_dev, uintptr_t private,
 				 (AD4134_IF_CONFIG_B_RESET |  AD4134_IF_CONFIG_B_SINGLE_INSTR));
 	if (ret)
 		return ret;
+
 	gpiod_set_value_cansleep(st->cs_gpio, 0);
+
+	return 0;
+}
+
+static ssize_t ad7134_set_sync(struct iio_dev *indio_dev, uintptr_t private,
+			       const struct iio_chan_spec *chan,
+			       const char *buf, size_t len)
+{
+	int ret;
+
+	ret = ad7134_sync(indio_dev);
 
 	return ret ? ret : len;
 }
