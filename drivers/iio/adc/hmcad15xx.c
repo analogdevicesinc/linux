@@ -53,10 +53,15 @@
 #define HMCAD15XX_LVDS_OUTPUT_DUAL_8BIT		0x4
 
 /* HMCAD15XX_REG_OPERATION_MODE (0x31) - combined high_speed + clk_divide */
+/* HMCAD1511: D[2:0]=channel_num (1/2/4), D[9:8]=clk_divide */
+/* HMCAD1520: D[2:0]=high_speed_mode, D[3]=precision_mode, D[9:8]=clk_divide */
 #define HMCAD15XX_OP_MODE_MSK			(GENMASK(9, 8) | GENMASK(2, 0))
+#define HMCAD1520_OP_MODE_MSK			(GENMASK(9, 8) | GENMASK(3, 0))
 #define HMCAD15XX_OP_MODE_SINGLE_CH		0x0001
 #define HMCAD15XX_OP_MODE_DUAL_CH		0x0102
 #define HMCAD15XX_OP_MODE_QUAD_CH		0x0204
+/* HMCAD1520 14-bit precision: precision_mode=1, high_speed_mode=0, clk_divide=8 */
+#define HMCAD1520_OP_MODE_PRECISION		0x0308
 
 /* HMCAD15XX_REG_INP_SEL */
 #define HMCAD15XX_INP_SEL_ADC1_MSK		GENMASK(4, 1)
@@ -578,24 +583,36 @@ static int hmcad15xx_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	switch (st->en_channels) {
-	case 1:
-		regval = HMCAD15XX_OP_MODE_SINGLE_CH;
-		st->clk_div = CLK_DIV_1;
-		break;
-	case 2:
-		regval = HMCAD15XX_OP_MODE_DUAL_CH;
-		st->clk_div = CLK_DIV_2;
-		break;
-	case 4:
-	default:
-		regval = HMCAD15XX_OP_MODE_QUAD_CH;
+	/*
+	 * HMCAD1520 14-bit precision mode uses a dedicated precision_mode bit
+	 * (D[3]) in reg 0x31 with high_speed_mode=0 and clk_divide=8.
+	 * All other modes use the high_speed_mode field (D[2:0]) shared with
+	 * HMCAD1511 channel_num encoding.
+	 */
+	if (st->resolution == RES_14BIT) {
+		regval = HMCAD1520_OP_MODE_PRECISION;
 		st->clk_div = CLK_DIV_4;
-		break;
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_REG_OPERATION_MODE,
+					       HMCAD1520_OP_MODE_MSK, regval);
+	} else {
+		switch (st->en_channels) {
+		case 1:
+			regval = HMCAD15XX_OP_MODE_SINGLE_CH;
+			st->clk_div = CLK_DIV_1;
+			break;
+		case 2:
+			regval = HMCAD15XX_OP_MODE_DUAL_CH;
+			st->clk_div = CLK_DIV_2;
+			break;
+		case 4:
+		default:
+			regval = HMCAD15XX_OP_MODE_QUAD_CH;
+			st->clk_div = CLK_DIV_4;
+			break;
+		}
+		ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_REG_OPERATION_MODE,
+					       HMCAD15XX_OP_MODE_MSK, regval);
 	}
-
-	ret = hmcad15xx_spi_write_mask(st, HMCAD15XX_REG_OPERATION_MODE,
-				       HMCAD15XX_OP_MODE_MSK, regval);
 	if (ret < 0)
 		return ret;
 
