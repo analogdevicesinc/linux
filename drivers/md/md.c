@@ -408,7 +408,7 @@ check_suspended:
 
 	if (!mddev->pers->make_request(mddev, bio)) {
 		percpu_ref_put(&mddev->active_io);
-		if (!mddev->gendisk && mddev->pers->prepare_suspend)
+		if (mddev_is_dm(mddev) && mddev->pers->prepare_suspend)
 			return false;
 		goto check_suspended;
 	}
@@ -6746,7 +6746,7 @@ int md_run(struct mddev *mddev)
 	}
 
 	/* dm-raid expect sync_thread to be frozen until resume */
-	if (mddev->gendisk)
+	if (!mddev_is_dm(mddev))
 		mddev->recovery = 0;
 
 	/* may be over-ridden by personality */
