@@ -301,14 +301,14 @@ int bpf_update_branch_counts(struct bpf_verifier_env *env, struct bpf_verifier_s
 static bool range_within(const struct bpf_reg_state *old,
 			 const struct bpf_reg_state *cur)
 {
-	return old->umin_value <= cur->umin_value &&
-	       old->umax_value >= cur->umax_value &&
-	       old->smin_value <= cur->smin_value &&
-	       old->smax_value >= cur->smax_value &&
-	       old->u32_min_value <= cur->u32_min_value &&
-	       old->u32_max_value >= cur->u32_max_value &&
-	       old->s32_min_value <= cur->s32_min_value &&
-	       old->s32_max_value >= cur->s32_max_value;
+	return reg_umin(old) <= reg_umin(cur) &&
+	       reg_umax(old) >= reg_umax(cur) &&
+	       reg_smin(old) <= reg_smin(cur) &&
+	       reg_smax(old) >= reg_smax(cur) &&
+	       reg_u32_min(old) <= reg_u32_min(cur) &&
+	       reg_u32_max(old) >= reg_u32_max(cur) &&
+	       reg_s32_min(old) <= reg_s32_min(cur) &&
+	       reg_s32_max(old) >= reg_s32_max(cur);
 }
 
 /* If in the old state two registers had the same id, then they need to have

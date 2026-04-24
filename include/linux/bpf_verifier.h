@@ -209,6 +209,70 @@ struct bpf_reg_state {
 	bool precise;
 };
 
+static inline s64 reg_smin(const struct bpf_reg_state *reg)
+{
+	return reg->smin_value;
+}
+
+static inline s64 reg_smax(const struct bpf_reg_state *reg)
+{
+	return reg->smax_value;
+}
+
+static inline u64 reg_umin(const struct bpf_reg_state *reg)
+{
+	return reg->umin_value;
+}
+
+static inline u64 reg_umax(const struct bpf_reg_state *reg)
+{
+	return reg->umax_value;
+}
+
+static inline s32 reg_s32_min(const struct bpf_reg_state *reg)
+{
+	return reg->s32_min_value;
+}
+
+static inline s32 reg_s32_max(const struct bpf_reg_state *reg)
+{
+	return reg->s32_max_value;
+}
+
+static inline u32 reg_u32_min(const struct bpf_reg_state *reg)
+{
+	return reg->u32_min_value;
+}
+
+static inline u32 reg_u32_max(const struct bpf_reg_state *reg)
+{
+	return reg->u32_max_value;
+}
+
+static inline void reg_set_srange32(struct bpf_reg_state *reg, s32 smin, s32 smax)
+{
+	reg->s32_min_value = smin;
+	reg->s32_max_value = smax;
+}
+
+static inline void reg_set_urange32(struct bpf_reg_state *reg, u32 umin, u32 umax)
+{
+	reg->u32_min_value = umin;
+	reg->u32_max_value = umax;
+}
+
+static inline void reg_set_srange64(struct bpf_reg_state *reg, s64 smin, s64 smax)
+{
+	reg->smin_value = smin;
+	reg->smax_value = smax;
+}
+
+static inline void reg_set_urange64(struct bpf_reg_state *reg, u64 umin, u64 umax)
+{
+	reg->umin_value = umin;
+	reg->umax_value = umax;
+}
+
 enum bpf_stack_slot_type {
 	STACK_INVALID,    /* nothing was stored in this stack slot */
 	STACK_SPILL,      /* register spilled into stack */
