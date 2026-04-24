@@ -1839,7 +1839,7 @@ void blk_throtl_exit(struct gendisk *disk)
 
 static int __init throtl_init(void)
 {
-	kthrotld_workqueue = alloc_workqueue("kthrotld", WQ_MEM_RECLAIM, 0);
+	kthrotld_workqueue = alloc_workqueue("kthrotld", WQ_MEM_RECLAIM | WQ_PERCPU, 0);
 	if (!kthrotld_workqueue)
 		panic("Failed to create kthrotld\n");
 

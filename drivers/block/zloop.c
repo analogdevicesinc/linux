@@ -288,12 +288,29 @@ static bool zloop_do_open_zone(struct zloop_device *zlo,
 	}
 }
 
+static void zloop_mark_full(struct zloop_device *zlo, struct zloop_zone *zone)
+{
+	lockdep_assert_held(&zone->wp_lock);
+
+	zloop_lru_remove_open_zone(zlo, zone);
+	zone->cond = BLK_ZONE_COND_FULL;
+	zone->wp = ULLONG_MAX;
+}
+
+static void zloop_mark_empty(struct zloop_device *zlo, struct zloop_zone *zone)
+{
+	lockdep_assert_held(&zone->wp_lock);
+
+	zloop_lru_remove_open_zone(zlo, zone);
+	zone->cond = BLK_ZONE_COND_EMPTY;
+	zone->wp = zone->start;
+}
+
 static int zloop_update_seq_zone(struct zloop_device *zlo, unsigned int zone_no)
 {
 	struct zloop_zone *zone = &zlo->zones[zone_no];
 	struct kstat stat;
 	sector_t file_sectors;
-	unsigned long flags;
 	int ret;
 
 	lockdep_assert_held(&zone->lock);
@@ -313,28 +330,24 @@ static int zloop_update_seq_zone(struct zloop_device *zlo, unsigned int zone_no)
 		return -EINVAL;
 	}
 
-	if (file_sectors & ((zlo->block_size >> SECTOR_SHIFT) - 1)) {
-		pr_err("Zone %u file size not aligned to block size %u\n",
-		       zone_no, zlo->block_size);
+	if (!IS_ALIGNED(stat.size, zlo->block_size)) {
+		pr_err("Zone %u file size (%llu) not aligned to block size %u\n",
+		       zone_no, stat.size, zlo->block_size);
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&zone->wp_lock, flags);
+	spin_lock(&zone->wp_lock);
 	if (!file_sectors) {
-		zloop_lru_remove_open_zone(zlo, zone);
-		zone->cond = BLK_ZONE_COND_EMPTY;
-		zone->wp = zone->start;
+		zloop_mark_empty(zlo, zone);
 	} else if (file_sectors == zlo->zone_capacity) {
-		zloop_lru_remove_open_zone(zlo, zone);
-		zone->cond = BLK_ZONE_COND_FULL;
-		zone->wp = ULLONG_MAX;
+		zloop_mark_full(zlo, zone);
 	} else {
 		if (zone->cond != BLK_ZONE_COND_IMP_OPEN &&
 		    zone->cond != BLK_ZONE_COND_EXP_OPEN)
 			zone->cond = BLK_ZONE_COND_CLOSED;
 		zone->wp = zone->start + file_sectors;
 	}
-	spin_unlock_irqrestore(&zone->wp_lock, flags);
+	spin_unlock(&zone->wp_lock);
 
 	return 0;
 }
@@ -367,7 +380,6 @@ unlock:
 static int zloop_close_zone(struct zloop_device *zlo, unsigned int zone_no)
 {
 	struct zloop_zone *zone = &zlo->zones[zone_no];
-	unsigned long flags;
 	int ret = 0;
 
 	if (test_bit(ZLOOP_ZONE_CONV, &zone->flags))
@@ -386,13 +398,13 @@ static int zloop_close_zone(struct zloop_device *zlo, unsigned int zone_no)
 		break;
 	case BLK_ZONE_COND_IMP_OPEN:
 	case BLK_ZONE_COND_EXP_OPEN:
-		spin_lock_irqsave(&zone->wp_lock, flags);
+		spin_lock(&zone->wp_lock);
 		zloop_lru_remove_open_zone(zlo, zone);
 		if (zone->wp == zone->start)
 			zone->cond = BLK_ZONE_COND_EMPTY;
 		else
 			zone->cond = BLK_ZONE_COND_CLOSED;
-		spin_unlock_irqrestore(&zone->wp_lock, flags);
+		spin_unlock(&zone->wp_lock);
 		break;
 	case BLK_ZONE_COND_EMPTY:
 	case BLK_ZONE_COND_FULL:
@@ -410,7 +422,6 @@ unlock:
 static int zloop_reset_zone(struct zloop_device *zlo, unsigned int zone_no)
 {
 	struct zloop_zone *zone = &zlo->zones[zone_no];
-	unsigned long flags;
 	int ret = 0;
 
 	if (test_bit(ZLOOP_ZONE_CONV, &zone->flags))
@@ -428,12 +439,10 @@ static int zloop_reset_zone(struct zloop_device *zlo, unsigned int zone_no)
 		goto unlock;
 	}
 
-	spin_lock_irqsave(&zone->wp_lock, flags);
-	zloop_lru_remove_open_zone(zlo, zone);
-	zone->cond = BLK_ZONE_COND_EMPTY;
-	zone->wp = zone->start;
+	spin_lock(&zone->wp_lock);
+	zloop_mark_empty(zlo, zone);
 	clear_bit(ZLOOP_ZONE_SEQ_ERROR, &zone->flags);
-	spin_unlock_irqrestore(&zone->wp_lock, flags);
+	spin_unlock(&zone->wp_lock);
 
 unlock:
 	mutex_unlock(&zone->lock);
@@ -458,7 +467,6 @@ static int zloop_reset_all_zones(struct zloop_device *zlo)
 static int zloop_finish_zone(struct zloop_device *zlo, unsigned int zone_no)
 {
 	struct zloop_zone *zone = &zlo->zones[zone_no];
-	unsigned long flags;
 	int ret = 0;
 
 	if (test_bit(ZLOOP_ZONE_CONV, &zone->flags))
@@ -476,12 +484,10 @@ static int zloop_finish_zone(struct zloop_device *zlo, unsigned int zone_no)
 		goto unlock;
 	}
 
-	spin_lock_irqsave(&zone->wp_lock, flags);
-	zloop_lru_remove_open_zone(zlo, zone);
-	zone->cond = BLK_ZONE_COND_FULL;
-	zone->wp = ULLONG_MAX;
+	spin_lock(&zone->wp_lock);
+	zloop_mark_full(zlo, zone);
 	clear_bit(ZLOOP_ZONE_SEQ_ERROR, &zone->flags);
-	spin_unlock_irqrestore(&zone->wp_lock, flags);
+	spin_unlock(&zone->wp_lock);
 
  unlock:
 	mutex_unlock(&zone->lock);
@@ -571,10 +577,9 @@ static int zloop_seq_write_prep(struct zloop_cmd *cmd)
 	bool is_append = req_op(rq) == REQ_OP_ZONE_APPEND;
 	struct zloop_zone *zone = &zlo->zones[zone_no];
 	sector_t zone_end = zone->start + zlo->zone_capacity;
-	unsigned long flags;
 	int ret = 0;
 
-	spin_lock_irqsave(&zone->wp_lock, flags);
+	spin_lock(&zone->wp_lock);
 
 	/*
 	 * Zone append operations always go at the current write pointer, but
@@ -616,14 +621,11 @@ static int zloop_seq_write_prep(struct zloop_cmd *cmd)
 	 */
 	if (!is_append || !zlo->ordered_zone_append) {
 		zone->wp += nr_sectors;
-		if (zone->wp == zone_end) {
-			zloop_lru_remove_open_zone(zlo, zone);
-			zone->cond = BLK_ZONE_COND_FULL;
-			zone->wp = ULLONG_MAX;
-		}
+		if (zone->wp == zone_end)
+			zloop_mark_full(zlo, zone);
 	}
 out_unlock:
-	spin_unlock_irqrestore(&zone->wp_lock, flags);
+	spin_unlock(&zone->wp_lock);
 	return ret;
 }
 
@@ -861,25 +863,21 @@ static bool zloop_set_zone_append_sector(struct request *rq)
 	struct zloop_zone *zone = &zlo->zones[zone_no];
 	sector_t zone_end = zone->start + zlo->zone_capacity;
 	sector_t nr_sectors = blk_rq_sectors(rq);
-	unsigned long flags;
 
-	spin_lock_irqsave(&zone->wp_lock, flags);
+	spin_lock(&zone->wp_lock);
 
 	if (zone->cond == BLK_ZONE_COND_FULL ||
 	    zone->wp + nr_sectors > zone_end) {
-		spin_unlock_irqrestore(&zone->wp_lock, flags);
+		spin_unlock(&zone->wp_lock);
 		return false;
 	}
 
 	rq->__sector = zone->wp;
 	zone->wp += blk_rq_sectors(rq);
-	if (zone->wp >= zone_end) {
-		zloop_lru_remove_open_zone(zlo, zone);
-		zone->cond = BLK_ZONE_COND_FULL;
-		zone->wp = ULLONG_MAX;
-	}
+	if (zone->wp >= zone_end)
+		zloop_mark_full(zlo, zone);
 
-	spin_unlock_irqrestore(&zone->wp_lock, flags);
+	spin_unlock(&zone->wp_lock);
 
 	return true;
 }
@@ -891,8 +889,10 @@ static blk_status_t zloop_queue_rq(struct blk_mq_hw_ctx *hctx,
 	struct zloop_cmd *cmd = blk_mq_rq_to_pdu(rq);
 	struct zloop_device *zlo = rq->q->queuedata;
 
-	if (data_race(READ_ONCE(zlo->state)) == Zlo_deleting)
+	if (data_race(READ_ONCE(zlo->state)) == Zlo_deleting) {
+		rq->rq_flags |= RQF_QUIET;
 		return BLK_STS_IOERR;
+	}
 
 	/*
 	 * If we need to strongly order zone append operations, set the request
@@ -938,7 +938,6 @@ static int zloop_report_zones(struct gendisk *disk, sector_t sector,
 	struct zloop_device *zlo = disk->private_data;
 	struct blk_zone blkz = {};
 	unsigned int first, i;
-	unsigned long flags;
 	int ret;
 
 	first = disk_zone_no(disk, sector);
@@ -962,9 +961,9 @@ static int zloop_report_zones(struct gendisk *disk, sector_t sector,
 
 		blkz.start = zone->start;
 		blkz.len = zlo->zone_size;
-		spin_lock_irqsave(&zone->wp_lock, flags);
+		spin_lock(&zone->wp_lock);
 		blkz.wp = zone->wp;
-		spin_unlock_irqrestore(&zone->wp_lock, flags);
+		spin_unlock(&zone->wp_lock);
 		blkz.cond = zone->cond;
 		if (test_bit(ZLOOP_ZONE_CONV, &zone->flags)) {
 			blkz.type = BLK_ZONE_TYPE_CONVENTIONAL;
@@ -1363,20 +1362,6 @@ out:
 	return ret;
 }
 
-static void zloop_truncate(struct file *file, loff_t pos)
-{
-	struct mnt_idmap *idmap = file_mnt_idmap(file);
-	struct dentry *dentry = file_dentry(file);
-	struct iattr newattrs;
-
-	newattrs.ia_size = pos;
-	newattrs.ia_valid = ATTR_SIZE;
-
-	inode_lock(dentry->d_inode);
-	notify_change(idmap, dentry, &newattrs, NULL);
-	inode_unlock(dentry->d_inode);
-}
-
 static void zloop_forget_cache(struct zloop_device *zlo)
 {
 	unsigned int i;
@@ -1401,8 +1386,18 @@ static void zloop_forget_cache(struct zloop_device *zlo)
 				zlo->disk->part0, ret);
 			continue;
 		}
-		if (old_wp < zone->wp)
-			zloop_truncate(file, old_wp);
+
+		if (old_wp > zone->wp)
+			continue;
+		/*
+		 * This should not happen, if we recored a full zone, it can't
+		 * be active.
+		 */
+		if (WARN_ON_ONCE(old_wp == ULLONG_MAX))
+			continue;
+
+		vfs_truncate(&file->f_path,
+			(old_wp - zone->start) << SECTOR_SHIFT);
 	}
 }
 

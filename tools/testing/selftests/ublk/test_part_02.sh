@@ -63,5 +63,5 @@ _test_partition_scan_no_hang "no" "DEAD"
 # Test 2: With recovery support - should transition to QUIESCED
 _test_partition_scan_no_hang "yes" "QUIESCED"
 
-_cleanup_test "partition_scan"
+_cleanup_test
 _show_result $TID $ERR_CODE

@@ -1319,10 +1319,18 @@ static bool ublk_copy_user_bvec(const struct bio_vec *bv, unsigned *offset,
 
 	len = bv->bv_len - *offset;
 	bv_buf = kmap_local_page(bv->bv_page) + bv->bv_offset + *offset;
+	/*
+	 * Bio pages may originate from slab caches without a usercopy region
+	 * (e.g. jbd2 frozen metadata buffers).  This is the same data that
+	 * the loop driver writes to its backing file — no exposure risk.
+	 * The bvec length is always trusted, so the size check in
+	 * check_copy_size() is not needed either.  Use the unchecked
+	 * helpers to avoid false positives on slab pages.
+	 */
 	if (dir == ITER_DEST)
-		copied = copy_to_iter(bv_buf, len, uiter);
+		copied = _copy_to_iter(bv_buf, len, uiter);
 	else
-		copied = copy_from_iter(bv_buf, len, uiter);
+		copied = _copy_from_iter(bv_buf, len, uiter);
 
 	kunmap_local(bv_buf);
 
@@ -5413,39 +5421,88 @@ err_free_pages:
 	return ret;
 }
 
-static int __ublk_ctrl_unreg_buf(struct ublk_device *ub, int buf_index)
+static void ublk_unpin_range_pages(unsigned long base_pfn,
+				   unsigned long nr_pages)
+{
+#define UBLK_UNPIN_BATCH	32
+	struct page *pages[UBLK_UNPIN_BATCH];
+	unsigned long off;
+
+	for (off = 0; off < nr_pages; ) {
+		unsigned int batch = min_t(unsigned long,
+					   nr_pages - off, UBLK_UNPIN_BATCH);
+		unsigned int j;
+
+		for (j = 0; j < batch; j++)
+			pages[j] = pfn_to_page(base_pfn + off + j);
+		unpin_user_pages(pages, batch);
+		off += batch;
+	}
+}
+
+/*
+ * Inner loop: erase up to UBLK_REMOVE_BATCH matching ranges under
+ * mas_lock, collecting them into an xarray. Then drop the lock and
+ * unpin pages + free ranges outside spinlock context.
+ *
+ * Returns true if the tree walk completed, false if more ranges remain.
+ * Xarray key is the base PFN, value encodes nr_pages via xa_mk_value().
+ */
+#define UBLK_REMOVE_BATCH	64
+
+static bool __ublk_shmem_remove_ranges(struct ublk_device *ub,
+					int buf_index, int *ret)
 {
 	MA_STATE(mas, &ub->buf_tree, 0, ULONG_MAX);
 	struct ublk_buf_range *range;
-	struct page *pages[32];
-	int ret = -ENOENT;
+	struct xarray to_unpin;
+	unsigned long idx;
+	unsigned int count = 0;
+	bool done = false;
+	void *entry;
+
+	xa_init(&to_unpin);
 
 	mas_lock(&mas);
 	mas_for_each(&mas, range, ULONG_MAX) {
-		unsigned long base, nr, off;
+		unsigned long nr;
 
-		if (range->buf_index != buf_index)
+		if (buf_index >= 0 && range->buf_index != buf_index)
 			continue;
 
-		ret = 0;
-		base = mas.index;
-		nr = mas.last - base + 1;
+		*ret = 0;
+		nr = mas.last - mas.index + 1;
+		if (xa_err(xa_store(&to_unpin, mas.index,
+				    xa_mk_value(nr), GFP_ATOMIC)))
+			goto unlock;
 		mas_erase(&mas);
-
-		for (off = 0; off < nr; ) {
-			unsigned int batch = min_t(unsigned long,
-						   nr - off, 32);
-			unsigned int j;
-
-			for (j = 0; j < batch; j++)
-				pages[j] = pfn_to_page(base + off + j);
-			unpin_user_pages(pages, batch);
-			off += batch;
-		}
 		kfree(range);
+		if (++count >= UBLK_REMOVE_BATCH)
+			goto unlock;
 	}
+	done = true;
+unlock:
 	mas_unlock(&mas);
 
+	xa_for_each(&to_unpin, idx, entry)
+		ublk_unpin_range_pages(idx, xa_to_value(entry));
+	xa_destroy(&to_unpin);
+
+	return done;
+}
+
+/*
+ * Remove ranges from the maple tree matching buf_index, unpin pages
+ * and free range structs. If buf_index < 0, remove all ranges.
+ * Processes ranges in batches to avoid holding the maple tree spinlock
+ * across potentially expensive page unpinning.
+ */
+static int ublk_shmem_remove_ranges(struct ublk_device *ub, int buf_index)
+{
+	int ret = -ENOENT;
+
+	while (!__ublk_shmem_remove_ranges(ub, buf_index, &ret))
+		cond_resched();
 	return ret;
 }
 
@@ -5464,7 +5521,7 @@ static int ublk_ctrl_unreg_buf(struct ublk_device *ub,
 
 	memflags = ublk_lock_buf_tree(ub);
 
-	ret = __ublk_ctrl_unreg_buf(ub, index);
+	ret = ublk_shmem_remove_ranges(ub, index);
 	if (!ret)
 		ida_free(&ub->buf_ida, index);
 
@@ -5474,27 +5531,7 @@ static int ublk_ctrl_unreg_buf(struct ublk_device *ub,
 
 static void ublk_buf_cleanup(struct ublk_device *ub)
 {
-	MA_STATE(mas, &ub->buf_tree, 0, ULONG_MAX);
-	struct ublk_buf_range *range;
-	struct page *pages[32];
-
-	mas_for_each(&mas, range, ULONG_MAX) {
-		unsigned long base = mas.index;
-		unsigned long nr = mas.last - base + 1;
-		unsigned long off;
-
-		for (off = 0; off < nr; ) {
-			unsigned int batch = min_t(unsigned long,
-						   nr - off, 32);
-			unsigned int j;
-
-			for (j = 0; j < batch; j++)
-				pages[j] = pfn_to_page(base + off + j);
-			unpin_user_pages(pages, batch);
-			off += batch;
-		}
-		kfree(range);
-	}
+	ublk_shmem_remove_ranges(ub, -1);
 	mtree_destroy(&ub->buf_tree);
 	ida_destroy(&ub->buf_ida);
 }
