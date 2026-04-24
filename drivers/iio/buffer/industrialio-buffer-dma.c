@@ -204,9 +204,9 @@ static struct iio_dma_buffer_block *iio_dma_buffer_alloc_block(
 	block->state = IIO_BLOCK_STATE_DEQUEUED;
 #else
 	block->fileio = fileio;
-	block->size = size;
 	block->state = IIO_BLOCK_STATE_DONE;
 #endif
+	block->size = size;
 	block->queue = queue;
 	INIT_LIST_HEAD(&block->head);
 	kref_init(&block->kref);
@@ -225,7 +225,13 @@ static void _iio_dma_buffer_block_done(struct iio_dma_buffer_block *block)
 #ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 		struct iio_dma_buffer_queue *queue = block->queue;
 
-		list_add_tail(&block->head, &queue->outgoing);
+		/*
+		 * The outgoing list is not used in fileio mode which means the block
+		 * would never be removed from it leading to corruption (given that it would
+		 * be re-added either to the incoming or active lists).
+		 */
+		if (queue->num_blocks)
+			list_add_tail(&block->head, &queue->outgoing);
 #endif
 		block->state = IIO_BLOCK_STATE_DONE;
 	}
@@ -299,9 +305,9 @@ void iio_dma_buffer_block_list_abort(struct iio_dma_buffer_queue *queue,
 		list_del(&block->head);
 #ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 		block->block.bytes_used = 0;
-#else
-		block->bytes_used = 0;
 #endif
+		block->bytes_used = 0;
+
 		_iio_dma_buffer_block_done(block);
 #ifndef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 		if (!block->fileio)
@@ -547,25 +553,6 @@ static struct iio_dma_buffer_block
 
 	return block;
 }
-
-static int iio_dma_buffer_fileio_alloc(struct iio_dma_buffer_queue *queue,
-	struct iio_dev *indio_dev)
-{
-	size_t size = queue->buffer.bytes_per_datum * queue->buffer.length;
-	struct iio_dma_buffer_block *block;
-
-	block = iio_dma_buffer_mmap_alloc_block(queue, size);
-	if (!block)
-		return -ENOMEM;
-
-	queue->fileio.active_block = block;
-	queue->fileio.pos = 0;
-
-	if (queue->buffer.direction == IIO_BUFFER_DIRECTION_IN)
-		list_add_tail(&block->head, &queue->incoming);
-
-	return 0;
-}
 #endif
 
 /**
@@ -586,15 +573,6 @@ int iio_dma_buffer_enable(struct iio_buffer *buffer,
 
 	mutex_lock(&queue->lock);
 	queue->active = true;
-
-#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
-	/**
-	 * If no buffer blocks are allocated when we start streaming go into
-	 * fileio mode.
-	 */
-	if (!queue->num_blocks)
-		iio_dma_buffer_fileio_alloc(queue, indio_dev);
-#endif
 
 	list_for_each_entry_safe(block, _block, &queue->incoming, head) {
 		list_del(&block->head);
@@ -686,6 +664,7 @@ static int iio_dma_buffer_io(struct iio_buffer *buffer, size_t n,
 			goto out_unlock;
 		}
 		queue->fileio.pos = 0;
+		queue->fileio.active_block = block;
 	} else {
 		block = queue->fileio.active_block;
 	}
@@ -716,7 +695,10 @@ static int iio_dma_buffer_io(struct iio_buffer *buffer, size_t n,
 #else
 	if (queue->fileio.pos == block->bytes_used)
 #endif
+	{
+		queue->fileio.active_block = NULL;
 		iio_dma_buffer_enqueue(queue, block);
+	}
 
 	ret = n;
 
@@ -772,6 +754,7 @@ size_t iio_dma_buffer_usage(struct iio_buffer *buf)
 	struct iio_dma_buffer_queue *queue = iio_buffer_to_queue(buf);
 	struct iio_dma_buffer_block *block;
 	size_t data_available = 0;
+	unsigned int i;
 
 	/*
 	 * For counting the available bytes we'll use the size of the block not
@@ -782,18 +765,18 @@ size_t iio_dma_buffer_usage(struct iio_buffer *buf)
 
 	mutex_lock(&queue->lock);
 	if (queue->fileio.active_block)
-#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
-		data_available += queue->fileio.active_block->block.size;
-#else
 		data_available += queue->fileio.active_block->size;
-#endif
+
 	spin_lock_irq(&queue->list_lock);
+
 #ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
-	list_for_each_entry(block, &queue->outgoing, head)
-		data_available += block->block.size;
-#else
-	/* Move to it's place once we drop CONFIG_IIO_DMA_BUF_MMAP_LEGACY */
-	unsigned int i;
+	/* If we're using the mmap fastpath we need to go over the outgoing list */
+	if (queue->num_blocks) {
+		list_for_each_entry(block, &queue->outgoing, head)
+			data_available += block->block.size;
+		goto out_unlock;
+	}
+#endif
 
 	for (i = 0; i < ARRAY_SIZE(queue->fileio.blocks); i++) {
 		block = queue->fileio.blocks[i];
@@ -802,6 +785,9 @@ size_t iio_dma_buffer_usage(struct iio_buffer *buf)
 		    && block->state == IIO_BLOCK_STATE_DONE)
 			data_available += block->size;
 	}
+
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
+out_unlock:
 #endif
 	spin_unlock_irq(&queue->list_lock);
 	mutex_unlock(&queue->lock);
