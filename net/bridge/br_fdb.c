@@ -896,35 +896,6 @@ void br_fdb_delete_by_port(struct net_bridge *br,
 	spin_unlock_bh(&br->hash_lock);
 }
 
-#if IS_ENABLED(CONFIG_ATM_LANE)
-/* Interface used by ATM LANE hook to test
- * if an addr is on some other bridge port */
-int br_fdb_test_addr(struct net_device *dev, unsigned char *addr)
-{
-	struct net_bridge_fdb_entry *fdb;
-	struct net_bridge_port *port;
-	int ret;
-
-	rcu_read_lock();
-	port = br_port_get_rcu(dev);
-	if (!port)
-		ret = 0;
-	else {
-		const struct net_bridge_port *dst = NULL;
-
-		fdb = br_fdb_find_rcu(port->br, addr, 0);
-		if (fdb)
-			dst = READ_ONCE(fdb->dst);
-
-		ret = dst && dst->dev != dev &&
-		      dst->state == BR_STATE_FORWARDING;
-	}
-	rcu_read_unlock();
-
-	return ret;
-}
-#endif /* CONFIG_ATM_LANE */
-
 /*
  * Fill buffer with forwarding table records in
  * the API format.

@@ -503,8 +503,6 @@ source "drivers/net/arcnet/Kconfig"
 
 source "drivers/atm/Kconfig"
 
-source "drivers/net/caif/Kconfig"
-
 source "drivers/net/dsa/Kconfig"
 
 source "drivers/net/ethernet/Kconfig"

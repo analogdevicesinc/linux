@@ -3652,6 +3652,11 @@ S: Dag Hammerskjolds v. 3E
 S: S-226 64 LUND
 S: Sweden
 
+N: Tilman Schmidt
+E: tilman@imap.cc
+D: Siemens Gigaset ISDN driver author and maintainer
+D: ISDN CAPI subsystem contributions
+
 N: Henning P. Schmiedehausen
 E: hps@tanstaafl.de
 D: added PCI support to the serial driver

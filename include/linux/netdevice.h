@@ -162,7 +162,7 @@ static inline bool dev_xmit_complete(int rc)
 
 #if defined(CONFIG_HYPERV_NET)
 # define LL_MAX_HEADER 128
-#elif defined(CONFIG_WLAN) || IS_ENABLED(CONFIG_AX25)
+#elif defined(CONFIG_WLAN)
 # if defined(CONFIG_MAC80211_MESH)
 #  define LL_MAX_HEADER 128
 # else
@@ -2335,9 +2335,6 @@ struct net_device {
 #endif
 #if IS_ENABLED(CONFIG_ATALK)
 	void 			*atalk_ptr;
-#endif
-#if IS_ENABLED(CONFIG_AX25)
-	struct ax25_dev	__rcu	*ax25_ptr;
 #endif
 #if IS_ENABLED(CONFIG_CFG80211)
 	struct wireless_dev	*ieee80211_ptr;
