@@ -72,8 +72,7 @@ static int crush_decode_uniform_bucket(void **p, void *end,
 				       struct crush_bucket_uniform *b)
 {
 	dout("crush_decode_uniform_bucket %p to %p\n", *p, end);
-	ceph_decode_need(p, end, (1+b->h.size) * sizeof(u32), bad);
-	b->item_weight = ceph_decode_32(p);
+	ceph_decode_32_safe(p, end, b->item_weight, bad);
 	return 0;
 bad:
 	return -EINVAL;
