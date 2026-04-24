@@ -719,8 +719,15 @@ void mmb_mark_buffer_dirty(struct buffer_head *bh,
 	mark_buffer_dirty(bh);
 	if (!bh->b_mmb) {
 		spin_lock(&mmb->lock);
+		/*
+		 * For a corrupted filesystem with multiply claimed blocks this
+		 * can fail. Avoid corrupting the linked list in that case.
+		 */
+		if (cmpxchg(&bh->b_mmb, NULL, mmb) != NULL) {
+			spin_unlock(&mmb->lock);
+			return;
+		}
 		list_move_tail(&bh->b_assoc_buffers, &mmb->list);
-		bh->b_mmb = mmb;
 		spin_unlock(&mmb->lock);
 	}
 }
