@@ -283,27 +283,6 @@ static void hw_engine_fini(void *arg)
 }
 
 /**
- * xe_hw_engine_mmio_write32() - Write engine register
- * @hwe: engine
- * @reg: register to write into
- * @val: desired 32-bit value to write
- *
- * This function will write val into an engine specific register.
- * Forcewake must be held by the caller.
- *
- */
-void xe_hw_engine_mmio_write32(struct xe_hw_engine *hwe,
-			       struct xe_reg reg, u32 val)
-{
-	xe_gt_assert(hwe->gt, !(reg.addr & hwe->mmio_base));
-	xe_force_wake_assert_held(gt_to_fw(hwe->gt), hwe->domain);
-
-	reg.addr += hwe->mmio_base;
-
-	xe_mmio_write32(&hwe->gt->mmio, reg, val);
-}
-
-/**
  * xe_hw_engine_mmio_read32() - Read engine register
  * @hwe: engine
  * @reg: register to read from
@@ -325,8 +304,8 @@ u32 xe_hw_engine_mmio_read32(struct xe_hw_engine *hwe, struct xe_reg reg)
 
 void xe_hw_engine_enable_ring(struct xe_hw_engine *hwe)
 {
-	xe_hw_engine_mmio_write32(hwe, RING_HWS_PGA(0),
-				  xe_bo_ggtt_addr(hwe->hwsp));
+	xe_mmio_write32(&hwe->gt->mmio, RING_HWS_PGA(hwe->mmio_base),
+			xe_bo_ggtt_addr(hwe->hwsp));
 }
 
 static bool xe_hw_engine_match_fixed_cslice_mode(const struct xe_device *xe,
