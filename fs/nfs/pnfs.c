@@ -1698,11 +1698,23 @@ int pnfs_roc_done(struct rpc_task *task, struct nfs4_layoutreturn_args **argpp,
 		/* If the call was not sent, let caller handle it */
 		if (!RPC_WAS_SENT(task))
 			return 0;
-		/*
-		 * Otherwise, assume the call succeeded and
-		 * that we need to release the layout
-		 */
-		*ret = 0;
+		switch (task->tk_rpc_status) {
+		default:
+			/*
+			 * Defer the layoutreturn if it was due
+			 * to the server being down.
+			 */
+			*ret = -NFS4ERR_NOMATCHING_LAYOUT;
+			break;
+		case -EACCES:
+		case -EIO:
+		case -EKEYEXPIRED:
+		case -ERESTARTSYS:
+		case -EINTR:
+			/* Don't retry */
+			*ret = 0;
+			break;
+		}
 		(*respp)->lrs_present = 0;
 		retval = 0;
 		break;
