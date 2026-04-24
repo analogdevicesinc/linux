@@ -146,37 +146,37 @@ static inline struct xe_force_wake *gt_to_fw(struct xe_gt *gt)
 
 void xe_device_assert_mem_access(struct xe_device *xe);
 
-static inline bool xe_device_has_flat_ccs(struct xe_device *xe)
+static inline bool xe_device_has_flat_ccs(const struct xe_device *xe)
 {
 	return xe->info.has_flat_ccs;
 }
 
-static inline bool xe_device_has_sriov(struct xe_device *xe)
+static inline bool xe_device_has_sriov(const struct xe_device *xe)
 {
 	return xe->info.has_sriov;
 }
 
-static inline bool xe_device_has_msix(struct xe_device *xe)
+static inline bool xe_device_has_msix(const struct xe_device *xe)
 {
 	return xe->irq.msix.nvec > 0;
 }
 
-static inline bool xe_device_has_memirq(struct xe_device *xe)
+static inline bool xe_device_has_memirq(const struct xe_device *xe)
 {
 	return GRAPHICS_VERx100(xe) >= 1250;
 }
 
-static inline bool xe_device_uses_memirq(struct xe_device *xe)
+static inline bool xe_device_uses_memirq(const struct xe_device *xe)
 {
 	return xe_device_has_memirq(xe) && (IS_SRIOV_VF(xe) || xe_device_has_msix(xe));
 }
 
-static inline bool xe_device_has_lmtt(struct xe_device *xe)
+static inline bool xe_device_has_lmtt(const struct xe_device *xe)
 {
 	return IS_DGFX(xe);
 }
 
-static inline bool xe_device_has_mert(struct xe_device *xe)
+static inline bool xe_device_has_mert(const struct xe_device *xe)
 {
 	return xe->info.has_mert;
 }
