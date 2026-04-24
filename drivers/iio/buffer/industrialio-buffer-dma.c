@@ -526,35 +526,6 @@ static void iio_dma_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	}
 }
 
-#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
-static struct iio_dma_buffer_block
-*iio_dma_buffer_mmap_alloc_block(struct iio_dma_buffer_queue *queue, size_t size)
-{
-	struct iio_dma_buffer_block *block;
-
-	block = kzalloc(sizeof(*block), GFP_KERNEL);
-	if (!block)
-		return NULL;
-
-	block->vaddr = dma_alloc_coherent(queue->dev, PAGE_ALIGN(size),
-					  &block->phys_addr, GFP_KERNEL);
-	if (!block->vaddr) {
-		kfree(block);
-		return NULL;
-	}
-
-	block->block.size = size;
-	block->state = IIO_BLOCK_STATE_DEQUEUED;
-	block->queue = queue;
-	INIT_LIST_HEAD(&block->head);
-	kref_init(&block->kref);
-
-	iio_buffer_get(&queue->buffer);
-
-	return block;
-}
-#endif
-
 /**
  * iio_dma_buffer_enable() - Enable DMA buffer
  * @buffer: IIO buffer to enable
@@ -670,13 +641,8 @@ static int iio_dma_buffer_io(struct iio_buffer *buffer, size_t n,
 	}
 
 	n = rounddown(n, buffer->bytes_per_datum);
-#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
-	if (n > block->block.bytes_used - queue->fileio.pos)
-		n = block->block.bytes_used - queue->fileio.pos;
-#else
 	if (n > block->bytes_used - queue->fileio.pos)
 		n = block->bytes_used - queue->fileio.pos;
-#endif
 	addr = block->vaddr + queue->fileio.pos;
 
 	if (is_from_user)
@@ -690,12 +656,7 @@ static int iio_dma_buffer_io(struct iio_buffer *buffer, size_t n,
 
 	queue->fileio.pos += n;
 
-#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
-	if (queue->fileio.pos == block->block.bytes_used)
-#else
-	if (queue->fileio.pos == block->bytes_used)
-#endif
-	{
+	if (queue->fileio.pos == block->bytes_used) {
 		queue->fileio.active_block = NULL;
 		iio_dma_buffer_enqueue(queue, block);
 	}
@@ -836,7 +797,7 @@ int iio_dma_buffer_alloc_blocks(struct iio_buffer *buffer,
 	}
 
 	for (i = queue->num_blocks; i < num_blocks; i++) {
-		blocks[i] = iio_dma_buffer_mmap_alloc_block(queue, req->size);
+		blocks[i] = iio_dma_buffer_alloc_block(queue, req->size, true);
 		if (!blocks[i])
 			break;
 		blocks[i]->block.id = i;
