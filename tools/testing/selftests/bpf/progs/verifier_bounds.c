@@ -1239,7 +1239,8 @@ l0_%=:	r0 = 0;						\
 SEC("tc")
 __description("multiply mixed sign bounds. test 1")
 __success __log_level(2)
-__msg("r6 *= r7 {{.*}}; R6=scalar(smin=umin=0x1bc16d5cd4927ee1,smax=umax=0x1bc16d674ec80000,smax32=0x7ffffeff,umax32=0xfffffeff,var_off=(0x1bc16d4000000000; 0x3ffffffeff))")
+__msg("r6 *= r7 {{.*}}; R6=scalar(smin=umin=0x1bc16d5cd4927ee1,smax=umax=0x1bc16d674ec80000,smax32=0x7ffffeff,var_off=(0x1bc16d4000000000; 0x3ffffffeff))")
+/* cnum can't represent both [0, 0xffff_feff] and [0x8000_0000, 0x7fff_feff], so it picks one */
 __naked void mult_mixed0_sign(void)
 {
 	asm volatile (
@@ -1648,7 +1649,8 @@ l0_%=:	r0 = 0;				\
 SEC("socket")
 __description("bounds deduction cross sign boundary, two overlaps")
 __failure
-__msg("3: (2d) if r0 > r1 {{.*}} R0=scalar(smin=smin32=-128,smax=smax32=127,umax=0xffffffffffffff80)")
+__msg("3: (2d) if r0 > r1 {{.*}} R0=scalar(smin=smin32=-128,smax=smax32=127)")
+/* smin=-128 includes point 0xffffffffffffff80 */
 __msg("frame pointer is read only")
 __naked void bounds_deduct_two_overlaps(void)
 {
@@ -2043,7 +2045,8 @@ __naked void signed_unsigned_intersection32_case2(void *ctx)
  */
 SEC("socket")
 __description("bounds refinement: 64bits ranges not overwritten by 32bits ranges")
-__msg("3: (65) if r0 s> 0x2 {{.*}} R0=scalar(smin=0x8000000000000002,smax=2,umin=smin32=umin32=2,umax=0xffffffff00000003,smax32=umax32=3")
+__msg("3: (65) if r0 s> 0x2 {{.*}} R0=scalar(smin=0x8000000000000002,smax=2,smin32=umin32=2,smax32=umax32=3,var_off{{.*}}))")
+/* Can't represent both [S64_MIN+2, 2] and [2, U64_MAX - U32_MAX + 2] at the same time, picks shorter interval */
 __msg("4: (25) if r0 > 0x13 {{.*}} R0=2")
 __success __log_level(2)
 __naked void refinement_32bounds_not_overwriting_64bounds(void *ctx)
