@@ -552,6 +552,7 @@ static int get_displays_without_vactive_margin_mask(struct dml2_dpmm_map_mode_to
 
 static int get_displays_with_fams_mask(struct dml2_dpmm_map_mode_to_soc_dpm_params_in_out *in_out, int latency_hiding_requirement_us)
 {
+	(void)latency_hiding_requirement_us;
 	unsigned int i;
 	int displays_with_fams_mask = 0x0;
 

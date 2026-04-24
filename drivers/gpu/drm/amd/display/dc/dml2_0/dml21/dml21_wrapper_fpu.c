@@ -51,6 +51,8 @@ void dml21_reinit(const struct dc *in_dc, struct dml2_context *dml_ctx, const st
 static void dml21_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_state *context, struct resource_context *out_new_hw_state,
 	struct dml2_context *in_ctx, unsigned int pipe_cnt)
 {
+	(void)out_new_hw_state;
+	(void)pipe_cnt;
 	unsigned int dml_prog_idx = 0, dc_pipe_index = 0, num_dpps_required = 0;
 	struct dml2_per_plane_programming *pln_prog = NULL;
 	struct dml2_per_stream_programming *stream_prog = NULL;

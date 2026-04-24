@@ -63,7 +63,7 @@ struct dcn_dsc_reg_state;
 struct dcn_optc_reg_state;
 struct dcn_dccg_reg_state;
 
-#define DC_VER "3.2.376"
+#define DC_VER "3.2.378"
 
 /**
  * MAX_SURFACES - representative of the upper bound of surfaces that can be piped to a single CRTC
@@ -562,6 +562,7 @@ struct dc_config {
 	bool frame_update_cmd_version2;
 	struct spl_sharpness_range dcn_sharpness_range;
 	struct spl_sharpness_range dcn_override_sharpness_range;
+	bool no_native422_support;
 };
 
 enum visual_confirm {
@@ -986,7 +987,6 @@ struct link_service;
  * causing an issue or not.
  */
 struct dc_debug_options {
-	bool native422_support;
 	bool disable_dsc;
 	enum visual_confirm visual_confirm;
 	int visual_confirm_rect_height;
@@ -1061,9 +1061,11 @@ struct dc_debug_options {
 	bool hdmi20_disable;
 	bool skip_detection_link_training;
 	uint32_t edid_read_retry_times;
-	unsigned int force_odm_combine; //bit vector based on otg inst
-	unsigned int seamless_boot_odm_combine;
-	unsigned int force_odm_combine_4to1; //bit vector based on otg inst
+
+	uint8_t force_odm_combine; //bit vector based on otg inst
+	uint8_t seamless_boot_odm_combine;
+	uint8_t force_odm_combine_4to1; //bit vector based on otg inst
+
 	int minimum_z8_residency_time;
 	int minimum_z10_residency_time;
 	bool disable_z9_mpc;
@@ -2725,6 +2727,7 @@ struct dc_sink {
 	struct stereo_3d_features features_3d[TIMING_3D_FORMAT_MAX];
 	bool converter_disable_audio;
 
+	struct mccs_caps mccs_caps;
 	struct scdc_caps scdc_caps;
 	struct dc_sink_dsc_caps dsc_caps;
 	struct dc_sink_fec_caps fec_caps;

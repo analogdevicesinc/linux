@@ -2214,17 +2214,61 @@ static void smu_v14_0_2_dump_od_table(struct smu_context *smu,
 						   od_table->OverDriveTable.UclkFmax);
 }
 
+#define OD_ERROR_MSG_MAP(msg) \
+	[msg] = #msg
+
+static const char *od_error_message[] = {
+	OD_ERROR_MSG_MAP(OD_REQUEST_ADVANCED_NOT_SUPPORTED),
+	OD_ERROR_MSG_MAP(OD_UNSUPPORTED_FEATURE),
+	OD_ERROR_MSG_MAP(OD_INVALID_FEATURE_COMBO_ERROR),
+	OD_ERROR_MSG_MAP(OD_GFXCLK_VF_CURVE_OFFSET_ERROR),
+	OD_ERROR_MSG_MAP(OD_VDD_GFX_VMAX_ERROR),
+	OD_ERROR_MSG_MAP(OD_VDD_SOC_VMAX_ERROR),
+	OD_ERROR_MSG_MAP(OD_PPT_ERROR),
+	OD_ERROR_MSG_MAP(OD_FAN_MIN_PWM_ERROR),
+	OD_ERROR_MSG_MAP(OD_FAN_ACOUSTIC_TARGET_ERROR),
+	OD_ERROR_MSG_MAP(OD_FAN_ACOUSTIC_LIMIT_ERROR),
+	OD_ERROR_MSG_MAP(OD_FAN_TARGET_TEMP_ERROR),
+	OD_ERROR_MSG_MAP(OD_FAN_ZERO_RPM_STOP_TEMP_ERROR),
+	OD_ERROR_MSG_MAP(OD_FAN_CURVE_PWM_ERROR),
+	OD_ERROR_MSG_MAP(OD_FAN_CURVE_TEMP_ERROR),
+	OD_ERROR_MSG_MAP(OD_FULL_CTRL_GFXCLK_ERROR),
+	OD_ERROR_MSG_MAP(OD_FULL_CTRL_UCLK_ERROR),
+	OD_ERROR_MSG_MAP(OD_FULL_CTRL_FCLK_ERROR),
+	OD_ERROR_MSG_MAP(OD_FULL_CTRL_VDD_GFX_ERROR),
+	OD_ERROR_MSG_MAP(OD_FULL_CTRL_VDD_SOC_ERROR),
+	OD_ERROR_MSG_MAP(OD_TDC_ERROR),
+	OD_ERROR_MSG_MAP(OD_GFXCLK_ERROR),
+	OD_ERROR_MSG_MAP(OD_UCLK_ERROR),
+	OD_ERROR_MSG_MAP(OD_FCLK_ERROR),
+	OD_ERROR_MSG_MAP(OD_OP_TEMP_ERROR),
+	OD_ERROR_MSG_MAP(OD_OP_GFX_EDC_ERROR),
+	OD_ERROR_MSG_MAP(OD_OP_GFX_PCC_ERROR),
+	OD_ERROR_MSG_MAP(OD_POWER_FEATURE_CTRL_ERROR),
+};
+
 static int smu_v14_0_2_upload_overdrive_table(struct smu_context *smu,
 					      OverDriveTableExternal_t *od_table)
 {
-	int ret;
-	ret = smu_cmn_update_table(smu,
-				   SMU_TABLE_OVERDRIVE,
-				   0,
-				   (void *)od_table,
-				   true);
-	if (ret)
-		dev_err(smu->adev->dev, "Failed to upload overdrive table!\n");
+	uint32_t read_arg = 0;
+	int ret, od_error_type;
+
+	ret = smu_cmn_update_table_read_arg(smu,
+					    SMU_TABLE_OVERDRIVE,
+					    0,
+					    (void *)od_table,
+					    &read_arg,
+					    true);
+	if (ret) {
+		dev_err(smu->adev->dev, "Failed to upload overdrive table, ret:%d\n", ret);
+		if ((read_arg & 0xff) == TABLE_TRANSFER_FAILED) {
+			od_error_type = read_arg >> 16;
+			dev_err(smu->adev->dev, "Invalid overdrive table content: %s (%d)\n",
+				od_error_type < ARRAY_SIZE(od_error_message) ?
+				od_error_message[od_error_type] : "unknown",
+				od_error_type);
+		}
+	}
 
 	return ret;
 }
@@ -2374,6 +2418,7 @@ static int smu_v14_0_2_od_restore_table_single(struct smu_context *smu, long inp
 		}
 		od_table->OverDriveTable.FanMode = FAN_MODE_AUTO;
 		od_table->OverDriveTable.FeatureCtrlMask |= BIT(PP_OD_FEATURE_FAN_CURVE_BIT);
+		od_table->OverDriveTable.FeatureCtrlMask &= ~BIT(PP_OD_FEATURE_FAN_LEGACY_BIT);
 		break;
 	case PP_OD_EDIT_FAN_ZERO_RPM_ENABLE:
 		od_table->OverDriveTable.FanZeroRpmEnable =
@@ -2402,7 +2447,8 @@ static int smu_v14_0_2_od_restore_table_single(struct smu_context *smu, long inp
 		od_table->OverDriveTable.FanMinimumPwm =
 					boot_overdrive_table->OverDriveTable.FanMinimumPwm;
 		od_table->OverDriveTable.FanMode = FAN_MODE_AUTO;
-		od_table->OverDriveTable.FeatureCtrlMask |= BIT(PP_OD_FEATURE_FAN_CURVE_BIT);
+		od_table->OverDriveTable.FeatureCtrlMask |= BIT(PP_OD_FEATURE_FAN_LEGACY_BIT);
+		od_table->OverDriveTable.FeatureCtrlMask &= ~BIT(PP_OD_FEATURE_FAN_CURVE_BIT);
 		break;
 	default:
 		dev_info(adev->dev, "Invalid table index: %ld\n", input);
@@ -2572,6 +2618,7 @@ static int smu_v14_0_2_od_edit_dpm_table(struct smu_context *smu,
 		od_table->OverDriveTable.FanLinearPwmPoints[input[0]] = input[2];
 		od_table->OverDriveTable.FanMode = FAN_MODE_MANUAL_LINEAR;
 		od_table->OverDriveTable.FeatureCtrlMask |= BIT(PP_OD_FEATURE_FAN_CURVE_BIT);
+		od_table->OverDriveTable.FeatureCtrlMask &= ~BIT(PP_OD_FEATURE_FAN_LEGACY_BIT);
 		break;
 
 	case PP_OD_EDIT_ACOUSTIC_LIMIT:
@@ -2641,7 +2688,7 @@ static int smu_v14_0_2_od_edit_dpm_table(struct smu_context *smu,
 		break;
 
 	case PP_OD_EDIT_FAN_MINIMUM_PWM:
-		if (!smu_v14_0_2_is_od_feature_supported(smu, PP_OD_FEATURE_FAN_CURVE_BIT)) {
+		if (!smu_v14_0_2_is_od_feature_supported(smu, PP_OD_FEATURE_FAN_LEGACY_BIT)) {
 			dev_warn(adev->dev, "Fan curve setting not supported!\n");
 			return -ENOTSUPP;
 		}
@@ -2659,7 +2706,8 @@ static int smu_v14_0_2_od_edit_dpm_table(struct smu_context *smu,
 
 		od_table->OverDriveTable.FanMinimumPwm = input[0];
 		od_table->OverDriveTable.FanMode = FAN_MODE_AUTO;
-		od_table->OverDriveTable.FeatureCtrlMask |= BIT(PP_OD_FEATURE_FAN_CURVE_BIT);
+		od_table->OverDriveTable.FeatureCtrlMask |= BIT(PP_OD_FEATURE_FAN_LEGACY_BIT);
+		od_table->OverDriveTable.FeatureCtrlMask &= ~BIT(PP_OD_FEATURE_FAN_CURVE_BIT);
 		break;
 
 	case PP_OD_EDIT_FAN_ZERO_RPM_ENABLE:

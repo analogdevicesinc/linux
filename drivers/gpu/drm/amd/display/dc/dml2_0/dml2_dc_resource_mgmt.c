@@ -178,6 +178,10 @@ static unsigned int find_pipes_assigned_to_plane(struct dml2_context *ctx,
 
 static bool validate_pipe_assignment(const struct dml2_context *ctx, const struct dc_state *state, const struct dml_display_cfg_st *disp_cfg, const struct dml2_dml_to_dc_pipe_mapping *mapping)
 {
+	(void)ctx;
+	(void)disp_cfg;
+	(void)mapping;
+	(void)state;
 //	int i, j, k;
 //
 //	unsigned int plane_id;
@@ -292,6 +296,7 @@ static unsigned int find_last_resort_pipe_candidates(const struct dc_state *exis
 	const unsigned int stream_id,
 	unsigned int *last_resort_pipe_candidates)
 {
+	(void)stream_id;
 	unsigned int num_last_resort_candidates = 0;
 	int i;
 
@@ -541,6 +546,7 @@ static void add_odm_slice_to_odm_tree(struct dml2_context *ctx,
 		struct dc_pipe_mapping_scratch *scratch,
 		unsigned int odm_slice_index)
 {
+	(void)ctx;
 	struct pipe_ctx *pipe = NULL;
 	int i;
 
@@ -567,6 +573,8 @@ static struct pipe_ctx *add_plane_to_blend_tree(struct dml2_context *ctx,
 	unsigned int odm_slice,
 	struct pipe_ctx *top_pipe)
 {
+	(void)ctx;
+	(void)plane;
 	int i;
 
 	for (i = 0; i < pipe_pool->num_pipes_assigned_to_plane_for_mpcc_combine; i++) {
@@ -722,6 +730,7 @@ static void free_unused_pipes_for_plane(struct dml2_context *ctx, struct dc_stat
 
 static void remove_pipes_from_blend_trees(struct dml2_context *ctx, struct dc_state *state, struct dc_plane_pipe_pool *pipe_pool, unsigned int odm_slice)
 {
+	(void)ctx;
 	struct pipe_ctx *pipe;
 	int i;
 

@@ -7,6 +7,16 @@
 
 #include "dml2_internal_shared_types.h"
 
+struct display_configuation_with_meta;
+
+int dcn4_get_vactive_pstate_margin(
+	const struct display_configuation_with_meta *display_cfg,
+	int plane_mask);
+
+int dcn4_get_minimum_reserved_time_us_for_planes(
+	const struct display_configuation_with_meta *display_config,
+	int plane_mask);
+
 bool pmo_dcn4_fams2_initialize(struct dml2_pmo_initialize_in_out *in_out);
 
 bool pmo_dcn4_fams2_optimize_dcc_mcache(struct dml2_pmo_optimize_dcc_mcache_in_out *in_out);

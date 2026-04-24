@@ -95,6 +95,7 @@
 #include <drm/drm_utils.h>
 #include <drm/drm_vblank.h>
 #include <drm/drm_audio_component.h>
+#include <drm/drm_colorop.h>
 #include <drm/drm_gem_atomic_helper.h>
 
 #include <media/cec-notifier.h>
@@ -2255,6 +2256,10 @@ static void amdgpu_dm_fini(struct amdgpu_device *adev)
 		adev->dm.idle_workqueue = NULL;
 	}
 
+	/* Disable ISM before dc_destroy() invalidates dm->dc */
+	scoped_guard(mutex, &adev->dm.dc_lock)
+		amdgpu_dm_ism_disable(&adev->dm);
+
 	amdgpu_dm_destroy_drm_device(&adev->dm);
 
 #if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
@@ -3994,7 +3999,7 @@ void amdgpu_dm_update_connector_after_detect(
 
 		if (sink) {
 			if (aconnector->dc_sink) {
-				amdgpu_dm_update_freesync_caps(connector, NULL);
+				amdgpu_dm_update_freesync_caps(connector, NULL, true);
 				/*
 				 * retain and release below are used to
 				 * bump up refcount for sink because the link doesn't point
@@ -4006,9 +4011,9 @@ void amdgpu_dm_update_connector_after_detect(
 			aconnector->dc_sink = sink;
 			dc_sink_retain(aconnector->dc_sink);
 			amdgpu_dm_update_freesync_caps(connector,
-					aconnector->drm_edid);
+					aconnector->drm_edid, true);
 		} else {
-			amdgpu_dm_update_freesync_caps(connector, NULL);
+			amdgpu_dm_update_freesync_caps(connector, NULL, true);
 			if (!aconnector->dc_sink) {
 				aconnector->dc_sink = aconnector->dc_em_sink;
 				dc_sink_retain(aconnector->dc_sink);
@@ -4052,7 +4057,7 @@ void amdgpu_dm_update_connector_after_detect(
 		 * If yes, put it here.
 		 */
 		if (aconnector->dc_sink) {
-			amdgpu_dm_update_freesync_caps(connector, NULL);
+			amdgpu_dm_update_freesync_caps(connector, NULL, true);
 			dc_sink_release(aconnector->dc_sink);
 		}
 
@@ -4085,13 +4090,13 @@ void amdgpu_dm_update_connector_after_detect(
 					"failed to create aconnector->requested_timing\n");
 		}
 
-		amdgpu_dm_update_freesync_caps(connector, aconnector->drm_edid);
+		amdgpu_dm_update_freesync_caps(connector, aconnector->drm_edid, true);
 		update_connector_ext_caps(aconnector);
 		dm_set_panel_type(aconnector);
 	} else {
 		hdmi_cec_unset_edid(aconnector);
 		drm_dp_cec_unset_edid(&aconnector->dm_dp_aux.aux);
-		amdgpu_dm_update_freesync_caps(connector, NULL);
+		amdgpu_dm_update_freesync_caps(connector, NULL, true);
 		aconnector->num_modes = 0;
 		dc_sink_release(aconnector->dc_sink);
 		aconnector->dc_sink = NULL;
@@ -8855,7 +8860,7 @@ static void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *connector,
 		 * drm_edid_connector_add_modes() and need to be
 		 * restored here.
 		 */
-		amdgpu_dm_update_freesync_caps(connector, drm_edid);
+		amdgpu_dm_update_freesync_caps(connector, drm_edid, false);
 	} else {
 		amdgpu_dm_connector->num_modes = 0;
 	}
@@ -12330,6 +12335,38 @@ static int add_affected_mst_dsc_crtcs(struct drm_atomic_state *state, struct drm
  */
 
 /**
+ * dm_plane_color_pipeline_active() - Check if a plane's color pipeline active.
+ * @state: DRM atomic state
+ * @plane: DRM plane to check
+ * @use_old: if true, inspect the old colorop states; otherwise the new ones
+ *
+ * A color pipeline may be selected (color_pipeline != NULL) but still is
+ * inactive if every colorop in the chain is bypassed.  Only return
+ * true when at least one colorop has bypass == false, meaning the cursor
+ * would be subjected to the transformation in native mode.
+ *
+ * Return: true if the pipeline modifies pixels, false otherwise.
+ */
+static bool dm_plane_color_pipeline_active(struct drm_atomic_state *state,
+					   struct drm_plane *plane,
+					   bool use_old)
+{
+	struct drm_colorop *colorop;
+	struct drm_colorop_state *old_colorop_state, *new_colorop_state;
+	int i;
+
+	for_each_oldnew_colorop_in_state(state, colorop, old_colorop_state, new_colorop_state, i) {
+		struct drm_colorop_state *cstate = use_old ? old_colorop_state : new_colorop_state;
+
+		if (cstate->colorop->plane != plane)
+			continue;
+		if (!cstate->bypass)
+			return true;
+	}
+	return false;
+}
+
+/**
  * dm_crtc_get_cursor_mode() - Determine the required cursor mode on crtc
  * @adev: amdgpu device
  * @state: DRM atomic state
@@ -12340,8 +12377,8 @@ static int add_affected_mst_dsc_crtcs(struct drm_atomic_state *state, struct drm
  * the dm_crtc_state.
  *
  * The cursor should be enabled in overlay mode if there exists an underlying
- * plane - on which the cursor may be blended - that is either YUV formatted, or
- * scaled differently from the cursor.
+ * plane - on which the cursor may be blended - that is either YUV formatted,
+ * scaled differently from the cursor, or has a color pipeline active.
  *
  * Since zpos info is required, drm_atomic_normalize_zpos must be called before
  * calling this function.
@@ -12379,7 +12416,7 @@ static int dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 
 	/*
 	 * Cursor mode can change if a plane's format changes, scale changes, is
-	 * enabled/disabled, or z-order changes.
+	 * enabled/disabled, z-order changes, or color management properties change.
 	 */
 	for_each_oldnew_plane_in_state(state, plane, old_plane_state, plane_state, i) {
 		int new_scale_w, new_scale_h, old_scale_w, old_scale_h;
@@ -12401,6 +12438,12 @@ static int dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 		dm_get_plane_scale(plane_state, &new_scale_w, &new_scale_h);
 		dm_get_plane_scale(old_plane_state, &old_scale_w, &old_scale_h);
 		if (new_scale_w != old_scale_w || new_scale_h != old_scale_h) {
+			consider_mode_change = true;
+			break;
+		}
+
+		if (dm_plane_color_pipeline_active(state, plane, true) !=
+		    dm_plane_color_pipeline_active(state, plane, false)) {
 			consider_mode_change = true;
 			break;
 		}
@@ -12440,6 +12483,12 @@ static int dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 
 		/* Underlying plane is YUV format - use overlay cursor */
 		if (amdgpu_dm_plane_is_video_format(plane_state->fb->format->format)) {
+			*cursor_mode = DM_CURSOR_OVERLAY_MODE;
+			return 0;
+		}
+
+		/* Underlying plane has an active color pipeline - cursor would be transformed */
+		if (dm_plane_color_pipeline_active(state, plane, false)) {
 			*cursor_mode = DM_CURSOR_OVERLAY_MODE;
 			return 0;
 		}
@@ -12823,7 +12872,7 @@ static int amdgpu_dm_atomic_check(struct drm_device *dev,
 			goto fail;
 		} else if (required_cursor_mode == DM_CURSOR_OVERLAY_MODE) {
 			drm_dbg_driver(crtc->dev,
-				       "[CRTC:%d:%s] Cannot enable native cursor due to scaling or YUV restrictions\n",
+				       "[CRTC:%d:%s] Cannot enable native cursor due to scaling, YUV, or color pipeline restrictions\n",
 				       crtc->base.id, crtc->name);
 			ret = -EINVAL;
 			goto fail;
@@ -13088,6 +13137,7 @@ static bool dm_edid_parser_send_cea(struct amdgpu_display_manager *dm,
 		vsdb->amd_vsdb_version = output->amd_vsdb.amd_vsdb_version;
 		vsdb->min_refresh_rate_hz = output->amd_vsdb.min_frame_rate;
 		vsdb->max_refresh_rate_hz = output->amd_vsdb.max_frame_rate;
+		vsdb->freesync_mccs_vcp_code = output->amd_vsdb.freesync_mccs_vcp_code;
 	} else {
 		drm_warn(adev_to_drm(dm->adev), "Unknown EDID CEA parser results\n");
 		return false;
@@ -13122,6 +13172,8 @@ static bool parse_edid_cea_dmcu(struct amdgpu_display_manager *dm,
 				vsdb_info->amd_vsdb_version = version;
 				vsdb_info->min_refresh_rate_hz = min_rate;
 				vsdb_info->max_refresh_rate_hz = max_rate;
+				/* Not enabled on DMCU*/
+				vsdb_info->freesync_mccs_vcp_code = 0;
 				return true;
 			}
 			/* not amd vsdb */
@@ -13260,6 +13312,10 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
  *
  * @connector: Connector to query.
  * @drm_edid: DRM EDID from monitor
+ * @do_mccs: Controls whether MCCS (Monitor Control Command Set) over
+ *	      DDC (Display Data Channel) transactions are performed. When true,
+ *	      the driver queries the monitor to get or update additional FreeSync
+ *	      capability information. When false, these transactions are skipped.
  *
  * Amdgpu supports Freesync in DP and HDMI displays, and it is required to keep
  * track of some of the display information in the internal data struct used by
@@ -13267,7 +13323,7 @@ static int parse_hdmi_amd_vsdb(struct amdgpu_dm_connector *aconnector,
  * FreeSync parameters.
  */
 void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
-				    const struct drm_edid *drm_edid)
+				    const struct drm_edid *drm_edid, bool do_mccs)
 {
 	int i = 0;
 	struct amdgpu_dm_connector *amdgpu_dm_connector =
@@ -13333,14 +13389,19 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 
 	} else if (drm_edid && sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A) {
 		i = parse_hdmi_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
-		if (i >= 0 && vsdb_info.freesync_supported) {
-			amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
-			amdgpu_dm_connector->max_vfreq = vsdb_info.max_refresh_rate_hz;
-			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
-				freesync_capable = true;
+		if (i >= 0) {
+			amdgpu_dm_connector->vsdb_info = vsdb_info;
+			sink->edid_caps.freesync_vcp_code = vsdb_info.freesync_mccs_vcp_code;
 
-			connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
-			connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+			if (vsdb_info.freesync_supported) {
+				amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
+				amdgpu_dm_connector->max_vfreq = vsdb_info.max_refresh_rate_hz;
+				if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
+					freesync_capable = true;
+
+				connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
+				connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+			}
 		}
 	}
 
@@ -13349,21 +13410,37 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 
 	if (as_type == FREESYNC_TYPE_PCON_IN_WHITELIST) {
 		i = parse_hdmi_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
-		if (i >= 0 && vsdb_info.freesync_supported && vsdb_info.amd_vsdb_version > 0) {
-
-			amdgpu_dm_connector->pack_sdp_v1_3 = true;
-			amdgpu_dm_connector->as_type = as_type;
+		if (i >= 0) {
 			amdgpu_dm_connector->vsdb_info = vsdb_info;
+			sink->edid_caps.freesync_vcp_code = vsdb_info.freesync_mccs_vcp_code;
 
-			amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
-			amdgpu_dm_connector->max_vfreq = vsdb_info.max_refresh_rate_hz;
-			if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
-				freesync_capable = true;
+			if (vsdb_info.freesync_supported && vsdb_info.amd_vsdb_version > 0) {
+				amdgpu_dm_connector->pack_sdp_v1_3 = true;
+				amdgpu_dm_connector->as_type = as_type;
 
-			connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
-			connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+				amdgpu_dm_connector->min_vfreq = vsdb_info.min_refresh_rate_hz;
+				amdgpu_dm_connector->max_vfreq = vsdb_info.max_refresh_rate_hz;
+				if (amdgpu_dm_connector->max_vfreq - amdgpu_dm_connector->min_vfreq > 10)
+					freesync_capable = true;
+
+				connector->display_info.monitor_range.min_vfreq = vsdb_info.min_refresh_rate_hz;
+				connector->display_info.monitor_range.max_vfreq = vsdb_info.max_refresh_rate_hz;
+			}
 		}
 	}
+
+	/* Handle MCCS */
+	if (do_mccs)
+		dm_helpers_read_mccs_caps(adev->dm.dc->ctx, amdgpu_dm_connector->dc_link, sink);
+
+	if ((sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A ||
+		as_type == FREESYNC_TYPE_PCON_IN_WHITELIST) &&
+		(!sink->edid_caps.freesync_vcp_code ||
+		(sink->edid_caps.freesync_vcp_code && !sink->mccs_caps.freesync_supported)))
+		freesync_capable = false;
+
+	if (do_mccs && sink->mccs_caps.freesync_supported && freesync_capable)
+		dm_helpers_mccs_vcp_set(adev->dm.dc->ctx, amdgpu_dm_connector->dc_link, sink);
 
 update:
 	if (dm_con_state)

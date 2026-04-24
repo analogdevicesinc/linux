@@ -584,6 +584,7 @@ struct cmn2asic_mapping {
 /* Message flags for smu_msg_args */
 #define SMU_MSG_FLAG_ASYNC	BIT(0) /* Async send - skip post-poll */
 #define SMU_MSG_FLAG_LOCK_HELD	BIT(1) /* Caller holds ctl->lock */
+#define SMU_MSG_FLAG_FORCE_READ_ARG	BIT(2)	/* force read smu arg from pmfw */
 
 /* smu_msg_ctl flags */
 #define SMU_MSG_CTL_DEBUG_MAILBOX	BIT(0) /* Debug mailbox supported */

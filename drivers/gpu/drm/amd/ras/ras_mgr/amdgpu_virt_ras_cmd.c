@@ -517,14 +517,9 @@ int amdgpu_virt_ras_hw_fini(struct amdgpu_device *adev)
 			(struct amdgpu_virt_ras_cmd *)ras_mgr->virt_ras_cmd;
 	struct vram_blocks_ecc *blks_ecc = &virt_ras->blocks_ecc;
 
-	if (blks_ecc->shared_mem.cpu_addr) {
-		__set_cmd_auto_update(adev,
-			RAS_CMD__GET_ALL_BLOCK_ECC_STATUS,
-			blks_ecc->shared_mem.gpa,
-			blks_ecc->shared_mem.size, false);
-
+	if (blks_ecc->shared_mem.cpu_addr)
 		memset(blks_ecc->shared_mem.cpu_addr, 0, blks_ecc->shared_mem.size);
-	}
+
 	memset(blks_ecc, 0, sizeof(*blks_ecc));
 
 	return 0;

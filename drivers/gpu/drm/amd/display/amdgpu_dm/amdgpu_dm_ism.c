@@ -270,7 +270,6 @@ static void dm_ism_commit_idle_optimization_state(struct amdgpu_dm_ism *ism,
 	struct amdgpu_crtc *acrtc = ism_to_amdgpu_crtc(ism);
 	struct amdgpu_device *adev = drm_to_adev(acrtc->base.dev);
 	struct amdgpu_display_manager *dm = &adev->dm;
-	int r;
 
 	trace_amdgpu_dm_ism_commit(dm->active_vblank_irq_count,
 				   vblank_enabled,
@@ -323,16 +322,7 @@ static void dm_ism_commit_idle_optimization_state(struct amdgpu_dm_ism *ism,
 	 */
 	if (!vblank_enabled && dm->active_vblank_irq_count == 0) {
 		dc_post_update_surfaces_to_stream(dm->dc);
-
-		r = amdgpu_dpm_pause_power_profile(adev, true);
-		if (r)
-			dev_warn(adev->dev, "failed to set default power profile mode\n");
-
 		dc_allow_idle_optimizations(dm->dc, true);
-
-		r = amdgpu_dpm_pause_power_profile(adev, false);
-		if (r)
-			dev_warn(adev->dev, "failed to restore the power profile mode\n");
 	}
 }
 
@@ -472,6 +462,9 @@ void amdgpu_dm_ism_commit_event(struct amdgpu_dm_ism *ism,
 	/* ISM transitions must be called with mutex acquired */
 	ASSERT(mutex_is_locked(&dm->dc_lock));
 
+	/* ISM should not run after dc is destroyed */
+	ASSERT(dm->dc);
+
 	if (!acrtc_state) {
 		trace_amdgpu_dm_ism_event(acrtc->crtc_id, "NO_STATE",
 					  "NO_STATE", "N/A");
@@ -544,6 +537,8 @@ void amdgpu_dm_ism_disable(struct amdgpu_display_manager *dm)
 	struct drm_crtc *crtc;
 	struct amdgpu_crtc *acrtc;
 	struct amdgpu_dm_ism *ism;
+
+	ASSERT(mutex_is_locked(&dm->dc_lock));
 
 	drm_for_each_crtc(crtc, dm->ddev) {
 		acrtc = to_amdgpu_crtc(crtc);

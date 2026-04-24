@@ -457,9 +457,12 @@ static struct drm_crtc_state *amdgpu_dm_crtc_duplicate_state(struct drm_crtc *cr
 
 static void amdgpu_dm_crtc_destroy(struct drm_crtc *crtc)
 {
-	struct amdgpu_crtc *acrtc = to_amdgpu_crtc(crtc);
+	/*
+	 * amdgpu_dm_ism_fini() is intentionally called in amdgpu_dm_fini().
+	 * It must be called before dc_destroy() in amdgpu_dm_fini()
+	 * to avoid ISM accessing an invalid dc handle once dc is released.
+	 */
 
-	amdgpu_dm_ism_fini(&acrtc->ism);
 	drm_crtc_cleanup(crtc);
 	kfree(crtc);
 }

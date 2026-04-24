@@ -178,6 +178,7 @@ dml_float_t dml_log2(dml_float_t x)
 
 dml_float_t dml_round(dml_float_t val, dml_bool_t bankers_rounding)
 {
+	(void)bankers_rounding;
 //	if (bankers_rounding)
 //			return (dml_float_t) lrint(val);
 //	else {
@@ -217,6 +218,7 @@ dml_uint_t dml_round_to_multiple(dml_uint_t num, dml_uint_t multiple, dml_bool_t
 
 void dml_print_data_rq_regs_st(const dml_display_plane_rq_regs_st *rq_regs)
 {
+	(void)rq_regs;
 	dml_print("DML: ===================================== \n");
 	dml_print("DML: DISPLAY_PLANE_RQ_REGS_ST\n");
 	dml_print("DML: chunk_size = 0x%x\n", rq_regs->chunk_size);
@@ -248,6 +250,7 @@ void dml_print_rq_regs_st(const dml_display_rq_regs_st *rq_regs)
 
 void dml_print_dlg_regs_st(const dml_display_dlg_regs_st *dlg_regs)
 {
+	(void)dlg_regs;
 	dml_print("DML: ===================================== \n");
 	dml_print("DML: DISPLAY_DLG_REGS_ST \n");
 	dml_print("DML: refcyc_h_blank_end = 0x%x\n", dlg_regs->refcyc_h_blank_end);
@@ -299,6 +302,7 @@ void dml_print_dlg_regs_st(const dml_display_dlg_regs_st *dlg_regs)
 
 void dml_print_ttu_regs_st(const dml_display_ttu_regs_st *ttu_regs)
 {
+	(void)ttu_regs;
 	dml_print("DML: ===================================== \n");
 	dml_print("DML: DISPLAY_TTU_REGS_ST \n");
 	dml_print("DML: qos_level_low_wm = 0x%x\n", ttu_regs->qos_level_low_wm);
@@ -326,6 +330,7 @@ void dml_print_ttu_regs_st(const dml_display_ttu_regs_st *ttu_regs)
 
 void dml_print_dml_policy(const struct dml_mode_eval_policy_st *policy)
 {
+	(void)policy;
 	dml_print("DML: ===================================== \n");
 	dml_print("DML: DML_MODE_EVAL_POLICY_ST\n");
 	dml_print("DML: Policy: UseUnboundedRequesting = 0x%x\n", policy->UseUnboundedRequesting);
@@ -353,6 +358,8 @@ void dml_print_dml_policy(const struct dml_mode_eval_policy_st *policy)
 
 void dml_print_mode_support(struct display_mode_lib_st *mode_lib, dml_uint_t j)
 {
+	(void)j;
+	(void)mode_lib;
 	dml_print("DML: MODE SUPPORT: ===============================================\n");
 	dml_print("DML: MODE SUPPORT: Voltage State %d\n", j);
 	dml_print("DML: MODE SUPPORT:     Mode Supported              : %s\n", mode_lib->ms.support.ModeSupport[j] == true ? "Supported" : "NOT Supported");
@@ -526,6 +533,7 @@ void dml_print_dml_mode_support_info(const struct dml_mode_support_info_st *supp
 
 void dml_print_dml_display_cfg_timing(const struct dml_timing_cfg_st *timing, dml_uint_t num_plane)
 {
+	(void)timing;
 	for (dml_uint_t i = 0; i < num_plane; i++) {
 		dml_print("DML: timing_cfg: plane=%d, HTotal = %d\n", i, timing->HTotal[i]);
 		dml_print("DML: timing_cfg: plane=%d, VTotal = %d\n", i, timing->VTotal[i]);
@@ -542,6 +550,7 @@ void dml_print_dml_display_cfg_timing(const struct dml_timing_cfg_st *timing, dm
 
 void dml_print_dml_display_cfg_plane(const struct dml_plane_cfg_st *plane, dml_uint_t num_plane)
 {
+	(void)plane;
 	dml_print("DML: plane_cfg: num_plane = %d\n", num_plane);
 	dml_print("DML: plane_cfg: GPUVMEnable = %d\n", plane->GPUVMEnable);
 	dml_print("DML: plane_cfg: HostVMEnable = %d\n", plane->HostVMEnable);
@@ -590,6 +599,7 @@ void dml_print_dml_display_cfg_plane(const struct dml_plane_cfg_st *plane, dml_u
 
 void dml_print_dml_display_cfg_surface(const struct dml_surface_cfg_st *surface, dml_uint_t num_plane)
 {
+	(void)surface;
 	for (dml_uint_t i = 0; i < num_plane; i++) {
 		dml_print("DML: surface_cfg: plane=%d, PitchY = %d\n", i, surface->PitchY[i]);
 		dml_print("DML: surface_cfg: plane=%d, SurfaceWidthY = %d\n", i, surface->SurfaceWidthY[i]);
@@ -609,6 +619,7 @@ void dml_print_dml_display_cfg_surface(const struct dml_surface_cfg_st *surface,
 
 void dml_print_dml_display_cfg_hw_resource(const struct dml_hw_resource_st *hw, dml_uint_t num_plane)
 {
+	(void)hw;
 	for (dml_uint_t i = 0; i < num_plane; i++) {
 		dml_print("DML: hw_resource: plane=%d, ODMMode = %d\n", i, hw->ODMMode[i]);
 		dml_print("DML: hw_resource: plane=%d, DPPPerSurface = %d\n", i, hw->DPPPerSurface[i]);
@@ -620,6 +631,7 @@ void dml_print_dml_display_cfg_hw_resource(const struct dml_hw_resource_st *hw, 
 
 __DML_DLL_EXPORT__ void dml_print_soc_state_bounding_box(const struct soc_state_bounding_box_st *state)
 {
+	(void)state;
 	dml_print("DML: state_bbox: socclk_mhz = %f\n", state->socclk_mhz);
 	dml_print("DML: state_bbox: dscclk_mhz = %f\n", state->dscclk_mhz);
 	dml_print("DML: state_bbox: phyclk_mhz = %f\n", state->phyclk_mhz);
@@ -649,6 +661,7 @@ __DML_DLL_EXPORT__ void dml_print_soc_state_bounding_box(const struct soc_state_
 
 __DML_DLL_EXPORT__ void dml_print_soc_bounding_box(const struct soc_bounding_box_st *soc)
 {
+	(void)soc;
 	dml_print("DML: soc_bbox: dprefclk_mhz = %f\n", soc->dprefclk_mhz);
 	dml_print("DML: soc_bbox: xtalclk_mhz = %f\n", soc->xtalclk_mhz);
 	dml_print("DML: soc_bbox: pcierefclk_mhz = %f\n", soc->pcierefclk_mhz);
@@ -686,6 +699,7 @@ __DML_DLL_EXPORT__ void dml_print_soc_bounding_box(const struct soc_bounding_box
 
 __DML_DLL_EXPORT__ void dml_print_clk_cfg(const struct dml_clk_cfg_st *clk_cfg)
 {
+	(void)clk_cfg;
 	dml_print("DML: clk_cfg: 0-use_required, 1-use pipe.clks_cfg, 2-use state bbox\n");
 	dml_print("DML: clk_cfg: dcfclk_option = %d\n", clk_cfg->dcfclk_option);
 	dml_print("DML: clk_cfg: dispclk_option = %d\n", clk_cfg->dispclk_option);

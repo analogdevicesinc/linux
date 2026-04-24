@@ -22,8 +22,6 @@ void dml2_core_utils_pipe_plane_mapping(const struct core_display_cfg_support_in
 bool dml2_core_utils_is_phantom_pipe(const struct dml2_plane_parameters *plane_cfg);
 unsigned int dml2_core_utils_get_tile_block_size_bytes(enum dml2_swizzle_mode sw_mode, unsigned int byte_per_pixel);
 bool dml2_core_utils_get_segment_horizontal_contiguous(enum dml2_swizzle_mode sw_mode, unsigned int byte_per_pixel);
-unsigned int dml2_core_utils_get_tile_block_size_bytes_backcompat(enum dml2_swizzle_mode sw_mode, unsigned int byte_per_pixel);
-bool dml2_core_utils_get_segment_horizontal_contiguous_backcompat(enum dml2_swizzle_mode sw_mode, unsigned int byte_per_pixel);
 bool dml2_core_utils_is_vertical_rotation(enum dml2_rotation_angle Scan);
 bool dml2_core_utils_is_linear(enum dml2_swizzle_mode sw_mode);
 int unsigned dml2_core_utils_get_gfx_version(enum dml2_swizzle_mode sw_mode);
@@ -41,5 +39,6 @@ bool dml2_core_utils_is_hpo_dp_encoder(const struct dml2_stream_parameters *stre
 bool dml2_core_utils_is_dp_8b_10b_link_rate(enum dml2_output_link_dp_rate rate);
 bool dml2_core_utils_is_dp_128b_132b_link_rate(enum dml2_output_link_dp_rate rate);
 bool dml2_core_utils_is_odm_split(enum dml2_odm_mode odm_mode);
+double dml2_core_utils_get_frame_time_us(const struct dml2_stream_parameters *stream);
 
 #endif /* __DML2_CORE_UTILS_H__ */

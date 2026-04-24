@@ -464,6 +464,9 @@ static void amdgpu_devcoredump_deferred_work(struct work_struct *work)
 	struct amdgpu_device *adev = container_of(work, typeof(*adev), coredump_work);
 	struct amdgpu_coredump_info *coredump = adev->coredump;
 
+	if (!coredump)
+		goto end;
+
 	/* Do a one-time preparation of the coredump output because
 	 * repeatingly calling drm_coredump_printer is very slow.
 	 */
@@ -499,7 +502,7 @@ void amdgpu_coredump(struct amdgpu_device *adev, bool skip_vram_check,
 	int i, off, idx;
 
 	/* No need to generate a new coredump if there's one in progress already. */
-	if (work_pending(&adev->coredump_work))
+	if (work_busy(&adev->coredump_work))
 		return;
 
 	if (job && job->pasid)
@@ -511,7 +514,6 @@ void amdgpu_coredump(struct amdgpu_device *adev, bool skip_vram_check,
 
 	coredump->skip_vram_check = skip_vram_check;
 	coredump->reset_vram_lost = vram_lost;
-	coredump->pasid = job->pasid;
 
 	if (job && job->pasid) {
 		struct amdgpu_task_info *ti;
@@ -521,6 +523,7 @@ void amdgpu_coredump(struct amdgpu_device *adev, bool skip_vram_check,
 			coredump->reset_task_info = *ti;
 			amdgpu_vm_put_task_info(ti);
 		}
+		coredump->pasid = job->pasid;
 		coredump->num_ibs = job->num_ibs;
 		for (i = 0; i < job->num_ibs; ++i) {
 			coredump->ibs[i].gpu_addr = job->ibs[i].gpu_addr;
@@ -563,7 +566,7 @@ void amdgpu_coredump(struct amdgpu_device *adev, bool skip_vram_check,
 			coredump->rings[idx].offset = off;
 
 			memcpy(&coredump->rings_dw[off], ring->ring, ring->ring_size);
-			off += ring->ring_size;
+			off += ring->ring_size / 4;
 			idx++;
 		}
 		coredump->num_rings = idx;
