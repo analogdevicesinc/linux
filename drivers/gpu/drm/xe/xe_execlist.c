@@ -59,10 +59,6 @@ static void __start_lrc(struct xe_hw_engine *hwe, struct xe_lrc *lrc,
 		lrc_desc |= FIELD_PREP(SW_CTX_ID, ctx_id);
 	}
 
-	if (hwe->class == XE_ENGINE_CLASS_COMPUTE)
-		xe_mmio_write32(mmio, RCU_MODE,
-				REG_MASKED_FIELD_ENABLE(RCU_MODE_CCS_ENABLE));
-
 	xe_lrc_write_ctx_reg(lrc, CTX_RING_TAIL, lrc->ring.tail);
 	lrc->ring.old_tail = lrc->ring.tail;
 
