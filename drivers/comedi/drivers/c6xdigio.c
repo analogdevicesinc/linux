@@ -239,9 +239,11 @@ static int c6xdigio_attach(struct comedi_device *dev,
 			   struct comedi_devconfig *it)
 {
 	struct comedi_subdevice *s;
+	unsigned int iobase = it->options[0];
 	int ret;
 
-	ret = comedi_request_region(dev, it->options[0], 0x03);
+	ret = comedi_check_request_region(dev, iobase, 0x03,
+					  0, UINT_MAX, 4);
 	if (ret)
 		return ret;
 

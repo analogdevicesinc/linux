@@ -42,7 +42,7 @@ static const u32 gyro_3d_addresses[GYRO_3D_CHANNEL_MAX] = {
 	HID_USAGE_SENSOR_ANGL_VELOCITY_Z_AXIS
 };
 
-static const u32 gryo_3d_sensitivity_addresses[] = {
+static const u32 gyro_3d_sensitivity_addresses[] = {
 	HID_USAGE_SENSOR_DATA_ANGL_VELOCITY,
 };
 
@@ -297,8 +297,8 @@ static int hid_gyro_3d_probe(struct platform_device *pdev)
 	ret = hid_sensor_parse_common_attributes(hsdev,
 						HID_USAGE_SENSOR_GYRO_3D,
 						&gyro_state->common_attributes,
-						gryo_3d_sensitivity_addresses,
-						ARRAY_SIZE(gryo_3d_sensitivity_addresses));
+						gyro_3d_sensitivity_addresses,
+						ARRAY_SIZE(gyro_3d_sensitivity_addresses));
 	if (ret) {
 		dev_err(&pdev->dev, "failed to setup common attributes\n");
 		return ret;

@@ -34,6 +34,7 @@
 #include <linux/io.h>
 #include <linux/acpi.h>
 #include <linux/hpet.h>
+#include <linux/platform_device.h>
 #include <asm/current.h>
 #include <asm/irq.h>
 #include <asm/div64.h>
@@ -973,8 +974,9 @@ static acpi_status hpet_resources(struct acpi_resource *res, void *data)
 	return AE_OK;
 }
 
-static int hpet_acpi_add(struct acpi_device *device)
+static int hpet_acpi_probe(struct platform_device *pdev)
 {
+	struct acpi_device *device = ACPI_COMPANION(&pdev->dev);
 	acpi_status result;
 	struct hpet_data data;
 
@@ -1002,12 +1004,12 @@ static const struct acpi_device_id hpet_device_ids[] = {
 	{"", 0},
 };
 
-static struct acpi_driver hpet_acpi_driver = {
-	.name = "hpet",
-	.ids = hpet_device_ids,
-	.ops = {
-		.add = hpet_acpi_add,
-		},
+static struct platform_driver hpet_acpi_driver = {
+	.probe = hpet_acpi_probe,
+	.driver = {
+		.name = "hpet_acpi",
+		.acpi_match_table = hpet_device_ids,
+	},
 };
 
 static struct miscdevice hpet_misc = { HPET_MINOR, "hpet", &hpet_fops };
@@ -1022,7 +1024,7 @@ static int __init hpet_init(void)
 
 	sysctl_header = register_sysctl("dev/hpet", hpet_table);
 
-	result = acpi_bus_register_driver(&hpet_acpi_driver);
+	result = platform_driver_register(&hpet_acpi_driver);
 	if (result < 0) {
 		unregister_sysctl_table(sysctl_header);
 		misc_deregister(&hpet_misc);

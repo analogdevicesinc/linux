@@ -1026,10 +1026,55 @@ int comedi_load_firmware(struct comedi_device *dev, struct device *hw_dev,
 				   unsigned long context),
 			 unsigned long context);
 
-int __comedi_request_region(struct comedi_device *dev,
-			    unsigned long start, unsigned long len);
-int comedi_request_region(struct comedi_device *dev,
-			  unsigned long start, unsigned long len);
+int __comedi_check_request_region(struct comedi_device *dev,
+				  unsigned long start, unsigned long len,
+				  unsigned long minstart, unsigned long maxend,
+				  unsigned long minalign);
+int comedi_check_request_region(struct comedi_device *dev,
+				unsigned long start, unsigned long len,
+				unsigned long minstart, unsigned long maxend,
+				unsigned long minalign);
+
+/**
+ * __comedi_request_region() - Request an I/O region for a legacy driver
+ * @dev: COMEDI device.
+ * @start: Base address of the I/O region.
+ * @len: Length of the I/O region.
+ *
+ * Requests the specified I/O port region which must start at a non-zero
+ * address.
+ *
+ * Returns 0 on success, -EINVAL if @start is 0, or -EIO if the request
+ * fails.
+ */
+static inline int __comedi_request_region(struct comedi_device *dev,
+					  unsigned long start,
+					  unsigned long len)
+{
+	return __comedi_check_request_region(dev, start, len, 0, ~0ul, 1);
+}
+
+/**
+ * comedi_request_region() - Request an I/O region for a legacy driver
+ * @dev: COMEDI device.
+ * @start: Base address of the I/O region.
+ * @len: Length of the I/O region.
+ *
+ * Requests the specified I/O port region which must start at a non-zero
+ * address.
+ *
+ * On success, @dev->iobase is set to the base address of the region and
+ * @dev->iolen is set to its length.
+ *
+ * Returns 0 on success, -EINVAL if @start is 0, or -EIO if the request
+ * fails.
+ */
+static inline int comedi_request_region(struct comedi_device *dev,
+					unsigned long start, unsigned long len)
+{
+	return comedi_check_request_region(dev, start, len, 0, ~0ul, 1);
+}
+
 void comedi_legacy_detach(struct comedi_device *dev);
 
 int comedi_auto_config(struct device *hardware_device,

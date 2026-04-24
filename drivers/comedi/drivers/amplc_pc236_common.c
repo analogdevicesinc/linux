@@ -176,17 +176,6 @@ int amplc_pc236_common_attach(struct comedi_device *dev, unsigned long iobase,
 }
 EXPORT_SYMBOL_GPL(amplc_pc236_common_attach);
 
-static int __init amplc_pc236_common_init(void)
-{
-	return 0;
-}
-module_init(amplc_pc236_common_init);
-
-static void __exit amplc_pc236_common_exit(void)
-{
-}
-module_exit(amplc_pc236_common_exit);
-
 MODULE_AUTHOR("Comedi https://www.comedi.org");
 MODULE_DESCRIPTION("Comedi helper for amplc_pc236 and amplc_pci236");
 MODULE_LICENSE("GPL");

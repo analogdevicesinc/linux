@@ -32,10 +32,6 @@
 #include "coresight-priv.h"
 #include "coresight-tmc.h"
 
-DEFINE_CORESIGHT_DEVLIST(etb_devs, "tmc_etb");
-DEFINE_CORESIGHT_DEVLIST(etf_devs, "tmc_etf");
-DEFINE_CORESIGHT_DEVLIST(etr_devs, "tmc_etr");
-
 int tmc_wait_for_tmcready(struct tmc_drvdata *drvdata)
 {
 	struct coresight_device *csdev = drvdata->csdev;
@@ -401,7 +397,6 @@ static ssize_t tmc_crashdata_read(struct file *file, char __user *data,
 
 static int tmc_crashdata_release(struct inode *inode, struct file *file)
 {
-	int ret = 0;
 	unsigned long flags;
 	struct tmc_resrv_buf *rbuf;
 	struct tmc_drvdata *drvdata = container_of(file->private_data,
@@ -414,7 +409,7 @@ static int tmc_crashdata_release(struct inode *inode, struct file *file)
 	raw_spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	dev_dbg(&drvdata->csdev->dev, "%s: released\n", __func__);
-	return ret;
+	return 0;
 }
 
 static const struct file_operations tmc_crashdata_fops = {
@@ -777,7 +772,7 @@ static int __tmc_probe(struct device *dev, struct resource *res)
 	struct coresight_platform_data *pdata = NULL;
 	struct tmc_drvdata *drvdata;
 	struct coresight_desc desc = { 0 };
-	struct coresight_dev_list *dev_list = NULL;
+	const char *dev_list = NULL;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -827,7 +822,7 @@ static int __tmc_probe(struct device *dev, struct resource *res)
 		desc.type = CORESIGHT_DEV_TYPE_SINK;
 		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
 		desc.ops = &tmc_etb_cs_ops;
-		dev_list = &etb_devs;
+		dev_list = "tmc_etb";
 		break;
 	case TMC_CONFIG_TYPE_ETR:
 		desc.groups = coresight_etr_groups;
@@ -839,7 +834,7 @@ static int __tmc_probe(struct device *dev, struct resource *res)
 			goto out;
 		idr_init(&drvdata->idr);
 		mutex_init(&drvdata->idr_mutex);
-		dev_list = &etr_devs;
+		dev_list = "tmc_etr";
 		break;
 	case TMC_CONFIG_TYPE_ETF:
 		desc.groups = coresight_etf_groups;
@@ -847,7 +842,7 @@ static int __tmc_probe(struct device *dev, struct resource *res)
 		desc.subtype.sink_subtype = CORESIGHT_DEV_SUBTYPE_SINK_BUFFER;
 		desc.subtype.link_subtype = CORESIGHT_DEV_SUBTYPE_LINK_FIFO;
 		desc.ops = &tmc_etf_cs_ops;
-		dev_list = &etf_devs;
+		dev_list = "tmc_etf";
 		break;
 	default:
 		pr_err("%s: Unsupported TMC config\n", desc.name);

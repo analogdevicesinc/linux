@@ -1172,7 +1172,8 @@ static int das1800_attach(struct comedi_device *dev,
 	if (!devpriv)
 		return -ENOMEM;
 
-	ret = comedi_request_region(dev, it->options[0], DAS1800_SIZE);
+	ret = comedi_check_request_region(dev, it->options[0], DAS1800_SIZE,
+					  0, 0x3ff, 16);
 	if (ret)
 		return ret;
 

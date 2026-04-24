@@ -10,16 +10,16 @@
  * TODO: interrupt support, ALS/UVB raw mode
  */
 
-#include <linux/module.h>
-#include <linux/i2c.h>
-#include <linux/mutex.h>
-#include <linux/err.h>
+#include <linux/cleanup.h>
 #include <linux/delay.h>
+#include <linux/err.h>
+#include <linux/i2c.h>
+#include <linux/module.h>
+#include <linux/mutex.h>
+#include <linux/unaligned.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-
-#include <linux/unaligned.h>
 
 #define ZOPT2201_DRV_NAME "zopt2201"
 
@@ -186,10 +186,10 @@ static int zopt2201_read(struct zopt2201_data *data, u8 reg)
 	u8 buf[3];
 	int ret;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 	ret = zopt2201_enable_mode(data, reg == ZOPT2201_UVB_DATA);
 	if (ret < 0)
-		goto fail;
+		return ret;
 
 	while (tries--) {
 		unsigned long t = zopt2201_resolution[data->res].us;
@@ -200,30 +200,25 @@ static int zopt2201_read(struct zopt2201_data *data, u8 reg)
 			msleep(t / 1000);
 		ret = i2c_smbus_read_byte_data(client, ZOPT2201_MAIN_STATUS);
 		if (ret < 0)
-			goto fail;
+			return ret;
 		if (ret & ZOPT2201_MAIN_STATUS_DRDY)
 			break;
 	}
 
 	if (tries < 0) {
 		ret = -ETIMEDOUT;
-		goto fail;
+		return ret;
 	}
 
 	ret = i2c_smbus_read_i2c_block_data(client, reg, sizeof(buf), buf);
 	if (ret < 0)
-		goto fail;
+		return ret;
 
 	ret = i2c_smbus_write_byte_data(client, ZOPT2201_MAIN_CTRL, 0x00);
 	if (ret < 0)
-		goto fail;
-	mutex_unlock(&data->lock);
+		return ret;
 
 	return get_unaligned_le24(&buf[0]);
-
-fail:
-	mutex_unlock(&data->lock);
-	return ret;
 }
 
 static const struct iio_chan_spec zopt2201_channels[] = {
@@ -317,17 +312,15 @@ static int zopt2201_set_resolution(struct zopt2201_data *data, u8 res)
 static int zopt2201_write_resolution(struct zopt2201_data *data,
 				     int val, int val2)
 {
-	int i, ret;
+	int i;
 
 	if (val != 0)
 		return -EINVAL;
 
 	for (i = 0; i < ARRAY_SIZE(zopt2201_resolution); i++)
 		if (val2 == zopt2201_resolution[i].us) {
-			mutex_lock(&data->lock);
-			ret = zopt2201_set_resolution(data, i);
-			mutex_unlock(&data->lock);
-			return ret;
+			guard(mutex)(&data->lock);
+			return zopt2201_set_resolution(data, i);
 		}
 
 	return -EINVAL;
@@ -351,16 +344,12 @@ static int zopt2201_write_scale_by_idx(struct zopt2201_data *data, int idx,
 {
 	int ret;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 	ret = zopt2201_set_resolution(data, zopt2201_scale_array[idx].res);
 	if (ret < 0)
-		goto unlock;
+		return ret;
 
-	ret = zopt2201_set_gain(data, zopt2201_scale_array[idx].gain);
-
-unlock:
-	mutex_unlock(&data->lock);
-	return ret;
+	return zopt2201_set_gain(data, zopt2201_scale_array[idx].gain);
 }
 
 static int zopt2201_write_scale_als(struct zopt2201_data *data,

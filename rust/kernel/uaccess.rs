@@ -21,7 +21,7 @@ use core::mem::{size_of, MaybeUninit};
 ///
 /// This is the Rust equivalent to C pointers tagged with `__user`.
 #[repr(transparent)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Zeroable)]
 pub struct UserPtr(*mut c_void);
 
 impl UserPtr {

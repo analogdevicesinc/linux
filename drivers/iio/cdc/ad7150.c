@@ -306,7 +306,7 @@ static int ad7150_write_event_config(struct iio_dev *indio_dev,
 						dir);
 		if (ret)
 			goto error_ret;
-		/* reenable any irq's we disabled whilst changing mode */
+		/* re-enable any IRQs we disabled whilst changing mode */
 		enable_irq(chip->interrupts[0]);
 		enable_irq(chip->interrupts[1]);
 	}
