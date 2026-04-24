@@ -1101,7 +1101,8 @@ void drm_state_dump(struct drm_device *dev, struct drm_printer *p);
 		for_each_if ((__state)->colorops[__i].ptr &&		\
 			     ((colorop) = (__state)->colorops[__i].ptr,	\
 			      (void)(colorop) /* Only to avoid unused-but-set-variable warning */, \
-			      (new_colorop_state) = (__state)->colorops[__i].new_state, 1))
+			      (new_colorop_state) = (__state)->colorops[__i].new_state,\
+			      (void)(new_colorop_state) /* Only to avoid unused-but-set-variable warning */, 1))
 
 /**
  * for_each_oldnew_plane_in_state - iterate over all planes in an atomic update
