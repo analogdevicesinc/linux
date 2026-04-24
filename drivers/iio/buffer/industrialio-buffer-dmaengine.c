@@ -56,9 +56,9 @@ static void iio_dmaengine_buffer_block_done(void *data,
 	spin_unlock_irqrestore(&block->queue->list_lock, flags);
 #ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	block->block.bytes_used -= result->residue;
-#else
-	block->bytes_used -= result->residue;
 #endif
+	block->bytes_used -= result->residue;
+
 	iio_dma_buffer_block_done(block);
 }
 
