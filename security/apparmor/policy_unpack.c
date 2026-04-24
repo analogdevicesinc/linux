@@ -879,6 +879,7 @@ static int unpack_tags(struct aa_ext *e, struct aa_tags_struct *tags,
 			*info = "failed to unpack profile tag.sets";
 			goto fail;
 		}
+		error = -EPROTO;
 		if (!aa_unpack_nameX(e, AA_STRUCTEND, NULL))
 			goto fail;
 
@@ -1465,6 +1466,7 @@ static int verify_header(struct aa_ext *e, int required, const char **ns)
 		if (*ns && strcmp(*ns, name)) {
 			audit_iface(NULL, NULL, NULL, "invalid ns change", e,
 				    error);
+			return error;
 		} else if (!*ns) {
 			*ns = kstrdup(name, GFP_KERNEL);
 			if (!*ns)
