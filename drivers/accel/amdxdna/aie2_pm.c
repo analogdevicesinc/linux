@@ -108,6 +108,14 @@ int aie2_pm_set_mode(struct amdxdna_dev_hdl *ndev, enum amdxdna_power_mode_type 
 		clk_gating = AIE2_CLK_GATING_ENABLE;
 		dpm_level = ndev->dft_dpm_level;
 		break;
+	case POWER_MODE_LOW:
+		clk_gating = AIE2_CLK_GATING_ENABLE;
+		dpm_level = 0;
+		break;
+	case POWER_MODE_MEDIUM:
+		clk_gating = AIE2_CLK_GATING_ENABLE;
+		dpm_level = ndev->max_dpm_level / 2;
+		break;
 	default:
 		return -EOPNOTSUPP;
 	}
