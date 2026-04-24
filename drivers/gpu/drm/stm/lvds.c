@@ -897,13 +897,13 @@ static int lvds_connector_atomic_check(struct drm_connector *connector,
 	if (!conn_state)
 		return -EINVAL;
 
+	if (!conn_state->crtc)
+		return 0;
+
 	if (list_empty(&connector->modes)) {
 		drm_dbg(connector->dev, "connector: empty modes list\n");
 		return -EINVAL;
 	}
-
-	if (!conn_state->crtc)
-		return -EINVAL;
 
 	panel_mode = list_first_entry(&connector->modes,
 				      struct drm_display_mode, head);
