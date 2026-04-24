@@ -267,15 +267,6 @@ static int ntfs_setattr_size(struct inode *vi, struct iattr *attr)
 		return err;
 
 	inode_dio_wait(vi);
-	/* Serialize against page faults */
-	if (NInoNonResident(NTFS_I(vi)) && attr->ia_size < old_size) {
-		err = iomap_truncate_page(vi, attr->ia_size, NULL,
-				&ntfs_read_iomap_ops,
-				&ntfs_iomap_folio_ops, NULL);
-		if (err)
-			return err;
-	}
-
 	truncate_setsize(vi, attr->ia_size);
 	err = ntfs_truncate_vfs(vi, attr->ia_size, old_size);
 	if (err) {
@@ -534,10 +525,9 @@ static ssize_t ntfs_dio_write_iter(struct kiocb *iocb, struct iov_iter *from)
 			ret = -EIO;
 			goto out;
 		}
-		if (!ret2)
-			invalidate_mapping_pages(iocb->ki_filp->f_mapping,
-						 offset >> PAGE_SHIFT,
-						 end >> PAGE_SHIFT);
+		invalidate_mapping_pages(iocb->ki_filp->f_mapping,
+					 offset >> PAGE_SHIFT,
+					 end >> PAGE_SHIFT);
 	}
 
 out:
@@ -654,7 +644,7 @@ static int ntfs_file_mmap_prepare(struct vm_area_desc *desc)
 	if (NInoCompressed(NTFS_I(inode)))
 		return -EOPNOTSUPP;
 
-	if (vma_desc_test(desc, VMA_WRITE_BIT)) {
+	if (vma_desc_test_all(desc, VMA_SHARED_BIT, VMA_MAYWRITE_BIT)) {
 		struct inode *inode = file_inode(file);
 		loff_t from, to;
 		int err;
@@ -885,14 +875,19 @@ static int ntfs_punch_hole(struct ntfs_inode *ni, int mode, loff_t offset,
 	end_vcn = ntfs_bytes_to_cluster(vol, end_offset - 1) + 1;
 
 	if (offset & vol->cluster_size_mask) {
-		loff_t to;
+		if (offset < ni->initialized_size) {
+			loff_t to;
 
-		to = min_t(loff_t, ntfs_cluster_to_bytes(vol, start_vcn + 1),
-				end_offset);
-		err = iomap_zero_range(vi, offset, to - offset, NULL,
-				&ntfs_seek_iomap_ops,
-				&ntfs_iomap_folio_ops, NULL);
-		if (err < 0 || (end_vcn - start_vcn) == 1)
+			to = min_t(loff_t,
+				   ntfs_cluster_to_bytes(vol, start_vcn + 1),
+				   end_offset);
+			err = iomap_zero_range(vi, offset, to - offset,
+					       NULL, &ntfs_seek_iomap_ops,
+					       &ntfs_iomap_folio_ops, NULL);
+			if (err < 0)
+				goto out;
+		}
+		if (end_vcn - start_vcn == 1)
 			goto out;
 		start_vcn++;
 	}
@@ -901,10 +896,14 @@ static int ntfs_punch_hole(struct ntfs_inode *ni, int mode, loff_t offset,
 		loff_t from;
 
 		from = ntfs_cluster_to_bytes(vol, end_vcn - 1);
-		err = iomap_zero_range(vi, from, end_offset - from, NULL,
-				&ntfs_seek_iomap_ops,
-				&ntfs_iomap_folio_ops, NULL);
-		if (err < 0 || (end_vcn - start_vcn) == 1)
+		if (from < ni->initialized_size) {
+			err = iomap_zero_range(vi, from, end_offset - from,
+					       NULL, &ntfs_seek_iomap_ops,
+					       &ntfs_iomap_folio_ops, NULL);
+			if (err < 0)
+				goto out;
+		}
+		if (end_vcn - start_vcn == 1)
 			goto out;
 		end_vcn--;
 	}

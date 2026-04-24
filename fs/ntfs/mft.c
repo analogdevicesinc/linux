@@ -2503,6 +2503,7 @@ mft_rec_already_initialized:
 			folio_unlock(folio);
 			kunmap_local(m);
 			folio_put(folio);
+			err = -ENOMEM;
 			goto undo_mftbmp_alloc;
 		}
 
@@ -2714,7 +2715,7 @@ static int ntfs_write_mft_block(struct folio *folio, struct writeback_control *w
 	s64 vcn = ntfs_pidx_to_cluster(vol, folio->index);
 	s64 end_vcn = ntfs_bytes_to_cluster(vol, ni->allocated_size);
 	unsigned int folio_sz;
-	struct runlist_element *rl;
+	struct runlist_element *rl = NULL;
 	loff_t i_size = i_size_read(vi);
 
 	ntfs_debug("Entering for inode 0x%llx, attribute type 0x%x, folio index 0x%lx.",
@@ -2820,7 +2821,7 @@ flush_bio:
 
 			if (vol->cluster_size == NTFS_BLOCK_SIZE &&
 			    (mft_record_off ||
-			     rl->length - (vcn_off - rl->vcn) == 1 ||
+			     (rl && rl->length - (vcn_off - rl->vcn) == 1) ||
 			     mft_ofs + NTFS_BLOCK_SIZE >= PAGE_SIZE))
 				folio_sz = NTFS_BLOCK_SIZE;
 			else

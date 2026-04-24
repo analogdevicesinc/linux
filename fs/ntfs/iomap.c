@@ -89,6 +89,7 @@ static int ntfs_read_iomap_begin_resident(struct inode *inode, loff_t offset, lo
 	u32 attr_len;
 	int err = 0;
 	char *kattr;
+	struct page *ipage;
 
 	if (NInoAttr(ni))
 		base_ni = ni->ext.base_ntfs_ino;
@@ -129,15 +130,18 @@ static int ntfs_read_iomap_begin_resident(struct inode *inode, loff_t offset, lo
 
 	kattr = (u8 *)ctx->attr + le16_to_cpu(ctx->attr->data.resident.value_offset);
 
-	iomap->inline_data = kmemdup(kattr, attr_len, GFP_KERNEL);
-	if (!iomap->inline_data) {
+	ipage = alloc_page(GFP_NOFS | __GFP_ZERO);
+	if (!ipage) {
 		err = -ENOMEM;
 		goto out;
 	}
 
+	memcpy(page_address(ipage), kattr, attr_len);
 	iomap->type = IOMAP_INLINE;
+	iomap->inline_data = page_address(ipage);
 	iomap->offset = 0;
 	iomap->length = attr_len;
+	iomap->private = ipage;
 
 out:
 	if (ctx)
@@ -285,8 +289,11 @@ static int ntfs_read_iomap_begin(struct inode *inode, loff_t offset, loff_t leng
 static int ntfs_read_iomap_end(struct inode *inode, loff_t pos, loff_t length,
 		ssize_t written, unsigned int flags, struct iomap *iomap)
 {
-	if (iomap->type == IOMAP_INLINE)
-		kfree(iomap->inline_data);
+	if (iomap->type == IOMAP_INLINE) {
+		struct page *ipage = iomap->private;
+
+		put_page(ipage);
+	}
 
 	return written;
 }
@@ -384,7 +391,7 @@ static int ntfs_write_simple_iomap_begin_non_resident(struct inode *inode, loff_
 	loff_t vcn_ofs, rl_length;
 	struct runlist_element *rl, *rlc;
 	bool is_retry = false;
-	int err;
+	int err = 0;
 	s64 vcn, lcn;
 	s64 max_clu_count =
 		ntfs_bytes_to_cluster(vol, round_up(length, vol->cluster_size));
@@ -652,6 +659,7 @@ static int ntfs_write_iomap_begin_resident(struct inode *inode, loff_t offset,
 	u32 attr_len;
 	int err = 0;
 	char *kattr;
+	struct page *ipage;
 
 	ctx = ntfs_attr_get_search_ctx(ni, NULL);
 	if (!ctx) {
@@ -672,16 +680,19 @@ static int ntfs_write_iomap_begin_resident(struct inode *inode, loff_t offset,
 	attr_len = le32_to_cpu(a->data.resident.value_length);
 	kattr = (u8 *)a + le16_to_cpu(a->data.resident.value_offset);
 
-	iomap->inline_data = kmemdup(kattr, attr_len, GFP_KERNEL);
-	if (!iomap->inline_data) {
+	ipage = alloc_page(GFP_NOFS | __GFP_ZERO);
+	if (!ipage) {
 		err = -ENOMEM;
 		goto out;
 	}
 
+	memcpy(page_address(ipage), kattr, attr_len);
 	iomap->type = IOMAP_INLINE;
+	iomap->inline_data = page_address(ipage);
 	iomap->offset = 0;
 	/* iomap requires there is only one INLINE_DATA extent */
 	iomap->length = attr_len;
+	iomap->private = ipage;
 
 out:
 	if (ctx)
@@ -771,6 +782,7 @@ static int ntfs_write_iomap_end_resident(struct inode *inode, loff_t pos,
 	u32 attr_len;
 	int err;
 	char *kattr;
+	struct page *ipage = iomap->private;
 
 	mutex_lock(&ni->mrec_lock);
 	ctx = ntfs_attr_get_search_ctx(ni, NULL);
@@ -799,7 +811,7 @@ static int ntfs_write_iomap_end_resident(struct inode *inode, loff_t pos,
 	mark_mft_record_dirty(ctx->ntfs_ino);
 err_out:
 	ntfs_attr_put_search_ctx(ctx);
-	kfree(iomap->inline_data);
+	put_page(ipage);
 	mutex_unlock(&ni->mrec_lock);
 	return written;
 

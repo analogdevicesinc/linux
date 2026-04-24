@@ -30,6 +30,13 @@
 __le16 AT_UNNAMED[] = { cpu_to_le16('\0') };
 
 /*
+ * Maximum size allowed for reading attributes by ntfs_attr_readall().
+ * Extended attribute, reparse point are not expected to be larger than this size.
+ */
+
+#define NTFS_ATTR_READALL_MAX_SIZE	(64 * 1024)
+
+/*
  * ntfs_map_runlist_nolock - map (a part of) a runlist of an ntfs inode
  * @ni:		ntfs inode for which to map (part of) a runlist
  * @vcn:	map runlist part containing this vcn
@@ -85,7 +92,7 @@ int ntfs_map_runlist_nolock(struct ntfs_inode *ni, s64 vcn, struct ntfs_attr_sea
 	struct runlist_element *rl;
 	struct folio *put_this_folio = NULL;
 	int err = 0;
-	bool ctx_is_temporary = false, ctx_needs_reset;
+	bool ctx_is_temporary = false, ctx_needs_reset = false;
 	struct ntfs_attr_search_ctx old_ctx = { NULL, };
 	size_t new_rl_count;
 
@@ -5116,6 +5123,13 @@ void *ntfs_attr_readall(struct ntfs_inode *ni, const __le32 type,
 		goto err_exit;
 	}
 	bmp_ni = NTFS_I(bmp_vi);
+
+	if (bmp_ni->data_size > NTFS_ATTR_READALL_MAX_SIZE &&
+		(bmp_ni->type != AT_BITMAP ||
+		bmp_ni->data_size > ((ni->vol->nr_clusters + 7) >> 3))) {
+		ntfs_error(sb, "Invalid attribute data size");
+		goto out;
+	}
 
 	data = kvmalloc(bmp_ni->data_size, GFP_NOFS);
 	if (!data)
