@@ -327,7 +327,6 @@ void xe_hw_engine_enable_ring(struct xe_hw_engine *hwe)
 {
 	u32 ring_mode = REG_MASKED_FIELD_ENABLE(GFX_DISABLE_LEGACY_MODE);
 
-	xe_hw_engine_mmio_write32(hwe, RING_HWSTAM(0), ~0x0);
 	xe_hw_engine_mmio_write32(hwe, RING_HWS_PGA(0),
 				  xe_bo_ggtt_addr(hwe->hwsp));
 
@@ -436,6 +435,11 @@ hw_engine_setup_default_state(struct xe_hw_engine *hwe)
 					   CMD_CCTL_READ_OVERRIDE_MASK,
 					   ring_cmd_cctl_val,
 					   XE_RTP_ACTION_FLAG(ENGINE_BASE)))
+		},
+		{ XE_RTP_NAME("Disable HW status page updates for interrupts"),
+		  XE_RTP_RULES(FUNC(xe_rtp_match_always)),
+		  XE_RTP_ACTIONS(SET(RING_HWSTAM(0), ~0x0,
+				     XE_RTP_ACTION_FLAG(ENGINE_BASE)))
 		},
 		/*
 		 * To allow the GSC engine to go idle on MTL we need to enable
