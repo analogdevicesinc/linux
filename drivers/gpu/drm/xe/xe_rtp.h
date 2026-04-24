@@ -460,6 +460,18 @@ void xe_rtp_process(struct xe_rtp_process_ctx *ctx,
 /* Match functions to be used with XE_RTP_MATCH_FUNC */
 
 /**
+ * xe_rtp_match_always - Match RTP entry unconditionally
+ * @xe: Device structure
+ * @gt: GT structure
+ * @hwe: Engine instance
+ *
+ * Returns: true, regardless of inputs
+ */
+bool xe_rtp_match_always(const struct xe_device *xe,
+			 const struct xe_gt *gt,
+			 const struct xe_hw_engine *hwe);
+
+/**
  * xe_rtp_match_even_instance - Match if engine instance is even
  * @xe: Device structure
  * @gt: GT structure

@@ -430,7 +430,7 @@ hw_engine_setup_default_state(struct xe_hw_engine *hwe)
 	struct xe_rtp_process_ctx ctx = XE_RTP_PROCESS_CTX_INITIALIZER(hwe);
 	const struct xe_rtp_entry_sr engine_entries[] = {
 		{ XE_RTP_NAME("RING_CMD_CCTL_default_MOCS"),
-		  XE_RTP_RULES(GRAPHICS_VERSION_RANGE(1200, XE_RTP_END_VERSION_UNDEFINED)),
+		  XE_RTP_RULES(FUNC(xe_rtp_match_always)),
 		  XE_RTP_ACTIONS(FIELD_SET(RING_CMD_CCTL(0),
 					   CMD_CCTL_WRITE_OVERRIDE_MASK |
 					   CMD_CCTL_READ_OVERRIDE_MASK,
