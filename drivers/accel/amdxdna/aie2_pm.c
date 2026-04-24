@@ -74,7 +74,7 @@ int aie2_pm_init(struct amdxdna_dev_hdl *ndev)
 		return ret;
 
 	ndev->pw_mode = POWER_MODE_DEFAULT;
-	ndev->dft_dpm_level = ndev->max_dpm_level;
+	ndev->dft_dpm_level = 0;
 
 	return 0;
 }

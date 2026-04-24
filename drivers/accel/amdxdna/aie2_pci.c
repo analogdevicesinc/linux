@@ -246,6 +246,7 @@ static int aie2_xrs_load(void *cb_arg, struct xrs_action_load *action)
 	xdna = hwctx->client->xdna;
 
 	hwctx->start_col = action->part.start_col;
+	hwctx->num_unused_col = action->part.ncols - hwctx->num_col;
 	hwctx->num_col = action->part.ncols;
 	ret = aie2_create_context(xdna->dev_handle, hwctx);
 	if (ret)

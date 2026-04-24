@@ -546,22 +546,24 @@ static int aie2_alloc_resource(struct amdxdna_hwctx *hwctx)
 {
 	struct amdxdna_dev *xdna = hwctx->client->xdna;
 	struct alloc_requests *xrs_req;
+	u32 temporal_only_col = 0;
 	int ret;
-
-	if (AIE_FEATURE_ON(&xdna->dev_handle->aie, AIE2_TEMPORAL_ONLY)) {
-		hwctx->num_unused_col = xdna->dev_handle->total_col - hwctx->num_col;
-		hwctx->num_col = xdna->dev_handle->total_col;
-		return aie2_create_context(xdna->dev_handle, hwctx);
-	}
 
 	xrs_req = kzalloc_obj(*xrs_req);
 	if (!xrs_req)
 		return -ENOMEM;
 
-	xrs_req->cdo.start_cols = hwctx->col_list;
-	xrs_req->cdo.cols_len = hwctx->col_list_len;
-	xrs_req->cdo.ncols = hwctx->num_col;
-	xrs_req->cdo.qos_cap.opc = hwctx->max_opc;
+	if (AIE_FEATURE_ON(&xdna->dev_handle->aie, AIE2_TEMPORAL_ONLY)) {
+		xrs_req->cdo.start_cols = &temporal_only_col;
+		xrs_req->cdo.cols_len = 1;
+		xrs_req->cdo.ncols = xdna->dev_handle->total_col;
+	} else {
+		xrs_req->cdo.start_cols = hwctx->col_list;
+		xrs_req->cdo.cols_len = hwctx->col_list_len;
+		xrs_req->cdo.ncols = hwctx->num_col;
+	}
+	/* Use platform opc */
+	xrs_req->cdo.qos_cap.opc = xdna->dev_handle->priv->col_opc * hwctx->num_col;
 
 	xrs_req->rqos.gops = hwctx->qos.gops;
 	xrs_req->rqos.fps = hwctx->qos.fps;
@@ -585,15 +587,9 @@ static void aie2_release_resource(struct amdxdna_hwctx *hwctx)
 	struct amdxdna_dev *xdna = hwctx->client->xdna;
 	int ret;
 
-	if (AIE_FEATURE_ON(&xdna->dev_handle->aie, AIE2_TEMPORAL_ONLY)) {
-		ret = aie2_destroy_context(xdna->dev_handle, hwctx);
-		if (ret && ret != -ENODEV)
-			XDNA_ERR(xdna, "Destroy temporal only context failed, ret %d", ret);
-	} else {
-		ret = xrs_release_resource(xdna->xrs_hdl, (uintptr_t)hwctx);
-		if (ret)
-			XDNA_ERR(xdna, "Release AIE resource failed, ret %d", ret);
-	}
+	ret = xrs_release_resource(xdna->xrs_hdl, (uintptr_t)hwctx);
+	if (ret)
+		XDNA_ERR(xdna, "Release AIE resource failed, ret %d", ret);
 }
 
 static int aie2_ctx_syncobj_create(struct amdxdna_hwctx *hwctx)
