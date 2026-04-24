@@ -4940,6 +4940,25 @@ void scx_softlockup(u32 dur_s)
 			smp_processor_id(), dur_s);
 }
 
+/*
+ * scx_hardlockup() runs from NMI and eventually calls scx_claim_exit(),
+ * which takes scx_sched_lock. scx_sched_lock isn't NMI-safe and grabbing
+ * it from NMI context can lead to deadlocks. Defer via irq_work; the
+ * disable path runs off irq_work anyway.
+ */
+static atomic_t scx_hardlockup_cpu = ATOMIC_INIT(-1);
+
+static void scx_hardlockup_irq_workfn(struct irq_work *work)
+{
+	int cpu = atomic_xchg(&scx_hardlockup_cpu, -1);
+
+	if (cpu >= 0 && handle_lockup("hard lockup - CPU %d", cpu))
+		printk_deferred(KERN_ERR "sched_ext: Hard lockup - CPU %d, disabling BPF scheduler\n",
+				cpu);
+}
+
+static DEFINE_IRQ_WORK(scx_hardlockup_irq_work, scx_hardlockup_irq_workfn);
+
 /**
  * scx_hardlockup - sched_ext hardlockup handler
  *
@@ -4948,17 +4967,19 @@ void scx_softlockup(u32 dur_s)
  * Try kicking out the current scheduler in an attempt to recover the system to
  * a good state before taking more drastic actions.
  *
- * Returns %true if sched_ext is enabled and abort was initiated, which may
- * resolve the reported hardlockup. %false if sched_ext is not enabled or
- * someone else already initiated abort.
+ * Queues an irq_work; the handle_lockup() call happens in IRQ context (see
+ * scx_hardlockup_irq_workfn).
+ *
+ * Returns %true if sched_ext is enabled and the work was queued, %false
+ * otherwise.
  */
 bool scx_hardlockup(int cpu)
 {
-	if (!handle_lockup("hard lockup - CPU %d", cpu))
+	if (!rcu_access_pointer(scx_root))
 		return false;
 
-	printk_deferred(KERN_ERR "sched_ext: Hard lockup - CPU %d, disabling BPF scheduler\n",
-			cpu);
+	atomic_cmpxchg(&scx_hardlockup_cpu, -1, cpu);
+	irq_work_queue(&scx_hardlockup_irq_work);
 	return true;
 }
 
