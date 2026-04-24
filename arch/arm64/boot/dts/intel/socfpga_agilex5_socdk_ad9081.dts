@@ -91,6 +91,9 @@
 		adi,agilex;
 		adi,skip-pll-reconfiguration;
 
+		/* adxcvr uses this pin to tell the FPGA PLL that the reference clock is stable */
+		refclk-ready-gpios = <&sys_gpio_out (fmc_gpio_base + 61) 0>;
+
 		jesd204-device;
 		#jesd204-cells = <2>;
 		jesd204-inputs =  <&hmc7044 0 DEFRAMER_LINK0_TX>;
@@ -112,7 +115,7 @@
 		interrupt-parent = <&intc>;
 		interrupts = <0 30 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&sys_clk>, <&rx_link_clk>, <&hmc7044 8>, <&axi_ad9081_adxcvr_rx 0>;
+		clocks = <&sys_clk>, <&rx_link_clk>, <&hmc7044 10>, <&axi_ad9081_adxcvr_rx 0>;
 		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
@@ -252,7 +255,7 @@
 		};
 		hmc7044_c6: channel@6 {
 			reg = <6>;
-			adi,extended-name = "DEVICE_CLK";
+			adi,extended-name = "RX_DEVICE_CLK";
 			adi,divider = <10>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
@@ -262,12 +265,18 @@
 			adi,divider = <10>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
-		// hmc7044_c12: channel@12 {
-		// 	reg = <12>;
-		// 	adi,extended-name = "FPGA_REFCLK2";
-		// 	adi,divider = <10>;
-		// 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-		// };
+		hmc7044_c10: channel@10 {
+			reg = <10>;
+			adi,extended-name = "RX_DEV_CLK";
+			adi,divider = <20>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		};
+		hmc7044_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "FPGA_REFCLK2";
+			adi,divider = <10>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		};
 		hmc7044_c13: channel@13 {
 			reg = <13>;
 			adi,extended-name = "FPGA_SYSREF";
@@ -318,7 +327,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				adi,interpolation = <8>;
+				adi,interpolation = <6>;
 
 				ad9081_dac0: dac@0 {
 					reg = <0>;
@@ -345,7 +354,7 @@
 			adi,channelizer-paths {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				adi,interpolation = <6>;
+				adi,interpolation = <8>;
 
 				ad9081_tx_fddc_chan0: channel@0 {
 					reg = <0>;
@@ -403,7 +412,7 @@
 			#size-cells = <0>;
 			#address-cells = <1>;
 
-			adi,adc-frequency-hz = /bits/ 64 <5760000000>;
+			adi,adc-frequency-hz = /bits/ 64 <2880000000>;
 
 			adi,main-data-paths {
 				#address-cells = <1>;
@@ -480,19 +489,19 @@
 					adi,logical-lane-mapping = /bits/ 8 <7 7 3 2 1 0 7 7>;
 					// adi,logical-lane-mapping = /bits/ 8 <2 0 7 7 7 7 3 1>;
 
-					adi,link-mode = <10>;			/* JESD Quick Configuration Mode */
+					adi,link-mode = <4>;			/* JESD Quick Configuration Mode */
 					adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 					adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 					adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
 					adi,converters-per-device = <8>;	/* JESD M */
-					adi,octets-per-frame = <4>;		/* JESD F */
+					adi,octets-per-frame = <8>;		/* JESD F */
 
 					adi,frames-per-multiframe = <32>;	/* JESD K */
 					adi,converter-resolution = <16>;	/* JESD N */
 					adi,bits-per-sample = <16>;		/* JESD NP' */
 					adi,control-bits-per-sample = <0>;	/* JESD CS */
-					adi,lanes-per-device = <4>;		/* JESD L */
+					adi,lanes-per-device = <2>;		/* JESD L */
 					adi,samples-per-converter-per-frame = <1>; /* JESD S */
 					adi,high-density = <0>;			/* JESD HD */
 				};
