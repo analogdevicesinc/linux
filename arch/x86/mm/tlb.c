@@ -26,6 +26,8 @@
 
 #include "mm_internal.h"
 
+DEFINE_STATIC_KEY_FALSE(tlb_ipi_broadcast_key);
+
 #ifdef CONFIG_PARAVIRT
 # define STATIC_NOPV
 #else
@@ -1339,16 +1341,16 @@ STATIC_NOPV void native_flush_tlb_multi(const struct cpumask *cpumask,
 				(info->end - info->start) >> PAGE_SHIFT);
 
 	/*
-	 * If no page tables were freed, we can skip sending IPIs to
-	 * CPUs in lazy TLB mode. They will flush the CPU themselves
-	 * at the next context switch.
+	 * If lazy-TLB CPUs do not need to be woken, we can skip sending
+	 * IPIs to them. They will flush themselves at the next context
+	 * switch.
 	 *
-	 * However, if page tables are getting freed, we need to send the
-	 * IPI everywhere, to prevent CPUs in lazy TLB mode from tripping
-	 * up on the new contents of what used to be page tables, while
-	 * doing a speculative memory access.
+	 * However, if page tables are getting freed or unshared, we need
+	 * to send the IPI everywhere, to prevent CPUs in lazy TLB mode
+	 * from tripping up on the new contents of what used to be page
+	 * tables, while doing a speculative memory access.
 	 */
-	if (info->freed_tables || mm_in_asid_transition(info->mm))
+	if (info->wake_lazy_cpus || mm_in_asid_transition(info->mm))
 		on_each_cpu_mask(cpumask, flush_tlb_func, (void *)info, true);
 	else
 		on_each_cpu_cond_mask(should_flush_tlb, flush_tlb_func,
@@ -1381,7 +1383,7 @@ static DEFINE_PER_CPU(unsigned int, flush_tlb_info_idx);
 
 static struct flush_tlb_info *get_flush_tlb_info(struct mm_struct *mm,
 			unsigned long start, unsigned long end,
-			unsigned int stride_shift, bool freed_tables,
+			unsigned int stride_shift, bool wake_lazy_cpus,
 			u64 new_tlb_gen)
 {
 	struct flush_tlb_info *info = this_cpu_ptr(&flush_tlb_info);
@@ -1408,7 +1410,7 @@ static struct flush_tlb_info *get_flush_tlb_info(struct mm_struct *mm,
 	info->end		= end;
 	info->mm		= mm;
 	info->stride_shift	= stride_shift;
-	info->freed_tables	= freed_tables;
+	info->wake_lazy_cpus	= wake_lazy_cpus;
 	info->new_tlb_gen	= new_tlb_gen;
 	info->initiating_cpu	= smp_processor_id();
 	info->trim_cpumask	= 0;
@@ -1427,7 +1429,7 @@ static void put_flush_tlb_info(void)
 
 void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
 				unsigned long end, unsigned int stride_shift,
-				bool freed_tables)
+				bool wake_lazy_cpus)
 {
 	struct flush_tlb_info *info;
 	int cpu = get_cpu();
@@ -1436,7 +1438,7 @@ void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
 	/* This is also a barrier that synchronizes with switch_mm(). */
 	new_tlb_gen = inc_mm_tlb_gen(mm);
 
-	info = get_flush_tlb_info(mm, start, end, stride_shift, freed_tables,
+	info = get_flush_tlb_info(mm, start, end, stride_shift, wake_lazy_cpus,
 				  new_tlb_gen);
 
 	/*
@@ -1813,3 +1815,16 @@ static int __init create_tlb_single_page_flush_ceiling(void)
 	return 0;
 }
 late_initcall(create_tlb_single_page_flush_ceiling);
+
+void __init native_pv_tlb_init(void)
+{
+#ifdef CONFIG_PARAVIRT
+	if (pv_ops.mmu.flush_tlb_multi != native_flush_tlb_multi)
+		return;
+#endif
+
+	if (cpu_feature_enabled(X86_FEATURE_INVLPGB))
+		return;
+
+	static_branch_enable(&tlb_ipi_broadcast_key);
+}
