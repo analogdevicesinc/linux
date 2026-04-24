@@ -6,9 +6,9 @@
 kexec_purgatory:
 	.globl	kexec_purgatory
 	.incbin	"arch/riscv/purgatory/purgatory.ro"
-.Lkexec_purgatroy_end:
+.Lkexec_purgatory_end:
 
 	.align	8
 kexec_purgatory_size:
 	.globl	kexec_purgatory_size
-	.quad	.Lkexec_purgatroy_end - kexec_purgatory
+	.quad	.Lkexec_purgatory_end - kexec_purgatory

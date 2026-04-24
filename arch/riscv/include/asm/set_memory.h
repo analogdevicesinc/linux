@@ -47,7 +47,7 @@ bool kernel_page_present(struct page *page);
 
 #endif /* __ASSEMBLER__ */
 
-#if defined(CONFIG_STRICT_KERNEL_RWX) || defined(CONFIG_XIP_KERNEL)
+#if defined(CONFIG_STRICT_KERNEL_RWX)
 #ifdef CONFIG_64BIT
 #define SECTION_ALIGN (1 << 21)
 #else

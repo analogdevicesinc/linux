@@ -120,7 +120,7 @@ int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src);
 #include <asm-generic/thread_info_tif.h>
 
 #define TIF_32BIT			16	/* compat-mode 32bit process */
-#define TIF_RISCV_V_DEFER_RESTORE	17	/* restore Vector before returing to user */
+#define TIF_RISCV_V_DEFER_RESTORE	17	/* restore Vector before returning to user */
 
 #define _TIF_RISCV_V_DEFER_RESTORE	BIT(TIF_RISCV_V_DEFER_RESTORE)
 

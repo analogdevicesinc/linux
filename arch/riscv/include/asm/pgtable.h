@@ -134,21 +134,6 @@
 
 #include <linux/page_table_check.h>
 
-#ifdef CONFIG_XIP_KERNEL
-#define XIP_FIXUP(addr) ({							\
-	extern char _sdata[], _start[], _end[];					\
-	uintptr_t __rom_start_data = CONFIG_XIP_PHYS_ADDR			\
-				+ (uintptr_t)&_sdata - (uintptr_t)&_start;	\
-	uintptr_t __rom_end_data = CONFIG_XIP_PHYS_ADDR				\
-				+ (uintptr_t)&_end - (uintptr_t)&_start;	\
-	uintptr_t __a = (uintptr_t)(addr);					\
-	(__a >= __rom_start_data && __a < __rom_end_data) ?			\
-		__a - __rom_start_data + CONFIG_PHYS_RAM_BASE :	__a;		\
-	})
-#else
-#define XIP_FIXUP(addr)		(addr)
-#endif /* CONFIG_XIP_KERNEL */
-
 struct pt_alloc_ops {
 	pte_t *(*get_pte_virt)(phys_addr_t pa);
 	phys_addr_t (*alloc_pte)(uintptr_t va);
@@ -1272,13 +1257,8 @@ static inline pte_t pte_swp_clear_exclusive(pte_t pte)
 extern char _start[];
 extern void *_dtb_early_va;
 extern uintptr_t _dtb_early_pa;
-#if defined(CONFIG_XIP_KERNEL) && defined(CONFIG_MMU)
-#define dtb_early_va	(*(void **)XIP_FIXUP(&_dtb_early_va))
-#define dtb_early_pa	(*(uintptr_t *)XIP_FIXUP(&_dtb_early_pa))
-#else
 #define dtb_early_va	_dtb_early_va
 #define dtb_early_pa	_dtb_early_pa
-#endif /* CONFIG_XIP_KERNEL */
 extern u64 satp_mode;
 
 void paging_init(void);

@@ -41,20 +41,17 @@ u64 new_vmalloc[NR_CPUS / sizeof(u64) + 1];
 
 struct kernel_mapping kernel_map __ro_after_init;
 EXPORT_SYMBOL(kernel_map);
-#ifdef CONFIG_XIP_KERNEL
-#define kernel_map	(*(struct kernel_mapping *)XIP_FIXUP(&kernel_map))
-#endif
 
 #ifdef CONFIG_64BIT
-u64 satp_mode __ro_after_init = !IS_ENABLED(CONFIG_XIP_KERNEL) ? SATP_MODE_57 : SATP_MODE_39;
+u64 satp_mode __ro_after_init = SATP_MODE_57;
 #else
 u64 satp_mode __ro_after_init = SATP_MODE_32;
 #endif
 EXPORT_SYMBOL(satp_mode);
 
 #ifdef CONFIG_64BIT
-bool pgtable_l4_enabled __ro_after_init = !IS_ENABLED(CONFIG_XIP_KERNEL);
-bool pgtable_l5_enabled __ro_after_init = !IS_ENABLED(CONFIG_XIP_KERNEL);
+bool pgtable_l4_enabled __ro_after_init = true;
+bool pgtable_l5_enabled __ro_after_init = true;
 EXPORT_SYMBOL(pgtable_l4_enabled);
 EXPORT_SYMBOL(pgtable_l5_enabled);
 #endif
@@ -190,9 +187,6 @@ void __init arch_mm_preinit(void)
 
 /* Limit the memory size via mem. */
 static phys_addr_t memory_limit;
-#ifdef CONFIG_XIP_KERNEL
-#define memory_limit	(*(phys_addr_t *)XIP_FIXUP(&memory_limit))
-#endif /* CONFIG_XIP_KERNEL */
 
 static int __init early_mem(char *p)
 {
@@ -216,10 +210,7 @@ static void __init setup_bootmem(void)
 	phys_addr_t max_mapped_addr;
 	phys_addr_t phys_ram_end, vmlinux_start;
 
-	if (IS_ENABLED(CONFIG_XIP_KERNEL))
-		vmlinux_start = __pa_symbol(&_sdata);
-	else
-		vmlinux_start = __pa_symbol(&_start);
+	vmlinux_start = __pa_symbol(&_start);
 
 	memblock_enforce_memory_limit(memory_limit);
 
@@ -239,12 +230,10 @@ static void __init setup_bootmem(void)
 	 * Make sure we align the start of the memory on a PMD boundary so that
 	 * at worst, we map the linear mapping with PMD mappings.
 	 */
-	if (!IS_ENABLED(CONFIG_XIP_KERNEL)) {
-		phys_ram_base = memblock_start_of_DRAM() & PMD_MASK;
+	phys_ram_base = memblock_start_of_DRAM() & PMD_MASK;
 #ifdef CONFIG_SPARSEMEM_VMEMMAP
-		vmemmap_start_pfn = round_down(phys_ram_base, VMEMMAP_ADDR_ALIGN) >> PAGE_SHIFT;
+	vmemmap_start_pfn = round_down(phys_ram_base, VMEMMAP_ADDR_ALIGN) >> PAGE_SHIFT;
 #endif
-	}
 
 	/*
 	 * In 64-bit, any use of __va/__pa before this point is wrong as we
@@ -357,13 +346,6 @@ static pte_t fixmap_pte[PTRS_PER_PTE] __page_aligned_bss;
 
 pgd_t early_pg_dir[PTRS_PER_PGD] __initdata __aligned(PAGE_SIZE);
 
-#ifdef CONFIG_XIP_KERNEL
-#define pt_ops			(*(struct pt_alloc_ops *)XIP_FIXUP(&pt_ops))
-#define trampoline_pg_dir      ((pgd_t *)XIP_FIXUP(trampoline_pg_dir))
-#define fixmap_pte             ((pte_t *)XIP_FIXUP(fixmap_pte))
-#define early_pg_dir           ((pgd_t *)XIP_FIXUP(early_pg_dir))
-#endif /* CONFIG_XIP_KERNEL */
-
 static const pgprot_t protection_map[16] = {
 	[VM_NONE]					= PAGE_NONE,
 	[VM_READ]					= PAGE_READ,
@@ -460,31 +442,13 @@ static pmd_t trampoline_pmd[PTRS_PER_PMD] __page_aligned_bss;
 static pmd_t fixmap_pmd[PTRS_PER_PMD] __page_aligned_bss;
 static pmd_t early_pmd[PTRS_PER_PMD] __initdata __aligned(PAGE_SIZE);
 
-#ifdef CONFIG_XIP_KERNEL
-#define trampoline_pmd ((pmd_t *)XIP_FIXUP(trampoline_pmd))
-#define fixmap_pmd     ((pmd_t *)XIP_FIXUP(fixmap_pmd))
-#define early_pmd      ((pmd_t *)XIP_FIXUP(early_pmd))
-#endif /* CONFIG_XIP_KERNEL */
-
 static p4d_t trampoline_p4d[PTRS_PER_P4D] __page_aligned_bss;
 static p4d_t fixmap_p4d[PTRS_PER_P4D] __page_aligned_bss;
 static p4d_t early_p4d[PTRS_PER_P4D] __initdata __aligned(PAGE_SIZE);
 
-#ifdef CONFIG_XIP_KERNEL
-#define trampoline_p4d ((p4d_t *)XIP_FIXUP(trampoline_p4d))
-#define fixmap_p4d     ((p4d_t *)XIP_FIXUP(fixmap_p4d))
-#define early_p4d      ((p4d_t *)XIP_FIXUP(early_p4d))
-#endif /* CONFIG_XIP_KERNEL */
-
 static pud_t trampoline_pud[PTRS_PER_PUD] __page_aligned_bss;
 static pud_t fixmap_pud[PTRS_PER_PUD] __page_aligned_bss;
 static pud_t early_pud[PTRS_PER_PUD] __initdata __aligned(PAGE_SIZE);
-
-#ifdef CONFIG_XIP_KERNEL
-#define trampoline_pud ((pud_t *)XIP_FIXUP(trampoline_pud))
-#define fixmap_pud     ((pud_t *)XIP_FIXUP(fixmap_pud))
-#define early_pud      ((pud_t *)XIP_FIXUP(early_pud))
-#endif /* CONFIG_XIP_KERNEL */
 
 static pmd_t *__init get_pmd_virt_early(phys_addr_t pa)
 {
@@ -756,21 +720,6 @@ static uintptr_t __meminit best_map_size(phys_addr_t pa, uintptr_t va, phys_addr
 	return PAGE_SIZE;
 }
 
-#ifdef CONFIG_XIP_KERNEL
-#define phys_ram_base  (*(phys_addr_t *)XIP_FIXUP(&phys_ram_base))
-extern char _xiprom[], _exiprom[], __data_loc;
-
-/* called from head.S with MMU off */
-asmlinkage void __init __copy_data(void)
-{
-	void *from = (void *)(&__data_loc);
-	void *to = (void *)CONFIG_PHYS_RAM_BASE;
-	size_t sz = (size_t)((uintptr_t)(&_end) - (uintptr_t)(&_sdata));
-
-	memcpy(to, from, sz);
-}
-#endif
-
 #ifdef CONFIG_STRICT_KERNEL_RWX
 static __meminit pgprot_t pgprot_from_va(uintptr_t va)
 {
@@ -806,7 +755,7 @@ static __meminit pgprot_t pgprot_from_va(uintptr_t va)
 }
 #endif /* CONFIG_STRICT_KERNEL_RWX */
 
-#if defined(CONFIG_64BIT) && !defined(CONFIG_XIP_KERNEL)
+#if defined(CONFIG_64BIT)
 u64 __pi_set_satp_mode_from_cmdline(uintptr_t dtb_pa);
 u64 __pi_set_satp_mode_from_fdt(uintptr_t dtb_pa);
 
@@ -931,28 +880,6 @@ retry:
 #error "setup_vm() is called from head.S before relocate so it should not use absolute addressing."
 #endif
 
-#ifdef CONFIG_XIP_KERNEL
-static void __init create_kernel_page_table(pgd_t *pgdir,
-					    __always_unused bool early)
-{
-	uintptr_t va, start_va, end_va;
-
-	/* Map the flash resident part */
-	end_va = kernel_map.virt_addr + kernel_map.xiprom_sz;
-	for (va = kernel_map.virt_addr; va < end_va; va += PMD_SIZE)
-		create_pgd_mapping(pgdir, va,
-				   kernel_map.xiprom + (va - kernel_map.virt_addr),
-				   PMD_SIZE, PAGE_KERNEL_EXEC);
-
-	/* Map the data in RAM */
-	start_va = kernel_map.virt_addr + (uintptr_t)&_sdata - (uintptr_t)&_start;
-	end_va = kernel_map.virt_addr + kernel_map.size;
-	for (va = start_va; va < end_va; va += PMD_SIZE)
-		create_pgd_mapping(pgdir, va,
-				   kernel_map.phys_addr + (va - start_va),
-				   PMD_SIZE, PAGE_KERNEL);
-}
-#else
 static void __init create_kernel_page_table(pgd_t *pgdir, bool early)
 {
 	uintptr_t va, end_va;
@@ -965,7 +892,6 @@ static void __init create_kernel_page_table(pgd_t *pgdir, bool early)
 				   early ?
 					PAGE_KERNEL_EXEC : pgprot_from_va(va));
 }
-#endif
 
 /*
  * Setup a 4MB mapping that encompasses the device tree: for 64-bit kernel,
@@ -1075,11 +1001,6 @@ static int __init print_nokaslr(char *p)
 	return 0;
 }
 early_param("nokaslr", print_nokaslr);
-
-unsigned long kaslr_offset(void)
-{
-	return kernel_map.virt_offset;
-}
 #endif
 
 asmlinkage void __init setup_vm(uintptr_t dtb_pa)
@@ -1107,27 +1028,11 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 
 	kernel_map.virt_addr = KERNEL_LINK_ADDR + kernel_map.virt_offset;
 
-#ifdef CONFIG_XIP_KERNEL
-	kernel_map.xiprom = (uintptr_t)CONFIG_XIP_PHYS_ADDR;
-	kernel_map.xiprom_sz = (uintptr_t)(&_exiprom) - (uintptr_t)(&_xiprom);
-
-	phys_ram_base = CONFIG_PHYS_RAM_BASE;
-#ifdef CONFIG_SPARSEMEM_VMEMMAP
-	vmemmap_start_pfn = round_down(phys_ram_base, VMEMMAP_ADDR_ALIGN) >> PAGE_SHIFT;
-#endif
-	kernel_map.phys_addr = (uintptr_t)CONFIG_PHYS_RAM_BASE;
-	kernel_map.size = (uintptr_t)(&_end) - (uintptr_t)(&_start);
-
-	kernel_map.va_kernel_xip_text_pa_offset = kernel_map.virt_addr - kernel_map.xiprom;
-	kernel_map.va_kernel_xip_data_pa_offset = kernel_map.virt_addr - kernel_map.phys_addr
-						+ (uintptr_t)&_sdata - (uintptr_t)&_start;
-#else
 	kernel_map.phys_addr = (uintptr_t)(&_start);
 	kernel_map.size = (uintptr_t)(&_end) - kernel_map.phys_addr;
 	kernel_map.va_kernel_pa_offset = kernel_map.virt_addr - kernel_map.phys_addr;
-#endif
 
-#if defined(CONFIG_64BIT) && !defined(CONFIG_XIP_KERNEL)
+#if defined(CONFIG_64BIT)
 	set_satp_mode(dtb_pa);
 	set_mmap_rnd_bits_max();
 #endif
@@ -1200,13 +1105,8 @@ asmlinkage void __init setup_vm(uintptr_t dtb_pa)
 	if (pgtable_l4_enabled)
 		create_pud_mapping(trampoline_pud, kernel_map.virt_addr,
 				   (uintptr_t)trampoline_pmd, PUD_SIZE, PAGE_TABLE);
-#ifdef CONFIG_XIP_KERNEL
-	create_pmd_mapping(trampoline_pmd, kernel_map.virt_addr,
-			   kernel_map.xiprom, PMD_SIZE, PAGE_KERNEL_EXEC);
-#else
 	create_pmd_mapping(trampoline_pmd, kernel_map.virt_addr,
 			   kernel_map.phys_addr, PMD_SIZE, PAGE_KERNEL_EXEC);
-#endif
 #else
 	/* Setup trampoline PGD */
 	create_pgd_mapping(trampoline_pg_dir, kernel_map.virt_addr,
@@ -1450,6 +1350,8 @@ int __meminit vmemmap_check_pmd(pmd_t *pmdp, int node,
 int __meminit vmemmap_populate(unsigned long start, unsigned long end, int node,
 			       struct vmem_altmap *altmap)
 {
+	WARN_ON((start < VMEMMAP_START) || (end > VMEMMAP_END));
+
 	/*
 	 * Note that SPARSEMEM_VMEMMAP is only selected for rv64 and that we
 	 * can't use hugepage mappings for 2-level page table because in case of
