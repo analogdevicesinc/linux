@@ -516,12 +516,13 @@ static ssize_t ad7280_show_balance_timer(struct iio_dev *indio_dev,
 					 char *buf)
 {
 	struct ad7280_state *st = iio_priv(indio_dev);
+	u8 devaddr = chan->address >> 8;
+	u8 ch = chan->address & 0xFF;
 	unsigned int msecs;
 	int ret;
 
 	mutex_lock(&st->lock);
-	ret = ad7280_read_reg(st, chan->address >> 8,
-			      (chan->address & 0xFF) + AD7280A_CB1_TIMER_REG);
+	ret = ad7280_read_reg(st, devaddr, ch + AD7280A_CB1_TIMER_REG);
 	mutex_unlock(&st->lock);
 
 	if (ret < 0)
@@ -538,6 +539,8 @@ static ssize_t ad7280_store_balance_timer(struct iio_dev *indio_dev,
 					  const char *buf, size_t len)
 {
 	struct ad7280_state *st = iio_priv(indio_dev);
+	u8 devaddr = chan->address >> 8;
+	u8 ch = chan->address & 0xFF;
 	int val, val2;
 	int ret;
 
@@ -552,8 +555,7 @@ static ssize_t ad7280_store_balance_timer(struct iio_dev *indio_dev,
 		return -EINVAL;
 
 	mutex_lock(&st->lock);
-	ret = ad7280_write(st, chan->address >> 8,
-			   (chan->address & 0xFF) + AD7280A_CB1_TIMER_REG, 0,
+	ret = ad7280_write(st, devaddr, ch + AD7280A_CB1_TIMER_REG, 0,
 			   FIELD_PREP(AD7280A_CB_TIMER_VAL_MSK, val));
 	mutex_unlock(&st->lock);
 
@@ -881,6 +883,8 @@ static int ad7280_read_raw(struct iio_dev *indio_dev,
 			   long m)
 {
 	struct ad7280_state *st = iio_priv(indio_dev);
+	u8 devaddr = chan->address >> 8;
+	u8 ch = chan->address & 0xFF;
 	int ret;
 
 	switch (m) {
@@ -889,8 +893,7 @@ static int ad7280_read_raw(struct iio_dev *indio_dev,
 		if (chan->address == AD7280A_ALL_CELLS)
 			ret = ad7280_read_all_channels(st, st->scan_cnt, NULL);
 		else
-			ret = ad7280_read_channel(st, chan->address >> 8,
-						  chan->address & 0xFF);
+			ret = ad7280_read_channel(st, devaddr, ch);
 		mutex_unlock(&st->lock);
 
 		if (ret < 0)
@@ -900,7 +903,7 @@ static int ad7280_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
-		if ((chan->address & 0xFF) <= AD7280A_CELL_VOLTAGE_6_REG)
+		if (ch <= AD7280A_CELL_VOLTAGE_6_REG)
 			*val = 4000;
 		else
 			*val = 5000;
