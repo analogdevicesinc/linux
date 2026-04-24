@@ -327,9 +327,6 @@ void xe_hw_engine_enable_ring(struct xe_hw_engine *hwe)
 {
 	xe_hw_engine_mmio_write32(hwe, RING_HWS_PGA(0),
 				  xe_bo_ggtt_addr(hwe->hwsp));
-	xe_hw_engine_mmio_write32(hwe, RING_MI_MODE(0),
-				  REG_MASKED_FIELD_DISABLE(STOP_RING));
-	xe_hw_engine_mmio_read32(hwe, RING_MI_MODE(0));
 }
 
 static bool xe_hw_engine_match_fixed_cslice_mode(const struct xe_device *xe,

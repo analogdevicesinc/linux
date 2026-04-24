@@ -176,7 +176,6 @@
 #define RING_TIMESTAMP_UDW(base)		XE_REG((base) + 0x358 + 4)
 #define   RING_VALID_MASK			0x00000001
 #define   RING_VALID				0x00000001
-#define   STOP_RING				REG_BIT(8)
 
 #define RING_CTX_TIMESTAMP(base)		XE_REG((base) + 0x3a8)
 #define RING_CTX_TIMESTAMP_UDW(base)		XE_REG((base) + 0x3ac)
