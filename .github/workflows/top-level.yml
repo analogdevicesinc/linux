@@ -5,7 +5,7 @@ on:
     branches:
       - 'main'
       - 'ci/*'
-    #  - prepare-sdg-linux-artefacts -> enable once the workflow is ready
+      - 'prepare-sdg-linux-artefacts'
   pull_request:
 
 jobs:
@@ -262,7 +262,9 @@ jobs:
     uses: analogdevicesinc/linux/.github/workflows/deploy-sdg-linux-artifacts.yml@ci1
     secrets: inherit
     permissions:
-      contents: read
+      id-token: write
+      contents: write
+      actions: read
     with:
       artifacts: >
         adi_versal_defconfig-*
