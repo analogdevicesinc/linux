@@ -8,6 +8,7 @@
 
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
+#include <linux/gpio/consumer.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/module.h>
@@ -101,6 +102,7 @@ struct adxcvr_state {
 	u32			lanes_per_link;
 
 	unsigned int reset_counter;
+	struct gpio_desc* gpio_ref_clk_ready;
 
 	struct clk *ref_clk;
 
@@ -283,7 +285,8 @@ static int adxcfg_calibration_check(struct adxcvr_state *st, unsigned int lane,
 		/* Read PMA calibration status from capability register */
 		val = adxcfg_read(st, lane, st->is_s10 ?
 			XCVR_REG_S10_CAPAB_PMA : XCVR_REG_CAPAB_PMA);
-		if ((val & mask) == 0) {
+		/* This is not implemented for Agilex, so skip the false error message */
+		if (st->is_agilex || (val & mask) == 0) {
 			dev_info(st->dev, "Lane %d %s OK (%d us)\n", lane, msg,
 				timeout * 100);
 			return 0;
@@ -433,20 +436,20 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 		}
 	}
 
-	/* Reset twice for Agilex workaround */
-	if (st->is_agilex && st->is_transmit) {
-		dev_info(st->dev, "Agilex workaround, resetting TX again\n");
-		adxcvr_write(st, ADXCVR_REG_RESETN, 0);
-		mdelay(5);
-		timeout = 1000;
-		adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-		do {
-			mdelay(1);
-			status = adxcvr_read(st, ADXCVR_REG_STATUS);
-			if (status == ADXCVR_STATUS)
-				break;
-		} while (timeout--);
-	}
+	// /* Reset twice for Agilex workaround */
+	// if (st->is_agilex && st->is_transmit) {
+	// 	dev_info(st->dev, "Agilex workaround, resetting TX again\n");
+	// 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+	// 	mdelay(5);
+	// 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+	// 	timeout = 5000;
+	// 	do {
+	// 		mdelay(1);
+	// 		status = adxcvr_read(st, ADXCVR_REG_STATUS);
+	// 		if (status == ADXCVR_STATUS)
+	// 			break;
+	// 	} while (timeout--);
+	// }
 }
 
 static void adxcvr_link_clk_work(struct work_struct *work)
@@ -479,6 +482,11 @@ static void adxcvr_link_clk_work(struct work_struct *work)
 	ret = clk_prepare_enable(st->link_clk);
 	if (ret < 0)
 		dev_err(st->dev, "Enabling link clock failed: %d\n", ret);
+
+	if (st->is_transmit && st->gpio_ref_clk_ready) {
+		gpiod_set_value(st->gpio_ref_clk_ready, 1);
+		dev_info(st->dev, "Setting refclk_ready to 1");
+	}
 
 	adxcfg_lock(st);
 	adxcvr_finalize_lane_rate_change(st);
@@ -653,10 +661,6 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (IS_ERR(st->jdev))
 		return PTR_ERR(st->jdev);
 
-	st->ref_clk = devm_clk_get(&pdev->dev, "ref");
-	if (IS_ERR(st->ref_clk))
-		return PTR_ERR(st->ref_clk);
-
 	mem_adxcvr = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "adxcvr");
 	st->adxcvr_regs = devm_ioremap_resource(&pdev->dev, mem_adxcvr);
@@ -671,6 +675,12 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	st->is_transmit = (bool)(synth_conf & 0x100);
 	st->lanes_per_link = synth_conf & 0xff;
+
+	if (st->is_transmit) {
+		st->ref_clk = devm_clk_get(&pdev->dev, "ref");
+		if (IS_ERR(st->ref_clk))
+			return PTR_ERR(st->ref_clk);
+	}
 
 	if (st->lanes_per_link > ARRAY_SIZE(st->adxcfg_regs)) {
 		dev_err(&pdev->dev, "Only up to %d lanes supported.\n",
@@ -714,6 +724,11 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	st->is_agilex = of_property_read_bool(pdev->dev.of_node,
 		"adi,agilex");
+
+	st->gpio_ref_clk_ready = devm_gpiod_get_optional(&pdev->dev, "refclk-ready", GPIOD_OUT_LOW);
+	if (IS_ERR(st->gpio_ref_clk_ready)) {
+		dev_err(&pdev->dev, "Failed to get refclk-ready gpio!\n");
+	}
 
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
