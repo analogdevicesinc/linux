@@ -187,7 +187,7 @@ config VMD
 
 config PCI_LOONGSON
 	bool "LOONGSON PCIe controller"
-	depends on MACH_LOONGSON64 || COMPILE_TEST
+	depends on MACH_LOONGSON32 || MACH_LOONGSON64 || COMPILE_TEST
 	depends on OF || ACPI
 	depends on PCI_QUIRKS
 	default MACH_LOONGSON64

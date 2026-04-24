@@ -23,6 +23,10 @@
 #include <asm-generic/pgtable-nop4d.h>
 #endif
 
+#ifdef CONFIG_HIGHMEM
+#include <asm/highmem.h>
+#endif
+
 #if CONFIG_PGTABLE_LEVELS == 2
 #define PGDIR_SHIFT	(PAGE_SHIFT + (PAGE_SHIFT - PTRLOG))
 #elif CONFIG_PGTABLE_LEVELS == 3
@@ -77,7 +81,15 @@ struct vm_area_struct;
 #ifdef CONFIG_32BIT
 
 #define VMALLOC_START	(vm_map_base + PCI_IOSIZE + (2 * PAGE_SIZE))
+
+#ifdef CONFIG_HIGHMEM
+#define VMALLOC_END	(PKMAP_BASE - (2 * PAGE_SIZE))
+#else
 #define VMALLOC_END	(FIXADDR_START - (2 * PAGE_SIZE))
+#endif
+
+#define PKMAP_BASE	(PKMAP_END - (PAGE_SIZE * LAST_PKMAP))
+#define PKMAP_END	((FIXADDR_START) & ~((LAST_PKMAP << PAGE_SHIFT)-1))
 
 #endif
 

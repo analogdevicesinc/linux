@@ -75,8 +75,8 @@ __naked int bpf_end_to_be(void)
 
 #if (defined(__TARGET_ARCH_arm64) || defined(__TARGET_ARCH_x86) || \
 	(defined(__TARGET_ARCH_riscv) && __riscv_xlen == 64) || \
-	defined(__TARGET_ARCH_arm) || defined(__TARGET_ARCH_s390)) && \
-	__clang_major__ >= 18
+	defined(__TARGET_ARCH_arm) || defined(__TARGET_ARCH_s390) || \
+	defined(__TARGET_ARCH_loongarch)) && __clang_major__ >= 18
 
 SEC("?raw_tp")
 __success __log_level(2)

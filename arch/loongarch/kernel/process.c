@@ -136,6 +136,8 @@ int arch_dup_task_struct(struct task_struct *dst, struct task_struct *src)
 		return 0;
 	}
 
+	dst->thread.fpu.fcsr =  src->thread.fpu.fcsr;
+
 	if (!used_math())
 		memcpy(dst, src, offsetof(struct task_struct, thread.fpu.fpr));
 	else
