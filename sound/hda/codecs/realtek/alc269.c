@@ -3694,6 +3694,17 @@ static void alc287_fixup_lenovo_thinkpad_with_alc1318(struct hda_codec *codec,
 	spec->power_hook = alc287_s4_power_gpio3_default;
 	spec->gen.pcm_playback_hook = alc287_alc1318_playback_pcm_hook;
 }
+
+static void alc287_fixup_tb_vmaster_led(struct hda_codec *codec,
+					const struct hda_fixup *fix, int action)
+{
+	struct alc_spec *spec = codec->spec;
+
+	if (action == HDA_FIXUP_ACT_PRE_PROBE)
+		spec->gen.vmaster_mute_led = 1;
+
+	alc287_fixup_bind_dacs(codec, fix, action);
+}
 /* GPIO2: mute led GPIO3: micmute led */
 static void alc245_tas2781_spi_hp_fixup_muteled(struct hda_codec *codec,
 					  const struct hda_fixup *fix, int action)
@@ -6448,7 +6459,7 @@ static const struct hda_fixup alc269_fixups[] = {
 	},
 	[ALC287_FIXUP_MG_RTKC_CSAMP_CS35L41_I2C_THINKPAD] = {
 		.type = HDA_FIXUP_FUNC,
-		.v.func = alc287_fixup_bind_dacs,
+		.v.func = alc287_fixup_tb_vmaster_led,
 		.chained = true,
 		.chain_id = ALC287_FIXUP_CS35L41_I2C_2_THINKPAD_ACPI,
 	},
