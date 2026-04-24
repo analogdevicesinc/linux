@@ -10,6 +10,7 @@
 #include <uapi/drm/xe_drm.h>
 
 #include "xe_configfs.h"
+#include "xe_device.h"
 #include "xe_gt.h"
 #include "xe_gt_topology.h"
 #include "xe_reg_sr.h"
@@ -403,4 +404,11 @@ bool xe_rtp_match_has_flat_ccs(const struct xe_device *xe,
 			       const struct xe_hw_engine *hwe)
 {
 	return xe->info.has_flat_ccs;
+}
+
+bool xe_rtp_match_has_msix(const struct xe_device *xe,
+			   const struct xe_gt *gt,
+			   const struct xe_hw_engine *hwe)
+{
+	return xe_device_has_msix(xe);
 }

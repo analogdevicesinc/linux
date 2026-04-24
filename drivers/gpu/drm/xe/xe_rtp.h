@@ -536,4 +536,16 @@ bool xe_rtp_match_has_flat_ccs(const struct xe_device *xe,
 			       const struct xe_gt *gt,
 			       const struct xe_hw_engine *hwe);
 
+/**
+ * xe_rtp_match_has_msix - Match when platform has MSI-X
+ * @xe: Device structure
+ * @gt: GT structure
+ * @hwe: Engine instance
+ *
+ * Returns: true if platform has MSI-X interrupt support
+ */
+bool xe_rtp_match_has_msix(const struct xe_device *xe,
+			   const struct xe_gt *gt,
+			   const struct xe_hw_engine *hwe);
+
 #endif

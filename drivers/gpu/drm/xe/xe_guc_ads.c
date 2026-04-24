@@ -745,7 +745,6 @@ static unsigned int guc_mmio_regset_write(struct xe_guc_ads *ads,
 		struct xe_reg reg;
 		bool skip;
 	} *e, extra_regs[] = {
-		{ .reg = GFX_MODE(hwe->mmio_base),			},
 		{ .reg = RING_HWS_PGA(hwe->mmio_base),			},
 		{ .reg = RING_IMR(hwe->mmio_base),			},
 		{ .reg = CCS_MODE,

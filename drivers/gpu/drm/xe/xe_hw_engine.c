@@ -325,14 +325,8 @@ u32 xe_hw_engine_mmio_read32(struct xe_hw_engine *hwe, struct xe_reg reg)
 
 void xe_hw_engine_enable_ring(struct xe_hw_engine *hwe)
 {
-	u32 ring_mode = REG_MASKED_FIELD_ENABLE(GFX_DISABLE_LEGACY_MODE);
-
 	xe_hw_engine_mmio_write32(hwe, RING_HWS_PGA(0),
 				  xe_bo_ggtt_addr(hwe->hwsp));
-
-	if (xe_device_has_msix(gt_to_xe(hwe->gt)))
-		ring_mode |= REG_MASKED_FIELD_ENABLE(GFX_MSIX_INTERRUPT_ENABLE);
-	xe_hw_engine_mmio_write32(hwe, GFX_MODE(0), ring_mode);
 	xe_hw_engine_mmio_write32(hwe, RING_MI_MODE(0),
 				  REG_MASKED_FIELD_DISABLE(STOP_RING));
 	xe_hw_engine_mmio_read32(hwe, RING_MI_MODE(0));
@@ -441,6 +435,11 @@ hw_engine_setup_default_state(struct xe_hw_engine *hwe)
 		  XE_RTP_ACTIONS(SET(RING_HWSTAM(0), ~0x0,
 				     XE_RTP_ACTION_FLAG(ENGINE_BASE)))
 		},
+		{ XE_RTP_NAME("Disable engine 'legacy' mode"),
+		  XE_RTP_RULES(FUNC(xe_rtp_match_always)),
+		  XE_RTP_ACTIONS(SET(GFX_MODE(0), GFX_DISABLE_LEGACY_MODE,
+				     XE_RTP_ACTION_FLAG(ENGINE_BASE)))
+		},
 		/*
 		 * To allow the GSC engine to go idle on MTL we need to enable
 		 * idle messaging and set the hysteresis value (we use 0xA=5us
@@ -473,6 +472,11 @@ hw_engine_setup_default_state(struct xe_hw_engine *hwe)
 		  XE_RTP_RULES(FUNC(xe_hw_engine_match_fixed_cslice_mode)),
 		  XE_RTP_ACTIONS(FIELD_SET(RCU_MODE, RCU_MODE_FIXED_SLICE_CCS_MODE,
 					   RCU_MODE_FIXED_SLICE_CCS_MODE))
+		},
+		{ XE_RTP_NAME("Enable MSI-X interrupt support"),
+		  XE_RTP_RULES(FUNC(xe_rtp_match_has_msix)),
+		  XE_RTP_ACTIONS(SET(GFX_MODE(0), GFX_MSIX_INTERRUPT_ENABLE,
+				     XE_RTP_ACTION_FLAG(ENGINE_BASE)))
 		},
 	};
 
