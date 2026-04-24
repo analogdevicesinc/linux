@@ -2306,12 +2306,6 @@ mode, while enabling I/Q channels selects IQ mode.</p>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device6$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">512</span><span class="w"> </span>&gt;<span class="w"> </span>buffer0/length
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device6$
-</pre></div>
-</div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>buffer0/enable
 </pre></div>
 </div>
@@ -2327,7 +2321,11 @@ mode, while enabling I/Q channels selects IQ mode.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/dev/iio:device6<span class="w"> </span><span class="p">|</span><span class="w"> </span>head<span class="w"> </span>-c<span class="w"> </span><span class="m">3072</span><span class="w"> </span>&gt;<span class="w"> </span>iq_spectrum.bin
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div></section>
+<div class="clear-left"></div></div></div><p>Since the buffer length must match apollo’s value, starting from
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/commit/33ff0128121f27de9bd23d6a7ca997577c288663" target="_blank">33ff0</a>, the buffer
+length is set at the buffer pre-enable stage, and writing <code class="docutils literal notranslate"><span class="pre">buffer0/length</span></code>
+has no effect.</p>
+</section>
 </section>
 <section id="fast-frequency-hopping">
 <span id="apollo-ffh"></span><h4>Fast Frequency Hopping<a class="headerlink" href="#fast-frequency-hopping" title="Link to this heading"></a></h4>
