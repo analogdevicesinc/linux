@@ -549,9 +549,15 @@ static int gfx_v12_1_init_microcode(struct amdgpu_device *adev)
 			goto out;
 	}
 
-	err = amdgpu_ucode_request(adev, &adev->gfx.mec_fw,
-				   AMDGPU_UCODE_REQUIRED,
-				   "amdgpu/%s_mec.bin", ucode_prefix);
+	if (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0) &&
+	    adev->rev_id == 0)
+		err = amdgpu_ucode_request(adev, &adev->gfx.mec_fw,
+					   AMDGPU_UCODE_REQUIRED,
+					   "amdgpu/%s_mec_1.bin", ucode_prefix);
+	else
+		err = amdgpu_ucode_request(adev, &adev->gfx.mec_fw,
+					   AMDGPU_UCODE_REQUIRED,
+					   "amdgpu/%s_mec.bin", ucode_prefix);
 	if (err)
 		goto out;
 	amdgpu_gfx_cp_init_microcode(adev, AMDGPU_UCODE_ID_CP_RS64_MEC);
