@@ -384,7 +384,7 @@ xe_hw_engine_setup_default_lrc_state(struct xe_hw_engine *hwe)
 		 * BLIT_CCTL registers are needed to be programmed to un-cached.
 		 */
 		{ XE_RTP_NAME("BLIT_CCTL_default_MOCS"),
-		  XE_RTP_RULES(GRAPHICS_VERSION_RANGE(1200, XE_RTP_END_VERSION_UNDEFINED),
+		  XE_RTP_RULES(GRAPHICS_VERSION_RANGE(1200, 1274),
 			       ENGINE_CLASS(COPY)),
 		  XE_RTP_ACTIONS(FIELD_SET(BLIT_CCTL(0),
 				 BLIT_CCTL_DST_MOCS_MASK |
