@@ -332,7 +332,7 @@ void xe_hw_engine_enable_ring(struct xe_hw_engine *hwe)
 
 	if (xe_device_has_msix(gt_to_xe(hwe->gt)))
 		ring_mode |= REG_MASKED_FIELD_ENABLE(GFX_MSIX_INTERRUPT_ENABLE);
-	xe_hw_engine_mmio_write32(hwe, RING_MODE(0), ring_mode);
+	xe_hw_engine_mmio_write32(hwe, GFX_MODE(0), ring_mode);
 	xe_hw_engine_mmio_write32(hwe, RING_MI_MODE(0),
 				  REG_MASKED_FIELD_DISABLE(STOP_RING));
 	xe_hw_engine_mmio_read32(hwe, RING_MI_MODE(0));
