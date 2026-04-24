@@ -27,7 +27,6 @@ struct io_buffer_list {
 	__u16 bgid;
 
 	/* below is for ring provided buffers */
-	__u16 nr_entries;
 	__u16 head;
 	__u16 mask;
 
