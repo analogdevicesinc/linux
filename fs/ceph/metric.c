@@ -4,9 +4,83 @@
 #include <linux/types.h>
 #include <linux/percpu_counter.h>
 #include <linux/math64.h>
+#include <linux/ratelimit.h>
+
+#include <linux/ceph/decode.h>
 
 #include "metric.h"
 #include "mds_client.h"
+
+static bool metrics_disable_warned;
+
+static inline u32 ceph_subvolume_entry_payload_len(void)
+{
+	return sizeof(struct ceph_subvolume_metric_entry_wire);
+}
+
+static inline u32 ceph_subvolume_entry_encoded_len(void)
+{
+	return CEPH_ENCODING_START_BLK_LEN +
+		ceph_subvolume_entry_payload_len();
+}
+
+static inline u32 ceph_subvolume_outer_payload_len(u32 nr_subvols)
+{
+	/* count is encoded as le64 (size_t on wire) to match FUSE client */
+	return sizeof(__le64) +
+		nr_subvols * ceph_subvolume_entry_encoded_len();
+}
+
+static inline u32 ceph_subvolume_metric_data_len(u32 nr_subvols)
+{
+	return CEPH_ENCODING_START_BLK_LEN +
+		ceph_subvolume_outer_payload_len(nr_subvols);
+}
+
+static inline u32 ceph_subvolume_clamp_u32(u64 val)
+{
+	return val > U32_MAX ? U32_MAX : (u32)val;
+}
+
+static void ceph_init_subvolume_wire_entry(
+	struct ceph_subvolume_metric_entry_wire *dst,
+	const struct ceph_subvol_metric_snapshot *src)
+{
+	dst->subvolume_id = cpu_to_le64(src->subvolume_id);
+	dst->read_ops = cpu_to_le32(ceph_subvolume_clamp_u32(src->read_ops));
+	dst->write_ops = cpu_to_le32(ceph_subvolume_clamp_u32(src->write_ops));
+	dst->read_bytes = cpu_to_le64(src->read_bytes);
+	dst->write_bytes = cpu_to_le64(src->write_bytes);
+	dst->read_latency_us = cpu_to_le64(src->read_latency_us);
+	dst->write_latency_us = cpu_to_le64(src->write_latency_us);
+	dst->time_stamp = 0;
+}
+
+static int ceph_encode_subvolume_metrics(void **p, void *end,
+					 struct ceph_subvol_metric_snapshot *subvols,
+					 u32 nr_subvols)
+{
+	u32 i;
+
+	ceph_start_encoding(p, 1, 1,
+			    ceph_subvolume_outer_payload_len(nr_subvols));
+	/* count is encoded as le64 (size_t on wire) to match FUSE client */
+	ceph_encode_64_safe(p, end, (u64)nr_subvols, enc_err);
+
+	for (i = 0; i < nr_subvols; i++) {
+		struct ceph_subvolume_metric_entry_wire wire_entry;
+
+		ceph_init_subvolume_wire_entry(&wire_entry, &subvols[i]);
+		ceph_start_encoding(p, 1, 1,
+				    ceph_subvolume_entry_payload_len());
+		ceph_encode_copy_safe(p, end, &wire_entry,
+				      sizeof(wire_entry), enc_err);
+	}
+
+	return 0;
+enc_err:
+	return -ERANGE;
+}
 
 static void ktime_to_ceph_timespec(struct ceph_timespec *ts, ktime_t val)
 {
@@ -29,10 +103,14 @@ static bool ceph_mdsc_send_metrics(struct ceph_mds_client *mdsc,
 	struct ceph_read_io_size *rsize;
 	struct ceph_write_io_size *wsize;
 	struct ceph_client_metric *m = &mdsc->metric;
+	struct ceph_subvol_metric_snapshot *subvols = NULL;
 	u64 nr_caps = atomic64_read(&m->total_caps);
 	u32 header_len = sizeof(struct ceph_metric_header);
 	struct ceph_client *cl = mdsc->fsc->client;
 	struct ceph_msg *msg;
+	u32 nr_subvols = 0;
+	size_t subvol_len = 0;
+	void *cursor;
 	s64 sum;
 	s32 items = 0;
 	s32 len;
@@ -45,15 +123,42 @@ static bool ceph_mdsc_send_metrics(struct ceph_mds_client *mdsc,
 	}
 	mutex_unlock(&mdsc->mutex);
 
+	if (ceph_subvolume_metrics_enabled(&mdsc->subvol_metrics) &&
+	    test_bit(CEPHFS_FEATURE_SUBVOLUME_METRICS, &s->s_features)) {
+		int ret;
+
+		ret = ceph_subvolume_metrics_snapshot(&mdsc->subvol_metrics,
+						      &subvols, &nr_subvols,
+						      true);
+		if (ret) {
+			pr_warn_client(cl, "failed to snapshot subvolume metrics: %d\n",
+				       ret);
+			/*
+			 * On error, ceph_subvolume_metrics_snapshot() guarantees
+			 * *out = NULL and *nr = 0 at function entry, so subvols
+			 * is already NULL here - no cleanup needed.
+			 */
+			nr_subvols = 0;
+			subvols = NULL;
+		}
+	}
+
+	if (nr_subvols) {
+		/* type (le32) + ENCODE_START payload - no metric header */
+		subvol_len = sizeof(__le32) +
+			     ceph_subvolume_metric_data_len(nr_subvols);
+	}
+
 	len = sizeof(*head) + sizeof(*cap) + sizeof(*read) + sizeof(*write)
 	      + sizeof(*meta) + sizeof(*dlease) + sizeof(*files)
 	      + sizeof(*icaps) + sizeof(*inodes) + sizeof(*rsize)
-	      + sizeof(*wsize);
+	      + sizeof(*wsize) + subvol_len;
 
 	msg = ceph_msg_new(CEPH_MSG_CLIENT_METRICS, len, GFP_NOFS, true);
 	if (!msg) {
 		pr_err_client(cl, "to mds%d, failed to allocate message\n",
 			      s->s_mds);
+		kfree(subvols);
 		return false;
 	}
 
@@ -172,12 +277,55 @@ static bool ceph_mdsc_send_metrics(struct ceph_mds_client *mdsc,
 	wsize->total_size = cpu_to_le64(m->metric[METRIC_WRITE].size_sum);
 	items++;
 
+	cursor = wsize + 1;
+
+	if (nr_subvols) {
+		void *payload;
+		void *payload_end;
+		int ret;
+
+		/* Emit only the type (le32), no ver/compat/data_len */
+		ceph_encode_32(&cursor, CLIENT_METRIC_TYPE_SUBVOLUME_METRICS);
+		items++;
+
+		payload = cursor;
+		payload_end = (char *)payload +
+			      ceph_subvolume_metric_data_len(nr_subvols);
+
+		ret = ceph_encode_subvolume_metrics(&payload, payload_end,
+						    subvols, nr_subvols);
+		if (ret) {
+			pr_warn_client(cl,
+				       "failed to encode subvolume metrics\n");
+			kfree(subvols);
+			ceph_msg_put(msg);
+			return false;
+		}
+
+		WARN_ON(payload != payload_end);
+		cursor = payload;
+	}
+
 	put_unaligned_le32(items, &head->num);
-	msg->front.iov_len = len;
+	msg->front.iov_len = (char *)cursor - (char *)head;
 	msg->hdr.version = cpu_to_le16(1);
 	msg->hdr.compat_version = cpu_to_le16(1);
 	msg->hdr.front_len = cpu_to_le32(msg->front.iov_len);
+
 	ceph_con_send(&s->s_con, msg);
+
+	if (nr_subvols) {
+		mutex_lock(&mdsc->subvol_metrics_last_mutex);
+		kfree(mdsc->subvol_metrics_last);
+		mdsc->subvol_metrics_last = subvols;
+		mdsc->subvol_metrics_last_nr = nr_subvols;
+		mdsc->subvol_metrics_sent += nr_subvols;
+		mdsc->subvol_metrics_nonzero_sends++;
+		mutex_unlock(&mdsc->subvol_metrics_last_mutex);
+
+		subvols = NULL;
+	}
+	kfree(subvols);
 
 	return true;
 }
@@ -198,9 +346,20 @@ static void metric_get_session(struct ceph_mds_client *mdsc)
 		 * Skip it if MDS doesn't support the metric collection,
 		 * or the MDS will close the session's socket connection
 		 * directly when it get this message.
+		 *
+		 * Also skip sessions that don't support SUBVOLUME_METRICS
+		 * when subvolume metrics collection is enabled. This ensures
+		 * we only send subvolume metrics to MDSs that understand them.
+		 * If no session supports the feature, metrics won't be sent.
 		 */
 		if (check_session_state(s) &&
 		    test_bit(CEPHFS_FEATURE_METRIC_COLLECT, &s->s_features)) {
+			if (ceph_subvolume_metrics_enabled(&mdsc->subvol_metrics) &&
+			    !test_bit(CEPHFS_FEATURE_SUBVOLUME_METRICS,
+				      &s->s_features)) {
+				ceph_put_mds_session(s);
+				continue;
+			}
 			mdsc->metric.session = s;
 			break;
 		}
@@ -217,8 +376,17 @@ static void metric_delayed_work(struct work_struct *work)
 	struct ceph_mds_client *mdsc =
 		container_of(m, struct ceph_mds_client, metric);
 
-	if (mdsc->stopping || disable_send_metrics)
+	if (mdsc->stopping)
 		return;
+
+	if (disable_send_metrics) {
+		if (!metrics_disable_warned) {
+			pr_info("ceph: metrics sending disabled via module parameter\n");
+			metrics_disable_warned = true;
+		}
+		return;
+	}
+	metrics_disable_warned = false;
 
 	if (!m->session || !check_session_state(m->session)) {
 		if (m->session) {
@@ -227,10 +395,13 @@ static void metric_delayed_work(struct work_struct *work)
 		}
 		metric_get_session(mdsc);
 	}
-	if (m->session) {
+
+	if (m->session)
 		ceph_mdsc_send_metrics(mdsc, m->session);
-		metric_schedule_delayed(m);
-	}
+	else
+		pr_warn_ratelimited("ceph: metrics worker has no MDS session\n");
+
+	metric_schedule_delayed(m);
 }
 
 int ceph_metric_init(struct ceph_client_metric *m)
