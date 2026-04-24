@@ -701,7 +701,7 @@ struct spi_controller {
 	int			(*transfer)(struct spi_device *spi,
 						struct spi_message *mesg);
 
-	/* Called on release() to free memory provided by spi_controller */
+	/* Called on deregistration to free memory provided by spi_controller */
 	void			(*cleanup)(struct spi_device *spi);
 
 	/*
@@ -1019,7 +1019,7 @@ struct spi_res {
  *	this value may have changed compared to what was requested, depending
  *	on the available snapshotting resolution (DMA transfer,
  *	@ptp_sts_supported is false, etc).
- * @ptp_sts_word_post: See @ptp_sts_word_post. The two can be equal (meaning
+ * @ptp_sts_word_post: See @ptp_sts_word_pre. The two can be equal (meaning
  *	that a single byte should be snapshotted).
  *	If the core takes care of the timestamp (if @ptp_sts_supported is false
  *	for this controller), it will set @ptp_sts_word_pre to 0, and
