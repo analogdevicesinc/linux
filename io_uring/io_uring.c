@@ -2575,7 +2575,8 @@ struct file *io_uring_ctx_get_file(unsigned int fd, bool registered)
 		return ERR_PTR(-EBADF);
 	if (io_is_uring_fops(file))
 		return file;
-	fput(file);
+	if (!registered)
+		fput(file);
 	return ERR_PTR(-EOPNOTSUPP);
 }
 

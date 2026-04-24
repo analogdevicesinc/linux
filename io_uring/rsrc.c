@@ -168,7 +168,7 @@ bool io_rsrc_cache_init(struct io_ring_ctx *ctx)
 void io_rsrc_cache_free(struct io_ring_ctx *ctx)
 {
 	io_alloc_cache_free(&ctx->node_cache, kfree);
-	io_alloc_cache_free(&ctx->imu_cache, kfree);
+	io_alloc_cache_free(&ctx->imu_cache, kvfree);
 }
 
 static void io_clear_table_tags(struct io_rsrc_data *data)
@@ -238,6 +238,9 @@ static int __io_sqe_files_update(struct io_ring_ctx *ctx,
 			continue;
 
 		i = up->offset + done;
+		if (i >= ctx->file_table.data.nr)
+			break;
+		i = array_index_nospec(i, ctx->file_table.data.nr);
 		if (io_reset_rsrc_node(ctx, &ctx->file_table.data, i))
 			io_file_bitmap_clear(&ctx->file_table, i);
 

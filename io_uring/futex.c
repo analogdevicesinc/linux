@@ -159,8 +159,10 @@ static void io_futex_wakev_fn(struct wake_q_head *wake_q, struct futex_q *q)
 	struct io_kiocb *req = q->wake_data;
 	struct io_futexv_data *ifd = req->async_data;
 
-	if (!io_futexv_claim(ifd))
+	if (!io_futexv_claim(ifd)) {
+		__futex_wake_mark(q);
 		return;
+	}
 	if (unlikely(!__futex_wake_mark(q)))
 		return;
 
