@@ -1539,11 +1539,15 @@ Example Usage
    $echo 1 > scan_elements/in_voltage0_q_en
 
    # Configure and enable buffer
-   $echo 512 > buffer0/length
    $echo 1 > buffer0/enable
 
    # Capture data
    $cat /dev/iio:device6 | head -c 3072 > iq_spectrum.bin
+
+Since the buffer length must match apollo's value, starting from
+:git+linux:`33ff0 <commit/33ff0128121f27de9bd23d6a7ca997577c288663+>`, the buffer
+length is set at the buffer pre-enable stage, and writing ``buffer0/length``
+has no effect.
 
 .. _apollo ffh:
 
