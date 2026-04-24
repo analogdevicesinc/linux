@@ -24662,7 +24662,7 @@ L:	linux-cifs@vger.kernel.org
 L:	samba-technical@lists.samba.org (moderated for non-subscribers)
 S:	Maintained
 F:	fs/smb/client/smbdirect.*
-F:	fs/smb/common/smbdirect/
+F:	fs/smb/smbdirect/
 F:	fs/smb/server/transport_rdma.*
 
 SMC91x ETHERNET DRIVER

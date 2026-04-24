@@ -4,7 +4,7 @@
  *   Copyright (c) 2025, Stefan Metzmacher
  */
 
-#include "smbdirect_internal.h"
+#include "internal.h"
 
 bool smbdirect_frwr_is_supported(const struct ib_device_attr *attrs)
 {

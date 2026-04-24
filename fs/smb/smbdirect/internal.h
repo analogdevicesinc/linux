@@ -9,8 +9,8 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include "smbdirect.h"
-#include "smbdirect_pdu.h"
-#include "smbdirect_public.h"
+#include "pdu.h"
+#include "public.h"
 
 #include <linux/mutex.h>
 
@@ -34,7 +34,7 @@ struct smbdirect_module_state {
 
 extern struct smbdirect_module_state smbdirect_globals;
 
-#include "smbdirect_socket.h"
+#include "socket.h"
 
 struct smbdirect_device {
 	struct list_head list;

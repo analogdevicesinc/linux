@@ -5,7 +5,7 @@
  *   Copyright (c) 2025, Stefan Metzmacher
  */
 
-#include "smbdirect_internal.h"
+#include "internal.h"
 
 static int smbdirect_listen_rdma_event_handler(struct rdma_cm_id *id,
 					       struct rdma_cm_event *event);

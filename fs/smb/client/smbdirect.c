@@ -9,7 +9,7 @@
 #include "cifs_debug.h"
 #include "cifsproto.h"
 #include "smb2proto.h"
-#include "../common/smbdirect/smbdirect_public.h"
+#include "../smbdirect/public.h"
 
 /* Port numbers for SMBD transport */
 #define SMB_PORT	445

@@ -5,7 +5,7 @@
  *   Copyright (c) 2025, Stefan Metzmacher
  */
 
-#include "smbdirect_internal.h"
+#include "internal.h"
 
 static int smbdirect_connection_wait_for_rw_credits(struct smbdirect_socket *sc,
 						    int credits)

@@ -2844,6 +2844,8 @@ static int parse_durable_handle_context(struct ksmbd_work *work,
 					dh_info->reconnected = true;
 					goto out;
 				}
+				ksmbd_put_durable_fd(dh_info->fp);
+				dh_info->fp = NULL;
 			}
 
 			if ((lc && (lc->req_state & SMB2_LEASE_HANDLE_CACHING_LE)) ||
@@ -3014,29 +3016,23 @@ int smb2_open(struct ksmbd_work *work)
 		if (dh_info.reconnected == true) {
 			rc = smb2_check_durable_oplock(conn, share, dh_info.fp,
 					lc, sess->user, name);
-			if (rc) {
-				ksmbd_put_durable_fd(dh_info.fp);
+			if (rc)
 				goto err_out2;
-			}
 
 			rc = ksmbd_reopen_durable_fd(work, dh_info.fp);
-			if (rc) {
-				ksmbd_put_durable_fd(dh_info.fp);
+			if (rc)
 				goto err_out2;
-			}
 
 			fp = dh_info.fp;
 
 			if (ksmbd_override_fsids(work)) {
 				rc = -ENOMEM;
-				ksmbd_put_durable_fd(dh_info.fp);
 				goto err_out2;
 			}
 
 			file_info = FILE_OPENED;
 
 			rc = ksmbd_vfs_getattr(&fp->filp->f_path, &stat);
-			ksmbd_put_durable_fd(fp);
 			if (rc)
 				goto err_out2;
 
@@ -3061,7 +3057,7 @@ int smb2_open(struct ksmbd_work *work)
 	} else {
 		if (req->CreateOptions & FILE_SEQUENTIAL_ONLY_LE &&
 		    req->CreateOptions & FILE_RANDOM_ACCESS_LE)
-			req->CreateOptions = ~(FILE_SEQUENTIAL_ONLY_LE);
+			req->CreateOptions &= ~FILE_SEQUENTIAL_ONLY_LE;
 
 		if (req->CreateOptions &
 		    (FILE_OPEN_BY_FILE_ID_LE | CREATE_TREE_CONNECTION |
@@ -3075,7 +3071,7 @@ int smb2_open(struct ksmbd_work *work)
 				rc = -EINVAL;
 				goto err_out2;
 			} else if (req->CreateOptions & FILE_NO_COMPRESSION_LE) {
-				req->CreateOptions = ~(FILE_NO_COMPRESSION_LE);
+				req->CreateOptions &= ~FILE_NO_COMPRESSION_LE;
 			}
 		}
 	}
@@ -3805,6 +3801,9 @@ err_out2:
 		smb2_set_err_rsp(work);
 		ksmbd_debug(SMB, "Error response: %x\n", rsp->hdr.Status);
 	}
+
+	if (dh_info.reconnected)
+		ksmbd_put_durable_fd(dh_info.fp);
 
 	kfree(name);
 	kfree(lc);
@@ -4821,6 +4820,8 @@ static int smb2_get_ea(struct ksmbd_work *work, struct ksmbd_file *fp,
 		/* align next xattr entry at 4 byte bundary */
 		alignment_bytes = ((next_offset + 3) & ~3) - next_offset;
 		if (alignment_bytes) {
+			if (buf_free_len < alignment_bytes)
+				break;
 			memset(ptr, '\0', alignment_bytes);
 			ptr += alignment_bytes;
 			next_offset += alignment_bytes;
@@ -5745,20 +5746,8 @@ static int smb2_get_info_sec(struct ksmbd_work *work,
 		ksmbd_debug(SMB, "Unsupported addition info: 0x%x)\n",
 		       addition_info);
 
-		pntsd = kzalloc(ALIGN(sizeof(struct smb_ntsd), 8),
-				KSMBD_DEFAULT_GFP);
-		if (!pntsd)
-			return -ENOMEM;
-
-		pntsd->revision = cpu_to_le16(1);
-		pntsd->type = cpu_to_le16(SELF_RELATIVE | DACL_PROTECTED);
-		pntsd->osidoffset = 0;
-		pntsd->gsidoffset = 0;
-		pntsd->sacloffset = 0;
-		pntsd->dacloffset = 0;
-
-		secdesclen = sizeof(struct smb_ntsd);
-		goto iov_pin;
+		rsp->hdr.Status = STATUS_NOT_SUPPORTED;
+		return -EINVAL;
 	}
 
 	if (work->next_smb2_rcv_hdr_off) {
@@ -5825,7 +5814,6 @@ release_acl:
 	if (rc)
 		goto err_out;
 
-iov_pin:
 	rsp->OutputBufferLength = cpu_to_le32(secdesclen);
 	rc = buffer_check_err(le32_to_cpu(req->OutputBufferLength),
 			      rsp, work->response_buf);
@@ -7492,7 +7480,12 @@ int smb2_lock(struct ksmbd_work *work)
 	lock_ele = req->locks;
 
 	ksmbd_debug(SMB, "lock count is %d\n", lock_count);
-	if (!lock_count) {
+	/*
+	 * Cap lock_count at 64. The MS-SMB2 spec defines Open.LockSequenceArray
+	 * as exactly 64 entries so 64 is the intended ceiling. No real workload
+	 * comes close to this in a single request.
+	 */
+	if (!lock_count || lock_count > 64) {
 		err = -EINVAL;
 		goto out2;
 	}
@@ -9067,8 +9060,7 @@ int smb3_check_sign_req(struct ksmbd_work *work)
 	iov[0].iov_base = (char *)&hdr->ProtocolId;
 	iov[0].iov_len = len;
 
-	if (ksmbd_sign_smb3_pdu(conn, signing_key, iov, 1, signature))
-		return 0;
+	ksmbd_sign_smb3_pdu(conn, signing_key, iov, 1, signature);
 
 	if (crypto_memneq(signature, signature_req, SMB2_SIGNATURE_SIZE)) {
 		pr_err("bad smb2 signature\n");
@@ -9119,9 +9111,8 @@ void smb3_set_sign_rsp(struct ksmbd_work *work)
 		iov = &work->iov[work->iov_idx];
 	}
 
-	if (!ksmbd_sign_smb3_pdu(conn, signing_key, iov, n_vec,
-				 signature))
-		memcpy(hdr->Signature, signature, SMB2_SIGNATURE_SIZE);
+	ksmbd_sign_smb3_pdu(conn, signing_key, iov, n_vec, signature);
+	memcpy(hdr->Signature, signature, SMB2_SIGNATURE_SIZE);
 }
 
 /**
