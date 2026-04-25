@@ -3633,6 +3633,22 @@ static void __scx_disable_and_exit_task(struct scx_sched *sch,
 		SCX_CALL_OP_TASK(sch, exit_task, task_rq(p), p, &args);
 }
 
+/*
+ * Undo a completed __scx_init_task(sch, p, false) when scx_enable_task() never
+ * ran. The task state has not been transitioned, so this mirrors the
+ * SCX_TASK_INIT branch in __scx_disable_and_exit_task().
+ */
+static void scx_sub_init_cancel_task(struct scx_sched *sch, struct task_struct *p)
+{
+	struct scx_exit_task_args args = { .cancelled = true };
+
+	lockdep_assert_held(&p->pi_lock);
+	lockdep_assert_rq_held(task_rq(p));
+
+	if (SCX_HAS_OP(sch, exit_task))
+		SCX_CALL_OP_TASK(sch, exit_task, task_rq(p), p, &args);
+}
+
 static void scx_disable_and_exit_task(struct scx_sched *sch,
 				      struct task_struct *p)
 {
@@ -3641,11 +3657,12 @@ static void scx_disable_and_exit_task(struct scx_sched *sch,
 	/*
 	 * If set, @p exited between __scx_init_task() and scx_enable_task() in
 	 * scx_sub_enable() and is initialized for both the associated sched and
-	 * its parent. Disable and exit for the child too.
+	 * its parent. Exit for the child too - scx_enable_task() never ran for
+	 * it, so undo only init_task.
 	 */
-	if ((p->scx.flags & SCX_TASK_SUB_INIT) &&
-	    !WARN_ON_ONCE(!scx_enabling_sub_sched)) {
-		__scx_disable_and_exit_task(scx_enabling_sub_sched, p);
+	if (p->scx.flags & SCX_TASK_SUB_INIT) {
+		if (!WARN_ON_ONCE(!scx_enabling_sub_sched))
+			scx_sub_init_cancel_task(scx_enabling_sub_sched, p);
 		p->scx.flags &= ~SCX_TASK_SUB_INIT;
 	}
 
@@ -7124,16 +7141,23 @@ out_unlock:
 abort:
 	put_task_struct(p);
 	scx_task_iter_stop(&sti);
-	scx_enabling_sub_sched = NULL;
 
+	/*
+	 * Undo __scx_init_task() for tasks we marked. scx_enable_task() never
+	 * ran for @sch on them, so calling scx_disable_task() here would invoke
+	 * ops.disable() without a matching ops.enable(). scx_enabling_sub_sched
+	 * must stay set until SUB_INIT is cleared from every marked task -
+	 * scx_disable_and_exit_task() reads it when a task exits concurrently.
+	 */
 	scx_task_iter_start(&sti, sch->cgrp);
 	while ((p = scx_task_iter_next_locked(&sti))) {
 		if (p->scx.flags & SCX_TASK_SUB_INIT) {
-			__scx_disable_and_exit_task(sch, p);
+			scx_sub_init_cancel_task(sch, p);
 			p->scx.flags &= ~SCX_TASK_SUB_INIT;
 		}
 	}
 	scx_task_iter_stop(&sti);
+	scx_enabling_sub_sched = NULL;
 err_unlock_and_disable:
 	/* we'll soon enter disable path, keep bypass on */
 	scx_cgroup_unlock();
