@@ -398,6 +398,7 @@ static const char *const scarlett2_autogain_status_gen4[] = {
 	"FailMaxGainLimit",
 	"FailClipped",
 	"Cancelled",
+	"Root",
 	"Invalid",
 	NULL
 };
