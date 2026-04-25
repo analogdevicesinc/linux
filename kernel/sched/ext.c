@@ -53,8 +53,6 @@ DEFINE_STATIC_KEY_FALSE(__scx_enabled);
 DEFINE_STATIC_PERCPU_RWSEM(scx_fork_rwsem);
 static atomic_t scx_enable_state_var = ATOMIC_INIT(SCX_DISABLED);
 static DEFINE_RAW_SPINLOCK(scx_bypass_lock);
-static cpumask_var_t scx_bypass_lb_donee_cpumask;
-static cpumask_var_t scx_bypass_lb_resched_cpumask;
 static bool scx_init_task_enabled;
 static bool scx_switching_all;
 DEFINE_STATIC_KEY_FALSE(__scx_switched_all);
@@ -4747,6 +4745,8 @@ static void scx_sched_free_rcu_work(struct work_struct *work)
 	irq_work_sync(&sch->disable_irq_work);
 	kthread_destroy_worker(sch->helper);
 	timer_shutdown_sync(&sch->bypass_lb_timer);
+	free_cpumask_var(sch->bypass_lb_donee_cpumask);
+	free_cpumask_var(sch->bypass_lb_resched_cpumask);
 
 #ifdef CONFIG_EXT_SUB_SCHED
 	kfree(sch->cgrp_path);
@@ -5123,8 +5123,8 @@ resume:
 static void bypass_lb_node(struct scx_sched *sch, int node)
 {
 	const struct cpumask *node_mask = cpumask_of_node(node);
-	struct cpumask *donee_mask = scx_bypass_lb_donee_cpumask;
-	struct cpumask *resched_mask = scx_bypass_lb_resched_cpumask;
+	struct cpumask *donee_mask = sch->bypass_lb_donee_cpumask;
+	struct cpumask *resched_mask = sch->bypass_lb_resched_cpumask;
 	u32 nr_tasks = 0, nr_cpus = 0, nr_balanced = 0;
 	u32 nr_target, nr_donor_target;
 	u32 before_min = U32_MAX, before_max = 0;
@@ -6520,6 +6520,15 @@ static struct scx_sched *scx_alloc_and_add_sched(struct sched_ext_ops *ops,
 	init_irq_work(&sch->disable_irq_work, scx_disable_irq_workfn);
 	kthread_init_work(&sch->disable_work, scx_disable_workfn);
 	timer_setup(&sch->bypass_lb_timer, scx_bypass_lb_timerfn, 0);
+
+	if (!alloc_cpumask_var(&sch->bypass_lb_donee_cpumask, GFP_KERNEL)) {
+		ret = -ENOMEM;
+		goto err_stop_helper;
+	}
+	if (!alloc_cpumask_var(&sch->bypass_lb_resched_cpumask, GFP_KERNEL)) {
+		ret = -ENOMEM;
+		goto err_free_lb_cpumask;
+	}
 	sch->ops = *ops;
 	rcu_assign_pointer(ops->priv, sch);
 
@@ -6529,14 +6538,14 @@ static struct scx_sched *scx_alloc_and_add_sched(struct sched_ext_ops *ops,
 	char *buf = kzalloc(PATH_MAX, GFP_KERNEL);
 	if (!buf) {
 		ret = -ENOMEM;
-		goto err_stop_helper;
+		goto err_free_lb_resched;
 	}
 	cgroup_path(cgrp, buf, PATH_MAX);
 	sch->cgrp_path = kstrdup(buf, GFP_KERNEL);
 	kfree(buf);
 	if (!sch->cgrp_path) {
 		ret = -ENOMEM;
-		goto err_stop_helper;
+		goto err_free_lb_resched;
 	}
 
 	sch->cgrp = cgrp;
@@ -6571,10 +6580,12 @@ static struct scx_sched *scx_alloc_and_add_sched(struct sched_ext_ops *ops,
 #endif	/* CONFIG_EXT_SUB_SCHED */
 	return sch;
 
-#ifdef CONFIG_EXT_SUB_SCHED
+err_free_lb_resched:
+	free_cpumask_var(sch->bypass_lb_resched_cpumask);
+err_free_lb_cpumask:
+	free_cpumask_var(sch->bypass_lb_donee_cpumask);
 err_stop_helper:
 	kthread_destroy_worker(sch->helper);
-#endif
 err_free_pcpu:
 	for_each_possible_cpu(cpu) {
 		if (cpu == bypass_fail_cpu)
@@ -9759,12 +9770,6 @@ static int __init scx_init(void)
 	if (ret < 0) {
 		pr_err("sched_ext: Failed to add global attributes\n");
 		return ret;
-	}
-
-	if (!alloc_cpumask_var(&scx_bypass_lb_donee_cpumask, GFP_KERNEL) ||
-	    !alloc_cpumask_var(&scx_bypass_lb_resched_cpumask, GFP_KERNEL)) {
-		pr_err("sched_ext: Failed to allocate cpumasks\n");
-		return -ENOMEM;
 	}
 
 	return 0;
