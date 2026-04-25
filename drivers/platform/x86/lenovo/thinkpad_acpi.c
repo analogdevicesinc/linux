@@ -2469,7 +2469,7 @@ static int hotkey_kthread(void *data)
 	bool was_frozen;
 
 	if (tpacpi_lifecycle == TPACPI_LIFE_EXITING)
-		goto exit;
+		return 0;
 
 	set_freezable();
 
@@ -2526,7 +2526,6 @@ static int hotkey_kthread(void *data)
 		si ^= 1;
 	}
 
-exit:
 	return 0;
 }
 
