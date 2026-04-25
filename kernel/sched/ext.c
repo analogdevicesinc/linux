@@ -470,24 +470,35 @@ static inline void update_locked_rq(struct rq *rq)
 	__this_cpu_write(scx_locked_rq_state, rq);
 }
 
-#define SCX_CALL_OP(sch, op, rq, args...)					\
+/*
+ * SCX ops can recurse via scx_bpf_sub_dispatch() - the inner call must not
+ * clobber the outer's scx_locked_rq_state. Save it on entry, restore on exit.
+ */
+#define SCX_CALL_OP(sch, op, locked_rq, args...)				\
 do {										\
-	if (rq)									\
-		update_locked_rq(rq);						\
+	struct rq *__prev_locked_rq;						\
+										\
+	if (locked_rq) {							\
+		__prev_locked_rq = scx_locked_rq();				\
+		update_locked_rq(locked_rq);					\
+	}									\
 	(sch)->ops.op(args);							\
-	if (rq)									\
-		update_locked_rq(NULL);						\
+	if (locked_rq)								\
+		update_locked_rq(__prev_locked_rq);				\
 } while (0)
 
-#define SCX_CALL_OP_RET(sch, op, rq, args...)					\
+#define SCX_CALL_OP_RET(sch, op, locked_rq, args...)				\
 ({										\
+	struct rq *__prev_locked_rq;						\
 	__typeof__((sch)->ops.op(args)) __ret;					\
 										\
-	if (rq)									\
-		update_locked_rq(rq);						\
+	if (locked_rq) {							\
+		__prev_locked_rq = scx_locked_rq();				\
+		update_locked_rq(locked_rq);					\
+	}									\
 	__ret = (sch)->ops.op(args);						\
-	if (rq)									\
-		update_locked_rq(NULL);						\
+	if (locked_rq)								\
+		update_locked_rq(__prev_locked_rq);				\
 	__ret;									\
 })
 
@@ -499,39 +510,39 @@ do {										\
  * those subject tasks.
  *
  * Every SCX_CALL_OP_TASK*() call site invokes its op with @p's rq lock held -
- * either via the @rq argument here, or (for ops.select_cpu()) via @p's pi_lock
- * held by try_to_wake_up() with rq tracking via scx_rq.in_select_cpu. So if
- * kf_tasks[] is set, @p's scheduler-protected fields are stable.
+ * either via the @locked_rq argument here, or (for ops.select_cpu()) via @p's
+ * pi_lock held by try_to_wake_up() with rq tracking via scx_rq.in_select_cpu.
+ * So if kf_tasks[] is set, @p's scheduler-protected fields are stable.
  *
  * kf_tasks[] can not stack, so task-based SCX ops must not nest. The
  * WARN_ON_ONCE() in each macro catches a re-entry of any of the three variants
  * while a previous one is still in progress.
  */
-#define SCX_CALL_OP_TASK(sch, op, rq, task, args...)				\
+#define SCX_CALL_OP_TASK(sch, op, locked_rq, task, args...)			\
 do {										\
 	WARN_ON_ONCE(current->scx.kf_tasks[0]);					\
 	current->scx.kf_tasks[0] = task;					\
-	SCX_CALL_OP((sch), op, rq, task, ##args);				\
+	SCX_CALL_OP((sch), op, locked_rq, task, ##args);			\
 	current->scx.kf_tasks[0] = NULL;					\
 } while (0)
 
-#define SCX_CALL_OP_TASK_RET(sch, op, rq, task, args...)			\
+#define SCX_CALL_OP_TASK_RET(sch, op, locked_rq, task, args...)			\
 ({										\
 	__typeof__((sch)->ops.op(task, ##args)) __ret;				\
 	WARN_ON_ONCE(current->scx.kf_tasks[0]);					\
 	current->scx.kf_tasks[0] = task;					\
-	__ret = SCX_CALL_OP_RET((sch), op, rq, task, ##args);			\
+	__ret = SCX_CALL_OP_RET((sch), op, locked_rq, task, ##args);		\
 	current->scx.kf_tasks[0] = NULL;					\
 	__ret;									\
 })
 
-#define SCX_CALL_OP_2TASKS_RET(sch, op, rq, task0, task1, args...)		\
+#define SCX_CALL_OP_2TASKS_RET(sch, op, locked_rq, task0, task1, args...)	\
 ({										\
 	__typeof__((sch)->ops.op(task0, task1, ##args)) __ret;			\
 	WARN_ON_ONCE(current->scx.kf_tasks[0]);					\
 	current->scx.kf_tasks[0] = task0;					\
 	current->scx.kf_tasks[1] = task1;					\
-	__ret = SCX_CALL_OP_RET((sch), op, rq, task0, task1, ##args);		\
+	__ret = SCX_CALL_OP_RET((sch), op, locked_rq, task0, task1, ##args);	\
 	current->scx.kf_tasks[0] = NULL;					\
 	current->scx.kf_tasks[1] = NULL;					\
 	__ret;									\
