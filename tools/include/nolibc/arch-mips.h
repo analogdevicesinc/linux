@@ -257,7 +257,7 @@
 #ifndef NOLIBC_NO_RUNTIME
 /* startup code, note that it's called __start on MIPS */
 void __start(void);
-void __attribute__((weak, noreturn)) __nolibc_entrypoint __no_stack_protector __start(void)
+void __attribute__((weak, noreturn)) __nolibc_entrypoint __nolibc_no_stack_protector __start(void)
 {
 	__asm__ volatile (
 		"move  $a0, $sp\n"       /* save stack pointer to $a0, as arg1 of _start_c */
