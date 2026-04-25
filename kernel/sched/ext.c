@@ -4413,21 +4413,6 @@ static struct cgroup *root_cgroup(void)
 	return &cgrp_dfl_root.cgrp;
 }
 
-static struct cgroup *sch_cgroup(struct scx_sched *sch)
-{
-	return sch->cgrp;
-}
-
-/* for each descendant of @cgrp including self, set ->scx_sched to @sch */
-static void set_cgroup_sched(struct cgroup *cgrp, struct scx_sched *sch)
-{
-	struct cgroup *pos;
-	struct cgroup_subsys_state *css;
-
-	cgroup_for_each_live_descendant_pre(pos, css, cgrp)
-		rcu_assign_pointer(pos->scx_sched, sch);
-}
-
 static void scx_cgroup_lock(void)
 {
 #ifdef CONFIG_EXT_GROUP_SCHED
@@ -4445,11 +4430,29 @@ static void scx_cgroup_unlock(void)
 }
 #else	/* CONFIG_EXT_GROUP_SCHED || CONFIG_EXT_SUB_SCHED */
 static struct cgroup *root_cgroup(void) { return NULL; }
-static struct cgroup *sch_cgroup(struct scx_sched *sch) { return NULL; }
-static void set_cgroup_sched(struct cgroup *cgrp, struct scx_sched *sch) {}
 static void scx_cgroup_lock(void) {}
 static void scx_cgroup_unlock(void) {}
 #endif	/* CONFIG_EXT_GROUP_SCHED || CONFIG_EXT_SUB_SCHED */
+
+#ifdef CONFIG_EXT_SUB_SCHED
+static struct cgroup *sch_cgroup(struct scx_sched *sch)
+{
+	return sch->cgrp;
+}
+
+/* for each descendant of @cgrp including self, set ->scx_sched to @sch */
+static void set_cgroup_sched(struct cgroup *cgrp, struct scx_sched *sch)
+{
+	struct cgroup *pos;
+	struct cgroup_subsys_state *css;
+
+	cgroup_for_each_live_descendant_pre(pos, css, cgrp)
+		rcu_assign_pointer(pos->scx_sched, sch);
+}
+#else	/* CONFIG_EXT_SUB_SCHED */
+static struct cgroup *sch_cgroup(struct scx_sched *sch) { return NULL; }
+static void set_cgroup_sched(struct cgroup *cgrp, struct scx_sched *sch) {}
+#endif	/* CONFIG_EXT_SUB_SCHED */
 
 /*
  * Omitted operations:
@@ -6604,7 +6607,7 @@ err_free_ei:
 err_free_sch:
 	kfree(sch);
 err_put_cgrp:
-#if defined(CONFIG_EXT_GROUP_SCHED) || defined(CONFIG_EXT_SUB_SCHED)
+#ifdef CONFIG_EXT_SUB_SCHED
 	cgroup_put(cgrp);
 #endif
 	return ERR_PTR(ret);
@@ -6695,7 +6698,7 @@ static void scx_root_enable_workfn(struct kthread_work *work)
 	if (ret)
 		goto err_unlock;
 
-#if defined(CONFIG_EXT_GROUP_SCHED) || defined(CONFIG_EXT_SUB_SCHED)
+#ifdef CONFIG_EXT_SUB_SCHED
 	cgroup_get(cgrp);
 #endif
 	sch = scx_alloc_and_add_sched(ops, cgrp, NULL);
