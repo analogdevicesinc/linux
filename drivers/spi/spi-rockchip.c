@@ -98,7 +98,6 @@
 #define CR0_FRF_MICROWIRE			0x2
 
 #define CR0_XFM_OFFSET				18
-#define CR0_XFM_MASK				(0x03 << SPI_XFM_OFFSET)
 #define CR0_XFM_TR					0x0
 #define CR0_XFM_TO					0x1
 #define CR0_XFM_RO					0x2
@@ -108,8 +107,6 @@
 #define CR0_OPM_TARGET				0x1
 
 #define CR0_SOI_OFFSET				23
-
-#define CR0_MTM_OFFSET				0x21
 
 /* Bit fields in SER, 2bit */
 #define SER_MASK					0x3
