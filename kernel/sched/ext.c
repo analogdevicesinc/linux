@@ -5721,6 +5721,8 @@ static void scx_sub_disable(struct scx_sched *sch)
 
 	if (sch->ops.exit)
 		SCX_CALL_OP(sch, exit, NULL, sch->exit_info);
+	if (sch->sub_kset)
+		kset_unregister(sch->sub_kset);
 	kobject_del(&sch->kobj);
 }
 #else	/* CONFIG_EXT_SUB_SCHED */
@@ -5852,6 +5854,10 @@ static void scx_root_disable(struct scx_sched *sch)
 	 * could observe an object of the same name still in the hierarchy when
 	 * the next scheduler is loaded.
 	 */
+#ifdef CONFIG_EXT_SUB_SCHED
+	if (sch->sub_kset)
+		kset_unregister(sch->sub_kset);
+#endif
 	kobject_del(&sch->kobj);
 
 	free_kick_syncs();
