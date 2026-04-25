@@ -6736,8 +6736,10 @@ static void scx_root_enable_workfn(struct kthread_work *work)
 	rcu_assign_pointer(scx_root, sch);
 
 	ret = scx_link_sched(sch);
-	if (ret)
+	if (ret) {
+		cpus_read_unlock();
 		goto err_disable;
+	}
 
 	scx_idle_enable(ops);
 
