@@ -21,7 +21,7 @@ struct jh7110_pinctrl {
 	/* register read/write mutex */
 	struct mutex mutex;
 	const struct jh7110_pinctrl_soc_info *info;
-	u32 *saved_regs;
+	u32 saved_regs[];
 };
 
 struct jh7110_gpio_irq_reg {
