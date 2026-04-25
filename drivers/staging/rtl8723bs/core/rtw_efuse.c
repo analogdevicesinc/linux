@@ -232,7 +232,6 @@ void rtw_efuse_shadow_map_update(struct adapter *padapter, u8 efuseType)
 	/* void *)&pHalData->EfuseMap[EFUSE_INIT_MAP][0], mapLen); */
 } /*  rtw_efuse_shadow_map_update */
 
-
 /*-----------------------------------------------------------------------------
  * Function:	rtw_efuse_shadow_read
  *
