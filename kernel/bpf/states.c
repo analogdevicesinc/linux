@@ -2,6 +2,7 @@
 /* Copyright (c) 2026 Meta Platforms, Inc. and affiliates. */
 #include <linux/bpf.h>
 #include <linux/bpf_verifier.h>
+#include <linux/cnum.h>
 #include <linux/filter.h>
 
 #define verbose(env, fmt, args...) bpf_verifier_log_write(env, fmt, ##args)
@@ -301,14 +302,8 @@ int bpf_update_branch_counts(struct bpf_verifier_env *env, struct bpf_verifier_s
 static bool range_within(const struct bpf_reg_state *old,
 			 const struct bpf_reg_state *cur)
 {
-	return reg_umin(old) <= reg_umin(cur) &&
-	       reg_umax(old) >= reg_umax(cur) &&
-	       reg_smin(old) <= reg_smin(cur) &&
-	       reg_smax(old) >= reg_smax(cur) &&
-	       reg_u32_min(old) <= reg_u32_min(cur) &&
-	       reg_u32_max(old) >= reg_u32_max(cur) &&
-	       reg_s32_min(old) <= reg_s32_min(cur) &&
-	       reg_s32_max(old) >= reg_s32_max(cur);
+	return cnum64_is_subset(old->r64, cur->r64) &&
+	       cnum32_is_subset(old->r32, cur->r32);
 }
 
 /* If in the old state two registers had the same id, then they need to have
