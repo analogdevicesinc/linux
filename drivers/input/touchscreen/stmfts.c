@@ -109,7 +109,7 @@ struct stmfts_data {
 };
 
 static int stmfts_brightness_set(struct led_classdev *led_cdev,
-					enum led_brightness value)
+				 enum led_brightness value)
 {
 	struct stmfts_data *sdata = container_of(led_cdev,
 					struct stmfts_data, led_cdev);
@@ -252,7 +252,6 @@ static void stmfts_parse_events(struct stmfts_data *sdata)
 		u8 *event = &sdata->data[i * STMFTS_EVENT_SIZE];
 
 		switch (event[0]) {
-
 		case STMFTS_EV_CONTROLLER_READY:
 		case STMFTS_EV_SLEEP_OUT_CONTROLLER_READY:
 		case STMFTS_EV_STATUS:
@@ -265,7 +264,6 @@ static void stmfts_parse_events(struct stmfts_data *sdata)
 		}
 
 		switch (event[0] & STMFTS_MASK_EVENT_ID) {
-
 		case STMFTS_EV_MULTI_TOUCH_ENTER:
 		case STMFTS_EV_MULTI_TOUCH_MOTION:
 			stmfts_report_contact_event(sdata, event);
@@ -287,9 +285,9 @@ static void stmfts_parse_events(struct stmfts_data *sdata)
 
 		case STMFTS_EV_ERROR:
 			dev_warn(&sdata->client->dev,
-					"error code: 0x%x%x%x%x%x%x",
-					event[6], event[5], event[4],
-					event[3], event[2], event[1]);
+				 "error code: 0x%x%x%x%x%x%x",
+				 event[6], event[5], event[4],
+				 event[3], event[2], event[1]);
 			break;
 
 		default:
@@ -406,7 +404,7 @@ static void stmfts_input_close(struct input_dev *dev)
 }
 
 static ssize_t stmfts_sysfs_chip_id(struct device *dev,
-				struct device_attribute *attr, char *buf)
+				    struct device_attribute *attr, char *buf)
 {
 	struct stmfts_data *sdata = dev_get_drvdata(dev);
 
@@ -414,7 +412,8 @@ static ssize_t stmfts_sysfs_chip_id(struct device *dev,
 }
 
 static ssize_t stmfts_sysfs_chip_version(struct device *dev,
-				struct device_attribute *attr, char *buf)
+					 struct device_attribute *attr,
+					 char *buf)
 {
 	struct stmfts_data *sdata = dev_get_drvdata(dev);
 
@@ -422,7 +421,7 @@ static ssize_t stmfts_sysfs_chip_version(struct device *dev,
 }
 
 static ssize_t stmfts_sysfs_fw_ver(struct device *dev,
-				struct device_attribute *attr, char *buf)
+				   struct device_attribute *attr, char *buf)
 {
 	struct stmfts_data *sdata = dev_get_drvdata(dev);
 
@@ -430,7 +429,7 @@ static ssize_t stmfts_sysfs_fw_ver(struct device *dev,
 }
 
 static ssize_t stmfts_sysfs_config_id(struct device *dev,
-				struct device_attribute *attr, char *buf)
+				      struct device_attribute *attr, char *buf)
 {
 	struct stmfts_data *sdata = dev_get_drvdata(dev);
 
@@ -438,7 +437,8 @@ static ssize_t stmfts_sysfs_config_id(struct device *dev,
 }
 
 static ssize_t stmfts_sysfs_config_version(struct device *dev,
-				struct device_attribute *attr, char *buf)
+					   struct device_attribute *attr,
+					   char *buf)
 {
 	struct stmfts_data *sdata = dev_get_drvdata(dev);
 
@@ -446,7 +446,8 @@ static ssize_t stmfts_sysfs_config_version(struct device *dev,
 }
 
 static ssize_t stmfts_sysfs_read_status(struct device *dev,
-				struct device_attribute *attr, char *buf)
+					struct device_attribute *attr,
+					char *buf)
 {
 	struct stmfts_data *sdata = dev_get_drvdata(dev);
 	u8 status[4];
@@ -461,7 +462,8 @@ static ssize_t stmfts_sysfs_read_status(struct device *dev,
 }
 
 static ssize_t stmfts_sysfs_hover_enable_read(struct device *dev,
-				struct device_attribute *attr, char *buf)
+					      struct device_attribute *attr,
+					      char *buf)
 {
 	struct stmfts_data *sdata = dev_get_drvdata(dev);
 
@@ -469,8 +471,8 @@ static ssize_t stmfts_sysfs_hover_enable_read(struct device *dev,
 }
 
 static ssize_t stmfts_sysfs_hover_enable_write(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t len)
+					       struct device_attribute *attr,
+					       const char *buf, size_t len)
 {
 	struct stmfts_data *sdata = dev_get_drvdata(dev);
 	unsigned long value;
@@ -487,8 +489,8 @@ static ssize_t stmfts_sysfs_hover_enable_write(struct device *dev,
 	if (hover != sdata->hover_enabled) {
 		if (sdata->running) {
 			err = i2c_smbus_write_byte(sdata->client,
-					   value ? STMFTS_SS_HOVER_SENSE_ON :
-						   STMFTS_SS_HOVER_SENSE_OFF);
+						   value ? STMFTS_SS_HOVER_SENSE_ON :
+							   STMFTS_SS_HOVER_SENSE_OFF);
 			if (err)
 				return err;
 		}
