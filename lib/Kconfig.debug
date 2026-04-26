@@ -2264,6 +2264,7 @@ config KCOV_SELFTEST
 config DEBUG_AID_FOR_SYZBOT
        bool "Additional debug code for syzbot"
        default n
+       select PREEMPT_RT if EXPERT && ARCH_SUPPORTS_RT && !COMPILE_TEST
        help
          This option is intended for testing by syzbot.
 
