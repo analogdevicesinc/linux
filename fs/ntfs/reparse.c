@@ -505,7 +505,6 @@ int ntfs_reparse_set_wsl_symlink(struct ntfs_inode *ni,
 	struct reparse_point *reparse;
 	struct wsl_link_reparse_data *data;
 
-	utarget = (char *)NULL;
 	len = ntfs_ucstonls(ni->vol, target, target_len, &utarget, 0);
 	if (len <= 0)
 		return -EINVAL;
@@ -514,7 +513,7 @@ int ntfs_reparse_set_wsl_symlink(struct ntfs_inode *ni,
 	reparse = kvzalloc(reparse_len, GFP_NOFS);
 	if (!reparse) {
 		err = -ENOMEM;
-		kvfree(utarget);
+		kfree(utarget);
 	} else {
 		data = (struct wsl_link_reparse_data *)reparse->reparse_data;
 		reparse->reparse_tag = IO_REPARSE_TAG_LX_SYMLINK;
@@ -528,6 +527,8 @@ int ntfs_reparse_set_wsl_symlink(struct ntfs_inode *ni,
 		kvfree(reparse);
 		if (!err)
 			ni->target = utarget;
+		else
+			kfree(utarget);
 	}
 	return err;
 }
