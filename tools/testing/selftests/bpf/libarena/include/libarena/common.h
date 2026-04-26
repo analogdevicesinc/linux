@@ -44,6 +44,7 @@ struct {
  * the opaque volatile variable 0 instead of the constant 0.
  */
 extern const volatile u32 zero;
+extern volatile u64 asan_violated;
 
 int arena_fls(__u64 word);
 
