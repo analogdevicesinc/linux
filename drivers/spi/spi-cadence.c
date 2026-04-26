@@ -635,7 +635,7 @@ static int cdns_target_abort(struct spi_controller *ctlr)
  */
 static int cdns_spi_probe(struct platform_device *pdev)
 {
-	int ret = 0, irq;
+	int ret, irq;
 	struct spi_controller *ctlr;
 	struct cdns_spi *xspi;
 	u32 num_cs;
@@ -656,21 +656,21 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	xspi->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(xspi->regs)) {
 		ret = PTR_ERR(xspi->regs);
-		goto remove_ctlr;
+		goto err_put_ctlr;
 	}
 
 	xspi->pclk = devm_clk_get_enabled(&pdev->dev, "pclk");
 	if (IS_ERR(xspi->pclk)) {
 		dev_err(&pdev->dev, "pclk clock not found.\n");
 		ret = PTR_ERR(xspi->pclk);
-		goto remove_ctlr;
+		goto err_put_ctlr;
 	}
 
 	xspi->rstc = devm_reset_control_get_optional_exclusive(&pdev->dev, "spi");
 	if (IS_ERR(xspi->rstc)) {
 		ret = dev_err_probe(&pdev->dev, PTR_ERR(xspi->rstc),
 				    "Cannot get SPI reset.\n");
-		goto remove_ctlr;
+		goto err_put_ctlr;
 	}
 
 	reset_control_assert(xspi->rstc);
@@ -680,7 +680,7 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	if (IS_ERR(xspi->ref_clk)) {
 		dev_err(&pdev->dev, "ref_clk clock not found.\n");
 		ret = PTR_ERR(xspi->ref_clk);
-		goto remove_ctlr;
+		goto err_put_ctlr;
 	}
 
 	if (!spi_controller_is_target(ctlr)) {
@@ -710,7 +710,7 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		ret = irq;
-		goto clk_dis_all;
+		goto err_disable_rpm;
 	}
 
 	ret = devm_request_irq(&pdev->dev, irq, cdns_spi_irq,
@@ -718,7 +718,7 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	if (ret != 0) {
 		ret = -ENXIO;
 		dev_err(&pdev->dev, "request_irq failed\n");
-		goto clk_dis_all;
+		goto err_disable_rpm;
 	}
 
 	ctlr->use_gpio_descriptors = true;
@@ -741,7 +741,6 @@ static int cdns_spi_probe(struct platform_device *pdev)
 		/* Set to default valid value */
 		ctlr->max_speed_hz = xspi->clk_rate / 4;
 		xspi->speed_hz = ctlr->max_speed_hz;
-		pm_runtime_put_autosuspend(&pdev->dev);
 	} else {
 		ctlr->mode_bits |= SPI_NO_CS;
 		ctlr->target_abort = cdns_target_abort;
@@ -749,17 +748,22 @@ static int cdns_spi_probe(struct platform_device *pdev)
 	ret = spi_register_controller(ctlr);
 	if (ret) {
 		dev_err(&pdev->dev, "spi_register_controller failed\n");
-		goto clk_dis_all;
+		goto err_disable_rpm;
 	}
 
-	return ret;
+	if (!spi_controller_is_target(ctlr))
+		pm_runtime_put_autosuspend(&pdev->dev);
 
-clk_dis_all:
+	return 0;
+
+err_disable_rpm:
 	if (!spi_controller_is_target(ctlr)) {
 		pm_runtime_disable(&pdev->dev);
 		pm_runtime_set_suspended(&pdev->dev);
+		pm_runtime_put_noidle(&pdev->dev);
+		pm_runtime_dont_use_autosuspend(&pdev->dev);
 	}
-remove_ctlr:
+err_put_ctlr:
 	spi_controller_put(ctlr);
 	return ret;
 }
@@ -776,16 +780,23 @@ static void cdns_spi_remove(struct platform_device *pdev)
 {
 	struct spi_controller *ctlr = platform_get_drvdata(pdev);
 	struct cdns_spi *xspi = spi_controller_get_devdata(ctlr);
+	int ret = 0;
+
+	if (!spi_controller_is_target(ctlr))
+		ret = pm_runtime_get_sync(&pdev->dev);
 
 	spi_controller_get(ctlr);
 
 	spi_unregister_controller(ctlr);
 
-	cdns_spi_write(xspi, CDNS_SPI_ER, CDNS_SPI_ER_DISABLE);
+	if (ret >= 0)
+		cdns_spi_write(xspi, CDNS_SPI_ER, CDNS_SPI_ER_DISABLE);
 
 	if (!spi_controller_is_target(ctlr)) {
 		pm_runtime_disable(&pdev->dev);
 		pm_runtime_set_suspended(&pdev->dev);
+		pm_runtime_put_noidle(&pdev->dev);
+		pm_runtime_dont_use_autosuspend(&pdev->dev);
 	}
 
 	spi_controller_put(ctlr);
