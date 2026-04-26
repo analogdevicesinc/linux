@@ -48,6 +48,20 @@ extern volatile u64 asan_violated;
 
 int arena_fls(__u64 word);
 
+u64 malloc_internal(size_t size);
+#define malloc(size) ((void __arena *)malloc_internal((size)))
+void free(void __arena *ptr);
+
+/*
+ * The verifier associates arenas with programs by checking LD.IMM
+ * instruction operands for an arena and populating the program state
+ * with the first instance it finds. This requires accessing our global
+ * arena variable, but subprogs do not necessarily do so while still
+ * using pointers from that arena. Insert an LD.IMM instruction  to
+ * access the arena and help the verifier.
+ */
+#define arena_subprog_init() do { asm volatile ("" :: "r"(&arena)); } while (0)
+
 #else /* ! __BPF__ */
 
 #include <stdint.h>
