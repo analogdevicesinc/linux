@@ -1190,6 +1190,16 @@ static void volume_control_quirks(struct usb_mixer_elem_info *cval,
 			cval->res = 1;
 		}
 		break;
+
+	case USB_ID(0x0e6f, 0x024a): /* PDP Riffmaster for PS4 */
+	case USB_ID(0x0e6f, 0x0249): /* PDP Riffmaster for PS5 */
+		if (!strcmp(kctl->id.name, "PCM Playback Volume")) {
+			usb_audio_info(chip,
+				"set volume quirk for PDP Riffmaster for PS4/PS5\n");
+			cval->min = -2560; /* Mute under it */
+		}
+		break;
+
 	case USB_ID(0x3302, 0x12db): /* MOONDROP Quark2 */
 		if (!strcmp(kctl->id.name, "PCM Playback Volume")) {
 			usb_audio_info(chip,
