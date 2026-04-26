@@ -160,6 +160,13 @@ raspberrypi_clk_variants[RPI_FIRMWARE_NUM_CLK_ID] = {
 	[RPI_FIRMWARE_VEC_CLK_ID] = {
 		.export = true,
 		.minimize = true,
+
+		/*
+		 * If this clock is disabled during boot, it causes a bus
+		 * lockup in RPi 3B. Therefore, make sure it's left enabled
+		 * during boot.
+		 */
+		.flags = CLK_IGNORE_UNUSED,
 	},
 	[RPI_FIRMWARE_DISP_CLK_ID] = {
 		.export = true,
