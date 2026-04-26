@@ -25,6 +25,8 @@ static void run_libarena_asan_test(struct libarena_asan *skel,
 
 	ret = libarena_run_prog(bpf_program__fd(prog));
 	ASSERT_OK(ret, name);
+
+	verify_test_stderr(skel->obj, prog);
 }
 
 static void run_test(void)

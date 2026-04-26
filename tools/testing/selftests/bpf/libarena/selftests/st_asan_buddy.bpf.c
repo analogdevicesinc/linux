@@ -5,6 +5,9 @@
 #include <libarena/asan.h>
 #include <libarena/buddy.h>
 
+/* Required for parsing the ASAN call stacks. */
+#include "test_progs_compat.h"
+
 extern buddy_t buddy;
 
 #ifdef BPF_ARENA_ASAN
@@ -141,6 +144,11 @@ static __always_inline int asan_test_buddy_blob_single(void)
 }
 
 SEC("syscall")
+__stderr("Memory violation for address {{.*}} for write of size 1")
+__stderr("CPU: {{[0-9]+}} UID: 0 PID: {{[0-9]+}} Comm: {{.*}}")
+__stderr("Call trace:\n"
+"{{([a-zA-Z_][a-zA-Z0-9_]*\\+0x[0-9a-fA-F]+/0x[0-9a-fA-F]+\n"
+"|[ \t]+[^\n]+\n)*}}")
 __weak int asan_test_buddy_oob(void)
 {
 	size_t sizes[] = {
@@ -174,6 +182,11 @@ __weak int asan_test_buddy_oob(void)
 }
 
 SEC("syscall")
+__stderr("Memory violation for address {{.*}} for write of size 1")
+__stderr("CPU: {{[0-9]+}} UID: 0 PID: {{[0-9]+}} Comm: {{.*}}")
+__stderr("Call trace:\n"
+"{{([a-zA-Z_][a-zA-Z0-9_]*\\+0x[0-9a-fA-F]+/0x[0-9a-fA-F]+\n"
+"|[ \t]+[^\n]+\n)*}}")
 __weak int asan_test_buddy_uaf(void)
 {
 	size_t sizes[] = { 16, 32, 64, 128, 256, 512, 1024, 16384 };
@@ -205,6 +218,11 @@ __weak int asan_test_buddy_uaf(void)
 }
 
 SEC("syscall")
+__stderr("Memory violation for address {{.*}} for write of size 1")
+__stderr("CPU: {{[0-9]+}} UID: 0 PID: {{[0-9]+}} Comm: {{.*}}")
+__stderr("Call trace:\n"
+"{{([a-zA-Z_][a-zA-Z0-9_]*\\+0x[0-9a-fA-F]+/0x[0-9a-fA-F]+\n"
+"|[ \t]+[^\n]+\n)*}}")
 __weak int asan_test_buddy_blob(void)
 {
 	const int iters = 10;
