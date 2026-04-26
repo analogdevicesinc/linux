@@ -5,7 +5,7 @@
 
 #include <vmlinux.h>
 #include <bpf/bpf_helpers.h>
-#include "bpf_experimental.h"
+#include <bpf_may_goto.h>
 
 extern bool CONFIG_X86_64 __kconfig __weak;
 

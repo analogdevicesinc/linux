@@ -6,8 +6,8 @@
 
 #include <vmlinux.h>
 
-#include "../../bpf_arena_common.h"
-#include "../../progs/bpf_arena_spin_lock.h"
+#include <bpf_arena_common.h>
+#include <bpf_arena_spin_lock.h>
 
 #include <asm-generic/errno.h>
 
