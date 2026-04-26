@@ -210,25 +210,6 @@ config MCONSOLE
 
 	  It is safe to say 'Y' here.
 
-config MAGIC_SYSRQ
-	bool "Magic SysRq key"
-	depends on MCONSOLE
-	help
-	  If you say Y here, you will have some control over the system even
-	  if the system crashes for example during kernel debugging (e.g., you
-	  will be able to flush the buffer cache to disk, reboot the system
-	  immediately or dump some status information). A key for each of the
-	  possible requests is provided.
-
-	  This is the feature normally accomplished by pressing a key
-	  while holding SysRq (Alt+PrintScreen).
-
-	  On UML, this is accomplished by sending a "sysrq" command with
-	  mconsole, followed by the letter for the requested command.
-
-	  The keys are documented in <file:Documentation/admin-guide/sysrq.rst>. Don't say Y
-	  unless you really know what this hack does.
-
 config KERNEL_STACK_ORDER
 	int "Kernel stack size order"
 	default 2 if 64BIT
