@@ -2196,8 +2196,12 @@ sk_dst_get(const struct sock *sk)
 
 	rcu_read_lock();
 	dst = rcu_dereference(sk->sk_dst_cache);
-	if (dst && !rcuref_get(&dst->__rcuref))
-		dst = NULL;
+	if (dst) {
+		if (!rcuref_get(&dst->__rcuref))
+			dst = NULL;
+		else
+			save_dst_trace_buffer(dst, 1);
+	}
 	rcu_read_unlock();
 	return dst;
 }

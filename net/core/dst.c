@@ -44,6 +44,82 @@ const struct dst_metrics dst_default_metrics = {
 };
 EXPORT_SYMBOL(dst_default_metrics);
 
+#ifdef CONFIG_NET_DEV_REFCNT_TRACKER
+
+#define DST_TRACE_BUFFER_SIZE 8192
+static struct dst_trace_buffer {
+	struct dst_entry *dst; // no-ref
+	struct net_device *ndev; // no-ref
+	int seq;
+	int delta;
+	u32 caller_id;
+	int nr_entries;
+	unsigned long entries[20];
+} dst_trace_buffer[DST_TRACE_BUFFER_SIZE];
+static bool dst_trace_buffer_exhausted;
+
+void dump_dst_trace_buffer(const struct net_device *ndev)
+{
+	struct dst_trace_buffer *ptr;
+	int count, balance = 0;
+	int i;
+
+	for (i = 0; i < DST_TRACE_BUFFER_SIZE; i++) {
+		ptr = &dst_trace_buffer[i];
+		if (!ptr->dst || ptr->ndev != ndev)
+			continue;
+		count = ptr->delta;
+		balance += count;
+		pr_info("Call trace for %s@%p[%d] %+d %c%u at\n", ndev->name, ptr->dst, ptr->seq,
+			count, ptr->caller_id & 0x80000000 ? 'C' : 'T',
+			ptr->caller_id & ~0x80000000);
+		stack_trace_print(ptr->entries, ptr->nr_entries, 4);
+	}
+	if (!dst_trace_buffer_exhausted)
+		pr_info("balance for %s@dst_entry is %d\n", ndev->name, balance);
+	else
+		pr_info("balance for %s@dst_entry is unknown\n", ndev->name);
+}
+
+static void erase_dst_trace_buffer(struct dst_entry *dst)
+{
+	int i;
+
+	for (i = 0; i < DST_TRACE_BUFFER_SIZE; i++)
+		if (dst_trace_buffer[i].dst == dst)
+			dst_trace_buffer[i].dst = NULL;
+}
+
+void save_dst_trace_buffer(struct dst_entry *dst, int delta)
+{
+	struct dst_trace_buffer *ptr;
+	unsigned long entries[ARRAY_SIZE(ptr->entries)];
+	unsigned long nr_entries;
+	int i;
+
+	if (!dst->dev)
+		return;
+	nr_entries = stack_trace_save(entries, ARRAY_SIZE(ptr->entries), 1);
+	nr_entries = trim_netdev_trace(entries, nr_entries);
+	for (i = 0; i < DST_TRACE_BUFFER_SIZE; i++) {
+		ptr = &dst_trace_buffer[i];
+		if (!ptr->dst && !cmpxchg(&ptr->dst, NULL, dst)) {
+			ptr->ndev = dst->dev;
+			ptr->seq = atomic_inc_return(&dst->dst_trace_seq);
+			ptr->delta = delta;
+			ptr->caller_id = in_task() ? task_pid_nr(current) :
+				0x80000000 + raw_smp_processor_id();
+			ptr->nr_entries = nr_entries;
+			memmove(ptr->entries, entries, nr_entries * sizeof(unsigned long));
+			return;
+		}
+	}
+	dst_trace_buffer_exhausted = true;
+}
+EXPORT_SYMBOL(save_dst_trace_buffer);
+
+#endif
+
 void dst_init(struct dst_entry *dst, struct dst_ops *ops,
 	      struct net_device *dev, int initial_obsolete,
 	      unsigned short flags)
@@ -67,6 +143,7 @@ void dst_init(struct dst_entry *dst, struct dst_ops *ops,
 #endif
 	dst->lwtstate = NULL;
 	rcuref_init(&dst->__rcuref, 1);
+	save_dst_trace_buffer(dst, 1);
 	INIT_LIST_HEAD(&dst->rt_uncached);
 	dst->rt_uncached_list = NULL;
 	dst->__use = 0;
@@ -115,6 +192,10 @@ static void dst_destroy(struct dst_entry *dst)
 	netdev_put(dst->dev, &dst->dev_tracker);
 
 	lwtstate_put(dst->lwtstate);
+
+#ifdef CONFIG_NET_DEV_REFCNT_TRACKER
+	erase_dst_trace_buffer(dst);
+#endif
 
 	if (dst->flags & DST_METADATA)
 		metadata_dst_free((struct metadata_dst *)dst);
@@ -165,6 +246,8 @@ static void dst_count_dec(struct dst_entry *dst)
 
 void dst_release(struct dst_entry *dst)
 {
+	if (dst)
+		save_dst_trace_buffer(dst, -1);
 	if (dst && rcuref_put(&dst->__rcuref)) {
 #ifdef CONFIG_DST_CACHE
 		if (dst->flags & DST_METADATA) {
@@ -182,6 +265,8 @@ EXPORT_SYMBOL(dst_release);
 
 void dst_release_immediate(struct dst_entry *dst)
 {
+	if (dst)
+		save_dst_trace_buffer(dst, -1);
 	if (dst && rcuref_put(&dst->__rcuref)) {
 		dst_count_dec(dst);
 		dst_destroy(dst);

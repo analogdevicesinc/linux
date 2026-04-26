@@ -13361,6 +13361,7 @@ static void dump_netdev_trace_buffer(const struct net_device *dev)
 	struct netdev_trace_buffer *ptr;
 	int count, balance = 0, pos = 0;
 
+	dump_dst_trace_buffer(dev);
 	list_for_each_entry_rcu(ptr, &dev->netdev_trace_buffer_list, list,
 				/* list elements can't go away. */ 1) {
 		pos++;
