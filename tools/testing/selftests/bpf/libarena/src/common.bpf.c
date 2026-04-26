@@ -2,6 +2,8 @@
 /* Copyright (c) 2026 Meta Platforms, Inc. and affiliates. */
 #include <libarena/common.h>
 
+#include <libarena/asan.h>
+
 const volatile u32 zero = 0;
 
 int arena_fls(__u64 word)
