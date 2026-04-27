@@ -9,7 +9,6 @@
 
 #include <drv_types.h>
 
-
 #define	PACKET_NORMAL			0
 #define	PACKET_DHCP				1
 #define	PACKET_ARP				2
