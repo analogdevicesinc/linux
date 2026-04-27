@@ -231,16 +231,12 @@ bool nvme_mpath_clear_current_path(struct nvme_ns *ns)
 	bool changed = false;
 	int node;
 
-	if (!head)
-		goto out;
-
 	for_each_node(node) {
 		if (ns == rcu_access_pointer(head->current_path[node])) {
 			rcu_assign_pointer(head->current_path[node], NULL);
 			changed = true;
 		}
 	}
-out:
 	return changed;
 }
 

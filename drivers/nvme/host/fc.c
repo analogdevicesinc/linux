@@ -3968,3 +3968,4 @@ module_exit(nvme_fc_exit_module);
 
 MODULE_DESCRIPTION("NVMe host FC transport driver");
 MODULE_LICENSE("GPL v2");
+MODULE_ALIAS("nvme-fc");
