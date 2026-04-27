@@ -1834,12 +1834,9 @@ static void madvise_finish_tlb(struct madvise_behavior *madv_behavior)
 		tlb_finish_mmu(madv_behavior->tlb);
 }
 
-static bool is_valid_madvise(unsigned long start, size_t len_in, int behavior)
+static bool is_valid_madvise_range(unsigned long start, size_t len_in)
 {
 	size_t len;
-
-	if (!madvise_behavior_valid(behavior))
-		return false;
 
 	if (!PAGE_ALIGNED(start))
 		return false;
@@ -1859,17 +1856,15 @@ static bool is_valid_madvise(unsigned long start, size_t len_in, int behavior)
  * madvise_should_skip() - Return if the request is invalid or nothing.
  * @start:	Start address of madvise-requested address range.
  * @len_in:	Length of madvise-requested address range.
- * @behavior:	Requested madvise behavior.
  * @err:	Pointer to store an error code from the check.
  *
- * If the specified behaviour is invalid or nothing would occur, we skip the
- * operation.  This function returns true in the cases, otherwise false.  In
- * the former case we store an error on @err.
+ * If the specified range is invalid or nothing would occur, we skip the
+ * operation.  This function returns true in these cases, otherwise false.  In
+ * the former case we store an error in @err.
  */
-static bool madvise_should_skip(unsigned long start, size_t len_in,
-		int behavior, int *err)
+static bool madvise_should_skip(unsigned long start, size_t len_in, int *err)
 {
-	if (!is_valid_madvise(start, len_in, behavior)) {
+	if (!is_valid_madvise_range(start, len_in)) {
 		*err = -EINVAL;
 		return true;
 	}
@@ -2013,7 +2008,10 @@ int do_madvise(struct mm_struct *mm, unsigned long start, size_t len_in, int beh
 		.tlb = &tlb,
 	};
 
-	if (madvise_should_skip(start, len_in, behavior, &error))
+	if (!madvise_behavior_valid(behavior))
+		return -EINVAL;
+
+	if (madvise_should_skip(start, len_in, &error))
 		return error;
 	error = madvise_lock(&madv_behavior);
 	if (error)
@@ -2056,7 +2054,7 @@ static ssize_t vector_madvise(struct mm_struct *mm, struct iov_iter *iter,
 		size_t len_in = iter_iov_len(iter);
 		int error;
 
-		if (madvise_should_skip(start, len_in, behavior, &error))
+		if (madvise_should_skip(start, len_in, &error))
 			ret = error;
 		else
 			ret = madvise_do_behavior(start, len_in, &madv_behavior);
@@ -2129,6 +2127,11 @@ SYSCALL_DEFINE5(process_madvise, int, pidfd, const struct iovec __user *, vec,
 	if (IS_ERR(mm)) {
 		ret = PTR_ERR(mm);
 		goto release_task;
+	}
+
+	if (!madvise_behavior_valid(behavior)) {
+		ret = -EINVAL;
+		goto release_mm;
 	}
 
 	/*
