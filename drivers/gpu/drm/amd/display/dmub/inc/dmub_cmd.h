@@ -1008,15 +1008,30 @@ union dmub_fw_boot_status {
  * enum dmub_fw_boot_status_bit - Enum bit definitions for SCRATCH0.
  */
 enum dmub_fw_boot_status_bit {
-	DMUB_FW_BOOT_STATUS_BIT_DAL_FIRMWARE = (1 << 0), /**< 1 if DAL FW */
-	DMUB_FW_BOOT_STATUS_BIT_MAILBOX_READY = (1 << 1), /**< 1 if mailbox ready */
-	DMUB_FW_BOOT_STATUS_BIT_OPTIMIZED_INIT_DONE = (1 << 2), /**< 1 if init done */
-	DMUB_FW_BOOT_STATUS_BIT_RESTORE_REQUIRED = (1 << 3), /**< 1 if driver should call restore */
-	DMUB_FW_BOOT_STATUS_BIT_DEFERRED_LOADED = (1 << 4), /**< 1 if VBIOS data is deferred programmed */
-	DMUB_FW_BOOT_STATUS_BIT_FAMS_ENABLED = (1 << 5), /**< 1 if FAMS is enabled*/
-	DMUB_FW_BOOT_STATUS_BIT_DETECTION_REQUIRED = (1 << 6), /**< 1 if detection need to be triggered by driver*/
-	DMUB_FW_BOOT_STATUS_BIT_HW_POWER_INIT_DONE = (1 << 7), /**< 1 if hw power init is completed */
-	DMUB_FW_BOOT_STATUS_BIT_ONO_REGIONS_ENABLED = (1 << 8), /**< 1 if ONO regions are enabled */
+	/** @DMUB_FW_BOOT_STATUS_BIT_DAL_FIRMWARE: 1 if DAL FW */
+	DMUB_FW_BOOT_STATUS_BIT_DAL_FIRMWARE = (1 << 0),
+	/** @DMUB_FW_BOOT_STATUS_BIT_MAILBOX_READY: 1 if mailbox ready */
+	DMUB_FW_BOOT_STATUS_BIT_MAILBOX_READY = (1 << 1),
+	/** @DMUB_FW_BOOT_STATUS_BIT_OPTIMIZED_INIT_DONE: 1 if init done */
+	DMUB_FW_BOOT_STATUS_BIT_OPTIMIZED_INIT_DONE = (1 << 2),
+	/** @DMUB_FW_BOOT_STATUS_BIT_RESTORE_REQUIRED: 1 if driver should call restore */
+	DMUB_FW_BOOT_STATUS_BIT_RESTORE_REQUIRED = (1 << 3),
+	/**
+	 * @DMUB_FW_BOOT_STATUS_BIT_DEFERRED_LOADED: 1 if VBIOS data is
+	 * deferred programmed
+	 */
+	DMUB_FW_BOOT_STATUS_BIT_DEFERRED_LOADED = (1 << 4),
+	/** @DMUB_FW_BOOT_STATUS_BIT_FAMS_ENABLED: 1 if FAMS is enabled */
+	DMUB_FW_BOOT_STATUS_BIT_FAMS_ENABLED = (1 << 5),
+	/**
+	 * @DMUB_FW_BOOT_STATUS_BIT_DETECTION_REQUIRED: 1 if detection needs
+	 * to be triggered by driver
+	 */
+	DMUB_FW_BOOT_STATUS_BIT_DETECTION_REQUIRED = (1 << 6),
+	/** @DMUB_FW_BOOT_STATUS_BIT_HW_POWER_INIT_DONE: 1 if hw power init is completed */
+	DMUB_FW_BOOT_STATUS_BIT_HW_POWER_INIT_DONE = (1 << 7),
+	/** @DMUB_FW_BOOT_STATUS_BIT_ONO_REGIONS_ENABLED: if ONO regions are enabled */
+	DMUB_FW_BOOT_STATUS_BIT_ONO_REGIONS_ENABLED = (1 << 8),
 };
 
 /* Register bit definition for SCRATCH5 */
@@ -1080,18 +1095,22 @@ enum dmub_ips_comand_type {
  */
 enum dmub_cursor_offload_comand_type {
 	/**
+	 * @DMUB_CMD__CURSOR_OFFLOAD_INIT:
 	 * Initializes the cursor offload feature.
 	 */
 	DMUB_CMD__CURSOR_OFFLOAD_INIT = 0,
 	/**
-	 * Enables cursor offloading for a stream and updates the timing parameters.
+	 * @DMUB_CMD__CURSOR_OFFLOAD_STREAM_ENABLE: Enables cursor offloading
+	 * for a stream and updates the timing parameters.
 	 */
 	DMUB_CMD__CURSOR_OFFLOAD_STREAM_ENABLE = 1,
 	/**
+	 * @DMUB_CMD__CURSOR_OFFLOAD_STREAM_DISABLE:
 	 * Disables cursor offloading for a given stream.
 	 */
 	DMUB_CMD__CURSOR_OFFLOAD_STREAM_DISABLE = 2,
 	/**
+	 * @DMUB_CMD__CURSOR_OFFLOAD_STREAM_PROGRAM:
 	 * Programs the latest data for a given stream.
 	 */
 	DMUB_CMD__CURSOR_OFFLOAD_STREAM_PROGRAM = 3,
@@ -1157,7 +1176,7 @@ enum dmub_fw_boot_options_bit {
  * [Header (256 Bytes)][Feature 1 (256 Bytes)][Feature 2 (256 Bytes)]...
  */
 
-/**
+/*
  * enum dmub_shared_state_feature_id - List of shared state features.
  */
 enum dmub_shared_state_feature_id {
@@ -1914,30 +1933,36 @@ enum dmub_cmd_type {
  */
 enum dmub_out_cmd_type {
 	/**
-	 * Invalid outbox command, ignored.
+	 * @DMUB_OUT_CMD__NULL: Invalid outbox command, ignored.
 	 */
 	DMUB_OUT_CMD__NULL = 0,
 	/**
+	 * @DMUB_OUT_CMD__DP_AUX_REPLY:
 	 * Command type used for DP AUX Reply data notification
 	 */
 	DMUB_OUT_CMD__DP_AUX_REPLY = 1,
 	/**
+	 * @DMUB_OUT_CMD__DP_HPD_NOTIFY:
 	 * Command type used for DP HPD event notification
 	 */
 	DMUB_OUT_CMD__DP_HPD_NOTIFY = 2,
 	/**
+	 * @DMUB_OUT_CMD__SET_CONFIG_REPLY:
 	 * Command type used for SET_CONFIG Reply notification
 	 */
 	DMUB_OUT_CMD__SET_CONFIG_REPLY = 3,
 	/**
+	 * @DMUB_OUT_CMD__DPIA_NOTIFICATION:
 	 * Command type used for USB4 DPIA notification
 	 */
 	DMUB_OUT_CMD__DPIA_NOTIFICATION = 5,
 	/**
+	 * @DMUB_OUT_CMD__HPD_SENSE_NOTIFY:
 	 * Command type used for HPD redetect notification
 	 */
 	DMUB_OUT_CMD__HPD_SENSE_NOTIFY = 6,
 	/**
+	 * @DMUB_OUT_CMD__FUSED_IO:
 	 * Command type used for Fused IO notification
 	 */
 	DMUB_OUT_CMD__FUSED_IO = 7,
@@ -2129,19 +2154,19 @@ struct dmub_rb_cmd_PLAT_54186_wa {
  */
 enum dmub_cmd_mall_type {
 	/**
-	 * Allows display refresh from MALL.
+	 * @DMUB_CMD__MALL_ACTION_ALLOW: Allows display refresh from MALL.
 	 */
 	DMUB_CMD__MALL_ACTION_ALLOW = 0,
 	/**
-	 * Disallows display refresh from MALL.
+	 * @DMUB_CMD__MALL_ACTION_DISALLOW: Disallows display refresh from MALL.
 	 */
 	DMUB_CMD__MALL_ACTION_DISALLOW = 1,
 	/**
-	 * Cursor copy for MALL.
+	 * @DMUB_CMD__MALL_ACTION_COPY_CURSOR: Cursor copy for MALL.
 	 */
 	DMUB_CMD__MALL_ACTION_COPY_CURSOR = 2,
 	/**
-	 * Controls DF requests.
+	 * @DMUB_CMD__MALL_ACTION_NO_DF_REQ: Controls DF requests.
 	 */
 	DMUB_CMD__MALL_ACTION_NO_DF_REQ = 3,
 };
@@ -2170,18 +2195,21 @@ struct dmub_rb_cmd_mall {
  */
 enum dmub_cmd_cab_type {
 	/**
+	 * @DMUB_CMD__CAB_NO_IDLE_OPTIMIZATION:
 	 * No idle optimizations (i.e. no CAB)
 	 */
 	DMUB_CMD__CAB_NO_IDLE_OPTIMIZATION = 0,
 	/**
-	 * No DCN requests for memory
+	 * @DMUB_CMD__CAB_NO_DCN_REQ: No DCN requests for memory
 	 */
 	DMUB_CMD__CAB_NO_DCN_REQ = 1,
 	/**
+	 * @DMUB_CMD__CAB_DCN_SS_FIT_IN_CAB:
 	 * Fit surfaces in CAB (i.e. CAB enable)
 	 */
 	DMUB_CMD__CAB_DCN_SS_FIT_IN_CAB = 2,
 	/**
+	 * @DMUB_CMD__CAB_DCN_SS_NOT_FIT_IN_CAB:
 	 * Do not fit surfaces in CAB (i.e. no CAB)
 	 */
 	DMUB_CMD__CAB_DCN_SS_NOT_FIT_IN_CAB = 3,
@@ -2196,7 +2224,7 @@ struct dmub_rb_cmd_cab_for_ss {
 	uint8_t debug_bits;     /* debug bits */
 };
 
-/**
+/*
  * Enum for indicating which MCLK switch mode per pipe
  */
 enum mclk_switch_mode {
@@ -2670,11 +2698,18 @@ struct dmub_fams2_stream_static_state_v1 {
  * p-state request to allow latency
  */
 enum dmub_fams2_allow_delay_check_mode {
-	/* No check for request to allow delay */
+	/**
+	 * @FAMS2_ALLOW_DELAY_CHECK_NONE: No check for request to allow delay
+	 */
 	FAMS2_ALLOW_DELAY_CHECK_NONE = 0,
-	/* Check for request to allow delay */
+	/**
+	 * @FAMS2_ALLOW_DELAY_CHECK_FROM_START: Check for request to allow delay
+	 */
 	FAMS2_ALLOW_DELAY_CHECK_FROM_START = 1,
-	/* Check for prepare to allow delay */
+	/**
+	 * @FAMS2_ALLOW_DELAY_CHECK_FROM_PREPARE:
+	 * Check for prepare to allow delay
+	 */
 	FAMS2_ALLOW_DELAY_CHECK_FROM_PREPARE = 2,
 };
 
@@ -2746,27 +2781,28 @@ struct dmub_rb_cmd_ib {
  */
 enum dmub_cmd_idle_opt_type {
 	/**
-	 * DCN hardware restore.
+	 * @DMUB_CMD__IDLE_OPT_DCN_RESTORE: DCN hardware restore.
 	 */
 	DMUB_CMD__IDLE_OPT_DCN_RESTORE = 0,
 
 	/**
-	 * DCN hardware save.
+	 * @DMUB_CMD__IDLE_OPT_DCN_SAVE_INIT: DCN hardware save.
 	 */
 	DMUB_CMD__IDLE_OPT_DCN_SAVE_INIT = 1,
 
 	/**
-	 * DCN hardware notify idle.
+	 * @DMUB_CMD__IDLE_OPT_DCN_NOTIFY_IDLE: DCN hardware notify idle.
 	 */
 	DMUB_CMD__IDLE_OPT_DCN_NOTIFY_IDLE = 2,
 
 	/**
+	 * @DMUB_CMD__IDLE_OPT_SET_DC_POWER_STATE:
 	 * DCN hardware notify power state.
 	 */
 	DMUB_CMD__IDLE_OPT_SET_DC_POWER_STATE = 3,
 
 	/**
-	 * DCN notify to release HW.
+	 * @DMUB_CMD__IDLE_OPT_RELEASE_HW: DCN notify to release HW.
 	 */
 	 DMUB_CMD__IDLE_OPT_RELEASE_HW = 4,
 };
@@ -2795,7 +2831,7 @@ struct dmub_rb_cmd_idle_opt_dcn_notify_idle {
 	struct dmub_dcn_notify_idle_cntl_data cntl_data;
 };
 
-/**
+/*
  * enum dmub_idle_opt_dc_power_state - DC power states.
  */
 enum dmub_idle_opt_dc_power_state {
@@ -2837,7 +2873,7 @@ struct dmub_clocks {
  */
 enum dmub_cmd_clk_mgr_type {
 	/**
-	 * Notify DMCUB of clock update.
+	 * @DMUB_CMD__CLK_MGR_NOTIFY_CLOCKS: Notify DMCUB of clock update.
 	 */
 	DMUB_CMD__CLK_MGR_NOTIFY_CLOCKS = 0,
 };
@@ -3082,21 +3118,40 @@ struct dmub_rb_cmd_dpphy_init {
  * 4 AUX request command bits are shifted to high nibble.
  */
 enum dp_aux_request_action {
-	/** I2C-over-AUX write request */
+	/**
+	 * @DP_AUX_REQ_ACTION_I2C_WRITE: I2C-over-AUX write request
+	 */
 	DP_AUX_REQ_ACTION_I2C_WRITE		= 0x00,
-	/** I2C-over-AUX read request */
+	/**
+	 * @DP_AUX_REQ_ACTION_I2C_READ: I2C-over-AUX read request
+	 */
 	DP_AUX_REQ_ACTION_I2C_READ		= 0x10,
-	/** I2C-over-AUX write status request */
+	/**
+	 * @DP_AUX_REQ_ACTION_I2C_STATUS_REQ: I2C-over-AUX write status request
+	 */
 	DP_AUX_REQ_ACTION_I2C_STATUS_REQ	= 0x20,
-	/** I2C-over-AUX write request with MOT=1 */
+	/**
+	 * @DP_AUX_REQ_ACTION_I2C_WRITE_MOT:
+	 * I2C-over-AUX write request with MOT=1
+	 */
 	DP_AUX_REQ_ACTION_I2C_WRITE_MOT		= 0x40,
-	/** I2C-over-AUX read request with MOT=1 */
+	/**
+	 * @DP_AUX_REQ_ACTION_I2C_READ_MOT:
+	 * I2C-over-AUX read request with MOT=1
+	 */
 	DP_AUX_REQ_ACTION_I2C_READ_MOT		= 0x50,
-	/** I2C-over-AUX write status request with MOT=1 */
+	/**
+	 * @DP_AUX_REQ_ACTION_I2C_STATUS_REQ_MOT:
+	 * I2C-over-AUX write status request with MOT=1
+	 */
 	DP_AUX_REQ_ACTION_I2C_STATUS_REQ_MOT	= 0x60,
-	/** Native AUX write request */
+	/**
+	 * @DP_AUX_REQ_ACTION_DPCD_WRITE: Native AUX write request
+	 */
 	DP_AUX_REQ_ACTION_DPCD_WRITE		= 0x80,
-	/** Native AUX read request */
+	/**
+	 * @DP_AUX_REQ_ACTION_DPCD_READ: Native AUX read request
+	 */
 	DP_AUX_REQ_ACTION_DPCD_READ		= 0x90
 };
 
@@ -3104,21 +3159,21 @@ enum dp_aux_request_action {
  * enum aux_return_code_type - DP AUX process return code listing.
  */
 enum aux_return_code_type {
-	/** AUX process succeeded */
+	/** @AUX_RET_SUCCESS: AUX process succeeded */
 	AUX_RET_SUCCESS = 0,
-	/** AUX process failed with unknown reason */
+	/** @AUX_RET_ERROR_UNKNOWN: AUX process failed with unknown reason */
 	AUX_RET_ERROR_UNKNOWN,
-	/** AUX process completed with invalid reply */
+	/** @AUX_RET_ERROR_INVALID_REPLY: AUX process completed with invalid reply */
 	AUX_RET_ERROR_INVALID_REPLY,
-	/** AUX process timed out */
+	/** @AUX_RET_ERROR_TIMEOUT: AUX process timed out */
 	AUX_RET_ERROR_TIMEOUT,
-	/** HPD was low during AUX process */
+	/** @AUX_RET_ERROR_HPD_DISCON: HPD was low during AUX process */
 	AUX_RET_ERROR_HPD_DISCON,
-	/** Failed to acquire AUX engine */
+	/** @AUX_RET_ERROR_ENGINE_ACQUIRE: Failed to acquire AUX engine */
 	AUX_RET_ERROR_ENGINE_ACQUIRE,
-	/** AUX request not supported */
+	/** @AUX_RET_ERROR_INVALID_OPERATION: AUX request not supported */
 	AUX_RET_ERROR_INVALID_OPERATION,
-	/** AUX process not available */
+	/** @AUX_RET_ERROR_PROTOCOL_ERROR: AUX process not available */
 	AUX_RET_ERROR_PROTOCOL_ERROR,
 };
 
@@ -3126,9 +3181,9 @@ enum aux_return_code_type {
  * enum aux_channel_type - DP AUX channel type listing.
  */
 enum aux_channel_type {
-	/** AUX thru Legacy DP AUX */
+	/** @AUX_CHANNEL_LEGACY_DDC: AUX thru Legacy DP AUX */
 	AUX_CHANNEL_LEGACY_DDC,
-	/** AUX thru DPIA DP tunneling */
+	/** @AUX_CHANNEL_DPIA: AUX thru DPIA DP tunneling */
 	AUX_CHANNEL_DPIA
 };
 
@@ -3613,7 +3668,7 @@ enum phy_link_rate {
 	 */
 };
 
-/**
+/*
  * enum dmub_phy_fsm_state - PHY FSM states.
  * PHY FSM state to transit to during PSR enable/disable.
  */
@@ -5890,10 +5945,11 @@ struct dmub_rb_cmd_abm_query_caps {
  */
 enum dmub_abm_ace_curve_type {
 	/**
-	 * ACE curve as defined by the SW layer.
+	 * @ABM_ACE_CURVE_TYPE__SW: ACE curve as defined by the SW layer.
 	 */
 	ABM_ACE_CURVE_TYPE__SW = 0,
 	/**
+	 * @ABM_ACE_CURVE_TYPE__SW_IF:
 	 * ACE curve as defined by the SW to HW translation interface layer.
 	 */
 	ABM_ACE_CURVE_TYPE__SW_IF = 1,
@@ -5904,10 +5960,11 @@ enum dmub_abm_ace_curve_type {
  */
 enum dmub_abm_histogram_type {
 	/**
-	 * ACE curve as defined by the SW layer.
+	 * @ABM_HISTOGRAM_TYPE__SW: ACE curve as defined by the SW layer.
 	 */
 	ABM_HISTOGRAM_TYPE__SW = 0,
 	/**
+	 * @ABM_HISTOGRAM_TYPE__SW_IF:
 	 * ACE curve as defined by the SW to HW translation interface layer.
 	 */
 	ABM_HISTOGRAM_TYPE__SW_IF = 1,
@@ -6113,14 +6170,17 @@ struct dmub_rb_cmd_get_visual_confirm_color {
  */
 enum dmub_cmd_panel_cntl_type {
 	/**
+	 * @DMUB_CMD__PANEL_CNTL_HW_INIT:
 	 * Initializes embedded panel hardware blocks.
 	 */
 	DMUB_CMD__PANEL_CNTL_HW_INIT = 0,
 	/**
+	 * @DMUB_CMD__PANEL_CNTL_QUERY_BACKLIGHT_INFO:
 	 * Queries backlight info for the embedded panel.
 	 */
 	DMUB_CMD__PANEL_CNTL_QUERY_BACKLIGHT_INFO = 1,
 	/**
+	 * @DMUB_CMD__PANEL_DEBUG_PWM_FREQ:
 	 * Sets the PWM Freq as per user's requirement.
 	 */
 	DMUB_CMD__PANEL_DEBUG_PWM_FREQ = 2,
