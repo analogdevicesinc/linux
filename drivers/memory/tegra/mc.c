@@ -50,6 +50,9 @@ static const struct of_device_id tegra_mc_of_match[] = {
 #ifdef CONFIG_ARCH_TEGRA_234_SOC
 	{ .compatible = "nvidia,tegra234-mc", .data = &tegra234_mc_soc },
 #endif
+#ifdef CONFIG_ARCH_TEGRA_238_SOC
+	{ .compatible = "nvidia,tegra238-mc", .data = &tegra238_mc_soc },
+#endif
 #ifdef CONFIG_ARCH_TEGRA_264_SOC
 	{ .compatible = "nvidia,tegra264-mc", .data = &tegra264_mc_soc },
 #endif
