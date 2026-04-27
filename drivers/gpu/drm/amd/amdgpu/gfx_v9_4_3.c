@@ -1241,7 +1241,7 @@ static void gfx_v9_4_3_xcc_constants_init(struct amdgpu_device *adev,
 	/* XXX SH_MEM regs */
 	/* where to put LDS, scratch, GPUVM in FSA64 space */
 	mutex_lock(&adev->srbm_mutex);
-	for (i = 0; i < adev->vm_manager.id_mgr[AMDGPU_GFXHUB(0)].num_ids; i++) {
+	for_each_vmid_and_zero(i, adev, AMDGPU_GFXHUB(0)) {
 		soc15_grbm_select(adev, 0, 0, 0, i, GET_INST(GC, xcc_id));
 		/* CP and shaders */
 		if (i == 0) {

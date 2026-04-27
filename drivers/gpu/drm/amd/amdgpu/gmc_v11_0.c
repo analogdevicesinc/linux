@@ -855,6 +855,11 @@ static int gmc_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 	 */
 	adev->vm_manager.first_kfd_vmid = adev->gfx.disable_kq ? 1 : 8;
 
+	amdgpu_vmid_mgr_set_vmid_mask(adev,
+				      GENMASK(adev->vm_manager.first_kfd_vmid - 1, 1),
+				      false);
+	amdgpu_vmid_mgr_set_vmid_mask(adev, GENMASK(AMDGPU_NUM_VMID - 1, 1), true);
+
 	amdgpu_vm_manager_init(adev);
 
 	r = amdgpu_gmc_ras_sw_init(adev);

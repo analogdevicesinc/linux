@@ -1122,6 +1122,12 @@ static int gmc_v8_0_sw_init(struct amdgpu_ip_block *ip_block)
 	 * amdkfd will use VMIDs 8-15
 	 */
 	adev->vm_manager.first_kfd_vmid = 8;
+	amdgpu_vmid_mgr_set_vmid_mask(adev,
+				      GENMASK(adev->vm_manager.first_kfd_vmid - 1, 1),
+				      false);
+	amdgpu_vmid_mgr_set_vmid_mask(adev,
+				      GENMASK(adev->vm_manager.first_kfd_vmid - 1, 1),
+				      true);
 	amdgpu_vm_manager_init(adev);
 
 	/* base offset of vram pages */

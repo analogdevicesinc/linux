@@ -1938,7 +1938,7 @@ static void gfx_v7_0_constants_init(struct amdgpu_device *adev)
 	WREG32(mmSH_STATIC_MEM_CONFIG, sh_static_mem_cfg);
 
 	mutex_lock(&adev->srbm_mutex);
-	for (i = 0; i < adev->vm_manager.id_mgr[0].num_ids; i++) {
+	for_each_vmid_and_zero(i, adev, 0) {
 		if (i == 0)
 			sh_mem_base = 0;
 		else
