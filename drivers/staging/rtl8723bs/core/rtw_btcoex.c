@@ -18,7 +18,7 @@ void rtw_btcoex_media_status_notify(struct adapter *padapter, u8 media_status)
 	hal_btcoex_MediaStatusNotify(padapter, media_status);
 }
 
-void rtw_btcoex_HaltNotify(struct adapter *padapter)
+void rtw_btcoex_halt_notify(struct adapter *padapter)
 {
 	if (!padapter->bup)
 		return;

@@ -400,7 +400,7 @@ static void rtw_dev_remove(struct sdio_func *func)
 
 	LeaveAllPowerSaveMode(padapter);
 
-	rtw_btcoex_HaltNotify(padapter);
+	rtw_btcoex_halt_notify(padapter);
 
 	rtw_sdio_if1_deinit(padapter);
 

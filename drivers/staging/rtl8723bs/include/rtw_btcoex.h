@@ -15,7 +15,7 @@
 #define	PACKET_EAPOL			3
 
 void rtw_btcoex_media_status_notify(struct adapter *padapter, u8 media_status);
-void rtw_btcoex_HaltNotify(struct adapter *padapter);
+void rtw_btcoex_halt_notify(struct adapter *padapter);
 
 /*  ================================================== */
 /*  Below Functions are called by BT-Coex */
