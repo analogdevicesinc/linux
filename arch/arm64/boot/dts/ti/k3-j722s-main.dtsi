@@ -430,16 +430,6 @@
 	ti,sci-rm-range-tchan = <0x22>;
 };
 
-/* MCU domain overrides */
-
-&mcu_pmx0 {
-	compatible = "ti,j7200-padconf", "pinctrl-single";
-};
-
-&mcu_r5fss0_core0 {
-	firmware-name = "j722s-mcu-r5f0_0-fw";
-};
-
 /* Wakeup domain overrides */
 
 &wkup_r5fss0_core0 {
