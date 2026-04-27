@@ -680,8 +680,18 @@ static void activate_accelerator(struct amdgpu_device *adev)
 	/* Enable incoming NPA address translation with NPA VMID */
 	r = psp_ual_set_npa_config(&adev->psp, adev->ualink.psp_if_ver,
 				   adev->vm_manager.npa_vmid, true);
-	if (!r)
-		adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_READY;
+	if (r) {
+		dev_err(adev->dev, "Failed to set NPA config\n");
+		return;
+	}
+
+	r = amdgpu_ualink_manager_start(adev);
+	if (r) {
+		dev_err(adev->dev, "Failed to start UALink manager\n");
+		return;
+	}
+
+	adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_READY;
 }
 
 static void deactivate_accelerator(struct amdgpu_device *adev)
@@ -694,6 +704,8 @@ static void deactivate_accelerator(struct amdgpu_device *adev)
 			       adev->vm_manager.npa_vmid, false);
 	/* ignore return value */
 	adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_CONFIGURED;
+
+	amdgpu_ualink_manager_stop(adev);
 }
 
 static void activate_local_vpod(struct amdgpu_device *adev)
