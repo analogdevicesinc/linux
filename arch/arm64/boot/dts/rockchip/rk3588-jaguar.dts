@@ -307,6 +307,7 @@
 
 &i2c0 {
 	pinctrl-0 = <&i2c0m2_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 
 	fan@18 {
@@ -417,10 +418,12 @@
 
 &i2c1 {
 	pinctrl-0 = <&i2c1m4_xfer>;
+	pinctrl-names = "default";
 };
 
 &i2c6 {
 	pinctrl-0 = <&i2c6m4_xfer>;
+	pinctrl-names = "default";
 };
 
 &i2c7 {
@@ -439,6 +442,7 @@
 
 &i2c8 {
 	pinctrl-0 = <&i2c8m2_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 
 	typec-portc@22 {
@@ -1054,18 +1058,21 @@
 /* Mule-ATtiny debug UART; typically baudrate 9600 */
 &uart0 {
 	pinctrl-0 = <&uart0m0_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
 /* Main debug interface on P20 micro-USB B port and P21 header */
 &uart2 {
 	pinctrl-0 = <&uart2m0_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
 /* RS485 on P19 */
 &uart3 {
 	pinctrl-0 = <&uart3m2_xfer &uart3_rtsn>;
+	pinctrl-names = "default";
 	linux,rs485-enabled-at-boot-time;
 	status = "okay";
 };
@@ -1073,6 +1080,7 @@
 /* Mule-ATtiny UPDI flashing UART */
 &uart7 {
 	pinctrl-0 = <&uart7m0_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 

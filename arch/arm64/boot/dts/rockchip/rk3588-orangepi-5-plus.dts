@@ -351,6 +351,7 @@
 
 &pwm3 {
 	pinctrl-0 = <&pwm3m1_pins>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
@@ -369,6 +370,7 @@
 
 &uart9 {
 	pinctrl-0 = <&uart9m0_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 

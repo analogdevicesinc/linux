@@ -335,6 +335,7 @@
 
 &pwm6 {
 	pinctrl-0 = <&pwm6m1_pins>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 

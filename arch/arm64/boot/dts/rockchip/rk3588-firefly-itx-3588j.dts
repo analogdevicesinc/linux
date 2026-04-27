@@ -568,11 +568,13 @@
 /* uart/232/485 */
 &uart0 {
 	pinctrl-0 = <&uart0m2_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
 &uart1 {
 	pinctrl-0 = <&uart1m1_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 

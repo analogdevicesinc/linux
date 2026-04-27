@@ -185,6 +185,7 @@
 
 &pcie2x1l2 {
 	pinctrl-0 = <&pcie2_0_rst>;
+	pinctrl-names = "default";
 	reset-gpios = <&gpio3 RK_PD1 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 };
@@ -236,6 +237,7 @@
 
 &pwm8 {
 	pinctrl-0 = <&pwm8m2_pins>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
