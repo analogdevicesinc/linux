@@ -134,17 +134,6 @@ void comedi_usb_driver_unregister(struct comedi_driver *comedi_driver,
 }
 EXPORT_SYMBOL_GPL(comedi_usb_driver_unregister);
 
-static int __init comedi_usb_init(void)
-{
-	return 0;
-}
-module_init(comedi_usb_init);
-
-static void __exit comedi_usb_exit(void)
-{
-}
-module_exit(comedi_usb_exit);
-
 MODULE_AUTHOR("https://www.comedi.org");
 MODULE_DESCRIPTION("Comedi USB interface module");
 MODULE_LICENSE("GPL");

@@ -887,6 +887,7 @@ nfsd(void *vrqstp)
 	struct svc_xprt *perm_sock = list_entry(rqstp->rq_server->sv_permsocks.next, typeof(struct svc_xprt), xpt_list);
 	struct net *net = perm_sock->xpt_net;
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
+	struct nfsd_thread_local_info ntli = { };
 	bool have_mutex = false;
 
 	/* At this point, the thread shares current->fs
@@ -900,6 +901,10 @@ nfsd(void *vrqstp)
 	atomic_inc(&nfsd_th_cnt);
 
 	set_freezable();
+
+	/* use dynamic allocation if ntli should ever become large */
+	static_assert(sizeof(struct nfsd_thread_local_info) < 256);
+	rqstp->rq_private = &ntli;
 
 	/*
 	 * The main request loop
@@ -967,6 +972,7 @@ nfsd(void *vrqstp)
  */
 int nfsd_dispatch(struct svc_rqst *rqstp)
 {
+	struct nfsd_thread_local_info *ntli = rqstp->rq_private;
 	const struct svc_procedure *proc = rqstp->rq_procinfo;
 	__be32 *statp = rqstp->rq_accept_statp;
 	struct nfsd_cacherep *rp;
@@ -977,7 +983,7 @@ int nfsd_dispatch(struct svc_rqst *rqstp)
 	 * Give the xdr decoder a chance to change this if it wants
 	 * (necessary in the NFSv4.0 compound case)
 	 */
-	rqstp->rq_cachetype = proc->pc_cachetype;
+	ntli->ntli_cachetype = proc->pc_cachetype;
 
 	/*
 	 * ->pc_decode advances the argument stream past the NFS
@@ -1022,7 +1028,7 @@ int nfsd_dispatch(struct svc_rqst *rqstp)
 	 */
 	smp_store_release(&rqstp->rq_status_counter, rqstp->rq_status_counter + 1);
 
-	nfsd_cache_update(rqstp, rp, rqstp->rq_cachetype, nfs_reply);
+	nfsd_cache_update(rqstp, rp, ntli->ntli_cachetype, nfs_reply);
 out_cached_reply:
 	return 1;
 

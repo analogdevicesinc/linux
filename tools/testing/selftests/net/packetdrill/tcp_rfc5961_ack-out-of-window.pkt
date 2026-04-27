@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: GPL-2.0
+//
+// RFC 5961 Section 5.2 / RFC 793 Section 3.9: an incoming segment's
+// ACK value must lie in [SND.UNA - MAX.SND.WND, SND.NXT]; otherwise
+// the receiver MUST discard the segment and send a challenge ACK
+// back.  Exercise both edges of that window in a single connection.
+
+`./defaults.sh
+sysctl -q net.ipv4.tcp_invalid_ratelimit=0
+`
+
+   0 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+  +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+  +0 bind(3, ..., ...) = 0
+  +0 listen(3, 1) = 0
+
+// Three-way handshake.  Peer advertises rwnd = 1000 (no wscale), so
+// MAX.SND.WND is tracked as 1000.
+  +0 < S 0:0(0) win 1000 <mss 1000,sackOK,nop,nop,nop,wscale 0>
+  +0 > S. 0:0(0) ack 1 <...>
++.1 < . 1:1(0) ack 1 win 1000
+  +0 accept(3, ..., ...) = 4
+
+// ---- Upper edge: SEG.ACK > SND.NXT --------------------------------
+// Server has sent nothing yet, so SND.UNA = SND.NXT = 1.
+// Peer sends a pure ACK with SEG.ACK = 2, beyond SND.NXT.
+  +0 < . 1:1(0) ack 2 win 1000
+// Expect a challenge ACK: <SEQ = SND.NXT = 1, ACK = RCV.NXT = 1>.
+  +0 > . 1:1(0) ack 1
+
+// Advance SND.UNA past MAX.SND.WND so that the lower edge becomes
+// reachable.  Issue two 1-MSS writes so each skb is exactly one MSS
+// and PSH is set by tcp_push() at the end of each sendmsg, keeping
+// the setup independent of the TSO / tcp_fragment split path.
+  +0 write(4, ..., 1000) = 1000
+  +0 > P. 1:1001(1000) ack 1
++.01 < . 1:1(0) ack 1001 win 1000
+  +0 write(4, ..., 1000) = 1000
+  +0 > P. 1001:2001(1000) ack 1
++.01 < . 1:1(0) ack 2001 win 1000
+// Now SND.UNA = SND.NXT = 2001, MAX.SND.WND = 1000, bytes_acked = 2000.
+
+// ---- Lower edge: SEG.ACK < SND.UNA - MAX.SND.WND ------------------
+// SND.UNA - MAX.SND.WND = 2001 - 1000 = 1001, so SEG.ACK = 1000 falls
+// below the acceptable range.
+  +0 < . 1:1(0) ack 1000 win 1000
+// Expect a challenge ACK: <SEQ = SND.NXT = 2001, ACK = RCV.NXT = 1>.
+  +0 > . 2001:2001(0) ack 1

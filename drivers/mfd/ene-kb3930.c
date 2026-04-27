@@ -157,7 +157,7 @@ static int kb3930_probe(struct i2c_client *client)
 	if (ret)
 		return ret;
 
-	if (of_property_read_bool(np, "system-power-controller")) {
+	if (of_device_is_system_power_controller(np)) {
 		ddata->off_gpios =
 			devm_gpiod_get_array_optional(dev, "off", GPIOD_IN);
 		if (IS_ERR(ddata->off_gpios))

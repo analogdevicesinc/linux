@@ -170,6 +170,16 @@ static int sbrmi_i3c_probe(struct i3c_device *i3cdev)
 	struct regmap *regmap;
 	int rev, ret;
 
+	/*
+	 * AMD OOB devices are distinguished by their Instance ID.
+	 * For SBRMI, the Instance ID is 1. Since the device ID match
+	 * does not account for the Instance ID, the following check
+	 * ensures that only the SBRMI device is probed, excluding
+	 * other OOB devices.
+	 */
+	if (I3C_PID_INSTANCE_ID(i3cdev->desc->info.pid) != 1)
+		return -ENXIO;
+
 	regmap = devm_regmap_init_i3c(i3cdev, &sbrmi_regmap_config);
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
@@ -212,6 +222,10 @@ static void sbrmi_i3c_remove(struct i3c_device *i3cdev)
 static const struct i3c_device_id sbrmi_i3c_id[] = {
 	/* PID for AMD SBRMI device */
 	I3C_DEVICE_EXTRA_INFO(0x112, 0x0, 0x2, NULL),
+	I3C_DEVICE_EXTRA_INFO(0x0, 0x0, 0x118, NULL), /* Socket:0, Venice */
+	I3C_DEVICE_EXTRA_INFO(0x0, 0x100, 0x118, NULL), /* Socket:1, Venice */
+	I3C_DEVICE_EXTRA_INFO(0x112, 0x0, 0x119, NULL), /* Socket:0, Venice */
+	I3C_DEVICE_EXTRA_INFO(0x112, 0x100, 0x119, NULL), /* Socket:1, Venice */
 	{}
 };
 MODULE_DEVICE_TABLE(i3c, sbrmi_i3c_id);

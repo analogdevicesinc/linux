@@ -389,7 +389,7 @@ nop			{ return T_NOP; }
 				char c;
 
 				yptr = yytext;
-				while (c = *yptr++) {
+				while ((c = *yptr++)) {
 					/*
 					 * Strip carriage returns.
 					 */

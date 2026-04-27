@@ -4469,6 +4469,13 @@ static int _nfs4_proc_getattr(struct nfs_server *server, struct nfs_fh *fhandle,
 		case -ENOTSUPP:
 		case -EOPNOTSUPP:
 			server->caps &= ~NFS_CAP_DIR_DELEG;
+			break;
+		case -NFS4ERR_INVAL:
+		case -NFS4ERR_IO:
+		case -NFS4ERR_DIRDELEG_UNAVAIL:
+		case -NFS4ERR_NOTDIR:
+			clear_bit(NFS_INO_REQ_DIR_DELEG, &(NFS_I(inode)->flags));
+			status = -EAGAIN;
 		}
 	}
 
@@ -4490,6 +4497,7 @@ int nfs4_proc_getattr(struct nfs_server *server, struct nfs_fh *fhandle,
 		default:
 			err = nfs4_handle_exception(server, err, &exception);
 			break;
+		case -EAGAIN:
 		case -ENOTSUPP:
 		case -EOPNOTSUPP:
 			exception.retry = true;
@@ -5052,6 +5060,7 @@ static int nfs4_proc_rename_done(struct rpc_task *task, struct inode *old_dir,
 					res->new_fattr->time_start,
 					NFS_INO_INVALID_NLINK |
 					    NFS_INO_INVALID_DATA);
+			nfs_update_delegated_mtime(new_dir);
 		} else
 			nfs4_update_changeattr(old_dir, &res->old_cinfo,
 					res->old_fattr->time_start,
@@ -9769,16 +9778,26 @@ static void nfs4_layoutreturn_done(struct rpc_task *task, void *calldata)
 	if (!nfs41_sequence_process(task, &lrp->res.seq_res))
 		return;
 
-	if (task->tk_rpc_status == -ETIMEDOUT) {
-		lrp->rpc_status = -EAGAIN;
-		lrp->res.lrs_present = 0;
-		return;
-	}
-	/*
-	 * Was there an RPC level error? Assume the call succeeded,
-	 * and that we need to release the layout
-	 */
-	if (task->tk_rpc_status != 0 && RPC_WAS_SENT(task)) {
+	if (task->tk_rpc_status < 0) {
+		switch (task->tk_rpc_status) {
+		case -EACCES:
+		case -EIO:
+		case -EKEYEXPIRED:
+		case -ERESTARTSYS:
+		case -EINTR:
+			lrp->rpc_status = 0;
+			break;
+		case -ENETDOWN:
+		case -ENETUNREACH:
+			if (task->tk_flags & RPC_TASK_NETUNREACH_FATAL)
+				lrp->rpc_status = 0;
+			else
+				lrp->rpc_status = -EAGAIN;
+			break;
+		default:
+			lrp->rpc_status = -EAGAIN;
+			break;
+		}
 		lrp->res.lrs_present = 0;
 		return;
 	}
@@ -10617,6 +10636,9 @@ static struct nfs_server *nfs4_clone_server(struct nfs_server *source,
 	server = nfs_clone_server(source, fh, fattr, flavor);
 	if (IS_ERR(server))
 		return server;
+
+	nfs4_session_limit_rwsize(server);
+	nfs4_session_limit_xasize(server);
 
 	error = nfs4_delegation_hash_alloc(server);
 	if (error) {

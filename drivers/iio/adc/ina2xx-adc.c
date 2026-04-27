@@ -33,8 +33,6 @@
 #include <linux/sched/task.h>
 #include <linux/util_macros.h>
 
-#include <linux/platform_data/ina2xx.h>
-
 /* INA2XX registers definition */
 #define INA2XX_CONFIG                   0x00
 #define INA2XX_SHUNT_VOLTAGE            0x01	/* readonly */
@@ -121,7 +119,7 @@ static const struct regmap_config ina2xx_regmap_config = {
 	.volatile_reg = ina2xx_is_volatile_reg,
 };
 
-enum ina2xx_ids { ina219, ina226 };
+enum ina2xx_ids { ina219, ina226, ina236 };
 
 struct ina2xx_config {
 	const char *name;
@@ -174,6 +172,16 @@ static const struct ina2xx_config ina2xx_config[] = {
 		.bus_voltage_lsb = 1250,
 		.power_lsb_factor = 25,
 		.chip_id = ina226,
+	},
+	[ina236] = {
+		.name = "ina236",
+		.config_default = INA226_CONFIG_DEFAULT,
+		.calibration_value = 2048,
+		.shunt_voltage_lsb = 2500,
+		.bus_voltage_shift = 0,
+		.bus_voltage_lsb = 1600,
+		.power_lsb_factor = 32,
+		.chip_id = ina236,
 	},
 };
 
@@ -499,20 +507,26 @@ static int ina2xx_write_raw(struct iio_dev *indio_dev,
 		break;
 
 	case IIO_CHAN_INFO_INT_TIME:
-		if (chip->config->chip_id == ina226) {
+		switch (chip->config->chip_id) {
+		case ina226:
+		case ina236:
 			if (chan->address == INA2XX_SHUNT_VOLTAGE)
 				ret = ina226_set_int_time_vshunt(chip, val2,
 								 &tmp);
 			else
 				ret = ina226_set_int_time_vbus(chip, val2,
 							       &tmp);
-		} else {
+			break;
+		case ina219:
 			if (chan->address == INA2XX_SHUNT_VOLTAGE)
 				ret = ina219_set_int_time_vshunt(chip, val2,
 								 &tmp);
 			else
 				ret = ina219_set_int_time_vbus(chip, val2,
 							       &tmp);
+			break;
+		default:
+			ret = -EINVAL;
 		}
 		break;
 
@@ -727,18 +741,26 @@ static int ina2xx_conversion_ready(struct iio_dev *indio_dev)
 	 * For now, we do an extra read of the MASK_ENABLE register (INA226)
 	 * resp. the BUS_VOLTAGE register (INA219).
 	 */
-	if (chip->config->chip_id == ina226) {
+	switch (chip->config->chip_id) {
+	case ina226:
+	case ina236:
 		ret = regmap_read(chip->regmap,
 				  INA226_MASK_ENABLE, &alert);
+		if (ret < 0)
+			return ret;
+
 		alert &= INA226_CVRF;
-	} else {
+		break;
+	case ina219:
 		ret = regmap_read(chip->regmap,
 				  INA2XX_BUS_VOLTAGE, &alert);
+		if (ret < 0)
+			return ret;
 		alert &= INA219_CNVR;
+		break;
+	default:
+		return -EINVAL;
 	}
-
-	if (ret < 0)
-		return ret;
 
 	return !!alert;
 }
@@ -980,16 +1002,8 @@ static int ina2xx_probe(struct i2c_client *client)
 
 	mutex_init(&chip->state_lock);
 
-	if (of_property_read_u32(client->dev.of_node,
-				 "shunt-resistor", &val) < 0) {
-		struct ina2xx_platform_data *pdata =
-		    dev_get_platdata(&client->dev);
-
-		if (pdata)
-			val = pdata->shunt_uohms;
-		else
-			val = INA2XX_RSHUNT_DEFAULT;
-	}
+	if (of_property_read_u32(client->dev.of_node, "shunt-resistor", &val) < 0)
+		val = INA2XX_RSHUNT_DEFAULT;
 
 	ret = set_shunt_resistor(chip, val);
 	if (ret)
@@ -998,16 +1012,22 @@ static int ina2xx_probe(struct i2c_client *client)
 	/* Patch the current config register with default. */
 	val = chip->config->config_default;
 
-	if (type == ina226) {
+	switch (type) {
+	case ina226:
+	case ina236:
 		ina226_set_average(chip, INA226_DEFAULT_AVG, &val);
 		ina226_set_int_time_vbus(chip, INA226_DEFAULT_IT, &val);
 		ina226_set_int_time_vshunt(chip, INA226_DEFAULT_IT, &val);
-	} else {
+		break;
+	case ina219:
 		chip->avg = 1;
 		ina219_set_int_time_vbus(chip, INA219_DEFAULT_IT, &val);
 		ina219_set_int_time_vshunt(chip, INA219_DEFAULT_IT, &val);
 		ina219_set_vbus_range_denom(chip, INA219_DEFAULT_BRNG, &val);
 		ina219_set_vshunt_pga_gain(chip, INA219_DEFAULT_PGA, &val);
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	ret = ina2xx_init(chip, val);
@@ -1017,14 +1037,20 @@ static int ina2xx_probe(struct i2c_client *client)
 	}
 
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	if (type == ina226) {
+	switch (type) {
+	case ina226:
+	case ina236:
 		indio_dev->channels = ina226_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ina226_channels);
 		indio_dev->info = &ina226_info;
-	} else {
+		break;
+	case ina219:
 		indio_dev->channels = ina219_channels;
 		indio_dev->num_channels = ARRAY_SIZE(ina219_channels);
 		indio_dev->info = &ina219_info;
+		break;
+	default:
+		return -EINVAL;
 	}
 	indio_dev->name = id ? id->name : chip->config->name;
 
@@ -1057,6 +1083,7 @@ static const struct i2c_device_id ina2xx_id[] = {
 	{ "ina226", ina226 },
 	{ "ina230", ina226 },
 	{ "ina231", ina226 },
+	{ "ina236", ina236 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, ina2xx_id);
@@ -1081,6 +1108,10 @@ static const struct of_device_id ina2xx_of_match[] = {
 	{
 		.compatible = "ti,ina231",
 		.data = (void *)ina226
+	},
+	{
+		.compatible = "ti,ina236",
+		.data = (void *)ina236
 	},
 	{ }
 };

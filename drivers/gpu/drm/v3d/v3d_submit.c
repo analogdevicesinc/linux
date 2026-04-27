@@ -103,6 +103,9 @@ v3d_job_free(struct kref *ref)
 	if (job->perfmon)
 		v3d_perfmon_put(job->perfmon);
 
+	v3d_stats_put(job->client_stats);
+	v3d_stats_put(job->global_stats);
+
 	kfree(job);
 }
 
@@ -202,6 +205,9 @@ v3d_job_init(struct v3d_dev *v3d, struct drm_file *file_priv,
 	}
 
 	kref_init(&job->refcount);
+
+	job->client_stats = v3d_stats_get(v3d_priv->stats[queue]);
+	job->global_stats = v3d_stats_get(v3d->queue[queue].stats);
 
 	return 0;
 
@@ -392,6 +398,11 @@ v3d_get_multisync_submit_deps(struct drm_file *file_priv,
 
 	if (multisync.pad)
 		return -EINVAL;
+
+	if (!multisync.in_sync_count && !multisync.out_sync_count) {
+		drm_dbg(&v3d->drm, "Empty multisync extension\n");
+		return -EINVAL;
+	}
 
 	ret = v3d_get_multisync_post_deps(file_priv, se, multisync.out_sync_count,
 					  multisync.out_syncs);

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config COMMON_CLK_ESWIN
+	bool
+
+config COMMON_CLK_EIC7700
+	tristate "EIC7700 Clock Driver"
+	depends on ARCH_ESWIN || COMPILE_TEST
+	select COMMON_CLK_ESWIN
+	default ARCH_ESWIN
+	help
+	  This driver provides support for clock controller on ESWIN EIC7700
+	  SoC. The clock controller generates and supplies clocks to various
+	  peripherals within the SoC.
+	  Say yes here to support the clock controller on the EIC7700 SoC.

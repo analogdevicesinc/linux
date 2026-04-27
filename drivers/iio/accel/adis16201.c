@@ -147,7 +147,7 @@ static int adis16201_read_raw(struct iio_dev *indio_dev,
 		/*
 		 * The raw ADC value is 1278 when the temperature
 		 * is 25 degrees and the scale factor per milli
-		 * degree celcius is -470.
+		 * degree Celsius is -470.
 		 */
 		*val = 25000 / -470 - 1278;
 		return IIO_VAL_INT;

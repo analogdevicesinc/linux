@@ -140,4 +140,8 @@ void nfsd_debugfs_init(void)
 
 	debugfs_create_file("io_cache_write", 0644, nfsd_top_dir, NULL,
 			    &nfsd_io_cache_write_fops);
+#ifdef CONFIG_NFSD_V4
+	debugfs_create_bool("delegated_timestamps", 0644, nfsd_top_dir,
+			    &nfsd_delegts_enabled);
+#endif
 }

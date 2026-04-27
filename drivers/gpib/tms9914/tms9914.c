@@ -899,16 +899,3 @@ void tms9914_iomem_write_byte(struct tms9914_priv *priv, u8 data, unsigned int r
 		udelay(1);
 }
 EXPORT_SYMBOL_GPL(tms9914_iomem_write_byte);
-
-static int __init tms9914_init_module(void)
-{
-	return 0;
-}
-
-static void __exit tms9914_exit_module(void)
-{
-}
-
-module_init(tms9914_init_module);
-module_exit(tms9914_exit_module);
-

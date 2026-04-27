@@ -761,6 +761,7 @@ static int es8311_set_bias_level(struct snd_soc_component *component,
 {
 	struct es8311_priv *es8311 = snd_soc_component_get_drvdata(component);
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
+	int ret;
 
 	switch (level) {
 	case SND_SOC_BIAS_ON:
@@ -769,17 +770,21 @@ static int es8311_set_bias_level(struct snd_soc_component *component,
 		break;
 	case SND_SOC_BIAS_STANDBY:
 		if (snd_soc_dapm_get_bias_level(dapm) == SND_SOC_BIAS_OFF) {
-			int ret = clk_prepare_enable(es8311->mclk);
+			ret = clk_prepare_enable(es8311->mclk);
 			if (ret) {
 				dev_err(component->dev,
 					"unable to prepare mclk\n");
 				return ret;
 			}
 
-			snd_soc_component_update_bits(
-				component, ES8311_SYS3,
-				ES8311_SYS3_PDN_VMIDSEL_MASK,
-				ES8311_SYS3_PDN_VMIDSEL_STARTUP_NORMAL_SPEED);
+			ret = snd_soc_component_update_bits(
+				      component, ES8311_SYS3,
+				      ES8311_SYS3_PDN_VMIDSEL_MASK,
+				      ES8311_SYS3_PDN_VMIDSEL_STARTUP_NORMAL_SPEED);
+			if (ret < 0) {
+				clk_disable_unprepare(es8311->mclk);
+				return ret;
+			}
 		}
 
 		break;
@@ -862,13 +867,18 @@ static int es8311_suspend(struct snd_soc_component *component)
 static int es8311_resume(struct snd_soc_component *component)
 {
 	struct es8311_priv *es8311;
+	int ret;
 
 	es8311 = snd_soc_component_get_drvdata(component);
 
 	es8311_reset(component, false);
 
 	regcache_cache_only(es8311->regmap, false);
-	regcache_sync(es8311->regmap);
+	ret = regcache_sync(es8311->regmap);
+	if (ret) {
+		dev_err(component->dev, "unable to sync regcache\n");
+		return ret;
+	}
 
 	return 0;
 }

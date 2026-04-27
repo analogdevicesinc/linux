@@ -50,7 +50,6 @@
 	 * effectively VHE-only or not.
 	 */
 	msr_hcr_el2 x0		// Setup HCR_EL2 as nVHE
-	isb
 	mov	x1, #1		// Write something to FAR_EL1
 	msr	far_el1, x1
 	isb
@@ -64,7 +63,6 @@
 .LnE2H0_\@:
 	orr	x0, x0, #HCR_E2H
 	msr_hcr_el2 x0
-	isb
 .LnVHE_\@:
 .endm
 
@@ -248,6 +246,8 @@
 		     ICH_HFGWTR_EL2_ICC_CR0_EL1			| \
 		     ICH_HFGWTR_EL2_ICC_APR_EL1)
 	msr_s	SYS_ICH_HFGWTR_EL2, x0		// Disable reg write traps
+	mov	x0, #(ICH_VCTLR_EL2_En)
+	msr_s	SYS_ICH_VCTLR_EL2, x0		// Enable vHPPI selection
 .Lskip_gicv5_\@:
 .endm
 
@@ -513,7 +513,8 @@
 	check_override id_aa64pfr0, ID_AA64PFR0_EL1_MPAM_SHIFT, .Linit_mpam_\@, .Lskip_mpam_\@, x1, x2
 
 .Linit_mpam_\@:
-	msr_s	SYS_MPAM2_EL2, xzr		// use the default partition
+	mov	x0, #MPAM2_EL2_EnMPAMSM_MASK
+	msr_s	SYS_MPAM2_EL2, x0		// use the default partition,
 						// and disable lower traps
 	mrs_s	x0, SYS_MPAMIDR_EL1
 	tbz	x0, #MPAMIDR_EL1_HAS_HCR_SHIFT, .Lskip_mpam_\@  // skip if no MPAMHCR reg

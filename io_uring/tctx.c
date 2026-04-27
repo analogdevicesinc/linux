@@ -146,9 +146,13 @@ int __io_uring_add_tctx_node(struct io_ring_ctx *ctx)
 		if (IS_ERR(tctx))
 			return PTR_ERR(tctx);
 
-		if (ctx->int_flags & IO_RING_F_IOWQ_LIMITS_SET) {
-			unsigned int limits[2] = { ctx->iowq_limits[0],
-						   ctx->iowq_limits[1], };
+		if (data_race(ctx->int_flags) & IO_RING_F_IOWQ_LIMITS_SET) {
+			unsigned int limits[2];
+
+			mutex_lock(&ctx->uring_lock);
+			limits[0] = ctx->iowq_limits[0];
+			limits[1] = ctx->iowq_limits[1];
+			mutex_unlock(&ctx->uring_lock);
 
 			ret = io_wq_max_workers(tctx->io_wq, limits);
 			if (ret)
@@ -171,7 +175,10 @@ int __io_uring_add_tctx_node(struct io_ring_ctx *ctx)
 	}
 	if (!current->io_uring) {
 err_free:
-		io_wq_put_and_exit(tctx->io_wq);
+		if (tctx->io_wq) {
+			io_wq_exit_start(tctx->io_wq);
+			io_wq_put_and_exit(tctx->io_wq);
+		}
 		percpu_counter_destroy(&tctx->inflight);
 		kfree(tctx);
 	}

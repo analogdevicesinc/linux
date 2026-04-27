@@ -45,7 +45,8 @@ static int pc236_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	if (!devpriv)
 		return -ENOMEM;
 
-	ret = comedi_request_region(dev, it->options[0], 0x4);
+	ret = comedi_check_request_region(dev, it->options[0], 0x4,
+					  0, 0xfff, 4);
 	if (ret)
 		return ret;
 

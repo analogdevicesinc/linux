@@ -9,5 +9,3 @@ Contents:
    :maxdepth: 2
 
    cxacru
-   fore200e
-   iphase

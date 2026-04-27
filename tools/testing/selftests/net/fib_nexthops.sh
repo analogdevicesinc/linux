@@ -1209,6 +1209,28 @@ ipv6_fcnal_runtime()
 	run_cmd "$IP ro replace 2001:db8:101::1/128 nhid 124"
 	log_test $? 0 "IPv6 route using a group after replacing v4 gateways"
 
+	# Replacing an IPv6 nexthop with an IPv4 nexthop should update has_v4
+	# for all groups using it, preventing IPv6 routes from referencing the
+	# group after the replace.
+	run_cmd "$IP nexthop add id 89 via 2001:db8:91::2 dev veth1"
+	run_cmd "$IP nexthop add id 125 group 89"
+	run_cmd "$IP nexthop replace id 89 via 172.16.1.1 dev veth1"
+	run_cmd "$IP ro replace 2001:db8:101::1/128 nhid 125"
+	log_test $? 2 "IPv6 route can not use group after v6 nexthop replaced by v4"
+
+	# Same scenario but with a blackhole nexthop: the group has no IPv6
+	# routes yet when the replace happens, so fib6_check_nh_list returns
+	# early without checking. has_v4 must still be updated to block
+	# subsequent IPv6 route additions.
+	run_cmd "$IP nexthop flush >/dev/null 2>&1"
+	run_cmd "$IP -6 nexthop add id 90 blackhole"
+	run_cmd "$IP nexthop add id 125 group 90"
+	run_cmd "$IP nexthop replace id 90 blackhole"
+	run_cmd "$IP -6 ro add 2001:db8:101::1/128 nhid 125"
+	log_test $? 2 "IPv6 route reject v6 blackhole replaced by v4 blackhole"
+	run_cmd "ip netns exec $me ping -6 2001:db8:101::1 -c1 -w$PING_TIMEOUT"
+	log_test $? 2 "Ping unreachable after rejected route"
+
 	$IP nexthop flush >/dev/null 2>&1
 
 	#

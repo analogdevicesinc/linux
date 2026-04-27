@@ -31,5 +31,5 @@ fi
 # time out here
 _ublk_del_dev "${dev_id}"
 
-_cleanup_test "fault_inject"
+_cleanup_test
 _show_result $TID $ERR_CODE

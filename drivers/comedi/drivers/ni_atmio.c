@@ -311,7 +311,8 @@ static int ni_atmio_attach(struct comedi_device *dev,
 		comedi_set_hw_dev(dev, &isapnp_dev->dev);
 	}
 
-	ret = comedi_request_region(dev, iobase, 0x20);
+	ret = comedi_check_request_region(dev, iobase, 0x20,
+					  0x20, 0xffff, 32);
 	if (ret)
 		return ret;
 

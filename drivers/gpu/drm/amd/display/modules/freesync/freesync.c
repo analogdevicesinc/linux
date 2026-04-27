@@ -114,6 +114,7 @@ static unsigned int calc_duration_in_us_from_v_total(
 		const struct mod_vrr_params *in_vrr,
 		unsigned int v_total)
 {
+	(void)in_vrr;
 	unsigned int duration_in_us =
 			(unsigned int)(div64_u64(((unsigned long long)(v_total)
 				* 10000) * stream->timing.h_total,
@@ -152,7 +153,7 @@ unsigned int mod_freesync_calc_v_total_from_refresh(
 		 * round down the vtotal value to avoid stretching vblank over
 		 * panel's vtotal boundary.
 		 */
-		v_total = div64_u64(div64_u64(((unsigned long long)(
+		v_total = (unsigned int)div64_u64(div64_u64(((unsigned long long)(
 				frame_duration_in_ns) * (stream->timing.pix_clk_100hz / 10)),
 				stream->timing.h_total), 1000000);
 	} else if (refresh_in_uhz >= stream->timing.max_refresh_in_uhz) {
@@ -160,11 +161,11 @@ unsigned int mod_freesync_calc_v_total_from_refresh(
 		 * round up the vtotal value to prevent off-by-one error causing
 		 * v_total_min to be below the panel's lower bound
 		 */
-		v_total = div64_u64(div64_u64(((unsigned long long)(
+		v_total = (unsigned int)div64_u64(div64_u64(((unsigned long long)(
 				frame_duration_in_ns) * (stream->timing.pix_clk_100hz / 10)),
 				stream->timing.h_total) + (1000000 - 1), 1000000);
 	} else {
-		v_total = div64_u64(div64_u64(((unsigned long long)(
+		v_total = (unsigned int)div64_u64(div64_u64(((unsigned long long)(
 				frame_duration_in_ns) * (stream->timing.pix_clk_100hz / 10)),
 				stream->timing.h_total) + 500000, 1000000);
 	}
@@ -195,11 +196,11 @@ static unsigned int calc_v_total_from_duration(
 		uint32_t h_total_up_scaled;
 
 		h_total_up_scaled = stream->timing.h_total * 10000;
-		v_total = div_u64((unsigned long long)duration_in_us
+		v_total = (unsigned int)div_u64((unsigned long long)duration_in_us
 					* stream->timing.pix_clk_100hz + (h_total_up_scaled - 1),
 					h_total_up_scaled); //ceiling for MMax and MMin for MVRR
 	} else {
-		v_total = div64_u64(div64_u64(((unsigned long long)(
+		v_total = (unsigned int)div64_u64(div64_u64(((unsigned long long)(
 					duration_in_us) * (stream->timing.pix_clk_100hz / 10)),
 					stream->timing.h_total), 1000);
 	}
@@ -218,6 +219,7 @@ static void update_v_total_for_static_ramp(
 		const struct dc_stream_state *stream,
 		struct mod_vrr_params *in_out_vrr)
 {
+	(void)core_freesync;
 	unsigned int v_total = 0;
 	unsigned int current_duration_in_us =
 			calc_duration_in_us_from_v_total(
@@ -230,22 +232,28 @@ static void update_v_total_for_static_ramp(
 				target_duration_in_us;
 
 	/* Calculate ratio between new and current frame duration with 3 digit */
-	unsigned int frame_duration_ratio = div64_u64(1000000,
+	uint64_t frame_duration_ratio_u64 = div64_u64(1000000,
 		(1000 +  div64_u64(((unsigned long long)(
 		STATIC_SCREEN_RAMP_DELTA_REFRESH_RATE_PER_FRAME) *
 		current_duration_in_us),
 		1000000)));
+	ASSERT(frame_duration_ratio_u64 <= 0xFFFFFFFF);
+	unsigned int frame_duration_ratio = (unsigned int)frame_duration_ratio_u64;
 
 	/* Calculate delta between new and current frame duration in us */
-	unsigned int frame_duration_delta = div64_u64(((unsigned long long)(
+	uint64_t frame_duration_delta_u64 = div64_u64(((unsigned long long)(
 		current_duration_in_us) *
 		(1000 - frame_duration_ratio)), 1000);
+	ASSERT(frame_duration_delta_u64 <= 0xFFFFFFFF);
+	unsigned int frame_duration_delta = (unsigned int)frame_duration_delta_u64;
 
 	/* Adjust frame duration delta based on ratio between current and
 	 * standard frame duration (frame duration at 60 Hz refresh rate).
 	 */
-	unsigned int ramp_rate_interpolated = div64_u64(((unsigned long long)(
+	uint64_t ramp_rate_interpolated_u64 = div64_u64(((unsigned long long)(
 		frame_duration_delta) * current_duration_in_us), 16666);
+	ASSERT(ramp_rate_interpolated_u64 <= 0xFFFFFFFF);
+	unsigned int ramp_rate_interpolated = (unsigned int)ramp_rate_interpolated_u64;
 
 	/* Going to a higher refresh rate (lower frame duration) */
 	if (ramp_direction_is_up) {
@@ -275,7 +283,7 @@ static void update_v_total_for_static_ramp(
 		}
 	}
 
-	v_total = div64_u64(div64_u64(((unsigned long long)(
+	v_total = (unsigned int)div64_u64(div64_u64(((unsigned long long)(
 			current_duration_in_us) * (stream->timing.pix_clk_100hz / 10)),
 				stream->timing.h_total), 1000);
 
@@ -292,6 +300,7 @@ static void apply_below_the_range(struct core_freesync *core_freesync,
 		unsigned int last_render_time_in_us,
 		struct mod_vrr_params *in_out_vrr)
 {
+	(void)core_freesync;
 	unsigned int inserted_frame_duration_in_us = 0;
 	unsigned int mid_point_frames_ceil = 0;
 	unsigned int mid_point_frames_floor = 0;
@@ -447,6 +456,7 @@ static void apply_fixed_refresh(struct core_freesync *core_freesync,
 		unsigned int last_render_time_in_us,
 		struct mod_vrr_params *in_out_vrr)
 {
+	(void)core_freesync;
 	bool update = false;
 	unsigned int max_render_time_in_us = in_out_vrr->max_duration_in_us;
 
@@ -545,6 +555,7 @@ static bool vrr_settings_require_update(struct core_freesync *core_freesync,
 		unsigned int max_refresh_in_uhz,
 		struct mod_vrr_params *in_vrr)
 {
+	(void)core_freesync;
 	if (in_vrr->state != in_config->state) {
 		return true;
 	} else if (in_vrr->state == VRR_STATE_ACTIVE_FIXED &&
@@ -946,6 +957,7 @@ void mod_freesync_build_vrr_infopacket(struct mod_freesync *mod_freesync,
 		struct dc_info_packet *infopacket,
 		bool pack_sdp_v1_3)
 {
+	(void)mod_freesync;
 	/* SPD info packet for FreeSync
 	 * VTEM info packet for HdmiVRR
 	 * Check if Freesync is supported. Return if false. If true,
@@ -1052,8 +1064,12 @@ void mod_freesync_build_vrr_params(struct mod_freesync *mod_freesync,
 		else
 			in_out_vrr->fixed_refresh_in_uhz = 0;
 
-		refresh_range = div_u64(in_out_vrr->max_refresh_in_uhz + 500000, 1000000) -
-				div_u64(in_out_vrr->min_refresh_in_uhz + 500000, 1000000);
+		{
+			uint64_t rr_tmp = div_u64(in_out_vrr->max_refresh_in_uhz + 500000, 1000000) -
+					div_u64(in_out_vrr->min_refresh_in_uhz + 500000, 1000000);
+			ASSERT(rr_tmp <= 0xFFFFFFFF);
+			refresh_range = (unsigned int)rr_tmp;
+		}
 
 		in_out_vrr->supported = true;
 	}

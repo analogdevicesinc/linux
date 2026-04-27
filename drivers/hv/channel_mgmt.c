@@ -384,8 +384,18 @@ static void free_channel(struct vmbus_channel *channel)
 
 void vmbus_channel_map_relid(struct vmbus_channel *channel)
 {
-	if (WARN_ON(channel->offermsg.child_relid >= MAX_CHANNEL_RELIDS))
+	u32 new_relid = channel->offermsg.child_relid;
+
+	if (WARN_ON(new_relid >= MAX_CHANNEL_RELIDS))
 		return;
+
+	/*
+	 * This function is always called in the tasklet for the connect CPU.
+	 * So updating the relid hiwater mark does not need to be atomic.
+	 */
+	if (new_relid > READ_ONCE(vmbus_connection.relid_hiwater))
+		WRITE_ONCE(vmbus_connection.relid_hiwater, new_relid);
+
 	/*
 	 * The mapping of the channel's relid is visible from the CPUs that
 	 * execute vmbus_chan_sched() by the time that vmbus_chan_sched() will
@@ -411,9 +421,7 @@ void vmbus_channel_map_relid(struct vmbus_channel *channel)
 	 *      of the VMBus driver and vmbus_chan_sched() can not run before
 	 *      vmbus_bus_resume() has completed execution (cf. resume_noirq).
 	 */
-	virt_store_mb(
-		vmbus_connection.channels[channel->offermsg.child_relid],
-		channel);
+	virt_store_mb(vmbus_connection.channels[new_relid], channel);
 }
 
 void vmbus_channel_unmap_relid(struct vmbus_channel *channel)

@@ -12,6 +12,24 @@
  */
 #define __my_cpu_offset get_lowcore()->percpu_offset
 
+#define arch_raw_cpu_ptr(_ptr)						\
+({									\
+	unsigned long lc_percpu, tcp_ptr__;				\
+									\
+	tcp_ptr__ = (__force unsigned long)(_ptr);			\
+	lc_percpu = offsetof(struct lowcore, percpu_offset);		\
+	asm_inline volatile(						\
+	ALTERNATIVE("ag		%[__ptr__],%[offzero](%%r0)\n",		\
+		    "ag		%[__ptr__],%[offalt](%%r0)\n",		\
+		    ALT_FEATURE(MFEATURE_LOWCORE))			\
+	: [__ptr__] "+d" (tcp_ptr__)					\
+	: [offzero] "i" (lc_percpu),					\
+	  [offalt] "i" (lc_percpu + LOWCORE_ALT_ADDRESS),		\
+	  "m" (((struct lowcore *)0)->percpu_offset)			\
+	: "cc");							\
+	(TYPEOF_UNQUAL(*(_ptr)) __force __kernel *)tcp_ptr__;		\
+})
+
 /*
  * We use a compare-and-swap loop since that uses less cpu cycles than
  * disabling and enabling interrupts like the generic variant would do.

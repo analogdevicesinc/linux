@@ -7,6 +7,7 @@
  *   Author(s): Michael A. Halcrow <mahalcro@us.ibm.com>
  */
 
+#include <linux/string.h>
 #include "ecryptfs_kernel.h"
 
 /*
@@ -33,9 +34,7 @@ void ecryptfs_dump_auth_tok(struct ecryptfs_auth_tok *auth_tok)
 		    ECRYPTFS_PERSISTENT_PASSWORD) {
 			ecryptfs_printk(KERN_DEBUG, " * persistent\n");
 		}
-		memcpy(sig, auth_tok->token.password.signature,
-		       ECRYPTFS_SIG_SIZE_HEX);
-		sig[ECRYPTFS_SIG_SIZE_HEX] = '\0';
+		strscpy(sig, auth_tok->token.password.signature);
 		ecryptfs_printk(KERN_DEBUG, " * signature = [%s]\n", sig);
 	}
 	ecryptfs_printk(KERN_DEBUG, " * session_key.flags = [0x%x]\n",

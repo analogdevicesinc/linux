@@ -1173,7 +1173,7 @@ config REGULATOR_QCOM_RPM
 	  "qcom_rpm-regulator".
 
 config REGULATOR_QCOM_RPMH
-	tristate "Qualcomm Technologies, Inc. RPMh regulator driver"
+	tristate "Qualcomm RPMh regulator driver"
 	depends on QCOM_RPMH || (QCOM_RPMH=n && COMPILE_TEST)
 	depends on QCOM_COMMAND_DB || (QCOM_COMMAND_DB=n && COMPILE_TEST)
 	help
@@ -1877,7 +1877,7 @@ config REGULATOR_WM8994
 	  WM8994 CODEC.
 
 config REGULATOR_QCOM_LABIBB
-	tristate "QCOM LAB/IBB regulator support"
+	tristate "Qualcomm LAB/IBB regulator support"
 	depends on SPMI || COMPILE_TEST
 	help
 	  This driver supports Qualcomm's LAB/IBB regulators present on the

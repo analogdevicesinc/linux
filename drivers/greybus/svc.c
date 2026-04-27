@@ -775,10 +775,9 @@ static void gb_svc_pwrmon_debugfs_init(struct gb_svc *svc)
 	if (!rail_count || rail_count > GB_SVC_PWRMON_MAX_RAIL_COUNT)
 		goto err_pwrmon_debugfs;
 
-	bufsize = sizeof(*rail_names) +
-		GB_SVC_PWRMON_RAIL_NAME_BUFSIZE * rail_count;
+	bufsize = struct_size(rail_names, name, rail_count);
 
-	rail_names = kzalloc(bufsize, GFP_KERNEL);
+	rail_names = kzalloc_flex(*rail_names, name, rail_count);
 	if (!rail_names)
 		goto err_pwrmon_debugfs;
 

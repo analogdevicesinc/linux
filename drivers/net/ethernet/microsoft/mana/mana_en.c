@@ -882,7 +882,7 @@ static void mana_tx_timeout(struct net_device *netdev, unsigned int txqueue)
 	struct gdma_context *gc = ac->gdma_dev->gdma_context;
 
 	/* Already in service, hence tx queue reset is not required.*/
-	if (gc->in_service)
+	if (test_bit(GC_IN_SERVICE, &gc->flags))
 		return;
 
 	/* Note: If there are pending queue reset work for this port(apc),
@@ -1028,8 +1028,8 @@ static int mana_send_request(struct mana_context *ac, void *in_buf,
 
 		if (req->req.msg_type != MANA_QUERY_PHY_STAT &&
 		    mana_need_log(gc, err))
-			dev_err(dev, "Failed to send mana message: %d, 0x%x\n",
-				err, resp->status);
+			dev_err(dev, "Command 0x%x failed with status: 0x%x, err: %d\n",
+				req->req.msg_type, resp->status, err);
 		return err ? err : -EPROTO;
 	}
 
@@ -1214,10 +1214,16 @@ static int mana_query_device_cfg(struct mana_context *ac, u32 proto_major_ver,
 
 	*max_num_vports = resp.max_num_vports;
 
-	if (resp.hdr.response.msg_version >= GDMA_MESSAGE_V2)
+	if (resp.hdr.response.msg_version >= GDMA_MESSAGE_V2) {
+		if (resp.adapter_mtu < ETH_MIN_MTU + ETH_HLEN) {
+			dev_err(dev, "Adapter MTU too small: %u\n",
+				resp.adapter_mtu);
+			return -EPROTO;
+		}
 		gc->adapter_mtu = resp.adapter_mtu;
-	else
+	} else {
 		gc->adapter_mtu = ETH_FRAME_LEN;
+	}
 
 	if (resp.hdr.response.msg_version >= GDMA_MESSAGE_V3)
 		*bm_hostmode = resp.bm_hostmode;
@@ -1342,8 +1348,8 @@ int mana_cfg_vport(struct mana_port_context *apc, u32 protection_dom_id,
 	apc->tx_shortform_allowed = resp.short_form_allowed;
 	apc->tx_vp_offset = resp.tx_vport_offset;
 
-	netdev_info(apc->ndev, "Configured vPort %llu PD %u DB %u\n",
-		    apc->port_handle, protection_dom_id, doorbell_pg_id);
+	netdev_info(apc->ndev, "Enabled vPort %llu PD %u DB %u MAC %pM\n",
+		    apc->port_handle, protection_dom_id, doorbell_pg_id, apc->mac_addr);
 out:
 	if (err)
 		mana_uncfg_vport(apc);
@@ -1372,6 +1378,7 @@ static int mana_cfg_vport_steering(struct mana_port_context *apc,
 			     sizeof(resp));
 
 	req->hdr.req.msg_version = GDMA_MESSAGE_V2;
+	req->hdr.resp.msg_version = GDMA_MESSAGE_V2;
 
 	req->vport = apc->port_handle;
 	req->num_indir_entries = apc->indir_table_sz;
@@ -1383,7 +1390,9 @@ static int mana_cfg_vport_steering(struct mana_port_context *apc,
 	req->update_hashkey = update_key;
 	req->update_indir_tab = update_tab;
 	req->default_rxobj = apc->default_rxobj;
-	req->cqe_coalescing_enable = 0;
+
+	if (rx != TRI_STATE_FALSE)
+		req->cqe_coalescing_enable = apc->cqe_coalescing_enable;
 
 	if (update_key)
 		memcpy(&req->hashkey, apc->hashkey, MANA_HASH_KEY_SIZE);
@@ -1412,7 +1421,12 @@ static int mana_cfg_vport_steering(struct mana_port_context *apc,
 		netdev_err(ndev, "vPort RX configuration failed: 0x%x\n",
 			   resp.hdr.status);
 		err = -EPROTO;
+		goto out;
 	}
+
+	if (resp.hdr.response.msg_version >= GDMA_MESSAGE_V2)
+		apc->cqe_coalescing_timeout_ns =
+			resp.cqe_coalescing_timeout_ns;
 
 	netdev_info(ndev, "Configured steering vPort %llu entries %u\n",
 		    apc->port_handle, apc->indir_table_sz);
@@ -1922,11 +1936,12 @@ static struct sk_buff *mana_build_skb(struct mana_rxq *rxq, void *buf_va,
 }
 
 static void mana_rx_skb(void *buf_va, bool from_pool,
-			struct mana_rxcomp_oob *cqe, struct mana_rxq *rxq)
+			struct mana_rxcomp_oob *cqe, struct mana_rxq *rxq,
+			int i)
 {
 	struct mana_stats_rx *rx_stats = &rxq->stats;
 	struct net_device *ndev = rxq->ndev;
-	uint pkt_len = cqe->ppi[0].pkt_len;
+	uint pkt_len = cqe->ppi[i].pkt_len;
 	u16 rxq_idx = rxq->rxq_idx;
 	struct napi_struct *napi;
 	struct xdp_buff xdp = {};
@@ -1970,7 +1985,7 @@ static void mana_rx_skb(void *buf_va, bool from_pool,
 	}
 
 	if (cqe->rx_hashtype != 0 && (ndev->features & NETIF_F_RXHASH)) {
-		hash_value = cqe->ppi[0].pkt_hash;
+		hash_value = cqe->ppi[i].pkt_hash;
 
 		if (cqe->rx_hashtype & MANA_HASH_L4)
 			skb_set_hash(skb, hash_value, PKT_HASH_TYPE_L4);
@@ -2105,9 +2120,11 @@ static void mana_process_rx_cqe(struct mana_rxq *rxq, struct mana_cq *cq,
 	struct mana_recv_buf_oob *rxbuf_oob;
 	struct mana_port_context *apc;
 	struct device *dev = gc->dev;
+	bool coalesced = false;
 	void *old_buf = NULL;
 	u32 curr, pktlen;
 	bool old_fp;
+	int i;
 
 	apc = netdev_priv(ndev);
 
@@ -2119,12 +2136,15 @@ static void mana_process_rx_cqe(struct mana_rxq *rxq, struct mana_cq *cq,
 		++ndev->stats.rx_dropped;
 		rxbuf_oob = &rxq->rx_oobs[rxq->buf_index];
 		netdev_warn_once(ndev, "Dropped a truncated packet\n");
-		goto drop;
+
+		mana_move_wq_tail(rxq->gdma_rq,
+				  rxbuf_oob->wqe_inf.wqe_size_in_bu);
+		mana_post_pkt_rxq(rxq);
+		return;
 
 	case CQE_RX_COALESCED_4:
-		netdev_err(ndev, "RX coalescing is unsupported\n");
-		apc->eth_stats.rx_coalesced_err++;
-		return;
+		coalesced = true;
+		break;
 
 	case CQE_RX_OBJECT_FENCE:
 		complete(&rxq->fence_event);
@@ -2137,30 +2157,47 @@ static void mana_process_rx_cqe(struct mana_rxq *rxq, struct mana_cq *cq,
 		return;
 	}
 
-	pktlen = oob->ppi[0].pkt_len;
+	for (i = 0; i < MANA_RXCOMP_OOB_NUM_PPI; i++) {
+		old_buf = NULL;
+		pktlen = oob->ppi[i].pkt_len;
+		if (pktlen == 0)
+			break;
 
-	if (pktlen == 0) {
-		/* data packets should never have packetlength of zero */
-		netdev_err(ndev, "RX pkt len=0, rq=%u, cq=%u, rxobj=0x%llx\n",
-			   rxq->gdma_id, cq->gdma_id, rxq->rxobj);
-		return;
+		curr = rxq->buf_index;
+		rxbuf_oob = &rxq->rx_oobs[curr];
+		WARN_ON_ONCE(rxbuf_oob->wqe_inf.wqe_size_in_bu != 1);
+
+		mana_refill_rx_oob(dev, rxq, rxbuf_oob, &old_buf, &old_fp);
+
+		/* Unsuccessful refill will have old_buf == NULL.
+		 * In this case, mana_rx_skb() will drop the packet.
+		 */
+		mana_rx_skb(old_buf, old_fp, oob, rxq, i);
+
+		mana_move_wq_tail(rxq->gdma_rq,
+				  rxbuf_oob->wqe_inf.wqe_size_in_bu);
+
+		mana_post_pkt_rxq(rxq);
+
+		if (!coalesced)
+			break;
 	}
 
-	curr = rxq->buf_index;
-	rxbuf_oob = &rxq->rx_oobs[curr];
-	WARN_ON_ONCE(rxbuf_oob->wqe_inf.wqe_size_in_bu != 1);
-
-	mana_refill_rx_oob(dev, rxq, rxbuf_oob, &old_buf, &old_fp);
-
-	/* Unsuccessful refill will have old_buf == NULL.
-	 * In this case, mana_rx_skb() will drop the packet.
+	/* Collect coalesced CQE count based on packets processed.
+	 * Coalesced CQEs have at least 2 packets, so index is i - 2.
 	 */
-	mana_rx_skb(old_buf, old_fp, oob, rxq);
-
-drop:
-	mana_move_wq_tail(rxq->gdma_rq, rxbuf_oob->wqe_inf.wqe_size_in_bu);
-
-	mana_post_pkt_rxq(rxq);
+	if (i > 1) {
+		u64_stats_update_begin(&rxq->stats.syncp);
+		rxq->stats.coalesced_cqe[i - 2]++;
+		u64_stats_update_end(&rxq->stats.syncp);
+	} else if (!i && !pktlen) {
+		u64_stats_update_begin(&rxq->stats.syncp);
+		rxq->stats.pkt_len0_err++;
+		u64_stats_update_end(&rxq->stats.syncp);
+		netdev_err_once(ndev,
+				"RX pkt len=0, rq=%u, cq=%u, rxobj=0x%llx\n",
+				rxq->gdma_id, cq->gdma_id, rxq->rxobj);
+	}
 }
 
 static void mana_poll_rx_cq(struct mana_cq *cq)
@@ -2889,6 +2926,13 @@ static void mana_rss_table_init(struct mana_port_context *apc)
 			ethtool_rxfh_indir_default(i, apc->num_queues);
 }
 
+int mana_disable_vport_rx(struct mana_port_context *apc)
+{
+	return mana_cfg_vport_steering(apc, TRI_STATE_FALSE, false, false,
+				       false);
+}
+EXPORT_SYMBOL_NS(mana_disable_vport_rx, "NET_MANA");
+
 int mana_config_rss(struct mana_port_context *apc, enum TRI_STATE rx,
 		    bool update_hash, bool update_tab)
 {
@@ -3117,6 +3161,8 @@ static int mana_init_port(struct net_device *ndev)
 	eth_hw_addr_set(ndev, apc->mac_addr);
 	sprintf(vport, "vport%d", port_idx);
 	apc->mana_port_debugfs = debugfs_create_dir(vport, gc->mana_pci_debugfs);
+	debugfs_create_u32("current_speed", 0400, apc->mana_port_debugfs,
+			   &apc->speed);
 	return 0;
 
 reset_apc:
@@ -3273,9 +3319,11 @@ static int mana_dealloc_queues(struct net_device *ndev)
 	 */
 
 	apc->rss_state = TRI_STATE_FALSE;
-	err = mana_config_rss(apc, TRI_STATE_FALSE, false, false);
+	err = mana_disable_vport_rx(apc);
 	if (err && mana_en_need_log(apc, err))
 		netdev_err(ndev, "Failed to disable vPort: %d\n", err);
+
+	mana_fence_rqs(apc);
 
 	/* Even in err case, still need to cleanup the vPort */
 	mana_destroy_vport(apc);
@@ -3333,12 +3381,14 @@ static int mana_probe_port(struct mana_context *ac, int port_idx,
 	apc->ac = ac;
 	apc->ndev = ndev;
 	apc->max_queues = gc->max_num_queues;
-	apc->num_queues = gc->max_num_queues;
+	/* Use MANA_DEF_NUM_QUEUES as default, still honoring the HW limit */
+	apc->num_queues = min(gc->max_num_queues, MANA_DEF_NUM_QUEUES);
 	apc->tx_queue_size = DEF_TX_BUFFERS_PER_QUEUE;
 	apc->rx_queue_size = DEF_RX_BUFFERS_PER_QUEUE;
 	apc->port_handle = INVALID_MANA_HANDLE;
 	apc->pf_filter_handle = INVALID_MANA_HANDLE;
 	apc->port_idx = port_idx;
+	apc->cqe_coalescing_enable = 0;
 
 	mutex_init(&apc->vport_mutex);
 	apc->vport_use_count = 0;
@@ -3392,8 +3442,6 @@ static int mana_probe_port(struct mana_context *ac, int port_idx,
 	}
 
 	netif_carrier_on(ndev);
-
-	debugfs_create_u32("current_speed", 0400, apc->mana_port_debugfs, &apc->speed);
 
 	return 0;
 
@@ -3547,6 +3595,7 @@ static void mana_gf_stats_work_handler(struct work_struct *work)
 {
 	struct mana_context *ac =
 		container_of(to_delayed_work(work), struct mana_context, gf_stats_work);
+	struct gdma_context *gc = ac->gdma_dev->gdma_context;
 	int err;
 
 	err = mana_query_gf_stats(ac);
@@ -3554,6 +3603,12 @@ static void mana_gf_stats_work_handler(struct work_struct *work)
 		/* HWC timeout detected - reset stats and stop rescheduling */
 		ac->hwc_timeout_occurred = true;
 		memset(&ac->hc_stats, 0, sizeof(ac->hc_stats));
+		dev_warn(gc->dev,
+			 "Gf stats wk handler: gf stats query timed out.\n");
+		/* As HWC timed out, indicating a faulty HW state and needs a
+		 * reset.
+		 */
+		mana_schedule_serv_work(gc, GDMA_EQE_HWC_RESET_REQUEST);
 		return;
 	}
 	schedule_delayed_work(&ac->gf_stats_work, MANA_GF_STATS_PERIOD);
@@ -3585,7 +3640,11 @@ int mana_probe(struct gdma_dev *gd, bool resuming)
 
 		ac->gdma_dev = gd;
 		gd->driver_data = ac;
+
+		INIT_WORK(&ac->link_change_work, mana_link_state_handle);
 	}
+
+	INIT_DELAYED_WORK(&ac->gf_stats_work, mana_gf_stats_work_handler);
 
 	err = mana_create_eq(ac);
 	if (err) {
@@ -3602,8 +3661,6 @@ int mana_probe(struct gdma_dev *gd, bool resuming)
 
 	if (!resuming) {
 		ac->num_ports = num_ports;
-
-		INIT_WORK(&ac->link_change_work, mana_link_state_handle);
 	} else {
 		if (ac->num_ports != num_ports) {
 			dev_err(dev, "The number of vPorts changed: %d->%d\n",
@@ -3632,10 +3689,9 @@ int mana_probe(struct gdma_dev *gd, bool resuming)
 	if (!resuming) {
 		for (i = 0; i < ac->num_ports; i++) {
 			err = mana_probe_port(ac, i, &ac->ports[i]);
-			/* we log the port for which the probe failed and stop
-			 * probes for subsequent ports.
-			 * Note that we keep running ports, for which the probes
-			 * were successful, unless add_adev fails too
+			/* Log the port for which the probe failed, stop probing
+			 * subsequent ports, and skip add_adev.
+			 * mana_remove() will clean up already-probed ports.
 			 */
 			if (err) {
 				dev_err(dev, "Probe Failed for port %d\n", i);
@@ -3649,10 +3705,9 @@ int mana_probe(struct gdma_dev *gd, bool resuming)
 			enable_work(&apc->queue_reset_work);
 			err = mana_attach(ac->ports[i]);
 			rtnl_unlock();
-			/* we log the port for which the attach failed and stop
-			 * attach for subsequent ports
-			 * Note that we keep running ports, for which the attach
-			 * were successful, unless add_adev fails too
+			/* Log the port for which the attach failed, stop
+			 * attaching subsequent ports, and skip add_adev.
+			 * mana_remove() will clean up already-attached ports.
 			 */
 			if (err) {
 				dev_err(dev, "Attach Failed for port %d\n", i);
@@ -3661,9 +3716,9 @@ int mana_probe(struct gdma_dev *gd, bool resuming)
 		}
 	}
 
-	err = add_adev(gd, "eth");
+	if (!err)
+		err = add_adev(gd, "eth");
 
-	INIT_DELAYED_WORK(&ac->gf_stats_work, mana_gf_stats_work_handler);
 	schedule_delayed_work(&ac->gf_stats_work, MANA_GF_STATS_PERIOD);
 
 out:
@@ -3684,10 +3739,15 @@ void mana_remove(struct gdma_dev *gd, bool suspending)
 	struct gdma_context *gc = gd->gdma_context;
 	struct mana_context *ac = gd->driver_data;
 	struct mana_port_context *apc;
-	struct device *dev = gc->dev;
+	struct device *dev;
 	struct net_device *ndev;
 	int err;
 	int i;
+
+	if (!gc || !ac)
+		return;
+
+	dev = gc->dev;
 
 	disable_work_sync(&ac->link_change_work);
 	cancel_delayed_work_sync(&ac->gf_stats_work);
@@ -3701,7 +3761,7 @@ void mana_remove(struct gdma_dev *gd, bool suspending)
 		if (!ndev) {
 			if (i == 0)
 				dev_err(dev, "No net device to remove\n");
-			goto out;
+			break;
 		}
 
 		apc = netdev_priv(ndev);
@@ -3732,7 +3792,7 @@ void mana_remove(struct gdma_dev *gd, bool suspending)
 	}
 
 	mana_destroy_eq(ac);
-out:
+
 	if (ac->per_port_queue_reset_wq) {
 		destroy_workqueue(ac->per_port_queue_reset_wq);
 		ac->per_port_queue_reset_wq = NULL;

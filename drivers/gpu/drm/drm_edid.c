@@ -99,6 +99,29 @@ enum drm_edid_internal_quirk {
 };
 
 #define MICROSOFT_IEEE_OUI	0xca125c
+#define AMD_IEEE_OUI        0x00001A
+
+#define AMD_VSDB_V3_PAYLOAD_MIN_LEN 15
+#define AMD_VSDB_V3_PAYLOAD_MAX_LEN 20
+
+struct amd_vsdb_v3_payload {
+	u8 oui[3];
+	u8 version;
+	u8 feature_caps;
+	u8 rsvd0[3];
+	u8 cs_eotf_support;
+	u8 lum1_max;
+	u8 lum1_min;
+	u8 lum2_max;
+	u8 lum2_min;
+	u8 rsvd1[2];
+	/*
+	 * Bytes beyond AMD_VSDB_V3_PAYLOAD_MIN_LEN are optional; a
+	 * monitor may provide a payload as short as 15 bytes.  Always
+	 * check cea_db_payload_len() before accessing extra[].
+	 */
+	u8 extra[AMD_VSDB_V3_PAYLOAD_MAX_LEN - AMD_VSDB_V3_PAYLOAD_MIN_LEN];
+} __packed;
 
 struct detailed_mode_closure {
 	struct drm_connector *connector;
@@ -5205,6 +5228,13 @@ static bool cea_db_is_microsoft_vsdb(const struct cea_db *db)
 		cea_db_payload_len(db) == 21;
 }
 
+static bool cea_db_is_amd_vsdb(const struct cea_db *db)
+{
+	return cea_db_is_vendor(db, AMD_IEEE_OUI) &&
+		cea_db_payload_len(db) >= AMD_VSDB_V3_PAYLOAD_MIN_LEN &&
+		cea_db_payload_len(db) <= AMD_VSDB_V3_PAYLOAD_MAX_LEN;
+}
+
 static bool cea_db_is_vcdb(const struct cea_db *db)
 {
 	return cea_db_is_extended_tag(db, CTA_EXT_DB_VIDEO_CAP) &&
@@ -5316,7 +5346,7 @@ static void parse_cta_y420cmdb(struct drm_connector *connector,
 
 out:
 	if (map)
-		info->color_formats |= DRM_COLOR_FORMAT_YCBCR420;
+		info->color_formats |= BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
 
 	*y420cmdb_map = map;
 }
@@ -6092,7 +6122,7 @@ static void parse_cta_y420vdb(struct drm_connector *connector,
 			continue;
 
 		bitmap_set(hdmi->y420_vdb_modes, vic, 1);
-		info->color_formats |= DRM_COLOR_FORMAT_YCBCR420;
+		info->color_formats |= BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
 	}
 }
 
@@ -6401,6 +6431,45 @@ static void drm_parse_microsoft_vsdb(struct drm_connector *connector,
 		    connector->base.id, connector->name, version, db[5]);
 }
 
+static void drm_parse_amd_vsdb(struct drm_connector *connector,
+			       const struct cea_db *db)
+{
+	struct drm_display_info *info = &connector->display_info;
+	const u8 *data = cea_db_data(db);
+	const struct amd_vsdb_v3_payload *p;
+
+	p = (const struct amd_vsdb_v3_payload *)data;
+
+	if (p->version != 0x03) {
+		drm_dbg_kms(connector->dev,
+			    "[CONNECTOR:%d:%s] Unsupported AMD VSDB version %u\n",
+			    connector->base.id, connector->name, p->version);
+		return;
+	}
+
+	info->amd_vsdb.version = p->version;
+	info->amd_vsdb.replay_mode = p->feature_caps & 0x40;
+	info->amd_vsdb.panel_type = (p->cs_eotf_support & 0xC0) >> 6;
+	info->amd_vsdb.luminance_range1.max_luminance = p->lum1_max;
+	info->amd_vsdb.luminance_range1.min_luminance = p->lum1_min;
+	info->amd_vsdb.luminance_range2.max_luminance = p->lum2_max;
+	info->amd_vsdb.luminance_range2.min_luminance = p->lum2_min;
+
+	/*
+	 * The AMD VSDB v3 payload length is variable (15..20 bytes).
+	 * All fields through p->rsvd1 (byte 14) are always present,
+	 * but p->extra[] (bytes 15+) may not be.  Any future access to
+	 * extra[] must be guarded with a runtime length check to avoid
+	 * out-of-bounds reads on shorter (but spec-valid) payloads.
+	 * For example:
+	 *
+	 *   int len = cea_db_payload_len(db);
+	 *
+	 *   if (len > AMD_VSDB_V3_PAYLOAD_MIN_LEN)
+	 *       info->amd_vsdb.foo = p->extra[0];
+	 */
+}
+
 static void drm_parse_cea_ext(struct drm_connector *connector,
 			      const struct drm_edid *drm_edid)
 {
@@ -6426,11 +6495,11 @@ static void drm_parse_cea_ext(struct drm_connector *connector,
 				    info->cea_rev, edid_ext[1]);
 
 		/* The existence of a CTA extension should imply RGB support */
-		info->color_formats = DRM_COLOR_FORMAT_RGB444;
+		info->color_formats = BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444);
 		if (edid_ext[3] & EDID_CEA_YCRCB444)
-			info->color_formats |= DRM_COLOR_FORMAT_YCBCR444;
+			info->color_formats |= BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444);
 		if (edid_ext[3] & EDID_CEA_YCRCB422)
-			info->color_formats |= DRM_COLOR_FORMAT_YCBCR422;
+			info->color_formats |= BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422);
 		if (edid_ext[3] & EDID_BASIC_AUDIO)
 			info->has_audio = true;
 
@@ -6449,6 +6518,8 @@ static void drm_parse_cea_ext(struct drm_connector *connector,
 			drm_parse_hdmi_forum_scds(connector, data);
 		else if (cea_db_is_microsoft_vsdb(db))
 			drm_parse_microsoft_vsdb(connector, data);
+		else if (cea_db_is_amd_vsdb(db))
+			drm_parse_amd_vsdb(connector, db);
 		else if (cea_db_is_y420cmdb(db))
 			parse_cta_y420cmdb(connector, db, &y420cmdb_map);
 		else if (cea_db_is_y420vdb(db))
@@ -6641,6 +6712,7 @@ static void drm_reset_display_info(struct drm_connector *connector)
 	info->quirks = 0;
 
 	info->source_physical_address = CEC_PHYS_ADDR_INVALID;
+	memset(&info->amd_vsdb, 0, sizeof(info->amd_vsdb));
 }
 
 static void update_displayid_info(struct drm_connector *connector,
@@ -6698,7 +6770,7 @@ static void update_display_info(struct drm_connector *connector,
 	if (!drm_edid_is_digital(drm_edid))
 		goto out;
 
-	info->color_formats |= DRM_COLOR_FORMAT_RGB444;
+	info->color_formats |= BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444);
 	drm_parse_cea_ext(connector, drm_edid);
 
 	update_displayid_info(connector, drm_edid);
@@ -6752,9 +6824,9 @@ static void update_display_info(struct drm_connector *connector,
 		    connector->base.id, connector->name, info->bpc);
 
 	if (edid->features & DRM_EDID_FEATURE_RGB_YCRCB444)
-		info->color_formats |= DRM_COLOR_FORMAT_YCBCR444;
+		info->color_formats |= BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444);
 	if (edid->features & DRM_EDID_FEATURE_RGB_YCRCB422)
-		info->color_formats |= DRM_COLOR_FORMAT_YCBCR422;
+		info->color_formats |= BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422);
 
 	drm_update_mso(connector, drm_edid);
 
@@ -7229,7 +7301,7 @@ static bool is_hdmi2_sink(const struct drm_connector *connector)
 		return true;
 
 	return connector->display_info.hdmi.scdc.supported ||
-		connector->display_info.color_formats & DRM_COLOR_FORMAT_YCBCR420;
+		connector->display_info.color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
 }
 
 static u8 drm_mode_hdmi_vic(const struct drm_connector *connector,

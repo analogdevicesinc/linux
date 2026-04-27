@@ -750,7 +750,7 @@ void dump_mapping(const struct address_space *mapping)
 		return;
 	}
 
-	dentry_ptr = container_of(dentry_first, struct dentry, d_u.d_alias);
+	dentry_ptr = container_of(dentry_first, struct dentry, d_alias);
 	if (get_kernel_nofault(dentry, dentry_ptr) ||
 	    !dentry.d_parent || !dentry.d_name.name) {
 		pr_warn("aops:%ps ino:%llx invalid dentry:%px\n",

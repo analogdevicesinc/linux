@@ -921,17 +921,6 @@ void mite_detach(struct mite *mite)
 }
 EXPORT_SYMBOL_GPL(mite_detach);
 
-static int __init mite_module_init(void)
-{
-	return 0;
-}
-module_init(mite_module_init);
-
-static void __exit mite_module_exit(void)
-{
-}
-module_exit(mite_module_exit);
-
 MODULE_AUTHOR("Comedi https://www.comedi.org");
 MODULE_DESCRIPTION("Comedi helper for NI Mite PCI interface chip");
 MODULE_LICENSE("GPL");

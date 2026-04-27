@@ -981,6 +981,10 @@ static int pcl818_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	const struct pcl818_board *board = dev->board_ptr;
 	struct pcl818_private *devpriv;
 	struct comedi_subdevice *s;
+	unsigned int io_base = it->options[0];
+	bool fifo_is_supported = board->has_fifo && !(io_base & 0x10);
+	bool fifo_is_wanted = board->has_fifo && it->options[2] == -1;
+	unsigned int io_len = fifo_is_supported ? 0x20 : 0x10;
 	unsigned int osc_base;
 	int ret;
 
@@ -988,10 +992,27 @@ static int pcl818_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	if (!devpriv)
 		return -ENOMEM;
 
-	ret = comedi_request_region(dev, it->options[0],
-				    board->has_fifo ? 0x20 : 0x10);
+	ret = comedi_check_request_region(dev, io_base, io_len,
+					  0, 0x3ff, io_len);
 	if (ret)
 		return ret;
+
+	if (board->has_fifo) {
+		/* let user know about any required JP6 setting */
+		if (fifo_is_supported) {
+			if (fifo_is_wanted) {
+				dev_info(dev->class_dev,
+					 "Assuming JP6 is in \"Enabled\" (default) position to use the FIFO.\n");
+			}
+		} else {
+			dev_info(dev->class_dev,
+				 "JP6 needs to be in \"Disabled\" position for correct operation at this base address\n");
+			if (fifo_is_wanted) {
+				dev_warn(dev->class_dev,
+					 "FIFO cannot be used at this base address\n");
+			}
+		}
+	}
 
 	/* we can use IRQ 2-7 for async command support */
 	if (it->options[1] >= 2 && it->options[1] <= 7) {
@@ -1002,7 +1023,7 @@ static int pcl818_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	}
 
 	/* should we use the FIFO? */
-	if (dev->irq && board->has_fifo && it->options[2] == -1)
+	if (dev->irq && fifo_is_supported && fifo_is_wanted)
 		devpriv->usefifo = 1;
 
 	/* we need an IRQ to do DMA on channel 3 or 1 */

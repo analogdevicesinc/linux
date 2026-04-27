@@ -911,7 +911,7 @@ int crush_do_rule(const struct crush_map *map,
 	int osize;
 	const struct crush_rule *rule;
 	__u32 step;
-	int i, j;
+	int i;
 	int numrep;
 	int out_size;
 	/*
@@ -1012,7 +1012,6 @@ int crush_do_rule(const struct crush_map *map,
 					if (numrep <= 0)
 						continue;
 				}
-				j = 0;
 				/* make sure bucket id is valid */
 				bno = -1 - w[i];
 				if (bno < 0 || bno >= map->max_buckets) {
@@ -1036,7 +1035,7 @@ int crush_do_rule(const struct crush_map *map,
 						weight, weight_max,
 						x, numrep,
 						curstep->arg2,
-						o+osize, j,
+						o+osize, 0,
 						result_max-osize,
 						choose_tries,
 						recurse_tries,
@@ -1058,7 +1057,7 @@ int crush_do_rule(const struct crush_map *map,
 						weight, weight_max,
 						x, out_size, numrep,
 						curstep->arg2,
-						o+osize, j,
+						o+osize, 0,
 						choose_tries,
 						choose_leaf_tries ?
 						   choose_leaf_tries : 1,

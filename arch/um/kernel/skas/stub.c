@@ -146,7 +146,7 @@ restart_wait:
 		/* Receive the FDs */
 		num_fds = 0;
 		fd_msg = msghdr.msg_control;
-		fd_map = (void *)&CMSG_DATA(fd_msg);
+		fd_map = (void *)CMSG_DATA(fd_msg);
 		if (res == iov.iov_len && msghdr.msg_controllen > sizeof(struct cmsghdr))
 			num_fds = (fd_msg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 

@@ -69,6 +69,7 @@ obj-$(CONFIG_TRACING) += trace_seq.o
 obj-$(CONFIG_TRACING) += trace_stat.o
 obj-$(CONFIG_TRACING) += trace_printk.o
 obj-$(CONFIG_TRACING) += trace_pid.o
+obj-$(CONFIG_TRACER_SNAPSHOT) += trace_snapshot.o
 obj-$(CONFIG_TRACING) += 	pid_list.o
 obj-$(CONFIG_TRACING_MAP) += tracing_map.o
 obj-$(CONFIG_PREEMPTIRQ_DELAY_TEST) += preemptirq_delay_test.o
@@ -127,5 +128,37 @@ obj-$(CONFIG_FPROBE_EVENTS) += trace_fprobe.o
 
 obj-$(CONFIG_TRACEPOINT_BENCHMARK) += trace_benchmark.o
 obj-$(CONFIG_RV) += rv/
+
+obj-$(CONFIG_TRACE_REMOTE) += trace_remote.o
+obj-$(CONFIG_SIMPLE_RING_BUFFER) += simple_ring_buffer.o
+obj-$(CONFIG_TRACE_REMOTE_TEST) += remote_test.o
+
+# simple_ring_buffer is used by the pKVM hypervisor which does not have access
+# to all kernel symbols. Fail the build if forbidden symbols are found.
+
+# Basic compiler and tooling-generated symbols that can safely be left
+# undefined. Ensure KASAN is enabled to avoid logic that may disable
+# FORTIFY_SOURCE when KASAN is not enabled. undefsyms_base.o does not
+# automatically get KASAN flags because it is not linked into vmlinux.
+targets += undefsyms_base.o
+KASAN_SANITIZE_undefsyms_base.o := y
+
+UNDEFINED_ALLOWLIST = __asan __gcov __kasan __kcsan __hwasan __sancov __sanitizer __tsan __ubsan __x86_indirect_thunk \
+		      __msan simple_ring_buffer \
+		      $(shell $(NM) -u $(obj)/undefsyms_base.o 2>/dev/null | awk '{print $$2}')
+
+quiet_cmd_check_undefined = NM      $<
+      cmd_check_undefined = \
+          undefsyms=$$($(NM) -u $< | grep -v $(addprefix -e , $(UNDEFINED_ALLOWLIST)) || true); \
+          if [ -n "$$undefsyms" ]; then \
+              echo "Unexpected symbols in $<:" >&2; \
+              echo "$$undefsyms" >&2; \
+              false; \
+          fi
+
+$(obj)/%.o.checked: $(obj)/%.o $(obj)/undefsyms_base.o FORCE
+	$(call if_changed,check_undefined)
+
+always-$(CONFIG_SIMPLE_RING_BUFFER) += simple_ring_buffer.o.checked
 
 libftrace-y := ftrace.o

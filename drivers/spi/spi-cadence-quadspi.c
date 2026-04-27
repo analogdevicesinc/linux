@@ -1544,10 +1544,6 @@ static bool cqspi_supports_mem_op(struct spi_mem *mem,
 		if (op->data.nbytes && op->data.buswidth != 8)
 			return false;
 
-		/* A single opcode is supported, it will be repeated */
-		if ((op->cmd.opcode >> 8) != (op->cmd.opcode & 0xFF))
-			return false;
-
 		if (cqspi->is_rzn1)
 			return false;
 	} else if (!all_false) {
@@ -2020,12 +2016,12 @@ static void cqspi_remove(struct platform_device *pdev)
 
 	ddata = of_device_get_match_data(dev);
 
+	spi_unregister_controller(cqspi->host);
+
 	refcount_set(&cqspi->refcount, 0);
 
 	if (!refcount_dec_and_test(&cqspi->inflight_ops))
 		cqspi_wait_idle(cqspi);
-
-	spi_unregister_controller(cqspi->host);
 
 	if (cqspi->rx_chan)
 		dma_release_channel(cqspi->rx_chan);

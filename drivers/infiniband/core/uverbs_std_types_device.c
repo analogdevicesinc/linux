@@ -247,13 +247,21 @@ static int UVERBS_HANDLER(UVERBS_METHOD_GET_CONTEXT)(
 {
 	u32 num_comp = attrs->ufile->device->num_comp_vectors;
 	u64 core_support = IB_UVERBS_CORE_SUPPORT_OPTIONAL_MR_ACCESS;
+	struct ib_device *ib_dev;
 	int ret;
+
+	ib_dev = srcu_dereference(attrs->ufile->device->ib_dev,
+				  &attrs->ufile->device->disassociate_srcu);
+	if (!ib_dev)
+		return -EIO;
 
 	ret = uverbs_copy_to(attrs, UVERBS_ATTR_GET_CONTEXT_NUM_COMP_VECTORS,
 			     &num_comp, sizeof(num_comp));
 	if (IS_UVERBS_COPY_ERR(ret))
 		return ret;
 
+	if (ib_dev->ops.uverbs_robust_udata)
+		core_support |= IB_UVERBS_CORE_SUPPORT_ROBUST_UDATA;
 	ret = uverbs_copy_to(attrs, UVERBS_ATTR_GET_CONTEXT_CORE_SUPPORT,
 			     &core_support, sizeof(core_support));
 	if (IS_UVERBS_COPY_ERR(ret))

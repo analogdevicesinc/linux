@@ -113,10 +113,10 @@ static void tiadc_step_config(struct iio_dev *indio_dev)
 	 * There are 16 configurable steps and 8 analog input
 	 * lines available which are shared between Touchscreen and ADC.
 	 *
-	 * Steps forwards i.e. from 0 towards 16 are used by ADC
-	 * depending on number of input lines needed.
+	 * Steps forward, i.e. from 0 towards 16, are used by ADC
+	 * depending on the number of input lines needed.
 	 * Channel would represent which analog input
-	 * needs to be given to ADC to digitalize data.
+	 * needs to be given to ADC to digitize data.
 	 */
 	for (i = 0; i < adc_dev->channels; i++) {
 		int chan;

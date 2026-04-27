@@ -6,7 +6,7 @@
 #include "mana_ib.h"
 
 #define VALID_MR_FLAGS (IB_ACCESS_LOCAL_WRITE | IB_ACCESS_REMOTE_WRITE | IB_ACCESS_REMOTE_READ |\
-			IB_ACCESS_REMOTE_ATOMIC | IB_ZERO_BASED)
+			IB_ACCESS_REMOTE_ATOMIC | IB_ACCESS_MW_BIND | IB_ZERO_BASED)
 
 #define VALID_DMA_MR_FLAGS (IB_ACCESS_LOCAL_WRITE)
 
@@ -26,6 +26,9 @@ mana_ib_verbs_to_gdma_access_flags(int access_flags)
 
 	if (access_flags & IB_ACCESS_REMOTE_ATOMIC)
 		flags |= GDMA_ACCESS_FLAG_REMOTE_ATOMIC;
+
+	if (access_flags & IB_ACCESS_MW_BIND)
+		flags |= GDMA_ACCESS_FLAG_BIND_MW;
 
 	return flags;
 }
@@ -70,15 +73,8 @@ static int mana_ib_gd_create_mr(struct mana_ib_dev *dev, struct mana_ib_mr *mr,
 	}
 
 	err = mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
-
-	if (err || resp.hdr.status) {
-		ibdev_dbg(&dev->ib_dev, "Failed to create mr %d, %u", err,
-			  resp.hdr.status);
-		if (!err)
-			err = -EPROTO;
-
+	if (err)
 		return err;
-	}
 
 	mr->ibmr.lkey = resp.lkey;
 	mr->ibmr.rkey = resp.rkey;
@@ -92,23 +88,13 @@ static int mana_ib_gd_destroy_mr(struct mana_ib_dev *dev, u64 mr_handle)
 	struct gdma_destroy_mr_response resp = {};
 	struct gdma_destroy_mr_request req = {};
 	struct gdma_context *gc = mdev_to_gc(dev);
-	int err;
 
 	mana_gd_init_req_hdr(&req.hdr, GDMA_DESTROY_MR, sizeof(req),
 			     sizeof(resp));
 
 	req.mr_handle = mr_handle;
 
-	err = mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
-	if (err || resp.hdr.status) {
-		dev_err(gc->dev, "Failed to destroy MR: %d, 0x%x\n", err,
-			resp.hdr.status);
-		if (!err)
-			err = -EPROTO;
-		return err;
-	}
-
-	return 0;
+	return mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
 }
 
 struct ib_mr *mana_ib_reg_user_mr(struct ib_pd *ibpd, u64 start, u64 length,
@@ -304,6 +290,55 @@ err_free:
 	return ERR_PTR(err);
 }
 
+static int mana_ib_gd_create_mw(struct mana_ib_dev *dev, struct mana_ib_pd *pd, struct ib_mw *ibmw)
+{
+	struct mana_ib_mw *mw = container_of(ibmw, struct mana_ib_mw, ibmw);
+	struct gdma_context *gc = mdev_to_gc(dev);
+	struct gdma_create_mr_response resp = {};
+	struct gdma_create_mr_request req = {};
+	int err;
+
+	mana_gd_init_req_hdr(&req.hdr, GDMA_CREATE_MR, sizeof(req), sizeof(resp));
+	req.hdr.req.msg_version = GDMA_MESSAGE_V2;
+	req.pd_handle = pd->pd_handle;
+
+	switch (mw->ibmw.type) {
+	case IB_MW_TYPE_1:
+		req.mr_type = GDMA_MR_TYPE_MW1;
+		break;
+	case IB_MW_TYPE_2:
+		req.mr_type = GDMA_MR_TYPE_MW2;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	err = mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
+	if (err)
+		return err;
+
+	mw->ibmw.rkey = resp.rkey;
+	mw->mw_handle = resp.mr_handle;
+
+	return 0;
+}
+
+int mana_ib_alloc_mw(struct ib_mw *ibmw, struct ib_udata *udata)
+{
+	struct mana_ib_dev *mdev = container_of(ibmw->device, struct mana_ib_dev, ib_dev);
+	struct mana_ib_pd *pd = container_of(ibmw->pd, struct mana_ib_pd, ibpd);
+
+	return mana_ib_gd_create_mw(mdev, pd, ibmw);
+}
+
+int mana_ib_dealloc_mw(struct ib_mw *ibmw)
+{
+	struct mana_ib_dev *dev = container_of(ibmw->device, struct mana_ib_dev, ib_dev);
+	struct mana_ib_mw *mw = container_of(ibmw, struct mana_ib_mw, ibmw);
+
+	return mana_ib_gd_destroy_mr(dev, mw->mw_handle);
+}
+
 int mana_ib_dereg_mr(struct ib_mr *ibmr, struct ib_udata *udata)
 {
 	struct mana_ib_mr *mr = container_of(ibmr, struct mana_ib_mr, ibmr);
@@ -339,12 +374,8 @@ static int mana_ib_gd_alloc_dm(struct mana_ib_dev *mdev, struct mana_ib_dm *dm,
 	req.flags =  attr->flags;
 
 	err = mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
-	if (err || resp.hdr.status) {
-		if (!err)
-			err = -EPROTO;
-
+	if (err)
 		return err;
-	}
 
 	dm->dm_handle = resp.dm_handle;
 
@@ -380,20 +411,11 @@ static int mana_ib_gd_destroy_dm(struct mana_ib_dev *mdev, struct mana_ib_dm *dm
 	struct gdma_context *gc = mdev_to_gc(mdev);
 	struct gdma_destroy_dm_resp resp = {};
 	struct gdma_destroy_dm_req req = {};
-	int err;
 
 	mana_gd_init_req_hdr(&req.hdr, GDMA_DESTROY_DM, sizeof(req), sizeof(resp));
 	req.dm_handle = dm->dm_handle;
 
-	err = mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
-	if (err || resp.hdr.status) {
-		if (!err)
-			err = -EPROTO;
-
-		return err;
-	}
-
-	return 0;
+	return mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
 }
 
 int mana_ib_dealloc_dm(struct ib_dm *ibdm, struct uverbs_attr_bundle *attrs)

@@ -94,32 +94,13 @@ static struct tracefs_dir_ops {
 	int (*rmdir)(const char *name);
 } tracefs_ops __ro_after_init;
 
-static char *get_dname(struct dentry *dentry)
-{
-	const char *dname;
-	char *name;
-	int len = dentry->d_name.len;
-
-	dname = dentry->d_name.name;
-	name = kmalloc(len + 1, GFP_KERNEL);
-	if (!name)
-		return NULL;
-	memcpy(name, dname, len);
-	name[len] = 0;
-	return name;
-}
-
 static struct dentry *tracefs_syscall_mkdir(struct mnt_idmap *idmap,
 					    struct inode *inode, struct dentry *dentry,
 					    umode_t mode)
 {
 	struct tracefs_inode *ti;
-	char *name;
+	struct name_snapshot name;
 	int ret;
-
-	name = get_dname(dentry);
-	if (!name)
-		return ERR_PTR(-ENOMEM);
 
 	/*
 	 * This is a new directory that does not take the default of
@@ -135,23 +116,19 @@ static struct dentry *tracefs_syscall_mkdir(struct mnt_idmap *idmap,
 	 * the files within the tracefs system. It is up to the individual
 	 * mkdir routine to handle races.
 	 */
+	take_dentry_name_snapshot(&name, dentry);
 	inode_unlock(inode);
-	ret = tracefs_ops.mkdir(name);
+	ret = tracefs_ops.mkdir(name.name.name);
 	inode_lock(inode);
-
-	kfree(name);
+	release_dentry_name_snapshot(&name);
 
 	return ERR_PTR(ret);
 }
 
 static int tracefs_syscall_rmdir(struct inode *inode, struct dentry *dentry)
 {
-	char *name;
+	struct name_snapshot name;
 	int ret;
-
-	name = get_dname(dentry);
-	if (!name)
-		return -ENOMEM;
 
 	/*
 	 * The rmdir call can call the generic functions that create
@@ -160,15 +137,15 @@ static int tracefs_syscall_rmdir(struct inode *inode, struct dentry *dentry)
 	 * This time we need to unlock not only the parent (inode) but
 	 * also the directory that is being deleted.
 	 */
+	take_dentry_name_snapshot(&name, dentry);
 	inode_unlock(inode);
 	inode_unlock(d_inode(dentry));
 
-	ret = tracefs_ops.rmdir(name);
+	ret = tracefs_ops.rmdir(name.name.name);
 
 	inode_lock_nested(inode, I_MUTEX_PARENT);
 	inode_lock(d_inode(dentry));
-
-	kfree(name);
+	release_dentry_name_snapshot(&name);
 
 	return ret;
 }
@@ -336,6 +313,7 @@ static int tracefs_apply_options(struct super_block *sb, bool remount)
 	struct inode *inode = d_inode(sb->s_root);
 	struct tracefs_inode *ti;
 	bool update_uid, update_gid;
+	int srcu_idx;
 	umode_t tmp_mode;
 
 	/*
@@ -360,6 +338,7 @@ static int tracefs_apply_options(struct super_block *sb, bool remount)
 		update_uid = fsi->opts & BIT(Opt_uid);
 		update_gid = fsi->opts & BIT(Opt_gid);
 
+		srcu_idx = eventfs_remount_lock();
 		rcu_read_lock();
 		list_for_each_entry_rcu(ti, &tracefs_inodes, list) {
 			if (update_uid) {
@@ -381,6 +360,7 @@ static int tracefs_apply_options(struct super_block *sb, bool remount)
 				eventfs_remount(ti, update_uid, update_gid);
 		}
 		rcu_read_unlock();
+		eventfs_remount_unlock(srcu_idx);
 	}
 
 	return 0;
@@ -426,7 +406,7 @@ static int tracefs_drop_inode(struct inode *inode)
 	 * This inode is being freed and cannot be used for
 	 * eventfs. Clear the flag so that it doesn't call into
 	 * eventfs during the remount flag updates. The eventfs_inode
-	 * gets freed after an RCU cycle, so the content will still
+	 * gets freed after an SRCU cycle, so the content will still
 	 * be safe if the iteration is going on now.
 	 */
 	ti->flags &= ~TRACEFS_EVENT_INODE;
@@ -491,6 +471,7 @@ static int tracefs_fill_super(struct super_block *sb, struct fs_context *fc)
 		return err;
 
 	sb->s_op = &tracefs_super_operations;
+	tracefs_apply_options(sb, false);
 	set_default_d_op(sb, &tracefs_dentry_operations);
 
 	return 0;
@@ -664,6 +645,7 @@ struct dentry *tracefs_create_file(const char *name, umode_t mode,
 	fsnotify_create(d_inode(dentry->d_parent), dentry);
 	return tracefs_end_creating(dentry);
 }
+EXPORT_SYMBOL_GPL(tracefs_create_file);
 
 static struct dentry *__create_dir(const char *name, struct dentry *parent,
 				   const struct inode_operations *ops)

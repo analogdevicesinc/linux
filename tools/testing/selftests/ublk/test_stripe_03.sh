@@ -21,5 +21,5 @@ _check_add_dev $TID $?
 _run_fio_verify_io --filename=/dev/ublkb"${dev_id}" --size=512M
 ERR_CODE=$?
 
-_cleanup_test "stripe"
+_cleanup_test
 _show_result $TID $ERR_CODE

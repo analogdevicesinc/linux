@@ -25,5 +25,5 @@ if [ "$new_size" != "$size" ]; then
 	ERR_CODE=255
 fi
 
-_cleanup_test "null"
+_cleanup_test
 _show_result $TID $ERR_CODE

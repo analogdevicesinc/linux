@@ -45,8 +45,7 @@ int hv_call_withdraw_memory(u64 count, int node, u64 partition_id)
 	struct hv_output_withdraw_memory *output_page;
 	struct page *page;
 	u16 completed;
-	unsigned long remaining = count;
-	u64 status;
+	u64 status, withdrawn = 0;
 	int i;
 	unsigned long flags;
 
@@ -55,7 +54,7 @@ int hv_call_withdraw_memory(u64 count, int node, u64 partition_id)
 		return -ENOMEM;
 	output_page = page_address(page);
 
-	while (remaining) {
+	while (withdrawn < count) {
 		local_irq_save(flags);
 
 		input_page = *this_cpu_ptr(hyperv_pcpu_input_arg);
@@ -63,7 +62,7 @@ int hv_call_withdraw_memory(u64 count, int node, u64 partition_id)
 		memset(input_page, 0, sizeof(*input_page));
 		input_page->partition_id = partition_id;
 		status = hv_do_rep_hypercall(HVCALL_WITHDRAW_MEMORY,
-					     min(remaining, HV_WITHDRAW_BATCH_SIZE),
+					     min(count - withdrawn, HV_WITHDRAW_BATCH_SIZE),
 					     0, input_page, output_page);
 
 		local_irq_restore(flags);
@@ -79,9 +78,11 @@ int hv_call_withdraw_memory(u64 count, int node, u64 partition_id)
 			break;
 		}
 
-		remaining -= completed;
+		withdrawn += completed;
 	}
 	free_page((unsigned long)output_page);
+
+	trace_mshv_hvcall_withdraw_memory(partition_id, withdrawn, status);
 
 	return hv_result_to_errno(status);
 }
@@ -126,6 +127,8 @@ int hv_call_create_partition(u64 flags,
 		ret = hv_deposit_memory(hv_current_partition_id, status);
 	} while (!ret);
 
+	trace_mshv_hvcall_create_partition(flags, ret ? ret : *partition_id);
+
 	return ret;
 }
 
@@ -153,6 +156,8 @@ int hv_call_initialize_partition(u64 partition_id)
 		ret = hv_deposit_memory(partition_id, status);
 	} while (!ret);
 
+	trace_mshv_hvcall_initialize_partition(partition_id, status);
+
 	return ret;
 }
 
@@ -165,6 +170,8 @@ int hv_call_finalize_partition(u64 partition_id)
 	status = hv_do_fast_hypercall8(HVCALL_FINALIZE_PARTITION,
 				       *(u64 *)&input);
 
+	trace_mshv_hvcall_finalize_partition(partition_id, status);
+
 	return hv_result_to_errno(status);
 }
 
@@ -175,6 +182,8 @@ int hv_call_delete_partition(u64 partition_id)
 
 	input.partition_id = partition_id;
 	status = hv_do_fast_hypercall8(HVCALL_DELETE_PARTITION, *(u64 *)&input);
+
+	trace_mshv_hvcall_delete_partition(partition_id, status);
 
 	return hv_result_to_errno(status);
 }
@@ -572,6 +581,9 @@ static int hv_call_map_vp_state_page(u64 partition_id, u32 vp_index, u32 type,
 
 		ret = hv_deposit_memory(partition_id, status);
 	} while (!ret);
+
+	trace_mshv_hvcall_map_vp_state_page(partition_id, vp_index,
+					    type, status);
 
 	return ret;
 }

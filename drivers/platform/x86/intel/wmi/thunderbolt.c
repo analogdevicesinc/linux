@@ -34,7 +34,7 @@ static ssize_t force_power_store(struct device *dev,
 	if (mode > 1)
 		return -EINVAL;
 
-	ret = wmidev_invoke_method(to_wmi_device(dev), 0, 1, &buffer, NULL);
+	ret = wmidev_invoke_procedure(to_wmi_device(dev), 0, 1, &buffer);
 	if (ret < 0)
 		return ret;
 

@@ -26,7 +26,6 @@
 #include "verbs.h"
 #include "aspm.h"
 #include "affinity.h"
-#include "vnic.h"
 #include "exp_rcv.h"
 #include "netdev.h"
 
@@ -349,7 +348,7 @@ int hfi1_create_ctxtdata(struct hfi1_pportdata *ppd, int numa,
 		 * We do this here because we have to take into account all
 		 * the RcvArray entries that previous context would have
 		 * taken and we have to account for any extra groups assigned
-		 * to the static (kernel) or dynamic (vnic/user) contexts.
+		 * to the static (kernel) or dynamic (user) contexts.
 		 */
 		if (ctxt < dd->first_dyn_alloc_ctxt) {
 			if (ctxt < kctxt_ngroups) {
@@ -851,7 +850,6 @@ int hfi1_init(struct hfi1_devdata *dd, int reinit)
 	dd->process_pio_send = hfi1_verbs_send_pio;
 	dd->process_dma_send = hfi1_verbs_send_dma;
 	dd->pio_inline_send = pio_copy;
-	dd->process_vnic_dma_send = hfi1_vnic_send_dma;
 
 	if (is_ax(dd)) {
 		atomic_set(&dd->drop_packet, DROP_PACKET_ON);

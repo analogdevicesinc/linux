@@ -399,6 +399,15 @@ static void cpa_flush_all(unsigned long cache)
 	on_each_cpu(__cpa_flush_all, (void *) cache, 1);
 }
 
+static void __cpa_flush_tlb(void *data)
+{
+	struct cpa_data *cpa = data;
+	unsigned int i;
+
+	for (i = 0; i < cpa->numpages; i++)
+		flush_tlb_one_kernel(fix_addr(__cpa_addr(cpa, i)));
+}
+
 static int collapse_large_pages(unsigned long addr, struct list_head *pgtables);
 
 static void cpa_collapse_large_pages(struct cpa_data *cpa)
@@ -435,7 +444,6 @@ static void cpa_collapse_large_pages(struct cpa_data *cpa)
 
 static void cpa_flush(struct cpa_data *cpa, int cache)
 {
-	unsigned long start, end;
 	unsigned int i;
 
 	BUG_ON(irqs_disabled() && !early_boot_irqs_disabled);
@@ -445,12 +453,10 @@ static void cpa_flush(struct cpa_data *cpa, int cache)
 		goto collapse_large_pages;
 	}
 
-	start = fix_addr(__cpa_addr(cpa, 0));
-	end =   start + cpa->numpages * PAGE_SIZE;
-	if (cpa->force_flush_all)
-		end = TLB_FLUSH_ALL;
-
-	flush_tlb_kernel_range(start, end);
+	if (cpa->force_flush_all || cpa->numpages > tlb_single_page_flush_ceiling)
+		flush_tlb_all();
+	else
+		on_each_cpu(__cpa_flush_tlb, cpa, 1);
 
 	if (!cache)
 		goto collapse_large_pages;
@@ -1119,9 +1125,10 @@ set:
 
 static int
 __split_large_page(struct cpa_data *cpa, pte_t *kpte, unsigned long address,
-		   struct page *base)
+		   struct ptdesc *ptdesc)
 {
 	unsigned long lpaddr, lpinc, ref_pfn, pfn, pfninc = 1;
+	struct page *base = ptdesc_page(ptdesc);
 	pte_t *pbase = (pte_t *)page_address(base);
 	unsigned int i, level;
 	pgprot_t ref_prot;
@@ -1226,18 +1233,18 @@ __split_large_page(struct cpa_data *cpa, pte_t *kpte, unsigned long address,
 static int split_large_page(struct cpa_data *cpa, pte_t *kpte,
 			    unsigned long address)
 {
-	struct page *base;
+	struct ptdesc *ptdesc;
 
 	if (!debug_pagealloc_enabled())
 		spin_unlock(&cpa_lock);
-	base = alloc_pages(GFP_KERNEL, 0);
+	ptdesc = pagetable_alloc(GFP_KERNEL, 0);
 	if (!debug_pagealloc_enabled())
 		spin_lock(&cpa_lock);
-	if (!base)
+	if (!ptdesc)
 		return -ENOMEM;
 
-	if (__split_large_page(cpa, kpte, address, base))
-		__free_page(base);
+	if (__split_large_page(cpa, kpte, address, ptdesc))
+		pagetable_free(ptdesc);
 
 	return 0;
 }
@@ -1408,7 +1415,7 @@ static bool try_to_free_pte_page(pte_t *pte)
 		if (!pte_none(pte[i]))
 			return false;
 
-	free_page((unsigned long)pte);
+	pte_free_kernel(&init_mm, pte);
 	return true;
 }
 
@@ -1420,7 +1427,7 @@ static bool try_to_free_pmd_page(pmd_t *pmd)
 		if (!pmd_none(pmd[i]))
 			return false;
 
-	free_page((unsigned long)pmd);
+	pmd_free(&init_mm, pmd);
 	return true;
 }
 
@@ -1539,7 +1546,7 @@ static void unmap_pud_range(p4d_t *p4d, unsigned long start, unsigned long end)
 
 static int alloc_pte_page(pmd_t *pmd)
 {
-	pte_t *pte = (pte_t *)get_zeroed_page(GFP_KERNEL);
+	pte_t *pte = pte_alloc_one_kernel(&init_mm);
 	if (!pte)
 		return -1;
 
@@ -1549,7 +1556,11 @@ static int alloc_pte_page(pmd_t *pmd)
 
 static int alloc_pmd_page(pud_t *pud)
 {
-	pmd_t *pmd = (pmd_t *)get_zeroed_page(GFP_KERNEL);
+	/*
+	 * Pass 0 as a placeholder for the second argument, since the
+	 * generic implementation of pmd_alloc_one() does not use it.
+	 */
+	pmd_t *pmd = pmd_alloc_one(&init_mm, 0);
 	if (!pmd)
 		return -1;
 
@@ -1743,7 +1754,11 @@ static int populate_pgd(struct cpa_data *cpa, unsigned long addr)
 	pgd_entry = cpa->pgd + pgd_index(addr);
 
 	if (pgd_none(*pgd_entry)) {
-		p4d = (p4d_t *)get_zeroed_page(GFP_KERNEL);
+		/*
+		 * Pass 0 as a placeholder for the second argument, since the
+		 * generic implementation of p4d_alloc_one() does not use it.
+		 */
+		p4d = p4d_alloc_one(&init_mm, 0);
 		if (!p4d)
 			return -1;
 
@@ -1755,7 +1770,11 @@ static int populate_pgd(struct cpa_data *cpa, unsigned long addr)
 	 */
 	p4d = p4d_offset(pgd_entry, addr);
 	if (p4d_none(*p4d)) {
-		pud = (pud_t *)get_zeroed_page(GFP_KERNEL);
+		/*
+		 * Pass 0 as a placeholder for the second argument, since the
+		 * generic implementation of pud_alloc_one() does not use it.
+		 */
+		pud = pud_alloc_one(&init_mm, 0);
 		if (!pud)
 			return -1;
 

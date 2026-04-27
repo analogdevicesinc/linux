@@ -119,9 +119,8 @@ struct cti_device {
  * @nr_trig_max: Max number of trigger signals implemented on device.
  *		 (max of trig_in or trig_out) - from ID register.
  * @nr_ctm_channels: number of available CTM channels - from ID register.
+ * @asicctl_impl: true if asicctl is implemented.
  * @enable_req_count: CTI is enabled alongside >=1 associated devices.
- * @hw_enabled: true if hw is currently enabled.
- * @hw_powered: true if associated cpu powered on, or no cpu.
  * @trig_in_use: bitfield of in triggers registered as in use.
  * @trig_out_use: bitfield of out triggers registered as in use.
  * @trig_out_filter: bitfield of out triggers that are blocked if filter
@@ -140,11 +139,10 @@ struct cti_config {
 	/* hardware description */
 	int nr_ctm_channels;
 	int nr_trig_max;
+	bool asicctl_impl;
 
 	/* cti enable control */
 	int enable_req_count;
-	bool hw_enabled;
-	bool hw_powered;
 
 	/* registered triggers and filtering */
 	u32 trig_in_use;
@@ -170,7 +168,6 @@ struct cti_config {
  * @spinlock:	Control data access to one at a time.
  * @config:	Configuration data for this CTI device.
  * @node:	List entry of this device in the list of CTI devices.
- * @csdev_release: release function for underlying coresight_device.
  */
 struct cti_drvdata {
 	void __iomem *base;
@@ -179,7 +176,6 @@ struct cti_drvdata {
 	raw_spinlock_t spinlock;
 	struct cti_config config;
 	struct list_head node;
-	void (*csdev_release)(struct device *dev);
 };
 
 /*
@@ -222,6 +218,7 @@ int cti_disable(struct coresight_device *csdev, struct coresight_path *path);
 void cti_write_all_hw_regs(struct cti_drvdata *drvdata);
 void cti_write_intack(struct device *dev, u32 ackval);
 void cti_write_single_reg(struct cti_drvdata *drvdata, int offset, u32 value);
+u32 cti_read_single_reg(struct cti_drvdata *drvdata, int offset);
 int cti_channel_trig_op(struct device *dev, enum cti_chan_op op,
 			enum cti_trig_dir direction, u32 channel_idx,
 			u32 trigger_idx);
@@ -234,10 +231,10 @@ struct coresight_platform_data *
 coresight_cti_get_platform_data(struct device *dev);
 const char *cti_plat_get_node_name(struct fwnode_handle *fwnode);
 
-/* cti powered and enabled */
-static inline bool cti_active(struct cti_config *cfg)
+/* Check if a cti device is enabled */
+static inline bool cti_is_active(struct cti_config *cfg)
 {
-	return cfg->hw_powered && cfg->hw_enabled;
+	return !!cfg->enable_req_count;
 }
 
 #endif  /* _CORESIGHT_CORESIGHT_CTI_H */

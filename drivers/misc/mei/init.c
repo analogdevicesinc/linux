@@ -344,13 +344,15 @@ EXPORT_SYMBOL_GPL(mei_stop);
 bool mei_write_is_idle(struct mei_device *dev)
 {
 	bool idle = (dev->dev_state == MEI_DEV_ENABLED &&
+		!dev->pg_blocked &&
 		list_empty(&dev->ctrl_wr_list) &&
 		list_empty(&dev->write_list)   &&
 		list_empty(&dev->write_waiting_list));
 
-	dev_dbg(&dev->dev, "write pg: is idle[%d] state=%s ctrl=%01d write=%01d wwait=%01d\n",
+	dev_dbg(&dev->dev, "write pg: is idle[%d] state=%s blocked=%d ctrl=%d write=%d wwait=%d\n",
 		idle,
 		mei_dev_state_str(dev->dev_state),
+		dev->pg_blocked,
 		list_empty(&dev->ctrl_wr_list),
 		list_empty(&dev->write_list),
 		list_empty(&dev->write_waiting_list));

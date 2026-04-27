@@ -9,7 +9,7 @@
 phys_addr_t __virt_to_phys(unsigned long x)
 {
 	/*
-	 * Boundary checking aginst the kernel linear mapping space.
+	 * Boundary checking against the kernel linear mapping space.
 	 */
 	WARN(!is_linear_mapping(x) && !is_kernel_mapping(x),
 	     "virt_to_phys used for non-linear address: %p (%pS)\n",
@@ -25,7 +25,7 @@ phys_addr_t __phys_addr_symbol(unsigned long x)
 	unsigned long kernel_end = kernel_start + kernel_map.size;
 
 	/*
-	 * Boundary checking aginst the kernel image mapping.
+	 * Boundary checking against the kernel image mapping.
 	 * __pa_symbol should only be used on kernel symbol addresses.
 	 */
 	VIRTUAL_BUG_ON(x < kernel_start || x > kernel_end);
