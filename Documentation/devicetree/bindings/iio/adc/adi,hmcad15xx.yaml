@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2025 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,hmcad15xx.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices HMCAD15xx High-Speed ADC
+
+maintainers:
+  - Paul Pop <paul.pop@analog.com>
+
+description: |
+  The HMCAD1511 and HMCAD1520 are high-speed analog-to-digital converters
+  with LVDS outputs. The HMCAD1511 is an 8-bit ADC supporting up to 1 GSPS
+  in single-channel mode. The HMCAD1520 is a 14-bit ADC supporting up to
+  105 MSPS in quad-channel precision mode.
+
+  Both devices support flexible channel configurations:
+    - Single channel: highest sample rate
+    - Dual channel: half sample rate per channel
+    - Quad channel: quarter sample rate per channel
+
+  The driver supports 8-bit, 12-bit, and 14-bit resolution modes with
+  appropriate LVDS output configurations.
+
+  https://www.analog.com/en/products/hmcad1511.html
+  https://www.analog.com/en/products/hmcad1520.html
+
+properties:
+  compatible:
+    const: adi,hmcad15xx
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+    description:
+      ADC input clock. Maximum frequency depends on resolution and channel
+      configuration.
+
+  clock-names:
+    const: clk
+
+  reset-gpios:
+    maxItems: 1
+    description:
+      Active low GPIO for hardware reset.
+
+  pd-gpios:
+    maxItems: 1
+    description:
+      Active high GPIO for power down control.
+
+  adi,num-channels:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2, 4]
+    default: 1
+    description:
+      Number of ADC channels to enable. Affects sample rate per channel.
+
+  adi,resolution:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [8, 12, 14]
+    default: 8
+    description: |
+      ADC resolution in bits.
+        8-bit:  High-speed mode, up to 1000/500/250 MSPS for 1/2/4 channels
+        12-bit: Mid-speed mode, up to 660/330/165 MSPS for 1/2/4 channels
+        14-bit: Precision mode, dual 8-bit LVDS, up to 105 MSPS
+
+  adi,pol-mask:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    default: 0
+    description:
+      8-bit polarity mask for LVDS data lanes. Each bit controls the
+      polarity inversion of one LVDS lane. Used to compensate for PCB
+      routing constraints.
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        adc@0 {
+            compatible = "adi,hmcad15xx";
+            reg = <0>;
+            clocks = <&adc_clk>;
+            clock-names = "clk";
+            reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+            pd-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
+            adi,num-channels = <1>;
+            adi,resolution = <12>;
+            adi,pol-mask = <239>;
+        };
+    };
+...

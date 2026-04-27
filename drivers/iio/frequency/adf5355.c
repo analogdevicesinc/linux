@@ -995,15 +995,13 @@ static int adf5355_probe(struct spi_device *spi)
 
 		init.name = clk_name;
 		init.ops = &clkout_ops;
-		init.flags = 0;
+		init.flags = CLK_GET_RATE_NOCACHE;
 
 		parent_name = __clk_get_name(clk);
 		init.parent_names = &parent_name;
 		init.num_parents = 1;
 
 		clk_out = clk_register(&spi->dev, &clk_priv->hw);
-		if (IS_ERR(clk_out))
-			kfree(clk_priv);
 
 		if (!IS_ERR(clk_out))
 			of_clk_add_provider(spi->dev.of_node, of_clk_src_simple_get, clk_out);
