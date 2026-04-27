@@ -73,6 +73,7 @@ jobs:
         get_file ci/runner_env.sh
         get_file ci/symbols_depend.py
         get_file ci/touched_kconfig.awk
+        get_file ci/gen_sbom.py
 
         if [[ "${{ inputs.defconfig }}" == "adi_ci_defconfig" ]]; then
           mkdir -p arch/${{ inputs.arch }}/configs
@@ -193,6 +194,11 @@ jobs:
         echo "git_sha_ct=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%ct)" >> "$dist/context.txt"
         [[ -f compile_commands.json ]] && cp compile_commands.json "$dist" || true
         [[ -d "$dist_headers/usr" ]] && cp "$dist/context.txt" "$dist_headers/context.txt" || true
+
+    - name: Generate SBOM
+      run: |
+        [[ -f "$DIST/compile_commands.json" ]] || exit 0
+        python3 ci/gen_sbom.py
 
     - name: Assert state
       if: ${{ failure() }}
