@@ -4,8 +4,8 @@
 # Copyright (C) 2025 Analog Devices Inc.
 
 from sys import argv, stderr
-from os import path, getcwd
-from glob import glob
+from os import path, getcwd, walk
+from pathlib import Path
 import re
 
 debug = False
@@ -21,9 +21,14 @@ def generate_map():
     """
     Build a map with all symbols.
     """
-    glob_ = path.join('**', 'Kconfig')
-    kconfig = glob(glob_, recursive=True)
-    for k in kconfig:
+    map_ = {}
+    kconfig_files = []
+
+    for root, dirs, files in walk('.'):
+        if 'Kconfig' in files:
+            kconfig_files.append(path.join(root, 'Kconfig'))
+
+    for k in kconfig_files:
         stack = []
         with open(k) as f:
             lines = f.readlines()
