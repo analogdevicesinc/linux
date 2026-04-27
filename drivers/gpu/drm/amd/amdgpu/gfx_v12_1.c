@@ -3195,6 +3195,11 @@ static int gfx_v12_1_early_init(struct amdgpu_ip_block *ip_block)
 
 	amdgpu_init_rlc_reg_funcs(adev);
 
+	/* Set NPA address size here as its needed in amdgpu_ttm_init().
+	 * NPA address space is 52 bits or 2^40 pages long.
+	 */
+	adev->ualink.npa_size = 1ULL << 40;
+
 	return gfx_v12_1_init_microcode(adev);
 }
 

@@ -129,6 +129,7 @@ static void amdgpu_evict_flags(struct ttm_buffer_object *bo,
 	case AMDGPU_PL_OA:
 	case AMDGPU_PL_DOORBELL:
 	case AMDGPU_PL_MMIO_REMAP:
+	case AMDGPU_PL_NPA:
 		placement->num_placement = 0;
 		return;
 
@@ -580,11 +581,13 @@ static int amdgpu_bo_move(struct ttm_buffer_object *bo, bool evict,
 	    old_mem->mem_type == AMDGPU_PL_OA ||
 	    old_mem->mem_type == AMDGPU_PL_DOORBELL ||
 	    old_mem->mem_type == AMDGPU_PL_MMIO_REMAP ||
+	    old_mem->mem_type == AMDGPU_PL_NPA ||
 	    new_mem->mem_type == AMDGPU_PL_GDS ||
 	    new_mem->mem_type == AMDGPU_PL_GWS ||
 	    new_mem->mem_type == AMDGPU_PL_OA ||
 	    new_mem->mem_type == AMDGPU_PL_DOORBELL ||
-	    new_mem->mem_type == AMDGPU_PL_MMIO_REMAP) {
+	    new_mem->mem_type == AMDGPU_PL_MMIO_REMAP ||
+	    new_mem->mem_type == AMDGPU_PL_NPA) {
 		/* Nothing to save here */
 		amdgpu_bo_move_notify(bo, evict, new_mem);
 		ttm_bo_move_null(bo, new_mem);
@@ -2277,6 +2280,16 @@ int amdgpu_ttm_init(struct amdgpu_device *adev)
 		dev_err(adev->dev, "Failed initializing oa heap.\n");
 		return r;
 	}
+
+	if (adev->ualink.npa_size) {
+		r = amdgpu_ttm_init_on_chip(adev, AMDGPU_PL_NPA,
+					    adev->ualink.npa_size);
+		if (r) {
+			dev_err(adev->dev, "Failed initializing NPA heap.\n");
+			return r;
+		}
+	}
+
 	if (amdgpu_bo_create_kernel(adev, PAGE_SIZE, PAGE_SIZE,
 				AMDGPU_GEM_DOMAIN_GTT,
 				&adev->mman.sdma_access_bo, NULL,
@@ -2330,6 +2343,7 @@ void amdgpu_ttm_fini(struct amdgpu_device *adev)
 	ttm_range_man_fini(&adev->mman.bdev, AMDGPU_PL_OA);
 	ttm_range_man_fini(&adev->mman.bdev, AMDGPU_PL_DOORBELL);
 	ttm_range_man_fini(&adev->mman.bdev, AMDGPU_PL_MMIO_REMAP);
+	ttm_range_man_fini(&adev->mman.bdev, AMDGPU_PL_NPA);
 	ttm_device_fini(&adev->mman.bdev);
 	adev->mman.initialized = false;
 	dev_info(adev->dev, " ttm finalized\n");
@@ -2712,6 +2726,7 @@ int amdgpu_ttm_evict_resources(struct amdgpu_device *adev, int mem_type)
 	case AMDGPU_PL_GWS:
 	case AMDGPU_PL_GDS:
 	case AMDGPU_PL_OA:
+	case AMDGPU_PL_NPA:
 		man = ttm_manager_type(&adev->mman.bdev, mem_type);
 		break;
 	default:

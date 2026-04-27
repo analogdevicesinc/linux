@@ -133,6 +133,7 @@ struct amdgpu_ualink_connection {
 };
 
 struct amdgpu_ualink_mgr {
+	u64 npa_size;
 	u32 psp_if_ver;
 	struct amdgpu_ualink_info *info;
 	struct amdgpu_ualink_ppod_setup *setup;
