@@ -36,7 +36,7 @@ static void halbtcoutsrc_LeaveLps(struct btc_coexist *pBtCoexist)
 	pBtCoexist->btInfo.bBtCtrlLps = true;
 	pBtCoexist->btInfo.bBtLpsOn = false;
 
-	rtw_btcoex_LPS_Leave(padapter);
+	rtw_btcoex_lps_leave(padapter);
 }
 
 static void halbtcoutsrc_EnterLps(struct btc_coexist *pBtCoexist)
@@ -60,7 +60,7 @@ static void halbtcoutsrc_NormalLps(struct btc_coexist *pBtCoexist)
 
 	if (pBtCoexist->btInfo.bBtCtrlLps) {
 		pBtCoexist->btInfo.bBtLpsOn = false;
-		rtw_btcoex_LPS_Leave(padapter);
+		rtw_btcoex_lps_leave(padapter);
 		pBtCoexist->btInfo.bBtCtrlLps = false;
 
 		/*  recover the LPS state to the original */

@@ -61,7 +61,7 @@ void rtw_btcoex_lps_enter(struct adapter *padapter)
 	rtw_set_ps_mode(padapter, PS_MODE_MIN, 0, lps_val, "BTCOEX");
 }
 
-void rtw_btcoex_LPS_Leave(struct adapter *padapter)
+void rtw_btcoex_lps_leave(struct adapter *padapter)
 {
 	struct pwrctrl_priv *pwrpriv;
 
