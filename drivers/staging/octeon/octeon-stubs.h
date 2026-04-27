@@ -411,11 +411,11 @@ typedef struct {
 	u16 inb_errors;
 } cvmx_pip_port_status_t;
 
-typedef struct {
+struct cvmx_pko_port_status {
 	u32 packets;
 	u64 octets;
 	u64 doorbell;
-} cvmx_pko_port_status_t;
+};
 
 union cvmx_pip_frm_len_chkx {
 	u64 u64;
@@ -1264,7 +1264,7 @@ static inline void cvmx_pip_get_port_status(u64 port_num, u64 clear,
 { }
 
 static inline void cvmx_pko_get_port_status(u64 port_num, u64 clear,
-					    cvmx_pko_port_status_t *status)
+					    struct cvmx_pko_port_status *status)
 { }
 
 static inline enum cvmx_helper_interface_mode cvmx_helper_interface_get_mode(int
