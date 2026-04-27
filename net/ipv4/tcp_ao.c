@@ -739,22 +739,15 @@ int tcp_v4_ao_synack_hash(char *ao_hash, struct tcp_ao_key *ao_key,
 			  struct request_sock *req, const struct sk_buff *skb,
 			  int hash_offset, u32 sne)
 {
-	void *hash_buf = NULL;
+	u8 tkey_buf[TCP_AO_MAX_TRAFFIC_KEY_LEN];
 	int err;
 
-	hash_buf = kmalloc(tcp_ao_digest_size(ao_key), GFP_ATOMIC);
-	if (!hash_buf)
-		return -ENOMEM;
-
-	err = tcp_v4_ao_calc_key_rsk(ao_key, hash_buf, req);
+	err = tcp_v4_ao_calc_key_rsk(ao_key, tkey_buf, req);
 	if (err)
-		goto out;
+		return err;
 
-	err = tcp_ao_hash_skb(AF_INET, ao_hash, ao_key, req_to_sk(req), skb,
-			      hash_buf, hash_offset, sne);
-out:
-	kfree(hash_buf);
-	return err;
+	return tcp_ao_hash_skb(AF_INET, ao_hash, ao_key, req_to_sk(req), skb,
+			       tkey_buf, hash_offset, sne);
 }
 
 struct tcp_ao_key *tcp_v4_ao_lookup_rsk(const struct sock *sk,
@@ -869,9 +862,9 @@ int tcp_ao_transmit_skb(struct sock *sk, struct sk_buff *skb,
 			__u8 *hash_location)
 {
 	struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
+	u8 tkey_buf[TCP_AO_MAX_TRAFFIC_KEY_LEN];
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct tcp_ao_info *ao;
-	void *tkey_buf = NULL;
 	u8 *traffic_key;
 	u32 sne;
 
@@ -883,9 +876,6 @@ int tcp_ao_transmit_skb(struct sock *sk, struct sk_buff *skb,
 
 		if (!(tcb->tcp_flags & TCPHDR_ACK)) {
 			disn = 0;
-			tkey_buf = kmalloc(tcp_ao_digest_size(key), GFP_ATOMIC);
-			if (!tkey_buf)
-				return -ENOMEM;
 			traffic_key = tkey_buf;
 		} else {
 			disn = ao->risn;
@@ -897,7 +887,6 @@ int tcp_ao_transmit_skb(struct sock *sk, struct sk_buff *skb,
 				 ntohl(th->seq));
 	tp->af_specific->calc_ao_hash(hash_location, key, sk, skb, traffic_key,
 				      hash_location - (u8 *)th, sne);
-	kfree(tkey_buf);
 	return 0;
 }
 
@@ -963,7 +952,7 @@ tcp_ao_verify_hash(const struct sock *sk, const struct sk_buff *skb,
 {
 	const struct tcphdr *th = tcp_hdr(skb);
 	u8 maclen = tcp_ao_hdr_maclen(aoh);
-	void *hash_buf = NULL;
+	u8 hash_buf[TCP_AO_MAX_MAC_LEN];
 
 	if (maclen != tcp_ao_maclen(key)) {
 		NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPAOBAD);
@@ -974,10 +963,6 @@ tcp_ao_verify_hash(const struct sock *sk, const struct sk_buff *skb,
 		return SKB_DROP_REASON_TCP_AOFAILURE;
 	}
 
-	hash_buf = kmalloc(tcp_ao_digest_size(key), GFP_ATOMIC);
-	if (!hash_buf)
-		return SKB_DROP_REASON_NOT_SPECIFIED;
-
 	/* XXX: make it per-AF callback? */
 	tcp_ao_hash_skb(family, hash_buf, key, sk, skb, traffic_key,
 			(phash - (u8 *)th), sne);
@@ -987,13 +972,11 @@ tcp_ao_verify_hash(const struct sock *sk, const struct sk_buff *skb,
 		atomic64_inc(&key->pkt_bad);
 		trace_tcp_ao_mismatch(sk, skb, aoh->keyid,
 				      aoh->rnext_keyid, maclen);
-		kfree(hash_buf);
 		return SKB_DROP_REASON_TCP_AOFAILURE;
 	}
 	NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPAOGOOD);
 	atomic64_inc(&info->counters.pkt_good);
 	atomic64_inc(&key->pkt_good);
-	kfree(hash_buf);
 	return SKB_NOT_DROPPED_YET;
 }
 
@@ -1002,11 +985,11 @@ tcp_inbound_ao_hash(struct sock *sk, const struct sk_buff *skb,
 		    unsigned short int family, const struct request_sock *req,
 		    int l3index, const struct tcp_ao_hdr *aoh)
 {
+	u8 tkey_buf[TCP_AO_MAX_TRAFFIC_KEY_LEN];
 	const struct tcphdr *th = tcp_hdr(skb);
 	u8 maclen = tcp_ao_hdr_maclen(aoh);
 	u8 *phash = (u8 *)(aoh + 1); /* hash goes just after the header */
 	struct tcp_ao_info *info;
-	enum skb_drop_reason ret;
 	struct tcp_ao_key *key;
 	__be32 sisn, disn;
 	u8 *traffic_key;
@@ -1114,14 +1097,9 @@ tcp_inbound_ao_hash(struct sock *sk, const struct sk_buff *skb,
 		return SKB_DROP_REASON_TCP_AOFAILURE;
 	}
 verify_hash:
-	traffic_key = kmalloc(tcp_ao_digest_size(key), GFP_ATOMIC);
-	if (!traffic_key)
-		return SKB_DROP_REASON_NOT_SPECIFIED;
-	tcp_ao_calc_key_skb(key, traffic_key, skb, sisn, disn, family);
-	ret = tcp_ao_verify_hash(sk, skb, family, info, aoh, key,
-				 traffic_key, phash, sne, l3index);
-	kfree(traffic_key);
-	return ret;
+	tcp_ao_calc_key_skb(key, tkey_buf, skb, sisn, disn, family);
+	return tcp_ao_verify_hash(sk, skb, family, info, aoh, key,
+				  tkey_buf, phash, sne, l3index);
 
 key_not_found:
 	NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPAOKEYNOTFOUND);
