@@ -1497,6 +1497,13 @@ static int gfx_v12_1_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		return r;
 
+	/* pmr ea error */
+	r = amdgpu_irq_add_id(adev, SOC_V1_0_IH_CLIENTID_GFX,
+				GFX_12_1_0__SRCID__PMR_EA_ERROR_INTERRUPT,
+				&adev->gfx.pmr_ea_irq);
+	if (r)
+		return r;
+
 	adev->gfx.gfx_current_status = AMDGPU_GFX_NORMAL_MODE;
 
 	r = gfx_v12_1_rlc_init(adev);
@@ -4047,6 +4054,36 @@ static int gfx_v12_1_rlc_poison_irq(struct amdgpu_device *adev,
 	return 0;
 }
 
+static int gfx_v12_1_pmr_ea_irq(struct amdgpu_device *adev,
+				  struct amdgpu_irq_src *source,
+				  struct amdgpu_iv_entry *entry)
+{
+	uint32_t ras_blk = RAS_BLOCK_ID__GFX;
+	struct ras_ih_info ih_info = {0};
+	uint32_t ctx_id = entry->src_data[0];
+	int i, num_xcc;
+
+	if (ctx_id & 0x1) {
+		/* request RLC MCA logging here
+		 * nHT CTO status clearing is handled by RLC firmware
+		 */
+
+		ih_info.block = ras_blk;
+		ih_info.reset = AMDGPU_RAS_GPU_RESET_MODE2_RESET;
+		amdgpu_ras_mgr_dispatch_interrupt(adev, &ih_info);
+	}
+
+	if (ctx_id & 0x2) {
+		num_xcc = NUM_XCC(adev->gfx.xcc_mask);
+		/* ea_ill_op_status will be cleared in a future update */
+		for (i = 0; i < num_xcc; i++)
+			dev_warn(adev->dev,
+				"an EA illegal-op is detected and need to clear ea_ill_op_status\n");
+	}
+
+	return 0;
+}
+
 static void gfx_v12_1_emit_mem_sync(struct amdgpu_ring *ring)
 {
 	const unsigned int gcr_cntl =
@@ -4175,6 +4212,10 @@ static const struct amdgpu_irq_src_funcs gfx_v12_1_rlc_poison_irq_funcs = {
 	.process = gfx_v12_1_rlc_poison_irq,
 };
 
+static const struct amdgpu_irq_src_funcs gfx_v12_1_pmr_ea_irq_funcs = {
+	.process = gfx_v12_1_pmr_ea_irq,
+};
+
 static void gfx_v12_1_set_irq_funcs(struct amdgpu_device *adev)
 {
 	adev->gfx.eop_irq.num_types = AMDGPU_CP_IRQ_LAST;
@@ -4188,6 +4229,9 @@ static void gfx_v12_1_set_irq_funcs(struct amdgpu_device *adev)
 
 	adev->gfx.rlc_poison_irq.num_types = 1;
 	adev->gfx.rlc_poison_irq.funcs = &gfx_v12_1_rlc_poison_irq_funcs;
+
+	adev->gfx.pmr_ea_irq.num_types = 1;
+	adev->gfx.pmr_ea_irq.funcs = &gfx_v12_1_pmr_ea_irq_funcs;
 }
 
 static void gfx_v12_1_set_imu_funcs(struct amdgpu_device *adev)
