@@ -516,9 +516,13 @@ vmw_vkms_set_crc_surface(struct drm_crtc *crtc,
 static inline u64
 vmw_vkms_lock_max_wait_ns(struct vmw_display_unit *du)
 {
-	s64 nsecs = ktime_to_ns(du->vkms.period_ns);
+	struct drm_crtc *crtc = &du->crtc;
+	struct drm_vblank_crtc *vblank = drm_crtc_vblank_crtc(crtc);
 
-	return  (nsecs > 0) ? nsecs : 16666666;
+	if (!vblank || !vblank->framedur_ns)
+		return NSEC_PER_SEC / 60; /* disabled; assume 60 Hz */
+
+	return vblank->framedur_ns;
 }
 
 /**
