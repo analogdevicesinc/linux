@@ -23,6 +23,7 @@
  */
 
 #include <linux/xarray.h>
+#include <drm/drm_mm.h>
 #include "amdgpu.h"
 #include "amdgpu_ualink.h"
 #include "amdgpu_xgmi.h"
@@ -1070,6 +1071,87 @@ void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev)
 	}
 }
 
+static int amdgpu_ualink_npa_alloc_va(struct amdgpu_device *adev,
+			       struct drm_mm_node *mm_node,
+			       u64 va, u64 range_start,
+			       u64 range_end, int size)
+{
+	struct amdgpu_ualink_npa_mm *npa_mm = &adev->ualink.npa_mm;
+	u64 alignment = 0;
+	int ret;
+
+	mutex_lock(&npa_mm->mm_lock);
+	if (va) {
+		mm_node->start = va;
+		mm_node->size = size;
+		ret = drm_mm_reserve_node(&npa_mm->mm, mm_node);
+	} else {
+		if (!range_start && !range_end) {
+			range_start = npa_mm->va_start;
+			range_end = npa_mm->va_start + npa_mm->va_size;
+		}
+
+		/* If size is greater than 2MB (or 512 pages),
+		 * align it to 2MB (or 512 pages) granularity.
+		 */
+		if (size >= 0x200)
+			alignment = 0x200;
+
+		ret = drm_mm_insert_node_in_range(&npa_mm->mm, mm_node, size,
+						  alignment, 0, range_start,
+						  range_end, 0);
+	}
+	mutex_unlock(&npa_mm->mm_lock);
+
+	if (ret)
+		dev_err(adev->dev, "Failed to allocate NPA address\n");
+
+	return ret;
+}
+
+static void amdgpu_ualink_npa_free_va(struct amdgpu_device *adev,
+			       struct drm_mm_node *mm_node)
+{
+	struct amdgpu_ualink_npa_mm *npa_mm = &adev->ualink.npa_mm;
+
+	mutex_lock(&npa_mm->mm_lock);
+	drm_mm_remove_node(mm_node);
+	mutex_unlock(&npa_mm->mm_lock);
+}
+
+static void amdgpu_ualink_npa_mm_init(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_npa_mm *npa_mm = &adev->ualink.npa_mm;
+	u32 addr_mode = adev->ualink.info->vpod.addr_mode;
+	u64 va_size;
+
+	mutex_init(&npa_mm->mm_lock);
+
+	if (addr_mode == AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT) {
+		/* 51 bit address space in Source-Identification mode.
+		 * 39 bits in page granularity.
+		 */
+		npa_mm->va_start = 0;
+		va_size = GENMASK_ULL(38, 0);
+	} else {
+		/* 41 bit address space in Source-Alias mode.
+		 * 29 bits in page granularity.
+		 */
+		/* First 8MB is reserved for Metadata NPAs */
+		npa_mm->va_start = 0x800;
+		va_size = GENMASK_ULL(28, 0);
+	}
+
+	npa_mm->va_size = va_size - npa_mm->va_start;
+	drm_mm_init(&npa_mm->mm, npa_mm->va_start, npa_mm->va_size);
+}
+
+static void amdgpu_ualink_npa_mm_fini(struct amdgpu_device *adev)
+{
+	mutex_destroy(&adev->ualink.npa_mm.mm_lock);
+	drm_mm_takedown(&adev->ualink.npa_mm.mm);
+}
+
 int amdgpu_ualink_manager_start(struct amdgpu_device *adev)
 {
 	int i, r;
@@ -1092,12 +1174,16 @@ int amdgpu_ualink_manager_start(struct amdgpu_device *adev)
 		INIT_LIST_HEAD(&adev->ualink.imp_handles_list[i]);
 	}
 
+	amdgpu_ualink_npa_mm_init(adev);
+
 	return 0;
 }
 
 void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
 {
 	int i;
+
+	amdgpu_ualink_npa_mm_fini(adev);
 
 	xa_destroy(&adev->ualink.exp_xa);
 	xa_destroy(&adev->ualink.imp_xa);

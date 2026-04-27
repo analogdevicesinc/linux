@@ -125,6 +125,13 @@ struct amdgpu_ualink_station_config {
 };
 #define to_ualink_station_config(ko) container_of(ko, struct amdgpu_ualink_station_config, kobj)
 
+struct amdgpu_ualink_npa_mm {
+	struct drm_mm			mm;
+	u64				va_start;
+	u64				va_size;
+	struct mutex			mm_lock;
+};
+
 struct amdgpu_ualink_connection {
 	struct completion hello_done;
 	struct mutex lock;
@@ -164,6 +171,9 @@ struct amdgpu_ualink_mgr {
 
 	/* WQ to manage revocation of exported memory. */
 	struct workqueue_struct *npa_wq;
+
+	/* Memory-manager for managing NPA address space. */
+	struct amdgpu_ualink_npa_mm npa_mm;
 };
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
