@@ -30,7 +30,7 @@
 				compatible = "adi,ad7124-8";
 				reg = <0>; //CS0 default
 				spi-max-frequency = <5000000>;
-				interrupts = <19 2>; // interrupt, Default to PMD-RPI-INTZ P1
+				interrupts = <19 8>; // interrupt, Default to PMD-RPI-INTZ P1, active-low level
 				interrupt-parent = <&gpio>;
 				pinctrl-names = "default";
 				pinctrl-0 = <&ad7124_irq_pin>;
