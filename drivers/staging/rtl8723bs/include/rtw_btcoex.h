@@ -20,7 +20,7 @@ void rtw_btcoex_halt_notify(struct adapter *padapter);
 /*  ================================================== */
 /*  Below Functions are called by BT-Coex */
 /*  ================================================== */
-void rtw_btcoex_RejectApAggregatedPacket(struct adapter *padapter, u8 enable);
+void rtw_btcoex_reject_ap_aggregated_packet(struct adapter *padapter, u8 enable);
 void rtw_btcoex_LPS_Enter(struct adapter *padapter);
 void rtw_btcoex_LPS_Leave(struct adapter *padapter);
 

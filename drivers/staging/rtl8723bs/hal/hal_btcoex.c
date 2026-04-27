@@ -134,7 +134,7 @@ static void halbtcoutsrc_AggregationCheck(struct btc_coexist *pBtCoexist)
 	bNeedToAct = false;
 
 	if (pBtCoexist->btInfo.bRejectAggPkt) {
-		rtw_btcoex_RejectApAggregatedPacket(padapter, true);
+		rtw_btcoex_reject_ap_aggregated_packet(padapter, true);
 	} else {
 		if (pBtCoexist->btInfo.bPreBtCtrlAggBufSize !=
 			pBtCoexist->btInfo.bBtCtrlAggBufSize) {
@@ -151,8 +151,8 @@ static void halbtcoutsrc_AggregationCheck(struct btc_coexist *pBtCoexist)
 		}
 
 		if (bNeedToAct) {
-			rtw_btcoex_RejectApAggregatedPacket(padapter, true);
-			rtw_btcoex_RejectApAggregatedPacket(padapter, false);
+			rtw_btcoex_reject_ap_aggregated_packet(padapter, true);
+			rtw_btcoex_reject_ap_aggregated_packet(padapter, false);
 		}
 	}
 }

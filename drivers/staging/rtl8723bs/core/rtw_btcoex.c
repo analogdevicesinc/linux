@@ -32,7 +32,7 @@ void rtw_btcoex_halt_notify(struct adapter *padapter)
 /*  ================================================== */
 /*  Below Functions are called by BT-Coex */
 /*  ================================================== */
-void rtw_btcoex_RejectApAggregatedPacket(struct adapter *padapter, u8 enable)
+void rtw_btcoex_reject_ap_aggregated_packet(struct adapter *padapter, u8 enable)
 {
 	struct mlme_ext_info *pmlmeinfo;
 	struct sta_info *psta;
