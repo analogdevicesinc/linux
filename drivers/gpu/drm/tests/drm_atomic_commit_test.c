@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Test cases for the drm_atomic_state helpers
+ * Test cases for the drm_atomic_commit helpers
  *
  * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
@@ -146,7 +146,7 @@ static int set_up_atomic_state(struct kunit *test,
 {
 	struct drm_device *drm = &priv->drm;
 	struct drm_crtc *crtc = priv->crtc;
-	struct drm_atomic_state *state;
+	struct drm_atomic_commit *state;
 	struct drm_connector_state *conn_state;
 	struct drm_crtc_state *crtc_state;
 	int ret;
@@ -196,7 +196,7 @@ static void drm_test_check_connector_changed_modeset(struct kunit *test)
 	struct drm_atomic_test_priv *priv;
 	struct drm_modeset_acquire_ctx ctx;
 	struct drm_connector *old_conn, *new_conn;
-	struct drm_atomic_state *state;
+	struct drm_atomic_commit *state;
 	struct drm_device *drm;
 	struct drm_connector_state *new_conn_state, *old_conn_state;
 	int ret, initial_modeset_count;
@@ -278,7 +278,7 @@ static void drm_test_check_valid_clones(struct kunit *test)
 	struct drm_atomic_test_priv *priv;
 	struct drm_modeset_acquire_ctx ctx;
 	struct drm_device *drm;
-	struct drm_atomic_state *state;
+	struct drm_atomic_commit *state;
 	struct drm_crtc_state *crtc_state;
 
 	priv = drm_atomic_test_init_drm_components(test, false);
@@ -303,7 +303,7 @@ retry_set_up:
 retry:
 	crtc_state = drm_atomic_get_crtc_state(state, priv->crtc);
 	if (PTR_ERR(crtc_state) == -EDEADLK) {
-		drm_atomic_state_clear(state);
+		drm_atomic_commit_clear(state);
 		ret = drm_modeset_backoff(&ctx);
 		if (!ret)
 			goto retry;
@@ -317,7 +317,7 @@ retry:
 
 	ret = drm_atomic_helper_check_modeset(drm, state);
 	if (ret == -EDEADLK) {
-		drm_atomic_state_clear(state);
+		drm_atomic_commit_clear(state);
 		ret = drm_modeset_backoff(&ctx);
 		if (!ret)
 			goto retry;

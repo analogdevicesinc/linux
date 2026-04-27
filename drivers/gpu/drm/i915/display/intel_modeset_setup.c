@@ -44,7 +44,7 @@ static void intel_crtc_disable_noatomic_begin(struct intel_crtc *crtc,
 	struct intel_crtc_state *crtc_state =
 		to_intel_crtc_state(crtc->base.state);
 	struct intel_plane *plane;
-	struct drm_atomic_state *state;
+	struct drm_atomic_commit *state;
 	struct intel_crtc *temp_crtc;
 	enum pipe pipe = crtc->pipe;
 
@@ -59,7 +59,7 @@ static void intel_crtc_disable_noatomic_begin(struct intel_crtc *crtc,
 			intel_plane_disable_noatomic(crtc, plane);
 	}
 
-	state = drm_atomic_state_alloc(display->drm);
+	state = drm_atomic_commit_alloc(display->drm);
 	if (!state) {
 		drm_dbg_kms(display->drm,
 			    "failed to disable [CRTC:%d:%s], out of memory",
@@ -85,7 +85,7 @@ static void intel_crtc_disable_noatomic_begin(struct intel_crtc *crtc,
 
 	display->funcs.display->crtc_disable(to_intel_atomic_state(state), crtc);
 
-	drm_atomic_state_put(state);
+	drm_atomic_commit_put(state);
 
 	drm_dbg_kms(display->drm,
 		    "[CRTC:%d:%s] hw state adjusted, was enabled, now disabled\n",

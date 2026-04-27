@@ -35,7 +35,7 @@ static int dw_dp_encoder_atomic_check(struct drm_encoder *encoder,
 				      struct drm_connector_state *conn_state)
 {
 	struct rockchip_crtc_state *s = to_rockchip_crtc_state(crtc_state);
-	struct drm_atomic_state *state = conn_state->state;
+	struct drm_atomic_commit *state = conn_state->state;
 	struct drm_display_info *di = &conn_state->connector->display_info;
 	struct drm_bridge *bridge  = drm_bridge_chain_get_first_bridge(encoder);
 	struct drm_bridge_state *bridge_state = drm_atomic_get_new_bridge_state(state, bridge);

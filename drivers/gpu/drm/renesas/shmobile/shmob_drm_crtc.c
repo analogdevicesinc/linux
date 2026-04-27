@@ -198,7 +198,7 @@ static inline struct shmob_drm_crtc *to_shmob_crtc(struct drm_crtc *crtc)
 }
 
 static void shmob_drm_crtc_atomic_enable(struct drm_crtc *crtc,
-					 struct drm_atomic_state *state)
+					 struct drm_atomic_commit *state)
 {
 	struct shmob_drm_crtc *scrtc = to_shmob_crtc(crtc);
 	struct shmob_drm_device *sdev = to_shmob_device(crtc->dev);
@@ -256,7 +256,7 @@ static void shmob_drm_crtc_atomic_enable(struct drm_crtc *crtc,
 }
 
 static void shmob_drm_crtc_atomic_disable(struct drm_crtc *crtc,
-					  struct drm_atomic_state *state)
+					  struct drm_atomic_commit *state)
 {
 	struct shmob_drm_crtc *scrtc = to_shmob_crtc(crtc);
 	struct shmob_drm_device *sdev = to_shmob_device(crtc->dev);
@@ -279,7 +279,7 @@ static void shmob_drm_crtc_atomic_disable(struct drm_crtc *crtc,
 }
 
 static void shmob_drm_crtc_atomic_flush(struct drm_crtc *crtc,
-					struct drm_atomic_state *state)
+					struct drm_atomic_commit *state)
 {
 	struct drm_pending_vblank_event *event;
 	struct drm_device *dev = crtc->dev;

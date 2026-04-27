@@ -2512,7 +2512,7 @@ static const struct drm_connector_funcs intel_sdvo_connector_funcs = {
 };
 
 static int intel_sdvo_atomic_check(struct drm_connector *conn,
-				   struct drm_atomic_state *state)
+				   struct drm_atomic_commit *state)
 {
 	struct drm_connector_state *new_conn_state =
 		drm_atomic_get_new_connector_state(state, conn);

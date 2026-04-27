@@ -1369,7 +1369,7 @@ int drm_dp_tunnel_available_bw(const struct drm_dp_tunnel *tunnel)
 EXPORT_SYMBOL(drm_dp_tunnel_available_bw);
 
 static struct drm_dp_tunnel_group_state *
-drm_dp_tunnel_atomic_get_group_state(struct drm_atomic_state *state,
+drm_dp_tunnel_atomic_get_group_state(struct drm_atomic_commit *state,
 				     const struct drm_dp_tunnel *tunnel)
 {
 	return (struct drm_dp_tunnel_group_state *)
@@ -1528,7 +1528,7 @@ static const struct drm_private_state_funcs tunnel_group_funcs = {
  * Return the state or an ERR_PTR() error on failure.
  */
 struct drm_dp_tunnel_state *
-drm_dp_tunnel_atomic_get_state(struct drm_atomic_state *state,
+drm_dp_tunnel_atomic_get_state(struct drm_atomic_commit *state,
 			       struct drm_dp_tunnel *tunnel)
 {
 	struct drm_dp_tunnel_group_state *group_state;
@@ -1556,7 +1556,7 @@ EXPORT_SYMBOL(drm_dp_tunnel_atomic_get_state);
  * Return the old state or NULL if the tunnel's atomic state is not in @state.
  */
 struct drm_dp_tunnel_state *
-drm_dp_tunnel_atomic_get_old_state(struct drm_atomic_state *state,
+drm_dp_tunnel_atomic_get_old_state(struct drm_atomic_commit *state,
 				   const struct drm_dp_tunnel *tunnel)
 {
 	struct drm_dp_tunnel_group_state *old_group_state;
@@ -1580,7 +1580,7 @@ EXPORT_SYMBOL(drm_dp_tunnel_atomic_get_old_state);
  * Return the new state or NULL if the tunnel's atomic state is not in @state.
  */
 struct drm_dp_tunnel_state *
-drm_dp_tunnel_atomic_get_new_state(struct drm_atomic_state *state,
+drm_dp_tunnel_atomic_get_new_state(struct drm_atomic_commit *state,
 				   const struct drm_dp_tunnel *tunnel)
 {
 	struct drm_dp_tunnel_group_state *new_group_state;
@@ -1706,7 +1706,7 @@ static int clear_stream_bw(struct drm_dp_tunnel_state *tunnel_state,
  *
  * Returns 0 in case of success, a negative error code otherwise.
  */
-int drm_dp_tunnel_atomic_set_stream_bw(struct drm_atomic_state *state,
+int drm_dp_tunnel_atomic_set_stream_bw(struct drm_atomic_commit *state,
 				       struct drm_dp_tunnel *tunnel,
 				       u8 stream_id, int bw)
 {
@@ -1783,7 +1783,7 @@ EXPORT_SYMBOL(drm_dp_tunnel_atomic_get_required_bw);
  * Return 0 in case of success - with the stream IDs in @stream_mask - or a
  * negative error code in case of failure.
  */
-int drm_dp_tunnel_atomic_get_group_streams_in_state(struct drm_atomic_state *state,
+int drm_dp_tunnel_atomic_get_group_streams_in_state(struct drm_atomic_commit *state,
 						    const struct drm_dp_tunnel *tunnel,
 						    u32 *stream_mask)
 {
@@ -1861,7 +1861,7 @@ drm_dp_tunnel_atomic_check_group_bw(struct drm_dp_tunnel_group_state *new_group_
  * check failed - with @failed_stream_mask containing the streams failing the
  * check - or a negative error code otherwise.
  */
-int drm_dp_tunnel_atomic_check_stream_bws(struct drm_atomic_state *state,
+int drm_dp_tunnel_atomic_check_stream_bws(struct drm_atomic_commit *state,
 					  u32 *failed_stream_mask)
 {
 	struct drm_dp_tunnel_group_state *new_group_state;

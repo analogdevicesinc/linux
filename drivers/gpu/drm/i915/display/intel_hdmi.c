@@ -2656,7 +2656,7 @@ static const struct drm_connector_funcs intel_hdmi_connector_funcs = {
 };
 
 static int intel_hdmi_connector_atomic_check(struct drm_connector *_connector,
-					     struct drm_atomic_state *state)
+					     struct drm_atomic_commit *state)
 {
 	struct intel_connector *connector = to_intel_connector(_connector);
 	struct intel_display *display = to_intel_display(connector);

@@ -129,7 +129,7 @@ struct adp_drv_private {
 #define crtc_to_adp(x) container_of(x, struct adp_drv_private, crtc)
 
 static int adp_plane_atomic_check(struct drm_plane *plane,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_plane_state;
 	struct drm_crtc_state *crtc_state;
@@ -151,7 +151,7 @@ static int adp_plane_atomic_check(struct drm_plane *plane,
 }
 
 static void adp_plane_atomic_update(struct drm_plane *plane,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	struct adp_drv_private *adp;
 	struct drm_rect src_rect;
@@ -193,7 +193,7 @@ static void adp_plane_atomic_update(struct drm_plane *plane,
 }
 
 static void adp_plane_atomic_disable(struct drm_plane *plane,
-				     struct drm_atomic_state *state)
+				     struct drm_atomic_commit *state)
 {
 	struct adp_drv_private *adp = to_adp(plane->dev);
 
@@ -279,7 +279,7 @@ static void adp_crtc_disable_vblank(struct drm_crtc *crtc)
 }
 
 static void adp_crtc_atomic_enable(struct drm_crtc *crtc,
-				   struct drm_atomic_state *state)
+				   struct drm_atomic_commit *state)
 {
 	struct adp_drv_private *adp = crtc_to_adp(crtc);
 
@@ -292,7 +292,7 @@ static void adp_crtc_atomic_enable(struct drm_crtc *crtc,
 }
 
 static void adp_crtc_atomic_disable(struct drm_crtc *crtc,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	struct adp_drv_private *adp = crtc_to_adp(crtc);
 	struct drm_crtc_state *old_state = drm_atomic_get_old_crtc_state(state, crtc);
@@ -308,7 +308,7 @@ static void adp_crtc_atomic_disable(struct drm_crtc *crtc,
 }
 
 static void adp_crtc_atomic_flush(struct drm_crtc *crtc,
-				  struct drm_atomic_state *state)
+				  struct drm_atomic_commit *state)
 {
 	u32 frame_num = 1;
 	unsigned long flags;

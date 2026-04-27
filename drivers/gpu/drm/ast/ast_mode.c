@@ -493,7 +493,7 @@ static const uint32_t ast_primary_plane_formats[] = {
 };
 
 static int ast_primary_plane_helper_atomic_check(struct drm_plane *plane,
-						 struct drm_atomic_state *state)
+						 struct drm_atomic_commit *state)
 {
 	struct drm_device *dev = plane->dev;
 	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state, plane);
@@ -541,7 +541,7 @@ static void ast_handle_damage(struct ast_plane *ast_plane, struct iosys_map *src
 }
 
 static void ast_primary_plane_helper_atomic_update(struct drm_plane *plane,
-						   struct drm_atomic_state *state)
+						   struct drm_atomic_commit *state)
 {
 	struct drm_device *dev = plane->dev;
 	struct ast_device *ast = to_ast_device(dev);
@@ -585,7 +585,7 @@ static void ast_primary_plane_helper_atomic_update(struct drm_plane *plane,
 }
 
 static void ast_primary_plane_helper_atomic_enable(struct drm_plane *plane,
-						   struct drm_atomic_state *state)
+						   struct drm_atomic_commit *state)
 {
 	struct ast_device *ast = to_ast_device(plane->dev);
 	struct ast_plane *ast_plane = to_ast_plane(plane);
@@ -600,7 +600,7 @@ static void ast_primary_plane_helper_atomic_enable(struct drm_plane *plane,
 }
 
 static void ast_primary_plane_helper_atomic_disable(struct drm_plane *plane,
-						    struct drm_atomic_state *state)
+						    struct drm_atomic_commit *state)
 {
 	/*
 	 * Keep this empty function to avoid calling
@@ -708,7 +708,7 @@ static void ast_crtc_helper_mode_set_nofb(struct drm_crtc *crtc)
 }
 
 static int ast_crtc_helper_atomic_check(struct drm_crtc *crtc,
-					struct drm_atomic_state *state)
+					struct drm_atomic_commit *state)
 {
 	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state, crtc);
 	struct drm_display_mode *adjusted_mode = &crtc_state->adjusted_mode;
@@ -808,7 +808,7 @@ static int ast_crtc_helper_atomic_check(struct drm_crtc *crtc,
 
 static void
 ast_crtc_helper_atomic_flush(struct drm_crtc *crtc,
-			     struct drm_atomic_state *state)
+			     struct drm_atomic_commit *state)
 {
 	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state,
 									  crtc);
@@ -830,7 +830,7 @@ ast_crtc_helper_atomic_flush(struct drm_crtc *crtc,
 	}
 }
 
-static void ast_crtc_helper_atomic_enable(struct drm_crtc *crtc, struct drm_atomic_state *state)
+static void ast_crtc_helper_atomic_enable(struct drm_crtc *crtc, struct drm_atomic_commit *state)
 {
 	struct ast_device *ast = to_ast_device(crtc->dev);
 	u8 vgacr17 = 0x00;
@@ -843,7 +843,7 @@ static void ast_crtc_helper_atomic_enable(struct drm_crtc *crtc, struct drm_atom
 	ast_set_index_reg_mask(ast, AST_IO_VGACRI, 0xb6, 0xfc, vgacrb6);
 }
 
-static void ast_crtc_helper_atomic_disable(struct drm_crtc *crtc, struct drm_atomic_state *state)
+static void ast_crtc_helper_atomic_disable(struct drm_crtc *crtc, struct drm_atomic_commit *state)
 {
 	struct drm_crtc_state *old_crtc_state = drm_atomic_get_old_crtc_state(state, crtc);
 	struct ast_device *ast = to_ast_device(crtc->dev);
@@ -952,7 +952,7 @@ static int ast_crtc_init(struct ast_device *ast)
  * Mode config
  */
 
-static void ast_mode_config_helper_atomic_commit_tail(struct drm_atomic_state *state)
+static void ast_mode_config_helper_atomic_commit_tail(struct drm_atomic_commit *state)
 {
 	struct ast_device *ast = to_ast_device(state->dev);
 

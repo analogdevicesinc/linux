@@ -251,7 +251,7 @@ int intel_dp_mtp_tu_compute_config(struct intel_dp *intel_dp,
 				   int min_bpp_x16, int max_bpp_x16, int bpp_step_x16, bool dsc)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
-	struct drm_atomic_state *state = crtc_state->uapi.state;
+	struct drm_atomic_commit *state = crtc_state->uapi.state;
 	struct drm_dp_mst_topology_state *mst_state = NULL;
 	struct intel_connector *connector =
 		to_intel_connector(conn_state->connector);
@@ -996,7 +996,7 @@ mst_connector_atomic_topology_check(struct intel_connector *connector,
 
 static int
 mst_connector_atomic_check(struct drm_connector *_connector,
-			   struct drm_atomic_state *_state)
+			   struct drm_atomic_commit *_state)
 {
 	struct intel_atomic_state *state = to_intel_atomic_state(_state);
 	struct intel_connector *connector = to_intel_connector(_connector);
@@ -1603,7 +1603,7 @@ mst_connector_mode_valid_ctx(struct drm_connector *_connector,
 
 static struct drm_encoder *
 mst_connector_atomic_best_encoder(struct drm_connector *_connector,
-				  struct drm_atomic_state *state)
+				  struct drm_atomic_commit *state)
 {
 	struct intel_connector *connector = to_intel_connector(_connector);
 	struct drm_connector_state *connector_state =

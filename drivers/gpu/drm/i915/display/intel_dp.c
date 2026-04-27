@@ -6733,7 +6733,7 @@ static int intel_modeset_synced_crtcs(struct intel_atomic_state *state,
 }
 
 static int intel_dp_connector_atomic_check(struct drm_connector *_connector,
-					   struct drm_atomic_state *_state)
+					   struct drm_atomic_commit *_state)
 {
 	struct intel_connector *connector = to_intel_connector(_connector);
 	struct intel_display *display = to_intel_display(connector);

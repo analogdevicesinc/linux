@@ -891,7 +891,7 @@ analogix_dp_best_encoder(struct drm_connector *connector)
 
 
 static int analogix_dp_atomic_check(struct drm_connector *connector,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	struct analogix_dp_device *dp = to_dp(connector);
 	struct drm_connector_state *conn_state;
@@ -995,7 +995,7 @@ static int analogix_dp_bridge_attach(struct drm_bridge *bridge,
 
 static
 struct drm_crtc *analogix_dp_get_old_crtc(struct analogix_dp_device *dp,
-					  struct drm_atomic_state *state)
+					  struct drm_atomic_commit *state)
 {
 	struct drm_encoder *encoder = dp->encoder;
 	struct drm_connector *connector;
@@ -1014,7 +1014,7 @@ struct drm_crtc *analogix_dp_get_old_crtc(struct analogix_dp_device *dp,
 
 static
 struct drm_crtc *analogix_dp_get_new_crtc(struct analogix_dp_device *dp,
-					  struct drm_atomic_state *state)
+					  struct drm_atomic_commit *state)
 {
 	struct drm_encoder *encoder = dp->encoder;
 	struct drm_connector *connector;
@@ -1032,7 +1032,7 @@ struct drm_crtc *analogix_dp_get_new_crtc(struct analogix_dp_device *dp,
 }
 
 static void analogix_dp_bridge_atomic_pre_enable(struct drm_bridge *bridge,
-						 struct drm_atomic_state *old_state)
+						 struct drm_atomic_commit *old_state)
 {
 	struct analogix_dp_device *dp = to_dp(bridge);
 	struct drm_crtc *crtc;
@@ -1163,7 +1163,7 @@ static void analogix_dp_bridge_mode_set(struct drm_bridge *bridge,
 }
 
 static void analogix_dp_bridge_atomic_enable(struct drm_bridge *bridge,
-					     struct drm_atomic_state *old_state)
+					     struct drm_atomic_commit *old_state)
 {
 	struct analogix_dp_device *dp = to_dp(bridge);
 	struct drm_crtc *crtc;
@@ -1228,7 +1228,7 @@ static void analogix_dp_bridge_disable(struct drm_bridge *bridge)
 }
 
 static void analogix_dp_bridge_atomic_disable(struct drm_bridge *bridge,
-					      struct drm_atomic_state *old_state)
+					      struct drm_atomic_commit *old_state)
 {
 	struct analogix_dp_device *dp = to_dp(bridge);
 	struct drm_crtc *old_crtc, *new_crtc;
@@ -1266,7 +1266,7 @@ out:
 }
 
 static void analogix_dp_bridge_atomic_post_disable(struct drm_bridge *bridge,
-						   struct drm_atomic_state *old_state)
+						   struct drm_atomic_commit *old_state)
 {
 	struct analogix_dp_device *dp = to_dp(bridge);
 	struct drm_crtc *crtc;

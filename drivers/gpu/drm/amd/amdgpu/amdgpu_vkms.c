@@ -130,19 +130,19 @@ static const struct drm_crtc_funcs amdgpu_vkms_crtc_funcs = {
 };
 
 static void amdgpu_vkms_crtc_atomic_enable(struct drm_crtc *crtc,
-					   struct drm_atomic_state *state)
+					   struct drm_atomic_commit *state)
 {
 	drm_crtc_vblank_on(crtc);
 }
 
 static void amdgpu_vkms_crtc_atomic_disable(struct drm_crtc *crtc,
-					    struct drm_atomic_state *state)
+					    struct drm_atomic_commit *state)
 {
 	drm_crtc_vblank_off(crtc);
 }
 
 static void amdgpu_vkms_crtc_atomic_flush(struct drm_crtc *crtc,
-					  struct drm_atomic_state *state)
+					  struct drm_atomic_commit *state)
 {
 	unsigned long flags;
 	if (crtc->state->event) {
@@ -262,13 +262,13 @@ static const struct drm_plane_funcs amdgpu_vkms_plane_funcs = {
 };
 
 static void amdgpu_vkms_plane_atomic_update(struct drm_plane *plane,
-					    struct drm_atomic_state *old_state)
+					    struct drm_atomic_commit *old_state)
 {
 	return;
 }
 
 static int amdgpu_vkms_plane_atomic_check(struct drm_plane *plane,
-					  struct drm_atomic_state *state)
+					  struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state,
 										 plane);

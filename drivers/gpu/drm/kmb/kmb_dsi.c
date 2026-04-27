@@ -1333,7 +1333,7 @@ static u32 mipi_tx_init_dphy(struct kmb_dsi *kmb_dsi,
 }
 
 static void connect_lcd_to_mipi(struct kmb_dsi *kmb_dsi,
-				struct drm_atomic_state *old_state)
+				struct drm_atomic_commit *old_state)
 {
 	struct regmap *msscam;
 
@@ -1353,7 +1353,7 @@ static void connect_lcd_to_mipi(struct kmb_dsi *kmb_dsi,
 }
 
 int kmb_dsi_mode_set(struct kmb_dsi *kmb_dsi, struct drm_display_mode *mode,
-		     int sys_clk_mhz, struct drm_atomic_state *old_state)
+		     int sys_clk_mhz, struct drm_atomic_commit *old_state)
 {
 	u64 data_rate;
 

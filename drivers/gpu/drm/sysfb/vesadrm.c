@@ -246,7 +246,7 @@ static const u64 vesadrm_primary_plane_format_modifiers[] = {
 };
 
 static int vesadrm_primary_plane_helper_atomic_check(struct drm_plane *plane,
-						     struct drm_atomic_state *new_state)
+						     struct drm_atomic_commit *new_state)
 {
 	struct drm_sysfb_device *sysfb = to_drm_sysfb_device(plane->dev);
 	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(new_state, plane);
@@ -315,7 +315,7 @@ static const struct drm_plane_funcs vesadrm_primary_plane_funcs = {
 };
 
 static void vesadrm_crtc_helper_atomic_flush(struct drm_crtc *crtc,
-					     struct drm_atomic_state *state)
+					     struct drm_atomic_commit *state)
 {
 	struct drm_device *dev = crtc->dev;
 	struct drm_sysfb_device *sysfb = to_drm_sysfb_device(dev);

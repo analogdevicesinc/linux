@@ -32,7 +32,7 @@
 #include <linux/hrtimer_types.h>
 #include <linux/types.h>
 
-struct drm_atomic_state;
+struct drm_atomic_commit;
 struct drm_crtc;
 struct vmw_private;
 struct vmw_surface;
@@ -55,12 +55,12 @@ void vmw_vkms_disable_vblank(struct drm_crtc *crtc);
 void vmw_vkms_crtc_init(struct drm_crtc *crtc);
 void vmw_vkms_crtc_cleanup(struct drm_crtc *crtc);
 void  vmw_vkms_crtc_atomic_begin(struct drm_crtc *crtc,
-				 struct drm_atomic_state *state);
-void vmw_vkms_crtc_atomic_flush(struct drm_crtc *crtc, struct drm_atomic_state *state);
+				 struct drm_atomic_commit *state);
+void vmw_vkms_crtc_atomic_flush(struct drm_crtc *crtc, struct drm_atomic_commit *state);
 void vmw_vkms_crtc_atomic_enable(struct drm_crtc *crtc,
-				 struct drm_atomic_state *state);
+				 struct drm_atomic_commit *state);
 void vmw_vkms_crtc_atomic_disable(struct drm_crtc *crtc,
-				  struct drm_atomic_state *state);
+				  struct drm_atomic_commit *state);
 
 const char *const *vmw_vkms_get_crc_sources(struct drm_crtc *crtc,
 					    size_t *count);

@@ -474,7 +474,7 @@ const uint64_t mgag200_primary_plane_fmtmods[] = {
 };
 
 int mgag200_primary_plane_helper_atomic_check(struct drm_plane *plane,
-					      struct drm_atomic_state *new_state)
+					      struct drm_atomic_commit *new_state)
 {
 	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(new_state, plane);
 	struct drm_framebuffer *new_fb = new_plane_state->fb;
@@ -509,7 +509,7 @@ int mgag200_primary_plane_helper_atomic_check(struct drm_plane *plane,
 }
 
 void mgag200_primary_plane_helper_atomic_update(struct drm_plane *plane,
-						struct drm_atomic_state *old_state)
+						struct drm_atomic_commit *old_state)
 {
 	struct drm_device *dev = plane->dev;
 	struct mga_device *mdev = to_mga_device(dev);
@@ -532,7 +532,7 @@ void mgag200_primary_plane_helper_atomic_update(struct drm_plane *plane,
 }
 
 void mgag200_primary_plane_helper_atomic_enable(struct drm_plane *plane,
-						struct drm_atomic_state *state)
+						struct drm_atomic_commit *state)
 {
 	struct drm_device *dev = plane->dev;
 	struct mga_device *mdev = to_mga_device(dev);
@@ -545,7 +545,7 @@ void mgag200_primary_plane_helper_atomic_enable(struct drm_plane *plane,
 }
 
 void mgag200_primary_plane_helper_atomic_disable(struct drm_plane *plane,
-						 struct drm_atomic_state *old_state)
+						 struct drm_atomic_commit *old_state)
 {
 	struct drm_device *dev = plane->dev;
 	struct mga_device *mdev = to_mga_device(dev);
@@ -608,7 +608,7 @@ enum drm_mode_status mgag200_crtc_helper_mode_valid(struct drm_crtc *crtc,
 	return MODE_OK;
 }
 
-int mgag200_crtc_helper_atomic_check(struct drm_crtc *crtc, struct drm_atomic_state *new_state)
+int mgag200_crtc_helper_atomic_check(struct drm_crtc *crtc, struct drm_atomic_commit *new_state)
 {
 	struct drm_device *dev = crtc->dev;
 	struct mga_device *mdev = to_mga_device(dev);
@@ -642,7 +642,7 @@ int mgag200_crtc_helper_atomic_check(struct drm_crtc *crtc, struct drm_atomic_st
 	return 0;
 }
 
-void mgag200_crtc_helper_atomic_flush(struct drm_crtc *crtc, struct drm_atomic_state *old_state)
+void mgag200_crtc_helper_atomic_flush(struct drm_crtc *crtc, struct drm_atomic_commit *old_state)
 {
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mgag200_crtc_state *mgag200_crtc_state = to_mgag200_crtc_state(crtc_state);
@@ -659,7 +659,7 @@ void mgag200_crtc_helper_atomic_flush(struct drm_crtc *crtc, struct drm_atomic_s
 	}
 }
 
-void mgag200_crtc_helper_atomic_enable(struct drm_crtc *crtc, struct drm_atomic_state *old_state)
+void mgag200_crtc_helper_atomic_enable(struct drm_crtc *crtc, struct drm_atomic_commit *old_state)
 {
 	struct drm_device *dev = crtc->dev;
 	struct mga_device *mdev = to_mga_device(dev);
@@ -683,7 +683,7 @@ void mgag200_crtc_helper_atomic_enable(struct drm_crtc *crtc, struct drm_atomic_
 	mgag200_enable_display(mdev);
 }
 
-void mgag200_crtc_helper_atomic_disable(struct drm_crtc *crtc, struct drm_atomic_state *old_state)
+void mgag200_crtc_helper_atomic_disable(struct drm_crtc *crtc, struct drm_atomic_commit *old_state)
 {
 	struct mga_device *mdev = to_mga_device(crtc->dev);
 
@@ -738,7 +738,7 @@ void mgag200_crtc_atomic_destroy_state(struct drm_crtc *crtc, struct drm_crtc_st
  * Mode config
  */
 
-static void mgag200_mode_config_helper_atomic_commit_tail(struct drm_atomic_state *state)
+static void mgag200_mode_config_helper_atomic_commit_tail(struct drm_atomic_commit *state)
 {
 	struct mga_device *mdev = to_mga_device(state->dev);
 

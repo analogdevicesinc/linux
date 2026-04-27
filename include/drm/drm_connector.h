@@ -1098,8 +1098,8 @@ struct drm_connector_state {
 	 */
 	enum drm_link_status link_status;
 
-	/** @state: backpointer to global drm_atomic_state */
-	struct drm_atomic_state *state;
+	/** @state: backpointer to global drm_atomic_commit */
+	struct drm_atomic_commit *state;
 
 	/**
 	 * @commit: Tracks the pending commit to prevent use-after-free conditions.
@@ -2344,7 +2344,7 @@ struct drm_connector {
 	 *
 	 * This is protected by &drm_mode_config.connection_mutex. Note that
 	 * nonblocking atomic commits access the current connector state without
-	 * taking locks. Either by going through the &struct drm_atomic_state
+	 * taking locks. Either by going through the &struct drm_atomic_commit
 	 * pointers, see for_each_oldnew_connector_in_state(),
 	 * for_each_old_connector_in_state() and
 	 * for_each_new_connector_in_state(). Or through careful ordering of

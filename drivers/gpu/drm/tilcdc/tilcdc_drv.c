@@ -49,7 +49,7 @@ static const u32 tilcdc_legacy_formats[] = { DRM_FORMAT_RGB565,
 					     DRM_FORMAT_XRGB8888 };
 
 static int tilcdc_atomic_check(struct drm_device *dev,
-			       struct drm_atomic_state *state)
+			       struct drm_atomic_commit *state)
 {
 	int ret;
 

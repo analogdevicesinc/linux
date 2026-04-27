@@ -3534,7 +3534,7 @@ static void ilk_pipe_wm_get_hw_state(struct intel_crtc *crtc)
 	crtc->wm.active.ilk = *active;
 }
 
-static int ilk_sanitize_watermarks_add_affected(struct drm_atomic_state *state)
+static int ilk_sanitize_watermarks_add_affected(struct drm_atomic_commit *state)
 {
 	struct drm_plane *plane;
 	struct intel_crtc *crtc;
@@ -3578,7 +3578,7 @@ static int ilk_sanitize_watermarks_add_affected(struct drm_atomic_state *state)
  */
 void ilk_wm_sanitize(struct intel_display *display)
 {
-	struct drm_atomic_state *state;
+	struct drm_atomic_commit *state;
 	struct intel_atomic_state *intel_state;
 	struct intel_crtc *crtc;
 	struct intel_crtc_state *crtc_state;
@@ -3593,7 +3593,7 @@ void ilk_wm_sanitize(struct intel_display *display)
 	if (drm_WARN_ON(display->drm, DISPLAY_VER(display) >= 9))
 		return;
 
-	state = drm_atomic_state_alloc(display->drm);
+	state = drm_atomic_commit_alloc(display->drm);
 	if (drm_WARN_ON(display->drm, !state))
 		return;
 
@@ -3631,7 +3631,7 @@ retry:
 
 fail:
 	if (ret == -EDEADLK) {
-		drm_atomic_state_clear(state);
+		drm_atomic_commit_clear(state);
 		drm_modeset_backoff(&ctx);
 		goto retry;
 	}
@@ -3650,7 +3650,7 @@ fail:
 	drm_WARN(display->drm, ret,
 		 "Could not determine valid watermarks for inherited state\n");
 
-	drm_atomic_state_put(state);
+	drm_atomic_commit_put(state);
 
 	drm_modeset_drop_locks(&ctx);
 	drm_modeset_acquire_fini(&ctx);

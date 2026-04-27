@@ -134,7 +134,7 @@ intel_atomic_duplicate_dpll_state(struct intel_display *display,
 }
 
 static struct intel_dpll_state *
-intel_atomic_get_dpll_state(struct drm_atomic_state *s)
+intel_atomic_get_dpll_state(struct drm_atomic_commit *s)
 {
 	struct intel_atomic_state *state = to_intel_atomic_state(s);
 	struct intel_display *display = to_intel_display(state);

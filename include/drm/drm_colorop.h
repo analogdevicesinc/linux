@@ -183,8 +183,8 @@ struct drm_colorop_state {
 	 */
 	struct drm_property_blob *data;
 
-	/** @state: backpointer to global drm_atomic_state */
-	struct drm_atomic_state *state;
+	/** @state: backpointer to global drm_atomic_commit */
+	struct drm_atomic_commit *state;
 };
 
 /**

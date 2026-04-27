@@ -453,7 +453,7 @@ static void tilcdc_crtc_enable(struct drm_crtc *crtc)
 }
 
 static void tilcdc_crtc_atomic_enable(struct drm_crtc *crtc,
-				      struct drm_atomic_state *state)
+				      struct drm_atomic_commit *state)
 {
 	tilcdc_crtc_enable(crtc);
 }
@@ -510,13 +510,13 @@ static void tilcdc_crtc_disable(struct drm_crtc *crtc)
 }
 
 static void tilcdc_crtc_atomic_disable(struct drm_crtc *crtc,
-				       struct drm_atomic_state *state)
+				       struct drm_atomic_commit *state)
 {
 	tilcdc_crtc_disable(crtc);
 }
 
 static void tilcdc_crtc_atomic_flush(struct drm_crtc *crtc,
-				     struct drm_atomic_state *state)
+				     struct drm_atomic_commit *state)
 {
 	if (!crtc->state->event)
 		return;
@@ -632,7 +632,7 @@ static bool tilcdc_crtc_mode_fixup(struct drm_crtc *crtc,
 }
 
 static int tilcdc_crtc_atomic_check(struct drm_crtc *crtc,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state,
 									  crtc);

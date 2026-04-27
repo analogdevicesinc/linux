@@ -71,7 +71,7 @@ static const struct drm_bridge_funcs drm_test_bridge_legacy_funcs = {
 };
 
 static void drm_test_bridge_atomic_enable(struct drm_bridge *bridge,
-					  struct drm_atomic_state *state)
+					  struct drm_atomic_commit *state)
 {
 	struct drm_bridge_priv *priv = bridge_to_priv(bridge);
 
@@ -79,7 +79,7 @@ static void drm_test_bridge_atomic_enable(struct drm_bridge *bridge,
 }
 
 static void drm_test_bridge_atomic_disable(struct drm_bridge *bridge,
-					   struct drm_atomic_state *state)
+					   struct drm_atomic_commit *state)
 {
 	struct drm_bridge_priv *priv = bridge_to_priv(bridge);
 
@@ -190,7 +190,7 @@ static void drm_test_drm_bridge_get_current_state_atomic(struct kunit *test)
 	struct drm_bridge_init_priv *priv;
 	struct drm_bridge_state *curr_bridge_state;
 	struct drm_bridge_state *bridge_state;
-	struct drm_atomic_state *state;
+	struct drm_atomic_commit *state;
 	struct drm_bridge *bridge;
 	struct drm_device *drm;
 	int ret;
@@ -211,7 +211,7 @@ retry_commit:
 
 	ret = drm_atomic_commit(state);
 	if (ret == -EDEADLK) {
-		drm_atomic_state_clear(state);
+		drm_atomic_commit_clear(state);
 		drm_modeset_backoff(&ctx);
 		goto retry_commit;
 	}

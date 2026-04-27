@@ -21,7 +21,7 @@
 #include "vs_plane.h"
 
 static void vs_crtc_atomic_disable(struct drm_crtc *crtc,
-				   struct drm_atomic_state *state)
+				   struct drm_atomic_commit *state)
 {
 	struct vs_crtc *vcrtc = drm_crtc_to_vs_crtc(crtc);
 	struct vs_dc *dc = vcrtc->dc;
@@ -33,7 +33,7 @@ static void vs_crtc_atomic_disable(struct drm_crtc *crtc,
 }
 
 static void vs_crtc_atomic_enable(struct drm_crtc *crtc,
-				  struct drm_atomic_state *state)
+				  struct drm_atomic_commit *state)
 {
 	struct vs_crtc *vcrtc = drm_crtc_to_vs_crtc(crtc);
 	struct vs_dc *dc = vcrtc->dc;

@@ -11,7 +11,7 @@
 #include "i915_reg_defs.h"
 
 enum port;
-struct drm_atomic_state;
+struct drm_atomic_commit;
 struct drm_connector;
 struct intel_display;
 
@@ -19,7 +19,7 @@ struct intel_display;
 bool g4x_hdmi_init(struct intel_display *display,
 		   i915_reg_t hdmi_reg, enum port port);
 int g4x_hdmi_connector_atomic_check(struct drm_connector *connector,
-				    struct drm_atomic_state *state);
+				    struct drm_atomic_commit *state);
 #else
 static inline bool g4x_hdmi_init(struct intel_display *display,
 				 i915_reg_t hdmi_reg, int port)
@@ -27,7 +27,7 @@ static inline bool g4x_hdmi_init(struct intel_display *display,
 	return false;
 }
 static inline int g4x_hdmi_connector_atomic_check(struct drm_connector *connector,
-						  struct drm_atomic_state *state)
+						  struct drm_atomic_commit *state)
 {
 	return 0;
 }

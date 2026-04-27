@@ -5658,11 +5658,11 @@ int intel_modeset_commit_pipes(struct intel_display *display,
 			       u8 pipe_mask,
 			       struct drm_modeset_acquire_ctx *ctx)
 {
-	struct drm_atomic_state *state;
+	struct drm_atomic_commit *state;
 	struct intel_crtc *crtc;
 	int ret;
 
-	state = drm_atomic_state_alloc(display->drm);
+	state = drm_atomic_commit_alloc(display->drm);
 	if (!state)
 		return -ENOMEM;
 
@@ -5683,7 +5683,7 @@ int intel_modeset_commit_pipes(struct intel_display *display,
 
 	ret = drm_atomic_commit(state);
 out:
-	drm_atomic_state_put(state);
+	drm_atomic_commit_put(state);
 
 	return ret;
 }
@@ -6402,7 +6402,7 @@ static int intel_atomic_check_config_and_link(struct intel_atomic_state *state)
  * @_state: state to validate
  */
 int intel_atomic_check(struct drm_device *dev,
-		       struct drm_atomic_state *_state)
+		       struct drm_atomic_commit *_state)
 {
 	struct intel_display *display = to_intel_display(dev);
 	struct intel_atomic_state *state = to_intel_atomic_state(_state);
@@ -7215,7 +7215,7 @@ static void intel_atomic_cleanup_work(struct work_struct *work)
 
 	drm_atomic_helper_cleanup_planes(display->drm, &state->base);
 	drm_atomic_helper_commit_cleanup_done(&state->base);
-	drm_atomic_state_put(&state->base);
+	drm_atomic_commit_put(&state->base);
 }
 
 static void intel_atomic_prepare_plane_clear_colors(struct intel_atomic_state *state)
@@ -7719,7 +7719,7 @@ static int intel_atomic_swap_state(struct intel_atomic_state *state)
 	return 0;
 }
 
-int intel_atomic_commit(struct drm_device *dev, struct drm_atomic_state *_state,
+int intel_atomic_commit(struct drm_device *dev, struct drm_atomic_commit *_state,
 			bool nonblock)
 {
 	struct intel_display *display = to_intel_display(dev);
@@ -7774,7 +7774,7 @@ int intel_atomic_commit(struct drm_device *dev, struct drm_atomic_state *_state,
 		return ret;
 	}
 
-	drm_atomic_state_get(&state->base);
+	drm_atomic_commit_get(&state->base);
 	INIT_WORK(&state->base.commit_work, intel_atomic_commit_work);
 
 	if (nonblock && state->modeset) {
@@ -8288,12 +8288,12 @@ void intel_init_display_hooks(struct intel_display *display)
 
 int intel_initial_commit(struct intel_display *display)
 {
-	struct drm_atomic_state *state = NULL;
+	struct drm_atomic_commit *state = NULL;
 	struct drm_modeset_acquire_ctx ctx;
 	struct intel_crtc *crtc;
 	int ret = 0;
 
-	state = drm_atomic_state_alloc(display->drm);
+	state = drm_atomic_commit_alloc(display->drm);
 	if (!state)
 		return -ENOMEM;
 
@@ -8347,12 +8347,12 @@ retry:
 
 out:
 	if (ret == -EDEADLK) {
-		drm_atomic_state_clear(state);
+		drm_atomic_commit_clear(state);
 		drm_modeset_backoff(&ctx);
 		goto retry;
 	}
 
-	drm_atomic_state_put(state);
+	drm_atomic_commit_put(state);
 
 	drm_modeset_drop_locks(&ctx);
 	drm_modeset_acquire_fini(&ctx);

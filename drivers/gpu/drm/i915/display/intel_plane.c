@@ -364,7 +364,7 @@ intel_plane_color_copy_uapi_to_hw_state(struct intel_plane_state *plane_state,
 {
 	struct drm_colorop *iter_colorop, *colorop;
 	struct drm_colorop_state *new_colorop_state;
-	struct drm_atomic_state *state = plane_state->uapi.state;
+	struct drm_atomic_commit *state = plane_state->uapi.state;
 	struct intel_colorop *intel_colorop;
 	struct drm_property_blob *blob;
 	struct intel_atomic_state *intel_atomic_state = to_intel_atomic_state(state);

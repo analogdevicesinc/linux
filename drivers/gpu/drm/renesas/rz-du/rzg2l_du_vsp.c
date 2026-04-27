@@ -212,7 +212,7 @@ static int __rzg2l_du_vsp_plane_atomic_check(struct drm_plane *plane,
 }
 
 static int rzg2l_du_vsp_plane_atomic_check(struct drm_plane *plane,
-					   struct drm_atomic_state *state)
+					   struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *new_plane_state = drm_atomic_get_new_plane_state(state,
 										 plane);
@@ -222,7 +222,7 @@ static int rzg2l_du_vsp_plane_atomic_check(struct drm_plane *plane,
 }
 
 static void rzg2l_du_vsp_plane_atomic_update(struct drm_plane *plane,
-					     struct drm_atomic_state *state)
+					     struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *old_state = drm_atomic_get_old_plane_state(state, plane);
 	struct drm_plane_state *new_state = drm_atomic_get_new_plane_state(state, plane);

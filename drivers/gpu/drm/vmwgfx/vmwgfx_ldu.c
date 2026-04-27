@@ -310,7 +310,7 @@ static int vmw_kms_ldu_do_bo_dirty(struct vmw_private *dev_priv,
 
 static void
 vmw_ldu_primary_plane_atomic_update(struct drm_plane *plane,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	struct drm_plane_state *old_state = drm_atomic_get_old_plane_state(state,
 									   plane);

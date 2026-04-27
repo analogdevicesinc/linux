@@ -477,7 +477,7 @@ static const struct drm_encoder_funcs ast_dp501_encoder_funcs = {
 };
 
 static void ast_dp501_encoder_helper_atomic_enable(struct drm_encoder *encoder,
-						   struct drm_atomic_state *state)
+						   struct drm_atomic_commit *state)
 {
 	struct ast_device *ast = to_ast_device(encoder->dev);
 
@@ -485,7 +485,7 @@ static void ast_dp501_encoder_helper_atomic_enable(struct drm_encoder *encoder,
 }
 
 static void ast_dp501_encoder_helper_atomic_disable(struct drm_encoder *encoder,
-						    struct drm_atomic_state *state)
+						    struct drm_atomic_commit *state)
 {
 	struct ast_device *ast = to_ast_device(encoder->dev);
 

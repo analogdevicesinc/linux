@@ -185,7 +185,7 @@ static int ilk_check_fdi_lanes(struct intel_display *display, enum pipe pipe,
 			       struct intel_crtc_state *pipe_config,
 			       enum pipe *pipe_to_reduce)
 {
-	struct drm_atomic_state *state = pipe_config->uapi.state;
+	struct drm_atomic_commit *state = pipe_config->uapi.state;
 	struct intel_crtc *other_crtc;
 	struct intel_crtc_state *other_crtc_state;
 

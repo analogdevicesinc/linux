@@ -657,7 +657,7 @@ lt9611_get_edid_block(void *data, u8 *buf, unsigned int block, size_t len)
 
 /* bridge funcs */
 static void lt9611_bridge_atomic_enable(struct drm_bridge *bridge,
-					struct drm_atomic_state *state)
+					struct drm_atomic_commit *state)
 {
 	struct lt9611 *lt9611 = bridge_to_lt9611(bridge);
 	struct drm_connector *connector;
@@ -704,7 +704,7 @@ static void lt9611_bridge_atomic_enable(struct drm_bridge *bridge,
 }
 
 static void lt9611_bridge_atomic_disable(struct drm_bridge *bridge,
-					 struct drm_atomic_state *state)
+					 struct drm_atomic_commit *state)
 {
 	struct lt9611 *lt9611 = bridge_to_lt9611(bridge);
 	int ret;
@@ -782,7 +782,7 @@ static enum drm_mode_status lt9611_bridge_mode_valid(struct drm_bridge *bridge,
 }
 
 static void lt9611_bridge_atomic_pre_enable(struct drm_bridge *bridge,
-					    struct drm_atomic_state *state)
+					    struct drm_atomic_commit *state)
 {
 	struct lt9611 *lt9611 = bridge_to_lt9611(bridge);
 	static const struct reg_sequence reg_cfg[] = {
@@ -802,7 +802,7 @@ static void lt9611_bridge_atomic_pre_enable(struct drm_bridge *bridge,
 }
 
 static void lt9611_bridge_atomic_post_disable(struct drm_bridge *bridge,
-					      struct drm_atomic_state *state)
+					      struct drm_atomic_commit *state)
 {
 	struct lt9611 *lt9611 = bridge_to_lt9611(bridge);
 

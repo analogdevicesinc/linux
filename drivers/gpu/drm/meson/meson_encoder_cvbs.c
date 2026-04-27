@@ -139,7 +139,7 @@ static int meson_encoder_cvbs_atomic_check(struct drm_bridge *bridge,
 }
 
 static void meson_encoder_cvbs_atomic_enable(struct drm_bridge *bridge,
-					     struct drm_atomic_state *state)
+					     struct drm_atomic_commit *state)
 {
 	struct meson_encoder_cvbs *encoder_cvbs = bridge_to_meson_encoder_cvbs(bridge);
 	struct meson_drm *priv = encoder_cvbs->priv;
@@ -190,7 +190,7 @@ static void meson_encoder_cvbs_atomic_enable(struct drm_bridge *bridge,
 }
 
 static void meson_encoder_cvbs_atomic_disable(struct drm_bridge *bridge,
-					      struct drm_atomic_state *state)
+					      struct drm_atomic_commit *state)
 {
 	struct meson_encoder_cvbs *meson_encoder_cvbs =
 					bridge_to_meson_encoder_cvbs(bridge);
