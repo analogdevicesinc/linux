@@ -5,7 +5,7 @@
 
 #include <vmlinux.h>
 #include <bpf/bpf_helpers.h>
-#include "bpf_experimental.h"
+#include <bpf_may_goto.h>
 
 extern bool CONFIG_X86_64 __kconfig __weak;
 
@@ -42,7 +42,9 @@ extern bool CONFIG_X86_64 __kconfig __weak;
 
 #define READ_ONCE(x) (*(volatile typeof(x) *)&(x))
 
+#ifndef WRITE_ONCE
 #define WRITE_ONCE(x, val) ((*(volatile typeof(x) *)&(x)) = (val))
+#endif
 
 #define cmpxchg(p, old, new) __sync_val_compare_and_swap((p), old, new)
 
