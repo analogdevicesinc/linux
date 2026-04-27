@@ -35,6 +35,12 @@ struct amdgpu_device;
 #define AMDGPU_UALINK_LOCAL_ACCELS_MAX 8
 #define AMDGPU_UALINK_STATIONS_MAX 64
 
+enum amdgpu_ualink_conn_state {
+	AMDGPU_UALINK_CONN_NOT_READY			= 0,
+	AMDGPU_UALINK_CONN_IN_PROGRESS			= 1,
+	AMDGPU_UALINK_CONN_ESTABLISHED			= 2
+};
+
 enum amdgpu_ualink_type {
 	AMDGPU_UALINK_TYPE_UALOE = 0,
 	AMDGPU_UALINK_TYPE_UALINK = 1,
@@ -119,14 +125,47 @@ struct amdgpu_ualink_station_config {
 };
 #define to_ualink_station_config(ko) container_of(ko, struct amdgpu_ualink_station_config, kobj)
 
+struct amdgpu_ualink_connection {
+	struct completion hello_done;
+	struct mutex lock;
+	u32 generation_count;
+	enum amdgpu_ualink_conn_state state;
+};
+
 struct amdgpu_ualink_mgr {
 	struct amdgpu_ualink_info *info;
 	struct amdgpu_ualink_ppod_setup *setup;
 	struct amdgpu_ualink_vpod_config *config;
 	struct amdgpu_ualink_station_config *stations;
+
+	/* Xarray to store info about exported BOs */
+	struct xarray	exp_xa;
+
+	/* Xarray to store info about imported ualink handles */
+	struct xarray	imp_xa;
+
+	/* Xarray to store handles to be deleted */
+	struct xarray	handle_invalid_xa;
+
+	/* Array to store connection state per remote GPU */
+	struct amdgpu_ualink_connection conn_state[AMDGPU_UALINK_ACCEL_MAX];
+
+	/* List of exported ualink handles per GPU. Used to quickly traverse
+	 * the list of all handles exported to a remote GPU.
+	 */
+	struct list_head exp_handles_list[AMDGPU_UALINK_ACCEL_MAX];
+
+	/* List of imported ualink handles per GPU. Used to quickly traverse
+	 * the list of all handles imported from a remote GPU.
+	 */
+	struct list_head imp_handles_list[AMDGPU_UALINK_ACCEL_MAX];
+
+	/* WQ to manage revocation of exported memory. */
+	struct workqueue_struct *npa_wq;
 };
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
 void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev);
-
+int amdgpu_ualink_manager_start(struct amdgpu_device *adev);
+void amdgpu_ualink_manager_stop(struct amdgpu_device *adev);
 #endif

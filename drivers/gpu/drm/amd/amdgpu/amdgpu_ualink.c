@@ -22,9 +22,10 @@
  *
  */
 
+#include <linux/xarray.h>
+#include "amdgpu.h"
 #include "amdgpu_ualink.h"
 #include "amdgpu_xgmi.h"
-#include "amdgpu.h"
 #include <linux/sysfs.h>
 #include <linux/string.h>
 
@@ -1002,4 +1003,43 @@ void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev)
 		kobject_put(&adev->ualink.info->kobj);
 		adev->ualink.info = NULL;
 	}
+}
+
+int amdgpu_ualink_manager_start(struct amdgpu_device *adev)
+{
+	int i, r;
+
+	adev->ualink.npa_wq = alloc_workqueue("NPA WQ", WQ_UNBOUND, 0);
+	if (unlikely(!adev->ualink.npa_wq)) {
+		dev_err(adev->dev, "Failed to allocate NPA WQ\n");
+		return -ENOMEM;
+	}
+
+	xa_init_flags(&adev->ualink.exp_xa, XA_FLAGS_LOCK_BH);
+	xa_init_flags(&adev->ualink.imp_xa, XA_FLAGS_LOCK_BH);
+	xa_init_flags(&adev->ualink.handle_invalid_xa, XA_FLAGS_LOCK_BH);
+
+	for (i = 0; i < AMDGPU_UALINK_ACCEL_MAX; i++) {
+		init_completion(&adev->ualink.conn_state[i].hello_done);
+		mutex_init(&adev->ualink.conn_state[i].lock);
+		adev->ualink.conn_state[i].state = AMDGPU_UALINK_CONN_NOT_READY;
+		INIT_LIST_HEAD(&adev->ualink.exp_handles_list[i]);
+		INIT_LIST_HEAD(&adev->ualink.imp_handles_list[i]);
+	}
+
+	return 0;
+}
+
+void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
+{
+	int i;
+
+	xa_destroy(&adev->ualink.exp_xa);
+	xa_destroy(&adev->ualink.imp_xa);
+	xa_destroy(&adev->ualink.handle_invalid_xa);
+
+	for (i = 0; i < AMDGPU_UALINK_ACCEL_MAX; i++)
+		mutex_destroy(&adev->ualink.conn_state[i].lock);
+
+	destroy_workqueue(adev->ualink.npa_wq);
 }
