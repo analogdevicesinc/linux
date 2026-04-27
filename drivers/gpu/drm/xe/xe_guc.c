@@ -1701,13 +1701,8 @@ void xe_guc_reset_wait(struct xe_guc *guc)
 
 void xe_guc_stop_prepare(struct xe_guc *guc)
 {
-	if (!IS_SRIOV_VF(guc_to_xe(guc))) {
-		int err;
-
-		err = xe_guc_pc_stop(&guc->pc);
-		xe_gt_WARN(guc_to_gt(guc), err, "Failed to stop GuC PC: %pe\n",
-			   ERR_PTR(err));
-	}
+	if (!IS_SRIOV_VF(guc_to_xe(guc)))
+		xe_guc_pc_stop(&guc->pc);
 }
 
 void xe_guc_stop(struct xe_guc *guc)
