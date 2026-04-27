@@ -290,8 +290,8 @@ static int dc_ti_adc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	info->vbat_zse = sign_extend32(FIELD_GET(DC_TI_VBAT_ZSE, val), 3);
-	info->vbat_ge = sign_extend32(FIELD_GET(DC_TI_VBAT_GE, val), 3);
+	info->vbat_zse = FIELD_GET_SIGNED(DC_TI_VBAT_ZSE, val);
+	info->vbat_ge = FIELD_GET_SIGNED(DC_TI_VBAT_GE, val);
 
 	dev_dbg(dev, "vbat-zse %d vbat-ge %d\n", info->vbat_zse, info->vbat_ge);
 
