@@ -3,7 +3,7 @@
 /plugin/;
 
 / {
-	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2712";
 
 	fragment@0 {
 		target-path = "/";
@@ -25,12 +25,14 @@
 			#size-cells = <0>;
 			status = "okay";
 
-			adc@0 {
+			ad7124: adc@0 {
 				compatible = "adi,ad7124-4";
 				reg = <0>;
 				spi-max-frequency = <5000000>;
-				interrupts = <25 2>;
+				interrupts = <19 8>; // interrupt, Default to PMD-RPI-INTZ P1, active-low level
 				interrupt-parent = <&gpio>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&ad7124_irq_pin>;
 				refin1-supply = <&vref>;
 
 				#address-cells = <1>;
@@ -99,5 +101,21 @@
 		__overlay__ {
 			status = "disabled";
 		};
+	};
+
+	fragment@4 {
+		target = <&gpio>;
+		__overlay__ {
+			ad7124_irq_pin: ad7124_irq_pin {
+				brcm,pins = <19>; /* default IRQ GPIO, matches interrupts */
+				brcm,function = <0>; /* input */
+				brcm,pull = <2>; /* pull-up */
+			};
+		};
+	};
+
+	__overrides__ {
+		irq_gpio = <&ad7124>,"interrupts:0",
+			   <&ad7124_irq_pin>,"brcm,pins:0";
 	};
 };
