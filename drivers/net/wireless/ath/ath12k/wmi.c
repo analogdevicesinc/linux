@@ -9778,7 +9778,7 @@ static void
 ath12k_wmi_rssi_dbm_conversion_params_info_event(struct ath12k_base *ab,
 						 struct sk_buff *skb)
 {
-	struct ath12k_wmi_rssi_dbm_conv_info_arg rssi_info;
+	struct ath12k_wmi_rssi_dbm_conv_info_arg rssi_info = {};
 	struct ath12k *ar;
 	s32 noise_floor;
 	u32 pdev_id;
