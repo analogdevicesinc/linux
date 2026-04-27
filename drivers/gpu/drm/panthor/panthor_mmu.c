@@ -55,6 +55,9 @@ struct panthor_as_slot {
  * struct panthor_mmu - MMU related data
  */
 struct panthor_mmu {
+	/** @iomem: CPU mapping of MMU_AS_CONTROL iomem region */
+	void __iomem *iomem;
+
 	/** @irq: The MMU irq. */
 	struct panthor_irq irq;
 
@@ -517,13 +520,14 @@ static void free_pt(void *cookie, void *data, size_t size)
 
 static int wait_ready(struct panthor_device *ptdev, u32 as_nr)
 {
+	struct panthor_mmu *mmu = ptdev->mmu;
 	int ret;
 	u32 val;
 
 	/* Wait for the MMU status to indicate there is no active command, in
 	 * case one is pending.
 	 */
-	ret = gpu_read_relaxed_poll_timeout_atomic(ptdev->iomem, AS_STATUS(as_nr), val,
+	ret = gpu_read_relaxed_poll_timeout_atomic(mmu->iomem, AS_STATUS(as_nr), val,
 						   !(val & AS_STATUS_AS_ACTIVE), 10, 100000);
 
 	if (ret) {
@@ -541,7 +545,7 @@ static int as_send_cmd_and_wait(struct panthor_device *ptdev, u32 as_nr, u32 cmd
 	/* write AS_COMMAND when MMU is ready to accept another command */
 	status = wait_ready(ptdev, as_nr);
 	if (!status) {
-		gpu_write(ptdev->iomem, AS_COMMAND(as_nr), cmd);
+		gpu_write(ptdev->mmu->iomem, AS_COMMAND(as_nr), cmd);
 		status = wait_ready(ptdev, as_nr);
 	}
 
@@ -589,12 +593,14 @@ PANTHOR_IRQ_HANDLER(mmu, panthor_mmu_irq_handler);
 static int panthor_mmu_as_enable(struct panthor_device *ptdev, u32 as_nr,
 				 u64 transtab, u64 transcfg, u64 memattr)
 {
+	struct panthor_mmu *mmu = ptdev->mmu;
+
 	panthor_mmu_irq_enable_events(&ptdev->mmu->irq,
 				      panthor_mmu_as_fault_mask(ptdev, as_nr));
 
-	gpu_write64(ptdev->iomem, AS_TRANSTAB(as_nr), transtab);
-	gpu_write64(ptdev->iomem, AS_MEMATTR(as_nr), memattr);
-	gpu_write64(ptdev->iomem, AS_TRANSCFG(as_nr), transcfg);
+	gpu_write64(mmu->iomem, AS_TRANSTAB(as_nr), transtab);
+	gpu_write64(mmu->iomem, AS_MEMATTR(as_nr), memattr);
+	gpu_write64(mmu->iomem, AS_TRANSCFG(as_nr), transcfg);
 
 	return as_send_cmd_and_wait(ptdev, as_nr, AS_COMMAND_UPDATE);
 }
@@ -602,6 +608,7 @@ static int panthor_mmu_as_enable(struct panthor_device *ptdev, u32 as_nr,
 static int panthor_mmu_as_disable(struct panthor_device *ptdev, u32 as_nr,
 				  bool recycle_slot)
 {
+	struct panthor_mmu *mmu = ptdev->mmu;
 	struct panthor_vm *vm = ptdev->mmu->as.slots[as_nr].vm;
 	int ret;
 
@@ -629,9 +636,9 @@ static int panthor_mmu_as_disable(struct panthor_device *ptdev, u32 as_nr,
 	if (recycle_slot)
 		return 0;
 
-	gpu_write64(ptdev->iomem, AS_TRANSTAB(as_nr), 0);
-	gpu_write64(ptdev->iomem, AS_MEMATTR(as_nr), 0);
-	gpu_write64(ptdev->iomem, AS_TRANSCFG(as_nr), AS_TRANSCFG_ADRMODE_UNMAPPED);
+	gpu_write64(mmu->iomem, AS_TRANSTAB(as_nr), 0);
+	gpu_write64(mmu->iomem, AS_MEMATTR(as_nr), 0);
+	gpu_write64(mmu->iomem, AS_TRANSCFG(as_nr), AS_TRANSCFG_ADRMODE_UNMAPPED);
 
 	return as_send_cmd_and_wait(ptdev, as_nr, AS_COMMAND_UPDATE);
 }
@@ -784,7 +791,7 @@ out_enable_as:
 	 */
 	fault_mask = panthor_mmu_as_fault_mask(ptdev, as);
 	if (ptdev->mmu->as.faulty_mask & fault_mask) {
-		gpu_write(ptdev->iomem, MMU_INT_CLEAR, fault_mask);
+		gpu_write(ptdev->mmu->irq.iomem, INT_CLEAR, fault_mask);
 		ptdev->mmu->as.faulty_mask &= ~fault_mask;
 	}
 
@@ -1731,7 +1738,7 @@ static int panthor_vm_lock_region(struct panthor_vm *vm, u64 start, u64 size)
 	mutex_lock(&ptdev->mmu->as.slots_lock);
 	if (vm->as.id >= 0 && size) {
 		/* Lock the region that needs to be updated */
-		gpu_write64(ptdev->iomem, AS_LOCKADDR(vm->as.id),
+		gpu_write64(ptdev->mmu->iomem, AS_LOCKADDR(vm->as.id),
 			    pack_region_range(ptdev, &start, &size));
 
 		/* If the lock succeeded, update the locked_region info. */
@@ -1780,6 +1787,7 @@ static void panthor_vm_unlock_region(struct panthor_vm *vm)
 
 static void panthor_mmu_irq_handler(struct panthor_device *ptdev, u32 status)
 {
+	struct panthor_mmu *mmu = ptdev->mmu;
 	bool has_unhandled_faults = false;
 
 	status = panthor_mmu_fault_mask(ptdev, status);
@@ -1792,8 +1800,8 @@ static void panthor_mmu_irq_handler(struct panthor_device *ptdev, u32 status)
 		u32 access_type;
 		u32 source_id;
 
-		fault_status = gpu_read(ptdev->iomem, AS_FAULTSTATUS(as));
-		addr = gpu_read64(ptdev->iomem, AS_FAULTADDRESS(as));
+		fault_status = gpu_read(mmu->iomem, AS_FAULTSTATUS(as));
+		addr = gpu_read64(mmu->iomem, AS_FAULTADDRESS(as));
 
 		/* decode the fault status */
 		exception_type = fault_status & 0xFF;
@@ -1824,7 +1832,7 @@ static void panthor_mmu_irq_handler(struct panthor_device *ptdev, u32 status)
 		 * Note that COMPLETED irqs are never cleared, but this is fine
 		 * because they are always masked.
 		 */
-		gpu_write(ptdev->iomem, MMU_INT_CLEAR, mask);
+		gpu_write(mmu->irq.iomem, INT_CLEAR, mask);
 
 		if (ptdev->mmu->as.slots[as].vm)
 			ptdev->mmu->as.slots[as].vm->unhandled_fault = true;
@@ -3240,6 +3248,7 @@ int panthor_mmu_init(struct panthor_device *ptdev)
 	if (ret)
 		return ret;
 
+	mmu->iomem = ptdev->iomem + MMU_AS_BASE;
 	ptdev->mmu = mmu;
 
 	irq = platform_get_irq_byname(to_platform_device(ptdev->base.dev), "mmu");
