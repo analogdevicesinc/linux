@@ -514,7 +514,7 @@ static int init_card(struct snd_usb_caiaqdev *cdev)
 
 	err = setup_card(cdev);
 	if (err < 0)
-		return err;
+		goto err_kill_urb;
 
 	return 0;
 
