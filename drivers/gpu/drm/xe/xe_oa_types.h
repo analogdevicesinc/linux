@@ -164,8 +164,8 @@ struct xe_oa_buffer {
 	/** @bo: xe_bo backing the OA buffer */
 	struct xe_bo *bo;
 
-	/** @vaddr: mapped vaddr of the OA buffer */
-	u8 *vaddr;
+	/** @bounce: bounce buffer used with xe_map layer */
+	void *bounce;
 
 	/** @ptr_lock: Lock protecting reads/writes to head/tail pointers */
 	spinlock_t ptr_lock;
