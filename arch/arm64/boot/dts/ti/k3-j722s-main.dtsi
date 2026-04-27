@@ -432,6 +432,10 @@
 
 /* MCU domain overrides */
 
+&mcu_pmx0 {
+	compatible = "ti,j7200-padconf", "pinctrl-single";
+};
+
 &mcu_r5fss0_core0 {
 	firmware-name = "j722s-mcu-r5f0_0-fw";
 };
@@ -471,6 +475,10 @@
 
 &inta_main_dmss {
 	ti,interrupt-ranges = <7 71 21>;
+};
+
+&main_pmx0 {
+	compatible = "ti,j7200-padconf", "pinctrl-single";
 };
 
 &main_gpio0 {
