@@ -23,8 +23,6 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 
-#include "mailbox.h"
-
 #define IMX_MU_CHANS		24
 /* TX0/RX0/RXDB[0-3] */
 #define IMX_MU_SCU_CHANS	6
@@ -734,7 +732,7 @@ static struct mbox_chan * imx_mu_xlate(struct mbox_controller *mbox,
 	p_chan = &mbox->chans[chan];
 
 	if (type == IMX_MU_TYPE_TXDB_V2)
-		p_chan->txdone_method = TXDONE_BY_ACK;
+		p_chan->txdone_method = MBOX_TXDONE_BY_ACK;
 
 	return p_chan;
 }
