@@ -277,8 +277,8 @@ static const struct spi_device_id maxim_thermocouple_id[] = {
 MODULE_DEVICE_TABLE(spi, maxim_thermocouple_id);
 
 static const struct of_device_id maxim_thermocouple_of_match[] = {
-        { .compatible = "maxim,max6675" },
-        { .compatible = "maxim,max31855" },
+	{ .compatible = "maxim,max6675" },
+	{ .compatible = "maxim,max31855" },
 	{ .compatible = "maxim,max31855k" },
 	{ .compatible = "maxim,max31855j" },
 	{ .compatible = "maxim,max31855n" },
@@ -286,7 +286,7 @@ static const struct of_device_id maxim_thermocouple_of_match[] = {
 	{ .compatible = "maxim,max31855t" },
 	{ .compatible = "maxim,max31855e" },
 	{ .compatible = "maxim,max31855r" },
-        { },
+	{ },
 };
 MODULE_DEVICE_TABLE(of, maxim_thermocouple_of_match);
 
