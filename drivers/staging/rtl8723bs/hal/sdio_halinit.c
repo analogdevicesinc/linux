@@ -584,7 +584,7 @@ u32 rtl8723bs_hal_init(struct adapter *padapter)
 	pwrctrlpriv = adapter_to_pwrctl(padapter);
 
 	if (
-		adapter_to_pwrctl(padapter)->bips_processing == true &&
+		adapter_to_pwrctl(padapter)->bips_processing &&
 		adapter_to_pwrctl(padapter)->pre_ips_type == 0
 	) {
 		unsigned long start_time;

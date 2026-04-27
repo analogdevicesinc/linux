@@ -93,7 +93,7 @@ query_free_page:
 	)
 		goto free_xmitbuf;
 
-	if (rtw_sdio_wait_enough_TxOQT_space(padapter, pxmitbuf->agg_num) == false)
+	if (!rtw_sdio_wait_enough_TxOQT_space(padapter, pxmitbuf->agg_num))
 		goto free_xmitbuf;
 
 	traffic_check_for_leave_lps(padapter, true, pxmitbuf->agg_num);
@@ -225,7 +225,7 @@ static s32 xmit_xmitframes(struct adapter *padapter, struct xmit_priv *pxmitpriv
 
 			frame_phead = get_list_head(pframe_queue);
 
-			while (list_empty(frame_phead) == false) {
+			while (!list_empty(frame_phead)) {
 				frame_plist = get_next(frame_phead);
 				pxmitframe = container_of(frame_plist, struct xmit_frame, list);
 
@@ -269,7 +269,7 @@ static s32 xmit_xmitframes(struct adapter *padapter, struct xmit_priv *pxmitpriv
 				}
 
 				/*  ok to send, remove frame from queue */
-				if (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE) == true)
+				if (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE))
 					if (
 						(pxmitframe->attrib.psta->state & WIFI_SLEEP_STATE) &&
 						(pxmitframe->attrib.triggered == 0)
@@ -566,7 +566,7 @@ void rtl8723bs_free_xmit_priv(struct adapter *padapter)
 	spin_unlock_bh(&pqueue->lock);
 
 	phead = &tmplist;
-	while (list_empty(phead) == false) {
+	while (!list_empty(phead)) {
 		plist = get_next(phead);
 		list_del_init(plist);
 
