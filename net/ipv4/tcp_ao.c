@@ -435,10 +435,10 @@ void tcp_ao_time_wait(struct tcp_timewait_sock *tcptw, struct tcp_sock *tp)
 }
 
 /* 4 tuple and ISNs are expected in NBO */
-static int tcp_v4_ao_calc_key(struct tcp_ao_key *mkt, u8 *key,
-			      __be32 saddr, __be32 daddr,
-			      __be16 sport, __be16 dport,
-			      __be32 sisn,  __be32 disn)
+static void tcp_v4_ao_calc_key(struct tcp_ao_key *mkt, u8 *key,
+			       __be32 saddr, __be32 daddr,
+			       __be16 sport, __be16 dport,
+			       __be32 sisn, __be32 disn)
 {
 	/* See RFC5926 3.1.1 */
 	struct kdf_input_block {
@@ -461,76 +461,78 @@ static int tcp_v4_ao_calc_key(struct tcp_ao_key *mkt, u8 *key,
 	};
 
 	tcp_ao_calc_traffic_key(mkt, key, &input, sizeof(input));
-	return 0;
 }
 
-int tcp_v4_ao_calc_key_sk(struct tcp_ao_key *mkt, u8 *key,
-			  const struct sock *sk,
-			  __be32 sisn, __be32 disn, bool send)
+void tcp_v4_ao_calc_key_sk(struct tcp_ao_key *mkt, u8 *key,
+			   const struct sock *sk,
+			   __be32 sisn, __be32 disn, bool send)
 {
 	if (send)
-		return tcp_v4_ao_calc_key(mkt, key, sk->sk_rcv_saddr,
-					  sk->sk_daddr, htons(sk->sk_num),
-					  sk->sk_dport, sisn, disn);
+		tcp_v4_ao_calc_key(mkt, key, sk->sk_rcv_saddr, sk->sk_daddr,
+				   htons(sk->sk_num), sk->sk_dport, sisn, disn);
 	else
-		return tcp_v4_ao_calc_key(mkt, key, sk->sk_daddr,
-					  sk->sk_rcv_saddr, sk->sk_dport,
-					  htons(sk->sk_num), disn, sisn);
+		tcp_v4_ao_calc_key(mkt, key, sk->sk_daddr, sk->sk_rcv_saddr,
+				   sk->sk_dport, htons(sk->sk_num), disn, sisn);
 }
 
 static int tcp_ao_calc_key_sk(struct tcp_ao_key *mkt, u8 *key,
 			      const struct sock *sk,
 			      __be32 sisn, __be32 disn, bool send)
 {
-	if (mkt->family == AF_INET)
-		return tcp_v4_ao_calc_key_sk(mkt, key, sk, sisn, disn, send);
+	if (mkt->family == AF_INET) {
+		tcp_v4_ao_calc_key_sk(mkt, key, sk, sisn, disn, send);
+		return 0;
+	}
 #if IS_ENABLED(CONFIG_IPV6)
-	else if (mkt->family == AF_INET6)
-		return tcp_v6_ao_calc_key_sk(mkt, key, sk, sisn, disn, send);
+	if (mkt->family == AF_INET6) {
+		tcp_v6_ao_calc_key_sk(mkt, key, sk, sisn, disn, send);
+		return 0;
+	}
 #endif
-	else
-		return -EOPNOTSUPP;
+	return -EOPNOTSUPP;
 }
 
-int tcp_v4_ao_calc_key_rsk(struct tcp_ao_key *mkt, u8 *key,
-			   struct request_sock *req)
+void tcp_v4_ao_calc_key_rsk(struct tcp_ao_key *mkt, u8 *key,
+			    struct request_sock *req)
 {
 	struct inet_request_sock *ireq = inet_rsk(req);
 
-	return tcp_v4_ao_calc_key(mkt, key,
-				  ireq->ir_loc_addr, ireq->ir_rmt_addr,
-				  htons(ireq->ir_num), ireq->ir_rmt_port,
-				  htonl(tcp_rsk(req)->snt_isn),
-				  htonl(tcp_rsk(req)->rcv_isn));
+	tcp_v4_ao_calc_key(mkt, key, ireq->ir_loc_addr, ireq->ir_rmt_addr,
+			   htons(ireq->ir_num), ireq->ir_rmt_port,
+			   htonl(tcp_rsk(req)->snt_isn),
+			   htonl(tcp_rsk(req)->rcv_isn));
 }
 
-static int tcp_v4_ao_calc_key_skb(struct tcp_ao_key *mkt, u8 *key,
-				  const struct sk_buff *skb,
-				  __be32 sisn, __be32 disn)
+static void tcp_v4_ao_calc_key_skb(struct tcp_ao_key *mkt, u8 *key,
+				   const struct sk_buff *skb,
+				   __be32 sisn, __be32 disn)
 {
 	const struct iphdr *iph = ip_hdr(skb);
 	const struct tcphdr *th = tcp_hdr(skb);
 
-	return tcp_v4_ao_calc_key(mkt, key, iph->saddr, iph->daddr,
-				  th->source, th->dest, sisn, disn);
+	tcp_v4_ao_calc_key(mkt, key, iph->saddr, iph->daddr, th->source,
+			   th->dest, sisn, disn);
 }
 
 static int tcp_ao_calc_key_skb(struct tcp_ao_key *mkt, u8 *key,
 			       const struct sk_buff *skb,
 			       __be32 sisn, __be32 disn, int family)
 {
-	if (family == AF_INET)
-		return tcp_v4_ao_calc_key_skb(mkt, key, skb, sisn, disn);
+	if (family == AF_INET) {
+		tcp_v4_ao_calc_key_skb(mkt, key, skb, sisn, disn);
+		return 0;
+	}
 #if IS_ENABLED(CONFIG_IPV6)
-	else if (family == AF_INET6)
-		return tcp_v6_ao_calc_key_skb(mkt, key, skb, sisn, disn);
+	if (family == AF_INET6) {
+		tcp_v6_ao_calc_key_skb(mkt, key, skb, sisn, disn);
+		return 0;
+	}
 #endif
 	return -EAFNOSUPPORT;
 }
 
-static int tcp_v4_ao_hash_pseudoheader(struct tcp_ao_mac_ctx *mac_ctx,
-				       __be32 daddr, __be32 saddr,
-				       int nbytes)
+static void tcp_v4_ao_hash_pseudoheader(struct tcp_ao_mac_ctx *mac_ctx,
+					__be32 daddr, __be32 saddr, int nbytes)
 {
 	struct tcp4_pseudohdr phdr = {
 		.saddr = saddr,
@@ -541,7 +543,6 @@ static int tcp_v4_ao_hash_pseudoheader(struct tcp_ao_mac_ctx *mac_ctx,
 	};
 
 	tcp_ao_mac_update(mac_ctx, &phdr, sizeof(phdr));
-	return 0;
 }
 
 static int tcp_ao_hash_pseudoheader(unsigned short int family,
@@ -553,31 +554,38 @@ static int tcp_ao_hash_pseudoheader(unsigned short int family,
 
 	/* TODO: Can we rely on checksum being zero to mean outbound pkt? */
 	if (!th->check) {
-		if (family == AF_INET)
-			return tcp_v4_ao_hash_pseudoheader(mac_ctx, sk->sk_daddr,
-					sk->sk_rcv_saddr, skb->len);
+		if (family == AF_INET) {
+			tcp_v4_ao_hash_pseudoheader(mac_ctx, sk->sk_daddr,
+						    sk->sk_rcv_saddr, skb->len);
+			return 0;
+		}
 #if IS_ENABLED(CONFIG_IPV6)
-		else if (family == AF_INET6)
-			return tcp_v6_ao_hash_pseudoheader(mac_ctx, &sk->sk_v6_daddr,
-					&sk->sk_v6_rcv_saddr, skb->len);
+		if (family == AF_INET6) {
+			tcp_v6_ao_hash_pseudoheader(mac_ctx, &sk->sk_v6_daddr,
+						    &sk->sk_v6_rcv_saddr,
+						    skb->len);
+			return 0;
+		}
 #endif
-		else
-			return -EAFNOSUPPORT;
+		return -EAFNOSUPPORT;
 	}
 
 	if (family == AF_INET) {
 		const struct iphdr *iph = ip_hdr(skb);
 
-		return tcp_v4_ao_hash_pseudoheader(mac_ctx, iph->daddr,
-				iph->saddr, skb->len);
+		tcp_v4_ao_hash_pseudoheader(mac_ctx, iph->daddr, iph->saddr,
+					    skb->len);
+		return 0;
+	}
 #if IS_ENABLED(CONFIG_IPV6)
-	} else if (family == AF_INET6) {
+	if (family == AF_INET6) {
 		const struct ipv6hdr *iph = ipv6_hdr(skb);
 
-		return tcp_v6_ao_hash_pseudoheader(mac_ctx, &iph->daddr,
-				&iph->saddr, skb->len);
-#endif
+		tcp_v6_ao_hash_pseudoheader(mac_ctx, &iph->daddr, &iph->saddr,
+					    skb->len);
+		return 0;
 	}
+#endif
 	return -EAFNOSUPPORT;
 }
 
@@ -740,11 +748,8 @@ int tcp_v4_ao_synack_hash(char *ao_hash, struct tcp_ao_key *ao_key,
 			  int hash_offset, u32 sne)
 {
 	u8 tkey_buf[TCP_AO_MAX_TRAFFIC_KEY_LEN];
-	int err;
 
-	err = tcp_v4_ao_calc_key_rsk(ao_key, tkey_buf, req);
-	if (err)
-		return err;
+	tcp_v4_ao_calc_key_rsk(ao_key, tkey_buf, req);
 
 	return tcp_ao_hash_skb(AF_INET, ao_hash, ao_key, req_to_sk(req), skb,
 			       tkey_buf, hash_offset, sne);
@@ -857,9 +862,9 @@ int tcp_ao_prepare_reset(const struct sock *sk, struct sk_buff *skb,
 	return 0;
 }
 
-int tcp_ao_transmit_skb(struct sock *sk, struct sk_buff *skb,
-			struct tcp_ao_key *key, struct tcphdr *th,
-			__u8 *hash_location)
+void tcp_ao_transmit_skb(struct sock *sk, struct sk_buff *skb,
+			 struct tcp_ao_key *key, struct tcphdr *th,
+			 __u8 *hash_location)
 {
 	struct tcp_skb_cb *tcb = TCP_SKB_CB(skb);
 	u8 tkey_buf[TCP_AO_MAX_TRAFFIC_KEY_LEN];
@@ -887,7 +892,6 @@ int tcp_ao_transmit_skb(struct sock *sk, struct sk_buff *skb,
 				 ntohl(th->seq));
 	tp->af_specific->calc_ao_hash(hash_location, key, sk, skb, traffic_key,
 				      hash_location - (u8 *)th, sne);
-	return 0;
 }
 
 static struct tcp_ao_key *tcp_ao_inbound_lookup(unsigned short int family,
