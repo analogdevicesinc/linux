@@ -2751,7 +2751,6 @@ Kernel parameters
 			Format: <RDP>,<reset>,<pci_scan>,<verbosity>
 
 	isolcpus=	[KNL,SMP,ISOL] Isolate a given set of CPUs from disturbance.
-			[Deprecated - use cpusets instead]
 			Format: [flag-list,]<cpu-list>
 
 			Specify one or more CPUs to isolate from disturbances
@@ -2776,11 +2775,10 @@ Kernel parameters
 			  Isolate from the general SMP balancing and scheduling
 			  algorithms. Note that performing domain isolation this way
 			  is irreversible: it's not possible to bring back a CPU to
-			  the domains once isolated through isolcpus. It's strongly
-			  advised to use cpusets instead to disable scheduler load
-			  balancing through the "cpuset.sched_load_balance" file.
-			  It offers a much more flexible interface where CPUs can
-			  move in and out of an isolated set anytime.
+			  the domains once isolated through this boot time
+			  configuration. Use cpusets for a dynamic configuration
+			  which can be altered at runtime. For details see
+			  Documentation/admin-guide/cpu-isolation.rst.
 
 			  You can move a process onto or off an "isolated" CPU via
 			  the CPU affinity syscalls or cpuset.
