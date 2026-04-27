@@ -173,6 +173,7 @@
 
 &i2c1 {
 	pinctrl-0 = <&i2c1m2_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 
 	rtc@51 {
@@ -280,6 +281,7 @@
 
 &pwm5 {
 	pinctrl-0 = <&pwm5m1_pins>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
@@ -320,6 +322,7 @@
 
 &uart2 {
 	pinctrl-0 = <&uart2m0_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 

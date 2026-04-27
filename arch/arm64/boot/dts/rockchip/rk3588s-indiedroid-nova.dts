@@ -368,6 +368,7 @@
 
 &i2c6 {
 	pinctrl-0 = <&i2c6m3_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 
 	fusb302: typec-portc@22 {
@@ -440,6 +441,7 @@
 
 &i2c7 {
 	pinctrl-0 = <&i2c7m0_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 
 	es8388: audio-codec@11 {
@@ -973,6 +975,7 @@
 
 &uart2 {
 	pinctrl-0 = <&uart2m0_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 

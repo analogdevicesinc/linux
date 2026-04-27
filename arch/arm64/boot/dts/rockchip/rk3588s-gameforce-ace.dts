@@ -614,6 +614,7 @@
 
 &i2c4 {
 	pinctrl-0 = <&i2c4m2_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 
 	ti_adc: adc@48 {
@@ -650,6 +651,7 @@
 
 &i2c6 {
 	pinctrl-0 = <&i2c6m3_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 
 	fusb302: typec@22 {
@@ -783,6 +785,7 @@
 		     &i2s0_sclk
 		     &i2s0_sdi0
 		     &i2s0_sdo0>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
@@ -1026,11 +1029,13 @@
 
 &pwm12 {
 	pinctrl-0 = <&pwm12m1_pins>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
 &pwm13 {
 	pinctrl-0 = <&pwm13m1_pins>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
@@ -1432,11 +1437,13 @@
 
 &uart2 {
 	pinctrl-0 = <&uart2m0_xfer>;
+	pinctrl-names = "default";
 	status = "okay";
 };
 
 &uart9 {
 	pinctrl-0 = <&uart9m2_xfer>, <&uart9m2_ctsn>, <&uart9m2_rtsn>;
+	pinctrl-names = "default";
 	uart-has-rtscts;
 	status = "okay";
 
