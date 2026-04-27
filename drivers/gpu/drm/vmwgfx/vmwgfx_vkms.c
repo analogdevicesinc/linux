@@ -157,27 +157,19 @@ crc_generate_worker(struct work_struct *work)
 		drm_crtc_add_crc_entry(crtc, true, frame_start++, &crc32);
 }
 
-static enum hrtimer_restart
-vmw_vkms_vblank_simulate(struct hrtimer *timer)
+bool
+vmw_vkms_handle_vblank_timeout(struct drm_crtc *crtc)
 {
-	struct vmw_display_unit *du = container_of(timer, struct vmw_display_unit, vkms.timer);
-	struct drm_crtc *crtc = &du->crtc;
+	struct vmw_display_unit *du = vmw_crtc_to_du(crtc);
 	struct vmw_private *vmw = vmw_priv(crtc->dev);
 	bool has_surface = false;
-	u64 ret_overrun;
 	bool locked, ret;
-
-	ret_overrun = hrtimer_forward_now(&du->vkms.timer,
-					  du->vkms.period_ns);
-	if (ret_overrun != 1)
-		drm_dbg_driver(crtc->dev, "vblank timer missed %lld frames.\n",
-			       ret_overrun - 1);
 
 	locked = vmw_vkms_vblank_trylock(crtc);
 	ret = drm_crtc_handle_vblank(crtc);
 	WARN_ON(!ret);
 	if (!locked)
-		return HRTIMER_RESTART;
+		return true;
 	has_surface = du->vkms.surface != NULL;
 	vmw_vkms_unlock(crtc);
 
@@ -199,6 +191,27 @@ vmw_vkms_vblank_simulate(struct hrtimer *timer)
 		if (!ret)
 			drm_dbg_driver(crtc->dev, "Composer worker already queued\n");
 	}
+
+	return true;
+}
+
+static enum hrtimer_restart
+vmw_vkms_vblank_simulate(struct hrtimer *timer)
+{
+	struct vmw_display_unit *du = container_of(timer, struct vmw_display_unit, vkms.timer);
+	struct drm_crtc *crtc = &du->crtc;
+	u64 ret_overrun;
+	bool success;
+
+	ret_overrun = hrtimer_forward_now(&du->vkms.timer,
+					  du->vkms.period_ns);
+	if (ret_overrun != 1)
+		drm_dbg_driver(crtc->dev, "vblank timer missed %lld frames.\n",
+			       ret_overrun - 1);
+
+	success = vmw_vkms_handle_vblank_timeout(crtc);
+	if (!success)
+		return HRTIMER_NORESTART;
 
 	return HRTIMER_RESTART;
 }
