@@ -677,9 +677,9 @@ static void activate_accelerator(struct amdgpu_device *adev)
 	if (adev->ualink.info->accel_state >= AMDGPU_UALINK_ACCEL_STATE_READY)
 		return;
 
-	/* Enable incoming NPA address translation with VMID15 */
+	/* Enable incoming NPA address translation with NPA VMID */
 	r = psp_ual_set_npa_config(&adev->psp, adev->ualink.psp_if_ver,
-				   15, true);
+				   adev->vm_manager.npa_vmid, true);
 	if (!r)
 		adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_READY;
 }
@@ -689,9 +689,9 @@ static void deactivate_accelerator(struct amdgpu_device *adev)
 	if (adev->ualink.info->accel_state < AMDGPU_UALINK_ACCEL_STATE_READY)
 		return;
 
-	/* Disable incoming NPA address translation with VMID15 */
+	/* Disable incoming NPA address translation with NPA VMID */
 	psp_ual_set_npa_config(&adev->psp, adev->ualink.psp_if_ver,
-			       15, false);
+			       adev->vm_manager.npa_vmid, false);
 	/* ignore return value */
 	adev->ualink.info->accel_state = AMDGPU_UALINK_ACCEL_STATE_CONFIGURED;
 }
@@ -1172,6 +1172,10 @@ int amdgpu_ualink_manager_start(struct amdgpu_device *adev)
 		goto uninit_vm;
 	}
 
+	/* Map this VM to NPA VMID */
+	adev->mmhub.funcs->setup_vm_pt_regs(adev, adev->vm_manager.npa_vmid,
+			amdgpu_gmc_pd_addr(adev->ualink.npa_vm.root.bo));
+
 	xa_init_flags(&adev->ualink.exp_xa, XA_FLAGS_LOCK_BH);
 	xa_init_flags(&adev->ualink.imp_xa, XA_FLAGS_LOCK_BH);
 	xa_init_flags(&adev->ualink.handle_invalid_xa, XA_FLAGS_LOCK_BH);
@@ -1198,6 +1202,7 @@ void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
 {
 	int i;
 
+	adev->mmhub.funcs->setup_vm_pt_regs(adev, adev->vm_manager.npa_vmid, 0);
 	amdgpu_ualink_npa_mm_fini(adev);
 
 	xa_destroy(&adev->ualink.exp_xa);
