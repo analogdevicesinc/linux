@@ -1153,7 +1153,7 @@ out_free_reserve:
 				     NULL, &cached,
 				     EXTENT_LOCKED | EXTENT_DELALLOC |
 				     EXTENT_DELALLOC_NEW |
-				     EXTENT_DEFRAG | EXTENT_DO_ACCOUNTING,
+				     EXTENT_DEFRAG | EXTENT_CLEAR_META_RESV,
 				     PAGE_UNLOCK | PAGE_START_WRITEBACK |
 				     PAGE_END_WRITEBACK);
 	if (async_extent->cb)
@@ -4958,6 +4958,8 @@ static int btrfs_rmdir(struct inode *vfs_dir, struct dentry *dentry)
 	ret = btrfs_orphan_add(trans, inode);
 	if (ret)
 		goto out;
+
+	btrfs_record_unlink_dir(trans, dir, inode, false);
 
 	/* now the directory is empty */
 	ret = btrfs_unlink_inode(trans, dir, inode, &fname.disk_name);
