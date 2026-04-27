@@ -1758,7 +1758,7 @@ static int rtw_check_join_candidate(struct mlme_priv *mlme
 
 	if (rtw_to_roam(adapter) > 0) {
 		if (jiffies_to_msecs(jiffies - competitor->last_scanned) >= mlme->roam_scanr_exp_ms ||
-			!is_same_ess(&competitor->network, &mlme->cur_network.network)
+		    !is_same_ess(&competitor->network, &mlme->cur_network.network)
 		)
 			goto exit;
 	}
