@@ -234,6 +234,9 @@ struct panthor_fw_iface {
  * struct panthor_fw - Firmware management
  */
 struct panthor_fw {
+	/** @iomem: CPU mapping of MCU_CONTROL iomem region */
+	void __iomem *iomem;
+
 	/** @vm: MCU VM. */
 	struct panthor_vm *vm;
 
@@ -1069,7 +1072,7 @@ static void panthor_job_irq_handler(struct panthor_device *ptdev, u32 status)
 	if (tracepoint_enabled(gpu_job_irq))
 		start = ktime_get_ns();
 
-	gpu_write(ptdev->iomem, JOB_INT_CLEAR, status);
+	gpu_write(ptdev->fw->irq.iomem, INT_CLEAR, status);
 
 	if (!ptdev->fw->booted && (status & JOB_INT_GLOBAL_IF))
 		ptdev->fw->booted = true;
@@ -1092,18 +1095,19 @@ PANTHOR_IRQ_HANDLER(job, panthor_job_irq_handler);
 
 static int panthor_fw_start(struct panthor_device *ptdev)
 {
+	struct panthor_fw *fw = ptdev->fw;
 	bool timedout = false;
 
 	ptdev->fw->booted = false;
 	panthor_job_irq_enable_events(&ptdev->fw->irq, ~0);
 	panthor_job_irq_resume(&ptdev->fw->irq);
-	gpu_write(ptdev->iomem, MCU_CONTROL, MCU_CONTROL_AUTO);
+	gpu_write(fw->iomem, MCU_CONTROL, MCU_CONTROL_AUTO);
 
 	if (!wait_event_timeout(ptdev->fw->req_waitqueue,
 				ptdev->fw->booted,
 				msecs_to_jiffies(1000))) {
 		if (!ptdev->fw->booted &&
-		    !(gpu_read(ptdev->iomem, JOB_INT_STAT) & JOB_INT_GLOBAL_IF))
+		    !(gpu_read(fw->irq.iomem, INT_STAT) & JOB_INT_GLOBAL_IF))
 			timedout = true;
 	}
 
@@ -1114,7 +1118,7 @@ static int panthor_fw_start(struct panthor_device *ptdev)
 			[MCU_STATUS_HALT] = "halt",
 			[MCU_STATUS_FATAL] = "fatal",
 		};
-		u32 status = gpu_read(ptdev->iomem, MCU_STATUS);
+		u32 status = gpu_read(fw->iomem, MCU_STATUS);
 
 		drm_err(&ptdev->base, "Failed to boot MCU (status=%s)",
 			status < ARRAY_SIZE(status_str) ? status_str[status] : "unknown");
@@ -1126,10 +1130,11 @@ static int panthor_fw_start(struct panthor_device *ptdev)
 
 static void panthor_fw_stop(struct panthor_device *ptdev)
 {
+	struct panthor_fw *fw = ptdev->fw;
 	u32 status;
 
-	gpu_write(ptdev->iomem, MCU_CONTROL, MCU_CONTROL_DISABLE);
-	if (gpu_read_poll_timeout(ptdev->iomem, MCU_STATUS, status,
+	gpu_write(fw->iomem, MCU_CONTROL, MCU_CONTROL_DISABLE);
+	if (gpu_read_poll_timeout(fw->iomem, MCU_STATUS, status,
 				  status == MCU_STATUS_DISABLED, 10, 100000))
 		drm_err(&ptdev->base, "Failed to stop MCU");
 }
@@ -1139,7 +1144,7 @@ static bool panthor_fw_mcu_halted(struct panthor_device *ptdev)
 	struct panthor_fw_global_iface *glb_iface = panthor_fw_get_glb_iface(ptdev);
 	bool halted;
 
-	halted = gpu_read(ptdev->iomem, MCU_STATUS) == MCU_STATUS_HALT;
+	halted = gpu_read(ptdev->fw->iomem, MCU_STATUS) == MCU_STATUS_HALT;
 
 	if (panthor_fw_has_glb_state(ptdev))
 		halted &= (GLB_STATE_GET(glb_iface->output->ack) == GLB_STATE_HALT);
@@ -1461,6 +1466,7 @@ int panthor_fw_init(struct panthor_device *ptdev)
 	if (!fw)
 		return -ENOMEM;
 
+	fw->iomem = ptdev->iomem + MCU_CONTROL_BASE;
 	ptdev->fw = fw;
 	init_waitqueue_head(&fw->req_waitqueue);
 	INIT_LIST_HEAD(&fw->sections);
