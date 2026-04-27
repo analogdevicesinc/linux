@@ -7077,6 +7077,12 @@ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/tip/tip.git core/debugobjec
 F:	include/linux/debugobjects.h
 F:	lib/debugobjects.c
 
+DEC LANCE NETWORK DRIVER
+M:	"Maciej W. Rozycki" <macro@orcam.me.uk>
+L:	netdev@vger.kernel.org
+S:	Maintained
+F:	drivers/net/ethernet/amd/declance.c
+
 DECSTATION PLATFORM SUPPORT
 M:	"Maciej W. Rozycki" <macro@orcam.me.uk>
 L:	linux-mips@vger.kernel.org
