@@ -322,8 +322,6 @@ struct vmw_display_unit {
 
 	struct {
 		struct work_struct crc_generator_work;
-		struct hrtimer timer;
-		ktime_t period_ns;
 
 		/* protects concurrent access to the vblank handler */
 		atomic_t atomic_lock;
