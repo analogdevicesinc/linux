@@ -7,7 +7,6 @@
  *		Francesco Ruggeri <fruggeri@arista.com>
  *		Salam Noureddine <noureddine@arista.com>
  */
-#include <crypto/hash.h>
 #include <linux/tcp.h>
 
 #include <net/tcp.h>
@@ -24,29 +23,22 @@ static int tcp_v6_ao_calc_key(struct tcp_ao_key *mkt, u8 *key,
 		u8			label[6];
 		struct tcp6_ao_context	ctx;
 		__be16			outlen;
-	} __packed * tmp;
-	struct tcp_sigpool hp;
-	int err;
+	} __packed input = {
+		.counter = 1,
+		.label = "TCP-AO",
+		.ctx = {
+			.saddr = *saddr,
+			.daddr = *daddr,
+			.sport = sport,
+			.dport = dport,
+			.sisn = sisn,
+			.disn = disn,
+		},
+		.outlen = htons(tcp_ao_digest_size(mkt) * 8), /* in bits */
+	};
 
-	err = tcp_sigpool_start(mkt->tcp_sigpool_id, &hp);
-	if (err)
-		return err;
-
-	tmp = hp.scratch;
-	tmp->counter	= 1;
-	memcpy(tmp->label, "TCP-AO", 6);
-	tmp->ctx.saddr	= *saddr;
-	tmp->ctx.daddr	= *daddr;
-	tmp->ctx.sport	= sport;
-	tmp->ctx.dport	= dport;
-	tmp->ctx.sisn	= sisn;
-	tmp->ctx.disn	= disn;
-	tmp->outlen	= htons(tcp_ao_digest_size(mkt) * 8); /* in bits */
-
-	err = tcp_ao_calc_traffic_key(mkt, key, tmp, sizeof(*tmp), &hp);
-	tcp_sigpool_end(&hp);
-
-	return err;
+	tcp_ao_calc_traffic_key(mkt, key, &input, sizeof(input));
+	return 0;
 }
 
 int tcp_v6_ao_calc_key_skb(struct tcp_ao_key *mkt, u8 *key,
@@ -112,23 +104,20 @@ struct tcp_ao_key *tcp_v6_ao_lookup_rsk(const struct sock *sk,
 				AF_INET6, sndid, rcvid);
 }
 
-int tcp_v6_ao_hash_pseudoheader(struct tcp_sigpool *hp,
+int tcp_v6_ao_hash_pseudoheader(struct tcp_ao_mac_ctx *mac_ctx,
 				const struct in6_addr *daddr,
 				const struct in6_addr *saddr, int nbytes)
 {
-	struct tcp6_pseudohdr *bp;
-	struct scatterlist sg;
-
-	bp = hp->scratch;
 	/* 1. TCP pseudo-header (RFC2460) */
-	bp->saddr = *saddr;
-	bp->daddr = *daddr;
-	bp->len = cpu_to_be32(nbytes);
-	bp->protocol = cpu_to_be32(IPPROTO_TCP);
+	struct tcp6_pseudohdr phdr = {
+		.saddr = *saddr,
+		.daddr = *daddr,
+		.len = cpu_to_be32(nbytes),
+		.protocol = cpu_to_be32(IPPROTO_TCP),
+	};
 
-	sg_init_one(&sg, bp, sizeof(*bp));
-	ahash_request_set_crypt(hp->req, &sg, NULL, sizeof(*bp));
-	return crypto_ahash_update(hp->req);
+	tcp_ao_mac_update(mac_ctx, &phdr, sizeof(phdr));
+	return 0;
 }
 
 int tcp_v6_ao_hash_skb(char *ao_hash, struct tcp_ao_key *key,
