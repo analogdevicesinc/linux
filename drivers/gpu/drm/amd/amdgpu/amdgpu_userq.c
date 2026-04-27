@@ -656,12 +656,6 @@ amdgpu_userq_destroy(struct amdgpu_userq_mgr *uq_mgr, struct amdgpu_usermode_que
 #endif
 	amdgpu_userq_detect_and_reset_queues(uq_mgr);
 	r = amdgpu_userq_unmap_helper(queue);
-	/*TODO: It requires a reset for userq hw unmap error*/
-	if (r) {
-		drm_warn(adev_to_drm(uq_mgr->adev), "trying to destroy a HW mapping userq\n");
-		queue->state = AMDGPU_USERQ_STATE_HUNG;
-	}
-
 	atomic_dec(&uq_mgr->userq_count[queue->queue_type]);
 	amdgpu_userq_cleanup(queue);
 	mutex_unlock(&uq_mgr->userq_mutex);
