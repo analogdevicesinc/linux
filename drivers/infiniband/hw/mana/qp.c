@@ -68,22 +68,6 @@ static int mana_ib_cfg_vport_steering(struct mana_ib_dev *dev,
 		  req->vport, default_rxobj);
 
 	err = mana_gd_send_request(gc, req_buf_size, req, sizeof(resp), &resp);
-	if (err) {
-		netdev_err(ndev, "Failed to configure vPort RX: %d\n", err);
-		goto out;
-	}
-
-	if (resp.hdr.status) {
-		netdev_err(ndev, "vPort RX configuration failed: 0x%x\n",
-			   resp.hdr.status);
-		err = -EPROTO;
-		goto out;
-	}
-
-	netdev_info(ndev, "Configured steering vPort %llu log_entries %u\n",
-		    mpc->port_handle, log_ind_tbl_size);
-
-out:
 	kfree(req);
 	return err;
 }
@@ -97,7 +81,7 @@ static int mana_ib_create_qp_rss(struct ib_qp *ibqp, struct ib_pd *pd,
 		container_of(pd->device, struct mana_ib_dev, ib_dev);
 	struct ib_rwq_ind_table *ind_tbl = attr->rwq_ind_tbl;
 	struct mana_ib_create_qp_rss_resp resp = {};
-	struct mana_ib_create_qp_rss ucmd = {};
+	struct mana_ib_create_qp_rss ucmd;
 	mana_handle_t *mana_ind_table;
 	struct mana_port_context *mpc;
 	unsigned int ind_tbl_size;
@@ -111,16 +95,12 @@ static int mana_ib_create_qp_rss(struct ib_qp *ibqp, struct ib_pd *pd,
 	u32 port;
 	int ret;
 
-	if (!udata || udata->inlen < sizeof(ucmd))
+	if (!udata)
 		return -EINVAL;
 
-	ret = ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen));
-	if (ret) {
-		ibdev_dbg(&mdev->ib_dev,
-			  "Failed copy from udata for create rss-qp, err %d\n",
-			  ret);
+	ret = ib_copy_validate_udata_in(udata, ucmd, port);
+	if (ret)
 		return ret;
-	}
 
 	if (attr->cap.max_recv_wr > mdev->adapter_caps.max_qp_wr) {
 		ibdev_dbg(&mdev->ib_dev,
@@ -282,15 +262,12 @@ static int mana_ib_create_qp_raw(struct ib_qp *ibqp, struct ib_pd *ibpd,
 	u32 port;
 	int err;
 
-	if (!mana_ucontext || udata->inlen < sizeof(ucmd))
+	if (!mana_ucontext)
 		return -EINVAL;
 
-	err = ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen));
-	if (err) {
-		ibdev_dbg(&mdev->ib_dev,
-			  "Failed to copy from udata create qp-raw, %d\n", err);
+	err = ib_copy_validate_udata_in(udata, ucmd, port);
+	if (err)
 		return err;
-	}
 
 	if (attr->cap.max_send_wr > mdev->adapter_caps.max_qp_wr) {
 		ibdev_dbg(&mdev->ib_dev,
@@ -535,17 +512,15 @@ static int mana_ib_create_rc_qp(struct ib_qp *ibqp, struct ib_pd *ibpd,
 	u64 flags = 0;
 	u32 doorbell;
 
-	if (!udata || udata->inlen < sizeof(ucmd))
+	if (!udata)
 		return -EINVAL;
 
 	mana_ucontext = rdma_udata_to_drv_context(udata, struct mana_ib_ucontext, ibucontext);
 	doorbell = mana_ucontext->doorbell;
 	flags = MANA_RC_FLAG_NO_FMR;
-	err = ib_copy_from_udata(&ucmd, udata, min(sizeof(ucmd), udata->inlen));
-	if (err) {
-		ibdev_dbg(&mdev->ib_dev, "Failed to copy from udata, %d\n", err);
+	err = ib_copy_validate_udata_in(udata, ucmd, queue_size);
+	if (err)
 		return err;
-	}
 
 	for (i = 0, j = 0; i < MANA_RC_QUEUE_TYPE_MAX; ++i) {
 		/* skip FMR for user-level RC QPs */
@@ -731,7 +706,6 @@ static int mana_ib_gd_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 	struct gdma_context *gc = mdev_to_gc(mdev);
 	struct mana_port_context *mpc;
 	struct net_device *ndev;
-	int err;
 
 	mana_gd_init_req_hdr(&req.hdr, MANA_IB_SET_QP_STATE, sizeof(req), sizeof(resp));
 
@@ -784,13 +758,7 @@ static int mana_ib_gd_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
 		req.ah_attr.flow_label = attr->ah_attr.grh.flow_label;
 	}
 
-	err = mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
-	if (err) {
-		ibdev_err(&mdev->ib_dev, "Failed modify qp err %d", err);
-		return err;
-	}
-
-	return 0;
+	return mana_gd_send_request(gc, sizeof(req), &req, sizeof(resp), &resp);
 }
 
 int mana_ib_modify_qp(struct ib_qp *ibqp, struct ib_qp_attr *attr,
@@ -821,6 +789,21 @@ static int mana_ib_destroy_qp_rss(struct mana_ib_qp *qp,
 
 	ndev = mana_ib_get_netdev(qp->ibqp.device, qp->port);
 	mpc = netdev_priv(ndev);
+
+	/* Disable vPort RX steering before destroying RX WQ objects.
+	 * Otherwise firmware still routes traffic to the destroyed queues,
+	 * which can cause bogus completions on reused CQ IDs when the
+	 * ethernet driver later creates new queues on mana_open().
+	 *
+	 * Unlike the ethernet teardown path, mana_fence_rqs() cannot be
+	 * used here because the fence completion CQE is delivered on the
+	 * CQ which is polled by userspace (e.g. DPDK), so there is no way
+	 * for the kernel to wait for fence completion.
+	 *
+	 * This is best effort — if it fails there is not much we can do,
+	 * and mana_cfg_vport_steering() already logs the error.
+	 */
+	mana_disable_vport_rx(mpc);
 
 	for (i = 0; i < (1 << ind_tbl->log_ind_tbl_size); i++) {
 		ibwq = ind_tbl->ind_tbl[i];

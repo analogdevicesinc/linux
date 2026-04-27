@@ -127,10 +127,15 @@ struct vm_area_struct;
 #define pgprot_noncached(prot)	(prot)
 
 /*
- * ZERO_PAGE is a global shared page that is always zero:  used
- * for zero-mapped memory areas etc..
+ * All caching attribute macros are identity on Alpha, so the generic
+ * pgprot_modify() degenerates to tautological self-comparisons.
+ * Override it to just return newprot directly.
  */
-#define ZERO_PAGE(vaddr)	(virt_to_page(ZERO_PGE))
+#define pgprot_modify pgprot_modify
+static inline pgprot_t pgprot_modify(pgprot_t oldprot, pgprot_t newprot)
+{
+	return newprot;
+}
 
 /*
  * On certain platforms whose physical address space can overlap KSEG,

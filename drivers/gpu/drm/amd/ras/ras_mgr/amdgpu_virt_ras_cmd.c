@@ -36,22 +36,22 @@ static int amdgpu_virt_ras_get_cmd_shared_mem(struct ras_core_context *ras_core,
 	struct amdgpu_device *adev = ras_core->dev;
 	struct amdsriov_ras_telemetry *ras_telemetry_cpu;
 	struct amdsriov_ras_telemetry *ras_telemetry_gpu;
+	void *fw_va = adev->mman.resv_region[AMDGPU_RESV_FW_VRAM_USAGE].cpu_ptr;
+	void *drv_va = adev->mman.resv_region[AMDGPU_RESV_DRV_VRAM_USAGE].cpu_ptr;
 	uint64_t fw_vram_usage_start_offset = 0;
 	uint64_t ras_telemetry_offset = 0;
 
 	if (!adev->virt.fw_reserve.ras_telemetry)
 		return -EINVAL;
 
-	if (adev->mman.fw_vram_usage_va &&
-	    adev->mman.fw_vram_usage_va <= adev->virt.fw_reserve.ras_telemetry) {
-		fw_vram_usage_start_offset = adev->mman.fw_vram_usage_start_offset;
+	if (fw_va && fw_va <= adev->virt.fw_reserve.ras_telemetry) {
+		fw_vram_usage_start_offset = adev->mman.resv_region[AMDGPU_RESV_FW_VRAM_USAGE].offset;
 		ras_telemetry_offset = (uintptr_t)adev->virt.fw_reserve.ras_telemetry -
-				(uintptr_t)adev->mman.fw_vram_usage_va;
-	} else if (adev->mman.drv_vram_usage_va &&
-		adev->mman.drv_vram_usage_va <= adev->virt.fw_reserve.ras_telemetry) {
-		fw_vram_usage_start_offset = adev->mman.drv_vram_usage_start_offset;
+				(uintptr_t)fw_va;
+	} else if (drv_va && drv_va <= adev->virt.fw_reserve.ras_telemetry) {
+		fw_vram_usage_start_offset = adev->mman.resv_region[AMDGPU_RESV_DRV_VRAM_USAGE].offset;
 		ras_telemetry_offset = (uintptr_t)adev->virt.fw_reserve.ras_telemetry -
-				(uintptr_t)adev->mman.drv_vram_usage_va;
+				(uintptr_t)drv_va;
 	} else {
 		return -EINVAL;
 	}
@@ -517,14 +517,9 @@ int amdgpu_virt_ras_hw_fini(struct amdgpu_device *adev)
 			(struct amdgpu_virt_ras_cmd *)ras_mgr->virt_ras_cmd;
 	struct vram_blocks_ecc *blks_ecc = &virt_ras->blocks_ecc;
 
-	if (blks_ecc->shared_mem.cpu_addr) {
-		__set_cmd_auto_update(adev,
-			RAS_CMD__GET_ALL_BLOCK_ECC_STATUS,
-			blks_ecc->shared_mem.gpa,
-			blks_ecc->shared_mem.size, false);
-
+	if (blks_ecc->shared_mem.cpu_addr)
 		memset(blks_ecc->shared_mem.cpu_addr, 0, blks_ecc->shared_mem.size);
-	}
+
 	memset(blks_ecc, 0, sizeof(*blks_ecc));
 
 	return 0;

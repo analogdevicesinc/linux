@@ -414,7 +414,6 @@ endmenu # Network testing
 
 endmenu # Networking options
 
-source "net/ax25/Kconfig"
 source "net/can/Kconfig"
 source "net/bluetooth/Kconfig"
 source "net/rxrpc/Kconfig"
@@ -439,7 +438,6 @@ endif # WIRELESS
 
 source "net/rfkill/Kconfig"
 source "net/9p/Kconfig"
-source "net/caif/Kconfig"
 source "net/ceph/Kconfig"
 source "net/nfc/Kconfig"
 source "net/psample/Kconfig"

@@ -162,13 +162,13 @@ struct test_pattern {
 #define SUBVP_DRR_MARGIN_US 100 // 100us for DRR margin (SubVP + DRR)
 
 struct dc_stream_debug_options {
-	char force_odm_combine_segments;
+	uint8_t force_odm_combine_segments;
 	/*
 	 * When force_odm_combine_segments is non zero, allow dc to
 	 * temporarily transition to ODM bypass when minimal transition state
 	 * is required to prevent visual glitches showing on the screen
 	 */
-	char allow_transition_for_forced_odm;
+	uint8_t allow_transition_for_forced_odm;
 };
 
 #define LUMINANCE_DATA_TABLE_SIZE 10

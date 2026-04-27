@@ -57,8 +57,6 @@
 #define CALC_PLL_CLK_SRC_ERR_TOLERANCE 1
 #define MAX_PLL_CALC_ERROR 0xFFFFFFFF
 
-#define NUM_ELEMENTS(a) (sizeof(a) / sizeof((a)[0]))
-
 static const struct spread_spectrum_data *get_ss_data_entry(
 		struct dce110_clk_src *clk_src,
 		enum signal_type signal,
@@ -1271,7 +1269,7 @@ const struct pixel_rate_range_table_entry *look_up_in_video_optimized_rate_tlb(
 {
 	int i;
 
-	for (i = 0; i < NUM_ELEMENTS(video_optimized_pixel_rates); i++) {
+	for (i = 0; i < ARRAY_SIZE(video_optimized_pixel_rates); i++) {
 		const struct pixel_rate_range_table_entry *e = &video_optimized_pixel_rates[i];
 
 		if (e->range_min_khz <= pixel_rate_khz && pixel_rate_khz <= e->range_max_khz) {

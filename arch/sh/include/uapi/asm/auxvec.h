@@ -13,14 +13,10 @@
  */
 #define AT_FPUCW		18	/* Used FPU control word.  */
 
-#if defined(CONFIG_VSYSCALL) || !defined(__KERNEL__)
 /*
- * Only define this in the vsyscall case, the entry point to
- * the vsyscall page gets placed here. The kernel will attempt
- * to build a gate VMA we don't care about otherwise..
+ * The entry point to the vsyscall page gets placed here.
  */
 #define AT_SYSINFO_EHDR		33
-#endif
 
 /*
  * More complete cache descriptions than AT_[DIU]CACHEBSIZE.  If the

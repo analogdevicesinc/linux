@@ -781,10 +781,8 @@ static void restore_phy_clocks_for_destructive_link_verification(const struct dc
 }
 
 static void verify_link_capability_destructive(struct dc_link *link,
-		struct dc_sink *sink,
 		enum dc_detect_reason reason)
 {
-	(void)sink;
 	bool should_prepare_phy_clocks =
 			should_prepare_phy_clocks_for_link_verification(link->dc, reason);
 
@@ -857,11 +855,11 @@ static bool should_verify_link_capability_destructively(struct dc_link *link,
 	return destrictive;
 }
 
-static void verify_link_capability(struct dc_link *link, struct dc_sink *sink,
+static void verify_link_capability(struct dc_link *link,
 		enum dc_detect_reason reason)
 {
 	if (should_verify_link_capability_destructively(link, reason))
-		verify_link_capability_destructive(link, sink, reason);
+		verify_link_capability_destructive(link, reason);
 	else
 		verify_link_capability_non_destructive(link);
 }
@@ -1236,6 +1234,20 @@ static bool detect_link_and_local_sink(struct dc_link *link,
 		if (dc_is_hdmi_signal(link->connector_signal))
 			read_scdc_caps(link->ddc, link->local_sink);
 
+		/* When FreeSync is toggled through OSD,
+		 * we see same EDID no matter what. Check MCCS caps
+		 * to see if we should update FreeSync caps now.
+		 */
+		dm_helpers_read_mccs_caps(
+				link->ctx,
+				link,
+				sink);
+
+		if (prev_sink != NULL) {
+			if (memcmp(&sink->mccs_caps, &prev_sink->mccs_caps, sizeof(struct mccs_caps)))
+				same_edid = false;
+		}
+
 		if (link->connector_signal == SIGNAL_TYPE_DISPLAY_PORT &&
 		    sink_caps.transaction_type ==
 		    DDC_TRANSACTION_TYPE_I2C_OVER_AUX) {
@@ -1455,8 +1467,9 @@ bool link_detect(struct dc_link *link, enum dc_detect_reason reason)
 
 	is_local_sink_detect_success = detect_link_and_local_sink(link, reason);
 
-	if (is_local_sink_detect_success && link->local_sink)
-		verify_link_capability(link, link->local_sink, reason);
+	if (is_local_sink_detect_success && link->local_sink) {
+		verify_link_capability(link, reason);
+	}
 
 	DC_LOG_DC("%s: link_index=%d is_local_sink_detect_success=%d pre_link_type=%d link_type=%d\n", __func__,
 				link->link_index, is_local_sink_detect_success, pre_link_type, link->type);

@@ -98,9 +98,15 @@ static int fl512_ao_insn_write(struct comedi_device *dev,
 static int fl512_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 {
 	struct comedi_subdevice *s;
+	unsigned int iobase = it->options[0];
 	int ret;
 
-	ret = comedi_request_region(dev, it->options[0], 0x10);
+	/*
+	 * FIXME: Don't know the allowed range, but assume it needs to be
+	 * on a 16-byte boundary - Ian Abbott
+	 */
+	ret = comedi_check_request_region(dev, iobase, 0x10,
+					  0, UINT_MAX, 16);
 	if (ret)
 		return ret;
 

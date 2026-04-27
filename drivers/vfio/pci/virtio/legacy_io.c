@@ -34,7 +34,9 @@ virtiovf_issue_legacy_rw_cmd(struct virtiovf_pci_core_device *virtvdev,
 	common = pos < VIRTIO_PCI_CONFIG_OFF(msix_enabled);
 	/* offset within the relevant configuration area */
 	offset = common ? pos : pos - VIRTIO_PCI_CONFIG_OFF(msix_enabled);
-	mutex_lock(&virtvdev->bar_mutex);
+
+	guard(mutex)(&virtvdev->bar_mutex);
+
 	if (read) {
 		if (common)
 			ret = virtio_pci_admin_legacy_common_io_read(pdev, offset,
@@ -43,14 +45,12 @@ virtiovf_issue_legacy_rw_cmd(struct virtiovf_pci_core_device *virtvdev,
 			ret = virtio_pci_admin_legacy_device_io_read(pdev, offset,
 					count, bar0_buf + pos);
 		if (ret)
-			goto out;
+			return ret;
 		if (copy_to_user(buf, bar0_buf + pos, count))
-			ret = -EFAULT;
+			return -EFAULT;
 	} else {
-		if (copy_from_user(bar0_buf + pos, buf, count)) {
-			ret = -EFAULT;
-			goto out;
-		}
+		if (copy_from_user(bar0_buf + pos, buf, count))
+			return -EFAULT;
 
 		if (common)
 			ret = virtio_pci_admin_legacy_common_io_write(pdev, offset,
@@ -59,8 +59,7 @@ virtiovf_issue_legacy_rw_cmd(struct virtiovf_pci_core_device *virtvdev,
 			ret = virtio_pci_admin_legacy_device_io_write(pdev, offset,
 					count, bar0_buf + pos);
 	}
-out:
-	mutex_unlock(&virtvdev->bar_mutex);
+
 	return ret;
 }
 

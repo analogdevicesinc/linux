@@ -2,16 +2,6 @@
 # SPDX-License-Identifier: GPL-2.0
 #
 # Runs a set of tests in a given subdirectory.
-export skip_rc=4
-export timeout_rc=124
-export logfile=/dev/stdout
-export per_test_logging=
-export RUN_IN_NETNS=
-
-# Defaults for "settings" file fields:
-# "timeout" how many seconds to let each test run before running
-# over our soft timeout limit.
-export kselftest_default_timeout=45
 
 # There isn't a shell-agnostic way to find the path of a sourced file,
 # so we must rely on BASE_DIR being set to find other tools.
@@ -19,6 +9,19 @@ if [ -z "$BASE_DIR" ]; then
 	echo "Error: BASE_DIR must be set before sourcing." >&2
 	exit 1
 fi
+
+. ${BASE_DIR}/kselftest/ktap_helpers.sh
+
+export timeout_rc=124
+export logfile=/dev/stdout
+export per_test_logging=
+export per_test_log_dir=/tmp
+export RUN_IN_NETNS=
+
+# Defaults for "settings" file fields:
+# "timeout" how many seconds to let each test run before running
+# over our soft timeout limit.
+export kselftest_default_timeout=45
 
 TR_CMD=$(command -v tr)
 
@@ -44,17 +47,10 @@ tap_timeout()
 	fi
 }
 
-report_failure()
-{
-	echo "not ok $*"
-	echo "$*" >> "$kselftest_failures_file"
-}
-
 run_one()
 {
 	DIR="$1"
 	TEST="$2"
-	local test_num="$3"
 
 	BASENAME_TEST=$(basename $TEST)
 
@@ -102,16 +98,17 @@ run_one()
 	# Command line timeout overrides the settings file
 	if [ -n "$kselftest_override_timeout" ]; then
 		kselftest_timeout="$kselftest_override_timeout"
-		echo "# overriding timeout to $kselftest_timeout" >> "$logfile"
+		ktap_print_msg "overriding timeout to $kselftest_timeout" >> "$logfile"
 	else
-		echo "# timeout set to $kselftest_timeout" >> "$logfile"
+		ktap_print_msg "timeout set to $kselftest_timeout" >> "$logfile"
 	fi
 
 	TEST_HDR_MSG="selftests: $DIR: $BASENAME_TEST"
 	echo "# $TEST_HDR_MSG"
 	if [ ! -e "$TEST" ]; then
-		echo "# Warning: file $TEST is missing!"
-		report_failure "$test_num $TEST_HDR_MSG"
+		ktap_print_msg "Warning: file $TEST is missing!"
+		ktap_test_fail "$TEST_HDR_MSG"
+		rc=$KSFT_FAIL
 	else
 		if [ -x /usr/bin/stdbuf ]; then
 			stdbuf="/usr/bin/stdbuf --output=L "
@@ -122,33 +119,38 @@ run_one()
 		elif [ -x "./ksft_runner.sh" ]; then
 			cmd="$stdbuf ./ksft_runner.sh ./$BASENAME_TEST"
 		else
-			echo "# Warning: file $TEST is not executable"
+			ktap_print_msg "Warning: file $TEST is not executable"
 
 			if [ $(head -n 1 "$TEST" | cut -c -2) = "#!" ]
 			then
 				interpreter=$(head -n 1 "$TEST" | cut -c 3-)
 				cmd="$stdbuf $interpreter ./$BASENAME_TEST"
 			else
-				report_failure "$test_num $TEST_HDR_MSG"
-				return
+				ktap_test_fail "$TEST_HDR_MSG"
+				return $KSFT_FAIL
 			fi
 		fi
 		cd `dirname $TEST` > /dev/null
-		((((( tap_timeout "$cmd" 2>&1; echo $? >&3) |
+		(((( tap_timeout "$cmd" 2>&1; echo $? >&3) |
 			tap_prefix >&4) 3>&1) |
-			(read xs; exit $xs)) 4>>"$logfile" &&
-		echo "ok $test_num $TEST_HDR_MSG") ||
-		(rc=$?;	\
-		if [ $rc -eq $skip_rc ]; then	\
-			echo "ok $test_num $TEST_HDR_MSG # SKIP"
-		elif [ $rc -eq $timeout_rc ]; then \
-			echo "#"
-			report_failure "$test_num $TEST_HDR_MSG # TIMEOUT $kselftest_timeout seconds"
-		else
-			report_failure "$test_num $TEST_HDR_MSG # exit=$rc"
-		fi)
+			(read xs; exit $xs)) 4>>"$logfile"
+		rc=$?
+		case "$rc" in
+		"$KSFT_PASS")
+			ktap_test_pass "$TEST_HDR_MSG";;
+		"$KSFT_SKIP")
+			ktap_test_skip "$TEST_HDR_MSG";;
+		"$KSFT_XFAIL")
+			ktap_test_xfail "$TEST_HDR_MSG";;
+		"$timeout_rc")
+			ktap_test_fail "$TEST_HDR_MSG # TIMEOUT $kselftest_timeout seconds";;
+		*)
+			ktap_test_fail "$TEST_HDR_MSG # exit=$rc";;
+		esac
 		cd - >/dev/null
 	fi
+
+	return $rc
 }
 
 in_netns()
@@ -158,46 +160,69 @@ in_netns()
 		BASE_DIR=$BASE_DIR
 		source $BASE_DIR/kselftest/runner.sh
 		logfile=$logfile
-		run_one $DIR $TEST $test_num
+		run_one $DIR $TEST
 	EOF
 }
 
 run_in_netns()
 {
-	local netns=$(mktemp -u ${BASENAME_TEST}-XXXXXX)
 	local tmplog="/tmp/$(mktemp -u ${BASENAME_TEST}-XXXXXX)"
+	local netns=$(mktemp -u ${BASENAME_TEST}-XXXXXX)
+	local rc
+
 	ip netns add $netns
 	if [ $? -ne 0 ]; then
-		echo "# Warning: Create namespace failed for $BASENAME_TEST"
-		echo "not ok $test_num selftests: $DIR: $BASENAME_TEST # Create NS failed"
+		ktap_print_msg "Warning: Create namespace failed for $BASENAME_TEST"
+		ktap_test_fail "selftests: $DIR: $BASENAME_TEST # Create NS failed"
 	fi
 	ip -n $netns link set lo up
+
 	in_netns $netns &> $tmplog
+	rc=$?
+
 	ip netns del $netns &> /dev/null
+	# Cat the log at once to avoid parallel netns logs.
 	cat $tmplog
 	rm -f $tmplog
+	return $rc
 }
 
 run_many()
 {
-	echo "TAP version 13"
 	DIR="${PWD#${BASE_DIR}/}"
-	test_num=0
-	total=$(echo "$@" | wc -w)
-	echo "1..$total"
+	local rc
+	pids=
+
 	for TEST in "$@"; do
 		BASENAME_TEST=$(basename $TEST)
-		test_num=$(( test_num + 1 ))
 		if [ -n "$per_test_logging" ]; then
-			logfile="/tmp/$BASENAME_TEST"
+			logfile="$per_test_log_dir/$BASENAME_TEST"
 			cat /dev/null > "$logfile"
 		fi
 		if [ -n "$RUN_IN_NETNS" ]; then
 			run_in_netns &
+			pids="$pids $!"
 		else
-			run_one "$DIR" "$TEST" "$test_num"
+			run_one "$DIR" "$TEST"
 		fi
 	done
 
-	wait
+	# These variables are outputs of ktap_helpers.sh but since we've
+	# run the test in a subprocess we need to update them manually
+	for pid in $pids; do
+		wait "$pid"
+		rc=$?
+		case "$rc" in
+		"$KSFT_PASS")
+			KTAP_CNT_PASS=$((KTAP_CNT_PASS + 1));;
+		"$KSFT_FAIL")
+			KTAP_CNT_FAIL=$((KTAP_CNT_FAIL + 1));;
+		"$KSFT_SKIP")
+			KTAP_CNT_SKIP=$((KTAP_CNT_SKIP + 1));;
+		"$KSFT_XFAIL")
+			KTAP_CNT_XFAIL=$((KTAP_CNT_XFAIL + 1));;
+		*)
+			KTAP_CNT_FAIL=$((KTAP_CNT_FAIL + 1));;
+		esac
+	done
 }

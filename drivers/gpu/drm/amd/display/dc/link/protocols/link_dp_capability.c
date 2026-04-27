@@ -743,14 +743,15 @@ static bool decide_dp_link_settings(struct dc_link *link, struct dc_link_setting
 {
 	struct dc_link_settings initial_link_setting = {
 		LANE_COUNT_ONE, LINK_RATE_LOW, LINK_SPREAD_DISABLED, false, 0};
-	if (link->preferred_link_setting.link_rate != LINK_RATE_UNKNOWN)
-		initial_link_setting.link_rate = link->preferred_link_setting.link_rate;
 	struct dc_link_settings current_link_setting =
 			initial_link_setting;
 	uint32_t link_bw;
 
 	if (req_bw > dp_link_bandwidth_kbps(link, &link->verified_link_cap))
 		return false;
+
+	if (link->preferred_link_setting.link_rate != LINK_RATE_UNKNOWN)
+		initial_link_setting.link_rate = link->preferred_link_setting.link_rate;
 
 	/* search for the minimum link setting that:
 	 * 1. is supported according to the link training result

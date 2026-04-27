@@ -155,6 +155,10 @@ static void dcn42_update_soc_bb_with_values_from_clk_mgr(struct dml2_soc_bb *soc
 		dcn42_convert_dc_clock_table_to_soc_bb_clock_table(&soc_bb->clk_table, &soc_bb->vmin_limit,
 			dc->clk_mgr->bw_params);
 	}
+
+	if (dc->clk_mgr->bw_params->vram_type == Ddr5MemType) {
+		soc_bb->power_management_parameters = dcn42_ddr5_power_management_parameters;
+	}
 }
 
 static void apply_soc_bb_updates(struct dml2_soc_bb *soc_bb, const struct dc *dc, const struct dml2_configuration_options *config)

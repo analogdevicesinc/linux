@@ -1768,3 +1768,26 @@ Description:
 		====================   ===========================
 
 		The attribute is read only.
+
+What:		/sys/bus/platform/drivers/ufshcd/*/dme_qos_notification
+What:		/sys/bus/platform/devices/*.ufs/dme_qos_notification
+Date:		March 2026
+Contact:	Can Guo <can.guo@oss.qualcomm.com>
+Description:
+		This attribute reports and clears pending DME (Device Management
+		Entity) Quality of Service (QoS) notifications. This attribute
+		is a bitfield with the following bit assignments:
+
+		Bit	Description
+		===	======================================
+		0	DME QoS Monitor has been reset by host
+		1	QoS from TX is detected
+		2	QoS from RX is detected
+		3	QoS from PA_INIT is detected
+
+		Reading this attribute returns the pending DME QoS notification
+		bits. Writing '0' to this attribute clears pending DME QoS
+		notification bits. Writing any non-zero value is invalid and
+		will be rejected.
+
+		The attribute is read/write.

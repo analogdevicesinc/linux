@@ -1018,6 +1018,7 @@ static int das16_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	const struct das16_board *board = dev->board_ptr;
 	struct das16_private_struct *devpriv;
 	struct comedi_subdevice *s;
+	unsigned int iobase = it->options[0];
 	unsigned int osc_base;
 	unsigned int status;
 	int ret;
@@ -1037,11 +1038,25 @@ static int das16_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	devpriv->dev = dev;
 
 	if (board->size < 0x400) {
-		ret = comedi_request_region(dev, it->options[0], board->size);
+		unsigned int size = board->size;
+
+		if (size > 0x10 && (iobase & 0x10) != 0) {
+			/*
+			 * The board has more than 0x10 registers and is
+			 * being placed on an odd 16-byte boundary.  The
+			 * board has some jumpers to configure this mode,
+			 * disabling the 8255 at offset 0x10, so only 0x10
+			 * registers will need to be mapped in this mode.
+			 */
+			size = 0x10;
+		}
+		ret = comedi_check_request_region(dev, iobase, size,
+						  0, 0x3ff, 16);
 		if (ret)
 			return ret;
 	} else {
-		ret = comedi_request_region(dev, it->options[0], 0x10);
+		ret = comedi_check_request_region(dev, iobase, 0x10,
+						  0, 0x3ff, 16);
 		if (ret)
 			return ret;
 		/* Request an additional region for the 8255 */
@@ -1146,9 +1161,15 @@ static int das16_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	/* 8255 Digital I/O subdevice */
 	if (board->has_8255) {
 		s = &dev->subdevices[4];
-		ret = subdev_8255_io_init(dev, s, board->i8255_offset);
-		if (ret)
-			return ret;
+		if (board->i8255_offset == 0x10 && (dev->iobase & 0x10) != 0) {
+			dev_info(dev->class_dev,
+				 "Disabling 8255 subdevice on unsupported base address\n");
+			s->type = COMEDI_SUBD_UNUSED;
+		} else {
+			ret = subdev_8255_io_init(dev, s, board->i8255_offset);
+			if (ret)
+				return ret;
+		}
 	}
 
 	das16_reset(dev);

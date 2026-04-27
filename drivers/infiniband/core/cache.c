@@ -116,9 +116,9 @@ struct ib_gid_table {
 	/* rwlock protects data_vec[ix]->state and entry pointer.
 	 */
 	rwlock_t			rwlock;
-	struct ib_gid_table_entry	**data_vec;
 	/* bit field, each bit indicates the index of default GID */
 	u32				default_gid_indices;
+	struct ib_gid_table_entry	*data_vec[] __counted_by(sz);
 };
 
 static void dispatch_gid_change_event(struct ib_device *ib_dev, u32 port)
@@ -770,24 +770,16 @@ const struct ib_gid_attr *rdma_find_gid_by_filter(
 
 static struct ib_gid_table *alloc_gid_table(int sz)
 {
-	struct ib_gid_table *table = kzalloc_obj(*table);
+	struct ib_gid_table *table = kzalloc_flex(*table, data_vec, sz);
 
 	if (!table)
 		return NULL;
 
-	table->data_vec = kzalloc_objs(*table->data_vec, sz);
-	if (!table->data_vec)
-		goto err_free_table;
+	table->sz = sz;
 
 	mutex_init(&table->lock);
-
-	table->sz = sz;
 	rwlock_init(&table->rwlock);
 	return table;
-
-err_free_table:
-	kfree(table);
-	return NULL;
 }
 
 static void release_gid_table(struct ib_device *device,
@@ -809,7 +801,6 @@ static void release_gid_table(struct ib_device *device,
 	}
 
 	mutex_destroy(&table->lock);
-	kfree(table->data_vec);
 	kfree(table);
 }
 

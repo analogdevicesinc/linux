@@ -641,9 +641,7 @@ module_param_named(si_support, amdgpu_si_support, int, 0444);
  * CIK (Sea Islands) are second generation GCN GPUs, supported by both
  * drivers: radeon (old) and amdgpu (new). This parameter controls whether
  * amdgpu should support CIK.
- * By default:
- * - CIK dedicated GPUs are supported by amdgpu.
- * - CIK APUs are supported by radeon (except when radeon is not built).
+ * By default, CIK dedicated GPUs and APUs are supported by amdgpu.
  * Only relevant when CONFIG_DRM_AMDGPU_CIK is enabled to build CIK support in amdgpu.
  * See also radeon.cik_support which should be disabled when amdgpu.cik_support is
  * enabled, and vice versa.
@@ -2323,8 +2321,6 @@ static bool amdgpu_support_enabled(struct device *dev,
 
 	case CHIP_BONAIRE:
 	case CHIP_HAWAII:
-		support_by_default = true;
-		fallthrough;
 	case CHIP_KAVERI:
 	case CHIP_KABINI:
 	case CHIP_MULLINS:
@@ -2332,6 +2328,7 @@ static bool amdgpu_support_enabled(struct device *dev,
 		param = "cik_support";
 		module_param = amdgpu_cik_support;
 		amdgpu_support_built = IS_ENABLED(CONFIG_DRM_AMDGPU_CIK);
+		support_by_default = true;
 		break;
 
 	default:

@@ -1440,8 +1440,8 @@ int ntfs_write_bh(struct ntfs_sb_info *sbi, struct NTFS_RECORD_HEADER *rhdr,
 	u16 fo = le16_to_cpu(rhdr->fix_off);
 	u16 fn = le16_to_cpu(rhdr->fix_num);
 	u32 idx;
-	__le16 *fixup;
-	__le16 sample;
+	__le16 *fixup = NULL;
+	__le16 sample = cpu_to_le16(-1u);
 
 	if ((fo & 1) || fo + fn * sizeof(short) > SECTOR_SIZE || !fn-- ||
 	    fn * SECTOR_SIZE > bytes) {

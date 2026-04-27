@@ -23,11 +23,12 @@
 
 #define MEI_GSC_RPM_TIMEOUT 500
 
-static int mei_gsc_read_hfs(const struct mei_device *dev, int where, u32 *val)
+static int mei_gsc_read_hfs(const struct mei_device *dev, int where, const char *name, u32 *val)
 {
 	struct mei_me_hw *hw = to_me_hw(dev);
 
 	*val = ioread32(hw->mem_addr + where + 0xC00);
+	trace_mei_reg_read(&dev->dev, name, where, *val);
 
 	return 0;
 }

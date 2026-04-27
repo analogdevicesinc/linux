@@ -31,6 +31,8 @@
 struct pcl724_board {
 	const char *name;
 	unsigned int io_range;
+	unsigned int min_io_start;
+	unsigned int max_io_end;
 	unsigned int can_have96:1;
 	unsigned int is_pet48:1;
 	int numofports;
@@ -40,37 +42,53 @@ static const struct pcl724_board boardtypes[] = {
 	{
 		.name		= "pcl724",
 		.io_range	= 0x04,
+		.min_io_start	= 0x200,
+		.max_io_end	= 0x3ff,
 		.numofports	= 1,	/* 24 DIO channels */
 	}, {
 		.name		= "pcl722",
 		.io_range	= 0x20,
+		.min_io_start	= 0x200,
+		.max_io_end	= 0x3ff,
 		.can_have96	= 1,
 		.numofports	= 6,	/* 144 (or 96) DIO channels */
 	}, {
 		.name		= "pcl731",
 		.io_range	= 0x08,
+		.min_io_start	= 0,
+		.max_io_end	= 0x3ff,
 		.numofports	= 2,	/* 48 DIO channels */
 	}, {
 		.name		= "acl7122",
 		.io_range	= 0x20,
+		.min_io_start	= 0x200,
+		.max_io_end	= 0x3ff,
 		.can_have96	= 1,
 		.numofports	= 6,	/* 144 (or 96) DIO channels */
 	}, {
 		.name		= "acl7124",
 		.io_range	= 0x04,
+		.min_io_start	= 0x200,
+		.max_io_end	= 0x3ff,
 		.numofports	= 1,	/* 24 DIO channels */
 	}, {
 		.name		= "pet48dio",
 		.io_range	= 0x02,
+		.min_io_start	= 0,
+		.max_io_end	= 0x3ff,
 		.is_pet48	= 1,
 		.numofports	= 2,	/* 48 DIO channels */
 	}, {
 		.name		= "pcmio48",
 		.io_range	= 0x08,
+		.min_io_start	= 0x100,
+		.max_io_end	= 0x17f,
 		.numofports	= 2,	/* 48 DIO channels */
 	}, {
 		.name		= "onyx-mm-dio",
 		.io_range	= 0x10,
+		.min_io_start	= 0,
+		.max_io_end	= 0x3ff,
 		.numofports	= 2,	/* 48 DIO channels */
 	},
 };
@@ -112,7 +130,9 @@ static int pcl724_attach(struct comedi_device *dev,
 		n_subdevices = 4;
 	}
 
-	ret = comedi_request_region(dev, it->options[0], iorange);
+	ret = comedi_check_request_region(dev, it->options[0], iorange,
+					  board->min_io_start,
+					  board->max_io_end, iorange);
 	if (ret)
 		return ret;
 

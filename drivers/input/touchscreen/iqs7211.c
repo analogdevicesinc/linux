@@ -2060,19 +2060,16 @@ static int iqs7211_parse_reg_grp(struct iqs7211_private *iqs7211,
 
 	for (i = 0; i < dev_desc->num_kp_events; i++) {
 		const char *event_name = dev_desc->kp_events[i].name;
-		struct fwnode_handle *event_node;
 
 		if (dev_desc->kp_events[i].reg_grp != reg_grp)
 			continue;
 
 		reg_field.mask |= dev_desc->kp_events[i].enable;
 
-		if (event_name)
-			event_node = fwnode_get_named_child_node(reg_grp_node,
-								 event_name);
-		else
-			event_node = fwnode_handle_get(reg_grp_node);
-
+		struct fwnode_handle *event_node __free(fwnode_handle) =
+			event_name ? fwnode_get_named_child_node(reg_grp_node,
+								 event_name) :
+				     fwnode_handle_get(reg_grp_node);
 		if (!event_node)
 			continue;
 
@@ -2080,7 +2077,6 @@ static int iqs7211_parse_reg_grp(struct iqs7211_private *iqs7211,
 					    dev_desc->kp_events[i].reg_grp,
 					    dev_desc->kp_events[i].reg_key,
 					    &iqs7211->kp_code[i]);
-		fwnode_handle_put(event_node);
 		if (error)
 			return error;
 
@@ -2496,19 +2492,15 @@ static int iqs7211_probe(struct i2c_client *client)
 
 	for (reg_grp = 0; reg_grp < IQS7211_NUM_REG_GRPS; reg_grp++) {
 		const char *reg_grp_name = iqs7211_reg_grp_names[reg_grp];
-		struct fwnode_handle *reg_grp_node;
 
-		if (reg_grp_name)
-			reg_grp_node = device_get_named_child_node(&client->dev,
-								   reg_grp_name);
-		else
-			reg_grp_node = fwnode_handle_get(dev_fwnode(&client->dev));
-
+		struct fwnode_handle *reg_grp_node __free(fwnode_handle) =
+			reg_grp_name ? device_get_named_child_node(&client->dev,
+								   reg_grp_name) :
+				       fwnode_handle_get(dev_fwnode(&client->dev));
 		if (!reg_grp_node)
 			continue;
 
 		error = iqs7211_parse_reg_grp(iqs7211, reg_grp_node, reg_grp);
-		fwnode_handle_put(reg_grp_node);
 		if (error)
 			return error;
 	}

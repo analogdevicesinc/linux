@@ -400,7 +400,7 @@ static struct clk_branch gcc_xo_clk_src = {
 				.fw_name = "xo",
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
+			.flags = CLK_SET_RATE_PARENT | CLK_IS_CRITICAL,
 			.ops = &clk_branch2_ops,
 		},
 	},

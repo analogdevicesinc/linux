@@ -247,7 +247,8 @@ static inline void nxp_sar_adc_calibration_start(void __iomem *base)
 
 static inline int nxp_sar_adc_calibration_wait(void __iomem *base)
 {
-	u32 msr, ret;
+	u32 msr;
+	int ret;
 
 	ret = readl_poll_timeout(NXP_SAR_ADC_MSR(base), msr,
 				 !FIELD_GET(NXP_SAR_ADC_MSR_CALBUSY, msr),

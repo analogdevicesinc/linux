@@ -48,11 +48,11 @@ struct comedi_isadma_desc {
  */
 struct comedi_isadma {
 	struct device *dev;
-	struct comedi_isadma_desc *desc;
 	int n_desc;
 	int cur_dma;
 	unsigned int chan;
 	unsigned int chan2;
+	struct comedi_isadma_desc desc[] __counted_by(n_desc);
 };
 
 #if IS_ENABLED(CONFIG_ISA_DMA_API)

@@ -1394,6 +1394,13 @@ static enum dc_status dcn21_patch_unknown_plane_state(struct dc_plane_state *pla
 	return dcn20_patch_unknown_plane_state(plane_state);
 }
 
+static void dcn21_update_bw_bounding_box(struct dc *dc, struct clk_bw_params *bw_params)
+{
+	DC_FP_START();
+	dcn21_update_bw_bounding_box_fpu(dc, bw_params);
+	DC_FP_END();
+}
+
 static const struct resource_funcs dcn21_res_pool_funcs = {
 	.destroy = dcn21_destroy_resource_pool,
 	.link_enc_create = dcn21_link_encoder_create,

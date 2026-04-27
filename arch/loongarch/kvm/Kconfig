@@ -19,7 +19,7 @@ if VIRTUALIZATION
 
 config KVM
 	tristate "Kernel-based Virtual Machine (KVM) support"
-	depends on AS_HAS_LVZ_EXTENSION
+	depends on AS_HAS_LVZ_EXTENSION && 64BIT
 	select HAVE_KVM_DIRTY_RING_ACQ_REL
 	select HAVE_KVM_IRQ_ROUTING
 	select HAVE_KVM_IRQCHIP

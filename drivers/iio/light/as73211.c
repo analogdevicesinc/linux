@@ -677,9 +677,6 @@ static irqreturn_t as73211_trigger_handler(int irq __always_unused, void *p)
 				(char *)&scan.chan[0], 3 * sizeof(scan.chan[0]));
 		if (ret < 0)
 			goto done;
-
-		/* Avoid pushing uninitialized data */
-		scan.chan[3] = 0;
 	}
 
 	if (data_result) {

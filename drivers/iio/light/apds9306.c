@@ -168,7 +168,6 @@ struct apds9306_regfields {
  *         respectively.
  * @regmap: Regmap structure pointer
  * @rf: Regmap register fields structure
- * @nlux_per_count: Nano lux per ADC count for a particular model
  * @read_data_available: Flag set by IRQ handler for ADC data available
  */
 struct apds9306_data {
@@ -180,7 +179,6 @@ struct apds9306_data {
 	struct regmap *regmap;
 	struct apds9306_regfields rf;
 
-	int nlux_per_count;
 	int read_data_available;
 };
 
@@ -1176,7 +1174,7 @@ static int apds9306_init_iio_gts(struct apds9306_data *data)
 
 static void apds9306_powerdown(void *ptr)
 {
-	struct apds9306_data *data = (struct apds9306_data *)ptr;
+	struct apds9306_data *data = ptr;
 	struct apds9306_regfields *rf = &data->rf;
 	int ret;
 

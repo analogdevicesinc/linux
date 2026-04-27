@@ -104,7 +104,7 @@ static int ad7887_ring_postdisable(struct iio_dev *indio_dev)
 {
 	struct ad7887_state *st = iio_priv(indio_dev);
 
-	/* dummy read: restore default CH0 settin */
+	/* dummy read: restore default CH0 settings */
 	return spi_sync(st->spi, &st->msg[AD7887_CH0]);
 }
 

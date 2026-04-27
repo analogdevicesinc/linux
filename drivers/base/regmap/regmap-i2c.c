@@ -303,6 +303,50 @@ static const struct regmap_bus regmap_i2c_smbus_i2c_block_reg16 = {
 	.max_raw_write = I2C_SMBUS_BLOCK_MAX - 2,
 };
 
+/*
+ * SMBus byte/word reg16 support for adapters that have SMBUS_BYTE_DATA
+ * and SMBUS_WORD_DATA but lack I2C_FUNC_I2C and I2C_FUNC_SMBUS_I2C_BLOCK,
+ * such as the AMD PIIX4.
+ *
+ * READ:  set 16-bit EEPROM address via write_byte_data(addr_lo, addr_hi),
+ *        then sequentially read bytes via read_byte() (EEPROM auto-
+ *        increments the address pointer).  Same as the I2C-block reg16
+ *        read path above.
+ *
+ * WRITE: encode the low address byte and data into a word transaction:
+ *        write_word_data(addr_hi, (data_byte << 8) | addr_lo).
+ *        Only single-byte writes are supported (one value per transaction).
+ */
+static int regmap_smbus_word_write_reg16(void *context, const void *data,
+					 size_t count)
+{
+	struct device *dev = context;
+	struct i2c_client *i2c = to_i2c_client(dev);
+	u8 addr_hi, addr_lo, val;
+
+	/*
+	 * data layout: [addr_hi, addr_lo, val0, val1, ...].
+	 * Only single-byte value writes are supported; multi-byte would
+	 * require raw I2C (or repeated word writes with incrementing address).
+	 */
+	if (count != 3)
+		return -EINVAL;
+
+	addr_hi = ((u8 *)data)[0];
+	addr_lo = ((u8 *)data)[1];
+	val = ((u8 *)data)[2];
+
+	return i2c_smbus_write_word_data(i2c, addr_hi,
+					 cpu_to_le16(((u16)val << 8) | addr_lo));
+}
+
+static const struct regmap_bus regmap_smbus_byte_word_reg16 = {
+	.write = regmap_smbus_word_write_reg16,
+	.read = regmap_i2c_smbus_i2c_read_reg16,
+	.max_raw_read = I2C_SMBUS_BLOCK_MAX - 2,
+	.max_raw_write = 1,
+};
+
 static const struct regmap_bus *regmap_get_i2c_bus(struct i2c_client *i2c,
 					const struct regmap_config *config)
 {
@@ -321,6 +365,11 @@ static const struct regmap_bus *regmap_get_i2c_bus(struct i2c_client *i2c,
 		i2c_check_functionality(i2c->adapter,
 					I2C_FUNC_SMBUS_I2C_BLOCK))
 		bus = &regmap_i2c_smbus_i2c_block_reg16;
+	else if (config->val_bits == 8 && config->reg_bits == 16 &&
+		 i2c_check_functionality(i2c->adapter,
+					I2C_FUNC_SMBUS_BYTE_DATA |
+					I2C_FUNC_SMBUS_WORD_DATA))
+		bus = &regmap_smbus_byte_word_reg16;
 	else if (config->val_bits == 16 && config->reg_bits == 8 &&
 		 i2c_check_functionality(i2c->adapter,
 					 I2C_FUNC_SMBUS_WORD_DATA))

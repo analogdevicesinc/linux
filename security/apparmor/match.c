@@ -157,7 +157,7 @@ static int verify_dfa(struct aa_dfa *dfa)
 
 	state_count = dfa->tables[YYTD_ID_BASE]->td_lolen;
 	trans_count = dfa->tables[YYTD_ID_NXT]->td_lolen;
-	if (state_count == 0)
+	if (state_count < 2)
 		goto out;
 	for (i = 0; i < state_count; i++) {
 		if (DEFAULT_TABLE(dfa)[i] >= state_count) {

@@ -105,7 +105,7 @@ static inline void riscv_ipi_set_virq_range(int virq, int nr)
 
 #endif /* CONFIG_SMP */
 
-#if defined(CONFIG_HOTPLUG_CPU) && (CONFIG_SMP)
+#if defined(CONFIG_HOTPLUG_CPU)
 bool cpu_has_hotplug(unsigned int cpu);
 #else
 static inline bool cpu_has_hotplug(unsigned int cpu)

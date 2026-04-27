@@ -467,10 +467,11 @@ int nfsd_cache_lookup(struct svc_rqst *rqstp, unsigned int start,
 		      unsigned int len, struct nfsd_cacherep **cacherep)
 {
 	struct nfsd_net		*nn = net_generic(SVC_NET(rqstp), nfsd_net_id);
+	struct nfsd_thread_local_info *ntli = rqstp->rq_private;
 	struct nfsd_cacherep	*rp, *found;
 	__wsum			csum;
 	struct nfsd_drc_bucket	*b;
-	int type = rqstp->rq_cachetype;
+	int type = ntli->ntli_cachetype;
 	LIST_HEAD(dispose);
 	int rtn = RC_DOIT;
 

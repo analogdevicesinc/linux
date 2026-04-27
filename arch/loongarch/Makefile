@@ -25,6 +25,7 @@ endif
 #
 # Select the object file format to substitute into the linker script.
 #
+32bit-tool-archpref	= loongarch32
 64bit-tool-archpref	= loongarch64
 32bit-bfd		= elf32-loongarch
 64bit-bfd		= elf64-loongarch
@@ -51,7 +52,10 @@ KBUILD_CPPFLAGS += -DCC_USING_PATCHABLE_FUNCTION_ENTRY
 CC_FLAGS_FTRACE := -fpatchable-function-entry=2
 endif
 
-ifdef CONFIG_64BIT
+ifdef CONFIG_32BIT
+tool-archpref		= $(32bit-tool-archpref)
+UTS_MACHINE		:= loongarch32
+else
 tool-archpref		= $(64bit-tool-archpref)
 UTS_MACHINE		:= loongarch64
 endif
@@ -62,9 +66,19 @@ ifneq ($(SUBARCH),$(ARCH))
   endif
 endif
 
+ifdef CONFIG_32BIT
+ifdef CONFIG_32BIT_STANDARD
+ld-emul			= $(32bit-emul)
+cflags-y		+= -march=la32v1.0 -mabi=ilp32s -mcmodel=normal
+else  # CONFIG_32BIT_REDUCED
+ld-emul			= $(32bit-emul)
+cflags-y		+= -march=la32rv1.0 -mabi=ilp32s -mcmodel=normal
+endif
+endif
+
 ifdef CONFIG_64BIT
 ld-emul			= $(64bit-emul)
-cflags-y		+= -mabi=lp64s -mcmodel=normal
+cflags-y		+= -march=loongarch64 -mabi=lp64s -mcmodel=normal
 endif
 
 cflags-y			+= -pipe $(CC_FLAGS_NO_FPU)
@@ -140,7 +154,12 @@ ifndef CONFIG_KASAN
 cflags-y += -fno-builtin-memcpy -fno-builtin-memmove -fno-builtin-memset
 endif
 
+ifdef CONFIG_32BIT
+load-y		= 0xa0200000
+else
 load-y		= 0x9000000000200000
+endif
+
 bootvars-y	= VMLINUX_LOAD_ADDRESS=$(load-y)
 
 drivers-$(CONFIG_PCI)		+= arch/loongarch/pci/

@@ -2917,7 +2917,7 @@ static int UVERBS_HANDLER(MLX5_IB_METHOD_FLOW_MATCHER_CREATE)(
 	struct mlx5_ib_flow_matcher *obj;
 	int err;
 
-	obj = kzalloc(sizeof(struct mlx5_ib_flow_matcher), GFP_KERNEL);
+	obj = kzalloc_obj(*obj);
 	if (!obj)
 		return -ENOMEM;
 
@@ -3017,7 +3017,7 @@ static int UVERBS_HANDLER(MLX5_IB_METHOD_STEERING_ANCHOR_CREATE)(
 	if (err)
 		return err;
 
-	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	obj = kzalloc_obj(*obj);
 	if (!obj)
 		return -ENOMEM;
 
@@ -3259,7 +3259,7 @@ static int UVERBS_HANDLER(MLX5_IB_METHOD_FLOW_ACTION_CREATE_PACKET_REFORMAT)(
 	if (!mlx5_ib_flow_action_packet_reformat_valid(mdev, dv_prt, ft_type))
 		return -EOPNOTSUPP;
 
-	maction = kzalloc(sizeof(*maction), GFP_KERNEL);
+	maction = kzalloc_obj(*maction);
 	if (!maction)
 		return -ENOMEM;
 

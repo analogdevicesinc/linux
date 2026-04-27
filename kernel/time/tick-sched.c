@@ -345,7 +345,7 @@ static bool check_tick_dependency(atomic_t *dep)
 	int val = atomic_read(dep);
 
 	if (likely(!tracepoint_enabled(tick_stop)))
-		return !val;
+		return !!val;
 
 	if (val & TICK_DEP_MASK_POSIX_TIMER) {
 		trace_tick_stop(0, TICK_DEP_MASK_POSIX_TIMER);
@@ -864,19 +864,32 @@ u64 get_cpu_iowait_time_us(int cpu, u64 *last_update_time)
 }
 EXPORT_SYMBOL_GPL(get_cpu_iowait_time_us);
 
+/* Simplified variant of hrtimer_forward_now() */
+static ktime_t tick_forward_now(ktime_t expires, ktime_t now)
+{
+	ktime_t delta = now - expires;
+
+	if (likely(delta < TICK_NSEC))
+		return expires + TICK_NSEC;
+
+	expires += TICK_NSEC * ktime_divns(delta, TICK_NSEC);
+	if (expires > now)
+		return expires;
+	return expires + TICK_NSEC;
+}
+
 static void tick_nohz_restart(struct tick_sched *ts, ktime_t now)
 {
-	hrtimer_cancel(&ts->sched_timer);
-	hrtimer_set_expires(&ts->sched_timer, ts->last_tick);
+	ktime_t expires = ts->last_tick;
 
-	/* Forward the time to expire in the future */
-	hrtimer_forward(&ts->sched_timer, now, TICK_NSEC);
+	if (now >= expires)
+		expires = tick_forward_now(expires, now);
 
 	if (tick_sched_flag_test(ts, TS_FLAG_HIGHRES)) {
-		hrtimer_start_expires(&ts->sched_timer,
-				      HRTIMER_MODE_ABS_PINNED_HARD);
+		hrtimer_start(&ts->sched_timer,	expires, HRTIMER_MODE_ABS_PINNED_HARD);
 	} else {
-		tick_program_event(hrtimer_get_expires(&ts->sched_timer), 1);
+		hrtimer_set_expires(&ts->sched_timer, expires);
+		tick_program_event(expires, 1);
 	}
 
 	/*
@@ -1513,6 +1526,7 @@ static void tick_nohz_lowres_handler(struct clock_event_device *dev)
 	struct tick_sched *ts = this_cpu_ptr(&tick_cpu_sched);
 
 	dev->next_event = KTIME_MAX;
+	dev->next_event_forced = 0;
 
 	if (likely(tick_nohz_handler(&ts->sched_timer) == HRTIMER_RESTART))
 		tick_program_event(hrtimer_get_expires(&ts->sched_timer), 1);

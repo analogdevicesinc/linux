@@ -1022,11 +1022,8 @@ static int ds_probe(struct usb_interface *intf,
 	if (!dev)
 		return -ENOMEM;
 
-	dev->udev = usb_get_dev(udev);
-	if (!dev->udev) {
-		err = -ENOMEM;
-		goto err_out_free;
-	}
+	dev->udev = udev;
+
 	memset(dev->ep, 0, sizeof(dev->ep));
 
 	usb_set_intfdata(intf, dev);
@@ -1085,9 +1082,8 @@ static int ds_probe(struct usb_interface *intf,
 
 err_out_clear:
 	usb_set_intfdata(intf, NULL);
-	usb_put_dev(dev->udev);
-err_out_free:
 	kfree(dev);
+
 	return err;
 }
 
@@ -1107,7 +1103,6 @@ static void ds_disconnect(struct usb_interface *intf)
 
 	usb_set_intfdata(intf, NULL);
 
-	usb_put_dev(dev->udev);
 	kfree(dev);
 }
 

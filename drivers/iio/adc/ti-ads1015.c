@@ -231,7 +231,6 @@ static const struct iio_event_spec ads1015_events[] = {
 }
 
 struct ads1015_channel_data {
-	bool enabled;
 	unsigned int pga;
 	unsigned int data_rate;
 };

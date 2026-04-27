@@ -545,7 +545,7 @@ static int ak8975_set_mode(struct ak8975_data *data, enum ak_ctrl_mode mode)
 		return ret;
 	}
 	data->cntl_cache = regval;
-	/* After mode change wait atleast 100us */
+	/* After mode change wait at least 100us */
 	usleep_range(100, 500);
 
 	return 0;
@@ -697,7 +697,7 @@ static int wait_conversion_complete_polled(struct ak8975_data *data)
 	return read_status;
 }
 
-/* Returns 0 if the end of conversion interrupt occured or -ETIME otherwise */
+/* Returns 0 if the end of conversion interrupt occurred or -ETIME otherwise */
 static int wait_conversion_complete_interrupt(struct ak8975_data *data)
 {
 	int ret;
@@ -759,7 +759,7 @@ static int ak8975_read_axis(struct iio_dev *indio_dev, int index, int *val)
 	if (ret < 0)
 		goto exit;
 
-	/* Read out ST2 for release lock on measurment data. */
+	/* Read out ST2 for release lock on measurement data. */
 	ret = i2c_smbus_read_byte_data(client, data->def->ctrl_regs[ST2]);
 	if (ret < 0) {
 		dev_err(&client->dev, "Error in reading ST2\n");

@@ -834,8 +834,6 @@ static int gmc_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		return r;
 
-	amdgpu_gmc_get_vbios_allocations(adev);
-
 	/* Memory manager */
 	r = amdgpu_bo_init(adev);
 	if (r)

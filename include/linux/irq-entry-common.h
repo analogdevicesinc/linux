@@ -3,6 +3,7 @@
 #define __LINUX_IRQENTRYCOMMON_H
 
 #include <linux/context_tracking.h>
+#include <linux/hrtimer_rearm.h>
 #include <linux/kmsan.h>
 #include <linux/rseq_entry.h>
 #include <linux/static_call_types.h>
@@ -32,6 +33,14 @@
 	 _TIF_NEED_RESCHED | _TIF_NEED_RESCHED_LAZY |			\
 	 _TIF_PATCH_PENDING | _TIF_NOTIFY_SIGNAL | _TIF_RSEQ |		\
 	 ARCH_EXIT_TO_USER_MODE_WORK)
+
+#ifdef CONFIG_HRTIMER_REARM_DEFERRED
+# define EXIT_TO_USER_MODE_WORK_SYSCALL	(EXIT_TO_USER_MODE_WORK)
+# define EXIT_TO_USER_MODE_WORK_IRQ	(EXIT_TO_USER_MODE_WORK | _TIF_HRTIMER_REARM)
+#else
+# define EXIT_TO_USER_MODE_WORK_SYSCALL	(EXIT_TO_USER_MODE_WORK)
+# define EXIT_TO_USER_MODE_WORK_IRQ	(EXIT_TO_USER_MODE_WORK)
+#endif
 
 /**
  * arch_enter_from_user_mode - Architecture specific sanity check for user mode regs
@@ -99,37 +108,6 @@ static __always_inline void enter_from_user_mode(struct pt_regs *regs)
 	trace_hardirqs_off_finish();
 	instrumentation_end();
 }
-
-/**
- * local_irq_enable_exit_to_user - Exit to user variant of local_irq_enable()
- * @ti_work:	Cached TIF flags gathered with interrupts disabled
- *
- * Defaults to local_irq_enable(). Can be supplied by architecture specific
- * code.
- */
-static inline void local_irq_enable_exit_to_user(unsigned long ti_work);
-
-#ifndef local_irq_enable_exit_to_user
-static __always_inline void local_irq_enable_exit_to_user(unsigned long ti_work)
-{
-	local_irq_enable();
-}
-#endif
-
-/**
- * local_irq_disable_exit_to_user - Exit to user variant of local_irq_disable()
- *
- * Defaults to local_irq_disable(). Can be supplied by architecture specific
- * code.
- */
-static inline void local_irq_disable_exit_to_user(void);
-
-#ifndef local_irq_disable_exit_to_user
-static __always_inline void local_irq_disable_exit_to_user(void)
-{
-	local_irq_disable();
-}
-#endif
 
 /**
  * arch_exit_to_user_mode_work - Architecture specific TIF work for exit
@@ -203,6 +181,7 @@ unsigned long exit_to_user_mode_loop(struct pt_regs *regs, unsigned long ti_work
 /**
  * __exit_to_user_mode_prepare - call exit_to_user_mode_loop() if required
  * @regs:	Pointer to pt_regs on entry stack
+ * @work_mask:	Which TIF bits need to be evaluated
  *
  * 1) check that interrupts are disabled
  * 2) call tick_nohz_user_enter_prepare()
@@ -212,7 +191,8 @@ unsigned long exit_to_user_mode_loop(struct pt_regs *regs, unsigned long ti_work
  *
  * Don't invoke directly, use the syscall/irqentry_ prefixed variants below
  */
-static __always_inline void __exit_to_user_mode_prepare(struct pt_regs *regs)
+static __always_inline void __exit_to_user_mode_prepare(struct pt_regs *regs,
+							const unsigned long work_mask)
 {
 	unsigned long ti_work;
 
@@ -222,8 +202,10 @@ static __always_inline void __exit_to_user_mode_prepare(struct pt_regs *regs)
 	tick_nohz_user_enter_prepare();
 
 	ti_work = read_thread_flags();
-	if (unlikely(ti_work & EXIT_TO_USER_MODE_WORK))
-		ti_work = exit_to_user_mode_loop(regs, ti_work);
+	if (unlikely(ti_work & work_mask)) {
+		if (!hrtimer_rearm_deferred_user_irq(&ti_work, work_mask))
+			ti_work = exit_to_user_mode_loop(regs, ti_work);
+	}
 
 	arch_exit_to_user_mode_prepare(regs, ti_work);
 }
@@ -239,7 +221,7 @@ static __always_inline void __exit_to_user_mode_validate(void)
 /* Temporary workaround to keep ARM64 alive */
 static __always_inline void exit_to_user_mode_prepare_legacy(struct pt_regs *regs)
 {
-	__exit_to_user_mode_prepare(regs);
+	__exit_to_user_mode_prepare(regs, EXIT_TO_USER_MODE_WORK);
 	rseq_exit_to_user_mode_legacy();
 	__exit_to_user_mode_validate();
 }
@@ -253,7 +235,7 @@ static __always_inline void exit_to_user_mode_prepare_legacy(struct pt_regs *reg
  */
 static __always_inline void syscall_exit_to_user_mode_prepare(struct pt_regs *regs)
 {
-	__exit_to_user_mode_prepare(regs);
+	__exit_to_user_mode_prepare(regs, EXIT_TO_USER_MODE_WORK_SYSCALL);
 	rseq_syscall_exit_to_user_mode();
 	__exit_to_user_mode_validate();
 }
@@ -267,7 +249,7 @@ static __always_inline void syscall_exit_to_user_mode_prepare(struct pt_regs *re
  */
 static __always_inline void irqentry_exit_to_user_mode_prepare(struct pt_regs *regs)
 {
-	__exit_to_user_mode_prepare(regs);
+	__exit_to_user_mode_prepare(regs, EXIT_TO_USER_MODE_WORK_IRQ);
 	rseq_irqentry_exit_to_user_mode();
 	__exit_to_user_mode_validate();
 }
@@ -335,6 +317,8 @@ static __always_inline void irqentry_enter_from_user_mode(struct pt_regs *regs)
  */
 static __always_inline void irqentry_exit_to_user_mode(struct pt_regs *regs)
 {
+	lockdep_assert_irqs_disabled();
+
 	instrumentation_begin();
 	irqentry_exit_to_user_mode_prepare(regs);
 	instrumentation_end();
@@ -366,6 +350,207 @@ typedef struct irqentry_state {
 #endif
 
 /**
+ * irqentry_exit_cond_resched - Conditionally reschedule on return from interrupt
+ *
+ * Conditional reschedule with additional sanity checks.
+ */
+void raw_irqentry_exit_cond_resched(void);
+
+#ifdef CONFIG_PREEMPT_DYNAMIC
+#if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
+#define irqentry_exit_cond_resched_dynamic_enabled	raw_irqentry_exit_cond_resched
+#define irqentry_exit_cond_resched_dynamic_disabled	NULL
+DECLARE_STATIC_CALL(irqentry_exit_cond_resched, raw_irqentry_exit_cond_resched);
+#define irqentry_exit_cond_resched()	static_call(irqentry_exit_cond_resched)()
+#elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
+DECLARE_STATIC_KEY_TRUE(sk_dynamic_irqentry_exit_cond_resched);
+void dynamic_irqentry_exit_cond_resched(void);
+#define irqentry_exit_cond_resched()	dynamic_irqentry_exit_cond_resched()
+#endif
+#else /* CONFIG_PREEMPT_DYNAMIC */
+#define irqentry_exit_cond_resched()	raw_irqentry_exit_cond_resched()
+#endif /* CONFIG_PREEMPT_DYNAMIC */
+
+/**
+ * irqentry_enter_from_kernel_mode - Establish state before invoking the irq handler
+ * @regs:	Pointer to currents pt_regs
+ *
+ * Invoked from architecture specific entry code with interrupts disabled.
+ * Can only be called when the interrupt entry came from kernel mode. The
+ * calling code must be non-instrumentable.  When the function returns all
+ * state is correct and the subsequent functions can be instrumented.
+ *
+ * The function establishes state (lockdep, RCU (context tracking), tracing) and
+ * is provided for architectures which require a strict split between entry from
+ * kernel and user mode and therefore cannot use irqentry_enter() which handles
+ * both entry modes.
+ *
+ * Returns: An opaque object that must be passed to irqentry_exit_to_kernel_mode().
+ */
+static __always_inline irqentry_state_t irqentry_enter_from_kernel_mode(struct pt_regs *regs)
+{
+	irqentry_state_t ret = {
+		.exit_rcu = false,
+	};
+
+	/*
+	 * If this entry hit the idle task invoke ct_irq_enter() whether
+	 * RCU is watching or not.
+	 *
+	 * Interrupts can nest when the first interrupt invokes softirq
+	 * processing on return which enables interrupts.
+	 *
+	 * Scheduler ticks in the idle task can mark quiescent state and
+	 * terminate a grace period, if and only if the timer interrupt is
+	 * not nested into another interrupt.
+	 *
+	 * Checking for rcu_is_watching() here would prevent the nesting
+	 * interrupt to invoke ct_irq_enter(). If that nested interrupt is
+	 * the tick then rcu_flavor_sched_clock_irq() would wrongfully
+	 * assume that it is the first interrupt and eventually claim
+	 * quiescent state and end grace periods prematurely.
+	 *
+	 * Unconditionally invoke ct_irq_enter() so RCU state stays
+	 * consistent.
+	 *
+	 * TINY_RCU does not support EQS, so let the compiler eliminate
+	 * this part when enabled.
+	 */
+	if (!IS_ENABLED(CONFIG_TINY_RCU) &&
+	    (is_idle_task(current) || arch_in_rcu_eqs())) {
+		/*
+		 * If RCU is not watching then the same careful
+		 * sequence vs. lockdep and tracing is required
+		 * as in irqentry_enter_from_user_mode().
+		 */
+		lockdep_hardirqs_off(CALLER_ADDR0);
+		ct_irq_enter();
+		instrumentation_begin();
+		kmsan_unpoison_entry_regs(regs);
+		trace_hardirqs_off_finish();
+		instrumentation_end();
+
+		ret.exit_rcu = true;
+		return ret;
+	}
+
+	/*
+	 * If RCU is watching then RCU only wants to check whether it needs
+	 * to restart the tick in NOHZ mode. rcu_irq_enter_check_tick()
+	 * already contains a warning when RCU is not watching, so no point
+	 * in having another one here.
+	 */
+	lockdep_hardirqs_off(CALLER_ADDR0);
+	instrumentation_begin();
+	kmsan_unpoison_entry_regs(regs);
+	rcu_irq_enter_check_tick();
+	trace_hardirqs_off_finish();
+	instrumentation_end();
+
+	return ret;
+}
+
+/**
+ * irqentry_exit_to_kernel_mode_preempt - Run preempt checks on return to kernel mode
+ * @regs:	Pointer to current's pt_regs
+ * @state:	Return value from matching call to irqentry_enter_from_kernel_mode()
+ *
+ * This is to be invoked before irqentry_exit_to_kernel_mode_after_preempt() to
+ * allow kernel preemption on return from interrupt.
+ *
+ * Must be invoked with interrupts disabled and CPU state which allows kernel
+ * preemption.
+ *
+ * After returning from this function, the caller can modify CPU state before
+ * invoking irqentry_exit_to_kernel_mode_after_preempt(), which is required to
+ * re-establish the tracing, lockdep and RCU state for returning to the
+ * interrupted context.
+ */
+static inline void irqentry_exit_to_kernel_mode_preempt(struct pt_regs *regs,
+							irqentry_state_t state)
+{
+	if (regs_irqs_disabled(regs) || state.exit_rcu)
+		return;
+
+	if (IS_ENABLED(CONFIG_PREEMPTION))
+		irqentry_exit_cond_resched();
+}
+
+/**
+ * irqentry_exit_to_kernel_mode_after_preempt - Establish trace, lockdep and RCU state
+ * @regs:	Pointer to current's pt_regs
+ * @state:	Return value from matching call to irqentry_enter_from_kernel_mode()
+ *
+ * This is to be invoked after irqentry_exit_to_kernel_mode_preempt() and before
+ * actually returning to the interrupted context.
+ *
+ * There are no requirements for the CPU state other than being able to complete
+ * the tracing, lockdep and RCU state transitions. After this function returns
+ * the caller must return directly to the interrupted context.
+ */
+static __always_inline void
+irqentry_exit_to_kernel_mode_after_preempt(struct pt_regs *regs, irqentry_state_t state)
+{
+	if (!regs_irqs_disabled(regs)) {
+		/*
+		 * If RCU was not watching on entry this needs to be done
+		 * carefully and needs the same ordering of lockdep/tracing
+		 * and RCU as the return to user mode path.
+		 */
+		if (state.exit_rcu) {
+			instrumentation_begin();
+			hrtimer_rearm_deferred();
+			/* Tell the tracer that IRET will enable interrupts */
+			trace_hardirqs_on_prepare();
+			lockdep_hardirqs_on_prepare();
+			instrumentation_end();
+			ct_irq_exit();
+			lockdep_hardirqs_on(CALLER_ADDR0);
+			return;
+		}
+
+		instrumentation_begin();
+		hrtimer_rearm_deferred();
+		/* Covers both tracing and lockdep */
+		trace_hardirqs_on();
+		instrumentation_end();
+	} else {
+		/*
+		 * IRQ flags state is correct already. Just tell RCU if it
+		 * was not watching on entry.
+		 */
+		if (state.exit_rcu)
+			ct_irq_exit();
+	}
+}
+
+/**
+ * irqentry_exit_to_kernel_mode - Run preempt checks and establish state after
+ *				  invoking the interrupt handler
+ * @regs:	Pointer to current's pt_regs
+ * @state:	Return value from matching call to irqentry_enter_from_kernel_mode()
+ *
+ * This is the counterpart of irqentry_enter_from_kernel_mode() and combines
+ * the calls to irqentry_exit_to_kernel_mode_preempt() and
+ * irqentry_exit_to_kernel_mode_after_preempt().
+ *
+ * The requirement for the CPU state is that it can schedule. After the function
+ * returns the tracing, lockdep and RCU state transitions are completed and the
+ * caller must return directly to the interrupted context.
+ */
+static __always_inline void irqentry_exit_to_kernel_mode(struct pt_regs *regs,
+							 irqentry_state_t state)
+{
+	lockdep_assert_irqs_disabled();
+
+	instrumentation_begin();
+	irqentry_exit_to_kernel_mode_preempt(regs, state);
+	instrumentation_end();
+
+	irqentry_exit_to_kernel_mode_after_preempt(regs, state);
+}
+
+/**
  * irqentry_enter - Handle state tracking on ordinary interrupt entries
  * @regs:	Pointer to pt_regs of interrupted context
  *
@@ -394,31 +579,9 @@ typedef struct irqentry_state {
  * establish the proper context for NOHZ_FULL. Otherwise scheduling on exit
  * would not be possible.
  *
- * Returns: An opaque object that must be passed to idtentry_exit()
+ * Returns: An opaque object that must be passed to irqentry_exit()
  */
 irqentry_state_t noinstr irqentry_enter(struct pt_regs *regs);
-
-/**
- * irqentry_exit_cond_resched - Conditionally reschedule on return from interrupt
- *
- * Conditional reschedule with additional sanity checks.
- */
-void raw_irqentry_exit_cond_resched(void);
-
-#ifdef CONFIG_PREEMPT_DYNAMIC
-#if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
-#define irqentry_exit_cond_resched_dynamic_enabled	raw_irqentry_exit_cond_resched
-#define irqentry_exit_cond_resched_dynamic_disabled	NULL
-DECLARE_STATIC_CALL(irqentry_exit_cond_resched, raw_irqentry_exit_cond_resched);
-#define irqentry_exit_cond_resched()	static_call(irqentry_exit_cond_resched)()
-#elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
-DECLARE_STATIC_KEY_TRUE(sk_dynamic_irqentry_exit_cond_resched);
-void dynamic_irqentry_exit_cond_resched(void);
-#define irqentry_exit_cond_resched()	dynamic_irqentry_exit_cond_resched()
-#endif
-#else /* CONFIG_PREEMPT_DYNAMIC */
-#define irqentry_exit_cond_resched()	raw_irqentry_exit_cond_resched()
-#endif /* CONFIG_PREEMPT_DYNAMIC */
 
 /**
  * irqentry_exit - Handle return from exception that used irqentry_enter()

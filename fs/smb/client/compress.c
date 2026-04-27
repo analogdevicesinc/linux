@@ -329,11 +329,7 @@ int smb_compress(struct TCP_Server_Info *server, struct smb_rqst *rq, compress_s
 		goto err_free;
 	}
 
-	/*
-	 * This is just overprovisioning, as the algorithm will error out if @dst reaches 7/8
-	 * of @slen.
-	 */
-	dlen = slen;
+	dlen = lz77_compressed_alloc_size(slen);
 	dst = kvzalloc(dlen, GFP_KERNEL);
 	if (!dst) {
 		ret = -ENOMEM;

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copied source files from the main vdso directory
+*.c
+*.S
+!vdso-cfi.S
+vdso.lds
+*.tmp
+vdso-syms.S

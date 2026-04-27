@@ -15,6 +15,7 @@
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
+#include <linux/input/touch-overlay.h>
 #include <linux/input/touchscreen.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
@@ -22,10 +23,13 @@
 #include <linux/pm_qos.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <linux/input/touch-overlay.h>
+#include <asm/byteorder.h>
 
 #define ST1232_TS_NAME	"st1232-ts"
 #define ST1633_TS_NAME	"st1633-ts"
+
+#define REG_FIRMWARE_VERSION	0x00
+#define REG_FIRMWARE_REVISION_3	0x0C
 
 #define REG_STATUS		0x01	/* Device Status | Error Code */
 
@@ -61,7 +65,37 @@ struct st1232_ts_data {
 	struct list_head touch_overlay_list;
 	int read_buf_len;
 	u8 *read_buf;
+	u8 fw_version;
+	u32 fw_revision;
 };
+
+static ssize_t fw_version_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct st1232_ts_data *st1232_ts = i2c_get_clientdata(client);
+
+	return sysfs_emit(buf, "%u\n", st1232_ts->fw_version);
+}
+
+static ssize_t fw_revision_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct st1232_ts_data *st1232_ts = i2c_get_clientdata(client);
+
+	return sysfs_emit(buf, "%08x\n", st1232_ts->fw_revision);
+}
+
+static DEVICE_ATTR_RO(fw_version);
+static DEVICE_ATTR_RO(fw_revision);
+
+static struct attribute *st1232_attrs[] = {
+	&dev_attr_fw_version.attr,
+	&dev_attr_fw_revision.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(st1232);
 
 static int st1232_ts_read_data(struct st1232_ts_data *ts, u8 reg,
 			       unsigned int n)
@@ -108,6 +142,26 @@ static int st1232_ts_wait_ready(struct st1232_ts_data *ts)
 	}
 
 	return -ENXIO;
+}
+
+static int st1232_ts_read_fw_version(struct st1232_ts_data *ts,
+				     u8 *fw_version, u32 *fw_revision)
+{
+	int error;
+
+	/* select firmware version register */
+	error = st1232_ts_read_data(ts, REG_FIRMWARE_VERSION, 1);
+	if (error)
+		return error;
+	*fw_version = ts->read_buf[0];
+
+	/* select firmware revision register */
+	error = st1232_ts_read_data(ts, REG_FIRMWARE_REVISION_3, 4);
+	if (error)
+		return error;
+	*fw_revision = le32_to_cpup((__le32 *)ts->read_buf);
+
+	return 0;
 }
 
 static int st1232_ts_read_resolution(struct st1232_ts_data *ts, u16 *max_x,
@@ -299,6 +353,16 @@ static int st1232_ts_probe(struct i2c_client *client)
 	if (error)
 		return error;
 
+	/* Read firmware version from the chip */
+	error = st1232_ts_read_fw_version(ts, &ts->fw_version, &ts->fw_revision);
+	if (error) {
+		dev_err(&client->dev,
+			"Failed to read firmware version: %d\n", error);
+		return error;
+	}
+	dev_dbg(&client->dev, "Detected firmware version %u, rev %08x\n",
+		ts->fw_version, ts->fw_revision);
+
 	if (ts->chip_info->have_z)
 		input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0,
 				     ts->chip_info->max_area, 0, 0);
@@ -408,6 +472,7 @@ static struct i2c_driver st1232_ts_driver = {
 	.driver = {
 		.name	= ST1232_TS_NAME,
 		.of_match_table = st1232_ts_dt_ids,
+		.dev_groups	= st1232_groups,
 		.probe_type	= PROBE_PREFER_ASYNCHRONOUS,
 		.pm	= pm_sleep_ptr(&st1232_ts_pm_ops),
 	},

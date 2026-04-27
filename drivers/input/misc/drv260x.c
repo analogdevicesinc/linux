@@ -7,14 +7,16 @@
  * Copyright:   (C) 2014 Texas Instruments, Inc.
  */
 
+#include <linux/acpi.h>
+#include <linux/delay.h>
+#include <linux/device/devres.h>
+#include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/module.h>
 #include <linux/regmap.h>
-#include <linux/slab.h>
-#include <linux/delay.h>
-#include <linux/gpio/consumer.h>
 #include <linux/regulator/consumer.h>
+#include <linux/slab.h>
 
 #include <dt-bindings/input/ti-drv260x.h>
 
@@ -165,6 +167,12 @@
 #define DRV260X_AUTOCAL_TIME_500MS		(2 << 4)
 #define DRV260X_AUTOCAL_TIME_1000MS		(3 << 4)
 
+/*
+ * Timeout for waiting for the GO status bit, in seconds. Should be reasonably
+ * large to wait for a auto-calibration cycle completion.
+ */
+#define DRV260X_GO_TIMEOUT_S 5
+
 /**
  * struct drv260x_data -
  * @input_dev: Pointer to the input device
@@ -308,6 +316,7 @@ static int drv260x_init(struct drv260x_data *haptics)
 {
 	int error;
 	unsigned int cal_buf;
+	unsigned long timeout;
 
 	error = regmap_write(haptics->regmap,
 			     DRV260X_RATED_VOLT, haptics->rated_voltage);
@@ -397,6 +406,7 @@ static int drv260x_init(struct drv260x_data *haptics)
 		return error;
 	}
 
+	timeout = jiffies + DRV260X_GO_TIMEOUT_S * HZ;
 	do {
 		usleep_range(15000, 15500);
 		error = regmap_read(haptics->regmap, DRV260X_GO, &cal_buf);
@@ -405,6 +415,11 @@ static int drv260x_init(struct drv260x_data *haptics)
 				"Failed to read GO register: %d\n",
 				error);
 			return error;
+		}
+		if (time_after(jiffies, timeout)) {
+			dev_err(&haptics->client->dev,
+				"Calibration timeout. The device cannot be used.\n");
+			return -ETIMEDOUT;
 		}
 	} while (cal_buf == DRV260X_GO_BIT);
 
@@ -418,6 +433,13 @@ static const struct regmap_config drv260x_regmap_config = {
 	.max_register = DRV260X_MAX_REG,
 	.cache_type = REGCACHE_NONE,
 };
+
+static void drv260x_power_off(void *data)
+{
+	struct drv260x_data *haptics = data;
+
+	regulator_disable(haptics->regulator);
+}
 
 static int drv260x_probe(struct i2c_client *client)
 {
@@ -483,6 +505,16 @@ static int drv260x_probe(struct i2c_client *client)
 		dev_err(dev, "unable to get regulator, error: %d\n", error);
 		return error;
 	}
+
+	error = regulator_enable(haptics->regulator);
+	if (error) {
+		dev_err(dev, "Failed to enable regulator: %d\n", error);
+		return error;
+	}
+
+	error = devm_add_action_or_reset(dev, drv260x_power_off, haptics);
+	if (error)
+		return error;
 
 	haptics->enable_gpio = devm_gpiod_get_optional(dev, "enable",
 						       GPIOD_OUT_HIGH);
@@ -598,10 +630,21 @@ static int drv260x_resume(struct device *dev)
 static DEFINE_SIMPLE_DEV_PM_OPS(drv260x_pm_ops, drv260x_suspend, drv260x_resume);
 
 static const struct i2c_device_id drv260x_id[] = {
+	{ "drv2604" },
+	{ "drv2604l" },
+	{ "drv2605" },
 	{ "drv2605l" },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, drv260x_id);
+
+#ifdef CONFIG_ACPI
+static const struct acpi_device_id drv260x_acpi_match[] = {
+	{ "DRV2604" },
+	{ }
+};
+MODULE_DEVICE_TABLE(acpi, drv260x_acpi_match);
+#endif
 
 static const struct of_device_id drv260x_of_match[] = {
 	{ .compatible = "ti,drv2604", },
@@ -616,6 +659,7 @@ static struct i2c_driver drv260x_driver = {
 	.probe		= drv260x_probe,
 	.driver		= {
 		.name	= "drv260x-haptics",
+		.acpi_match_table = ACPI_PTR(drv260x_acpi_match),
 		.of_match_table = drv260x_of_match,
 		.pm	= pm_sleep_ptr(&drv260x_pm_ops),
 	},

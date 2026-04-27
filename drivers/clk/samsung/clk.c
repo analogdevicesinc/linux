@@ -359,8 +359,8 @@ void __init samsung_clk_register_gate(struct samsung_clk_provider *ctx,
 				ctx->reg_base + list->offset, list->bit_idx,
 				list->gate_flags, &ctx->lock);
 		if (IS_ERR(clk_hw)) {
-			pr_err("%s: failed to register clock %s: %ld\n", __func__,
-				list->name, PTR_ERR(clk_hw));
+			pr_err("%s: failed to register clock %s: %pe\n", __func__,
+			       list->name, clk_hw);
 			continue;
 		}
 

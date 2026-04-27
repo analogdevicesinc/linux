@@ -23,5 +23,5 @@ fi
 if [ "$max_segment_size" != "32768" ]; then
 	ERR_CODE=255
 fi
-_cleanup_test "null"
+_cleanup_test
 _show_result $TID $ERR_CODE

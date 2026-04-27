@@ -164,17 +164,6 @@ void labpc_free_dma_chan(struct comedi_device *dev)
 }
 EXPORT_SYMBOL_GPL(labpc_free_dma_chan);
 
-static int __init ni_labpc_isadma_init_module(void)
-{
-	return 0;
-}
-module_init(ni_labpc_isadma_init_module);
-
-static void __exit ni_labpc_isadma_cleanup_module(void)
-{
-}
-module_exit(ni_labpc_isadma_cleanup_module);
-
 MODULE_AUTHOR("Comedi https://www.comedi.org");
 MODULE_DESCRIPTION("Comedi NI Lab-PC ISA DMA support");
 MODULE_LICENSE("GPL");

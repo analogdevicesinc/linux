@@ -416,10 +416,10 @@ static int bu21029_suspend(struct device *dev)
 	struct bu21029_ts_data *bu21029 = i2c_get_clientdata(i2c);
 
 	if (!device_may_wakeup(dev)) {
-		mutex_lock(&bu21029->in_dev->mutex);
+		guard(mutex)(&bu21029->in_dev->mutex);
+
 		if (input_device_enabled(bu21029->in_dev))
 			bu21029_stop_chip(bu21029->in_dev);
-		mutex_unlock(&bu21029->in_dev->mutex);
 	}
 
 	return 0;
@@ -431,10 +431,10 @@ static int bu21029_resume(struct device *dev)
 	struct bu21029_ts_data *bu21029 = i2c_get_clientdata(i2c);
 
 	if (!device_may_wakeup(dev)) {
-		mutex_lock(&bu21029->in_dev->mutex);
+		guard(mutex)(&bu21029->in_dev->mutex);
+
 		if (input_device_enabled(bu21029->in_dev))
 			bu21029_start_chip(bu21029->in_dev);
-		mutex_unlock(&bu21029->in_dev->mutex);
 	}
 
 	return 0;

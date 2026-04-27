@@ -93,9 +93,11 @@
 #define OPA_LINKINIT_QUARANTINED                (9 << 4)
 #define OPA_LINKINIT_INSUFIC_CAPABILITY         (10 << 4)
 
-#define OPA_LINK_SPEED_NOP              0x0000  /*  Reserved (1-5 Gbps) */
-#define OPA_LINK_SPEED_12_5G            0x0001  /*  12.5 Gbps */
-#define OPA_LINK_SPEED_25G              0x0002  /*  25.78125?  Gbps (EDR) */
+#define OPA_LINK_SPEED_NOP           0x0000  /* no change */
+#define OPA_LINK_SPEED_12_5G         0x0001  /* 12.5 Gbps */
+#define OPA_LINK_SPEED_25G           0x0002  /* 25.78125 Gbps */
+#define OPA_LINK_SPEED_50G           0x0004  /* 53.125 Gbps */
+#define OPA_LINK_SPEED_100G          0x0008  /* 106.25 Gbps */
 
 #define OPA_LINK_WIDTH_1X            0x0001
 #define OPA_LINK_WIDTH_2X            0x0002

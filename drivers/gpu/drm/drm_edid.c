@@ -6897,7 +6897,7 @@ static void drm_parse_microsoft_vsdb(struct drm_connector *connector,
 }
 
 static void drm_parse_amd_vsdb(struct drm_connector *connector,
-							   const struct cea_db *db)
+			       const struct cea_db *db)
 {
 	struct drm_display_info *info = &connector->display_info;
 	const u8 *data = cea_db_data(db);

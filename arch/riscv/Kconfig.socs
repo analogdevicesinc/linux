@@ -2,7 +2,7 @@ menu "SoC selection"
 
 config ARCH_ANDES
 	bool "Andes SoCs"
-	depends on MMU && !XIP_KERNEL
+	depends on MMU
 	select ERRATA_ANDES
 	help
 	  This enables support for Andes SoC platform hardware.
@@ -33,7 +33,7 @@ config ARCH_RENESAS
 
 config ARCH_SIFIVE
 	bool "SiFive SoCs"
-	select ERRATA_SIFIVE if !XIP_KERNEL
+	select ERRATA_SIFIVE
 	help
 	  This enables support for SiFive SoC platform hardware.
 
@@ -61,7 +61,7 @@ config SOC_STARFIVE
 
 config ARCH_SUNXI
 	bool "Allwinner sun20i SoCs"
-	depends on MMU && !XIP_KERNEL
+	depends on MMU
 	select ERRATA_THEAD
 	select SUN4I_TIMER
 	help
@@ -78,7 +78,7 @@ config ARCH_TENSTORRENT
 
 config ARCH_THEAD
 	bool "T-HEAD RISC-V SoCs"
-	depends on MMU && !XIP_KERNEL
+	depends on MMU
 	select ERRATA_THEAD
 	select PM_GENERIC_DOMAINS if PM
 	help

@@ -8,11 +8,13 @@
 
 static bool dummy_map_mode_to_soc_dpm(struct dml2_dpmm_map_mode_to_soc_dpm_params_in_out *in_out)
 {
+	(void)in_out;
 	return true;
 }
 
 static bool dummy_map_watermarks(struct dml2_dpmm_map_watermarks_params_in_out *in_out)
 {
+	(void)in_out;
 	return true;
 }
 

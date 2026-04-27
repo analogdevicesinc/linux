@@ -209,6 +209,9 @@ int larch_insn_write(void *addr, u32 insn)
 	int ret;
 	unsigned long flags = 0;
 
+	if ((unsigned long)addr & 3)
+		return -EINVAL;
+
 	raw_spin_lock_irqsave(&patch_lock, flags);
 	ret = copy_to_kernel_nofault(addr, &insn, LOONGARCH_INSN_SIZE);
 	raw_spin_unlock_irqrestore(&patch_lock, flags);
@@ -220,9 +223,6 @@ int larch_insn_patch_text(void *addr, u32 insn)
 {
 	int ret;
 	u32 *tp = addr;
-
-	if ((unsigned long)tp & 3)
-		return -EINVAL;
 
 	ret = larch_insn_write(tp, insn);
 	if (!ret)

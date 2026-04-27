@@ -40,7 +40,6 @@
 #include "dcn10/dcn10_hubbub.h"
 #include "dce/dmub_hw_lock_mgr.h"
 
-#define NUM_ELEMENTS(a) (sizeof(a) / sizeof((a)[0]))
 #define MAX_NUM_MCACHE 8
 
 /* used as index in array of black_color_format */
@@ -230,7 +229,7 @@ const uint16_t *find_color_matrix(enum dc_color_space color_space,
 	int i;
 	enum dc_color_space_type type;
 	const uint16_t *val = NULL;
-	int arr_size = NUM_ELEMENTS(output_csc_matrix);
+	int arr_size = ARRAY_SIZE(output_csc_matrix);
 
 	type = get_color_space_type(color_space);
 	for (i = 0; i < arr_size; i++)
