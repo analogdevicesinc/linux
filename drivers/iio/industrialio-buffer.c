@@ -2444,7 +2444,7 @@ EXPORT_SYMBOL_GPL(iio_push_to_buffers);
 int iio_push_to_buffers_with_ts_unaligned(struct iio_dev *indio_dev,
 					  const void *data,
 					  size_t data_sz,
-					  int64_t timestamp)
+					  s64 timestamp)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 

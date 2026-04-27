@@ -79,7 +79,7 @@ static inline int iio_push_to_buffers_with_ts(struct iio_dev *indio_dev,
 
 int iio_push_to_buffers_with_ts_unaligned(struct iio_dev *indio_dev,
 					  const void *data, size_t data_sz,
-					  int64_t timestamp);
+					  s64 timestamp);
 
 bool iio_validate_scan_mask_onehot(struct iio_dev *indio_dev,
 				   const unsigned long *mask);
