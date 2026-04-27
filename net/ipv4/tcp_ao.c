@@ -1563,6 +1563,10 @@ static struct tcp_ao_key *tcp_ao_key_alloc(struct sock *sk,
 	/* RFC5926, 3.1.1.2. KDF_AES_128_CMAC */
 	if (!strcmp("cmac(aes128)", algo))
 		algo = "cmac(aes)";
+	else if (strcmp("hmac(sha1)", algo) &&
+		 strcmp("hmac(sha256)", algo) &&
+		 (strcmp("cmac(aes)", algo) || cmd->keylen != 16))
+		return ERR_PTR(-ENOENT);
 
 	/* Full TCP header (th->doff << 2) should fit into scratch area,
 	 * see tcp_ao_hash_header().
