@@ -709,6 +709,14 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__kvm_tlb_flush_vmid_range),
 	HANDLE_FUNC(__kvm_flush_cpu_context),
 	HANDLE_FUNC(__kvm_timer_set_cntvoff),
+	HANDLE_FUNC(__tracing_load),
+	HANDLE_FUNC(__tracing_unload),
+	HANDLE_FUNC(__tracing_enable),
+	HANDLE_FUNC(__tracing_swap_reader),
+	HANDLE_FUNC(__tracing_update_clock),
+	HANDLE_FUNC(__tracing_reset),
+	HANDLE_FUNC(__tracing_enable_event),
+	HANDLE_FUNC(__tracing_write_event),
 	HANDLE_FUNC(__vgic_v3_save_aprs),
 	HANDLE_FUNC(__vgic_v3_restore_vmcr_aprs),
 	HANDLE_FUNC(__vgic_v5_save_apr),
@@ -735,21 +743,15 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__pkvm_vcpu_load),
 	HANDLE_FUNC(__pkvm_vcpu_put),
 	HANDLE_FUNC(__pkvm_tlb_flush_vmid),
-	HANDLE_FUNC(__tracing_load),
-	HANDLE_FUNC(__tracing_unload),
-	HANDLE_FUNC(__tracing_enable),
-	HANDLE_FUNC(__tracing_swap_reader),
-	HANDLE_FUNC(__tracing_update_clock),
-	HANDLE_FUNC(__tracing_reset),
-	HANDLE_FUNC(__tracing_enable_event),
-	HANDLE_FUNC(__tracing_write_event),
 };
 
 static void handle_host_hcall(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(unsigned long, id, host_ctxt, 0);
-	unsigned long hcall_min = 0, hcall_max = -1;
+	unsigned long hcall_min = 0, hcall_max = __KVM_HOST_SMCCC_FUNC_MAX;
 	hcall_t hfn;
+
+	BUILD_BUG_ON(ARRAY_SIZE(host_hcall) != __KVM_HOST_SMCCC_FUNC_MAX);
 
 	/*
 	 * If pKVM has been initialised then reject any calls to the
@@ -763,16 +765,14 @@ static void handle_host_hcall(struct kvm_cpu_context *host_ctxt)
 	if (static_branch_unlikely(&kvm_protected_mode_initialized)) {
 		hcall_min = __KVM_HOST_SMCCC_FUNC_MIN_PKVM;
 	} else {
-		hcall_max = __KVM_HOST_SMCCC_FUNC_MAX_NO_PKVM;
+		hcall_max = __KVM_HOST_SMCCC_FUNC_PKVM_ONLY;
 	}
 
 	id &= ~ARM_SMCCC_CALL_HINTS;
 	id -= KVM_HOST_SMCCC_ID(0);
 
-	if (unlikely(id < hcall_min || id > hcall_max ||
-		     id >= ARRAY_SIZE(host_hcall))) {
+	if (unlikely(id < hcall_min || id >= hcall_max))
 		goto inval;
-	}
 
 	hfn = host_hcall[id];
 	if (unlikely(!hfn))
@@ -805,6 +805,10 @@ static void handle_host_smc(struct kvm_cpu_context *host_ctxt)
 	}
 
 	func_id &= ~ARM_SMCCC_CALL_HINTS;
+	if (upper_32_bits(func_id)) {
+		cpu_reg(host_ctxt, 0) = SMCCC_RET_NOT_SUPPORTED;
+		goto exit_skip_instr;
+	}
 
 	handled = kvm_host_psci_handler(host_ctxt, func_id);
 	if (!handled)
