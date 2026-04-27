@@ -2190,6 +2190,9 @@ static int amdgpu_ras_fs_fini(struct amdgpu_device *adev)
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
 	struct ras_manager *con_obj, *ip_obj, *tmp;
 
+	if (!con)
+		return 0;
+
 	if (IS_ENABLED(CONFIG_DEBUG_FS)) {
 		list_for_each_entry_safe(con_obj, tmp, &con->head, node) {
 			ip_obj = amdgpu_ras_find_obj(adev, &con_obj->head);
@@ -3985,6 +3988,8 @@ int amdgpu_ras_fini(struct amdgpu_device *adev)
 
 	amdgpu_ras_mgr_sw_fini(adev);
 
+	amdgpu_ras_fs_fini(adev);
+
 	if (!adev->ras_enabled || !con)
 		return 0;
 
@@ -4007,7 +4012,6 @@ int amdgpu_ras_fini(struct amdgpu_device *adev)
 		kfree(ras_node);
 	}
 
-	amdgpu_ras_fs_fini(adev);
 	amdgpu_ras_interrupt_remove_all(adev);
 
 	WARN(AMDGPU_RAS_GET_FEATURES(con->features), "Feature mask is not cleared");
