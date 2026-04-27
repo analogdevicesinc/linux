@@ -5081,9 +5081,9 @@ static int ad9088_probe(struct spi_device *spi)
 	priv = jesd204_dev_priv(jdev);
 	priv->phy = phy;
 
-	phy->dev_clk = devm_clk_get(&conv->spi->dev, "dev_clk");
-	if (IS_ERR(phy->dev_clk))
-		return PTR_ERR(phy->dev_clk);
+	dev_clk = devm_clk_get(&conv->spi->dev, "dev_clk");
+	if (IS_ERR(dev_clk))
+		return PTR_ERR(dev_clk);
 
 	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->reset_gpio))
@@ -5136,11 +5136,9 @@ static int ad9088_probe(struct spi_device *spi)
 
 	of_clk_get_scale(spi->dev.of_node, "dev_clk", &devclk_clkscale);
 
-	clk_set_rate_scaled(phy->dev_clk,
-			    phy->profile.clk_cfg.dev_clk_freq_Hz,
-			    &devclk_clkscale);
+	clk_set_rate_scaled(dev_clk, phy->profile.clk_cfg.dev_clk_freq_Hz, &devclk_clkscale);
 
-	ret = clk_prepare_enable(phy->dev_clk);
+	ret = clk_prepare_enable(dev_clk);
 	if (ret)
 		return ret;
 
