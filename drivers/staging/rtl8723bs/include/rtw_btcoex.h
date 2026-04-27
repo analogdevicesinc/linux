@@ -14,14 +14,14 @@
 #define	PACKET_ARP				2
 #define	PACKET_EAPOL			3
 
-void rtw_btcoex_MediaStatusNotify(struct adapter *, u8 mediaStatus);
-void rtw_btcoex_HaltNotify(struct adapter *);
+void rtw_btcoex_MediaStatusNotify(struct adapter *padapter, u8 mediaStatus);
+void rtw_btcoex_HaltNotify(struct adapter *padapter);
 
 /*  ================================================== */
 /*  Below Functions are called by BT-Coex */
 /*  ================================================== */
-void rtw_btcoex_RejectApAggregatedPacket(struct adapter *, u8 enable);
-void rtw_btcoex_LPS_Enter(struct adapter *);
-void rtw_btcoex_LPS_Leave(struct adapter *);
+void rtw_btcoex_RejectApAggregatedPacket(struct adapter *padapter, u8 enable);
+void rtw_btcoex_LPS_Enter(struct adapter *padapter);
+void rtw_btcoex_LPS_Leave(struct adapter *padapter);
 
 #endif /*  __RTW_BTCOEX_H__ */
