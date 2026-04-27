@@ -1291,11 +1291,11 @@ void lps_ctrl_wk_hdl(struct adapter *padapter, u8 lps_ctrl_type)
 		/*  Reset LPS Setting */
 		pwrpriv->LpsIdleCount = 0;
 		rtw_hal_set_hwreg(padapter, HW_VAR_H2C_FW_JOINBSSRPT, (u8 *)(&mstatus));
-		rtw_btcoex_MediaStatusNotify(padapter, mstatus);
+		rtw_btcoex_media_status_notify(padapter, mstatus);
 		break;
 	case LPS_CTRL_DISCONNECT:
 		mstatus = 0;/* disconnect */
-		rtw_btcoex_MediaStatusNotify(padapter, mstatus);
+		rtw_btcoex_media_status_notify(padapter, mstatus);
 		LPS_Leave(padapter, "LPS_CTRL_DISCONNECT");
 		rtw_hal_set_hwreg(padapter, HW_VAR_H2C_FW_JOINBSSRPT, (u8 *)(&mstatus));
 		break;

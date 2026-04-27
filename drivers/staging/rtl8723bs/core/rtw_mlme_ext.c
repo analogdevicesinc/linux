@@ -5126,7 +5126,7 @@ u8 setopmode_hdl(struct adapter *padapter, u8 *pbuf)
 	if (psetop->mode == Ndis802_11APMode) {
 		/*  Do this after port switch to */
 		/*  prevent from downloading rsvd page to wrong port */
-		rtw_btcoex_MediaStatusNotify(padapter, 1); /* connect */
+		rtw_btcoex_media_status_notify(padapter, 1); /* connect */
 	}
 
 	return H2C_SUCCESS;

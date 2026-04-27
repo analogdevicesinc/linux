@@ -8,7 +8,7 @@
 #include <rtw_btcoex.h>
 #include <hal_btcoex.h>
 
-void rtw_btcoex_MediaStatusNotify(struct adapter *padapter, u8 media_status)
+void rtw_btcoex_media_status_notify(struct adapter *padapter, u8 media_status)
 {
 	if ((media_status == RT_MEDIA_CONNECT) &&
 	    (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE) == true)) {
