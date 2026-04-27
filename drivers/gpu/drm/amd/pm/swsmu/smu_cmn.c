@@ -1370,7 +1370,7 @@ int smu_cmn_print_dpm_clk_levels(struct smu_context *smu,
 		level_index = 1;
 	}
 
-	if (!is_fine_grained) {
+	if (!is_fine_grained || count == 1) {
 		for (i = 0; i < count; i++) {
 			freq_match = !is_deep_sleep &&
 				     smu_cmn_freqs_match(
