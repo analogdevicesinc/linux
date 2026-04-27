@@ -427,3 +427,43 @@ void panthor_gpu_resume(struct panthor_device *ptdev)
 	panthor_hw_l2_power_on(ptdev);
 }
 
+u64 panthor_gpu_get_timestamp(struct panthor_device *ptdev)
+{
+	return gpu_read64_counter(ptdev->iomem, GPU_TIMESTAMP);
+}
+
+u64 panthor_gpu_get_timestamp_offset(struct panthor_device *ptdev)
+{
+	return gpu_read64(ptdev->iomem, GPU_TIMESTAMP_OFFSET);
+}
+
+u64 panthor_gpu_get_cycle_count(struct panthor_device *ptdev)
+{
+	return gpu_read64_counter(ptdev->iomem, GPU_CYCLE_COUNT);
+}
+
+int panthor_gpu_coherency_init(struct panthor_device *ptdev)
+{
+	BUILD_BUG_ON(GPU_COHERENCY_NONE != DRM_PANTHOR_GPU_COHERENCY_NONE);
+	BUILD_BUG_ON(GPU_COHERENCY_ACE_LITE != DRM_PANTHOR_GPU_COHERENCY_ACE_LITE);
+	BUILD_BUG_ON(GPU_COHERENCY_ACE != DRM_PANTHOR_GPU_COHERENCY_ACE);
+
+	/* Start with no coherency, and update it if the device is flagged coherent. */
+	ptdev->gpu_info.selected_coherency = GPU_COHERENCY_NONE;
+	ptdev->coherent = device_get_dma_attr(ptdev->base.dev) == DEV_DMA_COHERENT;
+
+	if (!ptdev->coherent)
+		return 0;
+
+	/* Check if the ACE-Lite coherency protocol is actually supported by the GPU.
+	 * ACE protocol has never been supported for command stream frontend GPUs.
+	 */
+	if ((gpu_read(ptdev->iomem, GPU_COHERENCY_FEATURES) &
+		      GPU_COHERENCY_PROT_BIT(ACE_LITE))) {
+		ptdev->gpu_info.selected_coherency = GPU_COHERENCY_ACE_LITE;
+		return 0;
+	}
+
+	drm_err(&ptdev->base, "Coherency not supported by the device");
+	return -ENOTSUPP;
+}
