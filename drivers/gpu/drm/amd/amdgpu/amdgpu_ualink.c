@@ -1156,10 +1156,20 @@ int amdgpu_ualink_manager_start(struct amdgpu_device *adev)
 {
 	int i, r;
 
+	r = amdgpu_vm_init(adev, &adev->ualink.npa_vm, 0);
+	if (r)
+		goto out;
+
+	/* For using CPU for page table updates. */
+	r = amdgpu_vm_make_compute(adev, &adev->ualink.npa_vm);
+	if (r)
+		goto uninit_vm;
+
 	adev->ualink.npa_wq = alloc_workqueue("NPA WQ", WQ_UNBOUND, 0);
 	if (unlikely(!adev->ualink.npa_wq)) {
 		dev_err(adev->dev, "Failed to allocate NPA WQ\n");
-		return -ENOMEM;
+		r = -ENOMEM;
+		goto uninit_vm;
 	}
 
 	xa_init_flags(&adev->ualink.exp_xa, XA_FLAGS_LOCK_BH);
@@ -1177,6 +1187,11 @@ int amdgpu_ualink_manager_start(struct amdgpu_device *adev)
 	amdgpu_ualink_npa_mm_init(adev);
 
 	return 0;
+
+uninit_vm:
+	amdgpu_vm_fini(adev, &adev->ualink.npa_vm);
+out:
+	return r;
 }
 
 void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
@@ -1193,4 +1208,5 @@ void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
 		mutex_destroy(&adev->ualink.conn_state[i].lock);
 
 	destroy_workqueue(adev->ualink.npa_wq);
+	amdgpu_vm_fini(adev, &adev->ualink.npa_vm);
 }

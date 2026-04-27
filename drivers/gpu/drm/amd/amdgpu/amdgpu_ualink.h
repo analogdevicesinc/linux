@@ -174,6 +174,9 @@ struct amdgpu_ualink_mgr {
 
 	/* Memory-manager for managing NPA address space. */
 	struct amdgpu_ualink_npa_mm npa_mm;
+
+	/* NPA-VM used on the exporter.*/
+	struct amdgpu_vm npa_vm;
 };
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
