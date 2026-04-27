@@ -6,6 +6,7 @@
 #endif
 
 #include <linux/cnum.h>
+#include <linux/kernel.h>
 #include <linux/limits.h>
 #include <linux/minmax.h>
 #include <linux/compiler_types.h>
@@ -48,11 +49,13 @@ ut FN(umin)(struct cnum_t cnum)
 {
 	return FN(urange_overflow)(cnum) ? 0 : cnum.base;
 }
+EXPORT_SYMBOL_GPL(FN(umin));
 
 ut FN(umax)(struct cnum_t cnum)
 {
 	return FN(urange_overflow)(cnum) ? UT_MAX : cnum.base + cnum.size;
 }
+EXPORT_SYMBOL_GPL(FN(umax));
 
 /* True if this cnum represents two signed ranges. */
 static inline bool FN(srange_overflow)(struct cnum_t cnum)
