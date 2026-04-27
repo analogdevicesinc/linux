@@ -179,6 +179,22 @@
 	})
 
 /**
+ * FIELD_GET_SIGNED() - extract a signed bitfield element
+ * @mask: shifted mask defining the field's length and position
+ * @reg:  value of entire bitfield
+ *
+ * Returns the sign-extended field specified by @_mask from the
+ * bitfield passed in as @_reg by masking and shifting it down.
+ */
+#define FIELD_GET_SIGNED(mask, reg)					\
+	({								\
+		__BF_FIELD_CHECK(mask, reg, 0U, "FIELD_GET_SIGNED: ");	\
+		 ((__signed_scalar_typeof(mask))			\
+		  (((long long)(reg) << __builtin_clzll(mask)) >>	\
+		   (__builtin_clzll(mask) + __builtin_ctzll(mask))));	\
+	})
+
+/**
  * FIELD_MODIFY() - modify a bitfield element
  * @_mask: shifted mask defining the field's length and position
  * @_reg_p: pointer to the memory that should be updated
