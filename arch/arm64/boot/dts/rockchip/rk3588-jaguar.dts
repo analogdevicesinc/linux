@@ -1142,9 +1142,6 @@
 	status = "okay";
 
 	port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
 		usb_host0_xhci_drd_sw: endpoint {
 			remote-endpoint = <&usbc0_hs>;
 		};
@@ -1157,9 +1154,6 @@
 	status = "okay";
 
 	port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
 		usb_host1_xhci_drd_sw: endpoint {
 			remote-endpoint = <&usbc1_hs>;
 		};
