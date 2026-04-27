@@ -1107,7 +1107,7 @@ char *resource_string(char *buf, char *end, struct resource *res,
 		     2*RSRC_BUF_SIZE + FLAG_BUF_SIZE + RAW_BUF_SIZE)];
 
 	char *p = sym, *pend = sym + sizeof(sym);
-	int decode = (fmt[0] == 'R') ? 1 : 0;
+	bool decode = fmt[0] == 'R';
 	const struct printf_spec *specp;
 
 	if (check_pointer(&buf, end, res, spec))
@@ -1132,7 +1132,7 @@ char *resource_string(char *buf, char *end, struct resource *res,
 	} else {
 		p = string_nocheck(p, pend, "??? ", str_spec);
 		specp = &mem_spec;
-		decode = 0;
+		decode = false;
 	}
 	if (decode && res->flags & IORESOURCE_UNSET) {
 		p = string_nocheck(p, pend, "size ", str_spec);

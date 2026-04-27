@@ -55,22 +55,24 @@ TRACE_EVENT(mei_reg_write,
 );
 
 TRACE_EVENT(mei_pci_cfg_read,
-	TP_PROTO(const struct device *dev, const char *reg, u32 offs, u32 val),
-	TP_ARGS(dev, reg, offs, val),
+	TP_PROTO(const struct device *dev, const char *reg, u32 offs, u32 val, int ret),
+	TP_ARGS(dev, reg, offs, val, ret),
 	TP_STRUCT__entry(
 		__string(dev, dev_name(dev))
 		__string(reg, reg)
 		__field(u32, offs)
 		__field(u32, val)
+		__field(int, ret)
 	),
 	TP_fast_assign(
 		__assign_str(dev);
 		__assign_str(reg);
 		__entry->offs = offs;
 		__entry->val = val;
+		__entry->ret = ret;
 	),
-	TP_printk("[%s] pci cfg read %s:[%#x] = %#x",
-		  __get_str(dev), __get_str(reg), __entry->offs, __entry->val)
+	TP_printk("[%s] pci cfg read %s:[%#x] = %#x, ret = %d",
+		  __get_str(dev), __get_str(reg), __entry->offs, __entry->val, __entry->ret)
 );
 
 #endif /* _MEI_TRACE_H_ */

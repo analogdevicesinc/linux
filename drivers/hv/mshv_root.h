@@ -17,6 +17,7 @@
 #include <linux/build_bug.h>
 #include <linux/mmu_notifier.h>
 #include <uapi/linux/mshv.h>
+#include "mshv_trace.h"
 
 /*
  * Hypervisor must be between these version numbers (inclusive)

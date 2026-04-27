@@ -34,6 +34,7 @@
 #include "amdgpu.h"
 #include "amdgpu_pm.h"
 #include "amdgpu_vcn.h"
+#include "amdgpu_reset.h"
 #include "soc15d.h"
 
 /* Firmware Names */
@@ -63,6 +64,7 @@
 #define FIRMWARE_VCN4_0_6_1		"amdgpu/vcn_4_0_6_1.bin"
 #define FIRMWARE_VCN5_0_0		"amdgpu/vcn_5_0_0.bin"
 #define FIRMWARE_VCN5_0_1		"amdgpu/vcn_5_0_1.bin"
+#define FIRMWARE_VCN5_0_2		"amdgpu/vcn_5_0_2.bin"
 #define FIRMWARE_VCN5_3_0		"amdgpu/vcn_5_3_0.bin"
 
 MODULE_FIRMWARE(FIRMWARE_RAVEN);
@@ -91,6 +93,7 @@ MODULE_FIRMWARE(FIRMWARE_VCN4_0_6);
 MODULE_FIRMWARE(FIRMWARE_VCN4_0_6_1);
 MODULE_FIRMWARE(FIRMWARE_VCN5_0_0);
 MODULE_FIRMWARE(FIRMWARE_VCN5_0_1);
+MODULE_FIRMWARE(FIRMWARE_VCN5_0_2);
 MODULE_FIRMWARE(FIRMWARE_VCN5_3_0);
 
 static void amdgpu_vcn_idle_work_handler(struct work_struct *work);
@@ -359,7 +362,7 @@ int amdgpu_vcn_suspend(struct amdgpu_device *adev, int i)
 
 	/* err_event_athub and dpc recovery will corrupt VCPU buffer, so we need to
 	 * restore fw data and clear buffer in amdgpu_vcn_resume() */
-	if (in_ras_intr || adev->pcie_reset_ctx.in_link_reset)
+	if (in_ras_intr || amdgpu_reset_in_dpc(adev))
 		return 0;
 
 	return amdgpu_vcn_save_vcpu_bo_inst(adev, i);
@@ -1095,7 +1098,8 @@ int amdgpu_vcn_unified_ring_test_ib(struct amdgpu_ring *ring, long timeout)
 	long r;
 
 	if ((amdgpu_ip_version(adev, UVD_HWIP, 0) != IP_VERSION(4, 0, 3)) &&
-	    (amdgpu_ip_version(adev, UVD_HWIP, 0) != IP_VERSION(5, 0, 1))) {
+	    (amdgpu_ip_version(adev, UVD_HWIP, 0) != IP_VERSION(5, 0, 1)) &&
+	    (amdgpu_ip_version(adev, UVD_HWIP, 0) != IP_VERSION(5, 0, 2))) {
 		r = amdgpu_vcn_enc_ring_test_ib(ring, timeout);
 		if (r)
 			goto error;
@@ -1132,7 +1136,8 @@ void amdgpu_vcn_setup_ucode(struct amdgpu_device *adev, int i)
 			return;
 
 		if ((amdgpu_ip_version(adev, UVD_HWIP, 0) == IP_VERSION(4, 0, 3) ||
-		     amdgpu_ip_version(adev, UVD_HWIP, 0) == IP_VERSION(5, 0, 1))
+		     amdgpu_ip_version(adev, UVD_HWIP, 0) == IP_VERSION(5, 0, 1) ||
+		     amdgpu_ip_version(adev, UVD_HWIP, 0) == IP_VERSION(5, 0, 2))
 		    && (i > 0))
 			return;
 

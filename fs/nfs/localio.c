@@ -865,6 +865,8 @@ static void nfs_local_call_write(struct work_struct *work)
 	file_start_write(filp);
 	n_iters = atomic_read(&iocb->n_iters);
 	for (int i = 0; i < n_iters ; i++) {
+		size_t icount;
+
 		if (iocb->iter_is_dio_aligned[i]) {
 			iocb->kiocb.ki_flags |= IOCB_DIRECT;
 			/* Only use AIO completion if DIO-aligned segment is last */
@@ -881,8 +883,16 @@ static void nfs_local_call_write(struct work_struct *work)
 		if (status == -EIOCBQUEUED)
 			continue;
 		/* Break on completion, errors, or short writes */
+		icount = iov_iter_count(&iocb->iters[i]);
 		if (nfs_local_pgio_done(iocb, status) || status < 0 ||
-		    (size_t)status < iov_iter_count(&iocb->iters[i])) {
+		    (size_t)status < icount) {
+			if ((size_t)status < icount) {
+				struct nfs_lock_context *ctx =
+					iocb->hdr->req->wb_lock_context;
+
+				set_bit(NFS_CONTEXT_WRITE_SYNC,
+					&ctx->open_context->flags);
+			}
 			nfs_local_write_iocb_done(iocb);
 			break;
 		}
@@ -901,6 +911,9 @@ static void nfs_local_do_write(struct nfs_local_kiocb *iocb,
 		__func__, hdr->args.count, hdr->args.offset,
 		(hdr->args.stable == NFS_UNSTABLE) ?  "unstable" : "stable");
 
+	if (test_bit(NFS_CONTEXT_WRITE_SYNC,
+		     &hdr->req->wb_lock_context->open_context->flags))
+		hdr->args.stable = NFS_FILE_SYNC;
 	switch (hdr->args.stable) {
 	default:
 		break;

@@ -25,5 +25,5 @@ fio --name=job1 --filename=/dev/ublkb"${dev_id}" --ioengine=libaio --rw=readwrit
 	--iodepth=32 --size=100M --numjobs=4 > /dev/null 2>&1
 ERR_CODE=$?
 
-_cleanup_test "generic"
+_cleanup_test
 _show_result $TID $ERR_CODE

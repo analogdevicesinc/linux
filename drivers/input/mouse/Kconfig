@@ -164,16 +164,6 @@ config MOUSE_PS2_TOUCHKIT
 
 	  If unsure, say N.
 
-config MOUSE_PS2_OLPC
-	bool "OLPC PS/2 mouse protocol extension"
-	depends on MOUSE_PS2 && OLPC
-	help
-	  Say Y here if you have an OLPC XO-1 laptop (with built-in
-	  PS/2 touchpad/tablet device).  The manufacturer calls the
-	  touchpad an HGPK.
-
-	  If unsure, say N.
-
 config MOUSE_PS2_FOCALTECH
 	bool "FocalTech PS/2 mouse protocol extension" if EXPERT
 	default y
@@ -299,42 +289,6 @@ config MOUSE_ELAN_I2C_SMBUS
 	   a SMbus adapter.
 
 	   If unsure, say Y.
-
-config MOUSE_INPORT
-	tristate "InPort/MS/ATIXL busmouse"
-	depends on ISA
-	help
-	  Say Y here if you have an InPort, Microsoft or ATI XL busmouse.
-	  They are rather rare these days.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called inport.
-
-config MOUSE_ATIXL
-	bool "ATI XL variant"
-	depends on MOUSE_INPORT
-	help
-	  Say Y here if your mouse is of the ATI XL variety.
-
-config MOUSE_LOGIBM
-	tristate "Logitech busmouse"
-	depends on ISA
-	help
-	  Say Y here if you have a Logitech busmouse.
-	  They are rather rare these days.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called logibm.
-
-config MOUSE_PC110PAD
-	tristate "IBM PC110 touchpad"
-	depends on ISA
-	help
-	  Say Y if you have the IBM PC-110 micro-notebook and want its
-	  touchpad supported.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called pc110pad.
 
 config MOUSE_AMIGA
 	tristate "Amiga mouse"

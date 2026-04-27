@@ -12,7 +12,6 @@
 #include "mad.h"
 #include "trace.h"
 #include "qp.h"
-#include "vnic.h"
 
 /* the reset value from the FM is supposed to be 0xffff, handle both */
 #define OPA_LINK_WIDTH_RESET_OLD 0x0fff

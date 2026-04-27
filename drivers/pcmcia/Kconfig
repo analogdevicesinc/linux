@@ -119,36 +119,6 @@ config PD6729
 	  This provides support for the Cirrus PD6729 PCI-to-PCMCIA bridge
 	  device, found in some older laptops and PCMCIA card readers.
 
-config I82092
-	tristate "i82092 compatible bridge support"
-	depends on PCMCIA && PCI && HAS_IOPORT
-	select PCCARD_NONSTATIC
-	help
-	  This provides support for the Intel I82092AA PCI-to-PCMCIA bridge device,
-	  found in some older laptops and more commonly in evaluation boards for the
-	  chip.
-
-config I82365
-	tristate "i82365 compatible bridge support"
-	depends on PCMCIA && ISA
-	select PCCARD_NONSTATIC
-	help
-	  Say Y here to include support for ISA-bus PCMCIA host bridges that
-	  are register compatible with the Intel i82365.  These are found on
-	  older laptops and ISA-bus card readers for desktop systems.  A
-	  "bridge" is the hardware inside your computer that PCMCIA cards are
-	  plugged into. If unsure, say N.
-
-config TCIC
-	tristate "Databook TCIC host bridge support"
-	depends on PCMCIA && ISA
-	select PCCARD_NONSTATIC
-	help
-	  Say Y here to include support for the Databook TCIC family of PCMCIA
-	  host bridges. These are only found on a handful of old systems.
-	  "Bridge" is the name used for the hardware inside your computer that
-	  PCMCIA cards are plugged into. If unsure, say N.
-
 config PCMCIA_ALCHEMY_DEVBOARD
 	tristate "Alchemy Db/Pb1xxx PCMCIA socket services"
 	depends on MIPS_DB1XXX && PCMCIA

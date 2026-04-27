@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR Linux-OpenIB
 /*
- * Copyright 2018-2024 Amazon.com, Inc. or its affiliates. All rights reserved.
+ * Copyright 2018-2026 Amazon.com, Inc. or its affiliates. All rights reserved.
  */
 
 #include <linux/dma-buf.h>
@@ -9,9 +9,9 @@
 #include <linux/log2.h>
 
 #include <rdma/ib_addr.h>
-#include <rdma/ib_umem.h>
 #include <rdma/ib_user_verbs.h>
 #include <rdma/ib_verbs.h>
+#include <rdma/iter.h>
 #include <rdma/uverbs_ioctl.h>
 #define UVERBS_MODULE_NAME efa_ib
 #include <rdma/uverbs_named_ioctl.h>
@@ -579,7 +579,7 @@ static int qp_mmap_entries_setup(struct efa_qp *qp,
 
 	resp->llq_desc_offset &= ~PAGE_MASK;
 
-	if (qp->rq_size) {
+	if (qp->rq_cpu_addr) {
 		address = dev->db_bar_addr + resp->rq_db_offset;
 
 		qp->rq_db_mmap_entry =
@@ -641,11 +641,11 @@ static int efa_qp_validate_cap(struct efa_dev *dev,
 			  init_attr->cap.max_recv_sge, dev->dev_attr.max_rq_sge);
 		return -EINVAL;
 	}
-	if (init_attr->cap.max_inline_data > dev->dev_attr.inline_buf_size) {
+	if (init_attr->cap.max_inline_data > dev->dev_attr.inline_buf_size_ex) {
 		ibdev_dbg(&dev->ibdev,
 			  "qp: requested inline data[%u] exceeds the max[%u]\n",
 			  init_attr->cap.max_inline_data,
-			  dev->dev_attr.inline_buf_size);
+			  dev->dev_attr.inline_buf_size_ex);
 		return -EINVAL;
 	}
 
@@ -682,7 +682,7 @@ int efa_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *init_attr,
 	struct efa_com_create_qp_result create_qp_resp;
 	struct efa_dev *dev = to_edev(ibqp->device);
 	struct efa_ibv_create_qp_resp resp = {};
-	struct efa_ibv_create_qp cmd = {};
+	struct efa_ibv_create_qp cmd;
 	struct efa_qp *qp = to_eqp(ibqp);
 	struct efa_ucontext *ucontext;
 	u16 supported_efa_flags = 0;
@@ -699,31 +699,11 @@ int efa_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *init_attr,
 	if (err)
 		goto err_out;
 
-	if (offsetofend(typeof(cmd), driver_qp_type) > udata->inlen) {
-		ibdev_dbg(&dev->ibdev,
-			  "Incompatible ABI params, no input udata\n");
-		err = -EINVAL;
+	err = ib_copy_validate_udata_in_cm(udata, cmd, driver_qp_type, 0);
+	if (err)
 		goto err_out;
-	}
 
-	if (udata->inlen > sizeof(cmd) &&
-	    !ib_is_udata_cleared(udata, sizeof(cmd),
-				 udata->inlen - sizeof(cmd))) {
-		ibdev_dbg(&dev->ibdev,
-			  "Incompatible ABI params, unknown fields in udata\n");
-		err = -EINVAL;
-		goto err_out;
-	}
-
-	err = ib_copy_from_udata(&cmd, udata,
-				 min(sizeof(cmd), udata->inlen));
-	if (err) {
-		ibdev_dbg(&dev->ibdev,
-			  "Cannot copy udata for create_qp\n");
-		goto err_out;
-	}
-
-	if (cmd.comp_mask || !is_reserved_cleared(cmd.reserved_98)) {
+	if (!is_reserved_cleared(cmd.reserved_98)) {
 		ibdev_dbg(&dev->ibdev,
 			  "Incompatible ABI params, unknown fields in udata\n");
 		err = -EINVAL;
@@ -828,7 +808,7 @@ err_remove_mmap_entries:
 err_destroy_qp:
 	efa_destroy_qp_handle(dev, create_qp_resp.qp_handle);
 err_free_mapped:
-	if (qp->rq_size)
+	if (qp->rq_cpu_addr)
 		efa_free_mapped(dev, qp->rq_cpu_addr, qp->rq_dma_addr,
 				qp->rq_size, DMA_TO_DEVICE);
 err_out:
@@ -1083,15 +1063,14 @@ int efa_destroy_cq(struct ib_cq *ibcq, struct ib_udata *udata)
 		  cq->cq_idx, cq->cpu_addr, cq->size, &cq->dma_addr);
 
 	efa_destroy_cq_idx(dev, cq->cq_idx);
-	efa_cq_user_mmap_entries_remove(cq);
+	if (cq->cpu_addr)
+		efa_cq_user_mmap_entries_remove(cq);
 	if (cq->eq) {
 		xa_erase(&dev->cqs_xa, cq->cq_idx);
 		synchronize_irq(cq->eq->irq.irqn);
 	}
 
-	if (cq->umem)
-		ib_umem_release(cq->umem);
-	else
+	if (cq->cpu_addr)
 		efa_free_mapped(dev, cq->cpu_addr, cq->dma_addr, cq->size, DMA_FROM_DEVICE);
 	return 0;
 }
@@ -1131,8 +1110,8 @@ static int cq_mmap_entries_setup(struct efa_dev *dev, struct efa_cq *cq,
 	return 0;
 }
 
-int efa_create_cq_umem(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
-		       struct ib_umem *umem, struct uverbs_attr_bundle *attrs)
+int efa_create_user_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
+		       struct uverbs_attr_bundle *attrs)
 {
 	struct ib_udata *udata = &attrs->driver_udata;
 	struct efa_ucontext *ucontext = rdma_udata_to_drv_context(
@@ -1142,7 +1121,7 @@ int efa_create_cq_umem(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	struct efa_com_create_cq_result result;
 	struct ib_device *ibdev = ibcq->device;
 	struct efa_dev *dev = to_edev(ibdev);
-	struct efa_ibv_create_cq cmd = {};
+	struct efa_ibv_create_cq cmd;
 	struct efa_cq *cq = to_ecq(ibcq);
 	int entries = attr->cqe;
 	bool set_src_addr;
@@ -1153,38 +1132,19 @@ int efa_create_cq_umem(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	if (attr->flags)
 		return -EOPNOTSUPP;
 
-	if (entries < 1 || entries > dev->dev_attr.max_cq_depth) {
+	if (entries > dev->dev_attr.max_cq_depth) {
 		ibdev_dbg(ibdev,
-			  "cq: requested entries[%u] non-positive or greater than max[%u]\n",
+			  "cq: requested entries[%u] greater than max[%u]\n",
 			  entries, dev->dev_attr.max_cq_depth);
 		err = -EINVAL;
 		goto err_out;
 	}
 
-	if (offsetofend(typeof(cmd), num_sub_cqs) > udata->inlen) {
-		ibdev_dbg(ibdev,
-			  "Incompatible ABI params, no input udata\n");
-		err = -EINVAL;
+	err = ib_copy_validate_udata_in_cm(udata, cmd, num_sub_cqs, 0);
+	if (err)
 		goto err_out;
-	}
 
-	if (udata->inlen > sizeof(cmd) &&
-	    !ib_is_udata_cleared(udata, sizeof(cmd),
-				 udata->inlen - sizeof(cmd))) {
-		ibdev_dbg(ibdev,
-			  "Incompatible ABI params, unknown fields in udata\n");
-		err = -EINVAL;
-		goto err_out;
-	}
-
-	err = ib_copy_from_udata(&cmd, udata,
-				 min(sizeof(cmd), udata->inlen));
-	if (err) {
-		ibdev_dbg(ibdev, "Cannot copy udata for create_cq\n");
-		goto err_out;
-	}
-
-	if (cmd.comp_mask || !is_reserved_cleared(cmd.reserved_58)) {
+	if (!is_reserved_cleared(cmd.reserved_58)) {
 		ibdev_dbg(ibdev,
 			  "Incompatible ABI params, unknown fields in udata\n");
 		err = -EINVAL;
@@ -1212,22 +1172,20 @@ int efa_create_cq_umem(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	cq->ucontext = ucontext;
 	cq->size = PAGE_ALIGN(cmd.cq_entry_size * entries * cmd.num_sub_cqs);
 
-	if (umem) {
-		if (umem->length < cq->size) {
+	if (ibcq->umem) {
+		if (ibcq->umem->length < cq->size) {
 			ibdev_dbg(&dev->ibdev, "External memory too small\n");
 			err = -EINVAL;
 			goto err_out;
 		}
 
-		if (!ib_umem_is_contiguous(umem)) {
+		if (!ib_umem_is_contiguous(ibcq->umem)) {
 			ibdev_dbg(&dev->ibdev, "Non contiguous CQ unsupported\n");
 			err = -EINVAL;
 			goto err_out;
 		}
 
-		cq->cpu_addr = NULL;
-		cq->dma_addr = ib_umem_start_dma_addr(umem);
-		cq->umem = umem;
+		cq->dma_addr = ib_umem_start_dma_addr(ibcq->umem);
 	} else {
 		cq->cpu_addr = efa_zalloc_mapped(dev, &cq->dma_addr, cq->size,
 						 DMA_FROM_DEVICE);
@@ -1259,7 +1217,7 @@ int efa_create_cq_umem(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	cq->ibcq.cqe = result.actual_depth;
 	WARN_ON_ONCE(entries != result.actual_depth);
 
-	if (!umem)
+	if (cq->cpu_addr)
 		err = cq_mmap_entries_setup(dev, cq, &resp, result.db_valid);
 
 	if (err) {
@@ -1296,22 +1254,17 @@ err_xa_erase:
 	if (cq->eq)
 		xa_erase(&dev->cqs_xa, cq->cq_idx);
 err_remove_mmap:
-	efa_cq_user_mmap_entries_remove(cq);
+	if (cq->cpu_addr)
+		efa_cq_user_mmap_entries_remove(cq);
 err_destroy_cq:
 	efa_destroy_cq_idx(dev, cq->cq_idx);
 err_free_mapped:
-	if (!umem)
+	if (cq->cpu_addr)
 		efa_free_mapped(dev, cq->cpu_addr, cq->dma_addr, cq->size,
 				DMA_FROM_DEVICE);
 err_out:
 	atomic64_inc(&dev->stats.create_cq_err);
 	return err;
-}
-
-int efa_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
-		  struct uverbs_attr_bundle *attrs)
-{
-	return efa_create_cq_umem(ibcq, attr, NULL, attrs);
 }
 
 static int umem_to_page_list(struct efa_dev *dev,
@@ -1925,22 +1878,23 @@ static int efa_dealloc_uar(struct efa_dev *dev, u16 uarn)
 	return efa_com_dealloc_uar(&dev->edev, &params);
 }
 
-#define EFA_CHECK_USER_COMP(_dev, _comp_mask, _attr, _mask, _attr_str) \
-	(_attr_str = (!(_dev)->dev_attr._attr || ((_comp_mask) & (_mask))) ? \
+#define EFA_CHECK_USER_SUPP(_dev, _supported_caps, _attr, _mask, _attr_str) \
+	(_attr_str = (!(_dev)->dev_attr._attr || ((_supported_caps) & (_mask))) ? \
 		     NULL : #_attr)
 
-static int efa_user_comp_handshake(const struct ib_ucontext *ibucontext,
+static int efa_user_supp_handshake(const struct ib_ucontext *ibucontext,
 				   const struct efa_ibv_alloc_ucontext_cmd *cmd)
 {
 	struct efa_dev *dev = to_edev(ibucontext->device);
 	char *attr_str;
 
-	if (EFA_CHECK_USER_COMP(dev, cmd->comp_mask, max_tx_batch,
-				EFA_ALLOC_UCONTEXT_CMD_COMP_TX_BATCH, attr_str))
+	if (EFA_CHECK_USER_SUPP(dev, cmd->supported_caps, max_tx_batch,
+				EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_TX_BATCH,
+				attr_str))
 		goto err;
 
-	if (EFA_CHECK_USER_COMP(dev, cmd->comp_mask, min_sq_depth,
-				EFA_ALLOC_UCONTEXT_CMD_COMP_MIN_SQ_WR,
+	if (EFA_CHECK_USER_SUPP(dev, cmd->supported_caps, min_sq_depth,
+				EFA_ALLOC_UCONTEXT_CMD_SUPP_CAPS_MIN_SQ_WR,
 				attr_str))
 		goto err;
 
@@ -1974,7 +1928,7 @@ int efa_alloc_ucontext(struct ib_ucontext *ibucontext, struct ib_udata *udata)
 		goto err_out;
 	}
 
-	err = efa_user_comp_handshake(ibucontext, &cmd);
+	err = efa_user_supp_handshake(ibucontext, &cmd);
 	if (err)
 		goto err_out;
 
@@ -1988,6 +1942,7 @@ int efa_alloc_ucontext(struct ib_ucontext *ibucontext, struct ib_udata *udata)
 	resp.cmds_supp_udata_mask |= EFA_USER_CMDS_SUPP_UDATA_CREATE_AH;
 	resp.sub_cqs_per_cq = dev->dev_attr.sub_cqs_per_cq;
 	resp.inline_buf_size = dev->dev_attr.inline_buf_size;
+	resp.inline_buf_size_ex = dev->dev_attr.inline_buf_size_ex;
 	resp.max_llq_size = dev->dev_attr.max_llq_size;
 	resp.max_tx_batch = dev->dev_attr.max_tx_batch;
 	resp.min_sq_wr = dev->dev_attr.min_sq_depth;

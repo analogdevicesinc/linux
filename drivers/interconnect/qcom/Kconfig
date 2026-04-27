@@ -8,8 +8,17 @@ config INTERCONNECT_QCOM
 config INTERCONNECT_QCOM_BCM_VOTER
 	tristate
 
+config INTERCONNECT_QCOM_ELIZA
+       tristate "Qualcomm Eliza interconnect driver"
+       depends on INTERCONNECT_QCOM_RPMH_POSSIBLE
+       select INTERCONNECT_QCOM_RPMH
+       select INTERCONNECT_QCOM_BCM_VOTER
+       help
+         This is a driver for the Qualcomm Network-on-Chip on Eliza-based
+         platforms.
+
 config INTERCONNECT_QCOM_GLYMUR
-       tristate "Qualcomm GLYMUR interconnect driver"
+       tristate "Qualcomm Glymur interconnect driver"
        depends on INTERCONNECT_QCOM_RPMH_POSSIBLE
        select INTERCONNECT_QCOM_RPMH
        select INTERCONNECT_QCOM_BCM_VOTER
@@ -18,7 +27,7 @@ config INTERCONNECT_QCOM_GLYMUR
          platforms.
 
 config INTERCONNECT_QCOM_KAANAPALI
-	tristate "Qualcomm KAANAPALI interconnect driver"
+	tristate "Qualcomm Kaanapali interconnect driver"
 	depends on INTERCONNECT_QCOM_RPMH_POSSIBLE
 	select INTERCONNECT_QCOM_RPMH
 	select INTERCONNECT_QCOM_BCM_VOTER

@@ -49,5 +49,5 @@ if _have_feature "PER_IO_DAEMON"; then
 	wait
 fi
 
-_cleanup_test "stress"
+_cleanup_test
 _show_result $TID $ERR_CODE

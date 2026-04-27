@@ -428,7 +428,6 @@ bool dml2_core_utils_is_phantom_pipe(const struct dml2_plane_parameters *plane_c
 
 unsigned int dml2_core_utils_get_tile_block_size_bytes(enum dml2_swizzle_mode sw_mode, unsigned int byte_per_pixel)
 {
-
 	if (sw_mode == dml2_sw_linear)
 		return 256;
 	else if (sw_mode == dml2_sw_256b_2d)
@@ -589,6 +588,7 @@ static void create_phantom_stream_from_main_stream(struct dml2_stream_parameters
 static void create_phantom_plane_from_main_plane(struct dml2_plane_parameters *phantom, const struct dml2_plane_parameters *main,
 	const struct dml2_stream_parameters *phantom_stream, int phantom_stream_index, const struct dml2_stream_parameters *main_stream)
 {
+	(void)main_stream;
 	memcpy(phantom, main, sizeof(struct dml2_plane_parameters));
 
 	phantom->stream_index = phantom_stream_index;
@@ -785,4 +785,12 @@ bool dml2_core_utils_is_odm_split(enum dml2_odm_mode odm_mode)
 	default:
 		return false;
 	}
+}
+
+double dml2_core_utils_get_frame_time_us(const struct dml2_stream_parameters *stream)
+{
+	double otg_vline_time_us = (double)stream->timing.h_total / (double)stream->timing.pixel_clock_khz * 1000.0;
+	double non_vtotal = stream->timing.vblank_nom + stream->timing.v_active;
+	double frame_time_us = non_vtotal * otg_vline_time_us;
+	return frame_time_us;
 }

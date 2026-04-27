@@ -424,8 +424,8 @@ static void free_rx_slot(struct dln2_dev *dln2, u16 handle, int slot)
 }
 
 static int _dln2_transfer(struct dln2_dev *dln2, u16 handle, u16 cmd,
-			  const void *obuf, unsigned obuf_len,
-			  void *ibuf, unsigned *ibuf_len)
+			  const void *obuf, unsigned int obuf_len,
+			  void *ibuf, unsigned int *ibuf_len)
 {
 	int ret = 0;
 	int rx_slot;
@@ -511,8 +511,8 @@ out_decr:
 }
 
 int dln2_transfer(struct platform_device *pdev, u16 cmd,
-		  const void *obuf, unsigned obuf_len,
-		  void *ibuf, unsigned *ibuf_len)
+		  const void *obuf, unsigned int obuf_len,
+		  void *ibuf, unsigned int *ibuf_len)
 {
 	struct dln2_platform_data *dln2_pdata;
 	struct dln2_dev *dln2;
@@ -583,10 +583,8 @@ static void dln2_free_rx_urbs(struct dln2_dev *dln2)
 {
 	int i;
 
-	for (i = 0; i < DLN2_MAX_URBS; i++) {
+	for (i = 0; i < DLN2_MAX_URBS; i++)
 		usb_free_urb(dln2->rx_urb[i]);
-		kfree(dln2->rx_buf[i]);
-	}
 }
 
 static void dln2_stop_rx_urbs(struct dln2_dev *dln2)
@@ -600,8 +598,6 @@ static void dln2_stop_rx_urbs(struct dln2_dev *dln2)
 static void dln2_free(struct dln2_dev *dln2)
 {
 	dln2_free_rx_urbs(dln2);
-	usb_put_dev(dln2->usb_dev);
-	kfree(dln2);
 }
 
 static int dln2_setup_rx_urbs(struct dln2_dev *dln2,
@@ -609,9 +605,10 @@ static int dln2_setup_rx_urbs(struct dln2_dev *dln2,
 {
 	int i;
 	const int rx_max_size = DLN2_RX_BUF_SIZE;
+	struct device *dev = &dln2->interface->dev;
 
 	for (i = 0; i < DLN2_MAX_URBS; i++) {
-		dln2->rx_buf[i] = kmalloc(rx_max_size, GFP_KERNEL);
+		dln2->rx_buf[i] = devm_kmalloc(dev, rx_max_size, GFP_KERNEL);
 		if (!dln2->rx_buf[i])
 			return -ENOMEM;
 
@@ -778,13 +775,13 @@ static int dln2_probe(struct usb_interface *interface,
 	if (ret)
 		return ret;
 
-	dln2 = kzalloc_obj(*dln2);
+	dln2 = devm_kzalloc(dev, sizeof(*dln2), GFP_KERNEL);
 	if (!dln2)
 		return -ENOMEM;
 
 	dln2->ep_out = epout->bEndpointAddress;
 	dln2->ep_in = epin->bEndpointAddress;
-	dln2->usb_dev = usb_get_dev(interface_to_usbdev(interface));
+	dln2->usb_dev = interface_to_usbdev(interface);
 	dln2->interface = interface;
 	usb_set_intfdata(interface, dln2);
 	init_waitqueue_head(&dln2->disconnect_wq);

@@ -144,7 +144,7 @@ static struct buffer_head *__ext4_read_dirblock(struct inode *inode,
 		bh = ext4_bread(NULL, inode, block, 0);
 	if (IS_ERR(bh)) {
 		__ext4_warning(inode->i_sb, func, line,
-			       "inode #%lu: lblock %lu: comm %s: "
+			       "inode #%llu: lblock %lu: comm %s: "
 			       "error %ld reading directory block",
 			       inode->i_ino, (unsigned long)block,
 			       current->comm, PTR_ERR(bh));
@@ -647,7 +647,7 @@ static struct stats dx_show_leaf(struct inode *dir,
 					/* Directory is not encrypted */
 					(void) ext4fs_dirhash(dir, de->name,
 						de->name_len, &h);
-					printk("%*.s:(U)%x.%u ", len,
+					printk("%.*s:(U)%x.%u ", len,
 					       name, h.hash,
 					       (unsigned) ((char *) de
 							   - base));
@@ -683,7 +683,7 @@ static struct stats dx_show_leaf(struct inode *dir,
 						(void) ext4fs_dirhash(dir,
 							de->name,
 							de->name_len, &h);
-					printk("%*.s:(E)%x.%u ", len, name,
+					printk("%.*s:(E)%x.%u ", len, name,
 					       h.hash, (unsigned) ((char *) de
 								   - base));
 					fscrypt_fname_free_buffer(
@@ -694,7 +694,7 @@ static struct stats dx_show_leaf(struct inode *dir,
 				char *name = de->name;
 				(void) ext4fs_dirhash(dir, de->name,
 						      de->name_len, &h);
-				printk("%*.s:%x.%u ", len, name, h.hash,
+				printk("%.*s:%x.%u ", len, name, h.hash,
 				       (unsigned) ((char *) de - base));
 #endif
 			}
@@ -723,7 +723,7 @@ struct stats dx_show_entries(struct dx_hash_info *hinfo, struct inode *dir,
 		struct stats stats;
 		printk("%s%3u:%03u hash %8x/%8x ",levels?"":"   ", i, block, hash, range);
 		bh = ext4_bread(NULL,dir, block, 0);
-		if (!bh || IS_ERR(bh))
+		if (IS_ERR_OR_NULL(bh))
 			continue;
 		stats = levels?
 		   dx_show_entries(hinfo, dir, ((struct dx_node *) bh->b_data)->entries, levels - 1):
@@ -841,7 +841,7 @@ dx_probe(struct ext4_filename *fname, struct inode *dir,
 	indirect = root->info.indirect_levels;
 	if (indirect >= ext4_dir_htree_level(dir->i_sb)) {
 		ext4_warning(dir->i_sb,
-			     "Directory (ino: %lu) htree depth %#06x exceed"
+			     "Directory (ino: %llu) htree depth %#06x exceed"
 			     "supported value", dir->i_ino,
 			     ext4_dir_htree_level(dir->i_sb));
 		if (ext4_dir_htree_level(dir->i_sb) < EXT4_HTREE_LEVEL) {
@@ -1793,7 +1793,7 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, unsi
 		    (S_ISDIR(inode->i_mode) || S_ISLNK(inode->i_mode)) &&
 		    !fscrypt_has_permitted_context(dir, inode)) {
 			ext4_warning(inode->i_sb,
-				     "Inconsistent encryption contexts: %lu/%lu",
+				     "Inconsistent encryption contexts: %llu/%llu",
 				     dir->i_ino, inode->i_ino);
 			iput(inode);
 			return ERR_PTR(-EPERM);
@@ -2227,7 +2227,7 @@ static int make_indexed_dir(handle_t *handle, struct ext4_filename *fname,
 		csum_size = sizeof(struct ext4_dir_entry_tail);
 
 	blocksize =  dir->i_sb->s_blocksize;
-	dxtrace(printk(KERN_DEBUG "Creating index: inode %lu\n", dir->i_ino));
+	dxtrace(printk(KERN_DEBUG "Creating index: inode %llu\n", dir->i_ino));
 	BUFFER_TRACE(bh, "get_write_access");
 	retval = ext4_journal_get_write_access(handle, dir->i_sb, bh,
 					       EXT4_JTR_NONE);
@@ -2353,10 +2353,10 @@ out_frames:
  * may not sleep between calling this and putting something into
  * the entry, as someone else might have used it while you slept.
  */
-static int ext4_add_entry(handle_t *handle, struct dentry *dentry,
+static int __ext4_add_entry(handle_t *handle, struct inode *dir,
+			  const struct qstr *d_name,
 			  struct inode *inode)
 {
-	struct inode *dir = d_inode(dentry->d_parent);
 	struct buffer_head *bh = NULL;
 	struct ext4_dir_entry_2 *de;
 	struct super_block *sb;
@@ -2373,13 +2373,10 @@ static int ext4_add_entry(handle_t *handle, struct dentry *dentry,
 	sb = dir->i_sb;
 	blocksize = sb->s_blocksize;
 
-	if (fscrypt_is_nokey_name(dentry))
-		return -ENOKEY;
-
-	if (!generic_ci_validate_strict_name(dir, &dentry->d_name))
+	if (!generic_ci_validate_strict_name(dir, d_name))
 		return -EINVAL;
 
-	retval = ext4_fname_setup_filename(dir, &dentry->d_name, 0, &fname);
+	retval = ext4_fname_setup_filename(dir, d_name, 0, &fname);
 	if (retval)
 		return retval;
 
@@ -2460,6 +2457,16 @@ out:
 	return retval;
 }
 
+static int ext4_add_entry(handle_t *handle, struct dentry *dentry,
+			  struct inode *inode)
+{
+	struct inode *dir = d_inode(dentry->d_parent);
+
+	if (fscrypt_is_nokey_name(dentry))
+		return -ENOKEY;
+	return __ext4_add_entry(handle, dir, &dentry->d_name, inode);
+}
+
 /*
  * Returns 0 for success, or a negative error value
  */
@@ -2523,7 +2530,7 @@ again:
 			restart = 1;
 		}
 		if (add_level && levels == ext4_dir_htree_level(sb)) {
-			ext4_warning(sb, "Directory (ino: %lu) index full, "
+			ext4_warning(sb, "Directory (ino: %llu) index full, "
 					 "reach max htree level :%d",
 					 dir->i_ino, levels);
 			if (ext4_dir_htree_level(sb) < EXT4_HTREE_LEVEL) {
@@ -3445,7 +3452,8 @@ out_retry:
 	return err;
 }
 
-int __ext4_link(struct inode *dir, struct inode *inode, struct dentry *dentry)
+int __ext4_link(struct inode *dir, struct inode *inode,
+		const struct qstr *d_name, struct dentry *dentry)
 {
 	handle_t *handle;
 	int err, retries = 0;
@@ -3461,9 +3469,8 @@ retry:
 
 	inode_set_ctime_current(inode);
 	ext4_inc_count(inode);
-	ihold(inode);
 
-	err = ext4_add_entry(handle, dentry, inode);
+	err = __ext4_add_entry(handle, dir, d_name, inode);
 	if (!err) {
 		err = ext4_mark_inode_dirty(handle, inode);
 		/* this can happen only for tmpfile being
@@ -3471,11 +3478,10 @@ retry:
 		 */
 		if (inode->i_nlink == 1)
 			ext4_orphan_del(handle, inode);
-		d_instantiate(dentry, inode);
-		ext4_fc_track_link(handle, dentry);
+		if (dentry)
+			ext4_fc_track_link(handle, inode, dentry);
 	} else {
 		drop_nlink(inode);
-		iput(inode);
 	}
 	ext4_journal_stop(handle);
 	if (err == -ENOSPC && ext4_should_retry_alloc(dir->i_sb, &retries))
@@ -3504,9 +3510,13 @@ static int ext4_link(struct dentry *old_dentry,
 	err = dquot_initialize(dir);
 	if (err)
 		return err;
-	return __ext4_link(dir, inode, dentry);
+	err = __ext4_link(dir, inode, &dentry->d_name, dentry);
+	if (!err) {
+		ihold(inode);
+		d_instantiate(dentry, inode);
+	}
+	return err;
 }
-
 /*
  * Try to find buffer head where contains the parent block.
  * It should be the inode block if it is inlined or the 1st block

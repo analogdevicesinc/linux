@@ -1316,6 +1316,7 @@ int dcn20_populate_dml_pipes_from_context(struct dc *dc,
 					  display_e2e_pipe_params_st *pipes,
 					  enum dc_validate_mode validate_mode)
 {
+	(void)validate_mode;
 	int pipe_cnt, i;
 	bool synchronized_vblank = true;
 	struct resource_context *res_ctx = &context->res_ctx;
@@ -2335,7 +2336,7 @@ bool dcn21_validate_bandwidth_fp(struct dc *dc, struct dc_state *context,
 	/*Unsafe due to current pipe merge and split logic*/
 	ASSERT(context != dc->current_state);
 
-	out = dcn21_fast_validate_bw(dc, context, pipes, &pipe_cnt, pipe_split_from, &vlevel, validate_mode);
+	out = dcn21_fast_validate_bw(dc, context, pipes, &pipe_cnt, pipe_split_from, &vlevel, validate_mode, false);
 
 	if (pipe_cnt == 0)
 		goto validate_out;
@@ -2398,7 +2399,7 @@ static struct _vcs_dpi_voltage_scaling_st construct_low_pstate_lvl(struct clk_li
 	return low_pstate_lvl;
 }
 
-void dcn21_update_bw_bounding_box(struct dc *dc, struct clk_bw_params *bw_params)
+void dcn21_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_params)
 {
 	struct _vcs_dpi_voltage_scaling_st *s = dc->scratch.update_bw_bounding_box.clock_limits;
 	struct dcn21_resource_pool *pool = TO_DCN21_RES_POOL(dc->res_pool);

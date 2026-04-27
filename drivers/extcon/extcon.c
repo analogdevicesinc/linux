@@ -1366,9 +1366,9 @@ void extcon_dev_unregister(struct extcon_dev *edev)
 		return;
 	}
 
-	ida_free(&extcon_dev_ids, edev->id);
-
 	device_unregister(&edev->dev);
+
+	ida_free(&extcon_dev_ids, edev->id);
 
 	if (edev->mutually_exclusive && edev->max_supported) {
 		for (index = 0; edev->mutually_exclusive[index];

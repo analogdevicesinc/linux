@@ -3459,8 +3459,15 @@ void mpi3mr_process_op_reply_desc(struct mpi3mr_ioc *mrioc,
 	}
 	scmd = mpi3mr_scmd_from_host_tag(mrioc, host_tag, qidx);
 	if (!scmd) {
-		panic("%s: Cannot Identify scmd for host_tag 0x%x\n",
-		    mrioc->name, host_tag);
+		ioc_err(mrioc, "Cannot Identify scmd for host_tag 0x%x", host_tag);
+		ioc_err(mrioc,
+		    "reply_desc_type(%d) host_tag(%d(0x%04x)): qid(%d): command issued to\n"
+		    "handle(0x%04x) returned with ioc_status(0x%04x), log_info(0x%08x),\n"
+		    "scsi_state(0x%02x), scsi_status(0x%02x), xfer_count(%d), resp_data(0x%08x)\n",
+		    reply_desc_type, host_tag, host_tag, qidx+1, dev_handle, ioc_status,
+		    ioc_loginfo, scsi_state, scsi_status,  xfer_count,
+		    resp_data);
+		mrioc->invalid_io_comp = 1;
 		goto out;
 	}
 	priv = scsi_cmd_priv(scmd);

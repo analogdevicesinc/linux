@@ -8,11 +8,13 @@
 
 static bool dummy_map_mode_to_soc_dpm(struct dml2_dpmm_map_mode_to_soc_dpm_params_in_out *in_out)
 {
+	(void)in_out;
 	return true;
 }
 
 static bool dummy_map_watermarks(struct dml2_dpmm_map_watermarks_params_in_out *in_out)
 {
+	(void)in_out;
 	return true;
 }
 
@@ -31,6 +33,7 @@ bool dml2_dpmm_create(enum dml2_project_id project_id, struct dml2_dpmm_instance
 		out->map_watermarks = &dummy_map_watermarks;
 		result = true;
 		break;
+	case dml2_project_dcn40:
 	case dml2_project_dcn4x_stage2:
 		out->map_mode_to_soc_dpm = &dpmm_dcn3_map_mode_to_soc_dpm;
 		out->map_watermarks = &dummy_map_watermarks;
@@ -39,6 +42,11 @@ bool dml2_dpmm_create(enum dml2_project_id project_id, struct dml2_dpmm_instance
 	case dml2_project_dcn4x_stage2_auto_drr_svp:
 		out->map_mode_to_soc_dpm = &dpmm_dcn4_map_mode_to_soc_dpm;
 		out->map_watermarks = &dpmm_dcn4_map_watermarks;
+		result = true;
+		break;
+	case dml2_project_dcn42:
+		out->map_mode_to_soc_dpm = &dpmm_dcn4_map_mode_to_soc_dpm;
+		out->map_watermarks = &dpmm_dcn42_map_watermarks;
 		result = true;
 		break;
 	case dml2_project_invalid:

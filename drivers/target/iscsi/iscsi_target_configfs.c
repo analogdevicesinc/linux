@@ -1591,6 +1591,7 @@ const struct target_core_fabric_ops iscsi_ops = {
 
 	.write_pending_must_be_called	= 1,
 
+	.default_compl_type		= TARGET_QUEUE_COMPL,
 	.default_submit_type		= TARGET_DIRECT_SUBMIT,
 	.direct_submit_supp		= 1,
 };

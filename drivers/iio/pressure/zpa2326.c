@@ -840,7 +840,7 @@ static irqreturn_t zpa2326_handle_threaded_irq(int irq, void *data)
 
 complete:
 	/*
-	 * Wake up direct or externaly triggered buffer mode waiters: see
+	 * Wake up direct or externally triggered buffer mode waiters: see
 	 * zpa2326_sample_oneshot() and zpa2326_trigger_handler().
 	 */
 	complete(&priv->data_ready);

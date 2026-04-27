@@ -26,6 +26,9 @@ struct mctp_hdr {
 #define MCTP_VER_MIN	1
 #define MCTP_VER_MAX	1
 
+/* Definitions for ver field */
+#define MCTP_HDR_VER_MASK	GENMASK(3, 0)
+
 /* Definitions for flags_seq_tag field */
 #define MCTP_HDR_FLAG_SOM	BIT(7)
 #define MCTP_HDR_FLAG_EOM	BIT(6)
@@ -270,6 +273,7 @@ struct mctp_dst {
 	struct mctp_dev *dev;
 	unsigned int mtu;
 	mctp_eid_t nexthop;
+	mctp_eid_t saddr;
 
 	/* set for direct addressing */
 	unsigned char halen;

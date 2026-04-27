@@ -8,7 +8,7 @@
 #include <asm/soc.h>
 
 /*
- * This is called extremly early, before parse_dtb(), to allow initializing
+ * This is called extremely early, before parse_dtb(), to allow initializing
  * SoC hardware before memory or any device driver initialization.
  */
 void __init soc_early_init(void)

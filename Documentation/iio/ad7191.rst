@@ -63,11 +63,11 @@ Clock Configuration
 
 The AD7191 supports both internal and external clock sources:
 
-- When CLKSEL pin is tied LOW: Uses internal 4.92MHz clock (no clock property
+- When CLKSEL pin is ACTIVE: Uses internal 4.92MHz clock (no clock property
   needed)
-- When CLKSEL pin is tied HIGH: Requires external clock source
+- When CLKSEL pin is INACTIVE: Requires external clock source
   - Can be a crystal between MCLK1 and MCLK2 pins
-  - Or a CMOS-compatible clock driving MCLK2 pin
+  - Or a CMOS-compatible clock driving MCLK1 pin and MCLK2 left unconnected
   - Must specify the "clocks" property in device tree when using external clock
 
 SPI Interface Requirements

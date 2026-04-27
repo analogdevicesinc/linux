@@ -20,7 +20,7 @@
  *
  * If yes, then adding a test is probably a good idea but please stop for a
  * moment and consider the effort of changing all the tests when code gets
- * refactored. Eventually it neeeds to be.
+ * refactored. Eventually it needs to be.
  */
 
 #define TEST_TSEL_50		1

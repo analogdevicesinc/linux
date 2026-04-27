@@ -372,7 +372,7 @@ static void wmi_unmarshal_acpi_object_test(struct kunit *test)
 	struct wmi_buffer result;
 	int ret;
 
-	ret = wmi_unmarshal_acpi_object(&param->obj, &result);
+	ret = wmi_unmarshal_acpi_object(&param->obj, &result, param->buffer.length);
 	if (ret < 0)
 		KUNIT_FAIL_AND_ABORT(test, "Unmarshalling of ACPI object failed\n");
 
@@ -389,7 +389,7 @@ static void wmi_unmarshal_acpi_object_failure_test(struct kunit *test)
 	struct wmi_buffer result;
 	int ret;
 
-	ret = wmi_unmarshal_acpi_object(&param->obj, &result);
+	ret = wmi_unmarshal_acpi_object(&param->obj, &result, 0);
 	if (ret < 0)
 		return;
 
@@ -427,6 +427,25 @@ static void wmi_marshal_string_failure_test(struct kunit *test)
 	KUNIT_FAIL(test, "Invalid string was not rejected\n");
 }
 
+static void wmi_unmarshal_acpi_object_undersized_test(struct kunit *test)
+{
+	const union acpi_object obj = {
+		.integer = {
+			.type = ACPI_TYPE_INTEGER,
+			.value = 0xdeadbeef,
+		},
+	};
+	struct wmi_buffer result;
+	int ret;
+
+	ret = wmi_unmarshal_acpi_object(&obj, &result, sizeof(expected_single_integer) + 1);
+	if (ret < 0)
+		return;
+
+	kfree(result.data);
+	KUNIT_FAIL(test, "Undersized unmarshalling result was not rejected\n");
+}
+
 static struct kunit_case wmi_marshalling_test_cases[] = {
 	KUNIT_CASE_PARAM(wmi_unmarshal_acpi_object_test,
 			 wmi_unmarshal_acpi_object_gen_params),
@@ -436,6 +455,7 @@ static struct kunit_case wmi_marshalling_test_cases[] = {
 			 wmi_unmarshal_acpi_object_failure_gen_params),
 	KUNIT_CASE_PARAM(wmi_marshal_string_failure_test,
 			 wmi_marshal_string_failure_gen_params),
+	KUNIT_CASE(wmi_unmarshal_acpi_object_undersized_test),
 	{}
 };
 

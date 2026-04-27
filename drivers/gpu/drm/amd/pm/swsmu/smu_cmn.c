@@ -405,7 +405,7 @@ static int __smu_msg_v1_ras_filter(struct smu_msg_ctl *ctl,
 }
 
 /**
- * smu_msg_proto_v1_send_msg - Complete V1 protocol with all filtering
+ * smu_msg_v1_send_msg - Complete V1 protocol with all filtering
  * @ctl: Message control block
  * @args: Message arguments
  *
@@ -496,7 +496,8 @@ static int smu_msg_v1_send_msg(struct smu_msg_ctl *ctl,
 	}
 
 	/* Read output args */
-	if (ret == 0 && args->num_out_args > 0) {
+	if ((ret == 0 || (args->flags & SMU_MSG_FLAG_FORCE_READ_ARG)) &&
+	    args->num_out_args > 0) {
 		__smu_msg_v1_read_out_args(ctl, args);
 		dev_dbg(adev->dev, "smu send message: %s(%d) resp : 0x%08x",
 			smu_get_message_name(smu, args->msg), index, reg);
@@ -880,7 +881,7 @@ static const char *smu_get_feature_name(struct smu_context *smu,
 size_t smu_cmn_get_pp_feature_mask(struct smu_context *smu,
 				   char *buf)
 {
-	int8_t sort_feature[MAX(SMU_FEATURE_COUNT, SMU_FEATURE_MAX)];
+	int16_t sort_feature[MAX(SMU_FEATURE_COUNT, SMU_FEATURE_MAX)];
 	struct smu_feature_bits feature_mask;
 	uint32_t features[2];
 	int i, feature_index;
@@ -1035,20 +1036,49 @@ int smu_cmn_get_smc_version(struct smu_context *smu,
 	return ret;
 }
 
-int smu_cmn_update_table(struct smu_context *smu,
-			 enum smu_table_id table_index,
-			 int argument,
-			 void *table_data,
-			 bool drv2smu)
+int smu_cmn_check_fw_version(struct smu_context *smu)
 {
-	struct smu_table_context *smu_table = &smu->smu_table;
 	struct amdgpu_device *adev = smu->adev;
+	uint32_t if_version = 0xff, smu_version = 0xff;
+	uint8_t smu_program, smu_major, smu_minor, smu_debug;
+	int ret;
+
+	ret = smu_cmn_get_smc_version(smu, &if_version, &smu_version);
+	if (ret)
+		return ret;
+
+	smu_program = (smu_version >> 24) & 0xff;
+	smu_major = (smu_version >> 16) & 0xff;
+	smu_minor = (smu_version >> 8) & 0xff;
+	smu_debug = (smu_version >> 0) & 0xff;
+	adev->pm.fw_version = smu_version;
+
+	dev_info_once(adev->dev, "smu driver if version = 0x%08x, smu fw if version = 0x%08x, "
+		      "smu fw program = %d, smu fw version = 0x%08x (%d.%d.%d)\n",
+		      smu->smc_driver_if_version, if_version,
+		      smu_program, smu_version, smu_major, smu_minor, smu_debug);
+
+	return 0;
+}
+
+int smu_cmn_update_table_read_arg(struct smu_context *smu,
+				    enum smu_table_id table_index,
+				    int argument,
+				    void *table_data,
+				    uint32_t *read_arg,
+				    bool drv2smu)
+{
+	struct amdgpu_device *adev = smu->adev;
+	struct smu_table_context *smu_table = &smu->smu_table;
 	struct smu_table *table = &smu_table->driver_table;
+	struct smu_msg_ctl *ctl = &smu->msg_ctl;
+	struct smu_msg_args args;
 	int table_id = smu_cmn_to_asic_specific_index(smu,
 						      CMN2ASIC_MAPPING_TABLE,
 						      table_index);
 	uint32_t table_size;
 	int ret = 0;
+
 	if (!table_data || table_index >= SMU_TABLE_COUNT || table_id < 0)
 		return -EINVAL;
 
@@ -1063,11 +1093,19 @@ int smu_cmn_update_table(struct smu_context *smu,
 		amdgpu_hdp_flush(adev, NULL);
 	}
 
-	ret = smu_cmn_send_smc_msg_with_param(smu, drv2smu ?
-					  SMU_MSG_TransferTableDram2Smu :
-					  SMU_MSG_TransferTableSmu2Dram,
-					  table_id | ((argument & 0xFFFF) << 16),
-					  NULL);
+	args.msg = drv2smu ? SMU_MSG_TransferTableDram2Smu : SMU_MSG_TransferTableSmu2Dram;
+	args.args[0] = ((argument & 0xFFFF) << 16) | (table_id  & 0xffff);
+	args.num_args = 1;
+	args.out_args[0] = 0;
+	args.num_out_args = read_arg ? 1 : 0;
+	args.flags = read_arg ? SMU_MSG_FLAG_FORCE_READ_ARG : 0;
+	args.timeout = 0;
+
+	ret = ctl->ops->send_msg(ctl, &args);
+
+	if (read_arg)
+		*read_arg = args.out_args[0];
+
 	if (ret)
 		return ret;
 
@@ -1075,6 +1113,18 @@ int smu_cmn_update_table(struct smu_context *smu,
 		amdgpu_hdp_invalidate(adev, NULL);
 		memcpy(table_data, table->cpu_addr, table_size);
 	}
+
+	return 0;
+}
+
+int smu_cmn_vram_cpy(struct smu_context *smu, void *dst, const void *src,
+		     size_t len)
+{
+	memcpy(dst, src, len);
+
+	/* Don't trust the copy operation if RAS fatal error happened. */
+	if (amdgpu_ras_get_fed_status(smu->adev))
+		return -EHWPOISON;
 
 	return 0;
 }
@@ -1274,6 +1324,16 @@ void smu_cmn_get_backend_workload_mask(struct smu_context *smu,
 
 		*backend_workload_mask |= 1 << workload_type;
 	}
+}
+
+void smu_cmn_reset_custom_level(struct smu_context *smu)
+{
+	struct smu_umd_pstate_table *pstate_table = &smu->pstate_table;
+
+	pstate_table->gfxclk_pstate.custom.min = 0;
+	pstate_table->gfxclk_pstate.custom.max = 0;
+	pstate_table->uclk_pstate.custom.min = 0;
+	pstate_table->uclk_pstate.custom.max = 0;
 }
 
 static inline bool smu_cmn_freqs_match(uint32_t freq1, uint32_t freq2)

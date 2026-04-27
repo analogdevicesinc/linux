@@ -273,6 +273,52 @@ const struct nfsd4_layout_ops bl_layout_ops = {
 #endif /* CONFIG_NFSD_BLOCKLAYOUT */
 
 #ifdef CONFIG_NFSD_SCSILAYOUT
+
+#define NFSD_MDS_PR_FENCED	XA_MARK_0
+
+/*
+ * Clear the fence flag if the device already has an entry. This occurs
+ * when a client re-registers after a previous fence, allowing new
+ * layouts for this device.
+ *
+ * Insert only on first registration. This bounds cl_dev_fences to the
+ * count of devices this client has accessed, preventing unbounded growth.
+ */
+static inline int nfsd4_scsi_fence_insert(struct nfs4_client *clp,
+					  dev_t device)
+{
+	struct xarray *xa = &clp->cl_dev_fences;
+	int ret;
+
+	xa_lock(xa);
+	ret = __xa_insert(xa, device, XA_ZERO_ENTRY, GFP_KERNEL);
+	if (ret == -EBUSY) {
+		__xa_clear_mark(xa, device, NFSD_MDS_PR_FENCED);
+		ret = 0;
+	}
+	xa_unlock(xa);
+	clp->cl_fence_retry_warn = false;
+	return ret;
+}
+
+static inline bool nfsd4_scsi_fence_set(struct nfs4_client *clp, dev_t device)
+{
+	struct xarray *xa = &clp->cl_dev_fences;
+	bool skip;
+
+	xa_lock(xa);
+	skip = xa_get_mark(xa, device, NFSD_MDS_PR_FENCED);
+	if (!skip)
+		__xa_set_mark(xa, device, NFSD_MDS_PR_FENCED);
+	xa_unlock(xa);
+	return skip;
+}
+
+static inline void nfsd4_scsi_fence_clear(struct nfs4_client *clp, dev_t device)
+{
+	xa_clear_mark(&clp->cl_dev_fences, device, NFSD_MDS_PR_FENCED);
+}
+
 #define NFSD_MDS_PR_KEY		0x0100000000000000ULL
 
 /*
@@ -342,6 +388,10 @@ nfsd4_block_get_device_info_scsi(struct super_block *sb,
 		goto out_free_dev;
 	}
 
+	ret = nfsd4_scsi_fence_insert(clp, sb->s_bdev->bd_dev);
+	if (ret < 0)
+		goto out_free_dev;
+
 	ret = ops->pr_register(sb->s_bdev, 0, NFSD_MDS_PR_KEY, true);
 	if (ret) {
 		pr_err("pNFS: failed to register key for device %s.\n",
@@ -394,17 +444,67 @@ nfsd4_scsi_proc_layoutcommit(struct inode *inode, struct svc_rqst *rqstp,
 	return nfsd4_block_commit_blocks(inode, lcp, iomaps, nr_iomaps);
 }
 
-static void
+/*
+ * Perform the fence operation to prevent the client from accessing the
+ * block device. If a fence operation is already in progress, wait for
+ * it to complete before checking the NFSD_MDS_PR_FENCED flag. Once the
+ * operation is complete, check the flag. If NFSD_MDS_PR_FENCED is set,
+ * update the layout stateid by setting the ls_fenced flag to indicate
+ * that the client has been fenced.
+ *
+ * The cl_fence_mutex ensures that the fence operation has been fully
+ * completed, rather than just in progress, when returning from this
+ * function.
+ *
+ * Return true if client was fenced otherwise return false.
+ */
+static bool
 nfsd4_scsi_fence_client(struct nfs4_layout_stateid *ls, struct nfsd_file *file)
 {
 	struct nfs4_client *clp = ls->ls_stid.sc_client;
 	struct block_device *bdev = file->nf_file->f_path.mnt->mnt_sb->s_bdev;
 	int status;
+	bool ret;
+
+	mutex_lock(&clp->cl_fence_mutex);
+	if (nfsd4_scsi_fence_set(clp, bdev->bd_dev)) {
+		mutex_unlock(&clp->cl_fence_mutex);
+		return true;
+	}
 
 	status = bdev->bd_disk->fops->pr_ops->pr_preempt(bdev, NFSD_MDS_PR_KEY,
 			nfsd4_scsi_pr_key(clp),
 			PR_EXCLUSIVE_ACCESS_REG_ONLY, true);
+	/*
+	 * Reset to allow retry only when the command could not have
+	 * reached the device. Negative status means a local error
+	 * (e.g., -ENOMEM) prevented the command from being sent.
+	 * PR_STS_PATH_FAILED, PR_STS_PATH_FAST_FAILED, and
+	 * PR_STS_RETRY_PATH_FAILURE indicate transport path failures
+	 * before device delivery.
+	 *
+	 * For all other errors, the command may have reached the device
+	 * and the preempt may have succeeded. Avoid resetting, since
+	 * retrying a successful preempt returns PR_STS_IOERR or
+	 * PR_STS_RESERVATION_CONFLICT, which would cause an infinite
+	 * retry loop.
+	 */
+	switch (status) {
+	case 0:
+	case PR_STS_IOERR:
+	case PR_STS_RESERVATION_CONFLICT:
+		ret = true;
+		break;
+	default:
+		/* retry-able and other errors */
+		ret = false;
+		nfsd4_scsi_fence_clear(clp, bdev->bd_dev);
+		break;
+	}
+	mutex_unlock(&clp->cl_fence_mutex);
+
 	trace_nfsd_pnfs_fence(clp, bdev->bd_disk->disk_name, status);
+	return ret;
 }
 
 const struct nfsd4_layout_ops scsi_layout_ops = {

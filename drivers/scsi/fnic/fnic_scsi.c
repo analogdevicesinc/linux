@@ -471,7 +471,6 @@ enum scsi_qc_status fnic_queuecommand(struct Scsi_Host *shost,
 	int sg_count = 0;
 	unsigned long flags = 0;
 	unsigned long ptr;
-	int io_lock_acquired = 0;
 	uint16_t hwq = 0;
 	struct fnic_tport_s *tport = NULL;
 	struct rport_dd_data_s *rdd_data;
@@ -636,7 +635,6 @@ enum scsi_qc_status fnic_queuecommand(struct Scsi_Host *shost,
 	spin_lock_irqsave(&fnic->wq_copy_lock[hwq], flags);
 
 	/* initialize rest of io_req */
-	io_lock_acquired = 1;
 	io_req->port_id = rport->port_id;
 	io_req->start_time = jiffies;
 	fnic_priv(sc)->state = FNIC_IOREQ_CMD_PENDING;
@@ -689,6 +687,9 @@ enum scsi_qc_status fnic_queuecommand(struct Scsi_Host *shost,
 		/* REVISIT: Use per IO lock in the final code */
 		fnic_priv(sc)->flags |= FNIC_IO_ISSUED;
 	}
+
+	spin_unlock_irqrestore(&fnic->wq_copy_lock[hwq], flags);
+
 out:
 	cmd_trace = ((u64)sc->cmnd[0] << 56 | (u64)sc->cmnd[7] << 40 |
 			(u64)sc->cmnd[8] << 32 | (u64)sc->cmnd[2] << 24 |
@@ -698,10 +699,6 @@ out:
 	FNIC_TRACE(fnic_queuecommand, sc->device->host->host_no,
 		   mqtag, sc, io_req, sg_count, cmd_trace,
 		   fnic_flags_and_state(sc));
-
-	/* if only we issued IO, will we have the io lock */
-	if (io_lock_acquired)
-		spin_unlock_irqrestore(&fnic->wq_copy_lock[hwq], flags);
 
 	atomic_dec(&fnic->in_flight);
 	atomic_dec(&tport->in_flight);
@@ -777,7 +774,7 @@ static int fnic_fcpio_fw_reset_cmpl_handler(struct fnic *fnic,
 	 */
 	if (ret) {
 		spin_unlock_irqrestore(&fnic->fnic_lock, flags);
-		fnic_free_txq(&fnic->tx_queue);
+		fnic_free_txq(fnic);
 		goto reset_cmpl_handler_end;
 	}
 
@@ -1972,14 +1969,10 @@ void fnic_scsi_unload(struct fnic *fnic)
 	 */
 	spin_lock_irqsave(&fnic->fnic_lock, flags);
 	fnic->iport.state = FNIC_IPORT_STATE_LINK_WAIT;
-	spin_unlock_irqrestore(&fnic->fnic_lock, flags);
-
-	if (fdls_get_state(&fnic->iport.fabric) != FDLS_STATE_INIT)
-		fnic_scsi_fcpio_reset(fnic);
-
-	spin_lock_irqsave(&fnic->fnic_lock, flags);
 	fnic->in_remove = 1;
 	spin_unlock_irqrestore(&fnic->fnic_lock, flags);
+
+	fnic_fcpio_reset(fnic);
 
 	fnic_flush_tport_event_list(fnic);
 	fnic_delete_fcp_tports(fnic);
@@ -3039,55 +3032,4 @@ int fnic_eh_host_reset_handler(struct scsi_cmnd *sc)
 
 	ret = fnic_host_reset(shost);
 	return ret;
-}
-
-
-void fnic_scsi_fcpio_reset(struct fnic *fnic)
-{
-	unsigned long flags;
-	enum fnic_state old_state;
-	struct fnic_iport_s *iport = &fnic->iport;
-	DECLARE_COMPLETION_ONSTACK(fw_reset_done);
-	int time_remain;
-
-	/* issue fw reset */
-	spin_lock_irqsave(&fnic->fnic_lock, flags);
-	if (unlikely(fnic->state == FNIC_IN_FC_TRANS_ETH_MODE)) {
-		/* fw reset is in progress, poll for its completion */
-		spin_unlock_irqrestore(&fnic->fnic_lock, flags);
-		FNIC_SCSI_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
-			  "fnic is in unexpected state: %d for fw_reset\n",
-			  fnic->state);
-		return;
-	}
-
-	old_state = fnic->state;
-	fnic->state = FNIC_IN_FC_TRANS_ETH_MODE;
-
-	fnic_update_mac_locked(fnic, iport->hwmac);
-	fnic->fw_reset_done = &fw_reset_done;
-	spin_unlock_irqrestore(&fnic->fnic_lock, flags);
-
-	FNIC_SCSI_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
-				  "Issuing fw reset\n");
-	if (fnic_fw_reset_handler(fnic)) {
-		spin_lock_irqsave(&fnic->fnic_lock, flags);
-		if (fnic->state == FNIC_IN_FC_TRANS_ETH_MODE)
-			fnic->state = old_state;
-		spin_unlock_irqrestore(&fnic->fnic_lock, flags);
-	} else {
-		FNIC_SCSI_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
-					  "Waiting for fw completion\n");
-		time_remain = wait_for_completion_timeout(&fw_reset_done,
-						  msecs_to_jiffies(FNIC_FW_RESET_TIMEOUT));
-		FNIC_SCSI_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
-					  "Woken up after fw completion timeout\n");
-		if (time_remain == 0) {
-			FNIC_SCSI_DBG(KERN_INFO, fnic->host, fnic->fnic_num,
-				  "FW reset completion timed out after %d ms)\n",
-				  FNIC_FW_RESET_TIMEOUT);
-		}
-		atomic64_inc(&fnic->fnic_stats.reset_stats.fw_reset_timeouts);
-	}
-	fnic->fw_reset_done = NULL;
 }

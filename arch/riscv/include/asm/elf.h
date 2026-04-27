@@ -59,8 +59,8 @@ extern bool compat_elf_check_arch(Elf32_Ehdr *hdr);
 #endif
 
 /*
- * Provides information on the availiable set of ISA extensions to userspace,
- * via a bitmap that coorespends to each single-letter ISA extension.  This is
+ * Provides information on the available set of ISA extensions to userspace,
+ * via a bitmap that corresponds to each single-letter ISA extension.  This is
  * essentially defunct, but will remain for compatibility with userspace.
  */
 #define ELF_HWCAP	riscv_get_elf_hwcap()

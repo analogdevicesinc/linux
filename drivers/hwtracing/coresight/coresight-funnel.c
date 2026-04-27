@@ -30,8 +30,6 @@
 #define FUNNEL_HOLDTIME		(0x7 << FUNNEL_HOLDTIME_SHFT)
 #define FUNNEL_ENSx_MASK	0xff
 
-DEFINE_CORESIGHT_DEVLIST(funnel_devs, "funnel");
-
 /**
  * struct funnel_drvdata - specifics associated to a funnel component
  * @base:	memory mapped base address for this component.
@@ -223,7 +221,7 @@ static int funnel_probe(struct device *dev, struct resource *res)
 	    of_device_is_compatible(dev->of_node, "arm,coresight-funnel"))
 		dev_warn_once(dev, "Uses OBSOLETE CoreSight funnel binding\n");
 
-	desc.name = coresight_alloc_device_name(&funnel_devs, dev);
+	desc.name = coresight_alloc_device_name("funnel", dev);
 	if (!desc.name)
 		return -ENOMEM;
 

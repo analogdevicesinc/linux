@@ -187,7 +187,7 @@ static void do_io_probe(struct pcmcia_socket *s, unsigned int base,
 	int any;
 	u_char *b, hole, most;
 
-	dev_info(&s->dev, "cs: IO port probe %#x-%#x:", base, base+num-1);
+	pr_info("%s: cs: IO port probe %#x-%#x:", dev_name(&s->dev), base, base+num-1);
 
 	/* First, what does a floating port look like? */
 	b = kzalloc(256, GFP_KERNEL);
@@ -409,8 +409,8 @@ static int do_mem_probe(struct pcmcia_socket *s, u_long base, u_long num,
 	struct socket_data *s_data = s->resource_data;
 	u_long i, j, bad, fail, step;
 
-	dev_info(&s->dev, "cs: memory probe 0x%06lx-0x%06lx:",
-		 base, base+num-1);
+	pr_info("%s: cs: memory probe 0x%06lx-0x%06lx:",
+	       dev_name(&s->dev), base, base+num-1);
 	bad = fail = 0;
 	step = (num < 0x20000) ? 0x2000 : ((num>>4) & ~0x1fff);
 	/* don't allow too large steps */
@@ -602,7 +602,8 @@ static resource_size_t pcmcia_common_align(struct pcmcia_align_data *align_data,
 
 static resource_size_t
 pcmcia_align(void *align_data, const struct resource *res,
-	resource_size_t size, resource_size_t align)
+	     const struct resource *empty_res,
+	     resource_size_t size, resource_size_t align)
 {
 	struct pcmcia_align_data *data = align_data;
 	struct resource_map *m;
@@ -935,7 +936,7 @@ static int adjust_io(struct pcmcia_socket *s, unsigned int action, unsigned long
 static int nonstatic_autoadd_resources(struct pcmcia_socket *s)
 {
 	struct resource *res;
-	int i, done = 0;
+	int done = 0;
 
 	if (!s->cb_dev || !s->cb_dev->bus)
 		return -ENODEV;
@@ -962,10 +963,10 @@ static int nonstatic_autoadd_resources(struct pcmcia_socket *s)
 	if (s->cb_dev->bus->number == 0)
 		return -EINVAL;
 
-	for (i = 0; i < PCI_BRIDGE_RESOURCE_NUM; i++) {
+	for (unsigned int i = 0; i < PCI_BRIDGE_RESOURCE_NUM; i++) {
 		res = s->cb_dev->bus->resource[i];
 #else
-	pci_bus_for_each_resource(s->cb_dev->bus, res, i) {
+	pci_bus_for_each_resource(s->cb_dev->bus, res) {
 #endif
 		if (!res)
 			continue;

@@ -1101,8 +1101,6 @@ static int counter_sysfs_attr_add(struct counter_device *const counter,
 	/* Add device extensions */
 	return counter_sysfs_exts_add(dev, cattr_group, counter->ext,
 				      counter->num_ext, scope, NULL);
-
-	return 0;
 }
 
 /**

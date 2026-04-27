@@ -20,34 +20,25 @@
 /*
  * SYSCALL_WORK flags handled in syscall_enter_from_user_mode()
  */
-#ifndef ARCH_SYSCALL_WORK_ENTER
-# define ARCH_SYSCALL_WORK_ENTER	(0)
-#endif
-
-/*
- * SYSCALL_WORK flags handled in syscall_exit_to_user_mode()
- */
-#ifndef ARCH_SYSCALL_WORK_EXIT
-# define ARCH_SYSCALL_WORK_EXIT		(0)
-#endif
-
 #define SYSCALL_WORK_ENTER	(SYSCALL_WORK_SECCOMP |			\
 				 SYSCALL_WORK_SYSCALL_TRACEPOINT |	\
 				 SYSCALL_WORK_SYSCALL_TRACE |		\
 				 SYSCALL_WORK_SYSCALL_EMU |		\
 				 SYSCALL_WORK_SYSCALL_AUDIT |		\
 				 SYSCALL_WORK_SYSCALL_USER_DISPATCH |	\
-				 SYSCALL_WORK_SYSCALL_RSEQ_SLICE |	\
-				 ARCH_SYSCALL_WORK_ENTER)
+				 SYSCALL_WORK_SYSCALL_RSEQ_SLICE)
+/*
+ * SYSCALL_WORK flags handled in syscall_exit_to_user_mode()
+ */
 #define SYSCALL_WORK_EXIT	(SYSCALL_WORK_SYSCALL_TRACEPOINT |	\
 				 SYSCALL_WORK_SYSCALL_TRACE |		\
 				 SYSCALL_WORK_SYSCALL_AUDIT |		\
 				 SYSCALL_WORK_SYSCALL_USER_DISPATCH |	\
-				 SYSCALL_WORK_SYSCALL_EXIT_TRAP	|	\
-				 ARCH_SYSCALL_WORK_EXIT)
+				 SYSCALL_WORK_SYSCALL_EXIT_TRAP)
 
 /**
  * arch_ptrace_report_syscall_entry - Architecture specific ptrace_report_syscall_entry() wrapper
+ * @regs: Pointer to the register state at syscall entry
  *
  * Invoked from syscall_trace_enter() to wrap ptrace_report_syscall_entry().
  *
@@ -205,6 +196,8 @@ static __always_inline bool report_single_step(unsigned long work)
 
 /**
  * arch_ptrace_report_syscall_exit - Architecture specific ptrace_report_syscall_exit()
+ * @regs: Pointer to the register state at syscall exit
+ * @step: Indicates a single-step exit rather than a normal syscall exit
  *
  * This allows architecture specific ptrace_report_syscall_exit()
  * implementations. If not defined by the architecture this falls back to
@@ -321,7 +314,7 @@ static __always_inline void syscall_exit_to_user_mode(struct pt_regs *regs)
 {
 	instrumentation_begin();
 	syscall_exit_to_user_mode_work(regs);
-	local_irq_disable_exit_to_user();
+	local_irq_disable();
 	syscall_exit_to_user_mode_prepare(regs);
 	instrumentation_end();
 	exit_to_user_mode();

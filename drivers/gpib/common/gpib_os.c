@@ -2219,10 +2219,13 @@ void init_gpib_status_queue(struct gpib_status_queue *device)
 	device->dropped_byte = 0;
 }
 
-static struct class *gpib_class;
+static const struct class gpib_class = {
+	.name	= "gpib_common",
+};
 
 static int __init gpib_common_init_module(void)
 {
+	int err;
 	int i;
 
 	pr_info("GPIB core driver\n");
@@ -2231,14 +2234,14 @@ static int __init gpib_common_init_module(void)
 		pr_err("gpib: can't get major %d\n", GPIB_CODE);
 		return -EIO;
 	}
-	gpib_class = class_create("gpib_common");
-	if (IS_ERR(gpib_class)) {
+	err = class_register(&gpib_class);
+	if (err) {
 		pr_err("gpib: failed to create gpib class\n");
 		unregister_chrdev(GPIB_CODE, "gpib");
-		return PTR_ERR(gpib_class);
+		return err;
 	}
 	for (i = 0; i < GPIB_MAX_NUM_BOARDS; ++i)
-		board_array[i].gpib_dev = device_create(gpib_class, NULL,
+		board_array[i].gpib_dev = device_create(&gpib_class, NULL,
 							MKDEV(GPIB_CODE, i), NULL, "gpib%i", i);
 
 	return 0;
@@ -2249,9 +2252,9 @@ static void __exit gpib_common_exit_module(void)
 	int i;
 
 	for (i = 0; i < GPIB_MAX_NUM_BOARDS; ++i)
-		device_destroy(gpib_class, MKDEV(GPIB_CODE, i));
+		device_destroy(&gpib_class, MKDEV(GPIB_CODE, i));
 
-	class_destroy(gpib_class);
+	class_unregister(&gpib_class);
 	unregister_chrdev(GPIB_CODE, "gpib");
 }
 

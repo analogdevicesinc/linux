@@ -37,6 +37,7 @@ static char *resp_state_name[] = {
 	[RESPST_ERR_MISSING_OPCODE_LAST_D1E]	= "ERR_MISSING_OPCODE_LAST_D1E",
 	[RESPST_ERR_TOO_MANY_RDMA_ATM_REQ]	= "ERR_TOO_MANY_RDMA_ATM_REQ",
 	[RESPST_ERR_RNR]			= "ERR_RNR",
+	[RESPST_ERR_RKEY_VIOLATION_EVENT]	= "ERR_RKEY_VIOLATION_EVENT",
 	[RESPST_ERR_RKEY_VIOLATION]		= "ERR_RKEY_VIOLATION",
 	[RESPST_ERR_INVALIDATE_RKEY]		= "ERR_INVALIDATE_RKEY_VIOLATION",
 	[RESPST_ERR_LENGTH]			= "ERR_LENGTH",
@@ -423,6 +424,19 @@ static void qp_resp_from_atmeth(struct rxe_qp *qp, struct rxe_pkt_info *pkt)
 	qp->resp.resid = sizeof(u64);
 }
 
+/* Transition to an rkey violation state. C9-222.1 requires an async event
+ * at the responder, but only if the error cannot be attached to an RX WQE.
+ * WRITE_WITH_IMM is the only op that might have that more precise RX WQE
+ * to pin the error on.
+ */
+static enum resp_states get_rkey_violation_state(struct rxe_pkt_info *pkt)
+{
+	if (pkt->mask & RXE_IMMDT_MASK)
+		return RESPST_ERR_RKEY_VIOLATION;
+
+	return RESPST_ERR_RKEY_VIOLATION_EVENT;
+}
+
 /* resolve the packet rkey to qp->resp.mr or set qp->resp.mr to NULL
  * if an invalid rkey is received or the rdma length is zero. For middle
  * or last packets use the stored value of mr.
@@ -486,14 +500,14 @@ static enum resp_states check_rkey(struct rxe_qp *qp,
 		mw = rxe_lookup_mw(qp, access, rkey);
 		if (!mw) {
 			rxe_dbg_qp(qp, "no MW matches rkey %#x\n", rkey);
-			state = RESPST_ERR_RKEY_VIOLATION;
+			state = get_rkey_violation_state(pkt);
 			goto err;
 		}
 
 		mr = mw->mr;
 		if (!mr) {
 			rxe_dbg_qp(qp, "MW doesn't have an MR\n");
-			state = RESPST_ERR_RKEY_VIOLATION;
+			state = get_rkey_violation_state(pkt);
 			goto err;
 		}
 
@@ -507,7 +521,7 @@ static enum resp_states check_rkey(struct rxe_qp *qp,
 		mr = lookup_mr(qp->pd, access, rkey, RXE_LOOKUP_REMOTE);
 		if (!mr) {
 			rxe_dbg_qp(qp, "no MR matches rkey %#x\n", rkey);
-			state = RESPST_ERR_RKEY_VIOLATION;
+			state = get_rkey_violation_state(pkt);
 			goto err;
 		}
 	}
@@ -521,7 +535,7 @@ static enum resp_states check_rkey(struct rxe_qp *qp,
 	}
 
 	if (mr_check_range(mr, va + qp->resp.offset, resid)) {
-		state = RESPST_ERR_RKEY_VIOLATION;
+		state = get_rkey_violation_state(pkt);
 		goto err;
 	}
 
@@ -586,7 +600,7 @@ static enum resp_states write_data_in(struct rxe_qp *qp,
 	err = rxe_mr_copy(qp->resp.mr, qp->resp.va + qp->resp.offset,
 			  payload_addr(pkt), data_len, RXE_TO_MR_OBJ);
 	if (err) {
-		rc = RESPST_ERR_RKEY_VIOLATION;
+		rc = get_rkey_violation_state(pkt);
 		goto out;
 	}
 
@@ -667,7 +681,7 @@ static enum resp_states process_flush(struct rxe_qp *qp,
 
 	if (res->flush.type & IB_FLUSH_PERSISTENT) {
 		if (rxe_flush_pmem_iova(mr, start, length))
-			return RESPST_ERR_RKEY_VIOLATION;
+			return get_rkey_violation_state(pkt);
 		/* Make data persistent. */
 		wmb();
 	} else if (res->flush.type & IB_FLUSH_GLOBAL) {
@@ -1383,6 +1397,20 @@ out:
 	return rc;
 }
 
+static void do_qp_event(struct rxe_qp *qp, enum ib_event_type etype)
+{
+	struct ib_event event;
+	struct ib_qp *ibqp = &qp->ibqp;
+
+	event.event = etype;
+	event.device = ibqp->device;
+	event.element.qp = ibqp;
+	if (ibqp->event_handler) {
+		rxe_dbg_qp(qp, "reporting QP event %d\n", etype);
+		ibqp->event_handler(&event, ibqp->qp_context);
+	}
+}
+
 /* Process a class A or C. Both are treated the same in this implementation. */
 static void do_class_ac_error(struct rxe_qp *qp, u8 syndrome,
 			      enum ib_wc_status status)
@@ -1476,14 +1504,9 @@ static void flush_recv_queue(struct rxe_qp *qp, bool notify)
 	int err;
 
 	if (qp->srq) {
-		if (notify && qp->ibqp.event_handler) {
-			struct ib_event ev;
+		if (notify && qp->ibqp.event_handler)
+			do_qp_event(qp, IB_EVENT_QP_LAST_WQE_REACHED);
 
-			ev.device = qp->ibqp.device;
-			ev.element.qp = &qp->ibqp;
-			ev.event = IB_EVENT_QP_LAST_WQE_REACHED;
-			qp->ibqp.event_handler(&ev, qp->ibqp.qp_context);
-		}
 		return;
 	}
 
@@ -1611,6 +1634,13 @@ int rxe_receiver(struct rxe_qp *qp)
 				qp->resp.drop_msg = 1;
 			}
 			state = RESPST_CLEANUP;
+			break;
+
+		case RESPST_ERR_RKEY_VIOLATION_EVENT:
+			if (qp_type(qp) == IB_QPT_RC)
+				do_qp_event(qp, IB_EVENT_QP_ACCESS_ERR);
+
+			state = RESPST_ERR_RKEY_VIOLATION;
 			break;
 
 		case RESPST_ERR_RKEY_VIOLATION:

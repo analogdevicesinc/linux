@@ -142,11 +142,7 @@ static void do_trap_error(struct pt_regs *regs, int signo, int code,
 	}
 }
 
-#if defined(CONFIG_XIP_KERNEL) && defined(CONFIG_RISCV_ALTERNATIVE)
-#define __trap_section __noinstr_section(".xip.traps")
-#else
 #define __trap_section noinstr
-#endif
 #define DO_ERROR_INFO(name, signo, code, str)					\
 asmlinkage __visible __trap_section void name(struct pt_regs *regs)		\
 {										\
@@ -165,6 +161,8 @@ asmlinkage __visible __trap_section void name(struct pt_regs *regs)		\
 
 DO_ERROR_INFO(do_trap_unknown,
 	SIGILL, ILL_ILLTRP, "unknown exception");
+DO_ERROR_INFO(do_trap_hardware_error,
+	SIGBUS, BUS_MCEERR_AR, "hardware error");
 DO_ERROR_INFO(do_trap_insn_misaligned,
 	SIGBUS, BUS_ADRALN, "instruction address misaligned");
 DO_ERROR_INFO(do_trap_insn_fault,
@@ -343,18 +341,6 @@ void do_trap_ecall_u(struct pt_regs *regs)
 			syscall = array_index_nospec(syscall, NR_syscalls);
 			syscall_handler(regs, syscall);
 		}
-
-		/*
-		 * Ultimately, this value will get limited by KSTACK_OFFSET_MAX(),
-		 * so the maximum stack offset is 1k bytes (10 bits).
-		 *
-		 * The actual entropy will be further reduced by the compiler when
-		 * applying stack alignment constraints: 16-byte (i.e. 4-bit) aligned
-		 * for RV32I or RV64I.
-		 *
-		 * The resulting 6 bits of entropy is seen in SP[9:4].
-		 */
-		choose_random_kstack_offset(get_random_u16());
 
 		syscall_exit_to_user_mode(regs);
 	} else {

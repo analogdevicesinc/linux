@@ -220,25 +220,6 @@ resubmit:
 			__func__, error);
 }
 
-static struct usb_endpoint_descriptor *
-synusb_get_in_endpoint(struct usb_host_interface *iface)
-{
-
-	struct usb_endpoint_descriptor *endpoint;
-	int i;
-
-	for (i = 0; i < iface->desc.bNumEndpoints; ++i) {
-		endpoint = &iface->endpoint[i].desc;
-
-		if (usb_endpoint_is_int_in(endpoint)) {
-			/* we found our interrupt in endpoint */
-			return endpoint;
-		}
-	}
-
-	return NULL;
-}
-
 static int synusb_open(struct input_dev *dev)
 {
 	struct synusb *synusb = input_get_drvdata(dev);
@@ -307,8 +288,8 @@ static int synusb_probe(struct usb_interface *intf,
 		return error;
 	}
 
-	ep = synusb_get_in_endpoint(intf->cur_altsetting);
-	if (!ep)
+	error = usb_find_int_in_endpoint(intf->cur_altsetting, &ep);
+	if (error)
 		return -ENODEV;
 
 	synusb = kzalloc_obj(*synusb);

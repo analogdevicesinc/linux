@@ -969,23 +969,20 @@ static int nexio_init(struct usbtouch_usb *usbtouch)
 {
 	struct usb_device *dev = interface_to_usbdev(usbtouch->interface);
 	struct usb_host_interface *interface = usbtouch->interface->cur_altsetting;
+	struct usb_endpoint_descriptor *ep_in, *ep_out;
 	struct nexio_priv *priv = usbtouch->priv;
-	int ret = -ENOMEM;
 	int actual_len, i;
 	char *firmware_ver = NULL, *device_name = NULL;
-	int input_ep = 0, output_ep = 0;
+	int input_ep, output_ep;
+	int ret;
 
 	/* find first input and output endpoint */
-	for (i = 0; i < interface->desc.bNumEndpoints; i++) {
-		if (!input_ep &&
-		    usb_endpoint_dir_in(&interface->endpoint[i].desc))
-			input_ep = interface->endpoint[i].desc.bEndpointAddress;
-		if (!output_ep &&
-		    usb_endpoint_dir_out(&interface->endpoint[i].desc))
-			output_ep = interface->endpoint[i].desc.bEndpointAddress;
-	}
-	if (!input_ep || !output_ep)
+	ret = usb_find_common_endpoints(interface, &ep_in, &ep_out, NULL, NULL);
+	if (ret)
 		return -ENXIO;
+
+	input_ep = usb_endpoint_num(ep_in);
+	output_ep = usb_endpoint_num(ep_out);
 
 	u8 *buf __free(kfree) = kmalloc(NEXIO_BUFSIZE, GFP_NOIO);
 	if (!buf)
@@ -1427,18 +1424,6 @@ static void usbtouch_free_buffers(struct usb_device *udev,
 	kfree(usbtouch->buffer);
 }
 
-static struct usb_endpoint_descriptor *
-usbtouch_get_input_endpoint(struct usb_host_interface *interface)
-{
-	int i;
-
-	for (i = 0; i < interface->desc.bNumEndpoints; i++)
-		if (usb_endpoint_dir_in(&interface->endpoint[i].desc))
-			return &interface->endpoint[i].desc;
-
-	return NULL;
-}
-
 static int usbtouch_probe(struct usb_interface *intf,
 			  const struct usb_device_id *id)
 {
@@ -1447,17 +1432,21 @@ static int usbtouch_probe(struct usb_interface *intf,
 	struct usb_endpoint_descriptor *endpoint;
 	struct usb_device *udev = interface_to_usbdev(intf);
 	const struct usbtouch_device_info *type;
-	int err = -ENOMEM;
+	int err;
 
 	/* some devices are ignored */
 	type = (const struct usbtouch_device_info *)id->driver_info;
 	if (!type)
 		return -ENODEV;
 
-	endpoint = usbtouch_get_input_endpoint(intf->cur_altsetting);
-	if (!endpoint)
-		return -ENXIO;
+	err = usb_find_int_in_endpoint(intf->cur_altsetting, &endpoint);
+	if (err) {
+		err = usb_find_bulk_in_endpoint(intf->cur_altsetting, &endpoint);
+		if (err)
+			return -ENXIO;
+	}
 
+	err = -ENOMEM;
 	usbtouch = kzalloc_obj(*usbtouch);
 	input_dev = input_allocate_device();
 	if (!usbtouch || !input_dev)

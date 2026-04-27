@@ -123,19 +123,6 @@ static int blk_validate_zoned_limits(struct queue_limits *lim)
 	return 0;
 }
 
-/*
- * Maximum size of I/O that needs a block layer integrity buffer.  Limited
- * by the number of intervals for which we can fit the integrity buffer into
- * the buffer size.  Because the buffer is a single segment it is also limited
- * by the maximum segment size.
- */
-static inline unsigned int max_integrity_io_size(struct queue_limits *lim)
-{
-	return min_t(unsigned int, lim->max_segment_size,
-		(BLK_INTEGRITY_MAX_SIZE / lim->integrity.metadata_size) <<
-			lim->integrity.interval_exp);
-}
-
 static int blk_validate_integrity_limits(struct queue_limits *lim)
 {
 	struct blk_integrity *bi = &lim->integrity;
@@ -202,11 +189,11 @@ static int blk_validate_integrity_limits(struct queue_limits *lim)
 	}
 
 	/*
-	 * The PI generation / validation helpers do not expect intervals to
-	 * straddle multiple bio_vecs.  Enforce alignment so that those are
+	 * Some IO controllers can not handle data intervals straddling
+	 * multiple bio_vecs.  For those, enforce alignment so that those are
 	 * never generated, and that each buffer is aligned as expected.
 	 */
-	if (bi->csum_type) {
+	if (!(bi->flags & BLK_SPLIT_INTERVAL_CAPABLE) && bi->csum_type) {
 		lim->dma_alignment = max(lim->dma_alignment,
 					(1U << bi->interval_exp) - 1);
 	}
@@ -1005,10 +992,14 @@ bool queue_limits_stack_integrity(struct queue_limits *t,
 		if ((ti->flags & BLK_INTEGRITY_REF_TAG) !=
 		    (bi->flags & BLK_INTEGRITY_REF_TAG))
 			goto incompatible;
+		if ((ti->flags & BLK_SPLIT_INTERVAL_CAPABLE) &&
+		    !(bi->flags & BLK_SPLIT_INTERVAL_CAPABLE))
+			ti->flags &= ~BLK_SPLIT_INTERVAL_CAPABLE;
 	} else {
 		ti->flags = BLK_INTEGRITY_STACKED;
 		ti->flags |= (bi->flags & BLK_INTEGRITY_DEVICE_CAPABLE) |
-			     (bi->flags & BLK_INTEGRITY_REF_TAG);
+			     (bi->flags & BLK_INTEGRITY_REF_TAG) |
+			     (bi->flags & BLK_SPLIT_INTERVAL_CAPABLE);
 		ti->csum_type = bi->csum_type;
 		ti->pi_tuple_size = bi->pi_tuple_size;
 		ti->metadata_size = bi->metadata_size;
