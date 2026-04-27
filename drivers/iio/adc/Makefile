@@ -15,6 +15,7 @@ obj-$(CONFIG_AD_PULSAR) += ad_pulsar.o
 obj-$(CONFIG_AD4134) += ad4134.o
 obj-$(CONFIG_AD4170_4) += ad4170-4.o
 obj-$(CONFIG_AD4630) += ad4630.o
+obj-$(CONFIG_AD4691) += ad4691.o
 obj-$(CONFIG_AD4695) += ad4695.o
 obj-$(CONFIG_AD6676) += ad6676.o
 obj-$(CONFIG_AD7091R) += ad7091r-base.o
