@@ -2267,4 +2267,31 @@ __naked void deduce64_from_32_wrapping_32bit(void)
 	: __clobber_all);
 }
 
+/* Check that range_within() compares cnum ranges, not min/max projections. */
+SEC("socket")
+__failure __msg("div by zero")
+__flag(BPF_F_TEST_STATE_FREQ)
+__naked void range_within_cnum_cross_both_boundaries(void)
+{
+	asm volatile ("							\
+	call %[bpf_get_prandom_u32];					\
+	r1 = 0x80000020;						\
+	if r0 > r1 goto 1f;						\
+	r0 += 0x7FFFFFF0;			/* PATH 1 */		\
+	goto 2f;							\
+1:	call %[bpf_get_prandom_u32];		/* PATH 2 */		\
+	if r0 < 0x100 goto 3f;						\
+	if r0 > 0x200 goto 3f;						\
+2:	/* PATH 1: r0 ∈ [0x7FFFFFF0, U32_MAX] ∪ [0, 0x10] */		\
+	/* PATH 2: r0 ∈ [0x100, 0x200] */				\
+	if r0 != 0x100 goto 3f;	/* True only on PATH 2 */		\
+	r0 /= 0;							\
+3:	exit;								\
+	"
+	:: __imm(bpf_map_lookup_elem),
+	   __imm_addr(map_hash_8b),
+	   __imm(bpf_get_prandom_u32)
+	: __clobber_all);
+}
+
 char _license[] SEC("license") = "GPL";

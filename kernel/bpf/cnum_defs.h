@@ -220,6 +220,20 @@ bool FN(is_const)(struct cnum_t cnum)
 	return cnum.size == 0;
 }
 
+bool FN(is_subset)(struct cnum_t bigger, struct cnum_t smaller)
+{
+	if (FN(is_empty(smaller)))
+		return true;
+	if (FN(is_empty(bigger)))
+		return false;
+	/* rotate both arcs such that 'bigger' starts at origin, hence does not overflow */
+	smaller.base -= bigger.base;
+	bigger.base = 0;
+	if (FN(urange_overflow)(smaller) && bigger.size < UT_MAX)
+		return false;
+	return smaller.base + smaller.size <= bigger.size;
+}
+
 #undef EMPTY
 #undef cnum_t
 #undef ut
