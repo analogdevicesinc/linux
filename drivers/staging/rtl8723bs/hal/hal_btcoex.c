@@ -49,7 +49,7 @@ static void halbtcoutsrc_EnterLps(struct btc_coexist *pBtCoexist)
 	pBtCoexist->btInfo.bBtCtrlLps = true;
 	pBtCoexist->btInfo.bBtLpsOn = true;
 
-	rtw_btcoex_LPS_Enter(padapter);
+	rtw_btcoex_lps_enter(padapter);
 }
 
 static void halbtcoutsrc_NormalLps(struct btc_coexist *pBtCoexist)

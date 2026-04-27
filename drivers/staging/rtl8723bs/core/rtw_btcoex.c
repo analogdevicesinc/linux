@@ -49,7 +49,7 @@ void rtw_btcoex_reject_ap_aggregated_packet(struct adapter *padapter, u8 enable)
 	}
 }
 
-void rtw_btcoex_LPS_Enter(struct adapter *padapter)
+void rtw_btcoex_lps_enter(struct adapter *padapter)
 {
 	struct pwrctrl_priv *pwrpriv;
 	u8 lps_val;
