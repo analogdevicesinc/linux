@@ -467,8 +467,8 @@ u16 rtw_get_cur_max_rate(struct adapter *adapter)
 	struct sta_info *psta = NULL;
 	u8 short_GI = 0;
 
-	if (!check_fwstate(pmlmepriv, _FW_LINKED)
-		&& !check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE))
+	if (!check_fwstate(pmlmepriv, _FW_LINKED) &&
+		!check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE))
 		return 0;
 
 	psta = rtw_get_stainfo(&adapter->stapriv, get_bssid(pmlmepriv));
