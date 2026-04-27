@@ -297,7 +297,7 @@ static int mcp9600_read_thresh(struct iio_dev *indio_dev,
 		 * Temperature is stored in two’s complement format in
 		 * bits(15:2), LSB is 0.25 degree celsius.
 		 */
-		*val = sign_extend32(FIELD_GET(MCP9600_ALERT_LIMIT_MASK, ret), 13);
+		*val = FIELD_GET_SIGNED(MCP9600_ALERT_LIMIT_MASK, ret);
 		*val2 = 4;
 		return IIO_VAL_FRACTIONAL;
 	case IIO_EV_INFO_HYSTERESIS:
