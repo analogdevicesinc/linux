@@ -2652,6 +2652,9 @@ YAMAHA_DEVICE(0x7010, "UB99"),
 		}
 	}
 },
+
+#endif /* disabled */
+
 {
 	/*
 	 * The AudioBox USB advertises S24_3LE as the only supported format
@@ -2700,7 +2703,6 @@ YAMAHA_DEVICE(0x7010, "UB99"),
 		}
 	}
 },
-#endif /* disabled */
 
 {
 	/*
