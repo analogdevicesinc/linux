@@ -3832,6 +3832,10 @@ again:
 		c->width = new_primary_width;
 	}
 
+	/* whatever we do, downgrading removes NPCA */
+	c->npca_chan = NULL;
+	c->npca_punctured = 0;
+
 	/*
 	 * With an 80 MHz channel, we might have the puncturing in the primary
 	 * 40 Mhz channel, but that's not valid when downgraded to 40 MHz width.
