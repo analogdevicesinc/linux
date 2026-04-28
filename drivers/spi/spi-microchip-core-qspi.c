@@ -92,7 +92,6 @@
 #define REG_IEN			(0x0c)
 #define REG_STATUS		(0x10)
 #define REG_DIRECT_ACCESS	(0x14)
-#define REG_UPPER_ACCESS	(0x18)
 #define REG_RX_DATA		(0x40)
 #define REG_TX_DATA		(0x44)
 #define REG_X4_RX_DATA		(0x48)
