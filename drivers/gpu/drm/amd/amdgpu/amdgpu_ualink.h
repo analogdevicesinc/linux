@@ -76,6 +76,8 @@ enum AMDGPU_UALINK_PROTOCOL_MESSAGES {
 	AMDGPU_UALINK_NPA_REQ_MSG			= 3,
 	AMDGPU_UALINK_NPA_RSP_MSG			= 4,
 	AMDGPU_UALINK_NPA_FAIL_MSG			= 5,
+	AMDGPU_UALINK_NPA_REVOKE_MSG			= 6,
+	AMDGPU_UALINK_NPA_RELEASE_MSG			= 7,
 	AMDGPU_UALINK_MAX_PROTOCOL_MSG
 };
 
@@ -354,4 +356,5 @@ int amdgpu_ualink_export_handle(struct drm_device *dev, struct drm_file *filp,
 int amdgpu_ualink_import_handle(struct drm_device *dev,
 				const struct amdgpu_ualink_handle *ualink_handle,
 				int *fd_out);
+void amdgpu_ualink_revoke_exported_memory(struct amdgpu_bo *bo);
 #endif

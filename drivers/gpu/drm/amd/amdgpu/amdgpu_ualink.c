@@ -1298,6 +1298,48 @@ static void amdgpu_ualink_imp_xa_entry_put(struct amdgpu_ualink_imp_xa_node *imp
 	kref_put(&imp_xa_node->refcount, amdgpu_ualink_cleanup_imp_xa_node);
 }
 
+static int amdgpu_ualink_send_npa_release_msg(struct amdgpu_device *adev,
+				    u32 remote_acc_id,
+				    struct amdgpu_ualink_handle handle)
+{
+	u32 dw0, dw1, dw2, dw3;
+
+	dw0 = lower_32_bits(handle.handle_lo);
+	dw0 &= ~AMDGPU_UALINK_MESSAGE_HEADER_MASK;
+	dw0 |= AMDGPU_UALINK_NPA_RELEASE_MSG;
+
+	dw1 = upper_32_bits(handle.handle_lo);
+	dw2 = lower_32_bits(handle.handle_hi);
+	dw3 = upper_32_bits(handle.handle_hi);
+
+	dev_dbg(adev->dev, "SEND NPA-RELEASE: remote_acc_id %u handle %llx:%llx dw[0-3] 0x%x 0x%x 0x%x 0x%x\n",
+		remote_acc_id, handle.handle_hi, handle.handle_lo, dw0, dw1, dw2, dw3);
+
+	return amdgpu_ualink_remote_interrupt(adev, remote_acc_id, dw0, dw1,
+					      dw2, dw3);
+}
+
+static int amdgpu_ualink_send_npa_revoke_msg(struct amdgpu_device *adev,
+					u32 remote_acc_id,
+					struct amdgpu_ualink_handle handle)
+{
+	u32 dw0, dw1, dw2, dw3;
+
+	dw0 = lower_32_bits(handle.handle_lo);
+	dw0 &= ~AMDGPU_UALINK_MESSAGE_HEADER_MASK;
+	dw0 |= AMDGPU_UALINK_NPA_REVOKE_MSG;
+
+	dw1 = upper_32_bits(handle.handle_lo);
+	dw2 = lower_32_bits(handle.handle_hi);
+	dw3 = upper_32_bits(handle.handle_hi);
+
+	dev_dbg(adev->dev, "SEND NPA-REVOKE: remote_acc_id %u handle %llx:%llx dw[0-3] 0x%x 0x%x 0x%x 0x%x\n",
+		remote_acc_id, handle.handle_hi, handle.handle_lo, dw0, dw1, dw2, dw3);
+
+	return amdgpu_ualink_remote_interrupt(adev, remote_acc_id, dw0, dw1,
+					      dw2, dw3);
+}
+
 static int amdgpu_ualink_send_npa_fail_msg(struct amdgpu_device *adev,
 				    u32 remote_acc_id,
 				    struct amdgpu_ualink_handle handle,
@@ -1713,6 +1755,78 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 {
 }
 
+/* This function is a copy of amdgpu_dma_buf_move_notify() function.
+ * amdgpu_dma_buf_move_notify is only called for import attachments.
+ * But NPA DMABufs don't use attachments because they are imported
+ * on the same device. So we need to invalidate the GPUVM mappings
+ * manually.
+ */
+static void amdgpu_ualink_invalidate_import_mappings(struct amdgpu_bo *bo)
+{
+	struct drm_gem_object *obj = &bo->tbo.base;
+	struct ww_acquire_ctx *ticket = dma_resv_locking_ctx(obj->resv);
+	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->tbo.bdev);
+	struct ttm_operation_ctx ctx = { false, false };
+	struct ttm_placement placement = {};
+	struct amdgpu_vm_bo_base *bo_base;
+	int r;
+
+	amdgpu_bo_reserve(bo, false);
+
+	/* FIXME: This should be after the "if", but needs a fix to make sure
+	 * DMABuf imports are initialized in the right VM list.
+	 */
+	amdgpu_vm_bo_invalidate(bo, false);
+	if (!bo->tbo.resource || bo->tbo.resource->mem_type == TTM_PL_SYSTEM)
+		goto out;
+
+	r = ttm_bo_validate(&bo->tbo, &placement, &ctx);
+	if (r) {
+		dev_err(adev->dev, "Failed to invalidate NPA DMA-buf import (%d)\n",
+			r);
+		goto out;
+	}
+
+	for (bo_base = bo->vm_bo; bo_base; bo_base = bo_base->next) {
+		struct amdgpu_vm *vm = bo_base->vm;
+		struct dma_resv *resv = vm->root.bo->tbo.base.resv;
+
+		if (ticket) {
+			/* When we get an error here it means that somebody
+			 * else is holding the VM lock and updating page tables
+			 * So we can just continue here.
+			 */
+			r = dma_resv_lock(resv, ticket);
+			if (r)
+				continue;
+
+		} else {
+			/* TODO: This is more problematic and we actually need
+			 * to allow page tables updates without holding the
+			 * lock.
+			 */
+			if (!dma_resv_trylock(resv))
+				continue;
+		}
+
+		/* Reserve fences for two SDMA page table updates */
+		r = dma_resv_reserve_fences(resv, 2);
+		if (!r)
+			r = amdgpu_vm_clear_freed(adev, vm, NULL);
+		if (!r)
+			r = amdgpu_vm_handle_moved(adev, vm, ticket);
+
+		if (r && r != -EBUSY)
+			dev_err(adev->dev, "Failed to invalidate VM page tables (%d))\n",
+				r);
+
+		dma_resv_unlock(resv);
+	}
+
+out:
+	amdgpu_bo_unreserve(bo);
+}
+
 static int amdgpu_ualink_map_npa_to_dmabuf(struct amdgpu_device *adev,
 				struct amdgpu_ualink_imp_xa_node *imp_xa_node)
 {
@@ -1791,6 +1905,141 @@ err_reserve_failed:
 	drm_gem_object_put(gobj);
 
 	return r;
+}
+
+void amdgpu_ualink_revoke_exported_memory(struct amdgpu_bo *bo)
+{
+	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->tbo.bdev);
+	struct amdgpu_ualink_importer_entry *imp_entry;
+	struct amdgpu_ualink_exp_xa_node *exp_xa_node;
+	u32 remote_acc_id;
+	int r;
+
+	if (!bo->ualink_handle_lo)
+		return;
+
+	/* Remove the entry from the Xarray. */
+	xa_lock(&adev->ualink.exp_xa);
+	exp_xa_node = __xa_erase(&adev->ualink.exp_xa,
+				 bo->ualink_handle_lo);
+	if (!exp_xa_node) {
+		xa_unlock(&adev->ualink.exp_xa);
+		dev_warn(adev->dev,
+			 "Exp XA: handle_lo:%llx not found\n",
+			 bo->ualink_handle_lo);
+		return;
+	}
+
+	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
+			 AMDGPU_UALINK_ACCEL_MAX) {
+		imp_entry = &exp_xa_node->importer_entries[remote_acc_id];
+		list_del_init(&imp_entry->list);
+	}
+	xa_unlock(&adev->ualink.exp_xa);
+
+	/* Add it to the Handle_Invalid xarray */
+	r = xa_err(xa_store(&adev->ualink.handle_invalid_xa,
+			    bo->ualink_handle_lo,
+			    exp_xa_node, GFP_KERNEL));
+	if (r)
+		dev_err(adev->dev,
+			"Handle_Invalid XA store failed handle:%llx:%llx error:%d\n",
+			exp_xa_node->handle.handle_hi,
+			exp_xa_node->handle.handle_lo, r);
+
+	amdgpu_ualink_exp_xa_entry_put(exp_xa_node);
+}
+
+static void amdgpu_ualink_process_npa_release_msg(struct amdgpu_device *adev,
+						 u32 remote_acc_id,
+						 struct amdgpu_ualink_handle handle)
+{
+	struct amdgpu_ualink_exp_xa_node *exp_xa_node;
+
+	xa_lock(&adev->ualink.handle_invalid_xa);
+	exp_xa_node = xa_load(&adev->ualink.handle_invalid_xa, handle.handle_lo);
+	if (!exp_xa_node) {
+		dev_warn(adev->dev,
+			 "NPA-RELEASE: Handle (%llx:%llx) not found\n",
+			 handle.handle_hi, handle.handle_lo);
+		goto out;
+	}
+
+	/* Confirm that the complete handle matches. */
+	if (handle.handle_hi != exp_xa_node->handle.handle_hi) {
+		dev_warn(adev->dev,
+			 "NPA-RELEASE: handle_hi mismatch exp:%llx got:%llx:%llx remote:%u\n",
+			 exp_xa_node->handle.handle_hi,
+			 handle.handle_hi, handle.handle_lo, remote_acc_id);
+		goto out;
+	}
+
+	/* Test and clear the bit corresponding to the remote GPU id to signal
+	 * the arrival of NPA_RELEASE message from it.
+	 * If the corresponding bit wasn't set, then raise a warning and ignore
+	 * the NPA-Release message from the remote GPU.
+	 */
+	if (!test_and_clear_bit(remote_acc_id, exp_xa_node->npa_release_bitmap)) {
+		dev_warn(adev->dev,
+			 "NPA-RELEASE: unexpected from remote:%u handle:%llx:%llx\n",
+			 remote_acc_id, handle.handle_hi, handle.handle_lo);
+		goto out;
+	}
+
+	/* Signal completion if NPA_Release received from all importers */
+	if (bitmap_empty(exp_xa_node->npa_release_bitmap,
+			 AMDGPU_UALINK_ACCEL_MAX))
+		complete(&exp_xa_node->npa_done);
+
+out:
+	xa_unlock(&adev->ualink.handle_invalid_xa);
+}
+
+static void amdgpu_ualink_process_npa_revoke_msg(struct amdgpu_device *adev,
+						u32 remote_acc_id,
+						struct amdgpu_ualink_handle handle)
+{
+	struct amdgpu_ualink_imp_xa_node *imp_xa_node;
+	struct amdgpu_bo *bo;
+	int r = 0;
+
+	/* Remove the entry from the Xarray. */
+	xa_lock(&adev->ualink.imp_xa);
+	imp_xa_node = xa_load(&adev->ualink.imp_xa, handle.handle_lo);
+	if (!imp_xa_node) {
+		xa_unlock(&adev->ualink.imp_xa);
+		dev_warn(adev->dev,
+			 "NPA-REVOKE: Handle (%llx:%llx) not found\n",
+			 handle.handle_hi, handle.handle_lo);
+		return;
+	}
+
+	/* Confirm that the complete handle matches. */
+	if (handle.handle_hi != imp_xa_node->handle.handle_hi) {
+		xa_unlock(&adev->ualink.imp_xa);
+		dev_warn(adev->dev,
+			 "NPA-REVOKE: handle_hi mismatch exp:%llx got:%llx:%llx remote:%u\n",
+			 imp_xa_node->handle.handle_hi,
+			 handle.handle_hi, handle.handle_lo, remote_acc_id);
+		return;
+	}
+
+	WRITE_ONCE(imp_xa_node->node_state, AMDGPU_UALINK_NODE_TEARDOWN);
+	list_del_init(&imp_xa_node->list);
+	xa_unlock(&adev->ualink.imp_xa);
+
+	/* Invalidate the GPUVM mappings */
+	bo = gem_to_amdgpu_bo(imp_xa_node->dmabuf->priv);
+	amdgpu_ualink_invalidate_import_mappings(bo);
+
+	/* Drop the refcount for the node */
+	amdgpu_ualink_imp_xa_entry_put(imp_xa_node);
+
+	r = amdgpu_ualink_send_npa_release_msg(adev, remote_acc_id, handle);
+	if (r)
+		dev_err(adev->dev,
+			"NPA-Release send failed remote:%u handle:%llx:%llx error:%d\n",
+			remote_acc_id, handle.handle_hi, handle.handle_lo, r);
 }
 
 static void amdgpu_ualink_process_npa_fail_msg(struct amdgpu_device *adev,
