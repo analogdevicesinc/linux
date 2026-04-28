@@ -65,35 +65,43 @@ request, where user provides attributes that result in single pin match.
 Pin selection
 =============
 
-In general, selected pin (the one which signal is driving the dpll
-device) can be obtained from ``DPLL_A_PIN_STATE`` attribute, and only
-one pin shall be in ``DPLL_PIN_STATE_CONNECTED`` state for any dpll
-device.
+Pin state (``DPLL_A_PIN_STATE``) reflects the administrative intent set
+by the user. Pin operational state (``DPLL_A_PIN_OPERSTATE``) reflects
+what the hardware is actually doing with the pin.
 
 Pin selection can be done either manually or automatically, depending
 on hardware capabilities and active dpll device work mode
 (``DPLL_A_MODE`` attribute). The consequence is that there are
-differences for each mode in terms of available pin states, as well as
-for the states the user can request for a dpll device.
+differences for each mode in terms of available pin states the user can
+request for a dpll device.
 
-In manual mode (``DPLL_MODE_MANUAL``) the user can request or receive
-one of following pin states:
+In manual mode (``DPLL_MODE_MANUAL``) the user can request one of
+following pin states:
 
-- ``DPLL_PIN_STATE_CONNECTED`` - the pin is used to drive dpll device
-- ``DPLL_PIN_STATE_DISCONNECTED`` - the pin is not used to drive dpll
+- ``DPLL_PIN_STATE_CONNECTED`` - the pin is selected to drive dpll
   device
+- ``DPLL_PIN_STATE_DISCONNECTED`` - the pin is not selected to drive
+  dpll device
 
-In automatic mode (``DPLL_MODE_AUTOMATIC``) the user can request or
-receive one of following pin states:
+In automatic mode (``DPLL_MODE_AUTOMATIC``) the user can request one of
+following pin states:
 
 - ``DPLL_PIN_STATE_SELECTABLE`` - the pin shall be considered as valid
   input for automatic selection algorithm
 - ``DPLL_PIN_STATE_DISCONNECTED`` - the pin shall be not considered as
   a valid input for automatic selection algorithm
 
-In automatic mode (``DPLL_MODE_AUTOMATIC``) the user can only receive
-pin state ``DPLL_PIN_STATE_CONNECTED`` once automatic selection
-algorithm locks a dpll device with one of the inputs.
+The actual hardware status of a pin is reported via the operational
+state (``DPLL_A_PIN_OPERSTATE``) attribute nested under the parent
+device:
+
+- ``DPLL_PIN_OPERSTATE_ACTIVE`` - pin is qualified and actively used
+  by the DPLL
+- ``DPLL_PIN_OPERSTATE_STANDBY`` - pin is qualified but not actively
+  used by the DPLL
+- ``DPLL_PIN_OPERSTATE_NO_SIGNAL`` - pin does not have a valid signal
+- ``DPLL_PIN_OPERSTATE_QUAL_FAILED`` - pin signal failed qualification
+  checks
 
 Shared pins
 ===========
