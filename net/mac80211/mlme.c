@@ -397,7 +397,18 @@ check_uhr:
 		const struct ieee80211_sta_uhr_cap *uhr_cap;
 		const struct ieee80211_uhr_npca_info *npca;
 
+		/* frames other than beacons carry UHR capability too */
+		if (!elems->uhr_cap)
+			return IEEE80211_CONN_MODE_EHT;
+
 		npca = ieee80211_uhr_npca_info(uhr_oper);
+
+		if (npca && !(elems->uhr_cap->mac.mac_cap[0] &
+				IEEE80211_UHR_MAC_CAP0_NPCA_SUPP)) {
+			sdata_info(sdata,
+				   "AP without UHR NPCA capability uses it, disabling UHR\n");
+			return IEEE80211_CONN_MODE_EHT;
+		}
 
 		/* DBE is not considered yet, so this works */
 		if (!cfg80211_chandef_npca_valid(sdata->local->hw.wiphy,
