@@ -7949,17 +7949,11 @@ static void r8156b_hw_phy_cfg(struct r8152 *tp)
 
 static void r8157_hw_phy_cfg(struct r8152 *tp)
 {
-	u32 ocp_data;
 	u16 data;
-	int ret;
 
 	r8156b_wait_loading_flash(tp);
 
-	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_MISC_0);
-	if (ocp_data & PCUT_STATUS) {
-		ocp_data &= ~PCUT_STATUS;
-		ocp_write_word(tp, MCU_TYPE_USB, USB_MISC_0, ocp_data);
-	}
+	ocp_word_test_and_clr_bits(tp, MCU_TYPE_USB, USB_MISC_0, PCUT_STATUS);
 
 	data = r8153_phy_status(tp, 0);
 	switch (data) {
@@ -7973,19 +7967,13 @@ static void r8157_hw_phy_cfg(struct r8152 *tp)
 		break;
 	}
 
-	data = r8152_mdio_read(tp, MII_BMCR);
-	if (data & BMCR_PDOWN) {
-		data &= ~BMCR_PDOWN;
-		r8152_mdio_write(tp, MII_BMCR, data);
-	}
+	r8152_mdio_test_and_clr_bit(tp, MII_BMCR, BMCR_PDOWN);
 
 	r8153_aldps_en(tp, false);
 	rtl_eee_enable(tp, false);
 
-	ret = r8153_phy_status(tp, PHY_STAT_LAN_ON);
-	if (ret < 0)
-		return;
-	WARN_ON_ONCE(ret != PHY_STAT_LAN_ON);
+	data = r8153_phy_status(tp, PHY_STAT_LAN_ON);
+	WARN_ON_ONCE(data != PHY_STAT_LAN_ON);
 
 	/* PFM mode */
 	ocp_word_clr_bits(tp, MCU_TYPE_PLA, PLA_PHY_PWR, PFM_PWM_SWITCH);
