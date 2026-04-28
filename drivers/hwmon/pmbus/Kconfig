@@ -311,6 +311,16 @@ config SENSORS_LTC4286
 	  If you say yes here you get hardware monitoring support for Analog
 	  Devices LTC4286.
 
+config SENSORS_LX1308
+	tristate "Luxshare LX1308 DC/DC Power Module"
+	help
+	  If you say yes here you get hardware monitoring support for
+	  Luxshare LX1308, a high-efficiency 12V 860W DC/DC power module
+	  with PMBus interface.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called lx1308.
+
 config SENSORS_MAX15301
 	tristate "Maxim MAX15301"
 	help
