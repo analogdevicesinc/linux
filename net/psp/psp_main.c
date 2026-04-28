@@ -90,6 +90,10 @@ psp_dev_create(struct net_device *netdev,
 	mutex_lock(&psd->lock);
 	mutex_unlock(&psp_devs_lock);
 
+	/* notify before netdev assignment
+	 * There's no strong reason for it, but thinking is to avoid creating
+	 * implicit expectations about the PSP dev <> netdev relationship.
+	 */
 	psp_nl_notify_dev(psd, PSP_CMD_DEV_ADD_NTF);
 
 	rcu_assign_pointer(netdev->psp_dev, psd);
