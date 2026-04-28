@@ -927,14 +927,24 @@ static s32 select_cpu_from_kfunc(struct scx_sched *sch, struct task_struct *p,
 	 * Accessing p->cpus_ptr / p->nr_cpus_allowed needs either @p's rq
 	 * lock or @p's pi_lock. Three cases:
 	 *
-	 *  - inside ops.select_cpu(): try_to_wake_up() holds @p's pi_lock.
+	 *  - inside ops.select_cpu(): try_to_wake_up() holds the wake-up
+	 *    task's pi_lock; the wake-up task is recorded in kf_tasks[0]
+	 *    by SCX_CALL_OP_TASK_RET().
 	 *  - other rq-locked SCX op: scx_locked_rq() points at the held rq.
 	 *  - truly unlocked (UNLOCKED ops, SYSCALL, non-SCX struct_ops):
 	 *    nothing held, take pi_lock ourselves.
+	 *
+	 * In the first two cases, BPF schedulers may pass an arbitrary task
+	 * that the held lock doesn't cover. Refuse those.
 	 */
 	if (this_rq()->scx.in_select_cpu) {
+		if (!scx_kf_arg_task_ok(sch, p))
+			return -EINVAL;
 		lockdep_assert_held(&p->pi_lock);
-	} else if (!scx_locked_rq()) {
+	} else if (scx_locked_rq()) {
+		if (task_rq(p) != scx_locked_rq())
+			goto cross_task;
+	} else {
 		raw_spin_lock_irqsave(&p->pi_lock, irq_flags);
 		we_locked = true;
 	}
@@ -960,6 +970,11 @@ static s32 select_cpu_from_kfunc(struct scx_sched *sch, struct task_struct *p,
 		raw_spin_unlock_irqrestore(&p->pi_lock, irq_flags);
 
 	return cpu;
+
+cross_task:
+	scx_error(sch, "select_cpu kfunc called cross-task on %s[%d]",
+		  p->comm, p->pid);
+	return -EINVAL;
 }
 
 /**
@@ -1467,6 +1482,7 @@ BTF_KFUNCS_END(scx_kfunc_ids_idle)
 static const struct btf_kfunc_id_set scx_kfunc_set_idle = {
 	.owner			= THIS_MODULE,
 	.set			= &scx_kfunc_ids_idle,
+	.filter			= scx_kfunc_context_filter,
 };
 
 /*
