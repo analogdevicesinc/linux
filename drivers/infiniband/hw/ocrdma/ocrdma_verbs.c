@@ -215,7 +215,7 @@ static void ocrdma_del_mmap(struct ocrdma_ucontext *uctx, u64 phy_addr,
 
 	mutex_lock(&uctx->mm_list_lock);
 	list_for_each_entry_safe(mm, tmp, &uctx->mm_head, entry) {
-		if (len != mm->key.len && phy_addr != mm->key.phy_addr)
+		if (len != mm->key.len || phy_addr != mm->key.phy_addr)
 			continue;
 
 		list_del(&mm->entry);
@@ -233,7 +233,7 @@ static bool ocrdma_search_mmap(struct ocrdma_ucontext *uctx, u64 phy_addr,
 
 	mutex_lock(&uctx->mm_list_lock);
 	list_for_each_entry(mm, &uctx->mm_head, entry) {
-		if (len != mm->key.len && phy_addr != mm->key.phy_addr)
+		if (len != mm->key.len || phy_addr != mm->key.phy_addr)
 			continue;
 
 		found = true;
