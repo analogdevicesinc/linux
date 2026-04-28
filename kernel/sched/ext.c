@@ -6,8 +6,6 @@
  * Copyright (c) 2022 Tejun Heo <tj@kernel.org>
  * Copyright (c) 2022 David Vernet <dvernet@meta.com>
  */
-#include <linux/btf_ids.h>
-#include "ext_idle.h"
 
 static DEFINE_RAW_SPINLOCK(scx_sched_lock);
 

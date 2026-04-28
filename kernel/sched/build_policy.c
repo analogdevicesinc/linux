@@ -58,7 +58,9 @@
 #include "deadline.c"
 
 #ifdef CONFIG_SCHED_CLASS_EXT
+# include <linux/btf_ids.h>
 # include "ext_internal.h"
+# include "ext_idle.h"
 # include "ext.c"
 # include "ext_idle.c"
 #endif
