@@ -47,8 +47,8 @@ static struct hns_roce_qp *hns_roce_qp_lookup(struct hns_roce_dev *hr_dev,
 
 	xa_lock_irqsave(&hr_dev->qp_table_xa, flags);
 	qp = __hns_roce_qp_lookup(hr_dev, qpn);
-	if (qp)
-		refcount_inc(&qp->refcount);
+	if (qp && !refcount_inc_not_zero(&qp->refcount))
+		qp = NULL;
 	xa_unlock_irqrestore(&hr_dev->qp_table_xa, flags);
 
 	if (!qp)
@@ -1251,8 +1251,8 @@ static int hns_roce_create_qp_common(struct hns_roce_dev *hr_dev,
 
 	hr_qp->ibqp.qp_num = hr_qp->qpn;
 	hr_qp->event = hns_roce_ib_qp_event;
-	refcount_set(&hr_qp->refcount, 1);
 	init_completion(&hr_qp->free);
+	refcount_set_release(&hr_qp->refcount, 1);
 
 	return 0;
 
