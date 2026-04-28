@@ -38,12 +38,44 @@ struct amdgpu_device;
 #define AMDGPU_UALINK_RESP_TIMEOUT			5000 /* 5s timeout */
 
 #define AMDGPU_UALINK_HANDLE_ACCID_MASK			GENMASK_ULL(9, 0)
+#define AMDGPU_UALINK_MESSAGE_HEADER_MASK		GENMASK_ULL(9, 0)
 #define AMDGPU_UALINK_HELLO_MSG_RECV_ACCID_SHIFT	10
 #define AMDGPU_UALINK_HELLO_MSG_SENDER_ACCID_SHIFT	20
+#define AMDGPU_UALINK_NPA_FAIL_MSG_FAIL_REASON_MASK	GENMASK_U32(7, 0)
+
+/* GPU-ID is stored in bits 41-50 of the NPA address. However, we
+ * store NPA address is GPU PAGE aligned so bottom 12 bits are not used.
+ * As a result, we need the GPU-ID shift to be 41 - 12 = 29.
+ */
+#define AMDGPU_UALINK_NPA_ADDR_GPUID_SHIFT		29
+#define AMDGPU_UALINK_NPA_ADDR_GPUID_MASK		GENMASK_ULL(38, 29)
+/* Reserve 2M in each 2TB range for ring buffer allocations for
+ * remote interrupts. In terms of GPU pages, this is 2M / 4K = 512 pages.
+ * So we reserve 512 pages in each 2TB range.
+ */
+#define AMDGPU_UALINK_NPA_ADDR_RANGE_RESERVED		(1U << 9)
+#define AMDGPU_UALINK_NPA_ADDR_RANGE_MASK		GENMASK_ULL(28, 0)
+
+enum AMDGPU_UALINK_NPA_FAIL_REASON {
+	AMDGPU_UALINK_NPA_FAIL_NOSPACE			= 1,
+	AMDGPU_UALINK_NPA_FAIL_INVALID_HANDLE		= 2,
+	AMDGPU_UALINK_NPA_FAIL_DUPLICATE		= 3,
+	AMDGPU_UALINK_NPA_FAIL_ERROR			= 4,
+};
+
+enum AMDGPU_UALINK_NODE_STATE {
+	AMDGPU_UALINK_NODE_NOT_READY			= 0,
+	AMDGPU_UALINK_NODE_PENDING			= 1,
+	AMDGPU_UALINK_NODE_READY			= 2,
+	AMDGPU_UALINK_NODE_TEARDOWN			= 3
+};
 
 enum AMDGPU_UALINK_PROTOCOL_MESSAGES {
 	AMDGPU_UALINK_HELLO_MSG				= 1,
 	AMDGPU_UALINK_HELLO_ACK_MSG			= 2,
+	AMDGPU_UALINK_NPA_REQ_MSG			= 3,
+	AMDGPU_UALINK_NPA_RSP_MSG			= 4,
+	AMDGPU_UALINK_NPA_FAIL_MSG			= 5,
 	AMDGPU_UALINK_MAX_PROTOCOL_MSG
 };
 
@@ -146,6 +178,44 @@ struct amdgpu_ualink_handle {
 		};
 		u64 handle[2];
 	};
+};
+
+struct amdgpu_ualink_imp_xa_node {
+	struct amdgpu_device		*adev;
+
+	/* 128-bit handle for the BO */
+	struct amdgpu_ualink_handle	handle;
+
+	/* Use to signal NPA-RSP arrival */
+	struct completion		npa_done;
+
+	/* NPA address received in the NPA-RSP message */
+	u64				npa_addr;
+	u64				size;
+
+	/* GEM handle for the NPA BO */
+	u32				gem_handle;
+
+	/* Fail reason received in NPA-FAIL message */
+	int				fail_reason;
+
+	/* Node state to signal if node setup is in progress
+	 * or is already completed. Node state goes back to
+	 * in progress if a HELLO message is received in
+	 * response to NPA-REQ message.
+	 */
+	enum AMDGPU_UALINK_NODE_STATE	node_state;
+
+	/* Used to connect all importer XA nodes from a particular
+	 * exporter.
+	 */
+	struct list_head		list;
+
+	/* Dmabuf corresponding to the NPA BO */
+	struct dma_buf			*dmabuf;
+
+	/* Refcount to track lifetime of this node */
+	struct kref			refcount;
 };
 
 struct amdgpu_ualink_npa_mm {
@@ -281,4 +351,7 @@ void amdgpu_ualink_manager_stop(struct amdgpu_device *adev);
 int amdgpu_ualink_export_handle(struct drm_device *dev, struct drm_file *filp,
 				u32 gem_handle,
 				struct amdgpu_ualink_handle *handle_out);
+int amdgpu_ualink_import_handle(struct drm_device *dev,
+				const struct amdgpu_ualink_handle *ualink_handle,
+				int *fd_out);
 #endif
