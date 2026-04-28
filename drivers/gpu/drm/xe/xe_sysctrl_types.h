@@ -31,6 +31,9 @@ struct xe_sysctrl {
 
 	/** @work: Pending events worker */
 	struct work_struct work;
+
+	/** @event_lock: Mutex protecting pending events */
+	struct mutex event_lock;
 };
 
 #endif

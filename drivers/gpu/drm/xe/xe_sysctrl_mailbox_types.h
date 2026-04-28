@@ -11,6 +11,24 @@
 #include "abi/xe_sysctrl_abi.h"
 
 /**
+ * enum xe_sysctrl_group - System Controller command groups
+ *
+ * @XE_SYSCTRL_GROUP_GFSP: GFSP group
+ */
+enum xe_sysctrl_group {
+	XE_SYSCTRL_GROUP_GFSP			= 0x01,
+};
+
+/**
+ * enum xe_sysctrl_gfsp_cmd - Commands supported by GFSP group
+ *
+ * @XE_SYSCTRL_CMD_GET_PENDING_EVENT: Retrieve pending event
+ */
+enum xe_sysctrl_gfsp_cmd {
+	XE_SYSCTRL_CMD_GET_PENDING_EVENT	= 0x07,
+};
+
+/**
  * struct xe_sysctrl_mailbox_command - System Controller mailbox command
  */
 struct xe_sysctrl_mailbox_command {
