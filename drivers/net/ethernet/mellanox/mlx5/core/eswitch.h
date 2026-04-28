@@ -36,6 +36,7 @@
 #include <linux/if_ether.h>
 #include <linux/if_link.h>
 #include <linux/atomic.h>
+#include <linux/wait.h>
 #include <linux/xarray.h>
 #include <net/devlink.h>
 #include <linux/mlx5/device.h>
@@ -385,6 +386,7 @@ struct mlx5_eswitch {
 	 */
 	struct rw_semaphore mode_lock;
 	atomic64_t user_count;
+	wait_queue_head_t work_queue_wait;
 
 	/* Protected with the E-Switch qos domain lock. */
 	struct {

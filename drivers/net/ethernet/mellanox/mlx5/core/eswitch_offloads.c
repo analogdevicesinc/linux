@@ -3694,21 +3694,38 @@ static void esw_wq_handler(struct work_struct *work)
 	struct mlx5_host_work *host_work;
 	struct mlx5_eswitch *esw;
 	struct devlink *devlink;
+	int work_gen;
 
 	host_work = container_of(work, struct mlx5_host_work, work);
 	esw = host_work->esw;
+	work_gen = host_work->work_gen;
 	devlink = priv_to_devlink(esw->dev);
 
-	devl_lock(devlink);
+	/* Do not block on devlink lock until stale work is filtered out.
+	 * Teardown can invalidate the generation and then wait for this
+	 * workqueue while holding devlink lock.
+	 */
+	for (;;) {
+		if (work_gen != atomic_read(&esw->generation))
+			goto free;
+
+		if (devl_trylock(devlink))
+			break;
+
+		wait_event_timeout(esw->work_queue_wait,
+				   work_gen != atomic_read(&esw->generation),
+				   msecs_to_jiffies(60));
+	}
 
 	/* Stale work from one or more mode changes ago. Bail out. */
-	if (host_work->work_gen != atomic_read(&esw->generation))
+	if (work_gen != atomic_read(&esw->generation))
 		goto unlock;
 
 	host_work->func(esw);
 
 unlock:
 	devl_unlock(devlink);
+free:
 	kfree(host_work);
 }
 
