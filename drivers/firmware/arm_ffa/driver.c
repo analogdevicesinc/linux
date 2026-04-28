@@ -1543,7 +1543,7 @@ static void notif_pcpu_irq_work_fn(struct work_struct *work)
 						 notif_pcpu_work);
 	struct ffa_drv_info *info = pcpu->info;
 
-	ffa_self_notif_handle(smp_processor_id(), true, info);
+	notif_get_and_handle(info);
 }
 
 static const struct ffa_info_ops ffa_drv_info_ops = {
