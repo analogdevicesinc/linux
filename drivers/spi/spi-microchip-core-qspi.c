@@ -604,7 +604,7 @@ static int mchp_coreqspi_prepare_message(struct spi_controller *ctlr, struct spi
 	ret = mchp_coreqspi_wait_for_ready(qspi);
 	if (ret) {
 		mutex_unlock(&qspi->op_lock);
-		dev_err(&ctlr->dev, "Timeout waiting on QSPI ready.\n");
+		dev_err(&m->spi->dev, "Timeout waiting on QSPI ready.\n");
 		return ret;
 	}
 
