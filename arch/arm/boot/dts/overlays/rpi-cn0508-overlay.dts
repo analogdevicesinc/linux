@@ -3,7 +3,7 @@
 /plugin/;
 
 / {
-	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2712";
 
 	fragment@0 {
 		target = <&spi0_cs_pins>;
@@ -75,12 +75,14 @@
 			#size-cells = <0>;
 			status = "okay";
 
-			adc@1 {
+			ad7124: adc@1 {
 				compatible = "adi,ad7124-4";
 				reg = <1>;
 				spi-max-frequency = <5000000>;
-				interrupts = <23 2>;
+				interrupts = <23 8>; // active-low level
 				interrupt-parent = <&gpio>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&cn0508_irq_pin>;
 				refin1-supply = <&vref>;
 
 				#address-cells = <1>;
@@ -227,6 +229,17 @@
 				compatible = "gpio-backlight";
 				gpios = <&stmpe_gpio 2 0>;
 				default-on;
+			};
+		};
+	};
+
+	fragment@10 {
+		target = <&gpio>;
+		__overlay__ {
+			cn0508_irq_pin: cn0508_irq_pin {
+				brcm,pins = <23>; /* IRQ GPIO */
+				brcm,function = <0>; /* input */
+				brcm,pull = <2>; /* pull-up */
 			};
 		};
 	};
