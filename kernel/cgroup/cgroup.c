@@ -5059,10 +5059,12 @@ repeat:
 
 	task = list_entry(it->task_pos, struct task_struct, cg_list);
 	/*
-	 * Hide tasks that are exiting but not yet removed. Keep zombie
-	 * leaders with live threads visible.
+	 * Hide tasks that are exiting but not yet removed by default. Keep
+	 * zombie leaders with live threads visible. Usages that need to walk
+	 * every existing task can opt out via CSS_TASK_ITER_WITH_DEAD.
 	 */
-	if ((task->flags & PF_EXITING) && !atomic_read(&task->signal->live))
+	if (!(it->flags & CSS_TASK_ITER_WITH_DEAD) &&
+	    (task->flags & PF_EXITING) && !atomic_read(&task->signal->live))
 		goto repeat;
 
 	if (it->flags & CSS_TASK_ITER_PROCS) {

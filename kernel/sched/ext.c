@@ -766,7 +766,8 @@ static void scx_task_iter_start(struct scx_task_iter *iter, struct cgroup *cgrp)
 		lockdep_assert_held(&cgroup_mutex);
 		iter->cgrp = cgrp;
 		iter->css_pos = css_next_descendant_pre(NULL, &iter->cgrp->self);
-		css_task_iter_start(iter->css_pos, 0, &iter->css_iter);
+		css_task_iter_start(iter->css_pos, CSS_TASK_ITER_WITH_DEAD,
+				    &iter->css_iter);
 		return;
 	}
 #endif
@@ -866,7 +867,8 @@ static struct task_struct *scx_task_iter_next(struct scx_task_iter *iter)
 			iter->css_pos = css_next_descendant_pre(iter->css_pos,
 								&iter->cgrp->self);
 			if (iter->css_pos)
-				css_task_iter_start(iter->css_pos, 0, &iter->css_iter);
+				css_task_iter_start(iter->css_pos, CSS_TASK_ITER_WITH_DEAD,
+						    &iter->css_iter);
 		}
 		return NULL;
 	}
