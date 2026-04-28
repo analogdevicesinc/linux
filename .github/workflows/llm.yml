@@ -115,7 +115,9 @@ jobs:
           extract register maps from datasheets and should work on most cases.
 
           A sitemap with all pdfs, including the datasheets, is available at:
-            https://www.analog.com/media/en/en-pdf-sitemap.xml
+            https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling/en-pdf-sitemap.xml
+            (mirror of https://www.analog.com/media/en/en-pdf-sitemap.xml)
+
           EOF
 
           cat <<'EOF' >> "$prompt_file"
