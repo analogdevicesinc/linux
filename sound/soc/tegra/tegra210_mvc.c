@@ -438,6 +438,9 @@ static int tegra210_mvc_set_audio_cif(struct tegra210_mvc *mvc,
 	channels = params_channels(params);
 
 	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S8:
+		audio_bits = TEGRA_ACIF_BITS_8;
+		break;
 	case SNDRV_PCM_FORMAT_S16_LE:
 		audio_bits = TEGRA_ACIF_BITS_16;
 		break;
