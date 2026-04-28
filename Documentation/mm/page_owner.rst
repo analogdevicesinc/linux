@@ -74,7 +74,17 @@ Usage
 
 3) Do the job that you want to debug.
 
-4) Analyze information from page owner::
+4) (Optional) Use filters to focus on specific memory allocations::
+
+    cd /sys/kernel/debug/page_owner_filter
+
+    # Print only stack handles instead of full traces
+    echo 1 > print_mode
+
+    # Filter by NUMA nodes
+    echo "0,2-3" > nid
+
+5) Analyze information from page owner::
 
 	cat /sys/kernel/debug/page_owner_stacks/show_stacks > stacks.txt
 	cat stacks.txt
@@ -237,6 +247,49 @@ Usage
 				./page_owner_sort <input> <output> --pid=1
 				./page_owner_sort <input> <output> --tgid=1,2,3
 				./page_owner_sort <input> <output> --name name1,name2
+
+Page Owner Filters
+==================
+
+The page_owner feature provides filtering capabilities to focus on specific
+memory allocations (e.g., by NUMA node). Filters are controlled through debugfs
+files in ``/sys/kernel/debug/page_owner_filter/``.
+
+Print Mode Filter
+-----------------
+
+The ``print_mode`` file controls the level of detail in stack trace output.
+
+Available modes:
+
+- ``0`` (default): Print full stack traces
+- ``1``: Print only stack handles
+
+The ``print_mode=1`` output format::
+
+    Page allocated via order 0, mask 0x42800(GFP_NOWAIT|__GFP_COMP),
+    pid 1, tgid 1 (systemd), ts 349667370 ns
+    PFN 0xa00a2 type Unmovable Block 1280 type Unmovable
+    Flags 0x33fffe0000004124(...)
+    handle: 17432583
+
+To retrieve the full stack trace for a handle, use::
+
+    cat /sys/kernel/debug/page_owner_stacks/show_stacks_handles
+
+NUMA Node Filter
+----------------
+
+The ``nid`` file filters pages by NUMA node. This is useful for NUMA-aware
+environments to analyze node-specific memory allocation.
+
+Supported input formats:
+
+- Single node: ``echo "2" > nid``
+- Multiple nodes: ``echo "0,2,3" > nid``
+- Node range: ``echo "0-3" > nid``
+- Mixed format: ``echo "0,2-4,7" > nid``
+- Disable filter: ``echo "-1" > nid``
 
 STANDARD FORMAT SPECIFIERS
 ==========================
