@@ -460,9 +460,6 @@ bool cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 		return false;
 
 	if (chandef->npca_chan) {
-		bool pri_upper, npca_upper;
-		u32 cf1;
-
 		switch (chandef->width) {
 		case NL80211_CHAN_WIDTH_80:
 		case NL80211_CHAN_WIDTH_160:
@@ -471,24 +468,6 @@ bool cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 		default:
 			return false;
 		}
-
-		if (!cfg80211_chandef_valid_control_freq(chandef,
-							 chandef->npca_chan->center_freq))
-			return false;
-
-		cf1 = chandef->center_freq1;
-		pri_upper = chandef->chan->center_freq > cf1;
-		npca_upper = chandef->npca_chan->center_freq > cf1;
-
-		if (pri_upper == npca_upper)
-			return false;
-
-		if (!valid_puncturing_bitmap(chandef,
-					     chandef->npca_chan->center_freq,
-					     chandef->npca_punctured) ||
-		    (chandef->punctured & chandef->npca_punctured) !=
-		    chandef->punctured)
-			return false;
 	} else if (chandef->npca_punctured) {
 		return false;
 	}
@@ -555,6 +534,44 @@ int cfg80211_chandef_primary(const struct cfg80211_chan_def *c,
 	return center;
 }
 EXPORT_SYMBOL(cfg80211_chandef_primary);
+
+bool cfg80211_chandef_npca_valid(struct wiphy *wiphy,
+				 const struct cfg80211_chan_def *chandef,
+				 const struct ieee80211_uhr_npca_info *npca)
+{
+	struct cfg80211_chan_def tmp = *chandef;
+	bool pri_upper, npca_upper;
+	u32 cf1;
+
+	if (chandef->npca_chan || chandef->npca_punctured)
+		return false;
+
+	if (!npca)
+		return true;
+
+	if (cfg80211_chandef_add_npca(wiphy, &tmp, npca))
+		return false;
+
+	if (!cfg80211_chandef_valid_control_freq(&tmp,
+						 tmp.npca_chan->center_freq))
+		return false;
+
+	cf1 = tmp.center_freq1;
+	pri_upper = tmp.chan->center_freq > cf1;
+	npca_upper = tmp.npca_chan->center_freq > cf1;
+
+	if (pri_upper == npca_upper)
+		return false;
+
+	if (!valid_puncturing_bitmap(&tmp,
+				     tmp.npca_chan->center_freq,
+				     tmp.npca_punctured) ||
+	    (tmp.punctured & tmp.npca_punctured) != tmp.punctured)
+		return false;
+
+	return true;
+}
+EXPORT_SYMBOL(cfg80211_chandef_npca_valid);
 
 int cfg80211_chandef_add_npca(struct wiphy *wiphy,
 			      struct cfg80211_chan_def *chandef,

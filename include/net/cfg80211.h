@@ -849,6 +849,10 @@ struct key_params {
  * struct cfg80211_chan_def - channel definition
  * @chan: the (control) channel
  * @npca_chan: the NPCA primary channel
+ *	Note that if DBE is in use, this channel may appear to be
+ *	inside the primary half of the chandef. Implementations
+ *	can use the position of this channel to understand how
+ *	NPCA is used.
  * @width: channel width
  * @center_freq1: center frequency of first segment
  * @center_freq2: center frequency of second segment
@@ -864,6 +868,8 @@ struct key_params {
  * @npca_punctured: NPCA puncturing bitmap, like @punctured but for
  *	NPCA transmissions. If NPCA is used (@npca_chan is not %NULL)
  *	this will be a superset of the @punctured bimap.
+ *	Note that if DBE is used, this bitmap is also shifted to be in
+ *	accordance with the overall chandef bandwidth.
  * @s1g_primary_2mhz: Indicates if the control channel pointed to
  *	by 'chan' exists as a 1MHz primary subchannel within an
  *	S1G 2MHz primary channel.
@@ -1153,6 +1159,23 @@ cfg80211_chandef_dfs_cac_time(struct wiphy *wiphy,
 int cfg80211_chandef_primary(const struct cfg80211_chan_def *chandef,
 			     enum nl80211_chan_width primary_chan_width,
 			     u16 *punctured);
+
+/**
+ * cfg80211_chandef_npca_valid - check that NPCA information is valid
+ * @wiphy: the wiphy to check for, for channel pointer lookup
+ * @chandef: the BSS channel chandef to check against
+ * @npca: NPCA information, can be %NULL in which case this
+ *	always returns %true
+ *
+ * Note that DBE must not have been configured into the chandef yet
+ * before checking NPCA, i.e. @chandef must represent the BSS channel.
+ *
+ * Returns: %true if the NPCA channel and puncturing bitmap are valid
+ *	according to the chandef, %false otherwise
+ */
+bool cfg80211_chandef_npca_valid(struct wiphy *wiphy,
+				 const struct cfg80211_chan_def *chandef,
+				 const struct ieee80211_uhr_npca_info *npca);
 
 /**
  * cfg80211_chandef_add_npca - parse and add NPCA information to chandef

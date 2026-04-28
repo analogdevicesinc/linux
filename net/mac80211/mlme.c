@@ -406,7 +406,10 @@ check_uhr:
 
 		npca = ieee80211_uhr_npca_info(uhr_oper);
 
-		if (cfg80211_chandef_add_npca(sdata->local->hw.wiphy,
+		/* DBE is not considered yet, so this works */
+		if (!cfg80211_chandef_npca_valid(sdata->local->hw.wiphy,
+						 &npca_chandef, npca) ||
+		    cfg80211_chandef_add_npca(sdata->local->hw.wiphy,
 					      &npca_chandef, npca)) {
 			sdata_info(sdata,
 				   "AP UHR NPCA settings invalid, disabling UHR\n");
