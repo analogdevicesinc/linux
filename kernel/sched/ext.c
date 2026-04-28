@@ -1437,14 +1437,51 @@ static void local_dsq_post_enq(struct scx_sched *sch, struct scx_dispatch_q *dsq
 			       struct task_struct *p, u64 enq_flags)
 {
 	struct rq *rq = container_of(dsq, struct rq, scx.local_dsq);
-	bool preempt = false;
 
 	call_task_dequeue(sch, rq, p, 0);
+
+	/*
+	 * Note that @rq's lock may be dropped between this enqueue and @p
+	 * actually getting on CPU. This gives higher-class tasks (e.g. RT)
+	 * an opportunity to wake up on @rq and prevent @p from running.
+	 * Here are some concrete examples:
+	 *
+	 * Example 1:
+	 *
+	 * We dispatch two tasks from a single ops.dispatch():
+	 * - First, a local task to this CPU's local DSQ;
+	 * - Second, a local/remote task to a remote CPU's local DSQ.
+	 * We must drop the local rq lock in order to finish the second
+	 * dispatch. In that time, an RT task can wake up on the local rq.
+	 *
+	 * Example 2:
+	 *
+	 * We dispatch a local/remote task to a remote CPU's local DSQ.
+	 * We must drop the remote rq lock before the dispatched task can run,
+	 * which gives an RT task an opportunity to wake up on the remote rq.
+	 *
+	 * Both examples work the same if we replace dispatching with moving
+	 * the tasks from a user-created DSQ.
+	 *
+	 * We must detect these wakeups so that we can re-enqueue IMMED tasks
+	 * from @rq's local DSQ. scx_wakeup_preempt() serves exactly this
+	 * purpose, but for it to be invoked, we must ensure that we bump
+	 * @rq->next_class to &ext_sched_class if it's currently idle.
+	 *
+	 * wakeup_preempt() does the bumping, and since we only invoke it if
+	 * @rq->next_class is below &ext_sched_class, it will also
+	 * resched_curr(rq).
+	 */
+	if (sched_class_above(p->sched_class, rq->next_class))
+		wakeup_preempt(rq, p, 0);
 
 	/*
 	 * If @rq is in balance, the CPU is already vacant and looking for the
 	 * next task to run. No need to preempt or trigger resched after moving
 	 * @p into its local DSQ.
+	 * Note that the wakeup_preempt() above may have already triggered
+	 * a resched if @rq->next_class was idle. It's harmless, since
+	 * need_resched is cleared immediately after task pick.
 	 */
 	if (rq->scx.flags & SCX_RQ_IN_BALANCE)
 		return;
@@ -1452,11 +1489,8 @@ static void local_dsq_post_enq(struct scx_sched *sch, struct scx_dispatch_q *dsq
 	if ((enq_flags & SCX_ENQ_PREEMPT) && p != rq->curr &&
 	    rq->curr->sched_class == &ext_sched_class) {
 		rq->curr->scx.slice = 0;
-		preempt = true;
-	}
-
-	if (preempt || sched_class_above(&ext_sched_class, rq->curr->sched_class))
 		resched_curr(rq);
+	}
 }
 
 static void dispatch_enqueue(struct scx_sched *sch, struct rq *rq,
