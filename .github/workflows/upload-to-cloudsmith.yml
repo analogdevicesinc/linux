@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   upload-artifacts-to-cloudsmith:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ubuntu-slim
     permissions:
       id-token: write
       contents: write
