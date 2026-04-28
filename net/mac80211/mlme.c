@@ -401,6 +401,7 @@ check_uhr:
 				       elems->uhr_operation_len,
 				       false)) {
 		struct cfg80211_chan_def npca_chandef = *chandef;
+		const struct ieee80211_sta_uhr_cap *uhr_cap;
 		const struct ieee80211_uhr_npca_info *npca;
 
 		npca = ieee80211_uhr_npca_info(uhr_oper);
@@ -411,6 +412,14 @@ check_uhr:
 				   "AP UHR NPCA settings invalid, disabling UHR\n");
 			return IEEE80211_CONN_MODE_EHT;
 		}
+
+		uhr_cap = ieee80211_get_uhr_iftype_cap_vif(sband, &sdata->vif);
+		/* can't happen since we must have UHR to parse the elems */
+		if (WARN_ON(!uhr_cap))
+			return IEEE80211_CONN_MODE_EHT;
+
+		if (uhr_cap->mac.mac_cap[0] & IEEE80211_UHR_MAC_CAP0_NPCA_SUPP)
+			*chandef = npca_chandef;
 	}
 
 	return IEEE80211_CONN_MODE_UHR;
@@ -1320,6 +1329,7 @@ static int ieee80211_config_bw(struct ieee80211_link_data *link,
 		.conn = &link->u.mgd.conn,
 	};
 	struct ieee80211_sub_if_data *sdata = link->sdata;
+	struct ieee80211_chanctx_conf *chanctx_conf;
 	struct ieee80211_chan_req chanreq = {};
 	enum ieee80211_conn_mode ap_mode;
 	const char *frame;
@@ -1403,8 +1413,55 @@ static int ieee80211_config_bw(struct ieee80211_link_data *link,
 		}
 	}
 
-	if (ieee80211_chanreq_identical(&chanreq, &link->conf->chanreq))
+	/*
+	 * Beacons don't have the full information - we need to track
+	 * critical updates for NPCA parameters etc. For now only handle
+	 * association and link reconfiguration response.
+	 */
+	if (stype != IEEE80211_STYPE_BEACON &&
+	    chanreq.oper.npca_chan && elems->uhr_operation &&
+	    ieee80211_uhr_oper_size_ok((const void *)elems->uhr_operation,
+				       elems->uhr_operation_len,
+				       false)) {
+		const struct ieee80211_uhr_npca_info *npca;
+		struct ieee80211_bss_npca_params params = {};
+
+		npca = ieee80211_uhr_npca_info(elems->uhr_operation);
+		if (!npca) {
+			chanreq.oper.npca_chan = NULL;
+			chanreq.oper.npca_punctured = 0;
+		} else {
+			params.min_dur_thresh =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_MIN_DUR_THRESH);
+			params.switch_delay =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_SWITCH_DELAY);
+			params.switch_back_delay =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_SWITCH_BACK_DELAY);
+			params.init_qsrc =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_INIT_QSRC);
+			params.moplen =
+				le32_get_bits(npca->params,
+					      IEEE80211_UHR_NPCA_PARAMS_MOPLEN);
+			/* don't change the enabled bit yet */
+			params.enabled = link->conf->npca.enabled;
+		}
+
+		if (memcmp(&params, &link->conf->npca, sizeof(params)) ||
+		    !update) {
+			link->conf->npca = params;
+			*changed |= BSS_CHANGED_NPCA;
+		}
+	}
+
+	if (ieee80211_chanreq_identical(&chanreq, &link->conf->chanreq)) {
+		if (update)
+			goto update_npca;
 		return 0;
+	}
 
 	link_info(link,
 		  "AP %pM changed bandwidth in %s, new used config is %d.%03d MHz, width %d (%d.%03d/%d MHz)\n",
@@ -1451,6 +1508,24 @@ static int ieee80211_config_bw(struct ieee80211_link_data *link,
 	}
 
 	cfg80211_schedule_channels_check(&sdata->wdev);
+
+update_npca:
+	chanctx_conf = sdata_dereference(link->conf->chanctx_conf, sdata);
+	/* must be non-NULL when update is true */
+	if (WARN_ON(!chanctx_conf))
+		return -EINVAL;
+
+	/*
+	 * If we're not associated yet (i.e. in the process associating)
+	 * then the chanctx code won't have enabled NPCA in the link, so
+	 * if the channel context was set up with NPCA for us, enable it.
+	 */
+	if (chanreq.oper.npca_chan && chanctx_conf->def.npca_chan &&
+	    !link->conf->npca.enabled && !sdata->vif.cfg.assoc) {
+		link->conf->npca.enabled = true;
+		*changed |= BSS_CHANGED_NPCA;
+	}
+
 	return 0;
 }
 

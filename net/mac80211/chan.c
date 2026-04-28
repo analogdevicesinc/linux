@@ -770,6 +770,38 @@ void ieee80211_recalc_chanctx_min_def(struct ieee80211_local *local,
 	_ieee80211_recalc_chanctx_min_def(local, ctx, NULL, false);
 }
 
+static void
+ieee80211_chanctx_update_npca_links(struct ieee80211_local *local,
+				    struct ieee80211_chanctx *ctx,
+				    bool enable)
+{
+	struct ieee80211_chanctx_user_iter iter;
+
+	if (!!ctx->conf.def.npca_chan != enable)
+		return;
+
+	for_each_chanctx_user_assigned(local, ctx, &iter) {
+		if (!iter.link)
+			continue;
+		if (!iter.sdata->vif.cfg.assoc)
+			continue;
+
+		if (enable) {
+			if (!iter.link->conf->chanreq.oper.npca_chan)
+				continue;
+		} else {
+			if (!iter.link->conf->npca.enabled)
+				continue;
+		}
+
+		iter.link->conf->npca.enabled = enable;
+		drv_link_info_changed(local, iter.sdata,
+				      iter.link->conf,
+				      iter.link->link_id,
+				      BSS_CHANGED_NPCA);
+	}
+}
+
 static void _ieee80211_change_chanctx(struct ieee80211_local *local,
 				      struct ieee80211_chanctx *ctx,
 				      struct ieee80211_chanctx *old_ctx,
@@ -845,10 +877,16 @@ static void _ieee80211_change_chanctx(struct ieee80211_local *local,
 
 	ieee80211_add_wbrf(local, &ctx->conf.def);
 
+	/* disable NPCA on the link using it */
+	ieee80211_chanctx_update_npca_links(local, ctx, false);
+
 	drv_change_chanctx(local, ctx, changed);
 
 	/* check if BW is wider */
 	ieee80211_chan_bw_change(local, old_ctx, false, false);
+
+	/* enable NPCA on the link that requested it */
+	ieee80211_chanctx_update_npca_links(local, ctx, true);
 }
 
 static void ieee80211_change_chanctx(struct ieee80211_local *local,

@@ -373,6 +373,7 @@ struct ieee80211_vif_chanctx_switch {
  * @BSS_CHANGED_MLD_TTLM: negotiated TID to link mapping was changed
  * @BSS_CHANGED_TPE: transmit power envelope changed
  * @BSS_CHANGED_NAN_LOCAL_SCHED: NAN local schedule changed (NAN mode only)
+ * @BSS_CHANGED_NPCA: NPCA parameters changed
  */
 enum ieee80211_bss_change {
 	BSS_CHANGED_ASSOC		= 1<<0,
@@ -411,6 +412,7 @@ enum ieee80211_bss_change {
 	BSS_CHANGED_MLD_TTLM		= BIT_ULL(34),
 	BSS_CHANGED_TPE			= BIT_ULL(35),
 	BSS_CHANGED_NAN_LOCAL_SCHED	= BIT_ULL(36),
+	BSS_CHANGED_NPCA		= BIT_ULL(37),
 
 	/* when adding here, make sure to change ieee80211_reconfig */
 };
@@ -597,6 +599,26 @@ struct ieee80211_parsed_tpe {
 };
 
 /**
+ * struct ieee80211_bss_npca_params - NPCA parameters
+ * @min_dur_thresh: NPCA minimum duration threshold (512 + 128*n usec)
+ * @switch_delay: NPCA switch delay (units of 4 usec)
+ * @switch_back_delay: NPCA switch back delay (units of 4 usec)
+ * @init_qsrc: initial QSRC value
+ * @moplen: indicates MOPLEN NPCA is permitted in the BSS
+ * @enabled: NPCA is enabled for this link
+ *
+ * Note: the individual values (except @enabled) are in spec representation.
+ */
+struct ieee80211_bss_npca_params {
+	u32 min_dur_thresh:4,
+	    switch_delay:6,
+	    switch_back_delay:6,
+	    init_qsrc:2,
+	    moplen:1,
+	    enabled:1;
+};
+
+/**
  * struct ieee80211_bss_conf - holds the BSS's changing parameters
  *
  * This structure keeps information about a BSS (and an association
@@ -770,6 +792,7 @@ struct ieee80211_parsed_tpe {
  *	(as opposed to hearing its value from another link's beacon).
  * @s1g_long_beacon_period: number of beacon intervals between each long
  *	beacon transmission.
+ * @npca: NPCA parameters
  */
 struct ieee80211_bss_conf {
 	struct ieee80211_vif *vif;
@@ -873,6 +896,8 @@ struct ieee80211_bss_conf {
 	u8 bss_param_ch_cnt_link_id;
 
 	u8 s1g_long_beacon_period;
+
+	struct ieee80211_bss_npca_params npca;
 };
 
 #define IEEE80211_NAN_MAX_CHANNELS 3

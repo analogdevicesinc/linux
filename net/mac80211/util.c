@@ -2147,6 +2147,9 @@ int ieee80211_reconfig(struct ieee80211_local *local)
 				ieee80211_bss_info_change_notify(sdata,
 								 changed);
 			} else if (!WARN_ON(!link)) {
+				if (link->conf->npca.enabled)
+					changed |= BSS_CHANGED_NPCA;
+
 				ieee80211_link_info_change_notify(sdata, link,
 								  changed);
 				changed = BSS_CHANGED_ASSOC |
