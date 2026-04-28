@@ -456,8 +456,6 @@ static void aw88395_hw_reset(struct aw88395 *aw88395)
 		usleep_range(AW88395_1000_US, AW88395_1000_US + 10);
 		gpiod_set_value_cansleep(aw88395->reset_gpio, 1);
 		usleep_range(AW88395_1000_US, AW88395_1000_US + 10);
-	} else {
-		dev_err(aw88395->aw_pa->dev, "%s failed", __func__);
 	}
 }
 
@@ -522,9 +520,10 @@ static int aw88395_i2c_probe(struct i2c_client *i2c)
 	i2c_set_clientdata(i2c, aw88395);
 
 	aw88395->reset_gpio = devm_gpiod_get_optional(&i2c->dev, "reset", GPIOD_OUT_LOW);
-	if (IS_ERR(aw88395->reset_gpio))
-		dev_info(&i2c->dev, "reset gpio not defined\n");
-
+	if (IS_ERR(aw88395->reset_gpio)) {
+		return dev_err_probe(&i2c->dev, PTR_ERR(aw88395->reset_gpio),
+				"failed to get reset gpio\n");
+	}
 	/* hardware reset */
 	aw88395_hw_reset(aw88395);
 
