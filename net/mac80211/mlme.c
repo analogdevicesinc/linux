@@ -8181,8 +8181,9 @@ ieee80211_parse_neg_ttlm(struct ieee80211_sub_if_data *sdata,
 	return 0;
 }
 
-void ieee80211_process_neg_ttlm_req(struct ieee80211_sub_if_data *sdata,
-				    struct ieee80211_mgmt *mgmt, size_t len)
+static void ieee80211_process_neg_ttlm_req(struct ieee80211_sub_if_data *sdata,
+					   struct ieee80211_mgmt *mgmt,
+					   size_t len)
 {
 	u8 dialog_token, direction[IEEE80211_TTLM_MAX_CNT] = {}, i;
 	size_t ies_len;
@@ -8244,8 +8245,9 @@ out:
 	ieee80211_send_neg_ttlm_res(sdata, ttlm_res, dialog_token, &neg_ttlm);
 }
 
-void ieee80211_process_neg_ttlm_res(struct ieee80211_sub_if_data *sdata,
-				    struct ieee80211_mgmt *mgmt, size_t len)
+static void ieee80211_process_neg_ttlm_res(struct ieee80211_sub_if_data *sdata,
+					   struct ieee80211_mgmt *mgmt,
+					   size_t len)
 {
 	if (!ieee80211_vif_is_mld(&sdata->vif) ||
 	    mgmt->u.action.ttlm_res.dialog_token != sdata->u.mgd.dialog_token_alloc)
@@ -8266,7 +8268,7 @@ void ieee80211_process_neg_ttlm_res(struct ieee80211_sub_if_data *sdata,
 		__ieee80211_disconnect(sdata);
 }
 
-void ieee80211_process_ttlm_teardown(struct ieee80211_sub_if_data *sdata)
+static void ieee80211_process_ttlm_teardown(struct ieee80211_sub_if_data *sdata)
 {
 	u16 new_dormant_links;
 
@@ -8324,8 +8326,8 @@ void ieee80211_send_teardown_neg_ttlm(struct ieee80211_vif *vif)
 }
 EXPORT_SYMBOL(ieee80211_send_teardown_neg_ttlm);
 
-void ieee80211_sta_rx_queued_ext(struct ieee80211_sub_if_data *sdata,
-				 struct sk_buff *skb)
+static void ieee80211_sta_rx_queued_ext(struct ieee80211_sub_if_data *sdata,
+					struct sk_buff *skb)
 {
 	struct ieee80211_link_data *link = &sdata->deflink;
 	struct ieee80211_rx_status *rx_status;
@@ -8341,129 +8343,6 @@ void ieee80211_sta_rx_queued_ext(struct ieee80211_sub_if_data *sdata,
 	switch (fc & IEEE80211_FCTL_STYPE) {
 	case IEEE80211_STYPE_S1G_BEACON:
 		ieee80211_rx_mgmt_beacon(link, hdr, skb->len, rx_status);
-		break;
-	}
-}
-
-void ieee80211_sta_rx_queued_mgmt(struct ieee80211_sub_if_data *sdata,
-				  struct sk_buff *skb)
-{
-	struct ieee80211_link_data *link = &sdata->deflink;
-	struct ieee80211_rx_status *rx_status;
-	struct ieee802_11_elems *elems;
-	struct ieee80211_mgmt *mgmt;
-	u16 fc;
-	int ies_len;
-
-	lockdep_assert_wiphy(sdata->local->hw.wiphy);
-
-	rx_status = (struct ieee80211_rx_status *) skb->cb;
-	mgmt = (struct ieee80211_mgmt *) skb->data;
-	fc = le16_to_cpu(mgmt->frame_control);
-
-	if (rx_status->link_valid) {
-		link = sdata_dereference(sdata->link[rx_status->link_id],
-					 sdata);
-		if (!link)
-			return;
-	}
-
-	switch (fc & IEEE80211_FCTL_STYPE) {
-	case IEEE80211_STYPE_BEACON:
-		ieee80211_rx_mgmt_beacon(link, (void *)mgmt,
-					 skb->len, rx_status);
-		break;
-	case IEEE80211_STYPE_PROBE_RESP:
-		ieee80211_rx_mgmt_probe_resp(link, skb);
-		break;
-	case IEEE80211_STYPE_AUTH:
-		ieee80211_rx_mgmt_auth(sdata, mgmt, skb->len);
-		break;
-	case IEEE80211_STYPE_DEAUTH:
-		ieee80211_rx_mgmt_deauth(sdata, mgmt, skb->len);
-		break;
-	case IEEE80211_STYPE_DISASSOC:
-		ieee80211_rx_mgmt_disassoc(sdata, mgmt, skb->len);
-		break;
-	case IEEE80211_STYPE_ASSOC_RESP:
-	case IEEE80211_STYPE_REASSOC_RESP:
-		ieee80211_rx_mgmt_assoc_resp(sdata, mgmt, skb->len);
-		break;
-	case IEEE80211_STYPE_ACTION:
-		if (!sdata->u.mgd.associated ||
-		    !ether_addr_equal(mgmt->bssid, sdata->vif.cfg.ap_addr))
-			break;
-
-		switch (mgmt->u.action.category) {
-		case WLAN_CATEGORY_SPECTRUM_MGMT:
-			ies_len = skb->len -
-				  offsetof(struct ieee80211_mgmt,
-					   u.action.chan_switch.variable);
-
-			if (ies_len < 0)
-				break;
-
-			/* CSA IE cannot be overridden, no need for BSSID */
-			elems = ieee802_11_parse_elems(mgmt->u.action.chan_switch.variable,
-						       ies_len,
-						       IEEE80211_FTYPE_MGMT |
-						       IEEE80211_STYPE_ACTION,
-						       NULL);
-
-			if (elems && !elems->parse_error) {
-				enum ieee80211_csa_source src =
-					IEEE80211_CSA_SOURCE_PROT_ACTION;
-
-				ieee80211_sta_process_chanswitch(link,
-								 rx_status->mactime,
-								 rx_status->device_timestamp,
-								 elems, elems,
-								 src);
-			}
-			kfree(elems);
-			break;
-		case WLAN_CATEGORY_PUBLIC:
-		case WLAN_CATEGORY_PROTECTED_DUAL_OF_ACTION:
-			ies_len = skb->len -
-				  offsetof(struct ieee80211_mgmt,
-					   u.action.ext_chan_switch.variable);
-
-			if (ies_len < 0)
-				break;
-
-			/*
-			 * extended CSA IE can't be overridden, no need for
-			 * BSSID
-			 */
-			elems = ieee802_11_parse_elems(mgmt->u.action.ext_chan_switch.variable,
-						       ies_len,
-						       IEEE80211_FTYPE_MGMT |
-						       IEEE80211_STYPE_ACTION,
-						       NULL);
-
-			if (elems && !elems->parse_error) {
-				enum ieee80211_csa_source src;
-
-				if (mgmt->u.action.category ==
-						WLAN_CATEGORY_PROTECTED_DUAL_OF_ACTION)
-					src = IEEE80211_CSA_SOURCE_PROT_ACTION;
-				else
-					src = IEEE80211_CSA_SOURCE_UNPROT_ACTION;
-
-				/* for the handling code pretend it was an IE */
-				elems->ext_chansw_ie =
-					&mgmt->u.action.ext_chan_switch.data;
-
-				ieee80211_sta_process_chanswitch(link,
-								 rx_status->mactime,
-								 rx_status->device_timestamp,
-								 elems, elems,
-								 src);
-			}
-
-			kfree(elems);
-			break;
-		}
 		break;
 	}
 }
@@ -10432,8 +10311,9 @@ void ieee80211_disable_rssi_reports(struct ieee80211_vif *vif)
 }
 EXPORT_SYMBOL(ieee80211_disable_rssi_reports);
 
-void ieee80211_process_ml_reconf_resp(struct ieee80211_sub_if_data *sdata,
-				      struct ieee80211_mgmt *mgmt, size_t len)
+static void
+ieee80211_process_ml_reconf_resp(struct ieee80211_sub_if_data *sdata,
+				 struct ieee80211_mgmt *mgmt, size_t len)
 {
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_if_managed *ifmgd = &sdata->u.mgd;
@@ -11256,8 +11136,9 @@ static void ieee80211_ml_epcs(struct ieee80211_sub_if_data *sdata,
 	}
 }
 
-void ieee80211_process_epcs_ena_resp(struct ieee80211_sub_if_data *sdata,
-				     struct ieee80211_mgmt *mgmt, size_t len)
+static void ieee80211_process_epcs_ena_resp(struct ieee80211_sub_if_data *sdata,
+					    struct ieee80211_mgmt *mgmt,
+					    size_t len)
 {
 	struct ieee802_11_elems *elems __free(kfree) = NULL;
 	size_t ies_len;
@@ -11304,8 +11185,9 @@ void ieee80211_process_epcs_ena_resp(struct ieee80211_sub_if_data *sdata,
 	ieee80211_epcs_changed(sdata, true);
 }
 
-void ieee80211_process_epcs_teardown(struct ieee80211_sub_if_data *sdata,
-				     struct ieee80211_mgmt *mgmt, size_t len)
+static void ieee80211_process_epcs_teardown(struct ieee80211_sub_if_data *sdata,
+					    struct ieee80211_mgmt *mgmt,
+					    size_t len)
 {
 	if (!ieee80211_vif_is_mld(&sdata->vif) ||
 	    !sdata->u.mgd.epcs.enabled)
@@ -11313,4 +11195,162 @@ void ieee80211_process_epcs_teardown(struct ieee80211_sub_if_data *sdata,
 
 	ieee80211_epcs_teardown(sdata);
 	ieee80211_epcs_changed(sdata, false);
+}
+
+void ieee80211_sta_rx_queued_frame(struct ieee80211_sub_if_data *sdata,
+				   struct sk_buff *skb)
+{
+	struct ieee80211_link_data *link = &sdata->deflink;
+	struct ieee80211_rx_status *rx_status;
+	struct ieee802_11_elems *elems;
+	struct ieee80211_mgmt *mgmt;
+	u16 fc;
+	int ies_len;
+
+	lockdep_assert_wiphy(sdata->local->hw.wiphy);
+
+	mgmt = (struct ieee80211_mgmt *) skb->data;
+
+	if (ieee80211_is_ext(mgmt->frame_control)) {
+		ieee80211_sta_rx_queued_ext(sdata, skb);
+		return;
+	}
+
+	rx_status = (struct ieee80211_rx_status *) skb->cb;
+	fc = le16_to_cpu(mgmt->frame_control);
+
+	if (rx_status->link_valid) {
+		link = sdata_dereference(sdata->link[rx_status->link_id],
+					 sdata);
+		if (!link)
+			return;
+	}
+
+	switch (fc & IEEE80211_FCTL_STYPE) {
+	case IEEE80211_STYPE_BEACON:
+		ieee80211_rx_mgmt_beacon(link, (void *)mgmt,
+					 skb->len, rx_status);
+		break;
+	case IEEE80211_STYPE_PROBE_RESP:
+		ieee80211_rx_mgmt_probe_resp(link, skb);
+		break;
+	case IEEE80211_STYPE_AUTH:
+		ieee80211_rx_mgmt_auth(sdata, mgmt, skb->len);
+		break;
+	case IEEE80211_STYPE_DEAUTH:
+		ieee80211_rx_mgmt_deauth(sdata, mgmt, skb->len);
+		break;
+	case IEEE80211_STYPE_DISASSOC:
+		ieee80211_rx_mgmt_disassoc(sdata, mgmt, skb->len);
+		break;
+	case IEEE80211_STYPE_ASSOC_RESP:
+	case IEEE80211_STYPE_REASSOC_RESP:
+		ieee80211_rx_mgmt_assoc_resp(sdata, mgmt, skb->len);
+		break;
+	case IEEE80211_STYPE_ACTION:
+		if (!sdata->u.mgd.associated ||
+		    !ether_addr_equal(mgmt->bssid, sdata->vif.cfg.ap_addr))
+			break;
+
+		switch (mgmt->u.action.category) {
+		case WLAN_CATEGORY_SPECTRUM_MGMT:
+			ies_len = skb->len -
+				  offsetof(struct ieee80211_mgmt,
+					   u.action.chan_switch.variable);
+
+			if (ies_len < 0)
+				break;
+
+			/* CSA IE cannot be overridden, no need for BSSID */
+			elems = ieee802_11_parse_elems(mgmt->u.action.chan_switch.variable,
+						       ies_len,
+						       IEEE80211_FTYPE_MGMT |
+						       IEEE80211_STYPE_ACTION,
+						       NULL);
+
+			if (elems && !elems->parse_error) {
+				enum ieee80211_csa_source src =
+					IEEE80211_CSA_SOURCE_PROT_ACTION;
+
+				ieee80211_sta_process_chanswitch(link,
+								 rx_status->mactime,
+								 rx_status->device_timestamp,
+								 elems, elems,
+								 src);
+			}
+			kfree(elems);
+			break;
+		case WLAN_CATEGORY_PUBLIC:
+		case WLAN_CATEGORY_PROTECTED_DUAL_OF_ACTION:
+			ies_len = skb->len -
+				  offsetof(struct ieee80211_mgmt,
+					   u.action.ext_chan_switch.variable);
+
+			if (ies_len < 0)
+				break;
+
+			/*
+			 * extended CSA IE can't be overridden, no need for
+			 * BSSID
+			 */
+			elems = ieee802_11_parse_elems(mgmt->u.action.ext_chan_switch.variable,
+						       ies_len,
+						       IEEE80211_FTYPE_MGMT |
+						       IEEE80211_STYPE_ACTION,
+						       NULL);
+
+			if (elems && !elems->parse_error) {
+				enum ieee80211_csa_source src;
+
+				if (mgmt->u.action.category ==
+						WLAN_CATEGORY_PROTECTED_DUAL_OF_ACTION)
+					src = IEEE80211_CSA_SOURCE_PROT_ACTION;
+				else
+					src = IEEE80211_CSA_SOURCE_UNPROT_ACTION;
+
+				/* for the handling code pretend it was an IE */
+				elems->ext_chansw_ie =
+					&mgmt->u.action.ext_chan_switch.data;
+
+				ieee80211_sta_process_chanswitch(link,
+								 rx_status->mactime,
+								 rx_status->device_timestamp,
+								 elems, elems,
+								 src);
+			}
+
+			kfree(elems);
+			break;
+		case WLAN_CATEGORY_PROTECTED_EHT:
+			switch (mgmt->u.action.action_code) {
+			case WLAN_PROTECTED_EHT_ACTION_TTLM_REQ:
+				ieee80211_process_neg_ttlm_req(sdata, mgmt,
+							       skb->len);
+				break;
+			case WLAN_PROTECTED_EHT_ACTION_TTLM_RES:
+				ieee80211_process_neg_ttlm_res(sdata, mgmt,
+							       skb->len);
+				break;
+			case WLAN_PROTECTED_EHT_ACTION_TTLM_TEARDOWN:
+				ieee80211_process_ttlm_teardown(sdata);
+				break;
+			case WLAN_PROTECTED_EHT_ACTION_LINK_RECONFIG_RESP:
+				ieee80211_process_ml_reconf_resp(sdata, mgmt,
+								 skb->len);
+				break;
+			case WLAN_PROTECTED_EHT_ACTION_EPCS_ENABLE_RESP:
+				ieee80211_process_epcs_ena_resp(sdata, mgmt,
+								skb->len);
+				break;
+			case WLAN_PROTECTED_EHT_ACTION_EPCS_ENABLE_TEARDOWN:
+				ieee80211_process_epcs_teardown(sdata, mgmt,
+								skb->len);
+				break;
+			default:
+				break;
+			}
+			break;
+		}
+		break;
+	}
 }

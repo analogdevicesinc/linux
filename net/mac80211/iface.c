@@ -1716,50 +1716,6 @@ static void ieee80211_iface_process_skb(struct ieee80211_local *local,
 		default:
 			break;
 		}
-	} else if (ieee80211_is_action(mgmt->frame_control) &&
-		   mgmt->u.action.category == WLAN_CATEGORY_PROTECTED_EHT) {
-		if (sdata->vif.type == NL80211_IFTYPE_AP) {
-			switch (mgmt->u.action.action_code) {
-			case WLAN_PROTECTED_EHT_ACTION_EML_OP_MODE_NOTIF:
-				ieee80211_rx_eml_op_mode_notif(sdata, skb);
-				break;
-			default:
-				break;
-			}
-		} else if (sdata->vif.type == NL80211_IFTYPE_STATION) {
-			switch (mgmt->u.action.action_code) {
-			case WLAN_PROTECTED_EHT_ACTION_TTLM_REQ:
-				ieee80211_process_neg_ttlm_req(sdata, mgmt,
-							       skb->len);
-				break;
-			case WLAN_PROTECTED_EHT_ACTION_TTLM_RES:
-				ieee80211_process_neg_ttlm_res(sdata, mgmt,
-							       skb->len);
-				break;
-			case WLAN_PROTECTED_EHT_ACTION_TTLM_TEARDOWN:
-				ieee80211_process_ttlm_teardown(sdata);
-				break;
-			case WLAN_PROTECTED_EHT_ACTION_LINK_RECONFIG_RESP:
-				ieee80211_process_ml_reconf_resp(sdata, mgmt,
-								 skb->len);
-				break;
-			case WLAN_PROTECTED_EHT_ACTION_EPCS_ENABLE_RESP:
-				ieee80211_process_epcs_ena_resp(sdata, mgmt,
-								skb->len);
-				break;
-			case WLAN_PROTECTED_EHT_ACTION_EPCS_ENABLE_TEARDOWN:
-				ieee80211_process_epcs_teardown(sdata, mgmt,
-								skb->len);
-				break;
-			default:
-				break;
-			}
-		}
-	} else if (ieee80211_is_ext(mgmt->frame_control)) {
-		if (sdata->vif.type == NL80211_IFTYPE_STATION)
-			ieee80211_sta_rx_queued_ext(sdata, skb);
-		else
-			WARN_ON(1);
 	} else if (ieee80211_is_data_qos(mgmt->frame_control)) {
 		struct ieee80211_hdr *hdr = (void *)mgmt;
 		struct sta_info *sta;
@@ -1791,8 +1747,11 @@ static void ieee80211_iface_process_skb(struct ieee80211_local *local,
 				true);
 		}
 	} else switch (sdata->vif.type) {
+	case NL80211_IFTYPE_AP:
+		ieee80211_ap_rx_queued_frame(sdata, skb);
+		break;
 	case NL80211_IFTYPE_STATION:
-		ieee80211_sta_rx_queued_mgmt(sdata, skb);
+		ieee80211_sta_rx_queued_frame(sdata, skb);
 		break;
 	case NL80211_IFTYPE_ADHOC:
 		ieee80211_ibss_rx_queued_mgmt(sdata, skb);
