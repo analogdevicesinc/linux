@@ -750,7 +750,7 @@ static int tcf_ife_decode(struct sk_buff *skb, const struct tc_action *a,
 			 */
 			pr_info_ratelimited("Unknown metaid %d dlen %d\n",
 					    mtype, dlen);
-			qstats_overlimit_inc(this_cpu_ptr(ife->common.cpu_qstats));
+			qstats_cpu_overlimit_inc(ife->common.cpu_qstats);
 		}
 	}
 
@@ -814,7 +814,7 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
 		/* abuse overlimits to count when we allow packet
 		 * with no metadata
 		 */
-		qstats_overlimit_inc(this_cpu_ptr(ife->common.cpu_qstats));
+		qstats_cpu_overlimit_inc(ife->common.cpu_qstats);
 		return action;
 	}
 	/* could be stupid policy setup or mtu config
