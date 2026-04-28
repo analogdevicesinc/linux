@@ -392,14 +392,7 @@ check_uhr:
 	if (conn->mode < IEEE80211_CONN_MODE_UHR || !uhr_oper)
 		return IEEE80211_CONN_MODE_EHT;
 
-	/*
-	 * In beacons we don't have all the data - but we know the size was OK,
-	 * so if the size is valid as a non-beacon case, we have more data and
-	 * can validate the NPCA parameters.
-	 */
-	if (ieee80211_uhr_oper_size_ok((const void *)uhr_oper,
-				       elems->uhr_operation_len,
-				       false)) {
+	if (elems->frame_type != (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_BEACON)) {
 		struct cfg80211_chan_def npca_chandef = *chandef;
 		const struct ieee80211_sta_uhr_cap *uhr_cap;
 		const struct ieee80211_uhr_npca_info *npca;
