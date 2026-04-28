@@ -132,3 +132,47 @@ void intel_display_glk_init_clock_gating(struct intel_display *display)
 		       intel_de_read(display, GEN9_CLKGATE_DIS_0) |
 		       PWM1_GATING_DIS | PWM2_GATING_DIS);
 }
+
+void intel_display_bdw_clock_gating_disable_fbcq(struct intel_display *display)
+{
+	/* WaFbcAsynchFlipDisableFbcQueue:hsw,bdw */
+	intel_de_rmw(display, CHICKEN_PIPESL_1(PIPE_A), 0, HSW_FBCQ_DIS);
+}
+
+void intel_display_bdw_clock_gating_vblank_in_srd(struct intel_display *display)
+{
+	enum pipe pipe;
+
+	/* WaPsrDPAMaskVBlankInSRD:hsw */
+	intel_de_rmw(display, CHICKEN_PAR1_1, 0, HSW_MASK_VBL_TO_PIPE_IN_SRD);
+
+	for_each_pipe(display, pipe) {
+		/* WaPsrDPRSUnmaskVBlankInSRD:hsw,bdw */
+		intel_de_rmw(display, CHICKEN_PIPESL_1(pipe), 0,
+			     BDW_UNMASK_VBL_TO_REGS_IN_SRD);
+	}
+}
+
+void intel_display_bdw_clock_gating_kvm_notif(struct intel_display *display)
+{
+	/* WaKVMNotificationOnConfigChange:bdw */
+	intel_de_rmw(display, CHICKEN_PAR2_1, 0,
+		     KVM_CONFIG_CHANGE_NOTIFICATION_SELECT);
+}
+
+void intel_display_hsw_init_clock_gating(struct intel_display *display)
+{
+	enum pipe pipe;
+
+	/* WaFbcAsynchFlipDisableFbcQueue:hsw,bdw */
+	intel_de_rmw(display, CHICKEN_PIPESL_1(PIPE_A), 0, HSW_FBCQ_DIS);
+
+	/* WaPsrDPAMaskVBlankInSRD:hsw */
+	intel_de_rmw(display, CHICKEN_PAR1_1, 0, HSW_MASK_VBL_TO_PIPE_IN_SRD);
+
+	for_each_pipe(display, pipe) {
+		/* WaPsrDPRSUnmaskVBlankInSRD:hsw,bdw */
+		intel_de_rmw(display, CHICKEN_PIPESL_1(pipe), 0,
+			     HSW_UNMASK_VBL_TO_REGS_IN_SRD);
+	}
+}
