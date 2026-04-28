@@ -218,6 +218,8 @@ struct ieee80211_low_level_stats {
  *	bandwidth) OFDMA settings need to be changed
  * @IEEE80211_CHANCTX_CHANGE_PUNCTURING: The punctured channel(s) bitmap
  *	was changed.
+ * @IEEE80211_CHANCTX_CHANGE_NPCA: NPCA configuration changed
+ * @IEEE80211_CHANCTX_CHANGE_NPCA_PUNCT: NPCA puncturing changed
  */
 enum ieee80211_chanctx_change {
 	IEEE80211_CHANCTX_CHANGE_WIDTH		= BIT(0),
@@ -227,6 +229,8 @@ enum ieee80211_chanctx_change {
 	IEEE80211_CHANCTX_CHANGE_MIN_DEF	= BIT(4),
 	IEEE80211_CHANCTX_CHANGE_AP		= BIT(5),
 	IEEE80211_CHANCTX_CHANGE_PUNCTURING	= BIT(6),
+	IEEE80211_CHANCTX_CHANGE_NPCA		= BIT(7),
+	IEEE80211_CHANCTX_CHANGE_NPCA_PUNCT	= BIT(8),
 };
 
 /**
@@ -234,10 +238,13 @@ enum ieee80211_chanctx_change {
  * @oper: channel definition to use for operation
  * @ap: the channel definition of the AP, if any
  *	(otherwise the chan member is %NULL)
+ * @require_npca: If NPCA is configured, require it to
+ *	remain, this is used by AP interfaces
  */
 struct ieee80211_chan_req {
 	struct cfg80211_chan_def oper;
 	struct cfg80211_chan_def ap;
+	bool require_npca;
 };
 
 /**
