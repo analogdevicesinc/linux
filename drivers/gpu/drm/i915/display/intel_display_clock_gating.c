@@ -6,6 +6,7 @@
 #include <drm/intel/intel_gmd_misc_regs.h>
 
 #include "intel_de.h"
+#include "i9xx_plane_regs.h"
 #include "intel_display.h"
 #include "intel_display_clock_gating.h"
 #include "intel_display_core.h"
@@ -175,4 +176,95 @@ void intel_display_hsw_init_clock_gating(struct intel_display *display)
 		intel_de_rmw(display, CHICKEN_PIPESL_1(pipe), 0,
 			     HSW_UNMASK_VBL_TO_REGS_IN_SRD);
 	}
+}
+
+void intel_display_disable_trickle_feed(struct intel_display *display)
+{
+	enum pipe pipe;
+
+	for_each_pipe(display, pipe) {
+		intel_de_rmw(display, DSPCNTR(display, pipe), 0,
+			     DISP_TRICKLE_FEED_DISABLE);
+
+		intel_de_rmw(display, DSPSURF(display, pipe), 0, 0);
+		intel_de_posting_read(display, DSPSURF(display, pipe));
+	}
+}
+
+void intel_display_ilk_init_clock_gating(struct intel_display *display)
+{
+	u32 dspclk_gate = ILK_VRHUNIT_CLOCK_GATE_DISABLE;
+
+	/*
+	 * Required for FBC
+	 * WaFbcDisableDpfcClockGating:ilk
+	 */
+	dspclk_gate |= ILK_DPFCRUNIT_CLOCK_GATE_DISABLE |
+		       ILK_DPFCUNIT_CLOCK_GATE_DISABLE |
+		       ILK_DPFDUNIT_CLOCK_GATE_ENABLE;
+
+	intel_de_write(display, ILK_DISPLAY_CHICKEN2,
+		       intel_de_read(display, ILK_DISPLAY_CHICKEN2) |
+		       ILK_DPARB_GATE | ILK_VSDPFD_FULL);
+	dspclk_gate |= ILK_DPARBUNIT_CLOCK_GATE_ENABLE;
+	intel_de_write(display, DISP_ARB_CTL,
+		       intel_de_read(display, DISP_ARB_CTL) |
+		       DISP_FBC_WM_DIS);
+
+	if (display->platform.ironlake && display->platform.mobile) {
+		/* WaFbcAsynchFlipDisableFbcQueue:ilk */
+		intel_de_rmw(display, ILK_DISPLAY_CHICKEN1, 0, ILK_FBCQ_DIS);
+		intel_de_rmw(display, ILK_DISPLAY_CHICKEN2, 0, ILK_DPARB_GATE);
+	}
+
+	intel_de_write(display, ILK_DSPCLK_GATE_D, dspclk_gate);
+	intel_de_rmw(display, ILK_DISPLAY_CHICKEN2, 0, ILK_ELPIN_409_SELECT);
+
+	intel_display_disable_trickle_feed(display);
+}
+
+void intel_display_gen6_init_clock_gating(struct intel_display *display)
+{
+	u32 dspclk_gate = ILK_VRHUNIT_CLOCK_GATE_DISABLE;
+
+	intel_de_write(display, ILK_DSPCLK_GATE_D, dspclk_gate);
+	intel_de_rmw(display, ILK_DISPLAY_CHICKEN2, 0, ILK_ELPIN_409_SELECT);
+
+	intel_de_write(display, ILK_DISPLAY_CHICKEN1,
+		       intel_de_read(display, ILK_DISPLAY_CHICKEN1) |
+		       ILK_FBCQ_DIS | ILK_PABSTRETCH_DIS);
+	intel_de_write(display, ILK_DISPLAY_CHICKEN2,
+		       intel_de_read(display, ILK_DISPLAY_CHICKEN2) |
+		       ILK_DPARB_GATE | ILK_VSDPFD_FULL);
+	intel_de_write(display, ILK_DSPCLK_GATE_D,
+		       intel_de_read(display, ILK_DSPCLK_GATE_D) |
+		       ILK_DPARBUNIT_CLOCK_GATE_ENABLE |
+		       ILK_DPFDUNIT_CLOCK_GATE_ENABLE);
+
+	intel_display_disable_trickle_feed(display);
+}
+
+void intel_display_ivb_init_clock_gating(struct intel_display *display)
+{
+	intel_de_write(display, ILK_DSPCLK_GATE_D, ILK_VRHUNIT_CLOCK_GATE_DISABLE);
+	intel_de_rmw(display, ILK_DISPLAY_CHICKEN1, 0, ILK_FBCQ_DIS);
+}
+
+void intel_display_g4x_init_clock_gating(struct intel_display *display)
+{
+	u32 dspclk_gate = VRHUNIT_CLOCK_GATE_DISABLE |
+			  OVRUNIT_CLOCK_GATE_DISABLE |
+			  OVCUNIT_CLOCK_GATE_DISABLE;
+
+	if (display->platform.gm45)
+		dspclk_gate |= DSSUNIT_CLOCK_GATE_DISABLE;
+
+	intel_de_write(display, DSPCLK_GATE_D, dspclk_gate);
+
+	intel_display_disable_trickle_feed(display);
+}
+
+void intel_display_i965gm_init_clock_gating(struct intel_display *display)
+{
+	intel_de_write(display, DSPCLK_GATE_D, 0);
 }
