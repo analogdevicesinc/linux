@@ -673,16 +673,16 @@ void dcn315_clk_mgr_construct(
 				  &clk_mgr->base.base, &log_info);
 
 	clk_mgr->base.base.dprefclk_khz = 600000;
-	clk_mgr->base.base.dprefclk_khz = dcn315_smu_get_dpref_clk(&clk_mgr->base);
 	clk_mgr->base.base.clks.ref_dtbclk_khz = clk_mgr->base.base.dprefclk_khz;
 	dcn10_clock_read_ss_info(&clk_mgr->base);
 	clk_mgr->base.base.clks.ref_dtbclk_khz = dcn10_adjust_dp_ref_freq_for_ss(&clk_mgr->base, clk_mgr->base.base.dprefclk_khz);
 
 	clk_mgr->base.base.bw_params = &dcn315_bw_params;
 
-	if (clk_mgr->base.base.ctx->dc->debug.pstate_enabled) {
+	if (clk_mgr->base.base.ctx->dc->debug.pstate_enabled && clk_mgr->base.smu_present) {
 		int i;
 
+		clk_mgr->base.base.dprefclk_khz = dcn315_smu_get_dpref_clk(&clk_mgr->base);
 		dcn315_get_dpm_table_from_smu(&clk_mgr->base, &smu_dpm_clks);
 		DC_LOG_SMU("NumDcfClkLevelsEnabled: %d\n"
 				   "NumDispClkLevelsEnabled: %d\n"
