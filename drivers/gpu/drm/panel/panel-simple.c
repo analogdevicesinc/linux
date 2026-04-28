@@ -6346,6 +6346,39 @@ static const struct panel_desc_dsi osd101t2045_53ts = {
 	.lanes = 4,
 };
 
+static const struct drm_display_mode tsd_tst070wsbe_196c_mode = {
+	.clock = 52477,
+	.hdisplay = 1024,
+	.hsync_start = 1024 + 160,
+	.hsync_end = 1024 + 160 + 12,
+	.htotal = 1024 + 160 + 160 + 12,
+	.vdisplay = 600,
+	.vsync_start = 600 + 12,
+	.vsync_end = 600 + 12 + 10,
+	.vtotal = 600 + 12 + 10 + 23,
+};
+
+static const struct panel_desc_dsi tsd_tst070wsbe_196c = {
+	.desc = {
+		.modes = &tsd_tst070wsbe_196c_mode,
+		.num_modes = 1,
+		.bpc = 8,
+		.size = {
+			.width = 190,
+			.height = 121,
+		},
+		.delay = {
+			.prepare = 20,
+		},
+		.connector_type = DRM_MODE_CONNECTOR_DSI,
+	},
+	.flags = MIPI_DSI_MODE_VIDEO | MIPI_DSI_MODE_LPM |
+		 MIPI_DSI_MODE_VIDEO_BURST |
+		 MIPI_DSI_MODE_VIDEO_SYNC_PULSE,
+	.format = MIPI_DSI_FMT_RGB888,
+	.lanes = 4,
+};
+
 static const struct of_device_id dsi_of_match[] = {
 	{
 		.compatible = "auo,b080uan01",
@@ -6365,6 +6398,9 @@ static const struct of_device_id dsi_of_match[] = {
 	}, {
 		.compatible = "osddisplays,osd101t2045-53ts",
 		.data = &osd101t2045_53ts
+	}, {
+		.compatible = "team-source-display,tst070wsbe-196c",
+		.data = &tsd_tst070wsbe_196c
 	}, {
 		/* sentinel */
 	}
