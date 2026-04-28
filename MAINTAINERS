@@ -18672,19 +18672,59 @@ F:	net/xfrm/
 F:	tools/testing/selftests/net/ipsec.c
 
 NETWORKING [IPv4/IPv6]
-M:	"David S. Miller" <davem@davemloft.net>
 M:	David Ahern <dsahern@kernel.org>
+M:	Ido Schimmel <idosch@nvidia.com>
 L:	netdev@vger.kernel.org
 S:	Maintained
-T:	git git://git.kernel.org/pub/scm/linux/kernel/git/netdev/net.git
-F:	arch/x86/net/*
-F:	include/linux/ip.h
-F:	include/linux/ipv6*
+F:	Documentation/netlink/specs/rt-addr.yaml
+F:	Documentation/netlink/specs/rt-neigh.yaml
+F:	Documentation/netlink/specs/rt-route.yaml
+F:	Documentation/netlink/specs/rt-rule.yaml
+F:	include/linux/inetdevice.h
+F:	include/linux/mroute*
+F:	include/net/addrconf.h
+F:	include/net/arp.h
 F:	include/net/fib*
+F:	include/net/if_inet6.h
+F:	include/net/inetpeer.h
 F:	include/net/ip*
+F:	include/net/lwtunnel.h
+F:	include/net/ndisc.h
+F:	include/net/netns/nexthop.h
+F:	include/net/nexthop.h
 F:	include/net/route.h
-F:	net/ipv4/
-F:	net/ipv6/
+F:	include/uapi/linux/fib_rules.h
+F:	include/uapi/linux/in_route.h
+F:	include/uapi/linux/mroute*
+F:	include/uapi/linux/nexthop.h
+F:	net/core/fib*
+F:	net/core/lwtunnel.c
+F:	net/ipv4/arp.c
+F:	net/ipv4/devinet.c
+F:	net/ipv4/fib*
+F:	net/ipv4/icmp.c
+F:	net/ipv4/igmp.c
+F:	net/ipv4/inet_fragment.c
+F:	net/ipv4/inetpeer.c
+F:	net/ipv4/ip*
+F:	net/ipv4/metrics.c
+F:	net/ipv4/netlink.c
+F:	net/ipv4/nexthop.c
+F:	net/ipv4/route.c
+F:	net/ipv6/addr*
+F:	net/ipv6/anycast.c
+F:	net/ipv6/exthdrs.c
+F:	net/ipv6/exthdrs_core.c
+F:	net/ipv6/fib*
+F:	net/ipv6/icmp.c
+F:	net/ipv6/ip*
+F:	net/ipv6/mcast*
+F:	net/ipv6/ndisc.c
+F:	net/ipv6/output_core.c
+F:	net/ipv6/reassembly.c
+F:	net/ipv6/route.c
+F:	tools/testing/selftests/net/fib*
+F:	tools/testing/selftests/net/forwarding/
 
 NETWORKING [LABELED] (NetLabel, Labeled IPsec, SECMARK)
 M:	Paul Moore <paul@paul-moore.com>
@@ -18818,15 +18858,6 @@ S:	Supported
 F:	Documentation/networking/net_failover.rst
 F:	drivers/net/net_failover.c
 F:	include/net/net_failover.h
-
-NEXTHOP
-M:	David Ahern <dsahern@kernel.org>
-L:	netdev@vger.kernel.org
-S:	Maintained
-F:	include/net/netns/nexthop.h
-F:	include/net/nexthop.h
-F:	include/uapi/linux/nexthop.h
-F:	net/ipv4/nexthop.c
 
 NFC SUBSYSTEM
 M:	David Heidelberg <david+nfc@ixit.cz>
