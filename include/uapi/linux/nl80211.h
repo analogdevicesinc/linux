@@ -3004,11 +3004,13 @@ enum nl80211_commands {
  * @NL80211_ATTR_EPCS: Flag attribute indicating that EPCS is enabled for a
  *	station interface.
  *
- * @NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS: Extended MLD capabilities and
- *	operations that userspace implements to use during association/ML
- *	link reconfig, currently only "BTM MLD Recommendation For Multiple
- *	APs Support". Drivers may set additional flags that they support
- *	in the kernel or device.
+ * @NL80211_ATTR_EXT_MLD_CAPA_AND_OPS: Extended MLD capabilities and operations.
+ *	For association and link reconfiguration, indicates extra capabilities
+ *	that userspace implements, currently only "BTM MLD Recommendation For
+ *	Multiple APs Support".
+ *	For wiphy information, additional flags that drivers will set, but
+ *	this is informational only for userspace (it's not expected to set
+ *	these.)
  *
  * @NL80211_ATTR_WIPHY_RADIO_INDEX: (int) Integer attribute denoting the index
  *	of the radio in interest. Internally a value of -1 is used to
@@ -3715,7 +3717,7 @@ enum nl80211_attrs {
 	NL80211_ATTR_MLO_RECONF_REM_LINKS,
 	NL80211_ATTR_EPCS,
 
-	NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS,
+	NL80211_ATTR_EXT_MLD_CAPA_AND_OPS,
 
 	NL80211_ATTR_WIPHY_RADIO_INDEX,
 
@@ -3769,6 +3771,7 @@ enum nl80211_attrs {
 #define NL80211_ATTR_SAE_DATA NL80211_ATTR_AUTH_DATA
 #define NL80211_ATTR_CSA_C_OFF_BEACON NL80211_ATTR_CNTDWN_OFFS_BEACON
 #define NL80211_ATTR_CSA_C_OFF_PRESP NL80211_ATTR_CNTDWN_OFFS_PRESP
+#define NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS NL80211_ATTR_EXT_MLD_CAPA_AND_OPS
 
 /*
  * Allow user space programs to use #ifdef on new attributes by defining them

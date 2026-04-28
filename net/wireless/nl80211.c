@@ -1061,7 +1061,7 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 				       NL80211_MAX_SUPP_SELECTORS),
 	[NL80211_ATTR_MLO_RECONF_REM_LINKS] = { .type = NLA_U16 },
 	[NL80211_ATTR_EPCS] = { .type = NLA_FLAG },
-	[NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS] = { .type = NLA_U16 },
+	[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS] = { .type = NLA_U16 },
 	[NL80211_ATTR_WIPHY_RADIO_INDEX] = { .type = NLA_U8 },
 	[NL80211_ATTR_S1G_LONG_BEACON_PERIOD] = NLA_POLICY_MIN(NLA_U8, 2),
 	[NL80211_ATTR_S1G_SHORT_BEACON] =
@@ -3595,6 +3595,12 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
 				     nla_put_u16(msg,
 						 NL80211_ATTR_MLD_CAPA_AND_OPS,
 						 capab->mld_capa_and_ops)))
+					goto nla_put_failure;
+				if (rdev->wiphy.flags & WIPHY_FLAG_SUPPORTS_MLO &&
+				    capab->ext_mld_capa_and_ops &&
+				    nla_put_u16(msg,
+						NL80211_ATTR_EXT_MLD_CAPA_AND_OPS,
+						capab->ext_mld_capa_and_ops))
 					goto nla_put_failure;
 
 				nla_nest_end(msg, nested_ext_capab);
@@ -13059,9 +13065,9 @@ static int nl80211_associate(struct sk_buff *skb, struct genl_info *info)
 			goto free;
 		}
 
-		if (info->attrs[NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS])
+		if (info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS])
 			req.ext_mld_capa_ops =
-				nla_get_u16(info->attrs[NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS]);
+				nla_get_u16(info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS]);
 	} else {
 		if (req.link_id >= 0)
 			return -EINVAL;
@@ -13072,7 +13078,7 @@ static int nl80211_associate(struct sk_buff *skb, struct genl_info *info)
 			return PTR_ERR(req.bss);
 		ap_addr = req.bss->bssid;
 
-		if (info->attrs[NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS])
+		if (info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS])
 			return -EINVAL;
 	}
 
@@ -19000,9 +19006,9 @@ static int nl80211_assoc_ml_reconf(struct sk_buff *skb, struct genl_info *info)
 		goto out;
 	}
 
-	if (info->attrs[NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS])
+	if (info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS])
 		req.ext_mld_capa_ops =
-			nla_get_u16(info->attrs[NL80211_ATTR_ASSOC_MLD_EXT_CAPA_OPS]);
+			nla_get_u16(info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS]);
 
 	err = cfg80211_assoc_ml_reconf(rdev, dev, &req);
 
