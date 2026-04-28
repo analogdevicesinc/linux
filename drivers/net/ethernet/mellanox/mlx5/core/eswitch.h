@@ -340,7 +340,6 @@ struct mlx5_host_work {
 
 struct mlx5_esw_functions {
 	struct mlx5_nb		nb;
-	atomic_t		generation;
 	bool			host_funcs_disabled;
 	u16			num_vfs;
 	u16			num_ec_vfs;
@@ -410,6 +409,7 @@ struct mlx5_eswitch {
 	struct mlx5_devcom_comp_dev *devcom;
 	u16 enabled_ipsec_vf_count;
 	bool eswitch_operation_in_progress;
+	atomic_t generation;
 };
 
 void esw_offloads_disable(struct mlx5_eswitch *esw);

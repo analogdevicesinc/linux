@@ -3667,7 +3667,7 @@ esw_vfs_changed_event_handler(struct mlx5_eswitch *esw, int work_gen,
 	devl_lock(devlink);
 
 	/* Stale work from one or more mode changes ago. Bail out. */
-	if (work_gen != atomic_read(&esw->esw_funcs.generation))
+	if (work_gen != atomic_read(&esw->generation))
 		goto unlock;
 
 	new_num_vfs = MLX5_GET(query_esw_functions_out, out,
@@ -3729,7 +3729,7 @@ int mlx5_esw_funcs_changed_handler(struct notifier_block *nb, unsigned long type
 	esw = container_of(esw_funcs, struct mlx5_eswitch, esw_funcs);
 
 	host_work->esw = esw;
-	host_work->work_gen = atomic_read(&esw_funcs->generation);
+	host_work->work_gen = atomic_read(&esw->generation);
 
 	INIT_WORK(&host_work->work, esw_functions_changed_event_handler);
 	queue_work(esw->work_queue, &host_work->work);
