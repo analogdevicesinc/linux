@@ -300,7 +300,19 @@
 			"out_channel6_off_raw", "out_channel6_off_ms",
 			"out_channel7_enable", "out_channel7_polarity",
 			"out_channel7_on_raw", "out_channel7_on_ms",
-			"out_channel7_off_raw", "out_channel7_off_ms";
+			"out_channel7_off_raw", "out_channel7_off_ms",
+			"out_channel8_enable", "out_channel8_polarity",
+			"out_channel8_on_raw", "out_channel8_on_ms",
+			"out_channel8_off_raw", "out_channel8_off_ms",
+			"out_channel9_enable", "out_channel9_polarity",
+			"out_channel9_on_raw", "out_channel9_on_ms",
+			"out_channel9_off_raw", "out_channel9_off_ms",
+			"out_channel10_enable", "out_channel10_polarity",
+			"out_channel10_on_raw", "out_channel10_on_ms",
+			"out_channel10_off_raw", "out_channel10_off_ms",
+			"out_channel11_enable", "out_channel11_polarity",
+			"out_channel11_on_raw", "out_channel11_on_ms",
+			"out_channel11_off_raw", "out_channel11_off_ms";
 		label = "iio-axi-tdd-0";
 	};
 
