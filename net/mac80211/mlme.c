@@ -6461,6 +6461,12 @@ static bool ieee80211_assoc_success(struct ieee80211_sub_if_data *sdata,
 	sta->sta.spp_amsdu = assoc_data->spp_amsdu;
 
 	if (ieee80211_vif_is_mld(&sdata->vif)) {
+		if (!elems->ml_basic)
+			goto out_err;
+
+		sta->sta.ext_mld_capa_ops =
+			ieee80211_mle_get_ext_mld_capa_op((const void *)elems->ml_basic);
+
 		for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
 			if (!assoc_data->link[link_id].bss)
 				continue;
