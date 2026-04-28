@@ -754,7 +754,7 @@ struct runlist_element *ntfs_mapping_pairs_decompress(const struct ntfs_volume *
 	/* Validate lowest_vcn from on-disk metadata to ensure it is sane. */
 	if (overflows_type(lowest_vcn, vcn)) {
 		ntfs_error(vol->sb, "Invalid lowest_vcn in mapping pairs.");
-		goto err_out;
+		return ERR_PTR(-EIO);
 	}
 	/* Start at vcn = lowest_vcn and lcn 0. */
 	vcn = lowest_vcn;
