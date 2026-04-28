@@ -146,6 +146,9 @@ struct xt_match {
 	/* Called when user tries to insert an entry of this type. */
 	int (*checkentry)(const struct xt_mtchk_param *);
 
+	/* Called to validate hooks based on the match configuration. */
+	int (*check_hooks)(const struct xt_mtchk_param *);
+
 	/* Called when entry of this type deleted. */
 	void (*destroy)(const struct xt_mtdtor_param *);
 #ifdef CONFIG_NETFILTER_XTABLES_COMPAT
@@ -186,6 +189,9 @@ struct xt_target {
            called. */
 	/* Should return 0 on success or an error code otherwise (-Exxxx). */
 	int (*checkentry)(const struct xt_tgchk_param *);
+
+	/* Called to validate hooks based on the target configuration. */
+	int (*check_hooks)(const struct xt_tgchk_param *);
 
 	/* Called when entry of this type deleted. */
 	void (*destroy)(const struct xt_tgdtor_param *);
@@ -279,8 +285,10 @@ bool xt_find_jump_offset(const unsigned int *offsets,
 
 int xt_check_proc_name(const char *name, unsigned int size);
 
+int xt_check_hooks_match(struct xt_mtchk_param *par);
 int xt_check_match(struct xt_mtchk_param *, unsigned int size, u16 proto,
 		   bool inv_proto);
+int xt_check_hooks_target(struct xt_tgchk_param *par);
 int xt_check_target(struct xt_tgchk_param *, unsigned int size, u16 proto,
 		    bool inv_proto);
 
