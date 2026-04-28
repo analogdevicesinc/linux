@@ -1,0 +1,269 @@
+{% set reset_pin = cam_cfg.reset_pin | d(0) %}
+{% set cam_label = ser_label ~ "_cam_" ~ cam_idx %}
+{% set xclk_label = ser_label ~ "_cam_" ~ cam_idx ~ "_xclk" %}
+{% set cam_out_label = cam_label ~ "_out" %}
+{% set cam_out_remote_label = ser_in_label_x(cam_idx) %}
+{% set port_index = platform_cfg.port_index %}
+{% set bus_width = des_cfg.phys[0].num_lanes %}
+{% set serial_suffixes = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] %}
+{% set tegra_sinterface = 'serial_' ~ serial_suffixes[port_index] %}
+
+&{/} {
+	{{xclk_label}}: {{xclk_label}} {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+	};
+};
+
+&{{ser_i2c_label()}} {
+	{{cam_label}}: imx219@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+
+		reset-gpios = <&{{ser_label}} {{reset_pin}} 0>;
+
+		clocks = <&{{xclk_label}}>;
+		clock-names = "xclk";
+
+		devnode = "video{{ser_idx}}";
+		physical_w = "3.680";
+		physical_h = "2.760";
+		sensor_model = "imx219";
+		use_sensor_mode_id = "false";
+
+		mode0 { /* IMX219_MODE_3280x2464_21FPS */
+			mclk_khz = "24000";
+			num_lanes = "2";
+			tegra_sinterface = "{{tegra_sinterface}}";
+			vc_id = "{{ser_idx}}";
+			phy_mode = "DPHY";
+			discontinuous_clk = "yes";
+			dpcm_enable = "false";
+			cil_settletime = "0";
+			active_w = "3280";
+			active_h = "2464";
+			mode_type = "bayer";
+			pixel_phase = "rggb";
+			csi_pixel_bit_depth = "10";
+			readout_orientation = "90";
+			line_length = "3448";
+			inherent_gain = "1";
+			mclk_multiplier = "9.33";
+			pix_clk_hz = "182400000";
+			gain_factor = "16";
+			framerate_factor = "1000000";
+			exposure_factor = "1000000";
+			min_gain_val = "16"; /* 1.00x */
+			max_gain_val = "170"; /* 10.66x */
+			step_gain_val = "1";
+			default_gain = "16"; /* 1.00x */
+			min_hdr_ratio = "1";
+			max_hdr_ratio = "1";
+			min_framerate = "2000000"; /* 2.0 fps */
+			max_framerate = "21000000"; /* 21.0 fps */
+			step_framerate = "1";
+			default_framerate = "21000000"; /* 21.0 fps */
+			min_exp_time = "13"; /* us */
+			max_exp_time = "683709"; /* us */
+			step_exp_time = "1";
+			default_exp_time = "2495"; /* us */
+			embedded_metadata_height = "2";
+{% if platform_cfg.csi_idx == 0 %}
+			lane_polarity = "6";
+{% endif %}
+		};
+		mode1 { /* IMX219_MODE_3280x1848_28FPS */
+			mclk_khz = "24000";
+			num_lanes = "2";
+			tegra_sinterface = "{{tegra_sinterface}}";
+			vc_id = "{{ser_idx}}";
+			phy_mode = "DPHY";
+			discontinuous_clk = "yes";
+			dpcm_enable = "false";
+			cil_settletime = "0";
+			active_w = "3280";
+			active_h = "1848";
+			mode_type = "bayer";
+			pixel_phase = "rggb";
+			csi_pixel_bit_depth = "10";
+			readout_orientation = "90";
+			line_length = "3448";
+			inherent_gain = "1";
+			mclk_multiplier = "9.33";
+			pix_clk_hz = "182400000";
+			gain_factor = "16";
+			framerate_factor = "1000000";
+			exposure_factor = "1000000";
+			min_gain_val = "16"; /* 1.00x */
+			max_gain_val = "170"; /* 10.66x */
+			step_gain_val = "1";
+			default_gain = "16"; /* 1.00x */
+			min_hdr_ratio = "1";
+			max_hdr_ratio = "1";
+			min_framerate = "2000000"; /* 2.0 fps */
+			max_framerate = "28000000"; /* 28.0 fps */
+			step_framerate = "1";
+			default_framerate = "28000000"; /* 28.0 fps */
+			min_exp_time = "13"; /* us */
+			max_exp_time = "683709"; /* us */
+			step_exp_time = "1";
+			default_exp_time = "2495"; /* us */
+			embedded_metadata_height = "2";
+{% if platform_cfg.csi_idx == 0 %}
+			lane_polarity = "6";
+{% endif %}
+		};
+		mode2 { /* IMX219_MODE_1920x1080_30FPS */
+			mclk_khz = "24000";
+			num_lanes = "2";
+			tegra_sinterface = "{{tegra_sinterface}}";
+			vc_id = "{{ser_idx}}";
+			phy_mode = "DPHY";
+			discontinuous_clk = "yes";
+			dpcm_enable = "false";
+			cil_settletime = "0";
+			active_w = "1920";
+			active_h = "1080";
+			mode_type = "bayer";
+			pixel_phase = "rggb";
+			csi_pixel_bit_depth = "10";
+			readout_orientation = "90";
+			line_length = "3448";
+			inherent_gain = "1";
+			mclk_multiplier = "9.33";
+			pix_clk_hz = "182400000";
+			gain_factor = "16";
+			framerate_factor = "1000000";
+			exposure_factor = "1000000";
+			min_gain_val = "16"; /* 1.00x */
+			max_gain_val = "170"; /* 10.66x */
+			step_gain_val = "1";
+			default_gain = "16"; /* 1.00x */
+			min_hdr_ratio = "1";
+			max_hdr_ratio = "1";
+			min_framerate = "2000000"; /* 2.0 fps */
+			max_framerate = "30000000"; /* 30.0 fps */
+			step_framerate = "1";
+			default_framerate = "30000000"; /* 30.0 fps */
+			min_exp_time = "13"; /* us */
+			max_exp_time = "683709"; /* us */
+			step_exp_time = "1";
+			default_exp_time = "2495"; /* us */
+			embedded_metadata_height = "2";
+{% if platform_cfg.csi_idx == 0 %}
+			lane_polarity = "6";
+{% endif %}
+		};
+		mode3 { /* IMX219_MODE_1640x1232_30FPS */
+			mclk_khz = "24000";
+			num_lanes = "2";
+			tegra_sinterface = "{{tegra_sinterface}}";
+			vc_id = "{{ser_idx}}";
+			phy_mode = "DPHY";
+			discontinuous_clk = "yes";
+			dpcm_enable = "false";
+			cil_settletime = "0";
+			active_w = "1640";
+			active_h = "1232";
+			mode_type = "bayer";
+			pixel_phase = "rggb";
+			csi_pixel_bit_depth = "10";
+			readout_orientation = "90";
+			line_length = "3448";
+			inherent_gain = "1";
+			mclk_multiplier = "9.33";
+			pix_clk_hz = "182400000";
+			gain_factor = "16";
+			framerate_factor = "1000000";
+			exposure_factor = "1000000";
+			min_gain_val = "16"; /* 1.00x */
+			max_gain_val = "170"; /* 10.66x */
+			step_gain_val = "1";
+			default_gain = "16"; /* 1.00x */
+			min_hdr_ratio = "1";
+			max_hdr_ratio = "1";
+			min_framerate = "2000000"; /* 2.0 fps */
+			max_framerate = "30000000"; /* 60.0 fps */
+			step_framerate = "1";
+			default_framerate = "30000000"; /* 60.0 fps */
+			min_exp_time = "13"; /* us */
+			max_exp_time = "683709"; /* us */
+			step_exp_time = "1";
+			default_exp_time = "2495"; /* us */
+			embedded_metadata_height = "2";
+{% if platform_cfg.csi_idx == 0 %}
+			lane_polarity = "6";
+{% endif %}
+		};
+		mode4 { /* IMX219_MODE_1280x720_60FPS */
+			mclk_khz = "24000";
+			num_lanes = "2";
+			tegra_sinterface = "{{tegra_sinterface}}";
+			vc_id = "{{ser_idx}}";
+			phy_mode = "DPHY";
+			discontinuous_clk = "yes";
+			dpcm_enable = "false";
+			cil_settletime = "0";
+			active_w = "1280";
+			active_h = "720";
+			mode_type = "bayer";
+			pixel_phase = "rggb";
+			csi_pixel_bit_depth = "10";
+			readout_orientation = "90";
+			line_length = "3448";
+			inherent_gain = "1";
+			mclk_multiplier = "9.33";
+			pix_clk_hz = "182400000";
+			gain_factor = "16";
+			framerate_factor = "1000000";
+			exposure_factor = "1000000";
+			min_gain_val = "16"; /* 1.00x */
+			max_gain_val = "170"; /* 10.66x */
+			step_gain_val = "1";
+			default_gain = "16"; /* 1.00x */
+			min_hdr_ratio = "1";
+			max_hdr_ratio = "1";
+			min_framerate = "2000000"; /* 2.0 fps */
+			max_framerate = "60000000"; /* 60.0 fps */
+			step_framerate = "1";
+			default_framerate = "60000000"; /* 60.0 fps */
+			min_exp_time = "13"; /* us */
+			max_exp_time = "683709"; /* us */
+			step_exp_time = "1";
+			default_exp_time = "2495"; /* us */
+			embedded_metadata_height = "2";
+{% if platform_cfg.csi_idx == 0 %}
+			lane_polarity = "6";
+{% endif %}
+		};
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				{{cam_out_label}}: endpoint {
+					port-index = <{{port_index}}>;
+					bus-width = <{{bus_width}}>;
+					remote-endpoint = <&{{cam_out_remote_label}}>;
+				};
+			};
+		};
+	};
+};
+
+&{{ser_label}} {
+	ports {
+		port@{{cam_idx}} {
+			reg = <0>;
+
+			{{cam_out_remote_label}}: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <456000000>;
+				remote-endpoint = <&{{cam_out_label}}>;
+			};
+		};
+	};
+};
