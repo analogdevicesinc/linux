@@ -3655,20 +3655,15 @@ static void esw_offloads_steering_cleanup(struct mlx5_eswitch *esw)
 	mutex_destroy(&esw->fdb_table.offloads.vports.lock);
 }
 
-static void
-esw_vfs_changed_event_handler(struct mlx5_eswitch *esw, int work_gen,
-			      const u32 *out)
+static void esw_vfs_changed_event_handler(struct mlx5_eswitch *esw)
 {
-	struct devlink *devlink;
 	bool host_pf_disabled;
 	u16 new_num_vfs;
+	const u32 *out;
 
-	devlink = priv_to_devlink(esw->dev);
-	devl_lock(devlink);
-
-	/* Stale work from one or more mode changes ago. Bail out. */
-	if (work_gen != atomic_read(&esw->generation))
-		goto unlock;
+	out = mlx5_esw_query_functions(esw->dev);
+	if (IS_ERR(out))
+		return;
 
 	new_num_vfs = MLX5_GET(query_esw_functions_out, out,
 			       host_params_context.host_num_of_vfs);
@@ -3676,7 +3671,7 @@ esw_vfs_changed_event_handler(struct mlx5_eswitch *esw, int work_gen,
 				    host_params_context.host_pf_disabled);
 
 	if (new_num_vfs == esw->esw_funcs.num_vfs || host_pf_disabled)
-		goto unlock;
+		goto free;
 
 	/* Number of VFs can only change from "0 to x" or "x to 0". */
 	if (esw->esw_funcs.num_vfs > 0) {
@@ -3686,53 +3681,69 @@ esw_vfs_changed_event_handler(struct mlx5_eswitch *esw, int work_gen,
 
 		err = mlx5_eswitch_load_vf_vports(esw, new_num_vfs,
 						  MLX5_VPORT_UC_ADDR_CHANGE);
-		if (err) {
-			devl_unlock(devlink);
-			return;
-		}
+		if (err)
+			goto free;
 	}
 	esw->esw_funcs.num_vfs = new_num_vfs;
-unlock:
-	devl_unlock(devlink);
+free:
+	kvfree(out);
 }
 
-static void esw_functions_changed_event_handler(struct work_struct *work)
+static void esw_wq_handler(struct work_struct *work)
 {
 	struct mlx5_host_work *host_work;
 	struct mlx5_eswitch *esw;
-	const u32 *out;
+	struct devlink *devlink;
 
 	host_work = container_of(work, struct mlx5_host_work, work);
 	esw = host_work->esw;
+	devlink = priv_to_devlink(esw->dev);
 
-	out = mlx5_esw_query_functions(esw->dev);
-	if (IS_ERR(out))
-		goto out;
+	devl_lock(devlink);
 
-	esw_vfs_changed_event_handler(esw, host_work->work_gen, out);
-	kvfree(out);
-out:
+	/* Stale work from one or more mode changes ago. Bail out. */
+	if (host_work->work_gen != atomic_read(&esw->generation))
+		goto unlock;
+
+	host_work->func(esw);
+
+unlock:
+	devl_unlock(devlink);
 	kfree(host_work);
 }
 
-int mlx5_esw_funcs_changed_handler(struct notifier_block *nb, unsigned long type, void *data)
+static int mlx5_esw_add_work(struct mlx5_eswitch *esw,
+			     void (*func)(struct mlx5_eswitch *esw))
 {
-	struct mlx5_esw_functions *esw_funcs;
 	struct mlx5_host_work *host_work;
-	struct mlx5_eswitch *esw;
 
 	host_work = kzalloc_obj(*host_work, GFP_ATOMIC);
 	if (!host_work)
-		return NOTIFY_DONE;
-
-	esw_funcs = mlx5_nb_cof(nb, struct mlx5_esw_functions, nb);
-	esw = container_of(esw_funcs, struct mlx5_eswitch, esw_funcs);
+		return -ENOMEM;
 
 	host_work->esw = esw;
 	host_work->work_gen = atomic_read(&esw->generation);
 
-	INIT_WORK(&host_work->work, esw_functions_changed_event_handler);
+	host_work->func = func;
+	INIT_WORK(&host_work->work, esw_wq_handler);
 	queue_work(esw->work_queue, &host_work->work);
+
+	return 0;
+}
+
+int mlx5_esw_funcs_changed_handler(struct notifier_block *nb,
+				   unsigned long type, void *data)
+{
+	struct mlx5_esw_functions *esw_funcs;
+	struct mlx5_eswitch *esw;
+	int ret;
+
+	esw_funcs = mlx5_nb_cof(nb, struct mlx5_esw_functions, nb);
+	esw = container_of(esw_funcs, struct mlx5_eswitch, esw_funcs);
+
+	ret = mlx5_esw_add_work(esw, esw_vfs_changed_event_handler);
+	if (ret)
+		return NOTIFY_DONE;
 
 	return NOTIFY_OK;
 }

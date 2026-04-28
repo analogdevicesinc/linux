@@ -336,6 +336,7 @@ struct mlx5_host_work {
 	struct work_struct	work;
 	struct mlx5_eswitch	*esw;
 	int			work_gen;
+	void (*func)(struct mlx5_eswitch *esw);
 };
 
 struct mlx5_esw_functions {
