@@ -114,6 +114,14 @@ static void bucket_table_free(const struct bucket_table *tbl)
 	kvfree(tbl);
 }
 
+static void bucket_table_free_atomic(const struct bucket_table *tbl)
+{
+	if (tbl->nest)
+		nested_bucket_table_free(tbl);
+
+	kvfree_atomic(tbl);
+}
+
 static void bucket_table_free_rcu(struct rcu_head *head)
 {
 	bucket_table_free(container_of(head, struct bucket_table, rcu));
@@ -496,7 +504,7 @@ static int rhashtable_insert_rehash(struct rhashtable *ht,
 
 	err = rhashtable_rehash_attach(ht, tbl, new_tbl);
 	if (err) {
-		bucket_table_free(new_tbl);
+		bucket_table_free_atomic(new_tbl);
 		if (err == -EEXIST)
 			err = 0;
 	} else
