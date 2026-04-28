@@ -1,0 +1,156 @@
+{% set ns = namespace(phy_cfg=0) %}
+{% for phy_cfg_i in des_cfg.phys %}
+	{% if phy_cfg_i.phy_idx == platform_cfg.phy_idx %}
+		{% set ns.phy_cfg = phy_cfg_i %}
+	{% endif %}
+{% endfor %}
+{% set phy_cfg = ns.phy_cfg %}
+{% if not phy_cfg %}
+	{{raise_exception("Invalid phy index " ~ platform_cfg.phy_idx)}}
+{% endif %}
+{% set csi_idx = platform_cfg.csi_idx %}
+{% set phy_idx = phy_cfg.phy_idx %}
+{% set port_index = platform_cfg.port_index %}
+{% set bus_width = phy_cfg.num_lanes %}
+{% set clock_lanes = phy_cfg.clock_lanes | join(' ') %}
+{% set data_lanes = phy_cfg.data_lanes | join(' ') %}
+{% set link_frequencies = phy_cfg.link_frequencies | join(' ') %}
+{% set num_cams = des_cfg.links | length %}
+{% set serial_suffixes = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] %}
+{% set tegra_sinterface = 'serial_' ~ serial_suffixes[port_index] %}
+{% set positions = ['rear', 'front', 'left', 'right'] %}
+{% macro csi_in_label_x(x) -%}
+	{{ "csi" ~ x ~ '_ep' }}
+{%- endmacro %}
+{% macro csi_out_label_x(x) -%}
+	{{ "csi" ~ x ~ '_out_ep' }}
+{%- endmacro %}
+{% macro vi_in_label_x(x) -%}
+	{{ "vi" ~ x ~ '_ep' }}
+{%- endmacro %}
+{% set des_label = 'max_des_' ~ des_idx %}
+{% set mux_ch = csi_idx %}
+{% set des_addr_hex = (des_cfg.address | d(default_address)) | hex_remove_0x %}
+{% include 'tegra-234-i2c.dtsi.in' %}
+
+&{/} {
+	overlay-name = "GMSL Camera";
+	jetson-header-name = "Jetson 22pin CSI Connector";
+	compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nvidia,p3768-0000+p3767-0003", "nvidia,p3768-0000+p3767-0004", "nvidia,p3768-0000+p3767-0005", "nvidia,p3768-0000+p3767-0000-super", "nvidia,p3768-0000+p3767-0001-super", "nvidia,p3768-0000+p3767-0003-super", "nvidia,p3768-0000+p3767-0004-super", "nvidia,p3768-0000+p3767-0005-super", "nvidia,tegra234";
+
+	tegra-camera-platform {
+		compatible = "nvidia, tegra-camera-platform";
+		modules {
+{% for ser_cfg in des_cfg.links %}
+{% set ser_idx = loop.index0 %}
+{% for cam_cfg in ser_cfg.cameras %}
+{% set cam_idx = loop.index0 %}
+{% set mod_idx = csi_idx + ser_idx %}
+{% set cam_drv = cam_cfg.name | replace('-tegra', '') %}
+{% set ser_addr_hex = (ser_cfg.address | d('0x40')) | hex_remove_0x %}
+{% set cam_addr_hex = (cam_cfg.address | d('0x10')) | hex_remove_0x %}
+{% set cam_addr_padded = ("0000" ~ cam_addr_hex)[-4:] %}
+{% set adapter = platform_cfg.sensor_i2c_base + ser_idx %}
+			cam_module{{mod_idx}}: module{{mod_idx}} {
+				badge = "gmsl_{{cam_drv}}_{{mod_idx}}";
+				position = "{{positions[ser_idx]}}";
+				orientation = "1";
+				cam_module{{mod_idx}}_drivernode0: drivernode0 {
+					pcl_id = "v4l2_sensor";
+					devname = "{{cam_drv}} {{adapter}}-{{cam_addr_padded}}";
+					proc-device-tree = "/proc/device-tree/bus@0/cam_i2cmux/i2c@{{mux_ch}}/gmsl-deserializer@{{des_addr_hex}}/i2c-atr/i2c@{{ser_idx}}/gmsl-serializer@{{ser_addr_hex}}/i2c-atr/i2c@0/{{cam_drv}}@{{cam_addr_hex}}";
+				};
+			};
+{% endfor %}
+{% endfor %}
+		};
+	};
+
+	/* VI: {{num_cams}} channel(s) on CSI port {{port_index}} */
+	tegra-capture-vi {
+		num-channels = <{{num_cams}}>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+{% for ser_cfg in des_cfg.links %}
+{% set ch_idx = loop.index0 %}
+			port@{{ch_idx}} {
+				reg = <{{ch_idx}}>;
+				{{vi_in_label_x(ch_idx)}}: endpoint {
+					vc-id = <{{ch_idx}}>;
+					port-index = <{{port_index}}>;
+					bus-width = <{{bus_width}}>;
+					remote-endpoint = <&{{csi_out_label_x(ch_idx)}}>;
+				};
+			};
+{% endfor %}
+		};
+	};
+};
+
+/* NVCSI: {{num_cams}} channel(s) on port-index={{port_index}} */
+&{/bus@0/host1x@13e00000} {
+	nvcsi@15a00000 {
+		num-channels = <{{num_cams}}>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+{% for ser_cfg in des_cfg.links %}
+{% set ch_idx = loop.index0 %}
+		channel@{{ch_idx}} {
+			reg = <{{ch_idx}}>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+{% if num_cams > 1 %}
+					{{csi_in_label_x(ch_idx)}}: endpoint@0 {
+						port-index = <{{port_index}}>;
+						bus-width = <{{bus_width}}>;
+						remote-endpoint = <&{{des_phy_out_ep_label_x(phy_idx, ch_idx)}}>;
+					};
+{% else %}
+					{{csi_in_label_x(ch_idx)}}: endpoint@0 {
+						port-index = <{{port_index}}>;
+						bus-width = <{{bus_width}}>;
+						remote-endpoint = <&{{des_phy_out_label_x(phy_idx)}}>;
+					};
+{% endif %}
+				};
+				port@1 {
+					reg = <1>;
+					{{csi_out_label_x(ch_idx)}}: endpoint@1 {
+						remote-endpoint = <&{{vi_in_label_x(ch_idx)}}>;
+					};
+				};
+			};
+		};
+{% endfor %}
+	};
+};
+
+{% if num_cams > 1 %}
+/* Deserializer CSI output port (PHY {{phy_idx}}) - {{num_cams}} endpoints for {{num_cams}} NVCSI channels */
+&{{des_label}} {
+	ports {
+		port@{{des_phy_port_idx_x(phy_idx)}} {
+			reg = <{{des_phy_port_idx_x(phy_idx)}}>;
+
+{% for ser_cfg in des_cfg.links %}
+{% set ch_idx = loop.index0 %}
+			{{des_phy_out_ep_label_x(phy_idx, ch_idx)}}: endpoint@{{ch_idx}} {
+				reg = <{{ch_idx}}>;
+				clock-lanes = <{{clock_lanes}}>;
+				data-lanes = <{{data_lanes}}>;
+				link-frequencies = /bits/ 64 <{{link_frequencies}}>;
+				remote-endpoint = <&{{csi_in_label_x(ch_idx)}}>;
+			};
+{% endfor %}
+		};
+	};
+};
+{% else %}
+&{{des_phy_out_label_x(phy_idx)}} {
+	remote-endpoint = <&{{csi_in_label_x(0)}}>;
+};
+{% endif %}

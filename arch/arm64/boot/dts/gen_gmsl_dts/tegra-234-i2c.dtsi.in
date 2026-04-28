@@ -1,0 +1,27 @@
+{% set csi_idx = des_cfg.platform_cfg.csi_idx %}
+{% set mux_ch = csi_idx %}
+&{/bus@0} {
+	cam_i2cmux {
+		status = "okay";
+		compatible = "i2c-mux-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		mux-gpios = <&gpio_aon 19 0>;
+		i2c-parent = <&cam_i2c>;
+		cam_mux: i2c@{{mux_ch}} {
+			status = "okay";
+			reg = <{{mux_ch}}>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+		};
+	};
+
+	gpio@2200000 {
+		camera-control-output-high {
+			gpio-hog;
+			output-high;
+			gpios = <160 0  62 0>;
+			label = "cam1-pwdn", "cam0-pwdn";
+		};
+	};
+};
