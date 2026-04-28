@@ -1053,6 +1053,9 @@ ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params)
 	if (!elems_parse)
 		return NULL;
 
+	elems_parse->elems.frame_type = params->type;
+	elems_parse->elems.from_ap = params->from_ap;
+
 	elems_parse->scratch_len = scratch_len;
 	elems_parse->scratch_pos = elems_parse->scratch;
 

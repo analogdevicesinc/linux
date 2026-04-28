@@ -1790,6 +1790,8 @@ struct ieee802_11_elems {
 	const u8 *ie_start;
 	size_t total_len;
 	u32 crc;
+	u8 frame_type;
+	bool from_ap;
 
 	/* pointers to IEs */
 	const struct ieee80211_tdls_lnkie *lnk_id;
