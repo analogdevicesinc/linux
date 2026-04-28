@@ -2256,6 +2256,7 @@ void ath12k_core_deinit(struct ath12k_base *ab)
 void ath12k_core_free(struct ath12k_base *ab)
 {
 	timer_delete_sync(&ab->rx_replenish_retry);
+	ath12k_wmi_free();
 	destroy_workqueue(ab->workqueue_aux);
 	destroy_workqueue(ab->workqueue);
 	kfree(ab);
@@ -2279,6 +2280,9 @@ struct ath12k_base *ath12k_core_alloc(struct device *dev, size_t priv_size,
 	ab->workqueue_aux = create_singlethread_workqueue("ath12k_aux_wq");
 	if (!ab->workqueue_aux)
 		goto err_free_wq;
+
+	if (ath12k_wmi_alloc() < 0)
+		goto err_free_wq_aux;
 
 	mutex_init(&ab->core_lock);
 	spin_lock_init(&ab->base_lock);
@@ -2314,6 +2318,8 @@ struct ath12k_base *ath12k_core_alloc(struct device *dev, size_t priv_size,
 
 	return ab;
 
+err_free_wq_aux:
+	destroy_workqueue(ab->workqueue_aux);
 err_free_wq:
 	destroy_workqueue(ab->workqueue);
 err_sc_free:
