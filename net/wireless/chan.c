@@ -556,6 +556,52 @@ int cfg80211_chandef_primary(const struct cfg80211_chan_def *c,
 }
 EXPORT_SYMBOL(cfg80211_chandef_primary);
 
+int cfg80211_chandef_add_npca(struct wiphy *wiphy,
+			      struct cfg80211_chan_def *chandef,
+			      const struct ieee80211_uhr_npca_info *npca)
+{
+	struct cfg80211_chan_def new_chandef = *chandef;
+	u32 width, npca_freq;
+	u8 offs;
+
+	if (chandef->npca_chan || chandef->npca_punctured)
+		return -EINVAL;
+
+	if (WARN_ON(!cfg80211_chandef_valid(chandef)))
+		return -EINVAL;
+
+	if (!npca)
+		return 0;
+
+	switch (chandef->width) {
+	case NL80211_CHAN_WIDTH_80:
+	case NL80211_CHAN_WIDTH_160:
+	case NL80211_CHAN_WIDTH_320:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	offs = le32_get_bits(npca->params,
+			     IEEE80211_UHR_NPCA_PARAMS_PRIMARY_CHAN_OFFS);
+
+	width = cfg80211_chandef_get_width(chandef);
+	npca_freq = chandef->center_freq1 - width / 2 + 10 + 20 * offs;
+	new_chandef.npca_chan = ieee80211_get_channel(wiphy, npca_freq);
+	if (!new_chandef.npca_chan)
+		return -EINVAL;
+
+	if (npca->params & cpu_to_le32(IEEE80211_UHR_NPCA_PARAMS_DIS_SUBCH_BMAP_PRES))
+		new_chandef.npca_punctured = le16_to_cpu(npca->dis_subch_bmap[0]);
+
+	if (!cfg80211_chandef_valid(&new_chandef))
+		return -EINVAL;
+
+	*chandef = new_chandef;
+	return 0;
+}
+EXPORT_SYMBOL(cfg80211_chandef_add_npca);
+
 static const struct cfg80211_chan_def *
 check_chandef_primary_compat(const struct cfg80211_chan_def *c1,
 			     const struct cfg80211_chan_def *c2,
