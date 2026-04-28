@@ -372,6 +372,12 @@ ieee80211_uhr_npca_dis_subch_bitmap(const struct ieee80211_uhr_operation *oper)
 #define IEEE80211_UHR_MAC_CAP_DBE_EHT_MCS_MAP_160_PRES	0x08
 #define IEEE80211_UHR_MAC_CAP_DBE_EHT_MCS_MAP_320_PRES	0x10
 
+struct ieee80211_uhr_cap_dbe {
+	u8 cap;
+	/* present 0, 1 or 2 times depending on _PRES bits */
+	struct ieee80211_eht_mcs_nss_supp_bw eht_mcs_map[];
+} __packed;
+
 /**
  * enum ieee80211_uhr_dbe_max_supported_bw - DBE Maximum Supported Bandwidth
  *
@@ -394,12 +400,6 @@ struct ieee80211_uhr_cap_mac {
 	u8 mac_cap[5];
 } __packed;
 
-struct ieee80211_uhr_cap {
-	struct ieee80211_uhr_cap_mac mac;
-	/* DBE, PHY capabilities */
-	u8 variable[];
-} __packed;
-
 #define IEEE80211_UHR_PHY_CAP_MAX_NSS_RX_SND_NDP_LE80	0x01
 #define IEEE80211_UHR_PHY_CAP_MAX_NSS_RX_DL_MU_LE80	0x02
 #define IEEE80211_UHR_PHY_CAP_MAX_NSS_RX_SND_NDP_160	0x04
@@ -413,11 +413,18 @@ struct ieee80211_uhr_cap_phy {
 	u8 cap;
 } __packed;
 
+struct ieee80211_uhr_cap {
+	struct ieee80211_uhr_cap_mac mac;
+	struct ieee80211_uhr_cap_phy phy;
+	/* optional DBE capabilities */
+	u8 variable[];
+} __packed;
+
 static inline bool ieee80211_uhr_capa_size_ok(const u8 *data, u8 len,
 					      bool from_ap)
 {
 	const struct ieee80211_uhr_cap *cap = (const void *)data;
-	size_t needed = sizeof(*cap) + sizeof(struct ieee80211_uhr_cap_phy);
+	size_t needed = sizeof(*cap);
 
 	if (len < needed)
 		return false;
@@ -427,42 +434,22 @@ static inline bool ieee80211_uhr_capa_size_ok(const u8 *data, u8 len,
 	 * in the UHR MAC Capabilities Information field.
 	 */
 	if (from_ap && cap->mac.mac_cap[1] & IEEE80211_UHR_MAC_CAP1_DBE_SUPP) {
-		u8 dbe;
+		const struct ieee80211_uhr_cap_dbe *dbe;
 
-		needed += 1;
+		needed += sizeof(struct ieee80211_uhr_cap_dbe);
 		if (len < needed)
 			return false;
 
-		dbe = cap->variable[0];
+		dbe = (const void *)cap->variable;
 
-		if (dbe & IEEE80211_UHR_MAC_CAP_DBE_EHT_MCS_MAP_160_PRES)
-			needed += 3;
+		if (dbe->cap & IEEE80211_UHR_MAC_CAP_DBE_EHT_MCS_MAP_160_PRES)
+			needed += sizeof(dbe->eht_mcs_map[0]);
 
-		if (dbe & IEEE80211_UHR_MAC_CAP_DBE_EHT_MCS_MAP_320_PRES)
-			needed += 3;
+		if (dbe->cap & IEEE80211_UHR_MAC_CAP_DBE_EHT_MCS_MAP_320_PRES)
+			needed += sizeof(dbe->eht_mcs_map[0]);
 	}
 
 	return len >= needed;
-}
-
-static inline const struct ieee80211_uhr_cap_phy *
-ieee80211_uhr_phy_cap(const struct ieee80211_uhr_cap *cap, bool from_ap)
-{
-	u8 offs = 0;
-
-	if (from_ap && cap->mac.mac_cap[1] & IEEE80211_UHR_MAC_CAP1_DBE_SUPP) {
-		u8 dbe = cap->variable[0];
-
-		offs += 1;
-
-		if (dbe & IEEE80211_UHR_MAC_CAP_DBE_EHT_MCS_MAP_160_PRES)
-			offs += 3;
-
-		if (dbe & IEEE80211_UHR_MAC_CAP_DBE_EHT_MCS_MAP_320_PRES)
-			offs += 3;
-	}
-
-	return (const void *)&cap->variable[offs];
 }
 
 #define IEEE80211_SMD_INFO_CAPA_DL_DATA_FWD		0x01

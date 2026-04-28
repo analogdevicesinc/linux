@@ -2225,8 +2225,7 @@ ieee80211_link_common_elems_size(struct ieee80211_sub_if_data *sdata,
 		sizeof(struct ieee80211_eht_mcs_nss_supp) +
 		IEEE80211_EHT_PPE_THRES_MAX_LEN;
 
-	size += 2 + 1 + sizeof(struct ieee80211_uhr_cap) +
-		sizeof(struct ieee80211_uhr_cap_phy);
+	size += 2 + 1 + sizeof(struct ieee80211_uhr_cap);
 
 	return size;
 }

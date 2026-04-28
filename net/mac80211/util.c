@@ -4641,8 +4641,7 @@ int ieee80211_put_uhr_cap(struct sk_buff *skb,
 	if (!uhr_cap)
 		return 0;
 
-	len = 2 + 1 + sizeof(struct ieee80211_uhr_cap) +
-	      sizeof(struct ieee80211_uhr_cap_phy);
+	len = 2 + 1 + sizeof(struct ieee80211_uhr_cap);
 
 	if (skb_tailroom(skb) < len)
 		return -ENOBUFS;
