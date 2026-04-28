@@ -35,7 +35,6 @@
 #include "dc_stream_priv.h"
 #include "dcn35/dcn35_hwseq.h"
 #include "dcn42/dcn42_hwseq.h"
-#include "dce/dmub_hw_lock_mgr.h"
 #include "dio/dcn10/dcn10_dio.h"
 
 #define DC_LOGGER \
