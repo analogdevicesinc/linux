@@ -63,13 +63,11 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 	}
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		if (ctx->mclk) {
-			ret = clk_prepare_enable(ctx->mclk);
-			if (ret < 0) {
-				dev_err(card->dev,
-					"could not configure MCLK state: %d\n", ret);
-				return ret;
-			}
+		ret = clk_prepare_enable(ctx->mclk);
+		if (ret < 0) {
+			dev_err(card->dev,
+				"could not configure MCLK state: %d\n", ret);
+			return ret;
 		}
 
 		/* set codec PLL source to the 19.2MHz platform clock (MCLK) */
@@ -77,8 +75,7 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 				CHT_PLAT_CLK_3_HZ, 48000 * 512);
 		if (ret < 0) {
 			dev_err(card->dev, "can't set codec pll: %d\n", ret);
-			if (ctx->mclk)
-				clk_disable_unprepare(ctx->mclk);
+			clk_disable_unprepare(ctx->mclk);
 			return ret;
 		}
 
@@ -87,8 +84,7 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 			48000 * 512, SND_SOC_CLOCK_IN);
 		if (ret < 0) {
 			dev_err(card->dev, "can't set codec sysclk: %d\n", ret);
-			if (ctx->mclk)
-				clk_disable_unprepare(ctx->mclk);
+			clk_disable_unprepare(ctx->mclk);
 			return ret;
 		}
 	} else {
@@ -104,8 +100,7 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 			return ret;
 		}
 
-		if (ctx->mclk)
-			clk_disable_unprepare(ctx->mclk);
+		clk_disable_unprepare(ctx->mclk);
 	}
 	return 0;
 }
@@ -244,28 +239,25 @@ static int cht_codec_init(struct snd_soc_pcm_runtime *runtime)
 	snd_jack_set_key(ctx->headset.jack, SND_JACK_BTN_2, KEY_VOLUMEDOWN);
 
 	rt5670_set_jack_detect(component, &ctx->headset);
-	if (ctx->mclk) {
-		/*
-		 * The firmware might enable the clock at
-		 * boot (this information may or may not
-		 * be reflected in the enable clock register).
-		 * To change the rate we must disable the clock
-		 * first to cover these cases. Due to common
-		 * clock framework restrictions that do not allow
-		 * to disable a clock that has not been enabled,
-		 * we need to enable the clock first.
-		 */
-		ret = clk_prepare_enable(ctx->mclk);
-		if (!ret)
-			clk_disable_unprepare(ctx->mclk);
 
-		ret = clk_set_rate(ctx->mclk, CHT_PLAT_CLK_3_HZ);
+	/*
+	 * The firmware might enable the clock at boot (this information
+	 * may or may not be reflected in the enable clock register).
+	 * To change the rate we must disable the clock first to cover
+	 * these cases. Due to Common Clock Framework restrictions that
+	 * do not allow to disable a clock that has not been enabled, we
+	 * need to enable the clock first.
+	 */
+	ret = clk_prepare_enable(ctx->mclk);
+	if (!ret)
+		clk_disable_unprepare(ctx->mclk);
 
-		if (ret) {
-			dev_err(runtime->dev, "unable to set MCLK rate\n");
-			return ret;
-		}
+	ret = clk_set_rate(ctx->mclk, CHT_PLAT_CLK_3_HZ);
+	if (ret) {
+		dev_err(runtime->dev, "unable to set MCLK rate\n");
+		return ret;
 	}
+
 	return 0;
 }
 
