@@ -19,7 +19,10 @@ config AB8500_GPADC
 config AD_SIGMA_DELTA
 	tristate
 	select IIO_BUFFER
+	select IIO_BUFFER_DMA
+	select IIO_BUFFER_DMAENGINE
 	select IIO_TRIGGERED_BUFFER
+	select SPI_OFFLOAD
 
 config AD4000
 	tristate "Analog Devices AD4000 ADC Driver"
@@ -188,8 +191,9 @@ config AD7173
 	tristate "Analog Devices AD7173 driver"
 	depends on SPI_MASTER
 	select AD_SIGMA_DELTA
-	select GPIO_REGMAP if GPIOLIB
-	select REGMAP_SPI if GPIOLIB
+	select GPIOLIB
+	select GPIO_REGMAP
+	select REGMAP_SPI
 	help
 	  Say yes here to build support for Analog Devices AD7173 and similar ADC
 	  Currently supported models:
