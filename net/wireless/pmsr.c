@@ -349,7 +349,7 @@ static int pmsr_parse_peer(struct cfg80211_registered_device *rdev,
 		return err;
 
 	err = nl80211_parse_chandef(rdev, info->extack, info->attrs,
-				    &out->chandef);
+				    &out->chandef, false);
 	if (err)
 		return err;
 

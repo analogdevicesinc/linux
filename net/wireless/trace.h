@@ -141,7 +141,9 @@
 		       __field(u32, center_freq1)			\
 		       __field(u32, freq1_offset)			\
 		       __field(u32, center_freq2)			\
-		       __field(u16, punctured)
+		       __field(u16, punctured)				\
+		       __field(u32, npca_pri_freq)			\
+		       __field(u16, npca_punctured)
 #define CHAN_DEF_ASSIGN(chandef)					\
 	do {								\
 		if ((chandef) && (chandef)->chan) {			\
@@ -155,6 +157,11 @@
 			__entry->freq1_offset = (chandef)->freq1_offset;\
 			__entry->center_freq2 = (chandef)->center_freq2;\
 			__entry->punctured = (chandef)->punctured;	\
+			__entry->npca_pri_freq =			\
+				(chandef)->npca_chan ?			\
+				(chandef)->npca_chan->center_freq : 0;	\
+			__entry->npca_punctured =			\
+				(chandef)->npca_punctured;		\
 		} else {						\
 			__entry->band = 0;				\
 			__entry->control_freq = 0;			\
@@ -164,14 +171,17 @@
 			__entry->freq1_offset = 0;			\
 			__entry->center_freq2 = 0;			\
 			__entry->punctured = 0;				\
+			__entry->npca_pri_freq = 0;			\
+			__entry->npca_punctured = 0;			\
 		}							\
 	} while (0)
 #define CHAN_DEF_PR_FMT							\
-	"band: %d, control freq: %u.%03u, width: %d, cf1: %u.%03u, cf2: %u, punct: 0x%x"
+	"band: %d, control freq: %u.%03u, width: %d, cf1: %u.%03u, cf2: %u, punct: 0x%x, npca:%u, npca_punct:0x%x"
 #define CHAN_DEF_PR_ARG __entry->band, __entry->control_freq,		\
 			__entry->freq_offset, __entry->width,		\
 			__entry->center_freq1, __entry->freq1_offset,	\
-			__entry->center_freq2, __entry->punctured
+			__entry->center_freq2, __entry->punctured,	\
+			__entry->npca_pri_freq, __entry->npca_punctured
 
 #define FILS_AAD_ASSIGN(fa)						\
 	do {								\

@@ -848,6 +848,7 @@ struct key_params {
 /**
  * struct cfg80211_chan_def - channel definition
  * @chan: the (control) channel
+ * @npca_chan: the NPCA primary channel
  * @width: channel width
  * @center_freq1: center frequency of first segment
  * @center_freq2: center frequency of second segment
@@ -860,18 +861,22 @@ struct key_params {
  * @punctured: mask of the punctured 20 MHz subchannels, with
  *	bits turned on being disabled (punctured); numbered
  *	from lower to higher frequency (like in the spec)
+ * @npca_punctured: NPCA puncturing bitmap, like @punctured but for
+ *	NPCA transmissions. If NPCA is used (@npca_chan is not %NULL)
+ *	this will be a superset of the @punctured bimap.
  * @s1g_primary_2mhz: Indicates if the control channel pointed to
  *	by 'chan' exists as a 1MHz primary subchannel within an
  *	S1G 2MHz primary channel.
  */
 struct cfg80211_chan_def {
 	struct ieee80211_channel *chan;
+	struct ieee80211_channel *npca_chan;
 	enum nl80211_chan_width width;
 	u32 center_freq1;
 	u32 center_freq2;
 	struct ieee80211_edmg edmg;
 	u16 freq1_offset;
-	u16 punctured;
+	u16 punctured, npca_punctured;
 	bool s1g_primary_2mhz;
 };
 
@@ -1018,7 +1023,9 @@ cfg80211_chandef_identical(const struct cfg80211_chan_def *chandef1,
 		chandef1->freq1_offset == chandef2->freq1_offset &&
 		chandef1->center_freq2 == chandef2->center_freq2 &&
 		chandef1->punctured == chandef2->punctured &&
-		chandef1->s1g_primary_2mhz == chandef2->s1g_primary_2mhz);
+		chandef1->s1g_primary_2mhz == chandef2->s1g_primary_2mhz &&
+		chandef1->npca_chan == chandef2->npca_chan &&
+		chandef1->npca_punctured == chandef2->npca_punctured);
 }
 
 /**

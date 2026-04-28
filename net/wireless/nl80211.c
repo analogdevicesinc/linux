@@ -1090,6 +1090,9 @@ static const struct nla_policy nl80211_policy[NUM_NL80211_ATTR] = {
 	[NL80211_ATTR_NAN_MAX_CHAN_SWITCH_TIME] = { .type = NLA_U16 },
 	[NL80211_ATTR_NAN_PEER_MAPS] =
 		NLA_POLICY_NESTED_ARRAY(nl80211_nan_peer_map_policy),
+	[NL80211_ATTR_NPCA_PRIMARY_FREQ] = { .type = NLA_U32 },
+	[NL80211_ATTR_NPCA_PUNCT_BITMAP] =
+		NLA_POLICY_FULL_RANGE(NLA_U32, &nl80211_punct_bitmap_range),
 };
 
 /* policy for the key attributes */
@@ -3913,7 +3916,8 @@ static bool nl80211_can_set_dev_channel(struct wireless_dev *wdev)
 static int _nl80211_parse_chandef(struct cfg80211_registered_device *rdev,
 				  struct netlink_ext_ack *extack,
 				  struct nlattr **attrs, bool monitor,
-				  struct cfg80211_chan_def *chandef)
+				  struct cfg80211_chan_def *chandef,
+				  bool permit_npca)
 {
 	u32 control_freq;
 
@@ -4027,6 +4031,34 @@ static int _nl80211_parse_chandef(struct cfg80211_registered_device *rdev,
 		}
 	}
 
+	if (attrs[NL80211_ATTR_NPCA_PRIMARY_FREQ]) {
+		if (!permit_npca) {
+			NL_SET_ERR_MSG_ATTR(extack,
+					    attrs[NL80211_ATTR_NPCA_PRIMARY_FREQ],
+					    "NPCA not supported");
+			return -EINVAL;
+		}
+
+		chandef->npca_chan =
+			ieee80211_get_channel(&rdev->wiphy,
+					      nla_get_u32(attrs[NL80211_ATTR_NPCA_PRIMARY_FREQ]));
+		if (!chandef->npca_chan) {
+			NL_SET_ERR_MSG_ATTR(extack,
+					    attrs[NL80211_ATTR_NPCA_PRIMARY_FREQ],
+					    "invalid NPCA primary channel");
+			return -EINVAL;
+		}
+
+		chandef->npca_punctured =
+			nla_get_u32_default(attrs[NL80211_ATTR_NPCA_PUNCT_BITMAP],
+					    chandef->punctured);
+	} else if (attrs[NL80211_ATTR_NPCA_PUNCT_BITMAP]) {
+		NL_SET_ERR_MSG_ATTR(extack,
+				    attrs[NL80211_ATTR_NPCA_PUNCT_BITMAP],
+				    "NPCA puncturing only valid with NPCA");
+		return -EINVAL;
+	}
+
 	if (!cfg80211_chandef_valid(chandef)) {
 		NL_SET_ERR_MSG_ATTR(extack, attrs[NL80211_ATTR_WIPHY_FREQ],
 				    "invalid channel definition");
@@ -4054,9 +4086,11 @@ static int _nl80211_parse_chandef(struct cfg80211_registered_device *rdev,
 int nl80211_parse_chandef(struct cfg80211_registered_device *rdev,
 			  struct netlink_ext_ack *extack,
 			  struct nlattr **attrs,
-			  struct cfg80211_chan_def *chandef)
+			  struct cfg80211_chan_def *chandef,
+			  bool permit_npca)
 {
-	return _nl80211_parse_chandef(rdev, extack, attrs, false, chandef);
+	return _nl80211_parse_chandef(rdev, extack, attrs, false, chandef,
+				      permit_npca);
 }
 
 static int __nl80211_set_channel(struct cfg80211_registered_device *rdev,
@@ -4069,6 +4103,7 @@ static int __nl80211_set_channel(struct cfg80211_registered_device *rdev,
 	enum nl80211_iftype iftype = NL80211_IFTYPE_MONITOR;
 	struct wireless_dev *wdev = NULL;
 	int link_id = _link_id;
+	bool permit_npca;
 
 	if (dev)
 		wdev = dev->ieee80211_ptr;
@@ -4083,9 +4118,13 @@ static int __nl80211_set_channel(struct cfg80211_registered_device *rdev,
 		link_id = 0;
 	}
 
+	/* allow parsing it - will check on start_ap or below */
+	permit_npca = iftype == NL80211_IFTYPE_AP ||
+		      iftype == NL80211_IFTYPE_P2P_GO;
+
 	result = _nl80211_parse_chandef(rdev, info->extack, info->attrs,
 					iftype == NL80211_IFTYPE_MONITOR,
-					&chandef);
+					&chandef, permit_npca);
 	if (result)
 		return result;
 
@@ -4104,6 +4143,9 @@ static int __nl80211_set_channel(struct cfg80211_registered_device *rdev,
 				return -EBUSY;
 
 			/* Only allow dynamic channel width changes */
+			cur_chan = wdev->links[link_id].ap.chandef.npca_chan;
+			if (chandef.npca_chan != cur_chan)
+				return -EBUSY;
 			cur_chan = wdev->links[link_id].ap.chandef.chan;
 			if (chandef.chan != cur_chan)
 				return -EBUSY;
@@ -4586,6 +4628,15 @@ int nl80211_send_chandef(struct sk_buff *msg, const struct cfg80211_chan_def *ch
 		return -ENOBUFS;
 	if (chandef->s1g_primary_2mhz &&
 	    nla_put_flag(msg, NL80211_ATTR_S1G_PRIMARY_2MHZ))
+		return -ENOBUFS;
+
+	if (chandef->npca_chan &&
+	    nla_put_u32(msg, NL80211_ATTR_NPCA_PRIMARY_FREQ,
+			chandef->npca_chan->center_freq))
+		return -ENOBUFS;
+	if (chandef->npca_punctured &&
+	    nla_put_u32(msg, NL80211_ATTR_NPCA_PUNCT_BITMAP,
+			chandef->npca_punctured))
 		return -ENOBUFS;
 
 	return 0;
@@ -7092,6 +7143,28 @@ nl80211_parse_s1g_short_beacon(struct cfg80211_registered_device *rdev,
 	return 0;
 }
 
+static int nl80211_check_npca(struct cfg80211_registered_device *rdev,
+			      const struct cfg80211_chan_def *chandef,
+			      enum nl80211_iftype iftype,
+			      struct netlink_ext_ack *extack)
+{
+	const struct ieee80211_supported_band *sband;
+	const struct ieee80211_sta_uhr_cap *uhr_cap;
+
+	if (!chandef->npca_chan)
+		return 0;
+
+	sband = rdev->wiphy.bands[chandef->chan->band];
+	uhr_cap = ieee80211_get_uhr_iftype_cap(sband, iftype);
+
+	if (uhr_cap &&
+	    (uhr_cap->mac.mac_cap[0] & IEEE80211_UHR_MAC_CAP0_NPCA_SUPP))
+		return 0;
+
+	NL_SET_ERR_MSG(extack, "NPCA not supported");
+	return -EINVAL;
+}
+
 static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
@@ -7231,7 +7304,7 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 
 	if (info->attrs[NL80211_ATTR_WIPHY_FREQ]) {
 		err = nl80211_parse_chandef(rdev, info->extack, info->attrs,
-					    &params->chandef);
+					    &params->chandef, true);
 		if (err)
 			goto out;
 	} else if (wdev->valid_links) {
@@ -7247,6 +7320,11 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 
 	err = nl80211_parse_beacon(rdev, info->attrs, &params->beacon,
 				   params->chandef.chan, info->extack);
+	if (err)
+		goto out;
+
+	err = nl80211_check_npca(rdev, &params->chandef, wdev->iftype,
+				 info->extack);
 	if (err)
 		goto out;
 
@@ -11801,7 +11879,8 @@ static int nl80211_start_radar_detection(struct sk_buff *skb,
 	if (dfs_region == NL80211_DFS_UNSET)
 		return -EINVAL;
 
-	err = nl80211_parse_chandef(rdev, info->extack, info->attrs, &chandef);
+	err = nl80211_parse_chandef(rdev, info->extack, info->attrs, &chandef,
+				    false);
 	if (err)
 		return err;
 
@@ -11890,7 +11969,8 @@ static int nl80211_notify_radar_detection(struct sk_buff *skb,
 		return -EINVAL;
 	}
 
-	err = nl80211_parse_chandef(rdev, info->extack, info->attrs, &chandef);
+	err = nl80211_parse_chandef(rdev, info->extack, info->attrs, &chandef,
+				    false);
 	if (err) {
 		GENL_SET_ERR_MSG(info, "Unable to extract chandef info");
 		return err;
@@ -11973,6 +12053,7 @@ static int nl80211_channel_switch(struct sk_buff *skb, struct genl_info *info)
 	int err;
 	bool need_new_beacon = false;
 	bool need_handle_dfs_flag = true;
+	bool permit_npca = false;
 	u32 cs_count;
 
 	if (!rdev->ops->channel_switch ||
@@ -11989,6 +12070,8 @@ static int nl80211_channel_switch(struct sk_buff *skb, struct genl_info *info)
 		 * requiring DFS will be rejected.
 		 */
 		need_handle_dfs_flag = false;
+
+		permit_npca = true;
 
 		/* useless if AP is not running */
 		if (!wdev->links[link_id].ap.beacon_interval)
@@ -12027,7 +12110,12 @@ static int nl80211_channel_switch(struct sk_buff *skb, struct genl_info *info)
 	params.count = cs_count;
 
 	err = nl80211_parse_chandef(rdev, info->extack, info->attrs,
-				    &params.chandef);
+				    &params.chandef, permit_npca);
+	if (err)
+		goto free;
+
+	err = nl80211_check_npca(rdev, &params.chandef, wdev->iftype,
+				 info->extack);
 	if (err)
 		goto free;
 
@@ -13301,7 +13389,7 @@ static int nl80211_join_ibss(struct sk_buff *skb, struct genl_info *info)
 	}
 
 	err = nl80211_parse_chandef(rdev, info->extack, info->attrs,
-				    &ibss.chandef);
+				    &ibss.chandef, false);
 	if (err)
 		return err;
 
@@ -14310,7 +14398,8 @@ static int nl80211_remain_on_channel(struct sk_buff *skb,
 	    duration > rdev->wiphy.max_remain_on_channel_duration)
 		return -EINVAL;
 
-	err = nl80211_parse_chandef(rdev, info->extack, info->attrs, &chandef);
+	err = nl80211_parse_chandef(rdev, info->extack, info->attrs, &chandef,
+				    false);
 	if (err)
 		return err;
 
@@ -14539,7 +14628,7 @@ static int nl80211_tx_mgmt(struct sk_buff *skb, struct genl_info *info)
 	chandef.chan = NULL;
 	if (info->attrs[NL80211_ATTR_WIPHY_FREQ]) {
 		err = nl80211_parse_chandef(rdev, info->extack, info->attrs,
-					    &chandef);
+					    &chandef, false);
 		if (err)
 			return err;
 	}
@@ -14947,7 +15036,7 @@ static int nl80211_join_ocb(struct sk_buff *skb, struct genl_info *info)
 	int err;
 
 	err = nl80211_parse_chandef(rdev, info->extack, info->attrs,
-				    &setup.chandef);
+				    &setup.chandef, false);
 	if (err)
 		return err;
 
@@ -15023,7 +15112,7 @@ static int nl80211_join_mesh(struct sk_buff *skb, struct genl_info *info)
 
 	if (info->attrs[NL80211_ATTR_WIPHY_FREQ]) {
 		err = nl80211_parse_chandef(rdev, info->extack, info->attrs,
-					    &setup.chandef);
+					    &setup.chandef, false);
 		if (err)
 			return err;
 	} else {
@@ -17027,7 +17116,7 @@ static int nl80211_parse_nan_channel(struct cfg80211_registered_device *rdev,
 		return ret;
 
 	ret = nl80211_parse_chandef(rdev, info->extack, channel_parsed,
-				    &chandef);
+				    &chandef, false);
 	if (ret)
 		return ret;
 
@@ -18026,7 +18115,8 @@ static int nl80211_tdls_channel_switch(struct sk_buff *skb,
 	    !info->attrs[NL80211_ATTR_OPER_CLASS])
 		return -EINVAL;
 
-	err = nl80211_parse_chandef(rdev, info->extack, info->attrs, &chandef);
+	err = nl80211_parse_chandef(rdev, info->extack, info->attrs, &chandef,
+				    false);
 	if (err)
 		return err;
 

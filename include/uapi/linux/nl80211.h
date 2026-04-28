@@ -3162,6 +3162,9 @@ enum nl80211_commands {
  *	encrypted over the air. Enhanced Privacy Protection (EPP), as defined
  *	in IEEE P802.11bi/D4.0, mandates this encryption.
  *
+ * @NL80211_ATTR_NPCA_PRIMARY_FREQ: NPCA primary channel (u32)
+ * @NL80211_ATTR_NPCA_PUNCT_BITMAP: NPCA puncturing bitmap (u32)
+ *
  * @NUM_NL80211_ATTR: total number of nl80211_attrs available
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
@@ -3756,6 +3759,9 @@ enum nl80211_attrs {
 	NL80211_ATTR_NAN_PEER_MAPS,
 
 	NL80211_ATTR_ASSOC_ENCRYPTED,
+
+	NL80211_ATTR_NPCA_PRIMARY_FREQ,
+	NL80211_ATTR_NPCA_PUNCT_BITMAP,
 
 	/* add attributes here, update the policy in nl80211.c */
 

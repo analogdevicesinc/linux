@@ -138,9 +138,10 @@ static const struct cfg80211_per_bw_puncturing_values per_bw_puncturing[] = {
 	CFG80211_PER_BW_VALID_PUNCTURING_VALUES(320)
 };
 
-static bool valid_puncturing_bitmap(const struct cfg80211_chan_def *chandef)
+static bool valid_puncturing_bitmap(const struct cfg80211_chan_def *chandef,
+				    u32 primary_center, u32 punctured)
 {
-	u32 idx, i, start_freq, primary_center = chandef->chan->center_freq;
+	u32 idx, i, start_freq;
 
 	switch (chandef->width) {
 	case NL80211_CHAN_WIDTH_80:
@@ -156,18 +157,18 @@ static bool valid_puncturing_bitmap(const struct cfg80211_chan_def *chandef)
 		start_freq = chandef->center_freq1 - 160;
 		break;
 	default:
-		return chandef->punctured == 0;
+		return punctured == 0;
 	}
 
-	if (!chandef->punctured)
+	if (!punctured)
 		return true;
 
 	/* check if primary channel is punctured */
-	if (chandef->punctured & (u16)BIT((primary_center - start_freq) / 20))
+	if (punctured & (u16)BIT((primary_center - start_freq) / 20))
 		return false;
 
 	for (i = 0; i < per_bw_puncturing[idx].len; i++) {
-		if (per_bw_puncturing[idx].valid_values[i] == chandef->punctured)
+		if (per_bw_puncturing[idx].valid_values[i] == punctured)
 			return true;
 	}
 
@@ -458,6 +459,40 @@ bool cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 	if (!cfg80211_chandef_valid_control_freq(chandef, control_freq))
 		return false;
 
+	if (chandef->npca_chan) {
+		bool pri_upper, npca_upper;
+		u32 cf1;
+
+		switch (chandef->width) {
+		case NL80211_CHAN_WIDTH_80:
+		case NL80211_CHAN_WIDTH_160:
+		case NL80211_CHAN_WIDTH_320:
+			break;
+		default:
+			return false;
+		}
+
+		if (!cfg80211_chandef_valid_control_freq(chandef,
+							 chandef->npca_chan->center_freq))
+			return false;
+
+		cf1 = chandef->center_freq1;
+		pri_upper = chandef->chan->center_freq > cf1;
+		npca_upper = chandef->npca_chan->center_freq > cf1;
+
+		if (pri_upper == npca_upper)
+			return false;
+
+		if (!valid_puncturing_bitmap(chandef,
+					     chandef->npca_chan->center_freq,
+					     chandef->npca_punctured) ||
+		    (chandef->punctured & chandef->npca_punctured) !=
+		    chandef->punctured)
+			return false;
+	} else if (chandef->npca_punctured) {
+		return false;
+	}
+
 	if (!cfg80211_valid_center_freq(chandef->center_freq1, chandef->width))
 		return false;
 
@@ -477,7 +512,8 @@ bool cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 	if (!cfg80211_chandef_is_s1g(chandef) && chandef->s1g_primary_2mhz)
 		return false;
 
-	return valid_puncturing_bitmap(chandef);
+	return valid_puncturing_bitmap(chandef, control_freq,
+				       chandef->punctured);
 }
 EXPORT_SYMBOL(cfg80211_chandef_valid);
 
@@ -562,6 +598,15 @@ _cfg80211_chandef_compatible(const struct cfg80211_chan_def *c1,
 	 * then they can't be compatible.
 	 */
 	if (c1->width == c2->width)
+		return NULL;
+
+	/*
+	 * We need NPCA to be compatible for some scenarios such as
+	 * multiple APs, but in this case userspace should configure
+	 * identical chandefs including NPCA, even if perhaps one of
+	 * the AP interfaces doesn't even advertise it.
+	 */
+	if (c1->npca_chan || c2->npca_chan)
 		return NULL;
 
 	/*
