@@ -246,10 +246,25 @@ build_microblaze() {
 	fi
 
 	export CROSS_COMPILE=/opt/microblazeel-xilinx-elf/bin/microblazeel-xilinx-elf-
-	ARCH=microblaze make adi_mb_defconfig
+	local defconfig
+	local last_defconfig
 	for file in $DTS_FILES; do
 		if __exceptions_file "$exceptions_file" "$file"; then
 			continue
+		fi
+
+		case "$(echo ${file} | grep -Eo 'ad9084' || echo '')" in
+			ad9084)
+				defconfig="adi_mb_apollo_defconfig"
+				;;
+			*)
+				defconfig="adi_mb_defconfig"
+				;;
+		esac
+
+		if [ "$last_defconfig" != "$defconfig" ]; then
+			ARCH=microblaze make ${defconfig}
+			last_defconfig=$defconfig
 		fi
 
 		dtb_file="simpleImage."
@@ -322,7 +337,14 @@ build_dtb_build_test() {
 				defconfig="socfpga_adi_defconfig"
 				;;
 			versal)
-				defconfig="adi_versal_defconfig"
+				case "$(echo ${file} | grep -Eo 'ad9084' || echo '')" in
+					ad9084)
+						defconfig="adi_versal_apollo_defconfig"
+						;;
+					*)
+						defconfig="adi_versal_defconfig"
+						;;
+				esac
 				;;
 			*)
 				echo "Default defconfig will be used."
