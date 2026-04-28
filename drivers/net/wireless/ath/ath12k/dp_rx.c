@@ -565,6 +565,9 @@ static int ath12k_dp_prepare_reo_update_elem(struct ath12k_dp *dp,
 
 	lockdep_assert_held(&dp->dp_lock);
 
+	if (!peer->primary_link)
+		return 0;
+
 	elem = kzalloc_obj(*elem, GFP_ATOMIC);
 	if (!elem)
 		return -ENOMEM;
