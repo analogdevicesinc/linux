@@ -87,6 +87,7 @@ static inline int ffa_to_linux_errno(int errno)
 
 struct ffa_pcpu_irq {
 	struct ffa_drv_info *info;
+	struct work_struct notif_pcpu_work;
 };
 
 struct ffa_drv_info {
@@ -106,7 +107,6 @@ struct ffa_drv_info {
 	unsigned int cpuhp_state;
 	struct ffa_pcpu_irq __percpu *irq_pcpu;
 	struct workqueue_struct *notif_pcpu_wq;
-	struct work_struct notif_pcpu_work;
 	struct work_struct sched_recv_irq_work;
 	struct xarray partition_info;
 	DECLARE_HASHTABLE(notifier_hash, ilog2(FFA_MAX_NOTIFICATIONS));
@@ -1539,8 +1539,9 @@ ffa_self_notif_handle(u16 vcpu, bool is_per_vcpu, void *cb_data)
 
 static void notif_pcpu_irq_work_fn(struct work_struct *work)
 {
-	struct ffa_drv_info *info = container_of(work, struct ffa_drv_info,
+	struct ffa_pcpu_irq *pcpu = container_of(work, struct ffa_pcpu_irq,
 						 notif_pcpu_work);
+	struct ffa_drv_info *info = pcpu->info;
 
 	ffa_self_notif_handle(smp_processor_id(), true, info);
 }
@@ -1811,7 +1812,7 @@ static irqreturn_t notif_pend_irq_handler(int irq, void *irq_data)
 	struct ffa_drv_info *info = pcpu->info;
 
 	queue_work_on(smp_processor_id(), info->notif_pcpu_wq,
-		      &info->notif_pcpu_work);
+		      &pcpu->notif_pcpu_work);
 
 	return IRQ_HANDLED;
 }
@@ -1928,8 +1929,11 @@ static int ffa_init_pcpu_irq(void)
 	if (!irq_pcpu)
 		return -ENOMEM;
 
-	for_each_present_cpu(cpu)
+	for_each_present_cpu(cpu) {
 		per_cpu_ptr(irq_pcpu, cpu)->info = drv_info;
+		INIT_WORK(&per_cpu_ptr(irq_pcpu, cpu)->notif_pcpu_work,
+			  notif_pcpu_irq_work_fn);
+	}
 
 	drv_info->irq_pcpu = irq_pcpu;
 
@@ -1958,7 +1962,6 @@ static int ffa_init_pcpu_irq(void)
 	}
 
 	INIT_WORK(&drv_info->sched_recv_irq_work, ffa_sched_recv_irq_work_fn);
-	INIT_WORK(&drv_info->notif_pcpu_work, notif_pcpu_irq_work_fn);
 	drv_info->notif_pcpu_wq = create_workqueue("ffa_pcpu_irq_notification");
 	if (!drv_info->notif_pcpu_wq)
 		return -EINVAL;
