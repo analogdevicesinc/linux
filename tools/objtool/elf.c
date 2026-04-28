@@ -208,6 +208,20 @@ struct symbol *find_symbol_containing(const struct section *sec, unsigned long o
 }
 
 /*
+ * Also match the symbol end address which can be used for a bounds comparison.
+ */
+struct symbol *find_symbol_containing_inclusive(const struct section *sec,
+						unsigned long offset)
+{
+	struct symbol *sym = find_symbol_containing(sec, offset);
+
+	if (!sym && offset)
+		sym = find_symbol_containing(sec, offset - 1);
+
+	return sym;
+}
+
+/*
  * Returns size of hole starting at @offset.
  */
 int find_symbol_hole_containing(const struct section *sec, unsigned long offset)

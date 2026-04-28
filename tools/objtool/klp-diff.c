@@ -386,6 +386,7 @@ static bool dont_correlate(struct symbol *sym)
 	       is_uncorrelated_static_local(sym) ||
 	       is_local_label(sym) ||
 	       is_string_sec(sym->sec) ||
+	       (is_rodata_sec(sym->sec) && !is_object_sym(sym)) ||
 	       is_initcall_sym(sym) ||
 	       is_addressable_sym(sym) ||
 	       is_special_section(sym->sec) ||
@@ -979,7 +980,7 @@ static int convert_reloc_secsym_to_sym(struct elf *elf, struct reloc *reloc)
 		goto found_sym;
 
 	/* No dedicated section; find the symbol manually */
-	sym = find_symbol_containing(sec, arch_adjusted_addend(reloc));
+	sym = find_symbol_containing_inclusive(sec, arch_adjusted_addend(reloc));
 	if (!sym) {
 		/*
 		 * This is presumably an .altinstr_replacement section which is
@@ -987,6 +988,17 @@ static int convert_reloc_secsym_to_sym(struct elf *elf, struct reloc *reloc)
 		 */
 		if (!sec_size(sec))
 			return 1;
+
+		/*
+		 * .rodata is a mixed bag of named objects and anonymous data.
+		 *
+		 * Convert section symbol references to named object symbols
+		 * when possible, to preserve pointer identity for const
+		 * structs like file_operations.  Otherwise a section symbol is
+		 * fine.
+		 */
+		if (is_rodata_sec(sec))
+			return 0;
 
 		/*
 		 * This can happen for special section references to weak code
@@ -1009,7 +1021,6 @@ found_sym:
 static bool is_uncorrelated_section(struct section *sec)
 {
 	return is_string_sec(sec) ||
-	       strstarts(sec->name, ".rodata") ||
 	       strstarts(sec->name, ".data..Lubsan") ||		/* GCC */
 	       strstarts(sec->name, ".data..L__unnamed_");	/* Clang */
 }
