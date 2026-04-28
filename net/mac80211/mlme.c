@@ -9736,7 +9736,9 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_mgd_assoc_data *assoc_data;
 	const struct element *ssid_elem;
 	struct ieee80211_vif_cfg *vif_cfg = &sdata->vif.cfg;
+	const struct wiphy_iftype_ext_capab *ift_ext_capa;
 	struct ieee80211_link_data *link;
+	u16 driver_ext_mld_capa_ops = 0;
 	struct cfg80211_bss *cbss;
 	bool override, uapsd_supported;
 	bool match_auth;
@@ -9775,17 +9777,26 @@ int ieee80211_mgd_assoc(struct ieee80211_sub_if_data *sdata,
 	else
 		memcpy(assoc_data->ap_addr, cbss->bssid, ETH_ALEN);
 
+	ift_ext_capa = cfg80211_get_iftype_ext_capa(local->hw.wiphy,
+						    ieee80211_vif_type_p2p(&sdata->vif));
+	if (ift_ext_capa)
+		driver_ext_mld_capa_ops = ift_ext_capa->ext_mld_capa_and_ops;
+
 	/*
 	 * Many APs have broken parsing of the extended MLD capa/ops field,
 	 * dropping (re-)association request frames or replying with association
 	 * response with a failure status if it's present.
 	 * Set our value from the userspace request only in strict mode or if
 	 * the AP also had that field present.
+	 * For UHR we may want to advertise ML-PM (per driver_ext_mld_capa_ops)
+	 * but if the AP doesn't have it then it's pointless, and if it does
+	 * then it has to have the extended MLD capa/ops field.
 	 */
 	if (ieee80211_hw_check(&local->hw, STRICT) ||
 	    ieee80211_mgd_assoc_bss_has_mld_ext_capa_ops(req))
 		assoc_data->ext_mld_capa_ops =
-			cpu_to_le16(req->ext_mld_capa_ops);
+			cpu_to_le16(req->ext_mld_capa_ops |
+				    driver_ext_mld_capa_ops);
 
 	if (ifmgd->associated) {
 		u8 frame_buf[IEEE80211_DEAUTH_FRAME_LEN];
@@ -10780,11 +10791,13 @@ ieee80211_build_ml_reconf_req(struct ieee80211_sub_if_data *sdata,
 int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 				  struct cfg80211_ml_reconf_req *req)
 {
+	const struct wiphy_iftype_ext_capab *ift_ext_capa;
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_mgd_assoc_data *data = NULL;
 	struct sta_info *sta;
 	struct sk_buff *skb;
 	u16 added_links, new_valid_links;
+	u16 driver_ext_mld_capa_ops = 0;
 	int link_id, err;
 
 	if (!ieee80211_vif_is_mld(&sdata->vif) ||
@@ -10942,6 +10955,11 @@ int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 		}
 	}
 
+	ift_ext_capa = cfg80211_get_iftype_ext_capa(local->hw.wiphy,
+						    ieee80211_vif_type_p2p(&sdata->vif));
+	if (ift_ext_capa)
+		driver_ext_mld_capa_ops = ift_ext_capa->ext_mld_capa_and_ops;
+
 	/* Build the SKB before the link removal as the construction of the
 	 * station info for removed links requires the local address.
 	 * Invalidate the removed links, so that the transmission of the ML
@@ -10950,7 +10968,8 @@ int ieee80211_mgd_assoc_ml_reconf(struct ieee80211_sub_if_data *sdata,
 	 * on which the request was received.
 	 */
 	skb = ieee80211_build_ml_reconf_req(sdata, data, req->rem_links,
-					    cpu_to_le16(req->ext_mld_capa_ops));
+					    cpu_to_le16(req->ext_mld_capa_ops |
+							driver_ext_mld_capa_ops));
 	if (!skb) {
 		err = -ENOMEM;
 		goto err_free;
