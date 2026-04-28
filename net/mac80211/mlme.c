@@ -402,44 +402,13 @@ check_uhr:
 				       false)) {
 		struct cfg80211_chan_def npca_chandef = *chandef;
 		const struct ieee80211_uhr_npca_info *npca;
-		const __le16 *dis_subch_bmap;
-		u16 punct = chandef->punctured, npca_punct;
 
 		npca = ieee80211_uhr_npca_info(uhr_oper);
-		if (npca) {
-			int width = cfg80211_chandef_get_width(chandef);
-			u8 offs = le32_get_bits(npca->params,
-						IEEE80211_UHR_NPCA_PARAMS_PRIMARY_CHAN_OFFS);
-			u32 cf1 = chandef->center_freq1;
-			bool pri_upper, npca_upper;
 
-			pri_upper = chandef->chan->center_freq > cf1;
-			npca_upper = 20 * offs >= width / 2;
-
-			if (20 * offs >= cfg80211_chandef_get_width(chandef) ||
-			    pri_upper == npca_upper) {
-				sdata_info(sdata,
-					   "AP UHR NPCA primary channel invalid, disabling UHR\n");
-				return IEEE80211_CONN_MODE_EHT;
-			}
-		}
-
-		dis_subch_bmap = ieee80211_uhr_npca_dis_subch_bitmap(uhr_oper);
-
-		if (dis_subch_bmap) {
-			npca_punct = get_unaligned_le16(dis_subch_bmap);
-			npca_chandef.punctured = npca_punct;
-		}
-
-		/*
-		 * must be a valid puncturing pattern for this channel as
-		 * well as puncturing all subchannels that are already in
-		 * the disabled subchannel bitmap on the primary channel
-		 */
-		if (!cfg80211_chandef_valid(&npca_chandef) ||
-		    ((punct & npca_punct) != punct)) {
+		if (cfg80211_chandef_add_npca(sdata->local->hw.wiphy,
+					      &npca_chandef, npca)) {
 			sdata_info(sdata,
-				   "AP UHR NPCA disabled subchannel bitmap invalid, disabling UHR\n");
+				   "AP UHR NPCA settings invalid, disabling UHR\n");
 			return IEEE80211_CONN_MODE_EHT;
 		}
 	}
