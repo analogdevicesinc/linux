@@ -539,10 +539,10 @@ static inline struct symbol *get_func_prefix(struct symbol *func)
 {
 	struct symbol *prev;
 
-	if (!is_func_sym(func))
+	if (!is_func_sym(func) || !func->offset)
 		return NULL;
 
-	prev = sec_prev_sym(func);
+	prev = find_func_containing(func->sec, func->offset - 1);
 	if (prev && is_prefix_func(prev))
 		return prev;
 
