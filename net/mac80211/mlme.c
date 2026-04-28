@@ -149,6 +149,21 @@ static int ecw2cw(int ecw)
 	return (1 << ecw) - 1;
 }
 
+static bool ieee80211_chandef_usable(struct ieee80211_sub_if_data *sdata,
+				     const struct cfg80211_chan_def *chandef,
+				     u32 prohibited_flags)
+{
+	if (!cfg80211_chandef_usable(sdata->local->hw.wiphy,
+				     chandef, prohibited_flags))
+		return false;
+
+	if (chandef->punctured &&
+	    ieee80211_hw_check(&sdata->local->hw, DISALLOW_PUNCTURING))
+		return false;
+
+	return true;
+}
+
 struct ieee80211_determine_ap_chan_data {
 	/* input data */
 	struct ieee80211_channel *channel;
@@ -849,21 +864,6 @@ static void ieee80211_get_rates(struct ieee80211_supported_band *sband,
 		if (is_basic && unknown_rates_selectors && j == sband->n_bitrates)
 			set_bit(rate, unknown_rates_selectors);
 	}
-}
-
-static bool ieee80211_chandef_usable(struct ieee80211_sub_if_data *sdata,
-				     const struct cfg80211_chan_def *chandef,
-				     u32 prohibited_flags)
-{
-	if (!cfg80211_chandef_usable(sdata->local->hw.wiphy,
-				     chandef, prohibited_flags))
-		return false;
-
-	if (chandef->punctured &&
-	    ieee80211_hw_check(&sdata->local->hw, DISALLOW_PUNCTURING))
-		return false;
-
-	return true;
 }
 
 static int ieee80211_chandef_num_subchans(const struct cfg80211_chan_def *c)
