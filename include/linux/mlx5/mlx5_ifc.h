@@ -12725,7 +12725,6 @@ struct mlx5_ifc_query_esw_functions_out_bits {
 	struct mlx5_ifc_host_params_context_bits host_params_context;
 
 	u8         reserved_at_280[0x180];
-	u8         host_sf_enable[][0x40];
 };
 
 struct mlx5_ifc_sf_partition_bits {
