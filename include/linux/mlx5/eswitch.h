@@ -217,7 +217,7 @@ static inline bool is_mdev_switchdev_mode(struct mlx5_core_dev *dev)
 static inline u16 mlx5_eswitch_manager_vport(struct mlx5_core_dev *dev)
 {
 	return mlx5_core_is_ecpf_esw_manager(dev) ?
-		MLX5_VPORT_ECPF : MLX5_VPORT_PF;
+		MLX5_VPORT_ECPF : MLX5_VPORT_HOST_PF;
 }
 
 #endif

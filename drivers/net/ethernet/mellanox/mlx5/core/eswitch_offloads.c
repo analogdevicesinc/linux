@@ -1216,9 +1216,10 @@ static int esw_add_fdb_peer_miss_rules(struct mlx5_eswitch *esw,
 
 	if (mlx5_core_is_ecpf_esw_manager(peer_dev) &&
 	    mlx5_esw_host_functions_enabled(peer_dev)) {
-		peer_vport = mlx5_eswitch_get_vport(peer_esw, MLX5_VPORT_PF);
+		peer_vport = mlx5_eswitch_get_vport(peer_esw,
+						    MLX5_VPORT_HOST_PF);
 		esw_set_peer_miss_rule_source_port(esw, peer_esw, spec,
-						   MLX5_VPORT_PF);
+						   MLX5_VPORT_HOST_PF);
 
 		flow = mlx5_add_flow_rules(mlx5_eswitch_get_slow_fdb(esw),
 					   spec, &flow_act, &dest, 1);
@@ -1300,7 +1301,8 @@ add_ecpf_flow_err:
 
 	if (mlx5_core_is_ecpf_esw_manager(peer_dev) &&
 	    mlx5_esw_host_functions_enabled(peer_dev)) {
-		peer_vport = mlx5_eswitch_get_vport(peer_esw, MLX5_VPORT_PF);
+		peer_vport = mlx5_eswitch_get_vport(peer_esw,
+						    MLX5_VPORT_HOST_PF);
 		mlx5_del_flow_rules(flows[peer_vport->index]);
 	}
 add_pf_flow_err:
@@ -1342,7 +1344,8 @@ static void esw_del_fdb_peer_miss_rules(struct mlx5_eswitch *esw,
 
 	if (mlx5_core_is_ecpf_esw_manager(peer_dev) &&
 	    mlx5_esw_host_functions_enabled(peer_dev)) {
-		peer_vport = mlx5_eswitch_get_vport(peer_esw, MLX5_VPORT_PF);
+		peer_vport = mlx5_eswitch_get_vport(peer_esw,
+						    MLX5_VPORT_HOST_PF);
 		mlx5_del_flow_rules(flows[peer_vport->index]);
 	}
 
@@ -4435,7 +4438,7 @@ static bool
 mlx5_eswitch_vport_has_rep(const struct mlx5_eswitch *esw, u16 vport_num)
 {
 	/* Currently, only ECPF based device has representor for host PF. */
-	if (vport_num == MLX5_VPORT_PF &&
+	if (vport_num == MLX5_VPORT_HOST_PF &&
 	    (!mlx5_core_is_ecpf_esw_manager(esw->dev) ||
 	     !mlx5_esw_host_functions_enabled(esw->dev)))
 		return false;
@@ -4791,7 +4794,7 @@ int mlx5_devlink_pf_port_fn_state_get(struct devlink_port *port,
 	const u32 *query_out;
 	bool pf_disabled;
 
-	if (vport->vport != MLX5_VPORT_PF) {
+	if (vport->vport != MLX5_VPORT_HOST_PF) {
 		NL_SET_ERR_MSG_MOD(extack, "State get is not supported for VF");
 		return -EOPNOTSUPP;
 	}
@@ -4820,7 +4823,7 @@ int mlx5_devlink_pf_port_fn_state_set(struct devlink_port *port,
 	struct mlx5_vport *vport = mlx5_devlink_port_vport_get(port);
 	struct mlx5_core_dev *dev;
 
-	if (vport->vport != MLX5_VPORT_PF) {
+	if (vport->vport != MLX5_VPORT_HOST_PF) {
 		NL_SET_ERR_MSG_MOD(extack, "State set is not supported for VF");
 		return -EOPNOTSUPP;
 	}
