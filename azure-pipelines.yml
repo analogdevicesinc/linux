@@ -28,6 +28,7 @@ stages:
   - stage: Build
     jobs:
     - job: microblaze_build_test
+      timeoutInMinutes: 90
       variables:
         BUILD_TYPE: microblaze
         DTS_FILES: "arch/microblaze/boot/dts/*.dts"
@@ -58,6 +59,7 @@ stages:
             artifactName: 'Microblaze'
 
     - job: dtb_build_test
+      timeoutInMinutes: 90
       variables:
         BUILD_TYPE: dtb_build_test
         DTS_FILES: "arch/arm/boot/dts/xilinx/zynq-*.dts
@@ -111,6 +113,11 @@ stages:
             CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
           versal_adi_default:
             DEFCONFIG: adi_versal_defconfig
+            ARCH: arm64
+            IMAGE: Image
+            CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+          versal_apollo_adi_default:
+            DEFCONFIG: adi_versal_apollo_defconfig
             ARCH: arm64
             IMAGE: Image
             CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
