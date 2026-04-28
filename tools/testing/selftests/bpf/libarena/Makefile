@@ -51,8 +51,6 @@ ASAN_FLAGS += -mllvm -asan-destructor-kind=none
 override BPF_CFLAGS += -DENABLE_ATOMICS_TESTS
 override BPF_CFLAGS += -O2 -g
 override BPF_CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
-# Required to define our own arena-based free()
-override BPF_CFLAGS += -Wno-incompatible-library-redeclaration
 # Required for suppressing harmless vmlinux.h-related warnings.
 override BPF_CFLAGS += -Wno-missing-declarations
 override BPF_CFLAGS += $(INCLUDES)

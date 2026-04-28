@@ -38,12 +38,12 @@ __weak int arena_buddy_reset(void)
 	return buddy_init(&buddy);
 }
 
-__weak u64 malloc_internal(size_t size)
+__weak u64 arena_malloc_internal(size_t size)
 {
 	return buddy_alloc_internal(&buddy, size);
 }
 
-__weak void free(void __arg_arena __arena *ptr)
+__weak void arena_free(void __arg_arena __arena *ptr)
 {
 	buddy_free_internal(&buddy, (u64)ptr);
 }

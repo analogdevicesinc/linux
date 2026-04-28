@@ -48,9 +48,9 @@ extern volatile u64 asan_violated;
 
 int arena_fls(__u64 word);
 
-u64 malloc_internal(size_t size);
-#define malloc(size) ((void __arena *)malloc_internal((size)))
-void free(void __arena *ptr);
+u64 arena_malloc_internal(size_t size);
+#define arena_malloc(size) ((void __arena *)arena_malloc_internal((size)))
+void arena_free(void __arena *ptr);
 
 /*
  * The verifier associates arenas with programs by checking LD.IMM
