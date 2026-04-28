@@ -3664,6 +3664,7 @@ esw_vfs_changed_event_handler(struct mlx5_eswitch *esw, int work_gen,
 {
 	struct devlink *devlink;
 	bool host_pf_disabled;
+	void *host_params;
 	u16 new_num_vfs;
 
 	devlink = priv_to_devlink(esw->dev);
@@ -3673,10 +3674,12 @@ esw_vfs_changed_event_handler(struct mlx5_eswitch *esw, int work_gen,
 	if (work_gen != atomic_read(&esw->esw_funcs.generation))
 		goto unlock;
 
-	new_num_vfs = MLX5_GET(query_esw_functions_out, out,
-			       host_params_context.host_num_of_vfs);
-	host_pf_disabled = MLX5_GET(query_esw_functions_out, out,
-				    host_params_context.host_pf_disabled);
+	host_params = MLX5_ADDR_OF(query_esw_functions_out, out,
+				   net_function_params);
+	new_num_vfs = MLX5_GET(host_params_context, host_params,
+			       host_num_of_vfs);
+	host_pf_disabled = MLX5_GET(host_params_context, host_params,
+				    host_pf_disabled);
 
 	if (new_num_vfs == esw->esw_funcs.num_vfs || host_pf_disabled)
 		goto unlock;
@@ -3743,6 +3746,7 @@ int mlx5_esw_funcs_changed_handler(struct notifier_block *nb, unsigned long type
 static int mlx5_esw_host_number_init(struct mlx5_eswitch *esw)
 {
 	const u32 *query_host_out;
+	void *host_params;
 
 	if (!mlx5_core_is_ecpf_esw_manager(esw->dev))
 		return 0;
@@ -3752,8 +3756,10 @@ static int mlx5_esw_host_number_init(struct mlx5_eswitch *esw)
 		return PTR_ERR(query_host_out);
 
 	/* Mark non local controller with non zero controller number. */
-	esw->offloads.host_number = MLX5_GET(query_esw_functions_out, query_host_out,
-					     host_params_context.host_number);
+	host_params = MLX5_ADDR_OF(query_esw_functions_out,
+				   query_host_out, net_function_params);
+	esw->offloads.host_number = MLX5_GET(host_params_context,
+					     host_params, host_number);
 	kvfree(query_host_out);
 	return 0;
 }
@@ -4792,6 +4798,7 @@ int mlx5_devlink_pf_port_fn_state_get(struct devlink_port *port,
 {
 	struct mlx5_vport *vport = mlx5_devlink_port_vport_get(port);
 	const u32 *query_out;
+	void *host_params;
 	bool pf_disabled;
 
 	if (vport->vport != MLX5_VPORT_HOST_PF) {
@@ -4806,8 +4813,10 @@ int mlx5_devlink_pf_port_fn_state_get(struct devlink_port *port,
 	if (IS_ERR(query_out))
 		return PTR_ERR(query_out);
 
-	pf_disabled = MLX5_GET(query_esw_functions_out, query_out,
-			       host_params_context.host_pf_disabled);
+	host_params = MLX5_ADDR_OF(query_esw_functions_out, query_out,
+				   net_function_params);
+	pf_disabled = MLX5_GET(host_params_context, host_params,
+			       host_pf_disabled);
 
 	*opstate = pf_disabled ? DEVLINK_PORT_FN_OPSTATE_DETACHED :
 				 DEVLINK_PORT_FN_OPSTATE_ATTACHED;
