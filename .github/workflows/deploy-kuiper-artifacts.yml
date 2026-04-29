@@ -1,0 +1,197 @@
+name: Deploy Kuiper Artifacts to Cloudsmith
+
+on:
+  workflow_call:
+    inputs:
+      artifacts:
+        description: 'Space-separated patterns of artifact names to download'
+        required: true
+        type: string
+      pr-target-branch:
+        description: 'PR target branch (for PR deployments)'
+        required: false
+        type: string
+        default: ''
+      pr-number:
+        description: 'PR number (for PR deployments)'
+        required: false
+        type: string
+        default: ''
+      scripts-ref:
+        description: 'Branch/tag to fetch CI scripts from (default: ci)'
+        required: false
+        type: string
+        default: 'ci'
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
+jobs:
+  deploy-artifacts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30 
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+
+    steps:
+    - name: Detect artifact type from branch
+      id: detect
+      run: |
+        BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+        echo "::notice::Branch: ${BRANCH_NAME}"
+
+        if [[ "${BRANCH_NAME}" == *"rpi"* ]]; then
+          echo "ARTIFACT_TYPE=rpi" >> $GITHUB_ENV
+          echo "CLOUDSMITH_REPO=sdg-linux-rpi" >> $GITHUB_ENV
+        else
+          echo "ARTIFACT_TYPE=kuiper" >> $GITHUB_ENV
+          echo "CLOUDSMITH_REPO=sdg-linux" >> $GITHUB_ENV
+        fi
+
+    - name: Prepare directories
+      run: |
+        sudo apt-get update && sudo apt-get install -y tree
+        rm -rf artifacts raw dist
+        mkdir -p artifacts raw dist
+
+    - name: Get sources
+      run: |
+        # Fetch CI scripts from the specified branch (scripts-ref input)
+        org_repo="analogdevicesinc/linux"
+        ref="${{ inputs.scripts-ref }}"
+
+        echo "::notice::Fetching scripts from: $org_repo @ $ref"
+
+        get_file() {
+          curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -o "$1" \
+            "https://raw.githubusercontent.com/${org_repo}/${ref}/$1"
+        }
+
+        mkdir -p ci
+        get_file ci/lib.sh
+        get_file ci/lib_github.sh
+
+        if [[ "${{ env.ARTIFACT_TYPE }}" == "kuiper" ]]; then
+          get_file ci/expand_kernel_images.sh
+          get_file ci/prepare_kuiper_artifacts_structure.sh
+        else
+          get_file ci/prepare_rpi_artifacts.sh
+        fi
+
+        chmod +x ci/*.sh
+
+        curl -sL -o upload_to_cloudsmith.py \
+          https://raw.githubusercontent.com/analogdevicesinc/wiki-scripts/main/utils/cloudsmith_utils/upload_to_cloudsmith.py
+
+        echo "::debug::Scripts downloaded:"
+        ls -la ci/
+
+    - name: Download, extract, and process artifacts
+      run: |
+        WORK_DIR="$(pwd)"
+        source ci/lib.sh
+        source ci/lib_github.sh
+
+        # Download matching artifacts from workflow run
+        download_matching_artifacts \
+          "${{ secrets.GITHUB_TOKEN }}" \
+          "${{ github.repository }}" \
+          "${{ github.run_id }}" \
+          "${{ inputs.artifacts }}" \
+          "artifacts"
+
+        # Extract to raw/
+        extract_artifacts "artifacts" "raw"
+        echo "::debug::Contents of raw/:"
+        ls -la raw/
+
+        # Process based on artifact type
+        if [[ "${{ env.ARTIFACT_TYPE }}" == "kuiper" ]]; then
+          # Expand linux artifacts into structured dist/ for Kuiper format
+          source ci/expand_kernel_images.sh
+          prepare_kernel_dist
+        else
+          export SOURCE_DIRECTORY="${WORK_DIR}/raw"
+          export OUTPUT_DIRECTORY="${WORK_DIR}/dist"
+          export BUILD_SOURCEBRANCHNAME="${{ github.head_ref || github.ref_name }}"
+          source ci/prepare_rpi_artifacts.sh
+          create_rpi_boot_archives
+        fi
+
+    - name: Setup Cloudsmith OIDC
+      uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
+      with:
+        oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
+        oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        oidc-auth-only: 'true'
+
+    - name: Prepare structure and upload to Cloudsmith
+      run: |
+        # Setup Python environment
+        python3 -m venv venv
+        source ./venv/bin/activate
+        python3 -m ensurepip
+        pip3 install cloudsmith-cli
+
+        source ci/lib_github.sh
+
+        # Set timestamp and git info
+        TIMESTAMP=$(date +%Y_%m_%d-%H_%M)
+        GIT_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+        GIT_SHA_DATE="${{ github.event.head_commit.timestamp }}"
+        
+        # Get branch name
+        BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+
+        # Build version path
+        VERSION_PATH=$(get_version_path \
+          "${{ env.ARTIFACT_TYPE }}" \
+          "${BRANCH_NAME}" \
+          "${TIMESTAMP}" \
+          "${{ inputs.pr-target-branch }}" \
+          "${{ inputs.pr-number }}")
+
+        echo "::group::Upload configuration"
+        echo "  Artifact type: ${{ env.ARTIFACT_TYPE }}"
+        echo "  Repository: ${{ env.CLOUDSMITH_REPO }}"
+        echo "  Version path: ${VERSION_PATH}"
+        echo "  Git SHA: ${GIT_SHA}"
+        echo "  Git SHA date: ${GIT_SHA_DATE}"
+        echo "::endgroup::"
+
+        # Determine upload directory based on artifact type
+        if [[ "${{ env.ARTIFACT_TYPE }}" == "kuiper" ]]; then
+          # Kuiper: prepare_kuiper_artifacts_structure.sh creates timestamped directory
+          export TIMESTAMP GIT_SHA GIT_SHA_DATE
+          export BUILD_SOURCEBRANCHNAME="${BRANCH_NAME}"
+          export SOURCE_DIRECTORY="$(pwd)"
+          source ci/lib.sh
+          source ci/prepare_kuiper_artifacts_structure.sh
+          UPLOAD_PATH="${TIMESTAMP}"
+        else
+          # RPI: artifacts are already in dist/
+          UPLOAD_PATH="dist"
+        fi
+
+        if [[ ! -d "${UPLOAD_PATH}" ]] || [[ -z "$(ls -A "${UPLOAD_PATH}" 2>/dev/null)" ]]; then
+          echo "::warning::No artifacts to upload in ${UPLOAD_PATH}"
+          exit 0
+        fi
+
+        echo "::notice::Uploading from: ${UPLOAD_PATH}"
+        ls -la "${UPLOAD_PATH}"
+
+        python3 upload_to_cloudsmith.py \
+          --repo="${{ env.CLOUDSMITH_REPO }}" \
+          --version="${VERSION_PATH}" \
+          --local_path="${UPLOAD_PATH}" \
+          --token="${CLOUDSMITH_API_KEY}" \
+          --max_workers=10
+
+        echo "::notice::Upload complete: ${VERSION_PATH}."
+        echo "::notice::Check Cloudsmith repository for details on https://cloudsmith.io/~${{ vars.CLOUDSMITH_NAMESPACE }}/repos/${{ env.CLOUDSMITH_REPO }}/packages/"
