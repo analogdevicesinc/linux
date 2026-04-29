@@ -95,11 +95,6 @@ IMAGE            = $(objtree)/$(IMAGE_$(XARCH))
 IMAGE_NAME       = $(notdir $(IMAGE))
 
 # default kernel configurations that appear to be usable
-DEFCONFIG_i386       = defconfig
-DEFCONFIG_x86_64     = defconfig
-DEFCONFIG_x32        = defconfig
-DEFCONFIG_x86        = defconfig
-DEFCONFIG_arm64      = defconfig
 DEFCONFIG_arm        = multi_v7_defconfig
 DEFCONFIG_armthumb   = multi_v7_defconfig
 DEFCONFIG_mips32le   = malta_defconfig
@@ -112,14 +107,11 @@ DEFCONFIG_ppc        = pmac32_defconfig
 DEFCONFIG_ppc64      = powernv_be_defconfig
 DEFCONFIG_ppc64le    = powernv_defconfig
 DEFCONFIG_riscv32    = rv32_defconfig
-DEFCONFIG_riscv64    = defconfig
-DEFCONFIG_s390x      = defconfig
-DEFCONFIG_loongarch  = defconfig
 DEFCONFIG_sparc32    = sparc32_defconfig
 DEFCONFIG_sparc64    = sparc64_defconfig
 DEFCONFIG_m68k       = virt_defconfig
 DEFCONFIG_sh4        = rts7751r2dplus_defconfig
-DEFCONFIG            = $(DEFCONFIG_$(XARCH))
+DEFCONFIG            = $(or $(DEFCONFIG_$(XARCH)),defconfig)
 
 EXTRACONFIG_x32       = -e CONFIG_X86_X32_ABI
 EXTRACONFIG_arm       = -e CONFIG_NAMESPACES
