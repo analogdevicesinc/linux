@@ -1015,6 +1015,16 @@ static inline u32 tcp_time_stamp_ts(const struct tcp_sock *tp)
 	return tcp_time_stamp_ms(tp);
 }
 
+/* Refresh clocks of a TCP socket,
+ * ensuring monotically increasing values.
+ */
+static inline void tcp_mstamp_refresh_inline(struct tcp_sock *tp)
+{
+	u64 val = tcp_clock_ns();
+
+	tp->tcp_clock_cache = val;
+	tp->tcp_mstamp = div_u64(val, NSEC_PER_USEC);
+}
 void tcp_mstamp_refresh(struct tcp_sock *tp);
 
 static inline u32 tcp_stamp_us_delta(u64 t1, u64 t0)

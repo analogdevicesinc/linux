@@ -52,15 +52,9 @@
 
 #include <trace/events/tcp.h>
 
-/* Refresh clocks of a TCP socket,
- * ensuring monotically increasing values.
- */
-void tcp_mstamp_refresh(struct tcp_sock *tp)
+void noinline tcp_mstamp_refresh(struct tcp_sock *tp)
 {
-	u64 val = tcp_clock_ns();
-
-	tp->tcp_clock_cache = val;
-	tp->tcp_mstamp = div_u64(val, NSEC_PER_USEC);
+	tcp_mstamp_refresh_inline(tp);
 }
 
 static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
@@ -2971,7 +2965,7 @@ static bool tcp_write_xmit(struct sock *sk, unsigned int mss_now, int nonagle,
 
 	sent_pkts = 0;
 
-	tcp_mstamp_refresh(tp);
+	tcp_mstamp_refresh_inline(tp);
 
 	/* AccECN option beacon depends on mstamp, it may change mss */
 	if (tcp_ecn_mode_accecn(tp) && tcp_accecn_option_beacon_check(sk))
