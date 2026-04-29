@@ -232,24 +232,29 @@ static bool task_dead_and_done(struct task_struct *p);
 static void scx_kick_cpu(struct scx_sched *sch, s32 cpu, u64 flags);
 static void scx_disable(struct scx_sched *sch, enum scx_exit_kind kind);
 static bool scx_vexit(struct scx_sched *sch, enum scx_exit_kind kind,
-		      s64 exit_code, const char *fmt, va_list args);
+		      s64 exit_code, s32 exit_cpu, const char *fmt,
+		      va_list args);
 
-static __printf(4, 5) bool scx_exit(struct scx_sched *sch,
-				    enum scx_exit_kind kind, s64 exit_code,
-				    const char *fmt, ...)
+static __printf(5, 6) bool __scx_exit(struct scx_sched *sch,
+				      enum scx_exit_kind kind, s64 exit_code,
+				      s32 exit_cpu, const char *fmt, ...)
 {
 	va_list args;
 	bool ret;
 
 	va_start(args, fmt);
-	ret = scx_vexit(sch, kind, exit_code, fmt, args);
+	ret = scx_vexit(sch, kind, exit_code, exit_cpu, fmt, args);
 	va_end(args);
 
 	return ret;
 }
 
+#define scx_exit(sch, kind, exit_code, fmt, args...)				\
+	__scx_exit(sch, kind, exit_code, raw_smp_processor_id(), fmt, ##args)
+
 #define scx_error(sch, fmt, args...)	scx_exit((sch), SCX_EXIT_ERROR, 0, fmt, ##args)
-#define scx_verror(sch, fmt, args)	scx_vexit((sch), SCX_EXIT_ERROR, 0, fmt, args)
+#define scx_verror(sch, fmt, args)						\
+	scx_vexit((sch), SCX_EXIT_ERROR, 0, raw_smp_processor_id(), fmt, args)
 
 #define SCX_HAS_OP(sch, op)	test_bit(SCX_OP_IDX(op), (sch)->has_op)
 
@@ -3387,9 +3392,10 @@ static bool check_rq_for_timeouts(struct rq *rq)
 					last_runnable + READ_ONCE(sch->watchdog_timeout)))) {
 			u32 dur_ms = jiffies_to_msecs(jiffies - last_runnable);
 
-			scx_exit(sch, SCX_EXIT_ERROR_STALL, 0,
-				 "%s[%d] failed to run for %u.%03us",
-				 p->comm, p->pid, dur_ms / 1000, dur_ms % 1000);
+			__scx_exit(sch, SCX_EXIT_ERROR_STALL, 0, cpu_of(rq),
+				   "%s[%d] failed to run for %u.%03us",
+				   p->comm, p->pid, dur_ms / 1000,
+				   dur_ms % 1000);
 			timed_out = true;
 			break;
 		}
@@ -5526,6 +5532,7 @@ static struct scx_exit_info *alloc_exit_info(size_t exit_dump_len)
 	if (!ei)
 		return NULL;
 
+	ei->exit_cpu = -1;
 	ei->bt = kzalloc_objs(ei->bt[0], SCX_EXIT_BT_LEN);
 	ei->msg = kzalloc(SCX_EXIT_MSG_LEN, GFP_KERNEL);
 	ei->dump = kvzalloc(exit_dump_len, GFP_KERNEL);
@@ -6382,8 +6389,13 @@ static void scx_dump_state(struct scx_sched *sch, struct scx_exit_info *ei,
 	if (ei->kind == SCX_EXIT_NONE) {
 		dump_line(&s, "Debug dump triggered by %s", ei->reason);
 	} else {
-		dump_line(&s, "%s[%d] triggered exit kind %d:",
-			  current->comm, current->pid, ei->kind);
+		if (ei->exit_cpu >= 0)
+			dump_line(&s, "%s[%d] triggered exit kind %d on cpu %d:",
+				  current->comm, current->pid, ei->kind,
+				  ei->exit_cpu);
+		else
+			dump_line(&s, "%s[%d] triggered exit kind %d:",
+				  current->comm, current->pid, ei->kind);
 		dump_line(&s, "  %s (%s)", ei->reason, ei->msg);
 		dump_newline(&s);
 		dump_line(&s, "Backtrace:");
@@ -6400,8 +6412,15 @@ static void scx_dump_state(struct scx_sched *sch, struct scx_exit_info *ei,
 	dump_line(&s, "CPU states");
 	dump_line(&s, "----------");
 
+	/*
+	 * Dump the exit CPU first so it isn't lost to dump truncation, then
+	 * walk the rest in order, skipping the one already dumped.
+	 */
+	if (ei->exit_cpu >= 0)
+		scx_dump_cpu(sch, &s, &dctx, ei->exit_cpu, dump_all_tasks);
 	for_each_possible_cpu(cpu) {
-		scx_dump_cpu(sch, &s, &dctx, cpu, dump_all_tasks);
+		if (cpu != ei->exit_cpu)
+			scx_dump_cpu(sch, &s, &dctx, cpu, dump_all_tasks);
 	}
 
 	dump_newline(&s);
@@ -6440,7 +6459,7 @@ static void scx_disable_irq_workfn(struct irq_work *irq_work)
 }
 
 static bool scx_vexit(struct scx_sched *sch,
-		      enum scx_exit_kind kind, s64 exit_code,
+		      enum scx_exit_kind kind, s64 exit_code, s32 exit_cpu,
 		      const char *fmt, va_list args)
 {
 	struct scx_exit_info *ei = sch->exit_info;
@@ -6463,6 +6482,7 @@ static bool scx_vexit(struct scx_sched *sch,
 	 */
 	ei->kind = kind;
 	ei->reason = scx_exit_reason(ei->kind);
+	ei->exit_cpu = exit_cpu;
 
 	irq_work_queue(&sch->disable_irq_work);
 	return true;
@@ -7728,7 +7748,11 @@ static const struct sysrq_key_op sysrq_sched_ext_reset_op = {
 
 static void sysrq_handle_sched_ext_dump(u8 key)
 {
-	struct scx_exit_info ei = { .kind = SCX_EXIT_NONE, .reason = "SysRq-D" };
+	struct scx_exit_info ei = {
+		.kind		= SCX_EXIT_NONE,
+		.exit_cpu	= -1,
+		.reason		= "SysRq-D",
+	};
 	struct scx_sched *sch;
 
 	list_for_each_entry_rcu(sch, &scx_sched_all, all)

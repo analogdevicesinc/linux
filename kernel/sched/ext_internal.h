@@ -97,6 +97,12 @@ struct scx_exit_info {
 	/* %SCX_EXIT_* - broad category of the exit reason */
 	enum scx_exit_kind	kind;
 
+	/*
+	 * CPU that initiated the exit, valid once @kind has been set.
+	 * Negative if the exit path didn't identify a CPU.
+	 */
+	s32			exit_cpu;
+
 	/* exit code if gracefully exiting */
 	s64			exit_code;
 
