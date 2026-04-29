@@ -145,6 +145,18 @@ struct iso_resource {
 	struct iso_resource_event *e_alloc, *e_dealloc;
 };
 
+struct iso_resource_once {
+	struct client *client;
+	// Schedule work and access todo only with client->lock held.
+	struct delayed_work work;
+	enum {
+		ISO_RES_ONCE_ALLOC,
+		ISO_RES_ONCE_DEALLOC,
+	} todo;
+	struct iso_resource_params params;
+	struct iso_resource_event *event;
+};
+
 static struct address_handler_resource *to_address_handler_resource(struct client_resource *resource)
 {
 	return container_of(resource, struct address_handler_resource, resource);
@@ -1479,18 +1491,81 @@ static int ioctl_deallocate_iso_resource(struct client *client,
 			arg->deallocate.handle, release_iso_resource, NULL);
 }
 
+#define UNAVAILABLE_HANDLE	-1
+
+static void iso_resource_once_work(struct work_struct *work)
+{
+	struct iso_resource_once *r = from_work(r, work, work.work);
+	struct client *client = r->client;
+	struct iso_resource_event *e = r->event;
+	int generation, channel, bandwidth;
+
+	scoped_guard(spinlock_irq, &client->lock)
+		generation = client->device->generation;
+
+	r->params.generation = generation;
+	bandwidth = r->params.bandwidth;
+
+	fw_iso_resource_manage(client->device->card, generation, r->params.channels, &channel,
+			       &bandwidth, r->todo == ISO_RES_ONCE_ALLOC);
+
+	e->iso_resource.handle = UNAVAILABLE_HANDLE;
+	e->iso_resource.channel = channel;
+	e->iso_resource.bandwidth = bandwidth;
+
+	queue_event(client, &e->event, &e->iso_resource, sizeof(e->iso_resource), NULL, 0);
+
+	cancel_delayed_work(&r->work);
+	kfree(r);
+
+	client_put(client);
+}
+
+static int init_iso_resource_once(struct client *client,
+				  struct fw_cdev_allocate_iso_resource *request, int todo)
+{
+	struct iso_resource_event *e __free(kfree) = kmalloc_obj(*e);
+	struct iso_resource_once *r __free(kfree) = kmalloc_obj(*r);
+	int err;
+
+	if (!r || !e)
+		return -ENOMEM;
+
+	err = fill_iso_resource_params(&r->params, request);
+	if (err < 0)
+		return err;
+
+	INIT_DELAYED_WORK(&r->work, iso_resource_once_work);
+	r->client = client;
+	r->todo	= todo;
+
+	if (todo == ISO_RES_ONCE_ALLOC)
+		e->iso_resource.type = FW_CDEV_EVENT_ISO_RESOURCE_ALLOCATED;
+	else
+		e->iso_resource.type = FW_CDEV_EVENT_ISO_RESOURCE_DEALLOCATED;
+	e->iso_resource.closure = request->closure;
+	r->event = no_free_ptr(e);
+
+	// Keep the client until work item finishing.
+	client_get(r->client);
+
+	queue_delayed_work(fw_workqueue, &no_free_ptr(r)->work, 0);
+
+	request->handle = UNAVAILABLE_HANDLE;
+
+	return 0;
+}
+
 static int ioctl_allocate_iso_resource_once(struct client *client,
 					    union ioctl_arg *arg)
 {
-	return init_iso_resource(client,
-			&arg->allocate_iso_resource, ISO_RES_ALLOC_ONCE);
+	return init_iso_resource_once(client, &arg->allocate_iso_resource, ISO_RES_ONCE_ALLOC);
 }
 
 static int ioctl_deallocate_iso_resource_once(struct client *client,
 					      union ioctl_arg *arg)
 {
-	return init_iso_resource(client,
-			&arg->allocate_iso_resource, ISO_RES_DEALLOC_ONCE);
+	return init_iso_resource_once(client, &arg->allocate_iso_resource, ISO_RES_ONCE_DEALLOC);
 }
 
 /*
