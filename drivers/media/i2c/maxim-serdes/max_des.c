@@ -1847,8 +1847,52 @@ static const struct v4l2_subdev_pad_ops max_des_pad_ops = {
 	.set_fmt = max_des_set_fmt,
 };
 
+static int max_des_s_stream(struct v4l2_subdev *sd, int enable)
+{
+	struct max_des_priv *priv = sd_to_priv(sd);
+	struct max_des *des = priv->des;
+	u64 pad_masks[MAX_DES_PHYS_NUM] = {};
+	struct v4l2_subdev_state *state;
+	struct v4l2_subdev_route *route;
+	unsigned int i;
+	int ret;
+
+	state = v4l2_subdev_lock_and_get_active_state(sd);
+
+	for_each_active_route(&state->routing, route) {
+		unsigned int phy_idx = route->source_pad - des->ops->num_links;
+
+		if (phy_idx < MAX_DES_PHYS_NUM)
+			pad_masks[phy_idx] |= BIT_ULL(route->source_stream);
+	}
+
+	v4l2_subdev_unlock_state(state);
+
+	for (i = 0; i < MAX_DES_PHYS_NUM; i++) {
+		if (!pad_masks[i])
+			continue;
+
+		if (enable)
+			ret = v4l2_subdev_enable_streams(sd,
+					des->ops->num_links + i, pad_masks[i]);
+		else
+			ret = v4l2_subdev_disable_streams(sd,
+					des->ops->num_links + i, pad_masks[i]);
+
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static const struct v4l2_subdev_video_ops max_des_video_ops = {
+	.s_stream = max_des_s_stream,
+};
+
 static const struct v4l2_subdev_ops max_des_subdev_ops = {
 	.core = &max_des_core_ops,
+	.video = &max_des_video_ops,
 	.pad = &max_des_pad_ops,
 };
 
