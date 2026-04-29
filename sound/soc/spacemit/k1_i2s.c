@@ -148,10 +148,6 @@ static int spacemit_i2s_hw_params(struct snd_pcm_substream *substream,
 	u32 val;
 	int ret;
 
-	val = readl(i2s->base + SSCR);
-	if (val & SSCR_SSE)
-		return 0;
-
 	dma_data = &i2s->playback_dma_data;
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
@@ -199,6 +195,9 @@ static int spacemit_i2s_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	val = readl(i2s->base + SSCR);
+	if (val & SSCR_SSE)
+		return 0;
+
 	val &= ~SSCR_DW_32BYTE;
 	val |= data_width;
 	writel(val, i2s->base + SSCR);
