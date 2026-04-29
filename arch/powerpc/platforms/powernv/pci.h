@@ -251,7 +251,7 @@ struct pnv_iov_data {
 	struct resource holes[PCI_SRIOV_NUM_BARS];
 };
 
-static inline struct pnv_iov_data *pnv_iov_get(struct pci_dev *pdev)
+static inline struct pnv_iov_data *pnv_iov_get(const struct pci_dev *pdev)
 {
 	return pdev->dev.archdata.iov_data;
 }
