@@ -16,7 +16,6 @@
 #include <linux/gpio/consumer.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 
 #include <linux/spi/spi.h>
 
@@ -576,38 +575,18 @@ at91_usart_spi_probe_fail:
 	return ret;
 }
 
-__maybe_unused static int at91_usart_spi_runtime_suspend(struct device *dev)
-{
-	struct spi_controller *ctlr = dev_get_drvdata(dev);
-	struct at91_usart_spi *aus = spi_controller_get_devdata(ctlr);
-
-	clk_disable_unprepare(aus->clk);
-	pinctrl_pm_select_sleep_state(dev);
-
-	return 0;
-}
-
-__maybe_unused static int at91_usart_spi_runtime_resume(struct device *dev)
-{
-	struct spi_controller *ctrl = dev_get_drvdata(dev);
-	struct at91_usart_spi *aus = spi_controller_get_devdata(ctrl);
-
-	pinctrl_pm_select_default_state(dev);
-
-	return clk_prepare_enable(aus->clk);
-}
-
 __maybe_unused static int at91_usart_spi_suspend(struct device *dev)
 {
 	struct spi_controller *ctrl = dev_get_drvdata(dev);
+	struct at91_usart_spi *aus = spi_controller_get_devdata(ctrl);
 	int ret;
 
 	ret = spi_controller_suspend(ctrl);
 	if (ret)
 		return ret;
 
-	if (!pm_runtime_suspended(dev))
-		at91_usart_spi_runtime_suspend(dev);
+	clk_disable_unprepare(aus->clk);
+	pinctrl_pm_select_sleep_state(dev);
 
 	return 0;
 }
@@ -618,11 +597,11 @@ __maybe_unused static int at91_usart_spi_resume(struct device *dev)
 	struct at91_usart_spi *aus = spi_controller_get_devdata(ctrl);
 	int ret;
 
-	if (!pm_runtime_suspended(dev)) {
-		ret = at91_usart_spi_runtime_resume(dev);
-		if (ret)
-			return ret;
-	}
+	pinctrl_pm_select_default_state(dev);
+
+	ret = clk_prepare_enable(aus->clk);
+	if (ret)
+		return ret;
 
 	at91_usart_spi_init(aus);
 
@@ -646,8 +625,6 @@ static void at91_usart_spi_remove(struct platform_device *pdev)
 
 static const struct dev_pm_ops at91_usart_spi_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(at91_usart_spi_suspend, at91_usart_spi_resume)
-	SET_RUNTIME_PM_OPS(at91_usart_spi_runtime_suspend,
-			   at91_usart_spi_runtime_resume, NULL)
 };
 
 static struct platform_driver at91_usart_spi_driver = {
