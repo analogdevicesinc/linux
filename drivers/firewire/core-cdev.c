@@ -128,6 +128,12 @@ struct descriptor_resource {
 	u32 data[];
 };
 
+struct iso_resource_params {
+	int generation;
+	u64 channels;
+	s32 bandwidth;
+};
+
 struct iso_resource {
 	struct client_resource resource;
 	struct client *client;
@@ -135,9 +141,7 @@ struct iso_resource {
 	struct delayed_work work;
 	enum {ISO_RES_ALLOC, ISO_RES_REALLOC, ISO_RES_DEALLOC,
 	      ISO_RES_ALLOC_ONCE, ISO_RES_DEALLOC_ONCE,} todo;
-	int generation;
-	u64 channels;
-	s32 bandwidth;
+	struct iso_resource_params params;
 	struct iso_resource_event *e_alloc, *e_dealloc;
 };
 
@@ -1290,6 +1294,20 @@ static int ioctl_get_cycle_timer(struct client *client, union ioctl_arg *arg)
 	return 0;
 }
 
+static int fill_iso_resource_params(struct iso_resource_params *params,
+				    struct fw_cdev_allocate_iso_resource *request)
+{
+	if ((request->channels == 0 && request->bandwidth == 0) ||
+	    request->bandwidth > BANDWIDTH_AVAILABLE_INITIAL)
+		return -EINVAL;
+
+	params->generation = -1;
+	params->channels = request->channels;
+	params->bandwidth = request->bandwidth;
+
+	return 0;
+}
+
 static void iso_resource_work(struct work_struct *work)
 {
 	struct iso_resource_event *e;
@@ -1310,21 +1328,21 @@ static void iso_resource_work(struct work_struct *work)
 		} else {
 			// We could be called twice within the same generation.
 			skip = todo == ISO_RES_REALLOC &&
-			       r->generation == generation;
+			       r->params.generation == generation;
 		}
 		free = todo == ISO_RES_DEALLOC ||
 		       todo == ISO_RES_ALLOC_ONCE ||
 		       todo == ISO_RES_DEALLOC_ONCE;
-		r->generation = generation;
+		r->params.generation = generation;
 	}
 
 	if (skip)
 		goto out;
 
-	bandwidth = r->bandwidth;
+	bandwidth = r->params.bandwidth;
 
 	fw_iso_resource_manage(client->device->card, generation,
-			r->channels, &channel, &bandwidth,
+			r->params.channels, &channel, &bandwidth,
 			todo == ISO_RES_ALLOC ||
 			todo == ISO_RES_REALLOC ||
 			todo == ISO_RES_ALLOC_ONCE);
@@ -1355,7 +1373,7 @@ static void iso_resource_work(struct work_struct *work)
 	}
 
 	if (todo == ISO_RES_ALLOC && channel >= 0)
-		r->channels = 1ULL << channel;
+		r->params.channels = 1ULL << channel;
 
 	if (todo == ISO_RES_REALLOC && success)
 		goto out;
@@ -1402,10 +1420,6 @@ static int init_iso_resource(struct client *client,
 	struct iso_resource *r;
 	int ret;
 
-	if ((request->channels == 0 && request->bandwidth == 0) ||
-	    request->bandwidth > BANDWIDTH_AVAILABLE_INITIAL)
-		return -EINVAL;
-
 	r = kmalloc_obj(*r);
 	e1 = kmalloc_obj(*e1);
 	e2 = kmalloc_obj(*e2);
@@ -1414,12 +1428,13 @@ static int init_iso_resource(struct client *client,
 		goto fail;
 	}
 
+	ret = fill_iso_resource_params(&r->params, request);
+	if (ret < 0)
+		goto fail;
+
 	INIT_DELAYED_WORK(&r->work, iso_resource_work);
 	r->client	= client;
 	r->todo		= todo;
-	r->generation	= -1;
-	r->channels	= request->channels;
-	r->bandwidth	= request->bandwidth;
 	r->e_alloc	= e1;
 	r->e_dealloc	= e2;
 
