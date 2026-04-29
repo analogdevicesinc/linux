@@ -99,20 +99,6 @@ config CRYPTO_CAST6_AVX_X86_64
 
 	  Processes eight blocks in parallel.
 
-config CRYPTO_DES3_EDE_X86_64
-	tristate "Ciphers: Triple DES EDE with modes: ECB, CBC"
-	depends on 64BIT
-	select CRYPTO_SKCIPHER
-	select CRYPTO_LIB_DES
-	imply CRYPTO_CTR
-	help
-	  Block cipher: Triple DES EDE (FIPS 46-3) cipher algorithm
-	  Length-preserving ciphers: Triple DES EDE with ECB and CBC modes
-
-	  Architecture: x86_64
-
-	  Processes one or three blocks in parallel.
-
 config CRYPTO_SERPENT_SSE2_X86_64
 	tristate "Ciphers: Serpent with modes: ECB, CBC (SSE2)"
 	depends on 64BIT
@@ -330,28 +316,5 @@ config CRYPTO_AEGIS128_AESNI_SSE2
 	  Architecture: x86_64 using:
 	  - AES-NI (AES New Instructions)
 	  - SSE4.1 (Streaming SIMD Extensions 4.1)
-
-config CRYPTO_SM3_AVX_X86_64
-	tristate "Hash functions: SM3 (AVX)"
-	depends on 64BIT
-	select CRYPTO_HASH
-	select CRYPTO_LIB_SM3
-	help
-	  SM3 secure hash function as defined by OSCCA GM/T 0004-2012 SM3
-
-	  Architecture: x86_64 using:
-	  - AVX (Advanced Vector Extensions)
-
-	  If unsure, say N.
-
-config CRYPTO_GHASH_CLMUL_NI_INTEL
-	tristate "Hash functions: GHASH (CLMUL-NI)"
-	depends on 64BIT
-	select CRYPTO_CRYPTD
-	help
-	  GCM GHASH hash function (NIST SP800-38D)
-
-	  Architecture: x86_64 using:
-	  - CLMUL-NI (carry-less multiplication new instructions)
 
 endmenu

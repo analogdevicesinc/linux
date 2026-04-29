@@ -21,7 +21,6 @@
 #include <linux/if_vlan.h>
 #include <linux/vmalloc.h>
 #include <linux/sockptr.h>
-#include <crypto/sha1.h>
 #include <linux/u64_stats_sync.h>
 
 #include <net/sch_generic.h>
@@ -1092,20 +1091,21 @@ bpf_jit_binary_lock_ro(struct bpf_binary_header *hdr)
 	return set_memory_rox((unsigned long)hdr, hdr->size >> PAGE_SHIFT);
 }
 
-int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap,
-		       enum skb_drop_reason *reason);
+enum skb_drop_reason
+sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap);
 
 static inline int sk_filter(struct sock *sk, struct sk_buff *skb)
 {
-	enum skb_drop_reason ignore_reason;
+	enum skb_drop_reason drop_reason;
 
-	return sk_filter_trim_cap(sk, skb, 1, &ignore_reason);
+	drop_reason = sk_filter_trim_cap(sk, skb, 1);
+	return drop_reason ? -EPERM : 0;
 }
 
-static inline int sk_filter_reason(struct sock *sk, struct sk_buff *skb,
-				   enum skb_drop_reason *reason)
+static inline enum skb_drop_reason
+sk_filter_reason(struct sock *sk, struct sk_buff *skb)
 {
-	return sk_filter_trim_cap(sk, skb, 1, reason);
+	return sk_filter_trim_cap(sk, skb, 1);
 }
 
 struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err);

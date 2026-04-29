@@ -181,6 +181,7 @@ void gmap_remove_child(struct gmap *child)
 
 	list_del(&child->list);
 	child->parent = NULL;
+	child->invalidated = true;
 }
 
 /**
@@ -617,14 +618,33 @@ int gmap_try_fixup_minor(struct gmap *gmap, struct guest_fault *fault)
 	return rc;
 }
 
-static inline bool gmap_2g_allowed(struct gmap *gmap, gfn_t gfn)
+static inline bool gmap_2g_allowed(struct gmap *gmap, struct guest_fault *f,
+				   struct kvm_memory_slot *slot)
 {
 	return false;
 }
 
-static inline bool gmap_1m_allowed(struct gmap *gmap, gfn_t gfn)
+/**
+ * gmap_1m_allowed() - Check whether a 1M hugepage is allowed.
+ * @gmap: The gmap of the guest.
+ * @f: Describes the fault that is being resolved.
+ * @slot: The memslot the faulting address belongs to.
+ *
+ * The function checks whether the GMAP_FLAG_ALLOW_HPAGE_1M flag is set for
+ * @gmap, whether the offset of the address in the 1M virtual frame is the
+ * same as the offset in the physical 1M frame, and finally whether the whole
+ * 1M page would fit in the given memslot.
+ *
+ * Return: true if a 1M hugepage is allowed to back the faulting address, false
+ *         otherwise.
+ */
+static inline bool gmap_1m_allowed(struct gmap *gmap, struct guest_fault *f,
+				   struct kvm_memory_slot *slot)
 {
-	return test_bit(GMAP_FLAG_ALLOW_HPAGE_1M, &gmap->flags);
+	return test_bit(GMAP_FLAG_ALLOW_HPAGE_1M, &gmap->flags) &&
+	       !((f->gfn ^ f->pfn) & ~_SEGMENT_FR_MASK) &&
+	       slot->base_gfn <= ALIGN_DOWN(f->gfn, _PAGES_PER_SEGMENT) &&
+	       slot->base_gfn + slot->npages >= ALIGN(f->gfn + 1, _PAGES_PER_SEGMENT);
 }
 
 static int _gmap_link(struct kvm_s390_mmu_cache *mc, struct gmap *gmap, int level,
@@ -678,7 +698,8 @@ static int _gmap_link(struct kvm_s390_mmu_cache *mc, struct gmap *gmap, int leve
 	return rc;
 }
 
-int gmap_link(struct kvm_s390_mmu_cache *mc, struct gmap *gmap, struct guest_fault *f)
+int gmap_link(struct kvm_s390_mmu_cache *mc, struct gmap *gmap, struct guest_fault *f,
+	      struct kvm_memory_slot *slot)
 {
 	unsigned int order;
 	int level;
@@ -688,9 +709,9 @@ int gmap_link(struct kvm_s390_mmu_cache *mc, struct gmap *gmap, struct guest_fau
 	level = TABLE_TYPE_PAGE_TABLE;
 	if (f->page) {
 		order = folio_order(page_folio(f->page));
-		if (order >= get_order(_REGION3_SIZE) && gmap_2g_allowed(gmap, f->gfn))
+		if (order >= get_order(_REGION3_SIZE) && gmap_2g_allowed(gmap, f, slot))
 			level = TABLE_TYPE_REGION3;
-		else if (order >= get_order(_SEGMENT_SIZE) && gmap_1m_allowed(gmap, f->gfn))
+		else if (order >= get_order(_SEGMENT_SIZE) && gmap_1m_allowed(gmap, f, slot))
 			level = TABLE_TYPE_SEGMENT;
 	}
 	return _gmap_link(mc, gmap, level, f);
@@ -1069,6 +1090,7 @@ static void gmap_unshadow_level(struct gmap *sg, gfn_t r_gfn, int level)
 	if (level > TABLE_TYPE_PAGE_TABLE)
 		align = 1UL << (11 * level + _SEGMENT_SHIFT);
 	kvm_s390_vsie_gmap_notifier(sg, ALIGN_DOWN(gaddr, align), ALIGN(gaddr + 1, align));
+	sg->invalidated = true;
 	if (dat_entry_walk(NULL, r_gfn, sg->asce, 0, level, &crstep, &ptep))
 		return;
 	if (ptep) {
@@ -1174,6 +1196,7 @@ static inline int __gmap_protect_asce_top_level(struct kvm_s390_mmu_cache *mc, s
 	scoped_guard(spinlock, &parent->children_lock) {
 		if (READ_ONCE(sg->parent) != parent)
 			return -EAGAIN;
+		sg->invalidated = false;
 		for (i = 0; i < CRST_TABLE_PAGES; i++) {
 			if (!context->f[i].valid)
 				continue;

@@ -26,9 +26,8 @@ struct kernfs_iattrs {
 	struct timespec64	ia_mtime;
 	struct timespec64	ia_ctime;
 
-	struct simple_xattrs	xattrs;
-	atomic_t		nr_user_xattrs;
-	atomic_t		user_xattr_size;
+	struct simple_xattrs	*xattrs;
+	struct simple_xattr_limits xattr_limits;
 };
 
 struct kernfs_root {
@@ -97,7 +96,7 @@ struct kernfs_super_info {
 	 * instance.  If multiple tags become necessary, make the following
 	 * an array and compare kernfs_node tag against every entry.
 	 */
-	const void		*ns;
+	const struct ns_common	*ns;
 
 	/* anchored at kernfs_root->supers, protected by kernfs_rwsem */
 	struct list_head	node;

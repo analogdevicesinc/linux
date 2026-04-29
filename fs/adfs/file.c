@@ -26,11 +26,11 @@ const struct file_operations adfs_file_operations = {
 	.llseek		= generic_file_llseek,
 	.read_iter	= generic_file_read_iter,
 	.mmap_prepare	= generic_file_mmap_prepare,
-	.fsync		= generic_file_fsync,
+	.fsync		= simple_fsync,
 	.write_iter	= generic_file_write_iter,
 	.splice_read	= filemap_splice_read,
 };
 
 const struct inode_operations adfs_file_inode_operations = {
-	.setattr	= adfs_notify_change,
+	.setattr	= adfs_setattr,
 };

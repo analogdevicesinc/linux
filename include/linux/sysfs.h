@@ -396,13 +396,13 @@ struct sysfs_ops {
 
 #ifdef CONFIG_SYSFS
 
-int __must_check sysfs_create_dir_ns(struct kobject *kobj, const void *ns);
+int __must_check sysfs_create_dir_ns(struct kobject *kobj, const struct ns_common *ns);
 void sysfs_remove_dir(struct kobject *kobj);
 int __must_check sysfs_rename_dir_ns(struct kobject *kobj, const char *new_name,
-				     const void *new_ns);
+				     const struct ns_common *new_ns);
 int __must_check sysfs_move_dir_ns(struct kobject *kobj,
 				   struct kobject *new_parent_kobj,
-				   const void *new_ns);
+				   const struct ns_common *new_ns);
 int __must_check sysfs_create_mount_point(struct kobject *parent_kobj,
 					  const char *name);
 void sysfs_remove_mount_point(struct kobject *parent_kobj,
@@ -410,7 +410,7 @@ void sysfs_remove_mount_point(struct kobject *parent_kobj,
 
 int __must_check sysfs_create_file_ns(struct kobject *kobj,
 				      const struct attribute *attr,
-				      const void *ns);
+				      const struct ns_common *ns);
 int __must_check sysfs_create_files(struct kobject *kobj,
 				   const struct attribute * const *attr);
 int __must_check sysfs_chmod_file(struct kobject *kobj,
@@ -419,7 +419,7 @@ struct kernfs_node *sysfs_break_active_protection(struct kobject *kobj,
 						  const struct attribute *attr);
 void sysfs_unbreak_active_protection(struct kernfs_node *kn);
 void sysfs_remove_file_ns(struct kobject *kobj, const struct attribute *attr,
-			  const void *ns);
+			  const struct ns_common *ns);
 bool sysfs_remove_file_self(struct kobject *kobj, const struct attribute *attr);
 void sysfs_remove_files(struct kobject *kobj, const struct attribute * const *attr);
 
@@ -437,7 +437,7 @@ void sysfs_remove_link(struct kobject *kobj, const char *name);
 
 int sysfs_rename_link_ns(struct kobject *kobj, struct kobject *target,
 			 const char *old_name, const char *new_name,
-			 const void *new_ns);
+			 const struct ns_common *new_ns);
 
 void sysfs_delete_link(struct kobject *dir, struct kobject *targ,
 			const char *name);
@@ -445,15 +445,15 @@ void sysfs_delete_link(struct kobject *dir, struct kobject *targ,
 int __must_check sysfs_create_group(struct kobject *kobj,
 				    const struct attribute_group *grp);
 int __must_check sysfs_create_groups(struct kobject *kobj,
-				     const struct attribute_group **groups);
+				     const struct attribute_group *const *groups);
 int __must_check sysfs_update_groups(struct kobject *kobj,
-				     const struct attribute_group **groups);
+				     const struct attribute_group *const *groups);
 int sysfs_update_group(struct kobject *kobj,
 		       const struct attribute_group *grp);
 void sysfs_remove_group(struct kobject *kobj,
 			const struct attribute_group *grp);
 void sysfs_remove_groups(struct kobject *kobj,
-			 const struct attribute_group **groups);
+			 const struct attribute_group *const *groups);
 int sysfs_add_file_to_group(struct kobject *kobj,
 			const struct attribute *attr, const char *group);
 void sysfs_remove_file_from_group(struct kobject *kobj,
@@ -486,7 +486,7 @@ int sysfs_change_owner(struct kobject *kobj, kuid_t kuid, kgid_t kgid);
 int sysfs_link_change_owner(struct kobject *kobj, struct kobject *targ,
 			    const char *name, kuid_t kuid, kgid_t kgid);
 int sysfs_groups_change_owner(struct kobject *kobj,
-			      const struct attribute_group **groups,
+			      const struct attribute_group *const *groups,
 			      kuid_t kuid, kgid_t kgid);
 int sysfs_group_change_owner(struct kobject *kobj,
 			     const struct attribute_group *groups, kuid_t kuid,
@@ -502,7 +502,7 @@ ssize_t sysfs_bin_attr_simple_read(struct file *file, struct kobject *kobj,
 
 #else /* CONFIG_SYSFS */
 
-static inline int sysfs_create_dir_ns(struct kobject *kobj, const void *ns)
+static inline int sysfs_create_dir_ns(struct kobject *kobj, const struct ns_common *ns)
 {
 	return 0;
 }
@@ -512,14 +512,14 @@ static inline void sysfs_remove_dir(struct kobject *kobj)
 }
 
 static inline int sysfs_rename_dir_ns(struct kobject *kobj,
-				      const char *new_name, const void *new_ns)
+				      const char *new_name, const struct ns_common *new_ns)
 {
 	return 0;
 }
 
 static inline int sysfs_move_dir_ns(struct kobject *kobj,
 				    struct kobject *new_parent_kobj,
-				    const void *new_ns)
+				    const struct ns_common *new_ns)
 {
 	return 0;
 }
@@ -537,7 +537,7 @@ static inline void sysfs_remove_mount_point(struct kobject *parent_kobj,
 
 static inline int sysfs_create_file_ns(struct kobject *kobj,
 				       const struct attribute *attr,
-				       const void *ns)
+				       const struct ns_common *ns)
 {
 	return 0;
 }
@@ -567,7 +567,7 @@ static inline void sysfs_unbreak_active_protection(struct kernfs_node *kn)
 
 static inline void sysfs_remove_file_ns(struct kobject *kobj,
 					const struct attribute *attr,
-					const void *ns)
+					const struct ns_common *ns)
 {
 }
 
@@ -612,7 +612,7 @@ static inline void sysfs_remove_link(struct kobject *kobj, const char *name)
 
 static inline int sysfs_rename_link_ns(struct kobject *k, struct kobject *t,
 				       const char *old_name,
-				       const char *new_name, const void *ns)
+				       const char *new_name, const struct ns_common *ns)
 {
 	return 0;
 }
@@ -629,13 +629,13 @@ static inline int sysfs_create_group(struct kobject *kobj,
 }
 
 static inline int sysfs_create_groups(struct kobject *kobj,
-				      const struct attribute_group **groups)
+				      const struct attribute_group *const *groups)
 {
 	return 0;
 }
 
 static inline int sysfs_update_groups(struct kobject *kobj,
-				      const struct attribute_group **groups)
+				      const struct attribute_group *const *groups)
 {
 	return 0;
 }
@@ -652,7 +652,7 @@ static inline void sysfs_remove_group(struct kobject *kobj,
 }
 
 static inline void sysfs_remove_groups(struct kobject *kobj,
-				       const struct attribute_group **groups)
+				       const struct attribute_group *const *groups)
 {
 }
 
@@ -733,7 +733,7 @@ static inline int sysfs_change_owner(struct kobject *kobj, kuid_t kuid, kgid_t k
 }
 
 static inline int sysfs_groups_change_owner(struct kobject *kobj,
-			  const struct attribute_group **groups,
+			  const struct attribute_group *const *groups,
 			  kuid_t kuid, kgid_t kgid)
 {
 	return 0;
