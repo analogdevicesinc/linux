@@ -25,6 +25,12 @@ on:
         - small
         - medium
         - large
+      strategy:
+        description: "Review strategy"
+        type: choice
+        options:
+        - commit
+        - files
   workflow_call:
     inputs:
       ref:
@@ -42,6 +48,10 @@ on:
         required: false
         type: string
         default: "medium"
+      strategy:
+        description: "Review strategy"
+        type: string
+        default: "commit"
     secrets:
       PORTKEY_API_KEY:
         required: true
@@ -70,7 +80,8 @@ jobs:
 
           grep -q '[^[:space:]]' "$prompt_file" || \
           cat <<'EOF' > "$prompt_file"
-          Run a deep Linux Kernel analysis.
+          # Run a deep Linux Kernel analysis.
+
           Your review should be based on the current Kernel documentation at
           ./Documentation/ . Never says things you are unsure.
 
@@ -97,7 +108,7 @@ jobs:
           The virtual environment includes $venv_packages.
           You shall upgrade/downgrade these packages if needed.
 
-          Do **not** review commits starting with "[TMP]", "[ADI]", ".github:" or "ci:",
+          Do **not** review commits starting with "[TMP]", "[ADI]", "[CI]",
           they are not part of the series but to change the CI/CD or temporally change behaviour.
           You **must** check the appropriate datasheets for devices drivers, always convert pdfs
           before reading it, in particular, camelot-py is already installed.
@@ -119,6 +130,19 @@ jobs:
             (mirror of https://www.analog.com/media/en/en-pdf-sitemap.xml)
 
           EOF
+
+          if [[ "${{ inputs.strategy }}" == "files" ]]; then
+            cat <<'EOF' >> "$prompt_file"
+          ## File Review Protocol
+
+          Context: Certain files have been modified intentionally to act as markers for review.
+          **Requirement:** When a file is modified in this set, you must review the full-file.
+          Logic:
+          1. Identify files containing the `/* touch */` comment or minor placeholder changes.
+          2. Disregard the placeholder change itself.
+          3. Analyze the entire content of that file.
+          EOF
+          fi
 
           cat <<'EOF' >> "$prompt_file"
           ${{ inputs.prompt-extra }}
