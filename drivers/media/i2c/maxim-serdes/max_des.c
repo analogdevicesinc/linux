@@ -1847,9 +1847,92 @@ static const struct v4l2_subdev_pad_ops max_des_pad_ops = {
 	.set_fmt = max_des_set_fmt,
 };
 
+static int max_des_s_stream(struct v4l2_subdev *sd, int enable)
+{
+	struct v4l2_subdev_state *state;
+	struct v4l2_subdev_route *route;
+	u64 source_mask;
+	int source_pad;
+	int ret;
+
+	state = v4l2_subdev_lock_and_get_active_state(sd);
+
+	for_each_active_route(&state->routing, route) {
+		source_pad = route->source_pad;
+		source_mask = BIT_ULL(route->source_stream);
+
+		v4l2_subdev_unlock_state(state);
+
+		if (enable)
+			ret = v4l2_subdev_enable_streams(sd, source_pad, source_mask);
+		else
+			ret = v4l2_subdev_disable_streams(sd, source_pad, source_mask);
+
+		if (ret)
+			return ret;
+
+		state = v4l2_subdev_lock_and_get_active_state(sd);
+	}
+
+	v4l2_subdev_unlock_state(state);
+
+	return 0;
+}
+
+static const struct v4l2_subdev_video_ops max_des_video_ops = {
+	.s_stream = max_des_s_stream,
+};
+
 static const struct v4l2_subdev_ops max_des_subdev_ops = {
 	.core = &max_des_core_ops,
+	.video = &max_des_video_ops,
 	.pad = &max_des_pad_ops,
+};
+
+static int max_des_init_state(struct v4l2_subdev *sd,
+			      struct v4l2_subdev_state *state)
+{
+	struct max_des_priv *priv = sd_to_priv(sd);
+	struct max_des *des = priv->des;
+	struct v4l2_subdev_route routes[V4L2_FRAME_DESC_ENTRY_MAX];
+	struct v4l2_subdev_format fmt = {
+		.format = {
+			.field = V4L2_FIELD_NONE,
+		},
+	};
+	struct v4l2_subdev_krouting routing;
+	unsigned int num_routes = 0;
+	unsigned int i, j;
+
+	for (i = 0; i < des->ops->num_links && num_routes < ARRAY_SIZE(routes); i++) {
+		if (!des->links[i].enabled)
+			continue;
+
+		for (j = 0; j < des->ops->num_phys && num_routes < ARRAY_SIZE(routes); j++) {
+			if (!des->phys[j].enabled)
+				continue;
+
+			routes[num_routes].sink_pad = i;
+			routes[num_routes].sink_stream = 0;
+			routes[num_routes].source_pad = des->ops->num_links + j;
+			routes[num_routes].source_stream = 0;
+			routes[num_routes].flags = V4L2_SUBDEV_ROUTE_FL_ACTIVE;
+			num_routes++;
+			break;
+		}
+	}
+
+	if (!num_routes)
+		return 0;
+
+	routing.num_routes = num_routes;
+	routing.routes = routes;
+
+	return v4l2_subdev_set_routing_with_fmt(sd, state, &routing, &fmt.format);
+}
+
+static const struct v4l2_subdev_internal_ops max_des_internal_ops = {
+	.init_state = max_des_init_state,
 };
 
 static const struct media_entity_operations max_des_media_ops = {
@@ -1978,6 +2061,7 @@ static int max_des_v4l2_register(struct max_des_priv *priv)
 	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
 	sd->entity.ops = &max_des_media_ops;
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_STREAMS;
+	sd->internal_ops = &max_des_internal_ops;
 
 	for (i = 0; i < num_pads; i++) {
 		if (max_des_pad_is_sink(des, i))

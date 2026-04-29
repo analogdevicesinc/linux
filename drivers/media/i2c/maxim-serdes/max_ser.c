@@ -936,6 +936,40 @@ static const struct v4l2_subdev_ops max_ser_subdev_ops = {
 	.pad = &max_ser_pad_ops,
 };
 
+static int max_ser_init_state(struct v4l2_subdev *sd,
+			      struct v4l2_subdev_state *state)
+{
+	struct max_ser_priv *priv = sd_to_priv(sd);
+	struct max_ser *ser = priv->ser;
+
+	struct v4l2_subdev_route routes[] = {
+		{
+			.sink_pad = 0,
+			.sink_stream = 0,
+			.source_pad = ser->ops->num_phys,
+			.source_stream = 0,
+			.flags = V4L2_SUBDEV_ROUTE_FL_ACTIVE,
+		},
+	};
+
+	struct v4l2_subdev_krouting routing = {
+		.num_routes = ARRAY_SIZE(routes),
+		.routes = routes,
+	};
+
+	struct v4l2_subdev_format fmt = {
+		.format = {
+			.field = V4L2_FIELD_NONE,
+		},
+	};
+
+	return v4l2_subdev_set_routing_with_fmt(sd, state, &routing, &fmt.format);
+}
+
+static const struct v4l2_subdev_internal_ops max_ser_internal_ops = {
+	.init_state = max_ser_init_state,
+};
+
 static const struct media_entity_operations max_ser_media_ops = {
 	.link_validate = v4l2_subdev_link_validate,
 	.get_fwnode_pad = v4l2_subdev_get_fwnode_pad_1_to_1,
@@ -1119,6 +1153,7 @@ static int max_ser_v4l2_register(struct max_ser_priv *priv)
 	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
 	sd->entity.ops = &max_ser_media_ops;
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_STREAMS;
+	sd->internal_ops = &max_ser_internal_ops;
 
 	priv->pads = devm_kcalloc(priv->dev, num_pads, sizeof(*priv->pads), GFP_KERNEL);
 	if (!priv->pads)
