@@ -13,6 +13,7 @@
  *	     Resource sorting
  */
 
+#include <linux/bitops.h>
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/pci.h>
@@ -264,6 +265,18 @@ resource_size_t pci_resource_alignment(const struct pci_dev *dev,
 	if (pci_resource_is_bridge_win(resno) &&
 	    (res->flags & (IORESOURCE_IO|IORESOURCE_MEM)))
 		min_align = pci_min_window_alignment(dev->bus, res->flags);
+
+	if (resource_assigned(res)) {
+		resource_size_t start_align = 1, size_align;
+
+		size_align = roundup_pow_of_two(resource_size(res));
+		if (res->start)
+			start_align <<= __ffs(res->start);
+		else
+			start_align = size_align;
+
+		return max(min(start_align, size_align), min_align);
+	}
 
 	return max(resource_alignment(res), min_align);
 }
