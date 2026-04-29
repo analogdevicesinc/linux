@@ -45,7 +45,7 @@ struct qmap_fifo {
 
 struct qmap_arena {
 	/* userspace-visible stats */
-	__u64 nr_enqueued, nr_dispatched, nr_reenqueued, nr_reenqueued_cpu0;
+	__u64 nr_enqueued, nr_dispatched, nr_reenqueued, nr_reenqueued_cid0;
 	__u64 nr_dequeued, nr_ddsp_from_enq;
 	__u64 nr_core_sched_execed;
 	__u64 nr_expedited_local, nr_expedited_remote;
