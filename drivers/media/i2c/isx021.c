@@ -22,7 +22,7 @@
 #include <media/v4l2-subdev.h>
 
 #define ISX021_WIDTH 1920
-#define ISX021_HEIGHT 1280
+#define ISX021_HEIGHT 1080
 
 #define V4L2_CID_FSYNC (V4L2_CID_USER_BASE | 0x1002)
 #define V4L2_CID_TPG (V4L2_CID_USER_BASE | 0x1003)
