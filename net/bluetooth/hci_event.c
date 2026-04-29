@@ -7191,7 +7191,7 @@ static void hci_le_big_sync_established_evt(struct hci_dev *hdev, void *data,
 	clear_bit(HCI_CONN_CREATE_BIG_SYNC, &conn->flags);
 
 	conn->num_bis = 0;
-	memset(conn->bis, 0, sizeof(conn->num_bis));
+	memset(conn->bis, 0, sizeof(conn->bis));
 
 	for (i = 0; i < ev->num_bis; i++) {
 		u16 handle = le16_to_cpu(ev->bis[i]);
