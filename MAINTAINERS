@@ -22611,7 +22611,7 @@ F:	Documentation/devicetree/bindings/mtd/renesas-nandc.yaml
 F:	drivers/mtd/nand/raw/renesas-nand-controller.c
 
 RENESAS R-CAR GYROADC DRIVER
-M:	Marek Vasut <marek.vasut@gmail.com>
+M:	Marek Vasut <marek.vasut+renesas@mailbox.org>
 L:	linux-iio@vger.kernel.org
 S:	Supported
 F:	Documentation/devicetree/bindings/iio/adc/renesas,rcar-gyroadc.yaml
