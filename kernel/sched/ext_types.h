@@ -40,4 +40,27 @@ enum scx_consts {
 	SCX_SUB_MAX_DEPTH		= 4,
 };
 
+/*
+ * Per-cid topology info. For each topology level (core, LLC, node), records
+ * the first cid in the unit and its global index. Global indices are
+ * consecutive integers assigned in cid-walk order, so e.g. core_idx ranges
+ * over [0, nr_cores_at_init) with no gaps. No-topo cids have all fields set
+ * to -1.
+ *
+ * @core_cid: first cid of this cid's core (smt-sibling group)
+ * @core_idx: global index of that core, in [0, nr_cores_at_init)
+ * @llc_cid: first cid of this cid's LLC
+ * @llc_idx: global index of that LLC, in [0, nr_llcs_at_init)
+ * @node_cid: first cid of this cid's NUMA node
+ * @node_idx: global index of that node, in [0, nr_nodes_at_init)
+ */
+struct scx_cid_topo {
+	s32 core_cid;
+	s32 core_idx;
+	s32 llc_cid;
+	s32 llc_idx;
+	s32 node_cid;
+	s32 node_idx;
+};
+
 #endif /* _KERNEL_SCHED_EXT_TYPES_H */
