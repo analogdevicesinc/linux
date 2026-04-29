@@ -549,7 +549,7 @@ exit:
 /*
  * Measure ima data on table clear.
  */
-void dm_ima_measure_on_table_clear(struct mapped_device *md, bool new_map,
+void dm_ima_measure_on_table_clear(struct mapped_device *md,
 				   struct dm_ima_context *context)
 {
 	unsigned int l = 0;
@@ -609,11 +609,9 @@ void dm_ima_measure_on_table_clear(struct mapped_device *md, bool new_map,
 
 	dm_ima_measure_data("dm_table_clear", device_table_data, l, noio);
 
-	if (new_map) {
-		kfree(md->ima.inactive_table.hash);
-		kfree(md->ima.inactive_table.device_metadata);
-		memset(&md->ima.inactive_table, 0, sizeof(md->ima.inactive_table));
-	}
+	kfree(md->ima.inactive_table.hash);
+	kfree(md->ima.inactive_table.device_metadata);
+	memset(&md->ima.inactive_table, 0, sizeof(md->ima.inactive_table));
 
 error:
 	kfree(capacity_str);

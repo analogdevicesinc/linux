@@ -83,7 +83,7 @@ void dm_ima_measure_on_device_resume(struct mapped_device *md, bool swap,
 void dm_ima_measure_on_device_remove(struct mapped_device *md, bool remove_all,
 				     struct dm_ima_context *context,
 				     unsigned int idx);
-void dm_ima_measure_on_table_clear(struct mapped_device *md, bool new_map,
+void dm_ima_measure_on_table_clear(struct mapped_device *md,
 				   struct dm_ima_context *context);
 void dm_ima_measure_on_device_rename(struct mapped_device *md,
 				     struct dm_ima_context *context);
@@ -108,7 +108,6 @@ static inline void dm_ima_measure_on_device_remove(struct mapped_device *md,
 						   struct dm_ima_context *context,
 						   unsigned int idx) {}
 static inline void dm_ima_measure_on_table_clear(struct mapped_device *md,
-						 bool new_map,
 						 struct dm_ima_context *context) {}
 static inline void dm_ima_measure_on_device_rename(struct mapped_device *md,
 						   struct dm_ima_context *context) {}

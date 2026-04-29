@@ -1741,7 +1741,6 @@ static int table_clear(struct file *filp, struct dm_ioctl *param, size_t param_s
 	struct hash_cell *hc;
 	struct mapped_device *md;
 	struct dm_table *old_map = NULL;
-	bool has_new_map = false;
 	struct dm_ima_context *ima_context = NULL;
 
 	dm_ima_alloc_context(&ima_context, true);
@@ -1758,13 +1757,12 @@ static int table_clear(struct file *filp, struct dm_ioctl *param, size_t param_s
 	if (hc->new_map) {
 		old_map = hc->new_map;
 		hc->new_map = NULL;
-		has_new_map = true;
 	}
 
 	dm_ima_init_context(hc, ima_context, false);
 	md = hc->md;
 	up_write(&_hash_lock);
-	dm_ima_measure_on_table_clear(md, has_new_map, ima_context);
+	dm_ima_measure_on_table_clear(md, ima_context);
 	dm_ima_free_context(ima_context);
 
 	param->flags &= ~DM_INACTIVE_PRESENT_FLAG;
