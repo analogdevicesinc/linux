@@ -13,8 +13,6 @@ struct smbdirect_socket;
 struct smbdirect_send_batch;
 struct smbdirect_mr_io;
 
-#define __SMBDIRECT_EXPORT_SYMBOL__(__sym) EXPORT_SYMBOL_FOR_MODULES(__sym, "cifs,ksmbd")
-
 #include <rdma/rw.h>
 
 u8 smbdirect_netdev_rdma_capable_node_type(struct net_device *netdev);

@@ -6,6 +6,7 @@
 #ifndef __FS_SMB_COMMON_SMBDIRECT_INTERNAL_H__
 #define __FS_SMB_COMMON_SMBDIRECT_INTERNAL_H__
 
+#define DEFAULT_SYMBOL_NAMESPACE "SMBDIRECT"
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include "smbdirect.h"

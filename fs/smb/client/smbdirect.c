@@ -558,3 +558,5 @@ void smbd_debug_proc_show(struct TCP_Server_Info *server, struct seq_file *m)
 						    server->rdma_readwrite_threshold,
 						    m);
 }
+
+MODULE_IMPORT_NS("SMBDIRECT");

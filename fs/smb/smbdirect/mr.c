@@ -380,7 +380,7 @@ dma_map_error:
 		mutex_unlock(&mr->mutex);
 	return NULL;
 }
-__SMBDIRECT_EXPORT_SYMBOL__(smbdirect_connection_register_mr_io);
+EXPORT_SYMBOL_GPL(smbdirect_connection_register_mr_io);
 
 void smbdirect_mr_io_fill_buffer_descriptor(struct smbdirect_mr_io *mr,
 					    struct smbdirect_buffer_descriptor_v1 *v1)
@@ -397,7 +397,7 @@ void smbdirect_mr_io_fill_buffer_descriptor(struct smbdirect_mr_io *mr,
 	}
 	mutex_unlock(&mr->mutex);
 }
-__SMBDIRECT_EXPORT_SYMBOL__(smbdirect_mr_io_fill_buffer_descriptor);
+EXPORT_SYMBOL_GPL(smbdirect_mr_io_fill_buffer_descriptor);
 
 /*
  * Deregister a MR after I/O is done
@@ -490,4 +490,4 @@ put_kref:
 	if (!kref_put(&mr->kref, smbdirect_mr_io_free_locked))
 		mutex_unlock(&mr->mutex);
 }
-__SMBDIRECT_EXPORT_SYMBOL__(smbdirect_connection_deregister_mr_io);
+EXPORT_SYMBOL_GPL(smbdirect_connection_deregister_mr_io);
