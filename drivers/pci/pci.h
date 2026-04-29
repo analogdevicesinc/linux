@@ -1044,17 +1044,8 @@ static inline void pci_suspend_ptm(struct pci_dev *dev) { }
 static inline void pci_resume_ptm(struct pci_dev *dev) { }
 #endif
 
-static inline resource_size_t pci_resource_alignment(const struct pci_dev *dev,
-						     const struct resource *res)
-{
-	int resno = pci_resource_num(dev, res);
-
-	if (pci_resource_is_iov(resno))
-		return pci_sriov_resource_alignment(dev, resno);
-	if (dev->class >> 8 == PCI_CLASS_BRIDGE_CARDBUS)
-		return pci_cardbus_resource_alignment(res);
-	return resource_alignment(res);
-}
+resource_size_t pci_resource_alignment(const struct pci_dev *dev,
+				       const struct resource *res);
 
 resource_size_t pci_min_window_alignment(struct pci_bus *bus,
 					 unsigned long type);
