@@ -9,9 +9,8 @@
 #define DEFAULT_SYMBOL_NAMESPACE "SMBDIRECT"
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
-#include "smbdirect.h"
+#include <linux/smbdirect.h>
 #include "pdu.h"
-#include "public.h"
 
 #include <linux/mutex.h>
 
