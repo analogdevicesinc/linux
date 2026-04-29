@@ -67,12 +67,14 @@ int main(int argc, char **argv)
 	struct bpf_link *link;
 	struct qmap_arena *qa;
 	__u32 test_error_cnt = 0;
+	__u64 ecode;
 	int opt;
 
 	libbpf_set_print(libbpf_print_fn);
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
-
+restart:
+	optind = 1;
 	skel = SCX_OPS_OPEN(qmap_ops, scx_qmap);
 
 	skel->rodata->slice_ns = __COMPAT_ENUM_OR_ZERO("scx_public_consts", "SCX_SLICE_DFL");
@@ -184,11 +186,10 @@ int main(int argc, char **argv)
 	}
 
 	bpf_link__destroy(link);
-	UEI_REPORT(skel, uei);
+	ecode = UEI_REPORT(skel, uei);
 	scx_qmap__destroy(skel);
-	/*
-	 * scx_qmap implements ops.cpu_on/offline() and doesn't need to restart
-	 * on CPU hotplug events.
-	 */
+
+	if (UEI_ECODE_RESTART(ecode))
+		goto restart;
 	return 0;
 }

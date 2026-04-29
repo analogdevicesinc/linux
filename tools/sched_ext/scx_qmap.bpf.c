@@ -843,63 +843,6 @@ void BPF_STRUCT_OPS(qmap_cgroup_set_bandwidth, struct cgroup *cgrp,
 			   cgrp->kn->id, period_us, quota_us, burst_us);
 }
 
-/*
- * Print out the online and possible CPU map using bpf_printk() as a
- * demonstration of using the cpumask kfuncs and ops.cpu_on/offline().
- */
-static void print_cpus(void)
-{
-	const struct cpumask *possible, *online;
-	s32 cpu;
-	char buf[128] = "", *p;
-	int idx;
-
-	possible = scx_bpf_get_possible_cpumask();
-	online = scx_bpf_get_online_cpumask();
-
-	idx = 0;
-	bpf_for(cpu, 0, scx_bpf_nr_cpu_ids()) {
-		if (!(p = MEMBER_VPTR(buf, [idx++])))
-			break;
-		if (bpf_cpumask_test_cpu(cpu, online))
-			*p++ = 'O';
-		else if (bpf_cpumask_test_cpu(cpu, possible))
-			*p++ = 'X';
-		else
-			*p++ = ' ';
-
-		if ((cpu & 7) == 7) {
-			if (!(p = MEMBER_VPTR(buf, [idx++])))
-				break;
-			*p++ = '|';
-		}
-	}
-	buf[sizeof(buf) - 1] = '\0';
-
-	scx_bpf_put_cpumask(online);
-	scx_bpf_put_cpumask(possible);
-
-	bpf_printk("CPUS: |%s", buf);
-}
-
-void BPF_STRUCT_OPS(qmap_cpu_online, s32 cpu)
-{
-	if (print_msgs) {
-		bpf_printk("CPU %d coming online", cpu);
-		/* @cpu is already online at this point */
-		print_cpus();
-	}
-}
-
-void BPF_STRUCT_OPS(qmap_cpu_offline, s32 cpu)
-{
-	if (print_msgs) {
-		bpf_printk("CPU %d going offline", cpu);
-		/* @cpu is still online at this point */
-		print_cpus();
-	}
-}
-
 struct monitor_timer {
 	struct bpf_timer timer;
 };
@@ -1078,9 +1021,6 @@ s32 BPF_STRUCT_OPS_SLEEPABLE(qmap_init)
 		slab[i].next_free = (i + 1 < max_tasks) ? &slab[i + 1] : NULL;
 	qa.task_free_head = &slab[0];
 
-	if (print_msgs && !sub_cgroup_id)
-		print_cpus();
-
 	ret = scx_bpf_create_dsq(SHARED_DSQ, -1);
 	if (ret) {
 		scx_bpf_error("failed to create DSQ %d (%d)", SHARED_DSQ, ret);
@@ -1174,8 +1114,6 @@ SCX_OPS_DEFINE(qmap_ops,
 	       .cgroup_set_bandwidth	= (void *)qmap_cgroup_set_bandwidth,
 	       .sub_attach		= (void *)qmap_sub_attach,
 	       .sub_detach		= (void *)qmap_sub_detach,
-	       .cpu_online		= (void *)qmap_cpu_online,
-	       .cpu_offline		= (void *)qmap_cpu_offline,
 	       .init			= (void *)qmap_init,
 	       .exit			= (void *)qmap_exit,
 	       .timeout_ms		= 5000U,
