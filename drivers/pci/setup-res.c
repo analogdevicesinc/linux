@@ -19,7 +19,10 @@
 #include <linux/errno.h>
 #include <linux/ioport.h>
 #include <linux/cache.h>
+#include <linux/minmax.h>
 #include <linux/slab.h>
+#include <linux/types.h>
+
 #include "pci.h"
 
 static void pci_std_update_resource(struct pci_dev *dev, int resno)
@@ -250,12 +253,19 @@ resource_size_t pci_resource_alignment(const struct pci_dev *dev,
 				       const struct resource *res)
 {
 	int resno = pci_resource_num(dev, res);
+	resource_size_t min_align = 0;
 
 	if (pci_resource_is_iov(resno))
 		return pci_sriov_resource_alignment(dev, resno);
+
 	if (dev->class >> 8 == PCI_CLASS_BRIDGE_CARDBUS)
 		return pci_cardbus_resource_alignment(res);
-	return resource_alignment(res);
+
+	if (pci_resource_is_bridge_win(resno) &&
+	    (res->flags & (IORESOURCE_IO|IORESOURCE_MEM)))
+		min_align = pci_min_window_alignment(dev->bus, res->flags);
+
+	return max(resource_alignment(res), min_align);
 }
 
 /*
