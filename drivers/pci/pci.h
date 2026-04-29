@@ -419,7 +419,7 @@ static inline bool pci_is_cardbus_bridge(struct pci_dev *dev)
 	return dev->hdr_type == PCI_HEADER_TYPE_CARDBUS;
 }
 #ifdef CONFIG_CARDBUS
-unsigned long pci_cardbus_resource_alignment(struct resource *res);
+unsigned long pci_cardbus_resource_alignment(const struct resource *res);
 int pci_bus_size_cardbus_bridge(struct pci_bus *bus,
 				struct list_head *realloc_head);
 int pci_cardbus_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
@@ -428,7 +428,7 @@ int pci_cardbus_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
 int pci_setup_cardbus(char *str);
 
 #else
-static inline unsigned long pci_cardbus_resource_alignment(struct resource *res)
+static inline unsigned long pci_cardbus_resource_alignment(const struct resource *res)
 {
 	return 0;
 }
@@ -1044,8 +1044,8 @@ static inline void pci_suspend_ptm(struct pci_dev *dev) { }
 static inline void pci_resume_ptm(struct pci_dev *dev) { }
 #endif
 
-static inline resource_size_t pci_resource_alignment(struct pci_dev *dev,
-						     struct resource *res)
+static inline resource_size_t pci_resource_alignment(const struct pci_dev *dev,
+						     const struct resource *res)
 {
 	int resno = pci_resource_num(dev, res);
 
