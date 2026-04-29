@@ -9,7 +9,7 @@
 #include <linux/iopoll.h>
 #include <linux/slab.h>
 
-#define CDU_CFG_SEL_NUM_INPUTS  4 /* selectable inputs per CDU_CFG[n] */
+/* There are 4 selectable inputs per CDU_CFG[n] */
 
 #define CDU_CFG_EN		BIT(0)
 #define CDU_CFG_LOCK            BIT(31)
@@ -22,8 +22,8 @@ struct clk_adi_cdu_mux {
 	struct clk_hw hw;
 	void __iomem *cdu_cfg;
 	void __iomem *cdu_stat;
-	spinlock_t *cdu_lock;
 	const u8 *parent_sel;
+	spinlock_t *cdu_lock;
 	u8 clko_stat_bit;
 };
 
@@ -46,9 +46,9 @@ static int sc5xx_cdu_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
 	unsigned long flags;
-	int ret;
         u8 input_sel;
 	u32 reg;
+	int ret;
 
 	input_sel = cdu_mux->parent_sel[index];
 	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
@@ -73,12 +73,32 @@ static int sc5xx_cdu_set_parent(struct clk_hw *hw, u8 index)
 	return sc5xx_cdu_wait_ready(cdu_mux);	
 }
 
-static u8 sc5xx_cdu_get_parent(struct clk_hw *hw) 
+static u8 sc5xx_cdu_get_parent(struct clk_hw *hw)
 {
+	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
+	unsigned long flags;
+	unsigned int num_parents;
+	u8 index, input_sel;
+	u32 reg;
+
+	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
+	reg = readl(cdu_mux->cdu_cfg);
+	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
+
+	input_sel = FIELD_GET(CDU_CFG_SEL_MASK, reg);
+	num_parents = clk_hw_get_num_parents(hw);
+
+	for (index = 0; index < num_parents; index++) {
+		if (cdu_mux->parent_sel[index] == input_sel)
+			return index;
+	}
+
+	return 0;
 }
 
 static int sc5xx_cdu_enable(struct clk_hw *hw)
 {
+		
 }
 
 static void sc5xx_cdu_disable(struct clk_hw *hw)
@@ -98,7 +118,7 @@ static const struct clk_ops adi_cdu_mux_ops = {
 };
 
 struct clk *sc5xx_adi_cdu_mux(const char *clock_name, void __iomem *cdu_cfg,
-			      const char * const *parent_names,
+			      const char * const *parent_names, u8 cdu_cfg_sel_inputs,
 			      unsigned long clock_flags, spinlock_t *cdu_lock)
 {
 	struct clk_adi_cdu_mux *cdu_mux;
@@ -112,7 +132,7 @@ struct clk *sc5xx_adi_cdu_mux(const char *clock_name, void __iomem *cdu_cfg,
 	init.name = clock_name;
 	init.ops = &adi_cdu_mux_ops;
 	init.parent_names = parent_names;
-	init.num_parents = CDU_CFG_SEL_NUM_INPUTS;
+	init.num_parents = cdu_cfg_sel_inputs;
 	init.flags = clock_flags;
 
 	cdu_mux->hw.init = &init;
