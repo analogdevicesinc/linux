@@ -989,6 +989,7 @@ static int fsl_asoc_card_probe(struct platform_device *pdev)
 
 	if (asrc_pdev) {
 		/* DPCM DAI Links only if ASRC exists */
+		priv->dai_link[1].dpcm_merged_chan = 1;
 		priv->dai_link[1].cpus->of_node = asrc_np;
 		priv->dai_link[1].platforms->of_node = asrc_np;
 		for_each_link_codecs((&(priv->dai_link[2])), codec_idx, codec_comp) {
