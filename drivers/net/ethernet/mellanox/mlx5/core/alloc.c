@@ -37,15 +37,41 @@
 #include <linux/bitmap.h>
 #include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>
+#include <linux/nodemask.h>
 #include <linux/mlx5/driver.h>
 
 #include "mlx5_core.h"
+
+#define MLX5_FRAG_BUF_POOL_MIN_BLOCK_SHIFT	MLX5_ADAPTER_PAGE_SHIFT
+#define MLX5_FRAG_BUF_POOLS_NUM \
+	(PAGE_SHIFT - MLX5_FRAG_BUF_POOL_MIN_BLOCK_SHIFT + 1)
 
 struct mlx5_db_pgdir {
 	struct list_head	list;
 	unsigned long	       *bitmap;
 	__be32		       *db_page;
 	dma_addr_t		db_dma;
+};
+
+struct mlx5_dma_pool {
+	/* Protects page_list and per-page allocation bitmaps. */
+	struct mutex lock;
+	struct list_head page_list;
+	struct mlx5_core_dev *dev;
+	int node;
+	u8 block_shift;
+};
+
+struct mlx5_dma_pool_page {
+	struct mlx5_dma_pool *pool;
+	struct list_head pool_link;
+	unsigned long *bitmap;
+	void *buf;
+	dma_addr_t dma;
+};
+
+struct mlx5_frag_buf_node_pools {
+	struct mlx5_dma_pool *pools[MLX5_FRAG_BUF_POOLS_NUM];
 };
 
 /* Handling for queue buffers -- we allocate a bunch of memory and
@@ -71,14 +97,100 @@ static void *mlx5_dma_zalloc_coherent_node(struct mlx5_core_dev *dev,
 	return cpu_handle;
 }
 
-/* Implemented later in the series */
-void mlx5_frag_buf_pools_cleanup(struct mlx5_core_dev *dev)
+static void mlx5_dma_pool_destroy(struct mlx5_dma_pool *pool)
 {
+	mutex_destroy(&pool->lock);
+	kfree(pool);
 }
 
-/* Implemented later in the series */
+static struct mlx5_dma_pool *mlx5_dma_pool_create(struct mlx5_core_dev *dev,
+						  int node, u8 block_shift)
+{
+	struct mlx5_dma_pool *pool;
+
+	pool = kzalloc_obj(*pool);
+	if (!pool)
+		return NULL;
+
+	INIT_LIST_HEAD(&pool->page_list);
+	mutex_init(&pool->lock);
+	pool->dev = dev;
+	pool->node = node;
+	pool->block_shift = block_shift;
+	return pool;
+}
+
+static void
+mlx5_frag_buf_node_pools_destroy(struct mlx5_frag_buf_node_pools *node_pools)
+{
+	for (int i = 0; i < MLX5_FRAG_BUF_POOLS_NUM; i++)
+		if (node_pools->pools[i])
+			mlx5_dma_pool_destroy(node_pools->pools[i]);
+	kfree(node_pools);
+}
+
+static struct mlx5_frag_buf_node_pools *
+mlx5_frag_buf_node_pools_create(struct mlx5_core_dev *dev, int node)
+{
+	struct mlx5_frag_buf_node_pools *node_pools;
+
+	node_pools = kzalloc_obj(*node_pools);
+	if (!node_pools)
+		return NULL;
+
+	for (int i = 0; i < MLX5_FRAG_BUF_POOLS_NUM; i++) {
+		u8 block_shift = MLX5_FRAG_BUF_POOL_MIN_BLOCK_SHIFT + i;
+
+		node_pools->pools[i] = mlx5_dma_pool_create(dev, node,
+							    block_shift);
+		if (!node_pools->pools[i]) {
+			mlx5_frag_buf_node_pools_destroy(node_pools);
+			return NULL;
+		}
+	}
+
+	return node_pools;
+}
+
+void mlx5_frag_buf_pools_cleanup(struct mlx5_core_dev *dev)
+{
+	struct mlx5_priv *priv = &dev->priv;
+	int node;
+
+	for_each_node_state(node, N_POSSIBLE) {
+		struct mlx5_frag_buf_node_pools *node_pools;
+
+		node_pools = priv->frag_buf_node_pools[node];
+		if (!node_pools)
+			continue;
+		mlx5_frag_buf_node_pools_destroy(node_pools);
+	}
+
+	kfree(priv->frag_buf_node_pools);
+	priv->frag_buf_node_pools = NULL;
+}
+
 int mlx5_frag_buf_pools_init(struct mlx5_core_dev *dev)
 {
+	struct mlx5_priv *priv = &dev->priv;
+	int node;
+
+	priv->frag_buf_node_pools = kzalloc_objs(*priv->frag_buf_node_pools,
+						 nr_node_ids);
+	if (!priv->frag_buf_node_pools)
+		return -ENOMEM;
+
+	for_each_node_state(node, N_POSSIBLE) {
+		struct mlx5_frag_buf_node_pools *node_pools;
+
+		node_pools = mlx5_frag_buf_node_pools_create(dev, node);
+		if (!node_pools) {
+			mlx5_frag_buf_pools_cleanup(dev);
+			return -ENOMEM;
+		}
+		priv->frag_buf_node_pools[node] = node_pools;
+	}
+
 	return 0;
 }
 

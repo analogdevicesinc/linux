@@ -558,6 +558,7 @@ enum mlx5_func_type {
 	MLX5_FUNC_TYPE_NUM,
 };
 
+struct mlx5_frag_buf_node_pools;
 struct mlx5_ft_pool;
 struct mlx5_priv {
 	/* IRQ table valid only for real pci devices PF or VF */
@@ -581,14 +582,16 @@ struct mlx5_priv {
 
 	struct mlx5_debugfs_entries dbg;
 
-	/* start: alloc staff */
+	/* start: alloc stuff */
 	/* protect buffer allocation according to numa node */
 	struct mutex            alloc_mutex;
 	int                     numa_node;
 
 	struct mutex            pgdir_mutex;
 	struct list_head        pgdir_list;
-	/* end: alloc staff */
+
+	struct mlx5_frag_buf_node_pools **frag_buf_node_pools;
+	/* end: alloc stuff */
 
 	struct mlx5_adev       **adev;
 	int			adev_idx;
