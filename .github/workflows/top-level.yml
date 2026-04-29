@@ -6,6 +6,10 @@ on:
       - 'rpi-*.y'
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   checks:
     uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
