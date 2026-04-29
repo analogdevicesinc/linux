@@ -121,6 +121,18 @@ static inline bool scx_bpf_sub_dispatch(u64 cgroup_id)
 	return false;
 }
 
+/*
+ * v7.2: scx_bpf_cid_override() for explicit cpu->cid mapping. Ignore if
+ * missing.
+ */
+void scx_bpf_cid_override___compat(const s32 *cpu_to_cid, u32 cpu_to_cid__sz) __ksym __weak;
+
+static inline void scx_bpf_cid_override(const s32 *cpu_to_cid, u32 cpu_to_cid__sz)
+{
+	if (bpf_ksym_exists(scx_bpf_cid_override___compat))
+		return scx_bpf_cid_override___compat(cpu_to_cid, cpu_to_cid__sz);
+}
+
 /**
  * __COMPAT_is_enq_cpu_selected - Test if SCX_ENQ_CPU_SELECTED is on
  * in a compatible way. We will preserve this __COMPAT helper until v6.16.

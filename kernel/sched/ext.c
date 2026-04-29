@@ -9781,10 +9781,11 @@ static const struct btf_kfunc_id_set scx_kfunc_set_any = {
  */
 enum scx_kf_allow_flags {
 	SCX_KF_ALLOW_UNLOCKED		= 1 << 0,
-	SCX_KF_ALLOW_CPU_RELEASE	= 1 << 1,
-	SCX_KF_ALLOW_DISPATCH		= 1 << 2,
-	SCX_KF_ALLOW_ENQUEUE		= 1 << 3,
-	SCX_KF_ALLOW_SELECT_CPU		= 1 << 4,
+	SCX_KF_ALLOW_INIT		= 1 << 1,
+	SCX_KF_ALLOW_CPU_RELEASE	= 1 << 2,
+	SCX_KF_ALLOW_DISPATCH		= 1 << 3,
+	SCX_KF_ALLOW_ENQUEUE		= 1 << 4,
+	SCX_KF_ALLOW_SELECT_CPU		= 1 << 5,
 };
 
 /*
@@ -9812,7 +9813,7 @@ static const u32 scx_kf_allow_flags[] = {
 	[SCX_OP_IDX(sub_detach)]	= SCX_KF_ALLOW_UNLOCKED,
 	[SCX_OP_IDX(cpu_online)]	= SCX_KF_ALLOW_UNLOCKED,
 	[SCX_OP_IDX(cpu_offline)]	= SCX_KF_ALLOW_UNLOCKED,
-	[SCX_OP_IDX(init)]		= SCX_KF_ALLOW_UNLOCKED,
+	[SCX_OP_IDX(init)]		= SCX_KF_ALLOW_UNLOCKED | SCX_KF_ALLOW_INIT,
 	[SCX_OP_IDX(exit)]		= SCX_KF_ALLOW_UNLOCKED,
 };
 
@@ -9827,6 +9828,7 @@ static const u32 scx_kf_allow_flags[] = {
 int scx_kfunc_context_filter(const struct bpf_prog *prog, u32 kfunc_id)
 {
 	bool in_unlocked = btf_id_set8_contains(&scx_kfunc_ids_unlocked, kfunc_id);
+	bool in_init = btf_id_set8_contains(&scx_kfunc_ids_init, kfunc_id);
 	bool in_select_cpu = btf_id_set8_contains(&scx_kfunc_ids_select_cpu, kfunc_id);
 	bool in_enqueue = btf_id_set8_contains(&scx_kfunc_ids_enqueue_dispatch, kfunc_id);
 	bool in_dispatch = btf_id_set8_contains(&scx_kfunc_ids_dispatch, kfunc_id);
@@ -9836,7 +9838,7 @@ int scx_kfunc_context_filter(const struct bpf_prog *prog, u32 kfunc_id)
 	u32 moff, flags;
 
 	/* Not an SCX kfunc - allow. */
-	if (!(in_unlocked || in_select_cpu || in_enqueue || in_dispatch ||
+	if (!(in_unlocked || in_init || in_select_cpu || in_enqueue || in_dispatch ||
 	      in_cpu_release || in_idle || in_any))
 		return 0;
 
@@ -9871,6 +9873,8 @@ int scx_kfunc_context_filter(const struct bpf_prog *prog, u32 kfunc_id)
 	flags = scx_kf_allow_flags[SCX_MOFF_IDX(moff)];
 
 	if ((flags & SCX_KF_ALLOW_UNLOCKED) && in_unlocked)
+		return 0;
+	if ((flags & SCX_KF_ALLOW_INIT) && in_init)
 		return 0;
 	if ((flags & SCX_KF_ALLOW_CPU_RELEASE) && in_cpu_release)
 		return 0;

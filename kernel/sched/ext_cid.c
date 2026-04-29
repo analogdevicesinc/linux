@@ -211,6 +211,68 @@ s32 scx_cid_init(struct scx_sched *sch)
 __bpf_kfunc_start_defs();
 
 /**
+ * scx_bpf_cid_override - Install an explicit cpu->cid mapping
+ * @cpu_to_cid: array of nr_cpu_ids s32 entries (cid for each cpu)
+ * @cpu_to_cid__sz: must be nr_cpu_ids * sizeof(s32) bytes
+ * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
+ *
+ * May only be called from ops.init() of the root scheduler. Replace the
+ * topology-probed cid mapping with the caller-provided one. Each possible cpu
+ * must map to a unique cid in [0, num_possible_cpus()). Topo info is cleared.
+ * On invalid input, trigger scx_error() to abort the scheduler.
+ */
+__bpf_kfunc void scx_bpf_cid_override(const s32 *cpu_to_cid, u32 cpu_to_cid__sz,
+				      const struct bpf_prog_aux *aux)
+{
+	cpumask_var_t seen __free(free_cpumask_var) = CPUMASK_VAR_NULL;
+	struct scx_sched *sch;
+	bool alloced;
+	s32 cpu, cid;
+
+	/* GFP_KERNEL alloc must happen before the rcu read section */
+	alloced = zalloc_cpumask_var(&seen, GFP_KERNEL);
+
+	guard(rcu)();
+
+	sch = scx_prog_sched(aux);
+	if (unlikely(!sch))
+		return;
+
+	if (!alloced) {
+		scx_error(sch, "scx_bpf_cid_override: failed to allocate cpumask");
+		return;
+	}
+
+	if (scx_parent(sch)) {
+		scx_error(sch, "scx_bpf_cid_override() only allowed from root sched");
+		return;
+	}
+
+	if (cpu_to_cid__sz != nr_cpu_ids * sizeof(s32)) {
+		scx_error(sch, "scx_bpf_cid_override: expected %zu bytes, got %u",
+			  nr_cpu_ids * sizeof(s32), cpu_to_cid__sz);
+		return;
+	}
+
+	for_each_possible_cpu(cpu) {
+		s32 c = cpu_to_cid[cpu];
+
+		if (!cid_valid(sch, c))
+			return;
+		if (cpumask_test_and_set_cpu(c, seen)) {
+			scx_error(sch, "cid %d assigned to multiple cpus", c);
+			return;
+		}
+		scx_cpu_to_cid_tbl[cpu] = c;
+		scx_cid_to_cpu_tbl[c] = cpu;
+	}
+
+	/* Invalidate stale topo info - the override carries no topology. */
+	for (cid = 0; cid < num_possible_cpus(); cid++)
+		scx_cid_topo[cid] = SCX_CID_TOPO_NEG;
+}
+
+/**
  * scx_bpf_cid_to_cpu - Return the raw CPU id for @cid
  * @cid: cid to look up
  * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
@@ -282,6 +344,16 @@ __bpf_kfunc void scx_bpf_cid_topo(s32 cid, struct scx_cid_topo *out__uninit,
 
 __bpf_kfunc_end_defs();
 
+BTF_KFUNCS_START(scx_kfunc_ids_init)
+BTF_ID_FLAGS(func, scx_bpf_cid_override, KF_IMPLICIT_ARGS | KF_SLEEPABLE)
+BTF_KFUNCS_END(scx_kfunc_ids_init)
+
+static const struct btf_kfunc_id_set scx_kfunc_set_init = {
+	.owner	= THIS_MODULE,
+	.set	= &scx_kfunc_ids_init,
+	.filter	= scx_kfunc_context_filter,
+};
+
 BTF_KFUNCS_START(scx_kfunc_ids_cid)
 BTF_ID_FLAGS(func, scx_bpf_cid_to_cpu, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_cpu_to_cid, KF_IMPLICIT_ARGS)
@@ -295,7 +367,8 @@ static const struct btf_kfunc_id_set scx_kfunc_set_cid = {
 
 int scx_cid_kfunc_init(void)
 {
-	return register_btf_kfunc_id_set(BPF_PROG_TYPE_STRUCT_OPS, &scx_kfunc_set_cid) ?:
+	return register_btf_kfunc_id_set(BPF_PROG_TYPE_STRUCT_OPS, &scx_kfunc_set_init) ?:
+		register_btf_kfunc_id_set(BPF_PROG_TYPE_STRUCT_OPS, &scx_kfunc_set_cid) ?:
 		register_btf_kfunc_id_set(BPF_PROG_TYPE_TRACING, &scx_kfunc_set_cid) ?:
 		register_btf_kfunc_id_set(BPF_PROG_TYPE_SYSCALL, &scx_kfunc_set_cid);
 }
