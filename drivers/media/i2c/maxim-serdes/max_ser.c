@@ -1567,6 +1567,7 @@ int max_ser_change_address(struct i2c_adapter *adapter, u8 addr, u8 new_addr)
 	if (ret)
 		return ret;
 
+	val &= ~MAX_SER_REG0_DEV_ADDR;
 	val |= FIELD_PREP(MAX_SER_REG0_DEV_ADDR, new_addr);
 
 	return max_ser_write_reg(adapter, addr, MAX_SER_REG0, val);
