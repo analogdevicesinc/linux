@@ -2955,9 +2955,11 @@ static int jadard_dsi_probe(struct mipi_dsi_device *dsi)
 	dsi->format = desc->format;
 	dsi->lanes = desc->lanes;
 	if (!dsi->lanes) {
-		dsi->lanes = drm_of_get_data_lanes_count_remote(dsi->dev.of_node, 0, -1, 2, 4);
-		if (dsi->lanes < 0)
-			return dsi->lanes;
+		ret = drm_of_get_data_lanes_count_remote(dsi->dev.of_node, 0, -1, 2, 4);
+		if (ret < 0)
+			return ret;
+		dsi->lanes = ret;
+
 		if (dsi->lanes == 4) {
 			if (!desc->mode_4ln) {
 				dev_err(&dsi->dev, "4-lane config is not supported\n");
