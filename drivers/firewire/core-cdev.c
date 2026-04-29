@@ -134,15 +134,15 @@ struct iso_resource_params {
 	s32 bandwidth;
 };
 
-struct iso_resource {
+struct iso_resource_auto {
 	struct client_resource resource;
 	struct client *client;
 	/* Schedule work and access todo only with client->lock held. */
 	struct delayed_work work;
 	enum {
-		ISO_RES_ALLOC,
-		ISO_RES_REALLOC,
-		ISO_RES_DEALLOC,
+		ISO_RES_AUTO_ALLOC,
+		ISO_RES_AUTO_REALLOC,
+		ISO_RES_AUTO_DEALLOC,
 	} todo;
 	struct iso_resource_params params;
 	struct iso_resource_event *e_alloc, *e_dealloc;
@@ -175,16 +175,16 @@ static struct descriptor_resource *to_descriptor_resource(struct client_resource
 	return container_of(resource, struct descriptor_resource, resource);
 }
 
-static struct iso_resource *to_iso_resource(struct client_resource *resource)
+static struct iso_resource_auto *to_iso_resource_auto(struct client_resource *resource)
 {
-	return container_of(resource, struct iso_resource, resource);
+	return container_of(resource, struct iso_resource_auto, resource);
 }
 
-static void release_iso_resource(struct client *, struct client_resource *);
+static void release_iso_resource_auto(struct client *, struct client_resource *);
 
-static int is_iso_resource(const struct client_resource *resource)
+static int is_iso_resource_auto(const struct client_resource *resource)
 {
-	return resource->release == release_iso_resource;
+	return resource->release == release_iso_resource_auto;
 }
 
 static void release_transaction(struct client *client,
@@ -195,7 +195,7 @@ static int is_outbound_transaction_resource(const struct client_resource *resour
 	return resource->release == release_transaction;
 }
 
-static void schedule_iso_resource(struct iso_resource *r, unsigned long delay)
+static void schedule_iso_resource_auto(struct iso_resource_auto *r, unsigned long delay)
 {
 	client_get(r->client);
 	if (!queue_delayed_work(fw_workqueue, &r->work, delay))
@@ -443,8 +443,8 @@ static void queue_bus_reset_event(struct client *client)
 	guard(spinlock_irq)(&client->lock);
 
 	xa_for_each(&client->resource_xa, index, resource) {
-		if (is_iso_resource(resource))
-			schedule_iso_resource(to_iso_resource(resource), 0);
+		if (is_iso_resource_auto(resource))
+			schedule_iso_resource_auto(to_iso_resource_auto(resource), 0);
 	}
 }
 
@@ -1323,10 +1323,10 @@ static int fill_iso_resource_params(struct iso_resource_params *params,
 	return 0;
 }
 
-static void iso_resource_work(struct work_struct *work)
+static void iso_resource_auto_work(struct work_struct *work)
 {
 	struct iso_resource_event *e;
-	struct iso_resource *r = from_work(r, work, work.work);
+	struct iso_resource_auto *r = from_work(r, work, work.work);
 	struct client *client = r->client;
 	unsigned long index = r->resource.handle;
 	int generation, channel, bandwidth, todo;
@@ -1336,16 +1336,16 @@ static void iso_resource_work(struct work_struct *work)
 		generation = client->device->generation;
 		todo = r->todo;
 		// Allow 1000ms grace period for other reallocations.
-		if (todo == ISO_RES_ALLOC &&
+		if (todo == ISO_RES_AUTO_ALLOC &&
 		    time_is_after_jiffies64(client->device->card->reset_jiffies + secs_to_jiffies(1))) {
-			schedule_iso_resource(r, msecs_to_jiffies(333));
+			schedule_iso_resource_auto(r, msecs_to_jiffies(333));
 			skip = true;
 		} else {
 			// We could be called twice within the same generation.
-			skip = todo == ISO_RES_REALLOC &&
+			skip = todo == ISO_RES_AUTO_REALLOC &&
 			       r->params.generation == generation;
 		}
-		free = todo == ISO_RES_DEALLOC;
+		free = todo == ISO_RES_AUTO_DEALLOC;
 		r->params.generation = generation;
 	}
 
@@ -1356,15 +1356,15 @@ static void iso_resource_work(struct work_struct *work)
 
 	fw_iso_resource_manage(client->device->card, generation,
 			r->params.channels, &channel, &bandwidth,
-			todo == ISO_RES_ALLOC ||
-			todo == ISO_RES_REALLOC);
+			todo == ISO_RES_AUTO_ALLOC ||
+			todo == ISO_RES_AUTO_REALLOC);
 	/*
 	 * Is this generation outdated already?  As long as this resource sticks
 	 * in the xarray, it will be scheduled again for a newer generation or at
 	 * shutdown.
 	 */
 	if (channel == -EAGAIN &&
-	    (todo == ISO_RES_ALLOC || todo == ISO_RES_REALLOC))
+	    (todo == ISO_RES_AUTO_ALLOC || todo == ISO_RES_AUTO_REALLOC))
 		goto out;
 
 	success = channel >= 0 || bandwidth > 0;
@@ -1372,11 +1372,11 @@ static void iso_resource_work(struct work_struct *work)
 	scoped_guard(spinlock_irq, &client->lock) {
 		// Transit from allocation to reallocation, except if the client
 		// requested deallocation in the meantime.
-		if (r->todo == ISO_RES_ALLOC)
-			r->todo = ISO_RES_REALLOC;
+		if (r->todo == ISO_RES_AUTO_ALLOC)
+			r->todo = ISO_RES_AUTO_REALLOC;
 		// Allocation or reallocation failure?  Pull this resource out of the
 		// xarray and prepare for deletion, unless the client is shutting down.
-		if (r->todo == ISO_RES_REALLOC && !success &&
+		if (r->todo == ISO_RES_AUTO_REALLOC && !success &&
 		    !client->in_shutdown &&
 		    xa_erase(&client->resource_xa, index)) {
 			client_put(client);
@@ -1384,13 +1384,13 @@ static void iso_resource_work(struct work_struct *work)
 		}
 	}
 
-	if (todo == ISO_RES_ALLOC && channel >= 0)
+	if (todo == ISO_RES_AUTO_ALLOC && channel >= 0)
 		r->params.channels = 1ULL << channel;
 
-	if (todo == ISO_RES_REALLOC && success)
+	if (todo == ISO_RES_AUTO_REALLOC && success)
 		goto out;
 
-	if (todo == ISO_RES_ALLOC) {
+	if (todo == ISO_RES_AUTO_ALLOC) {
 		e = r->e_alloc;
 		r->e_alloc = NULL;
 	} else {
@@ -1414,21 +1414,20 @@ static void iso_resource_work(struct work_struct *work)
 	client_put(client);
 }
 
-static void release_iso_resource(struct client *client,
-				 struct client_resource *resource)
+static void release_iso_resource_auto(struct client *client, struct client_resource *resource)
 {
-	struct iso_resource *r = to_iso_resource(resource);
+	struct iso_resource_auto *r = to_iso_resource_auto(resource);
 
 	guard(spinlock_irq)(&client->lock);
 
-	r->todo = ISO_RES_DEALLOC;
-	schedule_iso_resource(r, 0);
+	r->todo = ISO_RES_AUTO_DEALLOC;
+	schedule_iso_resource_auto(r, 0);
 }
 
 static int init_iso_resource(struct client *client, struct fw_cdev_allocate_iso_resource *request)
 {
 	struct iso_resource_event *e1, *e2;
-	struct iso_resource *r;
+	struct iso_resource_auto *r;
 	int ret;
 
 	r = kmalloc_obj(*r);
@@ -1443,9 +1442,9 @@ static int init_iso_resource(struct client *client, struct fw_cdev_allocate_iso_
 	if (ret < 0)
 		goto fail;
 
-	INIT_DELAYED_WORK(&r->work, iso_resource_work);
+	INIT_DELAYED_WORK(&r->work, iso_resource_auto_work);
 	r->client	= client;
-	r->todo		= ISO_RES_ALLOC;
+	r->todo		= ISO_RES_AUTO_ALLOC;
 	r->e_alloc	= e1;
 	r->e_dealloc	= e2;
 
@@ -1454,11 +1453,11 @@ static int init_iso_resource(struct client *client, struct fw_cdev_allocate_iso_
 	e2->iso_resource.closure = request->closure;
 	e2->iso_resource.type    = FW_CDEV_EVENT_ISO_RESOURCE_DEALLOCATED;
 
-	r->resource.release = release_iso_resource;
+	r->resource.release = release_iso_resource_auto;
 	ret = add_client_resource(client, &r->resource, GFP_KERNEL);
 	if (ret < 0)
 		goto fail;
-	schedule_iso_resource(r, 0);
+	schedule_iso_resource_auto(r, 0);
 
 	request->handle = r->resource.handle;
 
@@ -1481,7 +1480,7 @@ static int ioctl_deallocate_iso_resource(struct client *client,
 					 union ioctl_arg *arg)
 {
 	return release_client_resource(client,
-			arg->deallocate.handle, release_iso_resource, NULL);
+			arg->deallocate.handle, release_iso_resource_auto, NULL);
 }
 
 #define UNAVAILABLE_HANDLE	-1
