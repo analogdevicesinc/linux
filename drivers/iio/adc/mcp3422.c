@@ -13,6 +13,7 @@
  * voltage unit is nV.
  */
 
+#include <linux/bits.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
@@ -24,10 +25,10 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
-/* Masks */
-#define MCP3422_CHANNEL_MASK	0x60
-#define MCP3422_PGA_MASK	0x03
-#define MCP3422_SRATE_MASK	0x0C
+#define MCP3422_CHANNEL_MASK	GENMASK(6, 5)
+#define MCP3422_SRATE_MASK	GENMASK(3, 2)
+#define MCP3422_PGA_MASK	GENMASK(1, 0)
+
 #define MCP3422_SRATE_240	0x0
 #define MCP3422_SRATE_60	0x1
 #define MCP3422_SRATE_15	0x2
@@ -36,7 +37,7 @@
 #define MCP3422_PGA_2	1
 #define MCP3422_PGA_4	2
 #define MCP3422_PGA_8	3
-#define MCP3422_CONT_SAMPLING	0x10
+#define MCP3422_CONT_SAMPLING	BIT(4)
 
 #define MCP3422_CHANNEL(config)	(((config) & MCP3422_CHANNEL_MASK) >> 5)
 #define MCP3422_PGA(config)	((config) & MCP3422_PGA_MASK)
