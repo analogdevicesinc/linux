@@ -436,6 +436,8 @@ mlx5_sf_coredev_to_adev(struct mlx5_core_dev *mdev)
 
 int mlx5_mdev_init(struct mlx5_core_dev *dev, int profile_idx);
 void mlx5_mdev_uninit(struct mlx5_core_dev *dev);
+int mlx5_frag_buf_pools_init(struct mlx5_core_dev *dev);
+void mlx5_frag_buf_pools_cleanup(struct mlx5_core_dev *dev);
 int mlx5_init_one(struct mlx5_core_dev *dev);
 int mlx5_init_one_devl_locked(struct mlx5_core_dev *dev);
 void mlx5_uninit_one(struct mlx5_core_dev *dev);

@@ -71,6 +71,17 @@ static void *mlx5_dma_zalloc_coherent_node(struct mlx5_core_dev *dev,
 	return cpu_handle;
 }
 
+/* Implemented later in the series */
+void mlx5_frag_buf_pools_cleanup(struct mlx5_core_dev *dev)
+{
+}
+
+/* Implemented later in the series */
+int mlx5_frag_buf_pools_init(struct mlx5_core_dev *dev)
+{
+	return 0;
+}
+
 int mlx5_frag_buf_alloc_node(struct mlx5_core_dev *dev, int size,
 			     struct mlx5_frag_buf *buf, int node)
 {
