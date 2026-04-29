@@ -1552,7 +1552,7 @@ static int table_load(struct file *filp, struct dm_ioctl *param, size_t param_si
 	if (r)
 		goto err_unlock_md_type;
 
-	dm_ima_measure_on_table_load(t, STATUSTYPE_IMA);
+	dm_ima_measure_on_table_load(t);
 
 	immutable_target_type = dm_get_immutable_target_type(md);
 	if (immutable_target_type &&
