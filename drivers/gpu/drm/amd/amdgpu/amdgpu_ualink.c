@@ -33,6 +33,14 @@ int amdgpu_ualink_init(struct amdgpu_device *adev)
 {
 	int r;
 
+	/* UALink relies on PSP services. If the PSP IP block is not present
+	 * just skip UALink initialization.
+	 */
+	if (!amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_PSP)) {
+		adev->ualink.psp_if_ver = 0xffffffff;
+		return 0;
+	}
+
 	r = psp_ual_get_interface_version(&adev->psp, &adev->ualink.psp_if_ver);
 	if (r) {
 		adev->ualink.psp_if_ver = 0xffffffff;
@@ -919,6 +927,9 @@ int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
 	struct amdgpu_ualink_ppod_setup *ppod_setup = NULL;
 	struct amdgpu_ualink_info *info = NULL;
 	int r;
+
+	if (!amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_PSP))
+		return 0;
 
 	info = kzalloc(sizeof(*info), GFP_KERNEL);
 	if (!info)
