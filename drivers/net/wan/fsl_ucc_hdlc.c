@@ -773,11 +773,6 @@ static void uhdlc_memclean(struct ucc_hdlc_private *priv)
 	kfree(priv->tx_skbuff);
 	priv->tx_skbuff = NULL;
 
-	if (priv->uf_regs) {
-		iounmap(priv->uf_regs);
-		priv->uf_regs = NULL;
-	}
-
 	if (priv->uccf) {
 		ucc_fast_free(priv->uccf);
 		priv->uccf = NULL;
