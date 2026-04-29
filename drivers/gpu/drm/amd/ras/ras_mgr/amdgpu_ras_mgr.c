@@ -188,10 +188,7 @@ static int amdgpu_ras_mgr_get_ras_psp_system_status(struct ras_core_context *ras
 			struct ras_psp_sys_status *status)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
-	struct ta_context *context = &adev->psp.ras_context.context;
 
-	status->initialized = context->initialized;
-	status->session_id = context->session_id;
 	status->psp_cmd_mutex = &adev->psp.mutex;
 
 	return 0;

@@ -55,7 +55,6 @@ static const struct ras_psp_ip_func *ras_psp_get_ip_funcs(
 static int ras_psp_sync_system_ras_psp_status(struct ras_core_context *ras_core)
 {
 	struct ras_psp *psp = &ras_core->ras_psp;
-	struct ras_ta_ctx *ta_ctx = &ras_core->ras_psp.ta_ctx;
 	struct ras_psp_ctx *psp_ctx = &ras_core->ras_psp.psp_ctx;
 	struct ras_psp_sys_status status = {0};
 	int ret;
@@ -64,12 +63,6 @@ static int ras_psp_sync_system_ras_psp_status(struct ras_core_context *ras_core)
 		ret = psp->sys_func->get_ras_psp_system_status(ras_core, &status);
 		if (ret)
 			return ret;
-
-		if (status.initialized) {
-			ta_ctx->preload_ras_ta_enabled = true;
-			ta_ctx->ras_ta_initialized = status.initialized;
-			ta_ctx->session_id = status.session_id;
-		}
 
 		psp_ctx->external_mutex = status.psp_cmd_mutex;
 	}
@@ -81,22 +74,20 @@ static int ras_psp_get_ras_ta_init_param(struct ras_core_context *ras_core,
 	struct ras_ta_init_param *ras_ta_param)
 {
 	struct ras_psp *psp = &ras_core->ras_psp;
-	int ret;
 
-	if (!psp->sys_func || !psp->sys_func->get_ras_ta_init_param) {
-		RAS_DEV_ERR(ras_core->dev, "Not config get_ras_ta_init_param API!!\n");
-		return -EINVAL;
-	}
+	if (psp->sys_func && psp->sys_func->get_ras_ta_init_param)
+		return psp->sys_func->get_ras_ta_init_param(ras_core, ras_ta_param);
 
-	ret = psp->sys_func->get_ras_ta_init_param(ras_core, ras_ta_param);
-	if (ret)
-		return ret;
+	RAS_DEV_ERR(ras_core->dev, "Not config get_ras_ta_init_param API!!\n");
+	return -EACCES;
+}
 
-	ras_ta_param->nps_mode = ras_core_get_curr_nps_mode(ras_core);
-	ras_ta_param->vram_type = ras_core_get_vram_type(ras_core);
-	ras_ta_param->poison_mode_en = ras_core_poison_supported(ras_core) ? 1 : 0;
+static void ras_psp_put_ras_ta_fini_param(struct ras_core_context *ras_core)
+{
+	struct ras_psp *psp = &ras_core->ras_psp;
 
-	return 0;
+	if (psp->sys_func && psp->sys_func->put_ras_ta_fini_param)
+		psp->sys_func->put_ras_ta_fini_param(ras_core);
 }
 
 static struct gpu_mem_block *ras_psp_get_gpu_mem(struct ras_core_context *ras_core,
@@ -384,7 +375,10 @@ static int send_ras_ta_runtime_cmd(struct ras_core_context *ras_core,
 		return -EINVAL;
 	}
 
-	ras_psp_sync_system_ras_psp_status(ras_core);
+	if (!ta_ctx->ras_ta_initialized) {
+		RAS_DEV_ERR(ras_core->dev, "RAS TA is not initialized, cmd_id: %u\n", cmd_id);
+		return -EACCES;
+	}
 
 	cmd_mem = ras_psp_get_gpu_mem(ras_core, GPU_MEM_TYPE_RAS_TA_CMD);
 	if (!cmd_mem)
@@ -479,17 +473,21 @@ static int trigger_ras_ta_error(struct ras_core_context *ras_core,
 }
 
 static int send_load_ta_fw_cmd(struct ras_core_context *ras_core,
-				struct ras_ta_ctx *ta_ctx)
+				struct ras_ta_ctx *ta_ctx, bool skip_lock)
 {
 	struct ras_ta_fw_bin  *fw_bin = &ta_ctx->fw_bin;
-	struct gpu_mem_block *fw_mem;
-	struct gpu_mem_block *cmd_mem;
+	struct gpu_mem_block *fw_mem = NULL;
+	struct gpu_mem_block *cmd_mem = NULL;
 	struct ras_ta_cmd *ta_cmd;
 	struct ras_ta_init_flags *ta_init_flags;
 	struct psp_gfx_cmd_load_ta  psp_load_ta_cmd;
 	struct psp_cmd_resp resp = {0};
 	struct ras_ta_image_header *fw_hdr = NULL;
 	int ret;
+
+	ret = ras_psp_get_ras_ta_init_param(ras_core, &ta_ctx->init_param);
+	if (ret)
+		goto err;
 
 	fw_mem = ras_psp_get_gpu_mem(ras_core, GPU_MEM_TYPE_RAS_TA_FW);
 	if (!fw_mem)
@@ -501,11 +499,12 @@ static int send_load_ta_fw_cmd(struct ras_core_context *ras_core,
 		goto err;
 	}
 
-	ret = ras_psp_get_ras_ta_init_param(ras_core, &ta_ctx->init_param);
-	if (ret)
-		goto err;
-
-	if (!ras_core_down_trylock_gpu_reset_lock(ras_core)) {
+	/*
+	 * When skip_lock is true (called from .resume), the PSP has already
+	 * been re-initialized and it is safe to proceed without the read lock
+	 * (GPU reset holds write lock; S3/S4 has no lock to acquire).
+	 */
+	if (!skip_lock && !ras_core_down_trylock_gpu_reset_lock(ras_core)) {
 		ret = -EACCES;
 		goto err;
 	}
@@ -552,7 +551,8 @@ static int send_load_ta_fw_cmd(struct ras_core_context *ras_core,
 			"Failed to load RAS TA! ret:%d, status:%d\n", ret, resp.status);
 	}
 
-	ras_core_up_gpu_reset_lock(ras_core);
+	if (!skip_lock)
+		ras_core_up_gpu_reset_lock(ras_core);
 
 err:
 	ras_psp_put_gpu_mem(ras_core, fw_mem);
@@ -560,24 +560,12 @@ err:
 	return ret;
 }
 
-static int load_ras_ta_firmware(struct ras_core_context *ras_core,
-		struct ras_psp_ta_load *ras_ta_load)
+static int load_ras_ta_firmware(struct ras_core_context *ras_core, bool skip_lock)
 {
 	struct ras_ta_ctx *ta_ctx = &ras_core->ras_psp.ta_ctx;
-	struct ras_ta_fw_bin  *fw_bin = &ta_ctx->fw_bin;
 	int ret;
 
-	fw_bin->bin_addr = ras_ta_load->bin_addr;
-	fw_bin->bin_size = ras_ta_load->bin_size;
-	fw_bin->fw_version = ras_ta_load->fw_version;
-	fw_bin->feature_version = ras_ta_load->feature_version;
-
-	ret = send_load_ta_fw_cmd(ras_core, ta_ctx);
-	if (!ret) {
-		ras_ta_load->out_session_id = ta_ctx->session_id;
-		ras_ta_load->out_loaded_ta_version = ta_ctx->ta_version;
-	}
-
+	ret = send_load_ta_fw_cmd(ras_core, ta_ctx, skip_lock);
 	return ret;
 }
 
@@ -602,12 +590,13 @@ static int unload_ras_ta_firmware(struct ras_core_context *ras_core,
 		goto unlock;
 	}
 
-	kfree(ta_ctx->fw_bin.bin_addr);
-	memset(&ta_ctx->fw_bin, 0, sizeof(ta_ctx->fw_bin));
+	RAS_DEV_INFO(ras_core->dev,
+		     "Successfully to unload RAS TA! ret:%d, status:%u\n",
+			ret, resp.status);
+
 	ta_ctx->ta_version = 0;
 	ta_ctx->ras_ta_initialized = false;
 	ta_ctx->session_id = 0;
-
 unlock:
 	ras_core_up_gpu_reset_lock(ras_core);
 
@@ -615,35 +604,48 @@ unlock:
 }
 
 int ras_psp_load_firmware(struct ras_core_context *ras_core,
-	struct ras_psp_ta_load *ras_ta_load)
+		bool skip_lock)
 {
 	struct ras_ta_ctx *ta_ctx = &ras_core->ras_psp.ta_ctx;
 	struct ras_psp_ta_unload ras_ta_unload = {0};
-	int ret;
+	int ret = 0;
 
-	if (ta_ctx->preload_ras_ta_enabled)
-		return 0;
+	if (skip_lock) {
+		/*
+		 * Called from .resume: PSP has been re-initialized after a GPU
+		 * reset or S3/S4, so any previous TA session is gone. Clear
+		 * stale state and proceed directly to a fresh load, bypassing
+		 * both the unload step and the reset read-lock acquisition
+		 * (which would deadlock inside a GPU reset).
+		 */
+		ta_ctx->preload_ras_ta_enabled = false;
+		ta_ctx->ras_ta_initialized = false;
+		ta_ctx->session_id = 0;
+		ta_ctx->ta_version = 0;
+	} else {
+		/*
+		 * Normal path: only skip a reload when the current TA session is
+		 * known to be alive. Firmware metadata may already be cached even
+		 * when the TA is not loaded, so that must not suppress a reload.
+		 */
+		if (ta_ctx->preload_ras_ta_enabled && ta_ctx->ras_ta_initialized)
+			return 0;
 
-	if (!ras_ta_load)
-		return -EINVAL;
-
-	if (ta_ctx->ras_ta_initialized) {
-		ras_ta_unload.ras_session_id = ta_ctx->session_id;
-		ret = unload_ras_ta_firmware(ras_core, &ras_ta_unload);
-		if (ret)
-			return ret;
+		if (ta_ctx->ras_ta_initialized) {
+			ras_ta_unload.ras_session_id = ta_ctx->session_id;
+			ret = unload_ras_ta_firmware(ras_core, &ras_ta_unload);
+			if (ret)
+				return ret;
+		}
 	}
 
-	return load_ras_ta_firmware(ras_core, ras_ta_load);
+	return load_ras_ta_firmware(ras_core, skip_lock);
 }
 
 int ras_psp_unload_firmware(struct ras_core_context *ras_core,
 	struct ras_psp_ta_unload *ras_ta_unload)
 {
 	struct ras_ta_ctx *ta_ctx = &ras_core->ras_psp.ta_ctx;
-
-	if (ta_ctx->preload_ras_ta_enabled)
-		return 0;
 
 	if ((!ras_ta_unload) ||
 	    (ras_ta_unload->ras_session_id != ta_ctx->session_id))
@@ -719,7 +721,9 @@ int ras_psp_sw_fini(struct ras_core_context *ras_core)
 
 int ras_psp_hw_init(struct ras_core_context *ras_core)
 {
+	int ret = 0;
 	struct ras_psp *psp = &ras_core->ras_psp;
+	struct ras_ta_ctx *ta_ctx = &ras_core->ras_psp.ta_ctx;
 
 	psp->psp_ip_version = ras_core->config->psp_ip_version;
 
@@ -741,11 +745,30 @@ int ras_psp_hw_init(struct ras_core_context *ras_core)
 	 */
 	ras_psp_sync_system_ras_psp_status(ras_core);
 
-	return 0;
+	if (!ta_ctx->preload_ras_ta_enabled && !ta_ctx->ras_ta_initialized)
+		ret = ras_psp_load_firmware(ras_core, false);
+
+	return ret;
 }
 
 int ras_psp_hw_fini(struct ras_core_context *ras_core)
 {
+	struct ras_ta_ctx *ta_ctx = &ras_core->ras_psp.ta_ctx;
+	struct ras_psp_ta_unload ras_ta_unload = {0};
+
+	if (ta_ctx->ras_ta_initialized) {
+		ras_ta_unload.ras_session_id = ta_ctx->session_id;
+		ras_psp_unload_firmware(ras_core, &ras_ta_unload);
+	}
+
+	ta_ctx->ta_version = 0;
+	ta_ctx->ras_ta_initialized = false;
+	ta_ctx->preload_ras_ta_enabled = false;
+	ta_ctx->session_id = 0;
+
+	/* Free shared BO only on hw_fini, not on suspend */
+	ras_psp_put_ras_ta_fini_param(ras_core);
+
 	return 0;
 }
 

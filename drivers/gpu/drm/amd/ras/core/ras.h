@@ -269,6 +269,7 @@ struct ras_psp_sys_func {
 		struct ras_psp_sys_status *status);
 	int (*get_ras_ta_init_param)(struct ras_core_context *ras_core,
 		struct ras_ta_init_param *ras_ta_param);
+	void (*put_ras_ta_fini_param)(struct ras_core_context *ras_core);
 };
 
 struct ras_sys_func {

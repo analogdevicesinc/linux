@@ -41,8 +41,6 @@ struct ras_ta_image_header {
 };
 
 struct ras_psp_sys_status {
-	bool  initialized;
-	uint32_t session_id;
 	void *psp_cmd_mutex;
 };
 
@@ -146,15 +144,6 @@ struct ras_psp {
 	const struct ras_psp_sys_func *sys_func;
 };
 
-struct ras_psp_ta_load {
-	uint32_t fw_version;
-	uint32_t feature_version;
-	uint32_t bin_size;
-	uint8_t *bin_addr;
-	uint64_t out_session_id;
-	uint32_t out_loaded_ta_version;
-};
-
 struct ras_psp_ta_unload {
 	uint64_t ras_session_id;
 };
@@ -163,8 +152,8 @@ int ras_psp_sw_init(struct ras_core_context *ras_core);
 int ras_psp_sw_fini(struct ras_core_context *ras_core);
 int ras_psp_hw_init(struct ras_core_context *ras_core);
 int ras_psp_hw_fini(struct ras_core_context *ras_core);
-int ras_psp_load_firmware(struct ras_core_context *ras_core,
-		struct ras_psp_ta_load *ras_ta_load);
+
+int ras_psp_load_firmware(struct ras_core_context *ras_core, bool skip_lock);
 int ras_psp_unload_firmware(struct ras_core_context *ras_core,
 		struct ras_psp_ta_unload *ras_ta_unload);
 int ras_psp_trigger_error(struct ras_core_context *ras_core,
