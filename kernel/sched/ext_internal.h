@@ -8,38 +8,6 @@
 #define SCX_OP_IDX(op)		(offsetof(struct sched_ext_ops, op) / sizeof(void (*)(void)))
 #define SCX_MOFF_IDX(moff)	((moff) / sizeof(void (*)(void)))
 
-enum scx_consts {
-	SCX_DSP_DFL_MAX_BATCH		= 32,
-	SCX_DSP_MAX_LOOPS		= 32,
-	SCX_WATCHDOG_MAX_TIMEOUT	= 30 * HZ,
-
-	/* per-CPU chunk size for p->scx.tid allocation, see scx_alloc_tid() */
-	SCX_TID_CHUNK			= 1024,
-
-	SCX_EXIT_BT_LEN			= 64,
-	SCX_EXIT_MSG_LEN		= 1024,
-	SCX_EXIT_DUMP_DFL_LEN		= 32768,
-
-	SCX_CPUPERF_ONE			= SCHED_CAPACITY_SCALE,
-
-	/*
-	 * Iterating all tasks may take a while. Periodically drop
-	 * scx_tasks_lock to avoid causing e.g. CSD and RCU stalls.
-	 */
-	SCX_TASK_ITER_BATCH		= 32,
-
-	SCX_BYPASS_HOST_NTH		= 2,
-
-	SCX_BYPASS_LB_DFL_INTV_US	= 500 * USEC_PER_MSEC,
-	SCX_BYPASS_LB_DONOR_PCT		= 125,
-	SCX_BYPASS_LB_MIN_DELTA_DIV	= 4,
-	SCX_BYPASS_LB_BATCH		= 256,
-
-	SCX_REENQ_LOCAL_MAX_REPEAT	= 256,
-
-	SCX_SUB_MAX_DEPTH		= 4,
-};
-
 enum scx_exit_kind {
 	SCX_EXIT_NONE,
 	SCX_EXIT_DONE,

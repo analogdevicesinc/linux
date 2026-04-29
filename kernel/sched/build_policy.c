@@ -59,6 +59,7 @@
 
 #ifdef CONFIG_SCHED_CLASS_EXT
 # include <linux/btf_ids.h>
+# include "ext_types.h"
 # include "ext_internal.h"
 # include "ext_idle.h"
 # include "ext.c"
