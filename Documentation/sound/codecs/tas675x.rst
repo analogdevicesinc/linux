@@ -656,7 +656,7 @@ These faults place affected channels into the FAULT state. The driver
 issues fault clear (register 0x01 bit 3) to allow recovery.
 
 Overtemperature Shutdown (0x87)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   ========  ==========================================
   Bits      Description
