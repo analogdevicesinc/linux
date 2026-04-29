@@ -1622,14 +1622,13 @@ void pci_bus_claim_resources(struct pci_bus *b)
 }
 EXPORT_SYMBOL(pci_bus_claim_resources);
 
-static void __pci_bridge_assign_resources(const struct pci_dev *bridge,
+static void __pci_bridge_assign_resources(struct pci_dev *bridge,
 					  struct list_head *add_list,
 					  struct list_head *fail_head)
 {
 	struct pci_bus *b;
 
-	pdev_assign_resources_sorted((struct pci_dev *)bridge,
-				     add_list, fail_head);
+	pdev_assign_resources_sorted(bridge, add_list, fail_head);
 
 	b = bridge->subordinate;
 	if (!b)
