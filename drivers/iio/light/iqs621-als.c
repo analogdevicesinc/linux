@@ -273,18 +273,22 @@ static int iqs621_als_write_event_config(struct iio_dev *indio_dev,
 					 iqs62x->dev_desc->als_mask,
 					 iqs621_als->range_en || state ? 0 :
 									 0xFF);
-		if (!ret)
-			iqs621_als->light_en = state;
-		return ret;
+		if (ret)
+			return ret;
+		iqs621_als->light_en = state;
+
+		return 0;
 
 	case IIO_INTENSITY:
 		ret = regmap_update_bits(iqs62x->regmap, IQS620_GLBL_EVENT_MASK,
 					 iqs62x->dev_desc->als_mask,
 					 iqs621_als->light_en || state ? 0 :
 									 0xFF);
-		if (!ret)
-			iqs621_als->range_en = state;
-		return ret;
+		if (ret)
+			return ret;
+		iqs621_als->range_en = state;
+
+		return 0;
 
 	case IIO_PROXIMITY:
 		ret = regmap_read(iqs62x->regmap, IQS622_IR_FLAGS, &val);
@@ -295,9 +299,11 @@ static int iqs621_als_write_event_config(struct iio_dev *indio_dev,
 		ret = regmap_update_bits(iqs62x->regmap, IQS620_GLBL_EVENT_MASK,
 					 iqs62x->dev_desc->ir_mask,
 					 state ? 0 : 0xFF);
-		if (!ret)
-			iqs621_als->prox_en = state;
-		return ret;
+		if (ret)
+			return ret;
+		iqs621_als->prox_en = state;
+
+		return 0;
 
 	default:
 		return -EINVAL;
