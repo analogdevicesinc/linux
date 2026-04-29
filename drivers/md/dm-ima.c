@@ -133,22 +133,18 @@ void dm_ima_context_table_op(struct mapped_device *md,
 }
 
 /*
- * Internal function to allocate and copy device data for IMA measurements.
+ * Internal function to copy device data for IMA measurements.
  */
-static int dm_ima_alloc_and_copy_device_data(struct mapped_device *md, char **device_data,
-					     struct dm_ima_context *context,
-					     unsigned int num_targets, bool noio)
+static void dm_ima_copy_device_data(struct mapped_device *md, char *device_data,
+				    struct dm_ima_context *context,
+				    unsigned int num_targets)
 {
-	*device_data = dm_ima_alloc(DM_IMA_DEVICE_BUF_LEN, noio);
-	if (!(*device_data))
-		return -ENOMEM;
-
-	scnprintf(*device_data, DM_IMA_DEVICE_BUF_LEN,
+	memset(device_data, 0, DM_IMA_DEVICE_BUF_LEN);
+	scnprintf(device_data, DM_IMA_DEVICE_BUF_LEN,
 		  "name=%s,uuid=%s,major=%d,minor=%d,minor_count=%d,num_targets=%u;",
 		  context->dev_name, context->dev_uuid, md->disk->major,
 		  md->disk->first_minor, md->disk->minors, num_targets);
 
-	return 0;
 }
 
 /*
@@ -223,10 +219,13 @@ void dm_ima_measure_on_table_load(struct dm_table *table,
 
 	num_targets = table->num_targets;
 
-	fix_context_strings(context);
-	if (dm_ima_alloc_and_copy_device_data(table->md, &device_data_buf,
-					      context, num_targets, noio))
+	device_data_buf = dm_ima_alloc(DM_IMA_DEVICE_BUF_LEN, noio);
+	if (!device_data_buf)
 		goto error;
+
+	fix_context_strings(context);
+	dm_ima_copy_device_data(table->md, device_data_buf, context,
+				num_targets);
 
 	sha256_init(&hash_ctx);
 
@@ -626,48 +625,54 @@ error:
 void dm_ima_measure_on_device_rename(struct mapped_device *md,
 				     struct dm_ima_context *context)
 {
-	char *old_device_data = NULL, *new_device_data = NULL;
+	char *old_device_data = NULL;
 	char *combined_device_data = NULL, *capacity_str = NULL;
 	bool noio = true;
 	int len;
+	struct dm_ima_device_table_metadata *table;
 
 	if (unlikely(!context))
 		return;
 
 	wait_to_measure(&md->ima, context->update_idx);
 
-	fix_context_strings(context);
-	if (dm_ima_alloc_and_copy_device_data(md, &new_device_data, context,
-					      md->ima.active_table.num_targets,
-					      noio))
-		goto error;
-
 	combined_device_data = dm_ima_alloc(DM_IMA_DEVICE_BUF_LEN * 2, noio);
 	if (!combined_device_data)
-		goto error;
+		goto exit;
 
 	if (dm_ima_alloc_and_copy_capacity_str(md, &capacity_str, noio) < 0)
-		goto error;
+		goto exit;
 
-	old_device_data = md->ima.active_table.device_metadata;
-
-	md->ima.active_table.device_metadata = new_device_data;
-	md->ima.active_table.device_metadata_len = strlen(new_device_data);
-
+	if (md->ima.active_table.device_metadata)
+		old_device_data = md->ima.active_table.device_metadata;
+	else if (md->ima.inactive_table.device_metadata)
+		old_device_data = md->ima.inactive_table.device_metadata;
+	else
+		old_device_data = "device_rename=no_data;";
+	fix_context_strings(context);
 	len = scnprintf(combined_device_data, DM_IMA_DEVICE_BUF_LEN * 2,
 			"%s%snew_name=%s,new_uuid=%s;%s", DM_IMA_VERSION_STR, old_device_data,
 			context->dev_name, context->dev_uuid, capacity_str);
 
+	if (md->ima.active_table.device_metadata) {
+		table = &md->ima.active_table;
+		dm_ima_copy_device_data(md, table->device_metadata, context,
+					table->num_targets);
+		table->device_metadata_len = strlen(table->device_metadata);
+	}
+
+	if (md->ima.inactive_table.device_metadata) {
+		table = &md->ima.inactive_table;
+		dm_ima_copy_device_data(md, table->device_metadata, context,
+					table->num_targets);
+		table->device_metadata_len = strlen(table->device_metadata);
+	}
+
 	dm_ima_measure_data("dm_device_rename", combined_device_data, len, noio);
 
-	goto exit;
-
-error:
-	kfree(new_device_data);
 exit:
 	kfree(capacity_str);
 	kfree(combined_device_data);
-	kfree(old_device_data);
 
 	wake_next_measure(&md->ima);
 }
