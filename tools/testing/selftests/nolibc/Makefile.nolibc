@@ -161,7 +161,7 @@ QEMU_ARCH            = $(QEMU_ARCH_$(XARCH))
 QEMU_ARCH_USER_ppc64le = ppc64le
 QEMU_ARCH_USER_mipsn32le = mipsn32el
 QEMU_ARCH_USER_mipsn32be = mipsn32
-QEMU_ARCH_USER         = $(or $(QEMU_ARCH_USER_$(XARCH)),$(QEMU_ARCH_$(XARCH)))
+QEMU_ARCH_USER         = $(or $(QEMU_ARCH_USER_$(XARCH)),$(QEMU_ARCH))
 
 QEMU_BIOS_DIR = /usr/share/edk2/
 QEMU_BIOS_loongarch = $(QEMU_BIOS_DIR)/loongarch64/OVMF_CODE.fd
