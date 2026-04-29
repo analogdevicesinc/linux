@@ -93,8 +93,8 @@ static void spacemit_i2s_init(struct spacemit_i2s_dev *i2s)
 	u32 sscr_val, sspsp_val, ssfcr_val, ssrwt_val;
 
 	sscr_val = SSCR_TRAIL | SSCR_FRF_PSP;
-	ssfcr_val = FIELD_PREP(SSFCR_FIELD_TFT, 5) |
-		    FIELD_PREP(SSFCR_FIELD_RFT, 5) |
+	ssfcr_val = FIELD_PREP(SSFCR_FIELD_TFT, 0xF) |
+		    FIELD_PREP(SSFCR_FIELD_RFT, 0xF) |
 		    SSFCR_RSRE | SSFCR_TSRE;
 	ssrwt_val = SSRWT_RWOT;
 	sspsp_val = SSPSP_SFRMP;
@@ -104,6 +104,37 @@ static void spacemit_i2s_init(struct spacemit_i2s_dev *i2s)
 	writel(sspsp_val, i2s->base + SSPSP);
 	writel(ssrwt_val, i2s->base + SSRWT);
 	writel(0, i2s->base + SSINTEN);
+}
+
+static int spacemit_i2s_startup(struct snd_pcm_substream *substream,
+	struct snd_soc_dai *dai)
+{
+	struct spacemit_i2s_dev *i2s = snd_soc_dai_get_drvdata(dai);
+
+	switch (i2s->dai_fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+	case SND_SOC_DAIFMT_I2S:
+		snd_pcm_hw_constraint_minmax(substream->runtime,
+					     SNDRV_PCM_HW_PARAM_CHANNELS,
+					     2, 2);
+		snd_pcm_hw_constraint_mask64(substream->runtime,
+					     SNDRV_PCM_HW_PARAM_FORMAT,
+					     SNDRV_PCM_FMTBIT_S16_LE);
+		break;
+	case SND_SOC_DAIFMT_DSP_A:
+	case SND_SOC_DAIFMT_DSP_B:
+		snd_pcm_hw_constraint_minmax(substream->runtime,
+					     SNDRV_PCM_HW_PARAM_CHANNELS,
+					     1, 1);
+		snd_pcm_hw_constraint_mask64(substream->runtime,
+					     SNDRV_PCM_HW_PARAM_FORMAT,
+					     SNDRV_PCM_FMTBIT_S32_LE);
+		break;
+	default:
+		dev_dbg(i2s->dev, "unexpected format type");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int spacemit_i2s_hw_params(struct snd_pcm_substream *substream,
@@ -157,22 +188,9 @@ static int spacemit_i2s_hw_params(struct snd_pcm_substream *substream,
 			dma_data->maxburst = 32;
 			dma_data->addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 		}
-
-		snd_pcm_hw_constraint_minmax(substream->runtime,
-					     SNDRV_PCM_HW_PARAM_CHANNELS,
-					     1, 2);
-		snd_pcm_hw_constraint_mask64(substream->runtime,
-					     SNDRV_PCM_HW_PARAM_FORMAT,
-					     SNDRV_PCM_FMTBIT_S16_LE);
 		break;
 	case SND_SOC_DAIFMT_DSP_A:
 	case SND_SOC_DAIFMT_DSP_B:
-		snd_pcm_hw_constraint_minmax(substream->runtime,
-					     SNDRV_PCM_HW_PARAM_CHANNELS,
-					     1, 1);
-		snd_pcm_hw_constraint_mask64(substream->runtime,
-					     SNDRV_PCM_HW_PARAM_FORMAT,
-					     SNDRV_PCM_FMTBIT_S32_LE);
 		break;
 	default:
 		dev_dbg(i2s->dev, "unexpected format type");
@@ -303,6 +321,7 @@ static int spacemit_i2s_dai_remove(struct snd_soc_dai *dai)
 static const struct snd_soc_dai_ops spacemit_i2s_dai_ops = {
 	.probe = spacemit_i2s_dai_probe,
 	.remove = spacemit_i2s_dai_remove,
+	.startup = spacemit_i2s_startup,
 	.hw_params = spacemit_i2s_hw_params,
 	.set_sysclk = spacemit_i2s_set_sysclk,
 	.set_fmt = spacemit_i2s_set_fmt,
