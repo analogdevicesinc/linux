@@ -139,8 +139,11 @@ struct iso_resource {
 	struct client *client;
 	/* Schedule work and access todo only with client->lock held. */
 	struct delayed_work work;
-	enum {ISO_RES_ALLOC, ISO_RES_REALLOC, ISO_RES_DEALLOC,
-	      ISO_RES_ALLOC_ONCE, ISO_RES_DEALLOC_ONCE,} todo;
+	enum {
+		ISO_RES_ALLOC,
+		ISO_RES_REALLOC,
+		ISO_RES_DEALLOC,
+	} todo;
 	struct iso_resource_params params;
 	struct iso_resource_event *e_alloc, *e_dealloc;
 };
@@ -1342,9 +1345,7 @@ static void iso_resource_work(struct work_struct *work)
 			skip = todo == ISO_RES_REALLOC &&
 			       r->params.generation == generation;
 		}
-		free = todo == ISO_RES_DEALLOC ||
-		       todo == ISO_RES_ALLOC_ONCE ||
-		       todo == ISO_RES_DEALLOC_ONCE;
+		free = todo == ISO_RES_DEALLOC;
 		r->params.generation = generation;
 	}
 
@@ -1356,8 +1357,7 @@ static void iso_resource_work(struct work_struct *work)
 	fw_iso_resource_manage(client->device->card, generation,
 			r->params.channels, &channel, &bandwidth,
 			todo == ISO_RES_ALLOC ||
-			todo == ISO_RES_REALLOC ||
-			todo == ISO_RES_ALLOC_ONCE);
+			todo == ISO_RES_REALLOC);
 	/*
 	 * Is this generation outdated already?  As long as this resource sticks
 	 * in the xarray, it will be scheduled again for a newer generation or at
@@ -1390,7 +1390,7 @@ static void iso_resource_work(struct work_struct *work)
 	if (todo == ISO_RES_REALLOC && success)
 		goto out;
 
-	if (todo == ISO_RES_ALLOC || todo == ISO_RES_ALLOC_ONCE) {
+	if (todo == ISO_RES_ALLOC) {
 		e = r->e_alloc;
 		r->e_alloc = NULL;
 	} else {
@@ -1425,8 +1425,7 @@ static void release_iso_resource(struct client *client,
 	schedule_iso_resource(r, 0);
 }
 
-static int init_iso_resource(struct client *client,
-		struct fw_cdev_allocate_iso_resource *request, int todo)
+static int init_iso_resource(struct client *client, struct fw_cdev_allocate_iso_resource *request)
 {
 	struct iso_resource_event *e1, *e2;
 	struct iso_resource *r;
@@ -1446,7 +1445,7 @@ static int init_iso_resource(struct client *client,
 
 	INIT_DELAYED_WORK(&r->work, iso_resource_work);
 	r->client	= client;
-	r->todo		= todo;
+	r->todo		= ISO_RES_ALLOC;
 	r->e_alloc	= e1;
 	r->e_dealloc	= e2;
 
@@ -1455,15 +1454,10 @@ static int init_iso_resource(struct client *client,
 	e2->iso_resource.closure = request->closure;
 	e2->iso_resource.type    = FW_CDEV_EVENT_ISO_RESOURCE_DEALLOCATED;
 
-	if (todo == ISO_RES_ALLOC) {
-		r->resource.release = release_iso_resource;
-		ret = add_client_resource(client, &r->resource, GFP_KERNEL);
-		if (ret < 0)
-			goto fail;
-	} else {
-		r->resource.release = NULL;
-		r->resource.handle = -1;
-	}
+	r->resource.release = release_iso_resource;
+	ret = add_client_resource(client, &r->resource, GFP_KERNEL);
+	if (ret < 0)
+		goto fail;
 	schedule_iso_resource(r, 0);
 
 	request->handle = r->resource.handle;
@@ -1480,8 +1474,7 @@ static int init_iso_resource(struct client *client,
 static int ioctl_allocate_iso_resource(struct client *client,
 				       union ioctl_arg *arg)
 {
-	return init_iso_resource(client,
-			&arg->allocate_iso_resource, ISO_RES_ALLOC);
+	return init_iso_resource(client, &arg->allocate_iso_resource);
 }
 
 static int ioctl_deallocate_iso_resource(struct client *client,
