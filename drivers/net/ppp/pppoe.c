@@ -136,15 +136,15 @@ static inline int cmp_addr(struct pppoe_addr *a, __be16 sid, char *addr)
 #error 8 must be a multiple of PPPOE_HASH_BITS
 #endif
 
-static int hash_item(__be16 sid, unsigned char *addr)
+static u8 hash_item(__be16 sid, const u8 addr[ETH_ALEN])
 {
-	unsigned char hash = 0;
+	const u16 *addr16 = (const u16 *)addr;
 	unsigned int i;
+	u16 hash16;
+	u8 hash;
 
-	for (i = 0; i < ETH_ALEN; i++)
-		hash ^= addr[i];
-	for (i = 0; i < sizeof(sid_t) * 8; i += 8)
-		hash ^= (__force __u32)sid >> i;
+	hash16 = addr16[0] ^ addr16[1] ^ addr16[2] ^ (__force u16)sid;
+	hash = (hash16 >> 8) ^ hash16;
 	for (i = 8; (i >>= 1) >= PPPOE_HASH_BITS;)
 		hash ^= hash >> i;
 
