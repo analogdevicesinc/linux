@@ -167,6 +167,8 @@ int pci_claim_resource(struct pci_dev *dev, int resource)
 		return -EBUSY;
 	}
 
+	pci_dbg(dev, "%s %pR: claiming\n", res_name, res);
+
 	return 0;
 }
 EXPORT_SYMBOL(pci_claim_resource);
