@@ -530,28 +530,6 @@ struct sched_ext_ops {
 	void (*update_idle)(s32 cpu, bool idle);
 
 	/**
-	 * @cpu_acquire: A CPU is becoming available to the BPF scheduler
-	 * @cpu: The CPU being acquired by the BPF scheduler.
-	 * @args: Acquire arguments, see the struct definition.
-	 *
-	 * A CPU that was previously released from the BPF scheduler is now once
-	 * again under its control.
-	 */
-	void (*cpu_acquire)(s32 cpu, struct scx_cpu_acquire_args *args);
-
-	/**
-	 * @cpu_release: A CPU is taken away from the BPF scheduler
-	 * @cpu: The CPU being released by the BPF scheduler.
-	 * @args: Release arguments, see the struct definition.
-	 *
-	 * The specified CPU is no longer under the control of the BPF
-	 * scheduler. This could be because it was preempted by a higher
-	 * priority sched_class, though there may be other reasons as well. The
-	 * caller should consult @args->reason to determine the cause.
-	 */
-	void (*cpu_release)(s32 cpu, struct scx_cpu_release_args *args);
-
-	/**
 	 * @init_task: Initialize a task to run in a BPF scheduler
 	 * @p: task to initialize for BPF scheduling
 	 * @args: init arguments, see the struct definition
@@ -841,6 +819,38 @@ struct sched_ext_ops {
 
 	/* internal use only, must be NULL */
 	void __rcu *priv;
+
+	/*
+	 * Deprecated callbacks. Kept at the end of the struct so the cid-form
+	 * struct (sched_ext_ops_cid) can omit them without affecting the
+	 * shared field offsets. Use SCX_ENQ_IMMED instead. Sitting past
+	 * SCX_OPI_END means has_op doesn't cover them, so SCX_HAS_OP() cannot
+	 * be used; callers must test sch->ops.cpu_acquire / cpu_release
+	 * directly.
+	 */
+
+	/**
+	 * @cpu_acquire: A CPU is becoming available to the BPF scheduler
+	 * @cpu: The CPU being acquired by the BPF scheduler.
+	 * @args: Acquire arguments, see the struct definition.
+	 *
+	 * A CPU that was previously released from the BPF scheduler is now once
+	 * again under its control. Deprecated; use SCX_ENQ_IMMED instead.
+	 */
+	void (*cpu_acquire)(s32 cpu, struct scx_cpu_acquire_args *args);
+
+	/**
+	 * @cpu_release: A CPU is taken away from the BPF scheduler
+	 * @cpu: The CPU being released by the BPF scheduler.
+	 * @args: Release arguments, see the struct definition.
+	 *
+	 * The specified CPU is no longer under the control of the BPF
+	 * scheduler. This could be because it was preempted by a higher
+	 * priority sched_class, though there may be other reasons as well. The
+	 * caller should consult @args->reason to determine the cause.
+	 * Deprecated; use SCX_ENQ_IMMED instead.
+	 */
+	void (*cpu_release)(s32 cpu, struct scx_cpu_release_args *args);
 };
 
 enum scx_opi {

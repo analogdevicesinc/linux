@@ -2823,7 +2823,7 @@ static int balance_one(struct rq *rq, struct task_struct *prev)
 		 * core. This callback complements ->cpu_release(), which is
 		 * emitted in switch_class().
 		 */
-		if (SCX_HAS_OP(sch, cpu_acquire))
+		if (sch->ops.cpu_acquire)
 			SCX_CALL_OP(sch, cpu_acquire, rq, cpu, NULL);
 		rq->scx.cpu_released = false;
 	}
@@ -2969,7 +2969,7 @@ static void switch_class(struct rq *rq, struct task_struct *next)
 	 *  next time that balance_one() is invoked.
 	 */
 	if (!rq->scx.cpu_released) {
-		if (SCX_HAS_OP(sch, cpu_release)) {
+		if (sch->ops.cpu_release) {
 			struct scx_cpu_release_args args = {
 				.reason = preempt_reason_from_class(next_class),
 				.task = next,
