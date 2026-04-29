@@ -507,31 +507,30 @@ static int ioctl_get_info(struct client *client, union ioctl_arg *arg)
 static int add_client_resource(struct client *client, struct client_resource *resource,
 			       gfp_t gfp_mask)
 {
-	int ret;
-
 	scoped_guard(spinlock_irqsave, &client->lock) {
 		u32 index;
+		int ret;
 
-		if (client->in_shutdown) {
-			ret = -ECANCELED;
+		if (client->in_shutdown)
+			return  -ECANCELED;
+
+		if (gfpflags_allow_blocking(gfp_mask)) {
+			ret = xa_alloc(&client->resource_xa, &index, resource, xa_limit_32b,
+				       GFP_NOWAIT);
 		} else {
-			if (gfpflags_allow_blocking(gfp_mask)) {
-				ret = xa_alloc(&client->resource_xa, &index, resource, xa_limit_32b,
-					       GFP_NOWAIT);
-			} else {
-				ret = xa_alloc_bh(&client->resource_xa, &index, resource,
-						  xa_limit_32b, GFP_NOWAIT);
-			}
+			ret = xa_alloc_bh(&client->resource_xa, &index, resource,
+					  xa_limit_32b, GFP_NOWAIT);
 		}
-		if (ret >= 0) {
-			resource->handle = index;
-			client_get(client);
-			if (is_iso_resource(resource))
-				schedule_iso_resource(to_iso_resource(resource), 0);
-		}
+		if (ret < 0)
+			return ret;
+
+		resource->handle = index;
+		client_get(client);
+		if (is_iso_resource(resource))
+			schedule_iso_resource(to_iso_resource(resource), 0);
 	}
 
-	return ret < 0 ? ret : 0;
+	return 0;
 }
 
 static int release_client_resource(struct client *client, u32 handle,
