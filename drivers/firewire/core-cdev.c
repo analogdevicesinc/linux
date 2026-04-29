@@ -526,8 +526,6 @@ static int add_client_resource(struct client *client, struct client_resource *re
 
 		resource->handle = index;
 		client_get(client);
-		if (is_iso_resource(resource))
-			schedule_iso_resource(to_iso_resource(resource), 0);
 	}
 
 	return 0;
@@ -1438,8 +1436,9 @@ static int init_iso_resource(struct client *client,
 	} else {
 		r->resource.release = NULL;
 		r->resource.handle = -1;
-		schedule_iso_resource(r, 0);
 	}
+	schedule_iso_resource(r, 0);
+
 	request->handle = r->resource.handle;
 
 	return 0;
