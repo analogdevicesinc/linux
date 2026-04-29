@@ -53,6 +53,7 @@ extern struct btf_id_set8 scx_kfunc_ids_init;
 
 s32 scx_cid_init(struct scx_sched *sch);
 int scx_cid_kfunc_init(void);
+void scx_cpumask_to_cmask(const struct cpumask *src, struct scx_cmask *dst);
 
 /**
  * cid_valid - Verify a cid value, to be used on ops input args
@@ -125,6 +126,14 @@ static inline s32 scx_cpu_to_cid(struct scx_sched *sch, s32 cpu)
 	if (!scx_cpu_valid(sch, cpu, NULL))
 		return -EINVAL;
 	return __scx_cpu_to_cid(cpu);
+}
+
+/**
+ * scx_is_cid_type - Test whether the active scheduler hierarchy is cid-form
+ */
+static inline bool scx_is_cid_type(void)
+{
+	return static_branch_unlikely(&__scx_is_cid_type);
 }
 
 static inline bool __scx_cmask_contains(const struct scx_cmask *m, u32 cid)

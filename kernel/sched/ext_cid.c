@@ -8,6 +8,14 @@
 #include <linux/cacheinfo.h>
 
 /*
+ * Per-cpu scratch cmask used by scx_call_op_set_cpumask() to synthesize a
+ * cmask from a cpumask. Allocated alongside the cid arrays on first enable
+ * and never freed. Sized to the full cid space. Caller holds rq lock so
+ * this_cpu_ptr is safe.
+ */
+struct scx_cmask __percpu *scx_set_cmask_scratch;
+
+/*
  * cid tables.
  *
  * Pointers are published once on first enable and never revoked. The default
@@ -46,6 +54,7 @@ static s32 scx_cid_arrays_alloc(void)
 	u32 npossible = num_possible_cpus();
 	s16 *cid_to_cpu, *cpu_to_cid;
 	struct scx_cid_topo *cid_topo;
+	struct scx_cmask __percpu *set_cmask_scratch;
 
 	if (scx_cid_to_cpu_tbl)
 		return 0;
@@ -53,17 +62,22 @@ static s32 scx_cid_arrays_alloc(void)
 	cid_to_cpu = kzalloc_objs(*scx_cid_to_cpu_tbl, npossible, GFP_KERNEL);
 	cpu_to_cid = kzalloc_objs(*scx_cpu_to_cid_tbl, nr_cpu_ids, GFP_KERNEL);
 	cid_topo = kmalloc_objs(*scx_cid_topo, npossible, GFP_KERNEL);
+	set_cmask_scratch = __alloc_percpu(struct_size(set_cmask_scratch, bits,
+						       SCX_CMASK_NR_WORDS(npossible)),
+					   sizeof(u64));
 
-	if (!cid_to_cpu || !cpu_to_cid || !cid_topo) {
+	if (!cid_to_cpu || !cpu_to_cid || !cid_topo || !set_cmask_scratch) {
 		kfree(cid_to_cpu);
 		kfree(cpu_to_cid);
 		kfree(cid_topo);
+		free_percpu(set_cmask_scratch);
 		return -ENOMEM;
 	}
 
 	WRITE_ONCE(scx_cid_to_cpu_tbl, cid_to_cpu);
 	WRITE_ONCE(scx_cpu_to_cid_tbl, cpu_to_cid);
 	WRITE_ONCE(scx_cid_topo, cid_topo);
+	WRITE_ONCE(scx_set_cmask_scratch, set_cmask_scratch);
 	return 0;
 }
 
@@ -206,6 +220,27 @@ s32 scx_cid_init(struct scx_sched *sch)
 			cpumask_pr_args(online_no_topo));
 
 	return 0;
+}
+
+/**
+ * scx_cpumask_to_cmask - Translate a kernel cpumask into a cmask
+ * @src: source cpumask
+ * @dst: cmask to write
+ *
+ * Initialize @dst to cover the full cid space [0, num_possible_cpus()) and
+ * set the bit for each cid whose cpu is in @src.
+ */
+void scx_cpumask_to_cmask(const struct cpumask *src, struct scx_cmask *dst)
+{
+	s32 cpu;
+
+	scx_cmask_init(dst, 0, num_possible_cpus());
+	for_each_cpu(cpu, src) {
+		s32 cid = __scx_cpu_to_cid(cpu);
+
+		if (cid >= 0)
+			__scx_cmask_set(dst, cid);
+	}
 }
 
 __bpf_kfunc_start_defs();
