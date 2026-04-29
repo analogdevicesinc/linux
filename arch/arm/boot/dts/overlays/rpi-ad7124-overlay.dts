@@ -115,6 +115,7 @@
 	};
 
 	__overrides__ {
+		cs_pin   = <&ad7124>,"reg:0";
 		irq_gpio = <&ad7124>,"interrupts:0",
 			   <&ad7124_irq_pin>,"brcm,pins:0";
 	};

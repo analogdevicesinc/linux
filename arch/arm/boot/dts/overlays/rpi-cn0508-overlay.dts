@@ -36,6 +36,10 @@
 		rotate =  <&pitft>,"rotate:0";
 		fps =     <&pitft>,"fps:0";
 		debug =   <&pitft>,"debug:0";
+
+		cs_pin   = <&ad7124>,"reg:0";
+		irq_gpio = <&ad7124>,"interrupts:0",
+			   <&cn0508_irq_pin>,"brcm,pins:0";
 	};
 
 	fragment@2 {
