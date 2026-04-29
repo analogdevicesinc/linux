@@ -80,8 +80,6 @@ IMAGE_mipsn32le  = vmlinuz
 IMAGE_mipsn32be  = vmlinuz
 IMAGE_mips64le   = vmlinuz
 IMAGE_mips64be   = vmlinuz
-IMAGE_ppc        = vmlinux
-IMAGE_ppc64      = vmlinux
 IMAGE_ppc64le    = arch/powerpc/boot/zImage
 IMAGE_riscv32    = arch/riscv/boot/Image
 IMAGE_riscv64    = arch/riscv/boot/Image
@@ -89,9 +87,8 @@ IMAGE_s390x      = arch/s390/boot/bzImage
 IMAGE_loongarch  = arch/loongarch/boot/vmlinuz.efi
 IMAGE_sparc32    = arch/sparc/boot/image
 IMAGE_sparc64    = arch/sparc/boot/image
-IMAGE_m68k       = vmlinux
 IMAGE_sh4        = arch/sh/boot/zImage
-IMAGE            = $(objtree)/$(IMAGE_$(XARCH))
+IMAGE            = $(objtree)/$(or $(IMAGE_$(XARCH)),vmlinux)
 IMAGE_NAME       = $(notdir $(IMAGE))
 
 # default kernel configurations that appear to be usable
