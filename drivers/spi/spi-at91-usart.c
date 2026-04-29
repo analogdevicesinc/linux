@@ -495,14 +495,13 @@ static int at91_usart_spi_probe(struct platform_device *pdev)
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
-	ret = -ENOMEM;
-	controller = spi_alloc_host(&pdev->dev, sizeof(*aus));
+	controller = devm_spi_alloc_host(&pdev->dev, sizeof(*aus));
 	if (!controller)
-		goto at91_usart_spi_probe_fail;
+		return -ENOMEM;
 
 	ret = at91_usart_gpio_setup(pdev);
 	if (ret)
-		goto at91_usart_spi_probe_fail;
+		return ret;
 
 	controller->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LOOP | SPI_CS_HIGH;
 	controller->dev.of_node = pdev->dev.parent->of_node;
@@ -524,10 +523,8 @@ static int at91_usart_spi_probe(struct platform_device *pdev)
 
 	aus->dev = &pdev->dev;
 	aus->regs = devm_ioremap_resource(&pdev->dev, regs);
-	if (IS_ERR(aus->regs)) {
-		ret = PTR_ERR(aus->regs);
-		goto at91_usart_spi_probe_fail;
-	}
+	if (IS_ERR(aus->regs))
+		return PTR_ERR(aus->regs);
 
 	aus->irq = irq;
 	aus->clk = clk;
@@ -535,11 +532,11 @@ static int at91_usart_spi_probe(struct platform_device *pdev)
 	ret = devm_request_irq(&pdev->dev, irq, at91_usart_spi_interrupt, 0,
 			       dev_name(&pdev->dev), controller);
 	if (ret)
-		goto at91_usart_spi_probe_fail;
+		return ret;
 
 	ret = clk_prepare_enable(clk);
 	if (ret)
-		goto at91_usart_spi_probe_fail;
+		return ret;
 
 	aus->spi_clk = clk_get_rate(clk);
 	at91_usart_spi_init(aus);
@@ -570,8 +567,7 @@ at91_usart_fail_register_controller:
 	at91_usart_spi_release_dma(controller);
 at91_usart_fail_dma:
 	clk_disable_unprepare(clk);
-at91_usart_spi_probe_fail:
-	spi_controller_put(controller);
+
 	return ret;
 }
 
@@ -613,14 +609,10 @@ static void at91_usart_spi_remove(struct platform_device *pdev)
 	struct spi_controller *ctlr = platform_get_drvdata(pdev);
 	struct at91_usart_spi *aus = spi_controller_get_devdata(ctlr);
 
-	spi_controller_get(ctlr);
-
 	spi_unregister_controller(ctlr);
 
 	at91_usart_spi_release_dma(ctlr);
 	clk_disable_unprepare(aus->clk);
-
-	spi_controller_put(ctlr);
 }
 
 static const struct dev_pm_ops at91_usart_spi_pm_ops = {
