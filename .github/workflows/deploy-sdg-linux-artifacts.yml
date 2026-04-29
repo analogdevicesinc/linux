@@ -1,0 +1,207 @@
+name: Deploy SDG Linux Artifacts to Cloudsmith
+on:
+  workflow_call:
+    inputs:
+      artifacts:
+        required: true
+        type: string
+      CLOUDSMITH_REPO:
+        required: false
+        type: string
+        default: 'sdg-linux'
+      BUILD_SOURCEBRANCH:
+        required: false
+        default: ${{ github.ref_name }}
+        type: string
+      PR_TARGET_BRANCH:
+        required: false
+        type: string
+        default: ''
+      PR_NUMBER:
+        required: false
+        type: string
+        default: ''
+
+
+permissions:
+  id-token: write
+  contents: write
+  actions: read
+
+
+jobs:
+  prepare_and_upload_sdg_linux_artefacts:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@action
+
+    - name: Prepare path
+      run: |
+        rm -rf dist ; mkdir dist
+    
+    - name: Get sources
+      run: |
+        file=$(echo "${{ github.workflow_ref }}" | cut -d'/' -f3- | cut -d'@' -f1)
+        workflow_ref=$(awk '
+          $0 ~ "uses:" && $0 ~ "deploy-sdg-linux-artifacts.yml" {
+            sub(/^[[:space:]]*uses:[[:space:]]*/, "", $0);
+            print $0;
+            exit
+          }
+        ' "$file")
+        echo $workflow_ref
+
+        org_repo="$(echo "$workflow_ref" | cut -d'/' -f1-2)"
+        ref="$(echo "$workflow_ref" | cut -d'@' -f2)"
+
+        get_file () {
+          echo https://raw.githubusercontent.com/$org_repo/$ref/$1
+          curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
+              https://raw.githubusercontent.com/$org_repo/$ref/$1
+        }
+
+        mkdir -p ci
+        get_file ci/prepare_sdg_linux_artifacts.sh
+        get_file ci/lib.sh
+        get_file ci/prepare_artifacts_structure.sh
+
+        chmod +x ci/*.sh
+
+        curl -sL -o upload_to_cloudsmith.py \
+            https://raw.githubusercontent.com/analogdevicesinc/wiki-scripts/main/utils/cloudsmith_utils/upload_to_cloudsmith.py
+
+        ls -la ci/
+
+    - name: Download workflow artifacts
+      run: |
+        gh-get-workflow-artifacts()
+        {
+          artifacts=$(curl -sfL \
+               -H "Accept: application/vnd.github+json" \
+               -H "Authorization: Bearer $1 " \
+               -H "X-GitHub-Api-Version: 2022-11-28" \
+               https://api.github.com/repos/$2/actions/runs/$3/artifacts)
+          echo "$artifacts"
+        }
+
+        gh-download-artifact () {
+          curl -sfL \
+            -H "Authorization: Bearer $1" \
+            -H "Accept: application/vnd.github+json" \
+            -o "$2" \
+            "$3"
+        }
+
+        artifacts=$(
+          gh-get-workflow-artifacts ${{ secrets.GITHUB_TOKEN }} \
+                                    ${{ github.repository }} \
+                                    ${{ github.run_id }}
+        )
+
+        total_count=$(echo $artifacts | jq '.total_count' -r)
+
+        if [[ "$total_count" == "null" ]] || [[ "$total_count" == "0" ]]; then
+          exit
+        fi
+
+        artifacts_files=$(echo $artifacts | jq '[.artifacts[] | [.name, .archive_download_url]]' -r)
+        patterns="${{ inputs.artifacts }}"
+        mkdir -p artefacts
+        echo $artifacts_files |  jq -r '.[] | @tsv' | while IFS=$'\t' read -r name url; do
+          matched=0
+          for p in $patterns; do
+            if [[ $name == $p ]]; then
+              matched=1
+              break
+            fi
+          done
+
+          if [[ "$matched" == "1" ]]; then
+            echo "$name"
+            gh-download-artifact ${{ secrets.GITHUB_TOKEN }} \
+                                 "artefacts/$name.zip" \
+                                 "$url"
+          else
+            echo "$name no match, skipped"
+          fi
+        done
+
+    - name: Prepare raw files for upload
+      run: |
+        mkdir -p raw
+        for zip in artefacts/*.zip; do
+          name=$(basename "${zip%.zip}")
+          mkdir -p "raw/$name"
+          unzip -q "$zip" -d "raw/$name"
+          rm "$zip"
+        done
+        ls -la raw/
+    
+    - name: Process artifacts
+      run: |
+        source ci/lib.sh
+        source ci/prepare_sdg_linux_artifacts.sh
+        process_artifacts
+
+    - name: Setup Cloudsmith OIDC
+      uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
+      with:
+        oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
+        oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        oidc-auth-only: 'true'
+
+    - name: Install Cloudsmith CLI
+      run: |
+        python3 -m venv venv
+        source ./venv/bin/activate
+        python3 -m ensurepip
+        pip3 install cloudsmith-cli
+
+    - name: Generate structure and upload
+      run: |
+        source ./venv/bin/activate
+
+        # Set timestamp
+        export TIMESTAMP=$(date +%Y_%m_%d-%H_%M_%S)
+
+        # Get git SHA (PR source commit or build commit)
+        if [[ -n "${{ inputs.PR_NUMBER }}" ]]; then
+          export GIT_SHA="${{ github.event.pull_request.head.sha }}"
+        else
+          export GIT_SHA="${{ github.sha }}"
+        fi
+
+        # Get git SHA date (format: YYYY-MM-DD-HH-MM)
+        MERGE_COMMIT_SHA=$(git rev-parse --short HEAD)
+        export GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${MERGE_COMMIT_SHA} | sed -e "s/ \|\:/-/g")
+
+        # Determine branch name (works for main, release/*, feature/*, etc.)
+        BRANCH_NAME=$(echo "${{ inputs.BUILD_SOURCEBRANCH }}" | awk -F'/' '{print $NF}')
+        export BUILD_SOURCEBRANCHNAME="$BRANCH_NAME"
+        export SOURCE_DIRECTORY="$(pwd)"
+
+        # Build version path based on branch type
+        if [[ -n "${{ inputs.PR_TARGET_BRANCH }}" ]]; then
+          VERSION_PATH="linux/PRs/${{ inputs.PR_TARGET_BRANCH }}/pr_${{ inputs.PR_NUMBER }}"
+        elif [[ "$BRANCH_NAME" == "main" ]]; then
+          VERSION_PATH="linux/main"
+        else
+          VERSION_PATH="linux/releases/$BRANCH_NAME"
+        fi
+
+        source ci/lib.sh
+        source ci/prepare_artifacts_structure.sh
+
+        # Upload
+        python3 upload_to_cloudsmith.py \
+          --repo=${{ inputs.CLOUDSMITH_REPO }} \
+          --version="${VERSION_PATH}/${TIMESTAMP}" \
+          --local_path="${TIMESTAMP}" \
+          --token="${CLOUDSMITH_API_KEY}" \
+          --max_workers=10
+        
