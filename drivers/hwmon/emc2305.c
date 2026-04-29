@@ -548,6 +548,12 @@ static int emc2305_of_parse_pwm_child(struct device *dev,
 		return ret;
 	}
 
+	if (ch >= data->pwm_num) {
+		dev_err(dev, "invalid reg %u for node %pOF (valid range 0-%u)\n", ch, child,
+			data->pwm_num - 1);
+		return -EINVAL;
+	}
+
 	ret = of_parse_phandle_with_args(child, "pwms", "#pwm-cells", 0, &args);
 
 	if (ret)
@@ -612,6 +618,7 @@ static int emc2305_probe(struct i2c_client *client)
 	int ret;
 	int i;
 	int pwm_childs;
+	u32 ch;
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA | I2C_FUNC_SMBUS_WORD_DATA))
 		return -ENODEV;
@@ -680,12 +687,18 @@ static int emc2305_probe(struct i2c_client *client)
 	if (IS_REACHABLE(CONFIG_THERMAL)) {
 		/* Parse and check for the available PWM child nodes */
 		if (pwm_childs > 0) {
-			i = 0;
 			for_each_child_of_node_scoped(dev->of_node, child) {
-				ret = emc2305_set_single_tz(dev, child, i);
+				ret = of_property_read_u32(child, "reg", &ch);
+				if (ret || ch >= data->pwm_num)
+					continue;
+
+				/*
+				 * emc2305_set_single_tz() uses 0 for the common cooling
+				 * device and 1..pwm_num for individual fan channels.
+				 */
+				ret = emc2305_set_single_tz(dev, child, ch + 1);
 				if (ret != 0)
 					return ret;
-				i++;
 			}
 		} else {
 			ret = emc2305_set_tz(dev);
