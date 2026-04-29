@@ -1,0 +1,285 @@
+name: Prepare and Upload to Cloudsmith RPI Artifacts
+
+on:
+  workflow_call:
+    inputs:
+      artifacts:
+        required: true
+        type: string
+      BUILD_SOURCEBRANCH:
+        required: true
+        type: string
+      CLOUDSMITH_REPO:
+        required: false
+        type: string
+        default: 'sdg-linux-rpi'
+
+permissions:
+  id-token: write
+  contents: write
+  actions: read
+
+jobs:
+  prepare_and_upload_rpi_artefacts:
+    runs-on: [self-hosted, repo-only]
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+
+    steps:
+    - uses: analogdevicesinc/doctools/checkout@action
+
+    - name: Prepare path
+      run: |
+        rm -rf dist ; mkdir dist
+
+    - name: Get sources
+      run: |
+        file=$(echo "${{ github.workflow_ref }}" | cut -d'/' -f3- | cut -d'@' -f1)
+        workflow_ref=$(awk '
+          $0 ~ "uses:" && $0 ~ "prepare_rpi_artifacts.yml" {
+            sub(/^[[:space:]]*uses:[[:space:]]*/, "", $0);
+            print $0;
+            exit
+          }
+        ' "$file")
+        echo $workflow_ref
+
+        org_repo="$(echo "$workflow_ref" | cut -d'/' -f1-2)"
+        ref="$(echo "$workflow_ref" | cut -d'@' -f2)"
+
+        get_file () {
+          echo https://raw.githubusercontent.com/$org_repo/$ref/$1
+          curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $1 \
+              https://raw.githubusercontent.com/$org_repo/$ref/$1
+        }
+
+        mkdir -p ci
+        get_file ci/prepare_rpi_artifacts.sh
+
+        echo "Contents of ci directory:"
+        ls -la ci/
+        echo "Verifying script content:"
+        head -3 ci/prepare_rpi_artifacts.sh
+        if [[ ! -s ci/prepare_rpi_artifacts.sh ]] || ! head -1 ci/prepare_rpi_artifacts.sh | grep -q "^#"; then
+          echo "ERROR: Script download failed or invalid content"
+          exit 1
+        fi
+        chmod +x ci/prepare_rpi_artifacts.sh
+        echo "Script is ready and executable"
+
+    - name: Download artifacts
+      run: |
+        gh-get-workflow-artifacts()
+        {
+          artifacts=$(curl -sfL \
+               -H "Accept: application/vnd.github+json" \
+               -H "Authorization: Bearer $1 " \
+               -H "X-GitHub-Api-Version: 2022-11-28" \
+               https://api.github.com/repos/$2/actions/runs/$3/artifacts)
+          echo "$artifacts"
+        }
+
+        gh-download-artifact () {
+          curl -sfL \
+            -H "Authorization: Bearer $1" \
+            -H "Accept: application/vnd.github+json" \
+            -o "$2" \
+            "$3"
+        }
+
+        artifacts=$(
+          gh-get-workflow-artifacts ${{ secrets.GITHUB_TOKEN }} \
+                                    ${{ github.repository }} \
+                                    ${{ github.run_id }}
+        )
+
+        total_count=$(echo $artifacts | jq '.total_count' -r)
+
+        if [[ "$total_count" == "null" ]] || [[ "$total_count" == "0" ]]; then
+          exit
+        fi
+
+        artifacts_files=$(echo $artifacts | jq '[.artifacts[] | [.name, .archive_download_url]]' -r)
+        patterns="${{ inputs.artifacts }}"
+        echo $artifacts_files |  jq -r '.[] | @tsv' | while IFS=$'\t' read -r name url; do
+          matched=0
+          for p in $patterns; do
+            if [[ $name == $p ]]; then
+              matched=1
+              break
+            fi
+          done
+
+          if [[ "$matched" == "1" ]]; then
+            echo "$name"
+            gh-download-artifact ${{ secrets.GITHUB_TOKEN }} \
+                                 "dist/$name" \
+                                 "$url"
+          else
+            echo "$name no match, skipped"
+          fi
+        done
+
+    - name: Prepare artifacts
+      run: |
+        echo "Extracting artifacts..."
+        for f in dist/*; do
+          [ -f "$f" ] || continue
+
+          zip_file="$f.zip"
+          mv "$f" "$zip_file"
+
+          dir_name=$(basename "$f")
+          mkdir -p "dist/$dir_name"
+          unzip -q "$zip_file" -d "dist/$dir_name"
+
+          echo "Extracted: $zip_file -> dist/$dir_name/"
+        done
+        echo "Current path after extraction: $(pwd)"
+        echo "Contents of dist directory:"
+        ls -l dist
+        echo "Contents of working directory:"
+        ls -l
+        cd dist && ../ci/prepare_rpi_artifacts.sh
+
+    - uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' && env.CLOUDSMITH_SERVICE_SLUG != ' ' }}
+      with:
+        oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
+        oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        oidc-auth-only: 'true'
+
+    - name: Cloudsmith API Key
+      env:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+      if: ${{ env.CLOUDSMITH_SERVICE_SLUG == '' || env.CLOUDSMITH_SERVICE_SLUG == ' ' }}
+      run: |
+        CLOUDSMITH_API_KEY=$(echo "${{ secrets.CLOUDSMITH_API_KEY }}" | xargs)
+        echo "CLOUDSMITH_API_KEY=$CLOUDSMITH_API_KEY" >> "$GITHUB_ENV"
+    
+    - name: Cloudsmith upload assets
+      if: ${{ env.CLOUDSMITH_API_KEY != '' }}
+      run: |
+        cs-package-upload()
+        {
+          local api_key="$1"
+          local namespace="$2"
+          local repo="$3"
+          local file="$4"
+          local url="https://upload.cloudsmith.io/${namespace}/${repo}/${file}"
+
+          echo "Uploading to: $url" >&2
+          response=$(curl -sL --write-out "\nHTTP_STATUS:%{http_code}" \
+            -T "$file" \
+            -H "X-Api-Key: $api_key" \
+            -H "Content-Sha256: $(shasum -a256 "$file" | cut -f1 -d' ')" \
+            "$url")
+          http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d':' -f2)
+          body=$(echo "$response" | sed '/HTTP_STATUS:/d')
+          echo "HTTP Status: $http_status" >&2
+          echo "Response: $body" >&2
+          if [[ -z "$http_status" || "$http_status" -ge 400 ]]; then
+            echo "ERROR: Upload failed with status $http_status" >&2
+            return 1
+          fi
+          package_file=$(echo "$body" | jq -r .identifier)
+          echo "$package_file"
+        }
+
+        cs-package-store-raw () {
+          local api_key="$1"
+          local namespace="$2"
+          local repo="$3"
+          local pkg_file="$4"
+          local name="$5"
+          local tags="$6"
+          local version="$7"
+          local url="https://api.cloudsmith.com/v1/packages/${namespace}/${repo}/upload/raw/"
+
+          echo "Storing package at: $url" >&2
+          response=$(curl -sL --write-out "\nHTTP_STATUS:%{http_code}" \
+            -X POST \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Key: $api_key" \
+            -d "{\"package_file\":\"$pkg_file\", \
+                 \"republish\":\"true\", \
+                 \"name\":\"$name\", \
+                 \"tags\": \"$tags\", \
+                 \"version\":\"$version\"}" \
+            "$url")
+          http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d':' -f2)
+          body=$(echo "$response" | sed '/HTTP_STATUS:/d')
+          echo "HTTP Status: $http_status" >&2
+          echo "Response: $body" >&2
+          if [[ -z "$http_status" || "$http_status" -ge 400 ]]; then
+            echo "ERROR: Store failed with status $http_status" >&2
+            return 1
+          fi
+        }
+
+        if [ -z "$( ls -A 'dist' )" ]; then
+          echo "ERROR: dist directory is empty, no artifacts to upload"
+          exit 1
+        fi
+
+        # Calculate version and tags (before cd to ensure git works)
+        version="linux_rpi/${{ inputs.BUILD_SOURCEBRANCH }}/$(date +%Y_%m_%d-%H_%M)/"
+        tags="git_sha-$(git rev-parse --short HEAD);timestamp_$(date +%Y_%m_%d-%H_%M)"
+
+        cd dist || { echo "ERROR: Failed to cd into dist" >&2; exit 1; }
+
+        # Upload .tar.gz files
+        for file in *.tar.gz ; do
+          [ -f "$file" ] || continue
+          echo "Uploading: $file"
+          package_file=$(
+            cs-package-upload "${{ env.CLOUDSMITH_API_KEY }}" \
+                              "${{ vars.CLOUDSMITH_NAMESPACE }}" \
+                              "${{ inputs.CLOUDSMITH_REPO }}" \
+                              "$file"
+          )
+
+          if [[ -z "$package_file" || "$package_file" == "null" ]]; then
+            echo "ERROR: Failed to upload $file" >&2
+            exit 1
+          fi
+
+          cs-package-store-raw "${{ env.CLOUDSMITH_API_KEY }}" \
+                               "${{ vars.CLOUDSMITH_NAMESPACE }}" \
+                               "${{ inputs.CLOUDSMITH_REPO }}" \
+                               "$package_file" \
+                               "$file" \
+                               "$tags" \
+                               "$version" || exit 1
+        done
+
+        # Upload rpi_archives_properties.txt
+        if [ -f "rpi_archives_properties.txt" ]; then
+          echo "Uploading: rpi_archives_properties.txt"
+          package_file=$(
+            cs-package-upload "${{ env.CLOUDSMITH_API_KEY }}" \
+                              "${{ vars.CLOUDSMITH_NAMESPACE }}" \
+                              "${{ inputs.CLOUDSMITH_REPO }}" \
+                              "rpi_archives_properties.txt"
+          )
+
+          if [[ -z "$package_file" || "$package_file" == "null" ]]; then
+            echo "ERROR: Failed to upload rpi_archives_properties.txt" >&2
+            exit 1
+          fi
+
+          cs-package-store-raw "${{ env.CLOUDSMITH_API_KEY }}" \
+                               "${{ vars.CLOUDSMITH_NAMESPACE }}" \
+                               "${{ inputs.CLOUDSMITH_REPO }}" \
+                               "$package_file" \
+                               "rpi_archives_properties.txt" \
+                               "$tags" \
+                               "$version" || exit 1
+        fi
+
+
