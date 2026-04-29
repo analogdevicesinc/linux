@@ -261,6 +261,13 @@ static void npc_clear_mcam_entry(struct rvu *rvu, struct npc_mcam *mcam,
 	int bank = npc_get_bank(mcam, index);
 	int actbank = bank;
 
+	if (is_cn20k(rvu->pdev)) {
+		if (npc_cn20k_clear_mcam_entry(rvu, blkaddr, index))
+			dev_err(rvu->dev, "%s Failed to clear mcam %u\n",
+				__func__, index);
+		return;
+	}
+
 	index &= (mcam->banksize - 1);
 	for (; bank < (actbank + mcam->banks_per_entry); bank++) {
 		rvu_write64(rvu, blkaddr,
@@ -755,9 +762,15 @@ void rvu_npc_install_promisc_entry(struct rvu *rvu, u16 pcifunc,
 
 	/* If the corresponding PF's ucast action is RSS,
 	 * use the same action for promisc also
+	 * Please note that for lbk(s) "index" and "ucast_idx"
+	 * will be same.
 	 */
-	ucast_idx = npc_get_nixlf_mcam_index(mcam, pcifunc,
-					     nixlf, NIXLF_UCAST_ENTRY);
+	if (is_lbk_vf(rvu, pcifunc))
+		ucast_idx = index;
+	else
+		ucast_idx = npc_get_nixlf_mcam_index(mcam, pcifunc,
+						     nixlf, NIXLF_UCAST_ENTRY);
+
 	if (is_mcam_entry_enabled(rvu, mcam, blkaddr, ucast_idx))
 		*(u64 *)&action = npc_get_mcam_action(rvu, mcam,
 						      blkaddr, ucast_idx);

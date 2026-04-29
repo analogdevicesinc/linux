@@ -842,8 +842,8 @@ npc_cn20k_enable_mcam_entry(struct rvu *rvu, int blkaddr,
 	return 0;
 }
 
-void
-npc_cn20k_clear_mcam_entry(struct rvu *rvu, int blkaddr, int bank, int index)
+static void
+npc_clear_x2_entry(struct rvu *rvu, int blkaddr, int bank, int index)
 {
 	rvu_write64(rvu, blkaddr,
 		    NPC_AF_CN20K_MCAMEX_BANKX_CAMX_INTF_EXT(index, bank, 1),
@@ -875,6 +875,33 @@ npc_cn20k_clear_mcam_entry(struct rvu *rvu, int blkaddr, int bank, int index)
 	/* Clear corresponding stats register */
 	rvu_write64(rvu, blkaddr,
 		    NPC_AF_CN20K_MCAMEX_BANKX_STAT_EXT(index, bank), 0);
+}
+
+int
+npc_cn20k_clear_mcam_entry(struct rvu *rvu, int blkaddr, int mcam_idx)
+{
+	struct npc_mcam *mcam = &rvu->hw->mcam;
+	int bank = npc_get_bank(mcam, mcam_idx);
+	u8 kw_type;
+	int index;
+
+	if (npc_mcam_idx_2_key_type(rvu, mcam_idx, &kw_type))
+		return -EINVAL;
+
+	index = mcam_idx & (mcam->banksize - 1);
+
+	if (kw_type == NPC_MCAM_KEY_X2) {
+		npc_clear_x2_entry(rvu, blkaddr, bank, index);
+		return 0;
+	}
+
+	/* For NPC_MCAM_KEY_X4 keys, both the banks
+	 * need to be programmed with the same value.
+	 */
+	for (bank = 0; bank < mcam->banks_per_entry; bank++)
+		npc_clear_x2_entry(rvu, blkaddr, bank, index);
+
+	return 0;
 }
 
 static void npc_cn20k_get_keyword(struct cn20k_mcam_entry *entry, int idx,
@@ -1071,7 +1098,7 @@ int npc_cn20k_config_mcam_entry(struct rvu *rvu, int blkaddr, int index,
 	 */
 	if (kw_type == NPC_MCAM_KEY_X2) {
 		/* Clear mcam entry to avoid writes being suppressed by NPC */
-		npc_cn20k_clear_mcam_entry(rvu, blkaddr, bank, mcam_idx);
+		npc_clear_x2_entry(rvu, blkaddr, bank, mcam_idx);
 		npc_cn20k_config_kw_x2(rvu, mcam, blkaddr,
 				       mcam_idx, intf, entry,
 				       bank, kw_type, kw, req_kw_type);
@@ -1096,8 +1123,8 @@ int npc_cn20k_config_mcam_entry(struct rvu *rvu, int blkaddr, int index,
 	}
 
 	/* Clear mcam entry to avoid writes being suppressed by NPC */
-	npc_cn20k_clear_mcam_entry(rvu, blkaddr, 0, mcam_idx);
-	npc_cn20k_clear_mcam_entry(rvu, blkaddr, 1, mcam_idx);
+	npc_clear_x2_entry(rvu, blkaddr, 0, mcam_idx);
+	npc_clear_x2_entry(rvu, blkaddr, 1, mcam_idx);
 
 	npc_cn20k_config_kw_x4(rvu, mcam, blkaddr,
 			       mcam_idx, intf, entry,

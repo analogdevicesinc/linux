@@ -330,8 +330,7 @@ int npc_cn20k_copy_mcam_entry(struct rvu *rvu, int blkaddr,
 int npc_cn20k_read_mcam_entry(struct rvu *rvu, int blkaddr, u16 index,
 			      struct cn20k_mcam_entry *entry, u8 *intf,
 			      u8 *ena, u8 *hw_prio);
-void npc_cn20k_clear_mcam_entry(struct rvu *rvu, int blkaddr,
-				int bank, int index);
+int npc_cn20k_clear_mcam_entry(struct rvu *rvu, int blkaddr, int index);
 int npc_mcam_idx_2_key_type(struct rvu *rvu, u16 mcam_idx, u8 *key_type);
 u16 npc_cn20k_vidx2idx(u16 index);
 u16 npc_cn20k_idx2vidx(u16 idx);
