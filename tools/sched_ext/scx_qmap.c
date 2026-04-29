@@ -43,6 +43,7 @@ const char help_fmt[] =
 "  -p            Switch only tasks on SCHED_EXT policy instead of all\n"
 "  -I            Turn on SCX_OPS_ALWAYS_ENQ_IMMED\n"
 "  -F COUNT      IMMED stress: force every COUNT'th enqueue to a busy local DSQ (use with -I)\n"
+"  -C MODE       cid-override test (shuffle|bad-dup|bad-range)\n"
 "  -v            Print libbpf debug messages\n"
 "  -h            Display this help and exit\n";
 
@@ -73,6 +74,14 @@ int main(int argc, char **argv)
 	libbpf_set_print(libbpf_print_fn);
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
+
+	if (libbpf_num_possible_cpus() > SCX_QMAP_MAX_CPUS) {
+		fprintf(stderr,
+			"scx_qmap: %d possible CPUs exceeds compile-time cap %d; "
+			"rebuild with larger SCX_QMAP_MAX_CPUS\n",
+			libbpf_num_possible_cpus(), SCX_QMAP_MAX_CPUS);
+		return 1;
+	}
 restart:
 	optind = 1;
 	skel = SCX_OPS_OPEN(qmap_ops, scx_qmap);
@@ -80,7 +89,7 @@ restart:
 	skel->rodata->slice_ns = __COMPAT_ENUM_OR_ZERO("scx_public_consts", "SCX_SLICE_DFL");
 	skel->rodata->max_tasks = 16384;
 
-	while ((opt = getopt(argc, argv, "s:e:t:T:l:b:N:PMHc:d:D:SpIF:vh")) != -1) {
+	while ((opt = getopt(argc, argv, "s:e:t:T:l:b:N:PMHc:d:D:SpIF:C:vh")) != -1) {
 		switch (opt) {
 		case 's':
 			skel->rodata->slice_ns = strtoull(optarg, NULL, 0) * 1000;
@@ -143,6 +152,35 @@ restart:
 		case 'F':
 			skel->rodata->immed_stress_nth = strtoul(optarg, NULL, 0);
 			break;
+		case 'C': {
+			u32 nr_cpus = libbpf_num_possible_cpus();
+			u32 mode, i;
+
+			if (!strcmp(optarg, "shuffle"))
+				mode = 1;
+			else if (!strcmp(optarg, "bad-dup"))
+				mode = 2;
+			else if (!strcmp(optarg, "bad-range"))
+				mode = 3;
+			else {
+				fprintf(stderr, "unknown cid-override mode '%s'\n", optarg);
+				return 1;
+			}
+			skel->rodata->cid_override_mode = mode;
+
+			/* shuffle: reversed cpu_to_cid, bad-dup: dup cid 0, bad-range: identity */
+			for (i = 0; i < nr_cpus; i++) {
+				if (mode == 1)
+					skel->bss->cid_override_cpu_to_cid[i] = nr_cpus - 1 - i;
+				else
+					skel->bss->cid_override_cpu_to_cid[i] = i;
+			}
+			if (mode == 2 && nr_cpus >= 2)
+				skel->bss->cid_override_cpu_to_cid[1] = 0;
+			if (mode == 3)
+				skel->bss->cid_override_cpu_to_cid[0] = (s32)nr_cpus;
+			break;
+		}
 		case 'v':
 			verbose = true;
 			break;
@@ -162,9 +200,9 @@ restart:
 		long nr_enqueued = qa->nr_enqueued;
 		long nr_dispatched = qa->nr_dispatched;
 
-		printf("stats  : enq=%lu dsp=%lu delta=%ld reenq/cpu0=%llu/%llu deq=%llu core=%llu enq_ddsp=%llu\n",
+		printf("stats  : enq=%lu dsp=%lu delta=%ld reenq/cid0=%llu/%llu deq=%llu core=%llu enq_ddsp=%llu\n",
 		       nr_enqueued, nr_dispatched, nr_enqueued - nr_dispatched,
-		       qa->nr_reenqueued, qa->nr_reenqueued_cpu0,
+		       qa->nr_reenqueued, qa->nr_reenqueued_cid0,
 		       qa->nr_dequeued,
 		       qa->nr_core_sched_execed,
 		       qa->nr_ddsp_from_enq);
@@ -173,7 +211,7 @@ restart:
 		       qa->nr_expedited_remote,
 		       qa->nr_expedited_from_timer,
 		       qa->nr_expedited_lost);
-		if (__COMPAT_has_ksym("scx_bpf_cpuperf_cur"))
+		if (__COMPAT_has_ksym("scx_bpf_cidperf_cur"))
 			printf("cpuperf: cur min/avg/max=%u/%u/%u target min/avg/max=%u/%u/%u\n",
 			       qa->cpuperf_min,
 			       qa->cpuperf_avg,
