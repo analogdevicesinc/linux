@@ -8891,6 +8891,28 @@ __bpf_kfunc void scx_bpf_kick_cpu(s32 cpu, u64 flags, const struct bpf_prog_aux 
 }
 
 /**
+ * scx_bpf_kick_cid - Trigger reschedule on the CPU mapped to @cid
+ * @cid: cid to kick
+ * @flags: %SCX_KICK_* flags
+ * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
+ *
+ * cid-addressed equivalent of scx_bpf_kick_cpu().
+ */
+__bpf_kfunc void scx_bpf_kick_cid(s32 cid, u64 flags, const struct bpf_prog_aux *aux)
+{
+	struct scx_sched *sch;
+	s32 cpu;
+
+	guard(rcu)();
+	sch = scx_prog_sched(aux);
+	if (unlikely(!sch))
+		return;
+	cpu = scx_cid_to_cpu(sch, cid);
+	if (cpu >= 0)
+		scx_kick_cpu(sch, cpu, flags);
+}
+
+/**
  * scx_bpf_dsq_nr_queued - Return the number of queued tasks
  * @dsq_id: id of the DSQ
  * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
@@ -9314,6 +9336,29 @@ __bpf_kfunc u32 scx_bpf_cpuperf_cap(s32 cpu, const struct bpf_prog_aux *aux)
 }
 
 /**
+ * scx_bpf_cidperf_cap - Query the maximum relative capacity of the CPU at @cid
+ * @cid: cid of the CPU to query
+ * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
+ *
+ * cid-addressed equivalent of scx_bpf_cpuperf_cap().
+ */
+__bpf_kfunc u32 scx_bpf_cidperf_cap(s32 cid, const struct bpf_prog_aux *aux)
+{
+	struct scx_sched *sch;
+	s32 cpu;
+
+	guard(rcu)();
+
+	sch = scx_prog_sched(aux);
+	if (unlikely(!sch))
+		return SCX_CPUPERF_ONE;
+	cpu = scx_cid_to_cpu(sch, cid);
+	if (cpu < 0)
+		return SCX_CPUPERF_ONE;
+	return arch_scale_cpu_capacity(cpu);
+}
+
+/**
  * scx_bpf_cpuperf_cur - Query the current relative performance of a CPU
  * @cpu: CPU of interest
  * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
@@ -9339,6 +9384,29 @@ __bpf_kfunc u32 scx_bpf_cpuperf_cur(s32 cpu, const struct bpf_prog_aux *aux)
 		return arch_scale_freq_capacity(cpu);
 	else
 		return SCX_CPUPERF_ONE;
+}
+
+/**
+ * scx_bpf_cidperf_cur - Query the current performance of the CPU at @cid
+ * @cid: cid of the CPU to query
+ * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
+ *
+ * cid-addressed equivalent of scx_bpf_cpuperf_cur().
+ */
+__bpf_kfunc u32 scx_bpf_cidperf_cur(s32 cid, const struct bpf_prog_aux *aux)
+{
+	struct scx_sched *sch;
+	s32 cpu;
+
+	guard(rcu)();
+
+	sch = scx_prog_sched(aux);
+	if (unlikely(!sch))
+		return SCX_CPUPERF_ONE;
+	cpu = scx_cid_to_cpu(sch, cid);
+	if (cpu < 0)
+		return SCX_CPUPERF_ONE;
+	return arch_scale_freq_capacity(cpu);
 }
 
 /**
@@ -9402,6 +9470,31 @@ __bpf_kfunc void scx_bpf_cpuperf_set(s32 cpu, u32 perf, const struct bpf_prog_au
 }
 
 /**
+ * scx_bpf_cidperf_set - Set the performance target of the CPU at @cid
+ * @cid: cid of the CPU to target
+ * @perf: target performance level [0, %SCX_CPUPERF_ONE]
+ * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
+ *
+ * cid-addressed equivalent of scx_bpf_cpuperf_set().
+ */
+__bpf_kfunc void scx_bpf_cidperf_set(s32 cid, u32 perf,
+				     const struct bpf_prog_aux *aux)
+{
+	struct scx_sched *sch;
+	s32 cpu;
+
+	guard(rcu)();
+
+	sch = scx_prog_sched(aux);
+	if (unlikely(!sch))
+		return;
+	cpu = scx_cid_to_cpu(sch, cid);
+	if (cpu < 0)
+		return;
+	scx_bpf_cpuperf_set(cpu, perf, aux);
+}
+
+/**
  * scx_bpf_nr_node_ids - Return the number of possible node IDs
  *
  * All valid node IDs in the system are smaller than the returned value.
@@ -9419,6 +9512,47 @@ __bpf_kfunc u32 scx_bpf_nr_node_ids(void)
 __bpf_kfunc u32 scx_bpf_nr_cpu_ids(void)
 {
 	return nr_cpu_ids;
+}
+
+/**
+ * scx_bpf_nr_cids - Return the size of the cid space
+ *
+ * Equals num_possible_cpus(). All valid cids are in [0, return value).
+ */
+__bpf_kfunc u32 scx_bpf_nr_cids(void)
+{
+	return num_possible_cpus();
+}
+
+/**
+ * scx_bpf_nr_online_cids - Return current count of online CPUs in cid space
+ *
+ * Return num_online_cpus(). The standard model restarts the scheduler on
+ * hotplug, which lets schedulers treat [0, nr_online_cids) as the online
+ * range. Schedulers that prefer to handle hotplug without a restart should
+ * install a custom mapping via scx_bpf_cid_override() and track onlining
+ * through the ops.cid_online / ops.cid_offline callbacks.
+ */
+__bpf_kfunc u32 scx_bpf_nr_online_cids(void)
+{
+	return num_online_cpus();
+}
+
+/**
+ * scx_bpf_this_cid - Return the cid of the CPU this program is running on
+ *
+ * cid-addressed equivalent of bpf_get_smp_processor_id() for scx programs.
+ * The current cpu is trivially valid, so this is just a table lookup. Return
+ * -EINVAL if called from a non-SCX program before any scheduler has ever
+ * been enabled (the cid table is still unallocated at that point).
+ */
+__bpf_kfunc s32 scx_bpf_this_cid(void)
+{
+	s16 *tbl = READ_ONCE(scx_cpu_to_cid_tbl);
+
+	if (!tbl)
+		return -EINVAL;
+	return tbl[raw_smp_processor_id()];
 }
 
 /**
@@ -9467,6 +9601,23 @@ __bpf_kfunc bool scx_bpf_task_running(const struct task_struct *p)
 __bpf_kfunc s32 scx_bpf_task_cpu(const struct task_struct *p)
 {
 	return task_cpu(p);
+}
+
+/**
+ * scx_bpf_task_cid - cid a task is currently associated with
+ * @p: task of interest
+ *
+ * cid-addressed equivalent of scx_bpf_task_cpu(). task_cpu(p) is always a
+ * valid cpu, so this is just a table lookup. Return -EINVAL if called from
+ * a non-SCX program before any scheduler has ever been enabled.
+ */
+__bpf_kfunc s32 scx_bpf_task_cid(const struct task_struct *p)
+{
+	s16 *tbl = READ_ONCE(scx_cpu_to_cid_tbl);
+
+	if (!tbl)
+		return -EINVAL;
+	return tbl[task_cpu(p)];
 }
 
 /**
@@ -9544,6 +9695,30 @@ __bpf_kfunc struct task_struct *scx_bpf_cpu_curr(s32 cpu, const struct bpf_prog_
 	if (!scx_cpu_valid(sch, cpu, NULL))
 		return NULL;
 
+	return rcu_dereference(cpu_rq(cpu)->curr);
+}
+
+/**
+ * scx_bpf_cid_curr - Return the curr task on the CPU at @cid
+ * @cid: cid of interest
+ * @aux: implicit BPF argument to access bpf_prog_aux hidden from BPF progs
+ *
+ * cid-addressed equivalent of scx_bpf_cpu_curr(). Callers must hold RCU
+ * read lock (KF_RCU).
+ */
+__bpf_kfunc struct task_struct *scx_bpf_cid_curr(s32 cid, const struct bpf_prog_aux *aux)
+{
+	struct scx_sched *sch;
+	s32 cpu;
+
+	guard(rcu)();
+
+	sch = scx_prog_sched(aux);
+	if (unlikely(!sch))
+		return NULL;
+	cpu = scx_cid_to_cpu(sch, cid);
+	if (cpu < 0)
+		return NULL;
 	return rcu_dereference(cpu_rq(cpu)->curr);
 }
 
@@ -9734,6 +9909,7 @@ BTF_KFUNCS_START(scx_kfunc_ids_any)
 BTF_ID_FLAGS(func, scx_bpf_task_set_slice, KF_IMPLICIT_ARGS | KF_RCU);
 BTF_ID_FLAGS(func, scx_bpf_task_set_dsq_vtime, KF_IMPLICIT_ARGS | KF_RCU);
 BTF_ID_FLAGS(func, scx_bpf_kick_cpu, KF_IMPLICIT_ARGS)
+BTF_ID_FLAGS(func, scx_bpf_kick_cid, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_dsq_nr_queued, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_destroy_dsq, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_dsq_peek, KF_IMPLICIT_ARGS | KF_RCU_PROTECTED | KF_RET_NULL)
@@ -9748,16 +9924,24 @@ BTF_ID_FLAGS(func, scx_bpf_dump_bstr, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_cpuperf_cap, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_cpuperf_cur, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_cpuperf_set, KF_IMPLICIT_ARGS)
+BTF_ID_FLAGS(func, scx_bpf_cidperf_cap, KF_IMPLICIT_ARGS)
+BTF_ID_FLAGS(func, scx_bpf_cidperf_cur, KF_IMPLICIT_ARGS)
+BTF_ID_FLAGS(func, scx_bpf_cidperf_set, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_nr_node_ids)
 BTF_ID_FLAGS(func, scx_bpf_nr_cpu_ids)
+BTF_ID_FLAGS(func, scx_bpf_nr_cids)
+BTF_ID_FLAGS(func, scx_bpf_nr_online_cids)
+BTF_ID_FLAGS(func, scx_bpf_this_cid)
 BTF_ID_FLAGS(func, scx_bpf_get_possible_cpumask, KF_ACQUIRE)
 BTF_ID_FLAGS(func, scx_bpf_get_online_cpumask, KF_ACQUIRE)
 BTF_ID_FLAGS(func, scx_bpf_put_cpumask, KF_RELEASE)
 BTF_ID_FLAGS(func, scx_bpf_task_running, KF_RCU)
 BTF_ID_FLAGS(func, scx_bpf_task_cpu, KF_RCU)
+BTF_ID_FLAGS(func, scx_bpf_task_cid, KF_RCU)
 BTF_ID_FLAGS(func, scx_bpf_cpu_rq, KF_IMPLICIT_ARGS)
 BTF_ID_FLAGS(func, scx_bpf_locked_rq, KF_IMPLICIT_ARGS | KF_RET_NULL)
 BTF_ID_FLAGS(func, scx_bpf_cpu_curr, KF_IMPLICIT_ARGS | KF_RET_NULL | KF_RCU_PROTECTED)
+BTF_ID_FLAGS(func, scx_bpf_cid_curr, KF_IMPLICIT_ARGS | KF_RET_NULL | KF_RCU_PROTECTED)
 BTF_ID_FLAGS(func, scx_bpf_tid_to_task, KF_RET_NULL | KF_RCU_PROTECTED)
 BTF_ID_FLAGS(func, scx_bpf_now)
 BTF_ID_FLAGS(func, scx_bpf_events)
