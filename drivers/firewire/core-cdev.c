@@ -1424,23 +1424,20 @@ static void release_iso_resource_auto(struct client *client, struct client_resou
 	schedule_iso_resource_auto(r, 0);
 }
 
-static int init_iso_resource(struct client *client, struct fw_cdev_allocate_iso_resource *request)
+static int ioctl_allocate_iso_resource(struct client *client, union ioctl_arg *arg)
 {
-	struct iso_resource_event *e1, *e2;
-	struct iso_resource_auto *r;
-	int ret;
+	struct fw_cdev_allocate_iso_resource *request = &arg->allocate_iso_resource;
+	struct iso_resource_event *e1 __free(kfree) = kmalloc_obj(*e1);
+	struct iso_resource_event *e2 __free(kfree) = kmalloc_obj(*e2);
+	struct iso_resource_auto *r  __free(kfree) = kmalloc_obj(*r);
+	int err;
 
-	r = kmalloc_obj(*r);
-	e1 = kmalloc_obj(*e1);
-	e2 = kmalloc_obj(*e2);
-	if (r == NULL || e1 == NULL || e2 == NULL) {
-		ret = -ENOMEM;
-		goto fail;
-	}
+	if (!r || !e1 || !e2)
+		return -ENOMEM;
 
-	ret = fill_iso_resource_params(&r->params, request);
-	if (ret < 0)
-		goto fail;
+	err = fill_iso_resource_params(&r->params, request);
+	if (err < 0)
+		return  err;
 
 	INIT_DELAYED_WORK(&r->work, iso_resource_auto_work);
 	r->client	= client;
@@ -1449,31 +1446,21 @@ static int init_iso_resource(struct client *client, struct fw_cdev_allocate_iso_
 	r->e_dealloc	= e2;
 
 	e1->iso_resource.closure = request->closure;
-	e1->iso_resource.type    = FW_CDEV_EVENT_ISO_RESOURCE_ALLOCATED;
+	e1->iso_resource.type = FW_CDEV_EVENT_ISO_RESOURCE_ALLOCATED;
 	e2->iso_resource.closure = request->closure;
-	e2->iso_resource.type    = FW_CDEV_EVENT_ISO_RESOURCE_DEALLOCATED;
+	e2->iso_resource.type = FW_CDEV_EVENT_ISO_RESOURCE_DEALLOCATED;
 
 	r->resource.release = release_iso_resource_auto;
-	ret = add_client_resource(client, &r->resource, GFP_KERNEL);
-	if (ret < 0)
-		goto fail;
-	schedule_iso_resource_auto(r, 0);
-
+	err = add_client_resource(client, &r->resource, GFP_KERNEL);
+	if (err < 0)
+		return err;
 	request->handle = r->resource.handle;
 
+	retain_and_null_ptr(e1);
+	retain_and_null_ptr(e2);
+	schedule_iso_resource_auto(no_free_ptr(r), 0);
+
 	return 0;
- fail:
-	kfree(r);
-	kfree(e1);
-	kfree(e2);
-
-	return ret;
-}
-
-static int ioctl_allocate_iso_resource(struct client *client,
-				       union ioctl_arg *arg)
-{
-	return init_iso_resource(client, &arg->allocate_iso_resource);
 }
 
 static int ioctl_deallocate_iso_resource(struct client *client,
