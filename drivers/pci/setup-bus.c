@@ -1501,9 +1501,9 @@ static void pdev_assign_fixed_resources(struct pci_dev *dev)
 	}
 }
 
-void __pci_bus_assign_resources(const struct pci_bus *bus,
-				struct list_head *add_list,
-				struct list_head *fail_head)
+static void __pci_bus_assign_resources_one(const struct pci_bus *bus,
+					   struct list_head *add_list,
+					   struct list_head *fail_head)
 {
 	struct pci_bus *b;
 	struct pci_dev *dev;
@@ -1517,7 +1517,7 @@ void __pci_bus_assign_resources(const struct pci_bus *bus,
 		if (!b)
 			continue;
 
-		__pci_bus_assign_resources(b, add_list, fail_head);
+		__pci_bus_assign_resources_one(b, add_list, fail_head);
 
 		switch (dev->hdr_type) {
 		case PCI_HEADER_TYPE_BRIDGE:
@@ -1535,6 +1535,16 @@ void __pci_bus_assign_resources(const struct pci_bus *bus,
 			break;
 		}
 	}
+}
+
+void __pci_bus_assign_resources(const struct pci_bus *bus,
+				struct list_head *add_list,
+				struct list_head *fail_head)
+{
+	__pci_bus_assign_resources_one(bus, add_list, fail_head);
+
+	if (WARN_ON_ONCE(add_list && !list_empty(add_list)))
+		pci_dev_res_free_list(add_list);
 }
 
 void pci_bus_assign_resources(const struct pci_bus *bus)
@@ -1641,6 +1651,9 @@ static void __pci_bridge_assign_resources(const struct pci_dev *bridge,
 			 pci_domain_nr(b), b->number);
 		break;
 	}
+
+	if (WARN_ON_ONCE(add_list && !list_empty(add_list)))
+		pci_dev_res_free_list(add_list);
 }
 
 static void pci_bridge_release_resources(struct pci_bus *bus,
@@ -2205,8 +2218,6 @@ void pci_assign_unassigned_root_bus_resources(struct pci_bus *bus)
 
 		/* Depth last, allocate resources and update the hardware. */
 		__pci_bus_assign_resources(bus, add_list, &fail_head);
-		if (WARN_ON_ONCE(add_list && !list_empty(add_list)))
-			pci_dev_res_free_list(add_list);
 		tried_times++;
 
 		/* Any device complain? */
@@ -2268,8 +2279,6 @@ void pci_assign_unassigned_bridge_resources(struct pci_dev *bridge)
 		pci_bridge_distribute_available_resources(bridge, &add_list);
 
 		__pci_bridge_assign_resources(bridge, &add_list, &fail_head);
-		if (WARN_ON_ONCE(!list_empty(&add_list)))
-			pci_dev_res_free_list(&add_list);
 		tried_times++;
 
 		if (list_empty(&fail_head))
@@ -2339,8 +2348,6 @@ static int pbus_reassign_bridge_resources(struct pci_bus *bus, struct resource *
 
 	__pci_bus_size_bridges(bridge->subordinate, &add_list);
 	__pci_bridge_assign_resources(bridge, &add_list, &failed);
-	if (WARN_ON_ONCE(!list_empty(&add_list)))
-		pci_dev_res_free_list(&add_list);
 
 	if (!list_empty(&failed)) {
 		if (pci_required_resource_failed(&failed, type))
@@ -2473,7 +2480,5 @@ void pci_assign_unassigned_bus_resources(struct pci_bus *bus)
 			__pci_bus_size_bridges(dev->subordinate, &add_list);
 	up_read(&pci_bus_sem);
 	__pci_bus_assign_resources(bus, &add_list, NULL);
-	if (WARN_ON_ONCE(!list_empty(&add_list)))
-		pci_dev_res_free_list(&add_list);
 }
 EXPORT_SYMBOL_GPL(pci_assign_unassigned_bus_resources);
