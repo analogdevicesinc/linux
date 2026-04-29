@@ -1444,7 +1444,7 @@ static int npc_install_flow(struct rvu *rvu, int blkaddr, u16 target,
 	struct msg_rsp write_rsp;
 	struct mcam_entry *entry;
 	bool new = false;
-	u16 entry_index;
+	int entry_index;
 	int err;
 
 	installed_features = req->features;
@@ -1477,6 +1477,14 @@ static int npc_install_flow(struct rvu *rvu, int blkaddr, u16 target,
 	if (req->default_rule) {
 		entry_index = npc_get_nixlf_mcam_index(mcam, target, nixlf,
 						       NIXLF_UCAST_ENTRY);
+
+		if (entry_index < 0) {
+			dev_err(rvu->dev,
+				"%s: Error to get ucast entry for target=%#x\n",
+				__func__, target);
+			return -EINVAL;
+		}
+
 		enable = is_mcam_entry_enabled(rvu, mcam, blkaddr, entry_index);
 	}
 
