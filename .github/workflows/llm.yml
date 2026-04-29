@@ -36,6 +36,7 @@ on:
       ref:
         required: false
         type: string
+        default: ${{ github.ref }}
       prompt:
         required: false
         type: string
