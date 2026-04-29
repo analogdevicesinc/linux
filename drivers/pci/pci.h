@@ -947,7 +947,8 @@ int pci_iov_init(struct pci_dev *dev);
 void pci_iov_release(struct pci_dev *dev);
 void pci_iov_remove(struct pci_dev *dev);
 void pci_iov_update_resource(struct pci_dev *dev, int resno);
-resource_size_t pci_sriov_resource_alignment(struct pci_dev *dev, int resno);
+resource_size_t pci_sriov_resource_alignment(const struct pci_dev *dev,
+					     int resno);
 void pci_restore_iov_state(struct pci_dev *dev);
 int pci_iov_bus_range(struct pci_bus *bus);
 void pci_iov_resource_set_size(struct pci_dev *dev, int resno, int size);
@@ -981,7 +982,7 @@ static inline int pci_iov_init(struct pci_dev *dev)
 static inline void pci_iov_release(struct pci_dev *dev) { }
 static inline void pci_iov_remove(struct pci_dev *dev) { }
 static inline void pci_iov_update_resource(struct pci_dev *dev, int resno) { }
-static inline resource_size_t pci_sriov_resource_alignment(struct pci_dev *dev,
+static inline resource_size_t pci_sriov_resource_alignment(const struct pci_dev *dev,
 							   int resno)
 {
 	return 0;

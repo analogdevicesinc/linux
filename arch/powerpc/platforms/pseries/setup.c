@@ -789,7 +789,7 @@ static void pseries_pci_fixup_iov_resources(struct pci_dev *pdev)
 		pseries_disable_sriov_resources(pdev);
 }
 
-static resource_size_t pseries_pci_iov_resource_alignment(struct pci_dev *pdev,
+static resource_size_t pseries_pci_iov_resource_alignment(const struct pci_dev *pdev,
 							  int resno)
 {
 	const __be32 *reg;
