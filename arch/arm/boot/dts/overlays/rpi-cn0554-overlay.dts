@@ -12,6 +12,12 @@
 
 / {
 	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2712";
+
+	__overrides__ {
+		cs_pin   = <&adc7214>,"reg:0";
+		irq_gpio = <&adc7214>,"interrupts:0",
+			   <&cn0554_irq_pin>,"brcm,pins:0";
+	};
 };
 
 &{/} {
