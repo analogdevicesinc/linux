@@ -286,6 +286,9 @@ static int amdgpu_ras_mgr_sw_init(struct amdgpu_ip_block *ip_block)
 	struct amdgpu_ras_mgr *ras_mgr;
 	int ret = 0;
 
+	if (!con)
+		return 0;
+
 	/* Disabled by default */
 	con->uniras_enabled = false;
 
@@ -349,11 +352,12 @@ static int amdgpu_ras_mgr_sw_fini(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
-	struct amdgpu_ras_mgr *ras_mgr = (struct amdgpu_ras_mgr *)con->ras_mgr;
+	struct amdgpu_ras_mgr *ras_mgr;
 
-	if (!con->uniras_enabled)
+	if (!con || !con->uniras_enabled)
 		return 0;
 
+	ras_mgr = amdgpu_ras_mgr_get_context(adev);
 	if (!ras_mgr)
 		return 0;
 
@@ -376,12 +380,13 @@ static int amdgpu_ras_mgr_hw_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
-	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	struct amdgpu_ras_mgr *ras_mgr;
 	int ret;
 
-	if (!con->uniras_enabled)
+	if (!con || !con->uniras_enabled)
 		return 0;
 
+	ras_mgr = amdgpu_ras_mgr_get_context(adev);
 	if (!ras_mgr || !ras_mgr->ras_core)
 		return -EINVAL;
 
@@ -409,11 +414,12 @@ static int amdgpu_ras_mgr_hw_fini(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
-	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	struct amdgpu_ras_mgr *ras_mgr;
 
-	if (!con->uniras_enabled)
+	if (!con || !con->uniras_enabled)
 		return 0;
 
+	ras_mgr = amdgpu_ras_mgr_get_context(adev);
 	if (!ras_mgr || !ras_mgr->ras_core)
 		return -EINVAL;
 
@@ -750,7 +756,7 @@ int amdgpu_ras_mgr_early_init_service(struct amdgpu_device *adev)
 	struct amdgpu_ras_mgr *ras_mgr;
 	int ret;
 
-	if (!con->uniras_enabled)
+	if (!con || !con->uniras_enabled)
 		return 0;
 
 	ras_mgr = amdgpu_ras_mgr_get_context(adev);
