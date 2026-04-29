@@ -40,6 +40,33 @@
 /* Default DAI format without Master and Slave flag */
 #define DAI_FMT_BASE (SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF)
 
+static const u32 cs42888_rates_48k[] = {
+	48000, 96000, 192000,
+};
+
+static const u32 cs42888_rates_44k[] = {
+	44100, 88200, 176400,
+};
+
+static const u32 cs42888_channels[] = {
+	1, 2, 4, 6, 8,
+};
+
+static const struct snd_pcm_hw_constraint_list cs42888_rate_48k_constraints = {
+	.list = cs42888_rates_48k,
+	.count = ARRAY_SIZE(cs42888_rates_48k),
+};
+
+static const struct snd_pcm_hw_constraint_list cs42888_rate_44k_constraints = {
+	.list = cs42888_rates_44k,
+	.count = ARRAY_SIZE(cs42888_rates_44k),
+};
+
+static const struct snd_pcm_hw_constraint_list cs42888_channel_constraints = {
+	.list = cs42888_channels,
+	.count = ARRAY_SIZE(cs42888_channels),
+};
+
 /**
  * struct codec_priv - CODEC private data
  * @mclk: Main clock of the CODEC
@@ -87,6 +114,8 @@ struct cpu_priv {
  * @codec_priv: CODEC private data
  * @cpu_priv: CPU private data
  * @card: ASoC card structure
+ * @constraint_rates: array of supported rates
+ * @constraint_channels: array of supported channels
  * @streams: Mask of current active streams
  * @sample_rate: Current sample rate
  * @sample_format: Current sample format
@@ -104,6 +133,8 @@ struct fsl_asoc_card_priv {
 	struct codec_priv codec_priv[2];
 	struct cpu_priv cpu_priv;
 	struct snd_soc_card card;
+	const struct snd_pcm_hw_constraint_list *constraint_rates;
+	const struct snd_pcm_hw_constraint_list *constraint_channels;
 	u8 streams;
 	u32 sample_rate;
 	snd_pcm_format_t sample_format;
@@ -291,7 +322,39 @@ static int fsl_asoc_card_hw_free(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+static int fsl_asoc_card_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct fsl_asoc_card_priv *priv = snd_soc_card_get_drvdata(rtd->card);
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	int ret;
+
+	if (priv->constraint_channels) {
+		ret = snd_pcm_hw_constraint_list(runtime, 0,
+						 SNDRV_PCM_HW_PARAM_CHANNELS,
+						 priv->constraint_channels);
+		if (ret)
+			return ret;
+	}
+
+	/*
+	 * Apply rate constraints only to frontend DAI links (no_pcm = 0).
+	 * Skip DPCM backend (no_pcm = 1) as rate is fixed by be_hw_params_fixup()
+	 * and ASRC frontend handles rate conversion.
+	 */
+	if (priv->constraint_rates && !rtd->dai_link->no_pcm) {
+		ret = snd_pcm_hw_constraint_list(runtime, 0,
+						 SNDRV_PCM_HW_PARAM_RATE,
+						 priv->constraint_rates);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static const struct snd_soc_ops fsl_asoc_card_ops = {
+	.startup = fsl_asoc_card_startup,
 	.hw_params = fsl_asoc_card_hw_params,
 	.hw_free = fsl_asoc_card_hw_free,
 };
@@ -753,6 +816,14 @@ static int fsl_asoc_card_probe(struct platform_device *pdev)
 		priv->cpu_priv.sysclk_dir[RX] = SND_SOC_CLOCK_OUT;
 		priv->cpu_priv.slot_width = 32;
 		priv->dai_fmt |= SND_SOC_DAIFMT_CBC_CFC;
+		priv->constraint_channels = &cs42888_channel_constraints;
+		if (priv->codec_priv[0].mclk_freq % 12288000 == 0)
+			priv->constraint_rates  = &cs42888_rate_48k_constraints;
+		else if (priv->codec_priv[0].mclk_freq % 11289600 == 0)
+			priv->constraint_rates = &cs42888_rate_44k_constraints;
+		else
+			dev_warn(&pdev->dev, "Unknown MCLK frequency %lu, no rate constraints\n",
+				 priv->codec_priv[0].mclk_freq);
 	} else if (of_device_is_compatible(np, "fsl,imx-audio-cs427x")) {
 		codec_dai_name[0] = "cs4271-hifi";
 		priv->codec_priv[0].mclk_id = CS427x_SYSCLK_MCLK;
