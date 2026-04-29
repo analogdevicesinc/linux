@@ -1055,5 +1055,6 @@ static inline u64 scx_clock_irq(u32 cpu)
 
 #include "compat.bpf.h"
 #include "enums.bpf.h"
+#include "cid.bpf.h"
 
 #endif	/* __SCX_COMMON_BPF_H */

@@ -127,4 +127,29 @@ static inline s32 scx_cpu_to_cid(struct scx_sched *sch, s32 cpu)
 	return __scx_cpu_to_cid(cpu);
 }
 
+static inline bool __scx_cmask_contains(const struct scx_cmask *m, u32 cid)
+{
+	return likely(cid >= m->base && cid < m->base + m->nr_bits);
+}
+
+/* Word in bits[] covering @cid. @cid must satisfy __scx_cmask_contains(). */
+static inline u64 *__scx_cmask_word(const struct scx_cmask *m, u32 cid)
+{
+	return (u64 *)&m->bits[cid / 64 - m->base / 64];
+}
+
+static inline void scx_cmask_init(struct scx_cmask *m, u32 base, u32 nr_bits)
+{
+	m->base = base;
+	m->nr_bits = nr_bits;
+	memset(m->bits, 0, SCX_CMASK_NR_WORDS(nr_bits) * sizeof(u64));
+}
+
+static inline void __scx_cmask_set(struct scx_cmask *m, u32 cid)
+{
+	if (!__scx_cmask_contains(m, cid))
+		return;
+	*__scx_cmask_word(m, cid) |= BIT_U64(cid & 63);
+}
+
 #endif /* _KERNEL_SCHED_EXT_CID_H */
