@@ -52,7 +52,7 @@ static void __get_nps_pa_flip_bits(struct ras_core_context *ras_core,
 			enum umc_memory_partition_mode nps,
 			struct umc_flip_bits *flip_bits)
 {
-	uint32_t vram_type = ras_core->ras_umc.umc_vram_type;
+	uint32_t vram_type = ras_core_get_vram_type(ras_core);
 	u32 num_umc = ras_core->ras_umc.num_umc;
 
 	/* default setting */

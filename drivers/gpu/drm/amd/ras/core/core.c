@@ -538,14 +538,42 @@ int ras_core_handle_fatal_error(struct ras_core_context *ras_core)
 
 uint32_t ras_core_get_curr_nps_mode(struct ras_core_context *ras_core)
 {
-	if (!ras_core)
-		return 0;
+	int ret;
 
-	if (ras_core->ras_nbio.ip_func &&
-	    ras_core->ras_nbio.ip_func->get_memory_partition_mode)
-		return ras_core->ras_nbio.ip_func->get_memory_partition_mode(ras_core);
+	if (!ras_core->sys_fn || !ras_core->sys_fn->get_nps_mode) {
+		RAS_DEV_ERR(ras_core->dev, "Cannot get memory nps mode!\n");
+		return UMC_MEMORY_PARTITION_MODE_UNKNOWN;
+	}
 
-	return UMC_MEMORY_PARTITION_MODE_UNKNOWN;
+	ret = ras_core->sys_fn->get_nps_mode(ras_core);
+	if (ret < 0) {
+		RAS_DEV_ERR(ras_core->dev, "Failed to get memory nps mode!\n");
+		return UMC_MEMORY_PARTITION_MODE_UNKNOWN;
+	} else if (!ret) {
+		RAS_DEV_WARN(ras_core->dev, "None nps mode!\n");
+	}
+
+	return ret;
+}
+
+uint32_t ras_core_get_vram_type(struct ras_core_context *ras_core)
+{
+	int ret;
+
+	if (!ras_core->sys_fn || !ras_core->sys_fn->get_vram_type) {
+		RAS_DEV_ERR(ras_core->dev, "Cannot get vram type!\n");
+		return UMC_VRAM_TYPE_UNKNOWN;
+	}
+
+	ret = ras_core->sys_fn->get_vram_type(ras_core);
+	if (ret < 0) {
+		RAS_DEV_ERR(ras_core->dev, "Failed to get vram type!\n");
+		return UMC_VRAM_TYPE_UNKNOWN;
+	} else if (!ret) {
+		RAS_DEV_WARN(ras_core->dev, "None vram type!\n");
+	}
+
+	return ret;
 }
 
 int ras_core_update_ecc_info(struct ras_core_context *ras_core)

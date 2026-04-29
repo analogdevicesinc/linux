@@ -161,13 +161,11 @@ struct eeprom_store_record {
 struct ras_umc_err_data {
 	struct eeprom_store_record rom_data;
 	struct eeprom_store_record ram_data;
-	enum umc_memory_partition_mode umc_nps_mode;
 	uint64_t last_retired_pfn;
 };
 
 struct ras_umc {
 	u32 umc_ip_version;
-	u32 umc_vram_type;
 	u32 num_umc;
 	/* this node's base in the hive PA space: physical_node_id * lfb_size */
 	u64 pa_base;

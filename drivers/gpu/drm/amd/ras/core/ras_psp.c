@@ -81,12 +81,22 @@ static int ras_psp_get_ras_ta_init_param(struct ras_core_context *ras_core,
 	struct ras_ta_init_param *ras_ta_param)
 {
 	struct ras_psp *psp = &ras_core->ras_psp;
+	int ret;
 
-	if (psp->sys_func && psp->sys_func->get_ras_ta_init_param)
-		return psp->sys_func->get_ras_ta_init_param(ras_core, ras_ta_param);
+	if (!psp->sys_func || !psp->sys_func->get_ras_ta_init_param) {
+		RAS_DEV_ERR(ras_core->dev, "Not config get_ras_ta_init_param API!!\n");
+		return -EINVAL;
+	}
 
-	RAS_DEV_ERR(ras_core->dev, "Not config get_ras_ta_init_param API!!\n");
-	return -EACCES;
+	ret = psp->sys_func->get_ras_ta_init_param(ras_core, ras_ta_param);
+	if (ret)
+		return ret;
+
+	ras_ta_param->nps_mode = ras_core_get_curr_nps_mode(ras_core);
+	ras_ta_param->vram_type = ras_core_get_vram_type(ras_core);
+	ras_ta_param->poison_mode_en = ras_core_poison_supported(ras_core) ? 1 : 0;
+
+	return 0;
 }
 
 static struct gpu_mem_block *ras_psp_get_gpu_mem(struct ras_core_context *ras_core,

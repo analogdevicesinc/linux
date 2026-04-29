@@ -503,7 +503,7 @@ static bool ras_umc_check_retired_record(struct ras_core_context *ras_core,
 	int i, ret;
 
 	if (from_eeprom) {
-		nps = ras_umc->umc_err_data.umc_nps_mode;
+		nps = ras_core_get_curr_nps_mode(ras_core);
 		ret = ras_umc_eeprom_rec2nps_rec(ras_core, record, nps);
 		if (ret)
 			RAS_DEV_WARN_RATELIMITED(ras_core->dev,
@@ -839,24 +839,8 @@ int ras_umc_sw_fini(struct ras_core_context *ras_core)
 int ras_umc_hw_init(struct ras_core_context *ras_core)
 {
 	struct ras_umc *ras_umc = &ras_core->ras_umc;
-	uint32_t nps;
 
-	nps = ras_core_get_curr_nps_mode(ras_core);
-
-	if (!nps || (nps >= UMC_MEMORY_PARTITION_MODE_UNKNOWN)) {
-		RAS_DEV_ERR(ras_core->dev, "Invalid memory NPS mode: %u!\n", nps);
-		return -ENODATA;
-	}
-
-	ras_umc->umc_err_data.umc_nps_mode = nps;
-
-	ras_umc->umc_vram_type = ras_core->config->umc_cfg.umc_vram_type;
 	ras_umc->num_umc = ras_core->config->umc_cfg.num_umc;
-	if (!ras_umc->umc_vram_type) {
-		RAS_DEV_ERR(ras_core->dev, "Invalid UMC VRAM Type: %u!\n",
-			ras_umc->umc_vram_type);
-		return -ENODATA;
-	}
 	ras_umc->pa_base = ras_core->config->umc_cfg.pa_base;
 	ras_umc->lfb_size = ras_core->config->umc_cfg.lfb_size;
 

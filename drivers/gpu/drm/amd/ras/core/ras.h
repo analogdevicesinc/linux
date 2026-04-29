@@ -269,6 +269,8 @@ struct ras_sys_func {
 	int (*put_gpu_mem)(struct ras_core_context *ras_core,
 		enum gpu_mem_type mem_type, struct gpu_mem_block *gpu_mem);
 	int (*check_address_sanity)(struct ras_core_context *ras_core, uint64_t addr);
+	int (*get_nps_mode)(struct ras_core_context *ras_core);
+	int (*get_vram_type)(struct ras_core_context *ras_core);
 };
 
 struct ras_ecc_count {
@@ -314,7 +316,6 @@ struct ras_psp_config {
 };
 
 struct ras_umc_config {
-	uint32_t umc_vram_type;
 	uint32_t num_umc;
 	/* this node's base in the hive PA space: physical_node_id * lfb_size */
 	uint64_t pa_base;
@@ -421,6 +422,7 @@ bool ras_core_handle_nbio_irq(struct ras_core_context *ras_core, void *data);
 int ras_core_handle_fatal_error(struct ras_core_context *ras_core);
 
 uint32_t ras_core_get_curr_nps_mode(struct ras_core_context *ras_core);
+uint32_t ras_core_get_vram_type(struct ras_core_context *ras_core);
 const char *ras_core_get_ras_block_name(enum ras_block_id block_id);
 int ras_core_convert_timestamp_to_time(struct ras_core_context *ras_core,
 			uint64_t timestamp, struct ras_time *tm);

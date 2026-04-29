@@ -267,10 +267,6 @@ static int amdgpu_ras_mgr_get_ras_ta_init_param(struct ras_core_context *ras_cor
 	struct ras_ta_init_param *ras_ta_param)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
-	uint32_t nps_mode;
-
-	if (ras_core_poison_supported(ras_core))
-		ras_ta_param->poison_mode_en = 1;
 
 	if (!adev->gmc.xgmi.connected_to_cpu && !adev->gmc.is_app_apu)
 		ras_ta_param->dgpu_mode = 1;
@@ -279,11 +275,7 @@ static int amdgpu_ras_mgr_get_ras_ta_init_param(struct ras_core_context *ras_cor
 	ras_ta_param->channel_dis_num = hweight32(adev->gmc.m_half_use) * 2;
 
 	ras_ta_param->active_umc_mask = lower_32_bits(adev->umc.active_mask);
-	ras_ta_param->vram_type = (uint8_t)adev->gmc.vram_type;
 	ras_ta_param->ext_umc_mask = upper_32_bits(adev->umc.active_mask);
-
-	if (!amdgpu_ras_mgr_get_curr_nps_mode(adev, &nps_mode))
-		ras_ta_param->nps_mode = nps_mode;
 
 	return 0;
 }
@@ -308,7 +300,6 @@ static int amdgpu_ras_mgr_init_umc_config(struct amdgpu_device *adev,
 {
 	struct ras_umc_config *umc_cfg = &config->umc_cfg;
 
-	umc_cfg->umc_vram_type = adev->gmc.vram_type;
 	umc_cfg->num_umc = adev->gmc.num_umc;
 	umc_cfg->lfb_size = adev->gmc.xgmi.node_segment_size;
 	umc_cfg->pa_base = amdgpu_xgmi_get_relative_phy_addr(adev, 0x0ULL);
