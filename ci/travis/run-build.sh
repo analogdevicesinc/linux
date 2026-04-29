@@ -180,6 +180,17 @@ build_default() {
 	[ -d /docker_build_dir ] && git config --global --add safe.directory /docker_build_dir
 
 	make ${DEFCONFIG}
+
+	# Verify defconfig is coherent before building. Saves some CI time.
+	make savedefconfig
+	mv defconfig arch/$ARCH/configs/$DEFCONFIG
+
+	git diff --exit-code || {
+		__echo_red "Defconfig file should be updated: 'arch/$ARCH/configs/$DEFCONFIG'"
+		__echo_red "Run 'make savedefconfig', overwrite it and commit it"
+		return 1
+	}
+
 	if [[ "${SYSTEM_PULLREQUEST_TARGETBRANCH}" =~ ^rpi-.* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi-.* \
 		|| "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/staging/rpi/* || "${BUILD_SOURCEBRANCH}" =~ ^refs/heads/rpi/release/* ]]; then
 		echo "Rpi build"
@@ -194,14 +205,6 @@ build_default() {
 		check_all_adi_files_have_been_built
 	fi
 
-	make savedefconfig
-	mv defconfig arch/$ARCH/configs/$DEFCONFIG
-
-	git diff --exit-code || {
-		__echo_red "Defconfig file should be updated: 'arch/$ARCH/configs/$DEFCONFIG'"
-		__echo_red "Run 'make savedefconfig', overwrite it and commit it"
-		return 1
-	}
 }
 
 build_allmodconfig() {
