@@ -282,14 +282,14 @@ static bool is_uncorrelated_static_local(struct symbol *sym)
 }
 
 /*
- * Clang emits several useless .Ltmp_* code labels.
+ * .L symbols are assembler-local labels not present in kallsyms.  They must
+ * never become KLP relocations; instead their data is cloned into the patch
+ * module.  This covers .Ltmp* (Clang temp labels), .L__const.* (Clang local
+ * constants), and any other assembler-local pattern.
  */
-static bool is_clang_tmp_label(struct symbol *sym)
+static bool is_local_label(struct symbol *sym)
 {
-	return is_notype_sym(sym) &&
-	       is_text_sec(sym->sec) &&
-	       strstarts(sym->name, ".Ltmp") &&
-	       isdigit(sym->name[5]);
+	return strstarts(sym->name, ".L");
 }
 
 static bool is_special_section(struct section *sec)
@@ -388,7 +388,7 @@ static bool dont_correlate(struct symbol *sym)
 	       is_abs_sym(sym) ||
 	       is_prefix_func(sym) ||
 	       is_uncorrelated_static_local(sym) ||
-	       is_clang_tmp_label(sym) ||
+	       is_local_label(sym) ||
 	       is_string_sec(sym->sec) ||
 	       is_initcall_sym(sym) ||
 	       is_addressable_sym(sym) ||
