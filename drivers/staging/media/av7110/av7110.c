@@ -2265,7 +2265,7 @@ static int frontend_init(struct av7110 *av7110)
  * original Roberto Deza's hardware:
  *
  * rps1 code for budgetpatch will copy internal HS event to GPIO3 pin.
- * GPIO3 is in budget-patch hardware connectd to port B VSYNC
+ * GPIO3 is in budget-patch hardware connected to port B VSYNC
  * HS is an internal event of 7146, accessible with RPS
  * and temporarily raised high every n lines
  * (n in defined in the RPS_THRESH1 counter threshold)
