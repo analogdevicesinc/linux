@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# cat ./sbom.cdx.json | jq > ./sbom.cdx.pretty.json ; cat ./sbom.spdx.json | jq > ./sbom.spdx.pretty.json
 """
 Generate (tiny) SBOMs for a Linux kernel image.
   - CycloneDX 1.6 (sbom.cdx.json)
@@ -14,8 +15,8 @@ import hashlib
 import json
 import re
 import sys
-import uuid
 
+from urllib.parse import quote
 from os import path, sep, environ
 
 def _hash(filepath, alg):
@@ -50,22 +51,82 @@ def _spdx_license(filepath):
         return m.group(1).strip()
     return None
 
+def get_gitref(git_ref):
+    for ref_pre in ['refs/tags/', 'refs/heads/', 'refs/']:
+        # flattens tags and heads, for implicit branch to tag promotion.
+        if git_ref.startswith(ref_pre):
+            git_ref = git_ref[len(ref_pre):]
+            break
+
+    return git_ref.replace('/', '-')
+
+def get_component(ctx):
+    git_ref = get_gitref(ctx.get("git_ref", ""))
+
+    return f"linux-{git_ref}"
+
+def get_artifact(ctx):
+    compiler_name    = ctx.get("compiler_name", "")
+    defconfig        = ctx.get("kernel_defconfig")
+    arch             = ctx.get("compiler_arch")
+
+    return f"{defconfig}-{compiler_name}-{arch}"
+
+def get_purl_src(ctx):
+    git_sha = ctx.get("git_sha", "")
+
+    return f"pkg:generic/analog/linux@{git_sha}"
+
+def get_purl_out(ctx):
+    kernel_release   = ctx.get("kernel_release", "")
+    kernel           = ctx.get("kernel", "")
+    arch             = ctx.get("compiler_arch", "")
+    defconfig        = ctx.get("kernel_defconfig", "")
+    compiler_name    = ctx.get("compiler_name", "")
+    compiler_version = ctx.get("compiler_version", "")
+    git_ref          = ctx.get("git_ref", "")
+    git_sha          = ctx.get("git_sha", "")
+
+    qualifiers = {
+        "sha": git_sha,
+        "compiler": f"{compiler_name}-{compiler_version}",
+        "arch": arch,
+        "config": defconfig,
+        "image": kernel,
+        "ref": git_ref
+    }
+
+    qualifiers_ = []
+    for key, value in qualifiers.items():
+        safe = quote(value, safe='')
+        qualifiers_.append(f"{key}={safe}")
+
+    qualifiers_ = '&'.join(qualifiers_)
+
+    return f"pkg:generic/analog/linux@{kernel_release}?{qualifiers_}"
+
+def get_name(ctx):
+    return f"Linux Kernel"
+
+def get_description(ctx):
+    return "The Linux kernel is the core of any Linux operating system"
+
 def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
     """Return a CycloneDX 1.6 dict."""
-    kernel_release = ctx.get("kernel_release")
-    kernel_image   = ctx.get("kernel")
-    arch           = ctx.get("compiler_arch")
-    defconfig      = ctx.get("kernel_defconfig")
-    compiler_name  = ctx.get("compiler_name")
-    git_sha        = ctx.get("git_sha")
-    git_sha_ct     = ctx.get("git_sha_ct")
+    kernel_release   = ctx.get("kernel_release")
+    kernel           = ctx.get("kernel")
+    arch             = ctx.get("compiler_arch")
+    defconfig        = ctx.get("kernel_defconfig")
+    compiler_name    = ctx.get("compiler_name")
+    compiler_version = ctx.get("compiler_version")
+    git_sha          = ctx.get("git_sha")
+    git_sha_ct       = ctx.get("git_sha_ct")
 
     commit_iso = datetime.datetime.fromtimestamp(
         int(git_sha_ct), tz=datetime.timezone.utc
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    image_ref  = f"linux-{defconfig}-{compiler_name}-{arch}-{git_sha}"
-    image_path = path.join(dist, "boot", kernel_image)
+    image_path = path.join(dist, "boot", kernel)
 
     source_components = []
     for rel in source_files:
@@ -75,25 +136,23 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
             component["licenses"] = [{"expression": lic}]
         source_components.append(component)
 
-    github_repository = environ.get('GITHUB_REPOSITORY', '')
+    git_url = environ.get('GIT_URL', '')
+    purl_out = get_purl_out(ctx)
 
     return {
         "bomFormat": "CycloneDX",
         "specVersion": "1.6",
-        "serialNumber": f"urn:uuid:{uuid.uuid4()}",
+        "serialNumber": f"urn:purl:{purl_out}",
         "version": 1,
         "metadata": {
             "timestamp": commit_iso,
             "component": {
                 "type": "firmware",
-                "bom-ref": image_ref,
-                "name": f"Linux Kernel {kernel_image} {defconfig} {compiler_name} {arch}",
+                "bom-ref": get_artifact(ctx),
+                "name": get_name(ctx),
                 "version": kernel_release,
-                "description": (
-                    f"Linux Kernel {kernel_image} and modules for defconfig"
-                    f" {defconfig} arch {arch}, commit {git_sha}"
-                    f" based on {kernel_release}"
-                ),
+                "description": get_description(ctx),
+                "purl": purl_out,
                 "licenses": [{"expression": "GPL-2.0 WITH Linux-syscall-note"}],
                 **({"hashes": [
                     {"alg": "MD5",     "content": _hash(image_path, "md5")},
@@ -101,10 +160,14 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
                 ]} if _hash(image_path, "md5") else {}),
                 "externalReferences": [{
                     "type": "vcs",
-                    "url": f"https://github.com/{github_repository}",
-                    **({"comment": f"commit {git_sha}"} if git_sha else {}),
+                    "url": git_url,
+                    **({"comment": git_sha} if git_sha else {}),
                 }],
                 "components": source_components,
+                "properties": [{
+                    "name":  "hub.analog.com/component-id",
+                    "value": get_component(ctx),
+                }],
             },
         },
         "components": [],
@@ -139,11 +202,11 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
              │    └─ hasOutput [software_File (Image)]
              └─ Relationship: hasDeclaredLicense per file
     """
-    doc_uuid   = str(uuid.uuid4())
-    ns         = f"urn:spdx.dev:{doc_uuid}"
+    purl_src = f"urn:purl:{get_purl_src(ctx)}"
+    purl_out = f"urn:purl:{get_purl_out(ctx)}"
 
     kernel_release = ctx.get("kernel_release")
-    kernel_image   = ctx.get("kernel")
+    kernel         = ctx.get("kernel")
     arch           = ctx.get("compiler_arch")
     defconfig      = ctx.get("kernel_defconfig")
     compiler_name  = ctx.get("compiler_name")
@@ -155,19 +218,21 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         int(git_sha_ct), tz=datetime.timezone.utc
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    image_path = path.join(dist, "boot", kernel_image)
-    github_repository = environ.get("GITHUB_REPOSITORY", "")
+    image_path = path.join(dist, "boot", kernel)
+    git_url = environ.get('GIT_URL', '')
 
-    # Compact id helpers
-    def _id(tag):
-        return f"{ns}/{tag}"
+    def _id_out(tag):
+        return f"{purl_out}/{tag}"
 
-    id_doc     = _id("document")
-    id_sbom    = _id("sbom")
-    id_pkg     = _id("pkg/linux")
-    id_image   = _id("file/image")
-    id_build   = _id("build/0")
-    id_agent   = _id("agent/gen_sbom")
+    def _id_src(tag):
+        return f"{purl_src}/{tag}"
+
+    id_doc     = _id_out("document")
+    id_sbom    = _id_out("sbom")
+    id_pkg     = _id_out("pkg/linux")
+    id_image   = _id_out("file/image")
+    id_build   = _id_src("build/0")
+    id_agent   = _id_src("agent/gen_sbom")
 
     creation_info = {
         "type":        "CreationInfo",
@@ -190,7 +255,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
 
     def _lic_id(expr):
         if expr not in lic_expr_ids:
-            lid = _id(f"lic/{len(lic_expr_ids)}")
+            lid = _id_src(f"lic/{len(lic_expr_ids)}")
             lic_expr_ids[expr] = lid
             lic_expr_elems.append({
                 "type":                              "simplelicensing_LicenseExpression",
@@ -206,7 +271,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     file_ids      = []
 
     for idx, rel in enumerate(source_files):
-        fid = _id(f"file/src/{idx}")
+        fid = _id_src(f"file/src/{idx}")
         file_ids.append(fid)
 
         file_elements.append({
@@ -221,7 +286,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         if lic:
             license_rels.append({
                 "type":             "Relationship",
-                "spdxId":           _id(f"rel/license/{idx}"),
+                "spdxId":           _id_src(f"rel/license/{idx}"),
                 "creationInfo":     "_:creationinfo",
                 "relationshipType": "hasDeclaredLicense",
                 "from":             fid,
@@ -232,25 +297,32 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "type":             "software_Package",
         "spdxId":           id_pkg,
         "creationInfo":     "_:creationinfo",
-        "name":             f"linux-{defconfig}-{arch}",
+        "name":             get_name(ctx),
         "software_packageVersion": kernel_release,
         "software_primaryPurpose": "operatingSystem",
-        "description":      (
-            f"Linux Kernel for defconfig {defconfig} arch {arch},"
-            f" commit {git_sha}"
-        ),
+        "description": get_description(ctx),
     }
-    if github_repository:
-        package["externalRef"] = [{
-            "type":           "ExternalRef",
+    package["externalRef"] = [{
+        "type":            "ExternalRef",
+        "externalRefType": "packageManager",
+        "locator":         [get_purl_src(ctx)],
+    }]
+    package["extension"] = [{
+        "type":    "CustomExtension",
+        "name":    "hub.analog.com/component-id",
+        "payload": {"component_id": get_component(ctx)},
+    }]
+    if git_url:
+        package["externalRef"].append({
+            "type":            "ExternalRef",
             "externalRefType": "other",
-            "locator":        [f"https://github.com/{github_repository}"],
-            **({"comment": f"commit {git_sha}"} if git_sha else {}),
-        }]
+            "locator":         [git_url],
+            **({"comment": git_sha} if git_sha else {}),
+        })
 
     contains_rel = {
         "type":             "Relationship",
-        "spdxId":           _id("rel/contains"),
+        "spdxId":           _id_src("rel/contains"),
         "creationInfo":     "_:creationinfo",
         "relationshipType": "contains",
         "from":             id_pkg,
@@ -260,7 +332,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
 
     pkg_license_rel = {
         "type":             "Relationship",
-        "spdxId":           _id("rel/pkg-license"),
+        "spdxId":           _id_src("rel/pkg-license"),
         "creationInfo":     "_:creationinfo",
         "relationshipType": "hasDeclaredLicense",
         "from":             id_pkg,
@@ -271,7 +343,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "type":             "software_File",
         "spdxId":           id_image,
         "creationInfo":     "_:creationinfo",
-        "name":             kernel_image,
+        "name":             kernel,
         "software_fileKind": "file",
         "software_primaryPurpose": "executable",
     }
@@ -287,7 +359,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "type":              "build_Build",
         "spdxId":            id_build,
         "creationInfo":      "_:creationinfo",
-        "build_buildType":   "urn:spdx.dev:Kbuild",
+        "build_buildType":   "urn:analog.com:Kbuild",
     }
     if compiler_name and compiler_ver:
         build_elem["build_environment"] = [{
@@ -306,7 +378,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
 
     build_input_rel = {
         "type":             "Relationship",
-        "spdxId":           _id("rel/build-input"),
+        "spdxId":           _id_src("rel/build-input"),
         "creationInfo":     "_:creationinfo",
         "relationshipType": "hasInput",
         "from":             id_build,
@@ -316,7 +388,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
 
     build_output_rel = {
         "type":             "Relationship",
-        "spdxId":           _id("rel/build-output"),
+        "spdxId":           _id_src("rel/build-output"),
         "creationInfo":     "_:creationinfo",
         "relationshipType": "hasOutput",
         "from":             id_build,
@@ -326,8 +398,8 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
 
     all_element_ids = (
         [id_pkg, id_image, id_build,
-         _id("rel/contains"), _id("rel/pkg-license"),
-         _id("rel/build-input"), _id("rel/build-output")]
+         _id_src("rel/contains"), _id_src("rel/pkg-license"),
+         _id_src("rel/build-input"), _id_src("rel/build-output")]
         + file_ids
         + [r["spdxId"] for r in license_rels]
     )

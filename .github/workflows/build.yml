@@ -199,6 +199,7 @@ jobs:
     - name: Generate SBOM
       run: |
         [[ -f "$DIST/compile_commands.json" ]] || exit 0
+        export GIT_URL="${{ github.repositoryUrl }}"
         python3 ci/gen_sbom.py
         rm "$DIST/compile_commands.json"
 
