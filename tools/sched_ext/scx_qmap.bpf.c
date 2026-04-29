@@ -72,6 +72,13 @@ struct {
 
 struct qmap_arena __arena qa;
 
+/*
+ * Global idle-cid tracking, maintained via update_idle / cpu_offline and
+ * scanned by the direct-dispatch path. Allocated in qmap_init() from one
+ * arena page, sized to the full cid space.
+ */
+struct scx_cmask __arena *qa_idle_cids;
+
 /* Per-queue locks. Each in its own .data section as bpf_res_spin_lock requires. */
 __hidden struct bpf_res_spin_lock qa_q_lock0 SEC(".data.qa_q_lock0");
 __hidden struct bpf_res_spin_lock qa_q_lock1 SEC(".data.qa_q_lock1");
@@ -132,7 +139,17 @@ struct task_ctx {
 	bool			force_local;	/* Dispatch directly to local_dsq */
 	bool			highpri;
 	u64			core_sched_seq;
+	struct scx_cmask	cpus_allowed;	/* per-task affinity in cid space */
 };
+
+/*
+ * Slab stride for task_ctx. cpus_allowed's flex array bits[] overlaps the
+ * tail bytes appended per entry; struct_size() gives the actual per-entry
+ * footprint.
+ */
+#define TASK_CTX_STRIDE							\
+	struct_size_t(struct task_ctx, cpus_allowed.bits,		\
+		      CMASK_NR_WORDS(SCX_QMAP_MAX_CPUS))
 
 /* All task_ctx pointers are arena pointers. */
 typedef struct task_ctx __arena task_ctx_t;
@@ -161,20 +178,37 @@ static int qmap_spin_lock(struct bpf_res_spin_lock *lock)
 	return 0;
 }
 
-static s32 pick_direct_dispatch_cpu(struct task_struct *p, s32 prev_cpu)
+/*
+ * Try prev_cpu's cid, then scan taskc->cpus_allowed AND qa_idle_cids
+ * round-robin from prev_cid + 1. Atomic claim retries on race; bounded
+ * by IDLE_PICK_RETRIES to keep the verifier's insn budget in check.
+ */
+#define IDLE_PICK_RETRIES	16
+
+static s32 pick_direct_dispatch_cpu(struct task_struct *p, s32 prev_cpu,
+				    task_ctx_t *taskc)
 {
-	s32 cpu;
+	u32 nr_cids = scx_bpf_nr_cids();
+	s32 prev_cid, cid;
+	u32 i;
 
 	if (!always_enq_immed && p->nr_cpus_allowed == 1)
 		return prev_cpu;
 
-	if (scx_bpf_test_and_clear_cpu_idle(prev_cpu))
+	prev_cid = scx_bpf_cpu_to_cid(prev_cpu);
+	if (cmask_test_and_clear(qa_idle_cids, prev_cid))
 		return prev_cpu;
 
-	cpu = scx_bpf_pick_idle_cpu(p->cpus_ptr, 0);
-	if (cpu >= 0)
-		return cpu;
-
+	cid = prev_cid;
+	bpf_for(i, 0, IDLE_PICK_RETRIES) {
+		cid = cmask_next_and_set_wrap(&taskc->cpus_allowed,
+					      qa_idle_cids, cid + 1);
+		barrier_var(cid);
+		if (cid >= nr_cids)
+			return -1;
+		if (cmask_test_and_clear(qa_idle_cids, cid))
+			return scx_bpf_cid_to_cpu(cid);
+	}
 	return -1;
 }
 
@@ -286,7 +320,7 @@ s32 BPF_STRUCT_OPS(qmap_select_cpu, struct task_struct *p,
 	if (p->scx.weight < 2 && !(p->flags & PF_KTHREAD))
 		return prev_cpu;
 
-	cpu = pick_direct_dispatch_cpu(p, prev_cpu);
+	cpu = pick_direct_dispatch_cpu(p, prev_cpu, taskc);
 
 	if (cpu >= 0) {
 		taskc->force_local = true;
@@ -379,7 +413,7 @@ void BPF_STRUCT_OPS(qmap_enqueue, struct task_struct *p, u64 enq_flags)
 
 	/* if select_cpu() wasn't called, try direct dispatch */
 	if (!__COMPAT_is_enq_cpu_selected(enq_flags) &&
-	    (cpu = pick_direct_dispatch_cpu(p, scx_bpf_task_cpu(p))) >= 0) {
+	    (cpu = pick_direct_dispatch_cpu(p, scx_bpf_task_cpu(p), taskc)) >= 0) {
 		__sync_fetch_and_add(&qa.nr_ddsp_from_enq, 1);
 		scx_bpf_dsq_insert(p, SCX_DSQ_LOCAL_ON | cpu, slice_ns, enq_flags);
 		return;
@@ -726,6 +760,10 @@ s32 BPF_STRUCT_OPS_SLEEPABLE(qmap_init_task, struct task_struct *p,
 	taskc->force_local = false;
 	taskc->highpri = false;
 	taskc->core_sched_seq = 0;
+	cmask_init(&taskc->cpus_allowed, 0, scx_bpf_nr_cids());
+	bpf_rcu_read_lock();
+	cmask_from_cpumask(&taskc->cpus_allowed, p->cpus_ptr);
+	bpf_rcu_read_unlock();
 
 	v = bpf_task_storage_get(&task_ctx_stor, p, NULL,
 				 BPF_LOCAL_STORAGE_GET_F_CREATE);
@@ -841,6 +879,48 @@ void BPF_STRUCT_OPS(qmap_cgroup_set_bandwidth, struct cgroup *cgrp,
 	if (print_msgs)
 		bpf_printk("CGRP SET %llu period=%lu quota=%ld burst=%lu",
 			   cgrp->kn->id, period_us, quota_us, burst_us);
+}
+
+void BPF_STRUCT_OPS(qmap_update_idle, s32 cpu, bool idle)
+{
+	s32 cid = scx_bpf_cpu_to_cid(cpu);
+
+	QMAP_TOUCH_ARENA();
+	if (cid < 0)
+		return;
+	if (idle)
+		cmask_set(qa_idle_cids, cid);
+	else
+		cmask_clear(qa_idle_cids, cid);
+}
+
+/*
+ * The cpumask received here is kernel-address memory; walk it bit by bit
+ * (bpf_cpumask_test_cpu handles the access), convert each set cpu to its
+ * cid, and populate the arena-resident taskc cmask.
+ */
+void BPF_STRUCT_OPS(qmap_set_cpumask, struct task_struct *p,
+		    const struct cpumask *cpumask)
+{
+	task_ctx_t *taskc;
+	u32 nr_cpu_ids = scx_bpf_nr_cpu_ids();
+	s32 cpu;
+
+	taskc = lookup_task_ctx(p);
+	if (!taskc)
+		return;
+
+	cmask_zero(&taskc->cpus_allowed);
+
+	bpf_for(cpu, 0, nr_cpu_ids) {
+		s32 cid;
+
+		if (!bpf_cpumask_test_cpu(cpu, cpumask))
+			continue;
+		cid = scx_bpf_cpu_to_cid(cpu);
+		if (cid >= 0)
+			__cmask_set(&taskc->cpus_allowed, cid);
+	}
 }
 
 struct monitor_timer {
@@ -992,34 +1072,57 @@ static int lowpri_timerfn(void *map, int *key, struct bpf_timer *timer)
 
 s32 BPF_STRUCT_OPS_SLEEPABLE(qmap_init)
 {
-	task_ctx_t *slab;
+	u8 __arena *slab;
 	u32 nr_pages, key = 0, i;
 	struct bpf_timer *timer;
 	s32 ret;
 
+	if (scx_bpf_nr_cids() > SCX_QMAP_MAX_CPUS) {
+		scx_bpf_error("nr_cids=%u exceeds SCX_QMAP_MAX_CPUS=%d",
+			      scx_bpf_nr_cids(), SCX_QMAP_MAX_CPUS);
+		return -EINVAL;
+	}
+
 	/*
 	 * Allocate the task_ctx slab in arena and thread the entire slab onto
-	 * the free list. max_tasks is set by userspace before load.
+	 * the free list. max_tasks is set by userspace before load. Each entry
+	 * is TASK_CTX_STRIDE bytes - task_ctx's trailing cpus_allowed flex
+	 * array extends into the stride tail.
 	 */
 	if (!max_tasks) {
 		scx_bpf_error("max_tasks must be > 0");
 		return -EINVAL;
 	}
 
-	nr_pages = (max_tasks * sizeof(struct task_ctx) + PAGE_SIZE - 1) / PAGE_SIZE;
+	nr_pages = (max_tasks * TASK_CTX_STRIDE + PAGE_SIZE - 1) / PAGE_SIZE;
 	slab = bpf_arena_alloc_pages(&arena, NULL, nr_pages, NUMA_NO_NODE, 0);
 	if (!slab) {
 		scx_bpf_error("failed to allocate task_ctx slab");
 		return -ENOMEM;
 	}
-	qa.task_ctxs = slab;
+	qa.task_ctxs = (task_ctx_t *)slab;
 
 	bpf_for(i, 0, 5)
 		qa.fifos[i].idx = i;
 
-	bpf_for(i, 0, max_tasks)
-		slab[i].next_free = (i + 1 < max_tasks) ? &slab[i + 1] : NULL;
-	qa.task_free_head = &slab[0];
+	bpf_for(i, 0, max_tasks) {
+		task_ctx_t *cur = (task_ctx_t *)(slab + i * TASK_CTX_STRIDE);
+		task_ctx_t *next = (i + 1 < max_tasks) ?
+			(task_ctx_t *)(slab + (i + 1) * TASK_CTX_STRIDE) : NULL;
+		cur->next_free = next;
+	}
+	qa.task_free_head = (task_ctx_t *)slab;
+
+	/*
+	 * Allocate and initialize the idle cmask. Starts empty - update_idle
+	 * fills it as cpus enter idle.
+	 */
+	qa_idle_cids = bpf_arena_alloc_pages(&arena, NULL, 1, NUMA_NO_NODE, 0);
+	if (!qa_idle_cids) {
+		scx_bpf_error("failed to allocate idle cmask");
+		return -ENOMEM;
+	}
+	cmask_init(qa_idle_cids, 0, scx_bpf_nr_cids());
 
 	ret = scx_bpf_create_dsq(SHARED_DSQ, -1);
 	if (ret) {
@@ -1104,6 +1207,8 @@ SCX_OPS_DEFINE(qmap_ops,
 	       .dispatch		= (void *)qmap_dispatch,
 	       .tick			= (void *)qmap_tick,
 	       .core_sched_before	= (void *)qmap_core_sched_before,
+	       .set_cpumask		= (void *)qmap_set_cpumask,
+	       .update_idle		= (void *)qmap_update_idle,
 	       .init_task		= (void *)qmap_init_task,
 	       .exit_task		= (void *)qmap_exit_task,
 	       .dump			= (void *)qmap_dump,
