@@ -6741,6 +6741,8 @@ static void intel_enable_crtc(struct intel_atomic_state *state,
 
 	display->funcs.display->crtc_enable(state, crtc);
 
+	intel_crtc_wait_for_next_vblank(crtc);
+
 	/* vblanks work again, re-enable pipe CRC. */
 	intel_crtc_enable_pipe_crc(crtc);
 }
