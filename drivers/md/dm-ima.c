@@ -357,17 +357,6 @@ void dm_ima_measure_on_device_resume(struct mapped_device *md, bool swap,
 
 	wait_to_measure(&md->ima, context->update_idx);
 
-	device_table_data = dm_ima_alloc(DM_IMA_DEVICE_BUF_LEN, noio);
-	if (!device_table_data)
-		goto error;
-
-	capacity_len = dm_ima_alloc_and_copy_capacity_str(md, &capacity_str, noio);
-	if (capacity_len < 0)
-		goto error;
-
-	memcpy(device_table_data + l, DM_IMA_VERSION_STR, strlen(DM_IMA_VERSION_STR));
-	l += strlen(DM_IMA_VERSION_STR);
-
 	if (swap) {
 		kfree(md->ima.active_table.hash);
 		kfree(md->ima.active_table.device_metadata);
@@ -387,6 +376,17 @@ void dm_ima_measure_on_device_resume(struct mapped_device *md, bool swap,
 			table->device_metadata_len = strlen(table->device_metadata);
 		}
 	}
+
+	device_table_data = dm_ima_alloc(DM_IMA_DEVICE_BUF_LEN, noio);
+	if (!device_table_data)
+		goto error;
+
+	capacity_len = dm_ima_alloc_and_copy_capacity_str(md, &capacity_str, noio);
+	if (capacity_len < 0)
+		goto error;
+
+	memcpy(device_table_data + l, DM_IMA_VERSION_STR, strlen(DM_IMA_VERSION_STR));
+	l += strlen(DM_IMA_VERSION_STR);
 
 	if (md->ima.active_table.device_metadata) {
 		memcpy(device_table_data + l, md->ima.active_table.device_metadata,
@@ -621,11 +621,11 @@ void dm_ima_measure_on_table_clear(struct mapped_device *md,
 
 	dm_ima_measure_data("dm_table_clear", device_table_data, l, noio);
 
+error:
 	kfree(md->ima.inactive_table.hash);
 	kfree(md->ima.inactive_table.device_metadata);
 	memset(&md->ima.inactive_table, 0, sizeof(md->ima.inactive_table));
 
-error:
 	kfree(capacity_str);
 	kfree(device_table_data);
 
@@ -649,6 +649,8 @@ void dm_ima_measure_on_device_rename(struct mapped_device *md,
 
 	wait_to_measure(&md->ima, context->update_idx);
 
+	fix_context_strings(context);
+
 	combined_device_data = dm_ima_alloc(DM_IMA_DEVICE_BUF_LEN * 2, noio);
 	if (!combined_device_data)
 		goto exit;
@@ -662,10 +664,14 @@ void dm_ima_measure_on_device_rename(struct mapped_device *md,
 		old_device_data = md->ima.inactive_table.device_metadata;
 	else
 		old_device_data = "device_rename=no_data;";
-	fix_context_strings(context);
 	len = scnprintf(combined_device_data, DM_IMA_DEVICE_BUF_LEN * 2,
 			"%s%snew_name=%s,new_uuid=%s;%s", DM_IMA_VERSION_STR, old_device_data,
 			context->dev_name, context->dev_uuid, capacity_str);
+
+	dm_ima_measure_data("dm_device_rename", combined_device_data, len, noio);
+exit:
+	kfree(capacity_str);
+	kfree(combined_device_data);
 
 	if (md->ima.active_table.device_metadata) {
 		table = &md->ima.active_table;
@@ -680,12 +686,6 @@ void dm_ima_measure_on_device_rename(struct mapped_device *md,
 					table->num_targets);
 		table->device_metadata_len = strlen(table->device_metadata);
 	}
-
-	dm_ima_measure_data("dm_device_rename", combined_device_data, len, noio);
-
-exit:
-	kfree(capacity_str);
-	kfree(combined_device_data);
 
 	wake_next_measure(&md->ima);
 }
