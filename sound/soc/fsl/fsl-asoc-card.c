@@ -122,6 +122,7 @@ struct cpu_priv {
  * @asrc_rate: ASRC sample rate used by Back-Ends
  * @asrc_format: ASRC sample format used by Back-Ends
  * @dai_fmt: DAI format between CPU and CODEC
+ * @exclude_format: excluded format;
  * @name: Card name
  */
 
@@ -141,6 +142,7 @@ struct fsl_asoc_card_priv {
 	u32 asrc_rate;
 	snd_pcm_format_t asrc_format;
 	u32 dai_fmt;
+	u64 exclude_format;
 	char name[32];
 };
 
@@ -328,6 +330,14 @@ static int fsl_asoc_card_startup(struct snd_pcm_substream *substream)
 	struct fsl_asoc_card_priv *priv = snd_soc_card_get_drvdata(rtd->card);
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	int ret;
+
+	if (priv->exclude_format && !rtd->dai_link->no_pcm) {
+		ret = snd_pcm_hw_constraint_mask64(runtime,
+						   SNDRV_PCM_HW_PARAM_FORMAT,
+						   ~priv->exclude_format);
+		if (ret)
+			return ret;
+	}
 
 	if (priv->constraint_channels) {
 		ret = snd_pcm_hw_constraint_list(runtime, 0,
@@ -850,11 +860,30 @@ static int fsl_asoc_card_probe(struct platform_device *pdev)
 		priv->codec_priv[0].fll_id = WM8962_SYSCLK_FLL;
 		priv->codec_priv[0].pll_id = WM8962_FLL;
 		priv->dai_fmt |= SND_SOC_DAIFMT_CBP_CFP;
+		/*
+		 * WM8962 has same BCLK generation limitations as WM8960.
+		 * See WM8960 section for detailed explanation.
+		 */
+		if (of_node_name_eq(cpu_np, "sai"))
+			priv->exclude_format = SNDRV_PCM_FMTBIT_S20_3LE;
 	} else if (of_device_is_compatible(np, "fsl,imx-audio-wm8960")) {
 		codec_dai_name[0] = "wm8960-hifi";
 		priv->codec_priv[0].fll_id = WM8960_SYSCLK_AUTO;
 		priv->codec_priv[0].pll_id = WM8960_SYSCLK_AUTO;
 		priv->dai_fmt |= SND_SOC_DAIFMT_CBP_CFP;
+		/*
+		 * WM8960 in master mode cannot generate exact 1.92 MHz BCLK
+		 * required for S20_3LE (48kHz × 2ch × 20bit). Closest available
+		 * is 2.048 MHz (SYSCLK/6), which causes right channel corruption.
+		 *
+		 * In SAI master mode, SAI derive BCLK from MCLK using integer
+		 * dividers only. S20_3LE requires non-integer divider ratios
+		 * with standard MCLK frequencies. For example, 48kHz stereo
+		 * needs 1.920 MHz BCLK, which requires a divider of 6.4 from
+		 * 12.288 MHz MCLK (not an integer).
+		 */
+		if (of_node_name_eq(cpu_np, "sai"))
+			priv->exclude_format = SNDRV_PCM_FMTBIT_S20_3LE;
 	} else if (of_device_is_compatible(np, "fsl,imx-audio-ac97")) {
 		codec_dai_name[0] = "ac97-hifi";
 		priv->dai_fmt = SND_SOC_DAIFMT_AC97;
