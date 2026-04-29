@@ -343,9 +343,11 @@ struct mlx5_cmd_mailbox {
 	struct mlx5_cmd_mailbox *next;
 };
 
+struct mlx5_dma_pool_page;
 struct mlx5_buf_list {
 	void		       *buf;
 	dma_addr_t		map;
+	struct mlx5_dma_pool_page *frag_page;
 };
 
 struct mlx5_frag_buf {
