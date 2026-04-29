@@ -4,11 +4,7 @@ on:
   push:
     branches:
       - 'rpi-*.y'
-    paths-ignore:
-      - 'docs/**'
   pull_request:
-    paths-ignore:
-      - 'docs/**'
 
 jobs:
   checks:
