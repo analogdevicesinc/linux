@@ -14,7 +14,6 @@
 #define CDU_CFG_EN		BIT(0)
 #define CDU_CFG_LOCK            BIT(31)
 #define CDU_CFG_SEL_MASK	GENMASK(2, 1)
-#define CDU_CFG_SEL_SHIFT 	1
 
 #define CDU_CFG_POLL_DELAY_US   1
 #define CDU_CFG_POLL_TIMEOUT_US 100
@@ -24,6 +23,7 @@ struct clk_adi_cdu_mux {
 	void __iomem *cdu_cfg;
 	void __iomem *cdu_stat;
 	spinlock_t *cdu_lock;
+	const u8 *parent_sel;
 	u8 clko_stat_bit;
 };
 
@@ -45,8 +45,32 @@ static int sc5xx_cdu_wait_ready(struct clk_adi_cdu_mux *cdu_mux)
 static int sc5xx_cdu_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
+	unsigned long flags;
+	int ret;
+        u8 input_sel;
+	u32 reg;
 
-	
+	input_sel = cdu_mux->parent_sel[index];
+	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
+
+	ret = sc5xx_cdu_wait_ready(cdu_mux);
+	if (ret)
+		return ret;
+
+	reg = readl(cdu_mux->cdu_cfg);
+	if (reg & CDU_CFG_LOCK) {
+		spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
+		return -EPERM;
+	} 	
+
+	reg &= ~CDU_CFG_SEL_MASK;
+	reg |= FIELD_PREP(CDU_CFG_SEL_MASK, input_sel);
+
+	writel(reg, cdu_mux->cdu_cfg);
+
+	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
+
+	return sc5xx_cdu_wait_ready(cdu_mux);	
 }
 
 static u8 sc5xx_cdu_get_parent(struct clk_hw *hw) 
