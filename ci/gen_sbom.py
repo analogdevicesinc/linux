@@ -19,6 +19,9 @@ import sys
 from urllib.parse import quote
 from os import path, sep, environ
 
+tool_name = "linux-sbom-gen"
+tool_version = "1.0.0"
+
 def _hash(filepath, alg):
     if not path.isfile(filepath):
         return None
@@ -106,7 +109,7 @@ def get_purl_out(ctx):
     return f"pkg:generic/analog/linux@{kernel_release}?{qualifiers_}"
 
 def get_name(ctx):
-    return f"Linux Kernel"
+    return "Linux Kernel"
 
 def get_description(ctx):
     return "The Linux kernel is the core of any Linux operating system"
@@ -115,10 +118,6 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
     """Return a CycloneDX 1.6 dict."""
     kernel_release   = ctx.get("kernel_release")
     kernel           = ctx.get("kernel")
-    arch             = ctx.get("compiler_arch")
-    defconfig        = ctx.get("kernel_defconfig")
-    compiler_name    = ctx.get("compiler_name")
-    compiler_version = ctx.get("compiler_version")
     git_sha          = ctx.get("git_sha")
     git_sha_ct       = ctx.get("git_sha_ct")
 
@@ -146,6 +145,14 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
         "version": 1,
         "metadata": {
             "timestamp": commit_iso,
+            "tools": {
+                "components": [{
+                    "type":    "application",
+                    "author":  "analog",
+                    "name":    tool_name,
+                    "version": tool_version,
+                }],
+            },
             "component": {
                 "type": "firmware",
                 "bom-ref": get_artifact(ctx),
@@ -232,21 +239,22 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     id_pkg     = _id_out("pkg/linux")
     id_image   = _id_out("file/image")
     id_build   = _id_src("build/0")
-    id_agent   = _id_src("agent/gen_sbom")
+    id_tool    = _id_src(f"tool/{tool_name}")
 
     creation_info = {
-        "type":        "CreationInfo",
-        "@id":         "_:creationinfo",
-        "specVersion": "3.0.1",
-        "createdBy":   [id_agent],
-        "created":     created,
+        "type":         "CreationInfo",
+        "@id":          "_:creationinfo",
+        "specVersion":  "3.0.1",
+        "createdUsing": [id_tool],
+        "created":      created,
     }
 
-    agent = {
-        "type":         "SoftwareAgent",
-        "spdxId":       id_agent,
+    tool = {
+        "type":         "Tool",
+        "spdxId":       id_tool,
         "creationInfo": "_:creationinfo",
-        "name":         "gen_sbom.py",
+        "name":         tool_name,
+        "summary":      f"{tool_name} {tool_version}",
     }
 
     # Deduplicated inline LicenseExpression nodes
@@ -414,7 +422,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "software_sbomType": ["source"],
     }
 
-    doc_element_ids = [id_sbom, id_agent] + all_element_ids + [e["spdxId"] for e in lic_expr_elems]
+    doc_element_ids = [id_sbom, id_tool] + all_element_ids + [e["spdxId"] for e in lic_expr_elems]
 
     document = {
         "type":               "SpdxDocument",
@@ -428,7 +436,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     graph = [
         creation_info,
         document,
-        agent,
+        tool,
         sbom_elem,
         package,
         pkg_license_rel,
