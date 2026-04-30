@@ -334,7 +334,7 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
 						info.wcid);
 		} else {
 			struct airoha_gdm_port *port = netdev_priv(dev);
-			u8 pse_port;
+			u8 pse_port, channel;
 
 			if (!airoha_is_valid_gdm_port(eth, port))
 				return -EINVAL;
@@ -346,6 +346,14 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
 				pse_port = 2; /* uplink relies on GDM2
 					       * loopback
 					       */
+
+			/* For traffic forwarded to DSA devices select QoS
+			 * channel according to the DSA user port index, rely
+			 * on port id otherwise.
+			 */
+			channel = dsa_port >= 0 ? dsa_port : port->id;
+			channel = channel % AIROHA_NUM_QOS_CHANNELS;
+			qdata |= FIELD_PREP(AIROHA_FOE_CHANNEL, channel);
 
 			val |= FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, pse_port) |
 			       AIROHA_FOE_IB2_PSE_QOS;
