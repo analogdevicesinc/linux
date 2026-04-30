@@ -1553,26 +1553,27 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 		status = omap2_mcspi_request_dma(mcspi,
 						 &mcspi->dma_channels[i]);
 		if (status == -EPROBE_DEFER)
-			goto free_ctlr;
+			goto err_release_dma;
 	}
 
 	status = platform_get_irq(pdev, 0);
 	if (status < 0)
-		goto free_ctlr;
+		goto err_release_dma;
+
 	init_completion(&mcspi->txdone);
 	status = devm_request_irq(&pdev->dev, status,
 				  omap2_mcspi_irq_handler, 0, pdev->name,
 				  mcspi);
 	if (status) {
 		dev_err(&pdev->dev, "Cannot request IRQ");
-		goto free_ctlr;
+		goto err_release_dma;
 	}
 
 	mcspi->ref_clk = devm_clk_get_optional_enabled(&pdev->dev, NULL);
 	if (IS_ERR(mcspi->ref_clk)) {
 		status = PTR_ERR(mcspi->ref_clk);
 		dev_err_probe(&pdev->dev, status, "Failed to get ref_clk");
-		goto free_ctlr;
+		goto err_release_dma;
 	}
 	if (mcspi->ref_clk)
 		mcspi->ref_clk_hz = clk_get_rate(mcspi->ref_clk);
@@ -1587,19 +1588,19 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 
 	status = omap2_mcspi_controller_setup(mcspi);
 	if (status < 0)
-		goto disable_pm;
+		goto err_disable_rpm;
 
 	status = spi_register_controller(ctlr);
 	if (status < 0)
-		goto disable_pm;
+		goto err_disable_rpm;
 
 	return status;
 
-disable_pm:
+err_disable_rpm:
 	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
-free_ctlr:
+err_release_dma:
 	omap2_mcspi_release_dma(ctlr);
 
 	return status;
