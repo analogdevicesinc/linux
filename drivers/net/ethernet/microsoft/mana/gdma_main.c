@@ -194,6 +194,9 @@ static int mana_gd_query_max_resources(struct pci_dev *pdev)
 	if (gc->max_num_queues > gc->num_msix_usable - 1)
 		gc->max_num_queues = gc->num_msix_usable - 1;
 
+	if (gc->max_num_queues == 0)
+		return -ENOSPC;
+
 	return 0;
 }
 
