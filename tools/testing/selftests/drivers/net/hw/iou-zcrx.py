@@ -100,12 +100,22 @@ def rss(cfg):
     defer(ethtool, f"-N {cfg.ifname} delete {flow_rule_id}")
 
 
+def _require_ntuple(cfg):
+    features = ethtool(f"-k {cfg.ifname}", json=True)[0]
+    if not features["ntuple-filters"]["active"]:
+        if features["ntuple-filters"]["fixed"]:
+            raise KsftSkipEx("Device does not support ntuple-filters")
+        ethtool(f"-K {cfg.ifname} ntuple-filters on")
+        defer(ethtool, f"-K {cfg.ifname} ntuple-filters off")
+
+
 @ksft_variants([
     KsftNamedVariant("single", single),
     KsftNamedVariant("rss", rss),
 ])
 def test_zcrx(cfg, setup) -> None:
     cfg.require_ipver('6')
+    _require_ntuple(cfg)
 
     setup(cfg)
     rx_cmd = f"{cfg.bin_local} -s -p {cfg.port} -i {cfg.ifname} -q {cfg.target}"
@@ -121,6 +131,7 @@ def test_zcrx(cfg, setup) -> None:
 ])
 def test_zcrx_oneshot(cfg, setup) -> None:
     cfg.require_ipver('6')
+    _require_ntuple(cfg)
 
     setup(cfg)
     rx_cmd = f"{cfg.bin_local} -s -p {cfg.port} -i {cfg.ifname} -q {cfg.target} -o 4"
@@ -134,6 +145,7 @@ def test_zcrx_large_chunks(cfg) -> None:
     """Test zcrx with large buffer chunks."""
 
     cfg.require_ipver('6')
+    _require_ntuple(cfg)
 
     hp_file = "/proc/sys/vm/nr_hugepages"
     with open(hp_file, 'r+', encoding='utf-8') as f:
