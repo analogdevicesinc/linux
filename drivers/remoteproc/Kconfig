@@ -316,7 +316,6 @@ config ST_SLIM_REMOTEPROC
 config STM32_RPROC
 	tristate "STM32 remoteproc support"
 	depends on ARCH_STM32 || COMPILE_TEST
-	depends on REMOTEPROC
 	select MAILBOX
 	help
 	  Say y here to support STM32 MCU processors via the
