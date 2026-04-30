@@ -295,7 +295,8 @@ int32_t adi_ad9083_hal_div_nume_deno(adi_ad9083_device_t *device, uint64_t a,
     for (deno_index = 2; deno_index < 32; deno_index++)
       for (nume_index = 0; nume_index < deno_index; nume_index++) {
 #ifdef __KERNEL__
-        diff = div_u64((frac * 1000 - (b * 1000 * nume_index)), deno_index);
+        diff = (int64_t)(frac * 1000) -
+               (int64_t)div_u64(b * 1000 * (uint64_t)nume_index, deno_index);
 #else
         diff = frac * 1000 - (b * 1000 * nume_index) / deno_index;
 #endif
