@@ -98,7 +98,7 @@ static int find_sdca_function(struct acpi_device *adev, void *data)
 	u32 function_type;
 	int function_index;
 	u64 addr;
-	int ret;
+	int i, ret;
 
 	if (sdca_data->num_functions >= SDCA_MAX_FUNCTION_COUNT) {
 		dev_err(dev, "maximum number of functions exceeded\n");
@@ -159,6 +159,14 @@ static int find_sdca_function(struct acpi_device *adev, void *data)
 
 	/* store results */
 	function_index = sdca_data->num_functions;
+
+	for (i = 0; i < function_index; i++) {
+		if (sdca_data->function[i].type == function_type) {
+			sdca_data->function[function_index].duplicate = true;
+			break;
+		}
+	}
+
 	sdca_data->function[function_index].adr = addr;
 	sdca_data->function[function_index].type = function_type;
 	sdca_data->function[function_index].name = function_name;
@@ -1466,6 +1474,7 @@ static int find_sdca_entity_xu(struct device *dev,
 }
 
 static int find_sdca_entity(struct device *dev, struct sdw_slave *sdw,
+			    struct sdca_function_data *function,
 			    struct fwnode_handle *function_node,
 			    struct fwnode_handle *entity_node,
 			    struct sdca_entity *entity)
@@ -1479,6 +1488,13 @@ static int find_sdca_entity(struct device *dev, struct sdw_slave *sdw,
 		dev_err(dev, "%pfwP: entity %#x: label missing: %d\n",
 			function_node, entity->id, ret);
 		return ret;
+	}
+
+	if (function->desc->duplicate) {
+		entity->label = devm_kasprintf(dev, GFP_KERNEL, "%d %s",
+					       function->desc->adr, entity->label);
+		if (!entity->label)
+			return -ENOMEM;
 	}
 
 	ret = fwnode_property_read_u32(entity_node, "mipi-sdca-entity-type", &tmp);
@@ -1578,7 +1594,7 @@ static int find_sdca_entities(struct device *dev, struct sdw_slave *sdw,
 			return -EINVAL;
 		}
 
-		ret = find_sdca_entity(dev, sdw, function_node,
+		ret = find_sdca_entity(dev, sdw, function, function_node,
 				       entity_node, &entities[i]);
 		fwnode_handle_put(entity_node);
 		if (ret)
@@ -1605,7 +1621,13 @@ static struct sdca_entity *find_sdca_entity_by_label(struct sdca_function_data *
 						     const char *entity_label)
 {
 	struct sdca_entity *entity = NULL;
+	char tmp[64];
 	int i;
+
+	if (function->desc->duplicate) {
+		snprintf(tmp, sizeof(tmp), "%d %s", function->desc->adr, entity_label);
+		entity_label = tmp;
+	}
 
 	for (i = 0; i < function->num_entities; i++) {
 		entity = &function->entities[i];
