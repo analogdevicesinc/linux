@@ -33,11 +33,9 @@ SCRIPT="$(basename "$0")"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FIX_PATCH_LINES="$SCRIPT_DIR/fix-patch-lines"
 
-SRC="$(pwd)"
-OBJ="$(pwd)"
-
-CONFIG="$OBJ/.config"
-TMP_DIR="$OBJ/klp-tmp"
+OBJTOOL="$PWD/tools/objtool/objtool"
+CONFIG="$PWD/.config"
+TMP_DIR="$PWD/klp-tmp"
 
 ORIG_DIR="$TMP_DIR/orig"
 PATCHED_DIR="$TMP_DIR/patched"
@@ -88,7 +86,7 @@ declare -a STASHED_FILES
 
 stash_file() {
 	local file="$1"
-	local rel_file="${file#"$SRC"/}"
+	local rel_file="${file#"$PWD"/}"
 
 	[[ ! -e "$file" ]] && die "no file to stash: $file"
 
@@ -102,7 +100,7 @@ restore_files() {
 	local file
 
 	for file in "${STASHED_FILES[@]}"; do
-		mv -f "$STASH_DIR/$file" "$SRC/$file" || warn "can't restore file: $file"
+		mv -f "$STASH_DIR/$file" "$PWD/$file" || warn "can't restore file: $file"
 	done
 
 	STASHED_FILES=()
@@ -304,7 +302,7 @@ set_module_name() {
 # Hardcode the value printed by the localversion script to prevent patch
 # application from appending it with '+' due to a dirty working tree.
 set_kernelversion() {
-	local file="$SRC/scripts/setlocalversion"
+	local file="$PWD/scripts/setlocalversion"
 	local kernelrelease
 
 	stash_file "$file"
@@ -375,7 +373,7 @@ apply_patch() {
 
 	[[ ! -f "$patch" ]] && die "$patch doesn't exist"
 	status=0
-	output=$(patch -d "$SRC" -p1 --dry-run --no-backup-if-mismatch -r /dev/null "${extra_args[@]}" < "$patch" 2>&1) || status=$?
+	output=$(patch -p1 --dry-run --no-backup-if-mismatch -r /dev/null "${extra_args[@]}" < "$patch" 2>&1) || status=$?
 	if [[ "$status" -ne 0 ]]; then
 		echo "$output" >&2
 		die "$patch did not apply"
@@ -385,14 +383,14 @@ apply_patch() {
 	fi
 
 	APPLIED_PATCHES+=("$patch")
-	patch -d "$SRC" -p1 --no-backup-if-mismatch -r /dev/null "${extra_args[@]}" --silent < "$patch"
+	patch -p1 --no-backup-if-mismatch -r /dev/null "${extra_args[@]}" --silent < "$patch"
 }
 
 revert_patch() {
 	local patch="$1"
 	local tmp=()
 
-	patch -d "$SRC" -p1 -R --force --no-backup-if-mismatch -r /dev/null &> /dev/null < "$patch" || true
+	patch -p1 -R --force --no-backup-if-mismatch -r /dev/null &> /dev/null < "$patch" || true
 
 	for p in "${APPLIED_PATCHES[@]}"; do
 		[[ "$p" == "$patch" ]] && continue
@@ -430,8 +428,7 @@ validate_patches() {
 do_init() {
 	# We're not yet smart enough to handle anything other than in-tree
 	# builds in pwd.
-	[[ ! "$SRC" -ef "$SCRIPT_DIR/../.." ]] && die "please run from the kernel root directory"
-	[[ ! "$OBJ" -ef "$SCRIPT_DIR/../.." ]] && die "please run from the kernel root directory"
+	[[ ! "$PWD" -ef "$SCRIPT_DIR/../.." ]] && die "please run from the kernel root directory"
 
 	(( SHORT_CIRCUIT <= 1 )) && rm -rf "$TMP_DIR"
 	mkdir -p "$TMP_DIR"
@@ -462,11 +459,11 @@ refresh_patch() {
 	get_patch_output_files "$patch" | mapfile -t output_files
 
 	# Copy orig source files to 'a'
-	( cd "$SRC" && echo "${input_files[@]}" | xargs cp --parents --target-directory="$tmpdir/a" )
+	echo "${input_files[@]}" | xargs cp --parents --target-directory="$tmpdir/a"
 
 	# Copy patched source files to 'b'
 	apply_patch "$patch" "--silent"
-	( cd "$SRC" && echo "${output_files[@]}" | xargs cp --parents --target-directory="$tmpdir/b" )
+	echo "${output_files[@]}" | xargs cp --parents --target-directory="$tmpdir/b"
 	revert_patch "$patch"
 
 	# Diff 'a' and 'b' to make a clean patch
@@ -510,10 +507,7 @@ clean_kernel() {
 	cmd+=("-j$JOBS")
 	cmd+=("clean")
 
-	(
-		cd "$SRC"
-		"${cmd[@]}"
-	)
+	"${cmd[@]}"
 }
 
 build_kernel() {
@@ -554,12 +548,10 @@ build_kernel() {
 	cmd+=("vmlinux")
 	cmd+=("modules")
 
-	(
-		cd "$SRC"
-		"${cmd[@]}"							\
-			1> >(tee -a "$log")					\
-			2> >(tee -a "$log" | grep0 -v "modpost.*undefined!" >&2)
-	) || die "$build kernel build failed"
+	"${cmd[@]}"							\
+		1> >(tee -a "$log")					\
+		2> >(tee -a "$log" | grep0 -v "modpost.*undefined!" >&2) \
+		|| die "$build kernel build failed"
 }
 
 find_objects() {
@@ -567,9 +559,9 @@ find_objects() {
 
 	# Find root-level vmlinux.o and non-root-level .ko files,
 	# excluding klp-tmp/ and .git/
-	find "$OBJ" \( -path "$TMP_DIR" -o -path "$OBJ/.git" -o	-regex "$OBJ/[^/][^/]*\.ko" \) -prune -o \
+	find "$PWD" \( -path "$TMP_DIR" -o -path "$PWD/.git" -o -regex "$PWD/[^/][^/]*\.ko" \) -prune -o \
 		    -type f "${opts[@]}"				\
-		    \( -name "*.ko" -o -path "$OBJ/vmlinux.o" \)	\
+		    \( -name "*.ko" -o -path "$PWD/vmlinux.o" \)	\
 		    -printf '%P\n'
 }
 
@@ -585,7 +577,7 @@ copy_orig_objects() {
 	xtrace_save "copying orig objects"
 	for _file in "${files[@]}"; do
 		local rel_file="${_file/.ko/.o}"
-		local file="$OBJ/$rel_file"
+		local file="$PWD/$rel_file"
 		local orig_file="$ORIG_DIR/$rel_file"
 		local orig_dir="$(dirname "$orig_file")"
 
@@ -618,7 +610,7 @@ copy_patched_objects() {
 	xtrace_save "copying changed objects"
 	for _file in "${files[@]}"; do
 		local rel_file="${_file/.ko/.o}"
-		local file="$OBJ/$rel_file"
+		local file="$PWD/$rel_file"
 		local orig_file="$ORIG_DIR/$rel_file"
 		local patched_file="$PATCHED_DIR/$rel_file"
 		local patched_dir="$(dirname "$patched_file")"
@@ -663,7 +655,7 @@ diff_objects() {
 
 		mkdir -p "$(dirname "$out_file")"
 
-		cmd=("$SRC/tools/objtool/objtool")
+		cmd=("$OBJTOOL")
 		cmd+=("klp")
 		cmd+=("diff")
 		(( ${#opts[@]} > 0 )) && cmd+=("${opts[@]}")
@@ -716,7 +708,7 @@ diff_checksums() {
 		fi
 	done
 
-	cmd=("$SRC/tools/objtool/objtool")
+	cmd=("$OBJTOOL")
 	cmd+=("--checksum")
 	cmd+=("--link")
 	cmd+=("--dry-run")
@@ -774,7 +766,7 @@ build_patch_module() {
 	rm -rf "$KMOD_DIR"
 	mkdir -p "$KMOD_DIR"
 
-	cp -f "$SRC/scripts/livepatch/init.c" "$KMOD_DIR"
+	cp -f "$SCRIPT_DIR/init.c" "$KMOD_DIR"
 
 	echo "obj-m := $NAME.o" > "$makefile"
 	echo -n "$NAME-y := init.o" >> "$makefile"
@@ -820,12 +812,9 @@ build_patch_module() {
 	cmd+=("KCFLAGS=${cflags[*]}")
 
 	# Build a "normal" kernel module with init.c and the diffed objects
-	(
-		cd "$SRC"
-		"${cmd[@]}"							\
-			1> >(tee -a "$log")					\
-			2> >(tee -a "$log" >&2)
-	)
+	"${cmd[@]}"							\
+		1> >(tee -a "$log")					\
+		2> >(tee -a "$log" >&2)
 
 	kmod_file="$KMOD_DIR/$NAME.ko"
 
@@ -836,7 +825,7 @@ build_patch_module() {
 	objcopy --remove-section=.BTF "$kmod_file"
 
 	# Fix (and work around) linker wreckage for klp syms / relocs
-	"$SRC/tools/objtool/objtool" klp post-link "$kmod_file" || die "objtool klp post-link failed"
+	"$OBJTOOL" klp post-link "$kmod_file" || die "objtool klp post-link failed"
 
 	cp -f "$kmod_file" "$OUTFILE"
 }
