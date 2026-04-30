@@ -975,7 +975,7 @@ static int convert_reloc_sym_to_secsym(struct elf *elf, struct reloc *reloc)
 		return -1;
 
 	reloc->sym = sec->sym;
-	set_reloc_sym(elf, reloc, sym->idx);
+	set_reloc_sym(elf, reloc, sec->sym->idx);
 	set_reloc_addend(elf, reloc, sym->offset + reloc_addend(reloc));
 	return 0;
 }
