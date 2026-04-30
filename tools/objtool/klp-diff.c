@@ -838,39 +838,6 @@ static int clone_included_functions(struct elfs *e)
 	return 0;
 }
 
-/*
- * Determine whether a relocation should reference the section rather than the
- * underlying symbol.
- */
-static bool section_reference_needed(struct section *sec)
-{
-	/*
-	 * String symbols are zero-length and uncorrelated.  It's easier to
-	 * deal with them as section symbols.
-	 */
-	if (is_string_sec(sec))
-		return true;
-
-	/*
-	 * .rodata has mostly anonymous data so there's no way to determine the
-	 * length of a needed reference.  just copy the whole section if needed.
-	 */
-	if (strstarts(sec->name, ".rodata"))
-		return true;
-
-	/* UBSAN anonymous data */
-	if (strstarts(sec->name, ".data..Lubsan") ||	/* GCC */
-	    strstarts(sec->name, ".data..L__unnamed_"))	/* Clang */
-		return true;
-
-	return false;
-}
-
-static bool is_reloc_allowed(struct reloc *reloc)
-{
-	return section_reference_needed(reloc->sym->sec) == is_sec_sym(reloc->sym);
-}
-
 static struct export *find_export(struct symbol *sym)
 {
 	struct export *export;
@@ -979,10 +946,14 @@ static bool klp_reloc_needed(struct reloc *patched_reloc)
 	return true;
 }
 
+/* Return -1 error, 0 success, 1 skip */
 static int convert_reloc_sym_to_secsym(struct elf *elf, struct reloc *reloc)
 {
 	struct symbol *sym = reloc->sym;
 	struct section *sec = sym->sec;
+
+	if (is_sec_sym(sym))
+		return 0;
 
 	if (!sec->sym && !elf_create_section_symbol(elf, sec))
 		return -1;
@@ -993,10 +964,14 @@ static int convert_reloc_sym_to_secsym(struct elf *elf, struct reloc *reloc)
 	return 0;
 }
 
+/* Return -1 error, 0 success, 1 skip */
 static int convert_reloc_secsym_to_sym(struct elf *elf, struct reloc *reloc)
 {
 	struct symbol *sym = reloc->sym;
 	struct section *sec = sym->sec;
+
+	if (!is_sec_sym(sym))
+		return 0;
 
 	/* If the symbol has a dedicated section, it's easy to find */
 	sym = find_symbol_by_offset(sec, 0);
@@ -1028,21 +1003,33 @@ found_sym:
 }
 
 /*
+ * Sections with anonymous or uncorrelated data (strings, UBSAN data)
+ * need section symbol references.
+ */
+static bool is_uncorrelated_section(struct section *sec)
+{
+	return is_string_sec(sec) ||
+	       strstarts(sec->name, ".rodata") ||
+	       strstarts(sec->name, ".data..Lubsan") ||		/* GCC */
+	       strstarts(sec->name, ".data..L__unnamed_");	/* Clang */
+}
+
+/*
  * Convert a relocation symbol reference to the needed format: either a section
- * symbol or the underlying symbol itself.
+ * symbol or the underlying symbol itself.  Return -1 error, 0 success, 1 skip.
  */
 static int convert_reloc_sym(struct elf *elf, struct reloc *reloc)
 {
+	struct section *sec = reloc->sym->sec;
+
 	if (reloc_type(reloc) == R_NONE)
 		return 1;
 
-	if (is_reloc_allowed(reloc))
-		return 0;
-
-	if (section_reference_needed(reloc->sym->sec))
+	if (is_uncorrelated_section(sec))
 		return convert_reloc_sym_to_secsym(elf, reloc);
-	else
-		return convert_reloc_secsym_to_sym(elf, reloc);
+
+	/* Everything else: references should use named symbols. */
+	return convert_reloc_secsym_to_sym(elf, reloc);
 }
 
 /*
@@ -1187,13 +1174,6 @@ static int clone_reloc(struct elfs *e, struct reloc *patched_reloc,
 	struct symbol *out_sym;
 	bool klp;
 
-	if (!is_reloc_allowed(patched_reloc)) {
-		ERROR_FUNC(patched_reloc->sec->base, reloc_offset(patched_reloc),
-			   "missing symbol for reference to %s+%ld",
-			   patched_sym->name, addend);
-		return -1;
-	}
-
 	klp = klp_reloc_needed(patched_reloc);
 
 	dbg_clone_reloc(sec, offset, patched_sym, addend, export, klp);
@@ -1223,7 +1203,7 @@ static int clone_reloc(struct elfs *e, struct reloc *patched_reloc,
 
 	/*
 	 * For strings, all references use section symbols, thanks to
-	 * section_reference_needed().  clone_symbol() has cloned an empty
+	 * convert_reloc_sym().  clone_symbol() has cloned an empty
 	 * version of the string section.  Now copy the string itself.
 	 */
 	if (is_string_sec(patched_sym->sec)) {
