@@ -2158,27 +2158,22 @@ static int find_sdca_filesets(struct device *dev, struct sdw_slave *sdw,
  * sdca_parse_function - parse ACPI DisCo for a Function
  * @dev: Pointer to device against which function data will be allocated.
  * @sdw: SoundWire slave device to be processed.
- * @function_desc: Pointer to the Function short descriptor.
  * @function: Pointer to the Function information, to be populated.
  *
  * Return: Returns 0 for success.
  */
 int sdca_parse_function(struct device *dev, struct sdw_slave *sdw,
-			struct sdca_function_desc *function_desc,
 			struct sdca_function_data *function)
 {
+	struct fwnode_handle *node = function->desc->node;
 	u32 tmp;
 	int ret;
 
-	function->desc = function_desc;
-
-	ret = fwnode_property_read_u32(function_desc->node,
-				       "mipi-sdca-function-busy-max-delay", &tmp);
+	ret = fwnode_property_read_u32(node, "mipi-sdca-function-busy-max-delay", &tmp);
 	if (!ret)
 		function->busy_max_delay = tmp;
 
-	ret = fwnode_property_read_u32(function_desc->node,
-				       "mipi-sdca-function-reset-max-delay", &tmp);
+	ret = fwnode_property_read_u32(node, "mipi-sdca-function-reset-max-delay", &tmp);
 	if (ret || tmp == 0) {
 		dev_dbg(dev, "reset delay missing, defaulting to 100mS\n");
 		function->reset_max_delay = 100000;
@@ -2187,26 +2182,26 @@ int sdca_parse_function(struct device *dev, struct sdw_slave *sdw,
 	}
 
 	dev_dbg(dev, "%pfwP: name %s busy delay %dus reset delay %dus\n",
-		function->desc->node, function->desc->name,
-		function->busy_max_delay, function->reset_max_delay);
+		node, function->desc->name, function->busy_max_delay,
+		function->reset_max_delay);
 
-	ret = find_sdca_init_table(dev, function_desc->node, function);
+	ret = find_sdca_init_table(dev, node, function);
 	if (ret)
 		return ret;
 
-	ret = find_sdca_entities(dev, sdw, function_desc->node, function);
+	ret = find_sdca_entities(dev, sdw, node, function);
 	if (ret)
 		return ret;
 
-	ret = find_sdca_connections(dev, function_desc->node, function);
+	ret = find_sdca_connections(dev, node, function);
 	if (ret)
 		return ret;
 
-	ret = find_sdca_clusters(dev, function_desc->node, function);
+	ret = find_sdca_clusters(dev, node, function);
 	if (ret < 0)
 		return ret;
 
-	ret = find_sdca_filesets(dev, sdw, function_desc->node, function);
+	ret = find_sdca_filesets(dev, sdw, node, function);
 	if (ret)
 		return ret;
 
