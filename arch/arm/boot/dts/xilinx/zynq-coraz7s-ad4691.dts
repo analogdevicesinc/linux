@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4691 family - Non-manual offload modes (CNV_CLOCK_MODE,
+ * CNV_BURST_MODE, AUTONOMOUS_MODE, SPI_BURST_MODE) with SPI Engine Offload.
+ * https://www.analog.com/en/products/ad4691.html
+ *
+ * hdl_project: <ad469x_evb/coraz7s>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/ad469x_evb
+ *
+ * AD4692_ARDZ Eval Board Pinout on Cora Z7S Arduino Headers:
+ *   CK_IO13: SPI SCLK
+ *   CK_IO12: SPI SDO (MISO)
+ *   CK_IO11: SPI SDI (MOSI)
+ *   CK_IO10: SPI CS
+ *   CK_IO09: GP0 (BUSY/DATA_READY) -> SPI Engine trigger input
+ *   CK_IO06: CNV (PWM trigger output, CNV_CLOCK_MODE and CNV_BURST_MODE only)
+ *   CK_IO04: RESETn
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+#include "zynq-coraz7s.dtsi"
+
+/ {
+	avdd: regulator-avdd {
+		compatible = "regulator-fixed";
+		regulator-name = "AD4692 AVDD";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	refin: regulator-refin {
+		compatible = "regulator-fixed";
+		regulator-name = "AD4692 REFIN";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	ldo_in: regulator-ldo_in {
+		compatible = "regulator-fixed";
+		regulator-name = "AD4692 LDO-IN";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	vio: regulator-vio {
+		compatible = "regulator-fixed";
+		regulator-name = "AD4692 VIO";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	ref_clk: ref-clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+		clock-output-names = "ref_clk";
+	};
+};
+
+&fpga_axi {
+	rx_dma: dma-controller@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	adc_trigger: pwm@44b00000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x44b00000 0x1000>;
+		#pwm-cells = <3>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "axi", "ext";
+	};
+
+	spi_clk: clock-controller@44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "spi_clk";
+	};
+
+	axi_spi_engine: spi@44a00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+
+		dmas = <&rx_dma 0>;
+		dma-names = "offload0-rx";
+		trigger-sources = <&ad4692 0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ad4692: adc@0 {
+			compatible = "adi,ad4692";
+			reg = <0>;
+
+			spi-cpol;
+			spi-cpha;
+			spi-max-frequency = <10000000>;
+
+			avdd-supply = <&avdd>;
+			ldo-in-supply = <&ldo_in>;
+			vio-supply = <&vio>;
+			refin-supply = <&refin>;
+
+			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+
+			clocks = <&ref_clk>;
+			clock-names = "ref_clk";
+
+			/*
+			 * SPI_BURST_MODE: internal oscillator drives conversions,
+			 * DATA_READY on GP0 signals completion. No CNV PWM needed.
+			 *
+			 * To switch to CNV_CLOCK_MODE or CNV_BURST_MODE, add:
+			 *   pwms = <&adc_trigger 0 10000 0>;
+			 *   pwm-names = "cnv";
+			 * and change adi,spi-mode to 0 or 1 respectively.
+			 */
+			pwms = <&adc_trigger 0 10000 0>;
+			pwm-names = "cnv";
+
+			#trigger-source-cells = <1>;
+		};
+	};
+};
