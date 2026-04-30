@@ -38,11 +38,11 @@
 void coldfire_profile_init(void);
 
 #if defined(CONFIG_M53xx) || defined(CONFIG_M5441x)
-#define	__raw_readtrr	mcf_read32
-#define	__raw_writetrr	mcf_write32
+#define	mcf_readtrr	mcf_read32
+#define	mcf_writetrr	mcf_write32
 #else
-#define	__raw_readtrr	mcf_read16
-#define	__raw_writetrr	mcf_write16
+#define	mcf_readtrr	mcf_read16
+#define	mcf_writetrr	mcf_write16
 #endif
 
 static u32 mcftmr_cycles_per_jiffy;
@@ -119,7 +119,7 @@ void hw_timer_init(void)
 	 *	for 1 tick, not TRR.  So if you want n cycles,
 	 *	initialize TRR with n - 1.
 	 */
-	__raw_writetrr(mcftmr_cycles_per_jiffy - 1, TA(MCFTIMER_TRR));
+	mcf_writetrr(mcftmr_cycles_per_jiffy - 1, TA(MCFTIMER_TRR));
 	mcf_write16(MCFTIMER_TMR_ENORI | MCFTIMER_TMR_CLK16 |
 		MCFTIMER_TMR_RESTART | MCFTIMER_TMR_ENABLE, TA(MCFTIMER_TMR));
 
@@ -176,7 +176,7 @@ void coldfire_profile_init(void)
 	/* Set up TIMER 2 as high speed profile clock */
 	mcf_write16(MCFTIMER_TMR_DISABLE, PA(MCFTIMER_TMR));
 
-	__raw_writetrr(((MCF_BUSCLK / 16) / PROFILEHZ), PA(MCFTIMER_TRR));
+	mcf_writetrr(((MCF_BUSCLK / 16) / PROFILEHZ), PA(MCFTIMER_TRR));
 	mcf_write16(MCFTIMER_TMR_ENORI | MCFTIMER_TMR_CLK16 |
 		MCFTIMER_TMR_RESTART | MCFTIMER_TMR_ENABLE, PA(MCFTIMER_TMR));
 
