@@ -914,7 +914,7 @@ static struct sk_buff *dequeue_head(struct cake_flow *flow)
 	struct sk_buff *skb = flow->head;
 
 	if (skb) {
-		flow->head = skb->next;
+		WRITE_ONCE(flow->head, skb->next);
 		skb_mark_not_on_list(skb);
 	}
 
@@ -926,7 +926,7 @@ static struct sk_buff *dequeue_head(struct cake_flow *flow)
 static void flow_queue_add(struct cake_flow *flow, struct sk_buff *skb)
 {
 	if (!flow->head)
-		flow->head = skb;
+		WRITE_ONCE(flow->head, skb);
 	else
 		flow->tail->next = skb;
 	flow->tail = skb;
@@ -1357,7 +1357,7 @@ found:
 	if (elig_ack_prev)
 		elig_ack_prev->next = elig_ack->next;
 	else
-		flow->head = elig_ack->next;
+		WRITE_ONCE(flow->head, elig_ack->next);
 
 	skb_mark_not_on_list(elig_ack);
 
@@ -1595,11 +1595,11 @@ static unsigned int cake_drop(struct Qdisc *sch, struct sk_buff **to_free)
 
 	len = qdisc_pkt_len(skb);
 	q->buffer_used      -= skb->truesize;
-	b->backlogs[idx]    -= len;
 	WRITE_ONCE(b->tin_backlog, b->tin_backlog - len);
+	WRITE_ONCE(b->backlogs[idx], b->backlogs[idx] - len);
 	sch->qstats.backlog -= len;
 
-	flow->dropped++;
+	WRITE_ONCE(flow->dropped, flow->dropped + 1);
 	WRITE_ONCE(b->tin_dropped, b->tin_dropped + 1);
 
 	if (q->config->rate_flags & CAKE_FLAG_INGRESS)
@@ -1824,11 +1824,11 @@ static s32 cake_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 		}
 
 		/* stats */
-		b->backlogs[idx]    += slen;
 		sch->qstats.backlog += slen;
 		q->avg_window_bytes += slen;
 		WRITE_ONCE(b->bytes, b->bytes + slen);
 		WRITE_ONCE(b->tin_backlog, b->tin_backlog + slen);
+		WRITE_ONCE(b->backlogs[idx], b->backlogs[idx] + slen);
 
 		qdisc_tree_reduce_backlog(sch, 1-numsegs, len-slen);
 		consume_skb(skb);
@@ -1861,11 +1861,11 @@ static s32 cake_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 
 		/* stats */
 		WRITE_ONCE(b->packets, b->packets + 1);
-		b->backlogs[idx]    += len - ack_pkt_len;
 		sch->qstats.backlog += len - ack_pkt_len;
 		q->avg_window_bytes += len - ack_pkt_len;
 		WRITE_ONCE(b->bytes, b->bytes + len - ack_pkt_len);
 		WRITE_ONCE(b->tin_backlog, b->tin_backlog + len - ack_pkt_len);
+		WRITE_ONCE(b->backlogs[idx], b->backlogs[idx] + len - ack_pkt_len);
 	}
 
 	if (q->overflow_timeout)
@@ -1977,7 +1977,7 @@ static struct sk_buff *cake_dequeue_one(struct Qdisc *sch)
 	if (flow->head) {
 		skb = dequeue_head(flow);
 		len = qdisc_pkt_len(skb);
-		b->backlogs[q->cur_flow] -= len;
+		WRITE_ONCE(b->backlogs[q->cur_flow], b->backlogs[q->cur_flow] - len);
 		WRITE_ONCE(b->tin_backlog, b->tin_backlog - len);
 		sch->qstats.backlog      -= len;
 		q->buffer_used		 -= skb->truesize;
@@ -2235,7 +2235,7 @@ retry:
 			flow->deficit -= len;
 			b->tin_deficit -= len;
 		}
-		flow->dropped++;
+		WRITE_ONCE(flow->dropped, flow->dropped + 1);
 		WRITE_ONCE(b->tin_dropped, b->tin_dropped + 1);
 		qdisc_tree_reduce_backlog(sch, 1, qdisc_pkt_len(skb));
 		qdisc_qstats_drop(sch);
@@ -3137,7 +3137,7 @@ static int cake_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 
 		flow = &b->flows[idx % CAKE_QUEUES];
 
-		if (flow->head) {
+		if (READ_ONCE(flow->head)) {
 			sch_tree_lock(sch);
 			skb = flow->head;
 			while (skb) {
@@ -3146,8 +3146,8 @@ static int cake_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 			}
 			sch_tree_unlock(sch);
 		}
-		qs.backlog = b->backlogs[idx % CAKE_QUEUES];
-		qs.drops = flow->dropped;
+		qs.backlog = READ_ONCE(b->backlogs[idx % CAKE_QUEUES]);
+		qs.drops = READ_ONCE(flow->dropped);
 	}
 	if (gnet_stats_copy_queue(d, NULL, &qs, qs.qlen) < 0)
 		return -1;
