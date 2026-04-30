@@ -193,8 +193,6 @@ u8 rtw_hal_get_def_var(struct adapter *padapter, enum hal_def_variable eVariable
 
 void rtw_hal_set_odm_var(struct adapter *padapter, enum hal_odm_variable eVariable, void *pValue1, bool bSet);
 
-void rtw_hal_disable_interrupt(struct adapter *padapter);
-
 u8 rtw_hal_check_ips_status(struct adapter *padapter);
 
 s32	rtw_hal_xmitframe_enqueue(struct adapter *padapter, struct xmit_frame *pxmitframe);

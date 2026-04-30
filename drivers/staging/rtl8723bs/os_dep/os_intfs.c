@@ -1141,7 +1141,7 @@ static int rtw_resume_process_normal(struct adapter *padapter)
 		if (ret)
 			goto exit;
 	}
-	rtw_hal_disable_interrupt(padapter);
+	DisableInterrupt8723BSdio(padapter);
 	/* if (sdio_alloc_irq(adapter_to_dvobj(padapter)) != _SUCCESS) */
 	if ((padapter->intf_alloc_irq) && (padapter->intf_alloc_irq(adapter_to_dvobj(padapter)) != _SUCCESS)) {
 		ret = -1;
