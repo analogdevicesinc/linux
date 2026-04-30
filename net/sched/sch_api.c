@@ -976,7 +976,7 @@ static int tc_fill_qdisc(struct sk_buff *skb, struct Qdisc *q, u32 clid,
 out_nlmsg_trim:
 nla_put_failure:
 	nlmsg_trim(skb, b);
-	return -1;
+	return -EMSGSIZE;
 }
 
 static bool tc_qdisc_dump_ignore(struct Qdisc *q, bool dump_invisible)
@@ -1836,11 +1836,13 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
 	if (q_idx < s_q_idx) {
 		q_idx++;
 	} else {
-		if (!tc_qdisc_dump_ignore(q, dump_invisible) &&
-		    tc_fill_qdisc(skb, q, q->parent, NETLINK_CB(cb->skb).portid,
-				  cb->nlh->nlmsg_seq, NLM_F_MULTI,
-				  RTM_NEWQDISC, NULL) <= 0)
-			goto done;
+		if (!tc_qdisc_dump_ignore(q, dump_invisible))
+		    ret = tc_fill_qdisc(skb, q, q->parent,
+					NETLINK_CB(cb->skb).portid,
+					cb->nlh->nlmsg_seq, NLM_F_MULTI,
+					RTM_NEWQDISC, NULL);
+		if (ret < 0)
+			goto out;
 		q_idx++;
 	}
 
@@ -1858,20 +1860,19 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
 			q_idx++;
 			continue;
 		}
-		if (!tc_qdisc_dump_ignore(q, dump_invisible) &&
-		    tc_fill_qdisc(skb, q, q->parent, NETLINK_CB(cb->skb).portid,
-				  cb->nlh->nlmsg_seq, NLM_F_MULTI,
-				  RTM_NEWQDISC, NULL) <= 0)
-			goto done;
+		if (!tc_qdisc_dump_ignore(q, dump_invisible))
+			ret = tc_fill_qdisc(skb, q, q->parent,
+					    NETLINK_CB(cb->skb).portid,
+					    cb->nlh->nlmsg_seq, NLM_F_MULTI,
+					    RTM_NEWQDISC, NULL);
+		if (ret < 0)
+			goto out;
 		q_idx++;
 	}
 
 out:
 	*q_idx_p = q_idx;
 	return ret;
-done:
-	ret = -1;
-	goto out;
 }
 
 static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
