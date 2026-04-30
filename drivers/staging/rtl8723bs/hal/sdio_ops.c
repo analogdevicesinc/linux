@@ -626,16 +626,13 @@ void rtw_sdio_enable_interrupt(struct adapter *adapter)
 	rtw_write8(adapter, REG_C2HEVT_CLEAR, C2H_EVT_HOST_CLOSE);
 }
 
-/*  */
-/*	Description: */
-/*		Disable SDIO Host IMR configuration to mask unnecessary interrupt service. */
-/*  */
-/*	Assumption: */
-/*		Using SDIO Local register ONLY for configuration. */
-/*  */
-/*	Created by Roger, 2011.02.11. */
-/*  */
-void DisableInterrupt8723BSdio(struct adapter *adapter)
+/*
+ * Disable SDIO Host IMR configuration to mask unnecessary interrupt service.
+ *
+ * Assumption:
+ *	Using SDIO Local register ONLY for configuration.
+ */
+void rtw_sdio_disable_interrupt(struct adapter *adapter)
 {
 	__le32 himr;
 

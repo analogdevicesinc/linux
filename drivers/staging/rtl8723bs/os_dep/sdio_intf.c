@@ -211,7 +211,7 @@ static void sd_intf_stop(struct adapter *padapter)
 	if (!padapter)
 		return;
 
-	DisableInterrupt8723BSdio(padapter);
+	rtw_sdio_disable_interrupt(padapter);
 }
 
 
@@ -280,7 +280,7 @@ static struct adapter *rtw_sdio_if1_init(struct dvobj_priv *dvobj, const struct 
 	/*  set mac addr */
 	rtw_macaddr_cfg(&psdio->func->dev, padapter->eeprompriv.mac_addr);
 
-	DisableInterrupt8723BSdio(padapter);
+	rtw_sdio_disable_interrupt(padapter);
 
 	status = _SUCCESS;
 
