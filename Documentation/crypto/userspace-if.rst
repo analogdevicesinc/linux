@@ -4,26 +4,68 @@ User Space Interface
 Introduction
 ------------
 
-The concepts of the kernel crypto API visible to kernel space is fully
-applicable to the user space interface as well. Therefore, the kernel
-crypto API high level discussion for the in-kernel use cases applies
-here as well.
+AF_ALG provides unprivileged userspace programs access to arbitrary hash,
+symmetric cipher, AEAD, and RNG algorithms that are implemented in kernel-mode
+code.
 
-The major difference, however, is that user space can only act as a
-consumer and never as a provider of a transformation or cipher
-algorithm.
+AF_ALG is insecure and is deprecated. Originally added to the kernel in 2010,
+most kernel developers now consider it to be a mistake.
 
-The following covers the user space interface exported by the kernel
-crypto API. A working example of this description is libkcapi that can
-be obtained from [1]. That library can be used by user space
-applications that require cryptographic services from the kernel.
+AF_ALG continues to be supported only for backwards compatibility. On systems
+where no programs using AF_ALG remain, the support for it should be disabled by
+disabling ``CONFIG_CRYPTO_USER_API_*``.
 
-Some details of the in-kernel kernel crypto API aspects do not apply to
-user space, however. This includes the difference between synchronous
-and asynchronous invocations. The user space API call is fully
-synchronous.
+Deprecation
+-----------
 
-[1] https://www.chronox.de/libkcapi/index.html
+AF_ALG was originally intended to provide userspace programs access to crypto
+accelerators that they wouldn't otherwise have access to.
+
+However, that capability turned out to not be useful on very many systems. More
+significantly, the actual implementation exposes a vastly greater amount of
+functionality than that. It actually provides access to all software algorithms.
+
+This includes arbitrary compositions of different algorithms created via a
+complex template system, as well as algorithms that only make sense as internal
+implementation details of other algorithms. It also includes full zero-copy
+support, which is difficult for the kernel to implement securely.
+
+Ultimately, these algorithms are just math computations. They use the same
+instructions that userspace programs already have access to, just accessed in a
+much more convoluted and less efficient way.
+
+Indeed, userspace code is nearly always what is being used anyway. These same
+algorithms are widely implemented in userspace crypto libraries.
+
+Meanwhile, AF_ALG hasn't been withstanding modern vulnerability discovery tools
+such as syzbot and large language models. It receives a steady stream of CVEs.
+Some of the examples include:
+
+- CVE-2026-31677
+- CVE-2026-31431 (https://copy.fail)
+- CVE-2025-38079
+- CVE-2025-37808
+- CVE-2024-26824
+- CVE-2022-48781
+- CVE-2019-8912
+- CVE-2018-14619
+- CVE-2017-18075
+- CVE-2017-17806
+- CVE-2017-17805
+- CVE-2016-10147
+- CVE-2015-8970
+- CVE-2015-3331
+- CVE-2014-9644
+- CVE-2013-7421
+- CVE-2011-4081
+
+It is recommended that, whenever possible, userspace programs be migrated to
+userspace crypto code (which again, is what is normally used anyway) and
+``CONFIG_CRYPTO_USER_API_*`` be disabled.  On systems that use SELinux, SELinux
+can also be used to restrict the use of AF_ALG to trusted programs.
+
+The remainder of this documentation provides the historical documentation for
+the deprecated AF_ALG interface.
 
 User Space API General Remarks
 ------------------------------

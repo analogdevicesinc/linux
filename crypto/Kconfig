@@ -1252,44 +1252,68 @@ config CRYPTO_DF80090A
 	select CRYPTO_CTR
 
 endmenu
-menu "Userspace interface"
+menu "Userspace interface (deprecated)"
 
 config CRYPTO_USER_API
 	tristate
 
 config CRYPTO_USER_API_HASH
-	tristate "Hash algorithms"
+	tristate "Hash algorithms (deprecated)"
 	depends on NET
 	select CRYPTO_HASH
 	select CRYPTO_USER_API
 	help
-	  Enable the userspace interface for hash algorithms.
+	  Enable the AF_ALG userspace interface for hash algorithms.  This
+	  provides unprivileged userspace programs access to arbitrary hash
+	  algorithms implemented in the kernel's privileged execution context.
 
-	  See Documentation/crypto/userspace-if.rst and
-	  https://www.chronox.de/libkcapi/html/index.html
+	  This interface is deprecated and is supported only for backwards
+	  compatibility.  It regularly has vulnerabilities, and the capabilities
+	  it provides are redundant with userspace crypto libraries.
+
+	  Enable this only if needed for support for a program that hasn't yet
+	  been converted to userspace crypto, for example iwd.
+
+	  See also Documentation/crypto/userspace-if.rst
 
 config CRYPTO_USER_API_SKCIPHER
-	tristate "Symmetric key cipher algorithms"
+	tristate "Symmetric key cipher algorithms (deprecated)"
 	depends on NET
 	select CRYPTO_SKCIPHER
 	select CRYPTO_USER_API
 	help
-	  Enable the userspace interface for symmetric key cipher algorithms.
+	  Enable the AF_ALG userspace interface for symmetric key algorithms.
+	  This provides unprivileged userspace programs access to arbitrary
+	  symmetric key algorithms implemented in the kernel's privileged
+	  execution context.
 
-	  See Documentation/crypto/userspace-if.rst and
-	  https://www.chronox.de/libkcapi/html/index.html
+	  This interface is deprecated and is supported only for backwards
+	  compatibility.  It regularly has vulnerabilities, and the capabilities
+	  it provides are redundant with userspace crypto libraries.
+
+	  Enable this only if needed for support for a program that hasn't yet
+	  been converted to userspace crypto, for example iwd, or cryptsetup
+	  with certain algorithms.
+
+	  See also Documentation/crypto/userspace-if.rst
 
 config CRYPTO_USER_API_RNG
-	tristate "RNG (random number generator) algorithms"
+	tristate "Random number generation algorithms (deprecated)"
 	depends on NET
 	select CRYPTO_RNG
 	select CRYPTO_USER_API
 	help
-	  Enable the userspace interface for RNG (random number generator)
-	  algorithms.
+	  Enable the AF_ALG userspace interface for random number generation
+	  (RNG) algorithms.  This provides unprivileged userspace programs
+	  access to arbitrary RNG algorithms implemented in the kernel's
+	  privileged execution context.
 
-	  See Documentation/crypto/userspace-if.rst and
-	  https://www.chronox.de/libkcapi/html/index.html
+	  This interface is deprecated and is supported only for backwards
+	  compatibility.  It regularly has vulnerabilities, and the capabilities
+	  it provides are redundant with userspace crypto libraries as well as
+	  the normal kernel RNG (e.g., /dev/urandom and getrandom(2)).
+
+	  See also Documentation/crypto/userspace-if.rst
 
 config CRYPTO_USER_API_RNG_CAVP
 	bool "Enable CAVP testing of DRBG"
@@ -1304,16 +1328,25 @@ config CRYPTO_USER_API_RNG_CAVP
 	  no unless you know what this is.
 
 config CRYPTO_USER_API_AEAD
-	tristate "AEAD cipher algorithms"
+	tristate "AEAD cipher algorithms (deprecated)"
 	depends on NET
 	select CRYPTO_AEAD
 	select CRYPTO_SKCIPHER
 	select CRYPTO_USER_API
 	help
-	  Enable the userspace interface for AEAD cipher algorithms.
+	  Enable the AF_ALG userspace interface for authenticated encryption
+	  with associated data (AEAD) algorithms.  This provides unprivileged
+	  userspace programs access to arbitrary AEAD algorithms implemented in
+	  the kernel's privileged execution context.
 
-	  See Documentation/crypto/userspace-if.rst and
-	  https://www.chronox.de/libkcapi/html/index.html
+	  This interface is deprecated and is supported only for backwards
+	  compatibility.  It regularly has vulnerabilities, and the capabilities
+	  it provides are redundant with userspace crypto libraries.
+
+	  Enable this only if needed for support for a program that hasn't yet
+	  been converted to userspace crypto, for example iwd.
+
+	  See also Documentation/crypto/userspace-if.rst
 
 config CRYPTO_USER_API_ENABLE_OBSOLETE
 	bool "Obsolete cryptographic algorithms"
