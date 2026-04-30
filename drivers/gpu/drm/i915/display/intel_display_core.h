@@ -47,7 +47,7 @@ struct intel_dpll_global_funcs;
 struct intel_dpll_mgr;
 struct intel_fbdev;
 struct intel_fdi_funcs;
-struct intel_hotplug_funcs;
+struct intel_hotplug_irq_funcs;
 struct intel_initial_plane_config;
 struct intel_opregion;
 struct intel_overlay;
@@ -155,6 +155,9 @@ struct intel_frontbuffer_tracking {
 };
 
 struct intel_hotplug {
+	/* internal hotplug irq functions */
+	const struct intel_hotplug_irq_funcs *funcs;
+
 	struct delayed_work hotplug_work;
 
 	const u32 *hpd, *pch_hpd;
@@ -313,9 +316,6 @@ struct intel_display {
 
 		/* Display pll funcs */
 		const struct intel_dpll_global_funcs *dpll;
-
-		/* irq display functions */
-		const struct intel_hotplug_funcs *hotplug;
 	} funcs;
 
 	struct {
