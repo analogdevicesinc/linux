@@ -4995,6 +4995,7 @@ static int fib6_ifdown(struct fib6_info *rt, void *p_arg)
 		    rt->fib6_flags & (RTF_LOCAL | RTF_ANYCAST))
 			break;
 		rt->fib6_nh->fib_nh_flags |= RTNH_F_LINKDOWN;
+		fib6_update_sernum(net, rt);
 		rt6_multipath_rebalance(rt);
 		break;
 	}
