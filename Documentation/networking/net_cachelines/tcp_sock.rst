@@ -22,7 +22,7 @@ u32                           snd_nxt                 read_write          read_m
 u32                           segs_out                read_write          read_write          __tcp_transmit_skb
 u32                           data_segs_out           read_write                              __tcp_transmit_skb,tcp_update_skb_after_send
 u64                           bytes_sent              read_write                              __tcp_transmit_skb
-u64                           bytes_acked                                 read_write          tcp_snd_una_update/tcp_ack
+u64                           bytes_acked             read_write                              tcp_snd_una_update/tcp_ack
 u32                           dsack_dups
 u32                           snd_una                 read_mostly         read_write          tcp_wnd_end,tcp_urg_mode,tcp_minshall_check,tcp_cwnd_validate(tx);tcp_ack,tcp_may_update_window,tcp_clean_rtx_queue(write),tcp_ack_tstamp(rx)
 u32                           snd_sml                 read_write                              tcp_minshall_check,tcp_minshall_update
