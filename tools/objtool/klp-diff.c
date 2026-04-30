@@ -373,6 +373,21 @@ static bool is_initcall_sym(struct symbol *sym)
 }
 
 /*
+ * Some .rodata is anonymous and can't be correlated due to there being no
+ * symbol names.
+ *
+ * The .rodata.cst* sections aren't technically anonymous, they're SHF_MERGE
+ * constant pool sections containing small fixed-size data (lookup tables,
+ * bitmasks) which are only read by value, so pointer equivalence isn't needed.
+ * They are typically referenced by UBSAN data sections.
+ */
+static bool is_anonymous_rodata(struct symbol *sym)
+{
+	return is_rodata_sec(sym->sec) &&
+	       (!is_object_sym(sym) || strstarts(sym->sec->name, ".rodata.cst"));
+}
+
+/*
  * These symbols should never be correlated, so their local patched versions
  * are used instead of linking to the originals.
  */
@@ -386,7 +401,7 @@ static bool dont_correlate(struct symbol *sym)
 	       is_uncorrelated_static_local(sym) ||
 	       is_local_label(sym) ||
 	       is_string_sec(sym->sec) ||
-	       (is_rodata_sec(sym->sec) && !is_object_sym(sym)) ||
+	       is_anonymous_rodata(sym) ||
 	       is_initcall_sym(sym) ||
 	       is_addressable_sym(sym) ||
 	       is_special_section(sym->sec) ||
