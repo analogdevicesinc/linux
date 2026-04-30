@@ -491,6 +491,7 @@ struct ip_vs_est_kt_data {
 	DECLARE_BITMAP(avail, IPVS_EST_NTICKS);	/* tick has space for ests */
 	unsigned long		est_timer;	/* estimation timer (jiffies) */
 	struct ip_vs_stats	*calc_stats;	/* Used for calculation */
+	int			needed;		/* task is needed */
 	int			tick_len[IPVS_EST_NTICKS];	/* est count */
 	int			id;		/* ktid per netns */
 	int			chain_max;	/* max ests per tick chain */
@@ -1884,10 +1885,18 @@ int ip_vs_start_estimator(struct netns_ipvs *ipvs, struct ip_vs_stats *stats);
 void ip_vs_stop_estimator(struct netns_ipvs *ipvs, struct ip_vs_stats *stats);
 void ip_vs_zero_estimator(struct ip_vs_stats *stats);
 void ip_vs_read_estimator(struct ip_vs_kstats *dst, struct ip_vs_stats *stats);
-void ip_vs_est_reload_start(struct netns_ipvs *ipvs);
+void ip_vs_est_reload_start(struct netns_ipvs *ipvs, bool restart);
 int ip_vs_est_kthread_start(struct netns_ipvs *ipvs,
 			    struct ip_vs_est_kt_data *kd);
 void ip_vs_est_kthread_stop(struct ip_vs_est_kt_data *kd);
+
+static inline void ip_vs_stop_estimator_tot_stats(struct netns_ipvs *ipvs)
+{
+#ifdef CONFIG_SYSCTL
+	ip_vs_stop_estimator(ipvs, &ipvs->tot_stats->s);
+	ipvs->tot_stats->s.est.ktid = -2;
+#endif
+}
 
 static inline void ip_vs_est_stopped_recalc(struct netns_ipvs *ipvs)
 {
