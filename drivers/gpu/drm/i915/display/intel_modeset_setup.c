@@ -83,7 +83,7 @@ static void intel_crtc_disable_noatomic_begin(struct intel_crtc *crtc,
 		drm_WARN_ON(display->drm, IS_ERR(temp_crtc_state) || ret);
 	}
 
-	display->funcs.display->crtc_disable(to_intel_atomic_state(state), crtc);
+	display->modeset.funcs->crtc_disable(to_intel_atomic_state(state), crtc);
 
 	drm_atomic_state_put(state);
 

@@ -224,7 +224,7 @@ void intel_initial_plane_config(struct intel_display *display)
 		 * can even allow for smooth boot transitions if the BIOS
 		 * fb is large enough for the active pipe configuration.
 		 */
-		display->funcs.display->get_initial_plane_config(crtc, plane_config);
+		display->modeset.funcs->get_initial_plane_config(crtc, plane_config);
 
 		/*
 		 * If the fb is shared between multiple heads, we'll
@@ -232,7 +232,7 @@ void intel_initial_plane_config(struct intel_display *display)
 		 */
 		intel_find_initial_plane_obj(crtc, &all_plane_configs);
 
-		if (display->funcs.display->fixup_initial_plane_config(crtc, plane_config))
+		if (display->modeset.funcs->fixup_initial_plane_config(crtc, plane_config))
 			intel_initial_plane_vblank_wait(crtc);
 
 		plane_config_fini(display, plane_config);

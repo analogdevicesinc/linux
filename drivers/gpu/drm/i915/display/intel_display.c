@@ -4051,7 +4051,7 @@ bool intel_crtc_get_pipe_config(struct intel_crtc_state *crtc_state)
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 
-	if (!display->funcs.display->get_pipe_config(crtc, crtc_state))
+	if (!display->modeset.funcs->get_pipe_config(crtc, crtc_state))
 		return false;
 
 	crtc_state->hw.active = true;
@@ -6739,7 +6739,7 @@ static void intel_enable_crtc(struct intel_atomic_state *state,
 
 	intel_psr_notify_pipe_change(state, crtc, true);
 
-	display->funcs.display->crtc_enable(state, crtc);
+	display->modeset.funcs->crtc_enable(state, crtc);
 
 	intel_crtc_wait_for_next_vblank(crtc);
 
@@ -6872,7 +6872,7 @@ static void intel_old_crtc_state_disables(struct intel_atomic_state *state,
 
 	intel_psr_notify_pipe_change(state, crtc, false);
 
-	display->funcs.display->crtc_disable(state, crtc);
+	display->modeset.funcs->crtc_disable(state, crtc);
 
 	for_each_intel_crtc_in_pipe_mask(display->drm, pipe_crtc,
 					 intel_crtc_joined_pipe_mask(old_crtc_state)) {
@@ -7524,7 +7524,7 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 	}
 
 	/* Now enable the clocks, plane, pipe, and connectors that we set up. */
-	display->funcs.display->commit_modeset_enables(state);
+	display->modeset.funcs->commit_modeset_enables(state);
 
 	/* FIXME probably need to sequence this properly */
 	intel_program_dpkgc_latency(state);
@@ -8197,7 +8197,7 @@ intel_mode_valid_max_plane_size(struct intel_display *display,
 	return MODE_OK;
 }
 
-static const struct intel_display_funcs skl_display_funcs = {
+static const struct intel_modeset_funcs skl_display_funcs = {
 	.get_pipe_config = hsw_get_pipe_config,
 	.crtc_enable = hsw_crtc_enable,
 	.crtc_disable = hsw_crtc_disable,
@@ -8206,7 +8206,7 @@ static const struct intel_display_funcs skl_display_funcs = {
 	.fixup_initial_plane_config = skl_fixup_initial_plane_config,
 };
 
-static const struct intel_display_funcs ddi_display_funcs = {
+static const struct intel_modeset_funcs ddi_display_funcs = {
 	.get_pipe_config = hsw_get_pipe_config,
 	.crtc_enable = hsw_crtc_enable,
 	.crtc_disable = hsw_crtc_disable,
@@ -8215,7 +8215,7 @@ static const struct intel_display_funcs ddi_display_funcs = {
 	.fixup_initial_plane_config = i9xx_fixup_initial_plane_config,
 };
 
-static const struct intel_display_funcs pch_split_display_funcs = {
+static const struct intel_modeset_funcs pch_split_display_funcs = {
 	.get_pipe_config = ilk_get_pipe_config,
 	.crtc_enable = ilk_crtc_enable,
 	.crtc_disable = ilk_crtc_disable,
@@ -8224,7 +8224,7 @@ static const struct intel_display_funcs pch_split_display_funcs = {
 	.fixup_initial_plane_config = i9xx_fixup_initial_plane_config,
 };
 
-static const struct intel_display_funcs vlv_display_funcs = {
+static const struct intel_modeset_funcs vlv_display_funcs = {
 	.get_pipe_config = i9xx_get_pipe_config,
 	.crtc_enable = valleyview_crtc_enable,
 	.crtc_disable = i9xx_crtc_disable,
@@ -8233,7 +8233,7 @@ static const struct intel_display_funcs vlv_display_funcs = {
 	.fixup_initial_plane_config = i9xx_fixup_initial_plane_config,
 };
 
-static const struct intel_display_funcs i9xx_display_funcs = {
+static const struct intel_modeset_funcs i9xx_display_funcs = {
 	.get_pipe_config = i9xx_get_pipe_config,
 	.crtc_enable = i9xx_crtc_enable,
 	.crtc_disable = i9xx_crtc_disable,
@@ -8249,16 +8249,16 @@ static const struct intel_display_funcs i9xx_display_funcs = {
 void intel_init_display_hooks(struct intel_display *display)
 {
 	if (DISPLAY_VER(display) >= 9) {
-		display->funcs.display = &skl_display_funcs;
+		display->modeset.funcs = &skl_display_funcs;
 	} else if (HAS_DDI(display)) {
-		display->funcs.display = &ddi_display_funcs;
+		display->modeset.funcs = &ddi_display_funcs;
 	} else if (HAS_PCH_SPLIT(display)) {
-		display->funcs.display = &pch_split_display_funcs;
+		display->modeset.funcs = &pch_split_display_funcs;
 	} else if (display->platform.cherryview ||
 		   display->platform.valleyview) {
-		display->funcs.display = &vlv_display_funcs;
+		display->modeset.funcs = &vlv_display_funcs;
 	} else {
-		display->funcs.display = &i9xx_display_funcs;
+		display->modeset.funcs = &i9xx_display_funcs;
 	}
 }
 

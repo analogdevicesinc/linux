@@ -59,7 +59,7 @@ struct task_struct;
 /* Amount of PSF GV points, BSpec precisely defines this */
 #define I915_NUM_PSF_GV_POINTS 3
 
-struct intel_display_funcs {
+struct intel_modeset_funcs {
 	/*
 	 * Returns the active state of the crtc, and if the crtc is active,
 	 * fills out the pipe-config with the hw state.
@@ -309,12 +309,6 @@ struct intel_display {
 	/* list of all intel_crtcs sorted by pipe */
 	struct list_head pipe_list;
 
-	/* Display functions */
-	struct {
-		/* Top level crtc-ish functions */
-		const struct intel_display_funcs *display;
-	} funcs;
-
 	struct {
 		bool any_task_allowed;
 		struct task_struct *allowed_task;
@@ -517,6 +511,11 @@ struct intel_display {
 		u32 de_pipe_imr_mask[I915_MAX_PIPES];
 		u32 pipestat_irq_mask[I915_MAX_PIPES];
 	} irq;
+
+	struct {
+		/* Top level crtc-ish functions */
+		const struct intel_modeset_funcs *funcs;
+	} modeset;
 
 	struct {
 		/* protected by wm.wm_mutex */
