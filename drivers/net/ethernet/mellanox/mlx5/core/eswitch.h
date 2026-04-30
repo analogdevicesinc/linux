@@ -36,6 +36,7 @@
 #include <linux/if_ether.h>
 #include <linux/if_link.h>
 #include <linux/atomic.h>
+#include <linux/wait.h>
 #include <linux/xarray.h>
 #include <net/devlink.h>
 #include <linux/mlx5/device.h>
@@ -336,11 +337,11 @@ struct mlx5_host_work {
 	struct work_struct	work;
 	struct mlx5_eswitch	*esw;
 	int			work_gen;
+	void (*func)(struct mlx5_eswitch *esw);
 };
 
 struct mlx5_esw_functions {
 	struct mlx5_nb		nb;
-	atomic_t		generation;
 	bool			host_funcs_disabled;
 	u16			num_vfs;
 	u16			num_ec_vfs;
@@ -385,6 +386,7 @@ struct mlx5_eswitch {
 	 */
 	struct rw_semaphore mode_lock;
 	atomic64_t user_count;
+	wait_queue_head_t work_queue_wait;
 
 	/* Protected with the E-Switch qos domain lock. */
 	struct {
@@ -410,6 +412,7 @@ struct mlx5_eswitch {
 	struct mlx5_devcom_comp_dev *devcom;
 	u16 enabled_ipsec_vf_count;
 	bool eswitch_operation_in_progress;
+	atomic_t generation;
 };
 
 void esw_offloads_disable(struct mlx5_eswitch *esw);
