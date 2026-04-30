@@ -100,6 +100,9 @@ struct intel_audio_state {
 };
 
 struct intel_audio {
+	/* internal display audio functions */
+	const struct intel_audio_funcs *funcs;
+
 	/* hda/i915 audio component */
 	struct i915_audio_component *component;
 	bool component_registered;
@@ -319,9 +322,6 @@ struct intel_display {
 
 		/* Display internal color functions */
 		const struct intel_color_funcs *color;
-
-		/* Display internal audio functions */
-		const struct intel_audio_funcs *audio;
 	} funcs;
 
 	struct {
