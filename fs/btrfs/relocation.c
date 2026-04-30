@@ -2607,7 +2607,7 @@ int relocate_tree_blocks(struct btrfs_trans_handle *trans,
 		if (!block->key_ready)
 			btrfs_readahead_tree_block(fs_info, block->bytenr,
 						   block->owner, 0,
-						   block->level);
+						   block->level, NULL);
 	}
 
 	/* Get first keys */
@@ -3876,7 +3876,7 @@ static int add_remap_tree_entries(struct btrfs_trans_handle *trans, struct btrfs
 		ret = btrfs_insert_empty_items(trans, fs_info->remap_root, path, &batch);
 		btrfs_release_path(path);
 
-		if (num_entries <= max_items)
+		if (ret || num_entries <= max_items)
 			break;
 
 		num_entries -= max_items;
@@ -4172,6 +4172,12 @@ static int move_existing_remap(struct btrfs_fs_info *fs_info,
 		btrfs_space_info_update_bytes_may_use(sinfo, -length);
 		spin_unlock(&sinfo->lock);
 		return ret;
+	}
+
+	if (ins.offset < length) {
+		spin_lock(&sinfo->lock);
+		btrfs_space_info_update_bytes_may_use(sinfo, ins.offset - length);
+		spin_unlock(&sinfo->lock);
 	}
 
 	dest_addr = ins.objectid;
@@ -5000,6 +5006,12 @@ static int do_remap_reloc_trans(struct btrfs_fs_info *fs_info,
 		return ret;
 	}
 
+	if (ins.offset < remap_length) {
+		spin_lock(&sinfo->lock);
+		btrfs_space_info_update_bytes_may_use(sinfo, ins.offset - remap_length);
+		spin_unlock(&sinfo->lock);
+	}
+
 	made_reservation = true;
 
 	new_addr = ins.objectid;
@@ -5023,21 +5035,27 @@ static int do_remap_reloc_trans(struct btrfs_fs_info *fs_info,
 
 	if (bg_needs_free_space) {
 		ret = btrfs_add_block_group_free_space(trans, dest_bg);
-		if (ret)
+		if (ret) {
+			btrfs_abort_transaction(trans, ret);
 			goto fail;
+		}
 	}
 
 	ret = copy_remapped_data(fs_info, start, new_addr, length);
-	if (ret)
+	if (ret) {
+		btrfs_abort_transaction(trans, ret);
 		goto fail;
+	}
 
 	ret = btrfs_remove_from_free_space_tree(trans, new_addr, length);
-	if (ret)
+	if (ret) {
+		btrfs_abort_transaction(trans, ret);
 		goto fail;
+	}
 
 	ret = add_remap_entry(trans, path, src_bg, start, new_addr, length);
 	if (ret) {
-		btrfs_add_to_free_space_tree(trans, new_addr, length);
+		btrfs_abort_transaction(trans, ret);
 		goto fail;
 	}
 

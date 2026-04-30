@@ -16,7 +16,7 @@
 #define IRQ_VECTOR 0xAA
 
 /* For testing data access debug BP */
-uint32_t guest_value;
+u32 guest_value;
 
 extern unsigned char sw_bp, hw_bp, write_data, ss_start, bd_start;
 
@@ -86,7 +86,7 @@ int main(void)
 	struct kvm_run *run;
 	struct kvm_vm *vm;
 	struct ucall uc;
-	uint64_t cmd;
+	u64 cmd;
 	int i;
 	/* Instruction lengths starting at ss_start */
 	int ss_size[6] = {

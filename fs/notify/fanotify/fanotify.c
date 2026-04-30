@@ -457,7 +457,7 @@ static int fanotify_encode_fh(struct fanotify_fh *fh, struct inode *inode,
 	/*
 	 * Unlike file_handle, type and len of struct fanotify_fh are u8.
 	 * Traditionally, filesystem return handle_type < 0xff, but there
-	 * is no enforecement for that in vfs.
+	 * is no enforcement for that in vfs.
 	 */
 	BUILD_BUG_ON(MAX_HANDLE_SZ > 0xff || FILEID_INVALID > 0xff);
 	if (type <= 0 || type >= FILEID_INVALID || fh_len != dwords << 2)

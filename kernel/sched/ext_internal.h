@@ -1075,6 +1075,8 @@ struct scx_sched {
 	struct irq_work		disable_irq_work;
 	struct kthread_work	disable_work;
 	struct timer_list	bypass_lb_timer;
+	cpumask_var_t		bypass_lb_donee_cpumask;
+	cpumask_var_t		bypass_lb_resched_cpumask;
 	struct rcu_work		rcu_work;
 
 	/* all ancestors including self */
