@@ -1594,7 +1594,7 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 	if (status < 0)
 		goto err_disable_rpm;
 
-	return status;
+	return 0;
 
 err_disable_rpm:
 	pm_runtime_dont_use_autosuspend(&pdev->dev);
