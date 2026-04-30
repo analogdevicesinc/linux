@@ -147,11 +147,6 @@ static int kfd_open(struct inode *inode, struct file *filep)
 	if (IS_ERR(process))
 		return PTR_ERR(process);
 
-	if (kfd_process_init_cwsr_apu(process, filep)) {
-		kfd_unref_process(process);
-		return -EFAULT;
-	}
-
 	/* filep now owns the reference returned by kfd_create_process */
 	filep->private_data = process;
 
@@ -3540,9 +3535,8 @@ static int kfd_mmap(struct file *filep, struct vm_area_struct *vma)
 		return kfd_event_mmap(process, vma);
 
 	case KFD_MMAP_TYPE_RESERVED_MEM:
-		if (!dev)
-			return -ENODEV;
-		return kfd_reserved_mem_mmap(dev, process, vma);
+		pr_warn("KFD_MMAP_TYPE_RESERVED_MEM is no longer supported\n");
+		return -EINVAL;
 	case KFD_MMAP_TYPE_MMIO:
 		if (!dev)
 			return -ENODEV;
