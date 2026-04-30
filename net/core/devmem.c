@@ -297,8 +297,7 @@ net_devmem_bind_dmabuf(struct net_device *dev,
 
 		for (i = 0; i < owner->area.num_niovs; i++) {
 			niov = &owner->area.niovs[i];
-			niov->type = NET_IOV_DMABUF;
-			niov->owner = &owner->area;
+			net_iov_init(niov, &owner->area, NET_IOV_DMABUF);
 			page_pool_set_dma_addr_netmem(net_iov_to_netmem(niov),
 						      net_devmem_get_dma_addr(niov));
 			if (direction == DMA_TO_DEVICE)
