@@ -110,6 +110,7 @@ struct mlx5_cmd_allow_other_vhca_access_attr {
 struct mlx5_cmd_alias_obj_create_attr {
 	u32 obj_id;
 	u16 vhca_id;
+	u8 vhca_id_type;
 	u16 obj_type;
 	u8 access_key[ACCESS_KEY_LEN];
 };
