@@ -1877,18 +1877,17 @@ out:
 
 static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
 {
-	struct net *net = sock_net(skb->sk);
-	int idx, q_idx;
-	int s_idx, s_q_idx;
-	struct net_device *dev;
 	const struct nlmsghdr *nlh = cb->nlh;
+	struct net *net = sock_net(skb->sk);
 	struct nlattr *tca[TCA_MAX + 1];
+	struct {
+		unsigned long ifindex;
+		int q_idx;
+	} *ctx = (void *)cb->ctx;
+	struct net_device *dev;
+	int s_q_idx, q_idx;
 	int err;
 
-	s_idx = cb->args[0];
-	s_q_idx = q_idx = cb->args[1];
-
-	idx = 0;
 	ASSERT_RTNL();
 
 	err = nlmsg_parse_deprecated(nlh, sizeof(struct tcmsg), tca, TCA_MAX,
@@ -1896,42 +1895,39 @@ static int tc_dump_qdisc(struct sk_buff *skb, struct netlink_callback *cb)
 	if (err < 0)
 		return err;
 
-	for_each_netdev(net, dev) {
-		struct netdev_queue *dev_queue;
+	s_q_idx = ctx->q_idx;
 
-		if (idx < s_idx)
-			goto cont;
-		if (idx > s_idx)
-			s_q_idx = 0;
+	for_each_netdev_dump(net, dev, ctx->ifindex) {
+		struct netdev_queue *dev_queue;
+		struct Qdisc *q;
+
 		q_idx = 0;
 
 		netdev_lock_ops(dev);
-		if (tc_dump_qdisc_root(rtnl_dereference(dev->qdisc),
-				       skb, cb, &q_idx, s_q_idx,
-				       true, tca[TCA_DUMP_INVISIBLE]) < 0) {
-			netdev_unlock_ops(dev);
-			goto done;
-		}
+		q = rtnl_dereference(dev->qdisc);
+		err = tc_dump_qdisc_root(q, skb, cb, &q_idx, s_q_idx,
+					 true, tca[TCA_DUMP_INVISIBLE]);
+		if (err < 0)
+			goto error_unlock;
 
 		dev_queue = dev_ingress_queue(dev);
-		if (dev_queue &&
-		    tc_dump_qdisc_root(rtnl_dereference(dev_queue->qdisc_sleeping),
-				       skb, cb, &q_idx, s_q_idx, false,
-				       tca[TCA_DUMP_INVISIBLE]) < 0) {
-			netdev_unlock_ops(dev);
-			goto done;
+		if (dev_queue) {
+			q = rtnl_dereference(dev_queue->qdisc_sleeping);
+			err = tc_dump_qdisc_root(q, skb, cb, &q_idx, s_q_idx,
+						 false, tca[TCA_DUMP_INVISIBLE]);
+			if (err < 0)
+				goto error_unlock;
 		}
 		netdev_unlock_ops(dev);
-
-cont:
-		idx++;
+		s_q_idx = 0;
 	}
-
-done:
-	cb->args[0] = idx;
-	cb->args[1] = q_idx;
-
 	return skb->len;
+
+error_unlock:
+	netdev_unlock_ops(dev);
+	ctx->q_idx = q_idx;
+
+	return err;
 }
 
 
