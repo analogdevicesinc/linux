@@ -319,9 +319,6 @@ struct intel_display {
 
 		/* fdi display functions */
 		const struct intel_fdi_funcs *fdi;
-
-		/* Display internal color functions */
-		const struct intel_color_funcs *color;
 	} funcs;
 
 	struct {
@@ -365,6 +362,9 @@ struct intel_display {
 	} cdclk;
 
 	struct {
+		/* internal color functions */
+		const struct intel_color_funcs *funcs;
+
 		struct drm_property_blob *glk_linear_degamma_lut;
 	} color;
 
