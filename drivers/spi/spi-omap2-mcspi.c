@@ -1484,9 +1484,9 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 
 	if (of_property_read_bool(node, "spi-slave"))
-		ctlr = spi_alloc_target(&pdev->dev, sizeof(*mcspi));
+		ctlr = devm_spi_alloc_target(&pdev->dev, sizeof(*mcspi));
 	else
-		ctlr = spi_alloc_host(&pdev->dev, sizeof(*mcspi));
+		ctlr = devm_spi_alloc_host(&pdev->dev, sizeof(*mcspi));
 	if (!ctlr)
 		return -ENOMEM;
 
@@ -1530,10 +1530,9 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 	}
 
 	mcspi->base = devm_platform_get_and_ioremap_resource(pdev, 0, &r);
-	if (IS_ERR(mcspi->base)) {
-		status = PTR_ERR(mcspi->base);
-		goto free_ctlr;
-	}
+	if (IS_ERR(mcspi->base))
+		return PTR_ERR(mcspi->base);
+
 	mcspi->phys = r->start + regs_offset;
 	mcspi->base += regs_offset;
 
@@ -1544,10 +1543,8 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 	mcspi->dma_channels = devm_kcalloc(&pdev->dev, ctlr->num_chipselect,
 					   sizeof(struct omap2_mcspi_dma),
 					   GFP_KERNEL);
-	if (mcspi->dma_channels == NULL) {
-		status = -ENOMEM;
-		goto free_ctlr;
-	}
+	if (mcspi->dma_channels == NULL)
+		return -ENOMEM;
 
 	for (i = 0; i < ctlr->num_chipselect; i++) {
 		sprintf(mcspi->dma_channels[i].dma_rx_ch_name, "rx%d", i);
@@ -1604,7 +1601,7 @@ disable_pm:
 	pm_runtime_disable(&pdev->dev);
 free_ctlr:
 	omap2_mcspi_release_dma(ctlr);
-	spi_controller_put(ctlr);
+
 	return status;
 }
 
@@ -1613,8 +1610,6 @@ static void omap2_mcspi_remove(struct platform_device *pdev)
 	struct spi_controller *ctlr = platform_get_drvdata(pdev);
 	struct omap2_mcspi *mcspi = spi_controller_get_devdata(ctlr);
 
-	spi_controller_get(ctlr);
-
 	spi_unregister_controller(ctlr);
 
 	omap2_mcspi_release_dma(ctlr);
@@ -1622,8 +1617,6 @@ static void omap2_mcspi_remove(struct platform_device *pdev)
 	pm_runtime_dont_use_autosuspend(mcspi->dev);
 	pm_runtime_put_sync(mcspi->dev);
 	pm_runtime_disable(&pdev->dev);
-
-	spi_controller_put(ctlr);
 }
 
 /* work with hotplug and coldplug */
