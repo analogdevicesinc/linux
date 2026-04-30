@@ -1083,11 +1083,11 @@ void kcov_remote_stop(void)
 EXPORT_SYMBOL(kcov_remote_stop);
 
 /* See the comment before kcov_remote_start() for usage details. */
-u64 kcov_common_handle(void)
+struct kcov_common_handle_id kcov_common_handle(void)
 {
 	if (!in_task())
-		return 0;
-	return current->kcov_handle;
+		return (struct kcov_common_handle_id){ .val = 0 };
+	return (struct kcov_common_handle_id){ .val = current->kcov_handle };
 }
 EXPORT_SYMBOL(kcov_common_handle);
 
