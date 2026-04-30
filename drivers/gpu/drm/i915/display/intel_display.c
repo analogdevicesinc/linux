@@ -2162,7 +2162,7 @@ static void i9xx_crtc_disable(struct intel_atomic_state *state,
 	if (DISPLAY_VER(display) != 2)
 		intel_set_cpu_fifo_underrun_reporting(display, pipe, false);
 
-	if (!display->funcs.wm->initial_watermarks)
+	if (!display->wm.funcs->initial_watermarks)
 		intel_update_watermarks(display);
 
 	/* clock the pipe down to 640x480@60 to potentially save power */

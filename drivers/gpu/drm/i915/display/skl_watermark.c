@@ -3995,7 +3995,7 @@ void skl_wm_init(struct intel_display *display)
 
 	skl_setup_wm_latency(display);
 
-	display->funcs.wm = &skl_wm_funcs;
+	display->wm.funcs = &skl_wm_funcs;
 }
 
 static int skl_watermark_ipc_status_show(struct seq_file *m, void *data)

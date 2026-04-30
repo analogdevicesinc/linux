@@ -3584,7 +3584,7 @@ void ilk_wm_sanitize(struct intel_display *display)
 	int i;
 
 	/* Only supported on platforms that use atomic watermark design */
-	if (!display->funcs.wm->optimize_watermarks)
+	if (!display->wm.funcs->optimize_watermarks)
 		return;
 
 	if (drm_WARN_ON(display->drm, DISPLAY_VER(display) >= 9))
@@ -4152,34 +4152,34 @@ void i9xx_wm_init(struct intel_display *display)
 	/* For FIFO watermark updates */
 	if (HAS_PCH_SPLIT(display)) {
 		ilk_setup_wm_latency(display);
-		display->funcs.wm = &ilk_wm_funcs;
+		display->wm.funcs = &ilk_wm_funcs;
 	} else if (display->platform.valleyview || display->platform.cherryview) {
 		vlv_setup_wm_latency(display);
-		display->funcs.wm = &vlv_wm_funcs;
+		display->wm.funcs = &vlv_wm_funcs;
 	} else if (display->platform.g4x) {
 		g4x_setup_wm_latency(display);
-		display->funcs.wm = &g4x_wm_funcs;
+		display->wm.funcs = &g4x_wm_funcs;
 	} else if (display->platform.pineview) {
 		if (!pnv_get_cxsr_latency(display)) {
 			drm_info(display->drm, "Unknown FSB/MEM, disabling CxSR\n");
 			/* Disable CxSR and never update its watermark again */
 			intel_set_memory_cxsr(display, false);
-			display->funcs.wm = &nop_funcs;
+			display->wm.funcs = &nop_funcs;
 		} else {
-			display->funcs.wm = &pnv_wm_funcs;
+			display->wm.funcs = &pnv_wm_funcs;
 		}
 	} else if (DISPLAY_VER(display) == 4) {
-		display->funcs.wm = &i965_wm_funcs;
+		display->wm.funcs = &i965_wm_funcs;
 	} else if (DISPLAY_VER(display) == 3) {
-		display->funcs.wm = &i9xx_wm_funcs;
+		display->wm.funcs = &i9xx_wm_funcs;
 	} else if (DISPLAY_VER(display) == 2) {
 		if (INTEL_NUM_PIPES(display) == 1)
-			display->funcs.wm = &i845_wm_funcs;
+			display->wm.funcs = &i845_wm_funcs;
 		else
-			display->funcs.wm = &i9xx_wm_funcs;
+			display->wm.funcs = &i9xx_wm_funcs;
 	} else {
 		drm_err(display->drm,
 			"unexpected fall-through in %s\n", __func__);
-		display->funcs.wm = &nop_funcs;
+		display->wm.funcs = &nop_funcs;
 	}
 }

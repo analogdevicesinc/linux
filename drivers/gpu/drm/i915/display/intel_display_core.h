@@ -247,6 +247,9 @@ struct intel_vbt_data {
 };
 
 struct intel_wm {
+	/* internal watermark functions */
+	const struct intel_wm_funcs *funcs;
+
 	/*
 	 * Raw watermark latency values:
 	 * in 0.1us units for WM0,
@@ -313,9 +316,6 @@ struct intel_display {
 
 		/* irq display functions */
 		const struct intel_hotplug_funcs *hotplug;
-
-		/* pm display functions */
-		const struct intel_wm_funcs *wm;
 	} funcs;
 
 	struct {
