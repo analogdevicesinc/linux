@@ -1730,8 +1730,7 @@ int cs35l56_read_onchip_spkid(struct cs35l56_base *cs35l56_base)
 
 	ret = regmap_read(regmap, CS35L56_GPIO_STATUS1, &val);
 	if (ret) {
-		dev_err(cs35l56_base->dev, "GPIO%d status read failed: %d\n",
-			cs35l56_base->onchip_spkid_gpios[i] + 1, ret);
+		dev_err(cs35l56_base->dev, "GPIO status read failed: %d\n", ret);
 		return ret;
 	}
 
