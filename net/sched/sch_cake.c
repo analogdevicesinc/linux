@@ -399,14 +399,14 @@ static void cake_configure_rates(struct Qdisc *sch, u64 rate, bool rate_adjust);
  * Here, invsqrt is a fixed point number (< 1.0), 32bit mantissa, aka Q0.32
  */
 
-static void cobalt_newton_step(struct cobalt_vars *vars)
+static void cobalt_newton_step(struct cobalt_vars *vars, u32 count)
 {
 	u32 invsqrt, invsqrt2;
 	u64 val;
 
 	invsqrt = vars->rec_inv_sqrt;
 	invsqrt2 = ((u64)invsqrt * invsqrt) >> 32;
-	val = (3LL << 32) - ((u64)vars->count * invsqrt2);
+	val = (3LL << 32) - ((u64)count * invsqrt2);
 
 	val >>= 2; /* avoid overflow in following multiply */
 	val = (val * invsqrt) >> (32 - 2 + 1);
@@ -414,12 +414,12 @@ static void cobalt_newton_step(struct cobalt_vars *vars)
 	vars->rec_inv_sqrt = val;
 }
 
-static void cobalt_invsqrt(struct cobalt_vars *vars)
+static void cobalt_invsqrt(struct cobalt_vars *vars, u32 count)
 {
-	if (vars->count < REC_INV_SQRT_CACHE)
-		vars->rec_inv_sqrt = inv_sqrt_cache[vars->count];
+	if (count < REC_INV_SQRT_CACHE)
+		vars->rec_inv_sqrt = inv_sqrt_cache[count];
 	else
-		cobalt_newton_step(vars);
+		cobalt_newton_step(vars, count);
 }
 
 static void cobalt_vars_init(struct cobalt_vars *vars)
@@ -449,16 +449,19 @@ static bool cobalt_queue_full(struct cobalt_vars *vars,
 	bool up = false;
 
 	if (ktime_to_ns(ktime_sub(now, vars->blue_timer)) > p->target) {
-		up = !vars->p_drop;
-		vars->p_drop += p->p_inc;
-		if (vars->p_drop < p->p_inc)
-			vars->p_drop = ~0;
-		vars->blue_timer = now;
+		u32 p_drop = vars->p_drop;
+
+		up = !p_drop;
+		p_drop += p->p_inc;
+		if (p_drop < p->p_inc)
+			p_drop = ~0;
+		WRITE_ONCE(vars->p_drop, p_drop);
+		WRITE_ONCE(vars->blue_timer, now);
 	}
-	vars->dropping = true;
-	vars->drop_next = now;
+	WRITE_ONCE(vars->dropping, true);
+	WRITE_ONCE(vars->drop_next, now);
 	if (!vars->count)
-		vars->count = 1;
+		WRITE_ONCE(vars->count, 1);
 
 	return up;
 }
@@ -475,20 +478,20 @@ static bool cobalt_queue_empty(struct cobalt_vars *vars,
 	if (vars->p_drop &&
 	    ktime_to_ns(ktime_sub(now, vars->blue_timer)) > p->target) {
 		if (vars->p_drop < p->p_dec)
-			vars->p_drop = 0;
+			WRITE_ONCE(vars->p_drop, 0);
 		else
-			vars->p_drop -= p->p_dec;
-		vars->blue_timer = now;
+			WRITE_ONCE(vars->p_drop, vars->p_drop - p->p_dec);
+		WRITE_ONCE(vars->blue_timer, now);
 		down = !vars->p_drop;
 	}
-	vars->dropping = false;
+	WRITE_ONCE(vars->dropping, false);
 
 	if (vars->count && ktime_to_ns(ktime_sub(now, vars->drop_next)) >= 0) {
-		vars->count--;
-		cobalt_invsqrt(vars);
-		vars->drop_next = cobalt_control(vars->drop_next,
-						 p->interval,
-						 vars->rec_inv_sqrt);
+		WRITE_ONCE(vars->count, vars->count - 1);
+		cobalt_invsqrt(vars, vars->count);
+		WRITE_ONCE(vars->drop_next,
+			   cobalt_control(vars->drop_next, p->interval,
+					  vars->rec_inv_sqrt));
 	}
 
 	return down;
@@ -507,6 +510,7 @@ static enum qdisc_drop_reason cobalt_should_drop(struct cobalt_vars *vars,
 	bool next_due, over_target;
 	ktime_t schedule;
 	u64 sojourn;
+	u32 count;
 
 /* The 'schedule' variable records, in its sign, whether 'now' is before or
  * after 'drop_next'.  This allows 'drop_next' to be updated before the next
@@ -528,21 +532,22 @@ static enum qdisc_drop_reason cobalt_should_drop(struct cobalt_vars *vars,
 	over_target = sojourn > p->target &&
 		      sojourn > p->mtu_time * bulk_flows * 2 &&
 		      sojourn > p->mtu_time * 4;
-	next_due = vars->count && ktime_to_ns(schedule) >= 0;
+	count = vars->count;
+	next_due = count && ktime_to_ns(schedule) >= 0;
 
 	vars->ecn_marked = false;
 
 	if (over_target) {
 		if (!vars->dropping) {
-			vars->dropping = true;
-			vars->drop_next = cobalt_control(now,
-							 p->interval,
-							 vars->rec_inv_sqrt);
+			WRITE_ONCE(vars->dropping, true);
+			WRITE_ONCE(vars->drop_next,
+				   cobalt_control(now, p->interval,
+						  vars->rec_inv_sqrt));
 		}
-		if (!vars->count)
-			vars->count = 1;
+		if (!count)
+			count = 1;
 	} else if (vars->dropping) {
-		vars->dropping = false;
+		WRITE_ONCE(vars->dropping, false);
 	}
 
 	if (next_due && vars->dropping) {
@@ -550,23 +555,23 @@ static enum qdisc_drop_reason cobalt_should_drop(struct cobalt_vars *vars,
 		if (!(vars->ecn_marked = INET_ECN_set_ce(skb)))
 			reason = QDISC_DROP_CONGESTED;
 
-		vars->count++;
-		if (!vars->count)
-			vars->count--;
-		cobalt_invsqrt(vars);
-		vars->drop_next = cobalt_control(vars->drop_next,
-						 p->interval,
-						 vars->rec_inv_sqrt);
+		count++;
+		if (!count)
+			count--;
+		cobalt_invsqrt(vars, count);
+		WRITE_ONCE(vars->drop_next,
+			   cobalt_control(vars->drop_next, p->interval,
+					  vars->rec_inv_sqrt));
 		schedule = ktime_sub(now, vars->drop_next);
 	} else {
 		while (next_due) {
-			vars->count--;
-			cobalt_invsqrt(vars);
-			vars->drop_next = cobalt_control(vars->drop_next,
-							 p->interval,
-							 vars->rec_inv_sqrt);
+			count--;
+			cobalt_invsqrt(vars, count);
+			WRITE_ONCE(vars->drop_next,
+				   cobalt_control(vars->drop_next, p->interval,
+						  vars->rec_inv_sqrt));
 			schedule = ktime_sub(now, vars->drop_next);
-			next_due = vars->count && ktime_to_ns(schedule) >= 0;
+			next_due = count && ktime_to_ns(schedule) >= 0;
 		}
 	}
 
@@ -575,11 +580,12 @@ static enum qdisc_drop_reason cobalt_should_drop(struct cobalt_vars *vars,
 	    get_random_u32() < vars->p_drop)
 		reason = QDISC_DROP_FLOOD_PROTECTION;
 
+	WRITE_ONCE(vars->count, count);
 	/* Overload the drop_next field as an activity timeout */
-	if (!vars->count)
-		vars->drop_next = ktime_add_ns(now, p->interval);
+	if (!count)
+		WRITE_ONCE(vars->drop_next, ktime_add_ns(now, p->interval));
 	else if (ktime_to_ns(schedule) > 0 && reason == QDISC_DROP_UNSPEC)
-		vars->drop_next = now;
+		WRITE_ONCE(vars->drop_next, now);
 
 	return reason;
 }
@@ -1924,7 +1930,7 @@ static s32 cake_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 		flow->set = CAKE_SET_SPARSE;
 		WRITE_ONCE(b->sparse_flow_count, b->sparse_flow_count + 1);
 
-		flow->deficit = cake_get_flow_quantum(b, flow, q->config->flow_mode);
+		WRITE_ONCE(flow->deficit, cake_get_flow_quantum(b, flow, q->config->flow_mode));
 	} else if (flow->set == CAKE_SET_SPARSE_WAIT) {
 		/* this flow was empty, accounted as a sparse flow, but actually
 		 * in the bulk rotation.
@@ -2166,7 +2172,8 @@ retry:
 			}
 		}
 
-		flow->deficit += cake_get_flow_quantum(b, flow, q->config->flow_mode);
+		WRITE_ONCE(flow->deficit,
+			   flow->deficit + cake_get_flow_quantum(b, flow, q->config->flow_mode));
 		list_move_tail(&flow->flowchain, &b->old_flows);
 
 		goto retry;
@@ -2232,7 +2239,7 @@ retry:
 		if (q->config->rate_flags & CAKE_FLAG_INGRESS) {
 			len = cake_advance_shaper(q, b, skb,
 						  now, true);
-			flow->deficit -= len;
+			WRITE_ONCE(flow->deficit, flow->deficit - len);
 			b->tin_deficit -= len;
 		}
 		WRITE_ONCE(flow->dropped, flow->dropped + 1);
@@ -2259,7 +2266,7 @@ retry:
 			     delay < b->base_delay ? 2 : 8));
 
 	len = cake_advance_shaper(q, b, skb, now, false);
-	flow->deficit -= len;
+	WRITE_ONCE(flow->deficit, flow->deficit - len);
 	b->tin_deficit -= len;
 
 	if (ktime_after(q->time_next_packet, now) && sch->q.qlen) {
@@ -3153,6 +3160,8 @@ static int cake_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 		return -1;
 	if (flow) {
 		ktime_t now = ktime_get();
+		bool dropping;
+		u32 p_drop;
 
 		stats = nla_nest_start_noflag(d->skb, TCA_STATS_APP);
 		if (!stats)
@@ -3167,21 +3176,23 @@ static int cake_dump_class_stats(struct Qdisc *sch, unsigned long cl,
 			goto nla_put_failure;			       \
 	} while (0)
 
-		PUT_STAT_S32(DEFICIT, flow->deficit);
-		PUT_STAT_U32(DROPPING, flow->cvars.dropping);
-		PUT_STAT_U32(COBALT_COUNT, flow->cvars.count);
-		PUT_STAT_U32(P_DROP, flow->cvars.p_drop);
-		if (flow->cvars.p_drop) {
+		PUT_STAT_S32(DEFICIT, READ_ONCE(flow->deficit));
+		dropping = READ_ONCE(flow->cvars.dropping);
+		PUT_STAT_U32(DROPPING, dropping);
+		PUT_STAT_U32(COBALT_COUNT, READ_ONCE(flow->cvars.count));
+		p_drop = READ_ONCE(flow->cvars.p_drop);
+		PUT_STAT_U32(P_DROP, p_drop);
+		if (p_drop) {
 			PUT_STAT_S32(BLUE_TIMER_US,
 				     ktime_to_us(
 					     ktime_sub(now,
-						       flow->cvars.blue_timer)));
+						       READ_ONCE(flow->cvars.blue_timer))));
 		}
-		if (flow->cvars.dropping) {
+		if (dropping) {
 			PUT_STAT_S32(DROP_NEXT_US,
 				     ktime_to_us(
 					     ktime_sub(now,
-						       flow->cvars.drop_next)));
+						       READ_ONCE(flow->cvars.drop_next))));
 		}
 
 		if (nla_nest_end(d->skb, stats) < 0)
