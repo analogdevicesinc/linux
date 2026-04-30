@@ -7,6 +7,25 @@
 #include "fbnic.h"
 #include "fbnic_netdev.h"
 
+/* fbnic MDIO Interface Layout
+ *
+ *        +-------------------+
+ *        |        MAC        |
+ *        +-------------------+
+ *            |   |   |   |  <-- 25GMII, 50GMII, or CGMII
+ *        +-------------------+
+ *  MMD 3 |        PCS        |
+ *        +-------------------+
+ *        |        FEC        |
+ *        +-------------------+
+ *  MMD 8 |  Separated PMA    |
+ *        +-------------------+
+ *              |       |     <-- PMD Service Interface
+ *        +-------------------+
+ *  MMD 1 |        PMD        |
+ *        +-------------------+
+ */
+
 #define DW_VENDOR		BIT(15)
 #define FBNIC_PCS_VENDOR	BIT(9)
 #define FBNIC_PCS_ZERO_MASK	(DW_VENDOR - FBNIC_PCS_VENDOR)
@@ -112,6 +131,32 @@ fbnic_mdio_read_pcs(struct fbnic_dev *fbd, int addr, int regnum)
 }
 
 static int
+fbnic_mdio_read_pma(struct fbnic_dev *fbd, int addr, int regnum)
+{
+	int ret = 0;
+
+	/* We will need access to both PMA instances to get config info */
+	if (addr >= 2)
+		return 0;
+
+	switch (regnum) {
+	case MDIO_PMA_RSFEC_CTRL ... MDIO_PMA_RSFEC_LANE_MAP:
+		ret = fbnic_rd32(fbd, FBNIC_RSFEC_CONTROL(addr) +
+				 regnum - MDIO_PMA_RSFEC_CTRL);
+		break;
+	default:
+		ret = fbnic_mdio_ids(MP_FBNIC_XPCS_PMA_100G_ID, regnum);
+		break;
+	}
+
+	dev_dbg(fbd->dev,
+		"SWMII PMA Rd: Addr: %d RegNum: %d Value: 0x%04x\n",
+		addr, regnum, ret);
+
+	return ret;
+}
+
+static int
 fbnic_mdio_read_c45(struct mii_bus *bus, int addr, int devnum, int regnum)
 {
 	struct fbnic_dev *fbd = bus->priv;
@@ -121,6 +166,9 @@ fbnic_mdio_read_c45(struct mii_bus *bus, int addr, int devnum, int regnum)
 
 	if (devnum == MDIO_MMD_PCS)
 		return fbnic_mdio_read_pcs(fbd, addr, regnum);
+
+	if (devnum == MDIO_MMD_SEP_PMA1)
+		return fbnic_mdio_read_pma(fbd, addr, regnum);
 
 	return 0;
 }
@@ -155,6 +203,26 @@ fbnic_mdio_write_pcs(struct fbnic_dev *fbd, int addr, int regnum, u16 val)
 	fbnic_wr32(fbd, FBNIC_PCS_PAGE(addr) + regnum, val);
 }
 
+static void
+fbnic_mdio_write_pma(struct fbnic_dev *fbd, int addr, int regnum, u16 val)
+{
+	dev_dbg(fbd->dev,
+		"SWMII PMA Wr: Addr: %d RegNum: %d Value: 0x%04x\n",
+		addr, regnum, val);
+
+	if (addr >= 2)
+		return;
+
+	switch (regnum) {
+	case MDIO_PMA_RSFEC_CTRL ... MDIO_PMA_RSFEC_LANE_MAP:
+		fbnic_wr32(fbd, FBNIC_RSFEC_CONTROL(addr) +
+				regnum - MDIO_PMA_RSFEC_CTRL, val);
+		break;
+	default:
+		break;
+	}
+}
+
 static int
 fbnic_mdio_write_c45(struct mii_bus *bus, int addr, int devnum,
 		     int regnum, u16 val)
@@ -166,6 +234,9 @@ fbnic_mdio_write_c45(struct mii_bus *bus, int addr, int devnum,
 
 	if (devnum == MDIO_MMD_PCS)
 		fbnic_mdio_write_pcs(fbd, addr, regnum, val);
+
+	if (devnum == MDIO_MMD_SEP_PMA1)
+		fbnic_mdio_write_pma(fbd, addr, regnum, val);
 
 	return 0;
 }
