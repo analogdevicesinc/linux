@@ -98,7 +98,14 @@
 
 #define ZL_REG_REF_MON_STATUS(_idx)					\
 	ZL_REG_IDX(_idx, 2, 0x02, 1, ZL3073X_NUM_REFS, 1)
-#define ZL_REF_MON_STATUS_OK			0 /* all bits zeroed */
+#define ZL_REF_MON_STATUS_OK			0
+#define ZL_REF_MON_STATUS_LOS			BIT(0)
+#define ZL_REF_MON_STATUS_SCM			BIT(1)
+#define ZL_REF_MON_STATUS_CFM			BIT(2)
+#define ZL_REF_MON_STATUS_GST			BIT(3)
+#define ZL_REF_MON_STATUS_PFM			BIT(4)
+#define ZL_REF_MON_STATUS_ESYNC			BIT(6)
+#define ZL_REF_MON_STATUS_SPLIT_XO		BIT(7)
 
 #define ZL_REG_DPLL_MON_STATUS(_idx)					\
 	ZL_REG_IDX(_idx, 2, 0x10, 1, ZL3073X_MAX_CHANNELS, 1)
