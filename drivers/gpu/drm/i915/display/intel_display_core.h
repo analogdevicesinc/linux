@@ -316,9 +316,6 @@ struct intel_display {
 
 		/* pm display functions */
 		const struct intel_wm_funcs *wm;
-
-		/* fdi display functions */
-		const struct intel_fdi_funcs *fdi;
 	} funcs;
 
 	struct {
@@ -418,6 +415,9 @@ struct intel_display {
 	} fbdev;
 
 	struct {
+		/* internal fdi functions */
+		const struct intel_fdi_funcs *funcs;
+
 		unsigned int pll_freq;
 		u32 rx_config;
 	} fdi;

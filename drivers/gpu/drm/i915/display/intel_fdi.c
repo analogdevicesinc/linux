@@ -123,7 +123,7 @@ void intel_fdi_link_train(struct intel_crtc *crtc,
 {
 	struct intel_display *display = to_intel_display(crtc);
 
-	display->funcs.fdi->fdi_link_train(crtc, crtc_state);
+	display->fdi.funcs->fdi_link_train(crtc, crtc_state);
 }
 
 /**
@@ -1109,11 +1109,11 @@ void
 intel_fdi_init_hook(struct intel_display *display)
 {
 	if (display->platform.ironlake) {
-		display->funcs.fdi = &ilk_funcs;
+		display->fdi.funcs = &ilk_funcs;
 	} else if (display->platform.sandybridge) {
-		display->funcs.fdi = &gen6_funcs;
+		display->fdi.funcs = &gen6_funcs;
 	} else if (display->platform.ivybridge) {
 		/* FIXME: detect B0+ stepping and use auto training */
-		display->funcs.fdi = &ivb_funcs;
+		display->fdi.funcs = &ivb_funcs;
 	}
 }
