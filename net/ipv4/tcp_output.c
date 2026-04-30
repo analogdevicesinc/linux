@@ -1657,14 +1657,8 @@ static int __tcp_transmit_skb(struct sock *sk, struct sk_buff *skb,
 					       key.md5_key, sk, skb);
 #endif
 	} else if (tcp_key_is_ao(&key)) {
-		int err;
-
-		err = tcp_ao_transmit_skb(sk, skb, key.ao_key, th,
-					  opts.hash_location);
-		if (err) {
-			sk_skb_reason_drop(sk, skb, SKB_DROP_REASON_NOT_SPECIFIED);
-			return -ENOMEM;
-		}
+		tcp_ao_transmit_skb(sk, skb, key.ao_key, th,
+				    opts.hash_location);
 	}
 
 	/* BPF prog is the last one writing header option */
