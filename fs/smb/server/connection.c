@@ -122,6 +122,8 @@ static void __ksmbd_conn_release_work(struct work_struct *work)
 /**
  * ksmbd_conn_get() - take a reference on @conn and return it.
  *
+ * @conn: connection instance to get a reference to
+ *
  * Returns @conn unchanged so callers can write
  * "fp->conn = ksmbd_conn_get(work->conn);" in one expression.  Returns NULL
  * if @conn is NULL.
@@ -138,6 +140,8 @@ struct ksmbd_conn *ksmbd_conn_get(struct ksmbd_conn *conn)
 /**
  * ksmbd_conn_put() - drop a reference and, if it was the last, queue the
  * release onto ksmbd_conn_wq so it runs from process context.
+ *
+ * @conn: connection instance to put a reference to
  *
  * Callable from any context including RCU softirq callbacks and non-sleeping
  * locks; the actual release is deferred to the workqueue.  ksmbd_conn_wq is
