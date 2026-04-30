@@ -1735,7 +1735,7 @@ int intel_dpll_crtc_compute_clock(struct intel_atomic_state *state,
 	if (!crtc_state->hw.enable)
 		return 0;
 
-	ret = display->funcs.dpll->crtc_compute_clock(state, crtc);
+	ret = display->dpll.funcs->crtc_compute_clock(state, crtc);
 	if (ret) {
 		drm_dbg_kms(display->drm, "[CRTC:%d:%s] Couldn't calculate DPLL settings\n",
 			    crtc->base.base.id, crtc->base.name);
@@ -1759,10 +1759,10 @@ int intel_dpll_crtc_get_dpll(struct intel_atomic_state *state,
 	if (!crtc_state->hw.enable || crtc_state->intel_dpll)
 		return 0;
 
-	if (!display->funcs.dpll->crtc_get_dpll)
+	if (!display->dpll.funcs->crtc_get_dpll)
 		return 0;
 
-	ret = display->funcs.dpll->crtc_get_dpll(state, crtc);
+	ret = display->dpll.funcs->crtc_get_dpll(state, crtc);
 	if (ret) {
 		drm_dbg_kms(display->drm, "[CRTC:%d:%s] Couldn't get a shared DPLL\n",
 			    crtc->base.base.id, crtc->base.name);
@@ -1776,27 +1776,27 @@ void
 intel_dpll_init_clock_hook(struct intel_display *display)
 {
 	if (HAS_LT_PHY(display))
-		display->funcs.dpll = &xe3plpd_dpll_funcs;
+		display->dpll.funcs = &xe3plpd_dpll_funcs;
 	else if (DISPLAY_VER(display) >= 14)
-		display->funcs.dpll = &mtl_dpll_funcs;
+		display->dpll.funcs = &mtl_dpll_funcs;
 	else if (display->platform.dg2)
-		display->funcs.dpll = &dg2_dpll_funcs;
+		display->dpll.funcs = &dg2_dpll_funcs;
 	else if (DISPLAY_VER(display) >= 9 || HAS_DDI(display))
-		display->funcs.dpll = &hsw_dpll_funcs;
+		display->dpll.funcs = &hsw_dpll_funcs;
 	else if (HAS_PCH_SPLIT(display))
-		display->funcs.dpll = &ilk_dpll_funcs;
+		display->dpll.funcs = &ilk_dpll_funcs;
 	else if (display->platform.cherryview)
-		display->funcs.dpll = &chv_dpll_funcs;
+		display->dpll.funcs = &chv_dpll_funcs;
 	else if (display->platform.valleyview)
-		display->funcs.dpll = &vlv_dpll_funcs;
+		display->dpll.funcs = &vlv_dpll_funcs;
 	else if (display->platform.g4x)
-		display->funcs.dpll = &g4x_dpll_funcs;
+		display->dpll.funcs = &g4x_dpll_funcs;
 	else if (display->platform.pineview)
-		display->funcs.dpll = &pnv_dpll_funcs;
+		display->dpll.funcs = &pnv_dpll_funcs;
 	else if (DISPLAY_VER(display) != 2)
-		display->funcs.dpll = &i9xx_dpll_funcs;
+		display->dpll.funcs = &i9xx_dpll_funcs;
 	else
-		display->funcs.dpll = &i8xx_dpll_funcs;
+		display->dpll.funcs = &i8xx_dpll_funcs;
 }
 
 static bool i9xx_has_pps(struct intel_display *display)
