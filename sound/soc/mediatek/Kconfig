@@ -363,4 +363,24 @@ config SND_SOC_MT8196
 	  Select Y if you have such device.
 	  If unsure select "N".
 
+config SND_SOC_MT8196_NAU8825
+	tristate "ASoc Audio driver for MT8196 with NAU8825 and I2S codec"
+	depends on SND_SOC_MT8196
+	depends on I2C
+	select SND_SOC_HDMI_CODEC
+	select SND_SOC_DMIC
+	select SND_SOC_NAU8315
+	select SND_SOC_NAU8825
+	select SND_SOC_RT5645
+	select SND_SOC_RT5682_I2C
+	select SND_SOC_RT5682S
+	select SND_SOC_TAS2781_COMLIB
+	select SND_SOC_TAS2781_FMWLIB
+	select SND_SOC_TAS2781_I2C
+	help
+	  This adds support for ASoC machine driver for MediaTek MT8196
+	  boards with the NAU8825 and other I2S audio codecs.
+	  Select Y if you have such device.
+	  If unsure select "N".
+
 endmenu
