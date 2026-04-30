@@ -2811,7 +2811,7 @@ static int airoha_pinconf_group_get(struct pinctrl_dev *pctrl_dev,
 				    unsigned int group, unsigned long *config)
 {
 	struct airoha_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
-	u32 cur_config = 0;
+	unsigned long cur_config = 0;
 	int i;
 
 	for (i = 0; i < pinctrl->grps[group].npins; i++) {
