@@ -7914,13 +7914,11 @@ static void sysrq_handle_sched_ext_reset(u8 key)
 {
 	struct scx_sched *sch;
 
-	rcu_read_lock();
 	sch = rcu_dereference(scx_root);
 	if (likely(sch))
 		scx_disable(sch, SCX_EXIT_SYSRQ);
 	else
 		pr_info("sched_ext: BPF schedulers not loaded\n");
-	rcu_read_unlock();
 }
 
 static const struct sysrq_key_op sysrq_sched_ext_reset_op = {
