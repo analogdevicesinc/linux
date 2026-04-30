@@ -1437,7 +1437,7 @@ static int ad4691_regulator_setup(struct ad4691_state *st)
 	 *   vdd-supply absent   → enable internal LDO fed from ldo-in-supply.
 	 * Having both simultaneously is strongly inadvisable per the datasheet.
 	 */
-	ret = devm_regulator_get_enable(dev, "vdd");
+	ret = devm_regulator_get_enable_optional(dev, "vdd");
 	if (ret == -ENODEV) {
 		ret = devm_regulator_get_enable(dev, "ldo-in");
 		if (ret)
