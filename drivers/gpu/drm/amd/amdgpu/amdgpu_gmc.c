@@ -280,6 +280,15 @@ void amdgpu_gmc_sysvm_location(struct amdgpu_device *adev, struct amdgpu_gmc *mc
 			mc->gart_size >> 20, mc->gart_start, mc->gart_end);
 }
 
+void amdgpu_gmc_set_gart_size(struct amdgpu_device *adev, u64 default_size)
+{
+	if (amdgpu_gart_size == -1)
+		adev->gmc.gart_size =
+			default_size + adev->pm.smu_prv_buffer_size;
+	else
+		adev->gmc.gart_size = (u64)amdgpu_gart_size << 20;
+}
+
 /**
  * amdgpu_gmc_gart_location - try to find GART location
  *

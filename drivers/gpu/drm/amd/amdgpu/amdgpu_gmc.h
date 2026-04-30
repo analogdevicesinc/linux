@@ -486,4 +486,6 @@ void amdgpu_gmc_init_sw_mem_ranges(struct amdgpu_device *adev,
 				   struct amdgpu_mem_partition_info *mem_ranges);
 int amdgpu_gmc_get_vram_info(struct amdgpu_device *adev,
 		int *vram_width, int *vram_type, int *vram_vendor);
+
+void amdgpu_gmc_set_gart_size(struct amdgpu_device *adev, u64 default_size);
 #endif
