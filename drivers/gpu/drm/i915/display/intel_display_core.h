@@ -313,9 +313,6 @@ struct intel_display {
 	struct {
 		/* Top level crtc-ish functions */
 		const struct intel_display_funcs *display;
-
-		/* Display CDCLK functions */
-		const struct intel_cdclk_funcs *cdclk;
 	} funcs;
 
 	struct {
@@ -345,6 +342,9 @@ struct intel_display {
 	} bw;
 
 	struct {
+		/* Internal CDCLK functions */
+		const struct intel_cdclk_funcs *funcs;
+
 		/* The current hardware cdclk configuration */
 		struct intel_cdclk_config hw;
 

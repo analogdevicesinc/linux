@@ -170,27 +170,27 @@ struct intel_cdclk_funcs {
 void intel_cdclk_get_cdclk(struct intel_display *display,
 			   struct intel_cdclk_config *cdclk_config)
 {
-	display->funcs.cdclk->get_cdclk(display, cdclk_config);
+	display->cdclk.funcs->get_cdclk(display, cdclk_config);
 }
 
 static void intel_cdclk_set_cdclk(struct intel_display *display,
 				  const struct intel_cdclk_config *cdclk_config,
 				  enum pipe pipe)
 {
-	display->funcs.cdclk->set_cdclk(display, cdclk_config, pipe);
+	display->cdclk.funcs->set_cdclk(display, cdclk_config, pipe);
 }
 
 static int intel_cdclk_modeset_calc_cdclk(struct intel_atomic_state *state)
 {
 	struct intel_display *display = to_intel_display(state);
 
-	return display->funcs.cdclk->modeset_calc_cdclk(state);
+	return display->cdclk.funcs->modeset_calc_cdclk(state);
 }
 
 static u8 intel_cdclk_calc_voltage_level(struct intel_display *display,
 					 int cdclk)
 {
-	return display->funcs.cdclk->calc_voltage_level(cdclk);
+	return display->cdclk.funcs->calc_voltage_level(cdclk);
 }
 
 static void fixed_133mhz_get_cdclk(struct intel_display *display,
@@ -2619,7 +2619,7 @@ static void intel_set_cdclk(struct intel_display *display,
 	if (!intel_cdclk_changed(&display->cdclk.hw, cdclk_config))
 		return;
 
-	if (drm_WARN_ON_ONCE(display->drm, !display->funcs.cdclk->set_cdclk))
+	if (drm_WARN_ON_ONCE(display->drm, !display->cdclk.funcs->set_cdclk))
 		return;
 
 	intel_cdclk_dump_config(display, cdclk_config, context);
@@ -4042,100 +4042,100 @@ static const struct intel_cdclk_funcs i830_cdclk_funcs = {
 void intel_init_cdclk_hooks(struct intel_display *display)
 {
 	if (DISPLAY_VER(display) >= 35) {
-		display->funcs.cdclk = &xe3lpd_cdclk_funcs;
+		display->cdclk.funcs = &xe3lpd_cdclk_funcs;
 		display->cdclk.table = xe3p_lpd_cdclk_table;
 	} else if (DISPLAY_VER(display) >= 30) {
-		display->funcs.cdclk = &xe3lpd_cdclk_funcs;
+		display->cdclk.funcs = &xe3lpd_cdclk_funcs;
 		display->cdclk.table = xe3lpd_cdclk_table;
 	} else if (DISPLAY_VER(display) >= 20) {
-		display->funcs.cdclk = &rplu_cdclk_funcs;
+		display->cdclk.funcs = &rplu_cdclk_funcs;
 		display->cdclk.table = xe2lpd_cdclk_table;
 	} else if (DISPLAY_VERx100(display) >= 1401) {
-		display->funcs.cdclk = &rplu_cdclk_funcs;
+		display->cdclk.funcs = &rplu_cdclk_funcs;
 		display->cdclk.table = xe2hpd_cdclk_table;
 	} else if (DISPLAY_VER(display) >= 14) {
-		display->funcs.cdclk = &rplu_cdclk_funcs;
+		display->cdclk.funcs = &rplu_cdclk_funcs;
 		display->cdclk.table = mtl_cdclk_table;
 	} else if (display->platform.dg2) {
-		display->funcs.cdclk = &tgl_cdclk_funcs;
+		display->cdclk.funcs = &tgl_cdclk_funcs;
 		display->cdclk.table = dg2_cdclk_table;
 	} else if (display->platform.alderlake_p) {
 		/* Wa_22011320316:adl-p[a0] */
 		if (intel_display_wa(display, INTEL_DISPLAY_WA_22011320316)) {
 			display->cdclk.table = adlp_a_step_cdclk_table;
-			display->funcs.cdclk = &tgl_cdclk_funcs;
+			display->cdclk.funcs = &tgl_cdclk_funcs;
 		} else if (display->platform.alderlake_p_raptorlake_u) {
 			display->cdclk.table = rplu_cdclk_table;
-			display->funcs.cdclk = &rplu_cdclk_funcs;
+			display->cdclk.funcs = &rplu_cdclk_funcs;
 		} else {
 			display->cdclk.table = adlp_cdclk_table;
-			display->funcs.cdclk = &tgl_cdclk_funcs;
+			display->cdclk.funcs = &tgl_cdclk_funcs;
 		}
 	} else if (display->platform.rocketlake) {
-		display->funcs.cdclk = &tgl_cdclk_funcs;
+		display->cdclk.funcs = &tgl_cdclk_funcs;
 		display->cdclk.table = rkl_cdclk_table;
 	} else if (DISPLAY_VER(display) >= 12) {
-		display->funcs.cdclk = &tgl_cdclk_funcs;
+		display->cdclk.funcs = &tgl_cdclk_funcs;
 		display->cdclk.table = icl_cdclk_table;
 	} else if (display->platform.jasperlake || display->platform.elkhartlake) {
-		display->funcs.cdclk = &ehl_cdclk_funcs;
+		display->cdclk.funcs = &ehl_cdclk_funcs;
 		display->cdclk.table = icl_cdclk_table;
 	} else if (DISPLAY_VER(display) >= 11) {
-		display->funcs.cdclk = &icl_cdclk_funcs;
+		display->cdclk.funcs = &icl_cdclk_funcs;
 		display->cdclk.table = icl_cdclk_table;
 	} else if (display->platform.geminilake || display->platform.broxton) {
-		display->funcs.cdclk = &bxt_cdclk_funcs;
+		display->cdclk.funcs = &bxt_cdclk_funcs;
 		if (display->platform.geminilake)
 			display->cdclk.table = glk_cdclk_table;
 		else
 			display->cdclk.table = bxt_cdclk_table;
 	} else if (DISPLAY_VER(display) == 9) {
-		display->funcs.cdclk = &skl_cdclk_funcs;
+		display->cdclk.funcs = &skl_cdclk_funcs;
 	} else if (display->platform.broadwell) {
-		display->funcs.cdclk = &bdw_cdclk_funcs;
+		display->cdclk.funcs = &bdw_cdclk_funcs;
 	} else if (display->platform.haswell) {
-		display->funcs.cdclk = &hsw_cdclk_funcs;
+		display->cdclk.funcs = &hsw_cdclk_funcs;
 	} else if (display->platform.cherryview) {
-		display->funcs.cdclk = &chv_cdclk_funcs;
+		display->cdclk.funcs = &chv_cdclk_funcs;
 	} else if (display->platform.valleyview) {
-		display->funcs.cdclk = &vlv_cdclk_funcs;
+		display->cdclk.funcs = &vlv_cdclk_funcs;
 	} else if (display->platform.sandybridge || display->platform.ivybridge) {
-		display->funcs.cdclk = &fixed_400mhz_cdclk_funcs;
+		display->cdclk.funcs = &fixed_400mhz_cdclk_funcs;
 	} else if (display->platform.ironlake) {
-		display->funcs.cdclk = &ilk_cdclk_funcs;
+		display->cdclk.funcs = &ilk_cdclk_funcs;
 	} else if (display->platform.gm45) {
-		display->funcs.cdclk = &gm45_cdclk_funcs;
+		display->cdclk.funcs = &gm45_cdclk_funcs;
 	} else if (display->platform.g45) {
-		display->funcs.cdclk = &g33_cdclk_funcs;
+		display->cdclk.funcs = &g33_cdclk_funcs;
 	} else if (display->platform.i965gm) {
-		display->funcs.cdclk = &i965gm_cdclk_funcs;
+		display->cdclk.funcs = &i965gm_cdclk_funcs;
 	} else if (display->platform.i965g) {
-		display->funcs.cdclk = &fixed_400mhz_cdclk_funcs;
+		display->cdclk.funcs = &fixed_400mhz_cdclk_funcs;
 	} else if (display->platform.pineview) {
-		display->funcs.cdclk = &pnv_cdclk_funcs;
+		display->cdclk.funcs = &pnv_cdclk_funcs;
 	} else if (display->platform.g33) {
-		display->funcs.cdclk = &g33_cdclk_funcs;
+		display->cdclk.funcs = &g33_cdclk_funcs;
 	} else if (display->platform.i945gm) {
-		display->funcs.cdclk = &i945gm_cdclk_funcs;
+		display->cdclk.funcs = &i945gm_cdclk_funcs;
 	} else if (display->platform.i945g) {
-		display->funcs.cdclk = &fixed_400mhz_cdclk_funcs;
+		display->cdclk.funcs = &fixed_400mhz_cdclk_funcs;
 	} else if (display->platform.i915gm) {
-		display->funcs.cdclk = &i915gm_cdclk_funcs;
+		display->cdclk.funcs = &i915gm_cdclk_funcs;
 	} else if (display->platform.i915g) {
-		display->funcs.cdclk = &i915g_cdclk_funcs;
+		display->cdclk.funcs = &i915g_cdclk_funcs;
 	} else if (display->platform.i865g) {
-		display->funcs.cdclk = &i865g_cdclk_funcs;
+		display->cdclk.funcs = &i865g_cdclk_funcs;
 	} else if (display->platform.i85x) {
-		display->funcs.cdclk = &i85x_cdclk_funcs;
+		display->cdclk.funcs = &i85x_cdclk_funcs;
 	} else if (display->platform.i845g) {
-		display->funcs.cdclk = &i845g_cdclk_funcs;
+		display->cdclk.funcs = &i845g_cdclk_funcs;
 	} else if (display->platform.i830) {
-		display->funcs.cdclk = &i830_cdclk_funcs;
+		display->cdclk.funcs = &i830_cdclk_funcs;
 	}
 
-	if (drm_WARN(display->drm, !display->funcs.cdclk,
+	if (drm_WARN(display->drm, !display->cdclk.funcs,
 		     "Unknown platform. Assuming i830\n"))
-		display->funcs.cdclk = &i830_cdclk_funcs;
+		display->cdclk.funcs = &i830_cdclk_funcs;
 }
 
 int intel_cdclk_logical(const struct intel_cdclk_state *cdclk_state)
