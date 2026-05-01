@@ -1709,6 +1709,7 @@ static int spi_imx_dma_data_prepare(struct spi_imx_data *spi_imx,
 			kfree(spi_imx->dma_data[0].dma_tx_buf);
 			kfree(spi_imx->dma_data[0].dma_rx_buf);
 			kfree(spi_imx->dma_data);
+			return ret;
 		}
 	}
 
