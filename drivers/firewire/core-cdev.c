@@ -1331,7 +1331,7 @@ static void iso_resource_auto_work(struct work_struct *work)
 	unsigned long index = r->resource.handle;
 	int current_generation, resource_generation, channel, bandwidth, todo;
 	u64 reset_jiffies;
-	bool free = false, success;
+	bool free;
 
 	scoped_guard(spinlock_irq, &client->lock) {
 		reset_jiffies = client->device->card->reset_jiffies;
@@ -1364,37 +1364,31 @@ static void iso_resource_auto_work(struct work_struct *work)
 	fw_iso_resource_manage(client->device->card, current_generation, r->params.channels,
 			       &channel, &bandwidth, todo != ISO_RES_AUTO_DEALLOC);
 
-	/*
-	 * Is this generation outdated already?  As long as this resource sticks
-	 * in the xarray, it will be scheduled again for a newer generation or at
-	 * shutdown.
-	 */
-	if (channel == -EAGAIN &&
-	    (todo == ISO_RES_AUTO_ALLOC || todo == ISO_RES_AUTO_REALLOC))
-		goto out;
-
-	success = channel >= 0 || bandwidth > 0;
-
-	scoped_guard(spinlock_irq, &client->lock) {
-		// Transit from allocation to reallocation, except if the client
-		// requested deallocation in the meantime.
-		if (r->todo == ISO_RES_AUTO_ALLOC)
-			r->todo = ISO_RES_AUTO_REALLOC;
-		// Allocation or reallocation failure?  Pull this resource out of the
-		// xarray and prepare for deletion, unless the client is shutting down.
-		if (r->todo == ISO_RES_AUTO_REALLOC && !success &&
-		    !client->in_shutdown &&
-		    xa_erase(&client->resource_xa, index)) {
-			client_put(client);
-			free = true;
-		}
-	}
-
 	if (todo == ISO_RES_AUTO_DEALLOC) {
 		free = true;
 		e = r->e_dealloc;
 		r->e_dealloc = NULL;
 	} else {
+		free = false;
+
+		// Is this generation outdated already?  As long as this resource sticks in the
+		// xarray, it will be scheduled again for a newer generation or at shutdown.
+		if (channel == -EAGAIN)
+			goto out;
+
+		bool success = channel >= 0 || bandwidth > 0;
+
+		if (!success) {
+			// Allocation or reallocation failure?  Pull this resource out of the
+			// xarray and prepare for deletion, unless the client is shutting down.
+			scoped_guard(spinlock_irq,  &client->lock) {
+				if (!client->in_shutdown && xa_erase(&client->resource_xa, index)) {
+					client_put(client);
+					free = true;
+				}
+			}
+		}
+
 		if (todo == ISO_RES_AUTO_REALLOC) {
 			if (success)
 				goto out;
@@ -1403,6 +1397,11 @@ static void iso_resource_auto_work(struct work_struct *work)
 			e = r->e_dealloc;
 			r->e_dealloc = NULL;
 		} else {
+			// Transit from allocation to reallocation, except if the client requested
+			// deallocation in the meantime.
+			scoped_guard(spinlock_irq,  &client->lock)
+				r->todo = ISO_RES_AUTO_REALLOC;
+
 			if (channel >= 0)
 				r->params.channels = 1ULL << channel;
 
