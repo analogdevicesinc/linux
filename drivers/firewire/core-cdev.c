@@ -1331,7 +1331,7 @@ static void iso_resource_auto_work(struct work_struct *work)
 	unsigned long index = r->resource.handle;
 	int current_generation, resource_generation, channel, bandwidth, todo;
 	u64 reset_jiffies;
-	bool skip, free, success;
+	bool free = false, success;
 
 	scoped_guard(spinlock_irq, &client->lock) {
 		reset_jiffies = client->device->card->reset_jiffies;
@@ -1341,27 +1341,29 @@ static void iso_resource_auto_work(struct work_struct *work)
 		todo = r->todo;
 	}
 
-	// Allow 1000ms grace period for other reallocations.
-	if (todo == ISO_RES_AUTO_ALLOC &&
-	    time_is_after_jiffies64(reset_jiffies + secs_to_jiffies(1))) {
-		schedule_iso_resource_auto(r, msecs_to_jiffies(333));
-		skip = true;
-	} else {
+	switch (todo) {
+	case ISO_RES_AUTO_ALLOC:
+		// Allow 1000ms grace period for other reallocations.
+		if (time_is_after_jiffies64(reset_jiffies + secs_to_jiffies(1))) {
+			schedule_iso_resource_auto(r, msecs_to_jiffies(333));
+			goto out;
+		}
+		break;
+	case ISO_RES_AUTO_REALLOC:
 		// We could be called twice within the same generation.
-		skip = todo == ISO_RES_AUTO_REALLOC &&
-		       resource_generation == current_generation;
+		if (resource_generation == current_generation)
+			goto out;
+		break;
+	case ISO_RES_AUTO_DEALLOC:
+	default:
+		break;
 	}
-	free = todo == ISO_RES_AUTO_DEALLOC;
-
-	if (skip)
-		goto out;
 
 	bandwidth = r->params.bandwidth;
 
-	fw_iso_resource_manage(client->device->card, current_generation,
-			r->params.channels, &channel, &bandwidth,
-			todo == ISO_RES_AUTO_ALLOC ||
-			todo == ISO_RES_AUTO_REALLOC);
+	fw_iso_resource_manage(client->device->card, current_generation, r->params.channels,
+			       &channel, &bandwidth, todo != ISO_RES_AUTO_DEALLOC);
+
 	/*
 	 * Is this generation outdated already?  As long as this resource sticks
 	 * in the xarray, it will be scheduled again for a newer generation or at
@@ -1398,6 +1400,7 @@ static void iso_resource_auto_work(struct work_struct *work)
 		e = r->e_alloc;
 		r->e_alloc = NULL;
 	} else {
+		free = true;
 		e = r->e_dealloc;
 		r->e_dealloc = NULL;
 	}
