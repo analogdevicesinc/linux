@@ -1390,20 +1390,27 @@ static void iso_resource_auto_work(struct work_struct *work)
 		}
 	}
 
-	if (todo == ISO_RES_AUTO_ALLOC && channel >= 0)
-		r->params.channels = 1ULL << channel;
-
-	if (todo == ISO_RES_AUTO_REALLOC && success)
-		goto out;
-
-	if (todo == ISO_RES_AUTO_ALLOC) {
-		e = r->e_alloc;
-		r->e_alloc = NULL;
-	} else {
+	if (todo == ISO_RES_AUTO_DEALLOC) {
 		free = true;
 		e = r->e_dealloc;
 		r->e_dealloc = NULL;
+	} else {
+		if (todo == ISO_RES_AUTO_REALLOC) {
+			if (success)
+				goto out;
+
+			// Notify the userspace client of the failure through a deallocation event.
+			e = r->e_dealloc;
+			r->e_dealloc = NULL;
+		} else {
+			if (channel >= 0)
+				r->params.channels = 1ULL << channel;
+
+			e = r->e_alloc;
+			r->e_alloc = NULL;
+		}
 	}
+
 	e->iso_resource.handle    = r->resource.handle;
 	e->iso_resource.channel   = channel;
 	e->iso_resource.bandwidth = bandwidth;
