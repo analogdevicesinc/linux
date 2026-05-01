@@ -7873,7 +7873,7 @@ F:	drivers/gpu/drm/sun4i/sun8i*
 
 DRM DRIVER FOR APPLE TOUCH BARS
 M:	Aun-Ali Zaidi <admin@kodeit.net>
-M:	Aditya Garg <gargaditya08@live.com>
+M:	Aditya Garg <gargaditya08@proton.me>
 L:	dri-devel@lists.freedesktop.org
 S:	Maintained
 T:	git https://gitlab.freedesktop.org/drm/misc/kernel.git

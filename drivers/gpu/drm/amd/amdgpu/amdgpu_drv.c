@@ -3158,8 +3158,10 @@ static int __init amdgpu_init(void)
 	amdgpu_register_atpx_handler();
 	amdgpu_acpi_detect();
 
-	/* Ignore KFD init failures. Normal when CONFIG_HSA_AMD is not set. */
-	amdgpu_amdkfd_init();
+	/* Ignore KFD init failures when CONFIG_HSA_AMD is not set. */
+	r = amdgpu_amdkfd_init();
+	if (r && r != -ENOENT)
+		goto error_fence;
 
 	if (amdgpu_pp_feature_mask & PP_OVERDRIVE_MASK) {
 		add_taint(TAINT_CPU_OUT_OF_SPEC, LOCKDEP_STILL_OK);
