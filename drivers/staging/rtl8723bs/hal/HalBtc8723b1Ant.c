@@ -793,8 +793,9 @@ static void halbtc8723b1ant_SetAntPath(
 			/* Use H2C to set GNT_BT to HIGH */
 			H2C_Parameter[0] = 1;
 			pBtCoexist->fBtcFillH2c(pBtCoexist, 0x6E, 1, H2C_Parameter);
-		} else /*  set grant_bt to high */
+		} else { /*  set grant_bt to high */
 			pBtCoexist->fBtcWrite1Byte(pBtCoexist, 0x765, 0x18);
+		}
 
 		/* set wlan_act control by PTA */
 		pBtCoexist->fBtcWrite1Byte(pBtCoexist, 0x76e, 0x4);
@@ -810,8 +811,9 @@ static void halbtc8723b1ant_SetAntPath(
 			/* Use H2C to set GNT_BT to HIGH */
 			H2C_Parameter[0] = 1;
 			pBtCoexist->fBtcFillH2c(pBtCoexist, 0x6E, 1, H2C_Parameter);
-		} else /*  set grant_bt to high */
+		} else { /*  set grant_bt to high */
 			pBtCoexist->fBtcWrite1Byte(pBtCoexist, 0x765, 0x18);
+		}
 
 		/* set wlan_act to always low */
 		pBtCoexist->fBtcWrite1Byte(pBtCoexist, 0x76e, 0x4);
@@ -1856,8 +1858,9 @@ static void halbtc8723b1ant_ActionWifiConnected(struct btc_coexist *pBtCoexist)
 			halbtc8723b1ant_PowerSaveState(pBtCoexist, BTC_PS_WIFI_NATIVE, 0x0, 0x0);
 		else
 			halbtc8723b1ant_PowerSaveState(pBtCoexist, BTC_PS_LPS_ON, 0x50, 0x4);
-	} else
+	} else {
 		halbtc8723b1ant_PowerSaveState(pBtCoexist, BTC_PS_WIFI_NATIVE, 0x0, 0x0);
+	}
 
 	/*  tdma and coex table */
 	if (!bWifiBusy) {
@@ -2053,8 +2056,9 @@ static void halbtc8723b1ant_RunCoexistMechanism(struct btc_coexist *pBtCoexist)
 				halbtc8723b1ant_ActionWifiNotConnectedAssoAuth(pBtCoexist);
 		} else
 			halbtc8723b1ant_ActionWifiNotConnected(pBtCoexist);
-	} else /*  wifi LPS/Busy */
+	} else { /*  wifi LPS/Busy */
 		halbtc8723b1ant_ActionWifiConnected(pBtCoexist);
+	}
 }
 
 static void halbtc8723b1ant_InitCoexDm(struct btc_coexist *pBtCoexist)
@@ -2089,8 +2093,9 @@ static void halbtc8723b1ant_InitHwConfig(
 	if (bWifiOnly) {
 		halbtc8723b1ant_SetAntPath(pBtCoexist, BTC_ANT_PATH_WIFI, true, false);
 		halbtc8723b1ant_PsTdma(pBtCoexist, FORCE_EXEC, false, 9);
-	} else
+	} else {
 		halbtc8723b1ant_SetAntPath(pBtCoexist, BTC_ANT_PATH_BT, true, false);
+	}
 
 	/*  PTA parameter */
 	halbtc8723b1ant_CoexTableWithType(pBtCoexist, FORCE_EXEC, 0);
