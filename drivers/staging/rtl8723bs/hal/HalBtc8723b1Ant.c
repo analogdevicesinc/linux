@@ -1485,12 +1485,13 @@ static void halbtc8723b1ant_PsTdmaCheckForPowerSaveState(
 	if (lpsMode) {	/*  already under LPS state */
 		if (bNewPsState) {
 			/*  keep state under LPS, do nothing. */
-		} else /*  will leave LPS state, turn off psTdma first */
+		} else { /*  will leave LPS state, turn off psTdma first */
 			halbtc8723b1ant_PsTdma(pBtCoexist, NORMAL_EXEC, false, 0);
+		}
 	} else {						/*  NO PS state */
-		if (bNewPsState) /*  will enter LPS state, turn off psTdma first */
+		if (bNewPsState) { /*  will enter LPS state, turn off psTdma first */
 			halbtc8723b1ant_PsTdma(pBtCoexist, NORMAL_EXEC, false, 0);
-		else {
+		} else {
 			/*  keep state under NO PS state, do nothing. */
 		}
 	}
