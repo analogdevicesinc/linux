@@ -56,6 +56,8 @@ TESTS="
 	neigh_suppress_uc_ns
 	neigh_vlan_suppress_arp
 	neigh_vlan_suppress_ns
+	neigh_suppress_arp_probe
+	neigh_suppress_dad_ns
 "
 VERBOSE=0
 PAUSE_ON_FAIL=no
@@ -873,6 +875,130 @@ neigh_vlan_suppress_ns()
 	log_test $? 0 "NS suppression (VLAN $vid1)"
 	tc_check_packets $sw1 "dev vx0 egress" 102 5
 	log_test $? 0 "NS suppression (VLAN $vid2)"
+}
+
+neigh_suppress_arp_probe()
+{
+	local vid=10
+	local tip=192.0.2.2
+	local h2_mac
+
+	echo
+	echo "Per-port ARP probe suppression"
+	echo "------------------------------"
+
+	run_cmd "tc -n $sw1 qdisc replace dev vx0 clsact"
+	run_cmd "tc -n $sw1 filter replace dev vx0 egress pref 1 handle 101 proto 0x0806 flower indev swp1 arp_tip $tip arp_sip 0.0.0.0 arp_op request action pass"
+
+	# Initial state - check that ARP probes are not suppressed.
+	run_cmd "ip netns exec $h1 arping -D -q -c 1 -w 5 -I eth0.$vid $tip"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 1
+	log_test $? 0 "ARP probe suppression"
+
+	# Enable neighbor suppression and check that nothing changes.
+	run_cmd "bridge -n $sw1 link set dev vx0 neigh_suppress on"
+	run_cmd "bridge -n $sw1 -d link show dev vx0 | grep \"neigh_suppress on\""
+	log_test $? 0 "\"neigh_suppress\" is on"
+
+	run_cmd "ip netns exec $h1 arping -D -q -c 1 -w 5 -I eth0.$vid $tip"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 2
+	log_test $? 0 "ARP probe suppression"
+
+	# Install FDB and a neighbor and check that ARP probes are suppressed.
+	h2_mac=$(ip -n "$h2" -j -p link show eth0."$vid" | jq -r '.[]["address"]')
+	run_cmd "bridge -n $sw1 fdb replace $h2_mac dev vx0 master static vlan $vid"
+	run_cmd "ip -n $sw1 neigh replace $tip lladdr $h2_mac nud permanent dev br0.$vid"
+	log_test $? 0 "FDB and neighbor entry installation"
+
+	run_cmd "ip netns exec $h1 arping -D -q -c 1 -w 5 -I eth0.$vid $tip"
+	log_test $? 1 "arping"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 2
+	log_test $? 0 "ARP probe suppression"
+
+	# Remove the neighbor entry and check that ARP probes are not suppressed.
+	run_cmd "ip -n $sw1 neigh del $tip dev br0.$vid"
+	log_test $? 0 "neighbor removal"
+
+	run_cmd "ip netns exec $h1 arping -D -q -c 1 -w 5 -I eth0.$vid $tip"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 3
+	log_test $? 0 "ARP probe suppression"
+
+	# Disable neighbor suppression.
+	run_cmd "bridge -n $sw1 link set dev vx0 neigh_suppress off"
+	run_cmd "bridge -n $sw1 -d link show dev vx0 | grep \"neigh_suppress off\""
+	log_test $? 0 "\"neigh_suppress\" is off"
+
+	run_cmd "ip netns exec $h1 arping -D -q -c 1 -w 5 -I eth0.$vid $tip"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 4
+	log_test $? 0 "ARP probe suppression"
+}
+
+neigh_suppress_dad_ns()
+{
+	local vid=10
+	local tip=2001:db8:1::99
+	local mcast=ff02::1:ff00:99
+	local dmac=33:33:ff:00:00:99
+	local full_tip=20:01:0d:b8:00:01:00:00:00:00:00:00:00:00:00:99
+	local csum="4b:bc"
+	local smac
+	local tmac
+
+	echo
+	echo "Per-port DAD NS suppression"
+	echo "---------------------------"
+
+	smac=$(ip -n "$h1" -j -p link show eth0."$vid" | jq -r '.[]["address"]')
+
+	run_cmd "tc -n $sw1 qdisc replace dev vx0 clsact"
+	run_cmd "tc -n $sw1 filter replace dev vx0 egress pref 1 handle 101 proto ipv6 flower indev swp1 ip_proto icmpv6 dst_ip $mcast src_ip :: type 135 code 0 action pass"
+
+	# Initial state - check that DAD NS are not suppressed.
+	run_cmd "ip netns exec $h1 mausezahn -6 eth0.$vid -c 1 -a $smac -b $dmac -A :: -B $mcast -t ip hop=255,next=58,payload=$(icmpv6_header_get "$csum" "$full_tip") -q"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 1
+	log_test $? 0 "DAD NS suppression"
+
+	# Enable neighbor suppression and check that nothing changes.
+	run_cmd "bridge -n $sw1 link set dev vx0 neigh_suppress on"
+	run_cmd "bridge -n $sw1 -d link show dev vx0 | grep \"neigh_suppress on\""
+	log_test $? 0 "\"neigh_suppress\" is on"
+
+	run_cmd "ip netns exec $h1 mausezahn -6 eth0.$vid -c 1 -a $smac -b $dmac -A :: -B $mcast -t ip hop=255,next=58,payload=$(icmpv6_header_get "$csum" "$full_tip") -q"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 2
+	log_test $? 0 "DAD NS suppression"
+
+	# Install FDB and a neighbor and check that DAD NS are suppressed
+	# and that a proxy NA is sent back to h1.
+	tmac=$(ip -n "$h2" -j -p link show eth0."$vid" | jq -r '.[]["address"]')
+	run_cmd "bridge -n $sw1 fdb replace $tmac dev vx0 master static vlan $vid"
+	run_cmd "ip -n $sw1 -6 neigh replace $tip lladdr $tmac nud permanent dev br0.$vid"
+	log_test $? 0 "FDB and neighbor entry installation"
+
+	run_cmd "tc -n $h1 qdisc replace dev eth0.$vid clsact"
+	run_cmd "tc -n $h1 filter replace dev eth0.$vid ingress pref 1 handle 101 proto ipv6 flower ip_proto icmpv6 dst_ip ff02::1 src_ip $tip type 136 code 0 action pass"
+
+	run_cmd "ip netns exec $h1 mausezahn -6 eth0.$vid -c 1 -a $smac -b $dmac -A :: -B $mcast -t ip hop=255,next=58,payload=$(icmpv6_header_get "$csum" "$full_tip") -q"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 2
+	log_test $? 0 "DAD NS suppression"
+	tc_check_packets "$h1" "dev eth0.$vid ingress" 101 1
+	log_test $? 0 "DAD NS proxy NA reply"
+
+	# Remove the neighbor entry and check that DAD NS are not suppressed.
+	run_cmd "ip -n $sw1 -6 neigh del $tip dev br0.$vid"
+	log_test $? 0 "neighbor removal"
+
+	run_cmd "ip netns exec $h1 mausezahn -6 eth0.$vid -c 1 -a $smac -b $dmac -A :: -B $mcast -t ip hop=255,next=58,payload=$(icmpv6_header_get "$csum" "$full_tip") -q"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 3
+	log_test $? 0 "DAD NS suppression"
+
+	# Disable neighbor suppression.
+	run_cmd "bridge -n $sw1 link set dev vx0 neigh_suppress off"
+	run_cmd "bridge -n $sw1 -d link show dev vx0 | grep \"neigh_suppress off\""
+	log_test $? 0 "\"neigh_suppress\" is off"
+
+	run_cmd "ip netns exec $h1 mausezahn -6 eth0.$vid -c 1 -a $smac -b $dmac -A :: -B $mcast -t ip hop=255,next=58,payload=$(icmpv6_header_get "$csum" "$full_tip") -q"
+	tc_check_packets "$sw1" "dev vx0 egress" 101 4
+	log_test $? 0 "DAD NS suppression"
 }
 
 ################################################################################
