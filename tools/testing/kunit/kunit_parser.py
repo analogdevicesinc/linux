@@ -268,7 +268,7 @@ def check_version(version_num: int, accepted_versions: List[int],
 	if version_num < min(accepted_versions):
 		test.add_error(printer, f'{version_type} version lower than expected!')
 	elif version_num > max(accepted_versions):
-		test.add_error(printer, f'{version_type} version higer than expected!')
+		test.add_error(printer, f'{version_type} version higher than expected!')
 
 def parse_ktap_header(lines: LineStream, test: Test, printer: Printer) -> bool:
 	"""
