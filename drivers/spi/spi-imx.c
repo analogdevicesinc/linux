@@ -1382,9 +1382,7 @@ static int spi_imx_setupxfer(struct spi_device *spi,
 		spi_imx->target_burst = t->len;
 	}
 
-	spi_imx->devtype_data->prepare_transfer(spi_imx, spi, t);
-
-	return 0;
+	return spi_imx->devtype_data->prepare_transfer(spi_imx, spi, t);
 }
 
 static void spi_imx_sdma_exit(struct spi_imx_data *spi_imx)
