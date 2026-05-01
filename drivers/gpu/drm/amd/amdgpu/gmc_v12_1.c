@@ -100,6 +100,23 @@ static int gmc_v12_1_vm_fault_interrupt_state(struct amdgpu_device *adev,
 	return 0;
 }
 
+/*
+ * NodeID definition in interrupt cookie for gmc v12.1.0
+ *
+ * DIE		IH Cookie NodeID
+ * MID0		0x0
+ * AID0		0x1
+ * AID0.XCD0	0x2
+ * AID0.XCD1	0x3
+ * AID0.XCD2	0x4
+ * AID0.XCD3	0x5
+ * MID1		0x8
+ * AID1		0x9
+ * AID1.XCD0	0xA
+ * AID1.XCD1	0xB
+ * AID1.XCD2	0xC
+ * AID1.XCD3	0xD
+ */
 static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 				       struct amdgpu_irq_src *source,
 				       struct amdgpu_iv_entry *entry)
@@ -128,7 +145,7 @@ static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 
 	if (entry->client_id == SOC_V1_0_IH_CLIENTID_VMC) {
 		hub_name = "mmhub0";
-		vmhub = AMDGPU_MMHUB0(node_id / 4);
+		vmhub = AMDGPU_MMHUB0(node_id / 8);
 	} else {
 		hub_name = "gfxhub0";
 		if (adev->gfx.funcs->ih_node_to_logical_xcc) {
@@ -236,6 +253,11 @@ static int gmc_v12_1_process_interrupt(struct amdgpu_device *adev,
 	WREG32_P(hub->vm_l2_pro_fault_cntl, 1, ~1);
 
 	amdgpu_vm_update_fault_cache(adev, entry->pasid, addr, status, vmhub);
+
+	if (!hub->vmhub_funcs || !hub->vmhub_funcs->print_l2_protection_fault_status) {
+		dev_warn_once(adev->dev, "vmhub %d print fault status func not defined\n", vmhub);
+		return 0;
+	}
 
 	hub->vmhub_funcs->print_l2_protection_fault_status(adev, status);
 
