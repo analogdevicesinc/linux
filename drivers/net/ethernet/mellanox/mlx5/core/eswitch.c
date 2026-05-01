@@ -926,7 +926,7 @@ int mlx5_esw_vport_enable(struct mlx5_eswitch *esw, struct mlx5_vport *vport,
 	/* Sync with current vport context */
 	vport->enabled_events = enabled_events;
 	vport->enabled = true;
-	if (vport->vport != MLX5_VPORT_PF &&
+	if (vport->vport != MLX5_VPORT_HOST_PF &&
 	    (vport->info.ipsec_crypto_enabled || vport->info.ipsec_packet_enabled))
 		esw->enabled_ipsec_vf_count++;
 
@@ -979,7 +979,7 @@ void mlx5_esw_vport_disable(struct mlx5_eswitch *esw, struct mlx5_vport *vport)
 	    MLX5_CAP_GEN(esw->dev, vhca_resource_manager))
 		mlx5_esw_vport_vhca_id_unmap(esw, vport);
 
-	if (vport->vport != MLX5_VPORT_PF &&
+	if (vport->vport != MLX5_VPORT_HOST_PF &&
 	    (vport->info.ipsec_crypto_enabled || vport->info.ipsec_packet_enabled))
 		esw->enabled_ipsec_vf_count--;
 
@@ -1045,6 +1045,7 @@ const u32 *mlx5_esw_query_functions(struct mlx5_core_dev *dev)
 static int mlx5_esw_host_functions_enabled_query(struct mlx5_eswitch *esw)
 {
 	const u32 *query_host_out;
+	void *host_params;
 
 	if (!mlx5_core_is_ecpf_esw_manager(esw->dev))
 		return 0;
@@ -1053,9 +1054,11 @@ static int mlx5_esw_host_functions_enabled_query(struct mlx5_eswitch *esw)
 	if (IS_ERR(query_host_out))
 		return PTR_ERR(query_host_out);
 
+	host_params = MLX5_ADDR_OF(query_esw_functions_out,
+				   query_host_out, net_function_params);
 	esw->esw_funcs.host_funcs_disabled =
-		MLX5_GET(query_esw_functions_out, query_host_out,
-			 host_params_context.host_pf_not_exist);
+		MLX5_GET(host_params_context, host_params,
+			 host_pf_not_exist);
 
 	kvfree(query_host_out);
 	return 0;
@@ -1318,7 +1321,7 @@ int mlx5_esw_host_pf_enable_hca(struct mlx5_core_dev *dev)
 	if (!mlx5_core_is_ecpf(dev) || !mlx5_esw_allowed(esw))
 		return 0;
 
-	vport = mlx5_eswitch_get_vport(esw, MLX5_VPORT_PF);
+	vport = mlx5_eswitch_get_vport(esw, MLX5_VPORT_HOST_PF);
 	if (IS_ERR(vport))
 		return PTR_ERR(vport);
 
@@ -1344,7 +1347,7 @@ int mlx5_esw_host_pf_disable_hca(struct mlx5_core_dev *dev)
 	if (!mlx5_core_is_ecpf(dev) || !mlx5_esw_allowed(esw))
 		return 0;
 
-	vport = mlx5_eswitch_get_vport(esw, MLX5_VPORT_PF);
+	vport = mlx5_eswitch_get_vport(esw, MLX5_VPORT_HOST_PF);
 	if (IS_ERR(vport))
 		return PTR_ERR(vport);
 
@@ -1372,7 +1375,7 @@ mlx5_eswitch_enable_pf_vf_vports(struct mlx5_eswitch *esw,
 
 	/* Enable PF vport */
 	if (pf_needed && mlx5_esw_host_functions_enabled(esw->dev)) {
-		ret = mlx5_eswitch_load_pf_vf_vport(esw, MLX5_VPORT_PF,
+		ret = mlx5_eswitch_load_pf_vf_vport(esw, MLX5_VPORT_HOST_PF,
 						    enabled_events);
 		if (ret)
 			return ret;
@@ -1427,7 +1430,7 @@ ecpf_err:
 		mlx5_esw_host_pf_disable_hca(esw->dev);
 pf_hca_err:
 	if (pf_needed && mlx5_esw_host_functions_enabled(esw->dev))
-		mlx5_eswitch_unload_pf_vf_vport(esw, MLX5_VPORT_PF);
+		mlx5_eswitch_unload_pf_vf_vport(esw, MLX5_VPORT_HOST_PF);
 	return ret;
 }
 
@@ -1454,7 +1457,7 @@ void mlx5_eswitch_disable_pf_vf_vports(struct mlx5_eswitch *esw)
 	if ((mlx5_core_is_ecpf_esw_manager(esw->dev) ||
 	     esw->mode == MLX5_ESWITCH_LEGACY) &&
 	    mlx5_esw_host_functions_enabled(esw->dev))
-		mlx5_eswitch_unload_pf_vf_vport(esw, MLX5_VPORT_PF);
+		mlx5_eswitch_unload_pf_vf_vport(esw, MLX5_VPORT_HOST_PF);
 }
 
 static void mlx5_eswitch_get_devlink_param(struct mlx5_eswitch *esw)
@@ -1479,6 +1482,7 @@ static void mlx5_eswitch_get_devlink_param(struct mlx5_eswitch *esw)
 static void
 mlx5_eswitch_update_num_of_vfs(struct mlx5_eswitch *esw, int num_vfs)
 {
+	void *host_params;
 	const u32 *out;
 
 	if (num_vfs < 0)
@@ -1493,8 +1497,10 @@ mlx5_eswitch_update_num_of_vfs(struct mlx5_eswitch *esw, int num_vfs)
 	if (IS_ERR(out))
 		return;
 
-	esw->esw_funcs.num_vfs = MLX5_GET(query_esw_functions_out, out,
-					  host_params_context.host_num_of_vfs);
+	host_params = MLX5_ADDR_OF(query_esw_functions_out, out,
+				   net_function_params);
+	esw->esw_funcs.num_vfs = MLX5_GET(host_params_context, host_params,
+					  host_num_of_vfs);
 	if (mlx5_core_ec_sriov_enabled(esw->dev))
 		esw->esw_funcs.num_ec_vfs = num_vfs;
 
@@ -1831,7 +1837,7 @@ static int mlx5_query_hca_cap_host_pf(struct mlx5_core_dev *dev, void *out)
 
 	MLX5_SET(query_hca_cap_in, in, opcode, MLX5_CMD_OP_QUERY_HCA_CAP);
 	MLX5_SET(query_hca_cap_in, in, op_mod, opmod);
-	MLX5_SET(query_hca_cap_in, in, function_id, MLX5_VPORT_PF);
+	MLX5_SET(query_hca_cap_in, in, function_id, MLX5_VPORT_HOST_PF);
 	MLX5_SET(query_hca_cap_in, in, other_function, true);
 	return mlx5_cmd_exec_inout(dev, query_hca_cap, in, out);
 }
@@ -1923,10 +1929,10 @@ static int mlx5_esw_vports_init(struct mlx5_eswitch *esw)
 	xa_init(&esw->vports);
 
 	if (mlx5_esw_host_functions_enabled(dev)) {
-		err = mlx5_esw_vport_alloc(esw, idx, MLX5_VPORT_PF);
+		err = mlx5_esw_vport_alloc(esw, idx, MLX5_VPORT_HOST_PF);
 		if (err)
 			goto err;
-		if (esw->first_host_vport == MLX5_VPORT_PF)
+		if (esw->first_host_vport == MLX5_VPORT_HOST_PF)
 			xa_set_mark(&esw->vports, idx, MLX5_ESW_VPT_HOST_FN);
 		idx++;
 		for (i = 0; i < mlx5_core_max_vfs(dev); i++) {
@@ -2207,7 +2213,7 @@ bool mlx5_eswitch_is_vf_vport(struct mlx5_eswitch *esw, u16 vport_num)
 
 bool mlx5_eswitch_is_pf_vf_vport(struct mlx5_eswitch *esw, u16 vport_num)
 {
-	return vport_num == MLX5_VPORT_PF ||
+	return vport_num == MLX5_VPORT_HOST_PF ||
 		mlx5_eswitch_is_vf_vport(esw, vport_num);
 }
 

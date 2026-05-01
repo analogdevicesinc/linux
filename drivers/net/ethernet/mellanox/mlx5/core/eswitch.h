@@ -687,7 +687,7 @@ static inline bool mlx5_esw_is_owner(struct mlx5_eswitch *esw, u16 vport_num,
 static inline u16 mlx5_eswitch_first_host_vport_num(struct mlx5_core_dev *dev)
 {
 	return mlx5_core_is_ecpf_esw_manager(dev) ?
-		MLX5_VPORT_PF : MLX5_VPORT_FIRST_VF;
+		MLX5_VPORT_HOST_PF : MLX5_VPORT_FIRST_HOST_VF;
 }
 
 static inline bool mlx5_eswitch_is_funcs_handler(const struct mlx5_core_dev *dev)

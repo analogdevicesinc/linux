@@ -1216,9 +1216,10 @@ static int esw_add_fdb_peer_miss_rules(struct mlx5_eswitch *esw,
 
 	if (mlx5_core_is_ecpf_esw_manager(peer_dev) &&
 	    mlx5_esw_host_functions_enabled(peer_dev)) {
-		peer_vport = mlx5_eswitch_get_vport(peer_esw, MLX5_VPORT_PF);
+		peer_vport = mlx5_eswitch_get_vport(peer_esw,
+						    MLX5_VPORT_HOST_PF);
 		esw_set_peer_miss_rule_source_port(esw, peer_esw, spec,
-						   MLX5_VPORT_PF);
+						   MLX5_VPORT_HOST_PF);
 
 		flow = mlx5_add_flow_rules(mlx5_eswitch_get_slow_fdb(esw),
 					   spec, &flow_act, &dest, 1);
@@ -1300,7 +1301,8 @@ add_ecpf_flow_err:
 
 	if (mlx5_core_is_ecpf_esw_manager(peer_dev) &&
 	    mlx5_esw_host_functions_enabled(peer_dev)) {
-		peer_vport = mlx5_eswitch_get_vport(peer_esw, MLX5_VPORT_PF);
+		peer_vport = mlx5_eswitch_get_vport(peer_esw,
+						    MLX5_VPORT_HOST_PF);
 		mlx5_del_flow_rules(flows[peer_vport->index]);
 	}
 add_pf_flow_err:
@@ -1342,7 +1344,8 @@ static void esw_del_fdb_peer_miss_rules(struct mlx5_eswitch *esw,
 
 	if (mlx5_core_is_ecpf_esw_manager(peer_dev) &&
 	    mlx5_esw_host_functions_enabled(peer_dev)) {
-		peer_vport = mlx5_eswitch_get_vport(peer_esw, MLX5_VPORT_PF);
+		peer_vport = mlx5_eswitch_get_vport(peer_esw,
+						    MLX5_VPORT_HOST_PF);
 		mlx5_del_flow_rules(flows[peer_vport->index]);
 	}
 
@@ -3658,6 +3661,7 @@ static void esw_offloads_steering_cleanup(struct mlx5_eswitch *esw)
 static void esw_vfs_changed_event_handler(struct mlx5_eswitch *esw)
 {
 	bool host_pf_disabled;
+	void *host_params;
 	u16 new_num_vfs;
 	const u32 *out;
 
@@ -3665,10 +3669,12 @@ static void esw_vfs_changed_event_handler(struct mlx5_eswitch *esw)
 	if (IS_ERR(out))
 		return;
 
-	new_num_vfs = MLX5_GET(query_esw_functions_out, out,
-			       host_params_context.host_num_of_vfs);
-	host_pf_disabled = MLX5_GET(query_esw_functions_out, out,
-				    host_params_context.host_pf_disabled);
+	host_params = MLX5_ADDR_OF(query_esw_functions_out, out,
+				   net_function_params);
+	new_num_vfs = MLX5_GET(host_params_context, host_params,
+			       host_num_of_vfs);
+	host_pf_disabled = MLX5_GET(host_params_context, host_params,
+				    host_pf_disabled);
 
 	if (new_num_vfs == esw->esw_funcs.num_vfs || host_pf_disabled)
 		goto free;
@@ -3768,6 +3774,7 @@ int mlx5_esw_funcs_changed_handler(struct notifier_block *nb,
 static int mlx5_esw_host_number_init(struct mlx5_eswitch *esw)
 {
 	const u32 *query_host_out;
+	void *host_params;
 
 	if (!mlx5_core_is_ecpf_esw_manager(esw->dev))
 		return 0;
@@ -3777,8 +3784,10 @@ static int mlx5_esw_host_number_init(struct mlx5_eswitch *esw)
 		return PTR_ERR(query_host_out);
 
 	/* Mark non local controller with non zero controller number. */
-	esw->offloads.host_number = MLX5_GET(query_esw_functions_out, query_host_out,
-					     host_params_context.host_number);
+	host_params = MLX5_ADDR_OF(query_esw_functions_out,
+				   query_host_out, net_function_params);
+	esw->offloads.host_number = MLX5_GET(host_params_context,
+					     host_params, host_number);
 	kvfree(query_host_out);
 	return 0;
 }
@@ -4463,7 +4472,7 @@ static bool
 mlx5_eswitch_vport_has_rep(const struct mlx5_eswitch *esw, u16 vport_num)
 {
 	/* Currently, only ECPF based device has representor for host PF. */
-	if (vport_num == MLX5_VPORT_PF &&
+	if (vport_num == MLX5_VPORT_HOST_PF &&
 	    (!mlx5_core_is_ecpf_esw_manager(esw->dev) ||
 	     !mlx5_esw_host_functions_enabled(esw->dev)))
 		return false;
@@ -4817,9 +4826,10 @@ int mlx5_devlink_pf_port_fn_state_get(struct devlink_port *port,
 {
 	struct mlx5_vport *vport = mlx5_devlink_port_vport_get(port);
 	const u32 *query_out;
+	void *host_params;
 	bool pf_disabled;
 
-	if (vport->vport != MLX5_VPORT_PF) {
+	if (vport->vport != MLX5_VPORT_HOST_PF) {
 		NL_SET_ERR_MSG_MOD(extack, "State get is not supported for VF");
 		return -EOPNOTSUPP;
 	}
@@ -4831,8 +4841,10 @@ int mlx5_devlink_pf_port_fn_state_get(struct devlink_port *port,
 	if (IS_ERR(query_out))
 		return PTR_ERR(query_out);
 
-	pf_disabled = MLX5_GET(query_esw_functions_out, query_out,
-			       host_params_context.host_pf_disabled);
+	host_params = MLX5_ADDR_OF(query_esw_functions_out, query_out,
+				   net_function_params);
+	pf_disabled = MLX5_GET(host_params_context, host_params,
+			       host_pf_disabled);
 
 	*opstate = pf_disabled ? DEVLINK_PORT_FN_OPSTATE_DETACHED :
 				 DEVLINK_PORT_FN_OPSTATE_ATTACHED;
@@ -4848,7 +4860,7 @@ int mlx5_devlink_pf_port_fn_state_set(struct devlink_port *port,
 	struct mlx5_vport *vport = mlx5_devlink_port_vport_get(port);
 	struct mlx5_core_dev *dev;
 
-	if (vport->vport != MLX5_VPORT_PF) {
+	if (vport->vport != MLX5_VPORT_HOST_PF) {
 		NL_SET_ERR_MSG_MOD(extack, "State set is not supported for VF");
 		return -EOPNOTSUPP;
 	}
