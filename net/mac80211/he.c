@@ -3,7 +3,7 @@
  * HE handling
  *
  * Copyright(c) 2017 Intel Deutschland GmbH
- * Copyright(c) 2019-2025 Intel Corporation
+ * Copyright(c) 2019-2026 Intel Corporation
  */
 
 #include "ieee80211_i.h"
@@ -159,10 +159,6 @@ _ieee80211_he_cap_ie_to_sta_he_cap(struct ieee80211_sub_if_data *sdata,
 
 	he_cap->has_he = true;
 
-	link_sta->cur_max_bandwidth = ieee80211_sta_cap_rx_bw(link_sta);
-	if (sdata->vif.type != NL80211_IFTYPE_NAN)
-		link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta);
-
 	if (he_6ghz_capa)
 		ieee80211_update_from_he_6ghz_capa(he_6ghz_capa, link_sta);
 
@@ -277,7 +273,8 @@ static void ieee80211_link_sta_rc_update_omi(struct ieee80211_link_data *link,
 	band = link->conf->chanreq.oper.chan->band;
 	sband = sdata->local->hw.wiphy->bands[band];
 
-	new_bw = ieee80211_sta_cur_vht_bw(link_sta);
+	new_bw = ieee80211_sta_current_bw(link_sta, &link->conf->chanreq.oper,
+					  IEEE80211_STA_BW_TX_TO_STA);
 	if (link_sta->pub->bandwidth == new_bw)
 		return;
 

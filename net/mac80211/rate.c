@@ -4,7 +4,7 @@
  * Copyright 2005-2006, Devicescape Software, Inc.
  * Copyright (c) 2006 Jiri Benc <jbenc@suse.cz>
  * Copyright 2017	Intel Deutschland GmbH
- * Copyright (C) 2019, 2022-2025 Intel Corporation
+ * Copyright (C) 2019, 2022-2026 Intel Corporation
  */
 
 #include <linux/kernel.h>
@@ -37,8 +37,6 @@ void rate_control_rate_init(struct link_sta_info *link_sta)
 	void *priv_sta = sta->rate_ctrl_priv;
 	struct ieee80211_supported_band *sband;
 	struct ieee80211_chanctx_conf *chanctx_conf;
-
-	ieee80211_sta_init_nss(link_sta);
 
 	if (!ref)
 		return;

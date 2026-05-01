@@ -438,11 +438,12 @@ ieee80211_find_reservation_chanctx(struct ieee80211_local *local,
 	return NULL;
 }
 
-static enum nl80211_chan_width ieee80211_get_sta_bw(struct sta_info *sta,
-						    unsigned int link_id)
+static enum nl80211_chan_width
+ieee80211_get_sta_bw(struct sta_info *sta, struct ieee80211_link_data *link)
 {
 	enum ieee80211_sta_rx_bandwidth width;
 	struct link_sta_info *link_sta;
+	int link_id = link->link_id;
 
 	link_sta = wiphy_dereference(sta->local->hw.wiphy, sta->link[link_id]);
 
@@ -454,45 +455,28 @@ static enum nl80211_chan_width ieee80211_get_sta_bw(struct sta_info *sta,
 	 * We assume that TX/RX might be asymmetric (so e.g. VHT operating
 	 * mode notification changes what a STA wants to receive, but not
 	 * necessarily what it will transmit to us), and therefore use the
-	 * capabilities here. Calling it RX bandwidth capability is a bit
-	 * wrong though, since capabilities are in fact symmetric.
+	 * "from station" bandwidth here.
 	 */
-	width = ieee80211_sta_cap_rx_bw(link_sta);
+	width = ieee80211_sta_current_bw(link_sta, &link->conf->chanreq.oper,
+					 IEEE80211_STA_BW_RX_FROM_STA);
 
-	switch (width) {
-	case IEEE80211_STA_RX_BW_20:
-		if (link_sta->pub->ht_cap.ht_supported)
-			return NL80211_CHAN_WIDTH_20;
-		else
-			return NL80211_CHAN_WIDTH_20_NOHT;
-	case IEEE80211_STA_RX_BW_40:
-		return NL80211_CHAN_WIDTH_40;
-	case IEEE80211_STA_RX_BW_80:
-		return NL80211_CHAN_WIDTH_80;
-	case IEEE80211_STA_RX_BW_160:
-		/*
-		 * This applied for both 160 and 80+80. since we use
-		 * the returned value to consider degradation of
-		 * ctx->conf.min_def, we have to make sure to take
-		 * the bigger one (NL80211_CHAN_WIDTH_160).
-		 * Otherwise we might try degrading even when not
-		 * needed, as the max required sta_bw returned (80+80)
-		 * might be smaller than the configured bw (160).
-		 */
-		return NL80211_CHAN_WIDTH_160;
-	case IEEE80211_STA_RX_BW_320:
-		return NL80211_CHAN_WIDTH_320;
-	default:
-		WARN_ON(1);
-		return NL80211_CHAN_WIDTH_20;
-	}
+	if (width == IEEE80211_STA_RX_BW_20 &&
+	    !link_sta->pub->ht_cap.ht_supported &&
+	    !link_sta->pub->he_cap.has_he)
+		return NL80211_CHAN_WIDTH_20_NOHT;
+
+	/*
+	 * This returns 160 for both 160 and 80+80. Since we use
+	 * the returned value to consider narrowing for
+	 * ctx->conf.min_def, that's correct and necessary.
+	 */
+	return ieee80211_sta_rx_bw_to_chan_width(width);
 }
 
 static enum nl80211_chan_width
 ieee80211_get_max_required_bw(struct ieee80211_link_data *link)
 {
 	struct ieee80211_sub_if_data *sdata = link->sdata;
-	unsigned int link_id = link->link_id;
 	enum nl80211_chan_width max_bw = NL80211_CHAN_WIDTH_20_NOHT;
 	struct sta_info *sta;
 
@@ -503,7 +487,7 @@ ieee80211_get_max_required_bw(struct ieee80211_link_data *link)
 		    !(sta->sdata->bss && sta->sdata->bss == sdata->bss))
 			continue;
 
-		max_bw = max(max_bw, ieee80211_get_sta_bw(sta, link_id));
+		max_bw = max(max_bw, ieee80211_get_sta_bw(sta, link));
 	}
 
 	return max_bw;
@@ -709,8 +693,9 @@ static void ieee80211_chan_bw_change(struct ieee80211_local *local,
 			else
 				new_chandef = &link_conf->chanreq.oper;
 
-			new_sta_bw = _ieee80211_sta_cur_vht_bw(link_sta,
-							       new_chandef);
+			new_sta_bw = ieee80211_sta_current_bw(link_sta,
+							      new_chandef,
+							      IEEE80211_STA_BW_TX_TO_STA);
 
 			/* nothing change */
 			if (new_sta_bw == link_sta->pub->bandwidth)
@@ -733,6 +718,9 @@ static void ieee80211_chan_bw_change(struct ieee80211_local *local,
  * recalc the min required chan width of the channel context, which is
  * the max of min required widths of all the interfaces bound to this
  * channel context.
+ *
+ * Note: ieee80211_update_ap_bandwidth() relies on this iterating all
+ *	 affected stations, even if min_def didn't change.
  */
 static void
 _ieee80211_recalc_chanctx_min_def(struct ieee80211_local *local,
@@ -743,13 +731,11 @@ _ieee80211_recalc_chanctx_min_def(struct ieee80211_local *local,
 	u32 changed = __ieee80211_recalc_chanctx_min_def(local, ctx, rsvd_for,
 							 check_reserved);
 
-	if (!changed)
-		return;
-
 	/* check is BW narrowed */
 	ieee80211_chan_bw_change(local, ctx, false, true);
 
-	drv_change_chanctx(local, ctx, changed);
+	if (changed)
+		drv_change_chanctx(local, ctx, changed);
 
 	/* check is BW wider */
 	ieee80211_chan_bw_change(local, ctx, false, false);

@@ -553,6 +553,9 @@ static struct sta_info *ieee80211_ibss_finish_sta(struct sta_info *sta)
 
 	memcpy(addr, sta->sta.addr, ETH_ALEN);
 
+	ieee80211_sta_init_nss_bw_capa(&sta->deflink,
+				       &sdata->deflink.conf->chanreq.oper);
+
 	ibss_dbg(sdata, "Adding new IBSS station %pM\n", addr);
 
 	sta_info_pre_move_state(sta, IEEE80211_STA_AUTH);

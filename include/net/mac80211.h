@@ -1747,18 +1747,18 @@ struct ieee80211_rx_status {
 			u8 he_ru:3;
 			u8 he_gi:2;
 			u8 he_dcm:1;
-		};
+		} __packed;
 		struct {
 			u8 ru:4;
 			u8 gi:2;
-		} eht;
+		} __packed eht;
 		struct {
 			u8 ru:4;
 			u8 gi:2;
 			u8 elr:1;
 			u8 im:1;
-		} uhr;
-	};
+		} __packed uhr;
+	} __packed;
 	u8 rate_idx;
 	u8 nss;
 	u8 rx_flags;
@@ -1770,6 +1770,8 @@ struct ieee80211_rx_status {
 	u8 zero_length_psdu_type;
 	u8 link_valid:1, link_id:4;
 };
+
+static_assert(sizeof(struct ieee80211_rx_status) <= sizeof_field(struct sk_buff, cb));
 
 static inline u32
 ieee80211_rx_status_to_khz(struct ieee80211_rx_status *rx_status)

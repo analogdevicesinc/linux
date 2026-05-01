@@ -2,7 +2,7 @@
 /*
  * EHT handling
  *
- * Copyright(c) 2021-2025 Intel Corporation
+ * Copyright(c) 2021-2026 Intel Corporation
  */
 
 #include "driver-ops.h"
@@ -73,9 +73,6 @@ ieee80211_eht_cap_ie_to_sta_eht_cap(struct ieee80211_sub_if_data *sdata,
 		       eht_ppe_size);
 
 	eht_cap->has_eht = true;
-
-	link_sta->cur_max_bandwidth = ieee80211_sta_cap_rx_bw(link_sta);
-	link_sta->pub->bandwidth = ieee80211_sta_cur_vht_bw(link_sta);
 
 	/*
 	 * The MPDU length bits are reserved on all but 2.4 GHz and get set via
@@ -204,7 +201,7 @@ void ieee80211_rx_eml_op_mode_notif(struct ieee80211_sub_if_data *sdata,
 			pad_delay = u8_get_bits(ptr[2],
 						IEEE80211_EML_EMLSR_PAD_DELAY);
 			if (pad_delay >
-			    IEEE80211_EML_CAP_EMLSR_PADDING_DELAY_256US)
+			    IEEE80211_EML_CAP_EML_PADDING_DELAY_256US)
 				return;
 
 			trans_delay = u8_get_bits(ptr[2],
@@ -217,11 +214,11 @@ void ieee80211_rx_eml_op_mode_notif(struct ieee80211_sub_if_data *sdata,
 			sta->sta.eml_cap =
 				u8_replace_bits(sta->sta.eml_cap,
 						pad_delay,
-						IEEE80211_EML_CAP_EMLSR_PADDING_DELAY);
+						IEEE80211_EML_CAP_EML_PADDING_DELAY);
 			sta->sta.eml_cap =
 				u8_replace_bits(sta->sta.eml_cap,
 						trans_delay,
-						IEEE80211_EML_CAP_EMLSR_TRANSITION_DELAY);
+						IEEE80211_EML_CAP_EML_TRANSITION_DELAY);
 		}
 	}
 

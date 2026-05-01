@@ -504,7 +504,7 @@ struct ieee80211_fragment_cache {
  * @status_stats.last_ack_signal: last ACK signal
  * @status_stats.ack_signal_filled: last ACK signal validity
  * @status_stats.avg_ack_signal: average ACK signal
- * @cur_max_bandwidth: maximum bandwidth to use for TX to the station,
+ * @op_mode_bw: dynamic bandwidth limit to transmit to the STA,
  *	taken from HT/VHT capabilities or VHT operating mode notification.
  *	Invalid for NAN since that is operating on multiple bands.
  * @rx_omi_bw_rx: RX OMI bandwidth restriction to apply for RX
@@ -558,7 +558,7 @@ struct link_sta_info {
 		u64 msdu[IEEE80211_NUM_TIDS + 1];
 	} tx_stats;
 
-	enum ieee80211_sta_rx_bandwidth cur_max_bandwidth;
+	enum ieee80211_sta_rx_bandwidth op_mode_bw;
 	enum ieee80211_sta_rx_bandwidth rx_omi_bw_rx,
 					rx_omi_bw_tx,
 					rx_omi_bw_staging;
@@ -997,11 +997,23 @@ void ieee80211_sta_ps_deliver_uapsd(struct sta_info *sta);
 
 unsigned long ieee80211_sta_last_active(struct sta_info *sta, int link_id);
 
+void ieee80211_sta_init_nss_bw_capa(struct link_sta_info *link_sta,
+				    struct cfg80211_chan_def *chandef);
 void ieee80211_sta_set_max_amsdu_subframes(struct sta_info *sta,
 					   const u8 *ext_capab,
 					   unsigned int ext_capab_len);
 
 void __ieee80211_sta_recalc_aggregates(struct sta_info *sta, u16 active_links);
+
+enum ieee80211_sta_bw_direction {
+	IEEE80211_STA_BW_RX_FROM_STA,
+	IEEE80211_STA_BW_TX_TO_STA,
+};
+
+enum ieee80211_sta_rx_bandwidth
+ieee80211_sta_current_bw(struct link_sta_info *link_sta,
+			 struct cfg80211_chan_def *chandef,
+			 enum ieee80211_sta_bw_direction direction);
 
 enum sta_stats_type {
 	STA_STATS_RATE_TYPE_INVALID = 0,
