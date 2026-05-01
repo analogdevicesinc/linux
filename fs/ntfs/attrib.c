@@ -2625,11 +2625,11 @@ int ntfs_attr_add(struct ntfs_inode *ni, __le32 type,
 	struct inode *attr_vi;
 	struct mft_record *ni_mrec;
 
+	ntfs_debug("Entering for inode 0x%llx, attr %x, size %lld.\n",
+			ni->mft_no, type, size);
+
 	if (!ni || size < 0 || type == AT_ATTRIBUTE_LIST)
 		return -EINVAL;
-
-	ntfs_debug("Entering for inode 0x%llx, attr %x, size %lld.\n",
-			(long long) ni->mft_no, type, size);
 
 	if (ni->nr_extents == -1)
 		ni = ni->ext.base_ntfs_ino;
