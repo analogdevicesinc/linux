@@ -1329,32 +1329,36 @@ static void iso_resource_auto_work(struct work_struct *work)
 	struct iso_resource_auto *r = from_work(r, work, work.work);
 	struct client *client = r->client;
 	unsigned long index = r->resource.handle;
-	int generation, channel, bandwidth, todo;
+	int current_generation, resource_generation, channel, bandwidth, todo;
+	u64 reset_jiffies;
 	bool skip, free, success;
 
 	scoped_guard(spinlock_irq, &client->lock) {
-		generation = client->device->generation;
+		reset_jiffies = client->device->card->reset_jiffies;
+		current_generation = client->device->generation;
+		resource_generation = r->params.generation;
+		r->params.generation = current_generation;
 		todo = r->todo;
-		// Allow 1000ms grace period for other reallocations.
-		if (todo == ISO_RES_AUTO_ALLOC &&
-		    time_is_after_jiffies64(client->device->card->reset_jiffies + secs_to_jiffies(1))) {
-			schedule_iso_resource_auto(r, msecs_to_jiffies(333));
-			skip = true;
-		} else {
-			// We could be called twice within the same generation.
-			skip = todo == ISO_RES_AUTO_REALLOC &&
-			       r->params.generation == generation;
-		}
-		free = todo == ISO_RES_AUTO_DEALLOC;
-		r->params.generation = generation;
 	}
+
+	// Allow 1000ms grace period for other reallocations.
+	if (todo == ISO_RES_AUTO_ALLOC &&
+	    time_is_after_jiffies64(reset_jiffies + secs_to_jiffies(1))) {
+		schedule_iso_resource_auto(r, msecs_to_jiffies(333));
+		skip = true;
+	} else {
+		// We could be called twice within the same generation.
+		skip = todo == ISO_RES_AUTO_REALLOC &&
+		       resource_generation == current_generation;
+	}
+	free = todo == ISO_RES_AUTO_DEALLOC;
 
 	if (skip)
 		goto out;
 
 	bandwidth = r->params.bandwidth;
 
-	fw_iso_resource_manage(client->device->card, generation,
+	fw_iso_resource_manage(client->device->card, current_generation,
 			r->params.channels, &channel, &bandwidth,
 			todo == ISO_RES_AUTO_ALLOC ||
 			todo == ISO_RES_AUTO_REALLOC);
