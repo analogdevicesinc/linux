@@ -2,7 +2,7 @@
 /*
  * Maple Tree implementation
  * Copyright (c) 2018-2022 Oracle Corporation
- * Authors: Liam R. Howlett <Liam.Howlett@oracle.com>
+ * Authors: Liam R. Howlett <liam@infradead.org>
  *	    Matthew Wilcox <willy@infradead.org>
  * Copyright (c) 2023 ByteDance
  * Author: Peng Zhang <zhangpeng.00@bytedance.com>
