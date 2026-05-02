@@ -396,7 +396,7 @@ static int bareudp6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
 	sport = udp_flow_src_port(bareudp->net, skb,
 				  bareudp->sport_min, USHRT_MAX,
 				  true);
-	dst = udp_tunnel6_dst_lookup(skb, dev, bareudp->net, sock, 0, &saddr,
+	dst = udp_tunnel6_dst_lookup(skb, dev, bareudp->net, sock->sk, 0, &saddr,
 				     key, sport, bareudp->port, key->tos,
 				     use_cache ?
 				     (struct dst_cache *) &info->dst_cache : NULL);
@@ -532,7 +532,7 @@ static int bareudp_fill_metadata_dst(struct net_device *dev,
 		if (!sock)
 			return -ESHUTDOWN;
 
-		dst = udp_tunnel6_dst_lookup(skb, dev, bareudp->net, sock,
+		dst = udp_tunnel6_dst_lookup(skb, dev, bareudp->net, sock->sk,
 					     0, &saddr, &info->key,
 					     sport, bareudp->port, info->key.tos,
 					     use_cache ? &info->dst_cache : NULL);

@@ -2559,7 +2559,7 @@ void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
 		if (!ifindex)
 			ifindex = sock6->sock->sk->sk_bound_dev_if;
 
-		ndst = udp_tunnel6_dst_lookup(skb, dev, vxlan->net, sock6->sock,
+		ndst = udp_tunnel6_dst_lookup(skb, dev, vxlan->net, sock6->sock->sk,
 					      ifindex, &saddr, pkey,
 					      src_port, dst_port, tos,
 					      use_cache ? dst_cache : NULL);
@@ -3254,7 +3254,7 @@ static int vxlan_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
 		if (!sock6)
 			return -EIO;
 
-		ndst = udp_tunnel6_dst_lookup(skb, dev, vxlan->net, sock6->sock,
+		ndst = udp_tunnel6_dst_lookup(skb, dev, vxlan->net, sock6->sock->sk,
 					      0, &info->key.u.ipv6.src,
 					      &info->key,
 					      sport, dport, info->key.tos,

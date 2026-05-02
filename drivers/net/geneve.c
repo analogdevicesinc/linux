@@ -1424,7 +1424,7 @@ static int geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
 				  geneve->cfg.port_min,
 				  geneve->cfg.port_max, true);
 
-	dst = udp_tunnel6_dst_lookup(skb, dev, geneve->net, gs6->sock, 0,
+	dst = udp_tunnel6_dst_lookup(skb, dev, geneve->net, gs6->sock->sk, 0,
 				     &saddr, key, sport,
 				     geneve->cfg.info.key.tp_dst, prio,
 				     use_cache ?
@@ -1592,7 +1592,7 @@ static int geneve_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
 					  geneve->cfg.port_min,
 					  geneve->cfg.port_max, true);
 
-		dst = udp_tunnel6_dst_lookup(skb, dev, geneve->net, gs6->sock, 0,
+		dst = udp_tunnel6_dst_lookup(skb, dev, geneve->net, gs6->sock->sk, 0,
 					     &saddr, &info->key, sport,
 					     geneve->cfg.info.key.tp_dst, prio,
 					     use_cache ? &info->dst_cache : NULL);
