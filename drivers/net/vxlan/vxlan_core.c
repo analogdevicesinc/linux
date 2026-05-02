@@ -3332,9 +3332,9 @@ static void vxlan_offload_rx_ports(struct net_device *dev, bool push)
 				type = UDP_TUNNEL_TYPE_VXLAN;
 
 			if (push)
-				udp_tunnel_push_rx_port(dev, vs->sock, type);
+				udp_tunnel_push_rx_port(dev, vs->sock->sk, type);
 			else
-				udp_tunnel_drop_rx_port(dev, vs->sock, type);
+				udp_tunnel_drop_rx_port(dev, vs->sock->sk, type);
 		}
 	}
 }

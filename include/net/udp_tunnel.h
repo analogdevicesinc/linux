@@ -127,9 +127,9 @@ struct udp_tunnel_info {
 };
 
 /* Notify network devices of offloadable types */
-void udp_tunnel_push_rx_port(struct net_device *dev, struct socket *sock,
+void udp_tunnel_push_rx_port(struct net_device *dev, struct sock *sk,
 			     unsigned short type);
-void udp_tunnel_drop_rx_port(struct net_device *dev, struct socket *sock,
+void udp_tunnel_drop_rx_port(struct net_device *dev, struct sock *sk,
 			     unsigned short type);
 void udp_tunnel_notify_add_rx_port(struct socket *sock, unsigned short type);
 void udp_tunnel_notify_del_rx_port(struct socket *sock, unsigned short type);

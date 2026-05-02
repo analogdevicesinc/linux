@@ -97,10 +97,9 @@ void setup_udp_tunnel_sock(struct net *net, struct sock *sk,
 }
 EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
 
-void udp_tunnel_push_rx_port(struct net_device *dev, struct socket *sock,
+void udp_tunnel_push_rx_port(struct net_device *dev, struct sock *sk,
 			     unsigned short type)
 {
-	struct sock *sk = sock->sk;
 	struct udp_tunnel_info ti;
 
 	ti.type = type;
@@ -111,10 +110,9 @@ void udp_tunnel_push_rx_port(struct net_device *dev, struct socket *sock,
 }
 EXPORT_SYMBOL_GPL(udp_tunnel_push_rx_port);
 
-void udp_tunnel_drop_rx_port(struct net_device *dev, struct socket *sock,
+void udp_tunnel_drop_rx_port(struct net_device *dev, struct sock *sk,
 			     unsigned short type)
 {
-	struct sock *sk = sock->sk;
 	struct udp_tunnel_info ti;
 
 	ti.type = type;

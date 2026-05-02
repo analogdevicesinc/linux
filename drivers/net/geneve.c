@@ -1654,10 +1654,10 @@ static void geneve_offload_rx_ports(struct net_device *dev, bool push)
 
 	list_for_each_entry(gs, &gn->sock_list, list) {
 		if (push) {
-			udp_tunnel_push_rx_port(dev, gs->sock,
+			udp_tunnel_push_rx_port(dev, gs->sock->sk,
 						UDP_TUNNEL_TYPE_GENEVE);
 		} else {
-			udp_tunnel_drop_rx_port(dev, gs->sock,
+			udp_tunnel_drop_rx_port(dev, gs->sock->sk,
 						UDP_TUNNEL_TYPE_GENEVE);
 		}
 	}
