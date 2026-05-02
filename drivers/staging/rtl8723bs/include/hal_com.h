@@ -7,7 +7,6 @@
 #ifndef __HAL_COMMON_H__
 #define __HAL_COMMON_H__
 
-#include "HalVerDef.h"
 #include "hal_pg.h"
 #include "hal_phy.h"
 #include "hal_phy_reg.h"
