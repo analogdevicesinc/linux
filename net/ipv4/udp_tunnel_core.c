@@ -194,7 +194,6 @@ void udp_tunnel_sock_release(struct sock *sk)
 	struct socket *sock = sk->sk_socket;
 
 	rcu_assign_sk_user_data(sk, NULL);
-	synchronize_rcu();
 	kernel_sock_shutdown(sock, SHUT_RDWR);
 	sock_release(sock);
 }
