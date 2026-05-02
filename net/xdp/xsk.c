@@ -646,9 +646,42 @@ static u64 xsk_skb_destructor_get_addr(struct sk_buff *skb)
 	return (u64)((uintptr_t)skb_shinfo(skb)->destructor_arg & ~0x1UL);
 }
 
-static void xsk_skb_destructor_set_addr(struct sk_buff *skb, u64 addr)
+static struct xsk_addrs *__xsk_addrs_alloc(struct sk_buff *skb, u64 addr)
 {
-	skb_shinfo(skb)->destructor_arg = (void *)((uintptr_t)addr | 0x1UL);
+	struct xsk_addrs *xsk_addr;
+
+	xsk_addr = kmem_cache_zalloc(xsk_tx_generic_cache, GFP_KERNEL);
+	if (unlikely(!xsk_addr))
+		return NULL;
+
+	xsk_addr->addrs[0] = addr;
+	skb_shinfo(skb)->destructor_arg = (void *)xsk_addr;
+	return xsk_addr;
+}
+
+static struct xsk_addrs *xsk_addrs_alloc(struct sk_buff *skb)
+{
+	struct xsk_addrs *xsk_addr;
+
+	if (!xsk_skb_destructor_is_addr(skb))
+		return (struct xsk_addrs *)skb_shinfo(skb)->destructor_arg;
+
+	xsk_addr = __xsk_addrs_alloc(skb, xsk_skb_destructor_get_addr(skb));
+	if (likely(xsk_addr))
+		xsk_addr->num_descs = 1;
+	return xsk_addr;
+}
+
+static int xsk_skb_destructor_set_addr(struct sk_buff *skb, u64 addr)
+{
+	if (IS_ENABLED(CONFIG_64BIT)) {
+		skb_shinfo(skb)->destructor_arg = (void *)((uintptr_t)addr | 0x1UL);
+		return 0;
+	}
+
+	if (unlikely(!__xsk_addrs_alloc(skb, addr)))
+		return -ENOMEM;
+	return 0;
 }
 
 static void xsk_inc_num_desc(struct sk_buff *skb)
@@ -724,14 +757,20 @@ void xsk_destruct_skb(struct sk_buff *skb)
 	sock_wfree(skb);
 }
 
-static void xsk_skb_init_misc(struct sk_buff *skb, struct xdp_sock *xs,
-			      u64 addr)
+static int xsk_skb_init_misc(struct sk_buff *skb, struct xdp_sock *xs,
+			     u64 addr)
 {
+	int err;
+
+	err = xsk_skb_destructor_set_addr(skb, addr);
+	if (unlikely(err))
+		return err;
+
 	skb->dev = xs->dev;
 	skb->priority = READ_ONCE(xs->sk.sk_priority);
 	skb->mark = READ_ONCE(xs->sk.sk_mark);
 	skb->destructor = xsk_destruct_skb;
-	xsk_skb_destructor_set_addr(skb, addr);
+	return 0;
 }
 
 static void xsk_consume_skb(struct sk_buff *skb)
@@ -829,18 +868,9 @@ static struct sk_buff *xsk_build_skb_zerocopy(struct xdp_sock *xs,
 	} else {
 		struct xsk_addrs *xsk_addr;
 
-		if (xsk_skb_destructor_is_addr(skb)) {
-			xsk_addr = kmem_cache_zalloc(xsk_tx_generic_cache,
-						     GFP_KERNEL);
-			if (!xsk_addr)
-				return ERR_PTR(-ENOMEM);
-
-			xsk_addr->num_descs = 1;
-			xsk_addr->addrs[0] = xsk_skb_destructor_get_addr(skb);
-			skb_shinfo(skb)->destructor_arg = (void *)xsk_addr;
-		} else {
-			xsk_addr = (struct xsk_addrs *)skb_shinfo(skb)->destructor_arg;
-		}
+		xsk_addr = xsk_addrs_alloc(skb);
+		if (!xsk_addr)
+			return ERR_PTR(-ENOMEM);
 
 		/* in case of -EOVERFLOW that could happen below,
 		 * xsk_consume_skb() will release this node as whole skb
@@ -929,19 +959,10 @@ static struct sk_buff *xsk_build_skb(struct xdp_sock *xs,
 			struct page *page;
 			u8 *vaddr;
 
-			if (xsk_skb_destructor_is_addr(skb)) {
-				xsk_addr = kmem_cache_zalloc(xsk_tx_generic_cache,
-							     GFP_KERNEL);
-				if (!xsk_addr) {
-					err = -ENOMEM;
-					goto free_err;
-				}
-
-				xsk_addr->num_descs = 1;
-				xsk_addr->addrs[0] = xsk_skb_destructor_get_addr(skb);
-				skb_shinfo(skb)->destructor_arg = (void *)xsk_addr;
-			} else {
-				xsk_addr = (struct xsk_addrs *)skb_shinfo(skb)->destructor_arg;
+			xsk_addr = xsk_addrs_alloc(skb);
+			if (!xsk_addr) {
+				err = -ENOMEM;
+				goto free_err;
 			}
 
 			if (unlikely(nr_frags == (MAX_SKB_FRAGS - 1) && xp_mb_desc(desc))) {
@@ -966,8 +987,11 @@ static struct sk_buff *xsk_build_skb(struct xdp_sock *xs,
 		}
 	}
 
-	if (!xs->skb)
-		xsk_skb_init_misc(skb, xs, desc->addr);
+	if (!xs->skb) {
+		err = xsk_skb_init_misc(skb, xs, desc->addr);
+		if (unlikely(err))
+			goto free_err;
+	}
 	xsk_inc_num_desc(skb);
 
 	return skb;
