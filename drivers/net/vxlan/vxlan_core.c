@@ -1493,7 +1493,7 @@ static bool __vxlan_sock_release_prep(struct vxlan_sock *vs)
 		return false;
 
 	hlist_del_rcu(&vs->hlist);
-	udp_tunnel_notify_del_rx_port(vs->sock,
+	udp_tunnel_notify_del_rx_port(vs->sock->sk,
 				      (vs->flags & VXLAN_F_GPE) ?
 				      UDP_TUNNEL_TYPE_VXLAN_GPE :
 				      UDP_TUNNEL_TYPE_VXLAN);
@@ -3600,7 +3600,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, bool ipv6,
 	vs->flags = (flags & VXLAN_F_RCV_FLAGS);
 
 	hlist_add_head_rcu(&vs->hlist, vs_head(net, port));
-	udp_tunnel_notify_add_rx_port(sock,
+	udp_tunnel_notify_add_rx_port(sock->sk,
 				      (vs->flags & VXLAN_F_GPE) ?
 				      UDP_TUNNEL_TYPE_VXLAN_GPE :
 				      UDP_TUNNEL_TYPE_VXLAN);
