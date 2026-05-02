@@ -825,10 +825,9 @@ void Hal_ReadEFuse(
 		hal_ReadEFuse_BT(padapter, _offset, _size_byte, pbuf);
 }
 
-static struct hal_version ReadChipVersion8723B(struct adapter *padapter)
+static void ReadChipVersion8723B(struct adapter *padapter)
 {
 	u32 value32;
-	struct hal_version ChipVersion;
 	struct hal_com_data *pHalData;
 
 /* YJ, TODO, move read chip type here */
@@ -847,10 +846,6 @@ static struct hal_version ReadChipVersion8723B(struct adapter *padapter)
 	pHalData->MultiFunc |= ((value32 & BT_FUNC_EN) ? RT_MULTI_FUNC_BT : 0);
 	pHalData->MultiFunc |= ((value32 & GPS_FUNC_EN) ? RT_MULTI_FUNC_GPS : 0);
 	pHalData->PolarityCtl = ((value32 & WL_HWPDN_SL) ? RT_POLARITY_HIGH_ACT : RT_POLARITY_LOW_ACT);
-
-	pHalData->VersionID = ChipVersion;
-
-	return ChipVersion;
 }
 
 void rtl8723b_read_chip_version(struct adapter *padapter)

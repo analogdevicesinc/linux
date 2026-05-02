@@ -41,10 +41,5 @@ enum hal_vendor_e { /* tag_HAL_Manufacturer_Version_Definition */
 	CHIP_VENDOR_SMIC	=	2,
 };
 
-struct hal_version { /* tag_HAL_VERSION */
-};
-
-/* hal_version			VersionID; */
-
 
 #endif
