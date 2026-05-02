@@ -186,6 +186,7 @@ struct vxlan_metadata {
 struct vxlan_sock {
 	struct hlist_node hlist;
 	struct sock	  *sk;
+	struct rcu_head	  rcu;
 	struct hlist_head vni_list[VNI_HASH_SIZE];
 	refcount_t	  refcnt;
 	u32		  flags;
