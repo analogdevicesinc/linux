@@ -43,7 +43,7 @@ enum hal_vendor_e { /* tag_HAL_Manufacturer_Version_Definition */
 
 struct hal_version { /* tag_HAL_VERSION */
 	enum hal_ic_type_e		ICType;
-	enum hal_chip_type_e		ChipType;
+	enum hal_chip_type_e chip_type;
 	enum hal_cut_version_e	CUTVersion;
 	enum hal_vendor_e		VendorType;
 	u8 			ROMVer;
@@ -53,7 +53,7 @@ struct hal_version { /* tag_HAL_VERSION */
 
 /*  Get element */
 #define GET_CVID_IC_TYPE(version)			((enum hal_ic_type_e)((version).ICType))
-#define GET_CVID_CHIP_TYPE(version)			((enum hal_chip_type_e)((version).ChipType))
+#define GET_CVID_CHIP_TYPE(version) ((enum hal_chip_type_e)((version).chip_type))
 #define GET_CVID_MANUFACTUER(version)		((enum hal_vendor_e)((version).VendorType))
 #define GET_CVID_CUT_VERSION(version)		((enum hal_cut_version_e)((version).CUTVersion))
 #define GET_CVID_ROM_VERSION(version)		(((version).ROMVer) & ROM_VERSION_MASK)
