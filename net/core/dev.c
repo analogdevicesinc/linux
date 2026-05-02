@@ -371,7 +371,7 @@ static void netdev_name_node_alt_free(struct rcu_head *head)
 static void __netdev_name_node_alt_destroy(struct netdev_name_node *name_node)
 {
 	netdev_name_node_del(name_node);
-	list_del(&name_node->list);
+	list_del_rcu(&name_node->list);
 	call_rcu(&name_node->rcu, netdev_name_node_alt_free);
 }
 
