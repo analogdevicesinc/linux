@@ -43,7 +43,7 @@ enum hal_vendor_e { /* tag_HAL_Manufacturer_Version_Definition */
 
 struct hal_version { /* tag_HAL_VERSION */
 	enum hal_ic_type_e		ICType;
-	enum hal_chip_type_e chip_type;
+	bool chip_normal;	/* true - normal chip, false - test chip */
 	enum hal_cut_version_e	CUTVersion;
 	enum hal_vendor_e		VendorType;
 	u8 			ROMVer;
