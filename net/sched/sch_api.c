@@ -979,13 +979,17 @@ nla_put_failure:
 	return -EMSGSIZE;
 }
 
-static bool tc_qdisc_dump_ignore(struct Qdisc *q, bool dump_invisible)
+static bool tc_qdisc_dump_ignore(struct Qdisc *q, bool dump_invisible,
+				 const struct tcmsg *tcm)
 {
 	if (q->flags & TCQ_F_BUILTIN)
 		return true;
 	if ((q->flags & TCQ_F_INVISIBLE) && !dump_invisible)
 		return true;
-
+	if (tcm) {
+		if (tcm->tcm_handle && tcm->tcm_handle != q->handle)
+			return true;
+	}
 	return false;
 }
 
@@ -1000,7 +1004,7 @@ static int qdisc_get_notify(struct net *net, struct sk_buff *oskb,
 	if (!skb)
 		return -ENOBUFS;
 
-	if (!tc_qdisc_dump_ignore(q, false)) {
+	if (!tc_qdisc_dump_ignore(q, false, NULL)) {
 		if (tc_fill_qdisc(skb, q, clid, portid, n->nlmsg_seq, 0,
 				  RTM_NEWQDISC, extack) < 0)
 			goto err_out;
@@ -1030,12 +1034,12 @@ static int qdisc_notify(struct net *net, struct sk_buff *oskb,
 	if (!skb)
 		return -ENOBUFS;
 
-	if (old && !tc_qdisc_dump_ignore(old, false)) {
+	if (old && !tc_qdisc_dump_ignore(old, false, NULL)) {
 		if (tc_fill_qdisc(skb, old, clid, portid, n->nlmsg_seq,
 				  0, RTM_DELQDISC, extack) < 0)
 			goto err_out;
 	}
-	if (new && !tc_qdisc_dump_ignore(new, false)) {
+	if (new && !tc_qdisc_dump_ignore(new, false, NULL)) {
 		if (tc_fill_qdisc(skb, new, clid, portid, n->nlmsg_seq,
 				  old ? NLM_F_REPLACE : 0, RTM_NEWQDISC, extack) < 0)
 			goto err_out;
@@ -1825,21 +1829,24 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
 			      int *q_idx_p, int s_q_idx, bool recur,
 			      bool dump_invisible)
 {
+	const struct nlmsghdr *nlh = cb->nlh;
 	int ret = 0, q_idx = *q_idx_p;
+	const struct tcmsg *tcm;
 	struct Qdisc *q;
 	int b;
 
 	if (!root)
 		return 0;
 
+	tcm = nlmsg_data(nlh);
 	q = root;
 	if (q_idx < s_q_idx) {
 		q_idx++;
 	} else {
-		if (!tc_qdisc_dump_ignore(q, dump_invisible))
+		if (!tc_qdisc_dump_ignore(q, dump_invisible, tcm))
 		    ret = tc_fill_qdisc(skb, q, q->parent,
 					NETLINK_CB(cb->skb).portid,
-					cb->nlh->nlmsg_seq, NLM_F_MULTI,
+					nlh->nlmsg_seq, NLM_F_MULTI,
 					RTM_NEWQDISC, NULL);
 		if (ret < 0)
 			goto out;
@@ -1860,10 +1867,10 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
 			q_idx++;
 			continue;
 		}
-		if (!tc_qdisc_dump_ignore(q, dump_invisible))
+		if (!tc_qdisc_dump_ignore(q, dump_invisible, tcm))
 			ret = tc_fill_qdisc(skb, q, q->parent,
 					    NETLINK_CB(cb->skb).portid,
-					    cb->nlh->nlmsg_seq, NLM_F_MULTI,
+					    nlh->nlmsg_seq, NLM_F_MULTI,
 					    RTM_NEWQDISC, NULL);
 		if (ret < 0)
 			goto out;
@@ -2341,7 +2348,7 @@ static int tc_dump_tclass_qdisc(struct Qdisc *q, struct sk_buff *skb,
 {
 	struct qdisc_dump_args arg;
 
-	if (tc_qdisc_dump_ignore(q, false) ||
+	if (tc_qdisc_dump_ignore(q, false, NULL) ||
 	    *t_p < s_t || !q->ops->cl_ops ||
 	    (tcm->tcm_parent &&
 	     TC_H_MAJ(tcm->tcm_parent) != q->handle)) {
