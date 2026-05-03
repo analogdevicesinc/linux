@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * CDU mux clock driver for ADSP-SC5xx processors
+ * CDU multiplexer clock driver for ADSP-SC5xx processors
  *
  * Copyright (C) 2026 Analog Devices Inc.
  */
@@ -13,20 +13,21 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 
-/* There are 4 selectable inputs per CDU_CFG[n] */
-
 #define CDU_CFG_EN		BIT(0)
 #define CDU_CFG_LOCK            BIT(31)
 #define CDU_CFG_SEL_MASK	GENMASK(2, 1)
+#define CDU_REVID_MAJOR		GENMASK(7, 4)
+#define CDU_REVID_REV		GENMASK(3, 0)
+#define CDU_REVID_OFFSET	0x48
 
-#define CDU_CFG_POLL_DELAY_US   1
-#define CDU_CFG_POLL_TIMEOUT_US 100
+#define CDU_CFG_POLL_DELAY_US   2
+#define CDU_CFG_POLL_TIMEOUT_US 10
 
 struct clk_adi_cdu_mux {
 	struct clk_hw hw;
 	void __iomem *cdu_cfg;
 	void __iomem *cdu_stat;
-	const u8 *parent_sel;
+	const u32 *parent_sel;
 	spinlock_t *cdu_lock;
 	u8 clko_stat_bit;
 };
@@ -41,14 +42,6 @@ static inline struct clk_adi_cdu_mux *to_clk_adi_cdu_mux(struct clk_hw *hw)
 	return container_of(hw, struct clk_adi_cdu_mux, hw);
 }
 
-static inline void sc5xx_cdu_cfg_update_en(u32 *reg, enum sc5xx_cdu_en_state flag)
-{
-	if (flag == SC5XX_CDU_EN_ENABLE)
-		*reg |= CDU_CFG_EN;
-	else
-		*reg &= ~CDU_CFG_EN;
-}
-
 static int sc5xx_cdu_wait_ready(struct clk_adi_cdu_mux *cdu_mux)
 {
 	u32 stat;
@@ -59,36 +52,84 @@ static int sc5xx_cdu_wait_ready(struct clk_adi_cdu_mux *cdu_mux)
 					 CDU_CFG_POLL_TIMEOUT_US);
 }
 
+static inline u32 sc5xx_cdu_read_cfg(struct clk_adi_cdu_mux *cdu_mux)
+{
+	return readl(cdu_mux->cdu_cfg);
+}
+
+static inline void sc5xx_cdu_write_cfg(struct clk_adi_cdu_mux *cdu_mux, u32 reg)
+{
+	writel(reg, cdu_mux->cdu_cfg);
+}
+
+
+void sc5xx_cdu_print_revision(const char *soc_name, void __iomem *cdu)
+{
+	u32 revid = readl(cdu + CDU_REVID_OFFSET);
+
+	pr_info("%s CDU revision: major=%u rev=%u (0x%08x)\n",
+		 soc_name,
+		 FIELD_GET(CDU_REVID_MAJOR, revid),
+		 FIELD_GET(CDU_REVID_REV, revid),
+		 revid);
+}
+
+static inline void sc5xx_cdu_cfg_update_en(u32 *reg, enum sc5xx_cdu_en_state state)
+{
+	if (state == SC5XX_CDU_EN_ENABLE)
+		*reg |= CDU_CFG_EN;
+	else
+		*reg &= ~CDU_CFG_EN;
+}
+
+static int sc5xx_cdu_update_en_locked(struct clk_adi_cdu_mux *cdu_mux,
+					enum sc5xx_cdu_en_state state)
+{
+	u32 reg;
+
+	reg = sc5xx_cdu_read_cfg(cdu_mux);
+	if (reg & CDU_CFG_LOCK)
+		return -EPERM;
+
+	sc5xx_cdu_cfg_update_en(&reg, state);
+	sc5xx_cdu_write_cfg(cdu_mux, reg);
+
+	return 0;
+}
+
 static int sc5xx_cdu_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
 	unsigned long flags;
-        u8 input_sel;
+        unsigned int input_sel;
 	u32 reg;
 	int ret;
 
-	input_sel = cdu_mux->parent_sel[index];
+	input_sel = clk_mux_index_to_val(cdu_mux->parent_sel, 
+			0, index);
 
 	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
 
 	ret = sc5xx_cdu_wait_ready(cdu_mux);
-	if (ret) {
-		spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
-		return ret;
-	}
+	if (ret)
+		goto out_unlock;
 
-	reg = readl(cdu_mux->cdu_cfg);
+	reg = sc5xx_cdu_read_cfg(cdu_mux);
 	if (reg & CDU_CFG_LOCK) {
-		spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
-		return -EPERM;
+		ret = -EPERM;
+		goto out_unlock;
 	} 	
 
 	reg &= ~CDU_CFG_SEL_MASK;
 	reg |= FIELD_PREP(CDU_CFG_SEL_MASK, input_sel);
 
-	writel(reg, cdu_mux->cdu_cfg);
+	sc5xx_cdu_write_cfg(cdu_mux, reg);
 
+out_unlock:
 	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
+
+	if (ret)
+		return ret;
 
 	return sc5xx_cdu_wait_ready(cdu_mux);	
 }
@@ -97,24 +138,16 @@ static u8 sc5xx_cdu_get_parent(struct clk_hw *hw)
 {
 	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
 	unsigned long flags;
-	unsigned int num_parents;
-	u8 index, input_sel;
-	u32 reg;
+	u32 reg, input_sel;
 
 	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
-	reg = readl(cdu_mux->cdu_cfg);
+	reg = sc5xx_cdu_read_cfg(cdu_mux);
 	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
 
 	input_sel = FIELD_GET(CDU_CFG_SEL_MASK, reg);
 
-	num_parents = clk_hw_get_num_parents(hw);
-
-	for (index = 0; index < num_parents; index++) {
-		if (cdu_mux->parent_sel[index] == input_sel)
-			return index;
-	}
-
-	return 0;
+	return clk_mux_val_to_index(hw, cdu_mux->parent_sel, 
+			0, input_sel);
 }
 
 static int sc5xx_cdu_enable(struct clk_hw *hw)
@@ -122,26 +155,22 @@ static int sc5xx_cdu_enable(struct clk_hw *hw)
 	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
 	unsigned long flags;
 	int ret;
-	u32 reg;
 
 	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
 
 	ret = sc5xx_cdu_wait_ready(cdu_mux);	
-	if (ret) {
-		spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
-		return ret;
-	}
+	if (ret)
+		goto out_unlock;
 
-	reg = readl(cdu_mux->cdu_cfg);
-	if (reg & CDU_CFG_LOCK) {
-		spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
-		return -EPERM;
-	}
+	ret = sc5xx_cdu_update_en_locked(cdu_mux, SC5XX_CDU_EN_ENABLE);
+	if (ret)
+		goto out_unlock;
 
-	sc5xx_cdu_cfg_update_en(&reg, SC5XX_CDU_EN_ENABLE);
-	writel(reg, cdu_mux->cdu_cfg);
-	
+out_unlock:	
 	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
+
+	if (ret)
+		return ret;
 
 	return sc5xx_cdu_wait_ready(cdu_mux);
 }
@@ -150,24 +179,16 @@ static void sc5xx_cdu_disable(struct clk_hw *hw)
 {
 	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
 	unsigned long flags;
-	u32 reg;
 
 	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
 
-	if (sc5xx_cdu_wait_ready(cdu_mux)) {
-		spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
-		return;
-	}
+	if (sc5xx_cdu_wait_ready(cdu_mux))
+		goto out_unlock;
 
-	reg = readl(cdu_mux->cdu_cfg);
-	if (reg & CDU_CFG_LOCK) {
-		spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
-		return;
-	}
-	
-	sc5xx_cdu_cfg_update_en(&reg, SC5XX_CDU_EN_DISABLE);
-	writel(reg, cdu_mux->cdu_cfg);
+	if (sc5xx_cdu_update_en_locked(cdu_mux, SC5XX_CDU_EN_DISABLE))
+		goto out_unlock;
 
+out_unlock:
 	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
 
 	sc5xx_cdu_wait_ready(cdu_mux);
@@ -180,11 +201,37 @@ static int sc5xx_cdu_is_enabled(struct clk_hw *hw)
 	u32 reg;
 	
 	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
-	reg = readl(cdu_mux->cdu_cfg);
+	reg = sc5xx_cdu_read_cfg(cdu_mux);
 	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
 
 	return reg & CDU_CFG_EN;
 }
+
+#ifdef CONFIG_DEBUG_FS
+
+#include <linux/debugfs.h>
+
+ssize_t sc5xx_cdu_debug_read(struct file *, char __user *, size_t, loff_t *)
+{
+
+}
+
+static void sc5xx_cdu_debug_init(struct clk_hw *hw, struct dentry *dentry)
+{
+	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
+	char debugfs_entry_name[12];
+
+	snprintf(debugfs_entry_name, sizeof(debugfs_entry_name), 
+		"cdu_cfg[%u]", cdu_mux->clko_stat_bit);
+
+	debugfs_create_file(debugfs_entry_name, 0444, dentry, hw, )
+}
+
+static const struct file_operations sc5xx_cdu_debug_fops = {
+	.owner = THIS_MODULE,
+	.read  = sc5xx_cdu_debug_read,
+};
+#endif
 
 static const struct clk_ops adi_cdu_mux_ops = {
 	.set_parent = sc5xx_cdu_set_parent,
@@ -192,16 +239,19 @@ static const struct clk_ops adi_cdu_mux_ops = {
 	.enable     = sc5xx_cdu_enable,
 	.disable    = sc5xx_cdu_disable,
 	.is_enabled = sc5xx_cdu_is_enabled,
+#ifdef CONFIG_DEBUG_FS
+	.debug_init = sc5xx_cdu_debug_init,
+#endif
 };
 
 struct clk *sc5xx_adi_cdu_mux(const char *clock_name, void __iomem *cdu_cfg,
 			      void __iomem *cdu_stat, u8 clko_stat_bit,
-			      const char * const *parent_names, const u8 *parent_sel, 
+			      const char * const *parent_names, const u32 *parent_sel, 
 			      u8 num_parents, unsigned long clock_flags, 
 			      spinlock_t *cdu_lock)
 {
 	struct clk_adi_cdu_mux *cdu_mux;
-	struct clk_init_data init = {};
+	struct clk_init_data init = { };
 	struct clk *clk;
 
 	cdu_mux = kzalloc(sizeof(*cdu_mux), GFP_KERNEL);
@@ -222,10 +272,8 @@ struct clk *sc5xx_adi_cdu_mux(const char *clock_name, void __iomem *cdu_cfg,
 	cdu_mux->clko_stat_bit = clko_stat_bit; 
 
 	clk = clk_register(NULL, &cdu_mux->hw);
-	if (IS_ERR(clk)) {
+	if (IS_ERR(clk))
 		kfree(cdu_mux);
-		return clk;
-	}
 
 	return clk;
 }
