@@ -267,23 +267,19 @@ void membarrier_update_current_mm(struct mm_struct *next_mm)
 
 static int membarrier_global_expedited(void)
 {
+	cpumask_var_t __free(free_cpumask_var) tmpmask = CPUMASK_VAR_NULL;
 	int cpu;
-	cpumask_var_t tmpmask;
 
 	if (num_online_cpus() == 1)
 		return 0;
 
-	/*
-	 * Matches memory barriers after rq->curr modification in
-	 * scheduler.
-	 */
-	smp_mb();	/* system call entry is not a mb. */
-
 	if (!zalloc_cpumask_var(&tmpmask, GFP_KERNEL))
 		return -ENOMEM;
 
+	guard(mb)();
 	SERIALIZE_IPI();
-	cpus_read_lock();
+	guard(cpus_read_lock)();
+
 	rcu_read_lock();
 	for_each_online_cpu(cpu) {
 		struct task_struct *p;
@@ -319,15 +315,6 @@ static int membarrier_global_expedited(void)
 	smp_call_function_many(tmpmask, ipi_mb, NULL, 1);
 	preempt_enable();
 
-	free_cpumask_var(tmpmask);
-	cpus_read_unlock();
-
-	/*
-	 * Memory barrier on the caller thread _after_ we finished
-	 * waiting for the last IPI. Matches memory barriers before
-	 * rq->curr modification in scheduler.
-	 */
-	smp_mb();	/* exit from system call is not a mb */
 	return 0;
 }
 
