@@ -727,7 +727,7 @@ static s32 update_attrib(struct adapter *padapter, struct sk_buff *pkt, struct p
 			}
 		}
 
-		/* for parsing ICMP pakcets */
+		/* for parsing ICMP packets */
 		{
 			struct iphdr *piphdr = (struct iphdr *)tmp;
 
@@ -1359,7 +1359,7 @@ s32 rtw_mgmt_xmitframe_coalesce(struct adapter *padapter, struct sk_buff *pkt, s
 			/* set final tx command size */
 			pattrib->last_txcmdsz = pattrib->pktlen;
 
-			/* set protected bit must be beofre SW encrypt */
+			/* set protected bit must be before SW encrypt */
 			SetPrivacy(mem_start);
 			/* software encrypt */
 			xmitframe_swencrypt(padapter, pxmitframe);
