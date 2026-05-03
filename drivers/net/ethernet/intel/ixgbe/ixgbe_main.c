@@ -6758,6 +6758,7 @@ void ixgbe_down(struct ixgbe_adapter *adapter)
 
 /**
  * ixgbe_set_eee_capable - helper function to determine EEE support on X550
+ * and E610
  * @adapter: board private structure
  */
 static void ixgbe_set_eee_capable(struct ixgbe_adapter *adapter)
@@ -6774,6 +6775,20 @@ static void ixgbe_set_eee_capable(struct ixgbe_adapter *adapter)
 			break;
 		adapter->flags2 |= IXGBE_FLAG2_EEE_ENABLED;
 		break;
+	case IXGBE_DEV_ID_E610_BACKPLANE:
+	case IXGBE_DEV_ID_E610_SFP:
+	case IXGBE_DEV_ID_E610_10G_T:
+	case IXGBE_DEV_ID_E610_2_5G_T:
+		if (hw->dev_caps.common_cap.eee_support &&
+		    hw->phy.eee_speeds_supported) {
+			adapter->flags2 |= IXGBE_FLAG2_EEE_CAPABLE;
+			/* For E610 adapters EEE should be enabled by default
+			 * if the feature is supported by FW.
+			 */
+			adapter->flags2 |= IXGBE_FLAG2_EEE_ENABLED;
+			break;
+		}
+		fallthrough;
 	default:
 		adapter->flags2 &= ~IXGBE_FLAG2_EEE_CAPABLE;
 		adapter->flags2 &= ~IXGBE_FLAG2_EEE_ENABLED;
@@ -8082,6 +8097,7 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
 	struct net_device *netdev = adapter->netdev;
 	struct ixgbe_hw *hw = &adapter->hw;
 	u32 link_speed = adapter->link_speed;
+	struct ethtool_keee keee = {};
 	const char *speed_str;
 	bool flow_rx, flow_tx;
 
@@ -8122,6 +8138,8 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
 	if (test_bit(__IXGBE_PTP_RUNNING, &adapter->state))
 		ixgbe_ptp_start_cyclecounter(adapter);
 
+	netdev->ethtool_ops->get_eee(netdev, &keee);
+
 	switch (link_speed) {
 	case IXGBE_LINK_SPEED_10GB_FULL:
 		speed_str = "10 Gbps";
@@ -8145,10 +8163,11 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
 		speed_str = "unknown speed";
 		break;
 	}
-	e_info(drv, "NIC Link is Up %s, Flow Control: %s\n", speed_str,
+	e_info(drv, "NIC Link is Up %s, Flow Control: %s, EEE: %s\n", speed_str,
 	       ((flow_rx && flow_tx) ? "RX/TX" :
 	       (flow_rx ? "RX" :
-	       (flow_tx ? "TX" : "None"))));
+	       (flow_tx ? "TX" : "None"))),
+	       str_on_off(keee.eee_enabled));
 
 	netif_carrier_on(netdev);
 	ixgbe_check_vf_rate_limit(adapter);
@@ -12002,6 +12021,13 @@ skip_sriov:
 	err = ixgbe_mii_bus_init(hw);
 	if (err)
 		goto err_netdev;
+
+	if (hw->mac.type == ixgbe_mac_e610 &&
+	    (adapter->flags2 & IXGBE_FLAG2_EEE_CAPABLE)) {
+		bool eee_enable = adapter->flags2 & IXGBE_FLAG2_EEE_ENABLED;
+
+		hw->mac.ops.setup_eee(hw, eee_enable);
+	}
 
 	ixgbe_devlink_init_regions(adapter);
 	devl_register(adapter->devlink);
