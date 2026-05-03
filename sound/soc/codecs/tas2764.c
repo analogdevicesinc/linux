@@ -684,16 +684,31 @@ static int tas2764_read_die_temp(struct tas2764_priv *tas2764, long *result)
 	 * As per datasheet, subtract 93 from raw value to get degrees
 	 * Celsius. hwmon wants millidegrees.
 	 *
-	 * NOTE: The chip will initialise the TAS2764_TEMP register to
-	 * 2.6 *C to avoid triggering temperature protection. Since the
-	 * ADC is powered down during software shutdown, this value will
-	 * persist until the chip is fully powered up (e.g. the PCM it's
-	 * attached to is opened). The ADC will power down again when
-	 * the chip is put back into software shutdown, with the last
-	 * value sampled persisting in the ADC's register.
+	 * NOTE: The TAS2764 datasheet mentions initialising TAS2764_TEMP
+	 * such that the temperature is 2.6 *C, however the register
+	 * is actually initialised to 0. The ADC is also powered down during
+	 * software shutdown. The last sampled temperature will persist
+	 * in the register while the amp is in this power state.
 	 */
+	if (reg == 0)
+		return -ENODATA;
+
 	*result = (reg - 93) * 1000;
 	return 0;
+}
+
+static int tas2764_hwmon_is_fault(struct tas2764_priv *tas2764, long *result)
+{
+	int ret;
+	long temp;
+
+	ret = tas2764_read_die_temp(tas2764, &temp);
+	if (ret == -ENODATA) {
+		*result = true;
+		return 0;
+	}
+
+	return ret;
 }
 
 static umode_t tas2764_hwmon_is_visible(const void *data,
@@ -705,6 +720,7 @@ static umode_t tas2764_hwmon_is_visible(const void *data,
 
 	switch (attr) {
 	case hwmon_temp_input:
+	case hwmon_temp_fault:
 		return 0444;
 	default:
 		break;
@@ -724,6 +740,9 @@ static int tas2764_hwmon_read(struct device *dev,
 	case hwmon_temp_input:
 		ret = tas2764_read_die_temp(tas2764, val);
 		break;
+	case hwmon_temp_fault:
+		ret = tas2764_hwmon_is_fault(tas2764, val);
+		break;
 	default:
 		ret = -EOPNOTSUPP;
 		break;
@@ -733,7 +752,7 @@ static int tas2764_hwmon_read(struct device *dev,
 }
 
 static const struct hwmon_channel_info *const tas2764_hwmon_info[] = {
-	HWMON_CHANNEL_INFO(temp, HWMON_T_INPUT),
+	HWMON_CHANNEL_INFO(temp, HWMON_T_INPUT | HWMON_T_FAULT),
 	NULL
 };
 
