@@ -7971,7 +7971,7 @@ static int print_rapl_sysfs(void)
 
 		snprintf(path, PATH_MAX, "%s/%s", PATH_RAPL_SYSFS, entry->d_name);
 		if ((cdir = opendir(path)) == NULL) {
-			perror("opendir() error");
+			warn("%s", path);
 			return 1;
 		}
 
@@ -10755,10 +10755,8 @@ int add_counter(unsigned int msr_num, const char *path, const char *name,
 		struct sysfs_path *sp;
 
 		sp = calloc(1, sizeof(struct sysfs_path));
-		if (sp == NULL) {
-			perror("calloc");
-			exit(1);
-		}
+		if (sp == NULL)
+			err(-1, "%s", path);
 		strncpy(sp->path, path, PATH_BYTES - 1);
 		sp->id = id;
 		sp->next = msrp->sp;
@@ -11700,7 +11698,7 @@ int main(int argc, char **argv)
 
 	ret = write(fd, "0\n", 2);
 	if (ret == -1)
-		perror("Can't update cgroup\n");
+		warn("/sys/fs/cgroup/cgroup.procs");
 
 	close(fd);
 
