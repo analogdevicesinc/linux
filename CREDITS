@@ -197,6 +197,9 @@ S: Hauptstrasse 19
 S: 79837 St. Blasien
 S: Germany
 
+N: Ferenc Bakonyi
+D: Hercules graphics adapter framebuffer driver
+
 N: Krishna Balasubramanian
 E: balasub@cis.ohio-state.edu
 D: Wrote SYS V IPC (part of standard kernel since 0.99.10)
