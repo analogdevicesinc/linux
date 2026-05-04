@@ -28,9 +28,12 @@
 
 #include "adrv9002.h"
 #include "adi_adrv9001_rxSettings_types.h"
+#include "adi_adrv9001_ssi.h"
 #include "adi_adrv9001_ssi_types.h"
 
 #include "../cf_axi_adc.h"
+
+# define DEBUG
 
 #define ADI_RX2_REG_OFF			0x1000
 #define ADI_TX1_REG_OFF			0x2000
@@ -420,23 +423,30 @@ static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int 
 	struct adrv9002_rf_phy *phy = conv->phy;
 	u32 reg;
 	int c;
+	bool buba = 0;
 
 	/* reset result */
-	for (c = 0; c < n_chan; c++)
+	for (c = 0; c < n_chan; c++) {
+		//pr_err("Clear 0x%x\n", ADI_REG_CHAN_STATUS(c));
 		axiadc_write(st, AIM_AXI_REG(off, ADI_REG_CHAN_STATUS(c)),
 			     ADI_PN_ERR | ADI_PN_OOS);
+	}
 
 	usleep_range(5000, 5005);
 
 	/* check for errors in any channel */
 	for (c = 0; c < n_chan; c++) {
 		reg = axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CHAN_STATUS(c)));
+		//pr_err("Read from 0x%x = 0x%x\n", ADI_REG_CHAN_STATUS(c), reg);
 		if (reg) {
 			dev_dbg(&phy->spi->dev, "pn error in c:%d, reg: %02X\n", c, reg);
-			return 1;
+			buba = buba | 1;
 		}
 	}
 
+	if (buba) {
+		return -1;
+	}
 	return 0;
 }
 
@@ -528,19 +538,60 @@ static void adrv9002_axi_get_channel_range(struct axiadc_converter *conv, bool t
 		*end = conv->chip_info->num_channels;
 }
 
+static u8 adrv9002_fixed_clk(bool tx, int channel)
+{
+	if (tx)
+		return channel ? ADRV9002_FIXED_TX_CH1_CLK : ADRV9002_FIXED_TX_CH0_CLK;
+
+	return channel ? ADRV9002_FIXED_RX_CH1_CLK : ADRV9002_FIXED_RX_CH0_CLK;
+}
+
+static u8 adrv9002_fixed_data(bool tx, int channel)
+{
+	if (tx)
+		return channel ? ADRV9002_FIXED_TX_CH1_DATA : ADRV9002_FIXED_TX_CH0_DATA;
+
+	return channel ? ADRV9002_FIXED_RX_CH1_DATA : ADRV9002_FIXED_RX_CH0_DATA;
+}
+
+static int adrv9002_apply_fixed_intf_delays(const struct adrv9002_rf_phy *phy, bool tx)
+{
+	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
+	int channel;
+
+	for (channel = 0; channel < 2; channel++) {
+		u8 clk = adrv9002_fixed_clk(tx, channel);
+		u8 data = adrv9002_fixed_data(tx, channel);
+
+		if (tx) {
+			delays.txClkDelay[channel] = clk;
+			delays.txIDataDelay[channel] = data;
+			delays.txQDataDelay[channel] = data;
+			delays.txStrobeDelay[channel] = data;
+		} else {
+			delays.rxClkDelay[channel] = clk;
+			delays.rxIDataDelay[channel] = data;
+			delays.rxQDataDelay[channel] = data;
+			delays.rxStrobeDelay[channel] = data;
+		}
+	}
+
+	return api_call(phy, adi_adrv9001_Ssi_Delay_Configure, phy->ssi_type, &delays);
+}
+
 int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, const int chann,
 			   u8 *clk_delay, u8 *data_delay)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	int ret, cnt, max_cnt = 0;
+	int ret, tune_ret = 0, cnt, max_cnt = 0;
 	u8 field[8][8] = {0};
 	u8 clk, data;
 	u32 saved_ctrl_7[4];
 	int n_chan;
+	bool fix_tune = ADRV9002_FIXED_PATTERN_EN;
 
 	adrv9002_axi_get_channel_range(conv, tx, &n_chan);
 	if (tx) {
-		/* generate test pattern for tx test  */
 		ret = adrv9002_axi_tx_test_pattern_set(conv, chann, n_chan, saved_ctrl_7);
 		if (ret)
 			return ret;
@@ -549,53 +600,77 @@ int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, con
 		if (ret)
 			return ret;
 
-		/* start test */
 		ret = adrv9002_intf_test_cfg(phy, chann, tx, false);
 		if (ret)
 			return ret;
 	}
 
-	for (clk = 0; clk < ARRAY_SIZE(field); clk++) {
-		for (data = 0; data < sizeof(*field); data++) {
-			ret = adrv9002_intf_change_delay(phy, chann, clk, data, tx);
-			if (ret < 0)
+	if (fix_tune) {
+		ret = adrv9002_apply_fixed_intf_delays(phy, tx);
+		if (ret)
+			return ret;
+
+		if (tx) {
+			if (phy->rx2tx2)
+				ret = adrv9002_tx_fixup_all(phy);
+			else
+				ret = adrv9002_tx_fixup(phy, chann);
+			if (ret)
 				return ret;
 
-			if (tx) {
-				if (phy->rx2tx2)
-					ret = adrv9002_tx_fixup_all(phy);
-				else
-					ret = adrv9002_tx_fixup(phy, chann);
-				if (ret)
-					return ret;
-				/*
-				 * we need to restart the tx test for every iteration since it's
-				 * the only way to reset the counters.
-				 */
-				ret = adrv9002_intf_test_cfg(phy, chann, tx, false);
-				if (ret)
-					return ret;
-			}
-			/* check result */
-			if (!tx)
-				ret = adrv9002_axi_pn_check(conv, chann, n_chan);
-			else
-				ret = adrv9002_check_tx_test_pattern(phy, chann);
-
-			field[clk][data] |= ret;
+			ret = adrv9002_intf_test_cfg(phy, chann, tx, false);
+			if (ret)
+				return ret;
 		}
+
+		if (tx)
+			tune_ret = adrv9002_check_tx_test_pattern(phy, chann);
+		else
+			tune_ret = adrv9002_axi_pn_check(conv, chann, n_chan);
+	} else {
+		for (clk = 0; clk < ARRAY_SIZE(field); clk++) {
+			for (data = 0; data < sizeof(*field); data++) {
+				ret = adrv9002_intf_change_delay(phy, chann, clk, data, tx);
+				if (ret < 0)
+					return ret;
+
+				if (tx) {
+					if (phy->rx2tx2)
+						ret = adrv9002_tx_fixup_all(phy);
+					else
+						ret = adrv9002_tx_fixup(phy, chann);
+					if (ret)
+						return ret;
+
+					ret = adrv9002_intf_test_cfg(phy, chann, tx, false);
+					if (ret)
+						return ret;
+				}
+
+				if (!tx)
+					ret = adrv9002_axi_pn_check(conv, chann, n_chan);
+				else
+					ret = adrv9002_check_tx_test_pattern(phy, chann);
+
+				field[clk][data] |= ret;
+			}
+		}
+
+		adrv9002_axi_digital_tune_verbose(phy, field, tx, chann);
 	}
 
-	adrv9002_axi_digital_tune_verbose(phy, field, tx, chann);
-
-	/* stop test */
 	ret = adrv9002_intf_test_cfg(phy, chann, tx, true);
 	if (ret)
 		return ret;
 
-	/* stop tx pattern */
 	if (tx)
 		adrv9002_axi_tx_test_pattern_restore(conv, chann, n_chan, saved_ctrl_7);
+
+	if (fix_tune) {
+		*clk_delay = adrv9002_fixed_clk(tx, chann);
+		*data_delay = adrv9002_fixed_data(tx, chann);
+		return tune_ret;
+	}
 
 	for (clk = 0; clk < ARRAY_SIZE(field); clk++) {
 		cnt = adrv9002_axi_find_point(&field[clk][0], sizeof(*field), &data);

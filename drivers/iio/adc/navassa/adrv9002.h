@@ -153,6 +153,19 @@ enum adrv9002_tx_ext_info {
 	__ret;								\
 })
 
+/*
+ * Compile-time fixed SSI delays for manual rx2tx2 debug.
+ */
+#define ADRV9002_FIXED_PATTERN_EN	1
+#define ADRV9002_FIXED_RX_CH0_CLK	0
+#define ADRV9002_FIXED_RX_CH0_DATA	3
+#define ADRV9002_FIXED_RX_CH1_CLK	6
+#define ADRV9002_FIXED_RX_CH1_DATA	6
+#define ADRV9002_FIXED_TX_CH0_CLK	0
+#define ADRV9002_FIXED_TX_CH0_DATA	3
+#define ADRV9002_FIXED_TX_CH1_CLK	0
+#define ADRV9002_FIXED_TX_CH1_DATA	3
+
 struct adrv9002_clock {
 	struct clk_hw		hw;
 	struct spi_device	*spi;
@@ -297,6 +310,7 @@ struct adrv9002_rf_phy {
 	struct adi_adrv9001_InitCals	init_cals;
 	struct adi_adrv9001_RxPortSwitchCfg port_switch;
 	struct adrv9002_pll_config	pll_configs[ADRV9002_NUM_PLL_CFGS];
+	int				profile_load_error;
 	bool				run_cals;
 	u32				n_clks;
 	u32				dev_clkout_div;

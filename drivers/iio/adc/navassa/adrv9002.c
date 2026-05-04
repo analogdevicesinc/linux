@@ -3470,7 +3470,7 @@ static int adrv9002_get_init_carrier(const struct adrv9002_chan *c, u64 *carrier
 			if (c->carrier)
 				*carrier = c->carrier;
 			else
-				*carrier = 2400000000ULL;
+				*carrier = 2300000000ULL;
 
 			if (!phy->port_switch.enable || phy->port_switch.manualRxPortSwitch)
 				return 0;
@@ -3485,7 +3485,7 @@ static int adrv9002_get_init_carrier(const struct adrv9002_chan *c, u64 *carrier
 			return 0;
 		}
 
-		*carrier = c->carrier ?: 2450000000ULL;
+		*carrier = c->carrier ?: 2300000000ULL;
 		return 0;
 	}
 
@@ -3746,11 +3746,13 @@ int adrv9002_intf_change_delay(const struct adrv9002_rf_phy *phy, const int chan
 			delays.txStrobeDelay[channel + 1] = data_delay;
 		}
 	} else {
+		//pr_err("Set delay chann = %d clk = %d data = %d\n", channel, clk_delay, data_delay);
 		delays.rxClkDelay[channel] = clk_delay;
 		delays.rxIDataDelay[channel] = data_delay;
 		delays.rxQDataDelay[channel] = data_delay;
 		delays.rxStrobeDelay[channel] = data_delay;
 		if (phy->rx2tx2) {
+			//pr_err("Set delay chann = %d clk = %d data = %d\n", channel + 1, clk_delay, data_delay);
 			delays.rxClkDelay[channel + 1] = clk_delay;
 			delays.rxIDataDelay[channel + 1] = data_delay;
 			delays.rxQDataDelay[channel + 1] = data_delay;
@@ -3890,10 +3892,26 @@ int adrv9002_intf_test_cfg(const struct adrv9002_rf_phy *phy, const int chann, c
 	return ret;
 }
 
+static u8 adrv9002_fixed_clk(bool tx, int channel)
+{
+	if (tx)
+		return channel ? ADRV9002_FIXED_TX_CH1_CLK : ADRV9002_FIXED_TX_CH0_CLK;
+
+	return channel ? ADRV9002_FIXED_RX_CH1_CLK : ADRV9002_FIXED_RX_CH0_CLK;
+}
+
+static u8 adrv9002_fixed_data(bool tx, int channel)
+{
+	if (tx)
+		return channel ? ADRV9002_FIXED_TX_CH1_DATA : ADRV9002_FIXED_TX_CH0_DATA;
+
+	return channel ? ADRV9002_FIXED_RX_CH1_DATA : ADRV9002_FIXED_RX_CH0_DATA;
+}
+
 static int adrv9002_intf_tuning(const struct adrv9002_rf_phy *phy)
 {
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
-	int ret;
+	int ret, tune_ret = 0;
 	u8 clk_delay, data_delay;
 	int i;
 
@@ -3907,7 +3925,19 @@ static int adrv9002_intf_tuning(const struct adrv9002_rf_phy *phy)
 			 * In rx2tx2 we should treat both channels as the same. Hence, we will run
 			 * the test simultaneosly for both and configure the same delays.
 			 */
-			if (c->port == ADI_RX) {
+			if (ADRV9002_FIXED_PATTERN_EN) {
+				if (c->port == ADI_RX) {
+					delays.rxClkDelay[c->idx] = adrv9002_fixed_clk(false, c->idx);
+					delays.rxIDataDelay[c->idx] = adrv9002_fixed_data(false, c->idx);
+					delays.rxQDataDelay[c->idx] = adrv9002_fixed_data(false, c->idx);
+					delays.rxStrobeDelay[c->idx] = adrv9002_fixed_data(false, c->idx);
+				} else {
+					delays.txClkDelay[c->idx] = adrv9002_fixed_clk(true, c->idx);
+					delays.txIDataDelay[c->idx] = adrv9002_fixed_data(true, c->idx);
+					delays.txQDataDelay[c->idx] = adrv9002_fixed_data(true, c->idx);
+					delays.txStrobeDelay[c->idx] = adrv9002_fixed_data(true, c->idx);
+				}
+			} else if (c->port == ADI_RX) {
 				/* RX0 must be enabled, hence we can safely skip further tuning */
 				delays.rxClkDelay[c->idx] = delays.rxClkDelay[0];
 				delays.rxIDataDelay[c->idx] = delays.rxIDataDelay[0];
@@ -3925,9 +3955,11 @@ static int adrv9002_intf_tuning(const struct adrv9002_rf_phy *phy)
 		}
 
 		ret = adrv9002_axi_intf_tune(phy, c->port == ADI_TX, c->idx, &clk_delay,
-					     &data_delay);
-		if (ret)
-			return ret;
+						     &data_delay);
+		if (ret) {
+			tune_ret |= ret;
+			pr_err("IF tune failed\n");
+		}
 
 		if (c->port == ADI_RX) {
 			dev_dbg(&phy->spi->dev, "RX: Got clk: %u, data: %u\n", clk_delay,
@@ -3946,8 +3978,8 @@ static int adrv9002_intf_tuning(const struct adrv9002_rf_phy *phy)
 		}
 	}
 
-	return api_call(phy, adi_adrv9001_Ssi_Delay_Configure, phy->ssi_type, &delays);
-
+	ret = api_call(phy, adi_adrv9001_Ssi_Delay_Configure, phy->ssi_type, &delays);
+	return ret | tune_ret;
 }
 
 static void adrv9002_cleanup(struct adrv9002_rf_phy *phy)
@@ -4065,11 +4097,13 @@ static void adrv9002_fill_profile_read(struct adrv9002_rf_phy *phy)
 	struct adi_adrv9001_RxSettings *rx = &phy->curr_profile->rx;
 	struct adi_adrv9001_RxChannelCfg *rx_cfg = rx->rxChannelCfg;
 	struct adi_adrv9001_TxSettings *tx = &phy->curr_profile->tx;
+	const char *load_status = phy->profile_load_error ? "Failed" : "OK";
 
 	phy->profile_len = scnprintf(phy->profile_buf, sizeof(phy->profile_buf),
-				     "Device clk(Hz): %d\n"
-				     "Clk PLL VCO(Hz): %lld\n"
-				     "ARM Power Saving Clk Divider: %d\n"
+					     "Profile load status: %s (%d)\n"
+					     "Device clk(Hz): %d\n"
+					     "Clk PLL VCO(Hz): %lld\n"
+					     "ARM Power Saving Clk Divider: %d\n"
 				     "RX1 LO: %s\n"
 				     "RX2 LO: %s\n"
 				     "TX1 LO: %s\n"
@@ -4083,11 +4117,12 @@ static void adrv9002_fill_profile_read(struct adrv9002_rf_phy *phy)
 				     "Duplex Mode: %s\n"
 				     "FH enable: %d\n"
 				     "MCS mode: %s\n"
-				     "WarmBoot: %s\n"
-				     "SSI interface: %s\n", clks->deviceClock_kHz * 1000,
-				     clks->clkPllVcoFreq_daHz * 10ULL, clks->armPowerSavingClkDiv,
-				     lo_maps[clks->rx1LoSelect], lo_maps[clks->rx2LoSelect],
-				     lo_maps[clks->tx1LoSelect],
+					     "WarmBoot: %s\n"
+					     "SSI interface: %s\n", load_status,
+					     phy->profile_load_error, clks->deviceClock_kHz * 1000,
+					     clks->clkPllVcoFreq_daHz * 10ULL, clks->armPowerSavingClkDiv,
+					     lo_maps[clks->rx1LoSelect], lo_maps[clks->rx2LoSelect],
+					     lo_maps[clks->tx1LoSelect],
 				     phy->tx_channels[0].dpd_init && phy->tx_channels[0].elb_en,
 				     lo_maps[clks->tx2LoSelect],
 				     phy->tx_channels[1].dpd_init && phy->tx_channels[1].elb_en,
@@ -4148,47 +4183,62 @@ int adrv9002_tx_fixup_all(const struct adrv9002_rf_phy *phy)
 
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
 {
-	int ret, c;
+	int ret = 0, c, attempt;
 
-	adrv9002_cleanup(phy);
-
-	/*
-	 * Disable all the cores as it might interfere with init calibrations
-	 * and mux all ports to 50ohms (when aplicable).
-	 */
-	for (c = 0; c < phy->chip->n_rx; c++)
-		adrv9002_port_enable(phy, &phy->rx_channels[c].channel, false);
-	for (c = 0; c < phy->chip->n_tx; c++)
-		adrv9002_port_enable(phy, &phy->tx_channels[c].channel, false);
-
+	phy->profile_load_error = 0;
 	phy->curr_profile = profile;
-	ret = adrv9002_setup(phy);
-	if (ret) {
-		/* try one more time */
+
+	//for (attempt = 0; attempt < 2; attempt++) {
+	for (attempt = 0; attempt < 1; attempt++) {
+		adrv9002_cleanup(phy);
+
+		/*
+		 * Disable all the cores as it might interfere with init calibrations
+		 * and mux all ports to 50ohms (when aplicable).
+		 */
+		for (c = 0; c < phy->chip->n_rx; c++)
+			adrv9002_port_enable(phy, &phy->rx_channels[c].channel, false);
+		for (c = 0; c < phy->chip->n_tx; c++)
+			adrv9002_port_enable(phy, &phy->tx_channels[c].channel, false);
+
 		ret = adrv9002_setup(phy);
+		if (ret) {
+			/* try one more time */
+			ret = adrv9002_setup(phy);
+			if (ret)
+				goto error;
+		}
+
+		adrv9002_set_clk_rates(phy);
+
+		ret = adrv9002_ssi_configure(phy);
 		if (ret)
 			goto error;
-	}
 
-	adrv9002_set_clk_rates(phy);
+		/* re-enable the cores and port muxes */
+		for (c = 0; c < ARRAY_SIZE(phy->channels); c++)
+			adrv9002_port_enable(phy, phy->channels[c], true);
 
-	ret = adrv9002_ssi_configure(phy);
-	if (ret)
-		goto error;
+		ret = adrv9002_intf_tuning(phy);
+		if (!ret)
+			break;
 
-	/* re-enable the cores and port muxes */
-	for (c = 0; c < ARRAY_SIZE(phy->channels); c++)
-		adrv9002_port_enable(phy, phy->channels[c], true);
+		dev_err(&phy->spi->dev, "Interface tuning failed on attempt %d/2: %d\n",
+			attempt + 1, ret);
+		if (attempt == 0) {
+			dev_warn(&phy->spi->dev,
+				 "Retrying full device initialization after interface tuning failure\n");
+			continue;
+		}
 
-	ret = adrv9002_intf_tuning(phy);
-	if (ret) {
-		dev_err(&phy->spi->dev, "Interface tuning failed: %d\n", ret);
-		goto error;
+		phy->profile_load_error = ret;
+		ret = 0;
 	}
 
 	adrv9002_fill_profile_read(phy);
 
-	return adrv9002_tx_fixup_all(phy);
+	adrv9002_tx_fixup_all(phy);
+	return ret;
 error:
 	/*
 	 * Leave the device in a reset state in case of error. There's not much we can do if
@@ -4245,7 +4295,10 @@ static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kob
 
 	ret = adrv9002_init(phy, &phy->profile);
 
-	return (ret < 0) ? ret : count;
+	if (ret < 0)
+		return ret;
+
+	return phy->profile_load_error ? phy->profile_load_error : count;
 }
 
 static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj,
