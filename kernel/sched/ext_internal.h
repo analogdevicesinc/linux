@@ -1477,8 +1477,9 @@ int scx_kfunc_context_filter(const struct bpf_prog *prog, u32 kfunc_id);
 
 bool scx_cpu_valid(struct scx_sched *sch, s32 cpu, const char *where);
 
-bool scx_vexit(struct scx_sched *sch, enum scx_exit_kind kind, s64 exit_code,
-	       s32 exit_cpu, const char *fmt, va_list args);
+__printf(5, 0) bool scx_vexit(struct scx_sched *sch, enum scx_exit_kind kind,
+			      s64 exit_code, s32 exit_cpu, const char *fmt,
+			      va_list args);
 __printf(5, 6) bool __scx_exit(struct scx_sched *sch, enum scx_exit_kind kind,
 			       s64 exit_code, s32 exit_cpu, const char *fmt, ...);
 
