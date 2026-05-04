@@ -419,7 +419,7 @@ static inline bool pci_is_cardbus_bridge(struct pci_dev *dev)
 	return dev->hdr_type == PCI_HEADER_TYPE_CARDBUS;
 }
 #ifdef CONFIG_CARDBUS
-unsigned long pci_cardbus_resource_alignment(struct resource *res);
+unsigned long pci_cardbus_resource_alignment(const struct resource *res);
 int pci_bus_size_cardbus_bridge(struct pci_bus *bus,
 				struct list_head *realloc_head);
 int pci_cardbus_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
@@ -428,7 +428,7 @@ int pci_cardbus_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
 int pci_setup_cardbus(char *str);
 
 #else
-static inline unsigned long pci_cardbus_resource_alignment(struct resource *res)
+static inline unsigned long pci_cardbus_resource_alignment(const struct resource *res)
 {
 	return 0;
 }
@@ -515,7 +515,7 @@ int pci_dev_res_add_to_list(struct list_head *head, struct pci_dev *dev,
 void __pci_bus_size_bridges(struct pci_bus *bus,
 			struct list_head *realloc_head);
 void __pci_bus_assign_resources(const struct pci_bus *bus,
-				struct list_head *realloc_head,
+				struct list_head *add_list,
 				struct list_head *fail_head);
 bool pci_bus_clip_resource(struct pci_dev *dev, int idx);
 void pci_walk_bus_locked(struct pci_bus *top,
@@ -947,7 +947,8 @@ int pci_iov_init(struct pci_dev *dev);
 void pci_iov_release(struct pci_dev *dev);
 void pci_iov_remove(struct pci_dev *dev);
 void pci_iov_update_resource(struct pci_dev *dev, int resno);
-resource_size_t pci_sriov_resource_alignment(struct pci_dev *dev, int resno);
+resource_size_t pci_sriov_resource_alignment(const struct pci_dev *dev,
+					     int resno);
 void pci_restore_iov_state(struct pci_dev *dev);
 int pci_iov_bus_range(struct pci_bus *bus);
 void pci_iov_resource_set_size(struct pci_dev *dev, int resno, int size);
@@ -981,7 +982,7 @@ static inline int pci_iov_init(struct pci_dev *dev)
 static inline void pci_iov_release(struct pci_dev *dev) { }
 static inline void pci_iov_remove(struct pci_dev *dev) { }
 static inline void pci_iov_update_resource(struct pci_dev *dev, int resno) { }
-static inline resource_size_t pci_sriov_resource_alignment(struct pci_dev *dev,
+static inline resource_size_t pci_sriov_resource_alignment(const struct pci_dev *dev,
 							   int resno)
 {
 	return 0;
@@ -1043,17 +1044,8 @@ static inline void pci_suspend_ptm(struct pci_dev *dev) { }
 static inline void pci_resume_ptm(struct pci_dev *dev) { }
 #endif
 
-static inline resource_size_t pci_resource_alignment(struct pci_dev *dev,
-						     struct resource *res)
-{
-	int resno = pci_resource_num(dev, res);
-
-	if (pci_resource_is_iov(resno))
-		return pci_sriov_resource_alignment(dev, resno);
-	if (dev->class >> 8 == PCI_CLASS_BRIDGE_CARDBUS)
-		return pci_cardbus_resource_alignment(res);
-	return resource_alignment(res);
-}
+resource_size_t pci_resource_alignment(const struct pci_dev *dev,
+				       const struct resource *res);
 
 resource_size_t pci_min_window_alignment(struct pci_bus *bus,
 					 unsigned long type);

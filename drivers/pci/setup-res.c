@@ -13,13 +13,17 @@
  *	     Resource sorting
  */
 
+#include <linux/bitops.h>
 #include <linux/kernel.h>
 #include <linux/export.h>
 #include <linux/pci.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
 #include <linux/cache.h>
+#include <linux/minmax.h>
 #include <linux/slab.h>
+#include <linux/types.h>
+
 #include "pci.h"
 
 static void pci_std_update_resource(struct pci_dev *dev, int resno)
@@ -167,6 +171,8 @@ int pci_claim_resource(struct pci_dev *dev, int resource)
 		return -EBUSY;
 	}
 
+	pci_dbg(dev, "%s %pR: claiming\n", res_name, res);
+
 	return 0;
 }
 EXPORT_SYMBOL(pci_claim_resource);
@@ -242,6 +248,37 @@ static int pci_revert_fw_address(struct resource *res, struct pci_dev *dev,
 		return -EBUSY;
 	}
 	return 0;
+}
+
+resource_size_t pci_resource_alignment(const struct pci_dev *dev,
+				       const struct resource *res)
+{
+	int resno = pci_resource_num(dev, res);
+	resource_size_t min_align = 0;
+
+	if (pci_resource_is_iov(resno))
+		return pci_sriov_resource_alignment(dev, resno);
+
+	if (dev->class >> 8 == PCI_CLASS_BRIDGE_CARDBUS)
+		return pci_cardbus_resource_alignment(res);
+
+	if (pci_resource_is_bridge_win(resno) &&
+	    (res->flags & (IORESOURCE_IO|IORESOURCE_MEM)))
+		min_align = pci_min_window_alignment(dev->bus, res->flags);
+
+	if (resource_assigned(res)) {
+		resource_size_t start_align = 1, size_align;
+
+		size_align = roundup_pow_of_two(resource_size(res));
+		if (res->start)
+			start_align <<= __ffs(res->start);
+		else
+			start_align = size_align;
+
+		return max(min(start_align, size_align), min_align);
+	}
+
+	return max(resource_alignment(res), min_align);
 }
 
 /*

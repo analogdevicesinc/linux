@@ -22,7 +22,7 @@
 static unsigned long pci_cardbus_io_size = DEFAULT_CARDBUS_IO_SIZE;
 static unsigned long pci_cardbus_mem_size = DEFAULT_CARDBUS_MEM_SIZE;
 
-unsigned long pci_cardbus_resource_alignment(struct resource *res)
+unsigned long pci_cardbus_resource_alignment(const struct resource *res)
 {
 	if (res->flags & IORESOURCE_IO)
 		return pci_cardbus_io_size;
