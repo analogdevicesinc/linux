@@ -123,7 +123,9 @@ struct lm75_data {
 
 static const u8 lm75_sample_set_masks[] = { 0 << 5, 1 << 5, 2 << 5, 3 << 5 };
 
-#define LM75_SAMPLE_CLEAR_MASK	(3 << 5)
+#define LM75_ALERT_POLARITY_HIGH_8_BIT	(BIT(2))
+#define LM75_ALERT_POLARITY_HIGH_16_BIT	(BIT(2) << 8)
+#define LM75_SAMPLE_CLEAR_MASK		(3 << 5)
 
 /* The structure below stores the configuration values of the supported devices.
  * In case of being supported multiple configurations, the default one must
@@ -729,6 +731,7 @@ static void lm75_remove(void *data)
 static int lm75_generic_probe(struct device *dev, const char *name,
 			      enum lm75_type kind, int irq, struct regmap *regmap)
 {
+	u16 clr_mask, pol_mask, set_mask;
 	struct device *hwmon_dev;
 	struct lm75_data *data;
 	int status, err;
@@ -766,8 +769,18 @@ static int lm75_generic_probe(struct device *dev, const char *name,
 		return err;
 	data->orig_conf = status;
 
-	err = lm75_write_config(data, data->params->set_mask,
-				data->params->clr_mask);
+	/* Enforce polarity active-low (default) or active-high (devicetree) */
+	if (!data->params->config_reg_16bits)
+		pol_mask = LM75_ALERT_POLARITY_HIGH_8_BIT;
+	else
+		pol_mask = LM75_ALERT_POLARITY_HIGH_16_BIT;
+
+	clr_mask = data->params->clr_mask | pol_mask;
+	set_mask = data->params->set_mask & ~pol_mask;
+	if (device_property_read_bool(dev, "ti,alert-polarity-active-high"))
+		set_mask |= pol_mask;
+
+	err = lm75_write_config(data, set_mask, clr_mask);
 	if (err)
 		return err;
 
