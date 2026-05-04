@@ -823,7 +823,6 @@ static int it6263_hdmi_write_hdmi_infoframe(struct drm_bridge *bridge,
 	regmap_write(regmap, HDMI_REG_PKT_NULL_CTRL,
 		     ENABLE_PKT | REPEAT_PKT);
 
-
 	return 0;
 }
 
