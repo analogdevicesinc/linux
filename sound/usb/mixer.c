@@ -665,17 +665,13 @@ static int get_term_name(struct snd_usb_audio *chip, struct usb_audio_term *iter
 			return 0;
 		switch (iterm->type >> 16) {
 		case UAC3_SELECTOR_UNIT:
-			strscpy(name, "Selector", maxlen);
-			return 8;
+			return strscpy(name, "Selector", maxlen);
 		case UAC3_PROCESSING_UNIT:
-			strscpy(name, "Process Unit", maxlen);
-			return 12;
+			return strscpy(name, "Process Unit", maxlen);
 		case UAC3_EXTENSION_UNIT:
-			strscpy(name, "Ext Unit", maxlen);
-			return 8;
+			return strscpy(name, "Ext Unit", maxlen);
 		case UAC3_MIXER_UNIT:
-			strscpy(name, "Mixer", maxlen);
-			return 5;
+			return strscpy(name, "Mixer", maxlen);
 		default:
 			return scnprintf(name, maxlen, "Unit %d", iterm->id);
 		}
@@ -683,25 +679,18 @@ static int get_term_name(struct snd_usb_audio *chip, struct usb_audio_term *iter
 
 	switch (iterm->type & 0xff00) {
 	case 0x0100:
-		strscpy(name, "PCM", maxlen);
-		return 3;
+		return strscpy(name, "PCM", maxlen);
 	case 0x0200:
-		strscpy(name, "Mic", maxlen);
-		return 3;
+		return strscpy(name, "Mic", maxlen);
 	case 0x0400:
-		strscpy(name, "Headset", maxlen);
-		return 7;
+		return strscpy(name, "Headset", maxlen);
 	case 0x0500:
-		strscpy(name, "Phone", maxlen);
-		return 5;
+		return strscpy(name, "Phone", maxlen);
 	}
 
-	for (names = iterm_names; names->type; names++) {
-		if (names->type == iterm->type) {
-			strscpy(name, names->name, maxlen);
-			return strlen(names->name);
-		}
-	}
+	for (names = iterm_names; names->type; names++)
+		if (names->type == iterm->type)
+			return strscpy(name, names->name, maxlen);
 
 	return 0;
 }
@@ -1983,7 +1972,9 @@ static void get_connector_control_name(struct usb_mixer_interface *mixer,
 	int name_len = get_term_name(mixer->chip, term, name, name_size, 0);
 
 	if (name_len == 0)
-		strscpy(name, "Unknown", name_size);
+		name_len = strscpy(name, "Unknown", name_size);
+	if (name_len < 0)
+		return;
 
 	/*
 	 *  sound/core/ctljack.c has a convention of naming jack controls
@@ -1991,9 +1982,9 @@ static void get_connector_control_name(struct usb_mixer_interface *mixer,
 	 * indicating Input or Output after the terminal name.
 	 */
 	if (is_input)
-		strlcat(name, " - Input Jack", name_size);
+		strscpy(name + name_len, " - Input Jack", name_size - name_len);
 	else
-		strlcat(name, " - Output Jack", name_size);
+		strscpy(name + name_len, " - Output Jack", name_size - name_len);
 }
 
 /* get connector value to "wake up" the USB audio */
