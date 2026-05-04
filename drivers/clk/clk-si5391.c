@@ -15,6 +15,8 @@
 #include <linux/slab.h>
 #include <linux/unaligned.h>
 
+#include <linux/jesd204/jesd204.h>
+
 #define SI5391_NUM_INPUTS 4
 
 #define SI5391_MAX_NUM_OUTPUTS 12
@@ -54,6 +56,7 @@ struct clk_si5391 {
 	struct clk_hw hw;
 	struct regmap *regmap;
 	struct i2c_client *i2c_client;
+	struct jesd204_dev *jdev;
 	struct clk_si5391_synth synth[SI5391_NUM_SYNTH];
 	struct clk_si5391_output clk[SI5391_MAX_NUM_OUTPUTS];
 	struct clk *input_clk[SI5391_NUM_INPUTS];
@@ -1617,6 +1620,26 @@ static const struct attribute *si5391_attributes[] = {
 	NULL
 };
 
+/*
+ * JESD204 sysref provider support
+ *
+ * Dummy sysref callback - logs the sysref request.
+ * A real implementation would pulse a designated SYSREF output.
+ */
+static int si5391_jesd204_sysref(struct jesd204_dev *jdev)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+
+	dev_dbg(dev, "si5391: SYSREF requested\n");
+
+	return 0;
+}
+
+static const struct jesd204_dev_data jesd204_si5391_init = {
+	.sysref_cb = si5391_jesd204_sysref,
+	.max_num_links = 4,
+};
+
 static int si5391_probe(struct i2c_client *client)
 {
 	pr_err("\n si5391: %s: entering probe\n", __FUNCTION__);
@@ -1715,6 +1738,12 @@ static int si5391_probe(struct i2c_client *client)
 	pr_err("\n si5391: %s: %d: before i2c_set_clientdata\n", __FUNCTION__, __LINE__);
 	i2c_set_clientdata(client, data);
 	pr_err("\n si5391: %s: %d: after i2c_set_clientdata\n", __FUNCTION__, __LINE__);
+
+	data->jdev = devm_jesd204_dev_register(&client->dev, &jesd204_si5391_init);
+	if (IS_ERR(data->jdev)) {
+		err = PTR_ERR(data->jdev);
+		goto cleanup;
+	}
 
 	err = si5391_probe_chip_id(data);
 	pr_err("\n si5391: %s: %d: after probe chip id\n", __FUNCTION__, __LINE__);

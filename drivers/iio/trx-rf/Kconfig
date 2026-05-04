@@ -26,4 +26,15 @@ config ADRV903X
 	  To compile this driver as a module, choose M here: the module will be
 	  called adrv903x_drv.
 
+config DUMMY_TRX
+	tristate "Dummy TRX - JESD204 FSM Test Driver"
+	depends on SPI
+	help
+	  Dummy transceiver driver for testing JESD204 FSM link bring-up.
+	  All FSM state ops are dummy operations that only print the current
+	  state. Supports pausing/resuming the JESD204 FSM via sysfs.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called dummy_trx.
+
 endmenu

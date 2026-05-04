@@ -1,0 +1,111 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9081-FMC-EBZ - JESD204 FSM variant with Dummy TRX
+ *
+ * Uses the JESD204 FSM framework for link bring-up. The Dummy TRX driver
+ * replaces the real AD9081 transceiver with dummy FSM ops that only print
+ * the current state. Si5391 acts as the SYSREF provider at the bottom of
+ * the JESD204 device chain.
+ *
+ * JESD204 FSM Device Chain:
+ *   dummy_trx (TOP) -> axi_ad9081_core_rx (RX link)
+ *                    -> axi_ad9081_core_tx (TX link)
+ *   axi_ad9081_core_rx -> axi_ad9081_rx_jesd -> axi_ad9081_adxcvr_rx -> si5391
+ *   axi_ad9081_core_tx -> axi_ad9081_tx_jesd -> axi_ad9081_adxcvr_tx -> si5391
+ *
+ * HDL Synthesis Parameters (same as base design):
+ *   JESD_MODE=64B66B, RX/TX_LANE_RATE=6.6 Gbps
+ *   RX/TX_JESD_M=8, L=8, S=4, NP=16
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9081-204c-txmode0-rxmode1.dts"
+
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+#include <dt-bindings/jesd204/device-states.h>
+
+/* Delete the original SPI template device, replace with dummy TRX */
+&spi0 {
+	/delete-node/ adi_dev@0;
+
+	dummy_trx: dummy-trx@0 {
+		compatible = "adi,dummy-trx";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+
+		/* JESD204 FSM: this is the TOP device */
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>;
+		jesd204-link-ids = <FRAMER_LINK0_RX DEFRAMER_LINK0_TX>;
+
+		jesd204-inputs =
+			<&axi_ad9081_core_rx 0 FRAMER_LINK0_RX>,
+			<&axi_ad9081_core_tx 0 DEFRAMER_LINK0_TX>;
+
+		/* Pause FSM after LINK_ENABLE (TX enable) */
+		jesd204-stop-states = <JESD204_FSM_STATE_LINK_ENABLE>;
+
+		/* JESD204C link parameters */
+		adi,jesd-l = <8>;
+		adi,jesd-m = <8>;
+		adi,jesd-s = <4>;
+		adi,jesd-np = <16>;
+		adi,jesd-f = <1>;
+		adi,jesd-k = <256>;
+		adi,jesd-version = <2>;       /* 2 = JESD204C */
+		adi,jesd-scrambling = <1>;
+		adi,jesd-high-density = <1>;
+		adi,sample-rate-hz = <400000000>;
+	};
+};
+
+/* RX data path core -> RX JESD link */
+&axi_ad9081_core_rx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_rx_jesd 0 FRAMER_LINK0_RX>;
+};
+
+/* TX data path core -> TX JESD link */
+&axi_ad9081_core_tx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_tx_jesd 0 DEFRAMER_LINK0_TX>;
+};
+
+/* RX JESD link -> RX transceiver */
+&axi_ad9081_rx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_adxcvr_rx 0 FRAMER_LINK0_RX>;
+};
+
+/* TX JESD link -> TX transceiver */
+&axi_ad9081_tx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_ad9081_adxcvr_tx 0 DEFRAMER_LINK0_TX>;
+};
+
+/* RX transceiver -> Si5391 clock provider */
+&axi_ad9081_adxcvr_rx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&si5391_refclk 0 FRAMER_LINK0_RX>;
+};
+
+/* TX transceiver -> Si5391 clock provider */
+&axi_ad9081_adxcvr_tx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&si5391_refclk 0 DEFRAMER_LINK0_TX>;
+};
+
+/* Si5391 clock synthesizer - SYSREF provider (bottom of JESD204 chain) */
+&si5391_refclk {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-sysref-provider;
+};
