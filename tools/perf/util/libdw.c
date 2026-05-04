@@ -80,6 +80,7 @@ static int libdw_a2l_cb(Dwarf_Die *die, void *_args)
 	struct libdw_a2l_cb_args *args  = _args;
 	struct symbol *inline_sym = new_inline_sym(args->dso, args->sym, dwarf_diename(die));
 	const char *call_fname = die_get_call_file(die);
+	int call_lineno = die_get_call_lineno(die);
 	char *call_srcline = srcline__unknown;
 
 	if (!inline_sym)
@@ -87,7 +88,7 @@ static int libdw_a2l_cb(Dwarf_Die *die, void *_args)
 
 	/* Assign caller information to the parent. */
 	if (call_fname)
-		call_srcline = srcline_from_fileline(call_fname, die_get_call_lineno(die));
+		call_srcline = srcline_from_fileline(call_fname, call_lineno >= 0 ? call_lineno : 0);
 
 	if (!list_empty(&args->node->val)) {
 		struct inline_list *parent;
