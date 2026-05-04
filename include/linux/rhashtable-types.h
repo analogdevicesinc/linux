@@ -12,6 +12,7 @@
 #include <linux/alloc_tag.h>
 #include <linux/atomic.h>
 #include <linux/compiler.h>
+#include <linux/irq_work_types.h>
 #include <linux/mutex.h>
 #include <linux/workqueue_types.h>
 
@@ -49,6 +50,7 @@ typedef int (*rht_obj_cmpfn_t)(struct rhashtable_compare_arg *arg,
  * @head_offset: Offset of rhash_head in struct to be hashed
  * @max_size: Maximum size while expanding
  * @min_size: Minimum size while shrinking
+ * @insecure_elasticity: Set to true to disable chain length checks
  * @automatic_shrinking: Enable automatic shrinking of tables
  * @hashfn: Hash function (default: jhash2 if !(key_len % 4), or jhash)
  * @obj_hashfn: Function to hash object
@@ -61,6 +63,7 @@ struct rhashtable_params {
 	u16			head_offset;
 	unsigned int		max_size;
 	u16			min_size;
+	bool			insecure_elasticity;
 	bool			automatic_shrinking;
 	rht_hashfn_t		hashfn;
 	rht_obj_hashfn_t	obj_hashfn;
@@ -75,6 +78,7 @@ struct rhashtable_params {
  * @p: Configuration parameters
  * @rhlist: True if this is an rhltable
  * @run_work: Deferred worker to expand/shrink asynchronously
+ * @run_irq_work: Bounces the @run_work kick through hard IRQ context.
  * @mutex: Mutex to protect current/future table swapping
  * @lock: Spin lock to protect walker list
  * @nelems: Number of elements in table
@@ -86,6 +90,7 @@ struct rhashtable {
 	struct rhashtable_params	p;
 	bool				rhlist;
 	struct work_struct		run_work;
+	struct irq_work			run_irq_work;
 	struct mutex                    mutex;
 	spinlock_t			lock;
 	atomic_t			nelems;

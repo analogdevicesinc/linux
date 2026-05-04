@@ -159,13 +159,7 @@ static s32 pick_direct_dispatch_cpu(struct task_struct *p, s32 prev_cpu)
 
 static struct task_ctx *lookup_task_ctx(struct task_struct *p)
 {
-	struct task_ctx *tctx;
-
-	if (!(tctx = bpf_task_storage_get(&task_ctx_stor, p, 0, 0))) {
-		scx_bpf_error("task_ctx lookup failed");
-		return NULL;
-	}
-	return tctx;
+	return bpf_task_storage_get(&task_ctx_stor, p, 0, 0);
 }
 
 s32 BPF_STRUCT_OPS(qmap_select_cpu, struct task_struct *p,
@@ -175,7 +169,7 @@ s32 BPF_STRUCT_OPS(qmap_select_cpu, struct task_struct *p,
 	s32 cpu;
 
 	if (!(tctx = lookup_task_ctx(p)))
-		return -ESRCH;
+		return prev_cpu;
 
 	if (p->scx.weight < 2 && !(p->flags & PF_KTHREAD))
 		return prev_cpu;
@@ -540,13 +534,9 @@ void BPF_STRUCT_OPS(qmap_dispatch, s32 cpu, struct task_struct *prev)
 	 */
 	if (prev) {
 		tctx = bpf_task_storage_get(&task_ctx_stor, prev, 0, 0);
-		if (!tctx) {
-			scx_bpf_error("task_ctx lookup failed");
-			return;
-		}
-
-		tctx->core_sched_seq =
-			core_sched_tail_seqs[weight_to_idx(prev->scx.weight)]++;
+		if (tctx)
+			tctx->core_sched_seq =
+				core_sched_tail_seqs[weight_to_idx(prev->scx.weight)]++;
 	}
 }
 
@@ -584,10 +574,8 @@ static s64 task_qdist(struct task_struct *p)
 	s64 qdist;
 
 	tctx = bpf_task_storage_get(&task_ctx_stor, p, 0, 0);
-	if (!tctx) {
-		scx_bpf_error("task_ctx lookup failed");
+	if (!tctx)
 		return 0;
-	}
 
 	qdist = tctx->core_sched_seq - core_sched_head_seqs[idx];
 
