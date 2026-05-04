@@ -38,7 +38,6 @@ struct io_mapped_ubuf {
 	unsigned int	nr_bvecs;
 	unsigned int    folio_shift;
 	refcount_t	refs;
-	unsigned long	acct_pages;
 	void		(*release)(void *);
 	void		*priv;
 	u8		flags;
