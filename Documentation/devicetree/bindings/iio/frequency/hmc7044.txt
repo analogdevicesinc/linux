@@ -142,6 +142,9 @@ Adding channels:
 		0 - Internal resistor disable.
 		1 - Internal 100 Ω resistor enable per output pin.
 		3 - Internal 50 Ω resistor enable per output pin.
+	- adi,set-rate-parent: Propagate clock rate change to parent. If set,
+		this will, if needed, change rate of parent (PLL2) to fulfill
+		the frequency rate request.
 
 Example:
 
