@@ -663,6 +663,15 @@ struct mac80211_hwsim_link_data {
 	struct hrtimer beacon_timer;
 };
 
+struct mac80211_hwsim_nan_data {
+	struct ieee80211_vif *device_vif;
+	u8 bands;
+
+	enum nl80211_band curr_dw_band;
+	struct hrtimer timer;
+	bool notify_dw;
+};
+
 struct mac80211_hwsim_data {
 	struct list_head list;
 	struct rhash_head rht;
@@ -759,12 +768,7 @@ struct mac80211_hwsim_data {
 
 	struct mac80211_hwsim_link_data link_data[IEEE80211_MLD_MAX_NUM_LINKS];
 
-	struct ieee80211_vif *nan_device_vif;
-	u8 nan_bands;
-
-	enum nl80211_band nan_curr_dw_band;
-	struct hrtimer nan_timer;
-	bool notify_dw;
+	struct mac80211_hwsim_nan_data nan;
 };
 
 static const struct rhashtable_params hwsim_rht_params = {
@@ -2108,9 +2112,9 @@ static void mac80211_hwsim_tx(struct ieee80211_hw *hw,
 		 * on channel 6 or channel 149, unless a ROC is in progress (for
 		 * USD use cases).
 		 */
-		if (data->nan_curr_dw_band == NL80211_BAND_2GHZ)
+		if (data->nan.curr_dw_band == NL80211_BAND_2GHZ)
 			channel = ieee80211_get_channel(hw->wiphy, 2437);
-		else if (data->nan_curr_dw_band == NL80211_BAND_5GHZ)
+		else if (data->nan.curr_dw_band == NL80211_BAND_5GHZ)
 			channel = ieee80211_get_channel(hw->wiphy, 5745);
 		else
 			channel = NULL;
@@ -4131,21 +4135,21 @@ mac80211_hwsim_nan_dw_start(struct hrtimer *timer)
 {
 	struct mac80211_hwsim_data *data =
 		container_of(timer, struct mac80211_hwsim_data,
-			     nan_timer);
+			     nan.timer);
 	struct ieee80211_hw *hw = data->hw;
 	u64 orig_tsf = mac80211_hwsim_get_tsf(hw, NULL), tsf = orig_tsf;
 	u32 dw_int = 512 * 1024;
 	u64 until_dw;
 
-	if (!data->nan_device_vif)
+	if (!data->nan.device_vif)
 		return HRTIMER_NORESTART;
 
-	if (data->nan_bands & BIT(NL80211_BAND_5GHZ)) {
-		if (data->nan_curr_dw_band == NL80211_BAND_2GHZ) {
+	if (data->nan.bands & BIT(NL80211_BAND_5GHZ)) {
+		if (data->nan.curr_dw_band == NL80211_BAND_2GHZ) {
 			dw_int = 128 * 1024;
-			data->nan_curr_dw_band = NL80211_BAND_5GHZ;
-		} else if (data->nan_curr_dw_band == NL80211_BAND_5GHZ) {
-			data->nan_curr_dw_band = NL80211_BAND_2GHZ;
+			data->nan.curr_dw_band = NL80211_BAND_5GHZ;
+		} else if (data->nan.curr_dw_band == NL80211_BAND_5GHZ) {
+			data->nan.curr_dw_band = NL80211_BAND_2GHZ;
 		}
 	}
 
@@ -4162,18 +4166,18 @@ mac80211_hwsim_nan_dw_start(struct hrtimer *timer)
 	 */
 	wiphy_debug(hw->wiphy,
 		    "%s: tsf=%llx, curr_dw_band=%u, next_dw=%llu\n",
-		    __func__, orig_tsf, data->nan_curr_dw_band,
+		    __func__, orig_tsf, data->nan.curr_dw_band,
 		    until_dw);
 
-	hrtimer_forward_now(&data->nan_timer,
+	hrtimer_forward_now(&data->nan.timer,
 			    ns_to_ktime(until_dw * NSEC_PER_USEC));
 
-	if (data->notify_dw) {
+	if (data->nan.notify_dw) {
 		struct ieee80211_channel *ch;
 		struct wireless_dev *wdev =
-			ieee80211_vif_to_wdev(data->nan_device_vif);
+			ieee80211_vif_to_wdev(data->nan.device_vif);
 
-		if (data->nan_curr_dw_band == NL80211_BAND_5GHZ)
+		if (data->nan.curr_dw_band == NL80211_BAND_5GHZ)
 			ch = ieee80211_get_channel(hw->wiphy, 5745);
 		else
 			ch = ieee80211_get_channel(hw->wiphy, 2437);
@@ -4197,18 +4201,18 @@ static int mac80211_hwsim_start_nan(struct ieee80211_hw *hw,
 	if (vif->type != NL80211_IFTYPE_NAN)
 		return -EINVAL;
 
-	if (data->nan_device_vif)
+	if (data->nan.device_vif)
 		return -EALREADY;
 
 	/* set this before starting the timer, as preemption might occur */
-	data->nan_device_vif = vif;
-	data->nan_bands = conf->bands;
-	data->nan_curr_dw_band = NL80211_BAND_2GHZ;
+	data->nan.device_vif = vif;
+	data->nan.bands = conf->bands;
+	data->nan.curr_dw_band = NL80211_BAND_2GHZ;
 
 	wiphy_debug(hw->wiphy, "nan_started, next_dw=%llu\n",
 		    until_dw);
 
-	hrtimer_start(&data->nan_timer,
+	hrtimer_start(&data->nan.timer,
 		      ns_to_ktime(until_dw * NSEC_PER_USEC),
 		      HRTIMER_MODE_REL_SOFT);
 
@@ -4224,7 +4228,7 @@ static int mac80211_hwsim_start_nan(struct ieee80211_hw *hw,
 		hwsim_nan_cluster_id[5] = get_random_u8();
 	}
 
-	data->notify_dw = conf->enable_dw_notification;
+	data->nan.notify_dw = conf->enable_dw_notification;
 
 	cfg80211_nan_cluster_joined(wdev, hwsim_nan_cluster_id, true,
 				    GFP_KERNEL);
@@ -4239,16 +4243,16 @@ static int mac80211_hwsim_stop_nan(struct ieee80211_hw *hw,
 	struct mac80211_hwsim_data *data2;
 	bool nan_cluster_running = false;
 
-	if (vif->type != NL80211_IFTYPE_NAN || !data->nan_device_vif ||
-	    data->nan_device_vif != vif)
+	if (vif->type != NL80211_IFTYPE_NAN || !data->nan.device_vif ||
+	    data->nan.device_vif != vif)
 		return -EINVAL;
 
-	hrtimer_cancel(&data->nan_timer);
-	data->nan_device_vif = NULL;
+	hrtimer_cancel(&data->nan.timer);
+	data->nan.device_vif = NULL;
 
 	spin_lock_bh(&hwsim_radio_lock);
 	list_for_each_entry(data2, &hwsim_radios, list) {
-		if (data2->nan_device_vif) {
+		if (data2->nan.device_vif) {
 			nan_cluster_running = true;
 			break;
 		}
@@ -4271,19 +4275,19 @@ static int mac80211_hwsim_change_nan_config(struct ieee80211_hw *hw,
 	if (vif->type != NL80211_IFTYPE_NAN)
 		return -EINVAL;
 
-	if (!data->nan_device_vif)
+	if (!data->nan.device_vif)
 		return -EINVAL;
 
 	wiphy_debug(hw->wiphy, "nan_config_changed: changes=0x%x\n", changes);
 
 	/* Handle only the changes we care about for simulation purposes */
 	if (changes & CFG80211_NAN_CONF_CHANGED_BANDS) {
-		data->nan_bands = conf->bands;
-		data->nan_curr_dw_band = NL80211_BAND_2GHZ;
+		data->nan.bands = conf->bands;
+		data->nan.curr_dw_band = NL80211_BAND_2GHZ;
 	}
 
 	if (changes & CFG80211_NAN_CONF_CHANGED_CONFIG)
-		data->notify_dw = conf->enable_dw_notification;
+		data->nan.notify_dw = conf->enable_dw_notification;
 
 	return 0;
 }
@@ -5716,7 +5720,7 @@ static int mac80211_hwsim_new_radio(struct genl_info *info,
 			NAN_DEV_CAPA_EXT_KEY_ID_SUPPORTED |
 			NAN_DEV_CAPA_NDPE_SUPPORTED;
 
-		hrtimer_setup(&data->nan_timer, mac80211_hwsim_nan_dw_start,
+		hrtimer_setup(&data->nan.timer, mac80211_hwsim_nan_dw_start,
 			      CLOCK_MONOTONIC, HRTIMER_MODE_ABS_SOFT);
 	}
 
