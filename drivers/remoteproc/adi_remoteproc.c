@@ -11,13 +11,12 @@
  */
 
 #include <linux/clk.h>
-#include <linux/completion.h>
-#include <linux/dmaengine.h>
 #include <linux/firmware.h>
 #include <linux/elf.h>
 #include <linux/virtio_ids.h>
 #include <linux/virtio_ring.h>
 #include <linux/interrupt.h>
+#include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -26,7 +25,6 @@
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
 #include <linux/delay.h>
-#include <linux/dma-mapping.h>
 
 #include <linux/soc/adi/icc.h>
 #include <linux/soc/adi/rcu.h>
@@ -35,13 +33,8 @@
 /* location of bootrom that loops idle */
 #define SHARC_IDLE_ADDR			(0x00090004)
 
-#define SPU_MDMA0_SRC_ID		88
-#define SPU_MDMA0_DST_ID		89
-
 #define CORE_INIT_TIMEOUT_MS (2000)
 #define CORE_INIT_TIMEOUT msecs_to_jiffies(CORE_INIT_TIMEOUT_MS)
-
-#define MEMORY_COUNT 2
 
 #define ADI_FW_LDR 0
 #define ADI_FW_ELF 1
@@ -50,7 +43,7 @@
 /* Resource table for the given remote */
 
 struct bcode_flag_t {
-	uint32_t bCode:4,			/* 0-3 */
+	u32 bCode:4,			/* 0-3 */
 			 bFlag_save:1,		/* 4 */
 			 bFlag_aux:1,		/* 5 */
 			 bReserved:1,		/* 6 */
@@ -86,6 +79,7 @@ struct adi_sharc_resource_table {
 	struct adi_resource_table_hdr adi_table_hdr;
 	struct sharc_resource_table rsc_table;
 } __packed;
+
 
 #define VRING_ALIGN 0x1000
 #define VRING_DEFAULT_SIZE 0x800
@@ -147,9 +141,6 @@ struct adi_rproc_data {
 	int core_irq;
 	int icc_irq;
 	int icc_irq_flags;
-	void *mem_virt;
-	dma_addr_t mem_handle;
-	size_t fw_size;
 	unsigned long ldr_load_addr;
 	int firmware_format;
 	void __iomem *L1_shared_base;
@@ -229,114 +220,52 @@ static int is_empty(struct ldr_hdr *hdr)
 	return hdr->bcode_flag.bFlag_ignore || (hdr->byte_count == 0);
 }
 
-static void load_callback(void *p)
-{
-	struct completion *cmp = p;
-
-	complete(cmp);
-}
-
 /* @todo this needs to return status */
-/* @todo the error paths here leak tremendously, this needs further cleanup */
-static void ldr_load(struct adi_rproc_data *rproc_data)
+static void ldr_load(struct adi_rproc_data *rproc_data, const u8 *fw_data)
 {
-	struct ldr_hdr *block_hdr = NULL;
-	struct ldr_hdr *next_hdr = NULL;
-	u8 *virbuf = (u8 *) rproc_data->mem_virt;
-	dma_addr_t phybuf = rproc_data->mem_handle;
+	struct ldr_hdr *block_hdr;
+	const u8 *virbuf = fw_data;
+	void __iomem *target;
+	u32 addr;
 	int offset;
-// part of verify buffer code
-//	int i;
-//	uint32_t verfied = 0;
-//	uint8_t *pCompareBuffer;
-//	uint8_t *pVerifyBuffer;
-	struct dma_chan *chan = dma_find_channel(DMA_MEMCPY);
-	struct dma_async_tx_descriptor *tx;
-	struct completion cmp;
-
-	if (!chan) {
-		dev_err(rproc_data->dev, "Could not find dma memcpy channel\n");
-		return;
-	}
-
-	init_completion(&cmp);
 
 	do {
-		/* read the header */
 		block_hdr = (struct ldr_hdr *) virbuf;
 		offset = sizeof(struct ldr_hdr) + (block_hdr->bcode_flag.bFlag_fill ?
 					       0 : block_hdr->byte_count);
-		next_hdr = (struct ldr_hdr *) (virbuf + offset);
-		tx = NULL;
+		addr = block_hdr->target_addr;
 
-		/* Overwrite the ldr_load_addr */
 		if (block_hdr->bcode_flag.bFlag_first)
-			rproc_data->ldr_load_addr = (unsigned long)block_hdr->target_addr;
+			rproc_data->ldr_load_addr = (unsigned long)addr;
 
 		if (!is_empty(block_hdr)) {
-			if (block_hdr->bcode_flag.bFlag_fill) {
-				tx = dmaengine_prep_dma_memset(chan,
-							       block_hdr->target_addr,
-							       block_hdr->argument,
-							       block_hdr->byte_count, 0);
-			} else {
-				tx = dmaengine_prep_dma_memcpy(chan,
-							       block_hdr->target_addr,
-							       phybuf + sizeof(struct ldr_hdr),
-							       block_hdr->byte_count, 0);
-
-//				if (rproc_data->verify) {
-//					@todo implement verification
-//					pCompareBuffer = virbuf + sizeof(struct ldr_hdr);
-//					pVerifyBuffer = virbuf + rproc_data->fw_size;
-//
-//					dma_memcpy(phybuf + rproc_data->fw_size,
-//							   block_hdr->target_addr,
-//							   block_hdr->byte_count);
-//
-//					/* check the data */
-//					for (i = 0; i < block_hdr->byte_count; i++) {
-//						if (pCompareBuffer[i] != pVerifyBuffer[i]) {
-//							dev_err(rproc_data->dev,
-//								    "dirty data, compare[%d]:0x%x,"
-//									"verify[%d]:0x%x\n",
-//									i, pCompareBuffer[i], i,
-//									pVerifyBuffer[i]);
-//							verfied++;
-//							break;
-//						}
-//					}
-//				}
-			}
-
-			if (!tx) {
-				dev_err(rproc_data->dev, "Failed to allocate dma transaction\n");
+			if (addr >= rproc_data->l1_da_range[0] &&
+			    addr < rproc_data->l1_da_range[1])
+				target = rproc_data->L1_shared_base + addr;
+			else if (addr >= rproc_data->l2_da_range[0] &&
+				 addr < rproc_data->l2_da_range[1])
+				target = rproc_data->L2_shared_base +
+					 (addr - rproc_data->l2_da_range[0]);
+			else {
+				dev_err(rproc_data->dev,
+					"Target 0x%08x outside mapped ranges\n", addr);
 				return;
 			}
 
-			if (is_final(block_hdr) || (is_final(next_hdr) && is_empty(next_hdr))) {
-				tx->callback = load_callback;
-				tx->callback_param = &cmp;
-			}
-			dmaengine_submit(tx);
-			dma_async_issue_pending(chan);
+			if (block_hdr->bcode_flag.bFlag_fill)
+				memset_io(target, block_hdr->argument,
+					  block_hdr->byte_count);
+			else
+				memcpy_toio(target,
+					    virbuf + sizeof(struct ldr_hdr),
+					    block_hdr->byte_count);
 		}
 
-		if (is_final(block_hdr)) {
-			wait_for_completion(&cmp);
+		if (is_final(block_hdr))
 			break;
-		}
 
 		virbuf += offset;
-		phybuf += offset;
 	} while (1);
-
-//	if (rproc_data->verify) {
-//		if (verfied == 0)
-//			dev_err(rproc_data->dev, "success to verify all the data\n");
-//		else
-//			dev_err(rproc_data->dev, "fail to verify all the data %d\n", verfied);
-//	}
 }
 
 static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
@@ -358,40 +287,10 @@ static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
 	return -EINVAL;
 }
 
-void set_spu_securep_msec(u16 n, bool msec);
-static void enable_spu(void)
-{
-	set_spu_securep_msec(SPU_MDMA0_SRC_ID, true);
-	set_spu_securep_msec(SPU_MDMA0_DST_ID, true);
-}
-
-static void disable_spu(void)
-{
-	set_spu_securep_msec(SPU_MDMA0_SRC_ID, false);
-	set_spu_securep_msec(SPU_MDMA0_DST_ID, false);
-}
-
 static int adi_ldr_load(struct adi_rproc_data *rproc_data,
 						const struct firmware *fw)
 {
-	rproc_data->fw_size = fw->size;
-	if (!rproc_data->mem_virt) {
-		rproc_data->mem_virt = dma_alloc_coherent(rproc_data->dev,
-							  fw->size * MEMORY_COUNT,
-							  &rproc_data->mem_handle,
-							  GFP_KERNEL);
-		if (rproc_data->mem_virt == NULL) {
-			dev_err(rproc_data->dev, "Unable to allocate memory\n");
-			return -ENOMEM;
-		}
-	}
-
-	memcpy((char *)rproc_data->mem_virt, fw->data, fw->size);
-
-	enable_spu();
-	ldr_load(rproc_data);
-	disable_spu();
-
+	ldr_load(rproc_data, fw->data);
 	return 0;
 }
 
@@ -467,14 +366,6 @@ static int adi_rproc_stop(struct rproc *rproc)
 	ret = adi_core_reset(rproc_data);
 	if (ret)
 		return ret;
-
-	if (rproc_data->mem_virt) {
-		memset(rproc_data->mem_virt, 0, rproc_data->fw_size * MEMORY_COUNT);
-		dma_free_coherent(rproc_data->dev, rproc_data->fw_size * MEMORY_COUNT,
-				  rproc_data->mem_virt, rproc_data->mem_handle);
-		rproc_data->mem_virt = NULL;
-		rproc_data->fw_size = 0;
-	}
 
 	rproc_data->ldr_load_addr = SHARC_IDLE_ADDR;
 	rproc_data->loaded_rsc_table = NULL;
@@ -971,8 +862,6 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data->tru = adi_tru;
 	rproc_data->rproc = rproc;
 	rproc_data->firmware_name = name;
-	rproc_data->mem_virt = NULL;
-	rproc_data->fw_size = 0;
 	rproc_data->ldr_load_addr = SHARC_IDLE_ADDR;
 	rproc_data->rpmsg_state = ADI_RP_RPMSG_TIMED_OUT;
 
@@ -981,8 +870,6 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to add rproc\n");
 		goto free_workqueue;
 	}
-
-	dmaengine_get();
 
 	return 0;
 
@@ -1005,7 +892,6 @@ static void adi_remoteproc_remove(struct platform_device *pdev)
 {
 	struct adi_rproc_data *rproc_data = platform_get_drvdata(pdev);
 
-	dmaengine_put();
 	put_adi_tru(rproc_data->tru);
 	put_adi_rcu(rproc_data->rcu);
 	rproc_del(rproc_data->rproc);
