@@ -82,7 +82,7 @@ def signal_handler(_sig, _frame):
 parser = argparse.ArgumentParser(description="init script args",
                   formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("-d", "--logdir", action="store",
-                    help="directory to store logs", default="/tmp")
+                    help="directory to store logs", default=None)
 parser.add_argument('-t', '--timeout', help="timeout to terminate hung test",
                     type=int, default=0)
 parser.add_argument('-l', '--loss', help="Simulate tcp packet loss",
@@ -128,16 +128,17 @@ ip(f"-n {NET1} route add {addrs[0][0]}/32 dev {VETH1}")
 # and communicating by doing a single ping
 ip(f"netns exec {NET0} ping -c 1 {addrs[1][0]}")
 
-# Start a packet capture on each network
 tcpdump_procs = []
-for net in [NET0, NET1]:
-    pcap = logdir+'/'+net+'.pcap'
-    fd, pcap_tmp = tempfile.mkstemp(suffix=".pcap", prefix=f"{net}-", dir="/tmp")
-    # pylint: disable-next=consider-using-with
-    p = subprocess.Popen(
-        ['ip', 'netns', 'exec', net,
-         '/usr/sbin/tcpdump', '-i', 'any', '-w', pcap_tmp])
-    tcpdump_procs.append((p, pcap_tmp, pcap, fd))
+# Start a packet capture on each network
+if logdir is not None:
+    for net in [NET0, NET1]:
+        pcap = logdir+'/'+net+'.pcap'
+        fd, pcap_tmp = tempfile.mkstemp(suffix=".pcap", prefix=f"{net}-", dir="/tmp")
+        # pylint: disable-next=consider-using-with
+        p = subprocess.Popen(
+            ['ip', 'netns', 'exec', net,
+             '/usr/sbin/tcpdump', '-i', 'any', '-w', pcap_tmp])
+        tcpdump_procs.append((p, pcap_tmp, pcap, fd))
 
 # simulate packet loss, duplication and corruption
 for net, iface in [(NET0, VETH0), (NET1, VETH1)]:
@@ -252,12 +253,13 @@ for s in sockets:
 
 print(f"getsockopt(): {nr_success}/{nr_error}")
 
-print("Stopping network packet captures")
-for p, pcap_tmp, pcap, fd in tcpdump_procs:
-    p.terminate()
-    p.wait()
-    os.close(fd)
-    shutil.move(pcap_tmp, pcap)
+if logdir is not None:
+    print("Stopping network packet captures")
+    for p, pcap_tmp, pcap, fd in tcpdump_procs:
+        p.terminate()
+        p.wait()
+        os.close(fd)
+        shutil.move(pcap_tmp, pcap)
 
 # We're done sending and receiving stuff, now let's check if what
 # we received is what we sent.

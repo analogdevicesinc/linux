@@ -150,28 +150,26 @@ check_env()
 	fi
 }
 
-LOG_DIR="$current_dir"/rds_logs
-PLOSS=0
-PCORRUPT=0
-PDUP=0
+LOG_DIR="${RDS_LOG_DIR:-}"
 TIMEOUT=$timeout
 GENERATE_GCOV_REPORT=1
+FLAGS=()
 while getopts "d:l:c:u:t:" opt; do
   case ${opt} in
     d)
       LOG_DIR=${OPTARG}
       ;;
     l)
-      PLOSS=${OPTARG}
+      FLAGS+=("-l" "${OPTARG}")
       ;;
     c)
-      PCORRUPT=${OPTARG}
+      FLAGS+=("-c" "${OPTARG}")
       ;;
     t)
       TIMEOUT=${OPTARG}
       ;;
     u)
-      PDUP=${OPTARG}
+      FLAGS+=("-u" "${OPTARG}")
       ;;
     :)
       echo "USAGE: run.sh [-d logdir] [-l packet_loss] [-c packet_corruption]" \
@@ -185,30 +183,37 @@ while getopts "d:l:c:u:t:" opt; do
   esac
 done
 
-
 check_env
 check_conf
 check_gcov_conf
 
+TRACE_CMD=()
+if [[ -n "$LOG_DIR" ]]; then
+   rm -fr "$LOG_DIR"
+   FLAGS+=("-d" "$LOG_DIR")
 
-rm -fr "$LOG_DIR"
-TRACE_FILE="${LOG_DIR}/rds-strace.txt"
-COVR_DIR="${LOG_DIR}/coverage/"
-mkdir -p  "$LOG_DIR"
-mkdir -p "$COVR_DIR"
+   TRACE_FILE="${LOG_DIR}/rds-strace.txt"
+   COVR_DIR="${LOG_DIR}/coverage/"
+   mkdir -p  "$LOG_DIR"
+   mkdir -p "$COVR_DIR"
+
+   echo Traces will be logged to "${TRACE_FILE}"
+   rm -f "$TRACE_FILE"
+
+   TRACE_CMD=(strace -T -tt -o "${TRACE_FILE}")
+fi
 
 set +e
 echo running RDS tests...
-echo Traces will be logged to "$TRACE_FILE"
-rm -f "$TRACE_FILE"
-strace -T -tt -o "$TRACE_FILE" python3 "$(dirname "$0")/test.py" \
-	-t "$TIMEOUT" -d "$LOG_DIR" -l "$PLOSS" -c "$PCORRUPT" \
-	-u "$PDUP"
+"${TRACE_CMD[@]}" python3 "$(dirname "$0")/test.py" "${FLAGS[@]}" -t "$TIMEOUT"
 
 test_rc=$?
-dmesg > "${LOG_DIR}/dmesg.out"
 
-if [ "$GENERATE_GCOV_REPORT" -eq 1 ]; then
+if [[ -n "$LOG_DIR" ]]; then
+   dmesg > "${LOG_DIR}/dmesg.out"
+fi
+
+if [[ -n "$LOG_DIR" ]] && [ "$GENERATE_GCOV_REPORT" -eq 1 ]; then
        echo saving coverage data...
        (set +x; cd /sys/kernel/debug/gcov; find ./* -name '*.gcda' | \
        while read -r f
