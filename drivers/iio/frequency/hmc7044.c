@@ -292,6 +292,7 @@ struct hmc7044_chan_spec {
 	unsigned int		fine_delay;
 	unsigned int		out_mux_mode;
 	const char		*extended_name;
+	bool			set_rate_parent;
 };
 
 struct hmc7044 {
@@ -950,10 +951,15 @@ static int hmc7044_clk_register(struct iio_dev *indio_dev,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct clk_init_data init;
 	struct clk *clk;
+	unsigned long flags;
+
+	flags = CLK_GET_RATE_NOCACHE;
+	if (hmc->channels[address].set_rate_parent)
+		flags |= CLK_SET_RATE_PARENT;
 
 	init.name = hmc->clk_out_names[num];
 	init.ops = &hmc7044_clk_ops;
-	init.flags = 0;
+	init.flags = flags;
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
 
@@ -1949,7 +1955,8 @@ static int hmc7044_parse_dt(struct device *dev,
 				     &hmc->channels[cnt].out_mux_mode);
 		hmc->channels[cnt].is_sysref =
 			of_property_read_bool(chan_np,"adi,jesd204-sysref-chan");
-
+		hmc->channels[cnt].set_rate_parent =
+			of_property_read_bool(chan_np, "adi,set-rate-parent");
 		cnt++;
 	}
 
