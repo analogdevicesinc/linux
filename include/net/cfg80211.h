@@ -6027,7 +6027,7 @@ enum wiphy_nan_flags {
  *     nibble indicates the number of TX antennas and upper nibble indicates the
  *     number of RX antennas. Value 0 indicates the information is not
  *     available.
- * @max_channel_switch_time: maximum channel switch time in milliseconds.
+ * @max_channel_switch_time: maximum channel switch time in microseconds.
  * @dev_capabilities: NAN device capabilities as defined in Wi-Fi Aware (TM)
  *     specification Table 79 (Capabilities field).
  * @phy: Band-agnostic capabilities for NAN data interfaces. Since NAN
