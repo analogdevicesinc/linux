@@ -38,6 +38,7 @@ void cfg80211_rx_assoc_resp(struct net_device *dev,
 					u.assoc_resp.variable),
 		.status = le16_to_cpu(mgmt->u.assoc_resp.status_code),
 		.ap_mld_addr = data->ap_mld_addr,
+		.assoc_encrypted = data->assoc_encrypted,
 	};
 	unsigned int link_id;
 
