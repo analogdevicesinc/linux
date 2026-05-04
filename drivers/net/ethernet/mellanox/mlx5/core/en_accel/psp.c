@@ -1070,29 +1070,37 @@ static struct psp_dev_ops mlx5_psp_ops = {
 
 void mlx5e_psp_unregister(struct mlx5e_priv *priv)
 {
-	if (!priv->psp || !priv->psp->psp)
+	struct mlx5e_psp *psp = priv->psp;
+
+	if (!psp || !psp->psp)
 		return;
 
-	psp_dev_unregister(priv->psp->psp);
+	psp_dev_unregister(psp->psp);
+	psp->psp = NULL;
 }
 
 void mlx5e_psp_register(struct mlx5e_priv *priv)
 {
+	struct mlx5e_psp *psp = priv->psp;
+	struct psp_dev *psd;
+
 	/* FW Caps missing */
 	if (!priv->psp)
 		return;
 
-	priv->psp->caps.assoc_drv_spc = sizeof(u32);
-	priv->psp->caps.versions = 1 << PSP_VERSION_HDR0_AES_GCM_128;
+	psp->caps.assoc_drv_spc = sizeof(u32);
+	psp->caps.versions = 1 << PSP_VERSION_HDR0_AES_GCM_128;
 	if (MLX5_CAP_PSP(priv->mdev, psp_crypto_esp_aes_gcm_256_encrypt) &&
 	    MLX5_CAP_PSP(priv->mdev, psp_crypto_esp_aes_gcm_256_decrypt))
-		priv->psp->caps.versions |= 1 << PSP_VERSION_HDR0_AES_GCM_256;
+		psp->caps.versions |= 1 << PSP_VERSION_HDR0_AES_GCM_256;
 
-	priv->psp->psp = psp_dev_create(priv->netdev, &mlx5_psp_ops,
-					&priv->psp->caps, NULL);
-	if (IS_ERR(priv->psp->psp))
+	psd = psp_dev_create(priv->netdev, &mlx5_psp_ops, &psp->caps, NULL);
+	if (IS_ERR(psd)) {
 		mlx5_core_err(priv->mdev, "PSP failed to register due to %pe\n",
-			      priv->psp->psp);
+			      psd);
+		return;
+	}
+	psp->psp = psd;
 }
 
 int mlx5e_psp_init(struct mlx5e_priv *priv)
