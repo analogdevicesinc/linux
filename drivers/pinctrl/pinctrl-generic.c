@@ -17,55 +17,24 @@
 #include "pinctrl-utils.h"
 #include "pinmux.h"
 
-static int pinctrl_generic_pins_function_dt_subnode_to_map(struct pinctrl_dev *pctldev,
-							   struct device_node *parent,
-							   struct device_node *np,
-							   struct pinctrl_map **maps,
-							   unsigned int *num_maps,
-							   unsigned int *num_reserved_maps,
-							   const char **group_names,
-							   unsigned int ngroups)
+int pinctrl_generic_to_map(struct pinctrl_dev *pctldev, struct device_node *parent,
+			   struct device_node *np, struct pinctrl_map **maps,
+			   unsigned int *num_maps, unsigned int *num_reserved_maps,
+			   const char **group_names, unsigned int ngroups,
+			   const char **functions, unsigned int *pins,
+			   unsigned int npins)
 {
 	struct device *dev = pctldev->dev;
-	const char **functions;
+	unsigned int num_configs;
 	const char *group_name;
 	unsigned long *configs;
-	unsigned int num_configs, pin, *pins;
-	int npins, ret, reserve = 1;
-
-	npins = of_property_count_u32_elems(np, "pins");
-
-	if (npins < 1) {
-		dev_err(dev, "invalid pinctrl group %pOFn.%pOFn %d\n",
-			parent, np, npins);
-		return npins;
-	}
+	int ret, reserve = 1;
 
 	group_name = devm_kasprintf(dev, GFP_KERNEL, "%pOFn.%pOFn", parent, np);
 	if (!group_name)
 		return -ENOMEM;
 
 	group_names[ngroups] = group_name;
-
-	pins = devm_kcalloc(dev, npins, sizeof(*pins), GFP_KERNEL);
-	if (!pins)
-		return -ENOMEM;
-
-	functions = devm_kcalloc(dev, npins, sizeof(*functions), GFP_KERNEL);
-	if (!functions)
-		return -ENOMEM;
-
-	for (int i = 0; i < npins; i++) {
-		ret = of_property_read_u32_index(np, "pins", i, &pin);
-		if (ret)
-			return ret;
-
-		pins[i] = pin;
-
-		ret = of_property_read_string(np, "function", &functions[i]);
-		if (ret)
-			return ret;
-	}
 
 	ret = pinctrl_utils_reserve_map(pctldev, maps, num_reserved_maps, num_maps, reserve);
 	if (ret)
@@ -102,6 +71,54 @@ static int pinctrl_generic_pins_function_dt_subnode_to_map(struct pinctrl_dev *p
 
 	return 0;
 };
+EXPORT_SYMBOL_GPL(pinctrl_generic_to_map);
+
+static int pinctrl_generic_pins_function_dt_subnode_to_map(struct pinctrl_dev *pctldev,
+							   struct device_node *parent,
+							   struct device_node *np,
+							   struct pinctrl_map **maps,
+							   unsigned int *num_maps,
+							   unsigned int *num_reserved_maps,
+							   const char **group_names,
+							   unsigned int ngroups)
+{
+	struct device *dev = pctldev->dev;
+	unsigned int pin, *pins;
+	const char **functions;
+	int npins, ret;
+
+	npins = of_property_count_u32_elems(np, "pins");
+
+	if (npins < 1) {
+		dev_err(dev, "invalid pinctrl group %pOFn.%pOFn %d\n",
+			parent, np, npins);
+		return npins;
+	}
+
+	pins = devm_kcalloc(dev, npins, sizeof(*pins), GFP_KERNEL);
+	if (!pins)
+		return -ENOMEM;
+
+	functions = devm_kcalloc(dev, npins, sizeof(*functions), GFP_KERNEL);
+	if (!functions)
+		return -ENOMEM;
+
+	for (int i = 0; i < npins; i++) {
+		ret = of_property_read_u32_index(np, "pins", i, &pin);
+		if (ret)
+			return ret;
+
+		pins[i] = pin;
+
+		ret = of_property_read_string(np, "function", &functions[i]);
+		if (ret)
+			return ret;
+	}
+
+	return pinctrl_generic_to_map(pctldev, parent, np, maps, num_maps,
+				      num_reserved_maps, group_names, ngroups,
+				      functions, pins, npins);
+}
 
 /*
  * For platforms that do not define groups or functions in the driver, but
