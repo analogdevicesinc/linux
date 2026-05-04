@@ -1139,22 +1139,18 @@ int mlx5e_psp_init(struct mlx5e_priv *priv)
 	if (!psp)
 		return -ENOMEM;
 
-	priv->psp = psp;
 	fs = mlx5e_accel_psp_fs_init(priv);
 	if (IS_ERR(fs)) {
 		err = PTR_ERR(fs);
-		goto out_err;
+		kfree(psp);
+		return err;
 	}
 
 	psp->fs = fs;
+	priv->psp = psp;
 
 	mlx5_core_dbg(priv->mdev, "PSP attached to netdevice\n");
 	return 0;
-
-out_err:
-	priv->psp = NULL;
-	kfree(psp);
-	return err;
 }
 
 void mlx5e_psp_cleanup(struct mlx5e_priv *priv)
