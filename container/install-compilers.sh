@@ -6,7 +6,8 @@ version="glibc--stable-2024.05-1" # 13.3.0
 [[ -n "$opt_path" ]] || opt_path="/opt/gcc"
 [[ -n "$bin_path" ]] || bin_path="/usr/local/bin/"
 
-install_gcc (){
+install_gcc () {
+	mkdir -p $opt_path $bin_path
 	arch="$1"
 	version="$2"
 	version_sha="$3"
@@ -51,9 +52,6 @@ gcc_install_aarch64 () {
 }
 
 gcc_install () {
-	mkdir -p $opt_path
-	mkdir -p $bin_path
-
 	gcc_install_microblazeel
 	gcc_install_nios2
 	gcc_install_arm

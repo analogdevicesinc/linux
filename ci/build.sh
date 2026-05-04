@@ -1237,7 +1237,7 @@ ensure_compiler () {
 	[[ "$ARCH" == "arm64" ]] && arch=aarch64 || arch=$ARCH
 	set_arch gcc_$arch # ensure CROSS_COMPILE
 
-	if which "${CROSS_COMPILE}gcc"; then
+	if ! which "${CROSS_COMPILE}gcc"; then
 		local bearer=
 		[[ -z "$GITHUB_TOKEN" ]] || bearer="Bearer $GITHUB_TOKEN"
 		curl -sL -H "Authorization: $bearer" -o install-compilers.sh \
