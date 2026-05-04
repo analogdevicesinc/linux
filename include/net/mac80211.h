@@ -7906,6 +7906,21 @@ void ieee80211_nan_cluster_joined(struct ieee80211_vif *vif,
 				  gfp_t gfp);
 
 /**
+ * ieee80211_nan_try_evacuate - try to evacuate a NAN channel
+ *
+ * This function tries to evacuate a NAN channel that is using the given
+ * channel context, to free up channel context resources.
+ *
+ * @hw: pointer as obtained from ieee80211_alloc_hw()
+ * @conf: the channel context configuration to try to evacuate. If %NULL,
+ *	the NAN channel that has the fewest slots scheduled will be evacuated.
+ *
+ * Return: %true if a channel was evacuated, %false otherwise
+ */
+bool ieee80211_nan_try_evacuate(struct ieee80211_hw *hw,
+				struct ieee80211_chanctx_conf *conf);
+
+/**
  * ieee80211_calc_rx_airtime - calculate estimated transmission airtime for RX.
  *
  * This function calculates the estimated airtime usage of a frame based on the
