@@ -12,7 +12,7 @@ kernel may optionally be configured to omit the coverage report as well.
 
 USAGE:
 	run.sh [-d logdir] [-l packet_loss] [-c packet_corruption]
-	       [-u packet_duplcate]
+	       [-u packet_duplicate]
 
 OPTIONS:
 	-d	Log directory.  Defaults to tools/testing/selftests/net/rds/rds_logs

@@ -171,7 +171,7 @@ while getopts "d:l:c:u:" opt; do
       ;;
     :)
       echo "USAGE: run.sh [-d logdir] [-l packet_loss] [-c packet_corruption]" \
-           "[-u packet_duplcate] [-g]"
+           "[-u packet_duplicate]"
       exit 1
       ;;
     ?)
