@@ -134,10 +134,15 @@ if logdir is not None:
     for net in [NET0, NET1]:
         pcap = logdir+'/'+net+'.pcap'
         fd, pcap_tmp = tempfile.mkstemp(suffix=".pcap", prefix=f"{net}-", dir="/tmp")
+
+        tcpdump_cmd = ['ip', 'netns', 'exec', net, '/usr/sbin/tcpdump']
+        sudo_user = os.environ.get('SUDO_USER')
+        if sudo_user:
+            tcpdump_cmd.extend(['-Z', sudo_user])
+        tcpdump_cmd.extend(['-i', 'any', '-w', pcap_tmp])
+
         # pylint: disable-next=consider-using-with
-        p = subprocess.Popen(
-            ['ip', 'netns', 'exec', net,
-             '/usr/sbin/tcpdump', '-i', 'any', '-w', pcap_tmp])
+        p = subprocess.Popen(tcpdump_cmd)
         tcpdump_procs.append((p, pcap_tmp, pcap, fd))
 
 # simulate packet loss, duplication and corruption

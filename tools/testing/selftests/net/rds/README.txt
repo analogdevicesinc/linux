@@ -37,6 +37,12 @@ ENV VARIABLES:
 			the specified --rwdir path for logs to persist on
 			the host.
 
+	SUDO_USER	The user name that should be used for tcpdump
+			--relinquish-privileges.  Set this to a user
+			belonging to the sudoers group to avoid drop
+			privilege errors with the vng 9p filesystem
+			which may result in empty pcaps
+
 EXAMPLE:
 
     # Create a suitable gcov enabled .config
@@ -54,6 +60,7 @@ EXAMPLE:
     # launch the tests in a VM
     vng -v --rwdir ./ --run . --user root --cpus 4 -- \
         "export PYTHONPATH=tools/testing/selftests/net/; \
+         export SUDO_USER=example_user; \
          export RDS_LOG_DIR=tools/testing/selftests/net/rds/rds_logs; \
          tools/testing/selftests/net/rds/run.sh"
 
