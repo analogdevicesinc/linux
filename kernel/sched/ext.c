@@ -9338,6 +9338,7 @@ __bpf_kfunc void scx_bpf_reenqueue_local___v2(const struct bpf_prog_aux *aux)
 
 __bpf_kfunc_end_defs();
 
+__printf(5, 0)
 static s32 __bstr_format(struct scx_sched *sch, u64 *data_buf, char *line_buf,
 			 size_t line_size, char *fmt, unsigned long long *data,
 			 u32 data__sz)
@@ -9375,6 +9376,7 @@ static s32 __bstr_format(struct scx_sched *sch, u64 *data_buf, char *line_buf,
 	return ret;
 }
 
+__printf(3, 0)
 static s32 bstr_format(struct scx_sched *sch, struct scx_bstr_buf *buf,
 		       char *fmt, unsigned long long *data, u32 data__sz)
 {
@@ -9395,6 +9397,7 @@ __bpf_kfunc_start_defs();
  * Indicate that the BPF scheduler wants to exit gracefully, and initiate ops
  * disabling.
  */
+__printf(2, 0)
 __bpf_kfunc void scx_bpf_exit_bstr(s64 exit_code, char *fmt,
 				   unsigned long long *data, u32 data__sz,
 				   const struct bpf_prog_aux *aux)
@@ -9420,6 +9423,7 @@ __bpf_kfunc void scx_bpf_exit_bstr(s64 exit_code, char *fmt,
  * Indicate that the BPF scheduler encountered a fatal error and initiate ops
  * disabling.
  */
+__printf(1, 0)
 __bpf_kfunc void scx_bpf_error_bstr(char *fmt, unsigned long long *data,
 				    u32 data__sz, const struct bpf_prog_aux *aux)
 {
@@ -9447,6 +9451,7 @@ __bpf_kfunc void scx_bpf_error_bstr(char *fmt, unsigned long long *data,
  * The extra dump may be multiple lines. A single line may be split over
  * multiple calls. The last line is automatically terminated.
  */
+__printf(1, 0)
 __bpf_kfunc void scx_bpf_dump_bstr(char *fmt, unsigned long long *data,
 				   u32 data__sz, const struct bpf_prog_aux *aux)
 {
