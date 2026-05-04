@@ -42,14 +42,22 @@ static inline struct clk_adi_cdu_mux *to_clk_adi_cdu_mux(struct clk_hw *hw)
 	return container_of(hw, struct clk_adi_cdu_mux, hw);
 }
 
+static int sc5xx_cdu_cfg_check_unlocked(u32 reg)
+{
+	if (reg & CDU_CFG_LOCK)
+		return -EPERM;
+
+	return 0;
+}
+
 static int sc5xx_cdu_wait_ready(struct clk_adi_cdu_mux *cdu_mux)
 {
 	u32 stat;
 
 	return readl_poll_timeout_atomic(cdu_mux->cdu_stat, stat,
-					 !(stat & BIT(cdu_mux->clko_stat_bit)),
-					 CDU_CFG_POLL_DELAY_US,
-					 CDU_CFG_POLL_TIMEOUT_US);
+			!(stat & BIT(cdu_mux->clko_stat_bit)),
+			CDU_CFG_POLL_DELAY_US,
+			CDU_CFG_POLL_TIMEOUT_US);
 }
 
 static inline u32 sc5xx_cdu_read_cfg(struct clk_adi_cdu_mux *cdu_mux)
@@ -62,36 +70,35 @@ static inline void sc5xx_cdu_write_cfg(struct clk_adi_cdu_mux *cdu_mux, u32 reg)
 	writel(reg, cdu_mux->cdu_cfg);
 }
 
-
 void sc5xx_cdu_print_revision(const char *soc_name, void __iomem *cdu)
 {
 	u32 revid = readl(cdu + CDU_REVID_OFFSET);
 
 	pr_info("%s CDU revision: major=%u rev=%u (0x%08x)\n",
-		 soc_name,
-		 FIELD_GET(CDU_REVID_MAJOR, revid),
-		 FIELD_GET(CDU_REVID_REV, revid),
-		 revid);
+		soc_name,
+		FIELD_GET(CDU_REVID_MAJOR, revid),
+		FIELD_GET(CDU_REVID_REV, revid),
+		revid);
 }
 
-static inline void sc5xx_cdu_cfg_update_en(u32 *reg, enum sc5xx_cdu_en_state state)
-{
-	if (state == SC5XX_CDU_EN_ENABLE)
-		*reg |= CDU_CFG_EN;
-	else
-		*reg &= ~CDU_CFG_EN;
-}
-
-static int sc5xx_cdu_update_en_locked(struct clk_adi_cdu_mux *cdu_mux,
+/* Caller must hold cdu_mux->cdu_lock */
+static int sc5xx_cdu_cfg_update_en(struct clk_adi_cdu_mux *cdu_mux, 
 					enum sc5xx_cdu_en_state state)
 {
 	u32 reg;
+	int ret;
 
 	reg = sc5xx_cdu_read_cfg(cdu_mux);
-	if (reg & CDU_CFG_LOCK)
-		return -EPERM;
 
-	sc5xx_cdu_cfg_update_en(&reg, state);
+	ret = sc5xx_cdu_cfg_check_unlocked(reg);
+	if (ret)
+		return ret;
+
+	if (state == SC5XX_CDU_EN_ENABLE)
+		reg |= CDU_CFG_EN;
+	else
+		reg &= ~CDU_CFG_EN;
+
 	sc5xx_cdu_write_cfg(cdu_mux, reg);
 
 	return 0;
@@ -101,37 +108,35 @@ static int sc5xx_cdu_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
 	unsigned long flags;
-        unsigned int input_sel;
+	unsigned int input_sel;
 	u32 reg;
 	int ret;
 
-	input_sel = clk_mux_index_to_val(cdu_mux->parent_sel, 
-			0, index);
+	input_sel = clk_mux_index_to_val(cdu_mux->parent_sel, 0, index);
 
 	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
 
 	ret = sc5xx_cdu_wait_ready(cdu_mux);
 	if (ret)
-		goto out_unlock;
+		goto out;
 
 	reg = sc5xx_cdu_read_cfg(cdu_mux);
-	if (reg & CDU_CFG_LOCK) {
-		ret = -EPERM;
-		goto out_unlock;
-	} 	
+
+	ret = sc5xx_cdu_cfg_check_unlocked(reg);
+	if (ret)
+		goto out;
 
 	reg &= ~CDU_CFG_SEL_MASK;
 	reg |= FIELD_PREP(CDU_CFG_SEL_MASK, input_sel);
 
 	sc5xx_cdu_write_cfg(cdu_mux, reg);
 
-out_unlock:
+	ret = sc5xx_cdu_wait_ready(cdu_mux);
+	
+out:
 	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
-
-	if (ret)
-		return ret;
-
-	return sc5xx_cdu_wait_ready(cdu_mux);	
+	
+	return ret;
 }
 
 static u8 sc5xx_cdu_get_parent(struct clk_hw *hw)
@@ -146,8 +151,7 @@ static u8 sc5xx_cdu_get_parent(struct clk_hw *hw)
 
 	input_sel = FIELD_GET(CDU_CFG_SEL_MASK, reg);
 
-	return clk_mux_val_to_index(hw, cdu_mux->parent_sel, 
-			0, input_sel);
+	return clk_mux_val_to_index(hw, cdu_mux->parent_sel, 0, input_sel);
 }
 
 static int sc5xx_cdu_enable(struct clk_hw *hw)
@@ -158,40 +162,42 @@ static int sc5xx_cdu_enable(struct clk_hw *hw)
 
 	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
 
-	ret = sc5xx_cdu_wait_ready(cdu_mux);	
+	ret = sc5xx_cdu_wait_ready(cdu_mux);
 	if (ret)
-		goto out_unlock;
+		goto out;
 
-	ret = sc5xx_cdu_update_en_locked(cdu_mux, SC5XX_CDU_EN_ENABLE);
+	ret = sc5xx_cdu_cfg_update_en(cdu_mux, SC5XX_CDU_EN_ENABLE);
 	if (ret)
-		goto out_unlock;
+		goto out;
 
-out_unlock:	
+	ret = sc5xx_cdu_wait_ready(cdu_mux);
+
+out:
 	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
 
-	if (ret)
-		return ret;
-
-	return sc5xx_cdu_wait_ready(cdu_mux);
+	return ret;
 }
 
 static void sc5xx_cdu_disable(struct clk_hw *hw)
 {
 	struct clk_adi_cdu_mux *cdu_mux = to_clk_adi_cdu_mux(hw);
 	unsigned long flags;
+	int ret;
 
 	spin_lock_irqsave(cdu_mux->cdu_lock, flags);
 
-	if (sc5xx_cdu_wait_ready(cdu_mux))
-		goto out_unlock;
+	ret = sc5xx_cdu_wait_ready(cdu_mux);
+	if (ret)
+		goto out;
 
-	if (sc5xx_cdu_update_en_locked(cdu_mux, SC5XX_CDU_EN_DISABLE))
-		goto out_unlock;
-
-out_unlock:
-	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
+	ret = sc5xx_cdu_cfg_update_en(cdu_mux, SC5XX_CDU_EN_DISABLE);
+	if (ret)
+		goto out;
 
 	sc5xx_cdu_wait_ready(cdu_mux);
+
+out:
+	spin_unlock_irqrestore(cdu_mux->cdu_lock, flags);
 }
 
 static int sc5xx_cdu_is_enabled(struct clk_hw *hw)
