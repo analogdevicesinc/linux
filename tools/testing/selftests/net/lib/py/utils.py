@@ -239,7 +239,10 @@ class defer:
 def tool(name, args, json=None, ns=None, host=None):
     cmd_str = name + ' '
     if json:
-        cmd_str += '--json '
+        if name == 'tc':
+            cmd_str += '-json '
+        else:
+            cmd_str += '--json '
     cmd_str += args
     cmd_obj = cmd(cmd_str, ns=ns, host=host)
     if json:
@@ -255,6 +258,13 @@ def ip(args, json=None, ns=None, host=None):
     if ns:
         args = f'-netns {ns} ' + args
     return tool('ip', args, json=json, host=host)
+
+
+def tc(args, json=None, ns=None, host=None):
+    """ Helper to call tc with standard set of optional args. """
+    if ns:
+        args = f'-netns {ns} ' + args
+    return tool('tc', args, json=json, host=host)
 
 
 def ethtool(args, json=None, ns=None, host=None):
