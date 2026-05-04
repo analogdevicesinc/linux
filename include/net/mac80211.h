@@ -7892,6 +7892,20 @@ void ieee80211_nan_func_match(struct ieee80211_vif *vif,
 void ieee80211_nan_sched_update_done(struct ieee80211_vif *vif);
 
 /**
+ * ieee80211_nan_cluster_joined - notify about NAN cluster join.
+ *
+ * This function is used to notify mac80211 about NAN cluster join.
+ *
+ * @vif: &struct ieee80211_vif pointer from the add_interface callback.
+ * @cluster_id: the cluster ID that was joined
+ * @new_cluster: true if this is a new cluster
+ * @gfp: allocation flags
+ */
+void ieee80211_nan_cluster_joined(struct ieee80211_vif *vif,
+				  const u8 *cluster_id, bool new_cluster,
+				  gfp_t gfp);
+
+/**
  * ieee80211_calc_rx_airtime - calculate estimated transmission airtime for RX.
  *
  * This function calculates the estimated airtime usage of a frame based on the
