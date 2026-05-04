@@ -80,9 +80,8 @@ static int intel_conn_to_vcpi(struct intel_atomic_state *state,
 	/* For HDMI this is forced to be 0x0. For DP SST also this is 0x0. */
 	if (!connector->mst.port)
 		return 0;
-	mgr = connector->mst.port->mgr;
 
-	drm_modeset_lock(&mgr->base.lock, state->base.acquire_ctx);
+	mgr = connector->mst.port->mgr;
 	mst_state = drm_atomic_get_new_mst_topology_state(&state->base, mgr);
 	if (!mst_state) {
 		drm_dbg_kms(display->drm, "MST topology still not created\n");
