@@ -154,8 +154,9 @@ LOG_DIR="$current_dir"/rds_logs
 PLOSS=0
 PCORRUPT=0
 PDUP=0
+TIMEOUT=$timeout
 GENERATE_GCOV_REPORT=1
-while getopts "d:l:c:u:" opt; do
+while getopts "d:l:c:u:t:" opt; do
   case ${opt} in
     d)
       LOG_DIR=${OPTARG}
@@ -166,12 +167,15 @@ while getopts "d:l:c:u:" opt; do
     c)
       PCORRUPT=${OPTARG}
       ;;
+    t)
+      TIMEOUT=${OPTARG}
+      ;;
     u)
       PDUP=${OPTARG}
       ;;
     :)
       echo "USAGE: run.sh [-d logdir] [-l packet_loss] [-c packet_corruption]" \
-           "[-u packet_duplicate]"
+           "[-u packet_duplicate] [-t timeout]"
       exit 1
       ;;
     ?)
@@ -198,7 +202,8 @@ echo running RDS tests...
 echo Traces will be logged to "$TRACE_FILE"
 rm -f "$TRACE_FILE"
 strace -T -tt -o "$TRACE_FILE" python3 "$(dirname "$0")/test.py" \
-	--timeout "$timeout" -d "$LOG_DIR" -l "$PLOSS" -c "$PCORRUPT" -u "$PDUP"
+	-t "$TIMEOUT" -d "$LOG_DIR" -l "$PLOSS" -c "$PCORRUPT" \
+	-u "$PDUP"
 
 test_rc=$?
 dmesg > "${LOG_DIR}/dmesg.out"

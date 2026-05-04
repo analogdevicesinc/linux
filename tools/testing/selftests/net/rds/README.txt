@@ -12,7 +12,7 @@ kernel may optionally be configured to omit the coverage report as well.
 
 USAGE:
 	run.sh [-d logdir] [-l packet_loss] [-c packet_corruption]
-	       [-u packet_duplicate]
+	       [-u packet_duplicate] [-t timeout]
 
 OPTIONS:
 	-d	Log directory.  Defaults to tools/testing/selftests/net/rds/rds_logs
@@ -22,6 +22,8 @@ OPTIONS:
 	-c	Simulates a percentage of packet corruption
 
 	-u	Simulates a percentage of packet duplication.
+
+	-t	Test timeout.  Defaults to tools/testing/selftests/net/rds/settings
 
 EXAMPLE:
 
