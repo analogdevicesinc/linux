@@ -197,14 +197,14 @@ if [[ -n "$LOG_DIR" ]]; then
    mkdir -p  "$LOG_DIR"
    mkdir -p "$COVR_DIR"
 
-   echo Traces will be logged to "${TRACE_FILE}"
+   echo "#Traces will be logged to ${TRACE_FILE}"
    rm -f "$TRACE_FILE"
 
    TRACE_CMD=(strace -T -tt -o "${TRACE_FILE}")
 fi
 
 set +e
-echo running RDS tests...
+echo "#running RDS tests..."
 "${TRACE_CMD[@]}" python3 "$(dirname "$0")/test.py" "${FLAGS[@]}" -t "$TIMEOUT"
 
 test_rc=$?
@@ -214,7 +214,7 @@ if [[ -n "$LOG_DIR" ]]; then
 fi
 
 if [[ -n "$LOG_DIR" ]] && [ "$GENERATE_GCOV_REPORT" -eq 1 ]; then
-       echo saving coverage data...
+       echo "# saving coverage data..."
 
        # Ensure debugfs is mounted before reading gcov data.
        if ! mountpoint -q /sys/kernel/debug 2>/dev/null; then
@@ -227,17 +227,19 @@ if [[ -n "$LOG_DIR" ]] && [ "$GENERATE_GCOV_REPORT" -eq 1 ]; then
                cat < "/sys/kernel/debug/gcov/$f" > "/$f"
        done)
 
-       echo running gcovr...
+       echo "# running gcovr..."
        gcovr -s --html-details --gcov-executable "$GCOV_CMD" --gcov-ignore-parse-errors \
-             --root "${ksrc_dir}" -o "${COVR_DIR}/gcovr" "${ksrc_dir}/net/rds/"
+             --root "${ksrc_dir}" -o "${COVR_DIR}/gcovr" "${ksrc_dir}/net/rds/" \
+             > "${LOG_DIR}/gcovr.log" 2>&1
+       echo "# gcovr log: ${LOG_DIR}/gcovr.log"
 else
-       echo "Coverage report will be skipped"
+       echo "# Coverage report will be skipped"
 fi
 
 if [ "$test_rc" -eq 0 ]; then
-	echo "PASS: Test completed successfully"
+	echo "# PASS: Test completed successfully"
 else
-	echo "FAIL: Test failed"
+	echo "# FAIL: Test failed"
 fi
 
 exit "$test_rc"
