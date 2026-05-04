@@ -216,9 +216,7 @@ static const struct xe_mmio_range xe2lpg_sqidi_psmi_steering_table[] = {
 static const struct xe_mmio_range xe2lpg_instance0_steering_table[] = {
 	{ 0x004000, 0x004AFF },         /* GAM, rsvd, GAMWKR */
 	{ 0x008700, 0x00887F },         /* SQIDI, MEMPIPE */
-	{ 0x00B000, 0x00B3FF },         /* NODE, L3BANK */
 	{ 0x00C800, 0x00CFFF },         /* GAM */
-	{ 0x00D880, 0x00D8FF },         /* NODE */
 	{ 0x00DD00, 0x00DDFF },         /* MEMPIPE */
 	{ 0x00E900, 0x00E97F },         /* MEMPIPE */
 	{ 0x00F000, 0x00FFFF },         /* GAM, GAMWKR */
@@ -267,7 +265,7 @@ static const struct xe_mmio_range xe3p_xpc_gam_grp1_steering_table[] = {
 	{},
 };
 
-static const struct xe_mmio_range xe3p_xpc_node_steering_table[] = {
+static const struct xe_mmio_range xe2_node_steering_table[] = {
 	{ 0x00B000, 0x00B0FF },
 	{ 0x00D880, 0x00D8FF },
 	{},
@@ -298,7 +296,7 @@ static void init_steering_l3bank(struct xe_gt *gt)
 	struct xe_device *xe = gt_to_xe(gt);
 	struct xe_mmio *mmio = &gt->mmio;
 
-	if (GRAPHICS_VER(xe) >= 35) {
+	if (GRAPHICS_VER(xe) >= 20) {
 		unsigned int first_bank = xe_l3_bank_mask_ffs(gt->fuse_topo.l3_bank_mask);
 		const int banks_per_node = 4;
 		unsigned int node = first_bank / banks_per_node;
@@ -430,19 +428,6 @@ void xe_gt_mcr_get_dss_steering(const struct xe_gt *gt, unsigned int dss, u16 *g
 	*instance = dss % gt->steering_dss_per_grp;
 }
 
-/**
- * xe_gt_mcr_steering_info_to_dss_id - Get DSS ID from group/instance steering
- * @gt: GT structure
- * @group: steering group ID
- * @instance: steering instance ID
- *
- * Return: the converted DSS id.
- */
-u32 xe_gt_mcr_steering_info_to_dss_id(struct xe_gt *gt, u16 group, u16 instance)
-{
-	return group * dss_per_group(gt) + instance;
-}
-
 static void init_steering_dss(struct xe_gt *gt)
 {
 	gt->steering_dss_per_grp = dss_per_group(gt);
@@ -536,7 +521,7 @@ void xe_gt_mcr_init_early(struct xe_gt *gt)
 			gt->steering[GAM1].ranges = xe3p_xpc_gam_grp1_steering_table;
 			gt->steering[INSTANCE0].ranges = xe3p_xpc_instance0_steering_table;
 			gt->steering[L3BANK].ranges = xelpg_l3bank_steering_table;
-			gt->steering[NODE].ranges = xe3p_xpc_node_steering_table;
+			gt->steering[NODE].ranges = xe2_node_steering_table;
 		} else if (GRAPHICS_VERx100(xe) >= 3510) {
 			gt->steering[DSS].ranges = xe2lpg_dss_steering_table;
 			gt->steering[INSTANCE0].ranges = xe3p_lpg_instance0_steering_table;
@@ -544,6 +529,8 @@ void xe_gt_mcr_init_early(struct xe_gt *gt)
 			gt->steering[DSS].ranges = xe2lpg_dss_steering_table;
 			gt->steering[SQIDI_PSMI].ranges = xe2lpg_sqidi_psmi_steering_table;
 			gt->steering[INSTANCE0].ranges = xe2lpg_instance0_steering_table;
+			gt->steering[L3BANK].ranges = xelpg_l3bank_steering_table;
+			gt->steering[NODE].ranges = xe2_node_steering_table;
 		} else if (GRAPHICS_VERx100(xe) >= 1270) {
 			gt->steering[INSTANCE0].ranges = xelpg_instance0_steering_table;
 			gt->steering[L3BANK].ranges = xelpg_l3bank_steering_table;

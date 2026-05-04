@@ -25,11 +25,15 @@ static inline u32 xe_uc_fw_rsa_offset(struct xe_uc_fw *uc_fw)
 	return sizeof(struct uc_css_header) + uc_fw->ucode_size + uc_fw->css_offset;
 }
 
+#if IS_ENABLED(CONFIG_DRM_XE_DEBUG_GUC)
+void xe_uc_fw_change_status(struct xe_uc_fw *uc_fw, enum xe_uc_fw_status status);
+#else
 static inline void xe_uc_fw_change_status(struct xe_uc_fw *uc_fw,
 					  enum xe_uc_fw_status status)
 {
 	uc_fw->__status = status;
 }
+#endif
 
 static inline
 const char *xe_uc_fw_status_repr(enum xe_uc_fw_status status)

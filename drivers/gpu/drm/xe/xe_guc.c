@@ -780,6 +780,14 @@ int xe_guc_init(struct xe_guc *guc)
 	if (GUC_SUBMIT_VER(guc) < MAKE_GUC_VER(1, 14, 0))
 		xe->info.has_page_reclaim_hw_assist = false;
 
+	/* Disable indirect_ring_state if missing GuC 70.53+ WA 14025515070. */
+	if (gt->info.has_indirect_ring_state &&
+	    XE_GT_WA(gt, 14025515070) &&
+	    GUC_SUBMIT_VER(guc) < MAKE_GUC_VER(1, 26, 0)) {
+		gt->info.has_indirect_ring_state = 0;
+		xe_gt_notice(gt, "indirect ring state requires WA in GuC submit ver 1.26+\n");
+	}
+
 	if (IS_SRIOV_VF(xe)) {
 		ret = devm_add_action_or_reset(xe->drm.dev, vf_guc_fini_hw, guc);
 		if (ret)
@@ -1693,13 +1701,8 @@ void xe_guc_reset_wait(struct xe_guc *guc)
 
 void xe_guc_stop_prepare(struct xe_guc *guc)
 {
-	if (!IS_SRIOV_VF(guc_to_xe(guc))) {
-		int err;
-
-		err = xe_guc_pc_stop(&guc->pc);
-		xe_gt_WARN(guc_to_gt(guc), err, "Failed to stop GuC PC: %pe\n",
-			   ERR_PTR(err));
-	}
+	if (!IS_SRIOV_VF(guc_to_xe(guc)))
+		xe_guc_pc_stop(&guc->pc);
 }
 
 void xe_guc_stop(struct xe_guc *guc)

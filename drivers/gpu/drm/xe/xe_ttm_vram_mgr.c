@@ -292,8 +292,6 @@ static void xe_ttm_vram_mgr_fini(struct drm_device *dev, void *arg)
 	ttm_resource_manager_cleanup(&mgr->manager);
 
 	ttm_set_driver_manager(&xe->ttm, mgr->mem_type, NULL);
-
-	mutex_destroy(&mgr->lock);
 }
 
 int __xe_ttm_vram_mgr_init(struct xe_device *xe, struct xe_ttm_vram_mgr *mgr,
@@ -312,7 +310,9 @@ int __xe_ttm_vram_mgr_init(struct xe_device *xe, struct xe_ttm_vram_mgr *mgr,
 
 	man->func = &xe_ttm_vram_mgr_func;
 	mgr->mem_type = mem_type;
-	mutex_init(&mgr->lock);
+	err = drmm_mutex_init(&xe->drm, &mgr->lock);
+	if (err)
+		return err;
 	mgr->default_page_size = default_page_size;
 	mgr->visible_size = io_size;
 	mgr->visible_avail = io_size;
