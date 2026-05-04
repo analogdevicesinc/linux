@@ -562,22 +562,55 @@ out_unlock:
 	sd_cleanup(dev);
 }
 
+/* Lock order:
+ *   primary:   actual_adev_lock -> SD devcom comp lock
+ *   secondary: SD devcom comp lock -> (drop) -> actual_adev_lock
+ * The two locks are never held together, so no ABBA.
+ */
 struct auxiliary_device *mlx5_sd_get_adev(struct mlx5_core_dev *dev,
 					  struct auxiliary_device *adev,
 					  int idx)
 {
 	struct mlx5_sd *sd = mlx5_get_sd(dev);
 	struct mlx5_core_dev *primary;
+	struct mlx5_adev *primary_adev;
 
 	if (!sd)
 		return adev;
 
-	if (!mlx5_devcom_comp_is_ready(sd->devcom))
+	mlx5_devcom_comp_lock(sd->devcom);
+	if (!mlx5_devcom_comp_is_ready(sd->devcom)) {
+		mlx5_devcom_comp_unlock(sd->devcom);
 		return NULL;
+	}
 
 	primary = mlx5_sd_get_primary(dev);
-	if (dev == primary)
+	if (!primary || dev == primary) {
+		mlx5_devcom_comp_unlock(sd->devcom);
 		return adev;
+	}
 
-	return &primary->priv.adev[idx]->adev;
+	primary_adev = primary->priv.adev[idx];
+	get_device(&primary_adev->adev.dev);
+	mlx5_devcom_comp_unlock(sd->devcom);
+
+	device_lock(&primary_adev->adev.dev);
+	/* Primary may have completed remove between dropping devcom and
+	 * acquiring device_lock; recheck.
+	 */
+	if (!mlx5_devcom_comp_is_ready(sd->devcom)) {
+		device_unlock(&primary_adev->adev.dev);
+		put_device(&primary_adev->adev.dev);
+		return NULL;
+	}
+	return &primary_adev->adev;
+}
+
+void mlx5_sd_put_adev(struct auxiliary_device *actual_adev,
+		      struct auxiliary_device *adev)
+{
+	if (actual_adev != adev) {
+		device_unlock(&actual_adev->dev);
+		put_device(&actual_adev->dev);
+	}
 }
