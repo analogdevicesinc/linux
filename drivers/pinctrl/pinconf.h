@@ -166,12 +166,30 @@ int pinctrl_generic_pins_function_dt_node_to_map(struct pinctrl_dev *pctldev,
 						 struct device_node *np,
 						 struct pinctrl_map **maps,
 						 unsigned int *num_maps);
+
+int pinctrl_generic_to_map(struct pinctrl_dev *pctldev, struct device_node *parent,
+			   struct device_node *np, struct pinctrl_map **maps,
+			   unsigned int *num_maps, unsigned int *num_reserved_maps,
+			   const char **group_name, unsigned int ngroups,
+			   const char **functions, unsigned int *pins,
+			   unsigned int npins);
 #else
 static inline int
 pinctrl_generic_pins_function_dt_node_to_map(struct pinctrl_dev *pctldev,
 					     struct device_node *np,
 					     struct pinctrl_map **maps,
 					     unsigned int *num_maps)
+{
+	return -ENOTSUPP;
+}
+
+static inline int
+pinctrl_generic_to_map(struct pinctrl_dev *pctldev, struct device_node *parent,
+		       struct device_node *np, struct pinctrl_map **maps,
+		       unsigned int *num_maps, unsigned int *num_reserved_maps,
+		       const char **group_name, unsigned int ngroups,
+		       const char **functions, unsigned int *pins,
+		       void *function_data)
 {
 	return -ENOTSUPP;
 }
