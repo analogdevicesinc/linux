@@ -14,8 +14,6 @@ import signal
 import socket
 import subprocess
 import sys
-import tempfile
-import shutil
 
 # Allow utils module to be imported from different directory
 this_dir = os.path.dirname(os.path.realpath(__file__))
@@ -133,17 +131,16 @@ tcpdump_procs = []
 if logdir is not None:
     for net in [NET0, NET1]:
         pcap = logdir+'/'+net+'.pcap'
-        fd, pcap_tmp = tempfile.mkstemp(suffix=".pcap", prefix=f"{net}-", dir="/tmp")
 
         tcpdump_cmd = ['ip', 'netns', 'exec', net, '/usr/sbin/tcpdump']
         sudo_user = os.environ.get('SUDO_USER')
         if sudo_user:
             tcpdump_cmd.extend(['-Z', sudo_user])
-        tcpdump_cmd.extend(['-i', 'any', '-w', pcap_tmp])
+        tcpdump_cmd.extend(['-i', 'any', '-w', pcap])
 
         # pylint: disable-next=consider-using-with
         p = subprocess.Popen(tcpdump_cmd)
-        tcpdump_procs.append((p, pcap_tmp, pcap, fd))
+        tcpdump_procs.append(p)
 
 # simulate packet loss, duplication and corruption
 for net, iface in [(NET0, VETH0), (NET1, VETH1)]:
@@ -260,11 +257,9 @@ print(f"getsockopt(): {nr_success}/{nr_error}")
 
 if logdir is not None:
     print("Stopping network packet captures")
-    for p, pcap_tmp, pcap, fd in tcpdump_procs:
+    for p in tcpdump_procs:
         p.terminate()
         p.wait()
-        os.close(fd)
-        shutil.move(pcap_tmp, pcap)
 
 # We're done sending and receiving stuff, now let's check if what
 # we received is what we sent.
