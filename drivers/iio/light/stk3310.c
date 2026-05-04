@@ -128,12 +128,6 @@ static const int stk3310_it_table[][2] = {
 struct stk3310_data {
 	struct i2c_client *client;
 	struct mutex lock;
-	bool als_enabled;
-	bool ps_enabled;
-	bool ps_int_enabled;
-	uint32_t ps_thdl;
-	uint32_t ps_thdh;
-	uint32_t ps_near_level;
 	u64 timestamp;
 	struct regmap *regmap;
 	struct regmap_field *reg_state;
@@ -144,6 +138,12 @@ struct stk3310_data {
 	struct regmap_field *reg_int_ps;
 	struct regmap_field *reg_flag_psint;
 	struct regmap_field *reg_flag_nf;
+	u32 ps_thdl;
+	u32 ps_thdh;
+	u32 ps_near_level;
+	bool als_enabled;
+	bool ps_enabled;
+	bool ps_int_enabled;
 };
 
 static const struct iio_event_spec stk3310_events[] = {
