@@ -99,7 +99,7 @@ static SPINAND_OP_VARIANTS(update_cache_variants,
 
 #define SPINAND_WINBOND_WRITE_VCR_8D_8D_8D(reg, buf)			\
 	SPI_MEM_OP(SPI_MEM_DTR_OP_RPT_CMD(0x81, 8),			\
-		   SPI_MEM_DTR_OP_ADDR(4, reg, 8),			\
+		   SPI_MEM_DTR_OP_ADDR(4, reg << 8, 8),			\
 		   SPI_MEM_OP_NO_DUMMY,					\
 		   SPI_MEM_DTR_OP_DATA_OUT(2, buf, 8))
 
@@ -518,7 +518,7 @@ static const struct spinand_info winbond_spinand_table[] = {
 		     SPINAND_INFO_OP_VARIANTS(&read_cache_octal_variants,
 					      &write_cache_octal_variants,
 					      &update_cache_octal_variants),
-		     0,
+		     SPINAND_ODTR_PACKED_PAGE_READ,
 		     SPINAND_INFO_VENDOR_OPS(&winbond_w35_ops),
 		     SPINAND_ECCINFO(&w35n01jw_ooblayout, NULL),
 		     SPINAND_CONFIGURE_CHIP(w35n0xjw_vcr_cfg)),
@@ -529,7 +529,7 @@ static const struct spinand_info winbond_spinand_table[] = {
 		     SPINAND_INFO_OP_VARIANTS(&read_cache_octal_variants,
 					      &write_cache_octal_variants,
 					      &update_cache_octal_variants),
-		     0,
+		     SPINAND_ODTR_PACKED_PAGE_READ,
 		     SPINAND_INFO_VENDOR_OPS(&winbond_w35_ops),
 		     SPINAND_ECCINFO(&w35n01jw_ooblayout, NULL),
 		     SPINAND_CONFIGURE_CHIP(w35n0xjw_vcr_cfg)),

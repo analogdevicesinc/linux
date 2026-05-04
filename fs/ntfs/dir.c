@@ -911,8 +911,8 @@ static int ntfs_readdir(struct file *file, struct dir_context *actor)
 
 	if (next->flags & INDEX_ENTRY_NODE) {
 		next = ntfs_index_walk_down(next, ictx);
-		if (!next) {
-			err = -EIO;
+		if (IS_ERR(next)) {
+			err = PTR_ERR(next);
 			goto out;
 		}
 	}
@@ -920,7 +920,14 @@ static int ntfs_readdir(struct file *file, struct dir_context *actor)
 	if (next && !(next->flags & INDEX_ENTRY_END))
 		goto nextdir;
 
-	while ((next = ntfs_index_next(next, ictx)) != NULL) {
+	while (1) {
+		next = ntfs_index_next(next, ictx);
+		if (IS_ERR(next)) {
+			err = PTR_ERR(next);
+			goto out;
+		}
+		if (!next)
+			break;
 nextdir:
 		/* Check the consistency of an index entry */
 		if (ntfs_index_entry_inconsistent(ictx, vol, next, COLLATION_FILE_NAME,

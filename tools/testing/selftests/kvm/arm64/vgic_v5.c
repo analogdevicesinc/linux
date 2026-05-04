@@ -17,10 +17,10 @@
 struct vm_gic {
 	struct kvm_vm *vm;
 	int gic_fd;
-	uint32_t gic_dev_type;
+	u32 gic_dev_type;
 };
 
-static uint64_t max_phys_size;
+static u64 max_phys_size;
 
 #define GUEST_CMD_IRQ_CDIA	10
 #define GUEST_CMD_IRQ_DIEOI	11
@@ -96,7 +96,7 @@ static void vm_gic_destroy(struct vm_gic *v)
 	kvm_vm_free(v->vm);
 }
 
-static void test_vgic_v5_ppis(uint32_t gic_dev_type)
+static void test_vgic_v5_ppis(u32 gic_dev_type)
 {
 	struct kvm_vcpu *vcpus[NR_VCPUS];
 	struct ucall uc;
@@ -173,7 +173,7 @@ done:
 /*
  * Returns 0 if it's possible to create GIC device of a given type (V5).
  */
-int test_kvm_device(uint32_t gic_dev_type)
+int test_kvm_device(u32 gic_dev_type)
 {
 	struct kvm_vcpu *vcpus[NR_VCPUS];
 	struct vm_gic v;
@@ -199,7 +199,7 @@ int test_kvm_device(uint32_t gic_dev_type)
 	return 0;
 }
 
-void run_tests(uint32_t gic_dev_type)
+void run_tests(u32 gic_dev_type)
 {
 	pr_info("Test VGICv5 PPIs\n");
 	test_vgic_v5_ppis(gic_dev_type);

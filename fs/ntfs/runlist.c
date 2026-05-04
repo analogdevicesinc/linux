@@ -15,6 +15,8 @@
  * Copyright (c) 2007-2022 Jean-Pierre Andre
  */
 
+#include <linux/overflow.h>
+
 #include "ntfs.h"
 #include "attrib.h"
 
@@ -739,6 +741,7 @@ struct runlist_element *ntfs_mapping_pairs_decompress(const struct ntfs_volume *
 	int rlsize;		/* Size of runlist buffer. */
 	u16 rlpos;		/* Current runlist position in units of struct runlist_elements. */
 	u8 b;			/* Current byte offset in buf. */
+	u64 lowest_vcn;		/* Raw on-disk lowest_vcn. */
 
 #ifdef DEBUG
 	/* Make sure attr exists and is non-resident. */
@@ -747,8 +750,14 @@ struct runlist_element *ntfs_mapping_pairs_decompress(const struct ntfs_volume *
 		return ERR_PTR(-EINVAL);
 	}
 #endif
+	lowest_vcn = le64_to_cpu(attr->data.non_resident.lowest_vcn);
+	/* Validate lowest_vcn from on-disk metadata to ensure it is sane. */
+	if (overflows_type(lowest_vcn, vcn)) {
+		ntfs_error(vol->sb, "Invalid lowest_vcn in mapping pairs.");
+		return ERR_PTR(-EIO);
+	}
 	/* Start at vcn = lowest_vcn and lcn 0. */
-	vcn = le64_to_cpu(attr->data.non_resident.lowest_vcn);
+	vcn = lowest_vcn;
 	lcn = 0;
 	/* Get start of the mapping pairs array. */
 	buf = (u8 *)attr +
@@ -823,8 +832,17 @@ struct runlist_element *ntfs_mapping_pairs_decompress(const struct ntfs_volume *
 		 * element.
 		 */
 		rl[rlpos].length = deltaxcn;
-		/* Increment the current vcn by the current run length. */
-		vcn += deltaxcn;
+		/*
+		 * Increment the current vcn by the current run length.
+		 * Guard against s64 overflow from a crafted mapping
+		 * pairs array to preserve the monotonically-increasing
+		 * vcn invariant.
+		 */
+		if (unlikely(check_add_overflow(vcn, deltaxcn, &vcn))) {
+			ntfs_error(vol->sb, "VCN overflow in mapping pairs array.");
+			goto err_out;
+		}
+
 		/*
 		 * There might be no lcn change at all, as is the case for
 		 * sparse clusters on NTFS 3.0+, in which case we set the lcn

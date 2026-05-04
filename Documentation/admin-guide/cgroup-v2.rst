@@ -220,7 +220,7 @@ cgroup v2 currently supports the following mount options.
   memory_hugetlb_accounting
         Count HugeTLB memory usage towards the cgroup's overall
         memory usage for the memory controller (for the purpose of
-        statistics reporting and memory protetion). This is a new
+        statistics reporting and memory protection). This is a new
         behavior that could regress existing setups, so it must be
         explicitly opted in with this mount option.
 

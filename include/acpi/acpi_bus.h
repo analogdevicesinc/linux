@@ -17,6 +17,8 @@
 #include <linux/property.h>
 #include <linux/types.h>
 
+struct notifier_block;
+
 struct acpi_handle_list {
 	u32 count;
 	acpi_handle *handles;

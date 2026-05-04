@@ -4641,7 +4641,8 @@ int try_release_extent_buffer(struct folio *folio)
  * to read the block we will not block on anything.
  */
 void btrfs_readahead_tree_block(struct btrfs_fs_info *fs_info,
-				u64 bytenr, u64 owner_root, u64 gen, int level)
+				u64 bytenr, u64 owner_root, u64 gen, int level,
+				const struct btrfs_key *first_key)
 {
 	struct btrfs_tree_parent_check check = {
 		.level = level,
@@ -4649,6 +4650,11 @@ void btrfs_readahead_tree_block(struct btrfs_fs_info *fs_info,
 	};
 	struct extent_buffer *eb;
 	int ret;
+
+	if (first_key) {
+		memcpy(&check.first_key, first_key, sizeof(struct btrfs_key));
+		check.has_first_key = true;
+	}
 
 	eb = btrfs_find_create_tree_block(fs_info, bytenr, owner_root, level);
 	if (IS_ERR(eb))
@@ -4677,9 +4683,13 @@ void btrfs_readahead_tree_block(struct btrfs_fs_info *fs_info,
  */
 void btrfs_readahead_node_child(struct extent_buffer *node, int slot)
 {
+	struct btrfs_key node_key;
+
+	btrfs_node_key_to_cpu(node, &node_key, slot);
 	btrfs_readahead_tree_block(node->fs_info,
 				   btrfs_node_blockptr(node, slot),
 				   btrfs_header_owner(node),
 				   btrfs_node_ptr_generation(node, slot),
-				   btrfs_header_level(node) - 1);
+				   btrfs_header_level(node) - 1,
+				   &node_key);
 }

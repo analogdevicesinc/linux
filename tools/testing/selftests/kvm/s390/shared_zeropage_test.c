@@ -13,7 +13,7 @@
 #include "kselftest.h"
 #include "ucall_common.h"
 
-static void set_storage_key(void *addr, uint8_t skey)
+static void set_storage_key(void *addr, u8 skey)
 {
 	asm volatile("sske %0,%1" : : "d" (skey), "a" (addr));
 }
