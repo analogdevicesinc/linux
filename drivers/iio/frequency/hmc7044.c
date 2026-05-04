@@ -221,6 +221,8 @@
 #define HMC7044_LOW_VCO_MAX	2880000
 #define HMC7044_HIGH_VCO_MIN	2650000
 #define HMC7044_HIGH_VCO_MAX	3200000
+#define HMC7044_RECOMM_VCO_MIN	2400000
+#define HMC7044_RECOMM_VCO_MAX	3200000
 
 #define HMC7044_RECOMM_LCM_MIN	30000
 #define HMC7044_RECOMM_LCM_MAX	70000
@@ -271,9 +273,16 @@ struct hmc7044_output {
 
 #define to_output(_hw) container_of(_hw, struct hmc7044_output, hw)
 
+struct hmc7044_pll2_config {
+	bool		pll2_freq_doubler_en;
+	unsigned long	n2;
+	unsigned long	r2;
+};
+
 struct hmc7044_chan_spec {
 	unsigned int		num;
 	bool			disable;
+	bool			mute;
 	bool			high_performance_mode_dis;
 	bool			start_up_mode_dynamic_enable;
 	bool			dynamic_driver_enable;
@@ -286,6 +295,8 @@ struct hmc7044_chan_spec {
 	unsigned int		fine_delay;
 	unsigned int		out_mux_mode;
 	const char		*extended_name;
+	bool			set_rate_parent;
+	unsigned int		max_deviation_ppm;
 };
 
 struct hmc7044 {
@@ -326,6 +337,8 @@ struct hmc7044 {
 	struct iio_chan_spec		iio_channels[HMC7044_NUM_CHAN];
 	struct hmc7044_output		outputs[HMC7044_NUM_CHAN];
 	struct clk			*clks[HMC7044_NUM_CHAN];
+	struct clk			*pll2_clk;
+	struct hmc7044_output		pll2_output;
 	struct clk_onecell_data		clk_data;
 	struct clk			*clk_input[4];
 	struct mutex			lock;
@@ -348,6 +361,8 @@ static const char * const hmc7044_input_clk_names[] = {
 	[2] = "clkin2",
 	[3] = "clkin3",
 };
+
+static int hmc7044_setup(struct iio_dev *indio_dev);
 
 static int hmc7044_write(struct iio_dev *indio_dev,
 			 unsigned int reg,
@@ -469,7 +484,10 @@ static int hmc7044_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
-		*val = hmc->pll2_freq / ch->divider;
+		if (ch->mute)
+			*val = 0;
+		else
+			*val = hmc->pll2_freq / ch->divider;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		hmc7044_read(indio_dev, HMC7044_REG_CH_OUT_CRTL_4(ch->num),
@@ -493,6 +511,7 @@ static int hmc7044_write_raw(struct iio_dev *indio_dev,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *ch;
 	unsigned int code, tmp;
+	long round_rate;
 
 	if (chan->address >= hmc->num_channels)
 		return -EINVAL;
@@ -501,14 +520,10 @@ static int hmc7044_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_FREQUENCY:
-		ch->divider = hmc7044_calc_out_div(hmc->pll2_freq, val);
-		mutex_lock(&hmc->lock);
-		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(ch->num),
-			      HMC7044_DIV_LSB(ch->divider));
-		hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(ch->num),
-			      HMC7044_DIV_MSB(ch->divider));
-		mutex_unlock(&hmc->lock);
-		break;
+		round_rate = clk_round_rate(hmc->clks[ch->num], val);
+		if (round_rate < 0)
+			return -EINVAL;
+		return clk_set_rate(hmc->clks[ch->num], val);
 	case IIO_CHAN_INFO_PHASE:
 		mutex_lock(&hmc->lock);
 		code = val * 1000000 + val2 % 1000000;
@@ -783,28 +798,112 @@ static long hmc7044_get_clk_attr(struct clk_hw *hw,
 	return ret;
 }
 
-static long hmc7044_set_clk_attr(struct clk_hw *hw,
-				 long mask,
-				 unsigned long val)
+static unsigned long hmc7044_pll2_recalc_rate(unsigned long vcxo_freq,
+					      unsigned long pll2_freq,
+					      bool force_r2_eq_1,
+					      struct hmc7044_pll2_config *pll2)
 {
-	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
-	struct hmc7044 *hmc = iio_priv(indio_dev);
-	struct iio_chan_spec *chan;
-	unsigned int address;
+	bool freq_doubler_en;
+	unsigned long n2[2], r2[2];
+	unsigned long pll2_act;
+	unsigned long r2_max;
 
-	address = to_output(hw)->address;
-	if (address >= hmc->num_channels)
-		return -EINVAL;
+	vcxo_freq = vcxo_freq / 1000;
+	pll2_freq = pll2_freq / 1000;
 
-	chan = &hmc->iio_channels[address];
+	if (pll2_freq < HMC7044_LOW_VCO_MIN  ||
+	    pll2_freq > HMC7044_HIGH_VCO_MAX)
+		return 0;
 
-	return hmc7044_write_raw(indio_dev, chan, val, 0, mask);
+	r2_max = force_r2_eq_1 ? 1 : HMC7044_R2_MAX;
+
+	/* fVCO / N2 = fVCXO * doubler / R2 */
+	freq_doubler_en = true;
+	rational_best_approximation(pll2_freq, vcxo_freq * 2,
+				    HMC7044_N2_MAX, r2_max,
+				    &n2[0], &r2[0]);
+
+	if (pll2_freq != vcxo_freq * n2[0] / r2[0]) {
+		rational_best_approximation(pll2_freq, vcxo_freq,
+					    HMC7044_N2_MAX, r2_max,
+					    &n2[1], &r2[1]);
+
+		if (abs((int)pll2_freq - (int)(vcxo_freq * 2 * n2[0] / r2[0])) >
+		    abs((int)pll2_freq - (int)(vcxo_freq * n2[1] / r2[1]))) {
+			n2[0] = n2[1];
+			r2[0] = r2[1];
+			freq_doubler_en = false;
+		}
+	}
+
+	while ((n2[0] < HMC7044_N2_MIN) && (r2[0] <= HMC7044_R2_MAX / 2)) {
+		n2[0] *= 2;
+		r2[0] *= 2;
+	}
+	if (n2[0] < HMC7044_N2_MIN)
+		return 0;
+
+	if (pll2) {
+		pll2->n2 = n2[0];
+		pll2->r2 = r2[0];
+		pll2->pll2_freq_doubler_en = freq_doubler_en;
+	}
+
+	pll2_act = vcxo_freq * n2[0] / r2[0];
+	if (freq_doubler_en)
+		pll2_act *= 2;
+
+	return pll2_act * 1000;
 }
 
 static unsigned long hmc7044_clk_recalc_rate(struct clk_hw *hw,
 					     unsigned long parent_rate)
 {
+	struct hmc7044_output *out = to_output(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+
+	if (out->address == hmc->pll2_output.address)
+		return hmc->pll2_freq;
+
 	return hmc7044_get_clk_attr(hw, IIO_CHAN_INFO_FREQUENCY);
+}
+
+static int hmc7044_verify_deviation(struct clk_hw *hw,
+				    unsigned long pll2_candidate)
+{
+	struct hmc7044_output *out = to_output(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	int ret = 0;
+	int i;
+
+	mutex_lock(&hmc->lock);
+	for (i = 0; i < hmc->num_channels; i++) {
+		struct hmc7044_chan_spec *ch = &hmc->channels[i];
+		unsigned int div;
+		unsigned long current_rate;
+		unsigned long candidate_rate;
+		unsigned int deviation_ppm;
+
+		if (out->address == i || ch->mute || ch->disable)
+			continue;
+
+		current_rate = hmc->pll2_freq / ch->divider;
+		div = hmc7044_calc_out_div(pll2_candidate, current_rate);
+		candidate_rate = DIV_ROUND_CLOSEST(pll2_candidate, div);
+		deviation_ppm = abs(current_rate - candidate_rate) *
+				1000000 / current_rate;
+		if (deviation_ppm > ch->max_deviation_ppm) {
+			dev_err(&hmc->spi->dev,
+				 "Rejecting PLL2 freq. change to %lu Hz due to output %u deviation %u ppm\n",
+				 pll2_candidate, ch->num, deviation_ppm);
+			ret = -EINVAL;
+			break;
+		}
+	}
+	mutex_unlock(&hmc->lock);
+	return ret;
 }
 
 static long hmc7044_clk_round_rate(struct clk_hw *hw,
@@ -814,39 +913,148 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	struct hmc7044_output *out = to_output(hw);
 	struct iio_dev *indio_dev = out->indio_dev;
 	struct hmc7044 *hmc = iio_priv(indio_dev);
-	unsigned int div;
+	unsigned long min_dev;
+	unsigned int div, div_avail, div_out;
+	unsigned long oldrate, newrate;
+	unsigned long vcxo_freq;
+	unsigned long rate_best = 0;
+	unsigned long vco_best = 0;
+	bool found = false;
 
+	if (!rate)
+		return 0;
+
+	mutex_lock(&hmc->lock);
+	vcxo_freq = hmc->vcxo_freq;
 	div = hmc7044_calc_out_div(hmc->pll2_freq, rate);
+	oldrate = DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+	mutex_unlock(&hmc->lock);
 
-	return DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
-}
+	if (out->address == hmc->pll2_output.address)
+		return hmc7044_pll2_recalc_rate(vcxo_freq, rate,
+						hmc->sync_through_pll2_force_r2_eq_1, NULL);
 
-static int hmc7044_clk_determine_rate(struct clk_hw *hw,
-				      struct clk_rate_request *req)
-{
-	struct hmc7044_output *out = to_output(hw);
-	struct iio_dev *indio_dev = out->indio_dev;
-	struct hmc7044 *hmc = iio_priv(indio_dev);
-	unsigned int div;
+	if (oldrate == rate)
+		return rate;
 
-	div = hmc7044_calc_out_div(hmc->pll2_freq, req->rate);
+	/* don't propagate rate change to parent*/
+	if (!(clk_hw_get_flags(hw) & CLK_SET_RATE_PARENT))
+		return oldrate;
 
-	req->rate = DIV_ROUND_CLOSEST(hmc->pll2_freq, div);
+	min_dev = hmc->channels[out->address].max_deviation_ppm;
 
-	return 0;
+	/* find the best parent rate or fail */
+	for (div = HMC7044_OUT_DIV_MIN; div <= HMC7044_OUT_DIV_MAX; div++) {
+		unsigned long vco_freq;
+		unsigned long deviation_ppm;
+		int ret;
+
+		vco_freq = rate * div;
+		if (vco_freq < (HMC7044_RECOMM_VCO_MIN * 1000UL))
+			continue;
+		if (vco_freq > (HMC7044_RECOMM_VCO_MAX * 1000UL))
+			break;
+
+		div_avail = hmc7044_calc_out_div(vco_freq, rate);
+		if (div != div_avail)
+			continue;
+
+		/* get achievable freq. */
+		vco_freq = hmc7044_pll2_recalc_rate(vcxo_freq, vco_freq,
+						    hmc->sync_through_pll2_force_r2_eq_1, NULL);
+		div_out = hmc7044_calc_out_div(vco_freq, rate);
+		newrate = DIV_ROUND_CLOSEST(vco_freq, div_out);
+
+		ret = hmc7044_verify_deviation(hw, vco_freq);
+		if (ret < 0)
+			continue;
+
+		if (newrate == rate) {
+			*parent_rate = vco_freq;
+			return newrate;
+		}
+
+		deviation_ppm = abs(rate - newrate) *
+				1000000 / rate;
+
+		if (deviation_ppm < min_dev) {
+			min_dev = deviation_ppm;
+			vco_best = vco_freq;
+			rate_best = newrate;
+			found = true;
+		}
+	}
+
+	if (found) {
+		*parent_rate = vco_best;
+		return rate_best;
+	}
+
+	return -EINVAL;
 }
 
 static int hmc7044_clk_set_rate(struct clk_hw *hw,
 				unsigned long rate,
 				unsigned long parent_rate)
 {
-	return hmc7044_set_clk_attr(hw, IIO_CHAN_INFO_FREQUENCY, rate);
+	struct hmc7044_output *out = to_output(hw);
+	struct iio_dev *indio_dev = out->indio_dev;
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	struct hmc7044_chan_spec *ch;
+	unsigned int address;
+	unsigned int val;
+	int ret = 0;
+
+	address = to_output(hw)->address;
+
+	if (address == hmc->pll2_output.address) {
+		mutex_lock(&hmc->lock);
+		/* request rate, setup() will update pll2_freq if not usable */
+		hmc->pll2_freq = rate;
+		ret = hmc7044_setup(indio_dev);
+		mutex_unlock(&hmc->lock);
+		return ret;
+	}
+
+	if (address >= hmc->num_channels)
+		return -EINVAL;
+
+	ch = &hmc->channels[address];
+
+	mutex_lock(&hmc->lock);
+	ret = hmc7044_read(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(ch->num),
+		     &val);
+	if (ret)
+		goto out;
+
+	val &= ~HMC7044_CH_EN;
+	ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_0(ch->num),
+		     val | (rate ? HMC7044_CH_EN : 0));
+	if (ret)
+		goto out;
+
+	ch->mute = !rate;
+
+	if (!rate) {
+		mutex_unlock(&hmc->lock);
+		return 0;
+	}
+
+	ch->divider = hmc7044_calc_out_div(hmc->pll2_freq, rate);
+	ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_1(ch->num),
+		      HMC7044_DIV_LSB(ch->divider));
+	if (ret)
+		goto out;
+	ret = hmc7044_write(indio_dev, HMC7044_REG_CH_OUT_CRTL_2(ch->num),
+		      HMC7044_DIV_MSB(ch->divider));
+out:
+	mutex_unlock(&hmc->lock);
+	return ret;
 }
 
 static const struct clk_ops hmc7044_clk_ops = {
 	.recalc_rate = hmc7044_clk_recalc_rate,
 	.round_rate = hmc7044_clk_round_rate,
-	.determine_rate = hmc7044_clk_determine_rate,
 	.set_rate = hmc7044_clk_set_rate,
 };
 
@@ -858,10 +1066,15 @@ static int hmc7044_clk_register(struct iio_dev *indio_dev,
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct clk_init_data init;
 	struct clk *clk;
+	unsigned long flags;
+
+	flags = CLK_GET_RATE_NOCACHE;
+	if (hmc->channels[address].set_rate_parent)
+		flags |= CLK_SET_RATE_PARENT;
 
 	init.name = hmc->clk_out_names[num];
 	init.ops = &hmc7044_clk_ops;
-	init.flags = 0;
+	init.flags = flags;
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
 
@@ -874,6 +1087,32 @@ static int hmc7044_clk_register(struct iio_dev *indio_dev,
 		return PTR_ERR(clk);
 
 	hmc->clks[num] = clk;
+
+	return 0;
+}
+
+static int hmc7044_pll2_register(struct iio_dev *indio_dev,
+				 const char *parent_name)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	struct clk_init_data init;
+	struct clk *clk;
+
+	init.name = "hmc7044_pll2";
+	init.ops = &hmc7044_clk_ops;
+	init.flags = CLK_GET_RATE_NOCACHE;
+	init.parent_names = (parent_name ? &parent_name : NULL);
+	init.num_parents = (parent_name ? 1 : 0);
+
+	hmc->pll2_output.hw.init = &init;
+	hmc->pll2_output.indio_dev = indio_dev;
+	hmc->pll2_output.address = HMC7044_NUM_CHAN;
+
+	clk = devm_clk_register(&hmc->spi->dev, &hmc->pll2_output.hw);
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
+
+	hmc->pll2_clk = clk;
 
 	return 0;
 }
@@ -944,12 +1183,70 @@ static void hcm7044_clk_del_provider(void *dev)
 	of_clk_del_provider(spi->dev.of_node);
 }
 
+static int hmc704x_register_clocks(struct iio_dev *indio_dev)
+{
+	struct hmc7044 *hmc = iio_priv(indio_dev);
+	struct hmc7044_chan_spec *chan;
+	int i, ret;
+	unsigned int parent_clkin;
+	const char *parent_name;
+
+	if (hmc->device_id == HMC7044) {
+		/* Get active clkin */
+		if (!hmc->clkin1_vcoin_en) {
+			u32 pll1_stat;
+
+			ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
+			if (ret < 0)
+				return ret;
+
+			parent_clkin = HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat);
+		} else {
+			parent_clkin = 1; /* CLKIN1 */
+		}
+
+		ret = hmc7044_pll2_register(indio_dev,
+					    __clk_get_name(hmc->clk_input[parent_clkin]));
+		if (ret)
+			return ret;
+
+		parent_name = __clk_get_name(hmc->pll2_clk);
+	} else {
+		parent_clkin = 0;
+		parent_name = __clk_get_name(hmc->clk_input[parent_clkin]);
+		hmc->pll2_output.address = UINT_MAX; /* Not used */
+	}
+
+	for (i = 0; i < hmc->num_channels; i++) {
+		chan = &hmc->channels[i];
+
+		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
+			continue;
+
+		ret = hmc7044_clk_register(indio_dev, chan->num, i, parent_name);
+		if (ret)
+			return ret;
+	}
+
+	hmc->clk_data.clks = hmc->clks;
+	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
+
+	ret = of_clk_add_provider(hmc->spi->dev.of_node,
+				  of_clk_src_onecell_get,
+				  &hmc->clk_data);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(&hmc->spi->dev,
+					hcm7044_clk_del_provider, hmc->spi);
+}
+
 static int hmc7044_setup(struct iio_dev *indio_dev)
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
 	struct hmc7044_chan_spec *chan;
+	struct hmc7044_pll2_config pll2;
 	bool high_vco_en;
-	bool pll2_freq_doubler_en;
 	unsigned long vcxo_freq, pll2_freq;
 	unsigned long clkin_freq[4];
 	unsigned long lcm_freq;
@@ -959,8 +1256,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	unsigned long n, r;
 	unsigned long pfd1_freq;
 	unsigned long vco_limit;
-	unsigned long n2[2], r2[2];
-	unsigned int i, c, ref_en = 0;
+	unsigned int i, ref_en = 0;
 	int ret;
 
 	vcxo_freq = hmc->vcxo_freq / 1000;
@@ -1040,32 +1336,9 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	else
 		high_vco_en = false;
 
-	/* fVCO / N2 = fVCXO * doubler / R2 */
-	pll2_freq_doubler_en = true;
-	rational_best_approximation(pll2_freq, vcxo_freq * 2,
-				    HMC7044_N2_MAX,
-				    hmc->sync_through_pll2_force_r2_eq_1 ? 1 : HMC7044_R2_MAX,
-				    &n2[0], &r2[0]);
-
-	if (pll2_freq != vcxo_freq * n2[0] / r2[0]) {
-		rational_best_approximation(pll2_freq, vcxo_freq,
-					    HMC7044_N2_MAX,
-					    hmc->sync_through_pll2_force_r2_eq_1 ? 1 : HMC7044_R2_MAX,
-					    &n2[1], &r2[1]);
-
-		if (abs((int)pll2_freq - (int)(vcxo_freq * 2 * n2[0] / r2[0])) >
-		    abs((int)pll2_freq - (int)(vcxo_freq * n2[1] / r2[1]))) {
-			n2[0] = n2[1];
-			r2[0] = r2[1];
-			pll2_freq_doubler_en = false;
-		}
-	}
-
-	while ((n2[0] < HMC7044_N2_MIN) && (r2[0] <= HMC7044_R2_MAX / 2)) {
-		n2[0] *= 2;
-		r2[0] *= 2;
-	}
-	if (n2[0] < HMC7044_N2_MIN)
+	ret = hmc7044_pll2_recalc_rate(hmc->vcxo_freq, hmc->pll2_freq,
+				       hmc->sync_through_pll2_force_r2_eq_1, &pll2);
+	if (ret == 0)
 		return -EINVAL;
 
 	/* Resets all registers to default values */
@@ -1156,25 +1429,25 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 
 	/* Program the dividers */
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_R_LSB,
-		      HMC7044_R2_LSB(r2[0]));
+		      HMC7044_R2_LSB(pll2.r2));
 	if (ret)
 		return ret;
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_R_MSB,
-		      HMC7044_R2_MSB(r2[0]));
+		      HMC7044_R2_MSB(pll2.r2));
 	if (ret)
 		return ret;
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_N_LSB,
-		      HMC7044_N2_LSB(n2[0]));
+		      HMC7044_N2_LSB(pll2.n2));
 	if (ret)
 		return ret;
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_N_MSB,
-		      HMC7044_N2_MSB(n2[0]));
+		      HMC7044_N2_MSB(pll2.n2));
 	if (ret)
 		return ret;
 
 	/* Program the reference doubler */
 	ret = hmc7044_write(indio_dev, HMC7044_REG_PLL2_FREQ_DOUBLER,
-		      pll2_freq_doubler_en ? 0 : HMC7044_PLL2_FREQ_DOUBLER_DIS);
+		      pll2.pll2_freq_doubler_en ? 0 : HMC7044_PLL2_FREQ_DOUBLER_DIS);
 	if (ret)
 		return ret;
 	/* Program PLL1 */
@@ -1322,7 +1595,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			      HMC7044_START_UP_MODE_DYN_EN : 0) | BIT(4) |
 			      (chan->high_performance_mode_dis ?
 			      0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
-			      HMC7044_CH_EN);
+			      (chan->mute ? 0 : HMC7044_CH_EN));
 		if (ret)
 			return ret;
 		hmc->iio_channels[i].type = IIO_ALTVOLTAGE;
@@ -1354,33 +1627,6 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	if (!hmc->clkin1_vcoin_en) {
-		u32 pll1_stat;
-
-		ret = hmc7044_read(indio_dev, HMC7044_REG_PLL1_STATUS, &pll1_stat);
-		if (ret < 0)
-			return ret;
-
-		c = HMC7044_PLL1_ACTIVE_CLKIN(pll1_stat);
-	} else {
-		c = 1; /* CLKIN1 */
-	}
-
-	for (i = 0; i < hmc->num_channels; i++) {
-		chan = &hmc->channels[i];
-
-		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
-			continue;
-
-		ret = hmc7044_clk_register(indio_dev, chan->num, i,
-					   __clk_get_name(hmc->clk_input[c]));
-		if (ret)
-			return ret;
-	}
-
-	hmc->clk_data.clks = hmc->clks;
-	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
-
 	if (hmc->oscout_path_en) {
 		ret = hmc7044_write(indio_dev, HMC7044_REG_OSCOUT_PATH,
 				    HMC7044_OSCOUT_DIVIDER(hmc->oscout_divider_ratio) |
@@ -1407,17 +1653,7 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 			return ret;
 	}
 
-	ret = hmc7044_info(indio_dev);
-	if (ret)
-		return ret;
-
-	ret = of_clk_add_provider(hmc->spi->dev.of_node,
-				  of_clk_src_onecell_get,
-				  &hmc->clk_data);
-	if (ret)
-		return ret;
-
-	return devm_add_action_or_reset(&hmc->spi->dev, hcm7044_clk_del_provider, hmc->spi);
+	return hmc7044_info(indio_dev);
 }
 
 static int hmc7043_setup(struct iio_dev *indio_dev)
@@ -1554,7 +1790,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 			HMC7044_START_UP_MODE_DYN_EN : 0) | BIT(4) |
 			(chan->high_performance_mode_dis ?
 			0 : HMC7044_HI_PERF_MODE) | HMC7044_SYNC_EN |
-			HMC7044_CH_EN);
+			(chan->mute ? 0 : HMC7044_CH_EN));
 		if (ret)
 			return ret;
 
@@ -1587,32 +1823,7 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < hmc->num_channels; i++) {
-		chan = &hmc->channels[i];
-
-		if (chan->num >= HMC7044_NUM_CHAN || chan->disable)
-			continue;
-
-		ret = hmc7044_clk_register(indio_dev, chan->num, i,
-			__clk_get_name(hmc->clk_input[0]));
-		if (ret)
-			return ret;
-	}
-
-	hmc->clk_data.clks = hmc->clks;
-	hmc->clk_data.clk_num = HMC7044_NUM_CHAN;
-
-	ret = hmc7044_info(indio_dev);
-	if (ret)
-		return ret;
-
-	ret = of_clk_add_provider(hmc->spi->dev.of_node,
-				  of_clk_src_onecell_get,
-				  &hmc->clk_data);
-	if (ret)
-		return ret;
-
-	return devm_add_action_or_reset(&hmc->spi->dev, hcm7044_clk_del_provider, hmc->spi);
+	return hmc7044_info(indio_dev);
 }
 
 static int hmc7044_parse_dt(struct device *dev,
@@ -1850,7 +2061,11 @@ static int hmc7044_parse_dt(struct device *dev,
 				     &hmc->channels[cnt].out_mux_mode);
 		hmc->channels[cnt].is_sysref =
 			of_property_read_bool(chan_np,"adi,jesd204-sysref-chan");
-
+		hmc->channels[cnt].set_rate_parent =
+			of_property_read_bool(chan_np, "adi,set-rate-parent");
+		hmc->channels[cnt].max_deviation_ppm = UINT_MAX;
+		of_property_read_u32(chan_np, "adi,max-deviation-ppm",
+				     &hmc->channels[cnt].max_deviation_ppm);
 		cnt++;
 	}
 
@@ -1973,7 +2188,8 @@ static int hmc7044_continuous_chan_sync_enable(struct iio_dev *indio_dev, bool e
 			      (chan->high_performance_mode_dis ?
 			      0 : HMC7044_HI_PERF_MODE) |
 			      ((enable || chan->start_up_mode_dynamic_enable) ?
-			      HMC7044_SYNC_EN : 0) | HMC7044_CH_EN);
+			      HMC7044_SYNC_EN : 0) |
+			      (chan->mute ? 0 : HMC7044_CH_EN));
 		if (ret < 0)
 			return ret;
 	}
@@ -2413,6 +2629,10 @@ static int hmc7044_probe(struct spi_device *spi)
 	else
 		ret = hmc7043_setup(indio_dev);
 
+	if (ret)
+		return ret;
+
+	ret = hmc704x_register_clocks(indio_dev);
 	if (ret)
 		return ret;
 
