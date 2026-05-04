@@ -15,7 +15,7 @@ static volatile bool handled;
 
 #define __check_sr_read(r)					\
 	({							\
-		uint64_t val;					\
+		u64 val;					\
 								\
 		handled = false;				\
 		dsb(sy);					\
@@ -33,7 +33,7 @@ static volatile bool handled;
 
 #define __check_gicv5_gicr_op(r)				\
 	({							\
-		uint64_t val;					\
+		u64 val;					\
 								\
 		handled = false;				\
 		dsb(sy);					\
@@ -82,7 +82,7 @@ static volatile bool handled;
 
 static void guest_code_gicv3(void)
 {
-	uint64_t val;
+	u64 val;
 
 	/*
 	 * Check that we advertise that ID_AA64PFR0_EL1.GIC == 0, having
@@ -262,7 +262,7 @@ int main(int argc, char *argv[])
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
 	bool has_v3, has_v5;
-	uint64_t pfr;
+	u64 pfr;
 
 	test_disable_default_vgic();
 

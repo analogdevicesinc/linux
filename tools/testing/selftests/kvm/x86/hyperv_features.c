@@ -22,27 +22,27 @@
 	KVM_X86_CPU_FEATURE(HYPERV_CPUID_ENLIGHTMENT_INFO, 0, EBX, 0)
 
 struct msr_data {
-	uint32_t idx;
+	u32 idx;
 	bool fault_expected;
 	bool write;
 	u64 write_val;
 };
 
 struct hcall_data {
-	uint64_t control;
-	uint64_t expect;
+	u64 control;
+	u64 expect;
 	bool ud_expected;
 };
 
-static bool is_write_only_msr(uint32_t msr)
+static bool is_write_only_msr(u32 msr)
 {
 	return msr == HV_X64_MSR_EOI;
 }
 
 static void guest_msr(struct msr_data *msr)
 {
-	uint8_t vector = 0;
-	uint64_t msr_val = 0;
+	u8 vector = 0;
+	u64 msr_val = 0;
 
 	GUEST_ASSERT(msr->idx);
 
@@ -82,10 +82,10 @@ done:
 	GUEST_DONE();
 }
 
-static void guest_hcall(vm_vaddr_t pgs_gpa, struct hcall_data *hcall)
+static void guest_hcall(gpa_t pgs_gpa, struct hcall_data *hcall)
 {
 	u64 res, input, output;
-	uint8_t vector;
+	u8 vector;
 
 	GUEST_ASSERT_NE(hcall->control, 0);
 
@@ -134,14 +134,14 @@ static void guest_test_msrs_access(void)
 	struct kvm_vm *vm;
 	struct ucall uc;
 	int stage = 0;
-	vm_vaddr_t msr_gva;
+	gva_t msr_gva;
 	struct msr_data *msr;
 	bool has_invtsc = kvm_cpu_has(X86_FEATURE_INVTSC);
 
 	while (true) {
 		vm = vm_create_with_one_vcpu(&vcpu, guest_msr);
 
-		msr_gva = vm_vaddr_alloc_page(vm);
+		msr_gva = vm_alloc_page(vm);
 		memset(addr_gva2hva(vm, msr_gva), 0x0, getpagesize());
 		msr = addr_gva2hva(vm, msr_gva);
 
@@ -523,17 +523,17 @@ static void guest_test_hcalls_access(void)
 	struct kvm_vm *vm;
 	struct ucall uc;
 	int stage = 0;
-	vm_vaddr_t hcall_page, hcall_params;
+	gva_t hcall_page, hcall_params;
 	struct hcall_data *hcall;
 
 	while (true) {
 		vm = vm_create_with_one_vcpu(&vcpu, guest_hcall);
 
 		/* Hypercall input/output */
-		hcall_page = vm_vaddr_alloc_pages(vm, 2);
+		hcall_page = vm_alloc_pages(vm, 2);
 		memset(addr_gva2hva(vm, hcall_page), 0x0, 2 * getpagesize());
 
-		hcall_params = vm_vaddr_alloc_page(vm);
+		hcall_params = vm_alloc_page(vm);
 		memset(addr_gva2hva(vm, hcall_params), 0x0, getpagesize());
 		hcall = addr_gva2hva(vm, hcall_params);
 

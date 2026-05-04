@@ -127,6 +127,21 @@ static inline unsigned int net_iov_idx(const struct net_iov *niov)
 	return niov - net_iov_owner(niov)->niovs;
 }
 
+/* Initialize a niov: stamp the owning area, the memory provider type,
+ * and the page_type "no type" sentinel expected by the page-type API
+ * (see PAGE_TYPE_OPS in <linux/page-flags.h>) so that
+ * page_pool_set_pp_info() can later call __SetPageNetpp() on a niov
+ * cast to struct page.
+ */
+static inline void net_iov_init(struct net_iov *niov,
+				struct net_iov_area *owner,
+				enum net_iov_type type)
+{
+	niov->owner = owner;
+	niov->type = type;
+	niov->page_type = UINT_MAX;
+}
+
 /* netmem */
 
 /**

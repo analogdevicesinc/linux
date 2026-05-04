@@ -20,6 +20,7 @@
 
 #include <linux/err.h>
 #include <linux/errno.h>
+#include <linux/irq_work.h>
 #include <linux/jhash.h>
 #include <linux/list_nulls.h>
 #include <linux/workqueue.h>
@@ -821,14 +822,15 @@ slow_path:
 		goto out;
 	}
 
-	if (elasticity <= 0)
+	if (elasticity <= 0 && !params.insecure_elasticity)
 		goto slow_path;
 
 	data = ERR_PTR(-E2BIG);
 	if (unlikely(rht_grow_above_max(ht, tbl)))
 		goto out_unlock;
 
-	if (unlikely(rht_grow_above_100(ht, tbl)))
+	if (unlikely(rht_grow_above_100(ht, tbl)) &&
+	    !params.insecure_elasticity)
 		goto slow_path;
 
 	/* Inserting at head of list makes unlocking free. */
@@ -846,7 +848,7 @@ slow_path:
 	rht_assign_unlock(tbl, bkt, obj, flags);
 
 	if (rht_grow_above_75(ht, tbl))
-		schedule_work(&ht->run_work);
+		irq_work_queue(&ht->run_irq_work);
 
 	data = NULL;
 out:
