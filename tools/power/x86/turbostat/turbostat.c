@@ -528,7 +528,7 @@ unsigned int valid_rapl_msrs;
 unsigned int summary_only;
 unsigned int list_header_only;
 unsigned int dump_only;
-unsigned int force_load;
+bool force_load;
 unsigned int cpuid_has_aperf_mperf;
 unsigned int cpuid_has_hv;
 unsigned int has_aperf_access;
@@ -1426,7 +1426,7 @@ void probe_platform_features(unsigned int family, unsigned int model)
 
 	if (authentic_amd || hygon_genuine) {
 		/* fallback to default features on unsupported models */
-		force_load++;
+		force_load = true;
 		if (max_extended_level >= 0x80000007) {
 			unsigned int eax, ebx, ecx, edx;
 
@@ -1449,7 +1449,7 @@ void probe_platform_features(unsigned int family, unsigned int model)
 	}
 
 end:
-	if (force_load && !platform) {
+	if ((force_load == true) && !platform) {
 		fprintf(outf, "Forced to run on unsupported platform!\n");
 		platform = &default_features;
 	}
@@ -11562,7 +11562,7 @@ void cmdline(int argc, char **argv)
 			bic_lookup(&bic_enabled, optarg, SHOW_LIST);
 			break;
 		case 'f':
-			force_load++;
+			force_load = true;
 			break;
 		case 'd':
 			debug++;
