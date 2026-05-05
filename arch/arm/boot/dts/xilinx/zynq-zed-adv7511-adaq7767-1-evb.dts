@@ -6,8 +6,8 @@
  * hdl_project: <ad77681evb/zed>
  * board_revision: <B>
  *
- * Copyright (C) 2020 Analog Devices Inc.
-*/
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zed.dtsi"
@@ -42,7 +42,7 @@
 };
 
 &fpga_axi {
-	rx_dma: dma-controller@44a30000 {
+	rx_dma: rx-dmac@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
@@ -51,12 +51,12 @@
 		clocks = <&clkc 16>;
 	};
 
-	spi_clock: spi-clock-controller@44a70000 {
+	spi_clock: spieng-axi-clkgen@44a70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a70000 0x10000>;
 		#clock-cells = <0>;
 		clocks = <&clkc 15>, <&clkc 16>;
-		clock-names = "clkin1", "s_axi_aclk";
+		clock-names = "s_axi_aclk", "clkin1";
 	};
 
 	axi_spi_engine_0: spi@44a00000 {
@@ -65,18 +65,19 @@
 		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15 &spi_clock>;
-		clock-names = "s_axi_aclk", "spi_clk";
-		num-cs = <1>;
 
-		trigger-sources = <&ad7768_1 AD7768_TRIGGER_SOURCE_DRDY>;
+		trigger-sources = <&adaq7767_1 AD7768_TRIGGER_SOURCE_DRDY>;
 		dmas = <&rx_dma 0>;
 		dma-names = "offload0-rx";
+
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
 
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
-		ad7768_1: adc@0 {
-			compatible = "adi,ad7768-1";
+		adaq7767_1: adc@0 {
+			compatible = "adi,adaq7767-1";
 			reg = <0>;
 			spi-max-frequency = <20000000>;
 			spi-cpol;
@@ -85,19 +86,17 @@
 			gpio-controller;
 			interrupts = <93 IRQ_TYPE_EDGE_RISING>;
 			interrupt-parent = <&gpio0>;
-			trigger-sources = <&sync_trigger>;
+			adi,aaf-gain-bp = <10000>;
+			#trigger-source-cells = <1>;
+
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 			clocks = <&ad7768_1_mclk>;
 			clock-names = "mclk";
-			#trigger-source-cells = <1>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
 			#io-channel-cells = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			regulators {
-				vcm_reg: vcm-output {
-					regulator-name = "ad7768-1-vcm";
-				};
-			};
 
 			channel@0 {
 				reg = <0>;
