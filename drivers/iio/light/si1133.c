@@ -8,6 +8,7 @@
 
 #include <linux/array_size.h>
 #include <linux/bitops.h>
+#include <linux/cleanup.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
 #include <linux/dev_printk.h>
@@ -396,7 +397,7 @@ static int si1133_command(struct si1133_data *data, u8 cmd)
 	int err;
 	int expected_seq;
 
-	mutex_lock(&data->mutex);
+	guard(mutex)(&data->mutex);
 
 	expected_seq = (data->rsp_seq + 1) & SI1133_MAX_CMD_CTR;
 
@@ -413,7 +414,7 @@ static int si1133_command(struct si1133_data *data, u8 cmd)
 	if (err) {
 		dev_warn(dev, "Failed to write command 0x%02x, ret=%d\n", cmd,
 			 err);
-		goto out;
+		return err;
 	}
 
 	if (cmd == SI1133_CMD_FORCE) {
@@ -421,12 +422,11 @@ static int si1133_command(struct si1133_data *data, u8 cmd)
 		timeout = msecs_to_jiffies(SI1133_COMPLETION_TIMEOUT_MS);
 		if (!wait_for_completion_timeout(&data->completion, timeout)) {
 			regmap_write(data->regmap, SI1133_REG_IRQ_ENABLE, 0);
-			err = -ETIMEDOUT;
-			goto out;
+			return -ETIMEDOUT;
 		}
 		err = regmap_read(data->regmap, SI1133_REG_RESPONSE0, &resp);
 		if (err)
-			goto out;
+			return err;
 	} else {
 		err = regmap_read_poll_timeout(data->regmap,
 					       SI1133_REG_RESPONSE0, resp,
@@ -444,7 +444,7 @@ static int si1133_command(struct si1133_data *data, u8 cmd)
 			 * counters being out of sync.
 			 */
 			si1133_cmd_reset_counter(data);
-			goto out;
+			return err;
 		}
 	}
 
@@ -454,9 +454,6 @@ static int si1133_command(struct si1133_data *data, u8 cmd)
 	} else {
 		data->rsp_seq = expected_seq;
 	}
-
-out:
-	mutex_unlock(&data->mutex);
 
 	return err;
 }
