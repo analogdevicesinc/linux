@@ -369,6 +369,7 @@ static const struct i2c_device_id cm3232_id[] = {
 	{ "cm3232" },
 	{ }
 };
+MODULE_DEVICE_TABLE(i2c, cm3232_id);
 
 static int cm3232_suspend(struct device *dev)
 {
@@ -399,8 +400,6 @@ static int cm3232_resume(struct device *dev)
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(cm3232_pm_ops, cm3232_suspend, cm3232_resume);
-
-MODULE_DEVICE_TABLE(i2c, cm3232_id);
 
 static const struct of_device_id cm3232_of_match[] = {
 	{.compatible = "capella,cm3232"},
