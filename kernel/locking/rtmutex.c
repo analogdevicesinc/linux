@@ -484,6 +484,7 @@ static __always_inline bool __waiter_less(struct rb_node *a, const struct rb_nod
 
 static __always_inline void
 rt_mutex_enqueue(struct rt_mutex_base *lock, struct rt_mutex_waiter *waiter)
+	__must_hold(&lock->wait_lock)
 {
 	lockdep_assert_held(&lock->wait_lock);
 
@@ -492,6 +493,7 @@ rt_mutex_enqueue(struct rt_mutex_base *lock, struct rt_mutex_waiter *waiter)
 
 static __always_inline void
 rt_mutex_dequeue(struct rt_mutex_base *lock, struct rt_mutex_waiter *waiter)
+	__must_hold(&lock->wait_lock)
 {
 	lockdep_assert_held(&lock->wait_lock);
 
@@ -1092,6 +1094,7 @@ static int __sched rt_mutex_adjust_prio_chain(struct task_struct *task,
 static int __sched
 try_to_take_rt_mutex(struct rt_mutex_base *lock, struct task_struct *task,
 		     struct rt_mutex_waiter *waiter)
+	__must_hold(&lock->wait_lock)
 {
 	lockdep_assert_held(&lock->wait_lock);
 
@@ -1319,6 +1322,7 @@ static int __sched task_blocks_on_rt_mutex(struct rt_mutex_base *lock,
  */
 static void __sched mark_wakeup_next_waiter(struct rt_wake_q_head *wqh,
 					    struct rt_mutex_base *lock)
+	__must_hold(&lock->wait_lock)
 {
 	struct rt_mutex_waiter *waiter;
 
@@ -1479,6 +1483,7 @@ static void __sched rt_mutex_slowunlock(struct rt_mutex_base *lock)
 }
 
 static __always_inline void __rt_mutex_unlock(struct rt_mutex_base *lock)
+	__no_context_analysis
 {
 	if (likely(rt_mutex_cmpxchg_release(lock, current, NULL)))
 		return;
