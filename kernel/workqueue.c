@@ -3212,6 +3212,10 @@ __acquires(&pool->lock)
 	bool bh_draining = pool->flags & POOL_BH_DRAINING;
 #ifdef CONFIG_KCOV
 	unsigned int old_kcov_mode, new_kcov_mode;
+	unsigned int old_in_task, new_in_task;
+	unsigned long old_in_serving_softirq, new_in_serving_softirq;
+	unsigned int old_preempt_count, new_preempt_count;
+	unsigned long old_softirq_count, new_softirq_count;
 #endif
 #ifdef CONFIG_LOCKDEP
 	/*
@@ -3308,10 +3312,18 @@ __acquires(&pool->lock)
 	trace_workqueue_execute_start(work);
 #ifdef CONFIG_KCOV
 	old_kcov_mode = READ_ONCE(current->kcov_mode);
+	old_in_task = in_task();
+	old_in_serving_softirq = in_serving_softirq();
+	old_preempt_count = preempt_count();
+	old_softirq_count = softirq_count();
 #endif
 	worker->current_func(work);
 #ifdef CONFIG_KCOV
 	new_kcov_mode = READ_ONCE(current->kcov_mode);
+	new_in_task = in_task();
+	new_in_serving_softirq = in_serving_softirq();
+	new_preempt_count = preempt_count();
+	new_softirq_count = softirq_count();
 #endif
 	/*
 	 * While we must be careful to not use "work" after this, the trace
@@ -3339,6 +3351,14 @@ __acquires(&pool->lock)
 	if (unlikely((old_kcov_mode & ~(1 << 30)) != (new_kcov_mode & ~(1 << 30))))
 		pr_err("BUG: workqueue function %ps changed kcov_mode from %u to %u\n",
 		       worker->current_func, old_kcov_mode, new_kcov_mode);
+	if (unlikely(old_in_task != new_in_task ||
+		     old_in_serving_softirq != new_in_serving_softirq ||
+		     old_preempt_count != new_preempt_count ||
+		     old_softirq_count != new_softirq_count))
+		pr_err("BUG: comm=%s pid=%d cpu=%d in_task:%u->%u in_serving_softirq:%lu->%lu preempt_count:%u->%u softirq_count:%lu->%lu\n",
+		       current->comm, current->pid, smp_processor_id(),
+		       old_in_task, new_in_task, old_in_serving_softirq, new_in_serving_softirq,
+		       old_preempt_count, new_preempt_count, old_softirq_count, new_softirq_count);
 #endif
 
 	/*
