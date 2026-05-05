@@ -24,7 +24,6 @@ struct sdca_class_drv {
 	struct regmap *dev_regmap;
 	struct sdw_slave *sdw;
 
-	struct sdca_function_data *functions;
 	struct sdca_interrupt_info *irq_info;
 
 	struct mutex regmap_lock;
