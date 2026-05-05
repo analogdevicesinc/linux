@@ -213,7 +213,7 @@ build_allmodconfig() {
 }
 
 build_microblaze() {
-	local exceptions_file="ci/travis/dtb_build_test_exceptions"
+	local exceptions_file="ci/travis/${DEFCONFIG:-adi_mb_defconfig}_compile_exceptions"
 	local err=0
 
 	# Setup standalone compiler
@@ -246,25 +246,10 @@ build_microblaze() {
 	fi
 
 	export CROSS_COMPILE=/opt/microblazeel-xilinx-elf/bin/microblazeel-xilinx-elf-
-	local defconfig
-	local last_defconfig
+	ARCH=microblaze make "${DEFCONFIG:-adi_mb_defconfig}"
 	for file in $DTS_FILES; do
 		if __exceptions_file "$exceptions_file" "$file"; then
 			continue
-		fi
-
-		case "$(echo ${file} | grep -Eo 'ad9084' || echo '')" in
-			ad9084)
-				defconfig="adi_mb_apollo_defconfig"
-				;;
-			*)
-				defconfig="adi_mb_defconfig"
-				;;
-		esac
-
-		if [ "$last_defconfig" != "$defconfig" ]; then
-			ARCH=microblaze make ${defconfig}
-			last_defconfig=$defconfig
 		fi
 
 		dtb_file="simpleImage."
@@ -283,7 +268,8 @@ build_microblaze() {
 }
 
 build_dtb_build_test() {
-	local exceptions_file="ci/travis/dtb_build_test_exceptions"
+	local exceptions_file="${DEFCONFIG:+ci/travis/${DEFCONFIG}_compile_exceptions}"
+	exceptions_file="${exceptions_file:-ci/travis/dtb_build_test_exceptions}"
 	local err=0
 	local defconfig
 	local last_defconfig
@@ -337,14 +323,7 @@ build_dtb_build_test() {
 				defconfig="socfpga_adi_defconfig"
 				;;
 			versal)
-				case "$(echo ${file} | grep -Eo 'ad9084' || echo '')" in
-					ad9084)
-						defconfig="adi_versal_apollo_defconfig"
-						;;
-					*)
-						defconfig="adi_versal_defconfig"
-						;;
-				esac
+				defconfig="${DEFCONFIG:-adi_versal_defconfig}"
 				;;
 			*)
 				echo "Default defconfig will be used."
