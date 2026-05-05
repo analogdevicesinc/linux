@@ -46,6 +46,7 @@
 		done-gpios = <&gpio 115 GPIO_ACTIVE_HIGH>;//37
 		csi-gpios = <&gpio 121 GPIO_ACTIVE_LOW>;//43
 		rdwr-gpios = <&gpio 117 GPIO_ACTIVE_LOW>;//39
+		c2c-reset-gpios = <&gpio 129 GPIO_ACTIVE_HIGH>; //51
 	};
 
 	vu11p_fpga_region: fpga-vu11p {
