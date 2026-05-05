@@ -261,6 +261,7 @@ static void wm_adsp_fw_find_test_find_firmware_byindex(struct kunit *test)
 					  dsp->fw, fw_name, priv->searched_fw_files);
 
 		wm_adsp_free_found_fw(test);
+		memset(priv->searched_fw_files, 0, sizeof(priv->searched_fw_files));
 	}
 }
 
