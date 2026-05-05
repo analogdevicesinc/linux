@@ -766,7 +766,8 @@ static void scx_task_iter_start(struct scx_task_iter *iter, struct cgroup *cgrp)
 		lockdep_assert_held(&cgroup_mutex);
 		iter->cgrp = cgrp;
 		iter->css_pos = css_next_descendant_pre(NULL, &iter->cgrp->self);
-		css_task_iter_start(iter->css_pos, 0, &iter->css_iter);
+		css_task_iter_start(iter->css_pos, CSS_TASK_ITER_WITH_DEAD,
+				    &iter->css_iter);
 		return;
 	}
 #endif
@@ -866,7 +867,8 @@ static struct task_struct *scx_task_iter_next(struct scx_task_iter *iter)
 			iter->css_pos = css_next_descendant_pre(iter->css_pos,
 								&iter->cgrp->self);
 			if (iter->css_pos)
-				css_task_iter_start(iter->css_pos, 0, &iter->css_iter);
+				css_task_iter_start(iter->css_pos, CSS_TASK_ITER_WITH_DEAD,
+						    &iter->css_iter);
 		}
 		return NULL;
 	}
@@ -926,16 +928,27 @@ static struct task_struct *scx_task_iter_next_locked(struct scx_task_iter *iter)
 		 *
 		 * Test for idle_sched_class as only init_tasks are on it.
 		 */
-		if (p->sched_class != &idle_sched_class)
-			break;
+		if (p->sched_class == &idle_sched_class)
+			continue;
+
+		iter->rq = task_rq_lock(p, &iter->rf);
+		iter->locked_task = p;
+
+		/*
+		 * cgroup_task_dead() removes the dead tasks from cset->tasks
+		 * after sched_ext_dead() and cgroup iteration may see tasks
+		 * which already finished sched_ext_dead(). %SCX_TASK_OFF_TASKS
+		 * is set by sched_ext_dead() under @p's rq lock. Test it to
+		 * avoid visiting tasks which are already dead from SCX POV.
+		 */
+		if (p->scx.flags & SCX_TASK_OFF_TASKS) {
+			__scx_task_iter_rq_unlock(iter);
+			continue;
+		}
+
+		return p;
 	}
-	if (!p)
-		return NULL;
-
-	iter->rq = task_rq_lock(p, &iter->rf);
-	iter->locked_task = p;
-
-	return p;
+	return NULL;
 }
 
 /**
@@ -3848,6 +3861,11 @@ void sched_ext_dead(struct task_struct *p)
 	/*
 	 * @p is off scx_tasks and wholly ours. scx_root_enable()'s READY ->
 	 * ENABLED transitions can't race us. Disable ops for @p.
+	 *
+	 * %SCX_TASK_OFF_TASKS synchronizes against cgroup task iteration - see
+	 * scx_task_iter_next_locked(). NONE tasks need no marking: cgroup
+	 * iteration is only used from sub-sched paths, which require root
+	 * enabled. Root enable transitions every live task to at least READY.
 	 */
 	if (scx_get_task_state(p) != SCX_TASK_NONE) {
 		struct rq_flags rf;
@@ -3855,6 +3873,7 @@ void sched_ext_dead(struct task_struct *p)
 
 		rq = task_rq_lock(p, &rf);
 		scx_disable_and_exit_task(scx_task_sched(p), p);
+		p->scx.flags |= SCX_TASK_OFF_TASKS;
 		task_rq_unlock(rq, p, &rf);
 	}
 }
