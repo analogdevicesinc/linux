@@ -4047,7 +4047,6 @@ void dwc3_stop_active_transfer(struct dwc3_ep *dep, bool force,
 		return;
 
 	if (!(dep->flags & DWC3_EP_TRANSFER_STARTED) ||
-	    (dep->flags & DWC3_EP_DELAY_STOP) ||
 	    (dep->flags & DWC3_EP_END_TRANSFER_PENDING))
 		return;
 
