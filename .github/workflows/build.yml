@@ -191,8 +191,8 @@ jobs:
         echo "compiler_arch=${{ inputs.arch }}" >> "$dist/context.txt"
         echo "git_ref=${{ github.ref }}" >> "$dist/context.txt"
         echo "git_sha=${{ github.sha }}" >> "$dist/context.txt"
-        echo "git_sha_at=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%at)" >> "$dist/context.txt"
-        echo "git_sha_ct=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%ct)" >> "$dist/context.txt"
+        echo "git_sha_at=$(git --no-pager log ${{ github.sha }} -1 --pretty=format:%at)" >> "$dist/context.txt"
+        echo "git_sha_ct=$(git --no-pager log ${{ github.sha }} -1 --pretty=format:%ct)" >> "$dist/context.txt"
         [[ -f compile_commands.json ]] && cp compile_commands.json "$dist" || true
         [[ -d "$dist_headers/usr" ]] && cp "$dist/context.txt" "$dist_headers/context.txt" || true
 

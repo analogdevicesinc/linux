@@ -99,8 +99,8 @@ jobs:
         echo "compiler_version=${{ env.compiler_version }}" >> "$dist/context.txt"
         echo "git_ref=${{ github.ref }}" >> "$dist/context.txt"
         echo "git_sha=${{ github.sha }}" >> "$dist/context.txt"
-        echo "git_sha_at=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%at)" >> "$dist/context.txt"
-        echo "git_sha_ct=$(git --no-pager log $GITHUB_SHA -1 --pretty=format:%ct)" >> "$dist/context.txt"
+        echo "git_sha_at=$(git --no-pager log ${{ github.sha }} -1 --pretty=format:%at)" >> "$dist/context.txt"
+        echo "git_sha_ct=$(git --no-pager log ${{ github.sha }} -1 --pretty=format:%ct)" >> "$dist/context.txt"
 
     - name: Store the distribution packages
       uses: actions/upload-artifact@v6

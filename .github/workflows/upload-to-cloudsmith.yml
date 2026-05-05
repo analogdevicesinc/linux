@@ -153,5 +153,5 @@ jobs:
                                $package_file \
                                $file \
                                "$tags_" \
-                               ${GITHUB_SHA:0:12}
+                               ${{ github.sha }}
         done
