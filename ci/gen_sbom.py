@@ -20,6 +20,8 @@ import uuid
 from urllib.parse import quote
 from os import path, sep, environ
 
+org_name  = "Analog Devices Inc."
+org_email = "linux@analog.com"
 tool_name = "linux-sbom-gen"
 tool_version = "1.0.0"
 
@@ -146,6 +148,10 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
         "version": 1,
         "metadata": {
             "timestamp": commit_iso,
+            "manufacturer": {
+                "name": org_name,
+                "contact": [{"email": org_email}],
+            },
             "tools": {
                 "components": [{
                     "type":    "application",
@@ -244,12 +250,27 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     id_build   = _id_src("build/0")
     id_tool    = _id_src(f"tool/{tool_name}")
 
+    id_org = _id_src("org/analog")
+
     creation_info = {
         "type":         "CreationInfo",
         "@id":          "_:creationinfo",
         "specVersion":  "3.0.1",
+        "createdBy":    [id_org],
         "createdUsing": [id_tool],
         "created":      created,
+    }
+
+    org = {
+        "type":         "Organization",
+        "spdxId":       id_org,
+        "creationInfo": "_:creationinfo",
+        "name":         org_name,
+        "externalIdentifier": [{
+            "type":                   "ExternalIdentifier",
+            "externalIdentifierType": "email",
+            "identifier":             org_email,
+        }],
     }
 
     tool = {
@@ -313,10 +334,10 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "software_primaryPurpose": "operatingSystem",
         "description": get_description(ctx),
     }
-    package["externalRef"] = [{
-        "type":            "ExternalRef",
-        "externalRefType": "packageManager",
-        "locator":         [get_purl_src(ctx)],
+    package["externalIdentifier"] = [{
+        "type":                   "ExternalIdentifier",
+        "externalIdentifierType": "packageUrl",
+        "identifier":             get_purl_src(ctx),
     }]
     package["extension"] = [{
         "type": "extension_CdxPropertiesExtension",
@@ -327,12 +348,12 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         }],
     }]
     if git_url:
-        package["externalRef"].append({
+        package["externalRef"] = [{
             "type":            "ExternalRef",
-            "externalRefType": "other",
+            "externalRefType": "vcs",
             "locator":         [git_url],
             **({"comment": git_sha} if git_sha else {}),
-        })
+        }]
 
     contains_rel = {
         "type":             "Relationship",
@@ -428,7 +449,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "software_sbomType": ["source"],
     }
 
-    doc_element_ids = [id_sbom, id_tool] + all_element_ids + [e["spdxId"] for e in lic_expr_elems]
+    doc_element_ids = [id_sbom, id_org, id_tool] + all_element_ids + [e["spdxId"] for e in lic_expr_elems]
 
     document = {
         "type":               "SpdxDocument",
@@ -442,6 +463,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     graph = [
         creation_info,
         document,
+        org,
         tool,
         sbom_elem,
         package,
