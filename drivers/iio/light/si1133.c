@@ -21,13 +21,11 @@
 #include <linux/mutex.h>
 #include <linux/regmap.h>
 #include <linux/types.h>
+#include <linux/unaligned.h>
+#include <linux/util_macros.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
-
-#include <linux/util_macros.h>
-
-#include <linux/unaligned.h>
 
 #define SI1133_REG_PART_ID		0x00
 #define SI1133_REG_REV_ID		0x01
