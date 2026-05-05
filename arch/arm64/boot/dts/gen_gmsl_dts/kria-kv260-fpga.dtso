@@ -1,0 +1,139 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&{/} {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		ranges = <0 0 0 0xffffffff>;
+
+		axi_iic_mipi: i2c@84a20000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-iic-2.1", "xlnx,xps-iic-2.00.a";
+			reg = <0x84a20000 0x1000>;
+			interrupts = <0 108 4>;
+
+			i2c-mux@74 {
+				compatible = "nxp,pca9546";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x74>;
+
+				gmsl_i2c: i2c@2 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <2>;
+				};
+			};
+		};
+
+		axis_switch_0: axis_switch@0 {
+			compatible = "xlnx,axis-switch-1.1";
+			xlnx,routing-mode = <0>;
+			xlnx,num-si-slots = <1>;
+			xlnx,num-mi-slots = <1>;
+			clock-names = "aclk";
+			clocks = <&zynqmp_clk 71>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@0 {
+					reg = <0>;
+					switch_in0: endpoint {
+						remote-endpoint = <&mipi_csirx_out>;
+					};
+				};
+				port@1 {
+					reg = <1>;
+					switch_out0: endpoint {
+						remote-endpoint = <&vcap_portswitch0>;
+					};
+				};
+			};
+		};
+
+		mipi_csi: mipi_csi2_rx_subsystem@84a00000 {
+			clock-names = "lite_aclk", "dphy_clk_200M", "video_aclk";
+			clocks = <&zynqmp_clk 71>, <&misc_clk_0>, <&zynqmp_clk 71>;
+			compatible = "xlnx,mipi-csi2-rx-subsystem-5.2", "xlnx,mipi-csi2-rx-subsystem-5.0";
+			interrupt-names = "csirxss_csi_irq";
+			interrupt-parent = <&gic>;
+			interrupts = <0 109 4>;
+			xlnx,csi-pxl-format = <0x1E>;
+			video-reset-gpios = <&gpio 79 GPIO_ACTIVE_LOW>;
+			reg = <0x84a00000 0x2000>;
+			xlnx,axis-tdata-width = <32>;
+			xlnx,dphy-present;
+			xlnx,max-lanes = <4>;
+			xlnx,ppc = <2>;
+			xlnx,vc = <4>;
+			xlnx,vfb;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@1 {
+					reg = <1>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+					mipi_csirx_out: endpoint {
+						remote-endpoint = <&switch_in0>;
+					};
+				};
+				port@0 {
+					reg = <0>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+				};
+			};
+		};
+
+		misc_clk_0: misc_clk_0 {
+			#clock-cells = <0>;
+			clock-frequency = <200000000>;
+			compatible = "fixed-clock";
+		};
+
+		v_frmbuf_wr_0: v_frmbuf_wr@84a40000 {
+			#dma-cells = <1>;
+			clock-names = "ap_clk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,v-frmbuf-wr-v3.0", "xlnx,axi-frmbuf-wr-v2.2";
+			interrupt-parent = <&gic>;
+			interrupts = <0 107 4>;
+			reset-gpios = <&gpio 80 GPIO_ACTIVE_LOW>;
+			reg = <0x84a40000 0x10000>;
+			xlnx,dma-addr-width = <32>;
+			xlnx,dma-align = <16>;
+			xlnx,max-height = <2160>;
+			xlnx,max-width = <3840>;
+			xlnx,pixels-per-clock = <2>;
+			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
+		};
+
+		vcap_mipi_csi2_rx_subsyst_0 {
+			compatible = "xlnx,video";
+			dma-names = "port0";
+			dmas = <&v_frmbuf_wr_0 0>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				vcap_port0: port@0 {
+					direction = "input";
+					reg = <0>;
+					vcap_portswitch0: endpoint {
+						remote-endpoint = <&switch_out0>;
+					};
+				};
+			};
+		};
+	};
+};
