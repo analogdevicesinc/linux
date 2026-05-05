@@ -90,6 +90,11 @@ static int xilinx_core_write_init(struct fpga_manager *mgr,
 		return -EINVAL;
 	}
 
+	if (core->c2c_reset) {
+		gpiod_set_value(core->c2c_reset, 1);
+		msleep(1);
+	}
+
 	gpiod_set_value(core->prog_b, 1);
 
 	err = wait_for_init_b(mgr, 1, 1); /* min is 500 ns */
@@ -149,8 +154,13 @@ static int xilinx_core_write_complete(struct fpga_manager *mgr,
 		if (ret)
 			return ret;
 
-		if (done)
+		if (done) {
+			if (core->c2c_reset) {
+				gpiod_set_value(core->c2c_reset, 0);
+				msleep(1);
+			}
 			return 0;
+		}
 	}
 
 	if (core->init_b) {
@@ -216,6 +226,12 @@ int xilinx_core_probe(struct xilinx_fpga_core *core)
 	if (IS_ERR(core->done))
 		return dev_err_probe(core->dev, PTR_ERR(core->done),
 				     "Failed to get DONE gpio\n");
+
+	core->c2c_reset = devm_gpiod_get_optional(core->dev, "c2c-reset",
+						   GPIOD_OUT_LOW);
+	if (IS_ERR(core->c2c_reset))
+		return dev_err_probe(core->dev, PTR_ERR(core->c2c_reset),
+				     "Failed to get c2c-reset gpio\n");
 
 	mgr = devm_fpga_mgr_register(core->dev,
 				     "Xilinx Slave Serial FPGA Manager",
