@@ -43,6 +43,10 @@
 };
 {%- endmacro %}
 {% endif %}
+{% if platform_cfg %}
+{% include '%s.dtsi.in' % platform_cfg.name %}
+{% endif %}
+
 &{{des_cfg.i2c_bus}} {
 	status = "okay";
 	{{des_label}}: gmsl-deserializer@{{address | hex_remove_0x}} {
@@ -106,9 +110,6 @@
 };
 {% endfor %}
 
-{% if platform_cfg %}
-{% include '%s.dtsi.in' % platform_cfg.name %}
-{% endif %}
 {% for ser_cfg in des_cfg.links %}
 	{% set ser_idx = loop.index0 %}
 	{% include '%s.dtsi.in' % ser_cfg.name %}
