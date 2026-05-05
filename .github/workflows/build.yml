@@ -73,6 +73,7 @@ jobs:
         get_file ci/runner_env.sh
         get_file ci/symbols_depend.py
         get_file ci/touched_kconfig.awk
+        get_file ci/get_cherry_picks.sh
         get_file ci/gen_sbom.py
 
         if [[ "${{ inputs.defconfig }}" == "adi_ci_defconfig" ]]; then
@@ -163,6 +164,7 @@ jobs:
 
     - name: Prepare dist
       run: |
+        [[ "${{ runner.debug }}" == "1" ]] && set -x
         kversion=$(cat "$KBUILD_OUTPUT/include/config/kernel.release")
 
         dist=$(mktemp -d -t linux.$kversion.dist.XXX)
@@ -193,14 +195,26 @@ jobs:
         echo "git_sha=${{ github.sha }}" >> "$dist/context.txt"
         echo "git_sha_at=$(git --no-pager log ${{ github.sha }} -1 --pretty=format:%at)" >> "$dist/context.txt"
         echo "git_sha_ct=$(git --no-pager log ${{ github.sha }} -1 --pretty=format:%ct)" >> "$dist/context.txt"
+
+        source ci/get_cherry_picks.sh
+
+        tag=$(echo "$kversion" | sed -E 's/^([0-9]+\.[0-9]+(\.[0-9]+)?(-rc[0-9]+)?).*/\1/; s/\.0($|-rc)/\1/; s/^/v/')
+        get_cherry_picks "${{ secrets.GITHUB_TOKEN }}" \
+                         "${{ github.repository }}" \
+                         "$tag" \
+                         "${{ github.sha }}" \
+                         "$dist/cherry-picks.txt"
+
         [[ -f compile_commands.json ]] && cp compile_commands.json "$dist" || true
         [[ -d "$dist_headers/usr" ]] && cp "$dist/context.txt" "$dist_headers/context.txt" || true
 
     - name: Generate SBOM
       run: |
         [[ -f "$DIST/compile_commands.json" ]] || exit 0
+
         export GIT_URL="${{ github.repositoryUrl }}"
         python3 ci/gen_sbom.py
+
         rm "$DIST/compile_commands.json"
 
     - name: Assert state
