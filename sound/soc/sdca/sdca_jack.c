@@ -203,6 +203,8 @@ int sdca_jack_set_jack(struct sdca_interrupt_info *info, struct snd_soc_jack *ja
 			if (!range)
 				return -EINVAL;
 
+			jack_state = interrupt->priv;
+
 			for (j = 0; j < range->rows; j++) {
 				enum sdca_terminal_type type;
 
@@ -211,7 +213,6 @@ int sdca_jack_set_jack(struct sdca_interrupt_info *info, struct snd_soc_jack *ja
 				jack_state->mask |= type_get_mask(type);
 			}
 
-			jack_state = interrupt->priv;
 			jack_state->jack = jack;
 
 			/* Report initial state in case IRQ was already handled */
