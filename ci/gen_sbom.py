@@ -319,9 +319,12 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "locator":         [get_purl_src(ctx)],
     }]
     package["extension"] = [{
-        "type":    "CustomExtension",
-        "name":    "hub.analog.com/component-id",
-        "payload": {"component_id": get_component(ctx)},
+        "type": "extension_CdxPropertiesExtension",
+        "extension_cdxProperty": [{
+            "type":                    "extension_CdxPropertyEntry",
+            "extension_cdxPropName":   "hub.analog.com/component-id",
+            "extension_cdxPropValue":  get_component(ctx),
+        }],
     }]
     if git_url:
         package["externalRef"].append({
