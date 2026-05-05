@@ -15,6 +15,7 @@ import hashlib
 import json
 import re
 import sys
+import uuid
 
 from urllib.parse import quote
 from os import path, sep, environ
@@ -140,8 +141,8 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
 
     return {
         "bomFormat": "CycloneDX",
-        "specVersion": "1.6",
-        "serialNumber": f"urn:purl:{purl_out}",
+        "specVersion": "1.7",
+        "serialNumber": f"urn:uuid:{uuid.uuid4()}",
         "version": 1,
         "metadata": {
             "timestamp": commit_iso,
@@ -181,12 +182,14 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
         "dependencies": [],
         **({
             "formulation": [{
-                "bom-ref": "workflow:kbuild",
-                "uid":      "kbuild",
-                "taskTypes": ["build"],
-                "steps": [{
-                    "name": "compile",
-                    "commands": [{"executed": main_c_command}],
+                "workflows": [{
+                    "bom-ref":   "workflow:kbuild",
+                    "uid":       "kbuild",
+                    "taskTypes": ["build"],
+                    "steps": [{
+                        "name": "compile",
+                        "commands": [{"executed": main_c_command}],
+                    }],
                 }],
             }],
         } if main_c_command else {}),
