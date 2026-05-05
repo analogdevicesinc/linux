@@ -287,7 +287,8 @@ static inline void wait_on_extent_buffer_writeback(struct extent_buffer *eb)
 }
 
 void btrfs_readahead_tree_block(struct btrfs_fs_info *fs_info,
-				u64 bytenr, u64 owner_root, u64 gen, int level);
+				u64 bytenr, u64 owner_root, u64 gen, int level,
+				const struct btrfs_key *first_key);
 void btrfs_readahead_node_child(struct extent_buffer *node, int slot);
 
 /* Note: this can be used in for loops without caching the value in a variable. */

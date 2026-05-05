@@ -945,7 +945,8 @@ search:
 
 	ni_mrec = actx->base_mrec ? actx->base_mrec : actx->mrec;
 	ni_mrec->link_count = cpu_to_le16(le16_to_cpu(ni_mrec->link_count) - 1);
-	drop_nlink(VFS_I(ni));
+	if (!S_ISDIR(VFS_I(ni)->i_mode))
+		drop_nlink(VFS_I(ni));
 
 	mark_mft_record_dirty(ni);
 	if (looking_for_dos_name) {
@@ -954,6 +955,13 @@ search:
 		ntfs_attr_reinit_search_ctx(actx);
 		goto search;
 	}
+
+	/*
+	 * For directories, Drop VFS nlink only when mft record link count
+	 * becomes zero. Because we fixes VFS nlink to 1 for directories.
+	 */
+	if (S_ISDIR(VFS_I(ni)->i_mode) && !le16_to_cpu(ni_mrec->link_count))
+		drop_nlink(VFS_I(ni));
 
 	/*
 	 * If hard link count is not equal to zero then we are done. In other
@@ -1221,7 +1229,8 @@ static int __ntfs_link(struct ntfs_inode *ni, struct ntfs_inode *dir_ni,
 	}
 	/* Increment hard links count. */
 	ni_mrec->link_count = cpu_to_le16(le16_to_cpu(ni_mrec->link_count) + 1);
-	inc_nlink(VFS_I(ni));
+	if (!S_ISDIR(vi->i_mode))
+		inc_nlink(VFS_I(ni));
 
 	/* Done! */
 	mark_mft_record_dirty(ni);

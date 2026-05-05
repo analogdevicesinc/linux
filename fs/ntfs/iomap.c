@@ -788,8 +788,7 @@ static int ntfs_write_iomap_end_resident(struct inode *inode, loff_t pos,
 	ctx = ntfs_attr_get_search_ctx(ni, NULL);
 	if (!ctx) {
 		written = -ENOMEM;
-		mutex_unlock(&ni->mrec_lock);
-		return written;
+		goto err_out;
 	}
 
 	err = ntfs_attr_lookup(ni->type, ni->name, ni->name_len,
@@ -810,7 +809,8 @@ static int ntfs_write_iomap_end_resident(struct inode *inode, loff_t pos,
 	memcpy(kattr + pos, iomap_inline_data(iomap, pos), written);
 	mark_mft_record_dirty(ctx->ntfs_ino);
 err_out:
-	ntfs_attr_put_search_ctx(ctx);
+	if (ctx)
+		ntfs_attr_put_search_ctx(ctx);
 	put_page(ipage);
 	mutex_unlock(&ni->mrec_lock);
 	return written;
