@@ -1609,6 +1609,7 @@ static const struct of_device_id eliza_tlmm_of_match[] = {
 	{ .compatible = "qcom,eliza-tlmm", },
 	{},
 };
+MODULE_DEVICE_TABLE(of, eliza_tlmm_of_match);
 
 static struct platform_driver eliza_tlmm_driver = {
 	.driver = {
@@ -1632,4 +1633,3 @@ module_exit(eliza_tlmm_exit);
 
 MODULE_DESCRIPTION("QTI Eliza TLMM driver");
 MODULE_LICENSE("GPL");
-MODULE_DEVICE_TABLE(of, eliza_tlmm_of_match);
