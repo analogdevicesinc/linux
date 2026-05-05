@@ -375,6 +375,15 @@ config SENSORS_MAX20751
 	  This driver can also be built as a module. If so, the module will
 	  be called max20751.
 
+config SENSORS_MAX20830
+	tristate "Analog Devices MAX20830"
+	help
+	  If you say yes here you get hardware monitoring support for Analog
+	  Devices MAX20830.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called max20830.
+
 config SENSORS_MAX31785
 	tristate "Maxim MAX31785 and compatibles"
 	help
