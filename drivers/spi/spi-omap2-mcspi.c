@@ -1484,9 +1484,9 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 
 	if (of_property_read_bool(node, "spi-slave"))
-		ctlr = spi_alloc_target(&pdev->dev, sizeof(*mcspi));
+		ctlr = devm_spi_alloc_target(&pdev->dev, sizeof(*mcspi));
 	else
-		ctlr = spi_alloc_host(&pdev->dev, sizeof(*mcspi));
+		ctlr = devm_spi_alloc_host(&pdev->dev, sizeof(*mcspi));
 	if (!ctlr)
 		return -ENOMEM;
 
@@ -1530,10 +1530,9 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 	}
 
 	mcspi->base = devm_platform_get_and_ioremap_resource(pdev, 0, &r);
-	if (IS_ERR(mcspi->base)) {
-		status = PTR_ERR(mcspi->base);
-		goto free_ctlr;
-	}
+	if (IS_ERR(mcspi->base))
+		return PTR_ERR(mcspi->base);
+
 	mcspi->phys = r->start + regs_offset;
 	mcspi->base += regs_offset;
 
@@ -1544,10 +1543,8 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 	mcspi->dma_channels = devm_kcalloc(&pdev->dev, ctlr->num_chipselect,
 					   sizeof(struct omap2_mcspi_dma),
 					   GFP_KERNEL);
-	if (mcspi->dma_channels == NULL) {
-		status = -ENOMEM;
-		goto free_ctlr;
-	}
+	if (mcspi->dma_channels == NULL)
+		return -ENOMEM;
 
 	for (i = 0; i < ctlr->num_chipselect; i++) {
 		sprintf(mcspi->dma_channels[i].dma_rx_ch_name, "rx%d", i);
@@ -1556,26 +1553,27 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 		status = omap2_mcspi_request_dma(mcspi,
 						 &mcspi->dma_channels[i]);
 		if (status == -EPROBE_DEFER)
-			goto free_ctlr;
+			goto err_release_dma;
 	}
 
 	status = platform_get_irq(pdev, 0);
 	if (status < 0)
-		goto free_ctlr;
+		goto err_release_dma;
+
 	init_completion(&mcspi->txdone);
 	status = devm_request_irq(&pdev->dev, status,
 				  omap2_mcspi_irq_handler, 0, pdev->name,
 				  mcspi);
 	if (status) {
 		dev_err(&pdev->dev, "Cannot request IRQ");
-		goto free_ctlr;
+		goto err_release_dma;
 	}
 
 	mcspi->ref_clk = devm_clk_get_optional_enabled(&pdev->dev, NULL);
 	if (IS_ERR(mcspi->ref_clk)) {
 		status = PTR_ERR(mcspi->ref_clk);
 		dev_err_probe(&pdev->dev, status, "Failed to get ref_clk");
-		goto free_ctlr;
+		goto err_release_dma;
 	}
 	if (mcspi->ref_clk)
 		mcspi->ref_clk_hz = clk_get_rate(mcspi->ref_clk);
@@ -1590,21 +1588,21 @@ static int omap2_mcspi_probe(struct platform_device *pdev)
 
 	status = omap2_mcspi_controller_setup(mcspi);
 	if (status < 0)
-		goto disable_pm;
+		goto err_disable_rpm;
 
 	status = spi_register_controller(ctlr);
 	if (status < 0)
-		goto disable_pm;
+		goto err_disable_rpm;
 
-	return status;
+	return 0;
 
-disable_pm:
+err_disable_rpm:
 	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
-free_ctlr:
+err_release_dma:
 	omap2_mcspi_release_dma(ctlr);
-	spi_controller_put(ctlr);
+
 	return status;
 }
 
@@ -1613,8 +1611,6 @@ static void omap2_mcspi_remove(struct platform_device *pdev)
 	struct spi_controller *ctlr = platform_get_drvdata(pdev);
 	struct omap2_mcspi *mcspi = spi_controller_get_devdata(ctlr);
 
-	spi_controller_get(ctlr);
-
 	spi_unregister_controller(ctlr);
 
 	omap2_mcspi_release_dma(ctlr);
@@ -1622,8 +1618,6 @@ static void omap2_mcspi_remove(struct platform_device *pdev)
 	pm_runtime_dont_use_autosuspend(mcspi->dev);
 	pm_runtime_put_sync(mcspi->dev);
 	pm_runtime_disable(&pdev->dev);
-
-	spi_controller_put(ctlr);
 }
 
 /* work with hotplug and coldplug */
