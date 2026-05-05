@@ -95,6 +95,10 @@ arch/arm64/boot/dts/xilinx/zynqmp-sm-k24-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-smk-k24-revA.dts
 
 # Versal
+arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts
+arch/arm64/boot/dts/xilinx/versal-vpk180-reva-ad9084-204C-M4-L1-NP16-20p0-4x16.dts
+arch/arm64/boot/dts/xilinx/versal-vpk180-reva-ad9084.dts
 arch/arm64/boot/dts/xilinx/versal-clk.dtsi
 arch/arm64/boot/dts/xilinx/versal-net-clk-ccf.dtsi
 arch/arm64/boot/dts/xilinx/versal-net-clk.dtsi
