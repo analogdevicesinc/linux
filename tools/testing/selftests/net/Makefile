@@ -176,6 +176,7 @@ TEST_GEN_PROGS := \
 	bind_timewait \
 	bind_wildcard \
 	epoll_busy_poll \
+	getsockopt_iter \
 	icmp_rfc4884 \
 	ipv6_fragmentation \
 	proc_net_pktgen \
