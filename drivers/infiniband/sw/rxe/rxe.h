@@ -121,4 +121,6 @@ void rxe_port_up(struct rxe_dev *rxe);
 void rxe_port_down(struct rxe_dev *rxe);
 void rxe_set_port_state(struct rxe_dev *rxe);
 
+extern struct workqueue_struct *rxe_wq;
+
 #endif /* RXE_H */

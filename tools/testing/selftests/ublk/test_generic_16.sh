@@ -9,7 +9,7 @@ _prep_test "null" "stop --safe command"
 
 # Check if SAFE_STOP_DEV feature is supported
 if ! _have_feature "SAFE_STOP_DEV"; then
-	_cleanup_test "null"
+	_cleanup_test
 	exit "$UBLK_SKIP_CODE"
 fi
 
@@ -52,5 +52,5 @@ wait $dd_pid 2>/dev/null
 _ublk_del_dev "${dev_id}"
 udevadm settle
 
-_cleanup_test "null"
+_cleanup_test
 _show_result $TID $ERR_CODE

@@ -322,10 +322,18 @@ static int mes_userq_mqd_create(struct amdgpu_usermode_queue *queue,
 			goto free_mqd;
 		}
 
+		r = amdgpu_bo_reserve(queue->vm->root.bo, false);
+		if (r) {
+			kfree(compute_mqd);
+			goto free_mqd;
+		}
 		r = amdgpu_userq_input_va_validate(adev, queue, compute_mqd->eop_va,
 						   2048);
-		if (r)
+		amdgpu_bo_unreserve(queue->vm->root.bo);
+		if (r) {
+			kfree(compute_mqd);
 			goto free_mqd;
+		}
 
 		userq_props->eop_gpu_addr = compute_mqd->eop_va;
 		userq_props->hqd_pipe_priority = AMDGPU_GFX_PIPE_PRIO_NORMAL;
@@ -363,14 +371,26 @@ static int mes_userq_mqd_create(struct amdgpu_usermode_queue *queue,
 		userq_props->tmz_queue =
 			mqd_user->flags & AMDGPU_USERQ_CREATE_FLAGS_QUEUE_SECURE;
 
+		r = amdgpu_bo_reserve(queue->vm->root.bo, false);
+		if (r) {
+			kfree(mqd_gfx_v11);
+			goto free_mqd;
+		}
 		r = amdgpu_userq_input_va_validate(adev, queue, mqd_gfx_v11->shadow_va,
 						   shadow_info.shadow_size);
-		if (r)
+		if (r) {
+			amdgpu_bo_unreserve(queue->vm->root.bo);
+			kfree(mqd_gfx_v11);
 			goto free_mqd;
+		}
+
 		r = amdgpu_userq_input_va_validate(adev, queue, mqd_gfx_v11->csa_va,
 						   shadow_info.csa_size);
-		if (r)
+		amdgpu_bo_unreserve(queue->vm->root.bo);
+		if (r) {
+			kfree(mqd_gfx_v11);
 			goto free_mqd;
+		}
 
 		kfree(mqd_gfx_v11);
 	} else if (queue->queue_type == AMDGPU_HW_IP_DMA) {
@@ -388,10 +408,19 @@ static int mes_userq_mqd_create(struct amdgpu_usermode_queue *queue,
 			r = -ENOMEM;
 			goto free_mqd;
 		}
+
+		r = amdgpu_bo_reserve(queue->vm->root.bo, false);
+		if (r) {
+			kfree(mqd_sdma_v11);
+			goto free_mqd;
+		}
 		r = amdgpu_userq_input_va_validate(adev, queue, mqd_sdma_v11->csa_va,
 						   32);
-		if (r)
+		amdgpu_bo_unreserve(queue->vm->root.bo);
+		if (r) {
+			kfree(mqd_sdma_v11);
 			goto free_mqd;
+		}
 
 		userq_props->csa_addr = mqd_sdma_v11->csa_va;
 		kfree(mqd_sdma_v11);

@@ -244,9 +244,10 @@ int frwr_query_device(struct rpcrdma_ep *ep, const struct ib_device *device)
 	}
 	ep->re_attr.cap.max_send_wr += RPCRDMA_BACKWARD_WRS;
 	ep->re_attr.cap.max_send_wr += 1; /* for ib_drain_sq */
+	ep->re_recv_batch = ep->re_max_requests >> 2;
 	ep->re_attr.cap.max_recv_wr = ep->re_max_requests;
 	ep->re_attr.cap.max_recv_wr += RPCRDMA_BACKWARD_WRS;
-	ep->re_attr.cap.max_recv_wr += RPCRDMA_MAX_RECV_BATCH;
+	ep->re_attr.cap.max_recv_wr += ep->re_recv_batch;
 	ep->re_attr.cap.max_recv_wr += 1; /* for ib_drain_rq */
 
 	ep->re_max_rdma_segs =
@@ -268,10 +269,9 @@ int frwr_query_device(struct rpcrdma_ep *ep, const struct ib_device *device)
 }
 
 /**
- * frwr_map - Register a memory region
+ * frwr_map - Register a memory region from an xdr_buf cursor
  * @r_xprt: controlling transport
- * @seg: memory region co-ordinates
- * @nsegs: number of segments remaining
+ * @cur: cursor tracking position within the xdr_buf
  * @writing: true when RDMA Write will be used
  * @xid: XID of RPC using the registered memory
  * @mr: MR to fill in
@@ -279,34 +279,104 @@ int frwr_query_device(struct rpcrdma_ep *ep, const struct ib_device *device)
  * Prepare a REG_MR Work Request to register a memory region
  * for remote access via RDMA READ or RDMA WRITE.
  *
- * Returns the next segment or a negative errno pointer.
- * On success, @mr is filled in.
+ * Returns 0 on success (cursor advanced past consumed data,
+ * @mr populated) or a negative errno on failure.
  */
-struct rpcrdma_mr_seg *frwr_map(struct rpcrdma_xprt *r_xprt,
-				struct rpcrdma_mr_seg *seg,
-				int nsegs, bool writing, __be32 xid,
-				struct rpcrdma_mr *mr)
+int frwr_map(struct rpcrdma_xprt *r_xprt,
+	     struct rpcrdma_xdr_cursor *cur,
+	     bool writing, __be32 xid,
+	     struct rpcrdma_mr *mr)
 {
 	struct rpcrdma_ep *ep = r_xprt->rx_ep;
+	const struct xdr_buf *xdrbuf = cur->xc_buf;
+	bool sg_gaps = ep->re_mrtype == IB_MR_TYPE_SG_GAPS;
+	unsigned int max_depth = ep->re_max_fr_depth;
 	struct ib_reg_wr *reg_wr;
 	int i, n, dma_nents;
 	struct ib_mr *ibmr;
 	u8 key;
 
-	if (nsegs > ep->re_max_fr_depth)
-		nsegs = ep->re_max_fr_depth;
-	for (i = 0; i < nsegs;) {
-		sg_set_page(&mr->mr_sg[i], seg->mr_page,
-			    seg->mr_len, seg->mr_offset);
+	i = 0;
 
-		++seg;
-		++i;
-		if (ep->re_mrtype == IB_MR_TYPE_SG_GAPS)
-			continue;
-		if ((i < nsegs && seg->mr_offset) ||
-		    offset_in_page((seg-1)->mr_offset + (seg-1)->mr_len))
-			break;
+	/* Head kvec */
+	if (!(cur->xc_flags & XC_HEAD_DONE)) {
+		const struct kvec *head = &xdrbuf->head[0];
+
+		sg_set_page(&mr->mr_sg[i],
+			    virt_to_page(head->iov_base),
+			    head->iov_len,
+			    offset_in_page(head->iov_base));
+		cur->xc_flags |= XC_HEAD_DONE;
+		i++;
+		/* Without sg-gap support, each non-contiguous region
+		 * must be registered as a separate MR.  Returning
+		 * here after the head kvec causes the caller to
+		 * invoke frwr_map() again for the page list and
+		 * tail.
+		 */
+		if (!sg_gaps)
+			goto finish;
 	}
+
+	/* Page list */
+	if (!(cur->xc_flags & XC_PAGES_DONE) && xdrbuf->page_len) {
+		unsigned int page_base, remaining;
+		struct page **ppages;
+
+		remaining = xdrbuf->page_len - cur->xc_page_offset;
+		page_base = offset_in_page(xdrbuf->page_base +
+					   cur->xc_page_offset);
+		ppages = xdrbuf->pages +
+			 ((xdrbuf->page_base + cur->xc_page_offset)
+			  >> PAGE_SHIFT);
+
+		while (remaining > 0 && i < max_depth) {
+			unsigned int len;
+
+			len = min_t(unsigned int,
+				    PAGE_SIZE - page_base, remaining);
+			sg_set_page(&mr->mr_sg[i], *ppages,
+				    len, page_base);
+			cur->xc_page_offset += len;
+			i++;
+			ppages++;
+			remaining -= len;
+
+			if (!sg_gaps && remaining > 0 &&
+			    offset_in_page(page_base + len))
+				goto finish;
+			page_base = 0;
+		}
+		if (remaining == 0)
+			cur->xc_flags |= XC_PAGES_DONE;
+	} else if (!(cur->xc_flags & XC_PAGES_DONE)) {
+		cur->xc_flags |= XC_PAGES_DONE;
+	}
+
+	/* Tail kvec */
+	if (!(cur->xc_flags & XC_TAIL_DONE) && xdrbuf->tail[0].iov_len &&
+	    i < max_depth) {
+		const struct kvec *tail = &xdrbuf->tail[0];
+
+		if (!sg_gaps && i > 0) {
+			struct scatterlist *prev = &mr->mr_sg[i - 1];
+
+			if (offset_in_page(prev->offset + prev->length) ||
+			    offset_in_page(tail->iov_base))
+				goto finish;
+		}
+		sg_set_page(&mr->mr_sg[i],
+			    virt_to_page(tail->iov_base),
+			    tail->iov_len,
+			    offset_in_page(tail->iov_base));
+		cur->xc_flags |= XC_TAIL_DONE;
+		i++;
+	} else if (!(cur->xc_flags & XC_TAIL_DONE) &&
+		   !xdrbuf->tail[0].iov_len) {
+		cur->xc_flags |= XC_TAIL_DONE;
+	}
+
+finish:
 	mr->mr_dir = rpcrdma_data_dir(writing);
 	mr->mr_nents = i;
 
@@ -338,15 +408,15 @@ struct rpcrdma_mr_seg *frwr_map(struct rpcrdma_xprt *r_xprt,
 	mr->mr_offset = ibmr->iova;
 	trace_xprtrdma_mr_map(mr);
 
-	return seg;
+	return 0;
 
 out_dmamap_err:
 	trace_xprtrdma_frwr_sgerr(mr, i);
-	return ERR_PTR(-EIO);
+	return -EIO;
 
 out_mapmr_err:
 	trace_xprtrdma_frwr_maperr(mr, n);
-	return ERR_PTR(-EIO);
+	return -EIO;
 }
 
 /**
@@ -669,9 +739,13 @@ void frwr_unmap_async(struct rpcrdma_xprt *r_xprt, struct rpcrdma_req *req)
  */
 int frwr_wp_create(struct rpcrdma_xprt *r_xprt)
 {
+	struct rpcrdma_buffer *buf = &r_xprt->rx_buf;
 	struct rpcrdma_ep *ep = r_xprt->rx_ep;
-	struct rpcrdma_mr_seg seg;
+	struct ib_reg_wr *reg_wr;
 	struct rpcrdma_mr *mr;
+	struct ib_mr *ibmr;
+	int dma_nents;
+	int ret;
 
 	mr = rpcrdma_mr_get(r_xprt);
 	if (!mr)
@@ -679,11 +753,39 @@ int frwr_wp_create(struct rpcrdma_xprt *r_xprt)
 	mr->mr_req = NULL;
 	ep->re_write_pad_mr = mr;
 
-	seg.mr_len = XDR_UNIT;
-	seg.mr_page = virt_to_page(ep->re_write_pad);
-	seg.mr_offset = offset_in_page(ep->re_write_pad);
-	if (IS_ERR(frwr_map(r_xprt, &seg, 1, true, xdr_zero, mr)))
-		return -EIO;
+	sg_init_table(mr->mr_sg, 1);
+	sg_set_page(mr->mr_sg, virt_to_page(ep->re_write_pad),
+		    XDR_UNIT, offset_in_page(ep->re_write_pad));
+
+	mr->mr_dir = DMA_FROM_DEVICE;
+	mr->mr_nents = 1;
+	dma_nents = ib_dma_map_sg(ep->re_id->device, mr->mr_sg,
+				  mr->mr_nents, mr->mr_dir);
+	if (!dma_nents) {
+		ret = -EIO;
+		goto out_mr;
+	}
+	mr->mr_device = ep->re_id->device;
+
+	ibmr = mr->mr_ibmr;
+	if (ib_map_mr_sg(ibmr, mr->mr_sg, dma_nents, NULL,
+			 PAGE_SIZE) != dma_nents) {
+		ret = -EIO;
+		goto out_unmap;
+	}
+
+	/* IOVA is not tagged with an XID; the write-pad is not RPC-specific. */
+	ib_update_fast_reg_key(ibmr, ib_inc_rkey(ibmr->rkey));
+
+	reg_wr = &mr->mr_regwr;
+	reg_wr->mr = ibmr;
+	reg_wr->key = ibmr->rkey;
+	reg_wr->access = IB_ACCESS_REMOTE_WRITE | IB_ACCESS_LOCAL_WRITE;
+
+	mr->mr_handle = ibmr->rkey;
+	mr->mr_length = ibmr->length;
+	mr->mr_offset = ibmr->iova;
+
 	trace_xprtrdma_mr_fastreg(mr);
 
 	mr->mr_cqe.done = frwr_wc_fastreg;
@@ -693,5 +795,16 @@ int frwr_wp_create(struct rpcrdma_xprt *r_xprt)
 	mr->mr_regwr.wr.opcode = IB_WR_REG_MR;
 	mr->mr_regwr.wr.send_flags = 0;
 
-	return ib_post_send(ep->re_id->qp, &mr->mr_regwr.wr, NULL);
+	ret = ib_post_send(ep->re_id->qp, &mr->mr_regwr.wr, NULL);
+	if (!ret)
+		return 0;
+
+out_unmap:
+	frwr_mr_unmap(mr);
+out_mr:
+	ep->re_write_pad_mr = NULL;
+	spin_lock(&buf->rb_lock);
+	rpcrdma_mr_push(mr, &buf->rb_mrs);
+	spin_unlock(&buf->rb_lock);
+	return ret;
 }

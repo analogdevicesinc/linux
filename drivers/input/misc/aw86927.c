@@ -43,6 +43,12 @@
 #define AW86927_PLAYCFG1_BST_VOUT_VREFSET_MASK	GENMASK(6, 0)
 #define AW86927_PLAYCFG1_BST_8500MV		0x50
 
+#define AW86938_PLAYCFG1_REG			0x06
+#define AW86938_PLAYCFG1_BST_MODE_MASK		GENMASK(5, 5)
+#define AW86938_PLAYCFG1_BST_MODE_BYPASS	0
+#define AW86938_PLAYCFG1_BST_VOUT_VREFSET_MASK	GENMASK(4, 0)
+#define AW86938_PLAYCFG1_BST_7000MV		0x11
+
 #define AW86927_PLAYCFG2_REG			0x07
 
 #define AW86927_PLAYCFG3_REG			0x08
@@ -140,6 +146,7 @@
 #define AW86927_CHIPIDH_REG			0x57
 #define AW86927_CHIPIDL_REG			0x58
 #define AW86927_CHIPID				0x9270
+#define AW86938_CHIPID				0x9380
 
 #define AW86927_TMCFG_REG			0x5b
 #define AW86927_TMCFG_UNLOCK			0x7d
@@ -173,14 +180,20 @@ enum aw86927_work_mode {
 	AW86927_RAM_MODE,
 };
 
+enum aw86927_model {
+	AW86927,
+	AW86938,
+};
+
 struct aw86927_data {
+	enum aw86927_model model;
 	struct work_struct play_work;
 	struct device *dev;
 	struct input_dev *input_dev;
 	struct i2c_client *client;
 	struct regmap *regmap;
 	struct gpio_desc *reset_gpio;
-	bool running;
+	u16 level;
 };
 
 static const struct regmap_config aw86927_regmap_config = {
@@ -325,11 +338,12 @@ static int aw86927_haptics_play(struct input_dev *dev, void *data, struct ff_eff
 	if (!level)
 		level = effect->u.rumble.weak_magnitude;
 
-	/* If already running, don't restart playback */
-	if (haptics->running && level)
+	/* If level does not change, don't restart playback */
+	if (haptics->level == level)
 		return 0;
 
-	haptics->running = level;
+	haptics->level = level;
+
 	schedule_work(&haptics->play_work);
 
 	return 0;
@@ -376,8 +390,7 @@ static int aw86927_play_sine(struct aw86927_data *haptics)
 	if (err)
 		return err;
 
-	/* set gain to value lower than 0x80 to avoid distorted playback */
-	err = regmap_write(haptics->regmap, AW86927_PLAYCFG2_REG, 0x7c);
+	err = regmap_write(haptics->regmap, AW86927_PLAYCFG2_REG, haptics->level * 0x80 / 0xffff);
 	if (err)
 		return err;
 
@@ -409,7 +422,7 @@ static void aw86927_haptics_play_work(struct work_struct *work)
 	struct device *dev = &haptics->client->dev;
 	int err;
 
-	if (haptics->running)
+	if (haptics->level)
 		err = aw86927_play_sine(haptics);
 	else
 		err = aw86927_stop(haptics);
@@ -565,13 +578,26 @@ static int aw86927_haptic_init(struct aw86927_data *haptics)
 	if (err)
 		return err;
 
-	err = regmap_update_bits(haptics->regmap,
-				 AW86927_PLAYCFG1_REG,
-				 AW86927_PLAYCFG1_BST_VOUT_VREFSET_MASK,
-				 FIELD_PREP(AW86927_PLAYCFG1_BST_VOUT_VREFSET_MASK,
-					    AW86927_PLAYCFG1_BST_8500MV));
-	if (err)
-		return err;
+	switch (haptics->model) {
+	case AW86927:
+		err = regmap_update_bits(haptics->regmap,
+					 AW86927_PLAYCFG1_REG,
+					 AW86927_PLAYCFG1_BST_VOUT_VREFSET_MASK,
+					 FIELD_PREP(AW86927_PLAYCFG1_BST_VOUT_VREFSET_MASK,
+						    AW86927_PLAYCFG1_BST_8500MV));
+		if (err)
+			return err;
+		break;
+	case AW86938:
+		err = regmap_update_bits(haptics->regmap,
+					 AW86938_PLAYCFG1_REG,
+					 AW86938_PLAYCFG1_BST_VOUT_VREFSET_MASK,
+					 FIELD_PREP(AW86938_PLAYCFG1_BST_VOUT_VREFSET_MASK,
+						    AW86938_PLAYCFG1_BST_7000MV));
+		if (err)
+			return err;
+		break;
+	}
 
 	err = regmap_update_bits(haptics->regmap,
 				 AW86927_PLAYCFG3_REG,
@@ -598,6 +624,9 @@ static int aw86927_ram_init(struct aw86927_data *haptics)
 				 AW86927_SYSCTRL3_EN_RAMINIT_MASK,
 				 FIELD_PREP(AW86927_SYSCTRL3_EN_RAMINIT_MASK,
 					    AW86927_SYSCTRL3_EN_RAMINIT_ON));
+
+	/* AW86938 wants a 1ms delay here */
+	usleep_range(1000, 1500);
 
 	/* Set base address for the start of the SRAM waveforms */
 	err = regmap_write(haptics->regmap,
@@ -717,7 +746,14 @@ static int aw86927_detect(struct aw86927_data *haptics)
 
 	chip_id = be16_to_cpu(read_buf);
 
-	if (chip_id != AW86927_CHIPID) {
+	switch (chip_id) {
+	case AW86927_CHIPID:
+		haptics->model = AW86927;
+		break;
+	case AW86938_CHIPID:
+		haptics->model = AW86938;
+		break;
+	default:
 		dev_err(haptics->dev, "Unexpected CHIPID value 0x%x\n", chip_id);
 		return -ENODEV;
 	}

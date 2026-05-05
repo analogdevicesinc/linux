@@ -47,7 +47,7 @@ static int dev_8255_attach(struct comedi_device *dev,
 			   struct comedi_devconfig *it)
 {
 	struct comedi_subdevice *s;
-	unsigned long iobase;
+	unsigned int iobase;
 	int ret;
 	int i;
 
@@ -70,13 +70,15 @@ static int dev_8255_attach(struct comedi_device *dev,
 		iobase = it->options[i];
 
 		/*
-		 * __comedi_request_region() does not set dev->iobase.
+		 * __comedi_check_request_region() does not set dev->iobase.
 		 *
 		 * For 8255 devices that are manually attached using
 		 * comedi_config, the 'iobase' is the actual I/O port
-		 * base address of the chip.
+		 * base address of the chip.  It should be aligned on
+		 * a 4-byte boundary.
 		 */
-		ret = __comedi_request_region(dev, iobase, I8255_SIZE);
+		ret = __comedi_check_request_region(dev, iobase, I8255_SIZE,
+						    0, UINT_MAX, 4);
 		if (ret)
 			return ret;
 		ret = subdev_8255_io_init(dev, s, iobase);

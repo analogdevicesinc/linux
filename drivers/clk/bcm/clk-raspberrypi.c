@@ -160,6 +160,13 @@ raspberrypi_clk_variants[RPI_FIRMWARE_NUM_CLK_ID] = {
 	[RPI_FIRMWARE_VEC_CLK_ID] = {
 		.export = true,
 		.minimize = true,
+
+		/*
+		 * If this clock is disabled during boot, it causes a bus
+		 * lockup in RPi 3B. Therefore, make sure it's left enabled
+		 * during boot.
+		 */
+		.flags = CLK_IGNORE_UNUSED,
 	},
 	[RPI_FIRMWARE_DISP_CLK_ID] = {
 		.export = true,
@@ -289,16 +296,31 @@ static int raspberrypi_fw_dumb_determine_rate(struct clk_hw *hw,
 static int raspberrypi_fw_prepare(struct clk_hw *hw)
 {
 	const struct raspberrypi_clk_data *data = clk_hw_to_data(hw);
+	struct raspberrypi_clk_variant *variant = data->variant;
 	struct raspberrypi_clk *rpi = data->rpi;
 	u32 state = RPI_FIRMWARE_STATE_ENABLE_BIT;
 	int ret;
 
 	ret = raspberrypi_clock_property(rpi->firmware, data,
 					 RPI_FIRMWARE_SET_CLOCK_STATE, &state);
-	if (ret)
+	if (ret) {
 		dev_err_ratelimited(rpi->dev,
 				    "Failed to set clock %s state to on: %d\n",
 				    clk_hw_get_name(hw), ret);
+		return ret;
+	}
+
+	/*
+	 * For clocks marked with 'maximize', restore the rate to the
+	 * maximum after enabling. This compensates for the rate being
+	 * set to minimum during unprepare (see raspberrypi_fw_unprepare).
+	 */
+	if (variant->maximize) {
+		unsigned long min_rate, max_rate;
+
+		clk_hw_get_rate_range(hw, &min_rate, &max_rate);
+		ret = raspberrypi_fw_set_rate(hw, max_rate, 0);
+	}
 
 	return ret;
 }
@@ -307,8 +329,26 @@ static void raspberrypi_fw_unprepare(struct clk_hw *hw)
 {
 	const struct raspberrypi_clk_data *data = clk_hw_to_data(hw);
 	struct raspberrypi_clk *rpi = data->rpi;
+	unsigned long min_rate, max_rate;
 	u32 state = 0;
 	int ret;
+
+	clk_hw_get_rate_range(hw, &min_rate, &max_rate);
+
+	/*
+	 * Setting the rate in unprepare is a deviation from the usual CCF
+	 * behavior, where unprepare only gates the clock. However, this is
+	 * needed, as RPI_FIRMWARE_SET_CLOCK_STATE doesn't actually power off
+	 * the clock on current firmware versions. Setting the rate to minimum
+	 * before disabling the clock is the only way to achieve meaningful
+	 * power savings.
+	 *
+	 * This is safe because no consumer should rely on the rate of an
+	 * unprepared clock. Any consumer must call clk_prepare() before use,
+	 * at which point the rate is either restored to maximum (for clocks
+	 * with the 'maximize' flag) or re-established by the consumer.
+	 */
+	raspberrypi_fw_set_rate(hw, min_rate, 0);
 
 	ret = raspberrypi_clock_property(rpi->firmware, data,
 					 RPI_FIRMWARE_SET_CLOCK_STATE, &state);
@@ -386,9 +426,6 @@ static struct clk_hw *raspberrypi_clk_register(struct raspberrypi_clk *rpi,
 			return ERR_PTR(ret);
 		}
 	}
-
-	if (variant->maximize)
-		variant->min_rate = max_rate;
 
 	if (variant->min_rate) {
 		unsigned long rate;

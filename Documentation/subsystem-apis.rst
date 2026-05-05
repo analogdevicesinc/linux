@@ -46,7 +46,6 @@ Networking interfaces
    networking/index
    netlabel/index
    infiniband/index
-   isdn/index
    mhi/index
 
 Storage interfaces

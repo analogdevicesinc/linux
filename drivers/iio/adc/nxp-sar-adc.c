@@ -247,7 +247,8 @@ static inline void nxp_sar_adc_calibration_start(void __iomem *base)
 
 static inline int nxp_sar_adc_calibration_wait(void __iomem *base)
 {
-	u32 msr, ret;
+	u32 msr;
+	int ret;
 
 	ret = readl_poll_timeout(NXP_SAR_ADC_MSR(base), msr,
 				 !FIELD_GET(NXP_SAR_ADC_MSR_CALBUSY, msr),
@@ -718,6 +719,10 @@ static int nxp_sar_adc_buffer_software_do_postenable(struct iio_dev *indio_dev)
 	struct nxp_sar_adc *info = iio_priv(indio_dev);
 	int ret;
 
+	info->dma_chan = dma_request_chan(indio_dev->dev.parent, "rx");
+	if (IS_ERR(info->dma_chan))
+		return PTR_ERR(info->dma_chan);
+
 	nxp_sar_adc_dma_channels_enable(info, *indio_dev->active_scan_mask);
 
 	nxp_sar_adc_dma_cfg(info, true);
@@ -738,6 +743,7 @@ out_stop_cyclic_dma:
 out_dma_channels_disable:
 	nxp_sar_adc_dma_cfg(info, false);
 	nxp_sar_adc_dma_channels_disable(info, *indio_dev->active_scan_mask);
+	dma_release_channel(info->dma_chan);
 
 	return ret;
 }
@@ -764,10 +770,6 @@ static int nxp_sar_adc_buffer_postenable(struct iio_dev *indio_dev)
 	int current_mode = iio_device_get_current_mode(indio_dev);
 	unsigned long channel;
 	int ret;
-
-	info->dma_chan = dma_request_chan(indio_dev->dev.parent, "rx");
-	if (IS_ERR(info->dma_chan))
-		return PTR_ERR(info->dma_chan);
 
 	info->channels_used = 0;
 

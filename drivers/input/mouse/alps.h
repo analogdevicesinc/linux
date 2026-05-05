@@ -257,7 +257,7 @@ struct alps_fields {
  * @dev3: Generic PS/2 mouse (can be NULL, delayed registering).
  * @phys2: Physical path for the trackstick device.
  * @phys3: Physical path for the generic PS/2 mouse.
- * @dev3_register_work: Delayed work for registering PS/2 mouse.
+ * @dev3_register_work: A work instance for registering PS/2 mouse.
  * @nibble_commands: Command mapping used for touchpad register accesses.
  * @addr_command: Command used to tell the touchpad that a register address
  *   follows.
@@ -289,7 +289,7 @@ struct alps_data {
 	struct input_dev *dev3;
 	char phys2[32];
 	char phys3[32];
-	struct delayed_work dev3_register_work;
+	struct work_struct dev3_register_work;
 
 	/* these are autodetected when the device is identified */
 	const struct alps_nibble_commands *nibble_commands;

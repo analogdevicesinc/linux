@@ -15,12 +15,12 @@
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/svc.h>
 #include <linux/sunrpc/stats.h>
-#include <linux/lockd/lockd.h>
 
 #include <uapi/linux/nfs2.h>
 
+#include "lockd.h"
+#include "share.h"
 #include "svcxdr.h"
-
 
 static inline loff_t
 s32_to_loff_t(__s32 offset)
@@ -275,7 +275,7 @@ nlmsvc_decode_shareargs(struct svc_rqst *rqstp, struct xdr_stream *xdr)
 
 	memset(lock, 0, sizeof(*lock));
 	locks_init_lock(&lock->fl);
-	lock->svid = ~(u32)0;
+	lock->svid = LOCKD_SHARE_SVID;
 
 	if (!svcxdr_decode_cookie(xdr, &argp->cookie))
 		return false;

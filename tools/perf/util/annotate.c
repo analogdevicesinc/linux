@@ -8,7 +8,6 @@
 
 #include <errno.h>
 #include <inttypes.h>
-#include <libgen.h>
 #include <stdlib.h>
 #include "util.h" // hex_width()
 #include "ui/ui.h"
@@ -44,6 +43,7 @@
 #include "strbuf.h"
 #include <regex.h>
 #include <linux/bitops.h>
+#include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/zalloc.h>
@@ -137,8 +137,10 @@ static int annotated_source__alloc_histograms(struct annotated_source *src,
 		return -1;
 
 	src->samples = hashmap__new(sym_hist_hash, sym_hist_equal, NULL);
-	if (src->samples == NULL)
+	if (IS_ERR(src->samples)) {
 		zfree(&src->histograms);
+		src->samples = NULL;
+	}
 
 	return src->histograms ? 0 : -1;
 }
@@ -1242,7 +1244,7 @@ int hist_entry__annotate_printf(struct hist_entry *he, struct evsel *evsel)
 	if (opts->full_path)
 		d_filename = filename;
 	else
-		d_filename = basename(filename);
+		d_filename = perf_basename(filename);
 
 	if (evsel__is_group_event(evsel)) {
 		evsel__group_desc(evsel, buf, sizeof(buf));

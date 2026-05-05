@@ -31,7 +31,7 @@
 #define ADXL319_ID_VAL				382
 
 #define ADXL380_DEVID_AD_REG			0x00
-#define ADLX380_PART_ID_REG			0x02
+#define ADXL380_PART_ID_REG			0x02
 
 #define ADXL380_X_DATA_H_REG			0x15
 #define ADXL380_Y_DATA_H_REG			0x17
@@ -877,7 +877,7 @@ static int adxl380_set_fifo_samples(struct adxl380_state *st)
 	ret = regmap_update_bits(st->regmap, ADXL380_FIFO_CONFIG_0_REG,
 				 ADXL380_FIFO_SAMPLES_8_MSK,
 				 FIELD_PREP(ADXL380_FIFO_SAMPLES_8_MSK,
-					    (fifo_samples & BIT(8))));
+					    !!(fifo_samples & BIT(8))));
 	if (ret)
 		return ret;
 
@@ -1878,7 +1878,7 @@ static int adxl380_setup(struct iio_dev *indio_dev)
 	if (reg_val != ADXL380_DEVID_AD_VAL)
 		dev_warn(st->dev, "Unknown chip id %x\n", reg_val);
 
-	ret = regmap_bulk_read(st->regmap, ADLX380_PART_ID_REG,
+	ret = regmap_bulk_read(st->regmap, ADXL380_PART_ID_REG,
 			       &st->transf_buf, 2);
 	if (ret)
 		return ret;

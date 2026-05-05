@@ -218,9 +218,6 @@
 #define ADE9000_ST1_ERROR1_BIT		BIT(29)
 #define ADE9000_ST1_ERROR2_BIT		BIT(30)
 #define ADE9000_ST1_ERROR3_BIT		BIT(31)
-#define ADE9000_ST_ERROR \
-	(ADE9000_ST1_ERROR0 | ADE9000_ST1_ERROR1 | \
-	 ADE9000_ST1_ERROR2 | ADE9000_ST1_ERROR3)
 #define ADE9000_ST1_CROSSING_FIRST	6
 #define ADE9000_ST1_CROSSING_DEPTH	25
 
@@ -283,7 +280,6 @@ enum ade9000_wfb_cfg {
 #define ADE9000_PHASE_C_POS_BIT		BIT(6)
 
 #define ADE9000_MAX_PHASE_NR		3
-#define AD9000_CHANNELS_PER_PHASE	10
 
 /*
  * Calculate register address for multi-phase device.
@@ -787,7 +783,7 @@ static int ade9000_iio_push_streaming(struct iio_dev *indio_dev)
 				   ADE9000_MIDDLE_PAGE_BIT);
 		if (ret) {
 			dev_err_ratelimited(dev, "IRQ0 WFB write fail");
-			return IRQ_HANDLED;
+			return ret;
 		}
 
 		ade9000_configure_scan(indio_dev, ADE9000_REG_WF_BUFF);
@@ -1123,7 +1119,7 @@ static int ade9000_write_raw(struct iio_dev *indio_dev,
 			tmp &= ~ADE9000_PHASE_C_POS_BIT;
 
 			switch (tmp) {
-			case ADE9000_REG_AWATTOS:
+			case ADE9000_REG_AWATT:
 				return regmap_write(st->regmap,
 						    ADE9000_ADDR_ADJUST(ADE9000_REG_AWATTOS,
 									chan->channel), val);
@@ -1549,7 +1545,7 @@ static int ade9000_buffer_postdisable(struct iio_dev *indio_dev)
 
 	ret = regmap_clear_bits(st->regmap, ADE9000_REG_MASK0, interrupts);
 	if (ret) {
-		dev_err(dev, "Post-disable update maks0 fail\n");
+		dev_err(dev, "Post-disable update mask0 fail\n");
 		return ret;
 	}
 
@@ -1589,10 +1585,9 @@ static int ade9000_reset(struct ade9000_state *st)
 	/* Only wait for completion if IRQ1 is available to signal reset done */
 	if (fwnode_irq_get_byname(dev_fwnode(dev), "irq1") >= 0) {
 		if (!wait_for_completion_timeout(&st->reset_completion,
-						 msecs_to_jiffies(1000))) {
-			dev_err(dev, "Reset timeout after 1s\n");
-			return -ETIMEDOUT;
-		}
+						 msecs_to_jiffies(1000)))
+			return dev_err_probe(dev, -ETIMEDOUT,
+					     "Reset timeout after 1s\n");
 	}
 	/* If no IRQ available, reset is already complete after the 50ms delay above */
 
@@ -1706,6 +1701,10 @@ static int ade9000_probe(struct spi_device *spi)
 
 	init_completion(&st->reset_completion);
 
+	ret = devm_mutex_init(dev, &st->lock);
+	if (ret)
+		return ret;
+
 	ret = ade9000_request_irq(dev, "irq0", ade9000_irq0_thread, indio_dev);
 	if (ret)
 		return ret;
@@ -1715,10 +1714,6 @@ static int ade9000_probe(struct spi_device *spi)
 		return ret;
 
 	ret = ade9000_request_irq(dev, "dready", ade9000_dready_thread, indio_dev);
-	if (ret)
-		return ret;
-
-	ret = devm_mutex_init(dev, &st->lock);
 	if (ret)
 		return ret;
 

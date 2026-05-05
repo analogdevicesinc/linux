@@ -595,6 +595,12 @@ static int create_elf_fdpic_tables(struct linux_binprm *bprm,
 #ifdef ELF_HWCAP2
 	nitems++;
 #endif
+#ifdef ELF_HWCAP3
+	nitems++;
+#endif
+#ifdef ELF_HWCAP4
+	nitems++;
+#endif
 
 	csp = sp;
 	sp -= nitems * 2 * sizeof(unsigned long);
@@ -911,7 +917,7 @@ static int elf_fdpic_map_file(struct elf_fdpic_params *params,
 	return 0;
 
 dynamic_error:
-	printk("ELF FDPIC %s with invalid DYNAMIC section (inode=%lu)\n",
+	printk("ELF FDPIC %s with invalid DYNAMIC section (inode=%llu)\n",
 	       what, file_inode(file)->i_ino);
 	return -ELIBBAD;
 }

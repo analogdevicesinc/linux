@@ -1557,7 +1557,7 @@ static int UVERBS_HANDLER(MLX5_IB_METHOD_DEVX_OBJ_CREATE)(
 	if (IS_ERR(cmd_out))
 		return PTR_ERR(cmd_out);
 
-	obj = kzalloc(sizeof(struct devx_obj), GFP_KERNEL);
+	obj = kzalloc_obj(*obj);
 	if (!obj)
 		return -ENOMEM;
 
@@ -2158,7 +2158,7 @@ static int UVERBS_HANDLER(MLX5_IB_METHOD_DEVX_SUBSCRIBE_EVENT)(
 		if (err)
 			goto err;
 
-		event_sub = kzalloc(sizeof(*event_sub), GFP_KERNEL);
+		event_sub = kzalloc_obj(*event_sub);
 		if (!event_sub) {
 			err = -ENOMEM;
 			goto err;
@@ -2398,7 +2398,7 @@ static int UVERBS_HANDLER(MLX5_IB_METHOD_DEVX_UMEM_REG)(
 	if (err)
 		return err;
 
-	obj = kzalloc(sizeof(struct devx_umem), GFP_KERNEL);
+	obj = kzalloc_obj(*obj);
 	if (!obj)
 		return -ENOMEM;
 

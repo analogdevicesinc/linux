@@ -55,19 +55,6 @@ config SERIO_SERPORT
 	  To compile this driver as a module, choose M here: the
 	  module will be called serport.
 
-config SERIO_CT82C710
-	tristate "ct82c710 Aux port controller"
-	depends on X86
-	help
-	  Say Y here if you have a Texas Instruments TravelMate notebook
-	  equipped with the ct82c710 chip and want to use a mouse connected
-	  to the "QuickPort".
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called ct82c710.
-
 config SERIO_Q40KBD
 	tristate "Q40 keyboard controller"
 	depends on Q40

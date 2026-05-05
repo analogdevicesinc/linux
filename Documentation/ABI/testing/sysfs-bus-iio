@@ -1428,7 +1428,7 @@ KernelVersion:	2.6.35
 Contact:	linux-iio@vger.kernel.org
 Description:
 		The name of the trigger source being used, as per string given
-		in /sys/class/iio/triggerY/name.
+		in /sys/bus/iio/devices/triggerY/name.
 
 What:		/sys/bus/iio/devices/iio:deviceX/bufferY/length
 KernelVersion:	5.11

@@ -112,6 +112,7 @@ int mei_cldev_register_rx_cb(struct mei_cl_device *cldev, mei_cldev_cb_t rx_cb);
 int mei_cldev_register_notif_cb(struct mei_cl_device *cldev,
 				mei_cldev_cb_t notif_cb);
 
+const uuid_le *mei_cldev_uuid(const struct mei_cl_device *cldev);
 u8 mei_cldev_ver(const struct mei_cl_device *cldev);
 size_t mei_cldev_mtu(const struct mei_cl_device *cldev);
 

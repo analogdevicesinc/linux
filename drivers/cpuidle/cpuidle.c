@@ -359,16 +359,6 @@ noinstr int cpuidle_enter_state(struct cpuidle_device *dev,
 int cpuidle_select(struct cpuidle_driver *drv, struct cpuidle_device *dev,
 		   bool *stop_tick)
 {
-	/*
-	 * If there is only a single idle state (or none), there is nothing
-	 * meaningful for the governor to choose. Skip the governor and
-	 * always use state 0 with the tick running.
-	 */
-	if (drv->state_count <= 1) {
-		*stop_tick = false;
-		return 0;
-	}
-
 	return cpuidle_curr_governor->select(drv, dev, stop_tick);
 }
 
@@ -689,16 +679,16 @@ int cpuidle_register_device(struct cpuidle_device *dev)
 	if (!dev)
 		return -EINVAL;
 
-	mutex_lock(&cpuidle_lock);
+	guard(mutex)(&cpuidle_lock);
 
 	if (dev->registered)
-		goto out_unlock;
+		return ret;
 
 	__cpuidle_device_init(dev);
 
 	ret = __cpuidle_register_device(dev);
 	if (ret)
-		goto out_unlock;
+		return ret;
 
 	ret = cpuidle_add_sysfs(dev);
 	if (ret)
@@ -710,19 +700,34 @@ int cpuidle_register_device(struct cpuidle_device *dev)
 
 	cpuidle_install_idle_handler();
 
-out_unlock:
-	mutex_unlock(&cpuidle_lock);
-
 	return ret;
 
 out_sysfs:
 	cpuidle_remove_sysfs(dev);
 out_unregister:
 	__cpuidle_unregister_device(dev);
-	goto out_unlock;
+
+	return ret;
 }
 
 EXPORT_SYMBOL_GPL(cpuidle_register_device);
+
+void cpuidle_unregister_device_no_lock(struct cpuidle_device *dev)
+{
+	if (!dev || dev->registered == 0)
+		return;
+
+	lockdep_assert_held(&cpuidle_lock);
+
+	cpuidle_disable_device(dev);
+
+	cpuidle_remove_sysfs(dev);
+
+	__cpuidle_unregister_device(dev);
+
+	cpuidle_coupled_unregister_device(dev);
+}
+EXPORT_SYMBOL_GPL(cpuidle_unregister_device_no_lock);
 
 /**
  * cpuidle_unregister_device - unregisters a CPU's idle PM feature
@@ -734,18 +739,9 @@ void cpuidle_unregister_device(struct cpuidle_device *dev)
 		return;
 
 	cpuidle_pause_and_lock();
-
-	cpuidle_disable_device(dev);
-
-	cpuidle_remove_sysfs(dev);
-
-	__cpuidle_unregister_device(dev);
-
-	cpuidle_coupled_unregister_device(dev);
-
+	cpuidle_unregister_device_no_lock(dev);
 	cpuidle_resume_and_unlock();
 }
-
 EXPORT_SYMBOL_GPL(cpuidle_unregister_device);
 
 /**

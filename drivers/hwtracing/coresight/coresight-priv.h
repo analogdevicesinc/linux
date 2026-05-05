@@ -239,8 +239,7 @@ static inline void *coresight_get_uci_data_from_amba(const struct amba_id *table
 	return NULL;
 }
 
-void coresight_release_platform_data(struct coresight_device *csdev,
-				     struct device *dev,
+void coresight_release_platform_data(struct device *dev,
 				     struct coresight_platform_data *pdata);
 struct coresight_device *
 coresight_find_csdev_by_fwnode(struct fwnode_handle *r_fwnode);

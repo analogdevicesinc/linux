@@ -14,7 +14,6 @@
 #include <linux/key-type.h>
 #include "cached_dir.h"
 
-struct statfs;
 struct smb_rqst;
 
 /*
@@ -24,6 +23,12 @@ struct smb_rqst;
  */
 int map_smb2_to_linux_error(char *buf, bool log_err);
 int smb2_init_maperror(void);
+#if IS_ENABLED(CONFIG_SMB_KUNIT_TESTS)
+const struct status_to_posix_error *smb2_get_err_map_test(__u32 smb2_status);
+extern const struct status_to_posix_error *smb2_error_map_table_test;
+extern unsigned int smb2_error_map_num;
+#endif
+
 int smb2_check_message(char *buf, unsigned int pdu_len, unsigned int len,
 		       struct TCP_Server_Info *server);
 unsigned int smb2_calc_size(void *buf);
@@ -167,9 +172,6 @@ int SMB2_flush_init(const unsigned int xid, struct smb_rqst *rqst,
 		    struct cifs_tcon *tcon, struct TCP_Server_Info *server,
 		    u64 persistent_fid, u64 volatile_fid);
 void SMB2_flush_free(struct smb_rqst *rqst);
-int SMB311_posix_query_info(const unsigned int xid, struct cifs_tcon *tcon,
-			    u64 persistent_fid, u64 volatile_fid,
-			    struct smb311_posix_qinfo *data, u32 *plen);
 int SMB2_query_info(const unsigned int xid, struct cifs_tcon *tcon,
 		    u64 persistent_fid, u64 volatile_fid,
 		    struct smb2_file_all_info *data);
@@ -255,7 +257,6 @@ int smb2_validate_and_copy_iov(unsigned int offset, unsigned int buffer_length,
 			       char *data);
 void smb2_copy_fs_info_to_kstatfs(struct smb2_fs_full_size_info *pfs_inf,
 				  struct kstatfs *kst);
-int smb3_crypto_shash_allocate(struct TCP_Server_Info *server);
 void smb311_update_preauth_hash(struct cifs_ses *ses,
 				struct TCP_Server_Info *server,
 				struct kvec *iov, int nvec);

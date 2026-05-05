@@ -77,6 +77,7 @@ enum si476x_power_state {
  * underlying "core" device which all the MFD cell-devices use.
  *
  * @client: Actual I2C client used to transfer commands to the chip.
+ * @regmap: Regmap for accessing the device registers
  * @chip_id: Last digit of the chip model(E.g. "1" for SI4761)
  * @cells: MFD cell devices created by this driver.
  * @cmd_lock: Mutex used to serialize all the requests to the core
@@ -100,16 +101,18 @@ enum si476x_power_state {
  * @stc: Similar to @cts, but for the STC bit of the status value.
  * @power_up_parameters: Parameters used as argument for POWER_UP
  * command when the device is started.
- * @state: Current power state of the device.
- * @supplues: Structure containing handles to all power supplies used
+ * @power_state: Current power state of the device.
+ * @supplies: Structure containing handles to all power supplies used
  * by the device (NULL ones are ignored).
  * @gpio_reset: GPIO pin connectet to the RSTB pin of the chip.
  * @pinmux: Chip's configurable pins configuration.
  * @diversity_mode: Chips role when functioning in diversity mode.
+ * @is_alive: Chip is initialized and active.
  * @status_monitor: Polling worker used in polling use case scenarion
  * (when IRQ is not avalible).
  * @revision: Chip's running firmware revision number(Used for correct
  * command set support).
+ * @rds_fifo_depth: RDS FIFO size: 20 for IRQ mode or 5 for polling mode.
  */
 
 struct si476x_core {
@@ -166,6 +169,7 @@ static inline struct si476x_core *i2c_mfd_cell_to_core(struct device *dev)
 /**
  * si476x_core_lock() - lock the core device to get an exclusive access
  * to it.
+ * @core: Core device structure
  */
 static inline void si476x_core_lock(struct si476x_core *core)
 {
@@ -175,6 +179,7 @@ static inline void si476x_core_lock(struct si476x_core *core)
 /**
  * si476x_core_unlock() - unlock the core device to relinquish an
  * exclusive access to it.
+ * @core: Core device structure
  */
 static inline void si476x_core_unlock(struct si476x_core *core)
 {
@@ -246,9 +251,10 @@ static inline int si476x_to_v4l2(struct si476x_core *core, u16 freq)
  * struct si476x_func_info - structure containing result of the
  * FUNC_INFO command.
  *
+ * @firmware: Firmware version numbers.
  * @firmware.major: Firmware major number.
  * @firmware.minor[...]: Firmware minor numbers.
- * @patch_id:
+ * @patch_id: Firmware patch level.
  * @func: Mode tuner is working in.
  */
 struct si476x_func_info {
@@ -318,8 +324,9 @@ enum si476x_smoothmetrics {
  * @tp: Current channel's TP flag.
  * @pty: Current channel's PTY code.
  * @pi: Current channel's PI code.
- * @rdsfifoused: Number of blocks remaining in the RDS FIFO (0 if
- * empty).
+ * @rdsfifoused: Number of blocks remaining in the RDS FIFO (0 if empty).
+ * @ble:
+ * @rds: RDS data descriptor
  */
 struct si476x_rds_status_report {
 	bool rdstpptyint, rdspiint, rdssyncint, rdsfifoint;

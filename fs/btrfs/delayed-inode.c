@@ -596,8 +596,7 @@ static int btrfs_delayed_inode_reserve_metadata(
 	 */
 	if (!src_rsv || (!trans->bytes_reserved &&
 			 src_rsv->type != BTRFS_BLOCK_RSV_DELALLOC)) {
-		ret = btrfs_qgroup_reserve_meta(root, num_bytes,
-					  BTRFS_QGROUP_RSV_META_PREALLOC, true);
+		ret = btrfs_qgroup_reserve_meta_prealloc(root, num_bytes, true, true);
 		if (ret < 0)
 			return ret;
 		ret = btrfs_block_rsv_add(fs_info, dst_rsv, num_bytes,
@@ -1657,7 +1656,7 @@ int btrfs_delete_delayed_dir_index(struct btrfs_trans_handle *trans,
 	if (unlikely(ret)) {
 		btrfs_err(trans->fs_info,
 "failed to add delayed dir index item, root: %llu, inode: %llu, index: %llu, error: %d",
-			  index, btrfs_root_id(node->root), node->inode_id, ret);
+			  btrfs_root_id(node->root), node->inode_id, index, ret);
 		btrfs_delayed_item_release_metadata(dir->root, item);
 		btrfs_release_delayed_item(item);
 	}

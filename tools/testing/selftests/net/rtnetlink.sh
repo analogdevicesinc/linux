@@ -23,11 +23,13 @@ ALL_TESTS="
 	kci_test_encap
 	kci_test_macsec
 	kci_test_macsec_vlan
+	kci_test_team_bridge_macvlan
 	kci_test_ipsec
 	kci_test_ipsec_offload
 	kci_test_fdb_get
 	kci_test_fdb_del
 	kci_test_neigh_get
+	kci_test_neigh_update
 	kci_test_bridge_parent_id
 	kci_test_address_proto
 	kci_test_enslave_bonding
@@ -635,6 +637,49 @@ kci_test_macsec_vlan()
 	end_test "PASS: macsec_vlan"
 }
 
+# Test ndo_change_rx_flags call from dev_uc_add under addr_list_lock spinlock.
+# When we are flipping the promisc, make sure it runs on the work queue.
+#
+# https://lore.kernel.org/netdev/20260214033859.43857-1-jiayuan.chen@linux.dev/
+# With (more conventional) macvlan instead of macsec.
+# macvlan -> bridge -> team -> dummy
+kci_test_team_bridge_macvlan()
+{
+	local vlan="test_macv1"
+	local bridge="test_br1"
+	local team="test_team1"
+	local dummy="test_dummy1"
+	local ret=0
+
+	run_cmd ip link add $team type team
+	if [ $ret -ne 0 ]; then
+		end_test "SKIP: team_bridge_macvlan: can't add team interface"
+		return $ksft_skip
+	fi
+
+	run_cmd ip link add $dummy type dummy
+	run_cmd ip link set $dummy master $team
+	run_cmd ip link set $team up
+	run_cmd ip link add $bridge type bridge vlan_filtering 1
+	run_cmd ip link set $bridge up
+	run_cmd ip link set $team master $bridge
+	run_cmd ip link add link $bridge name $vlan \
+		address 00:aa:bb:cc:dd:ee type macvlan mode bridge
+	run_cmd ip link set $vlan up
+
+	run_cmd ip link del $vlan
+	run_cmd ip link del $bridge
+	run_cmd ip link del $team
+	run_cmd ip link del $dummy
+
+	if [ $ret -ne 0 ]; then
+		end_test "FAIL: team_bridge_macvlan"
+		return 1
+	fi
+
+	end_test "PASS: team_bridge_macvlan"
+}
+
 #-------------------------------------------------------------------
 # Example commands
 #   ip x s add proto esp src 14.0.0.52 dst 14.0.0.70 \
@@ -1158,6 +1203,60 @@ kci_test_neigh_get()
 	fi
 
 	end_test "PASS: neigh get"
+}
+
+kci_test_neigh_update()
+{
+	dstip=10.0.2.4
+	dstmac=de:ad:be:ef:13:37
+	local ret=0
+
+	for proxy in "" "proxy" ; do
+		# add a neighbour entry without any flags
+		run_cmd ip neigh add $proxy $dstip dev "$devdummy" lladdr $dstmac nud permanent
+		run_cmd_grep $dstip ip neigh show $proxy
+		run_cmd_grep_fail "$dstip dev $devdummy .*\(managed\|use\|router\|extern\)" ip neigh show $proxy
+
+		# set the extern_learn flag, but no other
+		run_cmd ip neigh change $proxy $dstip dev "$devdummy" extern_learn
+		run_cmd_grep "$dstip dev $devdummy .* extern_learn" ip neigh show $proxy
+		run_cmd_grep_fail "$dstip dev $devdummy .* \(managed\|use\|router\)" ip neigh show $proxy
+
+		# flags are reset when not provided
+		run_cmd ip neigh change $proxy $dstip dev "$devdummy"
+		run_cmd_grep $dstip ip neigh show $proxy
+		run_cmd_grep_fail "$dstip dev $devdummy .* extern_learn" ip neigh show $proxy
+
+		# add a protocol
+		run_cmd ip neigh change $proxy $dstip dev "$devdummy" protocol boot
+		run_cmd_grep "$dstip dev $devdummy .* proto boot" ip neigh show $proxy
+
+		# protocol is retained when not provided
+		run_cmd ip neigh change $proxy $dstip dev "$devdummy"
+		run_cmd_grep "$dstip dev $devdummy .* proto boot" ip neigh show $proxy
+
+		# change protocol
+		run_cmd ip neigh change $proxy $dstip dev "$devdummy" protocol static
+		run_cmd_grep "$dstip dev $devdummy .* proto static" ip neigh show $proxy
+
+		# also check an extended flag for non-proxy neighs
+		if [ "$proxy" = "" ]; then
+			run_cmd ip neigh change $proxy $dstip dev "$devdummy" managed
+			run_cmd_grep "$dstip dev $devdummy managed" ip neigh show $proxy
+
+			run_cmd ip neigh change $proxy $dstip dev "$devdummy" lladdr $dstmac
+			run_cmd_grep_fail "$dstip dev $devdummy managed" ip neigh show $proxy
+		fi
+
+		run_cmd ip neigh del $proxy $dstip dev "$devdummy"
+	done
+
+	if [ $ret -ne 0 ];then
+		end_test "FAIL: neigh update"
+		return 1
+	fi
+
+	end_test "PASS: neigh update"
 }
 
 kci_test_bridge_parent_id()

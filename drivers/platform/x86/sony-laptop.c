@@ -178,8 +178,7 @@ enum sony_nc_rfkill {
 static int sony_rfkill_handle;
 static struct rfkill *sony_rfkill_devices[N_SONY_RFKILL];
 static int sony_rfkill_address[N_SONY_RFKILL] = {0x300, 0x500, 0x700, 0x900};
-static int sony_nc_rfkill_setup(struct acpi_device *device,
-		unsigned int handle);
+static int sony_nc_rfkill_setup(struct device *dev, unsigned int handle);
 static void sony_nc_rfkill_cleanup(void);
 static void sony_nc_rfkill_update(void);
 
@@ -435,7 +434,7 @@ static void sony_laptop_report_input_event(u8 event)
 		dprintk("unknown input event %.2x\n", event);
 }
 
-static int sony_laptop_setup_input(struct acpi_device *acpi_device)
+static int sony_laptop_setup_input(struct device *parent)
 {
 	struct input_dev *jog_dev;
 	struct input_dev *key_dev;
@@ -468,7 +467,7 @@ static int sony_laptop_setup_input(struct acpi_device *acpi_device)
 	key_dev->name = "Sony Vaio Keys";
 	key_dev->id.bustype = BUS_ISA;
 	key_dev->id.vendor = PCI_VENDOR_ID_SONY;
-	key_dev->dev.parent = &acpi_device->dev;
+	key_dev->dev.parent = parent;
 
 	/* Initialize the Input Drivers: special keys */
 	input_set_capability(key_dev, EV_MSC, MSC_SCAN);
@@ -497,7 +496,7 @@ static int sony_laptop_setup_input(struct acpi_device *acpi_device)
 	jog_dev->name = "Sony Vaio Jogdial";
 	jog_dev->id.bustype = BUS_ISA;
 	jog_dev->id.vendor = PCI_VENDOR_ID_SONY;
-	jog_dev->dev.parent = &acpi_device->dev;
+	jog_dev->dev.parent = parent;
 
 	input_set_capability(jog_dev, EV_KEY, BTN_MIDDLE);
 	input_set_capability(jog_dev, EV_REL, REL_WHEEL);
@@ -1176,7 +1175,7 @@ enum event_types {
 	KILLSWITCH,
 	GFX_SWITCH
 };
-static void sony_nc_notify(struct acpi_device *device, u32 event)
+static void sony_nc_notify(acpi_handle ah, u32 event, void *data)
 {
 	u32 real_ev = event;
 	u8 ev_type = 0;
@@ -1287,7 +1286,7 @@ static acpi_status sony_walk_callback(acpi_handle handle, u32 level,
 /*
  * ACPI device
  */
-static void sony_nc_function_setup(struct acpi_device *device,
+static void sony_nc_function_setup(struct device *dev,
 		struct platform_device *pf_device)
 {
 	unsigned int i, result, bitmask, arg;
@@ -1360,7 +1359,7 @@ static void sony_nc_function_setup(struct acpi_device *device,
 			break;
 		case 0x0124:
 		case 0x0135:
-			result = sony_nc_rfkill_setup(device, handle);
+			result = sony_nc_rfkill_setup(dev, handle);
 			if (result)
 				pr_err("couldn't set up rfkill support (%d)\n",
 						result);
@@ -1600,8 +1599,7 @@ static const struct rfkill_ops sony_rfkill_ops = {
 	.set_block = sony_nc_rfkill_set,
 };
 
-static int sony_nc_setup_rfkill(struct acpi_device *device,
-				enum sony_nc_rfkill nc_type)
+static int sony_nc_setup_rfkill(struct device *parent, enum sony_nc_rfkill nc_type)
 {
 	int err;
 	struct rfkill *rfk;
@@ -1631,8 +1629,7 @@ static int sony_nc_setup_rfkill(struct acpi_device *device,
 		return -EINVAL;
 	}
 
-	rfk = rfkill_alloc(name, &device->dev, type,
-			   &sony_rfkill_ops, (void *)nc_type);
+	rfk = rfkill_alloc(name, parent, type, &sony_rfkill_ops, (void *)nc_type);
 	if (!rfk)
 		return -ENOMEM;
 
@@ -1692,8 +1689,7 @@ static void sony_nc_rfkill_update(void)
 	}
 }
 
-static int sony_nc_rfkill_setup(struct acpi_device *device,
-		unsigned int handle)
+static int sony_nc_rfkill_setup(struct device *parent, unsigned int handle)
 {
 	u64 offset;
 	int i;
@@ -1734,18 +1730,18 @@ static int sony_nc_rfkill_setup(struct acpi_device *device,
 		dprintk("Radio devices, found 0x%.2x\n", buffer[i]);
 
 		if (buffer[i] == 0 && !sony_rfkill_devices[SONY_WIFI])
-			sony_nc_setup_rfkill(device, SONY_WIFI);
+			sony_nc_setup_rfkill(parent, SONY_WIFI);
 
 		if (buffer[i] == 0x10 && !sony_rfkill_devices[SONY_BLUETOOTH])
-			sony_nc_setup_rfkill(device, SONY_BLUETOOTH);
+			sony_nc_setup_rfkill(parent, SONY_BLUETOOTH);
 
 		if (((0xf0 & buffer[i]) == 0x20 ||
 					(0xf0 & buffer[i]) == 0x50) &&
 				!sony_rfkill_devices[SONY_WWAN])
-			sony_nc_setup_rfkill(device, SONY_WWAN);
+			sony_nc_setup_rfkill(parent, SONY_WWAN);
 
 		if (buffer[i] == 0x30 && !sony_rfkill_devices[SONY_WIMAX])
-			sony_nc_setup_rfkill(device, SONY_WIMAX);
+			sony_nc_setup_rfkill(parent, SONY_WIMAX);
 	}
 	return 0;
 }
@@ -3149,8 +3145,9 @@ static void sony_nc_backlight_cleanup(void)
 	backlight_device_unregister(sony_bl_props.dev);
 }
 
-static int sony_nc_add(struct acpi_device *device)
+static int sony_nc_probe(struct platform_device *pdev)
 {
+	struct acpi_device *device = ACPI_COMPANION(&pdev->dev);
 	acpi_status status;
 	int result = 0;
 	struct sony_nc_value *item;
@@ -3184,7 +3181,7 @@ static int sony_nc_add(struct acpi_device *device)
 		}
 	}
 
-	result = sony_laptop_setup_input(device);
+	result = sony_laptop_setup_input(&pdev->dev);
 	if (result) {
 		pr_err("Unable to create input devices\n");
 		goto outplatform;
@@ -3201,7 +3198,7 @@ static int sony_nc_add(struct acpi_device *device)
 		/* retrieve the available handles */
 		result = sony_nc_handles_setup(sony_pf_device);
 		if (!result)
-			sony_nc_function_setup(device, sony_pf_device);
+			sony_nc_function_setup(&pdev->dev, sony_pf_device);
 	}
 
 	if (acpi_video_get_backlight_type() == acpi_backlight_vendor)
@@ -3244,6 +3241,11 @@ static int sony_nc_add(struct acpi_device *device)
 		}
 	}
 
+	result = acpi_dev_install_notify_handler(device, ACPI_DEVICE_NOTIFY,
+						 sony_nc_notify, NULL);
+	if (result)
+		goto out_sysfs;
+
 	pr_info("SNC setup done.\n");
 	return 0;
 
@@ -3266,9 +3268,12 @@ outwalk:
 	return result;
 }
 
-static void sony_nc_remove(struct acpi_device *device)
+static void sony_nc_remove(struct platform_device *pdev)
 {
 	struct sony_nc_value *item;
+
+	acpi_dev_remove_notify_handler(ACPI_COMPANION(&pdev->dev),
+				       ACPI_DEVICE_NOTIFY, sony_nc_notify);
 
 	sony_nc_backlight_cleanup();
 
@@ -3297,16 +3302,14 @@ static const struct acpi_device_id sony_nc_device_ids[] = {
 	{"", 0},
 };
 
-static struct acpi_driver sony_nc_driver = {
-	.name = SONY_NC_DRIVER_NAME,
-	.class = SONY_NC_CLASS,
-	.ids = sony_nc_device_ids,
-	.ops = {
-		.add = sony_nc_add,
-		.remove = sony_nc_remove,
-		.notify = sony_nc_notify,
-		},
-	.drv.pm = &sony_nc_pm,
+static struct platform_driver sony_nc_driver = {
+	.probe = sony_nc_probe,
+	.remove = sony_nc_remove,
+	.driver = {
+		.name = SONY_NC_DRIVER_NAME,
+		.acpi_match_table = sony_nc_device_ids,
+		.pm = &sony_nc_pm,
+	},
 };
 
 /*********** SPIC (SNY6001) Device ***********/
@@ -4276,9 +4279,9 @@ end:
 /*
  *  Disable the spic device by calling its _DIS method
  */
-static int sony_pic_disable(struct acpi_device *device)
+static int sony_pic_disable(struct device *dev)
 {
-	acpi_status ret = acpi_evaluate_object(device->handle, "_DIS", NULL,
+	acpi_status ret = acpi_evaluate_object(ACPI_HANDLE(dev), "_DIS", NULL,
 					       NULL);
 
 	if (ACPI_FAILURE(ret) && ret != AE_NOT_FOUND)
@@ -4294,7 +4297,7 @@ static int sony_pic_disable(struct acpi_device *device)
  *
  *  Call _SRS to set current resources
  */
-static int sony_pic_enable(struct acpi_device *device,
+static int sony_pic_enable(struct device *dev,
 		struct sony_pic_ioport *ioport, struct sony_pic_irq *irq)
 {
 	acpi_status status;
@@ -4376,7 +4379,7 @@ static int sony_pic_enable(struct acpi_device *device,
 
 	/* Attempt to set the resource */
 	dprintk("Evaluating _SRS\n");
-	status = acpi_set_current_resources(device->handle, &buffer);
+	status = acpi_set_current_resources(ACPI_HANDLE(dev), &buffer);
 
 	/* check for total failure */
 	if (ACPI_FAILURE(status)) {
@@ -4465,12 +4468,12 @@ found:
  *  ACPI driver
  *
  *****************/
-static void sony_pic_remove(struct acpi_device *device)
+static void sony_pic_remove(struct platform_device *pdev)
 {
 	struct sony_pic_ioport *io, *tmp_io;
 	struct sony_pic_irq *irq, *tmp_irq;
 
-	if (sony_pic_disable(device)) {
+	if (sony_pic_disable(&pdev->dev)) {
 		pr_err("Couldn't disable device\n");
 		return;
 	}
@@ -4504,11 +4507,12 @@ static void sony_pic_remove(struct acpi_device *device)
 	dprintk(SONY_PIC_DRIVER_NAME " removed.\n");
 }
 
-static int sony_pic_add(struct acpi_device *device)
+static int sony_pic_probe(struct platform_device *pdev)
 {
-	int result;
+	struct acpi_device *device = ACPI_COMPANION(&pdev->dev);
 	struct sony_pic_ioport *io, *tmp_io;
 	struct sony_pic_irq *irq, *tmp_irq;
+	int result;
 
 	spic_dev.acpi_dev = device;
 	strscpy(acpi_device_class(device), "sony/hotkey");
@@ -4523,7 +4527,7 @@ static int sony_pic_add(struct acpi_device *device)
 	}
 
 	/* setup input devices and helper fifo */
-	result = sony_laptop_setup_input(device);
+	result = sony_laptop_setup_input(&pdev->dev);
 	if (result) {
 		pr_err("Unable to create input devices\n");
 		goto err_free_resources;
@@ -4593,7 +4597,7 @@ static int sony_pic_add(struct acpi_device *device)
 	}
 
 	/* set resource status _SRS */
-	result = sony_pic_enable(device, spic_dev.cur_ioport, spic_dev.cur_irq);
+	result = sony_pic_enable(&pdev->dev, spic_dev.cur_ioport, spic_dev.cur_irq);
 	if (result) {
 		pr_err("Couldn't enable device\n");
 		goto err_free_irq;
@@ -4616,7 +4620,7 @@ err_remove_pf:
 	sony_pf_remove();
 
 err_disable_device:
-	sony_pic_disable(device);
+	sony_pic_disable(&pdev->dev);
 
 err_free_irq:
 	free_irq(spic_dev.cur_irq->irq.interrupts[0], &spic_dev);
@@ -4652,15 +4656,14 @@ err_free_resources:
 #ifdef CONFIG_PM_SLEEP
 static int sony_pic_suspend(struct device *dev)
 {
-	if (sony_pic_disable(to_acpi_device(dev)))
+	if (sony_pic_disable(dev))
 		return -ENXIO;
 	return 0;
 }
 
 static int sony_pic_resume(struct device *dev)
 {
-	sony_pic_enable(to_acpi_device(dev),
-			spic_dev.cur_ioport, spic_dev.cur_irq);
+	sony_pic_enable(dev, spic_dev.cur_ioport, spic_dev.cur_irq);
 	return 0;
 }
 #endif
@@ -4672,15 +4675,14 @@ static const struct acpi_device_id sony_pic_device_ids[] = {
 	{"", 0},
 };
 
-static struct acpi_driver sony_pic_driver = {
-	.name = SONY_PIC_DRIVER_NAME,
-	.class = SONY_PIC_CLASS,
-	.ids = sony_pic_device_ids,
-	.ops = {
-		.add = sony_pic_add,
-		.remove = sony_pic_remove,
-		},
-	.drv.pm = &sony_pic_pm,
+static struct platform_driver sony_pic_driver = {
+	.probe = sony_pic_probe,
+	.remove = sony_pic_remove,
+	.driver = {
+		.name = SONY_PIC_DRIVER_NAME,
+		.acpi_match_table = sony_pic_device_ids,
+		.pm = &sony_pic_pm,
+	},
 };
 
 static const struct dmi_system_id sonypi_dmi_table[] __initconst = {
@@ -4706,7 +4708,7 @@ static int __init sony_laptop_init(void)
 	int result;
 
 	if (!no_spic && dmi_check_system(sonypi_dmi_table)) {
-		result = acpi_bus_register_driver(&sony_pic_driver);
+		result = platform_driver_register(&sony_pic_driver);
 		if (result) {
 			pr_err("Unable to register SPIC driver\n");
 			goto out;
@@ -4714,7 +4716,7 @@ static int __init sony_laptop_init(void)
 		spic_drv_registered = 1;
 	}
 
-	result = acpi_bus_register_driver(&sony_nc_driver);
+	result = platform_driver_register(&sony_nc_driver);
 	if (result) {
 		pr_err("Unable to register SNC driver\n");
 		goto out_unregister_pic;
@@ -4724,16 +4726,16 @@ static int __init sony_laptop_init(void)
 
 out_unregister_pic:
 	if (spic_drv_registered)
-		acpi_bus_unregister_driver(&sony_pic_driver);
+		platform_driver_unregister(&sony_pic_driver);
 out:
 	return result;
 }
 
 static void __exit sony_laptop_exit(void)
 {
-	acpi_bus_unregister_driver(&sony_nc_driver);
+	platform_driver_unregister(&sony_nc_driver);
 	if (spic_drv_registered)
-		acpi_bus_unregister_driver(&sony_pic_driver);
+		platform_driver_unregister(&sony_pic_driver);
 }
 
 module_init(sony_laptop_init);

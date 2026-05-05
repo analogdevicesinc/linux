@@ -34,7 +34,7 @@ struct net_device *rdma_read_gid_attr_ndev_rcu(const struct ib_gid_attr *attr);
 
 /**
  * ib_get_cached_pkey - Returns a cached PKey table entry
- * @device: The device to query.
+ * @device_handle: The device to query.
  * @port_num: The port number of the device to query.
  * @index: The index into the cached PKey table to query.
  * @pkey: The PKey value found at the specified index.
@@ -80,7 +80,7 @@ int ib_get_cached_lmc(struct ib_device *device,
  * ib_get_cached_port_state - Returns a cached port state table entry
  * @device: The device to query.
  * @port_num: The port number of the device to query.
- * @port_state: port_state for the specified port for that device.
+ * @port_active: port_state for the specified port for that device.
  *
  * ib_get_cached_port_state() fetches the specified port_state table entry stored in
  * the local software cache.

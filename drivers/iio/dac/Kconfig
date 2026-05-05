@@ -408,6 +408,7 @@ config DPOT_DAC
 config DS4424
 	tristate "Maxim Integrated DS4422/DS4424 DAC driver"
 	depends on I2C
+	select REGMAP_I2C
 	help
 	  If you say yes here you get support for Maxim chips DS4422, DS4424.
 

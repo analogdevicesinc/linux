@@ -6,9 +6,7 @@
 #include <linux/clk-provider.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
-#include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 
 #include <dt-bindings/clock/qcom,kaanapali-cambistmclkcc.h>
@@ -385,7 +383,7 @@ static struct clk_alpha_pll *cam_bist_mclk_cc_kaanapali_plls[] = {
 	&cam_bist_mclk_cc_pll0,
 };
 
-static u32 cam_bist_mclk_cc_kaanapali_critical_cbcrs[] = {
+static const u32 cam_bist_mclk_cc_kaanapali_critical_cbcrs[] = {
 	0x40e0, /* CAM_BIST_MCLK_CC_SLEEP_CLK */
 };
 
@@ -397,7 +395,7 @@ static const struct regmap_config cam_bist_mclk_cc_kaanapali_regmap_config = {
 	.fast_io = true,
 };
 
-static struct qcom_cc_driver_data cam_bist_mclk_cc_kaanapali_driver_data = {
+static const struct qcom_cc_driver_data cam_bist_mclk_cc_kaanapali_driver_data = {
 	.alpha_plls = cam_bist_mclk_cc_kaanapali_plls,
 	.num_alpha_plls = ARRAY_SIZE(cam_bist_mclk_cc_kaanapali_plls),
 	.clk_cbcrs = cam_bist_mclk_cc_kaanapali_critical_cbcrs,

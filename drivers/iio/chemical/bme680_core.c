@@ -613,7 +613,7 @@ static int bme680_wait_for_eoc(struct bme680_data *data)
 	 * + heater duration
 	 */
 	int wait_eoc_us = ((data->oversampling_temp + data->oversampling_press +
-			   data->oversampling_humid) * 1936) + (477 * 4) +
+			   data->oversampling_humid) * 1963) + (477 * 4) +
 			   (477 * 5) + 1000 + (data->heater_dur * 1000);
 
 	fsleep(wait_eoc_us);
@@ -807,7 +807,7 @@ static int bme680_read_gas(struct bme680_data *data, int *comp_gas_res)
 	adc_gas_res = FIELD_GET(BME680_ADC_GAS_RES, gas_regs_val);
 
 	/*
-	 * occurs if either the gas heating duration was insuffient
+	 * This may occur if either the gas heating duration was insufficient
 	 * to reach the target heater temperature or the target
 	 * heater temperature was too high for the heater sink to
 	 * reach.

@@ -76,8 +76,13 @@ void ufshcd_mcq_compl_all_cqes_lock(struct ufs_hba *hba,
 bool ufshcd_cmd_inflight(struct scsi_cmnd *cmd);
 int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag);
 int ufshcd_mcq_abort(struct scsi_cmnd *cmd);
+u32 ufshcd_mcq_read_mcqiacr(struct ufs_hba *hba, int i);
+void ufshcd_mcq_write_mcqiacr(struct ufs_hba *hba, u32 val, int i);
 int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag);
 void ufshcd_release_scsi_cmd(struct ufs_hba *hba, struct scsi_cmnd *cmd);
+int ufshcd_pause_command_processing(struct ufs_hba *hba, u64 timeout_us);
+void ufshcd_resume_command_processing(struct ufs_hba *hba);
+int ufshcd_scale_clks(struct ufs_hba *hba, unsigned long freq, bool scale_up);
 
 /**
  * enum ufs_descr_fmt - UFS string descriptor format
@@ -102,6 +107,16 @@ int ufshcd_exec_raw_upiu_cmd(struct ufs_hba *hba,
 
 int ufshcd_wb_toggle(struct ufs_hba *hba, bool enable);
 int ufshcd_read_device_lvl_exception_id(struct ufs_hba *hba, u64 *exception_id);
+
+int ufshcd_uic_tx_eqtr(struct ufs_hba *hba, int gear);
+void ufshcd_apply_valid_tx_eq_settings(struct ufs_hba *hba);
+int ufshcd_config_tx_eq_settings(struct ufs_hba *hba,
+				 struct ufs_pa_layer_attr *pwr_mode,
+				 bool force_tx_eqtr);
+void ufshcd_print_tx_eq_params(struct ufs_hba *hba);
+bool ufshcd_is_txeq_presets_used(struct ufs_hba *hba);
+bool ufshcd_is_txeq_preset_selected(u8 preshoot, u8 deemphasis);
+int ufshcd_retrain_tx_eq(struct ufs_hba *hba, u32 gear);
 
 /* Wrapper functions for safely calling variant operations */
 static inline const char *ufshcd_get_var_name(struct ufs_hba *hba)
@@ -167,14 +182,24 @@ static inline int ufshcd_vops_link_startup_notify(struct ufs_hba *hba,
 	return 0;
 }
 
+static inline int ufshcd_vops_negotiate_pwr_mode(struct ufs_hba *hba,
+						 const struct ufs_pa_layer_attr *dev_max_params,
+						 struct ufs_pa_layer_attr *dev_req_params)
+{
+	if (hba->vops && hba->vops->negotiate_pwr_mode)
+		return hba->vops->negotiate_pwr_mode(hba, dev_max_params,
+					dev_req_params);
+
+	return -ENOTSUPP;
+}
+
 static inline int ufshcd_vops_pwr_change_notify(struct ufs_hba *hba,
 				enum ufs_notify_change_status status,
-				const struct ufs_pa_layer_attr *dev_max_params,
 				struct ufs_pa_layer_attr *dev_req_params)
 {
 	if (hba->vops && hba->vops->pwr_change_notify)
 		return hba->vops->pwr_change_notify(hba, status,
-					dev_max_params, dev_req_params);
+					dev_req_params);
 
 	return -ENOTSUPP;
 }
@@ -283,6 +308,38 @@ static inline u32 ufshcd_vops_freq_to_gear_speed(struct ufs_hba *hba, unsigned l
 {
 	if (hba->vops && hba->vops->freq_to_gear_speed)
 		return hba->vops->freq_to_gear_speed(hba, freq);
+
+	return 0;
+}
+
+static inline int ufshcd_vops_get_rx_fom(struct ufs_hba *hba,
+					 struct ufs_pa_layer_attr *pwr_mode,
+					 struct tx_eqtr_iter *h_iter,
+					 struct tx_eqtr_iter *d_iter)
+{
+	if (hba->vops && hba->vops->get_rx_fom)
+		return hba->vops->get_rx_fom(hba, pwr_mode, h_iter, d_iter);
+
+	return 0;
+}
+
+static inline int ufshcd_vops_apply_tx_eqtr_settings(struct ufs_hba *hba,
+						     struct ufs_pa_layer_attr *pwr_mode,
+						     struct tx_eqtr_iter *h_iter,
+						     struct tx_eqtr_iter *d_iter)
+{
+	if (hba->vops && hba->vops->apply_tx_eqtr_settings)
+		return hba->vops->apply_tx_eqtr_settings(hba, pwr_mode, h_iter, d_iter);
+
+	return 0;
+}
+
+static inline int ufshcd_vops_tx_eqtr_notify(struct ufs_hba *hba,
+					     enum ufs_notify_change_status status,
+					     struct ufs_pa_layer_attr *pwr_mode)
+{
+	if (hba->vops && hba->vops->tx_eqtr_notify)
+		return hba->vops->tx_eqtr_notify(hba, status, pwr_mode);
 
 	return 0;
 }

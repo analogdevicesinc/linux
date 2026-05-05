@@ -366,9 +366,53 @@ unsigned long io_uring_get_unmapped_area(struct file *filp, unsigned long addr,
 
 #else /* !CONFIG_MMU */
 
+/*
+ * Drop the pages that were initially referenced and added in
+ * io_uring_mmap(). We cannot have had a mremap() as that isn't supported,
+ * hence the vma should be identical to the one we initially referenced and
+ * mapped, and partial unmaps and splitting isn't possible on a file backed
+ * mapping.
+ */
+static void io_uring_nommu_vm_close(struct vm_area_struct *vma)
+{
+	unsigned long index;
+
+	for (index = vma->vm_start; index < vma->vm_end; index += PAGE_SIZE)
+		put_page(virt_to_page((void *) index));
+}
+
+static const struct vm_operations_struct io_uring_nommu_vm_ops = {
+	.close = io_uring_nommu_vm_close,
+};
+
 int io_uring_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	return is_nommu_shared_mapping(vma->vm_flags) ? 0 : -EINVAL;
+	struct io_ring_ctx *ctx = file->private_data;
+	struct io_mapped_region *region;
+	unsigned long i;
+
+	if (!is_nommu_shared_mapping(vma->vm_flags))
+		return -EINVAL;
+
+	guard(mutex)(&ctx->mmap_lock);
+	region = io_mmap_get_region(ctx, vma->vm_pgoff);
+	if (!region || !io_region_is_set(region))
+		return -EINVAL;
+
+	if ((vma->vm_end - vma->vm_start) !=
+	    (unsigned long) region->nr_pages << PAGE_SHIFT)
+		return -EINVAL;
+
+	/*
+	 * Pin the pages so io_free_region()'s release_pages() does not
+	 * drop the last reference while this VMA exists. delete_vma()
+	 * in mm/nommu.c calls vma_close() which runs ->close above.
+	 */
+	for (i = 0; i < region->nr_pages; i++)
+		get_page(region->pages[i]);
+
+	vma->vm_ops = &io_uring_nommu_vm_ops;
+	return 0;
 }
 
 unsigned int io_uring_nommu_mmap_capabilities(struct file *file)

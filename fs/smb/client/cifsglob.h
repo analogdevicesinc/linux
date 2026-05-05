@@ -20,9 +20,9 @@
 #include <linux/utsname.h>
 #include <linux/sched/mm.h>
 #include <linux/netfs.h>
+#include <linux/fcntl.h>
 #include "cifs_fs_sb.h"
 #include "cifsacl.h"
-#include <crypto/internal/hash.h>
 #include <uapi/linux/cifs/cifs_mount.h>
 #include "../common/smbglob.h"
 #include "../common/smb2pdu.h"
@@ -220,10 +220,8 @@ struct session_key {
 	char *response;
 };
 
-/* crypto hashing related structure/fields, not specific to a sec mech */
+/* encryption related structure/fields, not specific to a sec mech */
 struct cifs_secmech {
-	struct shash_desc *aes_cmac; /* block-cipher based MAC function, for SMB3 signatures */
-
 	struct crypto_aead *enc; /* smb3 encryption AEAD TFM (AES-CCM and AES-GCM) */
 	struct crypto_aead *dec; /* smb3 decryption AEAD TFM (AES-CCM and AES-GCM) */
 };
@@ -1533,9 +1531,16 @@ int cifs_file_set_size(const unsigned int xid, struct dentry *dentry,
 #define CIFS_CACHE_RW_FLG	(CIFS_CACHE_READ_FLG | CIFS_CACHE_WRITE_FLG)
 #define CIFS_CACHE_RHW_FLG	(CIFS_CACHE_RW_FLG | CIFS_CACHE_HANDLE_FLG)
 
-/*
- * One of these for each file inode
- */
+enum cifs_inode_flags {
+	CIFS_INODE_PENDING_OPLOCK_BREAK,	/* oplock break in progress */
+	CIFS_INODE_PENDING_WRITERS,		/* Writes in progress */
+	CIFS_INODE_FLAG_UNUSED,			/* Unused flag */
+	CIFS_INO_DELETE_PENDING,		/* delete pending on server */
+	CIFS_INO_INVALID_MAPPING,		/* pagecache is invalid */
+	CIFS_INO_LOCK,				/* lock bit for synchronization */
+	CIFS_INO_TMPFILE,			/* for O_TMPFILE inodes */
+	CIFS_INO_CLOSE_ON_LOCK,			/* Not to defer the close when lock is set */
+};
 
 struct cifsInodeInfo {
 	struct netfs_inode netfs; /* Netfslib context and vfs inode */
@@ -1553,13 +1558,6 @@ struct cifsInodeInfo {
 	__u32 cifsAttrs; /* e.g. DOS archive bit, sparse, compressed, system */
 	unsigned int oplock;		/* oplock/lease level we have */
 	__u16 epoch;		/* used to track lease state changes */
-#define CIFS_INODE_PENDING_OPLOCK_BREAK   (0) /* oplock break in progress */
-#define CIFS_INODE_PENDING_WRITERS	  (1) /* Writes in progress */
-#define CIFS_INODE_FLAG_UNUSED		  (2) /* Unused flag */
-#define CIFS_INO_DELETE_PENDING		  (3) /* delete pending on server */
-#define CIFS_INO_INVALID_MAPPING	  (4) /* pagecache is invalid */
-#define CIFS_INO_LOCK			  (5) /* lock bit for synchronization */
-#define CIFS_INO_CLOSE_ON_LOCK            (7) /* Not to defer the close when lock is set */
 	unsigned long flags;
 	spinlock_t writers_lock;
 	unsigned int writers;		/* Number of writers on this inode */
@@ -1580,24 +1578,59 @@ CIFS_I(struct inode *inode)
 	return container_of(inode, struct cifsInodeInfo, netfs.inode);
 }
 
-static inline struct cifs_sb_info *
-CIFS_SB(struct super_block *sb)
+static inline void *cinode_to_fsinfo(struct cifsInodeInfo *cinode)
+{
+	return cinode->netfs.inode.i_sb->s_fs_info;
+}
+
+static inline void *super_to_fsinfo(struct super_block *sb)
 {
 	return sb->s_fs_info;
 }
 
-static inline struct cifs_sb_info *
-CIFS_FILE_SB(struct file *file)
+static inline void *inode_to_fsinfo(struct inode *inode)
 {
-	return CIFS_SB(file_inode(file)->i_sb);
+	return inode->i_sb->s_fs_info;
+}
+
+static inline void *file_to_fsinfo(struct file *file)
+{
+	return file_inode(file)->i_sb->s_fs_info;
+}
+
+static inline void *dentry_to_fsinfo(struct dentry *dentry)
+{
+	return dentry->d_sb->s_fs_info;
+}
+
+static inline void *const_dentry_to_fsinfo(const struct dentry *dentry)
+{
+	return dentry->d_sb->s_fs_info;
+}
+
+#define CIFS_SB(_ptr) \
+	((struct cifs_sb_info *) \
+	 _Generic((_ptr), \
+		  struct cifsInodeInfo * : cinode_to_fsinfo, \
+		  const struct dentry * : const_dentry_to_fsinfo, \
+		  struct super_block * : super_to_fsinfo, \
+		  struct dentry * : dentry_to_fsinfo, \
+		  struct inode * : inode_to_fsinfo, \
+		  struct file * : file_to_fsinfo)(_ptr))
+
+/*
+ * Use atomic_t for @cifs_sb->mnt_cifs_flags as it is currently accessed
+ * locklessly and may be changed concurrently by mount/remount and reconnect
+ * paths.
+ */
+static inline unsigned int cifs_sb_flags(const struct cifs_sb_info *cifs_sb)
+{
+	return atomic_read(&cifs_sb->mnt_cifs_flags);
 }
 
 static inline char CIFS_DIR_SEP(const struct cifs_sb_info *cifs_sb)
 {
-	if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_POSIX_PATHS)
-		return '/';
-	else
-		return '\\';
+	return (cifs_sb_flags(cifs_sb) & CIFS_MOUNT_POSIX_PATHS) ? '/' : '\\';
 }
 
 static inline void
@@ -1849,12 +1882,12 @@ static inline bool is_replayable_error(int error)
 }
 
 
-/* cifs_get_writable_file() flags */
-enum cifs_writable_file_flags {
-	FIND_WR_ANY			= 0U,
-	FIND_WR_FSUID_ONLY		= (1U << 0),
-	FIND_WR_WITH_DELETE		= (1U << 1),
-	FIND_WR_NO_PENDING_DELETE	= (1U << 2),
+enum cifs_find_flags {
+	FIND_ANY		= 0U,
+	FIND_FSUID_ONLY		= (1U << 0),
+	FIND_WITH_DELETE	= (1U << 1),
+	FIND_NO_PENDING_DELETE	= (1U << 2),
+	FIND_OPEN_FLAGS		= (1U << 3),
 };
 
 #define   MID_FREE 0
@@ -2223,6 +2256,7 @@ struct smb2_compound_vars {
 	struct kvec qi_iov;
 	struct kvec io_iov[SMB2_IOCTL_IOV_SIZE];
 	struct kvec si_iov[SMB2_SET_INFO_IOV_SIZE];
+	struct kvec hl_iov[SMB2_SET_INFO_IOV_SIZE];
 	struct kvec unlink_iov[SMB2_SET_INFO_IOV_SIZE];
 	struct kvec rename_iov[SMB2_SET_INFO_IOV_SIZE];
 	struct kvec close_iov;
@@ -2287,7 +2321,7 @@ static inline void mid_execute_callback(struct TCP_Server_Info *server,
 struct cifs_calc_sig_ctx {
 	struct md5_ctx *md5;
 	struct hmac_sha256_ctx *hmac;
-	struct shash_desc *shash;
+	struct aes_cmac_ctx *cmac;
 };
 
 #define CIFS_RECONN_DELAY_SECS	30
@@ -2314,9 +2348,8 @@ static inline bool __cifs_cache_state_check(struct cifsInodeInfo *cinode,
 					    unsigned int oplock_flags,
 					    unsigned int sb_flags)
 {
-	struct cifs_sb_info *cifs_sb = CIFS_SB(cinode->netfs.inode.i_sb);
+	unsigned int sflags = cifs_sb_flags(CIFS_SB(cinode));
 	unsigned int oplock = READ_ONCE(cinode->oplock);
-	unsigned int sflags = cifs_sb->mnt_cifs_flags;
 
 	return (oplock & oplock_flags) || (sflags & sb_flags);
 }
@@ -2335,5 +2368,28 @@ static inline void cifs_reset_oplock(struct cifsInodeInfo *cinode)
 	scoped_guard(spinlock, &cinode->open_file_lock)
 		WRITE_ONCE(cinode->oplock, 0);
 }
+
+static inline bool cifs_forced_shutdown(const struct cifs_sb_info *sbi)
+{
+	return cifs_sb_flags(sbi) & CIFS_MOUNT_SHUTDOWN;
+}
+
+static inline int cifs_open_create_options(unsigned int oflags, int opts)
+{
+	/* O_SYNC also has bit for O_DSYNC so following check picks up either */
+	if (oflags & O_SYNC)
+		opts |= CREATE_WRITE_THROUGH;
+	if (oflags & O_DIRECT)
+		opts |= CREATE_NO_BUFFER;
+	if (oflags & O_TMPFILE)
+		opts |= CREATE_DELETE_ON_CLOSE;
+	return opts;
+}
+
+/*
+ * The number of blocks is not related to (i_size / i_blksize), but instead
+ * 512 byte (2**9) size is required for calculating num blocks.
+ */
+#define CIFS_INO_BLOCKS(size) DIV_ROUND_UP_ULL((u64)(size), 512)
 
 #endif	/* _CIFS_GLOB_H */

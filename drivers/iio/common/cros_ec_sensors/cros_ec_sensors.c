@@ -106,7 +106,7 @@ static int cros_ec_sensors_read(struct iio_dev *indio_dev,
 		switch (st->core.type) {
 		case MOTIONSENSE_TYPE_ACCEL:
 			/*
-			 * EC returns data in g, iio exepects m/s^2.
+			 * EC returns data in g, IIO expects m/s^2.
 			 * Do not use IIO_G_TO_M_S_2 to avoid precision loss.
 			 */
 			*val = div_s64(val64 * 980665, 10);

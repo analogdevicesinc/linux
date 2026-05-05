@@ -20,7 +20,7 @@
 #include <linux/lwq.h>
 #include <linux/wait.h>
 #include <linux/mm.h>
-#include <linux/pagevec.h>
+#include <linux/folio_batch.h>
 #include <linux/kthread.h>
 
 /*
@@ -134,25 +134,37 @@ enum {
 extern u32 svc_max_payload(const struct svc_rqst *rqstp);
 
 /*
- * RPC Requests and replies are stored in one or more pages.
- * We maintain an array of pages for each server thread.
- * Requests are copied into these pages as they arrive.  Remaining
- * pages are available to write the reply into.
+ * RPC Call and Reply messages each have their own page array.
+ * rq_pages holds the incoming Call message; rq_respages holds
+ * the outgoing Reply message. Both arrays are sized to
+ * svc_serv_maxpages() entries and are allocated dynamically.
  *
- * Pages are sent using ->sendmsg with MSG_SPLICE_PAGES so each server thread
- * needs to allocate more to replace those used in sending.  To help keep track
- * of these pages we have a receive list where all pages initialy live, and a
- * send list where pages are moved to when there are to be part of a reply.
+ * Pages are sent using ->sendmsg with MSG_SPLICE_PAGES so each
+ * server thread needs to allocate more to replace those used in
+ * sending.
  *
- * We use xdr_buf for holding responses as it fits well with NFS
- * read responses (that have a header, and some data pages, and possibly
- * a tail) and means we can share some client side routines.
+ * rq_pages request page contract:
  *
- * The xdr_buf.head kvec always points to the first page in the rq_*pages
- * list.  The xdr_buf.pages pointer points to the second page on that
- * list.  xdr_buf.tail points to the end of the first page.
- * This assumes that the non-page part of an rpc reply will fit
- * in a page - NFSd ensures this.  lockd also has no trouble.
+ * Transport receive paths that move request data pages out of
+ * rq_pages -- TCP multi-fragment reassembly (svc_tcp_save_pages)
+ * and RDMA Read I/O (svc_rdma_clear_rqst_pages) -- NULL those
+ * entries to prevent svc_rqst_release_pages() from freeing pages
+ * still in transport use, and set rq_pages_nfree to the count.
+ * svc_alloc_arg() refills only that many rq_pages entries.
+ *
+ * For rq_respages, svc_rqst_release_pages() NULLs entries in
+ * [rq_respages, rq_next_page) after each RPC. svc_alloc_arg()
+ * refills only that range.
+ *
+ * xdr_buf holds responses; the structure fits NFS read responses
+ * (header, data pages, optional tail) and enables sharing of
+ * client-side routines.
+ *
+ * The xdr_buf.head kvec always points to the first page in the
+ * rq_*pages list. The xdr_buf.pages pointer points to the second
+ * page on that list. xdr_buf.tail points to the end of the first
+ * page. This assumes that the non-page part of an rpc reply will
+ * fit in a page - NFSd ensures this. lockd also has no trouble.
  */
 
 /**
@@ -162,10 +174,10 @@ extern u32 svc_max_payload(const struct svc_rqst *rqstp);
  * Returns a count of pages or vectors that can hold the maximum
  * size RPC message for @serv.
  *
- * Each request/reply pair can have at most one "payload", plus two
- * pages, one for the request, and one for the reply.
- * nfsd_splice_actor() might need an extra page when a READ payload
- * is not page-aligned.
+ * Each page array can hold at most one payload plus two
+ * overhead pages (one for the RPC header, one for tail data).
+ * nfsd_splice_actor() might need an extra page when a READ
+ * payload is not page-aligned.
  */
 static inline unsigned long svc_serv_maxpages(const struct svc_serv *serv)
 {
@@ -175,6 +187,9 @@ static inline unsigned long svc_serv_maxpages(const struct svc_serv *serv)
 /*
  * The context of a single thread, including the request currently being
  * processed.
+ *
+ * RPC programs are free to use rq_private to stash thread-local information.
+ * The sunrpc layer will not access it.
  */
 struct svc_rqst {
 	struct list_head	rq_all;		/* all threads list */
@@ -201,11 +216,12 @@ struct svc_rqst {
 	struct xdr_stream	rq_res_stream;
 	struct folio		*rq_scratch_folio;
 	struct xdr_buf		rq_res;
-	unsigned long		rq_maxpages;	/* num of entries in rq_pages */
-	struct page *		*rq_pages;
-	struct page *		*rq_respages;	/* points into rq_pages */
+	unsigned long		rq_maxpages;	/* entries per page array */
+	unsigned long		rq_pages_nfree;	/* rq_pages entries NULLed by transport */
+	struct page *		*rq_pages;	/* Call buffer pages */
+	struct page *		*rq_respages;	/* Reply buffer pages */
 	struct page *		*rq_next_page; /* next reply page to use */
-	struct page *		*rq_page_end;  /* one past the last page */
+	struct page *		*rq_page_end;  /* one past the last reply page */
 
 	struct folio_batch	rq_fbatch;
 	struct bio_vec		*rq_bvec;
@@ -215,7 +231,6 @@ struct svc_rqst {
 	u32			rq_vers;	/* program version */
 	u32			rq_proc;	/* procedure number */
 	u32			rq_prot;	/* IP protocol */
-	int			rq_cachetype;	/* catering to nfsd */
 	unsigned long		rq_flags;	/* flags field */
 	ktime_t			rq_qtime;	/* enqueue time */
 
@@ -251,7 +266,7 @@ struct svc_rqst {
 	unsigned long		bc_to_initval;
 	unsigned int		bc_to_retries;
 	unsigned int		rq_status_counter; /* RPC processing counter */
-	void			**rq_lease_breaker; /* The v4 client breaking a lease */
+	void			*rq_private;	/* For use by the service thread */
 };
 
 /* bits for rq_flags */
@@ -482,6 +497,21 @@ int		   svc_generic_rpcbind_set(struct net *net,
 					   unsigned short port);
 
 #define	RPC_MAX_ADDRBUFLEN	(63U)
+
+/**
+ * svc_rqst_page_release - release a page associated with an RPC transaction
+ * @rqstp: RPC transaction context
+ * @page: page to release
+ *
+ * Released pages are batched and freed together, reducing
+ * allocator pressure under heavy RPC workloads.
+ */
+static inline void svc_rqst_page_release(struct svc_rqst *rqstp,
+					 struct page *page)
+{
+	if (!folio_batch_add(&rqstp->rq_fbatch, page_folio(page)))
+		__folio_batch_release(&rqstp->rq_fbatch);
+}
 
 /*
  * When we want to reduce the size of the reserved space in the response

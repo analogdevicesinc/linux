@@ -59,7 +59,7 @@ struct freelist_counters {
 					 * to save memory. In case ->stride field is not available,
 					 * such optimizations are disabled.
 					 */
-					unsigned short stride;
+					unsigned int stride;
 #endif
 				};
 			};
@@ -94,7 +94,7 @@ struct slab {
 #define SLAB_MATCH(pg, sl)						\
 	static_assert(offsetof(struct page, pg) == offsetof(struct slab, sl))
 SLAB_MATCH(flags, flags);
-SLAB_MATCH(compound_head, slab_cache);	/* Ensure bit 0 is clear */
+SLAB_MATCH(compound_info, slab_cache);	/* Ensure bit 0 is clear */
 SLAB_MATCH(_refcount, __page_refcount);
 #ifdef CONFIG_MEMCG
 SLAB_MATCH(memcg_data, obj_exts);
@@ -131,11 +131,7 @@ static_assert(IS_ALIGNED(offsetof(struct slab, freelist), sizeof(struct freelist
  */
 static inline struct slab *page_slab(const struct page *page)
 {
-	unsigned long head;
-
-	head = READ_ONCE(page->compound_head);
-	if (head & 1)
-		page = (struct page *)(head - 1);
+	page = compound_head(page);
 	if (data_race(page->page_type >> 24) != PGTY_slab)
 		page = NULL;
 
@@ -189,6 +185,11 @@ static inline size_t slab_size(const struct slab *slab)
  */
 struct kmem_cache_order_objects {
 	unsigned int x;
+};
+
+struct kmem_cache_per_node_ptrs {
+	struct node_barn *barn;
+	struct kmem_cache_node *node;
 };
 
 /*
@@ -247,7 +248,7 @@ struct kmem_cache {
 	struct kmem_cache_stats __percpu *cpu_stats;
 #endif
 
-	struct kmem_cache_node *node[MAX_NUMNODES];
+	struct kmem_cache_per_node_ptrs per_node[MAX_NUMNODES];
 };
 
 /*
@@ -290,14 +291,14 @@ static inline void *nearest_obj(struct kmem_cache *cache,
 
 /* Determine object index from a given position */
 static inline unsigned int __obj_to_index(const struct kmem_cache *cache,
-					  void *addr, void *obj)
+					  void *addr, const void *obj)
 {
 	return reciprocal_divide(kasan_reset_tag(obj) - addr,
 				 cache->reciprocal_size);
 }
 
 static inline unsigned int obj_to_index(const struct kmem_cache *cache,
-					const struct slab *slab, void *obj)
+					const struct slab *slab, const void *obj)
 {
 	if (is_kfence_address(obj))
 		return 0;
@@ -559,20 +560,20 @@ static inline void put_slab_obj_exts(unsigned long obj_exts)
 }
 
 #ifdef CONFIG_64BIT
-static inline void slab_set_stride(struct slab *slab, unsigned short stride)
+static inline void slab_set_stride(struct slab *slab, unsigned int stride)
 {
 	slab->stride = stride;
 }
-static inline unsigned short slab_get_stride(struct slab *slab)
+static inline unsigned int slab_get_stride(struct slab *slab)
 {
 	return slab->stride;
 }
 #else
-static inline void slab_set_stride(struct slab *slab, unsigned short stride)
+static inline void slab_set_stride(struct slab *slab, unsigned int stride)
 {
 	VM_WARN_ON_ONCE(stride != sizeof(struct slabobj_ext));
 }
-static inline unsigned short slab_get_stride(struct slab *slab)
+static inline unsigned int slab_get_stride(struct slab *slab)
 {
 	return sizeof(struct slabobj_ext);
 }

@@ -182,7 +182,7 @@ void kvm_riscv_local_tlb_sanitize(struct kvm_vcpu *vcpu)
 
 	/*
 	 * Flush VS-stage TLB entries for implementation where VS-stage
-	 * TLB does not cahce guest physical address and VMID.
+	 * TLB does not cache guest physical address and VMID.
 	 */
 	if (static_branch_unlikely(&kvm_riscv_vsstage_tlb_no_gpa))
 		kvm_riscv_local_hfence_vvma_all(vmid);
@@ -338,7 +338,8 @@ static void make_xfence_request(struct kvm *kvm,
 	bitmap_zero(vcpu_mask, KVM_MAX_VCPUS);
 	kvm_for_each_vcpu(i, vcpu, kvm) {
 		if (hbase != -1UL) {
-			if (vcpu->vcpu_id < hbase)
+			if (vcpu->vcpu_id < hbase ||
+				vcpu->vcpu_id >= hbase + BITS_PER_LONG)
 				continue;
 			if (!(hmask & (1UL << (vcpu->vcpu_id - hbase))))
 				continue;

@@ -4,6 +4,7 @@
 
 source "fs/smb/client/Kconfig"
 source "fs/smb/server/Kconfig"
+source "fs/smb/smbdirect/Kconfig"
 
 config SMBFS
 	tristate

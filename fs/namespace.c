@@ -1531,23 +1531,33 @@ static struct mount *mnt_find_id_at_reverse(struct mnt_namespace *ns, u64 mnt_id
 static void *m_start(struct seq_file *m, loff_t *pos)
 {
 	struct proc_mounts *p = m->private;
+	struct mount *mnt;
 
 	down_read(&namespace_sem);
 
-	return mnt_find_id_at(p->ns, *pos);
+	mnt = mnt_find_id_at(p->ns, *pos);
+	if (mnt)
+		*pos = mnt->mnt_id_unique;
+	return mnt;
 }
 
 static void *m_next(struct seq_file *m, void *v, loff_t *pos)
 {
-	struct mount *next = NULL, *mnt = v;
+	struct mount *mnt = v;
 	struct rb_node *node = rb_next(&mnt->mnt_node);
 
-	++*pos;
 	if (node) {
-		next = node_to_mount(node);
+		struct mount *next = node_to_mount(node);
 		*pos = next->mnt_id_unique;
+		return next;
 	}
-	return next;
+
+	/*
+	 * No more mounts. Set pos past current mount's ID so that if
+	 * iteration restarts, mnt_find_id_at() returns NULL.
+	 */
+	*pos = mnt->mnt_id_unique + 1;
+	return NULL;
 }
 
 static void m_stop(struct seq_file *m, void *v)
@@ -2636,6 +2646,19 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 
 			if (unlikely(shorter) && child != source_mnt)
 				mp = shorter;
+			/*
+			 * If @q was locked it was meant to hide
+			 * whatever was under it. Let @child take over
+			 * that job and lock it, then we can unlock @q.
+			 * That'll allow another namespace to shed @q
+			 * and reveal @child. Clearly, that mounter
+			 * consented to this by not severing the mount
+			 * relationship. Otherwise, what's the point.
+			 */
+			if (IS_MNT_LOCKED(q)) {
+				child->mnt.mnt_flags |= MNT_LOCKED;
+				q->mnt.mnt_flags &= ~MNT_LOCKED;
+			}
 			mnt_change_mountpoint(r, mp, q);
 		}
 	}
@@ -2712,7 +2735,7 @@ static inline struct mount *where_to_mount(const struct path *path,
  * In all cases the location must not have been unmounted and the
  * chosen mountpoint must be allowed to be mounted on.  For "beneath"
  * case we also require the location to be at the root of a mount
- * that has a parent (i.e. is not a root of some namespace).
+ * that has something mounted on top of it (i.e. has an overmount).
  */
 static void do_lock_mount(const struct path *path,
 			  struct pinned_mountpoint *res,
@@ -2791,7 +2814,8 @@ static inline void unlock_mount(struct pinned_mountpoint *m)
 }
 
 static void lock_mount_exact(const struct path *path,
-			     struct pinned_mountpoint *mp);
+			     struct pinned_mountpoint *mp, bool copy_mount,
+			     unsigned int copy_flags);
 
 #define LOCK_MOUNT_MAYBE_BENEATH(mp, path, beneath) \
 	struct pinned_mountpoint mp __cleanup(unlock_mount) = {}; \
@@ -2799,7 +2823,10 @@ static void lock_mount_exact(const struct path *path,
 #define LOCK_MOUNT(mp, path) LOCK_MOUNT_MAYBE_BENEATH(mp, (path), false)
 #define LOCK_MOUNT_EXACT(mp, path) \
 	struct pinned_mountpoint mp __cleanup(unlock_mount) = {}; \
-	lock_mount_exact((path), &mp)
+	lock_mount_exact((path), &mp, false, 0)
+#define LOCK_MOUNT_EXACT_COPY(mp, path, copy_flags) \
+	struct pinned_mountpoint mp __cleanup(unlock_mount) = {}; \
+	lock_mount_exact((path), &mp, true, (copy_flags))
 
 static int graft_tree(struct mount *mnt, const struct pinned_mountpoint *mp)
 {
@@ -2944,10 +2971,9 @@ static inline bool may_copy_tree(const struct path *path)
 }
 
 static struct mount *__do_loopback(const struct path *old_path,
-				   unsigned int flags, unsigned int copy_flags)
+				   bool recurse, unsigned int copy_flags)
 {
 	struct mount *old = real_mount(old_path->mnt);
-	bool recurse = flags & AT_RECURSIVE;
 
 	if (IS_MNT_UNBINDABLE(old))
 		return ERR_PTR(-EINVAL);
@@ -2957,18 +2983,6 @@ static struct mount *__do_loopback(const struct path *old_path,
 
 	if (!recurse && __has_locked_children(old, old_path->dentry))
 		return ERR_PTR(-EINVAL);
-
-	/*
-	 * When creating a new mount namespace we don't want to copy over
-	 * mounts of mount namespaces to avoid the risk of cycles and also to
-	 * minimize the default complex interdependencies between mount
-	 * namespaces.
-	 *
-	 * We could ofc just check whether all mount namespace files aren't
-	 * creating cycles but really let's keep this simple.
-	 */
-	if (!(flags & OPEN_TREE_NAMESPACE))
-		copy_flags |= CL_COPY_MNT_NS_FILE;
 
 	if (recurse)
 		return copy_tree(old, old_path->dentry, copy_flags);
@@ -2984,7 +2998,6 @@ static int do_loopback(const struct path *path, const char *old_name,
 {
 	struct path old_path __free(path_put) = {};
 	struct mount *mnt = NULL;
-	unsigned int flags = recurse ? AT_RECURSIVE : 0;
 	int err;
 
 	if (!old_name || !*old_name)
@@ -3003,7 +3016,7 @@ static int do_loopback(const struct path *path, const char *old_name,
 	if (!check_mnt(mp.parent))
 		return -EINVAL;
 
-	mnt = __do_loopback(&old_path, flags, 0);
+	mnt = __do_loopback(&old_path, recurse, CL_COPY_MNT_NS_FILE);
 	if (IS_ERR(mnt))
 		return PTR_ERR(mnt);
 
@@ -3041,7 +3054,7 @@ static struct mnt_namespace *get_detached_copy(const struct path *path, unsigned
 			ns->seq_origin = src_mnt_ns->ns.ns_id;
 	}
 
-	mnt = __do_loopback(path, flags, 0);
+	mnt = __do_loopback(path, (flags & AT_RECURSIVE), CL_COPY_MNT_NS_FILE);
 	if (IS_ERR(mnt)) {
 		emptied_ns = ns;
 		return ERR_CAST(mnt);
@@ -3073,19 +3086,22 @@ static struct file *open_detached_copy(struct path *path, unsigned int flags)
 	return file;
 }
 
-DEFINE_FREE(put_empty_mnt_ns, struct mnt_namespace *,
-	    if (!IS_ERR_OR_NULL(_T)) free_mnt_ns(_T))
+enum mount_copy_flags_t {
+	MOUNT_COPY_RECURSIVE    = (1 << 0),
+	MOUNT_COPY_NEW		= (1 << 1),
+};
 
-static struct mnt_namespace *create_new_namespace(struct path *path, unsigned int flags)
+static struct mnt_namespace *create_new_namespace(struct path *path,
+						  enum mount_copy_flags_t flags)
 {
-	struct mnt_namespace *new_ns __free(put_empty_mnt_ns) = NULL;
-	struct path to_path __free(path_put) = {};
 	struct mnt_namespace *ns = current->nsproxy->mnt_ns;
 	struct user_namespace *user_ns = current_user_ns();
-	struct mount *new_ns_root;
+	struct mnt_namespace *new_ns;
+	struct mount *new_ns_root, *old_ns_root;
+	struct path to_path;
 	struct mount *mnt;
 	unsigned int copy_flags = 0;
-	bool locked = false;
+	bool locked = false, recurse = flags & MOUNT_COPY_RECURSIVE;
 
 	if (user_ns != ns->user_ns)
 		copy_flags |= CL_SLAVE;
@@ -3094,74 +3110,70 @@ static struct mnt_namespace *create_new_namespace(struct path *path, unsigned in
 	if (IS_ERR(new_ns))
 		return ERR_CAST(new_ns);
 
-	scoped_guard(namespace_excl) {
-		new_ns_root = clone_mnt(ns->root, ns->root->mnt.mnt_root, copy_flags);
-		if (IS_ERR(new_ns_root))
-			return ERR_CAST(new_ns_root);
+	old_ns_root = ns->root;
+	to_path.mnt = &old_ns_root->mnt;
+	to_path.dentry = old_ns_root->mnt.mnt_root;
 
-		/*
-		 * If the real rootfs had a locked mount on top of it somewhere
-		 * in the stack, lock the new mount tree as well so it can't be
-		 * exposed.
-		 */
-		mnt = ns->root;
-		while (mnt->overmount) {
-			mnt = mnt->overmount;
-			if (mnt->mnt.mnt_flags & MNT_LOCKED)
-				locked = true;
-		}
+	VFS_WARN_ON_ONCE(old_ns_root->mnt.mnt_sb->s_type != &nullfs_fs_type);
+
+	LOCK_MOUNT_EXACT_COPY(mp, &to_path, copy_flags);
+	if (IS_ERR(mp.parent)) {
+		free_mnt_ns(new_ns);
+		return ERR_CAST(mp.parent);
+	}
+	new_ns_root = mp.parent;
+
+	/*
+	 * If the real rootfs had a locked mount on top of it somewhere
+	 * in the stack, lock the new mount tree as well so it can't be
+	 * exposed.
+	 */
+	mnt = old_ns_root;
+	while (mnt->overmount) {
+		mnt = mnt->overmount;
+		if (mnt->mnt.mnt_flags & MNT_LOCKED)
+			locked = true;
 	}
 
 	/*
-	 * We dropped the namespace semaphore so we can actually lock
-	 * the copy for mounting. The copied mount isn't attached to any
-	 * mount namespace and it is thus excluded from any propagation.
-	 * So realistically we're isolated and the mount can't be
-	 * overmounted.
+	 * We don't emulate unshare()ing a mount namespace. We stick to
+	 * the restrictions of creating detached bind-mounts. It has a
+	 * lot saner and simpler semantics.
 	 */
-
-	/* Borrow the reference from clone_mnt(). */
-	to_path.mnt = &new_ns_root->mnt;
-	to_path.dentry = dget(new_ns_root->mnt.mnt_root);
-
-	/* Now lock for actual mounting. */
-	LOCK_MOUNT_EXACT(mp, &to_path);
-	if (unlikely(IS_ERR(mp.parent)))
-		return ERR_CAST(mp.parent);
-
-	/*
-	 * We don't emulate unshare()ing a mount namespace. We stick to the
-	 * restrictions of creating detached bind-mounts. It has a lot
-	 * saner and simpler semantics.
-	 */
-	mnt = __do_loopback(path, flags, copy_flags);
-	if (IS_ERR(mnt))
-		return ERR_CAST(mnt);
-
+	if (flags & MOUNT_COPY_NEW)
+		mnt = clone_mnt(real_mount(path->mnt), path->dentry, copy_flags);
+	else
+		mnt = __do_loopback(path, recurse, copy_flags);
 	scoped_guard(mount_writer) {
+		if (IS_ERR(mnt)) {
+			emptied_ns = new_ns;
+			umount_tree(new_ns_root, 0);
+			return ERR_CAST(mnt);
+		}
+
 		if (locked)
 			mnt->mnt.mnt_flags |= MNT_LOCKED;
 		/*
-		 * Now mount the detached tree on top of the copy of the
-		 * real rootfs we created.
+		 * now mount the detached tree on top of the copy
+		 * of the real rootfs we created.
 		 */
 		attach_mnt(mnt, new_ns_root, mp.mp);
 		if (user_ns != ns->user_ns)
 			lock_mnt_tree(new_ns_root);
 	}
 
-	/* Add all mounts to the new namespace. */
-	for (struct mount *p = new_ns_root; p; p = next_mnt(p, new_ns_root)) {
-		mnt_add_to_ns(new_ns, p);
+	for (mnt = new_ns_root; mnt; mnt = next_mnt(mnt, new_ns_root)) {
+		mnt_add_to_ns(new_ns, mnt);
 		new_ns->nr_mounts++;
 	}
 
-	new_ns->root = real_mount(no_free_ptr(to_path.mnt));
+	new_ns->root = new_ns_root;
 	ns_tree_add_raw(new_ns);
-	return no_free_ptr(new_ns);
+	return new_ns;
 }
 
-static struct file *open_new_namespace(struct path *path, unsigned int flags)
+static struct file *open_new_namespace(struct path *path,
+				       enum mount_copy_flags_t flags)
 {
 	struct mnt_namespace *new_ns;
 
@@ -3214,7 +3226,7 @@ static struct file *vfs_open_tree(int dfd, const char __user *filename, unsigned
 		return ERR_PTR(ret);
 
 	if (flags & OPEN_TREE_NAMESPACE)
-		return open_new_namespace(&path, flags);
+		return open_new_namespace(&path, (flags & AT_RECURSIVE) ? MOUNT_COPY_RECURSIVE : 0);
 
 	if (flags & OPEN_TREE_CLONE)
 		return open_detached_copy(&path, flags);
@@ -3510,8 +3522,6 @@ static bool mount_is_ancestor(const struct mount *p1, const struct mount *p2)
  * @mnt_to:   mount under which to mount
  * @mp:   mountpoint of @mnt_to
  *
- * - Make sure that nothing can be mounted beneath the caller's current
- *   root or the rootfs of the namespace.
  * - Make sure that the caller can unmount the topmost mount ensuring
  *   that the caller could reveal the underlying mountpoint.
  * - Ensure that nothing has been mounted on top of @mnt_from before we
@@ -3525,24 +3535,12 @@ static bool mount_is_ancestor(const struct mount *p1, const struct mount *p2)
  */
 static int can_move_mount_beneath(const struct mount *mnt_from,
 				  const struct mount *mnt_to,
-				  const struct mountpoint *mp)
+				  struct pinned_mountpoint *mp)
 {
 	struct mount *parent_mnt_to = mnt_to->mnt_parent;
 
-	if (IS_MNT_LOCKED(mnt_to))
-		return -EINVAL;
-
 	/* Avoid creating shadow mounts during mount propagation. */
 	if (mnt_from->overmount)
-		return -EINVAL;
-
-	/*
-	 * Mounting beneath the rootfs only makes sense when the
-	 * semantics of pivot_root(".", ".") are used.
-	 */
-	if (&mnt_to->mnt == current->fs->root.mnt)
-		return -EINVAL;
-	if (parent_mnt_to == current->nsproxy->mnt_ns->root)
 		return -EINVAL;
 
 	if (mount_is_ancestor(mnt_to, mnt_from))
@@ -3554,7 +3552,7 @@ static int can_move_mount_beneath(const struct mount *mnt_from,
 	 * propagating a copy @c of @mnt_from on top of @mnt_to. This
 	 * defeats the whole purpose of mounting beneath another mount.
 	 */
-	if (propagation_would_overmount(parent_mnt_to, mnt_to, mp))
+	if (propagation_would_overmount(parent_mnt_to, mnt_to, mp->mp))
 		return -EINVAL;
 
 	/*
@@ -3570,7 +3568,7 @@ static int can_move_mount_beneath(const struct mount *mnt_from,
 	 * @mnt_from beneath @mnt_to.
 	 */
 	if (check_mnt(mnt_from) &&
-	    propagation_would_overmount(parent_mnt_to, mnt_from, mp))
+	    propagation_would_overmount(parent_mnt_to, mnt_from, mp->mp))
 		return -EINVAL;
 
 	return 0;
@@ -3679,7 +3677,7 @@ static int do_move_mount(const struct path *old_path,
 
 		if (mp.parent != over->mnt_parent)
 			over = mp.parent->overmount;
-		err = can_move_mount_beneath(old, over, mp.mp);
+		err = can_move_mount_beneath(old, over, &mp);
 		if (err)
 			return err;
 	}
@@ -3840,16 +3838,20 @@ static int do_new_mount(const struct path *path, const char *fstype,
 }
 
 static void lock_mount_exact(const struct path *path,
-			     struct pinned_mountpoint *mp)
+			     struct pinned_mountpoint *mp, bool copy_mount,
+			     unsigned int copy_flags)
 {
 	struct dentry *dentry = path->dentry;
 	int err;
+
+	/* Assert that inode_lock() locked the correct inode. */
+	VFS_WARN_ON_ONCE(copy_mount && !path_mounted(path));
 
 	inode_lock(dentry->d_inode);
 	namespace_lock();
 	if (unlikely(cant_mount(dentry)))
 		err = -ENOENT;
-	else if (path_overmounted(path))
+	else if (!copy_mount && path_overmounted(path))
 		err = -EBUSY;
 	else
 		err = get_mountpoint(dentry, mp);
@@ -3857,9 +3859,15 @@ static void lock_mount_exact(const struct path *path,
 		namespace_unlock();
 		inode_unlock(dentry->d_inode);
 		mp->parent = ERR_PTR(err);
-	} else {
-		mp->parent = real_mount(path->mnt);
+		return;
 	}
+
+	if (copy_mount)
+		mp->parent = clone_mnt(real_mount(path->mnt), dentry, copy_flags);
+	else
+		mp->parent = real_mount(path->mnt);
+	if (unlikely(IS_ERR(mp->parent)))
+		__unlock_mount(mp);
 }
 
 int finish_automount(struct vfsmount *__m, const struct path *path)
@@ -4218,8 +4226,8 @@ struct mnt_namespace *copy_mnt_ns(u64 flags, struct mnt_namespace *ns,
 		struct user_namespace *user_ns, struct fs_struct *new_fs)
 {
 	struct mnt_namespace *new_ns;
-	struct vfsmount *rootmnt __free(mntput) = NULL;
-	struct vfsmount *pwdmnt __free(mntput) = NULL;
+	struct path old_root __free(path_put) = {};
+	struct path old_pwd __free(path_put) = {};
 	struct mount *p, *q;
 	struct mount *old;
 	struct mount *new;
@@ -4239,11 +4247,18 @@ struct mnt_namespace *copy_mnt_ns(u64 flags, struct mnt_namespace *ns,
 		return new_ns;
 
 	guard(namespace_excl)();
-	/* First pass: copy the tree topology */
-	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
+
+	if (flags & CLONE_EMPTY_MNTNS)
+		copy_flags = 0;
+	else
+		copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
 	if (user_ns != ns->user_ns)
 		copy_flags |= CL_SLAVE;
-	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
+
+	if (flags & CLONE_EMPTY_MNTNS)
+		new = clone_mnt(old, old->mnt.mnt_root, copy_flags);
+	else
+		new = copy_tree(old, old->mnt.mnt_root, copy_flags);
 	if (IS_ERR(new)) {
 		emptied_ns = new_ns;
 		return ERR_CAST(new);
@@ -4254,33 +4269,53 @@ struct mnt_namespace *copy_mnt_ns(u64 flags, struct mnt_namespace *ns,
 	}
 	new_ns->root = new;
 
-	/*
-	 * Second pass: switch the tsk->fs->* elements and mark new vfsmounts
-	 * as belonging to new namespace.  We have already acquired a private
-	 * fs_struct, so tsk->fs->lock is not needed.
-	 */
-	p = old;
-	q = new;
-	while (p) {
-		mnt_add_to_ns(new_ns, q);
-		new_ns->nr_mounts++;
+	if (flags & CLONE_EMPTY_MNTNS) {
+		/*
+		 * Empty mount namespace: only the root mount exists.
+		 * Reset root and pwd to the cloned mount's root dentry.
+		 */
 		if (new_fs) {
-			if (&p->mnt == new_fs->root.mnt) {
-				new_fs->root.mnt = mntget(&q->mnt);
-				rootmnt = &p->mnt;
-			}
-			if (&p->mnt == new_fs->pwd.mnt) {
-				new_fs->pwd.mnt = mntget(&q->mnt);
-				pwdmnt = &p->mnt;
-			}
+			old_root = new_fs->root;
+			old_pwd = new_fs->pwd;
+
+			new_fs->root.mnt = mntget(&new->mnt);
+			new_fs->root.dentry = dget(new->mnt.mnt_root);
+
+			new_fs->pwd.mnt = mntget(&new->mnt);
+			new_fs->pwd.dentry = dget(new->mnt.mnt_root);
 		}
-		p = next_mnt(p, old);
-		q = next_mnt(q, new);
-		if (!q)
-			break;
-		// an mntns binding we'd skipped?
-		while (p->mnt.mnt_root != q->mnt.mnt_root)
-			p = next_mnt(skip_mnt_tree(p), old);
+		mnt_add_to_ns(new_ns, new);
+		new_ns->nr_mounts++;
+	} else {
+		/*
+		 * Full copy: walk old and new trees in parallel, switching
+		 * the tsk->fs->* elements and marking new vfsmounts as
+		 * belonging to new namespace.  We have already acquired a
+		 * private fs_struct, so tsk->fs->lock is not needed.
+		 */
+		p = old;
+		q = new;
+		while (p) {
+			mnt_add_to_ns(new_ns, q);
+			new_ns->nr_mounts++;
+			if (new_fs) {
+				if (&p->mnt == new_fs->root.mnt) {
+					old_root.mnt = new_fs->root.mnt;
+					new_fs->root.mnt = mntget(&q->mnt);
+				}
+				if (&p->mnt == new_fs->pwd.mnt) {
+					old_pwd.mnt = new_fs->pwd.mnt;
+					new_fs->pwd.mnt = mntget(&q->mnt);
+				}
+			}
+			p = next_mnt(p, old);
+			q = next_mnt(q, new);
+			if (!q)
+				break;
+			// an mntns binding we'd skipped?
+			while (p->mnt.mnt_root != q->mnt.mnt_root)
+				p = next_mnt(skip_mnt_tree(p), old);
+		}
 	}
 	ns_tree_add_raw(new_ns);
 	return new_ns;
@@ -4401,11 +4436,15 @@ SYSCALL_DEFINE3(fsmount, int, fs_fd, unsigned int, flags,
 	unsigned int mnt_flags = 0;
 	long ret;
 
-	if (!may_mount())
+	if ((flags & ~(FSMOUNT_CLOEXEC | FSMOUNT_NAMESPACE)) != 0)
+		return -EINVAL;
+
+	if ((flags & FSMOUNT_NAMESPACE) &&
+	    !ns_capable(current_user_ns(), CAP_SYS_ADMIN))
 		return -EPERM;
 
-	if ((flags & ~(FSMOUNT_CLOEXEC)) != 0)
-		return -EINVAL;
+	if (!(flags & FSMOUNT_NAMESPACE) && !may_mount())
+		return -EPERM;
 
 	if (attr_flags & ~FSMOUNT_VALID_FLAGS)
 		return -EINVAL;
@@ -4471,6 +4510,10 @@ SYSCALL_DEFINE3(fsmount, int, fs_fd, unsigned int, flags,
 	 * don't want to have to handle any errors incurred.
 	 */
 	vfs_clean_context(fc);
+
+	if (flags & FSMOUNT_NAMESPACE)
+		return FD_ADD((flags & FSMOUNT_CLOEXEC) ? O_CLOEXEC : 0,
+			      open_new_namespace(&new_path, MOUNT_COPY_NEW));
 
 	ns = alloc_mnt_ns(current->nsproxy->mnt_ns->user_ns, true);
 	if (IS_ERR(ns))
@@ -5636,14 +5679,14 @@ static int grab_requested_root(struct mnt_namespace *ns, struct path *root)
 	if (mnt_ns_empty(ns))
 		return -ENOENT;
 
-	first = child = ns->root;
-	for (;;) {
-		child = listmnt_next(child, false);
-		if (!child)
-			return -ENOENT;
-		if (child->mnt_parent == first)
+	first = ns->root;
+	for (child = node_to_mount(ns->mnt_first_node); child;
+	     child = listmnt_next(child, false)) {
+		if (child != first && child->mnt_parent == first)
 			break;
 	}
+	if (!child)
+		return -ENOENT;
 
 	root->mnt = mntget(&child->mnt);
 	root->dentry = dget(root->mnt->mnt_root);
@@ -5678,6 +5721,8 @@ static int do_statmount(struct kstatmount *s, u64 mnt_id, u64 mnt_ns_id,
 
 		s->mnt = mnt_file->f_path.mnt;
 		ns = real_mount(s->mnt)->mnt_ns;
+		if (IS_ERR(ns))
+			return PTR_ERR(ns);
 		if (!ns)
 			/*
 			 * We can't set mount point and mnt_ns_id since we don't have a

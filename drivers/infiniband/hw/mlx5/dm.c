@@ -228,7 +228,7 @@ static int UVERBS_HANDLER(MLX5_IB_METHOD_DM_MAP_OP_ADDR)(
 	if (!err || err != -ENOENT)
 		goto err_unlock;
 
-	op_entry = kzalloc(sizeof(*op_entry), GFP_KERNEL);
+	op_entry = kzalloc_obj(*op_entry);
 	if (!op_entry)
 		goto err_unlock;
 

@@ -154,10 +154,8 @@ EXPORT_SYMBOL(ps2_end_command);
  */
 void ps2_drain(struct ps2dev *ps2dev, size_t maxbytes, unsigned int timeout)
 {
-	if (maxbytes > sizeof(ps2dev->cmdbuf)) {
-		WARN_ON(1);
+	if (WARN_ON(maxbytes > sizeof(ps2dev->cmdbuf)))
 		maxbytes = sizeof(ps2dev->cmdbuf);
-	}
 
 	ps2_begin_command(ps2dev);
 
@@ -270,15 +268,11 @@ int __ps2_command(struct ps2dev *ps2dev, u8 *param, unsigned int command)
 	int i;
 	u8 send_param[16];
 
-	if (receive > sizeof(ps2dev->cmdbuf)) {
-		WARN_ON(1);
+	if (WARN_ON(receive > sizeof(ps2dev->cmdbuf)))
 		return -EINVAL;
-	}
 
-	if (send && !param) {
-		WARN_ON(1);
+	if (WARN_ON(send && !param))
 		return -EINVAL;
-	}
 
 	memcpy(send_param, param, send);
 

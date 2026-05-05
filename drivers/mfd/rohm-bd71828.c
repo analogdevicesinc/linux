@@ -41,6 +41,7 @@ static struct gpio_keys_button button = {
 	.code = KEY_POWER,
 	.gpio = -1,
 	.type = EV_KEY,
+	.wakeup = 1,
 };
 
 static const struct gpio_keys_platform_data bd71828_powerkey_data = {

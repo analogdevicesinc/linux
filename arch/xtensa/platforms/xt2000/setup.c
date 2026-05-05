@@ -50,8 +50,7 @@ static int xt2000_power_off(struct sys_off_data *unused)
 	return NOTIFY_DONE;
 }
 
-static int xt2000_restart(struct notifier_block *this,
-			  unsigned long event, void *ptr)
+static int xt2000_restart(struct sys_off_data *unused)
 {
 	/* Flush and reset the mmu, simulate a processor reset, and
 	 * jump to the reset vector. */
@@ -59,10 +58,6 @@ static int xt2000_restart(struct notifier_block *this,
 
 	return NOTIFY_DONE;
 }
-
-static struct notifier_block xt2000_restart_block = {
-	.notifier_call = xt2000_restart,
-};
 
 void __init platform_setup(char** cmdline)
 {
@@ -140,7 +135,9 @@ static int __init xt2000_setup_devinit(void)
 	platform_device_register(&xt2000_serial8250_device);
 	platform_device_register(&xt2000_sonic_device);
 	mod_timer(&heartbeat_timer, jiffies + HZ / 2);
-	register_restart_handler(&xt2000_restart_block);
+	register_sys_off_handler(SYS_OFF_MODE_RESTART,
+				 SYS_OFF_PRIO_PLATFORM,
+				 xt2000_restart, NULL);
 	register_sys_off_handler(SYS_OFF_MODE_POWER_OFF,
 				 SYS_OFF_PRIO_DEFAULT,
 				 xt2000_power_off, NULL);

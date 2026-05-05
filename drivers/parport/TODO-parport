@@ -13,7 +13,7 @@ Things to be done.
       bits when they have something to say.  We should read out and deal 
       with (maybe just log) whatever the printer wants to tell the world.
 
-3. Support more hardware (eg m68k, Sun bpp).
+3. Support more hardware (eg m68k).
 
 4. A better PLIP (make use of bidirectional/ECP/EPP ports).
 

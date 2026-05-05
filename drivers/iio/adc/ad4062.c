@@ -719,10 +719,8 @@ static int ad4062_request_irq(struct iio_dev *indio_dev)
 	}
 	st->gpo_irq[1] = true;
 
-	return devm_request_threaded_irq(dev, ret,
-					 ad4062_irq_handler_drdy,
-					 NULL, IRQF_ONESHOT, indio_dev->name,
-					 indio_dev);
+	return devm_request_irq(dev, ret, ad4062_irq_handler_drdy,
+				IRQF_NO_THREAD, indio_dev->name, indio_dev);
 }
 
 static const struct iio_trigger_ops ad4062_trigger_ops = {
@@ -955,7 +953,7 @@ static int ad4062_write_raw_dispatch(struct ad4062_state *st, int val, int val2,
 	default:
 		return -EINVAL;
 	}
-};
+}
 
 static int ad4062_write_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan, int val,
@@ -1199,10 +1197,13 @@ static int ad4062_write_event_value(struct iio_dev *indio_dev,
  * The AD4062 in burst averaging mode increases realbits from 16-bits to
  * 20-bits, increasing the storagebits from 16-bits to 32-bits.
  */
-static inline size_t ad4062_sizeof_storagebits(struct ad4062_state *st)
+static inline int ad4062_sizeof_storagebits(struct ad4062_state *st)
 {
 	const struct iio_scan_type *scan_type =
 		iio_get_current_scan_type(st->indio_dev, st->chip->channels);
+
+	if (IS_ERR(scan_type))
+		return PTR_ERR(scan_type);
 
 	return BITS_TO_BYTES(scan_type->storagebits);
 }
@@ -1233,7 +1234,12 @@ static int pm_ad4062_triggered_buffer_postenable(struct ad4062_state *st)
 	if (ret)
 		return ret;
 
-	st->conv_sizeof = ad4062_sizeof_storagebits(st);
+	ret = ad4062_sizeof_storagebits(st);
+	if (ret < 0)
+		return ret;
+
+	st->conv_sizeof = ret;
+
 	st->conv_addr = ad4062_get_conv_addr(st, st->conv_sizeof);
 	/* CONV_READ requires read to trigger first sample. */
 	struct i3c_xfer xfer_sample[2] = {

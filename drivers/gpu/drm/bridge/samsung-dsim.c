@@ -1881,6 +1881,14 @@ static int samsung_dsim_register_te_irq(struct samsung_dsim *dsi, struct device 
 	return 0;
 }
 
+static void samsung_dsim_unregister_te_irq(struct samsung_dsim *dsi)
+{
+	if (dsi->te_gpio) {
+		free_irq(gpiod_to_irq(dsi->te_gpio), dsi);
+		gpiod_put(dsi->te_gpio);
+	}
+}
+
 static int samsung_dsim_host_attach(struct mipi_dsi_host *host,
 				    struct mipi_dsi_device *device)
 {
@@ -1961,7 +1969,7 @@ of_find_panel_or_bridge:
 	if (!(device->mode_flags & MIPI_DSI_MODE_VIDEO)) {
 		ret = samsung_dsim_register_te_irq(dsi, &device->dev);
 		if (ret)
-			return ret;
+			goto err_remove_bridge;
 	}
 
 	// The next bridge can be used by host_ops->attach
@@ -1980,17 +1988,12 @@ of_find_panel_or_bridge:
 	return 0;
 
 err_release_next_bridge:
-	drm_bridge_put(dsi->bridge.next_bridge);
-	dsi->bridge.next_bridge = NULL;
+	drm_bridge_clear_and_put(&dsi->bridge.next_bridge);
+	if (!(device->mode_flags & MIPI_DSI_MODE_VIDEO))
+		samsung_dsim_unregister_te_irq(dsi);
+err_remove_bridge:
+	drm_bridge_remove(&dsi->bridge);
 	return ret;
-}
-
-static void samsung_dsim_unregister_te_irq(struct samsung_dsim *dsi)
-{
-	if (dsi->te_gpio) {
-		free_irq(gpiod_to_irq(dsi->te_gpio), dsi);
-		gpiod_put(dsi->te_gpio);
-	}
 }
 
 static int samsung_dsim_host_detach(struct mipi_dsi_host *host,
@@ -2002,8 +2005,7 @@ static int samsung_dsim_host_detach(struct mipi_dsi_host *host,
 	if (pdata->host_ops && pdata->host_ops->detach)
 		pdata->host_ops->detach(dsi, device);
 
-	drm_bridge_put(dsi->bridge.next_bridge);
-	dsi->bridge.next_bridge = NULL;
+	drm_bridge_clear_and_put(&dsi->bridge.next_bridge);
 
 	samsung_dsim_unregister_te_irq(dsi);
 

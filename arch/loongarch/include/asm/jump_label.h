@@ -13,6 +13,8 @@
 #include <linux/stringify.h>
 #include <asm/asm.h>
 
+#define HAVE_JUMP_LABEL_BATCH
+
 #define JUMP_LABEL_NOP_SIZE	4
 
 #ifdef CONFIG_32BIT

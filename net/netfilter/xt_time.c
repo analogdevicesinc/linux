@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  *	xt_time
  *	Copyright © CC Computer Consultants GmbH, 2007
@@ -6,8 +7,6 @@
  *	This is a module which is used for time matching
  *	It is using some modified code from dietlibc (localtime() function)
  *	that you can find at https://www.fefe.de/dietlibc/
- *	This file is distributed under the terms of the GNU General Public
- *	License (GPL). Copies of the GPL can be obtained from gnu.org/gpl.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -223,13 +222,13 @@ time_mt(const struct sk_buff *skb, struct xt_action_param *par)
 
 	localtime_2(&current_time, stamp);
 
-	if (!(info->weekdays_match & (1 << current_time.weekday)))
+	if (!(info->weekdays_match & (1U << current_time.weekday)))
 		return false;
 
 	/* Do not spend time computing monthday if all days match anyway */
 	if (info->monthdays_match != XT_TIME_ALL_MONTHDAYS) {
 		localtime_3(&current_time, stamp);
-		if (!(info->monthdays_match & (1 << current_time.monthday)))
+		if (!(info->monthdays_match & (1U << current_time.monthday)))
 			return false;
 	}
 

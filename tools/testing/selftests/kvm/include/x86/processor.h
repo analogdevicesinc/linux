@@ -21,6 +21,8 @@
 
 extern bool host_cpu_is_intel;
 extern bool host_cpu_is_amd;
+extern bool host_cpu_is_hygon;
+extern bool host_cpu_is_amd_compatible;
 extern uint64_t guest_tsc_khz;
 
 #ifndef MAX_NR_CPUID_ENTRIES
@@ -557,6 +559,11 @@ static inline uint64_t get_cr0(void)
 	return cr0;
 }
 
+static inline void set_cr0(uint64_t val)
+{
+	__asm__ __volatile__("mov %0, %%cr0" : : "r" (val) : "memory");
+}
+
 static inline uint64_t get_cr3(void)
 {
 	uint64_t cr3;
@@ -564,6 +571,11 @@ static inline uint64_t get_cr3(void)
 	__asm__ __volatile__("mov %%cr3, %[cr3]"
 			     : /* output */ [cr3]"=r"(cr3));
 	return cr3;
+}
+
+static inline void set_cr3(uint64_t val)
+{
+	__asm__ __volatile__("mov %0, %%cr3" : : "r" (val) : "memory");
 }
 
 static inline uint64_t get_cr4(void)
@@ -578,6 +590,19 @@ static inline uint64_t get_cr4(void)
 static inline void set_cr4(uint64_t val)
 {
 	__asm__ __volatile__("mov %0, %%cr4" : : "r" (val) : "memory");
+}
+
+static inline uint64_t get_cr8(void)
+{
+	uint64_t cr8;
+
+	__asm__ __volatile__("mov %%cr8, %[cr8]" : [cr8]"=r"(cr8));
+	return cr8;
+}
+
+static inline void set_cr8(uint64_t val)
+{
+	__asm__ __volatile__("mov %0, %%cr8" : : "r" (val) : "memory");
 }
 
 static inline void set_idt(const struct desc_ptr *idt_desc)
@@ -692,6 +717,11 @@ static inline bool this_cpu_is_intel(void)
 static inline bool this_cpu_is_amd(void)
 {
 	return this_cpu_vendor_string_is("AuthenticAMD");
+}
+
+static inline bool this_cpu_is_hygon(void)
+{
+	return this_cpu_vendor_string_is("HygonGenuine");
 }
 
 static inline uint32_t __this_cpu_has(uint32_t function, uint32_t index,
@@ -1358,6 +1388,11 @@ static inline bool kvm_is_unrestricted_guest_enabled(void)
 static inline bool kvm_is_ignore_msrs(void)
 {
 	return get_kvm_param_bool("ignore_msrs");
+}
+
+static inline bool kvm_is_lbrv_enabled(void)
+{
+	return !!get_kvm_amd_param_integer("lbrv");
 }
 
 uint64_t *vm_get_pte(struct kvm_vm *vm, uint64_t vaddr);

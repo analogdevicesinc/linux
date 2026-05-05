@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0-or-later
 
+.. _sha3:
+
 ==========================
 SHA-3 Algorithm Collection
 ==========================

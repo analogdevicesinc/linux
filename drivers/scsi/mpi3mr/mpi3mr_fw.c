@@ -996,6 +996,7 @@ static const struct {
 	{ MPI3MR_RESET_FROM_FIRMWARE, "firmware asynchronous reset" },
 	{ MPI3MR_RESET_FROM_CFG_REQ_TIMEOUT, "configuration request timeout"},
 	{ MPI3MR_RESET_FROM_SAS_TRANSPORT_TIMEOUT, "timeout of a SAS transport layer request" },
+	{ MPI3MR_RESET_FROM_INVALID_COMPLETION, "invalid cmd completion" },
 };
 
 /**
@@ -1618,6 +1619,7 @@ retry_bring_ioc_ready:
 			ioc_info(mrioc,
 			    "successfully transitioned to %s state\n",
 			    mpi3mr_iocstate_name(ioc_state));
+			mpi3mr_clear_reset_history(mrioc);
 			return 0;
 		}
 		ioc_status = readl(&mrioc->sysif_regs->ioc_status);
@@ -1636,6 +1638,15 @@ retry_bring_ioc_ready:
 		msleep(100);
 		elapsed_time_sec = jiffies_to_msecs(jiffies - start_time)/1000;
 	} while (elapsed_time_sec < mrioc->ready_timeout);
+
+	ioc_state = mpi3mr_get_iocstate(mrioc);
+	if (ioc_state == MRIOC_STATE_READY) {
+		ioc_info(mrioc,
+		    "successfully transitioned to %s state after %llu seconds\n",
+		    mpi3mr_iocstate_name(ioc_state), elapsed_time_sec);
+		mpi3mr_clear_reset_history(mrioc);
+		return 0;
+	}
 
 out_failed:
 	elapsed_time_sec = jiffies_to_msecs(jiffies - start_time)/1000;
@@ -2361,6 +2372,9 @@ static int mpi3mr_create_op_req_q(struct mpi3mr_ioc *mrioc, u16 idx,
 	op_req_q->ci = 0;
 	op_req_q->pi = 0;
 	op_req_q->reply_qid = reply_qid;
+	op_req_q->last_full_host_tag =  MPI3MR_HOSTTAG_INVALID;
+	op_req_q->qfull_io_count =  0;
+	op_req_q->qfull_instances =  0;
 	spin_lock_init(&op_req_q->q_lock);
 
 	if (!op_req_q->q_segments) {
@@ -2547,6 +2561,8 @@ int mpi3mr_op_request_post(struct mpi3mr_ioc *mrioc,
 	u16 req_sz = mrioc->facts.op_req_sz;
 	struct segments *segments = op_req_q->q_segments;
 	struct op_reply_qinfo *op_reply_q = NULL;
+	struct mpi3_scsi_io_request *scsiio_req =
+		(struct mpi3_scsi_io_request *)req;
 
 	reply_qidx = op_req_q->reply_qid - 1;
 	op_reply_q = mrioc->op_reply_qinfo + reply_qidx;
@@ -2564,10 +2580,20 @@ int mpi3mr_op_request_post(struct mpi3mr_ioc *mrioc,
 		mpi3mr_process_op_reply_q(mrioc, mrioc->intr_info[midx].op_reply_q);
 
 		if (mpi3mr_check_req_qfull(op_req_q)) {
+
+			if (op_req_q->last_full_host_tag ==
+			    MPI3MR_HOSTTAG_INVALID)
+				op_req_q->qfull_instances++;
+
+			op_req_q->last_full_host_tag = scsiio_req->host_tag;
+			op_req_q->qfull_io_count++;
 			retval = -EAGAIN;
 			goto out;
 		}
 	}
+
+	if (op_req_q->last_full_host_tag != MPI3MR_HOSTTAG_INVALID)
+		op_req_q->last_full_host_tag = MPI3MR_HOSTTAG_INVALID;
 
 	if (mrioc->reset_in_progress) {
 		ioc_err(mrioc, "OpReqQ submit reset in progress\n");
@@ -2689,7 +2715,7 @@ void mpi3mr_check_rh_fault_ioc(struct mpi3mr_ioc *mrioc, u32 reason_code)
  * mpi3mr_sync_timestamp - Issue time stamp sync request
  * @mrioc: Adapter reference
  *
- * Issue IO unit control MPI request to synchornize firmware
+ * Issue IO unit control MPI request to synchronize firmware
  * timestamp with host time.
  *
  * Return: 0 on success, non-zero on failure.
@@ -2876,6 +2902,11 @@ static void mpi3mr_watchdog_work(struct work_struct *work)
 		ioc_err(mrioc,
 		    "flush pending commands for unrecoverable controller\n");
 		mpi3mr_flush_cmds_for_unrecovered_controller(mrioc);
+		return;
+	}
+
+	if (mrioc->invalid_io_comp) {
+		mpi3mr_soft_reset_handler(mrioc, MPI3MR_RESET_FROM_INVALID_COMPLETION, 1);
 		return;
 	}
 
@@ -4807,21 +4838,26 @@ void mpi3mr_memset_buffers(struct mpi3mr_ioc *mrioc)
 	}
 
 	for (i = 0; i < mrioc->num_queues; i++) {
-		mrioc->op_reply_qinfo[i].qid = 0;
-		mrioc->op_reply_qinfo[i].ci = 0;
-		mrioc->op_reply_qinfo[i].num_replies = 0;
-		mrioc->op_reply_qinfo[i].ephase = 0;
-		atomic_set(&mrioc->op_reply_qinfo[i].pend_ios, 0);
-		atomic_set(&mrioc->op_reply_qinfo[i].in_use, 0);
-		mpi3mr_memset_op_reply_q_buffers(mrioc, i);
+		if (mrioc->op_reply_qinfo) {
+			mrioc->op_reply_qinfo[i].qid = 0;
+			mrioc->op_reply_qinfo[i].ci = 0;
+			mrioc->op_reply_qinfo[i].num_replies = 0;
+			mrioc->op_reply_qinfo[i].ephase = 0;
+			atomic_set(&mrioc->op_reply_qinfo[i].pend_ios, 0);
+			atomic_set(&mrioc->op_reply_qinfo[i].in_use, 0);
+			mpi3mr_memset_op_reply_q_buffers(mrioc, i);
+		}
 
-		mrioc->req_qinfo[i].ci = 0;
-		mrioc->req_qinfo[i].pi = 0;
-		mrioc->req_qinfo[i].num_requests = 0;
-		mrioc->req_qinfo[i].qid = 0;
-		mrioc->req_qinfo[i].reply_qid = 0;
-		spin_lock_init(&mrioc->req_qinfo[i].q_lock);
-		mpi3mr_memset_op_req_q_buffers(mrioc, i);
+		if (mrioc->req_qinfo) {
+			mrioc->req_qinfo[i].ci = 0;
+			mrioc->req_qinfo[i].pi = 0;
+			mrioc->req_qinfo[i].num_requests = 0;
+			mrioc->req_qinfo[i].qid = 0;
+			mrioc->req_qinfo[i].reply_qid = 0;
+			spin_lock_init(&mrioc->req_qinfo[i].q_lock);
+			mrioc->req_qinfo[i].last_full_host_tag = 0;
+			mpi3mr_memset_op_req_q_buffers(mrioc, i);
+		}
 	}
 
 	atomic_set(&mrioc->pend_large_data_sz, 0);
@@ -5036,9 +5072,9 @@ void mpi3mr_free_mem(struct mpi3mr_ioc *mrioc)
  */
 static void mpi3mr_issue_ioc_shutdown(struct mpi3mr_ioc *mrioc)
 {
-	u32 ioc_config, ioc_status;
-	u8 retval = 1;
-	u32 timeout = MPI3MR_DEFAULT_SHUTDOWN_TIME * 10;
+	u32 ioc_config, ioc_status, shutdown_action;
+	u8 retval = 1, retry = 0;
+	u32 timeout = MPI3MR_DEFAULT_SHUTDOWN_TIME * 10, timeout_remaining = 0;
 
 	ioc_info(mrioc, "Issuing shutdown Notification\n");
 	if (mrioc->unrecoverable) {
@@ -5053,14 +5089,16 @@ static void mpi3mr_issue_ioc_shutdown(struct mpi3mr_ioc *mrioc)
 		return;
 	}
 
+	shutdown_action = MPI3_SYSIF_IOC_CONFIG_SHUTDOWN_NORMAL |
+	    MPI3_SYSIF_IOC_CONFIG_DEVICE_SHUTDOWN_SEND_REQ;
 	ioc_config = readl(&mrioc->sysif_regs->ioc_configuration);
-	ioc_config |= MPI3_SYSIF_IOC_CONFIG_SHUTDOWN_NORMAL;
-	ioc_config |= MPI3_SYSIF_IOC_CONFIG_DEVICE_SHUTDOWN_SEND_REQ;
+	ioc_config |= shutdown_action;
 
 	writel(ioc_config, &mrioc->sysif_regs->ioc_configuration);
 
 	if (mrioc->facts.shutdown_timeout)
 		timeout = mrioc->facts.shutdown_timeout * 10;
+	timeout_remaining = timeout;
 
 	do {
 		ioc_status = readl(&mrioc->sysif_regs->ioc_status);
@@ -5069,8 +5107,26 @@ static void mpi3mr_issue_ioc_shutdown(struct mpi3mr_ioc *mrioc)
 			retval = 0;
 			break;
 		}
+		if (mrioc->unrecoverable)
+			break;
+		if (ioc_status & MPI3_SYSIF_IOC_STATUS_FAULT) {
+			mpi3mr_print_fault_info(mrioc);
+			if (retry >= MPI3MR_MAX_SHUTDOWN_RETRY_COUNT)
+				break;
+			if (mpi3mr_issue_reset(mrioc,
+			    MPI3_SYSIF_HOST_DIAG_RESET_ACTION_SOFT_RESET,
+			    MPI3MR_RESET_FROM_CTLR_CLEANUP))
+				break;
+			ioc_config =
+			    readl(&mrioc->sysif_regs->ioc_configuration);
+			ioc_config |= shutdown_action;
+			writel(ioc_config,
+			    &mrioc->sysif_regs->ioc_configuration);
+			timeout_remaining = timeout;
+			retry++;
+		}
 		msleep(100);
-	} while (--timeout);
+	} while (--timeout_remaining);
 
 	ioc_status = readl(&mrioc->sysif_regs->ioc_status);
 	ioc_config = readl(&mrioc->sysif_regs->ioc_configuration);
@@ -5644,6 +5700,7 @@ int mpi3mr_soft_reset_handler(struct mpi3mr_ioc *mrioc,
 	ssleep(MPI3MR_RESET_TOPOLOGY_SETTLE_TIME);
 
 out:
+	mrioc->invalid_io_comp = 0;
 	if (!retval) {
 		mrioc->diagsave_timeout = 0;
 		mrioc->reset_in_progress = 0;

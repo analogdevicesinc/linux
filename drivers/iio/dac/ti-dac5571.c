@@ -45,7 +45,6 @@ static const struct dac5571_spec dac5571_spec[] = {
 
 struct dac5571_data {
 	struct i2c_client *client;
-	int id;
 	struct mutex lock;
 	struct regulator *vref;
 	u16 val[4];

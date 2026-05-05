@@ -295,19 +295,13 @@ static int cobalt_lcdfb_probe(struct platform_device *dev)
 	if (!info)
 		return -ENOMEM;
 
-	res = platform_get_resource(dev, IORESOURCE_MEM, 0);
-	if (!res) {
+	info->screen_base = devm_platform_get_and_ioremap_resource(dev, 0, &res);
+	if (IS_ERR(info->screen_base)) {
 		framebuffer_release(info);
-		return -EBUSY;
+		return PTR_ERR(info->screen_base);
 	}
 
 	info->screen_size = resource_size(res);
-	info->screen_base = devm_ioremap(&dev->dev, res->start,
-					 info->screen_size);
-	if (!info->screen_base) {
-		framebuffer_release(info);
-		return -ENOMEM;
-	}
 
 	info->fbops = &cobalt_lcd_fbops;
 	info->fix = cobalt_lcdfb_fix;

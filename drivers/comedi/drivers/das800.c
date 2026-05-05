@@ -655,7 +655,8 @@ static int das800_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	if (!devpriv)
 		return -ENOMEM;
 
-	ret = comedi_request_region(dev, it->options[0], 0x8);
+	ret = comedi_check_request_region(dev, it->options[0], 0x8,
+					  0, 0x3ff, 8);
 	if (ret)
 		return ret;
 

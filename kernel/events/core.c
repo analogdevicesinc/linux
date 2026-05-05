@@ -4138,7 +4138,8 @@ static int merge_sched_in(struct perf_event *event, void *data)
 			if (*perf_event_fasync(event))
 				event->pending_kill = POLL_ERR;
 
-			perf_event_wakeup(event);
+			event->pending_wakeup = 1;
+			irq_work_queue(&event->pending_irq);
 		} else {
 			struct perf_cpu_pmu_context *cpc = this_cpc(event->pmu_ctx->pmu);
 
@@ -4812,7 +4813,7 @@ static void __perf_event_read(void *info)
 	struct perf_event *sub, *event = data->event;
 	struct perf_event_context *ctx = event->ctx;
 	struct perf_cpu_context *cpuctx = this_cpu_ptr(&perf_cpu_context);
-	struct pmu *pmu = event->pmu;
+	struct pmu *pmu;
 
 	/*
 	 * If this is a task context, we need to check whether it is
@@ -4824,7 +4825,7 @@ static void __perf_event_read(void *info)
 	if (ctx->task && cpuctx->task_ctx != ctx)
 		return;
 
-	raw_spin_lock(&ctx->lock);
+	guard(raw_spinlock)(&ctx->lock);
 	ctx_time_update_event(ctx, event);
 
 	perf_event_update_time(event);
@@ -4832,25 +4833,22 @@ static void __perf_event_read(void *info)
 		perf_event_update_sibling_time(event);
 
 	if (event->state != PERF_EVENT_STATE_ACTIVE)
-		goto unlock;
+		return;
 
 	if (!data->group) {
-		pmu->read(event);
+		perf_pmu_read(event);
 		data->ret = 0;
-		goto unlock;
+		return;
 	}
 
+	pmu = event->pmu_ctx->pmu;
 	pmu->start_txn(pmu, PERF_PMU_TXN_READ);
 
-	pmu->read(event);
-
+	perf_pmu_read(event);
 	for_each_sibling_event(sub, event)
 		perf_pmu_read(sub);
 
 	data->ret = pmu->commit_txn(pmu);
-
-unlock:
-	raw_spin_unlock(&ctx->lock);
 }
 
 static inline u64 perf_event_count(struct perf_event *event, bool self)
@@ -5370,15 +5368,15 @@ static void unaccount_freq_event(void)
 
 
 static struct perf_ctx_data *
-alloc_perf_ctx_data(struct kmem_cache *ctx_cache, bool global)
+alloc_perf_ctx_data(struct kmem_cache *ctx_cache, bool global, gfp_t gfp_flags)
 {
 	struct perf_ctx_data *cd;
 
-	cd = kzalloc_obj(*cd);
+	cd = kzalloc_obj(*cd, gfp_flags);
 	if (!cd)
 		return NULL;
 
-	cd->data = kmem_cache_zalloc(ctx_cache, GFP_KERNEL);
+	cd->data = kmem_cache_zalloc(ctx_cache, gfp_flags);
 	if (!cd->data) {
 		kfree(cd);
 		return NULL;
@@ -5412,11 +5410,11 @@ static inline void perf_free_ctx_data_rcu(struct perf_ctx_data *cd)
 
 static int
 attach_task_ctx_data(struct task_struct *task, struct kmem_cache *ctx_cache,
-		     bool global)
+		     bool global, gfp_t gfp_flags)
 {
 	struct perf_ctx_data *cd, *old = NULL;
 
-	cd = alloc_perf_ctx_data(ctx_cache, global);
+	cd = alloc_perf_ctx_data(ctx_cache, global, gfp_flags);
 	if (!cd)
 		return -ENOMEM;
 
@@ -5489,6 +5487,12 @@ again:
 					cd = NULL;
 			}
 			if (!cd) {
+				/*
+				 * Try to allocate context quickly before
+				 * traversing the whole thread list again.
+				 */
+				if (!attach_task_ctx_data(p, ctx_cache, true, GFP_NOWAIT))
+					continue;
 				get_task_struct(p);
 				goto alloc;
 			}
@@ -5499,7 +5503,7 @@ again:
 
 	return 0;
 alloc:
-	ret = attach_task_ctx_data(p, ctx_cache, true);
+	ret = attach_task_ctx_data(p, ctx_cache, true, GFP_KERNEL);
 	put_task_struct(p);
 	if (ret) {
 		__detach_global_ctx_data();
@@ -5519,7 +5523,7 @@ attach_perf_ctx_data(struct perf_event *event)
 		return -ENOMEM;
 
 	if (task)
-		return attach_task_ctx_data(task, ctx_cache, false);
+		return attach_task_ctx_data(task, ctx_cache, false, GFP_KERNEL);
 
 	ret = attach_global_ctx_data(ctx_cache);
 	if (ret)
@@ -5554,22 +5558,15 @@ static void __detach_global_ctx_data(void)
 	struct task_struct *g, *p;
 	struct perf_ctx_data *cd;
 
-again:
 	scoped_guard (rcu) {
 		for_each_process_thread(g, p) {
 			cd = rcu_dereference(p->perf_ctx_data);
-			if (!cd || !cd->global)
-				continue;
-			cd->global = 0;
-			get_task_struct(p);
-			goto detach;
+			if (cd && cd->global) {
+				cd->global = 0;
+				detach_task_ctx_data(p);
+			}
 		}
 	}
-	return;
-detach:
-	detach_task_ctx_data(p);
-	put_task_struct(p);
-	goto again;
 }
 
 static void detach_global_ctx_data(void)
@@ -7215,7 +7212,7 @@ static int map_range(struct perf_buffer *rb, struct vm_area_struct *vma)
 #ifdef CONFIG_MMU
 	/* Clear any partial mappings on error. */
 	if (err)
-		zap_page_range_single(vma, vma->vm_start, nr_pages * PAGE_SIZE, NULL);
+		zap_vma_range(vma, vma->vm_start, nr_pages * PAGE_SIZE);
 #endif
 
 	return err;
@@ -7464,28 +7461,28 @@ static int perf_mmap(struct file *file, struct vm_area_struct *vma)
 			ret = perf_mmap_aux(vma, event, nr_pages);
 		if (ret)
 			return ret;
+
+		/*
+		 * Since pinned accounting is per vm we cannot allow fork() to copy our
+		 * vma.
+		 */
+		vm_flags_set(vma, VM_DONTCOPY | VM_DONTEXPAND | VM_DONTDUMP);
+		vma->vm_ops = &perf_mmap_vmops;
+
+		mapped = get_mapped(event, event_mapped);
+		if (mapped)
+			mapped(event, vma->vm_mm);
+
+		/*
+		 * Try to map it into the page table. On fail, invoke
+		 * perf_mmap_close() to undo the above, as the callsite expects
+		 * full cleanup in this case and therefore does not invoke
+		 * vmops::close().
+		 */
+		ret = map_range(event->rb, vma);
+		if (ret)
+			perf_mmap_close(vma);
 	}
-
-	/*
-	 * Since pinned accounting is per vm we cannot allow fork() to copy our
-	 * vma.
-	 */
-	vm_flags_set(vma, VM_DONTCOPY | VM_DONTEXPAND | VM_DONTDUMP);
-	vma->vm_ops = &perf_mmap_vmops;
-
-	mapped = get_mapped(event, event_mapped);
-	if (mapped)
-		mapped(event, vma->vm_mm);
-
-	/*
-	 * Try to map it into the page table. On fail, invoke
-	 * perf_mmap_close() to undo the above, as the callsite expects
-	 * full cleanup in this case and therefore does not invoke
-	 * vmops::close().
-	 */
-	ret = map_range(event->rb, vma);
-	if (ret)
-		perf_mmap_close(vma);
 
 	return ret;
 }
@@ -8422,7 +8419,7 @@ static u64 perf_get_pgtable_size(struct mm_struct *mm, unsigned long addr)
 	pte_t *ptep, pte;
 
 	pgdp = pgd_offset(mm, addr);
-	pgd = READ_ONCE(*pgdp);
+	pgd = pgdp_get(pgdp);
 	if (pgd_none(pgd))
 		return 0;
 
@@ -8430,7 +8427,7 @@ static u64 perf_get_pgtable_size(struct mm_struct *mm, unsigned long addr)
 		return pgd_leaf_size(pgd);
 
 	p4dp = p4d_offset_lockless(pgdp, pgd, addr);
-	p4d = READ_ONCE(*p4dp);
+	p4d = p4dp_get(p4dp);
 	if (!p4d_present(p4d))
 		return 0;
 
@@ -8438,7 +8435,7 @@ static u64 perf_get_pgtable_size(struct mm_struct *mm, unsigned long addr)
 		return p4d_leaf_size(p4d);
 
 	pudp = pud_offset_lockless(p4dp, p4d, addr);
-	pud = READ_ONCE(*pudp);
+	pud = pudp_get(pudp);
 	if (!pud_present(pud))
 		return 0;
 
@@ -9240,7 +9237,7 @@ perf_event_alloc_task_data(struct task_struct *child,
 
 	return;
 attach:
-	attach_task_ctx_data(child, ctx_cache, true);
+	attach_task_ctx_data(child, ctx_cache, true, GFP_KERNEL);
 }
 
 void perf_event_fork(struct task_struct *task)
@@ -10776,6 +10773,13 @@ int perf_event_overflow(struct perf_event *event,
 			struct perf_sample_data *data,
 			struct pt_regs *regs)
 {
+	/*
+	 * Entry point from hardware PMI, interrupts should be disabled here.
+	 * This serializes us against perf_event_remove_from_context() in
+	 * things like perf_event_release_kernel().
+	 */
+	lockdep_assert_irqs_disabled();
+
 	return __perf_event_overflow(event, 1, data, regs);
 }
 
@@ -10852,12 +10856,35 @@ static void perf_swevent_event(struct perf_event *event, u64 nr,
 {
 	struct hw_perf_event *hwc = &event->hw;
 
+	/*
+	 * This is:
+	 *   - software		preempt
+	 *   - tracepoint	preempt
+	 *   -   tp_target_task	irq (ctx->lock)
+	 *   - uprobes		preempt/irq
+	 *   - kprobes		preempt/irq
+	 *   - hw_breakpoint	irq
+	 *
+	 * Any of these are sufficient to hold off RCU and thus ensure @event
+	 * exists.
+	 */
+	lockdep_assert_preemption_disabled();
 	local64_add(nr, &event->count);
 
 	if (!regs)
 		return;
 
 	if (!is_sampling_event(event))
+		return;
+
+	/*
+	 * Serialize against event_function_call() IPIs like normal overflow
+	 * event handling. Specifically, must not allow
+	 * perf_event_release_kernel() -> perf_remove_from_context() to make
+	 * progress and 'release' the event from under us.
+	 */
+	guard(irqsave)();
+	if (event->state != PERF_EVENT_STATE_ACTIVE)
 		return;
 
 	if ((event->attr.sample_type & PERF_SAMPLE_PERIOD) && !event->attr.freq) {
@@ -11358,6 +11385,11 @@ void perf_tp_event(u16 event_type, u64 count, void *record, int entry_size,
 	struct perf_sample_data data;
 	struct perf_event *event;
 
+	/*
+	 * Per being a tracepoint, this runs with preemption disabled.
+	 */
+	lockdep_assert_preemption_disabled();
+
 	struct perf_raw_record raw = {
 		.frag = {
 			.size = entry_size,
@@ -11689,6 +11721,11 @@ void perf_bp_event(struct perf_event *bp, void *data)
 {
 	struct perf_sample_data sample;
 	struct pt_regs *regs = data;
+
+	/*
+	 * Exception context, will have interrupts disabled.
+	 */
+	lockdep_assert_irqs_disabled();
 
 	perf_sample_data_init(&sample, bp->attr.bp_addr, 0);
 
@@ -12154,7 +12191,7 @@ static enum hrtimer_restart perf_swevent_hrtimer(struct hrtimer *hrtimer)
 
 	if (regs && !perf_exclude_event(event, regs)) {
 		if (!(event->attr.exclude_idle && is_idle_task(current)))
-			if (__perf_event_overflow(event, 1, &data, regs))
+			if (perf_event_overflow(event, &data, regs))
 				ret = HRTIMER_NORESTART;
 	}
 
@@ -14703,7 +14740,7 @@ inherit_event(struct perf_event *parent_event,
 	get_ctx(child_ctx);
 	child_event->ctx = child_ctx;
 
-	pmu_ctx = find_get_pmu_context(child_event->pmu, child_ctx, child_event);
+	pmu_ctx = find_get_pmu_context(parent_event->pmu_ctx->pmu, child_ctx, child_event);
 	if (IS_ERR(pmu_ctx)) {
 		free_event(child_event);
 		return ERR_CAST(pmu_ctx);

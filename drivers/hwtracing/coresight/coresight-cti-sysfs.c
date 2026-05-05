@@ -81,19 +81,12 @@ static ssize_t enable_show(struct device *dev,
 			   char *buf)
 {
 	int enable_req;
-	bool enabled, powered;
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	raw_spin_lock(&drvdata->spinlock);
-	enable_req = drvdata->config.enable_req_count;
-	powered = drvdata->config.hw_powered;
-	enabled = drvdata->config.hw_enabled;
-	raw_spin_unlock(&drvdata->spinlock);
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
+		enable_req = cti_is_active(&drvdata->config);
 
-	if (powered)
-		return sprintf(buf, "%d\n", enabled);
-	else
-		return sprintf(buf, "%d\n", !!enable_req);
+	return sprintf(buf, "%d\n", !!enable_req);
 }
 
 static ssize_t enable_store(struct device *dev,
@@ -131,12 +124,7 @@ static ssize_t powered_show(struct device *dev,
 			    struct device_attribute *attr,
 			    char *buf)
 {
-	bool powered;
-	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
-
-	raw_spin_lock(&drvdata->spinlock);
-	powered = drvdata->config.hw_powered;
-	raw_spin_unlock(&drvdata->spinlock);
+	bool powered = pm_runtime_active(dev->parent);
 
 	return sprintf(buf, "%d\n", powered);
 }
@@ -181,10 +169,10 @@ static ssize_t coresight_cti_reg_show(struct device *dev,
 	u32 val = 0;
 
 	pm_runtime_get_sync(dev->parent);
-	raw_spin_lock(&drvdata->spinlock);
-	if (drvdata->config.hw_powered)
-		val = readl_relaxed(drvdata->base + cti_attr->off);
-	raw_spin_unlock(&drvdata->spinlock);
+
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
+		val = cti_read_single_reg(drvdata, cti_attr->off);
+
 	pm_runtime_put_sync(dev->parent);
 	return sysfs_emit(buf, "0x%x\n", val);
 }
@@ -202,10 +190,10 @@ static __maybe_unused ssize_t coresight_cti_reg_store(struct device *dev,
 		return -EINVAL;
 
 	pm_runtime_get_sync(dev->parent);
-	raw_spin_lock(&drvdata->spinlock);
-	if (drvdata->config.hw_powered)
+
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
 		cti_write_single_reg(drvdata, cti_attr->off, val);
-	raw_spin_unlock(&drvdata->spinlock);
+
 	pm_runtime_put_sync(dev->parent);
 	return size;
 }
@@ -264,17 +252,19 @@ static ssize_t cti_reg32_show(struct device *dev, char *buf,
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	struct cti_config *config = &drvdata->config;
 
-	raw_spin_lock(&drvdata->spinlock);
-	if ((reg_offset >= 0) && cti_active(config)) {
-		CS_UNLOCK(drvdata->base);
-		val = readl_relaxed(drvdata->base + reg_offset);
-		if (pcached_val)
-			*pcached_val = val;
-		CS_LOCK(drvdata->base);
-	} else if (pcached_val) {
-		val = *pcached_val;
+	if (reg_offset < 0)
+		return -EINVAL;
+
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock) {
+		if (cti_is_active(config)) {
+			val = cti_read_single_reg(drvdata, reg_offset);
+			if (pcached_val)
+				*pcached_val = val;
+		} else if (pcached_val) {
+			val = *pcached_val;
+		}
 	}
-	raw_spin_unlock(&drvdata->spinlock);
+
 	return sprintf(buf, "%#x\n", val);
 }
 
@@ -293,15 +283,19 @@ static ssize_t cti_reg32_store(struct device *dev, const char *buf,
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
 
-	raw_spin_lock(&drvdata->spinlock);
-	/* local store */
-	if (pcached_val)
-		*pcached_val = (u32)val;
+	if (reg_offset < 0)
+		return -EINVAL;
 
-	/* write through if offset and enabled */
-	if ((reg_offset >= 0) && cti_active(config))
-		cti_write_single_reg(drvdata, reg_offset, val);
-	raw_spin_unlock(&drvdata->spinlock);
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock) {
+		/* local store */
+		if (pcached_val)
+			*pcached_val = (u32)val;
+
+		/* write through if offset and enabled */
+		if (cti_is_active(config))
+			cti_write_single_reg(drvdata, reg_offset, val);
+	}
+
 	return size;
 }
 
@@ -343,15 +337,16 @@ static ssize_t inout_sel_store(struct device *dev,
 {
 	unsigned long val;
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	struct cti_config *config = &drvdata->config;
 
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
-	if (val > (CTIINOUTEN_MAX - 1))
+	if (val >= config->nr_trig_max)
 		return -EINVAL;
 
-	raw_spin_lock(&drvdata->spinlock);
+	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
+
 	drvdata->config.ctiinout_sel = val;
-	raw_spin_unlock(&drvdata->spinlock);
 	return size;
 }
 static DEVICE_ATTR_RW(inout_sel);
@@ -364,10 +359,11 @@ static ssize_t inen_show(struct device *dev,
 	int index;
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	raw_spin_lock(&drvdata->spinlock);
-	index = drvdata->config.ctiinout_sel;
-	val = drvdata->config.ctiinen[index];
-	raw_spin_unlock(&drvdata->spinlock);
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock) {
+		index = drvdata->config.ctiinout_sel;
+		val = drvdata->config.ctiinen[index];
+	}
+
 	return sprintf(buf, "%#lx\n", val);
 }
 
@@ -383,14 +379,15 @@ static ssize_t inen_store(struct device *dev,
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
 
-	raw_spin_lock(&drvdata->spinlock);
+	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
+
 	index = config->ctiinout_sel;
 	config->ctiinen[index] = val;
 
 	/* write through if enabled */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_single_reg(drvdata, CTIINEN(index), val);
-	raw_spin_unlock(&drvdata->spinlock);
+
 	return size;
 }
 static DEVICE_ATTR_RW(inen);
@@ -403,10 +400,11 @@ static ssize_t outen_show(struct device *dev,
 	int index;
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	raw_spin_lock(&drvdata->spinlock);
-	index = drvdata->config.ctiinout_sel;
-	val = drvdata->config.ctiouten[index];
-	raw_spin_unlock(&drvdata->spinlock);
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock) {
+		index = drvdata->config.ctiinout_sel;
+		val = drvdata->config.ctiouten[index];
+	}
+
 	return sprintf(buf, "%#lx\n", val);
 }
 
@@ -422,14 +420,15 @@ static ssize_t outen_store(struct device *dev,
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
 
-	raw_spin_lock(&drvdata->spinlock);
+	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
+
 	index = config->ctiinout_sel;
 	config->ctiouten[index] = val;
 
 	/* write through if enabled */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_single_reg(drvdata, CTIOUTEN(index), val);
-	raw_spin_unlock(&drvdata->spinlock);
+
 	return size;
 }
 static DEVICE_ATTR_RW(outen);
@@ -463,15 +462,15 @@ static ssize_t appclear_store(struct device *dev,
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
 
-	raw_spin_lock(&drvdata->spinlock);
+	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
 
 	/* a 1'b1 in appclr clears down the same bit in appset*/
 	config->ctiappset &= ~val;
 
 	/* write through if enabled */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_single_reg(drvdata, CTIAPPCLEAR, val);
-	raw_spin_unlock(&drvdata->spinlock);
+
 	return size;
 }
 static DEVICE_ATTR_WO(appclear);
@@ -487,12 +486,12 @@ static ssize_t apppulse_store(struct device *dev,
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
 
-	raw_spin_lock(&drvdata->spinlock);
+	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
 
 	/* write through if enabled */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_single_reg(drvdata, CTIAPPPULSE, val);
-	raw_spin_unlock(&drvdata->spinlock);
+
 	return size;
 }
 static DEVICE_ATTR_WO(apppulse);
@@ -529,6 +528,18 @@ static struct attribute *coresight_cti_regs_attrs[] = {
 #endif
 	NULL,
 };
+
+static umode_t coresight_cti_regs_is_visible(struct kobject *kobj,
+					     struct attribute *attr, int idx)
+{
+	struct device *dev = kobj_to_dev(kobj);
+	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (attr == &dev_attr_asicctl.attr && !drvdata->config.asicctl_impl)
+		return 0;
+
+	return attr->mode;
+}
 
 /* CTI channel x-trigger programming */
 static int
@@ -606,14 +617,11 @@ static ssize_t chan_gate_enable_show(struct device *dev,
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	struct cti_config *cfg = &drvdata->config;
 	unsigned long ctigate_bitmask = cfg->ctigate;
-	int size = 0;
 
 	if (cfg->ctigate == 0)
-		size = sprintf(buf, "\n");
-	else
-		size = bitmap_print_to_pagebuf(true, buf, &ctigate_bitmask,
-					       cfg->nr_ctm_channels);
-	return size;
+		return sprintf(buf, "\n");
+
+	return sysfs_emit(buf, "%*pbl\n", cfg->nr_ctm_channels, &ctigate_bitmask);
 }
 static DEVICE_ATTR_RW(chan_gate_enable);
 
@@ -681,9 +689,9 @@ static ssize_t trig_filter_enable_show(struct device *dev,
 	u32 val;
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	raw_spin_lock(&drvdata->spinlock);
-	val = drvdata->config.trig_filter_enable;
-	raw_spin_unlock(&drvdata->spinlock);
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
+		val = drvdata->config.trig_filter_enable;
+
 	return sprintf(buf, "%d\n", val);
 }
 
@@ -697,9 +705,9 @@ static ssize_t trig_filter_enable_store(struct device *dev,
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
 
-	raw_spin_lock(&drvdata->spinlock);
+	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
+
 	drvdata->config.trig_filter_enable = !!val;
-	raw_spin_unlock(&drvdata->spinlock);
 	return size;
 }
 static DEVICE_ATTR_RW(trig_filter_enable);
@@ -710,12 +718,13 @@ static ssize_t trigout_filtered_show(struct device *dev,
 {
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	struct cti_config *cfg = &drvdata->config;
-	int size = 0, nr_trig_max = cfg->nr_trig_max;
+	int nr_trig_max = cfg->nr_trig_max;
 	unsigned long mask = cfg->trig_out_filter;
 
-	if (mask)
-		size = bitmap_print_to_pagebuf(true, buf, &mask, nr_trig_max);
-	return size;
+	if (mask == 0)
+		return 0;
+
+	return sysfs_emit(buf, "%*pbl\n", nr_trig_max, &mask);
 }
 static DEVICE_ATTR_RO(trigout_filtered);
 
@@ -728,7 +737,7 @@ static ssize_t chan_xtrigs_reset_store(struct device *dev,
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	struct cti_config *config = &drvdata->config;
 
-	raw_spin_lock(&drvdata->spinlock);
+	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
 
 	/* clear the CTI trigger / channel programming registers */
 	for (i = 0; i < config->nr_trig_max; i++) {
@@ -744,10 +753,9 @@ static ssize_t chan_xtrigs_reset_store(struct device *dev,
 	config->xtrig_rchan_sel = 0;
 
 	/* if enabled then write through */
-	if (cti_active(config))
+	if (cti_is_active(config))
 		cti_write_all_hw_regs(drvdata);
 
-	raw_spin_unlock(&drvdata->spinlock);
 	return size;
 }
 static DEVICE_ATTR_WO(chan_xtrigs_reset);
@@ -768,9 +776,9 @@ static ssize_t chan_xtrigs_sel_store(struct device *dev,
 	if (val > (drvdata->config.nr_ctm_channels - 1))
 		return -EINVAL;
 
-	raw_spin_lock(&drvdata->spinlock);
+	guard(raw_spinlock_irqsave)(&drvdata->spinlock);
+
 	drvdata->config.xtrig_rchan_sel = val;
-	raw_spin_unlock(&drvdata->spinlock);
 	return size;
 }
 
@@ -781,9 +789,8 @@ static ssize_t chan_xtrigs_sel_show(struct device *dev,
 	unsigned long val;
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
-	raw_spin_lock(&drvdata->spinlock);
-	val = drvdata->config.xtrig_rchan_sel;
-	raw_spin_unlock(&drvdata->spinlock);
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock)
+		val = drvdata->config.xtrig_rchan_sel;
 
 	return sprintf(buf, "%ld\n", val);
 }
@@ -834,16 +841,16 @@ static ssize_t print_chan_list(struct device *dev,
 {
 	struct cti_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	struct cti_config *config = &drvdata->config;
-	int size, i;
+	int i;
 	unsigned long inuse_bits = 0, chan_mask;
 
 	/* scan regs to get bitmap of channels in use. */
-	raw_spin_lock(&drvdata->spinlock);
-	for (i = 0; i < config->nr_trig_max; i++) {
-		inuse_bits |= config->ctiinen[i];
-		inuse_bits |= config->ctiouten[i];
+	scoped_guard(raw_spinlock_irqsave, &drvdata->spinlock) {
+		for (i = 0; i < config->nr_trig_max; i++) {
+			inuse_bits |= config->ctiinen[i];
+			inuse_bits |= config->ctiouten[i];
+		}
 	}
-	raw_spin_unlock(&drvdata->spinlock);
 
 	/* inverse bits if printing free channels */
 	if (!inuse)
@@ -852,11 +859,9 @@ static ssize_t print_chan_list(struct device *dev,
 	/* list of channels, or 'none' */
 	chan_mask = GENMASK(config->nr_ctm_channels - 1, 0);
 	if (inuse_bits & chan_mask)
-		size = bitmap_print_to_pagebuf(true, buf, &inuse_bits,
-					       config->nr_ctm_channels);
-	else
-		size = sprintf(buf, "\n");
-	return size;
+		return sysfs_emit(buf, "%*pbl\n", config->nr_ctm_channels, &inuse_bits);
+
+	return sprintf(buf, "\n");
 }
 
 static ssize_t chan_inuse_show(struct device *dev,
@@ -928,7 +933,7 @@ static ssize_t trigin_sig_show(struct device *dev,
 	struct cti_config *cfg = &drvdata->config;
 	unsigned long mask = con->con_in->used_mask;
 
-	return bitmap_print_to_pagebuf(true, buf, &mask, cfg->nr_trig_max);
+	return sysfs_emit(buf, "%*pbl\n", cfg->nr_trig_max, &mask);
 }
 
 static ssize_t trigout_sig_show(struct device *dev,
@@ -942,7 +947,7 @@ static ssize_t trigout_sig_show(struct device *dev,
 	struct cti_config *cfg = &drvdata->config;
 	unsigned long mask = con->con_out->used_mask;
 
-	return bitmap_print_to_pagebuf(true, buf, &mask, cfg->nr_trig_max);
+	return sysfs_emit(buf, "%*pbl\n", cfg->nr_trig_max, &mask);
 }
 
 /* convert a sig type id to a name */
@@ -1169,6 +1174,7 @@ static const struct attribute_group coresight_cti_mgmt_group = {
 
 static const struct attribute_group coresight_cti_regs_group = {
 	.attrs = coresight_cti_regs_attrs,
+	.is_visible = coresight_cti_regs_is_visible,
 	.name = "regs",
 };
 

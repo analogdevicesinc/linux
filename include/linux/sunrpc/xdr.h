@@ -290,7 +290,7 @@ xdr_set_scratch_buffer(struct xdr_stream *xdr, void *buf, size_t buflen)
 /**
  * xdr_set_scratch_folio - Attach a scratch buffer for decoding data
  * @xdr: pointer to xdr_stream struct
- * @page: an anonymous folio
+ * @folio: an anonymous folio
  *
  * See xdr_set_scratch_buffer().
  */
@@ -330,7 +330,7 @@ static inline void xdr_commit_encode(struct xdr_stream *xdr)
  * xdr_stream_remaining - Return the number of bytes remaining in the stream
  * @xdr: pointer to struct xdr_stream
  *
- * Return value:
+ * Returns:
  *   Number of bytes remaining in @xdr before xdr->end
  */
 static inline size_t
@@ -350,7 +350,7 @@ ssize_t xdr_stream_encode_opaque_auth(struct xdr_stream *xdr, u32 flavor,
  * xdr_align_size - Calculate padded size of an object
  * @n: Size of an object being XDR encoded (in bytes)
  *
- * Return value:
+ * Returns:
  *   Size (in bytes) of the object including xdr padding
  */
 static inline size_t
@@ -368,7 +368,7 @@ xdr_align_size(size_t n)
  * This implementation avoids the need for conditional
  * branches or modulo division.
  *
- * Return value:
+ * Returns:
  *   Size (in bytes) of the needed XDR pad
  */
 static inline size_t xdr_pad_size(size_t n)
@@ -380,7 +380,7 @@ static inline size_t xdr_pad_size(size_t n)
  * xdr_stream_encode_item_present - Encode a "present" list item
  * @xdr: pointer to xdr_stream
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -399,7 +399,7 @@ static inline ssize_t xdr_stream_encode_item_present(struct xdr_stream *xdr)
  * xdr_stream_encode_item_absent - Encode a "not present" list item
  * @xdr: pointer to xdr_stream
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -419,7 +419,7 @@ static inline int xdr_stream_encode_item_absent(struct xdr_stream *xdr)
  * @p: address in a buffer into which to encode
  * @n: boolean value to encode
  *
- * Return value:
+ * Returns:
  *   Address of item following the encoded boolean
  */
 static inline __be32 *xdr_encode_bool(__be32 *p, u32 n)
@@ -433,7 +433,7 @@ static inline __be32 *xdr_encode_bool(__be32 *p, u32 n)
  * @xdr: pointer to xdr_stream
  * @n: boolean value to encode
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -453,7 +453,7 @@ static inline int xdr_stream_encode_bool(struct xdr_stream *xdr, __u32 n)
  * @xdr: pointer to xdr_stream
  * @n: integer to encode
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -474,7 +474,7 @@ xdr_stream_encode_u32(struct xdr_stream *xdr, __u32 n)
  * @xdr: pointer to xdr_stream
  * @n: integer to encode
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -495,7 +495,7 @@ xdr_stream_encode_be32(struct xdr_stream *xdr, __be32 n)
  * @xdr: pointer to xdr_stream
  * @n: 64-bit integer to encode
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -517,7 +517,7 @@ xdr_stream_encode_u64(struct xdr_stream *xdr, __u64 n)
  * @ptr: pointer to void pointer
  * @len: size of object
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -542,7 +542,7 @@ xdr_stream_encode_opaque_inline(struct xdr_stream *xdr, void **ptr, size_t len)
  * @ptr: pointer to opaque data object
  * @len: size of object pointed to by @ptr
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -563,7 +563,7 @@ xdr_stream_encode_opaque_fixed(struct xdr_stream *xdr, const void *ptr, size_t l
  * @ptr: pointer to opaque data object
  * @len: size of object pointed to by @ptr
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -585,7 +585,7 @@ xdr_stream_encode_opaque(struct xdr_stream *xdr, const void *ptr, size_t len)
  * @array: array of integers
  * @array_size: number of elements in @array
  *
- * Return values:
+ * Returns:
  *   On success, returns length in bytes of XDR buffer consumed
  *   %-EMSGSIZE on XDR buffer overflow
  */
@@ -608,7 +608,7 @@ xdr_stream_encode_uint32_array(struct xdr_stream *xdr,
  * xdr_item_is_absent - symbolically handle XDR discriminators
  * @p: pointer to undecoded discriminator
  *
- * Return values:
+ * Returns:
  *   %true if the following XDR item is absent
  *   %false if the following XDR item is present
  */
@@ -621,7 +621,7 @@ static inline bool xdr_item_is_absent(const __be32 *p)
  * xdr_item_is_present - symbolically handle XDR discriminators
  * @p: pointer to undecoded discriminator
  *
- * Return values:
+ * Returns:
  *   %true if the following XDR item is present
  *   %false if the following XDR item is absent
  */
@@ -635,7 +635,7 @@ static inline bool xdr_item_is_present(const __be32 *p)
  * @xdr: pointer to xdr_stream
  * @ptr: pointer to a u32 in which to store the result
  *
- * Return values:
+ * Returns:
  *   %0 on success
  *   %-EBADMSG on XDR buffer overflow
  */
@@ -656,7 +656,7 @@ xdr_stream_decode_bool(struct xdr_stream *xdr, __u32 *ptr)
  * @xdr: pointer to xdr_stream
  * @ptr: location to store integer
  *
- * Return values:
+ * Returns:
  *   %0 on success
  *   %-EBADMSG on XDR buffer overflow
  */
@@ -677,7 +677,7 @@ xdr_stream_decode_u32(struct xdr_stream *xdr, __u32 *ptr)
  * @xdr: pointer to xdr_stream
  * @ptr: location to store integer
  *
- * Return values:
+ * Returns:
  *   %0 on success
  *   %-EBADMSG on XDR buffer overflow
  */
@@ -698,7 +698,7 @@ xdr_stream_decode_be32(struct xdr_stream *xdr, __be32 *ptr)
  * @xdr: pointer to xdr_stream
  * @ptr: location to store 64-bit integer
  *
- * Return values:
+ * Returns:
  *   %0 on success
  *   %-EBADMSG on XDR buffer overflow
  */
@@ -720,7 +720,7 @@ xdr_stream_decode_u64(struct xdr_stream *xdr, __u64 *ptr)
  * @ptr: location to store data
  * @len: size of buffer pointed to by @ptr
  *
- * Return values:
+ * Returns:
  *   %0 on success
  *   %-EBADMSG on XDR buffer overflow
  */
@@ -746,7 +746,7 @@ xdr_stream_decode_opaque_fixed(struct xdr_stream *xdr, void *ptr, size_t len)
  * on @xdr. It is therefore expected that the object it points to should
  * be processed immediately.
  *
- * Return values:
+ * Returns:
  *   On success, returns size of object stored in *@ptr
  *   %-EBADMSG on XDR buffer overflow
  *   %-EMSGSIZE if the size of the object would exceed @maxlen
@@ -777,7 +777,7 @@ xdr_stream_decode_opaque_inline(struct xdr_stream *xdr, void **ptr, size_t maxle
  * @array: location to store the integer array or NULL
  * @array_size: number of elements to store
  *
- * Return values:
+ * Returns:
  *   On success, returns number of elements stored in @array
  *   %-EBADMSG on XDR buffer overflow
  *   %-EMSGSIZE if the size of the array exceeds @array_size

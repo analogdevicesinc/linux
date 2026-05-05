@@ -337,7 +337,10 @@ int btrfs_get_dev_zone_info_all_devices(struct btrfs_fs_info *fs_info)
 	if (!btrfs_fs_incompat(fs_info, ZONED))
 		return 0;
 
-	mutex_lock(&fs_devices->device_list_mutex);
+	/*
+	 * No need to take the device_list mutex here, we're still in the mount
+	 * path and devices cannot be added to or removed from the list yet.
+	 */
 	list_for_each_entry(device, &fs_devices->devices, dev_list) {
 		/* We can skip reading of zone info for missing devices */
 		if (!device->bdev)
@@ -347,7 +350,6 @@ int btrfs_get_dev_zone_info_all_devices(struct btrfs_fs_info *fs_info)
 		if (ret)
 			break;
 	}
-	mutex_unlock(&fs_devices->device_list_mutex);
 
 	return ret;
 }
@@ -1259,6 +1261,13 @@ static int calculate_alloc_pointer(struct btrfs_block_group *cache,
 	key.offset = 0;
 
 	root = btrfs_extent_root(fs_info, key.objectid);
+	if (unlikely(!root)) {
+		btrfs_err(fs_info,
+			  "missing extent root for extent at bytenr %llu",
+			  key.objectid);
+		return -EUCLEAN;
+	}
+
 	ret = btrfs_search_slot(NULL, root, &key, path, 0, 0);
 	/* We should not find the exact match */
 	if (unlikely(!ret))
@@ -1690,8 +1699,7 @@ static int btrfs_load_block_group_raid10(struct btrfs_block_group *bg,
 		return -EINVAL;
 	}
 
-	raid0_allocs = kcalloc(map->num_stripes / map->sub_stripes, sizeof(*raid0_allocs),
-			       GFP_NOFS);
+	raid0_allocs = kzalloc_objs(*raid0_allocs, map->num_stripes / map->sub_stripes, GFP_NOFS);
 	if (!raid0_allocs)
 		return -ENOMEM;
 
@@ -1909,7 +1917,7 @@ int btrfs_load_block_group_zone_info(struct btrfs_block_group *cache, bool new)
 
 	cache->physical_map = map;
 
-	zone_info = kcalloc(map->num_stripes, sizeof(*zone_info), GFP_NOFS);
+	zone_info = kzalloc_objs(*zone_info, map->num_stripes, GFP_NOFS);
 	if (!zone_info) {
 		ret = -ENOMEM;
 		goto out;
@@ -2114,9 +2122,8 @@ void btrfs_finish_ordered_zoned(struct btrfs_ordered_extent *ordered)
 	if (test_bit(BTRFS_ORDERED_PREALLOC, &ordered->flags))
 		return;
 
-	ASSERT(!list_empty(&ordered->list));
-	/* The ordered->list can be empty in the above pre-alloc case. */
-	sum = list_first_entry(&ordered->list, struct btrfs_ordered_sum, list);
+	ASSERT(!list_empty(&ordered->csum_list));
+	sum = list_first_entry(&ordered->csum_list, struct btrfs_ordered_sum, list);
 	logical = sum->logical;
 	len = sum->len;
 
@@ -2127,7 +2134,7 @@ void btrfs_finish_ordered_zoned(struct btrfs_ordered_extent *ordered)
 			continue;
 		}
 		if (!btrfs_zoned_split_ordered(ordered, logical, len)) {
-			set_bit(BTRFS_ORDERED_IOERR, &ordered->flags);
+			btrfs_mark_ordered_extent_error(ordered);
 			btrfs_err(fs_info, "failed to split ordered extent");
 			goto out;
 		}
@@ -2147,7 +2154,7 @@ out:
 	 */
 	if ((inode->flags & BTRFS_INODE_NODATASUM) ||
 	    test_bit(BTRFS_FS_STATE_NO_DATA_CSUMS, &fs_info->fs_state)) {
-		while ((sum = list_first_entry_or_null(&ordered->list,
+		while ((sum = list_first_entry_or_null(&ordered->csum_list,
 						       typeof(*sum), list))) {
 			list_del(&sum->list);
 			kfree(sum);
@@ -2375,6 +2382,9 @@ bool btrfs_zone_activate(struct btrfs_block_group *block_group)
 	int i;
 
 	if (!btrfs_is_zoned(block_group->fs_info))
+		return true;
+
+	if (unlikely(btrfs_is_testing(fs_info)))
 		return true;
 
 	map = block_group->physical_map;

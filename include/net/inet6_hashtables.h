@@ -24,6 +24,8 @@
 
 struct inet_hashinfo;
 
+void inet6_init_ehash_secret(void);
+
 static inline unsigned int __inet6_ehashfn(const u32 lhash,
 				    const u16 lport,
 				    const u32 fhash,
@@ -175,7 +177,7 @@ static inline bool inet6_match(const struct net *net, const struct sock *sk,
 {
 	if (!net_eq(sock_net(sk), net) ||
 	    sk->sk_family != AF_INET6 ||
-	    sk->sk_portpair != ports ||
+	    READ_ONCE(sk->sk_portpair) != ports ||
 	    !ipv6_addr_equal(&sk->sk_v6_daddr, saddr) ||
 	    !ipv6_addr_equal(&sk->sk_v6_rcv_saddr, daddr))
 		return false;

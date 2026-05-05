@@ -2,8 +2,11 @@
 /*
  */
 
+#include <linux/cleanup.h>
+#include <linux/err.h>
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/usb.h>
 #include <linux/usb/audio.h>
 #include <linux/usb/midi.h>
@@ -2135,18 +2138,73 @@ void snd_usb_audioformat_attributes_quirk(struct snd_usb_audio *chip,
 /*
  * driver behavior quirk flags
  */
+struct usb_string_match {
+	const char *manufacturer;
+	const char *product;
+};
+
 struct usb_audio_quirk_flags_table {
 	u32 id;
 	u32 flags;
+	const struct usb_string_match *usb_string_match;
 };
 
 #define DEVICE_FLG(vid, pid, _flags) \
 	{ .id = USB_ID(vid, pid), .flags = (_flags) }
 #define VENDOR_FLG(vid, _flags) DEVICE_FLG(vid, 0, _flags)
 
+/*
+ * Use as a last resort if using DEVICE_FLG() is prone to VID/PID conflicts.
+ *
+ * Usage:
+ *   // match vid, pid, "manufacturer", and "product"
+ *   DEVICE_STRING_FLG(vid, pid, "manufacturer", "product", flags)
+ *
+ *   // match vid, pid, "manufacturer", and any product string
+ *   DEVICE_STRING_FLG(vid, pid, "manufacturer", NULL,      flags)
+ *
+ *   // match vid, pid, "manufacturer", and device must have no product string
+ *   DEVICE_STRING_FLG(vid, pid, "manufacturer", "",        flags)
+ *
+ *   // match vid, pid, any manufacturer string, and "product"
+ *   DEVICE_STRING_FLG(vid, pid, NULL,           "product", flags)
+ *
+ *   // match vid, pid, no manufacturer string, and "product"
+ *   DEVICE_STRING_FLG(vid, pid, "",             "product", flags)
+ *
+ *   // match vid, pid, no manufacturer string, and no product string
+ *   DEVICE_STRING_FLG(vid, pid, "",             "",        flags)
+ */
+#define DEVICE_STRING_FLG(vid, pid, _manufacturer, _product, _flags)	\
+{									\
+	.id = USB_ID(vid, pid),						\
+	.usb_string_match = &(const struct usb_string_match) {		\
+		.manufacturer = _manufacturer,				\
+		.product = _product,					\
+	},								\
+	.flags = (_flags),						\
+}
+
+/*
+ * Use as a last resort if using VENDOR_FLG() is prone to VID conflicts.
+ *
+ * Usage:
+ *   // match vid, and "manufacturer"
+ *   VENDOR_STRING_FLG(vid, "manufacturer", flags)
+ *
+ *   // match vid, and device must have no manufacturer string
+ *   VENDOR_STRING_FLG(vid, "",             flags)
+ */
+#define VENDOR_STRING_FLG(vid, _manufacturer, _flags)			\
+	DEVICE_STRING_FLG(vid, 0, _manufacturer, NULL, _flags)
+
 static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
+	/* Device and string descriptor matches */
+
 	/* Device matches */
 	DEVICE_FLG(0x001f, 0x0b21, /* AB13X USB Audio */
+		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
+	DEVICE_FLG(0x001f, 0x0b23, /* AB17X USB Audio */
 		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
 	DEVICE_FLG(0x0020, 0x0b21, /* GHW-123P */
 		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
@@ -2219,6 +2277,8 @@ static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 		   QUIRK_FLAG_ALIGN_TRANSFER),
 	DEVICE_FLG(0x05e1, 0x0480, /* Hauppauge Woodbury */
 		   QUIRK_FLAG_SHARE_MEDIA_DEVICE | QUIRK_FLAG_ALIGN_TRANSFER),
+	DEVICE_FLG(0x0624, 0x3d3f, /* AB13X USB Audio */
+		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
 	DEVICE_FLG(0x0644, 0x8043, /* TEAC UD-501/UD-501V2/UD-503/NT-503 */
 		   QUIRK_FLAG_ITF_USB_DSD_DAC | QUIRK_FLAG_CTL_MSG_DELAY |
 		   QUIRK_FLAG_IFACE_DELAY),
@@ -2241,6 +2301,8 @@ static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 		   QUIRK_FLAG_IFACE_DELAY | QUIRK_FLAG_FORCE_IFACE_RESET),
 	DEVICE_FLG(0x0661, 0x0883, /* iBasso DC04 Ultra */
 		   QUIRK_FLAG_DSD_RAW),
+	DEVICE_FLG(0x0666, 0x0880, /* SPACETOUCH USB Audio */
+		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
 	DEVICE_FLG(0x06f8, 0xb000, /* Hercules DJ Console (Windows Edition) */
 		   QUIRK_FLAG_IGNORE_CTL_ERROR),
 	DEVICE_FLG(0x06f8, 0xd002, /* Hercules DJ Console (Macintosh Edition) */
@@ -2275,6 +2337,8 @@ static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 		   QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE),
 	DEVICE_FLG(0x0d8c, 0x0014, /* C-Media */
 		   QUIRK_FLAG_CTL_MSG_DELAY_1M | QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE),
+	DEVICE_FLG(0x0e0b, 0xfa01, /* Feaulle Rainbow */
+		   QUIRK_FLAG_GET_SAMPLE_RATE | QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE),
 	DEVICE_FLG(0x0ecb, 0x205c, /* JBL Quantum610 Wireless */
 		   QUIRK_FLAG_FIXED_RATE),
 	DEVICE_FLG(0x0ecb, 0x2069, /* JBL Quantum810 Wireless */
@@ -2285,8 +2349,9 @@ static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 		   QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE),
 	DEVICE_FLG(0x1101, 0x0003, /* Audioengine D1 */
 		   QUIRK_FLAG_GET_SAMPLE_RATE),
-	DEVICE_FLG(0x12d1, 0x3a07, /* Huawei Technologies Co., Ltd. */
-		   QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE | QUIRK_FLAG_MIXER_CAPTURE_MIN_MUTE),
+	DEVICE_FLG(0x12d1, 0x3a07, /* HUAWEI USB-C HEADSET */
+		   QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE | QUIRK_FLAG_MIXER_CAPTURE_MIN_MUTE |
+		   QUIRK_FLAG_FORCE_IFACE_RESET | QUIRK_FLAG_IFACE_DELAY),
 	DEVICE_FLG(0x1224, 0x2a25, /* Jieli Technology USB PHY 2.0 */
 		   QUIRK_FLAG_GET_SAMPLE_RATE | QUIRK_FLAG_MIC_RES_16),
 	DEVICE_FLG(0x1395, 0x740a, /* Sennheiser DECT */
@@ -2299,6 +2364,8 @@ static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 		   QUIRK_FLAG_PLAYBACK_FIRST | QUIRK_FLAG_GENERIC_IMPLICIT_FB),
 	DEVICE_FLG(0x13e5, 0x0001, /* Serato Phono */
 		   QUIRK_FLAG_IGNORE_CTL_ERROR),
+	DEVICE_FLG(0x152a, 0x880a, /* NeuralDSP Quad Cortex */
+		   0), /* Doesn't have the vendor quirk which would otherwise apply */
 	DEVICE_FLG(0x154e, 0x1002, /* Denon DCD-1500RE */
 		   QUIRK_FLAG_ITF_USB_DSD_DAC | QUIRK_FLAG_CTL_MSG_DELAY),
 	DEVICE_FLG(0x154e, 0x1003, /* Denon DA-300USB */
@@ -2365,6 +2432,8 @@ static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 		   QUIRK_FLAG_SHARE_MEDIA_DEVICE | QUIRK_FLAG_ALIGN_TRANSFER),
 	DEVICE_FLG(0x2040, 0x7281, /* Hauppauge HVR-950Q-MXL */
 		   QUIRK_FLAG_SHARE_MEDIA_DEVICE | QUIRK_FLAG_ALIGN_TRANSFER),
+	DEVICE_FLG(0x20b1, 0x2009, /* XMOS Ltd DIYINHK USB Audio 2.0 */
+		   QUIRK_FLAG_SKIP_IMPLICIT_FB | QUIRK_FLAG_DSD_RAW),
 	DEVICE_FLG(0x2040, 0x8200, /* Hauppauge Woodbury */
 		   QUIRK_FLAG_SHARE_MEDIA_DEVICE | QUIRK_FLAG_ALIGN_TRANSFER),
 	DEVICE_FLG(0x21b4, 0x0081, /* AudioQuest DragonFly */
@@ -2405,12 +2474,21 @@ static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 		   QUIRK_FLAG_ITF_USB_DSD_DAC | QUIRK_FLAG_CTL_MSG_DELAY),
 	DEVICE_FLG(0x339b, 0x3a07, /* Synaptics HONOR USB-C HEADSET */
 		   QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE),
+	DEVICE_FLG(0x3443, 0x930d, /* NexiGo N930W 60fps Webcam */
+		   QUIRK_FLAG_GET_SAMPLE_RATE | QUIRK_FLAG_MIC_RES_16),
 	DEVICE_FLG(0x413c, 0xa506, /* Dell AE515 sound bar */
 		   QUIRK_FLAG_GET_SAMPLE_RATE),
 	DEVICE_FLG(0x534d, 0x0021, /* MacroSilicon MS2100/MS2106 */
 		   QUIRK_FLAG_ALIGN_TRANSFER),
 	DEVICE_FLG(0x534d, 0x2109, /* MacroSilicon MS2109 */
 		   QUIRK_FLAG_ALIGN_TRANSFER),
+	DEVICE_FLG(0x84ef, 0x0082, /* Hotone Audio Pulze Mini */
+		   QUIRK_FLAG_MIXER_PLAYBACK_LINEAR_VOL | QUIRK_FLAG_MIXER_CAPTURE_LINEAR_VOL),
+
+	/* Vendor and string descriptor matches */
+	VENDOR_STRING_FLG(0x1235, /* Conflict with Focusrite Novation */
+			  "MV-SILICON",
+			  0), /* Stop matching */
 
 	/* Vendor matches */
 	VENDOR_FLG(0x045e, /* MS Lifecam */
@@ -2423,8 +2501,14 @@ static const struct usb_audio_quirk_flags_table quirk_flags_table[] = {
 		   QUIRK_FLAG_CTL_MSG_DELAY | QUIRK_FLAG_IFACE_DELAY),
 	VENDOR_FLG(0x07fd, /* MOTU */
 		   QUIRK_FLAG_VALIDATE_RATES),
+	DEVICE_FLG(0x1235, 0x8006, 0), /* Focusrite Scarlett 2i2 1st Gen */
+	DEVICE_FLG(0x1235, 0x800a, 0), /* Focusrite Scarlett 2i4 1st Gen */
+	DEVICE_FLG(0x1235, 0x800c, 0), /* Focusrite Scarlett 18i20 1st Gen */
+	DEVICE_FLG(0x1235, 0x8016, 0), /* Focusrite Scarlett 2i2 1st Gen */
+	DEVICE_FLG(0x1235, 0x801c, 0), /* Focusrite Scarlett Solo 1st Gen */
 	VENDOR_FLG(0x1235, /* Focusrite Novation */
-		   QUIRK_FLAG_VALIDATE_RATES),
+		   QUIRK_FLAG_SKIP_CLOCK_SELECTOR |
+		   QUIRK_FLAG_SKIP_IFACE_SETUP),
 	VENDOR_FLG(0x1511, /* AURALiC */
 		   QUIRK_FLAG_DSD_RAW),
 	VENDOR_FLG(0x152a, /* Thesycon devices */
@@ -2506,6 +2590,9 @@ static const char *const snd_usb_audio_quirk_flag_names[] = {
 	QUIRK_STRING_ENTRY(MIC_RES_384),
 	QUIRK_STRING_ENTRY(MIXER_PLAYBACK_MIN_MUTE),
 	QUIRK_STRING_ENTRY(MIXER_CAPTURE_MIN_MUTE),
+	QUIRK_STRING_ENTRY(SKIP_IFACE_SETUP),
+	QUIRK_STRING_ENTRY(MIXER_PLAYBACK_LINEAR_VOL),
+	QUIRK_STRING_ENTRY(MIXER_CAPTURE_LINEAR_VOL),
 	NULL
 };
 
@@ -2562,6 +2649,16 @@ void snd_usb_init_quirk_flags_table(struct snd_usb_audio *chip)
 		if (chip->usb_id == p->id ||
 		    (!USB_ID_PRODUCT(p->id) &&
 		     USB_ID_VENDOR(chip->usb_id) == USB_ID_VENDOR(p->id))) {
+			/* Handle DEVICE_STRING_FLG/VENDOR_STRING_FLG. */
+			if (p->usb_string_match && p->usb_string_match->manufacturer &&
+			    strcmp(p->usb_string_match->manufacturer,
+				   chip->dev->manufacturer ? chip->dev->manufacturer : ""))
+				continue;
+			if (p->usb_string_match && p->usb_string_match->product &&
+			    strcmp(p->usb_string_match->product,
+				   chip->dev->product ? chip->dev->product : ""))
+				continue;
+
 			snd_usb_apply_flag_dbg("builtin table", chip, p->flags);
 			chip->quirk_flags |= p->flags;
 			return;

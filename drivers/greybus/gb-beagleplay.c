@@ -242,30 +242,26 @@ static void hdlc_write(struct gb_beagleplay *bg)
 }
 
 /**
- * hdlc_append() - Queue HDLC data for sending.
+ * hdlc_append() - Queue a single HDLC byte for sending.
  * @bg: beagleplay greybus driver
  * @value: hdlc byte to transmit
  *
- * Assumes that producer lock as been acquired.
+ * Caller must hold tx_producer_lock and must have ensured sufficient
+ * space in the circular buffer before calling (see hdlc_tx_frames()).
  */
 static void hdlc_append(struct gb_beagleplay *bg, u8 value)
 {
-	int tail, head = bg->tx_circ_buf.head;
+	int head = bg->tx_circ_buf.head;
+	int tail = READ_ONCE(bg->tx_circ_buf.tail);
 
-	while (true) {
-		tail = READ_ONCE(bg->tx_circ_buf.tail);
+	lockdep_assert_held(&bg->tx_producer_lock);
+	if (WARN_ON_ONCE(CIRC_SPACE(head, tail, TX_CIRC_BUF_SIZE) < 1))
+		return;
 
-		if (CIRC_SPACE(head, tail, TX_CIRC_BUF_SIZE) >= 1) {
-			bg->tx_circ_buf.buf[head] = value;
-
-			/* Finish producing HDLC byte */
-			smp_store_release(&bg->tx_circ_buf.head,
-					  (head + 1) & (TX_CIRC_BUF_SIZE - 1));
-			return;
-		}
-		dev_warn(&bg->sd->dev, "Tx circ buf full");
-		usleep_range(3000, 5000);
-	}
+	bg->tx_circ_buf.buf[head] = value;
+	/* Ensure buffer write is visible before advancing head. */
+	smp_store_release(&bg->tx_circ_buf.head,
+			  (head + 1) & (TX_CIRC_BUF_SIZE - 1));
 }
 
 static void hdlc_append_escaped(struct gb_beagleplay *bg, u8 value)
@@ -313,12 +309,93 @@ static void hdlc_transmit(struct work_struct *work)
 	spin_unlock_bh(&bg->tx_consumer_lock);
 }
 
-static void hdlc_tx_frames(struct gb_beagleplay *bg, u8 address, u8 control,
+/**
+ * hdlc_encoded_length() - Calculate worst-case encoded length of an HDLC frame.
+ * @payloads: array of payload buffers
+ * @count: number of payloads
+ *
+ * Every data byte may need HDLC escaping (doubling its size).
+ * Frame layout: flag(1) + address(1-2) + control(1-2) + payload + CRC(2-4) + flag(1).
+ *
+ * Returns the maximum number of bytes needed in the circular buffer.
+ */
+static size_t hdlc_encoded_length(const struct hdlc_payload payloads[],
+				  size_t count)
+{
+	size_t i, payload_len = 0;
+
+	for (i = 0; i < count; i++)
+		payload_len += payloads[i].len;
+
+	/*
+	 * Worst case: every data byte needs escaping (doubles in size).
+	 * data bytes = address(1) + control(1) + payload + crc(2)
+	 * framing    = opening flag(1) + closing flag(1)
+	 */
+	return 2 + (1 + 1 + payload_len + 2) * 2;
+}
+
+#define HDLC_TX_BUF_WAIT_RETRIES	500
+#define HDLC_TX_BUF_WAIT_US_MIN	3000
+#define HDLC_TX_BUF_WAIT_US_MAX	5000
+
+/**
+ * hdlc_tx_frames() - Encode and queue an HDLC frame for transmission.
+ * @bg: beagleplay greybus driver
+ * @address: HDLC address field
+ * @control: HDLC control field
+ * @payloads: array of payload buffers
+ * @count: number of payloads
+ *
+ * Sleeps outside the spinlock until enough circular-buffer space is
+ * available, then verifies space under the lock and writes the entire
+ * frame atomically.  Either a complete frame is enqueued or nothing is
+ * written, avoiding both sleeping in atomic context and partial frames.
+ *
+ * Returns 0 on success, -EAGAIN if the buffer remains full after retries.
+ */
+static int hdlc_tx_frames(struct gb_beagleplay *bg, u8 address, u8 control,
 			   const struct hdlc_payload payloads[], size_t count)
 {
+	size_t needed = hdlc_encoded_length(payloads, count);
+	int retries = HDLC_TX_BUF_WAIT_RETRIES;
 	size_t i;
+	int head, tail;
+
+	/* Wait outside the lock for sufficient buffer space. */
+	while (retries--) {
+		/* Pairs with smp_store_release() in hdlc_append(). */
+		head = smp_load_acquire(&bg->tx_circ_buf.head);
+		tail = READ_ONCE(bg->tx_circ_buf.tail);
+
+		if (CIRC_SPACE(head, tail, TX_CIRC_BUF_SIZE) >= needed)
+			break;
+
+		/* Kick the consumer and sleep — no lock held. */
+		schedule_work(&bg->tx_work);
+		usleep_range(HDLC_TX_BUF_WAIT_US_MIN, HDLC_TX_BUF_WAIT_US_MAX);
+	}
+
+	if (retries < 0) {
+		dev_warn_ratelimited(&bg->sd->dev, "Tx circ buf full, dropping frame\n");
+		return -EAGAIN;
+	}
 
 	spin_lock(&bg->tx_producer_lock);
+
+	/*
+	 * Re-check space under the lock to close the TOCTOU window.
+	 * This should be rare since tx_producer_lock serialises all
+	 * producers and the consumer only frees space.  If it fires,
+	 * the caller is expected to handle -EAGAIN (retry or report).
+	 */
+	head = bg->tx_circ_buf.head;
+	tail = READ_ONCE(bg->tx_circ_buf.tail);
+	if (unlikely(CIRC_SPACE(head, tail, TX_CIRC_BUF_SIZE) < needed)) {
+		spin_unlock(&bg->tx_producer_lock);
+		dev_warn_ratelimited(&bg->sd->dev, "Tx circ buf space lost, dropping frame\n");
+		return -EAGAIN;
+	}
 
 	hdlc_append_tx_frame(bg);
 	hdlc_append_tx_u8(bg, address);
@@ -333,11 +410,16 @@ static void hdlc_tx_frames(struct gb_beagleplay *bg, u8 address, u8 control,
 	spin_unlock(&bg->tx_producer_lock);
 
 	schedule_work(&bg->tx_work);
+	return 0;
 }
 
 static void hdlc_tx_s_frame_ack(struct gb_beagleplay *bg)
 {
-	hdlc_tx_frames(bg, bg->rx_buffer[0], (bg->rx_buffer[1] >> 1) & 0x7, NULL, 0);
+	int ret;
+
+	ret = hdlc_tx_frames(bg, bg->rx_buffer[0], (bg->rx_buffer[1] >> 1) & 0x7, NULL, 0);
+	if (ret)
+		dev_warn_ratelimited(&bg->sd->dev, "Failed to send HDLC ACK: %d\n", ret);
 }
 
 static void hdlc_rx_frame(struct gb_beagleplay *bg)
@@ -535,6 +617,19 @@ static size_t cc1352_bootloader_rx(struct gb_beagleplay *bg, const u8 *data,
 	int ret;
 	size_t off = 0;
 
+	if (count > sizeof(bg->rx_buffer) - bg->rx_buffer_len) {
+		dev_err_ratelimited(&bg->sd->dev, "Bootloader RX buffer overflow");
+		bg->rx_buffer_len = 0;
+		return count;
+	}
+
+	if (count > sizeof(bg->rx_buffer) - bg->rx_buffer_len) {
+		dev_warn(&bg->sd->dev,
+			 "dropping oversized bootloader receive chunk");
+		bg->rx_buffer_len = 0;
+		return count;
+	}
+
 	memcpy(bg->rx_buffer + bg->rx_buffer_len, data, count);
 	bg->rx_buffer_len += count;
 
@@ -595,6 +690,7 @@ static int gb_message_send(struct gb_host_device *hd, u16 cport, struct gb_messa
 	struct gb_beagleplay *bg = dev_get_drvdata(&hd->dev);
 	struct hdlc_payload payloads[3];
 	__le16 cport_id = cpu_to_le16(cport);
+	int ret;
 
 	dev_dbg(&hd->dev, "Sending greybus message with Operation %u, Type: %X on Cport %u",
 		msg->header->operation_id, msg->header->type, cport);
@@ -609,7 +705,10 @@ static int gb_message_send(struct gb_host_device *hd, u16 cport, struct gb_messa
 	payloads[2].buf = msg->payload;
 	payloads[2].len = msg->payload_size;
 
-	hdlc_tx_frames(bg, ADDRESS_GREYBUS, 0x03, payloads, 3);
+	ret = hdlc_tx_frames(bg, ADDRESS_GREYBUS, 0x03, payloads, 3);
+	if (ret)
+		return ret;
+
 	greybus_message_sent(bg->gb_hd, msg, 0);
 
 	return 0;
@@ -622,20 +721,20 @@ static void gb_message_cancel(struct gb_message *message)
 static struct gb_hd_driver gb_hdlc_driver = { .message_send = gb_message_send,
 					      .message_cancel = gb_message_cancel };
 
-static void gb_beagleplay_start_svc(struct gb_beagleplay *bg)
+static int gb_beagleplay_start_svc(struct gb_beagleplay *bg)
 {
 	const u8 command = CONTROL_SVC_START;
 	const struct hdlc_payload payload = { .len = 1, .buf = (void *)&command };
 
-	hdlc_tx_frames(bg, ADDRESS_CONTROL, 0x03, &payload, 1);
+	return hdlc_tx_frames(bg, ADDRESS_CONTROL, 0x03, &payload, 1);
 }
 
-static void gb_beagleplay_stop_svc(struct gb_beagleplay *bg)
+static int gb_beagleplay_stop_svc(struct gb_beagleplay *bg)
 {
 	const u8 command = CONTROL_SVC_STOP;
 	const struct hdlc_payload payload = { .len = 1, .buf = (void *)&command };
 
-	hdlc_tx_frames(bg, ADDRESS_CONTROL, 0x03, &payload, 1);
+	return hdlc_tx_frames(bg, ADDRESS_CONTROL, 0x03, &payload, 1);
 }
 
 static int cc1352_bootloader_wait_for_ack(struct gb_beagleplay *bg)
@@ -873,7 +972,9 @@ static enum fw_upload_err cc1352_prepare(struct fw_upload *fw_upload,
 	gb_greybus_deinit(bg);
 	msleep(5 * MSEC_PER_SEC);
 
-	gb_beagleplay_stop_svc(bg);
+	/* Best effort — device is entering bootloader mode regardless. */
+	if (gb_beagleplay_stop_svc(bg))
+		dev_warn(&bg->sd->dev, "Failed to send SVC stop before flashing\n");
 	msleep(200);
 	flush_work(&bg->tx_work);
 
@@ -915,7 +1016,9 @@ static enum fw_upload_err cc1352_prepare(struct fw_upload *fw_upload,
 		if (gb_greybus_init(bg) < 0)
 			return dev_err_probe(&bg->sd->dev, FW_UPLOAD_ERR_RW_ERROR,
 					     "Failed to initialize greybus");
-		gb_beagleplay_start_svc(bg);
+		if (gb_beagleplay_start_svc(bg))
+			return dev_err_probe(&bg->sd->dev, FW_UPLOAD_ERR_RW_ERROR,
+					     "Failed to restart SVC after skip");
 		return FW_UPLOAD_ERR_FW_INVALID;
 	}
 
@@ -996,7 +1099,9 @@ static enum fw_upload_err cc1352_poll_complete(struct fw_upload *fw_upload)
 		return dev_err_probe(&bg->sd->dev, FW_UPLOAD_ERR_RW_ERROR,
 				     "Failed to initialize greybus");
 
-	gb_beagleplay_start_svc(bg);
+	if (gb_beagleplay_start_svc(bg) < 0)
+		return dev_err_probe(&bg->sd->dev, FW_UPLOAD_ERR_RW_ERROR,
+				     "Failed to start SVC");
 
 	return FW_UPLOAD_ERR_NONE;
 }
@@ -1107,10 +1212,14 @@ static int gb_beagleplay_probe(struct serdev_device *serdev)
 	if (ret)
 		goto free_fw;
 
-	gb_beagleplay_start_svc(bg);
+	ret = gb_beagleplay_start_svc(bg);
+	if (ret)
+		goto free_greybus;
 
 	return 0;
 
+free_greybus:
+	gb_greybus_deinit(bg);
 free_fw:
 	gb_fw_deinit(bg);
 free_hdlc:
@@ -1126,6 +1235,7 @@ static void gb_beagleplay_remove(struct serdev_device *serdev)
 
 	gb_fw_deinit(bg);
 	gb_greybus_deinit(bg);
+	/* Best effort — device is being removed. */
 	gb_beagleplay_stop_svc(bg);
 	hdlc_deinit(bg);
 	gb_serdev_deinit(bg);

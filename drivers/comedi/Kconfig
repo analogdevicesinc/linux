@@ -405,20 +405,20 @@ config COMEDI_FL512
 	  called fl512.
 
 config COMEDI_AIO_AIO12_8
-	tristate "I/O Products PC/104 AIO12-8 Analog I/O Board support"
+	tristate "ACCES I/O Products PC/104 AIO12-8 Analog I/O Board support"
 	select COMEDI_8254
 	select COMEDI_8255
 	help
-	  Enable support for I/O Products PC/104 AIO12-8 Analog I/O Board
+	  Enable support for ACCES I/O Products PC/104 AIO12-8 Analog I/O Board
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called aio_aio12_8.
 
 config COMEDI_AIO_IIRO_16
-	tristate "I/O Products PC/104 IIRO16 Board support"
+	tristate "ACCES I/O Products PC/104 IIRO16 Board support"
 	help
-	  Enable support for I/O Products PC/104 IIRO16 Relay And Isolated
-	  Input Board
+	  Enable support for ACCES I/O Products PC/104 IIRO16 Relay And
+	  Isolated Input Board
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called aio_iiro_16.

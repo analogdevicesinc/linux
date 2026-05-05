@@ -116,9 +116,9 @@ struct ib_gid_table {
 	/* rwlock protects data_vec[ix]->state and entry pointer.
 	 */
 	rwlock_t			rwlock;
-	struct ib_gid_table_entry	**data_vec;
 	/* bit field, each bit indicates the index of default GID */
 	u32				default_gid_indices;
+	struct ib_gid_table_entry	*data_vec[] __counted_by(sz);
 };
 
 static void dispatch_gid_change_event(struct ib_device *ib_dev, u32 port)
@@ -770,24 +770,16 @@ const struct ib_gid_attr *rdma_find_gid_by_filter(
 
 static struct ib_gid_table *alloc_gid_table(int sz)
 {
-	struct ib_gid_table *table = kzalloc_obj(*table);
+	struct ib_gid_table *table = kzalloc_flex(*table, data_vec, sz);
 
 	if (!table)
 		return NULL;
 
-	table->data_vec = kzalloc_objs(*table->data_vec, sz);
-	if (!table->data_vec)
-		goto err_free_table;
+	table->sz = sz;
 
 	mutex_init(&table->lock);
-
-	table->sz = sz;
 	rwlock_init(&table->rwlock);
 	return table;
-
-err_free_table:
-	kfree(table);
-	return NULL;
 }
 
 static void release_gid_table(struct ib_device *device,
@@ -809,7 +801,6 @@ static void release_gid_table(struct ib_device *device,
 	}
 
 	mutex_destroy(&table->lock);
-	kfree(table->data_vec);
 	kfree(table);
 }
 
@@ -925,6 +916,13 @@ static int gid_table_setup_one(struct ib_device *ib_dev)
 
 	if (err)
 		return err;
+
+	/*
+	 * Mark the device as ready for GID cache updates. This allows netdev
+	 * event handlers to update the GID cache even before the device is
+	 * fully registered.
+	 */
+	ib_device_enable_gid_updates(ib_dev);
 
 	rdma_roce_rescan_device(ib_dev);
 
@@ -1637,6 +1635,12 @@ void ib_cache_release_one(struct ib_device *device)
 
 void ib_cache_cleanup_one(struct ib_device *device)
 {
+	/*
+	 * Clear the GID updates mark first to prevent event handlers from
+	 * accessing the device while it's being torn down.
+	 */
+	ib_device_disable_gid_updates(device);
+
 	/* The cleanup function waits for all in-progress workqueue
 	 * elements and cleans up the GID cache. This function should be
 	 * called after the device was removed from the devices list and

@@ -97,7 +97,7 @@
 	.endm
 
 #ifdef CONFIG_32BIT
-	.macro sc_save_fcc thread tmp0 tmp1
+	.macro sc_save_fcc base tmp0 tmp1
 	movcf2gr	\tmp0, $fcc0
 	move		\tmp1, \tmp0
 	movcf2gr	\tmp0, $fcc1
@@ -106,7 +106,7 @@
 	bstrins.w	\tmp1, \tmp0, 23, 16
 	movcf2gr	\tmp0, $fcc3
 	bstrins.w	\tmp1, \tmp0, 31, 24
-	EX	st.w	\tmp1, \thread, THREAD_FCC
+	EX	st.w	\tmp1, \base, 0
 	movcf2gr	\tmp0, $fcc4
 	move		\tmp1, \tmp0
 	movcf2gr	\tmp0, $fcc5
@@ -115,11 +115,11 @@
 	bstrins.w	\tmp1, \tmp0, 23, 16
 	movcf2gr	\tmp0, $fcc7
 	bstrins.w	\tmp1, \tmp0, 31, 24
-	EX	st.w	\tmp1, \thread, (THREAD_FCC + 4)
+	EX	st.w	\tmp1, \base, 4
 	.endm
 
-	.macro sc_restore_fcc thread tmp0 tmp1
-	EX	ld.w	\tmp0, \thread, THREAD_FCC
+	.macro sc_restore_fcc base tmp0 tmp1
+	EX	ld.w	\tmp0, \base, 0
 	bstrpick.w	\tmp1, \tmp0, 7, 0
 	movgr2cf	$fcc0, \tmp1
 	bstrpick.w	\tmp1, \tmp0, 15, 8
@@ -128,7 +128,7 @@
 	movgr2cf	$fcc2, \tmp1
 	bstrpick.w	\tmp1, \tmp0, 31, 24
 	movgr2cf	$fcc3, \tmp1
-	EX	ld.w	\tmp0, \thread, (THREAD_FCC + 4)
+	EX	ld.w	\tmp0, \base, 4
 	bstrpick.w	\tmp1, \tmp0, 7, 0
 	movgr2cf	$fcc4, \tmp1
 	bstrpick.w	\tmp1, \tmp0, 15, 8

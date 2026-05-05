@@ -26,7 +26,6 @@ enum dml2_swizzle_mode {
 	dml2_gfx11_sw_64kb_r_x,
 	dml2_gfx11_sw_256kb_d_x,
 	dml2_gfx11_sw_256kb_r_x,
-
 };
 
 enum dml2_source_format_class {

@@ -3152,7 +3152,7 @@ static struct gdsc *gcc_milos_gdscs[] = {
 	[USB3_PHY_GDSC] = &usb3_phy_gdsc,
 };
 
-static u32 gcc_milos_critical_cbcrs[] = {
+static const u32 gcc_milos_critical_cbcrs[] = {
 	0x26004, /* GCC_CAMERA_AHB_CLK */
 	0x26018, /* GCC_CAMERA_HF_XO_CLK */
 	0x2601c, /* GCC_CAMERA_SF_XO_CLK */
@@ -3171,7 +3171,7 @@ static const struct regmap_config gcc_milos_regmap_config = {
 	.fast_io = true,
 };
 
-static struct qcom_cc_driver_data gcc_milos_driver_data = {
+static const struct qcom_cc_driver_data gcc_milos_driver_data = {
 	.clk_cbcrs = gcc_milos_critical_cbcrs,
 	.num_clk_cbcrs = ARRAY_SIZE(gcc_milos_critical_cbcrs),
 	.dfs_rcgs = gcc_milos_dfs_clocks,

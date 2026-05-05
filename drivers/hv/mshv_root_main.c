@@ -120,7 +120,6 @@ static u16 mshv_passthru_hvcalls[] = {
 	HVCALL_SET_VP_REGISTERS,
 	HVCALL_TRANSLATE_VIRTUAL_ADDRESS,
 	HVCALL_CLEAR_VIRTUAL_INTERRUPT,
-	HVCALL_SCRUB_PARTITION,
 	HVCALL_REGISTER_INTERCEPT_RESULT,
 	HVCALL_ASSERT_VIRTUAL_INTERRUPT,
 	HVCALL_GET_GPA_PAGES_ACCESS_STATES,
@@ -430,6 +429,17 @@ mshv_vp_dispatch(struct mshv_vp *vp, u32 flags,
 	status = hv_do_hypercall(HVCALL_DISPATCH_VP, input, output);
 	vp->run.flags.root_sched_dispatched = 0;
 
+	trace_mshv_hvcall_dispatch_vp(vp->vp_partition->pt_id,
+				      vp->vp_index, flags,
+				      output->dispatch_state,
+				      output->dispatch_event,
+#if defined(CONFIG_X86_64)
+				      vp->vp_register_page->interrupt_vectors.as_uint64,
+#else
+				      0,
+#endif
+				      status);
+
 	*res = *output;
 	preempt_enable();
 
@@ -451,6 +461,9 @@ mshv_vp_clear_explicit_suspend(struct mshv_vp *vp)
 
 	ret = mshv_set_vp_registers(vp->vp_index, vp->vp_partition->pt_id,
 				    1, &explicit_suspend);
+
+	trace_mshv_vp_clear_explicit_suspend(vp->vp_partition->pt_id,
+					     vp->vp_index, ret);
 
 	if (ret)
 		vp_err(vp, "Failed to unsuspend\n");
@@ -494,6 +507,12 @@ mshv_vp_wait_for_hv_kick(struct mshv_vp *vp)
 	if (ret)
 		return -EINTR;
 
+	trace_mshv_vp_wait_for_hv_kick(vp->vp_partition->pt_id,
+				       vp->vp_index,
+				       vp->run.kicked_by_hv,
+				       mshv_vp_dispatch_thread_blocked(vp),
+				       mshv_vp_interrupt_pending(vp));
+
 	vp->run.flags.root_sched_blocked = 0;
 	vp->run.kicked_by_hv = 0;
 
@@ -522,6 +541,12 @@ static long mshv_run_vp_with_root_scheduler(struct mshv_vp *vp)
 
 		if (__xfer_to_guest_mode_work_pending()) {
 			ret = xfer_to_guest_mode_handle_work();
+
+			trace_mshv_xfer_to_guest_mode_work(vp->vp_partition->pt_id,
+							   vp->vp_index,
+							   read_thread_flags(),
+							   ret);
+
 			if (ret)
 				break;
 		}
@@ -631,7 +656,7 @@ static bool mshv_handle_gpa_intercept(struct mshv_vp *vp)
 {
 	struct mshv_partition *p = vp->vp_partition;
 	struct mshv_mem_region *region;
-	bool ret;
+	bool ret = false;
 	u64 gfn;
 #if defined(CONFIG_X86_64)
 	struct hv_x64_memory_intercept_message *msg =
@@ -642,21 +667,32 @@ static bool mshv_handle_gpa_intercept(struct mshv_vp *vp)
 		(struct hv_arm64_memory_intercept_message *)
 		vp->vp_intercept_msg_page->u.payload;
 #endif
+	enum hv_intercept_access_type access_type =
+		msg->header.intercept_access_type;
 
 	gfn = HVPFN_DOWN(msg->guest_physical_address);
 
 	region = mshv_partition_region_by_gfn_get(p, gfn);
 	if (!region)
-		return false;
+		goto out;
+
+	if (access_type == HV_INTERCEPT_ACCESS_WRITE &&
+	    !(region->hv_map_flags & HV_MAP_GPA_WRITABLE))
+		goto put_region;
+
+	if (access_type == HV_INTERCEPT_ACCESS_EXECUTE &&
+	    !(region->hv_map_flags & HV_MAP_GPA_EXECUTABLE))
+		goto put_region;
 
 	/* Only movable memory ranges are supported for GPA intercepts */
 	if (region->mreg_type == MSHV_REGION_TYPE_MEM_MOVABLE)
 		ret = mshv_region_handle_gfn_fault(region, gfn);
-	else
-		ret = false;
 
+put_region:
 	mshv_region_put(region);
-
+out:
+	trace_mshv_handle_gpa_intercept(p->pt_id, vp->vp_index, gfn,
+					access_type, ret);
 	return ret;
 }
 
@@ -673,12 +709,18 @@ static long mshv_vp_ioctl_run_vp(struct mshv_vp *vp, void __user *ret_msg)
 {
 	long rc;
 
+	trace_mshv_run_vp_entry(vp->vp_partition->pt_id, vp->vp_index);
+
 	do {
 		if (hv_scheduler_type == HV_SCHEDULER_TYPE_ROOT)
 			rc = mshv_run_vp_with_root_scheduler(vp);
 		else
 			rc = mshv_run_vp_with_hyp_scheduler(vp);
 	} while (rc == 0 && mshv_vp_handle_intercept(vp));
+
+	trace_mshv_run_vp_exit(vp->vp_partition->pt_id, vp->vp_index,
+			       vp->vp_intercept_msg_page->header.message_type,
+			       rc);
 
 	if (rc)
 		return rc;
@@ -941,6 +983,8 @@ mshv_vp_release(struct inode *inode, struct file *filp)
 {
 	struct mshv_vp *vp = filp->private_data;
 
+	trace_mshv_vp_release(vp->vp_partition->pt_id, vp->vp_index);
+
 	/* Rest of VP cleanup happens in destroy_partition() */
 	mshv_partition_put(vp->vp_partition);
 	return 0;
@@ -1113,7 +1157,7 @@ mshv_partition_ioctl_create_vp(struct mshv_partition *partition,
 	partition->pt_vp_count++;
 	partition->pt_vp_array[args.vp_index] = vp;
 
-	return ret;
+	goto out;
 
 remove_debugfs_vp:
 	mshv_debugfs_vp_remove(vp);
@@ -1139,6 +1183,8 @@ unmap_intercept_message_page:
 			       intercept_msg_page, input_vtl_zero);
 destroy_vp:
 	hv_call_delete_vp(partition->pt_id, args.vp_index);
+out:
+	trace_mshv_create_vp(partition->pt_id, args.vp_index, ret);
 	return ret;
 }
 
@@ -1289,7 +1335,7 @@ err_out:
  */
 static long
 mshv_map_user_memory(struct mshv_partition *partition,
-		     struct mshv_user_mem_region mem)
+		     struct mshv_user_mem_region *mem)
 {
 	struct mshv_mem_region *region;
 	struct vm_area_struct *vma;
@@ -1297,12 +1343,12 @@ mshv_map_user_memory(struct mshv_partition *partition,
 	ulong mmio_pfn;
 	long ret;
 
-	if (mem.flags & BIT(MSHV_SET_MEM_BIT_UNMAP) ||
-	    !access_ok((const void __user *)mem.userspace_addr, mem.size))
+	if (mem->flags & BIT(MSHV_SET_MEM_BIT_UNMAP) ||
+	    !access_ok((const void __user *)mem->userspace_addr, mem->size))
 		return -EINVAL;
 
 	mmap_read_lock(current->mm);
-	vma = vma_lookup(current->mm, mem.userspace_addr);
+	vma = vma_lookup(current->mm, mem->userspace_addr);
 	is_mmio = vma ? !!(vma->vm_flags & (VM_IO | VM_PFNMAP)) : 0;
 	mmio_pfn = is_mmio ? vma->vm_pgoff : 0;
 	mmap_read_unlock(current->mm);
@@ -1310,7 +1356,7 @@ mshv_map_user_memory(struct mshv_partition *partition,
 	if (!vma)
 		return -EINVAL;
 
-	ret = mshv_partition_create_region(partition, &mem, &region,
+	ret = mshv_partition_create_region(partition, mem, &region,
 					   is_mmio);
 	if (ret)
 		return ret;
@@ -1338,6 +1384,10 @@ mshv_map_user_memory(struct mshv_partition *partition,
 		break;
 	}
 
+	trace_mshv_map_user_memory(partition->pt_id, region->start_uaddr,
+				   region->start_gfn, region->nr_pages,
+				   region->hv_map_flags, ret);
+
 	if (ret)
 		goto errout;
 
@@ -1348,32 +1398,32 @@ mshv_map_user_memory(struct mshv_partition *partition,
 	return 0;
 
 errout:
-	vfree(region);
+	mshv_region_put(region);
 	return ret;
 }
 
 /* Called for unmapping both the guest ram and the mmio space */
 static long
 mshv_unmap_user_memory(struct mshv_partition *partition,
-		       struct mshv_user_mem_region mem)
+		       struct mshv_user_mem_region *mem)
 {
 	struct mshv_mem_region *region;
 
-	if (!(mem.flags & BIT(MSHV_SET_MEM_BIT_UNMAP)))
+	if (!(mem->flags & BIT(MSHV_SET_MEM_BIT_UNMAP)))
 		return -EINVAL;
 
 	spin_lock(&partition->pt_mem_regions_lock);
 
-	region = mshv_partition_region_by_gfn(partition, mem.guest_pfn);
+	region = mshv_partition_region_by_gfn(partition, mem->guest_pfn);
 	if (!region) {
 		spin_unlock(&partition->pt_mem_regions_lock);
 		return -ENOENT;
 	}
 
 	/* Paranoia check */
-	if (region->start_uaddr != mem.userspace_addr ||
-	    region->start_gfn != mem.guest_pfn ||
-	    region->nr_pages != HVPFN_DOWN(mem.size)) {
+	if (region->start_uaddr != mem->userspace_addr ||
+	    region->start_gfn != mem->guest_pfn ||
+	    region->nr_pages != HVPFN_DOWN(mem->size)) {
 		spin_unlock(&partition->pt_mem_regions_lock);
 		return -EINVAL;
 	}
@@ -1404,9 +1454,9 @@ mshv_partition_ioctl_set_memory(struct mshv_partition *partition,
 		return -EINVAL;
 
 	if (mem.flags & BIT(MSHV_SET_MEM_BIT_UNMAP))
-		return mshv_unmap_user_memory(partition, mem);
+		return mshv_unmap_user_memory(partition, &mem);
 
-	return mshv_map_user_memory(partition, mem);
+	return mshv_map_user_memory(partition, &mem);
 }
 
 static long
@@ -1633,6 +1683,9 @@ disable_vp_dispatch(struct mshv_vp *vp)
 	if (ret)
 		vp_err(vp, "failed to suspend\n");
 
+	trace_mshv_disable_vp_dispatch(vp->vp_partition->pt_id,
+				       vp->vp_index, ret);
+
 	return ret;
 }
 
@@ -1681,6 +1734,8 @@ drain_vp_signals(struct mshv_vp *vp)
 		vp->run.kicked_by_hv = 0;
 		vp_signal_count = atomic64_read(&vp->run.vp_signaled_count);
 	}
+
+	trace_mshv_drain_vp_signals(vp->vp_partition->pt_id, vp->vp_index);
 }
 
 static void drain_all_vps(const struct mshv_partition *partition)
@@ -1733,6 +1788,8 @@ static void destroy_partition(struct mshv_partition *partition)
 		       "Attempt to destroy partition but refcount > 0\n");
 		return;
 	}
+
+	trace_mshv_destroy_partition(partition->pt_id);
 
 	if (partition->pt_initialized) {
 		/*
@@ -1839,6 +1896,8 @@ static int
 mshv_partition_release(struct inode *inode, struct file *filp)
 {
 	struct mshv_partition *partition = filp->private_data;
+
+	trace_mshv_partition_release(partition->pt_id);
 
 	mshv_eventfd_release(partition);
 
@@ -1969,6 +2028,7 @@ mshv_ioctl_create_partition(void __user *user_arg, struct device *module_dev)
 	struct hv_partition_creation_properties creation_properties;
 	union hv_partition_isolation_properties isolation_properties;
 	struct mshv_partition *partition;
+	u64 pt_id = -1;
 	long ret;
 
 	ret = mshv_ioctl_process_pt_flags(user_arg, &creation_flags,
@@ -2008,22 +2068,29 @@ mshv_ioctl_create_partition(void __user *user_arg, struct device *module_dev)
 	ret = hv_call_create_partition(creation_flags,
 				       creation_properties,
 				       isolation_properties,
-				       &partition->pt_id);
+				       &pt_id);
 	if (ret)
 		goto cleanup_irq_srcu;
+
+	partition->pt_id = pt_id;
 
 	ret = add_partition(partition);
 	if (ret)
 		goto delete_partition;
 
 	ret = mshv_init_async_handler(partition);
-	if (!ret) {
-		ret = FD_ADD(O_CLOEXEC, anon_inode_getfile("mshv_partition",
-							   &mshv_partition_fops,
-							   partition, O_RDWR));
-		if (ret >= 0)
-			return ret;
-	}
+	if (ret)
+		goto remove_partition;
+
+	ret = FD_ADD(O_CLOEXEC, anon_inode_getfile("mshv_partition",
+						   &mshv_partition_fops,
+						   partition, O_RDWR));
+	if (ret < 0)
+		goto remove_partition;
+
+	goto out;
+
+remove_partition:
 	remove_partition(partition);
 delete_partition:
 	hv_call_delete_partition(partition->pt_id);
@@ -2031,7 +2098,8 @@ cleanup_irq_srcu:
 	cleanup_srcu_struct(&partition->pt_irq_srcu);
 free_partition:
 	kfree(partition);
-
+out:
+	trace_mshv_create_partition(pt_id, ret);
 	return ret;
 }
 
@@ -2064,7 +2132,6 @@ mshv_dev_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static int mshv_cpuhp_online;
 static int mshv_root_sched_online;
 
 static const char *scheduler_type_to_string(enum hv_scheduler_type type)
@@ -2249,27 +2316,6 @@ root_scheduler_deinit(void)
 	free_percpu(root_scheduler_output);
 }
 
-static int mshv_reboot_notify(struct notifier_block *nb,
-			      unsigned long code, void *unused)
-{
-	cpuhp_remove_state(mshv_cpuhp_online);
-	return 0;
-}
-
-struct notifier_block mshv_reboot_nb = {
-	.notifier_call = mshv_reboot_notify,
-};
-
-static void mshv_root_partition_exit(void)
-{
-	unregister_reboot_notifier(&mshv_reboot_nb);
-}
-
-static int __init mshv_root_partition_init(struct device *dev)
-{
-	return register_reboot_notifier(&mshv_reboot_nb);
-}
-
 static int __init mshv_init_vmm_caps(struct device *dev)
 {
 	int ret;
@@ -2314,39 +2360,21 @@ static int __init mshv_parent_partition_init(void)
 			MSHV_HV_MAX_VERSION);
 	}
 
-	mshv_root.synic_pages = alloc_percpu(struct hv_synic_pages);
-	if (!mshv_root.synic_pages) {
-		dev_err(dev, "Failed to allocate percpu synic page\n");
-		ret = -ENOMEM;
+	ret = mshv_synic_init(dev);
+	if (ret)
 		goto device_deregister;
-	}
-
-	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "mshv_synic",
-				mshv_synic_init,
-				mshv_synic_cleanup);
-	if (ret < 0) {
-		dev_err(dev, "Failed to setup cpu hotplug state: %i\n", ret);
-		goto free_synic_pages;
-	}
-
-	mshv_cpuhp_online = ret;
 
 	ret = mshv_init_vmm_caps(dev);
 	if (ret)
-		goto remove_cpu_state;
+		goto synic_cleanup;
 
 	ret = mshv_retrieve_scheduler_type(dev);
 	if (ret)
-		goto remove_cpu_state;
-
-	if (hv_root_partition())
-		ret = mshv_root_partition_init(dev);
-	if (ret)
-		goto remove_cpu_state;
+		goto synic_cleanup;
 
 	ret = root_scheduler_init(dev);
 	if (ret)
-		goto exit_partition;
+		goto synic_cleanup;
 
 	ret = mshv_debugfs_init();
 	if (ret)
@@ -2367,13 +2395,8 @@ exit_debugfs:
 	mshv_debugfs_exit();
 deinit_root_scheduler:
 	root_scheduler_deinit();
-exit_partition:
-	if (hv_root_partition())
-		mshv_root_partition_exit();
-remove_cpu_state:
-	cpuhp_remove_state(mshv_cpuhp_online);
-free_synic_pages:
-	free_percpu(mshv_root.synic_pages);
+synic_cleanup:
+	mshv_synic_exit();
 device_deregister:
 	misc_deregister(&mshv_dev);
 	return ret;
@@ -2387,10 +2410,7 @@ static void __exit mshv_parent_partition_exit(void)
 	misc_deregister(&mshv_dev);
 	mshv_irqfd_wq_cleanup();
 	root_scheduler_deinit();
-	if (hv_root_partition())
-		mshv_root_partition_exit();
-	cpuhp_remove_state(mshv_cpuhp_online);
-	free_percpu(mshv_root.synic_pages);
+	mshv_synic_exit();
 }
 
 module_init(mshv_parent_partition_init);

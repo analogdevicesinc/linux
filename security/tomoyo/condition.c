@@ -766,8 +766,8 @@ bool tomoyo_condition(struct tomoyo_request_info *r,
 		      const struct tomoyo_condition *cond)
 {
 	u32 i;
-	unsigned long min_v[2] = { 0, 0 };
-	unsigned long max_v[2] = { 0, 0 };
+	u64 min_v[2] = { 0, 0 };
+	u64 max_v[2] = { 0, 0 };
 	const struct tomoyo_condition_element *condp;
 	const struct tomoyo_number_union *numbers_p;
 	const struct tomoyo_name_union *names_p;
@@ -834,7 +834,7 @@ bool tomoyo_condition(struct tomoyo_request_info *r,
 		/* Check numeric or bit-op expressions. */
 		for (j = 0; j < 2; j++) {
 			const u8 index = j ? right : left;
-			unsigned long value = 0;
+			u64 value = 0;
 
 			switch (index) {
 			case TOMOYO_TASK_UID:

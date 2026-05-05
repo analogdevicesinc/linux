@@ -303,7 +303,7 @@ static long arena_map_update_elem(struct bpf_map *map, void *key,
 	return -EOPNOTSUPP;
 }
 
-static int arena_map_check_btf(const struct bpf_map *map, const struct btf *btf,
+static int arena_map_check_btf(struct bpf_map *map, const struct btf *btf,
 			       const struct btf_type *key_type, const struct btf_type *value_type)
 {
 	return 0;
@@ -339,6 +339,16 @@ static void arena_vm_open(struct vm_area_struct *vma)
 	struct vma_list *vml = vma->vm_private_data;
 
 	refcount_inc(&vml->mmap_count);
+}
+
+static int arena_vm_may_split(struct vm_area_struct *vma, unsigned long addr)
+{
+	return -EINVAL;
+}
+
+static int arena_vm_mremap(struct vm_area_struct *vma)
+{
+	return -EINVAL;
 }
 
 static void arena_vm_close(struct vm_area_struct *vma)
@@ -417,6 +427,8 @@ out_unlock_sigsegv:
 
 static const struct vm_operations_struct arena_vm_ops = {
 	.open		= arena_vm_open,
+	.may_split	= arena_vm_may_split,
+	.mremap		= arena_vm_mremap,
 	.close		= arena_vm_close,
 	.fault          = arena_vm_fault,
 };
@@ -486,10 +498,11 @@ static int arena_map_mmap(struct bpf_map *map, struct vm_area_struct *vma)
 	arena->user_vm_end = vma->vm_end;
 	/*
 	 * bpf_map_mmap() checks that it's being mmaped as VM_SHARED and
-	 * clears VM_MAYEXEC. Set VM_DONTEXPAND as well to avoid
-	 * potential change of user_vm_start.
+	 * clears VM_MAYEXEC. Set VM_DONTEXPAND to avoid potential change
+	 * of user_vm_start. Set VM_DONTCOPY to prevent arena VMA from
+	 * being copied into the child process on fork.
 	 */
-	vm_flags_set(vma, VM_DONTEXPAND);
+	vm_flags_set(vma, VM_DONTEXPAND | VM_DONTCOPY);
 	vma->vm_ops = &arena_vm_ops;
 	return 0;
 }
@@ -548,6 +561,10 @@ static long arena_alloc_pages(struct bpf_arena *arena, long uaddr, long page_cnt
 	long pgoff = 0;
 	u32 uaddr32;
 	int ret, i;
+
+	if (node_id != NUMA_NO_NODE &&
+	    ((unsigned int)node_id >= nr_node_ids || !node_online(node_id)))
+		return 0;
 
 	if (page_cnt > page_cnt_max)
 		return 0;
@@ -656,8 +673,7 @@ static void zap_pages(struct bpf_arena *arena, long uaddr, long page_cnt)
 	guard(mutex)(&arena->lock);
 	/* iterate link list under lock */
 	list_for_each_entry(vml, &arena->vma_list, head)
-		zap_page_range_single(vml->vma, uaddr,
-				      PAGE_SIZE * page_cnt, NULL);
+		zap_vma_range(vml->vma, uaddr, PAGE_SIZE * page_cnt);
 }
 
 static void arena_free_pages(struct bpf_arena *arena, long uaddr, long page_cnt, bool sleepable)

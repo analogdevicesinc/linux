@@ -9,7 +9,11 @@
 #include <linux/cleanup.h>
 #include <linux/pci-tsm.h>
 
-static struct class *tsm_class;
+static void tsm_release(struct device *);
+static const struct class tsm_class = {
+	.name		= "tsm",
+	.dev_release	= tsm_release
+};
 static DEFINE_IDA(tsm_ida);
 
 static int match_id(struct device *dev, const void *data)
@@ -22,7 +26,7 @@ static int match_id(struct device *dev, const void *data)
 
 struct tsm_dev *find_tsm_dev(int id)
 {
-	struct device *dev = class_find_device(tsm_class, NULL, &id, match_id);
+	struct device *dev = class_find_device(&tsm_class, NULL, &id, match_id);
 
 	if (!dev)
 		return NULL;
@@ -46,7 +50,7 @@ static struct tsm_dev *alloc_tsm_dev(struct device *parent)
 	tsm_dev->id = id;
 	dev = &tsm_dev->dev;
 	dev->parent = parent;
-	dev->class = tsm_class;
+	dev->class = &tsm_class;
 	device_initialize(dev);
 
 	return no_free_ptr(tsm_dev);
@@ -114,18 +118,13 @@ static void tsm_release(struct device *dev)
 
 static int __init tsm_init(void)
 {
-	tsm_class = class_create("tsm");
-	if (IS_ERR(tsm_class))
-		return PTR_ERR(tsm_class);
-
-	tsm_class->dev_release = tsm_release;
-	return 0;
+	return class_register(&tsm_class);
 }
 module_init(tsm_init)
 
 static void __exit tsm_exit(void)
 {
-	class_destroy(tsm_class);
+	class_unregister(&tsm_class);
 }
 module_exit(tsm_exit)
 

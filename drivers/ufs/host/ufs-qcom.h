@@ -33,6 +33,46 @@
 #define DL_VS_CLK_CFG_MASK GENMASK(9, 0)
 #define DME_VS_CORE_CLK_CTRL_DME_HW_CGC_EN             BIT(9)
 
+#define UFS_QCOM_EOM_VOLTAGE_STEPS_MAX		127
+#define UFS_QCOM_EOM_TIMING_STEPS_MAX		63
+#define UFS_QCOM_EOM_TARGET_TEST_COUNT_MIN	8
+#define UFS_QCOM_EOM_TARGET_TEST_COUNT_G6	0x3F
+
+#define SW_RX_FOM_EOM_COORDS		23
+#define SW_RX_FOM_EOM_COORDS_WEIGHT	(127 / SW_RX_FOM_EOM_COORDS)
+
+struct ufs_eom_coord {
+	int t_step;
+	int v_step;
+	u8 eye_mask;
+};
+
+static const struct ufs_eom_coord sw_rx_fom_eom_coords_g6[SW_RX_FOM_EOM_COORDS] = {
+	[0] = { -2, -15, UFS_EOM_EYE_MASK_M },
+	[1] = { 0, -15, UFS_EOM_EYE_MASK_M },
+	[2] = { 2, -15, UFS_EOM_EYE_MASK_M },
+	[3] = { -4, -10, UFS_EOM_EYE_MASK_M },
+	[4] = { -2, -10, UFS_EOM_EYE_MASK_M },
+	[5] = { 0, -10, UFS_EOM_EYE_MASK_M },
+	[6] = { 2, -10, UFS_EOM_EYE_MASK_M },
+	[7] = { 4, -10, UFS_EOM_EYE_MASK_M },
+	[8] = { -6, 0, UFS_EOM_EYE_MASK_M },
+	[9] = { -4, 0, UFS_EOM_EYE_MASK_M },
+	[10] = { -2, 0, UFS_EOM_EYE_MASK_M },
+	[11] = { 0, 0, UFS_EOM_EYE_MASK_M },
+	[12] = { 2, 0, UFS_EOM_EYE_MASK_M },
+	[13] = { 4, 0, UFS_EOM_EYE_MASK_M },
+	[14] = { 6, 0, UFS_EOM_EYE_MASK_M },
+	[15] = { -4, 10, UFS_EOM_EYE_MASK_M },
+	[16] = { -2, 10, UFS_EOM_EYE_MASK_M },
+	[17] = { 0, 10, UFS_EOM_EYE_MASK_M },
+	[18] = { 2, 10, UFS_EOM_EYE_MASK_M },
+	[19] = { 4, 10, UFS_EOM_EYE_MASK_M },
+	[20] = { -2, 15, UFS_EOM_EYE_MASK_M },
+	[21] = { 0, 15, UFS_EOM_EYE_MASK_M },
+	[22] = { 2, 15, UFS_EOM_EYE_MASK_M },
+};
+
 /* Qualcomm MCQ Configuration */
 #define UFS_QCOM_MCQCAP_QCFGPTR     224  /* 0xE0 in hex */
 #define UFS_QCOM_MCQ_CONFIG_OFFSET  (UFS_QCOM_MCQCAP_QCFGPTR * 0x200)  /* 0x1C000 */
@@ -308,6 +348,8 @@ struct ufs_qcom_host {
 	u32 phy_gear;
 
 	bool esi_enabled;
+
+	u32 saved_tx_eq_g1_setting;
 };
 
 struct ufs_qcom_drvdata {

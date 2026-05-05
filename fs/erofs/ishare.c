@@ -4,6 +4,7 @@
  */
 #include <linux/xxhash.h>
 #include <linux/mount.h>
+#include <linux/security.h>
 #include "internal.h"
 #include "xattr.h"
 
@@ -40,10 +41,14 @@ bool erofs_ishare_fill_inode(struct inode *inode)
 {
 	struct erofs_sb_info *sbi = EROFS_SB(inode->i_sb);
 	struct erofs_inode *vi = EROFS_I(inode);
+	const struct address_space_operations *aops;
 	struct erofs_inode_fingerprint fp;
 	struct inode *sharedinode;
 	unsigned long hash;
 
+	aops = erofs_get_aops(inode, true);
+	if (IS_ERR(aops))
+		return false;
 	if (erofs_xattr_fill_inode_fingerprint(&fp, inode, sbi->domain_id))
 		return false;
 	hash = xxh32(fp.opaque, fp.size, 0);
@@ -56,15 +61,15 @@ bool erofs_ishare_fill_inode(struct inode *inode)
 	}
 
 	if (inode_state_read_once(sharedinode) & I_NEW) {
-		if (erofs_inode_set_aops(sharedinode, inode, true)) {
-			iget_failed(sharedinode);
-			kfree(fp.opaque);
-			return false;
-		}
+		sharedinode->i_mapping->a_ops = aops;
 		sharedinode->i_size = vi->vfs_inode.i_size;
 		unlock_new_inode(sharedinode);
 	} else {
 		kfree(fp.opaque);
+		if (aops != sharedinode->i_mapping->a_ops) {
+			iput(sharedinode);
+			return false;
+		}
 		if (sharedinode->i_size != vi->vfs_inode.i_size) {
 			_erofs_printk(inode->i_sb, KERN_WARNING
 				"size(%lld:%lld) not matches for the same fingerprint\n",
@@ -102,7 +107,8 @@ static int erofs_ishare_file_open(struct inode *inode, struct file *file)
 
 	if (file->f_flags & O_DIRECT)
 		return -EINVAL;
-	realfile = alloc_empty_backing_file(O_RDONLY|O_NOATIME, current_cred());
+	realfile = alloc_empty_backing_file(O_RDONLY|O_NOATIME, current_cred(),
+					    file);
 	if (IS_ERR(realfile))
 		return PTR_ERR(realfile);
 	ihold(sharedinode);
@@ -146,8 +152,14 @@ static ssize_t erofs_ishare_file_read_iter(struct kiocb *iocb,
 static int erofs_ishare_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct file *realfile = file->private_data;
+	int err;
 
 	vma_set_file(vma, realfile);
+
+	err = security_mmap_backing_file(vma, realfile, file);
+	if (err)
+		return err;
+
 	return generic_file_readonly_mmap(file, vma);
 }
 
@@ -196,8 +208,19 @@ struct inode *erofs_real_inode(struct inode *inode, bool *need_iput)
 
 int __init erofs_init_ishare(void)
 {
-	erofs_ishare_mnt = kern_mount(&erofs_anon_fs_type);
-	return PTR_ERR_OR_ZERO(erofs_ishare_mnt);
+	struct vfsmount *mnt;
+	int ret;
+
+	mnt = kern_mount(&erofs_anon_fs_type);
+	if (IS_ERR(mnt))
+		return PTR_ERR(mnt);
+	/* generic_fadvise() doesn't work if s_bdi == &noop_backing_dev_info */
+	ret = super_setup_bdi(mnt->mnt_sb);
+	if (ret)
+		kern_unmount(mnt);
+	else
+		erofs_ishare_mnt = mnt;
+	return ret;
 }
 
 void erofs_exit_ishare(void)

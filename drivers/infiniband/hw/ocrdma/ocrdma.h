@@ -190,8 +190,8 @@ struct ocrdma_mr {
 	struct ib_mr ibmr;
 	struct ib_umem *umem;
 	struct ocrdma_hw_mr hwmr;
-	u64 *pages;
 	u32 npages;
+	u64 pages[];
 };
 
 struct ocrdma_stats {

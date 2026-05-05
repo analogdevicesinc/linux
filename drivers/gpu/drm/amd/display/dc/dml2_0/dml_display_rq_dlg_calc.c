@@ -563,6 +563,7 @@ void dml_rq_dlg_get_dlg_reg(dml_display_dlg_regs_st		   *disp_dlg_regs,
 
 void dml_rq_dlg_get_arb_params(struct display_mode_lib_st *mode_lib, dml_display_arb_params_st *arb_param)
 {
+	(void)mode_lib;
 	memset(arb_param, 0, sizeof(*arb_param));
 	arb_param->max_req_outstanding = 256;
 	arb_param->min_req_outstanding = 256; // turn off the sat level feature if this set to max

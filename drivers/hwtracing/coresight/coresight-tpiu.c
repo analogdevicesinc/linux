@@ -49,8 +49,6 @@
 #define FFCR_FON_MAN		BIT(6)
 #define FFCR_STOP_FI		BIT(12)
 
-DEFINE_CORESIGHT_DEVLIST(tpiu_devs, "tpiu");
-
 /*
  * @base:	memory mapped base address for this component.
  * @atclk:	optional clock for the core parts of the TPIU.
@@ -134,7 +132,7 @@ static int __tpiu_probe(struct device *dev, struct resource *res)
 	struct coresight_desc desc = { 0 };
 	int ret;
 
-	desc.name = coresight_alloc_device_name(&tpiu_devs, dev);
+	desc.name = coresight_alloc_device_name("tpiu", dev);
 	if (!desc.name)
 		return -ENOMEM;
 

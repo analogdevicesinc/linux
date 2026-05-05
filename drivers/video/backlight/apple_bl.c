@@ -24,6 +24,7 @@
 #include <linux/pci.h>
 #include <linux/acpi.h>
 #include <linux/atomic.h>
+#include <linux/platform_device.h>
 #include <acpi/video.h>
 
 static struct backlight_device *apple_backlight_device;
@@ -134,7 +135,7 @@ static const struct hw_data nvidia_chipset_data = {
 	.set_brightness = nvidia_chipset_set_brightness,
 };
 
-static int apple_bl_add(struct acpi_device *dev)
+static int apple_bl_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
 	struct pci_dev *host;
@@ -193,7 +194,7 @@ static int apple_bl_add(struct acpi_device *dev)
 	return 0;
 }
 
-static void apple_bl_remove(struct acpi_device *dev)
+static void apple_bl_remove(struct platform_device *pdev)
 {
 	backlight_device_unregister(apple_backlight_device);
 
@@ -206,12 +207,12 @@ static const struct acpi_device_id apple_bl_ids[] = {
 	{"", 0},
 };
 
-static struct acpi_driver apple_bl_driver = {
-	.name = "Apple backlight",
-	.ids = apple_bl_ids,
-	.ops = {
-		.add = apple_bl_add,
-		.remove = apple_bl_remove,
+static struct platform_driver apple_bl_driver = {
+	.probe = apple_bl_probe,
+	.remove = apple_bl_remove,
+	.driver = {
+		.name = "Apple backlight",
+		.acpi_match_table = apple_bl_ids,
 	},
 };
 
@@ -224,12 +225,12 @@ static int __init apple_bl_init(void)
 	if (acpi_video_get_backlight_type() != acpi_backlight_vendor)
 		return -ENODEV;
 
-	return acpi_bus_register_driver(&apple_bl_driver);
+	return platform_driver_register(&apple_bl_driver);
 }
 
 static void __exit apple_bl_exit(void)
 {
-	acpi_bus_unregister_driver(&apple_bl_driver);
+	platform_driver_unregister(&apple_bl_driver);
 }
 
 module_init(apple_bl_init);

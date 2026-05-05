@@ -7,24 +7,29 @@
  *   3. call listen() for 1 server socket. (migration target)
  *   4. update a map to migrate all child sockets
  *        to the last server socket (migrate_map[cookie] = 4)
- *   5. call shutdown() for first 4 server sockets
+ *   5. for TCP_ESTABLISHED and TCP_SYN_RECV cases, verify via epoll
+ *        that the last server socket is not ready before migration.
+ *   6. call shutdown() for first 4 server sockets
  *        and migrate the requests in the accept queue
  *        to the last server socket.
- *   6. call listen() for the second server socket.
- *   7. call shutdown() for the last server
+ *   7. for TCP_ESTABLISHED and TCP_SYN_RECV cases, verify via epoll
+ *        that the last server socket is ready after migration.
+ *   8. call listen() for the second server socket.
+ *   9. call shutdown() for the last server
  *        and migrate the requests in the accept queue
  *        to the second server socket.
- *   8. call listen() for the last server.
- *   9. call shutdown() for the second server
+ *  10. call listen() for the last server.
+ *  11. call shutdown() for the second server
  *        and migrate the requests in the accept queue
  *        to the last server socket.
- *  10. call accept() for the last server socket.
+ *  12. call accept() for the last server socket.
  *
  * Author: Kuniyuki Iwashima <kuniyu@amazon.co.jp>
  */
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
+#include <sys/epoll.h>
 
 #include "test_progs.h"
 #include "test_migrate_reuseport.skel.h"
@@ -350,7 +355,27 @@ static int update_maps(struct migrate_reuseport_test_case *test_case,
 
 static int migrate_dance(struct migrate_reuseport_test_case *test_case)
 {
+	struct epoll_event ev = {
+		.events = EPOLLIN,
+	};
+	int epoll = -1, nfds;
 	int i, err;
+
+	if (test_case->state != BPF_TCP_NEW_SYN_RECV) {
+		epoll = epoll_create1(0);
+		if (!ASSERT_NEQ(epoll, -1, "epoll_create1"))
+			return -1;
+
+		ev.data.fd = test_case->servers[MIGRATED_TO];
+		if (!ASSERT_OK(epoll_ctl(epoll, EPOLL_CTL_ADD,
+					 test_case->servers[MIGRATED_TO], &ev),
+			       "epoll_ctl"))
+			goto close_epoll;
+
+		nfds = epoll_wait(epoll, &ev, 1, 0);
+		if (!ASSERT_EQ(nfds, 0, "epoll_wait 1"))
+			goto close_epoll;
+	}
 
 	/* Migrate TCP_ESTABLISHED and TCP_SYN_RECV requests
 	 * to the last listener based on eBPF.
@@ -358,12 +383,22 @@ static int migrate_dance(struct migrate_reuseport_test_case *test_case)
 	for (i = 0; i < MIGRATED_TO; i++) {
 		err = shutdown(test_case->servers[i], SHUT_RDWR);
 		if (!ASSERT_OK(err, "shutdown"))
-			return -1;
+			goto close_epoll;
 	}
 
 	/* No dance for TCP_NEW_SYN_RECV to migrate based on eBPF */
 	if (test_case->state == BPF_TCP_NEW_SYN_RECV)
 		return 0;
+
+	nfds = epoll_wait(epoll, &ev, 1, 0);
+	if (!ASSERT_EQ(nfds, 1, "epoll_wait 2")) {
+close_epoll:
+		if (epoll >= 0)
+			close(epoll);
+		return -1;
+	}
+
+	close(epoll);
 
 	/* Note that we use the second listener instead of the
 	 * first one here.

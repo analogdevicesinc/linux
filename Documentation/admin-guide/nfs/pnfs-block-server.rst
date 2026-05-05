@@ -40,3 +40,33 @@ how to translate the device into a serial number from SCSI EVPD 0x80::
 
 	echo "fencing client ${CLIENT} serial ${EVPD}" >> /var/log/pnfsd-fence.log
 	EOF
+
+If the nfsd server needs to fence a non-responding client and the
+fencing operation fails, the server logs a warning message in the
+system log with the following format:
+
+    FENCE failed client[IP_address] clid[#n] device[dev_name]
+
+    where:
+
+    - IP_address: refers to the IP address of the affected client.
+    - #n: indicates the unique client identifier.
+    - dev_name: specifies the name of the block device related
+      to the fencing attempt.
+
+The server will repeatedly retry the operation indefinitely. During
+this time, access to the affected file is restricted for all other
+clients. This is to prevent potential data corruption if multiple
+clients access the same file simultaneously.
+
+To restore access to the affected file for other clients, the admin
+needs to take the following actions:
+
+    - shutdown or power off the client being fenced.
+    - manually expire the client to release all its state on the server::
+
+        echo 'expire' > /proc/fs/nfsd/clients/clid/ctl
+
+    where:
+
+      - clid: is the unique client identifier displayed in the system log.

@@ -23,5 +23,5 @@ if [ "$ERR_CODE" -eq 0 ]; then
 	ERR_CODE=$?
 fi
 
-_cleanup_test "generic"
+_cleanup_test
 _show_result $TID $ERR_CODE

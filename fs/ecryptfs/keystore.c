@@ -2458,8 +2458,7 @@ int ecryptfs_add_keysig(struct ecryptfs_crypt_stat *crypt_stat, char *sig)
 	if (!new_key_sig)
 		return -ENOMEM;
 
-	memcpy(new_key_sig->keysig, sig, ECRYPTFS_SIG_SIZE_HEX);
-	new_key_sig->keysig[ECRYPTFS_SIG_SIZE_HEX] = '\0';
+	strscpy(new_key_sig->keysig, sig);
 	/* Caller must hold keysig_list_mutex */
 	list_add(&new_key_sig->crypt_stat_list, &crypt_stat->keysig_list);
 
@@ -2479,9 +2478,8 @@ ecryptfs_add_global_auth_tok(struct ecryptfs_mount_crypt_stat *mount_crypt_stat,
 	if (!new_auth_tok)
 		return -ENOMEM;
 
-	memcpy(new_auth_tok->sig, sig, ECRYPTFS_SIG_SIZE_HEX);
+	strscpy(new_auth_tok->sig, sig);
 	new_auth_tok->flags = global_auth_tok_flags;
-	new_auth_tok->sig[ECRYPTFS_SIG_SIZE_HEX] = '\0';
 	mutex_lock(&mount_crypt_stat->global_auth_tok_list_mutex);
 	list_add(&new_auth_tok->mount_crypt_stat_list,
 		 &mount_crypt_stat->global_auth_tok_list);

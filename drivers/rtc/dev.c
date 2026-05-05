@@ -195,7 +195,16 @@ static __poll_t rtc_dev_poll(struct file *file, poll_table *wait)
 
 	poll_wait(file, &rtc->irq_queue, wait);
 
-	data = rtc->irq_data;
+	/*
+	 * This read can race with the write in rtc_handle_legacy_irq().
+	 *
+	 * - If this check misses a zero to non-zero transition the next check
+	 *   will pick it up (rtc_handle_legacy_irq() wakes up rtc->irq_queue).
+	 * - Non-zero to non-zero transition misses do not change return value.
+	 * - And a non-zero to zero transition is unlikely to be missed, since
+	 *   it occurs on rtc_dev_read(), during which polling is not expected.
+	 */
+	data = data_race(rtc->irq_data);
 
 	return (data != 0) ? (EPOLLIN | EPOLLRDNORM) : 0;
 }

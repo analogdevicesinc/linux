@@ -204,6 +204,9 @@ bool cxl_memdev_has_poison_cmd(struct cxl_memdev *cxlmd,
 {
 	struct cxl_memdev_state *mds = to_cxl_memdev_state(cxlmd->cxlds);
 
+	if (!mds)
+		return 0;
+
 	return test_bit(cmd, mds->poison.enabled_cmds);
 }
 
@@ -656,6 +659,30 @@ static void detach_memdev(struct work_struct *work)
 
 static struct lock_class_key cxl_memdev_key;
 
+struct cxl_dev_state *_devm_cxl_dev_state_create(struct device *dev,
+						 enum cxl_devtype type,
+						 u64 serial, u16 dvsec,
+						 size_t size, bool has_mbox)
+{
+	struct cxl_dev_state *cxlds = devm_kzalloc(dev, size, GFP_KERNEL);
+
+	if (!cxlds)
+		return NULL;
+
+	cxlds->dev = dev;
+	cxlds->type = type;
+	cxlds->serial = serial;
+	cxlds->cxl_dvsec = dvsec;
+	cxlds->reg_map.host = dev;
+	cxlds->reg_map.resource = CXL_RESOURCE_NONE;
+
+	if (has_mbox)
+		cxlds->cxl_mbox.host = dev;
+
+	return cxlds;
+}
+EXPORT_SYMBOL_NS_GPL(_devm_cxl_dev_state_create, "CXL");
+
 static struct cxl_memdev *cxl_memdev_alloc(struct cxl_dev_state *cxlds,
 					   const struct file_operations *fops,
 					   const struct cxl_memdev_attach *attach)
@@ -1089,10 +1116,8 @@ static int cxlmd_add(struct cxl_memdev *cxlmd, struct cxl_dev_state *cxlds)
 DEFINE_FREE(put_cxlmd, struct cxl_memdev *,
 	    if (!IS_ERR_OR_NULL(_T)) put_device(&_T->dev))
 
-static struct cxl_memdev *cxl_memdev_autoremove(struct cxl_memdev *cxlmd)
+static bool cxl_memdev_attach_failed(struct cxl_memdev *cxlmd)
 {
-	int rc;
-
 	/*
 	 * If @attach is provided fail if the driver is not attached upon
 	 * return. Note that failure here could be the result of a race to
@@ -1100,7 +1125,14 @@ static struct cxl_memdev *cxl_memdev_autoremove(struct cxl_memdev *cxlmd)
 	 * succeeded and then cxl_mem unbound before the lock is acquired.
 	 */
 	guard(device)(&cxlmd->dev);
-	if (cxlmd->attach && !cxlmd->dev.driver) {
+	return (cxlmd->attach && !cxlmd->dev.driver);
+}
+
+static struct cxl_memdev *cxl_memdev_autoremove(struct cxl_memdev *cxlmd)
+{
+	int rc;
+
+	if (cxl_memdev_attach_failed(cxlmd)) {
 		cxl_memdev_unregister(cxlmd);
 		return ERR_PTR(-ENXIO);
 	}

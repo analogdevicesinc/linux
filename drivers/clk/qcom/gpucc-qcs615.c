@@ -459,7 +459,7 @@ static struct clk_alpha_pll *gpu_cc_qcs615_plls[] = {
 	&gpu_cc_pll1,
 };
 
-static u32 gpu_cc_qcs615_critical_cbcrs[] = {
+static const u32 gpu_cc_qcs615_critical_cbcrs[] = {
 	0x1078, /* GPU_CC_AHB_CLK */
 };
 
@@ -485,7 +485,7 @@ static void clk_qcs615_regs_crc_configure(struct device *dev, struct regmap *reg
 	regmap_update_bits(regmap, 0x1024, 0x00800000, 0x00800000);
 }
 
-static struct qcom_cc_driver_data gpu_cc_qcs615_driver_data = {
+static const struct qcom_cc_driver_data gpu_cc_qcs615_driver_data = {
 	.alpha_plls = gpu_cc_qcs615_plls,
 	.num_alpha_plls = ARRAY_SIZE(gpu_cc_qcs615_plls),
 	.clk_cbcrs = gpu_cc_qcs615_critical_cbcrs,

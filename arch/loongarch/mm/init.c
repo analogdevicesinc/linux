@@ -36,23 +36,6 @@
 #include <asm/pgalloc.h>
 #include <asm/tlb.h>
 
-unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)] __page_aligned_bss;
-EXPORT_SYMBOL(empty_zero_page);
-
-void copy_user_highpage(struct page *to, struct page *from,
-	unsigned long vaddr, struct vm_area_struct *vma)
-{
-	void *vfrom, *vto;
-
-	vfrom = kmap_local_page(from);
-	vto = kmap_local_page(to);
-	copy_page(vto, vfrom);
-	kunmap_local(vfrom);
-	kunmap_local(vto);
-	/* Make sure this page is cleared on other CPU's too before using it */
-	smp_wmb();
-}
-
 int __ref page_is_ram(unsigned long pfn)
 {
 	unsigned long addr = PFN_PHYS(pfn);
@@ -66,12 +49,59 @@ void __init arch_zone_limits_init(unsigned long *max_zone_pfns)
 	max_zone_pfns[ZONE_DMA32] = MAX_DMA32_PFN;
 #endif
 	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
+#ifdef CONFIG_HIGHMEM
+	max_zone_pfns[ZONE_HIGHMEM] = max_pfn;
+#endif
 }
 
 void __ref free_initmem(void)
 {
 	free_initmem_default(POISON_FREE_INITMEM);
 }
+
+#ifdef CONFIG_HIGHMEM
+
+void __init fixrange_init(unsigned long start, unsigned long end, pgd_t *pgd_base)
+{
+	pgd_t *pgd;
+	pud_t *pud;
+	pmd_t *pmd;
+	pte_t *pte;
+	int i, j, k;
+	int ptrs_per_pgd;
+	unsigned long vaddr;
+
+	vaddr = start;
+	i = pgd_index(vaddr);
+	j = pud_index(vaddr);
+	k = pmd_index(vaddr);
+	pgd = pgd_base + i;
+	ptrs_per_pgd = min((1 << (BITS_PER_LONG - PGDIR_SHIFT)), PTRS_PER_PGD);
+
+	for ( ; (i < ptrs_per_pgd) && (vaddr < end); pgd++, i++) {
+		pud = (pud_t *)pgd;
+		for ( ; (j < PTRS_PER_PUD) && (vaddr < end); pud++, j++) {
+			pmd = (pmd_t *)pud;
+			for (; (k < PTRS_PER_PMD) && (vaddr < end); pmd++, k++) {
+				if (pmd_none(*pmd)) {
+					pte = (pte_t *) memblock_alloc_low(PAGE_SIZE, PAGE_SIZE);
+					if (!pte)
+						panic("%s: Failed to allocate %lu bytes align=%lx\n",
+						      __func__, PAGE_SIZE, PAGE_SIZE);
+
+					kernel_pte_init(pte);
+					set_pmd(pmd, __pmd((unsigned long)pte));
+					BUG_ON(pte != pte_offset_kernel(pmd, 0));
+				}
+				vaddr += PMD_SIZE;
+			}
+			k = 0;
+		}
+		j = 0;
+	}
+}
+
+#endif
 
 #ifdef CONFIG_MEMORY_HOTPLUG
 int arch_add_memory(int nid, u64 start, u64 size, struct mhp_params *params)

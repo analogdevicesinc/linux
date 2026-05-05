@@ -692,9 +692,9 @@ int amdgpu_amdkfd_submit_ib(struct amdgpu_device *adev,
 		goto err_ib_sched;
 	}
 
-	/* Drop the initial kref_init count (see drm_sched_main as example) */
-	dma_fence_put(f);
 	ret = dma_fence_wait(f, false);
+	/* Drop the returned fence reference after the wait completes */
+	dma_fence_put(f);
 
 err_ib_sched:
 	amdgpu_job_free(job);
@@ -805,7 +805,10 @@ u64 amdgpu_amdkfd_xcp_memory_size(struct amdgpu_device *adev, int xcp_id)
 		} else {
 			tmp = adev->gmc.mem_partitions[mem_id].size;
 		}
-		do_div(tmp, adev->xcp_mgr->num_xcp_per_mem_partition);
+
+		if (adev->xcp_mgr->mem_alloc_mode == AMDGPU_PARTITION_MEM_CAPPING_EVEN)
+			do_div(tmp, adev->xcp_mgr->num_xcp_per_mem_partition);
+
 		return ALIGN_DOWN(tmp, PAGE_SIZE);
 	} else if (adev->apu_prefer_gtt) {
 		return (ttm_tt_pages_limit() << PAGE_SHIFT);

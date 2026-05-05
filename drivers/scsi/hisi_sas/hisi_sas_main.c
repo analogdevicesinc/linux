@@ -1326,7 +1326,7 @@ static int hisi_sas_control_phy(struct asd_sas_phy *sas_phy, enum phy_func func,
 
 	if (sts && !wait_for_completion_timeout(&completion,
 		HISI_SAS_WAIT_PHYUP_TIMEOUT)) {
-		dev_warn(dev, "phy%d wait phyup timed out for func %d\n",
+		dev_warn(dev, "phy%d wait phyup timed out for func %u\n",
 			 phy_no, func);
 		if (phy->in_reset)
 			ret = -ETIMEDOUT;
@@ -2578,7 +2578,7 @@ int hisi_sas_probe(struct platform_device *pdev,
 	shost->transportt = hisi_sas_stt;
 	shost->max_id = HISI_SAS_MAX_DEVICES;
 	shost->max_lun = ~0;
-	shost->max_channel = 1;
+	shost->max_channel = 0;
 	shost->max_cmd_len = HISI_SAS_MAX_CDB_LEN;
 	if (hisi_hba->hw->slot_index_alloc) {
 		shost->can_queue = HISI_SAS_MAX_COMMANDS;

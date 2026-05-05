@@ -19,5 +19,6 @@
 #define HWCAP_LOONGARCH_PTW		(1 << 13)
 #define HWCAP_LOONGARCH_LSPW		(1 << 14)
 #define HWCAP_LOONGARCH_SCQ		(1 << 15)
+#define HWCAP_LOONGARCH_LAM_BH		(1 << 16)
 
 #endif /* _UAPI_ASM_HWCAP_H */

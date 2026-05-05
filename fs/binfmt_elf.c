@@ -47,6 +47,7 @@
 #include <linux/dax.h>
 #include <linux/uaccess.h>
 #include <uapi/linux/rseq.h>
+#include <linux/rseq.h>
 #include <asm/param.h>
 #include <asm/page.h>
 
@@ -286,7 +287,7 @@ create_elf_tables(struct linux_binprm *bprm, const struct elfhdr *exec,
 	}
 #ifdef CONFIG_RSEQ
 	NEW_AUX_ENT(AT_RSEQ_FEATURE_SIZE, offsetof(struct rseq, end));
-	NEW_AUX_ENT(AT_RSEQ_ALIGN, __alignof__(struct rseq));
+	NEW_AUX_ENT(AT_RSEQ_ALIGN, rseq_alloc_align());
 #endif
 #undef NEW_AUX_ENT
 	/* AT_NULL is zero; clear the rest too */
@@ -452,13 +453,12 @@ static unsigned long elf_load(struct file *filep, unsigned long addr,
 		zero_end = ELF_PAGEALIGN(zero_end);
 
 		error = vm_brk_flags(zero_start, zero_end - zero_start,
-				     prot & PROT_EXEC ? VM_EXEC : 0);
+				     prot & PROT_EXEC);
 		if (error)
 			map_addr = error;
 	}
 	return map_addr;
 }
-
 
 static unsigned long total_mapping_size(const struct elf_phdr *phdr, int nr)
 {

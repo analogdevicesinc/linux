@@ -20,7 +20,6 @@
 #include "qp.h"
 #include "sdma.h"
 #include "debugfs.h"
-#include "vnic.h"
 #include "fault.h"
 
 #include "ipoib.h"
@@ -909,11 +908,11 @@ static void set_all_fastpath(struct hfi1_devdata *dd, struct hfi1_ctxtdata *rcd)
 	u16 i;
 
 	/*
-	 * For dynamically allocated kernel contexts (like vnic) switch
+	 * For dynamically allocated kernel contexts switch
 	 * interrupt handler only for that context. Otherwise, switch
 	 * interrupt handler for all statically allocated kernel contexts.
 	 */
-	if (rcd->ctxt >= dd->first_dyn_alloc_ctxt && !rcd->is_vnic) {
+	if (rcd->ctxt >= dd->first_dyn_alloc_ctxt) {
 		hfi1_rcd_get(rcd);
 		hfi1_set_fast(rcd);
 		hfi1_rcd_put(rcd);
@@ -922,7 +921,7 @@ static void set_all_fastpath(struct hfi1_devdata *dd, struct hfi1_ctxtdata *rcd)
 
 	for (i = HFI1_CTRL_CTXT + 1; i < dd->num_rcv_contexts; i++) {
 		rcd = hfi1_rcd_get_by_index(dd, i);
-		if (rcd && (i < dd->first_dyn_alloc_ctxt || rcd->is_vnic))
+		if (rcd && (i < dd->first_dyn_alloc_ctxt))
 			hfi1_set_fast(rcd);
 		hfi1_rcd_put(rcd);
 	}
@@ -938,7 +937,7 @@ void set_all_slowpath(struct hfi1_devdata *dd)
 		rcd = hfi1_rcd_get_by_index(dd, i);
 		if (!rcd)
 			continue;
-		if (i < dd->first_dyn_alloc_ctxt || rcd->is_vnic)
+		if (i < dd->first_dyn_alloc_ctxt)
 			rcd->do_interrupt = rcd->slow_handler;
 
 		hfi1_rcd_put(rcd);
@@ -1400,7 +1399,7 @@ int hfi1_reset_device(int unit)
 		goto bail;
 	}
 
-	/* If there are any user/vnic contexts, we cannot reset */
+	/* If there are any user contexts, we cannot reset */
 	mutex_lock(&hfi1_mutex);
 	if (dd->rcd)
 		if (hfi1_stats.sps_ctxts) {
@@ -1899,7 +1898,7 @@ const rhf_rcv_function_ptr netdev_rhf_rcv_functions[] = {
 	[RHF_RCV_TYPE_EAGER] = process_receive_invalid,
 	[RHF_RCV_TYPE_IB] = hfi1_ipoib_ib_rcv,
 	[RHF_RCV_TYPE_ERROR] = process_receive_error,
-	[RHF_RCV_TYPE_BYPASS] = hfi1_vnic_bypass_rcv,
+	[RHF_RCV_TYPE_BYPASS] = process_receive_invalid,
 	[RHF_RCV_TYPE_INVALID5] = process_receive_invalid,
 	[RHF_RCV_TYPE_INVALID6] = process_receive_invalid,
 	[RHF_RCV_TYPE_INVALID7] = process_receive_invalid,

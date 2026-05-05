@@ -567,7 +567,7 @@ struct tomoyo_address_group {
 struct tomoyo_mini_stat {
 	kuid_t uid;
 	kgid_t gid;
-	ino_t ino;
+	u64 ino;
 	umode_t mode;
 	dev_t dev;
 	dev_t rdev;

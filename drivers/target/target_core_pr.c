@@ -2809,7 +2809,7 @@ static void core_scsi3_release_preempt_and_abort(
 }
 
 static sense_reason_t
-core_scsi3_pro_preempt(struct se_cmd *cmd, int type, int scope, u64 res_key,
+core_scsi3_emulate_pro_preempt(struct se_cmd *cmd, int type, int scope, u64 res_key,
 		u64 sa_res_key, enum preempt_type preempt_type)
 {
 	struct se_device *dev = cmd->se_dev;
@@ -2838,11 +2838,6 @@ core_scsi3_pro_preempt(struct se_cmd *cmd, int type, int scope, u64 res_key,
 		core_scsi3_put_pr_reg(pr_reg_n);
 		return TCM_RESERVATION_CONFLICT;
 	}
-	if (scope != PR_SCOPE_LU_SCOPE) {
-		pr_err("SPC-3 PR: Illegal SCOPE: 0x%02x\n", scope);
-		core_scsi3_put_pr_reg(pr_reg_n);
-		return TCM_INVALID_PARAMETER_LIST;
-	}
 
 	spin_lock(&dev->dev_reservation_lock);
 	pr_res_holder = dev->dev_pr_res_holder;
@@ -2856,6 +2851,37 @@ core_scsi3_pro_preempt(struct se_cmd *cmd, int type, int scope, u64 res_key,
 		core_scsi3_put_pr_reg(pr_reg_n);
 		return TCM_INVALID_PARAMETER_LIST;
 	}
+
+	/* Validate TYPE and SCOPE fields if they will be used */
+	if (pr_res_holder &&
+	    (pr_res_holder->pr_res_key == sa_res_key ||
+	     (all_reg && !sa_res_key))) {
+		switch (type) {
+		case PR_TYPE_WRITE_EXCLUSIVE:
+		case PR_TYPE_EXCLUSIVE_ACCESS:
+		case PR_TYPE_WRITE_EXCLUSIVE_REGONLY:
+		case PR_TYPE_EXCLUSIVE_ACCESS_REGONLY:
+		case PR_TYPE_WRITE_EXCLUSIVE_ALLREG:
+		case PR_TYPE_EXCLUSIVE_ACCESS_ALLREG:
+			break;
+		default:
+			pr_err("SPC-3 PR: Unknown Service Action PREEMPT%s"
+				" Type: 0x%02x\n",
+				(preempt_type == PREEMPT_AND_ABORT) ?
+				"_AND_ABORT" : "", type);
+			spin_unlock(&dev->dev_reservation_lock);
+			core_scsi3_put_pr_reg(pr_reg_n);
+			return TCM_INVALID_CDB_FIELD;
+		}
+
+		if (scope != PR_SCOPE_LU_SCOPE) {
+			pr_err("SPC-3 PR: Illegal SCOPE: 0x%02x\n", scope);
+			spin_unlock(&dev->dev_reservation_lock);
+			core_scsi3_put_pr_reg(pr_reg_n);
+			return TCM_INVALID_PARAMETER_LIST;
+		}
+	}
+
 	/*
 	 * From spc4r17, section 5.7.11.4.4 Removing Registrations:
 	 *
@@ -3117,27 +3143,6 @@ core_scsi3_pro_preempt(struct se_cmd *cmd, int type, int scope, u64 res_key,
 	core_scsi3_pr_generation(cmd->se_dev);
 	return 0;
 }
-
-static sense_reason_t
-core_scsi3_emulate_pro_preempt(struct se_cmd *cmd, int type, int scope,
-		u64 res_key, u64 sa_res_key, enum preempt_type preempt_type)
-{
-	switch (type) {
-	case PR_TYPE_WRITE_EXCLUSIVE:
-	case PR_TYPE_EXCLUSIVE_ACCESS:
-	case PR_TYPE_WRITE_EXCLUSIVE_REGONLY:
-	case PR_TYPE_EXCLUSIVE_ACCESS_REGONLY:
-	case PR_TYPE_WRITE_EXCLUSIVE_ALLREG:
-	case PR_TYPE_EXCLUSIVE_ACCESS_ALLREG:
-		return core_scsi3_pro_preempt(cmd, type, scope, res_key,
-					      sa_res_key, preempt_type);
-	default:
-		pr_err("SPC-3 PR: Unknown Service Action PREEMPT%s"
-			" Type: 0x%02x\n", (preempt_type == PREEMPT_AND_ABORT) ? "_AND_ABORT" : "", type);
-		return TCM_INVALID_CDB_FIELD;
-	}
-}
-
 
 static sense_reason_t
 core_scsi3_emulate_pro_register_and_move(struct se_cmd *cmd, u64 res_key,

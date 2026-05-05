@@ -4,6 +4,6 @@
 #
 #  Author:	Antonio Quartulli <antonio@openvpn.net>
 
-FLOAT="1"
+OVPN_FLOAT="1"
 
 source test.sh

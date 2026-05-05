@@ -1610,38 +1610,6 @@ static bool is_dtbclk_required(struct dc *dc, struct dc_state *context)
 	return false;
 }
 
-static void dcn20_adjust_freesync_v_startup(const struct dc_crtc_timing *dc_crtc_timing, int *vstartup_start)
-{
-	struct dc_crtc_timing patched_crtc_timing;
-	uint32_t asic_blank_end   = 0;
-	uint32_t asic_blank_start = 0;
-	uint32_t newVstartup	  = 0;
-
-	patched_crtc_timing = *dc_crtc_timing;
-
-	if (patched_crtc_timing.flags.INTERLACE == 1) {
-		if (patched_crtc_timing.v_front_porch < 2)
-			patched_crtc_timing.v_front_porch = 2;
-	} else {
-		if (patched_crtc_timing.v_front_porch < 1)
-			patched_crtc_timing.v_front_porch = 1;
-	}
-
-	/* blank_start = frame end - front porch */
-	asic_blank_start = patched_crtc_timing.v_total -
-					patched_crtc_timing.v_front_porch;
-
-	/* blank_end = blank_start - active */
-	asic_blank_end = asic_blank_start -
-					patched_crtc_timing.v_border_bottom -
-					patched_crtc_timing.v_addressable -
-					patched_crtc_timing.v_border_top;
-
-	newVstartup = asic_blank_end + (patched_crtc_timing.v_total - asic_blank_start);
-
-	*vstartup_start = ((newVstartup > *vstartup_start) ? newVstartup : *vstartup_start);
-}
-
 static void dcn32_calculate_dlg_params(struct dc *dc, struct dc_state *context,
 				       display_e2e_pipe_params_st *pipes,
 				       int pipe_cnt, int vlevel)
@@ -1755,11 +1723,6 @@ static void dcn32_calculate_dlg_params(struct dc *dc, struct dc_state *context,
 				context->bw_ctx.bw.dcn.mall_subvp_size_bytes += context->res_ctx.pipe_ctx[i].surface_size_in_mall_bytes;
 			}
 		}
-
-		if (context->res_ctx.pipe_ctx[i].stream->adaptive_sync_infopacket.valid)
-			dcn20_adjust_freesync_v_startup(
-				&context->res_ctx.pipe_ctx[i].stream->timing,
-				&context->res_ctx.pipe_ctx[i].pipe_dlg_param.vstartup_start);
 
 		pipe_idx++;
 	}
@@ -3488,6 +3451,7 @@ bool dcn32_allow_subvp_high_refresh_rate(struct dc *dc, struct dc_state *context
  */
 double dcn32_determine_max_vratio_prefetch(struct dc *dc, struct dc_state *context)
 {
+	(void)dc;
 	double max_vratio_pre = __DML_MAX_BW_RATIO_PRE__; // Default value is 4
 	int i;
 
@@ -3593,6 +3557,7 @@ bool dcn32_find_vactive_pipe(struct dc *dc, const struct dc_state *context, stru
 
 void dcn32_set_clock_limits(const struct _vcs_dpi_soc_bounding_box_st *soc_bb)
 {
+	(void)soc_bb;
 	dc_assert_fp_enabled();
 	dcn3_2_soc.clock_limits[0].dcfclk_mhz = 1200.0;
 }

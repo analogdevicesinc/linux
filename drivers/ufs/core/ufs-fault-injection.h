@@ -6,6 +6,8 @@
 #include <linux/kconfig.h>
 #include <linux/types.h>
 
+struct ufs_hba;
+
 #ifdef CONFIG_SCSI_UFS_FAULT_INJECTION
 void ufs_fault_inject_hba_init(struct ufs_hba *hba);
 bool ufs_trigger_eh(struct ufs_hba *hba);

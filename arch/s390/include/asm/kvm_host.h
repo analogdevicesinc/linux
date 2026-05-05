@@ -656,6 +656,7 @@ struct kvm_arch {
 	int user_stsi;
 	int user_instr0;
 	int user_operexec;
+	int allow_vsie_esamode;
 	struct s390_io_adapter *adapters[MAX_S390_IO_ADAPTERS];
 	wait_queue_head_t ipte_wq;
 	int ipte_lock_count;
@@ -709,6 +710,9 @@ static inline void kvm_arch_async_page_present_queued(struct kvm_vcpu *vcpu) {}
 void kvm_arch_crypto_clear_masks(struct kvm *kvm);
 void kvm_arch_crypto_set_masks(struct kvm *kvm, unsigned long *apm,
 			       unsigned long *aqm, unsigned long *adm);
+
+#define SIE64_RETURN_NORMAL	0
+#define SIE64_RETURN_MCCK	1
 
 int __sie64a(phys_addr_t sie_block_phys, struct kvm_s390_sie_block *sie_block, u64 *rsa,
 	     unsigned long gasce);

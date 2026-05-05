@@ -324,7 +324,7 @@ static void imx_keypad_config(struct imx_keypad *keypad)
 	reg_val |= (keypad->cols_en_mask & 0xff) << 8;	/* cols */
 	writew(reg_val, keypad->mmio_base + KPCR);
 
-	/* Write 0's to KPDR[15:8] (Colums) */
+	/* Write 0's to KPDR[15:8] (Columns) */
 	reg_val = readw(keypad->mmio_base + KPDR);
 	reg_val &= 0x00ff;
 	writew(reg_val, keypad->mmio_base + KPDR);
@@ -357,7 +357,7 @@ static void imx_keypad_inhibit(struct imx_keypad *keypad)
 	reg_val |= KBD_STAT_KPKR | KBD_STAT_KPKD;
 	writew(reg_val, keypad->mmio_base + KPSR);
 
-	/* Colums as open drain and disable all rows */
+	/* Columns as open drain and disable all rows */
 	reg_val = (keypad->cols_en_mask & 0xff) << 8;
 	writew(reg_val, keypad->mmio_base + KPCR);
 }

@@ -170,8 +170,8 @@ static int strncpy_chunk_from_user(unsigned long from, int len, void *arg)
 	char **to_ptr = arg, *to = *to_ptr;
 	int n;
 
-	strncpy(to, (void *) from, len);
-	n = strnlen(to, len);
+	n = strnlen((void *) from, len);
+	memcpy_and_pad(to, len, (void *) from, n, 0);
 	*to_ptr += n;
 
 	if (n < len)

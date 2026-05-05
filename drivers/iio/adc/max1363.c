@@ -121,7 +121,7 @@ enum max1363_modes {
 };
 
 /**
- * struct max1363_chip_info - chip specifc information
+ * struct max1363_chip_info - chip specific information
  * @info:		iio core function callbacks structure
  * @channels:		channel specification
  * @num_channels:       number of channels
@@ -149,7 +149,6 @@ struct max1363_chip_info {
  * @configbyte:		cache of current device config byte
  * @chip_info:		chip model specific constants, available modes, etc.
  * @current_mode:	the scan mode of this chip
- * @requestedmask:	a valid requested set of channels
  * @lock:		lock to ensure state is consistent
  * @monitor_on:		whether monitor mode is enabled
  * @monitor_speed:	parameter corresponding to device monitor speed setting
@@ -169,7 +168,6 @@ struct max1363_state {
 	u8				configbyte;
 	const struct max1363_chip_info	*chip_info;
 	const struct max1363_mode	*current_mode;
-	u32				requestedmask;
 	struct mutex			lock;
 
 	/* Using monitor modes and buffer at the same time is
@@ -637,48 +635,51 @@ static const enum max1363_modes max11644_mode_list[] = {
 static const struct iio_chan_spec max11646_channels[] = MAX1363_2X_CHANS(10);
 static const struct iio_chan_spec max11644_channels[] = MAX1363_2X_CHANS(12);
 
-enum { max1361,
-       max1362,
-       max1363,
-       max1364,
-       max1036,
-       max1037,
-       max1038,
-       max1039,
-       max1136,
-       max1137,
-       max1138,
-       max1139,
-       max1236,
-       max1237,
-       max1238,
-       max1239,
-       max11600,
-       max11601,
-       max11602,
-       max11603,
-       max11604,
-       max11605,
-       max11606,
-       max11607,
-       max11608,
-       max11609,
-       max11610,
-       max11611,
-       max11612,
-       max11613,
-       max11614,
-       max11615,
-       max11616,
-       max11617,
-       max11644,
-       max11645,
-       max11646,
-       max11647
+enum {
+	max1361,
+	max1362,
+	max1363,
+	max1364,
+	max1036,
+	max1037,
+	max1038,
+	max1039,
+	max1136,
+	max1137,
+	max1138,
+	max1139,
+	max1236,
+	max1237,
+	max1238,
+	max1239,
+	max11600,
+	max11601,
+	max11602,
+	max11603,
+	max11604,
+	max11605,
+	max11606,
+	max11607,
+	max11608,
+	max11609,
+	max11610,
+	max11611,
+	max11612,
+	max11613,
+	max11614,
+	max11615,
+	max11616,
+	max11617,
+	max11644,
+	max11645,
+	max11646,
+	max11647,
 };
 
-static const int max1363_monitor_speeds[] = { 133000, 665000, 33300, 16600,
-					      8300, 4200, 2000, 1000 };
+static const int max1363_monitor_speeds[] = {
+	133000, 665000, 33300, 16600,
+	8300, 4200, 2000, 1000,
+};
 
 static ssize_t max1363_monitor_show_freq(struct device *dev,
 					struct device_attribute *attr,

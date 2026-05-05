@@ -270,7 +270,7 @@ static int cgroup_storage_get_next_key(struct bpf_map *_map, void *key,
 			goto enoent;
 
 		storage = list_next_entry(storage, list_map);
-		if (!storage)
+		if (list_entry_is_head(storage, &map->list, list_map))
 			goto enoent;
 	} else {
 		storage = list_first_entry(&map->list,
@@ -364,7 +364,7 @@ static long cgroup_storage_delete_elem(struct bpf_map *map, void *key)
 	return -EINVAL;
 }
 
-static int cgroup_storage_check_btf(const struct bpf_map *map,
+static int cgroup_storage_check_btf(struct bpf_map *map,
 				    const struct btf *btf,
 				    const struct btf_type *key_type,
 				    const struct btf_type *value_type)

@@ -500,7 +500,7 @@ static const struct of_device_id reserved_mem_matches[] = {
 
 static int __init of_platform_default_populate_init(void)
 {
-	struct device_node *node;
+	struct device_node *node, *reserved;
 
 	device_links_supplier_sync_state_pause();
 
@@ -563,8 +563,14 @@ static int __init of_platform_default_populate_init(void)
 		 * platform_devices for every node in /reserved-memory with a
 		 * "compatible",
 		 */
-		for_each_matching_node(node, reserved_mem_matches)
-			of_platform_device_create(node, NULL, NULL);
+		reserved = of_find_node_by_path("/reserved-memory");
+		if (reserved) {
+			for_each_child_of_node(reserved, node) {
+				if (of_match_node(reserved_mem_matches, node))
+					of_platform_device_create(node, NULL, NULL);
+			}
+			of_node_put(reserved);
+		}
 
 		node = of_find_node_by_path("/firmware");
 		if (node) {
@@ -742,7 +748,7 @@ static int of_platform_notify(struct notifier_block *nb,
 		 * Clear the flag before adding the device so that fw_devlink
 		 * doesn't skip adding consumers to this device.
 		 */
-		rd->dn->fwnode.flags &= ~FWNODE_FLAG_NOT_DEVICE;
+		fwnode_clear_flag(&rd->dn->fwnode, FWNODE_FLAG_NOT_DEVICE);
 		/* pdev_parent may be NULL when no bus platform device */
 		pdev_parent = of_find_device_by_node(parent);
 		pdev = of_platform_device_create(rd->dn, NULL,

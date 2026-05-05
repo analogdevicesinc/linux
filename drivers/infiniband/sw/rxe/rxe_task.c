@@ -6,7 +6,7 @@
 
 #include "rxe.h"
 
-static struct workqueue_struct *rxe_wq;
+struct workqueue_struct *rxe_wq;
 
 int rxe_alloc_wq(void)
 {

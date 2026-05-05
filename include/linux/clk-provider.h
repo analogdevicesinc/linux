@@ -136,10 +136,6 @@ struct clk_duty {
  *		0. Returns the calculated rate. Optional, but recommended - if
  *		this op is not set then clock rate will be initialized to 0.
  *
- * @round_rate:	Given a target rate as input, returns the closest rate actually
- *		supported by the clock. The parent rate is an input/output
- *		parameter.
- *
  * @determine_rate: Given a target rate as input, returns the closest rate
  *		actually supported by the clock, and optionally the parent clock
  *		that should be used to provide the clock rate.
@@ -163,13 +159,13 @@ struct clk_duty {
  *
  * @set_rate:	Change the rate of this clock. The requested rate is specified
  *		by the second argument, which should typically be the return
- *		of .round_rate call.  The third argument gives the parent rate
- *		which is likely helpful for most .set_rate implementation.
+ *		of .determine_rate call.  The third argument gives the parent
+ *		rate which is likely helpful for most .set_rate implementation.
  *		Returns 0 on success, -EERROR otherwise.
  *
  * @set_rate_and_parent: Change the rate and the parent of this clock. The
  *		requested rate is specified by the second argument, which
- *		should typically be the return of .round_rate call.  The
+ *		should typically be the return of clk_round_rate() call.  The
  *		third argument gives the parent rate which is likely helpful
  *		for most .set_rate_and_parent implementation. The fourth
  *		argument gives the parent index. This callback is optional (and
@@ -244,8 +240,6 @@ struct clk_ops {
 	void		(*restore_context)(struct clk_hw *hw);
 	unsigned long	(*recalc_rate)(struct clk_hw *hw,
 					unsigned long parent_rate);
-	long		(*round_rate)(struct clk_hw *hw, unsigned long rate,
-					unsigned long *parent_rate);
 	int		(*determine_rate)(struct clk_hw *hw,
 					  struct clk_rate_request *req);
 	int		(*set_parent)(struct clk_hw *hw, u8 index);
@@ -679,7 +673,7 @@ struct clk_div_table {
  * @lock:	register lock
  *
  * Clock with an adjustable divider affecting its output frequency.  Implements
- * .recalc_rate, .set_rate and .round_rate
+ * .recalc_rate, .set_rate and .determine_rate
  *
  * @flags:
  * CLK_DIVIDER_ONE_BASED - by default the divisor is the value read from the
@@ -739,14 +733,6 @@ extern const struct clk_ops clk_divider_ro_ops;
 unsigned long divider_recalc_rate(struct clk_hw *hw, unsigned long parent_rate,
 		unsigned int val, const struct clk_div_table *table,
 		unsigned long flags, unsigned long width);
-long divider_round_rate_parent(struct clk_hw *hw, struct clk_hw *parent,
-			       unsigned long rate, unsigned long *prate,
-			       const struct clk_div_table *table,
-			       u8 width, unsigned long flags);
-long divider_ro_round_rate_parent(struct clk_hw *hw, struct clk_hw *parent,
-				  unsigned long rate, unsigned long *prate,
-				  const struct clk_div_table *table, u8 width,
-				  unsigned long flags, unsigned int val);
 int divider_determine_rate(struct clk_hw *hw, struct clk_rate_request *req,
 			   const struct clk_div_table *table, u8 width,
 			   unsigned long flags);
@@ -948,6 +934,26 @@ struct clk *clk_register_divider_table(struct device *dev, const char *name,
 				       (shift), (width), (clk_divider_flags), \
 				       NULL, (lock))
 /**
+ * devm_clk_hw_register_divider_parent_data - register a divider clock with the
+ * clock framework
+ * @dev: device registering this clock
+ * @name: name of this clock
+ * @parent_data: parent clk data
+ * @flags: framework-specific flags
+ * @reg: register address to adjust divider
+ * @shift: number of bits to shift the bitfield
+ * @width: width of the bitfield
+ * @clk_divider_flags: divider-specific flags for this clock
+ * @lock: shared register lock for this clock
+ */
+#define devm_clk_hw_register_divider_parent_data(dev, name, parent_data,       \
+						 flags, reg, shift, width,     \
+						 clk_divider_flags, lock)      \
+	__devm_clk_hw_register_divider((dev), NULL, (name), NULL, NULL,	       \
+				       (parent_data), (flags), (reg), (shift), \
+				       (width), (clk_divider_flags), NULL,     \
+				       (lock))
+/**
  * devm_clk_hw_register_divider_table - register a table based divider clock
  * with the clock framework (devres variant)
  * @dev: device registering this clock
@@ -1126,7 +1132,7 @@ void of_fixed_factor_clk_setup(struct device_node *node);
  *
  * Clock with a fixed multiplier and divider. The output frequency is the
  * parent clock rate divided by div and multiplied by mult.
- * Implements .recalc_rate, .set_rate, .round_rate and .recalc_accuracy
+ * Implements .recalc_rate, .set_rate, .determine_rate and .recalc_accuracy
  *
  * Flags:
  * * CLK_FIXED_FACTOR_FIXED_ACCURACY - Use the value in @acc instead of the
@@ -1254,7 +1260,7 @@ void clk_hw_unregister_fractional_divider(struct clk_hw *hw);
  * @lock:	register lock
  *
  * Clock with an adjustable multiplier affecting its output frequency.
- * Implements .recalc_rate, .set_rate and .round_rate
+ * Implements .recalc_rate, .set_rate and .determine_rate
  *
  * @flags:
  * CLK_MULTIPLIER_ZERO_BYPASS - By default, the multiplier is the value read
@@ -1435,26 +1441,6 @@ static inline void __clk_hw_set_clk(struct clk_hw *dst, struct clk_hw *src)
 {
 	dst->clk = src->clk;
 	dst->core = src->core;
-}
-
-static inline long divider_round_rate(struct clk_hw *hw, unsigned long rate,
-				      unsigned long *prate,
-				      const struct clk_div_table *table,
-				      u8 width, unsigned long flags)
-{
-	return divider_round_rate_parent(hw, clk_hw_get_parent(hw),
-					 rate, prate, table, width, flags);
-}
-
-static inline long divider_ro_round_rate(struct clk_hw *hw, unsigned long rate,
-					 unsigned long *prate,
-					 const struct clk_div_table *table,
-					 u8 width, unsigned long flags,
-					 unsigned int val)
-{
-	return divider_ro_round_rate_parent(hw, clk_hw_get_parent(hw),
-					    rate, prate, table, width, flags,
-					    val);
 }
 
 /*

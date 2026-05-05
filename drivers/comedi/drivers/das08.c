@@ -453,17 +453,6 @@ int das08_common_attach(struct comedi_device *dev, unsigned long iobase)
 }
 EXPORT_SYMBOL_GPL(das08_common_attach);
 
-static int __init das08_init(void)
-{
-	return 0;
-}
-module_init(das08_init);
-
-static void __exit das08_exit(void)
-{
-}
-module_exit(das08_exit);
-
 MODULE_AUTHOR("Comedi https://www.comedi.org");
 MODULE_DESCRIPTION("Comedi common DAS08 support module");
 MODULE_LICENSE("GPL");

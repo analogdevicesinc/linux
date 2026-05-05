@@ -82,7 +82,7 @@ fi
 _prep_test "generic" "test UBLK_F_NO_AUTO_PART_SCAN"
 
 if ! _have_feature "UBLK_F_NO_AUTO_PART_SCAN"; then
-	_cleanup_test "generic"
+	_cleanup_test
 	exit "$UBLK_SKIP_CODE"
 fi
 
@@ -100,5 +100,5 @@ format_backing_file "${UBLK_BACKFILES[0]}"
 [ "$ERR_CODE" -eq 0 ] && test_no_auto_part_scan "${UBLK_BACKFILES[0]}"
 [ $? -ne 0 ] && ERR_CODE=255
 
-_cleanup_test "generic"
+_cleanup_test
 _show_result $TID $ERR_CODE

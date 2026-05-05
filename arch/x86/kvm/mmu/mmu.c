@@ -2941,6 +2941,15 @@ int mmu_try_to_unsync_pages(struct kvm *kvm, const struct kvm_memory_slot *slot,
 		return -EPERM;
 
 	/*
+	 * Only 4KiB mappings can become unsync, and KVM disallows hugepages
+	 * when accounting 4KiB shadow pages.  Upper-level gPTEs are always
+	 * write-protected (see above), thus if the gfn can be mapped with a
+	 * hugepage and isn't write-tracked, it can't have a shadow page.
+	 */
+	if (!lpage_info_slot(gfn, slot, PG_LEVEL_2M)->disallow_lpage)
+		return 0;
+
+	/*
 	 * The page is not write-tracked, mark existing shadow pages unsync
 	 * unless KVM is synchronizing an unsync SP.  In that case, KVM must
 	 * complete emulation of the guest TLB flush before allowing shadow
@@ -3044,12 +3053,6 @@ static int mmu_set_spte(struct kvm_vcpu *vcpu, struct kvm_memory_slot *slot,
 	bool prefetch = !fault || fault->prefetch;
 	bool write_fault = fault && fault->write;
 
-	if (unlikely(is_noslot_pfn(pfn))) {
-		vcpu->stat.pf_mmio_spte_created++;
-		mark_mmio_spte(vcpu, sptep, gfn, pte_access);
-		return RET_PF_EMULATE;
-	}
-
 	if (is_shadow_present_pte(*sptep)) {
 		if (prefetch && is_last_spte(*sptep, level) &&
 		    pfn == spte_to_pfn(*sptep))
@@ -3066,11 +3069,20 @@ static int mmu_set_spte(struct kvm_vcpu *vcpu, struct kvm_memory_slot *slot,
 			child = spte_to_child_sp(pte);
 			drop_parent_pte(vcpu->kvm, child, sptep);
 			flush = true;
-		} else if (WARN_ON_ONCE(pfn != spte_to_pfn(*sptep))) {
+		} else if (pfn != spte_to_pfn(*sptep)) {
+			WARN_ON_ONCE(vcpu->arch.mmu->root_role.direct);
 			drop_spte(vcpu->kvm, sptep);
 			flush = true;
 		} else
 			was_rmapped = 1;
+	}
+
+	if (unlikely(is_noslot_pfn(pfn))) {
+		vcpu->stat.pf_mmio_spte_created++;
+		mark_mmio_spte(vcpu, sptep, gfn, pte_access);
+		if (flush)
+			kvm_flush_remote_tlbs_gfn(vcpu->kvm, gfn, level);
+		return RET_PF_EMULATE;
 	}
 
 	wrprot = make_spte(vcpu, sp, slot, pte_access, gfn, pfn, *sptep, prefetch,
@@ -7487,8 +7499,13 @@ static void kvm_wake_nx_recovery_thread(struct kvm *kvm)
 
 static int get_nx_huge_pages(char *buffer, const struct kernel_param *kp)
 {
+	int val = *(int *)kp->arg;
+
 	if (nx_hugepage_mitigation_hard_disabled)
 		return sysfs_emit(buffer, "never\n");
+
+	if (val == -1)
+		return sysfs_emit(buffer, "auto\n");
 
 	return param_get_bool(buffer, kp);
 }

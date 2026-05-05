@@ -39,5 +39,5 @@ ublk_io_and_kill_daemon 256M -t stripe -q 4 -b "${UBLK_BACKFILES[1]}" "${UBLK_BA
 ublk_io_and_kill_daemon 8G -t null -q 4 -z --auto_zc --auto_zc_fallback -b &
 wait
 
-_cleanup_test "stress"
+_cleanup_test
 _show_result $TID $ERR_CODE

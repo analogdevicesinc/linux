@@ -181,6 +181,16 @@ enum dc_edid_status dm_helpers_read_local_edid(
 		struct dc_link *link,
 		struct dc_sink *sink);
 
+void dm_helpers_read_mccs_caps(
+		struct dc_context *ctx,
+		struct dc_link *link,
+		struct dc_sink *sink);
+
+void dm_helpers_mccs_vcp_set(
+		struct dc_context *ctx,
+		struct dc_link *link,
+		struct dc_sink *sink);
+
 bool dm_helpers_dp_handle_test_pattern_request(
 		struct dc_context *ctx,
 		const struct dc_link *link,

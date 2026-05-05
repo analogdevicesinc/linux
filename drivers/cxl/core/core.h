@@ -50,6 +50,8 @@ int cxl_get_poison_by_endpoint(struct cxl_port *port);
 struct cxl_region *cxl_dpa_to_region(const struct cxl_memdev *cxlmd, u64 dpa);
 u64 cxl_dpa_to_hpa(struct cxl_region *cxlr, const struct cxl_memdev *cxlmd,
 		   u64 dpa);
+int devm_cxl_add_dax_region(struct cxl_region *cxlr);
+int devm_cxl_add_pmem_region(struct cxl_region *cxlr);
 
 #else
 static inline u64 cxl_dpa_to_hpa(struct cxl_region *cxlr,
@@ -152,6 +154,24 @@ int cxl_pci_get_bandwidth(struct pci_dev *pdev, struct access_coordinate *c);
 int cxl_port_get_switch_dport_bandwidth(struct cxl_port *port,
 					struct access_coordinate *c);
 
+static inline struct device *port_to_host(struct cxl_port *port)
+{
+	struct cxl_port *parent = is_cxl_root(port) ? NULL :
+				  to_cxl_port(port->dev.parent);
+
+	/*
+	 * The host of CXL root port and the first level of ports is
+	 * the platform firmware device, the host of all other ports
+	 * is their parent port.
+	 */
+	if (!parent)
+		return port->uport_dev;
+	else if (is_cxl_root(parent))
+		return parent->uport_dev;
+	else
+		return &parent->dev;
+}
+
 static inline struct device *dport_to_host(struct cxl_dport *dport)
 {
 	struct cxl_port *port = dport->port;
@@ -206,4 +226,6 @@ int cxl_set_feature(struct cxl_mailbox *cxl_mbox, const uuid_t *feat_uuid,
 		    u16 *return_code);
 #endif
 
+resource_size_t cxl_rcd_component_reg_phys(struct device *dev,
+					   struct cxl_dport *dport);
 #endif /* __CXL_CORE_H__ */

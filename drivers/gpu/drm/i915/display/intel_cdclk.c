@@ -27,9 +27,9 @@
 
 #include <drm/drm_fixed.h>
 #include <drm/drm_print.h>
+#include <drm/intel/intel_pcode_regs.h>
 
 #include "hsw_ips.h"
-#include "i915_reg.h"
 #include "intel_atomic.h"
 #include "intel_audio.h"
 #include "intel_cdclk.h"
@@ -42,8 +42,8 @@
 #include "intel_display_wa.h"
 #include "intel_dram.h"
 #include "intel_mchbar_regs.h"
+#include "intel_parent.h"
 #include "intel_pci_config.h"
-#include "intel_pcode.h"
 #include "intel_plane.h"
 #include "intel_psr.h"
 #include "intel_step.h"
@@ -888,7 +888,7 @@ static void bdw_set_cdclk(struct intel_display *display,
 		     "trying to change cdclk frequency with cdclk not enabled\n"))
 		return;
 
-	ret = intel_pcode_write(display->drm, BDW_PCODE_DISPLAY_FREQ_CHANGE_REQ, 0x0);
+	ret = intel_parent_pcode_write(display, BDW_PCODE_DISPLAY_FREQ_CHANGE_REQ, 0x0);
 	if (ret) {
 		drm_err(display->drm,
 			"failed to inform pcode about cdclk change\n");
@@ -918,8 +918,8 @@ static void bdw_set_cdclk(struct intel_display *display,
 	if (ret)
 		drm_err(display->drm, "Switching back to LCPLL failed\n");
 
-	intel_pcode_write(display->drm, HSW_PCODE_DE_WRITE_FREQ_REQ,
-			  cdclk_config->voltage_level);
+	intel_parent_pcode_write(display, HSW_PCODE_DE_WRITE_FREQ_REQ,
+				 cdclk_config->voltage_level);
 
 	intel_de_write(display, CDCLK_FREQ,
 		       DIV_ROUND_CLOSEST(cdclk, 1000) - 1);
@@ -1175,10 +1175,10 @@ static void skl_set_cdclk(struct intel_display *display,
 	drm_WARN_ON_ONCE(display->drm,
 			 display->platform.skylake && vco == 8640000);
 
-	ret = intel_pcode_request(display->drm, SKL_PCODE_CDCLK_CONTROL,
-				  SKL_CDCLK_PREPARE_FOR_CHANGE,
-				  SKL_CDCLK_READY_FOR_CHANGE,
-				  SKL_CDCLK_READY_FOR_CHANGE, 3);
+	ret = intel_parent_pcode_request(display, SKL_PCODE_CDCLK_CONTROL,
+					 SKL_CDCLK_PREPARE_FOR_CHANGE,
+					 SKL_CDCLK_READY_FOR_CHANGE,
+					 SKL_CDCLK_READY_FOR_CHANGE, 3);
 	if (ret) {
 		drm_err(display->drm,
 			"Failed to inform PCU about cdclk change (%d)\n", ret);
@@ -1221,8 +1221,8 @@ static void skl_set_cdclk(struct intel_display *display,
 	intel_de_posting_read(display, CDCLK_CTL);
 
 	/* inform PCU of the change */
-	intel_pcode_write(display->drm, SKL_PCODE_CDCLK_CONTROL,
-			  cdclk_config->voltage_level);
+	intel_parent_pcode_write(display, SKL_PCODE_CDCLK_CONTROL,
+				 cdclk_config->voltage_level);
 
 	intel_update_cdclk(display);
 }
@@ -1870,7 +1870,7 @@ static void icl_cdclk_pll_disable(struct intel_display *display)
 	 *      after the PLL is enabled (which is already done as part of the
 	 *      normal flow of _bxt_set_cdclk()).
 	 */
-	if (intel_display_wa(display, 13012396614))
+	if (intel_display_wa(display, INTEL_DISPLAY_WA_13012396614))
 		intel_de_rmw(display, CDCLK_CTL, MDCLK_SOURCE_SEL_MASK, MDCLK_SOURCE_SEL_CD2XCLK);
 
 	intel_de_rmw(display, BXT_DE_PLL_ENABLE,
@@ -2186,7 +2186,8 @@ static u32 bxt_cdclk_ctl(struct intel_display *display,
 		 * icl_cdclk_pll_disable().  Here we are just making sure
 		 * we keep the expected value.
 		 */
-		if (intel_display_wa(display, 13012396614) && vco == 0)
+		if (intel_display_wa(display, INTEL_DISPLAY_WA_13012396614) &&
+		    vco == 0)
 			val |= MDCLK_SOURCE_SEL_CD2XCLK;
 		else
 			val |= xe2lpd_mdclk_source_sel(display);
@@ -2247,18 +2248,18 @@ static void bxt_set_cdclk(struct intel_display *display,
 	if (DISPLAY_VER(display) >= 14 || display->platform.dg2)
 		; /* NOOP */
 	else if (DISPLAY_VER(display) >= 11)
-		ret = intel_pcode_request(display->drm, SKL_PCODE_CDCLK_CONTROL,
-					  SKL_CDCLK_PREPARE_FOR_CHANGE,
-					  SKL_CDCLK_READY_FOR_CHANGE,
-					  SKL_CDCLK_READY_FOR_CHANGE, 3);
+		ret = intel_parent_pcode_request(display, SKL_PCODE_CDCLK_CONTROL,
+						 SKL_CDCLK_PREPARE_FOR_CHANGE,
+						 SKL_CDCLK_READY_FOR_CHANGE,
+						 SKL_CDCLK_READY_FOR_CHANGE, 3);
 	else
 		/*
 		 * BSpec requires us to wait up to 150usec, but that leads to
 		 * timeouts; the 2ms used here is based on experiment.
 		 */
-		ret = intel_pcode_write_timeout(display->drm,
-						HSW_PCODE_DE_WRITE_FREQ_REQ,
-						0x80000000, 2);
+		ret = intel_parent_pcode_write_timeout(display,
+						       HSW_PCODE_DE_WRITE_FREQ_REQ,
+						       0x80000000, 2);
 
 	if (ret) {
 		drm_err(display->drm,
@@ -2287,8 +2288,8 @@ static void bxt_set_cdclk(struct intel_display *display,
 		 * Display versions 14 and beyond
 		 */;
 	else if (DISPLAY_VER(display) >= 11 && !display->platform.dg2)
-		ret = intel_pcode_write(display->drm, SKL_PCODE_CDCLK_CONTROL,
-					cdclk_config->voltage_level);
+		ret = intel_parent_pcode_write(display, SKL_PCODE_CDCLK_CONTROL,
+					       cdclk_config->voltage_level);
 	if (DISPLAY_VER(display) < 11) {
 		/*
 		 * The timeout isn't specified, the 2ms used here is based on
@@ -2296,9 +2297,9 @@ static void bxt_set_cdclk(struct intel_display *display,
 		 * FIXME: Waiting for the request completion could be delayed
 		 * until the next PCODE request based on BSpec.
 		 */
-		ret = intel_pcode_write_timeout(display->drm,
-						HSW_PCODE_DE_WRITE_FREQ_REQ,
-						cdclk_config->voltage_level, 2);
+		ret = intel_parent_pcode_write_timeout(display,
+						       HSW_PCODE_DE_WRITE_FREQ_REQ,
+						       cdclk_config->voltage_level, 2);
 	}
 	if (ret) {
 		drm_err(display->drm,
@@ -2598,11 +2599,11 @@ static void intel_pcode_notify(struct intel_display *display,
 	if (pipe_count_update_valid)
 		update_mask |= DISPLAY_TO_PCODE_PIPE_COUNT_VALID;
 
-	ret = intel_pcode_request(display->drm, SKL_PCODE_CDCLK_CONTROL,
-				  SKL_CDCLK_PREPARE_FOR_CHANGE |
-				  update_mask,
-				  SKL_CDCLK_READY_FOR_CHANGE,
-				  SKL_CDCLK_READY_FOR_CHANGE, 3);
+	ret = intel_parent_pcode_request(display, SKL_PCODE_CDCLK_CONTROL,
+					 SKL_CDCLK_PREPARE_FOR_CHANGE |
+					 update_mask,
+					 SKL_CDCLK_READY_FOR_CHANGE,
+					 SKL_CDCLK_READY_FOR_CHANGE, 3);
 	if (ret)
 		drm_err(display->drm,
 			"Failed to inform PCU about display config (err %d)\n",
@@ -2967,6 +2968,53 @@ static int intel_cdclk_update_crtc_min_cdclk(struct intel_atomic_state *state,
 		    "[CRTC:%d:%s] min cdclk: %d kHz -> %d kHz\n",
 		    crtc->base.base.id, crtc->base.name,
 		    old_min_cdclk, new_min_cdclk);
+
+	return 0;
+}
+
+static int intel_cdclk_update_crtc_min_voltage_level(struct intel_atomic_state *state,
+						     struct intel_crtc *crtc,
+						     u8 old_min_voltage_level,
+						     u8 new_min_voltage_level,
+						     bool *need_cdclk_calc)
+{
+	struct intel_display *display = to_intel_display(state);
+	struct intel_cdclk_state *cdclk_state;
+	bool allow_voltage_level_decrease = intel_any_crtc_needs_modeset(state);
+	int ret;
+
+	if (new_min_voltage_level == old_min_voltage_level)
+		return 0;
+
+	if (!allow_voltage_level_decrease &&
+	    new_min_voltage_level < old_min_voltage_level)
+		return 0;
+
+	cdclk_state = intel_atomic_get_cdclk_state(state);
+	if (IS_ERR(cdclk_state))
+		return PTR_ERR(cdclk_state);
+
+	old_min_voltage_level = cdclk_state->min_voltage_level[crtc->pipe];
+
+	if (new_min_voltage_level == old_min_voltage_level)
+		return 0;
+
+	if (!allow_voltage_level_decrease &&
+	    new_min_voltage_level < old_min_voltage_level)
+		return 0;
+
+	cdclk_state->min_voltage_level[crtc->pipe] = new_min_voltage_level;
+
+	ret = intel_atomic_lock_global_state(&cdclk_state->base);
+	if (ret)
+		return ret;
+
+	*need_cdclk_calc = true;
+
+	drm_dbg_kms(display->drm,
+		    "[CRTC:%d:%s] min voltage level: %d -> %d\n",
+		    crtc->base.base.id, crtc->base.name,
+		    old_min_voltage_level, new_min_voltage_level);
 
 	return 0;
 }
@@ -3384,6 +3432,13 @@ static int intel_crtcs_calc_min_cdclk(struct intel_atomic_state *state,
 							old_crtc_state->min_cdclk,
 							new_crtc_state->min_cdclk,
 							need_cdclk_calc);
+		if (ret)
+			return ret;
+
+		ret = intel_cdclk_update_crtc_min_voltage_level(state, crtc,
+								old_crtc_state->min_voltage_level,
+								new_crtc_state->min_voltage_level,
+								need_cdclk_calc);
 		if (ret)
 			return ret;
 	}
@@ -4006,7 +4061,7 @@ void intel_init_cdclk_hooks(struct intel_display *display)
 		display->cdclk.table = dg2_cdclk_table;
 	} else if (display->platform.alderlake_p) {
 		/* Wa_22011320316:adl-p[a0] */
-		if (display->platform.alderlake_p && IS_DISPLAY_STEP(display, STEP_A0, STEP_B0)) {
+		if (intel_display_wa(display, INTEL_DISPLAY_WA_22011320316)) {
 			display->cdclk.table = adlp_a_step_cdclk_table;
 			display->funcs.cdclk = &tgl_cdclk_funcs;
 		} else if (display->platform.alderlake_p_raptorlake_u) {

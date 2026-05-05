@@ -1000,9 +1000,7 @@ static void complete_signal(int sig, struct task_struct *p, enum pid_type type)
 	 * Found a killable thread.  If the signal will be fatal,
 	 * then start taking the whole group down immediately.
 	 */
-	if (sig_fatal(p, sig) &&
-	    (signal->core_state || !(signal->flags & SIGNAL_GROUP_EXIT)) &&
-	    !sigismember(&t->real_blocked, sig) &&
+	if (sig_fatal(p, sig) && !sigismember(&t->real_blocked, sig) &&
 	    (sig == SIGKILL || !p->ptrace)) {
 		/*
 		 * This signal will be fatal to the whole group.
@@ -2173,13 +2171,13 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 	bool autoreap = false;
 	u64 utime, stime;
 
-	WARN_ON_ONCE(sig == -1);
+	if (WARN_ON_ONCE(!valid_signal(sig)))
+		return false;
 
 	/* do_notify_parent_cldstop should have been called instead.  */
 	WARN_ON_ONCE(task_is_stopped_or_traced(tsk));
 
-	WARN_ON_ONCE(!tsk->ptrace &&
-	       (tsk->group_leader != tsk || !thread_group_empty(tsk)));
+	WARN_ON_ONCE(!tsk->ptrace && !thread_group_empty(tsk));
 
 	/* ptraced, or group-leader without sub-threads */
 	do_notify_pidfd(tsk);
@@ -2251,11 +2249,15 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 		if (psig->action[SIGCHLD-1].sa.sa_handler == SIG_IGN)
 			sig = 0;
 	}
+	if (!tsk->ptrace && tsk->signal->autoreap) {
+		autoreap = true;
+		sig = 0;
+	}
 	/*
 	 * Send with __send_signal as si_pid and si_uid are in the
 	 * parent's namespaces.
 	 */
-	if (valid_signal(sig) && sig)
+	if (sig)
 		__send_signal_locked(sig, &info, tsk->parent, PIDTYPE_TGID, false);
 	__wake_up_parent(tsk, tsk->parent);
 	spin_unlock_irqrestore(&psig->siglock, flags);
@@ -2814,8 +2816,9 @@ bool get_signal(struct ksignal *ksig)
 
 	/*
 	 * Do this once, we can't return to user-mode if freezing() == T.
-	 * do_signal_stop() and ptrace_stop() do freezable_schedule() and
-	 * thus do not need another check after return.
+	 * do_signal_stop() and ptrace_stop() set TASK_STOPPED/TASK_TRACED
+	 * and the freezer handles those states via TASK_FROZEN, thus they
+	 * do not need another check after return.
 	 */
 	try_to_freeze();
 

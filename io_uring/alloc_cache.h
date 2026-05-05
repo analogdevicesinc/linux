@@ -64,7 +64,7 @@ static inline void *io_cache_alloc(struct io_alloc_cache *cache, gfp_t gfp)
 static inline void io_cache_free(struct io_alloc_cache *cache, void *obj)
 {
 	if (!io_alloc_cache_put(cache, obj))
-		kfree(obj);
+		kvfree(obj);
 }
 
 #endif

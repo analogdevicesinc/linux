@@ -47,7 +47,7 @@ static int bmp380_regmap_spi_read(void *context, const void *reg,
 		return -EINVAL;
 
 	/*
-	 * According to the BMP3xx datasheets, for a basic SPI read opertion,
+	 * According to the BMP3xx datasheets, for a basic SPI read operation,
 	 * the first byte needs to be dropped and the rest are the requested
 	 * data.
 	 */

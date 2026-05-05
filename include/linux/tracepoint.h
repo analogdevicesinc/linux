@@ -122,6 +122,22 @@ static inline bool tracepoint_is_faultable(struct tracepoint *tp)
 {
 	return tp->ext && tp->ext->faultable;
 }
+/*
+ * Run RCU callback with the appropriate grace period wait for non-faultable
+ * tracepoints, e.g., those used in atomic context.
+ */
+static inline void call_tracepoint_unregister_atomic(struct rcu_head *rcu, rcu_callback_t func)
+{
+	call_srcu(&tracepoint_srcu, rcu, func);
+}
+/*
+ * Run RCU callback with the appropriate grace period wait for faultable
+ * tracepoints, e.g., those used in syscall context.
+ */
+static inline void call_tracepoint_unregister_syscall(struct rcu_head *rcu, rcu_callback_t func)
+{
+	call_rcu_tasks_trace(rcu, func);
+}
 #else
 static inline void tracepoint_synchronize_unregister(void)
 { }
@@ -129,6 +145,10 @@ static inline bool tracepoint_is_faultable(struct tracepoint *tp)
 {
 	return false;
 }
+static inline void call_tracepoint_unregister_atomic(struct rcu_head *rcu, rcu_callback_t func)
+{  }
+static inline void call_tracepoint_unregister_syscall(struct rcu_head *rcu, rcu_callback_t func)
+{  }
 #endif
 
 #ifdef CONFIG_HAVE_SYSCALL_TRACEPOINTS
@@ -294,6 +314,10 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 			WARN_ONCE(!rcu_is_watching(),			\
 				  "RCU not watching for tracepoint");	\
 		}							\
+	}								\
+	static inline void trace_call__##name(proto)			\
+	{								\
+		__do_trace_##name(args);				\
 	}
 
 #define __DECLARE_TRACE_SYSCALL(name, proto, args, data_proto)		\
@@ -313,6 +337,11 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 			WARN_ONCE(!rcu_is_watching(),			\
 				  "RCU not watching for tracepoint");	\
 		}							\
+	}								\
+	static inline void trace_call__##name(proto)			\
+	{								\
+		might_fault();						\
+		__do_trace_##name(args);				\
 	}
 
 /*
@@ -397,6 +426,8 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 #else /* !TRACEPOINTS_ENABLED */
 #define __DECLARE_TRACE_COMMON(name, proto, args, data_proto)		\
 	static inline void trace_##name(proto)				\
+	{ }								\
+	static inline void trace_call__##name(proto)			\
 	{ }								\
 	static inline int						\
 	register_trace_##name(void (*probe)(data_proto),		\

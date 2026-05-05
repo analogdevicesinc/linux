@@ -78,17 +78,21 @@ static int UVERBS_HANDLER(UVERBS_METHOD_CQ_CREATE)(
 	int buffer_fd;
 	int ret;
 
-	if ((!ib_dev->ops.create_cq && !ib_dev->ops.create_cq_umem) || !ib_dev->ops.destroy_cq)
+	if ((!ib_dev->ops.create_cq && !ib_dev->ops.create_user_cq) ||
+	    !ib_dev->ops.destroy_cq)
 		return -EOPNOTSUPP;
 
 	ret = uverbs_copy_from(&attr.comp_vector, attrs,
 			       UVERBS_ATTR_CREATE_CQ_COMP_VECTOR);
-	if (!ret)
-		ret = uverbs_copy_from(&attr.cqe, attrs,
-				       UVERBS_ATTR_CREATE_CQ_CQE);
-	if (!ret)
-		ret = uverbs_copy_from(&user_handle, attrs,
-				       UVERBS_ATTR_CREATE_CQ_USER_HANDLE);
+	if (ret)
+		return ret;
+
+	ret = uverbs_copy_from(&attr.cqe, attrs, UVERBS_ATTR_CREATE_CQ_CQE);
+	if (ret || !attr.cqe)
+		return ret ? : -EINVAL;
+
+	ret = uverbs_copy_from(&user_handle, attrs,
+			       UVERBS_ATTR_CREATE_CQ_USER_HANDLE);
 	if (ret)
 		return ret;
 
@@ -130,7 +134,7 @@ static int UVERBS_HANDLER(UVERBS_METHOD_CQ_CREATE)(
 
 		if (uverbs_attr_is_valid(attrs, UVERBS_ATTR_CREATE_CQ_BUFFER_FD) ||
 		    uverbs_attr_is_valid(attrs, UVERBS_ATTR_CREATE_CQ_BUFFER_OFFSET) ||
-		    !ib_dev->ops.create_cq_umem) {
+		    !ib_dev->ops.create_user_cq) {
 			ret = -EINVAL;
 			goto err_event_file;
 		}
@@ -155,7 +159,7 @@ static int UVERBS_HANDLER(UVERBS_METHOD_CQ_CREATE)(
 			goto err_event_file;
 
 		if (uverbs_attr_is_valid(attrs, UVERBS_ATTR_CREATE_CQ_BUFFER_VA) ||
-		    !ib_dev->ops.create_cq_umem) {
+		    !ib_dev->ops.create_user_cq) {
 			ret = -EINVAL;
 			goto err_event_file;
 		}
@@ -168,8 +172,7 @@ static int UVERBS_HANDLER(UVERBS_METHOD_CQ_CREATE)(
 		}
 		umem = &umem_dmabuf->umem;
 	} else if (uverbs_attr_is_valid(attrs, UVERBS_ATTR_CREATE_CQ_BUFFER_OFFSET) ||
-		   uverbs_attr_is_valid(attrs, UVERBS_ATTR_CREATE_CQ_BUFFER_LENGTH) ||
-		   !ib_dev->ops.create_cq) {
+		   uverbs_attr_is_valid(attrs, UVERBS_ATTR_CREATE_CQ_BUFFER_LENGTH)) {
 		ret = -EINVAL;
 		goto err_event_file;
 	}
@@ -186,15 +189,25 @@ static int UVERBS_HANDLER(UVERBS_METHOD_CQ_CREATE)(
 	cq->comp_handler  = ib_uverbs_comp_handler;
 	cq->event_handler = ib_uverbs_cq_event_handler;
 	cq->cq_context    = ev_file ? &ev_file->ev_queue : NULL;
+	/*
+	 * If UMEM is not provided here, legacy drivers will set it during
+	 * CQ creation based on their internal udata.
+	 */
+	cq->umem = umem;
 	atomic_set(&cq->usecnt, 0);
 
 	rdma_restrack_new(&cq->res, RDMA_RESTRACK_CQ);
 	rdma_restrack_set_name(&cq->res, NULL);
 
-	ret = umem ? ib_dev->ops.create_cq_umem(cq, &attr, umem, attrs) :
-		ib_dev->ops.create_cq(cq, &attr, attrs);
+	if (ib_dev->ops.create_user_cq)
+		ret = ib_dev->ops.create_user_cq(cq, &attr, attrs);
+	else
+		ret = ib_dev->ops.create_cq(cq, &attr, attrs);
 	if (ret)
 		goto err_free;
+
+	/* Check that driver didn't overrun existing umem */
+	WARN_ON(umem && cq->umem != umem);
 
 	obj->uevent.uobject.object = cq;
 	obj->uevent.uobject.user_handle = user_handle;
@@ -206,7 +219,7 @@ static int UVERBS_HANDLER(UVERBS_METHOD_CQ_CREATE)(
 	return ret;
 
 err_free:
-	ib_umem_release(umem);
+	ib_umem_release(cq->umem);
 	rdma_restrack_put(&cq->res);
 	kfree(cq);
 err_event_file:

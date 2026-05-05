@@ -23,18 +23,21 @@
 /* PMIC GPIO Types */
 #define INT3472_GPIO_TYPE_RESET					0x00
 #define INT3472_GPIO_TYPE_POWERDOWN				0x01
+#define INT3472_GPIO_TYPE_STROBE				0x02
 #define INT3472_GPIO_TYPE_POWER_ENABLE				0x0b
 #define INT3472_GPIO_TYPE_CLK_ENABLE				0x0c
 #define INT3472_GPIO_TYPE_PRIVACY_LED				0x0d
+#define INT3472_GPIO_TYPE_DOVDD					0x10
 #define INT3472_GPIO_TYPE_HANDSHAKE				0x12
 #define INT3472_GPIO_TYPE_HOTPLUG_DETECT			0x13
 
 #define INT3472_PDEV_MAX_NAME_LEN				23
 #define INT3472_MAX_SENSOR_GPIOS				3
+#define INT3472_MAX_LEDS					2
 #define INT3472_MAX_REGULATORS					3
 
-/* E.g. "avdd\0" */
-#define GPIO_SUPPLY_NAME_LENGTH				5
+/* E.g. "dovdd\0" */
+#define GPIO_SUPPLY_NAME_LENGTH				6
 /* 12 chars for acpi_dev_name() + "-", e.g. "ABCD1234:00-" */
 #define GPIO_REGULATOR_NAME_LENGTH				(12 + GPIO_SUPPLY_NAME_LENGTH)
 /* lower- and upper-case mapping */
@@ -121,16 +124,17 @@ struct int3472_discrete_device {
 		u8 imgclk_index;
 	} clock;
 
-	struct int3472_pled {
+	struct int3472_led {
 		struct led_classdev classdev;
 		struct led_lookup_data lookup;
 		char name[INT3472_LED_MAX_NAME_LEN];
 		struct gpio_desc *gpio;
-	} pled;
+	} leds[INT3472_MAX_LEDS];
 
 	struct int3472_discrete_quirks quirks;
 
 	unsigned int ngpios; /* how many GPIOs have we seen */
+	unsigned int n_leds; /* how many LEDs have we registered */
 	unsigned int n_sensor_gpios; /* how many have we mapped to sensor */
 	unsigned int n_regulator_gpios; /* how many have we mapped to a regulator */
 	struct gpiod_lookup_table gpios;
@@ -160,7 +164,8 @@ int skl_int3472_register_regulator(struct int3472_discrete_device *int3472,
 				   const char *second_sensor);
 void skl_int3472_unregister_regulator(struct int3472_discrete_device *int3472);
 
-int skl_int3472_register_pled(struct int3472_discrete_device *int3472, struct gpio_desc *gpio);
-void skl_int3472_unregister_pled(struct int3472_discrete_device *int3472);
+int skl_int3472_register_led(struct int3472_discrete_device *int3472, struct gpio_desc *gpio,
+			     const char *con_id);
+void skl_int3472_unregister_leds(struct int3472_discrete_device *int3472);
 
 #endif

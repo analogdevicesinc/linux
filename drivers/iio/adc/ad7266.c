@@ -409,10 +409,8 @@ static int ad7266_probe(struct spi_device *spi)
 				st->gpios[i] = devm_gpiod_get(&spi->dev,
 						      ad7266_gpio_labels[i],
 						      GPIOD_OUT_LOW);
-				if (IS_ERR(st->gpios[i])) {
-					ret = PTR_ERR(st->gpios[i]);
-					return ret;
-				}
+				if (IS_ERR(st->gpios[i]))
+					return PTR_ERR(st->gpios[i]);
 			}
 		}
 	} else {

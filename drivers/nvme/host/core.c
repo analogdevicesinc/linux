@@ -1875,32 +1875,13 @@ static bool nvme_init_integrity(struct nvme_ns_head *head,
 		break;
 	}
 
+	bi->flags |= BLK_SPLIT_INTERVAL_CAPABLE;
 	bi->metadata_size = head->ms;
 	if (bi->csum_type) {
 		bi->pi_tuple_size = head->pi_size;
 		bi->pi_offset = info->pi_offset;
 	}
 	return true;
-}
-
-static void nvme_config_discard(struct nvme_ns *ns, struct queue_limits *lim)
-{
-	struct nvme_ctrl *ctrl = ns->ctrl;
-
-	if (ctrl->dmrsl && ctrl->dmrsl <= nvme_sect_to_lba(ns->head, UINT_MAX))
-		lim->max_hw_discard_sectors =
-			nvme_lba_to_sect(ns->head, ctrl->dmrsl);
-	else if (ctrl->oncs & NVME_CTRL_ONCS_DSM)
-		lim->max_hw_discard_sectors = UINT_MAX;
-	else
-		lim->max_hw_discard_sectors = 0;
-
-	lim->discard_granularity = lim->logical_block_size;
-
-	if (ctrl->dmrl)
-		lim->max_discard_segments = ctrl->dmrl;
-	else
-		lim->max_discard_segments = NVME_DSM_MAX_RANGES;
 }
 
 static bool nvme_ns_ids_equal(struct nvme_ns_ids *a, struct nvme_ns_ids *b)
@@ -2046,14 +2027,10 @@ static u32 nvme_configure_atomic_write(struct nvme_ns *ns,
 		if (id->nabspf)
 			boundary = (le16_to_cpu(id->nabspf) + 1) * bs;
 	} else {
-		/*
-		 * Use the controller wide atomic write unit.  This sucks
-		 * because the limit is defined in terms of logical blocks while
-		 * namespaces can have different formats, and because there is
-		 * no clear language in the specification prohibiting different
-		 * values for different controllers in the subsystem.
-		 */
-		atomic_bs = (1 + ns->ctrl->subsys->awupf) * bs;
+		if (ns->ctrl->awupf)
+			dev_info_once(ns->ctrl->device,
+				"AWUPF ignored, only NAWUPF accepted\n");
+		atomic_bs = bs;
 	}
 
 	lim->atomic_write_hw_max = atomic_bs;
@@ -2082,12 +2059,15 @@ static void nvme_set_ctrl_limits(struct nvme_ctrl *ctrl,
 }
 
 static bool nvme_update_disk_info(struct nvme_ns *ns, struct nvme_id_ns *id,
-		struct queue_limits *lim)
+		struct nvme_id_ns_nvm *nvm, struct queue_limits *lim)
 {
 	struct nvme_ns_head *head = ns->head;
+	struct nvme_ctrl *ctrl = ns->ctrl;
 	u32 bs = 1U << head->lba_shift;
 	u32 atomic_bs, phys_bs, io_opt = 0;
+	u32 npdg = 1, npda = 1;
 	bool valid = true;
+	u8 optperf;
 
 	/*
 	 * The block layer can't support LBA sizes larger than the page size
@@ -2102,7 +2082,12 @@ static bool nvme_update_disk_info(struct nvme_ns *ns, struct nvme_id_ns *id,
 	phys_bs = bs;
 	atomic_bs = nvme_configure_atomic_write(ns, id, lim, bs);
 
-	if (id->nsfeat & NVME_NS_FEAT_IO_OPT) {
+	optperf = id->nsfeat >> NVME_NS_FEAT_OPTPERF_SHIFT;
+	if (ctrl->vs >= NVME_VS(2, 1, 0))
+		optperf &= NVME_NS_FEAT_OPTPERF_MASK_2_1;
+	else
+		optperf &= NVME_NS_FEAT_OPTPERF_MASK;
+	if (optperf) {
 		/* NPWG = Namespace Preferred Write Granularity */
 		phys_bs = bs * (1 + le16_to_cpu(id->npwg));
 		/* NOWS = Namespace Optimal Write Size */
@@ -2119,11 +2104,54 @@ static bool nvme_update_disk_info(struct nvme_ns *ns, struct nvme_id_ns *id,
 	lim->physical_block_size = min(phys_bs, atomic_bs);
 	lim->io_min = phys_bs;
 	lim->io_opt = io_opt;
-	if ((ns->ctrl->quirks & NVME_QUIRK_DEALLOCATE_ZEROES) &&
-	    (ns->ctrl->oncs & NVME_CTRL_ONCS_DSM))
+	if ((ctrl->quirks & NVME_QUIRK_DEALLOCATE_ZEROES) &&
+	    (ctrl->oncs & NVME_CTRL_ONCS_DSM))
 		lim->max_write_zeroes_sectors = UINT_MAX;
 	else
-		lim->max_write_zeroes_sectors = ns->ctrl->max_zeroes_sectors;
+		lim->max_write_zeroes_sectors = ctrl->max_zeroes_sectors;
+
+	if (ctrl->dmrsl && ctrl->dmrsl <= nvme_sect_to_lba(ns->head, UINT_MAX))
+		lim->max_hw_discard_sectors =
+			nvme_lba_to_sect(ns->head, ctrl->dmrsl);
+	else if (ctrl->oncs & NVME_CTRL_ONCS_DSM)
+		lim->max_hw_discard_sectors = UINT_MAX;
+	else
+		lim->max_hw_discard_sectors = 0;
+
+	/*
+	 * NVMe namespaces advertise both a preferred deallocate granularity
+	 * (for a discard length) and alignment (for a discard starting offset).
+	 * However, Linux block devices advertise a single discard_granularity.
+	 * From NVM Command Set specification 1.1 section 5.2.2, the NPDGL/NPDAL
+	 * fields in the NVM Command Set Specific Identify Namespace structure
+	 * are preferred to NPDG/NPDA in the Identify Namespace structure since
+	 * they can represent larger values. However, NPDGL or NPDAL may be 0 if
+	 * unsupported. NPDG and NPDA are 0's based.
+	 * From Figure 115 of NVM Command Set specification 1.1, NPDGL and NPDAL
+	 * are supported if the high bit of OPTPERF is set. NPDG is supported if
+	 * the low bit of OPTPERF is set. NPDA is supported if either is set.
+	 * NPDG should be a multiple of NPDA, and likewise NPDGL should be a
+	 * multiple of NPDAL, but the spec doesn't say anything about NPDG vs.
+	 * NPDAL or NPDGL vs. NPDA. So compute the maximum instead of assuming
+	 * NPDG(L) is the larger. If neither NPDG, NPDGL, NPDA, nor NPDAL are
+	 * supported, default the discard_granularity to the logical block size.
+	 */
+	if (optperf & 0x2 && nvm && nvm->npdgl)
+		npdg = le32_to_cpu(nvm->npdgl);
+	else if (optperf & 0x1)
+		npdg = from0based(id->npdg);
+	if (optperf & 0x2 && nvm && nvm->npdal)
+		npda = le32_to_cpu(nvm->npdal);
+	else if (optperf)
+		npda = from0based(id->npda);
+	if (check_mul_overflow(max(npdg, npda), lim->logical_block_size,
+			       &lim->discard_granularity))
+		lim->discard_granularity = lim->logical_block_size;
+
+	if (ctrl->dmrl)
+		lim->max_discard_segments = ctrl->dmrl;
+	else
+		lim->max_discard_segments = NVME_DSM_MAX_RANGES;
 	return valid;
 }
 
@@ -2357,7 +2385,7 @@ static int nvme_update_ns_info_block(struct nvme_ns *ns,
 	}
 	lbaf = nvme_lbaf_index(id->flbas);
 
-	if (ns->ctrl->ctratt & NVME_CTRL_ATTR_ELBAS) {
+	if (nvme_id_cns_ok(ns->ctrl, NVME_ID_CNS_CS_NS)) {
 		ret = nvme_identify_ns_nvm(ns->ctrl, info->nsid, &nvm);
 		if (ret < 0)
 			goto out;
@@ -2385,10 +2413,9 @@ static int nvme_update_ns_info_block(struct nvme_ns *ns,
 	nvme_set_ctrl_limits(ns->ctrl, &lim, false);
 	nvme_configure_metadata(ns->ctrl, ns->head, id, nvm, info);
 	nvme_set_chunk_sectors(ns, id, &lim);
-	if (!nvme_update_disk_info(ns, id, &lim))
+	if (!nvme_update_disk_info(ns, id, nvm, &lim))
 		capacity = 0;
 
-	nvme_config_discard(ns, &lim);
 	if (IS_ENABLED(CONFIG_BLK_DEV_ZONED) &&
 	    ns->head->ids.csi == NVME_CSI_ZNS)
 		nvme_update_zone_info(ns, &lim, &zi);
@@ -3222,7 +3249,6 @@ static int nvme_init_subsystem(struct nvme_ctrl *ctrl, struct nvme_id_ctrl *id)
 	memcpy(subsys->model, id->mn, sizeof(subsys->model));
 	subsys->vendor_id = le16_to_cpu(id->vid);
 	subsys->cmic = id->cmic;
-	subsys->awupf = le16_to_cpu(id->awupf);
 
 	/* Versions prior to 1.4 don't necessarily report a valid type */
 	if (id->cntrltype == NVME_CTRL_DISC ||
@@ -3393,7 +3419,7 @@ static int nvme_init_non_mdts_limits(struct nvme_ctrl *ctrl)
 
 	ctrl->dmrl = id->dmrl;
 	ctrl->dmrsl = le32_to_cpu(id->dmrsl);
-	if (id->wzsl)
+	if (id->wzsl && !(ctrl->quirks & NVME_QUIRK_DISABLE_WRITE_ZEROES))
 		ctrl->max_zeroes_sectors = nvme_mps_to_sectors(ctrl, id->wzsl);
 
 free_data:
@@ -3655,6 +3681,7 @@ static int nvme_init_identify(struct nvme_ctrl *ctrl)
 		dev_pm_qos_expose_latency_tolerance(ctrl->device);
 	else if (!ctrl->apst_enabled && prev_apst_enabled)
 		dev_pm_qos_hide_latency_tolerance(ctrl->device);
+	ctrl->awupf = le16_to_cpu(id->awupf);
 out_free:
 	kfree(id);
 	return ret;
@@ -4185,13 +4212,6 @@ static void nvme_alloc_ns(struct nvme_ctrl *ctrl, struct nvme_ns_info *info)
 
 	nvme_mpath_add_disk(ns, info->anagrpid);
 	nvme_fault_inject_init(&ns->fault_inject, ns->disk->disk_name);
-
-	/*
-	 * Set ns->disk->device->driver_data to ns so we can access
-	 * ns->head->passthru_err_log_enabled in
-	 * nvme_io_passthru_err_log_enabled_[store | show]().
-	 */
-	dev_set_drvdata(disk_to_dev(ns->disk), ns);
 
 	return;
 
@@ -4845,7 +4865,6 @@ EXPORT_SYMBOL_GPL(nvme_complete_async_event);
 int nvme_alloc_admin_tag_set(struct nvme_ctrl *ctrl, struct blk_mq_tag_set *set,
 		const struct blk_mq_ops *ops, unsigned int cmd_size)
 {
-	struct queue_limits lim = {};
 	int ret;
 
 	memset(set, 0, sizeof(*set));
@@ -4865,7 +4884,14 @@ int nvme_alloc_admin_tag_set(struct nvme_ctrl *ctrl, struct blk_mq_tag_set *set,
 	if (ret)
 		return ret;
 
-	ctrl->admin_q = blk_mq_alloc_queue(set, &lim, NULL);
+	/*
+	 * If a previous admin queue exists (e.g., from before a reset),
+	 * put it now before allocating a new one to avoid orphaning it.
+	 */
+	if (ctrl->admin_q)
+		blk_put_queue(ctrl->admin_q);
+
+	ctrl->admin_q = blk_mq_alloc_queue(set, NULL, NULL);
 	if (IS_ERR(ctrl->admin_q)) {
 		ret = PTR_ERR(ctrl->admin_q);
 		goto out_free_tagset;

@@ -769,12 +769,15 @@ TRACE_EVENT(btrfs_sync_file,
 	),
 
 	TP_fast_assign(
-		const struct dentry *dentry = file->f_path.dentry;
-		const struct inode *inode = d_inode(dentry);
+		struct dentry *dentry = file_dentry(file);
+		struct inode *inode = file_inode(file);
+		struct dentry *parent = dget_parent(dentry);
+		struct inode *parent_inode = d_inode(parent);
 
-		TP_fast_assign_fsid(btrfs_sb(file->f_path.dentry->d_sb));
+		dput(parent);
+		TP_fast_assign_fsid(btrfs_sb(inode->i_sb));
 		__entry->ino		= btrfs_ino(BTRFS_I(inode));
-		__entry->parent		= btrfs_ino(BTRFS_I(d_inode(dentry->d_parent)));
+		__entry->parent		= btrfs_ino(BTRFS_I(parent_inode));
 		__entry->datasync	= datasync;
 		__entry->root_objectid	= btrfs_root_id(BTRFS_I(inode)->root);
 	),
@@ -1108,6 +1111,30 @@ TRACE_EVENT(btrfs_cow_block,
 		  __entry->buf_level,
 		  __entry->cow_start,
 		  __entry->cow_level)
+);
+
+TRACE_EVENT(btrfs_search_slot_restart,
+
+	TP_PROTO(const struct btrfs_root *root, int level,
+		 const char *reason),
+
+	TP_ARGS(root, level, reason),
+
+	TP_STRUCT__entry_btrfs(
+		__field(	u64,	root_objectid		)
+		__field(	int,	level			)
+		__string(	reason,	reason			)
+	),
+
+	TP_fast_assign_btrfs(root->fs_info,
+		__entry->root_objectid	= btrfs_root_id(root);
+		__entry->level		= level;
+		__assign_str(reason);
+	),
+
+	TP_printk_btrfs("root=%llu(%s) level=%d reason=%s",
+		  show_root_type(__entry->root_objectid),
+		  __entry->level, __get_str(reason))
 );
 
 TRACE_EVENT(btrfs_space_reservation,

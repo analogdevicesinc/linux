@@ -1841,6 +1841,7 @@ static const struct target_core_fabric_ops tcm_qla2xxx_ops = {
 	.tfc_tpg_base_attrs		= tcm_qla2xxx_tpg_attrs,
 	.tfc_tpg_attrib_attrs		= tcm_qla2xxx_tpg_attrib_attrs,
 
+	.default_compl_type		= TARGET_QUEUE_COMPL,
 	.default_submit_type		= TARGET_DIRECT_SUBMIT,
 	.direct_submit_supp		= 1,
 };
@@ -1881,6 +1882,7 @@ static const struct target_core_fabric_ops tcm_qla2xxx_npiv_ops = {
 
 	.tfc_wwn_attrs			= tcm_qla2xxx_wwn_attrs,
 
+	.default_compl_type		= TARGET_QUEUE_COMPL,
 	.default_submit_type		= TARGET_DIRECT_SUBMIT,
 	.direct_submit_supp		= 1,
 };

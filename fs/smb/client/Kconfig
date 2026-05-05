@@ -5,12 +5,11 @@ config CIFS
 	select NLS
 	select NLS_UCS2_UTILS
 	select CRYPTO
-	select CRYPTO_CMAC
 	select CRYPTO_AEAD2
 	select CRYPTO_CCM
 	select CRYPTO_GCM
-	select CRYPTO_ECB
 	select CRYPTO_AES
+	select CRYPTO_LIB_AES_CBC_MACS
 	select CRYPTO_LIB_ARC4
 	select CRYPTO_LIB_MD5
 	select CRYPTO_LIB_SHA256
@@ -181,7 +180,9 @@ if CIFS
 
 config CIFS_SMB_DIRECT
 	bool "SMB Direct support"
-	depends on CIFS=m && INFINIBAND && INFINIBAND_ADDR_TRANS || CIFS=y && INFINIBAND=y && INFINIBAND_ADDR_TRANS=y
+	depends on CIFS && INFINIBAND && INFINIBAND_ADDR_TRANS
+	depends on CIFS=m || INFINIBAND=y
+	select SMBDIRECT
 	help
 	  Enables SMB Direct support for SMB 3.0, 3.02 and 3.1.1.
 	  SMB Direct allows transferring SMB packets over RDMA. If unsure,
@@ -217,4 +218,15 @@ config CIFS_COMPRESSION
 	  Say Y here if you want SMB traffic to be compressed.
 	  If unsure, say N.
 
+config SMB1_KUNIT_TESTS
+	tristate "KUnit tests for SMB1"
+	depends on SMB_KUNIT_TESTS && CIFS_ALLOW_INSECURE_LEGACY
+	default SMB_KUNIT_TESTS
+	help
+	  This builds the SMB1-specific KUnit tests.
+
+	  These tests are only enabled when legacy insecure SMB1 support
+	  (CIFS_ALLOW_INSECURE_LEGACY) is enabled.
+
+	  If unsure, say N.
 endif

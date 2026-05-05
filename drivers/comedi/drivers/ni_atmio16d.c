@@ -574,7 +574,8 @@ static int atmio16d_attach(struct comedi_device *dev,
 	struct comedi_subdevice *s;
 	int ret;
 
-	ret = comedi_request_region(dev, it->options[0], 0x20);
+	ret = comedi_check_request_region(dev, it->options[0], 0x20,
+					  0, 0x3ff, 32);
 	if (ret)
 		return ret;
 
@@ -698,7 +699,8 @@ static int atmio16d_attach(struct comedi_device *dev,
 
 static void atmio16d_detach(struct comedi_device *dev)
 {
-	reset_atmio16d(dev);
+	if (dev->private)
+		reset_atmio16d(dev);
 	comedi_legacy_detach(dev);
 }
 

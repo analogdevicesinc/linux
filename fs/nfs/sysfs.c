@@ -11,8 +11,9 @@
 #include <linux/netdevice.h>
 #include <linux/string.h>
 #include <linux/nfs_fs.h>
+#include <net/net_namespace.h>
 #include <linux/rcupdate.h>
-#include <linux/lockd/lockd.h>
+#include <linux/lockd/bind.h>
 
 #include "internal.h"
 #include "nfs4_fs.h"
@@ -127,9 +128,10 @@ static void nfs_netns_client_release(struct kobject *kobj)
 	kfree(rcu_dereference_raw(c->identifier));
 }
 
-static const void *nfs_netns_client_namespace(const struct kobject *kobj)
+static const struct ns_common *nfs_netns_client_namespace(const struct kobject *kobj)
 {
-	return container_of(kobj, struct nfs_netns_client, kobject)->net;
+	return to_ns_common(container_of(kobj, struct nfs_netns_client,
+					 kobject)->net);
 }
 
 static struct kobj_attribute nfs_netns_client_id = __ATTR(identifier,
@@ -156,9 +158,10 @@ static void nfs_netns_object_release(struct kobject *kobj)
 	kfree(c);
 }
 
-static const void *nfs_netns_namespace(const struct kobject *kobj)
+static const struct ns_common *nfs_netns_namespace(const struct kobject *kobj)
 {
-	return container_of(kobj, struct nfs_netns_client, nfs_net_kobj)->net;
+	return to_ns_common(container_of(kobj, struct nfs_netns_client,
+					 nfs_net_kobj)->net);
 }
 
 static struct kobj_type nfs_netns_object_type = {
@@ -285,7 +288,7 @@ shutdown_store(struct kobject *kobj, struct kobj_attribute *attr,
 		shutdown_client(server->client_acl);
 
 	if (server->nlm_host)
-		shutdown_client(server->nlm_host->h_rpcclnt);
+		nlmclnt_shutdown_rpc_clnt(server->nlm_host);
 out:
 	shutdown_nfs_client(server->nfs_client);
 	return count;
@@ -350,9 +353,10 @@ static void nfs_sysfs_sb_release(struct kobject *kobj)
 	/* no-op: why? see lib/kobject.c kobject_cleanup() */
 }
 
-static const void *nfs_netns_server_namespace(const struct kobject *kobj)
+static const struct ns_common *nfs_netns_server_namespace(const struct kobject *kobj)
 {
-	return container_of(kobj, struct nfs_server, kobj)->nfs_client->cl_net;
+	return to_ns_common(container_of(kobj, struct nfs_server,
+					 kobj)->nfs_client->cl_net);
 }
 
 static struct kobj_type nfs_sb_ktype = {

@@ -733,6 +733,14 @@ static int mshv_assign_ioeventfd(struct mshv_partition *pt,
 	ret = mshv_register_doorbell(pt->pt_id, ioeventfd_mmio_write,
 				     (void *)pt, p->iovntfd_addr,
 				     p->iovntfd_datamatch, doorbell_flags);
+
+	trace_mshv_assign_ioeventfd(pt->pt_id, p->iovntfd_addr,
+				    p->iovntfd_length,
+				    p->iovntfd_datamatch,
+				    p->iovntfd_wildcard,
+				    p->iovntfd_eventfd,
+				    ret);
+
 	if (ret < 0)
 		goto unlock_fail;
 
@@ -779,6 +787,12 @@ static int mshv_deassign_ioeventfd(struct mshv_partition *pt,
 		if (!p->iovntfd_wildcard &&
 		    p->iovntfd_datamatch != args->datamatch)
 			continue;
+
+		trace_mshv_deassign_ioeventfd(pt->pt_id, p->iovntfd_addr,
+					      p->iovntfd_length,
+					      p->iovntfd_datamatch,
+					      p->iovntfd_wildcard,
+					      p->iovntfd_eventfd);
 
 		hlist_del_rcu(&p->iovntfd_hnode);
 		synchronize_rcu();

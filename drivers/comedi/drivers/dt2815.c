@@ -144,7 +144,8 @@ static int dt2815_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	const struct comedi_lrange *current_range_type, *voltage_range_type;
 	int ret;
 
-	ret = comedi_request_region(dev, it->options[0], 0x2);
+	ret = comedi_check_request_region(dev, it->options[0], 0x2,
+					  0x200, 0x3ff, 2);
 	if (ret)
 		return ret;
 
@@ -173,6 +174,18 @@ static int dt2815_attach(struct comedi_device *dev, struct comedi_devconfig *it)
 	for (i = 0; i < 8; i++) {
 		devpriv->range_type_list[i] = (it->options[5 + i])
 		    ? current_range_type : voltage_range_type;
+	}
+
+	/*
+	 * Check if hardware is present before attempting any I/O operations.
+	 * Reading 0xff from status register typically indicates no hardware
+	 * on the bus (floating bus reads as all 1s).
+	 */
+	if (inb(dev->iobase + DT2815_STATUS) == 0xff) {
+		dev_err(dev->class_dev,
+			"No hardware detected at I/O base 0x%lx\n",
+			dev->iobase);
+		return -ENODEV;
 	}
 
 	/* Init the 2815 */

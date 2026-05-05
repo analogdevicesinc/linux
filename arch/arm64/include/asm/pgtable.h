@@ -89,9 +89,9 @@ static inline void arch_leave_lazy_mmu_mode(void)
 
 /* Set stride and tlb_level in flush_*_tlb_range */
 #define flush_pmd_tlb_range(vma, addr, end)	\
-	__flush_tlb_range(vma, addr, end, PMD_SIZE, false, 2)
+	__flush_tlb_range(vma, addr, end, PMD_SIZE, 2, TLBF_NONE)
 #define flush_pud_tlb_range(vma, addr, end)	\
-	__flush_tlb_range(vma, addr, end, PUD_SIZE, false, 1)
+	__flush_tlb_range(vma, addr, end, PUD_SIZE, 1, TLBF_NONE)
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 
 /*
@@ -101,17 +101,11 @@ static inline void arch_leave_lazy_mmu_mode(void)
  * entries exist.
  */
 #define flush_tlb_fix_spurious_fault(vma, address, ptep)	\
-	local_flush_tlb_page_nonotify(vma, address)
+	__flush_tlb_page(vma, address, TLBF_NOBROADCAST | TLBF_NONOTIFY)
 
-#define flush_tlb_fix_spurious_fault_pmd(vma, address, pmdp)	\
-	local_flush_tlb_page_nonotify(vma, address)
-
-/*
- * ZERO_PAGE is a global shared page that is always zero: used
- * for zero-mapped memory areas etc..
- */
-extern unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)];
-#define ZERO_PAGE(vaddr)	phys_to_page(__pa_symbol(empty_zero_page))
+#define flush_tlb_fix_spurious_fault_pmd(vma, address, pmdp)			\
+	__flush_tlb_range(vma, address, address + PMD_SIZE, PMD_SIZE, 2,	\
+			  TLBF_NOBROADCAST | TLBF_NONOTIFY | TLBF_NOWALKCACHE)
 
 #define pte_ERROR(e)	\
 	pr_err("%s:%d: bad pte %016llx.\n", __FILE__, __LINE__, pte_val(e))
@@ -322,9 +316,11 @@ static inline pte_t pte_mknoncont(pte_t pte)
 	return clear_pte_bit(pte, __pgprot(PTE_CONT));
 }
 
-static inline pte_t pte_mkvalid(pte_t pte)
+static inline pte_t pte_mkvalid_k(pte_t pte)
 {
-	return set_pte_bit(pte, __pgprot(PTE_VALID));
+	pte = clear_pte_bit(pte, __pgprot(PTE_PRESENT_INVALID));
+	pte = set_pte_bit(pte, __pgprot(PTE_PRESENT_VALID_KERNEL));
+	return pte;
 }
 
 static inline pte_t pte_mkinvalid(pte_t pte)
@@ -594,6 +590,7 @@ static inline int pmd_protnone(pmd_t pmd)
 #define pmd_mkclean(pmd)	pte_pmd(pte_mkclean(pmd_pte(pmd)))
 #define pmd_mkdirty(pmd)	pte_pmd(pte_mkdirty(pmd_pte(pmd)))
 #define pmd_mkyoung(pmd)	pte_pmd(pte_mkyoung(pmd_pte(pmd)))
+#define pmd_mkvalid_k(pmd)	pte_pmd(pte_mkvalid_k(pmd_pte(pmd)))
 #define pmd_mkinvalid(pmd)	pte_pmd(pte_mkinvalid(pmd_pte(pmd)))
 #ifdef CONFIG_HAVE_ARCH_USERFAULTFD_WP
 #define pmd_uffd_wp(pmd)	pte_uffd_wp(pmd_pte(pmd))
@@ -635,6 +632,8 @@ static inline pmd_t pmd_mkspecial(pmd_t pmd)
 
 #define pud_young(pud)		pte_young(pud_pte(pud))
 #define pud_mkyoung(pud)	pte_pud(pte_mkyoung(pud_pte(pud)))
+#define pud_mkwrite_novma(pud)	pte_pud(pte_mkwrite_novma(pud_pte(pud)))
+#define pud_mkvalid_k(pud)	pte_pud(pte_mkvalid_k(pud_pte(pud)))
 #define pud_write(pud)		pte_write(pud_pte(pud))
 
 static inline pud_t pud_mkhuge(pud_t pud)
@@ -779,9 +778,13 @@ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 
 #define pmd_table(pmd)		((pmd_val(pmd) & PMD_TYPE_MASK) == \
 				 PMD_TYPE_TABLE)
-#define pmd_sect(pmd)		((pmd_val(pmd) & PMD_TYPE_MASK) == \
-				 PMD_TYPE_SECT)
-#define pmd_leaf(pmd)		(pmd_present(pmd) && !pmd_table(pmd))
+
+#define pmd_leaf pmd_leaf
+static inline bool pmd_leaf(pmd_t pmd)
+{
+	return pmd_present(pmd) && !pmd_table(pmd);
+}
+
 #define pmd_bad(pmd)		(!pmd_table(pmd))
 
 #define pmd_leaf_size(pmd)	(pmd_cont(pmd) ? CONT_PMD_SIZE : PMD_SIZE)
@@ -799,11 +802,8 @@ static inline int pmd_trans_huge(pmd_t pmd)
 #endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 
 #if defined(CONFIG_ARM64_64K_PAGES) || CONFIG_PGTABLE_LEVELS < 3
-static inline bool pud_sect(pud_t pud) { return false; }
 static inline bool pud_table(pud_t pud) { return true; }
 #else
-#define pud_sect(pud)		((pud_val(pud) & PUD_TYPE_MASK) == \
-				 PUD_TYPE_SECT)
 #define pud_table(pud)		((pud_val(pud) & PUD_TYPE_MASK) == \
 				 PUD_TYPE_TABLE)
 #endif
@@ -873,7 +873,11 @@ static inline unsigned long pmd_page_vaddr(pmd_t pmd)
 				 PUD_TYPE_TABLE)
 #define pud_present(pud)	pte_present(pud_pte(pud))
 #ifndef __PAGETABLE_PMD_FOLDED
-#define pud_leaf(pud)		(pud_present(pud) && !pud_table(pud))
+#define pud_leaf pud_leaf
+static inline bool pud_leaf(pud_t pud)
+{
+	return pud_present(pud) && !pud_table(pud);
+}
 #else
 #define pud_leaf(pud)		false
 #endif
@@ -1247,9 +1251,18 @@ static inline pmd_t pmd_modify(pmd_t pmd, pgprot_t newprot)
 	return pte_pmd(pte_modify(pmd_pte(pmd), newprot));
 }
 
-extern int __ptep_set_access_flags(struct vm_area_struct *vma,
-				 unsigned long address, pte_t *ptep,
-				 pte_t entry, int dirty);
+extern int __ptep_set_access_flags_anysz(struct vm_area_struct *vma,
+					 unsigned long address, pte_t *ptep,
+					 pte_t entry, int dirty,
+					 unsigned long pgsize);
+
+static inline int __ptep_set_access_flags(struct vm_area_struct *vma,
+					  unsigned long address, pte_t *ptep,
+					  pte_t entry, int dirty)
+{
+	return __ptep_set_access_flags_anysz(vma, address, ptep, entry, dirty,
+					     PAGE_SIZE);
+}
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 #define __HAVE_ARCH_PMDP_SET_ACCESS_FLAGS
@@ -1257,23 +1270,23 @@ static inline int pmdp_set_access_flags(struct vm_area_struct *vma,
 					unsigned long address, pmd_t *pmdp,
 					pmd_t entry, int dirty)
 {
-	return __ptep_set_access_flags(vma, address, (pte_t *)pmdp,
-							pmd_pte(entry), dirty);
+	return __ptep_set_access_flags_anysz(vma, address, (pte_t *)pmdp,
+					     pmd_pte(entry), dirty, PMD_SIZE);
 }
 #endif
 
 #ifdef CONFIG_PAGE_TABLE_CHECK
-static inline bool pte_user_accessible_page(pte_t pte, unsigned long addr)
+static inline bool pte_user_accessible_page(struct mm_struct *mm, unsigned long addr, pte_t pte)
 {
 	return pte_valid(pte) && (pte_user(pte) || pte_user_exec(pte));
 }
 
-static inline bool pmd_user_accessible_page(pmd_t pmd, unsigned long addr)
+static inline bool pmd_user_accessible_page(struct mm_struct *mm, unsigned long addr, pmd_t pmd)
 {
 	return pmd_valid(pmd) && !pmd_table(pmd) && (pmd_user(pmd) || pmd_user_exec(pmd));
 }
 
-static inline bool pud_user_accessible_page(pud_t pud, unsigned long addr)
+static inline bool pud_user_accessible_page(struct mm_struct *mm, unsigned long addr, pud_t pud)
 {
 	return pud_valid(pud) && !pud_table(pud) && (pud_user(pud) || pud_user_exec(pud));
 }
@@ -1289,9 +1302,8 @@ static inline void __pte_clear(struct mm_struct *mm,
 	__set_pte(ptep, __pte(0));
 }
 
-static inline int __ptep_test_and_clear_young(struct vm_area_struct *vma,
-					      unsigned long address,
-					      pte_t *ptep)
+static inline bool __ptep_test_and_clear_young(struct vm_area_struct *vma,
+		unsigned long address, pte_t *ptep)
 {
 	pte_t old_pte, pte;
 
@@ -1306,10 +1318,10 @@ static inline int __ptep_test_and_clear_young(struct vm_area_struct *vma,
 	return pte_young(pte);
 }
 
-static inline int __ptep_clear_flush_young(struct vm_area_struct *vma,
-					 unsigned long address, pte_t *ptep)
+static inline bool __ptep_clear_flush_young(struct vm_area_struct *vma,
+		unsigned long address, pte_t *ptep)
 {
-	int young = __ptep_test_and_clear_young(vma, address, ptep);
+	bool young = __ptep_test_and_clear_young(vma, address, ptep);
 
 	if (young) {
 		/*
@@ -1320,7 +1332,7 @@ static inline int __ptep_clear_flush_young(struct vm_area_struct *vma,
 		 * context-switch, which provides a DSB to complete the TLB
 		 * invalidation.
 		 */
-		flush_tlb_page_nosync(vma, address);
+		__flush_tlb_page(vma, address, TLBF_NOSYNC);
 	}
 
 	return young;
@@ -1328,9 +1340,8 @@ static inline int __ptep_clear_flush_young(struct vm_area_struct *vma,
 
 #if defined(CONFIG_TRANSPARENT_HUGEPAGE) || defined(CONFIG_ARCH_HAS_NONLEAF_PMD_YOUNG)
 #define __HAVE_ARCH_PMDP_TEST_AND_CLEAR_YOUNG
-static inline int pmdp_test_and_clear_young(struct vm_area_struct *vma,
-					    unsigned long address,
-					    pmd_t *pmdp)
+static inline bool pmdp_test_and_clear_young(struct vm_area_struct *vma,
+		unsigned long address, pmd_t *pmdp)
 {
 	/* Operation applies to PMD table entry only if FEAT_HAFT is enabled */
 	VM_WARN_ON(pmd_table(READ_ONCE(*pmdp)) && !system_supports_haft());
@@ -1653,9 +1664,9 @@ extern void contpte_clear_full_ptes(struct mm_struct *mm, unsigned long addr,
 extern pte_t contpte_get_and_clear_full_ptes(struct mm_struct *mm,
 				unsigned long addr, pte_t *ptep,
 				unsigned int nr, int full);
-int contpte_test_and_clear_young_ptes(struct vm_area_struct *vma,
+bool contpte_test_and_clear_young_ptes(struct vm_area_struct *vma,
 				unsigned long addr, pte_t *ptep, unsigned int nr);
-int contpte_clear_flush_young_ptes(struct vm_area_struct *vma,
+bool contpte_clear_flush_young_ptes(struct vm_area_struct *vma,
 				unsigned long addr, pte_t *ptep, unsigned int nr);
 extern void contpte_wrprotect_ptes(struct mm_struct *mm, unsigned long addr,
 				pte_t *ptep, unsigned int nr);
@@ -1819,21 +1830,26 @@ static inline pte_t ptep_get_and_clear(struct mm_struct *mm,
 	return __ptep_get_and_clear(mm, addr, ptep);
 }
 
-#define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
-static inline int ptep_test_and_clear_young(struct vm_area_struct *vma,
-				unsigned long addr, pte_t *ptep)
+#define test_and_clear_young_ptes test_and_clear_young_ptes
+static inline bool test_and_clear_young_ptes(struct vm_area_struct *vma,
+		unsigned long addr, pte_t *ptep, unsigned int nr)
 {
-	pte_t orig_pte = __ptep_get(ptep);
-
-	if (likely(!pte_valid_cont(orig_pte)))
+	if (likely(nr == 1 && !pte_cont(__ptep_get(ptep))))
 		return __ptep_test_and_clear_young(vma, addr, ptep);
 
-	return contpte_test_and_clear_young_ptes(vma, addr, ptep, 1);
+	return contpte_test_and_clear_young_ptes(vma, addr, ptep, nr);
+}
+
+#define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
+static inline bool ptep_test_and_clear_young(struct vm_area_struct *vma,
+		unsigned long addr, pte_t *ptep)
+{
+	return test_and_clear_young_ptes(vma, addr, ptep, 1);
 }
 
 #define __HAVE_ARCH_PTEP_CLEAR_YOUNG_FLUSH
-static inline int ptep_clear_flush_young(struct vm_area_struct *vma,
-				unsigned long addr, pte_t *ptep)
+static inline bool ptep_clear_flush_young(struct vm_area_struct *vma,
+		unsigned long addr, pte_t *ptep)
 {
 	pte_t orig_pte = __ptep_get(ptep);
 
@@ -1844,9 +1860,8 @@ static inline int ptep_clear_flush_young(struct vm_area_struct *vma,
 }
 
 #define clear_flush_young_ptes clear_flush_young_ptes
-static inline int clear_flush_young_ptes(struct vm_area_struct *vma,
-					 unsigned long addr, pte_t *ptep,
-					 unsigned int nr)
+static inline bool clear_flush_young_ptes(struct vm_area_struct *vma,
+		unsigned long addr, pte_t *ptep, unsigned int nr)
 {
 	if (likely(nr == 1 && !pte_cont(__ptep_get(ptep))))
 		return __ptep_clear_flush_young(vma, addr, ptep);

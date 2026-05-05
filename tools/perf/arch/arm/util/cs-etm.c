@@ -68,20 +68,6 @@ static const char * const metadata_ete_ro[] = {
 
 enum cs_etm_version { CS_NOT_PRESENT, CS_ETMV3, CS_ETMV4, CS_ETE };
 
-/* ETMv4 CONFIGR register bits */
-#define TRCCONFIGR_BB		BIT(3)
-#define TRCCONFIGR_CCI		BIT(4)
-#define TRCCONFIGR_CID		BIT(6)
-#define TRCCONFIGR_VMID		BIT(7)
-#define TRCCONFIGR_TS		BIT(11)
-#define TRCCONFIGR_RS		BIT(12)
-#define TRCCONFIGR_VMIDOPT	BIT(15)
-
-/* ETMv3 ETMCR register bits */
-#define ETMCR_CYC_ACC		BIT(12)
-#define ETMCR_TIMESTAMP_EN	BIT(28)
-#define ETMCR_RETURN_STACK	BIT(29)
-
 static bool cs_etm_is_ete(struct perf_pmu *cs_etm_pmu, struct perf_cpu cpu);
 static int cs_etm_get_ro(struct perf_pmu *pmu, struct perf_cpu cpu, const char *path, __u64 *val);
 static bool cs_etm_pmu_path_exists(struct perf_pmu *pmu, struct perf_cpu cpu, const char *path);
@@ -211,7 +197,8 @@ static struct perf_pmu *cs_etm_get_pmu(struct auxtrace_record *itr)
 static int cs_etm_validate_config(struct perf_pmu *cs_etm_pmu,
 				  struct evsel *evsel)
 {
-	int idx, err = 0;
+	unsigned int idx;
+	int err = 0;
 	struct perf_cpu_map *event_cpus = evsel->evlist->core.user_requested_cpus;
 	struct perf_cpu_map *intersect_cpus;
 	struct perf_cpu cpu;
@@ -560,7 +547,7 @@ static size_t
 cs_etm_info_priv_size(struct auxtrace_record *itr,
 		      struct evlist *evlist)
 {
-	int idx;
+	unsigned int idx;
 	int etmv3 = 0, etmv4 = 0, ete = 0;
 	struct perf_cpu_map *event_cpus = evlist->core.user_requested_cpus;
 	struct perf_cpu_map *intersect_cpus;
@@ -797,7 +784,7 @@ static int cs_etm_info_fill(struct auxtrace_record *itr,
 			    struct perf_record_auxtrace_info *info,
 			    size_t priv_size)
 {
-	int i;
+	unsigned int i;
 	u32 offset;
 	u64 nr_cpu, type;
 	struct perf_cpu_map *cpu_map;

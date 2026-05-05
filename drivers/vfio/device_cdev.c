@@ -293,14 +293,8 @@ int vfio_df_ioctl_detach_pt(struct vfio_device_file *df,
 	return 0;
 }
 
-static char *vfio_device_devnode(const struct device *dev, umode_t *mode)
+int vfio_cdev_init(void)
 {
-	return kasprintf(GFP_KERNEL, "vfio/devices/%s", dev_name(dev));
-}
-
-int vfio_cdev_init(struct class *device_class)
-{
-	device_class->devnode = vfio_device_devnode;
 	return alloc_chrdev_region(&device_devt, 0,
 				   MINORMASK + 1, "vfio-dev");
 }

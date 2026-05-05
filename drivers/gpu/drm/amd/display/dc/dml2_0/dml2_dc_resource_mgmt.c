@@ -35,7 +35,7 @@
 #define MAX_MPCC_FACTOR 4
 
 struct dc_plane_pipe_pool {
-	int pipes_assigned_to_plane[MAX_ODM_FACTOR][MAX_MPCC_FACTOR];
+	unsigned int pipes_assigned_to_plane[MAX_ODM_FACTOR][MAX_MPCC_FACTOR];
 	bool pipe_used[MAX_ODM_FACTOR][MAX_MPCC_FACTOR];
 	int num_pipes_assigned_to_plane_for_mpcc_combine;
 	int num_pipes_assigned_to_plane_for_odm_combine;
@@ -143,7 +143,7 @@ static unsigned int find_pipes_assigned_to_plane(struct dml2_context *ctx,
 {
 	int i;
 	unsigned int num_found = 0;
-	unsigned int plane_id_assigned_to_pipe = -1;
+	unsigned int plane_id_assigned_to_pipe = UINT_MAX;
 
 	for (i = 0; i < ctx->config.dcn_pipe_count; i++) {
 		struct pipe_ctx *pipe = &state->res_ctx.pipe_ctx[i];
@@ -178,6 +178,10 @@ static unsigned int find_pipes_assigned_to_plane(struct dml2_context *ctx,
 
 static bool validate_pipe_assignment(const struct dml2_context *ctx, const struct dc_state *state, const struct dml_display_cfg_st *disp_cfg, const struct dml2_dml_to_dc_pipe_mapping *mapping)
 {
+	(void)ctx;
+	(void)disp_cfg;
+	(void)mapping;
+	(void)state;
 //	int i, j, k;
 //
 //	unsigned int plane_id;
@@ -292,6 +296,7 @@ static unsigned int find_last_resort_pipe_candidates(const struct dc_state *exis
 	const unsigned int stream_id,
 	unsigned int *last_resort_pipe_candidates)
 {
+	(void)stream_id;
 	unsigned int num_last_resort_candidates = 0;
 	int i;
 
@@ -340,8 +345,8 @@ static bool is_pipe_in_candidate_array(const unsigned int pipe_idx,
 static bool find_more_pipes_for_stream(struct dml2_context *ctx,
 	struct dc_state *state, // The state we want to find a free mapping in
 	unsigned int stream_id, // The stream we want this pipe to drive
-	int *assigned_pipes,
-	int *assigned_pipe_count,
+	unsigned int *assigned_pipes,
+	unsigned int *assigned_pipe_count,
 	int pipes_needed,
 	const struct dc_state *existing_state) // The state (optional) that we want to minimize remapping relative to
 {
@@ -366,7 +371,8 @@ static bool find_more_pipes_for_stream(struct dml2_context *ctx,
 		if (!is_plane_using_pipe(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			pipe->pipe_idx = preferred_pipe_candidates[i];
+			ASSERT(preferred_pipe_candidates[i] <= 0xFF);
+			pipe->pipe_idx = (uint8_t)preferred_pipe_candidates[i];
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -382,7 +388,8 @@ static bool find_more_pipes_for_stream(struct dml2_context *ctx,
 		if (!is_plane_using_pipe(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			pipe->pipe_idx = i;
+			ASSERT(i >= 0 && i <= 0xFF);
+			pipe->pipe_idx = (uint8_t)i;
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -393,7 +400,8 @@ static bool find_more_pipes_for_stream(struct dml2_context *ctx,
 		if (!is_plane_using_pipe(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			pipe->pipe_idx = last_resort_pipe_candidates[i];
+			ASSERT(last_resort_pipe_candidates[i] <= 0xFF);
+			pipe->pipe_idx = (uint8_t)last_resort_pipe_candidates[i];
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -406,8 +414,8 @@ static bool find_more_pipes_for_stream(struct dml2_context *ctx,
 static bool find_more_free_pipes(struct dml2_context *ctx,
 	struct dc_state *state, // The state we want to find a free mapping in
 	unsigned int stream_id, // The stream we want this pipe to drive
-	int *assigned_pipes,
-	int *assigned_pipe_count,
+	unsigned int *assigned_pipes,
+	unsigned int *assigned_pipe_count,
 	int pipes_needed,
 	const struct dc_state *existing_state) // The state (optional) that we want to minimize remapping relative to
 {
@@ -432,7 +440,8 @@ static bool find_more_free_pipes(struct dml2_context *ctx,
 		if (is_pipe_free(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			pipe->pipe_idx = preferred_pipe_candidates[i];
+			ASSERT(preferred_pipe_candidates[i] <= 0xFF);
+			pipe->pipe_idx = (uint8_t)preferred_pipe_candidates[i];
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -448,7 +457,8 @@ static bool find_more_free_pipes(struct dml2_context *ctx,
 		if (is_pipe_free(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			pipe->pipe_idx = i;
+			ASSERT(i >= 0 && i <= 0xFF);
+			pipe->pipe_idx = (uint8_t)i;
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -459,7 +469,8 @@ static bool find_more_free_pipes(struct dml2_context *ctx,
 		if (is_pipe_free(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			pipe->pipe_idx = last_resort_pipe_candidates[i];
+			ASSERT(last_resort_pipe_candidates[i] <= 0xFF);
+			pipe->pipe_idx = (uint8_t)last_resort_pipe_candidates[i];
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -535,6 +546,7 @@ static void add_odm_slice_to_odm_tree(struct dml2_context *ctx,
 		struct dc_pipe_mapping_scratch *scratch,
 		unsigned int odm_slice_index)
 {
+	(void)ctx;
 	struct pipe_ctx *pipe = NULL;
 	int i;
 
@@ -561,6 +573,8 @@ static struct pipe_ctx *add_plane_to_blend_tree(struct dml2_context *ctx,
 	unsigned int odm_slice,
 	struct pipe_ctx *top_pipe)
 {
+	(void)ctx;
+	(void)plane;
 	int i;
 
 	for (i = 0; i < pipe_pool->num_pipes_assigned_to_plane_for_mpcc_combine; i++) {
@@ -716,6 +730,7 @@ static void free_unused_pipes_for_plane(struct dml2_context *ctx, struct dc_stat
 
 static void remove_pipes_from_blend_trees(struct dml2_context *ctx, struct dc_state *state, struct dc_plane_pipe_pool *pipe_pool, unsigned int odm_slice)
 {
+	(void)ctx;
 	struct pipe_ctx *pipe;
 	int i;
 
@@ -909,10 +924,10 @@ static unsigned int get_source_mpc_factor(const struct dml2_context *ctx,
 		const struct dc_plane_state *plane)
 {
 	struct pipe_ctx *dpp_pipes[MAX_PIPES] = {0};
-	int dpp_pipe_count = ctx->config.callbacks.get_dpp_pipes_for_plane(plane,
-			&state->res_ctx, dpp_pipes);
 
-	ASSERT(dpp_pipe_count > 0);
+	if (ctx->config.callbacks.get_dpp_pipes_for_plane(plane, &state->res_ctx, dpp_pipes) <= 0)
+		ASSERT(false);
+
 	return ctx->config.callbacks.get_mpc_slice_count(dpp_pipes[0]);
 }
 

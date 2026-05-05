@@ -69,9 +69,6 @@
 #define bond_first_slave_rcu(bond) \
 	netdev_lower_get_first_private_rcu(bond->dev)
 
-#define bond_is_first_slave(bond, pos) (pos == bond_first_slave(bond))
-#define bond_is_last_slave(bond, pos) (pos == bond_last_slave(bond))
-
 /**
  * bond_for_each_slave - iterate over all slaves
  * @bond:	the bond holding this list
@@ -91,22 +88,22 @@
 			    NETIF_F_GSO_ESP)
 
 #ifdef CONFIG_NET_POLL_CONTROLLER
-extern atomic_t netpoll_block_tx;
+DECLARE_STATIC_KEY_FALSE(netpoll_block_tx);
 
 static inline void block_netpoll_tx(void)
 {
-	atomic_inc(&netpoll_block_tx);
+	static_branch_inc(&netpoll_block_tx);
 }
 
 static inline void unblock_netpoll_tx(void)
 {
-	atomic_dec(&netpoll_block_tx);
+	static_branch_dec(&netpoll_block_tx);
 }
 
 static inline int is_netpoll_tx_blocked(struct net_device *dev)
 {
-	if (unlikely(netpoll_tx_running(dev)))
-		return atomic_read(&netpoll_block_tx);
+	if (static_branch_unlikely(&netpoll_block_tx))
+		return netpoll_tx_running(dev);
 	return 0;
 }
 #else
@@ -699,6 +696,7 @@ void bond_debug_register(struct bonding *bond);
 void bond_debug_unregister(struct bonding *bond);
 void bond_debug_reregister(struct bonding *bond);
 const char *bond_mode_name(int mode);
+bool __bond_xdp_check(int mode, int xmit_policy);
 bool bond_xdp_check(struct bonding *bond, int mode);
 void bond_setup(struct net_device *bond_dev);
 unsigned int bond_get_num_tx_queues(void);

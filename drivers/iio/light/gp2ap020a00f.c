@@ -31,12 +31,14 @@
  * the other one.
  */
 
+#include <linux/cleanup.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/irq_work.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
@@ -44,6 +46,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/unaligned.h>
+
 #include <linux/iio/buffer.h>
 #include <linux/iio/events.h>
 #include <linux/iio/iio.h>
@@ -51,8 +54,6 @@
 #include <linux/iio/trigger.h>
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
-
-#define GP2A_I2C_NAME "gp2ap020a00f"
 
 /* Registers */
 #define GP2AP020A00F_OP_REG	0x00 /* Basic operations */
@@ -174,10 +175,8 @@
 #define GP2AP020A00F_CHAN_TIMESTAMP		3
 
 #define GP2AP020A00F_DATA_READY_TIMEOUT		msecs_to_jiffies(1000)
-#define GP2AP020A00F_DATA_REG(chan)		(GP2AP020A00F_D0_L_REG + \
-							(chan) * 2)
-#define GP2AP020A00F_THRESH_REG(th_val_id)	(GP2AP020A00F_TL_L_REG + \
-							(th_val_id) * 2)
+#define GP2AP020A00F_DATA_REG(chan)		(GP2AP020A00F_D0_L_REG + (chan) * 2)
+#define GP2AP020A00F_THRESH_REG(th_val_id)	(GP2AP020A00F_TL_L_REG + (th_val_id) * 2)
 #define GP2AP020A00F_THRESH_VAL_ID(reg_addr)	((reg_addr - 4) / 2)
 
 #define GP2AP020A00F_SUBTRACT_MODE	0
@@ -194,7 +193,7 @@ enum gp2ap020a00f_opmode {
 	GP2AP020A00F_OPMODE_ALS_AND_PS,
 	GP2AP020A00F_OPMODE_PROX_DETECT,
 	GP2AP020A00F_OPMODE_SHUTDOWN,
-	GP2AP020A00F_NUM_OPMODES,
+	GP2AP020A00F_NUM_OPMODES
 };
 
 enum gp2ap020a00f_cmd {
@@ -246,7 +245,6 @@ struct gp2ap020a00f_data {
 	struct iio_trigger *trig;
 	struct regmap *regmap;
 	unsigned int thresh_val[4];
-	u8 debug_reg_addr;
 	struct irq_work work;
 	wait_queue_head_t data_ready_queue;
 };
@@ -389,20 +387,17 @@ static int gp2ap020a00f_set_operation_mode(struct gp2ap020a00f_data *data,
 		}
 
 		err = regmap_update_bits(data->regmap, GP2AP020A00F_ALS_REG,
-			GP2AP020A00F_PRST_MASK, opmode_regs_settings[op]
-								.als_reg);
+			GP2AP020A00F_PRST_MASK, opmode_regs_settings[op].als_reg);
 		if (err < 0)
 			return err;
 
 		err = regmap_update_bits(data->regmap, GP2AP020A00F_PS_REG,
-			GP2AP020A00F_INTTYPE_MASK, opmode_regs_settings[op]
-								.ps_reg);
+			GP2AP020A00F_INTTYPE_MASK, opmode_regs_settings[op].ps_reg);
 		if (err < 0)
 			return err;
 
 		err = regmap_update_bits(data->regmap, GP2AP020A00F_LED_REG,
-			GP2AP020A00F_PIN_MASK, opmode_regs_settings[op]
-								.led_reg);
+			GP2AP020A00F_PIN_MASK, opmode_regs_settings[op].led_reg);
 		if (err < 0)
 			return err;
 	}
@@ -453,15 +448,13 @@ static int gp2ap020a00f_write_event_threshold(struct gp2ap020a00f_data *data,
 		 */
 		thresh_reg_val = data->thresh_val[th_val_id] / 16;
 	else
-		thresh_reg_val = data->thresh_val[th_val_id] > 16000 ?
-					16000 :
-					data->thresh_val[th_val_id];
+		thresh_reg_val = min(data->thresh_val[th_val_id], 16000U);
 
 	thresh_buf = cpu_to_le16(thresh_reg_val);
 
 	return regmap_bulk_write(data->regmap,
 				 GP2AP020A00F_THRESH_REG(th_val_id),
-				 (u8 *)&thresh_buf, 2);
+				 &thresh_buf, sizeof(thresh_buf));
 }
 
 static int gp2ap020a00f_alter_opmode(struct gp2ap020a00f_data *data,
@@ -493,27 +486,24 @@ static int gp2ap020a00f_alter_opmode(struct gp2ap020a00f_data *data,
 static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 					enum gp2ap020a00f_cmd cmd)
 {
-	int err = 0;
+	int err;
 
 	switch (cmd) {
 	case GP2AP020A00F_CMD_READ_RAW_CLEAR:
 		if (data->cur_opmode != GP2AP020A00F_OPMODE_SHUTDOWN)
 			return -EBUSY;
-		err = gp2ap020a00f_set_operation_mode(data,
+		return gp2ap020a00f_set_operation_mode(data,
 					GP2AP020A00F_OPMODE_READ_RAW_CLEAR);
-		break;
 	case GP2AP020A00F_CMD_READ_RAW_IR:
 		if (data->cur_opmode != GP2AP020A00F_OPMODE_SHUTDOWN)
 			return -EBUSY;
-		err = gp2ap020a00f_set_operation_mode(data,
+		return gp2ap020a00f_set_operation_mode(data,
 					GP2AP020A00F_OPMODE_READ_RAW_IR);
-		break;
 	case GP2AP020A00F_CMD_READ_RAW_PROXIMITY:
 		if (data->cur_opmode != GP2AP020A00F_OPMODE_SHUTDOWN)
 			return -EBUSY;
-		err = gp2ap020a00f_set_operation_mode(data,
+		return gp2ap020a00f_set_operation_mode(data,
 					GP2AP020A00F_OPMODE_READ_RAW_PROXIMITY);
-		break;
 	case GP2AP020A00F_CMD_TRIGGER_CLEAR_EN:
 		if (data->cur_opmode == GP2AP020A00F_OPMODE_PROX_DETECT)
 			return -EBUSY;
@@ -521,16 +511,17 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 			err = gp2ap020a00f_alter_opmode(data,
 						GP2AP020A00F_OPMODE_ALS,
 						GP2AP020A00F_ADD_MODE);
+		else
+			err = 0;
 		set_bit(GP2AP020A00F_FLAG_ALS_CLEAR_TRIGGER, &data->flags);
-		break;
+		return err;
 	case GP2AP020A00F_CMD_TRIGGER_CLEAR_DIS:
 		clear_bit(GP2AP020A00F_FLAG_ALS_CLEAR_TRIGGER, &data->flags);
 		if (gp2ap020a00f_als_enabled(data))
 			break;
-		err = gp2ap020a00f_alter_opmode(data,
+		return gp2ap020a00f_alter_opmode(data,
 						GP2AP020A00F_OPMODE_ALS,
 						GP2AP020A00F_SUBTRACT_MODE);
-		break;
 	case GP2AP020A00F_CMD_TRIGGER_IR_EN:
 		if (data->cur_opmode == GP2AP020A00F_OPMODE_PROX_DETECT)
 			return -EBUSY;
@@ -538,16 +529,17 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 			err = gp2ap020a00f_alter_opmode(data,
 						GP2AP020A00F_OPMODE_ALS,
 						GP2AP020A00F_ADD_MODE);
+		else
+			err = 0;
 		set_bit(GP2AP020A00F_FLAG_ALS_IR_TRIGGER, &data->flags);
-		break;
+		return err;
 	case GP2AP020A00F_CMD_TRIGGER_IR_DIS:
 		clear_bit(GP2AP020A00F_FLAG_ALS_IR_TRIGGER, &data->flags);
 		if (gp2ap020a00f_als_enabled(data))
 			break;
-		err = gp2ap020a00f_alter_opmode(data,
+		return gp2ap020a00f_alter_opmode(data,
 						GP2AP020A00F_OPMODE_ALS,
 						GP2AP020A00F_SUBTRACT_MODE);
-		break;
 	case GP2AP020A00F_CMD_TRIGGER_PROX_EN:
 		if (data->cur_opmode == GP2AP020A00F_OPMODE_PROX_DETECT)
 			return -EBUSY;
@@ -555,13 +547,12 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 						GP2AP020A00F_OPMODE_PS,
 						GP2AP020A00F_ADD_MODE);
 		set_bit(GP2AP020A00F_FLAG_PROX_TRIGGER, &data->flags);
-		break;
+		return err;
 	case GP2AP020A00F_CMD_TRIGGER_PROX_DIS:
 		clear_bit(GP2AP020A00F_FLAG_PROX_TRIGGER, &data->flags);
-		err = gp2ap020a00f_alter_opmode(data,
+		return gp2ap020a00f_alter_opmode(data,
 						GP2AP020A00F_OPMODE_PS,
 						GP2AP020A00F_SUBTRACT_MODE);
-		break;
 	case GP2AP020A00F_CMD_ALS_HIGH_EV_EN:
 		if (test_bit(GP2AP020A00F_FLAG_ALS_RISING_EV, &data->flags))
 			return 0;
@@ -575,9 +566,8 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 				return err;
 		}
 		set_bit(GP2AP020A00F_FLAG_ALS_RISING_EV, &data->flags);
-		err =  gp2ap020a00f_write_event_threshold(data,
+		return gp2ap020a00f_write_event_threshold(data,
 					GP2AP020A00F_THRESH_TH, true);
-		break;
 	case GP2AP020A00F_CMD_ALS_HIGH_EV_DIS:
 		if (!test_bit(GP2AP020A00F_FLAG_ALS_RISING_EV, &data->flags))
 			return 0;
@@ -589,9 +579,8 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 			if (err < 0)
 				return err;
 		}
-		err =  gp2ap020a00f_write_event_threshold(data,
+		return gp2ap020a00f_write_event_threshold(data,
 					GP2AP020A00F_THRESH_TH, false);
-		break;
 	case GP2AP020A00F_CMD_ALS_LOW_EV_EN:
 		if (test_bit(GP2AP020A00F_FLAG_ALS_FALLING_EV, &data->flags))
 			return 0;
@@ -605,9 +594,8 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 				return err;
 		}
 		set_bit(GP2AP020A00F_FLAG_ALS_FALLING_EV, &data->flags);
-		err =  gp2ap020a00f_write_event_threshold(data,
+		return gp2ap020a00f_write_event_threshold(data,
 					GP2AP020A00F_THRESH_TL, true);
-		break;
 	case GP2AP020A00F_CMD_ALS_LOW_EV_DIS:
 		if (!test_bit(GP2AP020A00F_FLAG_ALS_FALLING_EV, &data->flags))
 			return 0;
@@ -619,9 +607,8 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 			if (err < 0)
 				return err;
 		}
-		err =  gp2ap020a00f_write_event_threshold(data,
+		return gp2ap020a00f_write_event_threshold(data,
 					GP2AP020A00F_THRESH_TL, false);
-		break;
 	case GP2AP020A00F_CMD_PROX_HIGH_EV_EN:
 		if (test_bit(GP2AP020A00F_FLAG_PROX_RISING_EV, &data->flags))
 			return 0;
@@ -635,9 +622,8 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 				return err;
 		}
 		set_bit(GP2AP020A00F_FLAG_PROX_RISING_EV, &data->flags);
-		err =  gp2ap020a00f_write_event_threshold(data,
+		return gp2ap020a00f_write_event_threshold(data,
 					GP2AP020A00F_THRESH_PH, true);
-		break;
 	case GP2AP020A00F_CMD_PROX_HIGH_EV_DIS:
 		if (!test_bit(GP2AP020A00F_FLAG_PROX_RISING_EV, &data->flags))
 			return 0;
@@ -646,9 +632,8 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 					GP2AP020A00F_OPMODE_SHUTDOWN);
 		if (err < 0)
 			return err;
-		err =  gp2ap020a00f_write_event_threshold(data,
+		return gp2ap020a00f_write_event_threshold(data,
 					GP2AP020A00F_THRESH_PH, false);
-		break;
 	case GP2AP020A00F_CMD_PROX_LOW_EV_EN:
 		if (test_bit(GP2AP020A00F_FLAG_PROX_FALLING_EV, &data->flags))
 			return 0;
@@ -662,9 +647,8 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 				return err;
 		}
 		set_bit(GP2AP020A00F_FLAG_PROX_FALLING_EV, &data->flags);
-		err =  gp2ap020a00f_write_event_threshold(data,
+		return gp2ap020a00f_write_event_threshold(data,
 					GP2AP020A00F_THRESH_PL, true);
-		break;
 	case GP2AP020A00F_CMD_PROX_LOW_EV_DIS:
 		if (!test_bit(GP2AP020A00F_FLAG_PROX_FALLING_EV, &data->flags))
 			return 0;
@@ -673,12 +657,11 @@ static int gp2ap020a00f_exec_cmd(struct gp2ap020a00f_data *data,
 					GP2AP020A00F_OPMODE_SHUTDOWN);
 		if (err < 0)
 			return err;
-		err =  gp2ap020a00f_write_event_threshold(data,
+		return gp2ap020a00f_write_event_threshold(data,
 					GP2AP020A00F_THRESH_PL, false);
-		break;
 	}
 
-	return err;
+	return 0;
 }
 
 static int wait_conversion_complete_irq(struct gp2ap020a00f_data *data)
@@ -697,18 +680,18 @@ static int wait_conversion_complete_irq(struct gp2ap020a00f_data *data)
 static int gp2ap020a00f_read_output(struct gp2ap020a00f_data *data,
 					unsigned int output_reg, int *val)
 {
-	u8 reg_buf[2];
+	__le16 reg_buf;
 	int err;
 
 	err = wait_conversion_complete_irq(data);
 	if (err < 0)
 		dev_dbg(&data->client->dev, "data ready timeout\n");
 
-	err = regmap_bulk_read(data->regmap, output_reg, reg_buf, 2);
+	err = regmap_bulk_read(data->regmap, output_reg, &reg_buf, sizeof(reg_buf));
 	if (err < 0)
 		return err;
 
-	*val = le16_to_cpup((__le16 *)reg_buf);
+	*val = le16_to_cpu(reg_buf);
 
 	return err;
 }
@@ -866,13 +849,13 @@ static irqreturn_t gp2ap020a00f_thresh_event_handler(int irq, void *data)
 {
 	struct iio_dev *indio_dev = data;
 	struct gp2ap020a00f_data *priv = iio_priv(indio_dev);
-	u8 op_reg_flags, d0_reg_buf[2];
 	unsigned int output_val, op_reg_val;
+	__le16 d0_reg_buf;
+	u8 op_reg_flags;
 	int thresh_val_id, ret;
 
 	/* Read interrupt flags */
-	ret = regmap_read(priv->regmap, GP2AP020A00F_OP_REG,
-							&op_reg_val);
+	ret = regmap_read(priv->regmap, GP2AP020A00F_OP_REG, &op_reg_val);
 	if (ret < 0)
 		goto done;
 
@@ -884,8 +867,7 @@ static irqreturn_t gp2ap020a00f_thresh_event_handler(int irq, void *data)
 
 	/* Clear interrupt flags (if not in INTTYPE_PULSE mode) */
 	if (priv->cur_opmode != GP2AP020A00F_OPMODE_PROX_DETECT) {
-		ret = regmap_write(priv->regmap, GP2AP020A00F_OP_REG,
-								op_reg_val);
+		ret = regmap_write(priv->regmap, GP2AP020A00F_OP_REG, op_reg_val);
 		if (ret < 0)
 			goto done;
 	}
@@ -895,11 +877,11 @@ static irqreturn_t gp2ap020a00f_thresh_event_handler(int irq, void *data)
 		 * transition is required.
 		 */
 		ret = regmap_bulk_read(priv->regmap, GP2AP020A00F_D0_L_REG,
-							d0_reg_buf, 2);
+				       &d0_reg_buf, sizeof(d0_reg_buf));
 		if (ret < 0)
 			goto done;
 
-		output_val = le16_to_cpup((__le16 *)d0_reg_buf);
+		output_val = le16_to_cpu(d0_reg_buf);
 
 		if (gp2ap020a00f_adjust_lux_mode(priv, output_val))
 			goto done;
@@ -966,17 +948,15 @@ static irqreturn_t gp2ap020a00f_trigger_handler(int irq, void *data)
 	int i, out_val, ret;
 
 	iio_for_each_active_channel(indio_dev, i) {
-		ret = regmap_bulk_read(priv->regmap,
-				GP2AP020A00F_DATA_REG(i),
-				&priv->buffer[d_size], 2);
+		ret = regmap_bulk_read(priv->regmap, GP2AP020A00F_DATA_REG(i),
+				       &priv->buffer[d_size], 2);
 		if (ret < 0)
 			goto done;
 
 		if (i == GP2AP020A00F_SCAN_MODE_LIGHT_CLEAR ||
 		    i == GP2AP020A00F_SCAN_MODE_LIGHT_IR) {
-			out_val = le16_to_cpup((__le16 *)&priv->buffer[d_size]);
+			out_val = get_unaligned_le16(&priv->buffer[d_size]);
 			gp2ap020a00f_output_to_lux(priv, &out_val);
-
 			put_unaligned_le32(out_val, &priv->buffer[d_size]);
 			d_size += 4;
 		} else {
@@ -984,16 +964,15 @@ static irqreturn_t gp2ap020a00f_trigger_handler(int irq, void *data)
 		}
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, priv->buffer,
-		pf->timestamp);
+	iio_push_to_buffers_with_timestamp(indio_dev, priv->buffer, pf->timestamp);
 done:
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
 }
 
-static u8 gp2ap020a00f_get_thresh_reg(const struct iio_chan_spec *chan,
-					     enum iio_event_direction event_dir)
+static int gp2ap020a00f_get_thresh_reg(const struct iio_chan_spec *chan,
+				       enum iio_event_direction event_dir)
 {
 	switch (chan->type) {
 	case IIO_PROXIMITY:
@@ -1007,10 +986,8 @@ static u8 gp2ap020a00f_get_thresh_reg(const struct iio_chan_spec *chan,
 		else
 			return GP2AP020A00F_TL_L_REG;
 	default:
-		break;
+		return -EINVAL;
 	}
-
-	return -EINVAL;
 }
 
 static int gp2ap020a00f_write_event_val(struct iio_dev *indio_dev,
@@ -1023,53 +1000,41 @@ static int gp2ap020a00f_write_event_val(struct iio_dev *indio_dev,
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
 	bool event_en = false;
 	u8 thresh_val_id;
-	u8 thresh_reg_l;
-	int err = 0;
+	int thresh_reg_l;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	thresh_reg_l = gp2ap020a00f_get_thresh_reg(chan, dir);
-	thresh_val_id = GP2AP020A00F_THRESH_VAL_ID(thresh_reg_l);
+	if (thresh_reg_l < 0)
+		return thresh_reg_l;
 
-	if (thresh_val_id > GP2AP020A00F_THRESH_PH) {
-		err = -EINVAL;
-		goto error_unlock;
-	}
+	thresh_val_id = GP2AP020A00F_THRESH_VAL_ID(thresh_reg_l);
+	if (thresh_val_id > GP2AP020A00F_THRESH_PH)
+		return -EINVAL;
 
 	switch (thresh_reg_l) {
 	case GP2AP020A00F_TH_L_REG:
-		event_en = test_bit(GP2AP020A00F_FLAG_ALS_RISING_EV,
-							&data->flags);
+		event_en = test_bit(GP2AP020A00F_FLAG_ALS_RISING_EV, &data->flags);
 		break;
 	case GP2AP020A00F_TL_L_REG:
-		event_en = test_bit(GP2AP020A00F_FLAG_ALS_FALLING_EV,
-							&data->flags);
+		event_en = test_bit(GP2AP020A00F_FLAG_ALS_FALLING_EV, &data->flags);
 		break;
 	case GP2AP020A00F_PH_L_REG:
-		if (val == 0) {
-			err = -EINVAL;
-			goto error_unlock;
-		}
-		event_en = test_bit(GP2AP020A00F_FLAG_PROX_RISING_EV,
-							&data->flags);
+		if (val == 0)
+			return -EINVAL;
+
+		event_en = test_bit(GP2AP020A00F_FLAG_PROX_RISING_EV, &data->flags);
 		break;
 	case GP2AP020A00F_PL_L_REG:
-		if (val == 0) {
-			err = -EINVAL;
-			goto error_unlock;
-		}
-		event_en = test_bit(GP2AP020A00F_FLAG_PROX_FALLING_EV,
-							&data->flags);
+		if (val == 0)
+			return -EINVAL;
+
+		event_en = test_bit(GP2AP020A00F_FLAG_PROX_FALLING_EV, &data->flags);
 		break;
 	}
 
 	data->thresh_val[thresh_val_id] = val;
-	err =  gp2ap020a00f_write_event_threshold(data, thresh_val_id,
-							event_en);
-error_unlock:
-	mutex_unlock(&data->lock);
-
-	return err;
+	return gp2ap020a00f_write_event_threshold(data, thresh_val_id, event_en);
 }
 
 static int gp2ap020a00f_read_event_val(struct iio_dev *indio_dev,
@@ -1080,24 +1045,19 @@ static int gp2ap020a00f_read_event_val(struct iio_dev *indio_dev,
 				       int *val, int *val2)
 {
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
-	u8 thresh_reg_l;
-	int err = IIO_VAL_INT;
+	int thresh_reg_l;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	thresh_reg_l = gp2ap020a00f_get_thresh_reg(chan, dir);
-
-	if (thresh_reg_l > GP2AP020A00F_PH_L_REG) {
-		err = -EINVAL;
-		goto error_unlock;
-	}
+	if (thresh_reg_l < 0)
+		return thresh_reg_l;
+	if (thresh_reg_l > GP2AP020A00F_PH_L_REG)
+		return -EINVAL;
 
 	*val = data->thresh_val[GP2AP020A00F_THRESH_VAL_ID(thresh_reg_l)];
 
-error_unlock:
-	mutex_unlock(&data->lock);
-
-	return err;
+	return IIO_VAL_INT;
 }
 
 static int gp2ap020a00f_write_prox_event_config(struct iio_dev *indio_dev,
@@ -1163,32 +1123,25 @@ static int gp2ap020a00f_write_event_config(struct iio_dev *indio_dev,
 {
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
 	enum gp2ap020a00f_cmd cmd;
-	int err;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	switch (chan->type) {
 	case IIO_PROXIMITY:
-		err = gp2ap020a00f_write_prox_event_config(indio_dev, state);
-		break;
+		return gp2ap020a00f_write_prox_event_config(indio_dev, state);
 	case IIO_LIGHT:
 		if (dir == IIO_EV_DIR_RISING) {
 			cmd = state ? GP2AP020A00F_CMD_ALS_HIGH_EV_EN :
 				      GP2AP020A00F_CMD_ALS_HIGH_EV_DIS;
-			err = gp2ap020a00f_exec_cmd(data, cmd);
+			return gp2ap020a00f_exec_cmd(data, cmd);
 		} else {
 			cmd = state ? GP2AP020A00F_CMD_ALS_LOW_EV_EN :
 				      GP2AP020A00F_CMD_ALS_LOW_EV_DIS;
-			err = gp2ap020a00f_exec_cmd(data, cmd);
+			return gp2ap020a00f_exec_cmd(data, cmd);
 		}
-		break;
 	default:
-		err = -EINVAL;
+		return -EINVAL;
 	}
-
-	mutex_unlock(&data->lock);
-
-	return err;
 }
 
 static int gp2ap020a00f_read_event_config(struct iio_dev *indio_dev,
@@ -1197,40 +1150,29 @@ static int gp2ap020a00f_read_event_config(struct iio_dev *indio_dev,
 					   enum iio_event_direction dir)
 {
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
-	int event_en = 0;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	switch (chan->type) {
 	case IIO_PROXIMITY:
 		if (dir == IIO_EV_DIR_RISING)
-			event_en = test_bit(GP2AP020A00F_FLAG_PROX_RISING_EV,
-								&data->flags);
+			return test_bit(GP2AP020A00F_FLAG_PROX_RISING_EV, &data->flags);
 		else
-			event_en = test_bit(GP2AP020A00F_FLAG_PROX_FALLING_EV,
-								&data->flags);
-		break;
+			return test_bit(GP2AP020A00F_FLAG_PROX_FALLING_EV, &data->flags);
 	case IIO_LIGHT:
 		if (dir == IIO_EV_DIR_RISING)
-			event_en = test_bit(GP2AP020A00F_FLAG_ALS_RISING_EV,
-								&data->flags);
+			return test_bit(GP2AP020A00F_FLAG_ALS_RISING_EV, &data->flags);
 		else
-			event_en = test_bit(GP2AP020A00F_FLAG_ALS_FALLING_EV,
-								&data->flags);
-		break;
+			return test_bit(GP2AP020A00F_FLAG_ALS_FALLING_EV, &data->flags);
 	default:
-		event_en = -EINVAL;
-		break;
+		return -EINVAL;
 	}
-
-	mutex_unlock(&data->lock);
-
-	return event_en;
 }
 
 static int gp2ap020a00f_read_channel(struct gp2ap020a00f_data *data,
 				struct iio_chan_spec const *chan, int *val)
 {
+	struct device *dev = &data->client->dev;
 	enum gp2ap020a00f_cmd cmd;
 	int err;
 
@@ -1250,27 +1192,23 @@ static int gp2ap020a00f_read_channel(struct gp2ap020a00f_data *data,
 
 	err = gp2ap020a00f_exec_cmd(data, cmd);
 	if (err < 0) {
-		dev_err(&data->client->dev,
-			"gp2ap020a00f_exec_cmd failed\n");
-		goto error_ret;
+		dev_err(dev, "gp2ap020a00f_exec_cmd failed\n");
+		return err;
 	}
 
 	err = gp2ap020a00f_read_output(data, chan->address, val);
 	if (err < 0)
-		dev_err(&data->client->dev,
-			"gp2ap020a00f_read_output failed\n");
+		dev_err(dev, "gp2ap020a00f_read_output failed\n");
 
 	err = gp2ap020a00f_set_operation_mode(data,
 					GP2AP020A00F_OPMODE_SHUTDOWN);
 	if (err < 0)
-		dev_err(&data->client->dev,
-			"Failed to shut down the device.\n");
+		dev_err(dev, "Failed to shut down the device.\n");
 
 	if (cmd == GP2AP020A00F_CMD_READ_RAW_CLEAR ||
 	    cmd == GP2AP020A00F_CMD_READ_RAW_IR)
 		gp2ap020a00f_output_to_lux(data, val);
 
-error_ret:
 	return err;
 }
 
@@ -1383,9 +1321,9 @@ static const struct iio_info gp2ap020a00f_info = {
 static int gp2ap020a00f_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
-	int i, err = 0;
+	int i, err;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	/*
 	 * Enable triggers according to the scan_mask. Enabling either
@@ -1409,28 +1347,27 @@ static int gp2ap020a00f_buffer_postenable(struct iio_dev *indio_dev)
 			err = gp2ap020a00f_exec_cmd(data,
 					GP2AP020A00F_CMD_TRIGGER_PROX_EN);
 			break;
+		default:
+			err = -EINVAL;
+			break;
 		}
+		if (err)
+			return err;
 	}
-
-	if (err < 0)
-		goto error_unlock;
 
 	data->buffer = kmalloc(indio_dev->scan_bytes, GFP_KERNEL);
 	if (!data->buffer)
-		err = -ENOMEM;
+		return -ENOMEM;
 
-error_unlock:
-	mutex_unlock(&data->lock);
-
-	return err;
+	return 0;
 }
 
 static int gp2ap020a00f_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
-	int i, err = 0;
+	int i, err;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	iio_for_each_active_channel(indio_dev, i) {
 		switch (i) {
@@ -1446,15 +1383,16 @@ static int gp2ap020a00f_buffer_predisable(struct iio_dev *indio_dev)
 			err = gp2ap020a00f_exec_cmd(data,
 					GP2AP020A00F_CMD_TRIGGER_PROX_DIS);
 			break;
+		default:
+			err = -EINVAL;
+			break;
 		}
+		if (err)
+			return err;
 	}
 
-	if (err == 0)
-		kfree(data->buffer);
-
-	mutex_unlock(&data->lock);
-
-	return err;
+	kfree(data->buffer);
+	return 0;
 }
 
 static const struct iio_buffer_setup_ops gp2ap020a00f_buffer_setup_ops = {
@@ -1465,18 +1403,19 @@ static const struct iio_buffer_setup_ops gp2ap020a00f_buffer_setup_ops = {
 static int gp2ap020a00f_probe(struct i2c_client *client)
 {
 	const struct i2c_device_id *id = i2c_client_get_device_id(client);
+	struct device *dev = &client->dev;
 	struct gp2ap020a00f_data *data;
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
 	int err;
 
-	indio_dev = devm_iio_device_alloc(&client->dev, sizeof(*data));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*data));
 	if (!indio_dev)
 		return -ENOMEM;
 
 	data = iio_priv(indio_dev);
 
-	data->vled_reg = devm_regulator_get(&client->dev, "vled");
+	data->vled_reg = devm_regulator_get(dev, "vled");
 	if (IS_ERR(data->vled_reg))
 		return PTR_ERR(data->vled_reg);
 
@@ -1486,7 +1425,7 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 
 	regmap = devm_regmap_init_i2c(client, &gp2ap020a00f_regmap_config);
 	if (IS_ERR(regmap)) {
-		dev_err(&client->dev, "Regmap initialization failed.\n");
+		dev_err(dev, "Regmap initialization failed.\n");
 		err = PTR_ERR(regmap);
 		goto error_regulator_disable;
 	}
@@ -1497,7 +1436,7 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 			ARRAY_SIZE(gp2ap020a00f_reg_init_tab));
 
 	if (err < 0) {
-		dev_err(&client->dev, "Device initialization failed.\n");
+		dev_err(dev, "Device initialization failed.\n");
 		goto error_regulator_disable;
 	}
 
@@ -1522,11 +1461,10 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 		goto error_regulator_disable;
 
 	/* Allocate trigger */
-	data->trig = devm_iio_trigger_alloc(&client->dev, "%s-trigger",
-							indio_dev->name);
+	data->trig = devm_iio_trigger_alloc(dev, "%s-trigger", indio_dev->name);
 	if (data->trig == NULL) {
 		err = -ENOMEM;
-		dev_err(&indio_dev->dev, "Failed to allocate iio trigger.\n");
+		dev_err(dev, "Failed to allocate iio trigger.\n");
 		goto error_uninit_buffer;
 	}
 
@@ -1538,7 +1476,7 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 				   "gp2ap020a00f_als_event",
 				   indio_dev);
 	if (err < 0) {
-		dev_err(&client->dev, "Irq request failed.\n");
+		dev_err(dev, "Irq request failed.\n");
 		goto error_uninit_buffer;
 	}
 
@@ -1546,7 +1484,7 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 
 	err = iio_trigger_register(data->trig);
 	if (err < 0) {
-		dev_err(&client->dev, "Failed to register iio trigger.\n");
+		dev_err(dev, "Failed to register iio trigger.\n");
 		goto error_free_irq;
 	}
 
@@ -1572,12 +1510,12 @@ static void gp2ap020a00f_remove(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
 	struct gp2ap020a00f_data *data = iio_priv(indio_dev);
+	struct device *dev = &client->dev;
 	int err;
 
-	err = gp2ap020a00f_set_operation_mode(data,
-					GP2AP020A00F_OPMODE_SHUTDOWN);
+	err = gp2ap020a00f_set_operation_mode(data, GP2AP020A00F_OPMODE_SHUTDOWN);
 	if (err < 0)
-		dev_err(&indio_dev->dev, "Failed to power off the device.\n");
+		dev_err(dev, "Failed to power off the device.\n");
 
 	iio_device_unregister(indio_dev);
 	iio_trigger_unregister(data->trig);
@@ -1587,10 +1525,9 @@ static void gp2ap020a00f_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id gp2ap020a00f_id[] = {
-	{ GP2A_I2C_NAME },
+	{ "gp2ap020a00f" },
 	{ }
 };
-
 MODULE_DEVICE_TABLE(i2c, gp2ap020a00f_id);
 
 static const struct of_device_id gp2ap020a00f_of_match[] = {
@@ -1601,14 +1538,13 @@ MODULE_DEVICE_TABLE(of, gp2ap020a00f_of_match);
 
 static struct i2c_driver gp2ap020a00f_driver = {
 	.driver = {
-		.name	= GP2A_I2C_NAME,
+		.name	= "gp2ap020a00f",
 		.of_match_table = gp2ap020a00f_of_match,
 	},
 	.probe		= gp2ap020a00f_probe,
 	.remove		= gp2ap020a00f_remove,
 	.id_table	= gp2ap020a00f_id,
 };
-
 module_i2c_driver(gp2ap020a00f_driver);
 
 MODULE_AUTHOR("Jacek Anaszewski <j.anaszewski@samsung.com>");

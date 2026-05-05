@@ -12,6 +12,7 @@ struct net;
 struct netlink_ext_ack;
 struct netdev_queue_config;
 struct cpumask;
+struct pp_memory_provider_params;
 
 /* Random bits of netdevice that don't need to be exposed */
 #define FLOW_LIMIT_HISTORY	(1 << 7)  /* must be ^2 and !overflow buckets */
@@ -30,7 +31,15 @@ struct napi_struct *
 netdev_napi_by_id_lock(struct net *net, unsigned int napi_id);
 struct net_device *dev_get_by_napi_id(unsigned int napi_id);
 
-struct net_device *__netdev_put_lock(struct net_device *dev, struct net *net);
+struct net_device *netdev_put_lock(struct net_device *dev, struct net *net,
+				   netdevice_tracker *tracker);
+
+static inline struct net_device *
+__netdev_put_lock(struct net_device *dev, struct net *net)
+{
+	return netdev_put_lock(dev, net, NULL);
+}
+
 struct net_device *
 netdev_xa_find_lock(struct net *net, struct net_device *dev,
 		    unsigned long *index);
@@ -69,6 +78,7 @@ void linkwatch_run_queue(void);
 void dev_addr_flush(struct net_device *dev);
 int dev_addr_init(struct net_device *dev);
 void dev_addr_check(struct net_device *dev);
+void __hw_addr_flush(struct netdev_hw_addr_list *list);
 
 #if IS_ENABLED(CONFIG_NET_SHAPER)
 void net_shaper_flush_netdev(struct net_device *dev);
@@ -95,6 +105,16 @@ void netdev_run_todo(void);
 int netdev_queue_config_validate(struct net_device *dev, int rxq_idx,
 				 struct netdev_queue_config *qcfg,
 				 struct netlink_ext_ack *extack);
+
+bool netif_rxq_has_mp(struct net_device *dev, unsigned int rxq_idx);
+bool netif_rxq_is_leased(struct net_device *dev, unsigned int rxq_idx);
+bool netif_is_queue_leasee(const struct net_device *dev);
+
+void __netif_mp_uninstall_rxq(struct netdev_rx_queue *rxq,
+			      const struct pp_memory_provider_params *p);
+
+void netif_rxq_cleanup_unlease(struct netdev_rx_queue *phys_rxq,
+			       struct netdev_rx_queue *virt_rxq);
 
 /* netdev management, shared between various uAPI entry points */
 struct netdev_name_node {
@@ -145,6 +165,9 @@ int netif_change_carrier(struct net_device *dev, bool new_carrier);
 int dev_change_carrier(struct net_device *dev, bool new_carrier);
 
 void __dev_set_rx_mode(struct net_device *dev);
+int __dev_set_promiscuity(struct net_device *dev, int inc, bool notify);
+bool netif_rx_mode_clean(struct net_device *dev);
+void netif_rx_mode_sync(struct net_device *dev);
 
 void __dev_notify_flags(struct net_device *dev, unsigned int old_flags,
 			unsigned int gchanges, u32 portid,
@@ -365,41 +388,6 @@ static inline void napi_assert_will_not_race(const struct napi_struct *napi)
 }
 
 void kick_defer_list_purge(unsigned int cpu);
-
-#define XMIT_RECURSION_LIMIT	8
-
-#ifndef CONFIG_PREEMPT_RT
-static inline bool dev_xmit_recursion(void)
-{
-	return unlikely(__this_cpu_read(softnet_data.xmit.recursion) >
-			XMIT_RECURSION_LIMIT);
-}
-
-static inline void dev_xmit_recursion_inc(void)
-{
-	__this_cpu_inc(softnet_data.xmit.recursion);
-}
-
-static inline void dev_xmit_recursion_dec(void)
-{
-	__this_cpu_dec(softnet_data.xmit.recursion);
-}
-#else
-static inline bool dev_xmit_recursion(void)
-{
-	return unlikely(current->net_xmit.recursion > XMIT_RECURSION_LIMIT);
-}
-
-static inline void dev_xmit_recursion_inc(void)
-{
-	current->net_xmit.recursion++;
-}
-
-static inline void dev_xmit_recursion_dec(void)
-{
-	current->net_xmit.recursion--;
-}
-#endif
 
 int dev_set_hwtstamp_phylib(struct net_device *dev,
 			    struct kernel_hwtstamp_config *cfg,

@@ -50,9 +50,13 @@ static inline unsigned long COLOR_ALIGN(unsigned long addr,
 }
 
 
+#ifdef CONFIG_COMPAT
 #define STACK_SIZE_DEFAULT (USER_WIDE_MODE			\
 			? (1 << 30)	/* 1 GB */		\
 			: (CONFIG_STACK_MAX_DEFAULT_SIZE_MB*1024*1024))
+#else
+#define STACK_SIZE_DEFAULT (1 << 30)
+#endif
 
 unsigned long calc_max_stack_size(unsigned long stack_max)
 {
@@ -216,7 +220,7 @@ asmlinkage long parisc_truncate64(const char __user * path,
 asmlinkage long parisc_ftruncate64(unsigned int fd,
 					unsigned int high, unsigned int low)
 {
-	return ksys_ftruncate(fd, (long)high << 32 | low);
+	return ksys_ftruncate(fd, (long)high << 32 | low, FTRUNCATE_LFS);
 }
 
 /* stubs for the benefit of the syscall_table since truncate64 and truncate 
@@ -227,7 +231,7 @@ asmlinkage long sys_truncate64(const char __user * path, unsigned long length)
 }
 asmlinkage long sys_ftruncate64(unsigned int fd, unsigned long length)
 {
-	return ksys_ftruncate(fd, length);
+	return ksys_ftruncate(fd, length, FTRUNCATE_LFS);
 }
 asmlinkage long sys_fcntl64(unsigned int fd, unsigned int cmd, unsigned long arg)
 {

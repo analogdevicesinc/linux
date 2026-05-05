@@ -179,6 +179,15 @@ struct vsock_transport {
 	/* Addressing. */
 	u32 (*get_local_cid)(void);
 
+	/* Check if this transport serves a specific remote CID.
+	 * For H2G transports: return true if the CID belongs to a registered
+	 * guest. If not implemented, all CIDs > VMADDR_CID_HOST go to H2G.
+	 * For G2H transports: return true if the transport can reach arbitrary
+	 * CIDs via the hypervisor (i.e. supports the fallback overlay). VMCI
+	 * does not implement this as it only serves CIDs 0 and 2.
+	 */
+	bool (*has_remote_cid)(struct vsock_sock *vsk, u32 remote_cid);
+
 	/* Read a single skb */
 	int (*read_skb)(struct vsock_sock *, skb_read_actor_t);
 
@@ -276,10 +285,19 @@ static inline bool vsock_net_mode_global(struct vsock_sock *vsk)
 	return vsock_net_mode(sock_net(sk_vsock(vsk))) == VSOCK_NET_MODE_GLOBAL;
 }
 
-static inline void vsock_net_set_child_mode(struct net *net,
+static inline bool vsock_net_set_child_mode(struct net *net,
 					    enum vsock_net_mode mode)
 {
-	WRITE_ONCE(net->vsock.child_ns_mode, mode);
+	int new_locked = mode + 1;
+	int old_locked = 0; /* unlocked */
+
+	if (try_cmpxchg(&net->vsock.child_ns_mode_locked,
+			&old_locked, new_locked)) {
+		WRITE_ONCE(net->vsock.child_ns_mode, mode);
+		return true;
+	}
+
+	return old_locked == new_locked;
 }
 
 static inline enum vsock_net_mode vsock_net_child_mode(struct net *net)

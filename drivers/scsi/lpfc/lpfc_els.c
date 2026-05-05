@@ -1,7 +1,7 @@
 /*******************************************************************
  * This file is part of the Emulex Linux Device Driver for         *
  * Fibre Channel Host Bus Adapters.                                *
- * Copyright (C) 2017-2025 Broadcom. All Rights Reserved. The term *
+ * Copyright (C) 2017-2026 Broadcom. All Rights Reserved. The term *
  * “Broadcom” refers to Broadcom Inc. and/or its subsidiaries.     *
  * Copyright (C) 2004-2016 Emulex.  All rights reserved.           *
  * EMULEX and SLI are trademarks of Emulex.                        *
@@ -1107,7 +1107,7 @@ stop_rr_fcf_flogi:
 		vport->vmid_flag = 0;
 	}
 	if (sp->cmn.priority_tagging)
-		vport->phba->pport->vmid_flag |= (LPFC_VMID_ISSUE_QFPA |
+		vport->vmid_flag |= (LPFC_VMID_ISSUE_QFPA |
 						  LPFC_VMID_TYPE_PRIO);
 
 	/*
@@ -1303,8 +1303,12 @@ lpfc_issue_els_flogi(struct lpfc_vport *vport, struct lpfc_nodelist *ndlp,
 	elsiocb = lpfc_prep_els_iocb(vport, 1, cmdsize, retry, ndlp,
 				     ndlp->nlp_DID, ELS_CMD_FLOGI);
 
-	if (!elsiocb)
+	if (!elsiocb) {
+		lpfc_vport_set_state(vport, FC_VPORT_FAILED);
+		lpfc_printf_vlog(vport, KERN_WARNING, LOG_ELS | LOG_DISCOVERY,
+				 "4296 Unable to prepare FLOGI iocb\n");
 		return 1;
+	}
 
 	wqe = &elsiocb->wqe;
 	pcmd = (uint8_t *)elsiocb->cmd_dmabuf->virt;
@@ -1394,10 +1398,8 @@ lpfc_issue_els_flogi(struct lpfc_vport *vport, struct lpfc_nodelist *ndlp,
 		phba->sli3_options, 0, 0);
 
 	elsiocb->ndlp = lpfc_nlp_get(ndlp);
-	if (!elsiocb->ndlp) {
-		lpfc_els_free_iocb(phba, elsiocb);
-		return 1;
-	}
+	if (!elsiocb->ndlp)
+		goto err_out;
 
 	/* Avoid race with FLOGI completion and hba_flags. */
 	set_bit(HBA_FLOGI_ISSUED, &phba->hba_flag);
@@ -1407,9 +1409,8 @@ lpfc_issue_els_flogi(struct lpfc_vport *vport, struct lpfc_nodelist *ndlp,
 	if (rc == IOCB_ERROR) {
 		clear_bit(HBA_FLOGI_ISSUED, &phba->hba_flag);
 		clear_bit(HBA_FLOGI_OUTSTANDING, &phba->hba_flag);
-		lpfc_els_free_iocb(phba, elsiocb);
 		lpfc_nlp_put(ndlp);
-		return 1;
+		goto err_out;
 	}
 
 	/* Clear external loopback plug detected flag */
@@ -1474,6 +1475,13 @@ lpfc_issue_els_flogi(struct lpfc_vport *vport, struct lpfc_nodelist *ndlp,
 	}
 
 	return 0;
+
+ err_out:
+	lpfc_els_free_iocb(phba, elsiocb);
+	lpfc_vport_set_state(vport, FC_VPORT_FAILED);
+	lpfc_printf_vlog(vport, KERN_WARNING, LOG_ELS | LOG_DISCOVERY,
+			 "4297 Issue FLOGI: Cannot send IOCB\n");
+	return 1;
 }
 
 /**
@@ -2641,7 +2649,9 @@ lpfc_issue_els_prli(struct lpfc_vport *vport, struct lpfc_nodelist *ndlp,
 		}
 		npr->estabImagePair = 1;
 		npr->readXferRdyDis = 1;
-		if (vport->cfg_first_burst_size)
+		if (phba->sli_rev == LPFC_SLI_REV4 &&
+		    !test_bit(HBA_FCOE_MODE, &phba->hba_flag) &&
+		    vport->cfg_first_burst_size)
 			npr->writeXferRdyDis = 1;
 
 		/* For FCP support */
@@ -4319,18 +4329,28 @@ lpfc_format_edc_cgn_desc(struct lpfc_hba *phba, struct fc_tlv_desc *tlv)
 static bool
 lpfc_link_is_lds_capable(struct lpfc_hba *phba)
 {
-	if (!(phba->lmt & LMT_64Gb))
+	if (!(phba->lmt & (LMT_64Gb | LMT_128Gb)))
 		return false;
 	if (phba->sli_rev != LPFC_SLI_REV4)
 		return false;
 
 	if (phba->sli4_hba.conf_trunk) {
-		if (phba->trunk_link.phy_lnk_speed == LPFC_USER_LINK_SPEED_64G)
+		switch (phba->trunk_link.phy_lnk_speed) {
+		case LPFC_USER_LINK_SPEED_128G:
+		case LPFC_USER_LINK_SPEED_64G:
 			return true;
-	} else if (phba->fc_linkspeed == LPFC_LINK_SPEED_64GHZ) {
-		return true;
+		default:
+			return false;
+		}
 	}
-	return false;
+
+	switch (phba->fc_linkspeed) {
+	case LPFC_LINK_SPEED_128GHZ:
+	case LPFC_LINK_SPEED_64GHZ:
+		return true;
+	default:
+		return false;
+	}
 }
 
  /**
@@ -10291,10 +10311,8 @@ cleanup:
 						cpu_to_le16(value);
 					cp->cgn_warn_freq =
 						cpu_to_le16(value);
-					crc = lpfc_cgn_calc_crc32
-						(cp,
-						LPFC_CGN_INFO_SZ,
-						LPFC_CGN_CRC32_SEED);
+					crc = lpfc_cgn_calc_crc32(
+						cp, LPFC_CGN_INFO_SZ);
 					cp->cgn_info_crc = cpu_to_le32(crc);
 				}
 

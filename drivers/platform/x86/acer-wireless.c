@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pci_ids.h>
+#include <linux/platform_device.h>
 #include <linux/types.h>
 
 static const struct acpi_device_id acer_wireless_acpi_ids[] = {
@@ -18,13 +19,14 @@ static const struct acpi_device_id acer_wireless_acpi_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, acer_wireless_acpi_ids);
 
-static void acer_wireless_notify(struct acpi_device *adev, u32 event)
+static void acer_wireless_notify(acpi_handle handle, u32 event, void *data)
 {
-	struct input_dev *idev = acpi_driver_data(adev);
+	struct device *dev = data;
+	struct input_dev *idev = dev_get_drvdata(dev);
 
-	dev_dbg(&adev->dev, "event=%#x\n", event);
+	dev_dbg(dev, "event=%#x\n", event);
 	if (event != 0x80) {
-		dev_notice(&adev->dev, "Unknown SMKB event: %#x\n", event);
+		dev_notice(dev, "Unknown SMKB event: %#x\n", event);
 		return;
 	}
 	input_report_key(idev, KEY_RFKILL, 1);
@@ -33,15 +35,16 @@ static void acer_wireless_notify(struct acpi_device *adev, u32 event)
 	input_sync(idev);
 }
 
-static int acer_wireless_add(struct acpi_device *adev)
+static int acer_wireless_probe(struct platform_device *pdev)
 {
 	struct input_dev *idev;
+	int ret;
 
-	idev = devm_input_allocate_device(&adev->dev);
+	idev = devm_input_allocate_device(&pdev->dev);
 	if (!idev)
 		return -ENOMEM;
 
-	adev->driver_data = idev;
+	platform_set_drvdata(pdev, idev);
 	idev->name = "Acer Wireless Radio Control";
 	idev->phys = "acer-wireless/input0";
 	idev->id.bustype = BUS_HOST;
@@ -50,19 +53,32 @@ static int acer_wireless_add(struct acpi_device *adev)
 	set_bit(EV_KEY, idev->evbit);
 	set_bit(KEY_RFKILL, idev->keybit);
 
-	return input_register_device(idev);
+	ret = input_register_device(idev);
+	if (ret)
+		return ret;
+
+	return acpi_dev_install_notify_handler(ACPI_COMPANION(&pdev->dev),
+					       ACPI_DEVICE_NOTIFY,
+					       acer_wireless_notify,
+					       &pdev->dev);
 }
 
-static struct acpi_driver acer_wireless_driver = {
-	.name = "Acer Wireless Radio Control Driver",
-	.class = "hotkey",
-	.ids = acer_wireless_acpi_ids,
-	.ops = {
-		.add = acer_wireless_add,
-		.notify = acer_wireless_notify,
+static void acer_wireless_remove(struct platform_device *pdev)
+{
+	acpi_dev_remove_notify_handler(ACPI_COMPANION(&pdev->dev),
+				       ACPI_DEVICE_NOTIFY,
+				       acer_wireless_notify);
+}
+
+static struct platform_driver acer_wireless_driver = {
+	.probe = acer_wireless_probe,
+	.remove = acer_wireless_remove,
+	.driver = {
+		.name = "Acer Wireless Radio Control Driver",
+		.acpi_match_table = acer_wireless_acpi_ids,
 	},
 };
-module_acpi_driver(acer_wireless_driver);
+module_platform_driver(acer_wireless_driver);
 
 MODULE_DESCRIPTION("Acer Wireless Radio Control Driver");
 MODULE_AUTHOR("Chris Chiu <chiu@gmail.com>");

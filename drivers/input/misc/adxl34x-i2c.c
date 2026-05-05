@@ -77,11 +77,8 @@ static const struct adxl34x_bus_ops adxl34x_i2c_bops = {
 static int adxl34x_i2c_probe(struct i2c_client *client)
 {
 	struct adxl34x *ac;
-	int error;
 
-	error = i2c_check_functionality(client->adapter,
-			I2C_FUNC_SMBUS_BYTE_DATA);
-	if (!error) {
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
 		dev_err(&client->dev, "SMBUS Byte Data not Supported\n");
 		return -EIO;
 	}

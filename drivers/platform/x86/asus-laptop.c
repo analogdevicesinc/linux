@@ -1517,9 +1517,9 @@ static void asus_input_exit(struct asus_laptop *asus)
 /*
  * ACPI driver
  */
-static void asus_acpi_notify(struct acpi_device *device, u32 event)
+static void asus_acpi_notify(acpi_handle handle, u32 event, void *data)
 {
-	struct asus_laptop *asus = acpi_driver_data(device);
+	struct asus_laptop *asus = data;
 	u16 count;
 
 	/* TODO Find a better way to handle events count. */
@@ -1824,8 +1824,9 @@ static void asus_dmi_check(void)
 
 static bool asus_device_present;
 
-static int asus_acpi_add(struct acpi_device *device)
+static int asus_acpi_probe(struct platform_device *pdev)
 {
+	struct acpi_device *device = ACPI_COMPANION(&pdev->dev);
 	struct asus_laptop *asus;
 	int result;
 
@@ -1837,7 +1838,6 @@ static int asus_acpi_add(struct acpi_device *device)
 	asus->handle = device->handle;
 	strscpy(acpi_device_name(device), ASUS_LAPTOP_DEVICE_NAME);
 	strscpy(acpi_device_class(device), ASUS_LAPTOP_CLASS);
-	device->driver_data = asus;
 	asus->device = device;
 
 	asus_dmi_check();
@@ -1845,6 +1845,8 @@ static int asus_acpi_add(struct acpi_device *device)
 	result = asus_acpi_init(asus);
 	if (result)
 		goto fail_platform;
+
+	platform_set_drvdata(pdev, asus);
 
 	/*
 	 * Need platform type detection first, then the platform
@@ -1881,6 +1883,11 @@ static int asus_acpi_add(struct acpi_device *device)
 	if (result && result != -ENODEV)
 		goto fail_pega_rfkill;
 
+	result = acpi_dev_install_notify_handler(device, ACPI_DEVICE_NOTIFY,
+						 asus_acpi_notify, asus);
+	if (result)
+		goto fail_pega_rfkill;
+
 	asus_device_present = true;
 	return 0;
 
@@ -1902,10 +1909,12 @@ fail_platform:
 	return result;
 }
 
-static void asus_acpi_remove(struct acpi_device *device)
+static void asus_acpi_remove(struct platform_device *pdev)
 {
-	struct asus_laptop *asus = acpi_driver_data(device);
+	struct asus_laptop *asus = platform_get_drvdata(pdev);
 
+	acpi_dev_remove_notify_handler(asus->device, ACPI_DEVICE_NOTIFY,
+				       asus_acpi_notify);
 	asus_backlight_exit(asus);
 	asus_rfkill_exit(asus);
 	asus_led_exit(asus);
@@ -1924,16 +1933,13 @@ static const struct acpi_device_id asus_device_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, asus_device_ids);
 
-static struct acpi_driver asus_acpi_driver = {
-	.name = ASUS_LAPTOP_NAME,
-	.class = ASUS_LAPTOP_CLASS,
-	.ids = asus_device_ids,
-	.flags = ACPI_DRIVER_ALL_NOTIFY_EVENTS,
-	.ops = {
-		.add = asus_acpi_add,
-		.remove = asus_acpi_remove,
-		.notify = asus_acpi_notify,
-		},
+static struct platform_driver asus_acpi_driver = {
+	.probe = asus_acpi_probe,
+	.remove = asus_acpi_remove,
+	.driver = {
+		.name = ASUS_LAPTOP_NAME,
+		.acpi_match_table = asus_device_ids,
+	},
 };
 
 static int __init asus_laptop_init(void)
@@ -1944,7 +1950,7 @@ static int __init asus_laptop_init(void)
 	if (result < 0)
 		return result;
 
-	result = acpi_bus_register_driver(&asus_acpi_driver);
+	result = platform_driver_register(&asus_acpi_driver);
 	if (result < 0)
 		goto fail_acpi_driver;
 	if (!asus_device_present) {
@@ -1954,7 +1960,7 @@ static int __init asus_laptop_init(void)
 	return 0;
 
 fail_no_device:
-	acpi_bus_unregister_driver(&asus_acpi_driver);
+	platform_driver_unregister(&asus_acpi_driver);
 fail_acpi_driver:
 	platform_driver_unregister(&platform_driver);
 	return result;
@@ -1962,7 +1968,7 @@ fail_acpi_driver:
 
 static void __exit asus_laptop_exit(void)
 {
-	acpi_bus_unregister_driver(&asus_acpi_driver);
+	platform_driver_unregister(&asus_acpi_driver);
 	platform_driver_unregister(&platform_driver);
 }
 

@@ -153,7 +153,7 @@ void ntfs_inode_printk(struct inode *inode, const char *fmt, ...)
 	vaf.fmt = printk_skip_level(fmt);
 	vaf.va = &args;
 
-	printk("%c%cntfs3(%s): ino=%lx,%s %pV\n", KERN_SOH_ASCII, level,
+	printk("%c%cntfs3(%s): ino=%llx,%s %pV\n", KERN_SOH_ASCII, level,
 	       sb->s_id, inode->i_ino, name ? name : "", &vaf);
 
 	va_end(args);
@@ -434,12 +434,6 @@ static int ntfs_fs_reconfigure(struct fs_context *fc)
 	struct ntfs_mount_options *new_opts = fc->fs_private;
 	int ro_rw;
 
-	/* If ntfs3 is used as legacy ntfs enforce read-only mode. */
-	if (is_legacy_ntfs(sb)) {
-		fc->sb_flags |= SB_RDONLY;
-		goto out;
-	}
-
 	ro_rw = sb_rdonly(sb) && !(fc->sb_flags & SB_RDONLY);
 	if (ro_rw && (sbi->flags & NTFS_FLAGS_NEED_REPLAY)) {
 		errorf(fc,
@@ -466,7 +460,6 @@ static int ntfs_fs_reconfigure(struct fs_context *fc)
 		return -EINVAL;
 	}
 
-out:
 	sync_filesystem(sb);
 	swap(sbi->options, fc->fs_private);
 
@@ -1339,8 +1332,13 @@ static int ntfs_fill_super(struct super_block *sb, struct fs_context *fc)
 				      le32_to_cpu(attr->res.data_size) >> 1,
 				      UTF16_LITTLE_ENDIAN, sbi->volume.label,
 				      sizeof(sbi->volume.label));
-		if (err < 0)
+		if (err < 0) {
 			sbi->volume.label[0] = 0;
+		} else if (err >= sizeof(sbi->volume.label)) {
+			sbi->volume.label[sizeof(sbi->volume.label) - 1] = 0;
+		} else {
+			sbi->volume.label[err] = 0;
+		}
 	} else {
 		/* Should we break mounting here? */
 		//err = -EINVAL;
@@ -1426,15 +1424,46 @@ static int ntfs_fill_super(struct super_block *sb, struct fs_context *fc)
 	tt = inode->i_size >> sbi->record_bits;
 	sbi->mft.next_free = MFT_REC_USER;
 
-	err = wnd_init(&sbi->mft.bitmap, sb, tt);
-	if (err)
-		goto put_inode_out;
-
 	err = ni_load_all_mi(ni);
 	if (err) {
 		ntfs_err(sb, "Failed to load $MFT's subrecords (%d).", err);
 		goto put_inode_out;
 	}
+
+	/* Merge MFT bitmap runs from extent records loaded by ni_load_all_mi. */
+	{
+		struct ATTRIB *a = NULL;
+		struct ATTR_LIST_ENTRY *le = NULL;
+
+		while ((a = ni_enum_attr_ex(ni, a, &le, NULL))) {
+			CLST svcn, evcn;
+			u16 roff;
+
+			if (a->type != ATTR_BITMAP || !a->non_res)
+				continue;
+
+			svcn = le64_to_cpu(a->nres.svcn);
+			if (!svcn)
+				continue; /* Base record runs already loaded. */
+
+			evcn = le64_to_cpu(a->nres.evcn);
+			roff = le16_to_cpu(a->nres.run_off);
+
+			err = run_unpack_ex(&sbi->mft.bitmap.run, sbi,
+					    MFT_REC_MFT, svcn, evcn, svcn,
+					    Add2Ptr(a, roff),
+					    le32_to_cpu(a->size) - roff);
+			if (err < 0) {
+				ntfs_err(sb, "Failed to unpack $MFT bitmap extent (%d).", err);
+				goto put_inode_out;
+			}
+			err = 0;
+		}
+	}
+
+	err = wnd_init(&sbi->mft.bitmap, sb, tt);
+	if (err)
+		goto put_inode_out;
 
 	sbi->mft.ni = ni;
 
@@ -1673,7 +1702,7 @@ load_root:
 	sb->s_root = d_make_root(inode);
 	if (!sb->s_root) {
 		err = -ENOMEM;
-		goto put_inode_out;
+		goto out;
 	}
 
 	if (boot2) {
@@ -1699,8 +1728,6 @@ load_root:
 
 	ntfs_create_procdir(sb);
 
-	if (is_legacy_ntfs(sb))
-		sb->s_flags |= SB_RDONLY;
 	return 0;
 
 put_inode_out:
@@ -1823,7 +1850,7 @@ static const struct fs_context_operations ntfs_context_ops = {
  * This will called when mount/remount. We will first initialize
  * options so that if remount we can use just that.
  */
-static int __ntfs_init_fs_context(struct fs_context *fc)
+static int ntfs_init_fs_context(struct fs_context *fc)
 {
 	struct ntfs_mount_options *opts;
 	struct ntfs_sb_info *sbi;
@@ -1877,11 +1904,6 @@ free_opts:
 	return -ENOMEM;
 }
 
-static int ntfs_init_fs_context(struct fs_context *fc)
-{
-	return __ntfs_init_fs_context(fc);
-}
-
 static void ntfs3_kill_sb(struct super_block *sb)
 {
 	struct ntfs_sb_info *sbi = sb->s_fs_info;
@@ -1902,47 +1924,6 @@ static struct file_system_type ntfs_fs_type = {
 	.kill_sb		= ntfs3_kill_sb,
 	.fs_flags		= FS_REQUIRES_DEV | FS_ALLOW_IDMAP,
 };
-
-#if IS_ENABLED(CONFIG_NTFS_FS)
-static int ntfs_legacy_init_fs_context(struct fs_context *fc)
-{
-	int ret;
-
-	ret = __ntfs_init_fs_context(fc);
-	/* If ntfs3 is used as legacy ntfs enforce read-only mode. */
-	fc->sb_flags |= SB_RDONLY;
-	return ret;
-}
-
-static struct file_system_type ntfs_legacy_fs_type = {
-	.owner			= THIS_MODULE,
-	.name			= "ntfs",
-	.init_fs_context	= ntfs_legacy_init_fs_context,
-	.parameters		= ntfs_fs_parameters,
-	.kill_sb		= ntfs3_kill_sb,
-	.fs_flags		= FS_REQUIRES_DEV | FS_ALLOW_IDMAP,
-};
-MODULE_ALIAS_FS("ntfs");
-
-static inline void register_as_ntfs_legacy(void)
-{
-	int err = register_filesystem(&ntfs_legacy_fs_type);
-	if (err)
-		pr_warn("ntfs3: Failed to register legacy ntfs filesystem driver: %d\n", err);
-}
-
-static inline void unregister_as_ntfs_legacy(void)
-{
-	unregister_filesystem(&ntfs_legacy_fs_type);
-}
-bool is_legacy_ntfs(struct super_block *sb)
-{
-	return sb->s_type == &ntfs_legacy_fs_type;
-}
-#else
-static inline void register_as_ntfs_legacy(void) {}
-static inline void unregister_as_ntfs_legacy(void) {}
-#endif
 
 // clang-format on
 
@@ -1972,7 +1953,6 @@ static int __init init_ntfs_fs(void)
 		goto out1;
 	}
 
-	register_as_ntfs_legacy();
 	err = register_filesystem(&ntfs_fs_type);
 	if (err)
 		goto out;
@@ -1992,7 +1972,6 @@ static void __exit exit_ntfs_fs(void)
 	rcu_barrier();
 	kmem_cache_destroy(ntfs_inode_cachep);
 	unregister_filesystem(&ntfs_fs_type);
-	unregister_as_ntfs_legacy();
 	ntfs3_exit_bitmap();
 	ntfs_remove_proc_root();
 }

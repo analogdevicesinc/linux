@@ -788,6 +788,7 @@ static int tas2781_hda_spi_probe(struct spi_device *spi)
 	}
 	if (strstr(dev_name(&spi->dev), "TXNW2781")) {
 		device_name = "TXNW2781";
+		tas_hda->priv->chip_id = TAS2781;
 	} else {
 		dev_err(tas_priv->dev, "Unmatched spi dev %s\n",
 			dev_name(&spi->dev));

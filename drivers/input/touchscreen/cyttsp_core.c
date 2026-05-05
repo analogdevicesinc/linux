@@ -494,34 +494,30 @@ static int cyttsp_disable(struct cyttsp *ts)
 static int cyttsp_suspend(struct device *dev)
 {
 	struct cyttsp *ts = dev_get_drvdata(dev);
-	int retval = 0;
+	int error;
 
-	mutex_lock(&ts->input->mutex);
+	guard(mutex)(&ts->input->mutex);
 
 	if (input_device_enabled(ts->input)) {
-		retval = cyttsp_disable(ts);
-		if (retval == 0)
-			ts->suspended = true;
+		error = cyttsp_disable(ts);
+		if (error)
+			return error;
 	}
 
-	mutex_unlock(&ts->input->mutex);
-
-	return retval;
+	ts->suspended = true;
+	return 0;
 }
 
 static int cyttsp_resume(struct device *dev)
 {
 	struct cyttsp *ts = dev_get_drvdata(dev);
 
-	mutex_lock(&ts->input->mutex);
+	guard(mutex)(&ts->input->mutex);
 
 	if (input_device_enabled(ts->input))
 		cyttsp_enable(ts);
 
 	ts->suspended = false;
-
-	mutex_unlock(&ts->input->mutex);
-
 	return 0;
 }
 

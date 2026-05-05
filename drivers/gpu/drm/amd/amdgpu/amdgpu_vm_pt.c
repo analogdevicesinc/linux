@@ -693,8 +693,11 @@ static void amdgpu_vm_pte_update_flags(struct amdgpu_vm_update_params *params,
 		   !(flags & AMDGPU_PTE_VALID) &&
 		   !(flags & AMDGPU_PTE_PRT_FLAG(params->adev))) {
 
-		/* Workaround for fault priority problem on GMC9 */
-		flags |= AMDGPU_PTE_EXECUTABLE;
+		/* Workaround for fault priority problem on GMC9 and GFX12,
+		 * EXECUTABLE for GMC9 fault priority and init_pte_flags
+		 * (e.g. AMDGPU_PTE_IS_PTE on GFX12)
+		 */
+		flags |= AMDGPU_PTE_EXECUTABLE | adev->gmc.init_pte_flags;
 	}
 
 	/*

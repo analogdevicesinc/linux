@@ -142,16 +142,28 @@ struct io_wait_queue {
 #endif
 };
 
+static inline struct io_rings *io_get_rings(struct io_ring_ctx *ctx)
+{
+	return rcu_dereference_check(ctx->rings_rcu,
+			lockdep_is_held(&ctx->uring_lock) ||
+			lockdep_is_held(&ctx->completion_lock));
+}
+
 static inline bool io_should_wake(struct io_wait_queue *iowq)
 {
 	struct io_ring_ctx *ctx = iowq->ctx;
-	int dist = READ_ONCE(ctx->rings->cq.tail) - (int) iowq->cq_tail;
+	struct io_rings *rings;
+	int dist;
+
+	guard(rcu)();
+	rings = io_get_rings(ctx);
 
 	/*
 	 * Wake up if we have enough events, or if a timeout occurred since we
 	 * started waiting. For timeouts, we always want to return to userspace,
 	 * regardless of event count.
 	 */
+	dist = READ_ONCE(rings->cq.tail) - (int) iowq->cq_tail;
 	return dist >= 0 || atomic_read(&ctx->cq_timeouts) != iowq->nr_timeouts;
 }
 
@@ -173,6 +185,7 @@ void io_req_track_inflight(struct io_kiocb *req);
 struct file *io_file_get_normal(struct io_kiocb *req, int fd);
 struct file *io_file_get_fixed(struct io_kiocb *req, int fd,
 			       unsigned issue_flags);
+struct file *io_uring_ctx_get_file(unsigned int fd, bool registered);
 
 void io_req_task_queue(struct io_kiocb *req);
 void io_req_task_complete(struct io_tw_req tw_req, io_tw_token_t tw);
@@ -211,7 +224,7 @@ static inline void io_lockdep_assert_cq_locked(struct io_ring_ctx *ctx)
 
 	if (ctx->flags & IORING_SETUP_IOPOLL) {
 		lockdep_assert_held(&ctx->uring_lock);
-	} else if (!ctx->task_complete) {
+	} else if (!(ctx->int_flags & IO_RING_F_TASK_COMPLETE)) {
 		lockdep_assert_held(&ctx->completion_lock);
 	} else if (ctx->submitter_task) {
 		/*
@@ -228,7 +241,7 @@ static inline void io_lockdep_assert_cq_locked(struct io_ring_ctx *ctx)
 
 static inline bool io_is_compat(struct io_ring_ctx *ctx)
 {
-	return IS_ENABLED(CONFIG_COMPAT) && unlikely(ctx->compat);
+	return IS_ENABLED(CONFIG_COMPAT) && unlikely(ctx->int_flags & IO_RING_F_COMPAT);
 }
 
 static inline void io_submit_flush_completions(struct io_ring_ctx *ctx)
@@ -431,9 +444,9 @@ static inline void io_cqring_wake(struct io_ring_ctx *ctx)
 	__io_wq_wake(&ctx->cq_wait);
 }
 
-static inline bool io_sqring_full(struct io_ring_ctx *ctx)
+static inline bool __io_sqring_full(struct io_ring_ctx *ctx)
 {
-	struct io_rings *r = ctx->rings;
+	struct io_rings *r = io_get_rings(ctx);
 
 	/*
 	 * SQPOLL must use the actual sqring head, as using the cached_sq_head
@@ -445,14 +458,26 @@ static inline bool io_sqring_full(struct io_ring_ctx *ctx)
 	return READ_ONCE(r->sq.tail) - READ_ONCE(r->sq.head) == ctx->sq_entries;
 }
 
-static inline unsigned int io_sqring_entries(struct io_ring_ctx *ctx)
+static inline bool io_sqring_full(struct io_ring_ctx *ctx)
 {
-	struct io_rings *rings = ctx->rings;
+	guard(rcu)();
+	return __io_sqring_full(ctx);
+}
+
+static inline unsigned int __io_sqring_entries(struct io_ring_ctx *ctx)
+{
+	struct io_rings *rings = io_get_rings(ctx);
 	unsigned int entries;
 
 	/* make sure SQ entry isn't read before tail */
 	entries = smp_load_acquire(&rings->sq.tail) - ctx->cached_sq_head;
 	return min(entries, ctx->sq_entries);
+}
+
+static inline unsigned int io_sqring_entries(struct io_ring_ctx *ctx)
+{
+	guard(rcu)();
+	return __io_sqring_entries(ctx);
 }
 
 /*
@@ -470,10 +495,12 @@ static inline void io_req_complete_defer(struct io_kiocb *req)
 	wq_list_add_tail(&req->comp_list, &state->compl_reqs);
 }
 
+#define SHOULD_FLUSH_MASK	(IO_RING_F_OFF_TIMEOUT_USED | \
+				 IO_RING_F_HAS_EVFD | IO_RING_F_POLL_ACTIVATED)
+
 static inline void io_commit_cqring_flush(struct io_ring_ctx *ctx)
 {
-	if (unlikely(ctx->off_timeout_used ||
-		     ctx->has_evfd || ctx->poll_activated))
+	if (unlikely(data_race(ctx->int_flags) & SHOULD_FLUSH_MASK))
 		__io_commit_cqring_flush(ctx);
 }
 

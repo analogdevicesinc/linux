@@ -44,8 +44,14 @@ static const struct drm_format_info *efidrm_get_format_si(struct drm_device *dev
 		{ PIXEL_FORMAT_XBGR8888, DRM_FORMAT_XBGR8888, },
 		{ PIXEL_FORMAT_XRGB2101010, DRM_FORMAT_XRGB2101010, },
 	};
+	struct pixel_format pixel;
+	int ret;
 
-	return drm_sysfb_get_format_si(dev, formats, ARRAY_SIZE(formats), si);
+	ret = screen_info_pixel_format(si, &pixel);
+	if (ret)
+		return NULL;
+
+	return drm_sysfb_get_format(dev, formats, ARRAY_SIZE(formats), &pixel);
 }
 
 static u64 efidrm_get_mem_flags(struct drm_device *dev, resource_size_t start,
@@ -151,7 +157,6 @@ static struct efidrm_device *efidrm_device_create(struct drm_driver *drv,
 	struct drm_sysfb_device *sysfb;
 	struct drm_device *dev;
 	struct resource *mem = NULL;
-	void __iomem *screen_base = NULL;
 	struct drm_plane *primary_plane;
 	struct drm_crtc *crtc;
 	struct drm_encoder *encoder;
@@ -238,21 +243,38 @@ static struct efidrm_device *efidrm_device_create(struct drm_driver *drv,
 
 	mem_flags = efidrm_get_mem_flags(dev, res->start, vsize);
 
-	if (mem_flags & EFI_MEMORY_WC)
-		screen_base = devm_ioremap_wc(&pdev->dev, mem->start, resource_size(mem));
-	else if (mem_flags & EFI_MEMORY_UC)
-		screen_base = devm_ioremap(&pdev->dev, mem->start, resource_size(mem));
-	else if (mem_flags & EFI_MEMORY_WT)
-		screen_base = devm_memremap(&pdev->dev, mem->start, resource_size(mem),
-					    MEMREMAP_WT);
-	else if (mem_flags & EFI_MEMORY_WB)
-		screen_base = devm_memremap(&pdev->dev, mem->start, resource_size(mem),
-					    MEMREMAP_WB);
-	else
+	if (mem_flags & EFI_MEMORY_WC) {
+		void __iomem *screen_base = devm_ioremap_wc(&pdev->dev, mem->start,
+							    resource_size(mem));
+
+		if (!screen_base)
+			return ERR_PTR(-ENXIO);
+		iosys_map_set_vaddr_iomem(&sysfb->fb_addr, screen_base);
+	} else if (mem_flags & EFI_MEMORY_UC) {
+		void __iomem *screen_base = devm_ioremap(&pdev->dev, mem->start,
+							 resource_size(mem));
+
+		if (!screen_base)
+			return ERR_PTR(-ENXIO);
+		iosys_map_set_vaddr_iomem(&sysfb->fb_addr, screen_base);
+	} else if (mem_flags & EFI_MEMORY_WT) {
+		void *screen_base = devm_memremap(&pdev->dev, mem->start,
+						  resource_size(mem), MEMREMAP_WT);
+
+		if (IS_ERR(screen_base))
+			return ERR_CAST(screen_base);
+		iosys_map_set_vaddr(&sysfb->fb_addr, screen_base);
+	} else if (mem_flags & EFI_MEMORY_WB) {
+		void *screen_base = devm_memremap(&pdev->dev, mem->start,
+						  resource_size(mem), MEMREMAP_WB);
+
+		if (IS_ERR(screen_base))
+			return ERR_CAST(screen_base);
+		iosys_map_set_vaddr(&sysfb->fb_addr, screen_base);
+	} else {
 		drm_err(dev, "invalid mem_flags: 0x%llx\n", mem_flags);
-	if (!screen_base)
-		return ERR_PTR(-ENOMEM);
-	iosys_map_set_vaddr_iomem(&sysfb->fb_addr, screen_base);
+		return ERR_PTR(-EINVAL);
+	}
 
 	/*
 	 * Modesetting

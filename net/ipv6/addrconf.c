@@ -36,6 +36,7 @@
 
 #define pr_fmt(fmt) "IPv6: " fmt
 
+#include <crypto/sha1.h>
 #include <linux/errno.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -2862,7 +2863,7 @@ void addrconf_prefix_rcv(struct net_device *dev, u8 *opt, int len, bool sllao)
 					fib6_add_gc_list(rt);
 				} else {
 					fib6_clean_expires(rt);
-					fib6_remove_gc_list(rt);
+					fib6_may_remove_gc_list(net, rt);
 				}
 
 				spin_unlock_bh(&table->tb6_lock);
@@ -3585,15 +3586,15 @@ static int fixup_permanent_addr(struct net *net,
 		struct fib6_info *f6i, *prev;
 
 		f6i = addrconf_f6i_alloc(net, idev, &ifp->addr, false,
-					 GFP_ATOMIC, NULL);
+					 GFP_KERNEL, NULL);
 		if (IS_ERR(f6i))
 			return PTR_ERR(f6i);
 
 		/* ifp->rt can be accessed outside of rtnl */
-		spin_lock(&ifp->lock);
+		spin_lock_bh(&ifp->lock);
 		prev = ifp->rt;
 		ifp->rt = f6i;
-		spin_unlock(&ifp->lock);
+		spin_unlock_bh(&ifp->lock);
 
 		fib6_info_release(prev);
 	}
@@ -3601,7 +3602,7 @@ static int fixup_permanent_addr(struct net *net,
 	if (!(ifp->flags & IFA_F_NOPREFIXROUTE)) {
 		addrconf_prefix_route(&ifp->addr, ifp->prefix_len,
 				      ifp->rt_priority, idev->dev, 0, 0,
-				      GFP_ATOMIC);
+				      GFP_KERNEL);
 	}
 
 	if (ifp->state == INET6_IFADDR_STATE_PREDAD)
@@ -3612,29 +3613,36 @@ static int fixup_permanent_addr(struct net *net,
 
 static void addrconf_permanent_addr(struct net *net, struct net_device *dev)
 {
-	struct inet6_ifaddr *ifp, *tmp;
+	struct inet6_ifaddr *ifp;
+	LIST_HEAD(tmp_addr_list);
 	struct inet6_dev *idev;
+
+	/* Mutual exclusion with other if_list_aux users. */
+	ASSERT_RTNL();
 
 	idev = __in6_dev_get(dev);
 	if (!idev)
 		return;
 
 	write_lock_bh(&idev->lock);
+	list_for_each_entry(ifp, &idev->addr_list, if_list) {
+		if (ifp->flags & IFA_F_PERMANENT)
+			list_add_tail(&ifp->if_list_aux, &tmp_addr_list);
+	}
+	write_unlock_bh(&idev->lock);
 
-	list_for_each_entry_safe(ifp, tmp, &idev->addr_list, if_list) {
-		if ((ifp->flags & IFA_F_PERMANENT) &&
-		    fixup_permanent_addr(net, idev, ifp) < 0) {
-			write_unlock_bh(&idev->lock);
-			in6_ifa_hold(ifp);
-			ipv6_del_addr(ifp);
-			write_lock_bh(&idev->lock);
+	while (!list_empty(&tmp_addr_list)) {
+		ifp = list_first_entry(&tmp_addr_list,
+				       struct inet6_ifaddr, if_list_aux);
+		list_del(&ifp->if_list_aux);
 
+		if (fixup_permanent_addr(net, idev, ifp) < 0) {
 			net_info_ratelimited("%s: Failed to add prefix route for address %pI6c; dropping\n",
 					     idev->dev->name, &ifp->addr);
+			in6_ifa_hold(ifp);
+			ipv6_del_addr(ifp);
 		}
 	}
-
-	write_unlock_bh(&idev->lock);
 }
 
 static int addrconf_notify(struct notifier_block *this, unsigned long event,
@@ -4840,7 +4848,7 @@ static int modify_prefix_route(struct net *net, struct inet6_ifaddr *ifp,
 
 		if (!(flags & RTF_EXPIRES)) {
 			fib6_clean_expires(f6i);
-			fib6_remove_gc_list(f6i);
+			fib6_may_remove_gc_list(net, f6i);
 		} else {
 			fib6_set_expires(f6i, expires);
 			fib6_add_gc_list(f6i);

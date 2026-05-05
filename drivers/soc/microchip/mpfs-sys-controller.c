@@ -36,6 +36,11 @@ struct mpfs_sys_controller {
 	struct kref consumers;
 };
 
+struct mpfs_syscon_config {
+	unsigned int nb_subdevs;
+	struct platform_device *subdevs;
+};
+
 int mpfs_blocking_transaction(struct mpfs_sys_controller *sys_controller, struct mpfs_mss_msg *msg)
 {
 	unsigned long timeout = msecs_to_jiffies(MPFS_SYS_CTRL_TIMEOUT_MS);
@@ -110,7 +115,77 @@ struct mtd_info *mpfs_sys_controller_get_flash(struct mpfs_sys_controller *mpfs_
 }
 EXPORT_SYMBOL(mpfs_sys_controller_get_flash);
 
-static struct platform_device subdevs[] = {
+static int mpfs_sys_controller_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct mpfs_sys_controller *sys_controller;
+	struct mpfs_syscon_config *of_data;
+	struct device_node *np;
+	int i, ret;
+
+	sys_controller = kzalloc_obj(*sys_controller);
+	if (!sys_controller)
+		return -ENOMEM;
+
+	np = of_parse_phandle(dev->of_node, "microchip,bitstream-flash", 0);
+	if (!np)
+		goto no_flash;
+
+	sys_controller->flash = of_get_mtd_device_by_node(np);
+	of_node_put(np);
+	if (IS_ERR(sys_controller->flash)) {
+		ret = dev_err_probe(dev, PTR_ERR(sys_controller->flash), "Failed to get flash\n");
+		goto out_free;
+	}
+
+no_flash:
+	sys_controller->client.dev = dev;
+	sys_controller->client.rx_callback = mpfs_sys_controller_rx_callback;
+	sys_controller->client.tx_block = 1U;
+	sys_controller->client.tx_tout = msecs_to_jiffies(MPFS_SYS_CTRL_TIMEOUT_MS);
+
+	sys_controller->chan = mbox_request_channel(&sys_controller->client, 0);
+	if (IS_ERR(sys_controller->chan)) {
+		ret = dev_err_probe(dev, PTR_ERR(sys_controller->chan),
+				    "Failed to get mbox channel\n");
+		goto out_free;
+	}
+
+	init_completion(&sys_controller->c);
+	kref_init(&sys_controller->consumers);
+
+	platform_set_drvdata(pdev, sys_controller);
+
+	of_data = (struct mpfs_syscon_config *) device_get_match_data(dev);
+	if (!of_data) {
+		dev_err(dev, "Error getting match data\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < of_data->nb_subdevs; i++) {
+		of_data->subdevs[i].dev.parent = dev;
+		if (platform_device_register(&of_data->subdevs[i]))
+			dev_warn(dev, "Error registering sub device %s\n",
+				 of_data->subdevs[i].name);
+	}
+
+	dev_info(&pdev->dev, "Registered MPFS system controller\n");
+
+	return 0;
+
+out_free:
+	kfree(sys_controller);
+	return ret;
+}
+
+static void mpfs_sys_controller_remove(struct platform_device *pdev)
+{
+	struct mpfs_sys_controller *sys_controller = platform_get_drvdata(pdev);
+
+	mpfs_sys_controller_put(sys_controller);
+}
+
+static struct platform_device mpfs_subdevs[] = {
 	{
 		.name		= "mpfs-rng",
 		.id		= -1,
@@ -125,66 +200,30 @@ static struct platform_device subdevs[] = {
 	},
 };
 
-static int mpfs_sys_controller_probe(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	struct mpfs_sys_controller *sys_controller;
-	struct device_node *np;
-	int i, ret;
+static struct platform_device pic64gx_subdevs[] = {
+	{
+		.name		= "mpfs-rng",
+		.id		= -1,
+	},
+	{
+		.name		= "mpfs-generic-service",
+		.id		= -1,
+	},
+};
 
-	sys_controller = kzalloc_obj(*sys_controller);
-	if (!sys_controller)
-		return -ENOMEM;
+static const struct mpfs_syscon_config mpfs_config = {
+	.nb_subdevs = ARRAY_SIZE(mpfs_subdevs),
+	.subdevs = mpfs_subdevs,
+};
 
-	np = of_parse_phandle(dev->of_node, "microchip,bitstream-flash", 0);
-	if (!np)
-		goto no_flash;
-
-	sys_controller->flash = of_get_mtd_device_by_node(np);
-	of_node_put(np);
-	if (IS_ERR(sys_controller->flash))
-		return dev_err_probe(dev, PTR_ERR(sys_controller->flash), "Failed to get flash\n");
-
-no_flash:
-	sys_controller->client.dev = dev;
-	sys_controller->client.rx_callback = mpfs_sys_controller_rx_callback;
-	sys_controller->client.tx_block = 1U;
-	sys_controller->client.tx_tout = msecs_to_jiffies(MPFS_SYS_CTRL_TIMEOUT_MS);
-
-	sys_controller->chan = mbox_request_channel(&sys_controller->client, 0);
-	if (IS_ERR(sys_controller->chan)) {
-		ret = dev_err_probe(dev, PTR_ERR(sys_controller->chan),
-				    "Failed to get mbox channel\n");
-		kfree(sys_controller);
-		return ret;
-	}
-
-	init_completion(&sys_controller->c);
-	kref_init(&sys_controller->consumers);
-
-	platform_set_drvdata(pdev, sys_controller);
-
-
-	for (i = 0; i < ARRAY_SIZE(subdevs); i++) {
-		subdevs[i].dev.parent = dev;
-		if (platform_device_register(&subdevs[i]))
-			dev_warn(dev, "Error registering sub device %s\n", subdevs[i].name);
-	}
-
-	dev_info(&pdev->dev, "Registered MPFS system controller\n");
-
-	return 0;
-}
-
-static void mpfs_sys_controller_remove(struct platform_device *pdev)
-{
-	struct mpfs_sys_controller *sys_controller = platform_get_drvdata(pdev);
-
-	mpfs_sys_controller_put(sys_controller);
-}
+static const struct mpfs_syscon_config pic64gx_config = {
+	.nb_subdevs = ARRAY_SIZE(pic64gx_subdevs),
+	.subdevs = pic64gx_subdevs,
+};
 
 static const struct of_device_id mpfs_sys_controller_of_match[] = {
-	{.compatible = "microchip,mpfs-sys-controller", },
+	{.compatible = "microchip,mpfs-sys-controller", .data = &mpfs_config},
+	{.compatible = "microchip,pic64gx-sys-controller", .data = &pic64gx_config},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mpfs_sys_controller_of_match);

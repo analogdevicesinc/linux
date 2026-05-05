@@ -159,10 +159,6 @@ extern void spi_transfer_cs_change_delay_exec(struct spi_message *msg,
  * @modalias: Name of the driver to use with this device, or an alias
  *	for that name.  This appears in the sysfs "modalias" attribute
  *	for driver coldplugging, and in uevents used for hotplugging
- * @driver_override: If the name of a driver is written to this attribute, then
- *	the device will bind to the named driver and only the named driver.
- *	Do not set directly, because core frees it; use driver_set_override() to
- *	set or clear it.
  * @pcpu_statistics: statistics for the spi_device
  * @word_delay: delay to be inserted between consecutive
  *	words of a transfer
@@ -224,7 +220,6 @@ struct spi_device {
 	void			*controller_state;
 	void			*controller_data;
 	char			modalias[SPI_NAME_SIZE];
-	const char		*driver_override;
 
 	/* The statistics */
 	struct spi_statistics __percpu	*pcpu_statistics;
@@ -387,6 +382,7 @@ static inline void spi_unregister_driver(struct spi_driver *sdrv)
 }
 
 extern struct spi_device *spi_new_ancillary_device(struct spi_device *spi, u8 chip_select);
+extern struct spi_device *devm_spi_new_ancillary_device(struct spi_device *spi, u8 chip_select);
 
 /* Use a define to avoid include chaining to get THIS_MODULE */
 #define spi_register_driver(driver) \
@@ -705,7 +701,7 @@ struct spi_controller {
 	int			(*transfer)(struct spi_device *spi,
 						struct spi_message *mesg);
 
-	/* Called on release() to free memory provided by spi_controller */
+	/* Called on deregistration to free memory provided by spi_controller */
 	void			(*cleanup)(struct spi_device *spi);
 
 	/*
@@ -1023,7 +1019,7 @@ struct spi_res {
  *	this value may have changed compared to what was requested, depending
  *	on the available snapshotting resolution (DMA transfer,
  *	@ptp_sts_supported is false, etc).
- * @ptp_sts_word_post: See @ptp_sts_word_post. The two can be equal (meaning
+ * @ptp_sts_word_post: See @ptp_sts_word_pre. The two can be equal (meaning
  *	that a single byte should be snapshotted).
  *	If the core takes care of the timestamp (if @ptp_sts_supported is false
  *	for this controller), it will set @ptp_sts_word_pre to 0, and

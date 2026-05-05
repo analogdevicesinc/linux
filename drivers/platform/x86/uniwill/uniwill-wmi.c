@@ -77,6 +77,7 @@ static struct wmi_driver uniwill_wmi_driver = {
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 	.id_table = uniwill_wmi_id_table,
+	.min_event_size = sizeof(u32),
 	.notify = uniwill_wmi_notify,
 	.no_singleton = true,
 };

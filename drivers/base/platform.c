@@ -75,7 +75,7 @@ struct resource *platform_get_mem_or_io(struct platform_device *dev,
 	for (i = 0; i < dev->num_resources; i++) {
 		struct resource *r = &dev->resource[i];
 
-		if ((resource_type(r) & (IORESOURCE_MEM|IORESOURCE_IO)) && num-- == 0)
+		if ((resource_type(r) & (IORESOURCE_MEM | IORESOURCE_IO)) && num-- == 0)
 			return r;
 	}
 	return NULL;
@@ -97,7 +97,7 @@ EXPORT_SYMBOL_GPL(platform_get_mem_or_io);
  */
 void __iomem *
 devm_platform_get_and_ioremap_resource(struct platform_device *pdev,
-				unsigned int index, struct resource **res)
+				       unsigned int index, struct resource **res)
 {
 	struct resource *r;
 
@@ -172,7 +172,7 @@ static const struct cpumask *get_irq_affinity(struct platform_device *dev,
  * @num:	interrupt number index
  * @affinity:	optional cpumask pointer to get the affinity of a per-cpu interrupt
  *
- * Gets an interupt for a platform device. Device drivers should check the
+ * Gets an interrupt for a platform device. Device drivers should check the
  * return value for errors so as to not pass a negative integer value to
  * the request_irq() APIs. Optional affinity information is provided in the
  * affinity pointer if available, and NULL otherwise.
@@ -603,7 +603,6 @@ static void platform_device_release(struct device *dev)
 	kfree(pa->pdev.dev.platform_data);
 	kfree(pa->pdev.mfd_cell);
 	kfree(pa->pdev.resource);
-	kfree(pa->pdev.driver_override);
 	kfree(pa);
 }
 
@@ -844,11 +843,13 @@ EXPORT_SYMBOL_GPL(platform_device_unregister);
  *
  * Returns &struct platform_device pointer on success, or ERR_PTR() on error.
  */
-struct platform_device *platform_device_register_full(
-		const struct platform_device_info *pdevinfo)
+struct platform_device *platform_device_register_full(const struct platform_device_info *pdevinfo)
 {
 	int ret;
 	struct platform_device *pdev;
+
+	if (pdevinfo->swnode && pdevinfo->properties)
+		return ERR_PTR(-EINVAL);
 
 	pdev = platform_device_alloc(pdevinfo->name, pdevinfo->id);
 	if (!pdev)
@@ -865,17 +866,19 @@ struct platform_device *platform_device_register_full(
 		pdev->dev.coherent_dma_mask = pdevinfo->dma_mask;
 	}
 
-	ret = platform_device_add_resources(pdev,
-			pdevinfo->res, pdevinfo->num_res);
+	ret = platform_device_add_resources(pdev, pdevinfo->res, pdevinfo->num_res);
 	if (ret)
 		goto err;
 
-	ret = platform_device_add_data(pdev,
-			pdevinfo->data, pdevinfo->size_data);
+	ret = platform_device_add_data(pdev, pdevinfo->data, pdevinfo->size_data);
 	if (ret)
 		goto err;
 
-	if (pdevinfo->properties) {
+	if (pdevinfo->swnode) {
+		ret = device_add_software_node(&pdev->dev, pdevinfo->swnode);
+		if (ret)
+			goto err;
+	} else if (pdevinfo->properties) {
 		ret = device_create_managed_software_node(&pdev->dev,
 							  pdevinfo->properties, NULL);
 		if (ret)
@@ -899,8 +902,7 @@ EXPORT_SYMBOL_GPL(platform_device_register_full);
  * @drv: platform driver structure
  * @owner: owning module/driver
  */
-int __platform_driver_register(struct platform_driver *drv,
-				struct module *owner)
+int __platform_driver_register(struct platform_driver *drv, struct module *owner)
 {
 	drv->driver.owner = owner;
 	drv->driver.bus = &platform_bus_type;
@@ -952,13 +954,14 @@ static int is_bound_to_driver(struct device *dev, void *driver)
  * a negative error code and with the driver not registered.
  */
 int __init_or_module __platform_driver_probe(struct platform_driver *drv,
-		int (*probe)(struct platform_device *), struct module *module)
+					     int (*probe)(struct platform_device *),
+					     struct module *module)
 {
 	int retval;
 
 	if (drv->driver.probe_type == PROBE_PREFER_ASYNCHRONOUS) {
 		pr_err("%s: drivers registered with %s can not be probed asynchronously\n",
-			 drv->driver.name, __func__);
+		       drv->driver.name, __func__);
 		return -EINVAL;
 	}
 
@@ -1014,11 +1017,11 @@ EXPORT_SYMBOL_GPL(__platform_driver_probe);
  *
  * Returns &struct platform_device pointer on success, or ERR_PTR() on error.
  */
-struct platform_device * __init_or_module __platform_create_bundle(
-			struct platform_driver *driver,
-			int (*probe)(struct platform_device *),
-			struct resource *res, unsigned int n_res,
-			const void *data, size_t size, struct module *module)
+struct platform_device * __init_or_module
+__platform_create_bundle(struct platform_driver *driver,
+			 int (*probe)(struct platform_device *),
+			 struct resource *res, unsigned int n_res,
+			 const void *data, size_t size, struct module *module)
 {
 	struct platform_device *pdev;
 	int error;
@@ -1117,9 +1120,8 @@ void platform_unregister_drivers(struct platform_driver * const *drivers,
 }
 EXPORT_SYMBOL_GPL(platform_unregister_drivers);
 
-static const struct platform_device_id *platform_match_id(
-			const struct platform_device_id *id,
-			struct platform_device *pdev)
+static const struct platform_device_id *
+platform_match_id(const struct platform_device_id *id, struct platform_device *pdev)
 {
 	while (id->name[0]) {
 		if (strcmp(pdev->name, id->name) == 0) {
@@ -1306,48 +1308,18 @@ static ssize_t numa_node_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(numa_node);
 
-static ssize_t driver_override_show(struct device *dev,
-				    struct device_attribute *attr, char *buf)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	ssize_t len;
-
-	device_lock(dev);
-	len = sysfs_emit(buf, "%s\n", pdev->driver_override);
-	device_unlock(dev);
-
-	return len;
-}
-
-static ssize_t driver_override_store(struct device *dev,
-				     struct device_attribute *attr,
-				     const char *buf, size_t count)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	int ret;
-
-	ret = driver_set_override(dev, &pdev->driver_override, buf, count);
-	if (ret)
-		return ret;
-
-	return count;
-}
-static DEVICE_ATTR_RW(driver_override);
-
 static struct attribute *platform_dev_attrs[] = {
 	&dev_attr_modalias.attr,
 	&dev_attr_numa_node.attr,
-	&dev_attr_driver_override.attr,
 	NULL,
 };
 
-static umode_t platform_dev_attrs_visible(struct kobject *kobj, struct attribute *a,
-		int n)
+static umode_t platform_dev_attrs_visible(struct kobject *kobj,
+					  struct attribute *a, int n)
 {
 	struct device *dev = container_of(kobj, typeof(*dev), kobj);
 
-	if (a == &dev_attr_numa_node.attr &&
-			dev_to_node(dev) == NUMA_NO_NODE)
+	if (a == &dev_attr_numa_node.attr && dev_to_node(dev) == NUMA_NO_NODE)
 		return 0;
 
 	return a->mode;
@@ -1358,7 +1330,6 @@ static const struct attribute_group platform_dev_group = {
 	.is_visible = platform_dev_attrs_visible,
 };
 __ATTRIBUTE_GROUPS(platform_dev);
-
 
 /**
  * platform_match - bind platform device to platform driver.
@@ -1377,10 +1348,12 @@ static int platform_match(struct device *dev, const struct device_driver *drv)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct platform_driver *pdrv = to_platform_driver(drv);
+	int ret;
 
 	/* When driver_override is set, only bind to the matching driver */
-	if (pdev->driver_override)
-		return !strcmp(pdev->driver_override, drv->name);
+	ret = device_match_driver_override(dev, drv);
+	if (ret >= 0)
+		return ret;
 
 	/* Attempt an OF style match first */
 	if (of_driver_match_device(dev, drv))
@@ -1412,8 +1385,7 @@ static int platform_uevent(const struct device *dev, struct kobj_uevent_env *env
 	if (rc != -ENODEV)
 		return rc;
 
-	add_uevent_var(env, "MODALIAS=%s%s", PLATFORM_MODULE_PREFIX,
-			pdev->name);
+	add_uevent_var(env, "MODALIAS=%s%s", PLATFORM_MODULE_PREFIX, pdev->name);
 	return 0;
 }
 
@@ -1516,6 +1488,7 @@ static const struct dev_pm_ops platform_dev_pm_ops = {
 const struct bus_type platform_bus_type = {
 	.name		= "platform",
 	.dev_groups	= platform_dev_groups,
+	.driver_override = true,
 	.match		= platform_match,
 	.uevent		= platform_uevent,
 	.probe		= platform_probe,

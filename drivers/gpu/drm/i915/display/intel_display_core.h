@@ -294,6 +294,9 @@ struct intel_display {
 	/* Parent, or core, driver functions exposed to display */
 	const struct intel_display_parent_interface *parent;
 
+	/* list of all intel_crtcs sorted by pipe */
+	struct list_head pipe_list;
+
 	/* Display functions */
 	struct {
 		/* Top level crtc-ish functions */

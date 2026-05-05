@@ -17,7 +17,6 @@ Contents:
    diagnostic/index
    dsa/index
    devlink/index
-   caif/index
    ethtool-netlink
    ieee802154
    iso15765-2
@@ -41,11 +40,9 @@ Contents:
    tls-handshake
    nfc
    6lowpan
-   6pack
    arcnet-hardware
    arcnet
    atm
-   ax25
    bonding
    cdc_mbim
    dctcp

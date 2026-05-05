@@ -135,48 +135,10 @@ static void mlx4_ib_free_cq_buf(struct mlx4_ib_dev *dev, struct mlx4_ib_cq_buf *
 	mlx4_buf_free(dev->dev, (cqe + 1) * buf->entry_size, &buf->buf);
 }
 
-static int mlx4_ib_get_cq_umem(struct mlx4_ib_dev *dev,
-			       struct mlx4_ib_cq_buf *buf,
-			       struct ib_umem **umem, u64 buf_addr, int cqe)
-{
-	int err;
-	int cqe_size = dev->dev->caps.cqe_size;
-	int shift;
-	int n;
-
-	*umem = ib_umem_get(&dev->ib_dev, buf_addr, cqe * cqe_size,
-			    IB_ACCESS_LOCAL_WRITE);
-	if (IS_ERR(*umem))
-		return PTR_ERR(*umem);
-
-	shift = mlx4_ib_umem_calc_optimal_mtt_size(*umem, 0, &n);
-	if (shift < 0) {
-		err = shift;
-		goto err_buf;
-	}
-
-	err = mlx4_mtt_init(dev->dev, n, shift, &buf->mtt);
-	if (err)
-		goto err_buf;
-
-	err = mlx4_ib_umem_write_mtt(dev, &buf->mtt, *umem);
-	if (err)
-		goto err_mtt;
-
-	return 0;
-
-err_mtt:
-	mlx4_mtt_cleanup(dev->dev, &buf->mtt);
-
-err_buf:
-	ib_umem_release(*umem);
-
-	return err;
-}
-
 #define CQ_CREATE_FLAGS_SUPPORTED IB_UVERBS_CQ_FLAGS_TIMESTAMP_COMPLETION
-int mlx4_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
-		      struct uverbs_attr_bundle *attrs)
+int mlx4_ib_create_user_cq(struct ib_cq *ibcq,
+			   const struct ib_cq_init_attr *attr,
+			   struct uverbs_attr_bundle *attrs)
 {
 	struct ib_udata *udata = &attrs->driver_udata;
 	struct ib_device *ibdev = ibcq->device;
@@ -184,13 +146,16 @@ int mlx4_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	int vector = attr->comp_vector;
 	struct mlx4_ib_dev *dev = to_mdev(ibdev);
 	struct mlx4_ib_cq *cq = to_mcq(ibcq);
-	struct mlx4_uar *uar;
+	struct mlx4_ib_create_cq ucmd;
+	int cqe_size = dev->dev->caps.cqe_size;
 	void *buf_addr;
+	int shift;
+	int n;
 	int err;
 	struct mlx4_ib_ucontext *context = rdma_udata_to_drv_context(
 		udata, struct mlx4_ib_ucontext, ibucontext);
 
-	if (entries < 1 || entries > dev->dev->caps.max_cqes)
+	if (attr->cqe > dev->dev->caps.max_cqes)
 		return -EINVAL;
 
 	if (attr->flags & ~CQ_CREATE_FLAGS_SUPPORTED)
@@ -200,74 +165,64 @@ int mlx4_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 	cq->ibcq.cqe = entries - 1;
 	mutex_init(&cq->resize_mutex);
 	spin_lock_init(&cq->lock);
-	cq->resize_buf = NULL;
-	cq->resize_umem = NULL;
-	cq->create_flags = attr->flags;
 	INIT_LIST_HEAD(&cq->send_qp_list);
 	INIT_LIST_HEAD(&cq->recv_qp_list);
 
-	if (udata) {
-		struct mlx4_ib_create_cq ucmd;
+	err = ib_copy_validate_udata_in(udata, ucmd, db_addr);
+	if (err)
+		goto err_cq;
 
-		if (ib_copy_from_udata(&ucmd, udata, sizeof ucmd)) {
-			err = -EFAULT;
-			goto err_cq;
-		}
+	if (ibcq->umem &&
+	    (dev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_SW_CQ_INIT))
+		return -EOPNOTSUPP;
 
-		buf_addr = (void *)(unsigned long)ucmd.buf_addr;
-		err = mlx4_ib_get_cq_umem(dev, &cq->buf, &cq->umem,
-					  ucmd.buf_addr, entries);
-		if (err)
-			goto err_cq;
+	buf_addr = (void *)(unsigned long)ucmd.buf_addr;
 
-		err = mlx4_ib_db_map_user(udata, ucmd.db_addr, &cq->db);
-		if (err)
-			goto err_mtt;
-
-		uar = &context->uar;
-		cq->mcq.usage = MLX4_RES_USAGE_USER_VERBS;
-	} else {
-		err = mlx4_db_alloc(dev->dev, &cq->db, 1);
-		if (err)
-			goto err_cq;
-
-		cq->mcq.set_ci_db  = cq->db.db;
-		cq->mcq.arm_db     = cq->db.db + 1;
-		*cq->mcq.set_ci_db = 0;
-		*cq->mcq.arm_db    = 0;
-
-		err = mlx4_ib_alloc_cq_buf(dev, &cq->buf, entries);
-		if (err)
-			goto err_db;
-
-		buf_addr = &cq->buf.buf;
-
-		uar = &dev->priv_uar;
-		cq->mcq.usage = MLX4_RES_USAGE_DRIVER;
+	if (!ibcq->umem)
+		ibcq->umem = ib_umem_get(&dev->ib_dev, ucmd.buf_addr,
+					 entries * cqe_size,
+					 IB_ACCESS_LOCAL_WRITE);
+	if (IS_ERR(ibcq->umem)) {
+		err = PTR_ERR(ibcq->umem);
+		goto err_cq;
 	}
+
+	shift = mlx4_ib_umem_calc_optimal_mtt_size(cq->ibcq.umem, 0, &n);
+	if (shift < 0) {
+		err = shift;
+		goto err_cq;
+	}
+
+	err = mlx4_mtt_init(dev->dev, n, shift, &cq->buf.mtt);
+	if (err)
+		goto err_cq;
+
+	err = mlx4_ib_umem_write_mtt(dev, &cq->buf.mtt, cq->ibcq.umem);
+	if (err)
+		goto err_mtt;
+
+	err = mlx4_ib_db_map_user(udata, ucmd.db_addr, &cq->db);
+	if (err)
+		goto err_mtt;
 
 	if (dev->eq_table)
 		vector = dev->eq_table[vector % ibdev->num_comp_vectors];
 
-	err = mlx4_cq_alloc(dev->dev, entries, &cq->buf.mtt, uar, cq->db.dma,
-			    &cq->mcq, vector, 0,
-			    !!(cq->create_flags &
-			       IB_UVERBS_CQ_FLAGS_TIMESTAMP_COMPLETION),
-			    buf_addr, !!udata);
+	err = mlx4_cq_alloc(dev->dev, entries, &cq->buf.mtt, &context->uar,
+			    cq->db.dma, &cq->mcq, vector, 0,
+			    attr->flags & IB_UVERBS_CQ_FLAGS_TIMESTAMP_COMPLETION,
+			    buf_addr, true);
 	if (err)
 		goto err_dbmap;
 
-	if (udata)
-		cq->mcq.tasklet_ctx.comp = mlx4_ib_cq_comp;
-	else
-		cq->mcq.comp = mlx4_ib_cq_comp;
+	cq->mcq.tasklet_ctx.comp = mlx4_ib_cq_comp;
 	cq->mcq.event = mlx4_ib_cq_event;
+	cq->mcq.usage = MLX4_RES_USAGE_USER_VERBS;
 
-	if (udata)
-		if (ib_copy_to_udata(udata, &cq->mcq.cqn, sizeof (__u32))) {
-			err = -EFAULT;
-			goto err_cq_free;
-		}
+	if (ib_copy_to_udata(udata, &cq->mcq.cqn, sizeof(__u32))) {
+		err = -EFAULT;
+		goto err_cq_free;
+	}
 
 	return 0;
 
@@ -275,20 +230,72 @@ err_cq_free:
 	mlx4_cq_free(dev->dev, &cq->mcq);
 
 err_dbmap:
-	if (udata)
-		mlx4_ib_db_unmap_user(context, &cq->db);
+	mlx4_ib_db_unmap_user(context, &cq->db);
 
 err_mtt:
 	mlx4_mtt_cleanup(dev->dev, &cq->buf.mtt);
+	/* UMEM is released by ib_core */
 
-	ib_umem_release(cq->umem);
-	if (!udata)
-		mlx4_ib_free_cq_buf(dev, &cq->buf, cq->ibcq.cqe);
+err_cq:
+	return err;
+}
+
+int mlx4_ib_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
+		      struct uverbs_attr_bundle *attrs)
+{
+	struct ib_device *ibdev = ibcq->device;
+	int entries = attr->cqe;
+	int vector = attr->comp_vector;
+	struct mlx4_ib_dev *dev = to_mdev(ibdev);
+	struct mlx4_ib_cq *cq = to_mcq(ibcq);
+	void *buf_addr;
+	int err;
+
+	if (attr->cqe > dev->dev->caps.max_cqes)
+		return -EINVAL;
+
+	entries      = roundup_pow_of_two(entries + 1);
+	cq->ibcq.cqe = entries - 1;
+	mutex_init(&cq->resize_mutex);
+	spin_lock_init(&cq->lock);
+	INIT_LIST_HEAD(&cq->send_qp_list);
+	INIT_LIST_HEAD(&cq->recv_qp_list);
+
+	err = mlx4_db_alloc(dev->dev, &cq->db, 1);
+	if (err)
+		return err;
+
+	cq->mcq.set_ci_db  = cq->db.db;
+	cq->mcq.arm_db     = cq->db.db + 1;
+	*cq->mcq.set_ci_db = 0;
+	*cq->mcq.arm_db    = 0;
+
+	err = mlx4_ib_alloc_cq_buf(dev, &cq->buf, entries);
+	if (err)
+		goto err_db;
+
+	buf_addr = &cq->buf.buf;
+
+	if (dev->eq_table)
+		vector = dev->eq_table[vector % ibdev->num_comp_vectors];
+
+	err = mlx4_cq_alloc(dev->dev, entries, &cq->buf.mtt, &dev->priv_uar,
+			    cq->db.dma, &cq->mcq, vector, 0, 0,
+			    buf_addr, false);
+	if (err)
+		goto err_buf;
+
+	cq->mcq.comp = mlx4_ib_cq_comp;
+	cq->mcq.event = mlx4_ib_cq_event;
+	cq->mcq.usage = MLX4_RES_USAGE_DRIVER;
+
+	return 0;
+
+err_buf:
+	mlx4_ib_free_cq_buf(dev, &cq->buf, cq->ibcq.cqe);
 
 err_db:
-	if (!udata)
-		mlx4_db_free(dev->dev, &cq->db);
-err_cq:
+	mlx4_db_free(dev->dev, &cq->db);
 	return err;
 }
 
@@ -320,29 +327,59 @@ static int mlx4_alloc_resize_umem(struct mlx4_ib_dev *dev, struct mlx4_ib_cq *cq
 				   int entries, struct ib_udata *udata)
 {
 	struct mlx4_ib_resize_cq ucmd;
+	int cqe_size = dev->dev->caps.cqe_size;
+	int shift;
+	int n;
 	int err;
 
 	if (cq->resize_umem)
 		return -EBUSY;
 
-	if (ib_copy_from_udata(&ucmd, udata, sizeof ucmd))
-		return -EFAULT;
+	err = ib_copy_validate_udata_in(udata, ucmd, buf_addr);
+	if (err)
+		return err;
 
 	cq->resize_buf = kmalloc_obj(*cq->resize_buf);
 	if (!cq->resize_buf)
 		return -ENOMEM;
 
-	err = mlx4_ib_get_cq_umem(dev, &cq->resize_buf->buf, &cq->resize_umem,
-				  ucmd.buf_addr, entries);
-	if (err) {
-		kfree(cq->resize_buf);
-		cq->resize_buf = NULL;
-		return err;
+	cq->resize_umem = ib_umem_get(&dev->ib_dev, ucmd.buf_addr,
+				      entries * cqe_size,
+				      IB_ACCESS_LOCAL_WRITE);
+	if (IS_ERR(cq->resize_umem)) {
+		err = PTR_ERR(cq->resize_umem);
+		goto err_buf;
 	}
+
+	shift = mlx4_ib_umem_calc_optimal_mtt_size(cq->resize_umem, 0, &n);
+	if (shift < 0) {
+		err = shift;
+		goto err_umem;
+	}
+
+	err = mlx4_mtt_init(dev->dev, n, shift, &cq->resize_buf->buf.mtt);
+	if (err)
+		goto err_umem;
+
+	err = mlx4_ib_umem_write_mtt(dev, &cq->resize_buf->buf.mtt,
+				     cq->resize_umem);
+	if (err)
+		goto err_mtt;
 
 	cq->resize_buf->cqe = entries - 1;
 
 	return 0;
+
+err_mtt:
+	mlx4_mtt_cleanup(dev->dev, &cq->resize_buf->buf.mtt);
+
+err_umem:
+	ib_umem_release(cq->resize_umem);
+
+err_buf:
+	kfree(cq->resize_buf);
+	cq->resize_buf = NULL;
+	return err;
 }
 
 static int mlx4_ib_get_outstanding_cqes(struct mlx4_ib_cq *cq)
@@ -381,7 +418,8 @@ static void mlx4_ib_cq_resize_copy_cqes(struct mlx4_ib_cq *cq)
 	++cq->mcq.cons_index;
 }
 
-int mlx4_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
+int mlx4_ib_resize_cq(struct ib_cq *ibcq, unsigned int entries,
+		      struct ib_udata *udata)
 {
 	struct mlx4_ib_dev *dev = to_mdev(ibcq->device);
 	struct mlx4_ib_cq *cq = to_mcq(ibcq);
@@ -390,7 +428,7 @@ int mlx4_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
 	int err;
 
 	mutex_lock(&cq->resize_mutex);
-	if (entries < 1 || entries > dev->dev->caps.max_cqes) {
+	if (entries > dev->dev->caps.max_cqes) {
 		err = -EINVAL;
 		goto out;
 	}
@@ -433,8 +471,8 @@ int mlx4_ib_resize_cq(struct ib_cq *ibcq, int entries, struct ib_udata *udata)
 	if (ibcq->uobject) {
 		cq->buf      = cq->resize_buf->buf;
 		cq->ibcq.cqe = cq->resize_buf->cqe;
-		ib_umem_release(cq->umem);
-		cq->umem     = cq->resize_umem;
+		ib_umem_release(cq->ibcq.umem);
+		cq->ibcq.umem     = cq->resize_umem;
 
 		kfree(cq->resize_buf);
 		cq->resize_buf = NULL;
@@ -494,11 +532,11 @@ int mlx4_ib_destroy_cq(struct ib_cq *cq, struct ib_udata *udata)
 				struct mlx4_ib_ucontext,
 				ibucontext),
 			&mcq->db);
+		/* UMEM is released by ib_core */
 	} else {
 		mlx4_ib_free_cq_buf(dev, &mcq->buf, cq->cqe);
 		mlx4_db_free(dev->dev, &mcq->db);
 	}
-	ib_umem_release(mcq->umem);
 	return 0;
 }
 

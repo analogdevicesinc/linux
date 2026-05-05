@@ -464,10 +464,6 @@ static int __init br_init(void)
 
 	brioctl_set(br_ioctl_stub);
 
-#if IS_ENABLED(CONFIG_ATM_LANE)
-	br_fdb_test_addr_hook = br_fdb_test_addr;
-#endif
-
 #if IS_MODULE(CONFIG_BRIDGE_NETFILTER)
 	pr_info("bridge: filtering via arp/ip/ip6tables is no longer available "
 		"by default. Update your scripts to load br_netfilter if you "
@@ -506,9 +502,6 @@ static void __exit br_deinit(void)
 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
 
 	br_nf_core_fini();
-#if IS_ENABLED(CONFIG_ATM_LANE)
-	br_fdb_test_addr_hook = NULL;
-#endif
 	br_fdb_fini();
 }
 

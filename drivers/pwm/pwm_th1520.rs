@@ -64,10 +64,7 @@ const TH1520_PWM_REG_SIZE: usize = 0xB0;
 fn ns_to_cycles(ns: u64, rate_hz: u64) -> u64 {
     const NSEC_PER_SEC_U64: u64 = time::NSEC_PER_SEC as u64;
 
-    (match ns.checked_mul(rate_hz) {
-        Some(product) => product,
-        None => u64::MAX,
-    }) / NSEC_PER_SEC_U64
+    ns.saturating_mul(rate_hz) / NSEC_PER_SEC_U64
 }
 
 fn cycles_to_ns(cycles: u64, rate_hz: u64) -> u64 {
@@ -98,21 +95,6 @@ struct Th1520PwmDriverData {
     iomem: devres::Devres<IoMem<TH1520_PWM_REG_SIZE>>,
     clk: Clk,
 }
-
-// This `unsafe` implementation is a temporary necessity because the underlying `kernel::clk::Clk`
-// type does not yet expose `Send` and `Sync` implementations. This block should be removed
-// as soon as the clock abstraction provides these guarantees directly.
-// TODO: Remove those unsafe impl's when Clk will support them itself.
-
-// SAFETY: The `devres` framework requires the driver's private data to be `Send` and `Sync`.
-// We can guarantee this because the PWM core synchronizes all callbacks, preventing concurrent
-// access to the contained `iomem` and `clk` resources.
-unsafe impl Send for Th1520PwmDriverData {}
-
-// SAFETY: The same reasoning applies as for `Send`. The PWM core's synchronization
-// guarantees that it is safe for multiple threads to have shared access (`&self`)
-// to the driver data during callbacks.
-unsafe impl Sync for Th1520PwmDriverData {}
 
 impl pwm::PwmOps for Th1520PwmDriverData {
     type WfHw = Th1520WfHw;

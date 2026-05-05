@@ -78,7 +78,7 @@ int dcn21_populate_dml_pipes_from_context(struct dc *dc,
 					  enum dc_validate_mode validate_mode);
 bool dcn21_validate_bandwidth_fp(struct dc *dc, struct dc_state *context, enum
 				 dc_validate_mode, display_e2e_pipe_params_st *pipes);
-void dcn21_update_bw_bounding_box(struct dc *dc, struct clk_bw_params *bw_params);
+void dcn21_update_bw_bounding_box_fpu(struct dc *dc, struct clk_bw_params *bw_params);
 
 void dcn21_clk_mgr_set_bw_params_wm_table(struct clk_bw_params *bw_params);
 

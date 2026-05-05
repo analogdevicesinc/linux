@@ -432,7 +432,7 @@
 #define CMPLT_HDR_IPTT_OFF		0
 #define CMPLT_HDR_IPTT_MSK		(0xffff << CMPLT_HDR_IPTT_OFF)
 #define CMPLT_HDR_DEV_ID_OFF		16
-#define CMPLT_HDR_DEV_ID_MSK		(0xffff << CMPLT_HDR_DEV_ID_OFF)
+#define CMPLT_HDR_DEV_ID_MSK		(0xffffU << CMPLT_HDR_DEV_ID_OFF)
 /* dw3 */
 #define SATA_DISK_IN_ERROR_STATUS_OFF	8
 #define SATA_DISK_IN_ERROR_STATUS_MSK	(0x1 << SATA_DISK_IN_ERROR_STATUS_OFF)
@@ -444,7 +444,7 @@
 #define FIS_ATA_STATUS_ERR_OFF		18
 #define FIS_ATA_STATUS_ERR_MSK		(0x1 << FIS_ATA_STATUS_ERR_OFF)
 #define FIS_TYPE_SDB_OFF		31
-#define FIS_TYPE_SDB_MSK		(0x1 << FIS_TYPE_SDB_OFF)
+#define FIS_TYPE_SDB_MSK		(0x1U << FIS_TYPE_SDB_OFF)
 
 /* ITCT header */
 /* qw0 */
@@ -896,7 +896,7 @@ static void setup_itct_v3_hw(struct hisi_hba *hisi_hba,
 			qw0 = HISI_SAS_DEV_TYPE_SATA << ITCT_HDR_DEV_TYPE_OFF;
 		break;
 	default:
-		dev_warn(dev, "setup itct: unsupported dev type (%d)\n",
+		dev_warn(dev, "setup itct: unsupported dev type (%u)\n",
 			 sas_dev->dev_type);
 	}
 
@@ -2847,7 +2847,7 @@ static void wait_cmds_complete_timeout_v3_hw(struct hisi_hba *hisi_hba,
 static ssize_t intr_conv_v3_hw_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%u\n", hisi_sas_intr_conv);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", hisi_sas_intr_conv);
 }
 static DEVICE_ATTR_RO(intr_conv_v3_hw);
 
@@ -3293,7 +3293,7 @@ static int debugfs_set_bist_v3_hw(struct hisi_hba *hisi_hba, bool enable)
 	u32 *fix_code = &hisi_hba->debugfs_bist_fixed_code[0];
 	struct device *dev = hisi_hba->dev;
 
-	dev_info(dev, "BIST info:phy%d link_rate=%d code_mode=%d path_mode=%d ffe={0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x} fixed_code={0x%x, 0x%x}\n",
+	dev_info(dev, "BIST info:phy%u link_rate=%u code_mode=%u path_mode=%u ffe={0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x} fixed_code={0x%x, 0x%x}\n",
 		 phy_no, linkrate, code_mode, path_mode,
 		 ffe[FFE_SAS_1_5_GBPS], ffe[FFE_SAS_3_0_GBPS],
 		 ffe[FFE_SAS_6_0_GBPS], ffe[FFE_SAS_12_0_GBPS],
@@ -3650,7 +3650,7 @@ static void debugfs_print_reg_v3_hw(u32 *regs_val, struct seq_file *s,
 	int i;
 
 	for (i = 0; i < reg->count; i++) {
-		int off = i * HISI_SAS_REG_MEM_SIZE;
+		u32 off = i * HISI_SAS_REG_MEM_SIZE;
 		const char *name;
 
 		name = debugfs_to_reg_name_v3_hw(off, reg->base_off,
@@ -4993,7 +4993,7 @@ hisi_sas_v3_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	shost->transportt = hisi_sas_stt;
 	shost->max_id = HISI_SAS_MAX_DEVICES;
 	shost->max_lun = ~0;
-	shost->max_channel = 1;
+	shost->max_channel = 0;
 	shost->max_cmd_len = HISI_SAS_MAX_CDB_LEN;
 	shost->can_queue = HISI_SAS_UNRESERVED_IPTT;
 	shost->cmd_per_lun = HISI_SAS_UNRESERVED_IPTT;

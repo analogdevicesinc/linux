@@ -64,6 +64,7 @@
 #include "dce/dce_audio.h"
 #include "dce/dce_hwseq.h"
 #include "clk_mgr.h"
+#include "dio/dcn10/dcn10_dio.h"
 #include "dio/virtual/virtual_stream_encoder.h"
 #include "dce110/dce110_resource.h"
 #include "dml/display_mode_vba.h"
@@ -810,6 +811,21 @@ static const struct dcn20_vmid_mask vmid_masks = {
 		DCN20_VMID_MASK_SH_LIST(_MASK)
 };
 
+static const struct dcn_dio_registers dio_regs = {
+		DIO_REG_LIST_DCN10()
+};
+
+#define DIO_MASK_SH_LIST(mask_sh)\
+		HWS_SF(, DIO_MEM_PWR_CTRL, I2C_LIGHT_SLEEP_FORCE, mask_sh)
+
+static const struct dcn_dio_shift dio_shift = {
+		DIO_MASK_SH_LIST(__SHIFT)
+};
+
+static const struct dcn_dio_mask dio_mask = {
+		DIO_MASK_SH_LIST(_MASK)
+};
+
 static const struct resource_caps res_cap_dcn31 = {
 	.num_timing_generator = 4,
 	.num_opp = 4,
@@ -1021,6 +1037,18 @@ static struct mpc *dcn31_mpc_create(
 	return &mpc30->base;
 }
 
+static struct dio *dcn31_dio_create(struct dc_context *ctx)
+{
+	struct dcn10_dio *dio10 = kzalloc_obj(struct dcn10_dio);
+
+	if (!dio10)
+		return NULL;
+
+	dcn10_dio_construct(dio10, ctx, &dio_regs, &dio_shift, &dio_mask);
+
+	return &dio10->base;
+}
+
 static struct hubbub *dcn31_hubbub_create(struct dc_context *ctx)
 {
 	int i;
@@ -1090,6 +1118,7 @@ static struct link_encoder *dcn31_link_encoder_create(
 	struct dc_context *ctx,
 	const struct encoder_init_data *enc_init_data)
 {
+	(void)ctx;
 	struct dcn20_link_encoder *enc20 =
 		kzalloc_obj(struct dcn20_link_encoder);
 
@@ -1396,6 +1425,10 @@ static void dcn31_resource_destruct(struct dcn31_resource_pool *pool)
 		kfree(pool->base.hubbub);
 		pool->base.hubbub = NULL;
 	}
+	if (pool->base.dio != NULL) {
+		kfree(TO_DCN10_DIO(pool->base.dio));
+		pool->base.dio = NULL;
+	}
 	for (i = 0; i < pool->base.pipe_count; i++) {
 		if (pool->base.dpps[i] != NULL)
 			dcn31_dpp_destroy(&pool->base.dpps[i]);
@@ -1699,12 +1732,9 @@ int dcn31_populate_dml_pipes_from_context(
 		pipe_cnt++;
 	}
 	context->bw_ctx.dml.ip.det_buffer_size_kbytes = DCN3_1_DEFAULT_DET_SIZE;
-	dc->config.enable_4to1MPC = false;
+
 	if (pipe_cnt == 1 && pipe->plane_state && !dc->debug.disable_z9_mpc) {
-		if (is_dual_plane(pipe->plane_state->format)
-				&& pipe->plane_state->src_rect.width <= 1920 && pipe->plane_state->src_rect.height <= 1080) {
-			dc->config.enable_4to1MPC = true;
-		} else if (!is_dual_plane(pipe->plane_state->format) && pipe->plane_state->src_rect.width <= 5120) {
+		if (!is_dual_plane(pipe->plane_state->format) && pipe->plane_state->src_rect.width <= 5120) {
 			/* Limit to 5k max to avoid forced pipe split when there is not enough detile for swath */
 			context->bw_ctx.dml.ip.det_buffer_size_kbytes = 192;
 			pipes[0].pipe.src.unbounded_req_mode = true;
@@ -1824,6 +1854,13 @@ static struct dc_cap_funcs cap_funcs = {
 	.get_dcc_compression_cap = dcn20_get_dcc_compression_cap
 };
 
+static void dcn31_update_bw_bounding_box(struct dc *dc, struct clk_bw_params *bw_params)
+{
+	DC_FP_START();
+	dcn31_update_bw_bounding_box_fpu(dc, bw_params);
+	DC_FP_END();
+}
+
 static struct resource_funcs dcn31_res_pool_funcs = {
 	.destroy = dcn31_destroy_resource_pool,
 	.link_enc_create = dcn31_link_encoder_create,
@@ -1851,6 +1888,7 @@ static struct resource_funcs dcn31_res_pool_funcs = {
 	.get_det_buffer_size = dcn31_get_det_buffer_size,
 	.get_vstartup_for_pipe = dcn10_get_vstartup_for_pipe,
 	.update_dc_state_for_encoder_switch = dcn31_update_dc_state_for_encoder_switch,
+	.get_default_tiling_info = dcn10_get_default_tiling_info,
 	.build_pipe_pix_clk_params = dcn20_build_pipe_pix_clk_params
 };
 
@@ -1896,7 +1934,7 @@ static bool dcn31_resource_construct(
 	/*************************************************
 	 *  Resource + asic cap harcoding                *
 	 *************************************************/
-	pool->base.underlay_pipe_index = NO_UNDERLAY_PIPE;
+	pool->base.underlay_pipe_index = (unsigned int)NO_UNDERLAY_PIPE;
 	pool->base.pipe_count = pool->base.res_cap->num_timing_generator;
 	pool->base.mpcc_count = pool->base.res_cap->num_timing_generator;
 	dc->caps.max_downscale_ratio = 600;
@@ -1920,6 +1958,9 @@ static bool dcn31_resource_construct(
 	dc->caps.dmcub_support = true;
 	dc->caps.is_apu = true;
 	dc->caps.zstate_support = true;
+
+	/* Enable 4to1MPC by default */
+	dc->config.allow_4to1MPC = true;
 
 	/* Color pipeline capabilities */
 	dc->caps.color.dpp.dcn_arch = 1;
@@ -1961,6 +2002,8 @@ static bool dcn31_resource_construct(
 	/* Use pipe context based otg sync logic */
 	dc->config.use_pipe_ctx_sync_logic = true;
 	dc->config.disable_hbr_audio_dp2 = true;
+
+	dc->config.no_native422_support = true;
 
 	/* read VBIOS LTTPR caps */
 	{
@@ -2060,6 +2103,14 @@ static bool dcn31_resource_construct(
 	if (pool->base.hubbub == NULL) {
 		BREAK_TO_DEBUGGER();
 		dm_error("DC: failed to create hubbub!\n");
+		goto create_fail;
+	}
+
+	/* DIO */
+	pool->base.dio = dcn31_dio_create(ctx);
+	if (pool->base.dio == NULL) {
+		BREAK_TO_DEBUGGER();
+		dm_error("DC: failed to create dio!\n");
 		goto create_fail;
 	}
 
@@ -2242,6 +2293,7 @@ enum dc_status dcn31_update_dc_state_for_encoder_switch(struct dc_link *link,
 	struct pipe_ctx *pipes,
 	struct audio_output *audio_output)
 {
+	(void)link_setting;
 	struct dc_state *state = link->dc->current_state;
 	int i;
 

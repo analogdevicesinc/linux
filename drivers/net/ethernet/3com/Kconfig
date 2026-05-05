@@ -17,51 +17,6 @@ config NET_VENDOR_3COM
 
 if NET_VENDOR_3COM
 
-config EL3
-	tristate "3c509/3c579 \"EtherLink III\" support"
-	depends on (ISA || EISA)
-	help
-	  If you have a network (Ethernet) card belonging to the 3Com
-	  EtherLinkIII series, say Y here.
-
-	  If your card is not working you may need to use the DOS
-	  setup disk to disable Plug & Play mode, and to select the default
-	  media type.
-
-	  To compile this driver as a module, choose M here. The module
-	  will be called 3c509.
-
-config 3C515
-	tristate "3c515 ISA \"Fast EtherLink\""
-	depends on ISA && ISA_DMA_API && !PPC32
-	select NETDEV_LEGACY_INIT
-	help
-	  If you have a 3Com ISA EtherLink XL "Corkscrew" 3c515 Fast Ethernet
-	  network card, say Y here.
-
-	  To compile this driver as a module, choose M here. The module
-	  will be called 3c515.
-
-config PCMCIA_3C574
-	tristate "3Com 3c574 PCMCIA support"
-	depends on PCMCIA && HAS_IOPORT
-	help
-	  Say Y here if you intend to attach a 3Com 3c574 or compatible PCMCIA
-	  (PC-card) Fast Ethernet card to your computer.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called 3c574_cs.  If unsure, say N.
-
-config PCMCIA_3C589
-	tristate "3Com 3c589 PCMCIA support"
-	depends on PCMCIA && HAS_IOPORT
-	help
-	  Say Y here if you intend to attach a 3Com 3c589 or compatible PCMCIA
-	  (PC-card) Ethernet card to your computer.
-
-	  To compile this driver as a module, choose M here: the module will be
-	  called 3c589_cs.  If unsure, say N.
-
 config VORTEX
 	tristate "3c590/3c900 series (592/595/597) \"Vortex/Boomerang\" support"
 	depends on (PCI || EISA) && HAS_IOPORT_MAP

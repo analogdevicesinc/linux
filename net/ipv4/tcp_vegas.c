@@ -151,11 +151,16 @@ EXPORT_SYMBOL_GPL(tcp_vegas_state);
  */
 void tcp_vegas_cwnd_event(struct sock *sk, enum tcp_ca_event event)
 {
-	if (event == CA_EVENT_CWND_RESTART ||
-	    event == CA_EVENT_TX_START)
+	if (event == CA_EVENT_CWND_RESTART)
 		tcp_vegas_init(sk);
 }
 EXPORT_SYMBOL_GPL(tcp_vegas_cwnd_event);
+
+void tcp_vegas_cwnd_event_tx_start(struct sock *sk)
+{
+	tcp_vegas_init(sk);
+}
+EXPORT_SYMBOL_GPL(tcp_vegas_cwnd_event_tx_start);
 
 static inline u32 tcp_vegas_ssthresh(struct tcp_sock *tp)
 {
@@ -240,7 +245,8 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 acked)
 				 */
 				tcp_snd_cwnd_set(tp, min(tcp_snd_cwnd(tp),
 							 (u32)target_cwnd + 1));
-				tp->snd_ssthresh = tcp_vegas_ssthresh(tp);
+				WRITE_ONCE(tp->snd_ssthresh,
+					   tcp_vegas_ssthresh(tp));
 
 			} else if (tcp_in_slow_start(tp)) {
 				/* Slow start.  */
@@ -256,8 +262,8 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 acked)
 					 * we slow down.
 					 */
 					tcp_snd_cwnd_set(tp, tcp_snd_cwnd(tp) - 1);
-					tp->snd_ssthresh
-						= tcp_vegas_ssthresh(tp);
+					WRITE_ONCE(tp->snd_ssthresh,
+						   tcp_vegas_ssthresh(tp));
 				} else if (diff < alpha) {
 					/* We don't have enough extra packets
 					 * in the network, so speed up.
@@ -275,7 +281,7 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 acked)
 			else if (tcp_snd_cwnd(tp) > tp->snd_cwnd_clamp)
 				tcp_snd_cwnd_set(tp, tp->snd_cwnd_clamp);
 
-			tp->snd_ssthresh = tcp_current_ssthresh(sk);
+			WRITE_ONCE(tp->snd_ssthresh, tcp_current_ssthresh(sk));
 		}
 
 		/* Wipe the slate clean for the next RTT. */
@@ -314,6 +320,7 @@ static struct tcp_congestion_ops tcp_vegas __read_mostly = {
 	.pkts_acked	= tcp_vegas_pkts_acked,
 	.set_state	= tcp_vegas_state,
 	.cwnd_event	= tcp_vegas_cwnd_event,
+	.cwnd_event_tx_start = tcp_vegas_cwnd_event_tx_start,
 	.get_info	= tcp_vegas_get_info,
 
 	.owner		= THIS_MODULE,

@@ -793,13 +793,15 @@ static void do_become_nonbusy(struct comedi_device *dev,
 	__comedi_clear_subdevice_runflags(s, COMEDI_SRF_RUNNING |
 					     COMEDI_SRF_BUSY);
 	spin_unlock_irqrestore(&s->spin_lock, flags);
-	if (comedi_is_runflags_busy(runflags)) {
+	if (async) {
 		/*
 		 * "Run active" counter was set to 1 when setting up the
 		 * command.  Decrement it and wait for it to become 0.
 		 */
-		comedi_put_is_subdevice_running(s);
-		wait_for_completion(&async->run_complete);
+		if (comedi_is_runflags_busy(runflags)) {
+			comedi_put_is_subdevice_running(s);
+			wait_for_completion(&async->run_complete);
+		}
 		comedi_buf_reset(s);
 		async->inttrig = NULL;
 		kfree(async->cmd.chanlist);
@@ -2588,7 +2590,7 @@ static int comedi_mmap(struct file *file, struct vm_area_struct *vma)
 	 * remap_pfn_range() because we call remap_pfn_range() in a loop.
 	 */
 	if (retval)
-		zap_vma_ptes(vma, vma->vm_start, size);
+		zap_special_vma_range(vma, vma->vm_start, size);
 #endif
 
 	if (retval == 0) {

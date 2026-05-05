@@ -49,9 +49,6 @@
 #define FN(reg_name, field_name) \
 	dpp->tf_shift->field_name, dpp->tf_mask->field_name
 
-#define NUM_ELEMENTS(a) (sizeof(a) / sizeof((a)[0]))
-
-
 enum dcn401_coef_filter_type_sel {
 	SCL_COEF_LUMA_VERT_FILTER = 0,
 	SCL_COEF_LUMA_HORZ_FILTER = 1,
@@ -132,6 +129,9 @@ void dpp401_set_cursor_position(
 	uint32_t width,
 	uint32_t height)
 {
+	(void)param;
+	(void)width;
+	(void)height;
 	struct dcn401_dpp *dpp = TO_DCN401_DPP(dpp_base);
 	uint32_t cur_en = pos->enable ? 1 : 0;
 
@@ -237,6 +237,8 @@ void dpp401_set_cursor_matrix(
 	enum dc_color_space color_space,
 	struct dc_csc_transform cursor_csc_color_matrix)
 {
+	(void)color_space;
+	(void)cursor_csc_color_matrix;
 	//Since we don't have cursor matrix information, force bypass mode by passing in unknown color space
 	dpp401_program_cursor_csc(dpp_base, COLOR_SPACE_UNKNOWN, NULL);
 }

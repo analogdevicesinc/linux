@@ -10,6 +10,7 @@
 #include <linux/hash.h>
 #include <linux/random.h>
 #include <linux/miscdevice.h>
+#include <linux/overflow.h>
 #include <linux/poll.h>
 #include <linux/slab.h>
 #include <linux/wait.h>
@@ -148,8 +149,10 @@ int ecryptfs_send_miscdev(char *data, size_t data_size,
 			  u16 msg_flags, struct ecryptfs_daemon *daemon)
 {
 	struct ecryptfs_message *msg;
+	size_t msg_size;
 
-	msg = kmalloc((sizeof(*msg) + data_size), GFP_KERNEL);
+	msg_size = struct_size(msg, data, data_size);
+	msg = kmalloc(msg_size, GFP_KERNEL);
 	if (!msg)
 		return -ENOMEM;
 
@@ -159,7 +162,7 @@ int ecryptfs_send_miscdev(char *data, size_t data_size,
 	msg_ctx->msg->data_len = data_size;
 	msg_ctx->type = msg_type;
 	memcpy(msg_ctx->msg->data, data, data_size);
-	msg_ctx->msg_size = (sizeof(*msg_ctx->msg) + data_size);
+	msg_ctx->msg_size = msg_size;
 	list_add_tail(&msg_ctx->daemon_out_list, &daemon->msg_ctx_out_queue);
 	mutex_unlock(&msg_ctx->mux);
 

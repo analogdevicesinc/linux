@@ -6,10 +6,7 @@ NC='\033[0m' # No Color
 
 declare -a FILES=(
   "include/uapi/linux/const.h"
-  "include/uapi/drm/drm.h"
-  "include/uapi/drm/i915_drm.h"
   "include/uapi/linux/bits.h"
-  "include/uapi/linux/fadvise.h"
   "include/uapi/linux/fscrypt.h"
   "include/uapi/linux/genetlink.h"
   "include/uapi/linux/if_addr.h"
@@ -90,7 +87,10 @@ declare -a SYNC_CHECK_FILES=(
 declare -a BEAUTY_FILES=(
   "arch/x86/include/asm/irq_vectors.h"
   "arch/x86/include/uapi/asm/prctl.h"
+  "include/uapi/drm/drm.h"
+  "include/uapi/drm/i915_drm.h"
   "include/linux/socket.h"
+  "include/uapi/linux/fadvise.h"
   "include/uapi/linux/fcntl.h"
   "include/uapi/linux/fs.h"
   "include/uapi/linux/mount.h"
@@ -187,7 +187,6 @@ done
 check arch/x86/lib/memcpy_64.S        '-I "^EXPORT_SYMBOL" -I "^#include <asm/export.h>" -I"^SYM_FUNC_START\(_LOCAL\)*(memcpy_\(erms\|orig\))" -I"^#include <linux/cfi_types.h>"'
 check arch/x86/lib/memset_64.S        '-I "^EXPORT_SYMBOL" -I "^#include <asm/export.h>" -I"^SYM_FUNC_START\(_LOCAL\)*(memset_\(erms\|orig\))"'
 check arch/x86/include/asm/amd/ibs.h  '-I "^#include .*/msr-index.h"'
-check arch/arm64/include/asm/cputype.h '-I "^#include [<\"]\(asm/\)*sysreg.h"'
 check include/linux/unaligned.h '-I "^#include <linux/unaligned/packed_struct.h>" -I "^#include <asm/byteorder.h>" -I "^#pragma GCC diagnostic"'
 check include/uapi/asm-generic/mman.h '-I "^#include <\(uapi/\)*asm-generic/mman-common\(-tools\)*.h>"'
 check include/uapi/linux/mman.h       '-I "^#include <\(uapi/\)*asm/mman.h>"'

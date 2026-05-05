@@ -108,8 +108,8 @@ static ssize_t target_core_item_dbroot_store(struct config_item *item,
 					const char *page, size_t count)
 {
 	ssize_t read_bytes;
-	struct file *fp;
 	ssize_t r = -EINVAL;
+	struct path path = {};
 
 	mutex_lock(&target_devices_lock);
 	if (target_devices) {
@@ -131,17 +131,14 @@ static ssize_t target_core_item_dbroot_store(struct config_item *item,
 		db_root_stage[read_bytes - 1] = '\0';
 
 	/* validate new db root before accepting it */
-	fp = filp_open(db_root_stage, O_RDONLY, 0);
-	if (IS_ERR(fp)) {
+	r = kern_path(db_root_stage, LOOKUP_FOLLOW | LOOKUP_DIRECTORY, &path);
+	if (r) {
 		pr_err("db_root: cannot open: %s\n", db_root_stage);
+		if (r == -ENOTDIR)
+			pr_err("db_root: not a directory: %s\n", db_root_stage);
 		goto unlock;
 	}
-	if (!S_ISDIR(file_inode(fp)->i_mode)) {
-		filp_close(fp, NULL);
-		pr_err("db_root: not a directory: %s\n", db_root_stage);
-		goto unlock;
-	}
-	filp_close(fp, NULL);
+	path_put(&path);
 
 	strscpy(db_root, db_root_stage);
 	pr_debug("Target_Core_ConfigFS: db_root set to %s\n", db_root);
@@ -578,6 +575,7 @@ DEF_CONFIGFS_ATTRIB_SHOW(unmap_zeroes_data);
 DEF_CONFIGFS_ATTRIB_SHOW(max_write_same_len);
 DEF_CONFIGFS_ATTRIB_SHOW(emulate_rsoc);
 DEF_CONFIGFS_ATTRIB_SHOW(submit_type);
+DEF_CONFIGFS_ATTRIB_SHOW(complete_type);
 DEF_CONFIGFS_ATTRIB_SHOW(atomic_max_len);
 DEF_CONFIGFS_ATTRIB_SHOW(atomic_alignment);
 DEF_CONFIGFS_ATTRIB_SHOW(atomic_granularity);
@@ -1269,6 +1267,24 @@ static ssize_t submit_type_store(struct config_item *item, const char *page,
 	return count;
 }
 
+static ssize_t complete_type_store(struct config_item *item, const char *page,
+				   size_t count)
+{
+	struct se_dev_attrib *da = to_attrib(item);
+	int ret;
+	u8 val;
+
+	ret = kstrtou8(page, 0, &val);
+	if (ret < 0)
+		return ret;
+
+	if (val > TARGET_QUEUE_COMPL)
+		return -EINVAL;
+
+	da->complete_type = val;
+	return count;
+}
+
 CONFIGFS_ATTR(, emulate_model_alias);
 CONFIGFS_ATTR(, emulate_dpo);
 CONFIGFS_ATTR(, emulate_fua_write);
@@ -1305,6 +1321,7 @@ CONFIGFS_ATTR(, max_write_same_len);
 CONFIGFS_ATTR(, alua_support);
 CONFIGFS_ATTR(, pgr_support);
 CONFIGFS_ATTR(, submit_type);
+CONFIGFS_ATTR(, complete_type);
 CONFIGFS_ATTR_RO(, atomic_max_len);
 CONFIGFS_ATTR_RO(, atomic_alignment);
 CONFIGFS_ATTR_RO(, atomic_granularity);
@@ -1353,6 +1370,7 @@ struct configfs_attribute *sbc_attrib_attrs[] = {
 	&attr_pgr_support,
 	&attr_emulate_rsoc,
 	&attr_submit_type,
+	&attr_complete_type,
 	&attr_atomic_alignment,
 	&attr_atomic_max_len,
 	&attr_atomic_granularity,
@@ -1376,6 +1394,7 @@ struct configfs_attribute *passthrough_attrib_attrs[] = {
 	&attr_alua_support,
 	&attr_pgr_support,
 	&attr_submit_type,
+	&attr_complete_type,
 	NULL,
 };
 EXPORT_SYMBOL(passthrough_attrib_attrs);

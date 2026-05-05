@@ -157,7 +157,7 @@ static int max77705_resume(struct device *dev)
 
 	return 0;
 }
-DEFINE_SIMPLE_DEV_PM_OPS(max77705_pm_ops, max77705_suspend, max77705_resume);
+static DEFINE_SIMPLE_DEV_PM_OPS(max77705_pm_ops, max77705_suspend, max77705_resume);
 
 static const struct of_device_id max77705_i2c_of_match[] = {
 	{ .compatible = "maxim,max77705" },

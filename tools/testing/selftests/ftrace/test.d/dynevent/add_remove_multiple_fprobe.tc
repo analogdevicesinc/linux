@@ -1,0 +1,69 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# description: Generic dynamic event - add/remove multiple fprobe events on the same function
+# requires: dynamic_events "f[:[<group>/][<event>]] <func-name>[%return] [<args>]":README enabled_functions
+
+echo 0 > events/enable
+echo > dynamic_events
+
+PLACE=vfs_read
+PLACE2=vfs_open
+
+:;: 'Ensure no other ftrace user' ;:
+test `cat enabled_functions | wc -l` -eq 0 || exit_unresolved
+
+:;: 'Test case 1: leave entry event' ;:
+:;: 'Add entry and exit events on the same place' ;:
+echo "f:event1 ${PLACE}" >> dynamic_events
+echo "f:event2 ${PLACE}%return" >> dynamic_events
+
+:;: 'Enable both of them' ;:
+echo 1 > events/fprobes/enable
+test `cat enabled_functions | wc -l` -eq 1
+
+:;: 'Disable and remove exit event' ;:
+echo 0 > events/fprobes/event2/enable
+echo -:event2 >> dynamic_events
+
+:;: 'Disable and remove all events' ;:
+echo 0 > events/fprobes/enable
+echo > dynamic_events
+
+:;: 'Add another event' ;:
+echo "f:event3 ${PLACE2}%return" > dynamic_events
+echo 1 > events/fprobes/enable
+test `cat enabled_functions | wc -l` -eq 1
+
+:;: 'No other ftrace user' ;:
+echo 0 > events/fprobes/enable
+echo > dynamic_events
+test `cat enabled_functions | wc -l` -eq 0
+
+:;: 'Test case 2: leave exit event' ;:
+:;: 'Add entry and exit events on the same place' ;:
+echo "f:event1 ${PLACE}" >> dynamic_events
+echo "f:event2 ${PLACE}%return" >> dynamic_events
+
+:;: 'Enable both of them' ;:
+echo 1 > events/fprobes/enable
+test `cat enabled_functions | wc -l` -eq 1
+
+:;: 'Disable and remove entry event' ;:
+echo 0 > events/fprobes/event1/enable
+echo -:event1 >> dynamic_events
+
+:;: 'Disable and remove all events' ;:
+echo 0 > events/fprobes/enable
+echo > dynamic_events
+
+:;: 'Add another event' ;:
+echo "f:event3 ${PLACE2}" > dynamic_events
+echo 1 > events/fprobes/enable
+test `cat enabled_functions | wc -l` -eq 1
+
+:;: 'No other ftrace user' ;:
+echo 0 > events/fprobes/enable
+echo > dynamic_events
+test `cat enabled_functions | wc -l` -eq 0
+
+clear_trace

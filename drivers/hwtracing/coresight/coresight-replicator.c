@@ -24,8 +24,6 @@
 #define REPLICATOR_IDFILTER0		0x000
 #define REPLICATOR_IDFILTER1		0x004
 
-DEFINE_CORESIGHT_DEVLIST(replicator_devs, "replicator");
-
 /**
  * struct replicator_drvdata - specifics associated to a replicator component
  * @base:	memory mapped base address for this component. Also indicates
@@ -230,7 +228,7 @@ static int replicator_probe(struct device *dev, struct resource *res)
 		dev_warn_once(dev,
 			      "Uses OBSOLETE CoreSight replicator binding\n");
 
-	desc.name = coresight_alloc_device_name(&replicator_devs, dev);
+	desc.name = coresight_alloc_device_name("replicator", dev);
 	if (!desc.name)
 		return -ENOMEM;
 

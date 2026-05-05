@@ -1196,7 +1196,7 @@ static void ocfs2_clear_inode(struct inode *inode)
 				inode->i_nlink);
 
 	mlog_bug_on_msg(osb == NULL,
-			"Inode=%lu\n", inode->i_ino);
+			"Inode=%llu\n", inode->i_ino);
 
 	dquot_drop(inode);
 
@@ -1502,6 +1502,16 @@ int ocfs2_validate_inode_block(struct super_block *sb,
 					 "Invalid dinode %llu: %u clusters\n",
 					 (unsigned long long)bh->b_blocknr,
 					 le32_to_cpu(di->i_clusters));
+			goto bail;
+		}
+
+		if (le16_to_cpu(data->id_count) >
+		    ocfs2_max_inline_data_with_xattr(sb, di)) {
+			rc = ocfs2_error(sb,
+					 "Invalid dinode #%llu: inline data id_count %u exceeds max %d\n",
+					 (unsigned long long)bh->b_blocknr,
+					 le16_to_cpu(data->id_count),
+					 ocfs2_max_inline_data_with_xattr(sb, di));
 			goto bail;
 		}
 

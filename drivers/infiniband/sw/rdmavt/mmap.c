@@ -9,6 +9,11 @@
 #include <rdma/uverbs_ioctl.h>
 #include "mmap.h"
 
+/* number of reserved mmaps for the driver */
+#define MMAP_RESERVED 256
+/* start point for dynamic offsets */
+#define MMAP_OFFSET_START (MMAP_RESERVED * PAGE_SIZE)
+
 /**
  * rvt_mmap_init - init link list and lock for mem map
  * @rdi: rvt dev struct
@@ -17,7 +22,7 @@ void rvt_mmap_init(struct rvt_dev_info *rdi)
 {
 	INIT_LIST_HEAD(&rdi->pending_mmaps);
 	spin_lock_init(&rdi->pending_lock);
-	rdi->mmap_offset = PAGE_SIZE;
+	rdi->mmap_offset = MMAP_OFFSET_START;
 	spin_lock_init(&rdi->mmap_offset_lock);
 }
 
@@ -72,6 +77,13 @@ int rvt_mmap(struct ib_ucontext *context, struct vm_area_struct *vma)
 	unsigned long size = vma->vm_end - vma->vm_start;
 	struct rvt_mmap_info *ip, *pp;
 	int ret = -EINVAL;
+
+	/* call driver if in reserved range */
+	if (offset < MMAP_OFFSET_START) {
+		if (rdi->driver_f.mmap)
+			return rdi->driver_f.mmap(context, vma);
+		return -EINVAL;
+	}
 
 	/*
 	 * Search the device's list of objects waiting for a mmap call.
@@ -129,9 +141,9 @@ struct rvt_mmap_info *rvt_create_mmap_info(struct rvt_dev_info *rdi, u32 size,
 
 	spin_lock_irq(&rdi->mmap_offset_lock);
 	if (rdi->mmap_offset == 0)
-		rdi->mmap_offset = ALIGN(PAGE_SIZE, SHMLBA);
+		rdi->mmap_offset = MMAP_OFFSET_START;
 	ip->offset = rdi->mmap_offset;
-	rdi->mmap_offset += ALIGN(size, SHMLBA);
+	rdi->mmap_offset += PAGE_SIZE;
 	spin_unlock_irq(&rdi->mmap_offset_lock);
 
 	INIT_LIST_HEAD(&ip->pending_mmaps);
@@ -159,9 +171,9 @@ void rvt_update_mmap_info(struct rvt_dev_info *rdi, struct rvt_mmap_info *ip,
 
 	spin_lock_irq(&rdi->mmap_offset_lock);
 	if (rdi->mmap_offset == 0)
-		rdi->mmap_offset = PAGE_SIZE;
+		rdi->mmap_offset = MMAP_OFFSET_START;
 	ip->offset = rdi->mmap_offset;
-	rdi->mmap_offset += size;
+	rdi->mmap_offset += PAGE_SIZE;
 	spin_unlock_irq(&rdi->mmap_offset_lock);
 
 	ip->size = size;

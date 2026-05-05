@@ -359,7 +359,7 @@ config ROHM_BU27034
 	select IIO_KFIFO_BUF
 	help
 	  Enable support for the ROHM BU27034 ambient light sensor. ROHM BU27034
-	  is an ambient light sesnor with 3 channels and 3 photo diodes capable
+	  is an ambient light sensor with 3 channels and 3 photo diodes capable
 	  of detecting a very wide range of illuminance.
 	  Typical application is adjusting LCD and backlight power of TVs and
 	  mobile phones.

@@ -222,6 +222,7 @@ err_out:
 
 static int erofs_fill_inode(struct inode *inode)
 {
+	const struct address_space_operations *aops;
 	int err;
 
 	trace_erofs_fill_inode(inode);
@@ -254,7 +255,11 @@ static int erofs_fill_inode(struct inode *inode)
 	}
 
 	mapping_set_large_folios(inode->i_mapping);
-	return erofs_inode_set_aops(inode, inode, false);
+	aops = erofs_get_aops(inode, false);
+	if (IS_ERR(aops))
+		return PTR_ERR(aops);
+	inode->i_mapping->a_ops = aops;
+	return 0;
 }
 
 /*
@@ -346,7 +351,7 @@ static int erofs_ioctl_get_volume_label(struct inode *inode, void __user *arg)
 		ret = clear_user(arg, 1);
 	else
 		ret = copy_to_user(arg, sbi->volume_name,
-				   strlen(sbi->volume_name));
+				   strlen(sbi->volume_name) + 1);
 	return ret ? -EFAULT : 0;
 }
 

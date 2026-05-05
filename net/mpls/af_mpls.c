@@ -24,7 +24,6 @@
 #if IS_ENABLED(CONFIG_IPV6)
 #include <net/ipv6.h>
 #endif
-#include <net/ipv6_stubs.h>
 #include <net/rtnh.h>
 #include "internal.h"
 
@@ -83,14 +82,30 @@ static struct mpls_route *mpls_route_input(struct net *net, unsigned int index)
 	return mpls_dereference(net, platform_label[index]);
 }
 
+static struct mpls_route __rcu **mpls_platform_label_rcu(struct net *net, size_t *platform_labels)
+{
+	struct mpls_route __rcu **platform_label;
+	unsigned int sequence;
+
+	do {
+		sequence = read_seqcount_begin(&net->mpls.platform_label_seq);
+		platform_label = rcu_dereference(net->mpls.platform_label);
+		*platform_labels = net->mpls.platform_labels;
+	} while (read_seqcount_retry(&net->mpls.platform_label_seq, sequence));
+
+	return platform_label;
+}
+
 static struct mpls_route *mpls_route_input_rcu(struct net *net, unsigned int index)
 {
 	struct mpls_route __rcu **platform_label;
+	size_t platform_labels;
 
-	if (index >= net->mpls.platform_labels)
+	platform_label = mpls_platform_label_rcu(net, &platform_labels);
+
+	if (index >= platform_labels)
 		return NULL;
 
-	platform_label = rcu_dereference(net->mpls.platform_label);
 	return rcu_dereference(platform_label[index]);
 }
 
@@ -640,12 +655,9 @@ static struct net_device *inet6_fib_lookup_dev(struct net *net,
 	struct dst_entry *dst;
 	struct flowi6 fl6;
 
-	if (!ipv6_stub)
-		return ERR_PTR(-EAFNOSUPPORT);
-
 	memset(&fl6, 0, sizeof(fl6));
 	memcpy(&fl6.daddr, addr, sizeof(struct in6_addr));
-	dst = ipv6_stub->ipv6_dst_lookup_flow(net, NULL, &fl6, NULL);
+	dst = ip6_dst_lookup_flow(net, NULL, &fl6, NULL);
 	if (IS_ERR(dst))
 		return ERR_CAST(dst);
 
@@ -2240,8 +2252,7 @@ static int mpls_dump_routes(struct sk_buff *skb, struct netlink_callback *cb)
 	if (index < MPLS_LABEL_FIRST_UNRESERVED)
 		index = MPLS_LABEL_FIRST_UNRESERVED;
 
-	platform_label = rcu_dereference(net->mpls.platform_label);
-	platform_labels = net->mpls.platform_labels;
+	platform_label = mpls_platform_label_rcu(net, &platform_labels);
 
 	if (filter.filter_set)
 		flags |= NLM_F_DUMP_FILTERED;
@@ -2645,8 +2656,12 @@ static int resize_platform_label_table(struct net *net, size_t limit)
 	}
 
 	/* Update the global pointers */
+	local_bh_disable();
+	write_seqcount_begin(&net->mpls.platform_label_seq);
 	net->mpls.platform_labels = limit;
 	rcu_assign_pointer(net->mpls.platform_label, labels);
+	write_seqcount_end(&net->mpls.platform_label_seq);
+	local_bh_enable();
 
 	mutex_unlock(&net->mpls.platform_mutex);
 
@@ -2728,6 +2743,8 @@ static __net_init int mpls_net_init(struct net *net)
 	int i;
 
 	mutex_init(&net->mpls.platform_mutex);
+	seqcount_mutex_init(&net->mpls.platform_label_seq, &net->mpls.platform_mutex);
+
 	net->mpls.platform_labels = 0;
 	net->mpls.platform_label = NULL;
 	net->mpls.ip_ttl_propagate = 1;
@@ -2854,6 +2871,7 @@ out_unregister_rtnl_af:
 	rtnl_af_unregister(&mpls_af_ops);
 out_unregister_dev_type:
 	dev_remove_pack(&mpls_packet_type);
+	unregister_netdevice_notifier(&mpls_dev_notifier);
 out_unregister_pernet:
 	unregister_pernet_subsys(&mpls_net_ops);
 	goto out;

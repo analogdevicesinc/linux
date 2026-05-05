@@ -333,7 +333,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
 	bool own_req;
 
 	child = inet_csk(sk)->icsk_af_ops->syn_recv_sock(sk, skb, req, NULL,
-							 NULL, &own_req);
+							 NULL, &own_req, NULL);
 	if (!child)
 		return NULL;
 
@@ -377,6 +377,7 @@ static struct sock *tcp_fastopen_create_child(struct sock *sk,
 
 	tcp_rsk(req)->rcv_nxt = tp->rcv_nxt;
 	tp->rcv_wup = tp->rcv_nxt;
+	tp->rcv_mwnd_seq = tp->rcv_wup + tp->rcv_wnd;
 	/* tcp_conn_request() is sending the SYNACK,
 	 * and queues the child into listener accept queue.
 	 */
@@ -558,7 +559,6 @@ bool tcp_fastopen_defer_connect(struct sock *sk, int *err)
 	}
 	return false;
 }
-EXPORT_IPV6_MOD(tcp_fastopen_defer_connect);
 
 /*
  * The following code block is to deal with middle box issues with TFO:

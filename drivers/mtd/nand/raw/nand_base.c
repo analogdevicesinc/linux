@@ -43,6 +43,7 @@
 #include <linux/mtd/partitions.h>
 #include <linux/of.h>
 #include <linux/gpio/consumer.h>
+#include <linux/cleanup.h>
 
 #include "internals.h"
 
@@ -4704,16 +4705,16 @@ static void nand_resume(struct mtd_info *mtd)
 {
 	struct nand_chip *chip = mtd_to_nand(mtd);
 
-	mutex_lock(&chip->lock);
-	if (chip->suspended) {
-		if (chip->ops.resume)
-			chip->ops.resume(chip);
-		chip->suspended = 0;
-	} else {
-		pr_err("%s called for a chip which is not in suspended state\n",
-			__func__);
+	scoped_guard(mutex, &chip->lock) {
+		if (chip->suspended) {
+			if (chip->ops.resume)
+				chip->ops.resume(chip);
+			chip->suspended = 0;
+		} else {
+			pr_err("%s called for a chip which is not in suspended state\n",
+				__func__);
+		}
 	}
-	mutex_unlock(&chip->lock);
 
 	wake_up_all(&chip->resume_wq);
 }
@@ -4737,11 +4738,16 @@ static void nand_shutdown(struct mtd_info *mtd)
 static int nand_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 {
 	struct nand_chip *chip = mtd_to_nand(mtd);
+	int ret;
 
 	if (!chip->ops.lock_area)
 		return -ENOTSUPP;
 
-	return chip->ops.lock_area(chip, ofs, len);
+	nand_get_device(chip);
+	ret = chip->ops.lock_area(chip, ofs, len);
+	nand_release_device(chip);
+
+	return ret;
 }
 
 /**
@@ -4753,11 +4759,16 @@ static int nand_lock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 static int nand_unlock(struct mtd_info *mtd, loff_t ofs, uint64_t len)
 {
 	struct nand_chip *chip = mtd_to_nand(mtd);
+	int ret;
 
 	if (!chip->ops.unlock_area)
 		return -ENOTSUPP;
 
-	return chip->ops.unlock_area(chip, ofs, len);
+	nand_get_device(chip);
+	ret = chip->ops.unlock_area(chip, ofs, len);
+	nand_release_device(chip);
+
+	return ret;
 }
 
 /* Set default functions */

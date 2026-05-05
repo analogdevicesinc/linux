@@ -6,6 +6,7 @@
  *   Author(s): Michael A. Halcrow <mhalcrow@us.ibm.com>
  *		Tyler Hicks <code@tyhicks.com>
  */
+#include <linux/overflow.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/user_namespace.h>
@@ -232,7 +233,7 @@ int ecryptfs_process_response(struct ecryptfs_daemon *daemon,
 		       msg_ctx->counter, seq);
 		goto unlock;
 	}
-	msg_size = (sizeof(*msg) + msg->data_len);
+	msg_size = struct_size(msg, data, msg->data_len);
 	msg_ctx->msg = kmemdup(msg, msg_size, GFP_KERNEL);
 	if (!msg_ctx->msg) {
 		rc = -ENOMEM;

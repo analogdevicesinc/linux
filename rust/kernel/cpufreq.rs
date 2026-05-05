@@ -401,6 +401,7 @@ impl TableBuilder {
 /// ```
 /// use kernel::cpufreq::{DEFAULT_TRANSITION_LATENCY_NS, Policy};
 ///
+/// #[allow(clippy::double_parens, reason = "False positive before 1.92.0")]
 /// fn update_policy(policy: &mut Policy) {
 ///     policy
 ///         .set_dvfs_possible_from_any_cpu(true)
@@ -1256,18 +1257,17 @@ impl<T: Driver> Registration<T> {
     /// # Safety
     ///
     /// - This function may only be called from the cpufreq C infrastructure.
+    /// - The pointer arguments must be valid pointers.
     unsafe extern "C" fn adjust_perf_callback(
-        cpu: c_uint,
+        ptr: *mut bindings::cpufreq_policy,
         min_perf: c_ulong,
         target_perf: c_ulong,
         capacity: c_ulong,
     ) {
-        // SAFETY: The C API guarantees that `cpu` refers to a valid CPU number.
-        let cpu_id = unsafe { CpuId::from_u32_unchecked(cpu) };
-
-        if let Ok(mut policy) = PolicyCpu::from_cpu(cpu_id) {
-            T::adjust_perf(&mut policy, min_perf, target_perf, capacity);
-        }
+        // SAFETY: The `ptr` is guaranteed to be valid by the contract with the C code for the
+        // lifetime of `policy`.
+        let policy = unsafe { Policy::from_raw_mut(ptr) };
+        T::adjust_perf(policy, min_perf, target_perf, capacity);
     }
 
     /// Driver's `get_intermediate` callback.

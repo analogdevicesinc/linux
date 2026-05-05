@@ -69,7 +69,7 @@ static int __init acpi_fadt_sanity_check(void)
 
 	/*
 	 * FADT is required on riscv; retrieve it to check its presence
-	 * and carry out revision and ACPI HW reduced compliancy tests
+	 * and carry out revision and ACPI HW reduced compliance tests
 	 */
 	status = acpi_get_table(ACPI_SIG_FADT, 0, &table);
 	if (ACPI_FAILURE(status)) {
@@ -85,12 +85,12 @@ static int __init acpi_fadt_sanity_check(void)
 	 * The revision in the table header is the FADT's Major revision. The
 	 * FADT also has a minor revision, which is stored in the FADT itself.
 	 *
-	 * TODO: Currently, we check for 6.5 as the minimum version to check
-	 * for HW_REDUCED flag. However, once RISC-V updates are released in
-	 * the ACPI spec, we need to update this check for exact minor revision
+	 * ACPI 6.6 is required for RISC-V as it introduces RISC-V specific
+	 * tables such as RHCT (RISC-V Hart Capabilities Table) and RIMT
+	 * (RISC-V I/O Mapping Table).
 	 */
-	if (table->revision < 6 || (table->revision == 6 && fadt->minor_revision < 5))
-		pr_err(FW_BUG "Unsupported FADT revision %d.%d, should be 6.5+\n",
+	if (table->revision < 6 || (table->revision == 6 && fadt->minor_revision < 6))
+		pr_err(FW_BUG "Unsupported FADT revision %d.%d, should be 6.6+\n",
 		       table->revision, fadt->minor_revision);
 
 	if (!(fadt->flags & ACPI_FADT_HW_REDUCED)) {
@@ -337,3 +337,19 @@ int raw_pci_write(unsigned int domain, unsigned int bus,
 }
 
 #endif	/* CONFIG_PCI */
+
+int acpi_get_cpu_uid(unsigned int cpu, u32 *uid)
+{
+	struct acpi_madt_rintc *rintc;
+
+	if (cpu >= nr_cpu_ids)
+		return -EINVAL;
+
+	rintc = acpi_cpu_get_madt_rintc(cpu);
+	if (!rintc)
+		return -ENODEV;
+
+	*uid = rintc->uid;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(acpi_get_cpu_uid);

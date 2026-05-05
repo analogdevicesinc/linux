@@ -74,7 +74,7 @@ static int regmap_sdw_mbq_poll_busy(struct sdw_slave *slave, unsigned int reg,
 
 static int regmap_sdw_mbq_write_impl(struct sdw_slave *slave,
 				     unsigned int reg, unsigned int val,
-				     int mbq_size, bool deferrable)
+				     int mbq_size)
 {
 	int shift = mbq_size * BITS_PER_BYTE;
 	int ret;
@@ -88,17 +88,14 @@ static int regmap_sdw_mbq_write_impl(struct sdw_slave *slave,
 			return ret;
 	}
 
-	ret = sdw_write_no_pm(slave, reg, val & 0xff);
-	if (deferrable && ret == -ENODATA)
-		return -EAGAIN;
-
-	return ret;
+	return sdw_write_no_pm(slave, reg, val & 0xff);
 }
 
 static int regmap_sdw_mbq_write(void *context, unsigned int reg, unsigned int val)
 {
 	struct regmap_mbq_context *ctx = context;
 	struct sdw_slave *slave = ctx->sdw;
+	struct device *dev = ctx->dev;
 	bool deferrable = regmap_sdw_mbq_deferrable(ctx, reg);
 	int mbq_size = regmap_sdw_mbq_size(ctx, reg);
 	int ret;
@@ -113,13 +110,16 @@ static int regmap_sdw_mbq_write(void *context, unsigned int reg, unsigned int va
 	 * process a single wait/timeout on function busy and a single retry
 	 * of the transaction.
 	 */
-	ret = regmap_sdw_mbq_write_impl(slave, reg, val, mbq_size, deferrable);
-	if (ret == -EAGAIN) {
+	ret = regmap_sdw_mbq_write_impl(slave, reg, val, mbq_size);
+	if (ret == -ENODATA) {
+		if (!deferrable)
+			dev_warn(dev, "Defer on undeferrable control: %x\n", reg);
+
 		ret = regmap_sdw_mbq_poll_busy(slave, reg, ctx);
 		if (ret)
 			return ret;
 
-		ret = regmap_sdw_mbq_write_impl(slave, reg, val, mbq_size, false);
+		ret = regmap_sdw_mbq_write_impl(slave, reg, val, mbq_size);
 	}
 
 	return ret;
@@ -127,18 +127,14 @@ static int regmap_sdw_mbq_write(void *context, unsigned int reg, unsigned int va
 
 static int regmap_sdw_mbq_read_impl(struct sdw_slave *slave,
 				    unsigned int reg, unsigned int *val,
-				    int mbq_size, bool deferrable)
+				    int mbq_size)
 {
 	int shift = BITS_PER_BYTE;
 	int read;
 
 	read = sdw_read_no_pm(slave, reg);
-	if (read < 0) {
-		if (deferrable && read == -ENODATA)
-			return -EAGAIN;
-
+	if (read < 0)
 		return read;
-	}
 
 	*val = read;
 
@@ -158,6 +154,7 @@ static int regmap_sdw_mbq_read(void *context, unsigned int reg, unsigned int *va
 {
 	struct regmap_mbq_context *ctx = context;
 	struct sdw_slave *slave = ctx->sdw;
+	struct device *dev = ctx->dev;
 	bool deferrable = regmap_sdw_mbq_deferrable(ctx, reg);
 	int mbq_size = regmap_sdw_mbq_size(ctx, reg);
 	int ret;
@@ -172,13 +169,16 @@ static int regmap_sdw_mbq_read(void *context, unsigned int reg, unsigned int *va
 	 * process a single wait/timeout on function busy and a single retry
 	 * of the transaction.
 	 */
-	ret = regmap_sdw_mbq_read_impl(slave, reg, val, mbq_size, deferrable);
-	if (ret == -EAGAIN) {
+	ret = regmap_sdw_mbq_read_impl(slave, reg, val, mbq_size);
+	if (ret == -ENODATA) {
+		if (!deferrable)
+			dev_warn(dev, "Defer on undeferable control: %x\n", reg);
+
 		ret = regmap_sdw_mbq_poll_busy(slave, reg, ctx);
 		if (ret)
 			return ret;
 
-		ret = regmap_sdw_mbq_read_impl(slave, reg, val, mbq_size, false);
+		ret = regmap_sdw_mbq_read_impl(slave, reg, val, mbq_size);
 	}
 
 	return ret;

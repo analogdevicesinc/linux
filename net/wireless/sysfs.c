@@ -99,26 +99,32 @@ static int wiphy_suspend(struct device *dev)
 	rdev->suspend_at = ktime_get_boottime_seconds();
 
 	rtnl_lock();
-	wiphy_lock(&rdev->wiphy);
-	if (rdev->wiphy.registered) {
-		if (!rdev->wiphy.wowlan_config) {
-			cfg80211_leave_all(rdev);
-			cfg80211_process_rdev_events(rdev);
+	if (!rdev->wiphy.registered)
+		goto out_unlock_rtnl;
+
+	if (rdev->wiphy.wowlan_config) {
+		scoped_guard(wiphy, &rdev->wiphy) {
+			cfg80211_process_wiphy_works(rdev, NULL);
+			if (rdev->ops->suspend)
+				ret = rdev_suspend(rdev,
+						   rdev->wiphy.wowlan_config);
+			if (ret <= 0)
+				goto out_unlock_rtnl;
 		}
+	}
+
+	/* Driver refused to configure wowlan (ret = 1) or no wowlan */
+
+	cfg80211_leave_all(rdev);
+	scoped_guard(wiphy, &rdev->wiphy) {
+		cfg80211_process_rdev_events(rdev);
 		cfg80211_process_wiphy_works(rdev, NULL);
 		if (rdev->ops->suspend)
-			ret = rdev_suspend(rdev, rdev->wiphy.wowlan_config);
-		if (ret == 1) {
-			/* Driver refuse to configure wowlan */
-			cfg80211_leave_all(rdev);
-			cfg80211_process_rdev_events(rdev);
-			cfg80211_process_wiphy_works(rdev, NULL);
 			ret = rdev_suspend(rdev, NULL);
-		}
-		if (ret == 0)
-			rdev->suspended = true;
 	}
-	wiphy_unlock(&rdev->wiphy);
+out_unlock_rtnl:
+	if (ret == 0)
+		rdev->suspended = true;
 	rtnl_unlock();
 
 	return ret;
@@ -154,11 +160,11 @@ static SIMPLE_DEV_PM_OPS(wiphy_pm_ops, wiphy_suspend, wiphy_resume);
 #define WIPHY_PM_OPS NULL
 #endif
 
-static const void *wiphy_namespace(const struct device *d)
+static const struct ns_common *wiphy_namespace(const struct device *d)
 {
 	struct wiphy *wiphy = container_of(d, struct wiphy, dev);
 
-	return wiphy_net(wiphy);
+	return to_ns_common(wiphy_net(wiphy));
 }
 
 struct class ieee80211_class = {

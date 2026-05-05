@@ -7,10 +7,6 @@
 #define RO_EXCEPTION_TABLE_ALIGN	4
 #define RUNTIME_DISCARD_EXIT
 
-#ifdef CONFIG_XIP_KERNEL
-#include "vmlinux-xip.lds.S"
-#else
-
 #include <asm/pgtable.h>
 #define LOAD_OFFSET KERNEL_LINK_ADDR
 
@@ -170,9 +166,9 @@ SECTIONS
 
 	STABS_DEBUG
 	DWARF_DEBUG
+	MODINFO
 	ELF_DETAILS
 	.riscv.attributes 0 : { *(.riscv.attributes) }
 
 	DISCARDS
 }
-#endif /* CONFIG_XIP_KERNEL */

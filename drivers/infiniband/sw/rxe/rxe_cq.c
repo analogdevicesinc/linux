@@ -8,37 +8,6 @@
 #include "rxe_loc.h"
 #include "rxe_queue.h"
 
-int rxe_cq_chk_attr(struct rxe_dev *rxe, struct rxe_cq *cq,
-		    int cqe, int comp_vector)
-{
-	int count;
-
-	if (cqe <= 0) {
-		rxe_dbg_dev(rxe, "cqe(%d) <= 0\n", cqe);
-		goto err1;
-	}
-
-	if (cqe > rxe->attr.max_cqe) {
-		rxe_dbg_dev(rxe, "cqe(%d) > max_cqe(%d)\n",
-				cqe, rxe->attr.max_cqe);
-		goto err1;
-	}
-
-	if (cq) {
-		count = queue_count(cq->queue, QUEUE_TYPE_TO_CLIENT);
-		if (cqe < count) {
-			rxe_dbg_cq(cq, "cqe(%d) < current # elements in queue (%d)\n",
-					cqe, count);
-			goto err1;
-		}
-	}
-
-	return 0;
-
-err1:
-	return -EINVAL;
-}
-
 int rxe_cq_from_init(struct rxe_dev *rxe, struct rxe_cq *cq, int cqe,
 		     int comp_vector, struct ib_udata *udata,
 		     struct rxe_create_cq_resp __user *uresp)

@@ -714,10 +714,10 @@ static bool fnd_is_empty(struct ntfs_fnd *fnd)
  */
 static struct NTFS_DE *hdr_find_e(const struct ntfs_index *indx,
 				  const struct INDEX_HDR *hdr, const void *key,
-				  size_t key_len, const void *ctx, int *diff)
+				  size_t key_len, const void *ctx, int *diff,
+				  NTFS_CMP_FUNC cmp)
 {
 	struct NTFS_DE *e, *found = NULL;
-	NTFS_CMP_FUNC cmp = indx->cmp;
 	int min_idx = 0, mid_idx, max_idx = 0;
 	int diff2;
 	int table_size = 8;
@@ -726,9 +726,6 @@ static struct NTFS_DE *hdr_find_e(const struct ntfs_index *indx,
 	u32 off = le32_to_cpu(hdr->de_off);
 	u32 total = le32_to_cpu(hdr->total);
 	u16 offs[128];
-
-	if (unlikely(!cmp))
-		return NULL;
 
 fill_table:
 	if (end > total)
@@ -800,7 +797,8 @@ binary_search:
 static struct NTFS_DE *hdr_insert_de(const struct ntfs_index *indx,
 				     struct INDEX_HDR *hdr,
 				     const struct NTFS_DE *de,
-				     struct NTFS_DE *before, const void *ctx)
+				     struct NTFS_DE *before, const void *ctx,
+				     NTFS_CMP_FUNC cmp)
 {
 	int diff;
 	size_t off = PtrOffset(hdr, before);
@@ -823,7 +821,7 @@ static struct NTFS_DE *hdr_insert_de(const struct ntfs_index *indx,
 	}
 	/* No insert point is applied. Get it manually. */
 	before = hdr_find_e(indx, hdr, de + 1, le16_to_cpu(de->key_size), ctx,
-			    &diff);
+			    &diff, cmp);
 	if (!before)
 		return NULL;
 	off = PtrOffset(hdr, before);
@@ -914,10 +912,6 @@ int indx_init(struct ntfs_index *indx, struct ntfs_sb_info *sbi,
 	}
 
 	init_rwsem(&indx->run_lock);
-
-	indx->cmp = get_cmp_func(root);
-	if (!indx->cmp)
-		goto out;
 
 	return 0;
 
@@ -1141,6 +1135,7 @@ int indx_find(struct ntfs_index *indx, struct ntfs_inode *ni,
 	int err;
 	struct NTFS_DE *e;
 	struct indx_node *node;
+	NTFS_CMP_FUNC cmp;
 
 	if (!root)
 		root = indx_get_root(&ni->dir, ni, NULL, NULL);
@@ -1150,10 +1145,16 @@ int indx_find(struct ntfs_index *indx, struct ntfs_inode *ni,
 		return -EINVAL;
 	}
 
+	cmp = get_cmp_func(root);
+	if (unlikely(!cmp)) {
+		WARN_ON_ONCE(1);
+		return -EINVAL;
+	}
+
 	/* Check cache. */
 	e = fnd->level ? fnd->de[fnd->level - 1] : fnd->root_de;
 	if (e && !de_is_last(e) &&
-	    !(*indx->cmp)(key, key_len, e + 1, le16_to_cpu(e->key_size), ctx)) {
+	    !(*cmp)(key, key_len, e + 1, le16_to_cpu(e->key_size), ctx)) {
 		*entry = e;
 		*diff = 0;
 		return 0;
@@ -1163,7 +1164,7 @@ int indx_find(struct ntfs_index *indx, struct ntfs_inode *ni,
 	fnd_clear(fnd);
 
 	/* Lookup entry that is <= to the search value. */
-	e = hdr_find_e(indx, &root->ihdr, key, key_len, ctx, diff);
+	e = hdr_find_e(indx, &root->ihdr, key, key_len, ctx, diff, cmp);
 	if (!e)
 		return -EINVAL;
 
@@ -1183,7 +1184,7 @@ int indx_find(struct ntfs_index *indx, struct ntfs_inode *ni,
 
 		/* Lookup entry that is <= to the search value. */
 		e = hdr_find_e(indx, &node->index->ihdr, key, key_len, ctx,
-			       diff);
+			       diff, cmp);
 		if (!e) {
 			put_indx_node(node);
 			return -EINVAL;
@@ -1481,6 +1482,7 @@ out1:
 	run_deallocate(sbi, &run, false);
 
 out:
+	run_close(&run);
 	return err;
 }
 
@@ -1585,7 +1587,7 @@ out1:
 static int indx_insert_into_root(struct ntfs_index *indx, struct ntfs_inode *ni,
 				 const struct NTFS_DE *new_de,
 				 struct NTFS_DE *root_de, const void *ctx,
-				 struct ntfs_fnd *fnd, bool undo)
+				 struct ntfs_fnd *fnd, bool undo, NTFS_CMP_FUNC cmp)
 {
 	int err = 0;
 	struct NTFS_DE *e, *e0, *re;
@@ -1626,7 +1628,7 @@ static int indx_insert_into_root(struct ntfs_index *indx, struct ntfs_inode *ni,
 	if ((undo || asize + ds_root < sbi->max_bytes_per_attr) &&
 	    mi_resize_attr(mi, attr, ds_root)) {
 		hdr->total = cpu_to_le32(hdr_total + ds_root);
-		e = hdr_insert_de(indx, hdr, new_de, root_de, ctx);
+		e = hdr_insert_de(indx, hdr, new_de, root_de, ctx, cmp);
 		WARN_ON(!e);
 		fnd_clear(fnd);
 		fnd->root_de = e;
@@ -1767,7 +1769,7 @@ static int indx_insert_into_root(struct ntfs_index *indx, struct ntfs_inode *ni,
 	 * Now root is a parent for new index buffer.
 	 * Insert NewEntry a new buffer.
 	 */
-	e = hdr_insert_de(indx, hdr, new_de, NULL, ctx);
+	e = hdr_insert_de(indx, hdr, new_de, NULL, ctx, cmp);
 	if (!e) {
 		err = -EINVAL;
 		goto out_put_n;
@@ -1797,7 +1799,7 @@ out_free_root:
 static int
 indx_insert_into_buffer(struct ntfs_index *indx, struct ntfs_inode *ni,
 			struct INDEX_ROOT *root, const struct NTFS_DE *new_de,
-			const void *ctx, int level, struct ntfs_fnd *fnd)
+			const void *ctx, int level, struct ntfs_fnd *fnd, NTFS_CMP_FUNC cmp)
 {
 	int err;
 	const struct NTFS_DE *sp;
@@ -1814,7 +1816,7 @@ indx_insert_into_buffer(struct ntfs_index *indx, struct ntfs_inode *ni,
 
 	/* Try the most easy case. */
 	e = fnd->level - 1 == level ? fnd->de[level] : NULL;
-	e = hdr_insert_de(indx, hdr1, new_de, e, ctx);
+	e = hdr_insert_de(indx, hdr1, new_de, e, ctx, cmp);
 	fnd->de[level] = e;
 	if (e) {
 		/* Just write updated index into disk. */
@@ -1891,12 +1893,12 @@ indx_insert_into_buffer(struct ntfs_index *indx, struct ntfs_inode *ni,
 	 * (depending on sp <=> new_de).
 	 */
 	hdr_insert_de(indx,
-		      (*indx->cmp)(new_de + 1, le16_to_cpu(new_de->key_size),
+		      (*cmp)(new_de + 1, le16_to_cpu(new_de->key_size),
 				   up_e + 1, le16_to_cpu(up_e->key_size),
 				   ctx) < 0 ?
 			      hdr2 :
 			      hdr1,
-		      new_de, NULL, ctx);
+		      new_de, NULL, ctx, cmp);
 
 	indx_mark_used(indx, ni, new_vbn >> indx->idx2vbn_bits);
 
@@ -1911,14 +1913,14 @@ indx_insert_into_buffer(struct ntfs_index *indx, struct ntfs_inode *ni,
 	 */
 	if (!level) {
 		/* Insert in root. */
-		err = indx_insert_into_root(indx, ni, up_e, NULL, ctx, fnd, 0);
+		err = indx_insert_into_root(indx, ni, up_e, NULL, ctx, fnd, 0, cmp);
 	} else {
 		/*
 		 * The target buffer's parent is another index buffer.
 		 * TODO: Remove recursion.
 		 */
 		err = indx_insert_into_buffer(indx, ni, root, up_e, ctx,
-					      level - 1, fnd);
+					      level - 1, fnd, cmp);
 	}
 
 	if (err) {
@@ -1952,6 +1954,7 @@ int indx_insert_entry(struct ntfs_index *indx, struct ntfs_inode *ni,
 	struct NTFS_DE *e;
 	struct ntfs_fnd *fnd_a = NULL;
 	struct INDEX_ROOT *root;
+	NTFS_CMP_FUNC cmp;
 
 	if (!fnd) {
 		fnd_a = fnd_get();
@@ -1966,6 +1969,12 @@ int indx_insert_entry(struct ntfs_index *indx, struct ntfs_inode *ni,
 	if (!root) {
 		err = -EINVAL;
 		goto out;
+	}
+
+	cmp = get_cmp_func(root);
+	if (unlikely(!cmp)) {
+		WARN_ON_ONCE(1);
+		return -EINVAL;
 	}
 
 	if (fnd_is_empty(fnd)) {
@@ -1991,13 +2000,13 @@ int indx_insert_entry(struct ntfs_index *indx, struct ntfs_inode *ni,
 		 * new entry into it.
 		 */
 		err = indx_insert_into_root(indx, ni, new_de, fnd->root_de, ctx,
-					    fnd, undo);
+					    fnd, undo, cmp);
 	} else {
 		/*
 		 * Found a leaf buffer, so we'll insert the new entry into it.
 		 */
 		err = indx_insert_into_buffer(indx, ni, root, new_de, ctx,
-					      fnd->level - 1, fnd);
+					      fnd->level - 1, fnd, cmp);
 	}
 
 	indx->version += 1;
@@ -2291,6 +2300,7 @@ int indx_delete_entry(struct ntfs_index *indx, struct ntfs_inode *ni,
 	u32 e_size, root_size, new_root_size;
 	size_t trim_bit;
 	const struct INDEX_NAMES *in;
+	NTFS_CMP_FUNC cmp;
 
 	fnd = fnd_get();
 	if (!fnd) {
@@ -2308,6 +2318,12 @@ int indx_delete_entry(struct ntfs_index *indx, struct ntfs_inode *ni,
 	if (!root) {
 		err = -EINVAL;
 		goto out;
+	}
+
+	cmp = get_cmp_func(root);
+	if (unlikely(!cmp)) {
+		WARN_ON_ONCE(1);
+		return -EINVAL;
 	}
 
 	/* Locate the entry to remove. */
@@ -2376,9 +2392,9 @@ int indx_delete_entry(struct ntfs_index *indx, struct ntfs_inode *ni,
 			err = level ? indx_insert_into_buffer(indx, ni, root,
 							      re, ctx,
 							      fnd->level - 1,
-							      fnd) :
+							      fnd, cmp) :
 				      indx_insert_into_root(indx, ni, re, e,
-							    ctx, fnd, 0);
+							    ctx, fnd, 0, cmp);
 			kfree(re);
 
 			if (err)
@@ -2673,6 +2689,7 @@ int indx_update_dup(struct ntfs_inode *ni, struct ntfs_sb_info *sbi,
 	struct INDEX_ROOT *root;
 	struct mft_inode *mi;
 	struct ntfs_index *indx = &ni->dir;
+	NTFS_CMP_FUNC cmp;
 
 	fnd = fnd_get();
 	if (!fnd)
@@ -2682,6 +2699,12 @@ int indx_update_dup(struct ntfs_inode *ni, struct ntfs_sb_info *sbi,
 	if (!root) {
 		err = -EINVAL;
 		goto out;
+	}
+
+	cmp = get_cmp_func(root);
+	if (unlikely(!cmp)) {
+		WARN_ON_ONCE(1);
+		return -EINVAL;
 	}
 
 	/* Find entry in directory. */

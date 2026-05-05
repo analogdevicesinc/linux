@@ -709,7 +709,7 @@ ltc2983_thermocouple_new(const struct fwnode_handle *child, struct ltc2983_data 
 		ret = fwnode_property_read_u32(ref, "reg", &thermo->cold_junction_chan);
 		if (ret)
 			/*
-			 * This would be catched later but we can just return
+			 * This would be caught later but we can just return
 			 * the error right away.
 			 */
 			return dev_err_ptr_probe(&st->spi->dev, ret,
@@ -798,7 +798,7 @@ ltc2983_rtd_new(const struct fwnode_handle *child, struct ltc2983_data *st,
 	 * For 4wire RTD with rotation, the channel selection cannot be
 	 * >=19 since the chann + 1 is used in this configuration.
 	 * For 4wire RTDs with kelvin rsense, the rsense channel cannot be
-	 * <=1 since chanel - 1 and channel - 2 are used.
+	 * <=1 since channel - 1 and channel - 2 are used.
 	 */
 	if (rtd->sensor_config & LTC2983_RTD_4_WIRE_MASK) {
 		/* 4-wire */

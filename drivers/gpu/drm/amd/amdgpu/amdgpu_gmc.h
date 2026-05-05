@@ -94,6 +94,10 @@ enum amdgpu_memory_partition {
 #define AMDGPU_GMC9_FAULT_SOURCE_DATA_WRITE 0x20
 #define AMDGPU_GMC9_FAULT_SOURCE_DATA_EXE   0x10
 
+#define AMDGPU_GMC121_FAULT_SOURCE_DATA_READ  0x400000
+#define AMDGPU_GMC121_FAULT_SOURCE_DATA_WRITE 0x200000
+#define AMDGPU_GMC121_FAULT_SOURCE_DATA_EXE   0x100000
+
 /*
  * GMC page fault information
  */
@@ -452,7 +456,7 @@ extern void
 amdgpu_gmc_set_vm_fault_masks(struct amdgpu_device *adev, int hub_type,
 			      bool enable);
 
-void amdgpu_gmc_get_vbios_allocations(struct amdgpu_device *adev);
+void amdgpu_gmc_init_vga_resv_regions(struct amdgpu_device *adev);
 
 void amdgpu_gmc_init_pdb0(struct amdgpu_device *adev);
 uint64_t amdgpu_gmc_vram_mc2pa(struct amdgpu_device *adev, uint64_t mc_addr);
@@ -478,4 +482,6 @@ amdgpu_gmc_query_memory_partition(struct amdgpu_device *adev);
 int amdgpu_gmc_init_mem_ranges(struct amdgpu_device *adev);
 void amdgpu_gmc_init_sw_mem_ranges(struct amdgpu_device *adev,
 				   struct amdgpu_mem_partition_info *mem_ranges);
+int amdgpu_gmc_get_vram_info(struct amdgpu_device *adev,
+		int *vram_width, int *vram_type, int *vram_vendor);
 #endif

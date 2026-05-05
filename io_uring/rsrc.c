@@ -168,7 +168,7 @@ bool io_rsrc_cache_init(struct io_ring_ctx *ctx)
 void io_rsrc_cache_free(struct io_ring_ctx *ctx)
 {
 	io_alloc_cache_free(&ctx->node_cache, kfree);
-	io_alloc_cache_free(&ctx->imu_cache, kfree);
+	io_alloc_cache_free(&ctx->imu_cache, kvfree);
 }
 
 static void io_clear_table_tags(struct io_rsrc_data *data)
@@ -238,6 +238,9 @@ static int __io_sqe_files_update(struct io_ring_ctx *ctx,
 			continue;
 
 		i = up->offset + done;
+		if (i >= ctx->file_table.data.nr)
+			break;
+		i = array_index_nospec(i, ctx->file_table.data.nr);
 		if (io_reset_rsrc_node(ctx, &ctx->file_table.data, i))
 			io_file_bitmap_clear(&ctx->file_table, i);
 
@@ -295,7 +298,7 @@ static int __io_sqe_buffers_update(struct io_ring_ctx *ctx,
 		u64 tag = 0;
 
 		uvec = u64_to_user_ptr(user_data);
-		iov = iovec_from_user(uvec, 1, 1, &fast_iov, ctx->compat);
+		iov = iovec_from_user(uvec, 1, 1, &fast_iov, io_is_compat(ctx));
 		if (IS_ERR(iov)) {
 			err = PTR_ERR(iov);
 			break;
@@ -319,7 +322,7 @@ static int __io_sqe_buffers_update(struct io_ring_ctx *ctx,
 		i = array_index_nospec(up->offset + done, ctx->buf_table.nr);
 		io_reset_rsrc_node(ctx, &ctx->buf_table, i);
 		ctx->buf_table.nodes[i] = node;
-		if (ctx->compat)
+		if (io_is_compat(ctx))
 			user_data += sizeof(struct compat_iovec);
 		else
 			user_data += sizeof(struct iovec);
@@ -883,12 +886,12 @@ int io_sqe_buffers_register(struct io_ring_ctx *ctx, void __user *arg,
 
 		if (arg) {
 			uvec = (struct iovec __user *) arg;
-			iov = iovec_from_user(uvec, 1, 1, &fast_iov, ctx->compat);
+			iov = iovec_from_user(uvec, 1, 1, &fast_iov, io_is_compat(ctx));
 			if (IS_ERR(iov)) {
 				ret = PTR_ERR(iov);
 				break;
 			}
-			if (ctx->compat)
+			if (io_is_compat(ctx))
 				arg += sizeof(struct compat_iovec);
 			else
 				arg += sizeof(struct iovec);
@@ -961,7 +964,7 @@ int io_buffer_register_bvec(struct io_uring_cmd *cmd, struct request *rq,
 	 */
 	imu = io_alloc_imu(ctx, blk_rq_nr_phys_segments(rq));
 	if (!imu) {
-		kfree(node);
+		io_cache_free(&ctx->node_cache, node);
 		ret = -ENOMEM;
 		goto unlock;
 	}
@@ -1061,6 +1064,10 @@ static int io_import_fixed(int ddir, struct iov_iter *iter,
 		return ret;
 	if (!(imu->dir & (1 << ddir)))
 		return -EFAULT;
+	if (unlikely(!len)) {
+		iov_iter_bvec(iter, ddir, NULL, 0, 0);
+		return 0;
+	}
 
 	offset = buf_addr - imu->ubuf;
 
@@ -1269,7 +1276,7 @@ int io_register_clone_buffers(struct io_ring_ctx *ctx, void __user *arg)
 		return -EINVAL;
 
 	registered_src = (buf.flags & IORING_REGISTER_SRC_REGISTERED) != 0;
-	file = io_uring_register_get_file(buf.src_fd, registered_src);
+	file = io_uring_ctx_get_file(buf.src_fd, registered_src);
 	if (IS_ERR(file))
 		return PTR_ERR(file);
 
@@ -1291,7 +1298,8 @@ out:
 	if (src_ctx != ctx)
 		mutex_unlock(&src_ctx->uring_lock);
 
-	fput(file);
+	if (!registered_src)
+		fput(file);
 	return ret;
 }
 

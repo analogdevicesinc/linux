@@ -14,6 +14,7 @@
 #include <objtool/util.h>
 #include <arch/special.h>
 
+#include <linux/align.h>
 #include <linux/objtool_types.h>
 #include <linux/livepatch_external.h>
 #include <linux/stringify.h>
@@ -271,7 +272,7 @@ static bool is_uncorrelated_static_local(struct symbol *sym)
  */
 static bool is_clang_tmp_label(struct symbol *sym)
 {
-	return sym->type == STT_NOTYPE &&
+	return is_notype_sym(sym) &&
 	       is_text_sec(sym->sec) &&
 	       strstarts(sym->name, ".Ltmp") &&
 	       isdigit(sym->name[5]);
@@ -353,6 +354,46 @@ static bool dont_correlate(struct symbol *sym)
 	       is_special_section(sym->sec) ||
 	       is_special_section_aux(sym->sec) ||
 	       strstarts(sym->name, "__initcall__");
+}
+
+struct process_demangled_name_data {
+	struct symbol *ret;
+	int count;
+};
+
+static void process_demangled_name(struct symbol *sym, void *d)
+{
+	struct process_demangled_name_data *data = d;
+
+	if (sym->twin)
+		return;
+
+	data->count++;
+	data->ret = sym;
+}
+
+/*
+ * When there is no full name match, try match demangled_name. This would
+ * match original foo.llvm.123 to patched foo.llvm.456.
+ *
+ * Note that, in very rare cases, it is possible to have multiple
+ * foo.llvm.<hash> in the same kernel. When this happens, report error and
+ * fail the diff.
+ */
+static int find_global_symbol_by_demangled_name(struct elf *elf, struct symbol *sym,
+						struct symbol **out_sym)
+{
+	struct process_demangled_name_data data = {};
+
+	iterate_global_symbol_by_demangled_name(elf, sym->demangled_name,
+						process_demangled_name,
+						&data);
+	if (data.count > 1) {
+		ERROR("Multiple (%d) correlation candidates for %s", data.count, sym->name);
+		return -1;
+	}
+	*out_sym = data.ret;
+	return 0;
 }
 
 /*
@@ -453,10 +494,57 @@ static int correlate_symbols(struct elfs *e)
 			continue;
 
 		sym2 = find_global_symbol_by_name(e->patched, sym1->name);
-
-		if (sym2 && !sym2->twin && !strcmp(sym1->name, sym2->name)) {
+		if (sym2 && !sym2->twin) {
 			sym1->twin = sym2;
 			sym2->twin = sym1;
+		}
+	}
+
+	/*
+	 * Correlate globals with demangled_name.
+	 * A separate loop is needed because we want to finish all the
+	 * full name correlations first.
+	 */
+	for_each_sym(e->orig, sym1) {
+		if (sym1->bind == STB_LOCAL || sym1->twin)
+			continue;
+
+		if (find_global_symbol_by_demangled_name(e->patched, sym1, &sym2))
+			return -1;
+
+		if (sym2 && !sym2->twin) {
+			sym1->twin = sym2;
+			sym2->twin = sym1;
+		}
+	}
+
+	/* Correlate original locals with patched globals */
+	for_each_sym(e->orig, sym1) {
+		if (sym1->twin || dont_correlate(sym1) || !is_local_sym(sym1))
+			continue;
+
+		sym2 = find_global_symbol_by_name(e->patched, sym1->name);
+		if (!sym2 && find_global_symbol_by_demangled_name(e->patched, sym1, &sym2))
+			return -1;
+
+		if (sym2 && !sym2->twin) {
+			sym1->twin = sym2;
+			sym2->twin = sym1;
+		}
+	}
+
+	/* Correlate original globals with patched locals */
+	for_each_sym(e->patched, sym2) {
+		if (sym2->twin || dont_correlate(sym2) || !is_local_sym(sym2))
+			continue;
+
+		sym1 = find_global_symbol_by_name(e->orig, sym2->name);
+		if (!sym1 && find_global_symbol_by_demangled_name(e->orig, sym2, &sym1))
+			return -1;
+
+		if (sym1 && !sym1->twin) {
+			sym2->twin = sym1;
+			sym1->twin = sym2;
 		}
 	}
 
@@ -480,7 +568,7 @@ static unsigned long find_sympos(struct elf *elf, struct symbol *sym)
 	if (sym->bind != STB_LOCAL)
 		return 0;
 
-	if (vmlinux && sym->type == STT_FUNC) {
+	if (vmlinux && is_func_sym(sym)) {
 		/*
 		 * HACK: Unfortunately, symbol ordering can differ between
 		 * vmlinux.o and vmlinux due to the linker script emitting
@@ -560,7 +648,7 @@ static struct symbol *__clone_symbol(struct elf *elf, struct symbol *patched_sym
 		}
 
 		if (!is_sec_sym(patched_sym))
-			offset = sec_size(out_sec);
+			offset = ALIGN(sec_size(out_sec), out_sec->sh.sh_addralign);
 
 		if (patched_sym->len || is_sec_sym(patched_sym)) {
 			void *data = NULL;
@@ -1046,8 +1134,8 @@ static int clone_reloc_klp(struct elfs *e, struct reloc *patched_reloc,
 		   sec->name, offset, patched_sym->name,				\
 		   addend >= 0 ? "+" : "-", labs(addend),				\
 		   sym_type(patched_sym),						\
-		   patched_sym->type == STT_SECTION ? "" : " ",				\
-		   patched_sym->type == STT_SECTION ? "" : sym_bind(patched_sym),	\
+		   is_sec_sym(patched_sym) ? "" : " ",					\
+		   is_sec_sym(patched_sym) ? "" : sym_bind(patched_sym),		\
 		   is_undef_sym(patched_sym) ? " UNDEF" : "",				\
 		   export ? " EXPORTED" : "",						\
 		   klp ? " KLP" : "")
@@ -1334,25 +1422,25 @@ static bool should_keep_special_sym(struct elf *elf, struct symbol *sym)
  * be applied after static branch/call init, resulting in code corruption.
  *
  * Validate a special section entry to avoid that.  Note that an inert
- * tracepoint is harmless enough, in that case just skip the entry and print a
- * warning.  Otherwise, return an error.
+ * tracepoint or pr_debug() is harmless enough, in that case just skip the
+ * entry and print a warning.  Otherwise, return an error.
  *
- * This is only a temporary limitation which will be fixed when livepatch adds
- * support for submodules: fully self-contained modules which are embedded in
- * the top-level livepatch module's data and which can be loaded on demand when
- * their corresponding to-be-patched module gets loaded.  Then klp relocs can
- * be retired.
+ * TODO: This is only a temporary limitation which will be fixed when livepatch
+ * adds support for submodules: fully self-contained modules which are embedded
+ * in the top-level livepatch module's data and which can be loaded on demand
+ * when their corresponding to-be-patched module gets loaded.  Then klp relocs
+ * can be retired.
  *
  * Return:
  *   -1: error: validation failed
- *    1: warning: tracepoint skipped
+ *    1: warning: disabled tracepoint or pr_debug()
  *    0: success
  */
 static int validate_special_section_klp_reloc(struct elfs *e, struct symbol *sym)
 {
 	bool static_branch = !strcmp(sym->sec->name, "__jump_table");
 	bool static_call   = !strcmp(sym->sec->name, ".static_call_sites");
-	struct symbol *code_sym = NULL;
+	const char *code_sym = NULL;
 	unsigned long code_offset = 0;
 	struct reloc *reloc;
 	int ret = 0;
@@ -1364,12 +1452,15 @@ static int validate_special_section_klp_reloc(struct elfs *e, struct symbol *sym
 		const char *sym_modname;
 		struct export *export;
 
+		if (convert_reloc_sym(e->patched, reloc))
+			continue;
+
 		/* Static branch/call keys are always STT_OBJECT */
 		if (reloc->sym->type != STT_OBJECT) {
 
 			/* Save code location which can be printed below */
 			if (reloc->sym->type == STT_FUNC && !code_sym) {
-				code_sym = reloc->sym;
+				code_sym = reloc->sym->name;
 				code_offset = reloc_addend(reloc);
 			}
 
@@ -1392,16 +1483,26 @@ static int validate_special_section_klp_reloc(struct elfs *e, struct symbol *sym
 		if (!strcmp(sym_modname, "vmlinux"))
 			continue;
 
+		if (!code_sym)
+			code_sym = "<unknown>";
+
 		if (static_branch) {
 			if (strstarts(reloc->sym->name, "__tracepoint_")) {
 				WARN("%s: disabling unsupported tracepoint %s",
-				     code_sym->name, reloc->sym->name + 13);
+				     code_sym, reloc->sym->name + 13);
+				ret = 1;
+				continue;
+			}
+
+			if (strstr(reloc->sym->name, "__UNIQUE_ID_ddebug_")) {
+				WARN("%s: disabling unsupported pr_debug()",
+				     code_sym);
 				ret = 1;
 				continue;
 			}
 
 			ERROR("%s+0x%lx: unsupported static branch key %s.  Use static_key_enabled() instead",
-			      code_sym->name, code_offset, reloc->sym->name);
+			      code_sym, code_offset, reloc->sym->name);
 			return -1;
 		}
 
@@ -1412,7 +1513,7 @@ static int validate_special_section_klp_reloc(struct elfs *e, struct symbol *sym
 		}
 
 		ERROR("%s()+0x%lx: unsupported static call key %s.  Use KLP_STATIC_CALL() instead",
-		      code_sym->name, code_offset, reloc->sym->name);
+		      code_sym, code_offset, reloc->sym->name);
 		return -1;
 	}
 

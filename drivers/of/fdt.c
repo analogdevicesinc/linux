@@ -68,7 +68,7 @@ void __init of_fdt_limit_memory(int limit)
 
 bool of_fdt_device_is_available(const void *blob, unsigned long node)
 {
-	const char *status = fdt_getprop(blob, node, "status", NULL);
+	const char *status = fdt_stringlist_get(blob, node, "status", 0, NULL);
 
 	if (!status)
 		return true;
@@ -677,22 +677,15 @@ void __init of_flat_dt_read_addr_size(const __be32 *prop, int entry_index,
  * specific compatible values.
  */
 static int of_fdt_is_compatible(const void *blob,
-		      unsigned long node, const char *compat)
+			      unsigned long node, const char *compat)
 {
 	const char *cp;
-	int cplen;
-	unsigned long l, score = 0;
+	int idx = 0, score = 0;
 
-	cp = fdt_getprop(blob, node, "compatible", &cplen);
-	if (cp == NULL)
-		return 0;
-	while (cplen > 0) {
+	while ((cp = fdt_stringlist_get(blob, node, "compatible", idx++, NULL))) {
 		score++;
 		if (of_compat_cmp(cp, compat, strlen(compat)) == 0)
 			return score;
-		l = strlen(cp) + 1;
-		cp += l;
-		cplen -= l;
 	}
 
 	return 0;
@@ -741,9 +734,10 @@ const char * __init of_flat_dt_get_machine_name(void)
 	const char *name;
 	unsigned long dt_root = of_get_flat_dt_root();
 
-	name = of_get_flat_dt_prop(dt_root, "model", NULL);
+	name = fdt_stringlist_get(initial_boot_params, dt_root, "model", 0, NULL);
 	if (!name)
-		name = of_get_flat_dt_prop(dt_root, "compatible", NULL);
+		name = fdt_stringlist_get(initial_boot_params, dt_root,
+					  "compatible", 0, NULL);
 	return name;
 }
 
@@ -775,19 +769,14 @@ const void * __init of_flat_dt_match_machine(const void *default_match,
 	}
 	if (!best_data) {
 		const char *prop;
-		int size;
+		int idx = 0, size;
 
 		pr_err("\n unrecognized device tree list:\n[ ");
 
-		prop = of_get_flat_dt_prop(dt_root, "compatible", &size);
-		if (prop) {
-			while (size > 0) {
-				printk("'%s' ", prop);
-				size -= strlen(prop) + 1;
-				prop += strlen(prop) + 1;
-			}
-		}
-		printk("]\n\n");
+		while ((prop = fdt_stringlist_get(initial_boot_params, dt_root,
+						  "compatible", idx++, &size)))
+			pr_err("'%s' ", prop);
+		pr_err("]\n\n");
 		return NULL;
 	}
 
@@ -864,6 +853,26 @@ static void __init early_init_dt_check_for_elfcorehdr(unsigned long node)
 
 	pr_debug("elfcorehdr_start=0x%llx elfcorehdr_size=0x%llx\n",
 		 elfcorehdr_addr, elfcorehdr_size);
+}
+
+static void __init early_init_dt_check_for_dmcryptkeys(unsigned long node)
+{
+	const char *prop_name = "linux,dmcryptkeys";
+	const __be32 *prop;
+
+	if (!IS_ENABLED(CONFIG_CRASH_DM_CRYPT))
+		return;
+
+	pr_debug("Looking for dmcryptkeys property... ");
+
+	prop = of_get_flat_dt_prop(node, prop_name, NULL);
+	if (!prop)
+		return;
+
+	dm_crypt_keys_addr = dt_mem_next_cell(dt_root_addr_cells, &prop);
+
+	/* Property only accessible to crash dump kernel */
+	fdt_delprop(initial_boot_params, node, prop_name);
 }
 
 static unsigned long chosen_node_offset = -FDT_ERR_NOTFOUND;
@@ -954,9 +963,9 @@ int __init early_init_dt_scan_chosen_stdout(void)
 	if (offset < 0)
 		return -ENOENT;
 
-	p = fdt_getprop(fdt, offset, "stdout-path", &l);
+	p = fdt_stringlist_get(fdt, offset, "stdout-path", 0, &l);
 	if (!p)
-		p = fdt_getprop(fdt, offset, "linux,stdout-path", &l);
+		p = fdt_stringlist_get(fdt, offset, "linux,stdout-path", 0, &l);
 	if (!p || !l)
 		return -ENOENT;
 
@@ -1032,7 +1041,8 @@ int __init early_init_dt_scan_memory(void)
 	const void *fdt = initial_boot_params;
 
 	fdt_for_each_subnode(node, fdt, 0) {
-		const char *type = of_get_flat_dt_prop(node, "device_type", NULL);
+		const char *type = fdt_stringlist_get(fdt, node,
+						      "device_type", 0, NULL);
 		const __be32 *reg;
 		int i, l;
 		bool hotpluggable;
@@ -1097,6 +1107,7 @@ int __init early_init_dt_scan_chosen(char *cmdline)
 
 	early_init_dt_check_for_initrd(node);
 	early_init_dt_check_for_elfcorehdr(node);
+	early_init_dt_check_for_dmcryptkeys(node);
 
 	rng_seed = of_get_flat_dt_prop(node, "rng-seed", &l);
 	if (rng_seed && l > 0) {
@@ -1274,7 +1285,7 @@ void __init unflatten_device_tree(void)
 	void *fdt = initial_boot_params;
 
 	/* Save the statically-placed regions in the reserved_mem array */
-	fdt_scan_reserved_mem_reg_nodes();
+	fdt_scan_reserved_mem_late();
 
 	/* Populate an empty root node when bootloader doesn't provide one */
 	if (!fdt) {

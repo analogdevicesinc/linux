@@ -142,9 +142,8 @@ end:
 
 static void virtiovf_put_data_buffer(struct virtiovf_data_buffer *buf)
 {
-	spin_lock_irq(&buf->migf->list_lock);
+	guard(mutex)(&buf->migf->list_lock);
 	list_add_tail(&buf->buf_elm, &buf->migf->avail_list);
-	spin_unlock_irq(&buf->migf->list_lock);
 }
 
 static int
@@ -170,21 +169,21 @@ virtiovf_get_data_buffer(struct virtiovf_migration_file *migf, size_t length)
 
 	INIT_LIST_HEAD(&free_list);
 
-	spin_lock_irq(&migf->list_lock);
+	mutex_lock(&migf->list_lock);
 	list_for_each_entry_safe(buf, temp_buf, &migf->avail_list, buf_elm) {
 		list_del_init(&buf->buf_elm);
 		if (buf->allocated_length >= length) {
-			spin_unlock_irq(&migf->list_lock);
+			mutex_unlock(&migf->list_lock);
 			goto found;
 		}
 		/*
 		 * Prevent holding redundant buffers. Put in a free
-		 * list and call at the end not under the spin lock
+		 * list and call at the end not under the mutex
 		 * (&migf->list_lock) to minimize its scope usage.
 		 */
 		list_add(&buf->buf_elm, &free_list);
 	}
-	spin_unlock_irq(&migf->list_lock);
+	mutex_unlock(&migf->list_lock);
 	buf = virtiovf_alloc_data_buffer(migf, length);
 
 found:
@@ -225,10 +224,9 @@ static void virtiovf_clean_migf_resources(struct virtiovf_migration_file *migf)
 
 static void virtiovf_disable_fd(struct virtiovf_migration_file *migf)
 {
-	mutex_lock(&migf->lock);
+	guard(mutex)(&migf->lock);
 	migf->state = VIRTIOVF_MIGF_STATE_ERROR;
 	migf->filp->f_pos = 0;
-	mutex_unlock(&migf->lock);
 }
 
 static void virtiovf_disable_fds(struct virtiovf_pci_core_device *virtvdev)
@@ -295,6 +293,7 @@ static int virtiovf_release_file(struct inode *inode, struct file *filp)
 	struct virtiovf_migration_file *migf = filp->private_data;
 
 	virtiovf_disable_fd(migf);
+	mutex_destroy(&migf->list_lock);
 	mutex_destroy(&migf->lock);
 	kfree(migf);
 	return 0;
@@ -305,32 +304,27 @@ virtiovf_get_data_buff_from_pos(struct virtiovf_migration_file *migf,
 				loff_t pos, bool *end_of_data)
 {
 	struct virtiovf_data_buffer *buf;
-	bool found = false;
 
 	*end_of_data = false;
-	spin_lock_irq(&migf->list_lock);
+	guard(mutex)(&migf->list_lock);
+
 	if (list_empty(&migf->buf_list)) {
 		*end_of_data = true;
-		goto end;
+		return NULL;
 	}
 
 	buf = list_first_entry(&migf->buf_list, struct virtiovf_data_buffer,
 			       buf_elm);
 	if (pos >= buf->start_pos &&
-	    pos < buf->start_pos + buf->length) {
-		found = true;
-		goto end;
-	}
+	    pos < buf->start_pos + buf->length)
+		return buf;
 
 	/*
 	 * As we use a stream based FD we may expect having the data always
 	 * on first chunk
 	 */
 	migf->state = VIRTIOVF_MIGF_STATE_ERROR;
-
-end:
-	spin_unlock_irq(&migf->list_lock);
-	return found ? buf : NULL;
+	return NULL;
 }
 
 static ssize_t virtiovf_buf_read(struct virtiovf_data_buffer *vhca_buf,
@@ -369,10 +363,9 @@ static ssize_t virtiovf_buf_read(struct virtiovf_data_buffer *vhca_buf,
 	}
 
 	if (*pos >= vhca_buf->start_pos + vhca_buf->length) {
-		spin_lock_irq(&vhca_buf->migf->list_lock);
+		guard(mutex)(&vhca_buf->migf->list_lock);
 		list_del_init(&vhca_buf->buf_elm);
 		list_add_tail(&vhca_buf->buf_elm, &vhca_buf->migf->avail_list);
-		spin_unlock_irq(&vhca_buf->migf->list_lock);
 	}
 
 	return done;
@@ -391,11 +384,10 @@ static ssize_t virtiovf_save_read(struct file *filp, char __user *buf, size_t le
 		return -ESPIPE;
 	pos = &filp->f_pos;
 
-	mutex_lock(&migf->lock);
-	if (migf->state == VIRTIOVF_MIGF_STATE_ERROR) {
-		done = -ENODEV;
-		goto out_unlock;
-	}
+	guard(mutex)(&migf->lock);
+
+	if (migf->state == VIRTIOVF_MIGF_STATE_ERROR)
+		return -ENODEV;
 
 	while (len) {
 		ssize_t count;
@@ -404,34 +396,24 @@ static ssize_t virtiovf_save_read(struct file *filp, char __user *buf, size_t le
 		if (first_loop_call) {
 			first_loop_call = false;
 			/* Temporary end of file as part of PRE_COPY */
-			if (end_of_data && migf->state == VIRTIOVF_MIGF_STATE_PRECOPY) {
-				done = -ENOMSG;
-				goto out_unlock;
-			}
-			if (end_of_data && migf->state != VIRTIOVF_MIGF_STATE_COMPLETE) {
-				done = -EINVAL;
-				goto out_unlock;
-			}
+			if (end_of_data && migf->state == VIRTIOVF_MIGF_STATE_PRECOPY)
+				return -ENOMSG;
+			if (end_of_data && migf->state != VIRTIOVF_MIGF_STATE_COMPLETE)
+				return -EINVAL;
 		}
 
 		if (end_of_data)
-			goto out_unlock;
+			return done;
 
-		if (!vhca_buf) {
-			done = -EINVAL;
-			goto out_unlock;
-		}
+		if (!vhca_buf)
+			return -EINVAL;
 
 		count = virtiovf_buf_read(vhca_buf, &buf, &len, pos);
-		if (count < 0) {
-			done = count;
-			goto out_unlock;
-		}
+		if (count < 0)
+			return count;
 		done += count;
 	}
 
-out_unlock:
-	mutex_unlock(&migf->lock);
 	return done;
 }
 
@@ -443,19 +425,13 @@ static long virtiovf_precopy_ioctl(struct file *filp, unsigned int cmd,
 	struct vfio_precopy_info info = {};
 	loff_t *pos = &filp->f_pos;
 	bool end_of_data = false;
-	unsigned long minsz;
 	u32 ctx_size = 0;
 	int ret;
 
-	if (cmd != VFIO_MIG_GET_PRECOPY_INFO)
-		return -ENOTTY;
-
-	minsz = offsetofend(struct vfio_precopy_info, dirty_bytes);
-	if (copy_from_user(&info, (void __user *)arg, minsz))
-		return -EFAULT;
-
-	if (info.argsz < minsz)
-		return -EINVAL;
+	ret = vfio_check_precopy_ioctl(&virtvdev->core_device.vdev, cmd, arg,
+				       &info);
+	if (ret)
+		return ret;
 
 	mutex_lock(&virtvdev->state_mutex);
 	if (virtvdev->mig_state != VFIO_DEVICE_STATE_PRE_COPY &&
@@ -514,7 +490,8 @@ static long virtiovf_precopy_ioctl(struct file *filp, unsigned int cmd,
 
 done:
 	virtiovf_state_mutex_unlock(virtvdev);
-	if (copy_to_user((void __user *)arg, &info, minsz))
+	if (copy_to_user((void __user *)arg, &info,
+			 offsetofend(struct vfio_precopy_info, dirty_bytes)))
 		return -EFAULT;
 	return 0;
 
@@ -554,9 +531,10 @@ virtiovf_add_buf_header(struct virtiovf_data_buffer *header_buf,
 	header_buf->length = sizeof(header);
 	header_buf->start_pos = header_buf->migf->max_pos;
 	migf->max_pos += header_buf->length;
-	spin_lock_irq(&migf->list_lock);
-	list_add_tail(&header_buf->buf_elm, &migf->buf_list);
-	spin_unlock_irq(&migf->list_lock);
+
+	scoped_guard(mutex, &migf->list_lock)
+		list_add_tail(&header_buf->buf_elm, &migf->buf_list);
+
 	return 0;
 }
 
@@ -621,9 +599,10 @@ virtiovf_read_device_context_chunk(struct virtiovf_migration_file *migf,
 
 	buf->start_pos = buf->migf->max_pos;
 	migf->max_pos += buf->length;
-	spin_lock(&migf->list_lock);
-	list_add_tail(&buf->buf_elm, &migf->buf_list);
-	spin_unlock_irq(&migf->list_lock);
+
+	scoped_guard(mutex, &migf->list_lock)
+		list_add_tail(&buf->buf_elm, &migf->buf_list);
+
 	return 0;
 
 out_header:
@@ -692,7 +671,7 @@ virtiovf_pci_save_device_data(struct virtiovf_pci_core_device *virtvdev,
 	mutex_init(&migf->lock);
 	INIT_LIST_HEAD(&migf->buf_list);
 	INIT_LIST_HEAD(&migf->avail_list);
-	spin_lock_init(&migf->list_lock);
+	mutex_init(&migf->list_lock);
 	migf->virtvdev = virtvdev;
 
 	lockdep_assert_held(&virtvdev->state_mutex);
@@ -1082,7 +1061,7 @@ virtiovf_pci_resume_device_data(struct virtiovf_pci_core_device *virtvdev)
 	mutex_init(&migf->lock);
 	INIT_LIST_HEAD(&migf->buf_list);
 	INIT_LIST_HEAD(&migf->avail_list);
-	spin_lock_init(&migf->list_lock);
+	mutex_init(&migf->list_lock);
 
 	buf = virtiovf_alloc_data_buffer(migf, VIRTIOVF_TARGET_INITIAL_BUF_SIZE);
 	if (IS_ERR(buf)) {

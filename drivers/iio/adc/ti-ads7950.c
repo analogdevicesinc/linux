@@ -47,8 +47,6 @@
 #define TI_ADS7950_MAX_CHAN	16
 #define TI_ADS7950_NUM_GPIOS	4
 
-#define TI_ADS7950_TIMESTAMP_SIZE (sizeof(int64_t) / sizeof(__be16))
-
 /* val = value, dec = left shift, bits = number of bits of the mask */
 #define TI_ADS7950_EXTRACT(val, dec, bits) \
 	(((val) >> (dec)) & ((1 << (bits)) - 1))
@@ -105,8 +103,7 @@ struct ti_ads7950_state {
 	 * DMA (thus cache coherency maintenance) may require the
 	 * transfer buffers to live in their own cache lines.
 	 */
-	u16 rx_buf[TI_ADS7950_MAX_CHAN + 2 + TI_ADS7950_TIMESTAMP_SIZE]
-		__aligned(IIO_DMA_MINALIGN);
+	u16 rx_buf[TI_ADS7950_MAX_CHAN + 2] __aligned(IIO_DMA_MINALIGN);
 	u16 tx_buf[TI_ADS7950_MAX_CHAN + 2];
 	u16 single_tx;
 	u16 single_rx;
@@ -116,21 +113,6 @@ struct ti_ads7950_state {
 struct ti_ads7950_chip_info {
 	const struct iio_chan_spec *channels;
 	unsigned int num_channels;
-};
-
-enum ti_ads7950_id {
-	TI_ADS7950,
-	TI_ADS7951,
-	TI_ADS7952,
-	TI_ADS7953,
-	TI_ADS7954,
-	TI_ADS7955,
-	TI_ADS7956,
-	TI_ADS7957,
-	TI_ADS7958,
-	TI_ADS7959,
-	TI_ADS7960,
-	TI_ADS7961,
 };
 
 #define TI_ADS7950_V_CHAN(index, bits)				\
@@ -225,55 +207,64 @@ static DECLARE_TI_ADS7950_8_CHANNELS(ti_ads7959, 8);
 static DECLARE_TI_ADS7950_12_CHANNELS(ti_ads7960, 8);
 static DECLARE_TI_ADS7950_16_CHANNELS(ti_ads7961, 8);
 
-static const struct ti_ads7950_chip_info ti_ads7950_chip_info[] = {
-	[TI_ADS7950] = {
-		.channels	= ti_ads7950_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7950_channels),
-	},
-	[TI_ADS7951] = {
-		.channels	= ti_ads7951_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7951_channels),
-	},
-	[TI_ADS7952] = {
-		.channels	= ti_ads7952_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7952_channels),
-	},
-	[TI_ADS7953] = {
-		.channels	= ti_ads7953_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7953_channels),
-	},
-	[TI_ADS7954] = {
-		.channels	= ti_ads7954_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7954_channels),
-	},
-	[TI_ADS7955] = {
-		.channels	= ti_ads7955_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7955_channels),
-	},
-	[TI_ADS7956] = {
-		.channels	= ti_ads7956_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7956_channels),
-	},
-	[TI_ADS7957] = {
-		.channels	= ti_ads7957_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7957_channels),
-	},
-	[TI_ADS7958] = {
-		.channels	= ti_ads7958_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7958_channels),
-	},
-	[TI_ADS7959] = {
-		.channels	= ti_ads7959_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7959_channels),
-	},
-	[TI_ADS7960] = {
-		.channels	= ti_ads7960_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7960_channels),
-	},
-	[TI_ADS7961] = {
-		.channels	= ti_ads7961_channels,
-		.num_channels	= ARRAY_SIZE(ti_ads7961_channels),
-	},
+static const struct ti_ads7950_chip_info ti_ads7950_chip_info = {
+	.channels	= ti_ads7950_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7950_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7951_chip_info = {
+	.channels	= ti_ads7951_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7951_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7952_chip_info = {
+	.channels	= ti_ads7952_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7952_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7953_chip_info = {
+	.channels	= ti_ads7953_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7953_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7954_chip_info = {
+	.channels	= ti_ads7954_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7954_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7955_chip_info = {
+	.channels	= ti_ads7955_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7955_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7956_chip_info = {
+	.channels	= ti_ads7956_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7956_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7957_chip_info = {
+	.channels	= ti_ads7957_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7957_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7958_chip_info = {
+	.channels	= ti_ads7958_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7958_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7959_chip_info = {
+	.channels	= ti_ads7959_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7959_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7960_chip_info = {
+	.channels	= ti_ads7960_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7960_channels),
+};
+
+static const struct ti_ads7950_chip_info ti_ads7961_chip_info = {
+	.channels	= ti_ads7961_channels,
+	.num_channels	= ARRAY_SIZE(ti_ads7961_channels),
 };
 
 /*
@@ -313,8 +304,10 @@ static irqreturn_t ti_ads7950_trigger_handler(int irq, void *p)
 	if (ret < 0)
 		goto out;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &st->rx_buf[2],
-					   iio_get_time_ns(indio_dev));
+	iio_push_to_buffers_with_ts_unaligned(indio_dev, &st->rx_buf[2],
+					      sizeof(*st->rx_buf) *
+					      TI_ADS7950_MAX_CHAN,
+					      iio_get_time_ns(indio_dev));
 
 out:
 	mutex_unlock(&st->slock);
@@ -427,13 +420,15 @@ static int ti_ads7950_set(struct gpio_chip *chip, unsigned int offset,
 static int ti_ads7950_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ti_ads7950_state *st = gpiochip_get_data(chip);
+	bool state;
 	int ret;
 
 	mutex_lock(&st->slock);
 
 	/* If set as output, return the output */
 	if (st->gpio_cmd_settings_bitmask & BIT(offset)) {
-		ret = st->cmd_settings_bitmask & BIT(offset);
+		state = st->cmd_settings_bitmask & BIT(offset);
+		ret = 0;
 		goto out;
 	}
 
@@ -444,7 +439,7 @@ static int ti_ads7950_get(struct gpio_chip *chip, unsigned int offset)
 	if (ret)
 		goto out;
 
-	ret = ((st->single_rx >> 12) & BIT(offset)) ? 1 : 0;
+	state = (st->single_rx >> 12) & BIT(offset);
 
 	/* Revert back to original settings */
 	st->cmd_settings_bitmask &= ~TI_ADS7950_CR_GPIO_DATA;
@@ -456,7 +451,7 @@ static int ti_ads7950_get(struct gpio_chip *chip, unsigned int offset)
 out:
 	mutex_unlock(&st->slock);
 
-	return ret;
+	return ret ?: state;
 }
 
 static int ti_ads7950_get_direction(struct gpio_chip *chip,
@@ -561,7 +556,7 @@ static int ti_ads7950_probe(struct spi_device *spi)
 
 	st->spi = spi;
 
-	info = &ti_ads7950_chip_info[spi_get_device_id(spi)->driver_data];
+	info = spi_get_device_match_data(spi);
 
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -683,35 +678,35 @@ static void ti_ads7950_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ti_ads7950_id[] = {
-	{ "ads7950", TI_ADS7950 },
-	{ "ads7951", TI_ADS7951 },
-	{ "ads7952", TI_ADS7952 },
-	{ "ads7953", TI_ADS7953 },
-	{ "ads7954", TI_ADS7954 },
-	{ "ads7955", TI_ADS7955 },
-	{ "ads7956", TI_ADS7956 },
-	{ "ads7957", TI_ADS7957 },
-	{ "ads7958", TI_ADS7958 },
-	{ "ads7959", TI_ADS7959 },
-	{ "ads7960", TI_ADS7960 },
-	{ "ads7961", TI_ADS7961 },
+	{ "ads7950", (kernel_ulong_t)&ti_ads7950_chip_info },
+	{ "ads7951", (kernel_ulong_t)&ti_ads7951_chip_info },
+	{ "ads7952", (kernel_ulong_t)&ti_ads7952_chip_info },
+	{ "ads7953", (kernel_ulong_t)&ti_ads7953_chip_info },
+	{ "ads7954", (kernel_ulong_t)&ti_ads7954_chip_info },
+	{ "ads7955", (kernel_ulong_t)&ti_ads7955_chip_info },
+	{ "ads7956", (kernel_ulong_t)&ti_ads7956_chip_info },
+	{ "ads7957", (kernel_ulong_t)&ti_ads7957_chip_info },
+	{ "ads7958", (kernel_ulong_t)&ti_ads7958_chip_info },
+	{ "ads7959", (kernel_ulong_t)&ti_ads7959_chip_info },
+	{ "ads7960", (kernel_ulong_t)&ti_ads7960_chip_info },
+	{ "ads7961", (kernel_ulong_t)&ti_ads7961_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ti_ads7950_id);
 
 static const struct of_device_id ads7950_of_table[] = {
-	{ .compatible = "ti,ads7950", .data = &ti_ads7950_chip_info[TI_ADS7950] },
-	{ .compatible = "ti,ads7951", .data = &ti_ads7950_chip_info[TI_ADS7951] },
-	{ .compatible = "ti,ads7952", .data = &ti_ads7950_chip_info[TI_ADS7952] },
-	{ .compatible = "ti,ads7953", .data = &ti_ads7950_chip_info[TI_ADS7953] },
-	{ .compatible = "ti,ads7954", .data = &ti_ads7950_chip_info[TI_ADS7954] },
-	{ .compatible = "ti,ads7955", .data = &ti_ads7950_chip_info[TI_ADS7955] },
-	{ .compatible = "ti,ads7956", .data = &ti_ads7950_chip_info[TI_ADS7956] },
-	{ .compatible = "ti,ads7957", .data = &ti_ads7950_chip_info[TI_ADS7957] },
-	{ .compatible = "ti,ads7958", .data = &ti_ads7950_chip_info[TI_ADS7958] },
-	{ .compatible = "ti,ads7959", .data = &ti_ads7950_chip_info[TI_ADS7959] },
-	{ .compatible = "ti,ads7960", .data = &ti_ads7950_chip_info[TI_ADS7960] },
-	{ .compatible = "ti,ads7961", .data = &ti_ads7950_chip_info[TI_ADS7961] },
+	{ .compatible = "ti,ads7950", .data = &ti_ads7950_chip_info },
+	{ .compatible = "ti,ads7951", .data = &ti_ads7951_chip_info },
+	{ .compatible = "ti,ads7952", .data = &ti_ads7952_chip_info },
+	{ .compatible = "ti,ads7953", .data = &ti_ads7953_chip_info },
+	{ .compatible = "ti,ads7954", .data = &ti_ads7954_chip_info },
+	{ .compatible = "ti,ads7955", .data = &ti_ads7955_chip_info },
+	{ .compatible = "ti,ads7956", .data = &ti_ads7956_chip_info },
+	{ .compatible = "ti,ads7957", .data = &ti_ads7957_chip_info },
+	{ .compatible = "ti,ads7958", .data = &ti_ads7958_chip_info },
+	{ .compatible = "ti,ads7959", .data = &ti_ads7959_chip_info },
+	{ .compatible = "ti,ads7960", .data = &ti_ads7960_chip_info },
+	{ .compatible = "ti,ads7961", .data = &ti_ads7961_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ads7950_of_table);

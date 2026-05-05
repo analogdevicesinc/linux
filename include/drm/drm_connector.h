@@ -402,8 +402,6 @@ enum drm_hdmi_broadcast_rgb {
 
 const char *
 drm_hdmi_connector_get_broadcast_rgb_name(enum drm_hdmi_broadcast_rgb broadcast_rgb);
-const char *
-drm_hdmi_connector_get_output_format_name(enum hdmi_colorspace fmt);
 
 /**
  * struct drm_monitor_range_info - Panel's Monitor range in EDID for
@@ -557,6 +555,34 @@ enum drm_colorspace {
 };
 
 /**
+ * enum drm_output_color_format - Output Color Format
+ *
+ * This enum is a consolidated color format list supported by
+ * connectors. It's only ever really been used for HDMI and DP so far,
+ * so it's not exhaustive and can be extended to represent other formats
+ * in the future.
+ *
+ *
+ * @DRM_OUTPUT_COLOR_FORMAT_RGB444:
+ *   RGB output format
+ * @DRM_OUTPUT_COLOR_FORMAT_YCBCR444:
+ *   YCbCr 4:4:4 output format (ie. not subsampled)
+ * @DRM_OUTPUT_COLOR_FORMAT_YCBCR422:
+ *   YCbCr 4:2:2 output format (ie. with horizontal subsampling)
+ * @DRM_OUTPUT_COLOR_FORMAT_YCBCR420:
+ *   YCbCr 4:2:0 output format (ie. with horizontal and vertical subsampling)
+ */
+enum drm_output_color_format {
+	DRM_OUTPUT_COLOR_FORMAT_RGB444 = 0,
+	DRM_OUTPUT_COLOR_FORMAT_YCBCR444,
+	DRM_OUTPUT_COLOR_FORMAT_YCBCR422,
+	DRM_OUTPUT_COLOR_FORMAT_YCBCR420,
+};
+
+const char *
+drm_hdmi_connector_get_output_format_name(enum drm_output_color_format fmt);
+
+/**
  * enum drm_bus_flags - bus_flags info for &drm_display_info
  *
  * This enum defines signal polarities and clock edge information for signals on
@@ -668,6 +694,39 @@ enum drm_bus_flags {
 };
 
 /**
+ * struct drm_amd_vsdb_info - AMD-specific VSDB information
+ *
+ * This structure holds information parsed from the AMD Vendor-Specific Data
+ * Block (VSDB) version 3.
+ */
+struct drm_amd_vsdb_info {
+	/**
+	 * @version: Version of the Vendor-Specific Data Block (VSDB)
+	 */
+	u8 version;
+
+	/**
+	 * @replay_mode: Panel Replay supported
+	 */
+	bool replay_mode;
+
+	/**
+	 * @panel_type: Panel technology type
+	 */
+	u8 panel_type;
+
+	/**
+	 * @luminance_range1: Luminance for max back light
+	 */
+	struct drm_luminance_range_info luminance_range1;
+
+	/**
+	 * @luminance_range2: Luminance for min back light
+	 */
+	struct drm_luminance_range_info luminance_range2;
+};
+
+/**
  * struct drm_display_info - runtime data about the connected sink
  *
  * Describes a given display (e.g. CRT or flat panel) and its limitations. For
@@ -699,11 +758,6 @@ struct drm_display_info {
 	 */
 	enum subpixel_order subpixel_order;
 
-#define DRM_COLOR_FORMAT_RGB444		(1<<0)
-#define DRM_COLOR_FORMAT_YCBCR444	(1<<1)
-#define DRM_COLOR_FORMAT_YCBCR422	(1<<2)
-#define DRM_COLOR_FORMAT_YCBCR420	(1<<3)
-
 	/**
 	 * @panel_orientation: Read only connector property for built-in panels,
 	 * indicating the orientation of the panel vs the device's casing.
@@ -714,10 +768,11 @@ struct drm_display_info {
 	int panel_orientation;
 
 	/**
-	 * @color_formats: HDMI Color formats, selects between RGB and YCrCb
-	 * modes. Used DRM_COLOR_FORMAT\_ defines, which are _not_ the same ones
-	 * as used to describe the pixel format in framebuffers, and also don't
-	 * match the formats in @bus_formats which are shared with v4l.
+	 * @color_formats: HDMI Color formats, selects between RGB and
+	 * YCbCr modes. Uses a bitmask of DRM_OUTPUT_COLOR_FORMAT\_
+	 * defines, which are _not_ the same ones as used to describe
+	 * the pixel format in framebuffers, and also don't match the
+	 * formats in @bus_formats which are shared with v4l.
 	 */
 	u32 color_formats;
 
@@ -861,6 +916,11 @@ struct drm_display_info {
 	 * Defaults to CEC_PHYS_ADDR_INVALID (0xffff).
 	 */
 	u16 source_physical_address;
+
+	/**
+	 * @amd_vsdb: AMD-specific VSDB information.
+	 */
+	struct drm_amd_vsdb_info amd_vsdb;
 };
 
 int drm_display_info_set_bus_formats(struct drm_display_info *info,
@@ -991,7 +1051,7 @@ struct drm_connector_hdmi_state {
 	/**
 	 * @output_format: Pixel format to output in.
 	 */
-	enum hdmi_colorspace output_format;
+	enum drm_output_color_format output_format;
 
 	/**
 	 * @tmds_char_rate: TMDS Character Rate, in Hz.
@@ -1879,7 +1939,7 @@ struct drm_connector_hdmi {
 	unsigned char product[DRM_CONNECTOR_HDMI_PRODUCT_LEN] __nonstring;
 
 	/**
-	 * @supported_formats: Bitmask of @hdmi_colorspace
+	 * @supported_formats: Bitmask of @drm_output_color_format
 	 * supported by the controller.
 	 */
 	unsigned long supported_formats;
@@ -2493,6 +2553,7 @@ int drm_connector_attach_scaling_mode_property(struct drm_connector *connector,
 					       u32 scaling_mode_mask);
 int drm_connector_attach_vrr_capable_property(
 		struct drm_connector *connector);
+void drm_connector_attach_panel_type_property(struct drm_connector *connector);
 int drm_connector_attach_broadcast_rgb_property(struct drm_connector *connector);
 int drm_connector_attach_colorspace_property(struct drm_connector *connector);
 int drm_connector_attach_hdr_output_metadata_property(struct drm_connector *connector);

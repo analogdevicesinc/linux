@@ -86,10 +86,10 @@ static int qnap_mcu_eeprom_probe(struct platform_device *pdev)
 	nvcfg.read_only = true;
 	nvcfg.root_only = false;
 	nvcfg.reg_read = qnap_mcu_eeprom_read;
-	nvcfg.size = QNAP_MCU_EEPROM_SIZE,
-	nvcfg.word_size = 1,
-	nvcfg.stride = 1,
-	nvcfg.priv = mcu,
+	nvcfg.size = QNAP_MCU_EEPROM_SIZE;
+	nvcfg.word_size = 1;
+	nvcfg.stride = 1;
+	nvcfg.priv = mcu;
 
 	ndev = devm_nvmem_register(&pdev->dev, &nvcfg);
 	if (IS_ERR(ndev))

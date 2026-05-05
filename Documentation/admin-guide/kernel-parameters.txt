@@ -6,7 +6,6 @@
 	APPARMOR AppArmor support is enabled.
 	ARM	ARM architecture is enabled.
 	ARM64	ARM64 architecture is enabled.
-	AX25	Appropriate AX.25 support is enabled.
 	CLK	Common clock infrastructure is enabled.
 	CMA	Contiguous Memory Area support is enabled.
 	DRM	Direct Rendering Management support is enabled.
@@ -74,6 +73,7 @@
 	TPM	TPM drivers are enabled.
 	UMS	USB Mass Storage support is enabled.
 	USB	USB support is enabled.
+	NVME	NVMe support is enabled
 	USBHID	USB Human Interface Device support is enabled.
 	V4L	Video For Linux support is enabled.
 	VGA	The VGA console has been enabled.
@@ -188,6 +188,14 @@ Kernel parameters
 			Some values produce so much output that the system is
 			unusable.  The "log_buf_len" parameter may be useful
 			if you need to capture more output.
+
+	acpi.poweroff_on_fatal=	[ACPI]
+			{0 | 1}
+			Causes the system to poweroff when the ACPI bytecode signals
+			a fatal error. The default value of this setting is 1.
+			Overriding this value should only be done for diagnosing
+			ACPI firmware problems, as the system might behave erratically
+			after having encountered a fatal ACPI error.
 
 	acpi_enforce_resources=	[ACPI]
 			{ strict | lax | no }
@@ -492,6 +500,13 @@ Kernel parameters
 			disable
 			  Disable amd-pstate preferred core.
 
+	amd_dynamic_epp=
+			[X86]
+			disable
+			  Disable amd-pstate dynamic EPP.
+			enable
+			  Enable amd-pstate dynamic EPP.
+
 	amijoy.map=	[HW,JOY] Amiga joystick support
 			Map of devices attached to JOY0DAT and JOY1DAT
 			Format: <a>,<b>
@@ -616,23 +631,6 @@ Kernel parameters
 			0 - Disable the BAU.
 			1 - Enable the BAU.
 			unset - Disable the BAU.
-
-	baycom_epp=	[HW,AX25]
-			Format: <io>,<mode>
-
-	baycom_par=	[HW,AX25] BayCom Parallel Port AX.25 Modem
-			Format: <io>,<mode>
-			See header of drivers/net/hamradio/baycom_par.c.
-
-	baycom_ser_fdx=	[HW,AX25]
-			BayCom Serial Port AX.25 Modem (Full Duplex Mode)
-			Format: <io>,<irq>,<mode>[,<baud>]
-			See header of drivers/net/hamradio/baycom_ser_fdx.c.
-
-	baycom_ser_hdx=	[HW,AX25]
-			BayCom Serial Port AX.25 Modem (Half Duplex Mode)
-			Format: <io>,<irq>,<mode>
-			See header of drivers/net/hamradio/baycom_ser_hdx.c.
 
 	bdev_allow_write_mounted=
 			Format: <bool>
@@ -1749,8 +1747,8 @@ Kernel parameters
 	fred=		[X86-64]
 			Enable/disable Flexible Return and Event Delivery.
 			Format: { on | off }
-			on: enable FRED when it's present.
-			off: disable FRED, the default setting.
+			on: enable FRED when it's present, the default setting.
+			off: disable FRED.
 
 	ftrace=[tracer]
 			[FTRACE] will set and start the specified tracer
@@ -2394,23 +2392,6 @@ Kernel parameters
 			[IMA] Define a custom template format.
 			Format: { "field1|...|fieldN" }
 
-	ima.ahash_minsize= [IMA] Minimum file size for asynchronous hash usage
-			Format: <min_file_size>
-			Set the minimal file size for using asynchronous hash.
-			If left unspecified, ahash usage is disabled.
-
-			ahash performance varies for different data sizes on
-			different crypto accelerators. This option can be used
-			to achieve the best performance for a particular HW.
-
-	ima.ahash_bufsize= [IMA] Asynchronous hash buffer size
-			Format: <bufsize>
-			Set hashing buffer size. Default: 4k.
-
-			ahash performance varies for different chunk sizes on
-			different crypto accelerators. This option can be used
-			to achieve best performance for particular HW.
-
 	ima=		[IMA] Enable or disable IMA
 			Format: { "off" | "on" }
 			Default: "on"
@@ -2614,15 +2595,11 @@ Kernel parameters
 			Intel machines). This can be used to prevent the usage
 			of an available hardware IOMMU.
 
-			[X86]
 		pt
-			[X86]
 		nopt
-			[PPC/POWERNV]
-		nobypass
+		nobypass	[PPC/POWERNV]
 			Disable IOMMU bypass, using IOMMU for PCI devices.
 
-		[X86]
 		AMD Gart HW IOMMU-specific options:
 
 		<size>
@@ -2958,6 +2935,12 @@ Kernel parameters
 			Format: <bool>
 			Default: CONFIG_KFENCE_DEFERRABLE
 
+	kfence.fault=	[MM,KFENCE] Controls the behavior when a KFENCE
+			error is detected.
+			report - print the error report and continue (default).
+			oops   - print the error report and oops.
+			panic  - print the error report and panic.
+
 	kfence.sample_interval=
 			[MM,KFENCE] KFENCE's sample interval in milliseconds.
 			Format: <unsigned integer>
@@ -3246,8 +3229,8 @@ Kernel parameters
 			for the host. To force nVHE on VHE hardware, add
 			"arm64_sw.hvhe=0 id_aa64mmfr1.vh=0" to the
 			command-line.
-			"nested" is experimental and should be used with
-			extreme caution.
+			"nested" and "protected" are experimental and should be
+			used with extreme caution.
 
 	kvm-arm.vgic_v3_group0_trap=
 			[KVM,ARM,EARLY] Trap guest accesses to GICv3 group-0
@@ -4786,6 +4769,18 @@ Kernel parameters
 			'node', 'default' can be specified
 			This can be set from sysctl after boot.
 			See Documentation/admin-guide/sysctl/vm.rst for details.
+
+	nvme.quirks=    [NVME] A list of quirk entries to augment the built-in
+			nvme quirk list. List entries are separated by a
+			'-' character.
+			Each entry has the form VendorID:ProductID:quirk_names.
+			The IDs are 4-digits hex numbers and quirk_names is a
+			list of quirk names separated by commas. A quirk name
+			can be prefixed by '^', meaning that the specified
+			quirk must be disabled.
+
+			Example:
+			nvme.quirks=7710:2267:bogus_nid,^identify_cns-9900:7711:broken_msi
 
 	ohci1394_dma=early	[HW,EARLY] enable debugging via the ohci1394 driver.
 			See Documentation/core-api/debugging-via-ohci1394.rst for more
@@ -6733,7 +6728,7 @@ Kernel parameters
 			Default is 'on'.
 
 	initramfs_options= [KNL]
-                        Specify mount options for for the initramfs mount.
+			Specify mount options for the initramfs mount.
 
 	rootfstype=	[KNL] Set root filesystem type
 
@@ -7950,12 +7945,7 @@ Kernel parameters
 			(HPET or PM timer) on systems whose TSC frequency was
 			obtained from HW or FW using either an MSR or CPUID(0x15).
 			Warn if the difference is more than 500 ppm.
-			[x86] watchdog: Use TSC as the watchdog clocksource with
-			which to check other HW timers (HPET or PM timer), but
-			only on systems where TSC has been deemed trustworthy.
-			This will be suppressed by an earlier tsc=nowatchdog and
-			can be overridden by a later tsc=nowatchdog.  A console
-			message will flag any such suppression or overriding.
+			[x86] watchdog: Enforce the clocksource watchdog on TSC
 
 	tsc_early_khz=  [X86,EARLY] Skip early TSC calibration and use the given
 			value instead. Useful when the early TSC frequency discovery
@@ -8183,6 +8173,9 @@ Kernel parameters
 				p = USB_QUIRK_SHORT_SET_ADDRESS_REQ_TIMEOUT
 					(Reduce timeout of the SET_ADDRESS
 					request from 5000 ms to 500 ms);
+				q = USB_QUIRK_FORCE_ONE_CONFIG (Device
+					claims zero configurations,
+					forcing to 1);
 			Example: quirks=0781:5580:bk,0a5c:5834:gij
 
 	usbhid.mousepoll=
@@ -8376,7 +8369,9 @@ Kernel parameters
 
 			emulate     Vsyscalls turn into traps and are emulated
 			            reasonably safely.  The vsyscall page is
-				    readable.
+				    readable.  This disables the Linear
+				    Address Space Separation (LASS) security
+				    feature and makes the system less secure.
 
 			xonly       [default] Vsyscalls turn into traps and are
 			            emulated reasonably safely.  The vsyscall
@@ -8519,7 +8514,8 @@ Kernel parameters
         workqueue.default_affinity_scope=
 			Select the default affinity scope to use for unbound
 			workqueues. Can be one of "cpu", "smt", "cache",
-			"numa" and "system". Default is "cache". For more
+			"cache_shard", "numa" and "system". Default is
+			"cache_shard". For more
 			information, see the Affinity Scopes section in
 			Documentation/core-api/workqueue.rst.
 

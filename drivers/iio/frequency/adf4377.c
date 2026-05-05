@@ -508,7 +508,7 @@ static int adf4377_soft_reset(struct adf4377_state *st)
 		return ret;
 
 	return regmap_read_poll_timeout(st->regmap, 0x0, read_val,
-					!(read_val & (ADF4377_0000_SOFT_RESET_R_MSK |
+					!(read_val & (ADF4377_0000_SOFT_RESET_MSK |
 					ADF4377_0000_SOFT_RESET_R_MSK)), 200, 200 * 100);
 }
 
@@ -706,23 +706,20 @@ static void adf4377_gpio_init(struct adf4377_state *st)
 
 static int adf4377_init(struct adf4377_state *st)
 {
-	struct spi_device *spi = st->spi;
+	struct device *dev = &st->spi->dev;
 	int ret;
 
 	adf4377_gpio_init(st);
 
 	ret = adf4377_soft_reset(st);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to soft reset.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to soft reset.\n");
 
 	ret = regmap_multi_reg_write(st->regmap, adf4377_reg_defaults,
 				     ARRAY_SIZE(adf4377_reg_defaults));
-	if (ret) {
-		dev_err(&spi->dev, "Failed to set default registers.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to set default registers.\n");
 
 	ret = regmap_update_bits(st->regmap, 0x00,
 				 ADF4377_0000_SDO_ACTIVE_MSK | ADF4377_0000_SDO_ACTIVE_R_MSK,
@@ -730,10 +727,9 @@ static int adf4377_init(struct adf4377_state *st)
 					    ADF4377_0000_SDO_ACTIVE_SPI_4W) |
 				 FIELD_PREP(ADF4377_0000_SDO_ACTIVE_R_MSK,
 					    ADF4377_0000_SDO_ACTIVE_SPI_4W));
-	if (ret) {
-		dev_err(&spi->dev, "Failed to set 4-Wire Operation.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to set 4-Wire Operation.\n");
 
 	st->clkin_freq = clk_get_rate(st->clkin);
 
@@ -747,10 +743,9 @@ static int adf4377_init(struct adf4377_state *st)
 			   FIELD_PREP(ADF4377_001A_PD_PFDCP_MSK, 0) |
 			   FIELD_PREP(ADF4377_001A_PD_CLKOUT1_MSK, 0) |
 			   FIELD_PREP(ADF4377_001A_PD_CLKOUT2_MSK, 0));
-	if (ret) {
-		dev_err(&spi->dev, "Failed to set power down registers.\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to set power down registers.\n");
 
 	/* Set Mux Output */
 	ret = regmap_update_bits(st->regmap, 0x1D,
@@ -882,35 +877,35 @@ static const struct iio_chan_spec adf4377_channels[] = {
 
 static int adf4377_properties_parse(struct adf4377_state *st)
 {
-	struct spi_device *spi = st->spi;
+	struct device *dev = &st->spi->dev;
 	int ret;
 
-	st->clkin = devm_clk_get_enabled(&spi->dev, "ref_in");
+	st->clkin = devm_clk_get_enabled(dev, "ref_in");
 	if (IS_ERR(st->clkin))
-		return dev_err_probe(&spi->dev, PTR_ERR(st->clkin),
+		return dev_err_probe(dev, PTR_ERR(st->clkin),
 				     "failed to get the reference input clock\n");
 
-	st->gpio_ce = devm_gpiod_get_optional(&st->spi->dev, "chip-enable",
+	st->gpio_ce = devm_gpiod_get_optional(dev, "chip-enable",
 					      GPIOD_OUT_LOW);
 	if (IS_ERR(st->gpio_ce))
-		return dev_err_probe(&spi->dev, PTR_ERR(st->gpio_ce),
+		return dev_err_probe(dev, PTR_ERR(st->gpio_ce),
 				     "failed to get the CE GPIO\n");
 
-	st->gpio_enclk1 = devm_gpiod_get_optional(&st->spi->dev, "clk1-enable",
+	st->gpio_enclk1 = devm_gpiod_get_optional(dev, "clk1-enable",
 						  GPIOD_OUT_LOW);
 	if (IS_ERR(st->gpio_enclk1))
-		return dev_err_probe(&spi->dev, PTR_ERR(st->gpio_enclk1),
+		return dev_err_probe(dev, PTR_ERR(st->gpio_enclk1),
 				     "failed to get the CE GPIO\n");
 
 	if (st->chip_info->has_gpio_enclk2) {
-		st->gpio_enclk2 = devm_gpiod_get_optional(&st->spi->dev, "clk2-enable",
+		st->gpio_enclk2 = devm_gpiod_get_optional(dev, "clk2-enable",
 							  GPIOD_OUT_LOW);
 		if (IS_ERR(st->gpio_enclk2))
-			return dev_err_probe(&spi->dev, PTR_ERR(st->gpio_enclk2),
+			return dev_err_probe(dev, PTR_ERR(st->gpio_enclk2),
 					"failed to get the CE GPIO\n");
 	}
 
-	ret = device_property_match_property_string(&spi->dev, "adi,muxout-select",
+	ret = device_property_match_property_string(dev, "adi,muxout-select",
 						    adf4377_muxout_modes,
 						    ARRAY_SIZE(adf4377_muxout_modes));
 	if (ret >= 0)
@@ -1055,9 +1050,10 @@ static int adf4377_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
 	struct adf4377_state *st;
+	struct device *dev = &spi->dev;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
+	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
@@ -1080,7 +1076,7 @@ static int adf4377_probe(struct spi_device *spi)
 		return ret;
 
 	st->nb.notifier_call = adf4377_freq_change;
-	ret = devm_clk_notifier_register(&spi->dev, st->clkin, &st->nb);
+	ret = devm_clk_notifier_register(dev, st->clkin, &st->nb);
 	if (ret)
 		return ret;
 
@@ -1097,7 +1093,7 @@ static int adf4377_probe(struct spi_device *spi)
 		indio_dev->num_channels = ARRAY_SIZE(adf4377_channels);
 	}
 
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	return devm_iio_device_register(dev, indio_dev);
 }
 
 static const struct spi_device_id adf4377_id[] = {

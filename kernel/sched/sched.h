@@ -356,7 +356,7 @@ extern int  sched_dl_global_validate(void);
 extern void sched_dl_do_global(void);
 extern int  sched_dl_overflow(struct task_struct *p, int policy, const struct sched_attr *attr);
 extern void __setparam_dl(struct task_struct *p, const struct sched_attr *attr);
-extern void __getparam_dl(struct task_struct *p, struct sched_attr *attr);
+extern void __getparam_dl(struct task_struct *p, struct sched_attr *attr, unsigned int flags);
 extern bool __checkparam_dl(const struct sched_attr *attr);
 extern bool dl_param_changed(struct task_struct *p, const struct sched_attr *attr);
 extern int  dl_cpuset_cpumask_can_shrink(const struct cpumask *cur, const struct cpumask *trial);
@@ -684,8 +684,9 @@ struct cfs_rq {
 
 	s64			sum_w_vruntime;
 	u64			sum_weight;
-
 	u64			zero_vruntime;
+	unsigned int		sum_shift;
+
 #ifdef CONFIG_SCHED_CORE
 	unsigned int		forceidle_seq;
 	u64			zero_vruntime_fi;
@@ -782,7 +783,6 @@ enum scx_rq_flags {
 	SCX_RQ_ONLINE		= 1 << 0,
 	SCX_RQ_CAN_STOP_TICK	= 1 << 1,
 	SCX_RQ_BAL_KEEP		= 1 << 3, /* balance decided to keep current */
-	SCX_RQ_BYPASSING	= 1 << 4,
 	SCX_RQ_CLK_VALID	= 1 << 5, /* RQ clock is fresh and valid */
 	SCX_RQ_BAL_CB_PENDING	= 1 << 6, /* must queue a cb after dispatching */
 
@@ -798,19 +798,29 @@ struct scx_rq {
 	u64			extra_enq_flags;	/* see move_task_to_local_dsq() */
 	u32			nr_running;
 	u32			cpuperf_target;		/* [0, SCHED_CAPACITY_SCALE] */
+	bool			in_select_cpu;
 	bool			cpu_released;
 	u32			flags;
+	u32			nr_immed;		/* ENQ_IMMED tasks on local_dsq */
 	u64			clock;			/* current per-rq clock -- see scx_bpf_now() */
 	cpumask_var_t		cpus_to_kick;
 	cpumask_var_t		cpus_to_kick_if_idle;
 	cpumask_var_t		cpus_to_preempt;
 	cpumask_var_t		cpus_to_wait;
+	cpumask_var_t		cpus_to_sync;
+	bool			kick_sync_pending;
 	unsigned long		kick_sync;
-	local_t			reenq_local_deferred;
+
+	struct task_struct	*sub_dispatch_prev;
+
+	raw_spinlock_t		deferred_reenq_lock;
+	u64			deferred_reenq_locals_seq;
+	struct list_head	deferred_reenq_locals;	/* scheds requesting reenq of local DSQ */
+	struct list_head	deferred_reenq_users;	/* user DSQs requesting reenq */
 	struct balance_callback	deferred_bal_cb;
+	struct balance_callback	kick_sync_bal_cb;
 	struct irq_work		deferred_irq_work;
 	struct irq_work		kick_cpus_irq_work;
-	struct scx_dispatch_q	bypass_dsq;
 };
 #endif /* CONFIG_SCHED_CLASS_EXT */
 
@@ -1285,6 +1295,8 @@ struct rq {
 	call_single_data_t	hrtick_csd;
 	struct hrtimer		hrtick_timer;
 	ktime_t			hrtick_time;
+	ktime_t			hrtick_delay;
+	unsigned int		hrtick_sched;
 #endif
 
 #ifdef CONFIG_SCHEDSTATS
@@ -1606,13 +1618,16 @@ extern void raw_spin_rq_lock_nested(struct rq *rq, int subclass)
 extern bool raw_spin_rq_trylock(struct rq *rq)
 	__cond_acquires(true, __rq_lockp(rq));
 
-extern void raw_spin_rq_unlock(struct rq *rq)
-	__releases(__rq_lockp(rq));
-
 static inline void raw_spin_rq_lock(struct rq *rq)
 	__acquires(__rq_lockp(rq))
 {
 	raw_spin_rq_lock_nested(rq, 0);
+}
+
+static inline void raw_spin_rq_unlock(struct rq *rq)
+	__releases(__rq_lockp(rq))
+{
+	raw_spin_unlock(rq_lockp(rq));
 }
 
 static inline void raw_spin_rq_lock_irq(struct rq *rq)
@@ -1853,6 +1868,13 @@ static inline void scx_rq_clock_update(struct rq *rq, u64 clock) {}
 static inline void scx_rq_clock_invalidate(struct rq *rq) {}
 #endif /* !CONFIG_SCHED_CLASS_EXT */
 
+static inline void assert_balance_callbacks_empty(struct rq *rq)
+{
+	WARN_ON_ONCE(IS_ENABLED(CONFIG_PROVE_LOCKING) &&
+		     rq->balance_callback &&
+		     rq->balance_callback != &balance_push_callback);
+}
+
 /*
  * Lockdep annotation that avoids accidental unlocks; it's like a
  * sticky/continuous lockdep_assert_held().
@@ -1869,7 +1891,7 @@ static inline void rq_pin_lock(struct rq *rq, struct rq_flags *rf)
 
 	rq->clock_update_flags &= (RQCF_REQ_SKIP|RQCF_ACT_SKIP);
 	rf->clock_update_flags = 0;
-	WARN_ON_ONCE(rq->balance_callback && rq->balance_callback != &balance_push_callback);
+	assert_balance_callbacks_empty(rq);
 }
 
 static inline void rq_unpin_lock(struct rq *rq, struct rq_flags *rf)
@@ -2748,6 +2770,17 @@ static inline const struct sched_class *next_active_class(const struct sched_cla
 
 #define sched_class_above(_a, _b)	((_a) < (_b))
 
+static inline void rq_modified_begin(struct rq *rq, const struct sched_class *class)
+{
+	if (sched_class_above(rq->next_class, class))
+		rq->next_class = class;
+}
+
+static inline bool rq_modified_above(struct rq *rq, const struct sched_class *class)
+{
+	return sched_class_above(rq->next_class, class);
+}
+
 static inline bool sched_stop_runnable(struct rq *rq)
 {
 	return rq->stop && task_on_rq_queued(rq->stop);
@@ -2838,7 +2871,7 @@ static inline void idle_set_state(struct rq *rq,
 
 static inline struct cpuidle_state *idle_get_state(struct rq *rq)
 {
-	WARN_ON_ONCE(!rcu_read_lock_held());
+	lockdep_assert(rcu_read_lock_any_held());
 
 	return rq->idle_state;
 }
@@ -2885,7 +2918,7 @@ extern void init_cfs_throttle_work(struct task_struct *p);
 #define MAX_BW_BITS		(64 - BW_SHIFT)
 #define MAX_BW			((1ULL << MAX_BW_BITS) - 1)
 
-extern unsigned long to_ratio(u64 period, u64 runtime);
+extern u64 to_ratio(u64 period, u64 runtime);
 
 extern void init_entity_runnable_average(struct sched_entity *se);
 extern void post_init_entity_util_avg(struct task_struct *p);
@@ -2990,6 +3023,29 @@ extern void deactivate_task(struct rq *rq, struct task_struct *p, int flags);
 
 extern void wakeup_preempt(struct rq *rq, struct task_struct *p, int flags);
 
+/*
+ * attach_task() -- attach the task detached by detach_task() to its new rq.
+ */
+static inline void attach_task(struct rq *rq, struct task_struct *p)
+{
+	lockdep_assert_rq_held(rq);
+
+	WARN_ON_ONCE(task_rq(p) != rq);
+	activate_task(rq, p, ENQUEUE_NOCLOCK);
+	wakeup_preempt(rq, p, 0);
+}
+
+/*
+ * attach_one_task() -- attaches the task returned from detach_one_task() to
+ * its new rq.
+ */
+static inline void attach_one_task(struct rq *rq, struct task_struct *p)
+{
+	guard(rq_lock)(rq);
+	update_rq_clock(rq);
+	attach_task(rq, p);
+}
+
 #ifdef CONFIG_PREEMPT_RT
 # define SCHED_NR_MIGRATE_BREAK 8
 #else
@@ -3019,46 +3075,31 @@ extern unsigned int sysctl_numa_balancing_hot_threshold;
  *  - enabled by features
  *  - hrtimer is actually high res
  */
-static inline int hrtick_enabled(struct rq *rq)
+static inline bool hrtick_enabled(struct rq *rq)
 {
-	if (!cpu_active(cpu_of(rq)))
-		return 0;
-	return hrtimer_is_hres_active(&rq->hrtick_timer);
+	return cpu_active(cpu_of(rq)) && hrtimer_highres_enabled();
 }
 
-static inline int hrtick_enabled_fair(struct rq *rq)
+static inline bool hrtick_enabled_fair(struct rq *rq)
 {
-	if (!sched_feat(HRTICK))
-		return 0;
-	return hrtick_enabled(rq);
+	return sched_feat(HRTICK) && hrtick_enabled(rq);
 }
 
-static inline int hrtick_enabled_dl(struct rq *rq)
+static inline bool hrtick_enabled_dl(struct rq *rq)
 {
-	if (!sched_feat(HRTICK_DL))
-		return 0;
-	return hrtick_enabled(rq);
+	return sched_feat(HRTICK_DL) && hrtick_enabled(rq);
 }
 
 extern void hrtick_start(struct rq *rq, u64 delay);
+static inline bool hrtick_active(struct rq *rq)
+{
+	return hrtimer_active(&rq->hrtick_timer);
+}
 
 #else /* !CONFIG_SCHED_HRTICK: */
-
-static inline int hrtick_enabled_fair(struct rq *rq)
-{
-	return 0;
-}
-
-static inline int hrtick_enabled_dl(struct rq *rq)
-{
-	return 0;
-}
-
-static inline int hrtick_enabled(struct rq *rq)
-{
-	return 0;
-}
-
+static inline bool hrtick_enabled_fair(struct rq *rq) { return false; }
+static inline bool hrtick_enabled_dl(struct rq *rq) { return false; }
+static inline bool hrtick_enabled(struct rq *rq) { return false; }
 #endif /* !CONFIG_SCHED_HRTICK */
 
 #ifndef arch_scale_freq_tick

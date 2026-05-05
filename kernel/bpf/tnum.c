@@ -269,3 +269,51 @@ struct tnum tnum_bswap64(struct tnum a)
 {
 	return TNUM(swab64(a.value), swab64(a.mask));
 }
+
+/* Given tnum t, and a number z such that tmin <= z < tmax, where tmin
+ * is the smallest member of the t (= t.value) and tmax is the largest
+ * member of t (= t.value | t.mask), returns the smallest member of t
+ * larger than z.
+ *
+ * For example,
+ * t      = x11100x0
+ * z      = 11110001 (241)
+ * result = 11110010 (242)
+ *
+ * Note: if this function is called with z >= tmax, it just returns
+ * early with tmax; if this function is called with z < tmin, the
+ * algorithm already returns tmin.
+ */
+u64 tnum_step(struct tnum t, u64 z)
+{
+	u64 tmax, d, carry_mask, filled, inc;
+
+	tmax = t.value | t.mask;
+
+	/* if z >= largest member of t, return largest member of t */
+	if (z >= tmax)
+		return tmax;
+
+	/* if z < smallest member of t, return smallest member of t */
+	if (z < t.value)
+		return t.value;
+
+	/*
+	 * Let r be the result tnum member, z = t.value + d.
+	 * Every tnum member is t.value | s for some submask s of t.mask,
+	 * and since t.value & t.mask == 0, t.value | s == t.value + s.
+	 * So r > z becomes s > d where d = z - t.value.
+	 *
+	 * Find the smallest submask s of t.mask greater than d by
+	 * "incrementing d within the mask": fill every non-mask
+	 * position with 1 (`filled`) so +1 ripples through the gaps,
+	 * then keep only mask bits. `carry_mask` additionally fills
+	 * positions below the highest non-mask 1 in d, preventing
+	 * it from trapping the carry.
+	 */
+	d = z - t.value;
+	carry_mask = (1ULL << fls64(d & ~t.mask)) - 1;
+	filled = d | carry_mask | ~t.mask;
+	inc = (filled + 1) & t.mask;
+	return t.value | inc;
+}

@@ -618,26 +618,6 @@ static void cache_rbio(struct btrfs_raid_bio *rbio)
 }
 
 /*
- * helper function to run the xor_blocks api.  It is only
- * able to do MAX_XOR_BLOCKS at a time, so we need to
- * loop through.
- */
-static void run_xor(void **pages, int src_cnt, ssize_t len)
-{
-	int src_off = 0;
-	int xor_src_cnt = 0;
-	void *dest = pages[src_cnt];
-
-	while(src_cnt > 0) {
-		xor_src_cnt = min(src_cnt, MAX_XOR_BLOCKS);
-		xor_blocks(xor_src_cnt, len, dest, pages + src_off);
-
-		src_cnt -= xor_src_cnt;
-		src_off += xor_src_cnt;
-	}
-}
-
-/*
  * Returns true if the bio list inside this rbio covers an entire stripe (no
  * rmw required).
  */
@@ -1434,7 +1414,8 @@ static void generate_pq_vertical_step(struct btrfs_raid_bio *rbio, unsigned int 
 	} else {
 		/* raid5 */
 		memcpy(pointers[rbio->nr_data], pointers[0], step);
-		run_xor(pointers + 1, rbio->nr_data - 1, step);
+		xor_gen(pointers[rbio->nr_data], pointers + 1, rbio->nr_data - 1,
+				step);
 	}
 	for (stripe = stripe - 1; stripe >= 0; stripe--)
 		kunmap_local(pointers[stripe]);
@@ -1653,12 +1634,7 @@ static int get_bio_sector_nr(struct btrfs_raid_bio *rbio, struct bio *bio)
 static void rbio_update_error_bitmap(struct btrfs_raid_bio *rbio, struct bio *bio)
 {
 	int total_sector_nr = get_bio_sector_nr(rbio, bio);
-	u32 bio_size = 0;
-	struct bio_vec *bvec;
-	int i;
-
-	bio_for_each_bvec_all(bvec, bio, i)
-		bio_size += bvec->bv_len;
+	const u32 bio_size = bio_get_size(bio);
 
 	/*
 	 * Since we can have multiple bios touching the error_bitmap, we cannot
@@ -1666,7 +1642,7 @@ static void rbio_update_error_bitmap(struct btrfs_raid_bio *rbio, struct bio *bi
 	 *
 	 * Instead use set_bit() for each bit, as set_bit() itself is atomic.
 	 */
-	for (i = total_sector_nr; i < total_sector_nr +
+	for (int i = total_sector_nr; i < total_sector_nr +
 	     (bio_size >> rbio->bioc->fs_info->sectorsize_bits); i++)
 		set_bit(i, rbio->error_bitmap);
 }
@@ -1743,7 +1719,7 @@ static void submit_read_wait_bio_list(struct btrfs_raid_bio *rbio,
 			struct raid56_bio_trace_info trace_info = { 0 };
 
 			bio_get_trace_info(rbio, bio, &trace_info);
-			trace_raid56_read(rbio, bio, &trace_info);
+			trace_call__raid56_read(rbio, bio, &trace_info);
 		}
 		submit_bio(bio);
 	}
@@ -2034,7 +2010,7 @@ pstripe:
 		pointers[rbio->nr_data - 1] = p;
 
 		/* Xor in the rest */
-		run_xor(pointers, rbio->nr_data - 1, step);
+		xor_gen(p, pointers, rbio->nr_data - 1, step);
 	}
 
 cleanup:
@@ -2110,8 +2086,8 @@ static int recover_sectors(struct btrfs_raid_bio *rbio)
 	 * @unmap_array stores copy of pointers that does not get reordered
 	 * during reconstruction so that kunmap_local works.
 	 */
-	pointers = kcalloc(rbio->real_stripes, sizeof(void *), GFP_NOFS);
-	unmap_array = kcalloc(rbio->real_stripes, sizeof(void *), GFP_NOFS);
+	pointers = kzalloc_objs(void *, rbio->real_stripes, GFP_NOFS);
+	unmap_array = kzalloc_objs(void *, rbio->real_stripes, GFP_NOFS);
 	if (!pointers || !unmap_array) {
 		ret = -ENOMEM;
 		goto out;
@@ -2297,8 +2273,7 @@ void raid56_parity_recover(struct bio *bio, struct btrfs_io_context *bioc,
 static void fill_data_csums(struct btrfs_raid_bio *rbio)
 {
 	struct btrfs_fs_info *fs_info = rbio->bioc->fs_info;
-	struct btrfs_root *csum_root = btrfs_csum_root(fs_info,
-						       rbio->bioc->full_stripe_logical);
+	struct btrfs_root *csum_root;
 	const u64 start = rbio->bioc->full_stripe_logical;
 	const u32 len = (rbio->nr_data * rbio->stripe_nsectors) <<
 			fs_info->sectorsize_bits;
@@ -2328,6 +2303,15 @@ static void fill_data_csums(struct btrfs_raid_bio *rbio)
 					  GFP_NOFS);
 	if (!rbio->csum_buf || !rbio->csum_bitmap) {
 		ret = -ENOMEM;
+		goto error;
+	}
+
+	csum_root = btrfs_csum_root(fs_info, rbio->bioc->full_stripe_logical);
+	if (unlikely(!csum_root)) {
+		btrfs_err(fs_info,
+			  "missing csum root for extent at bytenr %llu",
+			  rbio->bioc->full_stripe_logical);
+		ret = -EUCLEAN;
 		goto error;
 	}
 
@@ -2420,7 +2404,7 @@ static void submit_write_bios(struct btrfs_raid_bio *rbio,
 			struct raid56_bio_trace_info trace_info = { 0 };
 
 			bio_get_trace_info(rbio, bio, &trace_info);
-			trace_raid56_write(rbio, bio, &trace_info);
+			trace_call__raid56_write(rbio, bio, &trace_info);
 		}
 		submit_bio(bio);
 	}
@@ -2664,7 +2648,7 @@ static bool verify_one_parity_step(struct btrfs_raid_bio *rbio,
 	} else {
 		/* RAID5. */
 		memcpy(pointers[nr_data], pointers[0], step);
-		run_xor(pointers + 1, nr_data - 1, step);
+		xor_gen(pointers[nr_data], pointers + 1, nr_data - 1, step);
 	}
 
 	/* Check scrubbing parity and repair it. */
@@ -2836,8 +2820,8 @@ static int recover_scrub_rbio(struct btrfs_raid_bio *rbio)
 	 * @unmap_array stores copy of pointers that does not get reordered
 	 * during reconstruction so that kunmap_local works.
 	 */
-	pointers = kcalloc(rbio->real_stripes, sizeof(void *), GFP_NOFS);
-	unmap_array = kcalloc(rbio->real_stripes, sizeof(void *), GFP_NOFS);
+	pointers = kzalloc_objs(void *, rbio->real_stripes, GFP_NOFS);
+	unmap_array = kzalloc_objs(void *, rbio->real_stripes, GFP_NOFS);
 	if (!pointers || !unmap_array) {
 		ret = -ENOMEM;
 		goto out;

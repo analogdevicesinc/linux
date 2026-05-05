@@ -18,6 +18,7 @@
 
 #include "mdsmap.h"
 #include "metric.h"
+#include "subvolume_metrics.h"
 #include "super.h"
 
 /* The first 8 bits are reserved for old ceph releases */
@@ -36,8 +37,9 @@ enum ceph_feature_type {
 	CEPHFS_FEATURE_NEW_SNAPREALM_INFO,
 	CEPHFS_FEATURE_HAS_OWNER_UIDGID,
 	CEPHFS_FEATURE_MDS_AUTH_CAPS_CHECK,
+	CEPHFS_FEATURE_SUBVOLUME_METRICS,
 
-	CEPHFS_FEATURE_MAX = CEPHFS_FEATURE_MDS_AUTH_CAPS_CHECK,
+	CEPHFS_FEATURE_MAX = CEPHFS_FEATURE_SUBVOLUME_METRICS,
 };
 
 #define CEPHFS_FEATURES_CLIENT_SUPPORTED {	\
@@ -54,6 +56,7 @@ enum ceph_feature_type {
 	CEPHFS_FEATURE_32BITS_RETRY_FWD,	\
 	CEPHFS_FEATURE_HAS_OWNER_UIDGID,	\
 	CEPHFS_FEATURE_MDS_AUTH_CAPS_CHECK,	\
+	CEPHFS_FEATURE_SUBVOLUME_METRICS,	\
 }
 
 /*
@@ -118,6 +121,7 @@ struct ceph_mds_reply_info_in {
 	u32 fscrypt_file_len;
 	u64 rsnaps;
 	u64 change_attr;
+	u64 subvolume_id;
 };
 
 struct ceph_mds_reply_dir_entry {
@@ -536,6 +540,14 @@ struct ceph_mds_client {
 	struct list_head  dentry_dir_leases; /* lru list */
 
 	struct ceph_client_metric metric;
+	struct ceph_subvolume_metrics_tracker subvol_metrics;
+
+	/* Subvolume metrics send tracking */
+	struct mutex		subvol_metrics_last_mutex;
+	struct ceph_subvol_metric_snapshot *subvol_metrics_last;
+	u32			subvol_metrics_last_nr;
+	u64			subvol_metrics_sent;
+	u64			subvol_metrics_nonzero_sends;
 
 	spinlock_t		snapid_map_lock;
 	struct rb_root		snapid_map_tree;

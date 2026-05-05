@@ -7,7 +7,7 @@
 #include <linux/swap.h>
 #include <linux/pagemap.h>
 #include <linux/slab.h>
-#include <linux/pagevec.h>
+#include <linux/folio_batch.h>
 #include <linux/task_io_accounting_ops.h>
 #include <linux/signal.h>
 #include <linux/iversion.h>
@@ -19,6 +19,7 @@
 #include "mds_client.h"
 #include "cache.h"
 #include "metric.h"
+#include "subvolume_metrics.h"
 #include "crypto.h"
 #include <linux/ceph/osd_client.h>
 #include <linux/ceph/striper.h>
@@ -259,6 +260,10 @@ static void finish_netfs_read(struct ceph_osd_request *req)
 					osd_data->length), false);
 	}
 	if (err > 0) {
+		ceph_subvolume_metrics_record_io(fsc->mdsc, ceph_inode(inode),
+						 false, err,
+						 req->r_start_latency,
+						 req->r_end_latency);
 		subreq->transferred = err;
 		err = 0;
 	}
@@ -823,6 +828,10 @@ static int write_folio_nounlock(struct folio *folio,
 
 	ceph_update_write_metrics(&fsc->mdsc->metric, req->r_start_latency,
 				  req->r_end_latency, len, err);
+	if (err >= 0 && len > 0)
+		ceph_subvolume_metrics_record_io(fsc->mdsc, ci, true, len,
+						 req->r_start_latency,
+						 req->r_end_latency);
 	fscrypt_free_bounce_page(bounce_page);
 	ceph_osdc_put_request(req);
 	if (err == 0)
@@ -962,6 +971,11 @@ static void writepages_finish(struct ceph_osd_request *req)
 
 	ceph_update_write_metrics(&fsc->mdsc->metric, req->r_start_latency,
 				  req->r_end_latency, len, rc);
+
+	if (rc >= 0 && len > 0)
+		ceph_subvolume_metrics_record_io(mdsc, ci, true, len,
+						 req->r_start_latency,
+						 req->r_end_latency);
 
 	ceph_put_wrbuffer_cap_refs(ci, total_pages, snapc);
 
@@ -1326,7 +1340,6 @@ void ceph_process_folio_batch(struct address_space *mapping,
 			continue;
 		} else if (rc == -E2BIG) {
 			folio_unlock(folio);
-			ceph_wbc->fbatch.folios[i] = NULL;
 			break;
 		}
 
@@ -1366,6 +1379,10 @@ void ceph_process_folio_batch(struct address_space *mapping,
 		rc = move_dirty_folio_in_page_array(mapping, wbc, ceph_wbc,
 				folio);
 		if (rc) {
+			/* Did we just begin a new contiguous op? Nevermind! */
+			if (ceph_wbc->len == 0)
+				ceph_wbc->num_ops--;
+
 			folio_redirty_for_writepage(wbc, folio);
 			folio_unlock(folio);
 			break;

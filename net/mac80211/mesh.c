@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2008, 2009 open80211s Ltd.
- * Copyright (C) 2018 - 2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  * Authors:    Luis Carlos Cobo <luisca@cozybit.com>
  * 	       Javier Cardona <javier@cozybit.com>
  */
@@ -19,8 +19,7 @@ static struct kmem_cache *rm_cache;
 
 bool mesh_action_is_path_sel(struct ieee80211_mgmt *mgmt)
 {
-	return (mgmt->u.action.u.mesh_action.action_code ==
-			WLAN_MESH_ACTION_HWMP_PATH_SELECTION);
+	return mgmt->u.action.action_code == WLAN_MESH_ACTION_HWMP_PATH_SELECTION;
 }
 
 void ieee80211s_init(void)
@@ -79,6 +78,9 @@ bool mesh_matches_local(struct ieee80211_sub_if_data *sdata,
 	 *   - MDA enabled
 	 * - Power management control on fc
 	 */
+	if (!ie->mesh_config)
+		return false;
+
 	if (!(ifmsh->mesh_id_len == ie->mesh_id_len &&
 	     memcmp(ifmsh->mesh_id, ie->mesh_id, ie->mesh_id_len) == 0 &&
 	     (ifmsh->mesh_pp_id == ie->mesh_config->meshconf_psel) &&
@@ -1618,13 +1620,12 @@ static void mesh_rx_csa_frame(struct ieee80211_sub_if_data *sdata,
 	size_t baselen;
 	u8 *pos;
 
-	if (mgmt->u.action.u.measurement.action_code !=
-	    WLAN_ACTION_SPCT_CHL_SWITCH)
+	if (mgmt->u.action.action_code != WLAN_ACTION_SPCT_CHL_SWITCH)
 		return;
 
-	pos = mgmt->u.action.u.chan_switch.variable;
+	pos = mgmt->u.action.chan_switch.variable;
 	baselen = offsetof(struct ieee80211_mgmt,
-			   u.action.u.chan_switch.variable);
+			   u.action.chan_switch.variable);
 	elems = ieee802_11_parse_elems(pos, len - baselen,
 				       IEEE80211_FTYPE_MGMT |
 				       IEEE80211_STYPE_ACTION,
@@ -1633,6 +1634,9 @@ static void mesh_rx_csa_frame(struct ieee80211_sub_if_data *sdata,
 		return;
 
 	if (!mesh_matches_local(sdata, elems))
+		goto free;
+
+	if (!elems->mesh_chansw_params_ie)
 		goto free;
 
 	ifmsh->chsw_ttl = elems->mesh_chansw_params_ie->mesh_ttl;
@@ -1667,7 +1671,7 @@ static void ieee80211_mesh_rx_mgmt_action(struct ieee80211_sub_if_data *sdata,
 {
 	switch (mgmt->u.action.category) {
 	case WLAN_CATEGORY_SELF_PROTECTED:
-		switch (mgmt->u.action.u.self_prot.action_code) {
+		switch (mgmt->u.action.action_code) {
 		case WLAN_SP_MESH_PEERING_OPEN:
 		case WLAN_SP_MESH_PEERING_CLOSE:
 		case WLAN_SP_MESH_PEERING_CONFIRM:

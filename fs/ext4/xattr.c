@@ -64,7 +64,7 @@
 
 #ifdef EXT4_XATTR_DEBUG
 # define ea_idebug(inode, fmt, ...)					\
-	printk(KERN_DEBUG "inode %s:%lu: " fmt "\n",			\
+	printk(KERN_DEBUG "inode %s:%llu: " fmt "\n",			\
 	       inode->i_sb->s_id, inode->i_ino, ##__VA_ARGS__)
 # define ea_bdebug(bh, fmt, ...)					\
 	printk(KERN_DEBUG "block %pg:%lu: " fmt "\n",			\
@@ -226,7 +226,7 @@ check_xattrs(struct inode *inode, struct buffer_head *bh,
 	/* Find the end of the names list */
 	while (!IS_LAST_ENTRY(e)) {
 		struct ext4_xattr_entry *next = EXT4_XATTR_NEXT(e);
-		if ((void *)next >= end) {
+		if ((void *)next + sizeof(u32) > end) {
 			err_str = "e_name out of bounds";
 			goto errout;
 		}
@@ -1035,7 +1035,7 @@ static int ext4_xattr_inode_update_ref(handle_t *handle, struct inode *ea_inode,
 	ref_count = ext4_xattr_inode_get_ref(ea_inode);
 	if ((ref_count == 0 && ref_change < 0) || (ref_count == U64_MAX && ref_change > 0)) {
 		ext4_error_inode(ea_inode, __func__, __LINE__, 0,
-			"EA inode %lu ref wraparound: ref_count=%lld ref_change=%d",
+			"EA inode %llu ref wraparound: ref_count=%lld ref_change=%d",
 			ea_inode->i_ino, ref_count, ref_change);
 		brelse(iloc.bh);
 		ret = -EFSCORRUPTED;
@@ -1046,7 +1046,7 @@ static int ext4_xattr_inode_update_ref(handle_t *handle, struct inode *ea_inode,
 
 	if (ref_change > 0) {
 		if (ref_count == 1) {
-			WARN_ONCE(ea_inode->i_nlink, "EA inode %lu i_nlink=%u",
+			WARN_ONCE(ea_inode->i_nlink, "EA inode %llu i_nlink=%u",
 				  ea_inode->i_ino, ea_inode->i_nlink);
 
 			set_nlink(ea_inode, 1);
@@ -1055,7 +1055,7 @@ static int ext4_xattr_inode_update_ref(handle_t *handle, struct inode *ea_inode,
 	} else {
 		if (ref_count == 0) {
 			WARN_ONCE(ea_inode->i_nlink != 1,
-				  "EA inode %lu i_nlink=%u",
+				  "EA inode %llu i_nlink=%u",
 				  ea_inode->i_ino, ea_inode->i_nlink);
 
 			clear_nlink(ea_inode);
@@ -1165,7 +1165,7 @@ ext4_xattr_inode_dec_ref_all(handle_t *handle, struct inode *parent,
 {
 	struct inode *ea_inode;
 	struct ext4_xattr_entry *entry;
-	struct ext4_iloc iloc;
+	struct ext4_iloc iloc = { .bh = NULL };
 	bool dirty = false;
 	unsigned int ea_ino;
 	int err;
@@ -1260,6 +1260,8 @@ ext4_xattr_inode_dec_ref_all(handle_t *handle, struct inode *parent,
 			ext4_warning_inode(parent,
 					   "handle dirty metadata err=%d", err);
 	}
+
+	brelse(iloc.bh);
 }
 
 /*
@@ -2854,7 +2856,7 @@ shift:
 
 cleanup:
 	if (error && (mnt_count != le16_to_cpu(sbi->s_es->s_mnt_count))) {
-		ext4_warning(inode->i_sb, "Unable to expand inode %lu. Delete some EAs or run e2fsck.",
+		ext4_warning(inode->i_sb, "Unable to expand inode %llu. Delete some EAs or run e2fsck.",
 			     inode->i_ino);
 		mnt_count = le16_to_cpu(sbi->s_es->s_mnt_count);
 	}

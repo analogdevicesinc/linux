@@ -151,7 +151,8 @@ static int wmi_obj_transform(const union acpi_object *obj, u8 *buffer)
 	return 0;
 }
 
-int wmi_unmarshal_acpi_object(const union acpi_object *obj, struct wmi_buffer *buffer)
+int wmi_unmarshal_acpi_object(const union acpi_object *obj, struct wmi_buffer *buffer,
+			      size_t min_size)
 {
 	size_t length, alloc_length;
 	u8 *data;
@@ -160,6 +161,9 @@ int wmi_unmarshal_acpi_object(const union acpi_object *obj, struct wmi_buffer *b
 	ret = wmi_obj_get_buffer_length(obj, &length);
 	if (ret < 0)
 		return ret;
+
+	if (length < min_size)
+		return -ENODATA;
 
 	if (ARCH_KMALLOC_MINALIGN < 8) {
 		/*

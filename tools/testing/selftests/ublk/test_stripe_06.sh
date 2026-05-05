@@ -16,5 +16,5 @@ _check_add_dev $TID $?
 _mkfs_mount_test /dev/ublkb"${dev_id}"
 ERR_CODE=$?
 
-_cleanup_test "stripe"
+_cleanup_test
 _show_result $TID $ERR_CODE

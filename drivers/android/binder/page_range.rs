@@ -13,6 +13,8 @@
 //
 // The shrinker will use trylock methods because it locks them in a different order.
 
+use crate::AssertSync;
+
 use core::{
     marker::PhantomPinned,
     mem::{size_of, size_of_val, MaybeUninit},
@@ -130,7 +132,7 @@ pub(crate) struct ShrinkablePageRange {
     pid: Pid,
     /// The mm for the relevant process.
     mm: ARef<Mm>,
-    /// Used to synchronize calls to `vm_insert_page` and `zap_page_range_single`.
+    /// Used to synchronize calls to `vm_insert_page` and `zap_vma_range`.
     #[pin]
     mm_lock: Mutex<()>,
     /// Spinlock protecting changes to pages.
@@ -140,6 +142,30 @@ pub(crate) struct ShrinkablePageRange {
     /// Must not move, since page info has pointers back.
     #[pin]
     _pin: PhantomPinned,
+}
+
+// We do not define any ops. For now, used only to check identity of vmas.
+static BINDER_VM_OPS: AssertSync<bindings::vm_operations_struct> = AssertSync(pin_init::zeroed());
+
+// To ensure that we do not accidentally install pages into or zap pages from the wrong vma, we
+// check its vm_ops and private data before using it.
+fn check_vma(vma: &virt::VmaRef, owner: *const ShrinkablePageRange) -> Option<&virt::VmaMixedMap> {
+    // SAFETY: Just reading the vm_ops pointer of any active vma is safe.
+    let vm_ops = unsafe { (*vma.as_ptr()).vm_ops };
+    if !ptr::eq(vm_ops, &BINDER_VM_OPS.0) {
+        return None;
+    }
+
+    // SAFETY: Reading the vm_private_data pointer of a binder-owned vma is safe.
+    let vm_private_data = unsafe { (*vma.as_ptr()).vm_private_data };
+    // The ShrinkablePageRange is only dropped when the Process is dropped, which only happens once
+    // the file's ->release handler is invoked, which means the ShrinkablePageRange outlives any
+    // VMA associated with it, so there can't be any false positives due to pointer reuse here.
+    if !ptr::eq(vm_private_data, owner.cast()) {
+        return None;
+    }
+
+    vma.as_mixedmap_vma()
 }
 
 struct Inner {
@@ -308,6 +334,18 @@ impl ShrinkablePageRange {
         inner.size = num_pages;
         inner.vma_addr = vma.start();
 
+        // This pointer is only used for comparison - it's not dereferenced.
+        //
+        // SAFETY: We own the vma, and we don't use any methods on VmaNew that rely on
+        // `vm_private_data`.
+        unsafe {
+            (*vma.as_ptr()).vm_private_data = ptr::from_ref(self).cast_mut().cast::<c_void>()
+        };
+
+        // SAFETY: We own the vma, and we don't use any methods on VmaNew that rely on
+        // `vm_ops`.
+        unsafe { (*vma.as_ptr()).vm_ops = &BINDER_VM_OPS.0 };
+
         Ok(num_pages)
     }
 
@@ -399,22 +437,25 @@ impl ShrinkablePageRange {
         //
         // Using `mmput_async` avoids this, because then the `mm` cleanup is instead queued to a
         // workqueue.
-        MmWithUser::into_mmput_async(self.mm.mmget_not_zero().ok_or(ESRCH)?)
-            .mmap_read_lock()
-            .vma_lookup(vma_addr)
-            .ok_or(ESRCH)?
-            .as_mixedmap_vma()
-            .ok_or(ESRCH)?
-            .vm_insert_page(user_page_addr, &new_page)
-            .inspect_err(|err| {
-                pr_warn!(
-                    "Failed to vm_insert_page({}): vma_addr:{} i:{} err:{:?}",
-                    user_page_addr,
-                    vma_addr,
-                    i,
-                    err
-                )
-            })?;
+        let mm = MmWithUser::into_mmput_async(self.mm.mmget_not_zero().ok_or(ESRCH)?);
+        {
+            let vma_read;
+            let mmap_read;
+            let vma = if let Some(ret) = mm.lock_vma_under_rcu(vma_addr) {
+                vma_read = ret;
+                check_vma(&vma_read, self)
+            } else {
+                mmap_read = mm.mmap_read_lock();
+                mmap_read
+                    .vma_lookup(vma_addr)
+                    .and_then(|vma| check_vma(vma, self))
+            };
+
+            match vma {
+                Some(vma) => vma.vm_insert_page(user_page_addr, &new_page)?,
+                None => return Err(ESRCH),
+            }
+        }
 
         let inner = self.lock.lock();
 
@@ -642,15 +683,15 @@ unsafe extern "C" fn rust_shrink_scan(
     unsafe {
         bindings::list_lru_walk(
             list_lru,
-            Some(bindings::rust_shrink_free_page_wrap),
+            Some(rust_shrink_free_page),
             ptr::null_mut(),
             nr_to_scan,
         )
     }
 }
 
-const LRU_SKIP: bindings::lru_status = bindings::lru_status_LRU_SKIP;
-const LRU_REMOVED_ENTRY: bindings::lru_status = bindings::lru_status_LRU_REMOVED_RETRY;
+const LRU_SKIP: bindings::lru_status = bindings::lru_status::LRU_SKIP;
+const LRU_REMOVED_ENTRY: bindings::lru_status = bindings::lru_status::LRU_REMOVED_RETRY;
 
 /// # Safety
 /// Called by the shrinker.
@@ -667,12 +708,15 @@ unsafe extern "C" fn rust_shrink_free_page(
     let mmap_read;
     let mm_mutex;
     let vma_addr;
+    let range_ptr;
 
     {
         // CAST: The `list_head` field is first in `PageInfo`.
         let info = item as *mut PageInfo;
         // SAFETY: The `range` field of `PageInfo` is immutable.
-        let range = unsafe { &*((*info).range) };
+        range_ptr = unsafe { (*info).range };
+        // SAFETY: The `range` outlives its `PageInfo` values.
+        let range = unsafe { &*range_ptr };
 
         mm = match range.mm.mmget_not_zero() {
             Some(mm) => MmWithUser::into_mmput_async(mm),
@@ -717,9 +761,11 @@ unsafe extern "C" fn rust_shrink_free_page(
     // SAFETY: The lru lock is locked when this method is called.
     unsafe { bindings::spin_unlock(&raw mut (*lru).lock) };
 
-    if let Some(vma) = mmap_read.vma_lookup(vma_addr) {
-        let user_page_addr = vma_addr + (page_index << PAGE_SHIFT);
-        vma.zap_page_range_single(user_page_addr, PAGE_SIZE);
+    if let Some(unchecked_vma) = mmap_read.vma_lookup(vma_addr) {
+        if let Some(vma) = check_vma(unchecked_vma, range_ptr) {
+            let user_page_addr = vma_addr + (page_index << PAGE_SHIFT);
+            vma.zap_vma_range(user_page_addr, PAGE_SIZE);
+        }
     }
 
     drop(mmap_read);

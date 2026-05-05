@@ -641,6 +641,7 @@ our $signature_tags = qr{(?xi:
 	Reviewed-by:|
 	Reported-by:|
 	Suggested-by:|
+	Assisted-by:|
 	To:|
 	Cc:
 )};
@@ -2928,7 +2929,7 @@ sub process {
 			}
 			$checklicenseline = 1;
 
-			if ($realfile !~ /^MAINTAINERS/) {
+			if ($realfile !~ /^(MAINTAINERS|dev\/null)/) {
 				my $last_binding_patch = $is_binding_patch;
 
 				$is_binding_patch = () = $realfile =~ m@^(?:Documentation/devicetree/|include/dt-bindings/)@;
@@ -3103,6 +3104,15 @@ sub process {
 					$fixed[$fixlinenr] =
 					    "$ucfirst_sign_off $email";
 				}
+			}
+
+			# Assisted-by uses AGENT_NAME:MODEL_VERSION format, not email
+			if ($sign_off =~ /^Assisted-by:/i) {
+				if ($email !~ /^\S+:\S+/) {
+					WARN("BAD_SIGN_OFF",
+					     "Assisted-by expects 'AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]' format\n" . $herecurr);
+				}
+				next;
 			}
 
 			my ($email_name, $name_comment, $email_address, $comment) = parse_email($email);
@@ -3854,6 +3864,14 @@ sub process {
 		    substr($line, @-, @+ - @-) eq "$;" x (@+ - @-)) {
 			WARN("SPDX_LICENSE_TAG",
 			     "Misplaced SPDX-License-Identifier tag - use line $checklicenseline instead\n" . $herecurr);
+		}
+
+# check for disallowed SPDX file tags
+		if ($rawline =~ /\bSPDX-.*:/ &&
+		    $rawline !~ /\bSPDX-License-Identifier:/ &&
+		    $rawline !~ /\bSPDX-FileCopyrightText:/) {
+			WARN("SPDX_LICENSE_TAG",
+			     "Disallowed SPDX tag\n" . $herecurr);
 		}
 
 # line length limit (with some exclusions)
@@ -7502,10 +7520,10 @@ sub process {
 		}
 
 # check for various structs that are normally const (ops, kgdb, device_tree)
-# and avoid what seem like struct definitions 'struct foo {'
+# and avoid what seem like struct definitions 'struct foo {' or forward declarations 'struct foo;'
 		if (defined($const_structs) &&
 		    $line !~ /\bconst\b/ &&
-		    $line =~ /\bstruct\s+($const_structs)\b(?!\s*\{)/) {
+		    $line =~ /\bstruct\s+($const_structs)\b(?!\s*[\{;])/) {
 			WARN("CONST_STRUCT",
 			     "struct $1 should normally be const\n" . $herecurr);
 		}

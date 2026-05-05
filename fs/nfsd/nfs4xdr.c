@@ -2598,6 +2598,7 @@ nfsd4_opnum_in_range(struct nfsd4_compoundargs *argp, struct nfsd4_op *op)
 static bool
 nfsd4_decode_compound(struct nfsd4_compoundargs *argp)
 {
+	struct nfsd_thread_local_info *ntli = argp->rqstp->rq_private;
 	struct nfsd4_op *op;
 	bool cachethis = false;
 	int auth_slack= argp->rqstp->rq_auth_slack;
@@ -2690,7 +2691,7 @@ nfsd4_decode_compound(struct nfsd4_compoundargs *argp)
 	if (argp->minorversion)
 		cachethis = false;
 	svc_reserve_auth(argp->rqstp, max_reply + readbytes);
-	argp->rqstp->rq_cachetype = cachethis ? RC_REPLBUFF : RC_NOCACHE;
+	ntli->ntli_cachetype = cachethis ? RC_REPLBUFF : RC_NOCACHE;
 
 	argp->splice_ok = nfsd_read_splice_ok(argp->rqstp);
 	if (readcount > 1 || max_reply > PAGE_SIZE - auth_slack)
@@ -6281,9 +6282,23 @@ nfsd4_encode_operation(struct nfsd4_compoundres *resp, struct nfsd4_op *op)
 		int len = xdr->buf->len - (op_status_offset + XDR_UNIT);
 
 		so->so_replay.rp_status = op->status;
+		if (len > NFSD4_REPLAY_ISIZE) {
+			char *buf = kmalloc(len, GFP_KERNEL);
+
+			nfs4_replay_free_cache(&so->so_replay);
+			if (buf) {
+				so->so_replay.rp_buf = buf;
+			} else {
+				/* rp_buflen already zeroed; skip caching */
+				goto status;
+			}
+		} else if (so->so_replay.rp_buf != so->so_replay.rp_ibuf) {
+			nfs4_replay_free_cache(&so->so_replay);
+		}
 		so->so_replay.rp_buflen = len;
-		read_bytes_from_xdr_buf(xdr->buf, op_status_offset + XDR_UNIT,
-						so->so_replay.rp_buf, len);
+		read_bytes_from_xdr_buf(xdr->buf,
+					op_status_offset + XDR_UNIT,
+					so->so_replay.rp_buf, len);
 	}
 status:
 	op->status = nfsd4_map_status(op->status,

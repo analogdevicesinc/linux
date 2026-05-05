@@ -71,11 +71,6 @@ D: dosfs, LILO, some fd features, ATM, various other hacks here and there
 S: Buenos Aires
 S: Argentina
 
-NTFS FILESYSTEM
-N: Anton Altaparmakov
-E: anton@tuxera.com
-D: NTFS filesystem
-
 N: Tim Alpaerts
 E: tim_alpaerts@toyota-motor-europe.com
 D: 802.2 class II logical link control layer,
@@ -85,8 +80,8 @@ S: B-2610 Wilrijk-Antwerpen
 S: Belgium
 
 N: Anton Altaparmakov
-E: aia21@cantab.net
-W: http://www-stu.christs.cam.ac.uk/~aia21/
+E: anton@tuxera.com
+W: http://www.tuxera.com/
 D: Author of new NTFS driver, various other kernel hacks.
 S: Christ's College
 S: Cambridge CB2 3BU
@@ -1242,6 +1237,10 @@ N: Veaceslav Falico
 E: vfalico@gmail.com
 D: Co-maintainer and co-author of the network bonding driver.
 
+N: Thomas Falcon
+E: tlfalcon@linux.ibm.com
+D: Initial author of the IBM ibmvnic network driver
+
 N: János Farkas
 E: chexum@shadow.banki.hu
 D: romfs, various (mostly networking) fixes
@@ -1451,6 +1450,14 @@ S: USA
 N: Andy Gospodarek
 E: andy@greyhouse.net
 D: Maintenance and contributions to the network interface bonding driver.
+
+N: Vivek Goyal
+E: vgoyal@redhat.com
+D: KDUMP, KEXEC, and VIRTIO FILE SYSTEM
+
+N: Alexander Graf
+E: graf@amazon.com
+D: Kexec Handover (KHO)
 
 N: Wolfgang Grandegger
 E: wg@grandegger.com
@@ -2414,6 +2421,10 @@ D: Coordinator of DOSEMU releases
 S: Am Muehlenweg 38
 S: D53424 Remagen
 S: Germany
+
+N: Jonathan Lemon
+E: jonathan.lemon@gmail.com
+D: OpenCompute PTP clock driver (ptp_ocp)
 
 N: Colin Leroy
 E: colin@colino.net
@@ -3584,6 +3595,16 @@ E: wsalamon@tislabs.com
 E: wsalamon@nai.com
 D: portions of the Linux Security Module (LSM) framework and security modules
 
+N: Salil Mehta
+E: salil.mehta@opnsrc.net
+D: Co-authored Huawei/HiSilicon Kunpeng 920 SoC HNS3 PF and VF 100G
+D: Ethernet driver
+D: Co-authored Huawei/HiSilicon Kunpeng 916 SoC HNS 10G Ethernet
+D: driver enhancements
+D: Maintained Huawei/HiSilicon HNS and HNS3 10G/100G Ethernet drivers
+D: for Kunpeng 916 family, 920 family of SoCs
+S: Cambridge, Cambridgeshire, United Kingdom
+
 N: Robert Sanders
 E: gt8134b@prism.gatech.edu
 D: Dosemu
@@ -3630,6 +3651,11 @@ D: Dial on demand facility (diald).
 S: Dag Hammerskjolds v. 3E
 S: S-226 64 LUND
 S: Sweden
+
+N: Tilman Schmidt
+E: tilman@imap.cc
+D: Siemens Gigaset ISDN driver author and maintainer
+D: ISDN CAPI subsystem contributions
 
 N: Henning P. Schmiedehausen
 E: hps@tanstaafl.de
@@ -4552,8 +4578,5 @@ D: MD driver
 D: EISA/sysfs subsystem
 S: France
 
-# Don't add your name here, unless you really _are_ after Marc
-# alphabetically. Leonard used to be very proud of being the
-# last entry, and he'll get positively pissed if he can't even
-# be second-to-last.  (and this file really _is_ supposed to be
-# in alphabetic order)
+# Don't add your name here unless you really are last alphabetically.
+# (This file is supposed to be kept in alphabetical order by last name.)

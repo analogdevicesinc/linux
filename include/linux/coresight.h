@@ -306,23 +306,18 @@ struct coresight_device {
  * coresight_dev_list - Mapping for devices to "name" index for device
  * names.
  *
+ * @node:		Node on the global device index list.
  * @nr_idx:		Number of entries already allocated.
  * @pfx:		Prefix pattern for device name.
  * @fwnode_list:	Array of fwnode_handles associated with each allocated
  *			index, upto nr_idx entries.
  */
 struct coresight_dev_list {
+	struct list_head	node;
 	int			nr_idx;
-	const char		*pfx;
+	char			*pfx;
 	struct fwnode_handle	**fwnode_list;
 };
-
-#define DEFINE_CORESIGHT_DEVLIST(var, dev_pfx)				\
-static struct coresight_dev_list (var) = {				\
-						.pfx = dev_pfx,		\
-						.nr_idx = 0,		\
-						.fwnode_list = NULL,	\
-}
 
 #define to_coresight_device(d) container_of(d, struct coresight_device, dev)
 
@@ -663,8 +658,7 @@ void coresight_clear_self_claim_tag(struct csdev_access *csa);
 void coresight_clear_self_claim_tag_unlocked(struct csdev_access *csa);
 void coresight_disclaim_device(struct coresight_device *csdev);
 void coresight_disclaim_device_unlocked(struct coresight_device *csdev);
-char *coresight_alloc_device_name(struct coresight_dev_list *devs,
-					 struct device *dev);
+char *coresight_alloc_device_name(const char *prefix, struct device *dev);
 
 bool coresight_loses_context_with_cpu(struct device *dev);
 

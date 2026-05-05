@@ -304,8 +304,6 @@ config ISCSI_TCP
 	tristate "iSCSI Initiator over TCP/IP"
 	depends on SCSI && INET
 	select CRC32
-	select CRYPTO
-	select CRYPTO_MD5
 	select SCSI_ISCSI_ATTRS
 	help
 	 The iSCSI Driver provides a host with the ability to access storage
@@ -1151,6 +1149,7 @@ config SCSI_LPFC
 	depends on NVME_TARGET_FC || NVME_TARGET_FC=n
 	depends on NVME_FC || NVME_FC=n
 	select CRC_T10DIF
+	select CRC32
 	select IRQ_POLL
 	help
           This lpfc driver supports the Emulex LightPulse

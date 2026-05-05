@@ -183,6 +183,7 @@ static struct wmi_driver lwmi_events_driver = {
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 	.id_table = lwmi_events_id_table,
+	.min_event_size = sizeof(u32),
 	.probe = lwmi_events_probe,
 	.notify = lwmi_events_notify,
 	.no_singleton = true,

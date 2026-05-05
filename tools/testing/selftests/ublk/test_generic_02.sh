@@ -29,7 +29,7 @@ for _ in $(seq 100); do
 done
 
 if ! kill -0 "$btrace_pid" 2>/dev/null; then
-	_cleanup_test "null"
+	_cleanup_test
 	exit "$UBLK_SKIP_CODE"
 fi
 
@@ -51,5 +51,5 @@ if grep -q "^out_of_order:" "$UBLK_TMP"; then
 	grep "^out_of_order:" "$UBLK_TMP"
 	ERR_CODE=255
 fi
-_cleanup_test "null"
+_cleanup_test
 _show_result $TID $ERR_CODE

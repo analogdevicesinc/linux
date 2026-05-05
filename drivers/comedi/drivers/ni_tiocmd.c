@@ -494,17 +494,6 @@ void ni_tio_set_mite_channel(struct ni_gpct *counter,
 }
 EXPORT_SYMBOL_GPL(ni_tio_set_mite_channel);
 
-static int __init ni_tiocmd_init_module(void)
-{
-	return 0;
-}
-module_init(ni_tiocmd_init_module);
-
-static void __exit ni_tiocmd_cleanup_module(void)
-{
-}
-module_exit(ni_tiocmd_cleanup_module);
-
 MODULE_AUTHOR("Comedi <comedi@comedi.org>");
 MODULE_DESCRIPTION("Comedi command support for NI general-purpose counters");
 MODULE_LICENSE("GPL");

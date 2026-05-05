@@ -45,9 +45,9 @@
 #include <rdma/ib_verbs.h>
 #include <rdma/ib_user_verbs.h>
 #include <rdma/iw_cm.h>
-#include <rdma/ib_umem.h>
 #include <rdma/ib_addr.h>
 #include <rdma/ib_cache.h>
+#include <rdma/iter.h>
 #include <rdma/uverbs_ioctl.h>
 
 #include "ocrdma.h"
@@ -794,7 +794,7 @@ static int ocrdma_build_pbl_tbl(struct ocrdma_dev *dev, struct ocrdma_hw_mr *mr)
 	void *va;
 	dma_addr_t pa;
 
-	mr->pbl_table = kzalloc_objs(struct ocrdma_pbl, mr->num_pbls);
+	mr->pbl_table = kzalloc_objs(*mr->pbl_table, mr->num_pbls);
 
 	if (!mr->pbl_table)
 		return -ENOMEM;
@@ -910,7 +910,6 @@ int ocrdma_dereg_mr(struct ib_mr *ib_mr, struct ib_udata *udata)
 
 	(void) ocrdma_mbx_dealloc_lkey(dev, mr->hwmr.fr_mr, mr->hwmr.lkey);
 
-	kfree(mr->pages);
 	ocrdma_free_mr_pbl_tbl(dev, &mr->hwmr);
 
 	/* it could be user registered memory. */
@@ -983,8 +982,9 @@ int ocrdma_create_cq(struct ib_cq *ibcq, const struct ib_cq_init_attr *attr,
 		return -EOPNOTSUPP;
 
 	if (udata) {
-		if (ib_copy_from_udata(&ureq, udata, sizeof(ureq)))
-			return -EFAULT;
+		status = ib_copy_validate_udata_in(udata, ureq, rsvd);
+		if (status)
+			return status;
 	} else
 		ureq.dpp_cq = 0;
 
@@ -1014,18 +1014,16 @@ ctx_err:
 	return status;
 }
 
-int ocrdma_resize_cq(struct ib_cq *ibcq, int new_cnt,
+int ocrdma_resize_cq(struct ib_cq *ibcq, unsigned int new_cnt,
 		     struct ib_udata *udata)
 {
-	int status = 0;
 	struct ocrdma_cq *cq = get_ocrdma_cq(ibcq);
 
-	if (new_cnt < 1 || new_cnt > cq->max_hw_cqe) {
-		status = -EINVAL;
-		return status;
-	}
+	if (new_cnt > cq->max_hw_cqe)
+		return -EINVAL;
+
 	ibcq->cqe = new_cnt;
-	return status;
+	return 0;
 }
 
 static void ocrdma_flush_cq(struct ocrdma_cq *cq)
@@ -1253,12 +1251,11 @@ static void ocrdma_set_qp_db(struct ocrdma_dev *dev, struct ocrdma_qp *qp,
 
 static int ocrdma_alloc_wr_id_tbl(struct ocrdma_qp *qp)
 {
-	qp->wqe_wr_id_tbl =
-	    kzalloc_objs(*(qp->wqe_wr_id_tbl), qp->sq.max_cnt);
+	qp->wqe_wr_id_tbl = kzalloc_objs(*qp->wqe_wr_id_tbl, qp->sq.max_cnt);
 	if (qp->wqe_wr_id_tbl == NULL)
 		return -ENOMEM;
-	qp->rqe_wr_id_tbl =
-	    kcalloc(qp->rq.max_cnt, sizeof(u64), GFP_KERNEL);
+
+	qp->rqe_wr_id_tbl = kzalloc_objs(*qp->rqe_wr_id_tbl, qp->rq.max_cnt);
 	if (qp->rqe_wr_id_tbl == NULL)
 		return -ENOMEM;
 
@@ -1311,11 +1308,14 @@ int ocrdma_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *attrs,
 	if (status)
 		goto gen_err;
 
-	memset(&ureq, 0, sizeof(ureq));
 	if (udata) {
-		if (ib_copy_from_udata(&ureq, udata, sizeof(ureq)))
-			return -EFAULT;
+		status = ib_copy_validate_udata_in(udata, ureq, rsvd1);
+		if (status)
+			return status;
+	} else {
+		memset(&ureq, 0, sizeof(ureq));
 	}
+
 	ocrdma_set_qp_init_params(qp, pd, attrs);
 	if (udata == NULL)
 		qp->cap_flags |= (OCRDMA_QP_MW_BIND | OCRDMA_QP_LKEY0 |
@@ -1788,8 +1788,8 @@ int ocrdma_create_srq(struct ib_srq *ibsrq, struct ib_srq_init_attr *init_attr,
 		return status;
 
 	if (!udata) {
-		srq->rqe_wr_id_tbl = kcalloc(srq->rq.max_cnt, sizeof(u64),
-					     GFP_KERNEL);
+		srq->rqe_wr_id_tbl =
+			kzalloc_objs(*srq->rqe_wr_id_tbl, srq->rq.max_cnt);
 		if (!srq->rqe_wr_id_tbl) {
 			status = -ENOMEM;
 			goto arm_err;
@@ -2909,19 +2909,13 @@ struct ib_mr *ocrdma_alloc_mr(struct ib_pd *ibpd, enum ib_mr_type mr_type,
 	if (max_num_sg > dev->attr.max_pages_per_frmr)
 		return ERR_PTR(-EINVAL);
 
-	mr = kzalloc_obj(*mr);
+	mr = kzalloc_flex(*mr, pages, max_num_sg);
 	if (!mr)
 		return ERR_PTR(-ENOMEM);
 
-	mr->pages = kcalloc(max_num_sg, sizeof(u64), GFP_KERNEL);
-	if (!mr->pages) {
-		status = -ENOMEM;
-		goto pl_err;
-	}
-
 	status = ocrdma_get_pbl_info(dev, mr, max_num_sg);
 	if (status)
-		goto pbl_err;
+		goto pl_err;
 	mr->hwmr.fr_mr = 1;
 	mr->hwmr.remote_rd = 0;
 	mr->hwmr.remote_wr = 0;
@@ -2930,7 +2924,7 @@ struct ib_mr *ocrdma_alloc_mr(struct ib_pd *ibpd, enum ib_mr_type mr_type,
 	mr->hwmr.mw_bind = 0;
 	status = ocrdma_build_pbl_tbl(dev, &mr->hwmr);
 	if (status)
-		goto pbl_err;
+		goto pl_err;
 	status = ocrdma_reg_mr(dev, &mr->hwmr, pd->id, 0);
 	if (status)
 		goto mbx_err;
@@ -2941,8 +2935,6 @@ struct ib_mr *ocrdma_alloc_mr(struct ib_pd *ibpd, enum ib_mr_type mr_type,
 	return &mr->ibmr;
 mbx_err:
 	ocrdma_free_mr_pbl_tbl(dev, &mr->hwmr);
-pbl_err:
-	kfree(mr->pages);
 pl_err:
 	kfree(mr);
 	return ERR_PTR(-ENOMEM);

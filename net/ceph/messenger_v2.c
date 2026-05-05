@@ -8,7 +8,6 @@
 #include <linux/ceph/ceph_debug.h>
 
 #include <crypto/aead.h>
-#include <crypto/hash.h>
 #include <crypto/sha2.h>
 #include <crypto/utils.h>
 #include <linux/bvec.h>
@@ -392,7 +391,7 @@ static int head_onwire_len(int ctrl_len, bool secure)
 	int head_len;
 	int rem_len;
 
-	BUG_ON(ctrl_len < 0 || ctrl_len > CEPH_MSG_MAX_CONTROL_LEN);
+	BUG_ON(ctrl_len < 1 || ctrl_len > CEPH_MSG_MAX_CONTROL_LEN);
 
 	if (secure) {
 		head_len = CEPH_PREAMBLE_SECURE_LEN;
@@ -401,9 +400,7 @@ static int head_onwire_len(int ctrl_len, bool secure)
 			head_len += padded_len(rem_len) + CEPH_GCM_TAG_LEN;
 		}
 	} else {
-		head_len = CEPH_PREAMBLE_PLAIN_LEN;
-		if (ctrl_len)
-			head_len += ctrl_len + CEPH_CRC_LEN;
+		head_len = CEPH_PREAMBLE_PLAIN_LEN + ctrl_len + CEPH_CRC_LEN;
 	}
 	return head_len;
 }
@@ -528,11 +525,16 @@ static int decode_preamble(void *p, struct ceph_frame_desc *desc)
 		desc->fd_aligns[i] = ceph_decode_16(&p);
 	}
 
-	if (desc->fd_lens[0] < 0 ||
+	/*
+	 * This would fire for FRAME_TAG_WAIT (it has one empty
+	 * segment), but we should never get it as client.
+	 */
+	if (desc->fd_lens[0] < 1 ||
 	    desc->fd_lens[0] > CEPH_MSG_MAX_CONTROL_LEN) {
 		pr_err("bad control segment length %d\n", desc->fd_lens[0]);
 		return -EINVAL;
 	}
+
 	if (desc->fd_lens[1] < 0 ||
 	    desc->fd_lens[1] > CEPH_MSG_MAX_FRONT_LEN) {
 		pr_err("bad front segment length %d\n", desc->fd_lens[1]);
@@ -549,10 +551,6 @@ static int decode_preamble(void *p, struct ceph_frame_desc *desc)
 		return -EINVAL;
 	}
 
-	/*
-	 * This would fire for FRAME_TAG_WAIT (it has one empty
-	 * segment), but we should never get it as client.
-	 */
 	if (!desc->fd_lens[desc->fd_seg_cnt - 1]) {
 		pr_err("last segment empty, segment count %d\n",
 		       desc->fd_seg_cnt);
@@ -2353,16 +2351,14 @@ bad:
 }
 
 /*
- * Align session_key and con_secret to avoid GFP_ATOMIC allocation
- * inside crypto_shash_setkey() and crypto_aead_setkey() called from
- * setup_crypto().  __aligned(16) isn't guaranteed to work for stack
- * objects, so do it by hand.
+ * Align con_secret to avoid GFP_ATOMIC allocation inside
+ * crypto_aead_setkey() called from setup_crypto().  __aligned(16)
+ * isn't guaranteed to work for stack objects, so do it by hand.
  */
 static int process_auth_done(struct ceph_connection *con, void *p, void *end)
 {
-	u8 session_key_buf[CEPH_MAX_KEY_LEN + 16];
+	u8 session_key[CEPH_MAX_KEY_LEN];
 	u8 con_secret_buf[CEPH_MAX_CON_SECRET_LEN + 16];
-	u8 *session_key = PTR_ALIGN(&session_key_buf[0], 16);
 	u8 *con_secret = PTR_ALIGN(&con_secret_buf[0], 16);
 	int session_key_len, con_secret_len;
 	int payload_len;
@@ -2416,7 +2412,7 @@ static int process_auth_done(struct ceph_connection *con, void *p, void *end)
 	con->state = CEPH_CON_S_V2_AUTH_SIGNATURE;
 
 out:
-	memzero_explicit(session_key_buf, sizeof(session_key_buf));
+	memzero_explicit(session_key, sizeof(session_key));
 	memzero_explicit(con_secret_buf, sizeof(con_secret_buf));
 	return ret;
 
@@ -2833,11 +2829,14 @@ static int process_message_header(struct ceph_connection *con,
 				  void *p, void *end)
 {
 	struct ceph_frame_desc *desc = &con->v2.in_desc;
-	struct ceph_msg_header2 *hdr2 = p;
+	struct ceph_msg_header2 *hdr2;
 	struct ceph_msg_header hdr;
 	int skip;
 	int ret;
 	u64 seq;
+
+	ceph_decode_need(&p, end, sizeof(*hdr2), bad);
+	hdr2 = p;
 
 	/* verify seq# */
 	seq = le64_to_cpu(hdr2->seq);
@@ -2869,6 +2868,10 @@ static int process_message_header(struct ceph_connection *con,
 	WARN_ON(!con->in_msg);
 	WARN_ON(con->in_msg->con != con);
 	return 1;
+
+bad:
+	pr_err("failed to decode message header\n");
+	return -EINVAL;
 }
 
 static int process_message(struct ceph_connection *con)
@@ -2897,6 +2900,11 @@ static int __handle_control(struct ceph_connection *con, void *p)
 
 	if (con->v2.in_desc.fd_tag != FRAME_TAG_MESSAGE)
 		return process_control(con, p, end);
+
+	if (con->state != CEPH_CON_S_OPEN) {
+		con->error_msg = "protocol error, unexpected message";
+		return -EINVAL;
+	}
 
 	ret = process_message_header(con, p, end);
 	if (ret < 0)

@@ -30,6 +30,7 @@
 #define CLKS_NR_M2M                     (CLK_DOUT_M2M_NOCP + 1)
 #define CLKS_NR_MFC                     (CLK_DOUT_MFC_NOCP + 1)
 #define CLKS_NR_MFD                     (CLK_DOUT_MFD_NOCP + 1)
+#define CLKS_NR_G3D			(CLK_MOUT_G3D_NOCP_USER + 1)
 
 /* ---- CMU_TOP ------------------------------------------------------------ */
 
@@ -1942,6 +1943,54 @@ static const struct samsung_cmu_info mfd_cmu_info __initconst = {
 	.clk_name               = "noc",
 };
 
+/* ---- CMU_G3D --------------------------------------------------------- */
+
+/* Register Offset definitions for CMU_G3D (0x1a000000) */
+#define PLL_LOCKTIME_PLL_G3D                    0x0
+#define PLL_CON3_PLL_G3D                        0x10c
+#define CLK_CON_MUX_MUX_CLK_G3D_NOC             0x1000
+#define PLL_CON0_MUX_CLKCMU_G3D_NOCP_USER       0x600
+#define PLL_CON0_MUX_CLKCMU_G3D_SWITCH_USER     0x610
+
+static const unsigned long g3d_clk_regs[] __initconst = {
+	PLL_LOCKTIME_PLL_G3D,
+	PLL_CON3_PLL_G3D,
+	CLK_CON_MUX_MUX_CLK_G3D_NOC,
+	PLL_CON0_MUX_CLKCMU_G3D_NOCP_USER,
+	PLL_CON0_MUX_CLKCMU_G3D_SWITCH_USER,
+};
+
+static const struct samsung_pll_clock g3d_pll_clks[] __initconst = {
+	/* CMU_G3D_PLL */
+	PLL(pll_531x, FOUT_PLL_G3D, "fout_pll_g3d", "oscclk",
+	    PLL_LOCKTIME_PLL_G3D, PLL_CON3_PLL_G3D, NULL),
+};
+
+/* List of parent clocks for Muxes in CMU_G3D */
+PNAME(mout_clk_g3d_noc_p) = { "oscclk", "fout_pll_g3d", "mout_clkcmu_g3d_switch_user"};
+PNAME(mout_clkcmu_g3d_switch_user_p) = { "oscclk", "dout_clkcmu_g3d_switch" };
+PNAME(mout_clkcmu_g3d_nocp_user_p) = { "oscclk", "dout_clkcmu_g3d_nocp" };
+
+static const struct samsung_mux_clock g3d_mux_clks[] __initconst = {
+	MUX(CLK_MOUT_G3D_NOC, "mout_clk_g3d_noc",
+	    mout_clk_g3d_noc_p, CLK_CON_MUX_MUX_CLK_G3D_NOC, 0, 2),
+	MUX(CLK_MOUT_G3D_SWITCH_USER, "mout_clkcmu_g3d_switch_user",
+	    mout_clkcmu_g3d_switch_user_p, PLL_CON0_MUX_CLKCMU_G3D_SWITCH_USER, 4, 1),
+	MUX(CLK_MOUT_G3D_NOCP_USER, "mout_clkcmu_g3d_nocp_user",
+	    mout_clkcmu_g3d_nocp_user_p, PLL_CON0_MUX_CLKCMU_G3D_NOCP_USER, 4, 1),
+};
+
+static const struct samsung_cmu_info g3d_cmu_info __initconst = {
+	.pll_clks               = g3d_pll_clks,
+	.nr_pll_clks            = ARRAY_SIZE(g3d_pll_clks),
+	.mux_clks               = g3d_mux_clks,
+	.nr_mux_clks            = ARRAY_SIZE(g3d_mux_clks),
+	.nr_clk_ids             = CLKS_NR_G3D,
+	.clk_regs               = g3d_clk_regs,
+	.nr_clk_regs            = ARRAY_SIZE(g3d_clk_regs),
+	.clk_name               = "noc",
+};
+
 static int __init exynosautov920_cmu_probe(struct platform_device *pdev)
 {
 	const struct samsung_cmu_info *info;
@@ -1981,6 +2030,9 @@ static const struct of_device_id exynosautov920_cmu_of_match[] = {
 	}, {
 		.compatible = "samsung,exynosautov920-cmu-mfd",
 		.data = &mfd_cmu_info,
+	}, {
+		.compatible = "samsung,exynosautov920-cmu-g3d",
+		.data = &g3d_cmu_info,
 	},
 	{ }
 };

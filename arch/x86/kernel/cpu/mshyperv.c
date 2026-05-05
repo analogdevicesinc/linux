@@ -161,6 +161,8 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_hyperv_callback)
 	if (vmbus_handler)
 		vmbus_handler();
 
+	add_interrupt_randomness(HYPERVISOR_CALLBACK_VECTOR);
+
 	if (ms_hyperv.hints & HV_DEPRECATING_AEOI_RECOMMENDED)
 		apic_eoi();
 
@@ -235,8 +237,12 @@ void hv_remove_crash_handler(void)
 #ifdef CONFIG_KEXEC_CORE
 static void hv_machine_shutdown(void)
 {
-	if (kexec_in_progress && hv_kexec_handler)
-		hv_kexec_handler();
+	if (kexec_in_progress) {
+		hv_stimer_global_cleanup();
+
+		if (hv_kexec_handler)
+			hv_kexec_handler();
+	}
 
 	/*
 	 * Call hv_cpu_die() on all the CPUs, otherwise later the hypervisor
@@ -425,12 +431,19 @@ static void __init hv_smp_prepare_cpus(unsigned int max_cpus)
 	}
 
 #ifdef CONFIG_X86_64
+	/* If AP LPs exist, we are in a kexec'd kernel and VPs already exist */
+	if (num_present_cpus() == 1 || hv_lp_exists(1))
+		return;
+
 	for_each_present_cpu(i) {
 		if (i == 0)
 			continue;
 		ret = hv_call_add_logical_proc(numa_cpu_node(i), i, cpu_physical_id(i));
 		BUG_ON(ret);
 	}
+
+	ret = hv_call_notify_all_processors_started();
+	WARN_ON(ret);
 
 	for_each_present_cpu(i) {
 		if (i == 0)
@@ -496,8 +509,9 @@ static void hv_reserve_irq_vectors(void)
 	    test_and_set_bit(HYPERV_DBG_FASTFAIL_VECTOR, system_vectors))
 		BUG();
 
-	pr_info("Hyper-V: reserve vectors: %d %d %d\n", HYPERV_DBG_ASSERT_VECTOR,
-		HYPERV_DBG_SERVICE_VECTOR, HYPERV_DBG_FASTFAIL_VECTOR);
+	pr_info("Hyper-V: reserve vectors: 0x%x 0x%x 0x%x\n",
+		HYPERV_DBG_ASSERT_VECTOR, HYPERV_DBG_SERVICE_VECTOR,
+		HYPERV_DBG_FASTFAIL_VECTOR);
 }
 
 static void __init ms_hyperv_init_platform(void)

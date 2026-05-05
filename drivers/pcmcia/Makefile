@@ -20,9 +20,6 @@ obj-$(CONFIG_PCCARD)				+= pcmcia_rsrc.o
 obj-$(CONFIG_YENTA) 				+= yenta_socket.o
 
 obj-$(CONFIG_PD6729)				+= pd6729.o
-obj-$(CONFIG_I82365)				+= i82365.o
-obj-$(CONFIG_I82092)				+= i82092.o
-obj-$(CONFIG_TCIC)				+= tcic.o
 obj-$(CONFIG_PCMCIA_SOC_COMMON)			+= soc_common.o
 obj-$(CONFIG_PCMCIA_SA11XX_BASE)		+= sa11xx_base.o
 obj-$(CONFIG_PCMCIA_SA1100)			+= sa1100_cs.o

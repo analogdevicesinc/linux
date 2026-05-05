@@ -7,9 +7,6 @@
 #include <linux/skmsg.h>
 #include <net/inet_common.h>
 #include <trace/events/sock.h>
-#if IS_ENABLED(CONFIG_IPV6)
-#include <net/ipv6_stubs.h>
-#endif
 #include <net/hotdata.h>
 
 static void handle_nonesp(struct espintcp_ctx *ctx, struct sk_buff *skb,
@@ -43,7 +40,7 @@ static void handle_esp(struct sk_buff *skb, struct sock *sk)
 	local_bh_disable();
 #if IS_ENABLED(CONFIG_IPV6)
 	if (sk->sk_family == AF_INET6)
-		ipv6_stub->xfrm6_rcv_encap(skb, IPPROTO_ESP, 0, TCP_ENCAP_ESPINTCP);
+		xfrm6_rcv_encap(skb, IPPROTO_ESP, 0, TCP_ENCAP_ESPINTCP);
 	else
 #endif
 		xfrm4_rcv_encap(skb, IPPROTO_ESP, 0, TCP_ENCAP_ESPINTCP);
@@ -133,7 +130,7 @@ static int espintcp_parse(struct strparser *strp, struct sk_buff *skb)
 }
 
 static int espintcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
-			    int flags, int *addr_len)
+			    int flags)
 {
 	struct espintcp_ctx *ctx = espintcp_getctx(sk);
 	struct sk_buff *skb;
@@ -536,7 +533,7 @@ static void espintcp_close(struct sock *sk, long timeout)
 	sk->sk_prot = &tcp_prot;
 	barrier();
 
-	cancel_work_sync(&ctx->work);
+	disable_work_sync(&ctx->work);
 	strp_done(&ctx->strp);
 
 	skb_queue_purge(&ctx->out_queue);

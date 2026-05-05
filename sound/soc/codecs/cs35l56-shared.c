@@ -26,7 +26,7 @@
 
 #include "cs35l56.h"
 
-static const struct reg_sequence cs35l56_patch[] = {
+static const struct reg_sequence cs35l56_asp_patch[] = {
 	/*
 	 * Firmware can change these to non-defaults to satisfy SDCA.
 	 * Ensure that they are at known defaults.
@@ -43,6 +43,20 @@ static const struct reg_sequence cs35l56_patch[] = {
 	{ CS35L56_ASP1TX2_INPUT,		0x00000000 },
 	{ CS35L56_ASP1TX3_INPUT,		0x00000000 },
 	{ CS35L56_ASP1TX4_INPUT,		0x00000000 },
+};
+
+int cs35l56_set_asp_patch(struct cs35l56_base *cs35l56_base)
+{
+	return regmap_register_patch(cs35l56_base->regmap, cs35l56_asp_patch,
+				     ARRAY_SIZE(cs35l56_asp_patch));
+}
+EXPORT_SYMBOL_NS_GPL(cs35l56_set_asp_patch, "SND_SOC_CS35L56_SHARED");
+
+static const struct reg_sequence cs35l56_patch[] = {
+	/*
+	 * Firmware can change these to non-defaults to satisfy SDCA.
+	 * Ensure that they are at known defaults.
+	 */
 	{ CS35L56_SWIRE_DP3_CH1_INPUT,		0x00000018 },
 	{ CS35L56_SWIRE_DP3_CH2_INPUT,		0x00000019 },
 	{ CS35L56_SWIRE_DP3_CH3_INPUT,		0x00000029 },
@@ -1170,6 +1184,15 @@ ssize_t cs35l56_calibrate_debugfs_write(struct cs35l56_base *cs35l56_base,
 	return count;
 }
 EXPORT_SYMBOL_NS_GPL(cs35l56_calibrate_debugfs_write, "SND_SOC_CS35L56_SHARED");
+
+int cs35l56_factory_calibrate(struct cs35l56_base *cs35l56_base)
+{
+	if (!IS_ENABLED(CONFIG_SND_SOC_CS35L56_CAL_PERFORM_CTRL))
+		return -ENXIO;
+
+	return cs35l56_perform_calibration(cs35l56_base);
+}
+EXPORT_SYMBOL_NS_GPL(cs35l56_factory_calibrate, "SND_SOC_CS35L56_SHARED");
 
 ssize_t cs35l56_cal_ambient_debugfs_write(struct cs35l56_base *cs35l56_base,
 					  const char __user *from, size_t count,

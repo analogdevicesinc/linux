@@ -81,6 +81,11 @@ attribute-sets:
       -
         name: min-threads
         type: u32
+      -
+        name: fh-key
+        type: binary
+        checks:
+            exact-len: 16
   -
     name: version
     attributes:
@@ -152,7 +157,7 @@ operations:
             - compound-ops
     -
       name: threads-set
-      doc: set the number of running threads
+      doc: set the maximum number of running threads
       attribute-set: server
       flags: [admin-perm]
       do:
@@ -163,9 +168,10 @@ operations:
             - leasetime
             - scope
             - min-threads
+            - fh-key
     -
       name: threads-get
-      doc: get the number of running threads
+      doc: get the maximum number of running threads
       attribute-set: server
       do:
         reply:

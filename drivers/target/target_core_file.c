@@ -173,7 +173,7 @@ static int fd_configure_device(struct se_device *dev)
 		 */
 		dev->dev_attrib.max_write_same_len = 0xFFFF;
 
-		if (bdev_nonrot(bdev))
+		if (!bdev_rot(bdev))
 			dev->dev_attrib.is_nonrot = 1;
 	} else {
 		if (!(fd_dev->fbd_flags & FBDF_HAS_SIZE)) {
@@ -276,7 +276,7 @@ fd_execute_rw_aio(struct se_cmd *cmd, struct scatterlist *sgl, u32 sgl_nents,
 	ssize_t len = 0;
 	int ret = 0, i;
 
-	aio_cmd = kmalloc_flex(*aio_cmd, bvecs, sgl_nents);
+	aio_cmd = kzalloc_flex(*aio_cmd, bvecs, sgl_nents);
 	if (!aio_cmd)
 		return TCM_LOGICAL_UNIT_COMMUNICATION_FAILURE;
 

@@ -476,7 +476,7 @@ int usnic_ib_create_qp(struct ib_qp *ibqp, struct ib_qp_init_attr *init_attr,
 	if (init_attr->create_flags)
 		return -EOPNOTSUPP;
 
-	err = ib_copy_from_udata(&cmd, udata, sizeof(cmd));
+	err = ib_copy_validate_udata_in(udata, cmd, spec);
 	if (err) {
 		usnic_err("%s: cannot copy udata for create_qp\n",
 			  dev_name(&us_ibdev->ib_dev.dev));

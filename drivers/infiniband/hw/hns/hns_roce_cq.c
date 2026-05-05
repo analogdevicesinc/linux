@@ -350,20 +350,6 @@ static int verify_cq_create_attr(struct hns_roce_dev *hr_dev,
 	return 0;
 }
 
-static int get_cq_ucmd(struct hns_roce_cq *hr_cq, struct ib_udata *udata,
-		       struct hns_roce_ib_create_cq *ucmd)
-{
-	struct ib_device *ibdev = hr_cq->ib_cq.device;
-	int ret;
-
-	ret = ib_copy_from_udata(ucmd, udata, min(udata->inlen, sizeof(*ucmd)));
-	if (ret) {
-		ibdev_err(ibdev, "failed to copy CQ udata, ret = %d.\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
 
 static void set_cq_param(struct hns_roce_cq *hr_cq, u32 cq_entries, int vector,
 			 struct hns_roce_ib_create_cq *ucmd)
@@ -428,7 +414,7 @@ int hns_roce_create_cq(struct ib_cq *ib_cq, const struct ib_cq_init_attr *attr,
 		goto err_out;
 
 	if (udata) {
-		ret = get_cq_ucmd(hr_cq, udata, &ucmd);
+		ret = ib_copy_validate_udata_in(udata, ucmd, db_addr);
 		if (ret)
 			goto err_out;
 	}

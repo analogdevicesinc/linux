@@ -348,6 +348,13 @@ static int cs35l56_dsp_event(struct snd_soc_dapm_widget *w,
 	return wm_adsp_event(w, kcontrol, event);
 }
 
+static int cs35l56_asp_dai_probe(struct snd_soc_dai *codec_dai)
+{
+	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(codec_dai->component);
+
+	return cs35l56_set_asp_patch(&cs35l56->base);
+}
+
 static int cs35l56_asp_dai_set_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
 {
 	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(codec_dai->component);
@@ -552,6 +559,7 @@ static int cs35l56_asp_dai_set_sysclk(struct snd_soc_dai *dai,
 }
 
 static const struct snd_soc_dai_ops cs35l56_ops = {
+	.probe = cs35l56_asp_dai_probe,
 	.set_fmt = cs35l56_asp_dai_set_fmt,
 	.set_tdm_slot = cs35l56_asp_dai_set_tdm_slot,
 	.hw_params = cs35l56_asp_dai_hw_params,
@@ -1101,12 +1109,102 @@ static int cs35l56_cal_data_ctl_set(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int cs35l56_cal_ambient_ctl_get(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
+
+	ucontrol->value.integer.value[0] = cs35l56->ambient_ctl_value;
+
+	return 0;
+}
+
+static int cs35l56_cal_ambient_ctl_set(struct snd_kcontrol *kcontrol,
+				       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
+	struct snd_soc_dapm_context *dapm;
+	int temperature = ucontrol->value.integer.value[0];
+	int ret;
+
+	if (temperature == cs35l56->ambient_ctl_value)
+		return 0;
+
+	if ((temperature < 0) || (temperature > 40))
+		return -EINVAL;
+
+	dapm = cs35l56_power_up_for_cal(cs35l56);
+	if (IS_ERR(dapm))
+		return PTR_ERR(dapm);
+
+	ret = cs_amp_write_ambient_temp(&cs35l56->dsp.cs_dsp,
+					cs35l56->base.calibration_controls,
+					temperature);
+	cs35l56_power_down_after_cal(cs35l56);
+
+	if (ret)
+		return ret;
+
+	cs35l56->ambient_ctl_value = temperature;
+
+	return 1;
+}
+
+static int cs35l56_calibrate_ctl_get(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	/*
+	 * Allow reading because of user-side libraries that assume all
+	 * controls are readable. But always return false to prevent dumb
+	 * save-restore tools like alsactl accidentically triggering a
+	 * factory calibration when they restore.
+	 */
+	ucontrol->value.integer.value[0] = 0;
+
+	return 0;
+}
+
+static int cs35l56_calibrate_ctl_set(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	struct cs35l56_private *cs35l56 = snd_soc_component_get_drvdata(component);
+	struct snd_soc_dapm_context *dapm;
+	int ret;
+
+	if (ucontrol->value.integer.value[0] == 0)
+		return 0;
+
+	dapm = cs35l56_power_up_for_cal(cs35l56);
+	if (IS_ERR(dapm))
+		return PTR_ERR(dapm);
+
+	snd_soc_dapm_mutex_lock(dapm);
+	ret = cs35l56_factory_calibrate(&cs35l56->base);
+	snd_soc_dapm_mutex_unlock(dapm);
+	cs35l56_power_down_after_cal(cs35l56);
+	if (ret < 0)
+		return ret;
+
+	return 1;
+}
+
 static const struct snd_kcontrol_new cs35l56_cal_data_restore_controls[] = {
 	SND_SOC_BYTES_E("CAL_DATA", 0, sizeof(struct cirrus_amp_cal_data) / sizeof(u32),
 			cs35l56_cal_data_ctl_get, cs35l56_cal_data_ctl_set),
 	SND_SOC_BYTES_E_ACC("CAL_DATA_RB", 0, sizeof(struct cirrus_amp_cal_data) / sizeof(u32),
 			cs35l56_cal_data_rb_ctl_get, NULL,
 			SNDRV_CTL_ELEM_ACCESS_READ | SNDRV_CTL_ELEM_ACCESS_VOLATILE),
+};
+
+static const struct snd_kcontrol_new cs35l56_cal_perform_controls[] = {
+	SOC_SINGLE_EXT("CAL_AMBIENT", SND_SOC_NOPM, 0, 40, 0,
+		       cs35l56_cal_ambient_ctl_get, cs35l56_cal_ambient_ctl_set),
+	SOC_SINGLE_BOOL_EXT_ACC("Calibrate Switch", 0,
+				cs35l56_calibrate_ctl_get, cs35l56_calibrate_ctl_set,
+				SNDRV_CTL_ELEM_ACCESS_READWRITE | SNDRV_CTL_ELEM_ACCESS_VOLATILE),
 };
 
 VISIBLE_IF_KUNIT int cs35l56_set_fw_suffix(struct cs35l56_private *cs35l56)
@@ -1280,6 +1378,12 @@ static int cs35l56_component_probe(struct snd_soc_component *component)
 		ret = snd_soc_add_component_controls(component,
 						     cs35l56_cal_data_restore_controls,
 						     ARRAY_SIZE(cs35l56_cal_data_restore_controls));
+	}
+
+	if (!ret && IS_ENABLED(CONFIG_SND_SOC_CS35L56_CAL_PERFORM_CTRL)) {
+		ret = snd_soc_add_component_controls(component,
+						     cs35l56_cal_perform_controls,
+						     ARRAY_SIZE(cs35l56_cal_perform_controls));
 	}
 
 	if (ret)
@@ -1617,9 +1721,9 @@ static int cs35l56_process_xu_onchip_speaker_id(struct cs35l56_private *cs35l56,
 	if (num_pulls < 0)
 		return num_pulls;
 
-	if (num_pulls != num_gpios) {
+	if (num_pulls && (num_pulls != num_gpios)) {
 		dev_warn(cs35l56->base.dev, "%s count(%d) != %s count(%d)\n",
-			pull_name, num_pulls, gpio_name, num_gpios);
+			 pull_name, num_pulls, gpio_name, num_gpios);
 	}
 
 	ret = cs35l56_check_and_save_onchip_spkid_gpios(&cs35l56->base,
@@ -1661,7 +1765,7 @@ VISIBLE_IF_KUNIT int cs35l56_process_xu_properties(struct cs35l56_private *cs35l
 }
 EXPORT_SYMBOL_IF_KUNIT(cs35l56_process_xu_properties);
 
-static int cs35l56_get_firmware_uid(struct cs35l56_private *cs35l56)
+VISIBLE_IF_KUNIT int cs35l56_get_firmware_uid(struct cs35l56_private *cs35l56)
 {
 	struct device *dev = cs35l56->base.dev;
 	const char *prop;
@@ -1686,6 +1790,7 @@ static int cs35l56_get_firmware_uid(struct cs35l56_private *cs35l56)
 
 	return 0;
 }
+EXPORT_SYMBOL_IF_KUNIT(cs35l56_get_firmware_uid);
 
 /*
  * Some SoundWire laptops have a spk-id-gpios property but it points to

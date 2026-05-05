@@ -4,7 +4,7 @@
  * policy preference bias on recent X86 processors.
  */
 /*
- * Copyright (c) 2010 - 2025 Intel Corporation.
+ * Copyright (c) 2010 - 2026 Intel Corporation.
  * Len Brown <len.brown@intel.com>
  */
 
@@ -82,20 +82,35 @@ size_t cpu_setsize;
 
 char *proc_stat = "/proc/stat";
 
-unsigned int has_epb;	/* MSR_IA32_ENERGY_PERF_BIAS */
-unsigned int has_hwp;	/* IA32_PM_ENABLE, IA32_HWP_CAPABILITIES */
+unsigned int has_epb;		/* MSR_IA32_ENERGY_PERF_BIAS */
+unsigned int has_hwp;		/* IA32_PM_ENABLE, IA32_HWP_CAPABILITIES */
 			/* IA32_HWP_REQUEST, IA32_HWP_STATUS */
-unsigned int has_hwp_notify;		/* IA32_HWP_INTERRUPT */
+unsigned int has_hwp_notify;	/* IA32_HWP_INTERRUPT */
 unsigned int has_hwp_activity_window;	/* IA32_HWP_REQUEST[bits 41:32] */
 unsigned int has_hwp_epp;	/* IA32_HWP_REQUEST[bits 31:24] */
 unsigned int has_hwp_request_pkg;	/* IA32_HWP_REQUEST_PKG */
 
 unsigned int bdx_highest_ratio;
 
+unsigned char update_soc_slider_balance;
+unsigned char update_soc_slider_offset;
+unsigned char update_platform_profile;
+int soc_slider_balance;
+int soc_slider_offset;
+char platform_profile[64];
+
 #define PATH_TO_CPU "/sys/devices/system/cpu/"
 #define SYSFS_PATH_MAX 255
+#define PATH_SOC_SLIDER_BALANCE "/sys/module/processor_thermal_soc_slider/parameters/slider_balance"
+#define PATH_SOC_SLIDER_OFFSET "/sys/module/processor_thermal_soc_slider/parameters/slider_offset"
+#define PATH_PLATFORM_PROFILE "/sys/class/platform-profile/platform-profile-0/profile"
+#define PATH_PLATFORM_PROFILE_NAME "/sys/class/platform-profile/platform-profile-0/name"
+#define POWER_SLIDER_NAME "SoC Power Slider"
 
 static int use_android_msr_path;
+
+static unsigned int read_sysfs(const char *, char *, size_t);
+static int sysfs_read_string(const char *, char *, size_t);
 
 /*
  * maintain compatibility with original implementation, but don't document it:
@@ -106,8 +121,8 @@ void usage(void)
 	fprintf(stderr, "scope: --cpu cpu-list [--hwp-use-pkg #] | --pkg pkg-list\n");
 	fprintf(stderr, "field: --all | --epb | --hwp-epp | --hwp-min | --hwp-max | --hwp-desired\n");
 	fprintf(stderr, "other: --hwp-enable | --turbo-enable (0 | 1) | --help | --force\n");
-	fprintf(stderr,
-		"value: ( # | \"normal\" | \"performance\" | \"balance-performance\" | \"balance-power\"| \"power\")\n");
+	fprintf(stderr, "soc-slider: --soc-slider-balance # | --soc-slider-offset # | --platform-profile <name>\n");
+	fprintf(stderr, "value: ( # | \"normal\" | \"performance\" | \"balance-performance\" | \"balance-power\"| \"power\")\n");
 	fprintf(stderr, "--hwp-window usec\n");
 
 	fprintf(stderr, "Specify only Energy Performance BIAS (legacy usage):\n");
@@ -135,6 +150,7 @@ int ratio_2_msr_perf(int ratio)
 
 	return msr_perf;
 }
+
 int msr_perf_2_ratio(int msr_perf)
 {
 	int ratio;
@@ -143,8 +159,8 @@ int msr_perf_2_ratio(int msr_perf)
 	if (!bdx_highest_ratio)
 		return msr_perf;
 
-	d = (double)msr_perf * (double) bdx_highest_ratio / 255.0;
-	d = d + 0.5;	/* round */
+	d = (double)msr_perf * (double)bdx_highest_ratio / 255.0;
+	d = d + 0.5;		/* round */
 	ratio = (int)d;
 
 	if (debug)
@@ -152,6 +168,7 @@ int msr_perf_2_ratio(int msr_perf)
 
 	return ratio;
 }
+
 int parse_cmdline_epb(int i)
 {
 	if (!has_epb)
@@ -198,6 +215,7 @@ int parse_cmdline_hwp_min(int i)
 	}
 	return i;
 }
+
 /*
  * "power" changes hwp_max to cap.lowest
  * All others leave it at cap.highest
@@ -217,6 +235,7 @@ int parse_cmdline_hwp_max(int i)
 	}
 	return i;
 }
+
 /*
  * for --hwp-des, all strings leave it in autonomous mode
  * If you want to change it, you need to explicitly pick a value
@@ -254,7 +273,7 @@ int parse_cmdline_hwp_window(int i)
 		fprintf(stderr, "--hwp-window: 0 for auto; 1 - 1270000000 usec for window duration\n");
 		usage();
 	}
-	for (exponent = 0; ; ++exponent) {
+	for (exponent = 0;; ++exponent) {
 		if (debug)
 			printf("%d 10^%d\n", i, exponent);
 
@@ -268,6 +287,7 @@ int parse_cmdline_hwp_window(int i)
 
 	return (exponent << 7) | i;
 }
+
 int parse_cmdline_hwp_epp(int i)
 {
 	update_hwp_epp = 1;
@@ -289,6 +309,7 @@ int parse_cmdline_hwp_epp(int i)
 	}
 	return i;
 }
+
 int parse_cmdline_turbo(int i)
 {
 	update_turbo = 1;
@@ -508,7 +529,7 @@ void parse_cmdline_pkg(char *s)
 	}
 }
 
-void for_packages(unsigned long long pkg_set, int (func)(int))
+void for_packages(unsigned long long pkg_set, int (func) (int))
 {
 	int pkg_num;
 
@@ -518,9 +539,79 @@ void for_packages(unsigned long long pkg_set, int (func)(int))
 	}
 }
 
+static int parse_cmdline_int(const char *s, int *out)
+{
+	char *endp;
+	long val;
+
+	val = strtol(s, &endp, 0);
+	if (endp == s || errno == ERANGE)
+		return -1;
+	if (*endp != '\0')
+		return -1;
+	if (val < INT_MIN || val > INT_MAX)
+		return -1;
+
+	*out = (int)val;
+	return 0;
+}
+
 void print_version(void)
 {
-	printf("x86_energy_perf_policy 2025.11.22 Len Brown <lenb@kernel.org>\n");
+	printf("x86_energy_perf_policy 2026.04.25 Len Brown <lenb@kernel.org>\n");
+}
+
+static int platform_profile_access(int mode)
+{
+	if (access(PATH_PLATFORM_PROFILE, mode)) {
+		if (debug)
+			fprintf(stderr, "Can not access %s\n", PATH_PLATFORM_PROFILE);
+		return 0;
+	}
+
+	return 1;
+}
+
+static int platform_profile_name_is(char *name)
+{
+	char buf[64];
+
+	if (sysfs_read_string(PATH_PLATFORM_PROFILE_NAME, buf, sizeof(buf)) != 0) {
+		if (debug)
+			fprintf(stderr, "Can not read %s\n", PATH_PLATFORM_PROFILE_NAME);
+		return 0;
+	}
+
+	if (strncmp(buf, name, 16)) {
+		if (debug)
+			fprintf(stderr, "%s does not match '%s'\n", PATH_PLATFORM_PROFILE_NAME, name);
+		return 0;
+	}
+
+	return 1;
+}
+
+static int soc_slider_access(int mode)
+{
+	if (!platform_profile_access(R_OK))
+		return 0;
+
+	if (!platform_profile_name_is(POWER_SLIDER_NAME))
+		return 0;
+
+	if (access(PATH_SOC_SLIDER_BALANCE, mode)) {
+		if (debug)
+			fprintf(stderr, "Can not access %s\n", PATH_SOC_SLIDER_BALANCE);
+		return 0;
+	}
+
+	if (access(PATH_SOC_SLIDER_OFFSET, mode)) {
+		if (debug)
+			fprintf(stderr, "Can not access %s\n", PATH_SOC_SLIDER_OFFSET);
+		return 0;
+	}
+
+	return 1;
 }
 
 void cmdline(int argc, char **argv)
@@ -529,30 +620,32 @@ void cmdline(int argc, char **argv)
 	int option_index = 0;
 
 	static struct option long_options[] = {
-		{"all",		required_argument,	0, 'a'},
-		{"cpu",		required_argument,	0, 'c'},
-		{"pkg",		required_argument,	0, 'p'},
-		{"debug",	no_argument,		0, 'd'},
-		{"hwp-desired",	required_argument,	0, 'D'},
-		{"epb",	required_argument,	0, 'B'},
-		{"force",	no_argument,	0, 'f'},
-		{"hwp-enable",	no_argument,	0, 'e'},
-		{"help",	no_argument,	0, 'h'},
-		{"hwp-epp",	required_argument,	0, 'P'},
-		{"hwp-min",	required_argument,	0, 'm'},
-		{"hwp-max",	required_argument,	0, 'M'},
-		{"read",	no_argument,		0, 'r'},
-		{"turbo-enable",	required_argument,	0, 't'},
-		{"hwp-use-pkg",	required_argument,	0, 'u'},
-		{"version",	no_argument,		0, 'v'},
-		{"hwp-window",	required_argument,	0, 'w'},
-		{0,		0,			0, 0 }
+		{ "all", required_argument, 0, 'a' },
+		{ "cpu", required_argument, 0, 'c' },
+		{ "pkg", required_argument, 0, 'p' },
+		{ "debug", no_argument, 0, 'd' },
+		{ "hwp-desired", required_argument, 0, 'D' },
+		{ "epb", required_argument, 0, 'B' },
+		{ "force", no_argument, 0, 'f' },
+		{ "hwp-enable", no_argument, 0, 'e' },
+		{ "help", no_argument, 0, 'h' },
+		{ "hwp-epp", required_argument, 0, 'P' },
+		{ "hwp-min", required_argument, 0, 'm' },
+		{ "hwp-max", required_argument, 0, 'M' },
+		{ "read", no_argument, 0, 'r' },
+		{ "turbo-enable", required_argument, 0, 't' },
+		{ "hwp-use-pkg", required_argument, 0, 'u' },
+		{ "version", no_argument, 0, 'v' },
+		{ "hwp-window", required_argument, 0, 'w' },
+		{ "soc-slider-balance", required_argument, 0, 'S' },
+		{ "soc-slider-offset", required_argument, 0, 'O' },
+		{ "platform-profile", required_argument, 0, 'F' },
+		{ 0, 0, 0, 0 }
 	};
 
 	progname = argv[0];
 
-	while ((opt = getopt_long_only(argc, argv, "+a:c:dD:E:e:f:m:M:rt:u:vw:",
-				long_options, &option_index)) != -1) {
+	while ((opt = getopt_long_only(argc, argv, "+a:c:dD:E:e:f:m:M:rt:u:vw::S:O:F:", long_options, &option_index)) != -1) {
 		switch (opt) {
 		case 'a':
 			parse_cmdline_all(optarg);
@@ -579,11 +672,26 @@ void cmdline(int argc, char **argv)
 		case 'D':
 			req_update.hwp_desired = parse_cmdline_hwp_desired(parse_optarg_string(optarg));
 			break;
+		case 'F':
+			if (strlen(optarg) >= sizeof(platform_profile))
+				errx(1, "--platform-profile: value too long");
+			if (!platform_profile_access(W_OK))
+				errx(1, "Can not update platform-profile in '%s'", PATH_PLATFORM_PROFILE);
+			strcpy(platform_profile, optarg);
+			update_platform_profile = 1;
+			break;
 		case 'm':
 			req_update.hwp_min = parse_cmdline_hwp_min(parse_optarg_string(optarg));
 			break;
 		case 'M':
 			req_update.hwp_max = parse_cmdline_hwp_max(parse_optarg_string(optarg));
+			break;
+		case 'O':
+			if (parse_cmdline_int(optarg, &soc_slider_offset))
+				errx(1, "--soc-slider-offset: invalid value");
+			if (!soc_slider_access(W_OK))
+				errx(1, "Unable to write SOC Slider Offset");
+			update_soc_slider_offset = 1;
 			break;
 		case 'p':
 			parse_cmdline_pkg(optarg);
@@ -593,6 +701,13 @@ void cmdline(int argc, char **argv)
 			break;
 		case 'r':
 			/* v1 used -r to specify read-only mode, now the default */
+			break;
+		case 'S':
+			if (parse_cmdline_int(optarg, &soc_slider_balance))
+				errx(1, "--soc-slider-balance: invalid value");
+			if (!soc_slider_access(W_OK))
+				errx(1, "Unable to write SOC Slider-Balance in '%s'", PATH_SOC_SLIDER_BALANCE);
+			update_soc_slider_balance = 1;
 			break;
 		case 't':
 			turbo_update_value = parse_cmdline_turbo(parse_optarg_string(optarg));
@@ -681,8 +796,7 @@ void err_on_hypervisor(void)
 	free(buffer);
 
 	if (hypervisor)
-		err(-1,
-		    "not supported on this virtual machine");
+		err(-1, "not supported on this virtual machine");
 }
 
 int get_msr(int cpu, int offset, unsigned long long *msr)
@@ -694,9 +808,7 @@ int get_msr(int cpu, int offset, unsigned long long *msr)
 	sprintf(pathname, use_android_msr_path ? "/dev/msr%d" : "/dev/cpu/%d/msr", cpu);
 	fd = open(pathname, O_RDONLY);
 	if (fd < 0)
-		err(-1, "%s open failed, try chown or chmod +r %s, or run as root",
-		   pathname, use_android_msr_path ? "/dev/msr*" : "/dev/cpu/*/msr");
-
+		err(-1, "%s open failed, try chown or chmod +r %s, or run as root", pathname, use_android_msr_path ? "/dev/msr*" : "/dev/cpu/*/msr");
 
 	retval = pread(fd, msr, sizeof(*msr), offset);
 	if (retval != sizeof(*msr)) {
@@ -720,8 +832,7 @@ int put_msr(int cpu, int offset, unsigned long long new_msr)
 	sprintf(pathname, use_android_msr_path ? "/dev/msr%d" : "/dev/cpu/%d/msr", cpu);
 	fd = open(pathname, O_RDWR);
 	if (fd < 0)
-		err(-1, "%s open failed, try chown or chmod +r %s, or run as root",
-		   pathname, use_android_msr_path ? "/dev/msr*" : "/dev/cpu/*/msr");
+		err(-1, "%s open failed, try chown or chmod +r %s, or run as root", pathname, use_android_msr_path ? "/dev/msr*" : "/dev/cpu/*/msr");
 
 	retval = pwrite(fd, &new_msr, sizeof(new_msr), offset);
 	if (retval != sizeof(new_msr))
@@ -753,7 +864,7 @@ static unsigned int read_sysfs(const char *path, char *buf, size_t buflen)
 	buf[numread] = '\0';
 	close(fd);
 
-	return (unsigned int) numread;
+	return (unsigned int)numread;
 }
 
 static unsigned int write_sysfs(const char *path, char *buf, size_t buflen)
@@ -767,14 +878,40 @@ static unsigned int write_sysfs(const char *path, char *buf, size_t buflen)
 
 	numwritten = write(fd, buf, buflen - 1);
 	if (numwritten < 1) {
-		perror("write failed\n");
+		buf[strcspn(buf, "\n")] = '\0';
+		warn("Write '%s' to '%s' failed", buf, path);
 		close(fd);
 		return -1;
 	}
 
 	close(fd);
 
-	return (unsigned int) numwritten;
+	return (unsigned int)numwritten;
+}
+
+static int sysfs_read_string(const char *path, char *buf, size_t buflen)
+{
+	unsigned int len;
+	size_t n;
+
+	len = read_sysfs(path, buf, buflen);
+	if (!len)
+		return -1;
+
+	n = strcspn(buf, "\n");
+	buf[n] = '\0';
+	return 0;
+}
+
+static int sysfs_write_string(const char *path, const char *buf)
+{
+	char tmp[128];
+	int len;
+
+	len = snprintf(tmp, sizeof(tmp), "%s\n", buf);
+	if (len < 0 || len >= (int)sizeof(tmp))
+		return -1;
+	return write_sysfs(path, tmp, (size_t)len + 1) ? 0 : -1;
 }
 
 void print_hwp_cap(int cpu, struct msr_hwp_cap *cap, char *str)
@@ -782,9 +919,9 @@ void print_hwp_cap(int cpu, struct msr_hwp_cap *cap, char *str)
 	if (cpu != -1)
 		printf("cpu%d: ", cpu);
 
-	printf("HWP_CAP: low %d eff %d guar %d high %d\n",
-		cap->lowest, cap->efficient, cap->guaranteed, cap->highest);
+	printf("HWP_CAP: low %d eff %d guar %d high %d\n", cap->lowest, cap->efficient, cap->guaranteed, cap->highest);
 }
+
 void read_hwp_cap(int cpu, struct msr_hwp_cap *cap, unsigned int msr_offset)
 {
 	unsigned long long msr;
@@ -806,9 +943,9 @@ void print_hwp_request(int cpu, struct msr_hwp_request *h, char *str)
 		printf("%s", str);
 
 	printf("HWP_REQ: min %d max %d des %d epp %d window 0x%x (%d*10^%dus) use_pkg %d\n",
-		h->hwp_min, h->hwp_max, h->hwp_desired, h->hwp_epp,
-		h->hwp_window, h->hwp_window & 0x7F, (h->hwp_window >> 7) & 0x7, h->hwp_use_pkg);
+	       h->hwp_min, h->hwp_max, h->hwp_desired, h->hwp_epp, h->hwp_window, h->hwp_window & 0x7F, (h->hwp_window >> 7) & 0x7, h->hwp_use_pkg);
 }
+
 void print_hwp_request_pkg(int pkg, struct msr_hwp_request *h, char *str)
 {
 	printf("pkg%d: ", pkg);
@@ -817,9 +954,9 @@ void print_hwp_request_pkg(int pkg, struct msr_hwp_request *h, char *str)
 		printf("%s", str);
 
 	printf("HWP_REQ_PKG: min %d max %d des %d epp %d window 0x%x (%d*10^%dus)\n",
-		h->hwp_min, h->hwp_max, h->hwp_desired, h->hwp_epp,
-		h->hwp_window, h->hwp_window & 0x7F, (h->hwp_window >> 7) & 0x7);
+	       h->hwp_min, h->hwp_max, h->hwp_desired, h->hwp_epp, h->hwp_window, h->hwp_window & 0x7F, (h->hwp_window >> 7) & 0x7);
 }
+
 void read_hwp_request_msr(int cpu, struct msr_hwp_request *hwp_req, unsigned int msr_offset)
 {
 	unsigned long long msr;
@@ -840,9 +977,7 @@ void write_hwp_request_msr(int cpu, struct msr_hwp_request *hwp_req, unsigned in
 
 	if (debug > 1)
 		printf("cpu%d: requesting min %d max %d des %d epp %d window 0x%0x use_pkg %d\n",
-			cpu, hwp_req->hwp_min, hwp_req->hwp_max,
-			hwp_req->hwp_desired, hwp_req->hwp_epp,
-			hwp_req->hwp_window, hwp_req->hwp_use_pkg);
+		       cpu, hwp_req->hwp_min, hwp_req->hwp_max, hwp_req->hwp_desired, hwp_req->hwp_epp, hwp_req->hwp_window, hwp_req->hwp_use_pkg);
 
 	msr |= HWP_MIN_PERF(ratio_2_msr_perf(hwp_req->hwp_min));
 	msr |= HWP_MAX_PERF(ratio_2_msr_perf(hwp_req->hwp_max));
@@ -900,6 +1035,58 @@ static int set_epb_sysfs(int cpu, int val)
 	return (int)val;
 }
 
+static void print_soc_slider(void)
+{
+	char buf[64];
+
+	if (!soc_slider_access(R_OK))
+		return;
+
+	if (sysfs_read_string(PATH_SOC_SLIDER_BALANCE, buf, sizeof(buf)) == 0)
+		printf("soc-slider-balance: %s\n", buf);
+
+	if (sysfs_read_string(PATH_SOC_SLIDER_OFFSET, buf, sizeof(buf)) == 0)
+		printf("soc-slider-offset: %s\n", buf);
+}
+
+static void print_platform_profile(void)
+{
+	char buf[64];
+
+	if (!platform_profile_access(R_OK))
+		return;
+
+	if (sysfs_read_string(PATH_PLATFORM_PROFILE_NAME, buf, sizeof(buf)) == 0)
+		printf("platform-profile-name: %s\n", buf);
+
+	if (sysfs_read_string(PATH_PLATFORM_PROFILE, buf, sizeof(buf)) == 0)
+		printf("platform-profile: %s\n", buf);
+}
+
+static int update_soc_slider(void)
+{
+	char tmp[32];
+
+	if (update_soc_slider_balance) {
+		snprintf(tmp, sizeof(tmp), "%d", soc_slider_balance);
+		if (sysfs_write_string(PATH_SOC_SLIDER_BALANCE, tmp))
+			err(1, "soc-slider-balance write failed");
+	}
+
+	if (update_soc_slider_offset) {
+		snprintf(tmp, sizeof(tmp), "%d", soc_slider_offset);
+		if (sysfs_write_string(PATH_SOC_SLIDER_OFFSET, tmp))
+			err(1, "soc-slider-offset write failed");
+	}
+
+	if (update_platform_profile) {
+		if (sysfs_write_string(PATH_PLATFORM_PROFILE, platform_profile))
+			err(1, "platform-profile write failed");
+	}
+
+	return 0;
+}
+
 int print_cpu_msrs(int cpu)
 {
 	struct msr_hwp_request req;
@@ -908,7 +1095,7 @@ int print_cpu_msrs(int cpu)
 
 	epb = get_epb_sysfs(cpu);
 	if (epb >= 0)
-		printf("cpu%d: EPB %u\n", cpu, (unsigned int) epb);
+		printf("cpu%d: EPB %u\n", cpu, (unsigned int)epb);
 
 	if (!has_hwp)
 		return 0;
@@ -936,17 +1123,13 @@ int print_pkg_msrs(int pkg)
 	if (has_hwp_notify) {
 		get_msr(first_cpu_in_pkg[pkg], MSR_HWP_INTERRUPT, &msr);
 		fprintf(stderr,
-		"pkg%d: MSR_HWP_INTERRUPT: 0x%08llx (Excursion_Min-%sabled, Guaranteed_Perf_Change-%sabled)\n",
-		pkg, msr,
-		((msr) & 0x2) ? "EN" : "Dis",
-		((msr) & 0x1) ? "EN" : "Dis");
+			"pkg%d: MSR_HWP_INTERRUPT: 0x%08llx (Excursion_Min-%sabled, Guaranteed_Perf_Change-%sabled)\n",
+			pkg, msr, ((msr) & 0x2) ? "EN" : "Dis", ((msr) & 0x1) ? "EN" : "Dis");
 	}
 	get_msr(first_cpu_in_pkg[pkg], MSR_HWP_STATUS, &msr);
 	fprintf(stderr,
 		"pkg%d: MSR_HWP_STATUS: 0x%08llx (%sExcursion_Min, %sGuaranteed_Perf_Change)\n",
-		pkg, msr,
-		((msr) & 0x4) ? "" : "No-",
-		((msr) & 0x1) ? "" : "No-");
+		pkg, msr, ((msr) & 0x4) ? "" : "No-", ((msr) & 0x1) ? "" : "No-");
 
 	return 0;
 }
@@ -960,6 +1143,7 @@ int ratio_2_sysfs_khz(int ratio)
 
 	return ratio * bclk_khz;
 }
+
 /*
  * If HWP is enabled and cpufreq sysfs attribtes are present,
  * then update via sysfs. The intel_pstate driver may modify (clip)
@@ -976,8 +1160,7 @@ void update_cpufreq_scaling_freq(int is_max, int cpu, unsigned int ratio)
 	int retval;
 	int khz;
 
-	sprintf(pathname, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_%s_freq",
-		cpu, is_max ? "max" : "min");
+	sprintf(pathname, "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_%s_freq", cpu, is_max ? "max" : "min");
 
 	fp = fopen(pathname, "w");
 	if (!fp) {
@@ -1029,19 +1212,16 @@ int verify_hwp_req_self_consistency(int cpu, struct msr_hwp_request *req)
 {
 	/* fail if min > max requested */
 	if (req->hwp_min > req->hwp_max) {
-		errx(1, "cpu%d: requested hwp-min %d > hwp_max %d",
-			cpu, req->hwp_min, req->hwp_max);
+		errx(1, "cpu%d: requested hwp-min %d > hwp_max %d", cpu, req->hwp_min, req->hwp_max);
 	}
 
 	/* fail if desired > max requestd */
 	if (req->hwp_desired && (req->hwp_desired > req->hwp_max)) {
-		errx(1, "cpu%d: requested hwp-desired %d > hwp_max %d",
-			cpu, req->hwp_desired, req->hwp_max);
+		errx(1, "cpu%d: requested hwp-desired %d > hwp_max %d", cpu, req->hwp_desired, req->hwp_max);
 	}
 	/* fail if desired < min requestd */
 	if (req->hwp_desired && (req->hwp_desired < req->hwp_min)) {
-		errx(1, "cpu%d: requested hwp-desired %d < requested hwp_min %d",
-			cpu, req->hwp_desired, req->hwp_min);
+		errx(1, "cpu%d: requested hwp-desired %d < requested hwp_min %d", cpu, req->hwp_desired, req->hwp_min);
 	}
 
 	return 0;
@@ -1051,39 +1231,30 @@ int check_hwp_request_v_hwp_capabilities(int cpu, struct msr_hwp_request *req, s
 {
 	if (update_hwp_max) {
 		if (req->hwp_max > cap->highest)
-			errx(1, "cpu%d: requested max %d > capabilities highest %d, use --force?",
-				cpu, req->hwp_max, cap->highest);
+			errx(1, "cpu%d: requested max %d > capabilities highest %d, use --force?", cpu, req->hwp_max, cap->highest);
 		if (req->hwp_max < cap->lowest)
-			errx(1, "cpu%d: requested max %d < capabilities lowest %d, use --force?",
-				cpu, req->hwp_max, cap->lowest);
+			errx(1, "cpu%d: requested max %d < capabilities lowest %d, use --force?", cpu, req->hwp_max, cap->lowest);
 	}
 
 	if (update_hwp_min) {
 		if (req->hwp_min > cap->highest)
-			errx(1, "cpu%d: requested min %d > capabilities highest %d, use --force?",
-				cpu, req->hwp_min, cap->highest);
+			errx(1, "cpu%d: requested min %d > capabilities highest %d, use --force?", cpu, req->hwp_min, cap->highest);
 		if (req->hwp_min < cap->lowest)
-			errx(1, "cpu%d: requested min %d < capabilities lowest %d, use --force?",
-				cpu, req->hwp_min, cap->lowest);
+			errx(1, "cpu%d: requested min %d < capabilities lowest %d, use --force?", cpu, req->hwp_min, cap->lowest);
 	}
 
 	if (update_hwp_min && update_hwp_max && (req->hwp_min > req->hwp_max))
-		errx(1, "cpu%d: requested min %d > requested max %d",
-			cpu, req->hwp_min, req->hwp_max);
+		errx(1, "cpu%d: requested min %d > requested max %d", cpu, req->hwp_min, req->hwp_max);
 
 	if (update_hwp_desired && req->hwp_desired) {
 		if (req->hwp_desired > req->hwp_max)
-			errx(1, "cpu%d: requested desired %d > requested max %d, use --force?",
-				cpu, req->hwp_desired, req->hwp_max);
+			errx(1, "cpu%d: requested desired %d > requested max %d, use --force?", cpu, req->hwp_desired, req->hwp_max);
 		if (req->hwp_desired < req->hwp_min)
-			errx(1, "cpu%d: requested desired %d < requested min %d, use --force?",
-				cpu, req->hwp_desired, req->hwp_min);
+			errx(1, "cpu%d: requested desired %d < requested min %d, use --force?", cpu, req->hwp_desired, req->hwp_min);
 		if (req->hwp_desired < cap->lowest)
-			errx(1, "cpu%d: requested desired %d < capabilities lowest %d, use --force?",
-				cpu, req->hwp_desired, cap->lowest);
+			errx(1, "cpu%d: requested desired %d < capabilities lowest %d, use --force?", cpu, req->hwp_desired, cap->lowest);
 		if (req->hwp_desired > cap->highest)
-			errx(1, "cpu%d: requested desired %d > capabilities highest %d, use --force?",
-				cpu, req->hwp_desired, cap->highest);
+			errx(1, "cpu%d: requested desired %d > capabilities highest %d, use --force?", cpu, req->hwp_desired, cap->highest);
 	}
 
 	return 0;
@@ -1134,6 +1305,7 @@ int update_hwp_request_msr(int cpu)
 	}
 	return 0;
 }
+
 int update_hwp_request_pkg_msr(int pkg)
 {
 	struct msr_hwp_request req;
@@ -1205,8 +1377,7 @@ int update_cpu_epb_sysfs(int cpu)
 	set_epb_sysfs(cpu, new_epb);
 
 	if (verbose)
-		printf("cpu%d: ENERGY_PERF_BIAS old: %d new: %d\n",
-			cpu, epb, (unsigned int) new_epb);
+		printf("cpu%d: ENERGY_PERF_BIAS old: %d new: %d\n", cpu, epb, (unsigned int)new_epb);
 
 	return 0;
 }
@@ -1222,7 +1393,7 @@ int update_cpu_msrs(int cpu)
 
 		turbo_is_present_and_disabled = ((msr & MSR_IA32_MISC_ENABLE_TURBO_DISABLE) != 0);
 
-		if (turbo_update_value == 1)	{
+		if (turbo_update_value == 1) {
 			if (turbo_is_present_and_disabled) {
 				msr &= ~MSR_IA32_MISC_ENABLE_TURBO_DISABLE;
 				put_msr(cpu, MSR_IA32_MISC_ENABLE, msr);
@@ -1291,6 +1462,7 @@ int set_max_cpu_pkg_num(int cpu)
 
 	return 0;
 }
+
 int mark_cpu_present(int cpu)
 {
 	CPU_SET_S(cpu, cpu_setsize, cpu_present_set);
@@ -1301,7 +1473,7 @@ int mark_cpu_present(int cpu)
  * run func(cpu) on every cpu in /proc/stat
  * return max_cpu number
  */
-int for_all_proc_cpus(int (func)(int))
+int for_all_proc_cpus(int (func) (int))
 {
 	FILE *fp;
 	int cpu_num;
@@ -1328,7 +1500,7 @@ int for_all_proc_cpus(int (func)(int))
 	return 0;
 }
 
-void for_all_cpus_in_set(size_t set_size, cpu_set_t *cpu_set, int (func)(int))
+void for_all_cpus_in_set(size_t set_size, cpu_set_t *cpu_set, int (func) (int))
 {
 	int cpu_num;
 
@@ -1336,7 +1508,8 @@ void for_all_cpus_in_set(size_t set_size, cpu_set_t *cpu_set, int (func)(int))
 		if (CPU_ISSET_S(cpu_num, set_size, cpu_set))
 			func(cpu_num);
 }
-int for_all_cpus_in_set_and(size_t set_size, cpu_set_t *cpu_set, int (func)(int))
+
+int for_all_cpus_in_set_and(size_t set_size, cpu_set_t *cpu_set, int (func) (int))
 {
 	int cpu_num;
 	int retval = 1;
@@ -1385,7 +1558,7 @@ void verify_hwp_is_enabled(void)
 {
 	int retval;
 
-	if (!has_hwp)	/* set in early_cpuid() */
+	if (!has_hwp)		/* set in early_cpuid() */
 		return;
 
 	retval = for_all_cpus_in_set_and(cpu_setsize, cpu_selected_set, is_hwp_enabled_on_cpu);
@@ -1402,21 +1575,18 @@ int req_update_bounds_check(void)
 		return 0;
 
 	/* fail if min > max requested */
-	if ((update_hwp_max && update_hwp_min) &&
-	    (req_update.hwp_min > req_update.hwp_max)) {
+	if ((update_hwp_max && update_hwp_min) && (req_update.hwp_min > req_update.hwp_max)) {
 		printf("hwp-min %d > hwp_max %d\n", req_update.hwp_min, req_update.hwp_max);
 		return -EINVAL;
 	}
 
 	/* fail if desired > max requestd */
-	if (req_update.hwp_desired && update_hwp_max &&
-	    (req_update.hwp_desired > req_update.hwp_max)) {
+	if (req_update.hwp_desired && update_hwp_max && (req_update.hwp_desired > req_update.hwp_max)) {
 		printf("hwp-desired cannot be greater than hwp_max\n");
 		return -EINVAL;
 	}
 	/* fail if desired < min requestd */
-	if (req_update.hwp_desired && update_hwp_min &&
-	    (req_update.hwp_desired < req_update.hwp_min)) {
+	if (req_update.hwp_desired && update_hwp_min && (req_update.hwp_desired < req_update.hwp_min)) {
 		printf("hwp-desired cannot be less than hwp_min\n");
 		return -EINVAL;
 	}
@@ -1459,9 +1629,7 @@ void probe_dev_msr(void)
 	}
 }
 
-static void get_cpuid_or_exit(unsigned int leaf,
-			     unsigned int *eax, unsigned int *ebx,
-			     unsigned int *ecx, unsigned int *edx)
+static void get_cpuid_or_exit(unsigned int leaf, unsigned int *eax, unsigned int *ebx, unsigned int *ecx, unsigned int *edx)
 {
 	if (!__get_cpuid(leaf, eax, ebx, ecx, edx))
 		errx(1, "Processor not supported\n");
@@ -1515,8 +1683,7 @@ void parse_cpuid(void)
 		genuine_intel = 1;
 
 	if (debug)
-		fprintf(stderr, "CPUID(0): %.4s%.4s%.4s ",
-			(char *)&ebx, (char *)&edx, (char *)&ecx);
+		fprintf(stderr, "CPUID(0): %.4s%.4s%.4s ", (char *)&ebx, (char *)&edx, (char *)&ecx);
 
 	get_cpuid_or_exit(1, &fms, &ebx, &ecx, &edx);
 	family = (fms >> 8) & 0xf;
@@ -1526,22 +1693,17 @@ void parse_cpuid(void)
 		model += ((fms >> 16) & 0xf) << 4;
 
 	if (debug) {
-		fprintf(stderr, "%d CPUID levels; family:model:stepping 0x%x:%x:%x (%d:%d:%d)\n",
-			max_level, family, model, stepping, family, model, stepping);
+		fprintf(stderr, "%d CPUID levels; family:model:stepping 0x%x:%x:%x (%d:%d:%d)\n", max_level, family, model, stepping, family, model, stepping);
 		fprintf(stderr, "CPUID(1): %s %s %s %s %s %s %s %s\n",
 			ecx & (1 << 0) ? "SSE3" : "-",
 			ecx & (1 << 3) ? "MONITOR" : "-",
 			ecx & (1 << 7) ? "EIST" : "-",
 			ecx & (1 << 8) ? "TM2" : "-",
-			edx & (1 << 4) ? "TSC" : "-",
-			edx & (1 << 5) ? "MSR" : "-",
-			edx & (1 << 22) ? "ACPI-TM" : "-",
-			edx & (1 << 29) ? "TM" : "-");
+			edx & (1 << 4) ? "TSC" : "-", edx & (1 << 5) ? "MSR" : "-", edx & (1 << 22) ? "ACPI-TM" : "-", edx & (1 << 29) ? "TM" : "-");
 	}
 
 	if (!(edx & (1 << 5)))
 		errx(1, "CPUID: no MSR");
-
 
 	get_cpuid_or_exit(0x6, &eax, &ebx, &ecx, &edx);
 	/* turbo_is_enabled already set */
@@ -1562,12 +1724,9 @@ void parse_cpuid(void)
 			turbo_is_enabled ? "" : "No-",
 			has_hwp ? "" : "No-",
 			has_hwp_notify ? "" : "No-",
-			has_hwp_activity_window ? "" : "No-",
-			has_hwp_epp ? "" : "No-",
-			has_hwp_request_pkg ? "" : "No-",
-			has_epb ? "" : "No-");
+			has_hwp_activity_window ? "" : "No-", has_hwp_epp ? "" : "No-", has_hwp_request_pkg ? "" : "No-", has_epb ? "" : "No-");
 
-	return;	/* success */
+	return;			/* success */
 }
 
 int main(int argc, char **argv)
@@ -1577,7 +1736,7 @@ int main(int argc, char **argv)
 	probe_dev_msr();
 	init_data_structures();
 
-	early_cpuid();	/* initial cpuid parse before cmdline */
+	early_cpuid();		/* initial cpuid parse before cmdline */
 
 	cmdline(argc, argv);
 
@@ -1586,7 +1745,7 @@ int main(int argc, char **argv)
 
 	parse_cpuid();
 
-	 /* If CPU-set and PKG-set are not initialized, default to all CPUs */
+	/* If CPU-set and PKG-set are not initialized, default to all CPUs */
 	if ((cpu_selected_set == 0) && (pkg_selected_set == 0))
 		cpu_selected_set = cpu_present_set;
 
@@ -1604,9 +1763,12 @@ int main(int argc, char **argv)
 		return -EINVAL;
 
 	/* display information only, no updates to settings */
-	if (!update_epb && !update_turbo && !hwp_update_enabled()) {
+	if (!update_epb && !update_turbo && !hwp_update_enabled() && !update_soc_slider_balance && !update_soc_slider_offset && !update_platform_profile) {
 		if (cpu_selected_set)
 			for_all_cpus_in_set(cpu_setsize, cpu_selected_set, print_cpu_msrs);
+
+		print_soc_slider();
+		print_platform_profile();
 
 		if (has_hwp_request_pkg) {
 			if (pkg_selected_set == 0)
@@ -1627,6 +1789,9 @@ int main(int argc, char **argv)
 
 	} else if (pkg_selected_set)
 		for_packages(pkg_selected_set, update_hwp_request_pkg_msr);
+
+	if (update_soc_slider_balance || update_soc_slider_offset || update_platform_profile)
+		update_soc_slider();
 
 	return 0;
 }

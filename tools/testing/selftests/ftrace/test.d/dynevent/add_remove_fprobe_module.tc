@@ -1,0 +1,87 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0
+# description: Generic dynamic event - add/remove fprobe events on module
+# requires: dynamic_events "f[:[<group>/][<event>]] <func-name>[%return] [<args>]":README enabled_functions
+
+rmmod trace-events-sample ||:
+if ! modprobe trace-events-sample ; then
+  echo "No trace-events sample module - please make CONFIG_SAMPLE_TRACE_EVENTS=m"
+  exit_unresolved;
+fi
+trap "lsmod | grep -q trace_events_sample && rmmod trace-events-sample" EXIT
+
+echo 0 > events/enable
+echo > dynamic_events
+
+FUNC1='foo_bar*'
+FUNC2='vfs_read'
+
+:;: "Add an event on the test module" ;:
+echo "f:test1 $FUNC1" >> dynamic_events
+echo 1 > events/fprobes/test1/enable
+
+:;: "Ensure it is enabled" ;:
+funcs=`cat enabled_functions | wc -l`
+test $funcs -ne 0
+
+:;: "Check the enabled_functions is cleared on unloading" ;:
+rmmod trace-events-sample
+funcs=`cat enabled_functions | wc -l`
+test $funcs -eq 0
+
+:;: "Check it is kept clean" ;:
+modprobe trace-events-sample
+echo 1 > events/fprobes/test1/enable || echo "OK"
+funcs=`cat enabled_functions | wc -l`
+test $funcs -eq 0
+
+:;: "Add another event not on the test module" ;:
+echo "f:test2 $FUNC2" >> dynamic_events
+echo 1 > events/fprobes/test2/enable
+
+:;: "Ensure it is enabled" ;:
+ofuncs=`cat enabled_functions | wc -l`
+test $ofuncs -ne 0
+
+:;: "Disable and remove the first event"
+echo 0 > events/fprobes/test1/enable
+echo "-:fprobes/test1" >> dynamic_events
+funcs=`cat enabled_functions | wc -l`
+test $ofuncs -eq $funcs
+
+:;: "Disable and remove other events" ;:
+echo 0 > events/fprobes/enable
+echo > dynamic_events
+funcs=`cat enabled_functions | wc -l`
+test $funcs -eq 0
+
+rmmod trace-events-sample
+
+:;: "Add events on kernel and test module" ;:
+modprobe trace-events-sample
+echo "f:test1 $FUNC1" >> dynamic_events
+echo 1 > events/fprobes/test1/enable
+echo "f:test2 $FUNC2" >> dynamic_events
+echo 1 > events/fprobes/test2/enable
+ofuncs=`cat enabled_functions | wc -l`
+test $ofuncs -ne 0
+
+:;: "Unload module (ftrace entry should be removed)" ;:
+rmmod trace-events-sample
+funcs=`cat enabled_functions | wc -l`
+test $funcs -ne 0
+test $ofuncs -ne $funcs
+
+:;: "Disable and remove core-kernel fprobe event" ;:
+echo 0 > events/fprobes/test2/enable
+echo "-:fprobes/test2" >> dynamic_events
+
+:;: "Ensure ftrace is disabled." ;:
+funcs=`cat enabled_functions | wc -l`
+test $funcs -eq 0
+
+echo 0 > events/fprobes/enable
+echo > dynamic_events
+
+trap "" EXIT
+clear_trace

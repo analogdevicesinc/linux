@@ -28,6 +28,7 @@ enum {
 	LINE6_PODHD500X,
 	LINE6_PODHDDESKTOP,
 	LINE6_PODHDPROX,
+	LINE6_PODHDPRO,
 };
 
 struct usb_line6_podhd {
@@ -442,6 +443,7 @@ static const struct usb_device_id podhd_id_table[] = {
 	{ LINE6_IF_NUM(0x4159, 0), .driver_info = LINE6_PODHD500X },
 	{ LINE6_IF_NUM(0x4156, 0), .driver_info = LINE6_PODHDDESKTOP },
 	{ LINE6_IF_NUM(0x415A, 0), .driver_info = LINE6_PODHDPROX },
+	{ LINE6_IF_NUM(0x4157, 0), .driver_info = LINE6_PODHDPRO },
 	{}
 };
 
@@ -535,6 +537,18 @@ static const struct line6_properties podhd_properties_table[] = {
 		.name = "POD HD Pro X",
 		.capabilities	= LINE6_CAP_CONTROL | LINE6_CAP_CONTROL_INFO
 				| LINE6_CAP_PCM | LINE6_CAP_HWMON | LINE6_CAP_IN_NEEDS_OUT,
+		.altsetting = 1,
+		.ctrl_if = 1,
+		.ep_ctrl_r = 0x81,
+		.ep_ctrl_w = 0x01,
+		.ep_audio_r = 0x86,
+		.ep_audio_w = 0x02,
+	},
+	[LINE6_PODHDPRO] = {
+		.id = "PODHDPRO",
+		.name = "POD HD PRO",
+		.capabilities	= LINE6_CAP_PCM | LINE6_CAP_CONTROL
+				| LINE6_CAP_HWMON | LINE6_CAP_HWMON_CTL | LINE6_CAP_IN_NEEDS_OUT,
 		.altsetting = 1,
 		.ctrl_if = 1,
 		.ep_ctrl_r = 0x81,

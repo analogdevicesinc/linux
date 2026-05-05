@@ -239,3 +239,50 @@ int hv_call_create_vp(int node, u64 partition_id, u32 vp_index, u32 flags)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(hv_call_create_vp);
+
+int hv_call_notify_all_processors_started(void)
+{
+	struct hv_input_notify_partition_event *input;
+	u64 status;
+	unsigned long irq_flags;
+	int ret = 0;
+
+	local_irq_save(irq_flags);
+	input = *this_cpu_ptr(hyperv_pcpu_input_arg);
+	memset(input, 0, sizeof(*input));
+	input->event = HV_PARTITION_ALL_LOGICAL_PROCESSORS_STARTED;
+	status = hv_do_hypercall(HVCALL_NOTIFY_PARTITION_EVENT,
+				 input, NULL);
+	local_irq_restore(irq_flags);
+
+	if (!hv_result_success(status)) {
+		hv_status_err(status, "\n");
+		ret = hv_result_to_errno(status);
+	}
+	return ret;
+}
+
+bool hv_lp_exists(u32 lp_index)
+{
+	struct hv_input_get_logical_processor_run_time *input;
+	struct hv_output_get_logical_processor_run_time *output;
+	unsigned long flags;
+	u64 status;
+
+	local_irq_save(flags);
+	input = *this_cpu_ptr(hyperv_pcpu_input_arg);
+	output = *this_cpu_ptr(hyperv_pcpu_output_arg);
+
+	input->lp_index = lp_index;
+	status = hv_do_hypercall(HVCALL_GET_LOGICAL_PROCESSOR_RUN_TIME,
+				 input, output);
+	local_irq_restore(flags);
+
+	if (!hv_result_success(status) &&
+	    hv_result(status) != HV_STATUS_INVALID_LP_INDEX) {
+		hv_status_err(status, "\n");
+		BUG();
+	}
+
+	return hv_result_success(status);
+}

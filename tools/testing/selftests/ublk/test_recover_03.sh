@@ -39,5 +39,5 @@ ublk_run_quiesce_recover -t loop -q 2 -r 1 -i 1 "${UBLK_BACKFILES[0]}" &
 ublk_run_quiesce_recover -t stripe -q 2 -r 1 -i 1 "${UBLK_BACKFILES[1]}" "${UBLK_BACKFILES[2]}" &
 wait
 
-_cleanup_test "quiesce"
+_cleanup_test
 _show_result $TID $ERR_CODE

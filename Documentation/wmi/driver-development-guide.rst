@@ -71,7 +71,7 @@ to matching WMI devices using a struct wmi_device_id table:
         .remove = foo_remove,         /* optional, devres is preferred */
         .shutdown = foo_shutdown,     /* optional, called during shutdown */
         .notify_new = foo_notify,     /* optional, for event handling */
-        .no_notify_data = true,       /* optional, enables events containing no additional data */
+        .min_event_size = X,          /* optional, simplifies event payload size verification */
         .no_singleton = true,         /* required for new WMI drivers */
   };
   module_wmi_driver(foo_driver);
@@ -106,7 +106,8 @@ WMI method drivers
 
 WMI drivers can call WMI device methods using wmidev_invoke_method(). For each WMI method
 invocation the WMI driver needs to provide the instance number and the method ID, as well as
-a buffer with the method arguments and optionally a buffer for the results.
+a buffer with the method arguments and optionally a buffer for the results. When calling WMI
+methods that do not return any values, wmidev_invoke_procedure() should be used instead.
 
 The layout of said buffers is device-specific and described by the Binary MOF data associated
 with a given WMI device. Said Binary MOF data also describes the method ID of a given WMI method
@@ -141,8 +142,10 @@ right before and after calling its remove() or shutdown() callback.
 However WMI driver developers should be aware that multiple WMI events can be received concurrently,
 so any locking (if necessary) needs to be provided by the WMI driver itself.
 
-In order to be able to receive WMI events containing no additional event data,
-the ``no_notify_data`` flag inside struct wmi_driver should be set to ``true``.
+The WMI driver can furthermore instruct the WMI driver core to automatically reject WMI events
+that contain a undersized event payload by populating the ``min_event_size`` field inside
+struct wmi_driver. Setting this field to 0 will thus enable the WMI driver to receive WMI events
+without any event payload.
 
 Take a look at drivers/platform/x86/xiaomi-wmi.c for an example WMI event driver.
 

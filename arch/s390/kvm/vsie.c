@@ -125,8 +125,8 @@ static int prepare_cpuflags(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page)
 	struct kvm_s390_sie_block *scb_o = vsie_page->scb_o;
 	int newflags, cpuflags = atomic_read(&scb_o->cpuflags);
 
-	/* we don't allow ESA/390 guests */
-	if (!(cpuflags & CPUSTAT_ZARCH))
+	/* we don't allow ESA/390 guests unless explicitly enabled */
+	if (!(cpuflags & CPUSTAT_ZARCH) && !vcpu->kvm->arch.allow_vsie_esamode)
 		return set_validity_icpt(scb_s, 0x0001U);
 
 	if (cpuflags & (CPUSTAT_RRF | CPUSTAT_MCDS))
@@ -135,7 +135,9 @@ static int prepare_cpuflags(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page)
 		return set_validity_icpt(scb_s, 0x0007U);
 
 	/* intervention requests will be set later */
-	newflags = CPUSTAT_ZARCH;
+	newflags = 0;
+	if (cpuflags & CPUSTAT_ZARCH)
+		newflags = CPUSTAT_ZARCH;
 	if (cpuflags & CPUSTAT_GED && test_kvm_facility(vcpu->kvm, 8))
 		newflags |= CPUSTAT_GED;
 	if (cpuflags & CPUSTAT_GED2 && test_kvm_facility(vcpu->kvm, 78)) {
@@ -385,6 +387,17 @@ end:
 	return 0;
 }
 
+static void shadow_esa(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page)
+{
+	struct kvm_s390_sie_block *scb_s = &vsie_page->scb_s;
+
+	/* Ensure these bits are indeed turned off */
+	scb_s->eca &= ~ECA_VX;
+	scb_s->ecb &= ~(ECB_GS | ECB_TE);
+	scb_s->ecb3 &= ~ECB3_RI;
+	scb_s->ecd &= ~ECD_HOSTREGMGMT;
+}
+
 /* shadow (round up/down) the ibc to avoid validity icpt */
 static void prepare_ibc(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page)
 {
@@ -466,7 +479,7 @@ static int shadow_scb(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page)
 	struct kvm_s390_sie_block *scb_s = &vsie_page->scb_s;
 	/* READ_ONCE does not work on bitfields - use a temporary variable */
 	const uint32_t __new_prefix = scb_o->prefix;
-	const uint32_t new_prefix = READ_ONCE(__new_prefix);
+	uint32_t new_prefix = READ_ONCE(__new_prefix);
 	const bool wants_tx = READ_ONCE(scb_o->ecb) & ECB_TE;
 	bool had_tx = scb_s->ecb & ECB_TE;
 	unsigned long new_mso = 0;
@@ -513,6 +526,11 @@ static int shadow_scb(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page)
 		scb_s->ictl |= ICTL_ISKE | ICTL_SSKE | ICTL_RRBE;
 
 	scb_s->icpua = scb_o->icpua;
+
+	if (!(atomic_read(&scb_s->cpuflags) & CPUSTAT_ZARCH))
+		new_prefix &= GUEST_PREFIX_MASK_ESA;
+	else
+		new_prefix &= GUEST_PREFIX_MASK_ZARCH;
 
 	if (!(atomic_read(&scb_s->cpuflags) & CPUSTAT_SM))
 		new_mso = READ_ONCE(scb_o->mso) & 0xfffffffffff00000UL;
@@ -587,6 +605,9 @@ static int shadow_scb(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page)
 
 	scb_s->hpid = HPID_VSIE;
 	scb_s->cpnc = scb_o->cpnc;
+
+	if (!(atomic_read(&scb_s->cpuflags) & CPUSTAT_ZARCH))
+		shadow_esa(vcpu, vsie_page);
 
 	prepare_ibc(vcpu, vsie_page);
 	rc = shadow_crycb(vcpu, vsie_page);
@@ -1122,6 +1143,7 @@ static int do_vsie_run(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page, struc
 {
 	struct kvm_s390_sie_block *scb_s = &vsie_page->scb_s;
 	struct kvm_s390_sie_block *scb_o = vsie_page->scb_o;
+	unsigned long sie_return = SIE64_RETURN_NORMAL;
 	int guest_bp_isolation;
 	int rc = 0;
 
@@ -1163,7 +1185,7 @@ xfer_to_guest_mode_check:
 			goto xfer_to_guest_mode_check;
 		}
 		guest_timing_enter_irqoff();
-		rc = kvm_s390_enter_exit_sie(scb_s, vcpu->run->s.regs.gprs, sg->asce.val);
+		sie_return = kvm_s390_enter_exit_sie(scb_s, vcpu->run->s.regs.gprs, sg->asce.val);
 		guest_timing_exit_irqoff();
 		local_irq_enable();
 	}
@@ -1178,11 +1200,12 @@ skip_sie:
 
 	kvm_vcpu_srcu_read_lock(vcpu);
 
-	if (rc == -EINTR) {
-		VCPU_EVENT(vcpu, 3, "%s", "machine check");
+	if (sie_return == SIE64_RETURN_MCCK) {
 		kvm_s390_reinject_machine_check(vcpu, &vsie_page->mcck_info);
 		return 0;
 	}
+
+	WARN_ON_ONCE(sie_return != SIE64_RETURN_NORMAL);
 
 	if (rc > 0)
 		rc = 0; /* we could still have an icpt */
@@ -1326,7 +1349,7 @@ static void unregister_shadow_scb(struct kvm_vcpu *vcpu)
 static int vsie_run(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page)
 {
 	struct kvm_s390_sie_block *scb_s = &vsie_page->scb_s;
-	struct gmap *sg;
+	struct gmap *sg = NULL;
 	int rc = 0;
 
 	while (1) {
@@ -1366,6 +1389,8 @@ static int vsie_run(struct kvm_vcpu *vcpu, struct vsie_page *vsie_page)
 			sg = gmap_put(sg);
 		cond_resched();
 	}
+	if (sg)
+		sg = gmap_put(sg);
 
 	if (rc == -EFAULT) {
 		/*

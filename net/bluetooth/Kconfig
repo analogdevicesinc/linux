@@ -33,7 +33,6 @@ menuconfig BT
 	     HCI Device drivers (Interface to the hardware)
 	     RFCOMM Module (RFCOMM Protocol)  
 	     BNEP Module (Bluetooth Network Encapsulation Protocol)
-	     CMTP Module (CAPI Message Transport Protocol)
 	     HIDP Module (Human Interface Device Protocol)
 
 	  Say Y here to compile Bluetooth support into the kernel or say M to
@@ -57,8 +56,6 @@ config BT_BREDR
 source "net/bluetooth/rfcomm/Kconfig"
 
 source "net/bluetooth/bnep/Kconfig"
-
-source "net/bluetooth/cmtp/Kconfig"
 
 source "net/bluetooth/hidp/Kconfig"
 

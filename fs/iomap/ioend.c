@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2016-2025 Christoph Hellwig.
  */
+#include <linux/bio-integrity.h>
 #include <linux/iomap.h>
 #include <linux/list_sort.h>
 #include <linux/pagemap.h>
@@ -37,7 +38,7 @@ EXPORT_SYMBOL_GPL(iomap_init_ioend);
  * state, release holds on bios, and finally free up memory.  Do not use the
  * ioend after this.
  */
-static u32 iomap_finish_ioend_buffered(struct iomap_ioend *ioend)
+static u32 iomap_finish_ioend_buffered_write(struct iomap_ioend *ioend)
 {
 	struct inode *inode = ioend->io_inode;
 	struct bio *bio = &ioend->io_bio;
@@ -48,7 +49,7 @@ static u32 iomap_finish_ioend_buffered(struct iomap_ioend *ioend)
 		mapping_set_error(inode->i_mapping, ioend->io_error);
 		if (!bio_flagged(bio, BIO_QUIET)) {
 			pr_err_ratelimited(
-"%s: writeback error on inode %lu, offset %lld, sector %llu",
+"%s: writeback error on inode %llu, offset %lld, sector %llu",
 				inode->i_sb->s_id, inode->i_ino,
 				ioend->io_offset, ioend->io_sector);
 		}
@@ -65,8 +66,51 @@ static u32 iomap_finish_ioend_buffered(struct iomap_ioend *ioend)
 		folio_count++;
 	}
 
+	if (bio_integrity(bio))
+		fs_bio_integrity_free(bio);
 	bio_put(bio);	/* frees the ioend */
 	return folio_count;
+}
+
+static DEFINE_SPINLOCK(failed_ioend_lock);
+static LIST_HEAD(failed_ioend_list);
+
+static void
+iomap_fail_ioends(
+	struct work_struct	*work)
+{
+	struct iomap_ioend	*ioend;
+	struct list_head	tmp;
+	unsigned long		flags;
+
+	spin_lock_irqsave(&failed_ioend_lock, flags);
+	list_replace_init(&failed_ioend_list, &tmp);
+	spin_unlock_irqrestore(&failed_ioend_lock, flags);
+
+	while ((ioend = list_first_entry_or_null(&tmp, struct iomap_ioend,
+			io_list))) {
+		list_del_init(&ioend->io_list);
+		iomap_finish_ioend_buffered_write(ioend);
+		cond_resched();
+	}
+}
+
+static DECLARE_WORK(failed_ioend_work, iomap_fail_ioends);
+
+static void iomap_fail_ioend_buffered(struct iomap_ioend *ioend)
+{
+	unsigned long flags;
+
+	/*
+	 * Bounce I/O errors to a workqueue to avoid nested i_lock acquisitions
+	 * in the fserror code.  The caller no longer owns the ioend reference
+	 * after the spinlock drops.
+	 */
+	spin_lock_irqsave(&failed_ioend_lock, flags);
+	if (list_empty(&failed_ioend_list))
+		WARN_ON_ONCE(!schedule_work(&failed_ioend_work));
+	list_add_tail(&ioend->io_list, &failed_ioend_list);
+	spin_unlock_irqrestore(&failed_ioend_lock, flags);
 }
 
 static void ioend_writeback_end_bio(struct bio *bio)
@@ -74,7 +118,12 @@ static void ioend_writeback_end_bio(struct bio *bio)
 	struct iomap_ioend *ioend = iomap_ioend_from_bio(bio);
 
 	ioend->io_error = blk_status_to_errno(bio->bi_status);
-	iomap_finish_ioend_buffered(ioend);
+	if (ioend->io_error) {
+		iomap_fail_ioend_buffered(ioend);
+		return;
+	}
+
+	iomap_finish_ioend_buffered_write(ioend);
 }
 
 /*
@@ -98,6 +147,8 @@ int iomap_ioend_writeback_submit(struct iomap_writepage_ctx *wpc, int error)
 		return error;
 	}
 
+	if (wpc->iomap.flags & IOMAP_F_INTEGRITY)
+		fs_bio_integrity_generate(&ioend->io_bio);
 	submit_bio(&ioend->io_bio);
 	return 0;
 }
@@ -119,10 +170,13 @@ static struct iomap_ioend *iomap_alloc_ioend(struct iomap_writepage_ctx *wpc,
 }
 
 static bool iomap_can_add_to_ioend(struct iomap_writepage_ctx *wpc, loff_t pos,
-		u16 ioend_flags)
+		unsigned int map_len, u16 ioend_flags)
 {
 	struct iomap_ioend *ioend = wpc->wb_ctx;
 
+	if (ioend->io_bio.bi_iter.bi_size >
+	    iomap_max_bio_size(&wpc->iomap) - map_len)
+		return false;
 	if (ioend_flags & IOMAP_IOEND_BOUNDARY)
 		return false;
 	if ((ioend_flags & IOMAP_IOEND_NOMERGE_FLAGS) !=
@@ -169,17 +223,18 @@ ssize_t iomap_add_to_ioend(struct iomap_writepage_ctx *wpc, struct folio *folio,
 	WARN_ON_ONCE(!folio->private && map_len < dirty_len);
 
 	switch (wpc->iomap.type) {
-	case IOMAP_INLINE:
-		WARN_ON_ONCE(1);
-		return -EIO;
+	case IOMAP_UNWRITTEN:
+		ioend_flags |= IOMAP_IOEND_UNWRITTEN;
+		break;
+	case IOMAP_MAPPED:
+		break;
 	case IOMAP_HOLE:
 		return map_len;
 	default:
-		break;
+		WARN_ON_ONCE(1);
+		return -EIO;
 	}
 
-	if (wpc->iomap.type == IOMAP_UNWRITTEN)
-		ioend_flags |= IOMAP_IOEND_UNWRITTEN;
 	if (wpc->iomap.flags & IOMAP_F_SHARED)
 		ioend_flags |= IOMAP_IOEND_SHARED;
 	if (folio_test_dropbehind(folio))
@@ -187,7 +242,7 @@ ssize_t iomap_add_to_ioend(struct iomap_writepage_ctx *wpc, struct folio *folio,
 	if (pos == wpc->iomap.offset && (wpc->iomap.flags & IOMAP_F_BOUNDARY))
 		ioend_flags |= IOMAP_IOEND_BOUNDARY;
 
-	if (!ioend || !iomap_can_add_to_ioend(wpc, pos, ioend_flags)) {
+	if (!ioend || !iomap_can_add_to_ioend(wpc, pos, map_len, ioend_flags)) {
 new_ioend:
 		if (ioend) {
 			error = wpc->ops->writeback_submit(wpc, 0);
@@ -264,9 +319,19 @@ static u32 iomap_finish_ioend(struct iomap_ioend *ioend, int error)
 
 	if (!atomic_dec_and_test(&ioend->io_remaining))
 		return 0;
+
+	if (!ioend->io_error &&
+	    bio_integrity(&ioend->io_bio) &&
+	    bio_op(&ioend->io_bio) == REQ_OP_READ) {
+		ioend->io_error = fs_bio_integrity_verify(&ioend->io_bio,
+			ioend->io_sector, ioend->io_size);
+	}
+
 	if (ioend->io_flags & IOMAP_IOEND_DIRECT)
 		return iomap_finish_ioend_direct(ioend);
-	return iomap_finish_ioend_buffered(ioend);
+	if (bio_op(&ioend->io_bio) == REQ_OP_READ)
+		return iomap_finish_ioend_buffered_read(ioend);
+	return iomap_finish_ioend_buffered_write(ioend);
 }
 
 /*

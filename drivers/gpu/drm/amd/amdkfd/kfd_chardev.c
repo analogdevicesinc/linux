@@ -776,6 +776,9 @@ static int kfd_ioctl_get_process_apertures_new(struct file *filp,
 		goto out_unlock;
 	}
 
+	if (args->num_of_nodes > kfd_topology_get_num_devices())
+		return -EINVAL;
+
 	/* Fill in process-aperture information for all available
 	 * nodes, but not more than args->num_of_nodes as that is
 	 * the amount of memory allocated by user
@@ -3170,11 +3173,11 @@ static int kfd_ioctl_create_process(struct file *filep, struct kfd_process *p, v
 	struct kfd_process *process;
 	int ret;
 
-	/* Each FD owns only one kfd_process */
-	if (p->context_id != KFD_CONTEXT_ID_PRIMARY)
+	if (!filep->private_data || !p)
 		return -EINVAL;
 
-	if (!filep->private_data || !p)
+	/* Each FD owns only one kfd_process */
+	if (p->context_id != KFD_CONTEXT_ID_PRIMARY)
 		return -EINVAL;
 
 	mutex_lock(&kfd_processes_mutex);

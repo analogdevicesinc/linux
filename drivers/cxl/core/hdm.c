@@ -94,7 +94,6 @@ static bool should_emulate_decoders(struct cxl_endpoint_dvsec_info *info)
 	struct cxl_hdm *cxlhdm;
 	void __iomem *hdm;
 	u32 ctrl;
-	int i;
 
 	if (!info)
 		return false;
@@ -113,22 +112,16 @@ static bool should_emulate_decoders(struct cxl_endpoint_dvsec_info *info)
 		return false;
 
 	/*
-	 * If any decoders are committed already, there should not be any
-	 * emulated DVSEC decoders.
+	 * If HDM decoders are globally enabled, do not fall back to DVSEC
+	 * range emulation. Zeroed decoder registers after region teardown
+	 * do not imply absence of HDM capability.
+	 *
+	 * Falling back to DVSEC here would treat the decoder as AUTO and
+	 * may incorrectly latch default interleave settings.
 	 */
-	for (i = 0; i < cxlhdm->decoder_count; i++) {
-		ctrl = readl(hdm + CXL_HDM_DECODER0_CTRL_OFFSET(i));
-		dev_dbg(&info->port->dev,
-			"decoder%d.%d: committed: %ld base: %#x_%.8x size: %#x_%.8x\n",
-			info->port->id, i,
-			FIELD_GET(CXL_HDM_DECODER0_CTRL_COMMITTED, ctrl),
-			readl(hdm + CXL_HDM_DECODER0_BASE_HIGH_OFFSET(i)),
-			readl(hdm + CXL_HDM_DECODER0_BASE_LOW_OFFSET(i)),
-			readl(hdm + CXL_HDM_DECODER0_SIZE_HIGH_OFFSET(i)),
-			readl(hdm + CXL_HDM_DECODER0_SIZE_LOW_OFFSET(i)));
-		if (FIELD_GET(CXL_HDM_DECODER0_CTRL_COMMITTED, ctrl))
-			return false;
-	}
+	ctrl = readl(hdm + CXL_HDM_DECODER_CTRL_OFFSET);
+	if (ctrl & CXL_HDM_DECODER_ENABLE)
+		return false;
 
 	return true;
 }
@@ -177,7 +170,7 @@ static struct cxl_hdm *devm_cxl_setup_hdm(struct cxl_port *port,
 	}
 
 	parse_hdm_decoder_caps(cxlhdm);
-	if (cxlhdm->decoder_count == 0) {
+	if (cxlhdm->decoder_count < 0) {
 		dev_err(dev, "Spec violation. Caps invalid\n");
 		return ERR_PTR(-ENXIO);
 	}
@@ -904,7 +897,7 @@ static void cxl_decoder_reset(struct cxl_decoder *cxld)
 	if ((cxld->flags & CXL_DECODER_F_ENABLE) == 0)
 		return;
 
-	if (test_bit(CXL_DECODER_F_LOCK, &cxld->flags))
+	if (cxld->flags & CXL_DECODER_F_LOCK)
 		return;
 
 	if (port->commit_end == id)

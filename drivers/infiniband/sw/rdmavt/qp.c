@@ -92,12 +92,10 @@ static int rvt_wss_llc_size(void)
 static void cacheless_memcpy(void *dst, void *src, size_t n)
 {
 	/*
-	 * Use the only available X64 cacheless copy.  Add a __user cast
-	 * to quiet sparse.  The src agument is already in the kernel so
-	 * there are no security issues.  The extra fault recovery machinery
-	 * is not invoked.
+	 * Use the only available X64 cacheless copy.
+	 * The extra fault recovery machinery is not invoked.
 	 */
-	__copy_user_nocache(dst, (void __user *)src, n);
+	copy_to_nontemporal(dst, src, n);
 }
 
 void rvt_wss_exit(struct rvt_dev_info *rdi)
@@ -2707,7 +2705,7 @@ int rvt_qp_iter_next(struct rvt_qp_iter *iter)
 				struct rvt_ibport *rvp;
 				int pidx;
 
-				pidx = n % rdi->ibdev.phys_port_cnt;
+				pidx = n / 2; /* QP0 and QP1 */
 				rvp = rdi->ports[pidx];
 				qp = rcu_dereference(rvp->qp[n & 1]);
 			} else {

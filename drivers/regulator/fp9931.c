@@ -144,13 +144,12 @@ static int fp9931_hwmon_read(struct device *dev, enum hwmon_sensor_types type,
 		return ret;
 
 	ret = regmap_read(data->regmap, FP9931_REG_TMST_VALUE, &val);
-	if (ret)
-		return ret;
+	if (!ret)
+		*temp = (s8)val * 1000;
 
 	pm_runtime_put_autosuspend(data->dev);
-	*temp = (s8)val * 1000;
 
-	return 0;
+	return ret;
 }
 
 static umode_t fp9931_hwmon_is_visible(const void *data,
@@ -447,7 +446,7 @@ static int fp9931_probe(struct i2c_client *client)
 		return dev_err_probe(&client->dev, PTR_ERR(data->regmap),
 				     "failed to allocate regmap!\n");
 
-	data->vin_reg = devm_regulator_get_optional(&client->dev, "vin");
+	data->vin_reg = devm_regulator_get(&client->dev, "vin");
 	if (IS_ERR(data->vin_reg))
 		return dev_err_probe(&client->dev, PTR_ERR(data->vin_reg),
 				     "failed to get vin regulator\n");

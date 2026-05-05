@@ -1223,7 +1223,7 @@ static int yas530_measure_offsets(struct yas5xx *yas5xx)
 	 * as the values for [x, y1, y2]. The value is +/-31
 	 * but the effect on the raw values is much larger.
 	 * The effect of the offset is to bring the measure
-	 * rougly to the center.
+	 * roughly to the center.
 	 */
 	ox = 0;
 	oy1 = 0;

@@ -11,9 +11,6 @@
 extern atomic_t hart_lottery;
 
 asmlinkage void __init setup_vm(uintptr_t dtb_pa);
-#ifdef CONFIG_XIP_KERNEL
-asmlinkage void __init __copy_data(void);
-#endif
 
 #ifdef CONFIG_RISCV_BOOT_SPINWAIT
 extern void *__cpu_spinwait_stack_pointer[];

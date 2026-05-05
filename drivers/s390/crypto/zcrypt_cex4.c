@@ -85,8 +85,7 @@ static ssize_t cca_serialnr_show(struct device *dev,
 
 	memset(&ci, 0, sizeof(ci));
 
-	if (ap_domain_index >= 0)
-		cca_get_info(ac->id, ap_domain_index, &ci, 0);
+	cca_get_info(ac->id, AUTOSEL_DOM, &ci, 0);
 
 	return sysfs_emit(buf, "%s\n", ci.serial);
 }
@@ -103,9 +102,19 @@ static const struct attribute_group cca_card_attr_grp = {
 	.attrs = cca_card_attrs,
 };
 
- /*
-  * CCA queue additional device attributes
-  */
+/*
+ * Simple helper macro to format raw mkvp byte array into hex
+ */
+#define MKVP_TO_HEXBUF(mkvp, buf) \
+	do { \
+		BUILD_BUG_ON(sizeof(buf) <= 2 * sizeof(mkvp)); \
+		bin2hex(buf, mkvp, sizeof(mkvp)); \
+		buf[2 * sizeof(mkvp)] = '\0'; \
+	} while (0)
+
+/*
+ * CCA queue additional device attributes
+ */
 static ssize_t cca_mkvps_show(struct device *dev,
 			      struct device_attribute *attr,
 			      char *buf)
@@ -114,6 +123,7 @@ static ssize_t cca_mkvps_show(struct device *dev,
 	static const char * const cao_state[] = { "invalid", "valid" };
 	struct zcrypt_queue *zq = dev_get_drvdata(dev);
 	struct cca_info ci;
+	char hexbuf[2 * 16 + 1];
 	int n = 0;
 
 	memset(&ci, 0, sizeof(ci));
@@ -122,71 +132,86 @@ static ssize_t cca_mkvps_show(struct device *dev,
 		     AP_QID_QUEUE(zq->queue->qid),
 		     &ci, 0);
 
-	if (ci.new_aes_mk_state >= '1' && ci.new_aes_mk_state <= '3')
-		n += sysfs_emit_at(buf, n, "AES NEW: %s 0x%016llx\n",
+	if (ci.new_aes_mk_state >= '1' && ci.new_aes_mk_state <= '3') {
+		MKVP_TO_HEXBUF(ci.new_aes_mkvp, hexbuf);
+		n += sysfs_emit_at(buf, n, "AES NEW: %s 0x%s\n",
 				   new_state[ci.new_aes_mk_state - '1'],
-				   ci.new_aes_mkvp);
-	else
+				   hexbuf);
+	} else {
 		n += sysfs_emit_at(buf, n, "AES NEW: - -\n");
+	}
 
-	if (ci.cur_aes_mk_state >= '1' && ci.cur_aes_mk_state <= '2')
-		n += sysfs_emit_at(buf, n, "AES CUR: %s 0x%016llx\n",
+	if (ci.cur_aes_mk_state >= '1' && ci.cur_aes_mk_state <= '2') {
+		MKVP_TO_HEXBUF(ci.cur_aes_mkvp, hexbuf);
+		n += sysfs_emit_at(buf, n, "AES CUR: %s 0x%s\n",
 				   cao_state[ci.cur_aes_mk_state - '1'],
-				   ci.cur_aes_mkvp);
-	else
+				   hexbuf);
+	} else {
 		n += sysfs_emit_at(buf, n, "AES CUR: - -\n");
+	}
 
-	if (ci.old_aes_mk_state >= '1' && ci.old_aes_mk_state <= '2')
-		n += sysfs_emit_at(buf, n, "AES OLD: %s 0x%016llx\n",
+	if (ci.old_aes_mk_state >= '1' && ci.old_aes_mk_state <= '2') {
+		MKVP_TO_HEXBUF(ci.old_aes_mkvp, hexbuf);
+		n += sysfs_emit_at(buf, n, "AES OLD: %s 0x%s\n",
 				   cao_state[ci.old_aes_mk_state - '1'],
-				   ci.old_aes_mkvp);
-	else
+				   hexbuf);
+	} else {
 		n += sysfs_emit_at(buf, n, "AES OLD: - -\n");
+	}
 
-	if (ci.new_apka_mk_state >= '1' && ci.new_apka_mk_state <= '3')
-		n += sysfs_emit_at(buf, n, "APKA NEW: %s 0x%016llx\n",
+	if (ci.new_apka_mk_state >= '1' && ci.new_apka_mk_state <= '3') {
+		MKVP_TO_HEXBUF(ci.new_apka_mkvp, hexbuf);
+		n += sysfs_emit_at(buf, n, "APKA NEW: %s 0x%s\n",
 				   new_state[ci.new_apka_mk_state - '1'],
-				   ci.new_apka_mkvp);
-	else
+				   hexbuf);
+	} else {
 		n += sysfs_emit_at(buf, n, "APKA NEW: - -\n");
+	}
 
-	if (ci.cur_apka_mk_state >= '1' && ci.cur_apka_mk_state <= '2')
-		n += sysfs_emit_at(buf, n, "APKA CUR: %s 0x%016llx\n",
+	if (ci.cur_apka_mk_state >= '1' && ci.cur_apka_mk_state <= '2') {
+		MKVP_TO_HEXBUF(ci.cur_apka_mkvp, hexbuf);
+		n += sysfs_emit_at(buf, n, "APKA CUR: %s 0x%s\n",
 				   cao_state[ci.cur_apka_mk_state - '1'],
-				   ci.cur_apka_mkvp);
-	else
+				   hexbuf);
+	} else {
 		n += sysfs_emit_at(buf, n, "APKA CUR: - -\n");
+	}
 
-	if (ci.old_apka_mk_state >= '1' && ci.old_apka_mk_state <= '2')
-		n += sysfs_emit_at(buf, n, "APKA OLD: %s 0x%016llx\n",
+	if (ci.old_apka_mk_state >= '1' && ci.old_apka_mk_state <= '2') {
+		MKVP_TO_HEXBUF(ci.old_apka_mkvp, hexbuf);
+		n += sysfs_emit_at(buf, n, "APKA OLD: %s 0x%s\n",
 				   cao_state[ci.old_apka_mk_state - '1'],
-				   ci.old_apka_mkvp);
-	else
+				   hexbuf);
+	} else {
 		n += sysfs_emit_at(buf, n, "APKA OLD: - -\n");
+	}
 
-	if (ci.new_asym_mk_state >= '1' && ci.new_asym_mk_state <= '3')
-		n += sysfs_emit_at(buf, n, "ASYM NEW: %s 0x%016llx%016llx\n",
+	if (ci.new_asym_mk_state >= '1' && ci.new_asym_mk_state <= '3') {
+		MKVP_TO_HEXBUF(ci.new_asym_mkvp, hexbuf);
+		n += sysfs_emit_at(buf, n, "ASYM NEW: %s 0x%s\n",
 				   new_state[ci.new_asym_mk_state - '1'],
-				   *((u64 *)(ci.new_asym_mkvp)),
-				   *((u64 *)(ci.new_asym_mkvp + sizeof(u64))));
-	else
+				   hexbuf);
+	} else {
 		n += sysfs_emit_at(buf, n, "ASYM NEW: - -\n");
+	}
 
-	if (ci.cur_asym_mk_state >= '1' && ci.cur_asym_mk_state <= '2')
-		n += sysfs_emit_at(buf, n, "ASYM CUR: %s 0x%016llx%016llx\n",
+	if (ci.cur_asym_mk_state >= '1' && ci.cur_asym_mk_state <= '2') {
+		MKVP_TO_HEXBUF(ci.cur_asym_mkvp, hexbuf);
+		n += sysfs_emit_at(buf, n, "ASYM CUR: %s 0x%s\n",
 				   cao_state[ci.cur_asym_mk_state - '1'],
-				   *((u64 *)(ci.cur_asym_mkvp)),
-				   *((u64 *)(ci.cur_asym_mkvp + sizeof(u64))));
-	else
+				   hexbuf);
+	} else {
 		n += sysfs_emit_at(buf, n, "ASYM CUR: - -\n");
+	}
 
-	if (ci.old_asym_mk_state >= '1' && ci.old_asym_mk_state <= '2')
-		n += sysfs_emit_at(buf, n, "ASYM OLD: %s 0x%016llx%016llx\n",
+	if (ci.old_asym_mk_state >= '1' && ci.old_asym_mk_state <= '2') {
+		MKVP_TO_HEXBUF(ci.old_asym_mkvp, hexbuf);
+		n += sysfs_emit_at(buf, n, "ASYM OLD: %s 0x%s\n",
 				   cao_state[ci.old_asym_mk_state - '1'],
-				   *((u64 *)(ci.old_asym_mkvp)),
-				   *((u64 *)(ci.old_asym_mkvp + sizeof(u64))));
-	else
+				   hexbuf);
+	} else {
 		n += sysfs_emit_at(buf, n, "ASYM OLD: - -\n");
+	}
 
 	return n;
 }

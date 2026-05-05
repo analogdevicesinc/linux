@@ -31,5 +31,5 @@ for nr_queue in 1 4; do
 	wait
 done
 
-_cleanup_test "stress"
+_cleanup_test
 _show_result $TID $ERR_CODE
