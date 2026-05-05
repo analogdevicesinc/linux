@@ -21,6 +21,8 @@ def generate_map():
     """
     Build a map with all symbols.
     """
+    global map_
+
     map_ = {}
     kconfig_files = []
 
@@ -214,7 +216,7 @@ def get_top_level_kconfig(symbol):
 
 
 def resolve_tree(symbol, path, allowlist):
-    global max_recursion
+    global max_recursion, deps_
 
     max_recursion = max_recursion - 1
     deps = get_symbol_dependencies(symbol, path, allowlist)
