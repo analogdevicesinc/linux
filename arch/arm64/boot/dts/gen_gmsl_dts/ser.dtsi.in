@@ -18,6 +18,7 @@
 	{{ser_label}}: gmsl-serializer@{{address | hex_remove_0x}} {
 		#address-cells = <1>;
 		#size-cells = <0>;
+		#clock-cells = <0>;
 		#gpio-cells = <2>;
 
 		compatible = {{compatible}};
