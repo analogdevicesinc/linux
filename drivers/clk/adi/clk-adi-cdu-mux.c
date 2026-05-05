@@ -25,11 +25,11 @@
 
 struct clk_adi_cdu_mux {
 	struct clk_hw hw;
+	u8 clko_stat_bit;
+	spinlock_t *cdu_lock;
+	const u32 *parent_sel;
 	void __iomem *cdu_cfg;
 	void __iomem *cdu_stat;
-	const u32 *parent_sel;
-	spinlock_t *cdu_lock;
-	u8 clko_stat_bit;
 };
 
 enum sc5xx_cdu_en_state {
