@@ -45,7 +45,7 @@ static inline struct clk_adi_cdu_mux *to_clk_adi_cdu_mux(struct clk_hw *hw)
 static int sc5xx_cdu_cfg_check_unlocked(u32 reg)
 {
 	if (reg & CDU_CFG_LOCK)
-		return -EPERM;
+		return -EBUSY;
 
 	return 0;
 }
