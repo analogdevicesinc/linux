@@ -48,7 +48,7 @@
 #define BTINTEL_PCIE_CSR_BOOT_STAGE_OPFW		(BIT(2))
 #define BTINTEL_PCIE_CSR_BOOT_STAGE_ROM_LOCKDOWN	(BIT(10))
 #define BTINTEL_PCIE_CSR_BOOT_STAGE_IML_LOCKDOWN	(BIT(11))
-#define BTINTEL_PCIE_CSR_BOOT_STAGE_DEVICE_ERR		(BIT(12))
+#define BTINTEL_PCIE_CSR_BOOT_STAGE_DEVICE_WARNING	(BIT(12))
 #define BTINTEL_PCIE_CSR_BOOT_STAGE_ABORT_HANDLER	(BIT(13))
 #define BTINTEL_PCIE_CSR_BOOT_STAGE_DEVICE_HALTED	(BIT(14))
 #define BTINTEL_PCIE_CSR_BOOT_STAGE_MAC_ACCESS_ON	(BIT(16))
@@ -142,6 +142,11 @@ enum msix_mbox_int_causes {
 	BTINTEL_PCIE_CSR_MBOX_STATUS_MBOX2 = BIT(1), /* cause MBOX2 */
 	BTINTEL_PCIE_CSR_MBOX_STATUS_MBOX3 = BIT(2), /* cause MBOX3 */
 	BTINTEL_PCIE_CSR_MBOX_STATUS_MBOX4 = BIT(3), /* cause MBOX4 */
+};
+
+enum btintel_pcie_reset_type {
+	BTINTEL_PCIE_IOSF_PRR_FLR = 0,
+	BTINTEL_PCIE_IOSF_PRR_PLDR = 1,
 };
 
 #define BTINTEL_PCIE_MSIX_NON_AUTO_CLEAR_CAUSE	BIT(7)
@@ -500,6 +505,7 @@ struct btintel_pcie_data {
 	struct workqueue_struct	*workqueue;
 	struct sk_buff_head	rx_skb_q;
 	struct work_struct	rx_work;
+	struct work_struct      reset_work;
 
 	struct dma_pool	*dma_pool;
 	dma_addr_t	dma_p_addr;
@@ -511,6 +517,7 @@ struct btintel_pcie_data {
 	struct txq	txq;
 	struct rxq	rxq;
 	u32	alive_intr_ctxt;
+	enum btintel_pcie_reset_type	reset_type;
 	struct btintel_pcie_dbgc	dbgc;
 	struct btintel_pcie_dump_header dmp_hdr;
 	u8	pm_sx_event;
