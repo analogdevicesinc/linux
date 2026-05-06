@@ -507,7 +507,7 @@ struct mana_port_context {
 	bool tx_shortform_allowed;
 	u16 tx_vp_offset;
 
-	struct mana_tx_qp *tx_qp;
+	struct mana_tx_qp **tx_qp;
 
 	/* Indirection Table for RX & TX. The values are queue indexes */
 	u32 *indir_table;
