@@ -70,6 +70,7 @@ void br_netfilter_rtable_init(struct net_bridge *br)
 	struct rtable *rt = &br->fake_rtable;
 
 	rcuref_init(&rt->dst.__rcuref, 1);
+	save_dst_trace_buffer(&rt->dst, 1);
 	rt->dst.dev = br->dev;
 	dst_init_metrics(&rt->dst, br->metrics, false);
 	dst_metric_set(&rt->dst, RTAX_MTU, br->dev->mtu);

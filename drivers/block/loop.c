@@ -36,6 +36,7 @@
 #include <linux/blk-mq.h>
 #include <linux/spinlock.h>
 #include <uapi/linux/loop.h>
+#include <linux/stacktrace.h>
 
 /* Possible states of device */
 enum {
@@ -74,6 +75,14 @@ struct loop_device {
 	struct gendisk		*lo_disk;
 	struct mutex		lo_mutex;
 	bool			idr_visible;
+
+#ifdef CONFIG_DEBUG_AID_FOR_SYZBOT
+	pid_t clear_pid;
+	char clear_comm[TASK_COMM_LEN];
+	unsigned long clear_jiffies;
+	int clear_nr_entries;
+	unsigned long clear_entries[20];
+#endif
 };
 
 struct loop_cmd {
@@ -93,6 +102,26 @@ struct loop_cmd {
 static DEFINE_IDR(loop_index_idr);
 static DEFINE_MUTEX(loop_ctl_mutex);
 static DEFINE_MUTEX(loop_validate_mutex);
+
+static struct file *check_file_not_null(struct loop_device *lo)
+{
+	struct file *file = READ_ONCE(lo->lo_backing_file);
+
+#ifdef CONFIG_DEBUG_AID_FOR_SYZBOT
+	if (!file)
+		pr_err("file == NULL\n");
+	else if (IS_ERR(file))
+		pr_err("IS_ERR(file)\n");
+	else
+		return file;
+	if (lo->clear_nr_entries) {
+		pr_err("Last __loop_clr_fd() call was %lu jiffies ago by %s (%d)\n",
+		       jiffies - lo->clear_jiffies, lo->clear_comm, lo->clear_pid);
+		stack_trace_print(lo->clear_entries, lo->clear_nr_entries, 4);
+	}
+#endif
+	return file;
+}
 
 /**
  * loop_global_lock_killable() - take locks for safe loop_validate_file() test
@@ -250,7 +279,7 @@ static int lo_fallocate(struct loop_device *lo, struct request *rq, loff_t pos,
 	 * We use fallocate to manipulate the space mappings used by the image
 	 * a.k.a. discard/zerorange.
 	 */
-	struct file *file = lo->lo_backing_file;
+	struct file *file = check_file_not_null(lo);
 	int ret;
 
 	mode |= FALLOC_FL_KEEP_SIZE;
@@ -345,7 +374,7 @@ static int lo_rw_aio(struct loop_device *lo, struct loop_cmd *cmd,
 	struct bio_vec *bvec;
 	struct request *rq = blk_mq_rq_from_pdu(cmd);
 	struct bio *bio = rq->bio;
-	struct file *file = lo->lo_backing_file;
+	struct file *file = check_file_not_null(lo);
 	struct bio_vec tmp;
 	unsigned int offset;
 	unsigned int nr_bvec;
@@ -1118,6 +1147,13 @@ static void __loop_clr_fd(struct loop_device *lo)
 	struct file *filp;
 	gfp_t gfp = lo->old_gfp_mask;
 
+#ifdef CONFIG_DEBUG_AID_FOR_SYZBOT
+	lo->clear_pid = current->pid;
+	get_task_comm(lo->clear_comm, current);
+	lo->clear_jiffies = jiffies;
+	lo->clear_nr_entries = stack_trace_save(lo->clear_entries,
+						ARRAY_SIZE(lo->clear_entries), 0);
+#endif
 	spin_lock_irq(&lo->lo_lock);
 	filp = lo->lo_backing_file;
 	lo->lo_backing_file = NULL;

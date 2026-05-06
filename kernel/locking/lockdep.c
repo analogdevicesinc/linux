@@ -796,8 +796,10 @@ static void lockdep_print_held_locks(struct task_struct *p)
 	 * It's not reliable to print a task's held locks if it's not sleeping
 	 * and it's not the current task.
 	 */
+#ifndef CONFIG_DEBUG_AID_FOR_SYZBOT
 	if (p != current && task_is_running(p))
 		return;
+#endif
 	for (i = 0; i < depth; i++) {
 		printk(" #%d: ", i);
 		print_lock(p->held_locks + i);

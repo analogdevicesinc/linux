@@ -2119,6 +2119,8 @@ enum netdev_reg_state {
  *
  *	FIXME: cleanup struct net_device such that network protocol info
  *	moves out.
+ *
+ *	@netdev_trace_buffer_list: Linked list for debugging refcount leak.
  */
 
 struct net_device {
@@ -2274,6 +2276,9 @@ struct net_device {
 
 #if IS_ENABLED(CONFIG_TLS_DEVICE)
 	const struct tlsdev_ops *tlsdev_ops;
+#endif
+#ifdef CONFIG_NET_DEV_REFCNT_TRACKER
+	struct list_head	netdev_trace_buffer_list;
 #endif
 
 	unsigned int		operstate;
@@ -3219,6 +3224,7 @@ enum netdev_cmd {
 	NETDEV_OFFLOAD_XSTATS_REPORT_USED,
 	NETDEV_OFFLOAD_XSTATS_REPORT_DELTA,
 	NETDEV_XDP_FEAT_CHANGE,
+	NETDEV_DEBUG_UNREGISTER,
 };
 const char *netdev_cmd_to_name(enum netdev_cmd cmd);
 
@@ -4440,9 +4446,15 @@ static inline bool dev_nit_active(const struct net_device *dev)
 
 void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev);
 
+void save_netdev_trace_buffer(struct net_device *dev, int delta);
+int trim_netdev_trace(unsigned long *entries, int nr_entries);
+
 static inline void __dev_put(struct net_device *dev)
 {
 	if (dev) {
+#ifdef CONFIG_NET_DEV_REFCNT_TRACKER
+		save_netdev_trace_buffer(dev, -1);
+#endif
 #ifdef CONFIG_PCPU_DEV_REFCNT
 		this_cpu_dec(*dev->pcpu_refcnt);
 #else
@@ -4454,6 +4466,9 @@ static inline void __dev_put(struct net_device *dev)
 static inline void __dev_hold(struct net_device *dev)
 {
 	if (dev) {
+#ifdef CONFIG_NET_DEV_REFCNT_TRACKER
+		save_netdev_trace_buffer(dev, 1);
+#endif
 #ifdef CONFIG_PCPU_DEV_REFCNT
 		this_cpu_inc(*dev->pcpu_refcnt);
 #else
