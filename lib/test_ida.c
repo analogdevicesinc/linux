@@ -256,6 +256,20 @@ static void ida_check_find_first(struct ida *ida)
 	ida_free(ida, (1 << 20) - 1);
 
 	IDA_BUG_ON(ida, !ida_is_empty(ida));
+
+	/*
+	 * Test cross-chunk search.
+	 * Allocate ID in chunk 0 and ID in chunk 1.
+	 * Search for ID >= 1. min=1 maps to chunk 0. Chunk 0 has no IDs >= 1.
+	 * It should continue to chunk 1 and return 1024.
+	 */
+	IDA_BUG_ON(ida, ida_alloc_min(ida, 0, GFP_KERNEL) != 0);
+	IDA_BUG_ON(ida, ida_alloc_min(ida, 1024, GFP_KERNEL) != 1024);
+	IDA_BUG_ON(ida, ida_find_first_range(ida, 1, INT_MAX) != 1024);
+	ida_free(ida, 0);
+	ida_free(ida, 1024);
+
+	IDA_BUG_ON(ida, !ida_is_empty(ida));
 }
 
 static DEFINE_IDA(ida);
