@@ -4,6 +4,7 @@
 KCOV_INSTRUMENT		:= n
 
 CONTEXT_ANALYSIS_mutex.o := y
+CONTEXT_ANALYSIS_rtmutex.o := y
 CONTEXT_ANALYSIS_rtmutex_api.o := y
 CONTEXT_ANALYSIS_ww_rt_mutex.o := y
 CONTEXT_ANALYSIS_rwsem.o := y

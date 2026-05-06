@@ -41,6 +41,7 @@ static __always_inline int __rt_mutex_lock_common(struct rt_mutex *lock,
 						  unsigned int state,
 						  struct lockdep_map *nest_lock,
 						  unsigned int subclass)
+	__cond_acquires(0, lock)
 {
 	int ret;
 
@@ -66,12 +67,14 @@ EXPORT_SYMBOL(rt_mutex_base_init);
  * @subclass: the lockdep subclass
  */
 void __sched rt_mutex_lock_nested(struct rt_mutex *lock, unsigned int subclass)
+	__no_context_analysis /* ignoring the return value below is fine in this case */
 {
 	__rt_mutex_lock_common(lock, TASK_UNINTERRUPTIBLE, NULL, subclass);
 }
 EXPORT_SYMBOL_GPL(rt_mutex_lock_nested);
 
 void __sched _rt_mutex_lock_nest_lock(struct rt_mutex *lock, struct lockdep_map *nest_lock)
+	__no_context_analysis /* ignoring the return value below is fine in this case */
 {
 	__rt_mutex_lock_common(lock, TASK_UNINTERRUPTIBLE, nest_lock, 0);
 }
@@ -157,6 +160,7 @@ void __sched rt_mutex_unlock(struct rt_mutex *lock)
 {
 	mutex_release(&lock->dep_map, _RET_IP_);
 	__rt_mutex_unlock(&lock->rtmutex);
+	__release(lock);
 }
 EXPORT_SYMBOL_GPL(rt_mutex_unlock);
 
@@ -182,6 +186,7 @@ int __sched __rt_mutex_futex_trylock(struct rt_mutex_base *lock)
  */
 bool __sched __rt_mutex_futex_unlock(struct rt_mutex_base *lock,
 				     struct rt_wake_q_head *wqh)
+	__must_hold(&lock->wait_lock)
 {
 	lockdep_assert_held(&lock->wait_lock);
 
@@ -312,6 +317,7 @@ int __sched __rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
 					struct rt_mutex_waiter *waiter,
 					struct task_struct *task,
 					struct wake_q_head *wake_q)
+	__must_hold(&lock->wait_lock)
 {
 	int ret;
 
