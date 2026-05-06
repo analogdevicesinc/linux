@@ -3425,6 +3425,8 @@ F:	drivers/i2c/busses/i2c-rk3x.c
 F:	drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
 F:	sound/soc/rockchip/
 N:	rockchip
+K:	\b[Rr]ock[Cc]hip\b
+K:	(?:\b|_)ROCKCHIP(?:\b|_)
 
 ARM/SAMSUNG S3C, S5P AND EXYNOS ARM ARCHITECTURES
 M:	Krzysztof Kozlowski <krzk@kernel.org>
