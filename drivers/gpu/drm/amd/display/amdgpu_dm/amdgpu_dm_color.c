@@ -1499,7 +1499,7 @@ __set_dm_plane_colorop_degamma(struct drm_plane_state *plane_state,
 {
 	struct drm_colorop *old_colorop;
 	struct drm_colorop_state *colorop_state = NULL, *new_colorop_state;
-	struct drm_atomic_state *state = plane_state->state;
+	struct drm_atomic_commit *state = plane_state->state;
 	int i = 0;
 
 	old_colorop = colorop;
@@ -1526,7 +1526,7 @@ __set_dm_plane_colorop_3x4_matrix(struct drm_plane_state *plane_state,
 {
 	struct drm_colorop *old_colorop;
 	struct drm_colorop_state *colorop_state = NULL, *new_colorop_state;
-	struct drm_atomic_state *state = plane_state->state;
+	struct drm_atomic_commit *state = plane_state->state;
 	const struct drm_device *dev = colorop->dev;
 	const struct drm_property_blob *blob;
 	struct drm_color_ctm_3x4 *ctm = NULL;
@@ -1567,7 +1567,7 @@ __set_dm_plane_colorop_multiplier(struct drm_plane_state *plane_state,
 {
 	struct drm_colorop *old_colorop;
 	struct drm_colorop_state *colorop_state = NULL, *new_colorop_state;
-	struct drm_atomic_state *state = plane_state->state;
+	struct drm_atomic_commit *state = plane_state->state;
 	const struct drm_device *dev = colorop->dev;
 	int i = 0;
 
@@ -1596,7 +1596,7 @@ __set_dm_plane_colorop_shaper(struct drm_plane_state *plane_state,
 {
 	struct drm_colorop *old_colorop;
 	struct drm_colorop_state *colorop_state = NULL, *new_colorop_state;
-	struct drm_atomic_state *state = plane_state->state;
+	struct drm_atomic_commit *state = plane_state->state;
 	enum dc_transfer_func_predefined default_tf = TRANSFER_FUNCTION_LINEAR;
 	struct dc_transfer_func *tf = &dc_plane_state->in_shaper_func;
 	const struct drm_color_lut32 *shaper_lut;
@@ -1704,7 +1704,7 @@ __set_dm_plane_colorop_3dlut(struct drm_plane_state *plane_state,
 	struct drm_colorop *old_colorop;
 	struct drm_colorop_state *colorop_state = NULL, *new_colorop_state;
 	struct dc_transfer_func *tf = &dc_plane_state->in_shaper_func;
-	struct drm_atomic_state *state = plane_state->state;
+	struct drm_atomic_commit *state = plane_state->state;
 	const struct amdgpu_device *adev = drm_to_adev(colorop->dev);
 	bool has_3dlut = adev->dm.dc->caps.color.dpp.hw_3d_lut || adev->dm.dc->caps.color.mpc.preblend;
 	const struct drm_device *dev = colorop->dev;
@@ -1759,7 +1759,7 @@ __set_dm_plane_colorop_blend(struct drm_plane_state *plane_state,
 {
 	struct drm_colorop *old_colorop;
 	struct drm_colorop_state *colorop_state = NULL, *new_colorop_state;
-	struct drm_atomic_state *state = plane_state->state;
+	struct drm_atomic_commit *state = plane_state->state;
 	enum dc_transfer_func_predefined default_tf = TRANSFER_FUNCTION_LINEAR;
 	struct dc_transfer_func *tf = &dc_plane_state->blend_tf;
 	const struct drm_color_lut32 *blend_lut = NULL;

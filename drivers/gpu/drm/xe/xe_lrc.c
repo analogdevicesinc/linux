@@ -682,25 +682,6 @@ static void set_memory_based_intr(u32 *regs, struct xe_hw_engine *hwe)
 	}
 }
 
-static int lrc_ring_mi_mode(struct xe_hw_engine *hwe)
-{
-	struct xe_device *xe = gt_to_xe(hwe->gt);
-
-	if (GRAPHICS_VERx100(xe) >= 1250)
-		return 0x70;
-	else
-		return 0x60;
-}
-
-static void reset_stop_ring(u32 *regs, struct xe_hw_engine *hwe)
-{
-	int x;
-
-	x = lrc_ring_mi_mode(hwe);
-	regs[x + 1] &= ~STOP_RING;
-	regs[x + 1] |= STOP_RING << 16;
-}
-
 static inline bool xe_lrc_has_indirect_ring_state(struct xe_lrc *lrc)
 {
 	return lrc->flags & XE_LRC_FLAG_INDIRECT_RING_STATE;
@@ -980,7 +961,6 @@ static void *empty_lrc_data(struct xe_hw_engine *hwe)
 	set_offsets(regs, reg_offsets(gt_to_xe(gt), hwe->class), hwe);
 	set_context_control(regs, hwe);
 	set_memory_based_intr(regs, hwe);
-	reset_stop_ring(regs, hwe);
 	if (xe_gt_has_indirect_ring_state(gt)) {
 		regs = data + xe_gt_lrc_size(gt, hwe->class) -
 		       LRC_INDIRECT_RING_STATE_SIZE;

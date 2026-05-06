@@ -95,15 +95,15 @@ int drm_crtc_commit_wait(struct drm_crtc_commit *commit)
 EXPORT_SYMBOL(drm_crtc_commit_wait);
 
 /**
- * drm_atomic_state_default_release -
- * release memory initialized by drm_atomic_state_init
+ * drm_atomic_commit_default_release -
+ * release memory initialized by drm_atomic_commit_init
  * @state: atomic state
  *
- * Free all the memory allocated by drm_atomic_state_init.
+ * Free all the memory allocated by drm_atomic_commit_init.
  * This should only be used by drivers which are still subclassing
- * &drm_atomic_state and haven't switched to &drm_private_state yet.
+ * &drm_atomic_commit and haven't switched to &drm_private_state yet.
  */
-void drm_atomic_state_default_release(struct drm_atomic_state *state)
+void drm_atomic_commit_default_release(struct drm_atomic_commit *state)
 {
 	kfree(state->connectors);
 	kfree(state->crtcs);
@@ -111,19 +111,19 @@ void drm_atomic_state_default_release(struct drm_atomic_state *state)
 	kfree(state->colorops);
 	kfree(state->private_objs);
 }
-EXPORT_SYMBOL(drm_atomic_state_default_release);
+EXPORT_SYMBOL(drm_atomic_commit_default_release);
 
 /**
- * drm_atomic_state_init - init new atomic state
+ * drm_atomic_commit_init - init new atomic state
  * @dev: DRM device
  * @state: atomic state
  *
  * Default implementation for filling in a new atomic state.
  * This should only be used by drivers which are still subclassing
- * &drm_atomic_state and haven't switched to &drm_private_state yet.
+ * &drm_atomic_commit and haven't switched to &drm_private_state yet.
  */
 int
-drm_atomic_state_init(struct drm_device *dev, struct drm_atomic_state *state)
+drm_atomic_commit_init(struct drm_device *dev, struct drm_atomic_commit *state)
 {
 	kref_init(&state->ref);
 
@@ -145,7 +145,7 @@ drm_atomic_state_init(struct drm_device *dev, struct drm_atomic_state *state)
 		goto fail;
 
 	/*
-	 * Because drm_atomic_state can be committed asynchronously we need our
+	 * Because drm_atomic_commit can be committed asynchronously we need our
 	 * own reference and cannot rely on the on implied by drm_file in the
 	 * ioctl call.
 	 */
@@ -156,29 +156,29 @@ drm_atomic_state_init(struct drm_device *dev, struct drm_atomic_state *state)
 
 	return 0;
 fail:
-	drm_atomic_state_default_release(state);
+	drm_atomic_commit_default_release(state);
 	return -ENOMEM;
 }
-EXPORT_SYMBOL(drm_atomic_state_init);
+EXPORT_SYMBOL(drm_atomic_commit_init);
 
 /**
- * drm_atomic_state_alloc - allocate atomic state
+ * drm_atomic_commit_alloc - allocate atomic state
  * @dev: DRM device
  *
  * This allocates an empty atomic state to track updates.
  */
-struct drm_atomic_state *
-drm_atomic_state_alloc(struct drm_device *dev)
+struct drm_atomic_commit *
+drm_atomic_commit_alloc(struct drm_device *dev)
 {
 	struct drm_mode_config *config = &dev->mode_config;
 
 	if (!config->funcs->atomic_state_alloc) {
-		struct drm_atomic_state *state;
+		struct drm_atomic_commit *state;
 
 		state = kzalloc_obj(*state);
 		if (!state)
 			return NULL;
-		if (drm_atomic_state_init(dev, state) < 0) {
+		if (drm_atomic_commit_init(dev, state) < 0) {
 			kfree(state);
 			return NULL;
 		}
@@ -187,17 +187,17 @@ drm_atomic_state_alloc(struct drm_device *dev)
 
 	return config->funcs->atomic_state_alloc(dev);
 }
-EXPORT_SYMBOL(drm_atomic_state_alloc);
+EXPORT_SYMBOL(drm_atomic_commit_alloc);
 
 /**
- * drm_atomic_state_default_clear - clear base atomic state
+ * drm_atomic_commit_default_clear - clear base atomic state
  * @state: atomic state
  *
  * Default implementation for clearing atomic state.
  * This should only be used by drivers which are still subclassing
- * &drm_atomic_state and haven't switched to &drm_private_state yet.
+ * &drm_atomic_commit and haven't switched to &drm_private_state yet.
  */
-void drm_atomic_state_default_clear(struct drm_atomic_state *state)
+void drm_atomic_commit_default_clear(struct drm_atomic_commit *state)
 {
 	struct drm_device *dev = state->dev;
 	struct drm_mode_config *config = &dev->mode_config;
@@ -287,10 +287,10 @@ void drm_atomic_state_default_clear(struct drm_atomic_state *state)
 		state->fake_commit = NULL;
 	}
 }
-EXPORT_SYMBOL(drm_atomic_state_default_clear);
+EXPORT_SYMBOL(drm_atomic_commit_default_clear);
 
 /**
- * drm_atomic_state_clear - clear state object
+ * drm_atomic_commit_clear - clear state object
  * @state: atomic state
  *
  * When the w/w mutex algorithm detects a deadlock we need to back off and drop
@@ -303,7 +303,7 @@ EXPORT_SYMBOL(drm_atomic_state_default_clear);
  * Hence we must clear all cached state and completely start over, using this
  * function.
  */
-void drm_atomic_state_clear(struct drm_atomic_state *state)
+void drm_atomic_commit_clear(struct drm_atomic_commit *state)
 {
 	struct drm_device *dev = state->dev;
 	struct drm_mode_config *config = &dev->mode_config;
@@ -311,37 +311,37 @@ void drm_atomic_state_clear(struct drm_atomic_state *state)
 	if (config->funcs->atomic_state_clear)
 		config->funcs->atomic_state_clear(state);
 	else
-		drm_atomic_state_default_clear(state);
+		drm_atomic_commit_default_clear(state);
 }
-EXPORT_SYMBOL(drm_atomic_state_clear);
+EXPORT_SYMBOL(drm_atomic_commit_clear);
 
 /**
- * __drm_atomic_state_free - free all memory for an atomic state
+ * __drm_atomic_commit_free - free all memory for an atomic state
  * @ref: This atomic state to deallocate
  *
  * This frees all memory associated with an atomic state, including all the
  * per-object state for planes, CRTCs and connectors.
  */
-void __drm_atomic_state_free(struct kref *ref)
+void __drm_atomic_commit_free(struct kref *ref)
 {
-	struct drm_atomic_state *state = container_of(ref, typeof(*state), ref);
+	struct drm_atomic_commit *state = container_of(ref, typeof(*state), ref);
 	struct drm_device *dev = state->dev;
 	struct drm_mode_config *config = &dev->mode_config;
 
-	drm_atomic_state_clear(state);
+	drm_atomic_commit_clear(state);
 
 	drm_dbg_atomic(state->dev, "Freeing atomic state %p\n", state);
 
 	if (config->funcs->atomic_state_free) {
 		config->funcs->atomic_state_free(state);
 	} else {
-		drm_atomic_state_default_release(state);
+		drm_atomic_commit_default_release(state);
 		kfree(state);
 	}
 
 	drm_dev_put(dev);
 }
-EXPORT_SYMBOL(__drm_atomic_state_free);
+EXPORT_SYMBOL(__drm_atomic_commit_free);
 
 /**
  * drm_atomic_get_crtc_state - get CRTC state
@@ -353,7 +353,7 @@ EXPORT_SYMBOL(__drm_atomic_state_free);
  * is consistent.
  *
  * WARNING: Drivers may only add new CRTC states to a @state if
- * drm_atomic_state.allow_modeset is set, or if it's a driver-internal commit
+ * drm_atomic_commit.allow_modeset is set, or if it's a driver-internal commit
  * not created by userspace through an IOCTL call.
  *
  * Returns:
@@ -362,7 +362,7 @@ EXPORT_SYMBOL(__drm_atomic_state_free);
  * entire atomic sequence must be restarted. All other errors are fatal.
  */
 struct drm_crtc_state *
-drm_atomic_get_crtc_state(struct drm_atomic_state *state,
+drm_atomic_get_crtc_state(struct drm_atomic_commit *state,
 			  struct drm_crtc *crtc)
 {
 	int ret, index = drm_crtc_index(crtc);
@@ -544,7 +544,7 @@ static int drm_atomic_connector_check(struct drm_connector *connector,
  * entire atomic sequence must be restarted. All other errors are fatal.
  */
 struct drm_plane_state *
-drm_atomic_get_plane_state(struct drm_atomic_state *state,
+drm_atomic_get_plane_state(struct drm_atomic_commit *state,
 			  struct drm_plane *plane)
 {
 	int ret, index = drm_plane_index(plane);
@@ -608,7 +608,7 @@ EXPORT_SYMBOL(drm_atomic_get_plane_state);
  * entire atomic sequence must be restarted. All other errors are fatal.
  */
 struct drm_colorop_state *
-drm_atomic_get_colorop_state(struct drm_atomic_state *state,
+drm_atomic_get_colorop_state(struct drm_atomic_commit *state,
 			     struct drm_colorop *colorop)
 {
 	int ret, index = drm_colorop_index(colorop);
@@ -650,7 +650,7 @@ EXPORT_SYMBOL(drm_atomic_get_colorop_state);
  * NULL if the colorop is not part of the global atomic state.
  */
 struct drm_colorop_state *
-drm_atomic_get_old_colorop_state(struct drm_atomic_state *state,
+drm_atomic_get_old_colorop_state(struct drm_atomic_commit *state,
 				 struct drm_colorop *colorop)
 {
 	return state->colorops[drm_colorop_index(colorop)].old_state;
@@ -666,7 +666,7 @@ EXPORT_SYMBOL(drm_atomic_get_old_colorop_state);
  * NULL if the colorop is not part of the global atomic state.
  */
 struct drm_colorop_state *
-drm_atomic_get_new_colorop_state(struct drm_atomic_state *state,
+drm_atomic_get_new_colorop_state(struct drm_atomic_commit *state,
 				 struct drm_colorop *colorop)
 {
 	return state->colorops[drm_colorop_index(colorop)].new_state;
@@ -901,9 +901,9 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
  * directly. Sequence of the actual hardware state commit is not handled,
  * drivers might need to keep track of struct drm_crtc_commit within subclassed
  * structure of &drm_private_state as necessary, e.g. similar to
- * &drm_plane_state.commit. See also &drm_atomic_state.fake_commit.
+ * &drm_plane_state.commit. See also &drm_atomic_commit.fake_commit.
  *
- * All private state structures contained in a &drm_atomic_state update can be
+ * All private state structures contained in a &drm_atomic_commit update can be
  * iterated using for_each_oldnew_private_obj_in_state(),
  * for_each_new_private_obj_in_state() and for_each_old_private_obj_in_state().
  * Drivers are recommended to wrap these for each type of driver private state
@@ -911,7 +911,7 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
  * least if they want to iterate over all objects of a given type.
  *
  * An earlier way to handle driver private state was by subclassing struct
- * &drm_atomic_state. But since that encourages non-standard ways to implement
+ * &drm_atomic_commit. But since that encourages non-standard ways to implement
  * the check/commit split atomic requires (by using e.g. "check and rollback or
  * commit instead" of "duplicate state, check, then either commit or release
  * duplicated state) it is deprecated in favour of using &drm_private_state.
@@ -981,7 +981,7 @@ EXPORT_SYMBOL(drm_atomic_private_obj_fini);
  * Either the allocated state or the error code encoded into a pointer.
  */
 struct drm_private_state *
-drm_atomic_get_private_obj_state(struct drm_atomic_state *state,
+drm_atomic_get_private_obj_state(struct drm_atomic_commit *state,
 				 struct drm_private_obj *obj)
 {
 	int index, num_objs, ret;
@@ -1039,7 +1039,7 @@ EXPORT_SYMBOL(drm_atomic_get_private_obj_state);
  * or NULL if the private_obj is not part of the global atomic state.
  */
 struct drm_private_state *
-drm_atomic_get_old_private_obj_state(const struct drm_atomic_state *state,
+drm_atomic_get_old_private_obj_state(const struct drm_atomic_commit *state,
 				     struct drm_private_obj *obj)
 {
 	int i;
@@ -1061,7 +1061,7 @@ EXPORT_SYMBOL(drm_atomic_get_old_private_obj_state);
  * or NULL if the private_obj is not part of the global atomic state.
  */
 struct drm_private_state *
-drm_atomic_get_new_private_obj_state(const struct drm_atomic_state *state,
+drm_atomic_get_new_private_obj_state(const struct drm_atomic_commit *state,
 				     struct drm_private_obj *obj)
 {
 	int i;
@@ -1096,7 +1096,7 @@ EXPORT_SYMBOL(drm_atomic_get_new_private_obj_state);
  * not connected.
  */
 struct drm_connector *
-drm_atomic_get_old_connector_for_encoder(const struct drm_atomic_state *state,
+drm_atomic_get_old_connector_for_encoder(const struct drm_atomic_commit *state,
 					 struct drm_encoder *encoder)
 {
 	struct drm_connector_state *conn_state;
@@ -1133,7 +1133,7 @@ EXPORT_SYMBOL(drm_atomic_get_old_connector_for_encoder);
  * not connected.
  */
 struct drm_connector *
-drm_atomic_get_new_connector_for_encoder(const struct drm_atomic_state *state,
+drm_atomic_get_new_connector_for_encoder(const struct drm_atomic_commit *state,
 					 struct drm_encoder *encoder)
 {
 	struct drm_connector_state *conn_state;
@@ -1214,7 +1214,7 @@ EXPORT_SYMBOL(drm_atomic_get_connector_for_encoder);
  * not connected.
  */
 struct drm_crtc *
-drm_atomic_get_old_crtc_for_encoder(struct drm_atomic_state *state,
+drm_atomic_get_old_crtc_for_encoder(struct drm_atomic_commit *state,
 				    struct drm_encoder *encoder)
 {
 	struct drm_connector *connector;
@@ -1244,7 +1244,7 @@ EXPORT_SYMBOL(drm_atomic_get_old_crtc_for_encoder);
  * not connected.
  */
 struct drm_crtc *
-drm_atomic_get_new_crtc_for_encoder(struct drm_atomic_state *state,
+drm_atomic_get_new_crtc_for_encoder(struct drm_atomic_commit *state,
 				    struct drm_encoder *encoder)
 {
 	struct drm_connector *connector;
@@ -1277,7 +1277,7 @@ EXPORT_SYMBOL(drm_atomic_get_new_crtc_for_encoder);
  * entire atomic sequence must be restarted. All other errors are fatal.
  */
 struct drm_connector_state *
-drm_atomic_get_connector_state(struct drm_atomic_state *state,
+drm_atomic_get_connector_state(struct drm_atomic_commit *state,
 			  struct drm_connector *connector)
 {
 	int ret, index;
@@ -1388,7 +1388,7 @@ static void drm_atomic_connector_print_state(struct drm_printer *p,
  * entire atomic sequence must be restarted.
  */
 struct drm_bridge_state *
-drm_atomic_get_bridge_state(struct drm_atomic_state *state,
+drm_atomic_get_bridge_state(struct drm_atomic_commit *state,
 			    struct drm_bridge *bridge)
 {
 	struct drm_private_state *obj_state;
@@ -1410,7 +1410,7 @@ EXPORT_SYMBOL(drm_atomic_get_bridge_state);
  * the bridge is not part of the global atomic state.
  */
 struct drm_bridge_state *
-drm_atomic_get_old_bridge_state(const struct drm_atomic_state *state,
+drm_atomic_get_old_bridge_state(const struct drm_atomic_commit *state,
 				struct drm_bridge *bridge)
 {
 	struct drm_private_state *obj_state;
@@ -1432,7 +1432,7 @@ EXPORT_SYMBOL(drm_atomic_get_old_bridge_state);
  * the bridge is not part of the global atomic state.
  */
 struct drm_bridge_state *
-drm_atomic_get_new_bridge_state(const struct drm_atomic_state *state,
+drm_atomic_get_new_bridge_state(const struct drm_atomic_commit *state,
 				struct drm_bridge *bridge)
 {
 	struct drm_private_state *obj_state;
@@ -1462,7 +1462,7 @@ EXPORT_SYMBOL(drm_atomic_get_new_bridge_state);
  * sequence must be restarted. All other errors are fatal.
  */
 int
-drm_atomic_add_encoder_bridges(struct drm_atomic_state *state,
+drm_atomic_add_encoder_bridges(struct drm_atomic_commit *state,
 			       struct drm_encoder *encoder)
 {
 	struct drm_bridge_state *bridge_state;
@@ -1506,7 +1506,7 @@ EXPORT_SYMBOL(drm_atomic_add_encoder_bridges);
  * sequence must be restarted. All other errors are fatal.
  */
 int
-drm_atomic_add_affected_connectors(struct drm_atomic_state *state,
+drm_atomic_add_affected_connectors(struct drm_atomic_commit *state,
 				   struct drm_crtc *crtc)
 {
 	struct drm_mode_config *config = &state->dev->mode_config;
@@ -1570,7 +1570,7 @@ EXPORT_SYMBOL(drm_atomic_add_affected_connectors);
  * sequence must be restarted. All other errors are fatal.
  */
 int
-drm_atomic_add_affected_planes(struct drm_atomic_state *state,
+drm_atomic_add_affected_planes(struct drm_atomic_commit *state,
 			       struct drm_crtc *crtc)
 {
 	const struct drm_crtc_state *old_crtc_state =
@@ -1622,7 +1622,7 @@ EXPORT_SYMBOL(drm_atomic_add_affected_planes);
  * sequence must be restarted. All other errors are fatal.
  */
 int
-drm_atomic_add_affected_colorops(struct drm_atomic_state *state,
+drm_atomic_add_affected_colorops(struct drm_atomic_commit *state,
 				 struct drm_plane *plane)
 {
 	struct drm_colorop *colorop;
@@ -1658,7 +1658,7 @@ EXPORT_SYMBOL(drm_atomic_add_affected_colorops);
  * Returns:
  * 0 on success, negative error code on failure.
  */
-int drm_atomic_check_only(struct drm_atomic_state *state)
+int drm_atomic_check_only(struct drm_atomic_commit *state)
 {
 	struct drm_device *dev = state->dev;
 	struct drm_mode_config *config = &dev->mode_config;
@@ -1766,12 +1766,12 @@ EXPORT_SYMBOL(drm_atomic_check_only);
  * backoff dance and restart. All other errors are fatal.
  *
  * This function will take its own reference on @state.
- * Callers should always release their reference with drm_atomic_state_put().
+ * Callers should always release their reference with drm_atomic_commit_put().
  *
  * Returns:
  * 0 on success, negative error code on failure.
  */
-int drm_atomic_commit(struct drm_atomic_state *state)
+int drm_atomic_commit(struct drm_atomic_commit *state)
 {
 	struct drm_mode_config *config = &state->dev->mode_config;
 	struct drm_printer p = drm_info_printer(state->dev->dev);
@@ -1799,12 +1799,12 @@ EXPORT_SYMBOL(drm_atomic_commit);
  * backoff dance and restart. All other errors are fatal.
  *
  * This function will take its own reference on @state.
- * Callers should always release their reference with drm_atomic_state_put().
+ * Callers should always release their reference with drm_atomic_commit_put().
  *
  * Returns:
  * 0 on success, negative error code on failure.
  */
-int drm_atomic_nonblocking_commit(struct drm_atomic_state *state)
+int drm_atomic_nonblocking_commit(struct drm_atomic_commit *state)
 {
 	struct drm_mode_config *config = &state->dev->mode_config;
 	int ret;
@@ -1843,7 +1843,7 @@ int __drm_atomic_helper_disable_plane(struct drm_plane *plane,
 }
 EXPORT_SYMBOL(__drm_atomic_helper_disable_plane);
 
-static int update_output_state(struct drm_atomic_state *state,
+static int update_output_state(struct drm_atomic_commit *state,
 			       struct drm_mode_set *set)
 {
 	struct drm_device *dev = set->crtc->dev;
@@ -1913,7 +1913,7 @@ static int update_output_state(struct drm_atomic_state *state,
 
 /* just used from drm-client and atomic-helper: */
 int __drm_atomic_helper_set_config(struct drm_mode_set *set,
-				   struct drm_atomic_state *state)
+				   struct drm_atomic_commit *state)
 {
 	struct drm_crtc_state *crtc_state;
 	struct drm_plane_state *primary_state;
@@ -2007,7 +2007,7 @@ static void drm_atomic_private_obj_print_state(struct drm_printer *p,
  * Note that this function looks into the new state objects and hence its not
  * safe to be used after the call to drm_atomic_helper_commit_hw_done().
  */
-void drm_atomic_print_new_state(const struct drm_atomic_state *state,
+void drm_atomic_print_new_state(const struct drm_atomic_commit *state,
 		struct drm_printer *p)
 {
 	struct drm_plane *plane;

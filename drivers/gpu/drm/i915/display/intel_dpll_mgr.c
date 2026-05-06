@@ -25,6 +25,7 @@
 #include <linux/string_helpers.h>
 
 #include <drm/drm_print.h>
+#include <drm/intel/step.h>
 
 #include "bxt_dpio_phy_regs.h"
 #include "intel_cx0_phy.h"
@@ -41,7 +42,6 @@
 #include "intel_lt_phy.h"
 #include "intel_mg_phy_regs.h"
 #include "intel_pch_refclk.h"
-#include "intel_step.h"
 #include "intel_tc.h"
 
 /**
@@ -134,7 +134,7 @@ intel_atomic_duplicate_dpll_state(struct intel_display *display,
 }
 
 static struct intel_dpll_state *
-intel_atomic_get_dpll_state(struct drm_atomic_state *s)
+intel_atomic_get_dpll_state(struct drm_atomic_commit *s)
 {
 	struct intel_atomic_state *state = to_intel_atomic_state(s);
 	struct intel_display *display = to_intel_display(state);

@@ -584,7 +584,7 @@ static void amdgpu_dm_crtc_helper_disable(struct drm_crtc *crtc)
 
 static int amdgpu_dm_crtc_count_crtc_active_planes(struct drm_crtc_state *new_crtc_state)
 {
-	struct drm_atomic_state *state = new_crtc_state->state;
+	struct drm_atomic_commit *state = new_crtc_state->state;
 	struct drm_plane *plane;
 	int num_active = 0;
 
@@ -637,7 +637,7 @@ static bool amdgpu_dm_crtc_helper_mode_fixup(struct drm_crtc *crtc,
 }
 
 static int amdgpu_dm_crtc_helper_atomic_check(struct drm_crtc *crtc,
-					      struct drm_atomic_state *state)
+					      struct drm_atomic_commit *state)
 {
 	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state,
 										crtc);

@@ -563,7 +563,7 @@ static void cdn_dp_display_info_update(struct cdn_dp_device *dp,
 	}
 }
 
-static void cdn_dp_bridge_atomic_enable(struct drm_bridge *bridge, struct drm_atomic_state *state)
+static void cdn_dp_bridge_atomic_enable(struct drm_bridge *bridge, struct drm_atomic_commit *state)
 {
 	struct cdn_dp_device *dp = bridge_to_dp(bridge);
 	struct drm_connector *connector;
@@ -630,7 +630,7 @@ out:
 	mutex_unlock(&dp->lock);
 }
 
-static void cdn_dp_bridge_atomic_disable(struct drm_bridge *bridge, struct drm_atomic_state *state)
+static void cdn_dp_bridge_atomic_disable(struct drm_bridge *bridge, struct drm_atomic_commit *state)
 {
 	struct cdn_dp_device *dp = bridge_to_dp(bridge);
 	int ret;

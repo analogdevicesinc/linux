@@ -32,6 +32,7 @@
 #include <drm/drm_fixed.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
+#include <drm/intel/step.h>
 
 #include "intel_atomic.h"
 #include "intel_audio.h"
@@ -56,7 +57,6 @@
 #include "intel_link_bw.h"
 #include "intel_pfit.h"
 #include "intel_psr.h"
-#include "intel_step.h"
 #include "intel_vdsc.h"
 #include "intel_vrr.h"
 #include "skl_scaler.h"
@@ -251,7 +251,7 @@ int intel_dp_mtp_tu_compute_config(struct intel_dp *intel_dp,
 				   int min_bpp_x16, int max_bpp_x16, int bpp_step_x16, bool dsc)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
-	struct drm_atomic_state *state = crtc_state->uapi.state;
+	struct drm_atomic_commit *state = crtc_state->uapi.state;
 	struct drm_dp_mst_topology_state *mst_state = NULL;
 	struct intel_connector *connector =
 		to_intel_connector(conn_state->connector);
@@ -721,7 +721,10 @@ static int mst_stream_compute_config(struct intel_encoder *encoder,
 
 	pipe_config->sink_format = INTEL_OUTPUT_FORMAT_RGB;
 	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
-	pipe_config->has_pch_encoder = false;
+
+	ret = intel_pfit_compute_config(pipe_config, conn_state);
+	if (ret)
+		return ret;
 
 	for_each_joiner_candidate(connector, adjusted_mode, num_joined_pipes) {
 		if (num_joined_pipes > 1)
@@ -996,7 +999,7 @@ mst_connector_atomic_topology_check(struct intel_connector *connector,
 
 static int
 mst_connector_atomic_check(struct drm_connector *_connector,
-			   struct drm_atomic_state *_state)
+			   struct drm_atomic_commit *_state)
 {
 	struct intel_atomic_state *state = to_intel_atomic_state(_state);
 	struct intel_connector *connector = to_intel_connector(_connector);
@@ -1603,7 +1606,7 @@ mst_connector_mode_valid_ctx(struct drm_connector *_connector,
 
 static struct drm_encoder *
 mst_connector_atomic_best_encoder(struct drm_connector *_connector,
-				  struct drm_atomic_state *state)
+				  struct drm_atomic_commit *state)
 {
 	struct intel_connector *connector = to_intel_connector(_connector);
 	struct drm_connector_state *connector_state =
@@ -2144,7 +2147,7 @@ void intel_dp_mst_prepare_probe(struct intel_dp *intel_dp)
 
 	intel_dp_link_training_set_mode(intel_dp, link_rate, false);
 	intel_dp_link_training_set_bw(intel_dp, link_bw, rate_select, lane_count,
-				      drm_dp_enhanced_frame_cap(intel_dp->dpcd));
+				      drm_dp_enhanced_frame_cap(intel_dp->dpcd), false);
 
 	intel_mst_set_probed_link_params(intel_dp, link_rate, lane_count);
 }

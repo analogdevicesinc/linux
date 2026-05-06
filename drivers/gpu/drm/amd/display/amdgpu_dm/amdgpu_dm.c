@@ -232,11 +232,11 @@ static int amdgpu_dm_encoder_init(struct drm_device *dev,
 
 static int amdgpu_dm_connector_get_modes(struct drm_connector *connector);
 
-static int amdgpu_dm_atomic_setup_commit(struct drm_atomic_state *state);
-static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state);
+static int amdgpu_dm_atomic_setup_commit(struct drm_atomic_commit *state);
+static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_commit *state);
 
 static int amdgpu_dm_atomic_check(struct drm_device *dev,
-				  struct drm_atomic_state *state);
+				  struct drm_atomic_commit *state);
 
 static void handle_hpd_irq_helper(struct amdgpu_dm_connector *aconnector);
 static void handle_hpd_rx_irq(void *param);
@@ -3342,7 +3342,7 @@ static int dm_suspend(struct amdgpu_ip_block *ip_block)
 }
 
 struct drm_connector *
-amdgpu_dm_find_first_crtc_matching_connector(struct drm_atomic_state *state,
+amdgpu_dm_find_first_crtc_matching_connector(struct drm_atomic_commit *state,
 					     struct drm_crtc *crtc)
 {
 	u32 i;
@@ -4906,7 +4906,7 @@ static int register_outbox_irq_handlers(struct amdgpu_device *adev)
  *
  * This should only be called during atomic check.
  */
-int dm_atomic_get_state(struct drm_atomic_state *state,
+int dm_atomic_get_state(struct drm_atomic_commit *state,
 			struct dm_atomic_state **dm_state)
 {
 	struct drm_device *dev = state->dev;
@@ -4927,7 +4927,7 @@ int dm_atomic_get_state(struct drm_atomic_state *state,
 }
 
 static struct dm_atomic_state *
-dm_atomic_get_new_state(struct drm_atomic_state *state)
+dm_atomic_get_new_state(struct drm_atomic_commit *state)
 {
 	struct drm_device *dev = state->dev;
 	struct amdgpu_device *adev = drm_to_adev(dev);
@@ -8370,7 +8370,7 @@ static int fill_hdr_info_packet(const struct drm_connector_state *state,
 
 static int
 amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
-				 struct drm_atomic_state *state)
+				 struct drm_atomic_commit *state)
 {
 	struct drm_connector_state *new_con_state =
 		drm_atomic_get_new_connector_state(state, conn);
@@ -8492,7 +8492,7 @@ static int dm_encoder_helper_atomic_check(struct drm_encoder *encoder,
 					  struct drm_crtc_state *crtc_state,
 					  struct drm_connector_state *conn_state)
 {
-	struct drm_atomic_state *state = crtc_state->state;
+	struct drm_atomic_commit *state = crtc_state->state;
 	struct drm_connector *connector = conn_state->connector;
 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
 	struct dm_connector_state *dm_new_connector_state = to_dm_connector_state(conn_state);
@@ -8564,7 +8564,7 @@ const struct drm_encoder_helper_funcs amdgpu_dm_encoder_helper_funcs = {
 	.atomic_check = dm_encoder_helper_atomic_check
 };
 
-static int dm_update_mst_vcpi_slots_for_dsc(struct drm_atomic_state *state,
+static int dm_update_mst_vcpi_slots_for_dsc(struct drm_atomic_commit *state,
 					    struct dc_state *dc_state,
 					    struct dsc_mst_fairness_vars *vars)
 {
@@ -9838,7 +9838,7 @@ static void amdgpu_dm_handle_vrr_transition(struct dm_crtc_state *old_state,
 	}
 }
 
-static void amdgpu_dm_commit_cursors(struct drm_atomic_state *state)
+static void amdgpu_dm_commit_cursors(struct drm_atomic_commit *state)
 {
 	struct drm_plane *plane;
 	struct drm_plane_state *old_plane_state;
@@ -9985,7 +9985,7 @@ static void amdgpu_dm_enable_self_refresh(struct amdgpu_crtc *acrtc_attach,
 	}
 }
 
-static void amdgpu_dm_commit_planes(struct drm_atomic_state *state,
+static void amdgpu_dm_commit_planes(struct drm_atomic_commit *state,
 				    struct drm_device *dev,
 				    struct amdgpu_display_manager *dm,
 				    struct drm_crtc *pcrtc,
@@ -10379,7 +10379,7 @@ cleanup:
 }
 
 static void amdgpu_dm_commit_audio(struct drm_device *dev,
-				   struct drm_atomic_state *state)
+				   struct drm_atomic_commit *state)
 {
 	struct amdgpu_device *adev = drm_to_adev(dev);
 	struct amdgpu_dm_connector *aconnector;
@@ -10479,7 +10479,7 @@ static void dm_clear_writeback(struct amdgpu_display_manager *dm,
 	dc_stream_remove_writeback(dm->dc, crtc_state->stream, 0);
 }
 
-static void amdgpu_dm_commit_streams(struct drm_atomic_state *state,
+static void amdgpu_dm_commit_streams(struct drm_atomic_commit *state,
 					struct dc_state *dc_state)
 {
 	struct drm_device *dev = state->dev;
@@ -10779,7 +10779,7 @@ static void dm_set_writeback(struct amdgpu_display_manager *dm,
 	drm_writeback_queue_job(wb_conn, new_con_state);
 }
 
-static void amdgpu_dm_update_hdcp(struct drm_atomic_state *state)
+static void amdgpu_dm_update_hdcp(struct drm_atomic_commit *state)
 {
 	struct drm_connector_state *old_con_state, *new_con_state;
 	struct drm_device *dev = state->dev;
@@ -10894,7 +10894,7 @@ static void amdgpu_dm_update_hdcp(struct drm_atomic_state *state)
 	}
 }
 
-static int amdgpu_dm_atomic_setup_commit(struct drm_atomic_state *state)
+static int amdgpu_dm_atomic_setup_commit(struct drm_atomic_commit *state)
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_state *old_crtc_state, *new_crtc_state;
@@ -10935,7 +10935,7 @@ static int amdgpu_dm_atomic_setup_commit(struct drm_atomic_state *state)
  * programming the hardware. Any failures here implies a hardware failure, since
  * atomic check should have filtered anything non-kosher.
  */
-static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_state *state)
+static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_commit *state)
 {
 	struct drm_device *dev = state->dev;
 	struct amdgpu_device *adev = drm_to_adev(dev);
@@ -11240,7 +11240,7 @@ static int dm_force_atomic_commit(struct drm_connector *connector)
 {
 	int ret = 0;
 	struct drm_device *ddev = connector->dev;
-	struct drm_atomic_state *state = drm_atomic_state_alloc(ddev);
+	struct drm_atomic_commit *state = drm_atomic_commit_alloc(ddev);
 	struct amdgpu_crtc *disconnected_acrtc = to_amdgpu_crtc(connector->encoder->crtc);
 	struct drm_plane *plane = disconnected_acrtc->base.primary;
 	struct drm_connector_state *conn_state;
@@ -11255,7 +11255,7 @@ static int dm_force_atomic_commit(struct drm_connector *connector)
 	/* Construct an atomic state to restore previous display setting */
 
 	/*
-	 * Attach connectors to drm_atomic_state
+	 * Attach connectors to drm_atomic_commit
 	 */
 	conn_state = drm_atomic_get_connector_state(state, connector);
 
@@ -11265,7 +11265,7 @@ static int dm_force_atomic_commit(struct drm_connector *connector)
 		goto out;
 	}
 
-	/* Attach crtc to drm_atomic_state*/
+	/* Attach crtc to drm_atomic_commit*/
 	crtc_state = drm_atomic_get_crtc_state(state, &disconnected_acrtc->base);
 
 	/* Check for error in getting crtc state */
@@ -11277,7 +11277,7 @@ static int dm_force_atomic_commit(struct drm_connector *connector)
 	/* force a restore */
 	crtc_state->mode_changed = true;
 
-	/* Attach plane to drm_atomic_state */
+	/* Attach plane to drm_atomic_commit */
 	plane_state = drm_atomic_get_plane_state(state, plane);
 
 	/* Check for error in getting plane state */
@@ -11290,7 +11290,7 @@ static int dm_force_atomic_commit(struct drm_connector *connector)
 	ret = drm_atomic_commit(state);
 
 out:
-	drm_atomic_state_put(state);
+	drm_atomic_commit_put(state);
 	if (ret)
 		drm_err(ddev, "Restoring old state failed with %i\n", ret);
 
@@ -11339,7 +11339,7 @@ void dm_restore_drm_connector_state(struct drm_device *dev,
  * Waits for completion of all non blocking commits.
  */
 static int do_aquire_global_lock(struct drm_device *dev,
-				 struct drm_atomic_state *state)
+				 struct drm_atomic_commit *state)
 {
 	struct drm_crtc *crtc;
 	struct drm_crtc_commit *commit;
@@ -11484,7 +11484,7 @@ static void set_freesync_fixed_config(struct dm_crtc_state *dm_new_crtc_state)
 }
 
 static int dm_update_crtc_state(struct amdgpu_display_manager *dm,
-			 struct drm_atomic_state *state,
+			 struct drm_atomic_commit *state,
 			 struct drm_crtc *crtc,
 			 struct drm_crtc_state *old_crtc_state,
 			 struct drm_crtc_state *new_crtc_state,
@@ -11758,7 +11758,7 @@ fail:
 	return ret;
 }
 
-static bool should_reset_plane(struct drm_atomic_state *state,
+static bool should_reset_plane(struct drm_atomic_commit *state,
 			       struct drm_plane *plane,
 			       struct drm_plane_state *old_plane_state,
 			       struct drm_plane_state *new_plane_state)
@@ -12016,7 +12016,7 @@ static int dm_check_native_cursor_state(struct drm_crtc *new_plane_crtc,
 	return 0;
 }
 
-static bool dm_should_update_native_cursor(struct drm_atomic_state *state,
+static bool dm_should_update_native_cursor(struct drm_atomic_commit *state,
 					   struct drm_crtc *old_plane_crtc,
 					   struct drm_crtc *new_plane_crtc,
 					   bool enable)
@@ -12046,7 +12046,7 @@ static bool dm_should_update_native_cursor(struct drm_atomic_state *state,
 }
 
 static int dm_update_plane_state(struct dc *dc,
-				 struct drm_atomic_state *state,
+				 struct drm_atomic_commit *state,
 				 struct drm_plane *plane,
 				 struct drm_plane_state *old_plane_state,
 				 struct drm_plane_state *new_plane_state,
@@ -12254,7 +12254,7 @@ dm_get_plane_scale(struct drm_plane_state *plane_state,
  * indefinitely.
  */
 static inline struct __drm_planes_state *__get_next_zpos(
-	struct drm_atomic_state *state,
+	struct drm_atomic_commit *state,
 	struct __drm_planes_state *prev)
 {
 	unsigned int highest_zpos = 0, prev_zpos = 256;
@@ -12304,7 +12304,7 @@ static inline struct __drm_planes_state *__get_next_zpos(
 			     (old_plane_state) = __i->old_state,		\
 			     (new_plane_state) = __i->new_state, 1))
 
-static int add_affected_mst_dsc_crtcs(struct drm_atomic_state *state, struct drm_crtc *crtc)
+static int add_affected_mst_dsc_crtcs(struct drm_atomic_commit *state, struct drm_crtc *crtc)
 {
 	struct drm_connector *connector;
 	struct drm_connector_state *conn_state, *old_conn_state;
@@ -12363,7 +12363,7 @@ static int add_affected_mst_dsc_crtcs(struct drm_atomic_state *state, struct drm
  *
  * Return: true if the pipeline modifies pixels, false otherwise.
  */
-static bool dm_plane_color_pipeline_active(struct drm_atomic_state *state,
+static bool dm_plane_color_pipeline_active(struct drm_atomic_commit *state,
 					   struct drm_plane *plane,
 					   bool use_old)
 {
@@ -12403,7 +12403,7 @@ static bool dm_plane_color_pipeline_active(struct drm_atomic_state *state,
  * failed.
  */
 static int dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
-				   struct drm_atomic_state *state,
+				   struct drm_atomic_commit *state,
 				   struct dm_crtc_state *dm_crtc_state,
 				   enum amdgpu_dm_cursor_mode *cursor_mode)
 {
@@ -12542,7 +12542,7 @@ static int dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 }
 
 static bool amdgpu_dm_crtc_mem_type_changed(struct drm_device *dev,
-					    struct drm_atomic_state *state,
+					    struct drm_atomic_commit *state,
 					    struct drm_crtc_state *crtc_state)
 {
 	struct drm_plane *plane;
@@ -12591,7 +12591,7 @@ static bool amdgpu_dm_crtc_mem_type_changed(struct drm_device *dev,
  * Return: -Error code if validation failed.
  */
 static int amdgpu_dm_atomic_check(struct drm_device *dev,
-				  struct drm_atomic_state *state)
+				  struct drm_atomic_commit *state)
 {
 	struct amdgpu_device *adev = drm_to_adev(dev);
 	struct dm_atomic_state *dm_state = NULL;

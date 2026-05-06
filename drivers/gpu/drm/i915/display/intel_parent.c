@@ -19,6 +19,7 @@
 
 #include <drm/drm_print.h>
 #include <drm/intel/display_parent_interface.h>
+#include <drm/intel/vlv_iosf_sb_regs.h>
 
 #include "intel_display_core.h"
 #include "intel_parent.h"
@@ -338,13 +339,37 @@ void intel_parent_stolen_node_free(struct intel_display *display, const struct i
 	display->parent->stolen->node_free(node);
 }
 
-/* vma */
-int intel_parent_vma_fence_id(struct intel_display *display, const struct i915_vma *vma)
+/* vlv iosf */
+void intel_parent_vlv_iosf_get(struct intel_display *display, unsigned long unit_mask)
 {
-	if (!display->parent->vma)
-		return -1;
+	if (drm_WARN_ON_ONCE(display->drm, !display->parent->vlv_iosf))
+		return;
 
-	return display->parent->vma->fence_id(vma);
+	display->parent->vlv_iosf->get(display->drm, unit_mask);
+}
+
+void intel_parent_vlv_iosf_put(struct intel_display *display, unsigned long unit_mask)
+{
+	if (drm_WARN_ON_ONCE(display->drm, !display->parent->vlv_iosf))
+		return;
+
+	display->parent->vlv_iosf->put(display->drm, unit_mask);
+}
+
+u32 intel_parent_vlv_iosf_read(struct intel_display *display, enum vlv_iosf_sb_unit unit, u32 addr)
+{
+	if (drm_WARN_ON_ONCE(display->drm, !display->parent->vlv_iosf))
+		return 0;
+
+	return display->parent->vlv_iosf->read(display->drm, unit, addr);
+}
+
+int intel_parent_vlv_iosf_write(struct intel_display *display, enum vlv_iosf_sb_unit unit, u32 addr, u32 val)
+{
+	if (drm_WARN_ON_ONCE(display->drm, !display->parent->vlv_iosf))
+		return -EINVAL;
+
+	return display->parent->vlv_iosf->write(display->drm, unit, addr, val);
 }
 
 /* generic */

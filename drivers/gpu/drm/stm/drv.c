@@ -126,7 +126,7 @@ static __maybe_unused int drv_suspend(struct device *dev)
 {
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct ltdc_device *ldev = ddev->dev_private;
-	struct drm_atomic_state *state;
+	struct drm_atomic_commit *state;
 
 	WARN_ON(ldev->suspend_state);
 

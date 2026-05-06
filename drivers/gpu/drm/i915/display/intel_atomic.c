@@ -112,7 +112,7 @@ int intel_digital_connector_atomic_set_property(struct drm_connector *connector,
 }
 
 int intel_digital_connector_atomic_check(struct drm_connector *conn,
-					 struct drm_atomic_state *state)
+					 struct drm_atomic_commit *state)
 {
 	struct drm_connector_state *new_state =
 		drm_atomic_get_new_connector_state(state, conn);
@@ -320,12 +320,12 @@ intel_crtc_destroy_state(struct drm_crtc *crtc,
 	kfree(crtc_state);
 }
 
-struct drm_atomic_state *
+struct drm_atomic_commit *
 intel_atomic_state_alloc(struct drm_device *dev)
 {
 	struct intel_atomic_state *state = kzalloc_obj(*state);
 
-	if (!state || drm_atomic_state_init(dev, &state->base) < 0) {
+	if (!state || drm_atomic_commit_init(dev, &state->base) < 0) {
 		kfree(state);
 		return NULL;
 	}
@@ -333,20 +333,20 @@ intel_atomic_state_alloc(struct drm_device *dev)
 	return &state->base;
 }
 
-void intel_atomic_state_free(struct drm_atomic_state *_state)
+void intel_atomic_state_free(struct drm_atomic_commit *_state)
 {
 	struct intel_atomic_state *state = to_intel_atomic_state(_state);
 
-	drm_atomic_state_default_release(&state->base);
+	drm_atomic_commit_default_release(&state->base);
 	kfree(state->global_objs);
 	kfree(state);
 }
 
-void intel_atomic_state_clear(struct drm_atomic_state *s)
+void intel_atomic_state_clear(struct drm_atomic_commit *s)
 {
 	struct intel_atomic_state *state = to_intel_atomic_state(s);
 
-	drm_atomic_state_default_clear(&state->base);
+	drm_atomic_commit_default_clear(&state->base);
 	intel_atomic_clear_global_state(state);
 
 	/* state->internal not reset on purpose */
@@ -357,7 +357,7 @@ void intel_atomic_state_clear(struct drm_atomic_state *s)
 }
 
 struct intel_crtc_state *
-intel_atomic_get_crtc_state(struct drm_atomic_state *state,
+intel_atomic_get_crtc_state(struct drm_atomic_commit *state,
 			    struct intel_crtc *crtc)
 {
 	struct drm_crtc_state *crtc_state;

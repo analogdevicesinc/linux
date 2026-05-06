@@ -111,7 +111,7 @@ struct __guc_capture_parsed_output {
 	{ RING_TAIL(0),			REG_32BIT,	0,	0,	0,	"RING_TAIL"}, \
 	{ RING_CTL(0),			REG_32BIT,	0,	0,	0,	"RING_CTL"}, \
 	{ RING_MI_MODE(0),		REG_32BIT,	0,	0,	0,	"RING_MI_MODE"}, \
-	{ RING_MODE(0),			REG_32BIT,	0,	0,	0,	"RING_MODE"}, \
+	{ GFX_MODE(0),			REG_32BIT,	0,	0,	0,	"GFX_MODE"}, \
 	{ RING_ESR(0),			REG_32BIT,	0,	0,	0,	"RING_ESR"}, \
 	{ RING_EMR(0),			REG_32BIT,	0,	0,	0,	"RING_EMR"}, \
 	{ RING_EIR(0),			REG_32BIT,	0,	0,	0,	"RING_EIR"}, \

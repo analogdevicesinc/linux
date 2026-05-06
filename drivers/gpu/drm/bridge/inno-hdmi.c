@@ -756,7 +756,7 @@ static int inno_hdmi_config_video_timing(struct inno_hdmi *hdmi,
 	return 0;
 }
 
-static int inno_hdmi_setup(struct inno_hdmi *hdmi, struct drm_atomic_state *state)
+static int inno_hdmi_setup(struct inno_hdmi *hdmi, struct drm_atomic_commit *state)
 {
 	struct drm_bridge *bridge = &hdmi->bridge;
 	struct drm_connector *connector;
@@ -863,7 +863,7 @@ inno_hdmi_bridge_edid_read(struct drm_bridge *bridge, struct drm_connector *conn
 }
 
 static void inno_hdmi_bridge_atomic_enable(struct drm_bridge *bridge,
-					   struct drm_atomic_state *state)
+					   struct drm_atomic_commit *state)
 {
 	struct inno_hdmi *hdmi = bridge_to_inno_hdmi(bridge);
 
@@ -871,7 +871,7 @@ static void inno_hdmi_bridge_atomic_enable(struct drm_bridge *bridge,
 }
 
 static void inno_hdmi_bridge_atomic_disable(struct drm_bridge *bridge,
-					    struct drm_atomic_state *state)
+					    struct drm_atomic_commit *state)
 {
 	struct inno_hdmi *hdmi = bridge_to_inno_hdmi(bridge);
 

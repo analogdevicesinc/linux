@@ -592,7 +592,7 @@ intel_hdmi_hotplug(struct intel_encoder *encoder,
 }
 
 int g4x_hdmi_connector_atomic_check(struct drm_connector *connector,
-				    struct drm_atomic_state *state)
+				    struct drm_atomic_commit *state)
 {
 	struct intel_display *display = to_intel_display(connector->dev);
 	struct drm_connector_list_iter conn_iter;

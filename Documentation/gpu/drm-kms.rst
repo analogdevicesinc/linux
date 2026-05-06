@@ -206,11 +206,11 @@ Atomic Mode Setting
           style=dashed
           label="Free-standing state"
 
-          "drm_atomic_state" -> "duplicated drm_plane_state A"
-          "drm_atomic_state" -> "duplicated drm_plane_state B"
-          "drm_atomic_state" -> "duplicated drm_crtc_state"
-          "drm_atomic_state" -> "duplicated drm_connector_state"
-          "drm_atomic_state" -> "duplicated driver private state"
+          "drm_atomic_commit" -> "duplicated drm_plane_state A"
+          "drm_atomic_commit" -> "duplicated drm_plane_state B"
+          "drm_atomic_commit" -> "duplicated drm_crtc_state"
+          "drm_atomic_commit" -> "duplicated drm_connector_state"
+          "drm_atomic_commit" -> "duplicated driver private state"
       }
 
       subgraph cluster_current {
@@ -230,7 +230,7 @@ Atomic Mode Setting
           "driver private object" -> "driver private state"
       }
 
-      "drm_atomic_state" -> "drm_device" [label="atomic_commit"]
+      "drm_atomic_commit" -> "drm_device" [label="atomic_commit"]
       "duplicated drm_plane_state A" -> "drm_device"[style=invis]
    }
 
@@ -265,7 +265,7 @@ Taken all together there's two consequences for the atomic design:
   drm_private_state<drm_private_state>`.
 
 - An atomic update is assembled and validated as an entirely free-standing pile
-  of structures within the :c:type:`drm_atomic_state <drm_atomic_state>`
+  of structures within the :c:type:`drm_atomic_commit <drm_atomic_commit>`
   container. Driver private state structures are also tracked in the same
   structure; see the next chapter.  Only when a state is committed is it applied
   to the driver and modeset objects. This way rolling back an update boils down

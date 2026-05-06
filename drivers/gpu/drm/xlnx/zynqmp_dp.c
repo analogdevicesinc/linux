@@ -1437,7 +1437,7 @@ zynqmp_dp_disp_connected_live_layer(struct zynqmp_dp *dp)
 }
 
 static void zynqmp_dp_disp_enable(struct zynqmp_dp *dp,
-				  struct drm_atomic_state *state)
+				  struct drm_atomic_commit *state)
 {
 	struct zynqmp_disp_layer *layer;
 	struct drm_bridge_state *bridge_state;
@@ -1549,7 +1549,7 @@ zynqmp_dp_bridge_mode_valid(struct drm_bridge *bridge,
 }
 
 static void zynqmp_dp_bridge_atomic_enable(struct drm_bridge *bridge,
-					   struct drm_atomic_state *state)
+					   struct drm_atomic_commit *state)
 {
 	struct zynqmp_dp *dp = bridge_to_dp(bridge);
 	const struct drm_crtc_state *crtc_state;
@@ -1626,7 +1626,7 @@ static void zynqmp_dp_bridge_atomic_enable(struct drm_bridge *bridge,
 }
 
 static void zynqmp_dp_bridge_atomic_disable(struct drm_bridge *bridge,
-					    struct drm_atomic_state *state)
+					    struct drm_atomic_commit *state)
 {
 	struct drm_bridge_state *old_bridge_state = drm_atomic_get_old_bridge_state(state,
 										    bridge);

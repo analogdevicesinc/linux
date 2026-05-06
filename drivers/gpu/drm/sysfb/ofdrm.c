@@ -725,7 +725,7 @@ static const struct drm_plane_funcs ofdrm_primary_plane_funcs = {
 	.destroy = drm_plane_cleanup,
 };
 
-static void ofdrm_crtc_helper_atomic_flush(struct drm_crtc *crtc, struct drm_atomic_state *state)
+static void ofdrm_crtc_helper_atomic_flush(struct drm_crtc *crtc, struct drm_atomic_commit *state)
 {
 	struct ofdrm_device *odev = ofdrm_device_of_dev(crtc->dev);
 	struct drm_crtc_state *crtc_state = drm_atomic_get_new_crtc_state(state, crtc);

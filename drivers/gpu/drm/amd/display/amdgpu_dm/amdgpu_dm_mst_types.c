@@ -497,7 +497,7 @@ static int dm_dp_mst_get_modes(struct drm_connector *connector)
 
 static struct drm_encoder *
 dm_mst_atomic_best_encoder(struct drm_connector *connector,
-			   struct drm_atomic_state *state)
+			   struct drm_atomic_commit *state)
 {
 	struct drm_connector_state *connector_state = drm_atomic_get_new_connector_state(state,
 											 connector);
@@ -579,7 +579,7 @@ dm_dp_mst_detect(struct drm_connector *connector,
 }
 
 static int dm_dp_mst_atomic_check(struct drm_connector *connector,
-				  struct drm_atomic_state *state)
+				  struct drm_atomic_commit *state)
 {
 	struct amdgpu_dm_connector *aconnector = to_amdgpu_dm_connector(connector);
 	struct drm_dp_mst_topology_mgr *mst_mgr = &aconnector->mst_root->mst_mgr;
@@ -986,7 +986,7 @@ static int bpp_x16_from_pbn(struct dsc_mst_fairness_params param, int pbn)
 	return dsc_config.bits_per_pixel;
 }
 
-static int increase_dsc_bpp(struct drm_atomic_state *state,
+static int increase_dsc_bpp(struct drm_atomic_commit *state,
 			    struct drm_dp_mst_topology_state *mst_state,
 			    struct dc_link *dc_link,
 			    struct dsc_mst_fairness_params *params,
@@ -1090,7 +1090,7 @@ static int increase_dsc_bpp(struct drm_atomic_state *state,
 	return 0;
 }
 
-static int try_disable_dsc(struct drm_atomic_state *state,
+static int try_disable_dsc(struct drm_atomic_commit *state,
 			   struct dc_link *dc_link,
 			   struct dsc_mst_fairness_params *params,
 			   struct dsc_mst_fairness_vars *vars,
@@ -1183,7 +1183,7 @@ static void log_dsc_params(int count, struct dsc_mst_fairness_vars *vars, int k)
 				 i, vars[i + k].dsc_enabled, vars[i + k].bpp_x16, vars[i + k].pbn);
 }
 
-static int compute_mst_dsc_configs_for_link(struct drm_atomic_state *state,
+static int compute_mst_dsc_configs_for_link(struct drm_atomic_commit *state,
 					    struct dc_state *dc_state,
 					    struct dc_link *dc_link,
 					    struct dsc_mst_fairness_vars *vars,
@@ -1348,7 +1348,7 @@ static int compute_mst_dsc_configs_for_link(struct drm_atomic_state *state,
 }
 
 static bool is_dsc_need_re_compute(
-	struct drm_atomic_state *state,
+	struct drm_atomic_commit *state,
 	struct dc_state *dc_state,
 	struct dc_link *dc_link)
 {
@@ -1479,7 +1479,7 @@ out:
 	return is_dsc_need_re_compute;
 }
 
-int compute_mst_dsc_configs_for_state(struct drm_atomic_state *state,
+int compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
 				      struct dc_state *dc_state,
 				      struct dsc_mst_fairness_vars *vars)
 {
@@ -1549,7 +1549,7 @@ int compute_mst_dsc_configs_for_state(struct drm_atomic_state *state,
 	return ret;
 }
 
-static int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_state *state,
+static int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_commit *state,
 						 struct dc_state *dc_state,
 						 struct dsc_mst_fairness_vars *vars)
 {
@@ -1602,7 +1602,7 @@ static int pre_compute_mst_dsc_configs_for_state(struct drm_atomic_state *state,
 	return ret;
 }
 
-static int find_crtc_index_in_state_by_stream(struct drm_atomic_state *state,
+static int find_crtc_index_in_state_by_stream(struct drm_atomic_commit *state,
 					      struct dc_stream_state *stream)
 {
 	int i;
@@ -1633,7 +1633,7 @@ static bool is_link_to_dschub(struct dc_link *dc_link)
 	return true;
 }
 
-static bool is_dsc_precompute_needed(struct drm_atomic_state *state)
+static bool is_dsc_precompute_needed(struct drm_atomic_commit *state)
 {
 	int i;
 	struct drm_crtc *crtc;
@@ -1654,7 +1654,7 @@ static bool is_dsc_precompute_needed(struct drm_atomic_state *state)
 	return ret;
 }
 
-int pre_validate_dsc(struct drm_atomic_state *state,
+int pre_validate_dsc(struct drm_atomic_commit *state,
 		     struct dm_atomic_state **dm_state_ptr,
 		     struct dsc_mst_fairness_vars *vars)
 {

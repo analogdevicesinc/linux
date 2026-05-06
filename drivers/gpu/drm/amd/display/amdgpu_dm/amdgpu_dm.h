@@ -584,7 +584,7 @@ struct amdgpu_display_manager {
 	 */
 	struct idle_workqueue *idle_workqueue;
 
-	struct drm_atomic_state *cached_state;
+	struct drm_atomic_commit *cached_state;
 	struct dc_state *cached_dc_state;
 
 	struct dm_compressor_info compressor;
@@ -1123,11 +1123,11 @@ struct dc_stream_state *
 					const struct dm_connector_state *dm_state,
 					const struct dc_stream_state *old_stream);
 
-int dm_atomic_get_state(struct drm_atomic_state *state,
+int dm_atomic_get_state(struct drm_atomic_commit *state,
 			struct dm_atomic_state **dm_state);
 
 struct drm_connector *
-amdgpu_dm_find_first_crtc_matching_connector(struct drm_atomic_state *state,
+amdgpu_dm_find_first_crtc_matching_connector(struct drm_atomic_commit *state,
 					     struct drm_crtc *crtc);
 
 int convert_dc_color_depth_into_bpc(enum dc_color_depth display_color_depth);

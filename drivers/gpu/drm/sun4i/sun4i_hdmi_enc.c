@@ -76,7 +76,7 @@ static int sun4i_hdmi_write_hdmi_infoframe(struct drm_connector *connector,
 }
 
 static void sun4i_hdmi_disable(struct drm_encoder *encoder,
-			       struct drm_atomic_state *state)
+			       struct drm_atomic_commit *state)
 {
 	struct sun4i_hdmi *hdmi = drm_encoder_to_sun4i_hdmi(encoder);
 	u32 val;
@@ -91,7 +91,7 @@ static void sun4i_hdmi_disable(struct drm_encoder *encoder,
 }
 
 static void sun4i_hdmi_enable(struct drm_encoder *encoder,
-			      struct drm_atomic_state *state)
+			      struct drm_atomic_commit *state)
 {
 	struct drm_display_mode *mode = &encoder->crtc->state->adjusted_mode;
 	struct sun4i_hdmi *hdmi = drm_encoder_to_sun4i_hdmi(encoder);

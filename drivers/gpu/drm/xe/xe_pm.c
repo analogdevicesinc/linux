@@ -26,6 +26,7 @@
 #include "xe_pcode.h"
 #include "xe_pxp.h"
 #include "xe_sriov_vf_ccs.h"
+#include "xe_sysctrl.h"
 #include "xe_trace.h"
 #include "xe_vm.h"
 #include "xe_wa.h"
@@ -258,6 +259,8 @@ int xe_pm_resume(struct xe_device *xe)
 		goto err;
 
 	xe_i2c_pm_resume(xe, true);
+
+	xe_sysctrl_pm_resume(xe);
 
 	xe_irq_resume(xe);
 
@@ -669,6 +672,9 @@ int xe_pm_runtime_resume(struct xe_device *xe)
 	}
 
 	xe_i2c_pm_resume(xe, xe->d3cold.allowed);
+
+	if (xe->d3cold.allowed)
+		xe_sysctrl_pm_resume(xe);
 
 	xe_irq_resume(xe);
 

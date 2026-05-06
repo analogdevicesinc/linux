@@ -341,7 +341,7 @@ static void chipone_configure_pll(struct chipone *icn,
 }
 
 static void chipone_atomic_enable(struct drm_bridge *bridge,
-				  struct drm_atomic_state *state)
+				  struct drm_atomic_commit *state)
 {
 	struct chipone *icn = bridge_to_chipone(bridge);
 	struct drm_display_mode *mode = &icn->mode;
@@ -444,7 +444,7 @@ static void chipone_atomic_enable(struct drm_bridge *bridge,
 }
 
 static void chipone_atomic_pre_enable(struct drm_bridge *bridge,
-				      struct drm_atomic_state *state)
+				      struct drm_atomic_commit *state)
 {
 	struct chipone *icn = bridge_to_chipone(bridge);
 	int ret;
@@ -481,7 +481,7 @@ static void chipone_atomic_pre_enable(struct drm_bridge *bridge,
 }
 
 static void chipone_atomic_post_disable(struct drm_bridge *bridge,
-					struct drm_atomic_state *state)
+					struct drm_atomic_commit *state)
 {
 	struct chipone *icn = bridge_to_chipone(bridge);
 

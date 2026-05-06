@@ -1323,6 +1323,13 @@ extern "C" {
  */
 #define DRM_IOCTL_MODE_GETFB2		DRM_IOWR(0xCE, struct drm_mode_fb_cmd2)
 
+/**
+ * DRM_IOCTL_SYNCOBJ_EVENTFD - Register an eventfd to be signalled by a syncobj.
+ *
+ * This can be used to integrate a syncobj in an event loop.
+ *
+ * The IOCTL argument is a struct drm_syncobj_eventfd.
+ */
 #define DRM_IOCTL_SYNCOBJ_EVENTFD	DRM_IOWR(0xCF, struct drm_syncobj_eventfd)
 
 /**

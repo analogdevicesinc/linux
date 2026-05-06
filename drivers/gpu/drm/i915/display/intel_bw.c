@@ -9,14 +9,14 @@
 
 #include "intel_bw.h"
 #include "intel_crtc.h"
+#include "intel_de.h"
 #include "intel_display_core.h"
 #include "intel_display_regs.h"
 #include "intel_display_types.h"
 #include "intel_display_utils.h"
 #include "intel_dram.h"
-#include "intel_mchbar_regs.h"
+#include "intel_mchbar.h"
 #include "intel_parent.h"
-#include "intel_uncore.h"
 #include "skl_watermark.h"
 
 struct intel_bw_state {
@@ -27,9 +27,6 @@ struct intel_bw_state {
 	 * pipe allows SAGV or not.
 	 */
 	u8 pipe_sagv_reject;
-
-	/* bitmask of active pipes */
-	u8 active_pipes;
 
 	/*
 	 * From MTL onwards, to lock a QGV point, punit expects the peak BW of
@@ -74,11 +71,10 @@ static int dg1_mchbar_read_qgv_point_info(struct intel_display *display,
 					  struct intel_qgv_point *sp,
 					  int point)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
 	u32 dclk_ratio, dclk_reference;
 	u32 val;
 
-	val = intel_uncore_read(uncore, SA_PERF_STATUS_0_0_0_MCHBAR_PC);
+	val = intel_mchbar_read(display, SA_PERF_STATUS_0_0_0_MCHBAR_PC);
 	dclk_ratio = REG_FIELD_GET(DG1_QCLK_RATIO_MASK, val);
 	if (val & DG1_QCLK_REFERENCE)
 		dclk_reference = 6; /* 6 * 16.666 MHz = 100 MHz */
@@ -86,18 +82,18 @@ static int dg1_mchbar_read_qgv_point_info(struct intel_display *display,
 		dclk_reference = 8; /* 8 * 16.666 MHz = 133 MHz */
 	sp->dclk = DIV_ROUND_UP((16667 * dclk_ratio * dclk_reference) + 500, 1000);
 
-	val = intel_uncore_read(uncore, SKL_MC_BIOS_DATA_0_0_0_MCHBAR_PCU);
+	val = intel_mchbar_read(display, SKL_MC_BIOS_DATA_0_0_0_MCHBAR_PCU);
 	if (val & DG1_GEAR_TYPE)
 		sp->dclk *= 2;
 
 	if (sp->dclk == 0)
 		return -EINVAL;
 
-	val = intel_uncore_read(uncore, MCHBAR_CH0_CR_TC_PRE_0_0_0_MCHBAR);
+	val = intel_mchbar_read(display, MCHBAR_CH0_CR_TC_PRE_0_0_0_MCHBAR);
 	sp->t_rp = REG_FIELD_GET(DG1_DRAM_T_RP_MASK, val);
 	sp->t_rdpre = REG_FIELD_GET(DG1_DRAM_T_RDPRE_MASK, val);
 
-	val = intel_uncore_read(uncore, MCHBAR_CH0_CR_TC_PRE_0_0_0_MCHBAR_HIGH);
+	val = intel_mchbar_read(display, MCHBAR_CH0_CR_TC_PRE_0_0_0_MCHBAR_HIGH);
 	sp->t_rcd = REG_FIELD_GET(DG1_DRAM_T_RCD_MASK, val);
 	sp->t_ras = REG_FIELD_GET(DG1_DRAM_T_RAS_MASK, val);
 
@@ -211,12 +207,11 @@ static int icl_pcode_restrict_qgv_points(struct intel_display *display,
 static int mtl_read_qgv_point_info(struct intel_display *display,
 				   struct intel_qgv_point *sp, int point)
 {
-	struct intel_uncore *uncore = to_intel_uncore(display->drm);
 	u32 val, val2;
 	u16 dclk;
 
-	val = intel_uncore_read(uncore, MTL_MEM_SS_INFO_QGV_POINT_LOW(point));
-	val2 = intel_uncore_read(uncore, MTL_MEM_SS_INFO_QGV_POINT_HIGH(point));
+	val = intel_de_read(display, MTL_MEM_SS_INFO_QGV_POINT_LOW(point));
+	val2 = intel_de_read(display, MTL_MEM_SS_INFO_QGV_POINT_HIGH(point));
 	dclk = REG_FIELD_GET(MTL_DCLK_MASK, val);
 	sp->dclk = DIV_ROUND_CLOSEST(16667 * dclk, 1000);
 	sp->t_rp = REG_FIELD_GET(MTL_TRP_MASK, val);
@@ -1265,31 +1260,6 @@ static int intel_bw_check_data_rate(struct intel_atomic_state *state, bool *chan
 	return 0;
 }
 
-static int intel_bw_modeset_checks(struct intel_atomic_state *state)
-{
-	const struct intel_bw_state *old_bw_state;
-	struct intel_bw_state *new_bw_state;
-	int ret;
-
-	if (!intel_any_crtc_active_changed(state))
-		return 0;
-
-	new_bw_state = intel_atomic_get_bw_state(state);
-	if (IS_ERR(new_bw_state))
-		return PTR_ERR(new_bw_state);
-
-	old_bw_state = intel_atomic_get_old_bw_state(state);
-
-	new_bw_state->active_pipes =
-		intel_calc_active_pipes(state, old_bw_state->active_pipes);
-
-	ret = intel_atomic_lock_global_state(&new_bw_state->base);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
 static int intel_bw_check_sagv_mask(struct intel_atomic_state *state)
 {
 	struct intel_display *display = to_intel_display(state);
@@ -1345,10 +1315,6 @@ int intel_bw_atomic_check(struct intel_atomic_state *state)
 
 	if (DISPLAY_VER(display) < 9)
 		return 0;
-
-	ret = intel_bw_modeset_checks(state);
-	if (ret)
-		return ret;
 
 	ret = intel_bw_check_sagv_mask(state);
 	if (ret)
@@ -1410,16 +1376,12 @@ void intel_bw_update_hw_state(struct intel_display *display)
 	if (DISPLAY_VER(display) < 9)
 		return;
 
-	bw_state->active_pipes = 0;
 	bw_state->pipe_sagv_reject = 0;
 
 	for_each_intel_crtc(display->drm, crtc) {
 		const struct intel_crtc_state *crtc_state =
 			to_intel_crtc_state(crtc->base.state);
 		enum pipe pipe = crtc->pipe;
-
-		if (crtc_state->hw.active)
-			bw_state->active_pipes |= BIT(pipe);
 
 		if (DISPLAY_VER(display) >= 11)
 			intel_bw_crtc_update(bw_state, crtc_state);
@@ -1504,10 +1466,6 @@ bool intel_bw_pmdemand_needs_update(struct intel_atomic_state *state)
 bool intel_bw_can_enable_sagv(struct intel_display *display,
 			      const struct intel_bw_state *bw_state)
 {
-	if (DISPLAY_VER(display) < 11 &&
-	    bw_state->active_pipes && !is_power_of_2(bw_state->active_pipes))
-		return false;
-
 	return bw_state->pipe_sagv_reject == 0;
 }
 

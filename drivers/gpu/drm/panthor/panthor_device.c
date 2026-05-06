@@ -2,6 +2,7 @@
 /* Copyright 2018 Marty E. Plummer <hanetzer@startmail.com> */
 /* Copyright 2019 Linaro, Ltd, Rob Herring <robh@kernel.org> */
 /* Copyright 2023 Collabora ltd. */
+/* Copyright 2025 ARM Limited. All rights reserved. */
 
 #include <linux/clk.h>
 #include <linux/mm.h>
@@ -122,6 +123,7 @@ void panthor_device_unplug(struct panthor_device *ptdev)
 	panthor_sched_unplug(ptdev);
 	panthor_fw_unplug(ptdev);
 	panthor_mmu_unplug(ptdev);
+	panthor_gem_shrinker_unplug(ptdev);
 	panthor_gpu_unplug(ptdev);
 	panthor_pwr_unplug(ptdev);
 
@@ -291,9 +293,13 @@ int panthor_device_init(struct panthor_device *ptdev)
 	if (ret)
 		goto err_unplug_gpu;
 
-	ret = panthor_mmu_init(ptdev);
+	ret = panthor_gem_shrinker_init(ptdev);
 	if (ret)
 		goto err_unplug_gpu;
+
+	ret = panthor_mmu_init(ptdev);
+	if (ret)
+		goto err_unplug_shrinker;
 
 	ret = panthor_fw_init(ptdev);
 	if (ret)
@@ -325,6 +331,9 @@ err_unplug_fw:
 
 err_unplug_mmu:
 	panthor_mmu_unplug(ptdev);
+
+err_unplug_shrinker:
+	panthor_gem_shrinker_unplug(ptdev);
 
 err_unplug_gpu:
 	panthor_gpu_unplug(ptdev);

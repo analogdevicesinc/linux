@@ -633,7 +633,7 @@ struct dpll {
 };
 
 struct intel_atomic_state {
-	struct drm_atomic_state base;
+	struct drm_atomic_commit base;
 
 	struct ref_tracker *wakeref;
 
@@ -683,13 +683,14 @@ struct intel_plane_state {
 
 	struct i915_vma *ggtt_vma;
 	struct i915_vma *dpt_vma;
-	unsigned long flags;
-#define PLANE_HAS_FENCE BIT(0)
 
 	struct intel_fb_view view;
 
 	/* for legacy cursor fb unpin */
 	struct drm_vblank_work unpin_work;
+
+	/* fenced region ID (-1 if none) */
+	s8 fence_id;
 
 	/* Plane pxp decryption state */
 	bool decrypt;
@@ -755,9 +756,7 @@ struct intel_plane_state {
 };
 
 struct intel_initial_plane_config {
-	struct intel_framebuffer *fb;
-	struct intel_memory_region *mem;
-	resource_size_t phys_base;
+	struct drm_framebuffer *fb;
 	struct i915_vma *vma;
 	int size;
 	u32 base;
@@ -997,7 +996,7 @@ struct intel_casf {
 	struct scaler_filter_coeff coeff[SCALER_FILTER_NUM_TAPS];
 	u8 strength;
 	u8 win_size;
-	bool casf_enable;
+	bool enable;
 };
 
 struct intel_crtc_state {
@@ -1036,7 +1035,7 @@ struct intel_crtc_state {
 		struct drm_property_blob *degamma_lut, *gamma_lut, *ctm;
 		struct drm_display_mode mode, pipe_mode, adjusted_mode;
 		enum drm_scaling_filter scaling_filter;
-		struct intel_casf casf_params;
+		u8 sharpness_strength;
 	} hw;
 
 	/* actual state of LUTs */
@@ -1223,6 +1222,7 @@ struct intel_crtc_state {
 
 	/* Panel fitter placement and size for Ironlake+ */
 	struct {
+		struct intel_casf casf;
 		struct drm_rect dst;
 		bool enabled;
 		bool force_thru;

@@ -482,7 +482,7 @@ static int ssd2825_setup_pll(struct ssd2825_priv *priv,
 }
 
 static void ssd2825_bridge_atomic_pre_enable(struct drm_bridge *bridge,
-					     struct drm_atomic_state *state)
+					     struct drm_atomic_commit *state)
 {
 	struct ssd2825_priv *priv = bridge_to_ssd2825(bridge);
 	struct mipi_dsi_device *dsi_dev = priv->output.dev;
@@ -585,7 +585,7 @@ static void ssd2825_bridge_atomic_pre_enable(struct drm_bridge *bridge,
 }
 
 static void ssd2825_bridge_atomic_enable(struct drm_bridge *bridge,
-					 struct drm_atomic_state *state)
+					 struct drm_atomic_commit *state)
 {
 	struct ssd2825_priv *priv = bridge_to_ssd2825(bridge);
 	struct mipi_dsi_device *dsi_dev = priv->output.dev;
@@ -607,7 +607,7 @@ static void ssd2825_bridge_atomic_enable(struct drm_bridge *bridge,
 }
 
 static void ssd2825_bridge_atomic_disable(struct drm_bridge *bridge,
-					  struct drm_atomic_state *state)
+					  struct drm_atomic_commit *state)
 {
 	struct ssd2825_priv *priv = bridge_to_ssd2825(bridge);
 	int ret;

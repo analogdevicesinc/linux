@@ -371,7 +371,7 @@ drm_bridge_connector_mode_valid(struct drm_connector *connector,
 }
 
 static int drm_bridge_connector_atomic_check(struct drm_connector *connector,
-					     struct drm_atomic_state *state)
+					     struct drm_atomic_commit *state)
 {
 	struct drm_bridge_connector *bridge_connector =
 		to_drm_bridge_connector(connector);

@@ -176,3 +176,11 @@ void intel_de_write8(struct intel_display *display, i915_reg_t reg, u8 val)
 
 	intel_uncore_write8(__to_uncore(display), reg, val);
 }
+
+u16 intel_de_read16(struct intel_display *display, i915_reg_t reg)
+{
+	/* this is only used on MCHBAR registers on pre-SNB */
+	drm_WARN_ON(display->drm, DISPLAY_VER(display) >= 6);
+
+	return intel_uncore_read16(__to_uncore(display), reg);
+}

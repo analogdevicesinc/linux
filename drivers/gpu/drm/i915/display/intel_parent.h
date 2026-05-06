@@ -6,6 +6,7 @@
 
 #include <linux/types.h>
 
+enum vlv_iosf_sb_unit;
 struct dma_fence;
 struct drm_file;
 struct drm_gem_object;
@@ -109,8 +110,11 @@ u64 intel_parent_stolen_node_size(struct intel_display *display, const struct in
 struct intel_stolen_node *intel_parent_stolen_node_alloc(struct intel_display *display);
 void intel_parent_stolen_node_free(struct intel_display *display, const struct intel_stolen_node *node);
 
-/* vma */
-int intel_parent_vma_fence_id(struct intel_display *display, const struct i915_vma *vma);
+/* vlv iosf */
+void intel_parent_vlv_iosf_get(struct intel_display *display, unsigned long unit_mask);
+void intel_parent_vlv_iosf_put(struct intel_display *display, unsigned long unit_mask);
+u32 intel_parent_vlv_iosf_read(struct intel_display *display, enum vlv_iosf_sb_unit unit, u32 addr);
+int intel_parent_vlv_iosf_write(struct intel_display *display, enum vlv_iosf_sb_unit unit, u32 addr, u32 val);
 
 /* generic */
 bool intel_parent_has_auxccs(struct intel_display *display);

@@ -783,7 +783,7 @@ static const struct adv7511 *bridge_to_adv7511_const(const struct drm_bridge *br
 }
 
 static void adv7511_bridge_atomic_enable(struct drm_bridge *bridge,
-					 struct drm_atomic_state *state)
+					 struct drm_atomic_commit *state)
 {
 	struct adv7511 *adv = bridge_to_adv7511(bridge);
 	struct drm_connector *connector;
@@ -812,7 +812,7 @@ static void adv7511_bridge_atomic_enable(struct drm_bridge *bridge,
 }
 
 static void adv7511_bridge_atomic_disable(struct drm_bridge *bridge,
-					  struct drm_atomic_state *state)
+					  struct drm_atomic_commit *state)
 {
 	struct adv7511 *adv = bridge_to_adv7511(bridge);
 

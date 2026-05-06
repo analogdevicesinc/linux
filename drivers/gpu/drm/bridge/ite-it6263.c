@@ -579,7 +579,7 @@ static int it6263_read_edid(void *data, u8 *buf, unsigned int block, size_t len)
 }
 
 static void it6263_bridge_atomic_disable(struct drm_bridge *bridge,
-					 struct drm_atomic_state *state)
+					 struct drm_atomic_commit *state)
 {
 	struct it6263 *it = bridge_to_it6263(bridge);
 
@@ -590,7 +590,7 @@ static void it6263_bridge_atomic_disable(struct drm_bridge *bridge,
 }
 
 static void it6263_bridge_atomic_enable(struct drm_bridge *bridge,
-					struct drm_atomic_state *state)
+					struct drm_atomic_commit *state)
 {
 	struct it6263 *it = bridge_to_it6263(bridge);
 	const struct drm_crtc_state *crtc_state;
