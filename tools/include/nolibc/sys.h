@@ -45,16 +45,30 @@
 		: __sysret_arg;                         /* return original value */ \
 })
 
-/* Syscall ENOSYS helper: Avoids unused-parameter warnings and provides a
- * debugging hook.
+/* Syscall ENOSYS helper: Avoids unused-parameter warnings, provides compile
+ * time validation and a debugging hook.
  */
 
+#if defined(NOLIBC_COMPILE_TIME_ENOSYS)
 static __inline__ int __nolibc_enosys(const char *syscall, ...)
 {
 	(void)syscall;
 	return -ENOSYS;
 }
 
+#elif __nolibc_has_attribute(error)
+__attribute__((error("system call not implemented")))
+extern int __nolibc_enosys(const char *syscall, ...);
+
+#else
+static __inline__ int __nolibc_enosys(const char *syscall, ...)
+{
+	extern int __nolibc_enosys_error;
+	(void)syscall;
+
+	return __nolibc_enosys_error;
+}
+#endif
 
 /* Functions in this file only describe syscalls. They're declared static so
  * that the compiler usually decides to inline them while still being allowed
@@ -87,7 +101,7 @@ static __inline__ int __nolibc_enosys(const char *syscall, ...)
 static __attribute__((unused))
 void *_sys_brk(void *addr)
 {
-	return (void *)__nolibc_syscall1(__NR_brk, addr);
+	return (void *)(unsigned long)__nolibc_syscall1(__NR_brk, addr);
 }
 
 static __attribute__((unused))
@@ -597,12 +611,18 @@ int link(const char *old, const char *new)
 static __attribute__((unused))
 off_t _sys_lseek(int fd, off_t offset, int whence)
 {
-#if defined(__NR_llseek)
+#if defined(__NR_llseek) || defined(__NR__llseek)
 	__kernel_loff_t loff = 0;
+	int ret, nr_llseek;
 	off_t result;
-	int ret;
 
-	ret = __nolibc_syscall5(__NR_llseek, fd, offset >> 32, (uint32_t)offset, &loff, whence);
+#if defined(__NR_llseek)
+	nr_llseek = __NR_llseek;
+#else
+	nr_llseek = __NR__llseek;
+#endif
+
+	ret = __nolibc_syscall5(nr_llseek, fd, offset >> 32, (uint32_t)offset, &loff, whence);
 	if (ret < 0)
 		result = ret;
 	else

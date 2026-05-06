@@ -29,6 +29,8 @@ int openat(int dirfd, const char *path, int flags, ...)
 {
 	mode_t mode = 0;
 
+	flags |= O_LARGEFILE;
+
 	if (flags & O_CREAT) {
 		va_list args;
 
@@ -55,6 +57,8 @@ int open(const char *path, int flags, ...)
 {
 	mode_t mode = 0;
 
+	flags |= O_LARGEFILE;
+
 	if (flags & O_CREAT) {
 		va_list args;
 
@@ -64,6 +68,16 @@ int open(const char *path, int flags, ...)
 	}
 
 	return __sysret(_sys_open(path, flags, mode));
+}
+
+/*
+ * int creat(const char *path, mode_t mode);
+ */
+
+static __attribute__((unused))
+int creat(const char *path, mode_t mode)
+{
+	return open(path, O_CREAT | O_WRONLY | O_TRUNC, mode);
 }
 
 #endif /* _NOLIBC_FCNTL_H */

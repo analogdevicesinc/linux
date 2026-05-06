@@ -55,6 +55,8 @@
 #define _NOLIBC_SYSCALL_STACK_RESERVE "addiu $sp, $sp, -32\n"
 #define _NOLIBC_SYSCALL_STACK_UNRESERVE "addiu $sp, $sp, 32\n"
 
+#define _NOLIBC_SYSCALL_REG register long
+
 #else /* _ABIN32 || _ABI64 */
 
 /* binutils, GCC and clang disagree about register aliases, use numbers instead. */
@@ -66,12 +68,14 @@
 #define _NOLIBC_SYSCALL_STACK_RESERVE
 #define _NOLIBC_SYSCALL_STACK_UNRESERVE
 
+#define _NOLIBC_SYSCALL_REG register long long
+
 #endif /* _ABIO32 */
 
 #define __nolibc_syscall0(num)                                                \
 ({                                                                            \
-	register long _num __asm__ ("v0") = (num);                            \
-	register long _arg4 __asm__ ("a3");                                   \
+	_NOLIBC_SYSCALL_REG _num __asm__ ("v0")  = (num);                     \
+	_NOLIBC_SYSCALL_REG _arg4 __asm__ ("a3");                             \
 									      \
 	__asm__ volatile (                                                    \
 		_NOLIBC_SYSCALL_STACK_RESERVE                                 \
@@ -86,9 +90,9 @@
 
 #define __nolibc_syscall1(num, arg1)                                          \
 ({                                                                            \
-	register long _num __asm__ ("v0") = (num);                            \
-	register long _arg1 __asm__ ("a0") = (long)(arg1);                    \
-	register long _arg4 __asm__ ("a3");                                   \
+	_NOLIBC_SYSCALL_REG _num __asm__ ("v0")  = (num);                     \
+	_NOLIBC_SYSCALL_REG _arg1 __asm__ ("a0") = __nolibc_arg_to_reg(arg1); \
+	_NOLIBC_SYSCALL_REG _arg4 __asm__ ("a3");                             \
 									      \
 	__asm__ volatile (                                                    \
 		_NOLIBC_SYSCALL_STACK_RESERVE                                 \
@@ -104,10 +108,10 @@
 
 #define __nolibc_syscall2(num, arg1, arg2)                                    \
 ({                                                                            \
-	register long _num __asm__ ("v0") = (num);                            \
-	register long _arg1 __asm__ ("a0") = (long)(arg1);                    \
-	register long _arg2 __asm__ ("a1") = (long)(arg2);                    \
-	register long _arg4 __asm__ ("a3");                                   \
+	_NOLIBC_SYSCALL_REG _num __asm__ ("v0")  = (num);                     \
+	_NOLIBC_SYSCALL_REG _arg1 __asm__ ("a0") = __nolibc_arg_to_reg(arg1); \
+	_NOLIBC_SYSCALL_REG _arg2 __asm__ ("a1") = __nolibc_arg_to_reg(arg2); \
+	_NOLIBC_SYSCALL_REG _arg4 __asm__ ("a3");                             \
 									      \
 	__asm__ volatile (                                                    \
 		_NOLIBC_SYSCALL_STACK_RESERVE                                 \
@@ -123,11 +127,11 @@
 
 #define __nolibc_syscall3(num, arg1, arg2, arg3)                              \
 ({                                                                            \
-	register long _num __asm__ ("v0")  = (num);                           \
-	register long _arg1 __asm__ ("a0") = (long)(arg1);                    \
-	register long _arg2 __asm__ ("a1") = (long)(arg2);                    \
-	register long _arg3 __asm__ ("a2") = (long)(arg3);                    \
-	register long _arg4 __asm__ ("a3");                                   \
+	_NOLIBC_SYSCALL_REG _num __asm__ ("v0")  = (num);                     \
+	_NOLIBC_SYSCALL_REG _arg1 __asm__ ("a0") = __nolibc_arg_to_reg(arg1); \
+	_NOLIBC_SYSCALL_REG _arg2 __asm__ ("a1") = __nolibc_arg_to_reg(arg2); \
+	_NOLIBC_SYSCALL_REG _arg3 __asm__ ("a2") = __nolibc_arg_to_reg(arg3); \
+	_NOLIBC_SYSCALL_REG _arg4 __asm__ ("a3");                             \
 									      \
 	__asm__ volatile (                                                    \
 		_NOLIBC_SYSCALL_STACK_RESERVE                                 \
@@ -143,11 +147,11 @@
 
 #define __nolibc_syscall4(num, arg1, arg2, arg3, arg4)                        \
 ({                                                                            \
-	register long _num __asm__ ("v0") = (num);                            \
-	register long _arg1 __asm__ ("a0") = (long)(arg1);                    \
-	register long _arg2 __asm__ ("a1") = (long)(arg2);                    \
-	register long _arg3 __asm__ ("a2") = (long)(arg3);                    \
-	register long _arg4 __asm__ ("a3") = (long)(arg4);                    \
+	_NOLIBC_SYSCALL_REG _num __asm__ ("v0")  = (num);                     \
+	_NOLIBC_SYSCALL_REG _arg1 __asm__ ("a0") = __nolibc_arg_to_reg(arg1); \
+	_NOLIBC_SYSCALL_REG _arg2 __asm__ ("a1") = __nolibc_arg_to_reg(arg2); \
+	_NOLIBC_SYSCALL_REG _arg3 __asm__ ("a2") = __nolibc_arg_to_reg(arg3); \
+	_NOLIBC_SYSCALL_REG _arg4 __asm__ ("a3") = __nolibc_arg_to_reg(arg4); \
 									      \
 	__asm__ volatile (                                                    \
 		_NOLIBC_SYSCALL_STACK_RESERVE                                 \
@@ -165,12 +169,12 @@
 
 #define __nolibc_syscall5(num, arg1, arg2, arg3, arg4, arg5)                  \
 ({                                                                            \
-	register long _num __asm__ ("v0") = (num);                            \
-	register long _arg1 __asm__ ("a0") = (long)(arg1);                    \
-	register long _arg2 __asm__ ("a1") = (long)(arg2);                    \
-	register long _arg3 __asm__ ("a2") = (long)(arg3);                    \
-	register long _arg4 __asm__ ("a3") = (long)(arg4);                    \
-	register long _arg5 = (long)(arg5);                                   \
+	_NOLIBC_SYSCALL_REG _num __asm__ ("v0")  = (num);                     \
+	_NOLIBC_SYSCALL_REG _arg1 __asm__ ("a0") = __nolibc_arg_to_reg(arg1); \
+	_NOLIBC_SYSCALL_REG _arg2 __asm__ ("a1") = __nolibc_arg_to_reg(arg2); \
+	_NOLIBC_SYSCALL_REG _arg3 __asm__ ("a2") = __nolibc_arg_to_reg(arg3); \
+	_NOLIBC_SYSCALL_REG _arg4 __asm__ ("a3") = __nolibc_arg_to_reg(arg4); \
+	_NOLIBC_SYSCALL_REG _arg5 = __nolibc_arg_to_reg(arg5);                \
 									      \
 	__asm__ volatile (                                                    \
 		_NOLIBC_SYSCALL_STACK_RESERVE                                 \
@@ -187,13 +191,13 @@
 
 #define __nolibc_syscall6(num, arg1, arg2, arg3, arg4, arg5, arg6)            \
 ({                                                                            \
-	register long _num __asm__ ("v0")  = (num);                           \
-	register long _arg1 __asm__ ("a0") = (long)(arg1);                    \
-	register long _arg2 __asm__ ("a1") = (long)(arg2);                    \
-	register long _arg3 __asm__ ("a2") = (long)(arg3);                    \
-	register long _arg4 __asm__ ("a3") = (long)(arg4);                    \
-	register long _arg5 = (long)(arg5);                                   \
-	register long _arg6 = (long)(arg6);                                   \
+	_NOLIBC_SYSCALL_REG _num __asm__ ("v0")  = (num);                     \
+	_NOLIBC_SYSCALL_REG _arg1 __asm__ ("a0") = __nolibc_arg_to_reg(arg1); \
+	_NOLIBC_SYSCALL_REG _arg2 __asm__ ("a1") = __nolibc_arg_to_reg(arg2); \
+	_NOLIBC_SYSCALL_REG _arg3 __asm__ ("a2") = __nolibc_arg_to_reg(arg3); \
+	_NOLIBC_SYSCALL_REG _arg4 __asm__ ("a3") = __nolibc_arg_to_reg(arg4); \
+	_NOLIBC_SYSCALL_REG _arg5 = __nolibc_arg_to_reg(arg5);                \
+	_NOLIBC_SYSCALL_REG _arg6 = __nolibc_arg_to_reg(arg6);                \
 									      \
 	__asm__ volatile (                                                    \
 		_NOLIBC_SYSCALL_STACK_RESERVE                                 \
@@ -214,12 +218,12 @@
 
 #define __nolibc_syscall5(num, arg1, arg2, arg3, arg4, arg5)                  \
 ({                                                                            \
-	register long _num __asm__ ("v0") = (num);                            \
-	register long _arg1 __asm__ ("$4") = (long)(arg1);                    \
-	register long _arg2 __asm__ ("$5") = (long)(arg2);                    \
-	register long _arg3 __asm__ ("$6") = (long)(arg3);                    \
-	register long _arg4 __asm__ ("$7") = (long)(arg4);                    \
-	register long _arg5 __asm__ ("$8") = (long)(arg5);                    \
+	_NOLIBC_SYSCALL_REG _num __asm__ ("v0")  = (num);                     \
+	_NOLIBC_SYSCALL_REG _arg1 __asm__ ("$4") = __nolibc_arg_to_reg(arg1); \
+	_NOLIBC_SYSCALL_REG _arg2 __asm__ ("$5") = __nolibc_arg_to_reg(arg2); \
+	_NOLIBC_SYSCALL_REG _arg3 __asm__ ("$6") = __nolibc_arg_to_reg(arg3); \
+	_NOLIBC_SYSCALL_REG _arg4 __asm__ ("$7") = __nolibc_arg_to_reg(arg4); \
+	_NOLIBC_SYSCALL_REG _arg5 __asm__ ("$8") = __nolibc_arg_to_reg(arg5); \
 									      \
 	__asm__ volatile (                                                    \
 		"syscall\n"                                                   \
@@ -233,13 +237,13 @@
 
 #define __nolibc_syscall6(num, arg1, arg2, arg3, arg4, arg5, arg6)            \
 ({                                                                            \
-	register long _num __asm__ ("v0")  = (num);                           \
-	register long _arg1 __asm__ ("$4") = (long)(arg1);                    \
-	register long _arg2 __asm__ ("$5") = (long)(arg2);                    \
-	register long _arg3 __asm__ ("$6") = (long)(arg3);                    \
-	register long _arg4 __asm__ ("$7") = (long)(arg4);                    \
-	register long _arg5 __asm__ ("$8") = (long)(arg5);                    \
-	register long _arg6 __asm__ ("$9") = (long)(arg6);                    \
+	_NOLIBC_SYSCALL_REG _num __asm__ ("v0")  = (num);                     \
+	_NOLIBC_SYSCALL_REG _arg1 __asm__ ("$4") = __nolibc_arg_to_reg(arg1); \
+	_NOLIBC_SYSCALL_REG _arg2 __asm__ ("$5") = __nolibc_arg_to_reg(arg2); \
+	_NOLIBC_SYSCALL_REG _arg3 __asm__ ("$6") = __nolibc_arg_to_reg(arg3); \
+	_NOLIBC_SYSCALL_REG _arg4 __asm__ ("$7") = __nolibc_arg_to_reg(arg4); \
+	_NOLIBC_SYSCALL_REG _arg5 __asm__ ("$8") = __nolibc_arg_to_reg(arg5); \
+	_NOLIBC_SYSCALL_REG _arg6 __asm__ ("$9") = __nolibc_arg_to_reg(arg6); \
 									      \
 	__asm__ volatile (                                                    \
 		"syscall\n"                                                   \
@@ -257,7 +261,7 @@
 #ifndef NOLIBC_NO_RUNTIME
 /* startup code, note that it's called __start on MIPS */
 void __start(void);
-void __attribute__((weak, noreturn)) __nolibc_entrypoint __no_stack_protector __start(void)
+void __attribute__((weak, noreturn)) __nolibc_entrypoint __nolibc_no_stack_protector __start(void)
 {
 	__asm__ volatile (
 		"move  $a0, $sp\n"       /* save stack pointer to $a0, as arg1 of _start_c */

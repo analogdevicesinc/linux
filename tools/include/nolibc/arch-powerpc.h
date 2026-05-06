@@ -177,15 +177,15 @@
  * "omit-frame-pointer" fails with __attribute__((no_stack_protector)) but
  * works with __attribute__((__optimize__("-fno-stack-protector")))
  */
-#ifdef __no_stack_protector
-#undef __no_stack_protector
-#define __no_stack_protector __attribute__((__optimize__("-fno-stack-protector")))
+#ifdef __nolibc_no_stack_protector
+#undef __nolibc_no_stack_protector
+#define __nolibc_no_stack_protector __attribute__((__optimize__("-fno-stack-protector")))
 #endif
 #endif /* !__powerpc64__ */
 
 #ifndef NOLIBC_NO_RUNTIME
 /* startup code */
-void __attribute__((weak, noreturn)) __nolibc_entrypoint __no_stack_protector _start(void)
+void __attribute__((weak, noreturn)) __nolibc_entrypoint __nolibc_no_stack_protector _start(void)
 {
 #ifdef __powerpc64__
 #if _CALL_ELF == 2
