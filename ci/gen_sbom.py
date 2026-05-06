@@ -2,7 +2,7 @@
 # cat ./sbom.cdx.json | jq > ./sbom.cdx.pretty.json ; cat ./sbom.spdx.json | jq > ./sbom.spdx.pretty.json
 """
 Generate (tiny) SBOMs for a Linux kernel image.
-  - CycloneDX 1.6 (sbom.cdx.json)
+  - CycloneDX 1.7 (sbom.cdx.json)
   - SPDX 3.0.1 (sbom.spdx.json)
 
 
@@ -306,13 +306,19 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         fid = _id_src(f"file/src/{idx}")
         file_ids.append(fid)
 
-        file_elements.append({
+        fe = {
             "type":                    "software_File",
             "spdxId":                  fid,
             "creationInfo":            "_:creationinfo",
             "name":                    rel,
             "software_primaryPurpose": "source",
-        })
+        }
+        src_sha = _hash(path.join(src_root, rel), "sha256")
+        if src_sha:
+            fe["verifiedUsing"] = [{
+                "type": "Hash", "algorithm": "sha256", "hashValue": src_sha,
+            }]
+        file_elements.append(fe)
 
         lic = _spdx_license(path.join(src_root, rel))
         if lic:
@@ -385,9 +391,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     image_sha = _hash(image_path, "sha256")
     if image_sha:
         image_elem["verifiedUsing"] = [{
-            "type":      "Hash",
-            "algorithm": "sha256",
-            "hashValue": image_sha,
+            "type": "Hash", "algorithm": "sha256", "hashValue": image_sha,
         }]
 
     build_elem = {
@@ -513,12 +517,12 @@ def main():
         rel = fp[len(src_root):]
         source_files.add(rel)
 
-    cdx_path = path.join(dist, "sbom.cdx.json")
+    cdx_path = path.join(dist, "sbom.cdx17.json")
     with open(cdx_path, "w") as f:
         json.dump(build_cdx(dist, ctx, source_files, src_root, main_c_command), f)
     print(f"sbom written to {cdx_path}", file=sys.stderr)
 
-    spdx_path = path.join(dist, "sbom.spdx.json")
+    spdx_path = path.join(dist, "sbom.spdx30.json")
     with open(spdx_path, "w") as f:
         json.dump(build_spdx(dist, ctx, source_files, src_root, main_c_command), f)
     print(f"sbom written to {spdx_path}", file=sys.stderr)
