@@ -688,7 +688,7 @@ properties:
           - const: phytec,imx6ul-pcl063   # PHYTEC phyCORE-i.MX 6UL
           - const: fsl,imx6ul
 
-      - description: i.MX6UL Variscite VAR-SOM-MX6 Boards
+      - description: i.MX6UL Variscite VAR-SOM-6UL Boards
         items:
           - const: variscite,mx6ulconcerto
           - const: variscite,var-som-imx6ul
@@ -795,6 +795,12 @@ properties:
               - phytec,imx6ull-phygate-tauri-nand
           - const: phytec,imx6ull-phygate-tauri # PHYTEC phyGATE-Tauri with i.MX6 ULL
           - const: phytec,imx6ull-pcl063        # PHYTEC phyCORE-i.MX 6ULL
+          - const: fsl,imx6ull
+
+      - description: i.MX6ULL Variscite VAR-SOM-6UL Boards
+        items:
+          - const: variscite,mx6ullconcerto  # Variscite VAR-SOM-6UL dev kit board
+          - const: variscite,var-som-imx6ull # Variscite VAR-SOM-6UL SoM (6ULL variant)
           - const: fsl,imx6ull
 
       - description: i.MX6ULL Boards with Toradex Colibri iMX6ULL Modules
@@ -1025,6 +1031,7 @@ properties:
               - toradex,verdin-imx8mm-nonwifi-ivy    # Verdin iMX8M Mini Module on Ivy
               - toradex,verdin-imx8mm-nonwifi-mallow # Verdin iMX8M Mini Module on Mallow
               - toradex,verdin-imx8mm-nonwifi-yavia  # Verdin iMX8M Mini Module on Yavia
+              - toradex,verdin-imx8mm-nonwifi-zinnia # Verdin iMX8M Mini Module on Zinnia
           - const: toradex,verdin-imx8mm-nonwifi     # Verdin iMX8M Mini Module without Wi-Fi / BT
           - const: toradex,verdin-imx8mm             # Verdin iMX8M Mini Module
           - const: fsl,imx8mm
@@ -1037,6 +1044,7 @@ properties:
               - toradex,verdin-imx8mm-wifi-ivy    # Verdin iMX8M Mini Wi-Fi / BT Module on Ivy
               - toradex,verdin-imx8mm-wifi-mallow # Verdin iMX8M Mini Wi-Fi / BT Module on Mallow
               - toradex,verdin-imx8mm-wifi-yavia  # Verdin iMX8M Mini Wi-Fi / BT Module on Yavia
+              - toradex,verdin-imx8mm-wifi-zinnia # Verdin iMX8M Mini Wi-Fi / BT Module on Zinnia
           - const: toradex,verdin-imx8mm-wifi     # Verdin iMX8M Mini Wi-Fi / BT Module
           - const: toradex,verdin-imx8mm          # Verdin iMX8M Mini Module
           - const: fsl,imx8mm
@@ -1271,6 +1279,7 @@ properties:
               - toradex,verdin-imx8mp-nonwifi-ivy    # Verdin iMX8M Plus Module on Ivy
               - toradex,verdin-imx8mp-nonwifi-mallow # Verdin iMX8M Plus Module on Mallow
               - toradex,verdin-imx8mp-nonwifi-yavia  # Verdin iMX8M Plus Module on Yavia
+              - toradex,verdin-imx8mp-nonwifi-zinnia # Verdin iMX8M Plus Module on Zinnia
           - const: toradex,verdin-imx8mp-nonwifi     # Verdin iMX8M Plus Module without Wi-Fi / BT
           - const: toradex,verdin-imx8mp             # Verdin iMX8M Plus Module
           - const: fsl,imx8mp
@@ -1283,6 +1292,7 @@ properties:
               - toradex,verdin-imx8mp-wifi-ivy    # Verdin iMX8M Plus Wi-Fi / BT Module on Ivy
               - toradex,verdin-imx8mp-wifi-mallow # Verdin iMX8M Plus Wi-Fi / BT Module on Mallow
               - toradex,verdin-imx8mp-wifi-yavia  # Verdin iMX8M Plus Wi-Fi / BT Module on Yavia
+              - toradex,verdin-imx8mp-wifi-zinnia # Verdin iMX8M Plus Wi-Fi / BT Module on Zinnia
           - const: toradex,verdin-imx8mp-wifi     # Verdin iMX8M Plus Wi-Fi / BT Module
           - const: toradex,verdin-imx8mp          # Verdin iMX8M Plus Module
           - const: fsl,imx8mp
@@ -1458,6 +1468,7 @@ properties:
       - description: i.MX91 based Boards
         items:
           - enum:
+              - fsl,imx91-9x9-qsb         # i.MX91 9x9 QSB Board
               - fsl,imx91-11x11-evk       # i.MX91 11x11 EVK Board
               - fsl,imx91-11x11-frdm      # FRDM i.MX91 Development Board
               - fsl,imx91-11x11-frdm-s    # FRDM i.MX91S Development Board
@@ -1482,6 +1493,7 @@ properties:
       - description: i.MX95 based Boards
         items:
           - enum:
+              - fsl,imx95-15x15-ab2       # i.MX95 15x15 Audio Board V2
               - fsl,imx95-15x15-evk       # i.MX95 15x15 EVK Board
               - fsl,imx95-15x15-frdm      # i.MX95 15x15 FRDM Board
               - fsl,imx95-19x19-evk       # i.MX95 19x19 EVK Board
@@ -1515,6 +1527,7 @@ properties:
               - toradex,verdin-imx95-nonwifi-ivy    # Verdin iMX95 Module on Ivy
               - toradex,verdin-imx95-nonwifi-mallow # Verdin iMX95 Module on Mallow
               - toradex,verdin-imx95-nonwifi-yavia  # Verdin iMX95 Module on Yavia
+              - toradex,verdin-imx95-nonwifi-zinnia # Verdin iMX95 Module on Zinnia
           - const: toradex,verdin-imx95-nonwifi     # Verdin iMX95 Module without Wi-Fi / BT
           - const: toradex,verdin-imx95             # Verdin iMX95 Module
           - const: fsl,imx95
@@ -1527,6 +1540,7 @@ properties:
               - toradex,verdin-imx95-wifi-ivy     # Verdin iMX95 Wi-Fi / BT Module on Ivy
               - toradex,verdin-imx95-wifi-mallow  # Verdin iMX95 Wi-Fi / BT Module on Mallow
               - toradex,verdin-imx95-wifi-yavia   # Verdin iMX95 Wi-Fi / BT Module on Yavia
+              - toradex,verdin-imx95-wifi-zinnia  # Verdin iMX95 Wi-Fi / BT Module on Zinnia
           - const: toradex,verdin-imx95-wifi      # Verdin iMX95 Wi-Fi / BT Module
           - const: toradex,verdin-imx95           # Verdin iMX95 Module
           - const: fsl,imx95
@@ -1613,6 +1627,18 @@ properties:
           - const: variscite,var-dart-mx91-sonata # Variscite DART-MX91 on Sonata Development Board
           - const: variscite,var-dart-mx91 # Variscite DART-MX91 SOM
           - const: fsl,imx91
+
+      - description: Variscite VAR-SOM-MX91 based boards
+        items:
+          - const: variscite,var-som-mx91-symphony # Variscite VAR-SOM-MX91 on Symphony
+          - const: variscite,var-som-mx91 # Variscite VAR-SOM-MX91
+          - const: fsl,imx91
+
+      - description: Variscite DART-MX93 based boards
+        items:
+          - const: variscite,var-dart-mx93-sonata # Variscite DART-MX93 on Sonata Development Board
+          - const: variscite,var-dart-mx93 # Variscite DART-MX93 SOM
+          - const: fsl,imx93
 
       - description: Variscite VAR-SOM-MX93 based boards
         items:

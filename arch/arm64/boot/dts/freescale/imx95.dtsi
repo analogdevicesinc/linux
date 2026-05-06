@@ -777,6 +777,7 @@
 					     <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&scmi_clk IMX95_CLK_BUSWAKEUP>;
 				clock-names = "dma";
+				iommus = <&smmu 0x0>;
 			};
 
 			mu7: mailbox@42430000 {
@@ -1242,6 +1243,7 @@
 				bus-width = <8>;
 				fsl,tuning-start-tap = <1>;
 				fsl,tuning-step = <2>;
+				iommus = <&smmu 0x1>;
 				status = "disabled";
 			};
 
@@ -1259,6 +1261,7 @@
 				bus-width = <4>;
 				fsl,tuning-start-tap = <1>;
 				fsl,tuning-step = <2>;
+				iommus = <&smmu 0x2>;
 				status = "disabled";
 			};
 
@@ -1276,6 +1279,7 @@
 				bus-width = <4>;
 				fsl,tuning-start-tap = <1>;
 				fsl,tuning-step = <2>;
+				iommus = <&smmu 0x3>;
 				status = "disabled";
 			};
 		};
@@ -1761,14 +1765,97 @@
 
 			smmu: iommu@490d0000 {
 				compatible = "arm,smmu-v3";
-				reg = <0x490d0000 0x100000>;
+				reg = <0x490d0000 0x40000>;
 				interrupts = <GIC_SPI 325 IRQ_TYPE_EDGE_RISING>,
 					     <GIC_SPI 328 IRQ_TYPE_EDGE_RISING>,
 					     <GIC_SPI 334 IRQ_TYPE_EDGE_RISING>,
 					     <GIC_SPI 326 IRQ_TYPE_EDGE_RISING>;
 				interrupt-names = "eventq", "gerror", "priq", "cmdq-sync";
 				#iommu-cells = <1>;
-				status = "disabled";
+			};
+
+			pmu@490d2000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x490d2000 0x1000>,
+				      <0x490f2000 0x1000>;
+				interrupts = <GIC_SPI 333 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@49112000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x49112000 0x1000>,
+				      <0x49122000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@49132000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x49132000 0x1000>,
+				      <0x49142000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@49152000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x49152000 0x1000>,
+				      <0x49162000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@49172000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x49172000 0x1000>,
+				      <0x49182000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@49192000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x49192000 0x1000>,
+				      <0x491a2000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@491b2000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x491b2000 0x1000>,
+				      <0x491c2000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@491d2000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x491d2000 0x1000>,
+				      <0x491e2000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@491f2000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x491f2000 0x1000>,
+				      <0x49202000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@49212000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x49212000 0x1000>,
+				      <0x49222000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@49232000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x49232000 0x1000>,
+				      <0x49242000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
+			};
+
+			pmu@49252000 {
+				compatible = "arm,smmu-v3-pmcg";
+				reg = <0x49252000 0x1000>,
+				      <0x49262000 0x1000>;
+				interrupts = <GIC_SPI 323 IRQ_TYPE_EDGE_RISING>;
 			};
 		};
 
