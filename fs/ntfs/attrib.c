@@ -583,24 +583,13 @@ static u32 ntfs_resident_attr_min_value_length(const __le32 type)
 	case AT_STANDARD_INFORMATION:
 		return offsetof(struct standard_information, ver) +
 		       sizeof(((struct standard_information *)0)->ver.v1.reserved12);
-	case AT_ATTRIBUTE_LIST:
-		return offsetof(struct attr_list_entry, name);
 	case AT_FILE_NAME:
-		return offsetof(struct file_name_attr, file_name);
-	case AT_OBJECT_ID:
-		return sizeof(struct guid);
-	case AT_SECURITY_DESCRIPTOR:
-		return sizeof(struct security_descriptor_relative);
+		return offsetof(struct file_name_attr, file_name) +
+			sizeof(__le16) * 1;
 	case AT_VOLUME_INFORMATION:
 		return sizeof(struct volume_information);
-	case AT_INDEX_ROOT:
-		return sizeof(struct index_root);
-	case AT_REPARSE_POINT:
-		return offsetof(struct reparse_point, reparse_data);
 	case AT_EA_INFORMATION:
 		return sizeof(struct ea_information);
-	case AT_EA:
-		return offsetof(struct ea_attr, ea_name) + 1;
 	default:
 		return 0;
 	}
@@ -2625,11 +2614,11 @@ int ntfs_attr_add(struct ntfs_inode *ni, __le32 type,
 	struct inode *attr_vi;
 	struct mft_record *ni_mrec;
 
+	ntfs_debug("Entering for inode 0x%llx, attr %x, size %lld.\n",
+			ni->mft_no, type, size);
+
 	if (!ni || size < 0 || type == AT_ATTRIBUTE_LIST)
 		return -EINVAL;
-
-	ntfs_debug("Entering for inode 0x%llx, attr %x, size %lld.\n",
-			(long long) ni->mft_no, type, size);
 
 	if (ni->nr_extents == -1)
 		ni = ni->ext.base_ntfs_ino;
