@@ -1527,6 +1527,7 @@ int ahci_do_softreset(struct ata_link *link, unsigned int *class,
 	ata_link_err(link, "softreset failed (%s)\n", reason);
 	return rc;
 }
+EXPORT_SYMBOL_GPL(ahci_do_softreset);
 
 int ahci_check_ready(struct ata_link *link)
 {
@@ -1544,7 +1545,6 @@ static int ahci_softreset(struct ata_link *link, unsigned int *class,
 
 	return ahci_do_softreset(link, class, pmp, deadline, ahci_check_ready);
 }
-EXPORT_SYMBOL_GPL(ahci_do_softreset);
 
 static int ahci_bad_pmp_check_ready(struct ata_link *link)
 {
@@ -2636,7 +2636,7 @@ void ahci_print_info(struct ata_host *host, const char *scc_s)
 		,
 
 		hweight32(impl),
-		(cap & 0x1f) + 1,
+		ahci_nr_ports(cap),
 		impl);
 
 	dev_info(host->dev,
