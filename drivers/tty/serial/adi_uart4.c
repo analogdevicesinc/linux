@@ -19,6 +19,7 @@
 #include <linux/err.h>
 #include <linux/gpio.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/module.h>
@@ -744,7 +745,8 @@ static void adi_uart4_serial_set_termios(struct uart_port *port,
 	unsigned long flags;
 	unsigned int baud, quot;
 	unsigned int ier, lcr = 0;
-	unsigned long timeout;
+	u32 val;
+	int ret;
 
 	if (uart->hwflow_mode == ADI_UART_HWFLOW_PERI)
 		termios->c_cflag |= CRTSCTS;
@@ -818,23 +820,13 @@ static void adi_uart4_serial_set_termios(struct uart_port *port,
 		quot = uart_get_divisor(port, baud);
 	}
 
-	/* Wait till the transfer buffer is empty */
-	timeout = jiffies + msecs_to_jiffies(10);
-	while (UART_GET_GCTL(uart) & UCEN && !(UART_GET_LSR(uart) & TEMT))
-		if (time_after(jiffies, timeout)) {
-			dev_warn(port->dev,
-				"timeout waiting for TX buffer empty\n");
-			break;
-		}
-
-	/* Wait till the transfer buffer is empty */
-	timeout = jiffies + msecs_to_jiffies(10);
-	while (UART_GET_GCTL(uart) & UCEN && !(UART_GET_LSR(uart) & TEMT))
-		if (time_after(jiffies, timeout)) {
-			dev_warn(port->dev,
-				"timeout waiting for TX buffer empty\n");
-			break;
-		}
+	/* Wait up to 10 ms for any active TX to complete. */
+	ret = readl_poll_timeout_atomic(uart->port.membase + OFFSET_CTL, val,
+					(!(val & UCEN) ||
+					(UART_GET_LSR(uart) & TEMT)),
+					1, 10000);
+	if (ret)
+		dev_warn(port->dev, "timeout waiting for TX buffer empty\n");
 
 	/* Disable UART */
 	ier = UART_GET_IER(uart);
