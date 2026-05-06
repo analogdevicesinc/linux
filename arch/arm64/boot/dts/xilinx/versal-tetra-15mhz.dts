@@ -1,0 +1,560 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Xilinx Versal Tetra
+ *
+ * (C) Copyright 2026, Analog Devices Inc.
+ */
+
+#include "versal.dtsi"
+#include "versal-clk.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adc/adi,adrv903x.h>
+#include <dt-bindings/iio/frequency/hmc7044.h>
+
+/* RX path */
+#define ADRV903X_RX_LANERATE_KHZ 16220160
+#define ADRV903X_RX_LINK_CLK 245760000
+
+/* TX path */
+#define ADRV903X_TX_LANERATE_KHZ 16220160
+#define ADRV903X_TX_LINK_CLK 245760000
+
+#define ADRV903X_RX_DEVICE_CLK 122880000
+
+/ {
+	compatible = "xlnx,versal-tetra", "xlnx,versal";
+	model = "Xilinx Versal Tetra";
+
+	memory: memory@0 {
+		device_type = "memory";
+		reg = <0 0 0 0x80000000>;  /* 2GB */
+	};
+
+	chosen {
+		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait";
+		stdout-path = "serial1:115200";
+	};
+
+	gpio-poweroff {
+		compatible = "gpio-poweroff";
+		gpios = <&gpio1 24 0>;
+	};
+
+	aliases {
+		serial0 = &serial0;
+		serial1 = &serial1;
+		spi0 = &qspi;
+		spi1 = &spi1;
+		mmc0 = &sdhci0;
+		mmc1 = &sdhci1;
+		ethernet0 = &axi_ethernet;
+	};
+};
+
+&qspi {
+	status = "okay";
+	is-dual = <0>;
+	num-cs = <1>;
+	spi-rx-bus-width = <4>;
+	spi-tx-bus-width = <4>;
+
+	flash@0 {
+		compatible = "m25p80", "jedec,spi-nor"; /* MT25QU02GCBB8E12-0AUT 2Gib */
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <50000000>;
+
+		partition@0 {
+			label = "qspi-boot";
+			reg = <0x0 0x800000>; /* 8MB - boot.bin */
+		};
+		partition@800000 {
+			label = "qspi-env";
+			reg = <0x800000 0x40000>; /* 256KB - U-Boot env */
+		};
+		partition@840000 {
+			label = "qspi-kernel";
+			reg = <0x840000 0x17C0000>; /* ~23.75MB - kernel/dtb */
+		};
+		partition@2000000 {
+			label = "qspi-data";
+			reg = <0x2000000 0xE000000>; /* 224MB - data/rootfs */
+		};
+	};
+};
+
+&serial0 {
+	status = "okay";
+};
+
+&serial1 {
+	status = "okay";
+};
+
+&spi1 {
+	is-decoded-cs = <0>;
+	num-cs = <2>;
+	status = "okay";
+};
+
+/* Enable SD card controllers */
+&sdhci0 {
+	status = "okay";
+	xlnx,mio-bank = <0>;
+	no-1-8-v;
+};
+
+&sdhci1 {
+	status = "okay";
+	xlnx,mio-bank = <1>;
+	no-1-8-v;
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&i2c1 {
+	status = "okay";
+};
+
+&i2c2 {
+	status = "okay";
+};
+
+&gem0 {
+	status = "disabled";
+};
+
+&gem1 {
+	status = "disabled";
+};
+
+&spi1 {
+	status = "okay";
+
+	clk0_hmc7044: hmc7044@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,hmc7044";
+		reg = <1>;
+		spi-max-frequency = <1000000>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		adi,jesd204-max-sysref-frequency-hz = <2000000>;
+
+		adi,pll1-clkin-frequencies = <0 0 0 0>;
+		adi,vcxo-frequency = <122880000>;
+
+		adi,pll1-ref-prio-ctrl = <0xE4>;
+		adi,pll1-ref-autorevert-enable;
+
+		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pfd1-maximum-limit-frequency-hz = <30720000>;
+		adi,pll1-charge-pump-current-ua = <1920>;
+
+		adi,pll2-output-frequency = <2949120000>;
+
+		adi,sysref-timer-divider = <1024>;
+		adi,pulse-generator-mode = <HMC7044_PULSE_GEN_8_PULSE>;
+
+		adi,clkin0-buffer-mode  = <0x06>;
+		adi,clkin1-buffer-mode  = <0x06>;
+		adi,oscin-buffer-mode = <0x07>;
+
+		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+		adi,gpo-controls = <0x37 0x33 0x00 0x00>;
+
+		clock-output-names =
+		"hmc7044_out0", "hmc7044_out1", "hmc7044_out2",
+		"hmc7044_out3", "hmc7044_out4", "hmc7044_out5",
+		"hmc7044_out6", "hmc7044_out7", "hmc7044_out8",
+		"hmc7044_out9", "hmc7044_out10", "hmc7044_out11",
+		"hmc7044_out12", "hmc7044_out13";
+
+		hmc7044_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "DEV_CLK";
+			adi,divider = <6>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c1: channel@1 {
+			reg = <1>;
+			adi,extended-name = "DEV_SYSREF";
+			adi,divider = <3072>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+			adi,startup-mode-dynamic-enable;
+			adi,high-performance-mode-disable;
+			adi,jesd204-sysref-chan;
+		};
+		hmc7044_c6: channel@6 {
+			reg = <6>;
+			adi,extended-name = "FPGA_CORE_REFCLK";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c7: channel@7 {
+			reg = <7>;
+			adi,extended-name = "FPGA_CORE_SYSREF";
+			adi,divider = <3072>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+		hmc7044_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "FPGA_REFCLK";
+			adi,divider = <12>;
+			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+		};
+	};
+
+	trx0_adrv903x: adrv903x-phy@0 {
+		compatible = "adi,adrv9032";
+		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* SPI Setup */
+		spi-max-frequency = <15000000>;
+
+		interrupt-parent = <&axi_gpio>;
+		interrupts = <24 IRQ_TYPE_EDGE_RISING>;
+
+		/* Clocks */
+		clocks = <&clk0_hmc7044 0>;
+
+		clock-names = "dev_clk";
+
+		clock-output-names = "rx_sampl_clk", "tx_sampl_clk";
+		#clock-cells = <1>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>;
+		jesd204-link-ids = <DEFRAMER0_LINK_TX FRAMER0_LINK_RX>;
+		jesd204-ignore-errors;
+
+		jesd204-inputs =
+			<&axi_jesd_rx_rx_axi 0 FRAMER0_LINK_RX>,
+			<&axi_jesd_tx_tx_axi 0 DEFRAMER0_LINK_TX>;
+
+		adi,device-config-name = "ADRV9030_DeviceProfileTest_lanemap.bin";
+		adi,arm-firmware-name = "ADRV9030_FW.bin";
+		adi,stream-firmware-name = "ADRV9030_stream_image_lanemap.bin";
+		adi,rx-gaintable-names = "ADRV9030_RxGainTable.csv";
+		adi,rx-gaintable-channel-masks = <0x0F>;
+	};
+};
+
+/* PL AXI bus */
+/ {
+	amba_pl: amba_pl {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		compatible = "simple-bus";
+		ranges;
+
+		axi_gpio: gpio@a4000000 {
+			#gpio-cells = <2>;
+			#interrupt-cells = <2>;
+			clock-names = "s_axi_aclk";
+			clocks = <&versal_clk 65>;
+			compatible = "xlnx,axi-gpio-2.0", "xlnx,xps-gpio-1.00.a";
+			gpio-controller ;
+			interrupt-controller ;
+			interrupt-names = "ip2intc_irpt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 84 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x0 0xa4000000 0x0 0x1000>;
+			xlnx,all-inputs = <0x0>;
+			xlnx,all-inputs-2 = <0x0>;
+			xlnx,all-outputs = <0x0>;
+			xlnx,all-outputs-2 = <0x0>;
+			xlnx,dout-default = <0x00000000>;
+			xlnx,dout-default-2 = <0x00000000>;
+			xlnx,gpio-width = <0x20>;
+			xlnx,gpio2-width = <0x20>;
+			xlnx,interrupt-present = <0x1>;
+			xlnx,is-dual = <0x1>;
+			xlnx,tri-default = <0xFFFFFFFF>;
+			xlnx,tri-default-2 = <0xFFFFFFFF>;
+		};
+
+		axi_jesd_rx_dma: axi_dmac@bc420000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x0 0xbc420000 0x0 0x1000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupt-names = "irq";
+			interrupt-parent = <&gic>;
+			clocks = <&versal_clk PMC_PL1_REF>;
+			interrupts = <0 97 IRQ_TYPE_LEVEL_HIGH>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		axi_jesd_tx_dma: axi_dmac@bc430000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x0 0xbc430000 0x0 0x1000>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			clocks = <&versal_clk PMC_PL1_REF>;
+			interrupt-names = "irq";
+			interrupt-parent = <&gic>;
+			interrupts = <0 96 IRQ_TYPE_LEVEL_HIGH>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-type = <1>;
+				};
+			};
+		};
+
+		axi_jesd_tx_tx_axi: axi_jesd204_tx@a4b90000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0x0 0xa4b90000 0x0 0x4000>;
+
+			interrupt-names = "irq";
+			interrupt-parent = <&gic>;
+			interrupts = <0 94 IRQ_TYPE_LEVEL_HIGH>;
+
+			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
+			clocks = <&versal_clk PMC_PL0_REF>, <&tx_fixed_link_clk>, <&tx_fixed_link_clk>, <&tx_fixed_lanerate>;
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_tx_lane_clk";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&clk0_hmc7044 0 DEFRAMER0_LINK_TX>;
+
+			reset-done-gpios = <&axi_gpio 33 0>;
+			pll-datapath-reset-gpios = <&axi_gpio 37 0>;
+			datapath-reset-gpios = <&axi_gpio 39 0>;
+		};
+
+		axi_jesd_rx_rx_axi: axi_jesd204_rx@a4a90000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0x0 0xa4a90000 0x0 0x4000>;
+
+			interrupt-names = "irq";
+			interrupt-parent = <&gic>;
+			interrupts = <0 95 IRQ_TYPE_LEVEL_HIGH>;
+
+			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
+			clocks = <&versal_clk PMC_PL0_REF>, <&rx_fixed_device_clk>, <&rx_fixed_link_clk>, <&rx_fixed_lanerate>;
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_rx_lane_clk";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&clk0_hmc7044 0 FRAMER0_LINK_RX>;
+
+			reset-done-gpios = <&axi_gpio 32 0>;
+			pll-datapath-reset-gpios = <&axi_gpio 36 0>;
+			datapath-reset-gpios = <&axi_gpio 38 0>;
+		};
+
+		/* AXI Ethernet + DMA — SGMII to ADIN1320 PHY */
+		axi_ethernet_dma: dma@a6e10000 {
+			#dma-cells = <1>;
+			axistream-connected = <&axi_ethernet>;
+			axistream-control-connected = <&axi_ethernet>;
+			clock-names = "m_axi_mm2s_aclk", "m_axi_s2mm_aclk", "m_axi_sg_aclk", "s_axi_lite_aclk";
+			clocks = <&versal_clk 65>, <&versal_clk 65>, <&versal_clk 65>, <&versal_clk 65>;
+			compatible = "xlnx,eth-dma";
+			interrupt-names = "mm2s_introut", "s2mm_introut";
+			interrupt-parent = <&gic>;
+			interrupts = <0 86 IRQ_TYPE_LEVEL_HIGH 0 87 IRQ_TYPE_LEVEL_HIGH>;
+			reg = <0x0 0xa6e10000 0x0 0x1000>;
+			xlnx,addrwidth = /bits/ 8 <0x20>;
+			xlnx,include-dre;
+			xlnx,num-queues = /bits/ 16 <0x1>;
+		};
+
+		axi_ethernet: ethernet@a5e00000 {
+			axistream-connected = <&axi_ethernet_dma>;
+			axistream-control-connected = <&axi_ethernet_dma>;
+			clock-frequency = <100000000>;
+			clock-names = "axis_clk", "clk125m", "s_axi_lite_clk";
+			clocks = <&versal_clk 65>, <&misc_clk_0>, <&versal_clk 65>;
+			compatible = "xlnx,axi-ethernet-7.2", "xlnx,axi-ethernet-1.00.a";
+			device_type = "network";
+			interrupt-names = "interrupt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 85 IRQ_TYPE_LEVEL_HIGH>;
+			local-mac-address = [00 0a 35 00 00 00];
+			max-speed = <1000>;
+			phy-mode = "sgmii";
+			managed = "in-band-status";
+			pcs-handle = <&pcs_phy>;
+			reg = <0x0 0xa5e00000 0x0 0x40000>;
+			xlnx,axiliteclkrate = <0x0>;
+			xlnx,axisclkrate = <0x0>;
+			xlnx,channel-ids = "1";
+			xlnx,clockselection = <0x0>;
+			xlnx,enableasyncsgmii = <0x1>;
+			xlnx,gt-type = <0x0>;
+			xlnx,gtinex = <0x0>;
+			xlnx,gtlocation = <0x0>;
+			xlnx,gtrefclksrc = <0x0>;
+			xlnx,include-dre;
+			xlnx,instantiatebitslice0 = <0x0>;
+			xlnx,num-queues = /bits/ 16 <0x1>;
+			xlnx,phyaddr = <0x1>;
+			xlnx,phyrst-board-interface-dummy-port = <0x0>;
+			xlnx,rable = <0x0>;
+			xlnx,rxcsum = <0x2>;
+			xlnx,rxlane0-placement = <0x2>;
+			xlnx,rxlane1-placement = <0x0>;
+			xlnx,rxmem = <0x2000>;
+			xlnx,rxnibblebitslice0used = <0x0>;
+			xlnx,switch-x-sgmii;
+			xlnx,tx-in-upper-nibble = <0x0>;
+			xlnx,txcsum = <0x2>;
+			xlnx,txlane0-placement = <0x2>;
+			xlnx,txlane1-placement = <0x0>;
+			xlnx,versal-gt-board-flow = <0x0>;
+
+			axi_ethernet_mdio: mdio {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				clock-frequency = <1000000>;
+
+				pcs_phy: ethernet-phy@1 {
+					reg = <1>;
+				};
+			};
+		};
+
+		axi_timer: timer@a4c00000 {
+			clock-frequency = <99999908>;
+			clock-names = "s_axi_aclk";
+			clocks = <&versal_clk 65>;
+			compatible = "xlnx,axi-timer-2.0", "xlnx,xps-timer-1.00.a";
+			interrupt-names = "interrupt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 88 4>;
+			reg = <0x0 0xa4c00000 0x0 0x1000>;
+			xlnx,count-width = <0x20>;
+			xlnx,gen0-assert = <0x1>;
+			xlnx,gen1-assert = <0x1>;
+			xlnx,one-timer-only = <0x0>;
+			xlnx,trig0-assert = <0x1>;
+			xlnx,trig1-assert = <0x1>;
+		};
+
+		axi_sysid_0: axi_sysid@a5000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x0 0xa5000000 0x0 0x10000>;
+		};
+
+		clocks {
+			rx_fixed_lanerate: clock@0 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <ADRV903X_RX_LANERATE_KHZ>;
+				clock-output-names = "rx_lane_clk";
+			};
+
+			tx_fixed_lanerate: clock@1 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <ADRV903X_TX_LANERATE_KHZ>;
+				clock-output-names = "tx_lane_clk";
+			};
+
+			rx_fixed_link_clk: clock@2 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <ADRV903X_RX_LINK_CLK>;
+				clock-output-names = "rx_link_clk";
+			};
+
+			tx_fixed_link_clk: clock@3 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <ADRV903X_TX_LINK_CLK>;
+				clock-output-names = "tx_link_clk";
+			};
+
+			rx_fixed_device_clk: clock@4 {
+				#clock-cells = <0>;
+				compatible = "fixed-clock";
+				clock-frequency = <ADRV903X_RX_DEVICE_CLK>;
+				clock-output-names = "rx_device_clk";
+			};
+		};
+
+		jesd_tx_data_offload_i_data_offload: data_offload@bc440000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x0 0xbc440000 0x0 0x10000>;
+		};
+
+		jesd_rx_data_offload_i_data_offload: data_offload@bc450000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0x0 0xbc450000 0x0 0x10000>;
+		};
+
+		rx_jesd_tpl_core_adc_tpl_core: ad_ip_jesd204_tpl_adc@0xa4b10000 {
+			compatible = "adi,axi-adc-legacy-10.0.a";
+			reg = <0x0 0xa4b10000 0x0 0x6000>;
+
+			dmas = <&axi_jesd_rx_dma 0>;
+			dma-names = "rx";
+			clocks = <&trx0_adrv903x 1>;
+			spibus-connected = <&trx0_adrv903x>;
+		};
+
+		tx_jesd_tpl_core_dac_tpl_core: ad_ip_jesd204_tpl_dac@0xa4b14000 {
+			compatible = "adi,axi-adrv903x-tx-1.0";
+			reg = <0x0 0xa4b14000 0x0 0x2000>;
+
+			dmas = <&axi_jesd_tx_dma 0>;
+			dma-names = "tx";
+			clocks = <&trx0_adrv903x 1>;
+			clock-names = "sampl_clk";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_jesd_tx_tx_axi 0 DEFRAMER0_LINK_TX>;
+		};
+	};
+
+	/* Clock for AXI Ethernet clk125m */
+	misc_clk_0: misc_clk_0 {
+		#clock-cells = <0>;
+		clock-frequency = <125000000>;
+		compatible = "fixed-clock";
+	};
+};
+
+&trx0_adrv903x {
+	reset-gpios = <&axi_gpio 20 0>;
+};
+
+&clk0_hmc7044 {
+	reset-gpios = <&axi_gpio 21 0>;
+};
