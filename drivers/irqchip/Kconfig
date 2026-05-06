@@ -51,12 +51,6 @@ config ARM_GIC_V3_ITS
 	default ARM_GIC_V3
 	select IRQ_MSI_IOMMU
 
-config ARM_GIC_V3_ITS_FSL_MC
-	bool
-	depends on ARM_GIC_V3_ITS
-	depends on FSL_MC_BUS
-	default ARM_GIC_V3_ITS
-
 config ARM_GIC_V5
 	bool
 	select IRQ_DOMAIN_HIERARCHY
