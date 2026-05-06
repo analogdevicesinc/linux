@@ -3552,7 +3552,8 @@ int spi_register_controller(struct spi_controller *ctlr)
 	/* Register devices from the device tree and ACPI */
 	of_register_spi_devices(ctlr);
 	acpi_register_spi_devices(ctlr);
-	return status;
+
+	return 0;
 
 del_ctrl:
 	device_del(&ctlr->dev);
@@ -3560,6 +3561,7 @@ free_bus_id:
 	mutex_lock(&board_lock);
 	idr_remove(&spi_controller_idr, ctlr->bus_num);
 	mutex_unlock(&board_lock);
+
 	return status;
 }
 EXPORT_SYMBOL_GPL(spi_register_controller);

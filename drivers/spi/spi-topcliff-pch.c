@@ -207,10 +207,10 @@ struct pch_pd_dev_save {
 };
 
 static const struct pci_device_id pch_spi_pcidev_id[] = {
-	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_GE_SPI),    1, },
-	{ PCI_VDEVICE(ROHM, PCI_DEVICE_ID_ML7213_SPI), 2, },
-	{ PCI_VDEVICE(ROHM, PCI_DEVICE_ID_ML7223_SPI), 1, },
-	{ PCI_VDEVICE(ROHM, PCI_DEVICE_ID_ML7831_SPI), 1, },
+	{ PCI_VDEVICE(INTEL, PCI_DEVICE_ID_GE_SPI),    .driver_data = 1 },
+	{ PCI_VDEVICE(ROHM, PCI_DEVICE_ID_ML7213_SPI), .driver_data = 2 },
+	{ PCI_VDEVICE(ROHM, PCI_DEVICE_ID_ML7223_SPI), .driver_data = 1 },
+	{ PCI_VDEVICE(ROHM, PCI_DEVICE_ID_ML7831_SPI), .driver_data = 1 },
 	{ }
 };
 
