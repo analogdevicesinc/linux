@@ -181,9 +181,8 @@ static void ingenic_adc_set_config(struct ingenic_adc *adc,
 	mutex_unlock(&adc->lock);
 }
 
-static void ingenic_adc_enable_unlocked(struct ingenic_adc *adc,
-					int engine,
-					bool enabled)
+static void __ingenic_adc_enable(struct ingenic_adc *adc, int engine,
+			      bool enabled)
 {
 	u8 val;
 
@@ -202,7 +201,7 @@ static void ingenic_adc_enable(struct ingenic_adc *adc,
 			       bool enabled)
 {
 	mutex_lock(&adc->lock);
-	ingenic_adc_enable_unlocked(adc, engine, enabled);
+	__ingenic_adc_enable(adc, engine, enabled);
 	mutex_unlock(&adc->lock);
 }
 
@@ -222,11 +221,11 @@ static int ingenic_adc_capture(struct ingenic_adc *adc,
 	cfg = readl(adc->base + JZ_ADC_REG_CFG);
 	writel(cfg & ~JZ_ADC_REG_CFG_CMD_SEL, adc->base + JZ_ADC_REG_CFG);
 
-	ingenic_adc_enable_unlocked(adc, engine, true);
+	__ingenic_adc_enable(adc, engine, true);
 	ret = readb_poll_timeout(adc->base + JZ_ADC_REG_ENABLE, val,
 				 !(val & BIT(engine)), 250, 1000);
 	if (ret)
-		ingenic_adc_enable_unlocked(adc, engine, false);
+		__ingenic_adc_enable(adc, engine, false);
 
 	writel(cfg, adc->base + JZ_ADC_REG_CFG);
 	mutex_unlock(&adc->lock);
