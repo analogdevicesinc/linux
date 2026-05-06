@@ -64,7 +64,7 @@ artifacts_structure() {
 
     declare -A typeARCH
     typeARCH=( ["arm"]="arria10 cyclone5 zynq"
-               ["arm64"]="versal zynqmp"
+               ["arm64"]="versal zynqmp versal_apollo"
                ["microblaze"]="kc705 kcu105 vc707 vcu118 vcu128" )
 
     declare -A image_to_copy
@@ -72,7 +72,8 @@ artifacts_structure() {
                     ["cyclone5"]="socfpga_adi_defconfig/zImage"
                     ["zynq"]="zynq_xcomm_adv7511_defconfig/uImage"
                     ["versal"]="adi_versal_defconfig/Image"
-                    ["zynqmp"]="adi_zynqmp_defconfig/Image" )
+                    ["zynqmp"]="adi_zynqmp_defconfig/Image"
+                    ["versal_apollo"]="adi_versal_apollo_defconfig/Image" )
 
     for arch in "${!typeARCH[@]}"; do
         mkdir ${TIMESTAMP}/${arch}
@@ -90,7 +91,9 @@ artifacts_structure() {
             fi
 
             if [ "${arch}" == "microblaze" ]; then
-                dtbs_to_copy=$(ls -d -1 Microblaze/*)
+                dtbs_to_copy=$(ls -d -1 Microblaze/* Microblaze_apollo/* 2>/dev/null)
+            elif [ "${platform}" == "versal_apollo" ]; then
+                dtbs_to_copy=$(ls -d -1 DTBs_apollo/* 2>/dev/null | grep "versal[-_]")
             else
                 dtbs_to_copy=$(ls -d -1 DTBs/* | grep "${platform}[-|_]")
             fi
