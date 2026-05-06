@@ -8,35 +8,6 @@
 #define SCX_OP_IDX(op)		(offsetof(struct sched_ext_ops, op) / sizeof(void (*)(void)))
 #define SCX_MOFF_IDX(moff)	((moff) / sizeof(void (*)(void)))
 
-enum scx_consts {
-	SCX_DSP_DFL_MAX_BATCH		= 32,
-	SCX_DSP_MAX_LOOPS		= 32,
-	SCX_WATCHDOG_MAX_TIMEOUT	= 30 * HZ,
-
-	SCX_EXIT_BT_LEN			= 64,
-	SCX_EXIT_MSG_LEN		= 1024,
-	SCX_EXIT_DUMP_DFL_LEN		= 32768,
-
-	SCX_CPUPERF_ONE			= SCHED_CAPACITY_SCALE,
-
-	/*
-	 * Iterating all tasks may take a while. Periodically drop
-	 * scx_tasks_lock to avoid causing e.g. CSD and RCU stalls.
-	 */
-	SCX_TASK_ITER_BATCH		= 32,
-
-	SCX_BYPASS_HOST_NTH		= 2,
-
-	SCX_BYPASS_LB_DFL_INTV_US	= 500 * USEC_PER_MSEC,
-	SCX_BYPASS_LB_DONOR_PCT		= 125,
-	SCX_BYPASS_LB_MIN_DELTA_DIV	= 4,
-	SCX_BYPASS_LB_BATCH		= 256,
-
-	SCX_REENQ_LOCAL_MAX_REPEAT	= 256,
-
-	SCX_SUB_MAX_DEPTH		= 4,
-};
-
 enum scx_exit_kind {
 	SCX_EXIT_NONE,
 	SCX_EXIT_DONE,
@@ -94,6 +65,12 @@ struct scx_exit_info {
 	/* %SCX_EXIT_* - broad category of the exit reason */
 	enum scx_exit_kind	kind;
 
+	/*
+	 * CPU that initiated the exit, valid once @kind has been set.
+	 * Negative if the exit path didn't identify a CPU.
+	 */
+	s32			exit_cpu;
+
 	/* exit code if gracefully exiting */
 	s64			exit_code;
 
@@ -138,7 +115,8 @@ enum scx_ops_flags {
 	 * To mask this problem, by default, unhashed tasks are automatically
 	 * dispatched to the local DSQ on enqueue. If the BPF scheduler doesn't
 	 * depend on pid lookups and wants to handle these tasks directly, the
-	 * following flag can be used.
+	 * following flag can be used. With %SCX_OPS_TID_TO_TASK,
+	 * scx_bpf_tid_to_task() can find exiting tasks reliably.
 	 */
 	SCX_OPS_ENQ_EXITING		= 1LLU << 2,
 
@@ -189,6 +167,17 @@ enum scx_ops_flags {
 	 */
 	SCX_OPS_ALWAYS_ENQ_IMMED	= 1LLU << 7,
 
+	/*
+	 * Maintain a mapping from p->scx.tid to task_struct so the BPF
+	 * scheduler can recover task pointers from stored tids via
+	 * scx_bpf_tid_to_task().
+	 *
+	 * Only the root scheduler turns this on. A sub-sched may set the flag
+	 * to declare a dependency on the lookup; if the root scheduler hasn't
+	 * enabled it, attaching the sub-sched is rejected.
+	 */
+	SCX_OPS_TID_TO_TASK		= 1LLU << 8,
+
 	SCX_OPS_ALL_FLAGS		= SCX_OPS_KEEP_BUILTIN_IDLE |
 					  SCX_OPS_ENQ_LAST |
 					  SCX_OPS_ENQ_EXITING |
@@ -196,7 +185,8 @@ enum scx_ops_flags {
 					  SCX_OPS_ALLOW_QUEUED_WAKEUP |
 					  SCX_OPS_SWITCH_PARTIAL |
 					  SCX_OPS_BUILTIN_IDLE_PER_NODE |
-					  SCX_OPS_ALWAYS_ENQ_IMMED,
+					  SCX_OPS_ALWAYS_ENQ_IMMED |
+					  SCX_OPS_TID_TO_TASK,
 
 	/* high 8 bits are internal, don't include in SCX_OPS_ALL_FLAGS */
 	__SCX_OPS_INTERNAL_MASK		= 0xffLLU << 56,
@@ -540,28 +530,6 @@ struct sched_ext_ops {
 	void (*update_idle)(s32 cpu, bool idle);
 
 	/**
-	 * @cpu_acquire: A CPU is becoming available to the BPF scheduler
-	 * @cpu: The CPU being acquired by the BPF scheduler.
-	 * @args: Acquire arguments, see the struct definition.
-	 *
-	 * A CPU that was previously released from the BPF scheduler is now once
-	 * again under its control.
-	 */
-	void (*cpu_acquire)(s32 cpu, struct scx_cpu_acquire_args *args);
-
-	/**
-	 * @cpu_release: A CPU is taken away from the BPF scheduler
-	 * @cpu: The CPU being released by the BPF scheduler.
-	 * @args: Release arguments, see the struct definition.
-	 *
-	 * The specified CPU is no longer under the control of the BPF
-	 * scheduler. This could be because it was preempted by a higher
-	 * priority sched_class, though there may be other reasons as well. The
-	 * caller should consult @args->reason to determine the cause.
-	 */
-	void (*cpu_release)(s32 cpu, struct scx_cpu_release_args *args);
-
-	/**
 	 * @init_task: Initialize a task to run in a BPF scheduler
 	 * @p: task to initialize for BPF scheduling
 	 * @args: init arguments, see the struct definition
@@ -851,6 +819,125 @@ struct sched_ext_ops {
 
 	/* internal use only, must be NULL */
 	void __rcu *priv;
+
+	/*
+	 * Deprecated callbacks. Kept at the end of the struct so the cid-form
+	 * struct (sched_ext_ops_cid) can omit them without affecting the
+	 * shared field offsets. Use SCX_ENQ_IMMED instead. Sitting past
+	 * SCX_OPI_END means has_op doesn't cover them, so SCX_HAS_OP() cannot
+	 * be used; callers must test sch->ops.cpu_acquire / cpu_release
+	 * directly.
+	 */
+
+	/**
+	 * @cpu_acquire: A CPU is becoming available to the BPF scheduler
+	 * @cpu: The CPU being acquired by the BPF scheduler.
+	 * @args: Acquire arguments, see the struct definition.
+	 *
+	 * A CPU that was previously released from the BPF scheduler is now once
+	 * again under its control. Deprecated; use SCX_ENQ_IMMED instead.
+	 */
+	void (*cpu_acquire)(s32 cpu, struct scx_cpu_acquire_args *args);
+
+	/**
+	 * @cpu_release: A CPU is taken away from the BPF scheduler
+	 * @cpu: The CPU being released by the BPF scheduler.
+	 * @args: Release arguments, see the struct definition.
+	 *
+	 * The specified CPU is no longer under the control of the BPF
+	 * scheduler. This could be because it was preempted by a higher
+	 * priority sched_class, though there may be other reasons as well. The
+	 * caller should consult @args->reason to determine the cause.
+	 * Deprecated; use SCX_ENQ_IMMED instead.
+	 */
+	void (*cpu_release)(s32 cpu, struct scx_cpu_release_args *args);
+};
+
+/**
+ * struct sched_ext_ops_cid - cid-form alternative to struct sched_ext_ops
+ *
+ * Mirrors struct sched_ext_ops with cpu/cpumask substituted with cid/cmask
+ * where applicable. Layout up to and including @priv matches sched_ext_ops
+ * byte-for-byte (verified by BUILD_BUG_ON checks at scx_init() time) so
+ * shared field offsets work for both struct types in bpf_scx_init_member()
+ * and bpf_scx_check_member(). The deprecated cpu_acquire/cpu_release
+ * callbacks at the tail of sched_ext_ops are omitted here entirely.
+ *
+ * Differences from sched_ext_ops:
+ *   - select_cpu       -> select_cid (returns cid)
+ *   - dispatch         -> dispatch (cpu arg is now cid)
+ *   - update_idle      -> update_idle (cpu arg is now cid)
+ *   - set_cpumask      -> set_cmask (cmask instead of cpumask)
+ *   - cpu_online       -> cid_online
+ *   - cpu_offline      -> cid_offline
+ *   - dump_cpu         -> dump_cid
+ *   - cpu_acquire/cpu_release  -> not present (deprecated in sched_ext_ops)
+ *
+ * BPF schedulers using this type cannot call cpu-form scx_bpf_* kfuncs;
+ * use the cid-form variants instead. Enforced at BPF verifier time via
+ * scx_kfunc_context_filter() branching on prog->aux->st_ops.
+ *
+ * See sched_ext_ops for callback documentation.
+ */
+struct sched_ext_ops_cid {
+	s32 (*select_cid)(struct task_struct *p, s32 prev_cid, u64 wake_flags);
+	void (*enqueue)(struct task_struct *p, u64 enq_flags);
+	void (*dequeue)(struct task_struct *p, u64 deq_flags);
+	void (*dispatch)(s32 cid, struct task_struct *prev);
+	void (*tick)(struct task_struct *p);
+	void (*runnable)(struct task_struct *p, u64 enq_flags);
+	void (*running)(struct task_struct *p);
+	void (*stopping)(struct task_struct *p, bool runnable);
+	void (*quiescent)(struct task_struct *p, u64 deq_flags);
+	bool (*yield)(struct task_struct *from, struct task_struct *to);
+	bool (*core_sched_before)(struct task_struct *a,
+				   struct task_struct *b);
+	void (*set_weight)(struct task_struct *p, u32 weight);
+	void (*set_cmask)(struct task_struct *p,
+			   const struct scx_cmask *cmask);
+	void (*update_idle)(s32 cid, bool idle);
+	s32 (*init_task)(struct task_struct *p,
+			  struct scx_init_task_args *args);
+	void (*exit_task)(struct task_struct *p,
+			   struct scx_exit_task_args *args);
+	void (*enable)(struct task_struct *p);
+	void (*disable)(struct task_struct *p);
+	void (*dump)(struct scx_dump_ctx *ctx);
+	void (*dump_cid)(struct scx_dump_ctx *ctx, s32 cid, bool idle);
+	void (*dump_task)(struct scx_dump_ctx *ctx, struct task_struct *p);
+#ifdef CONFIG_EXT_GROUP_SCHED
+	s32 (*cgroup_init)(struct cgroup *cgrp,
+			    struct scx_cgroup_init_args *args);
+	void (*cgroup_exit)(struct cgroup *cgrp);
+	s32 (*cgroup_prep_move)(struct task_struct *p,
+				 struct cgroup *from, struct cgroup *to);
+	void (*cgroup_move)(struct task_struct *p,
+			     struct cgroup *from, struct cgroup *to);
+	void (*cgroup_cancel_move)(struct task_struct *p,
+				    struct cgroup *from, struct cgroup *to);
+	void (*cgroup_set_weight)(struct cgroup *cgrp, u32 weight);
+	void (*cgroup_set_bandwidth)(struct cgroup *cgrp,
+				      u64 period_us, u64 quota_us, u64 burst_us);
+	void (*cgroup_set_idle)(struct cgroup *cgrp, bool idle);
+#endif	/* CONFIG_EXT_GROUP_SCHED */
+	s32 (*sub_attach)(struct scx_sub_attach_args *args);
+	void (*sub_detach)(struct scx_sub_detach_args *args);
+	void (*cid_online)(s32 cid);
+	void (*cid_offline)(s32 cid);
+	s32 (*init)(void);
+	void (*exit)(struct scx_exit_info *info);
+
+	/* Data fields - must match sched_ext_ops layout exactly */
+	u32 dispatch_max_batch;
+	u64 flags;
+	u32 timeout_ms;
+	u32 exit_dump_len;
+	u64 hotplug_seq;
+	u64 sub_cgroup_id;
+	char name[SCX_OPS_NAME_LEN];
+
+	/* internal use only, must be NULL */
+	void __rcu *priv;
 };
 
 enum scx_opi {
@@ -1009,7 +1096,18 @@ struct scx_sched_pnode {
 };
 
 struct scx_sched {
-	struct sched_ext_ops	ops;
+	/*
+	 * cpu-form and cid-form ops share field offsets up to .priv (verified
+	 * by BUILD_BUG_ON in scx_init()). The anonymous union lets the kernel
+	 * access either view of the same storage without function-pointer
+	 * casts: use .ops for cpu-form and shared fields, .ops_cid for the
+	 * cid-renamed callbacks (set_cmask, select_cid, cid_online, ...).
+	 */
+	union {
+		struct sched_ext_ops		ops;
+		struct sched_ext_ops_cid	ops_cid;
+	};
+	bool			is_cid_type;	/* true if registered via bpf_sched_ext_ops_cid */
 	DECLARE_BITMAP(has_op, SCX_OPI_END);
 
 	/*
@@ -1366,7 +1464,31 @@ enum scx_ops_state {
 extern struct scx_sched __rcu *scx_root;
 DECLARE_PER_CPU(struct rq *, scx_locked_rq_state);
 
+extern struct scx_cmask __percpu *scx_set_cmask_scratch;
+
+/*
+ * True when the currently loaded scheduler hierarchy is cid-form. All scheds
+ * in a hierarchy share one form, so this single key tells callsites which
+ * view to use without per-sch dereferences. Use scx_is_cid_type() to test.
+ */
+DECLARE_STATIC_KEY_FALSE(__scx_is_cid_type);
+
 int scx_kfunc_context_filter(const struct bpf_prog *prog, u32 kfunc_id);
+
+bool scx_cpu_valid(struct scx_sched *sch, s32 cpu, const char *where);
+
+__printf(5, 0) bool scx_vexit(struct scx_sched *sch, enum scx_exit_kind kind,
+			      s64 exit_code, s32 exit_cpu, const char *fmt,
+			      va_list args);
+__printf(5, 6) bool __scx_exit(struct scx_sched *sch, enum scx_exit_kind kind,
+			       s64 exit_code, s32 exit_cpu, const char *fmt, ...);
+
+#define scx_exit(sch, kind, exit_code, fmt, args...)				\
+	__scx_exit(sch, kind, exit_code, raw_smp_processor_id(), fmt, ##args)
+#define scx_error(sch, fmt, args...)						\
+	scx_exit((sch), SCX_EXIT_ERROR, 0, fmt, ##args)
+#define scx_verror(sch, fmt, args)						\
+	scx_vexit((sch), SCX_EXIT_ERROR, 0, raw_smp_processor_id(), fmt, args)
 
 /*
  * Return the rq currently locked from an scx callback, or NULL if no rq is

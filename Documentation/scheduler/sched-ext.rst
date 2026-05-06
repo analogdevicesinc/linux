@@ -339,6 +339,11 @@ The following briefly shows how a waking task is scheduled and executed.
      leaves (e.g., when ``ops.dispatch()`` moves it to a terminal DSQ, or
      on property change / sleep).
 
+   Note that ``ops.enqueue()`` can be called multiple times in a row without
+   an intervening call to ``ops.dequeue()``. This can happen, for example,
+   when a task on a user-created DSQ is re-enqueued using
+   ``scx_bpf_dsq_reenq()``. The task stays in BPF custody the entire time.
+
    When a task leaves BPF scheduler custody, ``ops.dequeue()`` is invoked.
    The dequeue can happen for different reasons, distinguished by flags:
 
@@ -503,7 +508,7 @@ Where to Look
     custom DSQ.
 
   * ``scx_qmap[.bpf].c``: A multi-level FIFO scheduler supporting five
-    levels of priority implemented with ``BPF_MAP_TYPE_QUEUE``.
+    levels of priority implemented with arena-backed doubly-linked lists.
 
   * ``scx_central[.bpf].c``: A central FIFO scheduler where all scheduling
     decisions are made on one CPU, demonstrating ``LOCAL_ON`` dispatching,
