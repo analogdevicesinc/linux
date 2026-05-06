@@ -156,6 +156,7 @@ config GPIO_74XX_MMIO
 
 config GPIO_ALTERA
 	tristate "Altera GPIO"
+	select GPIO_GENERIC
 	select GPIOLIB_IRQCHIP
 	help
 	  Say Y or M here to build support for the Altera PIO device.
@@ -806,7 +807,7 @@ config GPIO_VISCONTI
 	  Say yes here to support GPIO on Tohisba Visconti.
 
 config GPIO_WCD934X
-	tristate "Qualcomm Technologies Inc WCD9340/WCD9341 GPIO controller driver"
+	tristate "Qualcomm WCD9340/WCD9341 GPIO controller driver"
 	depends on MFD_WCD934X
 	help
          This driver is to support GPIO block found on the Qualcomm Technologies
@@ -2060,6 +2061,7 @@ config GPIO_VIRTIO
 
 config GPIO_SIM
 	tristate "GPIO Simulator Module"
+	depends on SYSFS
 	select IRQ_SIM
 	select CONFIGFS_FS
 	help

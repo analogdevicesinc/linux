@@ -877,11 +877,9 @@ static void pca953x_irq_bus_sync_unlock(struct irq_data *d)
 	bitmap_or(irq_mask, chip->irq_trig_fall, chip->irq_trig_raise, gc->ngpio);
 	bitmap_or(irq_mask, irq_mask, chip->irq_trig_level_high, gc->ngpio);
 	bitmap_or(irq_mask, irq_mask, chip->irq_trig_level_low, gc->ngpio);
-	bitmap_complement(reg_direction, reg_direction, gc->ngpio);
-	bitmap_and(irq_mask, irq_mask, reg_direction, gc->ngpio);
 
 	/* Look for any newly setup interrupt */
-	for_each_set_bit(level, irq_mask, gc->ngpio)
+	for_each_andnot_bit(level, irq_mask, reg_direction, gc->ngpio)
 		pca953x_gpio_direction_input(&chip->gpio_chip, level);
 
 	mutex_unlock(&chip->irq_lock);
@@ -1005,8 +1003,7 @@ static bool pca953x_irq_pending(struct pca953x_chip *chip, unsigned long *pendin
 	bitmap_and(cur_stat, cur_stat, chip->irq_mask, gc->ngpio);
 	bitmap_or(pending, pending, cur_stat, gc->ngpio);
 
-	bitmap_complement(cur_stat, new_stat, gc->ngpio);
-	bitmap_and(cur_stat, cur_stat, reg_direction, gc->ngpio);
+	bitmap_andnot(cur_stat, reg_direction, new_stat, gc->ngpio);
 	bitmap_and(old_stat, cur_stat, chip->irq_trig_level_low, gc->ngpio);
 	bitmap_and(old_stat, old_stat, chip->irq_mask, gc->ngpio);
 	bitmap_or(pending, pending, old_stat, gc->ngpio);
