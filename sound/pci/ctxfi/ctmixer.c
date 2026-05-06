@@ -965,35 +965,20 @@ error1:
 static int ct_mixer_get_mem(struct ct_mixer **rmixer)
 {
 	struct ct_mixer *mixer;
-	int err;
+	size_t alloc_size;
 
 	*rmixer = NULL;
 	/* Allocate mem for mixer obj */
-	mixer = kzalloc_obj(*mixer);
+	alloc_size = struct_size(mixer, amixers, NUM_CT_AMIXERS * CHN_NUM);
+	alloc_size += sizeof(*mixer->sums) * NUM_CT_SUMS * CHN_NUM;
+	mixer = kzalloc(alloc_size, GFP_KERNEL);
 	if (!mixer)
 		return -ENOMEM;
 
-	mixer->amixers = kcalloc(NUM_CT_AMIXERS * CHN_NUM, sizeof(void *),
-				 GFP_KERNEL);
-	if (!mixer->amixers) {
-		err = -ENOMEM;
-		goto error1;
-	}
-	mixer->sums = kcalloc(NUM_CT_SUMS * CHN_NUM, sizeof(void *),
-			      GFP_KERNEL);
-	if (!mixer->sums) {
-		err = -ENOMEM;
-		goto error2;
-	}
+	mixer->sums = (struct sum **)(mixer->amixers + (NUM_CT_AMIXERS * CHN_NUM));
 
 	*rmixer = mixer;
 	return 0;
-
-error2:
-	kfree(mixer->amixers);
-error1:
-	kfree(mixer);
-	return err;
 }
 
 static int ct_mixer_topology_build(struct ct_mixer *mixer)
@@ -1228,8 +1213,6 @@ int ct_mixer_destroy(struct ct_mixer *mixer)
 	}
 
 	/* Release mem assigned to mixer object */
-	kfree(mixer->sums);
-	kfree(mixer->amixers);
 	kfree(mixer);
 
 	return 0;
