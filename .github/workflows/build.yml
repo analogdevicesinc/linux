@@ -74,6 +74,7 @@ jobs:
         get_file ci/symbols_depend.py
         get_file ci/touched_kconfig.awk
         get_file ci/gen_sbom.py
+        get_file ci/downgrade_sbom.py
 
         if [[ "${{ inputs.defconfig }}" == "adi_ci_defconfig" ]]; then
           mkdir -p arch/${{ inputs.arch }}/configs
@@ -201,6 +202,7 @@ jobs:
         [[ -f "$DIST/compile_commands.json" ]] || exit 0
         export GIT_URL="${{ github.repositoryUrl }}"
         python3 ci/gen_sbom.py
+        python3 ci/downgrade_sbom.py
 
     - name: Assert state
       if: ${{ failure() }}
