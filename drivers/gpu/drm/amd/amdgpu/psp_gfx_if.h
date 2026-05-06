@@ -421,6 +421,17 @@ enum psp_gfx_ual_link_type
     PSP_GFX_UALMAX
 };
 
+enum psp_gfx_ual_config_state
+{
+	UAL_CFG_IDLE        = 0,
+	UAL_CFG_PPOD        = 1,
+	UAL_CFG_VPOD        = 2,
+	UAL_CFG_PAUSE       = 3,
+	UAL_CFG_STATION     = 4,
+	UAL_CFG_COMPLETE    = 5,
+	UAL_CFG_INVALID     = 0xFF
+};
+
 struct psp_gfx_cmd_set_ppod_config_ual_v1
 {
     uint32_t accelerator_id;     // Accelerator ID
@@ -477,6 +488,7 @@ struct psp_gfx_get_config_ual_v1 {
     uint32_t vpod_size;
     uint32_t vpod_active_accelerators[PSP_GFX_UAL_MAX_ACC_BIT_MASK];
     enum psp_gfx_ual_npa_address_mode addr_mode;
+    enum psp_gfx_ual_config_state config_state;
 };
 
 struct psp_gfx_cmd_send_completion_ual_v1
