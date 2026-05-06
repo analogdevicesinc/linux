@@ -1078,11 +1078,11 @@ config LTC2308
 	  be called ltc2308.
 
 config LTC2309
-	tristate "Linear Technology LTC2309 ADC driver"
+	tristate "Linear Technology LTC2309 and similar ADC driver"
 	depends on I2C
 	help
-	  Say yes here to build support for Linear Technology LTC2309, a low
-	  noise, low power, 8-channel, 12-bit SAR ADC
+	  Say yes here to build support for Linear Technology LTC2309 and
+	  similar low noise, low power SAR ADCs.
 
 	  This driver can also be built as a module. If so, the module will
 	  be called ltc2309.
