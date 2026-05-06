@@ -273,14 +273,14 @@ _get_artifact () {
 }
 export -f _get_artifact
 
-_get_latest_commit () {
+_get_first_result_version () {
 	local cloudsmith_token="$1"
 	local org_repository="$2"
-	local ref="$3"
+	local query="$3"
 
 	curl -sL \
 	  -H "X-Api-Key: $cloudsmith_token" \
-	  "https://api.cloudsmith.io/v1/packages/$org_repository/?query=tag:on/push+tag:$ref&sort=-date&page_size=1" \
+	  "https://api.cloudsmith.io/v1/packages/$org_repository/?query=${query}&sort=-date&page_size=1" \
 	  | jq -r '.[].version // empty'
 }
 
@@ -290,16 +290,21 @@ download_artifacts() {
 	local no_cache="${3-false}"
 	local cloudsmith_token=${4}
 
+	local event=push
+
 	[ "$no_cache" == "true" ] && command rm -rf dist/ raw/ .get_artifacts
 
 	[ -f '.get_artifacts' ] && { log_step "Get artifacts (checkpoint)" ; return ;} || log_step "Get artifacts"
 
-	[[ $ref == refs/heads/* ]] || [[ $ref == refs/tags/* ]] && git_sha=$(_get_latest_commit "$cloudsmith_token" "$org_repository" "$ref") || git_sha=${ref:0:12}
+	[[ $ref == refs/pull/* ]] && event="pull_request"
+	[[ $ref == refs/heads/* ]] || [[ $ref == refs/tags/* ]] || [[ $ref == refs/pull/* ]] && \
+		git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" "tag:on/${event}+tag:${ref}") || git_sha=${ref:0:12}
 
 	[[ -z "$cloudsmith_token" ]] && cloudsmith_token="$CLOUDSMITH_API_KEY"
 	[[ -z "$cloudsmith_token" ]] && { log_warn "CLOUDSMITH_API_KEY is not set, only public artifacts will be accessible." ; } || :
-	[[ -z "$git_sha" ]] && { log_error "No git sha provided." ; return 1 ;}
-	[[ "${#git_sha}" != "12" ]] && { log_error "Git sha is not 12 characters long." ; return 1 ; }
+	[[ -n "$git_sha" ]] || { log_error "No git sha provided." ; return 1 ;}
+	[[ "${#git_sha}" == "40" ]] || git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" "tag:on/${event}+version:$git_sha")
+	[[ -n "$git_sha" ]] || { log_error "Failed to get full git sha." ; return 1 ;}
 
 	command -v unzip 1>/dev/null || { log_error "Command unzip not installed." ; return 1 ; }
 
