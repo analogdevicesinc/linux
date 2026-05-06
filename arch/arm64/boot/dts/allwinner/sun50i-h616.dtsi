@@ -182,12 +182,38 @@
 			#size-cells = <1>;
 			ranges;
 
-			sram_c: sram@28000 {
+			/* SRAM C */
+			sram@28000 {
 				compatible = "mmio-sram";
 				reg = <0x00028000 0x30000>;
 				#address-cells = <1>;
 				#size-cells = <1>;
 				ranges = <0 0x00028000 0x30000>;
+
+				/*
+				 * 0x0 ~ 0x20000 is partial alias of VE SRAM below.
+				 * 0x20000 ~ 0x2ffff is (partial?) alias of DE SRAM.
+				 * However the whole region is toggled together.
+				 */
+				sram_c: sram-section@0 {
+					compatible = "allwinner,sun50i-h616-sram-c",
+						     "allwinner,sun50i-a64-sram-c";
+					reg = <0x00000 0x30000>;
+				};
+			};
+
+			/* VE SRAM */
+			sram@1a00000 {
+				compatible = "mmio-sram";
+				reg = <0x01a00000 0x200000>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+				ranges = <0 0x01a00000 0x200000>;
+
+				ve_sram: sram-section@0 {
+					compatible = "allwinner,sun50i-h616-ve-sram";
+					reg = <0x000000 0x200000>;
+				};
 			};
 		};
 
