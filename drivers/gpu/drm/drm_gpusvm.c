@@ -1144,11 +1144,17 @@ static void __drm_gpusvm_unmap_pages(struct drm_gpusvm *gpusvm,
 		struct drm_gpusvm_pages_flags flags = {
 			.__flags = svm_pages->flags.__flags,
 		};
+		bool use_iova = dma_use_iova(&svm_pages->state);
+
+		if (use_iova)
+			dma_iova_destroy(dev, &svm_pages->state,
+					 svm_pages->state_offset,
+					 svm_pages->dma_addr[0].dir, 0);
 
 		for (i = 0, j = 0; i < npages; j++) {
 			struct drm_pagemap_addr *addr = &svm_pages->dma_addr[j];
 
-			if (addr->proto == DRM_INTERCONNECT_SYSTEM)
+			if (!use_iova && addr->proto == DRM_INTERCONNECT_SYSTEM)
 				dma_unmap_page(dev,
 					       addr->addr,
 					       PAGE_SIZE << addr->order,
@@ -1413,6 +1419,7 @@ int drm_gpusvm_get_pages(struct drm_gpusvm *gpusvm,
 	struct drm_gpusvm_pages_flags flags;
 	enum dma_data_direction dma_dir = ctx->read_only ? DMA_TO_DEVICE :
 							   DMA_BIDIRECTIONAL;
+	struct dma_iova_state *state = &svm_pages->state;
 
 retry:
 	if (time_after(jiffies, timeout))
@@ -1450,6 +1457,9 @@ retry:
 	mmput(mm);
 	if (err)
 		goto err_free;
+
+	*state = (struct dma_iova_state){};
+	svm_pages->state_offset = 0;
 
 map_pages:
 	/*
@@ -1544,13 +1554,33 @@ map_pages:
 				goto err_unmap;
 			}
 
-			addr = dma_map_page(gpusvm->drm->dev,
-					    page, 0,
-					    PAGE_SIZE << order,
-					    dma_dir);
-			if (dma_mapping_error(gpusvm->drm->dev, addr)) {
-				err = -EFAULT;
-				goto err_unmap;
+			if (!i)
+				dma_iova_try_alloc(gpusvm->drm->dev, state,
+						   npages * PAGE_SIZE >=
+						   HPAGE_PMD_SIZE ?
+						   HPAGE_PMD_SIZE : 0,
+						   npages * PAGE_SIZE);
+
+			if (dma_use_iova(state)) {
+				err = dma_iova_link(gpusvm->drm->dev, state,
+						    hmm_pfn_to_phys(pfns[i]),
+						    svm_pages->state_offset,
+						    PAGE_SIZE << order,
+						    dma_dir, 0);
+				if (err)
+					goto err_unmap;
+
+				addr = state->addr + svm_pages->state_offset;
+				svm_pages->state_offset += PAGE_SIZE << order;
+			} else {
+				addr = dma_map_page(gpusvm->drm->dev,
+						    page, 0,
+						    PAGE_SIZE << order,
+						    dma_dir);
+				if (dma_mapping_error(gpusvm->drm->dev, addr)) {
+					err = -EFAULT;
+					goto err_unmap;
+				}
 			}
 
 			svm_pages->dma_addr[j] = drm_pagemap_addr_encode
@@ -1560,6 +1590,13 @@ map_pages:
 		i += 1 << order;
 		num_dma_mapped = i;
 		flags.has_dma_mapping = true;
+	}
+
+	if (dma_use_iova(state)) {
+		err = dma_iova_sync(gpusvm->drm->dev, state, 0,
+				    svm_pages->state_offset);
+		if (err)
+			goto err_unmap;
 	}
 
 	if (pagemap) {

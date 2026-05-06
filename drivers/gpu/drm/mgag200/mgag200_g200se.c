@@ -76,12 +76,19 @@ static void mgag200_g200se_set_hiprilvl(struct mga_device *mdev,
 		unsigned int bpp;
 		unsigned long mb;
 
-		if (format->cpp[0] * 8 > 16)
+		switch (format->format) {
+		case DRM_FORMAT_XRGB8888:
+		case DRM_FORMAT_RGB888:
 			bpp = 32;
-		else if (format->cpp[0] * 8 > 8)
+			break;
+		case DRM_FORMAT_RGB565:
+		case DRM_FORMAT_XRGB1555:
 			bpp = 16;
-		else
+			break;
+		case DRM_FORMAT_C8:
 			bpp = 8;
+			break;
+		}
 
 		mb = (mode->clock * bpp) / 1000;
 		if (mb > 3100)

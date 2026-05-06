@@ -215,3 +215,4 @@ Driver specific implementations
 * :ref:`panfrost-usage-stats`
 * :ref:`panthor-usage-stats`
 * :ref:`xe-usage-stats`
+* :ref:`amdxdna-usage-stats`

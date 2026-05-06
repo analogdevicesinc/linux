@@ -105,8 +105,9 @@ static void ast_crtc_fill_gamma(struct ast_device *ast,
 		/* gamma table is used as color palette */
 		drm_crtc_fill_palette_8(crtc, ast_set_gamma_lut);
 		break;
+	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_RGB565:
-		/* also uses 8-bit gamma ramp on low-color modes */
+		/* also uses 24-bit gamma correction on high-color modes */
 		fallthrough;
 	case DRM_FORMAT_XRGB8888:
 		drm_crtc_fill_gamma_888(crtc, ast_set_gamma_lut);
@@ -129,8 +130,9 @@ static void ast_crtc_load_gamma(struct ast_device *ast,
 		/* gamma table is used as color palette */
 		drm_crtc_load_palette_8(crtc, lut, ast_set_gamma_lut);
 		break;
+	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_RGB565:
-		/* also uses 8-bit gamma ramp on low-color modes */
+		/* also uses 24-bit gamma correction on high-color modes */
 		fallthrough;
 	case DRM_FORMAT_XRGB8888:
 		drm_crtc_load_gamma_888(crtc, lut, ast_set_gamma_lut);
@@ -146,30 +148,35 @@ static void ast_set_vbios_color_reg(struct ast_device *ast,
 				    const struct drm_format_info *format,
 				    const struct ast_vbios_enhtable *vmode)
 {
-	u32 color_index;
+	u8 vgacr8c = 0x00;
+	u8 vgacr92 = 0x00;
 
-	switch (format->cpp[0]) {
-	case 1:
-		color_index = VGAModeIndex - 1;
+	switch (format->format) {
+	case DRM_FORMAT_C8:
+		vgacr8c |= AST_IO_VGACR8C_CUR_MODE_VGA;
+		vgacr92 = 8;
 		break;
-	case 2:
-		color_index = HiCModeIndex;
+	case DRM_FORMAT_XRGB1555:
+		vgacr8c |= AST_IO_VGACR8C_CUR_MODE_15_BPP;
+		vgacr92 = 15;
 		break;
-	case 3:
-	case 4:
-		color_index = TrueCModeIndex;
+	case DRM_FORMAT_RGB565:
+		vgacr8c |= AST_IO_VGACR8C_CUR_MODE_16_BPP;
+		vgacr92 = 16;
 		break;
-	default:
-		return;
+	case DRM_FORMAT_XRGB8888:
+		vgacr8c |= AST_IO_VGACR8C_CUR_MODE_32_BPP;
+		vgacr92 = 32;
+		break;
 	}
 
-	ast_set_index_reg(ast, AST_IO_VGACRI, 0x8c, (u8)((color_index & 0x0f) << 4));
+	ast_set_index_reg(ast, AST_IO_VGACRI, 0x8c, vgacr8c);
 
 	ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, 0x00);
 
 	if (vmode->flags & NewModeInfo) {
-		ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, 0xa8);
-		ast_set_index_reg(ast, AST_IO_VGACRI, 0x92, format->cpp[0] * 8);
+		ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, AST_IO_VGACR91_PASSWORD);
+		ast_set_index_reg(ast, AST_IO_VGACRI, 0x92, vgacr92);
 	}
 }
 
@@ -188,7 +195,7 @@ static void ast_set_vbios_mode_reg(struct ast_device *ast,
 	ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, 0x00);
 
 	if (vmode->flags & NewModeInfo) {
-		ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, 0xa8);
+		ast_set_index_reg(ast, AST_IO_VGACRI, 0x91, AST_IO_VGACR91_PASSWORD);
 		ast_set_index_reg(ast, AST_IO_VGACRI, 0x93, adjusted_mode->clock / 1000);
 		ast_set_index_reg(ast, AST_IO_VGACRI, 0x94, adjusted_mode->crtc_hdisplay);
 		ast_set_index_reg(ast, AST_IO_VGACRI, 0x95, adjusted_mode->crtc_hdisplay >> 8);
@@ -381,30 +388,36 @@ static void ast_set_dclk_reg(struct ast_device *ast,
 static void ast_set_color_reg(struct ast_device *ast,
 			      const struct drm_format_info *format)
 {
-	u8 jregA0 = 0, jregA3 = 0, jregA8 = 0;
+	u8 vgacra0 = 0x00;
+	u8 vgacra3 = 0x00;
+	u8 vgacra8 = 0x00;
 
-	switch (format->cpp[0] * 8) {
-	case 8:
-		jregA0 = 0x70;
-		jregA3 = 0x01;
-		jregA8 = 0x00;
+	vgacra0 |= AST_IO_VGACRA0_MEMORY_CHAIN4_MODE |
+		   AST_IO_VGACRA0_LINEAR_EXT_ACCESS |
+		   AST_IO_VGACRA0_SEGMENTED_EXT_ACCESS;
+
+	switch (format->format) {
+	case DRM_FORMAT_C8:
+		vgacra3 |= AST_IO_VGACRA3_256_COLORS;
+		vgacra8 &= ~AST_IO_VGACRA8_GAMMA_CORRECTION_ENABLED;
 		break;
-	case 15:
-	case 16:
-		jregA0 = 0x70;
-		jregA3 = 0x04;
-		jregA8 = 0x02;
+	case DRM_FORMAT_XRGB1555:
+		vgacra3 |= AST_IO_VGACRA3_15_BPP;
+		vgacra8 |= AST_IO_VGACRA8_GAMMA_CORRECTION_ENABLED;
 		break;
-	case 32:
-		jregA0 = 0x70;
-		jregA3 = 0x08;
-		jregA8 = 0x02;
+	case DRM_FORMAT_RGB565:
+		vgacra3 |= AST_IO_VGACRA3_16_BPP;
+		vgacra8 |= AST_IO_VGACRA8_GAMMA_CORRECTION_ENABLED;
+		break;
+	case DRM_FORMAT_XRGB8888:
+		vgacra3 |= AST_IO_VGACRA3_32_BPP;
+		vgacra8 |= AST_IO_VGACRA8_GAMMA_CORRECTION_ENABLED;
 		break;
 	}
 
-	ast_set_index_reg_mask(ast, AST_IO_VGACRI, 0xa0, 0x8f, jregA0);
-	ast_set_index_reg_mask(ast, AST_IO_VGACRI, 0xa3, 0xf0, jregA3);
-	ast_set_index_reg_mask(ast, AST_IO_VGACRI, 0xa8, 0xfd, jregA8);
+	ast_set_index_reg_mask(ast, AST_IO_VGACRI, 0xa0, 0x8f, vgacra0);
+	ast_set_index_reg_mask(ast, AST_IO_VGACRI, 0xa3, 0xf0, vgacra3);
+	ast_set_index_reg_mask(ast, AST_IO_VGACRI, 0xa8, 0xfd, vgacra8);
 }
 
 static void ast_set_crtthd_reg(struct ast_device *ast)
@@ -489,6 +502,7 @@ void __iomem *ast_plane_vaddr(struct ast_plane *ast_plane)
 static const uint32_t ast_primary_plane_formats[] = {
 	DRM_FORMAT_XRGB8888,
 	DRM_FORMAT_RGB565,
+	DRM_FORMAT_XRGB1555,
 	DRM_FORMAT_C8,
 };
 
@@ -762,10 +776,10 @@ static int ast_crtc_helper_atomic_check(struct drm_crtc *crtc,
 	case DRM_FORMAT_C8:
 		ast_state->std_table = &vbios_stdtable[VGAModeIndex];
 		break;
+	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_RGB565:
 		ast_state->std_table = &vbios_stdtable[HiCModeIndex];
 		break;
-	case DRM_FORMAT_RGB888:
 	case DRM_FORMAT_XRGB8888:
 		ast_state->std_table = &vbios_stdtable[TrueCModeIndex];
 		break;
