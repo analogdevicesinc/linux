@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Device-tree overlay that instantiates the ADSY1100 Apollo SOM "Nyx"
+ * RF front-end controller (drivers/iio/logic/adsy1100_nyx.c) on top of
+ * the vu11p-ad9084-vpx-revb base overlay.
+ *
+ * Adds a dedicated adsy1100-nyx node so the board binds against the
+ * high-level RFFE driver. The dormant rfpc_one_bit_adc_dac stub
+ * provided by the base overlay is left disabled.
+ */
+/dts-v1/;
+/plugin/;
+
+#define DEVICE_PROFILE_NAME	"204C_M4_L4_NP16_8p0_4x4.bin"
+
+#include "vu11p-ad9084-vpx-reva.dtso"
+#include <dt-bindings/iio/logic/adi,adsy1100-nyx.h>
+
+&adsy1100_nyx {
+		label = "nyx_controls";
+		status = "okay";
+
+		out-gpios = <&axi_gpio_1 33 0>, <&axi_gpio_1 34 0>,
+			    <&axi_gpio_1 35 0>, <&axi_gpio_1 36 0>,
+			    <&axi_gpio_1 37 0>, <&axi_gpio_1 38 0>,
+			    <&axi_gpio_1 39 0>, <&axi_gpio_1 40 0>,
+			    <&axi_gpio_1 41 0>, <&axi_gpio_1 42 0>,
+			    <&axi_gpio_1 43 0>, <&axi_gpio_1 44 0>,
+			    <&axi_gpio_1 45 0>, <&axi_gpio_1 46 0>,
+			    <&axi_gpio_1 47 0>, <&axi_gpio_1 48 0>,
+			    <&axi_gpio_1 49 0>, <&axi_gpio_1 50 0>,
+			    <&axi_gpio_1 51 0>, <&axi_gpio_1 52 0>,
+			    <&axi_gpio_1 53 0>, <&axi_gpio_1 54 0>,
+			    <&axi_gpio_1 55 0>, <&axi_gpio_1 56 0>,
+			    <&axi_gpio_1 57 0>, <&axi_gpio_1 58 0>,
+			    <&axi_gpio_1 59 0>, <&axi_gpio_1 60 0>,
+			    <&axi_gpio_1 61 0>, <&axi_gpio_1 62 0>,
+			    <&axi_gpio_1 63 0>, <&axi_gpio_2 0 0>,
+			    <&axi_gpio_2 1 0>, <&axi_gpio_2 2 0>,
+			    <&axi_gpio_2 3 0>, <&axi_gpio_2 4 0>,
+			    <&axi_gpio_2 5 0>, <&axi_gpio_2 6 0>,
+			    <&axi_gpio_2 7 0>, <&axi_gpio_2 8 0>,
+			    <&axi_gpio_2 9 0>, <&axi_gpio_2 10 0>,
+			    <&axi_gpio_2 11 0>, <&axi_gpio_2 12 0>,
+			    <&axi_gpio_2 13 0>, <&axi_gpio_2 14 0>,
+			    <&axi_gpio_2 15 0>, <&axi_gpio_2 16 0>,
+			    <&axi_gpio_2 17 0>, <&axi_gpio_2 18 0>,
+			    <&axi_gpio_2 19 0>, <&axi_gpio_2 20 0>,
+			    <&axi_gpio_2 21 0>, <&axi_gpio_2 22 0>,
+			    <&axi_gpio_2 23 0>, <&axi_gpio_2 24 0>,
+			    <&axi_gpio_2 25 0>, <&axi_gpio_2 26 0>,
+			    <&axi_gpio_2 27 0>, <&axi_gpio_2 28 0>,
+			    <&axi_gpio_2 29 0>, <&axi_gpio_2 30 0>,
+			    <&axi_gpio_2 31 0>, <&axi_gpio_2 32 0>,
+			    <&axi_gpio_2 33 0>, <&axi_gpio_2 34 0>,
+			    <&axi_gpio_2 35 0>, <&axi_gpio_2 36 0>,
+			    <&axi_gpio_2 37 0>, <&axi_gpio_2 38 0>,
+			    <&axi_gpio_2 39 0>, <&axi_gpio_2 40 0>,
+			    <&axi_gpio_2 41 0>, <&axi_gpio_2 42 0>,
+			    <&axi_gpio_2 43 0>, <&axi_gpio_2 44 0>;
+
+		/*
+		 * Per-channel power-on defaults. The values below match the
+		 * driver's built-in defaults (0 dB attenuation, THRU filter,
+		 * channel enabled, RX LNA bypassed) and are included here as
+		 * a template -- edit per channel to override.
+		 */
+		output-channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			channel@0 {
+				reg = <0>;
+				adi,attenuation-millidb = <0>;
+				adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+			};
+			channel@1 {
+				reg = <1>;
+				adi,attenuation-millidb = <0>;
+				adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+			};
+			channel@2 {
+				reg = <2>;
+				adi,attenuation-millidb = <0>;
+				adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+			};
+			channel@3 {
+				reg = <3>;
+				adi,attenuation-millidb = <0>;
+				adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+			};
+		};
+
+		input-channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			channel@0 {
+				reg = <0>;
+				adi,attenuation-millidb = <0>;
+				adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+				/* adi,amplifier-enable; -- uncomment to bring the LNA into path */
+			};
+			channel@1 {
+				reg = <1>;
+				adi,attenuation-millidb = <0>;
+				adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+			};
+			channel@2 {
+				reg = <2>;
+				adi,attenuation-millidb = <0>;
+				adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+			};
+			channel@3 {
+				reg = <3>;
+				adi,attenuation-millidb = <0>;
+				adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+			};
+		};
+};

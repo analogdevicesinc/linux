@@ -696,4 +696,11 @@
 		#size-cells = <0>;
 		status = "disabled";
 	};
+
+	adsy1100_nyx: adsy1100-nyx@0 {
+		compatible = "adi,adsy1100-nyx";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "disabled";
+	};
 };
