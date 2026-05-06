@@ -63,7 +63,7 @@ static void hyperv_flush_tlb_multi(const struct cpumask *cpus,
 	struct hv_tlb_flush *flush;
 	u64 status;
 	unsigned long flags;
-	bool do_lazy = !info->freed_tables;
+	bool do_lazy = !info->wake_lazy_cpus;
 
 	trace_hyperv_mmu_flush_tlb_multi(cpus, info);
 
@@ -198,7 +198,7 @@ static u64 hyperv_flush_tlb_others_ex(const struct cpumask *cpus,
 
 	flush->hv_vp_set.format = HV_GENERIC_SET_SPARSE_4K;
 	nr_bank = cpumask_to_vpset_skip(&flush->hv_vp_set, cpus,
-			info->freed_tables ? NULL : cpu_is_lazy);
+			info->wake_lazy_cpus ? NULL : cpu_is_lazy);
 	if (nr_bank < 0)
 		return HV_STATUS_INVALID_PARAMETER;
 

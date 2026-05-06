@@ -18,6 +18,8 @@
 
 DECLARE_PER_CPU(u64, tlbstate_untag_mask);
 
+void __init native_pv_tlb_init(void);
+
 void __flush_tlb_all(void);
 
 #define TLB_FLUSH_ALL	-1UL
@@ -247,7 +249,7 @@ struct flush_tlb_info {
 	u64			new_tlb_gen;
 	unsigned int		initiating_cpu;
 	u8			stride_shift;
-	u8			freed_tables;
+	u8			wake_lazy_cpus;
 	u8			trim_cpumask;
 };
 
@@ -337,7 +339,7 @@ static inline bool mm_in_asid_transition(struct mm_struct *mm) { return false; }
 extern void flush_tlb_all(void);
 extern void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
 				unsigned long end, unsigned int stride_shift,
-				bool freed_tables);
+				bool wake_lazy_cpus);
 extern void flush_tlb_kernel_range(unsigned long start, unsigned long end);
 
 static inline void flush_tlb_page(struct vm_area_struct *vma, unsigned long a)
