@@ -19,7 +19,7 @@
 #define ADRV903X_TX_LANERATE_KHZ 16220160
 #define ADRV903X_TX_LINK_CLK	245760000
 
-#define ADRV903X_RX_DEVICE_CLK  245760000
+#define ADRV903X_RX_DEVICE_CLK  122880000
 
 / {
 	compatible = "xlnx,versal-tetra", "xlnx,versal";
@@ -39,6 +39,12 @@
 		compatible = "gpio-poweroff";
 		gpios = <&gpio1 24 0>;
 	};
+
+	gpio-restart {
+		compatible = "gpio-restart";
+		gpios = <&gpio1 24 0>;
+	};
+
 
 	aliases {
 		serial0 = &serial0;
@@ -167,7 +173,7 @@
 
 		adi,clkin0-buffer-mode  = <0x06>;
 		adi,clkin1-buffer-mode  = <0x06>;
-		adi,oscin-buffer-mode = <0x15>;
+		adi,oscin-buffer-mode = <0x07>;
 
 		adi,gpi-controls = <0x00 0x00 0x00 0x00>;
 		adi,gpo-controls = <0x37 0x33 0x00 0x00>;
