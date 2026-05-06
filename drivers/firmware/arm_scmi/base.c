@@ -69,7 +69,7 @@ static int scmi_base_attributes_get(const struct scmi_protocol_handle *ph)
 	int ret;
 	struct scmi_xfer *t;
 	struct scmi_msg_resp_base_attributes *attr_info;
-	struct scmi_revision_info *rev = ph->get_priv(ph);
+	struct scmi_base_info *rev = ph->get_priv(ph);
 
 	ret = ph->xops->xfer_get_init(ph, PROTOCOL_ATTRIBUTES,
 				      0, sizeof(*attr_info), &t);
@@ -103,7 +103,7 @@ scmi_base_vendor_id_get(const struct scmi_protocol_handle *ph, bool sub_vendor)
 	int ret, size;
 	char *vendor_id;
 	struct scmi_xfer *t;
-	struct scmi_revision_info *rev = ph->get_priv(ph);
+	struct scmi_base_info *rev = ph->get_priv(ph);
 
 	if (sub_vendor) {
 		cmd = BASE_DISCOVER_SUB_VENDOR;
@@ -143,7 +143,7 @@ scmi_base_implementation_version_get(const struct scmi_protocol_handle *ph)
 	int ret;
 	__le32 *impl_ver;
 	struct scmi_xfer *t;
-	struct scmi_revision_info *rev = ph->get_priv(ph);
+	struct scmi_base_info *rev = ph->get_priv(ph);
 
 	ret = ph->xops->xfer_get_init(ph, BASE_DISCOVER_IMPLEMENT_VERSION,
 				      0, sizeof(*impl_ver), &t);
@@ -180,7 +180,7 @@ scmi_base_implementation_list_get(const struct scmi_protocol_handle *ph,
 	__le32 *num_skip, *num_ret;
 	u32 tot_num_ret = 0, loop_num_ret;
 	struct device *dev = ph->dev;
-	struct scmi_revision_info *rev = ph->get_priv(ph);
+	struct scmi_base_info *rev = ph->get_priv(ph);
 
 	ret = ph->xops->xfer_get_init(ph, BASE_DISCOVER_LIST_PROTOCOLS,
 				      sizeof(*num_skip), 0, &t);
@@ -377,7 +377,7 @@ static int scmi_base_protocol_init(const struct scmi_protocol_handle *ph)
 	u8 *prot_imp;
 	char name[SCMI_SHORT_NAME_MAX_SIZE];
 	struct device *dev = ph->dev;
-	struct scmi_revision_info *rev = scmi_revision_area_get(ph);
+	struct scmi_base_info *rev = scmi_revision_area_get(ph);
 
 	rev->major_ver = PROTOCOL_REV_MAJOR(ph->version);
 	rev->minor_ver = PROTOCOL_REV_MINOR(ph->version);
