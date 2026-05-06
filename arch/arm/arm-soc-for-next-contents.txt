@@ -1,0 +1,23 @@
+arm/fixes
+	nxp/fixes-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-fixes-7.0-2nd
+	reset/fixes-3
+		https://git.pengutronix.de/git/pza/linux tags/reset-fixes-for-v7.0-3
+	marvell/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-fixes-7.0-1
+
+soc/late2
+	arm/fixes
+		Merge branch 'arm/fixes' into soc/late2
+		contains nxp/fixes-2
+		contains reset/fixes-3
+		contains marvell/fixes
+	marvell/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-7.1-1
+	patch
+		ARM: dts: bcm4709: fix bus range assignment
+		Documentation/process: maintainer-soc: Trim from trivial ask-DT
+		Documentation/process: maintainer-soc: Document purpose of defconfigs
+	apple/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-fixes-7.0
+
