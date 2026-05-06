@@ -859,9 +859,9 @@ static int yas530_get_calibration_data(struct yas5xx *yas5xx)
 	c->f[0] = FIELD_GET(GENMASK(22, 21), val);
 	c->f[1] = FIELD_GET(GENMASK(14, 13), val);
 	c->f[2] = FIELD_GET(GENMASK(6, 5), val);
-	c->r[0] = sign_extend32(FIELD_GET(GENMASK(28, 23), val), 5);
-	c->r[1] = sign_extend32(FIELD_GET(GENMASK(20, 15), val), 5);
-	c->r[2] = sign_extend32(FIELD_GET(GENMASK(12, 7), val), 5);
+	c->r[0] = FIELD_GET_SIGNED(GENMASK(28, 23), val);
+	c->r[1] = FIELD_GET_SIGNED(GENMASK(20, 15), val);
+	c->r[2] = FIELD_GET_SIGNED(GENMASK(12, 7), val);
 
 	return 0;
 }
@@ -914,9 +914,9 @@ static int yas532_get_calibration_data(struct yas5xx *yas5xx)
 	c->f[0] = FIELD_GET(GENMASK(24, 23), val);
 	c->f[1] = FIELD_GET(GENMASK(16, 15), val);
 	c->f[2] = FIELD_GET(GENMASK(8, 7), val);
-	c->r[0] = sign_extend32(FIELD_GET(GENMASK(30, 25), val), 5);
-	c->r[1] = sign_extend32(FIELD_GET(GENMASK(22, 17), val), 5);
-	c->r[2] = sign_extend32(FIELD_GET(GENMASK(14, 7), val), 5);
+	c->r[0] = FIELD_GET_SIGNED(GENMASK(30, 25), val);
+	c->r[1] = FIELD_GET_SIGNED(GENMASK(22, 17), val);
+	c->r[2] = FIELD_GET_SIGNED(GENMASK(14, 7), val);
 
 	return 0;
 }
