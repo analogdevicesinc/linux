@@ -11387,13 +11387,6 @@ F:	Documentation/filesystems/hfsplus.rst
 F:	fs/hfsplus/
 F:	include/linux/hfs_common.h
 
-HGA FRAMEBUFFER DRIVER
-M:	Ferenc Bakonyi <fero@drama.obuda.kando.hu>
-L:	linux-nvidia@lists.surfsouth.com
-S:	Maintained
-W:	http://drama.obuda.kando.hu/~fero/cgi-bin/hgafb.shtml
-F:	drivers/video/fbdev/hgafb.c
-
 HIBERNATION (aka Software Suspend, aka swsusp)
 M:	"Rafael J. Wysocki" <rafael@kernel.org>
 R:	Pavel Machek <pavel@kernel.org>

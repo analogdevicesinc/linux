@@ -1796,16 +1796,22 @@ static int __maybe_unused cyberpro_pci_resume(struct device *dev)
 
 static struct pci_device_id cyberpro_pci_table[] = {
 /*	Not yet
- *	{ PCI_VENDOR_ID_INTERG, PCI_DEVICE_ID_INTERG_1682,
- *		PCI_ANY_ID, PCI_ANY_ID, 0, 0, ID_IGA_1682 },
+ *	{
+ *		PCI_VDEVICE(INTERG, PCI_DEVICE_ID_INTERG_1682),
+ *		.driver_data = ID_IGA_1682,
+ *	},
  */
-	{ PCI_VENDOR_ID_INTERG, PCI_DEVICE_ID_INTERG_2000,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, ID_CYBERPRO_2000 },
-	{ PCI_VENDOR_ID_INTERG, PCI_DEVICE_ID_INTERG_2010,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, ID_CYBERPRO_2010 },
-	{ PCI_VENDOR_ID_INTERG, PCI_DEVICE_ID_INTERG_5000,
-		PCI_ANY_ID, PCI_ANY_ID, 0, 0, ID_CYBERPRO_5000 },
-	{ 0, }
+	{
+		PCI_VDEVICE(INTERG, PCI_DEVICE_ID_INTERG_2000),
+		.driver_data = ID_CYBERPRO_2000,
+	}, {
+		PCI_VDEVICE(INTERG, PCI_DEVICE_ID_INTERG_2010),
+		.driver_data = ID_CYBERPRO_2010,
+	}, {
+		PCI_VDEVICE(INTERG, PCI_DEVICE_ID_INTERG_5000),
+		.driver_data = ID_CYBERPRO_5000,
+	},
+	{ }
 };
 
 MODULE_DEVICE_TABLE(pci, cyberpro_pci_table);
