@@ -115,6 +115,12 @@ properties:
               - intel,socfpga-agilex5-socdk-nand
           - const: intel,socfpga-agilex5
 
+      - description: Agilex7m boards
+        items:
+          - enum:
+              - altr,socfpga-agilex7m-socdk
+          - const: altr,socfpga-agilex7m
+
       - description: SoCFPGA VT
         items:
           - const: altr,socfpga-vt

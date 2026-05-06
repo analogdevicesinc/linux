@@ -11,6 +11,8 @@
 	aliases {
 		serial0 = &uart0;
 		ethernet0 = &gmac0;
+		i3c0 = &i3c0;
+		i3c1 = &i3c1;
 	};
 
 	chosen {
