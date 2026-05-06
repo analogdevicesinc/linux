@@ -53,14 +53,14 @@ def downgrade(spdx3, dist):
 
     creators = []
     if tool:
-        creators.append(f"Tool: {tool.get('summary') or tool.get('name', '')}")
+        creators.append(f"{tool.get('summary')}")
     if org:
         label = org.get("name", "")
         emails = [ei["identifier"] for ei in org.get("externalIdentifier", [])
                   if ei.get("externalIdentifierType") == "email"]
         if emails:
             label += f" ({emails[0]})"
-        creators.append(f"Organization: {label}")
+        creators.append(label)
 
     doc_ns = document["spdxId"]
     if doc_ns.endswith("/document"):
@@ -135,7 +135,7 @@ def downgrade(spdx3, dist):
         }
         cmd = params.get("command", "")
         if cmd:
-            bpkg["sourceInfo"] = cmd[:512] + ("..." if len(cmd) > 512 else "")
+            bpkg["sourceInfo"] = cmd
         build_pkgs.append(bpkg)
 
     def _sha1(filepath):
@@ -226,7 +226,7 @@ def downgrade(spdx3, dist):
         "SPDXID":            "SPDXRef-DOCUMENT",
         "spdxVersion":       "SPDX-2.3",
         "dataLicense":       "CC0-1.0",
-        "name":              sbom.get("name", "Linux Kernel SBOM") if sbom else "Linux Kernel SBOM",
+        "name":              sbom.get("name"),
         "documentNamespace": doc_ns,
         "creationInfo":      {"created": creation.get("created", ""), "creators": creators},
         "packages":          [pkg_entry] + build_pkgs,
@@ -248,7 +248,7 @@ def main():
         spdx3 = json.load(f)
 
     with open(out_path, "w") as f:
-        json.dump(downgrade(spdx3, dist), f, indent=2)
+        json.dump(downgrade(spdx3, dist), f)
 
     print(f"sbom written to {out_path}", file=sys.stderr)
 
