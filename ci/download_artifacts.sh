@@ -290,12 +290,13 @@ download_artifacts() {
 	local no_cache="${3-false}"
 	local cloudsmith_token=${4}
 
-	local event=push
+	local event=
 
 	[ "$no_cache" == "true" ] && command rm -rf dist/ raw/ .get_artifacts
 
 	[ -f '.get_artifacts' ] && { log_step "Get artifacts (checkpoint)" ; return ;} || log_step "Get artifacts"
 
+	[[ $ref == refs/heads/* ]] && event="push"
 	[[ $ref == refs/pull/* ]] && event="pull_request"
 	[[ $ref == refs/heads/* ]] || [[ $ref == refs/tags/* ]] || [[ $ref == refs/pull/* ]] && \
 		git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" "tag:on/${event}+tag:${ref}") || git_sha=${ref:0:12}
