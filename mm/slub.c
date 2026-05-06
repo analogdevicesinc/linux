@@ -227,6 +227,17 @@ struct partial_bulk_context {
 	struct list_head slabs;
 };
 
+/* Structure used to iterate over objects within a slab */
+struct slab_obj_iter {
+	unsigned long pos;
+	void *start;
+#ifdef CONFIG_SLAB_FREELIST_RANDOM
+	unsigned long freelist_count;
+	unsigned long page_limit;
+	bool random;
+#endif
+};
+
 static inline bool kmem_cache_debug(struct kmem_cache *s)
 {
 	return kmem_cache_debug_flags(s, SLAB_DEBUG_FLAGS);
@@ -2733,7 +2744,7 @@ bool slab_free_freelist_hook(struct kmem_cache *s, void **head, void **tail,
 	return *head != NULL;
 }
 
-static void *setup_object(struct kmem_cache *s, void *object)
+static inline void *setup_object(struct kmem_cache *s, void *object)
 {
 	setup_object_debug(s, object);
 	object = kasan_init_slab_obj(s, object);
@@ -3329,87 +3340,14 @@ static void __init init_freelist_randomization(void)
 	mutex_unlock(&slab_mutex);
 }
 
-/* Get the next entry on the pre-computed freelist randomized */
-static void *next_freelist_entry(struct kmem_cache *s,
-				unsigned long *pos, void *start,
-				unsigned long page_limit,
-				unsigned long freelist_count)
-{
-	unsigned int idx;
-
-	/*
-	 * If the target page allocation failed, the number of objects on the
-	 * page might be smaller than the usual size defined by the cache.
-	 */
-	do {
-		idx = s->random_seq[*pos];
-		*pos += 1;
-		if (*pos >= freelist_count)
-			*pos = 0;
-	} while (unlikely(idx >= page_limit));
-
-	return (char *)start + idx;
-}
-
 static DEFINE_PER_CPU(struct rnd_state, slab_rnd_state);
 
-/* Shuffle the single linked freelist based on a random pre-computed sequence */
-static bool shuffle_freelist(struct kmem_cache *s, struct slab *slab,
-			     bool allow_spin)
-{
-	void *start;
-	void *cur;
-	void *next;
-	unsigned long idx, pos, page_limit, freelist_count;
-
-	if (slab->objects < 2 || !s->random_seq)
-		return false;
-
-	freelist_count = oo_objects(s->oo);
-	if (allow_spin) {
-		pos = get_random_u32_below(freelist_count);
-	} else {
-		struct rnd_state *state;
-
-		/*
-		 * An interrupt or NMI handler might interrupt and change
-		 * the state in the middle, but that's safe.
-		 */
-		state = &get_cpu_var(slab_rnd_state);
-		pos = prandom_u32_state(state) % freelist_count;
-		put_cpu_var(slab_rnd_state);
-	}
-
-	page_limit = slab->objects * s->size;
-	start = fixup_red_left(s, slab_address(slab));
-
-	/* First entry is used as the base of the freelist */
-	cur = next_freelist_entry(s, &pos, start, page_limit, freelist_count);
-	cur = setup_object(s, cur);
-	slab->freelist = cur;
-
-	for (idx = 1; idx < slab->objects; idx++) {
-		next = next_freelist_entry(s, &pos, start, page_limit,
-			freelist_count);
-		next = setup_object(s, next);
-		set_freepointer(s, cur, next);
-		cur = next;
-	}
-	set_freepointer(s, cur, NULL);
-
-	return true;
-}
 #else
 static inline int init_cache_random_seq(struct kmem_cache *s)
 {
 	return 0;
 }
 static inline void init_freelist_randomization(void) { }
-static inline bool shuffle_freelist(struct kmem_cache *s, struct slab *slab,
-				    bool allow_spin)
-{
-	return false;
-}
 #endif /* CONFIG_SLAB_FREELIST_RANDOM */
 
 static __always_inline void account_slab(struct slab *slab, int order,
@@ -3438,15 +3376,14 @@ static __always_inline void unaccount_slab(struct slab *slab, int order,
 			    -(PAGE_SIZE << order));
 }
 
+/* Allocate and initialize a slab without building its freelist. */
 static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 {
 	bool allow_spin = gfpflags_allow_spinning(flags);
 	struct slab *slab;
 	struct kmem_cache_order_objects oo = s->oo;
 	gfp_t alloc_gfp;
-	void *start, *p, *next;
-	int idx;
-	bool shuffle;
+	void *start;
 
 	flags &= gfp_allowed_mask;
 
@@ -3496,21 +3433,6 @@ static struct slab *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	 */
 	alloc_slab_obj_exts_early(s, slab);
 	account_slab(slab, oo_order(oo), s, flags);
-
-	shuffle = shuffle_freelist(s, slab, allow_spin);
-
-	if (!shuffle) {
-		start = fixup_red_left(s, start);
-		start = setup_object(s, start);
-		slab->freelist = start;
-		for (idx = 0, p = start; idx < slab->objects - 1; idx++) {
-			next = p + s->size;
-			next = setup_object(s, next);
-			set_freepointer(s, p, next);
-			p = next;
-		}
-		set_freepointer(s, p, NULL);
-	}
 
 	return slab;
 }
@@ -3665,29 +3587,111 @@ static void *alloc_single_from_partial(struct kmem_cache *s,
 	return object;
 }
 
+/* Return the next free object in allocation order. */
+static inline void *next_slab_obj(struct kmem_cache *s,
+				  struct slab_obj_iter *iter)
+{
+#ifdef CONFIG_SLAB_FREELIST_RANDOM
+	if (iter->random) {
+		unsigned long idx;
+
+		/*
+		 * If the target page allocation failed, the number of objects on the
+		 * page might be smaller than the usual size defined by the cache.
+		 */
+		do {
+			idx = s->random_seq[iter->pos];
+			iter->pos++;
+			if (iter->pos >= iter->freelist_count)
+				iter->pos = 0;
+		} while (unlikely(idx >= iter->page_limit));
+
+		return setup_object(s, (char *)iter->start + idx);
+	}
+#endif
+	return setup_object(s, (char *)iter->start + iter->pos++ * s->size);
+}
+
+/* Build a freelist from the objects not yet allocated from a fresh slab. */
+static inline void build_slab_freelist(struct kmem_cache *s, struct slab *slab,
+				       struct slab_obj_iter *iter)
+{
+	unsigned int nr = slab->objects - slab->inuse;
+	unsigned int i;
+	void *cur, *next;
+
+	if (!nr) {
+		slab->freelist = NULL;
+		return;
+	}
+
+	cur = next_slab_obj(s, iter);
+	slab->freelist = cur;
+
+	for (i = 1; i < nr; i++) {
+		next = next_slab_obj(s, iter);
+		set_freepointer(s, cur, next);
+		cur = next;
+	}
+
+	set_freepointer(s, cur, NULL);
+}
+
+/* Initialize an iterator over free objects in allocation order. */
+static inline void init_slab_obj_iter(struct kmem_cache *s, struct slab *slab,
+				      struct slab_obj_iter *iter,
+				      bool allow_spin)
+{
+	iter->pos = 0;
+	iter->start = fixup_red_left(s, slab_address(slab));
+
+#ifdef CONFIG_SLAB_FREELIST_RANDOM
+	iter->random = (slab->objects >= 2 && s->random_seq);
+	if (!iter->random)
+		return;
+
+	iter->freelist_count = oo_objects(s->oo);
+	iter->page_limit = slab->objects * s->size;
+
+	if (allow_spin) {
+		iter->pos = get_random_u32_below(iter->freelist_count);
+	} else {
+		struct rnd_state *state;
+
+		/*
+		 * An interrupt or NMI handler might interrupt and change
+		 * the state in the middle, but that's safe.
+		 */
+		state = &get_cpu_var(slab_rnd_state);
+		iter->pos = prandom_u32_state(state) % iter->freelist_count;
+		put_cpu_var(slab_rnd_state);
+	}
+#endif
+}
+
 /*
  * Called only for kmem_cache_debug() caches to allocate from a freshly
  * allocated slab. Allocate a single object instead of whole freelist
  * and put the slab to the partial (or full) list.
  */
 static void *alloc_single_from_new_slab(struct kmem_cache *s, struct slab *slab,
-					int orig_size, gfp_t gfpflags)
+					int orig_size, bool allow_spin)
 {
-	bool allow_spin = gfpflags_allow_spinning(gfpflags);
-	int nid = slab_nid(slab);
-	struct kmem_cache_node *n = get_node(s, nid);
+	struct kmem_cache_node *n;
+	struct slab_obj_iter iter;
+	bool needs_add_partial;
 	unsigned long flags;
 	void *object;
 
-	if (!allow_spin && !spin_trylock_irqsave(&n->list_lock, flags)) {
-		/* Unlucky, discard newly allocated slab. */
-		free_new_slab_nolock(s, slab);
-		return NULL;
-	}
-
-	object = slab->freelist;
-	slab->freelist = get_freepointer(s, object);
+	init_slab_obj_iter(s, slab, &iter, allow_spin);
+	object = next_slab_obj(s, &iter);
 	slab->inuse = 1;
+
+	needs_add_partial = (slab->objects > 1);
+	build_slab_freelist(s, slab, &iter);
+
+	/* alloc_debug_processing() always expects a valid freepointer */
+	set_freepointer(s, object, slab->freelist);
 
 	if (!alloc_debug_processing(s, slab, object, orig_size)) {
 		/*
@@ -3696,20 +3700,32 @@ static void *alloc_single_from_new_slab(struct kmem_cache *s, struct slab *slab,
 		 * corruption in theory could cause that.
 		 * Leak memory of allocated slab.
 		 */
-		if (!allow_spin)
-			spin_unlock_irqrestore(&n->list_lock, flags);
 		return NULL;
 	}
 
-	if (allow_spin)
+	n = get_node(s, slab_nid(slab));
+	if (allow_spin) {
 		spin_lock_irqsave(&n->list_lock, flags);
+	} else if (!spin_trylock_irqsave(&n->list_lock, flags)) {
+		/*
+		 * Unlucky, discard newly allocated slab.
+		 * The slab is not fully free, but it's fine as
+		 * objects are not allocated to users.
+		 */
+		free_new_slab_nolock(s, slab);
+		return NULL;
+	}
 
-	if (slab->inuse == slab->objects)
-		add_full(s, n, slab);
-	else
+	if (needs_add_partial)
 		add_partial(n, slab, ADD_TO_HEAD);
+	else
+		add_full(s, n, slab);
 
-	inc_slabs_node(s, nid, slab->objects);
+	/*
+	 * Debug caches require nr_slabs updates under n->list_lock so validation
+	 * cannot race with slab (de)allocations and observe inconsistent state.
+	 */
+	inc_slabs_node(s, slab_nid(slab), slab->objects);
 	spin_unlock_irqrestore(&n->list_lock, flags);
 
 	return object;
@@ -4310,7 +4326,8 @@ static inline bool pfmemalloc_match(struct slab *slab, gfp_t gfpflags)
  * Assumes this is performed only for caches without debugging so we
  * don't need to worry about adding the slab to the full list.
  */
-static inline void *get_freelist_nofreeze(struct kmem_cache *s, struct slab *slab)
+static inline void *get_freelist_nofreeze(struct kmem_cache *s, struct slab *slab,
+					  unsigned int *count)
 {
 	struct freelist_counters old, new;
 
@@ -4326,6 +4343,7 @@ static inline void *get_freelist_nofreeze(struct kmem_cache *s, struct slab *sla
 
 	} while (!slab_update_freelist(s, slab, &old, &new, "get_freelist_nofreeze"));
 
+	*count = old.objects - old.inuse;
 	return old.freelist;
 }
 
@@ -4348,44 +4366,41 @@ static unsigned int alloc_from_new_slab(struct kmem_cache *s, struct slab *slab,
 		void **p, unsigned int count, bool allow_spin)
 {
 	unsigned int allocated = 0;
-	struct kmem_cache_node *n;
-	bool needs_add_partial;
+	struct slab_obj_iter iter;
+	bool needs_add_partial = true;
 	unsigned long flags;
-	void *object;
 
 	/*
 	 * Are we going to put the slab on the partial list?
 	 * Note slab->inuse is 0 on a new slab.
 	 */
-	needs_add_partial = (slab->objects > count);
-
-	if (!allow_spin && needs_add_partial) {
-
-		n = get_node(s, slab_nid(slab));
-
-		if (!spin_trylock_irqsave(&n->list_lock, flags)) {
-			/* Unlucky, discard newly allocated slab */
-			free_new_slab_nolock(s, slab);
-			return 0;
-		}
+	if (count >= slab->objects) {
+		needs_add_partial = false;
+		count = slab->objects;
 	}
 
-	object = slab->freelist;
-	while (object && allocated < count) {
-		p[allocated] = object;
-		object = get_freepointer(s, object);
-		maybe_wipe_obj_freeptr(s, p[allocated]);
+	init_slab_obj_iter(s, slab, &iter, allow_spin);
 
-		slab->inuse++;
+	while (allocated < count) {
+		p[allocated] = next_slab_obj(s, &iter);
 		allocated++;
 	}
-	slab->freelist = object;
+	slab->inuse = count;
+	build_slab_freelist(s, slab, &iter);
 
 	if (needs_add_partial) {
+		struct kmem_cache_node *n = get_node(s, slab_nid(slab));
 
 		if (allow_spin) {
-			n = get_node(s, slab_nid(slab));
 			spin_lock_irqsave(&n->list_lock, flags);
+		} else if (!spin_trylock_irqsave(&n->list_lock, flags)) {
+			/*
+			 * Unlucky, discard newly allocated slab.
+			 * The slab is not fully free, but it's fine as
+			 * objects are not allocated to users.
+			 */
+			free_new_slab_nolock(s, slab);
+			return 0;
 		}
 		add_partial(n, slab, ADD_TO_HEAD);
 		spin_unlock_irqrestore(&n->list_lock, flags);
@@ -4456,15 +4471,13 @@ new_objects:
 	stat(s, ALLOC_SLAB);
 
 	if (IS_ENABLED(CONFIG_SLUB_TINY) || kmem_cache_debug(s)) {
-		object = alloc_single_from_new_slab(s, slab, orig_size, gfpflags);
+		object = alloc_single_from_new_slab(s, slab, orig_size, allow_spin);
 
 		if (likely(object))
 			goto success;
 	} else {
-		alloc_from_new_slab(s, slab, &object, 1, allow_spin);
-
 		/* we don't need to check SLAB_STORE_USER here */
-		if (likely(object))
+		if (alloc_from_new_slab(s, slab, &object, 1, allow_spin))
 			return object;
 	}
 
@@ -5496,6 +5509,34 @@ static noinline void free_to_partial_list(
 		stat(s, FREE_SLAB);
 		free_slab(s, slab_free);
 	}
+}
+
+/*
+ * Try returning (remainder of) the freelist that we just detached from the
+ * slab.  Optimistically assume the slab is still full, so we don't need to find
+ * the tail of the detached freelist.
+ *
+ * Fail if the slab isn't full anymore due to a cocurrent free.
+ */
+static bool __slab_try_return_freelist(struct kmem_cache *s, struct slab *slab,
+				       void *head, int cnt)
+{
+	struct freelist_counters old, new;
+
+	old.freelist = slab->freelist;
+	old.counters = slab->counters;
+
+	if (old.freelist)
+		return false;
+
+	new.freelist = head;
+	new.counters = old.counters;
+	new.inuse -= cnt;
+
+	if (!slab_update_freelist(s, slab, &old, &new, "__slab_try_return_freelist"))
+		return false;
+
+	return true;
 }
 
 /*
@@ -7125,34 +7166,41 @@ __refill_objects_node(struct kmem_cache *s, void **p, gfp_t gfp, unsigned int mi
 
 	list_for_each_entry_safe(slab, slab2, &pc.slabs, slab_list) {
 
+		unsigned int count;
+
 		list_del(&slab->slab_list);
 
-		object = get_freelist_nofreeze(s, slab);
+		object = get_freelist_nofreeze(s, slab, &count);
 
-		while (object && refilled < max) {
+		while (count && refilled < max) {
 			p[refilled] = object;
 			object = get_freepointer(s, object);
 			maybe_wipe_obj_freeptr(s, p[refilled]);
 
 			refilled++;
+			count--;
 		}
 
 		/*
 		 * Freelist had more objects than we can accommodate, we need to
-		 * free them back. We can treat it like a detached freelist, just
-		 * need to find the tail object.
+		 * free them back. First we try to be optimistic and assume the
+		 * slab is stil full since we just detached its freelist.
+		 * Otherwise we must need to find the tail object.
 		 */
-		if (unlikely(object)) {
+		if (unlikely(count)) {
 			void *head = object;
 			void *tail;
-			int cnt = 0;
+
+			if (__slab_try_return_freelist(s, slab, head, count)) {
+				list_add(&slab->slab_list, &pc.slabs);
+				break;
+			}
 
 			do {
 				tail = object;
-				cnt++;
 				object = get_freepointer(s, object);
 			} while (object);
-			__slab_free(s, slab, head, tail, cnt, _RET_IP_);
+			__slab_free(s, slab, head, tail, count, _RET_IP_);
 		}
 
 		if (refilled >= max)
@@ -7274,10 +7322,6 @@ new_slab:
 
 	stat(s, ALLOC_SLAB);
 
-	/*
-	 * TODO: possible optimization - if we know we will consume the whole
-	 * slab we might skip creating the freelist?
-	 */
 	refilled += alloc_from_new_slab(s, slab, p + refilled, max - refilled,
 					/* allow_spin = */ true);
 
@@ -7608,6 +7652,7 @@ static void early_kmem_cache_node_alloc(int node)
 {
 	struct slab *slab;
 	struct kmem_cache_node *n;
+	struct slab_obj_iter iter;
 
 	BUG_ON(kmem_cache_node->size < sizeof(struct kmem_cache_node));
 
@@ -7619,14 +7664,18 @@ static void early_kmem_cache_node_alloc(int node)
 		pr_err("SLUB: Allocating a useless per node structure in order to be able to continue\n");
 	}
 
-	n = slab->freelist;
+	init_slab_obj_iter(kmem_cache_node, slab, &iter, true);
+
+	n = next_slab_obj(kmem_cache_node, &iter);
 	BUG_ON(!n);
+
+	slab->inuse = 1;
+	build_slab_freelist(kmem_cache_node, slab, &iter);
+
 #ifdef CONFIG_SLUB_DEBUG
 	init_object(kmem_cache_node, n, SLUB_RED_ACTIVE);
 #endif
 	n = kasan_slab_alloc(kmem_cache_node, n, GFP_KERNEL, false);
-	slab->freelist = get_freepointer(kmem_cache_node, n);
-	slab->inuse = 1;
 	kmem_cache_node->per_node[node].node = n;
 	init_kmem_cache_node(n);
 	inc_slabs_node(kmem_cache_node, node, slab->objects);
