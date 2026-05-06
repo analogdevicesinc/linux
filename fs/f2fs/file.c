@@ -2071,9 +2071,16 @@ out:
 
 static int f2fs_release_file(struct inode *inode, struct file *filp)
 {
-	if (atomic_dec_and_test(&F2FS_I(inode)->open_count))
+	if (atomic_dec_and_test(&F2FS_I(inode)->open_count)) {
 		f2fs_remove_donate_inode(inode);
-
+		/*
+		 * In order to get large folio as soon as possible, let's drop
+		 * inode cache asap. See also f2fs_drop_inode.
+		 */
+		if (f2fs_exist_written_data(F2FS_I_SB(inode),
+					    inode->i_ino, LARGE_FOLIO_INO))
+                       d_drop(filp->f_path.dentry);
+	}
 	/*
 	 * f2fs_release_file is called at every close calls. So we should
 	 * not drop any inmemory pages by close called by other process.
@@ -5076,6 +5083,8 @@ static void f2fs_dio_write_submit_io(const struct iomap_iter *iter,
 	enum temp_type temp = f2fs_get_segment_temp(sbi, type);
 
 	bio->bi_write_hint = f2fs_io_type_to_rw_hint(sbi, DATA, temp);
+	bio->bi_write_stream =
+		f2fs_io_type_to_write_stream(bio->bi_bdev, DATA, temp);
 	blk_crypto_submit_bio(bio);
 }
 

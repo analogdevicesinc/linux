@@ -5,6 +5,7 @@
  * Copyright (c) 2023 CTERA Networks.
  */
 
+#include "dev.h"
 #include "fuse_i.h"
 
 #include <linux/file.h>

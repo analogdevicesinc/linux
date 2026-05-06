@@ -17,6 +17,7 @@
 #include <linux/freezer.h>
 #include <linux/sched/signal.h>
 #include <linux/random.h>
+#include <linux/fserror.h>
 
 #include "f2fs.h"
 #include "segment.h"
@@ -2896,6 +2897,7 @@ got_it:
 	/* set it as dirty segment in free segmap */
 	if (test_bit(segno, free_i->free_segmap)) {
 		ret = -EFSCORRUPTED;
+		fserror_report_metadata(sbi->sb, -EFSCORRUPTED, GFP_NOFS);
 		f2fs_stop_checkpoint(sbi, false, STOP_CP_REASON_CORRUPTED_FREE_BITMAP);
 		goto out_unlock;
 	}
@@ -3634,6 +3636,19 @@ enum rw_hint f2fs_io_type_to_rw_hint(struct f2fs_sb_info *sbi,
 	default:
 		return WRITE_LIFE_NONE;
 	}
+}
+
+u8 f2fs_io_type_to_write_stream(struct block_device *bdev,
+				enum page_type type, enum temp_type temp)
+{
+	unsigned short nr = bdev_max_write_streams(bdev);
+
+	if (type != DATA || !nr)
+		return 0;
+	if (nr < NR_TEMP_TYPE)
+		return temp == COLD ? nr : HOT + 1;
+
+	return temp + 1;
 }
 
 static int __get_segment_type_2(struct f2fs_io_info *fio)

@@ -7,6 +7,7 @@
 */
 
 #include "fuse_i.h"
+#include "dev.h"
 
 #include <linux/pagemap.h>
 #include <linux/slab.h>
@@ -91,8 +92,7 @@ static struct fuse_file *fuse_file_get(struct fuse_file *ff)
 	return ff;
 }
 
-static void fuse_release_end(struct fuse_mount *fm, struct fuse_args *args,
-			     int error)
+static void fuse_release_end(struct fuse_args *args, int error)
 {
 	struct fuse_release_args *ra = container_of(args, typeof(*ra), args);
 
@@ -112,10 +112,10 @@ static void fuse_file_put(struct fuse_file *ff, bool sync)
 		if (!args) {
 			/* Do nothing when server does not implement 'opendir' */
 		} else if (args->opcode == FUSE_RELEASE && ff->fm->fc->no_open) {
-			fuse_release_end(ff->fm, args, 0);
+			fuse_release_end(args, 0);
 		} else if (sync) {
 			fuse_simple_request(ff->fm, args);
-			fuse_release_end(ff->fm, args, 0);
+			fuse_release_end(args, 0);
 		} else {
 			/*
 			 * DAX inodes may need to issue a number of synchronous
@@ -126,7 +126,7 @@ static void fuse_file_put(struct fuse_file *ff, bool sync)
 			args->end = fuse_release_end;
 			if (fuse_simple_background(ff->fm, args,
 						   GFP_KERNEL | __GFP_NOFAIL))
-				fuse_release_end(ff->fm, args, -ENOTCONN);
+				fuse_release_end(args, -ENOTCONN);
 		}
 		kfree(ff);
 	}
@@ -709,8 +709,7 @@ static void fuse_io_free(struct fuse_io_args *ia)
 	kfree(ia);
 }
 
-static void fuse_aio_complete_req(struct fuse_mount *fm, struct fuse_args *args,
-				  int err)
+static void fuse_aio_complete_req(struct fuse_args *args, int err)
 {
 	struct fuse_io_args *ia = container_of(args, typeof(*ia), ap.args);
 	struct fuse_io_priv *io = ia->io;
@@ -758,7 +757,7 @@ static ssize_t fuse_async_req_send(struct fuse_mount *fm,
 	ia->ap.args.may_block = io->should_dirty;
 	err = fuse_simple_background(fm, &ia->ap.args, GFP_KERNEL);
 	if (err)
-		fuse_aio_complete_req(fm, &ia->ap.args, err);
+		fuse_aio_complete_req(&ia->ap.args, err);
 
 	return num_bytes;
 }
@@ -902,7 +901,7 @@ static int fuse_handle_readahead(struct folio *folio,
 		ia = NULL;
 	}
 	if (!ia) {
-		if (fc->num_background >= fc->congestion_threshold &&
+		if (fuse_chan_num_background(fc->chan) >= fc->congestion_threshold &&
 		    rac->ra->async_size >= readahead_count(rac))
 			/*
 			 * Congested and only async pages left, so skip the
@@ -1001,8 +1000,7 @@ static int fuse_iomap_read_folio_range(const struct iomap_iter *iter,
 	return fuse_do_readfolio(file, folio, off, len);
 }
 
-static void fuse_readpages_end(struct fuse_mount *fm, struct fuse_args *args,
-			       int err)
+static void fuse_readpages_end(struct fuse_args *args, int err)
 {
 	int i;
 	struct fuse_io_args *ia = container_of(args, typeof(*ia), ap.args);
@@ -1068,7 +1066,7 @@ static void fuse_send_readpages(struct fuse_io_args *ia, struct file *file,
 		res = fuse_simple_request(fm, &ap->args);
 		err = res < 0 ? res : 0;
 	}
-	fuse_readpages_end(fm, &ap->args, err);
+	fuse_readpages_end(&ap->args, err);
 }
 
 static void fuse_readahead(struct readahead_control *rac)
@@ -1985,8 +1983,7 @@ __acquires(fi->lock)
 	}
 }
 
-static void fuse_writepage_end(struct fuse_mount *fm, struct fuse_args *args,
-			       int error)
+static void fuse_writepage_end(struct fuse_args *args, int error)
 {
 	struct fuse_writepage_args *wpa =
 		container_of(args, typeof(*wpa), ia.ap.args);
@@ -2294,7 +2291,7 @@ static int fuse_writepages(struct address_space *mapping,
 		return -EIO;
 
 	if (wbc->sync_mode == WB_SYNC_NONE &&
-	    fc->num_background >= fc->congestion_threshold)
+	    fuse_chan_num_background(fc->chan) >= fc->congestion_threshold)
 		return 0;
 
 	return iomap_writepages(&wpc);
@@ -2678,125 +2675,6 @@ static loff_t fuse_file_llseek(struct file *file, loff_t offset, int whence)
 	}
 
 	return retval;
-}
-
-/*
- * All files which have been polled are linked to RB tree
- * fuse_conn->polled_files which is indexed by kh.  Walk the tree and
- * find the matching one.
- */
-static struct rb_node **fuse_find_polled_node(struct fuse_conn *fc, u64 kh,
-					      struct rb_node **parent_out)
-{
-	struct rb_node **link = &fc->polled_files.rb_node;
-	struct rb_node *last = NULL;
-
-	while (*link) {
-		struct fuse_file *ff;
-
-		last = *link;
-		ff = rb_entry(last, struct fuse_file, polled_node);
-
-		if (kh < ff->kh)
-			link = &last->rb_left;
-		else if (kh > ff->kh)
-			link = &last->rb_right;
-		else
-			return link;
-	}
-
-	if (parent_out)
-		*parent_out = last;
-	return link;
-}
-
-/*
- * The file is about to be polled.  Make sure it's on the polled_files
- * RB tree.  Note that files once added to the polled_files tree are
- * not removed before the file is released.  This is because a file
- * polled once is likely to be polled again.
- */
-static void fuse_register_polled_file(struct fuse_conn *fc,
-				      struct fuse_file *ff)
-{
-	spin_lock(&fc->lock);
-	if (RB_EMPTY_NODE(&ff->polled_node)) {
-		struct rb_node **link, *parent;
-
-		link = fuse_find_polled_node(fc, ff->kh, &parent);
-		BUG_ON(*link);
-		rb_link_node(&ff->polled_node, parent, link);
-		rb_insert_color(&ff->polled_node, &fc->polled_files);
-	}
-	spin_unlock(&fc->lock);
-}
-
-__poll_t fuse_file_poll(struct file *file, poll_table *wait)
-{
-	struct fuse_file *ff = file->private_data;
-	struct fuse_mount *fm = ff->fm;
-	struct fuse_poll_in inarg = { .fh = ff->fh, .kh = ff->kh };
-	struct fuse_poll_out outarg;
-	FUSE_ARGS(args);
-	int err;
-
-	if (fm->fc->no_poll)
-		return DEFAULT_POLLMASK;
-
-	poll_wait(file, &ff->poll_wait, wait);
-	inarg.events = mangle_poll(poll_requested_events(wait));
-
-	/*
-	 * Ask for notification iff there's someone waiting for it.
-	 * The client may ignore the flag and always notify.
-	 */
-	if (waitqueue_active(&ff->poll_wait)) {
-		inarg.flags |= FUSE_POLL_SCHEDULE_NOTIFY;
-		fuse_register_polled_file(fm->fc, ff);
-	}
-
-	args.opcode = FUSE_POLL;
-	args.nodeid = ff->nodeid;
-	args.in_numargs = 1;
-	args.in_args[0].size = sizeof(inarg);
-	args.in_args[0].value = &inarg;
-	args.out_numargs = 1;
-	args.out_args[0].size = sizeof(outarg);
-	args.out_args[0].value = &outarg;
-	err = fuse_simple_request(fm, &args);
-
-	if (!err)
-		return demangle_poll(outarg.revents);
-	if (err == -ENOSYS) {
-		fm->fc->no_poll = 1;
-		return DEFAULT_POLLMASK;
-	}
-	return EPOLLERR;
-}
-EXPORT_SYMBOL_GPL(fuse_file_poll);
-
-/*
- * This is called from fuse_handle_notify() on FUSE_NOTIFY_POLL and
- * wakes up the poll waiters.
- */
-int fuse_notify_poll_wakeup(struct fuse_conn *fc,
-			    struct fuse_notify_poll_wakeup_out *outarg)
-{
-	u64 kh = outarg->kh;
-	struct rb_node **link;
-
-	spin_lock(&fc->lock);
-
-	link = fuse_find_polled_node(fc, kh, NULL);
-	if (*link) {
-		struct fuse_file *ff;
-
-		ff = rb_entry(*link, struct fuse_file, polled_node);
-		wake_up_interruptible_sync(&ff->poll_wait);
-	}
-
-	spin_unlock(&fc->lock);
-	return 0;
 }
 
 static void fuse_do_truncate(struct file *file)
