@@ -27,6 +27,7 @@
 #include <asm/extable.h>
 #include <asm/dis.h>
 #include <asm/facility.h>
+#include <asm/lowcore.h>
 #include <asm/nospec-branch.h>
 #include <asm/set_memory.h>
 #include <asm/text-patching.h>
@@ -1777,6 +1778,30 @@ static noinline int bpf_jit_insn(struct bpf_jit *jit, struct bpf_prog *fp,
 		int j, ret;
 		u64 func;
 
+		/* Implement helper call to bpf_get_smp_processor_id() inline */
+		if (insn->src_reg == 0 &&
+		    insn->imm == BPF_FUNC_get_smp_processor_id) {
+			const u32 *cpu_nr = &get_lowcore()->cpu_nr;
+
+			/* ly %b0, cpu_nr */
+			EMIT6_DISP_LH(0xe3000000, 0x0058, BPF_REG_0, REG_0, REG_0,
+				      (unsigned long)cpu_nr);
+			break;
+		}
+
+		/* Implement helper call to bpf_get_current_task/_btf() inline */
+		if (insn->src_reg == 0 &&
+		    (insn->imm == BPF_FUNC_get_current_task ||
+		     insn->imm == BPF_FUNC_get_current_task_btf)) {
+			const u64 *current_task =
+				&get_lowcore()->current_task;
+
+			/* lg %b0, current_task */
+			EMIT6_DISP_LH(0xe3000000, 0x0004, BPF_REG_0, REG_0, REG_0,
+				      (unsigned long)current_task);
+			break;
+		}
+
 		ret = bpf_jit_get_func_addr(fp, insn, extra_pass,
 					    &func, &func_addr_fixed);
 		if (ret < 0)
@@ -3056,4 +3081,16 @@ void arch_bpf_stack_walk(bool (*consume_fn)(void *, u64, u64, u64),
 bool bpf_jit_supports_timed_may_goto(void)
 {
 	return true;
+}
+
+bool bpf_jit_inlines_helper_call(s32 imm)
+{
+	switch (imm) {
+	case BPF_FUNC_get_smp_processor_id:
+	case BPF_FUNC_get_current_task:
+	case BPF_FUNC_get_current_task_btf:
+		return true;
+	default:
+		return false;
+	}
 }

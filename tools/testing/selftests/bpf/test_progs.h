@@ -563,5 +563,7 @@ struct expected_msgs {
 
 void validate_msgs(const char *log_buf, struct expected_msgs *msgs,
 		   void (*emit_fn)(const char *buf, bool force));
+void free_msgs(struct expected_msgs *msgs);
+void verify_test_stderr(struct bpf_object *obj, struct bpf_program *prog);
 
 #endif /* __TEST_PROGS_H */

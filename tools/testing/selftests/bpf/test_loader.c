@@ -93,7 +93,7 @@ void test_loader_fini(struct test_loader *tester)
 	free(tester->log_buf);
 }
 
-static void free_msgs(struct expected_msgs *msgs)
+void free_msgs(struct expected_msgs *msgs)
 {
 	int i;
 
@@ -789,6 +789,43 @@ static void emit_stderr(const char *stderr, bool force)
 	fprintf(stdout, "STDERR:\n=============\n%s=============\n", stderr);
 }
 
+static void verify_stderr(int prog_fd, struct expected_msgs *msgs)
+{
+	LIBBPF_OPTS(bpf_prog_stream_read_opts, ropts);
+	char *buf;
+	int ret;
+
+	if (!msgs->cnt)
+		return;
+
+	buf = malloc(TEST_LOADER_LOG_BUF_SZ);
+	if (!ASSERT_OK_PTR(buf, "malloc"))
+		return;
+
+	ret = bpf_prog_stream_read(prog_fd, 2, buf, TEST_LOADER_LOG_BUF_SZ - 1,
+				    &ropts);
+	if (ret > 0) {
+		buf[ret] = '\0';
+		emit_stderr(buf, false);
+		validate_msgs(buf, msgs, emit_stderr);
+	} else {
+		ASSERT_GT(ret, 0, "stderr stream read");
+	}
+
+	free(buf);
+}
+
+void verify_test_stderr(struct bpf_object *obj, struct bpf_program *prog)
+{
+	struct test_spec spec = {};
+
+	if (parse_test_spec(NULL, obj, prog, &spec))
+		return;
+
+	verify_stderr(bpf_program__fd(prog), &spec.priv.stderr);
+	free_test_spec(&spec);
+}
+
 static void emit_stdout(const char *bpf_stdout, bool force)
 {
 	if (!force && env.verbosity == VERBOSE_NONE)
@@ -1314,17 +1351,7 @@ void run_subtest(struct test_loader *tester,
 			goto tobj_cleanup;
 		}
 
-		if (subspec->stderr.cnt) {
-			err = get_stream(2, bpf_program__fd(tprog),
-					 tester->log_buf, tester->log_buf_sz);
-			if (err <= 0) {
-				PRINT_FAIL("Unexpected retval from get_stream(): %d, errno = %d\n",
-					   err, errno);
-				goto tobj_cleanup;
-			}
-			emit_stderr(tester->log_buf, false /*force*/);
-			validate_msgs(tester->log_buf, &subspec->stderr, emit_stderr);
-		}
+		verify_stderr(bpf_program__fd(tprog), &subspec->stderr);
 
 		if (subspec->stdout.cnt) {
 			err = get_stream(1, bpf_program__fd(tprog),

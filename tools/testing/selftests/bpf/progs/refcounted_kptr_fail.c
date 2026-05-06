@@ -54,7 +54,7 @@ long rbtree_refcounted_node_ref_escapes(void *ctx)
 }
 
 SEC("?tc")
-__failure __msg("Possibly NULL pointer passed to trusted arg0")
+__failure __msg("Possibly NULL pointer passed to trusted R1")
 long refcount_acquire_maybe_null(void *ctx)
 {
 	struct node_acquire *n, *m;

@@ -685,7 +685,6 @@ again:
 	if (err)
 		goto out_free;
 
-	WARN_ON(tr->cur_image && total == 0);
 	if (tr->cur_image)
 		/* progs already running at this address */
 		err = modify_fentry(tr, orig_flags, tr->cur_image->image,

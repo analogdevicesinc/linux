@@ -571,20 +571,20 @@ static void print_scalar_ranges(struct bpf_verifier_env *env,
 		u64 val;
 		bool omit;
 	} minmaxs[] = {
-		{"smin",   reg->smin_value,         reg->smin_value == S64_MIN},
-		{"smax",   reg->smax_value,         reg->smax_value == S64_MAX},
-		{"umin",   reg->umin_value,         reg->umin_value == 0},
-		{"umax",   reg->umax_value,         reg->umax_value == U64_MAX},
+		{"smin",   reg_smin(reg),         reg_smin(reg) == S64_MIN},
+		{"smax",   reg_smax(reg),         reg_smax(reg) == S64_MAX},
+		{"umin",   reg_umin(reg),         reg_umin(reg) == 0},
+		{"umax",   reg_umax(reg),         reg_umax(reg) == U64_MAX},
 		{"smin32",
-		 is_snum_decimal((s64)reg->s32_min_value)
-			 ? (s64)reg->s32_min_value
-			 : (u32)reg->s32_min_value, reg->s32_min_value == S32_MIN},
+		 is_snum_decimal((s64)reg_s32_min(reg))
+			 ? (s64)reg_s32_min(reg)
+			 : (u32)reg_s32_min(reg), reg_s32_min(reg) == S32_MIN},
 		{"smax32",
-		 is_snum_decimal((s64)reg->s32_max_value)
-			 ? (s64)reg->s32_max_value
-			 : (u32)reg->s32_max_value, reg->s32_max_value == S32_MAX},
-		{"umin32", reg->u32_min_value,      reg->u32_min_value == 0},
-		{"umax32", reg->u32_max_value,      reg->u32_max_value == U32_MAX},
+		 is_snum_decimal((s64)reg_s32_max(reg))
+			 ? (s64)reg_s32_max(reg)
+			 : (u32)reg_s32_max(reg), reg_s32_max(reg) == S32_MAX},
+		{"umin32", reg_u32_min(reg),      reg_u32_min(reg) == 0},
+		{"umax32", reg_u32_max(reg),      reg_u32_max(reg) == U32_MAX},
 	}, *m1, *m2, *mend = &minmaxs[ARRAY_SIZE(minmaxs)];
 	bool neg1, neg2;
 

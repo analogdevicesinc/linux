@@ -8,6 +8,7 @@
 #include <linux/btf.h> /* for struct btf and btf_id() */
 #include <linux/filter.h> /* for MAX_BPF_STACK */
 #include <linux/tnum.h>
+#include <linux/cnum.h>
 
 /* Maximum variable offset umax_value permitted when resolving memory accesses.
  * In practice this is far bigger than any realistic pointer offset; this limit
@@ -120,14 +121,8 @@ struct bpf_reg_state {
 	 * These refer to the same value as var_off, not necessarily the actual
 	 * contents of the register.
 	 */
-	s64 smin_value; /* minimum possible (s64)value */
-	s64 smax_value; /* maximum possible (s64)value */
-	u64 umin_value; /* minimum possible (u64)value */
-	u64 umax_value; /* maximum possible (u64)value */
-	s32 s32_min_value; /* minimum possible (s32)value */
-	s32 s32_max_value; /* maximum possible (s32)value */
-	u32 u32_min_value; /* minimum possible (u32)value */
-	u32 u32_max_value; /* maximum possible (u32)value */
+	struct cnum64 r64; /* 64-bit range as circular number */
+	struct cnum32 r32; /* 32-bit range as circular number */
 	/* For PTR_TO_PACKET, used to find other pointers with the same variable
 	 * offset, so they can share range knowledge.
 	 * For PTR_TO_MAP_VALUE_OR_NULL this is used to share which map value we
@@ -208,6 +203,66 @@ struct bpf_reg_state {
 	/* if (!precise && SCALAR_VALUE) min/max/tnum don't affect safety */
 	bool precise;
 };
+
+static inline s64 reg_smin(const struct bpf_reg_state *reg)
+{
+	return cnum64_smin(reg->r64);
+}
+
+static inline s64 reg_smax(const struct bpf_reg_state *reg)
+{
+	return cnum64_smax(reg->r64);
+}
+
+static inline u64 reg_umin(const struct bpf_reg_state *reg)
+{
+	return cnum64_umin(reg->r64);
+}
+
+static inline u64 reg_umax(const struct bpf_reg_state *reg)
+{
+	return cnum64_umax(reg->r64);
+}
+
+static inline s32 reg_s32_min(const struct bpf_reg_state *reg)
+{
+	return cnum32_smin(reg->r32);
+}
+
+static inline s32 reg_s32_max(const struct bpf_reg_state *reg)
+{
+	return cnum32_smax(reg->r32);
+}
+
+static inline u32 reg_u32_min(const struct bpf_reg_state *reg)
+{
+	return cnum32_umin(reg->r32);
+}
+
+static inline u32 reg_u32_max(const struct bpf_reg_state *reg)
+{
+	return cnum32_umax(reg->r32);
+}
+
+static inline void reg_set_srange32(struct bpf_reg_state *reg, s32 smin, s32 smax)
+{
+	reg->r32 = cnum32_from_srange(smin, smax);
+}
+
+static inline void reg_set_urange32(struct bpf_reg_state *reg, u32 umin, u32 umax)
+{
+	reg->r32 = cnum32_from_urange(umin, umax);
+}
+
+static inline void reg_set_srange64(struct bpf_reg_state *reg, s64 smin, s64 smax)
+{
+	reg->r64 = cnum64_from_srange(smin, smax);
+}
+
+static inline void reg_set_urange64(struct bpf_reg_state *reg, u64 umin, u64 umax)
+{
+	reg->r64 = cnum64_from_urange(umin, umax);
+}
 
 enum bpf_stack_slot_type {
 	STACK_INVALID,    /* nothing was stored in this stack slot */
@@ -913,6 +968,7 @@ struct bpf_verifier_env {
 	 * e.g., in reg_type_str() to generate reg_type string
 	 */
 	char tmp_str_buf[TMP_STR_BUF_LEN];
+	char tmp_arg_name[32];
 	struct bpf_insn insn_buf[INSN_BUF_SIZE];
 	struct bpf_insn epilogue_buf[INSN_BUF_SIZE];
 	struct bpf_scc_callchain callchain_buf;

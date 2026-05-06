@@ -12,7 +12,7 @@ struct {
 	const char *err_msg;
 } cb_refs_tests[] = {
 	{ "underflow_prog", "must point to scalar, or struct with scalar" },
-	{ "leak_prog", "Possibly NULL pointer passed to helper arg2" },
+	{ "leak_prog", "Possibly NULL pointer passed to helper R2" },
 	{ "nested_cb", "Unreleased reference id=4 alloc_insn=2" }, /* alloc_insn=2{4,5} */
 	{ "non_cb_transfer_ref", "Unreleased reference id=4 alloc_insn=1" }, /* alloc_insn=1{1,2} */
 };

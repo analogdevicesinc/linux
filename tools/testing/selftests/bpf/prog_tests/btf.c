@@ -1924,11 +1924,11 @@ static struct btf_raw_test raw_tests[] = {
 },
 
 {
-	.descr = "invalid BTF_INFO",
+	.descr = "invalid BTF kind",
 	.raw_types = {
 		/* int */				/* [1] */
 		BTF_TYPE_INT_ENC(0, BTF_INT_SIGNED, 0, 32, 4),
-		BTF_TYPE_ENC(0, 0x20000000, 4),
+		BTF_TYPE_ENC(0, 0x7f000000, 4),
 		BTF_END_RAW,
 	},
 	.str_sec = "",
@@ -1941,7 +1941,7 @@ static struct btf_raw_test raw_tests[] = {
 	.value_type_id = 1,
 	.max_entries = 4,
 	.btf_load_err = true,
-	.err_str = "Invalid btf_info",
+	.err_str = "Invalid kind",
 },
 
 {
@@ -8092,7 +8092,7 @@ static struct btf_dedup_test dedup_tests[] = {
 static int btf_type_size(const struct btf_type *t)
 {
 	int base_size = sizeof(struct btf_type);
-	__u16 vlen = BTF_INFO_VLEN(t->info);
+	__u32 vlen = BTF_INFO_VLEN(t->info);
 	__u16 kind = BTF_INFO_KIND(t->info);
 
 	switch (kind) {
