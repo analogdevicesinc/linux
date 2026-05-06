@@ -73,7 +73,6 @@ jobs:
         get_file ci/runner_env.sh
         get_file ci/symbols_depend.py
         get_file ci/touched_kconfig.awk
-        get_file ci/gen_sbom.py
 
         if [[ "${{ inputs.defconfig }}" == "adi_ci_defconfig" ]]; then
           mkdir -p arch/${{ inputs.arch }}/configs
@@ -193,15 +192,22 @@ jobs:
         echo "git_sha=${{ github.sha }}" >> "$dist/context.txt"
         echo "git_sha_at=$(git --no-pager log ${{ github.sha }} -1 --pretty=format:%at)" >> "$dist/context.txt"
         echo "git_sha_ct=$(git --no-pager log ${{ github.sha }} -1 --pretty=format:%ct)" >> "$dist/context.txt"
-        [[ -f compile_commands.json ]] && cp compile_commands.json "$dist" || true
         [[ -d "$dist_headers/usr" ]] && cp "$dist/context.txt" "$dist_headers/context.txt" || true
 
     - name: Generate SBOM
       run: |
-        [[ -f "$DIST/compile_commands.json" ]] || exit 0
-        export GIT_URL="${{ github.repositoryUrl }}"
-        python3 ci/gen_sbom.py
-        rm "$DIST/compile_commands.json"
+        git clone https://github.com/gastmaier/KernelSbom --branch feat/mkuboot_syscallnr --depth 1 -- ../kernel-sbom
+
+        kversion=$(cat "$KBUILD_OUTPUT/include/config/kernel.release")
+        SRCARCH=${ARCH} python3 ../kernel-sbom/sbom/sbom.py \
+          --src-tree . \
+          --obj-tree $KBUILD_OUTPUT \
+          --roots arch/${ARCH}/boot/Image \
+          --generate-spdx \
+          --generate-used-files \
+          --prettify-json \
+          --package-version "$kversion" \
+          --output-directory "$DIST"
 
     - name: Assert state
       if: ${{ failure() }}
