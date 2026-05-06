@@ -93,6 +93,7 @@ class CTransforms:
         (CMatch("__weak"), ""),
         (CMatch("__sched"), ""),
         (CMatch("__always_unused"), ""),
+        (CMatch("__maybe_unused"), ""),
         (CMatch("__printf"), ""),
         (CMatch("__(?:re)?alloc_size"), ""),
         (CMatch("__diagnose_as"), ""),
