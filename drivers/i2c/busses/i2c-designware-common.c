@@ -958,8 +958,8 @@ int i2c_dw_probe(struct dw_i2c_dev *dev)
 	 * registered to the device core and immediate resume in case bus has
 	 * registered I2C slaves that do I2C transfers in their probe.
 	 */
-	ACQUIRE(pm_runtime_noresume, pm)(dev->dev);
-	ret = ACQUIRE_ERR(pm_runtime_noresume, &pm);
+	PM_RUNTIME_ACQUIRE(dev->dev, pm);
+	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
 		return ret;
 
