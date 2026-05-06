@@ -1,0 +1,115 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV903X
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9025
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025
+ *
+ * hdl_project: ToDo
+ * board_revision: <>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+#include "versal-tetra-15mhz.dts"
+
+/* ORX path */
+#define ADRV903X_ORX_LANERATE_KHZ 16220160
+#define ADRV903X_ORX_LINK_CLK 245760000
+
+#define ADRV903X_ORX_DEVICE_CLK 245760000
+
+&trx0_adrv903x {
+	clock-output-names = "rx_sampl_clk", "tx_sampl_clk", "rx_os_sampl_clk";
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-top-device = <0>; /* This is the TOP device */
+	jesd204-link-ids = <DEFRAMER0_LINK_TX FRAMER0_LINK_RX FRAMER1_LINK_RX>;
+	jesd204-ignore-errors;
+
+	jesd204-inputs =
+		<&axi_jesd_rx_rx_axi 0 FRAMER0_LINK_RX>,
+		<&axi_jesd_tx_tx_axi 0 DEFRAMER0_LINK_TX>,
+		<&axi_jesd_rx_os_rx_axi 0 FRAMER1_LINK_RX>;
+
+	adi,device-config-name = "ADRV9030_DeviceProfileTest_orx.bin";
+	adi,stream-firmware-name = "ADRV9030_stream_image_orx.bin";
+};
+
+&amba_pl {
+	axi_jesd_rx_os_dma: axi_dmac@bc800000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x0 0xbc800000 0x0 0x1000>;
+		#dma-cells = <1>;
+		#clock-cells = <0>;
+		interrupt-names = "irq";
+		interrupt-parent = <&gic>;
+		clocks = <&versal_clk PMC_PL1_REF>;
+		interrupts = <0 99 IRQ_TYPE_LEVEL_HIGH>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_jesd_rx_os_rx_axi: axi_jesd204_rx_os@a5aa0000 {
+		compatible = "adi,axi-jesd204-rx-1.0";
+		reg = <0x0 0xa5aa0000 0x0 0x4000>;
+
+		interrupt-names = "irq";
+		interrupt-parent = <&gic>;
+		interrupts = <0 98 IRQ_TYPE_LEVEL_HIGH>;
+
+		clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
+		clocks = <&versal_clk PMC_PL0_REF>, <&orx_fixed_device_clk>, <&orx_fixed_link_clk>, <&orx_fixed_lanerate>;
+
+		#clock-cells = <0>;
+		clock-output-names = "jesd_orx_lane_clk";
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-inputs = <&clk0_hmc7044 0 FRAMER1_LINK_RX>;
+	};
+
+	orx_jesd_tpl_core_adc_tpl_core: ad_ip_jesd204_tpl_adc_os@0xa4a08000 {
+		compatible = "adi,axi-adrv903x-obs-1.0";
+		reg = <0x0 0xa4a08000 0x0 0x6000>;
+
+		dmas = <&axi_jesd_rx_os_dma 0>;
+		dma-names = "rx";
+		clocks = <&trx0_adrv903x 1>;
+		clock-names = "sampl_clk";
+		spibus-connected = <&trx0_adrv903x>;
+		label="axi-adrv903x-rx-os-hpc";
+	};
+
+	clocks {
+		orx_fixed_lanerate: clock@5 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <ADRV903X_ORX_LANERATE_KHZ>;
+			clock-output-names = "orx_lane_clk";
+		};
+
+		orx_fixed_link_clk: clock@6 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <ADRV903X_ORX_LINK_CLK>;
+			clock-output-names = "orx_link_clk";
+		};
+
+		orx_fixed_device_clk: clock@7 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <ADRV903X_ORX_DEVICE_CLK>;
+			clock-output-names = "orx_device_clk";
+		};
+	};
+
+};
