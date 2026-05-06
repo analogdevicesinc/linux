@@ -1,7 +1,7 @@
 /*
- * stmark2.c -- Support for Sysam AMCORE open board
+ * stmark2.c -- Support for Kernelspace AMCORE open board
  *
- * (C) Copyright 2017, Angelo Dureghello <angelo@sysam.it>
+ * (C) Copyright 2026, Angelo Dureghello <angelo@kernel-space.org>
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file COPYING in the main directory of this archive
@@ -104,16 +104,16 @@ static struct platform_device *stmark2_devices[] __initdata = {
 static int __init init_stmark2(void)
 {
 	/* DSPI0, all pins as DSPI, and using CS1 */
-	__raw_writeb(0x80, MCFGPIO_PAR_DSPIOWL);
-	__raw_writeb(0xfc, MCFGPIO_PAR_DSPIOWH);
+	mcf_write8(0x80, MCFGPIO_PAR_DSPIOWL);
+	mcf_write8(0xfc, MCFGPIO_PAR_DSPIOWH);
 
 	/* Board gpio setup */
-	__raw_writeb(0x00, MCFGPIO_PAR_BE);
-	__raw_writeb(0x00, MCFGPIO_PAR_FBCTL);
-	__raw_writeb(0x00, MCFGPIO_PAR_CS);
+	mcf_write8(0x00, MCFGPIO_PAR_BE);
+	mcf_write8(0x00, MCFGPIO_PAR_FBCTL);
+	mcf_write8(0x00, MCFGPIO_PAR_CS);
 
 	/* CAN pads */
-	__raw_writeb(0x50, MCFGPIO_PAR_CANI2C);
+	mcf_write8(0x50, MCFGPIO_PAR_CANI2C);
 
 	platform_add_devices(stmark2_devices, ARRAY_SIZE(stmark2_devices));
 
