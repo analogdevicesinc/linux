@@ -137,7 +137,7 @@ static const struct lm75_params device_params[] = {
 	},
 	[as6200] = {
 		.config_reg_16bits = true,
-		.set_mask = 0x94C0,	/* 8 sample/s, 4 CF, positive polarity */
+		.set_mask = 0x10C0,	/* 8 sample/s, 4 CF */
 		.default_resolution = 12,
 		.default_sample_time = 125,
 		.num_sample_times = 4,
@@ -353,7 +353,7 @@ static inline int lm75_write_config(struct lm75_data *data, u16 set_mask,
 				    u16 clr_mask)
 {
 	return regmap_update_bits(data->regmap, LM75_REG_CONF,
-				  clr_mask | LM75_SHUTDOWN, set_mask);
+				  clr_mask | set_mask | LM75_SHUTDOWN, set_mask);
 }
 
 static irqreturn_t lm75_alarm_handler(int irq, void *private)
@@ -416,7 +416,7 @@ static int lm75_read(struct device *dev, enum hwmon_sensor_types type,
 			switch (data->kind) {
 			case as6200:
 			case tmp112:
-				*val = (regval >> 13) & 0x1;
+				*val = !!(regval & BIT(13)) == !!(regval & BIT(2));
 				break;
 			default:
 				return -EINVAL;
