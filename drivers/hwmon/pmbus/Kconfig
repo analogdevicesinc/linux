@@ -311,6 +311,16 @@ config SENSORS_LTC4286
 	  If you say yes here you get hardware monitoring support for Analog
 	  Devices LTC4286.
 
+config SENSORS_LX1308
+	tristate "Luxshare LX1308 DC/DC Power Module"
+	help
+	  If you say yes here you get hardware monitoring support for
+	  Luxshare LX1308, a high-efficiency 12V 860W DC/DC power module
+	  with PMBus interface.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called lx1308.
+
 config SENSORS_MAX15301
 	tristate "Maxim MAX15301"
 	help
@@ -364,6 +374,15 @@ config SENSORS_MAX20751
 
 	  This driver can also be built as a module. If so, the module will
 	  be called max20751.
+
+config SENSORS_MAX20830
+	tristate "Analog Devices MAX20830"
+	help
+	  If you say yes here you get hardware monitoring support for Analog
+	  Devices MAX20830.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called max20830.
 
 config SENSORS_MAX31785
 	tristate "Maxim MAX31785 and compatibles"
@@ -455,6 +474,15 @@ config SENSORS_MP2975
 
 	  This driver can also be built as a module. If so, the module will
 	  be called mp2975.
+
+config SENSORS_MP2985
+	tristate "MPS MP2985"
+	help
+	  If you say yes here you get hardware monitoring support for MPS
+	  MP2985 Dual Loop Digital Multi-Phase Controller.
+
+	  This driver can also be built as a module. If so, the module will
+	  be called mp2985.
 
 config SENSORS_MP2993
 	tristate "MPS MP2993"

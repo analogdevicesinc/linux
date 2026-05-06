@@ -146,6 +146,7 @@ Hardware Monitoring Kernel Drivers
    ltc4261
    ltc4282
    ltc4286
+   lx1308
    macsmc-hwmon
    max127
    max15301
@@ -158,6 +159,7 @@ Hardware Monitoring Kernel Drivers
    max197
    max20730
    max20751
+   max20830
    max31722
    max31730
    max31760
@@ -185,6 +187,7 @@ Hardware Monitoring Kernel Drivers
    mp2925
    mp29502
    mp2975
+   mp2985
    mp2993
    mp5023
    mp5920
