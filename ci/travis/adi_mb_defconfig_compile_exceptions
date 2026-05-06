@@ -1,0 +1,17 @@
+# ad9084 microblaze DTS files require adi_mb_apollo_defconfig
+arch/microblaze/boot/dts/vcu118_ad9084.dts
+arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts
+arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x2_CLL.dts
+arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts
+arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB.dts
+arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext.dts
+arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext_primary.dts
+arch/microblaze/boot/dts/vcu118_quad_ad9084_26p4_revB_ext_second.dts
+arch/microblaze/boot/dts/vcu118_quad_ad9084_revB.dts
+arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts
+arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext_primary.dts
+arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext_second.dts
+
+# Upstream DTS not applicable to microblaze builds
+arch/microblaze/boot/dts/vc707_fmcadc2.dts
+arch/microblaze/boot/dts/vc707_fmcadc5.dts

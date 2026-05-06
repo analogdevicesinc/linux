@@ -213,7 +213,7 @@ build_allmodconfig() {
 }
 
 build_microblaze() {
-	local exceptions_file="ci/travis/dtb_build_test_exceptions"
+	local exceptions_file="ci/travis/${DEFCONFIG:-adi_mb_defconfig}_compile_exceptions"
 	local err=0
 
 	# Setup standalone compiler
@@ -246,7 +246,7 @@ build_microblaze() {
 	fi
 
 	export CROSS_COMPILE=/opt/microblazeel-xilinx-elf/bin/microblazeel-xilinx-elf-
-	ARCH=microblaze make adi_mb_defconfig
+	ARCH=microblaze make "${DEFCONFIG:-adi_mb_defconfig}"
 	for file in $DTS_FILES; do
 		if __exceptions_file "$exceptions_file" "$file"; then
 			continue
@@ -268,7 +268,8 @@ build_microblaze() {
 }
 
 build_dtb_build_test() {
-	local exceptions_file="ci/travis/dtb_build_test_exceptions"
+	local exceptions_file="${DEFCONFIG:+ci/travis/${DEFCONFIG}_compile_exceptions}"
+	exceptions_file="${exceptions_file:-ci/travis/dtb_build_test_exceptions}"
 	local err=0
 	local defconfig
 	local last_defconfig
@@ -322,7 +323,7 @@ build_dtb_build_test() {
 				defconfig="socfpga_adi_defconfig"
 				;;
 			versal)
-				defconfig="adi_versal_defconfig"
+				defconfig="${DEFCONFIG:-adi_versal_defconfig}"
 				;;
 			*)
 				echo "Default defconfig will be used."
