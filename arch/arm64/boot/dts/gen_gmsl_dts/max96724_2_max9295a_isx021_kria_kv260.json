@@ -1,0 +1,43 @@
+[
+    {
+        "name": "max96724",
+        "i2c_bus": "gmsl_i2c",
+        "pool_addrs": ["0x41", "0x42", "0x43", "0x44"],
+        "platform_cfg": {
+            "name": "kria-kv260",
+            "csi_idx": 0,
+            "phy_idx": 2
+        },
+        "phys": [
+            {
+                "phy_idx": 2,
+                "num_lanes": 2,
+                "link_frequencies": [750000000],
+                "clock_lanes": [0],
+                "data_lanes": [1, 2]
+            }
+        ],
+        "links": [
+            {
+                "name": "max9295a",
+                "address": "0x62",
+                "cameras": [
+                    {
+                        "name": "isx021"
+                    }
+                ],
+                "pool_addrs": ["0x58", "0x59"]
+            },
+            {
+                "name": "max9295a",
+                "address": "0x62",
+                "cameras": [
+                    {
+                        "name": "isx021"
+                    }
+                ],
+                "pool_addrs": ["0x5a", "0x5b"]
+            }
+        ]
+    }
+]

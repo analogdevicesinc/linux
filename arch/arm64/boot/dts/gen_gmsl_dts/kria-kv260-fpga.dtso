@@ -38,7 +38,7 @@
 			compatible = "xlnx,axis-switch-1.1";
 			xlnx,routing-mode = <0>;
 			xlnx,num-si-slots = <1>;
-			xlnx,num-mi-slots = <1>;
+			xlnx,num-mi-slots = <2>;
 			clock-names = "aclk";
 			clocks = <&zynqmp_clk 71>;
 			ports {
@@ -54,6 +54,12 @@
 					reg = <1>;
 					switch_out0: endpoint {
 						remote-endpoint = <&vcap_portswitch0>;
+					};
+				};
+				port@2 {
+					reg = <2>;
+					switch_out1: endpoint {
+						remote-endpoint = <&vcap_portswitch1>;
 					};
 				};
 			};
@@ -119,10 +125,27 @@
 			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
 		};
 
+		v_frmbuf_wr_1: v_frmbuf_wr@84a60000 {
+			#dma-cells = <1>;
+			clock-names = "ap_clk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,v-frmbuf-wr-v3.0", "xlnx,axi-frmbuf-wr-v2.2";
+			interrupt-parent = <&gic>;
+			interrupts = <0 106 4>;
+			reset-gpios = <&gpio 81 GPIO_ACTIVE_LOW>;
+			reg = <0x84a60000 0x10000>;
+			xlnx,dma-addr-width = <32>;
+			xlnx,dma-align = <16>;
+			xlnx,max-height = <2160>;
+			xlnx,max-width = <3840>;
+			xlnx,pixels-per-clock = <2>;
+			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
+		};
+
 		vcap_mipi_csi2_rx_subsyst_0 {
 			compatible = "xlnx,video";
-			dma-names = "port0";
-			dmas = <&v_frmbuf_wr_0 0>;
+			dma-names = "port0", "port1";
+			dmas = <&v_frmbuf_wr_0 0 &v_frmbuf_wr_1 0>;
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -131,6 +154,13 @@
 					reg = <0>;
 					vcap_portswitch0: endpoint {
 						remote-endpoint = <&switch_out0>;
+					};
+				};
+				vcap_port1: port@1 {
+					direction = "input";
+					reg = <1>;
+					vcap_portswitch1: endpoint {
+						remote-endpoint = <&switch_out1>;
 					};
 				};
 			};
