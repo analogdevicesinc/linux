@@ -126,6 +126,18 @@ dedicated skiplist::
 See the top-level tools/testing/selftests/Makefile for the list of all
 possible targets.
 
+Requiring all targets to build successfully
+===========================================
+
+By default, the build succeeds as long as at least one target builds
+without error. Set ``FORCE_TARGETS=1`` to instead require every target to
+build successfully; make will abort as soon as any target fails::
+
+  $ make -C tools/testing/selftests FORCE_TARGETS=1
+
+This applies to both the ``all`` and ``install`` targets and is useful in
+CI environments where a silent partial build would be misleading.
+
 Running the full range hotplug selftests
 ========================================
 
