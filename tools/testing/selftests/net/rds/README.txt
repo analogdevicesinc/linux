@@ -12,16 +12,36 @@ kernel may optionally be configured to omit the coverage report as well.
 
 USAGE:
 	run.sh [-d logdir] [-l packet_loss] [-c packet_corruption]
-	       [-u packet_duplcate]
+	       [-u packet_duplicate] [-t timeout]
 
 OPTIONS:
-	-d	Log directory.  Defaults to tools/testing/selftests/net/rds/rds_logs
+	-d	Log directory.  If set, logs will be stored in the
+		given dir, or skipped if unset.  Log dir can also be
+		set through the RDS_LOG_DIR env variable
 
 	-l	Simulates a percentage of packet loss
 
 	-c	Simulates a percentage of packet corruption
 
 	-u	Simulates a percentage of packet duplication.
+
+	-t	Test timeout.  Defaults to tools/testing/selftests/net/rds/settings
+
+ENV VARIABLES:
+	RDS_LOG_DIR	Log directory.  If set, logs will be stored in
+			the given dir, or skipped if unset. Log dir
+			can also be set with the -d flag.
+
+			Use with --rwdir on the CI path to retain logs after
+			test compleation.  Log dir end point must be within
+			the specified --rwdir path for logs to persist on
+			the host.
+
+	SUDO_USER	The user name that should be used for tcpdump
+			--relinquish-privileges.  Set this to a user
+			belonging to the sudoers group to avoid drop
+			privilege errors with the vng 9p filesystem
+			which may result in empty pcaps
 
 EXAMPLE:
 
@@ -39,6 +59,8 @@ EXAMPLE:
 
     # launch the tests in a VM
     vng -v --rwdir ./ --run . --user root --cpus 4 -- \
-        "export PYTHONPATH=tools/testing/selftests/net/; tools/testing/selftests/net/rds/run.sh"
+        "export PYTHONPATH=tools/testing/selftests/net/; \
+         export SUDO_USER=example_user; \
+         export RDS_LOG_DIR=tools/testing/selftests/net/rds/rds_logs; \
+         tools/testing/selftests/net/rds/run.sh"
 
-An HTML coverage report will be output in tools/testing/selftests/net/rds/rds_logs/coverage/.

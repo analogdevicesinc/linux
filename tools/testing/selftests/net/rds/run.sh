@@ -150,28 +150,30 @@ check_env()
 	fi
 }
 
-LOG_DIR="$current_dir"/rds_logs
-PLOSS=0
-PCORRUPT=0
-PDUP=0
+LOG_DIR="${RDS_LOG_DIR:-}"
+TIMEOUT=$timeout
 GENERATE_GCOV_REPORT=1
-while getopts "d:l:c:u:" opt; do
+FLAGS=()
+while getopts "d:l:c:u:t:" opt; do
   case ${opt} in
     d)
       LOG_DIR=${OPTARG}
       ;;
     l)
-      PLOSS=${OPTARG}
+      FLAGS+=("-l" "${OPTARG}")
       ;;
     c)
-      PCORRUPT=${OPTARG}
+      FLAGS+=("-c" "${OPTARG}")
+      ;;
+    t)
+      TIMEOUT=${OPTARG}
       ;;
     u)
-      PDUP=${OPTARG}
+      FLAGS+=("-u" "${OPTARG}")
       ;;
     :)
       echo "USAGE: run.sh [-d logdir] [-l packet_loss] [-c packet_corruption]" \
-           "[-u packet_duplcate] [-g]"
+           "[-u packet_duplicate] [-t timeout]"
       exit 1
       ;;
     ?)
@@ -181,47 +183,63 @@ while getopts "d:l:c:u:" opt; do
   esac
 done
 
-
 check_env
 check_conf
 check_gcov_conf
 
+TRACE_CMD=()
+if [[ -n "$LOG_DIR" ]]; then
+   rm -fr "$LOG_DIR"
+   FLAGS+=("-d" "$LOG_DIR")
 
-rm -fr "$LOG_DIR"
-TRACE_FILE="${LOG_DIR}/rds-strace.txt"
-COVR_DIR="${LOG_DIR}/coverage/"
-mkdir -p  "$LOG_DIR"
-mkdir -p "$COVR_DIR"
+   TRACE_FILE="${LOG_DIR}/rds-strace.txt"
+   COVR_DIR="${LOG_DIR}/coverage/"
+   mkdir -p  "$LOG_DIR"
+   mkdir -p "$COVR_DIR"
+
+   echo "#Traces will be logged to ${TRACE_FILE}"
+   rm -f "$TRACE_FILE"
+
+   TRACE_CMD=(strace -T -tt -o "${TRACE_FILE}")
+fi
 
 set +e
-echo running RDS tests...
-echo Traces will be logged to "$TRACE_FILE"
-rm -f "$TRACE_FILE"
-strace -T -tt -o "$TRACE_FILE" python3 "$(dirname "$0")/test.py" \
-	--timeout "$timeout" -d "$LOG_DIR" -l "$PLOSS" -c "$PCORRUPT" -u "$PDUP"
+echo "#running RDS tests..."
+"${TRACE_CMD[@]}" python3 "$(dirname "$0")/test.py" "${FLAGS[@]}" -t "$TIMEOUT"
 
 test_rc=$?
-dmesg > "${LOG_DIR}/dmesg.out"
 
-if [ "$GENERATE_GCOV_REPORT" -eq 1 ]; then
-       echo saving coverage data...
+if [[ -n "$LOG_DIR" ]]; then
+   dmesg > "${LOG_DIR}/dmesg.out"
+fi
+
+if [[ -n "$LOG_DIR" ]] && [ "$GENERATE_GCOV_REPORT" -eq 1 ]; then
+       echo "# saving coverage data..."
+
+       # Ensure debugfs is mounted before reading gcov data.
+       if ! mountpoint -q /sys/kernel/debug 2>/dev/null; then
+               mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null || true
+       fi
+
        (set +x; cd /sys/kernel/debug/gcov; find ./* -name '*.gcda' | \
        while read -r f
        do
                cat < "/sys/kernel/debug/gcov/$f" > "/$f"
        done)
 
-       echo running gcovr...
+       echo "# running gcovr..."
        gcovr -s --html-details --gcov-executable "$GCOV_CMD" --gcov-ignore-parse-errors \
-             -o "${COVR_DIR}/gcovr" "${ksrc_dir}/net/rds/"
+             --root "${ksrc_dir}" -o "${COVR_DIR}/gcovr" "${ksrc_dir}/net/rds/" \
+             > "${LOG_DIR}/gcovr.log" 2>&1
+       echo "# gcovr log: ${LOG_DIR}/gcovr.log"
 else
-       echo "Coverage report will be skipped"
+       echo "# Coverage report will be skipped"
 fi
 
 if [ "$test_rc" -eq 0 ]; then
-	echo "PASS: Test completed successfully"
+	echo "# PASS: Test completed successfully"
 else
-	echo "FAIL: Test failed"
+	echo "# FAIL: Test failed"
 fi
 
 exit "$test_rc"

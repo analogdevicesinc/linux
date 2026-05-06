@@ -1,5 +1,8 @@
 #! /usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
+"""
+This module provides functional testing for the net/rds component.
+"""
 
 import argparse
 import ctypes
@@ -11,13 +14,14 @@ import signal
 import socket
 import subprocess
 import sys
-import tempfile
-import shutil
 
 # Allow utils module to be imported from different directory
 this_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(this_dir, "../"))
-from lib.py.utils import ip
+# pylint: disable-next=wrong-import-position,import-error,no-name-in-module
+from lib.py.utils import ip # noqa: E402
+# pylint: disable-next=wrong-import-position,import-error,no-name-in-module
+from lib.py.ksft import ksft_pr # noqa: E402
 
 libc = ctypes.cdll.LoadLibrary('libc.so.6')
 setns = libc.setns
@@ -57,7 +61,7 @@ def netns_socket(netns, *sock_args):
         # send resulting socket to parent
         socket.send_fds(u0, [], [sock.fileno()])
 
-        sys.exit(0)
+        os._exit(0)
 
     # receive socket from child
     _, fds, _, _ = socket.recv_fds(u1, 0, 1)
@@ -66,11 +70,30 @@ def netns_socket(netns, *sock_args):
     u1.close()
     return socket.fromfd(fds[0], *sock_args)
 
+def stop_pcaps():
+    """Stop tcpdump processes.
+
+    We use pop() here to drain the list in the event that the test
+    completes after the signal handler is fired.  List will be empty
+    if logdir is not set
+    """
+    ksft_pr("Stopping network packet captures")
+    while tcpdump_procs:
+        proc = tcpdump_procs.pop()
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+
 def signal_handler(_sig, _frame):
     """
     Test timed out signal handler
     """
-    print('Test timed out')
+    ksft_pr("Test timed out")
+    stop_pcaps()
+    print("not ok 1 rds selftest")
     sys.exit(1)
 
 #Parse out command line arguments.  We take an optional
@@ -78,8 +101,8 @@ def signal_handler(_sig, _frame):
 parser = argparse.ArgumentParser(description="init script args",
                   formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("-d", "--logdir", action="store",
-                    help="directory to store logs", default="/tmp")
-parser.add_argument('--timeout', help="timeout to terminate hung test",
+                    help="directory to store logs", default=None)
+parser.add_argument('-t', '--timeout', help="timeout to terminate hung test",
                     type=int, default=0)
 parser.add_argument('-l', '--loss', help="Simulate tcp packet loss",
                     type=int, default=0)
@@ -124,21 +147,31 @@ ip(f"-n {NET1} route add {addrs[0][0]}/32 dev {VETH1}")
 # and communicating by doing a single ping
 ip(f"netns exec {NET0} ping -c 1 {addrs[1][0]}")
 
-# Start a packet capture on each network
 tcpdump_procs = []
-for net in [NET0, NET1]:
-    pcap = logdir+'/'+net+'.pcap'
-    fd, pcap_tmp = tempfile.mkstemp(suffix=".pcap", prefix=f"{net}-", dir="/tmp")
-    p = subprocess.Popen(
-        ['ip', 'netns', 'exec', net,
-         '/usr/sbin/tcpdump', '-i', 'any', '-w', pcap_tmp])
-    tcpdump_procs.append((p, pcap_tmp, pcap, fd))
+# Start a packet capture on each network
+if logdir is not None:
+    for net in [NET0, NET1]:
+        pcap = logdir+'/'+net+'.pcap'
+
+        tcpdump_cmd = ['ip', 'netns', 'exec', net, '/usr/sbin/tcpdump']
+        sudo_user = os.environ.get('SUDO_USER')
+        if sudo_user:
+            tcpdump_cmd.extend(['-Z', sudo_user])
+        tcpdump_cmd.extend(['-i', 'any', '-w', pcap])
+
+        # pylint: disable-next=consider-using-with
+        p = subprocess.Popen(tcpdump_cmd,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        tcpdump_procs.append(p)
 
 # simulate packet loss, duplication and corruption
 for net, iface in [(NET0, VETH0), (NET1, VETH1)]:
     ip(f"netns exec {net} /usr/sbin/tc qdisc add dev {iface} root netem  \
          corrupt {PACKET_CORRUPTION} loss {PACKET_LOSS} duplicate  \
          {PACKET_DUPLICATE}")
+
+print("TAP version 13")
+print("1..1")
 
 # add a timeout
 if args.timeout > 0:
@@ -178,7 +211,7 @@ nr_recv = 0
 
 while nr_send < NUM_PACKETS:
     # Send as much as we can without blocking
-    print("sending...", nr_send, nr_recv)
+    ksft_pr("sending...", nr_send, nr_recv)
     while nr_send < NUM_PACKETS:
         send_data = hashlib.sha256(
             f'packet {nr_send}'.encode('utf-8')).hexdigest().encode('utf-8')
@@ -192,7 +225,7 @@ while nr_send < NUM_PACKETS:
             send_hashes.setdefault((sender.fileno(), receiver.fileno()),
                     hashlib.sha256()).update(f'<{send_data}>'.encode('utf-8'))
             nr_send = nr_send + 1
-        except BlockingIOError as e:
+        except BlockingIOError:
             break
         except OSError as e:
             if e.errno in [errno.ENOBUFS, errno.ECONNRESET, errno.EPIPE]:
@@ -200,7 +233,7 @@ while nr_send < NUM_PACKETS:
             raise
 
     # Receive as much as we can without blocking
-    print("receiving...", nr_send, nr_recv)
+    ksft_pr("receiving...", nr_send, nr_recv)
     while nr_recv < nr_send:
         for fileno, eventmask in ep.poll():
             receiver = fileno_to_socket[fileno]
@@ -214,7 +247,7 @@ while nr_send < NUM_PACKETS:
                             receiver.fileno()), hashlib.sha256()).update(
                                     f'<{recv_data}>'.encode('utf-8'))
                         nr_recv = nr_recv + 1
-                    except BlockingIOError as e:
+                    except BlockingIOError:
                         break
 
     # exercise net/rds/tcp.c:rds_tcp_sysctl_reset()
@@ -222,7 +255,7 @@ while nr_send < NUM_PACKETS:
         ip(f"netns exec {net} /usr/sbin/sysctl net.rds.tcp.rds_tcp_rcvbuf=10000")
         ip(f"netns exec {net} /usr/sbin/sysctl net.rds.tcp.rds_tcp_sndbuf=10000")
 
-print("done", nr_send, nr_recv)
+ksft_pr("done", nr_send, nr_recv)
 
 # the Python socket module doesn't know these
 RDS_INFO_FIRST = 10000
@@ -245,31 +278,34 @@ for s in sockets:
                 # ignore
                 pass
 
-print(f"getsockopt(): {nr_success}/{nr_error}")
-
-print("Stopping network packet captures")
-for p, pcap_tmp, pcap, fd in tcpdump_procs:
-    p.terminate()
-    p.wait()
-    os.close(fd)
-    shutil.move(pcap_tmp, pcap)
+ksft_pr(f"getsockopt(): {nr_success}/{nr_error}")
+stop_pcaps()
 
 # We're done sending and receiving stuff, now let's check if what
 # we received is what we sent.
+ret = 0
 for (sender, receiver), send_hash in send_hashes.items():
     recv_hash = recv_hashes.get((sender, receiver))
 
     if recv_hash is None:
-        print("FAIL: No data received")
-        sys.exit(1)
+        ksft_pr("FAIL: No data received")
+        ret = 1
+        break
 
     if send_hash.hexdigest() != recv_hash.hexdigest():
-        print("FAIL: Send/recv mismatch")
-        print("hash expected:", send_hash.hexdigest())
-        print("hash received:", recv_hash.hexdigest())
-        sys.exit(1)
+        ksft_pr("FAIL: Send/recv mismatch")
+        ksft_pr("hash expected:", send_hash.hexdigest())
+        ksft_pr("hash received:", recv_hash.hexdigest())
+        ret = 1
+        break
 
-    print(f"{sender}/{receiver}: ok")
+    ksft_pr(f"{sender}/{receiver}: ok")
 
-print("Success")
-sys.exit(0)
+if ret == 0:
+    ksft_pr("Success")
+    print("ok 1 rds selftest")
+else:
+    print("not ok 1 rds selftest")
+
+ksft_pr(f"Totals: pass:{1-ret} fail:{ret} skip:0")
+sys.exit(ret)
