@@ -156,8 +156,8 @@ static int ota7290b_probe(struct mipi_dsi_device *dsi)
 	ctx = devm_drm_panel_alloc(&dsi->dev, struct ota7290b, panel,
 				   &ota7290b_funcs,
 				   DRM_MODE_CONNECTOR_DSI);
-	if (!ctx)
-		return -ENOMEM;
+	if (IS_ERR(ctx))
+		return PTR_ERR(ctx);
 	mipi_dsi_set_drvdata(dsi, ctx);
 	ctx->dsi = dsi;
 

@@ -463,19 +463,19 @@ static void drm_atomic_crtc_print_state(struct drm_printer *p,
 	struct drm_crtc *crtc = state->crtc;
 
 	drm_printf(p, "crtc[%u]: %s\n", crtc->base.id, crtc->name);
-	drm_printf(p, "\tenable=%d\n", state->enable);
-	drm_printf(p, "\tactive=%d\n", state->active);
-	drm_printf(p, "\tself_refresh_active=%d\n", state->self_refresh_active);
-	drm_printf(p, "\tplanes_changed=%d\n", state->planes_changed);
-	drm_printf(p, "\tmode_changed=%d\n", state->mode_changed);
-	drm_printf(p, "\tactive_changed=%d\n", state->active_changed);
-	drm_printf(p, "\tconnectors_changed=%d\n", state->connectors_changed);
-	drm_printf(p, "\tcolor_mgmt_changed=%d\n", state->color_mgmt_changed);
-	drm_printf(p, "\tplane_mask=%x\n", state->plane_mask);
-	drm_printf(p, "\tconnector_mask=%x\n", state->connector_mask);
-	drm_printf(p, "\tencoder_mask=%x\n", state->encoder_mask);
-	drm_printf(p, "\tmode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(&state->mode));
-	drm_printf(p, "\tbackground_color=%llx\n", state->background_color);
+	drm_printf_indent(p, 1, "enable=%d\n", state->enable);
+	drm_printf_indent(p, 1, "active=%d\n", state->active);
+	drm_printf_indent(p, 1, "self_refresh_active=%d\n", state->self_refresh_active);
+	drm_printf_indent(p, 1, "planes_changed=%d\n", state->planes_changed);
+	drm_printf_indent(p, 1, "mode_changed=%d\n", state->mode_changed);
+	drm_printf_indent(p, 1, "active_changed=%d\n", state->active_changed);
+	drm_printf_indent(p, 1, "connectors_changed=%d\n", state->connectors_changed);
+	drm_printf_indent(p, 1, "color_mgmt_changed=%d\n", state->color_mgmt_changed);
+	drm_printf_indent(p, 1, "plane_mask=%x\n", state->plane_mask);
+	drm_printf_indent(p, 1, "connector_mask=%x\n", state->connector_mask);
+	drm_printf_indent(p, 1, "encoder_mask=%x\n", state->encoder_mask);
+	drm_printf_indent(p, 1, "mode: " DRM_MODE_FMT "\n", DRM_MODE_ARG(&state->mode));
+	drm_printf_indent(p, 1, "background_color=%llx\n", state->background_color);
 
 	if (crtc->funcs->atomic_print_state)
 		crtc->funcs->atomic_print_state(p, state);
@@ -818,38 +818,38 @@ static void drm_atomic_colorop_print_state(struct drm_printer *p,
 	struct drm_colorop *colorop = state->colorop;
 
 	drm_printf(p, "colorop[%u]:\n", colorop->base.id);
-	drm_printf(p, "\ttype=%s\n", drm_get_colorop_type_name(colorop->type));
+	drm_printf_indent(p, 1, "type=%s\n", drm_get_colorop_type_name(colorop->type));
 	if (colorop->bypass_property)
-		drm_printf(p, "\tbypass=%u\n", state->bypass);
+		drm_printf_indent(p, 1, "bypass=%u\n", state->bypass);
 
 	switch (colorop->type) {
 	case DRM_COLOROP_1D_CURVE:
-		drm_printf(p, "\tcurve_1d_type=%s\n",
-			   drm_get_colorop_curve_1d_type_name(state->curve_1d_type));
+		drm_printf_indent(p, 1, "curve_1d_type=%s\n",
+				  drm_get_colorop_curve_1d_type_name(state->curve_1d_type));
 		break;
 	case DRM_COLOROP_1D_LUT:
-		drm_printf(p, "\tsize=%d\n", colorop->size);
-		drm_printf(p, "\tinterpolation=%s\n",
-			   drm_get_colorop_lut1d_interpolation_name(colorop->lut1d_interpolation));
-		drm_printf(p, "\tdata blob id=%d\n", state->data ? state->data->base.id : 0);
+		drm_printf_indent(p, 1, "size=%d\n", colorop->size);
+		drm_printf_indent(p, 1, "interpolation=%s\n",
+				  drm_get_colorop_lut1d_interpolation_name(colorop->lut1d_interpolation));
+		drm_printf_indent(p, 1, "data blob id=%d\n", state->data ? state->data->base.id : 0);
 		break;
 	case DRM_COLOROP_CTM_3X4:
-		drm_printf(p, "\tdata blob id=%d\n", state->data ? state->data->base.id : 0);
+		drm_printf_indent(p, 1, "data blob id=%d\n", state->data ? state->data->base.id : 0);
 		break;
 	case DRM_COLOROP_MULTIPLIER:
-		drm_printf(p, "\tmultiplier=%llu\n", state->multiplier);
+		drm_printf_indent(p, 1, "multiplier=%llu\n", state->multiplier);
 		break;
 	case DRM_COLOROP_3D_LUT:
-		drm_printf(p, "\tsize=%d\n", colorop->size);
-		drm_printf(p, "\tinterpolation=%s\n",
-			   drm_get_colorop_lut3d_interpolation_name(colorop->lut3d_interpolation));
-		drm_printf(p, "\tdata blob id=%d\n", state->data ? state->data->base.id : 0);
+		drm_printf_indent(p, 1, "size=%d\n", colorop->size);
+		drm_printf_indent(p, 1, "interpolation=%s\n",
+				  drm_get_colorop_lut3d_interpolation_name(colorop->lut3d_interpolation));
+		drm_printf_indent(p, 1, "data blob id=%d\n", state->data ? state->data->base.id : 0);
 		break;
 	default:
 		break;
 	}
 
-	drm_printf(p, "\tnext=%d\n", colorop->next ? colorop->next->base.id : 0);
+	drm_printf_indent(p, 1, "next=%d\n", colorop->next ? colorop->next->base.id : 0);
 }
 
 static void drm_atomic_plane_print_state(struct drm_printer *p,
@@ -860,21 +860,21 @@ static void drm_atomic_plane_print_state(struct drm_printer *p,
 	struct drm_rect dest = drm_plane_state_dest(state);
 
 	drm_printf(p, "plane[%u]: %s\n", plane->base.id, plane->name);
-	drm_printf(p, "\tcrtc=%s\n", state->crtc ? state->crtc->name : "(null)");
-	drm_printf(p, "\tfb=%u\n", state->fb ? state->fb->base.id : 0);
+	drm_printf_indent(p, 1, "crtc=%s\n", state->crtc ? state->crtc->name : "(null)");
+	drm_printf_indent(p, 1, "fb=%u\n", state->fb ? state->fb->base.id : 0);
 	if (state->fb)
 		drm_framebuffer_print_info(p, 2, state->fb);
-	drm_printf(p, "\tcrtc-pos=" DRM_RECT_FMT "\n", DRM_RECT_ARG(&dest));
-	drm_printf(p, "\tsrc-pos=" DRM_RECT_FP_FMT "\n", DRM_RECT_FP_ARG(&src));
-	drm_printf(p, "\trotation=%x\n", state->rotation);
-	drm_printf(p, "\tnormalized-zpos=%x\n", state->normalized_zpos);
-	drm_printf(p, "\tcolor-encoding=%s\n",
-		   drm_get_color_encoding_name(state->color_encoding));
-	drm_printf(p, "\tcolor-range=%s\n",
-		   drm_get_color_range_name(state->color_range));
-	drm_printf(p, "\tcolor_mgmt_changed=%d\n", state->color_mgmt_changed);
-	drm_printf(p, "\tcolor-pipeline=%d\n",
-		   state->color_pipeline ? state->color_pipeline->base.id : 0);
+	drm_printf_indent(p, 1, "crtc-pos=" DRM_RECT_FMT "\n", DRM_RECT_ARG(&dest));
+	drm_printf_indent(p, 1, "src-pos=" DRM_RECT_FP_FMT "\n", DRM_RECT_FP_ARG(&src));
+	drm_printf_indent(p, 1, "rotation=%x\n", state->rotation);
+	drm_printf_indent(p, 1, "normalized-zpos=%x\n", state->normalized_zpos);
+	drm_printf_indent(p, 1, "color-encoding=%s\n",
+			  drm_get_color_encoding_name(state->color_encoding));
+	drm_printf_indent(p, 1, "color-range=%s\n",
+			  drm_get_color_range_name(state->color_range));
+	drm_printf_indent(p, 1, "color_mgmt_changed=%d\n", state->color_mgmt_changed);
+	drm_printf_indent(p, 1, "color-pipeline=%d\n",
+			  state->color_pipeline ? state->color_pipeline->base.id : 0);
 	if (plane->funcs->atomic_print_state)
 		plane->funcs->atomic_print_state(p, state);
 }
@@ -1347,27 +1347,27 @@ static void drm_atomic_connector_print_state(struct drm_printer *p,
 	struct drm_connector *connector = state->connector;
 
 	drm_printf(p, "connector[%u]: %s\n", connector->base.id, connector->name);
-	drm_printf(p, "\tcrtc=%s\n", state->crtc ? state->crtc->name : "(null)");
-	drm_printf(p, "\tself_refresh_aware=%d\n", state->self_refresh_aware);
-	drm_printf(p, "\tinterlace_allowed=%d\n", connector->interlace_allowed);
-	drm_printf(p, "\tycbcr_420_allowed=%d\n", connector->ycbcr_420_allowed);
-	drm_printf(p, "\tmax_requested_bpc=%d\n", state->max_requested_bpc);
-	drm_printf(p, "\tcolorspace=%s\n", drm_get_colorspace_name(state->colorspace));
+	drm_printf_indent(p, 1, "crtc=%s\n", state->crtc ? state->crtc->name : "(null)");
+	drm_printf_indent(p, 1, "self_refresh_aware=%d\n", state->self_refresh_aware);
+	drm_printf_indent(p, 1, "interlace_allowed=%d\n", connector->interlace_allowed);
+	drm_printf_indent(p, 1, "ycbcr_420_allowed=%d\n", connector->ycbcr_420_allowed);
+	drm_printf_indent(p, 1, "max_requested_bpc=%d\n", state->max_requested_bpc);
+	drm_printf_indent(p, 1, "colorspace=%s\n", drm_get_colorspace_name(state->colorspace));
 
 	if (connector->connector_type == DRM_MODE_CONNECTOR_HDMIA ||
 	    connector->connector_type == DRM_MODE_CONNECTOR_HDMIB) {
-		drm_printf(p, "\tbroadcast_rgb=%s\n",
-			   drm_hdmi_connector_get_broadcast_rgb_name(state->hdmi.broadcast_rgb));
-		drm_printf(p, "\tis_limited_range=%c\n", state->hdmi.is_limited_range ? 'y' : 'n');
-		drm_printf(p, "\toutput_bpc=%u\n", state->hdmi.output_bpc);
-		drm_printf(p, "\toutput_format=%s\n",
-			   drm_hdmi_connector_get_output_format_name(state->hdmi.output_format));
-		drm_printf(p, "\ttmds_char_rate=%llu\n", state->hdmi.tmds_char_rate);
+		drm_printf_indent(p, 1, "broadcast_rgb=%s\n",
+				  drm_hdmi_connector_get_broadcast_rgb_name(state->hdmi.broadcast_rgb));
+		drm_printf_indent(p, 1, "is_limited_range=%c\n", state->hdmi.is_limited_range ? 'y' : 'n');
+		drm_printf_indent(p, 1, "output_bpc=%u\n", state->hdmi.output_bpc);
+		drm_printf_indent(p, 1, "output_format=%s\n",
+				  drm_hdmi_connector_get_output_format_name(state->hdmi.output_format));
+		drm_printf_indent(p, 1, "tmds_char_rate=%llu\n", state->hdmi.tmds_char_rate);
 	}
 
 	if (connector->connector_type == DRM_MODE_CONNECTOR_WRITEBACK)
 		if (state->writeback_job && state->writeback_job->fb)
-			drm_printf(p, "\tfb=%d\n", state->writeback_job->fb->base.id);
+			drm_printf_indent(p, 1, "fb=%d\n", state->writeback_job->fb->base.id);
 
 	if (connector->funcs->atomic_print_state)
 		connector->funcs->atomic_print_state(p, state);

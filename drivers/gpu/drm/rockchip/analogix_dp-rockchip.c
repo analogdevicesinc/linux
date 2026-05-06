@@ -395,7 +395,7 @@ static int rockchip_dp_bind(struct device *dev, struct device *master,
 		goto err_cleanup_encoder;
 	}
 
-	return drm_connector_attach_encoder(connector, dp->plat_data.encoder);
+	return 0;
 err_cleanup_encoder:
 	dp->encoder.encoder.funcs->destroy(&dp->encoder.encoder);
 	return ret;

@@ -104,6 +104,8 @@ struct amdxdna_fw_ver {
 	u32 build;
 };
 
+struct amdxdna_carveout;
+
 struct amdxdna_dev {
 	struct drm_device		ddev;
 	struct amdxdna_dev_hdl		*dev_handle;
@@ -121,6 +123,8 @@ struct amdxdna_dev {
 	struct iova_domain		iovad;
 	/* Accurate board name queried from firmware, or default_vbnv as fallback */
 	const char			*vbnv;
+
+	struct amdxdna_carveout		*carveout;
 };
 
 /*
@@ -172,11 +176,11 @@ void amdxdna_sysfs_fini(struct amdxdna_dev *xdna);
 
 int amdxdna_iommu_init(struct amdxdna_dev *xdna);
 void amdxdna_iommu_fini(struct amdxdna_dev *xdna);
-int amdxdna_iommu_map_bo(struct amdxdna_dev *xdna, struct amdxdna_gem_obj *abo);
-void amdxdna_iommu_unmap_bo(struct amdxdna_dev *xdna, struct amdxdna_gem_obj *abo);
 void *amdxdna_iommu_alloc(struct amdxdna_dev *xdna, size_t size, dma_addr_t *dma_addr);
 void amdxdna_iommu_free(struct amdxdna_dev *xdna, size_t size,
 			void *cpu_addr, dma_addr_t dma_addr);
+int amdxdna_dma_map_bo(struct amdxdna_dev *xdna, struct amdxdna_gem_obj *abo);
+void amdxdna_dma_unmap_bo(struct amdxdna_dev *xdna, struct amdxdna_gem_obj *abo);
 
 static inline bool amdxdna_iova_on(struct amdxdna_dev *xdna)
 {

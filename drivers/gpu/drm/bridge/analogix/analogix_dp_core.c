@@ -1486,7 +1486,7 @@ int analogix_dp_bind(struct analogix_dp_device *dp, struct drm_device *drm_dev)
 		dp->plat_data->next_bridge = devm_drm_panel_bridge_add(dp->dev,
 								       dp->plat_data->panel);
 		if (IS_ERR(dp->plat_data->next_bridge)) {
-			ret = PTR_ERR(bridge);
+			ret = PTR_ERR(dp->plat_data->next_bridge);
 			goto err_unregister_aux;
 		}
 	}

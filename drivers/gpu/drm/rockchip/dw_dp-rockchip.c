@@ -111,7 +111,7 @@ static int dw_dp_rockchip_bind(struct device *dev, struct device *master, void *
 		return dev_err_probe(dev, PTR_ERR(connector),
 				     "Failed to init bridge connector");
 
-	return drm_connector_attach_encoder(connector, encoder);
+	return 0;
 }
 
 static const struct component_ops dw_dp_rockchip_component_ops = {

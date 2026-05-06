@@ -514,7 +514,6 @@ int amdxdna_cmd_submit(struct amdxdna_client *client,
 		goto unlock_srcu;
 	}
 
-
 	job->hwctx = hwctx;
 	job->mm = current->mm;
 
@@ -611,6 +610,8 @@ int amdxdna_drm_submit_cmd_ioctl(struct drm_device *dev, void *data, struct drm_
 
 	if (args->ext || args->ext_flags)
 		return -EINVAL;
+
+	trace_amdxdna_debug_point(current->comm, args->type, "job received");
 
 	switch (args->type) {
 	case AMDXDNA_CMD_SUBMIT_EXEC_BUF:

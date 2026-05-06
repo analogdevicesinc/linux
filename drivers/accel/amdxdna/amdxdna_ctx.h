@@ -119,6 +119,7 @@ struct amdxdna_hwctx {
 	container_of(j, struct amdxdna_sched_job, base)
 
 enum amdxdna_job_opcode {
+	DEFAULT_IO,
 	SYNC_DEBUG_BO,
 	ATTACH_DEBUG_BO,
 	DETACH_DEBUG_BO,

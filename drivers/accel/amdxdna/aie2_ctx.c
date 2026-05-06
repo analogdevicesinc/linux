@@ -64,6 +64,7 @@ static void aie2_job_release(struct kref *ref)
 	struct amdxdna_sched_job *job;
 
 	job = container_of(ref, struct amdxdna_sched_job, refcnt);
+
 	amdxdna_sched_job_cleanup(job);
 	atomic64_inc(&job->hwctx->job_free_cnt);
 	wake_up(&job->hwctx->priv->job_free_wq);
@@ -195,7 +196,8 @@ aie2_sched_notify(struct amdxdna_sched_job *job)
 {
 	struct dma_fence *fence = job->fence;
 
-	trace_xdna_job(&job->base, job->hwctx->name, "signaled fence", job->seq);
+	trace_xdna_job(&job->base, job->hwctx->name, "signaling fence",
+		       job->seq, job->drv_cmd ? job->drv_cmd->opcode : DEFAULT_IO);
 
 	aie2_tdr_signal(job->hwctx->client->xdna);
 	job->hwctx->priv->completed++;
@@ -366,6 +368,9 @@ aie2_sched_job_run(struct drm_sched_job *sched_job)
 	struct dma_fence *fence;
 	int ret;
 
+	trace_xdna_job(sched_job, hwctx->name, "job run",
+		       job->seq, job->drv_cmd ? job->drv_cmd->opcode : DEFAULT_IO);
+
 	if (!hwctx->priv->mbox_chann)
 		return NULL;
 
@@ -409,7 +414,8 @@ out:
 	} else {
 		aie2_tdr_signal(hwctx->client->xdna);
 	}
-	trace_xdna_job(sched_job, hwctx->name, "sent to device", job->seq);
+	trace_xdna_job(sched_job, hwctx->name, "sent to device",
+		       job->seq, job->drv_cmd ? job->drv_cmd->opcode : DEFAULT_IO);
 
 	return fence;
 }
@@ -419,7 +425,8 @@ static void aie2_sched_job_free(struct drm_sched_job *sched_job)
 	struct amdxdna_sched_job *job = drm_job_to_xdna_job(sched_job);
 	struct amdxdna_hwctx *hwctx = job->hwctx;
 
-	trace_xdna_job(sched_job, hwctx->name, "job free", job->seq);
+	trace_xdna_job(sched_job, hwctx->name, "job free",
+		       job->seq, job->drv_cmd ? job->drv_cmd->opcode : DEFAULT_IO);
 	if (!job->job_done)
 		up(&hwctx->priv->job_sem);
 
@@ -437,7 +444,6 @@ aie2_sched_job_timedout(struct drm_sched_job *sched_job)
 	int ret;
 
 	xdna = hwctx->client->xdna;
-	trace_xdna_job(sched_job, hwctx->name, "job timedout", job->seq);
 
 	guard(mutex)(&xdna->dev_lock);
 
@@ -540,22 +546,24 @@ static int aie2_alloc_resource(struct amdxdna_hwctx *hwctx)
 {
 	struct amdxdna_dev *xdna = hwctx->client->xdna;
 	struct alloc_requests *xrs_req;
+	u32 temporal_only_col = 0;
 	int ret;
-
-	if (AIE_FEATURE_ON(&xdna->dev_handle->aie, AIE2_TEMPORAL_ONLY)) {
-		hwctx->num_unused_col = xdna->dev_handle->total_col - hwctx->num_col;
-		hwctx->num_col = xdna->dev_handle->total_col;
-		return aie2_create_context(xdna->dev_handle, hwctx);
-	}
 
 	xrs_req = kzalloc_obj(*xrs_req);
 	if (!xrs_req)
 		return -ENOMEM;
 
-	xrs_req->cdo.start_cols = hwctx->col_list;
-	xrs_req->cdo.cols_len = hwctx->col_list_len;
-	xrs_req->cdo.ncols = hwctx->num_col;
-	xrs_req->cdo.qos_cap.opc = hwctx->max_opc;
+	if (AIE_FEATURE_ON(&xdna->dev_handle->aie, AIE2_TEMPORAL_ONLY)) {
+		xrs_req->cdo.start_cols = &temporal_only_col;
+		xrs_req->cdo.cols_len = 1;
+		xrs_req->cdo.ncols = xdna->dev_handle->total_col;
+	} else {
+		xrs_req->cdo.start_cols = hwctx->col_list;
+		xrs_req->cdo.cols_len = hwctx->col_list_len;
+		xrs_req->cdo.ncols = hwctx->num_col;
+	}
+	/* Use platform opc */
+	xrs_req->cdo.qos_cap.opc = xdna->dev_handle->priv->col_opc * hwctx->num_col;
 
 	xrs_req->rqos.gops = hwctx->qos.gops;
 	xrs_req->rqos.fps = hwctx->qos.fps;
@@ -579,15 +587,9 @@ static void aie2_release_resource(struct amdxdna_hwctx *hwctx)
 	struct amdxdna_dev *xdna = hwctx->client->xdna;
 	int ret;
 
-	if (AIE_FEATURE_ON(&xdna->dev_handle->aie, AIE2_TEMPORAL_ONLY)) {
-		ret = aie2_destroy_context(xdna->dev_handle, hwctx);
-		if (ret && ret != -ENODEV)
-			XDNA_ERR(xdna, "Destroy temporal only context failed, ret %d", ret);
-	} else {
-		ret = xrs_release_resource(xdna->xrs_hdl, (uintptr_t)hwctx);
-		if (ret)
-			XDNA_ERR(xdna, "Release AIE resource failed, ret %d", ret);
-	}
+	ret = xrs_release_resource(xdna->xrs_hdl, (uintptr_t)hwctx);
+	if (ret)
+		XDNA_ERR(xdna, "Release AIE resource failed, ret %d", ret);
 }
 
 static int aie2_ctx_syncobj_create(struct amdxdna_hwctx *hwctx)

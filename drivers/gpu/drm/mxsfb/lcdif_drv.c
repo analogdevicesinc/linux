@@ -99,12 +99,6 @@ static int lcdif_attach_bridge(struct lcdif_drm_private *lcdif)
 			return dev_err_probe(dev, PTR_ERR(connector),
 					     "Failed to init bridge_connector for endpoint%u\n",
 					     of_ep.id);
-
-		ret = drm_connector_attach_encoder(connector, encoder);
-		if (ret)
-			return dev_err_probe(dev, ret,
-					     "Failed to attach connector for endpoint%u\n",
-					     of_ep.id);
 	}
 
 	return 0;

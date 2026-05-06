@@ -14,7 +14,9 @@
 #include <linux/iommu.h>
 #include <linux/pci.h>
 
+#include "amdxdna_cbuf.h"
 #include "amdxdna_ctx.h"
+#include "amdxdna_debugfs.h"
 #include "amdxdna_gem.h"
 #include "amdxdna_pci_drv.h"
 #include "amdxdna_pm.h"
@@ -67,11 +69,40 @@ static const struct amdxdna_device_id amdxdna_ids[] = {
 	{0}
 };
 
+static int amdxdna_sva_init(struct amdxdna_client *client)
+{
+	struct amdxdna_dev *xdna = client->xdna;
+
+	client->sva = iommu_sva_bind_device(xdna->ddev.dev, client->mm);
+	if (IS_ERR(client->sva)) {
+		XDNA_ERR(xdna, "SVA bind device failed, ret %ld", PTR_ERR(client->sva));
+		return PTR_ERR(client->sva);
+	}
+
+	client->pasid = iommu_sva_get_pasid(client->sva);
+	if (client->pasid == IOMMU_PASID_INVALID) {
+		iommu_sva_unbind_device(client->sva);
+		XDNA_ERR(xdna, "SVA get pasid failed");
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
+static void amdxdna_sva_fini(struct amdxdna_client *client)
+{
+	if (IS_ERR_OR_NULL(client->sva))
+		return;
+
+	iommu_sva_unbind_device(client->sva);
+	client->sva = NULL;
+	client->pasid = IOMMU_PASID_INVALID;
+}
+
 static int amdxdna_drm_open(struct drm_device *ddev, struct drm_file *filp)
 {
 	struct amdxdna_dev *xdna = to_xdna_dev(ddev);
 	struct amdxdna_client *client;
-	int ret;
 
 	client = kzalloc_obj(*client);
 	if (!client)
@@ -80,22 +111,13 @@ static int amdxdna_drm_open(struct drm_device *ddev, struct drm_file *filp)
 	client->pid = pid_nr(rcu_access_pointer(filp->pid));
 	client->xdna = xdna;
 	client->pasid = IOMMU_PASID_INVALID;
+	client->mm = current->mm;
 
 	if (!amdxdna_iova_on(xdna)) {
-		client->sva = iommu_sva_bind_device(xdna->ddev.dev, current->mm);
-		if (IS_ERR(client->sva)) {
-			ret = PTR_ERR(client->sva);
-			XDNA_ERR(xdna, "SVA bind device failed, ret %d", ret);
-			goto failed;
-		}
-		client->pasid = iommu_sva_get_pasid(client->sva);
-		if (client->pasid == IOMMU_PASID_INVALID) {
-			XDNA_ERR(xdna, "SVA get pasid failed");
-			ret = -ENODEV;
-			goto unbind_sva;
-		}
+		/* No need to fail open since user may use pa + carveout later. */
+		if (amdxdna_sva_init(client))
+			XDNA_WARN(xdna, "PASID not available for pid %d", client->pid);
 	}
-	client->mm = current->mm;
 	mmgrab(client->mm);
 	init_srcu_struct(&client->hwctx_srcu);
 	xa_init_flags(&client->hwctx_xa, XA_FLAGS_ALLOC);
@@ -110,14 +132,6 @@ static int amdxdna_drm_open(struct drm_device *ddev, struct drm_file *filp)
 
 	XDNA_DBG(xdna, "pid %d opened", client->pid);
 	return 0;
-
-unbind_sva:
-	if (!IS_ERR_OR_NULL(client->sva))
-		iommu_sva_unbind_device(client->sva);
-failed:
-	kfree(client);
-
-	return ret;
 }
 
 static void amdxdna_client_cleanup(struct amdxdna_client *client)
@@ -131,11 +145,8 @@ static void amdxdna_client_cleanup(struct amdxdna_client *client)
 		drm_gem_object_put(to_gobj(client->dev_heap));
 
 	mutex_destroy(&client->mm_lock);
-
-	if (!IS_ERR_OR_NULL(client->sva))
-		iommu_sva_unbind_device(client->sva);
 	mmdrop(client->mm);
-
+	amdxdna_sva_fini(client);
 	kfree(client);
 }
 
@@ -242,15 +253,17 @@ static void amdxdna_show_fdinfo(struct drm_printer *p, struct drm_file *filp)
 
 	/*
 	 * Note for driver specific BO memory usage stat.
-	 * Total memory alloc = amdxdna-internal-alloc + amdxdna-external-alloc
+	 * Total memory in use = amdxdna-internal-alloc + amdxdna-external-alloc, which
+	 * includes both imported and created BOs. To avoid double counts, it includes
+	 * HEAP BO, but not DEV BO. DEV BO is counted by amdxdna-heap-alloc.
 	 */
 	drm_fdinfo_print_size(p, drv_name, "heap", "alloc", heap_usage);
 	drm_fdinfo_print_size(p, drv_name, "internal", "alloc", internal_usage);
 	drm_fdinfo_print_size(p, drv_name, "external", "alloc", external_usage);
 	/*
 	 * Note for DRM standard BO memory stat.
-	 * drm-total-memory counts both DEV BO and HEAP BO
-	 * drm-shared-memory counts BO imported
+	 * drm-total-memory counts both DEV BO and HEAP BO. The DEV BO size is double counted.
+	 * drm-shared-memory counts BO shared with other processes/devices.
 	 */
 	drm_show_memory_stats(p, filp);
 }
@@ -299,24 +312,37 @@ amdxdna_get_dev_info(struct pci_dev *pdev)
 	return NULL;
 }
 
+static void amdxdna_xdna_drm_release(struct drm_device *drm, void *res)
+{
+	struct amdxdna_dev *xdna = res;
+
+	amdxdna_carveout_fini(xdna);
+}
+
 static int amdxdna_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	struct device *dev = &pdev->dev;
 	struct amdxdna_dev *xdna;
+	struct drm_device *ddev;
 	int ret;
 
 	xdna = devm_drm_dev_alloc(dev, &amdxdna_drm_drv, typeof(*xdna), ddev);
 	if (IS_ERR(xdna))
 		return PTR_ERR(xdna);
+	ddev = &xdna->ddev;
 
 	xdna->dev_info = amdxdna_get_dev_info(pdev);
 	if (!xdna->dev_info)
 		return -ENODEV;
 
-	drmm_mutex_init(&xdna->ddev, &xdna->dev_lock);
+	drmm_mutex_init(ddev, &xdna->dev_lock);
 	init_rwsem(&xdna->notifier_lock);
 	INIT_LIST_HEAD(&xdna->client_list);
 	pci_set_drvdata(pdev, xdna);
+
+	ret = drmm_add_action(ddev, amdxdna_xdna_drm_release, xdna);
+	if (ret)
+		return ret;
 
 	if (IS_ENABLED(CONFIG_LOCKDEP)) {
 		fs_reclaim_acquire(GFP_KERNEL);
@@ -348,12 +374,13 @@ static int amdxdna_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto failed_dev_fini;
 	}
 
-	ret = drm_dev_register(&xdna->ddev, 0);
+	ret = drm_dev_register(ddev, 0);
 	if (ret) {
 		XDNA_ERR(xdna, "DRM register failed, ret %d", ret);
 		goto failed_sysfs_fini;
 	}
 
+	amdxdna_debugfs_init(xdna);
 	return 0;
 
 failed_sysfs_fini:

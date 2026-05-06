@@ -448,8 +448,6 @@ static int imx_lcdc_probe(struct platform_device *pdev)
 	if (IS_ERR(lcdc->connector))
 		return dev_err_probe(drm->dev, PTR_ERR(lcdc->connector), "Cannot init bridge connector\n");
 
-	drm_connector_attach_encoder(lcdc->connector, &lcdc->pipe.encoder);
-
 	/*
 	 * The LCDC controller does not have an enable bit. The
 	 * controller starts directly when the clocks are enabled.

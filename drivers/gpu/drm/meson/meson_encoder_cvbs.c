@@ -279,8 +279,6 @@ int meson_encoder_cvbs_probe(struct meson_drm *priv)
 		return dev_err_probe(priv->dev, PTR_ERR(connector),
 				     "Unable to create CVBS bridge connector\n");
 
-	drm_connector_attach_encoder(connector, &meson_encoder_cvbs->encoder);
-
 	priv->encoders[MESON_ENC_CVBS] = meson_encoder_cvbs;
 
 	return 0;

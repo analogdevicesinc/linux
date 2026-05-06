@@ -29,7 +29,6 @@
 #ifndef VMWGFX_VKMS_H_
 #define VMWGFX_VKMS_H_
 
-#include <linux/hrtimer_types.h>
 #include <linux/types.h>
 
 struct drm_atomic_commit;
@@ -45,6 +44,7 @@ bool vmw_vkms_modeset_lock_relaxed(struct drm_crtc *crtc);
 bool vmw_vkms_vblank_trylock(struct drm_crtc *crtc);
 void vmw_vkms_unlock(struct drm_crtc *crtc);
 
+bool vmw_vkms_handle_vblank_timeout(struct drm_crtc *crtc);
 bool vmw_vkms_get_vblank_timestamp(struct drm_crtc *crtc,
 				   int *max_error,
 				   ktime_t *vblank_time,

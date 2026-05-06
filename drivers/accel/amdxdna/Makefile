@@ -12,6 +12,7 @@ amdxdna-y := \
 	aie2_solver.o \
 	aie4_message.o \
 	aie4_pci.o \
+	amdxdna_cbuf.o \
 	amdxdna_ctx.o \
 	amdxdna_gem.o \
 	amdxdna_iommu.o \
@@ -28,4 +29,5 @@ amdxdna-y := \
 	npu6_regs.o
 
 amdxdna-$(CONFIG_PCI_IOV) += aie4_sriov.o
+amdxdna-$(CONFIG_DEBUG_FS) += amdxdna_debugfs.o
 obj-$(CONFIG_DRM_ACCEL_AMDXDNA) = amdxdna.o

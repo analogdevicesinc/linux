@@ -444,8 +444,6 @@ static int adp_setup_mode_config(struct adp_drv_private *adp)
 	if (IS_ERR(adp->connector))
 		return PTR_ERR(adp->connector);
 
-	drm_connector_attach_encoder(adp->connector, adp->encoder);
-
 	ret = drm_vblank_init(drm, drm->mode_config.num_crtc);
 	if (ret < 0) {
 		drm_err(drm, "failed to initialize vblank");

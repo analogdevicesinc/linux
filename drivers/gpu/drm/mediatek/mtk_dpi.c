@@ -1049,7 +1049,6 @@ static int mtk_dpi_bind(struct device *dev, struct device *master, void *data)
 		ret = PTR_ERR(dpi->connector);
 		goto err_cleanup;
 	}
-	drm_connector_attach_encoder(dpi->connector, &dpi->encoder);
 
 	return 0;
 

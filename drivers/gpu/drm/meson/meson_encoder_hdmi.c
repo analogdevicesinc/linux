@@ -433,8 +433,6 @@ int meson_encoder_hdmi_probe(struct meson_drm *priv)
 				    "Unable to create HDMI bridge connector\n");
 		goto err_put_node;
 	}
-	drm_connector_attach_encoder(meson_encoder_hdmi->connector,
-				     &meson_encoder_hdmi->encoder);
 
 	/*
 	 * We should have now in place:

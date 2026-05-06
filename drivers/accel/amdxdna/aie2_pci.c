@@ -246,6 +246,7 @@ static int aie2_xrs_load(void *cb_arg, struct xrs_action_load *action)
 	xdna = hwctx->client->xdna;
 
 	hwctx->start_col = action->part.start_col;
+	hwctx->num_unused_col = action->part.ncols - hwctx->num_col;
 	hwctx->num_col = action->part.ncols;
 	ret = aie2_create_context(xdna->dev_handle, hwctx);
 	if (ret)
@@ -594,7 +595,7 @@ static int aie2_init(struct amdxdna_dev *xdna)
 	xrs_cfg.clk_list.num_levels = ndev->max_dpm_level + 1;
 	for (i = 0; i < xrs_cfg.clk_list.num_levels; i++)
 		xrs_cfg.clk_list.cu_clk_list[i] = ndev->priv->dpm_clk_tbl[i].hclk;
-	xrs_cfg.sys_eff_factor = 1;
+	xrs_cfg.sys_eff_factor = 2;
 	xrs_cfg.ddev = &xdna->ddev;
 	xrs_cfg.actions = &aie2_xrs_actions;
 	xrs_cfg.total_col = ndev->total_col;

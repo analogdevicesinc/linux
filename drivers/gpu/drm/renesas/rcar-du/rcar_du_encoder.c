@@ -142,7 +142,7 @@ int rcar_du_encoder_init(struct rcar_du_device *rcdu,
 		return PTR_ERR(connector);
 	}
 
-	return drm_connector_attach_encoder(connector, &renc->base);
+	return 0;
 }
 
 void rcar_du_encoder_cleanup(struct rcar_du_device *rcdu)
