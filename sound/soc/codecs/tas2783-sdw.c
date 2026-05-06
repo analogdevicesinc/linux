@@ -1310,10 +1310,10 @@ static s32 tas_sdw_probe(struct sdw_slave *peripheral,
 			return dev_err_probe(dev, -ENOMEM,
 					     "failed to parse sdca functions");
 
+		function_data->desc = &peripheral->sdca_data.function[i];
+
 		/* Parse the function */
-		ret = sdca_parse_function(dev, peripheral,
-					  &peripheral->sdca_data.function[i],
-					  function_data);
+		ret = sdca_parse_function(dev, peripheral, function_data);
 		if (!ret)
 			tas_dev->sa_func_data = function_data;
 		else

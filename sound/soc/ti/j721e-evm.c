@@ -74,7 +74,6 @@ struct j721e_audio_domain {
 struct j721e_priv {
 	struct device *dev;
 	struct snd_soc_card card;
-	struct snd_soc_dai_link *dai_links;
 	struct snd_soc_codec_conf codec_conf[J721E_CODEC_CONF_COUNT];
 	struct snd_interval rate_range;
 	const struct j721e_audio_match_data *match_data;
@@ -84,6 +83,7 @@ struct j721e_priv {
 	struct j721e_audio_domain audio_domains[J721E_AUDIO_DOMAIN_LAST];
 
 	struct mutex mutex;
+	struct snd_soc_dai_link dai_links[];
 };
 
 static const struct snd_soc_dapm_widget j721e_cpb_dapm_widgets[] = {
@@ -844,33 +844,23 @@ put_dai_node:
 
 static int j721e_soc_probe(struct platform_device *pdev)
 {
-	struct device_node *node = pdev->dev.of_node;
+	const struct j721e_audio_match_data *match;
 	struct snd_soc_card *card;
-	const struct of_device_id *match;
 	struct j721e_priv *priv;
 	int link_cnt, conf_cnt, ret, i;
 
-	if (!node) {
-		dev_err(&pdev->dev, "of node is missing.\n");
-		return -ENODEV;
-	}
-
-	match = of_match_node(j721e_audio_of_match, node);
+	match = of_device_get_match_data(&pdev->dev);
 	if (!match) {
 		dev_err(&pdev->dev, "No compatible match found\n");
 		return -ENODEV;
 	}
 
-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc(&pdev->dev,
+			struct_size(priv, dai_links, match->num_links), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
-	priv->match_data = match->data;
-
-	priv->dai_links = devm_kcalloc(&pdev->dev, priv->match_data->num_links,
-				       sizeof(*priv->dai_links), GFP_KERNEL);
-	if (!priv->dai_links)
-		return -ENOMEM;
+	priv->match_data = match;
 
 	for (i = 0; i < J721E_AUDIO_DOMAIN_LAST; i++)
 		priv->audio_domains[i].parent_clk_id = -1;
