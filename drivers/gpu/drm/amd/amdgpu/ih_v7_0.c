@@ -420,6 +420,9 @@ static int ih_v7_0_irq_init(struct amdgpu_device *adev)
 	if (adev->irq.ih_soft.ring_size)
 		adev->irq.ih_soft.enabled = true;
 
+	if (adev->irq.ih_psp.ring_size)
+		adev->irq.ih_psp.enabled = true;
+
 	return 0;
 }
 
@@ -627,6 +630,10 @@ static int ih_v7_0_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		return r;
 
+	r = amdgpu_ih_ring_init(adev, &adev->irq.ih_psp, IH_PSP_RING_SIZE, true);
+	if (r)
+		return r;
+
 	r = amdgpu_irq_init(adev);
 
 	return r;
@@ -655,7 +662,11 @@ static int ih_v7_0_hw_init(struct amdgpu_ip_block *ip_block)
 
 static int ih_v7_0_hw_fini(struct amdgpu_ip_block *ip_block)
 {
-	ih_v7_0_irq_disable(ip_block->adev);
+	struct amdgpu_device *adev = ip_block->adev;
+
+	ih_v7_0_irq_disable(adev);
+
+	cancel_work_sync(&adev->irq.ih_psp_work);
 
 	return 0;
 }
