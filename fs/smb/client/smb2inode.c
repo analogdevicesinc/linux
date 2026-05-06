@@ -121,6 +121,9 @@ static int check_wsl_eas(struct kvec *rsp_iov)
 	ea = (void *)((u8 *)rsp_iov->iov_base +
 		      le16_to_cpu(rsp->OutputBufferOffset));
 	end = (u8 *)rsp_iov->iov_base + rsp_iov->iov_len;
+	if ((u8 *)ea + outlen > end)
+		return -EINVAL;
+
 	for (;;) {
 		if ((u8 *)ea > end - sizeof(*ea))
 			return -EINVAL;
