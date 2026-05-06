@@ -263,6 +263,8 @@ xvip_graph_entity_start_stop_subdev(struct xvip_composite_device *xdev,
 
 		/* stream-on subdevice */
 		ret = v4l2_subdev_call(subdev, video, s_stream, 1);
+		if (ret == -EALREADY)
+			ret = 0;
 		if (ret < 0 && ret != -ENOIOCTLCMD) {
 			dev_err(xdev->dev,
 				"s_stream on failed on subdev\n");
