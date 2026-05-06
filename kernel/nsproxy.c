@@ -215,7 +215,7 @@ int unshare_nsproxy_namespaces(unsigned long unshare_flags,
 	u64 flags = unshare_flags;
 	int err = 0;
 
-	if (!(flags & (CLONE_NS_ALL & ~CLONE_NEWUSER)))
+	if (!(flags & (CLONE_NS_ALL & ~(CLONE_NEWUSER | UNSHARE_EMPTY_MNTNS))))
 		return 0;
 
 	user_ns = new_cred ? new_cred->user_ns : current_user_ns();
