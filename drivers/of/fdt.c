@@ -391,8 +391,6 @@ void *__unflatten_device_tree(const void *blob,
 	if (!mem)
 		return NULL;
 
-	memset(mem, 0, size);
-
 	*(__be32 *)(mem + size) = cpu_to_be32(0xdeadbeef);
 
 	pr_debug("  unflattening %p...\n", mem);
