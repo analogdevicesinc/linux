@@ -117,7 +117,7 @@ def get_name(ctx):
 def get_description(ctx):
     return "The Linux kernel is the core of any Linux operating system"
 
-def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
+def build_cdx(dist, ctx, source_files, src_root, main_c_command=None, cherry_picks=None):
     """Return a CycloneDX 1.6 dict."""
     kernel_release   = ctx.get("kernel_release")
     kernel           = ctx.get("kernel")
@@ -140,6 +140,10 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
 
     git_url = environ.get('GIT_URL', '')
     purl_out = get_purl_out(ctx)
+
+    pedigree = {}
+    if cherry_picks:
+        pedigree["commits"] = [{"uid": sha} for sha in cherry_picks]
 
     return {
         "bomFormat": "CycloneDX",
@@ -182,6 +186,7 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
                     "name":  "hub.analog.com/component-id",
                     "value": get_component(ctx),
                 }],
+                "pedigree": pedigree
             },
         },
         "components": [],
@@ -202,7 +207,7 @@ def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
     }
 
 
-def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
+def build_spdx(dist, ctx, source_files, src_root, main_c_command=None, cherry_picks=None):
     """Return an SPDX 3.0.1 JSON-LD dict.
 
     Profiles: Core, Software, SimpleLicensing, Build (light).
@@ -411,6 +416,20 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
             "value": main_c_command,
         }]
 
+    if cherry_picks:
+        # ref: https://github.com/spdx/Spdx-Java-Library/issues/302
+        build_elem.setdefault("extension", []).append({
+            "type": "extension_CdxPropertiesExtension",
+            "extension_cdxProperty": [
+                {
+                    "type":                  "extension_CdxPropertyEntry",
+                    "extension_cdxPropName": "git:cherry-pick",
+                    "extension_cdxPropValue": sha,
+                }
+                for sha in cherry_picks
+            ],
+        })
+
     build_input_rel = {
         "type":             "Relationship",
         "spdxId":           _id_src("rel/build-input"),
@@ -513,14 +532,23 @@ def main():
         rel = fp[len(src_root):]
         source_files.add(rel)
 
+    cherry_picks = None
+    cherry_picks_file = path.join(dist, "cherry-picks.txt")
+    if path.isfile(cherry_picks_file):
+        with open(cherry_picks_file) as f:
+            cherry_picks = set(line for line in f.read().splitlines() if line)
+
+    cdx = build_cdx(dist, ctx, source_files, src_root, main_c_command, cherry_picks)
+    spdx = build_spdx(dist, ctx, source_files, src_root, main_c_command, cherry_picks)
+
     cdx_path = path.join(dist, "sbom.cdx.json")
     with open(cdx_path, "w") as f:
-        json.dump(build_cdx(dist, ctx, source_files, src_root, main_c_command), f)
+        json.dump(cdx, f)
     print(f"sbom written to {cdx_path}", file=sys.stderr)
 
     spdx_path = path.join(dist, "sbom.spdx.json")
     with open(spdx_path, "w") as f:
-        json.dump(build_spdx(dist, ctx, source_files, src_root, main_c_command), f)
+        json.dump(spdx, f)
     print(f"sbom written to {spdx_path}", file=sys.stderr)
 
 
