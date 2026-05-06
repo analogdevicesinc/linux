@@ -697,7 +697,7 @@ static int aspeed_spi_dirmap_create(struct spi_mem_dirmap_desc *desc)
 {
 	struct aspeed_spi *aspi = spi_controller_get_devdata(desc->mem->spi->controller);
 	struct aspeed_spi_chip *chip = &aspi->chips[spi_get_chipselect(desc->mem->spi, 0)];
-	struct spi_mem_op *op = &desc->info.op_tmpl;
+	struct spi_mem_op *op = desc->info.op_tmpl;
 	u32 ctl_val;
 	int ret = 0;
 
@@ -769,7 +769,7 @@ static ssize_t aspeed_spi_dirmap_read(struct spi_mem_dirmap_desc *desc,
 	if (chip->ahb_window_size < offset + len || chip->force_user_mode) {
 		int ret;
 
-		ret = aspeed_spi_read_user(chip, &desc->info.op_tmpl, offset, len, buf);
+		ret = aspeed_spi_read_user(chip, desc->info.op_tmpl, offset, len, buf);
 		if (ret < 0)
 			return ret;
 	} else {
