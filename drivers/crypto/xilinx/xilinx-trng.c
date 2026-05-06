@@ -19,7 +19,6 @@
 #include <linux/platform_device.h>
 #include <crypto/aes.h>
 #include <crypto/df_sp80090a.h>
-#include <crypto/internal/drbg.h>
 #include <crypto/internal/cipher.h>
 #include <crypto/internal/rng.h>
 

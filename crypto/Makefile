@@ -178,6 +178,11 @@ obj-$(CONFIG_CRYPTO_ZSTD) += zstd.o
 obj-$(CONFIG_CRYPTO_ECC) += ecc.o
 obj-$(CONFIG_CRYPTO_ESSIV) += essiv.o
 
+# Avoid exceeding stack frame due to excessive gcc inlining in ecc_point_mult()
+ifeq ($(ARCH)$(CONFIG_KASAN_STACK)$(LLVM),army)
+CFLAGS_ecc.o += $(call cc-option,-finline-limit=100)
+endif
+
 ecdh_generic-y += ecdh.o
 ecdh_generic-y += ecdh_helper.o
 obj-$(CONFIG_CRYPTO_ECDH) += ecdh_generic.o
