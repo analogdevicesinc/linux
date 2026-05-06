@@ -773,11 +773,6 @@ static void uhdlc_memclean(struct ucc_hdlc_private *priv)
 	kfree(priv->tx_skbuff);
 	priv->tx_skbuff = NULL;
 
-	if (priv->uf_regs) {
-		iounmap(priv->uf_regs);
-		priv->uf_regs = NULL;
-	}
-
 	if (priv->uccf) {
 		ucc_fast_free(priv->uccf);
 		priv->uccf = NULL;
@@ -1255,12 +1250,12 @@ static void ucc_hdlc_remove(struct platform_device *pdev)
 
 	uhdlc_memclean(priv);
 
-	if (priv->utdm->si_regs) {
+	if (priv->utdm && priv->utdm->si_regs) {
 		iounmap(priv->utdm->si_regs);
 		priv->utdm->si_regs = NULL;
 	}
 
-	if (priv->utdm->siram) {
+	if (priv->utdm && priv->utdm->siram) {
 		iounmap(priv->utdm->siram);
 		priv->utdm->siram = NULL;
 	}
