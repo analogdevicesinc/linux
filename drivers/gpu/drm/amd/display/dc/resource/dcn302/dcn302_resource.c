@@ -1300,7 +1300,7 @@ static bool dcn302_resource_construct(
 	dc->caps.color.dpp.ocsc = 0;
 
 	dc->caps.color.mpc.gamut_remap = 1;
-	dc->caps.color.mpc.num_3dluts = pool->res_cap->num_mpc_3dlut; //3
+	dc->caps.color.mpc.num_3dluts = (uint16_t)pool->res_cap->num_mpc_3dlut;
 	dc->caps.color.mpc.ogam_ram = 1;
 	dc->caps.color.mpc.ogam_rom_caps.srgb = 0;
 	dc->caps.color.mpc.ogam_rom_caps.bt2020 = 0;
@@ -1560,7 +1560,7 @@ struct resource_pool *dcn302_create_resource_pool(const struct dc_init_data *ini
 	if (!pool)
 		return NULL;
 
-	if (dcn302_resource_construct(init_data->num_virtual_links, dc, pool))
+	if (dcn302_resource_construct((uint8_t)init_data->num_virtual_links, dc, pool))
 		return pool;
 
 	BREAK_TO_DEBUGGER();

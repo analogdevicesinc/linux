@@ -929,8 +929,8 @@ static enum bp_result set_dce_clock_v2_1(
 					&atom_clock_type))
 		return BP_RESULT_BADINPUT;
 
-	params.param.dceclksrc  = atom_pll_id;
-	params.param.dceclktype = atom_clock_type;
+	params.param.dceclksrc = (uint8_t)atom_pll_id;
+	params.param.dceclktype = (uint8_t)atom_clock_type;
 
 	if (bp_params->clock_type == DCECLOCK_TYPE_DPREFCLK) {
 		if (bp_params->flags.USE_GENLOCK_AS_SOURCE_FOR_DPREFCLK)

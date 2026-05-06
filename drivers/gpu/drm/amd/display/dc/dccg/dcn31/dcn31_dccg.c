@@ -576,7 +576,7 @@ void dccg31_set_dtbclk_dto(
 
 		// phase / modulo = dtbclk / dtbclk ref
 		modulo = params->ref_dtbclk_khz * 1000;
-		phase = div_u64((((unsigned long long)modulo * req_dtbclk_khz) + params->ref_dtbclk_khz - 1),
+		phase = (uint32_t)div_u64((((unsigned long long)modulo * req_dtbclk_khz) + params->ref_dtbclk_khz - 1),
 				params->ref_dtbclk_khz);
 
 		REG_UPDATE(OTG_PIXEL_RATE_CNTL[params->otg_inst],
@@ -620,7 +620,7 @@ void dccg31_set_audio_dtbclk_dto(
 
 		// phase / modulo = dtbclk / dtbclk ref
 		modulo = params->ref_dtbclk_khz * 1000;
-		phase = div_u64((((unsigned long long)modulo * params->req_audio_dtbclk_khz) + params->ref_dtbclk_khz - 1),
+		phase = (uint32_t)div_u64((((unsigned long long)modulo * params->req_audio_dtbclk_khz) + params->ref_dtbclk_khz - 1),
 			params->ref_dtbclk_khz);
 
 

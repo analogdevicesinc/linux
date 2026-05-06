@@ -666,7 +666,6 @@ static const struct resource_caps res_cap_dcn42 = {
 	.num_vmid = 16,
 	.num_mpc_3dlut = 2,
 	.num_dsc = 4,
-	.num_rmcm = 2,
 };
 
 static const struct dc_plane_cap plane_cap = {
@@ -694,9 +693,13 @@ static const struct dc_debug_options debug_defaults_drv = {
 	.force_abm_enable = false,
 	.clock_trace = true,
 	.disable_pplib_clock_request = false,
-	.disable_dpp_power_gate = true,
-	.disable_hubp_power_gate = true,
-	.disable_optc_power_gate = true,
+	.ignore_pg = false,
+	.disable_dpp_power_gate = false,
+	.disable_hubp_power_gate = false,
+	.disable_optc_power_gate = false,
+	.disable_dsc_power_gate = false,
+	.disable_dio_power_gate = true,
+	.disable_hpo_power_gate = true,
 	.pipe_split_policy = MPC_SPLIT_AVOID,
 	.force_single_disp_pipe_split = false,
 	.disable_dcc = DCC_ENABLE,
@@ -758,7 +761,6 @@ static const struct dc_debug_options debug_defaults_drv = {
 	.min_disp_clk_khz = 50000,
 	.static_screen_wait_frames = 2,
 	.disable_z10 = false,
-	.ignore_pg = true,
 	.disable_stutter_for_wm_program = true,
 	.min_deep_sleep_dcfclk_khz = 8000,
 	.replay_skip_crtc_disabled = true,
@@ -1805,8 +1807,6 @@ static struct resource_funcs dcn42_res_pool_funcs = {
 	.get_panel_config_defaults = dcn42_get_panel_config_defaults,
 	.get_preferred_eng_id_dpia = dcn42_get_preferred_eng_id_dpia,
 	.update_soc_for_wm_a = dcn30_update_soc_for_wm_a,
-	.add_phantom_pipes = dcn32_add_phantom_pipes,
-	.calculate_mall_ways_from_bytes = dcn32_calculate_mall_ways_from_bytes,
 	.prepare_mcache_programming = dcn42_prepare_mcache_programming,
 	.build_pipe_pix_clk_params = dcn42_build_pipe_pix_clk_params,
 	.get_power_profile = dcn401_get_power_profile,
@@ -1896,27 +1896,7 @@ static bool dcn42_resource_construct(
 	dc->caps.cursor_not_scaled = true;
 	dc->caps.min_horizontal_blanking_period = 80;
 	dc->caps.dmdata_alloc_size = 2048;
-	dc->caps.mall_size_per_mem_channel = 4;
-	/* total size = mall per channel * num channels * 1024 * 1024 */
-	dc->caps.mall_size_total = dc->caps.mall_size_per_mem_channel *
-		dc->ctx->dc_bios->vram_info.num_chans * 1048576;
 	dc->caps.cursor_cache_size = dc->caps.max_cursor_size * dc->caps.max_cursor_size * 8;
-	dc->caps.cache_line_size = 64;
-	dc->caps.cache_num_ways = 16;
-
-	/* Calculate the available MALL space */
-	dc->caps.max_cab_allocation_bytes =
-		dcn32_calc_num_avail_chans_for_mall(dc, dc->ctx->dc_bios->vram_info.num_chans) *
-				dc->caps.mall_size_per_mem_channel * 1024 * 1024;
-	dc->caps.mall_size_total = dc->caps.max_cab_allocation_bytes;
-
-	dc->caps.subvp_fw_processing_delay_us = 15;
-	dc->caps.subvp_drr_max_vblank_margin_us = 40;
-	dc->caps.subvp_prefetch_end_to_mall_start_us = 15;
-	dc->caps.subvp_swath_height_margin_lines = 16;
-	dc->caps.subvp_pstate_allow_width_us = 20;
-	dc->caps.subvp_vertical_int_margin_us = 30;
-	dc->caps.subvp_drr_vblank_start_margin_us = 100; // 100us margin
 
 	dc->caps.max_slave_planes = 2;
 	dc->caps.max_slave_yuv_planes = 2;
@@ -1969,7 +1949,7 @@ static bool dcn42_resource_construct(
 
 	dc->caps.color.mpc.gamut_remap = 1;
 	//configurable to be before or after BLND in MPCC
-	dc->caps.color.mpc.num_3dluts = pool->base.res_cap->num_mpc_3dlut;
+	dc->caps.color.mpc.num_3dluts = (uint16_t)pool->base.res_cap->num_mpc_3dlut;
 	dc->caps.color.mpc.num_rmcm_3dluts = 2;
 	dc->caps.color.mpc.ogam_ram = 1;
 	dc->caps.color.mpc.ogam_rom_caps.srgb = 0;
@@ -2302,26 +2282,6 @@ static bool dcn42_resource_construct(
 	resource_init_common_dml2_callbacks(dc, &dc->dml2_options);
 	dc->dml2_options.callbacks.can_support_mclk_switch_using_fw_based_vblank_stretch =
 			&dcn30_can_support_mclk_switch_using_fw_based_vblank_stretch;
-	dc->dml2_options.svp_pstate.callbacks.release_dsc = &dcn20_release_dsc;
-	dc->dml2_options.svp_pstate.callbacks.calculate_mall_ways_from_bytes =
-		pool->base.funcs->calculate_mall_ways_from_bytes;
-
-	dc->dml2_options.svp_pstate.subvp_fw_processing_delay_us = dc->caps.subvp_fw_processing_delay_us;
-	dc->dml2_options.svp_pstate.subvp_prefetch_end_to_mall_start_us = dc->caps.subvp_prefetch_end_to_mall_start_us;
-	dc->dml2_options.svp_pstate.subvp_pstate_allow_width_us = dc->caps.subvp_pstate_allow_width_us;
-	dc->dml2_options.svp_pstate.subvp_swath_height_margin_lines = dc->caps.subvp_swath_height_margin_lines;
-
-	dc->dml2_options.svp_pstate.force_disable_subvp = dc->debug.force_disable_subvp;
-	dc->dml2_options.svp_pstate.force_enable_subvp = dc->debug.force_subvp_mclk_switch;
-
-	dc->dml2_options.mall_cfg.cache_line_size_bytes = dc->caps.cache_line_size;
-	dc->dml2_options.mall_cfg.cache_num_ways = dc->caps.cache_num_ways;
-	dc->dml2_options.mall_cfg.max_cab_allocation_bytes =
-				dc->caps.max_cab_allocation_bytes;
-	dc->dml2_options.mall_cfg.mblk_height_4bpe_pixels = DCN3_2_MBLK_HEIGHT_4BPE;
-	dc->dml2_options.mall_cfg.mblk_height_8bpe_pixels = DCN3_2_MBLK_HEIGHT_8BPE;
-	dc->dml2_options.mall_cfg.mblk_size_bytes = DCN3_2_MALL_MBLK_SIZE_BYTES;
-	dc->dml2_options.mall_cfg.mblk_width_pixels = DCN3_2_MBLK_WIDTH;
 
 	dc->dml2_options.max_segments_per_hubp = 24;
 	dc->dml2_options.det_segment_size = DCN42_CRB_SEGMENT_SIZE_KB;
@@ -2349,7 +2309,7 @@ struct resource_pool *dcn42_create_resource_pool(
 	if (!pool)
 		return NULL;
 
-	if (dcn42_resource_construct(init_data->num_virtual_links, dc, pool))
+	if (dcn42_resource_construct((uint8_t)init_data->num_virtual_links, dc, pool))
 		return &pool->base;
 
 	BREAK_TO_DEBUGGER();

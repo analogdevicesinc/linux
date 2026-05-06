@@ -1409,50 +1409,6 @@ void kfd_cleanup_processes(void)
 	mmu_notifier_synchronize();
 }
 
-int kfd_process_init_cwsr_apu(struct kfd_process *p, struct file *filep)
-{
-	unsigned long  offset;
-	int i;
-
-	if (p->has_cwsr)
-		return 0;
-
-	for (i = 0; i < p->n_pdds; i++) {
-		struct kfd_node *dev = p->pdds[i]->dev;
-		struct qcm_process_device *qpd = &p->pdds[i]->qpd;
-
-		if (!dev->kfd->cwsr_enabled || qpd->cwsr_kaddr || qpd->cwsr_base)
-			continue;
-
-		offset = KFD_MMAP_TYPE_RESERVED_MEM | KFD_MMAP_GPU_ID(dev->id);
-		qpd->tba_addr = (int64_t)vm_mmap(filep, 0,
-			KFD_CWSR_TBA_TMA_SIZE, PROT_READ | PROT_EXEC,
-			MAP_SHARED, offset);
-
-		if (IS_ERR_VALUE(qpd->tba_addr)) {
-			int err = qpd->tba_addr;
-
-			dev_err(dev->adev->dev,
-				"Failure to set tba address. error %d.\n", err);
-			qpd->tba_addr = 0;
-			qpd->cwsr_kaddr = NULL;
-			return err;
-		}
-
-		memcpy(qpd->cwsr_kaddr, dev->kfd->cwsr_isa, dev->kfd->cwsr_isa_size);
-
-		kfd_process_set_trap_debug_flag(qpd, p->debug_trap_enabled);
-
-		qpd->tma_addr = qpd->tba_addr + KFD_CWSR_TMA_OFFSET;
-		pr_debug("set tba :0x%llx, tma:0x%llx, cwsr_kaddr:%p for pqm.\n",
-			qpd->tba_addr, qpd->tma_addr, qpd->cwsr_kaddr);
-	}
-
-	p->has_cwsr = true;
-
-	return 0;
-}
-
 static int kfd_process_device_init_cwsr_dgpu(struct kfd_process_device *pdd)
 {
 	struct kfd_node *dev = pdd->dev;
@@ -2226,38 +2182,6 @@ int kfd_resume_all_processes(void)
 	}
 	srcu_read_unlock(&kfd_processes_srcu, idx);
 	return ret;
-}
-
-int kfd_reserved_mem_mmap(struct kfd_node *dev, struct kfd_process *process,
-			  struct vm_area_struct *vma)
-{
-	struct kfd_process_device *pdd;
-	struct qcm_process_device *qpd;
-
-	if ((vma->vm_end - vma->vm_start) != KFD_CWSR_TBA_TMA_SIZE) {
-		dev_err(dev->adev->dev, "Incorrect CWSR mapping size.\n");
-		return -EINVAL;
-	}
-
-	pdd = kfd_get_process_device_data(dev, process);
-	if (!pdd)
-		return -EINVAL;
-	qpd = &pdd->qpd;
-
-	qpd->cwsr_kaddr = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
-					get_order(KFD_CWSR_TBA_TMA_SIZE));
-	if (!qpd->cwsr_kaddr) {
-		dev_err(dev->adev->dev,
-			"Error allocating per process CWSR buffer.\n");
-		return -ENOMEM;
-	}
-
-	vm_flags_set(vma, VM_IO | VM_DONTCOPY | VM_DONTEXPAND
-		| VM_NORESERVE | VM_DONTDUMP | VM_PFNMAP);
-	/* Mapping pages to user process */
-	return remap_pfn_range(vma, vma->vm_start,
-			       PFN_DOWN(__pa(qpd->cwsr_kaddr)),
-			       KFD_CWSR_TBA_TMA_SIZE, vma->vm_page_prot);
 }
 
 /* assumes caller holds process lock. */

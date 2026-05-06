@@ -296,10 +296,10 @@ struct amdgpu_vm_update_params {
 	bool needs_flush;
 
 	/**
-	 * @allow_override: true for memory that is not uncached: allows MTYPE
-	 * to be overridden for NUMA local memory.
+	 * @override_pte: true for memory that is not uncached and gmc override function is
+	 * implemented to allow MTYPE to be overridden for NUMA local memory.
 	 */
-	bool allow_override;
+	bool override_pte;
 
 	/**
 	 * @tlb_flush_waitlist: temporary storage for BOs until tlb_flush

@@ -422,7 +422,7 @@ void mpc1_init_mpcc_list_from_hw(
 
 				if (out_mux == mpcc_id)
 					tree->opp_list = mpcc;
-				if (bot_sel != 0xf && bot_sel < mpc10->num_mpcc) {
+				if (bot_sel != 0xf && bot_sel < (unsigned int)mpc10->num_mpcc) {
 					bot_mpcc_id = bot_sel;
 					REG_GET(MPCC_OPP_ID[bot_mpcc_id],  MPCC_OPP_ID,  &opp_id);
 					REG_GET(MPCC_TOP_SEL[bot_mpcc_id], MPCC_TOP_SEL, &top_sel);

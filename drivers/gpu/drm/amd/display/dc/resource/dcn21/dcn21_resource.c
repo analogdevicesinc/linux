@@ -1757,7 +1757,7 @@ struct resource_pool *dcn21_create_resource_pool(
 	if (!pool)
 		return NULL;
 
-	if (dcn21_resource_construct(init_data->num_virtual_links, dc, pool))
+	if (dcn21_resource_construct((uint8_t)init_data->num_virtual_links, dc, pool))
 		return &pool->base;
 
 	BREAK_TO_DEBUGGER();

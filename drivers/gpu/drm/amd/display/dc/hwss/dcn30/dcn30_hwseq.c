@@ -79,7 +79,7 @@ void dcn30_log_color_state(struct dc *dc,
 	struct dc_context *dc_ctx = dc->ctx;
 	struct resource_pool *pool = dc->res_pool;
 	bool is_gamut_remap_available = false;
-	int i;
+	unsigned int i;
 
 	DTN_INFO("DPP:  DGAM ROM  DGAM ROM type  DGAM LUT  SHAPER mode"
 		 "  3DLUT mode  3DLUT bit depth  3DLUT size  RGAM mode"
@@ -581,7 +581,7 @@ void dcn30_program_all_writeback_pipes_in_tree(
 	struct dc_writeback_info wb_info;
 	struct dwbc *dwb;
 	struct dc_stream_status *stream_status = NULL;
-	int i_wb, i_pipe, i_stream;
+	unsigned int i_wb, i_pipe, i_stream;
 	DC_LOG_DWB("%s", __func__);
 
 	ASSERT(stream);
@@ -645,7 +645,7 @@ void dcn30_init_hw(struct dc *dc)
 	struct dce_hwseq *hws = dc->hwseq;
 	struct dc_bios *dcb = dc->ctx->dc_bios;
 	struct resource_pool *res_pool = dc->res_pool;
-	int i;
+	unsigned int i;
 	unsigned int edp_num;
 	uint32_t backlight = MAX_BACKLIGHT_LEVEL;
 	uint32_t user_level = MAX_BACKLIGHT_LEVEL;
@@ -978,7 +978,7 @@ bool dcn30_apply_idle_power_optimizations(struct dc *dc, bool enable)
 							cursor_cache_enable ? &cursor_attr : NULL)) {
 				unsigned int v_total = stream->adjust.v_total_max ?
 						stream->adjust.v_total_max : stream->timing.v_total;
-				unsigned int refresh_hz = div_u64((unsigned long long) stream->timing.pix_clk_100hz *
+				unsigned int refresh_hz = (unsigned int)div_u64((unsigned long long)stream->timing.pix_clk_100hz *
 						100LL, (v_total * stream->timing.h_total));
 
 				/*
@@ -1006,9 +1006,9 @@ bool dcn30_apply_idle_power_optimizations(struct dc *dc, bool enable)
 				unsigned int denom = refresh_hz * 6528;
 				unsigned int stutter_period = dc->current_state->perf_params.stutter_period_us;
 
-				tmr_delay = div_u64(((1000000LL + 2 * stutter_period * refresh_hz) *
+				tmr_delay = (uint32_t)(div_u64(((1000000LL + 2 * stutter_period * refresh_hz) *
 						(100LL + dc->debug.mall_additional_timer_percent) + denom - 1),
-						denom) - 64LL;
+						denom) - 64LL);
 
 				/* In some cases the stutter period is really big (tiny modes) in these
 				 * cases MALL cant be enabled, So skip these cases to avoid a ASSERT()
@@ -1030,9 +1030,9 @@ bool dcn30_apply_idle_power_optimizations(struct dc *dc, bool enable)
 					}
 
 					denom *= 2;
-					tmr_delay = div_u64(((1000000LL + 2 * stutter_period * refresh_hz) *
+					tmr_delay = (uint32_t)(div_u64(((1000000LL + 2 * stutter_period * refresh_hz) *
 							(100LL + dc->debug.mall_additional_timer_percent) + denom - 1),
-							denom) - 64LL;
+							denom) - 64LL);
 				}
 
 				/* Copy HW cursor */
@@ -1062,9 +1062,9 @@ bool dcn30_apply_idle_power_optimizations(struct dc *dc, bool enable)
 					cmd.mall.cursor_copy_src.quad_part = cursor_attr.address.quad_part;
 					cmd.mall.cursor_copy_dst.quad_part =
 							(plane->address.grph.cursor_cache_addr.quad_part + 2047) & ~2047;
-					cmd.mall.cursor_width = cursor_attr.width;
-					cmd.mall.cursor_height = cursor_attr.height;
-					cmd.mall.cursor_pitch = cursor_attr.pitch;
+					cmd.mall.cursor_width = (uint16_t)cursor_attr.width;
+					cmd.mall.cursor_height = (uint16_t)cursor_attr.height;
+					cmd.mall.cursor_pitch = (uint16_t)cursor_attr.pitch;
 
 					dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 
@@ -1197,10 +1197,13 @@ void dcn30_prepare_bandwidth(struct dc *dc,
 		context->bw_ctx.bw.dcn.clk.p_state_change_support = false;
 	}
 
-	if (dc->clk_mgr->dc_mode_softmax_enabled)
-		if (dc->clk_mgr->clks.dramclk_khz <= dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000 &&
-				context->bw_ctx.bw.dcn.clk.dramclk_khz > dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000)
+	if (dc->clk_mgr->dc_mode_softmax_enabled) {
+		int softmax_memclk_khz = dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000;
+
+		if (dc->clk_mgr->clks.dramclk_khz <= softmax_memclk_khz &&
+				context->bw_ctx.bw.dcn.clk.dramclk_khz > softmax_memclk_khz)
 			dc->clk_mgr->funcs->set_max_memclk(dc->clk_mgr, dc->clk_mgr->bw_params->clk_table.entries[dc->clk_mgr->bw_params->clk_table.num_entries - 1].memclk_mhz);
+	}
 
 	dcn20_prepare_bandwidth(dc, context);
 

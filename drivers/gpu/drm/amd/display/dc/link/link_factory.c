@@ -381,7 +381,7 @@ static bool encoder_is_external_dp(
 
 static void link_destruct(struct dc_link *link)
 {
-	int i;
+	unsigned int i;
 
 	if (link->ddc)
 		link_destroy_ddc_service(&link->ddc);
@@ -516,7 +516,7 @@ static bool construct_phy(struct dc_link *link,
 	       sizeof(struct dc_link_settings));
 
 	link->link_id =
-		bios->funcs->get_connector_id(bios, init_params->connector_index);
+		bios->funcs->get_connector_id(bios, (uint8_t)init_params->connector_index);
 
 	link->ep_type = DISPLAY_ENDPOINT_PHY;
 
@@ -544,7 +544,7 @@ static bool construct_phy(struct dc_link *link,
 
 	if (bios->funcs->get_disp_connector_caps_info) {
 		bios->funcs->get_disp_connector_caps_info(bios, link->link_id, &disp_connect_caps_info);
-		link->is_internal_display = disp_connect_caps_info.INTERNAL_DISPLAY;
+		link->is_internal_display = (disp_connect_caps_info.INTERNAL_DISPLAY != 0);
 		DC_LOG_DC("BIOS object table - is_internal_display: %d", link->is_internal_display);
 	}
 
@@ -897,7 +897,7 @@ static bool construct_dpia(struct dc_link *link,
 	}
 
 	/* Set dpia port index : 0 to number of dpia ports */
-	link->ddc_hw_inst = init_params->connector_index;
+	link->ddc_hw_inst = (uint8_t)init_params->connector_index;
 
 	// Assign Dpia preferred eng_id
 	if (link->dc->res_pool->funcs->get_preferred_eng_id_dpia)

@@ -805,8 +805,8 @@ static enum bp_result bios_parser_dac_load_detection(
 	uint32_t bios_0_scratch;
 	uint32_t device_id_mask = 0;
 
-	bp_params.device_id = get_support_mask_for_device_id(
-		DEVICE_TYPE_CRT, engine_id == ENGINE_ID_DACB ? 2 : 1);
+	bp_params.device_id = (uint16_t)get_support_mask_for_device_id(
+			DEVICE_TYPE_CRT, engine_id == ENGINE_ID_DACB ? 2 : 1);
 
 	if (bp_params.device_id == ATOM_DEVICE_CRT1_SUPPORT)
 		device_id_mask = ATOM_S0_CRT1_MASK;
@@ -1445,7 +1445,7 @@ static enum bp_result get_embedded_panel_info_v1_2(
 	info->ss_id = lvds->ucSS_Id;
 
 	{
-		uint8_t rr = le16_to_cpu(lvds->usSupportedRefreshRate);
+		uint16_t rr = le16_to_cpu(lvds->usSupportedRefreshRate);
 		/* Get minimum supported refresh rate*/
 		if (SUPPORTED_LCD_REFRESHRATE_30Hz & rr)
 			info->supported_rr.REFRESH_RATE_30HZ = 1;

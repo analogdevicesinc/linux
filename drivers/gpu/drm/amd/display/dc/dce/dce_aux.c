@@ -321,7 +321,7 @@ static int read_channel_reply(struct dce_aux *engine, uint32_t size,
 			uint32_t aux_sw_data_val;
 
 			REG_GET(AUX_SW_DATA, AUX_SW_DATA, &aux_sw_data_val);
-			buffer[i] = aux_sw_data_val;
+			buffer[i] = (uint8_t)aux_sw_data_val;
 			++i;
 		}
 
@@ -375,7 +375,7 @@ static enum aux_return_code_type get_channel_status(
 			(value & AUX_SW_STATUS__AUX_SW_RX_RECV_INVALID_L_MASK))
 			return AUX_RET_ERROR_INVALID_REPLY;
 
-		*returned_bytes = get_reg_field_value(value,
+		*returned_bytes = (uint8_t)get_reg_field_value(value,
 				AUX_SW_STATUS,
 				AUX_SW_REPLY_BYTE_COUNT);
 

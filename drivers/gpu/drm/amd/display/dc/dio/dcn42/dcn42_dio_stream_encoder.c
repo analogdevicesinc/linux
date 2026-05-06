@@ -23,7 +23,7 @@
 
 #undef FN
 #define FN(reg_name, field_name) \
-	enc1->se_shift->field_name, enc1->se_mask->field_name
+	(uint8_t)enc1->se_shift->field_name, enc1->se_mask->field_name
 
 #define VBI_LINE_0 0
 #define HDMI_CLOCK_CHANNEL_RATE_MORE_340M 340000
@@ -401,7 +401,7 @@ void enc42_se_enable_audio_clock(
 {
 	struct dcn10_stream_encoder *enc1 = DCN10STRENC_FROM_STRENC(enc);
 
-	REG_UPDATE(DIG_FE_AUDIO_CNTL, APG_CLOCK_ENABLE, !!enable);
+	REG_UPDATE(DIG_FE_AUDIO_CNTL, APG_CLOCK_ENABLE, enable);
 }
 
 

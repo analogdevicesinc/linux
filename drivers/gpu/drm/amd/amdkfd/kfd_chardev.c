@@ -147,11 +147,6 @@ static int kfd_open(struct inode *inode, struct file *filep)
 	if (IS_ERR(process))
 		return PTR_ERR(process);
 
-	if (kfd_process_init_cwsr_apu(process, filep)) {
-		kfd_unref_process(process);
-		return -EFAULT;
-	}
-
 	/* filep now owns the reference returned by kfd_create_process */
 	filep->private_data = process;
 
@@ -1360,7 +1355,7 @@ static int kfd_ioctl_map_memory_to_gpu(struct file *filep,
 		peer_pdd = kfd_process_device_data_by_id(p, devices_arr[i]);
 		if (WARN_ON_ONCE(!peer_pdd))
 			continue;
-		kfd_flush_tlb(peer_pdd, TLB_FLUSH_LEGACY);
+		kfd_flush_tlb(peer_pdd);
 	}
 	kfree(devices_arr);
 
@@ -1455,7 +1450,7 @@ static int kfd_ioctl_unmap_memory_from_gpu(struct file *filep,
 		if (WARN_ON_ONCE(!peer_pdd))
 			continue;
 		if (flush_tlb)
-			kfd_flush_tlb(peer_pdd, TLB_FLUSH_HEAVYWEIGHT);
+			kfd_flush_tlb(peer_pdd);
 
 		/* Remove dma mapping after tlb flush to avoid IO_PAGE_FAULT */
 		err = amdgpu_amdkfd_gpuvm_dmaunmap_mem(mem, peer_pdd->drm_priv);
@@ -2339,6 +2334,9 @@ static int criu_restore_memory_of_gpu(struct kfd_process_device *pdd,
 	int ret;
 	const bool criu_resume = true;
 	u64 offset;
+
+	if (bo_priv->idr_handle > INT_MAX)
+		return -EINVAL;
 
 	if (bo_bucket->alloc_flags & KFD_IOC_ALLOC_MEM_FLAGS_DOORBELL) {
 		if (bo_bucket->size !=
@@ -3537,9 +3535,8 @@ static int kfd_mmap(struct file *filep, struct vm_area_struct *vma)
 		return kfd_event_mmap(process, vma);
 
 	case KFD_MMAP_TYPE_RESERVED_MEM:
-		if (!dev)
-			return -ENODEV;
-		return kfd_reserved_mem_mmap(dev, process, vma);
+		pr_warn("KFD_MMAP_TYPE_RESERVED_MEM is no longer supported\n");
+		return -EINVAL;
 	case KFD_MMAP_TYPE_MMIO:
 		if (!dev)
 			return -ENODEV;

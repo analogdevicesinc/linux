@@ -79,7 +79,7 @@ static inline struct bw_fixed bw_int_to_fixed(int64_t value)
 
 static inline int32_t bw_fixed_to_int(struct bw_fixed value)
 {
-	return BW_FIXED_GET_INTEGER_PART(value.value);
+	return (int32_t)BW_FIXED_GET_INTEGER_PART(value.value);
 }
 
 struct bw_fixed bw_frc_to_fixed(int64_t num, int64_t denum);

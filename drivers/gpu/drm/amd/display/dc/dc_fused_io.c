@@ -23,11 +23,11 @@ static bool op_i2c_convert(
 
 	req->type = type;
 	loc->is_aux = false;
-	loc->ddc_line = ddc_line;
+	loc->ddc_line = (uint8_t)ddc_line;
 	loc->over_aux = over_aux;
 	loc->address = op->address;
 	loc->offset = op->offset;
-	loc->length = op->size;
+	loc->length = (uint8_t)op->size;
 	memcpy(req->buffer, op->data, op->size);
 
 	return true;
@@ -84,7 +84,7 @@ static bool atomic_write_poll_read(
 			timeout_us += timeout_per_aux_transaction_us * (io->request.u.aux.length / 16);
 	}
 
-	if (!dm_helpers_execute_fused_io(link->ctx, link, commands, count, timeout_us))
+	if (!dm_helpers_execute_fused_io(link->ctx, link, commands, count, (uint32_t)timeout_us))
 		return false;
 
 	return commands[0].fused_io.request.status == FUSED_REQUEST_STATUS_SUCCESS;

@@ -1358,7 +1358,7 @@ static void set_wm_ranges(
 		struct _vcs_dpi_soc_bounding_box_st *loaded_bb)
 {
 	struct pp_smu_wm_range_sets ranges = {0};
-	int i;
+	unsigned int i;
 
 	ranges.num_reader_wm_sets = 0;
 
@@ -1372,7 +1372,7 @@ static void set_wm_ranges(
 		ranges.num_reader_wm_sets = 1;
 	} else if (loaded_bb->num_states > 1) {
 		for (i = 0; i < 4 && i < loaded_bb->num_states; i++) {
-			ranges.reader_wm_sets[i].wm_inst = i;
+			ranges.reader_wm_sets[i].wm_inst = (uint8_t)i;
 			ranges.reader_wm_sets[i].min_drain_clk_mhz = PP_SMU_WM_SET_RANGE_CLK_UNCONSTRAINED_MIN;
 			ranges.reader_wm_sets[i].max_drain_clk_mhz = PP_SMU_WM_SET_RANGE_CLK_UNCONSTRAINED_MAX;
 			DC_FP_START();
@@ -1506,7 +1506,7 @@ static bool dcn301_resource_construct(
 	dc->caps.color.dpp.ocsc = 0;
 
 	dc->caps.color.mpc.gamut_remap = 1;
-	dc->caps.color.mpc.num_3dluts = pool->base.res_cap->num_mpc_3dlut; //2
+	dc->caps.color.mpc.num_3dluts = (uint16_t)pool->base.res_cap->num_mpc_3dlut;
 	dc->caps.color.mpc.ogam_ram = 1;
 	dc->caps.color.mpc.ogam_rom_caps.srgb = 0;
 	dc->caps.color.mpc.ogam_rom_caps.bt2020 = 0;
@@ -1773,7 +1773,7 @@ struct resource_pool *dcn301_create_resource_pool(
 	if (!pool)
 		return NULL;
 
-	if (dcn301_resource_construct(init_data->num_virtual_links, dc, pool))
+	if (dcn301_resource_construct((uint8_t)init_data->num_virtual_links, dc, pool))
 		return &pool->base;
 
 	BREAK_TO_DEBUGGER();

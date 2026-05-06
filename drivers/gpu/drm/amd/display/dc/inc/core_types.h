@@ -707,12 +707,20 @@ struct dc_bounding_box_max_clk {
 	int max_phyclk_mhz;
 };
 
-struct memory_qos {
+struct dc_measured_memory_qos {
 	uint32_t peak_bw_mbps;
 	uint32_t avg_bw_mbps;
 	uint32_t max_latency_ns;
 	uint32_t min_latency_ns;
 	uint32_t avg_latency_ns;
+};
+
+struct dc_requested_memory_qos {
+	uint32_t bandwidth_lb_in_mbps;
+	uint32_t calculated_avg_bw_in_mbps;
+	uint32_t max_latency_ub_in_ns;
+	uint32_t avg_latency_ub_in_ns;
+	uint32_t max_bw_budget_in_mbps;
 };
 
 #endif /* _CORE_TYPES_H_ */

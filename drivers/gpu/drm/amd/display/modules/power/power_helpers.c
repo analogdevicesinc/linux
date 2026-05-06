@@ -647,12 +647,12 @@ static void fill_iram_v_2_3(struct iram_table_v_2_2 *ram_table, struct dmcu_iram
 	unsigned int set = params.set;
 
 	ram_table->flags = 0x0;
-	ram_table->min_abm_backlight = (big_endian) ?
+	ram_table->min_abm_backlight = (uint16_t)((big_endian) ?
 		cpu_to_be16(params.min_abm_backlight) :
-		cpu_to_le16(params.min_abm_backlight);
+		cpu_to_le16(params.min_abm_backlight));
 
 	for (i = 0; i < NUM_AGGR_LEVEL; i++) {
-		ram_table->hybrid_factor[i] = abm_settings[set][i].brightness_gain;
+		ram_table->hybrid_factor[i] = (uint8_t)abm_settings[set][i].brightness_gain;
 		ram_table->contrast_factor[i] = abm_settings[set][i].contrast_factor;
 		ram_table->deviation_gain[i] = abm_settings[set][i].deviation_gain;
 		ram_table->min_knee[i] = abm_settings[set][i].min_knee;
@@ -960,8 +960,8 @@ bool psr_su_set_dsc_slice_height(struct dc *dc, struct dc_link *link,
 			      struct dc_stream_state *stream,
 			      struct psr_config *config)
 {
-	uint16_t pic_height;
-	uint16_t slice_height;
+	uint32_t pic_height;
+	uint32_t slice_height;
 
 	config->dsc_slice_height = 0;
 	if (!(link->connector_signal & SIGNAL_TYPE_EDP) ||
@@ -978,7 +978,7 @@ bool psr_su_set_dsc_slice_height(struct dc *dc, struct dc_link *link,
 		return false;
 
 	slice_height = pic_height / stream->timing.dsc_cfg.num_slices_v;
-	config->dsc_slice_height = slice_height;
+	config->dsc_slice_height = (uint16_t)slice_height;
 
 	if (slice_height) {
 		if (config->su_y_granularity &&
@@ -1056,7 +1056,7 @@ void set_replay_low_rr_full_screen_video_src_vtotal(struct dc_link *link, uint16
 void calculate_replay_link_off_frame_count(struct dc_link *link,
 	uint16_t vtotal, uint16_t htotal)
 {
-	uint8_t max_link_off_frame_count = 0;
+	uint32_t max_link_off_frame_count = 0;
 	uint16_t max_deviation_line = 0,  pixel_deviation_per_line = 0;
 
 	if (!link || link->replay_settings.config.replay_version != DC_FREESYNC_REPLAY)
@@ -1093,7 +1093,7 @@ bool fill_custom_backlight_caps(unsigned int config_no, struct dm_acpi_atif_back
 	caps->dc_level_percentage = custom_backlight_profiles[config_no].dc_level_percentage;
 	caps->min_input_signal = custom_backlight_profiles[config_no].min_input_signal;
 	caps->max_input_signal = custom_backlight_profiles[config_no].max_input_signal;
-	caps->num_data_points = custom_backlight_profiles[config_no].num_data_points;
+	caps->num_data_points = (uint8_t)custom_backlight_profiles[config_no].num_data_points;
 	memcpy(caps->data_points, custom_backlight_profiles[config_no].data_points, data_points_size);
 	return true;
 }

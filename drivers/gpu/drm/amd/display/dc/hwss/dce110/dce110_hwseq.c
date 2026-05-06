@@ -504,7 +504,7 @@ dce110_translate_regamma_to_hw_format(const struct dc_transfer_func *output_tf,
 	}
 
 	j = 0;
-	for (k = 0; k < (region_end - region_start); k++) {
+	for (k = 0; k < (uint32_t)(region_end - region_start); k++) {
 		increment = NUMBER_SW_SEGMENTS / (1 << seg_distr[k]);
 		start_index = (region_start + k + MAX_LOW_POINT) *
 				NUMBER_SW_SEGMENTS;
@@ -887,7 +887,7 @@ void dce110_edp_power_control(
 				DC_LOG_HW_RESUME_S3(
 						"%s: remaining_min_edp_poweroff_time_ms=%llu: begin wait.\n",
 						__func__, remaining_min_edp_poweroff_time_ms);
-				msleep(remaining_min_edp_poweroff_time_ms);
+				msleep((unsigned int)remaining_min_edp_poweroff_time_ms);
 				DC_LOG_HW_RESUME_S3(
 						"%s: remaining_min_edp_poweroff_time_ms=%llu: end wait.\n",
 						__func__, remaining_min_edp_poweroff_time_ms);
@@ -912,7 +912,7 @@ void dce110_edp_power_control(
 		cntl.coherent = false;
 		cntl.lanes_number = LANE_COUNT_FOUR;
 		cntl.hpd_sel = link->link_enc->hpd_source;
-		pwrseq_instance = link->panel_cntl->pwrseq_inst;
+		pwrseq_instance = (uint8_t)link->panel_cntl->pwrseq_inst;
 
 		if (ctx->dc->ctx->dmub_srv &&
 				ctx->dc->debug.dmub_command_table) {
@@ -981,7 +981,7 @@ void dce110_edp_wait_for_T12(
 		t12_duration += link->panel_config.pps.extra_t12_ms; // Add extra T12
 
 		if (time_since_edp_poweroff_ms < t12_duration)
-			msleep(t12_duration - time_since_edp_poweroff_ms);
+			msleep((unsigned int)(t12_duration - time_since_edp_poweroff_ms));
 	}
 }
 /*todo: cloned in stream enc, fix*/
@@ -1050,8 +1050,9 @@ void dce110_edp_backlight_control(
 	 */
 	/* dc_service_sleep_in_milliseconds(50); */
 		/*edp 1.2*/
-	if (link->panel_cntl)
-		pwrseq_instance = link->panel_cntl->pwrseq_inst;
+	if (link->panel_cntl) {
+		pwrseq_instance = (uint8_t)link->panel_cntl->pwrseq_inst;
+	}
 
 	if (cntl.action == TRANSMITTER_CONTROL_BACKLIGHT_ON) {
 		if (!link->dc->config.edp_no_power_sequencing)
@@ -1468,11 +1469,11 @@ void build_audio_output(
 	audio_output->crtc_info.pixel_repetition = 1;
 
 	audio_output->crtc_info.interlaced =
-			stream->timing.flags.INTERLACE;
+			(stream->timing.flags.INTERLACE != 0);
 
 	audio_output->crtc_info.refresh_rate =
-		(stream->timing.pix_clk_100hz*100)/
-		(stream->timing.h_total*stream->timing.v_total);
+		(uint16_t)((stream->timing.pix_clk_100hz*100)/
+		(stream->timing.h_total*stream->timing.v_total));
 
 	audio_output->crtc_info.color_depth =
 		stream->timing.display_color_depth;
@@ -1786,20 +1787,22 @@ static void power_down_encoders(struct dc *dc)
 
 	for (i = 0; i < dc->link_count; i++) {
 		struct dc_link *link = dc->links[i];
-		struct link_encoder *link_enc = link->link_enc;
+		struct link_encoder *link_enc = link_enc_cfg_get_link_enc(link);
 		enum signal_type signal = link->connector_signal;
 
 		dc->link_srv->blank_dp_stream(link, false);
 		if (signal != SIGNAL_TYPE_EDP)
 			signal = SIGNAL_TYPE_NONE;
 
-		if (link->ep_type == DISPLAY_ENDPOINT_PHY)
+		if (link->ep_type == DISPLAY_ENDPOINT_PHY && link_enc)
 			link_enc->funcs->disable_output(link_enc, signal);
 
 		if (link->fec_state == dc_link_fec_enabled) {
-			link_enc->funcs->fec_set_enable(link_enc, false);
-			link_enc->funcs->fec_set_ready(link_enc, false);
-			link->fec_state = dc_link_fec_not_ready;
+			if (link_enc && link_enc->funcs->fec_set_enable && link_enc->funcs->fec_set_ready) {
+				link_enc->funcs->fec_set_enable(link_enc, false);
+				link_enc->funcs->fec_set_ready(link_enc, false);
+				link->fec_state = dc_link_fec_not_ready;
+			}
 		}
 
 		link->link_status.link_active = false;
@@ -1809,7 +1812,7 @@ static void power_down_encoders(struct dc *dc)
 
 static void power_down_controllers(struct dc *dc)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < dc->res_pool->timing_generator_count; i++) {
 		dc->res_pool->timing_generators[i]->funcs->disable_crtc(
@@ -1819,7 +1822,7 @@ static void power_down_controllers(struct dc *dc)
 
 static void power_down_clock_sources(struct dc *dc)
 {
-	int i;
+	unsigned int i;
 
 	if (dc->res_pool->dp_clock_source->funcs->cs_power_down(
 		dc->res_pool->dp_clock_source) == false)
@@ -1828,7 +1831,7 @@ static void power_down_clock_sources(struct dc *dc)
 	for (i = 0; i < dc->res_pool->clk_src_count; i++) {
 		if (dc->res_pool->clock_sources[i]->funcs->cs_power_down(
 				dc->res_pool->clock_sources[i]) == false)
-			dm_error("Failed to power down pll! (clk src index=%d)\n", i);
+			dm_error("Failed to power down pll! (clk src index=%u)\n", i);
 	}
 }
 
@@ -1847,7 +1850,7 @@ static void power_down_all_hw_blocks(struct dc *dc)
 static void disable_vga_and_power_gate_all_controllers(
 		struct dc *dc)
 {
-	int i;
+	uint8_t i;
 	struct timing_generator *tg;
 	struct dc_context *ctx = dc->ctx;
 
@@ -1877,7 +1880,7 @@ static void get_edp_streams(struct dc_state *context,
 		struct dc_stream_state **edp_streams,
 		int *edp_stream_num)
 {
-	int i;
+	uint8_t i;
 
 	*edp_stream_num = 0;
 	for (i = 0; i < context->stream_count; i++) {
@@ -1915,13 +1918,13 @@ static void clean_up_dsc_blocks(struct dc *dc)
 	struct stream_encoder *se = NULL;
 	struct dccg *dccg = dc->res_pool->dccg;
 	struct pg_cntl *pg_cntl = dc->res_pool->pg_cntl;
-	int i;
+	unsigned int i;
 
 	if (!dc->caps.is_apu ||
 		dc->ctx->dce_version < DCN_VERSION_3_15)
 		return;
 	/*VBIOS supports dsc starts from dcn315*/
-	for (i = 0; i < dc->res_pool->res_cap->num_dsc; i++) {
+	for (i = 0; i < (unsigned int)dc->res_pool->res_cap->num_dsc; i++) {
 		struct dcn_dsc_state s  = {0};
 
 		dsc = dc->res_pool->dscs[i];
@@ -1999,7 +2002,7 @@ void dce110_enable_accelerated_mode(struct dc *dc, struct dc_state *context)
 	struct pipe_ctx *pipe_ctx = NULL;
 	struct dce_hwseq *hws = dc->hwseq;
 	int edp_with_sink_num;
-	unsigned int edp_num;
+	unsigned int j, edp_num;
 	int edp_stream_num;
 	int i;
 	bool can_apply_edp_fast_boot = false;
@@ -2019,8 +2022,8 @@ void dce110_enable_accelerated_mode(struct dc *dc, struct dc_state *context)
 
 	/* Check fastboot support, disable on DCE 6-8-10 because of blank screens */
 	if (edp_num && edp_stream_num && dc->ctx->dce_version > DCE_VERSION_10_0) {
-		for (i = 0; i < edp_num; i++) {
-			edp_link = edp_links[i];
+		for (j = 0; j < edp_num; j++) {
+			edp_link = edp_links[j];
 			if (edp_link != edp_streams[0]->link)
 				continue;
 			// enable fastboot if backend is enabled on eDP
@@ -2123,9 +2126,11 @@ static uint32_t compute_pstate_blackout_duration(
 	const struct dc_stream_state *stream)
 {
 	uint32_t total_dest_line_time_ns;
+	int64_t pstate_blackout_duration_ns64;
 	uint32_t pstate_blackout_duration_ns;
 
-	pstate_blackout_duration_ns = 1000 * blackout_duration.value >> 24;
+	pstate_blackout_duration_ns64 = (1000 * blackout_duration.value) >> 24;
+	pstate_blackout_duration_ns = (uint32_t)pstate_blackout_duration_ns64;
 
 	total_dest_line_time_ns = 1000000UL *
 		(stream->timing.h_total * 10) /
@@ -2259,7 +2264,7 @@ static void get_position(struct pipe_ctx **pipe_ctx,
 static void set_static_screen_control(struct pipe_ctx **pipe_ctx,
 		int num_pipes, const struct dc_static_screen_params *params)
 {
-	unsigned int i;
+	int i;
 	unsigned int triggers = 0;
 
 	if (params->triggers.overlay_update)
@@ -2546,7 +2551,7 @@ enum dc_status dce110_apply_ctx_to_hw(
 	struct dce_hwseq *hws = dc->hwseq;
 	struct dc_bios *dcb = dc->ctx->dc_bios;
 	enum dc_status status;
-	int i;
+	unsigned int i;
 	bool was_hpo_acquired = resource_is_hpo_acquired(dc->current_state);
 	bool is_hpo_acquired = resource_is_hpo_acquired(context);
 
@@ -2582,7 +2587,7 @@ enum dc_status dce110_apply_ctx_to_hw(
 		}
 
 		hws->funcs.enable_display_power_gating(
-				dc, i, dc->ctx->dc_bios,
+				dc, (uint8_t)i, dc->ctx->dc_bios,
 				PIPE_GATING_CONTROL_DISABLE);
 	}
 
@@ -2912,7 +2917,7 @@ static void dce110_init_pipes(struct dc *dc, struct dc_state *context)
 
 static void dce110_init_hw(struct dc *dc)
 {
-	int i;
+	unsigned int i;
 	struct dc_bios *bp;
 	struct transform *xfm;
 	struct abm *abm;
@@ -2927,10 +2932,10 @@ static void dce110_init_hw(struct dc *dc)
 		xfm->funcs->transform_reset(xfm);
 
 		hws->funcs.enable_display_power_gating(
-				dc, i, bp,
+				dc, (uint8_t)i, bp,
 				PIPE_GATING_CONTROL_INIT);
 		hws->funcs.enable_display_power_gating(
-				dc, i, bp,
+				dc, (uint8_t)i, bp,
 				PIPE_GATING_CONTROL_DISABLE);
 		hws->funcs.enable_display_pipe_clock_gating(
 			dc->ctx,
@@ -3134,7 +3139,7 @@ static void dce110_apply_ctx_for_surface(
 		int num_planes,
 		struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 
 	if (num_planes == 0)
 		return;
@@ -3188,7 +3193,7 @@ static void dce110_power_down_fe(struct dc *dc, struct dc_state *state, struct p
 		return;
 
 	hws->funcs.enable_display_power_gating(
-		dc, fe_idx, dc->ctx->dc_bios, PIPE_GATING_CONTROL_ENABLE);
+		dc, (uint8_t)fe_idx, dc->ctx->dc_bios, PIPE_GATING_CONTROL_ENABLE);
 
 	dc->res_pool->transforms[fe_idx]->funcs->transform_reset(
 				dc->res_pool->transforms[fe_idx]);

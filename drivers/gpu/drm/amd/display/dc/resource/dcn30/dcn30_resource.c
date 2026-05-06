@@ -1563,13 +1563,13 @@ static bool dcn30_split_stream_for_mpc_or_odm(
 
 	*sec_pipe = *pri_pipe;
 
-	sec_pipe->pipe_idx = pipe_idx;
+	sec_pipe->pipe_idx = (uint8_t)pipe_idx;
 	sec_pipe->plane_res.mi = pool->mis[pipe_idx];
 	sec_pipe->plane_res.hubp = pool->hubps[pipe_idx];
 	sec_pipe->plane_res.ipp = pool->ipps[pipe_idx];
 	sec_pipe->plane_res.xfm = pool->transforms[pipe_idx];
 	sec_pipe->plane_res.dpp = pool->dpps[pipe_idx];
-	sec_pipe->plane_res.mpcc_inst = pool->dpps[pipe_idx]->inst;
+	sec_pipe->plane_res.mpcc_inst = (uint8_t)pool->dpps[pipe_idx]->inst;
 	sec_pipe->stream_res.dsc = NULL;
 	if (odm) {
 		if (pri_pipe->next_odm_pipe) {
@@ -1623,7 +1623,7 @@ static struct pipe_ctx *dcn30_find_split_pipe(
 
 	if (old_index >= 0 && context->res_ctx.pipe_ctx[old_index].stream == NULL) {
 		pipe = &context->res_ctx.pipe_ctx[old_index];
-		pipe->pipe_idx = old_index;
+		pipe->pipe_idx = (uint8_t)old_index;
 	}
 
 	if (!pipe)
@@ -1632,7 +1632,7 @@ static struct pipe_ctx *dcn30_find_split_pipe(
 					&& dc->current_state->res_ctx.pipe_ctx[i].prev_odm_pipe == NULL) {
 				if (context->res_ctx.pipe_ctx[i].stream == NULL) {
 					pipe = &context->res_ctx.pipe_ctx[i];
-					pipe->pipe_idx = i;
+					pipe->pipe_idx = (uint8_t)i;
 					break;
 				}
 			}
@@ -1647,7 +1647,7 @@ static struct pipe_ctx *dcn30_find_split_pipe(
 		for (i = dc->res_pool->pipe_count - 1; i >= 0; i--) {
 			if (context->res_ctx.pipe_ctx[i].stream == NULL) {
 				pipe = &context->res_ctx.pipe_ctx[i];
-				pipe->pipe_idx = i;
+				pipe->pipe_idx = (uint8_t)i;
 				break;
 			}
 		}
@@ -2379,7 +2379,7 @@ static bool dcn30_resource_construct(
 	dc->caps.color.dpp.ocsc = 0;
 
 	dc->caps.color.mpc.gamut_remap = 1;
-	dc->caps.color.mpc.num_3dluts = pool->base.res_cap->num_mpc_3dlut; //3
+	dc->caps.color.mpc.num_3dluts = (uint16_t)pool->base.res_cap->num_mpc_3dlut;
 	dc->caps.color.mpc.ogam_ram = 1;
 	dc->caps.color.mpc.ogam_rom_caps.srgb = 0;
 	dc->caps.color.mpc.ogam_rom_caps.bt2020 = 0;
@@ -2669,7 +2669,7 @@ struct resource_pool *dcn30_create_resource_pool(
 	if (!pool)
 		return NULL;
 
-	if (dcn30_resource_construct(init_data->num_virtual_links, dc, pool))
+	if (dcn30_resource_construct((uint8_t)init_data->num_virtual_links, dc, pool))
 		return &pool->base;
 
 	BREAK_TO_DEBUGGER();

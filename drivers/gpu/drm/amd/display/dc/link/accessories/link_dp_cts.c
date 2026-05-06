@@ -199,7 +199,6 @@ static void dp_test_get_audio_test_data(struct dc_link *link, bool disable_video
 	unsigned int channel_count;
 	unsigned int channel = 0;
 	unsigned int modes = 0;
-	unsigned int sampling_rate_in_hz = 0;
 
 	// get audio test mode and test pattern parameters
 	core_link_read_dpcd(
@@ -232,38 +231,10 @@ static void dp_test_get_audio_test_data(struct dc_link *link, bool disable_video
 		}
 	}
 
-	// translate sampling rate
-	switch (dpcd_test_mode.bits.sampling_rate) {
-	case AUDIO_SAMPLING_RATE_32KHZ:
-		sampling_rate_in_hz = 32000;
-		break;
-	case AUDIO_SAMPLING_RATE_44_1KHZ:
-		sampling_rate_in_hz = 44100;
-		break;
-	case AUDIO_SAMPLING_RATE_48KHZ:
-		sampling_rate_in_hz = 48000;
-		break;
-	case AUDIO_SAMPLING_RATE_88_2KHZ:
-		sampling_rate_in_hz = 88200;
-		break;
-	case AUDIO_SAMPLING_RATE_96KHZ:
-		sampling_rate_in_hz = 96000;
-		break;
-	case AUDIO_SAMPLING_RATE_176_4KHZ:
-		sampling_rate_in_hz = 176400;
-		break;
-	case AUDIO_SAMPLING_RATE_192KHZ:
-		sampling_rate_in_hz = 192000;
-		break;
-	default:
-		sampling_rate_in_hz = 0;
-		break;
-	}
-
 	link->audio_test_data.flags.test_requested = 1;
 	link->audio_test_data.flags.disable_video = disable_video;
-	link->audio_test_data.sampling_rate = sampling_rate_in_hz;
-	link->audio_test_data.channel_count = channel_count;
+	link->audio_test_data.sampling_rate = (uint8_t)dpcd_test_mode.bits.sampling_rate;
+	link->audio_test_data.channel_count = (uint8_t)channel_count;
 	link->audio_test_data.pattern_type = test_pattern;
 
 	if (test_pattern == DP_TEST_PATTERN_AUDIO_SAWTOOTH) {
@@ -885,7 +856,7 @@ bool dp_set_test_pattern(
 				struct dmub_hw_lock_inst_flags inst_flags = { 0 };
 
 				hw_locks.bits.lock_dig = 1;
-				inst_flags.dig_inst = pipe_ctx->stream_res.tg->inst;
+				inst_flags.dig_inst = (uint8_t)pipe_ctx->stream_res.tg->inst;
 
 				dmub_hw_lock_mgr_cmd(link->ctx->dmub_srv,
 							true,
@@ -933,7 +904,7 @@ bool dp_set_test_pattern(
 				struct dmub_hw_lock_inst_flags inst_flags = { 0 };
 
 				hw_locks.bits.lock_dig = 1;
-				inst_flags.dig_inst = pipe_ctx->stream_res.tg->inst;
+				inst_flags.dig_inst = (uint8_t)pipe_ctx->stream_res.tg->inst;
 
 				dmub_hw_lock_mgr_cmd(link->ctx->dmub_srv,
 							false,

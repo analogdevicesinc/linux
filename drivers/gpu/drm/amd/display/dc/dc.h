@@ -63,7 +63,7 @@ struct dcn_dsc_reg_state;
 struct dcn_optc_reg_state;
 struct dcn_dccg_reg_state;
 
-#define DC_VER "3.2.378"
+#define DC_VER "3.2.381"
 
 /**
  * MAX_SURFACES - representative of the upper bound of surfaces that can be piped to a single CRTC
@@ -971,6 +971,7 @@ struct dc_qos_info {
 	uint32_t actual_avg_latency_in_ns;
 	uint32_t qos_avg_latency_ub_in_ns;
 	uint32_t dcn_bandwidth_ub_in_mbps;
+	uint32_t qos_max_bw_budget_in_mbps;
 };
 
 struct dc_state;
@@ -1407,50 +1408,15 @@ struct lut_mem_mapping {
 struct dc_rmcm_3dlut {
 	bool isInUse;
 	const struct dc_stream_state *stream;
+	uint8_t protection_bits;
 };
 
 struct dc_3dlut {
 	struct kref refcount;
 	struct tetrahedral_params lut_3d;
+	struct fixed31_32 hdr_multiplier;
 	union dc_3dlut_state state;
 };
-
-/* 3DLUT DMA (Fast Load) params */
-struct dc_3dlut_dma {
-	struct dc_plane_address addr;
-	enum dc_cm_lut_swizzle swizzle;
-	enum dc_cm_lut_pixel_format format;
-	uint16_t bias; /* FP1.5.10 */
-	uint16_t scale; /* FP1.5.10 */
-	enum dc_cm_lut_size size;
-};
-
-/* color manager */
-union dc_plane_cm_flags {
-	unsigned int all;
-	struct {
-		unsigned int shaper_enable    : 1;
-		unsigned int lut3d_enable     : 1;
-		unsigned int blend_enable     : 1;
-		/* whether legacy (lut3d_func) or DMA is valid */
-		unsigned int lut3d_dma_enable : 1;
-		/* RMCM lut to be used instead of MCM */
-		unsigned int rmcm_enable	 : 1;
-		unsigned int reserved: 27;
-	} bits;
-};
-
-struct dc_plane_cm {
-	struct kref refcount;
-	struct dc_transfer_func shaper_func;
-	union {
-		struct dc_3dlut lut3d_func;
-		struct dc_3dlut_dma lut3d_dma;
-	};
-	struct dc_transfer_func blend_func;
-	union dc_plane_cm_flags flags;
-};
-
 /*
  * This structure is filled in by dc_surface_get_status and contains
  * the last requested address and the currently active address so the called
@@ -1485,6 +1451,7 @@ union surface_update_flags {
 		uint32_t pixel_format_change:1;
 		uint32_t plane_size_change:1;
 		uint32_t gamut_remap_change:1;
+		uint32_t cursor_csc_color_matrix_change:1;
 
 		/* Full updates */
 		uint32_t new_plane:1;
@@ -1499,10 +1466,13 @@ union surface_update_flags {
 		uint32_t full_update:1;
 		uint32_t sdr_white_level_nits:1;
 		uint32_t cm_hist_change:1;
+		uint32_t reserved:2; /* adjust when adding new flags */
 	} bits;
 
 	uint32_t raw;
 };
+
+bool dc_check_address_only_update(union surface_update_flags update_flags);
 
 #define DC_REMOVE_PLANE_POINTERS 1
 
@@ -1528,18 +1498,14 @@ struct dc_plane_state {
 	struct fixed31_32 hdr_mult;
 	struct colorspace_transform gamut_remap_matrix;
 
+	// TODO: No longer used, remove
+	struct dc_hdr_static_metadata hdr_static_ctx;
+
 	enum dc_color_space color_space;
 
-	bool lut_bank_a;
-	struct dc_hdr_static_metadata hdr_static_ctx;
 	struct dc_3dlut lut3d_func;
 	struct dc_transfer_func in_shaper_func;
 	struct dc_transfer_func blend_tf;
-	enum dc_cm2_shaper_3dlut_setting mcm_shaper_3dlut_setting;
-	bool mcm_lut1d_enable;
-	struct dc_cm2_func_luts mcm_luts;
-	enum mpcc_movable_cm_location mcm_location;
-	struct dc_plane_cm cm;
 
 	struct dc_transfer_func *gamcor_tf;
 	enum surface_pixel_format format;
@@ -1576,6 +1542,11 @@ struct dc_plane_state {
 
 	bool is_statically_allocated;
 	enum chroma_cositing cositing;
+	enum dc_cm2_shaper_3dlut_setting mcm_shaper_3dlut_setting;
+	bool mcm_lut1d_enable;
+	struct dc_cm2_func_luts mcm_luts;
+	bool lut_bank_a;
+	enum mpcc_movable_cm_location mcm_location;
 	struct dc_csc_transform cursor_csc_color_matrix;
 	bool adaptive_sharpness_en;
 	int adaptive_sharpness_policy;
@@ -1882,20 +1853,6 @@ struct dc_scaling_info {
 	struct scaling_taps scaling_quality;
 };
 
-struct dc_fast_update {
-	const struct dc_flip_addrs *flip_addr;
-	const struct dc_gamma *gamma;
-	const struct colorspace_transform *gamut_remap_matrix;
-	const struct dc_csc_transform *input_csc_color_matrix;
-	const struct fixed31_32 *coeff_reduction_factor;
-	struct dc_transfer_func *out_transfer_func;
-	struct dc_csc_transform *output_csc_transform;
-	const struct dc_csc_transform *cursor_csc_color_matrix;
-#if defined(CONFIG_DRM_AMD_DC_DCN4_2)
-	struct cm_hist_control *cm_hist_control;
-#endif
-};
-
 struct dc_surface_update {
 	struct dc_plane_state *surface;
 
@@ -1968,10 +1925,6 @@ struct dc_3dlut *dc_create_3dlut_func(void);
 void dc_3dlut_func_release(struct dc_3dlut *lut);
 void dc_3dlut_func_retain(struct dc_3dlut *lut);
 
-struct dc_plane_cm *dc_plane_cm_create(void);
-void dc_plane_cm_release(struct dc_plane_cm *cm);
-void dc_plane_cm_retain(struct dc_plane_cm *cm);
-
 void dc_post_update_surfaces_to_stream(
 		struct dc *dc);
 
@@ -2034,11 +1987,6 @@ bool dc_resource_is_dsc_encoding_supported(const struct dc *dc);
 void get_audio_check(struct audio_info *aud_modes,
 	struct audio_check *aud_chk);
 
-bool fast_nonaddr_updates_exist(struct dc_fast_update *fast_update, int surface_count);
-void populate_fast_updates(struct dc_fast_update *fast_update,
-		struct dc_surface_update *srf_updates,
-		int surface_count,
-		struct dc_stream_update *stream_update);
 /*
  * Set up streams and links associated to drive sinks
  * The streams parameter is an absolute set of all active streams.
@@ -3435,5 +3383,18 @@ bool dc_capture_register_software_state(struct dc *dc, struct dc_register_softwa
  *         functions are unavailable or hardware measurements cannot be performed
  */
 bool dc_get_qos_info(struct dc *dc, struct dc_qos_info *info);
+
+/**
+ * dc_override_memory_bandwidth_request - Override the DCN nominal memory
+ *     bandwidth request sent to PMFW, independent of the current display mode.
+ *     For debug use only.
+ * @dc: DC instance
+ * @bw_mbps: requested bandwidth in MB/s; 0 clears the override
+ *
+ * Return: capped bandwidth value actually applied (MB/s)
+ */
+unsigned int dc_override_memory_bandwidth_request(
+		struct dc *dc,
+		unsigned int bw_mbps);
 
 #endif /* DC_INTERFACE_H_ */

@@ -546,24 +546,24 @@ static void update_psp_stream_config(struct pipe_ctx *pipe_ctx, bool dpms_off)
 	config.dig_fe = (uint8_t) pipe_ctx->stream_res.stream_enc->stream_enc_inst;
 
 	/* stream encoder index */
-	config.stream_enc_idx = pipe_ctx->stream_res.stream_enc->id - ENGINE_ID_DIGA;
+	config.stream_enc_idx = (uint8_t)(pipe_ctx->stream_res.stream_enc->id - ENGINE_ID_DIGA);
 	if (dp_is_128b_132b_signal(pipe_ctx))
 		config.stream_enc_idx =
-				pipe_ctx->stream_res.hpo_dp_stream_enc->id - ENGINE_ID_HPO_DP_0;
+				(uint8_t)(pipe_ctx->stream_res.hpo_dp_stream_enc->id - ENGINE_ID_HPO_DP_0);
 
 	/* dig back end */
 	config.dig_be = pipe_ctx->stream->link->link_enc_hw_inst;
 
 	/* link encoder index */
-	config.link_enc_idx = link_enc->transmitter - TRANSMITTER_UNIPHY_A;
+	config.link_enc_idx = (uint8_t)(link_enc->transmitter - TRANSMITTER_UNIPHY_A);
 	if (dp_is_128b_132b_signal(pipe_ctx))
-		config.link_enc_idx = pipe_ctx->link_res.hpo_dp_link_enc->inst;
+		config.link_enc_idx = (uint8_t)pipe_ctx->link_res.hpo_dp_link_enc->inst;
 
 	/* dio output index is dpia index for DPIA endpoint & dcio index by default */
 	if (pipe_ctx->stream->link->ep_type == DISPLAY_ENDPOINT_USB4_DPIA)
-		config.dio_output_idx = pipe_ctx->stream->link->link_id.enum_id - ENUM_ID_1;
+		config.dio_output_idx = (uint8_t)(pipe_ctx->stream->link->link_id.enum_id - ENUM_ID_1);
 	else
-		config.dio_output_idx = link_enc->transmitter - TRANSMITTER_UNIPHY_A;
+		config.dio_output_idx = (uint8_t)(link_enc->transmitter - TRANSMITTER_UNIPHY_A);
 
 
 	/* phy index */
@@ -1411,7 +1411,7 @@ static bool write_128b_132b_sst_payload_allocation_table(
 
 	if (allocate)	{
 		avg_time_slots_per_mtp = link_calculate_sst_avg_time_slots_per_mtp(stream, link);
-		req_slot_count = dc_fixpt_ceil(avg_time_slots_per_mtp);
+		req_slot_count = (uint8_t)dc_fixpt_ceil(avg_time_slots_per_mtp);
 		/// Validation should filter out modes that exceed link BW
 		ASSERT(req_slot_count <= MAX_MTP_SLOT_COUNT);
 		if (req_slot_count > MAX_MTP_SLOT_COUNT)
@@ -1811,7 +1811,7 @@ static void enable_link_hdmi(struct pipe_ctx *pipe_ctx)
 		write_scdc_data(
 			stream->link->ddc,
 			stream->phy_pix_clk,
-			stream->timing.flags.LTE_340MCSC_SCRAMBLE);
+			(stream->timing.flags.LTE_340MCSC_SCRAMBLE != 0));
 
 	memset(&stream->link->cur_link_settings, 0,
 			sizeof(struct dc_link_settings));
@@ -2016,9 +2016,7 @@ static enum dc_status enable_link_dp_mst(
 	return enable_link_dp(state, pipe_ctx);
 }
 
-static enum dc_status enable_link_analog(
-		struct dc_state *state,
-		struct pipe_ctx *pipe_ctx)
+static enum dc_status enable_link_analog(struct pipe_ctx *pipe_ctx)
 {
 	struct dc_link *link = pipe_ctx->stream->link;
 
@@ -2083,7 +2081,7 @@ static enum dc_status enable_link(
 		status = DC_OK;
 		break;
 	case SIGNAL_TYPE_RGB:
-		status = enable_link_analog(state, pipe_ctx);
+		status = enable_link_analog(pipe_ctx);
 		break;
 	case SIGNAL_TYPE_VIRTUAL:
 		status = enable_link_virtual(pipe_ctx);
@@ -2111,7 +2109,7 @@ static bool allocate_usb4_bandwidth_for_stream(struct dc_stream_state *stream, i
 
 	if (stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST) {
 		int sink_index = 0;
-		int i = 0;
+		unsigned int i = 0;
 
 		for (i = 0; i < link->sink_count; i++) {
 			if (link->remote_sinks[i] == NULL)
@@ -2132,7 +2130,7 @@ static bool allocate_usb4_bandwidth_for_stream(struct dc_stream_state *stream, i
 	link_dp_dpia_allocate_usb4_bandwidth_for_stream(link, req_bw);
 
 	if (stream->signal == SIGNAL_TYPE_DISPLAY_PORT_MST) {
-		int i = 0;
+		unsigned int i = 0;
 
 		for (i = 0; i < link->sink_count; i++) {
 			if (link->remote_sinks[i] == NULL)

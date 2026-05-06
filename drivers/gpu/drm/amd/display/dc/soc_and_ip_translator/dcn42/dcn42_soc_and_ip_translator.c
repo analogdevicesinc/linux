@@ -47,18 +47,18 @@ static void dcn42_convert_dc_clock_table_to_soc_bb_clock_table(
 	 * for use with dml we need to fill in using an active value aiming for >= 2x DCFCLK
 	 */
 	if (dc_clk_table->num_entries_per_clk.num_fclk_levels && dc_clk_table->num_entries_per_clk.num_dcfclk_levels) {
-		dml_clk_table->fclk.num_clk_values = dc_clk_table->num_entries_per_clk.num_dcfclk_levels;
-		dml_clk_table->dcfclk.num_clk_values = dc_clk_table->num_entries_per_clk.num_dcfclk_levels;
+		dml_clk_table->fclk.num_clk_values = (uint8_t)dc_clk_table->num_entries_per_clk.num_dcfclk_levels;
+		dml_clk_table->dcfclk.num_clk_values = (uint8_t)dc_clk_table->num_entries_per_clk.num_dcfclk_levels;
 		for (i = 0; i < min(DML_MAX_CLK_TABLE_SIZE, MAX_NUM_DPM_LVL); i++) {
-			if (i < dc_clk_table->num_entries_per_clk.num_dcfclk_levels) {
+			if (i < (int)dc_clk_table->num_entries_per_clk.num_dcfclk_levels) {
 				int j, max_fclk = 0;
 
 				dml_clk_table->dcfclk.clk_values_khz[i] = dc_clk_table->entries[i].dcfclk_mhz * 1000;
 				for (j = 0; j < MAX_NUM_DPM_LVL; j++) {
-					if (dc_clk_table->entries[j].fclk_mhz * 1000 > max_fclk)
+					if ((uint32_t)(dc_clk_table->entries[j].fclk_mhz * 1000) > (uint32_t)max_fclk)
 						max_fclk = dc_clk_table->entries[j].fclk_mhz * 1000;
 					dml_clk_table->fclk.clk_values_khz[i] = max_fclk;
-					if (max_fclk >= 2 * dml_clk_table->dcfclk.clk_values_khz[i])
+						if ((uint32_t)max_fclk >= 2 * dml_clk_table->dcfclk.clk_values_khz[i])
 						break;
 				}
 			} else {
@@ -70,7 +70,7 @@ static void dcn42_convert_dc_clock_table_to_soc_bb_clock_table(
 
 	/* uclk */
 	if (dc_clk_table->num_entries_per_clk.num_memclk_levels) {
-		dml_clk_table->uclk.num_clk_values = dc_clk_table->num_entries_per_clk.num_memclk_levels;
+		dml_clk_table->uclk.num_clk_values = (uint8_t)dc_clk_table->num_entries_per_clk.num_memclk_levels;
 		for (i = 0; i < min(DML_MAX_CLK_TABLE_SIZE, MAX_NUM_DPM_LVL); i++) {
 			if (i < dml_clk_table->uclk.num_clk_values) {
 				dml_clk_table->uclk.clk_values_khz[i] = dc_clk_table->entries[i].memclk_mhz * 1000;
@@ -84,7 +84,7 @@ static void dcn42_convert_dc_clock_table_to_soc_bb_clock_table(
 
 	/* dispclk */
 	if (dc_clk_table->num_entries_per_clk.num_dispclk_levels) {
-		dml_clk_table->dispclk.num_clk_values = dc_clk_table->num_entries_per_clk.num_dispclk_levels;
+		dml_clk_table->dispclk.num_clk_values = (uint8_t)dc_clk_table->num_entries_per_clk.num_dispclk_levels;
 		for (i = 0; i < min(DML_MAX_CLK_TABLE_SIZE, MAX_NUM_DPM_LVL); i++) {
 			if (i < dml_clk_table->dispclk.num_clk_values) {
 				dml_clk_table->dispclk.clk_values_khz[i] = dc_clk_table->entries[i].dispclk_mhz * 1000;
@@ -101,7 +101,7 @@ static void dcn42_convert_dc_clock_table_to_soc_bb_clock_table(
 
 	/* dppclk */
 	if (dc_clk_table->num_entries_per_clk.num_dppclk_levels) {
-		dml_clk_table->dppclk.num_clk_values = dc_clk_table->num_entries_per_clk.num_dppclk_levels;
+		dml_clk_table->dppclk.num_clk_values = (uint8_t)dc_clk_table->num_entries_per_clk.num_dppclk_levels;
 		for (i = 0; i < min(DML_MAX_CLK_TABLE_SIZE, MAX_NUM_DPM_LVL); i++) {
 			if (i < dml_clk_table->dppclk.num_clk_values) {
 				dml_clk_table->dppclk.clk_values_khz[i] = dc_clk_table->entries[i].dppclk_mhz * 1000;
@@ -117,7 +117,7 @@ static void dcn42_convert_dc_clock_table_to_soc_bb_clock_table(
 
 	/* dtbclk */
 	if (dc_clk_table->num_entries_per_clk.num_dtbclk_levels) {
-		dml_clk_table->dtbclk.num_clk_values = dc_clk_table->num_entries_per_clk.num_dtbclk_levels;
+		dml_clk_table->dtbclk.num_clk_values = (uint8_t)dc_clk_table->num_entries_per_clk.num_dtbclk_levels;
 		for (i = 0; i < min(DML_MAX_CLK_TABLE_SIZE, MAX_NUM_DPM_LVL); i++) {
 			if (i < dml_clk_table->dtbclk.num_clk_values) {
 				dml_clk_table->dtbclk.clk_values_khz[i] = dc_clk_table->entries[i].dtbclk_mhz * 1000;
@@ -129,7 +129,7 @@ static void dcn42_convert_dc_clock_table_to_soc_bb_clock_table(
 
 	/* socclk */
 	if (dc_clk_table->num_entries_per_clk.num_socclk_levels) {
-		dml_clk_table->socclk.num_clk_values = dc_clk_table->num_entries_per_clk.num_socclk_levels;
+		dml_clk_table->socclk.num_clk_values = (uint8_t)dc_clk_table->num_entries_per_clk.num_socclk_levels;
 		for (i = 0; i < min(DML_MAX_CLK_TABLE_SIZE, MAX_NUM_DPM_LVL); i++) {
 			if (i < dml_clk_table->socclk.num_clk_values) {
 				dml_clk_table->socclk.clk_values_khz[i] = dc_clk_table->entries[i].socclk_mhz * 1000;

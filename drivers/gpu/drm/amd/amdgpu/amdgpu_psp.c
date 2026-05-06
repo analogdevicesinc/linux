@@ -518,7 +518,7 @@ static int psp_sw_init(struct amdgpu_ip_block *ip_block)
 	}
 
 	ret = amdgpu_bo_create_kernel(adev, PSP_1_MEG, PSP_1_MEG,
-				      (amdgpu_sriov_vf(adev) || adev->debug_use_vram_fw_buf) ?
+				      (amdgpu_sriov_vf(adev) || adev->debug_use_vram_fw_buf || adev->gmc.xgmi.connected_to_cpu) ?
 				      AMDGPU_GEM_DOMAIN_VRAM : AMDGPU_GEM_DOMAIN_GTT,
 				      &psp->fw_pri_bo,
 				      &psp->fw_pri_mc_addr,
@@ -3527,7 +3527,12 @@ int psp_init_toc_microcode(struct psp_context *psp, const char *chip_name)
 	const struct psp_firmware_header_v1_0 *toc_hdr;
 	int err = 0;
 
-	err = amdgpu_ucode_request(adev, &adev->psp.toc_fw, AMDGPU_UCODE_REQUIRED,
+	if (amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(15, 0, 8) &&
+	    adev->rev_id == 0)
+		err = amdgpu_ucode_request(adev, &adev->psp.toc_fw, AMDGPU_UCODE_REQUIRED,
+				   "amdgpu/%s_toc_1.bin", chip_name);
+	else
+		err = amdgpu_ucode_request(adev, &adev->psp.toc_fw, AMDGPU_UCODE_REQUIRED,
 				   "amdgpu/%s_toc.bin", chip_name);
 	if (err)
 		goto out;

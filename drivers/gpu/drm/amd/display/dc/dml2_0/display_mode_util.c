@@ -80,7 +80,7 @@ static inline float dcn_bw_pow(float a, float exp)
 	/*ASSERT(exp == (int)exp);*/
 	if ((int)exp == 0)
 		return 1;
-	temp = dcn_bw_pow(a, (int)(exp / 2));
+	temp = dcn_bw_pow(a, (float)(exp / 2));
 	if (((int)exp % 2) == 0) {
 		return temp * temp;
 	} else {
@@ -110,7 +110,7 @@ dml_float_t dml_ceil(dml_float_t x, dml_float_t granularity)
 	if (granularity == 0)
 		return 0;
 	//return (dml_float_t) (ceil(x / granularity) * granularity);
-	return (dml_float_t)dcn_bw_ceil2(x, granularity);
+	return (dml_float_t)dcn_bw_ceil2((float)x, (float)granularity);
 }
 
 dml_float_t dml_floor(dml_float_t x, dml_float_t granularity)
@@ -118,7 +118,7 @@ dml_float_t dml_floor(dml_float_t x, dml_float_t granularity)
 	if (granularity == 0)
 	return 0;
 	//return (dml_float_t) (floor(x / granularity) * granularity);
-	return (dml_float_t)dcn_bw_floor2(x, granularity);
+	return (dml_float_t)dcn_bw_floor2((float)x, (float)granularity);
 }
 
 dml_float_t dml_min(dml_float_t x, dml_float_t y)
@@ -168,12 +168,12 @@ dml_float_t dml_max5(dml_float_t a, dml_float_t b, dml_float_t c, dml_float_t d,
 }
 dml_float_t dml_log(dml_float_t x, dml_float_t base)
 {
-	return (dml_float_t) (_log(x) / _log(base));
+	return (dml_float_t) (_log((float)x) / _log((float)base));
 }
 
 dml_float_t dml_log2(dml_float_t x)
 {
-	return (dml_float_t) (_log(x) / _log(2));
+	return (dml_float_t) (_log((float)x) / _log(2.0f));
 }
 
 dml_float_t dml_round(dml_float_t val, dml_bool_t bankers_rounding)
@@ -184,19 +184,19 @@ dml_float_t dml_round(dml_float_t val, dml_bool_t bankers_rounding)
 //	else {
 //		return round(val);
 		double round_pt = 0.5;
-		double ceil = dml_ceil(val, 1);
-		double floor = dml_floor(val, 1);
+	double ceil = dml_ceil(val, 1.0);
+	double floor = dml_floor(val, 1.0);
 
 		if (val - floor >= round_pt)
-			return ceil;
+			return (dml_float_t)ceil;
 		else
-			return floor;
+			return (dml_float_t)floor;
 //	}
 }
 
 dml_float_t dml_pow(dml_float_t base, int exp)
 {
-	return (dml_float_t) dcn_bw_pow(base, exp);
+	return (dml_float_t) dcn_bw_pow((float)base, (float)exp);
 }
 
 dml_uint_t dml_round_to_multiple(dml_uint_t num, dml_uint_t multiple, dml_bool_t up)

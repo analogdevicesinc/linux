@@ -503,7 +503,7 @@ void pg_cntl42_plane_otg_pg_control(struct pg_cntl *pg_cntl, bool power_on)
 	uint32_t power_gate = power_on ? 0 : 1;
 	uint32_t pwr_status = power_on ? 0 : 2;
 	uint32_t org_ip_request_cntl;
-	int i;
+	unsigned int i;
 	bool block_enabled;
 	bool all_mpcc_disabled = true, all_opp_disabled = true;
 	bool all_optc_disabled = true, all_stream_disabled = true;
@@ -564,7 +564,7 @@ void pg_cntl42_plane_otg_pg_control(struct pg_cntl *pg_cntl, bool power_on)
 
 void pg_cntl42_init_pg_status(struct pg_cntl *pg_cntl)
 {
-	int i = 0;
+	unsigned int i = 0;
 	bool block_enabled;
 
 	pg_cntl->pg_res_enable[PG_HPO] = pg_cntl42_hpo_pg_status(pg_cntl);

@@ -286,34 +286,34 @@ struct resource_pool *dc_create_resource_pool(struct dc  *dc,
 #endif
 	case DCE_VERSION_8_0:
 		res_pool = dce80_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_8_1:
 		res_pool = dce81_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_8_3:
 		res_pool = dce83_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_10_0:
 		res_pool = dce100_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_11_0:
 		res_pool = dce110_create_resource_pool(
-				init_data->num_virtual_links, dc,
+				(uint8_t)init_data->num_virtual_links, dc,
 				init_data->asic_id);
 		break;
 	case DCE_VERSION_11_2:
 	case DCE_VERSION_11_22:
 		res_pool = dce112_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 	case DCE_VERSION_12_0:
 	case DCE_VERSION_12_1:
 		res_pool = dce120_create_resource_pool(
-				init_data->num_virtual_links, dc);
+				(uint8_t)init_data->num_virtual_links, dc);
 		break;
 
 #if defined(CONFIG_DRM_AMD_DC_FP)
@@ -446,7 +446,7 @@ bool resource_construct(
 {
 	struct dc_context *ctx = dc->ctx;
 	const struct resource_caps *caps = pool->res_cap;
-	int i;
+	unsigned int i;
 	unsigned int num_audio = caps->num_audio;
 	struct resource_straps straps = {0};
 
@@ -463,7 +463,7 @@ bool resource_construct(
 		 * PORT_CONNECTIVITY == 1 (as instructed by HW team).
 		 */
 		update_num_audio(&straps, &num_audio, &pool->audio_support);
-		for (i = 0; i < caps->num_audio; i++) {
+		for (i = 0; i < (unsigned int)caps->num_audio; i++) {
 			struct audio *aud = create_funcs->create_audio(ctx, i);
 
 			if (aud == NULL) {
@@ -481,14 +481,14 @@ bool resource_construct(
 
 	pool->stream_enc_count = 0;
 	if (create_funcs->create_stream_encoder) {
-		for (i = 0; i < caps->num_stream_encoder; i++) {
+		for (i = 0; i < (unsigned int)caps->num_stream_encoder; i++) {
 			pool->stream_enc[i] = create_funcs->create_stream_encoder(i, ctx);
 			if (pool->stream_enc[i] == NULL)
 				DC_ERR("DC: failed to create stream_encoder!\n");
 			pool->stream_enc_count++;
 		}
 
-		for (i = 0; i < caps->num_analog_stream_encoder; i++) {
+		for (i = 0; i < (unsigned int)caps->num_analog_stream_encoder; i++) {
 			pool->stream_enc[caps->num_stream_encoder + i] =
 				create_funcs->create_stream_encoder(ENGINE_ID_DACA + i, ctx);
 			if (pool->stream_enc[caps->num_stream_encoder + i] == NULL)
@@ -499,7 +499,7 @@ bool resource_construct(
 
 	pool->hpo_dp_stream_enc_count = 0;
 	if (create_funcs->create_hpo_dp_stream_encoder) {
-		for (i = 0; i < caps->num_hpo_dp_stream_encoder; i++) {
+		for (i = 0; i < (unsigned int)caps->num_hpo_dp_stream_encoder; i++) {
 			pool->hpo_dp_stream_enc[i] = create_funcs->create_hpo_dp_stream_encoder(i+ENGINE_ID_HPO_DP_0, ctx);
 			if (pool->hpo_dp_stream_enc[i] == NULL)
 				DC_ERR("DC: failed to create HPO DP stream encoder!\n");
@@ -510,15 +510,15 @@ bool resource_construct(
 
 	pool->hpo_dp_link_enc_count = 0;
 	if (create_funcs->create_hpo_dp_link_encoder) {
-		for (i = 0; i < caps->num_hpo_dp_link_encoder; i++) {
-			pool->hpo_dp_link_enc[i] = create_funcs->create_hpo_dp_link_encoder(i, ctx);
+		for (i = 0; i < (unsigned int)caps->num_hpo_dp_link_encoder; i++) {
+			pool->hpo_dp_link_enc[i] = create_funcs->create_hpo_dp_link_encoder((uint8_t)i, ctx);
 			if (pool->hpo_dp_link_enc[i] == NULL)
 				DC_ERR("DC: failed to create HPO DP link encoder!\n");
 			pool->hpo_dp_link_enc_count++;
 		}
 	}
 
-	for (i = 0; i < caps->num_mpc_3dlut; i++) {
+	for (i = 0; i < (unsigned int)caps->num_mpc_3dlut; i++) {
 		pool->mpc_lut[i] = dc_create_3dlut_func();
 		if (pool->mpc_lut[i] == NULL)
 			DC_ERR("DC: failed to create MPC 3dlut!\n");
@@ -551,11 +551,11 @@ static int find_matching_clock_source(
 		struct clock_source *clock_source)
 {
 
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->clk_src_count; i++) {
 		if (pool->clock_sources[i] == clock_source)
-			return i;
+			return (int)i;
 	}
 	return -1;
 }
@@ -610,7 +610,7 @@ bool resource_are_vblanks_synchronizable(
 {
 	uint32_t base60_refresh_rates[] = {10, 20, 5};
 	uint8_t i;
-	uint8_t rr_count = ARRAY_SIZE(base60_refresh_rates);
+	uint8_t rr_count = (uint8_t)ARRAY_SIZE(base60_refresh_rates);
 	uint64_t frame_time_diff;
 
 	if (stream1->ctx->dc->config.vblank_alignment_dto_params &&
@@ -1801,7 +1801,7 @@ struct pipe_ctx *resource_find_free_secondary_pipe_legacy(
 		int preferred_pipe_idx = (pool->pipe_count - 1) - primary_pipe->pipe_idx;
 		if (res_ctx->pipe_ctx[preferred_pipe_idx].stream == NULL) {
 			secondary_pipe = &res_ctx->pipe_ctx[preferred_pipe_idx];
-			secondary_pipe->pipe_idx = preferred_pipe_idx;
+			secondary_pipe->pipe_idx = (uint8_t)preferred_pipe_idx;
 		}
 	}
 
@@ -1813,7 +1813,7 @@ struct pipe_ctx *resource_find_free_secondary_pipe_legacy(
 		for (i = pool->pipe_count - 1; i >= 0; i--) {
 			if (res_ctx->pipe_ctx[i].stream == NULL) {
 				secondary_pipe = &res_ctx->pipe_ctx[i];
-				secondary_pipe->pipe_idx = i;
+				secondary_pipe->pipe_idx = (uint8_t)i;
 				break;
 			}
 		}
@@ -1876,7 +1876,7 @@ int recource_find_free_pipe_not_used_in_cur_res_ctx(
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe, *cur_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		cur_pipe = &cur_res_ctx->pipe_ctx[i];
@@ -1899,7 +1899,7 @@ int recource_find_free_pipe_used_as_otg_master_in_cur_res_ctx(
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe, *cur_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		cur_pipe = &cur_res_ctx->pipe_ctx[i];
@@ -1922,7 +1922,7 @@ int resource_find_free_pipe_used_as_cur_sec_dpp(
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe, *cur_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		cur_pipe = &cur_res_ctx->pipe_ctx[i];
@@ -1946,7 +1946,7 @@ int resource_find_free_pipe_used_as_cur_sec_dpp_in_mpcc_combine(
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe, *cur_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		cur_pipe = &cur_res_ctx->pipe_ctx[i];
@@ -1969,7 +1969,7 @@ int resource_find_any_free_pipe(struct resource_context *new_res_ctx,
 {
 	int free_pipe_idx = FREE_PIPE_INDEX_NOT_FOUND;
 	const struct pipe_ctx *new_pipe;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		new_pipe = &new_res_ctx->pipe_ctx[i];
@@ -2564,7 +2564,7 @@ static bool update_pipe_params_after_odm_slice_count_change(
 		struct dc_state *context,
 		const struct resource_pool *pool)
 {
-	int i;
+	unsigned int i;
 	struct pipe_ctx *pipe;
 	bool result = true;
 
@@ -2587,7 +2587,7 @@ static bool update_pipe_params_after_mpc_slice_count_change(
 		struct dc_state *context,
 		const struct resource_pool *pool)
 {
-	int i;
+	unsigned int i;
 	struct pipe_ctx *pipe;
 	bool result = true;
 
@@ -2604,7 +2604,7 @@ static int acquire_first_split_pipe(
 		const struct resource_pool *pool,
 		struct dc_stream_state *stream)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->pipe_count; i++) {
 		struct pipe_ctx *split_pipe = &res_ctx->pipe_ctx[i];
@@ -2624,11 +2624,11 @@ static int acquire_first_split_pipe(
 			split_pipe->plane_res.ipp = pool->ipps[i];
 			split_pipe->plane_res.dpp = pool->dpps[i];
 			split_pipe->stream_res.opp = pool->opps[i];
-			split_pipe->plane_res.mpcc_inst = pool->dpps[i]->inst;
-			split_pipe->pipe_idx = i;
+			split_pipe->plane_res.mpcc_inst = (uint8_t)pool->dpps[i]->inst;
+			split_pipe->pipe_idx = (uint8_t)i;
 
 			split_pipe->stream = stream;
-			return i;
+			return (int)i;
 		}
 	}
 	return FREE_PIPE_INDEX_NOT_FOUND;
@@ -2640,7 +2640,7 @@ static void update_stream_engine_usage(
 		struct stream_encoder *stream_enc,
 		bool acquired)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->stream_enc_count; i++) {
 		if (pool->stream_enc[i] == stream_enc)
@@ -2654,7 +2654,7 @@ static void update_hpo_dp_stream_engine_usage(
 		struct hpo_dp_stream_encoder *hpo_dp_stream_enc,
 		bool acquired)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->hpo_dp_stream_enc_count; i++) {
 		if (pool->hpo_dp_stream_enc[i] == hpo_dp_stream_enc)
@@ -2679,14 +2679,14 @@ static inline int find_acquired_hpo_dp_link_enc_for_link(
 static inline int find_free_hpo_dp_link_enc(const struct resource_context *res_ctx,
 		const struct resource_pool *pool)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(res_ctx->hpo_dp_link_enc_ref_cnts); i++)
 		if (res_ctx->hpo_dp_link_enc_ref_cnts[i] == 0)
 			break;
 
 	return (i < ARRAY_SIZE(res_ctx->hpo_dp_link_enc_ref_cnts) &&
-			i < pool->hpo_dp_link_enc_count) ? i : -1;
+			i < pool->hpo_dp_link_enc_count) ? (int)i : -1;
 }
 
 static inline void acquire_hpo_dp_link_enc(
@@ -2773,9 +2773,10 @@ static inline int find_fixed_dio_link_enc(const struct dc_link *link)
 static inline int find_free_dio_link_enc(const struct resource_context *res_ctx,
 		const struct dc_link *link, const struct resource_pool *pool, struct dc_stream_state *stream)
 {
-	int i, j = -1;
+	unsigned int i;
+	int j = -1;
 	int stream_enc_inst = -1;
-	int enc_count = pool->dig_link_enc_count;
+	unsigned int enc_count = pool->dig_link_enc_count;
 
 	/* Find stream encoder instance for the stream */
 	if (stream) {
@@ -2931,7 +2932,7 @@ static void remove_dio_link_enc_from_ctx(struct resource_context *res_ctx,
 
 static int get_num_of_free_pipes(const struct resource_pool *pool, const struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 	int count = 0;
 
 	for (i = 0; i < pool->pipe_count; i++)
@@ -3608,7 +3609,7 @@ void update_audio_usage(
 		struct audio *audio,
 		bool acquired)
 {
-	int i;
+	unsigned int i;
 	for (i = 0; i < pool->audio_count; i++) {
 		if (pool->audios[i] == audio)
 			res_ctx->is_audio_acquired[i] = acquired;
@@ -3621,7 +3622,7 @@ static struct hpo_dp_stream_encoder *find_first_free_match_hpo_dp_stream_enc_for
 		struct dc_stream_state *stream)
 {
 	(void)stream;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->hpo_dp_stream_enc_count; i++) {
 		if (!res_ctx->is_hpo_dp_stream_enc_acquired[i] &&
@@ -3804,7 +3805,7 @@ static int acquire_resource_from_hw_enabled_state(
 			pipe_ctx->stream_res.opp = pool->opps[id_src[i]];
 
 			if (pool->dpps[id_src[i]]) {
-				pipe_ctx->plane_res.mpcc_inst = pool->dpps[id_src[i]]->inst;
+				pipe_ctx->plane_res.mpcc_inst = (uint8_t)pool->dpps[id_src[i]]->inst;
 
 				if (pool->mpc->funcs->read_mpcc_state) {
 					struct mpcc_state s = {0};
@@ -3823,7 +3824,7 @@ static int acquire_resource_from_hw_enabled_state(
 						pipe_ctx->stream_res.opp->mpc_tree_params.opp_id = s.opp_id;
 				}
 			}
-			pipe_ctx->pipe_idx = id_src[i];
+			pipe_ctx->pipe_idx = (uint8_t)id_src[i];
 
 			if (id_src[i] >= pool->timing_generator_count) {
 				id_src[i] = pool->timing_generator_count - 1;
@@ -3939,7 +3940,7 @@ static bool acquire_otg_master_pipe_for_stream(
 	if (pipe_idx != FREE_PIPE_INDEX_NOT_FOUND) {
 		pipe_ctx = &new_ctx->res_ctx.pipe_ctx[pipe_idx];
 		memset(pipe_ctx, 0, sizeof(*pipe_ctx));
-		pipe_ctx->pipe_idx = pipe_idx;
+		pipe_ctx->pipe_idx = (uint8_t)pipe_idx;
 		pipe_ctx->stream_res.tg = pool->timing_generators[pipe_idx];
 		pipe_ctx->plane_res.mi = pool->mis[pipe_idx];
 		pipe_ctx->plane_res.hubp = pool->hubps[pipe_idx];
@@ -3948,9 +3949,9 @@ static bool acquire_otg_master_pipe_for_stream(
 		pipe_ctx->plane_res.dpp = pool->dpps[pipe_idx];
 		pipe_ctx->stream_res.opp = pool->opps[pipe_idx];
 		if (pool->dpps[pipe_idx])
-			pipe_ctx->plane_res.mpcc_inst = pool->dpps[pipe_idx]->inst;
+			pipe_ctx->plane_res.mpcc_inst = (uint8_t)pool->dpps[pipe_idx]->inst;
 
-		if (pipe_idx >= pool->timing_generator_count && pool->timing_generator_count != 0) {
+		if ((unsigned int)pipe_idx >= pool->timing_generator_count && pool->timing_generator_count != 0) {
 			int tg_inst = pool->timing_generator_count - 1;
 
 			pipe_ctx->stream_res.tg = pool->timing_generators[tg_inst];
@@ -4194,7 +4195,8 @@ enum dc_status dc_validate_with_context(struct dc *dc,
 	int del_streams_count = 0;
 	int add_streams_count = 0;
 	bool found = false;
-	int i, j, k;
+	int i, j;
+	unsigned int k;
 
 	DC_LOGGER_INIT(dc->ctx->logger);
 
@@ -4421,7 +4423,8 @@ enum dc_status dc_validate_global_state(
 		enum dc_validate_mode validate_mode)
 {
 	enum dc_status result = DC_ERROR_UNEXPECTED;
-	int i, j;
+	int i;
+	unsigned int j;
 
 	if (!new_ctx)
 		return DC_ERROR_UNEXPECTED;
@@ -4497,7 +4500,7 @@ static void patch_gamut_packet_checksum(
 		for (i = 0; i <= gamut_packet->sb[1]; i++)
 			chk_sum += ptr[i];
 
-		gamut_packet->sb[2] = (uint8_t) (0x100 - chk_sum);
+		gamut_packet->sb[2] = (uint8_t)(0x100 - chk_sum);
 	}
 }
 
@@ -4562,7 +4565,7 @@ static void set_avi_info_frame(
 
 	/* Y0_Y1_Y2 : The pixel encoding */
 	/* H14b AVI InfoFrame has extension on Y-field from 2 bits to 3 bits */
-	hdmi_info.bits.Y0_Y1_Y2 = pixel_encoding;
+	hdmi_info.bits.Y0_Y1_Y2 = (uint8_t)pixel_encoding;
 
 	/* A0 = 1 Active Format Information valid */
 	hdmi_info.bits.A0 = ACTIVE_FORMAT_VALID;
@@ -4692,7 +4695,7 @@ static void set_avi_info_frame(
 		}
 	}
 	/* If VIC >= 128, the Source shall use AVI InfoFrame Version 3*/
-	hdmi_info.bits.VIC0_VIC7 = vic;
+	hdmi_info.bits.VIC0_VIC7 = (uint8_t)vic;
 	if (vic >= 128)
 		hdmi_info.bits.header.version = 3;
 	/* If (C1, C0)=(1, 1) and (EC2, EC1, EC0)=(1, 1, 1),
@@ -4710,7 +4713,7 @@ static void set_avi_info_frame(
 
 		hdmi_info.bits.FR0_FR3 = fr_ind & 0xF;
 		hdmi_info.bits.FR4 = (fr_ind >> 4) & 0x1;
-		hdmi_info.bits.RID0_RID5 = rid;
+		hdmi_info.bits.RID0_RID5 = (uint8_t)rid;
 	}
 
 	/* pixel repetition
@@ -4723,11 +4726,11 @@ static void set_avi_info_frame(
 	 * barBottom: Line Number of Start of Bottom Bar.
 	 * barLeft:   Pixel Number of End of Left Bar.
 	 * barRight:  Pixel Number of Start of Right Bar. */
-	hdmi_info.bits.bar_top = stream->timing.v_border_top;
-	hdmi_info.bits.bar_bottom = (stream->timing.v_total
+	hdmi_info.bits.bar_top = (uint16_t)stream->timing.v_border_top;
+	hdmi_info.bits.bar_bottom = (uint16_t)(stream->timing.v_total
 			- stream->timing.v_border_bottom + 1);
-	hdmi_info.bits.bar_left  = stream->timing.h_border_left;
-	hdmi_info.bits.bar_right = (stream->timing.h_total
+	hdmi_info.bits.bar_left  = (uint16_t)stream->timing.h_border_left;
+	hdmi_info.bits.bar_right = (uint16_t)(stream->timing.h_total
 			- stream->timing.h_border_right + 1);
 
     /* Additional Colorimetry Extension
@@ -4746,7 +4749,7 @@ static void set_avi_info_frame(
 		*check_sum += hdmi_info.packet_raw_data.sb[byte_index];
 
 	/* one byte complement */
-	*check_sum = (uint8_t) (0x100 - *check_sum);
+	*check_sum = (uint8_t)(0x100 - *check_sum);
 
 	/* Store in hw_path_mode */
 	info_packet->hb0 = hdmi_info.packet_raw_data.hb0;
@@ -4880,7 +4883,7 @@ struct clock_source *dc_resource_find_first_free_pll(
 		struct resource_context *res_ctx,
 		const struct resource_pool *pool)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < pool->clk_src_count; ++i) {
 		if (res_ctx->clock_source_ref_count[i] == 0)
@@ -5369,7 +5372,7 @@ bool get_temp_dp_link_res(struct dc_link *link,
 void reset_syncd_pipes_from_disabled_pipes(struct dc *dc,
 		struct dc_state *context)
 {
-	int i, j;
+	uint8_t i, j;
 	struct pipe_ctx *pipe_ctx_old, *pipe_ctx, *pipe_ctx_syncd;
 
 	/* If pipe backend is reset, need to reset pipe syncd status */
@@ -5398,7 +5401,7 @@ void check_syncd_pipes_for_disabled_master_pipe(struct dc *dc,
 	struct dc_state *context,
 	uint8_t disabled_master_pipe_idx)
 {
-	int i;
+	unsigned int i;
 	struct pipe_ctx *pipe_ctx, *pipe_ctx_check;
 
 	pipe_ctx = &context->res_ctx.pipe_ctx[disabled_master_pipe_idx];
@@ -5432,7 +5435,7 @@ void reset_sync_context_for_pipe(const struct dc *dc,
 	struct dc_state *context,
 	uint8_t pipe_idx)
 {
-	int i;
+	uint8_t i;
 	struct pipe_ctx *pipe_ctx_reset;
 
 	/* reset the otg sync context for the pipe and its slave pipes if any */
@@ -5448,7 +5451,7 @@ void reset_sync_context_for_pipe(const struct dc *dc,
 uint8_t resource_transmitter_to_phy_idx(const struct dc *dc, enum transmitter transmitter)
 {
 	/* TODO - get transmitter to phy idx mapping from DMUB */
-	uint8_t phy_idx = transmitter - TRANSMITTER_UNIPHY_A;
+	uint8_t phy_idx = (uint8_t)(transmitter - TRANSMITTER_UNIPHY_A);
 
 	if (dc->ctx->dce_version == DCN_VERSION_3_1 &&
 			dc->ctx->asic_id.hw_internal_rev == YELLOW_CARP_B0) {
@@ -5515,8 +5518,8 @@ const struct link_hwss *get_link_hwss(const struct dc_link *link,
 bool is_h_timing_divisible_by_2(struct dc_stream_state *stream)
 {
 	bool divisible = false;
-	uint16_t h_blank_start = 0;
-	uint16_t h_blank_end = 0;
+	uint32_t h_blank_start = 0;
+	uint32_t h_blank_end = 0;
 
 	if (stream) {
 		h_blank_start = stream->timing.h_total - stream->timing.h_front_porch;
@@ -5570,13 +5573,13 @@ bool dc_resource_acquire_secondary_pipe_for_mpc_odm_legacy(
 	sec_pipe->next_odm_pipe = sec_next;
 	sec_pipe->prev_odm_pipe = sec_prev;
 
-	sec_pipe->pipe_idx = pipe_idx;
+	sec_pipe->pipe_idx = (uint8_t)pipe_idx;
 	sec_pipe->plane_res.mi = pool->mis[pipe_idx];
 	sec_pipe->plane_res.hubp = pool->hubps[pipe_idx];
 	sec_pipe->plane_res.ipp = pool->ipps[pipe_idx];
 	sec_pipe->plane_res.xfm = pool->transforms[pipe_idx];
 	sec_pipe->plane_res.dpp = pool->dpps[pipe_idx];
-	sec_pipe->plane_res.mpcc_inst = pool->dpps[pipe_idx]->inst;
+	sec_pipe->plane_res.mpcc_inst = (uint8_t)pool->dpps[pipe_idx]->inst;
 	sec_pipe->stream_res.dsc = NULL;
 	if (odm) {
 		if (!sec_pipe->top_pipe)

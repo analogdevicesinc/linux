@@ -290,12 +290,12 @@ static bool i2c_read(
 	struct i2c_payload payloads[2] = {
 		{
 		.write = true,
-		.address = address,
+		.address = (uint8_t)address,
 		.length = 1,
 		.data = &offs_data },
 		{
 		.write = false,
-		.address = address,
+		.address = (uint8_t)address,
 		.length = len,
 		.data = buffer } };
 
@@ -524,7 +524,7 @@ static void read_current_link_settings_on_detect(struct dc_link *link)
 	uint8_t link_rate_set = 0;
 	uint32_t read_dpcd_retry_cnt = 10;
 	enum dc_status status = DC_ERROR_UNEXPECTED;
-	int i;
+	unsigned int i;
 	union max_down_spread max_down_spread = {0};
 
 	// Read DPCD 00101h to find out the number of lanes currently set
@@ -655,7 +655,7 @@ static bool wait_for_entering_dp_alt_mode(struct dc_link *link)
 	unsigned long long enter_timestamp;
 	unsigned long long finish_timestamp;
 	unsigned long long time_taken_in_ns;
-	int tries_taken;
+	unsigned int tries_taken;
 
 	/**
 	 * this function will only exist if we are on dcn21 (is_in_alt_mode is a
@@ -1619,7 +1619,7 @@ fail_add_sink:
 
 void link_remove_remote_sink(struct dc_link *link, struct dc_sink *sink)
 {
-	int i;
+	unsigned int i;
 
 	if (!link->sink_count) {
 		BREAK_TO_DEBUGGER();

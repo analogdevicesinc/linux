@@ -121,8 +121,6 @@
 	LE_SF(DIO_CLK_CNTL, SYMCLKC_G_HDCP_GATE_DIS, mask_sh),\
 	LE_SF(DIO_CLK_CNTL, SYMCLKD_G_HDCP_GATE_DIS, mask_sh),\
 	LE_SF(DIO_CLK_CNTL, SYMCLKE_G_HDCP_GATE_DIS, mask_sh),\
-	LE_SF(DIO_CLK_CNTL, SYMCLKF_G_HDCP_GATE_DIS, mask_sh),\
-	LE_SF(DIO_CLK_CNTL, SYMCLKG_G_HDCP_GATE_DIS, mask_sh)
 
 void dcn42_link_encoder_construct(
 	struct dcn20_link_encoder *enc20,

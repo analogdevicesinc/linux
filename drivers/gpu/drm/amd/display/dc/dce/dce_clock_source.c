@@ -162,11 +162,9 @@ static bool calculate_fb_and_fractional_fb_divider(
 	feedback_divider *= (uint64_t)
 			(calc_pll_cs->fract_fb_divider_precision_factor);
 
-	*feedback_divider_param =
-		div_u64_rem(
-			feedback_divider,
-			calc_pll_cs->fract_fb_divider_factor,
-			fract_feedback_divider_param);
+	*feedback_divider_param = (uint32_t)div_u64_rem(
+		feedback_divider, calc_pll_cs->fract_fb_divider_factor,
+		fract_feedback_divider_param);
 
 	if (*feedback_divider_param != 0)
 		return true;
@@ -240,7 +238,7 @@ static bool calc_fb_divider_checking_tolerance(
 		pll_settings->calculated_pix_clk_100hz =
 			actual_calculated_clock_100hz;
 		pll_settings->vco_freq =
-			div_u64((u64)actual_calculated_clock_100hz * post_divider, 10);
+			(uint32_t)div_u64((u64)actual_calculated_clock_100hz * post_divider, 10);
 		return true;
 	}
 	return false;
@@ -440,8 +438,7 @@ static bool pll_adjust_pix_clk(
 	bp_adjust_pixel_clock_params.
 		encoder_object_id = pix_clk_params->encoder_object_id;
 	bp_adjust_pixel_clock_params.signal_type = pix_clk_params->signal_type;
-	bp_adjust_pixel_clock_params.
-		ss_enable = pix_clk_params->flags.ENABLE_SS;
+	bp_adjust_pixel_clock_params.ss_enable = pix_clk_params->flags.ENABLE_SS != 0;
 	bp_result = clk_src->bios->funcs->adjust_pixel_clock(
 			clk_src->bios, &bp_adjust_pixel_clock_params);
 	if (bp_result == BP_RESULT_OK) {
@@ -958,7 +955,7 @@ static bool dce112_program_pix_clk(
 		dce112_program_pixel_clk_resync(clk_src,
 					pix_clk_params->signal_type,
 					pix_clk_params->color_depth,
-					pix_clk_params->flags.SUPPORT_YCBCR420);
+					pix_clk_params->flags.SUPPORT_YCBCR420 != 0);
 
 	return true;
 }
@@ -1059,7 +1056,7 @@ static bool dcn31_program_pix_clk(
 			dce112_program_pixel_clk_resync(clk_src,
 						pix_clk_params->signal_type,
 						pix_clk_params->color_depth,
-						pix_clk_params->flags.SUPPORT_YCBCR420);
+						pix_clk_params->flags.SUPPORT_YCBCR420 != 0);
 	}
 
 	return true;
@@ -1162,7 +1159,7 @@ static bool dcn401_program_pix_clk(
 			dce112_program_pixel_clk_resync(clk_src,
 						pix_clk_params->signal_type,
 						pix_clk_params->color_depth,
-						pix_clk_params->flags.SUPPORT_YCBCR420);
+						pix_clk_params->flags.SUPPORT_YCBCR420 != 0);
 	}
 
 	return true;
@@ -1211,9 +1208,8 @@ static bool get_pixel_clk_frequency_100hz(
 			 */
 			modulo_hz = REG_READ(MODULO[inst]);
 			if (modulo_hz)
-				*pixel_clk_khz = div_u64((uint64_t)clock_hz*
-					dp_dto_ref_khz*10,
-					modulo_hz);
+				*pixel_clk_khz = (unsigned int)div_u64((uint64_t)clock_hz *
+					dp_dto_ref_khz * 10, modulo_hz);
 			else
 				*pixel_clk_khz = 0;
 		} else {

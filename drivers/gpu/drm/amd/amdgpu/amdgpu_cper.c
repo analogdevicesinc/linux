@@ -153,7 +153,7 @@ int amdgpu_cper_entry_fill_fatal_section(struct amdgpu_device *adev,
 		   FATAL_SEC_OFFSET(hdr->sec_cnt, idx));
 
 	amdgpu_cper_entry_fill_section_desc(adev, section_desc, false, false,
-					    CPER_SEV_FATAL, CRASHDUMP, FATAL_SEC_LEN,
+					    CPER_SEV_FATAL_UNCORRECTED, CRASHDUMP, FATAL_SEC_LEN,
 					    FATAL_SEC_OFFSET(hdr->sec_cnt, idx));
 
 	section->body.reg_ctx_type = CPER_CTX_TYPE_CRASH;
@@ -215,7 +215,7 @@ int amdgpu_cper_entry_fill_bad_page_threshold_section(struct amdgpu_device *adev
 		   NONSTD_SEC_OFFSET(hdr->sec_cnt, idx));
 
 	amdgpu_cper_entry_fill_section_desc(adev, section_desc, true, false,
-					    CPER_SEV_FATAL, RUNTIME, NONSTD_SEC_LEN,
+					    CPER_SEV_FATAL_UNCORRECTED, RUNTIME, NONSTD_SEC_LEN,
 					    NONSTD_SEC_OFFSET(hdr->sec_cnt, idx));
 
 	section->hdr.valid_bits.err_info_cnt = 1;
@@ -312,7 +312,7 @@ int amdgpu_cper_generate_ue_record(struct amdgpu_device *adev,
 	reg_data.synd_lo   = lower_32_bits(bank->regs[ACA_REG_IDX_SYND]);
 	reg_data.synd_hi   = upper_32_bits(bank->regs[ACA_REG_IDX_SYND]);
 
-	amdgpu_cper_entry_fill_hdr(adev, fatal, AMDGPU_CPER_TYPE_FATAL, CPER_SEV_FATAL);
+	amdgpu_cper_entry_fill_hdr(adev, fatal, AMDGPU_CPER_TYPE_FATAL, CPER_SEV_FATAL_UNCORRECTED);
 	ret = amdgpu_cper_entry_fill_fatal_section(adev, fatal, 0, reg_data);
 	if (ret)
 		return ret;
@@ -337,7 +337,7 @@ int amdgpu_cper_generate_bp_threshold_record(struct amdgpu_device *adev)
 
 	amdgpu_cper_entry_fill_hdr(adev, bp_threshold,
 				   AMDGPU_CPER_TYPE_BP_THRESHOLD,
-				   CPER_SEV_FATAL);
+				   CPER_SEV_FATAL_UNCORRECTED);
 	ret = amdgpu_cper_entry_fill_bad_page_threshold_section(adev, bp_threshold, 0);
 	if (ret)
 		return ret;
@@ -353,14 +353,14 @@ static enum cper_error_severity amdgpu_aca_err_type_to_cper_sev(struct amdgpu_de
 {
 	switch (aca_err_type) {
 	case ACA_ERROR_TYPE_UE:
-		return CPER_SEV_FATAL;
+		return CPER_SEV_FATAL_UNCORRECTED;
 	case ACA_ERROR_TYPE_CE:
 		return CPER_SEV_NON_FATAL_CORRECTED;
 	case ACA_ERROR_TYPE_DEFERRED:
 		return CPER_SEV_NON_FATAL_UNCORRECTED;
 	default:
 		dev_err(adev->dev, "Unknown ACA error type!\n");
-		return CPER_SEV_FATAL;
+		return CPER_SEV_FATAL_UNCORRECTED;
 	}
 }
 

@@ -215,8 +215,7 @@ enum cache_policy {
 	((KFD_GC_VERSION(dev) == IP_VERSION(9, 4, 2)) ||	\
 	 (KFD_GC_VERSION(dev) == IP_VERSION(9, 4, 3)) ||	\
 	 (KFD_GC_VERSION(dev) == IP_VERSION(9, 4, 4)) ||	\
-	 (KFD_GC_VERSION(dev) == IP_VERSION(9, 5, 0)) ||	\
-	 (KFD_GC_VERSION(dev) == IP_VERSION(12, 1, 0)))
+	 (KFD_GC_VERSION(dev) == IP_VERSION(9, 5, 0)))
 
 struct kfd_node;
 
@@ -523,6 +522,7 @@ struct queue_properties {
 	uint32_t pm4_target_xcc;
 	bool is_dbg_wa;
 	bool is_user_cu_masked;
+	bool is_reset;
 	/* Not relevant for user mode queues in cp scheduling */
 	unsigned int vmid;
 	/* Relevant only for sdma queues*/
@@ -986,9 +986,6 @@ struct kfd_process {
 	struct kobject *kobj_queues;
 	struct attribute attr_pasid;
 
-	/* Keep track cwsr init */
-	bool has_cwsr;
-
 	/* Exception code enable mask and status */
 	uint64_t exception_enable_mask;
 	uint64_t exception_status;
@@ -1104,8 +1101,6 @@ struct kfd_process_device *kfd_create_process_device_data(struct kfd_node *dev,
 
 bool kfd_process_xnack_mode(struct kfd_process *p, bool supported);
 
-int kfd_reserved_mem_mmap(struct kfd_node *dev, struct kfd_process *process,
-			  struct vm_area_struct *vma);
 void kfd_process_notifier_release_internal(struct kfd_process *p);
 
 /* KFD process API for creating and translating handles */
@@ -1221,9 +1216,6 @@ void kfd_process_set_trap_handler(struct qcm_process_device *qpd,
 				  uint64_t tma_addr);
 void kfd_process_set_trap_debug_flag(struct qcm_process_device *qpd,
 				     bool enabled);
-
-/* CWSR initialization */
-int kfd_process_init_cwsr_apu(struct kfd_process *process, struct file *filep);
 
 /* CRIU */
 /*
@@ -1554,13 +1546,13 @@ void kfd_signal_reset_event(struct kfd_node *dev);
 void kfd_signal_poison_consumed_event(struct kfd_node *dev, u32 pasid);
 void kfd_signal_process_terminate_event(struct kfd_process *p);
 
-static inline void kfd_flush_tlb(struct kfd_process_device *pdd,
-				 enum TLB_FLUSH_TYPE type)
+static inline void kfd_flush_tlb(struct kfd_process_device *pdd)
 {
 	struct amdgpu_device *adev = pdd->dev->adev;
 	struct amdgpu_vm *vm = drm_priv_to_vm(pdd->drm_priv);
 
-	amdgpu_vm_flush_compute_tlb(adev, vm, type, pdd->dev->xcc_mask);
+	amdgpu_vm_flush_compute_tlb(adev, vm, TLB_FLUSH_HEAVYWEIGHT,
+				    pdd->dev->xcc_mask);
 }
 
 static inline bool kfd_flush_tlb_after_unmap(struct kfd_dev *dev)

@@ -226,7 +226,7 @@ static bool dcn32_check_no_memory_request_for_cab(struct dc *dc)
  */
 static uint32_t dcn32_calculate_cab_allocation(struct dc *dc, struct dc_state *ctx)
 {
-	int i;
+	unsigned int i;
 	uint32_t num_ways = 0;
 	uint32_t mall_ss_size_bytes = 0;
 
@@ -351,7 +351,7 @@ bool dcn32_apply_idle_power_optimizations(struct dc *dc, bool enable)
  */
 void dcn32_commit_subvp_config(struct dc *dc, struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 	bool enable_subvp = false;
 
 	if (!dc->ctx || !dc->ctx->dmub_srv)
@@ -607,7 +607,7 @@ bool dcn32_set_output_transfer_func(struct dc *dc,
  */
 void dcn32_update_force_pstate(struct dc *dc, struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 
 	/* Unforce p-state for each pipe if it is not FPO or SubVP.
 	 * For FPO and SubVP, if it's already forced disallow, leave
@@ -674,7 +674,7 @@ void dcn32_update_force_pstate(struct dc *dc, struct dc_state *context)
  */
 void dcn32_update_mall_sel(struct dc *dc, struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 	unsigned int num_ways = dcn32_calculate_cab_allocation(dc, context);
 	bool cache_cursor = false;
 
@@ -728,7 +728,7 @@ void dcn32_update_mall_sel(struct dc *dc, struct dc_state *context)
  */
 void dcn32_program_mall_pipe_config(struct dc *dc, struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 	struct dce_hwseq *hws = dc->hwseq;
 
 	// Don't force p-state disallow -- can't block dummy p-state
@@ -793,7 +793,7 @@ void dcn32_init_hw(struct dc *dc)
 	struct dce_hwseq *hws = dc->hwseq;
 	struct dc_bios *dcb = dc->ctx->dc_bios;
 	struct resource_pool *res_pool = dc->res_pool;
-	int i;
+	unsigned int i;
 	unsigned int edp_num;
 	uint32_t backlight = MAX_BACKLIGHT_LEVEL;
 	uint32_t user_level = MAX_BACKLIGHT_LEVEL;
@@ -1175,7 +1175,7 @@ void dcn32_update_odm(struct dc *dc, struct dc_state *context, struct pipe_ctx *
 	if (pipe_ctx->stream_res.dsc) {
 		struct pipe_ctx *current_pipe_ctx = &dc->current_state->res_ctx.pipe_ctx[pipe_ctx->pipe_idx];
 
-		dcn32_update_dsc_on_stream(pipe_ctx, pipe_ctx->stream->timing.flags.DSC);
+		dcn32_update_dsc_on_stream(pipe_ctx, pipe_ctx->stream->timing.flags.DSC != 0);
 
 		/* Check if no longer using pipe for ODM, then need to disconnect DSC for that pipe */
 		if (!pipe_ctx->next_odm_pipe && current_pipe_ctx->next_odm_pipe &&
@@ -1277,7 +1277,7 @@ void dcn32_resync_fifo_dccg_dio(struct dce_hwseq *hws, struct dc *dc, struct dc_
 		if ((pipe->stream->dpms_off || dc_is_virtual_signal(pipe->stream->signal))
 			&& dc_state_get_pipe_subvp_type(dc_state, pipe) != SUBVP_PHANTOM) {
 			pipe->stream_res.tg->funcs->disable_crtc(pipe->stream_res.tg);
-			reset_sync_context_for_pipe(dc, context, i);
+			reset_sync_context_for_pipe(dc, context, (uint8_t)i);
 			otg_disabled[i] = true;
 		}
 	}
@@ -1655,6 +1655,7 @@ void dcn32_init_blank(
 	uint32_t num_opps, opp_id_src0, opp_id_src1;
 	uint32_t otg_active_width = 0, otg_active_height = 0;
 	uint32_t i;
+	unsigned int num_opp_cap = (unsigned int)dc->res_pool->res_cap->num_opp;
 
 	/* program opp dpg blank color */
 	color_space = COLOR_SPACE_SRGB;
@@ -1668,12 +1669,12 @@ void dcn32_init_blank(
 	/* get the OPTC source */
 	tg->funcs->get_optc_source(tg, &num_opps, &opp_id_src0, &opp_id_src1);
 
-	if (opp_id_src0 >= dc->res_pool->res_cap->num_opp) {
+	if (opp_id_src0 >= num_opp_cap) {
 		ASSERT(false);
 		return;
 	}
 
-	for (i = 0; i < dc->res_pool->res_cap->num_opp; i++) {
+	for (i = 0; i < num_opp_cap; i++) {
 		if (dc->res_pool->opps[i] != NULL && dc->res_pool->opps[i]->inst == opp_id_src0) {
 			opp = dc->res_pool->opps[i];
 			break;
@@ -1683,11 +1684,11 @@ void dcn32_init_blank(
 	if (num_opps == 2) {
 		otg_active_width = otg_active_width / 2;
 
-		if (opp_id_src1 >= dc->res_pool->res_cap->num_opp) {
+		if (opp_id_src1 >= num_opp_cap) {
 			ASSERT(false);
 			return;
 		}
-		for (i = 0; i < dc->res_pool->res_cap->num_opp; i++) {
+		for (i = 0; i < num_opp_cap; i++) {
 			if (dc->res_pool->opps[i] != NULL && dc->res_pool->opps[i]->inst == opp_id_src1) {
 				bottom_opp = dc->res_pool->opps[i];
 				break;
@@ -1751,7 +1752,7 @@ bool dcn32_is_pipe_topology_transition_seamless(struct dc *dc,
 		const struct dc_state *cur_ctx,
 		const struct dc_state *new_ctx)
 {
-	int i;
+	unsigned int i;
 	const struct pipe_ctx *cur_pipe, *new_pipe;
 	bool is_seamless = true;
 
@@ -1812,10 +1813,13 @@ void dcn32_prepare_bandwidth(struct dc *dc,
 		context->bw_ctx.bw.dcn.clk.p_state_change_support = false;
 	}
 
-	if (dc->clk_mgr->dc_mode_softmax_enabled)
-		if (dc->clk_mgr->clks.dramclk_khz <= dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000 &&
-				context->bw_ctx.bw.dcn.clk.dramclk_khz > dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000)
+	if (dc->clk_mgr->dc_mode_softmax_enabled) {
+		int softmax_memclk_khz = dc->clk_mgr->bw_params->dc_mode_softmax_memclk * 1000;
+
+		if (dc->clk_mgr->clks.dramclk_khz <= softmax_memclk_khz &&
+				context->bw_ctx.bw.dcn.clk.dramclk_khz > softmax_memclk_khz)
 			dc->clk_mgr->funcs->set_max_memclk(dc->clk_mgr, dc->clk_mgr->bw_params->clk_table.entries[dc->clk_mgr->bw_params->clk_table.num_entries - 1].memclk_mhz);
+	}
 
 	dcn20_prepare_bandwidth(dc, context);
 
