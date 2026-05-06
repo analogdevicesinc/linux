@@ -446,6 +446,9 @@ struct io_ring_ctx {
 	/* Stores zcrx object pointers of type struct io_zcrx_ifq */
 	struct xarray			zcrx_ctxs;
 
+	/* Used for accounting references on pages in registered buffers */
+	struct xarray		hpage_acct;
+
 	u32			pers_next;
 	struct xarray		personalities;
 
