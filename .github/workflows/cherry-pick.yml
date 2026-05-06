@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   cherry_pick:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ${{ fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
     permissions:
       contents: write
       actions: write

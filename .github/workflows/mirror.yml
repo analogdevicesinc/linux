@@ -23,7 +23,7 @@ on:
 
 jobs:
   mirror:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ${{ fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
 
     steps:
     - uses: analogdevicesinc/doctools/blank@action

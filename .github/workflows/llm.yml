@@ -59,7 +59,7 @@ on:
 
 jobs:
   llm:
-    runs-on: [self-hosted, repo-only, v4]
+    runs-on: ${{ fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
     permissions:
       contents: read
       checks: read
@@ -232,7 +232,7 @@ jobs:
           rm -rf "$CI_WORKTREE"
 
   pr-comment:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ubuntu-slim
     needs: llm
     permissions:
       pull-requests: write

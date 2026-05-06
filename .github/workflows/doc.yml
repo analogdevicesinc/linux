@@ -12,7 +12,7 @@ on:
 
 jobs:
   build-doc:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ${{ fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
     permissions:
       contents: read
 
@@ -38,7 +38,7 @@ jobs:
         path: docs/_build/html
 
   deploy-doc:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ubuntu-slim
     permissions:
       contents: write
     needs: build-doc

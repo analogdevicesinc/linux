@@ -4,7 +4,7 @@ on:
 
 jobs:
   clean-gh-pages:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ubuntu-slim
     permissions:
       contents: write
 
