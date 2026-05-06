@@ -285,19 +285,41 @@ ieee80211_chanreq_compatible(const struct ieee80211_chan_req *a,
 			     const struct ieee80211_chan_req *b,
 			     struct ieee80211_chan_req *tmp)
 {
+	struct ieee80211_chan_req _a = *a, _b = *b;
 	const struct cfg80211_chan_def *compat;
 
 	if (a->ap.chan && b->ap.chan &&
 	    !cfg80211_chandef_identical(&a->ap, &b->ap))
 		return NULL;
 
-	compat = cfg80211_chandef_compatible(&a->oper, &b->oper);
+	/*
+	 * Remove NPCA if it's not required, so that interfaces
+	 * sharing a channel context will not use NPCA while the
+	 * channel context is shared.
+	 * If both sides are AP interfaces requiring NPC, there's
+	 * an assumption that userspace will set them up with
+	 * identical configurations and the same BSS color
+	 * (if the config is not identical, sharing will fail due
+	 * to cfg80211_chandef_compatible() failing below.)
+	 */
+	if (!_a.require_npca) {
+		_a.oper.npca_chan = NULL;
+		_a.oper.npca_punctured = 0;
+	}
+
+	if (!_b.require_npca) {
+		_b.oper.npca_chan = NULL;
+		_b.oper.npca_punctured = 0;
+	}
+
+	compat = cfg80211_chandef_compatible(&_a.oper, &_b.oper);
 	if (!compat)
 		return NULL;
 
 	/* Note: later code assumes this always fills & returns tmp if compat */
 	tmp->oper = *compat;
 	tmp->ap = a->ap.chan ? a->ap : b->ap;
+	tmp->require_npca = a->require_npca && b->require_npca;
 	return tmp;
 }
 
@@ -535,6 +557,7 @@ ieee80211_get_width_of_link(struct ieee80211_link_data *link)
 	case NL80211_IFTYPE_P2P_GO:
 	case NL80211_IFTYPE_NAN:
 	case NL80211_IFTYPE_NAN_DATA:
+	case NL80211_IFTYPE_PD:
 		WARN_ON_ONCE(1);
 		break;
 	}
@@ -747,13 +770,44 @@ void ieee80211_recalc_chanctx_min_def(struct ieee80211_local *local,
 	_ieee80211_recalc_chanctx_min_def(local, ctx, NULL, false);
 }
 
+static void
+ieee80211_chanctx_update_npca_links(struct ieee80211_local *local,
+				    struct ieee80211_chanctx *ctx,
+				    bool enable)
+{
+	struct ieee80211_chanctx_user_iter iter;
+
+	if (!!ctx->conf.def.npca_chan != enable)
+		return;
+
+	for_each_chanctx_user_assigned(local, ctx, &iter) {
+		if (!iter.link)
+			continue;
+		if (!iter.sdata->vif.cfg.assoc)
+			continue;
+
+		if (enable) {
+			if (!iter.link->conf->chanreq.oper.npca_chan)
+				continue;
+		} else {
+			if (!iter.link->conf->npca.enabled)
+				continue;
+		}
+
+		iter.link->conf->npca.enabled = enable;
+		drv_link_info_changed(local, iter.sdata,
+				      iter.link->conf,
+				      iter.link->link_id,
+				      BSS_CHANGED_NPCA);
+	}
+}
+
 static void _ieee80211_change_chanctx(struct ieee80211_local *local,
 				      struct ieee80211_chanctx *ctx,
 				      struct ieee80211_chanctx *old_ctx,
 				      const struct ieee80211_chan_req *chanreq,
 				      struct ieee80211_link_data *rsvd_for)
 {
-	const struct cfg80211_chan_def *chandef = &chanreq->oper;
 	struct ieee80211_chan_req ctx_req = {
 		.oper = ctx->conf.def,
 		.ap = ctx->conf.ap,
@@ -761,7 +815,7 @@ static void _ieee80211_change_chanctx(struct ieee80211_local *local,
 	u32 changed = 0;
 
 	/* 5/10 MHz not handled here */
-	switch (chandef->width) {
+	switch (chanreq->oper.width) {
 	case NL80211_CHAN_WIDTH_1:
 	case NL80211_CHAN_WIDTH_2:
 	case NL80211_CHAN_WIDTH_4:
@@ -806,10 +860,15 @@ static void _ieee80211_change_chanctx(struct ieee80211_local *local,
 			changed |= IEEE80211_CHANCTX_CHANGE_WIDTH;
 		if (ctx->conf.def.punctured != chanreq->oper.punctured)
 			changed |= IEEE80211_CHANCTX_CHANGE_PUNCTURING;
+		if (ctx->conf.def.npca_chan != chanreq->oper.npca_chan)
+			changed |= IEEE80211_CHANCTX_CHANGE_NPCA;
+		if (chanreq->oper.npca_chan &&
+		    ctx->conf.def.npca_punctured != chanreq->oper.npca_punctured)
+			changed |= IEEE80211_CHANCTX_CHANGE_NPCA_PUNCT;
 	}
 	if (!cfg80211_chandef_identical(&ctx->conf.ap, &chanreq->ap))
 		changed |= IEEE80211_CHANCTX_CHANGE_AP;
-	ctx->conf.def = *chandef;
+	ctx->conf.def = chanreq->oper;
 	ctx->conf.ap = chanreq->ap;
 
 	/* check if min chanctx also changed */
@@ -818,10 +877,16 @@ static void _ieee80211_change_chanctx(struct ieee80211_local *local,
 
 	ieee80211_add_wbrf(local, &ctx->conf.def);
 
+	/* disable NPCA on the link using it */
+	ieee80211_chanctx_update_npca_links(local, ctx, false);
+
 	drv_change_chanctx(local, ctx, changed);
 
 	/* check if BW is wider */
 	ieee80211_chan_bw_change(local, old_ctx, false, false);
+
+	/* enable NPCA on the link that requested it */
+	ieee80211_chanctx_update_npca_links(local, ctx, true);
 }
 
 static void ieee80211_change_chanctx(struct ieee80211_local *local,
@@ -1532,6 +1597,7 @@ ieee80211_link_chanctx_reservation_complete(struct ieee80211_link_data *link)
 	case NL80211_IFTYPE_P2P_DEVICE:
 	case NL80211_IFTYPE_NAN:
 	case NL80211_IFTYPE_NAN_DATA:
+	case NL80211_IFTYPE_PD:
 	case NUM_NL80211_IFTYPES:
 		WARN_ON(1);
 		break;
@@ -1861,16 +1927,21 @@ static int ieee80211_vif_use_reserved_switch(struct ieee80211_local *local)
 		}
 
 		if (n_assigned != n_reserved) {
-			if (n_ready == n_reserved) {
-				wiphy_info(local->hw.wiphy,
-					   "channel context reservation cannot be finalized because some interfaces aren't switching\n");
-				err = -EBUSY;
-				goto err;
-			}
+			if (n_ready != n_reserved)
+				return -EAGAIN;
 
-			return -EAGAIN;
+			if (n_assigned == n_reserved + 1 &&
+			    ieee80211_nan_try_evacuate(&local->hw,
+						       &ctx->replace_ctx->conf))
+				goto use_reserved;
+
+			wiphy_info(local->hw.wiphy,
+				   "channel context reservation cannot be finalized because some interfaces aren't switching\n");
+			err = -EBUSY;
+			goto err;
 		}
 
+use_reserved:
 		ctx->conf.radar_enabled = false;
 		for_each_chanctx_user_reserved(local, ctx, &iter) {
 			if (ieee80211_link_has_in_place_reservation(iter.link) &&
@@ -2178,6 +2249,15 @@ int _ieee80211_link_use_channel(struct ieee80211_link_data *link,
 
 	ctx = ieee80211_find_or_create_chanctx(sdata, chanreq, mode,
 					       assign_on_failure, &reused_ctx);
+	if (IS_ERR(ctx)) {
+		/* Try to evacuate a NAN channel to free up a chanctx */
+		if (ieee80211_nan_try_evacuate(&local->hw, NULL))
+			ctx = ieee80211_find_or_create_chanctx(sdata, chanreq,
+							       mode,
+							       assign_on_failure,
+							       &reused_ctx);
+	}
+
 	if (IS_ERR(ctx)) {
 		ret = PTR_ERR(ctx);
 		goto out;

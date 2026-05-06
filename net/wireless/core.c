@@ -322,6 +322,28 @@ int cfg80211_nan_set_local_schedule(struct cfg80211_registered_device *rdev,
 	return 0;
 }
 
+void cfg80211_stop_pd(struct cfg80211_registered_device *rdev,
+		      struct wireless_dev *wdev)
+{
+	lockdep_assert_held(&rdev->wiphy.mtx);
+
+	if (WARN_ON(wdev->iftype != NL80211_IFTYPE_PD))
+		return;
+
+	if (!rdev->ops->stop_pd)
+		return;
+
+	if (!wdev_running(wdev))
+		return;
+
+	cfg80211_pmsr_wdev_down(wdev);
+
+	rdev_stop_pd(rdev, wdev);
+	wdev->is_running = false;
+
+	rdev->opencount--;
+}
+
 void cfg80211_shutdown_all_interfaces(struct wiphy *wiphy)
 {
 	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
@@ -350,6 +372,9 @@ void cfg80211_shutdown_all_interfaces(struct wiphy *wiphy)
 			break;
 		case NL80211_IFTYPE_NAN:
 			cfg80211_stop_nan(rdev, wdev);
+			break;
+		case NL80211_IFTYPE_PD:
+			cfg80211_stop_pd(rdev, wdev);
 			break;
 		default:
 			break;
@@ -845,6 +870,9 @@ int wiphy_register(struct wiphy *wiphy)
 	if (WARN_ON((wiphy->features & NL80211_FEATURE_TDLS_CHANNEL_SWITCH) &&
 		    (!rdev->ops->tdls_channel_switch ||
 		     !rdev->ops->tdls_cancel_channel_switch)))
+		return -EINVAL;
+	if (WARN_ON((wiphy->interface_modes & BIT(NL80211_IFTYPE_PD)) &&
+		    (!rdev->ops->start_pd || !rdev->ops->stop_pd)))
 		return -EINVAL;
 
 	if (WARN_ON((wiphy->interface_modes & BIT(NL80211_IFTYPE_NAN)) &&
@@ -1408,6 +1436,9 @@ static void _cfg80211_unregister_wdev(struct wireless_dev *wdev,
 	case NL80211_IFTYPE_NAN:
 		cfg80211_stop_nan(rdev, wdev);
 		break;
+	case NL80211_IFTYPE_PD:
+		cfg80211_stop_pd(rdev, wdev);
+		break;
 	default:
 		break;
 	}
@@ -1515,6 +1546,9 @@ void cfg80211_leave_locked(struct cfg80211_registered_device *rdev,
 		break;
 	case NL80211_IFTYPE_NAN:
 		cfg80211_stop_nan(rdev, wdev);
+		break;
+	case NL80211_IFTYPE_PD:
+		cfg80211_stop_pd(rdev, wdev);
 		break;
 	case NL80211_IFTYPE_AP_VLAN:
 	case NL80211_IFTYPE_MONITOR:

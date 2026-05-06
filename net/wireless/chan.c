@@ -138,9 +138,10 @@ static const struct cfg80211_per_bw_puncturing_values per_bw_puncturing[] = {
 	CFG80211_PER_BW_VALID_PUNCTURING_VALUES(320)
 };
 
-static bool valid_puncturing_bitmap(const struct cfg80211_chan_def *chandef)
+static bool valid_puncturing_bitmap(const struct cfg80211_chan_def *chandef,
+				    u32 primary_center, u32 punctured)
 {
-	u32 idx, i, start_freq, primary_center = chandef->chan->center_freq;
+	u32 idx, i, start_freq;
 
 	switch (chandef->width) {
 	case NL80211_CHAN_WIDTH_80:
@@ -156,18 +157,18 @@ static bool valid_puncturing_bitmap(const struct cfg80211_chan_def *chandef)
 		start_freq = chandef->center_freq1 - 160;
 		break;
 	default:
-		return chandef->punctured == 0;
+		return punctured == 0;
 	}
 
-	if (!chandef->punctured)
+	if (!punctured)
 		return true;
 
 	/* check if primary channel is punctured */
-	if (chandef->punctured & (u16)BIT((primary_center - start_freq) / 20))
+	if (punctured & (u16)BIT((primary_center - start_freq) / 20))
 		return false;
 
 	for (i = 0; i < per_bw_puncturing[idx].len; i++) {
-		if (per_bw_puncturing[idx].valid_values[i] == chandef->punctured)
+		if (per_bw_puncturing[idx].valid_values[i] == punctured)
 			return true;
 	}
 
@@ -458,6 +459,19 @@ bool cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 	if (!cfg80211_chandef_valid_control_freq(chandef, control_freq))
 		return false;
 
+	if (chandef->npca_chan) {
+		switch (chandef->width) {
+		case NL80211_CHAN_WIDTH_80:
+		case NL80211_CHAN_WIDTH_160:
+		case NL80211_CHAN_WIDTH_320:
+			break;
+		default:
+			return false;
+		}
+	} else if (chandef->npca_punctured) {
+		return false;
+	}
+
 	if (!cfg80211_valid_center_freq(chandef->center_freq1, chandef->width))
 		return false;
 
@@ -477,7 +491,8 @@ bool cfg80211_chandef_valid(const struct cfg80211_chan_def *chandef)
 	if (!cfg80211_chandef_is_s1g(chandef) && chandef->s1g_primary_2mhz)
 		return false;
 
-	return valid_puncturing_bitmap(chandef);
+	return valid_puncturing_bitmap(chandef, control_freq,
+				       chandef->punctured);
 }
 EXPORT_SYMBOL(cfg80211_chandef_valid);
 
@@ -519,6 +534,90 @@ int cfg80211_chandef_primary(const struct cfg80211_chan_def *c,
 	return center;
 }
 EXPORT_SYMBOL(cfg80211_chandef_primary);
+
+bool cfg80211_chandef_npca_valid(struct wiphy *wiphy,
+				 const struct cfg80211_chan_def *chandef,
+				 const struct ieee80211_uhr_npca_info *npca)
+{
+	struct cfg80211_chan_def tmp = *chandef;
+	bool pri_upper, npca_upper;
+	u32 cf1;
+
+	if (chandef->npca_chan || chandef->npca_punctured)
+		return false;
+
+	if (!npca)
+		return true;
+
+	if (cfg80211_chandef_add_npca(wiphy, &tmp, npca))
+		return false;
+
+	if (!cfg80211_chandef_valid_control_freq(&tmp,
+						 tmp.npca_chan->center_freq))
+		return false;
+
+	cf1 = tmp.center_freq1;
+	pri_upper = tmp.chan->center_freq > cf1;
+	npca_upper = tmp.npca_chan->center_freq > cf1;
+
+	if (pri_upper == npca_upper)
+		return false;
+
+	if (!valid_puncturing_bitmap(&tmp,
+				     tmp.npca_chan->center_freq,
+				     tmp.npca_punctured) ||
+	    (tmp.punctured & tmp.npca_punctured) != tmp.punctured)
+		return false;
+
+	return true;
+}
+EXPORT_SYMBOL(cfg80211_chandef_npca_valid);
+
+int cfg80211_chandef_add_npca(struct wiphy *wiphy,
+			      struct cfg80211_chan_def *chandef,
+			      const struct ieee80211_uhr_npca_info *npca)
+{
+	struct cfg80211_chan_def new_chandef = *chandef;
+	u32 width, npca_freq;
+	u8 offs;
+
+	if (chandef->npca_chan || chandef->npca_punctured)
+		return -EINVAL;
+
+	if (WARN_ON(!cfg80211_chandef_valid(chandef)))
+		return -EINVAL;
+
+	if (!npca)
+		return 0;
+
+	switch (chandef->width) {
+	case NL80211_CHAN_WIDTH_80:
+	case NL80211_CHAN_WIDTH_160:
+	case NL80211_CHAN_WIDTH_320:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	offs = le32_get_bits(npca->params,
+			     IEEE80211_UHR_NPCA_PARAMS_PRIMARY_CHAN_OFFS);
+
+	width = cfg80211_chandef_get_width(chandef);
+	npca_freq = chandef->center_freq1 - width / 2 + 10 + 20 * offs;
+	new_chandef.npca_chan = ieee80211_get_channel(wiphy, npca_freq);
+	if (!new_chandef.npca_chan)
+		return -EINVAL;
+
+	if (npca->params & cpu_to_le32(IEEE80211_UHR_NPCA_PARAMS_DIS_SUBCH_BMAP_PRES))
+		new_chandef.npca_punctured = le16_to_cpu(npca->dis_subch_bmap[0]);
+
+	if (!cfg80211_chandef_valid(&new_chandef))
+		return -EINVAL;
+
+	*chandef = new_chandef;
+	return 0;
+}
+EXPORT_SYMBOL(cfg80211_chandef_add_npca);
 
 static const struct cfg80211_chan_def *
 check_chandef_primary_compat(const struct cfg80211_chan_def *c1,
@@ -562,6 +661,15 @@ _cfg80211_chandef_compatible(const struct cfg80211_chan_def *c1,
 	 * then they can't be compatible.
 	 */
 	if (c1->width == c2->width)
+		return NULL;
+
+	/*
+	 * We need NPCA to be compatible for some scenarios such as
+	 * multiple APs, but in this case userspace should configure
+	 * identical chandefs including NPCA, even if perhaps one of
+	 * the AP interfaces doesn't even advertise it.
+	 */
+	if (c1->npca_chan || c2->npca_chan)
 		return NULL;
 
 	/*
@@ -817,6 +925,7 @@ int cfg80211_chandef_dfs_required(struct wiphy *wiphy,
 	case NL80211_IFTYPE_AP_VLAN:
 	case NL80211_IFTYPE_P2P_DEVICE:
 	case NL80211_IFTYPE_NAN_DATA:
+	case NL80211_IFTYPE_PD:
 		break;
 	case NL80211_IFTYPE_WDS:
 	case NL80211_IFTYPE_UNSPECIFIED:
@@ -941,6 +1050,7 @@ bool cfg80211_beaconing_iface_active(struct wireless_dev *wdev)
 	/* Can NAN type be considered as beaconing interface? */
 	case NL80211_IFTYPE_NAN:
 	case NL80211_IFTYPE_NAN_DATA:
+	case NL80211_IFTYPE_PD:
 		break;
 	case NL80211_IFTYPE_UNSPECIFIED:
 	case NL80211_IFTYPE_WDS:
