@@ -32,6 +32,7 @@ interref_repos = [
     'scopy',
     'documentation',
     'pyadi-jif',
+    'kuiper',
 ]
 
 intersphinx_mapping = {
