@@ -106,7 +106,7 @@ struct geneve_sock {
 	bool			collect_md;
 	bool			gro_hint;
 	struct list_head	list;
-	struct socket		*sock;
+	struct sock		*sk;
 	struct rcu_head		rcu;
 	int			refcnt;
 	struct hlist_head	vni_list[VNI_HASH_SIZE];
@@ -167,7 +167,7 @@ static bool eq_tun_id_and_vni(u8 *tun_id, u8 *vni)
 
 static sa_family_t geneve_get_sk_family(struct geneve_sock *gs)
 {
-	return gs->sock->sk->sk_family;
+	return gs->sk->sk_family;
 }
 
 static struct geneve_dev *geneve_lookup(struct geneve_sock *gs,
@@ -760,11 +760,11 @@ static int geneve_udp_encap_err_lookup(struct sock *sk, struct sk_buff *skb)
 	return -EPFNOSUPPORT;
 }
 
-static struct socket *geneve_create_sock(struct net *net, bool ipv6,
-					 __be16 port, bool ipv6_rx_csum)
+static struct sock *geneve_create_sock(struct net *net, bool ipv6,
+				       __be16 port, bool ipv6_rx_csum)
 {
-	struct socket *sock;
 	struct udp_port_cfg udp_conf;
+	struct socket *sock;
 	int err;
 
 	memset(&udp_conf, 0, sizeof(udp_conf));
@@ -786,7 +786,7 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
 		return ERR_PTR(err);
 
 	udp_allow_gso(sock->sk);
-	return sock;
+	return sock->sk;
 }
 
 static bool geneve_hdr_match(struct sk_buff *skb,
@@ -974,28 +974,28 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
 						bool ipv6, bool ipv6_rx_csum)
 {
 	struct geneve_net *gn = net_generic(net, geneve_net_id);
-	struct geneve_sock *gs;
-	struct socket *sock;
 	struct udp_tunnel_sock_cfg tunnel_cfg;
+	struct geneve_sock *gs;
+	struct sock *sk;
 	int h;
 
 	gs = kzalloc_obj(*gs);
 	if (!gs)
 		return ERR_PTR(-ENOMEM);
 
-	sock = geneve_create_sock(net, ipv6, port, ipv6_rx_csum);
-	if (IS_ERR(sock)) {
+	sk = geneve_create_sock(net, ipv6, port, ipv6_rx_csum);
+	if (IS_ERR(sk)) {
 		kfree(gs);
-		return ERR_CAST(sock);
+		return ERR_CAST(sk);
 	}
 
-	gs->sock = sock;
+	gs->sk = sk;
 	gs->refcnt = 1;
 	for (h = 0; h < VNI_HASH_SIZE; ++h)
 		INIT_HLIST_HEAD(&gs->vni_list[h]);
 
 	/* Initialize the geneve udp offloads structure */
-	udp_tunnel_notify_add_rx_port(gs->sock, UDP_TUNNEL_TYPE_GENEVE);
+	udp_tunnel_notify_add_rx_port(sk, UDP_TUNNEL_TYPE_GENEVE);
 
 	/* Mark socket as an encapsulation socket */
 	memset(&tunnel_cfg, 0, sizeof(tunnel_cfg));
@@ -1006,7 +1006,7 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
 	tunnel_cfg.encap_rcv = geneve_udp_encap_recv;
 	tunnel_cfg.encap_err_lookup = geneve_udp_encap_err_lookup;
 	tunnel_cfg.encap_destroy = NULL;
-	setup_udp_tunnel_sock(net, sock, &tunnel_cfg);
+	setup_udp_tunnel_sock(net, sk, &tunnel_cfg);
 	list_add(&gs->list, &gn->sock_list);
 	return gs;
 }
@@ -1017,8 +1017,8 @@ static void __geneve_sock_release(struct geneve_sock *gs)
 		return;
 
 	list_del(&gs->list);
-	udp_tunnel_notify_del_rx_port(gs->sock, UDP_TUNNEL_TYPE_GENEVE);
-	udp_tunnel_sock_release(gs->sock);
+	udp_tunnel_notify_del_rx_port(gs->sk, UDP_TUNNEL_TYPE_GENEVE);
+	udp_tunnel_sock_release(gs->sk);
 	kfree_rcu(gs, rcu);
 }
 
@@ -1048,7 +1048,7 @@ static struct geneve_sock *geneve_find_sock(struct geneve_net *gn,
 	struct geneve_sock *gs;
 
 	list_for_each_entry(gs, &gn->sock_list, list) {
-		if (inet_sk(gs->sock->sk)->inet_sport == dst_port &&
+		if (inet_sk(gs->sk)->inet_sport == dst_port &&
 		    geneve_get_sk_family(gs) == family &&
 		    gs->gro_hint == gro_hint) {
 			return gs;
@@ -1390,7 +1390,7 @@ static int geneve_xmit_skb(struct sk_buff *skb, struct net_device *dev,
 	if (unlikely(err))
 		return err;
 
-	udp_tunnel_xmit_skb(rt, gs4->sock->sk, skb, saddr, info->key.u.ipv4.dst,
+	udp_tunnel_xmit_skb(rt, gs4->sk, skb, saddr, info->key.u.ipv4.dst,
 			    tos, ttl, df, sport, geneve->cfg.info.key.tp_dst,
 			    !net_eq(geneve->net, dev_net(geneve->dev)),
 			    !test_bit(IP_TUNNEL_CSUM_BIT, info->key.tun_flags),
@@ -1424,7 +1424,7 @@ static int geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
 				  geneve->cfg.port_min,
 				  geneve->cfg.port_max, true);
 
-	dst = udp_tunnel6_dst_lookup(skb, dev, geneve->net, gs6->sock, 0,
+	dst = udp_tunnel6_dst_lookup(skb, dev, geneve->net, gs6->sk, 0,
 				     &saddr, key, sport,
 				     geneve->cfg.info.key.tp_dst, prio,
 				     use_cache ?
@@ -1480,7 +1480,7 @@ static int geneve6_xmit_skb(struct sk_buff *skb, struct net_device *dev,
 	if (unlikely(err))
 		return err;
 
-	udp_tunnel6_xmit_skb(dst, gs6->sock->sk, skb, dev,
+	udp_tunnel6_xmit_skb(dst, gs6->sk, skb, dev,
 			     &saddr, &key->u.ipv6.dst, prio, ttl,
 			     info->key.label, sport, geneve->cfg.info.key.tp_dst,
 			     !test_bit(IP_TUNNEL_CSUM_BIT,
@@ -1592,7 +1592,7 @@ static int geneve_fill_metadata_dst(struct net_device *dev, struct sk_buff *skb)
 					  geneve->cfg.port_min,
 					  geneve->cfg.port_max, true);
 
-		dst = udp_tunnel6_dst_lookup(skb, dev, geneve->net, gs6->sock, 0,
+		dst = udp_tunnel6_dst_lookup(skb, dev, geneve->net, gs6->sk, 0,
 					     &saddr, &info->key, sport,
 					     geneve->cfg.info.key.tp_dst, prio,
 					     use_cache ? &info->dst_cache : NULL);
@@ -1654,10 +1654,10 @@ static void geneve_offload_rx_ports(struct net_device *dev, bool push)
 
 	list_for_each_entry(gs, &gn->sock_list, list) {
 		if (push) {
-			udp_tunnel_push_rx_port(dev, gs->sock,
+			udp_tunnel_push_rx_port(dev, gs->sk,
 						UDP_TUNNEL_TYPE_GENEVE);
 		} else {
-			udp_tunnel_drop_rx_port(dev, gs->sock,
+			udp_tunnel_drop_rx_port(dev, gs->sk,
 						UDP_TUNNEL_TYPE_GENEVE);
 		}
 	}
@@ -2183,12 +2183,12 @@ static void geneve_quiesce(struct geneve_dev *geneve, struct geneve_sock **gs4,
 	*gs4 = rtnl_dereference(geneve->sock4);
 	rcu_assign_pointer(geneve->sock4, NULL);
 	if (*gs4)
-		rcu_assign_sk_user_data((*gs4)->sock->sk, NULL);
+		rcu_assign_sk_user_data((*gs4)->sk, NULL);
 #if IS_ENABLED(CONFIG_IPV6)
 	*gs6 = rtnl_dereference(geneve->sock6);
 	rcu_assign_pointer(geneve->sock6, NULL);
 	if (*gs6)
-		rcu_assign_sk_user_data((*gs6)->sock->sk, NULL);
+		rcu_assign_sk_user_data((*gs6)->sk, NULL);
 #else
 	*gs6 = NULL;
 #endif
@@ -2201,11 +2201,11 @@ static void geneve_unquiesce(struct geneve_dev *geneve, struct geneve_sock *gs4,
 {
 	rcu_assign_pointer(geneve->sock4, gs4);
 	if (gs4)
-		rcu_assign_sk_user_data(gs4->sock->sk, gs4);
+		rcu_assign_sk_user_data(gs4->sk, gs4);
 #if IS_ENABLED(CONFIG_IPV6)
 	rcu_assign_pointer(geneve->sock6, gs6);
 	if (gs6)
-		rcu_assign_sk_user_data(gs6->sock->sk, gs6);
+		rcu_assign_sk_user_data(gs6->sk, gs6);
 #endif
 	synchronize_net();
 }

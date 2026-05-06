@@ -2580,8 +2580,9 @@ static void ieee80211_csa_switch_work(struct wiphy *wiphy,
 			return;
 
 		link_sta->pub->bandwidth =
-			_ieee80211_sta_cur_vht_bw(link_sta,
-						  &link->csa.chanreq.oper);
+			ieee80211_sta_current_bw(link_sta,
+						 &link->csa.chanreq.oper,
+						 IEEE80211_STA_BW_TX_TO_STA);
 		return;
 	}
 
@@ -5757,20 +5758,13 @@ static bool ieee80211_assoc_config_link(struct ieee80211_link_data *link,
 	 * next beacon and update then.
 	 */
 
-	/*
-	 * If an operating mode notification IE is present, override the
-	 * NSS calculation (that would be done in rate_control_rate_init())
-	 * and use the # of streams from that element.
-	 */
-	if (elems->opmode_notif &&
-	    !(*elems->opmode_notif & IEEE80211_OPMODE_NOTIF_RX_NSS_TYPE_BF)) {
-		u8 nss;
+	ieee80211_sta_init_nss_bw_capa(link_sta, &bss_conf->chanreq.oper);
 
-		nss = *elems->opmode_notif & IEEE80211_OPMODE_NOTIF_RX_NSS_MASK;
-		nss >>= IEEE80211_OPMODE_NOTIF_RX_NSS_SHIFT;
-		nss += 1;
-		link_sta->pub->rx_nss = nss;
-	}
+	/* If an operating mode notification element is present, use it. */
+	if (elems->opmode_notif)
+		__ieee80211_vht_handle_opmode(sdata, link_sta,
+					      *elems->opmode_notif,
+					      sband->band);
 
 	/*
 	 * Always handle WMM once after association regardless
@@ -10626,7 +10620,6 @@ void ieee80211_process_ml_reconf_resp(struct ieee80211_sub_if_data *sdata,
 		if (add_links_data->link[link_id].status != WLAN_STATUS_SUCCESS)
 			goto disconnect;
 
-		ieee80211_sta_init_nss(link_sta);
 		if (ieee80211_sta_activate_link(sta, link_id))
 			goto disconnect;
 

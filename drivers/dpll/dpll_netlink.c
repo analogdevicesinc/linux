@@ -325,6 +325,30 @@ dpll_msg_add_pin_on_dpll_state(struct sk_buff *msg, struct dpll_pin *pin,
 }
 
 static int
+dpll_msg_add_pin_operstate(struct sk_buff *msg, struct dpll_pin *pin,
+			   struct dpll_pin_ref *ref,
+			   struct netlink_ext_ack *extack)
+{
+	const struct dpll_pin_ops *ops = dpll_pin_ops(ref);
+	struct dpll_device *dpll = ref->dpll;
+	enum dpll_pin_operstate operstate;
+	int ret;
+
+	if (!ops->operstate_on_dpll_get)
+		return 0;
+	ret = ops->operstate_on_dpll_get(pin,
+					  dpll_pin_on_dpll_priv(dpll, pin),
+					  dpll, dpll_priv(dpll),
+					  &operstate, extack);
+	if (ret)
+		return ret;
+	if (nla_put_u32(msg, DPLL_A_PIN_OPERSTATE, operstate))
+		return -EMSGSIZE;
+
+	return 0;
+}
+
+static int
 dpll_msg_add_pin_direction(struct sk_buff *msg, struct dpll_pin *pin,
 			   struct dpll_pin_ref *ref,
 			   struct netlink_ext_ack *extack)
@@ -650,6 +674,9 @@ dpll_msg_add_pin_dplls(struct sk_buff *msg, struct dpll_pin *pin,
 		if (ret)
 			goto nest_cancel;
 		ret = dpll_msg_add_pin_on_dpll_state(msg, pin, ref, extack);
+		if (ret)
+			goto nest_cancel;
+		ret = dpll_msg_add_pin_operstate(msg, pin, ref, extack);
 		if (ret)
 			goto nest_cancel;
 		ret = dpll_msg_add_pin_prio(msg, pin, ref, extack);

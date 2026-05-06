@@ -213,6 +213,27 @@ definitions:
         doc: pin enabled for automatic input selection
     render-max: true
   -
+    type: enum
+    name: pin-operstate
+    doc: |
+      defines possible operational states of a pin with respect to its
+      parent DPLL device, valid values for DPLL_A_PIN_OPERSTATE attribute
+    entries:
+      -
+        name: active
+        doc: pin is qualified and actively used by the DPLL
+        value: 1
+      -
+        name: standby
+        doc: pin is qualified but not actively used by the DPLL
+      -
+        name: no-signal
+        doc: pin does not have a valid signal
+      -
+        name: qual-failed
+        doc: pin signal failed qualification (e.g. frequency or phase monitor)
+    render-max: true
+  -
     type: flags
     name: pin-capabilities
     doc: |
@@ -488,6 +509,14 @@ attribute-sets:
           Value of (DPLL_A_PIN_MEASURED_FREQUENCY %
           DPLL_PIN_MEASURED_FREQUENCY_DIVIDER) is a fractional part
           of a measured frequency value.
+      -
+        name: operstate
+        type: u32
+        enum: pin-operstate
+        doc: |
+          Operational state of the pin with respect to its parent DPLL
+          device. Unlike state (which reflects the administrative intent),
+          operstate reflects the actual hardware status.
 
   -
     name: pin-parent-device
@@ -501,6 +530,8 @@ attribute-sets:
         name: prio
       -
         name: state
+      -
+        name: operstate
       -
         name: phase-offset
   -

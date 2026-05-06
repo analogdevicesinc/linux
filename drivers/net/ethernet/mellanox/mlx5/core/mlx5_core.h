@@ -110,6 +110,7 @@ struct mlx5_cmd_allow_other_vhca_access_attr {
 struct mlx5_cmd_alias_obj_create_attr {
 	u32 obj_id;
 	u16 vhca_id;
+	u8 vhca_id_type;
 	u16 obj_type;
 	u8 access_key[ACCESS_KEY_LEN];
 };
@@ -436,6 +437,8 @@ mlx5_sf_coredev_to_adev(struct mlx5_core_dev *mdev)
 
 int mlx5_mdev_init(struct mlx5_core_dev *dev, int profile_idx);
 void mlx5_mdev_uninit(struct mlx5_core_dev *dev);
+int mlx5_frag_buf_pools_init(struct mlx5_core_dev *dev);
+void mlx5_frag_buf_pools_cleanup(struct mlx5_core_dev *dev);
 int mlx5_init_one(struct mlx5_core_dev *dev);
 int mlx5_init_one_devl_locked(struct mlx5_core_dev *dev);
 void mlx5_uninit_one(struct mlx5_core_dev *dev);

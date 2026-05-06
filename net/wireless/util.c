@@ -284,6 +284,7 @@ bool cfg80211_valid_key_idx(struct cfg80211_registered_device *rdev,
 }
 
 int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
+				   struct wireless_dev *wdev,
 				   struct key_params *params, int key_idx,
 				   bool pairwise, const u8 *mac_addr)
 {
@@ -343,6 +344,15 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 	default:
 		break;
 	}
+
+	/*
+	 * Per Wi-Fi Aware v4.0 section 7.1.2, NAN Data interfaces
+	 * shall only use CCMP-128 or GCMP-256.
+	 */
+	if (wdev->iftype == NL80211_IFTYPE_NAN_DATA &&
+	    params->cipher != WLAN_CIPHER_SUITE_CCMP &&
+	    params->cipher != WLAN_CIPHER_SUITE_GCMP_256)
+		return -EINVAL;
 
 	switch (params->cipher) {
 	case WLAN_CIPHER_SUITE_WEP40:

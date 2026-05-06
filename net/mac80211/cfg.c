@@ -1312,6 +1312,120 @@ ieee80211_copy_rnr_beacon(u8 *pos, struct cfg80211_rnr_elems *dst,
 	return offset;
 }
 
+static enum ieee80211_sta_rx_bandwidth
+ieee80211_calc_ap_he_and_lower(struct cfg80211_beacon_data *params)
+{
+	const struct ieee80211_vht_operation *vht_oper = params->vht_oper;
+	int ccfs0, ccfs1;
+
+	if (params->he_oper) {
+		const struct ieee80211_he_6ghz_oper *he_6ghz_oper;
+
+		if (params->he_oper->he_oper_params &
+				cpu_to_le32(IEEE80211_HE_OPERATION_VHT_OPER_INFO))
+			vht_oper = (void *)params->he_oper->optional;
+
+		he_6ghz_oper = ieee80211_he_6ghz_oper(params->he_oper);
+		if (he_6ghz_oper) {
+			switch (u8_get_bits(he_6ghz_oper->control,
+					    IEEE80211_HE_6GHZ_OPER_CTRL_CHANWIDTH)) {
+			case IEEE80211_HE_6GHZ_OPER_CTRL_CHANWIDTH_20MHZ:
+				return IEEE80211_STA_RX_BW_20;
+			case IEEE80211_HE_6GHZ_OPER_CTRL_CHANWIDTH_40MHZ:
+				return IEEE80211_STA_RX_BW_40;
+			case IEEE80211_HE_6GHZ_OPER_CTRL_CHANWIDTH_80MHZ:
+				return IEEE80211_STA_RX_BW_80;
+			case IEEE80211_HE_6GHZ_OPER_CTRL_CHANWIDTH_160MHZ:
+				return IEEE80211_STA_RX_BW_160;
+			}
+		}
+	}
+
+	if (vht_oper) {
+		switch (vht_oper->chan_width) {
+		case IEEE80211_VHT_CHANWIDTH_USE_HT:
+			/* check for HT (or fall down to 20) below */
+			break;
+		case IEEE80211_VHT_CHANWIDTH_160MHZ:
+		case IEEE80211_VHT_CHANWIDTH_80P80MHZ:
+			/* deprecated encodings */
+			return IEEE80211_STA_RX_BW_160;
+		case IEEE80211_VHT_CHANWIDTH_80MHZ:
+			/*
+			 * See IEEE 802.11-2020 Table 9-352-BSS bandwidth
+			 * when the VHT Operation Information field Channel
+			 * Width subfield is 1
+			 *
+			 * (IEEE80211_VHT_CHANWIDTH_80MHZ == 1)
+			 */
+			ccfs0 = vht_oper->center_freq_seg0_idx;
+			ccfs1 = vht_oper->center_freq_seg1_idx;
+			if (!ccfs0)
+				return IEEE80211_STA_RX_BW_80;
+			if (ccfs1 && abs(ccfs1 - ccfs0) == 8)
+				return IEEE80211_STA_RX_BW_160;
+			/* 80+80 - RX BW doesn't cover that / uses 160 */
+			if (ccfs1 && abs(ccfs1 - ccfs0) > 16)
+				return IEEE80211_STA_RX_BW_160;
+			fallthrough;
+		default:
+			/* reserved encoding - assume 80 */
+			return IEEE80211_STA_RX_BW_80;
+		}
+	}
+
+	if (params->ht_oper) {
+		switch (u8_get_bits(params->ht_oper->ht_param,
+				    IEEE80211_HT_PARAM_CHA_SEC_OFFSET)) {
+		case IEEE80211_HT_PARAM_CHA_SEC_NONE:
+		default: /* invalid values */
+			return IEEE80211_STA_RX_BW_20;
+		case IEEE80211_HT_PARAM_CHA_SEC_ABOVE:
+		case IEEE80211_HT_PARAM_CHA_SEC_BELOW:
+			return IEEE80211_STA_RX_BW_40;
+		}
+	}
+
+	/* nothing found, must be 20 MHz */
+	return IEEE80211_STA_RX_BW_20;
+}
+
+static void ieee80211_update_ap_bandwidth(struct ieee80211_link_data *link,
+					  struct cfg80211_beacon_data *params)
+{
+	struct ieee80211_local *local = link->sdata->local;
+	struct ieee80211_chanctx_conf *chanctx_conf;
+	struct ieee80211_chanctx *chanctx;
+
+	/*
+	 * Updating the beacon might, without even changing the channel, cause
+	 * the usable bandwidth for some stations to be changed, for example
+	 * if the beacon configuration is EHT with 160 MHz, HE could change
+	 * between 20, 40, 80 and 160 MHz, and HE (or lower) clients need to
+	 * be handled accordingly.
+	 * Calculate the HE and lower bandwidth and apply that to all stations.
+	 *
+	 * In the future, this also needs to calculate EHT bandwidth and apply
+	 * it to all stations not using UHR DBE, since the chandef would then
+	 * include DBE.
+	 */
+
+	if (link->conf->chanreq.oper.chan->band == NL80211_BAND_S1GHZ)
+		return;
+
+	link->bss_bw.he_and_lower = ieee80211_calc_ap_he_and_lower(params);
+
+	chanctx_conf = sdata_dereference(link->conf->chanctx_conf, link->sdata);
+	chanctx = container_of(chanctx_conf, struct ieee80211_chanctx, conf);
+
+	/*
+	 * Note: this relies on ieee80211_recalc_chanctx_min_def() having
+	 * the side effect of updating all stations, if they changed; that
+	 * was normally for when the chandef changed but is used here too.
+	 */
+	ieee80211_recalc_chanctx_min_def(local, chanctx);
+}
+
 static int
 ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 			struct ieee80211_link_data *link,
@@ -1450,6 +1564,8 @@ ieee80211_assign_beacon(struct ieee80211_sub_if_data *sdata,
 	if (old)
 		kfree_rcu(old, rcu_head);
 
+	ieee80211_update_ap_bandwidth(link, params);
+
 	*changed |= _changed;
 	return 0;
 }
@@ -1541,13 +1657,13 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 				cpu_to_le32(IEEE80211_VHT_CAP_MU_BEAMFORMEE_CAPABLE);
 	}
 
-	if (params->he_cap && params->he_oper) {
+	if (params->he_cap && params->beacon.he_oper) {
 		link_conf->he_support = true;
 		link_conf->htc_trig_based_pkt_ext =
-			le32_get_bits(params->he_oper->he_oper_params,
+			le32_get_bits(params->beacon.he_oper->he_oper_params,
 			      IEEE80211_HE_OPERATION_DFLT_PE_DURATION_MASK);
 		link_conf->frame_time_rts_th =
-			le32_get_bits(params->he_oper->he_oper_params,
+			le32_get_bits(params->beacon.he_oper->he_oper_params,
 			      IEEE80211_HE_OPERATION_RTS_THRESHOLD_MASK);
 		changed |= BSS_CHANGED_HE_OBSS_PD;
 
@@ -1596,7 +1712,7 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 				 IEEE80211_EHT_PHY_CAP7_NON_OFDMA_UL_MU_MIMO_160MHZ |
 				 IEEE80211_EHT_PHY_CAP7_NON_OFDMA_UL_MU_MIMO_320MHZ);
 		link_conf->eht_disable_mcs15 =
-			u8_get_bits(params->eht_oper->params,
+			u8_get_bits(params->beacon.eht_oper->params,
 				    IEEE80211_EHT_OPER_MCS15_DISABLE);
 	} else {
 		link_conf->eht_su_beamformer = false;
@@ -1604,7 +1720,7 @@ static int ieee80211_start_ap(struct wiphy *wiphy, struct net_device *dev,
 		link_conf->eht_mu_beamformer = false;
 	}
 
-	if (params->uhr_oper) {
+	if (params->beacon.uhr_oper) {
 		if (!link_conf->eht_support)
 			return -EOPNOTSUPP;
 
@@ -2221,7 +2337,15 @@ static int sta_link_apply_parameters(struct ieee80211_local *local,
 		ieee80211_s1g_cap_to_sta_s1g_cap(sdata, params->s1g_capa,
 						 link_sta);
 
-	ieee80211_sta_init_nss(link_sta);
+	switch (sdata->vif.type) {
+	case NL80211_IFTYPE_NAN:
+	case NL80211_IFTYPE_NAN_DATA:
+		/* not applicable - they don't use NSS/BW as capability */
+		break;
+	default:
+		ieee80211_sta_init_nss_bw_capa(link_sta, &link->conf->chanreq.oper);
+		break;
+	}
 
 	if (params->opmode_notif_used) {
 		enum nl80211_chan_width width = link->conf->chanreq.oper.width;
