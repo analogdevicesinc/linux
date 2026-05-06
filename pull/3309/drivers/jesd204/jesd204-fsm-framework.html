@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="JESD204 FSM Interface Linux Kernel Framework." name="description" />
+
+    <title>JESD204 FSM &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=ac863bf0" />
+    <script async="async" src="../../_static/app.umd.js?v=09b0c6bc"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="ADP1650" href="../leds/adp1650.html" />
+    <link rel="prev" title="AXI JESD204 TX" href="axi_jesd204_tx.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">JESD204 FSM</a><ul>
+<li><a class="reference internal" href="#device-topology">Device Topology</a></li>
+<li><a class="reference internal" href="#device-tree-properties">Device Tree Properties</a><ul>
+<li><a class="reference internal" href="#design-principles">Design Principles</a></li>
+<li><a class="reference internal" href="#tl-dr-show-me-the-code">TL;DR - show me the code</a></li>
+<li><a class="reference internal" href="#how-does-it-work">How does it work?</a><ul>
+<li><a class="reference internal" href="#the-initialization-data">The initialization data</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#jesd204-fsm-link-states-in-a-nutshell">JESD204-FSM link states in a nutshell</a><ul>
+<li><a class="reference internal" href="#jesd204-fsm-link-states">JESD204-FSM link states</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#why-yet-another-kernel-framework">Why yet another kernel framework?</a><ul>
+<li><a class="reference internal" href="#link-parameter-propagation">Link Parameter Propagation</a></li>
+<li><a class="reference internal" href="#lack-of-common-integrated-management-core-framework">Lack of common integrated management core (framework)</a></li>
+<li><a class="reference internal" href="#bring-up-of-multi-chip-links">Bring-up of multi-chip links</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#multi-chip-multi-link-example">Multi-Chip Multi-Link Example</a><ul>
+<li><a class="reference internal" href="#clock-tree-setup-and-synchronization">Clock Tree Setup and Synchronization</a><ul>
+<li><a class="reference internal" href="#possible-expansion">Possible expansion</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#synchronizing-distributed-multi-topology-systems">Synchronizing distributed multi-topology systems</a><ul>
+<li><a class="reference internal" href="#what-is-a-secondary-sysref-provider-an-what-is-it-used-for">What is a secondary sysref-provider? An what is it used for?</a></li>
+<li><a class="reference internal" href="#why-not-always-request-sysref-pulses-next-to-the-topology">Why not always request SYSREF pulses next to the topology?</a></li>
+<li><a class="reference internal" href="#what-is-an-external-manager">What is an external manager?</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#more-information">More Information</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4695.html">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad6676.html">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361-customization.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-trx-rf/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/ad714x.html">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl345.html">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7873.html">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7877.html">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/open_alliance.html">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1320.html">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="jesd204-fsm">
+<span id="jesd204-fsm-framework"></span><h1>JESD204 FSM<a class="headerlink" href="#jesd204-fsm" title="Link to this heading"></a></h1>
+<p>JESD204 FSM Interface Linux Kernel Framework.</p>
+<p>The JESD204 Linux Kernel Framework is a Finite State Machine (FSM) that is meant
+to synchronize other Linux device drivers to be able to properly bring-up &amp;
+manage a single or multiple JESD204 links.</p>
+<p>The JESD204 link bring-up and management is complicated, and it requires that
+many actors (device drivers), be in sync with each other, in various link
+bring-up states/stages. Typical components of an JESD204 link are the physical
+layer (PHY), link layer (LL), transport layer (TPL) and the high speed converter
+device and clocking layer with all it’s constrains and inter-dependencies. This
+has to happen not just at boot-time, but also during run-time, in case a link is
+going to be reconfigured or breaks and has to recover.</p>
+<p>To achieve this, the JESD204 Linux Kernel Framework hooks into all the drivers
+that participate in the link management (bring-up/bring-down) and each driver
+provides a set of callbacks for each state that it supports.</p>
+<p>The relationship between the devices is defined in the device-tree. The
+relationship is called a <strong>connection</strong> so as not to re-use the term <strong>link</strong>,
+which can cause confusion with the term <strong>link</strong> from the JESD204 standard. The
+whole group of devices, is actually a graph (or topology), with a single
+top-level device.</p>
+<section id="device-topology">
+<h2>Device Topology<a class="headerlink" href="#device-topology" title="Link to this heading"></a></h2>
+<p>JESD204 devices form a directed graph (topology) where connections represent
+data flow between devices. The topology is defined in Device Tree using
+<code class="docutils literal notranslate"><span class="pre">jesd204-inputs</span></code> properties that specify parent-child relationships.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">================================================================================</span>
+                         <span class="n">JESD204</span> <span class="n">Topology</span> <span class="n">Graph</span>
+<span class="o">================================================================================</span>
+
+                          <span class="o">+--------------------------+</span>
+                          <span class="o">|</span> <span class="n">ad9081</span><span class="o">@</span><span class="mi">0</span>                 <span class="o">|</span>
+                          <span class="o">|</span> <span class="p">[</span><span class="n">TOP</span><span class="p">]</span>                    <span class="o">|</span>
+                          <span class="o">+--------------------------+</span>
+                                        <span class="o">|</span>
+                                        <span class="n">v</span>
+
+           <span class="o">+--------------------------+</span>  <span class="o">+--------------------------+</span>
+           <span class="o">|</span> <span class="n">axi</span><span class="o">-</span><span class="n">ad9081</span><span class="o">-</span><span class="n">rx</span><span class="o">-</span><span class="n">hpc</span><span class="o">@</span><span class="mi">8</span>      <span class="o">|</span>  <span class="o">|</span> <span class="n">axi</span><span class="o">-</span><span class="n">ad9081</span><span class="o">-</span><span class="n">tx</span><span class="o">-</span><span class="n">hpc</span><span class="o">@</span><span class="mi">8</span>      <span class="o">|</span>
+           <span class="o">|</span>                          <span class="o">|</span>  <span class="o">|</span>                          <span class="o">|</span>
+           <span class="o">+--------------------------+</span>  <span class="o">+--------------------------+</span>
+                         <span class="o">|</span>                             <span class="o">|</span>
+                         <span class="n">v</span>                             <span class="n">v</span>
+
+           <span class="o">+--------------------------+</span>  <span class="o">+--------------------------+</span>
+           <span class="o">|</span> <span class="n">axi</span><span class="o">-</span><span class="n">jesd204</span><span class="o">-</span><span class="n">rx</span><span class="o">@</span><span class="mi">8</span>         <span class="o">|</span>  <span class="o">|</span> <span class="n">axi</span><span class="o">-</span><span class="n">jesd204</span><span class="o">-</span><span class="n">tx</span><span class="o">@</span><span class="mi">8</span>         <span class="o">|</span>
+           <span class="o">|</span>                          <span class="o">|</span>  <span class="o">|</span>                          <span class="o">|</span>
+           <span class="o">+--------------------------+</span>  <span class="o">+--------------------------+</span>
+                         <span class="o">|</span>                             <span class="o">|</span>
+                         <span class="n">v</span>                             <span class="n">v</span>
+
+           <span class="o">+--------------------------+</span>  <span class="o">+--------------------------+</span>
+           <span class="o">|</span> <span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">rx</span><span class="o">@</span><span class="mi">8</span>          <span class="o">|</span>  <span class="o">|</span> <span class="n">axi</span><span class="o">-</span><span class="n">adxcvr</span><span class="o">-</span><span class="n">tx</span><span class="o">@</span><span class="mi">8</span>          <span class="o">|</span>
+           <span class="o">|</span>                          <span class="o">|</span>  <span class="o">|</span>                          <span class="o">|</span>
+           <span class="o">+--------------------------+</span>  <span class="o">+--------------------------+</span>
+                         <span class="o">|</span>                             <span class="o">|</span>
+                         <span class="n">v</span>                             <span class="n">v</span>
+
+                          <span class="o">+--------------------------+</span>
+                          <span class="o">|</span> <span class="n">hmc7044</span><span class="o">@</span><span class="mi">0</span>                <span class="o">|</span>
+                          <span class="o">|</span> <span class="p">[</span><span class="n">CLK</span><span class="p">]</span>                    <span class="o">|</span>
+                          <span class="o">+--------------------------+</span>
+
+<span class="n">Legend</span><span class="p">:</span> <span class="p">[</span><span class="n">TOP</span><span class="p">]</span> <span class="o">=</span> <span class="n">Top</span> <span class="n">device</span> <span class="p">(</span><span class="n">ADC</span><span class="o">/</span><span class="n">DAC</span><span class="p">)</span>  <span class="p">[</span><span class="n">CLK</span><span class="p">]</span> <span class="o">=</span> <span class="n">Clock</span><span class="o">/</span><span class="n">SYSREF</span> <span class="n">source</span>
+
+<span class="o">--------------------------------------------------------------------------------</span>
+<span class="n">Link</span> <span class="mi">2</span> <span class="o">-</span> <span class="n">RX</span> <span class="p">(</span><span class="n">JESD204B</span><span class="p">)</span>  <span class="n">State</span><span class="p">:</span> <span class="n">opt_post_running_stage</span>
+<span class="o">--------------------------------------------------------------------------------</span>
+  <span class="n">JESD</span> <span class="n">Parameters</span><span class="p">:</span>  <span class="n">L</span><span class="o">=</span><span class="mi">8</span>  <span class="n">M</span><span class="o">=</span><span class="mi">4</span>  <span class="n">N</span><span class="o">=</span><span class="mi">16</span>  <span class="n">N</span><span class="s1">&#39;=16  F=1  K=32  S=1</span>
+  <span class="n">Encoder</span><span class="p">:</span> <span class="mi">8</span><span class="n">B</span><span class="o">/</span><span class="mi">10</span><span class="n">B</span>    <span class="n">Subclass</span><span class="p">:</span> <span class="mi">1</span>  <span class="n">Scrambling</span><span class="p">:</span> <span class="n">Yes</span>  <span class="n">HD</span><span class="p">:</span> <span class="n">No</span>
+  <span class="n">Sample</span> <span class="n">Rate</span><span class="p">:</span>  <span class="mf">1.500000000000</span> <span class="n">GHz</span>
+  <span class="n">Lane</span> <span class="n">Rate</span><span class="p">:</span>    <span class="mf">15.000000000000</span> <span class="n">GHz</span>
+  <span class="n">LMFC</span> <span class="n">Rate</span><span class="p">:</span>   <span class="mf">46.875000000</span> <span class="n">MHz</span>
+  <span class="n">Device</span> <span class="n">Clock</span><span class="p">:</span> <span class="mf">375.000000000</span> <span class="n">MHz</span>
+
+<span class="o">--------------------------------------------------------------------------------</span>
+<span class="n">Link</span> <span class="mi">0</span> <span class="o">-</span> <span class="n">TX</span> <span class="p">(</span><span class="n">JESD204B</span><span class="p">)</span>  <span class="n">State</span><span class="p">:</span> <span class="n">opt_post_running_stage</span>
+<span class="o">--------------------------------------------------------------------------------</span>
+  <span class="n">JESD</span> <span class="n">Parameters</span><span class="p">:</span>  <span class="n">L</span><span class="o">=</span><span class="mi">8</span>  <span class="n">M</span><span class="o">=</span><span class="mi">4</span>  <span class="n">N</span><span class="o">=</span><span class="mi">16</span>  <span class="n">N</span><span class="s1">&#39;=16  F=1  K=32  S=1</span>
+  <span class="n">Encoder</span><span class="p">:</span> <span class="mi">8</span><span class="n">B</span><span class="o">/</span><span class="mi">10</span><span class="n">B</span>    <span class="n">Subclass</span><span class="p">:</span> <span class="mi">1</span>  <span class="n">Scrambling</span><span class="p">:</span> <span class="n">Yes</span>  <span class="n">HD</span><span class="p">:</span> <span class="n">No</span>
+  <span class="n">Sample</span> <span class="n">Rate</span><span class="p">:</span>  <span class="mf">1.500000000000</span> <span class="n">GHz</span>
+  <span class="n">Lane</span> <span class="n">Rate</span><span class="p">:</span>    <span class="mf">15.000000000000</span> <span class="n">GHz</span>
+  <span class="n">LMFC</span> <span class="n">Rate</span><span class="p">:</span>   <span class="mf">46.875000000</span> <span class="n">MHz</span>
+  <span class="n">Device</span> <span class="n">Clock</span><span class="p">:</span> <span class="mf">375.000000000</span> <span class="n">MHz</span>
+</pre></div>
+</div>
+<p>Each topology has:</p>
+<ul class="simple">
+<li><p><strong>Top-level device</strong>: Initiates state transitions and defines link IDs</p></li>
+<li><p><strong>Input connections</strong>: Declared via <code class="docutils literal notranslate"><span class="pre">jesd204-inputs</span></code> property</p></li>
+<li><p><strong>Link IDs</strong>: Specify which JESD204 link(s) a device participates in</p></li>
+</ul>
+</section>
+<section id="device-tree-properties">
+<h2>Device Tree Properties<a class="headerlink" href="#device-tree-properties" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">jesd204-device</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Boolean</span> <span class="nb">property</span> <span class="n">marking</span> <span class="n">a</span> <span class="n">node</span> <span class="k">as</span> <span class="n">a</span> <span class="n">JESD204</span> <span class="n">device</span><span class="o">.</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">jesd204-top-device</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Marks</span> <span class="n">device</span> <span class="k">as</span> <span class="n">the</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">device</span><span class="o">.</span> <span class="n">Value</span> <span class="ow">is</span> <span class="n">the</span> <span class="n">topology</span> <span class="n">ID</span><span class="o">.</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">jesd204-link-ids</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Array</span> <span class="n">of</span> <span class="n">link</span> <span class="n">IDs</span> <span class="n">this</span> <span class="n">top</span> <span class="n">device</span> <span class="n">manages</span><span class="o">.</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">jesd204-inputs</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Array</span> <span class="n">of</span> <span class="n">phandles</span> <span class="k">with</span> <span class="n">arguments</span><span class="p">:</span> <span class="o">&lt;&amp;</span><span class="n">parent_device</span> <span class="n">topo_id</span> <span class="n">link_id</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">jesd204-sysref-provider</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Marks</span> <span class="n">this</span> <span class="n">device</span> <span class="k">as</span> <span class="n">the</span> <span class="n">primary</span> <span class="n">SYSREF</span> <span class="n">provider</span> <span class="k">for</span> <span class="n">the</span> <span class="n">topology</span><span class="o">.</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">jesd204-secondary-sysref-provider</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Marks</span> <span class="n">this</span> <span class="n">device</span> <span class="k">as</span> <span class="n">a</span> <span class="n">secondary</span> <span class="n">SYSREF</span> <span class="n">provider</span> <span class="p">(</span><span class="k">for</span> <span class="n">link</span> <span class="n">recovery</span><span class="p">)</span><span class="o">.</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">jesd204-stop-states</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Array</span> <span class="n">of</span> <span class="n">state</span> <span class="n">indices</span> <span class="n">where</span> <span class="n">the</span> <span class="n">FSM</span> <span class="n">should</span> <span class="n">pause</span> <span class="p">(</span><span class="k">for</span> <span class="n">multi</span><span class="o">-</span><span class="n">topology</span> <span class="n">sync</span><span class="p">)</span><span class="o">.</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">jesd204-ignore-errors</span></code></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Boolean</span> <span class="n">to</span> <span class="k">continue</span> <span class="n">despite</span> <span class="n">errors</span> <span class="p">(</span><span class="n">useful</span> <span class="k">for</span> <span class="n">debugging</span><span class="p">)</span><span class="o">.</span>
+</pre></div>
+</div>
+<p>To illustrate, here’s an example device-tree and below it how the graph
+representation looks like for an ADRV9009 FMC card on a ZC706.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">SPDX</span><span class="o">-</span><span class="n">License</span><span class="o">-</span><span class="n">Identifier</span><span class="p">:</span> <span class="n">GPL</span><span class="o">-</span><span class="mf">2.0</span>
+<span class="o">/*</span>
+ <span class="o">*</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADRV9009</span> <span class="p">(</span><span class="n">via</span> <span class="n">jesd204</span><span class="o">-</span><span class="n">fsm</span><span class="p">)</span>
+ <span class="o">*</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">wiki</span><span class="o">.</span><span class="n">analog</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">resources</span><span class="o">/</span><span class="nb">eval</span><span class="o">/</span><span class="n">user</span><span class="o">-</span><span class="n">guides</span><span class="o">/</span><span class="n">adrv9009</span>
+ <span class="o">*</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">wiki</span><span class="o">.</span><span class="n">analog</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">resources</span><span class="o">/</span><span class="n">tools</span><span class="o">-</span><span class="n">software</span><span class="o">/</span><span class="n">linux</span><span class="o">-</span><span class="n">drivers</span><span class="o">/</span><span class="n">iio</span><span class="o">-</span><span class="n">transceiver</span><span class="o">/</span><span class="n">adrv9009</span>
+ <span class="o">*</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">wiki</span><span class="o">.</span><span class="n">analog</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">resources</span><span class="o">/</span><span class="n">tools</span><span class="o">-</span><span class="n">software</span><span class="o">/</span><span class="n">linux</span><span class="o">-</span><span class="n">software</span><span class="o">/</span><span class="n">adrv9009_advanced_plugin</span>
+ <span class="o">*</span>
+ <span class="o">*</span> <span class="n">hdl_project</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">adrv9009</span><span class="o">/</span><span class="n">zc706</span><span class="o">&gt;</span>
+ <span class="o">*</span> <span class="n">board_revision</span><span class="p">:</span> <span class="o">&lt;&gt;</span>
+ <span class="o">*</span>
+ <span class="o">*</span> <span class="n">Copyright</span> <span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="mi">2020</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Inc</span><span class="o">.</span>
+ <span class="o">*/</span>
+
+<span class="c1">#include &quot;zynq-zc706-adv7511-adrv9009.dts&quot;</span>
+
+<span class="c1">#include &lt;dt-bindings/iio/adc/adi,adrv9009.h&gt;</span>
+
+<span class="o">&amp;</span><span class="n">trx0_adrv9009</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">top</span><span class="o">-</span><span class="n">device</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="n">This</span> <span class="ow">is</span> <span class="n">the</span> <span class="n">TOP</span> <span class="n">device</span> <span class="o">*/</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">link</span><span class="o">-</span><span class="n">ids</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">DEFRAMER_LINK_TX</span> <span class="n">FRAMER_LINK_RX</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>
+        <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_rx_jesd</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_rx_os_jesd</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_tx_jesd</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">interrupts</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_rx_jesd</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_adxcvr_rx</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_rx_os_jesd</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_adxcvr_rx_os</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_tx_jesd</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_adxcvr_tx</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_adxcvr_rx</span> <span class="p">{</span>
+        <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>  <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="n">div40</span> <span class="ow">is</span> <span class="n">controlled</span> <span class="n">by</span> <span class="n">axi_adrv9009_rx_jesd</span> <span class="o">*/</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;conv&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_adxcvr_rx_os</span> <span class="p">{</span>
+        <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>  <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="n">div40</span> <span class="ow">is</span> <span class="n">controlled</span> <span class="n">by</span> <span class="n">axi_adrv9009_rx_os_jesd</span> <span class="o">*/</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;conv&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_adxcvr_tx</span> <span class="p">{</span>
+        <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>  <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">clk0_ad9528</span> <span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="n">div40</span> <span class="ow">is</span> <span class="n">controlled</span> <span class="n">by</span> <span class="n">axi_adrv9009_tx_jesd</span> <span class="o">*/</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;conv&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">clk0_ad9528</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">sysref</span><span class="o">-</span><span class="n">provider</span><span class="p">;</span>
+
+    <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">pattern</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">SYSREF_PATTERN_NSHOT</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">adi</span><span class="p">,</span><span class="n">sysref</span><span class="o">-</span><span class="n">request</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>The structure above translates to the image below.</p>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/adrv9009-fmc-jesd204-fsm-topology.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/adrv9009-fmc-jesd204-fsm-topology.png" />
+</figure>
+<section id="design-principles">
+<h3>Design Principles<a class="headerlink" href="#design-principles" title="Link to this heading"></a></h3>
+<p>The picture in the diagram makes thinks look really simple, but in reality they
+aren’t. If any of the devices in that topology/graph has a change of state, or
+an error occurs, multiple devices must be re-synchronized.</p>
+<p>Also, the device-tree described above, is an actual working device-tree. Some
+variations may be found in the ADI Linux kernel repository (i.e. some more nodes
+in-between the nodes described above).</p>
+<p>There may be other frameworks in Linux that describe this topology, but the
+challenge with JESD204 is that (at this current point in time), there is no
+clear idea of the minimum amount of states needed to synchronize or
+re-synchronize in order to recover a JESD204 link if it goes down.</p>
+<p>The end-result is an FSM that tries to make all the devices go through the same
+states at once.</p>
+<p>Some design principles, defined so far for this framework:</p>
+<ol class="arabic simple">
+<li><p>A group of devices shall be named a topology (or informally graph or tree);
+while the picture above looks simple, more complicated topologies should be
+support with this framework</p></li>
+<li><p>Each topology shall have a single top-level device; for a multi-chip
+topology, one will be picked to be the top-level one. For IIO devices, it is
+assumed that this device will also register the IIO buffer.</p></li>
+<li><p>Each device driver must register with the JESD204 framework to be able to
+take part in a topology</p></li>
+<li><p>A device may only be part of a topology, if it is defined in the device-tree
+(or other configuration mechanism) via a ‘jesd204-device’ node/definition.</p></li>
+<li><p>A top-level device may be defined via ‘jesd204-top-device = &lt;ID&gt;’ ; ID is a
+number defining the topology ID, to be able to specify more topologies</p></li>
+<li><p>The top-level device defines the JESD204 link IDs in the device-tree (via
+‘jesd204-link-ids’ array property); the order in this array, is the order in
+which the JESD204 links are initialized;</p></li>
+<li><p>Each device declares its connections using the jesd204-inputs list array
+property. The jesd-inputs are declared using following syntax: jesd204-inputs
+= &lt;phandleX TOPOLOGY_ID LINK_ID_X&gt;, &lt;phandleY TOPOLOGY_ID LINK_ID_Y&gt;, …</p></li>
+<li><p>All devices in a topology must go through the same states together when
+bringing up a link and in the same order reverse in reverse when bringing
+down or rolling back; example: all 8 devices must go from S0 to S9 together,
+and S9 to S0 together</p></li>
+<li><p>When going through each state, each device-driver will provide it’s own set
+of callbacks for what to do in each state; if a callback it is not provided,
+it is assumed that the device-driver doesn’t care about that specific state,
+and the transition will continue</p></li>
+<li><p>When an error occurs in any of the states, the states should automatically be
+rolled back from the state that has errored back to the initial/idle state;
+so, if going from S0 to S9 and S3 faults, the transition will be S0, S1, S2,
+S3, S2, S1, S0 (in perfect symmetry)</p></li>
+<li><p>Rolling back doesn’t stop even when any of the states errors out; it is of
+higher priority to reach back to IDLE state, than to stop when rolling back</p></li>
+<li><p>Each callback (in the driver) must return either JESD204_STATE_CHANGE_DONE
+(value 1) or JESD204_STATE_CHANGE_DEFER (value 0), or an error if it occurs
+(any negative value). The decision was made for JESD204_STATE_CHANGE_DONE to
+be 1, so that when a new driver implements a callback for a framework,
+<code class="docutils literal notranslate"><span class="pre">return</span> <span class="pre">0</span></code> doesn’t mean <code class="docutils literal notranslate"><span class="pre">DONE</span></code> (i.e. accidental/unwanted state
+transitions);</p></li>
+<li><p>The JESD204_STATE_CHANGE_DEFER is important if a state should stop (but not
+rollback) and wait for an external call (a thread/retry mechanism) to restart
+the FSM and continue from the current state; so when transitioning from state
+S0 to S9, and S4 calls for a DEFER, the FSM will stop at S4, and an external
+entity (retry loop, workq,interrupt ,etc) would call the FSM to continue the
+transition up to S9; the DEFER mechanism/logic allows us to pause a
+transition of states if any device (in the topology) calls for it (because it
+isn’t ready yet)</p></li>
+<li><p>For any particular state, the callbacks of the top-level device must be
+called last; for the other devices it shouldn’t matter; the top-level is
+typically the ADC/DAC/XCVR, so it is important that this is called last to
+enable/disable the final bits of a link</p></li>
+<li><p>There can be only a single device that can act as a SYSREF provider in a
+topology; defining more than one will fail the initialization of the topology</p></li>
+</ol>
+</section>
+<section id="tl-dr-show-me-the-code">
+<h3>TL;DR - show me the code<a class="headerlink" href="#tl-dr-show-me-the-code" title="Link to this heading"></a></h3>
+<p>The current source code of the JESD204 Linux framework resides in
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/jesd204/" target="_blank">drivers/jesd204/</a></p>
+<p>It is comprised of the current source files:</p>
+<ul class="simple">
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:drivers/jesd204/jesd204-core.c" target="_blank">jesd204-core.c</a> - the core file
+of the framework - it reads the device-tree, constructs the topology</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:drivers/jesd204/jesd204-fsm.c" target="_blank">jesd204-fsm.c</a> - the entire FSM
+logic</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:drivers/jesd204/jesd204-sysfs.c" target="_blank">jesd204-sysfs.c</a> - the Linux
+sysfs code to export files for debug/control/etc under
+<strong>/sys/bus/jesd204/devices/jesd204:X</strong></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:drivers/jesd204/jesd204-priv.h" target="_blank">jesd204-priv.h</a> - internal
+framework structures/functions to be shared inside the framework</p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:include/linux/jesd204/jesd204.h" target="_blank">include/linux/jesd204/jesd204.h</a>
+- API definitions to be used by drivers registering with the framework</p></li>
+</ul>
+</section>
+<section id="how-does-it-work">
+<h3>How does it work?<a class="headerlink" href="#how-does-it-work" title="Link to this heading"></a></h3>
+<p>A typical driver needs to provide some data to the framework. Example (for
+ADRV9009):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">static</span> <span class="n">const</span> <span class="n">struct</span> <span class="n">jesd204_dev_data</span> <span class="n">jesd204_adrv9009_init</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="o">.</span><span class="n">state_ops</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">[</span><span class="n">JESD204_OP_DEVICE_INIT</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_device</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_uninit</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_LINK_INIT</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_link</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_link_init</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_CLOCKS_ENABLE</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_link</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_clks_enable</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_LINK_SETUP</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_device</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_link_setup</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">JESD204_STATE_OP_MODE_PER_DEVICE</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">post_state_sysref</span> <span class="o">=</span> <span class="n">true</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_LINK_ENABLE</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_link</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_link_enable</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">post_state_sysref</span> <span class="o">=</span> <span class="n">true</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_LINK_RUNNING</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_link</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_link_running</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_OPT_SETUP_STAGE1</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_device</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_setup_stage1</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">JESD204_STATE_OP_MODE_PER_DEVICE</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">post_state_sysref</span> <span class="o">=</span> <span class="n">true</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_OPT_SETUP_STAGE2</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_device</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_setup_stage2</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">JESD204_STATE_OP_MODE_PER_DEVICE</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">post_state_sysref</span> <span class="o">=</span> <span class="n">true</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_OPT_SETUP_STAGE3</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_device</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_setup_stage3</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">JESD204_STATE_OP_MODE_PER_DEVICE</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">post_state_sysref</span> <span class="o">=</span> <span class="n">true</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_OPT_SETUP_STAGE4</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_device</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_setup_stage4</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">JESD204_STATE_OP_MODE_PER_DEVICE</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_OPT_SETUP_STAGE5</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_device</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_setup_stage5</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">JESD204_STATE_OP_MODE_PER_DEVICE</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="p">[</span><span class="n">JESD204_OP_OPT_POST_RUNNING_STAGE</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">.</span><span class="n">per_device</span> <span class="o">=</span> <span class="n">adrv9009_jesd204_post_running_stage</span><span class="p">,</span>
+            <span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="n">JESD204_STATE_OP_MODE_PER_DEVICE</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+
+    <span class="o">.</span><span class="n">max_num_links</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+    <span class="o">.</span><span class="n">sizeof_priv</span> <span class="o">=</span> <span class="n">sizeof</span><span class="p">(</span><span class="n">struct</span> <span class="n">adrv9009_jesd204_priv</span><span class="p">),</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>The driver needs to call <strong>devm_jesd204_dev_register()</strong>. All this does, is to
+bind the driver from the probe the device-tree binding/definition for this
+device’s place in a JESD204 topology. If the devm_jesd204_dev_register()
+function returns NULL, this driver is not part of any JESD204
+topology/operation. For example, some clock-chip drivers can operate as
+clock-drivers, or as JESD204 providers.</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">jdev</span> <span class="o">=</span> <span class="n">devm_jesd204_dev_register</span><span class="p">(</span><span class="o">&amp;</span><span class="n">spi</span><span class="o">-&gt;</span><span class="n">dev</span><span class="p">,</span> <span class="n">jesd204_init</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">IS_ERR</span><span class="p">(</span><span class="n">jdev</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">PTR_ERR</span><span class="p">(</span><span class="n">jdev</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>All drivers must finally call (in probe) the <strong>jesd204_fsm_start()</strong> on their
+object from the framework. This is true for all devices, even the ones that are
+not top-level devices.</p>
+<p>Example:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ret</span> <span class="o">=</span> <span class="n">jesd204_fsm_start</span><span class="p">(</span><span class="n">jdev</span><span class="p">,</span> <span class="n">JESD204_LINKS_ALL</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>If <strong>jdev</strong> is NULL, that is fine. Typically, a driver may call this FSM for all
+JESD204 links that are defined in the device-tree. With the sysfs, the
+jesd204_fsm_start() may be called for a single JESD204 link.</p>
+<p>There’s an equivalent <strong>jesd204_fsm_stop()</strong> that will stop the FSM.</p>
+<p>The proper functioning of the FSM relies on the driver correctly using the
+framework and that that connections between devices be properly defined in the
+device-tree.</p>
+<section id="the-initialization-data">
+<h4>The initialization data<a class="headerlink" href="#the-initialization-data" title="Link to this heading"></a></h4>
+<p>The initialization data has type:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/**</span>
+ <span class="o">*</span> <span class="n">struct</span> <span class="n">jesd204_dev_data</span> <span class="o">-</span> <span class="n">JESD204</span> <span class="n">device</span> <span class="n">initialization</span> <span class="n">data</span>
+ <span class="o">*</span> <span class="nd">@sysref_cb</span>       <span class="n">SYSREF</span> <span class="n">callback</span><span class="p">,</span> <span class="k">if</span> <span class="n">this</span> <span class="n">device</span><span class="o">/</span><span class="n">driver</span> <span class="n">supports</span> <span class="n">it</span>
+ <span class="o">*</span> <span class="nd">@sizeof_priv</span>     <span class="n">amount</span> <span class="n">of</span> <span class="n">data</span> <span class="n">to</span> <span class="n">allocate</span> <span class="k">for</span> <span class="n">private</span> <span class="n">information</span>
+ <span class="o">*</span> <span class="nd">@links</span>       <span class="n">JESD204</span> <span class="n">initial</span> <span class="n">link</span> <span class="n">configuration</span>
+ <span class="o">*</span> <span class="nd">@max_num_links</span>   <span class="n">maximum</span> <span class="n">number</span> <span class="n">of</span> <span class="n">JESD204</span> <span class="n">links</span> <span class="n">this</span> <span class="n">device</span> <span class="n">can</span> <span class="n">support</span>
+ <span class="o">*</span> <span class="nd">@num_retries</span>     <span class="n">number</span> <span class="n">of</span> <span class="n">retries</span> <span class="ow">in</span> <span class="n">case</span> <span class="n">of</span> <span class="n">error</span> <span class="p">(</span><span class="n">only</span> <span class="k">for</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">device</span><span class="p">)</span>
+ <span class="o">*</span> <span class="nd">@state_ops</span>       <span class="n">ops</span> <span class="k">for</span> <span class="n">each</span> <span class="n">state</span> <span class="n">transition</span> <span class="n">of</span> <span class="nb">type</span> <span class="nd">@struct</span> <span class="n">jesd204_state_op</span>
+ <span class="o">*/</span>
+<span class="n">struct</span> <span class="n">jesd204_dev_data</span> <span class="p">{</span>
+    <span class="n">jesd204_sysref_cb</span>           <span class="n">sysref_cb</span><span class="p">;</span>
+    <span class="n">size_t</span>                  <span class="n">sizeof_priv</span><span class="p">;</span>
+    <span class="n">const</span> <span class="n">struct</span> <span class="n">jesd204_link</span>       <span class="o">*</span><span class="n">links</span><span class="p">;</span>
+    <span class="n">unsigned</span> <span class="nb">int</span>                <span class="n">max_num_links</span><span class="p">;</span>
+    <span class="n">unsigned</span> <span class="nb">int</span>                <span class="n">num_retries</span><span class="p">;</span>
+    <span class="n">struct</span> <span class="n">jesd204_state_op</span>         <span class="n">state_ops</span><span class="p">[</span><span class="n">__JESD204_MAX_OPS</span><span class="p">];</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>A SYSREF provider hooks itself with the <strong>sysref_cb</strong> hook, but there also
+must be a device-tree property to mark that this is the SYSREF provider used
+in the topology.</p></li>
+<li><p>Optionally a driver may reserve some memory for private state data via
+<strong>sizeof_priv</strong> and can be obtained via a <strong>jesd204_dev_priv(jdev)</strong></p></li>
+<li><p>The <strong>links</strong> field is used to define JESD204 links in a static manner in the
+driver; these may go away if there aren’t any clear use-cases for them; but it
+could be that some devices allow only a fixed configuration, so these could be
+useful in those cases</p></li>
+<li><p><strong>max_num_links</strong> - maximum number of JESD204 links that this device supports;
+the actual number will be configured from the device-tree, but it shouldn’t
+exceed this number</p></li>
+<li><p><strong>num_retries</strong> - number of retries in case of error during an FSM
+start/link-bring-up</p></li>
+<li><p><strong>state_ops</strong> - more below</p></li>
+</ul>
+<p>Each driver hooks it’s callback by adding the proper entry in the <strong>state_ops</strong>
+array. The type of a state_op is defined as (may be subject to change):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">/**</span>
+ <span class="o">*</span> <span class="n">struct</span> <span class="n">jesd204_state_op</span> <span class="o">-</span> <span class="n">JESD204</span> <span class="n">device</span> <span class="n">per</span><span class="o">-</span><span class="n">state</span> <span class="n">op</span>
+ <span class="o">*</span> <span class="nd">@mode</span>        <span class="n">mode</span> <span class="k">for</span> <span class="n">this</span> <span class="n">state</span> <span class="n">op</span><span class="p">,</span> <span class="n">depending</span> <span class="n">on</span> <span class="n">this</span> <span class="nd">@per_device</span> <span class="ow">or</span> <span class="nd">@per_link</span> <span class="ow">is</span> <span class="n">called</span>
+ <span class="o">*</span> <span class="nd">@per_device</span>      <span class="n">op</span> <span class="n">called</span> <span class="k">for</span> <span class="n">each</span> <span class="n">JESD204</span> <span class="o">**</span><span class="n">device</span><span class="o">**</span> <span class="n">during</span> <span class="n">a</span> <span class="n">transition</span>
+ <span class="o">*</span> <span class="nd">@per_link</span>        <span class="n">op</span> <span class="n">called</span> <span class="k">for</span> <span class="n">each</span> <span class="n">JESD204</span> <span class="o">**</span><span class="n">link</span><span class="o">**</span> <span class="n">individually</span> <span class="n">during</span> <span class="n">a</span> <span class="n">transition</span>
+ <span class="o">*</span> <span class="nd">@post_state_sysref</span>   <span class="n">true</span> <span class="k">if</span> <span class="n">a</span> <span class="n">SYSREF</span> <span class="n">should</span> <span class="n">be</span> <span class="n">issued</span> <span class="n">after</span> <span class="n">the</span> <span class="n">state</span> <span class="n">change</span>
+ <span class="o">*/</span>
+<span class="n">struct</span> <span class="n">jesd204_state_op</span> <span class="p">{</span>
+    <span class="n">enum</span> <span class="n">jesd204_state_op_mode</span>  <span class="n">mode</span><span class="p">;</span>
+    <span class="n">jesd204_dev_cb</span>          <span class="n">per_device</span><span class="p">;</span>
+    <span class="n">jesd204_link_cb</span>         <span class="n">per_link</span><span class="p">;</span>
+    <span class="nb">bool</span>                <span class="n">post_state_sysref</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>During a state-transition a state callback will be called:</p>
+<ul class="simple">
+<li><p>once for each JESD204 link if the mode is default
+JESD204_STATE_OP_MODE_PER_LINK; in this case the <strong>per_link</strong> callback is
+called</p></li>
+<li><p>once for each device (regardless of the number of JESD204 links per device) if
+mode is JESD204_STATE_OP_MODE_PER_DEVICE; in this case the <strong>per_device</strong>
+callback is called;</p></li>
+</ul>
+<p>It’s unsure (yet) whether it makes sense to call both <strong>per_link</strong> and
+<strong>per_device</strong> callbacks for a state. It could be an option at a later point in
+time.</p>
+<p>Optionally, each state may request a SYSREF call, by setting
+<strong>post_state_sysref</strong> to true.</p>
+</section>
+</section>
+<section id="jesd204-fsm-link-states-in-a-nutshell">
+<h3>JESD204-FSM link states in a nutshell<a class="headerlink" href="#jesd204-fsm-link-states-in-a-nutshell" title="Link to this heading"></a></h3>
+<p>Important JESD204-FSM link states in a nutshell.</p>
+<p><strong>LINK_INIT</strong> The JESD204-FSM calls this callback for each JESD204 link defined
+in the device-tree. The TOP device fills in the (<code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">jesd204_link</span></code>)
+parameter for each link. These parameters include all the JESD204 link
+parameters, the sample rate and SYSREF mode settings, such as continuous or
+pulsed SYSREF operation.</p>
+<p><strong>LINK_SUPPORTED</strong> During this state the FSM core, calls for each link of a
+topology into each device in order to query if this configuration is supported.
+Whether a configuration is supported or not depends on a number of constrains
+and synthesis parameters. In case all devices support the configuration, the FSM
+moves on to the next state. The clock chip drivers use this state to compute the
+LMFC/LEMC of all links and find it’s GCD, so that a common SYSREF frequency can
+be computed which satisfies all links requirements.</p>
+<p><strong>LINK_PRE_SETUP</strong> Typically, this state is used by the CLK chip drivers to
+configure the output channels dedicated as SYSREF, applies the previously
+computed SYSREF frequency and configures the mode.Optional <strong>CLK_SYNC_STAGEs</strong>
+These states can be used by clock chip drivers to implement a Clock Tree
+Synchronization mechanism. This is typically device specific or might not be
+supported by the clock chip in question. Right now, there are 3 states reserved
+for this. Based on the HMC7044 example this is what happens in each state.</p>
+<p><strong>CLK_SYNC_STAGE1</strong> The SYNC provider and consumers are configured to generate
+or receive a synchronization request.</p>
+<p><strong>CLK_SYNC_STAGE2</strong> The synchronization request is issued at the TOP most device
+in the clock tree. For the HMC7044, this is the SYSREF PROVIDER.</p>
+<p><strong>CLK_SYNC_STAGE3</strong> In this last CLK SYNC state, the SYNC status of each CLK
+device is validated.</p>
+<p><strong>LINK_SETUP</strong> In this state all actors (link devices) are setup and configured,
+based on the mode and configuration previously validated. A lot of devices
+typically found on multi-chip setups, require additional synchronization steps
+such as MCS (Mult-chip Sync), Phase/NCO Sync, or calibrations which take a lot
+of time and would benefit from being done in parallel to save some time. For
+those cases <strong>OPT_SETUP_STAGE1</strong> to <strong>OPT_SETUP_STAGE5</strong> can be used to
+implement these High-Speed converter device specific configuration,
+synchronization and calibration steps.</p>
+<p><strong>CLOCKS_ENABLE &amp; LINK_ENABLE</strong> Depending on the direction of the JESD204 link,
+different link components may implement different things. However, as the name
+implies it’s about enabling the JESD204 links. This includes taking the Link
+Layer cores out of RESET, enabling the SYSREF receivers for SUBCLASS 1
+operation, requesting a SYSREF pulse, etc.</p>
+<p><strong>LINK_RUNNING</strong> In this state all links of a topology assumed running. This is
+typically being checked in this state. Drivers can also use this state to
+complete setup and configuration which is required after the JESD204 links are
+running. In case another state is required drivers can also implement the
+optional <strong>OPT_POST_RUNNING_STAGE</strong> for these purposes.</p>
+<section id="jesd204-fsm-link-states">
+<h4>JESD204-FSM link states<a class="headerlink" href="#jesd204-fsm-link-states" title="Link to this heading"></a></h4>
+<p>Complete state diagram of all available link states:</p>
+<p>&lt;graphviz dot center 400x1200&gt;</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span> <span class="n">digraph</span> <span class="p">{</span>
+ <span class="n">IDLE</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">DEVICE_INIT</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">DEVICE_INIT</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">LINK_INIT</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_INIT</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">LINK_SUPPORTED</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_SUPPORTED</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">LINK_PRE_SETUP</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_PRE_SETUP</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">CLK_SYNC_STAGE1</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">CLK_SYNC_STAGE1</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">CLK_SYNC_STAGE2</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">CLK_SYNC_STAGE2</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">CLK_SYNC_STAGE3</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">CLK_SYNC_STAGE3</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">LINK_SETUP</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_SETUP</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE1</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE1</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE2</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE2</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE3</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE3</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE4</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE4</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE5</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE5</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">CLOCKS_ENABLE</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">CLOCKS_ENABLE</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">LINK_ENABLE</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_ENABLE</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">LINK_RUNNING</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_RUNNING</span><span class="p">:</span><span class="n">sw</span> <span class="o">-&gt;</span> <span class="n">OPT_POST_RUNNING_STAGE</span><span class="p">:</span><span class="n">w</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;init&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">DEVICE_INIT</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">IDLE</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_INIT</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">DEVICE_INIT</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_SUPPORTED</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">LINK_INIT</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_PRE_SETUP</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">LINK_SUPPORTED</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">CLK_SYNC_STAGE1</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">LINK_PRE_SETUP</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">CLK_SYNC_STAGE2</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">CLK_SYNC_STAGE1</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">CLK_SYNC_STAGE3</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">CLK_SYNC_STAGE2</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_SETUP</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">CLK_SYNC_STAGE3</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE1</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">LINK_SETUP</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE2</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE1</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE3</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE2</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE4</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE3</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_SETUP_STAGE5</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE4</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">CLOCKS_ENABLE</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">OPT_SETUP_STAGE5</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_ENABLE</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">CLOCKS_ENABLE</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">LINK_RUNNING</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">LINK_ENABLE</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+ <span class="n">OPT_POST_RUNNING_STAGE</span><span class="p">:</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">LINK_RUNNING</span><span class="p">:</span><span class="n">se</span> <span class="p">[</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;teardown&quot;</span> <span class="n">fontname</span><span class="o">=</span><span class="s2">&quot;Courier New&quot;</span><span class="p">];</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>&lt;/graphviz&gt;</p>
+<p>When an error occurs in any of the states, the states should automatically be
+rolled back from the state that has errored back to the initial/idle state.
+Going from S0 to S9 and S3 faults, the transition will be S0, S1, S2, S3, S2,
+S1, S0 (in perfect symmetry). Rolling back (and re-tries) doesn’t stop even when
+any of the states errors out; it is of higher priority to reach back to IDLE
+state, than to stop in the middle when rolling back.</p>
+</section>
+</section>
+<section id="why-yet-another-kernel-framework">
+<h3>Why yet another kernel framework?<a class="headerlink" href="#why-yet-another-kernel-framework" title="Link to this heading"></a></h3>
+<p>Before the introduction of the JESD204-FSM kernel framework, JESD204 link
+bring-up and management was subject to some known deficiencies, incurred by the
+Linux driver model. In order to understand the original challenges, they are in
+following explained with their new solution.</p>
+<section id="link-parameter-propagation">
+<h4>Link Parameter Propagation<a class="headerlink" href="#link-parameter-propagation" title="Link to this heading"></a></h4>
+<p>Bringing up a JESD204 link, involves several HDL cores and device device
+drivers. Some of the configuration was done in the device tree, some were
+synthesis parameters, etc. It was necessary to provide similar device tree
+configuration in multiple places. In the new kernel framework, the TOP device
+sets the configuration and is then broadcasted to all link components and
+checked for validity. Each component now understands the big picture and can act
+accordingly. For example, the CLK and SYSREF provider now knows the LMFC/LMEC
+frequencies of all links on a topology, so it can compute a suitable SYSREF
+frequency common to all JESD204 links.</p>
+</section>
+<section id="lack-of-common-integrated-management-core-framework">
+<h4>Lack of common integrated management core (framework)<a class="headerlink" href="#lack-of-common-integrated-management-core-framework" title="Link to this heading"></a></h4>
+<p>Prior to the new kernel framework, each converter driver required a lot of Linux
+kernel common clock framework (CCF) clocks connected. There used to be one for
+the JESD lane clock, the JESD core/link clock (typical lane rate / 40), the
+converter clock and the SYSREF clock. Each converter driver implemented some
+math on how to calculate the link and lane clock from its configuration. This
+caused a lot of duplicated boilerplate code. However more problematic was that
+the link enable was done using the CCF clk_prepare_enable() API. This was
+convenient since the CCF ensured that the parent of each clock was enabled prior
+to its childs. But depending on the JESD204 link direction this was not always
+the ideal sequence across the entire chain. Error propagation was also
+suboptimal, since an error code delivered to the driver which controlled the
+clk_enable could have been originated anywhere in the clock tree, from
+clock-chip, via the PHY-Layer, LINK-Layer, etc. One other issue was that besides
+clk_enable and clk_set_rate() there were other things to control, such as SYSREF
+N-SHOT mode, which wasn’t possible due to the lack of a proper API. Also, the
+CCF uses reference counting, so disabling a clock doesn’t necessarily disable
+the clock in case it was enabled twice, possibly from a different device. There
+were many more things such as controlling a clock from a CCF clock
+implementation wasn’t possible due to the global CCF lock (spinlock). The new
+implementation still used CCF clocks in its intended way, but no longer using it
+for link bring-up and enable which it wasn’t intended for. Last but not least,
+on 32-bit Linux systems the CCF rate is handled as 32-bit value, which without
+truncation easily overflowed with the JESD204 lane rate passed in Hz. With the
+new framework required clocks are automatically computed and checked. The
+framework implements the sequence, error conditions are detected and handled.</p>
+</section>
+<section id="bring-up-of-multi-chip-links">
+<h4>Bring-up of multi-chip links<a class="headerlink" href="#bring-up-of-multi-chip-links" title="Link to this heading"></a></h4>
+<p>Converter devices in a multi-chip setup often require additional synchronization
+steps which must be issued in parallel. So that the same pulse hits all devices
+at the same time during an initialization sequence. This is rather difficult to
+achieve in case devices are instantiated/probed sequentially from its bus
+management core. Prior to the FSM kernel framework, the workaround was done from
+Linux user space in writing some magic numbers to an SYSFS attribute typically
+called multichip_sync. Also problematic was the fact that SYSREF requests were
+only possible from one device, since the request was done via the GPIO API, and
+the GPIO is a protected resource and can’t be controlled from multiple entities
+concurrently. In some setups the workaround was to use continuous SYSREF,
+however this is rather suboptimal since SYSREF can cause clock spurs in the
+high-speed converter spectrum. With the new kernel framework each device can
+request a SYSREF pulse asynchronously, but in most situations the framework
+request SYSREF pulses as part of the required state transitions.</p>
+</section>
+</section>
+<section id="multi-chip-multi-link-example">
+<h3>Multi-Chip Multi-Link Example<a class="headerlink" href="#multi-chip-multi-link-example" title="Link to this heading"></a></h3>
+<p>Below example is taken from
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg" target="_blank">ADRV9009-ZU11EG</a> System
+on Module on the
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board" target="_blank">ADRV2CRR-FMC</a>
+carrier board with an additional
+<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms8-ebz" target="_blank">FMCOMMS8 FMC board</a>
+connected. So, in total there are 4x <a class="icon adi reference external" href="https://www.analog.com/ADRV9009" target="_blank">ADRV9009</a> RF transceivers
+in this design, with a two-level clock tree. The JESD204-FSM topology and input
+connections can be found below.</p>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/zu11eg-fmcomms8-jesd204-fsm-topology.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/zu11eg-fmcomms8-jesd204-fsm-topology.png" />
+</figure>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts" target="_blank">Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts</a></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">//</span> <span class="n">SPDX</span><span class="o">-</span><span class="n">License</span><span class="o">-</span><span class="n">Identifier</span><span class="p">:</span> <span class="n">GPL</span><span class="o">-</span><span class="mf">2.0</span>
+<span class="o">/*</span>
+ <span class="o">*</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">ADRV2CRR</span><span class="o">-</span><span class="n">FMC</span> <span class="n">using</span> <span class="n">ADRV9009</span><span class="o">-</span><span class="n">ZU11EG</span> <span class="n">System</span> <span class="n">on</span> <span class="n">Module</span> <span class="o">+</span> <span class="n">AD</span><span class="o">-</span><span class="n">FMCOMMS8</span><span class="o">-</span><span class="n">EBZ</span>
+ <span class="o">*</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">wiki</span><span class="o">.</span><span class="n">analog</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">resources</span><span class="o">/</span><span class="nb">eval</span><span class="o">/</span><span class="n">user</span><span class="o">-</span><span class="n">guides</span><span class="o">/</span><span class="n">adrv9009</span><span class="o">-</span><span class="n">zu11eg</span><span class="o">/</span><span class="n">adrv2crr</span><span class="o">-</span><span class="n">fmc_carrier_board</span>
+ <span class="o">*</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">wiki</span><span class="o">.</span><span class="n">analog</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">resources</span><span class="o">/</span><span class="nb">eval</span><span class="o">/</span><span class="n">user</span><span class="o">-</span><span class="n">guides</span><span class="o">/</span><span class="n">ad</span><span class="o">-</span><span class="n">fmcomms8</span><span class="o">-</span><span class="n">ebz</span>
+ <span class="o">*</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">wiki</span><span class="o">.</span><span class="n">analog</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">resources</span><span class="o">/</span><span class="n">tools</span><span class="o">-</span><span class="n">software</span><span class="o">/</span><span class="n">linux</span><span class="o">-</span><span class="n">drivers</span><span class="o">/</span><span class="n">iio</span><span class="o">-</span><span class="n">transceiver</span><span class="o">/</span><span class="n">adrv9009</span>
+ <span class="o">*</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">wiki</span><span class="o">.</span><span class="n">analog</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">resources</span><span class="o">/</span><span class="n">tools</span><span class="o">-</span><span class="n">software</span><span class="o">/</span><span class="n">linux</span><span class="o">-</span><span class="n">software</span><span class="o">/</span><span class="n">adrv9009_advanced_plugin</span>
+ <span class="o">*</span>
+ <span class="o">*</span> <span class="n">hdl_project</span><span class="p">:</span> <span class="o">&lt;</span><span class="n">adrv9009zu11eg</span><span class="o">/</span><span class="n">adrv2crr_fmcomms8</span><span class="o">&gt;</span>
+ <span class="o">*</span> <span class="n">board_revision</span><span class="p">:</span> <span class="o">&lt;&gt;</span>
+ <span class="o">*</span>
+ <span class="o">*</span> <span class="n">Copyright</span> <span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="mi">2020</span> <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">Inc</span><span class="o">.</span>
+ <span class="o">*/</span>
+<span class="c1">#include &quot;zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8.dts&quot;</span>
+<span class="c1">#include &lt;dt-bindings/iio/frequency/hmc7044.h&gt;</span>
+<span class="c1">#include &lt;dt-bindings/iio/adc/adi,adrv9009.h&gt;</span>
+
+<span class="o">&amp;</span><span class="n">trx0_adrv9009</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">top</span><span class="o">-</span><span class="n">device</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="n">This</span> <span class="ow">is</span> <span class="n">the</span> <span class="n">TOP</span> <span class="n">device</span> <span class="o">*/</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">link</span><span class="o">-</span><span class="n">ids</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">DEFRAMER_LINK_TX</span> <span class="n">FRAMER_LINK_RX</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>
+        <span class="o">&lt;&amp;</span><span class="n">trx1_adrv9009</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">trx1_adrv9009</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">trx1_adrv9009</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">interrupts</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">jesd204</span><span class="o">-</span><span class="n">framer</span><span class="o">-</span><span class="n">a</span><span class="o">-</span><span class="n">lmfc</span><span class="o">-</span><span class="n">offset</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">trx1_adrv9009</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>
+        <span class="o">&lt;&amp;</span><span class="n">trx2_adrv9009</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">trx2_adrv9009</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">trx2_adrv9009</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">interrupts</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">jesd204</span><span class="o">-</span><span class="n">framer</span><span class="o">-</span><span class="n">a</span><span class="o">-</span><span class="n">lmfc</span><span class="o">-</span><span class="n">offset</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">trx2_adrv9009</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>
+        <span class="o">&lt;&amp;</span><span class="n">trx3_adrv9009</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">trx3_adrv9009</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">trx3_adrv9009</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">interrupts</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">jesd204</span><span class="o">-</span><span class="n">framer</span><span class="o">-</span><span class="n">a</span><span class="o">-</span><span class="n">lmfc</span><span class="o">-</span><span class="n">offset</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">trx3_adrv9009</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_rx_jesd</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_rx_os_jesd</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_core_tx</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">interrupts</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">jesd204</span><span class="o">-</span><span class="n">framer</span><span class="o">-</span><span class="n">a</span><span class="o">-</span><span class="n">lmfc</span><span class="o">-</span><span class="n">offset</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">15</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_core_tx</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_tx_jesd</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_rx_jesd</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_adxcvr_rx</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="mi">71</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">7</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_adxcvr_rx</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044_fmc</span> <span class="mi">5</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;s_axi_aclk&quot;</span><span class="p">,</span> <span class="s2">&quot;device_clk&quot;</span><span class="p">,</span> <span class="s2">&quot;lane_clk&quot;</span><span class="p">,</span> <span class="s2">&quot;conv2&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_rx_os_jesd</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_adxcvr_rx_os</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="mi">71</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">6</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_adxcvr_rx_os</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044_fmc</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;s_axi_aclk&quot;</span><span class="p">,</span> <span class="s2">&quot;device_clk&quot;</span><span class="p">,</span> <span class="s2">&quot;lane_clk&quot;</span><span class="p">,</span> <span class="s2">&quot;conv2&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_tx_jesd</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_adxcvr_tx</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="mi">71</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">6</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">axi_adrv9009_adxcvr_tx</span> <span class="mi">0</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044_fmc</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;s_axi_aclk&quot;</span><span class="p">,</span> <span class="s2">&quot;device_clk&quot;</span><span class="p">,</span> <span class="s2">&quot;lane_clk&quot;</span><span class="p">,</span> <span class="s2">&quot;conv2&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_adxcvr_rx</span> <span class="p">{</span>
+        <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>  <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;conv&quot;</span><span class="p">,</span> <span class="s2">&quot;conv2&quot;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">5</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044_fmc</span> <span class="mi">5</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_adxcvr_rx_os</span> <span class="p">{</span>
+        <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>  <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;conv&quot;</span><span class="p">,</span> <span class="s2">&quot;conv2&quot;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044_fmc</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">axi_adrv9009_adxcvr_tx</span> <span class="p">{</span>
+        <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>  <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;conv&quot;</span><span class="p">,</span> <span class="s2">&quot;conv2&quot;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044_fmc</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">hmc7044</span> <span class="p">{</span>
+        <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044_fmc</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">hmc7044_fmc</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">hmc7044_fmc</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="n">adi</span><span class="p">,</span><span class="n">pulse</span><span class="o">-</span><span class="n">generator</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">HMC7044_PULSE_GEN_16_PULSE</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">sync</span><span class="o">-</span><span class="n">pin</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">adi</span><span class="p">,</span><span class="n">pll2</span><span class="o">-</span><span class="n">autocal</span><span class="o">-</span><span class="n">bypass</span><span class="o">-</span><span class="n">manual</span><span class="o">-</span><span class="n">cap</span><span class="o">-</span><span class="n">bank</span><span class="o">-</span><span class="n">sel</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">hmc</span><span class="o">-</span><span class="n">two</span><span class="o">-</span><span class="n">level</span><span class="o">-</span><span class="n">tree</span><span class="o">-</span><span class="n">sync</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">hmc7044_fmc</span> <span class="p">{</span>
+        <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044_car</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">hmc7044_car</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">hmc7044_car</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="n">adi</span><span class="p">,</span><span class="n">pulse</span><span class="o">-</span><span class="n">generator</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">HMC7044_PULSE_GEN_16_PULSE</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">sync</span><span class="o">-</span><span class="n">pin</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">1</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">adi</span><span class="p">,</span><span class="n">pll2</span><span class="o">-</span><span class="n">autocal</span><span class="o">-</span><span class="n">bypass</span><span class="o">-</span><span class="n">manual</span><span class="o">-</span><span class="n">cap</span><span class="o">-</span><span class="n">bank</span><span class="o">-</span><span class="n">sel</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">hmc</span><span class="o">-</span><span class="n">two</span><span class="o">-</span><span class="n">level</span><span class="o">-</span><span class="n">tree</span><span class="o">-</span><span class="n">sync</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">hmc7044_car</span> <span class="p">{</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">pll1</span><span class="o">-</span><span class="n">clkin</span><span class="o">-</span><span class="n">frequencies</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span> <span class="mi">30720000</span> <span class="mi">0</span> <span class="mi">38400000</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">pll1</span><span class="o">-</span><span class="n">ref</span><span class="o">-</span><span class="n">prio</span><span class="o">-</span><span class="n">ctrl</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x8D</span><span class="o">&gt;</span><span class="p">;</span> <span class="o">/*</span> <span class="n">CLKIN1</span> <span class="o">-&gt;</span> <span class="n">CLKIN3</span> <span class="o">-&gt;</span> <span class="n">CLKIN0</span> <span class="o">-&gt;</span> <span class="n">CLKIN2</span> <span class="o">*/</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">pll1</span><span class="o">-</span><span class="n">ref</span><span class="o">-</span><span class="n">autorevert</span><span class="o">-</span><span class="n">enable</span><span class="p">;</span>
+
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">sysref</span><span class="o">-</span><span class="n">provider</span><span class="p">;</span>
+
+    <span class="n">adi</span><span class="p">,</span><span class="n">pulse</span><span class="o">-</span><span class="n">generator</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">HMC7044_PULSE_GEN_16_PULSE</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">sync</span><span class="o">-</span><span class="n">pin</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">adi</span><span class="p">,</span><span class="n">pll2</span><span class="o">-</span><span class="n">autocal</span><span class="o">-</span><span class="n">bypass</span><span class="o">-</span><span class="n">manual</span><span class="o">-</span><span class="n">cap</span><span class="o">-</span><span class="n">bank</span><span class="o">-</span><span class="n">sel</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">hmc</span><span class="o">-</span><span class="n">two</span><span class="o">-</span><span class="n">level</span><span class="o">-</span><span class="n">tree</span><span class="o">-</span><span class="n">sync</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<section id="clock-tree-setup-and-synchronization">
+<h4>Clock Tree Setup and Synchronization<a class="headerlink" href="#clock-tree-setup-and-synchronization" title="Link to this heading"></a></h4>
+<p>Multi-chip designs often require modular and complex clocking trees with
+multiple synchronized clock providers. Besides core and FPGA reference clocks
+used in such systems, the SYSREF signal acts as the master timing reference and
+aligns all the internal dividers from device clocks as well as the local
+multiframe clocks in each JESD204 transmitter and receiver. SYSREF helps to
+ensure deterministic latency through the system. Therefore designing a clocking
+tree needs some extra attention.</p>
+<p>One of the key challenges in JESD204B/C system design is ensuring the
+synchronization of data converter frame alignment across the system, from the
+FPGA to ADCs and DACs through a large clock tree that can comprise multiple
+clock generation and distribution ICs. The HMC7044 which is used in this example
+is specifically designed to offer features to address this challenge. An
+external reference-based synchronization feature (SYNC via PLL2 or RF SYNC only
+in fanout mode) synchronizes multiple devices, that is, it ensures that all
+clock outputs start with same rising edge. This operation is achieved by
+rephasing the SYSREF control unit deterministically, and then restarting the
+output dividers with this new desired phase. A SYSREF/PULSOR request issued at
+the TOP device in the clocking tree will propagate down in the hierarchy. This
+feature is extremely important in the JESD204-FSM implementation since there can
+be only one <strong>SYSREF PROVIDER</strong> per topology.</p>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/zu11eg-fmcomms8-clk-tree.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/zu11eg-fmcomms8-clk-tree.png" />
+</figure>
+<section id="possible-expansion">
+<h5>Possible expansion<a class="headerlink" href="#possible-expansion" title="Link to this heading"></a></h5>
+<p>Taking this one step further, by adding another layer in the clock tree this
+concept can be expanded.</p>
+<figure class="align-default">
+<img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/zu11eg-fmcomms8-clk-tree-ext.png" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/jesd204/zu11eg-fmcomms8-clk-tree-ext.png" />
+</figure>
+</section>
+</section>
+<section id="synchronizing-distributed-multi-topology-systems">
+<h4>Synchronizing distributed multi-topology systems<a class="headerlink" href="#synchronizing-distributed-multi-topology-systems" title="Link to this heading"></a></h4>
+<p>In the example above let’s assume the left setup (#1) controls the top-level
+clock-chip (<strong>hmc7044_ext</strong>), which acts as the external <strong>SYSREF PROVIDER</strong>. We
+call this the <strong>PRIMARY</strong> setup. The right setup (#2) is therefore called
+<strong>SECONDARY</strong>.</p>
+<p>The devicetrees for both of them can be found below. They include the above
+example and just add/remove pieces which are required to synchronize such a
+distributed Multi-Topology system.</p>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts" target="_blank">Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-primary.dts</a></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &quot;zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts&quot;</span>
+<span class="c1">#include &lt;dt-bindings/iio/frequency/hmc7044.h&gt;</span>
+<span class="c1">#include &lt;dt-bindings/jesd204/device-states.h&gt;</span>
+
+<span class="o">&amp;</span><span class="n">trx0_adrv9009</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">stop</span><span class="o">-</span><span class="n">states</span> <span class="o">=</span> <span class="o">&lt;</span>
+        <span class="n">JESD204_FSM_STATE_CLK_SYNC_STAGE1</span>
+        <span class="n">JESD204_FSM_STATE_CLK_SYNC_STAGE2</span>
+        <span class="n">JESD204_FSM_STATE_CLK_SYNC_STAGE3</span>
+        <span class="n">JESD204_FSM_STATE_LINK_SETUP</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE1</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE2</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE3</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE4</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE5</span>
+        <span class="n">JESD204_FSM_STATE_CLOCKS_ENABLE</span>
+        <span class="n">JESD204_FSM_STATE_LINK_ENABLE</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">hmc7044_car</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044_ext</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_RX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">hmc7044_ext</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_ORX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">hmc7044_ext</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_TX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">jesd204</span><span class="o">-</span><span class="n">sysref</span><span class="o">-</span><span class="n">provider</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">hmc7044_ext</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">sysref</span><span class="o">-</span><span class="n">provider</span><span class="p">;</span>
+
+    <span class="n">adi</span><span class="p">,</span><span class="n">pulse</span><span class="o">-</span><span class="n">generator</span><span class="o">-</span><span class="n">mode</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">HMC7044_PULSE_GEN_1_PULSE</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">adi</span><span class="p">,</span><span class="n">hmc</span><span class="o">-</span><span class="n">two</span><span class="o">-</span><span class="n">level</span><span class="o">-</span><span class="n">tree</span><span class="o">-</span><span class="n">sync</span><span class="o">-</span><span class="n">en</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>On the devicetree for the <strong>PRIMARY</strong> device:</p>
+<ul class="simple">
+<li><p>The <strong>hmc7044_ext</strong> device is added to the jesd204-fsm framework by adding the
+<code class="docutils literal notranslate"><span class="pre">jesd204-device</span></code> property and connecting the <code class="docutils literal notranslate"><span class="pre">jesd204-inputs</span></code> of the
+<strong>hmc7044_car</strong>.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">jesd204-sysref-provider</span></code> moves form the <strong>hmc7044_car</strong> to the
+<strong>hmc7044_ext</strong> device.</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">jesd204-top-device</span></code> <strong>trx0_adrv9009</strong> now defines a
+<code class="docutils literal notranslate"><span class="pre">jesd204-stop-states</span></code> array. These are states in which the jesd204-fsm
+framework pauses (stops) and waits for some external resume event to occur.</p></li>
+</ul>
+<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:arch/arm64/boot/dts/xilinx/zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts" target="_blank">Devicetree: zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm-multisom-secondary.dts</a></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1">#include &quot;zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-sync-fmcomms8-jesd204-fsm.dts&quot;</span>
+<span class="c1">#include &lt;dt-bindings/jesd204/device-states.h&gt;</span>
+
+<span class="o">&amp;</span><span class="n">trx0_adrv9009</span> <span class="p">{</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">stop</span><span class="o">-</span><span class="n">states</span> <span class="o">=</span> <span class="o">&lt;</span>
+        <span class="n">JESD204_FSM_STATE_CLK_SYNC_STAGE1</span>
+        <span class="n">JESD204_FSM_STATE_CLK_SYNC_STAGE2</span>
+        <span class="n">JESD204_FSM_STATE_CLK_SYNC_STAGE3</span>
+        <span class="n">JESD204_FSM_STATE_LINK_SETUP</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE1</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE2</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE3</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE4</span>
+        <span class="n">JESD204_FSM_STATE_OPT_SETUP_STAGE5</span>
+        <span class="n">JESD204_FSM_STATE_CLOCKS_ENABLE</span>
+        <span class="n">JESD204_FSM_STATE_LINK_ENABLE</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">hmc7044_car</span> <span class="p">{</span>
+    <span class="o">/</span><span class="n">delete</span><span class="o">-</span><span class="nb">property</span><span class="o">/</span> <span class="n">jesd204</span><span class="o">-</span><span class="n">sysref</span><span class="o">-</span><span class="n">provider</span><span class="p">;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">secondary</span><span class="o">-</span><span class="n">sysref</span><span class="o">-</span><span class="n">provider</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="o">&amp;</span><span class="n">hmc7044_ext</span> <span class="p">{</span>
+    <span class="n">status</span> <span class="o">=</span> <span class="s2">&quot;disabled&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>On the devicetree for the <strong>SECONDARY</strong> device:</p>
+<ul class="simple">
+<li><p>We must define exactly the same <code class="docutils literal notranslate"><span class="pre">jesd204-stop-states</span></code> at the
+<code class="docutils literal notranslate"><span class="pre">jesd204-top-device</span></code> in this topology/setup.</p></li>
+<li><p>In addition, the <code class="docutils literal notranslate"><span class="pre">jesd204-sysref-provider</span></code> is completely removed.</p></li>
+<li><p>And replaced by a <code class="docutils literal notranslate"><span class="pre">jesd204-secondary-sysref-provider</span></code> attribute.</p></li>
+</ul>
+<section id="what-is-a-secondary-sysref-provider-an-what-is-it-used-for">
+<h5>What is a secondary sysref-provider? An what is it used for?<a class="headerlink" href="#what-is-a-secondary-sysref-provider-an-what-is-it-used-for" title="Link to this heading"></a></h5>
+<p>A secondary sysref-provider is only used in distributed multi-topology systems.
+It’s purely used for JESD204 link (re-)establishment and not for other
+synchronization purposes.</p>
+<p>The secondary sysref-provider, in case it exists, is only called if the
+jesd204-fsm device uses the <em>jesd204_sysref_async_force()</em> function.</p>
+<p>Right now, this is done only in the driver for the <strong>axi_jesd204_rx</strong> link layer
+peripheral in case a link error interrupt is issued, or the watchdog detects an
+issue. The secondary sysref-provider is always assumed to be part of the JESD204
+clocking tree. Furthermore, it is assumed that the SYSREF timer and frequency is
+already synced with the remaining part of the clocking tree.</p>
+<p>In such situations the asynchronous request further down the clocking tree is
+never going to be an issue for JESD204 link bring-up and maintenance.</p>
+</section>
+<section id="why-not-always-request-sysref-pulses-next-to-the-topology">
+<h5>Why not always request SYSREF pulses next to the topology?<a class="headerlink" href="#why-not-always-request-sysref-pulses-next-to-the-topology" title="Link to this heading"></a></h5>
+<p>Well some more complex converter systems with internal NCOs and multi-chip sync
+capabilities need synchronization events that are carried out across all devices
+in a larger Multi-Topology system at the same instance in time. In such systems
+the topology which controls the top-level clock distribution device registers
+the primary sysref-provider. The jesd204-fsm <code class="docutils literal notranslate"><span class="pre">jesd204-stop-states</span></code> are used to
+pause the device initialization and link bring-up in certain states.</p>
+<p>Some external manager controls this and resumes the devices in a proper order.</p>
+</section>
+<section id="what-is-an-external-manager">
+<h5>What is an external manager?<a class="headerlink" href="#what-is-an-external-manager" title="Link to this heading"></a></h5>
+<p><strong>Example:</strong>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/wiki-scripts/iio/iio_jesd204_fsm_sync" target="_blank">iio_jesd204_fsm_sync</a></p>
+<p>This utility resumes a number of iio devices across different IIO context from
+the jesd204-fsm stop-states. It’s intended to sync multiple FPGA systems across
+jesd204-fsm topologies. There is always one primary device, the device which
+controls the sysref-provider and an open list of secondary devices which are
+synced by the same sysref-provider connected clock source. This utility
+exercises 5 IIO device attributes exposed by the TOP device.</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>IIO device attribute</p></th>
+<th class="head"><p>Comment</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>jesd204_fsm_state</strong></p></td>
+<td><p>reading returns the current state</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>jesd204_fsm_error</strong></p></td>
+<td><p>reading returns errno of previous state transition</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>jesd204_fsm_paused</strong></p></td>
+<td><p>reading 1 indicates that the FSM is currently paused/stopped</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>jesd204_fsm_resume</strong></p></td>
+<td><p>writing 1 resumes the topology from its current STOP state</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>jesd204_fsm_ctrl</strong></p></td>
+<td><p>writing 1 restarts the FSM</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Usage</span><span class="p">:</span> <span class="n">iio_jesd204_fsm_sync</span> <span class="o">-</span><span class="n">d</span> <span class="o">&lt;</span><span class="n">primary</span><span class="o">-</span><span class="n">device</span><span class="o">&gt;</span> <span class="o">-</span><span class="n">u</span> <span class="o">&lt;</span><span class="n">primary</span><span class="o">-</span><span class="n">uri</span><span class="o">&gt;</span> <span class="o">&lt;</span><span class="n">secondary</span> <span class="n">uris</span><span class="o">&gt;</span> <span class="o">...</span>
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Example</span><span class="p">:</span>
+<span class="c1">#iio_jesd204_fsm_sync -d adrv9009-phy -u ip10.48.65.140 ip:10.48.65.244</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">adrv9009</span><span class="o">-</span><span class="n">phy</span> <span class="n">uri</span><span class="o">=</span><span class="n">ip</span><span class="p">:</span><span class="mf">10.48.65.140</span> <span class="p">(</span><span class="n">Primary</span><span class="p">)</span> <span class="n">created</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">adrv9009</span><span class="o">-</span><span class="n">phy</span> <span class="n">uri</span><span class="o">=</span><span class="n">ip</span><span class="p">:</span><span class="mf">10.48.65.244</span> <span class="p">(</span><span class="n">Secondary</span><span class="p">)</span> <span class="n">created</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">clk_sync_stage1</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">clk_sync_stage1</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">clk_sync_stage2</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">clk_sync_stage2</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">clk_sync_stage3</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">clk_sync_stage3</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">link_setup</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">link_setup</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage1</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage1</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage2</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage2</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage3</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage3</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage4</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage4</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage5</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">opt_setup_stage5</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">clocks_enable</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">clocks_enable</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="n">DEVICE1</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">link_enable</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE1</span> <span class="o">---</span>
+<span class="n">DEVICE0</span><span class="p">:</span> <span class="n">Is</span> <span class="o">&lt;</span><span class="n">Paused</span><span class="o">&gt;</span> <span class="ow">in</span> <span class="n">state</span> <span class="o">&lt;</span><span class="n">link_enable</span><span class="o">&gt;</span> <span class="k">with</span> <span class="n">status</span> <span class="o">&lt;</span><span class="n">Success</span> <span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">&gt;</span>
+<span class="o">---</span> <span class="n">RESUME</span> <span class="n">DEVICE0</span> <span class="o">---</span>
+<span class="o">---------------------------------------------------------------------------</span>
+<span class="o">---</span> <span class="n">DONE</span> <span class="o">---</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="more-information">
+<h3>More Information<a class="headerlink" href="#more-information" title="Link to this heading"></a></h3>
+<ul class="simple">
+<li><p><a class="reference internal" href="#jesd204-fsm-framework"><span class="std std-ref">JESD204 FSM</span></a></p></li>
+<li><p><a class="reference internal" href="axi_jesd204_tx.html#axi-jesd204-tx"><span class="std std-ref">AXI JESD204 TX</span></a></p></li>
+<li><p><a class="reference internal" href="axi_jesd204_rx.html#axi-jesd204-rx"><span class="std std-ref">AXI JESD204B RX</span></a></p></li>
+<li><p><a class="reference internal" href="axi_adxcvr.html#axi-adxcvr"><span class="std std-ref">AXI ADXCVR</span></a></p></li>
+<li><p><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html#axi-dac-dds-hdl"><span class="std std-ref">AXI DAC HDL</span></a></p>
+<ul>
+<li><p><a class="reference internal" href="../iio-dds/ad9172.html#ad9172"><span class="std std-ref">AD9172</span></a></p></li>
+<li><p><a class="reference internal" href="../iio-trx-rf/ad9081.html#ad9081"><span class="std std-ref">AD9081</span></a></p></li>
+<li><p><a class="reference internal" href="../iio-transceiver/adrv9009.html#adrv9009"><span class="std std-ref">ADRV9009</span></a></p></li>
+<li><p><a class="reference internal" href="../iio-transceiver/ad9371.html#ad9371"><span class="std std-ref">AD9371</span></a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="../iio-adc/axi-adc-hdl.html#axi-adc-hdl"><span class="std std-ref">AXI ADC HDL</span></a></p>
+<ul>
+<li><p><a class="reference internal" href="../iio-adc/ad9208.html#ad9208"><span class="std std-ref">AD9208</span></a></p></li>
+<li><p><a class="reference internal" href="../iio-trx-rf/ad9081.html#ad9081"><span class="std std-ref">AD9081</span></a></p></li>
+<li><p><a class="reference internal" href="../iio-transceiver/adrv9009.html#adrv9009"><span class="std std-ref">ADRV9009</span></a></p></li>
+<li><p><a class="reference internal" href="../iio-transceiver/ad9371.html#ad9371"><span class="std std-ref">AD9371</span></a></p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="axi_jesd204_tx.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AXI JESD204 TX</a>
+    <a href="../leds/adp1650.html" title="Next document (Alt+Shift+RightArrow)" class="next">ADP1650</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

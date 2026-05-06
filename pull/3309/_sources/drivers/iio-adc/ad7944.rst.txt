@@ -1,0 +1,601 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7944
+
+.. _ad7944:
+
+AD7944/AD7985/AD7986
+====================
+
+AD7944/AD7985/AD7986 IIO Single Channel Serial ADC Linux Driver.
+
+Analog Devices :adi:`AD7944` and additional the devices listed below
+devices are high accuracy, high speed, low power SAR ADCs.
+
+This page describes Linux industrial I/O (:external+documentation:ref:`iio`)
+subsystem driver, targeting single channel SPI interface :adi:`AD7944`
+and similar ADC devices. The industrial I/O subsystem provides a unified
+framework for drivers for many different types of converters and sensors using a
+number of different physical interfaces (I2C, SPI, etc). See
+:external+documentation:ref:`iio` for more information.
+
+Supported Devices
+-----------------
+
+- :adi:`AD7944`
+- :adi:`AD7985`
+- :adi:`AD7986`
+
+Also see :dokuwiki:`ad7944#Evaluation Boards <ad7944#Evaluation Boards>` section
+for supported evaluation boards.
+
+Status
+------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - :git+linux:`ADI tree <main:drivers/iio/adc/ad7944.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7944.c>`__
+     -
+     -
+
+**Note:** In order to achieve the maximum sample rate, using a SPI offload such
+as the
+`AXI SPI Engine <http://analogdevicesinc.github.io/hdl/library/spi_engine/index.html>`__
+is required. This feature is not yet supported in mainline Linux.
+
+Files
+-----
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/adc/ad7944.c`
+     -
+   * - devicetree bindings
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad7944.yaml`
+     -
+   * - ZedBoard example devicetree
+     - :git+linux:`main:arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts`
+     -
+
+Upstream documentation: https://docs.kernel.org/iio/ad7944.html
+
+Devicetree configuration
+------------------------
+
+The devicetree (``.dts`` file) describes how the chip is wired up. The example
+devicetree linked above is for the evaluation board with the FMCZ connector
+using the default jumper positions and the
+`Pulsar ADC HDL project <http://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html>`__
+compiled with ``make FMC_N_PMOD=1 SPI_OP_MODE=2``.
+
+If you change any jumpers on the evaluation board or modify the HDL project, you
+may need to update the ``.dts`` file to reflect the changes in wiring.
+
+SPI Bus
+~~~~~~~
+
+The ADC is represented by a child node of the SPI controller that the ADC is
+attached to. The ``compatible`` property indicates which specific chip is being
+used. The ``reg`` property indicates the chip select line of the SPI controller
+that is being used.
+
+::
+
+   spi@44a00000 {
+       compatible = "adi,axi-spi-engine-1.00.a";
+       ...
+
+       adc@0 {
+           compatible = "adi,ad7944";
+           reg = <0>;
+           ...
+
+       };
+   };
+
+If the specific application has wiring that can’t handle the max SPI SCLK rate
+for the ADC chip, a lower max rate can be specified, otherwise use the max rate
+from the datasheet (which may be different for some chips).
+
+::
+
+   spi-max-frequency = <111111111>; /* 9 ns period */
+
+There are multiple ways that the chip can be wired to the SPI bus. The datasheet
+calls these ``3-wire mode``, ``4-wire mode`` and ``daisy chain mode``. Set
+``adi,spi-mode`` accordingly. **Note:** ``3-wire mode`` is required to achieve
+the maximum sample rate.
+
+3-wire mode
+^^^^^^^^^^^
+
+In this mode, the CS line of the SPI controller is connected to the CNV pin of
+the ADC. The SDI line of the SPI controller is connected to the SDO pin of the
+ADC. The SDI pin of the ADC is hard-wired high.
+
+::
+
+   adi,spi-mode = "single";
+
+If using the
+`Pulsar ADC HDL project <http://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html>`__,
+with the FMCZ eval board, compile using the HDL using the ``make FMC_N_PMOD=1
+SPI_OP_MODE=2`` options. And add the following extra node to the top level of
+the devicetree to pull the SDI pin high.
+
+::
+
+   &gpio0 {
+       ad7944-mode {
+           /* pull SDI line on ADC high for 3-wire mode */
+           gpio-hog;
+           gpios = <88 GPIO_ACTIVE_HIGH>;
+           output-high;
+       };
+   };
+
+4-wire mode
+'''''''''''
+
+In this mode, the CS line on the SPI controller is connected to the SDI pin on
+the ADC. The SDI line on the SPI controller is connected to the SDO pin on the
+ADC. A GPIO on the Linux host is connected to the CNV pin on the ADC.
+
+This is the default mode, so in this case, the ``adi,spi-mode`` property is
+omitted, but GPIO connected to the CNV pin needs to be specified.
+
+::
+
+   cnv-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+
+If using the
+`Pulsar ADC HDL project <http://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html>`__,
+with the FMCZ eval board, compile using the HDL using the ``make FMC_N_PMOD=1
+SPI_OP_MODE=1`` options.
+
+Daisy chain mode
+''''''''''''''''
+
+In this mode, the CS line of the SPI controller is connected to the CNV pin of
+all of the ADCs. The SDI line of the SPI controller is connected to the SDO pin
+of the ADC. The SDI pin of the ADC is connected to the SDO pin of the next ADC
+in the chain. The SDI pin of the last ADC in the chain is hard-wired low.
+
+::
+
+   adi,spi-mode = "chain";
+   #daisy-chained-devices = <1>;
+
+Change ``#daisy-chained-devices`` to the actual number of devices in the chain.
+
+If using the
+`Pulsar ADC HDL project <http://analogdevicesinc.github.io/hdl/projects/pulsar_adc/index.html>`__,
+with the FMCZ eval board, compile using the HDL using the ``make FMC_N_PMOD=1
+SPI_OP_MODE=2`` options. And add the following extra node to the top level of
+the devicetree to pull the SDI pin low.
+
+::
+
+   &gpio0 {
+       ad7944-mode {
+           /* pull SDI line on ADC low for daisy chain mode */
+           gpio-hog;
+           gpios = <88 GPIO_ACTIVE_HIGH>;
+           output-low;
+       };
+   };
+
+Power supplies
+^^^^^^^^^^^^^^
+
+Power supplies should be described (although Linux will create one if these are
+omitted). Typically these will link to a ``compatible = ``regulator-fixed``;``
+node describing the power supply. See the full example devictree linked above
+for the complete example.
+
+::
+
+   avdd-supply = <&eval_u12>;
+   dvdd-supply = <&eval_u12>;
+   vio-supply = <&eval_u3>;
+   bvdd-supply = <&eval_u10>;
+
+Reference supplies
+^^^^^^^^^^^^^^^^^^
+
+There are 3 ways to supply a reference voltage. The default of the evaluation
+boards is to use a 5V external reference.
+
+Internal reference
+''''''''''''''''''
+
+If using the internal reference of the ADC chip (PDREF pin is wired low, REF and
+REFIN pins act as outputs) omit both the ``ref-supply`` and ``refin-supply``
+properties.
+
+External reference with internal buffer
+'''''''''''''''''''''''''''''''''''''''
+
+If using an external 1.2 V reference and internal buffer (PDREF is wired high,
+1.2 V supply connected to REFIN, REF acts as output), specify only
+``refin-supply`` and omit ``ref-supply``.
+
+::
+
+   refin-supply = <&eval_u13>;
+
+External reference
+''''''''''''''''''
+
+If using an external reference (PDREF is wired high, REFIN is wired low, REF is
+connected to same voltage as BVDD), specify only ``ref-supply`` and omit
+``refin-supply``.
+
+::
+
+   ref-supply = <&eval_u5>;
+
+In this case, is important that this indicates the voltage level that is being
+supplied.
+
+::
+
+   / {
+       eval_u5: eval-board-u5-regulator {
+           compatible = "regulator-fixed";
+           regulator-name = "EVAL +5V supply (U5)";
+           regulator-min-microvolt = <5000000>;
+           regulator-max-microvolt = <5000000>;
+           regulator-always-on;
+       };
+   };
+
+Turbo pin
+^^^^^^^^^
+
+In order to achieve the max sample rate, TURBO has to be enabled. Disabling
+TURBO can save power.
+
+If the TURBO pin is connected to a GPIO, it must be specified. This is the
+default of the Pulsar ADC HDL project.
+
+::
+
+   turbo-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+
+If the TURBO pin is hard-wired high, instead use the ``adi,always-turbo`` flag.
+
+::
+
+   adi,always-turbo;
+
+If the TURBO pin is hard-wired low, omit both properties.
+
+Additional properties
+^^^^^^^^^^^^^^^^^^^^^
+
+The ``interrupts`` property for the BUSY signal is not currently supported in
+the Linux driver.
+
+Linux Driver
+~~~~~~~~~~~~
+
+This section explains how to use the ``ad7944`` driver in Linux.
+
+Enabling the driver
+^^^^^^^^^^^^^^^^^^^
+
+Pre-compiled kernels from ADI should have this driver already enable. If
+building your own kernel, enable it using the ``CONFIG_AD7944`` option. When
+using ``make menuconfig`` (or ``xconfig``, etc.), the option can be found as
+follows:
+
+::
+
+   Device Drivers  --->
+     Industrial I/O support  --->
+       Analog to digital converters  --->
+         Analog Devices AD7944 and similar ADCs driver
+
+Device enumeration
+^^^^^^^^^^^^^^^^^^
+
+All IIO devices are represented in ``sysfs`` as an ``iio:deviceY`` where ``Y``
+will depend on how many IIO devices there are and the order in which they were
+registered. You can see which device is which like this:
+
+::
+
+   root@analog:~# for f in /sys/bus/iio/devices/iio\:device/name; do echo "${f%/name} $(cat $f)"; done
+   /sys/bus/iio/devices/iio:device0 xadc
+   /sys/bus/iio/devices/iio:device1 ad7944
+
+In this case the driver for the AD7944 chip is at
+``/sys/bus/iio/devices/iio:device1``.
+
+Sysfs attributes
+^^^^^^^^^^^^^^^^
+
+The sysfs attributes are used to get information about the device and also
+configure the device.
+
+Informational
+'''''''''''''
+
+As seen above, reading the ``name`` attribute will return the name of the chip.
+
+::
+
+   root@analog:~# cat /sys/bus/iio/devices/iio\:device1/name
+   ad7985
+
+Channels
+''''''''
+
+The voltage measurement done by the chip is represented as an IIO channel. These
+attributes start with ``in_voltage0``.
+
+::
+
+   root@analog:~# cat /sys/bus/iio/devices/iio\:device1/in_voltage0_scale
+   0.076293945
+   root@analog:~# cat /sys/bus/iio/devices/iio\:device1/in_voltage0_raw
+   1229
+
+.. note::
+
+   For fully differential chips like :adi:`AD7986`, the attributes will
+   be ``in_voltage0-voltage1_scale`` and ``in_voltage0-voltage1_raw``
+
+The ``scale`` attribute is based on the reference voltage being used and returns
+the value needed to convert the ``raw`` value to millivolts.
+
+Reading the ``raw`` attribute will trigger a single conversion on the ADC and
+return the result.
+
+In this example, the voltage measured was: <m>raw \* scale = 1229 \* 0.076293945
+approx 93.765~mV</m>
+
+Sampling frequency
+''''''''''''''''''
+
+When using a SPI controller with SPI offload support, there is also an
+additional attribute for controlling the sample rate.
+
+::
+
+   root@analog:~# echo 1000000 > /sys/bus/iio/devices/iio\:device1/in_voltage0_sampling_frequency
+   root@analog:~# cat /sys/bus/iio/devices/iio\:device1/in_voltage0_sampling_frequency
+   1000000
+
+Reading returns the current sampling frequency in Hz and writing will set the
+value.
+
+``in_voltage0_sampling_frequency_available`` will give the max sample rate for
+the chip, e.g. 2.5 MHz for AD7944.
+
+::
+
+   root@analog:~# cat /sys/bus/iio/devices/iio\:device1/in_voltage0_sampling_frequency_available
+   [1 1 2500000]
+
+If not using SPI offload, a ``hrtimer`` trigger can be used to provide a
+periodic sample rate. See :ref:`ad738x trigger-management`.
+
+Buffers
+'''''''
+
+To efficiently read multiple samples, a buffer interface is provided. The
+controls for this are in the ``buffer0`` directory. (Note: There may also be
+``buffer`` and ``scan_elements`` directories present. These are provided for
+backwards compatibility, but ``buffer0`` should be preferred.)
+
+::
+
+   /sys/bus/iio/devices/iio:device1/buffer0/
+   ├── data_available
+   ├── direction
+   ├── enable
+   ├── in_voltage0_en
+   ├── in_voltage0_index
+   ├── in_voltage0_type
+   ├── length
+   ├── length_align_bytes
+   └── watermark
+
+.. tip::
+
+   General information on these attributes can be found in the
+   `Linux kernel documentation <https://www.kernel.org/doc/html/latest/iio/iio_devbuf.html>`__.
+
+Using the buffer will be slightly different depending on if using a SPI offload
+or not.
+
+.. list-table::
+   :header-rows: 1
+
+   * - With SPI offload
+     - Without SPI offload
+   * - Sample data values are always 32-bit.
+     - Sample data values are 32-bit if chip is > 16-bit or 16-bit if chip is <=
+       16-bit.
+   * - Sample rate is set using the ``in_voltage0_sampling_frequency``
+       attribute.
+     - A trigger must be configured manually, otherwise attempting to do a
+       buffered read will fail. A ``hrtimer`` trigger can be used to sample at a
+       fixed rate.
+   * - Maximum sample rate can be achieved (assuming proper wiring, etc.).
+     - Maximum sample rate is limited by Linux host CPU speed and use by other
+       processes.
+
+Here is an example of how to read a few values at a low sample rate for testing
+using a Linux host with SPI offload support:
+
+::
+
+   # set sample rate to 1kHz
+   root@analog:~# echo 1000 > /sys/bus/iio/devices/iio\:device1/in_voltage0_sampling_frequency
+   # set buffer to receive 8 samples at a time
+   root@analog:~# echo 8 > /sys/bus/iio/devices/iio\:device1/buffer0/length
+   # enable the one and only input voltage channel
+   root@analog:~# echo 1 > /sys/bus/iio/devices/iio\:device1/buffer0/in_voltage0_en
+   # enable the buffer
+   root@analog:~# echo 1 > /sys/bus/iio/devices/iio\:device1/buffer0/enable
+   # read one buffer full of data
+   root@analog:~# hexdump -n $((8 * 4)) -e'8/4  "%08X " "\n"' /dev/iio\:device1
+   000004CA 000004C9 000004CB 000004CA 000004CC 000004CA 000004CB 000004CB
+   # disable the buffer
+   root@analog:~# echo 0 > /sys/bus/iio/devices/iio\:device1/buffer0/enable
+
+Evaluation boards
+~~~~~~~~~~~~~~~~~
+
+The following evaluation boards have been tested with this driver:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Board
+     - Device tree
+     -
+   * - :adi:`EVAL-AD7944FMCZ <EVAL-AD7944>`
+     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts>`
+     -
+   * - :adi:`EVAL-AD7985FMCZ <EVAL-AD7985>`
+     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7985.dts>`
+     -
+   * - :adi:`EVAL-AD7986FMCZ <EVAL-AD7986>`
+     - :git+linux:`main?arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad7986.dts>`
+     -
+
+If you need to change any jumpers from default on the evaluation board, see the
+:dokuwiki:`ad7944#Devicetree Configuration <ad7944#Devicetree Configuration>`
+section for info on what settings might need to be changed there to account for
+the differences in wiring.
+
+Typical hardware setup
+^^^^^^^^^^^^^^^^^^^^^^
+
+A typical test setup consists of one of the evaluation boards from above
+connected to a
+`ZedBoard <https://www.avnet.com/wps/portal/us/products/avnet-boards/avnet-board-families/zedboard/>`__.
+
+A :adi:`ADALM2000` (also known as M2K) can be used to to generate a
+signal. This will also require coax cable with SMA connectors and appropriate
+adapters to adapt the coax to individual wires on the signal generator.
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7944/zedboard-eval-ad7985fmcz-m2k.jpg
+   :width: 600px
+
+Typical ZedBoard software setup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Install OS on the ZedBoard
+''''''''''''''''''''''''''
+
+ADI provides a :external+documentation:ref:`kuiper` distribution for supported
+evaluation boards. Step by step guides for imaging Kuiper Linux are available
+for
+:dokuwiki:`Linux </resources/tools-software/linux-software/zynq_images/linux_hosts>`
+and
+:dokuwiki:`Windows </resources/tools-software/linux-software/zynq_images/windows_hosts>`.
+
+Typical test application software
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ADI provides several open source tools to make it easy to get started with using
+Linux IIO drivers.
+
+IIO Oscilloscope
+''''''''''''''''
+
+This section only describes the bits specific to these chips. For instructions
+on how to obtain IIO Oscilloscope and it’s basic usage, please see the
+:dokuwiki:`IIO Oscilloscope </resources/tools-software/linux-software/IIO Oscilloscope>`
+page.
+
+Scopy
+'''''
+
+*Scopy* is the software used with the :adi:`ADALM2000` multi-purpose tool (also
+called ``M2K``). Visit :external+scopy:doc:`index` for instructions on how to
+obtain and install the software. In this case we will be using it for the
+signal generator function.
+
+Examples
+''''''''
+
+Here are a couple of example of how to use these tools together to test an ADC
+on an evaluation board connected to a development board running Linux.
+
+Measure constant voltage
+''''''''''''''''''''''''
+
+A quick way check if the ADC is working correctly is to generate a constant
+voltage on the input and measure it using the DMM feature of the IIO
+Oscilloscope. For example, if you generate a constant 3 V DC signal, you should
+see something like this:
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7944/scopy-constant-3v-0v.png
+   :width: 800px
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7944/iio-osc-ad7985-dmm-voltage0-3v.png
+   :width: 600px
+
+Capture many samples for analysis
+'''''''''''''''''''''''''''''''''
+
+The *Plot* feature of the *IIO Oscilloscope* app is used to perform a buffered
+read to capture many samples. This data can be saved as a ``.csv`` file for
+analysis in other applications.
+
+If you are using a setup with SPI offload support, first select the sample rate
+using the *Debug* tab in the app. Select the *Device*, then the *input voltage*
+channel and the *sampling_frequency* attribute. Type in the new rate and click
+the *Write* button.
+
+.. note::
+
+   If you are using a setup **without** SPI offload support, a trigger source
+   must be set up manually and can’t be controlled via the *IIO Oscilloscope*
+   app. See :ref:`ad738x trigger-management`.
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7944/iio-osc-ad7985-debug-voltage0-samp-freq-1mhz.png
+   :width: 600px
+
+Then you will need to set up a signal generator to generate an appropriate
+signal. This family of chips has unipolar inputs (voltage can’t go below 0V) so
+an offset will need to be configured in the signal generator. The maximum
+allowable voltage is the same as the reference voltage. The default on the
+evaluation boards is 5V. Typically, the offset will be configured to 1/2 of the
+reference voltage, in this case, 2.5 V. A 1 kHz sine wave with peak-to-peak
+voltage of something a bit smaller than the full measurable range is a
+reasonable place to start.
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7944/scopy-sine-4v-p-p-2.5v-offset-1khz-const-0v.png
+   :width: 800px
+
+Once the trigger and signal generator are configured correctly, open a new
+*Plot* window, enable all channels, enter the number of samples required and
+perform a capture. Save the data to a ``.csv`` file if you need to perform
+additional analysis.
+
+.. note::
+
+   When using SPI offloading for high-speed data capture, the first sample will
+   always contain stale sample data and should be discarded. For example, a
+   ``bad`` datapoint can be see at the start of the plot below. This is normal
+   and can’t be avoided for technical reasons when doing high-speed data
+   capture.
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7944/iio-osc-ad7985-capture-voltage0-1msps-4000s.png
+   :width: 800px

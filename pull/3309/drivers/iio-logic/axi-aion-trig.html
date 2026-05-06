@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="The AXI AION Trigger is an FPGA IP core driver that provides precision trigger generation and BSYNC Time-of-Flight (ToF) synchronization for multi-chip high-speed data converter systems. It is a key component in achieving synchronization between AD9084/AD9088 MxFE devices." name="description" />
+
+    <title>AXI AION Trigger &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=ac863bf0" />
+    <script async="async" src="../../_static/app.umd.js?v=09b0c6bc"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="AD9162" href="../iio-pll/ad9162.html" />
+    <link rel="prev" title="ADIS16480" href="../iio-inertial-measurement-units/adis16480.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">AXI AION Trigger</a><ul>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
+<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+<li><a class="reference internal" href="#required-properties">Required properties</a></li>
+<li><a class="reference internal" href="#optional-properties">Optional properties</a></li>
+<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#iio-channel-attributes">IIO channel attributes</a><ul>
+<li><a class="reference internal" href="#per-channel-attributes">Per-channel attributes</a></li>
+<li><a class="reference internal" href="#shared-attributes">Shared attributes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#debug-attributes">Debug attributes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#theory-of-operation">Theory of operation</a><ul>
+<li><a class="reference internal" href="#bsync-time-of-flight-calibration">BSYNC Time-of-Flight calibration</a></li>
+<li><a class="reference internal" href="#state-machines">State machines</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#register-map">Register map</a><ul>
+<li><a class="reference internal" href="#control-register-bits">Control register bits</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#related-drivers">Related drivers</a></li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4695.html">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad6676.html">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361-customization.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-trx-rf/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/ad714x.html">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl345.html">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7873.html">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7877.html">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/open_alliance.html">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1320.html">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="axi-aion-trigger">
+<span id="axi-aion-trig"></span><h1>AXI AION Trigger<a class="headerlink" href="#axi-aion-trigger" title="Link to this heading"></a></h1>
+<p>The AXI AION Trigger is an FPGA IP core driver that provides precision trigger
+generation and BSYNC Time-of-Flight (ToF) synchronization for multi-chip
+high-speed data converter systems. It is a key component in achieving
+synchronization between AD9084/AD9088 MxFE devices.</p>
+<p>The driver integrates with the Linux IIO subsystem and the JESD204 framework
+to provide:</p>
+<ul class="simple">
+<li><p>8 trigger channels with per-channel phase control</p></li>
+<li><p>BSYNC direction control (input or output mode)</p></li>
+<li><p>Internal BSYNC generation or external reference support</p></li>
+<li><p>Time-of-Flight calibration via IIO consumer interface to ADF4030</p></li>
+<li><p>JESD204 state machine integration for synchronized initialization</p></li>
+</ul>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>AXI AION Trigger IP v1.0.a</p></li>
+</ul>
+</section>
+<section id="status">
+<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/logic/axi-aion-trig.c" target="_blank">drivers/iio/logic/axi-aion-trig.c</a></p></td>
+<td><p>No</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="files">
+<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/logic/axi-aion-trig.c" target="_blank">drivers/iio/logic/axi-aion-trig.c</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The AXI AION Trigger IP core works in conjunction with the ADF4030 precision
+synchronizer and AD9084/AD9088 MxFE data converters to achieve sub-10ps
+multi-chip synchronization. During system initialization, the driver performs
+Time-of-Flight calibration to measure and compensate for PCB trace delays.</p>
+<p>The IP core provides 8 independent trigger channels, each with programmable
+phase offset, allowing precise control over trigger timing relative to the
+BSYNC synchronization signal.</p>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="enabling-the-driver">
+<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code>:</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The AXI AION Trigger driver depends on <strong>CONFIG_IIO</strong> and <strong>CONFIG_HAS_IOMEM</strong></p>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="n">Industrial</span> <span class="n">I</span><span class="o">/</span><span class="n">O</span> <span class="n">support</span> <span class="o">---&gt;</span>
+            <span class="n">Logic</span> <span class="n">analyzers</span>  <span class="o">---&gt;</span>
+                <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">AXI</span> <span class="n">AION</span> <span class="n">Trigger</span> <span class="n">driver</span>
+</pre></div>
+</div>
+</section>
+<section id="adding-a-device-tree-entry">
+<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
+<section id="required-properties">
+<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;adi,axi-aion-trig-1.0.a&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: Physical base address and size of the IP core registers</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code>: Reference to the device clock</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;device_clk&quot;</span></code></p></li>
+</ul>
+</section>
+<section id="optional-properties">
+<h4>Optional properties<a class="headerlink" href="#optional-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">io-channels</span></code>: Reference to ADF4030 IIO channel for BSYNC phase control</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">io-channel-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;bsync&quot;</span></code> when io-channels is specified</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">jesd204-device</span></code>: JESD204 device marker</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">#jesd204-cells</span></code>: Number of JESD204 cells (typically 2)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">jesd204-inputs</span></code>: JESD204 topology connections</p></li>
+</ul>
+</section>
+<section id="device-tree-example">
+<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
+<p>Basic configuration with JESD204 integration:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_aion_trig</span><span class="p">:</span> <span class="n">axi_aion_trig</span><span class="o">@</span><span class="mi">7</span><span class="n">c600000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-aion-trig-1.0.a&quot;</span><span class="p">;</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x7c600000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;device_clk&quot;</span><span class="p">;</span>
+
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+
+    <span class="n">io</span><span class="o">-</span><span class="n">channels</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adf4030</span> <span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">io</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;bsync&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>With JESD204 topology connections:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_aion_trig</span><span class="p">:</span> <span class="n">axi_aion_trig</span><span class="o">@</span><span class="mi">7</span><span class="n">c900000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-aion-trig-1.0.a&quot;</span><span class="p">;</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x7c900000</span> <span class="mh">0x1000</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">ltc6952</span> <span class="mi">4</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;device_clk&quot;</span><span class="p">;</span>
+
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">device</span><span class="p">;</span>
+    <span class="c1">#jesd204-cells = &lt;2&gt;;</span>
+    <span class="n">jesd204</span><span class="o">-</span><span class="n">inputs</span> <span class="o">=</span>
+        <span class="o">&lt;&amp;</span><span class="n">adf4030</span> <span class="mi">0</span> <span class="n">FRAMER_LINK_B0_RX</span><span class="o">&gt;</span><span class="p">,</span>
+        <span class="o">&lt;&amp;</span><span class="n">adf4030</span> <span class="mi">0</span> <span class="n">DEFRAMER_LINK_B0_TX</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="n">io</span><span class="o">-</span><span class="n">channels</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">adf4030</span> <span class="mi">8</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">io</span><span class="o">-</span><span class="n">channel</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;bsync&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<p>This device can be found under <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/</span></code>.</p>
+<p>Use <strong>iio_info</strong> to check if the device and driver are present:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>iio_info
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>    iio:device0: axi_aion_trig
+            8 channels found:
+                    voltage0:  (input)
+                    voltage1:  (input)
+                    ...
+                    voltage7:  (input)
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Navigate to the device folder:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="k">$(</span>grep<span class="w"> </span>-rw<span class="w"> </span>/sys/bus/iio/devices/*/name<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;axi_aion_trig&quot;</span><span class="w"> </span>-l<span class="w"> </span><span class="p">|</span><span class="w"> </span>xargs<span class="w"> </span>dirname<span class="k">)</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><section id="iio-channel-attributes">
+<h3>IIO channel attributes<a class="headerlink" href="#iio-channel-attributes" title="Link to this heading"></a></h3>
+<section id="per-channel-attributes">
+<h4>Per-channel attributes<a class="headerlink" href="#per-channel-attributes" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt><strong>in_voltageX_phase</strong> (read/write)</dt><dd><p>Phase offset for trigger channel X (16-bit value, 0-65535).
+Controls the timing of the trigger output relative to the BSYNC signal.</p>
+</dd>
+</dl>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage0_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> 0
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1000</span><span class="w"> </span>&gt;<span class="w"> </span>in_voltage0_phase
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><dl class="simple">
+<dt><strong>in_voltageX_en</strong> (read/write)</dt><dd><p>Enable/disable trigger channel X (0 or 1).</p>
+</dd>
+</dl>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage0_en
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">0</span><span class="w"> </span>&gt;<span class="w"> </span>in_voltage0_en
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><dl class="simple">
+<dt><strong>in_voltageX_status</strong> (read-only)</dt><dd><p>Status information for channel X including trigger state machine state,
+BSYNC state, capture status, and alignment information.</p>
+</dd>
+</dl>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>in_voltage0_status
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> trig_state=idle bsync_state=bsync_gen bsync_captured=1 bsync_alignment_error=0
+ bsync_ratio=256 bsync_delay=2 bsync_ready=1
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+<section id="shared-attributes">
+<h4>Shared attributes<a class="headerlink" href="#shared-attributes" title="Link to this heading"></a></h4>
+<dl class="simple">
+<dt><strong>in_voltage_output_enable</strong> (read/write)</dt><dd><p>Enable/disable BSYNC output mode. When enabled (1), the IP core generates
+BSYNC output. When disabled (0), the IP core receives external BSYNC.</p>
+</dd>
+<dt><strong>in_voltage_internal_bsync_enable</strong> (read/write)</dt><dd><p>Enable/disable internal BSYNC generation.</p>
+</dd>
+<dt><strong>in_voltage_frequency</strong> (read-only)</dt><dd><p>Current BSYNC frequency in Hz, calculated from the device clock and
+BSYNC ratio.</p>
+</dd>
+<dt><strong>in_voltage_trigger_select_gpio_enable</strong> (read/write)</dt><dd><p>Enable/disable GPIO-based trigger selection.</p>
+</dd>
+<dt><strong>in_voltage_trigger_now</strong> (read/write)</dt><dd><p>Write 1 to issue a manual trigger. Reading always returns 0 (self-clearing).</p>
+</dd>
+</dl>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>in_voltage_trigger_now
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></section>
+</section>
+<section id="debug-attributes">
+<h3>Debug attributes<a class="headerlink" href="#debug-attributes" title="Link to this heading"></a></h3>
+<p>The driver provides debugfs entries for low-level debugging:</p>
+<dl class="simple">
+<dt><strong>enable_debug_trig</strong></dt><dd><p>Enable debug trigger mode.</p>
+</dd>
+<dt><strong>debug_trig</strong></dt><dd><p>Trigger debug output.</p>
+</dd>
+</dl>
+<p>Access via debugfs:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cd /sys/kernel/debug/iio/iio:device0
+$ echo 1 &gt; enable_debug_trig
+$ echo 1 &gt; debug_trig
+</pre></div>
+</div>
+<p>Direct register access:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ cd /sys/kernel/debug/iio/iio:device0
+$ echo 0x10 &gt; direct_reg_access
+$ cat direct_reg_access
+0x3FC
+</pre></div>
+</div>
+</section>
+</section>
+<section id="theory-of-operation">
+<h2>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h2>
+<section id="bsync-time-of-flight-calibration">
+<h3>BSYNC Time-of-Flight calibration<a class="headerlink" href="#bsync-time-of-flight-calibration" title="Link to this heading"></a></h3>
+<p>The AXI AION Trigger performs Time-of-Flight (ToF) calibration during JESD204
+initialization to compensate for PCB trace delays and achieve precise
+multi-chip synchronization:</p>
+<ol class="arabic simple">
+<li><p><strong>Reset and Configure</strong>: The IP core is reset and configured to receive
+BSYNC from the ADF4030 precision synchronizer.</p></li>
+<li><p><strong>BSYNC Detection</strong>: The IP waits for BSYNC edges to be detected and
+captured by the internal state machine.</p></li>
+<li><p><strong>Phase Measurement</strong>: Using the IIO consumer interface, the driver reads
+the phase from the ADF4030 TDC (Time-to-Digital Converter) which represents
+the propagation delay in femtoseconds.</p></li>
+<li><p><strong>Direction Switch</strong>: The BSYNC direction is switched to output mode so
+the FPGA generates BSYNC for the AD9084/AD9088 converters.</p></li>
+<li><p><strong>Phase Compensation</strong>: The negative of the measured phase is applied to
+the ADF4030 to compensate for the path delay, ensuring BSYNC arrives at
+the converters at the correct time.</p></li>
+<li><p><strong>Channel Enable</strong>: The trigger channels are enabled with their configured
+phase offsets.</p></li>
+</ol>
+</section>
+<section id="state-machines">
+<h3>State machines<a class="headerlink" href="#state-machines" title="Link to this heading"></a></h3>
+<p>The IP core implements two state machines:</p>
+<p><strong>Trigger State Machine</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">idle</span></code>: Waiting for trigger event</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trig_edge</span></code>: Trigger edge detected</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">phase_read</span></code>: Reading phase value</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">trig_adjust</span></code>: Adjusting trigger timing</p></li>
+</ul>
+<p><strong>BSYNC State Machine</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">idle</span></code>: Waiting for BSYNC</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bsync_edge</span></code>: BSYNC edge detected</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">calib</span></code>: Calibration in progress</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bsync_gen</span></code>: Generating BSYNC output</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bsync_alignment_error</span></code>: Alignment error detected</p></li>
+</ul>
+</section>
+</section>
+<section id="register-map">
+<h2>Register map<a class="headerlink" href="#register-map" title="Link to this heading"></a></h2>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 25.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Address</p></th>
+<th class="head"><p>Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0x000C</p></td>
+<td><p>IDENTIFICATION</p></td>
+<td><p>IP core identification</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0010</p></td>
+<td><p>CONTROL</p></td>
+<td><p>Control register (enable, reset, direction)</p></td>
+</tr>
+<tr class="row-even"><td><p>0x0014</p></td>
+<td><p>DEBUG</p></td>
+<td><p>Debug/status register</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0018</p></td>
+<td><p>MANUAL_TRIGGER</p></td>
+<td><p>Manual trigger (self-clearing)</p></td>
+</tr>
+<tr class="row-even"><td><p>0x001C</p></td>
+<td><p>TRIG_CH0_PHASE</p></td>
+<td><p>Channel 0 phase offset</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0020</p></td>
+<td><p>TRIG_CH1_PHASE</p></td>
+<td><p>Channel 1 phase offset</p></td>
+</tr>
+<tr class="row-even"><td><p>0x0024</p></td>
+<td><p>TRIG_CH2_PHASE</p></td>
+<td><p>Channel 2 phase offset</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0028</p></td>
+<td><p>TRIG_CH3_PHASE</p></td>
+<td><p>Channel 3 phase offset</p></td>
+</tr>
+<tr class="row-even"><td><p>0x002C</p></td>
+<td><p>TRIG_CH4_PHASE</p></td>
+<td><p>Channel 4 phase offset</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0030</p></td>
+<td><p>TRIG_CH5_PHASE</p></td>
+<td><p>Channel 5 phase offset</p></td>
+</tr>
+<tr class="row-even"><td><p>0x0034</p></td>
+<td><p>TRIG_CH6_PHASE</p></td>
+<td><p>Channel 6 phase offset</p></td>
+</tr>
+<tr class="row-odd"><td><p>0x0038</p></td>
+<td><p>TRIG_CH7_PHASE</p></td>
+<td><p>Channel 7 phase offset</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="control-register-bits">
+<h3>Control register bits<a class="headerlink" href="#control-register-bits" title="Link to this heading"></a></h3>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 30.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Bit(s)</p></th>
+<th class="head"><p>Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>BSYNC_DIRECTION</p></td>
+<td><p>0 = output, 1 = input</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>DISABLE_INTERNAL_BSYNC</p></td>
+<td><p>Disable internal BSYNC generation</p></td>
+</tr>
+<tr class="row-even"><td><p>9:2</p></td>
+<td><p>TRIG_CHANNEL_ENABLE</p></td>
+<td><p>Per-channel trigger enable mask</p></td>
+</tr>
+<tr class="row-odd"><td><p>10</p></td>
+<td><p>SW_RESET</p></td>
+<td><p>Software reset</p></td>
+</tr>
+<tr class="row-even"><td><p>11</p></td>
+<td><p>TRIG_SELECT</p></td>
+<td><p>GPIO trigger selection</p></td>
+</tr>
+<tr class="row-odd"><td><p>12</p></td>
+<td><p>ENABLE_DEBUG_TRIG</p></td>
+<td><p>Enable debug trigger mode</p></td>
+</tr>
+<tr class="row-even"><td><p>13</p></td>
+<td><p>DEBUG_TRIG</p></td>
+<td><p>Debug trigger signal</p></td>
+</tr>
+<tr class="row-odd"><td><p>14</p></td>
+<td><p>ENABLE_MISALIGN_CHECK</p></td>
+<td><p>Enable misalignment checking</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="related-drivers">
+<h2>Related drivers<a class="headerlink" href="#related-drivers" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="../iio-synchronizer/adf4030.html#adf4030"><span class="std std-ref">ADF4030</span></a> - Precision synchronizer driver</p></li>
+<li><p><a class="reference internal" href="../iio-trx-rf/ad9088/index.html#ad9088"><span class="std std-ref">AD9084/AD9088</span></a> - MxFE data converter driver</p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="../iio-inertial-measurement-units/adis16480.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">ADIS16480</a>
+    <a href="../iio-pll/ad9162.html" title="Next document (Alt+Shift+RightArrow)" class="next">AD9162</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

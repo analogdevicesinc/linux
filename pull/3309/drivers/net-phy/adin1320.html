@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="ADIN1320 PHY Linux Quick Start Guide." name="description" />
+
+    <title>ADIN1320 &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=ac863bf0" />
+    <script async="async" src="../../_static/app.umd.js?v=09b0c6bc"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="ADF7242" href="../networking-mac802154/adf7242.html" />
+    <link rel="prev" title="ADIN1100" href="adin1100.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">ADIN1320</a><ul>
+<li><a class="reference internal" href="#hardware-requirements">Hardware requirements</a></li>
+<li><a class="reference internal" href="#eval-board-setup">Eval board setup</a></li>
+<li><a class="reference internal" href="#sd-card-setup">SD card setup</a></li>
+<li><a class="reference internal" href="#testing-the-adin1320ebz-u1">Testing the ADIN1320EBZ-U1</a></li>
+<li><a class="reference internal" href="#compiling-the-linux-driver-for-adin1320">Compiling the Linux driver for ADIN1320</a></li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4695.html">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad6676.html">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361-customization.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-trx-rf/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/ad714x.html">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl345.html">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7873.html">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7877.html">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/open_alliance.html">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="adin1320">
+<span id="id1"></span><h1>ADIN1320<a class="headerlink" href="#adin1320" title="Link to this heading"></a></h1>
+<p>ADIN1320 PHY Linux Quick Start Guide.</p>
+<p>In this guide, we’ll provide the steps you need to follow in order to connect
+the ADIN1320EBZ-U1 to a development board running Linux, and use the ADIN1320 as
+a PHY for one of the network interfaces.</p>
+<section id="hardware-requirements">
+<h2>Hardware requirements<a class="headerlink" href="#hardware-requirements" title="Link to this heading"></a></h2>
+<p>For this setup you will need the following boards or hardware accessories:</p>
+<ul class="simple">
+<li><p>ADIN1320EBZ-U1</p></li>
+<li><p><a class="icon link reference external" href="https://digilent.com/reference/programmable-logic/zedboard/start?srsltid=AfmBOooLHZGv61ESZdJs-bF4BuBzL1dxbhf5wkQucS6hcOSApGy8SCFY" target="_blank">Zedboard - Zynq7000 development board</a></p></li>
+<li><p>LPC FMC to GPIO converter.</p></li>
+<li><p>5V USB C or 5-24V power supply</p></li>
+<li><p>Cat5+ ethernet cable or a 100BASE-FX capable SFP module.</p></li>
+<li><p>Jumper wires for the connecting the MII and MDIO to the FMC converter.</p></li>
+<li><p>SD card</p></li>
+</ul>
+</section>
+<section id="eval-board-setup">
+<h2>Eval board setup<a class="headerlink" href="#eval-board-setup" title="Link to this heading"></a></h2>
+<p>The following jumpers and switches will need to be configured on the
+ADIN1320EBZ-U1 board:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Jumper</p></th>
+<th class="head"><p>Position</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>P21</p></td>
+<td><p>On</p></td>
+</tr>
+<tr class="row-odd"><td><p>P18</p></td>
+<td><p>On</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>This will power off the MAX32670 microcontroller on the board, and keep the
+ADIN1300 in the reset state.</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>S11 switch</p></th>
+<th class="head"><p>Position</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>MAC_IF_SEL0</p></td>
+<td><p>On</p></td>
+</tr>
+<tr class="row-odd"><td><p>MAC_IF_SEL1</p></td>
+<td><p>On</p></td>
+</tr>
+<tr class="row-even"><td><p>MAC_IF_SEL2</p></td>
+<td><p>On</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>This will configure the ADIN1320 in the <code class="docutils literal notranslate"><span class="pre">RMII</span> <span class="pre">or</span> <span class="pre">MII</span> <span class="pre">to</span> <span class="pre">Copper</span> <span class="pre">or</span> <span class="pre">Fiber</span></code> mode.</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Rotary switch</p></th>
+<th class="head"><p>Position</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>S3</p></td>
+<td><p>3</p></td>
+</tr>
+<tr class="row-odd"><td><p>S10</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-even"><td><p>S5</p></td>
+<td><p>4</p></td>
+</tr>
+<tr class="row-odd"><td><p>S7</p></td>
+<td><p>2</p></td>
+</tr>
+<tr class="row-even"><td><p>S2</p></td>
+<td><p>4</p></td>
+</tr>
+<tr class="row-odd"><td><p>S9</p></td>
+<td><p>1</p></td>
+</tr>
+<tr class="row-even"><td><p>S4</p></td>
+<td><p>3</p></td>
+</tr>
+<tr class="row-odd"><td><p>S6</p></td>
+<td><p>1</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>This will result in the host interface being configured as MII and the
+advertised speed as 100BASE-TX/FX full duplex. Check out tables 15-18 in the
+ADIN1320 datasheet for a complete list of configuration options.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>If you want to use an SFP module (inserted into M1) instead of the RJ45
+connector, you will need to bridge the P9 header</p>
+</div>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>S8</p></th>
+<th class="head"><p>Position</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>PHY_AD0</p></td>
+<td><p>On</p></td>
+</tr>
+<tr class="row-odd"><td><p>PHY_AD1</p></td>
+<td><p>Off</p></td>
+</tr>
+<tr class="row-even"><td><p>PHY_AD2</p></td>
+<td><p>Off</p></td>
+</tr>
+<tr class="row-odd"><td><p>PHY_AD3</p></td>
+<td><p>Off</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>The S8 switch is used to configure the PHY address of the ADIN1320. For this
+setup we are assigning the address 1. It is arbitrary and you can change it in
+case you have multiple PHYs on the same MDIO interface. Please note that
+ADIN1300 has the address 0 assigned to it, so if you’re getting it out of reset
+(P18 - Off), the ADIN1320 should have a PHY_ADDR other than 0.</p>
+<p>There are some other headers which should be left in the default state. You can
+cross check their position with the following setup:</p>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/image_3_.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/image_3_.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/image_3_.jpg" style="width: 400px;" />
+</a>
+</figure>
+</section>
+<section id="sd-card-setup">
+<h2>SD card setup<a class="headerlink" href="#sd-card-setup" title="Link to this heading"></a></h2>
+<p>The next step is to flash a Linux distribution image to an SD card. For this,
+you can use
+<a class="icon adi reference external" href="https://www.analog.com/en/resources/evaluation-hardware-and-software/software/kuiper-linux.html" target="_blank">Kuiper Linux</a>,
+as it contains everything (kernel and HDL images, devicetree, rootfs) you need
+to get started.</p>
+<p>You will have to extract the Kuiper Linux archive and then flash the .iso image
+to the SD card. If you’re unsure how to do that, you can use a tool such as
+<a class="icon link reference external" href="https://etcher.balena.io/" target="_blank">Balena etcher</a>.</p>
+<p>After this is done:</p>
+<ul class="simple">
+<li><p>Download
+<a class="icon reference download external" download="" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/adin1320.zip"><code class="xref download docutils literal notranslate"><span class="pre">https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/adin1320.zip</span></code></a>
+(containing the HDL bitstream and devicetree image) and extract it. Copy the
+<strong>BOOT.bin</strong> and <strong>devicetree.dtb</strong> files to the BOOT partition of the SD
+card.</p></li>
+<li><p>Copy the BOOT/zynq-common/uImage (from the SD card) to the BOOT partition.</p></li>
+</ul>
+<p>If you’re using a Linux host PC, this can be done as following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>unzip adin1320.zip -d adin1320_dt
+cp adin1320_dt/BOOT.BIN /media/$USER/BOOT/
+cp adin1320_dt/devicetree.dtb /media/$USER/BOOT/
+cp /media/$USER/BOOT/zynq-common/uImage /media/$USER/BOOT/
+</pre></div>
+</div>
+<p>You can now insert the SD card in the Zedboard and try to boot. The board has a
+UART to USB converter (J14), through which we can see the boot log and interact
+with the userspace terminal.</p>
+<p>The steps are the following:</p>
+<ul class="simple">
+<li><p>Insert the SD card.</p></li>
+<li><p>Connect your PC to the Zedboard (J14) using a micro USB cable.</p></li>
+<li><p>Connect the power adapter.</p></li>
+<li><p>Power on the board using the SW8 switch.</p></li>
+<li><p>Connect using a serial terminal emulator (e.g <strong>tio</strong> for Linux or <strong>Putty</strong>
+for Windows). The UART settings are 115200/8N1. You may need to manually set
+the <code class="docutils literal notranslate"><span class="pre">CR</span> <span class="pre">after</span> <span class="pre">every</span> <span class="pre">LF</span></code> option.</p></li>
+<li><p>You should see a boot log or terminal window through the emulator. If not,
+press enter, since the board may have already booted.</p></li>
+</ul>
+<p>You may now switch off the board.</p>
+</section>
+<section id="testing-the-adin1320ebz-u1">
+<h2>Testing the ADIN1320EBZ-U1<a class="headerlink" href="#testing-the-adin1320ebz-u1" title="Link to this heading"></a></h2>
+<p>At this point we can connect the ADIN1320EBZ-U1 to the development board and
+start testing. The pinout between the ADIN1320 board and the FMC extender should
+be the following:</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>ADIN1320EBZ pin(P4, P19)</p></th>
+<th class="head"><p>FMC pin</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>MDIO</p></td>
+<td><p>LA11_P</p></td>
+</tr>
+<tr class="row-odd"><td><p>MDC</p></td>
+<td><p>LA11_N</p></td>
+</tr>
+<tr class="row-even"><td><p>RXCLK</p></td>
+<td><p>LA00_CC_P</p></td>
+</tr>
+<tr class="row-odd"><td><p>RXER</p></td>
+<td><p>LA01_CC_N</p></td>
+</tr>
+<tr class="row-even"><td><p>RXCTL</p></td>
+<td><p>LA07_N</p></td>
+</tr>
+<tr class="row-odd"><td><p>RXD0</p></td>
+<td><p>LA02_P</p></td>
+</tr>
+<tr class="row-even"><td><p>RXD1</p></td>
+<td><p>LA02_N</p></td>
+</tr>
+<tr class="row-odd"><td><p>RXD2</p></td>
+<td><p>LA03_P</p></td>
+</tr>
+<tr class="row-even"><td><p>RXD3</p></td>
+<td><p>LA03_N</p></td>
+</tr>
+<tr class="row-odd"><td><p>TXCLK</p></td>
+<td><p>LA04_N</p></td>
+</tr>
+<tr class="row-even"><td><p>TXCTL</p></td>
+<td><p>LA07_P</p></td>
+</tr>
+<tr class="row-odd"><td><p>TXD0</p></td>
+<td><p>LA09_P</p></td>
+</tr>
+<tr class="row-even"><td><p>TXD1</p></td>
+<td><p>LA09_N</p></td>
+</tr>
+<tr class="row-odd"><td><p>TXD2</p></td>
+<td><p>LA06_P</p></td>
+</tr>
+<tr class="row-even"><td><p>TXD3</p></td>
+<td><p>LA06_N</p></td>
+</tr>
+<tr class="row-odd"><td><p>GND</p></td>
+<td><p>GND</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>In order to work around an issue with the ADIN1320, you will have to use the
+following steps when testing the setup:</p>
+<ul class="simple">
+<li><p>Connect the FMC extender to the Zedboard.</p></li>
+<li><p>Only connect the MDIO and MDC (and GND) signals to the FMC extender.</p></li>
+</ul>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/image_4_.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/image_4_.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/image_4_.jpg" style="width: 400px;" />
+</a>
+</figure>
+<ul class="simple">
+<li><p>Power cycle the ADIN1320EBZ-U1 board.</p></li>
+<li><p>Boot Linux on the Zedboard.</p></li>
+<li><p>Connect the other MII signals.</p></li>
+</ul>
+<figure class="align-default">
+<a class="reference internal image-reference" href="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/image_5_.jpg"><img alt="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/image_5_.jpg" src="https://wiki.analog.com/_media/resources/tools-software/linux-drivers/net-phy/image_5_.jpg" style="width: 400px;" />
+</a>
+</figure>
+<ul class="simple">
+<li><p>Connect an Ethernet cable to P11 (or a SFP module to M1).</p></li>
+<li><p>Check if the link is up by running <code class="docutils literal notranslate"><span class="pre">ip</span> <span class="pre">a</span></code> in Zedboard terminal.</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ ip a
+
+17: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    link/ether cc:96:e5:c7:d8:64 brd ff:ff:ff:ff:ff:ff
+    inet 10.48.65.151/24 brd 10.48.65.255 scope global dynamic noprefixroute eth0
+       valid_lft 15504sec preferred_lft 15504sec
+    inet6 fe80::e79f:ad8:ff14:4f5/64 scope link noprefixroute
+       valid_lft forever preferred_lft forever
+18: eth1: &lt;NO-CARRIER,BROADCAST,MULTICAST,UP&gt; mtu 1500 qdisc fq_codel state DOWN group default qlen 1000
+    link/ether 00:e0:4c:68:04:5c brd ff:ff:ff:ff:ff:ff
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>You may now pass Ethernet traffic through the network interface.</p></li>
+</ul>
+<p>At this point, we’re only using the generic Ethernet PHY driver for Linux. And
+unless you want to use some of the ADIN13xx particular features (such as frame
+checker counters, MDI/MDIX settings with ethtool), you don’t need the ADIN1320
+Linux driver. For more details on various ways to test the driver you can check
+out the <strong>Driver testing</strong> section in <a class="reference internal" href="adin.html#adin"><span class="std std-ref">ADIN1300/ADIN1200</span></a>.</p>
+</section>
+<section id="compiling-the-linux-driver-for-adin1320">
+<h2>Compiling the Linux driver for ADIN1320<a class="headerlink" href="#compiling-the-linux-driver-for-adin1320" title="Link to this heading"></a></h2>
+<p>For this step you will need a PC running a Linux distribution. We’ll use the ADI
+Linux kernel fork.</p>
+<p>Before compiling the custom kernel, you’ll need to install the following
+dependencies:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">sudo</span> <span class="n">apt</span><span class="o">-</span><span class="n">get</span> <span class="n">install</span> <span class="n">git</span> <span class="n">fakeroot</span> <span class="n">build</span><span class="o">-</span><span class="n">essential</span> <span class="n">ncurses</span><span class="o">-</span><span class="n">dev</span> <span class="n">xz</span><span class="o">-</span><span class="n">utils</span> <span class="n">libssl</span><span class="o">-</span><span class="n">dev</span> <span class="n">bc</span> <span class="n">flex</span> <span class="n">libelf</span><span class="o">-</span><span class="n">dev</span> <span class="n">bison</span> <span class="n">openssl</span> <span class="n">device</span><span class="o">-</span><span class="n">tree</span><span class="o">-</span><span class="n">compiler</span> <span class="n">gcc</span><span class="o">-</span><span class="n">arm</span><span class="o">-</span><span class="n">linux</span><span class="o">-</span><span class="n">gnueabihf</span> <span class="n">u</span><span class="o">-</span><span class="n">boot</span><span class="o">-</span><span class="n">tools</span>
+</pre></div>
+</div>
+<p>Clone the ADI Linux repository:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>git clone :git+linux.git
+cd linux
+git checkout dev:`adin1320+`
+</pre></div>
+</div>
+<p>Compile the kernel for the Zedboard:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>export ARCH=arm
+export CROSS_COMPILE=arm-linux-gnueabihf-
+make zynq_xcomm_adv7511_defconfig -j4
+make -j4 UIMAGE_LOADADDR=0x8000 uImage
+sudo make modules_install INSTALL_MOD_PATH=/media/$USER/rootfs
+</pre></div>
+</div>
+<p>After the build is done, insert the SD card in your PC and copy the kernel image
+to the BOOT partition:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>cp arch/arm/boot/uImage /media/$USER/BOOT/
+sync
+</pre></div>
+</div>
+<p>Insert the SD card back in the Zedboard and follow the same process described in
+the <strong>Testing the ADIN1320EBZ-U1</strong> section.</p>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="adin1100.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">ADIN1100</a>
+    <a href="../networking-mac802154/adf7242.html" title="Next document (Alt+Shift+RightArrow)" class="next">ADF7242</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

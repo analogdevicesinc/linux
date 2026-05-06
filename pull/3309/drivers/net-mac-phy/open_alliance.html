@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver." name="description" />
+
+    <title>TC6-10BASE-T1x &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=ac863bf0" />
+    <script async="async" src="../../_static/app.umd.js?v=09b0c6bc"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="ADIN1300/ADIN1200" href="../net-phy/adin.html" />
+    <link rel="prev" title="ADIN2111" href="adin2111.html" />
+   
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">TC6-10BASE-T1x</a><ul>
+<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#supported-boards">Supported Boards</a></li>
+<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#enabling-linux-driver-support">Enabling Linux driver support</a></li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#device-tree">Device Tree</a></li>
+<li><a class="reference internal" href="#ifconfig">ifconfig</a></li>
+<li><a class="reference internal" href="#ethtool">ethtool</a><ul>
+<li><a class="reference internal" href="#example-seeing-mac-phy-info">Example: Seeing MAC &amp; PHY info</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4695.html">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad6676.html">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361-customization.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-trx-rf/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/ad714x.html">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl345.html">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7873.html">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7877.html">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1320.html">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="tc6-10base-t1x">
+<span id="open-alliance"></span><h1>TC6-10BASE-T1x<a class="headerlink" href="#tc6-10base-t1x" title="Link to this heading"></a></h1>
+<p>Open Alliance TC6-10BASE-T1x MAC-PHY Serial Interface Linux Driver.</p>
+<section id="supported-devices">
+<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/ADIN1110" target="_blank">ADIN1110</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/ADIN2111" target="_blank">ADIN2111</a></p></li>
+</ul>
+</section>
+<section id="supported-boards">
+<h2>Supported Boards<a class="headerlink" href="#supported-boards" title="Link to this heading"></a></h2>
+</section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The IEEE 802.3cg project defines two 10 Mbit/s PHYs operating over a single pair
+of conductors. The 10BASE-T1L (Clause 146) is a long reach PHY supporting full
+duplex point-to-point operation over 1 km of single balanced pair of conductors.
+The 10BASE-T1S (Clause 147) is a short reach PHY supporting full / half duplex
+point-to-point operation over 15 m of single balanced pair of conductors, or
+half duplex multidrop bus operation over 25 m of single balanced pair of
+conductors.</p>
+<p>Furthermore, the IEEE 802.3cg project defines the new Physical Layer Collision
+Avoidance (PLCA) Reconciliation Sublayer (Clause 148) meant to provide improved
+determinism to the CSMA/CD media access method. PLCA works in conjunction with
+the 10BASE-T1S PHY operating in multidrop mode.</p>
+<p>The aforementioned PHYs are intended to cover the low-speed / low-cost
+applications in industrial and automotive environment. The large number of pins
+(16) required by the MII interface, which is specified by the IEEE 802.3 in
+Clause 22, is one of the major cost factors that need to be addressed to fulfil
+this objective.</p>
+<p>The MAC-PHY solution integrates an IEEE Clause 4 MAC and a 10BASE-T1x PHY
+exposing a low pin count Serial Peripheral Interface (SPI) to the host
+microcontroller. This also enables the addition of Ethernet functionality to
+existing low-end microcontrollers which do not integrate a MAC controller.</p>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
+<section id="status">
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p>Source</p></td>
+<td><p>Mainlined?</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adin1110-open-alliance/drivers/net/ethernet/open_alliance.c" target="_blank">open_alliance.c</a></p></td>
+<td><p>No</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adin1110-open-alliance/include/linux/open_alliance.h" target="_blank">open_alliance.h</a></p></td>
+<td><p>No</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adin1110-open-alliance/drivers/net/ethernet/adi/adin1110.c" target="_blank">adin1110.c</a></p></td>
+<td><p>No</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="files">
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+<th class="head"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>API</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adin1110-open-alliance/drivers/net" target="_blank">drivers/net/ethernet/open_alliance.c</a></p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>API</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adin1110-open-alliance/include/linux" target="_blank">include/linux/open_alliance.h</a></p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>Driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/adin1110-open-alliance/drivers/net/ethernet/adi/" target="_blank">drivers/net/ethernet/adi/adin1110.c</a></p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="enabling-linux-driver-support">
+<h2>Enabling Linux driver support<a class="headerlink" href="#enabling-linux-driver-support" title="Link to this heading"></a></h2>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code> (alternatively use <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">xconfig</span></code> or
+<code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">qconfig</span></code>)</p>
+<ol class="arabic simple">
+<li><p>Hit the search button (typically the slash <code class="docutils literal notranslate"><span class="pre">/</span></code> key)</p></li>
+<li><p>Type open_alliance, then hit Enter; if nothing shows up, the driver is not
+available in your kernel tree, please use
+<a class="icon link reference external" href="https://github.com/analogdevicesinc/linux/" target="_blank">the ADI linux tree</a></p></li>
+<li><p>Press 1 (the key), then hit Enter</p></li>
+<li><p>You should see the location + dependencies for enabling the driver</p></li>
+</ol>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">CONFIG_OPEN_ALLIANCE</span><span class="p">:</span>
+<span class="n">The</span> <span class="n">Open</span> <span class="n">Alliance</span> <span class="n">SPI</span> <span class="n">protocol</span> <span class="ow">is</span> <span class="n">used</span> <span class="n">on</span> <span class="mi">10</span><span class="n">BASE</span><span class="o">-</span><span class="n">T1x</span>
+<span class="n">MACPHY</span> <span class="n">Serial</span> <span class="n">Interface</span> <span class="k">for</span> <span class="n">communication</span>
+<span class="k">with</span> <span class="n">the</span> <span class="n">host</span> <span class="n">controller</span><span class="o">.</span>
+
+<span class="n">Say</span> <span class="n">Y</span> <span class="n">to</span> <span class="n">include</span> <span class="n">support</span> <span class="k">for</span> <span class="n">the</span> <span class="n">OPEN_ALLIANCE</span><span class="o">.</span>
+<span class="n">To</span> <span class="nb">compile</span> <span class="n">this</span> <span class="n">driver</span> <span class="k">as</span> <span class="n">a</span> <span class="n">module</span><span class="p">,</span> <span class="n">choose</span> <span class="n">M</span> <span class="n">here</span><span class="p">:</span> <span class="n">the</span> <span class="n">module</span>
+<span class="n">will</span> <span class="n">be</span> <span class="n">called</span> <span class="n">dnet</span><span class="o">.</span>
+
+<span class="n">Symbol</span><span class="p">:</span> <span class="n">OPEN_ALLIANCE</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span>
+<span class="n">Type</span>  <span class="p">:</span> <span class="n">tristate</span>
+<span class="n">Defined</span> <span class="n">at</span> <span class="n">drivers</span><span class="o">/</span><span class="n">net</span><span class="o">/</span><span class="n">ethernet</span><span class="o">/</span><span class="n">Kconfig</span><span class="p">:</span><span class="mi">147</span>
+    <span class="n">Prompt</span><span class="p">:</span> <span class="n">Open</span> <span class="n">Alliance</span> <span class="mi">10</span><span class="n">BASE</span><span class="o">-</span><span class="n">T1x</span> <span class="n">support</span><span class="o">.</span>
+    <span class="n">Depends</span> <span class="n">on</span><span class="p">:</span> <span class="n">NETDEVICES</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="n">ETHERNET</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span> <span class="o">&amp;&amp;</span> <span class="n">SPI</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span>
+    <span class="n">Location</span><span class="p">:</span>
+        <span class="o">-&gt;</span> <span class="n">Device</span> <span class="n">Drivers</span>
+            <span class="o">-&gt;</span> <span class="n">Network</span> <span class="n">device</span> <span class="n">support</span> <span class="p">(</span><span class="n">NETDEVICES</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">])</span>
+                <span class="o">-&gt;</span> <span class="n">Ethernet</span> <span class="n">driver</span> <span class="n">support</span> <span class="p">(</span><span class="n">ETHERNET</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">])</span>
+    <span class="n">Selects</span><span class="p">:</span> <span class="n">CRC8</span> <span class="p">[</span><span class="o">=</span><span class="n">y</span><span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<p>This requires that another 10BASE-T1L PHY be connected to the other end of the
+network cable, or that a media converter be used to convert to normal
+twisted-pair ethernet that standard ethernet cables use.</p>
+<p>ADIN1110 communicates with the host via SPI. For 10 Mbps bandwidth, SPI
+frequency needs to be around 23 MHz. Lower SPI frequencies are supported but
+will result in a lower bandwidth. At 1 MHz the MAC will provide aprox. 0.4 Mbps
+of bandwidth.</p>
+<p>Connect to host the SCLK, CS_N, SDI, SDO and INT_N. (The INT_N is mandatory, see
+DT bindings). RX frames and sent TX frames are signaled to the host by INT_N IRQ
+pin.</p>
+<section id="device-tree">
+<h3>Device Tree<a class="headerlink" href="#device-tree" title="Link to this heading"></a></h3>
+<p>ADIN1110 probes via devicetree.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ethernet</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,adin1110&quot;</span><span class="p">;</span>
+
+        <span class="o">/*</span> <span class="n">SPI</span> <span class="n">CS</span> <span class="n">number</span> <span class="o">*/</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">0</span><span class="o">&gt;</span><span class="p">;</span>
+
+        <span class="o">/*</span> <span class="n">will</span> <span class="n">need</span> <span class="mf">13.5</span> <span class="n">MHz</span> <span class="k">for</span> <span class="mi">10</span> <span class="n">Mbps</span><span class="p">,</span> <span class="n">lower</span> <span class="n">speeds</span> <span class="n">will</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">lower</span> <span class="n">bandwidth</span> <span class="o">*/</span>
+    <span class="n">spi</span><span class="o">-</span><span class="nb">max</span><span class="o">-</span><span class="n">frequency</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">13500000</span><span class="o">&gt;</span><span class="p">;</span>
+
+        <span class="o">/*</span> <span class="n">Enables</span> <span class="n">Open</span> <span class="n">Alliance</span> <span class="n">Mode</span> <span class="o">*/</span>
+        <span class="nb">open</span><span class="o">-</span><span class="n">alliance</span><span class="p">;</span>
+
+        <span class="o">/*</span> <span class="n">optional</span><span class="p">,</span> <span class="n">will</span> <span class="n">check</span> <span class="nb">all</span> <span class="n">control</span> <span class="n">read</span><span class="o">/</span><span class="n">writes</span> <span class="n">over</span> <span class="n">SPI</span> <span class="o">*/</span>
+        <span class="nb">open</span><span class="o">-</span><span class="n">alliance</span><span class="o">-</span><span class="n">protected</span><span class="p">;</span>
+
+    <span class="c1">#address-cells = &lt;1&gt;;</span>
+    <span class="c1">#size-cells = &lt;0&gt;;</span>
+
+        <span class="o">/*</span> <span class="n">an</span> <span class="n">IRQ</span> <span class="ow">is</span> <span class="n">required</span><span class="p">,</span> <span class="n">INT_N</span> <span class="n">pin</span> <span class="ow">is</span> <span class="n">configured</span> <span class="n">to</span> <span class="n">signal</span> <span class="n">RX</span><span class="o">/</span><span class="n">TX</span> <span class="n">frames</span> <span class="o">*/</span>
+    <span class="n">interrupt</span><span class="o">-</span><span class="n">parent</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">gpio</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">interrupts</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mi">25</span> <span class="mi">2</span><span class="o">&gt;</span><span class="p">;</span>
+
+    <span class="n">mac</span><span class="o">-</span><span class="n">address</span> <span class="o">=</span> <span class="p">[</span> <span class="n">CA</span> <span class="mi">2</span><span class="n">F</span> <span class="n">B7</span> <span class="mi">10</span> <span class="mi">23</span> <span class="mi">63</span> <span class="p">];</span>
+
+    <span class="n">phy</span><span class="o">@</span><span class="mi">0</span> <span class="p">{</span>
+        <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;ethernet-phy-id0283.bc91&quot;</span><span class="p">;</span>
+        <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x0</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="p">};</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+<section id="ifconfig">
+<h3>ifconfig<a class="headerlink" href="#ifconfig" title="Link to this heading"></a></h3>
+<p>This tool will display the general status of the available network interfaces.
+If they’ve obtained an IP address, RX packets/errors/dropped/etc, TX
+packets/errors/dropped/etc, MAC address, etc.</p>
+<p>Typically, if both TX &amp; RX values are incremented, it means that it is working.
+Also note that there are error counters; if only the TX/RX counters increment,
+something may be wrong with the network connection. Check error/dropped counters
+too.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~</span><span class="c1"># ifconfig eth1</span>
+<span class="n">eth1</span><span class="p">:</span> <span class="n">flags</span><span class="o">=</span><span class="mi">4163</span><span class="o">&lt;</span><span class="n">UP</span><span class="p">,</span><span class="n">BROADCAST</span><span class="p">,</span><span class="n">RUNNING</span><span class="p">,</span><span class="n">MULTICAST</span><span class="o">&gt;</span>  <span class="n">mtu</span> <span class="mi">1500</span>
+        <span class="n">inet</span> <span class="mf">192.168.160.160</span>  <span class="n">netmask</span> <span class="mf">255.255.255.0</span>  <span class="n">broadcast</span> <span class="mf">192.168.160.255</span>
+        <span class="n">inet6</span> <span class="n">fe80</span><span class="p">::</span><span class="n">c82f</span><span class="p">:</span><span class="n">b7ff</span><span class="p">:</span><span class="n">fe10</span><span class="p">:</span><span class="mi">2363</span>  <span class="n">prefixlen</span> <span class="mi">64</span>  <span class="n">scopeid</span> <span class="mh">0x20</span><span class="o">&lt;</span><span class="n">link</span><span class="o">&gt;</span>
+        <span class="n">ether</span> <span class="n">ca</span><span class="p">:</span><span class="mi">2</span><span class="n">f</span><span class="p">:</span><span class="n">b7</span><span class="p">:</span><span class="mi">10</span><span class="p">:</span><span class="mi">23</span><span class="p">:</span><span class="mi">63</span>  <span class="n">txqueuelen</span> <span class="mi">1000</span>  <span class="p">(</span><span class="n">Ethernet</span><span class="p">)</span>
+        <span class="n">RX</span> <span class="n">packets</span> <span class="mi">132</span>  <span class="nb">bytes</span> <span class="mi">8548</span> <span class="p">(</span><span class="mf">8.3</span> <span class="n">KiB</span><span class="p">)</span>
+        <span class="n">RX</span> <span class="n">errors</span> <span class="mi">0</span>  <span class="n">dropped</span> <span class="mi">0</span>  <span class="n">overruns</span> <span class="mi">0</span>  <span class="n">frame</span> <span class="mi">0</span>
+        <span class="n">TX</span> <span class="n">packets</span> <span class="mi">79</span>  <span class="nb">bytes</span> <span class="mi">9943</span> <span class="p">(</span><span class="mf">9.7</span> <span class="n">KiB</span><span class="p">)</span>
+        <span class="n">TX</span> <span class="n">errors</span> <span class="mi">0</span>  <span class="n">dropped</span> <span class="mi">0</span> <span class="n">overruns</span> <span class="mi">0</span>  <span class="n">carrier</span> <span class="mi">0</span>  <span class="n">collisions</span> <span class="mi">0</span>
+        <span class="n">device</span> <span class="n">interrupt</span> <span class="mi">55</span>
+</pre></div>
+</div>
+</section>
+<section id="ethtool">
+<h3>ethtool<a class="headerlink" href="#ethtool" title="Link to this heading"></a></h3>
+<p>This tool queries the MAC &amp; PHY via the MAC driver. The MAC driver also allows
+access to the PHY registers. ethtool can be used to show &amp; override link
+settings and other parameters for the MAC &amp; PHY.</p>
+<p>Links for the tool:</p>
+<ul class="simple">
+<li><p>Official page with source code:
+<a class="icon link reference external" href="https://mirrors.edge.kernel.org/pub/software/network/ethtool/" target="_blank">https://mirrors.edge.kernel.org/pub/software/network/ethtool/</a></p></li>
+<li><p>Manual page: <a class="icon link reference external" href="http://man7.org/linux/man-pages/man8/ethtool.8.html" target="_blank">http://man7.org/linux/man-pages/man8/ethtool.8.html</a></p></li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Some features of ethtool described here are available in newer versions of
+ethtool. If some of them don’t work, consider upgrading or getting a newer
+version</p>
+</div>
+<section id="example-seeing-mac-phy-info">
+<h4>Example: Seeing MAC &amp; PHY info<a class="headerlink" href="#example-seeing-mac-phy-info" title="Link to this heading"></a></h4>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Settings</span> <span class="k">for</span> <span class="n">eth1</span><span class="p">:</span>
+    <span class="n">Supported</span> <span class="n">ports</span><span class="p">:</span> <span class="p">[</span> <span class="n">TP</span> <span class="n">MII</span> <span class="p">]</span>
+    <span class="n">Supported</span> <span class="n">link</span> <span class="n">modes</span><span class="p">:</span>   <span class="mi">10</span><span class="n">baseT</span><span class="o">/</span><span class="n">Full</span>
+    <span class="n">Supported</span> <span class="n">pause</span> <span class="n">frame</span> <span class="n">use</span><span class="p">:</span> <span class="n">Symmetric</span> <span class="n">Receive</span><span class="o">-</span><span class="n">only</span>
+    <span class="n">Supports</span> <span class="n">auto</span><span class="o">-</span><span class="n">negotiation</span><span class="p">:</span> <span class="n">Yes</span>
+    <span class="n">Supported</span> <span class="n">FEC</span> <span class="n">modes</span><span class="p">:</span> <span class="n">Not</span> <span class="n">reported</span>
+    <span class="n">Advertised</span> <span class="n">link</span> <span class="n">modes</span><span class="p">:</span>  <span class="mi">10</span><span class="n">baseT</span><span class="o">/</span><span class="n">Full</span>
+    <span class="n">Advertised</span> <span class="n">pause</span> <span class="n">frame</span> <span class="n">use</span><span class="p">:</span> <span class="n">No</span>
+    <span class="n">Advertised</span> <span class="n">auto</span><span class="o">-</span><span class="n">negotiation</span><span class="p">:</span> <span class="n">Yes</span>
+    <span class="n">Advertised</span> <span class="n">FEC</span> <span class="n">modes</span><span class="p">:</span> <span class="n">Not</span> <span class="n">reported</span>
+    <span class="n">Link</span> <span class="n">partner</span> <span class="n">advertised</span> <span class="n">link</span> <span class="n">modes</span><span class="p">:</span>  <span class="mi">10</span><span class="n">baseT</span><span class="o">/</span><span class="n">Full</span>
+    <span class="n">Link</span> <span class="n">partner</span> <span class="n">advertised</span> <span class="n">pause</span> <span class="n">frame</span> <span class="n">use</span><span class="p">:</span> <span class="n">No</span>
+    <span class="n">Link</span> <span class="n">partner</span> <span class="n">advertised</span> <span class="n">auto</span><span class="o">-</span><span class="n">negotiation</span><span class="p">:</span> <span class="n">Yes</span>
+    <span class="n">Link</span> <span class="n">partner</span> <span class="n">advertised</span> <span class="n">FEC</span> <span class="n">modes</span><span class="p">:</span> <span class="n">Not</span> <span class="n">reported</span>
+    <span class="n">Speed</span><span class="p">:</span> <span class="mi">10</span><span class="n">Mb</span><span class="o">/</span><span class="n">s</span>
+    <span class="n">Duplex</span><span class="p">:</span> <span class="n">Full</span>
+    <span class="n">Port</span><span class="p">:</span> <span class="n">MII</span>
+    <span class="n">PHYAD</span><span class="p">:</span> <span class="mi">0</span>
+    <span class="n">Transceiver</span><span class="p">:</span> <span class="n">internal</span>
+    <span class="n">Auto</span><span class="o">-</span><span class="n">negotiation</span><span class="p">:</span> <span class="n">on</span>
+    <span class="n">Link</span> <span class="n">detected</span><span class="p">:</span> <span class="n">yes</span>
+</pre></div>
+</div>
+<p>Open Alliance also exposes Chunk level statistics:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="nd">@analog</span><span class="p">:</span><span class="o">~/</span><span class="n">ethtool</span><span class="o">-</span><span class="mf">5.15</span><span class="c1"># ethtool -S adin2111-0-p0</span>
+<span class="n">NIC</span> <span class="n">statistics</span><span class="p">:</span>
+     <span class="n">RX</span> <span class="n">valid</span> <span class="n">data</span> <span class="n">chunks</span> <span class="n">received</span><span class="p">:</span> <span class="mi">362</span>
+     <span class="n">TX</span> <span class="n">chunks</span> <span class="n">sent</span><span class="p">:</span> <span class="mi">1440</span>
+     <span class="n">RX</span> <span class="n">end</span> <span class="n">valid</span> <span class="n">chunks</span> <span class="n">received</span><span class="p">:</span> <span class="mi">61</span>
+     <span class="n">RX</span> <span class="n">chunks</span> <span class="n">to</span> <span class="n">frames</span><span class="p">:</span> <span class="mi">362</span>
+     <span class="n">OA</span> <span class="n">chunks</span> <span class="n">transfered</span><span class="p">:</span> <span class="mi">1802</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="adin2111.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">ADIN2111</a>
+    <a href="../net-phy/adin.html" title="Next document (Alt+Shift+RightArrow)" class="next">ADIN1300/ADIN1200</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,599 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad463x
+
+.. _ad463x:
+
+AD4630
+======
+
+AD4630-24/AD4630-16 Dual Channel and AD4030-24 Single Channel Precision SAR ADC
+Linux Driver.
+
+.. note::
+
+   A mainlined alternative driver is available at :ref:`ad4030`. This page documents
+   the out-of-tree driver (ad4630.c).
+
+Description
+-----------
+
+The AD4630-24 is a two-channel, low-noise, 2 MSPS successive approximation
+register (SAR) analog-to-digital converter (ADC). The AD4030-24 is the single
+channel version. Both have a guaranteed maximum ±0.9 ppm INL and no missing
+codes at 24-bits, and achieve unparalleled precision from −40°C to +125°C. The
+AD4630-16 is a 16-bit, two-channel version.
+
+Operating from 5V and 1.8 V supplies, the AD4630-24, AD4630-16 and AD4030-24 has
+a ±(65/64 ·V\ :sub:`REF`) differential input range with V\ :sub:`REF` ranging
+from 4.096V to 5V. The input common mode is not restricted – each polarity input
+may be anywhere from - 1/128 ·V\ :sub:`REF` to 129/128 ·V\ :sub:`REF`,
+simplifying analog signal conditioning requirements and system calibration. A
+low drift, precision reference buffer makes it easy to share a voltage reference
+with other circuitry.
+
+The versatile Flexi-SPI serial interface is simple to use. A wide data window,
+multiple SDO lanes, and optional DDR data can reduce the serial clock to 10 MHz
+at 2 MSPS. Echo-clock and ADC clock-master modes relax the timing requirements
+and simplify the use of digital isolators. The parts are compatible with 1.2V to
+1.8V logic, using the separate VIO supply.
+
+Supported Devices
+-----------------
+
+- :adi:`ad4630-24`
+- :adi:`ad4630-16`
+- :adi:`ad4030-24`
+
+Evaluation Boards
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Carrier
+     - Evaluation Board
+     - User Guide
+     -
+     -
+     -
+   * - :xilinx:`Zedboard <products/boards-and-kits/1-8dyf-11.html>`
+     - :adi:`EVAL-AD4630-24 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4630-24.html>`
+     - :dokuwiki:`AD4630-24 user guide </resources/eval/ad4630-24-eval-board>`
+     -
+     -
+     -
+   * - :xilinx:`Zedboard <products/boards-and-kits/1-8dyf-11.html>`
+     - :adi:`EVAL-AD4630-16 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4630-24.html>`
+     - :dokuwiki:`AD4630-16 user guide </resources/eval/ad4630-24-eval-board>`
+     -
+     -
+     -
+   * - :xilinx:`Zedboard <products/boards-and-kits/1-8dyf-11.html>`
+     - :adi:`EVAL-AD4030-24 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4030-24.html>`
+     - :dokuwiki:`AD4030-24 user guide </resources/eval/ad4030-24-eval-board>`
+     -
+     -
+     -
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+   * - :git+linux:`git <main:drivers/iio/adc/ad4630.c+>`
+     - [No]
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`ad4630.c <main:drivers/iio/adc/ad4630.c+>`
+     -
+   * - devicetree
+     - :git+linux:`ad4630-24.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad4630-24.dts+>`
+     -
+
+===== Devicetree =====
+
+Regulator
+^^^^^^^^^
+
+ADC voltage reference
+
+::
+
+   vref: regulator-vref {
+       compatible = "regulator-fixed";
+       regulator-name = "fixed-supply";
+       regulator-min-microvolt = <5000000>;
+       regulator-max-microvolt = <5000000>;
+       regulator-always-on;
+   };
+
+External clock
+^^^^^^^^^^^^^^
+
+Reference clock used for sampling timing
+
+::
+
+   clocks {
+       cnv_ext_clk: ext-clk {
+           #clock-cells = <0x0>;
+           compatible = "fixed-clock";
+           clock-frequency = <100000000>;
+           clock-output-names = "cnv_ext_clk";
+       };
+   };
+
+Sampling trigger
+^^^^^^^^^^^^^^^^
+
+This PWM generator is used to start the sampling procedure
+
+::
+
+   axi_pwm_gen: axi-pwm-gen@ {
+       compatible = "adi,axi-pwmgen";
+       reg = <0x44b00000 0x1000>;
+       label = "ad463x_cnv";
+       #pwm-cells = <2>;
+       clocks = <&cnv_ext_clk>;
+   };
+
+ADC node
+^^^^^^^^
+
+The ad4630-24 is a SPI-compatible ADC so it should be under a SPI controller.
+The following custom attributes are available:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Attribute name
+     - Values
+     - Description
+   * - ``adi,lane-mode``
+     - one-lane-shared
+       one-lane-per-ch
+       two-lanes-per-ch
+       four-lanes-per-ch
+     - Use one data lane, interleaved
+       Use two data lanes, one per ch.
+       Use four data lanes, two per ch.
+       Use eight data lanes, four per ch.
+   * - ``adi,clock-mode``
+     - spi-compatible
+       echo-clock
+     - Valid BUSY signal for the ADC conversion status
+       Bit clock. BUSY_SCKOUT is a delayed version of SCK input
+   * - ``adi,out-data-mode``
+     - 16diff-8com
+       24diff
+       24diff-8com
+       30diff-avg
+       32pat
+     - Output is 16-bit differential data + 8-bit common mode data
+       Output is 24-bit differential data
+       Output is 24-bit differential data + 8-bit common mode data
+       Output is 30-bit averaged differential data + OR-bit + SYNC-bit
+       Output is 32-bit test data pattern
+
+.. important::
+
+   The ``spi-max-frequency`` must be a multiple of a 40MHz clock and the
+   ``dmas`` handle should use a 64-bit wide data bus.
+
+::
+
+   &spi{
+       ad463x: ad463x@0 {
+           compatible = "adi,ad463x";
+           reg = <0>;
+           vref-supply = <&vref>;
+           spi-max-frequency = <80000000>;
+           adi,lane-mode = "four-lanes-per-ch";
+           adi,clock-mode = "echo-clock";
+           adi,data-rate-mode = "dual";
+           adi,out-data-mode = "24diff-8com";
+           reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+           clocks = <&cnv_ext_clk>;
+           clock-names = "trigger_clock";
+           dmas = <&rx_dma 0>;
+           dma-names = "rx";
+           pwm-names = "spi_trigger", "cnv";
+           pwms = <&axi_pwm_gen 0 0>,
+                  <&axi_pwm_gen 1 0>;
+       };
+   };
+
+Usage
+~~~~~
+
+Kernel configuration
+^^^^^^^^^^^^^^^^^^^^
+
+This device depends on a PWM based trigger used to start the sampling procedure.
+The first step is to enable the support for AXI_PWMGEN.
+
+<blockquote>
+
+::
+
+   Symbol: PWM_AXI_PWMGEN [=y]
+   Type  : tristate
+   Prompt: Analog Devices AXI PWM generator
+      Location:
+        -> Device Drivers
+          -> Pulse-Width Modulation (PWM) Support (PWM [=y])
+      Defined at drivers/pwm/Kconfig:78
+      Depends on: PWM [=y] && HAS_IOMEM [=y]
+      Selected by [y]:
+      - KERNEL_ALL_ADI_DRIVERS [=y]
+
+</blockquote>
+
+Another required component is the SPI controller. The AD4630 has a specific set
+of SPI timing requirements that are supported by the SPI_ENGINE IP.
+
+<blockquote>
+
+::
+
+   Symbol: SPI_AXI_SPI_ENGINE [=y]
+   Type  : tristate
+   Prompt: Analog Devices AXI SPI Engine controller
+     Location:
+       -> Device Drivers
+         -> SPI support (SPI [=y])
+     Defined at drivers/spi/Kconfig:112
+     Depends on: SPI [=y] && SPI_MASTER [=y] && HAS_IOMEM [=y]
+     Selected by [y]:
+     - KERNEL_ALL_ADI_DRIVERS [=y]
+
+</blockquote>
+
+And finally, enable support for the AD4630 device family.
+
+<blockquote>
+
+::
+
+   Symbol: AD4630 [=y]
+   Type  : tristate
+   Prompt: Analog Device AD4630 ADC Driver
+     Location:
+       -> Device Drivers
+         -> Industrial I/O support (IIO [=y])
+           -> Analog to digital converters
+     Defined at drivers/iio/adc/Kconfig:26
+     Depends on: IIO [=y] && SPI_MASTER [=y]
+     Selects: IIO_BUFFER [=y] && IIO_BUFFER_DMA [=y] && IIO_BUFFER_DMAENGINE [=y]
+
+</blockquote>
+
+Driver testing
+^^^^^^^^^^^^^^
+
+This device can be found under */sys/bus/iio/devices/*
+
+One way to check if the device and driver are present is using **iio_info**:
+
+::
+
+   root@analog# iio_info
+       iio:device0: ad4630-24 (buffer capable)
+           2 channels found:
+               voltage0: differential_0 (input, index: 0, format: le:s30/32>>0)
+               2 channel-specific attributes found:
+                   attr  0: hardwaregain value: 1.000000
+                   attr  1: offset value: 0
+               voltage1: differential_1 (input, index: 1, format: le:s30/32>>0)
+               2 channel-specific attributes found:
+                   attr  0: hardwaregain value: 1.000000
+                   attr  1: offset value: 0
+           6 device-specific attributes found:
+                   attr  0: operating_mode value: normal_operating_mode
+                   attr  1: operating_mode_available value: normal_operating_mode low_power_mode
+                   attr  2: sample_averaging value: 64
+                   attr  3: sample_averaging_available value: OFF 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
+                   attr  4: sampling_frequency value: 1000000
+                   attr  5: sampling_frequency_available value: 10000 50000 100000 200000 500000 1000000 1750000 2000000
+           3 buffer-specific attributes found:
+                   attr  0: data_available value: 0
+                   attr  1: length_align_bytes value: 8
+                   attr  2: watermark value: 2048
+           No trigger on this device
+
+You can go to the device folder using:
+
+::
+
+   root@analog# cd $(grep -rw /sys/bus/iio/devices//name -e "ad4630-24" -l | xargs dirname)
+
+.. important::
+
+   As specified in the devicetree section, the device supports multiple
+   out-data-modes.
+
+   This example describes the steps for the 30-bit averaged differential output
+   mode.
+
+In the folder there are several files that can set specific device attributes:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# ls -l
+   total 0
+   drwxr-xr-x 2 root root    0 Dec 13 08:54 buffer
+   -r--r--r-- 1 root root 4096 Dec 13 08:54 dev
+   -rw-r--r-- 1 root root 4096 Dec 13 08:54 in_voltage0_differential0_hardwaregain
+   -rw-r--r-- 1 root root 4096 Dec 13 08:54 in_voltage0_differential0_offset
+   -rw-r--r-- 1 root root 4096 Dec 13 08:54 in_voltage1_differential1_hardwaregain
+   -rw-r--r-- 1 root root 4096 Dec 13 08:54 in_voltage1_differential1_offset
+   -r--r--r-- 1 root root 4096 Dec 13 08:54 name
+   lrwxrwxrwx 1 root root    0 Dec 13 08:54 of_node -> ../../../../../../../../firmware/devicetree/base/fpga-axi@0/spi@44a00000/ad4630-24@0
+   -rw-r--r-- 1 root root 4096 Dec 13 08:54 operating_mode
+   -r--r--r-- 1 root root 4096 Dec 13 08:54 operating_mode_available
+   drwxr-xr-x 2 root root    0 Dec 13 08:54 power
+   -rw-r--r-- 1 root root 4096 Dec 13 08:54 sample_averaging
+   -r--r--r-- 1 root root 4096 Dec 13 08:54 sample_averaging_available
+   -rw-r--r-- 1 root root 4096 Dec 13 08:54 sampling_frequency
+   -r--r--r-- 1 root root 4096 Dec 13 08:54 sampling_frequency_available
+   drwxr-xr-x 2 root root    0 Dec 13 08:54 scan_elements
+   lrwxrwxrwx 1 root root    0 Dec 13 08:54 subsystem -> ../../../../../../../../bus/iio
+   -rw-r--r-- 1 root root 4096 Dec 13 08:54 uevent
+
+Operating Mode
+''''''''''''''
+
+The device an operate in normal and low power mode. This attribute displays the
+following possible values:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat operating_mode_available
+   normal_operating_mode low_power_mode
+
+Display current operating mode:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat operating_mode
+   normal_operating_mode
+
+Change operating mode:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo low_power_mode > operating_mode
+   root@analog:/sys/bus/iio/devices/iio:device0# cat operating_mode
+   low_power_mode
+
+Sampling frequency
+''''''''''''''''''
+
+The ad4630 device driver supports a variable sampling rate, that can be
+configured up to 2MSPS.
+
+Display all available sampling rates:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat sampling_frequency_available
+   10000 50000 100000 200000 500000 1000000 1750000 2000000
+
+See current sampling rate:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat sampling_frequency
+   1000000
+
+Change the sampling rate:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 2000000 > sampling_frequency
+   root@analog:/sys/bus/iio/devices/iio:device0# cat sampling_frequency
+   2000000
+
+Sample average mode
+'''''''''''''''''''
+
+The ad4630 device family has support for a sample averaging mode that’s
+configurable as a power of 2, up to a maximum of 2\ :sup:`16`.
+
+.. important::
+
+   The average mode works only with the output data mode set to 30-bit average
+
+Display all available number(in samples) of averaging operations on the buffer:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat sample_averaging_available
+   OFF 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
+
+Display current sample averaging count:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat sample_averaging
+   64
+
+Change the sample averaging count:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 2048 > sample_averaging
+   root@analog:/sys/bus/iio/devices/iio:device0# cat sample_averaging
+   2048
+
+.. important::
+
+   Please note that averaging on low sampling rates will timeout if the default
+   buffer wait time is not modified
+
+Channel hardware gain
+'''''''''''''''''''''
+
+The hardware gain can be changed for each channel with a value from 0.0001 to
+1.99997. This gain is applied to each sample value. Each ADC channel has an
+independent hardware gain attribute.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# ls | grep hardwaregain
+   in_voltage0_differential0_hardwaregain
+   in_voltage1_differential1_hardwaregain
+
+Read the gain for channel 0:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage0_differential0_hardwaregain
+   1.000000
+
+Set the gain for channel 1:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 0.25 > in_voltage1_differential1_hardwaregain
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage1_differential1_hardwaregain
+   0.250000
+
+Channel offset
+''''''''''''''
+
+The offset can be changed for each channel with a value from -2\ :sup:`23`-1 to
++2\ :sup:`23`-1.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# ls | grep offset
+   in_voltage0_differential_0_offset
+   in_voltage1_differential_1_offset
+
+Read the offset for channel 0:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage0_differential0_offset
+   0
+
+Set the offset for channel 1:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 256 > in_voltage1_differential1_offset
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage1_differential1_offset
+   256
+
+Data acquisition
+''''''''''''''''
+
+The data acquisition is performed using a buffer system:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0/# ls buffer
+   data_available  enable  length  length_align_bytes  watermark
+   root@analog:/sys/bus/iio/devices/iio:device0# ls scan_elements/
+   in_voltage0_differential0_en      in_voltage0_differential0_type  in_voltage1_differential1_index
+   in_voltage0_differential0_index  in_voltage1_differential1_en    in_voltage1_differential1_type
+
+Every buffer implementation features a set of files:
+
+buffer: length Get/set the number of sample sets that may be held by the buffer.
+
+buffer: enable Enables/disables the buffer. This file should be written last,
+after length and selection of scan elements
+
+scan_elements: in_voltageX_differentialX_en Enable/disables the channel output
+so the data won’t be buffered for that specific channel.
+
+Enable and read 400 samples from both channels:
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > scan_elements/in_voltage0_differential0_en
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > scan_elements/in_voltage1_differential1_en
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 400 > buffer/length
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > buffer/enable
+   root@analog:/sys/bus/iio/devices/iio:device0# hexdump -n 400 /dev/iio\:device0
+   0000000 e942 000d 0011 0000 afaf 000d 0029 0000
+   0000010 753b 000d fff5 00ff 39fa 000d 0018 0000
+   0000020 013e 000d 0017 0000 c776 000c fff4 00ff
+   0000030 8e84 000c 0017 0000 55d4 000c 0052 0000
+   0000040 1dab 000c 000b 0000 e5b9 000b 0049 0000
+   0000050 ab19 000b 0013 0000 6f56 000b 0035 0000
+   0000060 3470 000b 0020 0000 f9a1 000a 0037 0000
+   0000070 bcc1 000a 0003 0000 7f89 000a 000d 0000
+   0000080 4458 000a 0003 0000 0978 000a 000d 0000
+   0000090 cea9 0009 0041 0000 9551 0009 fff2 00ff
+   00000a0 5b80 0009 fff1 00ff 210c 0009 0015 0000
+   00000b0 e486 0008 ffe8 00ff a8d1 0008 ffec 00ff
+   00000c0 6e13 0008 004e 0000 33a0 0008 001a 0000
+   00000d0 f7df 0007 fffd 00ff bba2 0007 fffd 00ff
+   00000e0 7ead 0007 fffe 00ff 43e0 0007 0041 0000
+   00000f0 08a8 0007 0023 0000 cc9c 0006 ffed 00ff
+   0000100 9031 0006 001c 0000 5370 0006 fff6 00ff
+   0000110 1721 0006 0040 0000 dcec 0005 ffe5 00ff
+   0000120 9ffc 0005 000d 0000 61f3 0005 0016 0000
+   0000130 247d 0005 0023 0000 e55d 0004 0006 0000
+   0000140 a725 0004 000e 0000 6d7b 0004 0045 0000
+   0000150 32e4 0004 ffaa 00ff f77e 0003 ffca 00ff
+   0000160 bc75 0003 0036 0000 809d 0003 0019 0000
+   0000170 4582 0003 ffe1 00ff 0921 0003 ffdf 00ff
+   0000180 c9a5 0002 ffd1 00ff 8a1c 0002 0015 0000
+   0000190
+   root@analog:/sys/bus/iio/devices/iio:device0/# echo 0 > buffer/enable
+
+Debug mode
+''''''''''
+
+You can write and read the ADC registers using debugfs. Here we will read and
+write the scratchpad register:
+
+First go to the device debug folder:
+
+::
+
+   root@analog# cd /sys/kernel/debug/iio/iio:device0
+
+Read the 0xA register:
+
+::
+
+   root@analog:/sys/kernel/debug/iio/iio:device0# echo 0xA > direct_reg_access
+   root@analog:/sys/kernel/debug/iio/iio:device0# cat direct_reg_access
+   0x0
+
+Write and verify the value:
+
+::
+
+   root@analog:/sys/kernel/debug/iio/iio:device0# echo 0xA 0x5F> direct_reg_access
+   root@analog:/sys/kernel/debug/iio/iio:device0# cat direct_reg_access
+   0x5F
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
