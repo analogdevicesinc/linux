@@ -27,8 +27,8 @@ extern u8 CheckIPSStatus(struct adapter *padapter);
 
 extern void InitInterrupt8723BSdio(struct adapter *padapter);
 extern void InitSysInterrupt8723BSdio(struct adapter *padapter);
-extern void EnableInterrupt8723BSdio(struct adapter *padapter);
-extern void DisableInterrupt8723BSdio(struct adapter *padapter);
+void rtw_sdio_enable_interrupt(struct adapter *padapter);
+void rtw_sdio_disable_interrupt(struct adapter *padapter);
 extern u8 HalQueryTxBufferStatus8723BSdio(struct adapter *padapter);
 extern void HalQueryTxOQTBufferStatus8723BSdio(struct adapter *padapter);
 #endif /*  !__SDIO_OPS_H__ */

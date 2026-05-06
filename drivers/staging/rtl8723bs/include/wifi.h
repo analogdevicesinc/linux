@@ -275,10 +275,7 @@ static inline unsigned char *get_hdr_bssid(unsigned char *pframe)
 
 static inline int IsFrameTypeCtrl(unsigned char *pframe)
 {
-	if (WIFI_CTRL_TYPE == GetFrameType(pframe))
-		return true;
-	else
-		return false;
+	return GetFrameType(pframe) == WIFI_CTRL_TYPE;
 }
 /*-----------------------------------------------------------------------------
 			Below is for the security related definition
@@ -448,17 +445,6 @@ enum p2p_wpsinfo {
 struct regd_pair_mapping {
 	u16 reg_dmnenum;
 	u16 reg_2ghz_ctl;
-};
-
-struct rtw_regulatory {
-	char alpha2[2];
-	u16 country_code;
-	u16 max_power_level;
-	u32 tp_scale;
-	u16 current_rd;
-	u16 current_rd_ext;
-	int16_t power_limit;
-	struct regd_pair_mapping *regpair;
 };
 
 #endif /*  _WIFI_H_ */

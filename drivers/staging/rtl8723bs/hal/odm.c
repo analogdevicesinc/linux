@@ -380,12 +380,9 @@ static void FindMinimumRSSI(struct adapter *padapter)
 
 	/* 1 1.Determine the minimum RSSI */
 
-	if (
-		(pDM_Odm->bLinked != true) &&
-		(pdmpriv->EntryMinUndecoratedSmoothedPWDB == 0)
-	) {
+	if (!pDM_Odm->bLinked && (pdmpriv->EntryMinUndecoratedSmoothedPWDB == 0))
 		pdmpriv->MinUndecoratedPWDBForDM = 0;
-	} else
+	else
 		pdmpriv->MinUndecoratedPWDBForDM = pdmpriv->EntryMinUndecoratedSmoothedPWDB;
 }
 
@@ -400,7 +397,7 @@ static void odm_RSSIMonitorCheckCE(struct dm_odm_t *pDM_Odm)
 	u32 PWDB_rssi[NUM_STA] = {0};/* 0~15]:MACID, [16~31]:PWDB_rssi */
 	struct ra_t *pRA_Table = &pDM_Odm->DM_RA_Table;
 
-	if (pDM_Odm->bLinked != true)
+	if (!pDM_Odm->bLinked)
 		return;
 
 	pRA_Table->firstconnect = pDM_Odm->bLinked;
@@ -431,7 +428,7 @@ static void odm_RSSIMonitorCheckCE(struct dm_odm_t *pDM_Odm)
 
 		for (i = 0; i < sta_cnt; i++) {
 			if (PWDB_rssi[i] != (0)) {
-				if (pHalData->fw_ractrl == true)/*  Report every sta's RSSI to FW */
+				if (pHalData->fw_ractrl)/*  Report every sta's RSSI to FW */
 					rtl8723b_set_rssi_cmd(Adapter, (u8 *)(&PWDB_rssi[i]));
 			}
 		}
@@ -623,7 +620,7 @@ void ODM_DMWatchdog(struct dm_odm_t *pDM_Odm)
 	}
 	odm_CCKPacketDetectionThresh(pDM_Odm);
 
-	if (*(pDM_Odm->pbPowerSaving) == true)
+	if (*pDM_Odm->pbPowerSaving)
 		return;
 
 

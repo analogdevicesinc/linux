@@ -47,35 +47,17 @@
 #define BIT30	0x40000000
 #define BIT31	0x80000000
 #define BIT32	0x0100000000
-#define BIT33	0x0200000000
-#define BIT34	0x0400000000
-#define BIT35	0x0800000000
-#define BIT36	0x1000000000
 
 extern int RTW_STATUS_CODE(int error_code);
-
-void _kfree(u8 *pbuf, u32 sz);
 
 int _rtw_netif_rx(struct net_device *ndev, struct sk_buff *skb);
 
 #define rtw_netif_rx(ndev, skb) _rtw_netif_rx(ndev, skb)
 
-extern void _rtw_init_queue(struct __queue	*pqueue);
-
 static inline void flush_signals_thread(void)
 {
 	if (signal_pending(current))
 		flush_signals(current);
-}
-
-#define rtw_warn_on(condition) WARN_ON(condition)
-
-static inline int rtw_bug_check(void *parg1, void *parg2, void *parg3, void *parg4)
-{
-	int ret = true;
-
-	return ret;
-
 }
 
 #define _RND(sz, r) ((((sz)+((r)-1))/(r))*(r))
@@ -100,10 +82,5 @@ bool rtw_cbuf_push(struct rtw_cbuf *cbuf, void *buf);
 void *rtw_cbuf_pop(struct rtw_cbuf *cbuf);
 struct rtw_cbuf *rtw_cbuf_alloc(u32 size);
 
-/*  String handler */
-/*
- * Write formatted output to sized buffer
- */
-#define rtw_sprintf(buf, size, format, arg...)	snprintf(buf, size, format, ##arg)
 
 #endif

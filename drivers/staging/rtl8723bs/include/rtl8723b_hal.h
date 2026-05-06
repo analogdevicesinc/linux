@@ -118,7 +118,6 @@ struct rt_firmware_hdr {
 #define WMM_NORMAL_PAGE_NUM_LPQ_8723B 0x20
 #define WMM_NORMAL_PAGE_NUM_NPQ_8723B 0x20
 
-#include "HalVerDef.h"
 #include "hal_com.h"
 
 #define EFUSE_OOB_PROTECT_BYTES 15
