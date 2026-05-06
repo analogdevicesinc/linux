@@ -24650,6 +24650,7 @@ S:	Maintained
 F:	fs/smb/client/smbdirect.*
 F:	fs/smb/smbdirect/
 F:	fs/smb/server/transport_rdma.*
+F:	include/linux/smbdirect.h
 
 SMC91x ETHERNET DRIVER
 M:	Nicolas Pitre <nico@fluxnic.net>
