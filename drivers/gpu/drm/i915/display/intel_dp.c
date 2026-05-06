@@ -1234,28 +1234,11 @@ int intel_dp_output_format_link_bpp_x16(enum intel_output_format output_format, 
 	return fxp_q4_from_int(pipe_bpp);
 }
 
-static enum intel_output_format
-intel_dp_sink_format(struct intel_connector *connector,
-		     const struct drm_display_mode *mode)
-{
-	const struct drm_display_info *info = &connector->base.display_info;
-
-	if (drm_mode_is_420_only(info, mode))
-		return INTEL_OUTPUT_FORMAT_YCBCR420;
-
-	return INTEL_OUTPUT_FORMAT_RGB;
-}
-
 static int
 intel_dp_mode_min_link_bpp_x16(struct intel_connector *connector,
-			       const struct drm_display_mode *mode)
+			       const struct drm_display_mode *mode,
+			       enum intel_output_format output_format)
 {
-	enum intel_output_format output_format, sink_format;
-
-	sink_format = intel_dp_sink_format(connector, mode);
-
-	output_format = intel_dp_output_format(connector, sink_format);
-
 	return intel_dp_output_format_link_bpp_x16(output_format,
 						   intel_dp_min_bpp(output_format));
 }
@@ -1317,23 +1300,29 @@ intel_dp_tmds_clock_valid(struct intel_dp *intel_dp,
 	return MODE_OK;
 }
 
+static int frl_required_bw(int clock, int bpc,
+			   enum intel_output_format sink_format)
+{
+	if (sink_format == INTEL_OUTPUT_FORMAT_YCBCR420)
+		clock /= 2;
+
+	return clock * bpc * 3;
+}
+
 static enum drm_mode_status
 intel_dp_mode_valid_downstream(struct intel_connector *connector,
 			       const struct drm_display_mode *mode,
-			       int target_clock)
+			       int target_clock,
+			       enum intel_output_format sink_format)
 {
 	struct intel_dp *intel_dp = intel_attached_dp(connector);
-	const struct drm_display_info *info = &connector->base.display_info;
-	enum drm_mode_status status;
-	enum intel_output_format sink_format;
 
 	/* If PCON supports FRL MODE, check FRL bandwidth constraints */
 	if (intel_dp->dfp.pcon_max_frl_bw) {
-		int link_bpp_x16 = intel_dp_mode_min_link_bpp_x16(connector, mode);
-		int target_bw;
-		int max_frl_bw;
+		int target_bw, max_frl_bw;
 
-		target_bw = fxp_q4_to_int_roundup(link_bpp_x16) * target_clock;
+		/* Assume 8bpc for the FRL bandwidth check */
+		target_bw = frl_required_bw(target_clock, 8, sink_format);
 
 		max_frl_bw = intel_dp->dfp.pcon_max_frl_bw;
 
@@ -1350,25 +1339,36 @@ intel_dp_mode_valid_downstream(struct intel_connector *connector,
 	    target_clock > intel_dp->dfp.max_dotclock)
 		return MODE_CLOCK_HIGH;
 
-	sink_format = intel_dp_sink_format(connector, mode);
-
 	/* Assume 8bpc for the DP++/HDMI/DVI TMDS clock check */
-	status = intel_dp_tmds_clock_valid(intel_dp, target_clock,
-					   8, sink_format, true);
+	return intel_dp_tmds_clock_valid(intel_dp, target_clock,
+					 8, sink_format, true);
+}
 
-	if (status != MODE_OK) {
-		if (sink_format == INTEL_OUTPUT_FORMAT_YCBCR420 ||
-		    !connector->base.ycbcr_420_allowed ||
-		    !drm_mode_is_420_also(info, mode))
-			return status;
-		sink_format = INTEL_OUTPUT_FORMAT_YCBCR420;
-		status = intel_dp_tmds_clock_valid(intel_dp, target_clock,
-						   8, sink_format, true);
-		if (status != MODE_OK)
-			return status;
+static enum drm_mode_status
+intel_dp_sink_format_valid(struct intel_connector *connector,
+			   const struct drm_display_mode *mode,
+			   enum intel_output_format sink_format)
+{
+	struct intel_dp *intel_dp = intel_attached_dp(connector);
+	const struct drm_display_info *info = &connector->base.display_info;
+
+	switch (sink_format) {
+	case INTEL_OUTPUT_FORMAT_YCBCR420:
+		if (intel_dp->dfp.min_tmds_clock &&
+		    !intel_dp_has_hdmi_sink(intel_dp))
+			return MODE_NO_420;
+
+		if (!connector->base.ycbcr_420_allowed ||
+		    !drm_mode_is_420(info, mode))
+			return MODE_NO_420;
+
+		return MODE_OK;
+	case INTEL_OUTPUT_FORMAT_RGB:
+		return MODE_OK;
+	default:
+		MISSING_CASE(sink_format);
+		return MODE_BAD;
 	}
-
-	return MODE_OK;
 }
 
 int intel_dp_max_hdisplay_per_pipe(struct intel_display *display)
@@ -1442,15 +1442,14 @@ bool intel_dp_dotclk_valid(struct intel_display *display,
 }
 
 static enum drm_mode_status
-intel_dp_mode_valid(struct drm_connector *_connector,
-		    const struct drm_display_mode *mode)
+intel_dp_mode_valid_format(struct intel_connector *connector,
+			   const struct drm_display_mode *mode,
+			   int target_clock,
+			   enum intel_output_format sink_format)
 {
-	struct intel_display *display = to_intel_display(_connector->dev);
-	struct intel_connector *connector = to_intel_connector(_connector);
+	struct intel_display *display = to_intel_display(connector);
 	struct intel_dp *intel_dp = intel_attached_dp(connector);
-	enum intel_output_format sink_format, output_format;
-	const struct drm_display_mode *fixed_mode;
-	int target_clock = mode->clock;
+	enum intel_output_format output_format;
 	int max_rate, mode_rate, max_lanes, max_link_clock;
 	u16 dsc_max_compressed_bpp = 0;
 	enum drm_mode_status status;
@@ -1458,29 +1457,10 @@ intel_dp_mode_valid(struct drm_connector *_connector,
 	int num_joined_pipes;
 	int link_bpp_x16;
 
-	status = intel_cpu_transcoder_mode_valid(display, mode);
+	status = intel_dp_sink_format_valid(connector, mode, sink_format);
 	if (status != MODE_OK)
 		return status;
 
-	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
-		return MODE_H_ILLEGAL;
-
-	if (mode->clock < 10000)
-		return MODE_CLOCK_LOW;
-
-	if (intel_dp_hdisplay_bad(display, mode->hdisplay))
-		return MODE_H_ILLEGAL;
-
-	fixed_mode = intel_panel_fixed_mode(connector, mode);
-	if (intel_dp_is_edp(intel_dp) && fixed_mode) {
-		status = intel_panel_mode_valid(connector, mode);
-		if (status != MODE_OK)
-			return status;
-
-		target_clock = fixed_mode->clock;
-	}
-
-	sink_format = intel_dp_sink_format(connector, mode);
 	output_format = intel_dp_output_format(connector, sink_format);
 
 	max_link_clock = intel_dp_max_link_rate(intel_dp);
@@ -1488,7 +1468,8 @@ intel_dp_mode_valid(struct drm_connector *_connector,
 
 	max_rate = intel_dp_max_link_data_rate(intel_dp, max_link_clock, max_lanes);
 
-	link_bpp_x16 = intel_dp_mode_min_link_bpp_x16(connector, mode);
+	link_bpp_x16 = intel_dp_mode_min_link_bpp_x16(connector, mode,
+						      output_format);
 	mode_rate = intel_dp_link_required(max_link_clock, max_lanes,
 					   target_clock, mode->hdisplay,
 					   link_bpp_x16, 0);
@@ -1578,7 +1559,70 @@ intel_dp_mode_valid(struct drm_connector *_connector,
 	if (status != MODE_OK)
 		return status;
 
-	return intel_dp_mode_valid_downstream(connector, mode, target_clock);
+	return intel_dp_mode_valid_downstream(connector, mode,
+					      target_clock, sink_format);
+}
+
+static enum drm_mode_status
+intel_dp_mode_valid(struct drm_connector *_connector,
+		    const struct drm_display_mode *mode)
+{
+	struct intel_display *display = to_intel_display(_connector->dev);
+	struct intel_connector *connector = to_intel_connector(_connector);
+	const struct drm_display_info *info = &connector->base.display_info;
+	struct intel_dp *intel_dp = intel_attached_dp(connector);
+	const struct drm_display_mode *fixed_mode;
+	int target_clock = mode->clock;
+	enum drm_mode_status status;
+
+	status = intel_cpu_transcoder_mode_valid(display, mode);
+	if (status != MODE_OK)
+		return status;
+
+	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
+		return MODE_H_ILLEGAL;
+
+	if (mode->clock < 10000)
+		return MODE_CLOCK_LOW;
+
+	if (intel_dp_hdisplay_bad(display, mode->hdisplay))
+		return MODE_H_ILLEGAL;
+
+	fixed_mode = intel_panel_fixed_mode(connector, mode);
+	if (intel_dp_is_edp(intel_dp) && fixed_mode) {
+		status = intel_panel_mode_valid(connector, mode);
+		if (status != MODE_OK)
+			return status;
+
+		target_clock = fixed_mode->clock;
+	}
+
+	/*
+	 * TODO: Even when using a 4:2:0 sink_format intel_dp_output_format()
+	 * will always choose a 4:4:4 output_format if the DFP can do the
+	 * 4:4:4->4:2:0 conversion for us. Thus a mode may still be rejected
+	 * if we only have enough DP link bandwidth for 4:2:0 but not for
+	 * 4:4:4. Another attempt with an explicit 4:2:0 output_format might
+	 * be needed here. intel_dp_compute_config() would need the same
+	 * logic, or else the actual modeset would still fail.
+	 *
+	 * Also a lot of the checks only depend on output_format but not
+	 * sink_format, so we are potentially doing redundant work by
+	 * testing the same output_format for two different sink_formats.
+	 */
+	if (drm_mode_is_420_only(info, mode)) {
+		status = intel_dp_mode_valid_format(connector, mode, target_clock,
+						    INTEL_OUTPUT_FORMAT_YCBCR420);
+	} else {
+		status = intel_dp_mode_valid_format(connector, mode, target_clock,
+						    INTEL_OUTPUT_FORMAT_RGB);
+
+		if (status != MODE_OK && drm_mode_is_420_also(info, mode))
+			status = intel_dp_mode_valid_format(connector, mode, target_clock,
+							    INTEL_OUTPUT_FORMAT_YCBCR420);
+	}
+
+	return status;
 }
 
 bool intel_dp_source_supports_tps3(struct intel_display *display)
@@ -3124,6 +3168,21 @@ static void intel_dp_compute_vsc_colorimetry(const struct intel_crtc_state *crtc
 	vsc->content_type = DP_CONTENT_TYPE_NOT_DEFINED;
 }
 
+static bool intel_dp_needs_as_sdp(struct intel_dp *intel_dp,
+				  struct intel_crtc_state *crtc_state)
+{
+	if (!intel_dp->as_sdp_supported)
+		return false;
+
+	/*
+	 * #TODO Implement AS SDP for DP branch device.
+	 */
+	if (drm_dp_is_branch(intel_dp->dpcd))
+		return false;
+
+	return crtc_state->vrr.enable;
+}
+
 static void intel_dp_compute_as_sdp(struct intel_dp *intel_dp,
 				    struct intel_crtc_state *crtc_state)
 {
@@ -3131,7 +3190,12 @@ static void intel_dp_compute_as_sdp(struct intel_dp *intel_dp,
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->hw.adjusted_mode;
 
-	if (!crtc_state->vrr.enable || !intel_dp->as_sdp_supported)
+	/*
+	 * #FIXME: SDP/infoframe updates aren’t truly atomic, and with the new
+	 * cdclk->tc clock crossing we may transiently send a corrupted packet
+	 * if the update lands mid‑transmission.
+	 */
+	if (!intel_dp_needs_as_sdp(intel_dp, crtc_state))
 		return;
 
 	crtc_state->infoframes.enable |= intel_hdmi_infoframe_enable(DP_SDP_ADAPTIVE_SYNC);
@@ -3330,41 +3394,59 @@ static int
 intel_dp_compute_output_format(struct intel_encoder *encoder,
 			       struct intel_crtc_state *crtc_state,
 			       struct drm_connector_state *conn_state,
-			       bool respect_downstream_limits)
+			       bool respect_downstream_limits,
+			       enum intel_output_format sink_format)
+{
+	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
+	struct intel_connector *connector = intel_dp->attached_connector;
+	const struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
+
+	if (intel_dp_sink_format_valid(connector, adjusted_mode,
+				       sink_format) != MODE_OK)
+		return -EINVAL;
+
+	crtc_state->sink_format = sink_format;
+	crtc_state->output_format = intel_dp_output_format(connector, crtc_state->sink_format);
+
+	return intel_dp_compute_link_config(encoder, crtc_state, conn_state,
+					    respect_downstream_limits);
+}
+
+static int
+intel_dp_compute_formats(struct intel_encoder *encoder,
+			 struct intel_crtc_state *crtc_state,
+			 struct drm_connector_state *conn_state,
+			 bool respect_downstream_limits)
 {
 	struct intel_display *display = to_intel_display(encoder);
 	struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 	struct intel_connector *connector = intel_dp->attached_connector;
 	const struct drm_display_info *info = &connector->base.display_info;
 	const struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
-	bool ycbcr_420_only;
 	int ret;
 
-	ycbcr_420_only = drm_mode_is_420_only(info, adjusted_mode);
+	if (drm_mode_is_420_only(info, adjusted_mode)) {
+		ret = intel_dp_compute_output_format(encoder, crtc_state, conn_state,
+						     respect_downstream_limits,
+						     INTEL_OUTPUT_FORMAT_YCBCR420);
 
-	if (ycbcr_420_only && !connector->base.ycbcr_420_allowed) {
-		drm_dbg_kms(display->drm,
-			    "YCbCr 4:2:0 mode but YCbCr 4:2:0 output not possible. Falling back to RGB.\n");
-		crtc_state->sink_format = INTEL_OUTPUT_FORMAT_RGB;
+		if (ret && !respect_downstream_limits) {
+			drm_dbg_kms(display->drm,
+				    "YCbCr 4:2:0 mode but YCbCr 4:2:0 output not possible. Falling back to RGB.\n");
+
+			ret = intel_dp_compute_output_format(encoder, crtc_state, conn_state,
+							     respect_downstream_limits,
+							     INTEL_OUTPUT_FORMAT_RGB);
+		}
 	} else {
-		crtc_state->sink_format = intel_dp_sink_format(connector, adjusted_mode);
-	}
+		ret = intel_dp_compute_output_format(encoder, crtc_state, conn_state,
+						     respect_downstream_limits,
+						     INTEL_OUTPUT_FORMAT_RGB);
 
-	crtc_state->output_format = intel_dp_output_format(connector, crtc_state->sink_format);
-
-	ret = intel_dp_compute_link_config(encoder, crtc_state, conn_state,
-					   respect_downstream_limits);
-	if (ret) {
-		if (crtc_state->sink_format == INTEL_OUTPUT_FORMAT_YCBCR420 ||
-		    !connector->base.ycbcr_420_allowed ||
-		    !drm_mode_is_420_also(info, adjusted_mode))
-			return ret;
-
-		crtc_state->sink_format = INTEL_OUTPUT_FORMAT_YCBCR420;
-		crtc_state->output_format = intel_dp_output_format(connector,
-								   crtc_state->sink_format);
-		ret = intel_dp_compute_link_config(encoder, crtc_state, conn_state,
-						   respect_downstream_limits);
+		if (ret && drm_mode_is_420_also(info, adjusted_mode))
+			ret = intel_dp_compute_output_format(encoder, crtc_state, conn_state,
+							     respect_downstream_limits,
+							     INTEL_OUTPUT_FORMAT_YCBCR420);
 	}
 
 	return ret;
@@ -3539,18 +3621,15 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 	 * Try to respect downstream TMDS clock limits first, if
 	 * that fails assume the user might know something we don't.
 	 */
-	ret = intel_dp_compute_output_format(encoder, pipe_config, conn_state, true);
+	ret = intel_dp_compute_formats(encoder, pipe_config, conn_state, true);
 	if (ret)
-		ret = intel_dp_compute_output_format(encoder, pipe_config, conn_state, false);
+		ret = intel_dp_compute_formats(encoder, pipe_config, conn_state, false);
 	if (ret)
 		return ret;
 
-	if ((intel_dp_is_edp(intel_dp) && fixed_mode) ||
-	    pipe_config->output_format == INTEL_OUTPUT_FORMAT_YCBCR420) {
-		ret = intel_pfit_compute_config(pipe_config, conn_state);
-		if (ret)
-			return ret;
-	}
+	ret = intel_pfit_compute_config(pipe_config, conn_state);
+	if (ret)
+		return ret;
 
 	pipe_config->limited_color_range =
 		intel_dp_limited_color_range(pipe_config, conn_state);
@@ -4505,7 +4584,7 @@ void intel_dp_get_dsc_sink_cap(u8 dpcd_rev,
 
 	if (drm_dp_dpcd_readb(connector->dp.dsc_decompression_aux, DP_FEC_CAPABILITY,
 			      &connector->dp.fec_capability) < 0) {
-		drm_err(display->drm, "Failed to read FEC DPCD register\n");
+		drm_dbg_kms(display->drm, "Could not read FEC DPCD register\n");
 		return;
 	}
 

@@ -254,16 +254,16 @@ static int dpi_send_cmd(struct intel_dsi *intel_dsi, u32 cmd, bool hs,
 
 static void band_gap_reset(struct intel_display *display)
 {
-	vlv_flisdsi_get(display->drm);
+	vlv_flisdsi_get(display);
 
-	vlv_flisdsi_write(display->drm, 0x08, 0x0001);
-	vlv_flisdsi_write(display->drm, 0x0F, 0x0005);
-	vlv_flisdsi_write(display->drm, 0x0F, 0x0025);
+	vlv_flisdsi_write(display, 0x08, 0x0001);
+	vlv_flisdsi_write(display, 0x0F, 0x0005);
+	vlv_flisdsi_write(display, 0x0F, 0x0025);
 	udelay(150);
-	vlv_flisdsi_write(display->drm, 0x0F, 0x0000);
-	vlv_flisdsi_write(display->drm, 0x08, 0x0000);
+	vlv_flisdsi_write(display, 0x0F, 0x0000);
+	vlv_flisdsi_write(display, 0x08, 0x0000);
 
-	vlv_flisdsi_put(display->drm);
+	vlv_flisdsi_put(display);
 }
 
 static int intel_dsi_compute_config(struct intel_encoder *encoder,
@@ -461,11 +461,11 @@ static void vlv_dsi_device_ready(struct intel_encoder *encoder)
 
 	drm_dbg_kms(display->drm, "\n");
 
-	vlv_flisdsi_get(display->drm);
+	vlv_flisdsi_get(display);
 	/* program rcomp for compliance, reduce from 50 ohms to 45 ohms
 	 * needed everytime after power gate */
-	vlv_flisdsi_write(display->drm, 0x04, 0x0004);
-	vlv_flisdsi_put(display->drm);
+	vlv_flisdsi_write(display, 0x04, 0x0004);
+	vlv_flisdsi_put(display);
 
 	/* bandgap reset is needed after everytime we do power gate */
 	band_gap_reset(display);

@@ -2458,6 +2458,10 @@ void dg1_de_irq_postinstall(struct intel_display *display)
 	intel_de_write(display, GEN11_DISPLAY_INT_CTL, GEN11_DISPLAY_IRQ_ENABLE);
 }
 
+struct intel_display_irq_funcs {
+	void (*reset)(struct intel_display *display);
+};
+
 void intel_display_irq_init(struct intel_display *display)
 {
 	spin_lock_init(&display->irq.lock);

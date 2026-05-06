@@ -19,6 +19,7 @@ static inline struct intel_uncore *__to_uncore(struct intel_display *display)
 
 u8 intel_de_read8(struct intel_display *display, i915_reg_t reg);
 void intel_de_write8(struct intel_display *display, i915_reg_t reg, u8 val);
+u16 intel_de_read16(struct intel_display *display, i915_reg_t reg);
 
 static inline u32
 intel_de_read(struct intel_display *display, i915_reg_t reg)
@@ -35,8 +36,8 @@ intel_de_read(struct intel_display *display, i915_reg_t reg)
 }
 
 static inline u64
-intel_de_read64_2x32(struct intel_display *display,
-		     i915_reg_t lower_reg, i915_reg_t upper_reg)
+intel_de_read64_2x32_volatile(struct intel_display *display,
+			      i915_reg_t lower_reg, i915_reg_t upper_reg)
 {
 	u64 val;
 
@@ -50,6 +51,18 @@ intel_de_read64_2x32(struct intel_display *display,
 	intel_dmc_wl_put(display, lower_reg);
 
 	return val;
+}
+
+static inline u64
+intel_de_read64_2x32(struct intel_display *display, i915_reg_t reg)
+{
+	i915_reg_t upper_reg = _MMIO(i915_mmio_reg_offset(reg) + 4);
+	u32 lower, upper;
+
+	lower = intel_de_read(display, reg);
+	upper = intel_de_read(display, upper_reg);
+
+	return (u64)upper << 32 | lower;
 }
 
 static inline void

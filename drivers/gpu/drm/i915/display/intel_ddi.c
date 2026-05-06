@@ -140,7 +140,7 @@ void hsw_prepare_dp_ddi_buffers(struct intel_encoder *encoder,
 	enum port port = encoder->port;
 	const struct intel_ddi_buf_trans *trans;
 
-	trans = encoder->get_buf_trans(encoder, crtc_state, &n_entries);
+	trans = intel_ddi_buf_trans_get(encoder, crtc_state, &n_entries);
 	if (drm_WARN_ON_ONCE(display->drm, !trans))
 		return;
 
@@ -172,7 +172,7 @@ static void hsw_prepare_hdmi_ddi_buffers(struct intel_encoder *encoder,
 	enum port port = encoder->port;
 	const struct intel_ddi_buf_trans *trans;
 
-	trans = encoder->get_buf_trans(encoder, crtc_state, &n_entries);
+	trans = intel_ddi_buf_trans_get(encoder, crtc_state, &n_entries);
 	if (drm_WARN_ON_ONCE(display->drm, !trans))
 		return;
 
@@ -1106,7 +1106,7 @@ static void skl_ddi_set_iboost(struct intel_encoder *encoder,
 		const struct intel_ddi_buf_trans *trans;
 		int n_entries;
 
-		trans = encoder->get_buf_trans(encoder, crtc_state, &n_entries);
+		trans = intel_ddi_buf_trans_get(encoder, crtc_state, &n_entries);
 		if (drm_WARN_ON_ONCE(display->drm, !trans))
 			return;
 
@@ -1132,7 +1132,7 @@ static u8 intel_ddi_dp_voltage_max(struct intel_dp *intel_dp,
 	struct intel_encoder *encoder = &dp_to_dig_port(intel_dp)->base;
 	int n_entries;
 
-	encoder->get_buf_trans(encoder, crtc_state, &n_entries);
+	intel_ddi_buf_trans_get(encoder, crtc_state, &n_entries);
 
 	if (drm_WARN_ON(display->drm, n_entries < 1))
 		n_entries = 1;
@@ -1175,7 +1175,7 @@ static void icl_ddi_combo_vswing_program(struct intel_encoder *encoder,
 	int n_entries, ln;
 	u32 val;
 
-	trans = encoder->get_buf_trans(encoder, crtc_state, &n_entries);
+	trans = intel_ddi_buf_trans_get(encoder, crtc_state, &n_entries);
 	if (drm_WARN_ON_ONCE(display->drm, !trans))
 		return;
 
@@ -1293,7 +1293,7 @@ static void icl_mg_phy_set_signal_levels(struct intel_encoder *encoder,
 	if (intel_tc_port_in_tbt_alt_mode(enc_to_dig_port(encoder)))
 		return;
 
-	trans = encoder->get_buf_trans(encoder, crtc_state, &n_entries);
+	trans = intel_ddi_buf_trans_get(encoder, crtc_state, &n_entries);
 	if (drm_WARN_ON_ONCE(display->drm, !trans))
 		return;
 
@@ -1394,7 +1394,7 @@ static void tgl_dkl_phy_set_signal_levels(struct intel_encoder *encoder,
 	if (intel_tc_port_in_tbt_alt_mode(enc_to_dig_port(encoder)))
 		return;
 
-	trans = encoder->get_buf_trans(encoder, crtc_state, &n_entries);
+	trans = intel_ddi_buf_trans_get(encoder, crtc_state, &n_entries);
 	if (drm_WARN_ON_ONCE(display->drm, !trans))
 		return;
 
@@ -1511,7 +1511,7 @@ int intel_ddi_level(struct intel_encoder *encoder,
 	const struct intel_ddi_buf_trans *trans;
 	int level, n_entries;
 
-	trans = encoder->get_buf_trans(encoder, crtc_state, &n_entries);
+	trans = intel_ddi_buf_trans_get(encoder, crtc_state, &n_entries);
 	if (drm_WARN_ON_ONCE(display->drm, !trans))
 		return 0;
 

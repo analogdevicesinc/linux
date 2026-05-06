@@ -721,7 +721,10 @@ static int mst_stream_compute_config(struct intel_encoder *encoder,
 
 	pipe_config->sink_format = INTEL_OUTPUT_FORMAT_RGB;
 	pipe_config->output_format = INTEL_OUTPUT_FORMAT_RGB;
-	pipe_config->has_pch_encoder = false;
+
+	ret = intel_pfit_compute_config(pipe_config, conn_state);
+	if (ret)
+		return ret;
 
 	for_each_joiner_candidate(connector, adjusted_mode, num_joined_pipes) {
 		if (num_joined_pipes > 1)
@@ -2144,7 +2147,7 @@ void intel_dp_mst_prepare_probe(struct intel_dp *intel_dp)
 
 	intel_dp_link_training_set_mode(intel_dp, link_rate, false);
 	intel_dp_link_training_set_bw(intel_dp, link_bw, rate_select, lane_count,
-				      drm_dp_enhanced_frame_cap(intel_dp->dpcd));
+				      drm_dp_enhanced_frame_cap(intel_dp->dpcd), false);
 
 	intel_mst_set_probed_link_params(intel_dp, link_rate, lane_count);
 }

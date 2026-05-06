@@ -506,6 +506,14 @@ static void pipedmc_clock_gating_wa(struct intel_display *display, bool enable)
 static u32 pipedmc_interrupt_mask(struct intel_display *display)
 {
 	/*
+	 * TODO: Check if PIPEDMC_ERROR bit enabling causes errors
+	 * on PTL, enable it if validation passes
+	 */
+	if (DISPLAY_VER(display) >= 35)
+		return PIPEDMC_FLIPQ_PROG_DONE |
+			PIPEDMC_ERROR;
+
+	/*
 	 * FIXME PIPEDMC_ERROR not enabled for now due to LNL pipe B
 	 * triggering it during the first DC state transition. Figure
 	 * out what is going on...
@@ -1574,10 +1582,10 @@ void intel_dmc_update_dc6_allowed_count(struct intel_display *display,
 	struct intel_dmc *dmc = display_to_dmc(display);
 	u32 dc5_cur_count;
 
-	if (DISPLAY_VER(dmc->display) < 14)
+	if (DISPLAY_VER(display) < 14)
 		return;
 
-	dc5_cur_count = intel_de_read(dmc->display, DG1_DMC_DEBUG_DC5_COUNT);
+	dc5_cur_count = intel_de_read(display, DG1_DMC_DEBUG_DC5_COUNT);
 
 	if (!start_tracking)
 		dmc->dc6_allowed.count += dc5_cur_count - dmc->dc6_allowed.dc5_start;

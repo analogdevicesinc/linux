@@ -70,6 +70,7 @@ static void intel_plane_state_reset(struct intel_plane_state *plane_state,
 	__drm_atomic_helper_plane_state_reset(&plane_state->uapi, &plane->base);
 
 	plane_state->scaler_id = -1;
+	plane_state->fence_id = -1;
 }
 
 struct intel_plane *intel_plane_alloc(void)
@@ -137,7 +138,7 @@ intel_plane_duplicate_state(struct drm_plane *plane)
 
 	intel_state->ggtt_vma = NULL;
 	intel_state->dpt_vma = NULL;
-	intel_state->flags = 0;
+	intel_state->fence_id = -1;
 	intel_state->damage = DRM_RECT_INIT(0, 0, 0, 0);
 
 	/* add reference to fb */
@@ -170,12 +171,34 @@ intel_plane_destroy_state(struct drm_plane *plane,
 	kfree(plane_state);
 }
 
+bool intel_plane_needs_low_address(struct intel_display *display)
+{
+	/*
+	 * Valleyview is definitely limited to scanning out the first
+	 * 512MiB. Lets presume this behaviour was inherited from the
+	 * g4x display engine and that all earlier gen are similarly
+	 * limited. Testing suggests that it is a little more
+	 * complicated than this. For example, Cherryview appears quite
+	 * happy to scanout from anywhere within its global aperture.
+	 */
+	return HAS_GMCH(display);
+}
+
 bool intel_plane_needs_physical(struct intel_plane *plane)
 {
 	struct intel_display *display = to_intel_display(plane);
 
 	return plane->id == PLANE_CURSOR &&
 		DISPLAY_INFO(display)->cursor_needs_physical;
+}
+
+bool intel_plane_needs_fence(struct intel_display *display)
+{
+	/*
+	 * pre-i965 planes use the fence for tiled scanout.
+	 * i965+ planes have their own tiled scanout control bit.
+	 */
+	return DISPLAY_VER(display) < 4;
 }
 
 bool intel_plane_can_async_flip(struct intel_plane *plane,
