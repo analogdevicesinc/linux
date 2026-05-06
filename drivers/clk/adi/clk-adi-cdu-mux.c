@@ -7,7 +7,6 @@
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
-#include <linux/clk-provider.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/slab.h>
