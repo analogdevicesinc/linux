@@ -137,6 +137,15 @@ noacl			 Disable POSIX Access Control List. Note: acl is enabled
 active_logs=%u		 Support configuring the number of active logs. In the
 			 current design, f2fs supports only 2, 4, and 6 logs.
 			 Default number is 6.
+			 When the underlying block device exposes write
+			 streams, the default active_logs=6 configuration
+			 maps hot, warm, and cold DATA writes to streams 1,
+			 2, and 3, respectively. If only one or two write
+			 streams are available, f2fs falls back to mapping
+			 all DATA writes to stream 1 or mapping hot/warm
+			 to stream 1 and cold to stream 2. If no write
+			 streams are exposed, f2fs leaves the stream
+			 unset.
 disable_ext_identify	 Disable the extension list configured by mkfs, so f2fs
 			 is not aware of cold files such as media files.
 inline_xattr		 Enable the inline xattrs feature.
@@ -1044,11 +1053,14 @@ page allocation for significant performance gains. To minimize code complexity,
 this support is currently excluded from the write path, which requires handling
 complex optimizations such as compression and block allocation modes.
 
-This optional feature is triggered only when a file's immutable bit is set.
-Consequently, F2FS will return EOPNOTSUPP if a user attempts to open a cached
-file with write permissions, even immediately after clearing the bit. Write
-access is only restored once the cached inode is dropped. The usage flow is
-demonstrated below:
+This optional feature is triggered by two mechanisms: the file's immutable bit
+or a specific xattr flag. In both cases, F2FS ensures data integrity by
+restricting the file to a read-only state while large folios are active.
+
+1. Immutable Bit Approach:
+Triggered when the FS_IMMUTABLE_FL is set. This is a strict enforcement
+where the file cannot be modified at all until the bit is cleared and
+the cached inode is dropped.
 
 .. code-block::
 
@@ -1078,3 +1090,31 @@ demonstrated below:
    Written 4096 bytes with pattern = zero, total_time = 29 us, max_latency = 28 us
 
    # rm /data/testfile_read_seq
+
+2. XATTR fadvise Approach:
+A more flexible registration via extended attributes.
+
+.. code-block::
+
+    enum {
+        F2FS_XATTR_FADV_LARGEFOLIO,
+    };
+    unsigned int value = BIT(F2FS_XATTR_FADV_LARGEFOLIO);
+
+    /* Registers the inode number for large folio support in the subsystem.*/
+    # setxattr(file, "user.fadvise", &value, sizeof(unsigned int), 0)
+
+    /* The file must be made Read-Only to transition into the large folio path. */
+    # fchmod(0400, fd)
+
+    /* clean up dirty inode state. */
+    # fsync(fd)
+
+    /* Drop the inode cache.
+    # close(fd)
+
+    /* f2fs_iget() instantiates the inode with large folio support.*/
+    # open()
+
+    /* Returns -EOPNOTSUPP or error to protect the large folio cache.*/
+    # open(WRITE), mkwrite on mmap, or chmod(WRITE)
