@@ -430,19 +430,6 @@
 	ti,sci-rm-range-tchan = <0x22>;
 };
 
-/* MCU domain overrides */
-
-&mcu_r5fss0_core0 {
-	firmware-name = "j722s-mcu-r5f0_0-fw";
-};
-
-/* Wakeup domain overrides */
-
-&wkup_r5fss0_core0 {
-	firmware-name = "j722s-wkup-r5f0_0-fw";
-};
-
-/* MAIN domain overrides */
 &hsm {
 	firmware-name = "j722s-hsm-m4f-fw";
 };
@@ -457,13 +444,6 @@
 	};
 };
 
-&wkup_conf {
-	pcie0_ctrl: pcie0-ctrl@4070 {
-		compatible = "ti,j784s4-pcie-ctrl", "syscon";
-		reg = <0x4070 0x4>;
-	};
-};
-
 &oc_sram {
 	reg = <0x00 0x70000000 0x00 0x40000>;
 	ranges = <0x00 0x00 0x70000000 0x40000>;
@@ -471,6 +451,10 @@
 
 &inta_main_dmss {
 	ti,interrupt-ranges = <7 71 21>;
+};
+
+&main_pmx0 {
+	compatible = "ti,j7200-padconf", "pinctrl-single";
 };
 
 &main_gpio0 {
