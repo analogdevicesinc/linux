@@ -12,7 +12,7 @@ on:
 
 jobs:
   build-doc:
-    runs-on: ${{ fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
     permissions:
       contents: read
 

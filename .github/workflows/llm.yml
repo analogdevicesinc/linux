@@ -59,7 +59,7 @@ on:
 
 jobs:
   llm:
-    runs-on: ${{ fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
     permissions:
       contents: read
       checks: read

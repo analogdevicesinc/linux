@@ -9,7 +9,7 @@ on:
 
 jobs:
   mirror:
-    runs-on: ${{ fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
 
     steps:
     - uses: analogdevicesinc/doctools/checkout@action

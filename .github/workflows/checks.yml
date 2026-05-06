@@ -26,7 +26,7 @@ on:
 jobs:
   checks:
     timeout-minutes: 7200
-    runs-on: ${{ fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
     continue-on-error: true
 
     outputs:
