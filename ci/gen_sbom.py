@@ -17,7 +17,7 @@ import re
 import sys
 import uuid
 
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from os import path, sep, environ
 
 org_name  = "Analog Devices Inc."
@@ -79,9 +79,12 @@ def get_artifact(ctx):
     return f"{defconfig}-{compiler_name}-{arch}"
 
 def get_purl_src(ctx):
-    git_sha = ctx.get("git_sha", "")
+    stable_tag = ctx.get("kernel_release", "")
+    if stable_tag.endswith('+'):
+        stable_tag = stable_tag[:-1]
+    stable_tag = f"v{stable_tag}"
 
-    return f"pkg:generic/analog/linux@{git_sha}"
+    return f"pkg:github/gregkh/linux@{stable_tag}"
 
 def get_purl_out(ctx):
     kernel_release   = ctx.get("kernel_release", "")
@@ -109,7 +112,17 @@ def get_purl_out(ctx):
 
     qualifiers_ = '&'.join(qualifiers_)
 
-    return f"pkg:generic/analog/linux@{kernel_release}?{qualifiers_}"
+    repository = "analog/linux"
+    git_url = environ.get('GIT_URL', '')
+    if git_url != '':
+        if git_url.startswith('git@') or git_url.startswith('ssh://'):
+            path_ = re.split(r'[:/]', git_url.split('@', 1)[-1])
+        else:
+            path_ = urlparse(git_url).path.strip('/').split('/')
+        if len(path_) >= 2:
+            repository = f"{path_[-2]}/{path_[-1].removesuffix('.git')}"
+
+    return f"pkg:github/{repository}@{kernel_release}?{qualifiers_}"
 
 def get_name(ctx):
     return "Linux Kernel"
