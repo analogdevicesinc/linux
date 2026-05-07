@@ -299,7 +299,7 @@ download_artifacts() {
 	[[ $ref == refs/heads/* ]] && event="push"
 	[[ $ref == refs/pull/* ]] && event="pull_request"
 	[[ $ref == refs/heads/* ]] || [[ $ref == refs/tags/* ]] || [[ $ref == refs/pull/* ]] && \
-		git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" "tag:on/${event}+tag:${ref}") || git_sha=${ref:0:12}
+		git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" "tag:on/${event}+tag:${ref}") || git_sha="$ref"
 
 	[[ -z "$cloudsmith_token" ]] && cloudsmith_token="$CLOUDSMITH_API_KEY"
 	[[ -z "$cloudsmith_token" ]] && { log_warn "CLOUDSMITH_API_KEY is not set, only public artifacts will be accessible." ; } || :
