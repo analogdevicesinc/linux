@@ -226,4 +226,5 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADF4382
 	imply AXI_AION_TRIG
 	imply AD9088
+	imply ADRV904X
 
