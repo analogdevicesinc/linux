@@ -10,111 +10,105 @@ maintainers:
   - Carlos Jones Jr <carlosjr.jones@analog.com>
 
 description: |
-  Analog Devices LTC4284 High Power Negative Voltage Hot Swap Controller
-  with Energy Monitor. The device is designed for high power negative
-  voltage hot swap applications, primarily in -48V distributed power systems.
+  The LTC4284 is a high power negative voltage hot swap controller with an
+  integrated energy monitor. It provides voltage, current, power, and energy
+  monitoring with multiple auxiliary ADC channels.
 
-  https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4284.pdf
+  Datasheet:
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4284.pdf
 
 properties:
   compatible:
-    enum:
-      - adi,ltc4284
+    const: adi,ltc4284
 
   reg:
     maxItems: 1
 
-  vdd-supply: true
+  vin-supply:
+    description:
+      Power supply for the VIN pin (positive supply input).
+      VIN is internally regulated to 11.5V and must be bypassed with at least
+      0.1µF capacitor. For EEPROM fault logging during brown-out, use 68µF.
+
+  interrupts:
+    maxItems: 1
+    description:
+      Interrupt line connected to ALERT pin for fault notifications.
 
   adi,rsense1-nano-ohms:
-    description: Value of the first current sense resistor in nano-ohms.
+    description:
+      Value of the primary current sense resistor in nano-ohms. This resistor
+      is used for the main SENSE and SENSE1 current measurements.
 
   adi,rsense2-nano-ohms:
-    description: Value of the second current sense resistor in nano-ohms.
-
-  adi,vin-mode-microvolt:
-    description: |
-      Selects operating range for the Undervoltage, Overvoltage and ADC
-      circuits. Should be set to the nominal input voltage magnitude.
-      For negative voltage systems, specify the absolute value.
-    enum: [3300000, 5000000, 12000000, 24000000, 48000000]
-    default: 48000000
+    description:
+      Value of the secondary current sense resistor in nano-ohms. This resistor
+      is used for the SENSE2 current measurement. Optional.
 
   adi,current-limit-sense-microvolt:
-    description: |
-      The current limit sense voltage of the chip is adjustable between
-      15mV and 30mV. This effectively limits the current on the load.
-      Values are in microvolts.
+    description:
+      Current limit voltage threshold across the sense resistor in microvolts.
+      Valid range is 15000-30000 µV (15mV to 30mV) in 1mV steps. Values rounded
+      down to the nearest 1mV. This sets the overcurrent protection threshold.
+      If not specified, the value programmed in EEPROM will be used.
     minimum: 15000
     maximum: 30000
-    default: 25000
 
-  adi,operation-mode:
-    description: |
-      Configures the dual-gate operation mode of the LTC4284.
-      single: Single driver mode (Mode 1) - uses only GATE1
-      parallel: Parallel mode (Mode 2) - both gates driven together
-      staged-high-stress: High stress staged start mode (Mode 3)
-      staged-low-stress: Low stress staged start mode (Mode 4)
-    $ref: /schemas/types.yaml#/definitions/string
-    enum: [single, parallel, staged-high-stress, staged-low-stress]
-    default: parallel
+  adi,vpwr-millivolt:
+    description:
+      The actual system voltage being monitored, accounting for any external
+      resistor divider on the VPWR pin. The chip can measure up to 2.048V
+      directly, so higher voltages require a divider. Specify the actual
+      system voltage here (e.g., 48000 for a 48V system with divider).
+    default: 2048
 
-  adi,fet-bad-timeout-ms:
-    description: |
-      From the moment a FET bad condition is present, this property selects the
-      wait time/timeout for a FET-bad fault to be signaled. Setting this to 0
-      disables FET bad fault reporting.
-    minimum: 0
-    maximum: 255
-    default: 255
+  adi,adin1-millivolt:
+    description:
+      Full-scale voltage for ADIN1 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
 
-  adi,overcurrent-retry:
-    description: |
-      If set, enables the chip to auto-retry after an overcurrent fault.
-    type: boolean
+  adi,adin2-millivolt:
+    description:
+      Full-scale voltage for ADIN2 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
 
-  adi,overvoltage-retry-disable:
-    description: |
-      If set, disables the chip auto-retry after an overvoltage fault.
-      Auto-retry is enabled by default.
-    type: boolean
+  adi,adin3-millivolt:
+    description:
+      Full-scale voltage for ADIN3 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
 
-  adi,undervoltage-retry-disable:
-    description: |
-      If set, disables the chip auto-retry after an undervoltage fault.
-      Auto-retry is enabled by default.
-    type: boolean
+  adi,adin4-millivolt:
+    description:
+      Full-scale voltage for ADIN4 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
 
-  adi,inrush-control-mode:
-    description: |
-      Selects the inrush current control method during startup.
-      dvdt: dV/dt controlled startup
-      current-limit: Current limit controlled startup
-    $ref: /schemas/types.yaml#/definitions/string
-    enum: [dvdt, current-limit]
-    default: current-limit
+  adi,adio1-millivolt:
+    description:
+      Full-scale voltage for ADIO1 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
 
-  adi,fault-log-enable:
-    description: |
-      If set, enables the FAULT_LOG and ADC_ALERT_LOG registers to be written
-      to the EEPROM when a fault bit transitions high, making the fault
-      information available after a power cycle.
-    type: boolean
+  adi,adio2-millivolt:
+    description:
+      Full-scale voltage for ADIO2 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
 
-  adi,external-fault-enable:
-    description: |
-      If set, enables monitoring of external fault input for system-level
-      fault detection.
-    type: boolean
+  adi,adio3-millivolt:
+    description:
+      Full-scale voltage for ADIO3 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
 
-  adi,power-good-timeout-ms:
-    description: |
-      Timeout value for power good input watchdog timer. If power good input
-      is not asserted within this time after startup, the device will shut down.
-    minimum: 256
-    maximum: 1024
-    default: 512
+  adi,adio4-millivolt:
+    description:
+      Full-scale voltage for ADIO4 channel in millivolts, accounting for
+      any external divider.
+    default: 2048
 
 required:
   - compatible
@@ -125,21 +119,20 @@ additionalProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/irq.h>
     i2c {
         #address-cells = <1>;
         #size-cells = <0>;
 
-        ltc4284@50 {
+        hotswap@15 {
             compatible = "adi,ltc4284";
-            reg = <0x50>;
-            adi,rsense1-nano-ohms = <500000>;  /* 0.5 mOhm */
-            adi,rsense2-nano-ohms = <330000>;  /* 0.33 mOhm */
-            adi,vin-mode-microvolt = <48000000>;
-            adi,operation-mode = "parallel";
-            adi,current-limit-sense-microvolt = <25000>;
-            adi,inrush-control-mode = "current-limit";
-            adi,overcurrent-retry;
-            adi,fault-log-enable;
+            reg = <0x15>;
+            vin-supply = <&reg_12v>;
+            interrupts = <42 IRQ_TYPE_LEVEL_LOW>;
+            adi,rsense1-nano-ohms = <5000000>;  /* 5 mOhm */
+            adi,rsense2-nano-ohms = <330000>;   /* 0.33 mOhm */
+            adi,current-limit-sense-microvolt = <25000>;  /* 25mV */
+            adi,vpwr-millivolt = <48000>;  /* 48V system with divider */
         };
     };
 ...
