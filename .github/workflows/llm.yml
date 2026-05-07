@@ -1,0 +1,43 @@
+name: LLM Agent
+run-name: LLM run ${{ inputs.ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The branch, tag, PR number, or SHA to checkout"
+        required: false
+        type: string
+      prompt:
+        description: "Prompt to use, overwrites the default"
+        required: false
+        type: string
+        default: ""
+      prompt-extra:
+        description: "Extra prompt to concatenate"
+        required: false
+        type: string
+        default: ""
+      model:
+        description: Model size.
+        type: choice
+        options:
+        - small
+        - medium
+        - large
+
+jobs:
+  llm:
+    uses: analogdevicesinc/linux/.github/workflows/llm.yml@ci
+    permissions:
+      contents: read
+      checks: read
+      pull-requests: write
+    secrets:
+      PORTKEY_API_KEY: ${{ secrets.PORTKEY_API_KEY }}
+    with:
+      ref: ${{ inputs.ref }}
+      prompt: ${{ inputs.prompt }}
+      prompt-extra: ${{ inputs.prompt }}
+      model: ${{ inputs.model }}
+
