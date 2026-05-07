@@ -291,6 +291,20 @@
 		xlnx,tri-default-2 = <0xFFFFFFFF>;
 	};
 
+	axi_uart: serial@88180000 {
+		compatible = "xlnx,axi-uartlite-2.0", "xlnx,xps-uartlite-1.00.a";
+		reg = <0x0 0x88180000 0x0 0x1000>;
+		clock-names = "s_axi_aclk";
+		clocks = <&mig_clkout1>;
+		clock-frequency = <100000000>;
+		current-speed = <115200>;
+		status = "okay";
+		device_type = "serial";
+		interrupt-parent = <&axi_intc_0>;
+		interrupts = <0 1>;
+		interrupt-names = "interrupt";
+	};
+
 	axi_iic_main: i2c@88150000 {
 		clock-frequency = <100000000>;
 		clocks = <&mig_clkout1>;
