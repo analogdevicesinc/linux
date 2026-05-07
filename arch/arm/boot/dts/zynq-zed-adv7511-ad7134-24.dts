@@ -130,6 +130,8 @@
 		spi-max-frequency = <10000000>;
 
 		reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+		pdn-gpios = <&gpio0 88 GPIO_ACTIVE_LOW>,
+			    <&gpio0 89 GPIO_ACTIVE_LOW>;
 		gpio-cs-gpios = <&gpio0 104 GPIO_ACTIVE_HIGH>;
 
 		clocks = <&cnv_ext_clk>;

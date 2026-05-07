@@ -97,6 +97,8 @@ static int ad7134_set_dig_fil(struct iio_dev *dev, const struct iio_chan_spec *c
 static int ad7134_get_dig_fil(struct iio_dev *dev, const struct iio_chan_spec *chan);
 static ssize_t ad7134_ext_info_write(struct iio_dev *indio_dev,uintptr_t private, const struct iio_chan_spec *chan, const char *buf, size_t len);
 static ssize_t ad7134_ext_info_read(struct iio_dev *indio_dev, uintptr_t private, const struct iio_chan_spec *chan, char *buf);
+static ssize_t ad7134_set_pdn_reset(struct iio_dev *indio_dev,uintptr_t private,const struct iio_chan_spec *chan,const char *buf, size_t len);
+static ssize_t ad7134_get_pdn_reset(struct iio_dev *indio_dev,uintptr_t private,const struct iio_chan_spec *chan, char *buf);
 
 static const struct iio_enum ad7134_flt_type_iio_enum = {
 	.items = ad7134_filter_enum,
@@ -114,6 +116,13 @@ static struct iio_chan_spec_ext_info ad7134_ext_info[] = {
 	 .name = "ad7134_sync",
 	 .write = ad7134_set_sync,
 	 .read = ad7134_get_sync,
+	 .shared = IIO_SHARED_BY_ALL,
+	 },
+
+	{
+	 .name = "ad7134_pdn_reset",
+	 .write = ad7134_set_pdn_reset,
+	 .read = ad7134_get_pdn_reset,
 	 .shared = IIO_SHARED_BY_ALL,
 	 },
 
@@ -145,6 +154,7 @@ struct ad4134_state {
 	struct spi_message		buf_read_msg;
 	struct spi_transfer		buf_read_xfer;
 	struct gpio_desc 		*cs_gpio;
+	struct gpio_descs		*pdn_gpios;
 	struct clk		 	*adc_clk;
 
 	unsigned int			odr;
@@ -184,6 +194,75 @@ static ssize_t ad7134_set_sync(struct iio_dev *indio_dev,
 	gpiod_set_value_cansleep(st->cs_gpio, 0);
 
 	return ret ? ret : len;
+}
+
+static int _ad4134_reconfigure(struct ad4134_state *st)
+{
+	int ret;
+
+	gpiod_set_value_cansleep(st->cs_gpio, 1);
+
+	ret = regmap_write(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
+			   FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
+				      st->output_frame));
+	if (ret)
+		goto out;
+
+	ret = regmap_write(st->regmap, AD4134_DIG_IF_CFG_REG,
+			   FIELD_PREP(AD4134_DIF_IF_CFG_FORMAT_MASK,
+				      AD4134_DATA_FORMAT_QUAD_CH_PARALLEL));
+	if (ret)
+		goto out;
+
+	ret = regmap_write(st->regmap, AD4134_DEVICE_CONFIG_REG,
+			   FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
+				      AD4134_POWER_MODE_HIGH_PERF));
+	if (ret)
+		goto out;
+
+	ret = regmap_write(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG,
+			   FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_CONFIG_FRAME_MASK_CH0, st->filter_type) |
+			   FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_CONFIG_FRAME_MASK_CH1, st->filter_type) |
+			   FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_CONFIG_FRAME_MASK_CH2, st->filter_type) |
+			   FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_CONFIG_FRAME_MASK_CH3, st->filter_type));
+
+out:
+	gpiod_set_value_cansleep(st->cs_gpio, 0);
+
+	return ret;
+}
+
+static ssize_t ad7134_get_pdn_reset(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan, char *buf)
+{
+	return sprintf(buf, "enable\n");
+}
+
+static ssize_t ad7134_set_pdn_reset(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan,
+				    const char *buf, size_t len)
+{
+	struct ad4134_state *st = iio_priv(indio_dev);
+	int ret, i;
+
+	if (!st->pdn_gpios)
+		return -ENODEV;
+
+	for (i = 0; i < st->pdn_gpios->ndescs; i++)
+		gpiod_set_value_cansleep(st->pdn_gpios->desc[i], 1);
+	fsleep(100000);
+
+	for (i = 0; i < st->pdn_gpios->ndescs; i++)
+		gpiod_set_value_cansleep(st->pdn_gpios->desc[i], 0);
+	fsleep(10000);
+
+	ret = _ad4134_reconfigure(st);
+	if (ret)
+		return ret;
+
+	return len;
 }
 
 static int ad7134_set_dig_fil(struct iio_dev *dev,
@@ -528,6 +607,11 @@ static int ad4134_setup(struct ad4134_state *st)
 		return dev_err_probe(dev, PTR_ERR(st->cs_gpio),
 				     "Failed to find cs-gpio \n");
 
+	st->pdn_gpios = devm_gpiod_get_array_optional(dev, "pdn", GPIOD_OUT_LOW);
+	if (IS_ERR(st->pdn_gpios))
+		return dev_err_probe(dev, PTR_ERR(st->pdn_gpios),
+				     "Failed to find pdn GPIOs\n");
+
 	fsleep(AD4134_RESET_TIME_US);
 
 	gpiod_set_value_cansleep(reset_gpio, 0);
@@ -585,6 +669,8 @@ static int ad4134_setup(struct ad4134_state *st)
 					     AD4134_POWER_MODE_HIGH_PERF));
 	if (ret)
 		return ret;
+
+	st->filter_type = SINC6;
 
 	ret = regmap_update_bits(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG,
 				 AD4134_CHAN_DIG_FILTER_SEL_MASK,
