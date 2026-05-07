@@ -651,8 +651,10 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 		 */
 		uart->rx_dma_buf.buf = dmam_alloc_coherent(uart->dev, UART_XMIT_SIZE,
 			&uart->rx_dma_phy, GFP_KERNEL);
-		if (!uart->rx_dma_buf.buf)
-			return -ENOMEM;
+		if (!uart->rx_dma_buf.buf) {
+			ret = -ENOMEM;
+			goto err_disable_clk;
+		}
 
 		uart->rx_dma_buf.head = 0;
 		uart->rx_dma_buf.tail = 0;
@@ -666,12 +668,17 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 		ret = dmaengine_slave_config(uart->rx_dma_channel, &dma_config);
 		if (ret) {
 			dev_err(uart->dev, "Error configuring RX DMA channel\n");
-			return -EINVAL;
+			goto err_free_rx_dma_buf;
 		}
 
 		desc = dmaengine_prep_dma_cyclic(uart->rx_dma_channel,
 				uart->rx_dma_phy, UART_XMIT_SIZE, DMA_RX_XCOUNT,
 				DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT);
+		if (!desc) {
+			dev_err(uart->dev, "Error preparing RX DMA cyclic\n");
+			ret = -ENODEV;
+			goto err_free_rx_dma_buf;
+		}
 		desc->callback = adi_uart4_serial_dma_rx;
 		desc->callback_param = uart;
 
@@ -690,8 +697,10 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 				tport->xmit_buf,
 				UART_XMIT_SIZE,
 				DMA_TO_DEVICE);
-		if (dma_mapping_error(uart->dev, uart->tx_dma_phy))
-			return -ENOMEM;
+		if (dma_mapping_error(uart->dev, uart->tx_dma_phy)) {
+			ret = -ENOMEM;
+			goto err_stop_rx_dma;
+		}
 
 		uart->port.fifosize = UART_XMIT_SIZE;
 
@@ -705,7 +714,7 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 		ret = dmaengine_slave_config(uart->tx_dma_channel, &dma_config);
 		if (ret) {
 			dev_err(uart->dev, "Error configuring TX DMA channel\n");
-			return -EINVAL;
+			goto err_unmap_tx_dma;
 		}
 	}
 
@@ -717,6 +726,19 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 
 	UART_SET_IER(uart, ERBFI);
 	return 0;
+
+err_unmap_tx_dma:
+	dma_unmap_single(uart->dev, uart->tx_dma_phy, UART_XMIT_SIZE,
+			DMA_TO_DEVICE);
+err_stop_rx_dma:
+	timer_delete(&uart->rx_dma_timer);
+	dmaengine_terminate_sync(uart->rx_dma_channel);
+err_free_rx_dma_buf:
+	dmam_free_coherent(uart->dev, UART_XMIT_SIZE,
+			uart->rx_dma_buf.buf, uart->rx_dma_phy);
+err_disable_clk:
+	clk_disable_unprepare(uart->clk);
+	return ret;
 }
 
 static void adi_uart4_serial_shutdown(struct uart_port *port)
