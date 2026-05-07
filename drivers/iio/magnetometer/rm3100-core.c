@@ -7,7 +7,7 @@
  * User Manual available at
  * <https://www.pnicorp.com/download/rm3100-user-manual/>
  *
- * TODO: event generation, pm.
+ * TODO: event generation, pm.da
  */
 
 #include <linux/delay.h>
