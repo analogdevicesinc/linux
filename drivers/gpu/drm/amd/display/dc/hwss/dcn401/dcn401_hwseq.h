@@ -78,7 +78,7 @@ void dcn401_optimize_bandwidth_sequence(struct dc *dc,
 		struct dc_state *context,
 		struct block_sequence_state *seq_state);
 
-void dcn401_dmub_hw_control_lock(struct dc *dc,
+bool dcn401_dmub_hw_control_lock(struct dc *dc,
 		struct dc_state *context,
 		bool lock);
 void dcn401_fams2_update_config(struct dc *dc, struct dc_state *context, bool enable);

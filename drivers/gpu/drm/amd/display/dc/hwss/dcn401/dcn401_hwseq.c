@@ -1556,25 +1556,27 @@ void dcn401_optimize_bandwidth_sequence(struct dc *dc,
 				dc->clk_mgr, context, true, seq_state);
 }
 
-void dcn401_dmub_hw_control_lock(struct dc *dc,
+bool dcn401_dmub_hw_control_lock(struct dc *dc,
 		struct dc_state *context,
 		bool lock)
 {
 	(void)context;
-	/* use always for now */
 	union dmub_inbox0_cmd_lock_hw hw_lock_cmd = { 0 };
 
 	if (!dc->ctx || !dc->ctx->dmub_srv)
-		return;
+		return false;
 
-	if (!dc->debug.fams2_config.bits.enable && !dc_dmub_srv_is_cursor_offload_enabled(dc))
-		return;
+	if (lock) {
+		if (!dc->debug.fams2_config.bits.enable && !dc_dmub_srv_is_cursor_offload_enabled(dc))
+			return false;
+	}
 
 	hw_lock_cmd.bits.command_code = DMUB_INBOX0_CMD__HW_LOCK;
 	hw_lock_cmd.bits.hw_lock_client = HW_LOCK_CLIENT_DRIVER;
 	hw_lock_cmd.bits.lock = lock;
 	hw_lock_cmd.bits.should_release = !lock;
 	dmub_hw_lock_mgr_inbox0_cmd(dc->ctx->dmub_srv, hw_lock_cmd);
+	return true;
 }
 
 void dcn401_dmub_hw_control_lock_fast(union block_sequence_params *params)

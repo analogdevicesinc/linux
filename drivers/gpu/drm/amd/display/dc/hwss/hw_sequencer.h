@@ -1719,7 +1719,7 @@ struct hw_sequencer_funcs {
 			const struct dc_state *cur_ctx,
 			const struct dc_state *new_ctx);
 	void (*wait_for_dcc_meta_propagation)(uint32_t delay);
-	void (*dmub_hw_control_lock)(struct dc *dc,
+	bool (*dmub_hw_control_lock)(struct dc *dc,
 			struct dc_state *context,
 			bool lock);
 	void (*fams2_update_config)(struct dc *dc,

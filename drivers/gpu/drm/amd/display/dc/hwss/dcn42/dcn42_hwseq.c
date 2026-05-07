@@ -1188,25 +1188,28 @@ void dcn42_setup_stereo(struct pipe_ctx *pipe_ctx, struct dc *dc)
 
 	return;
 }
-void dcn42_dmub_hw_control_lock(struct dc *dc, struct dc_state *context, bool lock)
+bool dcn42_dmub_hw_control_lock(struct dc *dc, struct dc_state *context, bool lock)
 {
 
 	union dmub_inbox0_cmd_lock_hw hw_lock_cmd = { 0 };
 
 	if (!dc->ctx || !dc->ctx->dmub_srv)
-		return;
+		return false;
 
 	/* Use helper to check PSR/Replay for all streams in context */
 
-	if (!dc->debug.fams2_config.bits.enable && !dc_dmub_srv_is_cursor_offload_enabled(dc)
-		&& !dmub_hw_lock_mgr_does_context_require_lock(dc, context))
-		return;
+	if (lock) {
+		if (!dc->debug.fams2_config.bits.enable && !dc_dmub_srv_is_cursor_offload_enabled(dc)
+			&& !dmub_hw_lock_mgr_does_context_require_lock(dc, context))
+			return false;
+	}
 
 	hw_lock_cmd.bits.command_code = DMUB_INBOX0_CMD__HW_LOCK;
 	hw_lock_cmd.bits.hw_lock_client = HW_LOCK_CLIENT_DRIVER;
 	hw_lock_cmd.bits.lock = lock;
 	hw_lock_cmd.bits.should_release = !lock;
 	dmub_hw_lock_mgr_inbox0_cmd(dc->ctx->dmub_srv, hw_lock_cmd);
+	return true;
 }
 
 void dcn42_dmub_hw_control_lock_fast(union block_sequence_params *params)

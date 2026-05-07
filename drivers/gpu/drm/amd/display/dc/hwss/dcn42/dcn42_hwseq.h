@@ -43,7 +43,7 @@ void dcn42_hw_block_power_up(struct dc *dc,
 		struct pg_block_update *update_state);
 void dcn42_root_clock_control(struct dc *dc,
 		struct pg_block_update *update_state, bool power_on);
-void dcn42_dmub_hw_control_lock(struct dc *dc, struct dc_state *context, bool lock);
+bool dcn42_dmub_hw_control_lock(struct dc *dc, struct dc_state *context, bool lock);
 void dcn42_dmub_hw_control_lock_fast(union block_sequence_params *params);
 void dcn42_setup_stereo(struct pipe_ctx *pipe_ctx, struct dc *dc);
 void dcn42_power_down_on_boot(struct dc *dc);
