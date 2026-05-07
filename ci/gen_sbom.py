@@ -86,12 +86,25 @@ def _get_repository():
         return f"github/{path_[-2]}/{path_[-1].removesuffix('.git')}"
     return "git/analog/linux"
 
-def get_purl_src(ctx):
-    stable_tag = ctx.get("kernel_release", "")
-    if stable_tag.endswith('+'):
-        stable_tag = stable_tag[:-1]
-    stable_tag = f"v{stable_tag}"
+def _kernel_release_to_tag(kernel_release):
+    # Adapt fine version with upstream tag
+    # Build                      Upstream
+    # 6.12.77+                   v6.12.77
+    # 6.12.77-v8-16k+            v6.12.77
+    # 6.12.77-gc8d83c0ff29a      v6.12.77
+    # 6.12.0+                    v6.12
+    # 6.12.0-v8-16k+             v6.12
+    # 6.12.0-gc8d83c0ff29a       v6.12
+    # 6.12.0-rc7+                v6.12-rc7
+    # 6.12.0-rc7-v8-16k+         v6.12-rc7
+    # 6.12.0-rc7-gc8d83c0ff29a   v6.12-rc7
+    m = re.match(r'^(\d+\.\d+(?:\.\d+)?(?:-rc\d+)?)', kernel_release)
+    tag = m.group(1) if m else kernel_release
+    tag = re.sub(r'\.0($|-rc)', r'\1', tag)
+    return f'v{tag}'
 
+def get_purl_src(ctx):
+    stable_tag = _kernel_release_to_tag(ctx.get("kernel_release", ""))
     return f"pkg:github/gregkh/linux@{stable_tag}"
 
 def get_purl_out(ctx):
