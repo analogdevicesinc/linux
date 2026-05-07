@@ -78,6 +78,14 @@ def get_artifact(ctx):
 
     return f"{defconfig}-{compiler_name}-{arch}"
 
+def _get_repository():
+    git_url = environ.get('GIT_URL', '')
+    git_url = re.sub(r'^git@([^:]+):', r'ssh://\1/', git_url)
+    path_ = urlparse(git_url).path.strip('/').split('/')
+    if len(path_) >= 2:
+        return f"github/{path_[-2]}/{path_[-1].removesuffix('.git')}"
+    return "git/analog/linux"
+
 def get_purl_src(ctx):
     stable_tag = ctx.get("kernel_release", "")
     if stable_tag.endswith('+'):
@@ -112,17 +120,7 @@ def get_purl_out(ctx):
 
     qualifiers_ = '&'.join(qualifiers_)
 
-    repository = "analog/linux"
-    git_url = environ.get('GIT_URL', '')
-    if git_url != '':
-        if git_url.startswith('git@') or git_url.startswith('ssh://'):
-            path_ = re.split(r'[:/]', git_url.split('@', 1)[-1])
-        else:
-            path_ = urlparse(git_url).path.strip('/').split('/')
-        if len(path_) >= 2:
-            repository = f"{path_[-2]}/{path_[-1].removesuffix('.git')}"
-
-    return f"pkg:github/{repository}@{kernel_release}?{qualifiers_}"
+    return f"pkg:github/{_get_repository()}@{kernel_release}?{qualifiers_}"
 
 def get_name(ctx):
     return "Linux Kernel"
