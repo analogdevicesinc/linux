@@ -228,14 +228,6 @@
 	};
 };
 
-&i2c0 {
-	status = "disabled";
-};
-
-&i2c1 {
-	status = "disabled";
-};
-
 &i2c2 {
 	status = "okay";
 
@@ -301,14 +293,6 @@
 			line-name = "ospiflash-cs";
 		};
 	};
-};
-
-&crc0 {
-	status = "disabled";
-};
-
-&crc1 {
-	status = "disabled";
 };
 
 &usb0_phy {
