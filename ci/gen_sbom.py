@@ -133,13 +133,13 @@ def get_purl_out(ctx):
 
     qualifiers_ = '&'.join(qualifiers_)
 
-    return f"pkg:github/{_get_repository()}@{kernel_release}?{qualifiers_}"
+    return f"pkg:{_get_repository()}@{kernel_release}?{qualifiers_}"
 
 def get_name(ctx):
     return "Linux Kernel"
 
 def get_description(ctx):
-    return "The Linux kernel is the core of any Linux operating system"
+    return "The Linux kernel is the core of any Linux operating system."
 
 def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
     """Return a CycloneDX 1.6 dict."""
@@ -471,7 +471,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "type":             "software_Sbom",
         "spdxId":           id_sbom,
         "creationInfo":     "_:creationinfo",
-        "name":             f"Linux Kernel {defconfig} {compiler_name} {arch}",
+        "name":             f"Linux Kernel {defconfig} {compiler_name} {arch} {git_sha}",
         "rootElement":      [id_pkg],
         "element":          all_element_ids,
         "software_sbomType": ["source"],
