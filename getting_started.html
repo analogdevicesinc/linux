@@ -8,8 +8,8 @@
 
     <title>Getting Started &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=833c9372" />
-    <script async="async" src="_static/app.umd.js?v=f78f54ff"></script>
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=ac863bf0" />
+    <script async="async" src="_static/app.umd.js?v=09b0c6bc"></script>
     <link rel="icon" href="_static/icon.svg"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -356,32 +356,105 @@ Content on this topic
 <p>The Linux kernel in this repository is the
 <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx" target="_blank">Linux kernel from Xilinx</a>
 together with drivers &amp; patches applied from Analog Devices.</p>
-<p>Details about the drivers that are of interest and supported by this repository
-can be found on the
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers-all" target="_blank">Analog Devices wiki</a>.
-This readme focuses on details specific to how this code is
+<p>The driver documentation that are supported by this repository
+can be found at <a class="reference internal" href="drivers/index.html#drivers"><span class="std std-ref">Drivers</span></a>.
+This section focuses on details specific to how this code is
 structured/organized, how it was derived, etc.</p>
 <p>The current main is based on <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx/tree/xilinx-v2025.1" target="_blank">xilinx v2025.1</a>.
 For details about the merge see commit
-<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/main:commit/3b1f15dc5c4de92663059705d6f1cb6fc87d4470" target="_blank">3b1f15dc5c4d</a>
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/commit/3b1f15dc5c4de92663059705d6f1cb6fc87d4470" target="_blank">3b1f15dc5c4d</a>
 (Merge tag <code class="docutils literal notranslate"><span class="pre">xilinx-v2025.1</span></code> of <a class="icon link reference external" href="https://github.com/Xilinx/linux-xlnx.git" target="_blank">https://github.com/Xilinx/linux-xlnx.git</a>).
 In this Xilinx release, the current version of upstream Linux is
 <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tag/?h=v6.12" target="_blank">Linux 6.12</a>.</p>
 </section>
 <section id="how-to-build">
 <h2>How to build<a class="headerlink" href="#how-to-build" title="Link to this heading"></a></h2>
-<p>For build instructions
-<a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/tools-software/linux-drivers-all#building_the_adi_linux_kernel" target="_blank">check the wiki</a>.</p>
+<p>For generic instructions on how to build the Linux Kernel, see
+<a class="icon link reference external" href="https://docs.kernel.org/admin-guide/quickly-build-trimmed-linux.html" target="_blank" title="(in The Linux Kernel v7.1.0-rc2)"><span>How to quickly build a trimmed Linux kernel</span></a>.</p>
+<p>For specific targets broadly used by us:</p>
+<ul class="simple">
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/linux/kernel/zynq.html#linux-kernel-zynq" target="_blank" title="(in System Level Documentation)"><span>Build Zynq Linux kernel and devicetree</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/linux/kernel/zynqmp.html#linux-kernel-zynqmp" target="_blank" title="(in System Level Documentation)"><span>Build ZynqMP / MPSoC Linux kernel and devicetree</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/linux/kernel/microblaze.html#linux-kernel-microblaze" target="_blank" title="(in System Level Documentation)"><span>Build MicroBlaze Linux kernel</span></a></p></li>
+<li><p><a class="icon link reference external" href="https://www.raspberrypi.com/documentation/computers/linux_kernel.html" target="_blank">Build Raspberry Pi Linux Kernel</a></p></li>
+</ul>
+<p>From the instructions above, you adjust the defconfig, devicetrees of interest,
+for example, for <code class="docutils literal notranslate"><span class="pre">bcm2712_defconfig</span></code> with all ADI’s drivers use
+<code class="docutils literal notranslate"><span class="pre">adi_bcm2712_defconfig</span></code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Instead of building all ADI drivers, learn about how to use <code class="docutils literal notranslate"><span class="pre">menuconfig</span></code> at
+<a class="icon link reference external" href="https://docs.kernel.org/kbuild/kconfig.html" target="_blank" title="(in The Linux Kernel v7.1.0-rc2)"><span>Configuration targets and editors</span></a> to enable only the drivers of interest.</p>
+</div>
+<p>The CI/CD scripts at <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/ci/build.sh" target="_blank">ci/build.sh</a> and
+<a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/.github/workflows/build.yml" target="_blank">.github/workflows/build.yml</a> provide detailed steps for all
+supported targets. Checkout <a class="reference internal" href="ci.html#ci"><span class="std std-ref">Continuous integration</span></a> for how to build with CI/CD pipelines.</p>
+<div><div class="collapsible docutils container">
+<input class="collapsible_input" id="5b7d0e3189936643ccb8c468edc1e29d931a0617" name="5b7d0e3189936643ccb8c468edc1e29d931a0617" type="checkbox"></input><label for="5b7d0e3189936643ccb8c468edc1e29d931a0617"><p>Download built artifacts from our CI/CD</p>
+<div class="icon"></div></label><div class="collapsible_content docutils container">
+<p>Built artifacts from our CI/CD are stored at
+<a class="icon link reference external" href="https://broadcasts.cloudsmith.com/adi/linux" target="_blank">adi/linux (S3)</a>,
+you can batch download by git sha or ref:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="k">$(</span>mktemp<span class="w"> </span>-d<span class="k">)</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/tmp/tmp.XXX$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>ci
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/tmp/tmp.XXX$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>https://raw.githubusercontent.com/analogdevicesinc/linux/refs/heads/ci/ci/lib.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-o<span class="w"> </span>ci/lib.sh
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/tmp/tmp.XXX$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>https://raw.githubusercontent.com/analogdevicesinc/linux/refs/heads/ci/ci/download_artifacts.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-o<span class="w"> </span>ci/download_artifacts.sh
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/tmp/tmp.XXX$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">source</span><span class="w"> </span>ci/download_artifacts.sh
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/tmp/tmp.XXX$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>download_artifacts<span class="w"> </span>494d15a4f
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> [step]: Get artifacts
+ ...
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></div>
+</div>
+</div><p>If you are looking for building or using our Linux distribution <strong>Kuiper</strong>,
+please see <a class="icon link reference external" href="https://analogdevicesinc.github.io/kuiper/index.html" target="_blank" title="(in Kuiper latest)"><span>ADI Kuiper Linux</span></a> and its
+<a class="icon link reference external" href="https://analogdevicesinc.github.io/kuiper/build-flow.html#build-flow" target="_blank" title="(in Kuiper latest)"><span>Build Flow</span></a>.</p>
 </section>
 <section id="release-branches">
 <h2>Release branches<a class="headerlink" href="#release-branches" title="Link to this heading"></a></h2>
 <p>All release branches have the <code class="docutils literal notranslate"><span class="pre">[YEAR]_R[NUM]</span></code> format. There are some special
-release branches sometimes (like <code class="docutils literal notranslate"><span class="pre">2014_R2_altera</span></code>, because it wasn’t always
+release branches sometimes (like <code class="docutils literal notranslate"><span class="pre">2014_R2_altera</span></code>), because it wasn’t always
 possible to match the Linux repo between Xilinx &amp; Intel/Altera.</p>
 <p>Each release is matched with a release from the <a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/tree/main/" target="_blank">HDL repo</a>. The
 branching name/model for the HDL repo differs a bit from the one in this repo,
 but the matching should be obvious. Therefore, each kernel in the release
-branches is be built using the toolchains from a specific version of Vivado &amp;
+branches is being built using the toolchains from a specific version of Vivado &amp;
 Quartus. A matching of these can be found at <a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/user_guide/releases.html#releases" target="_blank" title="(in HDL)"><span>Releases</span></a>.
 Release branches can be built using other GCC toolchains, but in the official
 SD-card images provided, they will use the toolchains from Vivado/Quartus.</p>
@@ -430,7 +503,7 @@ Xilinx’s, <code class="docutils literal notranslate"><span class="pre">altera-
 <a class="icon link reference external" href="https://github.com/altera-opensource/linux-socfpga" target="_blank">Intel/Altera linux kernel repo</a>,
 together with some merged versions of old master branches.</p>
 <p>These branches would stop existing, since Intel/Altera seems to keep in sync
-their kernel version with more recent non-LTS kernels. Typically the
+their kernel version with more recent non-LTS kernels. Typically, the
 releases/references that are provided for these boards should already be in the
 mainline kernel, so these branches should no longer be needed.</p>
 </section>
