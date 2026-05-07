@@ -267,7 +267,6 @@ static void sc5xx_cdu_debug_init(struct clk_hw *clk_hw, struct dentry *dentry)
 	debugfs_create_file(debugfs_entry_name, 0444, dentry, 
 				clk_hw, &sc5xx_cdu_debug_fops);
 }
-
 #endif
 
 static const struct clk_ops sc5xx_cdu_ops = {
