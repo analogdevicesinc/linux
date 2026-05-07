@@ -32,20 +32,52 @@ static const char *const cgu1_in_sels[] = { "sys_clkin0", "sys_clkin1" };
 static const char *const cgu0_s1sels[] = { "cgu0_s1seldiv", "cgu0_s1selexdiv" };
 static const char *const cgu1_s0sels[] = { "cgu1_s0seldiv", "cgu1_s0selexdiv" };
 static const char *const cgu1_s1sels[] = { "cgu1_s1seldiv", "cgu1_s1selexdiv" };
-static const char *const sharc0_sels[] = { "cclk0_0", "dummy", "dummy", "dummy" };
-static const char *const sharc1_sels[] = { "cclk0_0", "dummy", "dummy", "dummy" };
-static const char *const arm_sels[] = { "dummy", "dummy", "cclk2_0", "cclk2_1" };
-static const char *const cdu_ddr_sels[] = { "dclk_0", "dclk_1", "dummy", "dummy" };
-static const char *const can_sels[] = { "dummy", "oclk_1", "dummy", "dummy" };
-static const char *const spdif_sels[] = { "sclk1_0", "dummy", "dummy", "dummy" };
-static const char *const spi_sels[] = { "sclk0_0", "oclk_0", "dummy", "dummy" };
-static const char *const gige_sels[] = { "sclk0_0", "sclk0_1", "dummy", "dummy" };
-static const char *const lp_sels[] = { "oclk_0", "sclk0_0", "cclk0_1", "dummy" };
-static const char *const lp_ddr_sels[] = { "oclk_0", "dclk_0", "sysclk_1", "dummy" };
-static const char *const ospi_refclk_sels[] = { "sysclk_0", "sclk0_0", "sclk1_1", "dummy" };
-static const char *const trace_sels[] = { "sclk0_0", "dummy", "dummy", "dummy" };
-static const char *const emmc_sels[] = { "oclk_0", "sclk0_1", "dclk_0_half", "dclk_1_half" };
-static const char *const emmc_timer_sels[] = { "dummy", "sclk1_1_half", "dummy", "dummy" };
+
+static const char *const sharc0_sels[] = { "cclk0_0" };
+static const u32 sharc0_parent_sel[] = { 0 };
+
+static const char *const sharc1_sels[] = { "cclk0_0" };
+static const u32 sharc1_parent_sel[] = { 0 };
+
+static const char *const arm_sels[] = { "cclk2_0", "cclk2_1" };
+static const u32 arm_parent_sel[] = { 2, 3 };
+
+static const char *const cdu_ddr_sels[] = { "dclk_0", "dclk_1" };
+static const u32 cdu_ddr_parent_sel[] = { 0, 1 };
+
+static const char *const can_sels[] = { "oclk_1" };
+static const u32 can_parent_sel[] = { 1 };
+
+static const char *const spdif_sels[] = { "sclk1_0" };
+static const u32 spdif_parent_sel[] = { 0 };
+
+static const char *const spi_sels[] = { "sclk0_0", "oclk_0" };
+static const u32 spi_parent_sel[] = { 0, 1 };
+
+static const char *const gige_sels[] = { "sclk0_0", "sclk0_1", "oclk_0" };
+static const u32 gige_parent_sel[] = { 0, 1, 2 };
+
+static const char *const lp_sels[] = { "oclk_0", "sclk0_0", "cclk0_1" };
+static const u32 lp_parent_sel[] = { 0, 1, 2 };
+
+static const char *const lp_ddr_sels[] = { "oclk_0", "dclk_0", "sysclk_1" };
+static const u32 lp_ddr_parent_sel[] = { 0, 1, 2 };
+
+static const char *const ospi_refclk_sels[] = {
+	"sysclk_0", "sclk0_0", "sclk1_1"
+};
+static const u32 ospi_refclk_parent_sel[] = { 0, 1, 2 };
+
+static const char *const trace_sels[] = { "sclk0_0" };
+static const u32 trace_parent_sel[] = { 0 };
+
+static const char *const emmc_sels[] = {
+	"oclk_0", "sclk0_1", "dclk_0_half", "dclk_1_half"
+};
+static const u32 emmc_parent_sel[] = { 0, 1, 2, 3 };
+
+static const char *const emmc_timer_sels[] = { "sclk1_1_half" };
+static const u32 emmc_timer_parent_sel[] = { 1 };
 
 static const char *const ddr_sels[] = { "cdu_ddr", "3pll_ddiv" };
 
@@ -255,74 +287,80 @@ static void sc598_clock_probe(struct device_node *np)
 	    clk_register_fixed_factor(NULL, "sclk1_1_half", "sclk1_1",
 				      CLK_SET_RATE_PARENT, 1, 2);
 
-	// CDU output muxes
-	clks[ADSP_SC598_CLK_SHARC0_SEL] =
-	    cdu_mux("sharc0_sel", cdu + CDU_CFG0, sharc0_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_SHARC1_SEL] =
-	    cdu_mux("sharc1_sel", cdu + CDU_CFG1, sharc1_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_ARM_SEL] =
-	    cdu_mux("arm_sel", cdu + CDU_CFG2, arm_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_CDU_DDR_SEL] =
-	    cdu_mux("cdu_ddr_sel", cdu + CDU_CFG3, cdu_ddr_sels,
-		    &cdu_lock);
-	clks[ADSP_SC598_CLK_CAN_SEL] =
-	    cdu_mux("can_sel", cdu + CDU_CFG4, can_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_SPDIF_SEL] =
-	    cdu_mux("spdif_sel", cdu + CDU_CFG5, spdif_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_SPI_SEL] =
-	    cdu_mux("spi_sel", cdu + CDU_CFG6, spi_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_GIGE_SEL] =
-	    cdu_mux("gige_sel", cdu + CDU_CFG7, gige_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_LP_SEL] =
-	    cdu_mux("lp_sel", cdu + CDU_CFG8, lp_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_LP_DDR_SEL] =
-	    cdu_mux("lp_ddr_sel", cdu + CDU_CFG9, lp_ddr_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_OSPI_REFCLK_SEL] =
-	    cdu_mux("ospi_refclk_sel", cdu + CDU_CFG10, ospi_refclk_sels,
-		    &cdu_lock);
-	clks[ADSP_SC598_CLK_TRACE_SEL] =
-	    cdu_mux("trace_sel", cdu + CDU_CFG12, trace_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_EMMC_SEL] =
-	    cdu_mux("emmc_sel", cdu + CDU_CFG13, emmc_sels, &cdu_lock);
-	clks[ADSP_SC598_CLK_EMMC_TIMER_QMC_SEL] =
-	    cdu_mux("emmc_timer_qmc_sel", cdu + CDU_CFG14, emmc_timer_sels,
-		    &cdu_lock);
+	/* CDU output clocks: CDU_CFG[n] mux + gate in one clock */
+	clks[ADSP_SC598_CLK_SHARC0] =
+		sc5xx_cdu_register("sharc0", cdu, 0, sharc0_sels,
+				   sharc0_parent_sel, ARRAY_SIZE(sharc0_sels),
+				   CLK_IS_CRITICAL, &cdu_lock);
 
-	// CDU output enable gates
-	clks[ADSP_SC598_CLK_SHARC0] = cdu_gate("sharc0", "sharc0_sel",
-					       cdu + CDU_CFG0,
-					       CLK_IS_CRITICAL, &cdu_lock);
 	clks[ADSP_SC598_CLK_SHARC1] =
-	    cdu_gate("sharc1", "sharc1_sel", cdu + CDU_CFG1,
-		     CLK_IS_CRITICAL, &cdu_lock);
+		sc5xx_cdu_register("sharc1", cdu, 1, sharc1_sels,
+				   sharc1_parent_sel, ARRAY_SIZE(sharc1_sels),
+				   CLK_IS_CRITICAL, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_ARM] =
-	    cdu_gate("arm", "arm_sel", cdu + CDU_CFG2, CLK_IS_CRITICAL,
-		     &cdu_lock);
+		sc5xx_cdu_register("arm", cdu, 2, arm_sels,
+				   arm_parent_sel, ARRAY_SIZE(arm_sels),
+				   CLK_IS_CRITICAL, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_CDU_DDR] =
-	    cdu_gate("cdu_ddr", "cdu_ddr_sel", cdu + CDU_CFG3, 0,
-		     &cdu_lock);
+		sc5xx_cdu_register("cdu_ddr", cdu, 3, cdu_ddr_sels,
+				   cdu_ddr_parent_sel, ARRAY_SIZE(cdu_ddr_sels),
+				   0, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_CAN] =
-	    cdu_gate("can", "can_sel", cdu + CDU_CFG4, 0, &cdu_lock);
+		sc5xx_cdu_register("can", cdu, 4, can_sels,
+				   can_parent_sel, ARRAY_SIZE(can_sels),
+				   0, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_SPDIF] =
-	    cdu_gate("spdif", "spdif_sel", cdu + CDU_CFG5, 0, &cdu_lock);
+		sc5xx_cdu_register("spdif", cdu, 5, spdif_sels,
+				   spdif_parent_sel, ARRAY_SIZE(spdif_sels),
+				   0, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_SPI] =
-	    cdu_gate("spi", "spi_sel", cdu + CDU_CFG6, 0, &cdu_lock);
+		sc5xx_cdu_register("spi", cdu, 6, spi_sels,
+				   spi_parent_sel, ARRAY_SIZE(spi_sels),
+				   0, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_GIGE] =
-	    cdu_gate("gige", "gige_sel", cdu + CDU_CFG7, 0, &cdu_lock);
+		sc5xx_cdu_register("gige", cdu, 7, gige_sels,
+				   gige_parent_sel, ARRAY_SIZE(gige_sels),
+				   0, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_LP] =
-	    cdu_gate("lp", "lp_sel", cdu + CDU_CFG8, 0, &cdu_lock);
+		sc5xx_cdu_register("lp", cdu, 8, lp_sels,
+				   lp_parent_sel, ARRAY_SIZE(lp_sels),
+				   0, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_LP_DDR] =
-	    cdu_gate("lp_ddr", "lp_ddr_sel", cdu + CDU_CFG9, 0, &cdu_lock);
+		sc5xx_cdu_register("lp_ddr", cdu, 9, lp_ddr_sels,
+				   lp_ddr_parent_sel, ARRAY_SIZE(lp_ddr_sels),
+				   0, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_OSPI_REFCLK] =
-	    cdu_gate("ospi_refclk", "ospi_refclk_sel", cdu + CDU_CFG10, 0,
-		     &cdu_lock);
+		sc5xx_cdu_register("ospi_refclk", cdu, 10, ospi_refclk_sels,
+				   ospi_refclk_parent_sel,
+				   ARRAY_SIZE(ospi_refclk_sels),
+				   0, &cdu_lock);
+
+	/* CLKO11 is internal and not user configurable. */
+
 	clks[ADSP_SC598_CLK_TRACE] =
-	    cdu_gate("trace", "trace_sel", cdu + CDU_CFG12, 0, &cdu_lock);
+		sc5xx_cdu_register("trace", cdu, 12, trace_sels,
+				   trace_parent_sel, ARRAY_SIZE(trace_sels),
+				   0, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_EMMC] =
-	    cdu_gate("emmc", "emmc_sel", cdu + CDU_CFG13, 0, &cdu_lock);
+		sc5xx_cdu_register("emmc", cdu, 13, emmc_sels,
+				   emmc_parent_sel, ARRAY_SIZE(emmc_sels),
+				   0, &cdu_lock);
+
 	clks[ADSP_SC598_CLK_EMMC_TIMER_QMC] =
-	    cdu_gate("emmc_timer_qmc", "emmc_timer_qmc_sel",
-		     cdu + CDU_CFG14, 0, &cdu_lock);
+		sc5xx_cdu_register("emmc_timer_qmc", cdu, 14, emmc_timer_sels,
+				   emmc_timer_parent_sel,
+				   ARRAY_SIZE(emmc_timer_sels),
+				   0, &cdu_lock);
 
 	// Dedicated DDR output mux
 	clks[ADSP_SC598_CLK_DDR] =
