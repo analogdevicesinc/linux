@@ -5537,7 +5537,7 @@ static int ad9088_probe(struct spi_device *spi)
 
 	ret = ad9088_parse_dt(phy);
 	if (ret < 0)
-		return dev_err_probe(&spi->dev, ret, "Parsing devicetree failed\n");
+		return ret;
 
 	ret = devm_regulator_get_enable(&spi->dev, "vdd");
 	if (ret)
