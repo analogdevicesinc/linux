@@ -1,0 +1,208 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+=============
+AD7768 driver
+=============
+
+ADC driver for Analog Devices Inc. AD7768 and AD7768-4 devices. The module name
+is ``ad7768``.
+
+Supported devices
+=================
+
+The following chips are supported by this driver:
+
+* `AD7768 <https://www.analog.com/en/products/ad7768.html>`_ - 8-channel, 24-bit simultaneous sampling ADC
+* `AD7768-4 <https://www.analog.com/en/products/ad7768-4.html>`_ - 4-channel, 24-bit simultaneous sampling ADC
+
+Supported features
+==================
+
+Power modes
+-----------
+
+The AD7768 family supports three configurable power and performance modes:
+
+* **Low power mode** - Optimized for lowest power consumption
+* **Median mode** - Balanced power and performance
+* **Fast mode** - Highest performance with maximum sampling rates
+
+The power mode affects the available sampling frequencies and power consumption.
+Set via the ``adi,power-mode`` device tree property.
+
+Data output configuration
+-------------------------
+
+The devices support flexible serial data output configurations:
+
+AD7768 data lines
+^^^^^^^^^^^^^^^^^
+
+* 1 data line (DOUT0) - Standard single-lane output
+* 2 data lines (DOUT0, DOUT1) - Dual-lane output for higher throughput
+* 8 data lines (DOUT0-DOUT7) - Maximum throughput, one line per channel
+
+AD7768-4 data lines
+^^^^^^^^^^^^^^^^^^^
+
+* 1 data line (DOUT0) - Standard single-lane output
+* 4 data lines (DOUT0-DOUT3) - Maximum throughput, one line per channel
+
+The number of data lines is configured via the ``adi,data-lines-number``
+device tree property.
+
+Channel configuration
+---------------------
+
+Each channel can be individually configured with:
+
+Channel modes
+^^^^^^^^^^^^^
+
+* **Mode A** - First set of filter and decimation settings
+* **Mode B** - Second set of filter and decimation settings
+
+Each channel can be assigned to either Mode A or Mode B via the
+``adi,ch-mode`` device tree property.
+
+Precharge and reference buffers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Per-channel buffer control for optimal signal integrity:
+
+* Positive input precharge buffer (``adi,prebuf-pos-en``)
+* Negative input precharge buffer (``adi,prebuf-neg-en``)
+* Positive reference buffer (``adi,refbuf-pos-en``)
+* Negative reference buffer (``adi,refbuf-neg-en``)
+
+Common mode voltage
+-------------------
+
+Configurable common mode output voltage levels:
+
+* (AVDD - AVSS) / 2V
+* 1.65V
+* 2.5V
+* 2.14V
+
+Set via the ``adi,common-mode-output`` device tree property.
+The common mode buffer can be powered down using ``adi,vcm-power-down``.
+
+Filter types
+------------
+
+Two digital filter types are available:
+
+* **Wideband** - Optimized for wide bandwidth applications
+* **Sinc5** - Fifth-order sinc filter for high rejection of out-of-band noise
+
+IIO backend support
+-------------------
+
+The driver integrates with IIO backends (e.g., AXI ADC) for high-speed data
+capture and DMA operations. Features include:
+
+* Automatic channel enable/disable based on scan mask
+* CRC on data interface. CRC replaces the header every 4th output sample.
+* High-throughput buffered data acquisition
+
+GPIO controller
+---------------
+
+The AD7768 includes a 5-pin GPIO controller for auxiliary digital I/O
+operations. The GPIO pins can be configured as inputs or outputs.
+
+Device attributes
+=================
+
+The following IIO attributes are available for each enabled channel:
+
+Channel data
+------------
+
++---------------------------------------+--------------------------------------------------------------+
+| Attribute                             | Description                                                  |
++=======================================+==============================================================+
+| ``in_voltage<N>_raw``                 | Raw ADC voltage value for channel N.                         |
++---------------------------------------+--------------------------------------------------------------+
+| ``in_voltage<N>_scale``               | Scale factor to convert raw value to mV.                     |
++---------------------------------------+--------------------------------------------------------------+
+
+Sampling frequency
+------------------
+
++---------------------------------------+--------------------------------------------------------------+
+| Attribute                             | Description                                                  |
++=======================================+==============================================================+
+| ``in_voltage<N>_sampling_frequency``  | Current sampling frequency in Hz for channel N.              |
++---------------------------------------+--------------------------------------------------------------+
+
+Filter configuration
+---------------------
+
++---------------------------------------+--------------------------------------------------------------+
+| Attribute                             | Description                                                  |
++=======================================+==============================================================+
+| ``in_voltage<N>_filter_type``         | Current filter type for channel N: "wideband" or "sinc5".    |
++---------------------------------------+--------------------------------------------------------------+
+| ``in_voltage<N>_filter_type_          | Available filter types for channel N: "wideband sinc5".      |
+| available``                           |                                                              |
++---------------------------------------+--------------------------------------------------------------+
+
+Per-channel calibration
+-----------------------
+
++---------------------------------------+--------------------------------------------------------------+
+| Attribute                             | Description                                                  |
++=======================================+==============================================================+
+| ``in_voltage<N>_calibbias``           | Channel offset calibration value                             |
++---------------------------------------+--------------------------------------------------------------+
+| ``in_voltage<N>_calibscale``          | Channel gain calibration value                               |
++---------------------------------------+--------------------------------------------------------------+
+| ``in_voltage<N>_phase``               | Channel phase calibration value.                             |
++---------------------------------------+--------------------------------------------------------------+
+
+Device buffers
+==============
+
+This driver supports IIO buffered data acquisition through IIO backends.
+When used with compatible backends like the AXI ADC, it provides:
+
+* High-speed simultaneous sampling across all enabled channels
+* Hardware-triggered data capture
+* DMA-based data transfer for minimal CPU overhead
+* CRC error detection and correction
+
+See :doc:`iio_devbuf` for more information about IIO device buffers.
+
+Example usage
+=============
+
+.. code-block:: bash
+
+	# Read current sampling frequency for channel 0
+	cat /sys/bus/iio/devices/iio:device0/in_voltage0_sampling_frequency
+
+	# Update sampling frequency for channel 0
+	echo 8000 > /sys/bus/iio/devices/iio:device0/in_voltage0_sampling_frequency
+
+	# Read current filter type for channel 0
+	cat /sys/bus/iio/devices/iio:device0/in_voltage0_filter_type
+
+	# List available filter types for channel 0
+	cat /sys/bus/iio/devices/iio:device0/in_voltage0_filter_type_available
+
+	# Update filter type for channel 0 to wideband
+	echo wideband > /sys/bus/iio/devices/iio:device0/in_voltage0_filter_type
+
+	# Read calibration scale for channel 0
+	cat /sys/bus/iio/devices/iio:device0/in_voltage0_calibscale
+
+	# Read phase calibration for channel 0
+	cat /sys/bus/iio/devices/iio:device0/in_voltage0_phase
+
+
+Unimplemented features
+======================
+
+* CRC message every 16 samples (CRC_SEL configuration) - currently only supports CRC every 4 samples
