@@ -471,7 +471,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "type":             "software_Sbom",
         "spdxId":           id_sbom,
         "creationInfo":     "_:creationinfo",
-        "name":             f"Linux Kernel {defconfig} {compiler_name} {arch} {git_sha}",
+        "name":             f"linux-kernel-{kernel_release}-{defconfig}-{compiler_name}-{arch}-{kernel}-{git_sha}",
         "rootElement":      [id_pkg],
         "element":          all_element_ids,
         "software_sbomType": ["source"],
