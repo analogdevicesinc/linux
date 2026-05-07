@@ -125,6 +125,9 @@ struct amdgpu_bo {
 	 * for memory accounting.
 	 */
 	int8_t				xcp_id;
+
+	/* UALink Handle low 64 bits*/
+	u64				ualink_handle_lo;
 };
 
 struct amdgpu_bo_user {
