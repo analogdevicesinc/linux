@@ -15,12 +15,14 @@
 #define SC5XX_CDU_CFG(n)	((n) * sizeof(u32))
 
 #define SC5XX_CDU_STAT		0x40
-#define SC5XX_CDU_REVID		0x48
+#define SC5XX_CDU_STAT_LWERR	BIT(17)
+#define SC5XX_CDU_STAT_ADRERR	BIT(16)
 
 #define SC5XX_CDU_CFG_EN	BIT(0)
 #define SC5XX_CDU_CFG_LOCK	BIT(31)
 #define SC5XX_CDU_CFG_SEL	GENMASK(2, 1)
 
+#define SC5XX_CDU_REVID		0x48
 #define SC5XX_CDU_REVID_MAJOR	GENMASK(7, 4)
 #define SC5XX_CDU_REVID_REV	GENMASK(3, 0)
 
@@ -223,13 +225,36 @@ static int sc5xx_cdu_is_enabled(struct clk_hw *clk_hw)
 }
 
 #ifdef CONFIG_DEBUG_FS
-
 #include <linux/debugfs.h>
 
-ssize_t sc5xx_cdu_debug_read(struct file *, char __user *, size_t, loff_t *)
+static int sc5xx_cdu_debug_show(struct seq_file *s, void *v)
 {
+	struct clk_hw *clk_hw;
+	struct sc5xx_cdu *cdu_clk;
+	unsigned long flags;
+	u32 cfg_reg, stat_reg;
 
+	clk_hw = s->private;
+	cdu_clk = to_sc5xx_cdu(clk_hw);
+
+	spin_lock_irqsave(cdu_clk->lock, flags);
+	cfg_reg = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
+	stat_reg = sc5xx_cdu_read(cdu_clk, SC5XX_CDU_STAT);
+	spin_unlock_irqrestore(cdu_clk->lock, flags);
+
+	seq_printf(s, "CDU_CFG[%u]: 0x%08x\n", cdu_clk->cdu_clko, cfg_reg);
+	seq_printf(s, "  EN:   %u\n", cfg_reg & SC5XX_CDU_CFG_EN);
+	seq_printf(s, "  SEL:  %u\n", FIELD_GET(SC5XX_CDU_CFG_SEL, cfg_reg));
+	seq_printf(s, "  LOCK: %u\n", cfg_reg & SC5XX_CDU_CFG_LOCK);
+
+	seq_printf(s, "CDU_STAT: 0x%08x\n", stat_reg);
+	seq_printf(s, "  LWERR:  %u\n", stat_reg & SC5XX_CDU_STAT_LWERR);	
+	seq_printf(s, "  ADRERR: %u\n", stat_reg & SC5XX_CDU_STAT_ADRERR);
+	seq_printf(s, "  CLKO%u: %u\n", cdu_clk->cdu_clko, stat_reg & BIT(cdu_clk->cdu_clko));
+
+	return 0;
 }
+DEFINE_SHOW_ATTRIBUTE(sc5xx_cdu_debug);
 
 static void sc5xx_cdu_debug_init(struct clk_hw *clk_hw, struct dentry *dentry)
 {
@@ -237,15 +262,12 @@ static void sc5xx_cdu_debug_init(struct clk_hw *clk_hw, struct dentry *dentry)
 	char debugfs_entry_name[12];
 
 	snprintf(debugfs_entry_name, sizeof(debugfs_entry_name), 
-		"cdu_cfg[%u]", cdu_clk->cdu_clko);
+			"cdu_cfg[%u]", cdu_clk->cdu_clko);
 
-	debugfs_create_file(debugfs_entry_name, 0444, dentry, clk_hw, )
+	debugfs_create_file(debugfs_entry_name, 0444, dentry, 
+				clk_hw, &sc5xx_cdu_debug_fops);
 }
 
-static const struct file_operations sc5xx_cdu_debug_fops = {
-	.owner = THIS_MODULE,
-	.read  = sc5xx_cdu_debug_read,
-};
 #endif
 
 static const struct clk_ops sc5xx_cdu_ops = {
