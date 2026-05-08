@@ -204,9 +204,9 @@
 </ul>
 </li>
 <li><a class="reference internal" href="#automatic-calibration-load">Automatic Calibration Load</a></li>
-<li><a class="reference internal" href="#recommended-workflow">Recommended Workflow</a><ul>
-<li><a class="reference internal" href="#first-boot-capture-calibration">First Boot - Capture Calibration</a></li>
-<li><a class="reference internal" href="#subsequent-boots">Subsequent Boots</a></li>
+<li><a class="reference internal" href="#fast-boot">Fast Boot</a><ul>
+<li><a class="reference internal" href="#capture-calibration">Capture Calibration</a></li>
+<li><a class="reference internal" href="#use-stored-calibration-data">Use stored calibration data</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#calibration-dump-tool">Calibration Dump Tool</a></li>
@@ -3586,86 +3586,164 @@ firmware property to your device tree:</p>
 </ul>
 </div>
 </section>
-<section id="recommended-workflow">
-<h3>Recommended Workflow<a class="headerlink" href="#recommended-workflow" title="Link to this heading"></a></h3>
-<section id="first-boot-capture-calibration">
-<h4>First Boot - Capture Calibration<a class="headerlink" href="#first-boot-capture-calibration" title="Link to this heading"></a></h4>
+<section id="fast-boot">
+<span id="ad9088-fast-boot"></span><h3>Fast Boot<a class="headerlink" href="#fast-boot" title="Link to this heading"></a></h3>
+<p>Fast boot stores a previous calibration data to use in subsequent reboots or
+driver probes.</p>
+<section id="capture-calibration">
+<h4>Capture Calibration<a class="headerlink" href="#capture-calibration" title="Link to this heading"></a></h4>
 <ol class="arabic">
-<li><p><strong>Boot without calibration restore</strong> (don’t add device tree property yet):</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+<li><p>Probe the driver without calibration restore:</p>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>Make sure your device tree does not set <code class="docutils literal notranslate"><span class="pre">adi,device-calibration-data-name</span></code>,
+this enable the calibration restore.</p>
+</div>
+<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Device boots and performs full calibration</span>
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Device boots and performs full calibration</span>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> ...
+ [time] ad9088 spi1.0: JESD TX (JRX Deframer Link A0): SERDES JRx cal Rate 20625000 kBps via INIT_CAL ...
+ [time] ad9088 spi1.0: JESD TX (JRX Deframer Link B0): SERDES JRx cal Rate 20625000 kBps via INIT_CAL ...
+ ...
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></li>
-<li><p><strong>Save calibration data</strong>:</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+<li><p>Go to the correct device by name:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/sys/bus/iio/devices/iio:device8/calibration_data<span class="w"> </span>&gt;<span class="w"> </span>/lib/firmware/ad9088_cal.bin
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span><span class="k">$(</span>grep<span class="w"> </span>-l<span class="w"> </span><span class="s2">&quot;axi-ad9084-rx-hpc&quot;</span><span class="w"> </span>/sys/bus/iio/devices/iio:device*/name<span class="w"> </span><span class="p">|</span><span class="w"> </span>sed<span class="w"> </span><span class="s1">&#39;s/name$//&#39;</span><span class="k">)</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></li>
-<li><p><strong>Verify the saved data</strong>:</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+<li><p>Save calibration data:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8/$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>calibration_data<span class="w"> </span>&gt;<span class="w"> </span>/lib/firmware/ad9088_cal.bin
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Verify dmesg</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8/$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>dmesg<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;calibration data saved&#39;</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> [time] ad9088 spi1.0: Calibration data saved: 60692 bytes (ADC: 58624, SERDES RX: 1760, Clk Cond: 240)
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Verify the size (50K ~ 200K)</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8/$
 </pre></div>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>ls<span class="w"> </span>-lh<span class="w"> </span>/lib/firmware/ad9088_cal.bin
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Should show file size (typically 50-200KB)</span>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> -rw-r--r-- 1 root root 60K May  7 13:36 /lib/firmware/ad9088_cal.bin
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></li>
-<li><p><strong>Test restore</strong> (optional but recommended):</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+<li><p>Test restore (optional):</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8/$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/lib/firmware/ad9088_cal.bin<span class="w"> </span>&gt;<span class="w"> </span>/sys/bus/iio/devices/iio:device8/calibration_data
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>/lib/firmware/ad9088_cal.bin<span class="w"> </span>&gt;<span class="w"> </span>calibration_data
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8/$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>dmesg<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span>calibration
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>dmesg<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-i<span class="w"> </span><span class="s1">&#39;calibration data restored&#39;</span>
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>ad9088 spi0.0: Calibration data restored successfully
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> [time] ad9088 spi0.0: Calibration data restored successfully
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></li>
-<li><p><strong>Update device tree</strong> to enable automatic restore:</p>
-<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="n">adi</span><span class="p">,</span><span class="n">device-calibration-data-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad9088_cal.bin&quot;</span><span class="p">;</span>
+</ol>
+</section>
+<section id="use-stored-calibration-data">
+<h4>Use stored calibration data<a class="headerlink" href="#use-stored-calibration-data" title="Link to this heading"></a></h4>
+<ol class="arabic">
+<li><p>Update device tree to restore the calibration data on probe:</p>
+<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// ...</span>
+<span class="w">    </span><span class="cm">/* Fast boot */</span>
+<span class="w">    </span><span class="n">adi</span><span class="p">,</span><span class="n">device-calibration-data-name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;ad9088_cal.bin&quot;</span><span class="p">;</span>
+<span class="p">}</span>
 </pre></div>
 </div>
 </li>
-<li><p><strong>Rebuild and deploy</strong> device tree</p></li>
+<li><p>Rebuild and deploy the updated device tree.</p></li>
 </ol>
-</section>
-<section id="subsequent-boots">
-<h4>Subsequent Boots<a class="headerlink" href="#subsequent-boots" title="Link to this heading"></a></h4>
-<p>On subsequent boots with the device tree property configured, the driver will:</p>
+<p>On subsequent boots or probes with the device tree property configured, the
+driver will:</p>
 <ul class="simple">
-<li><p>Automatically load <code class="docutils literal notranslate"><span class="pre">/lib/firmware/ad9088_cal.bin</span></code></p></li>
-<li><p>Restore calibration data to hardware</p></li>
-<li><p>Skip time-consuming calibration procedures</p></li>
-<li><p>Boot faster while maintaining performance</p></li>
+<li><p>Load <code class="docutils literal notranslate"><span class="pre">/lib/firmware/ad9088_cal.bin</span></code></p></li>
+<li><p>Restore the calibration data to hardware</p></li>
 </ul>
+<p>This allows the device driver to probe in ~15 seconds, instead of ~80 seconds.</p>
 </section>
 </section>
 <section id="calibration-dump-tool">
 <h3>Calibration Dump Tool<a class="headerlink" href="#calibration-dump-tool" title="Link to this heading"></a></h3>
-<p>A standalone utility <code class="docutils literal notranslate"><span class="pre">ad9088_cal_dump</span></code> is provided for inspecting calibration files:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">$cd</span><span class="w"> </span>drivers/iio/adc/apollo/tools
-<span class="nv">$make</span>
-$./ad9088_cal_dump<span class="w"> </span>/lib/firmware/ad9088_cal.bin
+<p>A utility <code class="docutils literal notranslate"><span class="pre">ad9088_cal_dump</span></code> is provided for inspecting calibration files:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
-<p>The tool displays:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>tools/iio
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux/tools/iio$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux/tools/iio$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>./ad9088_cal_dump<span class="w"> </span>/lib/firmware/ad9088_cal.bin
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> File: ad9088_cal.bin
+ Size: 60692 bytes
+
+ === CRC Validation ===
+
+ Stored CRC:     0x142DCCB7
+ Calculated CRC: 0x142DCCB7
+ Status:         [OK]
+
+ === AD9088 Calibration Data Header ===
+
+ Magic Number:        0x41443930 (&#39;09DA&#39;) [OK]
+ Version:             2 [OK]
+ Chip ID:             0x000F (Unknown)
+ Configuration:       4T4R (4 TX, 4 RX)
+ Number of ADCs:      4
+ Number of SERDES RX: 2
+ Number of Clk Cond:  2
+
+ === Calibration Sections ===
+
+ ADC Calibration:
+   Offset: 0x00000040 (64 bytes)
+   Size:   0x0000E500 (58624 bytes)
+   Per Mode: 29312 bytes
+   Per ADC:  7328 bytes
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>[ ... ]
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>The tool inspects:</p>
 <ul class="simple">
 <li><p>File size and CRC validation status</p></li>
 <li><p>Header information (magic, version, chip ID, configuration)</p></li>
@@ -3673,38 +3751,6 @@ $./ad9088_cal_dump<span class="w"> </span>/lib/firmware/ad9088_cal.bin
 <li><p>Data preview (first 16 bytes of each section)</p></li>
 <li><p>Warnings for uninitialized or corrupted data</p></li>
 </ul>
-<p>Example output:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>File: /lib/firmware/ad9088_cal.bin
-Size: 102464 bytes
-
-=== CRC Validation ===
-
-Stored CRC:     0x12345678
-Calculated CRC: 0x12345678
-Status:         [OK]
-
-=== AD9088 Calibration Data Header ===
-
-Magic Number:        0x41443930 (&#39;AD90&#39;) [OK]
-Version:             1 [OK]
-Chip ID:             0x9088 (AD9088)
-Configuration:       8T8R (8 TX, 8 RX)
-Number of ADCs:      8
-Number of DACs:      8
-Number of SERDES RX: 4
-Number of SERDES TX: 4
-
-=== Calibration Sections ===
-
-ADC Calibration:
-  Offset: 0x00000040 (64 bytes)
-  Size:   0x0000C800 (51200 bytes)
-  Per Mode: 25600 bytes
-  Per ADC:  3200 bytes
-
-[... additional sections ...]
-</pre></div>
-</div>
 </section>
 <section id="error-handling">
 <h3>Error Handling<a class="headerlink" href="#error-handling" title="Link to this heading"></a></h3>

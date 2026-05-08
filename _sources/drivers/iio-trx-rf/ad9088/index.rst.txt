@@ -2599,113 +2599,131 @@ If the property is not present, the driver performs normal initialization with f
    * Calibration data is loaded after firmware but before other HW configuration
    * Calibration data must match the device (same chip ID and configuration)
 
-Recommended Workflow
-~~~~~~~~~~~~~~~~~~~~
+.. _ad9088 fast-boot:
 
-First Boot - Capture Calibration
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Fast Boot
+~~~~~~~~~
 
-1. **Boot without calibration restore** (don't add device tree property yet):
+Fast boot stores a previous calibration data to use in subsequent reboots or
+driver probes.
 
-   .. shell::
-      :no-path:
+Capture Calibration
+^^^^^^^^^^^^^^^^^^^
 
-      $# Device boots and performs full calibration
+#. Probe the driver without calibration restore:
 
-2. **Save calibration data**:
+   .. attention::
 
-   .. shell::
-      :no-path:
-
-      $cat /sys/bus/iio/devices/iio:device8/calibration_data > /lib/firmware/ad9088_cal.bin
-
-3. **Verify the saved data**:
+      Make sure your device tree does not set ``adi,device-calibration-data-name``,
+      this enable the calibration restore.
 
    .. shell::
       :no-path:
 
-      $ls -lh /lib/firmware/ad9088_cal.bin
-      $# Should show file size (typically 50-200KB)
+      # Device boots and performs full calibration
+        ...
+        [time] ad9088 spi1.0: JESD TX (JRX Deframer Link A0): SERDES JRx cal Rate 20625000 kBps via INIT_CAL ...
+        [time] ad9088 spi1.0: JESD TX (JRX Deframer Link B0): SERDES JRx cal Rate 20625000 kBps via INIT_CAL ...
+        ...
 
-4. **Test restore** (optional but recommended):
+#. Go to the correct device by name:
 
    .. shell::
-      :no-path:
 
-      $cat /lib/firmware/ad9088_cal.bin > /sys/bus/iio/devices/iio:device8/calibration_data
-      $dmesg | grep -i calibration
-       ad9088 spi0.0: Calibration data restored successfully
+      $ cd $(grep -l "axi-ad9084-rx-hpc" /sys/bus/iio/devices/iio:device*/name | sed 's/name$//')
 
-5. **Update device tree** to enable automatic restore:
+#. Save calibration data:
+
+   .. shell::
+
+      /sys/bus/iio/devices/iio:device8/
+      $ cat calibration_data > /lib/firmware/ad9088_cal.bin
+      # Verify dmesg
+      $ dmesg | grep -i 'calibration data saved'
+        [time] ad9088 spi1.0: Calibration data saved: 60692 bytes (ADC: 58624, SERDES RX: 1760, Clk Cond: 240)
+      # Verify the size (50K ~ 200K)
+      $ ls -lh /lib/firmware/ad9088_cal.bin
+        -rw-r--r-- 1 root root 60K May  7 13:36 /lib/firmware/ad9088_cal.bin
+
+#. Test restore (optional):
+
+   .. shell::
+
+      /sys/bus/iio/devices/iio:device8/
+      $ cat /lib/firmware/ad9088_cal.bin > calibration_data
+      $ dmesg | grep -i 'calibration data restored'
+        [time] ad9088 spi0.0: Calibration data restored successfully
+
+Use stored calibration data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+#. Update device tree to restore the calibration data on probe:
 
    .. code:: dts
 
-      adi,device-calibration-data-name = "ad9088_cal.bin";
+      trx0_ad9084: ad9084@0 {
+          // ...
+          /* Fast boot */
+          adi,device-calibration-data-name = "ad9088_cal.bin";
+      }
 
-6. **Rebuild and deploy** device tree
+#. Rebuild and deploy the updated device tree.
 
-Subsequent Boots
-^^^^^^^^^^^^^^^^
+On subsequent boots or probes with the device tree property configured, the
+driver will:
 
-On subsequent boots with the device tree property configured, the driver will:
+* Load ``/lib/firmware/ad9088_cal.bin``
+* Restore the calibration data to hardware
 
-* Automatically load ``/lib/firmware/ad9088_cal.bin``
-* Restore calibration data to hardware
-* Skip time-consuming calibration procedures
-* Boot faster while maintaining performance
+This allows the device driver to probe in ~15 seconds, instead of ~80 seconds.
 
 Calibration Dump Tool
 ~~~~~~~~~~~~~~~~~~~~~~
 
-A standalone utility ``ad9088_cal_dump`` is provided for inspecting calibration files:
+A utility ``ad9088_cal_dump`` is provided for inspecting calibration files:
 
-.. code:: bash
+.. shell::
 
-   $cd drivers/iio/adc/apollo/tools
-   $make
-   $./ad9088_cal_dump /lib/firmware/ad9088_cal.bin
+   ~/linux
+   $ cd tools/iio
+   $ make
+   $ ./ad9088_cal_dump /lib/firmware/ad9088_cal.bin
+     File: ad9088_cal.bin
+     Size: 60692 bytes
 
-The tool displays:
+     === CRC Validation ===
+
+     Stored CRC:     0x142DCCB7
+     Calculated CRC: 0x142DCCB7
+     Status:         [OK]
+
+     === AD9088 Calibration Data Header ===
+
+     Magic Number:        0x41443930 ('09DA') [OK]
+     Version:             2 [OK]
+     Chip ID:             0x000F (Unknown)
+     Configuration:       4T4R (4 TX, 4 RX)
+     Number of ADCs:      4
+     Number of SERDES RX: 2
+     Number of Clk Cond:  2
+
+     === Calibration Sections ===
+
+     ADC Calibration:
+       Offset: 0x00000040 (64 bytes)
+       Size:   0x0000E500 (58624 bytes)
+       Per Mode: 29312 bytes
+       Per ADC:  7328 bytes
+
+   [ ... ]
+
+The tool inspects:
 
 * File size and CRC validation status
 * Header information (magic, version, chip ID, configuration)
 * Section offsets and sizes
 * Data preview (first 16 bytes of each section)
 * Warnings for uninitialized or corrupted data
-
-Example output:
-
-.. code:: text
-
-   File: /lib/firmware/ad9088_cal.bin
-   Size: 102464 bytes
-
-   === CRC Validation ===
-
-   Stored CRC:     0x12345678
-   Calculated CRC: 0x12345678
-   Status:         [OK]
-
-   === AD9088 Calibration Data Header ===
-
-   Magic Number:        0x41443930 ('AD90') [OK]
-   Version:             1 [OK]
-   Chip ID:             0x9088 (AD9088)
-   Configuration:       8T8R (8 TX, 8 RX)
-   Number of ADCs:      8
-   Number of DACs:      8
-   Number of SERDES RX: 4
-   Number of SERDES TX: 4
-
-   === Calibration Sections ===
-
-   ADC Calibration:
-     Offset: 0x00000040 (64 bytes)
-     Size:   0x0000C800 (51200 bytes)
-     Per Mode: 25600 bytes
-     Per ADC:  3200 bytes
-
-   [... additional sections ...]
 
 Error Handling
 ~~~~~~~~~~~~~~
