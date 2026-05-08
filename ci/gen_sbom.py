@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-# cat ./sbom.cdx.json | jq > ./sbom.cdx.pretty.json ; cat ./sbom.spdx.json | jq > ./sbom.spdx.pretty.json
+# cat ./sbom.spdx30.json | jq > ./sbom.spdx30.pretty.json
 """
 Generate (tiny) SBOMs for a Linux kernel image.
-  - CycloneDX 1.7 (sbom.cdx.json)
   - SPDX 3.0.1 (sbom.spdx.json)
 
 
@@ -15,7 +14,6 @@ import hashlib
 import json
 import re
 import sys
-import uuid
 
 from urllib.parse import quote, urlparse
 from os import path, sep, environ
@@ -26,9 +24,6 @@ tool_name = "linux-sbom-gen"
 tool_version = "1.0.0"
 
 def _hash(filepath, alg):
-    if not path.isfile(filepath):
-        return None
-
     h = hashlib.new(alg)
     with open(filepath, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
@@ -104,8 +99,16 @@ def _kernel_release_to_tag(kernel_release):
     return f'v{tag}'
 
 def get_purl_src(ctx):
+    git_sha = ctx.get("git_sha", "")
+
+    return f"pkg:{_get_repository()}@{git_sha}"
+
+def get_purl_upstream(ctx):
     stable_tag = _kernel_release_to_tag(ctx.get("kernel_release", ""))
     return f"pkg:github/gregkh/linux@{stable_tag}"
+
+def get_purl_ci():
+    return "pkg:github/analogdevicesinc/linux@ci"
 
 def get_purl_out(ctx):
     kernel_release   = ctx.get("kernel_release", "")
@@ -118,7 +121,7 @@ def get_purl_out(ctx):
     git_sha          = ctx.get("git_sha", "")
 
     qualifiers = {
-        "sha": git_sha,
+        "release": kernel_release,
         "compiler": f"{compiler_name}-{compiler_version}",
         "arch": arch,
         "config": defconfig,
@@ -133,98 +136,13 @@ def get_purl_out(ctx):
 
     qualifiers_ = '&'.join(qualifiers_)
 
-    return f"pkg:{_get_repository()}@{kernel_release}?{qualifiers_}"
+    return f"pkg:{_get_repository()}@{git_sha}?{qualifiers_}"
 
 def get_name(ctx):
     return "Linux Kernel"
 
 def get_description(ctx):
     return "The Linux kernel is the core of any Linux operating system."
-
-def build_cdx(dist, ctx, source_files, src_root, main_c_command=None):
-    """Return a CycloneDX 1.6 dict."""
-    kernel_release   = ctx.get("kernel_release")
-    kernel           = ctx.get("kernel")
-    git_sha          = ctx.get("git_sha")
-    git_sha_ct       = ctx.get("git_sha_ct")
-
-    commit_iso = datetime.datetime.fromtimestamp(
-        int(git_sha_ct), tz=datetime.timezone.utc
-    ).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    image_path = path.join(dist, "boot", kernel)
-
-    source_components = []
-    for rel in source_files:
-        component = {"type": "file", "bom-ref": f"file:{rel}", "name": rel}
-        lic = _spdx_license(path.join(src_root, rel))
-        if lic:
-            component["licenses"] = [{"expression": lic}]
-        source_components.append(component)
-
-    git_url = environ.get('GIT_URL', '')
-    purl_out = get_purl_out(ctx)
-
-    return {
-        "bomFormat": "CycloneDX",
-        "specVersion": "1.7",
-        "serialNumber": f"urn:uuid:{uuid.uuid4()}",
-        "version": 1,
-        "metadata": {
-            "timestamp": commit_iso,
-            "manufacturer": {
-                "name": org_name,
-                "contact": [{"email": org_email}],
-            },
-            "tools": {
-                "components": [{
-                    "type":    "application",
-                    "author":  "analog",
-                    "name":    tool_name,
-                    "version": tool_version,
-                }],
-            },
-            "component": {
-                "type": "firmware",
-                "bom-ref": get_artifact(ctx),
-                "name": get_name(ctx),
-                "version": kernel_release,
-                "description": get_description(ctx),
-                "purl": purl_out,
-                "licenses": [{"expression": "GPL-2.0 WITH Linux-syscall-note"}],
-                **({"hashes": [
-                    {"alg": "MD5",     "content": _hash(image_path, "md5")},
-                    {"alg": "SHA-256", "content": _hash(image_path, "sha256")},
-                ]} if _hash(image_path, "md5") else {}),
-                "externalReferences": [{
-                    "type": "vcs",
-                    "url": git_url,
-                    **({"comment": git_sha} if git_sha else {}),
-                }],
-                "components": source_components,
-                "properties": [{
-                    "name":  "hub.analog.com/component-id",
-                    "value": get_component(ctx),
-                }],
-            },
-        },
-        "components": [],
-        "dependencies": [],
-        **({
-            "formulation": [{
-                "workflows": [{
-                    "bom-ref":   "workflow:kbuild",
-                    "uid":       "kbuild",
-                    "taskTypes": ["build"],
-                    "steps": [{
-                        "name": "compile",
-                        "commands": [{"executed": main_c_command}],
-                    }],
-                }],
-            }],
-        } if main_c_command else {}),
-    }
-
 
 def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     """Return an SPDX 3.0.1 JSON-LD dict.
@@ -243,6 +161,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
              └─ Relationship: hasDeclaredLicense per file
     """
     purl_src = f"urn:purl:{get_purl_src(ctx)}"
+    purl_ci = f"urn:purl:{get_purl_ci()}"
     purl_out = f"urn:purl:{get_purl_out(ctx)}"
 
     kernel_release = ctx.get("kernel_release")
@@ -264,6 +183,9 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     def _id_out(tag):
         return f"{purl_out}/{tag}"
 
+    def _id_ci(tag):
+        return f"{purl_ci}/{tag}"
+
     def _id_src(tag):
         return f"{purl_src}/{tag}"
 
@@ -272,7 +194,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     id_pkg     = _id_out("pkg/linux")
     id_image   = _id_out("file/image")
     id_build   = _id_src("build/0")
-    id_tool    = _id_src(f"tool/{tool_name}")
+    id_tool    = _id_ci(f"tool/{tool_name}")
 
     id_org = _id_src("org/analog")
 
@@ -337,11 +259,11 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
             "name":                    rel,
             "software_primaryPurpose": "source",
         }
-        src_sha = _hash(path.join(src_root, rel), "sha256")
-        if src_sha:
-            fe["verifiedUsing"] = [{
-                "type": "Hash", "algorithm": "sha256", "hashValue": src_sha,
-            }]
+        if path.isfile(path.join(src_root, rel)):
+            fe["verifiedUsing"] = [
+                {"type": "Hash", "algorithm": "sha1", "hashValue": _hash(path.join(src_root, rel), "sha1")},
+                {"type": "Hash", "algorithm": "sha256", "hashValue": _hash(path.join(src_root, rel), "sha256")},
+            ]
         file_elements.append(fe)
 
         lic = _spdx_license(path.join(src_root, rel))
@@ -367,7 +289,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     package["externalIdentifier"] = [{
         "type":                   "ExternalIdentifier",
         "externalIdentifierType": "packageUrl",
-        "identifier":             get_purl_src(ctx),
+        "identifier":             get_purl_upstream(ctx),
     }]
     package["extension"] = [{
         "type": "extension_CdxPropertiesExtension",
@@ -412,11 +334,11 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "software_fileKind": "file",
         "software_primaryPurpose": "executable",
     }
-    image_sha = _hash(image_path, "sha256")
-    if image_sha:
-        image_elem["verifiedUsing"] = [{
-            "type": "Hash", "algorithm": "sha256", "hashValue": image_sha,
-        }]
+    if path.isfile(image_path):
+        image_elem["verifiedUsing"] = [
+            {"type": "Hash", "algorithm": "sha1", "hashValue": _hash(image_path, "sha1")},
+            {"type": "Hash", "algorithm": "sha256", "hashValue": _hash(image_path, "sha256")},
+        ]
 
     build_elem = {
         "type":              "build_Build",
@@ -471,7 +393,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "type":             "software_Sbom",
         "spdxId":           id_sbom,
         "creationInfo":     "_:creationinfo",
-        "name":             f"linux-kernel-{kernel_release}-{defconfig}-{compiler_name}-{arch}-{kernel}-{git_sha}",
+        "name":             f"linux-kernel-{kernel_release}-{git_sha}-{defconfig}-{compiler_name}-{arch}-{kernel}",
         "rootElement":      [id_pkg],
         "element":          all_element_ids,
         "software_sbomType": ["source"],
@@ -541,10 +463,8 @@ def main():
         rel = fp[len(src_root):]
         source_files.add(rel)
 
-    cdx_path = path.join(dist, "sbom.cdx17.json")
-    with open(cdx_path, "w") as f:
-        json.dump(build_cdx(dist, ctx, source_files, src_root, main_c_command), f)
-    print(f"sbom written to {cdx_path}", file=sys.stderr)
+    # Testing locally with a pre-built artifact? Change to a local tree
+    #src_root = "/data/repos/linux/main"
 
     spdx_path = path.join(dist, "sbom.spdx30.json")
     with open(spdx_path, "w") as f:
