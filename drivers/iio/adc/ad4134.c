@@ -1300,6 +1300,7 @@ static void __exit ad4134_exit(void)
 module_exit(ad4134_exit);
 
 MODULE_AUTHOR("Cosmin Tanislav <cosmin.tanislav@analog.com>");
+MODULE_AUTHOR("Marcelo Schmitt <marcelo.schmitt@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD4134 SPI driver");
 MODULE_LICENSE("GPL");
 MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);
