@@ -43,6 +43,9 @@
 
 #define AD4134_NAME				"ad4134"
 
+#define AD4134_IF_CONFIG_A_REG				0x0
+#define AD4134_IF_CONFIG_A_RESET_MASK			(BIT(7) | BIT(0))
+
 #define AD4134_IF_CONFIG_B_REG				0x01
 #define AD4134_IF_CONFIG_B_SINGLE_INSTR			BIT(7)
 #define AD4134_IF_CONFIG_B_MASTER_SLAVE_RD_CTRL		BIT(5)
@@ -561,7 +564,31 @@ static ssize_t sampling_frequency_available_show(struct device *dev,
 
 static IIO_DEVICE_ATTR_RO(sampling_frequency_available, 0);
 
+static ssize_t soft_reset_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct ad4134_state *st = iio_priv(indio_dev);
+	unsigned int val;
+	int ret;
+
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
+
+	ret = regmap_update_bits(st->regmap, AD4134_IF_CONFIG_A_REG,
+				 AD4134_IF_CONFIG_A_RESET_MASK,
+				 AD4134_IF_CONFIG_A_RESET_MASK);
+
+out_store:
+	iio_device_release_direct(indio_dev);
+	return ret ?: len;
+}
+
+static IIO_DEVICE_ATTR_WO(soft_reset, 0);
+
 static struct attribute *ad4134_offload_attributes[] = {
+	&iio_dev_attr_soft_reset.dev_attr.attr, /* Can be provided without offload */
 	&iio_dev_attr_sampling_frequency.dev_attr.attr,
 	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
 	NULL,
