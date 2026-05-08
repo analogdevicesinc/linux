@@ -33,6 +33,11 @@
 #define MALL_INFO_TABLE_ID              0x4C4C414D
 #define NPS_INFO_TABLE_ID 0x0053504E
 
+/* = ('I' << 16u | 'R' << 8u | 'M') */
+#define MEM_RSV_TABLE_SIGNATURE          0x0049524D
+#define MEM_RSV_TABLE_VERSION            0x01
+#define MAX_MEM_REGION_NUM               16
+
 typedef enum {
 	IP_DISCOVERY = 0,
 	GC,
@@ -40,7 +45,8 @@ typedef enum {
 	VCN_INFO,
 	MALL_INFO,
 	NPS_INFO,
-	TOTAL_TABLES = 6
+	MEM_RESERVED_INFO,
+	TOTAL_TABLES = 7
 } table;
 
 #pragma pack(1)
@@ -503,6 +509,52 @@ struct nps_info_v1_0 {
 	struct nps_instance_info_v1_0
 		instance_info[NPS_INFO_TABLE_MAX_NUM_INSTANCES];
 };
+
+typedef enum {
+	NO_RESERVED_REGION_ID		= 0,
+	/* reserved for UEFI GOP/DMUB FW */
+	PRE_OS_DISP_FW_REGION_ID	= 1,
+	/* UMF reserved region for master die MPASP */
+	MASTER_DIE_UMF_REGION_ID	= 2,
+	/* DCC meta data */
+	DCC_META_DATA_REGION_ID		= 3,
+	/* GPUVM page fault region */
+	VM_PAGE_FAULT_REGION_ID		= 4,
+	/* G7 Alternate Pstate Aperture 1 */
+	G7_PSTATE_APERTURE1_ID		= 5,
+	/* G7 Alternate Pstate Aperture 2 */
+	G7_PSTATE_APERTURE2_ID		= 6,
+	/* G7 Alternate Pstate Mirror Region */
+	G7_PSTATE_MIRROR_REGION_ID	= 7,
+	/* G7 Pstate Training Data */
+	G7_TRAINING_DATA_REGION_ID	= 8,
+	/* Specific purpose memory region */
+	SPECIFIC_PURPOSE_REGION_ID	= 9,
+	MEM_RESERVED_REGION_NUM,
+} MEM_RESERVED_REGION_ID;
+
+typedef struct mem_reserved_info_header {
+	/* Table Signature */
+	uint32_t signature;
+	/* Table Version */
+	uint32_t version;
+	uint32_t size;
+} mem_reserved_info_header;
+
+typedef struct mem_reserved_info {
+	/* enum of MEM_RESERVED_REGION_ID */
+	uint32_t reserved_region_id;
+	/* Memory Reserved Region Size */
+	uint64_t reserved_region_size;
+	/* Memory Reserved Region Start Address */
+	uint64_t reserved_region_start;
+} mem_reserved_info;
+
+typedef struct mem_reserved_info_table_v1_0 {
+	mem_reserved_info_header header;
+	uint32_t list_num;
+	mem_reserved_info list[MAX_MEM_REGION_NUM];
+} mem_reserved_info_table_v1_0;
 
 #pragma pack()
 
