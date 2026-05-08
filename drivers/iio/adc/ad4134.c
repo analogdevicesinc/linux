@@ -576,9 +576,12 @@ static ssize_t soft_reset_store(struct device *dev,
 	if (!iio_device_claim_direct(indio_dev))
 		return -EBUSY;
 
+	gpiod_set_value_cansleep(st->cs_gpio, 1);
 	ret = regmap_update_bits(st->regmap, AD4134_IF_CONFIG_A_REG,
 				 AD4134_IF_CONFIG_A_RESET_MASK,
 				 AD4134_IF_CONFIG_A_RESET_MASK);
+
+	gpiod_set_value_cansleep(st->cs_gpio, 0);
 
 out_store:
 	iio_device_release_direct(indio_dev);
