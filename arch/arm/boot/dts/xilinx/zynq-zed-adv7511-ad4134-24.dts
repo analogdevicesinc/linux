@@ -102,8 +102,8 @@
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x10000>;
 		#pwm-cells = <2>;
-		clocks = <&clkc 15>, <&cnv_ext_clk>;
-		clock-names = "axi", "ext";
+		clocks = <&clkc 15>;
+		clock-names = "axi";
 	};
 
 	spi_clk: spi-clock-controller@44b10000 {
