@@ -7,10 +7,14 @@
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
+#include <linux/clk-provider.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+
+#include "clk.h"
 
 #define SC5XX_CDU_CFG(n)	((n) * sizeof(u32))
 
@@ -48,8 +52,8 @@ void sc5xx_cdu_print_revision(const char *soc_name, void __iomem *base)
 
 	pr_info("%s CDU revision: major=%u rev=%u (0x%08x)\n",
 		soc_name,
-		FIELD_GET(SC5XX_CDU_REVID_MAJOR, revid),
-		FIELD_GET(SC5XX_CDU_REVID_REV, revid),
+		(unsigned int)FIELD_GET(SC5XX_CDU_REVID_MAJOR, revid),
+		(unsigned int)FIELD_GET(SC5XX_CDU_REVID_REV, revid),
 		revid);
 }
 
@@ -226,6 +230,7 @@ static int sc5xx_cdu_is_enabled(struct clk_hw *clk_hw)
 
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
+#include <linux/seq_file.h>
 
 static int sc5xx_cdu_debug_show(struct seq_file *s, void *v)
 {
@@ -270,6 +275,7 @@ static void sc5xx_cdu_debug_init(struct clk_hw *clk_hw, struct dentry *dentry)
 #endif
 
 static const struct clk_ops sc5xx_cdu_ops = {
+	.determine_rate = __clk_mux_determine_rate,
 	.set_parent = sc5xx_cdu_set_parent,
 	.get_parent = sc5xx_cdu_get_parent,
 	.enable     = sc5xx_cdu_enable,
@@ -297,7 +303,7 @@ struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 	init.ops = &sc5xx_cdu_ops;
 	init.parent_names = parent_names;
 	init.num_parents = num_parents;
-	init.flags = clock_flags;
+	init.flags = CLK_SET_RATE_PARENT | clock_flags;
 
 	cdu_clk->clk_hw.init = &init;
 	cdu_clk->base = base;

@@ -68,6 +68,16 @@
 #define CDU_MUX_WIDTH 2
 #define CDU_EN_BIT 0
 
+struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
+			       u8 cdu_clko,
+			       const char * const *parent_names,
+			       const u32 *parent_sel,
+			       u8 num_parents,
+			       unsigned long clock_flags,
+			       spinlock_t *lock);
+
+void sc5xx_cdu_print_revision(const char *soc_name, void __iomem *base);
+
 struct clk_sc5xx_cgu_pll *to_clk_sc5xx_cgu_pll(struct clk_hw *hw);
 
 struct clk *sc5xx_cgu_pll(const char *name, const char *parent_name,

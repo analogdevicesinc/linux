@@ -286,81 +286,68 @@ static void sc598_clock_probe(struct device_node *np)
 	clks[ADSP_SC598_CLK_CGU1_SCLK1_HALF] =
 	    clk_register_fixed_factor(NULL, "sclk1_1_half", "sclk1_1",
 				      CLK_SET_RATE_PARENT, 1, 2);
-
+	
 	/* CDU output clocks: CDU_CFG[n] mux + gate in one clock */
 	clks[ADSP_SC598_CLK_SHARC0] =
 		sc5xx_cdu_register("sharc0", cdu, 0, sharc0_sels,
 				   sharc0_parent_sel, ARRAY_SIZE(sharc0_sels),
 				   CLK_IS_CRITICAL, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_SHARC1] =
 		sc5xx_cdu_register("sharc1", cdu, 1, sharc1_sels,
 				   sharc1_parent_sel, ARRAY_SIZE(sharc1_sels),
 				   CLK_IS_CRITICAL, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_ARM] =
 		sc5xx_cdu_register("arm", cdu, 2, arm_sels,
 				   arm_parent_sel, ARRAY_SIZE(arm_sels),
 				   CLK_IS_CRITICAL, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_CDU_DDR] =
 		sc5xx_cdu_register("cdu_ddr", cdu, 3, cdu_ddr_sels,
 				   cdu_ddr_parent_sel, ARRAY_SIZE(cdu_ddr_sels),
 				   0, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_CAN] =
 		sc5xx_cdu_register("can", cdu, 4, can_sels,
 				   can_parent_sel, ARRAY_SIZE(can_sels),
 				   0, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_SPDIF] =
 		sc5xx_cdu_register("spdif", cdu, 5, spdif_sels,
 				   spdif_parent_sel, ARRAY_SIZE(spdif_sels),
 				   0, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_SPI] =
 		sc5xx_cdu_register("spi", cdu, 6, spi_sels,
 				   spi_parent_sel, ARRAY_SIZE(spi_sels),
 				   0, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_GIGE] =
 		sc5xx_cdu_register("gige", cdu, 7, gige_sels,
 				   gige_parent_sel, ARRAY_SIZE(gige_sels),
 				   0, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_LP] =
 		sc5xx_cdu_register("lp", cdu, 8, lp_sels,
 				   lp_parent_sel, ARRAY_SIZE(lp_sels),
 				   0, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_LP_DDR] =
 		sc5xx_cdu_register("lp_ddr", cdu, 9, lp_ddr_sels,
 				   lp_ddr_parent_sel, ARRAY_SIZE(lp_ddr_sels),
 				   0, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_OSPI_REFCLK] =
 		sc5xx_cdu_register("ospi_refclk", cdu, 10, ospi_refclk_sels,
 				   ospi_refclk_parent_sel,
 				   ARRAY_SIZE(ospi_refclk_sels),
 				   0, &cdu_lock);
-
 	/* CLKO11 is internal and not user configurable. */
-
 	clks[ADSP_SC598_CLK_TRACE] =
 		sc5xx_cdu_register("trace", cdu, 12, trace_sels,
 				   trace_parent_sel, ARRAY_SIZE(trace_sels),
 				   0, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_EMMC] =
 		sc5xx_cdu_register("emmc", cdu, 13, emmc_sels,
 				   emmc_parent_sel, ARRAY_SIZE(emmc_sels),
 				   0, &cdu_lock);
-
 	clks[ADSP_SC598_CLK_EMMC_TIMER_QMC] =
 		sc5xx_cdu_register("emmc_timer_qmc", cdu, 14, emmc_timer_sels,
 				   emmc_timer_parent_sel,
 				   ARRAY_SIZE(emmc_timer_sels),
 				   0, &cdu_lock);
+
 
 	// Dedicated DDR output mux
 	clks[ADSP_SC598_CLK_DDR] =
