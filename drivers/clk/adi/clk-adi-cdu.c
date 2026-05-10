@@ -30,8 +30,8 @@
 #define SC5XX_CDU_REVID_MAJOR	GENMASK(7, 4)
 #define SC5XX_CDU_REVID_REV	GENMASK(3, 0)
 
-#define SC5XX_CDU_POLL_DELAY	2
-#define SC5XX_CDU_POLL_TIMEOUT	10
+#define SC5XX_CDU_POLL_DELAY	5
+#define SC5XX_CDU_POLL_TIMEOUT	50
 
 struct sc5xx_cdu {
 	u8 cdu_clko;
@@ -49,12 +49,11 @@ enum sc5xx_cdu_en_state {
 void sc5xx_cdu_print_revision(const char *soc_name, void __iomem *base)
 {
 	u32 revid = readl(base + SC5XX_CDU_REVID);
+	u32 major = FIELD_GET(SC5XX_CDU_REVID_MAJOR, revid);
+	u32 rev = FIELD_GET(SC5XX_CDU_REVID_REV, revid);
 
 	pr_info("%s CDU revision: major=%u rev=%u (0x%08x)\n",
-		soc_name,
-		(unsigned int)FIELD_GET(SC5XX_CDU_REVID_MAJOR, revid),
-		(unsigned int)FIELD_GET(SC5XX_CDU_REVID_REV, revid),
-		revid);
+		soc_name, major, rev, revid);
 }
 
 static inline struct sc5xx_cdu *to_sc5xx_cdu(struct clk_hw *clk_hw)
@@ -70,13 +69,19 @@ static int sc5xx_cdu_check_unlocked(u32 reg)
 	return 0;
 }
 
+/*
+ * CDU_STAT.CLKOn is set while a configuration change for CDU_CFG[n] is in
+ * progress. Writes to CDU_CFG[n] must only happen when the corresponding
+ * status bit is clear.
+ */
 static int sc5xx_cdu_wait_ready(struct sc5xx_cdu *cdu_clk)
 {
 	u32 stat;
 
-	return readl_poll_timeout_atomic(cdu_clk->base + SC5XX_CDU_STAT, 
-			stat, !(stat & BIT(cdu_clk->cdu_clko)),
-			SC5XX_CDU_POLL_DELAY, 
+	return readl_poll_timeout_atomic(cdu_clk->base + SC5XX_CDU_STAT,
+			stat,
+			!(stat & BIT(cdu_clk->cdu_clko)),
+			SC5XX_CDU_POLL_DELAY,
 			SC5XX_CDU_POLL_TIMEOUT);
 }
 
@@ -85,7 +90,7 @@ static u32 sc5xx_cdu_read(struct sc5xx_cdu *cdu_clk, unsigned int offset)
 	return readl(cdu_clk->base + offset);
 }
 
-static void sc5xx_cdu_write(struct sc5xx_cdu *cdu_clk, 
+static void sc5xx_cdu_write(struct sc5xx_cdu *cdu_clk,
 			    unsigned int offset, u32 val)
 {
 	writel(val, cdu_clk->base + offset);
@@ -96,15 +101,14 @@ static unsigned int sc5xx_cdu_cfg(struct sc5xx_cdu *cdu_clk)
 	return SC5XX_CDU_CFG(cdu_clk->cdu_clko);
 }
 
-/* Caller must hold cdu_clk->lock */
-static int sc5xx_cdu_update_en(struct sc5xx_cdu *cdu_clk, 
-			       enum sc5xx_cdu_en_state state)
+static int sc5xx_cdu_update_en(struct sc5xx_cdu *cdu_clk,
+				enum sc5xx_cdu_en_state state)
 {
 	u32 reg;
 	int ret;
 
 	reg = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
-	
+
 	ret = sc5xx_cdu_check_unlocked(reg);
 	if (ret)
 		return ret;
@@ -113,9 +117,9 @@ static int sc5xx_cdu_update_en(struct sc5xx_cdu *cdu_clk,
 		reg |= SC5XX_CDU_CFG_EN;
 	else
 		reg &= ~SC5XX_CDU_CFG_EN;
-	
+
 	sc5xx_cdu_write(cdu_clk, sc5xx_cdu_cfg(cdu_clk), reg);
-	
+
 	return 0;
 }
 
@@ -147,10 +151,10 @@ static int sc5xx_cdu_set_parent(struct clk_hw *clk_hw, u8 index)
 	sc5xx_cdu_write(cdu_clk, sc5xx_cdu_cfg(cdu_clk), reg);
 
 	ret = sc5xx_cdu_wait_ready(cdu_clk);
-	
+
 out:
 	spin_unlock_irqrestore(cdu_clk->lock, flags);
-	
+
 	return ret;
 }
 
@@ -166,7 +170,8 @@ static u8 sc5xx_cdu_get_parent(struct clk_hw *clk_hw)
 
 	input_sel = FIELD_GET(SC5XX_CDU_CFG_SEL, reg);
 
-	return clk_mux_val_to_index(clk_hw, cdu_clk->parent_sel, 0, input_sel);
+	return clk_mux_val_to_index(clk_hw, cdu_clk->parent_sel,
+					0, input_sel);
 }
 
 static int sc5xx_cdu_enable(struct clk_hw *clk_hw)
@@ -220,12 +225,12 @@ static int sc5xx_cdu_is_enabled(struct clk_hw *clk_hw)
 	struct sc5xx_cdu *cdu_clk = to_sc5xx_cdu(clk_hw);
 	unsigned long flags;
 	u32 reg;
-	
+
 	spin_lock_irqsave(cdu_clk->lock, flags);
 	reg = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
 	spin_unlock_irqrestore(cdu_clk->lock, flags);
 
-	return reg & SC5XX_CDU_CFG_EN;
+	return !!(reg & SC5XX_CDU_CFG_EN);
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -248,14 +253,15 @@ static int sc5xx_cdu_debug_show(struct seq_file *s, void *v)
 	spin_unlock_irqrestore(cdu_clk->lock, flags);
 
 	seq_printf(s, "CDU_CFG[%u]: 0x%08x\n", cdu_clk->cdu_clko, cfg_reg);
-	seq_printf(s, "  EN:   %u\n", cfg_reg & SC5XX_CDU_CFG_EN);
+	seq_printf(s, "  EN:   %u\n", !!(cfg_reg & SC5XX_CDU_CFG_EN));
 	seq_printf(s, "  SEL:  %u\n", FIELD_GET(SC5XX_CDU_CFG_SEL, cfg_reg));
-	seq_printf(s, "  LOCK: %u\n", cfg_reg & SC5XX_CDU_CFG_LOCK);
+	seq_printf(s, "  LOCK: %u\n", !!(cfg_reg & SC5XX_CDU_CFG_LOCK));
 
 	seq_printf(s, "CDU_STAT: 0x%08x\n", stat_reg);
-	seq_printf(s, "  LWERR:  %u\n", stat_reg & SC5XX_CDU_STAT_LWERR);	
-	seq_printf(s, "  ADRERR: %u\n", stat_reg & SC5XX_CDU_STAT_ADRERR);
-	seq_printf(s, "  CLKO%u: %u\n", cdu_clk->cdu_clko, stat_reg & BIT(cdu_clk->cdu_clko));
+	seq_printf(s, "  LWERR:  %u\n", !!(stat_reg & SC5XX_CDU_STAT_LWERR));
+	seq_printf(s, "  ADRERR: %u\n", !!(stat_reg & SC5XX_CDU_STAT_ADRERR));
+	seq_printf(s, "  CLKO%u: %u\n", cdu_clk->cdu_clko,
+					!!(stat_reg & BIT(cdu_clk->cdu_clko)));
 
 	return 0;
 }
@@ -266,10 +272,10 @@ static void sc5xx_cdu_debug_init(struct clk_hw *clk_hw, struct dentry *dentry)
 	struct sc5xx_cdu *cdu_clk = to_sc5xx_cdu(clk_hw);
 	char debugfs_entry_name[12];
 
-	snprintf(debugfs_entry_name, sizeof(debugfs_entry_name), 
+	snprintf(debugfs_entry_name, sizeof(debugfs_entry_name),
 			"cdu_cfg[%u]", cdu_clk->cdu_clko);
 
-	debugfs_create_file(debugfs_entry_name, 0444, dentry, 
+	debugfs_create_file(debugfs_entry_name, 0444, dentry,
 				clk_hw, &sc5xx_cdu_debug_fops);
 }
 #endif
@@ -278,17 +284,33 @@ static const struct clk_ops sc5xx_cdu_ops = {
 	.determine_rate = __clk_mux_determine_rate,
 	.set_parent = sc5xx_cdu_set_parent,
 	.get_parent = sc5xx_cdu_get_parent,
-	.enable     = sc5xx_cdu_enable,
-	.disable    = sc5xx_cdu_disable,
+	.enable = sc5xx_cdu_enable,
+	.disable = sc5xx_cdu_disable,
 	.is_enabled = sc5xx_cdu_is_enabled,
 #ifdef CONFIG_DEBUG_FS
 	.debug_init = sc5xx_cdu_debug_init,
 #endif
 };
 
+/**
+ * sc5xx_cdu_register - Register an ADSP-SC5xx CDU output clock mux.
+ * @clock_name: Name of the clock to register.
+ * @base: Base address of the CDU register block.
+ * @cdu_clko: CDU output index controlled by the clock.
+ * @parent_names: Names of the parent clocks.
+ * @parent_sel: CDU_CFG[n] clock input mappings.
+ * @num_parents: Number of parent clocks.
+ * @clock_flags: clock flags.
+ * @lock: Lock protecting CDU access.
+ *
+ * Register a clock for one CDU mux output. CDU_CFG[n]
+ * controls the mux selection and enable state for CDU_CLKOn.
+ *
+ * Return: A registered clock on success, or an ERR_PTR() on failure.
+ */
 struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 				u8 cdu_clko, const char * const *parent_names,
-				const u32 *parent_sel, u8 num_parents, 
+				const u32 *parent_sel, u8 num_parents,
 				unsigned long clock_flags, spinlock_t *lock)
 {
 	struct sc5xx_cdu *cdu_clk;
@@ -308,8 +330,8 @@ struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 	cdu_clk->clk_hw.init = &init;
 	cdu_clk->base = base;
 	cdu_clk->lock = lock;
-	cdu_clk->parent_sel = parent_sel; 
-	cdu_clk->cdu_clko = cdu_clko; 
+	cdu_clk->parent_sel = parent_sel;
+	cdu_clk->cdu_clko = cdu_clko;
 
 	clk = clk_register(NULL, &cdu_clk->clk_hw);
 	if (IS_ERR(clk))
