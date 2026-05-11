@@ -475,7 +475,7 @@
 			reg = <0x31008000 0x10>;
 			timeout-sec = <30>;
 			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
-			clock-names = "adi-watchdog";
+			clock-names = "sclk0";
 		};
 
 		spi0: spi@3102e000 {

@@ -204,7 +204,7 @@ static int adi_wdt_probe(struct platform_device *pdev)
 	if (IS_ERR(wdt->base))
 		return PTR_ERR(wdt->base);
 
-	clk = devm_clk_get(&pdev->dev, "adi-watchdog");
+	clk = devm_clk_get(&pdev->dev, "sclk0");
 	if (IS_ERR(clk))
 		return -ENODEV;
 
