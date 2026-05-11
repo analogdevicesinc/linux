@@ -716,6 +716,9 @@ static int amdgpu_discovery_table_check(struct amdgpu_device *adev,
 	return 0;
 }
 
+static void amdgpu_discovery_dump_mem_reserved_info_table(struct amdgpu_device *adev,
+		struct mem_reserved_info_table_v1_0 *table);
+
 static void amdgpu_discovery_log_bad_signature(struct amdgpu_device *adev,
 					       uint8_t *discovery_bin,
 					       const char *fw_name)
@@ -789,10 +792,13 @@ static int amdgpu_discovery_init(struct amdgpu_device *adev)
 	}
 
 	/*
-	 * Resolve the MEM_RESERVED_INFO table once at init time. The table
-	 * is optional, so missing it is not a fatal error.
+	 * Resolve and dump the MEM_RESERVED_INFO table once at init time.
+	 * The table is optional, so missing it is not a fatal error.
 	 */
-	amdgpu_discovery_get_mem_reserved_info_table(adev);
+	if (!amdgpu_discovery_get_mem_reserved_info_table(adev))
+		amdgpu_discovery_dump_mem_reserved_info_table(adev,
+				adev->discovery.mem_reserved_table);
+
 	return 0;
 
 out:
@@ -2406,6 +2412,24 @@ static const char *amdgpu_discovery_mem_reserved_region_name(u32 id)
 	case G7_TRAINING_DATA_REGION_ID:	return "G7_TRAINING_DATA";
 	case SPECIFIC_PURPOSE_REGION_ID:	return "SPECIFIC_PURPOSE";
 	default:				return "UNKNOWN";
+	}
+}
+
+/* Dump all the mem_reserved_info table entries for debugging */
+static void amdgpu_discovery_dump_mem_reserved_info_table(struct amdgpu_device *adev,
+		struct mem_reserved_info_table_v1_0 *table)
+{
+	u32 list_num = min_t(u32, le32_to_cpu(table->list_num), MAX_MEM_REGION_NUM);
+	u32 id, i;
+
+	dev_info(adev->dev, "MEM_RESERVED_INFO: list_num=%u\n", list_num);
+	for (i = 0; i < list_num; i++) {
+		id = le32_to_cpu(table->list[i].reserved_region_id);
+		dev_info(adev->dev, "  [%u] id=%u (%s) size=0x%llx start=0x%llx\n",
+			 i, id,
+			 amdgpu_discovery_mem_reserved_region_name(id),
+			 le64_to_cpu(table->list[i].reserved_region_size),
+			 le64_to_cpu(table->list[i].reserved_region_start));
 	}
 }
 
