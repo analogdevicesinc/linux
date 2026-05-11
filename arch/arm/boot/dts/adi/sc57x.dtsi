@@ -365,7 +365,7 @@
 			reg = <0x31008000 0x10>;
 			timeout-sec = <30>;
 			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
-			clock-names = "adi-watchdog";
+			clock-names = "sclk0";
 		};
 
 		emac0: ethernet@3100C000 {
