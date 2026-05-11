@@ -535,11 +535,13 @@ static int newary(struct ipc_namespace *ns, struct ipc_params *params)
 	key_t key = params->key;
 	int nsems = params->u.nsems;
 	int semflg = params->flg;
+	int total_sems;
 	int i;
 
 	if (!nsems)
 		return -EINVAL;
-	if (ns->used_sems + nsems > ns->sc_semmns)
+	if (check_add_overflow(ns->used_sems, nsems, &total_sems) ||
+	    total_sems > ns->sc_semmns)
 		return -ENOSPC;
 
 	sma = sem_alloc(nsems);
