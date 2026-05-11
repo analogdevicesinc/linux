@@ -6,10 +6,10 @@ on:
       artifacts:
         required: true
         type: string
-      BUILD_SOURCEBRANCH:
+      build-sourcebranch:
         required: true
         type: string
-      CLOUDSMITH_REPO:
+      cloudsmith-repo:
         required: false
         type: string
         default: 'sdg-linux-rpi'
@@ -21,15 +21,13 @@ permissions:
 
 jobs:
   prepare_and_upload_rpi_artefacts:
-    runs-on: [self-hosted, repo-only]
+    runs-on: [ubuntu-slim]
     permissions:
       id-token: write
-      contents: write
+      contents: read
       actions: read
 
     steps:
-    - uses: analogdevicesinc/doctools/checkout@action
-
     - name: Prepare path
       run: |
         rm -rf dist ; mkdir dist
@@ -63,7 +61,7 @@ jobs:
         echo "Verifying script content:"
         head -3 ci/prepare_rpi_artifacts.sh
         if [[ ! -s ci/prepare_rpi_artifacts.sh ]] || ! head -1 ci/prepare_rpi_artifacts.sh | grep -q "^#"; then
-          echo "ERROR: Script download failed or invalid content"
+          echo "::error ::deploy-rpi-artifacts: Script download failed or invalid content"
           exit 1
         fi
         chmod +x ci/prepare_rpi_artifacts.sh
@@ -228,7 +226,7 @@ jobs:
         fi
 
         # Calculate version and tags (before cd to ensure git works)
-        version="linux_rpi/${{ inputs.BUILD_SOURCEBRANCH }}/$(date +%Y_%m_%d-%H_%M)/"
+        version="linux_rpi/${{ inputs.build-sourcebranch }}/$(date +%Y_%m_%d-%H_%M)/"
         tags="git_sha-$(git rev-parse --short HEAD);timestamp_$(date +%Y_%m_%d-%H_%M)"
 
         cd dist || { echo "ERROR: Failed to cd into dist" >&2; exit 1; }
@@ -240,7 +238,7 @@ jobs:
           package_file=$(
             cs-package-upload "${{ env.CLOUDSMITH_API_KEY }}" \
                               "${{ vars.CLOUDSMITH_NAMESPACE }}" \
-                              "${{ inputs.CLOUDSMITH_REPO }}" \
+                              "${{ inputs.cloudsmith-repo }}" \
                               "$file"
           )
 
@@ -251,7 +249,7 @@ jobs:
 
           cs-package-store-raw "${{ env.CLOUDSMITH_API_KEY }}" \
                                "${{ vars.CLOUDSMITH_NAMESPACE }}" \
-                               "${{ inputs.CLOUDSMITH_REPO }}" \
+                               "${{ inputs.cloudsmith-repo }}" \
                                "$package_file" \
                                "$file" \
                                "$tags" \
@@ -264,7 +262,7 @@ jobs:
           package_file=$(
             cs-package-upload "${{ env.CLOUDSMITH_API_KEY }}" \
                               "${{ vars.CLOUDSMITH_NAMESPACE }}" \
-                              "${{ inputs.CLOUDSMITH_REPO }}" \
+                              "${{ inputs.cloudsmith-repo }}" \
                               "rpi_archives_properties.txt"
           )
 
@@ -275,11 +273,10 @@ jobs:
 
           cs-package-store-raw "${{ env.CLOUDSMITH_API_KEY }}" \
                                "${{ vars.CLOUDSMITH_NAMESPACE }}" \
-                               "${{ inputs.CLOUDSMITH_REPO }}" \
+                               "${{ inputs.cloudsmith-repo }}" \
                                "$package_file" \
                                "rpi_archives_properties.txt" \
                                "$tags" \
                                "$version" || exit 1
         fi
-
 

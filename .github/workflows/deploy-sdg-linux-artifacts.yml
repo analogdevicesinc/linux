@@ -5,19 +5,19 @@ on:
       artifacts:
         required: true
         type: string
-      CLOUDSMITH_REPO:
+      cloudsmith-repo:
         required: false
         type: string
         default: 'sdg-linux'
-      BUILD_SOURCEBRANCH:
+      build-sourcebranch:
         required: false
         default: ${{ github.ref_name }}
         type: string
-      PR_TARGET_BRANCH:
+      pr-target-branch:
         required: false
         type: string
         default: ''
-      PR_NUMBER:
+      pr-number:
         required: false
         type: string
         default: ''
@@ -25,21 +25,19 @@ on:
 
 permissions:
   id-token: write
-  contents: write
+  contents: read
   actions: read
 
 
 jobs:
-  prepare_and_upload_sdg_linux_artefacts:
-    runs-on: [self-hosted, repo-only]
+  prepare_and_upload_sdg_linux_artifacts:
+    runs-on: [ubuntu-slim]
     permissions:
       id-token: write
       contents: write
       actions: read
 
     steps:
-    - uses: analogdevicesinc/doctools/checkout@action
-
     - name: Prepare path
       run: |
         rm -rf dist ; mkdir dist
@@ -55,7 +53,7 @@ jobs:
           }
         ' "$file")
         echo $workflow_ref
-
+####### Note - Set org_repo and ref to analogdevicesinc and ci right before mearging to ci branch #######
         org_repo="$(echo "$workflow_ref" | cut -d'/' -f1-2)"
         ref="$(echo "$workflow_ref" | cut -d'@' -f2)"
 
@@ -170,24 +168,20 @@ jobs:
         export TIMESTAMP=$(date +%Y_%m_%d-%H_%M_%S)
 
         # Get git SHA (PR source commit or build commit)
-        if [[ -n "${{ inputs.PR_NUMBER }}" ]]; then
-          export GIT_SHA="${{ github.event.pull_request.head.sha }}"
-        else
-          export GIT_SHA="${{ github.sha }}"
-        fi
-
+        export GIT_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+        
         # Get git SHA date (format: YYYY-MM-DD-HH-MM)
         MERGE_COMMIT_SHA=$(git rev-parse --short HEAD)
         export GIT_SHA_DATE=$(git show -s --format=%cd --date=format:'%Y-%m-%d %H:%M' ${MERGE_COMMIT_SHA} | sed -e "s/ \|\:/-/g")
 
         # Determine branch name (works for main, release/*, feature/*, etc.)
-        BRANCH_NAME=$(echo "${{ inputs.BUILD_SOURCEBRANCH }}" | awk -F'/' '{print $NF}')
+        BRANCH_NAME=$(echo "${{ inputs.build-sourcebranch }}" | awk -F'/' '{print $NF}')
         export BUILD_SOURCEBRANCHNAME="$BRANCH_NAME"
         export SOURCE_DIRECTORY="$(pwd)"
 
         # Build version path based on branch type
-        if [[ -n "${{ inputs.PR_TARGET_BRANCH }}" ]]; then
-          VERSION_PATH="linux/PRs/${{ inputs.PR_TARGET_BRANCH }}/pr_${{ inputs.PR_NUMBER }}"
+        if [[ -n "${{ inputs.pr-target-branch }}" ]]; then
+          VERSION_PATH="linux/PRs/${{ inputs.pr-target-branch }}/pr_${{ inputs.pr-number }}"
         elif [[ "$BRANCH_NAME" == "main" ]]; then
           VERSION_PATH="linux/main"
         else
@@ -199,7 +193,7 @@ jobs:
 
         # Upload
         python3 upload_to_cloudsmith.py \
-          --repo=${{ inputs.CLOUDSMITH_REPO }} \
+          --repo=${{ inputs.cloudsmith-repo }} \
           --version="${VERSION_PATH}/${TIMESTAMP}" \
           --local_path="${TIMESTAMP}" \
           --token="${CLOUDSMITH_API_KEY}" \
