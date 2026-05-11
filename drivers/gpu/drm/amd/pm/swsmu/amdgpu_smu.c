@@ -641,7 +641,8 @@ bool is_support_cclk_dpm(struct amdgpu_device *adev)
 }
 
 int amdgpu_smu_ras_send_msg(struct amdgpu_device *adev, enum smu_message_type msg,
-			    uint32_t param, uint32_t *read_arg)
+			const uint32_t *params, size_t num_params,
+			uint32_t *read_args, size_t num_read_args)
 {
 	struct smu_context *smu = adev->powerplay.pp_handle;
 	int ret = -EOPNOTSUPP;
@@ -649,10 +650,28 @@ int amdgpu_smu_ras_send_msg(struct amdgpu_device *adev, enum smu_message_type ms
 	if (!smu)
 		return ret;
 
-	if (smu->ppt_funcs && smu->ppt_funcs->ras_send_msg)
-		ret = smu->ppt_funcs->ras_send_msg(smu, msg, param, read_arg);
+	if (smu->ppt_funcs && smu->ppt_funcs->ras_send_msg) {
+		if (num_params && !params)
+			return -EINVAL;
+
+		if (num_read_args && !read_args)
+			return -EINVAL;
+
+		if (num_params > SMU_MSG_MAX_ARGS || num_read_args > SMU_MSG_MAX_ARGS)
+			return -EINVAL;
+
+		ret = smu->ppt_funcs->ras_send_msg(smu, msg,
+				params, num_params, read_args, num_read_args);
+	}
 
 	return ret;
+}
+
+int amdgpu_smu_ras_send_msg_legacy(struct amdgpu_device *adev,
+		enum smu_message_type msg, uint32_t param, uint32_t *read_arg)
+{
+	return amdgpu_smu_ras_send_msg(adev, msg, &param, 1,
+			read_arg, read_arg ? 1 : 0);
 }
 
 int amdgpu_smu_ras_feature_is_enabled(struct amdgpu_device *adev,

@@ -53,7 +53,7 @@ static int mp1_v13_0_get_valid_bank_count(struct ras_core_context *ras_core,
 			SMU_MSG_QueryValidMcaCeCount : SMU_MSG_QueryValidMcaCount;
 
 	if (down_read_trylock(&adev->reset_domain->sem)) {
-		ret = amdgpu_smu_ras_send_msg(adev, smu_msg, 0, count);
+		ret = amdgpu_smu_ras_send_msg_legacy(adev, smu_msg, 0, count);
 		up_read(&adev->reset_domain->sem);
 	} else {
 		ret = -RAS_CORE_GPU_IN_MODE1_RESET;
@@ -80,7 +80,8 @@ static int mp1_v13_0_dump_valid_bank(struct ras_core_context *ras_core,
 		offset = reg_idx * 8;
 		for (i = 0; i < ARRAY_SIZE(data); i++) {
 			param = ((idx & 0xffff) << 16) | ((offset + (i << 2)) & 0xfffc);
-			ret = amdgpu_smu_ras_send_msg(adev, smu_msg, param, &data[i]);
+			ret = amdgpu_smu_ras_send_msg_legacy(adev, smu_msg,
+					param, &data[i]);
 			if (ret) {
 				RAS_DEV_ERR(adev, "ACA failed to read register[%d], offset:0x%x\n",
 					reg_idx, offset);
@@ -105,7 +106,7 @@ static int mp1_v13_0_eeprom_send_msg(struct ras_core_context *ras_core,
 	int ret = 0;
 
 	if (down_read_trylock(&adev->reset_domain->sem)) {
-		ret = amdgpu_smu_ras_send_msg(adev,
+		ret = amdgpu_smu_ras_send_msg_legacy(adev,
 			pmfw_eeprom_msgs[index], param, read_arg);
 		up_read(&adev->reset_domain->sem);
 	} else {
@@ -138,7 +139,7 @@ static int mp1_v13_0_set_debug_mode(struct ras_core_context *ras_core, bool enab
 	int ret;
 	u32 smu_msg = SMU_MSG_ClearMcaOnRead;
 
-	ret = amdgpu_smu_ras_send_msg(adev, smu_msg,
+	ret = amdgpu_smu_ras_send_msg_legacy(adev, smu_msg,
 			enable ? 0 : ClearMcaOnRead_UE_FLAG_MASK |
 			ClearMcaOnRead_CE_POLL_MASK, NULL);
 	return ret;

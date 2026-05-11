@@ -56,7 +56,8 @@ static int amdgpu_ras_send_mp1_msg(struct ras_core_context *ras_core,
 		return -EOPNOTSUPP;
 
 	if (down_read_trylock(&adev->reset_domain->sem)) {
-		ret = amdgpu_smu_ras_send_msg(adev, smu_msg, param, read_arg);
+		ret = amdgpu_smu_ras_send_msg_legacy(adev, smu_msg,
+				param, read_arg);
 		up_read(&adev->reset_domain->sem);
 	} else {
 		ret = -RAS_CORE_GPU_IN_MODE1_RESET;
