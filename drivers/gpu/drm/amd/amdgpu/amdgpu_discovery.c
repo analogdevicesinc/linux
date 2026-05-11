@@ -701,6 +701,18 @@ static int amdgpu_discovery_table_check(struct amdgpu_device *adev,
 	return 0;
 }
 
+static void amdgpu_discovery_log_bad_signature(struct amdgpu_device *adev,
+					       uint8_t *discovery_bin,
+					       const char *fw_name)
+{
+	dev_err(adev->dev,
+		"get invalid ip discovery binary signature: got 0x%08x, expected 0x%08x (source=%s)\n",
+		le32_to_cpu(((struct binary_header *)discovery_bin)->binary_signature),
+		BINARY_SIGNATURE, fw_name ? "file" : "mem");
+	print_hex_dump(KERN_ERR, "ip_discovery head: ", DUMP_PREFIX_OFFSET,
+		       16, 1, discovery_bin, 64, false);
+}
+
 static int amdgpu_discovery_init(struct amdgpu_device *adev)
 {
 	struct binary_header *bhdr;
@@ -736,8 +748,7 @@ static int amdgpu_discovery_init(struct amdgpu_device *adev)
 
 	/* check the ip discovery binary signature */
 	if (!amdgpu_discovery_verify_binary_signature(discovery_bin)) {
-		dev_err(adev->dev,
-			"get invalid ip discovery binary signature\n");
+		amdgpu_discovery_log_bad_signature(adev, discovery_bin, fw_name);
 		r = -EINVAL;
 		goto out;
 	}
