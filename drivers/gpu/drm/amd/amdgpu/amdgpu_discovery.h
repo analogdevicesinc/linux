@@ -63,4 +63,8 @@ void amdgpu_discovery_sysfs_early_fini(struct pci_dev *pdev);
 
 int amdgpu_discovery_get_mem_reserved_info_table(struct amdgpu_device *adev);
 
+int amdgpu_discovery_get_mem_reserved_region_by_id(struct amdgpu_device *adev,
+						   u32 reserved_region_id,
+						   struct mem_reserved_info *info);
+
 #endif /* __AMDGPU_DISCOVERY__ */

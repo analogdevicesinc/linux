@@ -2391,6 +2391,23 @@ int amdgpu_discovery_get_nps_info(struct amdgpu_device *adev,
 	return 0;
 }
 
+static const char *amdgpu_discovery_mem_reserved_region_name(u32 id)
+{
+	switch (id) {
+	case NO_RESERVED_REGION_ID:		return "NO_RESERVED_REGION";
+	case PRE_OS_DISP_FW_REGION_ID:		return "PRE_OS_DISP_FW";
+	case MASTER_DIE_UMF_REGION_ID:		return "MASTER_DIE_UMF";
+	case DCC_META_DATA_REGION_ID:		return "DCC_META_DATA";
+	case VM_PAGE_FAULT_REGION_ID:		return "VM_PAGE_FAULT";
+	case G7_PSTATE_APERTURE1_ID:		return "G7_PSTATE_APERTURE1";
+	case G7_PSTATE_APERTURE2_ID:		return "G7_PSTATE_APERTURE2";
+	case G7_PSTATE_MIRROR_REGION_ID:	return "G7_PSTATE_MIRROR";
+	case G7_TRAINING_DATA_REGION_ID:	return "G7_TRAINING_DATA";
+	case SPECIFIC_PURPOSE_REGION_ID:	return "SPECIFIC_PURPOSE";
+	default:				return "UNKNOWN";
+	}
+}
+
 /*
  * Resolve the MEM_RESERVED_INFO table from the IP discovery binary and
  * cache it in adev->discovery.mem_reserved_table.
@@ -2426,6 +2443,44 @@ int amdgpu_discovery_get_mem_reserved_info_table(struct amdgpu_device *adev)
 
 	dev_dbg(adev->dev, "MEM_RESERVED_INFO table exist\n");
 	return 0;
+}
+
+/**
+ * Query mem_reserved_info by region ID
+ *
+ * @reserved_region_id: MEM_RESERVED_REGION_ID to look up
+ * @info:  pass NULL to skip
+ */
+int amdgpu_discovery_get_mem_reserved_region_by_id(struct amdgpu_device *adev,
+						   u32 reserved_region_id,
+						   struct mem_reserved_info *info)
+{
+	struct mem_reserved_info_table_v1_0 *table;
+	u32 list_num, i;
+
+	if (!adev->discovery.mem_reserved_table)
+		return -ENOENT;
+
+	table = adev->discovery.mem_reserved_table;
+	list_num = min_t(u32, le32_to_cpu(table->list_num), MAX_MEM_REGION_NUM);
+
+	for (i = 0; i < list_num; i++) {
+		if (le32_to_cpu(table->list[i].reserved_region_id) != reserved_region_id)
+			continue;
+
+		if (info) {
+			info->reserved_region_id = reserved_region_id;
+			info->reserved_region_size =
+				le64_to_cpu(table->list[i].reserved_region_size);
+			info->reserved_region_start =
+				le64_to_cpu(table->list[i].reserved_region_start);
+		}
+		dev_dbg(adev->dev, "Found reserved region: %s (id=%u)\n",
+			amdgpu_discovery_mem_reserved_region_name(reserved_region_id),
+			reserved_region_id);
+		return 0;
+	}
+	return -ENOENT;
 }
 
 static int amdgpu_discovery_set_common_ip_blocks(struct amdgpu_device *adev)
