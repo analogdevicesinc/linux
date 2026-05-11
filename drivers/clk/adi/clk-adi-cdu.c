@@ -63,10 +63,7 @@ static inline struct sc5xx_cdu *to_sc5xx_cdu(struct clk_hw *clk_hw)
 
 static int sc5xx_cdu_check_unlocked(u32 reg)
 {
-	if (reg & SC5XX_CDU_CFG_LOCK)
-		return -EBUSY;
-
-	return 0;
+	return (reg & SC5XX_CDU_CFG_LOCK) ? -EBUSY : 0;
 }
 
 /*
