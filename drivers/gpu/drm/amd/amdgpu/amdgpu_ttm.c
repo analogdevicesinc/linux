@@ -1737,7 +1737,7 @@ void amdgpu_ttm_init_vram_resv(struct amdgpu_device *adev,
 
 static void amdgpu_ttm_init_fw_resv_region(struct amdgpu_device *adev)
 {
-	uint32_t reserve_size = 0;
+	u64 reserve_size = 0, offset = 0;
 
 	if (!adev->discovery.reserve_tmr)
 		return;
@@ -1749,24 +1749,28 @@ static void amdgpu_ttm_init_fw_resv_region(struct amdgpu_device *adev)
 	 * Otherwise, fallback to legacy approach to check and reserve tmr block for ip
 	 * discovery data and G6 memory training data respectively
 	 */
-	if (adev->bios)
+	if (adev->bios) {
 		reserve_size =
 			amdgpu_atomfirmware_get_fw_reserved_fb_size(adev);
+		if (reserve_size)
+			offset = adev->gmc.real_vram_size - reserve_size;
+	}
 
 	if (!adev->bios &&
 	    (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 3) ||
 	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 4) ||
-	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 5, 0)))
-		reserve_size = max(reserve_size, (uint32_t)280 << 20);
-	else if (!adev->bios &&
-		 amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0)) {
-		reserve_size = max(reserve_size, (uint32_t)150 << 20);
-	} else if (!reserve_size)
+	     amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 5, 0))) {
+		reserve_size = (u64)280 << 20;
+		offset = adev->gmc.real_vram_size - reserve_size;
+	} else if (adev->asic_funcs && adev->asic_funcs->get_fw_reserved_info) {
+		dev_dbg(adev->dev, "Querying FW reserved region info through get_fw_reserved_info\n");
+		adev->asic_funcs->get_fw_reserved_info(adev, &reserve_size, &offset);
+	} else if (!reserve_size) {
 		reserve_size = DISCOVERY_TMR_OFFSET;
-
+		offset = adev->gmc.real_vram_size - reserve_size;
+	}
 	amdgpu_ttm_init_vram_resv(adev, AMDGPU_RESV_FW,
-				  adev->gmc.real_vram_size - reserve_size,
-				  reserve_size, false);
+				offset,	reserve_size, false);
 }
 
 static void amdgpu_ttm_init_mem_train_resv_region(struct amdgpu_device *adev)
