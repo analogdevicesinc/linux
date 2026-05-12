@@ -966,6 +966,9 @@ static int gmc_v12_0_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		return r;
 
+	if (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0))
+		amdgpu_gmc_sysfs_init(adev);
+
 	return 0;
 }
 
@@ -984,6 +987,9 @@ static void gmc_v12_0_gart_fini(struct amdgpu_device *adev)
 static int gmc_v12_0_sw_fini(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
+
+	if (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0))
+		amdgpu_gmc_sysfs_fini(adev);
 
 	amdgpu_vm_manager_fini(adev);
 	gmc_v12_0_gart_fini(adev);
