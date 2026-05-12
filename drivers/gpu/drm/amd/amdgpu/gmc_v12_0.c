@@ -945,6 +945,9 @@ static int gmc_v12_0_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		return r;
 
+	if (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0))
+		gmc_v12_1_init_nps_details(adev);
+
 	/*
 	 * number of VMs
 	 * VMID 0 is reserved for System

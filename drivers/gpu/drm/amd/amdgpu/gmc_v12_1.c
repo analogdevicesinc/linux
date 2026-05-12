@@ -733,3 +733,36 @@ void gmc_v12_1_init_vram_info(struct amdgpu_device *adev)
 	adev->gmc.vram_type = AMDGPU_VRAM_TYPE_HBM4;
 	adev->gmc.vram_width = 384 * 64;
 }
+
+void gmc_v12_1_init_nps_details(struct amdgpu_device *adev)
+{
+	enum amdgpu_memory_partition mode;
+	uint32_t supp_modes;
+	int i;
+
+	adev->gmc.supported_nps_modes = 0;
+
+	if (amdgpu_sriov_vf(adev) || (adev->flags & AMD_IS_APU))
+		return;
+
+	mode = amdgpu_gmc_get_memory_partition(adev, &supp_modes);
+
+	/* Mode detected by hardware and supported modes available */
+	if ((mode != UNKNOWN_MEMORY_PARTITION_MODE) && supp_modes) {
+		while ((i = ffs(supp_modes))) {
+			if (AMDGPU_ALL_NPS_MASK & BIT(i))
+				adev->gmc.supported_nps_modes |= BIT(i);
+			supp_modes &= supp_modes - 1;
+		}
+	} else {
+		switch (amdgpu_ip_version(adev, GC_HWIP, 0)) {
+		case IP_VERSION(12, 1, 0):
+			adev->gmc.supported_nps_modes =
+				BIT(AMDGPU_NPS1_PARTITION_MODE) |
+				BIT(AMDGPU_NPS2_PARTITION_MODE);
+			break;
+		default:
+			break;
+		}
+	}
+}
