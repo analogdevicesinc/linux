@@ -1863,6 +1863,10 @@ static int ad7768_probe(struct spi_device *spi)
 		ret = ad7768_register_vcm_regulator(&spi->dev, st, indio_dev);
 		if (ret)
 			return ret;
+
+		ret = devm_regulator_get_enable(&spi->dev, "vcm");
+		if (ret < 0)
+			return dev_err_probe(&spi->dev, ret, "Failed to get VCM voltage\n");
 	}
 
 	ret = ad7768_parse_aaf_gain(&spi->dev, st);
