@@ -83,6 +83,8 @@
 #define AD7768_REG_ACCESS_KEY		0x34
 
 /* AD7768_REG_POWER_CLOCK */
+#define AD7768_PWR_CLOCK_SEL_MSK	GENMASK(7, 6)
+#define AD7768_PWR_CLOCK_SEL(x)		FIELD_PREP(AD7768_PWR_CLOCK_SEL_MSK, x)
 #define AD7768_PWR_MCLK_DIV_MSK		GENMASK(5, 4)
 #define AD7768_PWR_MCLK_DIV(x)		FIELD_PREP(AD7768_PWR_MCLK_DIV_MSK, x)
 #define AD7768_PWR_PWRMODE_MSK		GENMASK(1, 0)
@@ -118,6 +120,8 @@
 #define ADAQ776X_GAIN_MAX_NANO		(128 * NANO)
 #define ADAQ776X_MAX_GAIN_MODES		8
 
+#define AD7768_CRYS_OSC_FREQ 16384000
+
 #define AD7768_TRIGGER_SOURCE_SYNC_IDX 0
 
 #define AD7768_MAX_CHANNELS 1
@@ -130,6 +134,13 @@ enum ad7768_conv_mode {
 	AD7768_SINGLE,
 	AD7768_PERIODIC,
 	AD7768_STANDBY
+};
+
+enum ad7768_clk_sel {
+	AD7768_MCLK_CMOS = 0,
+	AD7768_MCLK_CRYS_OSC = 1,
+	AD7768_MCLK_LVDS = 2,
+	AD7768_MCLK_INTERNAL = 3
 };
 
 enum ad7768_pwrmode {
@@ -1846,11 +1857,30 @@ static int ad7768_probe(struct spi_device *spi)
 				     "Failed to get VREF voltage\n");
 	st->vref_uv = ret;
 
-	st->mclk = devm_clk_get_enabled(&spi->dev, "mclk");
+	st->mclk = devm_clk_get_optional_enabled(&spi->dev, "mclk");
 	if (IS_ERR(st->mclk))
 		return PTR_ERR(st->mclk);
+	if (st->mclk) {
+		ret = regmap_update_bits(st->regmap, AD7768_REG_POWER_CLOCK,
+					 AD7768_PWR_CLOCK_SEL_MSK,
+					 AD7768_PWR_CLOCK_SEL(AD7768_MCLK_CMOS));
+		if (ret)
+			return ret;
 
-	st->mclk_freq = clk_get_rate(st->mclk);
+		st->mclk_freq = clk_get_rate(st->mclk);
+	} else {
+		/*
+		 * When an external MCLK is not provided, fallback to internal
+		 * clock provided by crystal oscillator.
+		 */
+		ret = regmap_update_bits(st->regmap, AD7768_REG_POWER_CLOCK,
+					 AD7768_PWR_CLOCK_SEL_MSK,
+					 AD7768_PWR_CLOCK_SEL(AD7768_MCLK_CRYS_OSC));
+		if (ret)
+			return ret;
+
+		st->mclk_freq = AD7768_CRYS_OSC_FREQ;
+	}
 
 	indio_dev->channels = st->chip->channel_spec;
 	indio_dev->num_channels = st->chip->num_channels;
