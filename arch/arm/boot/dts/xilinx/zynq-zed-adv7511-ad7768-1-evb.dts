@@ -83,6 +83,7 @@
 			spi-cpha;
 			vref-supply = <&vref>;
 			gpio-controller;
+			vcm-supply = <&vcm_reg>;
 			interrupts = <93 IRQ_TYPE_EDGE_RISING>;
 			interrupt-parent = <&gpio0>;
 			trigger-sources = <&sync_trigger>;
