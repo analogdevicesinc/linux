@@ -247,6 +247,9 @@ static int amdgpu_device_attr_sysfs_init(struct amdgpu_device *adev)
 		ret = sysfs_create_file(&adev->dev->kobj,
 					&dev_attr_pcie_replay_count.attr);
 
+	if (!ret)
+		ret = amdgpu_discovery_mem_reserved_info_sysfs_init(adev);
+
 	return ret;
 }
 
@@ -255,6 +258,8 @@ static void amdgpu_device_attr_sysfs_fini(struct amdgpu_device *adev)
 	if (amdgpu_nbio_is_replay_cnt_supported(adev))
 		sysfs_remove_file(&adev->dev->kobj,
 				  &dev_attr_pcie_replay_count.attr);
+
+	amdgpu_discovery_mem_reserved_info_sysfs_fini(adev);
 }
 
 static ssize_t amdgpu_sysfs_reg_state_get(struct file *f, struct kobject *kobj,

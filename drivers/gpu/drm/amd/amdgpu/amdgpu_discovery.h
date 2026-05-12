@@ -67,4 +67,7 @@ int amdgpu_discovery_get_mem_reserved_region_by_id(struct amdgpu_device *adev,
 						   u32 reserved_region_id,
 						   struct mem_reserved_info *info);
 
+int amdgpu_discovery_mem_reserved_info_sysfs_init(struct amdgpu_device *adev);
+void amdgpu_discovery_mem_reserved_info_sysfs_fini(struct amdgpu_device *adev);
+
 #endif /* __AMDGPU_DISCOVERY__ */

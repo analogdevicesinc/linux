@@ -2433,6 +2433,62 @@ static void amdgpu_discovery_dump_mem_reserved_info_table(struct amdgpu_device *
 	}
 }
 
+/**
+ * Add READ-ONLY mem_reserved_info sysfs entry.
+ * MEM_RESERVED_INFO table is parsed from the IP discovery binary.
+ * The file mem_reserved_info dumps every entry as:
+ *   list_num=<N>
+ *   [<i>] id=<id> (<name>) size=<size> start=<start>
+ */
+static ssize_t mem_reserved_info_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct drm_device *ddev = dev_get_drvdata(dev);
+	struct amdgpu_device *adev = drm_to_adev(ddev);
+	struct mem_reserved_info_table_v1_0 *table;
+	u32 list_num, id, i;
+	ssize_t len = 0;
+
+	if (amdgpu_discovery_get_mem_reserved_info_table(adev))
+		return sysfs_emit(buf, "MEM_RESERVED_INFO table not available\n");
+
+	table = adev->discovery.mem_reserved_table;
+	list_num = min_t(u32, le32_to_cpu(table->list_num), MAX_MEM_REGION_NUM);
+
+	len += sysfs_emit_at(buf, len, "list_num=%u\n", list_num);
+	for (i = 0; i < list_num; i++) {
+		id = le32_to_cpu(table->list[i].reserved_region_id);
+		len += sysfs_emit_at(buf, len,
+			"[%u] id=%u (%s) size=0x%llx start=0x%llx\n",
+			i, id,
+			amdgpu_discovery_mem_reserved_region_name(id),
+			le64_to_cpu(table->list[i].reserved_region_size),
+			le64_to_cpu(table->list[i].reserved_region_start));
+	}
+
+	return len;
+}
+
+static DEVICE_ATTR_RO(mem_reserved_info);
+
+int amdgpu_discovery_mem_reserved_info_sysfs_init(struct amdgpu_device *adev)
+{
+	if (!adev->discovery.mem_reserved_table)
+		return 0;
+
+	return sysfs_create_file(&adev->dev->kobj,
+				 &dev_attr_mem_reserved_info.attr);
+}
+
+void amdgpu_discovery_mem_reserved_info_sysfs_fini(struct amdgpu_device *adev)
+{
+	if (!adev->discovery.mem_reserved_table)
+		return;
+
+	sysfs_remove_file(&adev->dev->kobj,
+			  &dev_attr_mem_reserved_info.attr);
+}
+
 /*
  * Resolve the MEM_RESERVED_INFO table from the IP discovery binary and
  * cache it in adev->discovery.mem_reserved_table.
