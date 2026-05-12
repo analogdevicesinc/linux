@@ -21,6 +21,7 @@
  *
  */
 #include "amdgpu.h"
+#include "amdgpu_discovery.h"
 #include "soc15.h"
 #include "soc15_common.h"
 #include "soc_v1_0.h"
@@ -263,6 +264,54 @@ static int soc_v1_0_asic_reset(struct amdgpu_device *adev)
 	return 0;
 }
 
+/*
+ * Function returns a pair of (size, offset_within_vram) to
+ * tell caller to skip the *reserve_size bytes starting at *offset inside VRAM.
+ */
+static void soc_v1_0_get_fw_reserved_info(struct amdgpu_device *adev,
+					  u64 *reserve_size,
+					  u64 *offset)
+{
+	struct mem_reserved_info umf_info, vram_info;
+	u64 vram_base;
+
+	if (amdgpu_discovery_get_mem_reserved_region_by_id(adev,
+							   MASTER_DIE_UMF_REGION_ID, &umf_info)) {
+		dev_warn(adev->dev,
+			 "MASTER_DIE_UMF region not found in discovery\n");
+		return;
+	}
+	/*
+	 * If SPECIFIC_PURPOSE_REGION exists and non-zero, use it as the VRAM base.
+	 * In multi-die layouts, VRAM may be placed at non-default bases.
+	 * Prefer to query SPECIFIC_PURPOSE_REGION to get the vram_base.
+	 */
+	if (!amdgpu_discovery_get_mem_reserved_region_by_id(adev,
+			SPECIFIC_PURPOSE_REGION_ID, &vram_info) &&
+	    vram_info.reserved_region_size)
+		vram_base = vram_info.reserved_region_start;
+	else
+		vram_base = adev->gmc.vram_start;
+	dev_dbg(adev->dev, "%s: vram_base=0x%llx\n", __func__, vram_base);
+
+	if (umf_info.reserved_region_size == 0 ||
+	    umf_info.reserved_region_start < vram_base ||
+	    umf_info.reserved_region_start + umf_info.reserved_region_size >
+			vram_base + adev->gmc.real_vram_size) {
+		dev_warn(adev->dev,
+			 "MASTER_DIE_UMF region out of VRAM: start=0x%llx size=0x%llx vram=[0x%llx,+0x%llx)\n",
+			 umf_info.reserved_region_start, umf_info.reserved_region_size,
+			 vram_base, adev->gmc.real_vram_size);
+		return;
+	}
+	/*
+	 * *offset is the distance from the start of VRAM to the start of the
+	 * UMF carveout.
+	 */
+	*reserve_size = umf_info.reserved_region_size;
+	*offset = umf_info.reserved_region_start - vram_base;
+}
+
 static const struct amdgpu_asic_funcs soc_v1_0_asic_funcs = {
 	.read_bios_from_rom = &amdgpu_soc15_read_bios_from_rom,
 	.read_register = &soc_v1_0_read_register,
@@ -274,6 +323,7 @@ static const struct amdgpu_asic_funcs soc_v1_0_asic_funcs = {
 	.reset = soc_v1_0_asic_reset,
 	.reset_method = &soc_v1_0_asic_reset_method,
 	.query_video_codecs = &soc_v1_0_query_video_codecs,
+	.get_fw_reserved_info = &soc_v1_0_get_fw_reserved_info,
 };
 
 static int soc_v1_0_common_early_init(struct amdgpu_ip_block *ip_block)

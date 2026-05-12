@@ -482,6 +482,9 @@ struct amdgpu_asic_funcs {
 	ssize_t (*get_reg_state)(struct amdgpu_device *adev,
 				 enum amdgpu_reg_state reg_state, void *buf,
 				 size_t max_size);
+	/* query FW reserved region (size/offset) from discovery */
+	void (*get_fw_reserved_info)(struct amdgpu_device *adev,
+				     u64 *reserve_size, u64 *offset);
 };
 
 /*
