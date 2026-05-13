@@ -665,6 +665,7 @@ void amdgpu_xcp_update_supported_modes(struct amdgpu_xcp_mgr *xcp_mgr)
 		break;
 	case 6:
 		xcp_mgr->supp_xcp_modes = BIT(AMDGPU_SPX_PARTITION_MODE) |
+					  BIT(AMDGPU_DPX_PARTITION_MODE) |
 					  BIT(AMDGPU_TPX_PARTITION_MODE) |
 					  BIT(AMDGPU_CPX_PARTITION_MODE);
 		break;
