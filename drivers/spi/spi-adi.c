@@ -792,15 +792,15 @@ static int adi_spi_probe(struct platform_device *pdev)
 	iowrite32(SPI_IMSK_SET_ROM, &drv_data->regs->emaskst);
 
 	controller->dma_tx = dma_request_chan(dev, "tx");
-	if (!controller->dma_tx) {
+	if (IS_ERR(controller->dma_tx)) {
 		dev_err(dev, "Could not get TX DMA channel\n");
-		return -ENOENT;
+		return PTR_ERR(controller->dma_tx);
 	}
 
 	controller->dma_rx = dma_request_chan(dev, "rx");
-	if (!controller->dma_rx) {
+	if (IS_ERR(controller->dma_rx)) {
 		dev_err(dev, "Could not get RX DMA channel\n");
-		ret = -ENOENT;
+		ret = PTR_ERR(controller->dma_rx);
 		goto err_free_tx_dma;
 	}
 
