@@ -805,7 +805,7 @@
 		};
 
 		usb0: usb@310c5000 {
-			compatible = "adi,adsp2159x-usbc", "snps,dwc2";
+			compatible = "snps,dwc2";
 			reg = <0x310c5000 0x2000>;
 			interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>;
 			phys = <&usb0_phy>;
