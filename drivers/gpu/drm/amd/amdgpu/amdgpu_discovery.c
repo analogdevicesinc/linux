@@ -357,6 +357,7 @@ static int amdgpu_discovery_get_tmr_info(struct amdgpu_device *adev,
 			tmr_offset_hi = RREG32(mmDRIVER_SCRATCH_1);
 			adev->discovery.offset = ((u64)le32_to_cpu(tmr_offset_hi) << 32 |
 						  le32_to_cpu(tmr_offset_lo));
+			adev->discovery.reserve_tmr = true;
 		} else if (!vram_size) {
 			/* fall back to apci approach to query tmr offset if vram_size is 0 */
 			ret = amdgpu_acpi_get_tmr_info(adev, &tmr_offset, &tmr_size);
