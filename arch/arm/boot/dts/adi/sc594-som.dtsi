@@ -330,7 +330,7 @@
 	bus-width = <4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc0_8bgrp>;
-	supports-highspeed;
+	cap-sd-highspeed;
 	status = "disabled";
 };
 
