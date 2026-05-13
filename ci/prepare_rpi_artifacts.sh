@@ -1,10 +1,18 @@
-# SPDX-License-Identifier: GPL-2.0-only
 #!/bin/bash -e
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# RPI Artifact Processor
+# Prepares Raspberry Pi boot files and kernel modules as tar.gz archives
+#
+# Environment variables:
+#   SOURCE_DIRECTORY: where the downloaded artifacts are located
+#   OUTPUT_DIRECTORY: where to create the tar.gz archives (defaults to current directory)
+#   BUILD_SOURCEBRANCHNAME: Git branch name for versioning
+#
 
-# SOURCE_DIRECTORY: where the downloaded artifacts are located
-# OUTPUT_DIRECTORY: where to create the tar.gz archives (defaults to current directory)
 SOURCE_DIRECTORY="${SOURCE_DIRECTORY:-$(pwd)}"
 OUTPUT_DIRECTORY="${OUTPUT_DIRECTORY:-$(pwd)}"
+BUILD_SOURCEBRANCHNAME="${BUILD_SOURCEBRANCHNAME:?ERROR: BUILD_SOURCEBRANCHNAME must be set}"
 
 timestamp=$(date +%Y_%m_%d-%H_%M)
 
@@ -25,7 +33,7 @@ trap "rm -rf ${WORK_DIR}" EXIT
 #create version file found in the boot partition
 create_version_file() {
 	mkdir -p ${WORK_DIR}/${1}
-	echo -e "RPI Boot Files: ${BUILD_SOURCEBRANCH} ${GIT_SHA_DATE}\n" > ${WORK_DIR}/${1}/version_rpi.txt
+	echo -e "RPI Boot Files: ${BUILD_SOURCEBRANCHNAME} ${GIT_SHA_DATE}\n" > ${WORK_DIR}/${1}/version_rpi.txt
 	echo -e "  Linux repository: https://github.com/analogdevicesinc/linux" >> ${WORK_DIR}/${1}/version_rpi.txt
 	echo -e "  Linux branch: ${BUILD_SOURCEBRANCHNAME}" >> ${WORK_DIR}/${1}/version_rpi.txt
 	echo -e "  Linux git sha: ${GIT_SHA}\n" >> ${WORK_DIR}/${1}/version_rpi.txt
@@ -36,7 +44,7 @@ create_version_file() {
 	done
 }
 
-#extract and rename kernel image from boot directory
+# extract and rename kernel image from boot directory
 # Usage: extract_kernel_image <boot_dir> <output_file>
 extract_kernel_image() {
 	local boot_dir="$1"
@@ -63,6 +71,7 @@ extract_kernel_image() {
 
 #prepare the structure of the folder containing artifacts
 artifacts_structure() {
+	# BCM defconfig names map to RPi kernel image names
 	typeBCM_32bit=( "bcm2709" "bcm2711" "bcmrpi" )
 	typeKERNEL_32bit=( "kernel7" "kernel7l" "kernel" )
 	typeBCM_64bit=( "bcm2711" "bcm2712" )
@@ -88,6 +97,7 @@ artifacts_structure() {
 	# Copy DTBs and overlays from dtb-gcc artifact
 	cp ${SOURCE_DIRECTORY}/dtb-gcc/dtb/arch/arm/boot/dts/broadcom/*.dtb ${WORK_DIR}/32bit/
 	mkdir -p ${WORK_DIR}/32bit/overlays
+	# RPi firmware expects overlays without the -overlay suffix
 	for overlay in ${SOURCE_DIRECTORY}/dtb-gcc/dtb/arch/arm/boot/dts/overlays/*-overlay.dtbo; do
 		base=$(basename "$overlay" -overlay.dtbo)
 		cp "$overlay" ${WORK_DIR}/32bit/overlays/${base}.dtbo
@@ -142,7 +152,7 @@ artifacts_structure() {
 }
 
 #create final boot archives and properties file
-artifacts_local() {
+create_rpi_boot_archives() {
 	artifacts_structure
 
 	echo ""
@@ -178,4 +188,7 @@ EOF
 	ls -lh ${OUTPUT_DIRECTORY}/rpi_*.tar.gz ${OUTPUT_DIRECTORY}/rpi_archives_properties.txt
 }
 
-artifacts_${1:-local}
+# Run if executed directly (not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    artifacts_${1:-local}
+fi

@@ -10,16 +10,19 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib.sh"
 
+# Read 4 bytes as big-endian integer
 _read_be32() {
 	local bytes=$(dd if="$1" bs=1 skip=$2 count=4 2>/dev/null | xxd -p)
 	echo $((16#$bytes))
 }
 
+# Read 4 bytes as little-endian integer
 _read_le32() {
 	local bytes=$(dd if="$1" bs=1 skip=$2 count=4 2>/dev/null | xxd -p)
 	echo $((16#${bytes:6:2}${bytes:4:2}${bytes:2:2}${bytes:0:2}))
 }
 
+# Write 4 bytes as little-endian
 _write_le32() {
 	local value=$1
 	printf '\x%02x\x%02x\x%02x\x%02x' 2>/dev/null \
@@ -92,6 +95,7 @@ _unpack_dtb () {
 
 	for path in "raw/$name/dtb/arch"/*; do
 		arch=$(echo "$path" | cut -d'/' -f5)
+		# microblaze/nios2 DTBs are embedded into kernel images, not distributed separately
 		[[ "$arch" == "microblaze" ]] && continue
 		[[ "$arch" == "nios2" ]] && continue
 
@@ -119,6 +123,7 @@ _unpack_kernel () {
 	cp -a "raw/$name/lib/modules/$kernel_release" "$out/lib/modules_set/$kernel_defconfig"
 }
 
+# Create per-board simpleImages by embedding each DTB into the generic kernel
 _expand_microblaze () {
 	local image="dist/microblaze/boot/kernel/adi_mb_defconfig/simpleImage.generic.strip"
 	local path="raw/dtb-gcc/dtb/arch/microblaze/boot/dts"
@@ -170,6 +175,7 @@ _expand_microblaze () {
 	echo "  Expanded $count simpleImages"
 }
 
+# Create per-board zImages by embedding each DTB into the compressed kernel
 _expand_nios2 () {
 	local image="dist/nios2/boot/kernel/adi_nios2_defconfig/zImage"
 	local path="raw/dtb-gcc/dtb/arch/nios2/boot/dts"
@@ -235,7 +241,12 @@ _expand_nios2 () {
 	echo "  Expanded $count zImages"
 }
 
-process_artifacts() {
+
+prepare_kernel_dist() {
+#   1. Unpacks DTBs from raw/ to dist/
+#   2. Unpacks kernel images and modules
+#   3. Expands microblaze images (embeds DTBs into simpleImage)
+#   4. Expands nios2 images (embeds DTBs into zImage)
 	log_step "Process artifacts"
 
 	mkdir -p dist
@@ -256,9 +267,10 @@ process_artifacts() {
 	[ "$SKIP_EXPAND_NIOS2" == "true" ] && log_info "Expand nios2 skipped" || _expand_nios2
 
 	log_info "Wrote to dist/"
+	ls -la dist/
 }
 
 # Run if executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-	process_artifacts "$@"
+	prepare_kernel_dist "$@"
 fi
