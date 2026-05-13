@@ -679,6 +679,11 @@ static int amdgpu_discovery_table_check(struct amdgpu_device *adev,
 		check_table = false;
 		break;
 	}
+	case NPS_INFO: {
+		table_name = "nps table";
+		check_table = false;
+		break;
+	}
 	default:
 		dev_err(adev->dev, "invalid ip discovery table id %d specified\n", table_id);
 		check_table = false;
