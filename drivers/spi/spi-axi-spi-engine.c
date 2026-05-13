@@ -316,6 +316,8 @@ static int spi_engine_precompile_message(struct spi_message *msg)
 
 		clk_div = DIV_ROUND_UP(max_hz, xfer->speed_hz);
 		xfer->effective_speed_hz = max_hz / min(clk_div, 256U);
+		dev_info(&msg->spi->dev, "ad7134: precompile clk_div=%u, max_hz=%u, speed_hz=%u, effective=%u\n",
+			 clk_div, max_hz, xfer->speed_hz, xfer->effective_speed_hz);
 
 		if (xfer->len) {
 			min_bits_per_word = min(min_bits_per_word, xfer->bits_per_word);
@@ -383,7 +385,7 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 	 */
 	inst_ns = DIV_ROUND_UP(NSEC_PER_SEC, host->max_speed_hz);
 
-	clk_div = 1;
+	clk_div = 0;
 
 	/*
 	 * As an optimization, SPI offload sets once this when the offload is
@@ -438,6 +440,8 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 			spi_engine_program_add_cmd(p, dry,
 				SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_CLK_DIV,
 					clk_div - 1));
+			dev_info(&spi->dev, "ad7134: compile CLK_DIV reg=%u (clk_div=%u), DCLK=%u Hz\n",
+				 clk_div - 1, clk_div, host->max_speed_hz / clk_div);
 		}
 
 		if (bits_per_word != xfer->bits_per_word && xfer->len) {
@@ -1218,6 +1222,8 @@ static int spi_engine_probe(struct platform_device *pdev)
 	host->mode_bits = SPI_CPOL | SPI_CPHA | SPI_3WIRE;
 	host->bits_per_word_mask = SPI_BPW_RANGE_MASK(1, 32);
 	host->max_speed_hz = clk_get_rate(spi_engine->ref_clk) / 2;
+	dev_info(&pdev->dev, "ad7134: ref_clk (spi_clk) rate = %lu Hz, max_speed_hz = %u Hz, DCLK_max = %u Hz\n",
+		 clk_get_rate(spi_engine->ref_clk), host->max_speed_hz, host->max_speed_hz);
 	host->transfer_one_message = spi_engine_transfer_one_message;
 	host->optimize_message = spi_engine_optimize_message;
 	host->unoptimize_message = spi_engine_unoptimize_message;
@@ -1234,9 +1240,8 @@ static int spi_engine_probe(struct platform_device *pdev)
 		if (ADI_AXI_PCORE_VER_MINOR(version) >= 3)
 			host->mode_bits |= SPI_MOSI_IDLE_LOW | SPI_MOSI_IDLE_HIGH;
 	}
-	if (ADI_AXI_PCORE_VER_MAJOR(version) >= 2)
-		host->num_data_lanes = FIELD_GET(SPI_ENGINE_REG_DATA_WIDTH_NUM_OF_SDIO_MASK,
-						 data_width_reg_val);
+	host->num_data_lanes = FIELD_GET(SPI_ENGINE_REG_DATA_WIDTH_NUM_OF_SDIO_MASK,
+					 data_width_reg_val);
 
 	if (host->max_speed_hz == 0)
 		return dev_err_probe(&pdev->dev, -EINVAL, "spi_clk rate is 0");

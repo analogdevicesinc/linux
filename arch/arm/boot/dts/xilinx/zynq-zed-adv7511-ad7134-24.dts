@@ -58,7 +58,7 @@
 		cnv_ext_clk: ext-clk {
 			#clock-cells = <0x0>;
 			compatible = "fixed-clock";
-			clock-frequency = <48000000>;
+			clock-frequency = <100000000>;
 			clock-output-names = "cnv_ext_clk";
 		};
 	};
@@ -97,6 +97,7 @@
 		dmas = <&rx_dma 0>;
 		dma-names = "offload0-rx";
 		trigger-sources = <&trigger_pwm>;
+		num-cs = <1>;
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
@@ -105,17 +106,18 @@
 			reg = <0>;
 
 			spi-max-frequency = <50000000>;
-			spi-rx-bus-width = <1>, <1>, <1>, <1>, <1>, <1>, <1>, <1>; /* 8 lanes of 1 bit each */
-
+			spi-cpha;
+			spi-rx-bus-width = <1>, <1>, <1>, <1>, <1>, <1>, <1>, <1>;
 		};
 	};
 
 	ad4134_odr_generator: odr_generator@44b00000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x10000>;
-		#pwm-cells = <3>;
-		clocks = <&clkc 15>;
-		clock-names = "axi";
+		#pwm-cells = <2>;
+		//clocks = <&clkc 15>;
+		clocks = <&cnv_ext_clk>;
+		//clock-names = "axi";
 	};
 
 	spi_clk: axi_clkgen@44b10000 {
@@ -123,8 +125,10 @@
 		reg = <0x44b10000 0x10000>;
 		#clock-cells = <0>;
 		clocks = <&clkc 15>, <&clkc 15>;
-		clock-names = "clkin1", "s_axi_aclk";
-		clock-output-names = "clkin1", "spi_clk";
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "spi_clk";
+		assigned-clocks = <&spi_clk>;
+		assigned-clock-rates = <100000000>;
 	};
 };
 

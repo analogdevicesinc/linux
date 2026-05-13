@@ -49,8 +49,7 @@ static int spi_offload_trigger_pwm_validate(struct spi_offload_trigger *trigger,
 		return -EINVAL;
 
 	wf.period_length_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, periodic->frequency_hz);
-	/* REVISIT: 50% duty-cycle for now - may add config parameter later */
-	wf.duty_length_ns = wf.period_length_ns / 2;
+	wf.duty_length_ns = 30;
 	wf.duty_offset_ns = periodic->offset_ns;
 	ret = pwm_round_waveform_might_sleep(st->pwm, &wf);
 	if (ret < 0)
@@ -75,9 +74,11 @@ static int spi_offload_trigger_pwm_enable(struct spi_offload_trigger *trigger,
 		return -EINVAL;
 
 	wf.period_length_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, periodic->frequency_hz);
-	/* REVISIT: 50% duty-cycle for now - may add config parameter later */
-	wf.duty_length_ns = wf.period_length_ns / 2;
+	wf.duty_length_ns = 30;
 	wf.duty_offset_ns = periodic->offset_ns;
+
+	dev_info(st->dev, "ad7134: trigger PWM enable: period=%llu ns, duty=%llu ns, offset=%llu ns\n",
+		 wf.period_length_ns, wf.duty_length_ns, wf.duty_offset_ns);
 
 	return pwm_set_waveform_might_sleep(st->pwm, &wf, false);
 }

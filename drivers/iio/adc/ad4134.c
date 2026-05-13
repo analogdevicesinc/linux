@@ -33,7 +33,7 @@
 #include <linux/spi/offload/consumer.h>
 #include <linux/spi/offload/types.h>
 
-#define AD4134_DCLK_RISING_OFFSET_NS		8
+#define AD4134_TRIGGER_OFFSET_CYCLES		8
 #define AD4134_MIN_ODR_FREQ_HZ			10
 #define AD4134_MAX_ODR_FREQ_HZ			(1496 * HZ_PER_KHZ)
 
@@ -386,7 +386,7 @@ static int ad4134_setup_odr(struct ad4134_state *st, unsigned int freq_hz)
 		return -EINVAL;
 	}
 
-	odr_wf.period_length_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC, odr_hz);
+	odr_wf.period_length_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, odr_hz);
 	/*
 	 * For an arbitrary system clock (fSYSCLK), we have a minimum ODR high
 	 * time of 6/fSYSCLK derived from the device clock and data interface
@@ -395,7 +395,7 @@ static int ad4134_setup_odr(struct ad4134_state *st, unsigned int freq_hz)
 	 * less than the minimum required, increase the target value by 10 and
 	 * attempt to round the waveform again, until the minimum is reached.
 	 */
-	odr_high_time_ns = div64_ul(6ULL * NANO, st->sys_clk_hz);
+	odr_high_time_ns = div64_ul(13ULL * NANO, st->sys_clk_hz);
 	do {
 		odr_wf.duty_length_ns = target;
 		ret = pwm_round_waveform_might_sleep(st->odr_trigger, &odr_wf);
@@ -403,6 +403,20 @@ static int ad4134_setup_odr(struct ad4134_state *st, unsigned int freq_hz)
 			return ret;
 		target += 10;
 	} while (odr_wf.duty_length_ns < odr_high_time_ns);
+
+	{
+		u64 min_period_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, odr_hz);
+		u64 try_period = min_period_ns;
+
+		while (odr_wf.period_length_ns < min_period_ns) {
+			try_period += 10;
+			odr_wf.period_length_ns = try_period;
+			ret = pwm_round_waveform_might_sleep(st->odr_trigger,
+							     &odr_wf);
+			if (ret)
+				return ret;
+		}
+	}
 
 	/*
 	 * PWM waveform rounding might also change the wave period. Double check
@@ -426,7 +440,6 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 {
 	struct spi_offload_trigger_config *config = &st->offload_trigger_config;
 	struct pwm_waveform odr_wf = { };
-	u64 offload_period_ns;
 	u64 offload_offset_ns;
 	u64 odr_high_time_ns;
 	unsigned int odr_hz;
@@ -447,7 +460,7 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	if (odr_hz < AD4134_MIN_ODR_FREQ_HZ || odr_hz > AD4134_MAX_ODR_FREQ_HZ)
 		return -EINVAL;
 
-	odr_wf.period_length_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC, odr_hz);
+	odr_wf.period_length_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, odr_hz);
 	/*
 	 * For an arbitrary system clock (fSYSCLK), we have a minimum ODR high
 	 * time of 6/fSYSCLK derived from the device clock and data interface
@@ -456,7 +469,7 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	 * less than the minimum required, increase the target value by 10 and
 	 * attempt to round the waveform again, until the minimum is reached.
 	 */
-	odr_high_time_ns = div64_ul(6ULL * NANO, st->sys_clk_hz);
+	odr_high_time_ns = div64_ul(12ULL * NANO, st->sys_clk_hz);
 	do {
 		odr_wf.duty_length_ns = target;
 		ret = pwm_round_waveform_might_sleep(st->odr_trigger, &odr_wf);
@@ -464,6 +477,23 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 			return ret;
 		target += 10;
 	} while (odr_wf.duty_length_ns < odr_high_time_ns);
+
+	{
+		u64 min_period_ns = DIV_ROUND_UP_ULL(NSEC_PER_SEC, odr_hz);
+		u64 try_period = min_period_ns;
+
+		while (odr_wf.period_length_ns < min_period_ns) {
+			try_period += 10;
+			odr_wf.period_length_ns = try_period;
+			ret = pwm_round_waveform_might_sleep(st->odr_trigger,
+							     &odr_wf);
+			if (ret)
+				return ret;
+		}
+	}
+
+	dev_info(&st->spi->dev, "ad7134: ODR period=%llu ns, duty=%llu ns, odr_high_min=%llu ns\n",
+		 odr_wf.period_length_ns, odr_wf.duty_length_ns, odr_high_time_ns);
 
 	ret = pwm_set_waveform_might_sleep(st->odr_trigger, &odr_wf, false);
 	if (ret)
@@ -476,17 +506,7 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	if (odr_wf.period_length_ns < 2 * odr_high_time_ns)
 		return -EINVAL;
 
-	/*
-	 * The controller fetches one sample per active lane each time the
-	 * offload module is triggered. If multiple data lanes are enabled, the
-	 * offload trigger frequency can be proportionally slower. ?
-	 */
-	offload_period_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC,
-//					      odr_hz * st->num_dout_lines);
-					      odr_hz);
-
-	config->periodic.frequency_hz = DIV_ROUND_UP_ULL(NSEC_PER_SEC,
-							 offload_period_ns);
+	config->periodic.frequency_hz = div64_u64(NSEC_PER_SEC, odr_wf.period_length_ns);
 
 	/*
 	 * For gated DCLK, the minimum required time between ODR rising edge
@@ -495,7 +515,8 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	 * that amount of time so the ADC sample data will be available when the
 	 * SPI transfer begin.
 	 */
-	offload_offset_ns = odr_high_time_ns + AD4134_DCLK_RISING_OFFSET_NS;
+	offload_offset_ns = div64_ul(AD4134_TRIGGER_OFFSET_CYCLES * (u64)NANO,
+				     st->sys_clk_hz);
 	do {
 		config->periodic.offset_ns = offload_offset_ns;
 		ret = spi_offload_trigger_validate(st->offload_trigger, config);
@@ -503,11 +524,15 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 			return ret;
 
 		offload_offset_ns += 10;
-	} while (config->periodic.offset_ns < odr_high_time_ns +
-					      AD4134_DCLK_RISING_OFFSET_NS);
+	} while (config->periodic.offset_ns <
+		 div64_ul(AD4134_TRIGGER_OFFSET_CYCLES * (u64)NANO,
+			  st->sys_clk_hz));
+
+	dev_info(&st->spi->dev, "ad7134: trigger offset=%llu ns, trigger freq=%llu Hz, offload_period=%llu ns\n",
+		 config->periodic.offset_ns, config->periodic.frequency_hz, odr_wf.period_length_ns);
 
 	st->odr_wf = odr_wf;
-	st->odr_hz = DIV_ROUND_CLOSEST_ULL(NSEC_PER_SEC, odr_wf.period_length_ns);
+	st->odr_hz = div64_u64(NSEC_PER_SEC, odr_wf.period_length_ns);
 
 	return 0;
 }
@@ -951,6 +976,8 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (!st->sys_clk_rate)
 		return dev_err_probe(dev, -EINVAL, "Failed to get SYS clock rate\n");
 	st->sys_clk_hz = st->sys_clk_rate;
+	dev_info(dev, "ad7134: cnv_ext_clk rate = %lu Hz, sys_clk_rate = %lu Hz\n",
+		 clk_get_rate(clk), st->sys_clk_rate);
 
 	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(st->regulators),
 				      st->regulators);
@@ -998,9 +1025,8 @@ static int ad4134_setup(struct ad4134_state *st)
 		 * adjusting the sampling frequency without hitting the maximum
 		 * conversion rate.
 		 */
-		st->odr_hz = AD4134_MAX_ODR_FREQ_HZ >> 4;
+		st->odr_hz = AD4134_MAX_ODR_FREQ_HZ;
 		dev_info(dev, "Setting initial ODR frequency to %u Hz\n", st->odr_hz);
-		//ret = ad4134_update_conversion_rate(st, st->odr_hz);
 		ret = ad4134_setup_odr(st, st->odr_hz);
 		if (ret)
 			return dev_err_probe(dev, ret, "failed to set odr freq\n");
