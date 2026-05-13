@@ -684,6 +684,15 @@ static int amdgpu_discovery_table_check(struct amdgpu_device *adev,
 		check_table = false;
 		break;
 	}
+	case MEM_RESERVED_INFO: {
+		struct mem_reserved_info_header *mrhdr =
+			(struct mem_reserved_info_header *)(discovery_bin + offset);
+		act_val = le32_to_cpu(mrhdr->signature);
+		exp_val = MEM_RSV_TABLE_SIGNATURE;
+		table_size = le32_to_cpu(mrhdr->size);
+		table_name = "mem_reserved table";
+		break;
+	}
 	default:
 		dev_err(adev->dev, "invalid ip discovery table id %d specified\n", table_id);
 		check_table = false;
@@ -772,12 +781,17 @@ static int amdgpu_discovery_init(struct amdgpu_device *adev)
 		goto out;
 	}
 
-	for (table_id = 0; table_id <= MALL_INFO; table_id++) {
+	for (table_id = 0; table_id < TOTAL_TABLES; table_id++) {
 		r = amdgpu_discovery_table_check(adev, discovery_bin, table_id);
 		if (r)
 			goto out;
 	}
 
+	/*
+	 * Resolve the MEM_RESERVED_INFO table once at init time. The table
+	 * is optional, so missing it is not a fatal error.
+	 */
+	amdgpu_discovery_get_mem_reserved_info_table(adev);
 	return 0;
 
 out:
@@ -796,6 +810,8 @@ void amdgpu_discovery_fini(struct amdgpu_device *adev)
 
 	kfree(adev->discovery.bin);
 	adev->discovery.bin = NULL;
+	/* Cached pointer lives inside discovery.bin; drop it to avoid UAF. */
+	adev->discovery.mem_reserved_table = NULL;
 }
 
 static int amdgpu_discovery_validate_ip(struct amdgpu_device *adev,
@@ -2372,6 +2388,43 @@ int amdgpu_discovery_get_nps_info(struct amdgpu_device *adev,
 		return -EINVAL;
 	}
 
+	return 0;
+}
+
+/*
+ * Resolve the MEM_RESERVED_INFO table from the IP discovery binary and
+ * cache it in adev->discovery.mem_reserved_table.
+ * Return: 0 on success, -ENOENT/-EINVAL if the table unavailable.
+ */
+int amdgpu_discovery_get_mem_reserved_info_table(struct amdgpu_device *adev)
+{
+	uint8_t *discovery_bin = adev->discovery.bin;
+	struct table_info *info;
+
+	/* If already queried, do not query again. */
+	if (adev->discovery.mem_reserved_table)
+		return 0;
+
+	if (!discovery_bin) {
+		dev_err(adev->dev, "ip discovery uninitialized\n");
+		return -ENOENT;
+	}
+
+	if (amdgpu_discovery_get_table_info(adev, &info, MEM_RESERVED_INFO)) {
+		dev_dbg(adev->dev, "MEM_RESERVED_INFO table entry not present\n");
+		return -EINVAL;
+	}
+
+	if (!le16_to_cpu(info->offset)) {
+		dev_dbg(adev->dev, "MEM_RESERVED_INFO table offset is 0, invalid!\n");
+		return -EINVAL;
+	}
+
+	/* Cache for subsequent lookups. */
+	adev->discovery.mem_reserved_table =
+		(struct mem_reserved_info_table_v1_0 *)(discovery_bin + le16_to_cpu(info->offset));
+
+	dev_dbg(adev->dev, "MEM_RESERVED_INFO table exist\n");
 	return 0;
 }
 

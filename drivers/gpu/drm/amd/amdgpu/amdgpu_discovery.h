@@ -25,6 +25,7 @@
 #define __AMDGPU_DISCOVERY__
 
 #include <linux/debugfs.h>
+#include "discovery.h"
 
 #define DISCOVERY_TMR_SIZE      (10 << 10)
 #define DISCOVERY_TMR_OFFSET    (64 << 10)
@@ -39,6 +40,7 @@ struct amdgpu_discovery_info {
 	uint32_t size;
 	uint8_t *bin;
 	bool reserve_tmr;
+	struct mem_reserved_info_table_v1_0 *mem_reserved_table;
 };
 
 void amdgpu_discovery_sysfs_fini(struct amdgpu_device *adev);
@@ -58,5 +60,7 @@ void amdgpu_discovery_dump(struct amdgpu_device *adev, struct drm_printer *p);
 int amdgpu_discovery_sysfs_early_init(struct amdgpu_device *adev,
 				       struct pci_dev *pdev);
 void amdgpu_discovery_sysfs_early_fini(struct pci_dev *pdev);
+
+int amdgpu_discovery_get_mem_reserved_info_table(struct amdgpu_device *adev);
 
 #endif /* __AMDGPU_DISCOVERY__ */
