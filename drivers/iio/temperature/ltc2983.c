@@ -699,7 +699,7 @@ ltc2983_thermocouple_new(const struct fwnode_handle *child, struct ltc2983_data 
 	if (!(thermo->sensor_config & LTC2983_THERMOCOUPLE_DIFF_MASK) &&
 	    sensor->chan < LTC2983_DIFFERENTIAL_CHAN_MIN)
 		return dev_err_ptr_probe(dev, -EINVAL,
-					 "Invalid chann:%d for differential thermocouple\n",
+					 "Invalid channel %d for differential thermocouple\n",
 					 sensor->chan);
 
 	struct fwnode_handle *ref __free(fwnode_handle) =
@@ -797,7 +797,7 @@ ltc2983_rtd_new(const struct fwnode_handle *child, struct ltc2983_data *st,
 	/*
 	 * rtd channel indexes are a bit more complicated to validate.
 	 * For 4wire RTD with rotation, the channel selection cannot be
-	 * >=19 since the chann + 1 is used in this configuration.
+	 * >=19 since the channel + 1 is used in this configuration.
 	 * For 4wire RTDs with kelvin rsense, the rsense channel cannot be
 	 * <=1 since chanel - 1 and channel - 2 are used.
 	 */
@@ -814,18 +814,18 @@ ltc2983_rtd_new(const struct fwnode_handle *child, struct ltc2983_data *st,
 		    (rtd->r_sense_chan <=  min))
 			/* kelvin rsense*/
 			return dev_err_ptr_probe(dev, -EINVAL,
-						 "Invalid rsense chann:%d to use in kelvin rsense\n",
+						 "Invalid channel %d for kelvin rsense\n",
 						 rtd->r_sense_chan);
 
 		if (sensor->chan < min || sensor->chan > max)
 			return dev_err_ptr_probe(dev, -EINVAL,
-						 "Invalid chann:%d for the rtd config\n",
+						 "Invalid channel %d for RTD config\n",
 						 sensor->chan);
 	} else {
 		/* same as differential case */
 		if (sensor->chan < LTC2983_DIFFERENTIAL_CHAN_MIN)
 			return dev_err_ptr_probe(dev, -EINVAL,
-						 "Invalid chann:%d for RTD\n",
+						 "Invalid channel %d for RTD\n",
 						 sensor->chan);
 	}
 
@@ -924,7 +924,7 @@ ltc2983_thermistor_new(const struct fwnode_handle *child, struct ltc2983_data *s
 	if (!(thermistor->sensor_config & LTC2983_THERMISTOR_DIFF_MASK) &&
 	    sensor->chan < LTC2983_DIFFERENTIAL_CHAN_MIN)
 		return dev_err_ptr_probe(dev, -EINVAL,
-					 "Invalid chann:%d for differential thermistor\n",
+					 "Invalid channel %d for differential thermistor\n",
 					 sensor->chan);
 
 	/* check custom sensor */
@@ -1039,7 +1039,7 @@ ltc2983_diode_new(const struct fwnode_handle *child, const struct ltc2983_data *
 	if (!(diode->sensor_config & LTC2983_DIODE_DIFF_MASK) &&
 	    sensor->chan < LTC2983_DIFFERENTIAL_CHAN_MIN)
 		return dev_err_ptr_probe(dev, -EINVAL,
-					 "Invalid chann:%d for differential thermistor\n",
+					 "Invalid channel %d for differential diode\n",
 					 sensor->chan);
 
 	/* set common parameters */
@@ -1093,7 +1093,7 @@ static struct ltc2983_sensor *ltc2983_r_sense_new(struct fwnode_handle *child,
 	/* validate channel index */
 	if (sensor->chan < LTC2983_DIFFERENTIAL_CHAN_MIN)
 		return dev_err_ptr_probe(dev, -EINVAL,
-					 "Invalid chann:%d for r_sense\n",
+					 "Invalid channel %d for r_sense\n",
 					 sensor->chan);
 
 	ret = fwnode_property_read_u32(child, "adi,rsense-val-milli-ohms", &temp);
@@ -1130,7 +1130,7 @@ static struct ltc2983_sensor *ltc2983_adc_new(struct fwnode_handle *child,
 
 	if (!adc->single_ended && sensor->chan < LTC2983_DIFFERENTIAL_CHAN_MIN)
 		return dev_err_ptr_probe(dev, -EINVAL,
-					 "Invalid chan:%d for differential adc\n",
+					 "Invalid channel %d for differential ADC\n",
 					 sensor->chan);
 
 	/* set common parameters */
@@ -1156,7 +1156,7 @@ static struct ltc2983_sensor *ltc2983_temp_new(struct fwnode_handle *child,
 
 	if (!temp->single_ended && sensor->chan < LTC2983_DIFFERENTIAL_CHAN_MIN)
 		return dev_err_ptr_probe(dev, -EINVAL,
-					 "Invalid chan:%d for differential temp\n",
+					 "Invalid channel %d for differential temp\n",
 					 sensor->chan);
 
 	temp->custom = __ltc2983_custom_sensor_new(st, child, "adi,custom-temp",
@@ -1181,7 +1181,7 @@ static int ltc2983_chan_read(struct ltc2983_data *st,
 
 	start_conversion = LTC2983_STATUS_START(true);
 	start_conversion |= LTC2983_STATUS_CHAN_SEL(sensor->chan);
-	dev_dbg(dev, "Start conversion on chan:%d, status:%02X\n",
+	dev_dbg(dev, "Start conversion on channel:%d, status:%02X\n",
 		sensor->chan, start_conversion);
 	reinit_completion(&st->completion);
 	/* start conversion */
@@ -1232,7 +1232,7 @@ static int ltc2983_read_raw(struct iio_dev *indio_dev,
 
 	/* sanity check */
 	if (chan->address >= st->num_channels) {
-		dev_err(dev, "Invalid chan address:%ld", chan->address);
+		dev_err(dev, "Invalid channel address: %ld\n", chan->address);
 		return -EINVAL;
 	}
 
@@ -1329,14 +1329,14 @@ static int ltc2983_parse_fw(struct ltc2983_data *st)
 		if (sensor.chan < LTC2983_MIN_CHANNELS_NR ||
 		    sensor.chan > st->info->max_channels_nr)
 			return dev_err_probe(dev, -EINVAL,
-					     "chan:%d must be from %u to %u\n",
+					     "channel:%d must be from %u to %u\n",
 					     sensor.chan,
 					     LTC2983_MIN_CHANNELS_NR,
 					     st->info->max_channels_nr);
 
 		if (channel_avail_mask & BIT(sensor.chan))
 			return dev_err_probe(dev, -EINVAL,
-					     "chan:%d already in use\n",
+					     "channel:%d already in use\n",
 					     sensor.chan);
 
 		ret = fwnode_property_read_u32(child, "adi,sensor-type", &sensor.type);
@@ -1344,7 +1344,7 @@ static int ltc2983_parse_fw(struct ltc2983_data *st)
 			return dev_err_probe(dev, ret,
 				"adi,sensor-type property must given for child nodes\n");
 
-		dev_dbg(dev, "Create new sensor, type %u, chann %u",
+		dev_dbg(dev, "Create new sensor, type %u, channel %u",
 			sensor.type, sensor.chan);
 
 		if (sensor.type >= LTC2983_SENSOR_THERMOCOUPLE &&
