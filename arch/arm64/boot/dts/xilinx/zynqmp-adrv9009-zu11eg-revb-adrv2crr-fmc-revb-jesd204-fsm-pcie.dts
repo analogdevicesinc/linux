@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADRV2CRR-FMC using ADRV9009-ZU11EG Rev.B System on Module
+ * with PCIe Gen3 x8 XDMA data offload path
+ *
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmc>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ */
+
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb-jesd204-fsm.dts"
+
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		pcie_dma_buf: pcie-dma-buffer@60000000 {
+			compatible = "shared-dma-pool";
+			reg = <0x0 0x60000000 0x0 0x20000000>; /* 512 MB at 1.5 GB */
+			no-map;
+		};
+	};
+};

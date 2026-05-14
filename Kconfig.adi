@@ -102,6 +102,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply MFD_ADP5585
 	imply GPIO_ADP5585
 	imply PWM_ADP5585
+	imply XILINX_XDMA
 
 source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"
