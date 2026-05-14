@@ -7,6 +7,7 @@
 #define __LINUX_CLK_PROVIDER_H
 
 #include <dt-bindings/clock/clock.h>
+#include <linux/bits.h>
 #include <linux/of.h>
 #include <linux/of_clk.h>
 
@@ -757,7 +758,7 @@ struct clk_divider {
 	spinlock_t	*lock;
 };
 
-#define clk_div_mask(width)	((1 << (width)) - 1)
+#define clk_div_mask(width)	GENMASK((width) - 1, 0)
 #define to_clk_divider(_hw) container_of(_hw, struct clk_divider, hw)
 
 #define CLK_DIVIDER_ONE_BASED		BIT(0)
