@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2026 Analog Devices Inc.
  *  Author: Qasim Ijaz <qasim.ijaz@analog.com>
+ *  Contact: linux@analog.com
  */
 
 #include <linux/bitfield.h>
