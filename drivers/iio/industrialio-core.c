@@ -1147,7 +1147,6 @@ static ssize_t iio_write_channel_info(struct device *dev,
 	return len;
 }
 
-static
 int __iio_device_attr_init(struct device *dev,
 			   struct device_attribute *dev_attr,
 			   const char *postfix,
@@ -1190,9 +1189,22 @@ int __iio_device_attr_init(struct device *dev,
 	return 0;
 }
 
-static void __iio_device_attr_deinit(struct device_attribute *dev_attr)
+void __iio_device_attr_deinit(struct device_attribute *dev_attr)
 {
 	kfree(dev_attr->attr.name);
+}
+
+int __iio_dev_attr_check_dup(struct iio_dev_attr *iio_attr,
+			     struct list_head *attr_list)
+{
+	const char *name = iio_attr->dev_attr.attr.name;
+	struct iio_dev_attr *p;
+
+	list_for_each_entry(p, attr_list, l)
+		if (strcmp(p->dev_attr.attr.name, name) == 0)
+			return -EBUSY;
+
+	return 0;
 }
 
 int __iio_add_chan_devattr(const char *postfix,
@@ -1211,7 +1223,7 @@ int __iio_add_chan_devattr(const char *postfix,
 			   struct list_head *attr_list)
 {
 	int ret;
-	struct iio_dev_attr *iio_attr, *t;
+	struct iio_dev_attr *iio_attr;
 
 	iio_attr = kzalloc(sizeof(*iio_attr), GFP_KERNEL);
 	if (iio_attr == NULL)
@@ -1224,15 +1236,13 @@ int __iio_add_chan_devattr(const char *postfix,
 	iio_attr->c = chan;
 	iio_attr->address = mask;
 	iio_attr->buffer = buffer;
-	list_for_each_entry(t, attr_list, l)
-		if (strcmp(t->dev_attr.attr.name,
-			   iio_attr->dev_attr.attr.name) == 0) {
-			if (shared_by == IIO_SEPARATE)
-				dev_err(dev, "tried to double register : %s\n",
-					t->dev_attr.attr.name);
-			ret = -EBUSY;
-			goto error_device_attr_deinit;
-		}
+	ret = __iio_dev_attr_check_dup(iio_attr, attr_list);
+	if (ret) {
+		if (shared_by == IIO_SEPARATE)
+			dev_err(dev, "tried to double register : %s\n",
+				iio_attr->dev_attr.attr.name);
+		goto error_device_attr_deinit;
+	}
 	list_add(&iio_attr->l, attr_list);
 
 	return 0;
