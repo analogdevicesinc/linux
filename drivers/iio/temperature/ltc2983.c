@@ -56,10 +56,10 @@
 #define LTC2983_EEPROM_WRITE_TIME_MS		2600
 #define LTC2983_EEPROM_READ_TIME_MS		20
 
-#define LTC2983_CHAN_START_ADDR(chan) \
-			(((chan - 1) * 4) + LTC2983_CHAN_ASSIGN_START_REG)
-#define LTC2983_CHAN_RES_ADDR(chan) \
-			(((chan - 1) * 4) + LTC2983_TEMP_RES_START_REG)
+#define LTC2983_CHAN_ASSIGN_ADDR(chan) \
+			((((chan) - 1) * 4) + LTC2983_CHAN_ASSIGN_START_REG)
+#define LTC2983_RESULT_ADDR(chan) \
+			((((chan) - 1) * 4) + LTC2983_TEMP_RES_START_REG)
 #define LTC2983_THERMOCOUPLE_DIFF_MASK		BIT(3)
 #define LTC2983_THERMOCOUPLE_SGL(x) \
 				FIELD_PREP(LTC2983_THERMOCOUPLE_DIFF_MASK, x)
@@ -351,7 +351,7 @@ static int __ltc2983_chan_assign_common(struct ltc2983_data *st,
 					const struct ltc2983_sensor *sensor,
 					u32 chan_val)
 {
-	u32 reg = LTC2983_CHAN_START_ADDR(sensor->chan);
+	u32 reg = LTC2983_CHAN_ASSIGN_ADDR(sensor->chan);
 
 	chan_val |= LTC2983_CHAN_TYPE(sensor->type);
 	dev_dbg(&st->spi->dev, "Assign reg:0x%04X, val:0x%08X\n", reg,
@@ -1196,7 +1196,7 @@ static int ltc2983_chan_read(struct ltc2983_data *st,
 	}
 
 	/* read the converted data */
-	ret = regmap_bulk_read(st->regmap, LTC2983_CHAN_RES_ADDR(sensor->chan),
+	ret = regmap_bulk_read(st->regmap, LTC2983_RESULT_ADDR(sensor->chan),
 			       &st->temp, sizeof(st->temp));
 	if (ret)
 		return ret;
