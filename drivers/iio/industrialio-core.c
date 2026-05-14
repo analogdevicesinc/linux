@@ -1800,7 +1800,16 @@ static int iio_chrdev_release(struct inode *inode, struct file *filp)
 	kfree(ib);
 	clear_bit(IIO_BUSY_BIT_POS, &iio_dev_opaque->flags);
 #ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
-	if (indio_dev->buffer)
+	/*
+	 * Only free buffer0 blocks if it was being used through the legacy
+	 * chrdev API. If buffer0 was opened through the new per-buffer fd API
+	 * (IIO_BUFFER_GET_FD_IOCTL), its blocks are managed by the buffer's
+	 * own fd and will be freed in iio_buffer_chrdev_release() instead.
+	 * Without this check, opening any other buffer's fd (which requires
+	 * opening and closing /dev/iio:deviceN) would destroy buffer0's
+	 * blocks and kill an active stream.
+	 */
+	if (indio_dev->buffer && !test_bit(IIO_BUSY_BIT_POS, &indio_dev->buffer->flags))
 		iio_buffer_free_blocks(indio_dev->buffer);
 #endif
 	iio_device_put(indio_dev);
