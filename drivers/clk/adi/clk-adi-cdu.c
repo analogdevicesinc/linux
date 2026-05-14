@@ -3,8 +3,9 @@
  * Clock Distribution Unit driver for ADSP-SC5xx processors
  *
  * Copyright (C) 2026 Analog Devices Inc.
- *  Author: Qasim Ijaz <qasim.ijaz@analog.com>
- *  Contact: linux@analog.com
+ *
+ * Author: Qasim Ijaz <qasim.ijaz@analog.com>
+ * Contact: linux@analog.com
  */
 
 #include <linux/bitfield.h>
