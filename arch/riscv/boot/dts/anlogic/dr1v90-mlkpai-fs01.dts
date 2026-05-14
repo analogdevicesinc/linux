@@ -23,6 +23,10 @@
 	};
 };
 
+&osc {
+	clock-frequency = <33333333>;
+};
+
 &uart1 {
 	status = "okay";
 };
