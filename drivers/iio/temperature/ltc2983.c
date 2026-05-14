@@ -668,8 +668,14 @@ ltc2983_thermocouple_new(const struct fwnode_handle *child, struct ltc2983_data 
 	if (fwnode_property_read_bool(child, "adi,single-ended"))
 		thermo->sensor_config = LTC2983_THERMOCOUPLE_SGL(1);
 
-	ret = fwnode_property_read_u32(child, "adi,sensor-oc-current-microamp", &oc_current);
-	if (!ret) {
+	if (fwnode_property_present(child, "adi,sensor-oc-current-microamp")) {
+		ret = fwnode_property_read_u32(child,
+					       "adi,sensor-oc-current-microamp",
+					       &oc_current);
+		if (ret)
+			return dev_err_ptr_probe(dev, ret,
+						 "Failed to read adi,sensor-oc-current-microamp\n");
+
 		switch (oc_current) {
 		case 10:
 			thermo->sensor_config |=
@@ -759,8 +765,12 @@ ltc2983_rtd_new(const struct fwnode_handle *child, struct ltc2983_data *st,
 		return dev_err_ptr_probe(dev, ret,
 					 "Property reg must be given\n");
 
-	ret = fwnode_property_read_u32(child, "adi,number-of-wires", &n_wires);
-	if (!ret) {
+	if (fwnode_property_present(child, "adi,number-of-wires")) {
+		ret = fwnode_property_read_u32(child, "adi,number-of-wires", &n_wires);
+		if (ret)
+			return dev_err_ptr_probe(dev, ret,
+						 "Failed to read adi,number-of-wires\n");
+
 		switch (n_wires) {
 		case 2:
 			rtd->sensor_config = LTC2983_RTD_N_WIRES(0);
@@ -842,12 +852,13 @@ ltc2983_rtd_new(const struct fwnode_handle *child, struct ltc2983_data *st,
 	rtd->sensor.fault_handler = ltc2983_common_fault_handler;
 	rtd->sensor.assign_chan = ltc2983_rtd_assign_chan;
 
-	ret = fwnode_property_read_u32(child, "adi,excitation-current-microamp",
-				       &excitation_current);
-	if (ret) {
-		/* default to 5uA */
-		rtd->excitation_current = 1;
-	} else {
+	if (fwnode_property_present(child, "adi,excitation-current-microamp")) {
+		ret = fwnode_property_read_u32(child, "adi,excitation-current-microamp",
+					       &excitation_current);
+		if (ret)
+			return dev_err_ptr_probe(dev, ret,
+						 "Failed to read adi,excitation-current-microamp\n");
+
 		switch (excitation_current) {
 		case 5:
 			rtd->excitation_current = 0x01;
@@ -878,9 +889,17 @@ ltc2983_rtd_new(const struct fwnode_handle *child, struct ltc2983_data *st,
 						 "Invalid value for excitation current(%u)\n",
 						 excitation_current);
 		}
+	} else {
+		/* default to 5uA */
+		rtd->excitation_current = 1;
 	}
 
-	fwnode_property_read_u32(child, "adi,rtd-curve", &rtd->rtd_curve);
+	if (fwnode_property_present(child, "adi,rtd-curve")) {
+		ret = fwnode_property_read_u32(child, "adi,rtd-curve", &rtd->rtd_curve);
+		if (ret)
+			return dev_err_ptr_probe(dev, ret,
+						 "Failed to read adi,rtd-curve\n");
+	}
 
 	return &rtd->sensor;
 }
@@ -950,17 +969,13 @@ ltc2983_thermistor_new(const struct fwnode_handle *child, struct ltc2983_data *s
 	thermistor->sensor.fault_handler = ltc2983_common_fault_handler;
 	thermistor->sensor.assign_chan = ltc2983_thermistor_assign_chan;
 
-	ret = fwnode_property_read_u32(child, "adi,excitation-current-nanoamp",
-				       &excitation_current);
-	if (ret) {
-		/* Auto range is not allowed for custom sensors */
-		if (sensor->type >= LTC2983_SENSOR_THERMISTOR_STEINHART)
-			/* default to 1uA */
-			thermistor->excitation_current = 0x03;
-		else
-			/* default to auto-range */
-			thermistor->excitation_current = 0x0c;
-	} else {
+	if (fwnode_property_present(child, "adi,excitation-current-nanoamp")) {
+		ret = fwnode_property_read_u32(child, "adi,excitation-current-nanoamp",
+					       &excitation_current);
+		if (ret)
+			return dev_err_ptr_probe(dev, ret,
+						 "Failed to read adi,excitation-current-nanoamp\n");
+
 		switch (excitation_current) {
 		case 0:
 			/* auto range */
@@ -1008,6 +1023,14 @@ ltc2983_thermistor_new(const struct fwnode_handle *child, struct ltc2983_data *s
 						 "Invalid value for excitation current(%u)\n",
 						 excitation_current);
 		}
+	} else {
+		/* Auto range is not allowed for custom sensors */
+		if (sensor->type >= LTC2983_SENSOR_THERMISTOR_STEINHART)
+			/* default to 1uA */
+			thermistor->excitation_current = 0x03;
+		else
+			/* default to auto-range */
+			thermistor->excitation_current = 0x0c;
 	}
 
 	return &thermistor->sensor;
@@ -1046,9 +1069,13 @@ ltc2983_diode_new(const struct fwnode_handle *child, const struct ltc2983_data *
 	diode->sensor.fault_handler = ltc2983_common_fault_handler;
 	diode->sensor.assign_chan = ltc2983_diode_assign_chan;
 
-	ret = fwnode_property_read_u32(child, "adi,excitation-current-microamp",
-				       &excitation_current);
-	if (!ret) {
+	if (fwnode_property_present(child, "adi,excitation-current-microamp")) {
+		ret = fwnode_property_read_u32(child, "adi,excitation-current-microamp",
+					       &excitation_current);
+		if (ret)
+			return dev_err_ptr_probe(dev, ret,
+						 "Failed to read adi,excitation-current-microamp\n");
+
 		switch (excitation_current) {
 		case 10:
 			diode->excitation_current = 0x00;
@@ -1069,7 +1096,12 @@ ltc2983_diode_new(const struct fwnode_handle *child, const struct ltc2983_data *
 		}
 	}
 
-	fwnode_property_read_u32(child, "adi,ideal-factor-value", &temp);
+	if (fwnode_property_present(child, "adi,ideal-factor-value")) {
+		ret = fwnode_property_read_u32(child, "adi,ideal-factor-value", &temp);
+		if (ret)
+			return dev_err_ptr_probe(dev, ret,
+						 "Failed to read adi,ideal-factor-value\n");
+	}
 
 	/* 2^20 resolution */
 	diode->ideal_factor_value = __convert_to_raw(temp, 1048576);
