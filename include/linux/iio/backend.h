@@ -11,6 +11,25 @@ struct iio_backend;
 struct device;
 struct iio_dev;
 
+/**
+ * struct iio_backend_chan_ext_info - Extended channel info for backend attrs
+ * @name: Attribute name (postfix)
+ * @shared: Whether the attribute is shared between channels
+ * @read: Read callback, receives the backend directly
+ * @write: Write callback, receives the backend directly
+ * @private: Data private to the backend driver
+ */
+struct iio_backend_chan_ext_info {
+	const char *name;
+	enum iio_shared_by shared;
+	ssize_t (*read)(struct iio_backend *back, uintptr_t private,
+			const struct iio_chan_spec *chan, char *buf);
+	ssize_t (*write)(struct iio_backend *back, uintptr_t private,
+			 const struct iio_chan_spec *chan, const char *buf,
+			 size_t len);
+	uintptr_t private;
+};
+
 enum iio_backend_data_type {
 	IIO_BACKEND_TWOS_COMPLEMENT,
 	IIO_BACKEND_OFFSET_BINARY,
@@ -26,20 +45,6 @@ enum iio_backend_data_source {
 };
 
 #define iio_backend_debugfs_ptr(ptr)	PTR_IF(IS_ENABLED(CONFIG_DEBUG_FS), ptr)
-
-/**
- * IIO_BACKEND_EX_INFO - Helper for an IIO extended channel attribute
- * @_name: Attribute name
- * @_shared: Whether the attribute is shared between all channels
- * @_what: Data private to the driver
- */
-#define IIO_BACKEND_EX_INFO(_name, _shared, _what) {	\
-	.name = (_name),				\
-	.shared = (_shared),				\
-	.read =  iio_backend_ext_info_get,		\
-	.write = iio_backend_ext_info_set,		\
-	.private = (_what),				\
-}
 
 /**
  * struct iio_backend_data_fmt - Backend data format
@@ -94,9 +99,7 @@ enum iio_backend_filter_type {
  * @data_sample_trigger: Control when to sample data.
  * @request_buffer: Request an IIO buffer.
  * @free_buffer: Free an IIO buffer.
- * @extend_chan_spec: Extend an IIO channel.
- * @ext_info_set: Extended info setter.
- * @ext_info_get: Extended info getter.
+ * @extend_chan_spec: Extend an IIO channel with backend attributes.
  * @oversampling_ratio_set: Set Oversampling ratio.
  * @data_size_set: Data size.
  * @read_raw: Read a channel attribute from a backend device
@@ -138,12 +141,8 @@ struct iio_backend_ops {
 	void (*free_buffer)(struct iio_backend *back,
 			    struct iio_buffer *buffer);
 	int (*extend_chan_spec)(struct iio_backend *back,
-				struct iio_chan_spec *chan);
-	int (*ext_info_set)(struct iio_backend *back, uintptr_t private,
-			    const struct iio_chan_spec *chan,
-			    const char *buf, size_t len);
-	int (*ext_info_get)(struct iio_backend *back, uintptr_t private,
-			    const struct iio_chan_spec *chan, char *buf);
+				const struct iio_chan_spec *chan,
+				const struct iio_backend_chan_ext_info **ext_info);
 	int (*oversampling_ratio_set)(struct iio_backend *back,
 				      unsigned int chan, unsigned int ratio);
 	int (*data_size_set)(struct iio_backend *back, unsigned int size);
@@ -210,11 +209,6 @@ int iio_backend_ddr_disable(struct iio_backend *back);
 int iio_backend_data_stream_enable(struct iio_backend *back);
 int iio_backend_data_stream_disable(struct iio_backend *back);
 int iio_backend_data_transfer_addr(struct iio_backend *back, u32 address);
-ssize_t iio_backend_ext_info_set(struct iio_dev *indio_dev, uintptr_t private,
-				 const struct iio_chan_spec *chan,
-				 const char *buf, size_t len);
-ssize_t iio_backend_ext_info_get(struct iio_dev *indio_dev, uintptr_t private,
-				 const struct iio_chan_spec *chan, char *buf);
 int iio_backend_oversampling_ratio_set(struct iio_backend *back,
 				       unsigned int chan,
 				       unsigned int ratio);
@@ -223,7 +217,7 @@ int iio_backend_read_raw(struct iio_backend *back,
 			 struct iio_chan_spec const *chan, int *val, int *val2,
 			 long mask);
 int iio_backend_extend_chan_spec(struct iio_backend *back,
-				 struct iio_chan_spec *chan);
+				 const struct iio_chan_spec *chan);
 void *iio_backend_get_priv(const struct iio_backend *conv);
 
 struct iio_backend *__devm_iio_backend_get_ext(struct device *dev,

@@ -321,7 +321,7 @@ static const struct iio_chan_spec_ext_info ad9739a_ext_info[] = {
  *            of it has nothing to do with the backend. The backend will only
  *            forward it into our data interface to be sent out.
  */
-static struct iio_chan_spec ad9739a_channels[] = {
+static const struct iio_chan_spec ad9739a_channels[] = {
 	{
 		.type = IIO_ALTVOLTAGE,
 		.indexed = 1,

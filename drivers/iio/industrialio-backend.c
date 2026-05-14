@@ -46,6 +46,9 @@
 
 #include <linux/iio/backend.h>
 #include <linux/iio/iio.h>
+#include <linux/iio/iio-opaque.h>
+#include <linux/iio/sysfs.h>
+#include "iio_core.h"
 
 struct iio_backend {
 	struct list_head entry;
@@ -55,6 +58,8 @@ struct iio_backend {
 	struct module *owner;
 	void *priv;
 	const char *name;
+	struct list_head attr_list;
+	struct attribute_group attr_group;
 	unsigned int cached_reg_addr;
 	/*
 	 * This index is relative to the frontend. Meaning that for
@@ -63,6 +68,24 @@ struct iio_backend {
 	 */
 	u8 idx;
 };
+
+/**
+ * struct iio_backend_attr - Backend-specific IIO device attribute
+ * @iio_attr: Underlying IIO device attribute (must be first)
+ * @back: Backend this attribute belongs to
+ * @ext_info: Extended channel info descriptor for this attribute
+ */
+struct iio_backend_attr {
+	struct iio_dev_attr iio_attr;
+	struct iio_backend *back;
+	const struct iio_backend_chan_ext_info *ext_info;
+};
+
+#define to_iio_backend_attr(_iio_dev_attr)				\
+	container_of(_iio_dev_attr, struct iio_backend_attr, iio_attr)
+
+static_assert(offsetof(struct iio_backend_attr, iio_attr) == 0,
+	      "iio_dev_attr must be the first member of iio_backend_attr");
 
 /*
  * Helper struct for requesting buffers. This ensures that we have all data
@@ -572,97 +595,51 @@ int iio_backend_read_raw(struct iio_backend *back,
 }
 EXPORT_SYMBOL_NS_GPL(iio_backend_read_raw, IIO_BACKEND);
 
-static struct iio_backend *iio_backend_from_indio_dev_parent(const struct device *dev)
+
+static ssize_t iio_backend_ext_info_read(struct device *dev,
+					  struct device_attribute *attr,
+					  char *buf)
 {
-	struct iio_backend *back = ERR_PTR(-ENODEV), *iter;
+	struct iio_dev_attr *iio_attr = to_iio_dev_attr(attr);
+	struct iio_backend_attr *battr = to_iio_backend_attr(iio_attr);
 
-	/*
-	 * We deliberately go through all backends even after finding a match.
-	 * The reason is that we want to catch frontend devices which have more
-	 * than one backend in which case returning the first we find is bogus.
-	 * For those cases, frontends need to explicitly define
-	 * get_iio_backend() in struct iio_info.
-	 */
-	guard(mutex)(&iio_back_lock);
-	list_for_each_entry(iter, &iio_back_list, entry) {
-		if (dev == iter->frontend_dev) {
-			if (!IS_ERR(back)) {
-				dev_warn(dev,
-					 "Multiple backends! get_iio_backend() needs to be implemented");
-				return ERR_PTR(-ENODEV);
-			}
-
-			back = iter;
-		}
-	}
-
-	return back;
+	return battr->ext_info->read(battr->back, battr->ext_info->private,
+				     battr->iio_attr.c, buf);
 }
 
-/**
- * iio_backend_ext_info_get - IIO ext_info read callback
- * @indio_dev: IIO device
- * @private: Data private to the driver
- * @chan: IIO channel
- * @buf: Buffer where to place the attribute data
- *
- * This helper is intended to be used by backends that extend an IIO channel
- * (through iio_backend_extend_chan_spec()) with extended info. In that case,
- * backends are not supposed to give their own callbacks (as they would not have
- * a way to get the backend from indio_dev). This is the getter.
- *
- * RETURNS:
- * Number of bytes written to buf, negative error number on failure.
- */
-ssize_t iio_backend_ext_info_get(struct iio_dev *indio_dev, uintptr_t private,
-				 const struct iio_chan_spec *chan, char *buf)
+static ssize_t iio_backend_ext_info_write(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t len)
 {
-	struct iio_backend *back;
+	struct iio_dev_attr *iio_attr = to_iio_dev_attr(attr);
+	struct iio_backend_attr *battr = to_iio_backend_attr(iio_attr);
 
-	/*
-	 * The below should work for the majority of the cases. It will not work
-	 * when one frontend has multiple backends in which case we'll need a
-	 * new callback in struct iio_info so we can directly request the proper
-	 * backend from the frontend. Anyways, let's only introduce new options
-	 * when really needed...
-	 */
-	back = iio_backend_from_indio_dev_parent(indio_dev->dev.parent);
-	if (IS_ERR(back))
-		return PTR_ERR(back);
-
-	return iio_backend_op_call(back, ext_info_get, private, chan, buf);
+	return battr->ext_info->write(battr->back, battr->ext_info->private,
+				      battr->iio_attr.c, buf, len);
 }
-EXPORT_SYMBOL_NS_GPL(iio_backend_ext_info_get, IIO_BACKEND);
 
-/**
- * iio_backend_ext_info_set - IIO ext_info write callback
- * @indio_dev: IIO device
- * @private: Data private to the driver
- * @chan: IIO channel
- * @buf: Buffer holding the sysfs attribute
- * @len: Buffer length
- *
- * This helper is intended to be used by backends that extend an IIO channel
- * (trough iio_backend_extend_chan_spec()) with extended info. In that case,
- * backends are not supposed to give their own callbacks (as they would not have
- * a way to get the backend from indio_dev). This is the setter.
- *
- * RETURNS:
- * Buffer length on success, negative error number on failure.
- */
-ssize_t iio_backend_ext_info_set(struct iio_dev *indio_dev, uintptr_t private,
-				 const struct iio_chan_spec *chan,
-				 const char *buf, size_t len)
+static void iio_backend_attr_free(struct iio_backend_attr *battr)
 {
-	struct iio_backend *back;
-
-	back = iio_backend_from_indio_dev_parent(indio_dev->dev.parent);
-	if (IS_ERR(back))
-		return PTR_ERR(back);
-
-	return iio_backend_op_call(back, ext_info_set, private, chan, buf, len);
+	__iio_device_attr_deinit(&battr->iio_attr.dev_attr);
+	kfree(battr);
 }
-EXPORT_SYMBOL_NS_GPL(iio_backend_ext_info_set, IIO_BACKEND);
+
+DEFINE_FREE(iio_back_attr, struct iio_backend_attr *, if (_T) iio_backend_attr_free(_T)) 
+
+static bool iio_backend_ext_info_collision(const struct iio_chan_spec *chan,
+					   const struct iio_backend_chan_ext_info *info)
+{
+	const struct iio_chan_spec_ext_info *fe;
+
+	if (!chan->ext_info)
+		return false;
+
+	for (fe = chan->ext_info; fe->name; fe++)
+		if (!strcmp(fe->name, info->name) && fe->shared == info->shared)
+			return true;
+
+	return false;
+}
 
 /**
  * iio_backend_oversampling_ratio_set - set the oversampling ratio
@@ -703,51 +680,161 @@ EXPORT_SYMBOL_NS_GPL(iio_backend_data_size_set, IIO_BACKEND);
 
 /**
  * iio_backend_extend_chan_spec - Extend an IIO channel
+ * iio_backend_extend_chan_spec - Extend an IIO channel with backend attributes
  * @back: Backend device
  * @chan: IIO channel
  *
- * Some backends may have their own functionalities and hence capable of
- * extending a frontend's channel.
+ * Calls the backend's extend_chan_spec op to get extended channel attributes,
+ * then creates sysfs attribute entries on the backend's internal list. The
+ * attributes are registered to sysfs later during iio_backend_add_extended_sysfs().
  *
  * RETURNS:
  * 0 on success, negative error number on failure.
  */
 int iio_backend_extend_chan_spec(struct iio_backend *back,
-				 struct iio_chan_spec *chan)
+				 const struct iio_chan_spec *chan)
 {
-	const struct iio_chan_spec_ext_info *frontend_ext_info = chan->ext_info;
-	const struct iio_chan_spec_ext_info *back_ext_info;
+	const struct iio_backend_chan_ext_info *ext_info = NULL;
+	const struct iio_backend_chan_ext_info *info;
 	int ret;
 
-	ret = iio_backend_op_call(back, extend_chan_spec, chan);
+	ret = iio_backend_op_call(back, extend_chan_spec, chan, &ext_info);
 	if (ret)
 		return ret;
-	/*
-	 * Let's keep things simple for now. Don't allow to overwrite the
-	 * frontend's extended info. If ever needed, we can support appending
-	 * it.
-	 */
-	if (frontend_ext_info && chan->ext_info != frontend_ext_info)
-		return -EOPNOTSUPP;
-	if (!chan->ext_info)
+
+	if (!ext_info)
 		return 0;
 
-	/* Don't allow backends to get creative and force their own handlers */
-	for (back_ext_info = chan->ext_info; back_ext_info->name; back_ext_info++) {
-		if (back_ext_info->read != iio_backend_ext_info_get)
-			return -EINVAL;
-		if (back_ext_info->write != iio_backend_ext_info_set)
-			return -EINVAL;
+	for (info = ext_info; info->name; info++) {
+		struct iio_backend_attr *battr __free(iio_back_attr) = NULL;
+
+		/* early check for frontend-backend attribute collision */
+		if (iio_backend_ext_info_collision(chan, info)) {
+			dev_err(back->dev,
+				"backend attr shadows frontend ext_info: %s\n",
+				info->name);
+			continue;
+		}
+
+		battr = kzalloc(sizeof(*battr), GFP_KERNEL);
+		if (!battr)
+			return -ENOMEM;
+
+		ret = __iio_device_attr_init(back->dev,
+					     &battr->iio_attr.dev_attr,
+					     info->name, chan,
+					     info->read ? &iio_backend_ext_info_read : NULL,
+					     info->write ? &iio_backend_ext_info_write : NULL,
+					     info->shared);
+		if (ret)
+			return ret;
+
+		battr->iio_attr.c = chan;
+		battr->back = back;
+		battr->ext_info = info;
+
+		/* duplicate check on backend's own list */
+		if (__iio_dev_attr_check_dup(&battr->iio_attr, &back->attr_list)) {
+			if (info->shared == IIO_SEPARATE)
+				dev_err(back->dev,
+					"tried to double register : %s\n",
+					battr->iio_attr.dev_attr.attr.name);
+			continue;
+		}
+
+		list_add(&no_free_ptr(battr)->iio_attr.l, &back->attr_list);
 	}
 
 	return 0;
 }
 EXPORT_SYMBOL_NS_GPL(iio_backend_extend_chan_spec, IIO_BACKEND);
 
+
+static bool iio_backend_attr_conflicts(struct iio_dev *indio_dev,
+				       struct iio_backend_attr *battr)
+{
+	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
+	struct iio_backend *other;
+
+	if (__iio_dev_attr_check_dup(&battr->iio_attr, &iio_dev_opaque->channel_attr_list))
+		return true;
+
+	/*
+	 * Check all other backends belonging to the same frontend that were
+	 * registered before battr->back
+	 */
+	other = list_prepare_entry(battr->back, &iio_back_list, entry);
+	list_for_each_entry_continue(other, &iio_back_list, entry) {
+		if (other->frontend_dev != indio_dev->dev.parent)
+			continue;
+		if (__iio_dev_attr_check_dup(&battr->iio_attr, &other->attr_list))
+			return true;
+	}
+	return false;
+}
+
+/**
+ * iio_backend_add_extended_sysfs - Register backend channel attrs to sysfs
+ * @indio_dev: IIO device
+ *
+ * Called from __iio_device_register() after channel attrs are set up. Checks
+ * for name collisions with frontend channel_attr_list and registers the
+ * backend's attribute group.
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_add_extended_sysfs(struct iio_dev *indio_dev)
+{
+	struct iio_backend_attr *battr;
+	struct iio_backend *back;
+	struct iio_dev_attr *p, *n;
+	int attrcount, attrn, ret;
+
+	guard(mutex)(&iio_back_lock);
+	list_for_each_entry(back, &iio_back_list, entry) {
+		if (back->frontend_dev != indio_dev->dev.parent)
+			continue;
+
+		attrcount = 0;
+		list_for_each_entry_safe(p, n, &back->attr_list, l) {
+			battr = to_iio_backend_attr(p);
+			if (iio_backend_attr_conflicts(indio_dev, battr)) {
+				dev_err(back->dev, "backend attr conflict: %s\n",
+					p->dev_attr.attr.name);
+				list_del(&p->l);
+				iio_backend_attr_free(battr);
+				continue;
+			}
+			attrcount++;
+		}
+
+		if (!attrcount)
+			continue;
+
+		back->attr_group.attrs = devm_kcalloc(&indio_dev->dev, attrcount + 1,
+						      sizeof(*back->attr_group.attrs),
+						      GFP_KERNEL);
+		if (!back->attr_group.attrs)
+			return -ENOMEM;
+
+		attrn = 0;
+		list_for_each_entry(p, &back->attr_list, l)
+			back->attr_group.attrs[attrn++] = &p->dev_attr.attr;
+
+		ret = iio_device_register_sysfs_group(indio_dev, &back->attr_group);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static void iio_backend_release(void *arg)
 {
 	struct iio_backend *back = arg;
 
+	iio_free_chan_devattr_list(&back->attr_list);
 	module_put(back->owner);
 }
 
@@ -1115,6 +1202,7 @@ int devm_iio_backend_register(struct device *dev,
 	back->owner = dev->driver->owner;
 	back->dev = dev;
 	back->priv = priv;
+	INIT_LIST_HEAD(&back->attr_list);
 	scoped_guard(mutex, &iio_back_lock)
 		list_add(&back->entry, &iio_back_list);
 

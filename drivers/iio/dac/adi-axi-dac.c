@@ -481,28 +481,38 @@ static int axi_dac_ext_info_get(struct iio_backend *back, uintptr_t private,
 	}
 }
 
-static const struct iio_chan_spec_ext_info axi_dac_ext_info[] = {
-	IIO_BACKEND_EX_INFO("frequency0", IIO_SEPARATE, AXI_DAC_FREQ_TONE_1),
-	IIO_BACKEND_EX_INFO("frequency1", IIO_SEPARATE, AXI_DAC_FREQ_TONE_2),
-	IIO_BACKEND_EX_INFO("scale0", IIO_SEPARATE, AXI_DAC_SCALE_TONE_1),
-	IIO_BACKEND_EX_INFO("scale1", IIO_SEPARATE, AXI_DAC_SCALE_TONE_2),
-	IIO_BACKEND_EX_INFO("phase0", IIO_SEPARATE, AXI_DAC_PHASE_TONE_1),
-	IIO_BACKEND_EX_INFO("phase1", IIO_SEPARATE, AXI_DAC_PHASE_TONE_2),
+#define AXI_DAC_BACKEND_EXT_INFO(_name, _private) { \
+	.name = _name, \
+	.shared = IIO_SEPARATE, \
+	.read = axi_dac_ext_info_get, \
+	.write = axi_dac_ext_info_set, \
+	.private = _private, \
+}
+
+static const struct iio_backend_chan_ext_info axi_dac_ext_info[] = {
+	AXI_DAC_BACKEND_EXT_INFO("frequency0", AXI_DAC_FREQ_TONE_1),
+	AXI_DAC_BACKEND_EXT_INFO("frequency1", AXI_DAC_FREQ_TONE_2),
+	AXI_DAC_BACKEND_EXT_INFO("scale0", AXI_DAC_SCALE_TONE_1),
+	AXI_DAC_BACKEND_EXT_INFO("scale1", AXI_DAC_SCALE_TONE_2),
+	AXI_DAC_BACKEND_EXT_INFO("phase0", AXI_DAC_PHASE_TONE_1),
+	AXI_DAC_BACKEND_EXT_INFO("phase1", AXI_DAC_PHASE_TONE_2),
 	{}
 };
 
 static int axi_dac_extend_chan(struct iio_backend *back,
-			       struct iio_chan_spec *chan)
+			       const struct iio_chan_spec *chan,
+			       const struct iio_backend_chan_ext_info **ext_info)
 {
 	struct axi_dac_state *st = iio_backend_get_priv(back);
 
 	if (chan->type != IIO_ALTVOLTAGE)
 		return -EINVAL;
-	if (st->reg_config & AXI_DAC_CONFIG_DDS_DISABLE)
-		/* nothing to extend */
+	if (st->reg_config & AXI_DAC_CONFIG_DDS_DISABLE) {
+		*ext_info = NULL;
 		return 0;
+	}
 
-	chan->ext_info = axi_dac_ext_info;
+	*ext_info = axi_dac_ext_info;
 
 	return 0;
 }
@@ -844,8 +854,6 @@ static const struct iio_backend_ops axi_dac_generic_ops = {
 	.request_buffer = axi_dac_request_buffer,
 	.free_buffer = axi_dac_free_buffer,
 	.extend_chan_spec = axi_dac_extend_chan,
-	.ext_info_set = axi_dac_ext_info_set,
-	.ext_info_get = axi_dac_ext_info_get,
 	.data_source_set = axi_dac_data_source_set,
 	.set_sample_rate = axi_dac_set_sample_rate,
 	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_dac_reg_access),

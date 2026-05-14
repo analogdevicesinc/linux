@@ -2164,6 +2164,12 @@ int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 			"Failed to register sysfs interfaces\n");
 		goto error_buffer_free_sysfs;
 	}
+	ret = iio_backend_add_extended_sysfs(indio_dev);
+	if (ret) {
+		dev_err(indio_dev->dev.parent,
+			"Failed to register backend extended sysfs\n");
+		goto error_free_sysfs;
+	}
 	ret = iio_device_register_eventset(indio_dev);
 	if (ret) {
 		dev_err(indio_dev->dev.parent,

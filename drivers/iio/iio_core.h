@@ -134,6 +134,15 @@ static inline void iio_device_detach_buffers(struct iio_dev *indio_dev) {}
 
 #endif
 
+#ifdef CONFIG_IIO_BACKEND
+int iio_backend_add_extended_sysfs(struct iio_dev *indio_dev);
+#else
+static inline int iio_backend_add_extended_sysfs(struct iio_dev *indio_dev)
+{
+	return 0;
+}
+#endif
+
 int iio_device_register_eventset(struct iio_dev *indio_dev);
 void iio_device_unregister_eventset(struct iio_dev *indio_dev);
 void iio_device_wakeup_eventset(struct iio_dev *indio_dev);
