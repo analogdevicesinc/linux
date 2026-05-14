@@ -104,7 +104,7 @@ static struct adrv9104_chan *adrv9104_get_rf_chan_from_iio(struct adrv9104_rf_ph
 {
 	struct adrv9104_chan *chan;
 
-	if (iio_chan->type != IIO_VOLTAGE)
+	if (iio_chan->type != IIO_VOLTAGE && iio_chan->type != IIO_ALTVOLTAGE)
 		return ERR_PTR(-EINVAL);
 
 	if (iio_chan->output && iio_chan->channel == ADRV9104_IIO_TX)
@@ -354,14 +354,11 @@ static int adrv9104_carrier_freq_set(struct adrv9104_rf_phy *phy,
 	initCals_t init_cals = {};
 	int ret;
 
-	if (val < 0 || val2 < 0)
-		return -EINVAL;
-
 	chan = adrv9104_get_rf_chan_from_iio(phy, iio_chan);
 	if (IS_ERR(chan))
 		return PTR_ERR(chan);
 
-	carrier_freq_hz = ((u64)val2 << 32) | val;
+	carrier_freq_hz = ((u64)val2 << 32) | (val & GENMASK(31, 0));
 
 	adrv9104_for_each_enabled_chan(phy, __chan) {
 		if (__chan->lo != chan->lo)

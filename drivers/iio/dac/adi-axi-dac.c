@@ -5,6 +5,7 @@
  *
  * Copyright 2016-2024 Analog Devices Inc.
  */
+#include "linux/iio/types.h"
 #include <linux/adi-axi-common.h>
 #include <linux/bitfield.h>
 #include <linux/bits.h>
@@ -181,6 +182,23 @@ enum {
 	AXI_DAC_PHASE_TONE_2,
 };
 
+static unsigned int axi_dac_dds_chan_get(const struct iio_chan_spec *chan)
+{
+	/*
+	 * If it is modified than it means we have I and Q components of the
+	 * signal. Internally I is one channel and Q it's another. Hence always
+	 * multiply the IIO chan index by 2 to get the real internal I index and
+	 * add 1 in case it's IIO_MOD_Q.
+	 */
+	if (!chan->modified)
+		return chan->channel;
+
+	if (chan->channel2 == IIO_MOD_Q)
+		return chan->channel * 2 + 1;
+
+	return chan->channel * 2;
+}
+
 static int __axi_dac_frequency_get(struct axi_dac_state *st, unsigned int chan,
 				   unsigned int tone_2, unsigned int *freq)
 {
@@ -214,11 +232,11 @@ static int axi_dac_frequency_get(struct axi_dac_state *st,
 				 const struct iio_chan_spec *chan, char *buf,
 				 unsigned int tone_2)
 {
-	unsigned int freq;
+	unsigned int freq, axi_chan = axi_dac_dds_chan_get(chan);
 	int ret;
 
 	scoped_guard(mutex, &st->lock) {
-		ret = __axi_dac_frequency_get(st, chan->channel, tone_2, &freq);
+		ret = __axi_dac_frequency_get(st, axi_chan, tone_2, &freq);
 		if (ret)
 			return ret;
 	}
@@ -230,17 +248,17 @@ static int axi_dac_scale_get(struct axi_dac_state *st,
 			     const struct iio_chan_spec *chan, char *buf,
 			     unsigned int tone_2)
 {
-	unsigned int scale, sign;
+	unsigned int scale, sign, axi_chan = axi_dac_dds_chan_get(chan);
 	int ret, vals[2];
 	u32 reg, raw;
 
-	if (chan->channel > AXI_DAC_CHAN_CNTRL_MAX)
+	if (axi_chan > AXI_DAC_CHAN_CNTRL_MAX)
 		return -EINVAL;
 
 	if (tone_2)
-		reg = AXI_DAC_CHAN_CNTRL_3_REG(chan->channel);
+		reg = AXI_DAC_CHAN_CNTRL_3_REG(axi_chan);
 	else
-		reg = AXI_DAC_CHAN_CNTRL_1_REG(chan->channel);
+		reg = AXI_DAC_CHAN_CNTRL_1_REG(axi_chan);
 
 	ret = regmap_read(st->regmap, reg, &raw);
 	if (ret)
@@ -268,16 +286,16 @@ static int axi_dac_phase_get(struct axi_dac_state *st,
 			     const struct iio_chan_spec *chan, char *buf,
 			     unsigned int tone_2)
 {
-	u32 reg, raw, phase;
+	u32 reg, raw, phase, axi_chan = axi_dac_dds_chan_get(chan);
 	int ret, vals[2];
 
-	if (chan->channel > AXI_DAC_CHAN_CNTRL_MAX)
+	if (axi_chan > AXI_DAC_CHAN_CNTRL_MAX)
 		return -EINVAL;
 
 	if (tone_2)
-		reg = AXI_DAC_CHAN_CNTRL_4_REG(chan->channel);
+		reg = AXI_DAC_CHAN_CNTRL_4_REG(axi_chan);
 	else
-		reg = AXI_DAC_CHAN_CNTRL_2_REG(chan->channel);
+		reg = AXI_DAC_CHAN_CNTRL_2_REG(axi_chan);
 
 	ret = regmap_read(st->regmap, reg, &raw);
 	if (ret)
@@ -331,7 +349,7 @@ static int axi_dac_frequency_set(struct axi_dac_state *st,
 				 const struct iio_chan_spec *chan,
 				 const char *buf, size_t len, unsigned int tone_2)
 {
-	unsigned int freq;
+	unsigned int freq, axi_chan = axi_dac_dds_chan_get(chan);
 	int ret;
 
 	ret = kstrtou32(buf, 10, &freq);
@@ -339,8 +357,7 @@ static int axi_dac_frequency_set(struct axi_dac_state *st,
 		return ret;
 
 	guard(mutex)(&st->lock);
-	ret = __axi_dac_frequency_set(st, chan->channel, st->dac_clk, freq,
-				      tone_2);
+	ret = __axi_dac_frequency_set(st, axi_chan, st->dac_clk, freq, tone_2);
 	if (ret)
 		return ret;
 
@@ -351,11 +368,11 @@ static int axi_dac_scale_set(struct axi_dac_state *st,
 			     const struct iio_chan_spec *chan,
 			     const char *buf, size_t len, unsigned int tone_2)
 {
-	int integer, frac, scale;
+	int integer, frac, scale, axi_chan = axi_dac_dds_chan_get(chan);
 	u32 raw = 0, reg;
 	int ret;
 
-	if (chan->channel > AXI_DAC_CHAN_CNTRL_MAX)
+	if (axi_chan > AXI_DAC_CHAN_CNTRL_MAX)
 		return -EINVAL;
 
 	ret = iio_str_to_fixpoint(buf, 100000, &integer, &frac);
@@ -375,9 +392,9 @@ static int axi_dac_scale_set(struct axi_dac_state *st,
 	raw |= div_u64((u64)scale * AXI_DAC_CHAN_CNTRL_3_SCALE_INT, MEGA);
 
 	if (tone_2)
-		reg = AXI_DAC_CHAN_CNTRL_3_REG(chan->channel);
+		reg = AXI_DAC_CHAN_CNTRL_3_REG(axi_chan);
 	else
-		reg = AXI_DAC_CHAN_CNTRL_1_REG(chan->channel);
+		reg = AXI_DAC_CHAN_CNTRL_1_REG(axi_chan);
 
 	guard(mutex)(&st->lock);
 	ret = regmap_write(st->regmap, reg, raw);
@@ -397,11 +414,11 @@ static int axi_dac_phase_set(struct axi_dac_state *st,
 			     const struct iio_chan_spec *chan,
 			     const char *buf, size_t len, unsigned int tone_2)
 {
-	int integer, frac, phase;
+	int integer, frac, phase, axi_chan = axi_dac_dds_chan_get(chan);
 	u32 raw, reg;
 	int ret;
 
-	if (chan->channel > AXI_DAC_CHAN_CNTRL_MAX)
+	if (axi_chan > AXI_DAC_CHAN_CNTRL_MAX)
 		return -EINVAL;
 
 	ret = iio_str_to_fixpoint(buf, 100000, &integer, &frac);
@@ -415,9 +432,9 @@ static int axi_dac_phase_set(struct axi_dac_state *st,
 	raw = DIV_ROUND_CLOSEST_ULL((u64)phase * U16_MAX, AXI_DAC_2_PI_MEGA);
 
 	if (tone_2)
-		reg = AXI_DAC_CHAN_CNTRL_4_REG(chan->channel);
+		reg = AXI_DAC_CHAN_CNTRL_4_REG(axi_chan);
 	else
-		reg = AXI_DAC_CHAN_CNTRL_2_REG(chan->channel);
+		reg = AXI_DAC_CHAN_CNTRL_2_REG(axi_chan);
 
 	guard(mutex)(&st->lock);
 	ret = regmap_update_bits(st->regmap, reg, AXI_DAC_CHAN_CNTRL_2_PHASE,

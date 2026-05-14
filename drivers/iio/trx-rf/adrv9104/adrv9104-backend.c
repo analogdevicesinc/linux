@@ -46,10 +46,16 @@ enum {
 };
 
 static int adrv9104_backend_channel_set(struct iio_dev *indio_dev, const struct adrv9104_chan *chan,
-					const unsigned long buf_mask, bool enable)
+					unsigned long buf_mask, bool enable)
 {
+	struct adrv9104_rf_phy *phy = adrv9104_chan_to_phy(chan);
 	unsigned int bit;
 	int ret;
+
+	guard(mutex)(&phy->lock);
+
+	if (!chan->enabled)
+		return -ENODEV;
 
 	iio_for_each_active_channel(indio_dev, bit) {
 		if (!test_bit(bit, &buf_mask))
@@ -60,8 +66,9 @@ static int adrv9104_backend_channel_set(struct iio_dev *indio_dev, const struct 
 		 * is index 1. Take care that if we do add support for rx2tx this will not hold
 		 * true!
 		 */
-		dev_info(indio_dev->dev.parent, "Handle chan: %u, port: %u, scan: %u, enable:%u\n",
-			 chan->idx, chan->port, bit, enable);
+		dev_info(indio_dev->dev.parent,
+			 "Handle chan: %u, port: %u, scan: %u, axi_chan: %u enable:%u\n",
+			 chan->idx, chan->port, bit, bit % 2, enable);
 
 		if (enable) {
 			if (chan->port == ADI_RX) {
@@ -211,7 +218,7 @@ static int adrv9104_backend_set_ssi_type(struct adrv9104_rf_phy *phy, struct adr
 		reg = ADRV9104_BACK_RX_REG_CTRL;
 	}
 
-	ret = iio_backend_reg_read(chan->back, ADRV9104_BACK_REG_STATUS1, &val);
+	ret = iio_backend_reg_read(chan->back, reg, &val);
 	if (ret)
 		return ret;
 
