@@ -5,29 +5,26 @@ on:
   push:
     branches:
       - 'adsp-[0-9]+.[0-9]+*-y'
-    paths-ignore:
-      - '.github/**'
-      - 'ci/**'
-      - 'docs/**'
   pull_request:
-    branches:
-      - 'adsp-[0-9]+.[0-9]+*-y'
-    paths-ignore:
-      - '.github/**'
-      - 'ci/**'
-      - 'docs/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   checks:
     uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
+    if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
     secrets: inherit
-    with:
-      ref_branch: "mirror/next/linux-next/master"
+    permissions:
+      contents: read
   build_gcc_x86_64:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "x86"
@@ -37,6 +34,8 @@ jobs:
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "llvm"
       arch: "x86"
@@ -47,14 +46,18 @@ jobs:
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm64"
       defconfig: "adi_ci_defconfig"
   build_gcc_arm:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    needs: [checks]
+    if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
@@ -62,6 +65,8 @@ jobs:
       checks: true
   assert_checks:
     runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
     needs:
       - checks
       - build_gcc_x86_64
@@ -72,25 +77,38 @@ jobs:
     steps:
       - name: Assert
         env:
-          job_warn_checks: ${{needs.checks.outputs.warn}}
-          job_warn_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.warn}}
-          job_warn_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.warn}}
-          job_warn_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.warn}}
-          job_warn_build_gcc_arm: ${{needs.build_gcc_arm.outputs.warn}}
-          job_fail_checks: ${{needs.checks.outputs.fail}}
-          job_fail_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.fail}}
-          job_fail_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.fail}}
-          job_fail_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.fail}}
-          job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
+          job_checks: ${{needs.checks.outputs.summary}}
+          job_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.summary}}
+          job_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.summary}}
+          job_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.summary}}
+          job_build_gcc_arm: ${{needs.build_gcc_arm.outputs.summary}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
-          assert_labels
+          assert_job_summary
+
+  deploy_cloudsmith_checks:
+    needs: [assert_checks]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+    secrets:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    with:
+      artifacts: >
+        adi_ci_defconfig-*
+
   build_gcc_arm_sc573-ezlite_defconfig:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
@@ -100,6 +118,8 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
@@ -109,6 +129,8 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
@@ -118,6 +140,8 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm"
@@ -127,6 +151,8 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm64"
@@ -136,13 +162,17 @@ jobs:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
+    permissions:
+      contents: read
     with:
       compiler: "gcc"
       arch: "arm64"
       defconfig: "sc598-som-ezlite_defconfig"
       auto_from_range: false
-  assert_build_adsp:
+  assert_build:
     runs-on: [self-hosted, repo-only]
+    permissions:
+      contents: read
     needs:
       - build_gcc_arm_sc573-ezlite_defconfig
       - build_gcc_arm_sc589-mini_defconfig
@@ -153,20 +183,34 @@ jobs:
     steps:
       - name: Assert
         env:
-          job_warn_build_gcc_arm_sc573-ezlite_defconfig: ${{needs.build_gcc_arm_sc573-ezlite_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.warn}}
-          job_warn_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.warn}}
-          job_warn_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.warn}}
-          job_warn_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.warn}}
-          job_fail_build_gcc_arm_sc573-ezlite_defconfig: ${{needs.build_gcc_arm_sc573-ezlite_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.fail}}
-          job_fail_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.fail}}
-          job_fail_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.fail}}
-          job_fail_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.fail}}
+          job_build_gcc_arm_sc573-ezlite_defconfig: ${{needs.build_gcc_arm_sc573-ezlite_defconfig.outputs.summary}}
+          job_build_gcc_arm_sc589-mini_defconfig: ${{needs.build_gcc_arm_sc589-mini_defconfig.outputs.summary}}
+          job_build_gcc_arm_sc594-som-ezkit_defconfig: ${{needs.build_gcc_arm_sc594-som-ezkit_defconfig.outputs.summary}}
+          job_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.summary}}
+          job_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.summary}}
+          job_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.summary}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
           source ./runner_env.sh
-          assert_labels
+          assert_job_summary
+
+  deploy_cloudsmith_build:
+    needs: [assert_build]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+    secrets:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+    permissions:
+      id-token: write
+      contents: write
+      actions: read
+    with:
+      artifacts: >
+        sc573-ezlite_defconfig-*
+        sc589-mini_defconfig-*
+        sc594-som-ezkit_defconfig-*
+        sc594-som-ezlite_defconfig-*
+        sc598-som-ezkit_defconfig-*
+        sc598-som-ezlite_defconfig-*
