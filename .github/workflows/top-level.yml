@@ -169,7 +169,7 @@ jobs:
       arch: "arm64"
       defconfig: "sc598-som-ezlite_defconfig"
       auto_from_range: false
-  assert_build_adsp:
+  assert_build:
     runs-on: [self-hosted, repo-only]
     permissions:
       contents: read
