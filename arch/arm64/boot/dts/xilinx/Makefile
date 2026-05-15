@@ -70,11 +70,8 @@ zynqmp-sm-k26-revA-sck-kv-g-revB-dtbs := zynqmp-sm-k26-revA.dtb zynqmp-sck-kv-g-
 zynqmp-smk-k26-revA-sck-kv-g-revA-dtbs := zynqmp-smk-k26-revA.dtb zynqmp-sck-kv-g-revA.dtbo
 zynqmp-smk-k26-revA-sck-kv-g-revB-dtbs := zynqmp-smk-k26-revA.dtb zynqmp-sck-kv-g-revB.dtbo
 zynqmp-sm-k26-revA-sck-kv-g-revB-gmsl-dtbs := zynqmp-sm-k26-revA-sck-kv-g-revB.dtb gmsl.dtbo
-zynqmp-sm-k26-revA-gmsl-mqnic-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26.dtbo mqnic-k26.dtbo
-zynqmp-sm-k26-revA-gmsl-mqnic-raw-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26-raw.dtbo mqnic-k26.dtbo
-zynqmp-sm-k26-revA-mqnic-dtbs := zynqmp-sm-k26-revA.dtb mqnic-k26.dtbo
-zynqmp-sm-k26-revA-gmsl-mqnic-imu-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26-imu.dtbo mqnic-k26-imu.dtbo
-zynqmp-sm-k26-revA-gmsl-mqnic-pwm-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26-pwm.dtbo mqnic-k26.dtbo
+zynqmp-sm-k26-revA-gmsl-mqnic-adrd8012-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26-adrd8012.dtbo mqnic-k26.dtbo
+zynqmp-sm-k26-revA-gmsl-mqnic-adrd8012-add-d457-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26-adrd8012-add-d457.dtbo mqnic-k26.dtbo
 
 zynqmp-sm-k26-revA-sck-kr-g-revA-dtbs := zynqmp-sm-k26-revA.dtb zynqmp-sck-kr-g-revA.dtbo
 zynqmp-sm-k26-revA-sck-kr-g-revB-dtbs := zynqmp-sm-k26-revA.dtb zynqmp-sck-kr-g-revB.dtbo
@@ -87,10 +84,8 @@ zynqmp-sm-k24-revA-sck-kv-g-revB-dtbs := zynqmp-sm-k24-revA.dtb zynqmp-sck-kv-g-
 zynqmp-smk-k24-revA-sck-kv-g-revB-dtbs := zynqmp-smk-k24-revA.dtb zynqmp-sck-kv-g-revB.dtbo
 
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-sck-kv-g-revA.dtb
-dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic.dtb
-dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-imu.dtb
-dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-mqnic.dtb
-dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-pwm.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-adrd8012.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-adrd8012-add-d457.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-sck-kv-g-revB.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-smk-k26-revA-sck-kv-g-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-smk-k26-revA-sck-kv-g-revB.dtb
