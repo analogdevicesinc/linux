@@ -1869,14 +1869,14 @@ static int iio_buffer_dequeue_block(struct iio_dev *indio_dev,
 			 * held so that we need to unlock it before going to
 			 * sleep so it's still possible to unregister the device.
 			 */
-			mutex_unlock(&iio_dev_opaque->info_exist_lock);
+			//mutex_unlock(&iio_dev_opaque->info_exist_lock);
 			ret = wait_event_interruptible(buffer->pollq,
 						       iio_buffer_data_available(buffer) ||
 						       !indio_dev->info);
 			if (ret)
 				return ret;
 
-			mutex_lock(&iio_dev_opaque->info_exist_lock);
+			//mutex_lock(&iio_dev_opaque->info_exist_lock);
 			if (!indio_dev->info)
 				return -ENODEV;
 		}
@@ -1974,7 +1974,7 @@ static long iio_buffer_ioctl_wrapper(struct file *filp, unsigned int cmd,
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 	int ret = -ENODEV;
 
-	mutex_lock(&iio_dev_opaque->info_exist_lock);
+	//mutex_lock(&iio_dev_opaque->info_exist_lock);
 
 	/*
 	 * The NULL check here is required to prevent crashing when a device
@@ -1988,7 +1988,7 @@ static long iio_buffer_ioctl_wrapper(struct file *filp, unsigned int cmd,
 	if (ret == IIO_IOCTL_UNHANDLED)
 		ret = -ENODEV;
 out_unlock:
-	mutex_unlock(&iio_dev_opaque->info_exist_lock);
+	//mutex_unlock(&iio_dev_opaque->info_exist_lock);
 
 	return ret;
 }
