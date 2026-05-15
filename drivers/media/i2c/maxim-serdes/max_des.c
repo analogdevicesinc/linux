@@ -552,7 +552,7 @@ static int max_des_parse_pipe_link_remap_dt(struct max_des_priv *priv,
 
 	val = pipe->link_id;
 	ret = fwnode_property_read_u32(fwnode, "max,link-id", &val);
-	if (!ret && priv->ops->supports_pipe_link_remap) {
+	if (!ret && !priv->ops->supports_pipe_link_remap) {
 		dev_err(priv->dev, "Pipe link remapping is not supported\n");
 		return -EINVAL;
 	}
