@@ -108,26 +108,51 @@ static const struct i2c_atr_ops max_ser_i2c_atr_ops = {
 
 static void max_ser_i2c_atr_deinit(struct max_ser_priv *priv)
 {
-	/* Deleting adapters that haven't been added does no harm. */
-	i2c_atr_del_adapter(priv->atr, 0);
+	unsigned int i;
+
+	for (i = 0; i < priv->ops->num_pipes; i++) {
+		struct max_ser_pipe *pipe = &priv->pipes[i]; 
+		/* Deleting adapters that haven't been added does no harm. */
+		i2c_atr_del_adapter(priv->atr, pipe->index);
+	}
 
 	i2c_atr_delete(priv->atr);
 }
 
 static int max_ser_i2c_atr_init(struct max_ser_priv *priv)
 {
+	unsigned int i;
+	int ret;
+
 	if (!i2c_check_functionality(priv->client->adapter,
 				     I2C_FUNC_SMBUS_WRITE_BYTE_DATA))
 		return -ENODEV;
-
+	
+	// create the atr using max number of pipes
 	priv->atr = i2c_atr_new(priv->client->adapter, priv->dev,
-				&max_ser_i2c_atr_ops, 1);
+				&max_ser_i2c_atr_ops, priv->ops->num_pipes);
+	
 	if (!priv->atr)
 		return -ENOMEM;
 
 	i2c_atr_set_driver_data(priv->atr, priv);
 
-	return i2c_atr_add_adapter(priv->atr, 0, NULL, NULL);
+	for (i = 0; i < priv->ops->num_pipes; i++) {
+		struct max_ser_pipe *pipe = &priv->pipes[i];
+
+		if (!pipe->enabled)
+			continue;
+
+		ret = i2c_atr_add_adapter(priv->atr, pipe->index, NULL, NULL);
+		if (ret)
+			goto err_add_adapters;
+	}
+
+	return 0;
+
+err_add_adapters:
+	max_ser_i2c_atr_deinit(priv);
+	return ret;
 }
 
 static int max_ser_update_pipe_dts(struct max_ser_priv *priv,
@@ -534,7 +559,6 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 	struct v4l2_fwnode_endpoint v4l2_ep = {
 		.bus_type = V4L2_MBUS_CSI2_DPHY
 	};
-	struct v4l2_mbus_config_mipi_csi2 *mipi = &v4l2_ep.bus.mipi_csi2;
 	struct fwnode_handle *ep, *remote_ep;
 	int ret;
 
@@ -558,29 +582,14 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 		return ret;
 	}
 
-	if (mipi->flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK &&
-	    !priv->ops->supports_noncontinuous_clock) {
-		dev_err(priv->dev, "Clock non-continuous mode is not supported\n");
-		return -EINVAL;
-	}
-
-	if (!phy->bus_config_parsed) {
-		phy->mipi = v4l2_ep.bus.mipi_csi2;
-		phy->bus_config_parsed = true;
-
-		return 0;
-	}
-
-	if (phy->mipi.num_data_lanes != v4l2_ep.bus.mipi_csi2.num_data_lanes) {
+	/* TODO: check the rest of the MIPI configuration. */
+	if (phy->mipi.num_data_lanes && phy->mipi.num_data_lanes !=
+	    v4l2_ep.bus.mipi_csi2.num_data_lanes) {
 		dev_err(priv->dev, "PHY configured with differing number of data lanes\n");
 		return -EINVAL;
 	}
 
-	if ((phy->mipi.flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK) !=
-	    (mipi->flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK)) {
-		dev_err(priv->dev, "PHY configured with differing clock continuity\n");
-		return -EINVAL;
-	}
+	phy->mipi = v4l2_ep.bus.mipi_csi2;
 
 	return 0;
 }
