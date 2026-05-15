@@ -83,6 +83,26 @@ config ADI_AXI_HSCI
 	  To compile this driver as a module, choose M here: the
 	  module will be called adi-axi-hsci.
 
+config ADI_AXI_RTP_ENGINE
+	tristate "Analog Devices RTP Engine Support"
+	depends on HAS_IOMEM
+	depends on OF
+	help
+	  The RTP engine creates AXIS-based RFC-compliant RTP for uncompressed
+	  video data packets from input AXIS interfaces.
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-axi-rtp-engine
+
+config ADI_AXI_RTP_SESSION_MUX
+	tristate "Analog Devices RTP Session Mux Support"
+	depends on HAS_IOMEM
+	depends on OF
+	help
+	  The RTP session mux packs data from multiple input RTP
+	  engines
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-axi-session-mux
+
 config DUMMY_IRQ
 	tristate "Dummy IRQ handler"
 	help
