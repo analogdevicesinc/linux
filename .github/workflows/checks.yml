@@ -66,7 +66,11 @@ jobs:
     - name: Set strict level
       run: |
         branch="${{ github.event_name == 'pull_request' && github.base_ref || github.ref_name }}"
-        [[ "$branch" == mirror_ci/* ]] && strict="true" || strict="false"
+        if [[ "$branch" == mirror_ci/* || "$branch" == adsp-* ]]; then
+          strict="true"
+        else
+          strict="false"
+        fi
         echo "strict=$strict" >> "$GITHUB_ENV"
 
         if [[ "$strict" == "true" ]]; then
