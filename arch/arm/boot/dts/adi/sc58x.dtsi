@@ -507,7 +507,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x31004400 0x400>;
-			adi,port-sizes = <16 16 16 16 16 16 6>;
+			adi,npins = <102>;
 			adi,no-drive-strength;
 			adi,no-pull-up-down;
 		};
