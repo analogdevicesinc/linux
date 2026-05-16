@@ -307,6 +307,9 @@ struct amdgpu_gfx_config {
 	uint32_t gc_scalar_data_cache_size_per_sqc;
 	uint32_t gc_scalar_data_cache_line_size;
 	uint32_t gc_tcc_cache_line_size;
+	uint32_t gc_max_num_residency_ways;
+	uint32_t gc_cache_ways_size_in_bytes;
+	uint32_t gc_reserved;
 };
 
 struct amdgpu_cu_info {

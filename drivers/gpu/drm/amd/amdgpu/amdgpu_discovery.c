@@ -1987,6 +1987,7 @@ union gc_info {
 	struct gc_info_v1_1 v1_1;
 	struct gc_info_v1_2 v1_2;
 	struct gc_info_v1_3 v1_3;
+	struct gc_info_v1_5 v1_5;
 	struct gc_info_v2_0 v2;
 	struct gc_info_v2_1 v2_1;
 };
@@ -2016,7 +2017,7 @@ static int amdgpu_discovery_get_gfx_info(struct amdgpu_device *adev)
 	case 1:
 		adev->gfx.config.max_shader_engines = le32_to_cpu(gc_info->v1.gc_num_se);
 		adev->gfx.config.max_cu_per_sh = 2 * (le32_to_cpu(gc_info->v1.gc_num_wgp0_per_sa) +
-						      le32_to_cpu(gc_info->v1.gc_num_wgp1_per_sa));
+					      le32_to_cpu(gc_info->v1.gc_num_wgp1_per_sa));
 		adev->gfx.config.max_sh_per_se = le32_to_cpu(gc_info->v1.gc_num_sa_per_se);
 		adev->gfx.config.max_backends_per_se = le32_to_cpu(gc_info->v1.gc_num_rb_per_se);
 		adev->gfx.config.max_texture_channel_caches = le32_to_cpu(gc_info->v1.gc_num_gl2c);
@@ -2056,6 +2057,24 @@ static int amdgpu_discovery_get_gfx_info(struct amdgpu_device *adev)
 			adev->gfx.config.gc_scalar_data_cache_line_size = le32_to_cpu(gc_info->v1_3.gc_scalar_data_cache_line_size);
 			adev->gfx.config.gc_tcc_size = le32_to_cpu(gc_info->v1_3.gc_tcc_size);
 			adev->gfx.config.gc_tcc_cache_line_size = le32_to_cpu(gc_info->v1_3.gc_tcc_cache_line_size);
+		}
+		if (le16_to_cpu(gc_info->v1.header.version_minor) == 4 ||
+		    le16_to_cpu(gc_info->v1.header.version_minor) > 5) {
+			dev_err(adev->dev,
+				"Unsupported GC info table %d.%d\n",
+				le16_to_cpu(gc_info->v1.header.version_major),
+				le16_to_cpu(gc_info->v1.header.version_minor));
+			return -EINVAL;
+		}
+		if (le16_to_cpu(gc_info->v1.header.version_minor) == 5) {
+			adev->gfx.config.gc_max_num_residency_ways = le32_to_cpu(gc_info->v1_5.gc_max_num_residency_ways);
+			adev->gfx.config.gc_cache_ways_size_in_bytes = le32_to_cpu(gc_info->v1_5.gc_cache_ways_size_in_bytes);
+			adev->gfx.config.gc_reserved = le32_to_cpu(gc_info->v1_5.gc_reserved);
+			/* GC info v1.5 derives max_cu_per_sh from the combined SA/SA1 WGP counts. */
+			adev->gfx.config.max_cu_per_sh = le32_to_cpu(gc_info->v1.gc_num_wgp0_per_sa) +
+						le32_to_cpu(gc_info->v1.gc_num_wgp1_per_sa) +
+						le32_to_cpu(gc_info->v1_5.gc_num_wgp0_per_sa1) +
+						le32_to_cpu(gc_info->v1_5.gc_num_wgp1_per_sa1);
 		}
 		break;
 	case 2:
