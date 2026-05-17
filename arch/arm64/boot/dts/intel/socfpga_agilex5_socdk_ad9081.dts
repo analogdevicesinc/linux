@@ -335,12 +335,12 @@
 				ad9081_dac0: dac@0 {
 					reg = <0>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan0>;
-					adi,nco-frequency-shift-hz = /bits/ 64 <0>; /* 1000 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <10000000>; /* 10 MHz */
 				};
 				ad9081_dac1: dac@1 {
 					reg = <1>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan1>;
-					adi,nco-frequency-shift-hz = /bits/ 64 <0>; /* 1100 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <10000000>; /* 10 MHz */
 				};
 				// ad9081_dac2: dac@2 {
 				// 	reg = <2>;
@@ -424,25 +424,25 @@
 				ad9081_adc0: adc@0 {
 					reg = <0>;
 					adi,decimation = <4>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <10000000>; //10 MHz
 					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				};
 				ad9081_adc1: adc@1 {
 					reg = <1>;
 					adi,decimation = <4>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <10000000>; //10 MHz
 					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				};
 				ad9081_adc2: adc@2 {
 					reg = <2>;
 					adi,decimation = <4>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <10000000>; //10 MHz
 					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				};
 				ad9081_adc3: adc@3 {
 					reg = <3>;
 					adi,decimation = <4>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <10000000>; //10 MHz
 					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				};
 			};
