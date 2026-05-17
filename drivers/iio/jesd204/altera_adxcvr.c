@@ -414,16 +414,22 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 	if (--st->reset_counter != 0)
 		return;
 
-	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 	do {
+		adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+		mdelay(10);
 		status = adxcvr_read(st, ADXCVR_REG_STATUS);
-		if (status == ADXCVR_STATUS)
+		if (status == ADXCVR_STATUS) {
+			dev_info(st->dev, "Transceiver is ready\n");
 			break;
+		} else {
+			adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+			mdelay(10);
+		}
 		mdelay(1);
 	} while (timeout--);
 
 	/* For Agilex, rx_lockedtodata only gets asserted after there is data coming on the lanes*/
-	if (timeout < 0 && !st->is_agilex) {
+	if (timeout < 0) {
 		status = adxcvr_read(st, ADXCVR_REG_STATUS2);
 		dev_err(st->dev, "Link activation error:\n");
 		dev_err(st->dev, "\tLink PLL %slocked\n",
@@ -482,11 +488,6 @@ static void adxcvr_link_clk_work(struct work_struct *work)
 	ret = clk_prepare_enable(st->link_clk);
 	if (ret < 0)
 		dev_err(st->dev, "Enabling link clock failed: %d\n", ret);
-
-	if (st->is_transmit && st->gpio_ref_clk_ready) {
-		gpiod_set_value(st->gpio_ref_clk_ready, 1);
-		dev_info(st->dev, "Setting refclk_ready to 1");
-	}
 
 	adxcfg_lock(st);
 	adxcvr_finalize_lane_rate_change(st);
@@ -739,6 +740,14 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	if (st->gpio_ref_clk_ready) {
+		gpiod_set_value(st->gpio_ref_clk_ready, 1);
+		// Wait some time for the internal FPGA pll to lock.
+		mdelay(100);
+		dev_info(st->dev, "Setting refclk_ready to 1");
+	}
+
+
 	ret = adxcvr_register_lane_clk(st);
 	if (ret)
 		return ret;
@@ -774,6 +783,12 @@ static void adxcvr_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(st->link_clk);
 	clk_disable_unprepare(st->ref_clk);
+
+	if (st->gpio_ref_clk_ready) {
+		gpiod_set_value(st->gpio_ref_clk_ready, 0);
+		mdelay(100);
+		dev_info(st->dev, "Setting refclk_ready to 0");
+	}
 }
 
 static const struct of_device_id adxcvr_of_match[] = {
