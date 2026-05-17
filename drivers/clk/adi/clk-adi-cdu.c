@@ -284,7 +284,7 @@ static void sc5xx_cdu_debug_init(struct clk_hw *clk_hw, struct dentry *dentry)
 #endif
 
 static const struct clk_ops sc5xx_cdu_ops = {
-	.determine_rate = __clk_mux_determine_rate,
+	.determine_rate = clk_hw_determine_rate_no_reparent,
 	.set_parent = sc5xx_cdu_set_parent,
 	.get_parent = sc5xx_cdu_get_parent,
 	.enable = sc5xx_cdu_enable,
