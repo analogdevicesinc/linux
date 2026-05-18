@@ -209,22 +209,24 @@ static int adi_sec_probe(struct platform_device *pdev)
 
 	adi_sec->ioaddr = base;
 
-	/* Disable SYSCD_RESETb and clear RCU reset status */
-	adi_rcu_writel(0x00, adi_rcu, ADI_RCU_REG_CTL);
-	adi_rcu_writel(0x0f, adi_rcu, ADI_RCU_REG_STAT);
+	if (!(of_property_read_bool(np, "no-reset"))) {
+		/* Disable SYSCD_RESETb and clear RCU reset status */
+		adi_rcu_writel(0x00, adi_rcu, ADI_RCU_REG_CTL);
+		adi_rcu_writel(0x0f, adi_rcu, ADI_RCU_REG_STAT);
 
-	/* Reset SEC */
-	adi_sec_writel(0x02, adi_sec, ADI_SEC_REG_GCTL);
-	adi_sec_writel(0x02, adi_sec, ADI_SEC_REG_FCTL);
+		/* Reset SEC */
+		adi_sec_writel(0x02, adi_sec, ADI_SEC_REG_GCTL);
+		adi_sec_writel(0x02, adi_sec, ADI_SEC_REG_FCTL);
 
-	/* Initialize each core */
-	for (cores = 0; cores < adi_sec->cores; ++cores) {
-		adi_sec_writel(0x02, adi_sec,
-			       ADI_SEC_REG_CCTL_BASE + (cores +
-							1) *
-			       ADI_SEC_CCTL_SIZE);
+		/* Initialize each core */
+		for (cores = 0; cores < adi_sec->cores; ++cores) {
+			adi_sec_writel(0x02, adi_sec,
+					ADI_SEC_REG_CCTL_BASE + (cores +
+								1) *
+					ADI_SEC_CCTL_SIZE);
+		}
+		fsleep(100);
 	}
-	udelay(100);
 
 	/* Enable SEC fault event */
 	adi_sec_writel(0x01, adi_sec, ADI_SEC_REG_GCTL);
