@@ -99,6 +99,7 @@ struct adxcvr_state {
 	bool			is_agilex;
 	bool			is_transmit;
 	bool			skip_pll_reconfig;
+	bool			is_observation;
 	u32			lanes_per_link;
 
 	unsigned int reset_counter;
@@ -414,22 +415,18 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 	if (--st->reset_counter != 0)
 		return;
 
+	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
 	do {
-		adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-		mdelay(10);
+		mdelay(1);
 		status = adxcvr_read(st, ADXCVR_REG_STATUS);
 		if (status == ADXCVR_STATUS) {
 			dev_info(st->dev, "Transceiver is ready\n");
 			break;
-		} else {
-			adxcvr_write(st, ADXCVR_REG_RESETN, 0);
-			mdelay(10);
 		}
-		mdelay(1);
 	} while (timeout--);
 
 	/* For Agilex, rx_lockedtodata only gets asserted after there is data coming on the lanes*/
-	if (timeout < 0) {
+	if (!st->is_agilex && timeout < 0) {
 		status = adxcvr_read(st, ADXCVR_REG_STATUS2);
 		dev_err(st->dev, "Link activation error:\n");
 		dev_err(st->dev, "\tLink PLL %slocked\n",
@@ -571,7 +568,7 @@ static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
 
 	adxcvr_pre_lane_rate_change(st);
 
-	if (st->is_transmit) {
+	if (!st->is_agilex && st->is_transmit) {
 		adxcvr_post_lane_rate_change(st, rate);
 		st->lane_rate = rate;
 		return 0;
