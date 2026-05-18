@@ -82,10 +82,10 @@ static int sc5xx_cdu_wait_ready(struct sc5xx_cdu *cdu_clk)
 	u32 stat;
 
 	return readl_poll_timeout_atomic(cdu_clk->base + SC5XX_CDU_STAT,
-			stat,
-			!(stat & BIT(cdu_clk->cdu_clko)),
-			SC5XX_CDU_POLL_DELAY,
-			SC5XX_CDU_POLL_TIMEOUT);
+					 stat,
+					 !(stat & BIT(cdu_clk->cdu_clko)),
+					 SC5XX_CDU_POLL_DELAY,
+					 SC5XX_CDU_POLL_TIMEOUT);
 }
 
 static u32 sc5xx_cdu_read(struct sc5xx_cdu *cdu_clk, unsigned int offset)
