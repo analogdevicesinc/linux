@@ -35,11 +35,14 @@ check_checkpatch() {
 	local warn=0
 	local ignored=
 	local api_match="(public/include|public/src|private/include|private/src|iio/adc/.*/common|iio/adc/.*/platforms)/"
-	local tmp_branch_name=$(git symbolic-ref --short HEAD)-$RANDOM
+	local tmp_branch_name
 
 	echo "$step_name on range $base_sha..$head_sha"
 
 	if [[ "$strategy" == "file" ]]; then
+		tmp_branch_name=$(git symbolic-ref --short HEAD)
+		[ -n "$tmp_branch_name" ] || tmp_branch_name='trunk'
+		tmp_branch_name=$tmp_branch_name-$RANDOM
 		# To still only check the changes, squash the range in a single commit
 		git switch -c $tmp_branch_name 1>/dev/null
 		git reset --soft $base_sha
