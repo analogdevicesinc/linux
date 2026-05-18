@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&spi0 {
+	#address-cells = <0x1>;
+	#size-cells = <0x0>;
+	status = "okay";
+
+	adt7604: adt7604@0 {
+		compatible = "adi,adt7604";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		interrupt-parent = <&gpio>;
+		interrupts = <25 IRQ_TYPE_EDGE_RISING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&adt7604_pins>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* Channel 2: sense resistor R4 (100ohm, 0.01%), CH1-CH2 */
+		trace_rsense: rsense@2 {
+			reg = <2>;
+			adi,sensor-type = <29>;
+			adi,rsense-val-milli-ohms = <100000>;
+		};
+
+		/* Channels 4, 6, 8: copper trace sensors CH3-CH4 */
+		copper-trace@4 {
+			reg = <4>;
+			adi,sensor-type = <32>;
+			adi,rsense-handle = <&trace_rsense>;
+			adi,copper-trace-sub-ohm;
+		};
+
+		copper-trace@6 {
+			reg = <6>;
+			adi,sensor-type = <32>;
+			adi,rsense-handle = <&trace_rsense>;
+			adi,copper-trace-sub-ohm;
+		};
+
+		copper-trace@8 {
+			reg = <8>;
+			adi,sensor-type = <32>;
+			adi,rsense-handle = <&trace_rsense>;
+			adi,copper-trace-sub-ohm;
+		};
+
+		/* Channel 12: sense resistor R6 (1kohm, 0.01%), CH11-CH12 */
+		r_sense: rsense@12 {
+			reg = <12>;
+			adi,sensor-type = <29>;
+			adi,rsense-val-milli-ohms = <1000000>;
+		};
+
+		/* Channel 14: leak detector, CH13-CH14 */
+		leak-detector@14 {
+			reg = <14>;
+			adi,sensor-type = <33>;
+			adi,rsense-handle = <&r_sense>;
+			adi,excitation-current-nanoamp = <10000>;
+			/* Example custom table from ADT7604 datasheet Table 41 */
+			adi,custom-leak-detector =
+				/bits/ 64 <          0 100>,
+				/bits/ 64 <  202020000  99>,
+				/bits/ 64 <  285710000  70>,
+				/bits/ 64 <  333330000  60>,
+				/bits/ 64 <  400000000  50>,
+				/bits/ 64 <  500000000  40>,
+				/bits/ 64 <  666670000  30>,
+				/bits/ 64 < 1000000000  20>,
+				/bits/ 64 < 2000000000  10>,
+				/bits/ 64 <1000000000000 0>;
+		};
+
+		/* Channel 16: leak detector, CH15-CH16 */
+		leak-detector@16 {
+			reg = <16>;
+			adi,sensor-type = <33>;
+			adi,rsense-handle = <&r_sense>;
+			adi,excitation-current-nanoamp = <10000>;
+			adi,custom-leak-detector =
+				/bits/ 64 <          0 100>,
+				/bits/ 64 <  202020000  99>,
+				/bits/ 64 <  285710000  70>,
+				/bits/ 64 <  333330000  60>,
+				/bits/ 64 <  400000000  50>,
+				/bits/ 64 <  500000000  40>,
+				/bits/ 64 <  666670000  30>,
+				/bits/ 64 < 1000000000  20>,
+				/bits/ 64 < 2000000000  10>,
+				/bits/ 64 <1000000000000 0>;
+		};
+
+		/* Channel 18: PT100 onboard 100ohm (2-wire), CH17-CH18 */
+		rtd@18 {
+			reg = <18>;
+			adi,sensor-type = <12>;
+			adi,rsense-handle = <&r_sense>;
+			adi,number-of-wires = <2>;
+			adi,rsense-share;
+			adi,excitation-current-microamp = <500>;
+			adi,rtd-curve = <0>;
+		};
+	};
+};
+
+&gpio {
+	adt7604_pins: adt7604_pins {
+		brcm,pins = <25>;
+		brcm,function = <0>;
+		brcm,pull = <0>;
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};

@@ -28,6 +28,8 @@
 #define LTC2983_STATUS_REG			0x0000
 #define LTC2983_TEMP_RES_START_REG		0x0010
 #define LTC2983_TEMP_RES_END_REG		0x005F
+#define ADT7604_RES_RES_START_REG		0x0060
+#define ADT7604_RES_RES_END_REG			0x00AF
 #define LTC2983_EEPROM_KEY_REG			0x00B0
 #define LTC2983_EEPROM_READ_STATUS_REG		0x00D0
 #define LTC2983_GLOBAL_CONFIG_REG		0x00F0
@@ -58,8 +60,8 @@
 
 #define LTC2983_CHAN_ASSIGN_ADDR(chan) \
 			((((chan) - 1) * 4) + LTC2983_CHAN_ASSIGN_START_REG)
-#define LTC2983_RESULT_ADDR(chan) \
-			((((chan) - 1) * 4) + LTC2983_TEMP_RES_START_REG)
+#define LTC2983_RESULT_ADDR(chan, base) \
+			((((chan) - 1) * 4) + (base))
 #define LTC2983_THERMOCOUPLE_DIFF_MASK		BIT(3)
 #define LTC2983_THERMOCOUPLE_SGL(x) \
 				FIELD_PREP(LTC2983_THERMOCOUPLE_DIFF_MASK, x)
@@ -186,7 +188,28 @@ enum {
 	LTC2983_SENSOR_SENSE_RESISTOR = 29,
 	LTC2983_SENSOR_DIRECT_ADC = 30,
 	LTC2983_SENSOR_ACTIVE_TEMP = 31,
+	/* Sensor types for some parts only; map to RTD_CUSTOM/THERMISTOR_CUSTOM in HW */
+	LTC2983_SENSOR_COPPER_TRACE = 32,
+	LTC2983_SENSOR_LEAK_DETECTOR = 33,
+	LTC2983_SENSOR_NUM
 };
+
+/* Bitmask of sensor types supported by LTC2983/LTC2984 and derivatives */
+#define LTC2983_COMMON_SENSORS \
+	(GENMASK_ULL(LTC2983_SENSOR_THERMOCOUPLE_CUSTOM, LTC2983_SENSOR_THERMOCOUPLE) | \
+	 GENMASK_ULL(LTC2983_SENSOR_RTD_CUSTOM, LTC2983_SENSOR_RTD) | \
+	 GENMASK_ULL(LTC2983_SENSOR_THERMISTOR_CUSTOM, LTC2983_SENSOR_THERMISTOR) | \
+	 BIT_ULL(LTC2983_SENSOR_DIODE) | \
+	 BIT_ULL(LTC2983_SENSOR_SENSE_RESISTOR) | \
+	 BIT_ULL(LTC2983_SENSOR_DIRECT_ADC))
+
+/* Bitmask of sensor types supported by ADT7604 */
+#define ADT7604_SENSORS \
+	(GENMASK_ULL(LTC2983_SENSOR_RTD_CUSTOM - 1, LTC2983_SENSOR_RTD) | \
+	 GENMASK_ULL(LTC2983_SENSOR_THERMISTOR_CUSTOM - 1, LTC2983_SENSOR_THERMISTOR) | \
+	 BIT_ULL(LTC2983_SENSOR_SENSE_RESISTOR) | \
+	 BIT_ULL(LTC2983_SENSOR_COPPER_TRACE) | \
+	 BIT_ULL(LTC2983_SENSOR_LEAK_DETECTOR))
 
 #define to_thermocouple(_sensor) \
 		container_of(_sensor, struct ltc2983_thermocouple, sensor)
@@ -194,8 +217,14 @@ enum {
 #define to_rtd(_sensor) \
 		container_of(_sensor, struct ltc2983_rtd, sensor)
 
+#define to_copper_trace(_sensor) \
+		container_of(_sensor, struct ltc2983_copper_trace, sensor)
+
 #define to_thermistor(_sensor) \
 		container_of(_sensor, struct ltc2983_thermistor, sensor)
+
+#define to_leak_detector(_sensor) \
+		container_of(_sensor, struct ltc2983_leak_detector, sensor)
 
 #define to_diode(_sensor) \
 		container_of(_sensor, struct ltc2983_diode, sensor)
@@ -212,7 +241,7 @@ enum {
 struct ltc2983_chip_info {
 	const char *name;
 	unsigned int max_channels_nr;
-	bool has_temp;
+	u64 supported_sensors;
 	bool has_eeprom;
 };
 
@@ -247,6 +276,8 @@ struct ltc2983_sensor {
 	u32 chan;
 	/* sensor type */
 	u32 type;
+	/* number of IIO channels this sensor produces */
+	u8 n_iio_chan;
 };
 
 struct ltc2983_custom_sensor {
@@ -272,6 +303,25 @@ struct ltc2983_rtd {
 	u32 r_sense_chan;
 	u32 excitation_current;
 	u32 rtd_curve;
+};
+
+struct ltc2983_copper_trace {
+	struct ltc2983_sensor sensor;
+	struct ltc2983_custom_sensor *custom;
+	u32 r_sense_chan;
+	u32 excitation_current;
+	/* selects the <1Ω variant: bits 17:0 of the channel word are zeroed,
+	 * disabling excitation current and custom table fields (ADT7604
+	 * datasheet Table 26)
+	 */
+	bool is_sub_ohm;
+};
+
+struct ltc2983_leak_detector {
+	struct ltc2983_sensor sensor;
+	struct ltc2983_custom_sensor *custom;
+	u32 r_sense_chan;
+	u32 excitation_current;
 };
 
 struct ltc2983_thermistor {
@@ -353,8 +403,14 @@ static int __ltc2983_chan_assign_common(struct ltc2983_data *st,
 {
 	struct device *dev = &st->spi->dev;
 	u32 reg = LTC2983_CHAN_ASSIGN_ADDR(sensor->chan);
+	u32 hw_type = sensor->type;
 
-	chan_val |= LTC2983_CHAN_TYPE(sensor->type);
+	if (hw_type == LTC2983_SENSOR_COPPER_TRACE)
+		hw_type = LTC2983_SENSOR_RTD_CUSTOM;
+	else if (hw_type == LTC2983_SENSOR_LEAK_DETECTOR)
+		hw_type = LTC2983_SENSOR_THERMISTOR_CUSTOM;
+
+	chan_val |= LTC2983_CHAN_TYPE(hw_type);
 	dev_dbg(dev, "Assign reg:0x%04X, val:0x%08X\n", reg, chan_val);
 	st->chan_val = cpu_to_be32(chan_val);
 	return regmap_bulk_write(st->regmap, reg, &st->chan_val,
@@ -485,6 +541,14 @@ __ltc2983_custom_sensor_new(struct ltc2983_data *st, const struct fwnode_handle 
 		for (index = 0; index < n_entries; index++) {
 			u64 temp = ((u64 *)new_custom->table)[index];
 
+			/*
+			 * Users specify plain coverage percentage (0-100). Convert
+			 * to µK so __convert_to_raw() produces the correct hardware
+			 * encoding: P + 273.15 K.
+			 */
+			if ((index % 2) != 0 && !strcmp(propname, "adi,custom-leak-detector"))
+				temp = temp * 1000000 + 273150000;
+
 			if ((index % 2) != 0)
 				temp = __convert_to_raw(temp, 1024);
 			else if (has_signed && (s64)temp < 0)
@@ -578,6 +642,31 @@ static int ltc2983_rtd_assign_chan(struct ltc2983_data *st,
 	return __ltc2983_chan_assign_common(st, sensor, chan_val);
 }
 
+static int ltc2983_copper_trace_assign_chan(struct ltc2983_data *st,
+					    const struct ltc2983_sensor *sensor)
+{
+	struct ltc2983_copper_trace *ct = to_copper_trace(sensor);
+	u32 chan_val;
+
+	chan_val = LTC2983_CHAN_ASSIGN(ct->r_sense_chan);
+	/* Sensor config bits 21:18 must be 0b1001 (ADT7604 datasheet Table 26) */
+	chan_val |= LTC2983_RTD_CFG(0x9);
+
+	if (ct->is_sub_ohm) {
+		chan_val &= ~GENMASK(17, 0);
+	} else {
+		int ret;
+
+		chan_val |= LTC2983_RTD_EXC_CURRENT(ct->excitation_current);
+		ret = __ltc2983_chan_custom_sensor_assign(st, ct->custom,
+							  &chan_val);
+		if (ret)
+			return ret;
+	}
+
+	return __ltc2983_chan_assign_common(st, sensor, chan_val);
+}
+
 static int ltc2983_thermistor_assign_chan(struct ltc2983_data *st,
 					  const struct ltc2983_sensor *sensor)
 {
@@ -598,6 +687,25 @@ static int ltc2983_thermistor_assign_chan(struct ltc2983_data *st,
 		if (ret)
 			return ret;
 	}
+	return __ltc2983_chan_assign_common(st, sensor, chan_val);
+}
+
+static int ltc2983_leak_detector_assign_chan(struct ltc2983_data *st,
+					     const struct ltc2983_sensor *sensor)
+{
+	struct ltc2983_leak_detector *ld = to_leak_detector(sensor);
+	u32 chan_val;
+	int ret;
+
+	chan_val = LTC2983_CHAN_ASSIGN(ld->r_sense_chan);
+	/* bits 21:19 must be 0b001 (ADT7604 datasheet Table 38) */
+	chan_val |= LTC2983_THERMISTOR_CFG(1);
+	chan_val |= LTC2983_THERMISTOR_EXC_CURRENT(ld->excitation_current);
+
+	ret = __ltc2983_chan_custom_sensor_assign(st, ld->custom, &chan_val);
+	if (ret)
+		return ret;
+
 	return __ltc2983_chan_assign_common(st, sensor, chan_val);
 }
 
@@ -1037,6 +1145,195 @@ ltc2983_thermistor_new(const struct fwnode_handle *child, struct ltc2983_data *s
 }
 
 static struct ltc2983_sensor *
+ltc2983_copper_trace_new(const struct fwnode_handle *child, struct ltc2983_data *st,
+			 const struct ltc2983_sensor *sensor)
+{
+	struct device *dev = &st->spi->dev;
+	struct ltc2983_copper_trace *ct;
+	int ret;
+
+	if (sensor->chan < LTC2983_DIFFERENTIAL_CHAN_MIN)
+		return dev_err_ptr_probe(dev, -EINVAL,
+					 "Invalid channel %d for copper trace\n",
+					 sensor->chan);
+
+	ct = devm_kzalloc(dev, sizeof(*ct), GFP_KERNEL);
+	if (!ct)
+		return ERR_PTR(-ENOMEM);
+
+	struct fwnode_handle *ref __free(fwnode_handle) =
+		fwnode_find_reference(child, "adi,rsense-handle", 0);
+	if (IS_ERR(ref))
+		return dev_err_cast_probe(dev, ref,
+					  "Property adi,rsense-handle missing or invalid\n");
+
+	ret = fwnode_property_read_u32(ref, "reg", &ct->r_sense_chan);
+	if (ret)
+		return dev_err_ptr_probe(dev, ret, "Property reg must be given\n");
+
+	ct->is_sub_ohm = fwnode_property_read_bool(child, "adi,copper-trace-sub-ohm");
+
+	if (ct->is_sub_ohm && fwnode_property_present(child, "adi,custom-copper-trace"))
+		return dev_err_ptr_probe(dev, -EINVAL,
+					 "sub-ohm copper trace cannot have a custom table\n");
+
+	if (!ct->is_sub_ohm) {
+		u32 excitation_current = 0;
+
+		if (!fwnode_property_present(child, "adi,custom-copper-trace"))
+			return dev_err_ptr_probe(dev, -EINVAL,
+						 "adi,custom-copper-trace is required for >1 ohm copper trace\n");
+
+		ct->custom = __ltc2983_custom_sensor_new(st, child, "adi,custom-copper-trace",
+							 false, 2048, false);
+		if (IS_ERR(ct->custom))
+			return ERR_CAST(ct->custom);
+
+		if (fwnode_property_present(child, "adi,excitation-current-microamp")) {
+			ret = fwnode_property_read_u32(child, "adi,excitation-current-microamp",
+						       &excitation_current);
+			if (ret)
+				return dev_err_ptr_probe(dev, ret,
+							 "Failed to read adi,excitation-current-microamp\n");
+
+			switch (excitation_current) {
+			case 5:
+				ct->excitation_current = 0x01;
+				break;
+			case 10:
+				ct->excitation_current = 0x02;
+				break;
+			case 25:
+				ct->excitation_current = 0x03;
+				break;
+			case 50:
+				ct->excitation_current = 0x04;
+				break;
+			case 100:
+				ct->excitation_current = 0x05;
+				break;
+			case 250:
+				ct->excitation_current = 0x06;
+				break;
+			case 500:
+				ct->excitation_current = 0x07;
+				break;
+			case 1000:
+				ct->excitation_current = 0x08;
+				break;
+			default:
+				return dev_err_ptr_probe(dev, -EINVAL,
+							 "Invalid value for excitation current(%u)\n",
+							 excitation_current);
+			}
+		} else {
+			/* default to 1mA per datasheet recommendation for copper trace */
+			ct->excitation_current = 0x08;
+		}
+	}
+
+	ct->sensor.fault_handler = ltc2983_common_fault_handler;
+	ct->sensor.assign_chan = ltc2983_copper_trace_assign_chan;
+	if (ct->is_sub_ohm)
+		ct->sensor.n_iio_chan = 1;
+	else
+		ct->sensor.n_iio_chan = 2;
+
+	return &ct->sensor;
+}
+
+static struct ltc2983_sensor *
+ltc2983_leak_detector_new(const struct fwnode_handle *child, struct ltc2983_data *st,
+			  const struct ltc2983_sensor *sensor)
+{
+	struct device *dev = &st->spi->dev;
+	struct ltc2983_leak_detector *ld;
+	int ret;
+	u32 excitation_current = 0;
+
+	if (sensor->chan < LTC2983_DIFFERENTIAL_CHAN_MIN)
+		return dev_err_ptr_probe(dev, -EINVAL,
+					 "Invalid channel %d for leak detector\n",
+					 sensor->chan);
+
+	ld = devm_kzalloc(dev, sizeof(*ld), GFP_KERNEL);
+	if (!ld)
+		return ERR_PTR(-ENOMEM);
+
+	struct fwnode_handle *ref __free(fwnode_handle) =
+		fwnode_find_reference(child, "adi,rsense-handle", 0);
+	if (IS_ERR(ref))
+		return dev_err_cast_probe(dev, ref,
+					  "Property adi,rsense-handle missing or invalid\n");
+
+	ret = fwnode_property_read_u32(ref, "reg", &ld->r_sense_chan);
+	if (ret)
+		return dev_err_ptr_probe(dev, ret,
+					 "rsense channel must be configured\n");
+
+	if (!fwnode_property_present(child, "adi,custom-leak-detector"))
+		return dev_err_ptr_probe(dev, -EINVAL,
+					 "adi,custom-leak-detector is required for leak detectors\n");
+
+	ld->custom = __ltc2983_custom_sensor_new(st, child, "adi,custom-leak-detector",
+						 false, 16, false);
+	if (IS_ERR(ld->custom))
+		return ERR_CAST(ld->custom);
+
+	ret = fwnode_property_read_u32(child, "adi,excitation-current-nanoamp",
+				       &excitation_current);
+	if (ret)
+		return dev_err_ptr_probe(dev, ret,
+					 "adi,excitation-current-nanoamp is required for leak detectors\n");
+
+	switch (excitation_current) {
+	case 250:
+		ld->excitation_current = 0x01;
+		break;
+	case 500:
+		ld->excitation_current = 0x02;
+		break;
+	case 1000:
+		ld->excitation_current = 0x03;
+		break;
+	case 5000:
+		ld->excitation_current = 0x04;
+		break;
+	case 10000:
+		ld->excitation_current = 0x05;
+		break;
+	case 25000:
+		ld->excitation_current = 0x06;
+		break;
+	case 50000:
+		ld->excitation_current = 0x07;
+		break;
+	case 100000:
+		ld->excitation_current = 0x08;
+		break;
+	case 250000:
+		ld->excitation_current = 0x09;
+		break;
+	case 500000:
+		ld->excitation_current = 0x0a;
+		break;
+	case 1000000:
+		ld->excitation_current = 0x0b;
+		break;
+	default:
+		return dev_err_ptr_probe(dev, -EINVAL,
+					 "Invalid value for excitation current(%u)\n",
+					 excitation_current);
+	}
+
+	ld->sensor.fault_handler = ltc2983_common_fault_handler;
+	ld->sensor.assign_chan = ltc2983_leak_detector_assign_chan;
+	ld->sensor.n_iio_chan = 2;
+
+	return &ld->sensor;
+}
+
+static struct ltc2983_sensor *
 ltc2983_diode_new(const struct fwnode_handle *child, const struct ltc2983_data *st,
 		  const struct ltc2983_sensor *sensor)
 {
@@ -1204,7 +1501,8 @@ static struct ltc2983_sensor *ltc2983_temp_new(struct fwnode_handle *child,
 }
 
 static int ltc2983_chan_read(struct ltc2983_data *st,
-			const struct ltc2983_sensor *sensor, int *val)
+			const struct ltc2983_sensor *sensor,
+			u32 base_reg, int *val)
 {
 	struct device *dev = &st->spi->dev;
 	u32 start_conversion = 0;
@@ -1234,12 +1532,22 @@ static int ltc2983_chan_read(struct ltc2983_data *st,
 	}
 
 	/* read the converted data */
-	ret = regmap_bulk_read(st->regmap, LTC2983_RESULT_ADDR(sensor->chan),
+	ret = regmap_bulk_read(st->regmap, LTC2983_RESULT_ADDR(sensor->chan, base_reg),
 			       &st->temp, sizeof(st->temp));
 	if (ret)
 		return ret;
 
 	*val = __be32_to_cpu(st->temp);
+
+	if (base_reg == ADT7604_RES_RES_START_REG) {
+		/*
+		 * Resistance result register gives a plain unsigned value,
+		 * D31 is always 0, no valid bit, no fault bits. Read bits[30:0]
+		 * directly — the temperature result format does not apply here.
+		 */
+		*val &= GENMASK(30, 0);
+		return 0;
+	}
 
 	if (!(LTC2983_RES_VALID_MASK & *val)) {
 		dev_err(dev, "Invalid conversion detected\n");
@@ -1271,7 +1579,16 @@ static int ltc2983_read_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		mutex_lock(&st->lock);
-		ret = ltc2983_chan_read(st, st->sensors[chan->address], val);
+		switch (chan->type) {
+		case IIO_RESISTANCE:
+			ret = ltc2983_chan_read(st, st->sensors[chan->address],
+						ADT7604_RES_RES_START_REG, val);
+			break;
+		default:
+			ret = ltc2983_chan_read(st, st->sensors[chan->address],
+						LTC2983_TEMP_RES_START_REG, val);
+			break;
+		}
 		mutex_unlock(&st->lock);
 		return ret ?: IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
@@ -1287,6 +1604,13 @@ static int ltc2983_read_raw(struct iio_dev *indio_dev,
 			*val = 1000;
 			/* 2^21 */
 			*val2 = 2097152;
+			return IIO_VAL_FRACTIONAL;
+		case IIO_RESISTANCE:
+		case IIO_COVERAGE:
+			/* value in ohm/percent */
+			*val = 1;
+			/* 2^10 */
+			*val2 = 1024;
 			return IIO_VAL_FRACTIONAL;
 		default:
 			return -EINVAL;
@@ -1348,7 +1672,7 @@ static int ltc2983_parse_fw(struct ltc2983_data *st)
 	if (!st->sensors)
 		return -ENOMEM;
 
-	st->iio_channels = st->num_channels;
+	st->iio_channels = 0;
 	device_for_each_child_node_scoped(dev, child) {
 		struct ltc2983_sensor sensor;
 
@@ -1376,6 +1700,12 @@ static int ltc2983_parse_fw(struct ltc2983_data *st)
 			return dev_err_probe(dev, ret,
 				"adi,sensor-type property must given for child nodes\n");
 
+		if (sensor.type >= LTC2983_SENSOR_NUM ||
+		    !(st->info->supported_sensors & BIT_ULL(sensor.type)))
+			return dev_err_probe(dev, -EINVAL,
+					     "sensor type %d not supported on %s\n",
+					     sensor.type, st->info->name);
+
 		dev_dbg(dev, "Create new sensor, type %u, channel %u",
 			sensor.type, sensor.chan);
 
@@ -1396,13 +1726,14 @@ static int ltc2983_parse_fw(struct ltc2983_data *st)
 		} else if (sensor.type == LTC2983_SENSOR_SENSE_RESISTOR) {
 			st->sensors[chan] = ltc2983_r_sense_new(child, st,
 								&sensor);
-			/* don't add rsense to iio */
-			st->iio_channels--;
 		} else if (sensor.type == LTC2983_SENSOR_DIRECT_ADC) {
 			st->sensors[chan] = ltc2983_adc_new(child, st, &sensor);
-		} else if (st->info->has_temp &&
-			   sensor.type == LTC2983_SENSOR_ACTIVE_TEMP) {
+		} else if (sensor.type == LTC2983_SENSOR_ACTIVE_TEMP) {
 			st->sensors[chan] = ltc2983_temp_new(child, st, &sensor);
+		} else if (sensor.type == LTC2983_SENSOR_COPPER_TRACE) {
+			st->sensors[chan] = ltc2983_copper_trace_new(child, st, &sensor);
+		} else if (sensor.type == LTC2983_SENSOR_LEAK_DETECTOR) {
+			st->sensors[chan] = ltc2983_leak_detector_new(child, st, &sensor);
 		} else {
 			return dev_err_probe(dev, -EINVAL,
 					     "Unknown sensor type %d\n",
@@ -1416,6 +1747,16 @@ static int ltc2983_parse_fw(struct ltc2983_data *st)
 		/* set generic sensor parameters */
 		st->sensors[chan]->chan = sensor.chan;
 		st->sensors[chan]->type = sensor.type;
+
+		/*
+		 * Dedicated functions set n_iio_chan themselves; for all other
+		 * sensor types rsense produces 0 channels, everything else 1.
+		 */
+		if (!st->sensors[chan]->n_iio_chan) {
+			if (sensor.type != LTC2983_SENSOR_SENSE_RESISTOR)
+				st->sensors[chan]->n_iio_chan = 1;
+		}
+		st->iio_channels += st->sensors[chan]->n_iio_chan;
 
 		channel_avail_mask |= BIT(sensor.chan);
 		chan++;
@@ -1464,8 +1805,9 @@ static int ltc2983_eeprom_cmd(struct ltc2983_data *st, unsigned int cmd,
 
 static int ltc2983_setup(struct ltc2983_data *st, bool assign_iio)
 {
-	u32 iio_chan_t = 0, iio_chan_v = 0, chan, iio_idx = 0, status;
 	struct device *dev = &st->spi->dev;
+	u32 iio_chan_t = 0, iio_chan_v = 0, iio_chan_r = 0, iio_chan_c = 0;
+	u32 chan, iio_idx = 0, status;
 	int ret;
 
 	/* make sure the device is up: start bit (7) is 0 and done bit (6) is 1 */
@@ -1512,12 +1854,33 @@ static int ltc2983_setup(struct ltc2983_data *st, bool assign_iio)
 			continue;
 
 		/* assign iio channel */
-		if (st->sensors[chan]->type != LTC2983_SENSOR_DIRECT_ADC) {
-			chan_type = IIO_TEMP;
-			iio_chan = &iio_chan_t;
-		} else {
+		switch (st->sensors[chan]->type) {
+		case LTC2983_SENSOR_COPPER_TRACE:
+			if (st->sensors[chan]->n_iio_chan == 1) {
+				/* sub-ohm copper traces produce only a resistance result */
+				st->iio_chan[iio_idx++] =
+					LTC2983_CHAN(IIO_RESISTANCE, iio_chan_r++, chan);
+			} else {
+				st->iio_chan[iio_idx++] =
+					LTC2983_CHAN(IIO_TEMP, iio_chan_t++, chan);
+				st->iio_chan[iio_idx++] =
+					LTC2983_CHAN(IIO_RESISTANCE, iio_chan_r++, chan);
+			}
+			continue;
+		case LTC2983_SENSOR_LEAK_DETECTOR:
+			st->iio_chan[iio_idx++] =
+				LTC2983_CHAN(IIO_COVERAGE, iio_chan_c++, chan);
+			st->iio_chan[iio_idx++] =
+				LTC2983_CHAN(IIO_RESISTANCE, iio_chan_r++, chan);
+			continue;
+		case LTC2983_SENSOR_DIRECT_ADC:
 			chan_type = IIO_VOLTAGE;
 			iio_chan = &iio_chan_v;
+			break;
+		default:
+			chan_type = IIO_TEMP;
+			iio_chan = &iio_chan_t;
+			break;
 		}
 
 		/*
@@ -1534,6 +1897,7 @@ static int ltc2983_setup(struct ltc2983_data *st, bool assign_iio)
 static const struct regmap_range ltc2983_reg_ranges[] = {
 	regmap_reg_range(LTC2983_STATUS_REG, LTC2983_STATUS_REG),
 	regmap_reg_range(LTC2983_TEMP_RES_START_REG, LTC2983_TEMP_RES_END_REG),
+	regmap_reg_range(ADT7604_RES_RES_START_REG, ADT7604_RES_RES_END_REG),
 	regmap_reg_range(LTC2983_EEPROM_KEY_REG, LTC2983_EEPROM_KEY_REG),
 	regmap_reg_range(LTC2983_EEPROM_READ_STATUS_REG,
 			 LTC2983_EEPROM_READ_STATUS_REG),
@@ -1672,32 +2036,42 @@ static int ltc2983_suspend(struct device *dev)
 static DEFINE_SIMPLE_DEV_PM_OPS(ltc2983_pm_ops, ltc2983_suspend,
 				ltc2983_resume);
 
+static const struct ltc2983_chip_info adt7604_chip_info_data = {
+	.name = "adt7604",
+	.max_channels_nr = 20,
+	.has_eeprom = true,
+	.supported_sensors = ADT7604_SENSORS,
+};
+
 static const struct ltc2983_chip_info ltc2983_chip_info_data = {
 	.name = "ltc2983",
 	.max_channels_nr = 20,
+	.supported_sensors = LTC2983_COMMON_SENSORS,
 };
 
 static const struct ltc2983_chip_info ltc2984_chip_info_data = {
 	.name = "ltc2984",
 	.max_channels_nr = 20,
 	.has_eeprom = true,
+	.supported_sensors = LTC2983_COMMON_SENSORS,
 };
 
 static const struct ltc2983_chip_info ltc2986_chip_info_data = {
 	.name = "ltc2986",
 	.max_channels_nr = 10,
-	.has_temp = true,
 	.has_eeprom = true,
+	.supported_sensors = LTC2983_COMMON_SENSORS | BIT_ULL(LTC2983_SENSOR_ACTIVE_TEMP),
 };
 
 static const struct ltc2983_chip_info ltm2985_chip_info_data = {
 	.name = "ltm2985",
 	.max_channels_nr = 10,
-	.has_temp = true,
 	.has_eeprom = true,
+	.supported_sensors = LTC2983_COMMON_SENSORS | BIT_ULL(LTC2983_SENSOR_ACTIVE_TEMP),
 };
 
 static const struct spi_device_id ltc2983_id_table[] = {
+	{ "adt7604", (kernel_ulong_t)&adt7604_chip_info_data },
 	{ "ltc2983", (kernel_ulong_t)&ltc2983_chip_info_data },
 	{ "ltc2984", (kernel_ulong_t)&ltc2984_chip_info_data },
 	{ "ltc2986", (kernel_ulong_t)&ltc2986_chip_info_data },
@@ -1707,6 +2081,7 @@ static const struct spi_device_id ltc2983_id_table[] = {
 MODULE_DEVICE_TABLE(spi, ltc2983_id_table);
 
 static const struct of_device_id ltc2983_of_match[] = {
+	{ .compatible = "adi,adt7604", .data = &adt7604_chip_info_data },
 	{ .compatible = "adi,ltc2983", .data = &ltc2983_chip_info_data },
 	{ .compatible = "adi,ltc2984", .data = &ltc2984_chip_info_data },
 	{ .compatible = "adi,ltc2986", .data = &ltc2986_chip_info_data },
