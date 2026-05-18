@@ -665,9 +665,13 @@ void amdgpu_xcp_update_supported_modes(struct amdgpu_xcp_mgr *xcp_mgr)
 		break;
 	case 6:
 		xcp_mgr->supp_xcp_modes = BIT(AMDGPU_SPX_PARTITION_MODE) |
-					  BIT(AMDGPU_DPX_PARTITION_MODE) |
 					  BIT(AMDGPU_TPX_PARTITION_MODE) |
 					  BIT(AMDGPU_CPX_PARTITION_MODE);
+
+		if (amdgpu_ip_version(adev, GC_HWIP, 0) != IP_VERSION(9, 4, 3) &&
+			amdgpu_ip_version(adev, GC_HWIP, 0) != IP_VERSION(9, 4, 4) &&
+			amdgpu_ip_version(adev, GC_HWIP, 0) != IP_VERSION(9, 5, 0))
+			xcp_mgr->supp_xcp_modes |= BIT(AMDGPU_DPX_PARTITION_MODE);
 		break;
 	case 4:
 		xcp_mgr->supp_xcp_modes = BIT(AMDGPU_SPX_PARTITION_MODE) |
