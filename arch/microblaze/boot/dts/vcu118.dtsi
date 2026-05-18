@@ -6,7 +6,7 @@
 	compatible = "xlnx,microblaze";
 	model = "Xilinx MicroBlaze";
 	chosen {
-		bootargs = "earlycon";
+		bootargs = "earlycon console=ttyUL0,115200";
 		stdout-path = "serial0:115200n8";
 	};
 	aliases {
