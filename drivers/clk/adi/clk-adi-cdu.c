@@ -327,7 +327,7 @@ struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 	init.name = clock_name;
 	init.ops = &sc5xx_cdu_ops;
 	init.parent_names = parent_names;
-	init.num_parents = num_parents;
+	init.num_parents = num_parents; 
 	init.flags = clock_flags | CLK_SET_RATE_NO_REPARENT;
 
 	cdu_clk->clk_hw.init = &init;
