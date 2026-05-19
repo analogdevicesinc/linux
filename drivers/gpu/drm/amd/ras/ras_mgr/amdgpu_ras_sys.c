@@ -247,6 +247,10 @@ static int amdgpu_ras_sys_get_gpu_mem(struct ras_core_context *ras_core,
 	struct psp_context *psp = &adev->psp;
 	struct psp_ring *psp_ring;
 	struct ta_mem_context *mem_ctx;
+	int ret;
+
+	if (!gpu_mem)
+		return -EINVAL;
 
 	if (mem_type == GPU_MEM_TYPE_RAS_PSP_RING) {
 		psp_ring = &psp->km_ring;
@@ -275,6 +279,25 @@ static int amdgpu_ras_sys_get_gpu_mem(struct ras_core_context *ras_core,
 		gpu_mem->mem_size = mem_ctx->shared_mem_size;
 		gpu_mem->mem_mc_addr = mem_ctx->shared_mc_addr;
 		gpu_mem->mem_cpu_addr = mem_ctx->shared_buf;
+	} else if (mem_type == GPU_MEM_TYPE_ALLOC_MEM) {
+		struct amdgpu_bo *mem_bo = NULL;
+
+		if (!gpu_mem->mem_size)
+			return -EINVAL;
+
+		ret = amdgpu_bo_create_kernel(adev, gpu_mem->mem_size,
+				    PSP_1_MEG, AMDGPU_GEM_DOMAIN_VRAM |
+				    AMDGPU_GEM_DOMAIN_GTT,
+				    &mem_bo,
+				    &gpu_mem->mem_mc_addr,
+				    &gpu_mem->mem_cpu_addr);
+		if (ret) {
+			RAS_DEV_ERR(ras_core->dev, "Failed to alloc shared memory. ret:%d\n", ret);
+			return ret;
+		}
+
+		gpu_mem->mem_bo = mem_bo;
+
 	} else {
 		return -EINVAL;
 	}
@@ -291,6 +314,13 @@ static int amdgpu_ras_sys_get_gpu_mem(struct ras_core_context *ras_core,
 static int amdgpu_ras_sys_put_gpu_mem(struct ras_core_context *ras_core,
 	enum gpu_mem_type mem_type, struct gpu_mem_block *gpu_mem)
 {
+	if ((mem_type == GPU_MEM_TYPE_ALLOC_MEM) && gpu_mem &&
+		gpu_mem->mem_bo && gpu_mem->mem_cpu_addr && gpu_mem->mem_mc_addr) {
+		struct amdgpu_bo *mem_bo = gpu_mem->mem_bo;
+
+		amdgpu_bo_free_kernel(&mem_bo,
+			&gpu_mem->mem_mc_addr, &gpu_mem->mem_cpu_addr);
+	}
 
 	return 0;
 }

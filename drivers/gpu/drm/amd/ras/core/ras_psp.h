@@ -42,6 +42,7 @@ struct ras_ta_image_header {
 
 struct ras_psp_sys_status {
 	void *psp_cmd_mutex;
+	bool use_dedicated_memory;
 };
 
 struct ras_ta_init_param {
@@ -96,7 +97,7 @@ struct ras_psp_ip_func {
 };
 
 struct ras_psp_ring {
-	struct gpu_mem_block ras_ring_gpu_mem;
+	struct gpu_mem_block *ras_ring_gpu_mem;
 };
 
 struct psp_cmd_resp {
@@ -108,8 +109,8 @@ struct ras_psp_ctx {
 	void *external_mutex;
 	struct mutex internal_mutex;
 	uint64_t in_fence_value;
-	struct gpu_mem_block psp_cmd_gpu_mem;
-	struct gpu_mem_block out_fence_gpu_mem;
+	struct gpu_mem_block *psp_cmd_gpu_mem;
+	struct gpu_mem_block *out_fence_gpu_mem;
 };
 
 struct ras_ta_fw_bin {
@@ -128,11 +129,12 @@ struct ras_ta_ctx {
 	struct mutex ta_mutex;
 	struct ras_ta_fw_bin fw_bin;
 	struct ras_ta_init_param init_param;
-	struct gpu_mem_block fw_gpu_mem;
-	struct gpu_mem_block cmd_gpu_mem;
+	struct gpu_mem_block *fw_gpu_mem;
+	struct gpu_mem_block *cmd_gpu_mem;
 };
 
 struct ras_psp {
+	bool use_dedicated_memory;
 	uint32_t psp_ip_version;
 	struct ras_block_map *blk_maps;
 	uint32_t maps_size;

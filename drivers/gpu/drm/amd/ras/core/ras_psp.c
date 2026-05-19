@@ -33,6 +33,11 @@
 #define RAS_TA_INST_MASK 0xfffff000
 #define RAS_TA_INST_SHIFT 0xc
 
+#define RAS_PSP_RING_SIZE  0x100000
+#define RAS_PSP_CMD_SIZE   0x100000
+#define RAS_PSP_FENCE_SIZE 0x1000
+#define RAS_FW_BIN_SIZE    0x100000
+#define RAS_TA_CMD_SIZE    0x100000
 static const struct ras_psp_ip_func *ras_psp_get_ip_funcs(
 			struct ras_core_context *ras_core, uint32_t ip_version)
 {
@@ -90,63 +95,135 @@ static void ras_psp_put_ras_ta_fini_param(struct ras_core_context *ras_core)
 		psp->sys_func->put_ras_ta_fini_param(ras_core);
 }
 
-static struct gpu_mem_block *ras_psp_get_gpu_mem(struct ras_core_context *ras_core,
-			enum gpu_mem_type mem_type)
+static struct gpu_mem_block *ras_psp_alloc_mem(struct ras_core_context *ras_core,
+			enum gpu_mem_type mem_type, u32 mem_size)
 {
-	struct ras_psp *psp = &ras_core->ras_psp;
-	struct gpu_mem_block *gpu_mem = NULL;
+	struct gpu_mem_block *gpu_mem;
 	int ret;
 
-	switch (mem_type) {
-	case GPU_MEM_TYPE_RAS_PSP_RING:
-		gpu_mem = &psp->psp_ring.ras_ring_gpu_mem;
-		break;
-	case GPU_MEM_TYPE_RAS_PSP_CMD:
-		gpu_mem = &psp->psp_ctx.psp_cmd_gpu_mem;
-		break;
-	case GPU_MEM_TYPE_RAS_PSP_FENCE:
-		gpu_mem = &psp->psp_ctx.out_fence_gpu_mem;
-		break;
-	case GPU_MEM_TYPE_RAS_TA_FW:
-		gpu_mem = &psp->ta_ctx.fw_gpu_mem;
-		break;
-	case GPU_MEM_TYPE_RAS_TA_CMD:
-		gpu_mem = &psp->ta_ctx.cmd_gpu_mem;
-		break;
-	default:
+	if ((mem_type >= GPU_MEM_TYPE_MAX) || (mem_size < PAGE_SIZE))
 		return NULL;
-	}
 
-	if (!gpu_mem->ref_count) {
-		ret = ras_core_get_gpu_mem(ras_core, mem_type, gpu_mem);
-		if (ret)
-			return NULL;
-		gpu_mem->mem_type = mem_type;
-	}
+	gpu_mem = kzalloc(sizeof(*gpu_mem), GFP_KERNEL);
+	if (!gpu_mem)
+		return NULL;
 
+	gpu_mem->mem_size = mem_size;
+	ret = ras_core_get_gpu_mem(ras_core, mem_type, gpu_mem);
+	if (ret)
+		goto err;
+
+	gpu_mem->mem_type = mem_type;
 	gpu_mem->ref_count++;
 
 	return gpu_mem;
+
+err:
+	kfree(gpu_mem);
+	return NULL;
 }
 
-static int ras_psp_put_gpu_mem(struct ras_core_context *ras_core,
+static int ras_psp_free_mem(struct ras_core_context *ras_core,
 			struct gpu_mem_block *gpu_mem)
 {
 	if (!gpu_mem)
 		return 0;
 
-	gpu_mem->ref_count--;
-
-	if (gpu_mem->ref_count > 0) {
+	if (!gpu_mem->ref_count) {
 		return 0;
-	} else if (gpu_mem->ref_count < 0) {
-		RAS_DEV_WARN(ras_core->dev,
-			"Duplicate free gpu memory %u\n", gpu_mem->mem_type);
-	} else {
+	} else if (gpu_mem->ref_count == 1) {
 		ras_core_put_gpu_mem(ras_core, gpu_mem->mem_type, gpu_mem);
 		memset(gpu_mem, 0, sizeof(*gpu_mem));
+		kfree(gpu_mem);
+	} else if (gpu_mem->ref_count > 1) {
+		gpu_mem->ref_count--;
 	}
 
+	return 0;
+}
+
+static int __ras_psp_mem_init(struct ras_core_context *ras_core)
+{
+	struct ras_psp *psp = &ras_core->ras_psp;
+	struct gpu_mem_block *psp_ring = NULL;
+	struct gpu_mem_block *psp_cmd = NULL;
+	struct gpu_mem_block *psp_fence = NULL;
+	struct gpu_mem_block *fw_bin = NULL;
+	struct gpu_mem_block *ta_cmd = NULL;
+
+	/* Avoid repeatedly reinitializing memory */
+	if (psp->psp_ring.ras_ring_gpu_mem)
+		return 0;
+
+	psp_ring = ras_psp_alloc_mem(ras_core,
+				GPU_MEM_TYPE_RAS_PSP_RING, RAS_PSP_RING_SIZE);
+	if (!psp_ring)
+		return -EPIPE;
+
+	psp_cmd = ras_psp_alloc_mem(ras_core,
+				GPU_MEM_TYPE_RAS_PSP_CMD, RAS_PSP_CMD_SIZE);
+	if (!psp_cmd)
+		goto err;
+
+	psp_fence = ras_psp_alloc_mem(ras_core,
+				GPU_MEM_TYPE_RAS_PSP_FENCE, RAS_PSP_FENCE_SIZE);
+	if (!psp_fence)
+		goto err;
+
+	if (psp->use_dedicated_memory) {
+		fw_bin = ras_psp_alloc_mem(ras_core,
+				GPU_MEM_TYPE_RAS_TA_FW, RAS_FW_BIN_SIZE);
+		if (!fw_bin)
+			goto err;
+
+		ta_cmd = ras_psp_alloc_mem(ras_core,
+				GPU_MEM_TYPE_RAS_TA_CMD, RAS_TA_CMD_SIZE);
+		if (!ta_cmd)
+			goto err;
+	} else {
+		fw_bin = ras_psp_alloc_mem(ras_core,
+				GPU_MEM_TYPE_ALLOC_MEM, RAS_FW_BIN_SIZE);
+		if (!fw_bin)
+			goto err;
+
+		ta_cmd = ras_psp_alloc_mem(ras_core,
+				GPU_MEM_TYPE_ALLOC_MEM, RAS_TA_CMD_SIZE);
+		if (!ta_cmd)
+			goto err;
+	}
+
+	psp->psp_ring.ras_ring_gpu_mem = psp_ring;
+	psp->psp_ctx.psp_cmd_gpu_mem = psp_cmd;
+	psp->psp_ctx.out_fence_gpu_mem = psp_fence;
+	psp->ta_ctx.fw_gpu_mem = fw_bin;
+	psp->ta_ctx.cmd_gpu_mem = ta_cmd;
+
+	return 0;
+
+err:
+	ras_psp_free_mem(ras_core, psp_ring);
+	ras_psp_free_mem(ras_core, psp_cmd);
+	ras_psp_free_mem(ras_core, psp_fence);
+	ras_psp_free_mem(ras_core, fw_bin);
+	ras_psp_free_mem(ras_core, ta_cmd);
+	return -EPIPE;
+}
+
+static int __ras_psp_mem_fini(struct ras_core_context *ras_core)
+{
+	struct ras_psp *psp = &ras_core->ras_psp;
+
+	ras_psp_free_mem(ras_core, psp->psp_ring.ras_ring_gpu_mem);
+	ras_psp_free_mem(ras_core, psp->psp_ctx.psp_cmd_gpu_mem);
+	ras_psp_free_mem(ras_core, psp->psp_ctx.out_fence_gpu_mem);
+	ras_psp_free_mem(ras_core, psp->ta_ctx.fw_gpu_mem);
+	ras_psp_free_mem(ras_core, psp->ta_ctx.cmd_gpu_mem);
+
+	psp->psp_ctx.psp_cmd_gpu_mem = NULL;
+	psp->psp_ctx.out_fence_gpu_mem = NULL;
+	psp->ta_ctx.fw_gpu_mem = NULL;
+	psp->ta_ctx.cmd_gpu_mem = NULL;
+	psp->psp_ring.ras_ring_gpu_mem = NULL;
 	return 0;
 }
 
@@ -192,6 +269,7 @@ static int __set_ring_frame_slot(struct ras_core_context *ras_core,
 static int write_frame_to_ras_psp_ring(struct ras_core_context *ras_core,
 		struct psp_gfx_rb_frame *frame)
 {
+	struct ras_psp *psp = &ras_core->ras_psp;
 	struct gpu_mem_block *ring_mem;
 	struct psp_gfx_rb_frame *rb_frame;
 	uint32_t max_frame_slot;
@@ -199,7 +277,7 @@ static int write_frame_to_ras_psp_ring(struct ras_core_context *ras_core,
 	uint32_t write_flush_read_back = 0;
 	int ret = 0;
 
-	ring_mem = ras_psp_get_gpu_mem(ras_core, GPU_MEM_TYPE_RAS_PSP_RING);
+	ring_mem = psp->psp_ring.ras_ring_gpu_mem;
 	if (!ring_mem)
 		return -ENOMEM;
 
@@ -227,8 +305,7 @@ static int write_frame_to_ras_psp_ring(struct ras_core_context *ras_core,
 			rb_frame[slot_idx].fence_addr_hi,
 			rb_frame[slot_idx].fence_addr_lo,
 			write_flush_read_back, frame->fence_value);
-		ret = -EACCES;
-		goto err;
+		return -EACCES;
 	}
 
 	slot_idx++;
@@ -238,8 +315,6 @@ static int write_frame_to_ras_psp_ring(struct ras_core_context *ras_core,
 
 	__set_ring_frame_slot(ras_core, slot_idx);
 
-err:
-	ras_psp_put_gpu_mem(ras_core, ring_mem);
 	return ret;
 }
 
@@ -262,14 +337,9 @@ static int send_psp_cmd(struct ras_core_context *ras_core,
 
 	__acquire_psp_cmd_lock(ras_core);
 
-	psp_cmd_buf = ras_psp_get_gpu_mem(ras_core, GPU_MEM_TYPE_RAS_PSP_CMD);
-	if (!psp_cmd_buf) {
-		ret = -ENOMEM;
-		goto exit;
-	}
-
-	psp_fence_buf = ras_psp_get_gpu_mem(ras_core, GPU_MEM_TYPE_RAS_PSP_FENCE);
-	if (!psp_fence_buf) {
+	psp_cmd_buf = psp_ctx->psp_cmd_gpu_mem;
+	psp_fence_buf = psp_ctx->out_fence_gpu_mem;
+	if (!psp_cmd_buf || !psp_fence_buf) {
 		ret = -ENOMEM;
 		goto exit;
 	}
@@ -316,9 +386,6 @@ static int send_psp_cmd(struct ras_core_context *ras_core,
 	resp->session_id = gfx_cmd->resp.session_id;
 
 exit:
-	ras_psp_put_gpu_mem(ras_core, psp_cmd_buf);
-	ras_psp_put_gpu_mem(ras_core, psp_fence_buf);
-
 	__release_psp_cmd_lock(ras_core);
 
 	return ret;
@@ -380,14 +447,12 @@ static int send_ras_ta_runtime_cmd(struct ras_core_context *ras_core,
 		return -EACCES;
 	}
 
-	cmd_mem = ras_psp_get_gpu_mem(ras_core, GPU_MEM_TYPE_RAS_TA_CMD);
+	cmd_mem = ta_ctx->cmd_gpu_mem;
 	if (!cmd_mem)
 		return -ENOMEM;
 
-	if (!ras_core_down_trylock_gpu_reset_lock(ras_core)) {
-		ret = -EACCES;
-		goto out;
-	}
+	if (!ras_core_down_trylock_gpu_reset_lock(ras_core))
+		return -EACCES;
 
 	ras_cmd = (struct ras_ta_cmd *)cmd_mem->mem_cpu_addr;
 
@@ -433,8 +498,6 @@ static int send_ras_ta_runtime_cmd(struct ras_core_context *ras_core,
 unlock:
 	mutex_unlock(&ta_ctx->ta_mutex);
 	ras_core_up_gpu_reset_lock(ras_core);
-out:
-	ras_psp_put_gpu_mem(ras_core, cmd_mem);
 	return ret;
 }
 
@@ -487,27 +550,20 @@ static int send_load_ta_fw_cmd(struct ras_core_context *ras_core,
 
 	ret = ras_psp_get_ras_ta_init_param(ras_core, &ta_ctx->init_param);
 	if (ret)
-		goto err;
+		return ret;
 
-	fw_mem = ras_psp_get_gpu_mem(ras_core, GPU_MEM_TYPE_RAS_TA_FW);
-	if (!fw_mem)
+	fw_mem = ta_ctx->fw_gpu_mem;
+	cmd_mem = ta_ctx->cmd_gpu_mem;
+	if (!fw_mem || !cmd_mem)
 		return -ENOMEM;
-
-	cmd_mem = ras_psp_get_gpu_mem(ras_core, GPU_MEM_TYPE_RAS_TA_CMD);
-	if (!cmd_mem) {
-		ret = -ENOMEM;
-		goto err;
-	}
 
 	/*
 	 * When skip_lock is true (called from .resume), the PSP has already
 	 * been re-initialized and it is safe to proceed without the read lock
 	 * (GPU reset holds write lock; S3/S4 has no lock to acquire).
 	 */
-	if (!skip_lock && !ras_core_down_trylock_gpu_reset_lock(ras_core)) {
-		ret = -EACCES;
-		goto err;
-	}
+	if (!skip_lock && !ras_core_down_trylock_gpu_reset_lock(ras_core))
+		return -EACCES;
 
 	/* copy ras ta binary to shared gpu memory */
 	memcpy(fw_mem->mem_cpu_addr, fw_bin->bin_addr, fw_bin->bin_size);
@@ -554,9 +610,6 @@ static int send_load_ta_fw_cmd(struct ras_core_context *ras_core,
 	if (!skip_lock)
 		ras_core_up_gpu_reset_lock(ras_core);
 
-err:
-	ras_psp_put_gpu_mem(ras_core, fw_mem);
-	ras_psp_put_gpu_mem(ras_core, cmd_mem);
 	return ret;
 }
 
@@ -714,6 +767,8 @@ int ras_psp_sw_fini(struct ras_core_context *ras_core)
 	mutex_destroy(&psp->psp_ctx.internal_mutex);
 	mutex_destroy(&psp->ta_ctx.ta_mutex);
 
+	__ras_psp_mem_fini(ras_core);
+
 	memset(psp, 0, sizeof(*psp));
 
 	return 0;
@@ -744,6 +799,10 @@ int ras_psp_hw_init(struct ras_core_context *ras_core)
 	 * therefore, it is necessary to synchronize the system status again.
 	 */
 	ras_psp_sync_system_ras_psp_status(ras_core);
+
+	ret = __ras_psp_mem_init(ras_core);
+	if (ret)
+		return ret;
 
 	if (!ta_ctx->preload_ras_ta_enabled && !ta_ctx->ras_ta_initialized)
 		ret = ras_psp_load_firmware(ras_core, false);

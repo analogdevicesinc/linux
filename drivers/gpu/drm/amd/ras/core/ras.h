@@ -262,6 +262,8 @@ enum gpu_mem_type {
 	GPU_MEM_TYPE_RAS_PSP_FENCE,
 	GPU_MEM_TYPE_RAS_TA_FW,
 	GPU_MEM_TYPE_RAS_TA_CMD,
+	GPU_MEM_TYPE_ALLOC_MEM,
+	GPU_MEM_TYPE_MAX
 };
 
 struct ras_psp_sys_func {
