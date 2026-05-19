@@ -4,7 +4,7 @@
 # Copyright (C) 2025 Analog Devices Inc.
 
 from sys import argv, stderr
-from os import path, getcwd, walk
+from os import path, getcwd, walk, environ
 from pathlib import Path
 import re
 
@@ -15,6 +15,17 @@ symbols_ = set()
 deps_ = set()
 map_ = {}
 max_recursion = 500
+arch = None
+
+arch_map = {
+    'arm' : [
+        'ARCH_SC59X',
+        'ARCH_SC5XX',
+    ],
+    'arm64': [
+        'ARCH_SC59X_64',
+    ]
+}
 
 
 def generate_map():
@@ -27,8 +38,9 @@ def generate_map():
     kconfig_files = []
 
     for root, dirs, files in walk('.'):
-        if 'Kconfig' in files:
-            kconfig_files.append(path.join(root, 'Kconfig'))
+        for f in files:
+            if f == 'Kconfig' or f.startswith('Kconfig.'):
+                kconfig_files.append(path.join(root, f))
 
     for k in kconfig_files:
         stack = []
@@ -126,10 +138,20 @@ def filter_symbols(symbols, allow=None):
     """
     archs = ['ARM', 'ARM64', 'M68K', 'RISCV', 'SUPERH', 'X86', 'X86_32',
              'XTENSA']
-    return {sym
-            for sym in symbols
-            if sym is not allow or (not sym.startswith('ARCH_') and sym not in
-            archs and not sym.startswith('CPU_'))}
+    symbols_ = {
+        sym for sym in symbols
+        if (not sym in archs) and not sym.startswith('CPU_') and (
+            (not sym.startswith('ARCH_')) or (sym == allow)
+        )
+    }
+
+    # Re-add for known-entangled offenders
+    if arch:
+        for s in symbols:
+            if s in arch_map[arch]:
+                symbols_.add(s)
+
+    return symbols_
 
 
 def extract_tristate(kconfig_path, symbol, symbol_block):
@@ -172,7 +194,6 @@ def extract_tristate(kconfig_path, symbol, symbol_block):
                 block = [line]
 
     return deps
-
 
 def extract_dependencies(symbol_block, if_blocks):
     depends = re.findall(r'depends on\s+(.+)', symbol_block)
@@ -391,6 +412,12 @@ def main():
         symbols=$(ci/symbols_depend.py [SYMBOLS] [O_FILES])
 
     """
+    global arch
+
+    arch = environ.get('ARCH', None)
+    if arch not in arch_map:
+        arch = None
+
     argv.pop(0)
     get_symbols(set(argv))
     print("Symbols of touched files:", file=stderr)
