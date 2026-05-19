@@ -31,6 +31,7 @@ jobs:
       defconfig: "adi_ci_defconfig"
   build_gcc_arm:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    needs: [checks]
     if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
     secrets: inherit
     permissions:
@@ -39,7 +40,6 @@ jobs:
       compiler: "gcc"
       arch: "arm"
       defconfig: "adi_ci_defconfig"
-      checks: true
   assert_checks:
     runs-on: [self-hosted, repo-only]
     permissions:
@@ -121,7 +121,6 @@ jobs:
       defconfig: "sc594-som-ezlite_defconfig"
       auto_from_range: false
   build_gcc_aarch64_sc598-som-ezkit_defconfig:
-    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     permissions:
@@ -131,6 +130,7 @@ jobs:
       arch: "arm64"
       defconfig: "sc598-som-ezkit_defconfig"
       auto_from_range: false
+      checks: true
   build_gcc_aarch64_sc598-som-ezlite_defconfig:
     needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
