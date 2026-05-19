@@ -343,7 +343,3 @@ struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 
 	return clk;
 }
-
-MODULE_AUTHOR("Qasim Ijaz <qasim.ijaz@analog.com>");
-MODULE_DESCRIPTION("Analog Devices Inc ADSP-SC5XX Clock Distribution Unit (CDU) driver");
-MODULE_LICENSE("GPL v2");
