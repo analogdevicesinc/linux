@@ -266,7 +266,7 @@ static void nbio_v6_3_2_vcn_doorbell_range(struct amdgpu_device *adev,
 		doorbell_range = REG_SET_FIELD(doorbell_range,
 					       GDC_S2A0_S2A_DOORBELL_ENTRY_2_CTRL,
 					       S2A_DOORBELL_PORT2_RANGE_SIZE,
-					       8);
+					       11);
 		doorbell_range = REG_SET_FIELD(doorbell_range,
 					       GDC_S2A0_S2A_DOORBELL_ENTRY_2_CTRL,
 					       S2A_DOORBELL_PORT2_AWADDR_31_28_VALUE,
