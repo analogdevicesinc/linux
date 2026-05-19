@@ -2,7 +2,7 @@
 config COMMON_CLK_ADI_PLL
 	bool
 
-config COMMON_CLK_ADI_CDU
+config COMMON_CLK_ADI_MUX
 	bool
 
 config COMMON_CLK_ADI_SC57X
@@ -39,7 +39,7 @@ config COMMON_CLK_ADI_SC598
 	bool "ADI SC598 clock driver"
 	depends on ARCH_SC59X_64 || COMPILE_TEST
 	select COMMON_CLK_ADI_PLL
-	select COMMON_CLK_ADI_CDU
+	select COMMON_CLK_ADI_MUX
 	help
 	  This enables the ADI SC598 clock driver. The driver provides
 	  support for the clock controller on the ADI SC598 SoC.
