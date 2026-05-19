@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Clock Distribution Unit driver for ADSP-SC5xx processors
+ * Clock distribution unit mux support for ADSP-SC5xx processors
  *
  * Copyright (C) 2026 Analog Devices Inc.
  * Author: Qasim Ijaz <qasim.ijaz@analog.com>
