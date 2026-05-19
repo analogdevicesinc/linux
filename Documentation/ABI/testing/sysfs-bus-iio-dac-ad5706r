@@ -1,0 +1,19 @@
+What:		/sys/bus/iio/devices/iio:deviceX/out_currentY_en
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable or disable the output of channel Y. Writing 1 enables
+		the channel output; writing 0 puts it in high-Z. Requires
+		enable-gpios in the device tree to have effect.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_current100_raw
+What:		/sys/bus/iio/devices/iio:deviceX/out_current101_raw
+What:		/sys/bus/iio/devices/iio:deviceX/out_current102_raw
+What:		/sys/bus/iio/devices/iio:deviceX/out_current103_raw
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		DAC INPUT B code for toggle channel Y (index 100-103 corresponding
+		to physical channels 0-3). Used as the second output level in
+		toggle mode. The index offset of 100 distinguishes toggle channels
+		from physical channels (0-3). Valid range is 0 to 65535.
