@@ -268,7 +268,7 @@ static int amdgpu_ras_sys_get_gpu_mem(struct ras_core_context *ras_core,
 		gpu_mem->mem_size = PSP_FENCE_BUFFER_SIZE;
 		gpu_mem->mem_mc_addr = psp->fence_buf_mc_addr;
 		gpu_mem->mem_cpu_addr = psp->fence_buf;
-	} else if (mem_type == GPU_MEM_TYPE_RAS_TA_FW) {
+	} else if (mem_type == GPU_MEM_TYPE_RAS_FW_BIN) {
 		gpu_mem->mem_bo = psp->fw_pri_bo;
 		gpu_mem->mem_size = PSP_1_MEG;
 		gpu_mem->mem_mc_addr = psp->fw_pri_mc_addr;

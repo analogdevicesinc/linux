@@ -260,7 +260,7 @@ enum gpu_mem_type {
 	GPU_MEM_TYPE_RAS_PSP_RING,
 	GPU_MEM_TYPE_RAS_PSP_CMD,
 	GPU_MEM_TYPE_RAS_PSP_FENCE,
-	GPU_MEM_TYPE_RAS_TA_FW,
+	GPU_MEM_TYPE_RAS_FW_BIN,
 	GPU_MEM_TYPE_RAS_TA_CMD,
 	GPU_MEM_TYPE_ALLOC_MEM,
 	GPU_MEM_TYPE_MAX
@@ -269,9 +269,8 @@ enum gpu_mem_type {
 struct ras_psp_sys_func {
 	int (*get_ras_psp_system_status)(struct ras_core_context *ras_core,
 		struct ras_psp_sys_status *status);
-	int (*get_ras_ta_init_param)(struct ras_core_context *ras_core,
-		struct ras_ta_init_param *ras_ta_param);
-	void (*put_ras_ta_fini_param)(struct ras_core_context *ras_core);
+	int (*get_ras_param)(struct ras_core_context *ras_core,
+		struct ras_param *param);
 };
 
 struct ras_sys_func {
