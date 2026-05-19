@@ -1175,11 +1175,15 @@ static int psp_boot_config_set(struct amdgpu_device *adev, uint32_t boot_cfg)
 
 static int psp_rl_load(struct amdgpu_device *adev)
 {
+	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
 	int ret;
 	struct psp_context *psp = &adev->psp;
 	struct psp_gfx_cmd_resp *cmd;
 
 	if (!is_psp_fw_valid(psp->rl))
+		return 0;
+
+	if (con && con->uniras_load_ras_fw)
 		return 0;
 
 	cmd = acquire_psp_cmd_buf(psp);
@@ -2327,8 +2331,12 @@ int psp_ras_invoke(struct psp_context *psp, uint32_t ta_cmd_id)
 int psp_ras_enable_features(struct psp_context *psp,
 		union ta_ras_cmd_input *info, bool enable)
 {
+	struct amdgpu_ras *con = amdgpu_ras_get_context(psp->adev);
 	enum ras_command cmd_id;
 	int ret;
+
+	if (con && con->uniras_load_ras_fw)
+		return 0;
 
 	if (!psp->ras_context.context.initialized || !info)
 		return -EINVAL;
@@ -2369,6 +2377,7 @@ int psp_ras_initialize(struct psp_context *psp)
 	int ret;
 	uint32_t boot_cfg = 0xFF;
 	struct amdgpu_device *adev = psp->adev;
+	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
 	struct ta_ras_shared_memory *ras_cmd;
 
 	/*
@@ -2435,6 +2444,9 @@ int psp_ras_initialize(struct psp_context *psp)
 			}
 		}
 	}
+
+	if (con && con->uniras_load_ras_fw)
+		return 0;
 
 	psp->ras_context.context.mem_context.shared_mem_size = PSP_RAS_SHARED_MEM_SIZE;
 	psp->ras_context.context.ta_load_type = GFX_CMD_ID_LOAD_TA;

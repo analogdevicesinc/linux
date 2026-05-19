@@ -572,6 +572,8 @@ struct amdgpu_ras {
 
 	/* Disable/Enable uniras switch */
 	bool uniras_enabled;
+	bool uniras_load_ras_fw;
+	const struct ras_smu_drv *ras_smu_drv;
 };
 
 struct ras_fs_data {

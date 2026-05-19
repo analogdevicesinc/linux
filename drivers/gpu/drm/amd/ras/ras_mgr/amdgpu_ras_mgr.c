@@ -188,9 +188,10 @@ static int amdgpu_ras_mgr_get_ras_psp_system_status(struct ras_core_context *ras
 			struct ras_psp_sys_status *status)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
+	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
 
 	status->psp_cmd_mutex = &adev->psp.mutex;
-	status->uniras_load_fw = false;
+	status->uniras_load_fw = con ? con->uniras_load_ras_fw : false;
 
 	status->use_dedicated_memory = !status->uniras_load_fw;
 
@@ -311,6 +312,9 @@ int amdgpu_ras_mgr_sw_init(struct amdgpu_device *adev)
 		con->uniras_enabled = true;
 	else
 		return 0;
+
+	/* Enable uniras to load RL firmware and TA firmware */
+	con->uniras_load_ras_fw = true;
 
 	ras_mgr = kzalloc_obj(*ras_mgr);
 	if (!ras_mgr)
