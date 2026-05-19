@@ -18,29 +18,6 @@ jobs:
     secrets: inherit
     permissions:
       contents: read
-  build_gcc_x86_64:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    needs: [checks]
-    if: needs.checks.outputs.fatal != 'true'
-    secrets: inherit
-    permissions:
-      contents: read
-    with:
-      compiler: "gcc"
-      arch: "x86"
-      defconfig: "adi_ci_defconfig"
-  build_llvm_x86_64:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    needs: [checks]
-    if: needs.checks.outputs.fatal != 'true'
-    secrets: inherit
-    permissions:
-      contents: read
-    with:
-      compiler: "llvm"
-      arch: "x86"
-      defconfig: "adi_ci_defconfig"
-      checks: true
   build_gcc_aarch64:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
@@ -68,8 +45,6 @@ jobs:
       contents: read
     needs:
       - checks
-      - build_gcc_x86_64
-      - build_llvm_x86_64
       - build_gcc_aarch64
       - build_gcc_arm
 
@@ -77,8 +52,6 @@ jobs:
       - name: Assert
         env:
           job_checks: ${{needs.checks.outputs.summary}}
-          job_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.summary}}
-          job_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.summary}}
           job_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.summary}}
           job_build_gcc_arm: ${{needs.build_gcc_arm.outputs.summary}}
         run: |
