@@ -1,0 +1,64 @@
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_state
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Hardware LDAC trigger GPIO state. Controls the logical state of the LDAC trigger pin when using GPIO control. Valid values are:
+		- "low": LDAC pin driven low
+		- "high": LDAC pin driven high
+
+		Setting this on any value overrides the status of hw_ldac_tg_pwm.
+
+		Requires optional PWM device tree configuration for LDAC control.
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_state_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available LDAC GPIO states: "low high"
+
+What:		/sys/bus/iio/devices/iio:deviceX/sampling_frequency
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		PWM frequency in Hz for hardware LDAC triggering. Sets the period
+		of the PWM output used to trigger DAC updates. Valid range depends on PWM hardware capabilities. Default is 1 MHz.
+
+		Requires optional PWM device tree configuration.
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_pwm
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable or disable PWM output for hardware LDAC triggering. Valid
+		values are:
+		- "disable": PWM disabled (duty cycle = recent value of hw_ldac_tg_state)
+		- "enable": PWM enabled with 50% duty cycle
+
+		Requires optional PWM device tree configuration.
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_pwm_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available PWM states: "disable enable"
+
+What:		/sys/bus/iio/devices/iio:deviceX/multi_dac_input_a
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Multi-DAC Input A register value in a 16bit hexadecimal format.
+		When used with multi-DAC selection, this value is loaded into the
+		selected channels' input registers. Write operations update the
+		Multi-DAC Input A register (0x5C).
+
+What:		/sys/bus/iio/devices/iio:deviceX/multi_dac_sw_ldac_trigger
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Software trigger for multi-DAC LDAC update. Writing "trigger" triggers a software LDAC pulse that simultaneously updates all selected DAC channels. This corresponds to writing to the Multi-DAC SW LDAC register (0x5A).
+
+What:		/sys/bus/iio/devices/iio:deviceX/multi_dac_sw_ldac_trigger_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available trigger option: "low trigger"
