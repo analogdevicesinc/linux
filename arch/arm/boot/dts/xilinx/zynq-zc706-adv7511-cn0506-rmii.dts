@@ -14,6 +14,10 @@
 #include "zynq-zc706-adv7511.dtsi"
 #include "adi-cn0506-rmii.dtsi"
 
+&gem0 {
+	/delete-node/ phy@7;
+};
+
 &i2c_mux {
 	i2c@6 {
 		#address-cells = <1>;
