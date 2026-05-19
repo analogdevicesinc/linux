@@ -1,0 +1,153 @@
+What:		/sys/bus/iio/devices/iio:deviceX/dev_addr
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Device address (0-3) used for SPI communication. This 2-bit
+		address is included in the SPI frame at bits [14:13] to select
+		the specific device when multiple AD5706R devices share the same
+		SPI bus. The address is stored in software and applied to SPI
+		transactions.
+
+What:		/sys/bus/iio/devices/iio:deviceX/addr_ascension
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Address ascension mode for streaming operations. Controls whether
+		the internal register address increments or decrements during
+		consecutive streaming writes. Valid values are:
+		- "increment": Address increments after each transfer
+		- "decrement": Address decrements after each transfer
+
+		Multibyte registers in "decrement" needs to be accessed from the
+		highest register address first.
+
+		This setting corresponds to bit 5 of the Interface Configuration A register (0x00).
+
+What:		/sys/bus/iio/devices/iio:deviceX/addr_ascension_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available address ascension modes: "decrement increment"
+
+What:		/sys/bus/iio/devices/iio:deviceX/single_instr
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Instruction mode for SPI communication. Controls how the device
+		interprets SPI frames. Valid values are:
+		- "streaming": Device expects continuous streaming data transfers
+		- "single_instruction": Each SPI frame is treated as a discrete
+		  instruction with address and data
+
+		This setting corresponds to bit 7 of the Interface Configuration B register (0x01).
+
+What:		/sys/bus/iio/devices/iio:deviceX/single_instr_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available instruction modes: "streaming single_instruction"
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_state
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Hardware LDAC trigger GPIO state. Controls the logical state of the LDAC trigger pin when using GPIO control. Valid values are:
+		- "low": LDAC pin driven low
+		- "high": LDAC pin driven high
+
+		Setting this on any value overrides the status of hw_ldac_tg_pwm.
+
+		Requires optional PWM device tree configuration for LDAC control.
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_state_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available LDAC GPIO states: "low high"
+
+What:		/sys/bus/iio/devices/iio:deviceX/sampling_frequency
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		PWM frequency in Hz for hardware LDAC triggering. Sets the period
+		of the PWM output used to trigger DAC updates. Valid range depends on PWM hardware capabilities. Default is 1 MHz.
+
+		Requires optional PWM device tree configuration.
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_pwm
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable or disable PWM output for hardware LDAC triggering. Valid
+		values are:
+		- "disable": PWM disabled (duty cycle = recent value of hw_ldac_tg_state)
+		- "enable": PWM enabled with 50% duty cycle
+
+		Requires optional PWM device tree configuration.
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_pwm_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available PWM states: "disable enable"
+
+What:		/sys/bus/iio/devices/iio:deviceX/mux_out_sel
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Multiplexer output selection for diagnostic monitoring. Routes
+		internal analog signals to the MUX_OUT pin for measurement.
+		Valid values include:
+		- "disabled": MUX output disabled
+		- "agnd", "avdd", "vref": Supply and Reference voltages
+		- "iout0_vmon" through "iout3_vmon": load voltage monitors
+		- "iout0_imon" through "iout3_imon": output current monitors
+		- "pvdd0" through "pvdd3": supply voltage monitors
+		- "tdiode_ch0" through "tdiode_ch3": temperature sensor monitors
+		- "mux_in0" through "mux_in3": External MUX inputs
+
+		This setting corresponds to the MUX Output Select register (0x54).
+
+What:		/sys/bus/iio/devices/iio:deviceX/mux_out_sel_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns all 24 available multiplexer output options.
+
+What:		/sys/bus/iio/devices/iio:deviceX/multi_dac_input_a
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Multi-DAC Input A register value in a 16bit hexadecimal format.
+		When used with multi-DAC selection, this value is loaded into the
+		selected channels' input registers. Write operations update the
+		Multi-DAC Input A register (0x5C).
+
+What:		/sys/bus/iio/devices/iio:deviceX/multi_dac_sw_ldac_trigger
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Software trigger for multi-DAC LDAC update. Writing "trigger" triggers a software LDAC pulse that simultaneously updates all selected DAC channels. This corresponds to writing to the Multi-DAC SW LDAC register (0x5A).
+
+What:		/sys/bus/iio/devices/iio:deviceX/multi_dac_sw_ldac_trigger_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available trigger option: "low trigger"
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_shutdown_state
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Hardware shutdown GPIO state. Controls the logical state of the
+		shutdown pin. Valid values are:
+		- "low": Shutdown pin driven low (device in shutdown)
+		- "high": Shutdown pin driven high (device active)
+
+		Requires optional shutdown GPIO device tree configuration.
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_shutdown_state_available
+KernelVersion:	6.10
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available shutdown states: "low high"
