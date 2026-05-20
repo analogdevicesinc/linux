@@ -636,6 +636,7 @@
 			#gpio-cells = <2>;
 			reg = <0x31004000 0x7F>;
 			gpio-ranges = <&pinctrl0 0 0 16>;
+			ngpios = <16>;
 			adi,pint = <&pint0 1>;
 			adi,gpio-base = <0>;
 		};
@@ -646,6 +647,7 @@
 			#gpio-cells = <2>;
 			reg = <0x31004080 0x7F>;
 			gpio-ranges = <&pinctrl0 0 16 16>;
+			ngpios = <16>;
 			adi,pint = <&pint0 0>;
 			adi,gpio-base = <16>;
 		};
@@ -656,6 +658,7 @@
 			#gpio-cells = <2>;
 			reg = <0x31004100 0x7F>;
 			gpio-ranges = <&pinctrl0 0 32 16>;
+			ngpios = <16>;
 			adi,pint = <&pint2 1>;
 			adi,gpio-base = <32>;
 		};
@@ -666,6 +669,7 @@
 			#gpio-cells = <2>;
 			reg = <0x31004180 0x7F>;
 			gpio-ranges = <&pinctrl0 0 48 16>;
+			ngpios = <16>;
 			adi,pint = <&pint2 0>;
 			adi,gpio-base = <48>;
 		};
@@ -676,6 +680,7 @@
 			#gpio-cells = <2>;
 			reg = <0x31004200 0x7F>;
 			gpio-ranges = <&pinctrl0 0 64 16>;
+			ngpios = <16>;
 			adi,pint = <&pint4 1>;
 			adi,gpio-base = <64>;
 		};
@@ -686,6 +691,7 @@
 			#gpio-cells = <2>;
 			reg = <0x31004280 0x7F>;
 			gpio-ranges = <&pinctrl0 0 80 16>;
+			ngpios = <16>;
 			adi,pint = <&pint4 0>;
 			adi,gpio-base = <80>;
 		};
@@ -696,6 +702,7 @@
 			#gpio-cells = <2>;
 			reg = <0x31004300 0x7F>;
 			gpio-ranges = <&pinctrl0 0 96 16>;
+			ngpios = <16>;
 			adi,pint = <&pint6 1>;
 			adi,gpio-base = <96>;
 		};
@@ -706,6 +713,7 @@
 			#gpio-cells = <2>;
 			reg = <0x31004380 0x7F>;
 			gpio-ranges = <&pinctrl0 0 112 16>;
+			ngpios = <16>;
 			adi,pint = <&pint6 0>;
 			adi,gpio-base = <112>;
 		};
@@ -716,6 +724,7 @@
 			#gpio-cells = <2>;
 			reg = <0x31004400 0x7F>;
 			gpio-ranges = <&pinctrl0 0 128 7>;
+			ngpios = <7>;
 			adi,pint = <&pint7 1>;
 			adi,gpio-base = <128>;
 		};
