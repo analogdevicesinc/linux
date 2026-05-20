@@ -184,13 +184,14 @@ def get_top_level_symbol_for(mk):
     return None, None
 
 
-def get_makefile_symbol_and_obj(mk, obj, l_obj):
+def _iter_makefile_matches(mk, obj, l_obj):
     """
-    Parse a Makefile line that references *obj* and return (CONFIG_sym, sub_obj).
+    Yield (CONFIG_sym_or_None, sub_obj_or_None) for every Makefile line that
+    references *obj*.
     """
     if obj == l_obj:
         print(f"{mk}: Infinite recursion for '{obj}' detected", file=stderr)
-        return None, None
+        return
     if debug:
         print(f"{mk}: Looking for '{obj}'", file=stderr)
 
@@ -201,44 +202,46 @@ def get_makefile_symbol_and_obj(mk, obj, l_obj):
         # obj-$(CONFIG_SYMBOL)
         m = re.search(r'obj-\$\(([^)]+)\)\s*[+:]?=', line)
         if m:
-            return m.group(1), None
+            yield m.group(1), None
+            continue
 
         # obj-y / lib-y
         if re.search(r'(obj|lib)-y\s*[+:]?=', line):
-            return get_top_level_symbol_for(mk)
+            yield get_top_level_symbol_for(mk)
+            continue
 
         # driver-$(CONFIG_SYMBOL)
         m = re.search(r'([-\w\d]+)-\$\(([^)]+)\)\s*[+:]?=', line)
         if m:
-            return m.group(2), m.group(1)
+            yield m.group(2), m.group(1)
+            continue
 
         # driver-y / driver-objs
         m = re.search(r'([-\w\d]+)-(y|objs)\s*[+:]?=', line)
         if m:
             if m.group(1) == obj[:-2]:
-                return None, None       # mconf-objs := mconf.o
-            return None, m.group(1)
-
-    return None, None
+                continue                # mconf-objs := mconf.o — skip self
+            yield None, m.group(1)
 
 
 def _resolve_obj_in_mk(mk, obj, l_obj):
     """Chase Makefile references until fully resolved. Returns set of symbols."""
     symbols = set()
-    prev = obj
-    symbol, sub_obj = get_makefile_symbol_and_obj(mk, obj, l_obj)
-    if not symbol and not sub_obj:
-        return symbols, False
-    if symbol:
-        if not symbol.startswith("CONFIG_"):
-            print(f"Symbol '{symbol}' does not start with 'CONFIG_' at '{mk}'",
-                  file=stderr)
-        symbols.add(symbol[7:])
-        if not sub_obj:
-            return symbols, True
-    more, ok = _resolve_obj_in_mk(mk, f"{sub_obj}.o", prev)
-    symbols |= more
-    return symbols, ok
+    found = False
+    for symbol, sub_obj in _iter_makefile_matches(mk, obj, l_obj):
+        if symbol is None and sub_obj is None:
+            continue
+        found = True
+        if symbol:
+            if not symbol.startswith("CONFIG_"):
+                print(f"Symbol '{symbol}' does not start with 'CONFIG_' at '{mk}'",
+                      file=stderr)
+            else:
+                symbols.add(symbol[7:])
+        if sub_obj:
+            more, _ = _resolve_obj_in_mk(mk, f"{sub_obj}.o", obj)
+            symbols |= more
+    return symbols, found
 
 
 def get_symbols_from_files(files, arch):
