@@ -3,440 +3,295 @@
 #
 # Copyright (C) 2025 Analog Devices Inc.
 
+import sys
+from os import path, environ
+sys.path.insert(0, path.dirname(path.abspath(__file__)))
+import kconfiglib
+
 from sys import argv, stderr
-from os import path, getcwd, walk, environ
-from pathlib import Path
 import re
 
 debug = False
-debug_blocks = False
-
-symbols_ = set()
-deps_ = set()
-map_ = {}
-max_recursion = 500
-arch = None
 
 arch_map = {
-    'arm' : [
-        'ARCH_SC59X',
-        'ARCH_SC5XX',
-    ],
-    'arm64': [
-        'ARCH_SC59X_64',
-    ]
+    'arm' : ['ARCH_SC59X', 'ARCH_SC5XX'],
+    'arm64': ['ARCH_SC59X_64'],
+}
+
+# Only non-identity ARCH -> SRCARCH mappings
+_srcarch_overrides = {
+    'x86_64': 'x86',
+    'i386':   'x86',
 }
 
 
-def generate_map():
+def init_kconfig():
+    arch_env = environ.get('ARCH', 'x86')
+    environ.setdefault('ARCH', arch_env)
+    environ.setdefault('SRCARCH', _srcarch_overrides.get(arch_env, arch_env))
+    environ.setdefault('KERNELVERSION', '0.0')
+    environ.setdefault('srctree', '.')
+    environ.setdefault('CC', 'gcc')
+    environ.setdefault('LD', 'ld')
+
+    try:
+        return kconfiglib.Kconfig(warn=False)
+    except Exception as e:
+        print(f"Failed to load Kconfig: {e}", file=stderr)
+        sys.exit(1)
+
+
+def filter_symbols(symbols, arch, allow=None):
     """
-    Build a map with all symbols.
+    Remove architecture symbols (ARCH_*, CPU_*, bare arch names).
+    Keep known-entangled ARCH_ symbols for the active architecture.
+    Drop ARCH_ entirely when COMPILE_TEST is present (it satisfies the OR).
     """
-    global map_
-
-    map_ = {}
-    kconfig_files = []
-
-    for root, dirs, files in walk('.'):
-        for f in files:
-            if f == 'Kconfig' or f.startswith('Kconfig.'):
-                kconfig_files.append(path.join(root, f))
-
-    for k in kconfig_files:
-        stack = []
-        with open(k) as f:
-            lines = f.readlines()
-        for line in lines:
-            line = line.strip()
-            if line.startswith('config '):
-                stack.append(line[7:].strip())
-            elif line.startswith('menuconfig '):
-                stack.append(line[11:].strip())
-
-        map_[path.dirname(k)] = set(stack)
-
-
-def get_all_parent_kconfigs(start_dir):
-    """
-    Walk directory tree after Kconfig files.
-    """
-    kconfig = path.abspath(start_dir)
-    kconfigs = []
-    while True:
-        kconfig_path = path.join(kconfig, 'Kconfig')
-        if path.isfile(kconfig_path):
-            kconfigs.append(kconfig_path)
-        new_path = path.dirname(kconfig)
-        if new_path == kconfig:
-            break
-        kconfig = new_path
-    return kconfigs
-
-
-def track_if_blocks(symbol, target_kconfig):
-    """
-    Looks for the symbol or the source kconfig that includes the symbol.
-    Return list of 'if' that hides symbol.
-    """
-    if_blocks = []
-    target_abs = path.abspath(target_kconfig)
-
-    for kconfig in get_all_parent_kconfigs(path.dirname(target_kconfig)):
-        if debug:
-            print(f"{target_kconfig}: Tracking if blocks at '{kconfig}' for symbol '{symbol}'",
-                  file=stderr)
-        with open(kconfig, 'r') as f:
-            lines = f.readlines()
-
-        stack = []
-        for line in lines:
-            line_ = line.strip()
-            if line.startswith('if '):
-                stack.append(line[3:].strip())
-            elif line_.startswith('endif'):
-                if stack:
-                    stack.pop()
-            elif line_.startswith('source') and line_.endswith('Kconfig"'):
-                m = re.search(r'"([^"]+)"', line)
-                if m:
-                    src_path = path.normpath(path.join(getcwd(), m.group(1)))
-                    if path.abspath(src_path) == target_abs:
-                        if_blocks += stack
-                        break
-            elif re.match(rf'(menu)?config\s+{symbol}\b', line.strip()):
-                if_blocks += stack
-                break
-
-    return if_blocks
-
-
-def find_symbol_block(symbol, kconfig_path):
-    if debug:
-        print(f"{kconfig_path}: Looking for symbol '{symbol}'", file=stderr)
-    with open(kconfig_path) as f:
-        lines = f.readlines()
-
-    block = []
-    in_block = False
-    for line in lines:
-        if in_block:
-            if not re.match(r'^(?:\s+|\s*$)', line):
-                break
-            block.append(line)
-        elif re.match(rf'(menu)?config\s+{symbol}\b', line.strip()):
-            in_block = True
-            block = [line]
-            if debug:
-                print(f"{kconfig_path}: Found '{symbol}'", file=stderr)
-    return ''.join(block) if block else None
-
-
-def filter_symbols(symbols, allow=None):
-    """
-    Remove architecture symbols.
-    Improve: use arch/*/Kconfig.platforms for a proper list
-    """
-    archs = ['ARM', 'ARM64', 'M68K', 'RISCV', 'SUPERH', 'X86', 'X86_32',
-             'XTENSA']
-    symbols_ = {
-        sym for sym in symbols
-        if (not sym in archs) and not sym.startswith('CPU_') and (
-            (not sym.startswith('ARCH_')) or (sym == allow)
-        )
+    skip_archs = {'ARM', 'ARM64', 'M68K', 'RISCV', 'SUPERH', 'X86',
+                  'X86_32', 'XTENSA'}
+    result = {
+        s for s in symbols
+        if s not in skip_archs
+        and not s.startswith('CPU_')
+        and (not s.startswith('ARCH_') or s == allow)
     }
 
-    # Re-add for known-entangled offenders
-    if arch:
-        for s in symbols:
-            if s in arch_map[arch]:
-                symbols_.add(s)
+    # Re-add known-entangled ARCH_ symbols for the active arch
+    if arch and arch in arch_map:
+        result |= symbols & set(arch_map[arch])
 
-    return symbols_
+    # COMPILE_TEST satisfies any ARCH_ OR-branch; drop ARCH_ if present
+    if 'COMPILE_TEST' in result:
+        result = {s for s in result if not s.startswith('ARCH_')}
+
+    return result
 
 
-def extract_tristate(kconfig_path, symbol, symbol_block):
+def collect_syms_from_expr(expr):
     """
-    If a symbol is a tristate, look for symbols that selects it in the same
-    kconfig.
+    Recursively collect symbol names that need to be enabled from a
+    kconfiglib expression tree.
+
+    Skips: NOT, comparisons to 'n', inequality/ordering ops, Choice nodes.
+    Collects: bare symbol references, SYM=y, AND/OR children.
     """
-    tristate = re.findall(r'tristate', symbol_block)
-    if not tristate:
-        return []
+    if isinstance(expr, kconfiglib.Symbol):
+        if expr.name in ('y', 'n', 'm'):
+            return set()
+        return {expr.name}
 
-    if debug:
-        print(f"{kconfig_path}: Looking for block that selects '{symbol}'",
-              file=stderr)
-    with open(kconfig_path) as f:
-        lines = f.readlines()
+    if not isinstance(expr, tuple):
+        return set()
 
-    deps = []
-    block = []
-    in_block = False
-    c_symbol = None
-    for line in lines:
-        if in_block:
-            if not re.match(r'^(?:\s+|\s*$)', line):
-                in_block = False
-                block = []
-            else:
-                match = re.match(rf'select\s+{symbol}\b', line.strip())
-                if match:
-                    if debug:
-                        print(f"{kconfig_path}: {c_symbol} selects {symbol}",
-                              file=stderr)
-                    deps.append(c_symbol)
-                block.append(line)
-        else:
-            match = re.match(r'(?:menu)?config\s+(.+)\b', line.strip())
-            if match:
-                c_symbol = match.group(1)
-                in_block = True
-                block = [line]
+    op = expr[0]
 
-    return deps
+    # Negation and ordering — symbol must be disabled/bounded, skip
+    if op in (kconfiglib.NOT, kconfiglib.LESS, kconfiglib.LESS_EQUAL,
+              kconfiglib.GREATER, kconfiglib.GREATER_EQUAL):
+        return set()
 
-def extract_dependencies(symbol_block, if_blocks):
-    depends = re.findall(r'depends on\s+(.+)', symbol_block)
-    all_conds = depends + if_blocks
-    joined = ' && '.join(all_conds)
-    if joined == '':
-        return []
-    deps = sorted(set(re.split(r'\s*(?:&&|\|\|)\s*', joined)))
-    deps = {sym.replace('(', '').replace(')', '') for sym in deps}
-    deps = {sym[:-2] if sym.endswith('=y') else sym
-            for sym in deps
-            if not sym.endswith('=n') and not sym.startswith('!')}
-    return deps
+    # Equality / inequality — only collect when comparing to non-'n'
+    if op in (kconfiglib.EQUAL, kconfiglib.UNEQUAL):
+        left, right = expr[1], expr[2]
+        rval = right.name if isinstance(right, kconfiglib.Symbol) else right
+        if rval == 'n':
+            return set()
+        if isinstance(left, kconfiglib.Symbol) and left.name not in ('y', 'n', 'm'):
+            return {left.name}
+        return set()
+
+    # AND / OR — recurse into children
+    result = set()
+    for item in expr[1:]:
+        result |= collect_syms_from_expr(item)
+    return result
 
 
-def get_symbol_dependencies(symbol, path_to_kconfig_dir, allowlist):
-    kconfig_file = path.join(path_to_kconfig_dir, 'Kconfig')
-    if_blocks = track_if_blocks(symbol, kconfig_file)
-    block = find_symbol_block(symbol, kconfig_file)
-    if not block:
-        print(f"Symbol {symbol} not found in {kconfig_file}", file=stderr)
-        return []
-    if debug and debug_blocks:
-        print(block, file=stderr)
-    deps = []
-    deps.extend(extract_tristate(kconfig_file, symbol, block))
-    deps.extend(extract_dependencies(block, if_blocks))
-    # If is an immediate depend of an ARCH_ symbol, allow to be enabled
-    return filter_symbols(deps, symbol if symbol in allowlist else None)
+def get_symbol_deps(kconf, symbol, arch, allowlist):
+    """
+    Direct dependencies of *symbol* (includes enclosing if-block conditions).
+    For tristate symbols, also includes reverse dependencies (select-ors).
+    """
+    sym = kconf.syms.get(symbol)
+    if sym is None:
+        if debug:
+            print(f"Symbol {symbol} not found in Kconfig", file=stderr)
+        return set()
+
+    deps = collect_syms_from_expr(sym.direct_dep)
+    if sym.type == kconfiglib.TRISTATE:
+        deps |= collect_syms_from_expr(sym.rev_dep)
+
+    allow = symbol if symbol in allowlist else None
+    return filter_symbols(deps, arch, allow)
 
 
-def get_top_level_kconfig(symbol):
-    found = False
-    for kconfig in map_:
-        if symbol in map_[kconfig]:
-            found = True
-            break
-    if not found:
-        print(f"Failed to find kconfig with {symbol}", file=stderr)
-    return kconfig if found else None
+def resolve_all(kconf, seeds, arch):
+    """
+    BFS over dependency graph starting from *seeds*.
+    Returns the full set of transitive dependencies (including seeds).
+    """
+    allowlist = set(seeds)
+    visited = set()
+    queue = list(seeds)
+
+    while queue:
+        sym = queue.pop()
+        if sym in visited:
+            continue
+        visited.add(sym)
+        if sym not in kconf.syms:
+            continue
+        for dep in get_symbol_deps(kconf, sym, arch, allowlist):
+            if dep not in visited:
+                queue.append(dep)
+
+    return visited
 
 
-def resolve_tree(symbol, path, allowlist):
-    global max_recursion, deps_
-
-    max_recursion = max_recursion - 1
-    deps = get_symbol_dependencies(symbol, path, allowlist)
-    for s in deps:
-        if s not in deps_:
-            kconfig = get_top_level_kconfig(s)
-            if kconfig:
-                if max_recursion:
-                    resolve_tree(s, kconfig, allowlist)
-                deps_.add(s)
+# Makefile .o -> CONFIG_SYMBOL resolution
+def _read_makefile_lines(mk):
+    """Read a Makefile, joining backslash-continued lines."""
+    with open(mk) as f:
+        raw = f.readlines()
+    joined, buf = [], ""
+    for line in raw:
+        buf += line.rstrip('\n')
+        if line.endswith('\\\n'):
+            continue
+        joined.append(buf)
+        buf = ""
+    return joined
 
 
 def get_top_level_symbol_for(mk):
     """
-    From a obj-y, lib-y, at
-        linux/drivers/pinctrl/Makefile
-
-    Look at linux/drivers/Makefile for
-        pinctrl/
+    For an obj-y line in drivers/foo/Makefile, look in drivers/Makefile
+    for the CONFIG_* that gates foo/.
     """
     obj = f"{path.basename(path.dirname(mk))}/"
-    mk = path.join(path.dirname(path.dirname(mk)), "Makefile")
-    if not path.isfile(mk):
-        return (None, None)
+    parent_mk = path.join(path.dirname(path.dirname(mk)), "Makefile")
+    if not path.isfile(parent_mk):
+        return None, None
 
-    with open(mk, "r") as file:
-        lines = file.readlines()
-    file_ = []
-    buffer = ""
-    for line in lines:
-        buffer += line.rstrip('\n')
-        if line.endswith('\\\n'):
-            continue
-        file_.append(buffer)
-        buffer = ""
-
-    for line in file_:
+    for line in _read_makefile_lines(parent_mk):
         if obj not in line:
             continue
-
-        # obj-$(CONFIG_SYMBOL)
         match = re.search(r'obj-\$\(([^)]+)\)\s*[+:]?=', line)
         if match:
-            return (match.group(1), None)
+            return match.group(1), None
 
-    return (None, None)
+    return None, None
 
 
 def get_makefile_symbol_and_obj(mk, obj, l_obj):
     """
-    Get Kconfig symbol and obj, example:
-
-        driver-y += devices/driver/public/src/driver_extra.o
-        driver-objs += some_obj.o
-        driver-$(CONFIG_OF) += driver_of.o
-        obj-$(CONFIG_DRIVER) += driver.o
-
-    Resolution:
-
-        driver_of.o -> ("CONFIG_OF", "driver")
-        driver_extra.o -> (None, "driver")
-        driver.o -> ("CONFIG_DRIVER", None)
-
+    Parse a Makefile line that references *obj* and return (CONFIG_sym, sub_obj).
     """
     if obj == l_obj:
         print(f"{mk}: Infinite recursion for '{obj}' detected", file=stderr)
-        return (None, None)
+        return None, None
     if debug:
         print(f"{mk}: Looking for '{obj}'", file=stderr)
 
-    with open(mk, "r") as file:
-        lines = file.readlines()
-    file_ = []
-    buffer = ""
-    for line in lines:
-        buffer += line.rstrip('\n')
-        if line.endswith('\\\n'):
-            continue
-        file_.append(buffer)
-        buffer = ""
-
-    for line in file_:
+    for line in _read_makefile_lines(mk):
         if obj not in line:
             continue
 
         # obj-$(CONFIG_SYMBOL)
-        match = re.search(r'obj-\$\(([^)]+)\)\s*[+:]?=', line)
-        if match:
-            return (match.group(1), None)
+        m = re.search(r'obj-\$\(([^)]+)\)\s*[+:]?=', line)
+        if m:
+            return m.group(1), None
 
-        # obj-y
-        match = re.search(r'(obj|lib)-y\s*[+:]?=', line)
-        if match:
+        # obj-y / lib-y
+        if re.search(r'(obj|lib)-y\s*[+:]?=', line):
             return get_top_level_symbol_for(mk)
 
         # driver-$(CONFIG_SYMBOL)
-        match = re.search(r'([-\w\d]+)-\$\(([^)]+)\)\s*[+:]?=', line)
-        if match:
-            return (match.group(2), match.group(1))
+        m = re.search(r'([-\w\d]+)-\$\(([^)]+)\)\s*[+:]?=', line)
+        if m:
+            return m.group(2), m.group(1)
 
-        # driver-y
-        match = re.search(r'([-\w\d]+)-(y|objs)\s*[+:]?=', line)
-        if match:
-            if match.group(1) == obj[:-2]:
-                # mconf-objs := mconf.o
-                return (None, None)
-            else:
-                return (None, match.group(1))
+        # driver-y / driver-objs
+        m = re.search(r'([-\w\d]+)-(y|objs)\s*[+:]?=', line)
+        if m:
+            if m.group(1) == obj[:-2]:
+                return None, None       # mconf-objs := mconf.o
+            return None, m.group(1)
 
-    return (None, None)
+    return None, None
 
 
-def _get_symbols_from_mk(mk, obj, l_obj):
-    """
-    Exhaust Makefile until no object and no symbol.
-    If returns False, the parent method will proceed to search on ../Makefile,
-    if True, the obj was fully resolved into symbols
-    """
-    global symbols_
-
-    l_obj_ = obj
-    symbol, obj = get_makefile_symbol_and_obj(mk, obj, l_obj)
-    if not symbol and not obj:
-        return False
+def _resolve_obj_in_mk(mk, obj, l_obj):
+    """Chase Makefile references until fully resolved. Returns set of symbols."""
+    symbols = set()
+    prev = obj
+    symbol, sub_obj = get_makefile_symbol_and_obj(mk, obj, l_obj)
+    if not symbol and not sub_obj:
+        return symbols, False
     if symbol:
         if not symbol.startswith("CONFIG_"):
-            print(f"Symbol '{symbol}' does not start with 'CONFIG_' at 'mk'",
+            print(f"Symbol '{symbol}' does not start with 'CONFIG_' at '{mk}'",
                   file=stderr)
-        symbols_.add(symbol[7:])
-        if not obj:
-            return True
+        symbols.add(symbol[7:])
+        if not sub_obj:
+            return symbols, True
+    more, ok = _resolve_obj_in_mk(mk, f"{sub_obj}.o", prev)
+    symbols |= more
+    return symbols, ok
 
-    return _get_symbols_from_mk(mk, f"{obj}.o", l_obj_)
 
-
-def get_symbols(files):
+def get_symbols_from_files(files, arch):
     """
-    Resolve the base symbols for .o targets.
-    If it is a symbol already, just add it.
+    Resolve .o targets and plain symbol names into a set of CONFIG symbols.
     """
-    global symbols_
+    files = {f for f in files if f}
+    obj_files = [f for f in files if f.endswith('.o')]
+    plain_syms = {f for f in files if not f.endswith('.o')}
+    symbols = filter_symbols(plain_syms, arch)
 
-    if "" in files:
-        files.remove("")
-    files = [s for s in files if s.endswith('.o')]
-    symbols = [s for s in files if not s.endswith('.o')]
-    symbols_.update(filter_symbols(symbols))
-
-    for f in files:
+    for f in obj_files:
         found = False
         base = path.basename(f)
         ldir = path.dirname(f)
         rdir = ""
-        while ldir != "":
+        while ldir:
             mk = path.join(ldir, "Makefile")
             if path.isfile(mk):
-                if _get_symbols_from_mk(mk, path.join(rdir, base), None):
-                    found = True
+                more, found = _resolve_obj_in_mk(mk, path.join(rdir, base), None)
+                symbols |= more
+                if found:
                     break
-
             rdir = path.join(path.basename(ldir), rdir)
             ldir = path.dirname(ldir)
         if not found:
             print(f"Failed to find Makefile targeting {f}", file=stderr)
 
+    return symbols
+
 
 def main():
     """
-    Resolve dependencies of a symbol based on symbols and .o target.
-    usage:
+    Resolve dependencies of symbols / .o targets.
 
-        symbols=$(ci/symbols_depend.py [SYMBOLS] [O_FILES])
-
+    Usage:  symbols=$(ci/symbols_depend.py [SYMBOLS] [O_FILES])
     """
-    global arch
-
     arch = environ.get('ARCH', None)
     if arch not in arch_map:
         arch = None
 
-    argv.pop(0)
-    get_symbols(set(argv))
-    print("Symbols of touched files:", file=stderr)
-    print(symbols_, file=stderr)
-    generate_map()
-    allow_list=symbols_.copy()
-    for s in symbols_:
-        if s not in deps_:
-            kconfig = get_top_level_kconfig(s)
-            if kconfig and max_recursion:
-                resolve_tree(s, kconfig, allow_list)
-            deps_.add(s)
+    kconf = init_kconfig()
 
-    if not max_recursion:
-        print("Max allowed recursion call reached", file=stderr)
-    symbols__ = filter_symbols(deps_)
+    seeds = get_symbols_from_files(set(argv[1:]), arch)
+    print("Symbols of touched files:", file=stderr)
+    print(seeds, file=stderr)
+
+    resolved = resolve_all(kconf, seeds, arch)
+    result = filter_symbols(resolved, arch)
+
     print("Resolved symbols:", file=stderr)
-    print(symbols__, file=stderr)
-    print(' '.join(symbols__))
+    print(result, file=stderr)
+    print(' '.join(result))
 
 
 main()

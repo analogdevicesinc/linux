@@ -1124,6 +1124,10 @@ auto_set_kconfig() {
 	local k_blocks=$(git show --diff-filter=ACM --no-renames $base_sha..$head_sha -- '**/Kconfig' '**/Kconfig.*')
 	declare -a o_files
 
+	# https://github.com/ulfalizer/Kconfiglib/pull/119
+	[ -f $CI_WORKTREE/ci/kconfiglib.py ] || curl -sL -o $CI_WORKTREE/ci/kconfiglib.py \
+            https://raw.githubusercontent.com/helmutg/Kconfiglib/3161fec0b9ff9154dbd952c3481400118fabb744/kconfiglib.py
+
 	echo "$step_name on range $base_sha..$head_sha"
 
 	while read file; do
