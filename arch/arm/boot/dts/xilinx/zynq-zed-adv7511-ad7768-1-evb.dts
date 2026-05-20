@@ -52,7 +52,7 @@
 	};
 
 	axi_spi_engine_0: spi@44a00000 {
-		compatible = "adi,legacy-axi-spi-engine-1.00.a";
+		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
@@ -72,6 +72,8 @@
 			vref-supply = <&vref>;
 			adi,sync-in-gpios = <&gpio0 88 GPIO_ACTIVE_LOW>;
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+			interrupt-parent = <&gpio0>;
+			interrupts = <93 IRQ_TYPE_EDGE_RISING>;
 			clocks = <&ad7768_1_mclk>;
 			clock-names = "mclk";
 			dmas = <&rx_dma 0>;
