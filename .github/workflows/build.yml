@@ -128,8 +128,10 @@ jobs:
       run: |
         if [[ -f "arch/$ARCH/configs/$DEFCONFIG" ]] || \
            [[ "$DEFCONFIG" == "allnoconfig" ]]; then
+          echo "Using defconfig $DEFCONFIG"
           make $DEFCONFIG
         else
+          echo "::warning ::'$DEFCONFIG' not found, using generic 'defconfig'"
           make defconfig
         fi
 
