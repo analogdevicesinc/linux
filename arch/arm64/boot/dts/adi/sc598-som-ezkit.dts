@@ -147,17 +147,10 @@
 			line-name = "spdif-optical-en";
 		};
 
-		audio-jack {
-			gpio-hog;
-			gpios = <11 GPIO_ACTIVE_HIGH>;
-			output-high;
-			line-name = "audio-jack-sel";
-		};
-
 		mlb {
 			gpio-hog;
-			gpios = <12 GPIO_ACTIVE_HIGH>;
-			output-high;
+			gpios = <12 GPIO_ACTIVE_LOW>;
+			output-low;
 			line-name = "mlb-en";
 		};
 
