@@ -1,3 +1,5 @@
+.. _mainline:
+
 ADI Linux version support
 =========================
 
