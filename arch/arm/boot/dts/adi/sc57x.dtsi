@@ -239,7 +239,7 @@
 			status = "okay";
 		};
 
-		rcu: rcu@3108B000 {
+		rcu: rcu@3108C000 {
 			compatible = "syscon", "adi,reset-controller";
 			reg = <0x3108C000 0x1000>;
 			#reset-cells = <2>;
