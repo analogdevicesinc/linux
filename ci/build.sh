@@ -1126,7 +1126,7 @@ auto_set_kconfig() {
 
 	# https://github.com/ulfalizer/Kconfiglib/pull/119
 	[ -f $CI_WORKTREE/ci/kconfiglib.py ] || curl -sL -o $CI_WORKTREE/ci/kconfiglib.py \
-            https://raw.githubusercontent.com/helmutg/Kconfiglib/3161fec0b9ff9154dbd952c3481400118fabb744/kconfiglib.py
+	    https://git.yoctoproject.org/yocto-kernel-tools/plain/Kconfiglib/kconfiglib.py
 
 	echo "$step_name on range $base_sha..$head_sha"
 

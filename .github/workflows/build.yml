@@ -77,7 +77,7 @@ jobs:
 
         # https://github.com/ulfalizer/Kconfiglib/pull/119
         curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ci/kconfiglib.py \
-            https://raw.githubusercontent.com/helmutg/Kconfiglib/3161fec0b9ff9154dbd952c3481400118fabb744/kconfiglib.py
+            https://git.yoctoproject.org/yocto-kernel-tools/plain/Kconfiglib/kconfiglib.py
 
         if [[ "${{ inputs.defconfig }}" == "adi_ci_defconfig" ]]; then
           mkdir -p arch/${{ inputs.arch }}/configs
