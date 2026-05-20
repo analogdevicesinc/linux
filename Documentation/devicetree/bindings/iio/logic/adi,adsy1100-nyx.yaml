@@ -1,0 +1,262 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/logic/adi,adsy1100-nyx.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSY1100 Apollo SOM "Nyx" RF front-end controller
+
+maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com>
+
+description: |
+  GPIO-driven controller for the four RX and four TX RF channels of the
+  ADSY1100 Apollo SOM "Nyx" daughter board. The driver consumes the 76
+  control GPIOs that drive the per-channel digital step attenuators (DSA),
+  filter band-selection multiplexers, channel powerdown and the RX LNA
+  bypass switches, and exposes high-level IIO controls.
+
+  Per-channel power-on defaults can optionally be supplied through the
+  output-channels (TX) and input-channels (RX) container nodes. Defaults
+  supplied this way are applied at probe time, before the IIO device is
+  registered, so the hardware comes up in the requested state.
+
+  Built-in defaults applied to every channel before any DT subnode is
+  parsed are:
+    - attenuation        = 0 mdB (hardwaregain 0 dB)
+    - filter mode        = THRU
+    - powerdown          = disabled (channel enabled)
+    - RX LNA             = disabled (bypass=1)
+
+properties:
+  compatible:
+    const: adi,adsy1100-nyx
+
+  out-gpios:
+    description: |
+      Array of 76 control GPIOs. Layout, in the order listed:
+        [ 0.. 7]  TX3..TX0 filter_ctrl_{0,1}  (TX descending)
+        [ 8..15]  RX3..RX0 filter_ctrl_{0,1}  (RX descending)
+        [16..21]  TX0 dsa[0..5]
+        [22..27]  TX1 dsa[0..5]
+        [28..33]  TX2 dsa[0..5]
+        [34..39]  TX3 dsa[0..5]
+        [40..45]  RX0 dsa[0..5]
+        [46..51]  RX1 dsa[0..5]
+        [52..57]  RX2 dsa[0..5]
+        [58..63]  RX3 dsa[0..5]
+        [64..67]  TX0..TX3 enable
+        [68..71]  RX0..RX3 enable
+        [72..75]  RX0..RX3 amp_bypass
+    minItems: 76
+    maxItems: 76
+
+  label:
+    description: Human-readable label for this RFFE instance.
+
+  output-channels:
+    type: object
+    description: |
+      Container for per-TX-channel (output) power-on default
+      configuration. Each child node configures one of the four TX paths.
+    properties:
+      '#address-cells':
+        const: 1
+      '#size-cells':
+        const: 0
+    patternProperties:
+      "^channel@[0-3]$":
+        type: object
+        description: Per-TX-channel default configuration. Index 0..3.
+        properties:
+          reg:
+            minimum: 0
+            maximum: 3
+            description: TX channel index (0..3).
+
+          adi,attenuation-millidb:
+            $ref: /schemas/types.yaml#/definitions/uint32
+            minimum: 0
+            maximum: 31500
+            multipleOf: 500
+            default: 0
+            description: |
+              Initial digital step attenuator (DSA) setting in
+              milli-dB. The DSA has 0.5 dB resolution, so the value
+              must be a multiple of 500. Maps to a negative IIO
+              hardwaregain in sysfs (e.g. 6000 mdB attenuation -> -6 dB
+              hardwaregain).
+
+          adi,filter-mode:
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [0, 1, 2, 3]
+            default: 1
+            description: |
+              Initial filter band. Use one of the ADSY1100_NYX_FILTER_*
+              macros from <dt-bindings/iio/logic/adi,adsy1100-nyx.h>:
+                0 = LOW_BAND
+                1 = THRU
+                2 = X_BAND
+                3 = KU_BAND
+
+          adi,powerdown:
+            type: boolean
+            description: |
+              If present, the channel is powered down at probe time
+              instead of being brought up enabled.
+
+        required:
+          - reg
+        additionalProperties: false
+    additionalProperties: false
+
+  input-channels:
+    type: object
+    description: |
+      Container for per-RX-channel (input) power-on default
+      configuration. Each child node configures one of the four RX paths.
+    properties:
+      '#address-cells':
+        const: 1
+      '#size-cells':
+        const: 0
+    patternProperties:
+      "^channel@[0-3]$":
+        type: object
+        description: Per-RX-channel default configuration. Index 0..3.
+        properties:
+          reg:
+            minimum: 0
+            maximum: 3
+            description: RX channel index (0..3).
+
+          adi,attenuation-millidb:
+            $ref: /schemas/types.yaml#/definitions/uint32
+            minimum: 0
+            maximum: 31500
+            multipleOf: 500
+            default: 0
+            description: |
+              Initial digital step attenuator (DSA) setting in
+              milli-dB. The DSA has 0.5 dB resolution, so the value
+              must be a multiple of 500. Maps to a negative IIO
+              hardwaregain in sysfs.
+
+          adi,filter-mode:
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum: [0, 1, 2, 3]
+            default: 1
+            description: |
+              Initial filter band. Use one of the ADSY1100_NYX_FILTER_*
+              macros from <dt-bindings/iio/logic/adi,adsy1100-nyx.h>.
+
+          adi,powerdown:
+            type: boolean
+            description: |
+              If present, the channel is powered down at probe time
+              instead of being brought up enabled.
+
+          adi,amplifier-enable:
+            type: boolean
+            description: |
+              If present, the RX LNA is brought into the signal path at
+              probe time (bypass_amplifier_en=0). When absent the LNA is
+              bypassed (default).
+
+        required:
+          - reg
+        additionalProperties: false
+    additionalProperties: false
+
+required:
+  - compatible
+  - out-gpios
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/iio/logic/adi,adsy1100-nyx.h>
+
+    rffe {
+        compatible = "adi,adsy1100-nyx";
+        label = "nyx_controls";
+
+        out-gpios = <&gpio_a  0 0>, <&gpio_a  1 0>, <&gpio_a  2 0>,
+                    <&gpio_a  3 0>, <&gpio_a  4 0>, <&gpio_a  5 0>,
+                    <&gpio_a  6 0>, <&gpio_a  7 0>, <&gpio_a  8 0>,
+                    <&gpio_a  9 0>, <&gpio_a 10 0>, <&gpio_a 11 0>,
+                    <&gpio_a 12 0>, <&gpio_a 13 0>, <&gpio_a 14 0>,
+                    <&gpio_a 15 0>, <&gpio_a 16 0>, <&gpio_a 17 0>,
+                    <&gpio_a 18 0>, <&gpio_a 19 0>, <&gpio_a 20 0>,
+                    <&gpio_a 21 0>, <&gpio_a 22 0>, <&gpio_a 23 0>,
+                    <&gpio_a 24 0>, <&gpio_a 25 0>, <&gpio_a 26 0>,
+                    <&gpio_a 27 0>, <&gpio_a 28 0>, <&gpio_a 29 0>,
+                    <&gpio_a 30 0>, <&gpio_a 31 0>, <&gpio_b  0 0>,
+                    <&gpio_b  1 0>, <&gpio_b  2 0>, <&gpio_b  3 0>,
+                    <&gpio_b  4 0>, <&gpio_b  5 0>, <&gpio_b  6 0>,
+                    <&gpio_b  7 0>, <&gpio_b  8 0>, <&gpio_b  9 0>,
+                    <&gpio_b 10 0>, <&gpio_b 11 0>, <&gpio_b 12 0>,
+                    <&gpio_b 13 0>, <&gpio_b 14 0>, <&gpio_b 15 0>,
+                    <&gpio_b 16 0>, <&gpio_b 17 0>, <&gpio_b 18 0>,
+                    <&gpio_b 19 0>, <&gpio_b 20 0>, <&gpio_b 21 0>,
+                    <&gpio_b 22 0>, <&gpio_b 23 0>, <&gpio_b 24 0>,
+                    <&gpio_b 25 0>, <&gpio_b 26 0>, <&gpio_b 27 0>,
+                    <&gpio_b 28 0>, <&gpio_b 29 0>, <&gpio_b 30 0>,
+                    <&gpio_b 31 0>, <&gpio_c  0 0>, <&gpio_c  1 0>,
+                    <&gpio_c  2 0>, <&gpio_c  3 0>, <&gpio_c  4 0>,
+                    <&gpio_c  5 0>, <&gpio_c  6 0>, <&gpio_c  7 0>,
+                    <&gpio_c  8 0>, <&gpio_c  9 0>, <&gpio_c 10 0>,
+                    <&gpio_c 11 0>;
+
+        output-channels {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            channel@0 {
+                reg = <0>;
+                adi,attenuation-millidb = <6000>;       /* -6.0 dB */
+                adi,filter-mode = <ADSY1100_NYX_FILTER_X_BAND>;
+            };
+            channel@1 {
+                reg = <1>;
+                adi,attenuation-millidb = <0>;
+                adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+            };
+            channel@2 {
+                reg = <2>;
+                adi,filter-mode = <ADSY1100_NYX_FILTER_KU_BAND>;
+                adi,powerdown;
+            };
+            channel@3 {
+                reg = <3>;
+                adi,filter-mode = <ADSY1100_NYX_FILTER_LOW_BAND>;
+            };
+        };
+
+        input-channels {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            channel@0 {
+                reg = <0>;
+                adi,attenuation-millidb = <3500>;       /* -3.5 dB */
+                adi,filter-mode = <ADSY1100_NYX_FILTER_X_BAND>;
+            };
+            channel@1 {
+                reg = <1>;
+                adi,filter-mode = <ADSY1100_NYX_FILTER_LOW_BAND>;
+                adi,amplifier-enable;   /* bring LNA into the path */
+            };
+            channel@2 {
+                reg = <2>;
+                adi,filter-mode = <ADSY1100_NYX_FILTER_KU_BAND>;
+            };
+            channel@3 {
+                reg = <3>;
+                adi,filter-mode = <ADSY1100_NYX_FILTER_THRU>;
+                adi,powerdown;
+            };
+        };
+    };
+...
