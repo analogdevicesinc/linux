@@ -20,8 +20,7 @@ jobs:
       contents: read
   build_gcc_aarch64:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    needs: [checks]
-    if: needs.checks.outputs.fatal != 'true'
+    if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
     secrets: inherit
     permissions:
       contents: read
@@ -31,7 +30,6 @@ jobs:
       defconfig: "adi_ci_defconfig"
   build_gcc_arm:
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    needs: [checks]
     if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
     secrets: inherit
     permissions:
