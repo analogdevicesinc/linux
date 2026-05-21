@@ -35,20 +35,3 @@
 #include <linux/soc/adi/cpu.h>
 
 #include "core.h"
-
-/** @todo spu stuff move to sec.c and make it a real driver */
-static void __iomem *spu_base;
-
-void set_spu_securep_msec(u16 n, bool msec)
-{
-	/*
-	 * This throws a data abort right now.
-	 * I assume the SPU is inaccessible from EL1.
-	 * If we need to adjust this from kernel-space,
-	 * this will have to be a secure monitor call (optee?)
-	 */
-	spu_base = NULL;
-}
-
-EXPORT_SYMBOL(set_spu_securep_msec);
-/** end @todo spu stuff */
