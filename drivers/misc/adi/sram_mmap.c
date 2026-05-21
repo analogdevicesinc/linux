@@ -84,20 +84,22 @@ static int sram_mmap(struct file *fp, struct vm_area_struct *vma)
 	int ret = 0;
 
 	if ((vma->vm_pgoff * PAGE_SIZE) + sram_size > sram->rmem->size) {
-		dev_err(sram->dev, "Tried to map 0x%zx@0x%zx, only 0x%zx available\n",
+		dev_err(sram->dev, "Tried to map 0x%zx@0x%lx, only 0x%zx available\n",
 			sram_size, vma->vm_pgoff * PAGE_SIZE, (size_t)sram->rmem->size);
 		return -ENOMEM;
 	}
 
-	dev_err(sram->dev, "Requested mapping is not a multiple of page size, requested 0x%lx bytes\n", sram_size);
+	dev_err(sram->dev, "Requested mapping is not a multiple of page size, requested 0x%zx bytes\n", sram_size);
 	if (sram_size % PAGE_SIZE) {
-		dev_err(sram->dev, "Requested mapping is not a multiple of page size, requested 0x%lx bytes\n", sram_size);
+		dev_err(sram->dev, "Requested mapping is not a multiple of page size, requested 0x%zx bytes\n", sram_size);
 		return -EINVAL;
 	}
 
 	fp->f_mapping->a_ops = &sram_aops;
+#ifdef CONFIG_ARM64
 	vma->vm_page_prot = __pgprot_modify(vma->vm_page_prot, PTE_ATTRINDX_MASK,
 		PTE_ATTRINDX(MT_NORMAL) | PTE_PXN | PTE_UXN);
+#endif
 	vma->vm_private_data = sram;
 	vma->vm_ops = NULL;
 
@@ -232,13 +234,13 @@ static int __init rmem_sram_setup(struct reserved_mem *rmem)
 	}
 
 	if (rmem->base & (PAGE_SIZE-1)) {
-		pr_err("sram region starting at 0x%px is not page aligned!\n", (void *)rmem->base);
+		pr_err("sram region starting at %pa is not page aligned!\n", &rmem->base);
 		return -EINVAL;
 	}
 
 	if (rmem->size & (PAGE_SIZE-1)) {
-		pr_err("sram region starting at 0x%px is not a multiple of the page size (requested 0x%llx bytes)\n",
-			(void *)rmem->base, rmem->size);
+		pr_err("sram region starting at %pa is not a multiple of the page size (requested %pa bytes)\n",
+			&rmem->base, &rmem->size);
 		return -EINVAL;
 	}
 
