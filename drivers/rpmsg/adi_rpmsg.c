@@ -316,7 +316,6 @@ static int adi_rpmsg_probe(struct platform_device *pdev)
 	struct adi_tru *adi_tru;
 	struct device_node *dev_node = dev_of_node(&pdev->dev);
 	struct device_node *node;
-	struct resource *res;
 	struct reserved_mem *rmem;
 	dma_addr_t dma;
 	void *va;
