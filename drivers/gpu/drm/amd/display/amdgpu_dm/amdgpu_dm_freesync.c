@@ -37,6 +37,7 @@
 #include "amdgpu_dm_freesync.h"
 #include "dm_helpers.h"
 #include "modules/inc/mod_freesync.h"
+#include "modules/inc/mod_info_packet.h"
 
 bool amdgpu_dm_is_dc_timing_adjust_needed(struct dm_crtc_state *old_state,
 					  struct dm_crtc_state *new_state)
@@ -228,6 +229,9 @@ void amdgpu_dm_update_freesync_state_on_stream(
 		TRANSFER_FUNC_UNKNOWN,
 		&vrr_infopacket,
 		pack_sdp_v1_3);
+
+	if (new_stream->sink->sink_signal == SIGNAL_TYPE_HDMI_FRL)
+		mod_build_infopacket_vtem(new_stream, &vrr_params, 0, &vrr_infopacket);
 
 	new_crtc_state->freesync_vrr_info_changed |=
 		(memcmp(&new_crtc_state->vrr_infopacket,

@@ -3902,7 +3902,9 @@ void amdgpu_dm_update_freesync_caps(struct drm_connector *connector,
 			amdgpu_dm_connector->as_type = ADAPTIVE_SYNC_TYPE_EDP;
 		}
 
-	} else if (drm_edid && sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A) {
+	} else if (drm_edid &&
+		  (sink->sink_signal == SIGNAL_TYPE_HDMI_TYPE_A ||
+		   sink->sink_signal == SIGNAL_TYPE_HDMI_FRL)) {
 		i = parse_hdmi_amd_vsdb(amdgpu_dm_connector, edid, &vsdb_info);
 		if (i >= 0) {
 			amdgpu_dm_connector->vsdb_info = vsdb_info;
