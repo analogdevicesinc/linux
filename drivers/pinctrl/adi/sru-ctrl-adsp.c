@@ -1521,7 +1521,7 @@ static const struct pinctrl_ops adsp_pctlops = {
 	.dt_node_to_map = adsp_sru_ctrl_dt_node_to_map,
 };
 
-static const int adsp_sru_ctrl_probe(struct platform_device *pdev)
+static int adsp_sru_ctrl_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
