@@ -529,7 +529,7 @@
 		};
 
 		ospi: spi@31027000 {
-			compatible = "adi,sc5xx-qspi";
+			compatible = "adi,sc59x-ospi";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0x31027000 0x1000>,
