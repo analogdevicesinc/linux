@@ -33,7 +33,7 @@
 #include <linux/spi/offload/consumer.h>
 #include <linux/spi/offload/types.h>
 
-#define AD4134_TRIGGER_OFFSET_CYCLES		8
+#define AD4134_TRIGGER_OFFSET_CYCLES		4
 #define AD4134_MIN_ODR_FREQ_HZ			10
 #define AD4134_MAX_ODR_FREQ_HZ			(1496 * HZ_PER_KHZ)
 
@@ -234,6 +234,7 @@ struct ad4134_state {
 
 	struct spi_message		buf_read_msg;
 	struct gpio_desc		*cs_gpio;
+	struct gpio_desc		*pdn_gpio;
 	struct gpio_chip		gpiochip;
 
 	unsigned int			odr;
@@ -257,10 +258,29 @@ static int ad7134_sync(struct iio_dev *indio_dev)
 	struct ad4134_state *st = iio_priv(indio_dev);
 	int ret;
 
+	/*
+	 * Per AD7134 datasheet (Multidevice Synchronization section):
+	 *   "This DIG_IF_RESET command must be given to all the slaves
+	 *    simultaneously using one single SPI write command."
+	 *
+	 * We use a plain regmap_write (NOT regmap_update_bits) because:
+	 *   - regmap_update_bits is a read-modify-write — two SPI transactions,
+	 *     not one. The datasheet explicitly requires a single write.
+	 *   - In broadcast-CS mode (cs_gpio HIGH) the read in update_bits has
+	 *     MISO bus contention from both chips driving SDO simultaneously,
+	 *     producing garbage that flips bit 5 (MASTER_SLAVE_RD_CTRL) to
+	 *     random values and toggles chip readback configuration between
+	 *     sync calls. This was observed in the field as alternating
+	 *     "aligned / large-delay" behaviour on consecutive sync presses.
+	 *
+	 * Value 0x82 explicitly:
+	 *   bit 7 SINGLE_INSTR        = 1 (preserve chip's reset default)
+	 *   bit 5 MASTER_SLAVE_RD_CTRL = 0 (force default; slave-FF readback)
+	 *   bit 1 DIG_IF_RESET         = 1 (trigger the sync — self-clearing)
+	 *   all other bits             = 0 (defaults / reserved)
+	 */
 	gpiod_set_value_cansleep(st->cs_gpio, 1);
-	ret = regmap_update_bits(st->regmap, AD4134_IF_CONFIG_B_REG,
-				 (AD4134_IF_CONFIG_B_RESET |  AD4134_IF_CONFIG_B_SINGLE_INSTR),
-				 (AD4134_IF_CONFIG_B_RESET |  AD4134_IF_CONFIG_B_SINGLE_INSTR));
+	ret = regmap_write(st->regmap, AD4134_IF_CONFIG_B_REG, 0x82);
 	if (ret)
 		return ret;
 
@@ -395,7 +415,7 @@ static int ad4134_setup_odr(struct ad4134_state *st, unsigned int freq_hz)
 	 * less than the minimum required, increase the target value by 10 and
 	 * attempt to round the waveform again, until the minimum is reached.
 	 */
-	odr_high_time_ns = div64_ul(13ULL * NANO, st->sys_clk_hz);
+	odr_high_time_ns = div64_ul(6ULL * NANO, st->sys_clk_hz);
 	do {
 		odr_wf.duty_length_ns = target;
 		ret = pwm_round_waveform_might_sleep(st->odr_trigger, &odr_wf);
@@ -469,7 +489,7 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	 * less than the minimum required, increase the target value by 10 and
 	 * attempt to round the waveform again, until the minimum is reached.
 	 */
-	odr_high_time_ns = div64_ul(12ULL * NANO, st->sys_clk_hz);
+	odr_high_time_ns = div64_ul(6ULL * NANO, st->sys_clk_hz);
 	do {
 		odr_wf.duty_length_ns = target;
 		ret = pwm_round_waveform_might_sleep(st->odr_trigger, &odr_wf);
@@ -960,6 +980,174 @@ static void ad4134_disable_regulators(void *data)
 	regulator_bulk_disable(ARRAY_SIZE(st->regulators), st->regulators);
 }
 
+/*
+ * Reapply the four config registers to the sibling ADC after the shared
+ * /RESETN pulse wiped its state. Walked from the master node via
+ * device_for_each_child(); skip self and any child whose driver hasn't
+ * populated drvdata/regmap yet.
+ */
+/*
+ * Helpers for synchronized PDN-cycle of the sibling. Called from the master's
+ * setup() AFTER ODR has been started so that when PDN is released, the chip
+ * wakes up into a continuously-pulsing ODR — the datasheet-prescribed
+ * condition for ASRC PLL acquisition. The slave's GPIO descriptor is
+ * cached in its state so the assert/release pair doesn't try to call
+ * devm_gpiod_get_optional() twice (which would fail with -EBUSY).
+ */
+static int ad4134_assert_sibling_pdn(struct device *dev, void *data)
+{
+	struct spi_device *self_spi = data;
+	struct iio_dev *indio_dev;
+	struct ad4134_state *sib;
+	struct gpio_desc *pdn;
+
+	if (!dev->driver)
+		return 0;
+
+	if (to_spi_device(dev) == self_spi)
+		return 0;
+
+	indio_dev = dev_get_drvdata(dev);
+	if (!indio_dev)
+		return 0;
+
+	sib = iio_priv(indio_dev);
+
+	pdn = devm_gpiod_get_optional(dev, "pdn", GPIOD_OUT_HIGH);
+	if (IS_ERR_OR_NULL(pdn)) {
+		sib->pdn_gpio = NULL;
+		return 0;
+	}
+	/* GPIOD_OUT_HIGH on ACTIVE_LOW = pin LOW = chip in PDN */
+	sib->pdn_gpio = pdn;
+	dev_info(dev, "ad7134: sibling PDN asserted (synchronized cycle)\n");
+	return 0;
+}
+
+static int ad4134_release_sibling_pdn(struct device *dev, void *data)
+{
+	struct spi_device *self_spi = data;
+	struct iio_dev *indio_dev;
+	struct ad4134_state *sib;
+
+	if (!dev->driver)
+		return 0;
+
+	if (to_spi_device(dev) == self_spi)
+		return 0;
+
+	indio_dev = dev_get_drvdata(dev);
+	if (!indio_dev)
+		return 0;
+
+	sib = iio_priv(indio_dev);
+	if (sib->pdn_gpio) {
+		gpiod_set_value_cansleep(sib->pdn_gpio, 0);
+		dev_info(dev, "ad7134: sibling PDN released (synchronized cycle)\n");
+	}
+	return 0;
+}
+
+#define AD4134_SIBLING_LOCK_RETRIES	5
+
+static int ad4134_configure_sibling(struct device *dev, void *data)
+{
+	struct spi_device *self_spi = data;
+	struct spi_device *sib_spi;
+	struct iio_dev *indio_dev;
+	struct ad4134_state *sib;
+	unsigned int regval;
+	int attempt, ret;
+
+	if (!dev->driver)
+		return 0;
+
+	sib_spi = to_spi_device(dev);
+	if (sib_spi == self_spi)
+		return 0;
+
+	indio_dev = dev_get_drvdata(dev);
+	if (!indio_dev)
+		return 0;
+
+	sib = iio_priv(indio_dev);
+	if (!sib->regmap)
+		return 0;
+
+	dev_info(dev, "ad7134: reapplying config to sibling after shared reset\n");
+
+	/*
+	 * The slave's pdn_gpio was already requested and toggled in the
+	 * synchronized PDN cycle from the master's setup() (before ODR start
+	 * configuration). Reuse the cached descriptor here for the retry-loop
+	 * fallback — calling devm_gpiod_get_optional again would fail.
+	 */
+
+	/*
+	 * Retry loop: if chip B's PLL didn't acquire from the synchronized
+	 * cold-start PDN, try a few more PDN cycles (chip B only) as a
+	 * fallback. Each attempt does a fresh PDN cycle then reapplies config;
+	 * after a 500 ms wait we read DEVICE_STATUS to see if PLL_LOCK is set.
+	 */
+	for (attempt = 1; attempt <= AD4134_SIBLING_LOCK_RETRIES; attempt++) {
+		if (sib->pdn_gpio) {
+			dev_info(dev, "ad7134: sibling PDN cycle attempt %d/%d\n",
+				 attempt, AD4134_SIBLING_LOCK_RETRIES);
+			gpiod_set_value_cansleep(sib->pdn_gpio, 1);   /* assert PDN */
+			fsleep(100000);                                /* 100 ms */
+			gpiod_set_value_cansleep(sib->pdn_gpio, 0);   /* release */
+			fsleep(100000);                                /* 100 ms power-up */
+		}
+
+		ret = regmap_update_bits(sib->regmap,
+					 AD4134_DATA_PACKET_CONFIG_REG,
+					 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
+					 FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
+						    sib->output_frame));
+		if (ret)
+			continue;
+
+		ret = regmap_update_bits(sib->regmap, AD4134_DIG_IF_CFG_REG,
+					 AD4134_DIF_IF_CFG_FORMAT_MASK,
+					 FIELD_PREP(AD4134_DIF_IF_CFG_FORMAT_MASK,
+						    AD4134_DATA_FORMAT_QUAD_CH_PARALLEL));
+		if (ret)
+			continue;
+
+		ret = regmap_update_bits(sib->regmap, AD4134_DEVICE_CONFIG_REG,
+					 AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
+					 FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
+						    AD4134_POWER_MODE_HIGH_PERF));
+		if (ret)
+			continue;
+
+		regmap_update_bits(sib->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG,
+				   AD4134_CHAN_DIG_FILTER_SEL_MASK,
+				   FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_MASK,
+					      AD4134_SINC6_FILTER));
+
+		/* Clear any latched errors so 0x42 reflects current state. */
+		regmap_read(sib->regmap, 0x42, &regval);
+
+		/* Give PLL time to acquire on the now-stable ODR. */
+		fsleep(500000);
+
+		ret = regmap_read(sib->regmap, 0x15, &regval);
+		if (!ret && (regval & BIT(0))) {
+			dev_info(dev, "ad7134: sibling PLL locked on attempt %d (0x15=0x%02X)\n",
+				 attempt, regval);
+			return 0;
+		}
+
+		ret = regmap_read(sib->regmap, 0x42, &regval);
+		dev_info(dev, "ad7134: sibling PLL not locked on attempt %d (0x42=0x%02X)\n",
+			 attempt, regval);
+	}
+
+	dev_warn(dev, "ad7134: sibling PLL failed to lock after %d attempts\n",
+		 AD4134_SIBLING_LOCK_RETRIES);
+	return 0;
+}
 
 static int ad4134_setup(struct ad4134_state *st)
 {
@@ -1021,18 +1209,59 @@ static int ad4134_setup(struct ad4134_state *st)
 		dev_info(dev, "PWM obtained successfully\n");
 
 		/*
-		 * Start with a slower sampling rate so there is some room for
-		 * adjusting the sampling frequency without hitting the maximum
-		 * conversion rate.
+		 * Start ODR FIRST. SDPCLK as CMOS CLKIN (48 MHz) is already
+		 * running on both chips' CLKIN pins. Now bring up ODR on the
+		 * shared FPGA pin so it's continuously pulsing on both chips'
+		 * ODR pins before we touch them again with PDN.
 		 */
-		st->odr_hz = AD4134_MAX_ODR_FREQ_HZ;
+		st->odr_hz = 1400000;
 		dev_info(dev, "Setting initial ODR frequency to %u Hz\n", st->odr_hz);
 		ret = ad4134_setup_odr(st, st->odr_hz);
 		if (ret)
 			return dev_err_probe(dev, ret, "failed to set odr freq\n");
 
-		dev_info(&st->spi->dev, "wait\n");
-		fsleep(MEGA); /* 10^6 microsecs == 1s settling time so PPL lock */
+		fsleep(50000);  /* 50 ms ODR pre-stabilize */
+
+		/*
+		 * Synchronized PDN cycle of BOTH chips with ODR running.
+		 *
+		 * Per datasheet: "the user must provide continuous cycles of
+		 * the ODR signal until the PLL is locked". Powering both chips
+		 * down here, then releasing PDN simultaneously, gives the
+		 * cleanest possible cold-start: both chips wake into a world
+		 * where SDPCLK and ODR are both already continuously running.
+		 *
+		 * PDN is per-chip (gpio_o[34]=A, gpio_o[35]=B in HDL), so we
+		 * can drive each independently. Master's PDN is requested
+		 * directly via the master's "pdn" property; sibling's PDN is
+		 * requested by walking SPI controller children.
+		 */
+		st->pdn_gpio = devm_gpiod_get_optional(dev, "pdn", GPIOD_OUT_HIGH);
+		if (IS_ERR(st->pdn_gpio))
+			st->pdn_gpio = NULL;
+		if (st->pdn_gpio)
+			dev_info(dev, "ad7134: master PDN asserted (synchronized cycle)\n");
+
+		if (st->ad4134_duo)
+			device_for_each_child(&st->spi->controller->dev,
+					      st->spi,
+					      ad4134_assert_sibling_pdn);
+
+		fsleep(100000);  /* 100 ms in PDN (both chips, ODR keeps pulsing) */
+
+		if (st->pdn_gpio) {
+			gpiod_set_value_cansleep(st->pdn_gpio, 0);
+			dev_info(dev, "ad7134: master PDN released (synchronized cycle)\n");
+		}
+		if (st->ad4134_duo)
+			device_for_each_child(&st->spi->controller->dev,
+					      st->spi,
+					      ad4134_release_sibling_pdn);
+
+		fsleep(100000);  /* 100 ms power-up settle */
+
+		dev_info(&st->spi->dev, "wait for PLL lock with running ODR\n");
+		fsleep(MEGA); /* 1 s settling for both chips' ASRC PLLs */
 	}
 
 
@@ -1064,6 +1293,78 @@ static int ad4134_setup(struct ad4134_state *st)
 
 	if (ret)
 		return ret;
+
+	/*
+	 * Synchronous broadcast configuration to both chips.
+	 *
+	 * The HDL ties both chips' /RESETN to gpio_o[32] (so master's reset
+	 * cycle wipes the sibling's earlier config) AND provides a CS-broadcast
+	 * mux on gpio_o[50] (cs_gpio): when HIGH, both chips' physical CS lines
+	 * follow controller-CS0, so a single SPI transaction lands on BOTH
+	 * chips in the same SCLK cycle.
+	 *
+	 * Per-CS sequential writes from configure_sibling() leave a multi-
+	 * millisecond gap between when each chip transitions to HIGH_PERF
+	 * mode. With SDPCLK as CMOS CLKIN (vs. crystal mode), the PLL
+	 * acquisition window is tighter and the chip whose mode transition
+	 * lags the other can drift into a state its PLL never escapes from.
+	 *
+	 * Read back the post-configuration register values from the master
+	 * (which we know are good because its PLL locked) and broadcast-write
+	 * them to both chips synchronously. We use regmap_write (full-byte)
+	 * not regmap_update_bits because reads in broadcast mode would have
+	 * MISO bus contention — both chips would drive SDO simultaneously.
+	 */
+	if (device_property_present(&st->spi->dev, "pwms") && st->ad4134_duo &&
+	    st->cs_gpio) {
+		unsigned int v11, v12, v02, v1e;
+
+		ret = regmap_read(st->regmap, AD4134_DATA_PACKET_CONFIG_REG, &v11);
+		if (!ret)
+			ret = regmap_read(st->regmap, AD4134_DIG_IF_CFG_REG, &v12);
+		if (!ret)
+			ret = regmap_read(st->regmap, AD4134_DEVICE_CONFIG_REG, &v02);
+		if (!ret)
+			ret = regmap_read(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG, &v1e);
+
+		if (!ret) {
+			dev_info(&st->spi->dev,
+				 "ad7134: broadcast config: 0x11=0x%02X 0x12=0x%02X 0x02=0x%02X 0x1E=0x%02X\n",
+				 v11, v12, v02, v1e);
+
+			gpiod_set_value_cansleep(st->cs_gpio, 1);
+
+			/*
+			 * Mask out read-only/status bits that may differ from
+			 * what we want to write. For 0x02 the writable bit we
+			 * care about is POWER_MODE (bit 0); upper bits are
+			 * status. Force POWER_MODE=1 (HIGH_PERF) explicitly.
+			 */
+			regmap_write(st->regmap, AD4134_DATA_PACKET_CONFIG_REG, v11);
+			regmap_write(st->regmap, AD4134_DIG_IF_CFG_REG, v12);
+			regmap_write(st->regmap, AD4134_DEVICE_CONFIG_REG,
+				     v02 | AD4134_POWER_MODE_HIGH_PERF);
+			regmap_write(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG, v1e);
+
+			gpiod_set_value_cansleep(st->cs_gpio, 0);
+
+			/* Settle, then read 0x42 once on each chip to clear it. */
+			fsleep(200000);
+			device_for_each_child(&st->spi->controller->dev,
+					      st->spi,
+					      ad4134_configure_sibling);
+		} else {
+			dev_warn(&st->spi->dev,
+				 "ad7134: broadcast read-back failed (%d), falling back to per-CS sibling config\n",
+				 ret);
+			device_for_each_child(&st->spi->controller->dev,
+					      st->spi,
+					      ad4134_configure_sibling);
+		}
+	} else if (device_property_present(&st->spi->dev, "pwms") && st->ad4134_duo) {
+		device_for_each_child(&st->spi->controller->dev, st->spi,
+				      ad4134_configure_sibling);
+	}
 
 	return 0;
 }

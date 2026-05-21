@@ -54,14 +54,6 @@
 		pwms = <&ad4134_odr_generator 0 1000000 0>;
 	};
 
-	clocks {
-		cnv_ext_clk: ext-clk {
-			#clock-cells = <0x0>;
-			compatible = "fixed-clock";
-			clock-frequency = <100000000>;
-			clock-output-names = "cnv_ext_clk";
-		};
-	};
 };
 
 &fpga_axi {
@@ -79,9 +71,9 @@
 
 			dma-channel@0 {
 				reg = <0>;
-				adi,source-bus-width = <128>;
+				adi,source-bus-width = <256>;
 				adi,source-bus-type = <1>;
-				adi,destination-bus-width = <64>;
+				adi,destination-bus-width = <128>;
 				adi,destination-bus-type = <0>;
 			};
 		};
@@ -111,15 +103,6 @@
 		};
 	};
 
-	ad4134_odr_generator: odr_generator@44b00000 {
-		compatible = "adi,axi-pwmgen-2.00.a";
-		reg = <0x44b00000 0x10000>;
-		#pwm-cells = <2>;
-		//clocks = <&clkc 15>;
-		clocks = <&cnv_ext_clk>;
-		//clock-names = "axi";
-	};
-
 	spi_clk: axi_clkgen@44b10000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44b10000 0x10000>;
@@ -129,6 +112,24 @@
 		clock-output-names = "spi_clk";
 		assigned-clocks = <&spi_clk>;
 		assigned-clock-rates = <100000000>;
+	};
+
+	sdpclk: axi_clkgen@44b20000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44b20000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "sdpclk";
+		assigned-clocks = <&sdpclk>;
+		assigned-clock-rates = <48000000>;
+	};
+
+	ad4134_odr_generator: odr_generator@44b00000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x44b00000 0x10000>;
+		#pwm-cells = <2>;
+		clocks = <&sdpclk>;
 	};
 };
 
@@ -142,9 +143,10 @@
 		spi-max-frequency = <10000000>;
 
 		reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+		pdn-gpios = <&gpio0 88 GPIO_ACTIVE_LOW>;
 		cs-gpios = <&gpio0 104 GPIO_ACTIVE_HIGH>;
 
-		clocks = <&cnv_ext_clk>;
+		clocks = <&sdpclk>;
 		clock-names = "cnv_ext_clk";
 
 		pwm-names = "odr";
@@ -167,8 +169,9 @@
 		spi-max-frequency = <10000000>;
 
 		reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
+		pdn-gpios = <&gpio0 89 GPIO_ACTIVE_LOW>;
 
-		clocks = <&cnv_ext_clk>;
+		clocks = <&sdpclk>;
 		clock-names = "cnv_ext_clk";
 
 		avdd5-supply = <&avdd5>;
