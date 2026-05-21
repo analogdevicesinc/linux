@@ -2,7 +2,7 @@
 
 config ADI_SYSTEM_CONFIG
 	bool "ADI System Config" if COMPILE_TEST
-	default ARCH_SC59X_64 || ARCH_SC5XX
+	default ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
 	select REGMAP_MMIO
 	help
 	  This enables support for the ADI System Config system, which
@@ -10,8 +10,8 @@ config ADI_SYSTEM_CONFIG
 
 config ADI_PADS_SYSTEM
 	tristate "ADI PADS System Config driver"
-	default ARCH_SC59X_64 || ARCH_SC5XX
-	depends on ARCH_SC59X_64 || ARCH_SC5XX || COMPILE_TEST
+	default ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
 	select ADI_SYSTEM_CONFIG
 	help
 	  This enables support for the ADI PADS System Config driver,
