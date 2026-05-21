@@ -545,3 +545,4 @@ static struct platform_driver gptimer_counter_driver = {
 };
 
 module_platform_driver(gptimer_counter_driver);
+MODULE_IMPORT_NS("COUNTER");
