@@ -2,6 +2,5 @@
 
 obj-$(CONFIG_ADI_SYSTEM_CONFIG)	+= system.o
 obj-$(CONFIG_ADI_PADS_SYSTEM)	+= pads_system.o
-obj-$(CONFIG_ARCH_SC59X_64)	+= mach-sc59x/
-obj-$(CONFIG_ARCH_SC59X_64)	+= mach-sc5xx/
-obj-$(CONFIG_ARCH_SC5XX)	+= mach-sc5xx/
+obj-$(CONFIG_ADI_MACH_SC59X)	+= mach-sc59x/
+obj-$(CONFIG_ADI_MACH_SC5XX)	+= mach-sc5xx/

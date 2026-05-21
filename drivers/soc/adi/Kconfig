@@ -16,3 +16,19 @@ config ADI_PADS_SYSTEM
 	help
 	  This enables support for the ADI PADS System Config driver,
 	  which manages pin configuration and other system settings.
+
+config ADI_MACH_SC5XX
+	bool "ADI SC5XX machine support" if COMPILE_TEST
+	default ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	select MAILBOX
+	help
+	  This enables machine-level support for Analog Devices SC5XX SoCs,
+	  including the Reset Control Unit, System Event Controller, and
+	  Inter-Core Communications drivers.
+
+config ADI_MACH_SC59X
+	bool "ADI SC59X machine support" if COMPILE_TEST
+	default ARCH_SC59X_64
+	help
+	  This enables machine-level support specific to the Analog Devices
+	  SC59X (64-bit) SoC family.
