@@ -341,6 +341,22 @@ static int max96724_log_phy_status(struct max_des *des,
 static int max96724_set_enable(struct max_des *des, bool enable)
 {
 	struct max96724_priv *priv = des_to_priv(des);
+	int ret;
+
+	/*
+	 * Force a clean OFF->ON transition on enable so the downstream
+	 * Xilinx CSI receiver sees a fresh LP-11 idle window before HS
+	 * data starts. Without this, on subsequent captures the receiver
+	 * fails to lock and either gets SLBF or no frames at all.
+	 */
+	if (enable) {
+		ret = regmap_assign_bits(priv->regmap, MAX96724_BACKTOP12,
+					 MAX96724_BACKTOP12_CSI_OUT_EN, false);
+		if (ret)
+			return ret;
+
+		usleep_range(100, 200);
+	}
 
 	return regmap_assign_bits(priv->regmap, MAX96724_BACKTOP12,
 				  MAX96724_BACKTOP12_CSI_OUT_EN, enable);

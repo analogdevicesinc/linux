@@ -524,12 +524,20 @@ exit_start_stream:
 
 static void xcsi2rxss_stop_stream(struct xcsi2rxss_state *state)
 {
+	u32 timeout = 1000; /* us */
+
 	/* disable interrupts */
 	xcsi2rxss_clr(state, XCSI_IER_OFFSET, XCSI_IER_INTR_MASK);
 	xcsi2rxss_clr(state, XCSI_GIER_OFFSET, XCSI_GIER_GIE);
 
-	/* disable core */
+	/*
+	 * Doing soft_reset with ENABLE=0 (CCR=0x02) is required to clear the
+	 * sticky CSR.SLBF status. This leaves the board in a pre-stream state.
+	*/
 	xcsi2rxss_clr(state, XCSI_CCR_OFFSET, XCSI_CCR_ENABLE);
+	xcsi2rxss_soft_reset(state);
+	xcsi2rxss_write(state, XCSI_CCR_OFFSET, XCSI_CCR_ENABLE);
+
 	state->streaming = false;
 }
 
