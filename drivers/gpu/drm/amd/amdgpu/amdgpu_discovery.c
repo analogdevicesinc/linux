@@ -685,15 +685,11 @@ static int amdgpu_discovery_table_check(struct amdgpu_device *adev,
 		check_table = false;
 		break;
 	}
-	case MEM_RESERVED_INFO: {
-		struct mem_reserved_info_header *mrhdr =
-			(struct mem_reserved_info_header *)(discovery_bin + offset);
-		act_val = le32_to_cpu(mrhdr->signature);
-		exp_val = MEM_RSV_TABLE_SIGNATURE;
-		table_size = le32_to_cpu(mrhdr->size);
+	case MEM_RESERVED_INFO:
+		/* Optional table; signature is validated in get_mem_reserved_info_table(). */
 		table_name = "mem_reserved table";
+		check_table = false;
 		break;
-	}
 	default:
 		dev_err(adev->dev, "invalid ip discovery table id %d specified\n", table_id);
 		check_table = false;
@@ -2497,7 +2493,10 @@ void amdgpu_discovery_mem_reserved_info_sysfs_fini(struct amdgpu_device *adev)
 int amdgpu_discovery_get_mem_reserved_info_table(struct amdgpu_device *adev)
 {
 	uint8_t *discovery_bin = adev->discovery.bin;
+	struct mem_reserved_info_header *mrhdr;
+	struct binary_header *bhdr;
 	struct table_info *info;
+	u16 offset;
 
 	/* If already queried, do not query again. */
 	if (adev->discovery.mem_reserved_table)
@@ -2508,19 +2507,37 @@ int amdgpu_discovery_get_mem_reserved_info_table(struct amdgpu_device *adev)
 		return -ENOENT;
 	}
 
+	/* MEM_RESERVED_INFO only exists in binary_header >= v2. Skip populating it on v1 */
+	bhdr = (struct binary_header *)discovery_bin;
+	if (le16_to_cpu(bhdr->version_major) < 2) {
+		dev_dbg(adev->dev, "header version = %d\n", le16_to_cpu(bhdr->version_major));
+		return -ENOENT;
+	}
+
 	if (amdgpu_discovery_get_table_info(adev, &info, MEM_RESERVED_INFO)) {
 		dev_dbg(adev->dev, "MEM_RESERVED_INFO table entry not present\n");
 		return -EINVAL;
 	}
 
-	if (!le16_to_cpu(info->offset)) {
+	offset = le16_to_cpu(info->offset);
+	if (!offset) {
 		dev_dbg(adev->dev, "MEM_RESERVED_INFO table offset is 0, invalid!\n");
 		return -EINVAL;
 	}
 
+	/*
+	 * Only populated when the signature matches; skip ASICs whose
+	 * slot points to unrelated data.
+	 */
+	mrhdr = (struct mem_reserved_info_header *)(discovery_bin + offset);
+	if (le32_to_cpu(mrhdr->signature) != MEM_RSV_TABLE_SIGNATURE) {
+		dev_dbg(adev->dev, "MEM_RESERVED_INFO table signature mismatch, skipping\n");
+		return -ENOENT;
+	}
+
 	/* Cache for subsequent lookups. */
 	adev->discovery.mem_reserved_table =
-		(struct mem_reserved_info_table_v1_0 *)(discovery_bin + le16_to_cpu(info->offset));
+		(struct mem_reserved_info_table_v1_0 *)mrhdr;
 
 	dev_dbg(adev->dev, "MEM_RESERVED_INFO table exist\n");
 	return 0;
