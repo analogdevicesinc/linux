@@ -83,6 +83,9 @@ config RPMSG_VIRTIO
 
 config RPMSG_ADI
 	tristate "SC598 SHARC rpmsg driver"
-	depends on ARCH_SC59X_64
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	depends on HAS_DMA
+	select ADI_MACH_SC5XX
+	select RPMSG
 
 endmenu
