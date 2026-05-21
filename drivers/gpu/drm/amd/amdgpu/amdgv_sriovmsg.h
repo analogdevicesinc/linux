@@ -507,12 +507,6 @@ struct amd_sriov_ras_chk_criti {
 	uint32_t hit;
 };
 
-union amd_sriov_ras_host_push {
-	struct amd_sriov_ras_telemetry_error_count error_count;
-	struct amd_sriov_ras_cper_dump cper_dump;
-	struct amd_sriov_ras_chk_criti chk_criti;
-};
-
 #define AMD_SRIOV_UNIRAS_BLOCKS_BUF_SIZE 4096
 #define AMD_SRIOV_UNIRAS_CMD_MAX_SIZE (4096 * 13)
 struct amd_sriov_uniras_shared_mem {
@@ -521,9 +515,19 @@ struct amd_sriov_uniras_shared_mem {
 };
 
 struct amdsriov_ras_telemetry {
-	struct amd_sriov_ras_telemetry_header header;
-	union amd_sriov_ras_host_push body;
-	struct amd_sriov_uniras_shared_mem uniras_shared_mem;
+	union {
+		struct {
+			struct amd_sriov_ras_telemetry_header header;
+
+			union {
+				struct amd_sriov_ras_telemetry_error_count error_count;
+				struct amd_sriov_ras_cper_dump cper_dump;
+				struct amd_sriov_ras_chk_criti chk_criti;
+			} body;
+		};
+
+		struct amd_sriov_uniras_shared_mem uniras_shared_mem;
+	};
 };
 
 /* version data stored in MAILBOX_MSGBUF_RCV_DW1 for future expansion */
