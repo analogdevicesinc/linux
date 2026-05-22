@@ -390,7 +390,7 @@ static int adin1140_mdio_register(struct adin1140_priv *priv)
 {
 	int ret;
 
-	priv->mdiobus = devm_mdiobus_alloc(&priv->spi->dev);
+	priv->mdiobus = mdiobus_alloc();
 	if (!priv->mdiobus){
 		netdev_err(priv->netdev, "MDIO bus alloc failed\n");
 
@@ -408,9 +408,10 @@ static int adin1140_mdio_register(struct adin1140_priv *priv)
 	snprintf(priv->mdiobus->id, ARRAY_SIZE(priv->mdiobus->id), "%s",
 		dev_name(&priv->netdev->dev));
 
-	ret = devm_mdiobus_register(&priv->spi->dev, priv->mdiobus);
+	ret = mdiobus_register(priv->mdiobus);
 	if (ret){
 		netdev_err(priv->netdev, "MDIO bus register error\n");
+		mdiobus_free(priv->mdiobus);
 		return ret;
 	}
 
@@ -433,8 +434,8 @@ static int adin1140_phy_init(struct adin1140_priv *priv)
 	priv->phydev = phy_find_first(priv->mdiobus);
 	if (!priv->phydev){
 		netdev_err(priv->netdev, "PHY not found\n");
-
-		return ret;
+		ret = -ENODEV;
+		goto free_mdio;
 	}
 
 	priv->phydev->is_internal = true;
@@ -444,18 +445,25 @@ static int adin1140_phy_init(struct adin1140_priv *priv)
 	if (ret){
 		netdev_err(priv->netdev, "Can't attach PHY to %s\n",
 			   priv->mdiobus->id);
-
-		return ret;
+		goto unregister_mdio;
 	}
 
 	phy_attached_info(priv->netdev->phydev);
 
 	return 0;
+
+unregister_mdio:
+	mdiobus_unregister(priv->mdiobus);
+free_mdio:
+	mdiobus_free(priv->mdiobus);
+
+	return ret;
 }
 
 static void adin1140_phy_unregister(struct adin1140_priv *priv)
 {
 	phy_disconnect(priv->phydev);
+	mdiobus_unregister(priv->mdiobus);
 }
 
 static ssize_t adin1140_reg_addr_read(struct file *file, char __user *userbuf,
@@ -558,7 +566,7 @@ static int adin1140_probe(struct spi_device *spi)
 	struct adin1140_priv *priv;
 	int ret;
 
-	netdev = devm_alloc_etherdev(&spi->dev, sizeof(struct adin1140_priv));
+	netdev = alloc_etherdev(sizeof(struct adin1140_priv));
 	if (!netdev)
 		return -ENOMEM;
 
@@ -568,8 +576,10 @@ static int adin1140_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, priv);
 
 	priv->tc6 = oa_tc6_init(spi, netdev);
-	if (!priv->tc6)
-		return -ENODEV;
+	if (!priv->tc6) {
+		ret = -ENODEV;
+		goto netdev_free;
+	}
 
 	/* Get the MAC address from the SPI device tree node */
 	if (device_get_ethdev_address(&spi->dev, netdev))
@@ -590,7 +600,7 @@ static int adin1140_probe(struct spi_device *spi)
 	netdev->netdev_ops = &adin1140_netdev_ops;
 	netdev->ethtool_ops = &adin1140_ethtool_ops;
 
-	ret = devm_register_netdev(&spi->dev, netdev);
+	ret = register_netdev(netdev);
 	if (ret) {
 		dev_err(&spi->dev, "Register netdev failed (ret = %d)", ret);
 		goto free_phy;
@@ -604,6 +614,8 @@ free_phy:
 	adin1140_phy_unregister(priv);
 oa_tc6_exit:
 	oa_tc6_exit(priv->tc6);
+netdev_free:
+	free_netdev(priv->netdev);
 
 	return ret;
 }
@@ -615,8 +627,11 @@ static void adin1140_remove(struct spi_device *spi)
 	if (IS_ENABLED(CONFIG_DEBUG_FS))
 		debugfs_remove(priv->debug_dir);
 
-	oa_tc6_exit(priv->tc6);
+	unregister_netdev(priv->netdev);
 	adin1140_phy_unregister(priv);
+	oa_tc6_exit(priv->tc6);
+	mdiobus_free(priv->mdiobus);
+	free_netdev(priv->netdev);
 }
 
 static const struct spi_device_id adin1140_spi_id[] = {
