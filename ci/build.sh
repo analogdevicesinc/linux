@@ -1255,7 +1255,20 @@ ensure_compiler () {
 		local bin_path="$base_path/usr/local/bin"
 		source ./install-compilers.sh && "gcc_install_$arch" && rm ./install-compilers.sh
 
-		[[ "$GITHUB_ACTIONS" == "true" ]] && echo "$bin_path" >> "$GITHUB_PATH" || export PATH="$PATH:$bin_path"
+		local inc_path="$opt_path/$arch_/include"
+		local lib_path="$opt_path/$arch_/lib"
+
+		if [[ "$GITHUB_ACTIONS" == "true" ]]; then
+			echo "$bin_path" >> "$GITHUB_PATH"
+			echo "CPATH=$inc_path" >> "$GITHUB_ENV"
+			echo "LIBRARY_PATH=$lib_path" >> "$GITHUB_ENV"
+			echo "LD_LIBRARY_PATH=$lib_path" >> "$GITHUB_ENV"
+		else
+			export PATH="$PATH:$bin_path"
+			export CPATH="$inc_path:${CPATH:-}"
+			export LIBRARY_PATH="$lib_path:${LIBRARY_PATH:-}"
+			export LD_LIBRARY_PATH="$lib_path:${LD_LIBRARY_PATH:-}"
+		fi
 	fi
 }
 

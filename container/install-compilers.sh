@@ -20,6 +20,8 @@ install_gcc () {
 	(cd "$opt_path/$arch/lib" && rm -rf python3.* libpython3.* )
 	ln -s $opt_path/$arch/bin/$arch_alt-* $bin_path
 	rm gcc.tar.xz
+
+	export arch_="$arch"
 }
 
 gcc_install_microblazeel () {
