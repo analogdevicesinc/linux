@@ -627,8 +627,8 @@ SYSCALL_DEFINE3(semget, key_t, key, int, nsems, int, semflg)
 }
 
 /**
- * perform_atomic_semop[_slow] - Attempt to perform semaphore
- *                               operations on a given array.
+ * perform_atomic_semop_slow - Attempt to perform semaphore
+ *                             operations on a given array.
  * @sma: semaphore array
  * @q: struct sem_queue that describes the operation
  *
@@ -716,6 +716,23 @@ undo:
 	return result;
 }
 
+/**
+ * perform_atomic_semop - Attempt to perform semaphore
+ *                        operations on a given array.
+ * @sma: semaphore array
+ * @q: struct sem_queue that describes the operation
+ *
+ * Caller blocking are as follows, based the value
+ * indicated by the semaphore operation (sem_op):
+ *
+ *  (1) >0 never blocks.
+ *  (2)  0 (wait-for-zero operation): semval is non-zero.
+ *  (3) <0 attempting to decrement semval to a value smaller than zero.
+ *
+ * Returns 0 if the operation was possible.
+ * Returns 1 if the operation is impossible, the caller must sleep.
+ * Returns <0 for error codes.
+ */
 static int perform_atomic_semop(struct sem_array *sma, struct sem_queue *q)
 {
 	int result, sem_op, nsops;
