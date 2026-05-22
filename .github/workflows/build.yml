@@ -125,6 +125,7 @@ jobs:
 
     - name: Ensure compiler
       run: |
+        [[ "${{ runner.debug }}" == "1" ]] && set -x
         source ./ci/build.sh
         ensure_compiler
 
