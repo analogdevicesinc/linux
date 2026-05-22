@@ -1242,7 +1242,7 @@ ensure_compiler () {
 
 	local arch=
 	[[ "$ARCH" == "arm64" ]] && arch=aarch64 || arch=$ARCH
-	set_arch gcc_$arch # ensure CROSS_COMPILE
+	set_arch gcc_$arch || : # ensure CROSS_COMPILE
 
 	if ! which "${CROSS_COMPILE}gcc"; then
 		local bearer=
