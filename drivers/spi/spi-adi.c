@@ -652,6 +652,23 @@ static int adi_spi_unprepare_message(struct spi_controller *controller, struct s
 	return 0;
 }
 
+static void adi_spi_set_cs(struct spi_device *spi, bool high)
+{
+	struct adi_spi_controller *drv = spi_controller_get_devdata(spi->controller);
+	u32 cs = spi_get_chipselect(spi, 0);
+	u32 ssel;
+
+	ssel = ioread32(&drv->regs->ssel);
+	/* Set SSEL value bit */
+	if (high)
+		ssel |= BIT(cs + 8);
+	else
+		ssel &= ~BIT(cs + 8);
+	/* Set SSE enable bit */
+	ssel |= BIT(cs);
+	iowrite32(ssel, &drv->regs->ssel);
+}
+
 static int adi_spi_setup(struct spi_device *spi)
 {
 	struct adi_spi_device *chip;
@@ -751,8 +768,9 @@ static int adi_spi_probe(struct platform_device *pdev)
 
 	controller->dev.of_node = dev->of_node;
 	controller->bus_num = -1;
-	controller->num_chipselect = 4;
+	controller->num_chipselect = 8;
 	controller->use_gpio_descriptors = true;
+	controller->set_cs = adi_spi_set_cs;
 	controller->cleanup = adi_spi_cleanup;
 	controller->setup = adi_spi_setup;
 	controller->prepare_message = adi_spi_prepare_message;

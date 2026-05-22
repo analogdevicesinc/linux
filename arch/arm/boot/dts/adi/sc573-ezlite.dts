@@ -137,14 +137,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi2_quad>;
 	status = "okay";
-	cs-gpios = <&gpb 15 GPIO_ACTIVE_LOW>;
-
-	flash: w25q128@0 {
+	flash: w25q128@1 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "winbond,w25q128", "jedec,spi-nor";
 		spi-max-frequency = <50000000>;
-		reg = <0>;
+		reg = <1>;
 		spi-cpol;
 		spi-cpha;
 		spi-tx-bus-width = <4>;
@@ -524,7 +522,8 @@
 				 <ADI_ADSP_PINMUX('B', 10, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('B', 11, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('B', 12, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 13, ADI_ADSP_PINFUNC_ALT0)>;
+				 <ADI_ADSP_PINMUX('B', 13, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 15, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
 	can0_default: can0_default_pins {

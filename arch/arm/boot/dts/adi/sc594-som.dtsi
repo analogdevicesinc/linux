@@ -141,14 +141,12 @@
 	pinctrl-0 = <&spi2_quad>;
 	status = "okay";
 
-	cs-gpios = <&gpa 5 GPIO_ACTIVE_LOW>;
-
-	flash: is25lp512@0 {
+	flash: is25lp512@1 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "issi,is25lp512", "jedec,spi-nor";
 		spi-max-frequency = <5000000>;
-		reg = <0>;
+		reg = <1>;
 		spi-cpol;
 		spi-cpha;
 		spi-rx-bus-width = <4>;
@@ -371,7 +369,8 @@
 				 <ADI_ADSP_PINMUX('A', 1, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('A', 2, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('A', 3, ADI_ADSP_PINFUNC_ALT0)>,
-					 <ADI_ADSP_PINMUX('A', 4, ADI_ADSP_PINFUNC_ALT0)>;
+				 <ADI_ADSP_PINMUX('A', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 5, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
 	ospi_default: ospi_default_pins {

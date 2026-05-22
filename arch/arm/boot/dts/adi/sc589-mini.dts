@@ -126,14 +126,12 @@
 	pinctrl-0 = <&spi2_quad>;
 	status = "okay";
 
-	cs-gpios = <&gpc 6 GPIO_ACTIVE_LOW>;
-
-	flash: mt25ql512@0 {
+	flash: mt25ql512@1 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "micron,mt25ql512", "jedec,spi-nor";
 		spi-max-frequency = <5000000>;
-		reg = <0>;
+		reg = <1>;
 
 		partition@0 {
 			label = "u-boot-spl";
@@ -325,7 +323,8 @@
 				 <ADI_ADSP_PINMUX('C', 2, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('C', 3, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('C', 4, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 5, ADI_ADSP_PINFUNC_ALT0)>;
+				 <ADI_ADSP_PINMUX('C', 5, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('C', 6, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
 	eth0_default: eth0_default_pins {

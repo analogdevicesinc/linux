@@ -201,7 +201,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi2_quad>;
 	status = "okay";
-	cs-gpios = <&gpa 5 GPIO_ACTIVE_LOW>;
 };
 
 &i2c0 {
@@ -274,7 +273,8 @@
 				 <ADI_ADSP_PINMUX('A', 1, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('A', 2, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('A', 3, ADI_ADSP_PINFUNC_ALT0)>,
-					 <ADI_ADSP_PINMUX('A', 4, ADI_ADSP_PINFUNC_ALT0)>;
+				 <ADI_ADSP_PINMUX('A', 4, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 5, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
 	spi3_default: spi3_default_pins {
