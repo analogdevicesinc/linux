@@ -1159,7 +1159,7 @@ auto_set_kconfig() {
 
 _set_arch () {
 	local arch_gcc=("gcc_arm" "gcc_microblaze" "gcc_nios2" "gcc_aarch64" "gcc_x86")
-	local arch_llvm=("llvm_x86")
+	local arch_llvm=("llvm_arm" "llvm_aarch64" "llvm_x86")
 
 	local cur=${COMP_WORDS[COMP_CWORD]}
 	local opts="${arch_gcc[*]} ${arch_llvm[*]}"
@@ -1174,7 +1174,7 @@ set_arch () {
 	local version_gcc=13
 	local version_llvm=19
 	local arch_gcc=("gcc_arm" "gcc_microblaze" "gcc_nios2" "gcc_aarch64" "gcc_x86")
-	local arch_llvm=("llvm_x86")
+	local arch_llvm=("llvm_arm" "llvm_aarch64" "llvm_x86")
 	local arch=( "${arch_llvm[@]}" "${arch_gcc[@]}")
 	local fail=false
 	arch_="\<${1}\>"
@@ -1207,7 +1207,6 @@ set_arch () {
 					export ARCH=arm64
 					;;
 				gcc_x86)
-					export CROSS_COMPILE=
 					export ARCH=x86
 					;;
 			esac
@@ -1215,6 +1214,12 @@ set_arch () {
 		elif [[ "${arch_llvm[@]}" =~ $arch_ ]]; then
 			export LLVM=-$version_llvm
 			case $1 in
+				llvm_arm)
+					export ARCH=arm
+					;;
+				llvm_aarch64)
+					export ARCH=arm64
+					;;
 				llvm_x86)
 					export ARCH=x86
 					;;
@@ -1238,37 +1243,46 @@ set_arch () {
 
 ensure_compiler () {
 	# Helper only for arbitrary run enviroments
+	if [[ -n "$LLVM" ]]; then
+		command -v apt-get && pkg=apt-get || :
+		command -v dnf && pkg=dnf || :
+		command -v zypper && pkg=zypper || :
+		local llvm=${LLVM}
+		[ "$pkg"  == "apt-get" ] || llvm="${llvm#\-}"
+		[ -n "$pkg" ] || return 1
+		command -v "clang${LLVM}" || sudo $pkg install "clang${llvm}" "llvm${llvm}" "lld${llvm}"
+		return 0
+	fi
+
 	[[ -n "$ARCH" ]] || { echo "ARCH is not set" ; return 1 ; }
 
-	local arch=
-	[[ "$ARCH" == "arm64" ]] && arch=aarch64 || arch=$ARCH
-	set_arch gcc_$arch || : # ensure CROSS_COMPILE
+	local arch="$ARCH"
+	[[ "$ARCH" == "arm64" ]] && arch=aarch64 || :
 
-	if ! which "${CROSS_COMPILE}gcc"; then
-		local bearer=
-		[[ -z "$GITHUB_TOKEN" ]] || bearer="Bearer $GITHUB_TOKEN"
-		curl -sL -H "Authorization: $bearer" -o install-compilers.sh \
-		    https://raw.githubusercontent.com/analogdevicesinc/linux/ci/container/install-compilers.sh
+	set_arch gcc_$arch || :
+	command -v "${CROSS_COMPILE}gcc" && return 0 || :
 
-		local base_path=$(mktemp -dt linux.XXX)
-		local opt_path="$base_path/opt/gcc"
-		local bin_path="$base_path/usr/local/bin"
-		source ./install-compilers.sh && "gcc_install_$arch" && rm ./install-compilers.sh
+	local bearer=
+	[[ -z "$GITHUB_TOKEN" ]] || bearer="Bearer $GITHUB_TOKEN"
+	curl -sL -H "Authorization: $bearer" -o install-compilers.sh \
+	    https://raw.githubusercontent.com/analogdevicesinc/linux/ci/container/install-compilers.sh
+	source ./install-compilers.sh && rm ./install-compilers.sh
 
-		local inc_path="$opt_path/$arch_/include"
-		local lib_path="$opt_path/$arch_/lib"
+	local opt_path="$base_path/opt/gcc"
+	"gcc_install_$arch"
+	local inc_path="$opt_path/$arch_/include"
+	local lib_path="$opt_path/$arch_/lib"
 
-		if [[ "$GITHUB_ACTIONS" == "true" ]]; then
-			echo "$bin_path" >> "$GITHUB_PATH"
-			echo "CPATH=$inc_path" >> "$GITHUB_ENV"
-			echo "LIBRARY_PATH=$lib_path" >> "$GITHUB_ENV"
-			echo "LD_LIBRARY_PATH=$lib_path" >> "$GITHUB_ENV"
-		else
-			export PATH="$PATH:$bin_path"
-			export CPATH="$inc_path:${CPATH:-}"
-			export LIBRARY_PATH="$lib_path:${LIBRARY_PATH:-}"
-			export LD_LIBRARY_PATH="$lib_path:${LD_LIBRARY_PATH:-}"
-		fi
+	if [[ "$GITHUB_ACTIONS" == "true" ]]; then
+		echo "$bin_path" >> "$GITHUB_PATH"
+		echo "CPATH=$inc_path" >> "$GITHUB_ENV"
+		echo "LIBRARY_PATH=$lib_path" >> "$GITHUB_ENV"
+		echo "LD_LIBRARY_PATH=$lib_path" >> "$GITHUB_ENV"
+	else
+		export PATH="$PATH:$bin_path"
+		export CPATH="$inc_path:${CPATH:-}"
+		export LIBRARY_PATH="$lib_path:${LIBRARY_PATH:-}"
+		export LD_LIBRARY_PATH="$lib_path:${LD_LIBRARY_PATH:-}"
 	fi
 }
 
