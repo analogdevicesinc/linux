@@ -129,6 +129,12 @@ jobs:
         source ./ci/build.sh
         ensure_compiler
 
+        command -v apt-get && pkg=apt-get || :
+        command -v dnf && pkg=dnf || :
+        command -v zypper && pkg=zypper || :
+        [ -n "$pkg" ] || exit 0
+        command -v mkimage || sudo $pkg install u-boot-tools
+
     - name: Make defconfig
       run: |
         if [[ -f "arch/$ARCH/configs/$DEFCONFIG" ]] || \
