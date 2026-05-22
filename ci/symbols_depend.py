@@ -56,13 +56,13 @@ def filter_symbols(symbols, arch, allow=None):
         and (not s.startswith('ARCH_') or s == allow)
     }
 
-    # Re-add known-entangled ARCH_ symbols for the active arch
-    if arch and arch in arch_map:
-        result |= symbols & set(arch_map[arch])
-
     # COMPILE_TEST satisfies any ARCH_ OR-branch; drop ARCH_ if present
     if 'COMPILE_TEST' in result:
         result = {s for s in result if not s.startswith('ARCH_')}
+
+    # Re-add known-entangled ARCH_ symbols for the active arch
+    if arch and arch in arch_map:
+        result |= symbols & set(arch_map[arch])
 
     return result
 
