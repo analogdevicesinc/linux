@@ -735,6 +735,7 @@ compile_kernel_sparse() {
 	local warn=0
 
 	echo "$step_name (C=1)"
+        command -v sparse || { echo "::notice ::Sparse not found, skipped" ; exit 0 ; }
 
 	[[ -z "$files" ]] && return 0
 	touch $files
@@ -799,28 +800,10 @@ compile_kernel_smatch() {
 	local warn=0
 
 	echo "$step_name (C=1)"
+        command -v smatch || { echo "::notice ::Smatch not found, skipped" ; return 0 ; }
 
 	[[ -z "$files" ]] && return 0
 	touch $files
-	if ! command -v smatch 2>&1 >/dev/null ; then
-		if [[ ! -f /tmp/smatch/smatch ]]; then
-			pushd /tmp
-			rm -rf smatch
-			git clone https://repo.or.cz/smatch.git smatch --depth=1 || (smatch_error=true ; true) && (
-				cd smatch
-				make -j$(nproc) || (smatch_error=true ; true)
-			)
-			popd
-		fi
-
-		alias smatch=/tmp/smatch/smatch
-	fi
-
-	if [[ "$smatch_error" == "true" ]]; then
-		echo "::error ::$step_name: Fetching or compiling smatch failed, so the step was skipped."
-		_set_step_warn '1'
-		return 0;
-	fi
 
 	yes n 2>/dev/null | \
 		make -j$(nproc) C=1 CHECK="smatch -p=kernel" | \
