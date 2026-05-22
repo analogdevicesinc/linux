@@ -4,7 +4,7 @@ config COMMON_CLK_ADI_PLL
 
 config COMMON_CLK_ADI_SC57X
 	bool "ADI SC573 clock driver"
-	depends on ARCH_SC5XX || COMPILE_TEST
+	depends on ARCH_SC57X || COMPILE_TEST
 	select COMMON_CLK_ADI_PLL
 	help
 	  This enables the ADI SC573-ezlite clock driver. The driver provides
