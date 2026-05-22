@@ -24,7 +24,7 @@ config COMMON_CLK_ADI_SC58X
 
 config COMMON_CLK_ADI_SC594
 	bool "ADI SC594 clock driver"
-	depends on ARCH_SC5XX || COMPILE_TEST
+	depends on ARCH_SC59X || COMPILE_TEST
 	select COMMON_CLK_ADI_PLL
 	help
 	  This enables the ADI SC594 clock driver. The driver provides
