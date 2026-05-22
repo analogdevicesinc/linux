@@ -66,7 +66,7 @@ jobs:
       defconfig: "adi_ci_defconfig"
       checks: true
   assert_checks:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-slim' }}
     permissions:
       contents: read
     needs:
@@ -210,7 +210,7 @@ jobs:
         arch/arm64/boot/dts/xilinx/versal-*.dts
         arch/nios2/boot/dts/*.dts
   assert_build:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-slim' }}
     permissions:
       contents: read
     needs:
