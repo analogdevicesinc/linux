@@ -25,7 +25,7 @@ install_gcc () {
 	export arch_="$arch"
 }
 
-gcc_install_microblazeel () {
+gcc_install_microblaze () {
 	install_gcc \
 		"microblazeel" \
 		"$version_gcc" \
@@ -55,7 +55,7 @@ gcc_install_aarch64 () {
 }
 
 gcc_install () {
-	gcc_install_microblazeel
+	gcc_install_microblaze
 	gcc_install_nios2
 	gcc_install_arm
 	gcc_install_aarch64
