@@ -129,7 +129,7 @@ static int sc5xx_cdu_set_parent(struct clk_hw *clk_hw, u8 index)
 	struct sc5xx_cdu *cdu_clk = to_sc5xx_cdu(clk_hw);
 	unsigned long flags;
 	unsigned int input_sel;
-	u32 reg;
+	u32 reg, readback;
 	int ret;
 
 	input_sel = clk_mux_index_to_val(cdu_clk->parent_sel, 0, index);
@@ -153,6 +153,10 @@ static int sc5xx_cdu_set_parent(struct clk_hw *clk_hw, u8 index)
 
 	ret = sc5xx_cdu_wait_ready(cdu_clk);
 
+	readback = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
+	if (FIELD_GET(SC5XX_CDU_CFG_SEL, readback) != input_sel)
+		ret = -EIO;
+	
 out:
 	spin_unlock_irqrestore(cdu_clk->lock, flags);
 
