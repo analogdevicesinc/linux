@@ -312,7 +312,7 @@ static const struct clk_ops sc5xx_cdu_ops = {
  * Register a clock for one CDU mux output. CDU_CFG[n]
  * controls the mux selection and enable state for CDU_CLKOn.
  *
- * The mux preserves the bootloader-selected input clocks during rate changes.
+ * The mux preserves the bootloader selected input clocks during rate changes.
  * Reparenting must be requested explicitly.
  *
  * Return: A registered clock on success, or an ERR_PTR() on failure.
