@@ -153,6 +153,7 @@ static int sc5xx_cdu_set_parent(struct clk_hw *clk_hw, u8 index)
 
 	ret = sc5xx_cdu_wait_ready(cdu_clk);
 
+	/* Verify the mux update before returning success to CCF. */
 	readback = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
 	if (FIELD_GET(SC5XX_CDU_CFG_SEL, readback) != input_sel)
 		ret = -EIO;
