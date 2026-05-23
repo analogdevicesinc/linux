@@ -172,6 +172,7 @@ static u8 sc5xx_cdu_get_parent(struct clk_hw *clk_hw)
 	struct sc5xx_cdu *cdu_clk = to_sc5xx_cdu(clk_hw);
 	unsigned long flags;
 	u32 reg, input_sel;
+	int parent;
 
 	spin_lock_irqsave(cdu_clk->lock, flags);
 	reg = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
@@ -179,8 +180,12 @@ static u8 sc5xx_cdu_get_parent(struct clk_hw *clk_hw)
 
 	input_sel = FIELD_GET(SC5XX_CDU_CFG_SEL, reg);
 
-	return clk_mux_val_to_index(clk_hw, cdu_clk->parent_sel,
+	parent = clk_mux_val_to_index(clk_hw, cdu_clk->parent_sel,
 					0, input_sel);
+	if (parent < 0)
+		return 0;
+
+	return parent;
 }
 
 static int sc5xx_cdu_enable(struct clk_hw *clk_hw)
