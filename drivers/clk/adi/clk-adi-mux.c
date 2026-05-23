@@ -337,7 +337,7 @@ struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 	/* CLKO11 is used internally by the processor and is not user configurable */
 	if (cdu_clko > 14 || cdu_clko == 11)
 		return ERR_PTR(-EINVAL);
-	
+
 	cdu_clk = kzalloc(sizeof(*cdu_clk), GFP_KERNEL);
 	if (!cdu_clk)
 		return ERR_PTR(-ENOMEM);
@@ -347,7 +347,7 @@ struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 	init.parent_names = parent_names;
 	init.num_parents = num_parents;
 	init.flags = clock_flags;
-	
+
 	cdu_clk->clk_hw.init = &init;
 	cdu_clk->base = base;
 	cdu_clk->lock = lock;
