@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Clock distribution unit mux support for ADSP-SC5xx processors
+ * Clock distribution unit (CDU) mux support
+ * for ADSP-SC5xx processors
  *
  * Copyright (C) 2026 Analog Devices Inc.
+ *
  * Author: Qasim Ijaz <qasim.ijaz@analog.com>
+ * Contact: linux@analog.com
  */
 
 #include <linux/bitfield.h>
