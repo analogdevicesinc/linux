@@ -94,30 +94,29 @@ static int ad5686_spi_read(struct ad5686_state *st, u8 addr)
 
 static int ad5686_spi_probe(struct spi_device *spi)
 {
-	const struct spi_device_id *id = spi_get_device_id(spi);
-
-	return ad5686_probe(&spi->dev, id->driver_data, id->name,
-			    ad5686_spi_write, ad5686_spi_read, spi->irq);
+	return ad5686_probe(&spi->dev, spi_get_device_match_data(spi),
+			    spi->modalias, ad5686_spi_write, ad5686_spi_read,
+			    spi->irq);
 }
 
 static const struct spi_device_id ad5686_spi_id[] = {
-	{"ad5310r", ID_AD5310R},
-	{"ad5672r", ID_AD5672R},
-	{"ad5674r", ID_AD5674R},
-	{"ad5676", ID_AD5676},
-	{"ad5676r", ID_AD5676R},
-	{"ad5679r", ID_AD5679R},
-	{"ad5681r", ID_AD5681R},
-	{"ad5682r", ID_AD5682R},
-	{"ad5683", ID_AD5683},
-	{"ad5683r", ID_AD5683R},
-	{"ad5684", ID_AD5684},
-	{"ad5684r", ID_AD5684R},
-	{"ad5685", ID_AD5685R}, /* Does not exist */
-	{"ad5685r", ID_AD5685R},
-	{"ad5686", ID_AD5686},
-	{"ad5686r", ID_AD5686R},
-	{}
+	{ .name = "ad5310r", .driver_data = (kernel_ulong_t)&ad5310r_chip_info },
+	{ .name = "ad5672r", .driver_data = (kernel_ulong_t)&ad5672r_chip_info },
+	{ .name = "ad5674r", .driver_data = (kernel_ulong_t)&ad5674r_chip_info },
+	{ .name = "ad5676",  .driver_data = (kernel_ulong_t)&ad5676_chip_info },
+	{ .name = "ad5676r", .driver_data = (kernel_ulong_t)&ad5676r_chip_info },
+	{ .name = "ad5679r", .driver_data = (kernel_ulong_t)&ad5679r_chip_info },
+	{ .name = "ad5681r", .driver_data = (kernel_ulong_t)&ad5681r_chip_info },
+	{ .name = "ad5682r", .driver_data = (kernel_ulong_t)&ad5682r_chip_info },
+	{ .name = "ad5683",  .driver_data = (kernel_ulong_t)&ad5683_chip_info },
+	{ .name = "ad5683r", .driver_data = (kernel_ulong_t)&ad5683r_chip_info },
+	{ .name = "ad5684",  .driver_data = (kernel_ulong_t)&ad5684_chip_info },
+	{ .name = "ad5684r", .driver_data = (kernel_ulong_t)&ad5684r_chip_info },
+	{ .name = "ad5685",  .driver_data = (kernel_ulong_t)&ad5685r_chip_info }, /* nonexistent */
+	{ .name = "ad5685r", .driver_data = (kernel_ulong_t)&ad5685r_chip_info },
+	{ .name = "ad5686",  .driver_data = (kernel_ulong_t)&ad5686_chip_info },
+	{ .name = "ad5686r", .driver_data = (kernel_ulong_t)&ad5686r_chip_info },
+	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad5686_spi_id);
 
