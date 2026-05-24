@@ -325,7 +325,7 @@ static const struct clk_ops sc5xx_cdu_ops = {
  *
  * Return: A registered clock on success, or an ERR_PTR() on failure.
  */
-struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
+struct clk * __init sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 				u8 cdu_clko, const char * const *parent_names,
 				const u32 *parent_sel, u8 num_parents,
 				unsigned long clock_flags, spinlock_t *lock)
