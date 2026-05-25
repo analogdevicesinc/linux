@@ -188,7 +188,6 @@ static const struct watchdog_ops adi_wdt_ops = {
 
 static int adi_wdt_probe(struct platform_device *pdev)
 {
-	int ret;
 	struct adi_wdt *wdt;
 	struct resource *res;
 	unsigned long sclk;
@@ -218,15 +217,9 @@ static int adi_wdt_probe(struct platform_device *pdev)
 	wdt->rate = sclk;
 
 	watchdog_set_nowayout(&wdt->wdd, nowayout);
-
-	ret = devm_watchdog_register_device(&pdev->dev, &wdt->wdd);
-	if (ret) {
-		pr_info("cannot register watchdog (%d)\n", ret);
-		return ret;
-	}
-
 	watchdog_set_drvdata(&wdt->wdd, wdt);
 	platform_set_drvdata(pdev, wdt);
+
 	if (watchdog_init_timeout(&wdt->wdd, 0, &pdev->dev)) {
 		if (watchdog_init_timeout(&wdt->wdd, timeout, &pdev->dev))
 			return -EINVAL;
@@ -235,10 +228,13 @@ static int adi_wdt_probe(struct platform_device *pdev)
 	} else
 		adi_wdt_set_timeout(&wdt->wdd, wdt->wdd.timeout);
 
+	if (adi_wdt_running(&wdt->wdd))
+		set_bit(WDOG_HW_RUNNING, &wdt->wdd.status);
+
 	pr_info("initialized: timeout=%d sec (nowayout=%d)\n",
 		timeout, nowayout);
 
-	return 0;
+	return devm_watchdog_register_device(&pdev->dev, &wdt->wdd);
 }
 
 static void adi_wdt_shutdown(struct platform_device *pdev)
