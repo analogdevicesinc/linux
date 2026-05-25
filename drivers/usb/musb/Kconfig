@@ -107,7 +107,7 @@ config USB_MUSB_JZ4740
 
 config USB_MUSB_ADI
 	tristate "ADI"
-	depends on ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	depends on ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
 	help
 	  Enable usb on ADI platforms.
 
