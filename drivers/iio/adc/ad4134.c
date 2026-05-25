@@ -82,9 +82,8 @@
 
 #define AD4134_ODR_MIN				10
 #define AD4134_ODR_MAX				1496000
-#define AD4134_ODR_DEFAULT			1496000
 
-#define AD4134_RESET_TIME_US			10000000
+#define AD4134_RESET_TIME_US			1000
 
 enum {
 	ODR_SET_FREQ,
@@ -237,7 +236,6 @@ struct ad4134_state {
 	struct gpio_desc		*pdn_gpio;
 	struct gpio_chip		gpiochip;
 
-	unsigned int			odr;
 	unsigned int			filter_type;
 	unsigned long			sys_clk_rate;
 	int				refin_mv;
@@ -396,7 +394,6 @@ static int ad4134_setup_odr(struct ad4134_state *st, unsigned int freq_hz)
 	 * Conversely, when multiple data lanes are enabled, the requested
 	 * sampling frequency can be reached with slower ODR frequencies. ?
 	 */
-	//odr_hz = freq_hz / st->num_dout_lines;
 	odr_hz = freq_hz;
 	dev_info(&st->spi->dev, "ODR frequency: %u Hz (DOUT lines: %u)\n",
 		odr_hz, st->num_dout_lines);
@@ -475,7 +472,6 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 	 * Conversely, when multiple data lanes are enabled, the requested
 	 * sampling frequency can be reached with slower ODR frequencies.
 	 */
-	//odr_hz = freq_hz / st->num_dout_lines;
 	odr_hz = freq_hz;
 	if (odr_hz < AD4134_MIN_ODR_FREQ_HZ || odr_hz > AD4134_MAX_ODR_FREQ_HZ)
 		return -EINVAL;
@@ -512,7 +508,7 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 		}
 	}
 
-	dev_info(&st->spi->dev, "ad7134: ODR period=%llu ns, duty=%llu ns, odr_high_min=%llu ns\n",
+	dev_dbg(&st->spi->dev, "ad7134: ODR period=%llu ns, duty=%llu ns, odr_high_min=%llu ns\n",
 		 odr_wf.period_length_ns, odr_wf.duty_length_ns, odr_high_time_ns);
 
 	ret = pwm_set_waveform_might_sleep(st->odr_trigger, &odr_wf, false);
@@ -548,7 +544,7 @@ static int ad4134_update_conversion_rate(struct ad4134_state *st,
 		 div64_ul(AD4134_TRIGGER_OFFSET_CYCLES * (u64)NANO,
 			  st->sys_clk_hz));
 
-	dev_info(&st->spi->dev, "ad7134: trigger offset=%llu ns, trigger freq=%llu Hz, offload_period=%llu ns\n",
+	dev_dbg(&st->spi->dev, "ad7134: trigger offset=%llu ns, trigger freq=%llu Hz, offload_period=%llu ns\n",
 		 config->periodic.offset_ns, config->periodic.frequency_hz, odr_wf.period_length_ns);
 
 	st->odr_wf = odr_wf;
@@ -562,11 +558,6 @@ static ssize_t sampling_frequency_show(struct device *dev,
 {
 	struct ad4134_state *st = iio_priv(dev_to_iio_dev(dev));
 
-	/*
-	 * If the controller can fetch data from multiple lanes, the throughput
-	 * is increased proportionally to the number of data lanes in use.
-	 */
-	//return sysfs_emit(buf, "%u\n", st->odr_hz * st->num_dout_lines);
 	return sysfs_emit(buf, "%u\n", st->odr_hz);
 }
 
@@ -1020,7 +1011,7 @@ static int ad4134_assert_sibling_pdn(struct device *dev, void *data)
 	}
 	/* GPIOD_OUT_HIGH on ACTIVE_LOW = pin LOW = chip in PDN */
 	sib->pdn_gpio = pdn;
-	dev_info(dev, "ad7134: sibling PDN asserted (synchronized cycle)\n");
+	dev_dbg(dev, "ad7134: sibling PDN asserted (synchronized cycle)\n");
 	return 0;
 }
 
@@ -1043,7 +1034,7 @@ static int ad4134_release_sibling_pdn(struct device *dev, void *data)
 	sib = iio_priv(indio_dev);
 	if (sib->pdn_gpio) {
 		gpiod_set_value_cansleep(sib->pdn_gpio, 0);
-		dev_info(dev, "ad7134: sibling PDN released (synchronized cycle)\n");
+		dev_dbg(dev, "ad7134: sibling PDN released (synchronized cycle)\n");
 	}
 	return 0;
 }
@@ -1074,7 +1065,7 @@ static int ad4134_configure_sibling(struct device *dev, void *data)
 	if (!sib->regmap)
 		return 0;
 
-	dev_info(dev, "ad7134: reapplying config to sibling after shared reset\n");
+	dev_dbg(dev, "ad7134: reapplying config to sibling after shared reset\n");
 
 	/*
 	 * The slave's pdn_gpio was already requested and toggled in the
@@ -1091,7 +1082,7 @@ static int ad4134_configure_sibling(struct device *dev, void *data)
 	 */
 	for (attempt = 1; attempt <= AD4134_SIBLING_LOCK_RETRIES; attempt++) {
 		if (sib->pdn_gpio) {
-			dev_info(dev, "ad7134: sibling PDN cycle attempt %d/%d\n",
+			dev_dbg(dev, "ad7134: sibling PDN cycle attempt %d/%d\n",
 				 attempt, AD4134_SIBLING_LOCK_RETRIES);
 			gpiod_set_value_cansleep(sib->pdn_gpio, 1);   /* assert PDN */
 			fsleep(100000);                                /* 100 ms */
@@ -1134,13 +1125,13 @@ static int ad4134_configure_sibling(struct device *dev, void *data)
 
 		ret = regmap_read(sib->regmap, 0x15, &regval);
 		if (!ret && (regval & BIT(0))) {
-			dev_info(dev, "ad7134: sibling PLL locked on attempt %d (0x15=0x%02X)\n",
+			dev_dbg(dev, "ad7134: sibling PLL locked on attempt %d (0x15=0x%02X)\n",
 				 attempt, regval);
 			return 0;
 		}
 
 		ret = regmap_read(sib->regmap, 0x42, &regval);
-		dev_info(dev, "ad7134: sibling PLL not locked on attempt %d (0x42=0x%02X)\n",
+		dev_dbg(dev, "ad7134: sibling PLL not locked on attempt %d (0x42=0x%02X)\n",
 			 attempt, regval);
 	}
 
@@ -1206,7 +1197,7 @@ static int ad4134_setup(struct ad4134_state *st)
 		if (ret)
 			return dev_err_probe(dev, ret, "failed to get PWM: %d\n", ret);
 
-		dev_info(dev, "PWM obtained successfully\n");
+		dev_dbg(dev, "PWM obtained successfully\n");
 
 		/*
 		 * Start ODR FIRST. SDPCLK as CMOS CLKIN (48 MHz) is already
@@ -1215,7 +1206,7 @@ static int ad4134_setup(struct ad4134_state *st)
 		 * ODR pins before we touch them again with PDN.
 		 */
 		st->odr_hz = 1400000;
-		dev_info(dev, "Setting initial ODR frequency to %u Hz\n", st->odr_hz);
+		dev_dbg(dev, "Setting initial ODR frequency to %u Hz\n", st->odr_hz);
 		ret = ad4134_setup_odr(st, st->odr_hz);
 		if (ret)
 			return dev_err_probe(dev, ret, "failed to set odr freq\n");
@@ -1240,7 +1231,7 @@ static int ad4134_setup(struct ad4134_state *st)
 		if (IS_ERR(st->pdn_gpio))
 			st->pdn_gpio = NULL;
 		if (st->pdn_gpio)
-			dev_info(dev, "ad7134: master PDN asserted (synchronized cycle)\n");
+			dev_dbg(dev, "ad7134: master PDN asserted (synchronized cycle)\n");
 
 		if (st->ad4134_duo)
 			device_for_each_child(&st->spi->controller->dev,
@@ -1251,7 +1242,7 @@ static int ad4134_setup(struct ad4134_state *st)
 
 		if (st->pdn_gpio) {
 			gpiod_set_value_cansleep(st->pdn_gpio, 0);
-			dev_info(dev, "ad7134: master PDN released (synchronized cycle)\n");
+			dev_dbg(dev, "ad7134: master PDN released (synchronized cycle)\n");
 		}
 		if (st->ad4134_duo)
 			device_for_each_child(&st->spi->controller->dev,
@@ -1260,7 +1251,7 @@ static int ad4134_setup(struct ad4134_state *st)
 
 		fsleep(100000);  /* 100 ms power-up settle */
 
-		dev_info(&st->spi->dev, "wait for PLL lock with running ODR\n");
+		dev_dbg(&st->spi->dev, "wait for PLL lock with running ODR\n");
 		fsleep(MEGA); /* 1 s settling for both chips' ASRC PLLs */
 	}
 
@@ -1328,9 +1319,9 @@ static int ad4134_setup(struct ad4134_state *st)
 			ret = regmap_read(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG, &v1e);
 
 		if (!ret) {
-			dev_info(&st->spi->dev,
-				 "ad7134: broadcast config: 0x11=0x%02X 0x12=0x%02X 0x02=0x%02X 0x1E=0x%02X\n",
-				 v11, v12, v02, v1e);
+			dev_dbg(&st->spi->dev,
+				"ad7134: broadcast config: 0x11=0x%02X 0x12=0x%02X 0x02=0x%02X 0x1E=0x%02X\n",
+				v11, v12, v02, v1e);
 
 			gpiod_set_value_cansleep(st->cs_gpio, 1);
 
