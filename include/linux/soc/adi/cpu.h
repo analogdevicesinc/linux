@@ -118,7 +118,15 @@ void disable_gptimers(u16 mask);
 void map_gptimers(void);
 u16 get_gptimer_status(void);
 void set_gptimer_status(u16 value);
+#if defined(CONFIG_ARCH_SC57X) || defined(CONFIG_ARCH_SC58X) || \
+	defined(CONFIG_ARCH_SC59X) || defined(CONFIG_ARCH_SC59X_64)
 void set_spu_securep_msec(u16 n, bool msec);
+#elif defined(CONFIG_COMPILE_TEST)
+static inline void set_spu_securep_msec(u16 n, bool msec)
+{
+}
+#endif
+
 void platform_ipi_init(void);
 
 #endif				/* __MACH_CPU_H */
