@@ -159,7 +159,7 @@ config GPIO_74XX_MMIO
 
 config GPIO_ADI_ADSP_PORT
 	bool "ADI ADSP PORT GPIO driver"
-	depends on OF_GPIO
+	depends on OF_GPIO && (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST)
 	select GPIO_GENERIC
 	select ADI_ADSP_IRQ
 	help
