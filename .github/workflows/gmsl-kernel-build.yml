@@ -64,15 +64,6 @@ jobs:
         find ${{ github.workspace }}/install/modules/lib/modules/ \
              -maxdepth 2 \( -name build -o -name source \) -delete
 
-    - name: Download rpi boot files
-      run: |
-        cd ${{ github.workspace }}/install/boot/
-        wget --progress=bar:force:noscroll "https://swdownloads.analog.com/cse/linux_rpi/gmsl/boot-files/rpi-boot-files.tar.gz"
-        tar -zxvf rpi-boot-files.tar.gz
-        mv boot-files/* .
-        rm -rf boot-files
-        rm rpi-boot-files.tar.gz
-
     - name: Upload boot files
       uses: actions/upload-artifact@v4
       with:
@@ -117,6 +108,7 @@ jobs:
 
     - name: Create combined boot tarball
       run: |
+        chmod -R +x combined/boot
         cd combined/boot
         tar -czf ${{ github.workspace }}/rpi_latest_boot_64bit.tar.gz .
 
@@ -139,15 +131,23 @@ jobs:
         path: ${{ github.workspace }}/rpi_modules_64bit.tar.gz
         retention-days: 30
 
-    - name: Trigger adi-kuiper-gen build
-      run: |
-        curl --fail-with-body -s -X POST \
-          -H "Accept: application/vnd.github+json" \
-          -H "Authorization: Bearer ${{ secrets.CROSS_REPO_PAT }}" \
-          https://api.github.com/repos/iristeiu06/adi-kuiper-gen/actions/workflows/gmsl-image-build.yml/dispatches \
-          -d '{
-            "ref": "gmsl-rpi-6.13.y",
-            "inputs": {
-              "linux_run_id": "${{ github.run_id }}"
-            }
-          }'
+  deploy:
+    needs: package
+    runs-on: nuc1
+    env:
+      STAGING_DIR: /home/nuc1/workspace/ioana/podman-rpi-pxe-server/staging
+      ALL_BACKUP_DIR: /home/nuc1/workspace/ioana/podman-rpi-pxe-server/backup
+      TFTPBOOT_DIR: /home/nuc1/workspace/ioana/podman-rpi-pxe-server/data/tftpboot
+      NFS_DIR: /home/nuc1/workspace/ioana/podman-rpi-pxe-server/data/nfs/rpi/rootfs
+    steps:
+    - name: Download boot tarball
+      uses: actions/download-artifact@v4
+      with:
+        name: rpi_boot_64bit
+        path: ${{ env.STAGING_DIR }}
+
+    - name: Download modules tarball
+      uses: actions/download-artifact@v4
+      with:
+        name: rpi_modules_64bit
+        path: ${{ env.STAGING_DIR }}
