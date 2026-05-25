@@ -232,7 +232,7 @@ static int adi_wdt_probe(struct platform_device *pdev)
 		set_bit(WDOG_HW_RUNNING, &wdt->wdd.status);
 
 	pr_info("initialized: timeout=%d sec (nowayout=%d)\n",
-		timeout, nowayout);
+		wdt->wdd.timeout, nowayout);
 
 	return devm_watchdog_register_device(&pdev->dev, &wdt->wdd);
 }
