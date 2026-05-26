@@ -46,6 +46,7 @@ choice
 
 	config SND_SC5XX_SPORT_SHARC
 		bool "SHARC process SPORT data"
+		depends on NET
 		help
 		  Say Y if you want to process audio data in SHARC core,
 		  requires firmware with ICAP (Inter Core Audio Protocol)
@@ -104,7 +105,7 @@ config SND_SC5XX_ADAU1372
 
 config SND_SC5XX_SHARC_ALSA_CARD
 	tristate "SHARC-ALSA SoC Audio card for the ADI SC5XX chip"
-	depends on ADI_REMOTEPROC && RPMSG && (ARCH_SC57X || ARCH_SC58X || ARCH_SC59X || ARCH_SC59X_64 || COMPILE_TEST)
+	depends on ADI_REMOTEPROC && RPMSG && NET && (ARCH_SC57X || ARCH_SC58X || ARCH_SC59X || ARCH_SC59X_64 || COMPILE_TEST)
 	help
 	  Virtual SHARC ASoC card driver. Creates a sound card for each "sharc-audio"
 	  rpmsg endpoint announced on a rpmsg channel. The driver is just
