@@ -18,7 +18,7 @@
 #include <linux/usb/usb_phy_generic.h>
 #include <linux/usb/usb_phy_generic.h>
 #include <linux/usb/of.h>
-#include <linux/soc/adi/cpu.h>
+#include <linux/soc/adi/spu.h>
 
 #include "adi.h"
 #include "musb_core.h"
@@ -194,7 +194,7 @@ static int adi_musb_init(struct musb *musb)
 		return -ENXIO;
 	}
 
-	set_spu_securep_msec(spu_securep_id, true);
+	adi_spu_set_securep(spu_securep_id, true);
 
 	musb->xceiv = devm_usb_get_phy_by_phandle(dev->parent, "phys", 0);
 	if (IS_ERR_OR_NULL(musb->xceiv)) {
