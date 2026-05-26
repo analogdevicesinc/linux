@@ -30,6 +30,7 @@
 
 #include <linux/soc/adi/icc.h>
 #include <linux/soc/adi/rcu.h>
+#include <linux/soc/adi/spu.h>
 #include "remoteproc_internal.h"
 
 /* location of bootrom that loops idle */
@@ -361,14 +362,14 @@ static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
 void set_spu_securep_msec(u16 n, bool msec);
 static void enable_spu(void)
 {
-	set_spu_securep_msec(SPU_MDMA0_SRC_ID, true);
-	set_spu_securep_msec(SPU_MDMA0_DST_ID, true);
+	adi_spu_set_securep(SPU_MDMA0_SRC_ID, true);
+	adi_spu_set_securep(SPU_MDMA0_DST_ID, true);
 }
 
 static void disable_spu(void)
 {
-	set_spu_securep_msec(SPU_MDMA0_SRC_ID, false);
-	set_spu_securep_msec(SPU_MDMA0_DST_ID, false);
+	adi_spu_set_securep(SPU_MDMA0_SRC_ID, false);
+	adi_spu_set_securep(SPU_MDMA0_DST_ID, false);
 }
 
 static int adi_ldr_load(struct adi_rproc_data *rproc_data,
