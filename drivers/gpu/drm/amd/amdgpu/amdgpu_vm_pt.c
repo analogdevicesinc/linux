@@ -882,7 +882,6 @@ int amdgpu_vm_ptes_update(struct amdgpu_vm_update_params *params,
 		entry_end = min(entry_end, end);
 
 		do {
-			struct amdgpu_vm *vm = params->vm;
 			uint64_t upd_end = min(entry_end, frag_end);
 			unsigned int nptes = (upd_end - frag_start) >> shift;
 			uint64_t upd_flags = flags | AMDGPU_PTE_FRAG(frag);
@@ -894,9 +893,7 @@ int amdgpu_vm_ptes_update(struct amdgpu_vm_update_params *params,
 
 			trace_amdgpu_vm_update_ptes(params, frag_start, upd_end,
 						    min(nptes, 32u), dst, incr,
-						    upd_flags,
-						    vm->task_info ? vm->task_info->tgid : 0,
-						    vm->immediate.fence_context);
+						    upd_flags);
 			amdgpu_vm_pte_update_flags(params, to_amdgpu_bo_vm(pt),
 						   cursor.level, pe_start, dst,
 						   nptes, incr, upd_flags);
