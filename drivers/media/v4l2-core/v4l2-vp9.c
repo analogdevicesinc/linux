@@ -1582,25 +1582,25 @@ static inline u8 noncoef_merge_prob(u8 pre_prob, u32 ct0, u32 ct1)
  *	merge_prob(p[9], c[9], [10])
  */
 
-static inline void merge_probs_variant_a(u8 *p, const u32 *c, u16 count_sat, u32 update_factor)
+static noinline_for_stack void merge_probs_variant_a(u8 *p, const u32 *c, u16 count_sat, u32 update_factor)
 {
 	p[1] = merge_prob(p[1], c[0], c[1] + c[2], count_sat, update_factor);
 	p[2] = merge_prob(p[2], c[1], c[2], count_sat, update_factor);
 }
 
-static inline void merge_probs_variant_b(u8 *p, const u32 *c, u16 count_sat, u32 update_factor)
+static noinline_for_stack void merge_probs_variant_b(u8 *p, const u32 *c, u16 count_sat, u32 update_factor)
 {
 	p[0] = merge_prob(p[0], c[0], c[1], count_sat, update_factor);
 }
 
-static inline void merge_probs_variant_c(u8 *p, const u32 *c)
+static noinline_for_stack void merge_probs_variant_c(u8 *p, const u32 *c)
 {
 	p[0] = noncoef_merge_prob(p[0], c[2], c[1] + c[0] + c[3]);
 	p[1] = noncoef_merge_prob(p[1], c[0], c[1] + c[3]);
 	p[2] = noncoef_merge_prob(p[2], c[1], c[3]);
 }
 
-static void merge_probs_variant_d(u8 *p, const u32 *c)
+static noinline_for_stack void merge_probs_variant_d(u8 *p, const u32 *c)
 {
 	u32 sum = 0, s2;
 
@@ -1624,20 +1624,20 @@ static void merge_probs_variant_d(u8 *p, const u32 *c)
 	p[8] = noncoef_merge_prob(p[8], c[6], c[7]);
 }
 
-static inline void merge_probs_variant_e(u8 *p, const u32 *c)
+static noinline_for_stack void merge_probs_variant_e(u8 *p, const u32 *c)
 {
 	p[0] = noncoef_merge_prob(p[0], c[0], c[1] + c[2] + c[3]);
 	p[1] = noncoef_merge_prob(p[1], c[1], c[2] + c[3]);
 	p[2] = noncoef_merge_prob(p[2], c[2], c[3]);
 }
 
-static inline void merge_probs_variant_f(u8 *p, const u32 *c)
+static noinline_for_stack void merge_probs_variant_f(u8 *p, const u32 *c)
 {
 	p[0] = noncoef_merge_prob(p[0], c[0], c[1] + c[2]);
 	p[1] = noncoef_merge_prob(p[1], c[1], c[2]);
 }
 
-static void merge_probs_variant_g(u8 *p, const u32 *c)
+static noinline_for_stack void merge_probs_variant_g(u8 *p, const u32 *c)
 {
 	u32 sum;
 
@@ -1659,12 +1659,12 @@ static void merge_probs_variant_g(u8 *p, const u32 *c)
 }
 
 /* 8.4.3 Coefficient probability adaptation process */
-static inline void adapt_probs_variant_a_coef(u8 *p, const u32 *c, u32 update_factor)
+static noinline_for_stack void adapt_probs_variant_a_coef(u8 *p, const u32 *c, u32 update_factor)
 {
 	merge_probs_variant_a(p, c, 24, update_factor);
 }
 
-static inline void adapt_probs_variant_b_coef(u8 *p, const u32 *c, u32 update_factor)
+static noinline_for_stack void adapt_probs_variant_b_coef(u8 *p, const u32 *c, u32 update_factor)
 {
 	merge_probs_variant_b(p, c, 24, update_factor);
 }
@@ -1724,33 +1724,33 @@ static inline void adapt_probs_variant_b(u8 *p, const u32 *c)
 	merge_probs_variant_b(p, c, 20, 128);
 }
 
-static inline void adapt_probs_variant_c(u8 *p, const u32 *c)
+static noinline_for_stack void adapt_probs_variant_c(u8 *p, const u32 *c)
 {
 	merge_probs_variant_c(p, c);
 }
 
-static inline void adapt_probs_variant_d(u8 *p, const u32 *c)
+static noinline_for_stack void adapt_probs_variant_d(u8 *p, const u32 *c)
 {
 	merge_probs_variant_d(p, c);
 }
 
-static inline void adapt_probs_variant_e(u8 *p, const u32 *c)
+static noinline_for_stack void adapt_probs_variant_e(u8 *p, const u32 *c)
 {
 	merge_probs_variant_e(p, c);
 }
 
-static inline void adapt_probs_variant_f(u8 *p, const u32 *c)
+static noinline_for_stack void adapt_probs_variant_f(u8 *p, const u32 *c)
 {
 	merge_probs_variant_f(p, c);
 }
 
-static inline void adapt_probs_variant_g(u8 *p, const u32 *c)
+static noinline_for_stack void adapt_probs_variant_g(u8 *p, const u32 *c)
 {
 	merge_probs_variant_g(p, c);
 }
 
 /* 8.4.4 Non coefficient probability adaptation process, adapt_prob() */
-static inline u8 adapt_prob(u8 prob, const u32 counts[2])
+static noinline_for_stack u8 adapt_prob(u8 prob, const u32 counts[2])
 {
 	return noncoef_merge_prob(prob, counts[0], counts[1]);
 }
