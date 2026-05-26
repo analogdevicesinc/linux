@@ -86,5 +86,7 @@
 		pd-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
 		clocks = <&hmcad15xx_xtal>;
 		clock-names = "clk";
+        adi,num-channels = <1>;
+		adi,resolution = <8>;
 	};
 };
