@@ -339,6 +339,41 @@ static int amdgpu_virt_ras_realloc_eh_data_space(struct amdgpu_device *adev,
 	return 0;
 }
 
+int amdgpu_virt_get_uniras_ras_caps(struct amdgpu_device *adev,
+				    struct amd_sriov_uniras_caps *caps)
+{
+	struct amd_sriov_msg_pf2vf_info *pf2vf_msg;
+
+	if (!adev || !caps)
+		return -EINVAL;
+
+	if (!adev->virt.fw_reserve.p_pf2vf)
+		return -EINVAL;
+
+	if (adev->virt.fw_reserve.p_pf2vf->version != AMD_SRIOV_MSG_FW_VRAM_PF2VF_VER)
+		return -EINVAL;
+
+	pf2vf_msg = (struct amd_sriov_msg_pf2vf_info *)adev->virt.fw_reserve.p_pf2vf;
+
+	if (pf2vf_msg->header.size > (AMD_SRIOV_MSG_SIZE_KB << 10) ||
+	    pf2vf_msg->header.size <
+	    offsetof(struct amd_sriov_msg_pf2vf_info, pf2vf_ras_caps) +
+	    sizeof(pf2vf_msg->pf2vf_ras_caps))
+		return -EINVAL;
+
+	if (!pf2vf_msg->feature_flags.flags.uniras_support)
+		return -EOPNOTSUPP;
+
+	*caps = pf2vf_msg->pf2vf_ras_caps.uniras_caps;
+
+	dev_dbg(adev->dev,
+		"uniras caps: ras_ext_ecc_type=0x%x ras_int_ecc_attributes=0x%x ras_en_block_mask=0x%llx\n",
+		caps->ras_ext_ecc_type, caps->ras_int_ecc_attributes,
+		caps->ras_en_block_mask);
+
+	return 0;
+}
+
 static int amdgpu_virt_init_ras_err_handler_data(struct amdgpu_device *adev)
 {
 	struct amdgpu_virt *virt = &adev->virt;
@@ -614,9 +649,9 @@ static int amdgpu_virt_read_pf2vf_data(struct amdgpu_device *adev)
 		if (amdgpu_sriov_is_unitid_support(adev))
 			adev->unitid = pf2vf->unitid;
 
-		adev->virt.ras_en_caps.all = pf2vf->ras_en_caps.all;
+		adev->virt.ras_en_caps.all = pf2vf->pf2vf_ras_caps.ras_en_caps.all;
 		adev->virt.ras_telemetry_en_caps.all =
-			pf2vf->ras_telemetry_en_caps.all;
+			pf2vf->pf2vf_ras_caps.ras_telemetry_en_caps.all;
 		break;
 	default:
 		dev_err(adev->dev, "invalid pf2vf version: 0x%x\n", pf2vf_info->version);

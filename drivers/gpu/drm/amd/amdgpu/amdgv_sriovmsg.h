@@ -164,7 +164,8 @@ union amd_sriov_msg_feature_flags {
 		uint32_t xgmi_connected_to_cpu  : 1;
 		uint32_t ptl_support		: 1;
 		uint32_t unitid_support		: 1;
-		uint32_t reserved		: 16;
+		uint32_t uniras_support		: 1;
+		uint32_t reserved		: 15;
 	} flags;
 	uint32_t all;
 };
@@ -208,6 +209,27 @@ union amd_sriov_ras_caps {
 		uint64_t reserved			: 42;
 	} bits;
 	uint64_t all;
+};
+
+struct amd_sriov_uniras_caps {
+	uint32_t ras_ext_ecc_type;
+	uint32_t ras_int_ecc_attributes;
+	uint64_t ras_en_block_mask;
+};
+
+/*
+ * PF2VF RAS capability words (16 bytes, layout matches legacy fields):
+ * ras_ext_ecc_type and ras_int_ecc_attributes are aliases ras_en_caps,
+ * ras_en_block_mask aliases ras_telemetry_en_caps.
+ */
+union amd_sriov_msg_pf2vf_ras_caps {
+	/* ras caps for uniras enabled case */
+	struct amd_sriov_uniras_caps uniras_caps;
+	/* ras caps for uniras disabled case*/
+	struct {
+		union amd_sriov_ras_caps ras_en_caps;
+		union amd_sriov_ras_caps ras_telemetry_en_caps;
+	};
 };
 
 union amd_sriov_msg_os_info {
@@ -314,8 +336,7 @@ struct amd_sriov_msg_pf2vf_info {
 	/* vf bdf on host pci tree for debug only */
 	uint32_t bdf_on_host;
 	uint32_t more_bp;	//Reserved for future use.
-	union amd_sriov_ras_caps ras_en_caps;
-	union amd_sriov_ras_caps ras_telemetry_en_caps;
+	union amd_sriov_msg_pf2vf_ras_caps pf2vf_ras_caps;
 	/* PTL status response for guest */
 	uint32_t ptl_enabled;        // PTL enable status: 0=disabled, 1=enabled
 	uint32_t ptl_pref_format1;   // Current preferred format 1
