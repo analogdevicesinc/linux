@@ -61,6 +61,15 @@ typedef enum adi_adrv9001_PllPower
 } adi_adrv9001_PllPower_e;
 
 /**
+ * \brief Modes for fetching Loop Filter coefficients
+ */
+typedef enum adi_adrv9001_PllLfCoefficientMode
+{
+    ADI_ADRV9001_PLL_LF_COEFFICIENT_CALCULATE,
+    ADI_ADRV9001_PLL_LF_COEFFICIENT_LOOKUP_TABLE
+} adi_adrv9001_PllLfCoefficientMode_e;
+
+/**
  * \brief Carrier frequency configuration
  */
 typedef struct adi_adrv9001_Carrier
@@ -128,6 +137,7 @@ typedef struct adi_adrv9001_PllLoopFilterCfg
     uint16_t loopBandwidth_kHz; /*!< Synthesizer PLL Loop filter bandwidth. Range 50-1500 */
     uint8_t  phaseMargin_degrees; /*< Synthesizer PLL Loop filter phase margin in degrees. Range 40-85 */
     uint8_t  powerScale; /*!< Synthesizer PLL Loop filter power scale. Range 0 - 10. Default is 10 */
+	adi_adrv9001_PllLfCoefficientMode_e  loopCoefficientMode; /*!< Synthesizer PLL Loop filter coefficient fetch mode, Calculate or Lookup Table*/
 } adi_adrv9001_PllLoopFilterCfg_t;
 
 /**

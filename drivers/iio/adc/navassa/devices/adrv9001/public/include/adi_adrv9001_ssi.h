@@ -105,15 +105,17 @@ int32_t adi_adrv9001_Ssi_Loopback_Set(adi_adrv9001_Device_t *adrv9001,
  * \note Message type: \ref timing_direct "Direct register acccess"
  *
  * \param[in] adrv9001          Context variable - Pointer to the ADRV9001 device data structure
- * \param[in] ssiType           LVDS or CMOS mode
+ * \param[in] channel           channel for which ssi delay configuration is to be done
+ * \param[in] ssiType           LVDS or CMOS mode for the channel
  * \param[in] ssiCalibration    The desired SSI calibration
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
 
 int32_t adi_adrv9001_Ssi_Delay_Configure(adi_adrv9001_Device_t *adrv9001,
-                                         adi_adrv9001_SsiType_e ssiType,
-                                         adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration);
+		                                 adi_common_ChannelNumber_e channel,
+		                                 adi_adrv9001_SsiType_e ssiType,
+		                                 adi_adrv9001_SsiCalibrationCfg_t *ssiCalibration);
 
 /**
  * \brief This function gets the SSI delay configuration from ADRV9001 device through SPI.

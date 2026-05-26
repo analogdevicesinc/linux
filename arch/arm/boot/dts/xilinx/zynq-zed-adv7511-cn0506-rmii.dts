@@ -14,6 +14,10 @@
 #include "zynq-zed-adv7511.dtsi"
 #include "adi-cn0506-rmii.dtsi"
 
+&gem0 {
+	/delete-node/ phy@0;
+};
+
 &fpga_axi {
 	fmc_i2c: i2c@41620000 {
 		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";

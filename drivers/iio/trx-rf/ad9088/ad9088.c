@@ -1025,17 +1025,17 @@ const struct ad9088_chan_map *ad9088_get_chan_map(struct ad9088_phy *phy,
 	return &phy->rx_chan_map[chan->address];
 }
 
-static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
-				   const struct iio_chan_spec *chan,
-				   adi_apollo_terminal_e *terminal,
-				   adi_apollo_cfir_sel_e *cfir_sel,
-				   adi_apollo_cfir_dp_sel *dp_sel)
+static int ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
+				  const struct iio_chan_spec *chan,
+				  adi_apollo_terminal_e *terminal,
+				  adi_apollo_cfir_sel_e *cfir_sel,
+				  adi_apollo_cfir_dp_sel *dp_sel)
 {
 	const struct ad9088_chan_map *map = ad9088_get_chan_map(phy, chan);
 
 	if (!map) {
 		dev_err(&phy->spi->dev, "Invalid channel address %lu", chan->address);
-		return;
+		return -EINVAL;
 	}
 
 	if (chan->output)
@@ -1110,12 +1110,15 @@ static void ad9088_iiochan_to_cfir(struct ad9088_phy *phy,
 		break;
 	default:
 		dev_err(&phy->spi->dev, "Unhandled FDDC number 0x%X\n", map->fddc_mask);
+		return -EINVAL;
 	}
 
 	dev_dbg(&phy->spi->dev,
 		"%s_voltage%d: Side-%c fddc_mask=%X terminal=%s, cfir_sel=%u dp_sel=%u\n",
 		chan->output ? "out" : "in", chan->channel, map->side ? 'B' : 'A',
 		map->fddc_mask, *terminal ? "TX" : "RX", *cfir_sel, *dp_sel);
+
+	return 0;
 }
 
 #define AD9088_MAX_CLK_NAME 79
@@ -1665,10 +1668,14 @@ static ssize_t ad9088_ext_info_read(struct iio_dev *indio_dev,
 			return ret;
 		return sysfs_emit(buf, "%u\n", !!invsinc_inspect.invsinc_en);
 	case CFIR_PROFILE_SEL:
-		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		ret = ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		if (ret)
+			return ret;
 		return sysfs_emit(buf, "%u\n", phy->cfir_profile[terminal][cfir_sel][dp_sel]);
 	case CFIR_ENABLE:
-		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		ret = ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		if (ret)
+			return ret;
 		return sysfs_emit(buf, "%u\n", phy->cfir_enable[terminal][cfir_sel][dp_sel]);
 	case BMEM_CDDC_DELAY:
 		return sysfs_emit(buf, "%u\n", phy->cddc_sample_delay[map->side][map->cddc_num]);
@@ -1951,7 +1958,9 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		ret = ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		if (ret)
+			return ret;
 		adi_apollo_cfir_profile_sel(&phy->ad9088, terminal, cfir_sel, dp_sel, readin);
 		phy->cfir_profile[terminal][cfir_sel][dp_sel] = readin;
 		return len;
@@ -1959,7 +1968,9 @@ static ssize_t ad9088_ext_info_write(struct iio_dev *indio_dev,
 		ret = kstrtobool(buf, &enable);
 		if (ret)
 			return ret;
-		ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		ret = ad9088_iiochan_to_cfir(phy, chan, &terminal, &cfir_sel, &dp_sel);
+		if (ret)
+			return ret;
 		ret = adi_apollo_cfir_mode_enable_set(&phy->ad9088, terminal, cfir_sel, enable);
 		if (ret < 0)
 			return ret;
@@ -3537,63 +3548,160 @@ static u32 ad9088_pfir_gain_enc(int val)
 };
 
 /**
- * ad9088_parse_pfilt - Parse the configuration data for the PFIR filter
+ * ad9088_parse_pfilt - Parse a PFILT (Programmable FIR) configuration blob
  * @phy: Pointer to the AD9088 PHY structure
- * @data: Pointer to the configuration data
- * @size: Size of the configuration data
+ * @data: Buffer holding the PFILT configuration text
+ * @size: Size of @data in bytes
  *
- * This function parses the configuration data for the PFIR (Programmable
- * Finite Impulse Response) filter of the AD9088 device. The configuration
- * data is expected to be in a specific format, which is documented below.
+ * Parses a text blob (normally written to the sysfs bin attribute
+ * ``pfilt_config``) describing one PFILT programming operation and pushes
+ * it down to the Apollo API. The file is line oriented. Lines starting
+ * with ``#`` are comments. Each directive appears at most once (the
+ * parser keeps a ``read_mask`` of what's already been consumed and only
+ * the first occurrence wins); they may appear in any order except that
+ * the coefficient block must come after the directive that defines its
+ * mode. Unrecognised lines are silently ignored.
  *
- * Format of the configuration data:
- *   - Each line represents a parameter or setting for the PFIR filter.
- *   - Lines starting with '#' are considered comments and are ignored.
- *   - The format for each parameter is as follows:
- *     - mode: <imode> <qmode>
- *       - Sets the mode for the PFIR filter. The <imode> and <qmode> values
- *         should be one of the predefined filter modes: "disabled",
- *         "real_n4", "real_n2", "undef", "matrix", "undef", "complex_half",
- *         "real_n".
- *     - gain: <ix> <iy> <qx> <qy>
- *       - Sets the gain values for the PFIR filter. The <ix>, <iy>, <qx>,
- *         and <qy> values should be integers representing the gain in dB.
- *     - scalar_gain: <ix> <iy> <qx> <qy>
- *       - Sets the scalar gain values for the PFIR filter. The <ix>, <iy>,
- *         <qx>, and <qy> values should be integers representing the scalar
- *         gain.
- *     - dest: <terminal> <pfilt_sel> <bank_sel>
- *       - Sets the destination for the PFIR filter. The <terminal> value
- *         should be either "rx" or "tx". The <pfilt_sel> value should be one
- *         of the predefined filter selects: "pfilt_a0", "pfilt_a1",
- *         "pfilt_b0", "pfilt_b1", "pfilt_all", "pfilt_mask". The <bank_sel>
- *         value should be one of the predefined filter banks: "bank_0",
- *         "bank_1", "bank_2", "bank_3", "bank_all", "bank_mask".
- *     - hc_delay: <delay>
- *       - Sets the high cut delay value for the PFIR filter. The <delay>
- *         value should be an unsigned 8-bit integer.
- *     - mode_switch_en: <value>
- *       - Sets the mode switch enable value for the PFIR filter. The <value>
- *         should be either 0 or 1.
- *     - mode_switch_add_en: <value>
- *       - Sets the mode switch add enable value for the PFIR filter. The
- *         <value> should be either 0 or 1.
- *     - real_data_mode_en: <value>
- *       - Sets the real data mode enable value for the PFIR filter. The
- *         <value> should be either 0 or 1.
- *     - quad_mode_en: <value>
- *       - Sets the quad mode enable value for the PFIR filter. The <value>
- *         should be either 0 or 1.
- *     - selection_mode: <mode>
- *       - Sets the profile selection mode for the PFIR filter. The <mode>
- *         value should be one of the predefined profile selection modes:
- *         "direct_regmap", "direct_gpio", "direct_gpio1", "trig_regmap",
- *         "trig_gpio", "trig_gpio1".
- *     - <sval>
- *       - Sets the coefficient values for the PFIR filter. The <sval> value
- *         should be an integer representing the coefficient value.
+ * The PFILT block is a 32-tap full-rate programmable FIR located in the
+ * wideband DSP stage ahead of the CDDC/CDUC mixers on AD9084/AD9088
+ * (UG sec. 6001). Each side hosts 2 PFILT instances and each instance
+ * holds 4 offline coefficient banks that can be hot-swapped at runtime
+ * via SPI or GPIO (UG Table 108/109, sec. 6137).
  *
- * Return: 0 on success, negative error code on failure
+ * Recognised directives
+ * ---------------------
+ *
+ * ``dest: <terminal> <pfilt_sel> <bank_sel>`` (mandatory)
+ *   Where coefficients, mode, gain and selection_mode get programmed.
+ *
+ *   * ``<terminal>`` - ``rx`` or ``tx``.
+ *   * ``<pfilt_sel>`` - target PFILT instance mask (maps to
+ *     ``adi_apollo_pfilt_sel_e``):
+ *
+ *       - ``pfilt_a0`` (0x1) - side A, instance 0
+ *       - ``pfilt_a1`` (0x2) - side A, instance 1 (8T8R only)
+ *       - ``pfilt_b0`` (0x4) - side B, instance 0
+ *       - ``pfilt_b1`` (0x8) - side B, instance 1 (8T8R only)
+ *       - ``pfilt_all`` (0xF) - all PFILTs (use ``pfilt_mask5`` = 0x5
+ *         for 4T4R "all")
+ *       - ``pfilt_maskN`` - raw 4-bit OR, e.g. ``pfilt_mask5`` for A0|B0.
+ *
+ *   * ``<bank_sel>`` - which of the 4 offline coefficient banks to load
+ *     (maps to ``adi_apollo_pfilt_bank_sel_e``):
+ *
+ *       - ``bank_0..3`` (0x1/0x2/0x4/0x8)
+ *       - ``bank_all`` (0xF) - load all four banks with the same set
+ *       - ``bank_maskN`` - raw 4-bit OR.
+ *
+ * ``mode: <imode> [<qmode>]``
+ *   Filter topology for the I stream and, optionally, the Q stream
+ *   (UG Table 107/111, maps to ``adi_apollo_pfilt_mode_e``). If
+ *   ``<qmode>`` is omitted, only the I-side mode is programmed and the
+ *   Q-side mode stays at whatever the struct was zero-initialised to
+ *   (``disabled``). Valid strings:
+ *
+ *     - ``disabled``     (0) - filter bypassed
+ *     - ``real_n4``      (1) - N/4 taps  = 8-tap real, two sub-filters
+ *     - ``real_n2``      (2) - N/2 taps  = 16-tap real, two sub-filters
+ *     - ``matrix``       (4) - full N/4 matrix: four 8-tap real
+ *       sub-filters (A/B/C/D) - lets you mix I<->Q for crosstalk or
+ *       quadrature correction
+ *     - ``complex_half`` (6) - half-complex with 16-tap direct+cross +
+ *       a 16-tap programmable delay line (see ``hc_delay``)
+ *     - ``real_n``       (7) - one 32-tap real filter, single ADC/DAC
+ *
+ *   (Positions 3 and 5 in ``pfir_filter_modes[]`` are placeholders for
+ *   unused enum values, string ``undef``.)
+ *
+ * ``gain: <ix> <iy> <qx> <qy>``
+ *   Per-branch integer-dB shift gains, one of ``0, 6, 12, 18, 24``
+ *   (anything else falls back to 0 dB). The four slots correspond to
+ *   the matrix-mode sub-filters (UG sec. 6097):
+ *
+ *     - ``ix`` = Ga (DIN1 straight), ``iy`` = Gb (DIN1 cross)
+ *     - ``qx`` = Gd (DIN2 straight), ``qy`` = Gc (DIN2 cross)
+ *
+ *   ``iy``/``qy`` are only used in matrix mode; other modes leave them
+ *   unused.
+ *
+ * ``scalar_gain: <ix> <iy> <qx> <qy>``
+ *   Six-bit fine-gain multiplier per branch, ``0..63``. Encoded per UG
+ *   as ``code = 64 * scalarGain - 1`` so 0 -> 1/64 (-36 dB), 63 -> 1.0
+ *   (0 dB). Driver default is ``0x3f`` (1.0) for the ``iy``/``qx`` slots
+ *   before parsing.
+ *
+ * ``hc_delay: <samples>``
+ *   Programmable delay line for half-complex mode (``complex_half``),
+ *   u8 in ADC samples. Ignored in other modes.
+ *
+ * ``mode_switch_en: <0|1>``
+ *   Rx-only: enables the 3 dB ADC averaging block ahead of the PFILT
+ *   (UG sec. 6129). When enabled, the two input streams are combined
+ *   (add or subtract; see ``mode_switch_add_en``) and averaged.
+ *
+ * ``mode_switch_add_en: <0|1>``
+ *   Selects add (1) vs. subtract (0) for the Rx averaging block above.
+ *   Meaningful only when ``mode_switch_en: 1``.
+ *
+ * ``real_data_mode_en: <0|1>``
+ *   Data-stream type: 1 = treat the pair as two independent real
+ *   streams (AD9088 real-mode); 0 = complex I/Q pair. Selects between
+ *   the connectivity shown in UG Figures 135/136 / 137/138.
+ *
+ * ``quad_mode_en: <0|1>``
+ *   Dual (0) vs. quad (1) mode. Quad mode engages all four sub-filters
+ *   (required for matrix mode on AD9088 8T8R).
+ *
+ * ``selection_mode: <mode>``
+ *   How the active bank is picked at runtime. Maps to
+ *   ``adi_apollo_pfilt_profile_sel_mode_e``:
+ *
+ *     - ``direct_regmap``   - SPI/HSCI register write selects the bank.
+ *     - ``direct_gpio``     - GPIO[1:0] selects one of the 4 banks
+ *       (config 0 in UG Table 108/109).
+ *     - ``direct_gpio1``    - GPIO[0] drives PFILT0, GPIO[1] drives
+ *       PFILT1 (each chooses between its own 2 banks; config 1).
+ *     - ``trig_regmap``     - timestamp-triggered hop via regmap.
+ *     - ``trig_gpio``       - timestamp-triggered hop via GPIO[1:0].
+ *     - ``trig_gpio1``      - timestamp-triggered, GPIO[0]/GPIO[1] split.
+ *
+ * Coefficient lines
+ *   Every line parseable as a single integer (decimal or ``0x`` hex) is
+ *   consumed as the next u16 coefficient (Q1.15). Up to
+ *   ``ADI_APOLLO_PFILT_COEFF_NUM`` (32) values are accepted; more
+ *   causes ``-EINVAL``. The number actually needed depends on
+ *   ``mode:``:
+ *
+ *     - ``real_n``       - 32 taps (one 32-tap real filter)
+ *     - ``real_n2``      - 16 taps per sub-filter
+ *     - ``real_n4``      - 8 taps per sub-filter
+ *     - ``complex_half`` - 16 taps per arm (direct + cross)
+ *     - ``matrix``       - 8 taps per A/B/C/D sub-filter (32 total)
+ *
+ *   Coefficient placement within the buffer is handled by the Apollo
+ *   API; this driver just passes them through adi_apollo_pfilt_coeff_pgm()
+ *   and then follows with adi_apollo_pfilt_coeff_transfer() to move the
+ *   offline-bank values into the active bank.
+ *
+ * Programming order
+ *   After parsing, the driver calls, in order:
+ *   adi_apollo_pfilt_mode_pgm(), adi_apollo_pfilt_gain_dly_pgm(),
+ *   adi_apollo_pfilt_profile_sel_mode_set() (if given),
+ *   adi_apollo_pfilt_coeff_pgm(), adi_apollo_pfilt_coeff_transfer().
+ *
+ * Example blob (32-tap real Rx PFILT into bank_0)::
+ *
+ *   dest: rx pfilt_a0 bank_0
+ *   mode: real_n real_n
+ *   gain: 0 0 0 0
+ *   scalar_gain: 63 63 63 63
+ *   selection_mode: direct_regmap
+ *   0x0001
+ *   0x0002
+ *   ... (up to 32 u16 taps)
+ *
+ * Return: @size on success (so write(2) reports all bytes consumed),
+ * negative errno on a malformed blob or API failure.
  */
 static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 			      char *data, u32 size)
@@ -3634,7 +3742,7 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 		if (line >= data + size)
 			break;
 
-		if (line[0] == '#')
+		if (line[0] == '#' || line[0] == '\0')
 			continue;
 
 		if (~read_mask & BIT(0)) {
@@ -3643,13 +3751,22 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 			ret = sscanf(line, "mode: %15s %15s",
 				     imode, qmode);
 
-			if (ret == 2)
-				pfilt_mode_pgm.pfir_q_mode[0] = sysfs_match_string(pfir_filter_modes,
-										   qmode);
+			if (ret == 2) {
+				j = sysfs_match_string(pfir_filter_modes, qmode);
+				if (j < 0) {
+					dev_err(dev, "mode: unknown Q mode '%s'\n", qmode);
+					return -EINVAL;
+				}
+				pfilt_mode_pgm.pfir_q_mode[0] = j;
+			}
 
 			if (ret == 1 || ret == 2) {
-				pfilt_mode_pgm.pfir_i_mode[0] = sysfs_match_string(pfir_filter_modes,
-										   imode);
+				j = sysfs_match_string(pfir_filter_modes, imode);
+				if (j < 0) {
+					dev_err(dev, "mode: unknown I mode '%s'\n", imode);
+					return -EINVAL;
+				}
+				pfilt_mode_pgm.pfir_i_mode[0] = j;
 				read_mask |= BIT(0);
 				continue;
 			}
@@ -3693,33 +3810,43 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 
 			if (ret == 3) {
 				ret = sysfs_match_string(terminals, t);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "dest: unknown terminal '%s'\n", t);
+					return -EINVAL;
+				}
 				terminal = ret ? ADI_APOLLO_TX : ADI_APOLLO_RX;
 
 				ret = sysfs_match_string(pfir_selects, p);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "dest: unknown pfilt_sel '%s'\n", p);
+					return -EINVAL;
+				}
 				pfilt_sel = 1 << ret;
 				if (ret == 4)
 					pfilt_sel = ADI_APOLLO_PFILT_ALL;
 				if (ret == 5) {
-					ret = sscanf(line, "pfilt_mask%u", &mask);
-					if (ret != 1)
-						goto out;
+					ret = sscanf(p, "pfilt_mask%u", &mask);
+					if (ret != 1) {
+						dev_err(dev, "dest: bad pfilt mask '%s'\n", p);
+						return -EINVAL;
+					}
 					pfilt_sel = mask;
 				}
 
 				ret = sysfs_match_string(pfir_filter_banks, b);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "dest: unknown bank '%s'\n", b);
+					return -EINVAL;
+				}
 				bank_sel = 1 << ret;
 				if (ret == 4)
 					bank_sel = ADI_APOLLO_PFILT_BANK_ALL;
 				if (ret == 5) {
-					ret = sscanf(line, "bank_mask%u", &mask);
-					if (ret != 1)
-						goto out;
+					ret = sscanf(b, "bank_mask%u", &mask);
+					if (ret != 1) {
+						dev_err(dev, "dest: bad bank mask '%s'\n", b);
+						return -EINVAL;
+					}
 					bank_sel = mask;
 				}
 
@@ -3775,11 +3902,13 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 		if (~read_mask & BIT(9)) {
 			char m[16];
 
-			ret = sscanf(line, "selection_mode: %s", m);
+			ret = sscanf(line, "selection_mode: %15s", m);
 			if (ret == 1) {
 				ret = sysfs_match_string(pfilt_profile_selection_mode, m);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "selection_mode: unknown mode '%s'\n", m);
+					return -EINVAL;
+				}
 
 				selection_mode = ret;
 				read_mask |= BIT(9);
@@ -3789,12 +3918,20 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 
 		ret = sscanf(line, "%i", &sval);
 		if (ret == 1) {
-			if (i >= ADI_APOLLO_PFILT_COEFF_NUM)
+			if (i >= ADI_APOLLO_PFILT_COEFF_NUM) {
+				dev_err(dev, "too many coefficients (max %u)\n",
+					ADI_APOLLO_PFILT_COEFF_NUM);
 				return -EINVAL;
+			}
 
 			pfilt_coeffs[i++] = (u16)sval;
 			continue;
 		}
+	}
+
+	if (!(read_mask & BIT(2))) {
+		dev_err(dev, "pfilt: mandatory 'dest:' directive not found\n");
+		return -EINVAL;
 	}
 
 	dev_dbg(dev, "terminal: %s\n", terminals[terminal]);
@@ -3811,8 +3948,9 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 	dev_dbg(dev, "pfilt_mode_pgm.dq_mode: %d\n", pfilt_mode_pgm.dq_mode);
 
 	ret = adi_apollo_pfilt_mode_pgm(&phy->ad9088, terminal, pfilt_sel, &pfilt_mode_pgm);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_mode_pgm");
+	if (ret)
+		return ret;
 
 	dev_dbg(dev, "gain_dly_pgm.pfir_ix_gain: %d\n", gain_dly_pgm.pfir_ix_gain);
 	dev_dbg(dev, "gain_dly_pgm.pfir_iy_gain: %d\n", gain_dly_pgm.pfir_iy_gain);
@@ -3823,18 +3961,20 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 	dev_dbg(dev, "gain_dly_pgm.pfir_qx_scalar_gain: %u\n", gain_dly_pgm.pfir_qx_scalar_gain);
 	dev_dbg(dev, "gain_dly_pgm.pfir_qy_scalar_gain: %u\n", gain_dly_pgm.pfir_qy_scalar_gain);
 	dev_dbg(dev, "gain_dly_pgm.hc_delay: %u\n", gain_dly_pgm.hc_delay);
-	dev_dbg(dev, "selection_mode: %u\n", selection_mode);
 
 	ret = adi_apollo_pfilt_gain_dly_pgm(&phy->ad9088, terminal, pfilt_sel, bank_sel,
 					    &gain_dly_pgm);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_gain_dly_pgm");
+	if (ret)
+		return ret;
 
 	if (read_mask & BIT(9)) {
+		dev_dbg(dev, "selection_mode: %u\n", selection_mode);
 		ret = adi_apollo_pfilt_profile_sel_mode_set(&phy->ad9088, terminal, pfilt_sel,
 							    selection_mode);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_profile_sel_mode_set");
+		if (ret)
+			return ret;
 	}
 
 	for (j = 0; j < i; j++)
@@ -3842,22 +3982,16 @@ static int ad9088_parse_pfilt(struct ad9088_phy *phy,
 
 	ret = adi_apollo_pfilt_coeff_pgm(&phy->ad9088, terminal, pfilt_sel, bank_sel,
 					 pfilt_coeffs, i);
-	if (ret < 0)
-		goto out1;
-	ret = adi_apollo_pfilt_coeff_transfer(&phy->ad9088, terminal, pfilt_sel, bank_sel);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_coeff_pgm");
+	if (ret)
+		return ret;
 
-out1:
-	if (ret != API_CMS_ERROR_OK)
-		dev_err(&phy->spi->dev, "Programming filter failed (%d)", ret);
+	ret = adi_apollo_pfilt_coeff_transfer(&phy->ad9088, terminal, pfilt_sel, bank_sel);
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_pfilt_coeff_transfer");
+	if (ret)
+		return ret;
 
 	return size;
-
-out:
-	dev_err(dev, "malformed pFir filter file detected\n");
-
-	return -EINVAL;
 }
 
 static ssize_t
@@ -3915,41 +4049,215 @@ static u32 ad9088_cfir_gain_enc(int val)
 };
 
 /**
- * ad9088_parse_cfilt - Parse the CFIR filter configuration from a string
+ * ad9088_parse_cfilt - Parse a CFIR (Channel FIR) filter configuration blob
  * @phy: Pointer to the ad9088_phy structure
- * @data: Pointer to the string containing the CFIR filter configuration
- * @size: Size of the string
+ * @data: Buffer holding the CFIR filter configuration text
+ * @size: Size of @data in bytes
  *
- * This function parses the CFIR filter configuration from a string and updates
- * the ad9088_phy structure accordingly. The string should have the following
- * format:
+ * Parses a text blob (normally written to the sysfs bin attribute
+ * ``cfir_config``) describing one CFIR programming operation and pushes it
+ * down to the Apollo API. The file is line oriented. Lines starting with
+ * ``#`` are treated as comments. Except for the coefficient list, each
+ * directive appears at most once and may appear in any order; the parser
+ * keeps a bitmask of directives already consumed and only the first
+ * occurrence of each takes effect. Unrecognised lines are silently ignored.
  *
- * dest: <terminal> <cfir_select> <cfir_profile> <cfir_datapath>
- * gain: <gain_value>
- * complex_scalar: <scalar_i> <scalar_q>
- * bypass: <bypass_value>
- * sparse_filt_en: <sparse_filt_en_value>
- * 32taps_en: <32taps_en_value>
- * coeff_transfer: <coeff_transfer_value>
- * enable: <enable_value> <enable_profile_value>
- * selection_mode: <selection_mode_value>
- * <cfir_coeff0_i> <cfir_coeff0_q>
- * <cfir_coeff1_i> <cfir_coeff1_q>
- * ...
- * <cfir_coeffN_i> <cfir_coeffN_q>
+ * The Apollo/AD9088 CFIR block is a per-channel complex FIR with the
+ * following topology that this file maps onto:
  *
- * Each line in the string represents a specific configuration parameter.
- * The "dest" line specifies the destination terminal, CFIR select, CFIR profile,
- * and CFIR datapath. The "gain" line specifies the gain value. The "complex_scalar"
- * line specifies the complex scalar values. The "bypass" line specifies the bypass
- * value. The "sparse_filt_en" line specifies the sparse filter enable value.
- * The "32taps_en" line specifies the 32 taps enable value. The "coeff_transfer"
- * line specifies the coefficient transfer value. The "enable" line specifies the
- * enable value and enable profile value. The "selection_mode" line specifies the
- * selection mode value. The <cfir_coeff_i> and <cfir_coeff_q> lines specify the
- * CFIR coefficient values.
+ *   terminal (RX|TX)
+ *     -> CFIR instance mask (A0/A1/B0/B1) - 4 instances (2 per "side")
+ *        -> data path mask (DP0..DP3)     - up to 4 datapaths per instance
+ *           -> profile (1 of 2)           - hop-capable coefficient banks
+ *              -> 16 complex taps, complex scalar, dB gain, bypass, ...
  *
- * Return: 0 on success, negative error code on failure
+ * Programming one "filter" therefore targets a {terminal, CFIR-mask,
+ * profile, DP-mask} tuple; a single blob can fan out to several
+ * instances/datapaths at once via the mask forms described below.
+ *
+ * Recognised directives
+ * ---------------------
+ *
+ * ``dest: <terminal> <cfir_select> <cfir_profile> <cfir_datapath>``
+ *   Mandatory. Selects where the coefficients, scalar, gain, mode bits
+ *   and enable state are programmed.
+ *
+ *   * ``<terminal>`` - ``rx`` or ``tx`` (see @terminals).
+ *   * ``<cfir_select>`` - which CFIR instance(s) to target
+ *     (see @cfir_selects, maps to ``adi_apollo_cfir_sel_e``):
+ *
+ *       - ``cfir_none`` (0x0)   - no CFIR
+ *       - ``cfir_a0``   (0x1)   - side A, instance 0
+ *       - ``cfir_a1``   (0x2)   - side A, instance 1
+ *       - ``cfir_b0``   (0x4)   - side B, instance 0
+ *       - ``cfir_b1``   (0x8)   - side B, instance 1
+ *       - ``cfir_all``  (0xF)   - all four instances
+ *       - ``cfir_maskN`` - raw 4-bit OR of the above, e.g. ``cfir_mask5``
+ *         targets A0|B0 (0x1|0x4).
+ *
+ *   * ``<cfir_profile>`` - which of the two hop profiles to load
+ *     (see @cfir_profiles, maps to ``adi_apollo_cfir_profile_sel_e``):
+ *
+ *       - ``profile_none`` (0x0)
+ *       - ``profile_1``    (0x1) - 1st profile bank
+ *       - ``profile_2``    (0x2) - 2nd profile bank
+ *       - ``profile_all``  (0x3) - write both profiles at once
+ *
+ *     Naming quirk: the user-facing strings are 1-indexed
+ *     (``profile_1``/``profile_2``) while the underlying enum values
+ *     are 0-indexed (``ADI_APOLLO_CFIR_PROFILE_0`` = 0x1,
+ *     ``ADI_APOLLO_CFIR_PROFILE_1`` = 0x2). So ``profile_1`` maps to
+ *     ``_PROFILE_0`` and ``profile_2`` maps to ``_PROFILE_1``.
+ *
+ *   * ``<cfir_datapath>`` - which datapath(s) inside each selected CFIR
+ *     instance are programmed (see @cfir_datapaths, maps to
+ *     ``adi_apollo_cfir_dp_sel``):
+ *
+ *       - ``datapath_none`` (0x0)
+ *       - ``datapath_0..3`` (0x1/0x2/0x4/0x8); DP2/DP3 exist only in
+ *         8T8R configurations.
+ *       - ``datapath_all``  (0xF)
+ *       - ``datapath_maskN`` - raw 4-bit OR, e.g. ``datapath_mask3``
+ *         for DP0|DP1 (matches ``ALL_4T4R``).
+ *
+ * ``gain: <dB>``
+ *   Integer dB gain applied after the FIR, encoded via
+ *   ad9088_cfir_gain_enc() into ``adi_apollo_cfir_gain_e``. Valid values
+ *   are ``-18, -12, -6, 0, 6, 12``. Anything else silently falls back to
+ *   0 dB. Programmed through adi_apollo_cfir_gain_pgm().
+ *
+ * ``complex_scalar: <scalar_i> <scalar_q>``
+ *   Two u16 complex scalar values (Q1.15, accepted as decimal or ``0x``
+ *   hex) applied to the I and Q streams. Hardware defaults are
+ *   ``0x7fff`` for I and ``0x0000`` for Q (i.e. pass-through, no Q
+ *   leakage). Programmed through adi_apollo_cfir_scalar_pgm().
+ *
+ * ``bypass: <0|1>``
+ *   ``cfir_bypass`` bit of ``adi_apollo_cfir_pgm_t``. 0 runs the FIR,
+ *   1 bypasses the taps (scalar/gain path still applies per API).
+ *
+ * ``sparse_filt_en: <0|1>``
+ *   ``cfir_sparse_filt_en``. Enables sparse-FIR mode. The 16-tap CFIR is
+ *   virtually expanded across a 128-sample delay line: only 16 taps are
+ *   non-zero, but they can sit anywhere in the impulse response, which
+ *   lets the CFIR compensate long-delay echoes (cable reflections, etc.)
+ *   without spending silicon on more multipliers (UG sec.6357).
+ *
+ *   Internally, four 16-sample windows ("Dstore0/2/5/7") are tapped off
+ *   the delay line; per-tap ``hsel`` (0..63) picks one of those 64
+ *   samples to feed each non-zero tap. Dstore spacing is controlled by
+ *   the optional ``sparse_mem_sel`` directive below. Note the Dstore-gap
+ *   limitation from UG sec.6389: when the spacing makes Dstore samples
+ *   non-consecutive, hsel values 15/31/47/63 may be unusable (the
+ *   datapath needs x[k-1] to be available alongside x[k]).
+ *
+ *   ``sparse_filt_en: 1`` must appear **before** the coefficient block:
+ *   it switches the coefficient-line scanner from ``<i> <q>`` to
+ *   ``<hsel> <i> <q>`` (see "Coefficient lines" below). Sparse mode
+ *   also requires exactly ``ADI_APOLLO_CFIR_COEFF_NUM`` (16) entries.
+ *
+ * ``sparse_mem_sel: <m0> <m1> <m2>``
+ *   Optional. Three u8 values (each 0..3) controlling the offsets of
+ *   Dstore2/5/7 on the 128-sample sparse delay line. Offsets along the
+ *   line are:
+ *
+ *       Dstore0 offset = 0
+ *       Dstore2 offset = 16 * (m0 + 1)
+ *       Dstore5 offset = 16 * (m0 + m1 + 2)
+ *       Dstore7 offset = 16 * (m0 + m1 + m2 + 3)
+ *
+ *   Programmed via adi_apollo_cfir_sparse_mem_sel_pgm(). If omitted, the
+ *   existing HW/profile defaults are retained - matches the Apollo
+ *   ``fullchip_sparse_cfir`` example which only programs ``hsel``.
+ *
+ * ``32taps_en: <0|1>``
+ *   ``cfir_32taps_en``. Reconfigures the hardware from the default
+ *   16-tap symmetric mode into 32-tap mode by chaining both coefficient
+ *   banks. When enabled, the coefficient list below must be populated
+ *   accordingly (the bank still loads ``ADI_APOLLO_CFIR_COEFF_NUM`` = 16
+ *   entries per call; the API takes care of expansion).
+ *
+ * ``coeff_transfer: <0|1>``
+ *   ``cfir_coeff_transfer``. When set, the shadow ("master") register
+ *   set is copied into the live ("slave") set at the end of this
+ *   programming cycle - i.e. the newly written coefficients become
+ *   active atomically.
+ *
+ * ``enable: <0|1> <profile>``
+ *   Enable/bypass control plus an explicit run-time profile selection.
+ *   ``0`` maps to ``ADI_APOLLO_CFIR_BYPASS``, ``1`` to
+ *   ``ADI_APOLLO_CFIR_ENABLE``. ``<profile>`` is one of the
+ *   @cfir_profiles strings and is passed to
+ *   adi_apollo_cfir_profile_sel(); the pair is cached per
+ *   {terminal, CFIR, DP} in ``phy->cfir_profile``/``phy->cfir_enable``
+ *   so subsequent profile hops can be issued from userspace.
+ *
+ * ``selection_mode: <mode>``
+ *   Controls how profile hopping is driven at runtime
+ *   (see @cfir_profile_selection_mode, maps to
+ *   ``adi_apollo_cfir_profile_sel_mode_e``):
+ *
+ *     - ``direct_regmap`` - SPI/HSCI write picks the profile.
+ *     - ``direct_gpio``   - dedicated GPIO level picks the profile.
+ *     - ``trig_regmap``   - scheduled via regmap trigger (ts-based).
+ *     - ``trig_gpio``     - scheduled via GPIO trigger.
+ *
+ * Coefficient lines
+ *   Normal mode: any line that parses as ``<i> <q>`` (signed/hex
+ *   integers accepted) is consumed as the next complex tap. Values are
+ *   truncated to u16 (Q1.15). Up to ``ADI_APOLLO_CFIR_COEFF_NUM`` (16)
+ *   taps are accepted; more causes ``-EINVAL``. Programmed via
+ *   adi_apollo_cfir_coeff_pgm().
+ *
+ *   Sparse mode (active when ``sparse_filt_en: 1`` has already been
+ *   parsed): each coefficient line is ``<i> <q> <hsel>`` - the I/Q
+ *   columns stay in the same position as the non-sparse format, with
+ *   ``<hsel>`` (0..63, picks the source sample for this non-zero tap)
+ *   appended. Exactly 16 lines must be supplied. The ``hsel`` list is
+ *   programmed via adi_apollo_cfir_sparse_coeff_sel_pgm() and the I/Q
+ *   values through the same adi_apollo_cfir_coeff_pgm() call as above.
+ *
+ * Programming order
+ *   After parsing, the function programs (in order): coefficients,
+ *   scalar (if given), gain (if given), profile selection mode (if
+ *   given), the ``cfir_pgm`` bits (bypass/sparse/32taps/transfer), then
+ *   runs a dynamic MCS sync sequence (required for the coefficient
+ *   transfer to take effect across the digital clock domains), and
+ *   finally applies the ``enable:`` directive if present.
+ *
+ * Example blob (normal mode)::
+ *
+ *   # dual-profile RX CFIR on A0, datapath 0
+ *   dest: rx cfir_a0 profile_all datapath_0
+ *   gain: 0
+ *   complex_scalar: 0x7fff 0x0000
+ *   bypass: 0
+ *   sparse_filt_en: 0
+ *   32taps_en: 0
+ *   coeff_transfer: 1
+ *   selection_mode: direct_regmap
+ *   enable: 1 profile_1
+ *   0x7fff 0x0000
+ *   0x0000 0x0000
+ *   ... (up to 16 I/Q pairs)
+ *
+ * Example blob (sparse mode, stride-4 across the 64-slot delay line)::
+ *
+ *   dest: rx cfir_all profile_all datapath_all
+ *   gain: -6
+ *   bypass: 0
+ *   sparse_filt_en: 1
+ *   coeff_transfer: 1
+ *   # optional: sparse_mem_sel: 0 0 0
+ *   # <i> <q> <hsel>
+ *   0xF726 0x03AA 0x00
+ *   0xF29B 0xFEF1 0x04
+ *   0x0589 0x0365 0x08
+ *   ... (exactly 16 lines)
+ *   0xF726 0xFC55 0x3C
+ *
+ * Return: @size on success (so write(2) reports all bytes consumed),
+ * negative errno on a malformed blob or API failure.
  */
 static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 			      char *data, u32 size)
@@ -3960,21 +4268,23 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 	char *ptr = data;
 	u16 cfir_coeff_i[ADI_APOLLO_CFIR_COEFF_NUM];
 	u16 cfir_coeff_q[ADI_APOLLO_CFIR_COEFF_NUM];
-	u32 val, enable;
-	s32 sval_i, sval_q, enable_profile, selection_mode, gain = 0;
+	u16 sparse_hsel[ADI_APOLLO_CFIR_COEFF_NUM];
+	u8 sparse_mem_sel[ADI_APOLLO_CFIR_MEM_SEL_NUM];
+	u32 enable;
+	s32 sval_i, sval_q, gain_db, enable_profile, selection_mode, gain = 0;
 	adi_apollo_terminal_e terminal;
 	adi_apollo_cfir_sel_e cfir_sel;
 	adi_apollo_cfir_dp_sel dp_sel;
 	adi_apollo_cfir_profile_sel_e profile_sel;
 	adi_apollo_cfir_pgm_t cfir_pgm = { 0 };
 	u16 scalar_i, scalar_q;
-	u8 read_mask = 0;
+	u16 read_mask = 0;
 
 	while ((line = strsep(&ptr, "\n"))) {
 		if (line >= data + size)
 			break;
 
-		if (line[0] == '#') /* skip comments */
+		if (line[0] == '#' || line[0] == '\0')
 			continue;
 
 		if (~read_mask & BIT(0)) {
@@ -3985,15 +4295,16 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 			if (ret == 4) {
 				ret = sysfs_match_string(terminals, t);
 				if (ret < 0) {
-					dev_err(dev, "dest read:%s %s %s %s", t, s, p, d);
-					goto out;
+					dev_err(dev, "dest: unknown terminal '%s'\n", t);
+					return -EINVAL;
 				}
 				terminal = ret ? ADI_APOLLO_TX : ADI_APOLLO_RX;
 
 				ret = sysfs_match_string(cfir_selects, s);
-
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "dest: unknown cfir_sel '%s'\n", s);
+					return -EINVAL;
+				}
 
 				switch (ret) {
 				case 0:
@@ -4016,18 +4327,21 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 					break;
 				case 6:
 					ret = sscanf(s, "cfir_mask%u", &mask);
-					if (ret != 1)
-						goto out;
+					if (ret != 1) {
+						dev_err(dev, "dest: bad cfir mask '%s'\n", s);
+						return -EINVAL;
+					}
 					cfir_sel = mask;
 					break;
 				default:
-					goto out;
+					dev_err(dev, "dest: unexpected cfir_sel index %d\n", ret);
+					return -EINVAL;
 				}
 
 				ret = sysfs_match_string(cfir_profiles, p);
 				if (ret < 0) {
-					dev_err(dev, "dest read:%s %s %s %s", t, s, p, d);
-					goto out;
+					dev_err(dev, "dest: unknown profile '%s'\n", p);
+					return -EINVAL;
 				}
 				switch (ret) {
 				case 0:
@@ -4043,13 +4357,14 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 					profile_sel = ADI_APOLLO_CFIR_PROFILE_ALL;
 					break;
 				default:
-					goto out;
+					dev_err(dev, "dest: unexpected profile index %d\n", ret);
+					return -EINVAL;
 				}
 
 				ret = sysfs_match_string(cfir_datapaths, d);
 				if (ret < 0) {
-					dev_err(dev, "dest read:%s %s %s %s", t, s, p, d);
-					goto out;
+					dev_err(dev, "dest: unknown datapath '%s'\n", d);
+					return -EINVAL;
 				}
 				switch (ret) {
 				case 0:
@@ -4072,12 +4387,15 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 					break;
 				case 6:
 					ret = sscanf(d, "datapath_mask%u", &mask);
-					if (ret != 1)
-						goto out;
+					if (ret != 1) {
+						dev_err(dev, "dest: bad datapath mask '%s'\n", d);
+						return -EINVAL;
+					}
 					dp_sel = mask;
 					break;
 				default:
-					goto out;
+					dev_err(dev, "dest: unexpected datapath index %d\n", ret);
+					return -EINVAL;
 				}
 
 				read_mask |= BIT(0);
@@ -4086,9 +4404,9 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 		}
 
 		if (~read_mask & BIT(1)) {
-			ret = sscanf(line, "gain: %d", &val);
+			ret = sscanf(line, "gain: %d", &gain_db);
 			if (ret == 1) {
-				gain = ad9088_cfir_gain_enc(val);
+				gain = ad9088_cfir_gain_enc(gain_db);
 				read_mask |= BIT(1);
 				continue;
 			}
@@ -4132,26 +4450,30 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 				continue;
 			}
 		}
-		if (~read_mask & BIT(6)) {
+		if (~read_mask & BIT(8)) {
 			char p[16];
 
-			ret = sscanf(line, "enable: %u %s", &enable, p);
+			ret = sscanf(line, "enable: %u %15s", &enable, p);
 			if (ret == 2) {
 				enable_profile = sysfs_match_string(cfir_profiles, p);
-				if (enable_profile < 0)
-					goto out;
-				read_mask |= BIT(6);
+				if (enable_profile < 0) {
+					dev_err(dev, "enable: unknown profile '%s'\n", p);
+					return -EINVAL;
+				}
+				read_mask |= BIT(8);
 				continue;
 			}
 		}
 		if (~read_mask & BIT(7)) {
 			char m[16];
 
-			ret = sscanf(line, "selection_mode: %s", m);
+			ret = sscanf(line, "selection_mode: %15s", m);
 			if (ret == 1) {
 				ret = sysfs_match_string(cfir_profile_selection_mode, m);
-				if (ret < 0)
-					goto out;
+				if (ret < 0) {
+					dev_err(dev, "selection_mode: unknown mode '%s'\n", m);
+					return -EINVAL;
+				}
 
 				selection_mode = ret;
 				read_mask |= BIT(7);
@@ -4159,25 +4481,88 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 			}
 		}
 
-		ret = sscanf(line, "%i %i", &sval_i, &sval_q);
-		if (ret == 2) {
-			if (i >= ADI_APOLLO_CFIR_COEFF_NUM)
-				return -EINVAL;
+		if (~read_mask & BIT(9)) {
+			u32 m0, m1, m2;
 
-			cfir_coeff_i[i] = (u16)sval_i;
-			cfir_coeff_q[i++] = (u16)sval_q;
-			continue;
+			/* sparse_mem_sel: 3 values, each 0..3. Controls the
+			 * spacing between the Dstore0/2/5/7 taps on the sparse
+			 * filter's 128-sample delay line (see UG sec.6357).
+			 */
+			ret = sscanf(line, "sparse_mem_sel: %i %i %i", &m0, &m1, &m2);
+			if (ret == 3) {
+				if (m0 > 3 || m1 > 3 || m2 > 3) {
+					dev_err(dev,
+						"sparse_mem_sel out of range: %u %u %u (each 0..3)\n",
+						m0, m1, m2);
+					return -EINVAL;
+				}
+				sparse_mem_sel[0] = m0;
+				sparse_mem_sel[1] = m1;
+				sparse_mem_sel[2] = m2;
+				read_mask |= BIT(9);
+				continue;
+			}
+		}
+
+		if (cfir_pgm.cfir_sparse_filt_en) {
+			u32 hsel;
+
+			/* In sparse mode each coefficient line is "<i> <q> <hsel>":
+			 * I/Q columns stay in the same position as the non-sparse
+			 * format, with hsel (0..63) appended. hsel picks one of
+			 * the 64 available sparse-input slots (Dstore0/2/5/7 x 16
+			 * samples) for this non-zero tap. Requires sparse_filt_en: 1
+			 * to appear before the coeff block.
+			 */
+			ret = sscanf(line, "%i %i %i", &sval_i, &sval_q, &hsel);
+			if (ret == 3) {
+				if (i >= ADI_APOLLO_CFIR_COEFF_NUM) {
+					dev_err(dev, "too many sparse coefficients (max %u)\n",
+						ADI_APOLLO_CFIR_COEFF_NUM);
+					return -EINVAL;
+				}
+				if (hsel > 63) {
+					dev_err(dev,
+						"sparse coeff[%d]: hsel=%u out of range (0..63)\n",
+						i, hsel);
+					return -EINVAL;
+				}
+				sparse_hsel[i] = hsel;
+				cfir_coeff_i[i] = (u16)sval_i;
+				cfir_coeff_q[i++] = (u16)sval_q;
+				continue;
+			}
+		} else {
+			ret = sscanf(line, "%i %i", &sval_i, &sval_q);
+			if (ret == 2) {
+				if (i >= ADI_APOLLO_CFIR_COEFF_NUM) {
+					dev_err(dev, "too many coefficients (max %u)\n",
+						ADI_APOLLO_CFIR_COEFF_NUM);
+					return -EINVAL;
+				}
+
+				cfir_coeff_i[i] = (u16)sval_i;
+				cfir_coeff_q[i++] = (u16)sval_q;
+				continue;
+			}
 		}
 	}
 
-	if (read_mask & BIT(0)) {
-		dev_dbg(dev, "terminal: %s\n", terminals[terminal]);
-		dev_dbg(dev, "cfir_sel: MASK 0x%X\n", cfir_sel);
-		dev_dbg(dev, "profile_sel: %s\n", cfir_profiles[profile_sel]);
-		dev_dbg(dev, "dp_sel: MASK 0x%x\n", dp_sel);
-	} else {
-		dev_err(dev, "dest: not found\n");
-		goto out;
+	if (!(read_mask & BIT(0))) {
+		dev_err(dev, "cfir: mandatory 'dest:' directive not found\n");
+		return -EINVAL;
+	}
+
+	dev_dbg(dev, "terminal: %s\n", terminals[terminal]);
+	dev_dbg(dev, "cfir_sel: MASK 0x%X\n", cfir_sel);
+	dev_dbg(dev, "profile_sel: %s\n", cfir_profiles[profile_sel]);
+	dev_dbg(dev, "dp_sel: MASK 0x%x\n", dp_sel);
+
+	if (cfir_pgm.cfir_sparse_filt_en && i != ADI_APOLLO_CFIR_COEFF_NUM) {
+		dev_err(dev,
+			"sparse mode requires exactly %u coefficients, got %d\n",
+			ADI_APOLLO_CFIR_COEFF_NUM, i);
+		return -EINVAL;
 	}
 
 	for (j = 0; j < i; j++)
@@ -4185,53 +4570,87 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 
 	ret = adi_apollo_cfir_coeff_pgm(&phy->ad9088, terminal, cfir_sel, profile_sel, dp_sel,
 					cfir_coeff_i, cfir_coeff_q, i);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_coeff_pgm");
+	if (ret)
+		return ret;
+
+	if (cfir_pgm.cfir_sparse_filt_en) {
+		for (j = 0; j < ADI_APOLLO_CFIR_COEFF_NUM; j++)
+			dev_dbg(dev, "hsel[%d]=0x%02X\n", j, sparse_hsel[j]);
+
+		ret = adi_apollo_cfir_sparse_coeff_sel_pgm(&phy->ad9088, terminal, cfir_sel,
+							   profile_sel, dp_sel,
+							   sparse_hsel,
+							   ADI_APOLLO_CFIR_COEFF_NUM);
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_sparse_coeff_sel_pgm");
+		if (ret)
+			return ret;
+
+		if (read_mask & BIT(9)) {
+			dev_dbg(dev, "sparse_mem_sel: %u %u %u\n",
+				sparse_mem_sel[0], sparse_mem_sel[1], sparse_mem_sel[2]);
+			ret = adi_apollo_cfir_sparse_mem_sel_pgm(&phy->ad9088, terminal,
+								 cfir_sel, profile_sel,
+								 dp_sel, sparse_mem_sel,
+								 ADI_APOLLO_CFIR_MEM_SEL_NUM);
+			ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_sparse_mem_sel_pgm");
+			if (ret)
+				return ret;
+		}
+	}
 
 	if (read_mask & BIT(2)) {
 		dev_dbg(dev, "scalar_i: %d scalar_q: %d\n", scalar_i, scalar_q);
 		ret = adi_apollo_cfir_scalar_pgm(&phy->ad9088, terminal, cfir_sel, profile_sel,
 						 dp_sel, scalar_i, scalar_q);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_scalar_pgm");
+		if (ret)
+			return ret;
 	}
 
 	if (read_mask & BIT(1)) {
 		dev_dbg(dev, "gain: %d\n", gain);
 		ret = adi_apollo_cfir_gain_pgm(&phy->ad9088, terminal, cfir_sel, profile_sel,
 					       dp_sel, gain);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_gain_pgm");
+		if (ret)
+			return ret;
 	}
 
 	if (read_mask & BIT(7)) {
 		dev_dbg(dev, "selection_mode: %d\n", selection_mode);
 		ret = adi_apollo_cfir_profile_sel_mode_set(&phy->ad9088, terminal, cfir_sel,
 							   selection_mode);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_profile_sel_mode_set");
+		if (ret)
+			return ret;
 	}
 
 	ret = adi_apollo_cfir_pgm(&phy->ad9088, terminal, cfir_sel, &cfir_pgm);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_pgm");
+	if (ret)
+		return ret;
 
 	/* This seems to be required */
 	ret = adi_apollo_clk_mcs_dyn_sync_sequence_run(&phy->ad9088);
-	if (ret < 0)
-		goto out1;
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_clk_mcs_dyn_sync_sequence_run");
+	if (ret)
+		return ret;
 
-	if (read_mask & BIT(6)) {
+	if (read_mask & BIT(8)) {
 		u32 j;
 
 		dev_dbg(dev, "enable: %u enable_profile: %u\n", enable, enable_profile);
-		adi_apollo_cfir_profile_sel(&phy->ad9088, terminal, cfir_sel, dp_sel,
+		ret = adi_apollo_cfir_profile_sel(&phy->ad9088, terminal, cfir_sel, dp_sel,
 					    enable_profile);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_profile_sel");
+		if (ret)
+			return ret;
+
 		ret = adi_apollo_cfir_mode_enable_set(&phy->ad9088, terminal, cfir_sel, enable);
-		if (ret < 0)
-			goto out1;
+		ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_cfir_mode_enable_set");
+		if (ret)
+			return ret;
 
 		for (i = 0; i < 4; i++) {
 			if (!(cfir_sel & BIT(i)))
@@ -4245,16 +4664,7 @@ static int ad9088_parse_cfilt(struct ad9088_phy *phy,
 		}
 	}
 
-out1:
-	if (ret != API_CMS_ERROR_OK)
-		dev_err(&phy->spi->dev, "Programming filter failed (%d)", ret);
-
 	return size;
-
-out:
-	dev_err(dev, "malformed CFir filter file detected\n");
-
-	return -EINVAL;
 }
 
 static ssize_t ad9088_cfir_bin_write(struct file *filp, struct kobject *kobj,
@@ -5081,9 +5491,9 @@ static int ad9088_probe(struct spi_device *spi)
 	priv = jesd204_dev_priv(jdev);
 	priv->phy = phy;
 
-	phy->dev_clk = devm_clk_get(&conv->spi->dev, "dev_clk");
-	if (IS_ERR(phy->dev_clk))
-		return PTR_ERR(phy->dev_clk);
+	dev_clk = devm_clk_get(&conv->spi->dev, "dev_clk");
+	if (IS_ERR(dev_clk))
+		return PTR_ERR(dev_clk);
 
 	conv->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(conv->reset_gpio))
@@ -5127,7 +5537,7 @@ static int ad9088_probe(struct spi_device *spi)
 
 	ret = ad9088_parse_dt(phy);
 	if (ret < 0)
-		return dev_err_probe(&spi->dev, ret, "Parsing devicetree failed\n");
+		return ret;
 
 	ret = devm_regulator_get_enable(&spi->dev, "vdd");
 	if (ret)
@@ -5136,11 +5546,9 @@ static int ad9088_probe(struct spi_device *spi)
 
 	of_clk_get_scale(spi->dev.of_node, "dev_clk", &devclk_clkscale);
 
-	clk_set_rate_scaled(phy->dev_clk,
-			    phy->profile.clk_cfg.dev_clk_freq_Hz,
-			    &devclk_clkscale);
+	clk_set_rate_scaled(dev_clk, phy->profile.clk_cfg.dev_clk_freq_Hz, &devclk_clkscale);
 
-	ret = clk_prepare_enable(phy->dev_clk);
+	ret = clk_prepare_enable(dev_clk);
 	if (ret)
 		return ret;
 

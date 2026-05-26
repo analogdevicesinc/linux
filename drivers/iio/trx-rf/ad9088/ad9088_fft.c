@@ -432,23 +432,24 @@ static const struct iio_info ad9088_fft_sniffer_info = {
 	.update_scan_mode = ad9088_fft_sniffer_update_scan_mode,
 };
 
+static int ad9088_fft_sniffer_buffer_preenable(struct iio_dev *indio_dev)
+{
+	struct ad9088_fft_sniffer_state *st = iio_priv(indio_dev);
+	u32 dlen;
+
+	dlen = st->sniffer_config_hw.init.real_mode ? (ADI_APOLLO_SNIFFER_FFT_LENGTH / 2) :
+								ADI_APOLLO_SNIFFER_FFT_LENGTH;
+	indio_dev->buffer->length = dlen;
+
+	return 0;
+}
+
 static int ad9088_fft_sniffer_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad9088_fft_sniffer_state *st = iio_priv(indio_dev);
 	int ret = 0;
-	u32 blen, dlen;
 
 	dev_dbg(st->dev, "%s:%d\n", __func__, __LINE__);
-
-	blen = indio_dev->buffer->length / indio_dev->num_channels;
-	dlen = st->sniffer_config_hw.init.real_mode ? (ADI_APOLLO_SNIFFER_FFT_LENGTH / 2) :
-								ADI_APOLLO_SNIFFER_FFT_LENGTH;
-
-	if (blen != dlen) {
-		dev_err(st->dev, "Buffer length %d incompatible with current sniffer mode (real/complex) set to %d\n",
-			blen, dlen);
-		return -EINVAL;
-	}
 
 	guard(mutex)(&st->phy->lock);
 
@@ -490,6 +491,7 @@ static int ad9088_fft_sniffer_buffer_predisable(struct iio_dev *indio_dev)
 }
 
 static const struct iio_buffer_setup_ops ad9088_fft_sniffer_buffer_ops = {
+	.preenable = ad9088_fft_sniffer_buffer_preenable,
 	.postenable = ad9088_fft_sniffer_buffer_postenable,
 	.predisable = ad9088_fft_sniffer_buffer_predisable,
 };

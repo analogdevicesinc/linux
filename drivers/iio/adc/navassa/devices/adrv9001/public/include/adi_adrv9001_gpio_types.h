@@ -209,6 +209,18 @@ typedef enum adi_adrv9001_GpioSignal
 } adi_adrv9001_GpioSignal_e;
 
 /**
+ * \brief Enumeration of GPIO(pins 12-15) mode availability based on usecase.
+ */
+typedef enum adi_adrv9001_GpioOptions
+{
+	ADI_ADRV9001_GPIO_12_13_14_15_NOT_USABLE,
+	ADI_ADRV9001_GPIO_12_13_INPUT,
+	ADI_ADRV9001_GPIO_12_13_OUTPUT,
+	ADI_ADRV9001_GPIO_14_15_INPUT,
+	ADI_ADRV9001_GPIO_14_15_OUTPUT,
+} adi_adrv9001_GpioOptions_e;
+
+/**
 * \brief GP_INT status general structure
 */
 typedef struct adi_adrv9001_gpIntStatus

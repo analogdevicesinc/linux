@@ -738,7 +738,13 @@ static ssize_t adrv9002_ssi_delays_write(struct file *file, const char __user *u
 	int ret;
 
 	guard(mutex)(&phy->lock);
-	ret = api_call(phy, adi_adrv9001_Ssi_Delay_Configure, phy->ssi_type, &phy->ssi_delays);
+	ret = api_call(phy, adi_adrv9001_Ssi_Delay_Configure, ADI_CHANNEL_1, phy->ssi_type,
+		       &phy->ssi_delays);
+	if (ret)
+		return ret;
+
+	ret = api_call(phy, adi_adrv9001_Ssi_Delay_Configure, ADI_CHANNEL_2, phy->ssi_type,
+		       &phy->ssi_delays);
 
 	return ret ? ret : count;
 }
