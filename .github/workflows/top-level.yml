@@ -4,8 +4,9 @@ on:
   push:
     branches:
       - 'main'
-      - 'ci/*'
-  pull_request:
+    pull_request:
+      branches:
+        - 'dummy-pr-test-scenario'
 
 jobs:
   checks:
@@ -280,13 +281,14 @@ jobs:
       (
         github.repository_owner == 'analogdevicesinc'
       )
-    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci1
     secrets: inherit
     permissions:
       id-token: write
       contents: write
       actions: read
     with:
+      scripts-ref: ci1
       pr-number: ${{ github.event.pull_request.number }}
       pr-target-branch: ${{ github.event.pull_request.base.ref }}
       artifacts: >
@@ -302,7 +304,7 @@ jobs:
 
   trigger_harness_job:
     needs: [deploy_kuiper_binaries]
-    runs-on: ubuntu-SLIM
+    runs-on: ubuntu-slim
     if: needs.deploy_kuiper_binaries.result == 'success'
     steps:
       - name: Trigger Jenkins test harness
