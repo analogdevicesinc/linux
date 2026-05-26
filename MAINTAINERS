@@ -2290,7 +2290,8 @@ N:	owl
 
 ARM/ADI SoC Support
 M:	Arturs Artamonovs <arturs.artamonovs@analog.com>
-M:	Utsav Agarwal <utsav.agarwal@analog.com>
+M:	Qasim Ijaz <qasim.ijaz@analog.com>
+M:	Caleb Ethridge <caleb.ethridge@analog.com>
 M:	Vasileios Bimpikas <vasileios.bimpikas@analog.com>
 L:	linux@analog.com
 S:	Maintained
