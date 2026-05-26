@@ -89,12 +89,12 @@ static int sc5xx_cdu_wait_ready(struct sc5xx_cdu *cdu_clk)
 					 SC5XX_CDU_POLL_TIMEOUT);
 }
 
-static u32 sc5xx_cdu_read(struct sc5xx_cdu *cdu_clk, unsigned int offset)
+static u32 sc5xx_cdu_readl(struct sc5xx_cdu *cdu_clk, unsigned int offset)
 {
 	return readl(cdu_clk->base + offset);
 }
 
-static void sc5xx_cdu_write(struct sc5xx_cdu *cdu_clk,
+static void sc5xx_cdu_writel(struct sc5xx_cdu *cdu_clk,
 			    unsigned int offset, u32 val)
 {
 	writel(val, cdu_clk->base + offset);
@@ -111,7 +111,7 @@ static int sc5xx_cdu_update_en(struct sc5xx_cdu *cdu_clk,
 	u32 reg;
 	int ret;
 
-	reg = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
+	reg = sc5xx_cdu_readl(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
 
 	ret = sc5xx_cdu_check_unlocked(reg);
 	if (ret)
@@ -122,7 +122,7 @@ static int sc5xx_cdu_update_en(struct sc5xx_cdu *cdu_clk,
 	else
 		reg &= ~SC5XX_CDU_CFG_EN;
 
-	sc5xx_cdu_write(cdu_clk, sc5xx_cdu_cfg(cdu_clk), reg);
+	sc5xx_cdu_writel(cdu_clk, sc5xx_cdu_cfg(cdu_clk), reg);
 
 	return 0;
 }
@@ -143,7 +143,7 @@ static int sc5xx_cdu_set_parent(struct clk_hw *clk_hw, u8 index)
 	if (ret)
 		goto out;
 
-	reg = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
+	reg = sc5xx_cdu_readl(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
 
 	ret = sc5xx_cdu_check_unlocked(reg);
 	if (ret)
@@ -152,12 +152,12 @@ static int sc5xx_cdu_set_parent(struct clk_hw *clk_hw, u8 index)
 	reg &= ~SC5XX_CDU_CFG_SEL;
 	reg |= FIELD_PREP(SC5XX_CDU_CFG_SEL, input_sel);
 
-	sc5xx_cdu_write(cdu_clk, sc5xx_cdu_cfg(cdu_clk), reg);
+	sc5xx_cdu_writel(cdu_clk, sc5xx_cdu_cfg(cdu_clk), reg);
 
 	ret = sc5xx_cdu_wait_ready(cdu_clk);
 
 	/* Verify the mux update before returning success to CCF. */
-	readback = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
+	readback = sc5xx_cdu_readl(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
 	if (FIELD_GET(SC5XX_CDU_CFG_SEL, readback) != input_sel)
 		ret = -EIO;
 
@@ -175,7 +175,7 @@ static u8 sc5xx_cdu_get_parent(struct clk_hw *clk_hw)
 	int parent;
 
 	spin_lock_irqsave(cdu_clk->lock, flags);
-	reg = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
+	reg = sc5xx_cdu_readl(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
 	spin_unlock_irqrestore(cdu_clk->lock, flags);
 
 	input_sel = FIELD_GET(SC5XX_CDU_CFG_SEL, reg);
@@ -241,7 +241,7 @@ static int sc5xx_cdu_is_enabled(struct clk_hw *clk_hw)
 	u32 reg;
 
 	spin_lock_irqsave(cdu_clk->lock, flags);
-	reg = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
+	reg = sc5xx_cdu_readl(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
 	spin_unlock_irqrestore(cdu_clk->lock, flags);
 
 	return !!(reg & SC5XX_CDU_CFG_EN);
@@ -262,8 +262,8 @@ static int sc5xx_cdu_debug_show(struct seq_file *s, void *v)
 	cdu_clk = to_sc5xx_cdu(clk_hw);
 
 	spin_lock_irqsave(cdu_clk->lock, flags);
-	cfg_reg = sc5xx_cdu_read(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
-	stat_reg = sc5xx_cdu_read(cdu_clk, SC5XX_CDU_STAT);
+	cfg_reg = sc5xx_cdu_readl(cdu_clk, sc5xx_cdu_cfg(cdu_clk));
+	stat_reg = sc5xx_cdu_readl(cdu_clk, SC5XX_CDU_STAT);
 	spin_unlock_irqrestore(cdu_clk->lock, flags);
 
 	seq_printf(s, "CDU_CFG[%u]: 0x%08x\n", cdu_clk->cdu_clko, cfg_reg);
