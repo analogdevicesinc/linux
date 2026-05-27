@@ -409,7 +409,7 @@
 			dma-names = "tx", "rx";
 		};
 
-		watchdog@31008000 {
+		watchdog: watchdog@31008000 {
 			compatible = "adi,watchdog";
 			reg = <0x31008000 0x10>;
 			timeout-sec = <30>;
