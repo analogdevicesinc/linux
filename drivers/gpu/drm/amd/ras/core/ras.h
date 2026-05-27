@@ -213,6 +213,8 @@ struct ras_mp1_sys_func {
 	int (*mp1_get_ras_enabled_mask)(struct ras_core_context *ras_core,
 			uint64_t *enabled_mask);
 	int (*mp1_set_debug_mode)(struct ras_core_context *ras_core, bool enable);
+	int (*mp1_send_ras_msg)(struct ras_core_context *ras_core, u32 msg_id,
+		u32 *params, u32 num_params, u32 *read_args, u32 num_read_args);
 };
 
 struct ras_eeprom_param_config {

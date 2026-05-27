@@ -40,23 +40,9 @@ enum ras_mp1_msg_id {
 };
 
 struct eeprom_err_record {
-	u32 timestamp;
-
-	union {
-		struct {
-			u32 mca_addr_low;
-			u32 mca_addr_high;
-		};
-		u64 mca_addr;
-	};
-
-	union {
-		struct {
-			u32 ipid_low;
-			u32 ipid_high;
-		};
-		u64 ipid;
-	};
+	u64 timestamp;
+	u64 mca_addr;
+	u64 ipid;
 };
 
 enum ras_err_type;
@@ -72,7 +58,7 @@ struct ras_mp1_ip_func {
 			u32 *table_version);
 	bool (*rma_detected)(struct ras_core_context *ras_core);
 	int (*set_timestamp)(struct ras_core_context *ras_core,
-			u32 timestamp);
+			u64 timestamp);
 	int (*reset_ras_table)(struct ras_core_context *ras_core,
 			u32 *result);
 	int (*get_record_count)(struct ras_core_context *ras_core,
@@ -102,7 +88,7 @@ int ras_mp1_get_table_version(struct ras_core_context *ras_core,
 		u32 *table_version);
 bool ras_mp1_rma_detected(struct ras_core_context *ras_core);
 int ras_mp1_set_timestamp(struct ras_core_context *ras_core,
-		u32 timestamp);
+		u64 timestamp);
 int ras_mp1_reset_ras_table(struct ras_core_context *ras_core,
 		u32 *result);
 int ras_mp1_get_record_count(struct ras_core_context *ras_core, u32 *count);

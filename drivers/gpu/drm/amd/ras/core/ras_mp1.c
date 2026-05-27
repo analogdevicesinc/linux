@@ -111,7 +111,7 @@ bool ras_mp1_rma_detected(struct ras_core_context *ras_core)
 }
 
 int ras_mp1_set_timestamp(struct ras_core_context *ras_core,
-		u32 timestamp)
+		u64 timestamp)
 {
 	struct ras_mp1 *mp1 = &ras_core->ras_mp1;
 	int ret;

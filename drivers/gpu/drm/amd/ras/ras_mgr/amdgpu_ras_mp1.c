@@ -44,8 +44,8 @@ static enum smu_message_type
 	return ras_smu_msg_maps[msg_id];
 }
 
-static int amdgpu_ras_send_mp1_msg(struct ras_core_context *ras_core,
-			u32 msg_id, uint32_t param, uint32_t *read_arg)
+static int amdgpu_ras_send_mp1_msg(struct ras_core_context *ras_core, u32 msg_id,
+		u32 *params, u32 num_params, u32 *read_args, u32 num_read_args)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
 	enum smu_message_type smu_msg;
@@ -56,8 +56,8 @@ static int amdgpu_ras_send_mp1_msg(struct ras_core_context *ras_core,
 		return -EOPNOTSUPP;
 
 	if (down_read_trylock(&adev->reset_domain->sem)) {
-		ret = amdgpu_smu_ras_send_msg_legacy(adev, smu_msg,
-				param, read_arg);
+		ret = amdgpu_smu_ras_send_msg(adev, smu_msg,
+				params, num_params, read_args, num_read_args);
 		up_read(&adev->reset_domain->sem);
 	} else {
 		ret = -RAS_CORE_GPU_IN_MODE1_RESET;
@@ -67,5 +67,5 @@ static int amdgpu_ras_send_mp1_msg(struct ras_core_context *ras_core,
 }
 
 const struct ras_mp1_sys_func amdgpu_ras_mp1_sys_func = {
-	.mp1_send_eeprom_msg = amdgpu_ras_send_mp1_msg,
+	.mp1_send_ras_msg = amdgpu_ras_send_mp1_msg,
 };

@@ -667,13 +667,6 @@ int amdgpu_smu_ras_send_msg(struct amdgpu_device *adev, enum smu_message_type ms
 	return ret;
 }
 
-int amdgpu_smu_ras_send_msg_legacy(struct amdgpu_device *adev,
-		enum smu_message_type msg, uint32_t param, uint32_t *read_arg)
-{
-	return amdgpu_smu_ras_send_msg(adev, msg, &param, 1,
-			read_arg, read_arg ? 1 : 0);
-}
-
 int amdgpu_smu_ras_feature_is_enabled(struct amdgpu_device *adev,
 						enum smu_feature_mask mask)
 {
