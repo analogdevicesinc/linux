@@ -39,10 +39,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-   * - :git+linux:`git <main:drivers/iio/dac/+>`
-     - [No]
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/dac/ad5770r.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5770r.c>`__
 
 Devicetree
 ~~~~~~~~~~

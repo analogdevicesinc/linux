@@ -51,12 +51,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ltc2664.c>`__
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ltc2664.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/dac/ltc2664.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ltc2664.c>`__
 
 Files
 ~~~~~
@@ -67,9 +63,9 @@ Files
    * - Function
      - File
    * - driver
-     - :git+linux:`main?drivers/iio/dac/ltc2664.c <main:drivers/iio/dac/ltc2664.c>`
+     - `drivers/iio/dac/ltc2664.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ltc2664.c>`_
    * - dt-bindings
-     - :git+linux:`main?Documentation/devicetree/bindings/iio/dac/adi,ltc2672.yaml <main:Documentation/devicetree/bindings/iio/dac/adi,ltc2672.yaml>`
+     - `Documentation/devicetree/bindings/iio/dac/adi,ltc2672.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/dac/adi,ltc2672.yaml>`_
 
 Example platform device initialization
 --------------------------------------

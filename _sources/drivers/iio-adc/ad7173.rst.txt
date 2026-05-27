@@ -58,12 +58,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git <main:drivers/iio/adc/ad7173.c>`
+   * - `ADI tree <main:drivers/iio/adc/ad7173.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7173.c>`__
-     -
-     -
 
 Files
 -----
@@ -73,13 +69,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/adc/ad7173.c`
-     -
+     - `ad7173.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7173.c>`_
    * - devicetree bindings
-     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad7173.yaml`
-     -
+     - `adi,ad7173.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad7173.yaml>`_
 
 Devicetree
 ----------
@@ -216,7 +209,7 @@ Configuration differences between models
 .. note::
 
    For more devicetree examples and full bindings documentation, refer to
-   :git+linux:`adi,ad7173.yaml <main:Documentation/devicetree/bindings/iio/adc/adi,ad7173.yaml>`
+   `adi,ad7173.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad7173.yaml>`_
 
 Adding Linux driver support
 ---------------------------

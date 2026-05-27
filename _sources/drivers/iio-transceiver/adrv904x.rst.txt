@@ -120,10 +120,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-   * - :git+linux:`git <main:tree/koror_dev/drivers/iio/adc/koror/adrv904x.c+>`
+   * - :git+linux:`git <koror_dev:drivers/iio/adc/koror/adrv904x.c>`
      - No
-     -
 
 Files
 ~~~~~
@@ -133,19 +131,14 @@ Files
 
    * - Function
      - File
-     -
    * - driver source file
-     - :git+linux:`drivers/iio/adc/koror/adrv904x.c <main:tree/koror_dev/drivers/iio/adc/koror/adrv904x.c+>`
-     -
+     - :git+linux:`drivers/iio/adc/koror/adrv904x.c <koror_dev:drivers/iio/adc/koror/adrv904x.c>`
    * - driver source file
-     - :git+linux:`drivers/iio/adc/koror/adrv904x_conv.c <main:tree/koror_dev/drivers/iio/adc/koror/adrv904x_conv.c+>`
-     -
+     - :git+linux:`drivers/iio/adc/koror/adrv904x_conv.c <koror_dev:drivers/iio/adc/koror/adrv904x_conv.c>`
    * - driver include
-     - :git+linux:`drivers/iio/adc/koror/adrv904x.h <main:tree/koror_dev/drivers/iio/adc/koror/adrv904x.h+>`
-     -
+     - :git+linux:`drivers/iio/adc/koror/adrv904x.h <koror_dev:drivers/iio/adc/koror/adrv904x.h>`
    * - Koror API driver
-     - :git+linux:`drivers/iio/adc/koror <main:tree/koror_dev/drivers/iio/adc/koror+>`
-     -
+     - :git+linux:`drivers/iio/adc/koror <koror_dev:drivers/iio/adc/koror>`
 
 Interrelated Device Drivers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -161,16 +154,12 @@ Receive AXI-ADC driver
 
    * - Function
      - File
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
-     -
    * - include
      - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
-     -
 
 Transmit AXI-DAC / DDS driver
 '''''''''''''''''''''''''''''
@@ -180,13 +169,10 @@ Transmit AXI-DAC / DDS driver
 
    * - Function
      - File
-     -
    * - driver
      - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
-     -
    * - include
      - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
-     -
 
 AXI JESD204B HDL driver
 '''''''''''''''''''''''
@@ -196,13 +182,10 @@ AXI JESD204B HDL driver
 
    * - Function
      - File
-     -
    * - driver
      - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_rx.c`
-     -
    * - driver
      - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
-     -
 
 AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
 '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -212,10 +195,8 @@ AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
 
    * - Function
      - File
-     -
    * - driver
      - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
-     -
 
 Device Driver Customization
 ---------------------------

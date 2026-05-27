@@ -31,9 +31,10 @@ Checkpatch
 ~~~~~~~~~~
 
 :external+upstream:doc:`dev-tools/checkpatch`
-(:git+linux:`main:scripts/checkpatch.pl`) is a perl script which checks for trivial
-style violations in patches and optionally corrects them. Checkpatch can also
-be run on file contexts and without the kernel tree.
+(`checkpatch.pl <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/scripts/checkpatch.pl>`_)
+is a perl script which checks for trivial style violations in patches and
+optionally corrects them. Checkpatch can also be run on file contexts and
+without the kernel tree.
 
 It is the bare-minimum tool before submitting any patch series.
 
@@ -131,7 +132,8 @@ operating system doesn’t need to hard code details of the machine.
 Even though some devicetrees are provided with the Linux Kernel, in general,
 a custom devicetree will need to be written to describe a specific board or
 device, using the protopytes provided by the
-:git+linux:`Documentation/devicetree/bindings/**/*.yaml <main:Documentation/devicetree/bindings>` files.
+`Documentation/devicetree/bindings/**/*.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings>`_
+files.
 
 When submitting dt-bindings, you **must** check:
 
@@ -182,9 +184,9 @@ up-to-date map of these subsystems and their interfaces, see
 :external+upstream:doc:`subsystem-apis`.
 
 When developing for a particular subsystem, look for the appropriate git tree
-in the :git+linux:`main:MAINTAINERS` file to work on. Development branches may be
-force pushed. It is reasonable to base you work on top of the current latest
-tag, such as
+in the `MAINTAINERS <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/MAINTAINERS>`_
+file to work on. Development branches may be force pushed. It is reasonable to
+base you work on top of the current latest tag, such as
 `v6.19-rc1 <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=v6.19-rc1&id=8f0b4cce4481fb22653697cced8d0d04027cb1e8>`__
 or near it, this avoids unnecessary merge commits when pulling changes.
 

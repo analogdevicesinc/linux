@@ -73,12 +73,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git <main:drivers/iio/dac/+>`
-     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/dac/ad5686.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5686.c>`__
 
 Files
 ~~~~~
@@ -89,13 +85,13 @@ Files
    * - Function
      - File
    * - driver
-     - :git+linux:`main:drivers/iio/dac/ad5686.c`
+     - `ad5686.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5686.c>`_
    * - driver
-     - :git+linux:`main:drivers/iio/dac/ad5686.h`
+     - `ad5686.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5686.h>`_
    * - driver
-     - :git+linux:`main:drivers/iio/dac/ad5686-spi.c`
+     - `ad5686-spi.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5686-spi.c>`_
    * - driver
-     - :git+linux:`main:drivers/iio/dac/ad5696-i2c.c`
+     - `ad5696-i2c.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5696-i2c.c>`_
 
 Devicetree
 ~~~~~~~~~~

@@ -53,12 +53,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git <main:drivers/iio/adc/navassa/adrv9002.c>`
-     - :git+linux:`No <main:drivers/iio/adc/navassa/adrv9002.c>`
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/adc/navassa/adrv9002.c>`
+     - No
 
 Files
 -----
@@ -68,31 +64,22 @@ Files
 
    * - Function
      - File
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/navassa/adrv9002.c`
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/navassa/adrv9002_conv.c`
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/navassa/adrv9002_debugfs.c`
-     -
    * - include
      - :git+linux:`main:drivers/iio/adc/navassa/adrv9002.h`
-     -
    * - Navassa API driver
      - :git+linux:`main:drivers/iio/adc/navassa/devices/adrv9001/`
-     -
    * - Navassa API driver
      - :git+linux:`main:drivers/iio/adc/navassa/third_party`
-     -
    * - Navassa API driver
      - :git+linux:`main:drivers/iio/adc/navassa/common`
-     -
    * - Navassa API driver
      - :git+linux:`main:drivers/iio/adc/navassa/platforms`
-     -
 
 Interrelated Device Drivers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,13 +111,10 @@ Transmit AXI-DAC / DDS driver
 
    * - Function
      - File
-     -
    * - driver
      - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
-     -
    * - include
      - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
-     -
 
 Device Driver Customization
 ---------------------------
@@ -204,7 +188,7 @@ expects the file to have the following name:
      - File
      -
    * - ARM firmware
-     - :git+linux:`adrv9001:firmware/Navassa_EvaluationFw.bin`
+     - :git+linux:`main:firmware/Navassa_EvaluationFw.bin`
      -
 
 Gain Tables

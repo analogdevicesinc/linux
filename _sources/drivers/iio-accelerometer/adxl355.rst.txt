@@ -38,12 +38,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl355_core.c>`__
+   * - :git+linux:`ADI tree <main:drivers/iio/accel/adxl355_core.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl355_core.c>`__
-     -
-     -
 
 Files
 ~~~~~
@@ -55,19 +51,19 @@ Files
      - File
      -
    * - core driver
-     - :git+linux:`main:drivers/iio/accel/adxl355_core.c`
+     - `adxl355_core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl355_core.c>`_
      -
    * - spi driver
-     - :git+linux:`main:drivers/iio/accel/adxl355_spi.c`
+     - `adxl355_spi.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl355_spi.c>`_
      -
    * - i2c driver
-     - :git+linux:`main:drivers/iio/accel/adxl355_i2c.c`
+     - `adxl355_i2c.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl355_i2c.c>`_
      -
    * - header
-     - :git+linux:`main:drivers/iio/accel/adxl355.h`
+     - `adxl355.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl355.h>`_
      -
    * - Documentation
-     - :git+linux:`adi,adxl355.yaml <main:Documentation/devicetree/bindings/iio/accel/adi,adxl355.yaml>`
+     - `adi,adxl355.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/accel/adi,adxl355.yaml>`_
      -
 
 Example platform device initialization

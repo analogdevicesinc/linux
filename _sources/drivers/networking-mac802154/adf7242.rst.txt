@@ -36,10 +36,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-   * - `git <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ieee802154/adf7242.c>`__
-     - Yes
-     -
+   * - :git+linux:`ADI tree <main:drivers/net/ieee802154/adf7242.c>`
+     - `Yes <https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ieee802154/adf7242.c>`__
 
 Files
 ~~~~~
@@ -49,13 +47,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`adf7242.c <main:drivers/net/ieee802154/adf7242.c>`
-     -
+     - `adf7242.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ieee802154/adf7242.c>`_
    * - include
      - :git+linux:`adf7242.h <main:include/linux/spi/adf7242.h>`
-     -
 
 Firmware for Automatic IEEE 802.15.4 Operating Modes (AN-1082)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -141,7 +136,7 @@ Example Platform / Board file
 
 Alternatively, it is possible to declare the SPI devices from a DeviceTree file.
 Read the
-:git+linux:`documentation <main:Documentation/devicetree/bindings/net/ieee802154/adf7242.txt>`
+`documentation <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/ieee802154/adf7242.txt>`_
 for more details.
 
 Example:

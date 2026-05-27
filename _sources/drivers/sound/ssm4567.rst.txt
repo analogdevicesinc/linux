@@ -28,12 +28,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git <ssm4329:sound/soc/codecs/ssm4567.c>`
-     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm4567.c>`__
-     -
-     -
+   * - :git+linux:`git <main:sound/soc/codecs/ssm4567.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm4567.c>`__
 
 Files
 ^^^^^
@@ -43,13 +39,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`asoc-ssm4329:sound/soc/codecs/ssm4567.c`
-     -
+     - :git+linux:`main:sound/soc/codecs/ssm4567.c`
    * - include
-     - :git+linux:`asoc-ssm4329:sound/soc/codecs/ssm4567.h`
-     -
+     - :git+linux:`main:sound/soc/codecs/ssm4567.h`
 
 Example device initialization
 -----------------------------

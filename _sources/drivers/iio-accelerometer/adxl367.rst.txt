@@ -31,12 +31,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl367.c>`__
+   * - :git+linux:`ADI tree <main:drivers/iio/accel/adxl367.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl367.c>`__
-     -
-     -
 
 Files
 ~~~~~
@@ -46,21 +42,15 @@ Files
 
    * - Function
      - File
-     -
    * - core driver
-     - :git+linux:`main:drivers/iio/accel/adxl367.c`
-     -
+     - `adxl367.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl367.c>`_
    * - spi driver
-     - :git+linux:`main:drivers/iio/accel/adxl367_spi.c`
-     -
+     - `adxl367_spi.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl367_spi.c>`_
    * - i2c driver
-     - :git+linux:`main:drivers/iio/accel/adxl367_i2c.c`
-     -
+     - `adxl367_i2c.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl367_i2c.c>`_
    * - header
-     - :git+linux:`drivers/iio/accel/adxl367.h <main:drivers/iio/iio/accel/adxl367.h>`
-     -
+     - `adxl367.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl367.h>`_
    * - Documentation
-     - :git+linux:`adi,adxl367.yaml <main:./Documentation/devicetree/bindings/iio/accel/adi,adxl367.yaml>`
      -
 
 Example device tree

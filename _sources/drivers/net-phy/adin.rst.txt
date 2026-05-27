@@ -55,12 +55,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`main:drivers/net/phy/adin.c`
+   * - :git+linux:`ADI tree <main:drivers/net/phy/adin.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/phy/adin.c>`__
-     -
-     -
 
 Files
 ~~~~~
@@ -70,13 +66,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/net/phy/adin.c`
-     -
+     - `adin.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/phy/adin.c>`_
    * - Documentation
-     - :git+linux:`adi,adin.yaml <main:Documentation/devicetree/bindings/net/adi,adin.yaml>`
-     -
+     - `adi,adin.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/net/adi,adin.yaml>`_
 
 **Compatibility layer for Linux kernel version < 5.4 (Not required otherwise)**
 

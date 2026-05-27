@@ -35,12 +35,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
    * - :git+linux:`ADI tree <main:drivers/iio/adc/ad4695.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad4695.c>`__
-     -
-     -
 
 **Note:** In order to achieve the maximum sample rate, using a SPI offload such
 as the
@@ -55,16 +51,12 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/adc/ad4695.c`
-     -
+     - `ad4695.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad4695.c>`_
    * - devicetree bindings
-     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad4695.yaml`
-     -
+     - `adi,ad4695.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad4695.yaml>`_
    * - ZedBoard example devicetree
      - :git+linux:`arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4695.dts <main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad4696.dts>`
-     -
 
 Upstream documentation: https://docs.kernel.org/iio/ad4695.html
 

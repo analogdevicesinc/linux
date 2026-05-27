@@ -54,12 +54,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5592r-base.c>`__
+   * - :git+linux:`ADI tree <main:drivers/iio/dac/ad5592r-base.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5592r-base.c>`__
-     -
-     -
 
 Files
 ~~~~~
@@ -69,22 +65,16 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/dac/ad5592r-base.c`
-     -
+     - `ad5592r-base.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5592r-base.c>`_
    * - include
-     - :git+linux:`main:drivers/iio/dac/ad5592r-base.h`
-     -
+     - `ad5592r-base.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5592r-base.h>`_
    * - driver
-     - :git+linux:`main:drivers/iio/dac/ad5593r.c`
-     -
+     - `ad5593r.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5593r.c>`_
    * - include
-     - :git+linux:`main:include/dt-bindings/iio/adi,ad5592r.h`
-     -
+     - `adi,ad5592r.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/dt-bindings/iio/adi,ad5592r.h>`_
    * - Documentation
      - :git+linux:`main:Documentation/devicetree/bindings/iio/dac/ad5592r.txt`
-     -
 
 Hardware configuration
 ----------------------

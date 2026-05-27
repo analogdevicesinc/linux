@@ -31,12 +31,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/addac/ad74413r.c>`__
+   * - :git+linux:`ADI tree <main:drivers/iio/addac/ad74413r.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/addac/ad74413r.c>`__
-     -
-     -
 
 Files
 ~~~~~
@@ -46,13 +42,10 @@ Files
 
    * - Function
      - File
-     -
    * - core driver
-     - :git+linux:`ad74413r.c <main:drivers/iio/addac/ad74413r.c>`
-     -
+     - `ad74413r.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/addac/ad74413r.c>`_
    * - Documentation
-     - :git+linux:`adi,ad74413r.yaml <main:./Documentation/devicetree/bindings/iio/addac/adi,ad74413r.yaml>`
-     -
+     - `adi,ad74413r.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/addac/adi,ad74413r.yaml>`_
 
 Example device tree
 
@@ -61,10 +54,8 @@ Example device tree
 
    * - Function
      - File
-     -
    * - dts
      - :git+linux:`rpi-ad74413r-overlay.dts <rpi-5.15.y:arch/arm/boot/dts/overlays/rpi-ad74413r-overlay.dts>`
-     -
 
 Driver testing
 --------------

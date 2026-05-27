@@ -35,12 +35,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
    * - :git+linux:`ADI tree <main:drivers/iio/adc/ad7944.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7944.c>`__
-     -
-     -
 
 **Note:** In order to achieve the maximum sample rate, using a SPI offload such
 as the
@@ -55,16 +51,12 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/adc/ad7944.c`
-     -
+     - `ad7944.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7944.c>`_
    * - devicetree bindings
-     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad7944.yaml`
-     -
+     - `adi,ad7944.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad7944.yaml>`_
    * - ZedBoard example devicetree
      - :git+linux:`main:arch/arm/boot/dts/zynq-zed-adv7511-ad7944.dts`
-     -
 
 Upstream documentation: https://docs.kernel.org/iio/ad7944.html
 

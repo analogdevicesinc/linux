@@ -48,12 +48,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c>`__
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <drivers/iio/dac/ad3530r.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c>`__
 
 Files
 ~~~~~
@@ -64,9 +60,9 @@ Files
    * - Function
      - Status
    * - driver
-     - :git+linux:`main:drivers/iio/dac/ad3530r.c`
+     - `ad3530r.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c>`_
    * - dt-bindings
-     - :git+linux:`main:Documentation/devicetree/bindings/iio/dac/adi,ad3530r.yaml`
+     - `adi,ad3530r.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/dac/adi,ad3530r.yaml>`_
    * - overlay
      - :git+linux:`rpi-6.6.y:arch/arm/boot/dts/overlays/rpi-ad3530r-overlay.dts`
 

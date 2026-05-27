@@ -38,12 +38,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c>`__
+   * - :git+linux:`ADI tree <main:sound/soc/codecs/adav80x.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/adav80x.c>`__
-     -
-     -
 
 Files
 ^^^^^
@@ -200,7 +196,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git+linux:`git  <5.12:sound/soc/blackfin/bfin-eval-adav80x.c>`
+   * - :git+linux:`git  <2018_R1:sound/soc/blackfin/bfin-eval-adav80x.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bfin-eval-adav80x.c>`__
      -
      -

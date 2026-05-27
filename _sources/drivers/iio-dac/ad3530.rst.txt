@@ -44,12 +44,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c>`__
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/dac/ad3530r.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c>`__
 
 Files
 ~~~~~
@@ -59,13 +55,10 @@ Files
 
    * - Function
      - Status
-     -
-   * - :git+linux:`driver <ddd710f3eefcf494ab6d01be59b5512398f0fee7:drivers/iio/dac/ad3530r.c>`
-     - PR
-     -
-   * - :git+linux:`dt-bindings <f2b1c53b4014d76c4f35aea4d1517ad70e9fcf64:Documentation/devicetree/bindings/iio/dac/adi%2Cad3530r.yaml>`
-     - PR
-     -
+   * - `driver <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad3530r.c>`_
+     - 
+   * - `dt-bindings <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/dac/adi,ad3530r.yaml>`_
+     - 
 
 Example platform device initialization
 --------------------------------------

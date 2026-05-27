@@ -39,24 +39,14 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `drivers/hwmon/ltc2947-core.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947-core.c>`__
-     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947-core.c>`__
-     -
-     -
-   * - `drivers/hwmon/ltc2947-i2c.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947-i2c.c>`__
-     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947-i2c.c>`__
-     -
-     -
-   * - `drivers/hwmon/ltc2947-spi.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947-spi.c>`__
-     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947-spi.c>`__
-     -
-     -
-   * - `drivers/hwmon/ltc2947.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947.h>`__
-     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947.h>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/hwmon/ltc2947-core.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947-core.c>`__
+   * - :git+linux:`ADI tree <main:drivers/hwmon/ltc2947-i2c.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947-i2c.c>`__
+   * - :git+linux:`ADI tree <main:drivers/hwmon/ltc2947-spi.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947-spi.c>`__
+   * - :git+linux:`ADI tree <main:drivers/hwmon/ltc2947.h>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/ltc2947.h>`__
 
 Files
 ~~~~~
@@ -126,7 +116,7 @@ Example I2C:
    };
 
 For more supported devicetree properties take a look to
-:git+linux:`dt-bindings <main:Documentation/devicetree/bindings/hwmon/adi,ltc2947.yaml>`.
+`dt-bindings <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/hwmon/adi,ltc2947.yaml>`_.
 
 Enabling Linux driver support
 -----------------------------

@@ -487,15 +487,11 @@ or <strong>I2C (AD7879-1)(AD7889-1)</strong> interface.</p>
 <thead>
 <tr class="row-odd"><th class="head"><p>Source</p></th>
 <th class="head"><p>Mainlined?</p></th>
-<th class="head"></th>
-<th class="head"></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c" target="_blank">git</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/touchscreen/ad7879.c" target="_blank">ADI tree</a></p></td>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c" target="_blank">Yes</a></p></td>
-<td></td>
-<td></td>
 </tr>
 </tbody>
 </table>
@@ -541,7 +537,6 @@ additional pin roles, and so on. This shrinks the board-support packages (BSPs)
 and minimizes board and application specific #ifdefs in drivers.</p>
 <p>Touchscreen characteristics vary between boards and models. The platform_data
 for the device’s <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">device</span></code> holds this information.</p>
-<p>&lt;source trunk/include/linux/spi/ad7879.h c linux-kernel&gt;</p>
 <section id="example-platform-board-file-spi-interface-version">
 <h3>Example Platform / Board file (SPI Interface Version)<a class="headerlink" href="#example-platform-board-file-spi-interface-version" title="Link to this heading"></a></h3>
 <p>Unlike PCI or USB devices, SPI devices are not enumerated at the hardware level.
@@ -957,7 +952,7 @@ linux. Nanox need to use tslib for touchscreen. To enable:</p>
 <h3>Driver Source<a class="headerlink" href="#driver-source" title="Link to this heading"></a></h3>
 <p>Most people should not care about the driver source - it just works as a normal
 Linux input device. If you are interested, you can look at the driver source:</p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/touchscreen/ad7879.c" target="_blank">ad7879_report()</a></p>
+<p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c" target="_blank">ad7879_report()</a></p>
 </section>
 </section>
 </section>

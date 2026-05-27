@@ -109,7 +109,6 @@
 </li>
 <li><a class="reference internal" href="#source-code">Source Code</a><ul>
 <li><a class="reference internal" href="#status">Status</a></li>
-<li><a class="reference internal" href="#id2">Status</a></li>
 <li><a class="reference internal" href="#files">Files</a></li>
 <li><a class="reference internal" href="#adxl345-6-driver-porting">ADXL345/6 driver porting</a></li>
 </ul>
@@ -118,7 +117,7 @@
 <li><a class="reference internal" href="#example-platform-board-file-spi-interface-option">Example Platform / Board file (SPI Interface Option)</a></li>
 <li><a class="reference internal" href="#devicetree">Devicetree</a></li>
 <li><a class="reference internal" href="#example-platform-board-file-i2c-interface-option">Example Platform / Board file (I2C Interface Option)</a></li>
-<li><a class="reference internal" href="#id3">Devicetree</a></li>
+<li><a class="reference internal" href="#id2">Devicetree</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a></li>
@@ -571,26 +570,16 @@ automatically switch to sleep mode during periods of inactivity.</p></li>
 <h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
 <section id="status">
 <h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
-</section>
-<section id="id2">
-<h3>Status<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/releases" target="_blank">ADI Linux repository (releases)</a></p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/releases" target="_blank">ADI Linux repository (releases)</a></p>
-<p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/mastitete/azure-pipelines-rpi.yml" target="_blank">azure-pipelines-rpi.yml</a></p>
 <div class="table-wrapper docutils container">
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Source</p></th>
 <th class="head"><p>Mainlined?</p></th>
-<th class="head"></th>
-<th class="head"></th>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x.c" target="_blank">git</a></p></td>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/misc/adxl34x.c" target="_blank">ADI tree</a></p></td>
 <td><p><a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/misc/adxl34x.c" target="_blank">Yes</a></p></td>
-<td></td>
-<td></td>
 </tr>
 </tbody>
 </table>
@@ -630,27 +619,27 @@ your kernel tree.</p>
 <p>If you are using a kernel version <strong>without the threaded irq capabilities (&lt;
 2.6.30) get there driver from here:</strong></p>
 <ul class="simple">
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/drivers/input/misc/adxl34x.c" target="_blank">adxl34x.c</a></p>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/misc/adxl34x.c" target="_blank">adxl34x.c</a></p>
 <ul>
 <li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x.c</p></li>
 </ul>
 </li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/drivers/input/misc/adxl34x.h" target="_blank">adxl34x.h</a></p>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/misc/adxl34x.h" target="_blank">adxl34x.h</a></p>
 <ul>
 <li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x.h</p></li>
 </ul>
 </li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/drivers/input/misc/adxl34x-i2c" target="_blank">adxl34x-i2c.c</a></p>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/misc/adxl34x-i2c.c" target="_blank">adxl34x-i2c.c</a></p>
 <ul>
 <li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x-i2c.c</p></li>
 </ul>
 </li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/drivers/input/misc/adxl34x-spi.c" target="_blank">adxl34x-spi.c</a></p>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/input/misc/adxl34x-spi.c" target="_blank">adxl34x-spi.c</a></p>
 <ul>
 <li><p>Copy to linux-2.6.x/drivers/input/misc/adxl34x-spi.c</p></li>
 </ul>
 </li>
-<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/5.12/include/linux/input/adxl34x.h" target="_blank">adxl34x.h</a></p></li>
+<li><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/include/linux/input/adxl34x.h" target="_blank">adxl34x.h</a></p></li>
 <li><p>Copy to linux-2.6.x/include/linux/input/adxl34x.h</p></li>
 </ul>
 <p>**For the latest version of checkout the <a class="icon dokuwiki reference external" href="https://wiki.analog.com/#Files" target="_blank">Files</a> section of
@@ -1236,8 +1225,8 @@ an appropriate entry to <code class="docutils literal notranslate"><span class="
 </pre></div>
 </div>
 </section>
-<section id="id3">
-<h3>Devicetree<a class="headerlink" href="#id3" title="Link to this heading"></a></h3>
+<section id="id2">
+<h3>Devicetree<a class="headerlink" href="#id2" title="Link to this heading"></a></h3>
 <p>Required devicetree properties:</p>
 <ul class="simple">
 <li><p>compatible: Needs to be <code class="docutils literal notranslate"><span class="pre">adi,</span></code> followed by the name of the device. E.g.

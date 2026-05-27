@@ -43,12 +43,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git <main:drivers/iio/amplifiers/hmc425a.c>`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/amplifiers/hmc425a.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/amplifiers/hmc425a.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/amplifiers/hmc425a.c>`__
 
 Files
 ~~~~~
@@ -58,13 +54,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/amplifiers/hmc425a.c`
-     -
+     - `hmc425a.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/amplifiers/hmc425a.c>`_
    * - Documentation
      - `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
-     -
 
 Devicetree
 ~~~~~~~~~~

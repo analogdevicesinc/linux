@@ -61,10 +61,10 @@ Files
      - File
      -
    * - driver
-     - :git+linux:`main:drivers/dma/dma-axi-dmac.c`
+     - `dma-axi-dmac.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/dma/dma-axi-dmac.c>`_
      -
    * - include
-     - :git+linux:`main:include/dt-bindings/dma/axi-dmac.h`
+     - `axi-dmac.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/dt-bindings/dma/axi-dmac.h>`_
      -
    * - Documentation
      - :git+linux:`main:Documentation/devicetree/bindings/dma/adi,axi-dmac.txt`

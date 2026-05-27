@@ -36,12 +36,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm2602.c>`__
+   * - :git+linux:`ADI tree <main:sound/soc/codecs/ssm2602.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm2602.c>`__
-     -
-     -
 
 Files
 ^^^^^
@@ -377,7 +373,7 @@ Status
      - Mainlined?
      -
      -
-   * - :git+linux:`git  <5.12:sound/soc/blackfin/bf5xx-ssm2602.c>`
+   * - :git+linux:`git  <2018_R1:sound/soc/blackfin/bf5xx-ssm2602.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/blackfin/bf5xx-ssm2602.c>`__
      -
      -

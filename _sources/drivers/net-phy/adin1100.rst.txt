@@ -56,12 +56,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`main:drivers/net/phy/adin1100.c`
-     - `In Progress <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/phy/adin-t1l.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/net/phy/adin1100.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/phy/adin1100.c>`_
 
 Files
 ~~~~~
@@ -71,10 +67,8 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/net/phy/adin1100.c`
-     -
+     - `adin1100.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/phy/adin1100.c>`_
 
 Example platform device initialization
 --------------------------------------
