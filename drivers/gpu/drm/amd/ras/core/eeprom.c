@@ -1141,12 +1141,12 @@ static int ras_eeprom_hw_fini(struct ras_core_context *ras_core)
 	return 0;
 }
 
-static uint32_t ras_eeprom_get_record_count(struct ras_core_context *ras_core)
+static int ras_eeprom_get_record_count(struct ras_core_context *ras_core)
 {
 	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
 
 	if (!control)
-		return 0;
+		return -EINVAL;
 
 	return control->ras_num_recs;
 }

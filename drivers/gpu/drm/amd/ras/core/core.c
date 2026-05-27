@@ -274,8 +274,8 @@ static int ras_core_eeprom_recovery(struct ras_core_context *ras_core)
 	int ret;
 
 	count = ras_eeprom_mgr_get_record_count(ras_core);
-	if (!count)
-		return 0;
+	if (count <= 0)
+		return count;
 
 	/* Avoid bad page to be loaded again after gpu reset */
 	if (ras_umc_get_saved_eeprom_count(ras_core) >= count)

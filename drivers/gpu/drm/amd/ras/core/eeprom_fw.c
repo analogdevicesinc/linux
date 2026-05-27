@@ -97,12 +97,12 @@ out:
 	return ret;
 }
 
-static u32 fw_eeprom_get_record_count(struct ras_core_context *ras_core)
+static int fw_eeprom_get_record_count(struct ras_core_context *ras_core)
 {
 	struct fw_eeprom_control *ctl;
 
 	if (!ras_core->eeprom_mgr.ras_eeprom)
-		return 0;
+		return -EINVAL;
 
 	ctl = ras_core->eeprom_mgr.ras_eeprom;
 

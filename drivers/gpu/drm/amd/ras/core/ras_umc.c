@@ -677,12 +677,12 @@ out:
 int ras_umc_load_bad_pages(struct ras_core_context *ras_core)
 {
 	struct eeprom_umc_record *bps;
-	uint32_t ras_num_recs, c = 0;
-	int ret;
+	uint32_t c = 0;
+	int ras_num_recs, ret;
 
 	ras_num_recs = ras_eeprom_mgr_get_record_count(ras_core);
-	if (!ras_num_recs)
-		return 0;
+	if (ras_num_recs <= 0)
+		return ras_num_recs;
 
 	bps = kzalloc_objs(*bps, ras_num_recs);
 	if (!bps)
@@ -711,7 +711,7 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 	struct ras_umc *ras_umc = &ras_core->ras_umc;
 	struct eeprom_store_record *data = &ras_umc->umc_err_data.rom_data;
 	struct eeprom_store_record *ram_data = &ras_umc->umc_err_data.ram_data;
-	uint32_t eeprom_record_num, logical_count = 0;
+	int eeprom_record_num, logical_count = 0;
 	int save_count;
 	int ret = -ENODATA;
 
@@ -723,6 +723,9 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 		return -EINVAL;
 
 	eeprom_record_num = ras_eeprom_mgr_get_record_count(ras_core);
+	if (eeprom_record_num < 0)
+		return eeprom_record_num;
+
 	mutex_lock(&ras_umc->umc_lock);
 	save_count = data->count - eeprom_record_num;
 	logical_count = ram_data->bad_page_num - ram_data->bad_page_num_old;
@@ -984,8 +987,8 @@ int ras_umc_dump_fw_records(struct ras_core_context *ras_core)
 
 	eeprom_count = ras_eeprom_mgr_get_record_count(ras_core);
 	/* no bad page record, skip eeprom access */
-	if (!eeprom_count)
-		return 0;
+	if (eeprom_count <= 0)
+		return eeprom_count;
 
 	umc_count = ras_umc_get_saved_eeprom_count(ras_core);
 	if (umc_count == eeprom_count) {

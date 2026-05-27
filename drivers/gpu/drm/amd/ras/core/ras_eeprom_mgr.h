@@ -80,7 +80,7 @@ struct ras_eeprom_ops {
 		struct eeprom_umc_record *records, u32 num);
 	int (*append_records)(struct ras_core_context *ras_core,
 		struct eeprom_umc_record *records, u32 num);
-	u32 (*get_record_count)(struct ras_core_context *ras_core);
+	int (*get_record_count)(struct ras_core_context *ras_core);
 	int (*get_eeprom_info)(struct ras_core_context *ras_core,
 		struct ras_eeprom_info *eeprom_info, bool fast_mode);
 	int (*unlock_eeprom)(struct ras_core_context *ras_core);
