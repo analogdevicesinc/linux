@@ -242,6 +242,7 @@ static int ipu6_isys_stream_start(struct ipu6_isys_video *av,
 	struct ipu6_isys_stream *stream = av->stream;
 	struct device *dev = &adev->auxdev.dev;
 	struct ipu6_isys_buffer_list __bl;
+	struct isys_fw_msgs *msg;
 	int ret;
 
 	guard(mutex)(&stream->isys->stream_mutex);
@@ -254,26 +255,26 @@ static int ipu6_isys_stream_start(struct ipu6_isys_video *av,
 	bl = &__bl;
 
 	do {
-		struct isys_fw_msgs *msg;
-
 		ret = buffer_list_get(stream, bl);
 		if (ret < 0)
-			break;
+			return 0;
 
 		msg = ipu6_get_fw_msg_buf(stream);
-		if (!msg)
-			return -ENOMEM;
+		if (WARN_ON(!msg))
+			goto out_requeue;
 
 		fw_ops->prepare_buf_set(msg, stream, bl);
 		fw_ops->dump_frame_buf_set(dev, msg, stream->nr_output_pins);
 		ipu6_isys_buffer_list_queue(bl, IPU6_ISYS_BUFFER_LIST_FL_ACTIVE,
 					    0);
-
 		ret = fw_ops->stream_capture(stream->isys,
 					     stream->stream_handle, msg);
-	} while (!WARN_ON(ret));
+		if (WARN_ON(ret))
+			break;
+	} while (true);
 
-	return 0;
+	/* Error handling begins here. */
+	ipu6_put_fw_msg_buf(stream->isys, msg);
 
 out_requeue:
 	if (bl && bl->nbufs)
