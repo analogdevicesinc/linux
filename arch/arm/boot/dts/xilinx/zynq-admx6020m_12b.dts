@@ -9,7 +9,7 @@
  */
 /dts-v1/;
 
-#include "zynq-sharkbyte.dts"
+#include "zynq-admx6020m.dts"
 
 &hmcad15xx_1 {
 	adi,num-channels = <1>;
