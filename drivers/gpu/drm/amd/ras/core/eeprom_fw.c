@@ -36,10 +36,11 @@ static int fw_eeprom_reset_ras_table(struct ras_core_context *ras_core)
 	mutex_lock(&ctl->record_lock);
 	res = ras_mp1_reset_ras_table(ras_core, &erase_res);
 	if (res || erase_res) {
-		RAS_DEV_WARN(ras_core->dev, "RAS EEPROM reset failed, res:%d result:%d",
-									res, erase_res);
+		RAS_DEV_WARN(ras_core->dev,
+			"RAS EEPROM reset failed, res:%d result:%d\n", res, erase_res);
 		if (!res)
 			res = -EIO;
+		goto out;
 	}
 
 	ctl->record_count = 0;
@@ -51,6 +52,8 @@ static int fw_eeprom_reset_ras_table(struct ras_core_context *ras_core)
 	ctl->rma_status = 0;
 	ctl->bad_channel_bitmap = 0;
 
+out:
+	mutex_unlock(&ctl->record_lock);
 	return res;
 }
 
@@ -72,6 +75,11 @@ static int fw_eeprom_sync_data(struct ras_core_context *ras_core,
 	} else if (fw_err_rec_num < ctl->record_count) {
 		RAS_DEV_ERR(ras_core->dev, "EEPROM ECC error count mismatch!\n");
 		ret = -EFAULT;
+		goto out;
+	} else if (fw_err_rec_num > MAX_EEPROM_ERR_RECORD_NUM) {
+		RAS_DEV_ERR(ras_core->dev,
+			"Invalid EEPROM error count:0x%x\n", fw_err_rec_num);
+		ret = -EOVERFLOW;
 		goto out;
 	}
 
@@ -141,9 +149,6 @@ static int fw_eeprom_sw_init(struct ras_core_context *ras_core,
 	if (!ctl)
 		return -ENOMEM;
 
-	mgr->ras_eeprom = ctl;
-	memset(ctl, 0, sizeof(*ctl));
-
 	ctl->eeprom_ip_version = param->eeprom_ip_version;
 	ctl->records = kzalloc(sizeof(*ctl->records) * MAX_EEPROM_ERR_RECORD_NUM, GFP_KERNEL);
 	if (!ctl->records) {
@@ -154,10 +159,12 @@ static int fw_eeprom_sw_init(struct ras_core_context *ras_core,
 	ctl->max_record_count = MAX_EEPROM_ERR_RECORD_NUM;
 	mutex_init(&ctl->record_lock);
 
+	mgr->ras_eeprom = ctl;
+
 	return 0;
 
 out:
-	kfree(ctl->records);
+	kfree(ctl);
 	return ret;
 }
 

@@ -148,7 +148,7 @@ int ras_mp1_get_record_count(struct ras_core_context *ras_core, u32 *count)
 	int ret;
 
 	if (!count || !mp1->ip_func || !mp1->ip_func->get_record_count)
-		return 0;
+		return -EOPNOTSUPP;
 
 	mutex_lock(&mp1->op_mutex);
 	ret = mp1->ip_func->get_record_count(ras_core, count);

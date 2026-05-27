@@ -489,6 +489,7 @@ static int ras_umc_log_record(struct ras_core_context *ras_core,
 				struct eeprom_umc_record *record)
 {
 	struct eeprom_umc_record *rec;
+	int ret;
 
 	rec = kzalloc(sizeof(*rec), GFP_KERNEL);
 	if (!rec)
@@ -496,7 +497,11 @@ static int ras_umc_log_record(struct ras_core_context *ras_core,
 
 	memcpy(rec, record, sizeof(*rec));
 
-	return ras_umc_log_ecc(ras_core, rec->cur_nps_retired_row_pfn, rec);
+	ret = ras_umc_log_ecc(ras_core, rec->cur_nps_retired_row_pfn, rec);
+	if (ret)
+		kfree(rec);
+
+	return ret;
 }
 
 /* alloc/realloc bps array */
@@ -538,7 +543,7 @@ static int ras_umc_update_eeprom_rom_data(struct ras_core_context *ras_core,
 
 	/* update bad channel bitmap */
 	if (bps->mem_channel < BITS_PER_TYPE(data->umc_channel_bitmap))
-		data->umc_channel_bitmap |= 1 << bps->mem_channel;
+		data->umc_channel_bitmap |= 0x1ULL << bps->mem_channel;
 
 	return 0;
 }
@@ -586,7 +591,7 @@ static int ras_umc_update_eeprom_ram_data(struct ras_core_context *ras_core,
 
 	/* update bad channel bitmap */
 	if (bps->mem_channel < BITS_PER_TYPE(data->umc_channel_bitmap))
-		data->umc_channel_bitmap |= 1 << bps->mem_channel;
+		data->umc_channel_bitmap |= 0x1ULL << bps->mem_channel;
 
 	return 0;
 }
