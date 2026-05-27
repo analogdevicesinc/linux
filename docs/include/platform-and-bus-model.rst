@@ -22,7 +22,8 @@ Platform Data Example
 =====================
 
 The following example shows a set of these configuration options. These variables
-are fully documented in adxl34x header file (:git+linux:`main:include/linux/input/adxl34x.h`).
+are fully documented in adxl34x header file
+(`adxl34x.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/input/adxl34x.h>`_).
 
 .. code-block:: c
 

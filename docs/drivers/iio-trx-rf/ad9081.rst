@@ -75,12 +75,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
    * - :git+linux:`main:drivers/iio/adc/ad9081.c`
-     - `No <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad9081.c>`__
-     -
-     -
+     - No
 
 Files
 ~~~~~
@@ -90,13 +86,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/ad9081.c`
-     -
    * - API driver
      - :git+linux:`main:drivers/iio/adc/ad9081`
-     -
 
 Example device trees
 ^^^^^^^^^^^^^^^^^^^^
@@ -1940,7 +1933,7 @@ supports the following directives:
     are required when ``I_MODE == matrix``.
 
 The parser can be found here:
-:git+linux:`ad9081_parse_fir <main:drivers/iio/adc/ad9081.c#L2430-L2647+>`
+:git+linux:`ad9081_parse_fir <main:drivers/iio/adc/ad9081.c#L2430-L2647>`
 
 Examples
 ''''''''

@@ -21,12 +21,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git <ssm4329:sound/soc/codecs/ssm4329.c>`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ssm4329.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <asoc-ssm4329:sound/soc/codecs/ssm4329.c>`
+     - No
 
 Files
 ^^^^^
@@ -36,13 +32,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
      - :git+linux:`asoc-ssm4329:sound/soc/codecs/ssm4329.c`
-     -
    * - include
      - :git+linux:`asoc-ssm4329:sound/soc/codecs/ssm4329.h`
-     -
 
 Example device initialization
 -----------------------------

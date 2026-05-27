@@ -56,12 +56,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`main:drivers/iio/frequency/adf4371.c`
-     - `YES <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4371.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/frequency/adf4371.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4371.c>`__
 
 Files
 ~~~~~
@@ -71,16 +67,12 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/frequency/adf4371.c`
-     -
+     - `adf4371.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4371.c>`_
    * - Documentation
-     - :git+linux:`adf4371.yaml <main:Documentation/devicetree/bindings/iio/frequency/adf4371.yaml>`
-     -
+     - `adf4371.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/frequency/adf4371.yaml>`_
    * - ABI documentation
-     - :git+linux:`sysfs-bus-iio-frequency-adf4371 <main:Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4371>`
-     -
+     - `sysfs-bus-iio-frequency-adf4371 <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4371>`_
 
 Example device tree
 
@@ -89,10 +81,8 @@ Example device tree
 
    * - Function
      - File
-     -
    * - dts
      - :git+linux:`rpi-adf4371-overlay.dts <rpi-4.19.y:arch/arm/boot/dts/overlays/rpi-adf4371-overlay.dts>`
-     -
 
 Example platform device initialization
 --------------------------------------

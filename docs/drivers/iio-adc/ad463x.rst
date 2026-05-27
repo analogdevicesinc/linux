@@ -52,27 +52,15 @@ Evaluation Boards
    * - Carrier
      - Evaluation Board
      - User Guide
-     -
-     -
-     -
    * - :xilinx:`Zedboard <products/boards-and-kits/1-8dyf-11.html>`
      - :adi:`EVAL-AD4630-24 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4630-24.html>`
      - :dokuwiki:`AD4630-24 user guide </resources/eval/ad4630-24-eval-board>`
-     -
-     -
-     -
    * - :xilinx:`Zedboard <products/boards-and-kits/1-8dyf-11.html>`
      - :adi:`EVAL-AD4630-16 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4630-24.html>`
      - :dokuwiki:`AD4630-16 user guide </resources/eval/ad4630-24-eval-board>`
-     -
-     -
-     -
    * - :xilinx:`Zedboard <products/boards-and-kits/1-8dyf-11.html>`
      - :adi:`EVAL-AD4030-24 <en/design-center/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD4030-24.html>`
      - :dokuwiki:`AD4030-24 user guide </resources/eval/ad4030-24-eval-board>`
-     -
-     -
-     -
 
 Source Code
 -----------
@@ -85,10 +73,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-   * - :git+linux:`git <main:drivers/iio/adc/ad4630.c+>`
+   * - :git+linux:`ADI tree <main:drivers/iio/adc/ad4630.c>`
      - [No]
-     -
 
 Files
 ~~~~~
@@ -100,10 +86,10 @@ Files
      - File
      -
    * - driver
-     - :git+linux:`ad4630.c <main:drivers/iio/adc/ad4630.c+>`
+     - :git+linux:`ad4630.c <main:drivers/iio/adc/ad4630.c>`
      -
    * - devicetree
-     - :git+linux:`ad4630-24.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad4630-24.dts+>`
+     - :git+linux:`ad4630-24.dts <main:arch/arm/boot/dts/zynq-zed-adv7511-ad4630-24.dts>`
      -
 
 ===== Devicetree =====

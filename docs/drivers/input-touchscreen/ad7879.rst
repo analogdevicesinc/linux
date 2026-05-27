@@ -106,12 +106,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c>`__
+   * - :git+linux:`ADI tree <main:drivers/input/touchscreen/ad7879.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c>`__
-     -
-     -
 
 Files
 ~~~~~
@@ -139,8 +135,6 @@ Example platform device initialization
 
 Touchscreen characteristics vary between boards and models. The platform_data
 for the device’s ``struct device`` holds this information.
-
-<source trunk/include/linux/spi/ad7879.h c linux-kernel>
 
 Example Platform / Board file (SPI Interface Version)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -573,4 +567,4 @@ Driver Source
 Most people should not care about the driver source - it just works as a normal
 Linux input device. If you are interested, you can look at the driver source:
 
-:git+linux:`ad7879_report() <main:drivers/input/touchscreen/ad7879.c>`
+`ad7879_report() <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/input/touchscreen/ad7879.c>`_

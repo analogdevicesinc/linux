@@ -37,12 +37,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl372.c>`__
+   * - :git+linux:`ADI tree <main:drivers/iio/accel/adxl372.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl372.c>`__
-     -
-     -
 
 Files
 ~~~~~
@@ -54,22 +50,22 @@ Files
      - File
      -
    * - core driver
-     - :git+linux:`main:drivers/iio/accel/adxl372.c`
+     - `adxl372.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl372.c>`_
      -
    * - spi driver
-     - :git+linux:`main:drivers/iio/accel/adxl372_spi.c`
+     - `adxl372_spi.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl372_spi.c>`_
      -
    * - i2c driver
-     - :git+linux:`main:drivers/iio/accel/adxl372_i2c.c`
+     - `adxl372_i2c.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl372_i2c.c>`_
      -
    * - header
-     - :git+linux:`drivers/iio/accel/adxl372.h <main:drivers/iio/iio/accel/adxl372.h>`
+     - `adxl372.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/accel/adxl372.h>`_
      -
    * - Documentation
-     - :git+linux:`adxl345.txt <main:Documentation/devicetree/bindings/iio/accel/adxl345.txt>`
+     - `adi,adxl345.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/accel/adi,adxl345.yaml>`_
      -
    * - ABI documentation
-     - :git+linux:`sysfs-bus-iio-accel-adxl372 <main:Documentation/ABI/testing/sysfs-bus-iio-accel-adxl372>`
+     - `sysfs-bus-iio-accel-adxl372 <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio-accel-adxl372>`_
      -
 
 Example device tree

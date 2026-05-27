@@ -98,7 +98,7 @@ easier to identify patches that are not yet upstreamed.
 For :git+linux:`adi-4.9.0:` the base was branch
 `xlnx_rebase_v4.9 <https://github.com/Xilinx/linux-xlnx/tree/xlnx_rebase_v4.9>`__
 at commit
-:git+linux:`e5c22c2179cf <main:commit/e5c22c2179cfbec584d2c540d40a0c3d7a20770c+>`
+:git+linux:`e5c22c2179cf <commit/e5c22c2179cfbec584d2c540d40a0c3d7a20770c+>`
 in the ADI repo and commit
 `45e196f59364 <https://github.com/Xilinx/linux-xlnx/commit/45e196f59364e9f5eafe46027a7d2af349083974>`__
 in the Xilinx repo. All ADI patches & drivers up to a specific point in time

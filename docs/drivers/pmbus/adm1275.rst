@@ -67,12 +67,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - `drivers/hwmon/pmbus/adm1275.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/adm1275.c>`__
-     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/adm1275.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/hwmon/pmbus/adm1275.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/adm1275.c>`__
 
 Files
 ~~~~~
@@ -82,10 +78,8 @@ Files
 
    * - Function
      - File
-     -
    * - driver
      - `drivers/hwmon/pmbus/adm1275.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/hwmon/pmbus/adm1275.c>`__
-     -
 
 Example I2C device initialization
 ---------------------------------
@@ -124,7 +118,7 @@ Example I2C:
    };
 
 For more supported devicetree properties take a look to
-:git+linux:`dt-bindings <main:Documentation/devicetree/bindings/hwmon/adi,adm1275.yaml>`.
+`dt-bindings <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/hwmon/adi,adm1275.yaml>`_.
 
 Enabling Linux driver support
 -----------------------------

@@ -23,12 +23,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git <main:drivers/spi/spi-axi-spi-engine.c>`
-     - `yes (No offloading support) <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/spi/spi-axi-spi-engine.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/spi/spi-axi-spi-engine.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/spi/spi-axi-spi-engine.c>`__
 
 Files
 ^^^^^
@@ -38,10 +34,8 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`spi-axi-spi-engine.c <main:drivers/spi/spi-axi-spi-engine.c>`
-     -
+     - `spi-axi-spi-engine.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/spi/spi-axi-spi-engine.c>`_
 
 Device initialization
 ---------------------

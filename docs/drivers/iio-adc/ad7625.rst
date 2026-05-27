@@ -37,12 +37,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
    * - :git+linux:`ADI tree <main:drivers/iio/adc/ad7625.c>`
      - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7625.c>`__
-     -
-     -
 
 Files
 -----
@@ -52,19 +48,14 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/adc/ad7625.c`
-     -
+     - `ad7625.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7625.c>`_
    * - devicetree bindings
-     - :git+linux:`main:Documentation/devicetree/bindings/iio/adc/adi,ad7625.yaml`
-     -
+     - `adi,ad7625.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad7625.yaml>`_
    * - ZedBoard example devicetree
      - :git+linux:`main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7625.dts`
-     -
    * - ZedBoard example devicetree (ad7960)
      - :git+linux:`main:arch/arm/boot/dts/xilinx/zynq-zed-adv7511-ad7960.dts`
-     -
 
 Upstream documentation: https://docs.kernel.org/iio/ad7625.html
 

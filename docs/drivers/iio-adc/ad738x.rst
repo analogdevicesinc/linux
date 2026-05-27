@@ -57,10 +57,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-   * - :git+linux:`git <drivers:iio/adc/ad738x.c>`
-     - Yes
-     -
+   * - :git+linux:`ADI tree <2019_R2:drivers/iio/adc/ad738x.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7380.c>`__
 
 Files
 ~~~~~
@@ -70,16 +68,12 @@ Files
 
    * - Function
      - File
-     -
    * - driver
      - `drivers/iio/adc/ad7380.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7380.c>`__
-     -
    * - devicetree bindings
      - `Documentation/devicetree/bindings/iio/adc/adi,ad7380.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad7380.yaml>`__
-     -
    * - documentation
      - `Documentation/iio/ad7380.rst <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/iio/ad7380.rst>`__ (`html <https://docs.kernel.org/iio/ad7380.html>`__)
-     -
 
 Devicetree
 ----------

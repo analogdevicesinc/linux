@@ -38,12 +38,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git  <5.12:drivers/leds/leds-adp1650.c>`
-     - `In Progress <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/leds/leds-adp1650.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/leds/leds-adp1650.c>`
+     - No
 
 Files
 ~~~~~
@@ -53,13 +49,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
      - `drivers/leds/leds-adp1650.c <http://blackfin.uclinux.org/git/?p=linux-kernel;a=blob_plain;f=drivers/leds/leds-adp1650.c;hb=HEAD>`__
-     -
    * - include
      - `include/linux/i2c/adp1650.h <http://blackfin.uclinux.org/git/?p=linux-kernel;a=blob_plain;f=include/linux/i2c/adp1650.h;hb=HEAD>`__
-     -
 
 Example platform device initialization
 --------------------------------------

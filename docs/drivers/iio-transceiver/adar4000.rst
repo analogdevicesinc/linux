@@ -47,12 +47,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git <main:drivers/iio/beamformer/adar1000.c>`
-     - :git+linux:`WIP <main:drivers/iio/adc/adar4000.c>`
-     -
-     -
+   * - :git+linux:`adar4000x.c <staging/adar400x:drivers/iio/beamformer/adar400x.c>`
+     - No
 
 Files
 ~~~~~
@@ -62,13 +58,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`adar4000x.c <staging:adar400x/drivers/iio/beamformer/adar400x.c>`
-     -
+     - :git+linux:`adar4000x.c <staging/adar400x:drivers/iio/beamformer/adar400x.c>`
    * - devicetree bindings
      - :git+linux:`adi,adar400x.yaml <staging/adar400x:Documentation/devicetree/bindings/iio/beamformer/adi,adar400x.yaml>`
-     -
 
 Example Linux Device-Tree Initialization
 ----------------------------------------
@@ -91,7 +84,7 @@ Optional properties:
    * - Function
      - File
    * - RPI Device Tree
-     - :git+linux:`WIP <main:arch/arm/boot/dts/overlays/rpi-adar4000-overlay.dts+>`
+     -
 
 Enabling Linux driver support
 -----------------------------

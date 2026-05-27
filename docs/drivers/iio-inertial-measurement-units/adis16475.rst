@@ -49,12 +49,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`git <main:drivers/iio/imu/adis16475.c>`
-     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16475.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/imu/adis16475.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16475.c>`__
 
 Files
 ~~~~~
@@ -64,10 +60,8 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/imu/adis16475.c`
-     -
+     - `adis16475.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16475.c>`_
 
 Devicetree
 ~~~~~~~~~~
@@ -161,7 +155,7 @@ Example
       };
 
 For more supported devicetree properties take a look to
-:git+linux:`dt-bindings <main:Documentation/devicetree/bindings/iio/imu/adi,adis16475.yaml>`.
+`dt-bindings <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/imu/adi,adis16475.yaml>`_.
 
 Adding Linux driver support
 ---------------------------

@@ -42,10 +42,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-   * - :git+linux:`git <main:drivers/iio/frequency/admfm2000.c>`
-     - [In-progress]
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/frequency/admfm2000.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/admfm2000.c>`_
 
 Files
 ~~~~~
@@ -55,13 +53,10 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`admfm2000.c <main:drivers/iio/frequency/admfm2000.c>`
-     -
+     - `admfm2000.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/admfm2000.c>`_
    * - device tree bindings
-     - :git+linux:`adi,admfm2000.yaml <main:Documentation/devicetree/bindings/iio/frequency/adi,admfm2000.yaml>`
-     -
+     - `adi,admfm2000.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/frequency/adi,admfm2000.yaml>`_
 
 Example Linux Device-Tree Initialization
 ----------------------------------------

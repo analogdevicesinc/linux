@@ -66,7 +66,7 @@ which configures the converter internal control registers, this part is
 typically instantiated via the SPI bus. (see:
 :git+linux:`ad9467.c <main:drivers/iio/adc/ad9467.c>`,
 :git+linux:`ad9361_conv.c <main:drivers/iio/adc/ad9361_conv.c>` or
-:git+linux:`ad9371_conv.c <mykonos:drivers/iio/adc/ad9361_conv.c>`) Device
+:git+linux:`ad9371_conv.c <main:drivers/iio/adc/ad9361_conv.c>`) Device
 probing for the data capture driver (AXI-ADC) which controls the AXI HDL core
 registers and the DMA, is delayed until the SPI control driver is fully probed.
 The device tree phandle ``**spibus-connected**`` is used to connect the capture
@@ -100,12 +100,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
    * - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/cf_axi_adc_core.c>`__
-     -
-     -
+     - No
 
 Files
 ~~~~~
@@ -115,37 +111,26 @@ Files
 
    * - Function
      - File
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/ad6676.c`
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/ad9208.c`
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/adc/ad9467.c`
-     -
+     - `ad9467.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad9467.c>`_
    * - driver
      - :git+linux:`main:drivers/iio/adc/ad9680.c`
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/ad9361_conv.c`
-     -
    * - driver
      - :git+linux:`drivers/iio/adc/ad9371_conv.c <main:drivers/iio/adc/ad9361_conv.c>`
-     -
    * - driver
      - :git+linux:`main:drivers/iio/adc/adrv9009_conv.c`
-     -
    * - core driver
      - :git+linux:`main:drivers/iio/adc/cf_axi_adc_core.c`
-     -
    * - core driver
      - :git+linux:`main:drivers/iio/adc/cf_axi_adc_ring_stream.c`
-     -
    * - core include
      - :git+linux:`main:drivers/iio/adc/cf_axi_adc.h`
-     -
 
 Example platform device initialization
 --------------------------------------

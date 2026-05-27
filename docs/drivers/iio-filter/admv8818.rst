@@ -50,12 +50,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-     -
-   * - :git+linux:`main:drivers/iio/filter/admv8818.c`
-     - `YES <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/filter/admv8818.c>`__
-     -
-     -
+   * - :git+linux:`ADI tree <main:drivers/iio/filter/admv8818.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/filter/admv8818.c>`__
 
 Files
 ~~~~~
@@ -65,16 +61,12 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`main:drivers/iio/filter/admv8818.c`
-     -
+     - `admv8818.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/filter/admv8818.c>`_
    * - Documentation
-     - :git+linux:`adi,admv8818.yaml <main:Documentation/devicetree/bindings/iio/filter/adi,admv8818.yaml>`
-     -
+     - `adi,admv8818.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/filter/adi,admv8818.yaml>`_
    * - ABI documentation
-     - :git+linux:`sysfs-bus-iio-filter-admv8818 <main:Documentation/ABI/testing/sysfs-bus-iio-filter-admv8818>`
-     -
+     - `sysfs-bus-iio-filter-admv8818 <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio-filter-admv8818>`_
 
 Example device tree
 

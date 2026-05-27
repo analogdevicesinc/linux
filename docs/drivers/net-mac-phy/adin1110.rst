@@ -40,10 +40,8 @@ Status
 
    * - Source
      - Mainlined?
-     -
-   * - :git+linux:`adin1110.c <main:drivers/net/ethernet/adi/adin1110.c>`
-     - Yes
-     -
+   * - :git+linux:`ADI tree <main:drivers/net/ethernet/adi/adin1110.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/adi/adin1110.c>`_
 
 Files
 ~~~~~
@@ -53,10 +51,8 @@ Files
 
    * - Function
      - File
-     -
    * - driver
-     - :git+linux:`drivers/net/ethernet/adi/adin1110.c <main:drivers/net/ethernet/adi>`
-     -
+     - `drivers/net/ethernet/adi/adin1110.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/net/ethernet/adi>`_
 
 Enabling Linux driver support
 -----------------------------
