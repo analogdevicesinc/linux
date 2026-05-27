@@ -398,6 +398,8 @@ static const struct kobj_type ualink_info_ktype = {
 };
 
 #ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
+static void deactivate_accelerator(struct amdgpu_device *adev);
+
 UALINK_VALUE_SHOW(ppod_setup, accel_id,  ppod.accel_id,  "%u");
 UALINK_VALUE_SHOW(ppod_setup, bandwidth, ppod.bandwidth, "%u");
 UALINK_VALUE_SHOW(ppod_setup, latency,   ppod.latency,   "%u");
@@ -452,7 +454,18 @@ static ssize_t ualink_ppod_setup_commit_store(struct kobject *kobj,
 	if (r)
 		return r;
 
+	/*
+	 * Hold mgpu_info.mutex to serialize with activate_local_vpod() in
+	 * vpod_config_commit_store which also holds this lock. Without it,
+	 * deactivate_accelerator() can race with activate_accelerator(),
+	 * causing concurrent vm_fini / vm_init on the same NPA VM.
+	 */
+	mutex_lock(&mgpu_info.mutex);
+	if (info->accel_state >= AMDGPU_UALINK_ACCEL_STATE_READY)
+		deactivate_accelerator(adev);
+
 	info->accel_state = check_ppod_state(adev, setup);
+	mutex_unlock(&mgpu_info.mutex);
 
 	/* TODO: If accel_state was ACTIVE, reset all connections */
 
