@@ -44,8 +44,8 @@ for example, for ``bcm2712_defconfig`` with all ADI's drivers use
    Instead of building all ADI drivers, learn about how to use ``menuconfig`` at
    :external+upstream:doc:`kbuild/kconfig` to enable only the drivers of interest.
 
-The CI/CD scripts at :git+linux:`ci/build.sh` and
-:git+linux:`.github/workflows/build.yml` provide detailed steps for all
+The CI/CD scripts at :git+linux:`ci:ci/build.sh` and
+:git+linux:`ci:.github/workflows/build.yml` provide detailed steps for all
 supported targets. Checkout :ref:`ci` for how to build with CI/CD pipelines.
 
 .. collapsible:: Download built artifacts from our CI/CD
