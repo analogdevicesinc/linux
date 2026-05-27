@@ -821,24 +821,6 @@ static void adi_uart4_serial_set_termios(struct uart_port *port,
 		quot = uart_get_divisor(port, baud);
 	}
 
-	/* Wait till the transfer buffer is empty */
-	timeout = jiffies + msecs_to_jiffies(10);
-	while (UART_GET_GCTL(uart) & UCEN && !(UART_GET_LSR(uart) & TEMT))
-		if (time_after(jiffies, timeout)) {
-			dev_warn(port->dev,
-				"timeout waiting for TX buffer empty\n");
-			break;
-		}
-
-	/* Wait till the transfer buffer is empty */
-	timeout = jiffies + msecs_to_jiffies(10);
-	while (UART_GET_GCTL(uart) & UCEN && !(UART_GET_LSR(uart) & TEMT))
-		if (time_after(jiffies, timeout)) {
-			dev_warn(port->dev,
-				"timeout waiting for TX buffer empty\n");
-			break;
-		}
-
 	/* Disable UART */
 	ier = UART_GET_IER(uart);
 	UART_PUT_GCTL(uart, UART_GET_GCTL(uart) & ~UCEN);
