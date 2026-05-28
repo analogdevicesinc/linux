@@ -122,6 +122,7 @@ jobs:
 
         kversion=$(grep -E '^(VERSION|PATCHLEVEL|SUBLEVEL|EXTRAVERSION)' ./Makefile | sed -E 's/.*= *//g' | tr '\n' ' ' | sed -E 's/([0-9]+) ([0-9]+) ([0-9]+) (.*) /\1.\2.\3\4+/')
         echo "KBUILD_OUTPUT=$(mktemp -d -t linux.$kversion.build.XXX)" >> $GITHUB_ENV
+        echo "KBUILD_MODULES_PREPARE=$(mktemp -d -t linux.$kversion.build.XXX)" >> $GITHUB_ENV
 
     - name: Ensure compiler
       run: |
@@ -174,14 +175,22 @@ jobs:
         source ./ci/build.sh
         compile_kernel
 
+    - name: Generate modules prepare
+      run: |
+        cp $KBUILD_OUTPUT/.config $KBUILD_MODULES_PREPARE/.config
+        make O=$KBUILD_MODULES_PREPARE modules_prepare
+        rm "$KBUILD_MODULES_PREPARE/.config"
+
     - name: Prepare dist
       run: |
         kversion=$(cat "$KBUILD_OUTPUT/include/config/kernel.release")
 
         dist=$(mktemp -d -t linux.$kversion.dist.XXX)
         dist_headers=$(mktemp -d -t linux.$kversion.dist-headers.XXX)
+        dist_devel=$(mktemp -d -t linux.$kversion.dist-devel.XXX)
         echo "DIST=$dist" >> $GITHUB_ENV
         echo "DIST_HEADERS=$dist_headers" >> $GITHUB_ENV
+        echo "DIST_DEVEL=$dist_devel" >> $GITHUB_ENV
 
         mkdir -p "$dist/usr/lib/modules/$kversion" ; (cd $_ ; touch modules.order modules.builtin modules.builtin.modinfo)
         make INSTALL_MOD_PATH="$dist" modules_install
@@ -196,6 +205,9 @@ jobs:
         mkdir -p "$dist/boot"
         cp "$KBUILD_OUTPUT/arch/$ARCH/boot/$KERNEL" "$dist/boot"
 
+        cp -r "$KBUILD_MODULES_PREPARE/." "$dist_devel/"
+        (cd "$dist_devel" ; find . -type l -delete)
+
         echo "kernel=$KERNEL" > "$dist/context.txt"
         echo "kernel_release=$kversion" >> "$dist/context.txt"
         echo "kernel_defconfig=${{ inputs.defconfig }}" >> "$dist/context.txt"
@@ -208,6 +220,7 @@ jobs:
         echo "git_sha_ct=$(git --no-pager log ${{ github.sha }} -1 --pretty=format:%ct)" >> "$dist/context.txt"
         [[ -f compile_commands.json ]] && cp compile_commands.json "$dist" || true
         [[ -d "$dist_headers/usr" ]] && cp "$dist/context.txt" "$dist_headers/context.txt" || true
+        [[ -d "$dist_devel/include" ]] && cp "$dist/context.txt" "$dist_devel/context.txt"
 
     - name: Generate SBOM
       run: |
@@ -267,6 +280,13 @@ jobs:
         path: ${{ env.DIST_HEADERS }}
         if-no-files-found: ignore
 
+    - name: Store the Linux modules prepare
+      if: ${{ !cancelled() && env.fatal != 'true' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ inputs.defconfig }}-${{ inputs.compiler }}-${{ inputs.arch }}-devel
+        path: ${{ env.DIST_DEVEL }}
+
     - name: Export labels
       if: ${{ !cancelled() }}
       id: assert
@@ -278,5 +298,7 @@ jobs:
       if: ${{ always() }}
       run: |
         [ -d "$KBUILD_OUTPUT" ] && rm -rf "$KBUILD_OUTPUT" || true
+        [ -d "$KBUILD_MODULES_PREPARE" ] && rm -rf "$KBUILD_MODULES_PREPARE" || true
         [ -d "$DIST" ] && rm -rf "$DIST" || true
         [ -d "$DIST_HEADERS" ] && rm -rf "$DIST_HEADERS" || true
+        [ -d "$DIST_DEVEL" ] && rm -rf "$DIST_DEVEL" || true
