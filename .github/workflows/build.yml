@@ -177,9 +177,11 @@ jobs:
 
     - name: Generate modules prepare
       run: |
-        cp $KBUILD_OUTPUT/.config $KBUILD_MODULES_PREPARE/.config
-        make O=$KBUILD_MODULES_PREPARE modules_prepare
-        rm "$KBUILD_MODULES_PREPARE/.config"
+        _cc="${CXX:-clang${LLVM}}"
+        _srctree=$(pwd)
+        ( cd "$KBUILD_OUTPUT" && \
+          srctree=$_srctree SRCARCH=$ARCH CC=$_cc HOSTCC=$_cc MAKE=make \
+          bash "$_srctree/scripts/package/install-extmod-build" "$KBUILD_MODULES_PREPARE" )
 
     - name: Prepare dist
       run: |
