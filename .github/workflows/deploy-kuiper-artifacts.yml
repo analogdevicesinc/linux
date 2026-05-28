@@ -7,6 +7,11 @@ on:
         description: 'Space-separated patterns of artifact names to download'
         required: true
         type: string
+      exclude-artifacts:
+        description: 'Space-separated patterns of artifact names to exclude'
+        required: false
+        type: string
+        default: ''
       pr-target-branch:
         description: 'PR target branch (for PR deployments)'
         required: false
@@ -103,7 +108,8 @@ jobs:
           "${{ github.repository }}" \
           "${{ github.run_id }}" \
           "${{ inputs.artifacts }}" \
-          "artifacts"
+          "artifacts" \
+          "${{ inputs.exclude-artifacts }}"
 
         # Extract to raw/
         extract_artifacts "artifacts" "raw"

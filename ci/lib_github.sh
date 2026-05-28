@@ -59,6 +59,7 @@ gh_download_artifact() {
 #   $3 - Workflow run ID
 #   $4 - Space-separated patterns to match
 #   $5 - Output directory (default: artifacts)
+#   $6 - Space-separated patterns to exclude (optional)
 # Returns:
 #   0 on success, 1 on failure
 #######################################
@@ -68,6 +69,7 @@ download_matching_artifacts() {
     local run_id="$3"
     local patterns="$4"
     local output_dir="${5:-artifacts}"
+    local exclude_patterns="${6:-}"
 
     mkdir -p "${output_dir}"
 
@@ -87,6 +89,20 @@ download_matching_artifacts() {
 
     local downloaded=0
     while IFS=$'\t' read -r name url; do
+        # Check exclude patterns first
+        local excluded=0
+        for p in ${exclude_patterns}; do
+            if [[ "${name}" == ${p} ]]; then
+                excluded=1
+                break
+            fi
+        done
+
+        if [[ "${excluded}" == "1" ]]; then
+            echo "  Skipped: ${name} (excluded)"
+            continue
+        fi
+
         local matched=0
         for p in ${patterns}; do
             if [[ "${name}" == ${p} ]]; then
