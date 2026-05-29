@@ -22,7 +22,6 @@ static void sc5xx_clock_remove(struct platform_device *pdev)
 
 static const struct of_device_id sc5xx_clock_of_match[] = {
 	{
-		/* sc598 clocks */
 		.compatible = "adi,sc598-cgu0",
 		.data = &sc598_cgu0_info,
 	}, {
@@ -35,7 +34,6 @@ static const struct of_device_id sc5xx_clock_of_match[] = {
 		.compatible = "adi,sc598-cdu",
 		.data = &sc598_cdu_info,
 	}, {
-		/* sc589 clocks */
 		.compatible = "adi,sc589-cgu0",
 		.data = &sc589_cgu0_info,
 	}, {
@@ -45,7 +43,6 @@ static const struct of_device_id sc5xx_clock_of_match[] = {
 		.compatible = "adi,sc589-cdu",
 		.data = &sc589_cdu_info,
 	}, {
-		/* sc573 clocks */
 		.compatible = "adi,sc573-cgu0",
 		.data = &sc573_cgu0_info,
 	}, {
@@ -55,7 +52,6 @@ static const struct of_device_id sc5xx_clock_of_match[] = {
 		.compatible = "adi,sc573-cdu",
 		.data = &sc573_cdu_info,
 	}, {
-		/* sc594 clocks */
 		.compatible = "adi,sc594-cgu0",
 		.data = &sc594_cgu0_info,
 	}, {
