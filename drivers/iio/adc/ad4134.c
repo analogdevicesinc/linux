@@ -6,13 +6,18 @@
 
 #include <linux/bitfield.h>
 #include <linux/clk.h>
+#include <linux/completion.h>
 #include <linux/component.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dmaengine.h>
 #include <linux/gpio/driver.h>
+#include <linux/interrupt.h>
+#include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of_platform.h>
+#include <linux/platform_device.h>
 #include <linux/pwm.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
@@ -66,6 +71,15 @@
 #define AD4134_DIF_IF_CFG_FORMAT_MASK		GENMASK(1, 0)
 #define AD4134_DATA_FORMAT_QUAD_CH_PARALLEL	0b10
 
+/*
+ * Sequence.txt §F.8.c: write 0x02 to register 0x13 powers down the chip's
+ * internal LDO regulators. The eval board provides external regulators
+ * (avdd5/avdd1v8/iovdd/refin) so the internal LDOs are unused; powering
+ * them down reduces noise.
+ */
+#define AD4134_POWER_CONFIG_REG			0x13
+#define AD4134_POWER_CONFIG_LDO_PD		0x02
+
 #define AD4134_CHAN_DIG_FILTER_SEL_REG			0x1E
 #define AD4134_CHAN_DIG_FILTER_SEL_MASK			GENMASK(7, 0)
 #define AD4134_CHAN_DIG_FILTER_SEL_FRAME_MASK_CH0	GENMASK(1, 0)
@@ -84,6 +98,34 @@
 #define AD4134_ODR_MAX				1496000
 
 #define AD4134_RESET_TIME_US			1000
+
+/*
+ * clkin_aligner IP register map (HDL: hdl/library/clkin_aligner). The IP is a
+ * side-band controller for the 48 MHz XTAL2_CLKIN that gates clk_in through a
+ * BUFGCE and tracks /32-divider phase + delivered edge counts. It implements
+ * the hardware side of Sequence.txt: §E (one-time 36-cycle startup) and §F
+ * (deterministic stop-at-/32-boundary across SPI power-mode writes, then
+ * resume and IRQ at edge 146 — first dig_clk rising edge).
+ *
+ * Offsets are byte addresses on the AXI-Lite slave (word offset * 4).
+ */
+#define AD4134_CLKIN_RSTN			0x040 /* word 0x10 */
+#define AD4134_CLKIN_CONTROL			0x044 /* word 0x11 */
+#define   AD4134_CLKIN_CTRL_STARTUP_FIRE		BIT(0)
+#define   AD4134_CLKIN_CTRL_ARM_STOP_AT_ALIGN		BIT(1)
+#define   AD4134_CLKIN_CTRL_RESUME			BIT(2)
+#define   AD4134_CLKIN_CTRL_GATE_FORCE_OFF		BIT(3)
+#define   AD4134_CLKIN_CTRL_GATE_FORCE_ON		BIT(4)
+#define AD4134_CLKIN_STATUS			0x048 /* word 0x12 */
+#define AD4134_CLKIN_STARTUP_CYCLES		0x04C /* word 0x13 — default 36 */
+#define AD4134_CLKIN_EDGE_TARGET		0x050 /* word 0x14 — default 146 */
+#define AD4134_CLKIN_EDGE_COUNT			0x054 /* word 0x15 */
+#define AD4134_CLKIN_DIV32_PHASE		0x058 /* word 0x16 */
+#define AD4134_CLKIN_IRQ_PENDING		0x05C /* word 0x17, RW1C */
+#define   AD4134_CLKIN_IRQ_EDGE_TARGET_HIT		BIT(0)
+#define   AD4134_CLKIN_IRQ_STOP_AT_ALIGN_DONE		BIT(1)
+#define   AD4134_CLKIN_IRQ_STARTUP_DONE			BIT(2)
+#define AD4134_CLKIN_IRQ_MASK			0x060 /* word 0x18 */
 
 enum {
 	ODR_SET_FREQ,
@@ -233,7 +275,6 @@ struct ad4134_state {
 
 	struct spi_message		buf_read_msg;
 	struct gpio_desc		*cs_gpio;
-	struct gpio_desc		*pdn_gpio;
 	struct gpio_chip		gpiochip;
 
 	unsigned int			filter_type;
@@ -243,6 +284,18 @@ struct ad4134_state {
 	u8 num_dout_lines;
 	bool ad4134_duo;
 
+	/*
+	 * clkin_aligner side-band controller (Sequence.txt §E/§F).
+	 * clkin_present is set true only after probe-time mapping and IRQ
+	 * request both succeed; all clkin_aligner accesses are gated on it
+	 * so the driver still works on bitstreams without the IP.
+	 */
+	void __iomem		*clkin_base;
+	int			clkin_irq;
+	struct completion	clkin_startup_done;
+	struct completion	clkin_align_stopped;
+	struct completion	clkin_edge_hit;
+	bool			clkin_present;
 };
 
 static ssize_t ad7134_get_sync(struct iio_dev *indio_dev, uintptr_t private,
@@ -972,75 +1025,19 @@ static void ad4134_disable_regulators(void *data)
 }
 
 /*
- * Reapply the four config registers to the sibling ADC after the shared
+ * Reapply the five config registers to the sibling ADC after the shared
  * /RESETN pulse wiped its state. Walked from the master node via
  * device_for_each_child(); skip self and any child whose driver hasn't
  * populated drvdata/regmap yet.
+ *
+ * This path exists only as a fallback for boards without the broadcast
+ * cs_gpio (ad7134_fmc/zed has cs_gpio so the broadcast block in
+ * ad4134_setup() handles slave configuration directly). The previous
+ * PDN retry loop here was a workaround for the slave's PLL failing to
+ * lock under free-running XTAL2_CLKIN — that failure mode is resolved
+ * by §E giving both chips a deterministic clock startup, so the loop
+ * is no longer needed.
  */
-/*
- * Helpers for synchronized PDN-cycle of the sibling. Called from the master's
- * setup() AFTER ODR has been started so that when PDN is released, the chip
- * wakes up into a continuously-pulsing ODR — the datasheet-prescribed
- * condition for ASRC PLL acquisition. The slave's GPIO descriptor is
- * cached in its state so the assert/release pair doesn't try to call
- * devm_gpiod_get_optional() twice (which would fail with -EBUSY).
- */
-static int ad4134_assert_sibling_pdn(struct device *dev, void *data)
-{
-	struct spi_device *self_spi = data;
-	struct iio_dev *indio_dev;
-	struct ad4134_state *sib;
-	struct gpio_desc *pdn;
-
-	if (!dev->driver)
-		return 0;
-
-	if (to_spi_device(dev) == self_spi)
-		return 0;
-
-	indio_dev = dev_get_drvdata(dev);
-	if (!indio_dev)
-		return 0;
-
-	sib = iio_priv(indio_dev);
-
-	pdn = devm_gpiod_get_optional(dev, "pdn", GPIOD_OUT_HIGH);
-	if (IS_ERR_OR_NULL(pdn)) {
-		sib->pdn_gpio = NULL;
-		return 0;
-	}
-	/* GPIOD_OUT_HIGH on ACTIVE_LOW = pin LOW = chip in PDN */
-	sib->pdn_gpio = pdn;
-	dev_dbg(dev, "ad7134: sibling PDN asserted (synchronized cycle)\n");
-	return 0;
-}
-
-static int ad4134_release_sibling_pdn(struct device *dev, void *data)
-{
-	struct spi_device *self_spi = data;
-	struct iio_dev *indio_dev;
-	struct ad4134_state *sib;
-
-	if (!dev->driver)
-		return 0;
-
-	if (to_spi_device(dev) == self_spi)
-		return 0;
-
-	indio_dev = dev_get_drvdata(dev);
-	if (!indio_dev)
-		return 0;
-
-	sib = iio_priv(indio_dev);
-	if (sib->pdn_gpio) {
-		gpiod_set_value_cansleep(sib->pdn_gpio, 0);
-		dev_dbg(dev, "ad7134: sibling PDN released (synchronized cycle)\n");
-	}
-	return 0;
-}
-
-#define AD4134_SIBLING_LOCK_RETRIES	5
-
 static int ad4134_configure_sibling(struct device *dev, void *data)
 {
 	struct spi_device *self_spi = data;
@@ -1048,7 +1045,7 @@ static int ad4134_configure_sibling(struct device *dev, void *data)
 	struct iio_dev *indio_dev;
 	struct ad4134_state *sib;
 	unsigned int regval;
-	int attempt, ret;
+	int ret;
 
 	if (!dev->driver)
 		return 0;
@@ -1067,76 +1064,356 @@ static int ad4134_configure_sibling(struct device *dev, void *data)
 
 	dev_dbg(dev, "ad7134: reapplying config to sibling after shared reset\n");
 
-	/*
-	 * The slave's pdn_gpio was already requested and toggled in the
-	 * synchronized PDN cycle from the master's setup() (before ODR start
-	 * configuration). Reuse the cached descriptor here for the retry-loop
-	 * fallback — calling devm_gpiod_get_optional again would fail.
-	 */
+	ret = regmap_update_bits(sib->regmap, AD4134_DATA_PACKET_CONFIG_REG,
+				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
+				 FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
+					    sib->output_frame));
+	if (ret)
+		return 0;
 
-	/*
-	 * Retry loop: if chip B's PLL didn't acquire from the synchronized
-	 * cold-start PDN, try a few more PDN cycles (chip B only) as a
-	 * fallback. Each attempt does a fresh PDN cycle then reapplies config;
-	 * after a 500 ms wait we read DEVICE_STATUS to see if PLL_LOCK is set.
-	 */
-	for (attempt = 1; attempt <= AD4134_SIBLING_LOCK_RETRIES; attempt++) {
-		if (sib->pdn_gpio) {
-			dev_dbg(dev, "ad7134: sibling PDN cycle attempt %d/%d\n",
-				 attempt, AD4134_SIBLING_LOCK_RETRIES);
-			gpiod_set_value_cansleep(sib->pdn_gpio, 1);   /* assert PDN */
-			fsleep(100000);                                /* 100 ms */
-			gpiod_set_value_cansleep(sib->pdn_gpio, 0);   /* release */
-			fsleep(100000);                                /* 100 ms power-up */
-		}
+	ret = regmap_update_bits(sib->regmap, AD4134_DIG_IF_CFG_REG,
+				 AD4134_DIF_IF_CFG_FORMAT_MASK,
+				 FIELD_PREP(AD4134_DIF_IF_CFG_FORMAT_MASK,
+					    AD4134_DATA_FORMAT_QUAD_CH_PARALLEL));
+	if (ret)
+		return 0;
 
-		ret = regmap_update_bits(sib->regmap,
-					 AD4134_DATA_PACKET_CONFIG_REG,
-					 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
-					 FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
-						    sib->output_frame));
-		if (ret)
-			continue;
+	ret = regmap_update_bits(sib->regmap, AD4134_DEVICE_CONFIG_REG,
+				 AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
+				 FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
+					    AD4134_POWER_MODE_HIGH_PERF));
+	if (ret)
+		return 0;
 
-		ret = regmap_update_bits(sib->regmap, AD4134_DIG_IF_CFG_REG,
-					 AD4134_DIF_IF_CFG_FORMAT_MASK,
-					 FIELD_PREP(AD4134_DIF_IF_CFG_FORMAT_MASK,
-						    AD4134_DATA_FORMAT_QUAD_CH_PARALLEL));
-		if (ret)
-			continue;
+	/* Sequence.txt §F.8.c — power down internal LDOs (external rails are used). */
+	regmap_write(sib->regmap, AD4134_POWER_CONFIG_REG,
+		     AD4134_POWER_CONFIG_LDO_PD);
 
-		ret = regmap_update_bits(sib->regmap, AD4134_DEVICE_CONFIG_REG,
-					 AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
-					 FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
-						    AD4134_POWER_MODE_HIGH_PERF));
-		if (ret)
-			continue;
+	regmap_update_bits(sib->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG,
+			   AD4134_CHAN_DIG_FILTER_SEL_MASK,
+			   FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_MASK,
+				      AD4134_SINC6_FILTER));
 
-		regmap_update_bits(sib->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG,
-				   AD4134_CHAN_DIG_FILTER_SEL_MASK,
-				   FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_MASK,
-					      AD4134_SINC6_FILTER));
+	/* Clear any latched errors so 0x42 reflects current state. */
+	regmap_read(sib->regmap, 0x42, &regval);
 
-		/* Clear any latched errors so 0x42 reflects current state. */
-		regmap_read(sib->regmap, 0x42, &regval);
+	return 0;
+}
 
-		/* Give PLL time to acquire on the now-stable ODR. */
-		fsleep(500000);
+/*
+ * Threaded ISR for the clkin_aligner IP.
+ *
+ * Each bit in CLKIN_IRQ_PENDING corresponds to one of the three Sequence.txt
+ * events. We RW1C the latched bits and signal the matching completion so the
+ * caller blocked in wait_for_completion_timeout() proceeds.
+ *
+ * Note on ordering: complete() after the RW1C write guarantees the line has
+ * de-asserted by the time the waiter resumes — a subsequent reinit_completion
+ * + arm sequence cannot accidentally re-trigger on a stale pending bit.
+ */
+static irqreturn_t ad4134_clkin_isr(int irq, void *data)
+{
+	struct ad4134_state *st = data;
+	u32 pending;
 
-		ret = regmap_read(sib->regmap, 0x15, &regval);
-		if (!ret && (regval & BIT(0))) {
-			dev_dbg(dev, "ad7134: sibling PLL locked on attempt %d (0x15=0x%02X)\n",
-				 attempt, regval);
-			return 0;
-		}
+	pending = readl(st->clkin_base + AD4134_CLKIN_IRQ_PENDING);
+	if (!pending)
+		return IRQ_NONE;
 
-		ret = regmap_read(sib->regmap, 0x42, &regval);
-		dev_dbg(dev, "ad7134: sibling PLL not locked on attempt %d (0x42=0x%02X)\n",
-			 attempt, regval);
+	/* RW1C: write 1s back to clear the latched event(s). */
+	writel(pending, st->clkin_base + AD4134_CLKIN_IRQ_PENDING);
+
+	if (pending & AD4134_CLKIN_IRQ_STARTUP_DONE)
+		complete(&st->clkin_startup_done);
+	if (pending & AD4134_CLKIN_IRQ_STOP_AT_ALIGN_DONE)
+		complete(&st->clkin_align_stopped);
+	if (pending & AD4134_CLKIN_IRQ_EDGE_TARGET_HIT)
+		complete(&st->clkin_edge_hit);
+
+	return IRQ_HANDLED;
+}
+
+/*
+ * Mask all clkin_aligner interrupt sources. Registered via
+ * devm_add_action_or_reset *after* devm_request_threaded_irq, which means it
+ * runs *before* the IRQ is released on driver detach (devm unwinds in reverse
+ * registration order). This guarantees no event can fire between the time the
+ * driver state is being torn down and the time the IRQ line is freed.
+ */
+static void ad4134_clkin_mask(void *data)
+{
+	struct ad4134_state *st = data;
+
+	writel(0, st->clkin_base + AD4134_CLKIN_IRQ_MASK);
+}
+
+static void ad4134_put_device(void *data)
+{
+	put_device(data);
+}
+
+/*
+ * Look up the clkin_aligner platform device via the adi,clkin-aligner
+ * phandle, map its AXI register block, and wire up the IRQ.  Sets
+ * st->clkin_present on success so the rest of the driver can opt in to
+ * Sequence.txt §E/§F flows when available, or fall back to legacy
+ * uncontrolled XTAL2_CLKIN behaviour when the IP is not in the bitstream.
+ *
+ * The phandle target is a "raw" of_platform_populate node (no driver
+ * binds to "adi,clkin-aligner"), so we acquire a reference via
+ * of_find_device_by_node and release it on driver detach.
+ */
+static int ad4134_clkin_init(struct ad4134_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	struct platform_device *pdev;
+	struct device_node *np;
+	struct resource *res;
+	void __iomem *base;
+	int irq, ret;
+
+	np = of_parse_phandle(dev->of_node, "adi,clkin-aligner", 0);
+	if (!np) {
+		dev_dbg(dev, "ad4134: no adi,clkin-aligner phandle, skipping\n");
+		return 0;
 	}
 
-	dev_warn(dev, "ad7134: sibling PLL failed to lock after %d attempts\n",
-		 AD4134_SIBLING_LOCK_RETRIES);
+	pdev = of_find_device_by_node(np);
+	of_node_put(np);
+	if (!pdev)
+		return -EPROBE_DEFER;
+
+	/*
+	 * Tie the pdev reference to our (SPI) device's devm so it is
+	 * released on driver detach regardless of return path.
+	 */
+	ret = devm_add_action_or_reset(dev, ad4134_put_device, &pdev->dev);
+	if (ret)
+		return ret;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		return dev_err_probe(dev, -EINVAL,
+				     "clkin_aligner: missing MEM resource\n");
+
+	base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(base))
+		return dev_err_probe(dev, PTR_ERR(base),
+				     "clkin_aligner: ioremap failed\n");
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0)
+		return dev_err_probe(dev, irq,
+				     "clkin_aligner: get_irq failed\n");
+
+	st->clkin_base = base;
+	st->clkin_irq  = irq;
+
+	init_completion(&st->clkin_startup_done);
+	init_completion(&st->clkin_align_stopped);
+	init_completion(&st->clkin_edge_hit);
+
+	/* Clear any latched events from a prior bitstream/driver load. */
+	writel(AD4134_CLKIN_IRQ_STARTUP_DONE |
+	       AD4134_CLKIN_IRQ_STOP_AT_ALIGN_DONE |
+	       AD4134_CLKIN_IRQ_EDGE_TARGET_HIT,
+	       base + AD4134_CLKIN_IRQ_PENDING);
+
+	/* Unmask all three event sources. */
+	writel(AD4134_CLKIN_IRQ_STARTUP_DONE |
+	       AD4134_CLKIN_IRQ_STOP_AT_ALIGN_DONE |
+	       AD4134_CLKIN_IRQ_EDGE_TARGET_HIT,
+	       base + AD4134_CLKIN_IRQ_MASK);
+
+	ret = devm_request_threaded_irq(dev, irq, NULL, ad4134_clkin_isr,
+					IRQF_ONESHOT, "ad4134-clkin", st);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "clkin_aligner: request_irq failed\n");
+
+	/*
+	 * Order matters: this is registered after request_threaded_irq, so on
+	 * detach the IRQ_MASK=0 write executes BEFORE the IRQ is freed.
+	 */
+	ret = devm_add_action_or_reset(dev, ad4134_clkin_mask, st);
+	if (ret)
+		return ret;
+
+	st->clkin_present = true;
+	dev_info(dev, "ad4134: clkin_aligner mapped at %pR, irq=%d\n",
+		 res, irq);
+	return 0;
+}
+
+/*
+ * Sequence.txt §E — one-time controlled startup of XTAL2_CLKIN.
+ *
+ * The chip's internal clock chain has an RC oscillator that hands over to
+ * the external 48 MHz on the FIRST 36 edges of XTAL2_CLKIN it sees after
+ * POR. If we let the chip wake up while the BUFGCE gate is open, that
+ * handover happens at a non-deterministic point — defeating the purpose
+ * of every later §F alignment. So this function owns the reset GPIO
+ * release: gate is forced OFF before reset is dropped, so the chip
+ * exits POR running on RC only, then we deliver exactly 36 cycles
+ * through clkin_aligner.
+ *
+ * Caller has acquired reset_gpio with GPIOD_OUT_HIGH (chip in reset).
+ *
+ *   1. GATE_FORCE_OFF                         — block XTAL at the gate
+ *   2. hold reset AD4134_RESET_TIME_US, release   — chip wakes on RC
+ *   3. fsleep §E.2 POR (~3 ms conservative)
+ *   4. STARTUP_FIRE (clears GATE_FORCE_OFF in the same write, since
+ *      writel writes the full word and the strobe is bit[0] only)
+ *      → FSM IDLE→STARTUP, 36 edges delivered, STOPPED_LOW; IRQ[2]
+ *   5. fsleep §E.4 (20 µs clock-switch handshake)
+ *   6. RESUME — XTAL runs continuously from known /32 phase per §C
+ */
+static int ad4134_clkin_startup(struct ad4134_state *st,
+				struct gpio_desc *reset_gpio)
+{
+	struct device *dev = &st->spi->dev;
+	unsigned long timeout;
+
+	dev_info(dev, "ad4134: §E.1 GATE_FORCE_OFF (stop XTAL at gate)\n");
+	writel(AD4134_CLKIN_CTRL_GATE_FORCE_OFF,
+	       st->clkin_base + AD4134_CLKIN_CONTROL);
+
+	dev_info(dev, "ad4134: §E.2 reset hold %u us, then release\n",
+		 AD4134_RESET_TIME_US);
+	fsleep(AD4134_RESET_TIME_US);
+	gpiod_set_value_cansleep(reset_gpio, 0);
+
+	dev_info(dev, "ad4134: §E.2 POR wait 3 ms (chip on RC)\n");
+	fsleep(3000);
+
+	dev_info(dev, "ad4134: §E.3 STARTUP_FIRE — deliver 36 XTAL cycles\n");
+	reinit_completion(&st->clkin_startup_done);
+	writel(AD4134_CLKIN_CTRL_STARTUP_FIRE,
+	       st->clkin_base + AD4134_CLKIN_CONTROL);
+
+	timeout = wait_for_completion_timeout(&st->clkin_startup_done,
+					      msecs_to_jiffies(100));
+	if (!timeout) {
+		dev_err(dev,
+			"ad4134: §E startup_done TIMEOUT (STATUS=0x%08x IRQ_PEND=0x%08x DIV32=0x%08x EDGE=0x%08x)\n",
+			readl(st->clkin_base + AD4134_CLKIN_STATUS),
+			readl(st->clkin_base + AD4134_CLKIN_IRQ_PENDING),
+			readl(st->clkin_base + AD4134_CLKIN_DIV32_PHASE),
+			readl(st->clkin_base + AD4134_CLKIN_EDGE_COUNT));
+		return -ETIMEDOUT;
+	}
+	dev_info(dev,
+		 "ad4134: §E.3 startup_done IRQ — STATUS=0x%08x DIV32=0x%08x EDGE=0x%08x (expect DIV32=0x103, EDGE=0)\n",
+		 readl(st->clkin_base + AD4134_CLKIN_STATUS),
+		 readl(st->clkin_base + AD4134_CLKIN_DIV32_PHASE),
+		 readl(st->clkin_base + AD4134_CLKIN_EDGE_COUNT));
+
+	dev_info(dev, "ad4134: §E.4 handshake settle 20 us\n");
+	fsleep(20);
+
+	dev_info(dev, "ad4134: §E.6 RESUME — XTAL runs continuously\n");
+	writel(AD4134_CLKIN_CTRL_RESUME,
+	       st->clkin_base + AD4134_CLKIN_CONTROL);
+
+	dev_info(dev, "ad4134: §E complete (STATUS=0x%08x DIV32=0x%08x EDGE=0x%08x)\n",
+		 readl(st->clkin_base + AD4134_CLKIN_STATUS),
+		 readl(st->clkin_base + AD4134_CLKIN_DIV32_PHASE),
+		 readl(st->clkin_base + AD4134_CLKIN_EDGE_COUNT));
+	return 0;
+}
+
+/*
+ * Sequence.txt §F — deterministic power-mode change.
+ *
+ * Wraps a single 1-byte SPI write with the alignment-preserving stop/resume
+ * dance. The FSM must be in ST_RUNNING on entry (i.e. §E has completed and
+ * the clock is free-running); on success it's back in ST_RUNNING with the
+ * edge counter at exactly EDGE_TARGET (default 146) — which the AD7134
+ * datasheet guarantees coincides with the first dig_clk rising edge.
+ *
+ *   1. ARM_STOP_AT_ALIGN  — FSM RUNNING→ARMED, waits for /32 negedge,
+ *                            transitions to STOPPED_LOW. IRQ[1] fires.
+ *   2. regmap_write(reg, val) over the independent 100 MHz SPI bus
+ *      (still works with XTAL2_CLKIN stopped — that's what §B is for).
+ *   3. fsleep §F.4 (10 ms settle).
+ *   4. RESUME — clock restarts, edge_cnt resets to 0.
+ *   5. wait IRQ[0] — fires when edge_cnt reaches EDGE_TARGET (=146).
+ *
+ * Returns -ETIMEDOUT if either IRQ doesn't arrive within 100 ms; the chip
+ * config write itself returns its own errno on SPI failure. On any error
+ * we issue a fallback RESUME so the rest of the system doesn't sit with a
+ * stopped XTAL forever.
+ */
+static int ad4134_clkin_change_power_mode(struct ad4134_state *st,
+					  unsigned int reg, unsigned int val)
+{
+	struct device *dev = &st->spi->dev;
+	unsigned long timeout;
+	int ret;
+
+	dev_info(dev, "ad4134: §F.1 ARM_STOP_AT_ALIGN — wait /32 negedge\n");
+	reinit_completion(&st->clkin_align_stopped);
+	writel(AD4134_CLKIN_CTRL_ARM_STOP_AT_ALIGN,
+	       st->clkin_base + AD4134_CLKIN_CONTROL);
+
+	timeout = wait_for_completion_timeout(&st->clkin_align_stopped,
+					      msecs_to_jiffies(100));
+	if (!timeout) {
+		dev_err(dev,
+			"ad4134: §F.1 stop_at_align TIMEOUT (STATUS=0x%08x IRQ=0x%08x DIV32=0x%08x)\n",
+			readl(st->clkin_base + AD4134_CLKIN_STATUS),
+			readl(st->clkin_base + AD4134_CLKIN_IRQ_PENDING),
+			readl(st->clkin_base + AD4134_CLKIN_DIV32_PHASE));
+		return -ETIMEDOUT;
+	}
+	dev_info(dev,
+		 "ad4134: §F.2 XTAL stopped LOW (STATUS=0x%08x DIV32=0x%08x)\n",
+		 readl(st->clkin_base + AD4134_CLKIN_STATUS),
+		 readl(st->clkin_base + AD4134_CLKIN_DIV32_PHASE));
+
+	dev_info(dev, "ad4134: §F.3 SPI write reg 0x%02x = 0x%02x (master, XTAL stopped)\n",
+		 reg, val);
+	ret = regmap_write(st->regmap, reg, val);
+	if (ret) {
+		dev_err(dev, "ad4134: §F.3 SPI write FAILED: %d (issuing fallback RESUME)\n", ret);
+		writel(AD4134_CLKIN_CTRL_RESUME,
+		       st->clkin_base + AD4134_CLKIN_CONTROL);
+		return ret;
+	}
+
+	if (st->ad4134_duo && st->cs_gpio) {
+		dev_info(dev, "ad4134: §H slave write reg 0x%02x = 0x%02x (broadcast CS)\n",
+			 reg, val);
+		gpiod_set_value_cansleep(st->cs_gpio, 1);
+		ret = regmap_write(st->regmap, reg, val);
+		gpiod_set_value_cansleep(st->cs_gpio, 0);
+		if (ret)
+			dev_warn(dev, "ad4134: §H slave write FAILED: %d\n", ret);
+	}
+
+	dev_info(dev, "ad4134: §F.4 settle 10 ms\n");
+	fsleep(10000);
+
+	dev_info(dev, "ad4134: §F.6 RESUME — XTAL restarts, edge_cnt=0\n");
+	reinit_completion(&st->clkin_edge_hit);
+	writel(AD4134_CLKIN_CTRL_RESUME,
+	       st->clkin_base + AD4134_CLKIN_CONTROL);
+
+	timeout = wait_for_completion_timeout(&st->clkin_edge_hit,
+					      msecs_to_jiffies(100));
+	if (!timeout) {
+		dev_err(dev,
+			"ad4134: §F.7 edge_target_reached TIMEOUT (STATUS=0x%08x IRQ=0x%08x EDGE=0x%08x)\n",
+			readl(st->clkin_base + AD4134_CLKIN_STATUS),
+			readl(st->clkin_base + AD4134_CLKIN_IRQ_PENDING),
+			readl(st->clkin_base + AD4134_CLKIN_EDGE_COUNT));
+		return -ETIMEDOUT;
+	}
+	dev_info(dev,
+		 "ad4134: §F.7 edge_target reached — first dig_clk rising edge (EDGE=0x%08x)\n",
+		 readl(st->clkin_base + AD4134_CLKIN_EDGE_COUNT));
+
+	dev_info(dev, "ad4134: §F complete (reg 0x%02x = 0x%02x)\n", reg, val);
 	return 0;
 }
 
@@ -1188,74 +1465,99 @@ static int ad4134_setup(struct ad4134_state *st)
 		return dev_err_probe(dev, PTR_ERR(st->cs_gpio),
 				     "Failed to find cs-gpio\n");
 
-	fsleep(AD4134_RESET_TIME_US);
-
-	gpiod_set_value_cansleep(reset_gpio, 0);
-
-	if (device_property_present(&st->spi->dev, "pwms")) {
-		ret = ad4134_pwm_get(st);
+	/*
+	 * Sequence.txt §E — release /RESETN with controlled XTAL handover.
+	 * §E.1-6 are owned by ad4134_clkin_startup() when clkin_aligner is
+	 * present; without it we fall back to the legacy "release reset,
+	 * hope for the best" path (the gate defaults open in HDL ST_IDLE,
+	 * so the chip auto-switches on whatever free-running edges arrive).
+	 */
+	if (st->clkin_present) {
+		dev_info(dev, "ad4134: --- Sequence.txt §E (controlled XTAL handover) ---\n");
+		ret = ad4134_clkin_startup(st, reset_gpio);
 		if (ret)
-			return dev_err_probe(dev, ret, "failed to get PWM: %d\n", ret);
-
-		dev_dbg(dev, "PWM obtained successfully\n");
-
-		/*
-		 * Start ODR FIRST. SDPCLK as CMOS CLKIN (48 MHz) is already
-		 * running on both chips' CLKIN pins. Now bring up ODR on the
-		 * shared FPGA pin so it's continuously pulsing on both chips'
-		 * ODR pins before we touch them again with PDN.
-		 */
-		st->odr_hz = 1400000;
-		dev_dbg(dev, "Setting initial ODR frequency to %u Hz\n", st->odr_hz);
-		ret = ad4134_setup_odr(st, st->odr_hz);
-		if (ret)
-			return dev_err_probe(dev, ret, "failed to set odr freq\n");
-
-		fsleep(50000);  /* 50 ms ODR pre-stabilize */
-
-		/*
-		 * Synchronized PDN cycle of BOTH chips with ODR running.
-		 *
-		 * Per datasheet: "the user must provide continuous cycles of
-		 * the ODR signal until the PLL is locked". Powering both chips
-		 * down here, then releasing PDN simultaneously, gives the
-		 * cleanest possible cold-start: both chips wake into a world
-		 * where SDPCLK and ODR are both already continuously running.
-		 *
-		 * PDN is per-chip (gpio_o[34]=A, gpio_o[35]=B in HDL), so we
-		 * can drive each independently. Master's PDN is requested
-		 * directly via the master's "pdn" property; sibling's PDN is
-		 * requested by walking SPI controller children.
-		 */
-		st->pdn_gpio = devm_gpiod_get_optional(dev, "pdn", GPIOD_OUT_HIGH);
-		if (IS_ERR(st->pdn_gpio))
-			st->pdn_gpio = NULL;
-		if (st->pdn_gpio)
-			dev_dbg(dev, "ad7134: master PDN asserted (synchronized cycle)\n");
-
-		if (st->ad4134_duo)
-			device_for_each_child(&st->spi->controller->dev,
-					      st->spi,
-					      ad4134_assert_sibling_pdn);
-
-		fsleep(100000);  /* 100 ms in PDN (both chips, ODR keeps pulsing) */
-
-		if (st->pdn_gpio) {
-			gpiod_set_value_cansleep(st->pdn_gpio, 0);
-			dev_dbg(dev, "ad7134: master PDN released (synchronized cycle)\n");
-		}
-		if (st->ad4134_duo)
-			device_for_each_child(&st->spi->controller->dev,
-					      st->spi,
-					      ad4134_release_sibling_pdn);
-
-		fsleep(100000);  /* 100 ms power-up settle */
-
-		dev_dbg(&st->spi->dev, "wait for PLL lock with running ODR\n");
-		fsleep(MEGA); /* 1 s settling for both chips' ASRC PLLs */
+			return ret;
+	} else {
+		dev_info(dev, "ad4134: legacy startup (no clkin_aligner)\n");
+		fsleep(AD4134_RESET_TIME_US);
+		gpiod_set_value_cansleep(reset_gpio, 0);
 	}
 
+	/*
+	 * Sequence.txt §F.1-7 — power-mode change to HIGH_PERF.  Stops the
+	 * XTAL at the next /32 negedge, does the SPI write while the clock
+	 * is stopped (SPI runs on its independent 100 MHz clock per §B),
+	 * waits 10 ms, resumes, and blocks until the edge_target IRQ fires
+	 * at edge 146 — the AD7134's guaranteed first dig_clk rising edge.
+	 *
+	 * Without clkin_aligner: just bit-bang DEVICE_CONFIG; dig_clk phase
+	 * is whatever it happens to be after the divider reset.
+	 *
+	 * Value 0x01 = AD4134_POWER_MODE_HIGH_PERF. All other DEVICE_CONFIG
+	 * bits default to 0 after reset.
+	 */
+	dev_info(dev, "ad4134: --- Sequence.txt §F (LP→HP power-mode change) ---\n");
+	if (st->clkin_present) {
+		ret = ad4134_clkin_change_power_mode(st,
+						     AD4134_DEVICE_CONFIG_REG,
+						     AD4134_POWER_MODE_HIGH_PERF);
+	} else {
+		ret = regmap_update_bits(st->regmap, AD4134_DEVICE_CONFIG_REG,
+					 AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
+					 FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
+						    AD4134_POWER_MODE_HIGH_PERF));
+	}
+	if (ret)
+		return ret;
 
+	/*
+	 * Sequence.txt §B caveat verification: the §F write happens while
+	 * XTAL2_CLKIN is gated. Customer notes "register access doesn't work
+	 * when XTAL2_CLKIN is disabled" — read DEVICE_CONFIG back and confirm
+	 * POWER_MODE = 1 (HIGH_PERF). If 0, the write was lost and the chip
+	 * is still in LP, which produces a different group delay and would
+	 * explain a constant inter-chip offset (especially at higher ODRs).
+	 */
+	{
+		unsigned int devcfg;
+
+		ret = regmap_read(st->regmap, AD4134_DEVICE_CONFIG_REG, &devcfg);
+		if (ret) {
+			dev_warn(dev,
+				 "ad4134: master DEVICE_CONFIG readback failed: %d\n",
+				 ret);
+		} else {
+			dev_info(dev,
+				 "ad4134: master DEVICE_CONFIG=0x%02x (POWER_MODE=%s)\n",
+				 devcfg,
+				 (devcfg & AD4134_DEVICE_CONFIG_POWER_MODE_MASK) ?
+					"HIGH_PERF" : "LOW_POWER (write lost!)");
+		}
+	}
+
+	if (st->ad4134_duo && st->cs_gpio) {
+		unsigned int devcfg;
+
+		gpiod_set_value_cansleep(st->cs_gpio, 1);
+		ret = regmap_read(st->regmap, AD4134_DEVICE_CONFIG_REG, &devcfg);
+		gpiod_set_value_cansleep(st->cs_gpio, 0);
+		if (ret) {
+			dev_warn(dev,
+				 "ad4134: slave DEVICE_CONFIG readback failed: %d\n",
+				 ret);
+		} else {
+			dev_info(dev,
+				 "ad4134: slave  DEVICE_CONFIG=0x%02x (POWER_MODE=%s)\n",
+				 devcfg,
+				 (devcfg & AD4134_DEVICE_CONFIG_POWER_MODE_MASK) ?
+					"HIGH_PERF" : "LOW_POWER (write lost!)");
+		}
+	}
+
+	dev_info(dev, "ad4134: --- Sequence.txt §F.8 (ADC config writes) ---\n");
+
+	dev_info(dev, "ad4134: §F.8 reg 0x11 (DATA_PACKET_CONFIG) frame=%u\n",
+		 st->output_frame);
 	ret = regmap_update_bits(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
 				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
 				 FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
@@ -1263,6 +1565,7 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (ret)
 		return ret;
 
+	dev_info(dev, "ad4134: §F.8 reg 0x12 (DIG_IF_CFG) format=quad-channel parallel\n");
 	ret = regmap_update_bits(st->regmap, AD4134_DIG_IF_CFG_REG,
 				 AD4134_DIF_IF_CFG_FORMAT_MASK,
 				 FIELD_PREP(AD4134_DIF_IF_CFG_FORMAT_MASK,
@@ -1270,89 +1573,82 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (ret)
 		return ret;
 
-	 ret = regmap_update_bits(st->regmap, AD4134_DEVICE_CONFIG_REG,
-				  AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
-				  FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
-					     AD4134_POWER_MODE_HIGH_PERF));
+	dev_info(dev, "ad4134: §F.8 reg 0x13 (POWER_CONFIG) LDO_PD\n");
+	ret = regmap_write(st->regmap, AD4134_POWER_CONFIG_REG,
+			   AD4134_POWER_CONFIG_LDO_PD);
 	if (ret)
 		return ret;
 
+	dev_info(dev, "ad4134: §F.8 reg 0x1E (CHAN_DIG_FILTER_SEL) SINC6\n");
 	ret = regmap_update_bits(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG,
 				 AD4134_CHAN_DIG_FILTER_SEL_MASK,
 				 FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_MASK,
 					    AD4134_SINC6_FILTER));
-
 	if (ret)
 		return ret;
 
 	/*
-	 * Synchronous broadcast configuration to both chips.
-	 *
-	 * The HDL ties both chips' /RESETN to gpio_o[32] (so master's reset
-	 * cycle wipes the sibling's earlier config) AND provides a CS-broadcast
-	 * mux on gpio_o[50] (cs_gpio): when HIGH, both chips' physical CS lines
-	 * follow controller-CS0, so a single SPI transaction lands on BOTH
-	 * chips in the same SCLK cycle.
-	 *
-	 * Per-CS sequential writes from configure_sibling() leave a multi-
-	 * millisecond gap between when each chip transitions to HIGH_PERF
-	 * mode. With SDPCLK as CMOS CLKIN (vs. crystal mode), the PLL
-	 * acquisition window is tighter and the chip whose mode transition
-	 * lags the other can drift into a state its PLL never escapes from.
-	 *
-	 * Read back the post-configuration register values from the master
-	 * (which we know are good because its PLL locked) and broadcast-write
-	 * them to both chips synchronously. We use regmap_write (full-byte)
-	 * not regmap_update_bits because reads in broadcast mode would have
-	 * MISO bus contention — both chips would drive SDO simultaneously.
+	 * Sequence.txt §F.10 — start ODR after dig_clk is established and
+	 * config registers are programmed. ODR is the conversion clock the
+	 * chip's PLL locks to, so it must be running stably for §F.14.
 	 */
-	if (device_property_present(&st->spi->dev, "pwms") && st->ad4134_duo &&
-	    st->cs_gpio) {
-		unsigned int v11, v12, v02, v1e;
+	if (device_property_present(&st->spi->dev, "pwms")) {
+		dev_info(dev, "ad4134: --- Sequence.txt §F.10 (start ODR via PWM) ---\n");
+		ret = ad4134_pwm_get(st);
+		if (ret)
+			return dev_err_probe(dev, ret, "failed to get PWM\n");
 
-		ret = regmap_read(st->regmap, AD4134_DATA_PACKET_CONFIG_REG, &v11);
-		if (!ret)
-			ret = regmap_read(st->regmap, AD4134_DIG_IF_CFG_REG, &v12);
-		if (!ret)
-			ret = regmap_read(st->regmap, AD4134_DEVICE_CONFIG_REG, &v02);
-		if (!ret)
-			ret = regmap_read(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG, &v1e);
+		st->odr_hz = 100000;
+		dev_info(dev, "ad4134: §F.10 setup ODR @ %u Hz (low-band default; script transitions up to test re-lock)\n",
+			 st->odr_hz);
+		ret = ad4134_setup_odr(st, st->odr_hz);
+		if (ret)
+			return dev_err_probe(dev, ret, "failed to set ODR freq\n");
 
-		if (!ret) {
-			dev_dbg(&st->spi->dev,
-				"ad7134: broadcast config: 0x11=0x%02X 0x12=0x%02X 0x02=0x%02X 0x1E=0x%02X\n",
-				v11, v12, v02, v1e);
+		dev_info(dev, "ad4134: §F.14/15 settle 1 s (PLL + filter)\n");
+		fsleep(MEGA);
+		dev_info(dev, "ad4134: §F.14/15 settle done\n");
+	}
 
-			gpiod_set_value_cansleep(st->cs_gpio, 1);
+	/*
+	 * Dual-chip: re-apply the remaining configuration to the slave.
+	 * The DEVICE_CONFIG (LP→HP) write was already sent to the slave
+	 * inside ad4134_clkin_change_power_mode() during the XTAL-stopped
+	 * window (§H), so both chips received RESUME simultaneously and
+	 * both dig_clk outputs rose at edge 146.  The broadcast writes
+	 * below cover the non-timing-critical registers (0x11, 0x12, 0x13,
+	 * 0x1E) and the final DIG_IF_RESET.  The 0x02 write is included as
+	 * a fallback: if the §H slave write failed (SPI error), the slave
+	 * is still in LP mode here and needs an HP write.  On a successful
+	 * §H this becomes an HP→HP no-op.
+	 */
+	if (st->ad4134_duo && st->cs_gpio) {
+		dev_info(dev, "ad4134: --- broadcast slave config (re-apply 0x11/0x12/0x02/0x13/0x1E) ---\n");
+		gpiod_set_value_cansleep(st->cs_gpio, 1);
 
-			/*
-			 * Mask out read-only/status bits that may differ from
-			 * what we want to write. For 0x02 the writable bit we
-			 * care about is POWER_MODE (bit 0); upper bits are
-			 * status. Force POWER_MODE=1 (HIGH_PERF) explicitly.
-			 */
-			regmap_write(st->regmap, AD4134_DATA_PACKET_CONFIG_REG, v11);
-			regmap_write(st->regmap, AD4134_DIG_IF_CFG_REG, v12);
-			regmap_write(st->regmap, AD4134_DEVICE_CONFIG_REG,
-				     v02 | AD4134_POWER_MODE_HIGH_PERF);
-			regmap_write(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG, v1e);
+		regmap_write(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
+			     FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
+					st->output_frame));
+		regmap_write(st->regmap, AD4134_DIG_IF_CFG_REG,
+			     FIELD_PREP(AD4134_DIF_IF_CFG_FORMAT_MASK,
+					AD4134_DATA_FORMAT_QUAD_CH_PARALLEL));
+		regmap_write(st->regmap, AD4134_DEVICE_CONFIG_REG,
+			     AD4134_POWER_MODE_HIGH_PERF);
+		regmap_write(st->regmap, AD4134_POWER_CONFIG_REG,
+			     AD4134_POWER_CONFIG_LDO_PD);
+		regmap_write(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG,
+			     FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_MASK,
+					AD4134_SINC6_FILTER));
 
-			gpiod_set_value_cansleep(st->cs_gpio, 0);
+		gpiod_set_value_cansleep(st->cs_gpio, 0);
 
-			/* Settle, then read 0x42 once on each chip to clear it. */
-			fsleep(200000);
-			device_for_each_child(&st->spi->controller->dev,
-					      st->spi,
-					      ad4134_configure_sibling);
-		} else {
-			dev_warn(&st->spi->dev,
-				 "ad7134: broadcast read-back failed (%d), falling back to per-CS sibling config\n",
-				 ret);
-			device_for_each_child(&st->spi->controller->dev,
-					      st->spi,
-					      ad4134_configure_sibling);
-		}
-	} else if (device_property_present(&st->spi->dev, "pwms") && st->ad4134_duo) {
+		dev_info(dev, "ad4134: post-broadcast settle 200 ms\n");
+		fsleep(200000);
+
+		dev_info(dev, "ad4134: §F.16 DIG_IF_RESET SKIPPED at probe — trigger manually via 'ad4134_sync' sysfs attribute\n");
+		dev_info(dev, "ad4134: --- setup complete, ready for capture (UNSYNCED) ---\n");
+	} else if (st->ad4134_duo) {
+		/* No broadcast cs_gpio — fall back to per-CS sibling config. */
 		device_for_each_child(&st->spi->controller->dev, st->spi,
 				      ad4134_configure_sibling);
 	}
@@ -1508,6 +1804,16 @@ static int ad4134_probe(struct spi_device *spi)
 
 	/* The HDL is hardconded/configured to read from all 4 DOUT lines. */
 	st->num_dout_lines = 4;
+
+	/*
+	 * Map the clkin_aligner side-band IP (if present in DT/bitstream).
+	 * Must run before ad4134_setup() so §E/§F helpers can be used there.
+	 * Returns 0 with clkin_present=false when the phandle is absent —
+	 * the legacy code path in ad4134_setup() then runs unchanged.
+	 */
+	ret = ad4134_clkin_init(st);
+	if (ret)
+		return ret;
 
 	ret = ad4134_setup(st);
 	if (ret)

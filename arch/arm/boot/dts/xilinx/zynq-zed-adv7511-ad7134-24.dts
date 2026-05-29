@@ -125,6 +125,23 @@
 		assigned-clock-rates = <48000000>;
 	};
 
+	clkin_aligner: clkin-aligner@44b30000 {
+		compatible = "adi,clkin-aligner";
+		reg = <0x44b30000 0x10000>;
+		interrupt-parent = <&intc>;
+		/*
+		 * F2P[10] / ADI HDL "ps-10" / GIC SPI #84.
+		 * F2P[12..15] are already taken by SPI Engine, DMA,
+		 * carrier i2c@41600000 (HDMI/audio codec bus) and
+		 * carrier hdmi_dma respectively, so we route this IP
+		 * to the lowest free F2P bit. Must match the
+		 * `ad_cpu_interrupt "ps-10"` line in ad7134_bd.tcl.
+		 */
+		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		clock-names = "s_axi_aclk";
+	};
+
 	ad4134_odr_generator: odr_generator@44b00000 {
 		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44b00000 0x10000>;
@@ -158,6 +175,7 @@
 		refin-supply = <&refin>;
 
 		adi,spi-engine = <&ad4134_spi_engine>;
+		adi,clkin-aligner = <&clkin_aligner>;
 		adi,adc-frame = "24-bit";
 	};
 
