@@ -32,6 +32,10 @@
 #include <linux/sysfs.h>
 #include <linux/string.h>
 
+static int amdgpu_ualink_remote_interrupt(struct amdgpu_device *adev,
+				u32 remote_accel_id, u32 dw0, u32 dw1,
+				u32 dw2, u32 dw3);
+
 static const struct drm_client_funcs ualink_client_funcs = {
 	.unregister	= drm_client_release,
 };
@@ -1250,6 +1254,229 @@ static void amdgpu_generate_ualink_handle(struct amdgpu_device *adev,
 	handle->handle_hi = get_random_u64();
 	dev_dbg(adev->dev, "GENERATE-HANDLE: generated handle: %llx:%llx\n",
 		handle->handle_hi, handle->handle_lo);
+}
+
+static int amdgpu_ualink_send_hello_ack_msg(struct amdgpu_device *adev,
+					    u32 remote_acc_id)
+{
+	dev_dbg(adev->dev, "SEND HELLO-ACK: HELLO-ACK message to remote AccId:%u\n",
+		remote_acc_id);
+	return amdgpu_ualink_remote_interrupt(adev, remote_acc_id,
+		AMDGPU_UALINK_HELLO_ACK_MSG,
+		0, 0, 0);
+}
+
+static int amdgpu_ualink_send_hello_msg(struct amdgpu_device *adev,
+					u32 remote_acc_id)
+{
+	u32 dw0;
+
+	dw0 = AMDGPU_UALINK_HELLO_MSG;
+	dw0 |= (remote_acc_id << AMDGPU_UALINK_HELLO_MSG_RECV_ACCID_SHIFT);
+	dw0 |= (adev->ualink.info->ppod.accel_id <<
+		AMDGPU_UALINK_HELLO_MSG_SENDER_ACCID_SHIFT);
+
+	dev_dbg(adev->dev, "SEND HELLO: HELLO message to remote AccId:%u\n",
+		remote_acc_id);
+	return amdgpu_ualink_remote_interrupt(adev, remote_acc_id, dw0, 0,
+					      0, 0);
+}
+
+static u32 amdgpu_ualink_check_conn_ready(struct amdgpu_device *adev,
+					  u32 remote_acc_id, u32 gen_count)
+{
+	struct amdgpu_ualink_connection *conn_state;
+	u32 current_gen_count = 0;
+
+	conn_state = &adev->ualink.conn_state[remote_acc_id];
+
+	/* Check if the connection is established. */
+	mutex_lock(&conn_state->lock);
+	if ((conn_state->state == AMDGPU_UALINK_CONN_ESTABLISHED) &&
+	    (!gen_count || conn_state->generation_count == gen_count))
+		current_gen_count = conn_state->generation_count;
+	mutex_unlock(&conn_state->lock);
+
+	return current_gen_count;
+}
+
+static void amdgpu_ualink_process_hello_ack_msg(struct amdgpu_device *adev,
+					       u32 sender_acc_id)
+{
+	struct amdgpu_ualink_connection *conn_state;
+
+	if (sender_acc_id >= AMDGPU_UALINK_ACCEL_MAX) {
+		dev_err(adev->dev,
+			"HELLO-ACK: sender AccId out of range:%u\n",
+			sender_acc_id);
+		return;
+	}
+
+	conn_state = &adev->ualink.conn_state[sender_acc_id];
+
+	/* If we are in IN_PROGRESS state, then transition the connection
+	 * state to established and signal that the HELLO ACK is received.
+	 * Otherwise, ignore the HELLO ACK.
+	 */
+	mutex_lock(&conn_state->lock);
+
+	if (conn_state->state == AMDGPU_UALINK_CONN_IN_PROGRESS) {
+		conn_state->state = AMDGPU_UALINK_CONN_ESTABLISHED;
+		conn_state->generation_count++;
+		complete(&conn_state->hello_done);
+	} else {
+		dev_dbg(adev->dev,
+			"HELLO-ACK: already connected, ignoring from AccId:%u\n",
+			sender_acc_id);
+	}
+	mutex_unlock(&conn_state->lock);
+}
+
+static void amdgpu_ualink_process_hello_msg(struct amdgpu_device *adev,
+					   u32 receiver_acc_id,
+					   u32 sender_acc_id,
+					   u32 src_acc_id)
+{
+	struct amdgpu_ualink_connection *conn_state;
+	int r;
+
+	if (receiver_acc_id != adev->ualink.info->ppod.accel_id) {
+		dev_err(adev->dev,
+			"HELLO: receiver AccId mismatch got:%u self:%u\n",
+			receiver_acc_id, adev->ualink.info->ppod.accel_id);
+		return;
+	}
+
+	/* src_acc_id is the AccId received in IH cookie. Confirm it
+	 * matches with the sender AccId.
+	 */
+	if (sender_acc_id != src_acc_id) {
+		dev_err(adev->dev,
+			"HELLO: sender AccId mismatch sender:%u IH cookie:%u\n",
+			sender_acc_id, src_acc_id);
+		return;
+	}
+
+	if (sender_acc_id >= AMDGPU_UALINK_ACCEL_MAX) {
+		dev_err(adev->dev,
+			"HELLO: sender AccId out of range:%u\n",
+			sender_acc_id);
+		return;
+	}
+
+	conn_state = &adev->ualink.conn_state[sender_acc_id];
+
+	/* Check if connection is already established. If yes, then receiving HELLO msg
+	 * triggers a reset handling scenario.
+	 * If the connection is not ready, and we receive a HELLO msg, then
+	 * transition the state to PENDING.
+	 * Otherwise, leave it IN_PROGRESS.
+	 */
+	mutex_lock(&conn_state->lock);
+	if (conn_state->state != AMDGPU_UALINK_CONN_ESTABLISHED) {
+		if (conn_state->state == AMDGPU_UALINK_CONN_NOT_READY)
+			conn_state->state = AMDGPU_UALINK_CONN_PENDING;
+		/* otherwise, leave it IN_PROGRESS to signal the completion below */
+		mutex_unlock(&conn_state->lock);
+	} else {
+		/* Set the connection state back to In Progress and revoke
+		 * all exports and release all imports corresponding to the
+		 * sender GPU. Added in later patches.
+		 */
+		conn_state->state = AMDGPU_UALINK_CONN_PENDING;
+		mutex_unlock(&conn_state->lock);
+	}
+
+	r = amdgpu_ualink_send_hello_ack_msg(adev, sender_acc_id);
+	if (r)
+		dev_err(adev->dev, "HELLO-ACK: send failed to remote AccId:%u\n",
+			sender_acc_id);
+
+	mutex_lock(&conn_state->lock);
+	if (r) {
+		conn_state->state = AMDGPU_UALINK_CONN_NOT_READY;
+	} else {
+		/* If we are in IN_PROGRESS state and we receivied the HELLO message,
+		 * upon receiving the HELLO message, transition the state to ESTABLISHED
+		 * and signal the completion.
+		 */
+		if (conn_state->state == AMDGPU_UALINK_CONN_IN_PROGRESS)
+			complete(&conn_state->hello_done);
+		conn_state->state = AMDGPU_UALINK_CONN_ESTABLISHED;
+		conn_state->generation_count++;
+	}
+	mutex_unlock(&conn_state->lock);
+}
+
+static int amdgpu_ualink_setup_connection(struct amdgpu_device *adev,
+					  u32 remote_acc_id)
+{
+	struct amdgpu_ualink_connection *conn_state;
+	int r;
+
+	conn_state = &adev->ualink.conn_state[remote_acc_id];
+
+	/* Connection state management goes through different states.
+	 * The states are:
+	 * - NOT_READY: The connection is not ready.
+	 * - IN_PROGRESS: GPU sent HELLO message and is waiting for the HELLO_ACK.
+	 * - PENDING: GPU received HELLO message and is in the process of sending
+	 *            the HELLO_ACK.
+	 * - ESTABLISHED: The connection is established.
+	 */
+
+	/* Grab the lock and check if connection establishment was
+	 * already done by another thread.
+	 */
+	mutex_lock(&conn_state->lock);
+	if (conn_state->state == AMDGPU_UALINK_CONN_ESTABLISHED) {
+		r = 0;
+		goto out;
+	} else if (conn_state->state == AMDGPU_UALINK_CONN_IN_PROGRESS ||
+		   conn_state->state == AMDGPU_UALINK_CONN_PENDING) {
+		r = -EAGAIN;
+		goto out;
+	}
+
+	conn_state->state = AMDGPU_UALINK_CONN_IN_PROGRESS;
+	mutex_unlock(&conn_state->lock);
+
+	/* Send HELLO message */
+	r = amdgpu_ualink_send_hello_msg(adev, remote_acc_id);
+	if (r) {
+		dev_warn(adev->dev,
+			"HELLO: Send failed to remote AccId:%u\n",
+			remote_acc_id);
+		goto reset_state;
+	}
+
+	/* Wait for the HELLO_ACK to come back */
+	/* complete(conn_state->hello_done) should be called from the IRQ
+	 * handler when the HELLO_ACK is received.
+	 */
+	r = wait_for_completion_interruptible_timeout(&conn_state->hello_done,
+				msecs_to_jiffies(AMDGPU_UALINK_RESP_TIMEOUT));
+	if (r == -ERESTARTSYS) {
+		dev_err_ratelimited(adev->dev,
+			"HELLO-ACK: interrupted by signal\n");
+		goto reset_state;
+	} else if (r == 0) {
+		dev_warn(adev->dev,
+			"HELLO-ACK: Timeout from remote AccId:%u\n",
+			remote_acc_id);
+		r = -ETIMEDOUT;
+		goto reset_state;
+	}
+
+	return 0;
+
+reset_state:
+	mutex_lock(&conn_state->lock);
+	conn_state->state = AMDGPU_UALINK_CONN_NOT_READY;
+out:
+	mutex_unlock(&conn_state->lock);
+
+	return r;
 }
 
 static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
