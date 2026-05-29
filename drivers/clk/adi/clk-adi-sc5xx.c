@@ -10,14 +10,19 @@
 
 #include "clk.h"
 
-static int __init sc5xx_clock_probe(struct platform_device *pdev)
+static void __init sc5xx_early_clock_probe(struct device_node *np)
+{
+
+}
+CLK_OF_DECLARE();
+
+static int sc5xx_clock_probe(struct platform_device *pdev)
 {
 	return 0;
 }
 
 static void sc5xx_clock_remove(struct platform_device *pdev)
 {
-	return 0;
 }
 
 static const struct of_device_id sc5xx_clock_of_match[] = {
@@ -72,6 +77,12 @@ static struct platform_driver sc5xx_clock_driver = {
 	.probe = sc5xx_clock_probe,
 	.remove = sc5xx_clock_remove,
 };
+
+static int __init sc5xx_clock_init(void)
+{
+	return platform_driver_register(&sc5xx_clock_driver);
+}
+core_initcall(sc5xx_clock_init);
 
 MODULE_AUTHOR("Qasim Ijaz <qasim.ijaz@analog.com>");
 MODULE_DESCRIPTION("Clock driver for ADSP-SC5xx SoCs");
