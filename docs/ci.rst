@@ -323,7 +323,7 @@ To build the container image, use your favorite container engine from the
     * ci
       main
    # or docker, ...
-   $podman build --tag adi/linux:latest container
+   $ podman build --tag adi/linux:latest container
 
 You may want to build the container in a host, where you have all your tools installed,
 and then deploy to a server.
@@ -335,8 +335,8 @@ In this case, export the image and then import on the server:
    :group: host
 
    ~/linux
-   $podman save -o adi-linux.tar adi/linux:latest
-   $scp adi-linux.tar server:/tmp/
+   $ podman save -o adi-linux.tar adi/linux:latest
+   $ scp adi-linux.tar server:/tmp/
 
 .. shell::
    :show-user:
@@ -344,7 +344,7 @@ In this case, export the image and then import on the server:
    :group: server
 
    /tmp
-   $podman load -i adi-linux.tar
+   $ podman load -i adi-linux.tar
 
 Or if you are feeling adventurous:
 
@@ -354,7 +354,7 @@ Or if you are feeling adventurous:
    :group: host
 
    ~/linux
-   $podman save adi/linux:latest | ssh server "cat - | podman load"
+   $ podman save adi/linux:latest | ssh server "cat - | podman load"
 
 .. _interactive-run:
 
@@ -538,15 +538,33 @@ to every ``podman run`` command:
 * ``--env RUNNER_ALLOW_RUNASROOT=1``: suppresses the GitHub Action runner "Must
   not run with sudo". Again, is the container's root.
 
-.. _cluster-podman:
+.. _cluster-systemd:
 
 Self-hosted cluster
 ~~~~~~~~~~~~~~~~~~~
 
-To host a cluster of self-hosted runners, the recommended approach is to use
-systemd services, instead of for example, container compose solutions.
+Systemd can run the runner process directly in an isolated environment using
+Linux kernel namespaces. This eliminates the ``conmon`` intermediate process,
+gives systemd direct ownership of the runner PID, and integrates resource
+limits into the unit, instead of using Podman/Docker equivalents.
 
-Below is a suggested systemd service at *~/.config/systemd/user/container-public-linux@.service*.
+Export from Podman the OCI image tarball and extract it:
+
+.. shell::
+
+   $ podman export $(podman create adi/linux:latest) | \
+       tar -xC ~/.local/share/container/images/adi/linux/latest
+
+.. note::
+
+   To clean-up use unshare:
+
+   .. shell::
+
+      $ podman unshare rm -rf ~/.local/share/container/images/adi/linux/latest
+
+Below is a suggested systemd service at
+*~/.config/systemd/user/container-public-linux@.service*:
 
 .. code:: systemd
 
@@ -556,77 +574,90 @@ Below is a suggested systemd service at *~/.config/systemd/user/container-public
 
    [Service]
    Restart=on-success
-   ExecStart=/bin/podman run \
-             --env name_label=%H-%i \
-             --secret public_linux_org_repository,type=env,target=org_repository \
-             --secret public_linux_runner_token,type=env,target=runner_token \
-             --conmon-pidfile %t/%n-pid --cidfile %t/%n-cid \
-             --entrypoint="/usr/local/bin/entrypoint.sh" \
-             --label "io.containers.autoupdate=local" \
-             --name=public_linux_%i \
-             -d adi/linux:latest top
-   ExecStop=/bin/sh -c "/bin/podman stop -t 300 $(cat %t/%n-cid) && /bin/podman rm $(cat %t/%n-cid)"
-   ExecStopPost=/bin/rm %t/%n-pid %t/%n-cid
+   ExecStart=/usr/local/bin/entrypoint.sh
+   Environment="name_label=%H-%i"
+   LoadCredential=org_repository:%h/.local/share/container/secrets/org_repository
+   LoadCredential=runner_token:%h/.local/share/container/secrets/runner_token
+   RootDirectory=%h/.local/share/container/images/adi/linux/latest
+   BindReadOnlyPaths=/etc/resolv.conf
+   PrivateUsers=yes
+   PrivateTmp=yes
+   PrivateIPC=yes
+   PrivateMounts=yes
+   ProtectHostname=yes
+   MemoryMax=16G
+   MemorySwapMax=20G
+   CPUQuota=100%
+   TasksMax=512
    TimeoutStopSec=600
-   Type=forking
-   PIDFile=%t/%n-pid
+   Type=exec
 
    [Install]
    WantedBy=multi-user.target
 
-Other tuning options include:
-
-* `--memory-swap=20g`: Limit SWAP usage.
-* `--memory=16g`: Limit RAM usage.
-* `--cpus=4`: Limit number of CPUs.
-
-.. collapsible:: Docker alternative
-
-   .. code:: systemd
-
-      [Unit]
-      Description=container public linux ci %i
-      Requires=gpg-passphrase.service
-      Wants=network-online.target
-      After=docker.service
-
-      [Service]
-      Restart=on-success
-      ExecStart=/bin/sh -c "/bin/docker run \
-                --env name_label=%H-%i \
-                --env org_repository=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_org_repository.gpg) \
-                --env runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_runner_token.gpg) \
-                --cidfile %t/%n-cid \
-                --entrypoint="/usr/local/bin/entrypoint.sh" \
-                --label "io.containers.autoupdate=local" \
-                --name=public_linux_%i \
-                --memory-swap=20g \
-                --memory=16g \
-                --cpus=4 \
-                --log-driver=journald \
-                -d localhost/adi/linux:latest top"
-      RemainAfterExit=yes
-      ExecStop=/bin/sh -c "/bin/docker stop -t 300 $(cat %t/%n-cid) && /bin/docker rm $(cat %t/%n-cid)"
-      ExecStopPost=/bin/rm %t/%n-cid
-      TimeoutStopSec=600
-      Type=forking
-
-      [Install]
-      WantedBy=multi-user.target
-
 Remember to ``systemctl --user daemon-reload`` after modifying.
-With `autoupdate <https://docs.podman.io/en/latest/markdown/podman-auto-update.1.html>`__,
-if the image-digest of the container and local storage differ,
-the local image is considered to be newer and the systemd unit gets restarted.
 
-Tune the limit flags for your needs.
-The ``--cpus`` flag requires a kernel with ``CONFIG_CFS_BANDWIDTH`` enabled.
-You can check with ``zgrep CONFIG_CFS_BANDWIDTH= /proc/config.gz``.
+The secrets are plain text files readable only by the runner user:
+
+.. code:: shell
+
+   install -m 600 -D /dev/stdin ~/.local/share/container/secrets/org_repository <<< "analogdevicesinc/linux"
+   install -m 600 -D /dev/stdin ~/.local/share/container/secrets/runner_token  <<< "MyVerYSecRunnerToken"
+
+If a compatible TPM2 is available, use ``LoadCredentialEncrypted=`` instead of
+``LoadCredential=`` and store AES256-GCM ciphertext to it:
+
+.. code:: shell
+
+   systemd-creds encrypt --name=runner_token - ~/.local/share/container/secrets/runner_token.cred
+
+Then in the unit replace ``LoadCredential=`` with:
+
+.. code:: systemd
+
+   LoadCredentialEncrypted=runner_token:%h/.local/share/container/secrets/runner_token.cred
+
+Enable and start the service:
+
+.. code:: shell
+
+   systemctl --user enable container-public-linux@0.service
+   systemctl --user start container-public-linux@0.service
+
+.. attention::
+
+   User services are terminated on logout, unless you define
+   ``loginctl enable-linger <your-user>`` first.
+
+See `systemd's container interface <https://systemd.io/CONTAINER_INTERFACE/>`__ and
+`systemd's credentials <https://systemd.io/CREDENTIALS/>`__ for more information.
+
+Resources quota
+^^^^^^^^^^^^^^^
+
+``MemoryMax=`` and ``CPUQuota=`` require cgroup v2 controllers to be delegated
+to the user slice:
+
+.. code:: shell
+
+   $ sudo mkdir -p /etc/systemd/system/user@.service.d
+   $ cat <<EOF | sudo tee /etc/systemd/system/user@.service.d/delegate.conf
+   $ [Service]
+   $ Delegate=cpu cpuset io memory pids
+   $ EOF
+   $ sudo systemctl daemon-reload
+
+Tune the limit flags for your needs. The ``cpu`` config requires a kernel with
+``CONFIG_CFS_BANDWIDTH`` enabled. You can check with ``zgrep
+CONFIG_CFS_BANDWIDTH= /proc/config.gz``.
+
+Runner token and GitHub token
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Instead of passing ``runner_token``, you can also pass a ``github_token`` to
 generate the ``runner_token`` on demand. Using the ``github_token`` is the
-recommended approach because during clean-up the original runner_token may have
-expired already.
+recommended approach because during clean-up the original ``runner_token`` may
+have expired already.
 
 Alternatively, you can mount a FIFO to ``/var/run/secrets/runner_token`` to
 generate a token just in time, without ever passing the github_token to the
@@ -657,18 +688,3 @@ For `org runner <https://docs.github.com/en/rest/actions/self-hosted-runners?api
 
 * ``organization_self_hosted_runners:write``: "Self-hosted runners" organization permissions (write).
 * The user needs to be an org-level admin.
-
-Then update the systemd service.
-
-Enable and start the service
-
-.. code:: shell
-
-   systemctl --user enable container-public-linux@0.service
-   systemctl --user start container-public-linux@0.service
-
-.. attention::
-
-   User services are terminated on logout, unless you define
-   ``loginctl enable-linger <your-user>`` first.
-
