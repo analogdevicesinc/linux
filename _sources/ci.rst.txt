@@ -672,3 +672,99 @@ Enable and start the service
    User services are terminated on logout, unless you define
    ``loginctl enable-linger <your-user>`` first.
 
+.. _cluster-systemd:
+
+Systemd native
+^^^^^^^^^^^^^^
+
+Systemd can run the runner process directly in an isolated environment using
+Linux kernel namespaces. This eliminates the ``conmon`` intermediate process,
+gives systemd direct ownership of the runner PID, and integrates resource
+limits into the unit.
+
+The runner filesystem is an extracted OCI image tarball. Export from Podman and
+unpack it:
+
+.. shell::
+
+   $ podman export $(podman create adi/linux:latest) | \
+       tar -xC ~/.local/share/container-images/adi/linux
+
+.. note::
+
+   To clean-up use unshare:
+
+   .. shell::
+
+      $ podman unshare rm -rf ~/.local/share/container-images/adi/linux
+
+Below is a suggested systemd service at
+*~/.config/systemd/user/container-public-linux@.service*:
+
+.. code:: systemd
+
+   [Unit]
+   Description=container public linux ci %i (systemd native)
+   Wants=network-online.target
+
+   [Service]
+   Restart=on-success
+   ExecStart=/usr/local/bin/entrypoint.sh
+   Environment="name_label=%H-%i"
+   LoadCredential=org_repository:%h/.local/share/containers-secrets/org_repository
+   LoadCredential=runner_token:%h/.local/share/containers-secrets/runner_token
+   RootDirectory=%h/.local/share/container-images/adi/linux
+   BindReadOnlyPaths=/etc/resolv.conf
+   PrivateUsers=yes
+   PrivateTmp=yes
+   PrivateIPC=yes
+   PrivateMounts=yes
+   ProtectHostname=yes
+   MemoryMax=16G
+   MemorySwapMax=20G
+   CPUQuota=400%
+   TasksMax=512
+   TimeoutStopSec=600
+   Type=exec
+
+   [Install]
+   WantedBy=multi-user.target
+
+The secrets are plain text files readable only by the runner user:
+
+.. code:: shell
+
+   install -m 600 -D /dev/stdin ~/.local/share/containers-secrets/org_repository <<< "analogdevicesinc/linux"
+   install -m 600 -D /dev/stdin ~/.local/share/containers-secrets/runner_token  <<< "MyVerYSecRunnerToken"
+
+If a compatible TPM2 is available, use ``LoadCredentialEncrypted=`` instead of
+``LoadCredential=`` and store AES256-GCM ciphertext to it:
+
+.. code:: shell
+
+   systemd-creds encrypt --name=runner_token - ~/.local/share/containers-secrets/runner_token.cred
+
+Then in the unit replace ``LoadCredential=`` with:
+
+.. code:: systemd
+
+   LoadCredentialEncrypted=runner_token:%h/.local/share/containers-secrets/runner_token.cred
+
+``MemoryMax=`` and ``CPUQuota=`` require cgroup v2 controllers to be delegated
+to the user slice:
+
+.. code:: shell
+
+   sudo mkdir -p /etc/systemd/system/user@.service.d
+   printf '[Service]\nDelegate=cpu cpuset io memory pids\n' | sudo tee /etc/systemd/system/user@.service.d/delegate.conf
+   sudo systemctl daemon-reload
+
+Enable and start the service:
+
+.. code:: shell
+
+   systemctl --user enable container-public-linux@0.service
+   systemctl --user start container-public-linux@0.service
+
+See `systemd's container interface <https://systemd.io/CONTAINER_INTERFACE/>`__ and
+`systemd's credentials <https://systemd.io/CREDENTIALS/>`__ for more information.

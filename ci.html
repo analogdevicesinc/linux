@@ -110,7 +110,10 @@
 <li><a class="reference internal" href="#build-the-container-image">Build the container image</a></li>
 <li><a class="reference internal" href="#interactive-run">Interactive run</a></li>
 <li><a class="reference internal" href="#self-hosted-runner">Self-hosted runner</a></li>
-<li><a class="reference internal" href="#self-hosted-cluster">Self-hosted cluster</a></li>
+<li><a class="reference internal" href="#self-hosted-cluster">Self-hosted cluster</a><ul>
+<li><a class="reference internal" href="#systemd-native">Systemd native</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -1169,6 +1172,90 @@ systemctl<span class="w"> </span>--user<span class="w"> </span>start<span class=
 <p>User services are terminated on logout, unless you define
 <code class="docutils literal notranslate"><span class="pre">loginctl</span> <span class="pre">enable-linger</span> <span class="pre">&lt;your-user&gt;</span></code> first.</p>
 </div>
+<section id="systemd-native">
+<span id="cluster-systemd"></span><h4>Systemd native<a class="headerlink" href="#systemd-native" title="Link to this heading"></a></h4>
+<p>Systemd can run the runner process directly in an isolated environment using
+Linux kernel namespaces. This eliminates the <code class="docutils literal notranslate"><span class="pre">conmon</span></code> intermediate process,
+gives systemd direct ownership of the runner PID, and integrates resource
+limits into the unit.</p>
+<p>The runner filesystem is an extracted OCI image tarball. Export from Podman and
+unpack it:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="k">$(</span>podman<span class="w"> </span>create<span class="w"> </span>adi/linux:latest<span class="k">)</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>tar<span class="w"> </span>-xC<span class="w"> </span>~/.local/share/container-images/adi/linux
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To clean-up use unshare:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>unshare<span class="w"> </span>rm<span class="w"> </span>-rf<span class="w"> </span>~/.local/share/container-images/adi/linux
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></div>
+<p>Below is a suggested systemd service at
+<em>~/.config/systemd/user/container-public-linux&#64;.service</em>:</p>
+<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
+<span class="na">Description</span><span class="o">=</span><span class="s">container public linux ci %i (systemd native)</span>
+<span class="na">Wants</span><span class="o">=</span><span class="s">network-online.target</span>
+
+<span class="k">[Service]</span>
+<span class="na">Restart</span><span class="o">=</span><span class="s">on-success</span>
+<span class="na">ExecStart</span><span class="o">=</span><span class="s">/usr/local/bin/entrypoint.sh</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;name_label=%H-%i&quot;</span>
+<span class="na">LoadCredential</span><span class="o">=</span><span class="s">org_repository:%h/.local/share/containers-secrets/org_repository</span>
+<span class="na">LoadCredential</span><span class="o">=</span><span class="s">runner_token:%h/.local/share/containers-secrets/runner_token</span>
+<span class="na">RootDirectory</span><span class="o">=</span><span class="s">%h/.local/share/container-images/adi/linux</span>
+<span class="na">BindReadOnlyPaths</span><span class="o">=</span><span class="s">/etc/resolv.conf</span>
+<span class="na">PrivateUsers</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">PrivateTmp</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">PrivateIPC</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">PrivateMounts</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">ProtectHostname</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">MemoryMax</span><span class="o">=</span><span class="s">16G</span>
+<span class="na">MemorySwapMax</span><span class="o">=</span><span class="s">20G</span>
+<span class="na">CPUQuota</span><span class="o">=</span><span class="s">400%</span>
+<span class="na">TasksMax</span><span class="o">=</span><span class="s">512</span>
+<span class="na">TimeoutStopSec</span><span class="o">=</span><span class="s">600</span>
+<span class="na">Type</span><span class="o">=</span><span class="s">exec</span>
+
+<span class="k">[Install]</span>
+<span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
+</pre></div>
+</div>
+<p>The secrets are plain text files readable only by the runner user:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>install<span class="w"> </span>-m<span class="w"> </span><span class="m">600</span><span class="w"> </span>-D<span class="w"> </span>/dev/stdin<span class="w"> </span>~/.local/share/containers-secrets/org_repository<span class="w"> </span><span class="o">&lt;&lt;&lt;</span><span class="w"> </span><span class="s2">&quot;analogdevicesinc/linux&quot;</span>
+install<span class="w"> </span>-m<span class="w"> </span><span class="m">600</span><span class="w"> </span>-D<span class="w"> </span>/dev/stdin<span class="w"> </span>~/.local/share/containers-secrets/runner_token<span class="w">  </span><span class="o">&lt;&lt;&lt;</span><span class="w"> </span><span class="s2">&quot;MyVerYSecRunnerToken&quot;</span>
+</pre></div>
+</div>
+<p>If a compatible TPM2 is available, use <code class="docutils literal notranslate"><span class="pre">LoadCredentialEncrypted=</span></code> instead of
+<code class="docutils literal notranslate"><span class="pre">LoadCredential=</span></code> and store AES256-GCM ciphertext to it:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>systemd-creds<span class="w"> </span>encrypt<span class="w"> </span>--name<span class="o">=</span>runner_token<span class="w"> </span>-<span class="w"> </span>~/.local/share/containers-secrets/runner_token.cred
+</pre></div>
+</div>
+<p>Then in the unit replace <code class="docutils literal notranslate"><span class="pre">LoadCredential=</span></code> with:</p>
+<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="na">LoadCredentialEncrypted</span><span class="o">=</span><span class="s">runner_token:%h/.local/share/containers-secrets/runner_token.cred</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">MemoryMax=</span></code> and <code class="docutils literal notranslate"><span class="pre">CPUQuota=</span></code> require cgroup v2 controllers to be delegated
+to the user slice:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>/etc/systemd/system/user@.service.d
+<span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;[Service]\nDelegate=cpu cpuset io memory pids\n&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/systemd/system/user@.service.d/delegate.conf
+sudo<span class="w"> </span>systemctl<span class="w"> </span>daemon-reload
+</pre></div>
+</div>
+<p>Enable and start the service:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>systemctl<span class="w"> </span>--user<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>container-public-linux@0.service
+systemctl<span class="w"> </span>--user<span class="w"> </span>start<span class="w"> </span>container-public-linux@0.service
+</pre></div>
+</div>
+<p>See <a class="icon link reference external" href="https://systemd.io/CONTAINER_INTERFACE/" target="_blank">systemd’s container interface</a> and
+<a class="icon link reference external" href="https://systemd.io/CREDENTIALS/" target="_blank">systemd’s credentials</a> for more information.</p>
+</section>
 </section>
 </section>
 </section>
