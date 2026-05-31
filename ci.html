@@ -110,10 +110,9 @@
 <li><a class="reference internal" href="#build-the-container-image">Build the container image</a></li>
 <li><a class="reference internal" href="#interactive-run">Interactive run</a></li>
 <li><a class="reference internal" href="#self-hosted-runner">Self-hosted runner</a></li>
-<li><a class="reference internal" href="#self-hosted-cluster">Self-hosted cluster</a><ul>
-<li><a class="reference internal" href="#systemd-native">Systemd native</a></li>
-</ul>
-</li>
+<li><a class="reference internal" href="#self-hosted-cluster">Self-hosted cluster</a></li>
+<li><a class="reference internal" href="#resource-quotas">Resource quotas</a></li>
+<li><a class="reference internal" href="#runner-token-and-github-token">Runner token and GitHub token</a></li>
 </ul>
 </li>
 </ul>
@@ -708,8 +707,8 @@ environments:</p>
 </div>
 <p>Ensure apply with <code class="docutils literal notranslate"><span class="pre">podman</span> <span class="pre">system</span> <span class="pre">migrate</span></code> and see the changed settings with
 <code class="docutils literal notranslate"><span class="pre">podman</span> <span class="pre">info</span></code>.</p>
-<p>An alternative mitigation for nfs is to create a xfs disk image and mount, but
-since mount requires a root permission it is unlikely to be helpful for most
+<p>An alternative mitigation for nfs is to create an xfs disk image and mount, but
+since mount requires root permission it is unlikely to be helpful for most
 users:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>truncate<span class="w"> </span>-s<span class="w"> </span>100g<span class="w"> </span>~/.local/share/containers-xfs.img
 mkfs.xfs<span class="w"> </span>-m<span class="w"> </span><span class="nv">reflink</span><span class="o">=</span><span class="m">1</span><span class="w">  </span>~/.local/share/containers-xfs.img<span class="w"> </span>-m<span class="w"> </span><span class="nv">bigtime</span><span class="o">=</span><span class="m">1</span>,inobtcount<span class="o">=</span><span class="m">1</span><span class="w"> </span>-i<span class="w"> </span><span class="nv">nrext64</span><span class="o">=</span><span class="m">0</span>
@@ -988,17 +987,8 @@ drivers/iio/adc/ad9081.c
 <section id="self-hosted-runner">
 <span id="podman-run"></span><h3>Self-hosted runner<a class="headerlink" href="#self-hosted-runner" title="Link to this heading"></a></h3>
 <p>To host your <a class="icon link reference external" href="https://github.com/actions/runner" target="_blank">GitHub Actions Runner</a>,
-set up your secrets (<code class="docutils literal notranslate"><span class="pre">podman</span></code> only):</p>
-<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># e.g. analogdevicesinc/linux</span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">printf</span><span class="w"> </span>ORG_REPOSITORY<span class="w"> </span><span class="p">|</span><span class="w"> </span>podman<span class="w"> </span>secret<span class="w"> </span>create<span class="w"> </span>public_linux_org_repository<span class="w"> </span>-
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># e.g. MyVerYSecRunnerToken</span>
+set up your secrets:</p>
+<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># e.g. MyVerYSecRunnerToken</span>
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
@@ -1008,20 +998,20 @@ set up your secrets (<code class="docutils literal notranslate"><span class="pre
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>The runner token is obtained from the GUI at <code class="docutils literal notranslate"><span class="pre">https://github.com/&lt;org&gt;/&lt;repository&gt;/settings/actions/runners/new</span></code>.</p>
-<p>If <code class="docutils literal notranslate"><span class="pre">github_token</span></code> from <a class="reference internal" href="#cluster-podman"><span class="std std-ref">Self-hosted cluster</span></a> is set, the runner_token
+<p>If <code class="docutils literal notranslate"><span class="pre">github_token</span></code> from <a class="reference internal" href="#cluster-systemd"><span class="std std-ref">Self-hosted cluster</span></a> is set, the runner_token
 is ignored and a new one is requested.</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
 </pre></div>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--secret<span class="w"> </span>public_linux_org_repository,type<span class="o">=</span>env,target<span class="o">=</span>org_repository<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--secret<span class="w"> </span>public_linux_runner_token,type<span class="o">=</span>env,target<span class="o">=</span>runner_token<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>v1,big_cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>adi/linux
+<span class="w">   </span>--secret<span class="w"> </span>public_linux_runner_token,type<span class="o">=</span>env,target<span class="o">=</span>runner_token<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--env<span class="w"> </span><span class="nv">org_repository</span><span class="o">=</span>analogdevicesinc/linux<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>repo-only,big_cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>adi/linux
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><div><div class="collapsible docutils container">
-<input class="collapsible_input" id="95bf972b3ee532c70a47dc3a8f4e839322bff141" name="95bf972b3ee532c70a47dc3a8f4e839322bff141" type="checkbox"></input><label for="95bf972b3ee532c70a47dc3a8f4e839322bff141"><p>Docker alternative</p>
+<input class="collapsible_input" id="c342f772859487c81f55b41dddc80ca79bed1f5f" name="c342f772859487c81f55b41dddc80ca79bed1f5f" type="checkbox"></input><label for="c342f772859487c81f55b41dddc80ca79bed1f5f"><p>Docker alternative</p>
 <div class="icon"></div></label><div class="collapsible_content docutils container">
 <p><code class="docutils literal notranslate"><span class="pre">docker</span></code> does <strong>not</strong> have a built-in keyring, instead you pass directly
 to <code class="docutils literal notranslate"><span class="pre">run</span></code> command. <span class="red">Consider hardening strategies to mitigate risks</span>,
@@ -1030,18 +1020,23 @@ like using another keyring as below.</p>
 </pre></div>
 </div>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_org_repository</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_org_repository.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--env<span class="w"> </span><span class="nv">public_linux_runner_token</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_runner_token.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>v1,big_cpu<span class="w"> </span><span class="se">\</span>
-<span class="w">    </span>localhost/adi/linux
+<span class="w">   </span>--env<span class="w"> </span><span class="nv">public_linux_runner_token</span><span class="o">=</span><span class="k">$(</span>gpg<span class="w"> </span>--quiet<span class="w"> </span>--batch<span class="w"> </span>--decrypt<span class="w"> </span>/run/secrets/public_linux_runner_token.gpg<span class="k">)</span><span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--env<span class="w"> </span><span class="nv">org_repository</span><span class="o">=</span>analogdevicesinc/linux<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--env<span class="w"> </span><span class="nv">runner_labels</span><span class="o">=</span>repo-only,big_cpu<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>localhost/adi/linux
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div></div>
 </div>
 </div><p>The environment variable runner_labels (comma-separated), set the runner labels.
 If not provided on the Containerfile as <code class="docutils literal notranslate"><span class="pre">ENV</span> <span class="pre">runner_labels=&lt;labels,&gt;</span></code> or as argument
-<code class="docutils literal notranslate"><span class="pre">--env</span> <span class="pre">runner_labels=&lt;labels,&gt;</span></code>, it defaults to <code class="docutils literal notranslate"><span class="pre">v1</span></code>.
-Most of the time, you want to use the Containerfile-set environment variable.</p>
+<code class="docutils literal notranslate"><span class="pre">--env</span> <span class="pre">runner_labels=&lt;labels,&gt;</span></code>, it defaults to <code class="docutils literal notranslate"><span class="pre">repo-only</span></code>.
+<code class="docutils literal notranslate"><span class="pre">version</span></code>, also an environment variable, also is concatanated to <code class="docutils literal notranslate"><span class="pre">runner_labels</span></code> and
+<code class="docutils literal notranslate"><span class="pre">name_label</span></code>, so the effective final <code class="docutils literal notranslate"><span class="pre">runner_labels</span></code> is <code class="docutils literal notranslate"><span class="pre">&lt;version&gt;,&lt;labels,&gt;</span></code>
+Version should always be set in the Containerfile. Most of the time, you want
+to use the Containerfile-set environment variable.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">repo-only</span></code> label ensures that the jobs run only in the repository-scoped runners,
+avoiding them to assigned to organization-level runners.</p>
 <p>If you are in an environment as described in <a class="reference internal" href="#podman-sssd"><span class="std std-ref">Network users &amp; partitions</span></a>, append these flags
 to every <code class="docutils literal notranslate"><span class="pre">podman</span> <span class="pre">run</span></code> command:</p>
 <ul class="simple">
@@ -1053,88 +1048,176 @@ not run with sudo”. Again, is the container’s root.</p></li>
 </ul>
 </section>
 <section id="self-hosted-cluster">
-<span id="cluster-podman"></span><h3>Self-hosted cluster<a class="headerlink" href="#self-hosted-cluster" title="Link to this heading"></a></h3>
-<p>To host a cluster of self-hosted runners, the recommended approach is to use
-systemd services, instead of for example, container compose solutions.</p>
-<p>Below is a suggested systemd service at <em>~/.config/systemd/user/container-public-linux&#64;.service</em>.</p>
+<span id="cluster-systemd"></span><h3>Self-hosted cluster<a class="headerlink" href="#self-hosted-cluster" title="Link to this heading"></a></h3>
+<p>Systemd can run the runner process directly in an isolated environment using
+Linux kernel namespaces. This eliminates the <code class="docutils literal notranslate"><span class="pre">conmon</span></code> intermediate process,
+gives systemd direct ownership of the runner PID, and integrates resource
+limits into the unit, instead of using Podman/Docker equivalents.</p>
+<p>Export from Podman the OCI image tarball and extract it:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">out</span><span class="o">=</span>~/.local/share/container/images/adi-linux-latest
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span><span class="nv">$out</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="k">$(</span>podman<span class="w"> </span>create<span class="w"> </span>adi/linux:latest<span class="k">)</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>tar<span class="w"> </span>-xC<span class="w"> </span><span class="nv">$out</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>To clean-up use unshare:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>unshare<span class="w"> </span>rm<span class="w"> </span>-rf<span class="w"> </span>~/.local/share/container/images/adi-linux-latest
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div></div>
+<p>Below is a suggested systemd service at
+<em>~/.config/systemd/user/container-public-linux&#64;.service</em>:</p>
 <div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
 <span class="na">Description</span><span class="o">=</span><span class="s">container public linux ci %i</span>
 <span class="na">Wants</span><span class="o">=</span><span class="s">network-online.target</span>
+<span class="na">Requires</span><span class="o">=</span><span class="s">container-init@adi-linux-latest.%i.service</span>
+<span class="na">After</span><span class="o">=</span><span class="s">container-init@adi-linux-latest.%i.service</span>
 
 <span class="k">[Service]</span>
 <span class="na">Restart</span><span class="o">=</span><span class="s">on-success</span>
-<span class="na">ExecStart</span><span class="o">=</span><span class="s">/bin/podman run </span>\
-<span class="w">          </span><span class="s">--env name_label=%H-%i </span>\
-<span class="w">          </span><span class="s">--secret public_linux_org_repository,type=env,target=org_repository </span>\
-<span class="w">          </span><span class="s">--secret public_linux_runner_token,type=env,target=runner_token </span>\
-<span class="w">          </span><span class="s">--conmon-pidfile %t/%n-pid --cidfile %t/%n-cid </span>\
-<span class="w">          </span><span class="s">--entrypoint=&quot;/usr/local/bin/entrypoint.sh&quot; </span>\
-<span class="w">          </span><span class="s">--label &quot;io.containers.autoupdate=local&quot; </span>\
-<span class="w">          </span><span class="s">--name=public_linux_%i </span>\
-<span class="w">          </span><span class="s">-d adi/linux:latest top</span>
-<span class="na">ExecStop</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/podman stop -t 300 $(cat %t/%n-cid) &amp;&amp; /bin/podman rm $(cat %t/%n-cid)&quot;</span>
-<span class="na">ExecStopPost</span><span class="o">=</span><span class="s">/bin/rm %t/%n-pid %t/%n-cid</span>
+<span class="na">ExecStart</span><span class="o">=</span><span class="s">/usr/local/bin/entrypoint.sh</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;version=latest&quot;</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;name_label=%i&quot;</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;org_repository=analogdevicesinc/linux&quot;</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;HOME=/home/runner&quot;</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;USER=runner&quot;</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;LOGNAME=runner&quot;</span>
+<span class="na">UnsetEnvironment</span><span class="o">=</span><span class="s">XDG_CACHE_HOME XDG_CONFIG_HOME XDG_DATA_HOME XDG_STATE_HOME XDG_RUNTIME_DIR XDG_DATA_DIRS XDG_CONFIG_DIRS DBUS_SESSION_BUS_ADDRESS machine_name SHELL</span>
+<span class="na">LoadCredential</span><span class="o">=</span><span class="s">github_token:%h/.local/share/container/secrets/public_github_token</span>
+<span class="na">RootDirectory</span><span class="o">=</span><span class="s">%h/.local/share/container/images/adi-linux-latest</span>
+<span class="na">BindPaths</span><span class="o">=</span><span class="s">%h/.local/share/container/runner/adi-linux-latest/%i:/home/runner</span>
+<span class="na">BindReadOnlyPaths</span><span class="o">=</span><span class="s">/etc/resolv.conf</span>
+<span class="na">PrivateUsers</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">PrivateTmp</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">PrivateIPC</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">PrivateMounts</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">ProtectHostname</span><span class="o">=</span><span class="s">yes</span>
+<span class="na">MemoryMax</span><span class="o">=</span><span class="s">16G</span>
+<span class="na">MemorySwapMax</span><span class="o">=</span><span class="s">20G</span>
+<span class="na">CPUQuota</span><span class="o">=</span><span class="s">400%</span>
+<span class="na">TasksMax</span><span class="o">=</span><span class="s">512</span>
 <span class="na">TimeoutStopSec</span><span class="o">=</span><span class="s">600</span>
-<span class="na">Type</span><span class="o">=</span><span class="s">forking</span>
-<span class="na">PIDFile</span><span class="o">=</span><span class="s">%t/%n-pid</span>
+<span class="na">Type</span><span class="o">=</span><span class="s">exec</span>
 
 <span class="k">[Install]</span>
 <span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
 </pre></div>
 </div>
-<p>Other tuning options include:</p>
-<ul class="simple">
-<li><p><cite>–memory-swap=20g</cite>: Limit SWAP usage.</p></li>
-<li><p><cite>–memory=16g</cite>: Limit RAM usage.</p></li>
-<li><p><cite>–cpus=4</cite>: Limit number of CPUs.</p></li>
-</ul>
-<div><div class="collapsible docutils container">
-<input class="collapsible_input" id="e7f4ecc086041d9e98d44d529755898644477d49" name="e7f4ecc086041d9e98d44d529755898644477d49" type="checkbox"></input><label for="e7f4ecc086041d9e98d44d529755898644477d49"><p>Docker alternative</p>
-<div class="icon"></div></label><div class="collapsible_content docutils container">
-<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
-<span class="na">Description</span><span class="o">=</span><span class="s">container public linux ci %i</span>
-<span class="na">Requires</span><span class="o">=</span><span class="s">gpg-passphrase.service</span>
-<span class="na">Wants</span><span class="o">=</span><span class="s">network-online.target</span>
-<span class="na">After</span><span class="o">=</span><span class="s">docker.service</span>
-
-<span class="k">[Service]</span>
-<span class="na">Restart</span><span class="o">=</span><span class="s">on-success</span>
-<span class="na">ExecStart</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/docker run </span>\
-<span class="w">          </span><span class="s">--env name_label=%H-%i </span>\
-<span class="w">          </span><span class="s">--env org_repository=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_org_repository.gpg) </span>\
-<span class="w">          </span><span class="s">--env runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_runner_token.gpg) </span>\
-<span class="w">          </span><span class="s">--cidfile %t/%n-cid </span>\
-<span class="w">          </span><span class="s">--entrypoint=&quot;/usr/local/bin/entrypoint.sh&quot; </span>\
-<span class="w">          </span><span class="s">--label &quot;io.containers.autoupdate=local&quot; </span>\
-<span class="w">          </span><span class="s">--name=public_linux_%i </span>\
-<span class="w">          </span><span class="s">--memory-swap=20g </span>\
-<span class="w">          </span><span class="s">--memory=16g </span>\
-<span class="w">          </span><span class="s">--cpus=4 </span>\
-<span class="w">          </span><span class="s">--log-driver=journald </span>\
-<span class="w">          </span><span class="s">-d localhost/adi/linux:latest top&quot;</span>
-<span class="na">RemainAfterExit</span><span class="o">=</span><span class="s">yes</span>
-<span class="na">ExecStop</span><span class="o">=</span><span class="s">/bin/sh -c &quot;/bin/docker stop -t 300 $(cat %t/%n-cid) &amp;&amp; /bin/docker rm $(cat %t/%n-cid)&quot;</span>
-<span class="na">ExecStopPost</span><span class="o">=</span><span class="s">/bin/rm %t/%n-cid</span>
-<span class="na">TimeoutStopSec</span><span class="o">=</span><span class="s">600</span>
-<span class="na">Type</span><span class="o">=</span><span class="s">forking</span>
-
-<span class="k">[Install]</span>
-<span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">HOME=/home/runner</span></code> must be set if host user is not <code class="docutils literal notranslate"><span class="pre">runner</span></code>.
+Also the image <code class="docutils literal notranslate"><span class="pre">runner</span></code> UID is 1000.</p>
+</div>
+<p>To identify the runner host machine, an alias-hostname is used via
+<em>~/.config/systemd/user/container-public-linux&#64;.service.d/machine.conf</em>
+(indentical for the same host, but duplicated per container scope):</p>
+<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Service]</span>
+<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;name_label=big-server-%i&quot;</span>
 </pre></div>
 </div>
+<p>The script <em>~/.local/bin/container-init.sh</em> provisions an ephemeral copy:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/sh</span>
+<span class="nv">name</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">1</span><span class="p">%%.*</span><span class="si">}</span><span class="s2">&quot;</span>
+<span class="nv">idx</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">1</span><span class="p">##*.</span><span class="si">}</span><span class="s2">&quot;</span>
+mkdir<span class="w"> </span>-p<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/runner/</span><span class="nv">$name</span><span class="s2">&quot;</span>
+rm<span class="w"> </span>-rf<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/runner/</span><span class="nv">$name</span><span class="s2">/</span><span class="nv">$idx</span><span class="s2">&quot;</span>
+cp<span class="w"> </span>-a<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/images/</span><span class="nv">$name</span><span class="s2">/home/runner&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">      </span><span class="s2">&quot;</span><span class="nv">$HOME</span><span class="s2">/.local/share/container/runner/</span><span class="nv">$name</span><span class="s2">/</span><span class="nv">$idx</span><span class="s2">&quot;</span>
+</pre></div>
 </div>
+<p>And the init service at <em>~/.config/systemd/user/container-init&#64;.service</em>:</p>
+<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
+<span class="na">Description</span><span class="o">=</span><span class="s">container init home %i</span>
+
+<span class="k">[Service]</span>
+<span class="na">Type</span><span class="o">=</span><span class="s">oneshot</span>
+<span class="na">ExecStart</span><span class="o">=</span><span class="s">%h/.local/bin/container-init.sh %i</span>
+</pre></div>
 </div>
-</div><p>Remember to <code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">--user</span> <span class="pre">daemon-reload</span></code> after modifying.
-With <a class="icon link reference external" href="https://docs.podman.io/en/latest/markdown/podman-auto-update.1.html" target="_blank">autoupdate</a>,
-if the image-digest of the container and local storage differ,
-the local image is considered to be newer and the systemd unit gets restarted.</p>
-<p>Tune the limit flags for your needs.
-The <code class="docutils literal notranslate"><span class="pre">--cpus</span></code> flag requires a kernel with <code class="docutils literal notranslate"><span class="pre">CONFIG_CFS_BANDWIDTH</span></code> enabled.
-You can check with <code class="docutils literal notranslate"><span class="pre">zgrep</span> <span class="pre">CONFIG_CFS_BANDWIDTH=</span> <span class="pre">/proc/config.gz</span></code>.</p>
+<p>Remember to <code class="docutils literal notranslate"><span class="pre">systemctl</span> <span class="pre">--user</span> <span class="pre">daemon-reload</span></code> after modifying.</p>
+<p>The secrets are plain text files readable only by the runner user:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/.local/share/container/secrets
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/.local/share/container/secrets$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>install<span class="w"> </span>-m<span class="w"> </span><span class="m">600</span><span class="w"> </span>-D<span class="w"> </span>/dev/stdin<span class="w"> </span>public_github_token<span class="w"> </span><span class="o">&lt;&lt;&lt;</span><span class="w"> </span><span class="s2">&quot;github_pat_MyToken&quot;</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>If a compatible TPM2 is available, use <code class="docutils literal notranslate"><span class="pre">LoadCredentialEncrypted=</span></code> instead of
+<code class="docutils literal notranslate"><span class="pre">LoadCredential=</span></code> and store AES256-GCM ciphertext to it:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>~/.local/share/container/secrets
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/.local/share/container/secrets$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>systemd-creds<span class="w"> </span>encrypt<span class="w"> </span>--name<span class="o">=</span>github_token<span class="w"> </span>-<span class="w"> </span>public_github_token.cred
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Then in the unit replace <code class="docutils literal notranslate"><span class="pre">LoadCredential=</span></code> with:</p>
+<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="na">LoadCredentialEncrypted</span><span class="o">=</span><span class="s">github_token:%h/.local/share/container/secrets/public_github_token.cred</span>
+</pre></div>
+</div>
+<p>Enable and start the service:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>systemctl<span class="w"> </span>--user<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>container-public-linux@0.service
+systemctl<span class="w"> </span>--user<span class="w"> </span>start<span class="w"> </span>container-public-linux@0.service
+</pre></div>
+</div>
+<div class="admonition attention">
+<p class="admonition-title">Attention</p>
+<p>User services are terminated on logout, unless you define
+<code class="docutils literal notranslate"><span class="pre">loginctl</span> <span class="pre">enable-linger</span> <span class="pre">&lt;your-user&gt;</span></code> first.</p>
+</div>
+<p>See <a class="icon link reference external" href="https://systemd.io/CONTAINER_INTERFACE/" target="_blank">systemd’s container interface</a> and
+<a class="icon link reference external" href="https://systemd.io/CREDENTIALS/" target="_blank">systemd’s credentials</a> for more information.</p>
+</section>
+<section id="resource-quotas">
+<h3>Resource quotas<a class="headerlink" href="#resource-quotas" title="Link to this heading"></a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">MemoryMax=</span></code> and <code class="docutils literal notranslate"><span class="pre">CPUQuota=</span></code> require cgroup v2 controllers to be delegated
+to the user slice:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>/etc/systemd/system/user@.service.d
+$<span class="w"> </span>cat<span class="w"> </span><span class="s">&lt;&lt;EOF | sudo tee /etc/systemd/system/user@.service.d/delegate.conf</span>
+<span class="s">$ [Service]</span>
+<span class="s">$ Delegate=cpu cpuset io memory pids</span>
+<span class="s">$ EOF</span>
+$<span class="w"> </span>sudo<span class="w"> </span>systemctl<span class="w"> </span>daemon-reload
+</pre></div>
+</div>
+<p>Tune the limit flags for your needs. The <code class="docutils literal notranslate"><span class="pre">cpu</span></code> config requires a kernel with
+<code class="docutils literal notranslate"><span class="pre">CONFIG_CFS_BANDWIDTH</span></code> enabled. You can check with <code class="docutils literal notranslate"><span class="pre">zgrep</span>
+<span class="pre">CONFIG_CFS_BANDWIDTH=</span> <span class="pre">/proc/config.gz</span></code>.</p>
+</section>
+<section id="runner-token-and-github-token">
+<h3>Runner token and GitHub token<a class="headerlink" href="#runner-token-and-github-token" title="Link to this heading"></a></h3>
 <p>Instead of passing <code class="docutils literal notranslate"><span class="pre">runner_token</span></code>, you can also pass a <code class="docutils literal notranslate"><span class="pre">github_token</span></code> to
 generate the <code class="docutils literal notranslate"><span class="pre">runner_token</span></code> on demand. Using the <code class="docutils literal notranslate"><span class="pre">github_token</span></code> is the
-recommended approach because during clean-up the original runner_token may have
-expired already.</p>
+recommended approach because during clean-up the original <code class="docutils literal notranslate"><span class="pre">runner_token</span></code> may
+have expired already.</p>
 <p>Alternatively, you can mount a FIFO to <code class="docutils literal notranslate"><span class="pre">/var/run/secrets/runner_token</span></code> to
 generate a token just in time, without ever passing the github_token to the
 container (scripts not provided).</p>
@@ -1161,101 +1244,6 @@ third party sources and don’t relax <code class="docutils literal notranslate"
 <li><p><code class="docutils literal notranslate"><span class="pre">organization_self_hosted_runners:write</span></code>: “Self-hosted runners” organization permissions (write).</p></li>
 <li><p>The user needs to be an org-level admin.</p></li>
 </ul>
-<p>Then update the systemd service.</p>
-<p>Enable and start the service</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>systemctl<span class="w"> </span>--user<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>container-public-linux@0.service
-systemctl<span class="w"> </span>--user<span class="w"> </span>start<span class="w"> </span>container-public-linux@0.service
-</pre></div>
-</div>
-<div class="admonition attention">
-<p class="admonition-title">Attention</p>
-<p>User services are terminated on logout, unless you define
-<code class="docutils literal notranslate"><span class="pre">loginctl</span> <span class="pre">enable-linger</span> <span class="pre">&lt;your-user&gt;</span></code> first.</p>
-</div>
-<section id="systemd-native">
-<span id="cluster-systemd"></span><h4>Systemd native<a class="headerlink" href="#systemd-native" title="Link to this heading"></a></h4>
-<p>Systemd can run the runner process directly in an isolated environment using
-Linux kernel namespaces. This eliminates the <code class="docutils literal notranslate"><span class="pre">conmon</span></code> intermediate process,
-gives systemd direct ownership of the runner PID, and integrates resource
-limits into the unit.</p>
-<p>The runner filesystem is an extracted OCI image tarball. Export from Podman and
-unpack it:</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="k">$(</span>podman<span class="w"> </span>create<span class="w"> </span>adi/linux:latest<span class="k">)</span><span class="w"> </span><span class="p">|</span><span class="w"> </span><span class="se">\</span>
-<span class="w">   </span>tar<span class="w"> </span>-xC<span class="w"> </span>~/.local/share/container-images/adi/linux
-</pre></div>
-</div>
-<div class="clear-left"></div></div></div><div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>To clean-up use unshare:</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>podman<span class="w"> </span>unshare<span class="w"> </span>rm<span class="w"> </span>-rf<span class="w"> </span>~/.local/share/container-images/adi/linux
-</pre></div>
-</div>
-<div class="clear-left"></div></div></div></div>
-<p>Below is a suggested systemd service at
-<em>~/.config/systemd/user/container-public-linux&#64;.service</em>:</p>
-<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="k">[Unit]</span>
-<span class="na">Description</span><span class="o">=</span><span class="s">container public linux ci %i (systemd native)</span>
-<span class="na">Wants</span><span class="o">=</span><span class="s">network-online.target</span>
-
-<span class="k">[Service]</span>
-<span class="na">Restart</span><span class="o">=</span><span class="s">on-success</span>
-<span class="na">ExecStart</span><span class="o">=</span><span class="s">/usr/local/bin/entrypoint.sh</span>
-<span class="na">Environment</span><span class="o">=</span><span class="s">&quot;name_label=%H-%i&quot;</span>
-<span class="na">LoadCredential</span><span class="o">=</span><span class="s">org_repository:%h/.local/share/containers-secrets/org_repository</span>
-<span class="na">LoadCredential</span><span class="o">=</span><span class="s">runner_token:%h/.local/share/containers-secrets/runner_token</span>
-<span class="na">RootDirectory</span><span class="o">=</span><span class="s">%h/.local/share/container-images/adi/linux</span>
-<span class="na">BindReadOnlyPaths</span><span class="o">=</span><span class="s">/etc/resolv.conf</span>
-<span class="na">PrivateUsers</span><span class="o">=</span><span class="s">yes</span>
-<span class="na">PrivateTmp</span><span class="o">=</span><span class="s">yes</span>
-<span class="na">PrivateIPC</span><span class="o">=</span><span class="s">yes</span>
-<span class="na">PrivateMounts</span><span class="o">=</span><span class="s">yes</span>
-<span class="na">ProtectHostname</span><span class="o">=</span><span class="s">yes</span>
-<span class="na">MemoryMax</span><span class="o">=</span><span class="s">16G</span>
-<span class="na">MemorySwapMax</span><span class="o">=</span><span class="s">20G</span>
-<span class="na">CPUQuota</span><span class="o">=</span><span class="s">400%</span>
-<span class="na">TasksMax</span><span class="o">=</span><span class="s">512</span>
-<span class="na">TimeoutStopSec</span><span class="o">=</span><span class="s">600</span>
-<span class="na">Type</span><span class="o">=</span><span class="s">exec</span>
-
-<span class="k">[Install]</span>
-<span class="na">WantedBy</span><span class="o">=</span><span class="s">multi-user.target</span>
-</pre></div>
-</div>
-<p>The secrets are plain text files readable only by the runner user:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>install<span class="w"> </span>-m<span class="w"> </span><span class="m">600</span><span class="w"> </span>-D<span class="w"> </span>/dev/stdin<span class="w"> </span>~/.local/share/containers-secrets/org_repository<span class="w"> </span><span class="o">&lt;&lt;&lt;</span><span class="w"> </span><span class="s2">&quot;analogdevicesinc/linux&quot;</span>
-install<span class="w"> </span>-m<span class="w"> </span><span class="m">600</span><span class="w"> </span>-D<span class="w"> </span>/dev/stdin<span class="w"> </span>~/.local/share/containers-secrets/runner_token<span class="w">  </span><span class="o">&lt;&lt;&lt;</span><span class="w"> </span><span class="s2">&quot;MyVerYSecRunnerToken&quot;</span>
-</pre></div>
-</div>
-<p>If a compatible TPM2 is available, use <code class="docutils literal notranslate"><span class="pre">LoadCredentialEncrypted=</span></code> instead of
-<code class="docutils literal notranslate"><span class="pre">LoadCredential=</span></code> and store AES256-GCM ciphertext to it:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>systemd-creds<span class="w"> </span>encrypt<span class="w"> </span>--name<span class="o">=</span>runner_token<span class="w"> </span>-<span class="w"> </span>~/.local/share/containers-secrets/runner_token.cred
-</pre></div>
-</div>
-<p>Then in the unit replace <code class="docutils literal notranslate"><span class="pre">LoadCredential=</span></code> with:</p>
-<div class="highlight-systemd notranslate"><div class="highlight"><pre><span></span><span class="na">LoadCredentialEncrypted</span><span class="o">=</span><span class="s">runner_token:%h/.local/share/containers-secrets/runner_token.cred</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">MemoryMax=</span></code> and <code class="docutils literal notranslate"><span class="pre">CPUQuota=</span></code> require cgroup v2 controllers to be delegated
-to the user slice:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>/etc/systemd/system/user@.service.d
-<span class="nb">printf</span><span class="w"> </span><span class="s1">&#39;[Service]\nDelegate=cpu cpuset io memory pids\n&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>/etc/systemd/system/user@.service.d/delegate.conf
-sudo<span class="w"> </span>systemctl<span class="w"> </span>daemon-reload
-</pre></div>
-</div>
-<p>Enable and start the service:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>systemctl<span class="w"> </span>--user<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>container-public-linux@0.service
-systemctl<span class="w"> </span>--user<span class="w"> </span>start<span class="w"> </span>container-public-linux@0.service
-</pre></div>
-</div>
-<p>See <a class="icon link reference external" href="https://systemd.io/CONTAINER_INTERFACE/" target="_blank">systemd’s container interface</a> and
-<a class="icon link reference external" href="https://systemd.io/CREDENTIALS/" target="_blank">systemd’s credentials</a> for more information.</p>
-</section>
 </section>
 </section>
 </section>
