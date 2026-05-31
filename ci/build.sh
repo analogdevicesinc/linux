@@ -522,7 +522,7 @@ compile_devicetree() {
 	fi
 
 	sort -u $tmp_log_file
-	rm $tmp_log_file
+	rm $tmp_log_file || :
 
 	_set_step_warn $warn
 	return $fail
@@ -717,7 +717,7 @@ compile_kernel() {
 		done <$tmp_log_file
 		fail=1
 	fi
-	rm $tmp_log_file
+	rm $tmp_log_file || :
 
 	python3 scripts/clang-tools/gen_compile_commands.py -d "$KBUILD_OUTPUT"
 
