@@ -55,7 +55,7 @@ jobs:
         echo "CLOUDSMITH_API_KEY=$CLOUDSMITH_API_KEY" >> "$GITHUB_ENV"
 
     - name: Use Cloudsmith OIDC
-      uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
+      uses: cloudsmith-io/cloudsmith-cli-action@v2.0.3
       env:
         CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
       if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' && env.CLOUDSMITH_SERVICE_SLUG != ' ' }}

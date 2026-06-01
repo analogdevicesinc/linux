@@ -30,7 +30,7 @@ jobs:
       run: |
         rm -rf dist ; mkdir dist
 
-    - uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
+    - uses: cloudsmith-io/cloudsmith-cli-action@v2.0.3
       env:
         CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
       if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' && env.CLOUDSMITH_SERVICE_SLUG != ' ' }}

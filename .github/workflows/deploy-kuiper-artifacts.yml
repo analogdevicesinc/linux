@@ -130,7 +130,7 @@ jobs:
         fi
 
     - name: Setup Cloudsmith OIDC
-      uses: cloudsmith-io/cloudsmith-cli-action@v1.0.5
+      uses: cloudsmith-io/cloudsmith-cli-action@v2.0.3
       with:
         oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
         oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
