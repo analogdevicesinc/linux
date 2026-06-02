@@ -578,8 +578,6 @@ int ad5686_probe(struct device *dev,
 	st->read = read;
 	st->chip_info = &ad5686_chip_info_tbl[chip_type];
 
-	mutex_init(&st->lock);
-
 	st->trig = devm_iio_trigger_alloc(dev, "%s-dev%d", name,
 					  iio_device_id(indio_dev));
 	if (st->trig == NULL)
