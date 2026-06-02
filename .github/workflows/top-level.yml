@@ -7,6 +7,7 @@ on:
       - 'next_stable'
       - 'staging/*'
       - 'xlnx/release/*'
+      - 'nicus/playground'
   pull_request:
 
 concurrency:
