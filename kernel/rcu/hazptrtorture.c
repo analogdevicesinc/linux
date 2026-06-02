@@ -204,23 +204,25 @@ static struct hazptr_torture *hazptr_torture_read_lock(struct hazptr_ctx **hcpp)
 
 static void hazptr_read_delay(struct torture_random_state *rrsp)
 {
+	const bool can_sleep = !preempt_count() && !irqs_disabled();
 	const unsigned long shortdelay_us = 200;
 	unsigned long longdelay_ms = 300;
+	const bool short_spin = irqs_disabled() || irq_count();
 
 	 // We want a short delay sometimes to make a reader delay the grace
 	 // period, and we want a long delay occasionally to trigger
 	 // force_quiescent_state.
 
 	if (!(torture_random(rrsp) % (nrealreaders * 2000 * longdelay_ms))) {
-		if ((preempt_count() & HARDIRQ_MASK) || softirq_count())
+		if (short_spin)
 			longdelay_ms = 5; /* Avoid triggering BH limits. */
 		mdelay(longdelay_ms);
 	}
 	if (!(torture_random(rrsp) % (nrealreaders * 2 * shortdelay_us)))
 		udelay(shortdelay_us);
-	if (!preempt_count() && !(torture_random(rrsp) % (nrealreaders * 500)))
+	if (can_sleep && !(torture_random(rrsp) % (nrealreaders * 500)))
 		torture_preempt_schedule();  /* QS only if preemptible. */
-	if (reader_sleep_us > 0)
+	if (can_sleep && reader_sleep_us > 0)
 		torture_hrtimeout_us(reader_sleep_us, 0, NULL);
 }
 
