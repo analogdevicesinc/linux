@@ -1,0 +1,43 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+        compatible = "raspberrypi,4-model-b", "brcm,bcm2711";
+};
+
+&spidev0 {
+        status = "disabled";
+};
+
+&i2c1 {
+	#address-cells = <1>;
+        #size-cells = <0>;
+
+        ltc4284@15 {
+                compatible = "adi,ltc4284";
+                reg = <0x15>;
+        
+                /* Required: Current sense resistors (in nano-ohms) */
+		adi,rsense1-nano-ohms = <5000000>;  /* 5 mOhm */
+                adi,rsense2-nano-ohms = <330000>;  /* 0.33 mOhm */
+
+                /* Optional: Current limit threshold (3125-30000µV, default: 25000) */
+                adi,current-limit-sense-microvolt = <25000>;  /* 25mV */
+
+                /* Optional: Voltage divider scales (in millivolts) */
+                /* VPWR channel - default: 2048 (no divider) */
+                adi,vpwr-millivolt = <81920>;  /* 40:1 divider = 2048 × 40 */
+
+                /* ADIN1-4 channels - default: 2048 each (no dividers) */
+                adi,adin1-millivolt = <206848>;  /* 101:1 divider = 2048 × 101 */
+                adi,adin2-millivolt = <206848>;   /* 40:1 divider = 2048 × 40 */
+                adi,adin3-millivolt = <206848>;    /* No divider */
+                adi,adin4-millivolt = <206848>;    /* No divider */
+
+                /* ADIO1-4 channels - default: 2048 each (no dividers) */
+                adi,adio1-millivolt = <2048>;    /* No divider */
+                adi,adio2-millivolt = <2048>;    /* No divider */
+                adi,adio3-millivolt = <2048>;    /* No divider */
+                adi,adio4-millivolt = <2048>;    /* No divider */
+        };
+};
