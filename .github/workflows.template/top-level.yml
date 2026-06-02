@@ -1,0 +1,100 @@
+name: Kernel build
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
+    if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
+    secrets: inherit
+    permissions:
+      contents: read
+  build_gcc_x86_64:
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "x86"
+      defconfig: "adi_ci_defconfig"
+  build_llvm_x86_64:
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "llvm"
+      arch: "x86"
+      defconfig: "adi_ci_defconfig"
+      checks: true
+  build_gcc_aarch64:
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    needs: [checks]
+    if: needs.checks.outputs.fatal != 'true'
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm64"
+      defconfig: "adi_ci_defconfig"
+  build_gcc_arm:
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm"
+      defconfig: "adi_ci_defconfig"
+      checks: true
+  assert_checks:
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-slim' }}
+    permissions:
+      contents: read
+    needs:
+      - checks
+      - build_gcc_x86_64
+      - build_llvm_x86_64
+      - build_gcc_aarch64
+      - build_gcc_arm
+
+    steps:
+      - name: Assert
+        env:
+          job_checks: ${{ needs.checks.outputs.summary }}
+          job_build_gcc_x86_64: ${{ needs.build_gcc_x86_64.outputs.summary }}
+          job_build_llvm_x86_64: ${{ needs.build_llvm_x86_64.outputs.summary }}
+          job_build_gcc_aarch64: ${{ needs.build_gcc_aarch64.outputs.summary }}
+          job_build_gcc_arm: ${{ needs.build_gcc_arm.outputs.summary }}
+        run: |
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
+            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
+          source ./runner_env.sh
+          assert_job_summary
+
+  deploy_cloudsmith_checks:
+    needs: [assert_checks]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
+    secrets:
+        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    with:
+      artifacts: >
+        adi_ci_defconfig-*

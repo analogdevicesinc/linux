@@ -12,10 +12,6 @@ on:
       branch:
         required: true
         type: string
-      ci_branch:
-        required: false
-        type: string
-        default: main
       patch_ci:
         required: false
         type: string
@@ -41,21 +37,24 @@ jobs:
         git remote prune ${{ inputs.remote_name }}
         git fetch ${{ inputs.remote_name }} ${{ inputs.branch }}:$target_branch -f
         git switch $target_branch
-
-        if [[ "${{ inputs.patch_ci }}" == "true" ]]; then
-          git fetch origin "${{ inputs.ci_branch }}" --depth=1
-          declare -a arr=(
-            ".github"
-          )
-          for i in "${arr[@]}"
-          do
-            git rm -rf "$i" 2>/dev/null || true
-            git checkout origin/${{ inputs.ci_branch }} -- "$i"
-          done
-          commit=$(git rev-parse origin/${{ inputs.ci_branch }})
-          git commit -m "deploy: $commit" -m "patch ci" -s
-        fi
         echo "target_branch=$target_branch" >> "$GITHUB_ENV"
+
+    - name: get-ci
+      if: inputs.patch_ci == 'true'
+      run: |
+        get_file () {
+          mkdir -p $(dirname $2)
+          echo https://raw.githubusercontent.com/analogdevicesinc/linux/refs/heads/ci/$1
+          curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o $2 \
+              https://raw.githubusercontent.com/analogdevicesinc/linux/refs/heads/ci/$1
+        }
+
+        get_file .github/workflows.template/top-level.yml \
+                 .github/workflows/top-level.yml
+
+        git add -f .github/workflows/top-level.yml
+        commit=$(git ls-remote origin refs/heads/ci | cut -f1)
+        git commit -m "deploy: $commit" -m "patch ci" -s
 
     - name: push-mirror
       env:
