@@ -135,7 +135,7 @@
 #define AD4086_CHIP_ID						0x0056
 #define AD4087_CHIP_ID						0x0057
 #define AD4088_CHIP_ID						0x0058
-#define AD4880_CHIP_ID						0x0750
+#define AD4880_CHIP_ID						0x0059
 #define AD4884_CHIP_ID						0x005C
 
 #define AD4080_MAX_CHANNELS					2
