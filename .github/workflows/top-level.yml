@@ -107,7 +107,7 @@ jobs:
 
   build_gcc_arm_zynq_xcomm_adv7511_defconfig:
     needs: [assert_checks]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       contents: read
