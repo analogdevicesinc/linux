@@ -16421,6 +16421,7 @@ M:	Frank Li <Frank.Li@nxp.com>
 M:	Martin Kepplinger-Novakovic <martink@posteo.de>
 R:	Rui Miguel Silva <rmfrfs@gmail.com>
 R:	Purism Kernel Team <kernel@puri.sm>
+R:	Bryan O'Donoghue <bod@kernel.org>
 L:	imx@lists.linux.dev
 L:	linux-media@vger.kernel.org
 S:	Maintained
