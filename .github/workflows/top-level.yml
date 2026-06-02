@@ -231,11 +231,13 @@ jobs:
       id-token: write
       contents: read
       actions: read
-    uses: analogdevicesinc/linux/.github/workflows/deploy_linux_artifacts.yml@ci
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@ci
     secrets: inherit
     with:
       artifacts: >
         adi_bcm*_defconfig-*
         dtb-*
+      exclude-artifacts: >
+        *-devel
       pr-number: ${{ github.event.pull_request.number }}
       pr-target-branch: ${{ github.event.pull_request.base.ref }}
