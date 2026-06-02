@@ -110,7 +110,6 @@ def collect_syms_from_expr(expr):
 def get_symbol_deps(kconf, symbol, arch, allowlist):
     """
     Direct dependencies of *symbol* (includes enclosing if-block conditions).
-    For tristate symbols, also includes reverse dependencies (select-ors).
     """
     sym = kconf.syms.get(symbol)
     if sym is None:
@@ -119,21 +118,51 @@ def get_symbol_deps(kconf, symbol, arch, allowlist):
         return set()
 
     deps = collect_syms_from_expr(sym.direct_dep)
-    if sym.type == kconfiglib.TRISTATE:
-        deps |= collect_syms_from_expr(sym.rev_dep)
 
     allow = symbol if symbol in allowlist else None
     return filter_symbols(deps, arch, allow)
 
 
+def _collect_selectors(expr):
+    """
+    Extract the selector symbols from a rev_dep expression.
+
+    kconfiglib builds rev_dep as OR(AND(selector, deps), ...)
+    (see _make_and(sym, cond)).
+    """
+    if isinstance(expr, kconfiglib.Symbol):
+        if expr.name in ('y', 'n', 'm'):
+            return set()
+        return {expr.name}
+
+    if not isinstance(expr, tuple):
+        return set()
+
+    op = expr[0]
+
+    if op == kconfiglib.OR:
+        result = set()
+        for item in expr[1:]:
+            result |= _collect_selectors(item)
+        return result
+
+    if op == kconfiglib.AND:
+        left = expr[1]
+        if isinstance(left, kconfiglib.Symbol) and left.name not in ('y', 'n', 'm'):
+            return {left.name}
+        return set()
+
+    return set()
+
+
 def get_selectors(kconf, symbol):
     """
-    Return symbols that select a symbol (from rev_dep).
+    Return symbols that select a symbol, extracted from rev_dep.
     """
     sym = kconf.syms.get(symbol)
     if sym is None:
         return set()
-    return collect_syms_from_expr(sym.rev_dep)
+    return _collect_selectors(sym.rev_dep)
 
 
 def is_hidden_sym(sym):
@@ -145,10 +174,12 @@ def resolve_all(kconf, seeds, arch):
     BFS over dependency graph starting from *seeds*.
     Returns the full set of transitive dependencies (including seeds).
 
-    Hidden symbols (no prompt) cannot be set directly; use the symbols
-    that select them, and excluded from the final result.
+    Hidden symbols (no prompt) cannot be set directly; collect the symbols that
+    select them (except transient hidden symbols), and excluded itself from the
+    list.
     """
-    allowlist = set(seeds)
+    seed_set = set(seeds)
+    allowlist = seed_set.copy()
     visited = set()
     hidden = set()
     queue = list(seeds)
@@ -163,9 +194,10 @@ def resolve_all(kconf, seeds, arch):
         sym = kconf.syms[sym_name]
         if is_hidden_sym(sym):
             hidden.add(sym_name)
-            for sel in get_selectors(kconf, sym_name):
-                if sel not in visited:
-                    queue.append(sel)
+            if sym_name in seed_set:
+                for sel in get_selectors(kconf, sym_name):
+                    if sel not in visited:
+                        queue.append(sel)
             continue
         for dep in get_symbol_deps(kconf, sym_name, arch, allowlist):
             if dep not in visited:
