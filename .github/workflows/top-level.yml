@@ -16,13 +16,13 @@ concurrency:
 
 jobs:
   checks:
-    uses: analogdevicesinc/linux/.github/workflows/checks.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/checks.yml@nicus/playground-ci
     if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
     secrets: inherit
     permissions:
       contents: read
   build_gcc_x86_64:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
@@ -33,7 +33,7 @@ jobs:
       arch: "x86"
       defconfig: "adi_ci_defconfig"
   build_llvm_x86_64:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
@@ -45,7 +45,7 @@ jobs:
       defconfig: "adi_ci_defconfig"
       checks: true
   build_gcc_aarch64:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     needs: [checks]
     if: needs.checks.outputs.fatal != 'true'
     secrets: inherit
@@ -56,7 +56,7 @@ jobs:
       arch: "arm64"
       defconfig: "adi_ci_defconfig"
   build_gcc_arm:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
     secrets: inherit
     permissions:
@@ -94,7 +94,7 @@ jobs:
   deploy_cloudsmith_checks:
     needs: [assert_checks]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
-    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@nicus/playground-ci
     secrets:
         CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
         CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
@@ -119,7 +119,7 @@ jobs:
       auto_from_range: false
   build_gcc_arm_socfpga_adi_defconfig:
     needs: [assert_checks]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       contents: read
@@ -130,7 +130,7 @@ jobs:
       auto_from_range: false
   build_gcc_arm_zynq_pluto_defconfig:
     needs: [assert_checks]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       contents: read
@@ -141,7 +141,7 @@ jobs:
       auto_from_range: false
   build_gcc_arm_zynq_m2k_defconfig:
     needs: [assert_checks]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       contents: read
@@ -152,7 +152,7 @@ jobs:
       auto_from_range: false
   build_gcc_aarch64_adi_zynqmp_defconfig:
     needs: [assert_checks]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       contents: read
@@ -163,7 +163,7 @@ jobs:
       auto_from_range: false
   build_gcc_aarch64_adi_versal_defconfig:
     needs: [assert_checks]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       contents: read
@@ -174,7 +174,7 @@ jobs:
       auto_from_range: false
   build_gcc_microblaze_adi_mb_defconfig:
     needs: [assert_checks]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       contents: read
@@ -185,7 +185,7 @@ jobs:
       auto_from_range: false
   build_gcc_nios2_adi_nios2_defconfig:
     needs: [assert_checks]
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       contents: read
@@ -196,7 +196,7 @@ jobs:
       auto_from_range: false
   compile_devicetrees:
     needs: [assert_checks]
-    uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       contents: read
@@ -245,7 +245,7 @@ jobs:
   deploy_cloudsmith_build:
     needs: [assert_build]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
-    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@nicus/playground-ci
     secrets:
         CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
         CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
@@ -268,7 +268,7 @@ jobs:
   deploy_kuiper_binaries:
     needs: [assert_build]
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
-    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@playground-ci
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@nicus/playground-ci
     secrets: inherit
     permissions:
       id-token: write
