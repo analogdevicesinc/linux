@@ -186,6 +186,9 @@ struct amdgpu_ualink_mgr {
 	/* NPA-VM used on the exporter.*/
 	struct amdgpu_vm npa_vm;
 
+	/* DRM client for UALink to manage GEM handles for NPA BOs */
+	struct drm_client_dev client;
+
 	/* Sequence number to track the need for TLB flushes */
 	atomic64_t last_flushed_tlb_seq;
 };

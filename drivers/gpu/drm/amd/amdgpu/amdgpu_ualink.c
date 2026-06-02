@@ -31,6 +31,27 @@
 #include <linux/sysfs.h>
 #include <linux/string.h>
 
+static const struct drm_client_funcs ualink_client_funcs = {
+	.unregister	= drm_client_release,
+};
+
+static int amdgpu_ualink_drm_client_create(struct amdgpu_device *adev)
+{
+	int ret;
+
+	ret = drm_client_init(&adev->ddev, &adev->ualink.client, "ualink",
+			      &ualink_client_funcs);
+	if (ret) {
+		dev_err(adev->dev, "Failed to init UALink DRM client: %d\n",
+			ret);
+		return ret;
+	}
+
+	drm_client_register(&adev->ualink.client);
+
+	return 0;
+}
+
 int amdgpu_ualink_init(struct amdgpu_device *adev)
 {
 	int r;
@@ -59,6 +80,13 @@ int amdgpu_ualink_init(struct amdgpu_device *adev)
 	if (r) {
 		dev_err(adev->dev,
 			"Failed to query initial UALink config: %d\n", r);
+		return r;
+	}
+
+	r = amdgpu_ualink_drm_client_create(adev);
+	if (r) {
+		dev_err(adev->dev, "Failed to create UALink DRM client: %d\n",
+			r);
 		return r;
 	}
 
