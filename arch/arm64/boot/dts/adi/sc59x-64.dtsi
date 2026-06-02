@@ -109,6 +109,65 @@
 		clock-names = "sys_clkin0", "sys_clkin1";
 		status = "okay";
 	};
+	
+	cgu0: clocks@3108d000 {
+		compatible = "adi,sc598-cgu0";
+		reg = <0x3108d000 0x100>;
+		#clock-cells = <1>;
+		clocks = <&sys_clkin0>;
+		clock-names = "sys_clkin0";
+	};
+
+	cgu1: clocks@3108e000 {
+		compatible = "adi,sc598-cgu1";
+		reg = <0x3108e000 0x100>;
+		#clock-cells = <1>;
+		clocks = <&sys_clkin1>;
+		clock-names = "sys_clkin1";
+	};
+
+	cgu2: clocks@310a9000 {
+		compatible = "adi,sc598-cgu2";
+		reg = <0x310a9000 0x100>;
+		#clock-cells = <1>;
+	};
+
+	cdu: clocks@3108f000 {
+		compatible = "adi,sc598-cdu";
+		reg = <0x3108f000 0x100>;
+		#clock-cells = <1>;
+		clocks = <&cgu0 ADSP_SC5XX_CLK_CGU0_CCLK0_0>,
+			 <&cgu0 ADSP_SC5XX_CLK_CGU0_CCLK1_0>,
+			 <&cgu0 ADSP_SC5XX_CLK_CGU0_CCLK2_0>,
+			 <&cgu0 ADSP_SC5XX_CLK_CGU0_SYSCLK_0>,
+			 <&cgu0 ADSP_SC5XX_CLK_CGU0_SCLK0_0>,
+			 <&cgu0 ADSP_SC5XX_CLK_CGU0_SCLK1_0>,
+			 <&cgu0 ADSP_SC5XX_CLK_CGU0_DCLK_0>,
+			 <&cgu0 ADSP_SC5XX_CLK_CGU0_OCLK_0>,
+			 <&cgu1 ADSP_SC5XX_CLK_CGU1_CCLK0_1>,
+			 <&cgu1 ADSP_SC5XX_CLK_CGU1_CCLK2_1>,
+			 <&cgu1 ADSP_SC5XX_CLK_CGU1_SYSCLK_1>,
+			 <&cgu1 ADSP_SC5XX_CLK_CGU1_SCLK0_1>,
+			 <&cgu1 ADSP_SC5XX_CLK_CGU1_SCLK1_1>,
+			 <&cgu1 ADSP_SC5XX_CLK_CGU1_DCLK_1>,
+			 <&cgu1 ADSP_SC5XX_CLK_CGU1_OCLK_1>;
+
+		clock-names = "cclk0_0",
+			      "cclk1_0",
+			      "cclk2_0",
+			      "sysclk_0",
+			      "sclk0_0",
+			      "sclk1_0",
+			      "dclk_0",
+			      "oclk_0",
+			      "cclk0_1",
+			      "cclk2_1",
+			      "sysclk_1",
+			      "sclk0_1",
+			      "sclk1_1",
+			      "dclk_1",
+			      "oclk_1";
+	};
 
 	gptimers: gptimers@31018000 {
 		compatible = "adi,sc5xx-gptimers";
