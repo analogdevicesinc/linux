@@ -178,7 +178,7 @@ jobs:
         _hostcc=gcc
         _srctree=$(pwd)
         ( cd "$KBUILD_OUTPUT" && \
-          srctree=$_srctree SRCARCH=$ARCH CC=$_cc HOSTCC=$_hostcc KBUILD_OUTPUT= MAKE=make \
+          srctree=$_srctree SRCARCH=$ARCH CC=${CROSS_COMPILE}gcc HOSTCC=$_cc MAKE=make \
           bash "$_srctree/scripts/package/install-extmod-build" "$KBUILD_MODULES_PREPARE" )
 
     - name: Prepare dist
