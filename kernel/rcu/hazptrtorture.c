@@ -352,6 +352,31 @@ hazptr_torture_writer(void *arg)
 }
 
 /*
+ * Do the delay, the accounting, and the release.  This in intended to
+ * be invoked from hazptr_torture_reader, but also for hazard pointers
+ * sent off to interrupt handlers and the like.
+ */
+static void hazptr_torture_reader_tail(struct hazptr_ctx *hcp, struct hazptr_torture *htp,
+				       struct torture_random_state *trsp)
+{
+	int pipe_count;
+
+	cur_ops->read_delay(trsp);
+	preempt_disable();
+	pipe_count = READ_ONCE(htp->htort_pipe_count);
+	if (pipe_count > HAZPTR_TORTURE_PIPE_LEN) {
+		// Should not happen in a correct hazptr implementation,
+		// happens quite often for TBD torture_type=busted.
+		pipe_count = HAZPTR_TORTURE_PIPE_LEN;
+	}
+	if (pipe_count > 1)
+		rcu_ftrace_dump(DUMP_ALL);
+	__this_cpu_inc(hazptr_torture_count[pipe_count]);
+	preempt_enable();
+	cur_ops->readunlock(hcp, htp);
+}
+
+/*
  * Hazard-pointer torture reader kthread.  Repeatedly dereferences
  * hazptr_torture_current, incrementing the corresponding element of the
  * pipeline array.  The counter in the element should never be greater
@@ -365,7 +390,6 @@ static int hazptr_torture_reader(void *arg)
 	unsigned long lastsleep = jiffies;
 	long myid = (long)arg;
 	int mynumonline = myid % nr_cpu_ids;
-	int pipe_count;
 	DEFINE_TORTURE_RANDOM(rand);
 
 	VERBOSE_TOROUT_STRING("hazptr_torture_reader task started");
@@ -373,6 +397,8 @@ static int hazptr_torture_reader(void *arg)
 	do {
 		htp = cur_ops->readlock(&hcp);
 		if (!htp) {
+			// Still starting up or allocation failure,
+			// so get out of the way.
 			schedule_timeout_interruptible(HZ / 10);
 			continue;
 		}
@@ -380,19 +406,7 @@ static int hazptr_torture_reader(void *arg)
 			torture_hrtimeout_us(500, 1000, &rand);
 			lastsleep = jiffies + 10;
 		}
-		cur_ops->read_delay(&rand);
-		preempt_disable();
-		pipe_count = READ_ONCE(htp->htort_pipe_count);
-		if (pipe_count > HAZPTR_TORTURE_PIPE_LEN) {
-			// Should not happen in a correct RCU implementation,
-			// happens quite often for torture_type=busted.
-			pipe_count = HAZPTR_TORTURE_PIPE_LEN;
-		}
-		if (pipe_count > 1)
-			rcu_ftrace_dump(DUMP_ALL);
-		__this_cpu_inc(hazptr_torture_count[pipe_count]);
-		preempt_enable();
-		cur_ops->readunlock(hcp, htp);
+		hazptr_torture_reader_tail(hcp, htp, &rand);
 		while (!torture_must_stop() &&
 		       (torture_num_online_cpus() < mynumonline || !rcu_inkernel_boot_has_ended()))
 			schedule_timeout_interruptible(HZ / 5);
