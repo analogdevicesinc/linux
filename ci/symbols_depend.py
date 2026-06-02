@@ -126,27 +126,52 @@ def get_symbol_deps(kconf, symbol, arch, allowlist):
     return filter_symbols(deps, arch, allow)
 
 
+def get_selectors(kconf, symbol):
+    """
+    Return symbols that select a symbol (from rev_dep).
+    """
+    sym = kconf.syms.get(symbol)
+    if sym is None:
+        return set()
+    return collect_syms_from_expr(sym.rev_dep)
+
+
+def is_hidden_sym(sym):
+    return bool(sym.nodes) and not any(node.prompt for node in sym.nodes)
+
+
 def resolve_all(kconf, seeds, arch):
     """
     BFS over dependency graph starting from *seeds*.
     Returns the full set of transitive dependencies (including seeds).
+
+    Hidden symbols (no prompt) cannot be set directly; use the symbols
+    that select them, and excluded from the final result.
     """
     allowlist = set(seeds)
     visited = set()
+    hidden = set()
     queue = list(seeds)
 
     while queue:
-        sym = queue.pop()
-        if sym in visited:
+        sym_name = queue.pop()
+        if sym_name in visited:
             continue
-        visited.add(sym)
-        if sym not in kconf.syms:
+        visited.add(sym_name)
+        if sym_name not in kconf.syms:
             continue
-        for dep in get_symbol_deps(kconf, sym, arch, allowlist):
+        sym = kconf.syms[sym_name]
+        if is_hidden_sym(sym):
+            hidden.add(sym_name)
+            for sel in get_selectors(kconf, sym_name):
+                if sel not in visited:
+                    queue.append(sel)
+            continue
+        for dep in get_symbol_deps(kconf, sym_name, arch, allowlist):
             if dep not in visited:
                 queue.append(dep)
 
-    return visited
+    return visited - hidden
 
 
 # Makefile .o -> CONFIG_SYMBOL resolution
