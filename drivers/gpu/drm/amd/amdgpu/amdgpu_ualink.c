@@ -1400,6 +1400,9 @@ struct amdgpu_ualink_remote {
 
 	/* remote GPUs ring buffer, read, write pointer local copy and gart mapping */
 	struct amdgpu_ualink_peer	peer[AMDGPU_UALINK_ACCEL_MAX];
+
+	/* use lsdma write to NPA address for remote interrupt */
+	bool			       use_lsdma;
 };
 
 static inline struct amdgpu_ualink_remote *to_remote(struct amdgpu_device *adev)
@@ -2073,6 +2076,8 @@ static int amdgpu_ualink_sdma_entities_init(struct amdgpu_device *adev)
 		i++;
 	}
 
+	remote->use_lsdma = true;
+
 	dev_dbg(adev->dev, "exit\n");
 	return 0;
 
@@ -2656,6 +2661,20 @@ static int amdgpu_ualink_send_command(struct amdgpu_device *adev,
 	dev_dbg(adev->dev, "dxs_port 0x%x, doorbell_npa_gart 0x%llx -> 0x%llx\n",
 		peer->dxs_port, ring->doorbell_npa_gart, doorbell_npa_gart);
 
+	dev_dbg(adev->dev, "use %s\n", remote->use_lsdma ? "lsdma" : "sdma");
+
+	if (remote->use_lsdma) {
+		div_u64_rem(ring->wptr, ring->rb_size, &rem);
+		r = amdgpu_lsdma_copy_mem(adev, src,
+					  ring->rb_npa_gart + rem * 64,
+					  64);
+		r = amdgpu_lsdma_copy_mem(adev, src + 64, ring->wptr_npa_gart, 8);
+
+		r = amdgpu_lsdma_copy_mem(adev, src + 72, doorbell_npa_gart, 4);
+		amdgpu_job_free(job);
+		goto out_wait_complete;
+        }
+
 	sdma_ring = &adev->sdma.instance[0].ring;
 
 	/*
@@ -2693,6 +2712,7 @@ static int amdgpu_ualink_send_command(struct amdgpu_device *adev,
 		return r;
 	}
 
+out_wait_complete:
 	/*
 	 * poll remote completion writeback data
 	 */
