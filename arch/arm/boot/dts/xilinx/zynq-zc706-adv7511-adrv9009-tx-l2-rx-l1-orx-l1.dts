@@ -93,14 +93,6 @@
 			adi,octets-per-frame = <8>;
 		};
 
-		axi_adrv9009_adxcvr_rx: axi-adxcvr-rx@44a60000 {
-			adi,sys-clk-select = <XCVR_QPLL>;
-		};
-
-		axi_adrv9009_adxcvr_rx_os: axi-adxcvr-rx-os@44a50000 {
-			adi,sys-clk-select = <XCVR_QPLL>;
-		};
-
 		axi_adrv9009_tx_jesd: axi-jesd204-tx@44a90000 {
 			adi,converters-per-device = <2>;
 		};
