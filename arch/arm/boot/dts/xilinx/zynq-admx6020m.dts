@@ -140,13 +140,6 @@
 			spibus-connected = <&hmcad15xx_1>;
 		};
 
-		adc1_data_offload: axi-data-offload@44b00000 {
-			compatible = "adi,axi-data-offload-1.0.a";
-			reg = <0x44b00000 0x10000>;
-			adi,oneshot;
-			adi,sync-config = <1>;
-		};
-
 		rx1_dma: dma-controller@44a30000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x44a30000 0x10000>;
@@ -174,13 +167,6 @@
 			dmas = <&rx2_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&hmcad15xx_2>;
-		};
-
-		adc2_data_offload: axi-data-offload@44b10000 {
-			compatible = "adi,axi-data-offload-1.0.a";
-			reg = <0x44b10000 0x10000>;
-			adi,oneshot;
-			adi,sync-config = <1>;
 		};
 
 		rx2_dma: dma-controller@44a90000 {
