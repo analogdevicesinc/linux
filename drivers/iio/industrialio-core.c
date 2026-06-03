@@ -97,6 +97,7 @@ static const char * const iio_chan_type_name_spec[] = {
 	[IIO_CHROMATICITY] = "chromaticity",
 	[IIO_GENERIC_DATA] = "data",
 	[IIO_FLAGS] = "flags",
+	[IIO_COVERAGE] = "coverage",
 };
 
 static const char * const iio_modifier_names[] = {

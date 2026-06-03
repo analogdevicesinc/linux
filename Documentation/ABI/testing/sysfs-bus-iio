@@ -1919,6 +1919,23 @@ Description:
 		Raw (unscaled no offset etc.) resistance reading.
 		Units after application of scale and offset are ohms.
 
+What:		/sys/bus/iio/devices/iio:deviceX/in_coverageX_raw
+KernelVersion:	7.2
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Raw (unscaled no offset etc.) coverage reading. Used for sensors
+		that report fractional coverage as a percentage, such as leak
+		detectors where the value represents what portion of the sensing
+		element is wetted. Units after application of scale and offset are
+		percent.
+
+What:         /sys/bus/iio/devices/iio:deviceX/in_coverageX_scale
+KernelVersion:	7.2
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Scale to be applied to in_coverageX_raw to obtain coverage
+		in percent.
+
 What:		/sys/bus/iio/devices/iio:deviceX/heater_enable
 KernelVersion:	4.1.0
 Contact:	linux-iio@vger.kernel.org
