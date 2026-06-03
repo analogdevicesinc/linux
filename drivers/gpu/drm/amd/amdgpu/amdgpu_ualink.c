@@ -47,6 +47,9 @@ static void amdgpu_ualink_handle_connection_reset(struct amdgpu_device *adev,
 						  u32 remote_accel_id, u32 state,
 						  u32 generation_count);
 static void amdgpu_ualink_invalidate_import_mappings(struct amdgpu_bo *bo);
+static int amdgpu_ualink_remote_shootdown(struct amdgpu_device *adev,
+					  u32 remote_accel_id, u64 addr,
+					  u32 size_in_pages, u32 flush_type);
 
 #define STRIP_NPA(addr)						\
 	(((u64)(addr) & ~AMDGPU_UALINK_NPA_ADDR_GPUID_MASK))
@@ -1448,12 +1451,6 @@ static int amdgpu_ualink_send_npa_req_msg(struct amdgpu_device *adev,
 					      dw2, dw3);
 }
 
-static int amdgpu_ualink_send_tlb_shootdown(struct amdgpu_device *adev,
-					    u32 remote_acc_id)
-{
-	return 0;
-}
-
 static u64 amdgpu_ualink_get_export_pte_flags(struct amdgpu_device *adev,
 				       struct amdgpu_bo *bo,
 				       u64 mapping_flags)
@@ -2052,6 +2049,51 @@ static void amdgpu_ualink_force_retry_rpcs(struct amdgpu_device *adev,
 	amdgpu_ualink_flush_tlb(adev, TLB_FLUSH_HEAVYWEIGHT);
 }
 
+static void amdgpu_ualink_send_tlb_shootdown(struct amdgpu_device *adev,
+				struct amdgpu_ualink_exp_xa_node *exp_xa_node)
+{
+	u32 addr_mode = adev->ualink.info->vpod.addr_mode;
+	u32 accel_id = adev->ualink.info->ppod.accel_id;
+	struct amdgpu_ualink_importer_entry *imp_entry;
+	u64 npa_addr, size;
+	u32 remote_acc_id;
+	int r;
+
+	size = amdgpu_bo_ngpu_pages(exp_xa_node->bo);
+
+	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
+			 AMDGPU_UALINK_ACCEL_MAX) {
+		/*
+		 * Replace the GPU-id bits with local accel_id
+		 */
+		if (addr_mode == AMDGPU_UALINK_ADDR_MODE_SOURCE_ALIAS)
+			imp_entry = &exp_xa_node->importer_entries[0];
+		else
+			imp_entry = &exp_xa_node->importer_entries[remote_acc_id];
+
+		npa_addr = STRIP_NPA(imp_entry->npa_addr);
+		npa_addr = GENERATE_NPA(npa_addr, accel_id);
+
+		if (!amdgpu_ualink_check_conn_ready(adev, remote_acc_id,
+					imp_entry->generation_count)) {
+			clear_bit(remote_acc_id,
+				  exp_xa_node->importers_bitmap);
+			continue;
+		}
+
+		dev_dbg(adev->dev,
+			"EXP-CLEANUP: Sending TLB-shootdown to remote:%u\n",
+			remote_acc_id);
+		r = amdgpu_ualink_remote_shootdown(adev, remote_acc_id,
+					npa_addr, size,
+					AMDGPU_UALINK_HEAVYWEIGHT_TLB_SHOOTDOWN);
+		if (r)
+			dev_err(adev->dev,
+				"EXP-CLEANUP: TLB shootdown send failed to remote:%u\n",
+				remote_acc_id);
+	}
+}
+
 /* Unmap all NPA addresses associated with a BO (UALink handle). This function is used
  * only in Source Identification mode.
  */
@@ -2210,17 +2252,7 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 	amdgpu_ualink_force_retry_rpcs(adev, exp_xa_node);
 
 	/* Send TLB-shootdown to all importer GPUs */
-	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
-			 AMDGPU_UALINK_ACCEL_MAX) {
-		dev_dbg(adev->dev,
-			"EXP-CLEANUP: Sending TLB-shootdown to remote:%u\n",
-			remote_acc_id);
-		r = amdgpu_ualink_send_tlb_shootdown(adev, remote_acc_id);
-		if (r)
-			dev_err(adev->dev,
-				"EXP-CLEANUP: TLB shootdown send failed to remote:%u\n",
-				remote_acc_id);
-	}
+	amdgpu_ualink_send_tlb_shootdown(adev, exp_xa_node);
 
 	/* Unmap all NPA addresses for this BO from NPA VM */
 	amdgpu_ualink_unmap_all_npa_addr(adev, exp_xa_node);
