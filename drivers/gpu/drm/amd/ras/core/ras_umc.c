@@ -85,7 +85,7 @@ static const struct ras_umc_ip_func *ras_umc_get_ip_func(
 	return NULL;
 }
 
-int ras_umc_psp_ma2pa(struct ras_core_context *ras_core,
+int ras_umc_ras_ta_translate_addr(struct ras_core_context *ras_core,
 		struct umc_mca_addr *in, struct umc_phy_addr *out,
 		uint32_t nps)
 {
@@ -120,6 +120,28 @@ int ras_umc_psp_ma2pa(struct ras_core_context *ras_core,
 		out->bank = addr_out.pa.bank;
 		out->channel_idx = addr_out.pa.channel_idx;
 	}
+
+	return 0;
+}
+
+int ras_umc_psp_translate_addr(struct ras_core_context *ras_core,
+		struct umc_mca_addr *in, struct umc_phy_addr *out,
+		uint32_t nps)
+{
+	struct ras_psp_addr_trans_in psp_in = {0};
+	struct ras_psp_addr_trans_out psp_out = {0};
+	int ret;
+
+	psp_in.mca_addr = in->mca_addr;
+	psp_in.ipid = in->ipid;
+	psp_in.nps = nps;
+
+	ret = ras_psp_translate_addr(ras_core, &psp_in, &psp_out);
+	if (ret)
+		return ret;
+
+	out->pa = psp_out.row_pa;
+	out->pa_flip_mask = psp_out.pa_flip_mask;
 
 	return 0;
 }
@@ -302,7 +324,7 @@ int ras_umc_ma2pa(struct ras_core_context *ras_core,
 	int ret;
 
 	if (ras_psp_check_supported_cmd(ras_core, RAS_TA_CMD_ID__QUERY_ADDRESS)) {
-		ret = ras_umc_psp_ma2pa(ras_core, addr_in, addr_out, nps);
+		ret = ras_umc_ras_ta_translate_addr(ras_core, addr_in, addr_out, nps);
 	} else {
 		if (ras_umc->ip_func && ras_umc->ip_func->ma2pa) {
 			ret = ras_umc->ip_func->ma2pa(ras_core, addr_in, addr_out, nps);
@@ -877,6 +899,7 @@ int ras_umc_fill_eeprom_record(struct ras_core_context *ras_core,
 	err_rec->mem_channel = cur_nps_addr->channel_idx;
 	err_rec->mcumc_id = umc_inst;
 	err_rec->cur_nps_retired_row_pfn = RAS_ADDR_TO_PFN(cur_nps_addr->pa);
+	err_rec->cur_nps_pa_flip_mask = cur_nps_addr->pa_flip_mask;
 	err_rec->cur_nps_bank = cur_nps_addr->bank;
 	err_rec->cur_nps = cur_nps;
 	return 0;

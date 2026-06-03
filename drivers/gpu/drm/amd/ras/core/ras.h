@@ -273,6 +273,8 @@ struct ras_psp_sys_func {
 		struct ras_psp_sys_status *status);
 	int (*get_ras_param)(struct ras_core_context *ras_core,
 		struct ras_param *param);
+	int (*psp_translate_addr)(struct ras_core_context *ras_core,
+		struct ras_psp_addr_trans_in *in, struct ras_psp_addr_trans_out *out);
 };
 
 struct ras_sys_func {

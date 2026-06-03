@@ -163,6 +163,10 @@ struct eeprom_umc_record {
 	/* The following variables will not be saved to eeprom.
 	 */
 	uint64_t cur_nps_retired_row_pfn;
+	/* Combined PA flip bit mask across all bad pages in a row;
+	 * used with cur_nps_retired_row_pfn to derive all bad page addresses
+	 */
+	uint64_t cur_nps_pa_flip_mask;
 	uint32_t cur_nps_bank;
 	uint32_t cur_nps;
 	uint64_t ipid;

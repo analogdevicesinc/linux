@@ -34,6 +34,23 @@ struct ras_ta_query_address_input;
 struct ras_ta_query_address_output;
 enum ras_ta_cmd_id;
 
+struct ras_psp_addr_trans_in {
+	uint64_t mca_addr;
+	uint64_t ipid;
+	uint32_t nps;
+};
+
+struct ras_psp_addr_trans_out {
+	uint32_t channel_id;
+	uint8_t  socket_id;
+	uint8_t  mem_die_id;
+	uint8_t  dram_entity_id;
+	uint8_t  umc_inst_id;
+	uint64_t row_pa;
+	/* Bitmask of flipping bits across all bad page PAs in a row */
+	uint64_t pa_flip_mask;
+};
+
 struct ras_ta_image_header {
 	uint32_t reserved1[24];
 	uint32_t image_version; /* [0x60] Off Chip Firmware Version */
@@ -191,4 +208,6 @@ int ras_psp_get_block_ta_id(struct ras_core_context *ras_core,
 bool ras_psp_poison_supported(struct ras_core_context *ras_core);
 bool ras_psp_flex_mca_enabled(struct ras_core_context *ras_core);
 uint64_t ras_psp_get_hw_ras_caps(struct ras_core_context *ras_core);
+int ras_psp_translate_addr(struct ras_core_context *ras_core,
+	struct ras_psp_addr_trans_in *in, struct ras_psp_addr_trans_out *out);
 #endif

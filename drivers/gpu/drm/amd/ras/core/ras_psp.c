@@ -985,3 +985,17 @@ uint64_t ras_psp_get_hw_ras_caps(struct ras_core_context *ras_core)
 
 	return psp->ras_hw_caps.features.block_mask;
 }
+
+int ras_psp_translate_addr(struct ras_core_context *ras_core,
+	struct ras_psp_addr_trans_in *in, struct ras_psp_addr_trans_out *out)
+{
+	struct ras_psp *psp = &ras_core->ras_psp;
+
+	if (!in || !out)
+		return -EINVAL;
+
+	if (!psp->sys_func || !psp->sys_func->psp_translate_addr)
+		return -EOPNOTSUPP;
+
+	return psp->sys_func->psp_translate_addr(ras_core, in, out);
+}

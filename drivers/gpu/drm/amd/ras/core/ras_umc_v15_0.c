@@ -34,15 +34,18 @@ static void __get_nps_pa_flip_bits(struct ras_core_context *ras_core,
 }
 
 static uint64_t  convert_nps_pa_to_row_pa(struct ras_core_context *ras_core,
-		uint64_t pa, enum umc_memory_partition_mode nps, bool zero_pfn_ok)
+	struct umc_phy_addr *pa, enum umc_memory_partition_mode nps, bool zero_pfn_ok)
 {
 	struct umc_flip_bits flip_bits = {0};
 	uint64_t row_pa;
 	int i;
 
+	if (pa->pa_flip_mask)
+		return zero_pfn_ok ? (pa->pa & ~pa->pa_flip_mask) : pa->pa;
+
 	__get_nps_pa_flip_bits(ras_core, nps, &flip_bits);
 
-	row_pa = pa;
+	row_pa = pa->pa;
 	/* clear loop bits in soc physical address */
 	for (i = 0; i < flip_bits.bit_num; i++)
 		row_pa &= ~BIT_ULL(flip_bits.flip_bits_in_pa[i]);
@@ -75,8 +78,13 @@ static int convert_ma_to_pa(struct ras_core_context *ras_core,
 {
 	int ret;
 
+	ret = ras_umc_psp_translate_addr(ras_core,
+				addr_in, addr_out, nps);
+	if (ret != -EOPNOTSUPP)
+		return ret;
+
 	if (ras_psp_check_supported_cmd(ras_core, RAS_TA_CMD_ID__QUERY_ADDRESS))
-		ret = ras_umc_psp_ma2pa(ras_core,
+		ret = ras_umc_ras_ta_translate_addr(ras_core,
 				addr_in, addr_out, nps);
 	else
 		ret = umc_v15_convert_ma_to_pa(ras_core,
@@ -100,11 +108,14 @@ static int convert_bank_to_nps_addr(struct ras_core_context *ras_core,
 	addr_in.umc_inst = ACA_IPID_2_UMC_INST(bank->ipid);
 	addr_in.node_inst = ACA_IPID_2_DIE_ID(bank->ipid);
 	addr_in.socket_id = ACA_IPID_2_SOCKET_ID(bank->ipid);
+	addr_in.mca_addr = bank->addr;
+	addr_in.ipid = bank->ipid;
 
 	ret = convert_ma_to_pa(ras_core, &addr_in, &addr_out, nps);
 	if (!ret) {
 		pa_addr->pa =
-			convert_nps_pa_to_row_pa(ras_core, addr_out.pa, nps, false);
+			convert_nps_pa_to_row_pa(ras_core, &addr_out, nps, false);
+		pa_addr->pa_flip_mask = addr_out.pa_flip_mask;
 		pa_addr->channel_idx = addr_out.channel_idx;
 		pa_addr->bank = addr_out.bank;
 	}
@@ -164,7 +175,7 @@ static int convert_eeprom_record_to_nps_addr(struct ras_core_context *ras_core,
 	if (ret)
 		return ret;
 
-	*pa = convert_nps_pa_to_row_pa(ras_core, addr_out.pa, nps, false);
+	*pa = convert_nps_pa_to_row_pa(ras_core, &addr_out, nps, false);
 
 	return 0;
 }

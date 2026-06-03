@@ -104,10 +104,13 @@ struct umc_mca_addr {
 	uint32_t umc_inst;
 	uint32_t node_inst;
 	uint32_t socket_id;
+	uint64_t mca_addr;
+	uint64_t ipid;
 };
 
 struct umc_phy_addr {
 	uint64_t pa;
+	uint64_t pa_flip_mask;
 	uint32_t bank;
 	uint32_t channel_idx;
 };
@@ -202,7 +205,10 @@ int ras_umc_sw_init(struct ras_core_context *ras);
 int ras_umc_sw_fini(struct ras_core_context *ras);
 int ras_umc_hw_init(struct ras_core_context *ras);
 int ras_umc_hw_fini(struct ras_core_context *ras);
-int ras_umc_psp_ma2pa(struct ras_core_context *ras_core,
+int ras_umc_ras_ta_translate_addr(struct ras_core_context *ras_core,
+		struct umc_mca_addr *in, struct umc_phy_addr *out,
+		uint32_t nps);
+int ras_umc_psp_translate_addr(struct ras_core_context *ras_core,
 		struct umc_mca_addr *in, struct umc_phy_addr *out,
 		uint32_t nps);
 int ras_umc_handle_bad_pages(struct ras_core_context *ras_core, void *data);
