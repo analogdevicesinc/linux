@@ -43,6 +43,11 @@ static int amdgpu_ualink_reserve_npa_vm_and_bos(struct amdgpu_device *adev,
 						bool interruptible);
 static void amdgpu_ualink_unreserve_npa_vm_and_bos(struct amdgpu_device *adev,
 						   struct drm_exec *exec);
+static void amdgpu_ualink_handle_connection_reset(struct amdgpu_device *adev,
+						  u32 remote_accel_id, u32 state,
+						  u32 generation_count);
+static void amdgpu_ualink_invalidate_import_mappings(struct amdgpu_bo *bo);
+
 #define STRIP_NPA(addr)						\
 	(((u64)(addr) & ~AMDGPU_UALINK_NPA_ADDR_GPUID_MASK))
 
@@ -1648,6 +1653,7 @@ static void amdgpu_ualink_process_hello_msg(struct amdgpu_device *adev,
 					   u32 src_acc_id)
 {
 	struct amdgpu_ualink_connection *conn_state;
+	u32 generation_count;
 	int r;
 
 	if (receiver_acc_id != adev->ualink.info->ppod.accel_id) {
@@ -1691,10 +1697,15 @@ static void amdgpu_ualink_process_hello_msg(struct amdgpu_device *adev,
 	} else {
 		/* Set the connection state back to In Progress and revoke
 		 * all exports and release all imports corresponding to the
-		 * sender GPU. Added in later patches.
+		 * sender GPU.
 		 */
 		conn_state->state = AMDGPU_UALINK_CONN_PENDING;
+		generation_count = conn_state->generation_count;
 		mutex_unlock(&conn_state->lock);
+
+		amdgpu_ualink_handle_connection_reset(adev, sender_acc_id,
+						AMDGPU_UALINK_CONN_PENDING,
+						generation_count);
 	}
 
 	r = amdgpu_ualink_send_hello_ack_msg(adev, sender_acc_id);
@@ -1787,6 +1798,177 @@ out:
 	mutex_unlock(&conn_state->lock);
 
 	return r;
+}
+
+static void amdgpu_ualink_cleanup_imp_xa_entries(struct amdgpu_device *adev,
+						 u32 remote_acc_id)
+{
+	struct amdgpu_ualink_imp_xa_node *imp_xa_node;
+	struct list_head *imp_handles_list;
+	struct amdgpu_bo *bo;
+
+	dev_dbg(adev->dev,
+		"IMP-RESET: Cleaning up all XA entries for remote:%u\n",
+		remote_acc_id);
+
+	imp_handles_list = &adev->ualink.imp_handles_list[remote_acc_id];
+
+	xa_lock(&adev->ualink.imp_xa);
+	while (!list_empty(imp_handles_list)) {
+		imp_xa_node = list_first_entry(imp_handles_list,
+					struct amdgpu_ualink_imp_xa_node, list);
+		list_del_init(&imp_xa_node->list);
+		WRITE_ONCE(imp_xa_node->node_state, AMDGPU_UALINK_NODE_TEARDOWN);
+		xa_unlock(&adev->ualink.imp_xa);
+
+		dev_dbg(adev->dev,
+			"IMP-RESET: remote:%u handle:%llx:%llx npa:%llx size:%llx\n",
+			remote_acc_id, imp_xa_node->handle.handle_hi,
+			imp_xa_node->handle.handle_lo,
+			imp_xa_node->npa_addr, imp_xa_node->size);
+
+		bo = gem_to_amdgpu_bo(imp_xa_node->dmabuf->priv);
+		/* Invalidate the imported mappings */
+		amdgpu_ualink_invalidate_import_mappings(bo);
+
+		/* Drop the refcount for the node */
+		amdgpu_ualink_imp_xa_entry_put(imp_xa_node);
+		xa_lock(&adev->ualink.imp_xa);
+	}
+	xa_unlock(&adev->ualink.imp_xa);
+}
+
+static void amdgpu_ualink_cleanup_exp_xa_entries(struct amdgpu_device *adev,
+						 u32 remote_acc_id)
+{
+	struct amdgpu_ualink_importer_entry *importer_entry;
+	u32 addr_mode = adev->ualink.info->vpod.addr_mode;
+	struct amdgpu_ualink_exp_xa_node *exp_xa_node;
+	struct list_head *exp_handles_list;
+	struct drm_mm_node *mm_node;
+	u64 npa_addr, size;
+
+	/* Get the list head for the list containing all the handles
+	 * exported to this remote GPU.
+	 */
+	exp_handles_list = &adev->ualink.exp_handles_list[remote_acc_id];
+
+	dev_dbg(adev->dev,
+		"EXP-RESET: Cleaning up all XA entries for remote:%u\n",
+		remote_acc_id);
+
+	xa_lock(&adev->ualink.exp_xa);
+	while (!list_empty(exp_handles_list)) {
+		importer_entry = list_first_entry(exp_handles_list,
+					struct amdgpu_ualink_importer_entry, list);
+		list_del_init(&importer_entry->list);
+
+		exp_xa_node = importer_entry->parent;
+		if (!amdgpu_ualink_exp_xa_entry_get(exp_xa_node))
+			continue;
+
+		xa_unlock(&adev->ualink.exp_xa);
+		/* Clear the bit corresponding to this remote GPU in
+		 * the importer bitmap.
+		 */
+		if (!test_and_clear_bit(remote_acc_id,
+					exp_xa_node->importers_bitmap)) {
+			amdgpu_ualink_exp_xa_entry_put(exp_xa_node);
+			xa_lock(&adev->ualink.exp_xa);
+			continue;
+		}
+
+		mutex_lock(&exp_xa_node->node_lock);
+		size = amdgpu_bo_ngpu_pages(exp_xa_node->bo);
+		/* Unpin the BO */
+		if (likely(!amdgpu_bo_reserve(exp_xa_node->bo, true))) {
+			amdgpu_bo_unpin(exp_xa_node->bo);
+			amdgpu_bo_unreserve(exp_xa_node->bo);
+		} else {
+			dev_warn(adev->dev,
+				"EXP-RESET: BO reserve to unpin failed handle:%llx:%llx\n",
+				exp_xa_node->handle.handle_hi, exp_xa_node->handle.handle_lo);
+		}
+
+		dev_dbg(adev->dev,
+			"EXP-RESET: handle:%llx:%llx pin_count:%d, importers:%d\n",
+			exp_xa_node->handle.handle_hi, exp_xa_node->handle.handle_lo,
+			exp_xa_node->bo->tbo.pin_count,
+			bitmap_weight(exp_xa_node->importers_bitmap,
+			AMDGPU_UALINK_ACCEL_MAX));
+
+		WARN_ON(exp_xa_node->bo->tbo.pin_count <
+			bitmap_weight(exp_xa_node->importers_bitmap,
+			AMDGPU_UALINK_ACCEL_MAX));
+
+		if (addr_mode == AMDGPU_UALINK_ADDR_MODE_SOURCE_IDENT) {
+			npa_addr = importer_entry->npa_addr;
+			mm_node = importer_entry->mm_node;
+			mutex_unlock(&exp_xa_node->node_lock);
+
+			dev_dbg(adev->dev,
+				"EXP-RESET: Unmap NPA:%llx size: %llx remote:%u handle:%llx:%llx\n",
+				npa_addr, size, remote_acc_id,
+				exp_xa_node->handle.handle_hi,
+				exp_xa_node->handle.handle_lo);
+			amdgpu_ualink_unmap_npa_addr(adev, exp_xa_node->bo,
+						     npa_addr, size);
+			amdgpu_ualink_npa_free_va(adev, mm_node);
+			kfree(mm_node);
+
+			/* Reset the NPA addr and mm_node */
+			mutex_lock(&exp_xa_node->node_lock);
+			importer_entry->npa_addr = 0;
+			importer_entry->mm_node = NULL;
+		} else if (bitmap_empty(exp_xa_node->importers_bitmap,
+				AMDGPU_UALINK_ACCEL_MAX)) {
+			/* In Source-Aliasing mode, if there are no importers
+			 * for this handle, then we can unmap and free the
+			 * NPA address.
+			 */
+			mm_node = exp_xa_node->importer_entries[0].mm_node;
+			npa_addr = exp_xa_node->importer_entries[0].npa_addr;
+			mutex_unlock(&exp_xa_node->node_lock);
+
+			dev_dbg(adev->dev,
+				"EXP-RESET: Unmap NPA:%llx size: %llx handle:%llx:%llx\n",
+				npa_addr, size, exp_xa_node->handle.handle_hi,
+				exp_xa_node->handle.handle_lo);
+			amdgpu_ualink_unmap_npa_addr(adev, exp_xa_node->bo,
+						     npa_addr, size);
+			amdgpu_ualink_npa_free_va(adev, mm_node);
+			kfree(mm_node);
+			mutex_lock(&exp_xa_node->node_lock);
+			exp_xa_node->importer_entries[0].npa_addr = 0;
+			exp_xa_node->importer_entries[0].mm_node = NULL;
+		}
+
+		mutex_unlock(&exp_xa_node->node_lock);
+		xa_lock(&adev->ualink.exp_xa);
+		amdgpu_ualink_exp_xa_entry_put(exp_xa_node);
+	}
+	xa_unlock(&adev->ualink.exp_xa);
+}
+
+static void amdgpu_ualink_handle_connection_reset(struct amdgpu_device *adev,
+						u32 remote_acc_id, u32 state,
+						u32 generation_count)
+{
+	struct amdgpu_ualink_connection *conn_state;
+
+	conn_state = &adev->ualink.conn_state[remote_acc_id];
+
+	mutex_lock(&conn_state->lock);
+	if ((conn_state->state == AMDGPU_UALINK_CONN_ESTABLISHED) &&
+	     (conn_state->generation_count == generation_count)) {
+		conn_state->state = state;
+		mutex_unlock(&conn_state->lock);
+
+		amdgpu_ualink_cleanup_imp_xa_entries(adev, remote_acc_id);
+		amdgpu_ualink_cleanup_exp_xa_entries(adev, remote_acc_id);
+	} else {
+		mutex_unlock(&conn_state->lock);
+	}
 }
 
 /* Set PTE.X = 1 for all importer entries to retry RPCs. */
@@ -2114,14 +2296,18 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 				      orig_importers_bitmap);
 
 	/* Warn about all importers that didn't respond back with
-	 * NPA-RELEASE message. This will trigger connection timeout
-	 * handling which is added later.
+	 * NPA-RELEASE message and trigger connection timeout handling.
 	 */
 	for_each_set_bit(remote_acc_id, exp_xa_node->npa_release_bitmap,
-			 AMDGPU_UALINK_ACCEL_MAX)
+			 AMDGPU_UALINK_ACCEL_MAX) {
 		dev_warn(adev->dev,
 			"EXP-CLEANUP: handle:%llx:%llx NPA-RELEASE timeout from remote:%u\n",
 			handle.handle_hi, handle.handle_lo, remote_acc_id);
+		imp_entry = &exp_xa_node->importer_entries[remote_acc_id];
+		amdgpu_ualink_handle_connection_reset(adev, remote_acc_id,
+						AMDGPU_UALINK_CONN_NOT_READY,
+						imp_entry->generation_count);
+	}
 
 free_node:
 	xa_erase(&adev->ualink.handle_invalid_xa, handle.handle_lo);
@@ -2793,6 +2979,7 @@ static int amdgpu_ualink_do_import_handle(struct amdgpu_device *adev,
 				u32 remote_acc_id)
 {
 	struct amdgpu_ualink_handle handle = imp_xa_node->handle;
+	u32 generation_count;
 	int r;
 
 	/* First check if the connection is setup with the
@@ -2831,7 +3018,8 @@ static int amdgpu_ualink_do_import_handle(struct amdgpu_device *adev,
 		dev_warn(adev->dev,
 			"IMPORT: NPA-RSP timeout from remote AccId:%u\n",
 			remote_acc_id);
-		return -ETIMEDOUT;
+		r = -ETIMEDOUT;
+		goto reset_conn;
 	}
 
 	/* If the NPA addr/size isn't filled with valid values, then either
@@ -2871,6 +3059,15 @@ static int amdgpu_ualink_do_import_handle(struct amdgpu_device *adev,
 	xa_unlock(&adev->ualink.imp_xa);
 
 	return 0;
+
+reset_conn:
+	dev_dbg(adev->dev,
+		"IMPORT: Resetting connection for remote:%u\n", remote_acc_id);
+	generation_count = amdgpu_ualink_check_conn_ready(adev, remote_acc_id, 0);
+	amdgpu_ualink_handle_connection_reset(adev, remote_acc_id,
+					      AMDGPU_UALINK_CONN_NOT_READY,
+					      generation_count);
+	return r;
 }
 
 int amdgpu_ualink_import_handle(struct drm_device *dev,
