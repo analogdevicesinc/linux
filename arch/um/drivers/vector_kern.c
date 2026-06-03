@@ -1558,13 +1558,16 @@ static void vector_setup_etheraddr(struct net_device *dev, char *str)
 			"Attempt to assign an invalid ethernet address to a device disallowed\n");
 		goto random;
 	}
+
+	eth_hw_addr_set(dev, addr);
+
 	if (!is_local_ether_addr(addr)) {
+		addr[0] |= 0x02;
 		netdev_warn(dev, "Warning: Assigning a globally valid ethernet address to a device\n");
 		netdev_warn(dev, "You should set the 2nd rightmost bit in the first byte of the MAC,\n");
-		netdev_warn(dev, "i.e. %02x:%02x:%02x:%02x:%02x:%02x\n",
-			addr[0] | 0x02, addr[1], addr[2], addr[3], addr[4], addr[5]);
+		netdev_warn(dev, "i.e. %pM\n", addr);
 	}
-	eth_hw_addr_set(dev, addr);
+
 	return;
 
 random:
