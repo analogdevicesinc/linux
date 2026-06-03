@@ -24,6 +24,7 @@
 
 #include <linux/xarray.h>
 #include <drm/drm_mm.h>
+#include <linux/random.h>
 #include "amdgpu.h"
 #include "amdgpu_ualink.h"
 #include "amdgpu_xgmi.h"
@@ -1219,6 +1220,136 @@ static void amdgpu_ualink_npa_mm_fini(struct amdgpu_device *adev)
 {
 	mutex_destroy(&adev->ualink.npa_mm.mm_lock);
 	drm_mm_takedown(&adev->ualink.npa_mm.mm);
+}
+
+/* The caller of this function is expected to hold the XA lock when calling
+ * this function.
+ */
+static void amdgpu_generate_ualink_handle(struct amdgpu_device *adev,
+				   struct amdgpu_ualink_handle *handle)
+{
+	bool unique;
+
+	do {
+		handle->handle_lo = get_random_u64();
+		/* Replace bottom 10 bits in handle_lo with accId */
+		handle->handle_lo &= ~AMDGPU_UALINK_HANDLE_ACCID_MASK;
+		handle->handle_lo |= adev->ualink.info->ppod.accel_id;
+
+		/* Don't generate/store a Handle with value 0. */
+		if (!handle->handle_lo)
+			continue;
+
+		/* Find if the handle already exists in the exporter xarray.
+		 * If it already exists, then regenerate the handle since we
+		 * want the handle to be unique.
+		 */
+		unique = !xa_load(&adev->ualink.exp_xa, handle->handle_lo);
+	} while (!unique);
+
+	handle->handle_hi = get_random_u64();
+	dev_dbg(adev->dev, "GENERATE-HANDLE: generated handle: %llx:%llx\n",
+		handle->handle_hi, handle->handle_lo);
+}
+
+static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
+{
+}
+
+int amdgpu_ualink_export_handle(struct drm_device *dev, struct drm_file *filp,
+				u32 gem_handle,
+				struct amdgpu_ualink_handle *handle_out)
+{
+	struct amdgpu_ualink_exp_xa_node *exp_xa_node;
+	struct amdgpu_ualink_handle handle;
+	struct drm_gem_object *gobj;
+	struct amdgpu_device *adev;
+	struct amdgpu_bo *robj;
+	int r = 0, i;
+
+	gobj = drm_gem_object_lookup(filp, gem_handle);
+	if (!gobj)
+		return -ENOENT;
+
+	robj = gem_to_amdgpu_bo(gobj);
+	adev = amdgpu_ttm_adev(robj->tbo.bdev);
+
+	if (!(robj->preferred_domains & AMDGPU_GEM_DOMAIN_VRAM)) {
+		dev_err(adev->dev, "Only VRAM BOs can be exported\n");
+		r = -EOPNOTSUPP;
+		goto out;
+	}
+
+	if (!robj->ualink_handle_lo) {
+		/* If no ualink handle generated for BO, then generate one and
+		 * add it to the exporter Xarray.
+		 */
+		exp_xa_node = kzalloc(sizeof(*exp_xa_node), GFP_KERNEL);
+		if (!exp_xa_node) {
+			dev_err(adev->dev, "Failed to allocate exp_xa_node\n");
+			r = -ENOMEM;
+			goto out;
+		}
+
+		amdgpu_bo_ref(robj);
+		exp_xa_node->bo = robj;
+		init_completion(&exp_xa_node->npa_done);
+		bitmap_zero(exp_xa_node->importers_bitmap,
+			    AMDGPU_UALINK_ACCEL_MAX);
+		bitmap_zero(exp_xa_node->npa_release_bitmap,
+			AMDGPU_UALINK_ACCEL_MAX);
+		kref_init(&exp_xa_node->refcount);
+		mutex_init(&exp_xa_node->node_lock);
+		INIT_WORK(&exp_xa_node->cleanup_work,
+			  amdgpu_ualink_exp_cleanup_worker);
+		for (i = 0; i < AMDGPU_UALINK_ACCEL_MAX; i++) {
+			INIT_LIST_HEAD(&exp_xa_node->importer_entries[i].list);
+			exp_xa_node->importer_entries[i].parent = exp_xa_node;
+		}
+		/* DMABuf handle for local import of fabric handles */
+		exp_xa_node->dmabuf = drm_gem_prime_handle_to_dmabuf(&adev->ddev, filp,
+						gem_handle, DRM_CLOEXEC | DRM_RDWR);
+		if (IS_ERR(exp_xa_node->dmabuf)) {
+			r = PTR_ERR(exp_xa_node->dmabuf);
+			dev_err(adev->dev, "Failed to generate DMABuf for the BO\n");
+			kfree(exp_xa_node);
+			goto out;
+		}
+
+		xa_lock(&adev->ualink.exp_xa);
+		amdgpu_generate_ualink_handle(adev, &handle);
+		exp_xa_node->handle = handle;
+		r = __xa_insert(&adev->ualink.exp_xa, handle.handle_lo,
+				exp_xa_node, GFP_KERNEL);
+		xa_unlock(&adev->ualink.exp_xa);
+		if (r) {
+			dev_err(adev->dev, "Failed to insert exp_xa_node into XA: %d\n", r);
+			dma_buf_put(exp_xa_node->dmabuf);
+			amdgpu_bo_unref(&robj);
+			kfree(exp_xa_node);
+			goto out;
+		}
+
+		robj->ualink_handle_lo = handle.handle_lo;
+		/* Return the generated handle back to the caller */
+		*handle_out = handle;
+	} else {
+		handle_out->handle_lo = robj->ualink_handle_lo;
+
+		/* Do a sanity check to ensure the handle exists in the XA */
+		xa_lock(&adev->ualink.exp_xa);
+		exp_xa_node = xa_load(&adev->ualink.exp_xa,
+				      robj->ualink_handle_lo);
+		xa_unlock(&adev->ualink.exp_xa);
+		WARN(!exp_xa_node, "Exp XA: Handle_Lo: %llx not found",
+		     robj->ualink_handle_lo);
+		if (exp_xa_node)
+			handle_out->handle_hi = exp_xa_node->handle.handle_hi;
+	}
+
+out:
+	drm_gem_object_put(gobj);
+	return r;
 }
 
 int amdgpu_ualink_manager_start(struct amdgpu_device *adev)

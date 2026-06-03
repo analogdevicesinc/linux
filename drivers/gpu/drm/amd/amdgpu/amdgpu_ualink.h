@@ -35,6 +35,8 @@ struct amdgpu_device;
 #define AMDGPU_UALINK_LOCAL_ACCELS_MAX 8
 #define AMDGPU_UALINK_STATIONS_MAX 64
 
+#define AMDGPU_UALINK_HANDLE_ACCID_MASK			GENMASK_ULL(9, 0)
+
 enum amdgpu_ualink_conn_state {
 	AMDGPU_UALINK_CONN_NOT_READY			= 0,
 	AMDGPU_UALINK_CONN_IN_PROGRESS			= 1,
@@ -125,11 +127,73 @@ struct amdgpu_ualink_station_config {
 };
 #define to_ualink_station_config(ko) container_of(ko, struct amdgpu_ualink_station_config, kobj)
 
+struct amdgpu_ualink_handle {
+	union {
+		struct {
+			u64 handle_lo;
+			u64 handle_hi;
+		};
+		u64 handle[2];
+	};
+};
+
 struct amdgpu_ualink_npa_mm {
 	struct drm_mm			mm;
 	u64				va_start;
 	u64				va_size;
 	struct mutex			mm_lock;
+};
+
+struct amdgpu_ualink_importer_entry {
+	struct drm_mm_node			*mm_node;
+	u64					npa_addr;
+
+	/* Keep track of if the connection got reset */
+	u32					generation_count;
+
+	/* Used to connect all handles exported to a particular importer */
+	struct list_head			list;
+
+	/* Pointer to the parent XA node. */
+	struct amdgpu_ualink_exp_xa_node	*parent;
+};
+
+struct amdgpu_ualink_exp_xa_node {
+	/* 128-bit handle for the BO */
+	struct amdgpu_ualink_handle		handle;
+
+	/* Pointer to the BO thats exported.*/
+	struct amdgpu_bo			*bo;
+
+	/* Dmabuf corresponding to the BO */
+	struct dma_buf				*dmabuf;
+
+	/* Mutex to protect the node from concurrent access */
+	struct mutex				node_lock;
+
+	/* Used for storing importer info in source identification mode */
+	struct amdgpu_ualink_importer_entry	importer_entries[AMDGPU_UALINK_ACCEL_MAX];
+
+	/* Used to track all importers of this BO. This is set when the
+	 * exporter sends back the NPA-RSP message.
+	 */
+	DECLARE_BITMAP(importers_bitmap, AMDGPU_UALINK_ACCEL_MAX);
+
+	/* This bitmap is used to send NPA-REVOKE messages to all the importers.
+	 * And to track the NPA-RELEASE response for each NPA-REVOKE message sent.
+	 * A bit is cleared in this bitmap when the NPA RELEASE message is
+	 * received in response to the NPA-REVOKE message.
+	 */
+	DECLARE_BITMAP(npa_release_bitmap, AMDGPU_UALINK_ACCEL_MAX);
+
+	/* Use to signal responses received from all importers */
+	struct completion			npa_done;
+
+	/* Refcount to track lifetime of this node */
+	struct kref				refcount;
+
+	/* Work to cleanup the node. */
+	struct work_struct			cleanup_work;
 };
 
 struct amdgpu_ualink_connection {
@@ -203,4 +267,7 @@ int amdgpu_ualink_init(struct amdgpu_device *adev);
 void amdgpu_ualink_fini(struct amdgpu_device *adev);
 int amdgpu_ualink_manager_start(struct amdgpu_device *adev);
 void amdgpu_ualink_manager_stop(struct amdgpu_device *adev);
+int amdgpu_ualink_export_handle(struct drm_device *dev, struct drm_file *filp,
+				u32 gem_handle,
+				struct amdgpu_ualink_handle *handle_out);
 #endif
