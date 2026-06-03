@@ -613,6 +613,7 @@ static void gmc_v12_1_get_npa_flags(struct amdgpu_device *adev,
 	*flags |= AMDGPU_PTE_SNOOPED | AMDGPU_PTE_PRT_GFX12 |
 		   AMDGPU_PTE_BUS_ATOMICS;
 	*flags &= ~AMDGPU_PTE_VALID;
+	*flags &= ~AMDGPU_PTE_EXECUTABLE;
 }
 
 static void gmc_v12_1_get_coherence_flags(struct amdgpu_device *adev,
