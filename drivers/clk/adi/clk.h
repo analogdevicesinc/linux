@@ -145,7 +145,7 @@ struct sc5xx_fixed_factor_clock {
 struct sc5xx_mux_clock {
 	unsigned int			id;
 	const char			*clock_name;
-	const struct clk_parent_data	*parent_data;
+	const char			*parent_names;
 	const u32			*mux_table;
 	u8				num_parents;
 	u8				cdu_clko;
@@ -156,7 +156,7 @@ struct sc5xx_mux_clock {
 	{							\
 		.id		= (_id),			\
 		.clock_name	= (_name),			\
-		.parent_data	= (_parents),			\
+		.parent_names	= (_parents),			\
 		.mux_table	= (_table),			\
 		.num_parents	= ARRAY_SIZE(_parents),		\
 		.cdu_clko	= (_clko),			\
@@ -169,6 +169,8 @@ struct sc5xx_mux_clock {
 #define CMUX(_id, _name, _parents, _clko, _table, _flags)	\
 	__MUX(_id, _name, _parents, _clko, _table,		\
 	      (_flags) | CLK_IS_CRITICAL)
+
+#define PARENT_CLKS(_name)	static const char * const _name[]
 
 struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 			       u8 cdu_clko,

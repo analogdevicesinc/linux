@@ -23,6 +23,8 @@
 #define SC5XX_CDU_CFG(n)	((n) * sizeof(u32))
 
 #define SC5XX_CDU_STAT		0x40
+#define SC5XX_CDU_CLKINSEL	0x44
+#define SC5XX_CDU_CLKINSEL_CGU1	0x00
 #define SC5XX_CDU_STAT_LWERR	BIT(17)
 #define SC5XX_CDU_STAT_ADRERR	BIT(16)
 
@@ -305,6 +307,30 @@ static const struct clk_ops sc5xx_cdu_ops = {
 	.debug_init = sc5xx_cdu_debug_init,
 #endif
 };
+
+/**
+ * sc5xx_cdu_clkin_register - Register an ADSP-SC5xx CLKIN mux
+ * @clock_name: Name of the clock to register.
+ * @base: Base address of the CDU register block.
+ * @parent_names: Names of the parent clocks.
+ * @num_parents: Number of parent clocks.
+ * @clock_flags: Common clock framework flags.
+ * @lock: Lock protecting CDU register access.
+ *
+ * Register the CDU_CLKINSEL.CGU1 mux. This selects whether CGU1 receives
+ * CLKIN0 or CLKIN1.
+ *
+ * Return: A registered clock on success, or an ERR_PTR() on failure.
+ */
+struct clk * __init sc5xx_cdu_clkin_register(const char *clock_name, void __iomem *base,
+					const char * const *parent_names, unsigned int num_parents,
+					unsigned long clock_flags, spinlock_t *lock)
+{
+	return clk_register_mux(NULL, clock_name, parent_names, num_parents,
+				clock_flags, base + SC5XX_CDU_CLKINSEL,
+				SC5XX_CDU_CLKINSEL_CGU1, 1,
+				0, lock);
+}
 
 /**
  * sc5xx_cdu_register - Register an ADSP-SC5xx CDU output clock mux.

@@ -123,8 +123,8 @@
 		compatible = "adi,sc598-cgu1";
 		reg = <0x3108e000 0x100>;
 		#clock-cells = <1>;
-		clocks = <&sys_clkin0>;
-		clock-names = "sys_clkin0";
+		clocks = <&sys_clkin0> <&sys_clkin1>;
+		clock-names = "sys_clkin0", "sys_clkin1";
 		status = "okay";
 	};
 
@@ -132,6 +132,7 @@
 		compatible = "adi,sc598-pll2";
 		reg = <0x310a9000 0x100>;
 		#clock-cells = <1>;
+		clocks = <&sys_clkin0>;
 		status = "okay";
 	};
 
