@@ -3713,11 +3713,7 @@ static inline u32 ualink_tlb_wb_offset(struct amdgpu_device *adev, u32 accel_id)
 
 static void amdgpu_ualink_flush_tlb(struct amdgpu_device *adev, u32 flush_type)
 {
-	uint64_t tlb_seq = amdgpu_vm_tlb_seq(&adev->ualink.npa_vm);
 	u32 bit;
-
-	if (atomic64_xchg(&adev->ualink.last_flushed_tlb_seq, tlb_seq) == tlb_seq)
-		return;
 
 	bit = AMDGPU_MMHUB0_START;
 
