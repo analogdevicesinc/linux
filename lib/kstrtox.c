@@ -50,12 +50,12 @@ const char *_parse_integer_fixup_radix(const char *s, unsigned int *base)
  */
 noinline
 unsigned int _parse_integer_limit(const char *s, unsigned int base, unsigned long long *p,
-				  size_t max_chars)
+				  size_t max_chars, unsigned long long init)
 {
 	unsigned long long res;
 	unsigned int rv;
 
-	res = 0;
+	res = init;
 	rv = 0;
 	while (max_chars--) {
 		unsigned int c = *s;
