@@ -5395,6 +5395,19 @@ static int amdgpu_ualink_process_irq(struct amdgpu_device *adev,
 	dev_dbg(adev->dev, "Got MSG: remote acc_id %u msg_type %u\n",
 		src_acc_id, msg_type);
 
+	/* Debug hook: if the bit corresponding to this msg_type is set in
+	 * drop_msg_bitmap, drop this single packet and clear the bit so that
+	 * any subsequent incoming messages are processed normally. Used to
+	 * exercise the connection reset/recovery paths via debugfs.
+	 */
+	if (msg_type < BITS_PER_LONG &&
+	    test_and_clear_bit(msg_type, &adev->ualink.drop_msg_bitmap)) {
+		dev_warn(adev->dev,
+			 "DROP MSG (debugfs): src acc_id %u msg_type %u dw[0-3] 0x%x 0x%x 0x%x 0x%x\n",
+			 src_acc_id, msg_type, dw0, dw1, dw2, dw3);
+		return handled;
+	}
+
 	switch (msg_type) {
 	case AMDGPU_UALINK_HELLO_MSG:
 		receiver_acc_id = (dw0 >> AMDGPU_UALINK_HELLO_MSG_RECV_ACCID_SHIFT) &

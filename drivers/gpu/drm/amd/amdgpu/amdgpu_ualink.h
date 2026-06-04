@@ -342,6 +342,22 @@ struct amdgpu_ualink_mgr {
 
 	/* Sequence number to track the need for TLB flushes */
 	atomic64_t last_flushed_tlb_seq;
+
+	/* Debug-only: bitmap of incoming UALink protocol messages to drop.
+	 *
+	 * Each bit position corresponds to a value from
+	 * enum AMDGPU_UALINK_PROTOCOL_MESSAGES:
+	 *   BIT(AMDGPU_UALINK_NPA_REQ_MSG) drops one incoming NPA-REQ.
+	 *   BIT(AMDGPU_UALINK_NPA_RSP_MSG) drops one incoming NPA-RSP.
+	 *
+	 *   On reception of a message whose corresponding bit is set, the bit
+	 *   is atomically cleared and the message is silently dropped. This
+	 *   means at most one packet per set bit is dropped; any further
+	 *   incoming packets of the same type are processed normally. This is
+	 *   intended to exercise the connection reset / recovery paths from a
+	 *   debugfs handle.
+	 */
+	unsigned long drop_msg_bitmap;
 };
 
 int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev);
