@@ -12,6 +12,9 @@ unsigned int _parse_integer_limit(const char *s, unsigned int base, unsigned lon
 #define _parse_integer0(s, base, res, ...)						\
 	_parse_integer_limit(s, base, res, INT_MAX)
 
+#define _parse_integer1(s, base, res, max_chars, ...)					\
+	_parse_integer_limit(s, base, res, max_chars)
+
 #define _parse_integer(s, base, res, ...)						\
 	CONCATENATE(_parse_integer, COUNT_ARGS(__VA_ARGS__))(s, base, res, __VA_ARGS__)
 
