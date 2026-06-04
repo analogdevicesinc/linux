@@ -8,7 +8,63 @@
  * Contact: linux@analog.com
  */
 
+#include <dt-bindings/clock/adi-sc5xx-clock.h>
 #include "clk.h"
+
+static const struct sc5xx_mux_clock sc598_mux_clks[] __initconst = {
+	CMUX(ADSP_SC598_CLK_CDU_SHARC0, ),
+	CMUX(ADSP_SC598_CLK_CDU_SHARC1, ),
+	CMUX(ADSP_SC598_CLK_CDU_ARM, ),
+	MUX(ADSP_SC598_CLK_CDU_DDR, ),
+	MUX(ADSP_SC598_CLK_CDU_CAN, ),
+	MUX(ADSP_SC598_CLK_CDU_SPDIF, ),
+	MUX(ADSP_SC598_CLK_CDU_SPI, ),
+	MUX(ADSP_SC598_CLK_CDU_GIGE, ),
+	MUX(ADSP_SC598_CLK_CDU_LP, ),
+	MUX(ADSP_SC598_CLK_CDU_LP_DDR, ),
+	MUX(ADSP_SC598_CLK_CDU_OSPI_REFCLK, ),
+	MUX(ADSP_SC598_CLK_CDU_TRACE, ),
+	MUX(ADSP_SC598_CLK_CDU_EMMC, ),
+	MUX(ADSP_SC598_CLK_CDU_EMMC_TIMER_QMC, ),
+};
+
+static const struct sc5xx_mux_clock sc594_mux_clks[] __initconst = {
+	CMUX(ADSP_SC598_CLK_CDU_SHARC0, ),
+	CMUX(ADSP_SC598_CLK_CDU_SHARC1, ),
+	CMUX(ADSP_SC598_CLK_CDU_ARM, ),
+	MUX(ADSP_SC598_CLK_CDU_DDR, ),
+	MUX(ADSP_SC598_CLK_CDU_CAN, ),
+	MUX(ADSP_SC598_CLK_CDU_SPDIF, ),
+	MUX(ADSP_SC598_CLK_CDU_SPI, ),
+	MUX(ADSP_SC598_CLK_CDU_GIGE, ),
+	MUX(ADSP_SC598_CLK_CDU_LP, ),
+	MUX(ADSP_SC598_CLK_CDU_LP_DDR, ),
+	MUX(ADSP_SC598_CLK_CDU_OSPI_REFCLK, ),
+	MUX(ADSP_SC598_CLK_CDU_TRACE, ),
+};
+
+static const struct sc5xx_mux_clock sc573_mux_clks[] __initconst = {
+	CMUX(ADSP_SC598_CLK_CDU_SHARC0, ),
+	CMUX(ADSP_SC598_CLK_CDU_SHARC1, ),
+	CMUX(ADSP_SC598_CLK_CDU_ARM, ),
+	MUX(ADSP_SC598_CLK_CDU_DDR, ),
+	MUX(ADSP_SC598_CLK_CDU_CAN, ),
+	MUX(ADSP_SC598_CLK_CDU_SPDIF, ),
+	MUX(ADSP_SC598_CLK_CDU_GIGE, ),
+	MUX(ADSP_SC598_CLK_CDU_SDIO, ),
+};
+
+static const struct sc5xx_mux_clock sc589_mux_clks[] __initconst = {
+	CMUX(ADSP_SC598_CLK_CDU_SHARC0, ),
+	CMUX(ADSP_SC598_CLK_CDU_SHARC1, ),
+	CMUX(ADSP_SC598_CLK_CDU_ARM, ),
+	MUX(ADSP_SC598_CLK_CDU_DDR, ),
+	MUX(ADSP_SC598_CLK_CDU_CAN, ),
+	MUX(ADSP_SC598_CLK_CDU_SPDIF, ),
+	MUX(ADSP_SC598_CLK_CDU_GIGE, ),
+	MUX(ADSP_SC598_CLK_CDU_LP, ),
+	MUX(ADSP_SC598_CLK_CDU_SDIO, ),
+};
 
 static void __init sc5xx_early_clock_probe(struct device_node *np)
 {
@@ -33,8 +89,8 @@ static const struct of_device_id sc5xx_clock_of_match[] = {
 		.compatible = "adi,sc598-cgu1",
 		.data = &sc598_cgu1_info,
 	}, {
-		.compatible = "adi,sc598-cgu2",
-		.data = &sc598_cgu2_info,
+		.compatible = "adi,sc598-pll2",
+		.data = &sc598_pll2_info,
 	}, {
 		.compatible = "adi,sc598-cdu",
 		.data = &sc598_cdu_info,

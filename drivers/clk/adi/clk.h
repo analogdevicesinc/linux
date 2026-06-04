@@ -68,6 +68,108 @@
 #define CDU_MUX_WIDTH 2
 #define CDU_EN_BIT 0
 
+struct sc5xx_pll_clock {
+	unsigned int	id;
+	const char	*name;
+	const char	*parent_name;
+	u32		offset;
+	u8		shift;
+	u8		width;
+	u32		m_offset;
+	bool		half_m;
+};
+
+#define __PLL(_id, _name, _parent, _offset, _shift, _width, _m_offset, _half_m) \
+	{									\
+		.id = (_id),							\
+		.name = (_name),						\
+		.parent_name = (_parent),					\
+		.offset = (_offset),						\
+		.shift = (_shift),						\
+		.width = (_width),						\
+		.m_offset = (_m_offset),					\
+		.half_m = (_half_m),						\
+	}
+
+#define PLL(_id, _name, _parent, _offset, _shift, _width)		\
+	__PLL(_id, _name, _parent, _offset, _shift, _width, 0, false)
+
+struct sc5xx_divider_clock {
+	unsigned int	id;
+	const char	*name;
+	const char	*parent_name;
+	unsigned long	clock_flags;
+	u32		offset;
+	u8		shift;
+	u8		width;
+	u8		div_flags;
+};
+
+#define __DIV(_id, _name, _parent, _offset, _shift, _width, _flags, _div_flags) \
+	{									\
+		.id = (_id),							\
+		.name = (_name),						\
+		.parent_name = (_parent),					\
+		.offset = (_offset),						\
+		.shift = (_shift),						\
+		.width = (_width),						\
+		.flags = (_flags),						\
+		.div_flags = (_div_flags),					\
+	}
+
+#define DIV(_id, _name, _parent, _offset, _shift, _width)		\
+	__DIV(_id, _name, _parent, _offset, _shift, _width, 0, 0)
+
+struct sc5xx_fixed_factor_clock {
+	unsigned int	id;
+	const char*	clock_name;
+	const char*	parent_name;
+	unsigned int	mult;
+	unsigned int	div;
+	unsigned long	clock_flags;
+};
+
+#define __FFACTOR(_id, _name, _parent, _mult, _div, _flags)	\
+	{							\
+		.id = (_id),					\
+		.name = (_name),				\
+		.parent_name = (_parent),			\
+		.mult = (_mult),				\
+		.div = (_div),					\
+		.flags = (_flags),				\
+	}
+
+#define FFACTOR(_id, _name, _parent, _mult, _div, _flags)	\
+	__FFACTOR(_id, _name, _parent, _mult, _div, _flags)
+
+struct sc5xx_mux_clock {
+	unsigned int			id;
+	const char			*clock_name;
+	const struct clk_parent_data	*parent_data;
+	const u32			*mux_table;
+	u8				num_parents;
+	u8				cdu_clko;
+	unsigned long			clock_flags;
+};
+
+#define __MUX(_id, _name, _parents, _clko, _table, _flags)	\
+	{							\
+		.id		= (_id),			\
+		.clock_name	= (_name),			\
+		.parent_data	= (_parents),			\
+		.mux_table	= (_table),			\
+		.num_parents	= ARRAY_SIZE(_parents),		\
+		.cdu_clko	= (_clko),			\
+		.clock_flags	= (_flags),			\
+	}
+
+#define MUX(_id, _name, _parents, _clko, _table, _flags)	\
+	__MUX(_id, _name, _parents, _clko, _table, _flags)
+
+#define CMUX(_id, _name, _parents, _clko, _table, _flags)	\
+	__MUX(_id, _name, _parents, _clko, _table,		\
+	      (_flags) | CLK_IS_CRITICAL)
+
 struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 			       u8 cdu_clko,
 			       const char * const *parent_names,

@@ -42,7 +42,7 @@ struct sc5xx_cdu {
 	spinlock_t *lock;
 	void __iomem *base;
 	struct clk_hw clk_hw;
-	const u32 *parent_sel;
+	const u32 *mux_table;
 };
 
 enum sc5xx_cdu_en_state {
@@ -135,7 +135,7 @@ static int sc5xx_cdu_set_parent(struct clk_hw *clk_hw, u8 index)
 	u32 reg, readback;
 	int ret;
 
-	input_sel = clk_mux_index_to_val(cdu_clk->parent_sel, 0, index);
+	input_sel = clk_mux_index_to_val(cdu_clk->mux_table, 0, index);
 
 	spin_lock_irqsave(cdu_clk->lock, flags);
 
@@ -180,7 +180,7 @@ static u8 sc5xx_cdu_get_parent(struct clk_hw *clk_hw)
 
 	input_sel = FIELD_GET(SC5XX_CDU_CFG_SEL, reg);
 
-	parent = clk_mux_val_to_index(clk_hw, cdu_clk->parent_sel,
+	parent = clk_mux_val_to_index(clk_hw, cdu_clk->mux_table,
 					0, input_sel);
 	if (parent < 0)
 		return 0;
@@ -312,7 +312,7 @@ static const struct clk_ops sc5xx_cdu_ops = {
  * @base: Base address of the CDU register block.
  * @cdu_clko: CDU output index controlled by the clock.
  * @parent_names: Names of the parent clocks.
- * @parent_sel: CDU_CFG[n] clock input mappings.
+ * @mux_table: CDU_CFG[n] clock input mappings.
  * @num_parents: Number of parent clocks.
  * @clock_flags: clock flags.
  * @lock: Lock protecting CDU access.
@@ -327,7 +327,7 @@ static const struct clk_ops sc5xx_cdu_ops = {
  */
 struct clk * __init sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 				u8 cdu_clko, const char * const *parent_names,
-				const u32 *parent_sel, u8 num_parents,
+				const u32 *mux_table, u8 num_parents,
 				unsigned long clock_flags, spinlock_t *lock)
 {
 	struct sc5xx_cdu *cdu_clk;
@@ -351,7 +351,7 @@ struct clk * __init sc5xx_cdu_register(const char *clock_name, void __iomem *bas
 	cdu_clk->clk_hw.init = &init;
 	cdu_clk->base = base;
 	cdu_clk->lock = lock;
-	cdu_clk->parent_sel = parent_sel;
+	cdu_clk->mux_table = mux_table;
 	cdu_clk->cdu_clko = cdu_clko;
 
 	clk = clk_register(NULL, &cdu_clk->clk_hw);
