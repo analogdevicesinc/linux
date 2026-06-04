@@ -80,57 +80,90 @@ static int amdgpu_ualink_drm_client_create(struct amdgpu_device *adev)
 	return 0;
 }
 
-int amdgpu_ualink_init(struct amdgpu_device *adev)
+static bool amdgpu_ualink_supported(struct amdgpu_device *adev)
+{
+	if (!amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_PSP))
+		return false;
+
+	if (amdgpu_ip_version(adev, MP0_HWIP, 0) != IP_VERSION(15, 0, 8))
+		return false;
+
+	return true;
+}
+
+static void amdgpu_ualink_object_fini(struct amdgpu_device *adev)
+{
+	if (!adev->ualink.info)
+		return;
+
+	kobject_put(&adev->ualink.stations->kobj);
+	kobject_put(&adev->ualink.config->kobj);
+	kobject_put(&adev->ualink.setup->kobj);
+	kobject_put(&adev->ualink.info->kobj);
+	adev->ualink.stations = NULL;
+	adev->ualink.config = NULL;
+	adev->ualink.setup = NULL;
+	adev->ualink.info = NULL;
+}
+
+int amdgpu_ualink_mgr_hw_init(struct amdgpu_device *adev)
 {
 	int r;
 
-	/* UALink relies on PSP services. If the PSP IP block is not present
-	 * just skip UALink initialization.
-	 */
-	if (!amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_PSP)) {
-		adev->ualink.psp_if_ver = 0xffffffff;
+	if (!adev->ualink.info)
 		return 0;
-	}
 
 	r = psp_ual_get_interface_version(&adev->psp, &adev->ualink.psp_if_ver);
 	if (r) {
 		adev->ualink.psp_if_ver = 0xffffffff;
-		dev_err(adev->dev,
-			"UALink interface version detection failed: %d", r);
-		return r;
+		dev_info(adev->dev,
+			 "UALink disabled, PSP interface version detection failed: %d\n",
+			 r);
+		goto disable;
 	}
 	dev_info(adev->dev, "Found UALink interface version 0x%x\n",
 		 adev->ualink.psp_if_ver);
 
-	/* Query initial configuration from ASP */
 	r = psp_ual_query_info(&adev->psp, adev->ualink.psp_if_ver,
 			       adev->ualink.info);
 	if (r) {
-		dev_err(adev->dev,
-			"Failed to query initial UALink config: %d\n", r);
-		return r;
+		dev_info(adev->dev,
+			 "UALink disabled, failed to query initial config: %d\n",
+			 r);
+		goto disable;
 	}
+
+	adev->ualink.mgr_state = AMDGPU_UALINK_INIT_HW;
+
+	return 0;
+
+disable:
+	adev->ualink.mgr_state = AMDGPU_UALINK_INIT_ERROR;
+	return 0;
+}
+
+int amdgpu_ualink_mgr_late_init(struct amdgpu_device *adev)
+{
+	int r;
+
+	if (adev->ualink.mgr_state != AMDGPU_UALINK_INIT_HW)
+		return 0;
 
 	r = amdgpu_ualink_drm_client_create(adev);
 	if (r) {
 		dev_err(adev->dev, "Failed to create UALink DRM client: %d\n",
 			r);
-		return r;
+		goto error;
 	}
 
-	r = amdgpu_ualink_init_interrupt(adev);
-	if (r) {
-		dev_err(adev->dev,
-			"Failed to enable UALink irq: %d\n", r);
-		return r;
-	}
+	/* Consider UALink initialized only at this stage */
+	adev->ualink.mgr_state = AMDGPU_UALINK_INIT_COMPLETE;
 
 	return 0;
-}
 
-void amdgpu_ualink_fini(struct amdgpu_device *adev)
-{
-	/* empty */
+error:
+	adev->ualink.mgr_state = AMDGPU_UALINK_INIT_ERROR;
+	return r;
 }
 
 /****************************************************************************
@@ -451,9 +484,7 @@ static const struct attribute *ualink_info_attrs[] = {
 
 static void ualink_info_release(struct kobject *kobj)
 {
-	struct amdgpu_ualink_info *info = to_ualink_info(kobj);
-
-	kfree(info);
+	kfree(to_ualink_info(kobj));
 }
 
 static const struct kobj_type ualink_info_ktype = {
@@ -562,9 +593,7 @@ static const struct attribute *ualink_ppod_setup_attrs[] = {
 
 static void ualink_ppod_setup_release(struct kobject *kobj)
 {
-	struct amdgpu_ualink_ppod_setup *setup = to_ualink_ppod_setup(kobj);
-
-	kfree(setup);
+	kfree(to_ualink_ppod_setup(kobj));
 }
 
 static const struct kobj_type ualink_ppod_setup_ktype = {
@@ -902,9 +931,7 @@ static const struct attribute *ualink_vpod_config_attrs[] = {
 
 static void ualink_vpod_config_release(struct kobject *kobj)
 {
-	struct amdgpu_ualink_vpod_config *config = to_ualink_vpod_config(kobj);
-
-	kfree(config);
+	kfree(to_ualink_vpod_config(kobj));
 }
 
 static const struct kobj_type ualink_vpod_config_ktype = {
@@ -1024,9 +1051,7 @@ static const struct attribute *ualink_station_config_attrs[] = {
 
 static void ualink_station_config_release(struct kobject *kobj)
 {
-	struct amdgpu_ualink_station_config *stations = to_ualink_station_config(kobj);
-
-	kfree(stations);
+	kfree(to_ualink_station_config(kobj));
 }
 
 static const struct kobj_type ualink_station_config_ktype = {
@@ -1034,20 +1059,29 @@ static const struct kobj_type ualink_station_config_ktype = {
 	.sysfs_ops = &kobj_sysfs_ops
 };
 
-int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
+int amdgpu_ualink_mgr_sw_init(struct amdgpu_device *adev)
 {
-	struct amdgpu_ualink_station_config *stations = NULL;
-	struct amdgpu_ualink_vpod_config *vpod_config = NULL;
-	struct amdgpu_ualink_ppod_setup *ppod_setup = NULL;
-	struct amdgpu_ualink_info *info = NULL;
 	int r;
 
-	if (!amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_PSP))
+	struct amdgpu_ualink_station_config *stations;
+	struct amdgpu_ualink_vpod_config *vpod_config;
+	struct amdgpu_ualink_ppod_setup *ppod_setup;
+	struct amdgpu_ualink_info *info;
+
+	if (!amdgpu_ualink_supported(adev))
 		return 0;
 
 	info = kzalloc(sizeof(*info), GFP_KERNEL);
-	if (!info)
+	ppod_setup = kzalloc(sizeof(*ppod_setup), GFP_KERNEL);
+	vpod_config = kzalloc(sizeof(*vpod_config), GFP_KERNEL);
+	stations = kzalloc(sizeof(*stations), GFP_KERNEL);
+	if (!info || !ppod_setup || !vpod_config || !stations) {
+		kfree(info);
+		kfree(ppod_setup);
+		kfree(vpod_config);
+		kfree(stations);
 		return -ENOMEM;
+	}
 
 	info->ppod.accel_id = 0xffffffff;
 	info->ppod.bandwidth = 0xffffffff;
@@ -1055,133 +1089,120 @@ int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
 	info->vpod.id = 0xffffffff;
 	info->vpod.addr_mode = AMDGPU_UALINK_ADDR_MODE_MAX;
 
-	r = kobject_init_and_add(&info->kobj, &ualink_info_ktype,
-				 &adev->dev->kobj, "ualink");
-	if (r)
-		goto err_put_info;
-	r = sysfs_create_files(&info->kobj, ualink_info_attrs);
-	if (r)
-		goto err_del_info;
+	/*
+	 * Initialize the kobjects here so their lifetime is tied to the UALink
+	 * manager software state. amdgpu_ualink_object_fini() drops the final
+	 * reference via kobject_put().
+	 */
+	kobject_init(&info->kobj, &ualink_info_ktype);
+	kobject_init(&ppod_setup->kobj, &ualink_ppod_setup_ktype);
+	kobject_init(&vpod_config->kobj, &ualink_vpod_config_ktype);
+	kobject_init(&stations->kobj, &ualink_station_config_ktype);
 
-	ppod_setup = kzalloc(sizeof(*ppod_setup), GFP_KERNEL);
-	if (!ppod_setup) {
-		r = -ENOMEM;
-		goto err_remove_info_files;
-	}
-	r = kobject_init_and_add(&ppod_setup->kobj, &ualink_ppod_setup_ktype,
-				 &info->kobj, "setup");
-	if (r)
-		goto err_put_ppod_setup;
-#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-	r = sysfs_create_files(&ppod_setup->kobj, ualink_ppod_setup_attrs);
-	if (r)
-		goto err_del_ppod_setup;
-#endif
-
-	vpod_config = kzalloc(sizeof(*vpod_config), GFP_KERNEL);
-	if (!vpod_config) {
-		r = -ENOMEM;
-		goto err_remove_ppod_setup_files;
-	}
-	r = kobject_init_and_add(&vpod_config->kobj, &ualink_vpod_config_ktype,
-				 &info->kobj, "config");
-	if (r)
-		goto err_put_vpod_config;
-#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-	r = sysfs_create_files(&vpod_config->kobj, ualink_vpod_config_attrs);
-	if (r)
-		goto err_del_vpod_config;
-#endif
-
-	stations = kzalloc(sizeof(*stations), GFP_KERNEL);
-	if (!stations) {
-		r = -ENOMEM;
-		goto err_remove_vpod_config_files;
-	}
-	r = kobject_init_and_add(&stations->kobj, &ualink_station_config_ktype,
-				 &info->kobj, "stations");
-	if (r)
-		goto err_put_stations;
-#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-	r = sysfs_create_files(&stations->kobj, ualink_station_config_attrs);
-	if (r)
-		goto err_del_stations;
-#endif
-
-	adev->ualink.stations = stations;
-	adev->ualink.config = vpod_config;
-	adev->ualink.setup = ppod_setup;
 	adev->ualink.info = info;
+	adev->ualink.setup = ppod_setup;
+	adev->ualink.config = vpod_config;
+	adev->ualink.stations = stations;
+
+	r = amdgpu_ualink_init_interrupt(adev);
+	if (r) {
+		dev_err(adev->dev, "Failed to add UALink irq: %d\n", r);
+		return r;
+	}
+
+	return 0;
+}
+
+void amdgpu_ualink_mgr_sw_fini(struct amdgpu_device *adev)
+{
+	amdgpu_ualink_object_fini(adev);
+}
+
+static int ualink_kobj_add(struct kobject *kobj, struct kobject *parent,
+			   const char *name, const struct attribute **attrs)
+{
+	int r;
+
+	r = kobject_add(kobj, parent, "%s", name);
+	if (r)
+		return r;
+	r = sysfs_create_files(kobj, attrs);
+	if (r)
+		kobject_del(kobj);
 
 	return r;
+}
+
+int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_info *info = adev->ualink.info;
+	int r;
+
+	if (adev->ualink.mgr_state != AMDGPU_UALINK_INIT_COMPLETE)
+		return 0;
+
+	/* ualink parent node */
+	r = ualink_kobj_add(&info->kobj, &adev->dev->kobj, "ualink",
+			    ualink_info_attrs);
+	if (r)
+		goto err;
 
 #ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-err_del_stations:
-	kobject_del(&stations->kobj);
+	r = ualink_kobj_add(&adev->ualink.setup->kobj, &info->kobj, "setup",
+			    ualink_ppod_setup_attrs);
+	if (r)
+		goto err_info;
+
+	r = ualink_kobj_add(&adev->ualink.config->kobj, &info->kobj, "config",
+			    ualink_vpod_config_attrs);
+	if (r)
+		goto err_setup;
+
+	r = ualink_kobj_add(&adev->ualink.stations->kobj, &info->kobj,
+			    "stations", ualink_station_config_attrs);
+	if (r)
+		goto err_config;
+#else
+	r = kobject_add(&adev->ualink.setup->kobj, &info->kobj, "%s",
+			"setup");
+	if (r)
+		goto err_info;
+
+	r = kobject_add(&adev->ualink.config->kobj, &info->kobj, "%s",
+			"config");
+	if (r)
+		goto err_setup;
+
+	r = kobject_add(&adev->ualink.stations->kobj, &info->kobj, "%s",
+			"stations");
+	if (r)
+		goto err_config;
 #endif
-err_put_stations:
-	kobject_put(&stations->kobj);
-err_remove_vpod_config_files:
-#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-	sysfs_remove_files(&vpod_config->kobj, ualink_vpod_config_attrs);
-err_del_vpod_config:
-#endif
-	kobject_del(&vpod_config->kobj);
-err_put_vpod_config:
-	kobject_put(&vpod_config->kobj);
-err_remove_ppod_setup_files:
-#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-	sysfs_remove_files(&ppod_setup->kobj, ualink_ppod_setup_attrs);
-err_del_ppod_setup:
-#endif
-	kobject_del(&ppod_setup->kobj);
-err_put_ppod_setup:
-	kobject_put(&ppod_setup->kobj);
-err_remove_info_files:
-	sysfs_remove_files(&info->kobj, ualink_info_attrs);
-err_del_info:
+
+	adev->ualink.sysfs_init = true;
+	return 0;
+
+err_config:
+	kobject_del(&adev->ualink.config->kobj);
+err_setup:
+	kobject_del(&adev->ualink.setup->kobj);
+err_info:
 	kobject_del(&info->kobj);
-err_put_info:
-	kobject_put(&info->kobj);
-	return r;
+err:
+	dev_warn(adev->dev, "Failed to create UALink sysfs: %d\n", r);
+	return 0;
 }
 
 void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev)
 {
-	if (adev->ualink.stations) {
-#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-		sysfs_remove_files(&adev->ualink.stations->kobj,
-				   ualink_station_config_attrs);
-#endif
-		kobject_del(&adev->ualink.stations->kobj);
-		kobject_put(&adev->ualink.stations->kobj);
-		adev->ualink.stations = NULL;
-	}
-	if (adev->ualink.config) {
-#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-		sysfs_remove_files(&adev->ualink.config->kobj,
-				   ualink_vpod_config_attrs);
-#endif
-		kobject_del(&adev->ualink.config->kobj);
-		kobject_put(&adev->ualink.config->kobj);
-		adev->ualink.config = NULL;
-	}
-	if (adev->ualink.setup) {
-#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-		sysfs_remove_files(&adev->ualink.setup->kobj,
-				   ualink_ppod_setup_attrs);
-#endif
-		kobject_del(&adev->ualink.setup->kobj);
-		kobject_put(&adev->ualink.setup->kobj);
-		adev->ualink.setup = NULL;
-	}
-	if (adev->ualink.info) {
-		sysfs_remove_files(&adev->ualink.info->kobj,
-				   ualink_info_attrs);
-		kobject_del(&adev->ualink.info->kobj);
-		kobject_put(&adev->ualink.info->kobj);
-		adev->ualink.info = NULL;
-	}
+	if (!adev->ualink.sysfs_init)
+		return;
+
+	kobject_del(&adev->ualink.stations->kobj);
+	kobject_del(&adev->ualink.config->kobj);
+	kobject_del(&adev->ualink.setup->kobj);
+	kobject_del(&adev->ualink.info->kobj);
+	adev->ualink.sysfs_init = false;
 }
 
 static int amdgpu_ualink_npa_alloc_va(struct amdgpu_device *adev,
@@ -5406,6 +5427,12 @@ static int amdgpu_ualink_process_irq(struct amdgpu_device *adev,
 	u32 dw0, dw1, dw2, dw3;
 	u32 local_acc_id;
 	int handled = 1;
+
+	if (unlikely(adev->ualink.mgr_state != AMDGPU_UALINK_INIT_COMPLETE)) {
+		dev_dbg(adev->dev,
+			"UALink manager not initialized, dropping irq\n");
+		return handled;
+	}
 
 	dev_dbg(adev->dev, "%s client_id 0x%x src_id 0x%x ih\n",
 		entry->ih == &adev->irq.ih ? "ring" : "ualink soft ring",

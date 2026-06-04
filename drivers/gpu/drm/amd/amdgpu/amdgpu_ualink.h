@@ -113,6 +113,13 @@ enum amdgpu_ualink_addr_mode {
 	AMDGPU_UALINK_ADDR_MODE_MAX
 };
 
+enum amdgpu_ualink_mgr_state {
+	AMDGPU_UALINK_INIT_NONE = 0,
+	AMDGPU_UALINK_INIT_HW,
+	AMDGPU_UALINK_INIT_COMPLETE,
+	AMDGPU_UALINK_INIT_ERROR
+};
+
 /* Physical pod info shared between query and setup API */
 struct amdgpu_ualink_ppod_info {
 	u32 accel_id;
@@ -299,6 +306,8 @@ struct amdgpu_ualink_mgr {
 	struct amdgpu_ualink_ppod_setup *setup;
 	struct amdgpu_ualink_vpod_config *config;
 	struct amdgpu_ualink_station_config *stations;
+	bool sysfs_init;
+	enum amdgpu_ualink_mgr_state mgr_state;
 
 	/* For remote interrupt and shootdown */
 	struct amdgpu_ualink_remote *remote;
@@ -366,10 +375,13 @@ void amdgpu_ualink_sw_fini(struct amdgpu_device *adev);
 
 int ualink_send_hello(struct amdgpu_device *adev, u32 remote_accel_id);
 
+int amdgpu_ualink_mgr_sw_init(struct amdgpu_device *adev);
+void amdgpu_ualink_mgr_sw_fini(struct amdgpu_device *adev);
+int amdgpu_ualink_mgr_hw_init(struct amdgpu_device *adev);
+int amdgpu_ualink_mgr_late_init(struct amdgpu_device *adev);
+
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
 void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev);
-int amdgpu_ualink_init(struct amdgpu_device *adev);
-void amdgpu_ualink_fini(struct amdgpu_device *adev);
 int amdgpu_ualink_manager_start(struct amdgpu_device *adev);
 void amdgpu_ualink_manager_stop(struct amdgpu_device *adev);
 int amdgpu_ualink_export_handle(struct drm_device *dev, struct drm_file *filp,

@@ -439,25 +439,6 @@ static int soc_v1_0_common_late_init(struct amdgpu_ip_block *ip_block)
 	 */
 	adev->nbio.funcs->enable_doorbell_selfring_aperture(adev, true);
 
-	/* Depends on PSP being initialized */
-	amdgpu_ualink_init(adev);
-
-	return 0;
-}
-
-static int soc_v1_0_common_sw_init(struct amdgpu_ip_block *ip_block)
-{
-	struct amdgpu_device *adev = ip_block->adev;
-
-	return amdgpu_ualink_sysfs_init(adev);
-}
-
-static int soc_v1_0_common_sw_fini(struct amdgpu_ip_block *ip_block)
-{
-	struct amdgpu_device *adev = ip_block->adev;
-
-	amdgpu_ualink_sysfs_fini(adev);
-
 	return 0;
 }
 
@@ -474,8 +455,6 @@ static int soc_v1_0_common_hw_init(struct amdgpu_ip_block *ip_block)
 static int soc_v1_0_common_hw_fini(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
-
-	amdgpu_ualink_fini(adev);
 
 	adev->nbio.funcs->enable_doorbell_aperture(adev, false);
 	adev->nbio.funcs->enable_doorbell_selfring_aperture(adev, false);
@@ -515,8 +494,6 @@ static const struct amd_ip_funcs soc_v1_0_common_ip_funcs = {
 	.name = "soc_v1_0_common",
 	.early_init = soc_v1_0_common_early_init,
 	.late_init = soc_v1_0_common_late_init,
-	.sw_init = soc_v1_0_common_sw_init,
-	.sw_fini = soc_v1_0_common_sw_fini,
 	.hw_init = soc_v1_0_common_hw_init,
 	.hw_fini = soc_v1_0_common_hw_fini,
 	.suspend = soc_v1_0_common_suspend,
