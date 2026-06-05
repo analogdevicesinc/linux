@@ -1229,7 +1229,8 @@ int psp_ual_get_interface_version(struct psp_context *psp, uint32_t *intf_ver)
 }
 
 int psp_ual_query_info(struct psp_context *psp, uint32_t intf_ver,
-		       struct amdgpu_ualink_info *info)
+		       struct amdgpu_ualink_info *info,
+		       enum psp_gfx_ual_config_state *cfg_state)
 {
 	struct psp_gfx_get_config_ual_v1 *ual_config;
 	struct psp_gfx_cmd_resp *cmd;
@@ -1275,6 +1276,9 @@ int psp_ual_query_info(struct psp_context *psp, uint32_t intf_ver,
 		if (AMDGPU_UALINK_ACCEL_MAX > PSP_GFX_UAL_MAX_ACC_BIT_MASK*32)
 			bitmap_clear(info->vpod.active_accel_bits, PSP_GFX_UAL_MAX_ACC_BIT_MASK*32,
 				     AMDGPU_UALINK_ACCEL_MAX - PSP_GFX_UAL_MAX_ACC_BIT_MASK*32);
+
+		if (cfg_state)
+			*cfg_state = ual_config->config_state;
 	} else if (!ret) {
 		ret = -EINVAL;
 	}

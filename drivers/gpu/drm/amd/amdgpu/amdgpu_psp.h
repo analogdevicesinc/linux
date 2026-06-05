@@ -715,7 +715,8 @@ struct amdgpu_ualink_station_config;
 int psp_ual_get_interface_version(struct psp_context *psp, uint32_t *intf_ver);
 
 int psp_ual_query_info(struct psp_context *psp, uint32_t intf_ver,
-		       struct amdgpu_ualink_info *info);
+		       struct amdgpu_ualink_info *info,
+		       enum psp_gfx_ual_config_state *cfg_state);
 
 int psp_ual_set_ppod_config(struct psp_context *psp, uint32_t intf_ver,
 			    const struct amdgpu_ualink_ppod_setup *setup);
