@@ -9,14 +9,14 @@
 / {
 
 	clocks {
-		adf4351_clkin: clock@1 {
+		adf4351_clkin: adf4351-refclk {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
 			clock-frequency = <10000000>;
 			clock-output-names = "refclk";
 		};
 
-		adf4351_clkout: clock@2 {
+		adf4351_clkout: adf4351-clkout {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
 			clock-frequency = <210000000>;
@@ -26,27 +26,27 @@
 };
 
 &spi0 {
-    status="okay";
+	status = "okay";
 
-   adf4351: adf4351@0 {
-      compatible = "adi,adf4351";
-      reg = <0>;
+	adf4351: adf4351@0 {
+		compatible = "adi,adf4351";
+		reg = <0>;
 
-      spi-max-frequency = <10000000>;
+		spi-max-frequency = <10000000>;
 
-      clocks = <&adf4351_clkin>;
-      clock-names = "clkin";
+		clocks = <&adf4351_clkin>;
+		clock-names = "clkin";
 
-      adi,channel-spacing = <10000>;
-      adi,power-up-frequency = <210000000>;
-      adi,phase-detector-polarity-positive-enable;
-      adi,charge-pump-current = <2500>;
-      adi,output-power = <0>;
-      adi,aux-output-enable;
-      adi,aux-output-power = <0>;
-      adi,muxout-select = <6>;
-    };
-  };
+		adi,channel-spacing = <10000>;
+		adi,power-up-frequency = <210000000>;
+		adi,phase-detector-polarity-positive-enable;
+		adi,charge-pump-current = <2500>;
+		adi,output-power = <0>;
+		adi,aux-output-enable;
+		adi,aux-output-power = <0>;
+		adi,muxout-select = <6>;
+	};
+};
 
 &fpga_axi {
 
@@ -89,8 +89,6 @@
 			compatible = "adi,ad9748";
 			reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
 			io-backends = <&axi_dac>;
-			/* Data format: use offset binary (false) or 2's complement (true) */
-			/* adi,twos-complement; */
 		};
 	};
 };
