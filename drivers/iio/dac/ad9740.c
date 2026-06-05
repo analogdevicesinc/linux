@@ -53,49 +53,11 @@ struct ad9740_state {
 	struct mutex lock;
 };
 
-enum ad9740_sources {
-	AD9740_SRC_NORMAL,
-	AD9740_SRC_DDS,
-	AD9740_SRC_RAMP,
+static const char * const ad9740_data_sources[] = {
+	[IIO_BACKEND_EXTERNAL] = "normal",
+	[IIO_BACKEND_INTERNAL_CONTINUOUS_WAVE] = "dds",
+	[IIO_BACKEND_INTERNAL_RAMP_16BIT] = "ramp",
 };
-
-static const char * const dbgfs_attr_source[] = {
-	[AD9740_SRC_NORMAL] = "normal",
-	[AD9740_SRC_DDS] = "dds",
-	[AD9740_SRC_RAMP] = "ramp",
-};
-
-static int ad9740_set_data_source(struct ad9740_state *st,
-				  enum iio_backend_data_source type)
-{
-	int ret;
-	const char *type_str;
-
-	switch (type) {
-	case IIO_BACKEND_INTERNAL_CONTINUOUS_WAVE:
-		type_str = "DDS";
-		break;
-	case IIO_BACKEND_INTERNAL_RAMP_16BIT:
-		type_str = "RAMP";
-		break;
-	case IIO_BACKEND_EXTERNAL:
-		type_str = "DMA";
-		break;
-	default:
-		type_str = "UNKNOWN";
-		break;
-	}
-
-	dev_info(st->dev, "Setting data source to %s (type=%d)\n", type_str, type);
-
-	ret = iio_backend_data_source_set(st->back, 0, type);
-	if (ret)
-		dev_err(st->dev, "Failed to set data source to %s: %d\n", type_str, ret);
-	else
-		dev_info(st->dev, "Data source set to %s successfully\n", type_str);
-
-	return ret;
-}
 
 
 static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
@@ -135,7 +97,6 @@ static int ad9740_buffer_predisable(struct iio_dev *indio_dev)
 	return 0;
 }
 
-/* IIO extended info for data source control */
 static ssize_t ad9740_ext_info_get_data_source(struct iio_dev *indio_dev,
 						uintptr_t private,
 						const struct iio_chan_spec *chan,
@@ -143,33 +104,16 @@ static ssize_t ad9740_ext_info_get_data_source(struct iio_dev *indio_dev,
 {
 	struct ad9740_state *st = iio_priv(indio_dev);
 	enum iio_backend_data_source type;
-	const char *src_str;
 	int ret;
 
-	dev_dbg(st->dev, "Reading data_source attribute\n");
-
 	ret = iio_backend_data_source_get(st->back, 0, &type);
-	if (ret) {
-		dev_err(st->dev, "Failed to get data source: %d\n", ret);
+	if (ret)
 		return ret;
-	}
 
-	switch (type) {
-	case IIO_BACKEND_INTERNAL_CONTINUOUS_WAVE:
-		src_str = dbgfs_attr_source[AD9740_SRC_DDS];
-		break;
-	case IIO_BACKEND_INTERNAL_RAMP_16BIT:
-		src_str = dbgfs_attr_source[AD9740_SRC_RAMP];
-		break;
-	case IIO_BACKEND_EXTERNAL:
-	default:
-		src_str = dbgfs_attr_source[AD9740_SRC_NORMAL];
-		break;
-	}
+	if (type >= ARRAY_SIZE(ad9740_data_sources) || !ad9740_data_sources[type])
+		return -EINVAL;
 
-	dev_dbg(st->dev, "Current data source: %s (type=%d)\n", src_str, type);
-
-	return sysfs_emit(buf, "%s\n", src_str);
+	return sysfs_emit(buf, "%s\n", ad9740_data_sources[type]);
 }
 
 static ssize_t ad9740_ext_info_set_data_source(struct iio_dev *indio_dev,
@@ -178,27 +122,16 @@ static ssize_t ad9740_ext_info_set_data_source(struct iio_dev *indio_dev,
 						const char *buf, size_t len)
 {
 	struct ad9740_state *st = iio_priv(indio_dev);
-	enum iio_backend_data_source type;
-	int ret;
+	int ret, i;
 
-	dev_info(st->dev, "User requesting data source change to: '%s'\n", buf);
-
-	if (sysfs_streq(buf, "normal"))
-		type = IIO_BACKEND_EXTERNAL;
-	else if (sysfs_streq(buf, "dds"))
-		type = IIO_BACKEND_INTERNAL_CONTINUOUS_WAVE;
-	else if (sysfs_streq(buf, "ramp"))
-		type = IIO_BACKEND_INTERNAL_RAMP_16BIT;
-	else {
-		dev_err(st->dev, "Invalid data source '%s'. Valid: normal, dds, ramp\n", buf);
-		return -EINVAL;
+	for (i = 0; i < ARRAY_SIZE(ad9740_data_sources); i++) {
+		if (ad9740_data_sources[i] && sysfs_streq(buf, ad9740_data_sources[i])) {
+			ret = iio_backend_data_source_set(st->back, 0, i);
+			return ret ? ret : len;
+		}
 	}
 
-	ret = ad9740_set_data_source(st, type);
-	if (ret)
-		return ret;
-
-	return len;
+	return -EINVAL;
 }
 
 static ssize_t ad9740_ext_info_get_data_source_available(struct iio_dev *indio_dev,
@@ -206,15 +139,15 @@ static ssize_t ad9740_ext_info_get_data_source_available(struct iio_dev *indio_d
 							  const struct iio_chan_spec *chan,
 							  char *buf)
 {
-	ssize_t len = 0;
+	ssize_t l = 0;
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(dbgfs_attr_source); i++)
-		len += sysfs_emit_at(buf, len, "%s ", dbgfs_attr_source[i]);
+	for (i = 0; i < ARRAY_SIZE(ad9740_data_sources); i++)
+		if (ad9740_data_sources[i])
+			l += sysfs_emit_at(buf, l, "%s ", ad9740_data_sources[i]);
 
-	buf[len - 1] = '\n';
-
-	return len;
+	buf[l - 1] = '\n';
+	return l;
 }
 
 static const struct iio_chan_spec_ext_info ad9740_ext_info[] = {
@@ -264,12 +197,9 @@ static int ad9740_setup(struct ad9740_state *st)
 	}
 
 	/* Set data source to external (from DMA) */
-	dev_info(st->dev, "Initializing data source to DMA mode\n");
-	ret = ad9740_set_data_source(st, IIO_BACKEND_EXTERNAL);
-	if (ret) {
-		dev_err(st->dev, "Failed to set initial data source: %d\n", ret);
+	ret = iio_backend_data_source_set(st->back, 0, IIO_BACKEND_EXTERNAL);
+	if (ret)
 		return ret;
-	}
 
 	/*
 	 * AD9740 family has no software-configurable registers.
