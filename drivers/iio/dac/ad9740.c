@@ -216,35 +216,50 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 	.predisable = ad9740_buffer_predisable,
 };
 
-#define AD9740_CHANNEL(ch, bits, shft) { \
+/*
+ * Two channels per variant, matching the ad9739a pattern:
+ *   ALTVOLTAGE: DDS tone generator (extended by backend with freq/scale/phase)
+ *   VOLTAGE:    DMA data output with scan_type for buffer streaming
+ */
+#define AD9740_CHAN_DDS { \
 	.type = IIO_ALTVOLTAGE, \
-	.output = 1, \
 	.indexed = 1, \
-	.channel = (ch), \
-	.scan_index = (ch), \
+	.output = 1, \
+	.scan_index = -1, \
+}
+
+#define AD9740_CHAN_DATA(bits, shft) { \
+	.type = IIO_VOLTAGE, \
+	.indexed = 1, \
+	.output = 1, \
+	.ext_info = ad9740_ext_info, \
 	.scan_type = { \
 		.sign = 'u', \
 		.realbits = (bits), \
 		.storagebits = 16, \
 		.shift = (shft), \
 		.endianness = IIO_BE, \
-	} \
+	}, \
 }
 
 static const struct iio_chan_spec ad9748_channels[] = {
-	AD9740_CHANNEL(0, 8, 8),   /* 8-bit: shift=8, data in bits[15:8] */
+	AD9740_CHAN_DDS,
+	AD9740_CHAN_DATA(8, 8),
 };
 
 static const struct iio_chan_spec ad9740_channels[] = {
-	AD9740_CHANNEL(0, 10, 6),  /* 10-bit: shift=6, data in bits[15:6] */
+	AD9740_CHAN_DDS,
+	AD9740_CHAN_DATA(10, 6),
 };
 
 static const struct iio_chan_spec ad9742_channels[] = {
-	AD9740_CHANNEL(0, 12, 4),  /* 12-bit: shift=4, data in bits[15:4] */
+	AD9740_CHAN_DDS,
+	AD9740_CHAN_DATA(12, 4),
 };
 
 static const struct iio_chan_spec ad9744_channels[] = {
-	AD9740_CHANNEL(0, 14, 0),  /* 14-bit: shift=0, data in bits[13:0] */
+	AD9740_CHAN_DDS,
+	AD9740_CHAN_DATA(14, 0),
 };
 
 static const struct iio_info ad9740_info = {
@@ -345,61 +360,18 @@ static int ad9740_probe(struct platform_device *pdev)
 
 	/* Make a modifiable copy of the channel spec for backend extension */
 	struct iio_chan_spec *channels;
-	const struct iio_chan_spec_ext_info *backend_ext_info;
-	struct iio_chan_spec_ext_info *merged_ext_info;
-	int num_our_ext_info, num_backend_ext_info, i, j;
 
-	dev_info(&pdev->dev, "Creating modifiable channel spec\n");
 	channels = devm_kmemdup(&pdev->dev, st->chip_info->channels,
 				sizeof(struct iio_chan_spec) * st->chip_info->num_channels,
 				GFP_KERNEL);
-	if (!channels) {
-		dev_err(&pdev->dev, "Failed to allocate channel spec\n");
+	if (!channels)
 		return -ENOMEM;
-	}
 
-	/* Extend channel with DDS controls from backend */
-	dev_info(&pdev->dev, "Extending channel spec with backend DDS controls\n");
+	/* Extend ALTVOLTAGE channel with DDS controls from backend */
 	ret = iio_backend_extend_chan_spec(st->back, &channels[0]);
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret, "Failed to extend channel spec\n");
 
-	/* Merge our ext_info (data_source) with backend's ext_info (DDS) */
-	backend_ext_info = channels[0].ext_info;
-
-	/* Count entries in both arrays */
-	num_our_ext_info = ARRAY_SIZE(ad9740_ext_info) - 1; /* exclude terminator */
-	num_backend_ext_info = 0;
-	if (backend_ext_info) {
-		while (backend_ext_info[num_backend_ext_info].name)
-			num_backend_ext_info++;
-	}
-
-	dev_info(&pdev->dev, "Merging ext_info: %d our attrs + %d backend attrs\n",
-		 num_our_ext_info, num_backend_ext_info);
-
-	/* Allocate merged array: our entries + backend entries + terminator */
-	merged_ext_info = devm_kcalloc(&pdev->dev,
-				       num_our_ext_info + num_backend_ext_info + 1,
-				       sizeof(*merged_ext_info), GFP_KERNEL);
-	if (!merged_ext_info) {
-		dev_err(&pdev->dev, "Failed to allocate merged ext_info\n");
-		return -ENOMEM;
-	}
-
-	/* Copy our ext_info first */
-	for (i = 0; i < num_our_ext_info; i++)
-		merged_ext_info[i] = ad9740_ext_info[i];
-
-	/* Then append backend ext_info */
-	for (j = 0; j < num_backend_ext_info; j++)
-		merged_ext_info[i + j] = backend_ext_info[j];
-
-	/* Terminator is already zero from kcalloc */
-	channels[0].ext_info = merged_ext_info;
-	dev_info(&pdev->dev, "Extended attributes merged successfully\n");
-
-	dev_info(&pdev->dev, "Configuring IIO device structure\n");
 	indio_dev->name = st->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
 	indio_dev->setup_ops = &ad9740_buffer_setup_ops;
