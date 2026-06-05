@@ -498,6 +498,8 @@ static int ad9740_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret, "Failed to register IIO device\n");
 
+	iio_backend_debugfs_add(st->back, indio_dev);
+
 	dev_info(&pdev->dev, "========================================\n");
 	dev_info(&pdev->dev, "%s %u-bit DAC registered successfully!\n",
 		 st->chip_info->name, st->chip_info->resolution);
