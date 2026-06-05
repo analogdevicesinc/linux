@@ -5240,10 +5240,31 @@ void amdgpu_ualink_sw_fini(struct amdgpu_device *adev)
 	adev->ualink.remote = NULL;
 }
 
+int ualink_send_hello(struct amdgpu_device *adev, u32 remote_accel_id)
+{
+	return amdgpu_ualink_send_hello_msg(adev, remote_accel_id);
+}
+
+/*
+ * The low bits of handle_lo carry the message-header field on the wire.
+ * Strip those bits and splice in @acc_id to recover the
+ * fully-qualified handle_lo value.
+ */
+static inline u64 amdgpu_ualink_reassemble_handle(u64 handle_lo, u32 acc_id)
+{
+	return (handle_lo & ~AMDGPU_UALINK_MESSAGE_HEADER_MASK) |
+	       (acc_id & AMDGPU_UALINK_HANDLE_ACCID_MASK);
+}
+
 static int amdgpu_ualink_process_irq(struct amdgpu_device *adev,
 				     struct amdgpu_irq_src *source,
 				     struct amdgpu_iv_entry *entry)
 {
+	u32 sender_acc_id, receiver_acc_id, msg_type, src_acc_id;
+	struct amdgpu_ualink_handle handle;
+	u32 size, npa_addr, fail_reason;
+	u32 dw0, dw1, dw2, dw3;
+	u32 local_acc_id;
 	int handled = 1;
 
 	dev_dbg(adev->dev, "%s client_id 0x%x src_id 0x%x ih\n",
@@ -5257,10 +5278,95 @@ static int amdgpu_ualink_process_irq(struct amdgpu_device *adev,
 		return handled;
 	}
 
-	/*
-	 * Call amdgpu_ualink_interrupt handler
-	 * amdgpu_ualink_interrupt(adev, entry);
-	 */
+	/* ContextID 4 dwords */
+	src_acc_id = entry->pasid;
+	dw0 = entry->src_data[0];
+	dw1 = entry->src_data[1];
+	dw2 = entry->src_data[2];
+	dw3 = entry->src_data[3];
+
+	dev_dbg(adev->dev, "src accel_id %u context id 0x%x 0x%x 0x%x 0x%x\n",
+		src_acc_id, dw0, dw1, dw2, dw3);
+
+	msg_type = dw0 & AMDGPU_UALINK_MESSAGE_HEADER_MASK;
+	local_acc_id = adev->ualink.info->ppod.accel_id;
+	dev_dbg(adev->dev, "Got MSG: remote acc_id %u msg_type %u\n",
+		src_acc_id, msg_type);
+
+	switch (msg_type) {
+	case AMDGPU_UALINK_HELLO_MSG:
+		receiver_acc_id = (dw0 >> AMDGPU_UALINK_HELLO_MSG_RECV_ACCID_SHIFT) &
+					AMDGPU_UALINK_HELLO_MSG_ACCID_MASK;
+		sender_acc_id = (dw0 >> AMDGPU_UALINK_HELLO_MSG_SENDER_ACCID_SHIFT) &
+					AMDGPU_UALINK_HELLO_MSG_ACCID_MASK;
+		dev_dbg(adev->dev,
+			"Got HELLO MSG: src acc_id %u receiver_acc_id %u sender_acc_id %u\n",
+			src_acc_id, receiver_acc_id, sender_acc_id);
+		amdgpu_ualink_process_hello_msg(adev, receiver_acc_id, sender_acc_id,
+						src_acc_id);
+		break;
+	case AMDGPU_UALINK_HELLO_ACK_MSG:
+		dev_dbg(adev->dev,
+			"Got HELLO-ACK MSG: remote acc_id %u\n", src_acc_id);
+		amdgpu_ualink_process_hello_ack_msg(adev, src_acc_id);
+		break;
+	case AMDGPU_UALINK_NPA_REQ_MSG:
+		memcpy(&handle, entry->src_data, sizeof(struct amdgpu_ualink_handle));
+		handle.handle_lo = amdgpu_ualink_reassemble_handle(handle.handle_lo,
+								   local_acc_id);
+		dev_dbg(adev->dev,
+			"Got NPA-REQ MSG: remote acc_id %u handle %llx:%llx\n",
+			src_acc_id, handle.handle_hi, handle.handle_lo);
+		amdgpu_ualink_process_npa_req_msg(adev, src_acc_id, handle);
+		break;
+	case AMDGPU_UALINK_NPA_RSP_MSG:
+		memcpy(&handle.handle_lo, entry->src_data, sizeof(handle.handle_lo));
+		handle.handle_lo = amdgpu_ualink_reassemble_handle(handle.handle_lo,
+								   src_acc_id);
+		size = entry->src_data[2];
+		npa_addr = entry->src_data[3];
+		dev_dbg(adev->dev,
+			"Got NPA-RSP MSG: remote acc_id %u handle_lo %llx size 0x%x npa_addr 0x%x\n",
+			src_acc_id, handle.handle_lo, size, npa_addr);
+		amdgpu_ualink_process_npa_rsp_msg(adev, src_acc_id,
+						  handle.handle_lo,
+						  npa_addr, size);
+		break;
+	case AMDGPU_UALINK_NPA_FAIL_MSG:
+		memcpy(&handle.handle_lo, entry->src_data, sizeof(handle.handle_lo));
+		handle.handle_lo = amdgpu_ualink_reassemble_handle(handle.handle_lo,
+								   src_acc_id);
+		fail_reason = entry->src_data[2] &
+				AMDGPU_UALINK_NPA_FAIL_MSG_FAIL_REASON_MASK;
+		dev_dbg(adev->dev,
+			"Got NPA-FAIL MSG: remote acc_id %u handle_lo %llx fail_reason %u\n",
+			src_acc_id, handle.handle_lo, fail_reason);
+		amdgpu_ualink_process_npa_fail_msg(adev, src_acc_id,
+						   handle.handle_lo,
+						   fail_reason);
+		break;
+	case AMDGPU_UALINK_NPA_REVOKE_MSG:
+		memcpy(&handle, entry->src_data, sizeof(struct amdgpu_ualink_handle));
+		handle.handle_lo = amdgpu_ualink_reassemble_handle(handle.handle_lo,
+								   src_acc_id);
+		dev_dbg(adev->dev,
+			"Got NPA-REVOKE MSG: remote acc_id %u handle %llx:%llx\n",
+			src_acc_id, handle.handle_hi, handle.handle_lo);
+		amdgpu_ualink_process_npa_revoke_msg(adev, src_acc_id, handle);
+		break;
+	case AMDGPU_UALINK_NPA_RELEASE_MSG:
+		memcpy(&handle, entry->src_data, sizeof(struct amdgpu_ualink_handle));
+		handle.handle_lo = amdgpu_ualink_reassemble_handle(handle.handle_lo,
+								   local_acc_id);
+		dev_dbg(adev->dev,
+			"Got NPA-RELEASE MSG: remote acc_id %u handle %llx:%llx\n",
+			src_acc_id, handle.handle_hi, handle.handle_lo);
+		amdgpu_ualink_process_npa_release_msg(adev, src_acc_id, handle);
+		break;
+	default:
+		dev_err(adev->dev, "Unknown message type (%u)\n", msg_type);
+		break;
+	}
 
 	return handled;
 }
