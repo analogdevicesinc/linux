@@ -428,6 +428,48 @@ static const struct amdgpu_irq_src_funcs psp_v15_0_8_irq_funcs = {
 	.process = psp_v15_0_8_irq_process,
 };
 
+static void psp_v15_0_8_ual_cmd_cfg_update(struct amdgpu_psp_irq_mgr *mgr,
+					   u32 event_id,
+					   struct amdgpu_iv_entry *entry)
+{
+	struct amdgpu_device *adev = mgr->psp->adev;
+
+	amdgpu_ualink_config_update_handler(adev);
+}
+
+static void psp_v15_0_8_ual_cmd_pause(struct amdgpu_psp_irq_mgr *mgr,
+				      u32 event_id,
+				      struct amdgpu_iv_entry *entry)
+{
+	struct amdgpu_device *adev = mgr->psp->adev;
+
+	amdgpu_ualink_pause_handler(adev);
+}
+
+static void psp_v15_0_8_ual_cmd_resume(struct amdgpu_psp_irq_mgr *mgr,
+				       u32 event_id,
+				       struct amdgpu_iv_entry *entry)
+{
+	struct amdgpu_device *adev = mgr->psp->adev;
+
+	amdgpu_ualink_resume_handler(adev);
+}
+
+static const struct amdgpu_psp_irq_handler psp_v15_0_8_ual_irq_handlers[] = {
+	{
+		.event_id = PSP_GFX_INT_CTXT_UAL_CMD_CFG_UPDATE,
+		.callback = psp_v15_0_8_ual_cmd_cfg_update,
+	},
+	{
+		.event_id = PSP_GFX_INT_CTXT_UAL_CMD_PAUSE,
+		.callback = psp_v15_0_8_ual_cmd_pause,
+	},
+	{
+		.event_id = PSP_GFX_INT_CTXT_UAL_CMD_RESUME,
+		.callback = psp_v15_0_8_ual_cmd_resume,
+	},
+};
+
 static int psp_v15_0_8_register_irq_handler(struct amdgpu_psp_irq_mgr *mgr,
 					    struct amdgpu_irq_src *irq_src)
 {
@@ -443,7 +485,11 @@ static int psp_v15_0_8_register_irq_handler(struct amdgpu_psp_irq_mgr *mgr,
 	if (ret)
 		return ret;
 
-	return 0;
+	ret = amdgpu_psp_irq_mgr_register(
+		mgr, psp_v15_0_8_ual_irq_handlers,
+		ARRAY_SIZE(psp_v15_0_8_ual_irq_handlers), NULL);
+
+	return ret;
 }
 
 static const struct psp_funcs psp_v15_0_8_funcs = {

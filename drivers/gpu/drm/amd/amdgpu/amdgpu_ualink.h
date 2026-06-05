@@ -391,6 +391,9 @@ void amdgpu_ualink_sw_fini(struct amdgpu_device *adev);
 
 int ualink_send_hello(struct amdgpu_device *adev, u32 remote_accel_id);
 
+int amdgpu_ualink_config_update_handler(struct amdgpu_device *adev);
+int amdgpu_ualink_pause_handler(struct amdgpu_device *adev);
+int amdgpu_ualink_resume_handler(struct amdgpu_device *adev);
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
 void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev);

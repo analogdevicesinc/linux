@@ -400,11 +400,35 @@ struct psp_gfx_cmd_req_perf_hw {
 #define PSP_GFX_UAL_MAX_STATIONS_V1     64       /* max UALink stations */
 #define PSP_GFX_UAL_MAX_ACC_BIT_MASK    32       /* max accelerator bit mask 32*32 */
 
-enum psp_gfx_ual_npa_address_mode
-{
-    PSP_GFX_UAL_NPA_ADDRESS_MODE_SOURCE_ALIASING = 0,
-    PSP_GFX_UAL_NPA_ADDRESS_MODE_SOURCE_IDENTIFICATION = 1,
-    PSP_GFX_UAL_NPA_ADDRESS_MODE_MAX
+/* Interrupt category identifiers (upper byte) - ASP interrupts to Driver */
+
+/* Commands from ASP */
+#define PSP_GFX_INT_CTXT_UAL_CAT_CMD 0x01000000
+/* Mask for Command bits */
+#define PSP_GFX_INT_CTXT_UAL_CAT_CMD_MASK 0x000000FF
+/* Notifications from ASP */
+#define PSP_GFX_INT_CTXT_UAL_CAT_NOTIFY 0x02000000
+/* Mask for category bits */
+#define PSP_GFX_INT_CTXT_UAL_CAT_MASK 0xFF000000
+
+#define PSP_GFX_INT_CTXT_UAL_CMD_CFG_UPDATE_ID 0x00000001
+#define PSP_GFX_INT_CTXT_UAL_CMD_PAUSE_ID 0x00000002
+#define PSP_GFX_INT_CTXT_UAL_CMD_RESUME_ID 0x00000003
+
+/* Command interrupts from ASP (GIM must execute action) */
+#define PSP_GFX_INT_CTXT_UAL_CMD_CFG_UPDATE \
+	(PSP_GFX_INT_CTXT_UAL_CAT_CMD | PSP_GFX_INT_CTXT_UAL_CMD_CFG_UPDATE_ID)
+
+#define PSP_GFX_INT_CTXT_UAL_CMD_PAUSE \
+	(PSP_GFX_INT_CTXT_UAL_CAT_CMD | PSP_GFX_INT_CTXT_UAL_CMD_PAUSE_ID)
+
+#define PSP_GFX_INT_CTXT_UAL_CMD_RESUME \
+	(PSP_GFX_INT_CTXT_UAL_CAT_CMD | PSP_GFX_INT_CTXT_UAL_CMD_RESUME_ID)
+
+enum psp_gfx_ual_npa_address_mode {
+	PSP_GFX_UAL_NPA_ADDRESS_MODE_SOURCE_ALIASING = 0,
+	PSP_GFX_UAL_NPA_ADDRESS_MODE_SOURCE_IDENTIFICATION = 1,
+	PSP_GFX_UAL_NPA_ADDRESS_MODE_MAX
 };
 
 enum psp_gfx_ual_ports_per_station

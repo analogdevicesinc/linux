@@ -204,6 +204,70 @@ static int amdgpu_ualink_query_info(struct amdgpu_device *adev)
 	return 0;
 }
 
+int amdgpu_ualink_config_update_handler(struct amdgpu_device *adev)
+{
+	int r;
+	u32 status = 0;
+
+	/* TBD: Stop ASP interrupts if driver faced an issue */
+	if (adev->ualink.mgr_state != AMDGPU_UALINK_INIT_COMPLETE) {
+		dev_dbg(adev->dev,
+			"UALink not initialized, skipping config update\n");
+		status = !!(adev->ualink.mgr_state == AMDGPU_UALINK_INIT_ERROR);
+		goto out;
+	}
+
+	/*TBD: find the right value of status to be sent to ASP*/
+	r = amdgpu_ualink_query_info(adev);
+	if (r) {
+		dev_info(adev->dev, "UALink config update failed %d\n", r);
+		status = 1;
+	}
+
+out:
+	return psp_ual_send_completion(&adev->psp, adev->ualink.psp_if_ver,
+				       PSP_GFX_INT_CTXT_UAL_CMD_CFG_UPDATE_ID,
+				       status);
+}
+
+int amdgpu_ualink_pause_handler(struct amdgpu_device *adev)
+{
+	u32 status = 0;
+
+	if (adev->ualink.mgr_state != AMDGPU_UALINK_INIT_COMPLETE) {
+		dev_dbg(adev->dev,
+			"UALink not initialized, skipping pause update\n");
+		status = !!(adev->ualink.mgr_state == AMDGPU_UALINK_INIT_ERROR);
+		goto out;
+	}
+
+	dev_dbg(adev->dev, "UALink pause command is not handled\n");
+
+out:
+	return psp_ual_send_completion(&adev->psp, adev->ualink.psp_if_ver,
+				       PSP_GFX_INT_CTXT_UAL_CMD_PAUSE_ID,
+				       status);
+}
+
+int amdgpu_ualink_resume_handler(struct amdgpu_device *adev)
+{
+	u32 status = 0;
+
+	if (adev->ualink.mgr_state != AMDGPU_UALINK_INIT_COMPLETE) {
+		dev_dbg(adev->dev,
+			"UALink not initialized, skipping pause update\n");
+		status = !!(adev->ualink.mgr_state == AMDGPU_UALINK_INIT_ERROR);
+		goto out;
+	}
+
+	dev_dbg(adev->dev, "UALink resume command is not handled\n");
+
+out:
+	return psp_ual_send_completion(&adev->psp, adev->ualink.psp_if_ver,
+				       PSP_GFX_INT_CTXT_UAL_CMD_RESUME_ID,
+				       status);
+}
+
 int ualink_ip_hw_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
