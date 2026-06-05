@@ -378,20 +378,16 @@ static int ad9740_probe(struct platform_device *pdev)
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
-	if (!indio_dev) {
-		dev_err(&pdev->dev, "Failed to allocate IIO device\n");
+	if (!indio_dev)
 		return -ENOMEM;
-	}
 
 	st = iio_priv(indio_dev);
 	st->dev = &pdev->dev;
 
 	/* Get chip info from device match data */
 	st->chip_info = device_get_match_data(&pdev->dev);
-	if (!st->chip_info) {
-		dev_err(&pdev->dev, "Failed to get chip info\n");
-		return -ENODEV;
-	}
+	if (!st->chip_info)
+		return dev_err_probe(&pdev->dev, -ENODEV, "Failed to get chip info\n");
 
 	dev_info(&pdev->dev, "%s probe starting (%u-bit DAC)\n",
 		 st->chip_info->name, st->chip_info->resolution);
@@ -424,11 +420,9 @@ static int ad9740_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "Checking for reset GPIO\n");
 	st->reset_gpio = devm_gpiod_get_optional(&pdev->dev, "reset",
 						 GPIOD_OUT_HIGH);
-	if (IS_ERR(st->reset_gpio)) {
-		dev_err(&pdev->dev, "Failed to get reset GPIO: %ld\n",
-			PTR_ERR(st->reset_gpio));
-		return PTR_ERR(st->reset_gpio);
-	}
+	if (IS_ERR(st->reset_gpio))
+		return dev_err_probe(&pdev->dev, PTR_ERR(st->reset_gpio),
+				     "Failed to get reset GPIO\n");
 
 	if (st->reset_gpio) {
 		dev_info(&pdev->dev, "Reset GPIO found, performing hardware reset\n");
@@ -460,10 +454,8 @@ static int ad9740_probe(struct platform_device *pdev)
 	/* Extend channel with DDS controls from backend */
 	dev_info(&pdev->dev, "Extending channel spec with backend DDS controls\n");
 	ret = iio_backend_extend_chan_spec(st->back, &channels[0]);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to extend channel spec: %d\n", ret);
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret, "Failed to extend channel spec\n");
 
 	/* Merge our ext_info (data_source) with backend's ext_info (DDS) */
 	backend_ext_info = channels[0].ext_info;
@@ -520,18 +512,14 @@ static int ad9740_probe(struct platform_device *pdev)
 
 	/* Setup DAC and backend */
 	ret = ad9740_setup(st);
-	if (ret) {
-		dev_err(&pdev->dev, "AD9740 setup failed: %d\n", ret);
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret, "AD9740 setup failed\n");
 
 	/* Register IIO device */
 	dev_info(&pdev->dev, "Registering IIO device\n");
 	ret = devm_iio_device_register(&pdev->dev, indio_dev);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to register IIO device: %d\n", ret);
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret, "Failed to register IIO device\n");
 
 	dev_info(&pdev->dev, "========================================\n");
 	dev_info(&pdev->dev, "%s %u-bit DAC registered successfully!\n",
