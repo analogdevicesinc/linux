@@ -730,4 +730,7 @@ int psp_ual_set_station_config(struct psp_context *psp, uint32_t intf_ver,
 int psp_ual_set_npa_config(struct psp_context *psp, uint32_t intf_ver,
 			   unsigned int vmid, bool enable);
 
+int psp_ual_send_completion(struct psp_context *psp, uint32_t intf_ver,
+			    uint32_t cmd_id, uint32_t status);
+
 #endif
