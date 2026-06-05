@@ -21,6 +21,7 @@
  * lower 14 bits for AD9744, and MSB-aligned for other variants.
  */
 
+#include <linux/cleanup.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
 #include <linux/iio/backend.h>
@@ -110,7 +111,7 @@ static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
 	dev_info(st->dev, "Buffer enable requested - starting DMA streaming\n");
 	dev_info(st->dev, "========================================\n");
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
 
 	/* Configure data format based on DT setting */
 	if (st->twos_complement) {
@@ -121,45 +122,20 @@ static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
 		dev_info(st->dev, "Configuring data format: offset binary\n");
 	}
 
-	/*
-	 * AD9740 DACs expect data aligned in a 14-bit internal bus:
-	 * - AD9748 (8-bit):  Data from bits [15:8] → DAC [13:6], shift=8
-	 * - AD9740 (10-bit): Data from bits [15:6] → DAC [13:4], shift=6
-	 * - AD9742 (12-bit): Data from bits [15:4] → DAC [13:2], shift=4
-	 * - AD9744 (14-bit): Data from bits [13:0] → DAC [13:0], shift=0
-	 *
-	 * The IIO framework handles this via the .shift field in scan_type.
-	 * AD9744 is special: it extracts lower 14 bits directly (no MSB alignment).
-	 */
 	dev_info(st->dev, "Setting backend data format (%u-bit MSB-aligned in 16-bit container)\n",
 		 st->chip_info->resolution);
 
-	/* Configure data format: N-bit MSB-aligned in 16-bit container */
 	ret = iio_backend_data_format_set(st->back, 0, &fmt);
-	if (ret) {
-		dev_err(st->dev, "Failed to set data format: %d\n", ret);
-		goto err_unlock;
-	}
-	dev_info(st->dev, "Data format configured successfully (MSB-aligned)\n");
+	if (ret)
+		return dev_err_probe(st->dev, ret, "Failed to set data format\n");
 
-	/* Enable data streaming from DMA to DAC core */
 	dev_info(st->dev, "Enabling backend data stream\n");
 	ret = iio_backend_data_stream_enable(st->back);
-	if (ret) {
-		dev_err(st->dev, "Failed to enable data stream: %d\n", ret);
-		goto err_unlock;
-	}
+	if (ret)
+		return dev_err_probe(st->dev, ret, "Failed to enable data stream\n");
 
-	mutex_unlock(&st->lock);
-	dev_info(st->dev, "========================================\n");
 	dev_info(st->dev, "Buffer enabled - DMA streaming ACTIVE\n");
-	dev_info(st->dev, "========================================\n");
 	return 0;
-
-err_unlock:
-	mutex_unlock(&st->lock);
-	dev_err(st->dev, "Buffer enable FAILED\n");
-	return ret;
 }
 
 static int ad9740_buffer_predisable(struct iio_dev *indio_dev)
@@ -171,22 +147,14 @@ static int ad9740_buffer_predisable(struct iio_dev *indio_dev)
 	dev_info(st->dev, "Buffer disable requested - stopping DMA streaming\n");
 	dev_info(st->dev, "========================================\n");
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
 
-	/* Disable data streaming */
 	dev_info(st->dev, "Disabling backend data stream\n");
 	ret = iio_backend_data_stream_disable(st->back);
-	if (ret) {
-		dev_err(st->dev, "Failed to disable data stream: %d\n", ret);
-		mutex_unlock(&st->lock);
-		dev_err(st->dev, "Buffer disable FAILED\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(st->dev, ret, "Failed to disable data stream\n");
 
-	mutex_unlock(&st->lock);
-	dev_info(st->dev, "========================================\n");
 	dev_info(st->dev, "Buffer disabled - DMA streaming STOPPED\n");
-	dev_info(st->dev, "========================================\n");
 	return 0;
 }
 
