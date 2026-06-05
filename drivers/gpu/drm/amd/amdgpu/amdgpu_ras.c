@@ -3329,6 +3329,7 @@ static bool amdgpu_ras_asic_supported(struct amdgpu_device *adev)
 		case IP_VERSION(13, 0, 14):
 		case IP_VERSION(13, 0, 15):
 		case IP_VERSION(14, 0, 3):
+		case IP_VERSION(15, 0, 8):
 			return true;
 		default:
 			return false;
