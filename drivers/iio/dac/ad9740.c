@@ -101,35 +101,12 @@ static int ad9740_set_data_source(struct ad9740_state *st,
 static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad9740_state *st = iio_priv(indio_dev);
-	struct iio_backend_data_fmt fmt = {
-		.sign_extend = false,
-		.enable = true,
-	};
 	int ret;
 
-	dev_info(st->dev, "========================================\n");
 	dev_info(st->dev, "Buffer enable requested - starting DMA streaming\n");
-	dev_info(st->dev, "========================================\n");
 
 	guard(mutex)(&st->lock);
 
-	/* Configure data format based on DT setting */
-	if (st->twos_complement) {
-		fmt.type = IIO_BACKEND_TWOS_COMPLEMENT;
-		dev_info(st->dev, "Configuring data format: 2's complement\n");
-	} else {
-		fmt.type = IIO_BACKEND_OFFSET_BINARY;
-		dev_info(st->dev, "Configuring data format: offset binary\n");
-	}
-
-	dev_info(st->dev, "Setting backend data format (%u-bit MSB-aligned in 16-bit container)\n",
-		 st->chip_info->resolution);
-
-	ret = iio_backend_data_format_set(st->back, 0, &fmt);
-	if (ret)
-		return dev_err_probe(st->dev, ret, "Failed to set data format\n");
-
-	dev_info(st->dev, "Enabling backend data stream\n");
 	ret = iio_backend_data_stream_enable(st->back);
 	if (ret)
 		return dev_err_probe(st->dev, ret, "Failed to enable data stream\n");
