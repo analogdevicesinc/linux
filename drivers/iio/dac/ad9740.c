@@ -96,19 +96,6 @@ static int ad9740_set_data_source(struct ad9740_state *st,
 	return ret;
 }
 
-static int ad9740_read_raw(struct iio_dev *indio_dev,
-			   struct iio_chan_spec const *chan,
-			   int *val, int *val2, long mask)
-{
-	return -EINVAL;
-}
-
-static int ad9740_write_raw(struct iio_dev *indio_dev,
-			    struct iio_chan_spec const *chan,
-			    int val, int val2, long mask)
-{
-	return -EINVAL;
-}
 
 static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
 {
@@ -356,7 +343,6 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 
 #define AD9740_CHANNEL(ch, bits, shft) { \
 	.type = IIO_ALTVOLTAGE, \
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
 	.output = 1, \
 	.indexed = 1, \
 	.channel = (ch), \
@@ -387,8 +373,6 @@ static const struct iio_chan_spec ad9744_channels[] = {
 };
 
 static const struct iio_info ad9740_info = {
-	.read_raw = &ad9740_read_raw,
-	.write_raw = &ad9740_write_raw,
 };
 
 static const struct ad9740_chip_info ad9748_chip_info = {
