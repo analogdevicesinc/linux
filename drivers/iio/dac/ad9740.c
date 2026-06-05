@@ -4,21 +4,6 @@
  * 8/10/12/14-Bit, 210 MSPS Digital-to-Analog Converters
  *
  * Copyright 2025 Analog Devices Inc.
- *
- * MSB Alignment Requirements:
- * The AD9740 family DACs expect MSB-aligned data in their internal 14-bit bus.
- * This driver handles the alignment by configuring the IIO scan_type.shift field
- * to indicate how many bits the data should be shifted left.
- *
- * Data Format per Device:
- * - AD9748 (8-bit):  Bits [15:8] of 16-bit word → DAC bits [13:6], shift=8
- * - AD9740 (10-bit): Bits [15:6] of 16-bit word → DAC bits [13:4], shift=6
- * - AD9742 (12-bit): Bits [15:4] of 16-bit word → DAC bits [13:2], shift=4
- * - AD9744 (14-bit): Bits [13:0] of 16-bit word → DAC bits [13:0], shift=0
- *
- * Note: AD9744 extracts bits[13:0] directly, not bits[15:2] as the formula
- * (16 - resolution) would suggest. Userspace should provide data in the
- * lower 14 bits for AD9744, and MSB-aligned for other variants.
  */
 
 #include <linux/cleanup.h>
@@ -30,14 +15,9 @@
 #include <linux/platform_device.h>
 #include <linux/property.h>
 
-/*
- * AD9740 family has no configuration registers - they are simple parallel DACs.
- * All configuration is done via the AXI DAC IP core in the FPGA.
- */
-
 struct ad9740_chip_info {
 	const char *name;
-	unsigned int resolution;	/* DAC resolution in bits */
+	unsigned int resolution;
 	const struct iio_chan_spec *channels;
 	int num_channels;
 };
@@ -47,9 +27,7 @@ struct ad9740_state {
 	struct iio_backend *back;
 	struct gpio_desc *reset_gpio;
 	const struct ad9740_chip_info *chip_info;
-	/* Data format: true = 2's complement, false = offset binary */
 	bool twos_complement;
-	/* Protects backend I/O operations from concurrent accesses. */
 	struct mutex lock;
 };
 
@@ -59,42 +37,22 @@ static const char * const ad9740_data_sources[] = {
 	[IIO_BACKEND_INTERNAL_RAMP_16BIT] = "ramp",
 };
 
-
 static int ad9740_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad9740_state *st = iio_priv(indio_dev);
-	int ret;
-
-	dev_info(st->dev, "Buffer enable requested - starting DMA streaming\n");
 
 	guard(mutex)(&st->lock);
 
-	ret = iio_backend_data_stream_enable(st->back);
-	if (ret)
-		return dev_err_probe(st->dev, ret, "Failed to enable data stream\n");
-
-	dev_info(st->dev, "Buffer enabled - DMA streaming ACTIVE\n");
-	return 0;
+	return iio_backend_data_stream_enable(st->back);
 }
 
 static int ad9740_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad9740_state *st = iio_priv(indio_dev);
-	int ret;
-
-	dev_info(st->dev, "========================================\n");
-	dev_info(st->dev, "Buffer disable requested - stopping DMA streaming\n");
-	dev_info(st->dev, "========================================\n");
 
 	guard(mutex)(&st->lock);
 
-	dev_info(st->dev, "Disabling backend data stream\n");
-	ret = iio_backend_data_stream_disable(st->back);
-	if (ret)
-		return dev_err_probe(st->dev, ret, "Failed to disable data stream\n");
-
-	dev_info(st->dev, "Buffer disabled - DMA streaming STOPPED\n");
-	return 0;
+	return iio_backend_data_stream_disable(st->back);
 }
 
 static ssize_t ad9740_ext_info_get_data_source(struct iio_dev *indio_dev,
@@ -173,42 +131,16 @@ static int ad9740_setup(struct ad9740_state *st)
 	};
 	int ret;
 
-	dev_info(st->dev, "Starting %s setup\n", st->chip_info->name);
-
-	/*
-	 * Configure data format based on DT setting.
-	 * This must be done at probe time so both DMA and DDS modes work.
-	 * The DDS (CORDIC) always outputs signed (2's complement) data,
-	 * so the backend needs to know whether to convert it to unsigned
-	 * (offset binary) for the DAC.
-	 */
-	if (st->twos_complement) {
+	if (st->twos_complement)
 		fmt.type = IIO_BACKEND_TWOS_COMPLEMENT;
-		dev_info(st->dev, "Configuring data format: 2's complement (signed DAC)\n");
-	} else {
+	else
 		fmt.type = IIO_BACKEND_OFFSET_BINARY;
-		dev_info(st->dev, "Configuring data format: offset binary (unsigned DAC)\n");
-	}
 
 	ret = iio_backend_data_format_set(st->back, 0, &fmt);
-	if (ret) {
-		dev_err(st->dev, "Failed to set data format: %d\n", ret);
-		return ret;
-	}
-
-	/* Set data source to external (from DMA) */
-	ret = iio_backend_data_source_set(st->back, 0, IIO_BACKEND_EXTERNAL);
 	if (ret)
 		return ret;
 
-	/*
-	 * AD9740 family has no software-configurable registers.
-	 * Hardware configuration (full-scale current, references, etc.)
-	 * is done via external analog components on the board.
-	 */
-
-	dev_info(st->dev, "%s setup completed successfully\n", st->chip_info->name);
-	return 0;
+	return iio_backend_data_source_set(st->back, 0, IIO_BACKEND_EXTERNAL);
 }
 
 static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
@@ -216,11 +148,6 @@ static const struct iio_buffer_setup_ops ad9740_buffer_setup_ops = {
 	.predisable = ad9740_buffer_predisable,
 };
 
-/*
- * Two channels per variant, matching the ad9739a pattern:
- *   ALTVOLTAGE: DDS tone generator (extended by backend with freq/scale/phase)
- *   VOLTAGE:    DMA data output with scan_type for buffer streaming
- */
 #define AD9740_CHAN_DDS { \
 	.type = IIO_ALTVOLTAGE, \
 	.indexed = 1, \
@@ -297,6 +224,7 @@ static int ad9740_probe(struct platform_device *pdev)
 {
 	struct ad9740_state *st;
 	struct iio_dev *indio_dev;
+	struct iio_chan_spec *channels;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*st));
@@ -306,40 +234,25 @@ static int ad9740_probe(struct platform_device *pdev)
 	st = iio_priv(indio_dev);
 	st->dev = &pdev->dev;
 
-	/* Get chip info from device match data */
 	st->chip_info = device_get_match_data(&pdev->dev);
 	if (!st->chip_info)
 		return dev_err_probe(&pdev->dev, -ENODEV, "Failed to get chip info\n");
 
-	dev_info(&pdev->dev, "%s probe starting (%u-bit DAC)\n",
-		 st->chip_info->name, st->chip_info->resolution);
-
 	mutex_init(&st->lock);
-	dev_dbg(&pdev->dev, "Mutex initialized\n");
 
-	/* Parse device tree properties */
 	st->twos_complement = device_property_read_bool(&pdev->dev,
 							"adi,twos-complement");
-	dev_info(&pdev->dev, "Data format: %s\n",
-		 st->twos_complement ? "2's complement" : "offset binary");
 
-	/* Get IIO backend (AXI_AD9740 DAC core) */
-	dev_info(&pdev->dev, "Getting IIO backend (AXI_AD9740)\n");
 	st->back = devm_iio_backend_get(&pdev->dev, NULL);
 	if (IS_ERR(st->back))
 		return dev_err_probe(&pdev->dev, PTR_ERR(st->back),
 				     "Failed to get backend\n");
-	dev_info(&pdev->dev, "IIO backend acquired successfully\n");
 
-	dev_info(&pdev->dev, "Enabling IIO backend\n");
 	ret = devm_iio_backend_enable(&pdev->dev, st->back);
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret,
 				     "Failed to enable backend\n");
-	dev_info(&pdev->dev, "IIO backend enabled successfully\n");
 
-	/* Get reset GPIO if present */
-	dev_dbg(&pdev->dev, "Checking for reset GPIO\n");
 	st->reset_gpio = devm_gpiod_get_optional(&pdev->dev, "reset",
 						 GPIOD_OUT_HIGH);
 	if (IS_ERR(st->reset_gpio))
@@ -347,19 +260,11 @@ static int ad9740_probe(struct platform_device *pdev)
 				     "Failed to get reset GPIO\n");
 
 	if (st->reset_gpio) {
-		dev_info(&pdev->dev, "Reset GPIO found, performing hardware reset\n");
-		/* Reset the device */
 		gpiod_set_value_cansleep(st->reset_gpio, 1);
 		msleep(10);
 		gpiod_set_value_cansleep(st->reset_gpio, 0);
 		msleep(10);
-		dev_info(&pdev->dev, "Hardware reset completed\n");
-	} else {
-		dev_info(&pdev->dev, "No reset GPIO specified\n");
 	}
-
-	/* Make a modifiable copy of the channel spec for backend extension */
-	struct iio_chan_spec *channels;
 
 	channels = devm_kmemdup(&pdev->dev, st->chip_info->channels,
 				sizeof(struct iio_chan_spec) * st->chip_info->num_channels,
@@ -367,7 +272,6 @@ static int ad9740_probe(struct platform_device *pdev)
 	if (!channels)
 		return -ENOMEM;
 
-	/* Extend ALTVOLTAGE channel with DDS controls from backend */
 	ret = iio_backend_extend_chan_spec(st->back, &channels[0]);
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret, "Failed to extend channel spec\n");
@@ -378,47 +282,21 @@ static int ad9740_probe(struct platform_device *pdev)
 	indio_dev->channels = channels;
 	indio_dev->num_channels = st->chip_info->num_channels;
 	indio_dev->info = &ad9740_info;
-	dev_info(&pdev->dev, "IIO device configured: %d channel(s), modes=0x%x\n",
-		 indio_dev->num_channels, indio_dev->modes);
 
-	/* Request DMA buffer from backend */
-	dev_info(&pdev->dev, "Requesting DMA buffer from backend\n");
 	ret = devm_iio_backend_request_buffer(&pdev->dev, st->back, indio_dev);
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret,
 				     "Failed to request backend buffer\n");
-	dev_info(&pdev->dev, "DMA buffer allocated successfully\n");
 
-	/* Setup DAC and backend */
 	ret = ad9740_setup(st);
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret, "AD9740 setup failed\n");
 
-	/* Register IIO device */
-	dev_info(&pdev->dev, "Registering IIO device\n");
 	ret = devm_iio_device_register(&pdev->dev, indio_dev);
 	if (ret)
 		return dev_err_probe(&pdev->dev, ret, "Failed to register IIO device\n");
 
 	iio_backend_debugfs_add(st->back, indio_dev);
-
-	dev_info(&pdev->dev, "========================================\n");
-	dev_info(&pdev->dev, "%s %u-bit DAC registered successfully!\n",
-		 st->chip_info->name, st->chip_info->resolution);
-	dev_info(&pdev->dev, "========================================\n");
-	dev_info(&pdev->dev, "Features:\n");
-	dev_info(&pdev->dev, "  - Resolution: %u-bit\n", st->chip_info->resolution);
-	dev_info(&pdev->dev, "  - DDS dual-tone generator\n");
-	dev_info(&pdev->dev, "  - DMA streaming mode\n");
-	dev_info(&pdev->dev, "  - Internal ramp pattern\n");
-	dev_info(&pdev->dev, "Data source control:\n");
-	dev_info(&pdev->dev, "  - out_voltage0_data_source (normal/dds/ramp)\n");
-	dev_info(&pdev->dev, "  - out_voltage0_data_source_available\n");
-	dev_info(&pdev->dev, "DDS controls:\n");
-	dev_info(&pdev->dev, "  - out_voltage0_frequency0/1 (tone frequencies)\n");
-	dev_info(&pdev->dev, "  - out_voltage0_scale0/1 (tone amplitudes)\n");
-	dev_info(&pdev->dev, "  - out_voltage0_phase0/1 (tone phases)\n");
-	dev_info(&pdev->dev, "========================================\n");
 
 	return 0;
 }
@@ -442,6 +320,6 @@ static struct platform_driver ad9740_driver = {
 module_platform_driver(ad9740_driver);
 
 MODULE_AUTHOR("Analog Devices Inc.");
-MODULE_DESCRIPTION("Analog Devices AD9740/AD9742/AD9744/AD9748 DAC Driver with MSB Alignment");
+MODULE_DESCRIPTION("Analog Devices AD9740/AD9742/AD9744/AD9748 DAC Driver");
 MODULE_LICENSE("GPL");
 MODULE_IMPORT_NS(IIO_BACKEND);
