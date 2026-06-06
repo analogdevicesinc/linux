@@ -408,10 +408,14 @@ int amdgpu_vm_pt_clear(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 
 	if (adev->asic_type >= CHIP_VEGA10) {
 		if (level != AMDGPU_VM_PTB) {
+			if (vm->is_npa)
+				flags = adev->gmc.noretry_flags;
 			/* Handle leaf PDEs as PTEs */
 			flags |= AMDGPU_PDE_PTE_FLAG(adev);
 			amdgpu_gmc_get_vm_pde(adev, level,
 					      &value, &flags);
+		} else if (vm->is_npa) {
+			flags = adev->gmc.noretry_flags;
 		} else {
 			/* Workaround for fault priority problem on GMC9 */
 			flags = AMDGPU_PTE_EXECUTABLE | adev->gmc.init_pte_flags;
