@@ -700,7 +700,11 @@ int scd30_probe(struct device *dev, int irq, const char *name, void *priv,
 	state->pressure_comp = SCD30_PRESSURE_COMP_DEFAULT;
 	state->meas_interval = SCD30_MEAS_INTERVAL_DEFAULT;
 	state->command = command;
-	mutex_init(&state->lock);
+
+	ret = devm_mutex_init(dev, &state->lock);
+	if (ret)
+		return ret;
+
 	init_completion(&state->meas_ready);
 
 	dev_set_drvdata(dev, indio_dev);
