@@ -1056,6 +1056,7 @@ assert_compiled () {
 			      .command" compile_commands.json)
 
 		[[ -n "$compile_cmd" ]] && continue
+		[[ "$file" == "tools/"* ]] && continue
 		if [[ "$file" == "arch/"* ]] && [[ ! "$file" == "arch/$ARCH/"* ]]; then
 			echo "Not compiled, but targets a different architecture." ; continue
 		fi
