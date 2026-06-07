@@ -11,7 +11,20 @@
 #include <dt-bindings/clock/adi-sc5xx-clock.h>
 #include "clk.h"
 
-PARENT_CLKS(cgu1_in_parents)	    = { "sys_clkin0", "sys_clkin1" };
+#define IN0_CLKON	0x0
+#define IN1_CLKON	0x1
+#define IN2_CLKON	0x2
+#define IN3_CLKON	0x3
+
+/* CDU CLKOn input clock source configurations */
+MUX_TABLE(CDU_CLKO_SEL1)	= { IN0_CLKON };
+MUX_TABLE(CDU_CLKO_SEL2)	= { IN1_CLKON };
+MUX_TABLE(CDU_CLKO_SEL3)	= { IN0_CLKON, IN1_CLKON };
+MUX_TABLE(CDU_CLKO_SEL4)	= { IN0_CLKON, IN1_CLKON, IN2_CLKON };
+MUX_TABLE(CDU_CLKO_SEL5)	= { IN0_CLKON, IN2_CLKON, IN3_CLKON };
+MUX_TABLE(CDU_CLKO_SEL6)	= { IN0_CLKON, IN1_CLKON, IN2_CLKON, IN3_CLKON };
+
+PARENT_CLKS(cgu1)		    = { "sys_clkin0", "sys_clkin1" };
 PARENT_CLKS(cgu0_sclk1_parents)	    = { "cgu0_s1seldiv", "cgu0_s1selexdiv" };
 PARENT_CLKS(cgu1_sclk0_parents)	    = { "cgu1_s0seldiv", "cgu1_s0selexdiv" };
 PARENT_CLKS(cgu1_sclk1_parents)	    = { "cgu1_s1seldiv", "cgu1_s1selexdiv" };

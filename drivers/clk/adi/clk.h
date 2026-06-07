@@ -79,6 +79,8 @@ struct sc5xx_pll_clock {
 	bool		half_m;
 };
 
+
+
 #define __PLL(_id, _name, _parent, _offset, _shift, _width, _m_offset, _half_m) \
 	{									\
 		.id = (_id),							\
@@ -171,6 +173,8 @@ struct sc5xx_mux_clock {
 	      (_flags) | CLK_IS_CRITICAL)
 
 #define PARENT_CLKS(_name)	static const char * const _name[]
+
+#define MUX_TABLE(_name)	static const u32 _name[]
 
 struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 			       u8 cdu_clko,
