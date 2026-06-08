@@ -1128,7 +1128,7 @@ static int bmi323_set_watermark(struct iio_dev *indio_dev, unsigned int val)
 {
 	struct bmi323_data *data = iio_priv(indio_dev);
 
-	val = min(val, (u32)BMI323_FIFO_FULL_IN_FRAMES);
+	val = min(val, BMI323_FIFO_FULL_IN_FRAMES);
 
 	guard(mutex)(&data->mutex);
 	data->watermark = val;
