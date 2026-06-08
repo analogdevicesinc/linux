@@ -3444,8 +3444,8 @@ int amdgpu_ualink_manager_start(struct amdgpu_device *adev)
 	if (r)
 		goto out;
 
-	/* For using CPU for page table updates. */
-	r = amdgpu_vm_make_compute(adev, &adev->ualink.npa_vm);
+	/* For pinning page tables and using CPU for page table updates. */
+	r = amdgpu_vm_make_npa(adev, &adev->ualink.npa_vm);
 	if (r)
 		goto uninit_vm;
 

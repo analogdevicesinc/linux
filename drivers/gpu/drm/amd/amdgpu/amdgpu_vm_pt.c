@@ -445,6 +445,7 @@ int amdgpu_vm_pt_create(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 {
 	struct amdgpu_bo_param bp;
 	unsigned int num_entries;
+	int r;
 
 	memset(&bp, 0, sizeof(bp));
 
@@ -477,7 +478,24 @@ int amdgpu_vm_pt_create(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 	if (vm->root.bo)
 		bp.resv = vm->root.bo->tbo.base.resv;
 
-	return amdgpu_bo_create_vm(adev, &bp, vmbo);
+	r = amdgpu_bo_create_vm(adev, &bp, vmbo);
+	if (r)
+		return r;
+
+	/* Assumes that reservation is shared with the VM root and that the
+	 * reservation is locked
+	 */
+	if (vm->root.bo && vm->is_npa) {
+		struct amdgpu_bo *pt_bo = &(*vmbo)->bo;
+
+		r = amdgpu_bo_pin(pt_bo, AMDGPU_GEM_DOMAIN_VRAM);
+		if (r) {
+			amdgpu_bo_unref(&pt_bo);
+			return r;
+		}
+	}
+
+	return 0;
 }
 
 /**
@@ -527,6 +545,8 @@ static int amdgpu_vm_pt_alloc(struct amdgpu_device *adev,
 	return 0;
 
 error_free_pt:
+	if (vm->is_npa)
+		amdgpu_bo_unpin(pt_bo);
 	amdgpu_bo_unref(&pt_bo);
 	return r;
 }
@@ -540,6 +560,9 @@ static void amdgpu_vm_pt_free(struct amdgpu_vm_bo_base *entry)
 {
 	if (!entry->bo)
 		return;
+
+	if (entry->vm->is_npa)
+		amdgpu_bo_unpin(entry->bo);
 
 	amdgpu_vm_update_stats(entry, entry->bo->tbo.resource, -1);
 	entry->bo->vm_bo = NULL;
