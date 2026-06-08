@@ -1648,61 +1648,6 @@ static u32 gfx_v12_1_get_sa_active_bitmap(struct amdgpu_device *adev,
 	return sa_mask & (~(gc_disabled_sa_mask | gc_user_disabled_sa_mask));
 }
 
-static u32 gfx_v12_1_get_rb_active_bitmap(struct amdgpu_device *adev,
-					  int xcc_id)
-{
-	u32 gc_disabled_rb_mask, gc_user_disabled_rb_mask;
-	u32 rb_mask;
-
-	gc_disabled_rb_mask = RREG32_SOC15(GC, GET_INST(GC, xcc_id),
-					   regCC_RB_BACKEND_DISABLE);
-	gc_disabled_rb_mask = REG_GET_FIELD(gc_disabled_rb_mask,
-					    CC_RB_BACKEND_DISABLE,
-					    BACKEND_DISABLE);
-	gc_user_disabled_rb_mask = RREG32_SOC15(GC, GET_INST(GC, xcc_id),
-						regGC_USER_RB_BACKEND_DISABLE);
-	gc_user_disabled_rb_mask = REG_GET_FIELD(gc_user_disabled_rb_mask,
-						 GC_USER_RB_BACKEND_DISABLE,
-						 BACKEND_DISABLE);
-	rb_mask = amdgpu_gfx_create_bitmask(adev->gfx.config.max_backends_per_se *
-					    adev->gfx.config.max_shader_engines);
-
-	return rb_mask & (~(gc_disabled_rb_mask | gc_user_disabled_rb_mask));
-}
-
-static void gfx_v12_1_setup_rb(struct amdgpu_device *adev)
-{
-	u32 rb_bitmap_width_per_sa;
-	u32 max_sa;
-	u32 active_sa_bitmap;
-	u32 global_active_rb_bitmap;
-	u32 active_rb_bitmap = 0;
-	u32 i;
-	int xcc_id;
-
-	for (xcc_id = 0; xcc_id < NUM_XCC(adev->gfx.xcc_mask); xcc_id++) {
-		/* query sa bitmap from SA_UNIT_DISABLE registers */
-		active_sa_bitmap = gfx_v12_1_get_sa_active_bitmap(adev, xcc_id);
-		/* query rb bitmap from RB_BACKEND_DISABLE registers */
-		global_active_rb_bitmap = gfx_v12_1_get_rb_active_bitmap(adev, xcc_id);
-
-		/* generate active rb bitmap according to active sa bitmap */
-		max_sa = adev->gfx.config.max_shader_engines *
-			 adev->gfx.config.max_sh_per_se;
-		rb_bitmap_width_per_sa = adev->gfx.config.max_backends_per_se /
-					 adev->gfx.config.max_sh_per_se;
-		for (i = 0; i < max_sa; i++) {
-			if (active_sa_bitmap & (1 << i))
-				active_rb_bitmap |= (0x3 << (i * rb_bitmap_width_per_sa));
-		}
-
-		active_rb_bitmap |= global_active_rb_bitmap;
-	}
-
-	adev->gfx.config.backend_enable_mask = active_rb_bitmap;
-	adev->gfx.config.num_rbs = hweight32(active_rb_bitmap);
-}
-
 static void gfx_v12_1_xcc_init_compute_vmid(struct amdgpu_device *adev,
 					    int xcc_id)
 {
@@ -1800,7 +1745,6 @@ static void gfx_v12_1_constants_init(struct amdgpu_device *adev)
 
 	num_xcc = NUM_XCC(adev->gfx.xcc_mask);
 
-	gfx_v12_1_setup_rb(adev);
 	gfx_v12_1_get_cu_info(adev, &adev->gfx.cu_info);
 	gfx_v12_1_get_tcc_info(adev);
 	adev->gfx.config.pa_sc_tile_steering_override = 0;
