@@ -2850,42 +2850,6 @@ static int gfx_v12_1_gfxhub_enable(struct amdgpu_device *adev)
 	return 0;
 }
 
-static int get_gb_addr_config(struct amdgpu_device *adev)
-{
-	u32 gb_addr_config;
-
-	gb_addr_config = RREG32_SOC15(GC, GET_INST(GC, 0), regGB_ADDR_CONFIG_READ);
-	if (gb_addr_config == 0)
-		return -EINVAL;
-
-	adev->gfx.config.gb_addr_config_fields.num_pkrs =
-		1 << REG_GET_FIELD(gb_addr_config, GB_ADDR_CONFIG_READ, NUM_PKRS);
-
-	adev->gfx.config.gb_addr_config = gb_addr_config;
-
-	adev->gfx.config.gb_addr_config_fields.num_pipes = 1 <<
-			REG_GET_FIELD(adev->gfx.config.gb_addr_config,
-				      GB_ADDR_CONFIG_READ, NUM_PIPES);
-
-	adev->gfx.config.max_tile_pipes =
-		adev->gfx.config.gb_addr_config_fields.num_pipes;
-
-	adev->gfx.config.gb_addr_config_fields.max_compress_frags = 1 <<
-			REG_GET_FIELD(adev->gfx.config.gb_addr_config,
-				      GB_ADDR_CONFIG_READ, MAX_COMPRESSED_FRAGS);
-	adev->gfx.config.gb_addr_config_fields.num_rb_per_se = 1 <<
-			REG_GET_FIELD(adev->gfx.config.gb_addr_config,
-				      GB_ADDR_CONFIG_READ, NUM_RB_PER_SE);
-	adev->gfx.config.gb_addr_config_fields.num_se = 1 <<
-			REG_GET_FIELD(adev->gfx.config.gb_addr_config,
-				      GB_ADDR_CONFIG_READ, NUM_SHADER_ENGINES);
-	adev->gfx.config.gb_addr_config_fields.pipe_interleave_size = 1 << (8 +
-			REG_GET_FIELD(adev->gfx.config.gb_addr_config,
-				      GB_ADDR_CONFIG_READ, PIPE_INTERLEAVE_SIZE));
-
-	return 0;
-}
-
 static void gfx_v12_1_xcc_disable_gpa_mode(struct amdgpu_device *adev,
 					   int xcc_id)
 {
@@ -3033,9 +2997,6 @@ static int gfx_v12_1_hw_init(struct amdgpu_ip_block *ip_block)
 	}
 
 	adev->gfx.is_poweron = true;
-
-	if (get_gb_addr_config(adev))
-		DRM_WARN("Invalid gb_addr_config !\n");
 
 	if (adev->firmware.load_type == AMDGPU_FW_LOAD_PSP)
 		gfx_v12_1_config_gfx_rs64(adev);
