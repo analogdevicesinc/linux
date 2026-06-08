@@ -177,10 +177,11 @@ jobs:
 
     - name: Generate modules prepare
       run: |
-        _cc="${CXX:-clang${LLVM}}"
+        _cc="${CROSS_COMPILE}gcc"
+        _hostcc=gcc
         _srctree=$(pwd)
         ( cd "$KBUILD_OUTPUT" && \
-          srctree=$_srctree SRCARCH=$ARCH CC=$_cc HOSTCC=$_cc MAKE=make \
+          srctree=$_srctree SRCARCH=$ARCH CC=$_cc HOSTCC=$_hostcc KBUILD_OUTPUT= MAKE=make \
           bash "$_srctree/scripts/package/install-extmod-build" "$KBUILD_MODULES_PREPARE" )
 
     - name: Prepare dist
