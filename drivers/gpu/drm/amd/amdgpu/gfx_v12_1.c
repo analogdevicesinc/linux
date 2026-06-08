@@ -1686,15 +1686,6 @@ static void gfx_v12_1_xcc_init_compute_vmid(struct amdgpu_device *adev,
 	mutex_unlock(&adev->srbm_mutex);
 }
 
-static void gfx_v12_1_tcp_harvest(struct amdgpu_device *adev)
-{
-	/* TODO: harvest feature to be added later. */
-}
-
-static void gfx_v12_1_get_tcc_info(struct amdgpu_device *adev)
-{
-}
-
 static void gfx_v12_1_xcc_xnack_set_chicken_bits(struct amdgpu_device *adev, int xcc_id)
 {
 	/* NOTE: COMPRESSION_ENABLE is used a chicken bit to enable/disable xcc xnack */
@@ -1746,7 +1737,6 @@ static void gfx_v12_1_constants_init(struct amdgpu_device *adev)
 	num_xcc = NUM_XCC(adev->gfx.xcc_mask);
 
 	gfx_v12_1_get_cu_info(adev, &adev->gfx.cu_info);
-	gfx_v12_1_get_tcc_info(adev);
 	adev->gfx.config.pa_sc_tile_steering_override = 0;
 
 	for (i = 0; i < num_xcc; i++)
@@ -3064,12 +3054,6 @@ static int gfx_v12_1_hw_init(struct amdgpu_ip_block *ip_block)
 	r = gfx_v12_1_rlc_resume(adev);
 	if (r)
 		return r;
-
-	/*
-	 * init golden registers and rlc resume may override some registers,
-	 * reconfig them here
-	 */
-	gfx_v12_1_tcp_harvest(adev);
 
 	r = gfx_v12_1_cp_resume(adev);
 	if (r)
