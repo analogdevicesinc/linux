@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices LTC2387
+ * Analog Devices LTC2387-18
  *
  * hdl_project: <cn0577/zed>
+ * for all config modes, please check the README of the HDL project
  * board_revision: <A>
  *
  * Copyright (C) 2022 - 2026 Analog Devices Inc.
