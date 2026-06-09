@@ -35,6 +35,9 @@ struct amdgpu_device;
 #define AMDGPU_UALINK_LOCAL_ACCELS_MAX 8
 #define AMDGPU_UALINK_STATIONS_MAX 64
 
+/* A vpod_id of 0 is reserved and treated as invalid/no vPod */
+#define AMDGPU_UALINK_VPOD_ID_INVALID 0
+
 /* nHT firmware status */
 #define AMDGPU_NHT_FW_ST_PREINIT	0xA0
 #define AMDGPU_NHT_FW_ST_READY	0xA1
