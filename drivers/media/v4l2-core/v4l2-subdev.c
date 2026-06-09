@@ -260,8 +260,19 @@ static int call_set_fmt(struct v4l2_subdev *sd,
 			struct v4l2_subdev_state *state,
 			struct v4l2_subdev_format *format)
 {
-	return do_subdev_call(sd, check_format(sd, state, format), pad, set_fmt,
-			      state, format);
+	int ret;
+
+	if (!sd->ops->pad->set_fmt && !sd->ops->pad->get_fmt)
+		return -ENOIOCTLCMD;
+
+	ret = check_format(sd, state, format);
+	if (ret)
+		return ret;
+
+	if (sd->ops->pad->set_fmt)
+		return sd->ops->pad->set_fmt(sd, state, format);
+
+	return sd->ops->pad->get_fmt(sd, state, format);
 }
 
 static int check_which_pad_state(struct v4l2_subdev *sd,
