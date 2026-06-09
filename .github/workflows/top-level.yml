@@ -40,7 +40,7 @@ jobs:
       arch: "arm"
       defconfig: "adi_ci_defconfig"
   assert_checks:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-slim' }}
     permissions:
       contents: read
     needs:
@@ -142,7 +142,7 @@ jobs:
       defconfig: "sc598-som-ezlite_defconfig"
       auto_from_range: false
   assert_build:
-    runs-on: [self-hosted, repo-only]
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-slim' }}
     permissions:
       contents: read
     needs:
