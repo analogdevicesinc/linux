@@ -320,6 +320,9 @@ static const struct clk_ops sc5xx_cdu_ops = {
  * Register the CDU_CLKINSEL.CGU1 mux. This selects whether CGU1 receives
  * CLKIN0 or CLKIN1. By default it is set by the bootloader to 0 (CLKIN0).
  *
+ * On ADSP-SC598 SoCs, CDU_CLKINSEL.CGU1 selects whether CGU1 and the
+ * additional CGU2/third PLL use CLKIN0 or CLKIN1.
+ *
  * Return: A registered clock on success, or an ERR_PTR() on failure.
  */
 struct clk * __init sc5xx_cdu_clkin_register(const char *clock_name, void __iomem *base,
