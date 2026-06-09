@@ -1864,9 +1864,7 @@ static void hsw_crtc_disable(struct intel_atomic_state *state,
 /* Prefer intel_encoder_is_combo() */
 bool intel_phy_is_combo(struct intel_display *display, enum phy phy)
 {
-	if (phy == PHY_NONE)
-		return false;
-	else if (display->platform.alderlake_s)
+	if (display->platform.alderlake_s)
 		return phy <= PHY_E;
 	else if (display->platform.dg1 || display->platform.rocketlake)
 		return phy <= PHY_D;
@@ -1920,7 +1918,7 @@ bool intel_phy_is_snps(struct intel_display *display, enum phy phy)
 	 * For DG2, and for DG2 only, all four "combo" ports and the TC1 port
 	 * (PHY E) use Synopsis PHYs. See intel_phy_is_tc().
 	 */
-	return display->platform.dg2 && phy > PHY_NONE && phy <= PHY_E;
+	return display->platform.dg2 && phy <= PHY_E;
 }
 
 /* Prefer intel_encoder_to_phy() */
@@ -1936,6 +1934,10 @@ enum phy intel_port_to_phy(struct intel_display *display, enum port port)
 		return PHY_C + port - PORT_TC1;
 	else if ((display->platform.jasperlake || display->platform.elkhartlake) &&
 		 port == PORT_D)
+		return PHY_A;
+
+	if (drm_WARN(display->drm, port < 0,
+		     "PHY is invalid if port < 0 (%d), assuming PHY_A\n", port))
 		return PHY_A;
 
 	return PHY_A + port - PORT_A;
