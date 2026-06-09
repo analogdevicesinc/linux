@@ -1,6 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2021 Analog Devices Incorporated
- * Author: Nathan Barrett-Morrison <nathan.morrison@timesys.com>
+ * ADSP-SC598 SoC device tree source
+ * 
+ * Copyright (C) 2021 Analog Devices Inc.
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
