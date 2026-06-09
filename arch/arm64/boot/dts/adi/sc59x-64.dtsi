@@ -166,7 +166,7 @@
 	gptimers: gptimers@31018000 {
 		compatible = "adi,sc5xx-gptimers";
 		reg = <0x31018000 0x200>;
-		clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+		clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 		status = "okay";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -343,7 +343,7 @@
 			reg = <0x31003000 0x40>;
 			dmas = <&dma_cluster2 20>, <&dma_cluster2 21>;
 			dma-names = "tx", "rx";
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			interrupt-parent = <&gic>;
 			interrupt-names = "tx", "rx", "status";
@@ -359,7 +359,7 @@
 			reg = <0x31003400 0x40>;
 			dmas = <&dma_cluster2 34>, <&dma_cluster2 35>;
 			dma-names = "tx", "rx";
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			interrupt-parent = <&gic>;
 			interrupt-names = "tx", "rx", "status";
@@ -375,7 +375,7 @@
 			reg = <0x31003800 0x40>;
 			dmas = <&dma_cluster2 37>, <&dma_cluster2 38>;
 			dma-names = "tx", "rx";
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			interrupt-parent = <&gic>;
 			interrupt-names = "tx", "rx", "status";
@@ -391,7 +391,7 @@
 			reg = <0x31003C00 0x40>;
 			dmas = <&dma_cluster2 53>, <&dma_cluster2 54>;
 			dma-names = "tx", "rx";
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			interrupt-parent = <&gic>;
 			interrupt-names = "tx", "rx", "status";
@@ -429,7 +429,7 @@
 			reg = <0x31001400 0xFF>;
 			interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -441,7 +441,7 @@
 			reg = <0x31001500 0xFF>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -453,7 +453,7 @@
 			reg = <0x31001600 0xFF>;
 			interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -465,7 +465,7 @@
 			reg = <0x31001000 0xFF>;
 			interrupts = <GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -477,7 +477,7 @@
 			reg = <0x31001100 0xFF>;
 			interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -489,7 +489,7 @@
 			reg = <0x31001200 0xFF>;
 			interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -503,7 +503,7 @@
 			interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&sport4_dma_cluster 10>, <&sport4_dma_cluster 11>;
 			dma-names = "tx", "rx";
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK1>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK1_0>;
 			clock-names = "sclk";
 		};
 
@@ -516,7 +516,7 @@
 			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&sport0_dma_cluster 0>, <&sport0_dma_cluster 1>;
 			dma-names = "tx", "rx";
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK1>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK1_0>;
 			clock-names = "sclk";
 		};
 
@@ -524,7 +524,7 @@
 			compatible = "adi,watchdog";
 			reg = <0x31008000 0x10>;
 			timeout-sec = <30>;
-			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0_0>;
 			clock-names = "adi-watchdog";
 		};
 
@@ -869,244 +869,6 @@
 			interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
-
-//		dma0: dma@0 {
-//			compatible = "adi,dma2";
-//			reg = <0x31022000 0x7F>;
-//			interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <66>;
-//		};
-//
-//		dma1: dma@1 {
-//			compatible = "adi,dma2";
-//			reg = <0x31022080 0x7F>;
-//			interrupts = <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <67>;
-//		};
-//
-//		dma2: dma@2 {
-//			compatible = "adi,dma2";
-//			reg = <0x31022100 0x7F>;
-//			interrupts = <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <68>;
-//		};
-//
-//		dma3: dma@3 {
-//			compatible = "adi,dma2";
-//			reg = <0x31022180 0x7F>;
-//			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <69>;
-//		};
-//
-//		dma4: dma@4 {
-//			compatible = "adi,dma2";
-//			reg = <0x31022200 0x7F>;
-//			interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <70>;
-//		};
-//
-//		dma5: dma@5 {
-//			compatible = "adi,dma2";
-//			reg = <0x31022280 0x7F>;
-//			interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <71>;
-//		};
-//
-//		dma6: dma@6 {
-//			compatible = "adi,dma2";
-//			reg = <0x31022300 0x7F>;
-//			interrupts = <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <72>;
-//		};
-//
-//		dma7: dma@7 {
-//			compatible = "adi,dma2";
-//			reg = <0x31022380 0x7F>;
-//			interrupts = <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <73>;
-//		};
-//
-//		dma8: dma@8 {
-//			compatible = "adi,dma2";
-//			reg = <0x310A7000 0x7F>;
-//			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <74>;
-//		};
-//
-//		dma9: dma@9 {
-//			compatible = "adi,dma2";
-//			reg = <0x310A7080 0x7F>;
-//			interrupts = <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <75>;
-//		};
-//
-//		dma12: dma@012 {
-//			compatible = "adi,dma2";
-//			reg = <0x31023100 0x7F>;
-//			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <78>;
-//		};
-//
-//		dma13: dma@13 {
-//			compatible = "adi,dma2";
-//			reg = <0x31023180 0x7F>;
-//			interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <79>;
-//		};
-//
-//		dma14: dma@14 {
-//			compatible = "adi,dma2";
-//			reg = <0x31023200 0x7F>;
-//			interrupts = <GIC_SPI 105 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <80>;
-//		};
-//
-//		dma15: dma@15 {
-//			compatible = "adi,dma2";
-//			reg = <0x31023280 0x7F>;
-//			interrupts = <GIC_SPI 107 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <81>;
-//		};
-//
-//		dma16: dma@16 {
-//			compatible = "adi,dma2";
-//			reg = <0x31023300 0x7F>;
-//			interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <82>;
-//		};
-//
-//		dma17: dma@17 {
-//			compatible = "adi,dma2";
-//			reg = <0x31023380 0x7F>;
-//			interrupts = <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <83>;
-//		};
-//
-//		dma18: dma@18 {
-//			compatible = "adi,dma2";
-//			reg = <0x310A7100 0x7F>;
-//			interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <84>;
-//		};
-//
-//		dma19: dma@19 {
-//			compatible = "adi,dma2";
-//			reg = <0x310A7180 0x7F>;
-//			interrupts = <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <85>;
-//		};
-//
-//		dma28: dma@28 {
-//			compatible = "adi,dma2";
-//			reg = <0x31026400 0x7F>;
-//			interrupts = <GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <94>;
-//		};
-//
-//		dma29: dma@29 {
-//			compatible = "adi,dma2";
-//			reg = <0x31026480 0x7F>;
-//			interrupts = <GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <95>;
-//		};
-//
-//		dma30: dma@30 {
-//			compatible = "adi,dma2";
-//			reg = <0x30FFF000 0x7F>;
-//			interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <96>;
-//		};
-//
-//		dma36: dma@36 {
-//			compatible = "adi,dma2";
-//			reg = <0x30FFF080 0x7F>;
-//			interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <99>;
-//		};
-//
-//		dma43: dma@43 {
-//			compatible = "adi,dma2";
-//			reg = <0x3109B000 0x7F>;
-//			interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <104>;
-//		};
-//
-//		dma44: dma@44 {
-//			compatible = "adi,dma2";
-//			reg = <0x3109B080 0x7F>;
-//			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <105>;
-//		};
-//
-//		dma45: dma@45 {
-//			compatible = "adi,dma2";
-//			reg = <0x310A7200 0x7F>;
-//			interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <106>;
-//		};
-//
-//		dma46: dma@46 {
-//			compatible = "adi,dma2";
-//			reg = <0x310A7280 0x7F>;
-//			interrupts = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <107>;
-//		};
-//
-//		dma47: dma@47 {
-//			compatible = "adi,dma2";
-//			reg = <0x310A7300 0x7F>;
-//			interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <108>;
-//		};
-//
-//		dma48: dma@48 {
-//			compatible = "adi,dma2";
-//			reg = <0x310A7380 0x7F>;
-//			interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <109>;
-//		};
-//
-//		dma49: dma@49 {
-//			compatible = "adi,dma2";
-//			reg = <0x310AC000 0x7F>;
-//			interrupts = <GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <110>;
-//		};
-//
-//		dma50: dma@50 {
-//			compatible = "adi,dma2";
-//			reg = <0x310AC080 0x7F>;
-//			interrupts = <GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <111>;
-//		};
-//
-//		dma51: dma@51 {
-//			compatible = "adi,dma2";
-//			reg = <0x3109C000 0x7F>;
-//			interrupts = <GIC_SPI 212 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <112>;
-//		};
-//
-//		dma52: dma@52 {
-//			compatible = "adi,dma2";
-//			reg = <0x3109C080 0x7F>;
-//			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <113>;
-//		};
-//
-//		dma53: dma@53 {
-//			compatible = "adi,dma2";
-//			reg = <0x31026380 0x7F>;
-//			interrupts = <GIC_SPI 275 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <114>;
-//		};
-//
-//		dma54: dma@54 {
-//			compatible = "adi,dma2";
-//			reg = <0x31026300 0x7F>;
-//			interrupts = <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
-//			spu_securep_id = <115>;
-//		};
 
 		sport0_dma_cluster: dma@31022000 {
 			compatible = "adi,dma-controller";
