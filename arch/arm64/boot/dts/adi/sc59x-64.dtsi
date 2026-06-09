@@ -56,7 +56,7 @@
 			reg = <0x0 0x0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0xdeadbeef>;
-			clocks = <&clk ADSP_SC598_CLK_ARM>, <&clk ADSP_SC598_CLK_DDR>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_ARM>, <&cdu ADSP_SC598_CLK_CDU_DDR>;
 		};
 	};
 
@@ -97,18 +97,6 @@
 		clock-frequency = <25000000>;
 		clock-output-names = "sys_clkin1";
 	};
-
-	clk: clocks@3108d000 {
-		compatible = "adi,sc598-clocks";
-		reg = <0x3108d000 0x1000>,
-			<0x3108e000 0x1000>,
-			<0x3108f000 0x1000>,
-			<0x310a9000 0x1000>;
-		#clock-cells = <1>;
-		clocks = <&sys_clkin0>, <&sys_clkin1>;
-		clock-names = "sys_clkin0", "sys_clkin1";
-		status = "okay";
-	};
 	
 	cgu0: clocks@3108d000 {
 		compatible = "adi,sc598-cgu0";
@@ -123,8 +111,8 @@
 		compatible = "adi,sc598-cgu1";
 		reg = <0x3108e000 0x100>;
 		#clock-cells = <1>;
-		clocks = <&sys_clkin0> <&sys_clkin1>;
-		clock-names = "sys_clkin0", "sys_clkin1";
+		clocks = <&cdu ADSP_SC598_CLK_CDU_CLKINSEL>;
+		clock-names = "cdu_clkinsel";
 		status = "okay";
 	};
 
@@ -132,7 +120,8 @@
 		compatible = "adi,sc598-pll2";
 		reg = <0x310a9000 0x100>;
 		#clock-cells = <1>;
-		clocks = <&sys_clkin0>;
+		clocks = <&cdu ADSP_SC598_CLK_CDU_CLKINSEL>;
+		clock-names = "cdu_clkinsel";
 		status = "okay";
 	};
 
@@ -177,7 +166,7 @@
 	gptimers: gptimers@31018000 {
 		compatible = "adi,sc5xx-gptimers";
 		reg = <0x31018000 0x200>;
-		clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+		clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 		status = "okay";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -354,7 +343,7 @@
 			reg = <0x31003000 0x40>;
 			dmas = <&dma_cluster2 20>, <&dma_cluster2 21>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			interrupt-parent = <&gic>;
 			interrupt-names = "tx", "rx", "status";
@@ -370,7 +359,7 @@
 			reg = <0x31003400 0x40>;
 			dmas = <&dma_cluster2 34>, <&dma_cluster2 35>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			interrupt-parent = <&gic>;
 			interrupt-names = "tx", "rx", "status";
@@ -386,7 +375,7 @@
 			reg = <0x31003800 0x40>;
 			dmas = <&dma_cluster2 37>, <&dma_cluster2 38>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			interrupt-parent = <&gic>;
 			interrupt-names = "tx", "rx", "status";
@@ -402,7 +391,7 @@
 			reg = <0x31003C00 0x40>;
 			dmas = <&dma_cluster2 53>, <&dma_cluster2 54>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			interrupt-parent = <&gic>;
 			interrupt-names = "tx", "rx", "status";
@@ -440,7 +429,7 @@
 			reg = <0x31001400 0xFF>;
 			interrupts = <GIC_SPI 150 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -452,7 +441,7 @@
 			reg = <0x31001500 0xFF>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -464,7 +453,7 @@
 			reg = <0x31001600 0xFF>;
 			interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -476,7 +465,7 @@
 			reg = <0x31001000 0xFF>;
 			interrupts = <GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -488,7 +477,7 @@
 			reg = <0x31001100 0xFF>;
 			interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -500,7 +489,7 @@
 			reg = <0x31001200 0xFF>;
 			interrupts = <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
 			clock-khz = <100>;
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "sclk0";
 			status = "disabled";
 		};
@@ -514,7 +503,7 @@
 			interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 100 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&sport4_dma_cluster 10>, <&sport4_dma_cluster 11>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK1>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK1>;
 			clock-names = "sclk";
 		};
 
@@ -527,7 +516,7 @@
 			interrupts = <GIC_SPI 82 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&sport0_dma_cluster 0>, <&sport0_dma_cluster 1>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK1>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK1>;
 			clock-names = "sclk";
 		};
 
@@ -535,7 +524,7 @@
 			compatible = "adi,watchdog";
 			reg = <0x31008000 0x10>;
 			timeout-sec = <30>;
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clocks = <&cgu0 ADSP_SC598_CLK_CGU0_SCLK0>;
 			clock-names = "adi-watchdog";
 		};
 
@@ -558,7 +547,7 @@
 			interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 24>, <&spi_cluster 25>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_SPI>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -571,7 +560,7 @@
 			interrupts = <GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 26>, <&spi_cluster 27>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_SPI>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -584,7 +573,7 @@
 			interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 55>, <&spi_cluster 56>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_SPI>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -596,7 +585,7 @@
 			reg = <0x31027000 0x1000>,
 				  <0x60000000 0x10000000>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk ADSP_SC598_CLK_OSPI_REFCLK>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_OSPI_REFCLK>;
 			cdns,is-decoded-cs;
 			cdns,fifo-depth = <128>;
 			cdns,fifo-width = <4>;
@@ -615,7 +604,7 @@
 			snps,force_sf_dma_mode;
 			snps,perfect-filter-entries = <32>;
 			snps,tso = <1>;
-			clocks = <&clk ADSP_SC598_CLK_GIGE>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_GIGE>;
 			clock-names = "stmmaceth";
 			adi,system-config = <&pads_system_config>;
 			status = "disabled";
@@ -694,7 +683,7 @@
 			reg = <0x310C7000 0x1000>;
 			interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>; /* Status */
 				     /*<GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;*/ /* Wakeup */
-			clocks = <&clk ADSP_SC598_CLK_EMMC>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_EMMC>;
 			clock-names = "core";
 			bus-width = <8>;
 			status = "disabled";
