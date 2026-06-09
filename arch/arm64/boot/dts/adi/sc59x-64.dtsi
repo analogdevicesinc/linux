@@ -99,34 +99,34 @@
 		compatible = "adi,sc598-cgu0";
 		reg = <0x3108d000 0x100>;
 		#clock-cells = <1>;
+
 		clocks = <&sys_clkin0>;
 		clock-names = "sys_clkin0";
-		status = "okay";
 	};
 
 	cgu1: clock-controller@3108e000 {
 		compatible = "adi,sc598-cgu1";
 		reg = <0x3108e000 0x100>;
 		#clock-cells = <1>;
+
 		clocks = <&cdu ADSP_SC598_CLK_CDU_CLKINSEL>;
 		clock-names = "cdu_clkinsel";
-		status = "okay";
 	};
 
 	pll2: clock-controller@310a9000 {
 		compatible = "adi,sc598-pll2";
 		reg = <0x310a9000 0x100>;
 		#clock-cells = <1>;
+
 		clocks = <&cdu ADSP_SC598_CLK_CDU_CLKINSEL>;
 		clock-names = "cdu_clkinsel";
-		status = "okay";
 	};
 
 	cdu: clock-controller@3108f000 {
 		compatible = "adi,sc598-cdu";
 		reg = <0x3108f000 0x100>;
 		#clock-cells = <1>;
-		status = "okay";
+
 		clocks = <&cgu0 ADSP_SC598_CLK_CGU0_CCLK0_0>,
 			 <&cgu0 ADSP_SC598_CLK_CGU0_CCLK1_0>,
 			 <&cgu0 ADSP_SC598_CLK_CGU0_CCLK2_0>,
@@ -142,7 +142,6 @@
 			 <&cgu1 ADSP_SC598_CLK_CGU1_SCLK1_1>,
 			 <&cgu1 ADSP_SC598_CLK_CGU1_DCLK_1>,
 			 <&cgu1 ADSP_SC598_CLK_CGU1_OCLK_1>;
-
 		clock-names = "cclk0_0",  "cclk1_0",
 			      "cclk2_0",  "sysclk_0",
 			      "sclk0_0",  "sclk1_0",
