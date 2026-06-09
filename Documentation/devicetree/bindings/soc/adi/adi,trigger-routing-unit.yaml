@@ -44,7 +44,7 @@ properties:
     maximum: 1024
 
 patternProperties:
-  "^channel-[0-9]+$":
+  "^channel@[0-9]+$":
     description: Trigger Routing Channel to Map Master/Slave
     type: object
     properties:
@@ -77,15 +77,15 @@ examples:
       adi,max-master-id = <182>;
       adi,max-slave-id = <187>;
 
-      rpmsg_to_a55: channel-0 {
+      channel@0 {
         adi,tru-master-id = <134>; /* trigger master SOFT3 */
         adi,tru-slave-id = <160>; /* TRU0_IRQ3 */
       };
-      rpmsg_to_sharc0: channel-1 {
+      channel@1 {
         adi,tru-master-id = <135>; /* trigger master SOFT4 */
         adi,tru-slave-id = <164>; /* TRU0_IRQ7 */
       };
-      rpmsg_to_sharc1: channel-2 {
+      channel@2 {
         adi,tru-master-id = <136>; /* trigger master SOFT5 */
         adi,tru-slave-id = <168>; /* TRU0_IRQ11 */
       };
