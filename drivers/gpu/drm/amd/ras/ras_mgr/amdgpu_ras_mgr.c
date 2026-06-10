@@ -38,7 +38,7 @@
 #define MAX_AID_NUM_PER_SOCKET_GFX9     4
 #define MAX_XCD_NUM_PER_AID_GFX9        2
 
-#define MAX_AID_NUM_PER_SOCKET_GFX12    2
+#define MAX_AID_NUM_PER_SOCKET_GFX12    16
 #define MAX_XCD_NUM_PER_AID_GFX12       4
 
 /* Reserve 8 physical dram row for possible retirement.

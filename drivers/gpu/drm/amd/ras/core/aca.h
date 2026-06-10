@@ -26,7 +26,7 @@
 #define __ACA_H__
 #include "ras.h"
 
-#define MAX_AID_NUM_PER_SOCKET 4
+#define MAX_AID_NUM_PER_SOCKET 16
 #define MAX_XCD_NUM_PER_AID 4
 
 #define ACA_ERROR__UE_MASK			(0x1 << RAS_ERR_TYPE__UE)

@@ -62,47 +62,22 @@ static struct ras_aca_hwip_v5 aca_hwip_maps[] = {
 	ACA_HWIP_MAP(MPIFOE,   0x1FD, mpifoe_aca_types),
 };
 
-static const u32 aca_gfx_xcd_instances[] = {
-	0x30000000,  /* XCD0 */
-	0x32000000,  /* XCD1 */
-	0x34000000,  /* XCD2 */
-	0x36000000,  /* XCD3 */
-};
-
 static void aca_decode_bank_info(struct aca_block *aca_blk,
 			struct aca_bank_reg *bank, struct aca_ecc_info *info)
 {
 	u64 ipid;
 	u32 instidhi, instidlo;
-	u32 inst, i;
 
 	ipid = bank->regs[ACA_REG_IDX__IPID];
 	info->hwid = ACA_V5_REG_IPID_HARDWAREID(ipid);
 	info->mcatype = ACA_V5_REG_IPID_ACATYPE(ipid);
-	/*
-	 * Unified DieID Format: SAASS. A:AID, S:Socket.
-	 * Unified DieID[4:4] = InstanceId[0:0]
-	 * Unified DieID[0:3] = InstanceIdHi[0:3]
-	 */
+
 	instidhi = ACA_V5_REG_IPID_INSTANCEIDHI(ipid);
 	instidlo = ACA_V5_REG_IPID_INSTANCEIDLO(ipid);
-	info->die_id = ((instidhi >> 2) & 0x03);
-	info->socket_id = ((instidlo & 0x1) << 2) | (instidhi & 0x03);
+	info->die_id = instidhi & 0xF;
+	info->socket_id = instidlo & 0xFF;
+	/* xcd/aid are unique in die_id, not need per-XCD decode for accounting */
 	info->xcd_valid = false;
-
-	if ((aca_blk->blk_info->hwip == ACA_ECC_HWIP__GFX) &&
-	    (info->hwid == ACA_GFX_XCD_HWID) &&
-	    (aca_blk->blk_info->ras_block_id == RAS_BLOCK_ID__GFX)) {
-		inst = instidlo & GENMASK_ULL(31, 1);
-		info->xcd_id = 0;
-		for (i = 0; i < ARRAY_SIZE(aca_gfx_xcd_instances); i++) {
-			if (inst == aca_gfx_xcd_instances[i]) {
-				info->xcd_id = i;
-				info->xcd_valid = true;
-				break;
-			}
-		}
-	}
 }
 
 static bool aca_check_bank_hwip(struct aca_bank_reg *bank, enum aca_ecc_hwip type)
@@ -179,7 +154,7 @@ static int aca_parse_umc_bank(struct ras_core_context *ras_core,
 {
 	struct aca_bank_reg *bank = (struct aca_bank_reg *)data;
 	struct aca_bank_ecc *err = (struct aca_bank_ecc *)buf;
-	u32 ext_error_code;
+	u32 ext_error_code, misc0_errcnt;
 	u64 status;
 
 	if (!ras_core || !aca_blk || !data || !buf)
@@ -196,15 +171,14 @@ static int aca_parse_umc_bank(struct ras_core_context *ras_core,
 	err->bank_info.addr = bank->regs[ACA_REG_IDX__ADDR];
 
 	ext_error_code = ACA_V5_REG_STATUS_ERRORCODEEXT(status);
+	misc0_errcnt = ACA_V5_REG_MISC0_ERRCNT(bank->regs[ACA_REG_IDX__MISC0]);
 
 	if (aca_check_umc_de(ras_core, status))
-		err->de_count = 1;
+		err->de_count = misc0_errcnt ? misc0_errcnt : 1;
 	else if (aca_check_umc_ue(ras_core, status))
-		err->ue_count = ext_error_code ?
-			1 : ACA_V5_REG_MISC0_ERRCNT(bank->regs[ACA_REG_IDX__MISC0]);
+		err->ue_count = ext_error_code ? 1 : misc0_errcnt;
 	else if (aca_check_umc_ce(ras_core, status))
-		err->ce_count = ext_error_code ?
-			1 : ACA_V5_REG_MISC0_ERRCNT(bank->regs[ACA_REG_IDX__MISC0]);
+		err->ce_count = ext_error_code ? 1 : misc0_errcnt;
 
 	return 0;
 }
