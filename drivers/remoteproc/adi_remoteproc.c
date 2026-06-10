@@ -352,7 +352,6 @@ static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
 	return -EINVAL;
 }
 
-void set_spu_securep_msec(u16 n, bool msec);
 static void enable_spu(void)
 {
 	adi_spu_set_securep(SPU_MDMA0_SRC_ID, true);
