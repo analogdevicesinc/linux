@@ -16,11 +16,18 @@ description:
 
 properties:
   compatible:
-    enum:
-      - adi,reset-controller
+    items:
+      - const: syscon
+      - const: adi,reset-controller
 
   reg:
     maxItems: 1
+
+  "#reset-cells":
+    const: 2
+    description:
+      Two cells are required, the SHARC core ID and the reset function
+      (0 = full core reset pulse, 1 = start/stop via MSG register).
 
   adi,sharc-min:
     $ref: /schemas/types.yaml#/definitions/uint32
@@ -34,19 +41,38 @@ properties:
     minimum: 1
     maximum: 2
 
+  adi,core-stop-irqs:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description:
+      SEC interrupt IDs used to signal each SHARC core to stop, ordered
+      by core ID starting from core 1.
+    items:
+      - description: SEC interrupt ID for SHARC core 1
+      - description: SEC interrupt ID for SHARC core 2
+
+  adi,enable-reboot:
+    type: boolean
+    description:
+      If present, register the RCU as the system restart handler.
+
 required:
   - compatible
   - reg
+  - "#reset-cells"
   - adi,sharc-min
   - adi,sharc-max
+  - adi,core-stop-irqs
 
 additionalProperties: false
 
 examples:
   - |
     rcu: rcu@3108c000 {
-      compatible = "adi,reset-controller";
+      compatible = "syscon", "adi,reset-controller";
       reg = <0x3108c000 0x1000>;
+      #reset-cells = <2>;
       adi,sharc-min = <1>;
       adi,sharc-max = <2>;
+      adi,core-stop-irqs = <106 107>;
+      adi,enable-reboot;
     };
