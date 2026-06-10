@@ -15,6 +15,10 @@
 #include <linux/dmaengine.h>
 #include <linux/firmware.h>
 #include <linux/elf.h>
+#include <linux/mailbox_client.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
+#include <linux/reset.h>
 #include <linux/virtio_ids.h>
 #include <linux/virtio_ring.h>
 #include <linux/interrupt.h>
@@ -29,7 +33,6 @@
 #include <linux/dma-mapping.h>
 
 #include <linux/soc/adi/icc.h>
-#include <linux/soc/adi/rcu.h>
 #include <linux/soc/adi/spu.h>
 #include "remoteproc_internal.h"
 
@@ -141,11 +144,14 @@ enum adi_rproc_rpmsg_state {
 struct adi_rproc_data {
 	struct device *dev;
 	struct rproc *rproc;
-	struct adi_rcu *rcu;
-	struct adi_tru *tru;
+	struct reset_control *rst_crst;
+	struct reset_control *rst_start;
+	struct regmap *svect_regmap;
+	u32 svect_offset;
+	struct mbox_client kick_client;
+	struct mbox_chan *kick_chan;
 	const char *firmware_name;
 	int core_id;
-	int core_irq;
 	int icc_irq;
 	int icc_irq_flags;
 	void *mem_virt;
@@ -167,19 +173,7 @@ struct adi_rproc_data {
 static int adi_core_set_svect(struct adi_rproc_data *rproc_data,
 					unsigned long svect)
 {
-	int coreid = rproc_data->core_id;
-
-	if (svect && (coreid == 1))
-		adi_rcu_writel(svect, rproc_data->rcu, ADI_RCU_REG_SVECT1);
-	else if (svect && (coreid == 2))
-		adi_rcu_writel(svect, rproc_data->rcu, ADI_RCU_REG_SVECT2);
-	else {
-		dev_err(rproc_data->dev, "%s, invalid svect:0x%lx, cord_id:%d\n",
-						__func__, svect, coreid);
-		return -EINVAL;
-	}
-
-	return 0;
+	return regmap_write(rproc_data->svect_regmap, rproc_data->svect_offset, svect);
 }
 
 static irqreturn_t sharc_virtio_irq_threaded_handler(int irq, void *p);
@@ -201,12 +195,12 @@ static int adi_core_start(struct adi_rproc_data *rproc_data)
 		return -ENOENT;
 	}
 
-	return adi_rcu_start_core(rproc_data->rcu, rproc_data->core_id);
+	return reset_control_deassert(rproc_data->rst_start);
 }
 
 static int adi_core_reset(struct adi_rproc_data *rproc_data)
 {
-	return adi_rcu_reset_core(rproc_data->rcu, rproc_data->core_id);
+	return reset_control_reset(rproc_data->rst_crst);
 }
 
 static int adi_core_stop(struct adi_rproc_data *rproc_data)
@@ -216,8 +210,7 @@ static int adi_core_stop(struct adi_rproc_data *rproc_data)
 		if (rproc_data->rpmsg_state != ADI_RP_RPMSG_TIMED_OUT)
 			devm_free_irq(rproc_data->dev, rproc_data->icc_irq, rproc_data);
 	}
-	return adi_rcu_stop_core(rproc_data->rcu,
-				 rproc_data->core_id, rproc_data->core_irq);
+	return reset_control_assert(rproc_data->rst_start);
 }
 
 static int is_final(struct ldr_hdr *hdr)
@@ -741,7 +734,7 @@ static void adi_rproc_kick(struct rproc *rproc, int vqid)
 	}
 
 	if (rproc_data->rpmsg_state == ADI_RP_RPMSG_SYNCED)
-		adi_tru_trigger_device(rproc_data->tru, rproc_data->dev);
+		mbox_send_message(rproc_data->kick_chan, NULL);
 }
 
 static int adi_rproc_sanity_check(struct rproc *rproc, const struct firmware *fw)
@@ -812,8 +805,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	struct adi_rproc_data *rproc_data;
 	struct device_node *np = dev->of_node;
 	struct device_node *node;
-	struct adi_rcu *adi_rcu;
-	struct adi_tru *adi_tru;
+	struct of_phandle_args svect_args;
 	struct rproc *rproc;
 	struct resource *res;
 	struct reserved_mem *rmem;
@@ -827,42 +819,72 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	adi_rcu = get_adi_rcu_from_node(dev);
-	if (IS_ERR(adi_rcu))
-		return PTR_ERR(adi_rcu);
-
 	ret = of_property_read_u32(np, "core-id", &core_id);
 	if (ret) {
 		dev_err(dev, "Unable to get core-id property\n");
-		goto free_adi_rcu;
-	}
-
-	ret = adi_rcu_is_core_idle(adi_rcu, core_id);
-	if (ret < 0) {
-		dev_err(dev, "Invalid core-id\n");
-		goto free_adi_rcu;
-	} else if (ret == 0) {
-		dev_err(dev, "Error: Core%d not idle\n", core_id);
-		ret = -EBUSY;
-		goto free_adi_rcu;
-	}
-
-	adi_tru = get_adi_tru_from_node(dev);
-	if (IS_ERR(adi_tru)) {
-		ret = PTR_ERR(adi_tru);
-		goto free_adi_rcu;
+		return ret;
 	}
 
 	rproc = rproc_alloc(dev, np->name, &adi_rproc_ops,
 			    name, sizeof(*rproc_data));
 	if (!rproc) {
 		dev_err(dev, "Unable to allocate remoteproc\n");
-		ret = -ENOMEM;
-		goto free_adi_tru;
+		return -ENOMEM;
 	}
 
 	rproc_data = (struct adi_rproc_data *)rproc->priv;
 	platform_set_drvdata(pdev, rproc);
+
+	ret = of_parse_phandle_with_fixed_args(np, "adi,svect", 1, 0,
+					       &svect_args);
+	if (ret) {
+		dev_err(dev, "Missing adi,svect property\n");
+		goto free_rproc;
+	}
+	rproc_data->svect_regmap = syscon_node_to_regmap(svect_args.np);
+	of_node_put(svect_args.np);
+	if (IS_ERR(rproc_data->svect_regmap)) {
+		dev_err(dev, "Unable to get SVECT regmap\n");
+		ret = PTR_ERR(rproc_data->svect_regmap);
+		goto free_rproc;
+	}
+	rproc_data->svect_offset = svect_args.args[0];
+
+	rproc_data->rst_crst = devm_reset_control_get_exclusive(dev, "crst");
+	if (IS_ERR(rproc_data->rst_crst)) {
+		dev_err(dev, "Unable to get crst reset control\n");
+		ret = PTR_ERR(rproc_data->rst_crst);
+		goto free_rproc;
+	}
+
+	rproc_data->rst_start = devm_reset_control_get_exclusive(dev, "start");
+	if (IS_ERR(rproc_data->rst_start)) {
+		dev_err(dev, "Unable to get start reset control\n");
+		ret = PTR_ERR(rproc_data->rst_start);
+		goto free_rproc;
+	}
+
+	ret = reset_control_status(rproc_data->rst_start);
+	if (ret < 0) {
+		dev_err(dev, "Unable to read core status\n");
+		goto free_rproc;
+	} else if (ret == 0) {
+		dev_err(dev, "Error: Core%d not idle\n", core_id);
+		ret = -EBUSY;
+		goto free_rproc;
+	}
+
+	rproc_data->kick_client.dev = dev;
+	rproc_data->kick_client.tx_block = false;
+
+	rproc_data->kick_chan = mbox_request_channel_byname(&rproc_data->kick_client,
+							    "kick");
+	if (IS_ERR(rproc_data->kick_chan)) {
+		ret = PTR_ERR(rproc_data->kick_chan);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "Unable to get kick mailbox channel\n");
+		goto free_rproc;
+	}
 
 	/* for now device addresses are represented as 32 bits and expanded to 64
 	 * here in driver code
@@ -870,7 +892,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	if (of_property_read_u32_array(np, "adi,l1-da", addr, 2)) {
 		dev_err(dev, "Missing adi,l1-da with L1 device address range information\n");
 		ret = -ENODEV;
-		goto free_rproc;
+		goto free_mbox;
 	}
 	rproc_data->l1_da_range[0] = addr[0];
 	rproc_data->l1_da_range[1] = addr[1];
@@ -878,7 +900,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	if (of_property_read_u32_array(np, "adi,l2-da", addr, 2)) {
 		dev_err(dev, "Missing adi,l2-da with L2 device address range information\n");
 		ret = -ENODEV;
-		goto free_rproc;
+		goto free_mbox;
 	}
 	rproc_data->l2_da_range[0] = addr[0];
 	rproc_data->l2_da_range[1] = addr[1];
@@ -892,7 +914,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		if (!rmem) {
 			dev_err(&pdev->dev, "Translating adi,rsc-table failed\n");
 			ret = -ENOMEM;
-			goto free_adi_rcu;
+			goto free_mbox;
 		}
 
 		rproc_data->adi_rsc_table = devm_ioremap_wc(dev,
@@ -901,14 +923,14 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		if (IS_ERR(rproc_data->adi_rsc_table)) {
 			dev_err(dev, "Can't map adi,rsc-table\n");
 			ret = PTR_ERR(rproc_data->adi_rsc_table);
-			goto free_adi_rcu;
+			goto free_mbox;
 		}
 
 		rproc_data->icc_irq = platform_get_irq(pdev, 0);
 		if (rproc_data->icc_irq <= 0) {
 			dev_err(dev, "No ICC IRQ specified\n");
 			ret = -ENOENT;
-			goto free_adi_rcu;
+			goto free_mbox;
 		}
 
 		rproc_data->icc_irq_flags = IRQF_PERCPU | IRQF_SHARED | IRQF_ONESHOT;
@@ -921,13 +943,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	if (!rproc_data->core_workqueue) {
 		dev_err(dev, "Unable to allocate core workqueue\n");
-		goto free_rproc;
-	}
-
-	ret = of_property_read_u32(np, "core-irq", &rproc_data->core_irq);
-	if (ret) {
-		dev_err(dev, "Unable to get core-irq property\n");
-		goto free_workqueue;
+		ret = -ENOMEM;
+		goto free_mbox;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -968,8 +985,6 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 
 	rproc_data->dev = &pdev->dev;
 	rproc_data->core_id = core_id;
-	rproc_data->rcu = adi_rcu;
-	rproc_data->tru = adi_tru;
 	rproc_data->rproc = rproc;
 	rproc_data->firmware_name = name;
 	rproc_data->mem_virt = NULL;
@@ -990,27 +1005,25 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 free_workqueue:
 	destroy_workqueue(rproc_data->core_workqueue);
 
+free_mbox:
+	mbox_free_channel(rproc_data->kick_chan);
+
 free_rproc:
 	rproc_free(rproc);
-
-free_adi_tru:
-	put_adi_tru(adi_tru);
-
-free_adi_rcu:
-	put_adi_rcu(adi_rcu);
 
 	return ret;
 }
 
 static void adi_remoteproc_remove(struct platform_device *pdev)
 {
-	struct adi_rproc_data *rproc_data = platform_get_drvdata(pdev);
+	struct rproc *rproc = platform_get_drvdata(pdev);
+	struct adi_rproc_data *rproc_data = rproc->priv;
 
 	dmaengine_put();
-	put_adi_tru(rproc_data->tru);
-	put_adi_rcu(rproc_data->rcu);
-	rproc_del(rproc_data->rproc);
-	rproc_free(rproc_data->rproc);
+	destroy_workqueue(rproc_data->core_workqueue);
+	mbox_free_channel(rproc_data->kick_chan);
+	rproc_del(rproc);
+	rproc_free(rproc);
 }
 
 static const struct of_device_id adi_rproc_of_match[] = {
