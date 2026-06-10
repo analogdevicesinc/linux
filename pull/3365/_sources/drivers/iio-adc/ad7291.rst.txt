@@ -1,0 +1,386 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7291
+
+.. _ad7291:
+
+AD7291
+======
+
+AD7291 IIO ADC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD7291`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD7291SDZ`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting multi channel serial interface ADCs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7291.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7291.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/adc/ad7291.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7291.c>`__
+
+Example platform device initialization
+--------------------------------------
+
+Specifying reference voltage via the regulator framework
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. tip::
+
+   In case the AD7291 on-chip 2.5V reference is not used, this driver requires
+   specifying the reference voltage, by using the Linux regulator framework.
+
+Below example specifies a 3.3 Volt reference for the I2C device 0-002a on
+I2C-Bus 0. (**0-002a**)
+
+.. code:: c
+
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+   static struct regulator_consumer_supply ad7291_consumer_supplies[] = {
+       REGULATOR_SUPPLY("vcc", "0-002a"),
+   };
+
+   static struct regulator_init_data board_avdd_reg_init_data = {
+       .constraints    = {
+           .name   = "3V3",
+           .valid_ops_mask = REGULATOR_CHANGE_STATUS,
+       },
+       .consumer_supplies = ad7291_consumer_supplies,
+       .num_consumer_supplies = ARRAY_SIZE(ad7291_consumer_supplies),
+   };
+
+   static struct fixed_voltage_config board_vdd_pdata = {
+       .supply_name    = "board-3V3",
+       .microvolts = 3300000,
+       .gpio       = -EINVAL,
+       .enabled_at_boot = 0,
+       .init_data  = &board_avdd_reg_init_data,
+   };
+   static struct platform_device brd_voltage_regulator = {
+       .name       = "reg-fixed-voltage",
+       .id     = -1,
+       .num_resources  = 0,
+       .dev        = {
+           .platform_data  = &board_vdd_pdata,
+       },
+   };
+   #endif
+
+.. code:: c
+
+   static struct platform_device *board_devices[] __initdata = {
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+       &brd_voltage_regulator
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       platform_add_devices(board_devices, ARRAY_SIZE(board_devices));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-i2c-devices
+   :end-before: .. end-declaring-i2c-devices
+
+Depending on the converter IC used, you may need to set the I2C_BOARD_INFO name
+accordingly, matching your part name.
+
+.. code:: c
+
+   static struct i2c_board_info __initdata board_i2c_board_info[] = {
+   #if defined(CONFIG_AD7291) || defined(CONFIG_AD7291_MODULE)
+       {
+           I2C_BOARD_INFO("ad7291", 0x2A),
+           .irq = IRQ_PG14,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       i2c_register_board_info(0, board_i2c_board_info,
+                   ARRAY_SIZE(board_i2c_board_info));
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The driver depends on **CONFIG_I2C**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [*] Staging drivers  --->
+               <*>     Industrial I/O support --->
+                   --- Industrial I/O support
+                   -*-   Enable ring buffer support within IIO
+                   -*-     Industrial I/O lock free software ring
+                   -*-   Enable triggered sampling support
+
+                         *** Analog to digital converters ***
+                   [--snip--]
+
+                   <*>   Analog Devices AD7291 ADC driver
+
+                   [--snip--]
+
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7291_eval_lr.jpg
+   :width: 600px
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-002a/iio:device0> ls -l
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 dev
+   drwxr-xr-x    2 root     root             0 Jan  1 00:38 events
+   -rw-r--r--    1 root     root          4096 Jan  1 00:38 in_temp0_mean_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 in_temp0_raw
+   -rw-r--r--    1 root     root          4096 Jan  1 00:38 in_temp0_scale
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 in_voltage0_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 in_voltage1_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 in_voltage2_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 in_voltage3_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 in_voltage4_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 in_voltage5_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 in_voltage6_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 in_voltage7_raw
+   -rw-r--r--    1 root     root          4096 Jan  1 00:38 in_voltage_scale
+   -r--r--r--    1 root     root          4096 Jan  1 00:38 name
+   drwxr-xr-x    2 root     root             0 Jan  1 00:38 power
+   --w-------    1 root     root          4096 Jan  1 00:38 reset
+   lrwxrwxrwx    1 root     root             0 Jan  1 00:38 subsystem -> ../../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  1 00:38 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-002a/iio:device0> cat name
+   ad7291
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to in_voltageX_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-002a/iio:device0> cat in_voltage_scale
+   0.610000
+
+Show channel 0 measurement
+''''''''''''''''''''''''''
+
+**Description:** Raw unscaled voltage measurement on channel 0
+
+.. list-table::
+   :header-rows: 1
+
+   * - ADC Input
+     - Channel name
+   * - VIN0
+     - in_voltage0_raw
+   * - VIN1
+     - in_voltage1_raw
+   * - VIN2
+     - in_voltage2_raw
+   * - VIN3
+     - in_voltage3_raw
+   * - VIN4
+     - in_voltage4_raw
+   * - VIN5
+     - in_voltage5_raw
+   * - VIN6
+     - in_voltage6_raw
+   * - VIN7
+     - in_voltage7_raw
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-002a/iio:device0> cat in_voltage0_raw
+   1641
+
+**U** = *in_voltage0_raw \* in_voltage_scale* = 1641 \* 0.610000 = **1001,01
+mV**
+
+Show internal temperature
+'''''''''''''''''''''''''
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/in_temp0_raw Shows raw
+unscaled temperature.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Channel name
+     - Description
+   * - in_temp0_raw
+     - Current temperature
+   * - in_temp0_mean_raw
+     - Averaged temperature
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-002a/iio:device0> cat in_temp0_raw
+   107
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-002a/iio:device0> cat in_temp0_scale
+   250
+
+**T** = in_temp0_raw \* in_temp0_scale = 107 \* 250 = 26750 = **26.75 °C**
+
+Hardware Events
+---------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-event-management
+   :end-before: .. end-event-management
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-typical-event-attributes
+   :end-before: .. end-typical-event-attributes
+
+Supported Events
+~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Event Attributes
+   * - Channel Temp
+   * - in_temp0_thresh_both_hyst_raw
+   * - in_temp0_thresh_falling_en
+   * - in_temp0_thresh_falling_value
+   * - in_temp0_thresh_rising_en
+   * - in_temp0_thresh_rising_value
+   * - Channel VIN0
+   * - in_voltage0_thresh_both_hyst_raw
+   * - in_voltage0_thresh_falling_en
+   * - in_voltage0_thresh_falling_value
+   * - in_voltage0_thresh_rising_en
+   * - in_voltage0_thresh_rising_value
+   * - Channel VIN1
+   * - in_voltage1_thresh_both_hyst_raw
+   * - in_voltage1_thresh_falling_en
+   * - in_voltage1_thresh_falling_value
+   * - in_voltage1_thresh_rising_en
+   * - in_voltage1_thresh_rising_value
+   * - Channel VIN2
+   * - in_voltage2_thresh_both_hyst_raw
+   * - in_voltage2_thresh_falling_en
+   * - in_voltage2_thresh_falling_value
+   * - in_voltage2_thresh_rising_en
+   * - in_voltage2_thresh_rising_value
+   * - Channel VIN3
+   * - in_voltage3_thresh_both_hyst_raw
+   * - in_voltage3_thresh_falling_en
+   * - in_voltage3_thresh_falling_value
+   * - in_voltage3_thresh_rising_en
+   * - in_voltage3_thresh_rising_value
+   * - Channel VIN4
+   * - in_voltage4_thresh_both_hyst_raw
+   * - in_voltage4_thresh_falling_en
+   * - in_voltage4_thresh_falling_value
+   * - in_voltage4_thresh_rising_en
+   * - in_voltage4_thresh_rising_value
+   * - Channel VIN5
+   * - in_voltage5_thresh_both_hyst_raw
+   * - in_voltage5_thresh_falling_en
+   * - in_voltage5_thresh_falling_value
+   * - in_voltage5_thresh_rising_en
+   * - in_voltage5_thresh_rising_value
+   * - Channel VIN6
+   * - in_voltage6_thresh_both_hyst_raw
+   * - in_voltage6_thresh_falling_en
+   * - in_voltage6_thresh_falling_value
+   * - in_voltage6_thresh_rising_en
+   * - in_voltage6_thresh_rising_value
+   * - Channel VIN7
+   * - in_voltage7_thresh_both_hyst_raw
+   * - in_voltage7_thresh_falling_en
+   * - in_voltage7_thresh_falling_value
+   * - in_voltage7_thresh_rising_en
+   * - in_voltage7_thresh_rising_value
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

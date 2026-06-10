@@ -1,0 +1,169 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/max11205
+
+.. _max11205:
+
+MAX11205
+========
+
+MAX11205 IIO ADC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`MAX11205`
+
+Evaluation Boards
+-----------------
+
+- :adi:`MAX11205PMB1`
+
+Description
+-----------
+
+The MAX11205 is an ultra-low-power (< 300µA max active current),
+high-resolution, serial output ADC. This device provides the highest resolution
+per unit power in the industry and is optimized for applications that require
+very high dynamic range with low power such as sensors on a 4mA to 20mA
+industrial control loop. The MAX11205 provides a high-accuracy internal
+oscillator that requires no external components.
+
+When used with the specified data rates, the internal digital filter provides
+more than 80dB rejection of 50Hz or 60Hz line noise. The MAX11205 provides a
+simple 2-wire serial interface in the space-saving, 10-pin µMAX® package. The
+MAX11205 operates over the -40°C to +85°C temperature range.
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/uc-drivers/max11205pmb1.png
+   :width: 400px
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tree/drivers/iio/adc/max11205.c?h=next-20220923>`__
+     - `Accepted, waiting for integration <https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tree/drivers/iio/adc/max11205.c?h=next-20220923>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - `drivers/iio/adc/max11205.c <https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tree/drivers/iio/adc/max11205.c?h=next-20220923>`__
+     -
+   * - Documentation
+     - `maxim,max11205.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git/tree/Documentation/devicetree/bindings/iio/adc/maxim,max11205.yaml?h=next-20220923>`__
+     -
+
+Driver testing
+--------------
+
+When configured with channel 0 as voltage output the following structure is
+created under the corresponding IIO device.
+
+::
+
+   root@analog:/sys/bus/iio/devices# ls
+   iio:device0  iio_sysfs_trigger  trigger0
+   root@analog:/sys/bus/iio/devices# cd iio:device0
+   root@analog:/sys/bus/iio/devices/iio:device0# ls -l
+   total 0
+   drwxr-xr-x 2 root root    0 Sep  6 08:17 buffer
+   -r--r--r-- 1 root root 4096 Sep  6 08:17 dev
+   -rw-r--r-- 1 root root 4096 Sep  6 08:17 in_voltage0_raw
+   -rw-r--r-- 1 root root 4096 Sep  6 08:17 in_voltage0_sampling_frequency
+   -rw-r--r-- 1 root root 4096 Sep  6 08:17 in_voltage0_scale
+   -r--r--r-- 1 root root 4096 Sep  6 08:17 name
+   lrwxrwxrwx 1 root root    0 Sep  6 08:17 of_node -> ../../../../../../../../firmware/devicetree/base/soc/spi@7e204000/max11205@0
+   drwxr-xr-x 2 root root    0 Sep  6 08:17 power
+   drwxr-xr-x 2 root root    0 Sep  6 08:17 scan_elements
+   lrwxrwxrwx 1 root root    0 Sep  6 08:17 subsystem -> ../../../../../../../../bus/iio
+   drwxr-xr-x 2 root root    0 Sep  6 08:17 trigger
+   -rw-r--r-- 1 root root 4096 Sep  6 08:17 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat name
+   max11205a
+
+Show raw measurement
+~~~~~~~~~~~~~~~~~~~~
+
+**Description:** Raw measurement of voltage on channel 0.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage0_raw
+   20137
+
+U = in_voltage0_raw \* in_voltage0_scale = 20137 \* 0.097656250 = 1966.50390625
+mV
+
+Show scale
+~~~~~~~~~~
+
+**Description:** Scale to be applied to the raw measurement of voltage on
+channel 0 in order to obtain the actual voltage.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage0_scale
+   0.097656250
+
+Show sampling frequency
+~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** The sampling frequency of the device.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_voltage0_sampling_frequency
+   116
+
+Trigger management
+~~~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat trigger/current_trigger
+   max11205a-dev0
+
+Buffer management
+~~~~~~~~~~~~~~~~~
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-buffer-management
+   :end-before: .. end-buffer-management
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0/scan_elements# ls
+   in_voltage0_en  in_voltage0_index  in_voltage0_type
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-typical-adc-scan-elements
+   :end-before: .. end-typical-adc-scan-elements
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
