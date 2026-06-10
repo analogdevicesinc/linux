@@ -19,6 +19,7 @@
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
+#include <linux/reset-controller.h>
 #include <linux/types.h>
 
 #include <linux/soc/adi/rcu.h>
@@ -27,6 +28,14 @@
 #define ADI_RCU_REBOOT_PRIORITY		255
 #define ADI_RCU_CORE_INIT_TIMEOUT	msecs_to_jiffies(2000)
 
+/* Reset line function codes, used as the low nibble of the reset ID */
+#define ADI_RCU_RST_CRST	0	/* full core reset pulse */
+#define ADI_RCU_RST_START	1	/* start/stop via MSG register */
+
+#define ADI_RCU_RST_ID(coreid, func)	(((coreid) << 4) | (func))
+#define ADI_RCU_RST_COREID(id)		((id) >> 4)
+#define ADI_RCU_RST_FUNC(id)		((id) & 0xf)
+
 struct adi_rcu {
 	struct notifier_block reboot_notifier;
 	void __iomem *ioaddr;
@@ -34,11 +43,19 @@ struct adi_rcu {
 	struct adi_sec *sec;
 	int sharc_min_coreid;
 	int sharc_max_coreid;
+	struct reset_controller_dev rcdev;
+	/* SEC interrupt IDs used to signal DSP cores to stop (indexed by coreid) */
+	int core_stop_irq[3];
 };
 
 static struct adi_rcu *to_adi_rcu(struct notifier_block *nb)
 {
 	return container_of(nb, struct adi_rcu, reboot_notifier);
+}
+
+static struct adi_rcu *rcdev_to_adi_rcu(struct reset_controller_dev *rcdev)
+{
+	return container_of(rcdev, struct adi_rcu, rcdev);
 }
 
 // RCU memory accessors for other drivers that need it
@@ -246,6 +263,64 @@ int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
 
 EXPORT_SYMBOL(adi_rcu_stop_core);
 
+/*
+ * Reset controller ops
+ *
+ * Reset specifier: 2 cells [coreid, function]
+ *   function 0 (ADI_RCU_RST_CRST):  full core reset pulse
+ *   function 1 (ADI_RCU_RST_START): start (deassert) / stop (assert) via MSG
+ */
+static int adi_rcu_rst_reset(struct reset_controller_dev *rcdev, unsigned long id)
+{
+	return adi_rcu_reset_core(rcdev_to_adi_rcu(rcdev), ADI_RCU_RST_COREID(id));
+}
+
+static int adi_rcu_rst_assert(struct reset_controller_dev *rcdev, unsigned long id)
+{
+	struct adi_rcu *rcu = rcdev_to_adi_rcu(rcdev);
+	int coreid = ADI_RCU_RST_COREID(id);
+
+	if (ADI_RCU_RST_FUNC(id) == ADI_RCU_RST_START)
+		return adi_rcu_stop_core(rcu, coreid, rcu->core_stop_irq[coreid]);
+	return 0;
+}
+
+static int adi_rcu_rst_deassert(struct reset_controller_dev *rcdev, unsigned long id)
+{
+	struct adi_rcu *rcu = rcdev_to_adi_rcu(rcdev);
+
+	if (ADI_RCU_RST_FUNC(id) == ADI_RCU_RST_START)
+		return adi_rcu_start_core(rcu, ADI_RCU_RST_COREID(id));
+	return 0;
+}
+
+static int adi_rcu_rst_status(struct reset_controller_dev *rcdev, unsigned long id)
+{
+	/* Returns 1 if core is idle (in reset), 0 if running */
+	return adi_rcu_is_core_idle(rcdev_to_adi_rcu(rcdev), ADI_RCU_RST_COREID(id));
+}
+
+static int adi_rcu_rst_xlate(struct reset_controller_dev *rcdev,
+			     const struct of_phandle_args *reset_spec)
+{
+	struct adi_rcu *rcu = rcdev_to_adi_rcu(rcdev);
+	unsigned int coreid = reset_spec->args[0];
+	unsigned int func   = reset_spec->args[1];
+
+	if (adi_rcu_check_coreid_valid(rcu, coreid))
+		return -EINVAL;
+	if (func > ADI_RCU_RST_START)
+		return -EINVAL;
+	return ADI_RCU_RST_ID(coreid, func);
+}
+
+static const struct reset_control_ops adi_rcu_rst_ops = {
+	.reset    = adi_rcu_rst_reset,
+	.assert   = adi_rcu_rst_assert,
+	.deassert = adi_rcu_rst_deassert,
+	.status   = adi_rcu_rst_status,
+};
+
 static int adi_rcu_reboot(struct notifier_block *nb, unsigned long mode,
 			  void *cmd)
 {
@@ -293,6 +368,32 @@ static int adi_rcu_probe(struct platform_device *pdev)
 	if (of_property_read_u32
 	    (np, "adi,sharc-max", &adi_rcu->sharc_max_coreid))
 		adi_rcu->sharc_max_coreid = 2;
+
+	/* Per-core SEC interrupt IDs used by stop_core to signal the DSP */
+	ret = of_property_read_u32_index(np, "adi,core-stop-irqs", 0,
+					 &adi_rcu->core_stop_irq[1]);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Unable to get property adi,core-stop-irqs[0]\n");
+
+	ret = of_property_read_u32_index(np, "adi,core-stop-irqs", 1,
+					 &adi_rcu->core_stop_irq[2]);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Unable to get property adi,core-stop-irqs[1]\n");
+
+	/* Register as a reset controller */
+	adi_rcu->rcdev.ops             = &adi_rcu_rst_ops;
+	adi_rcu->rcdev.owner           = THIS_MODULE;
+	adi_rcu->rcdev.dev             = dev;
+	adi_rcu->rcdev.of_node         = dev->of_node;
+	adi_rcu->rcdev.of_reset_n_cells = 2;
+	adi_rcu->rcdev.of_xlate        = adi_rcu_rst_xlate;
+
+	ret = devm_reset_controller_register(dev, &adi_rcu->rcdev);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to register reset controller\n");
 
 	adi_rcu->ioaddr = base;
 	adi_rcu->dev = dev;
