@@ -17,6 +17,7 @@
 #include <linux/device.h>
 #include <linux/io.h>
 #include <linux/irq.h>
+#include <linux/mailbox_controller.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -30,6 +31,7 @@
 
 #define ADI_TRU_DEFAULT_MAX_MASTER_ID		180
 #define ADI_TRU_DEFAULT_MAX_SLAVE_ID		180
+#define ADI_TRU_MAX_MBOX_CHANS			8
 
 #define ARM_SMCCC_OWNER_ADI 51
 #define ADI_SMC_FUNCID_TRU_TRIGGER 0
@@ -44,6 +46,8 @@ struct adi_tru {
 	u32 max_master_id;
 	u32 max_slave_id;
 	bool use_smc;
+	struct mbox_controller mbox;
+	struct mbox_chan chans[ADI_TRU_MAX_MBOX_CHANS];
 };
 
 /**
@@ -198,6 +202,45 @@ int adi_tru_set_trigger(struct adi_tru *tru, struct device_node *master,
 	return adi_tru_set_trigger_by_id(tru, mid, sid);
 }
 
+static int adi_tru_mbox_send_data(struct mbox_chan *chan, void *data)
+{
+	struct adi_tru *tru = container_of(chan->mbox, struct adi_tru, mbox);
+	u32 master_id = (uintptr_t)chan->con_priv;
+
+	return adi_tru_trigger(tru, master_id);
+}
+
+static struct mbox_chan *adi_tru_mbox_xlate(struct mbox_controller *mbox,
+					    const struct of_phandle_args *spec)
+{
+	struct adi_tru *tru = container_of(mbox, struct adi_tru, mbox);
+	u32 master_id = spec->args[0];
+	int i;
+
+	if (master_id == 0 || master_id > tru->max_master_id)
+		return ERR_PTR(-EINVAL);
+
+	/* Return existing channel for this master_id */
+	for (i = 0; i < ADI_TRU_MAX_MBOX_CHANS; i++) {
+		if ((uintptr_t)tru->chans[i].con_priv == master_id)
+			return &tru->chans[i];
+	}
+
+	/* Claim the next free slot (con_priv == NULL means unused) */
+	for (i = 0; i < ADI_TRU_MAX_MBOX_CHANS; i++) {
+		if (!tru->chans[i].con_priv) {
+			tru->chans[i].con_priv = (void *)(uintptr_t)master_id;
+			return &tru->chans[i];
+		}
+	}
+
+	return ERR_PTR(-ENOSPC);
+}
+
+static const struct mbox_chan_ops adi_tru_mbox_ops = {
+	.send_data = adi_tru_mbox_send_data,
+};
+
 int adi_tru_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -278,6 +321,18 @@ int adi_tru_probe(struct platform_device *pdev)
 		}
 
 		writel(0x01, tru->ioaddr + ADI_TRU_REG_GCTL);
+	}
+
+	tru->mbox.dev        = dev;
+	tru->mbox.ops        = &adi_tru_mbox_ops;
+	tru->mbox.chans      = tru->chans;
+	tru->mbox.num_chans  = ADI_TRU_MAX_MBOX_CHANS;
+	tru->mbox.of_xlate   = adi_tru_mbox_xlate;
+
+	ret = devm_mbox_controller_register(dev, &tru->mbox);
+	if (ret) {
+		dev_err(dev, "Failed to register mailbox controller: %d\n", ret);
+		return ret;
 	}
 
 	dev_set_drvdata(dev, tru);
