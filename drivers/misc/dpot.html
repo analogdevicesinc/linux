@@ -14,7 +14,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="ADP5520" href="../multifunction-device/adp5520.html" />
-    <link rel="prev" title="AXI HSCI" href="axi-hsci.html" />
+    <link rel="prev" title="AXI TDD" href="axi-tdd.html" />
    
   
   
@@ -306,6 +306,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
 <li class="toctree-l2"><a class="reference internal" href="axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi-tdd.html">AXI TDD</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Digital Potentiometer</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
@@ -555,7 +556,7 @@ is done with an array of <code class="docutils literal notranslate"><span class=
 calling <code class="docutils literal notranslate"><span class="pre">i2c_register_board_info()</span></code>.</p>
 <p>So, to enable such a driver one need only edit the board support file by adding
 an appropriate entry to <code class="docutils literal notranslate"><span class="pre">i2c_board_info</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.1.0-rc5)"><span>How to instantiate I2C devices</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/i2c/instantiating-devices.html" target="_blank" title="(in The Linux Kernel v7.1.0-rc7)"><span>How to instantiate I2C devices</span></a></p>
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">i2c_board_info</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="n">bfin_i2c_board_info</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_AD525X_DPOT) || defined(CONFIG_AD525X_DPOT_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
@@ -581,7 +582,7 @@ embedded systems, wherein each SPI bus has a number which is known in advance.
 It is thus possible to pre-declare the SPI devices that inhabit this bus. This
 is done with an array of <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">spi_board_info</span></code>, which is registered by
 calling <code class="docutils literal notranslate"><span class="pre">spi_register_board_info()</span></code>.</p>
-<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.1.0-rc5)"><span>Overview of Linux kernel SPI support</span></a></p>
+<p>For more information see: <a class="icon link reference external" href="https://docs.kernel.org/spi/spi-summary.html" target="_blank" title="(in The Linux Kernel v7.1.0-rc7)"><span>Overview of Linux kernel SPI support</span></a></p>
 <div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="k">static</span><span class="w"> </span><span class="k">struct</span><span class="w"> </span><span class="nc">spi_board_info</span><span class="w"> </span><span class="n">bfin_spi_board_info</span><span class="p">[]</span><span class="w"> </span><span class="n">__initdata</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
 <span class="cp">#if defined(CONFIG_AD525X_DPOT) || defined(CONFIG_AD525X_DPOT_MODULE)</span>
 <span class="w">    </span><span class="p">{</span>
@@ -676,7 +677,7 @@ address of 0x2f, we descend (unrelated sysfs entries have been trimmed).</p>
           </div>
               <div class="related">
                 &nbsp;
-    <a href="axi-hsci.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AXI HSCI</a>
+    <a href="axi-tdd.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AXI TDD</a>
     <a href="../multifunction-device/adp5520.html" title="Next document (Alt+Shift+RightArrow)" class="next">ADP5520</a>
               </div>
           
