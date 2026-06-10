@@ -69,15 +69,12 @@
 			reg = <0x28240000 0x160000>,
 					<0x20080000 0x40000>;
 			core-id = <1>;
-			core-irq = <76>;
 			firmware-name = "adi_adsp_core1_fw.ldr";
 			interrupts = <GIC_SPI 251 IRQ_TYPE_EDGE_RISING>;
 			adi,rcu = <&rcu>;
 			adi,l1-da = <0x240000 0x3a0000>;
 			adi,l2-da = <0x20080000 0x200C0000>;
 			adi,rsc-table = <&rsc_tbl0>;
-			adi,tru = <&tru>;
-			adi,tru-master-id = <97>; /* trigger master SOFT4 */
 		};
 
 		core2-rproc@28a40000 {
@@ -85,15 +82,12 @@
 			reg = <0x28a40000 0x160000>,
 					<0x20080000 0x40000>;
 			core-id = <2>;
-			core-irq = <77>;
 			firmware-name = "adi_adsp_core2_fw.ldr";
 			interrupts = <GIC_SPI 251 IRQ_TYPE_EDGE_RISING>;
 			adi,rcu = <&rcu>;
 			adi,l1-da = <0x240000 0x3a0000>;
 			adi,l2-da = <0x20080000 0x200C0000>;
 			adi,rsc-table = <&rsc_tbl1>;
-			adi,tru = <&tru>;
-			adi,tru-master-id = <98>; /* trigger master SOFT5 */
 		};
 
 		sound {
