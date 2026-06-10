@@ -39,7 +39,7 @@
 
 static struct sport_device *sport_devices[8];
 
-void sharc_playback_underrun_uevent(struct sport_device *sport, int core)
+static void sharc_playback_underrun_uevent(struct sport_device *sport, int core)
 {
 	char _env[64];
 	char *envp[] = {_env, NULL};
@@ -48,7 +48,7 @@ void sharc_playback_underrun_uevent(struct sport_device *sport, int core)
 	kobject_uevent_env(&sport->pdev->dev.kobj, KOBJ_CHANGE, envp);
 }
 
-void sharc_record_overrun_uevent(struct sport_device *sport, int core)
+static void sharc_record_overrun_uevent(struct sport_device *sport, int core)
 {
 	char _env[64];
 	char *envp[] = {_env, NULL};
@@ -57,7 +57,7 @@ void sharc_record_overrun_uevent(struct sport_device *sport, int core)
 	kobject_uevent_env(&sport->pdev->dev.kobj, KOBJ_CHANGE, envp);
 }
 
-void sharc_msg_dropped_uevent(struct sport_device *sport, int core)
+static void sharc_msg_dropped_uevent(struct sport_device *sport, int core)
 {
 	char _env[64];
 	char *envp[] = {_env, NULL};
@@ -130,7 +130,7 @@ int sport_set_rx_params(struct sport_device *sport,
 }
 EXPORT_SYMBOL(sport_set_rx_params);
 
-void get_sharc_features(struct sport_device *sport, int sharc_core)
+static void get_sharc_features(struct sport_device *sport, int sharc_core)
 {
 	struct icap_instance *icap = &sport->icap[sharc_core];
 	struct icap_subdevice_features features;
@@ -138,9 +138,10 @@ void get_sharc_features(struct sport_device *sport, int sharc_core)
 	s32 ret;
 
 	ret = icap_get_subdevices(icap);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(&sport->pdev->dev, "Get sharc%d devices error: %d", sharc_core, ret);
 		return;
+	}
 
 	dev_num = (u32)ret;
 
@@ -165,7 +166,7 @@ void get_sharc_features(struct sport_device *sport, int sharc_core)
 	}
 }
 
-void get_sharc1_feature_work_func(struct work_struct *work)
+static void get_sharc1_feature_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work,
 						  struct sport_device,
@@ -175,7 +176,7 @@ void get_sharc1_feature_work_func(struct work_struct *work)
 	get_sharc_features(sport, sharc_core);
 }
 
-void get_sharc2_feature_work_func(struct work_struct *work)
+static void get_sharc2_feature_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work,
 						  struct sport_device,
@@ -185,7 +186,7 @@ void get_sharc2_feature_work_func(struct work_struct *work)
 	get_sharc_features(sport, sharc_core);
 }
 
-void sport_tx_start_work_func(struct work_struct *work)
+static void sport_tx_start_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work,
 						  struct sport_device,
@@ -223,7 +224,7 @@ int sport_tx_start(struct sport_device *sport)
 }
 EXPORT_SYMBOL(sport_tx_start);
 
-void sport_rx_start_work_func(struct work_struct *work)
+static void sport_rx_start_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work, struct sport_device, send_rx_start_work);
 	unsigned long flags;
@@ -256,7 +257,7 @@ int sport_rx_start(struct sport_device *sport)
 }
 EXPORT_SYMBOL(sport_rx_start);
 
-void sport_tx_stop_work_func(struct work_struct *work)
+static void sport_tx_stop_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work, struct sport_device, send_tx_stop_work);
 	unsigned long flags;
@@ -297,7 +298,7 @@ int sport_tx_stop(struct sport_device *sport)
 }
 EXPORT_SYMBOL(sport_tx_stop);
 
-void sport_rx_stop_work_func(struct work_struct *work)
+static void sport_rx_stop_work_func(struct work_struct *work)
 {
 	struct sport_device *sport = container_of(work, struct sport_device, send_rx_stop_work);
 	unsigned long flags;
@@ -662,7 +663,6 @@ static int sport_get_resource(struct sport_device *sport)
 	struct platform_device *pdev = sport->pdev;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret;
 
 	if (!dev->of_node) {
 		dev_err(dev, "No device tree node\n");
