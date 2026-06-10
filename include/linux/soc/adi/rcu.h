@@ -14,8 +14,6 @@
 
 #include <linux/bits.h>
 #include <linux/device.h>
-#include <linux/io.h>
-#include <linux/platform_device.h>
 #include <linux/types.h>
 
 /* Register offsets */
