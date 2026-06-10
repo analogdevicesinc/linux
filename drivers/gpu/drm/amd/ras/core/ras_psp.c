@@ -856,8 +856,6 @@ int ras_psp_sw_fini(struct ras_core_context *ras_core)
 	mutex_destroy(&psp->psp_ctx.internal_mutex);
 	mutex_destroy(&psp->ta_ctx.ta_mutex);
 
-	__ras_psp_mem_fini(ras_core);
-
 	memset(psp, 0, sizeof(*psp));
 
 	return 0;
@@ -916,6 +914,7 @@ int ras_psp_hw_init(struct ras_core_context *ras_core)
 int ras_psp_hw_fini(struct ras_core_context *ras_core)
 {
 	unload_ras_all_fw(ras_core);
+	__ras_psp_mem_fini(ras_core);
 	return 0;
 }
 
