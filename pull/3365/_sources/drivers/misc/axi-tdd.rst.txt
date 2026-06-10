@@ -327,14 +327,28 @@ The TDD core generates timing waveforms organized into frames:
 FSM states
 ~~~~~~~~~~
 
-The peripheral transitions between four states:
+The peripheral transitions between four states. The current state can be read
+via the ``state`` sysfs attribute, which returns the numeric value:
 
-- **IDLE**: The core is disabled or has completed its burst
-- **ARMED**: The core is enabled and waiting for a synchronization event
-- **WAITING**: A sync has been received; the startup delay is counting down
-- **RUNNING**: Frames are actively being generated
+.. list-table::
+   :header-rows: 1
+   :widths: 15 20 65
 
-The current state can be read via the ``state`` sysfs attribute.
+   * - Value
+     - State
+     - Description
+   * - 0
+     - IDLE
+     - The core is disabled or has completed its burst
+   * - 1
+     - ARMED
+     - The core is enabled and waiting for a synchronization event
+   * - 2
+     - WAITING
+     - A sync has been received; the startup delay is counting down
+   * - 3
+     - RUNNING
+     - Frames are actively being generated
 
 Synchronization
 ~~~~~~~~~~~~~~~

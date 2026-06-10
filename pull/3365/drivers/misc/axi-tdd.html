@@ -828,14 +828,41 @@ returns to IDLE; otherwise it runs continuously until disabled</p></li>
 </section>
 <section id="fsm-states">
 <h3>FSM states<a class="headerlink" href="#fsm-states" title="Link to this heading"></a></h3>
-<p>The peripheral transitions between four states:</p>
-<ul class="simple">
-<li><p><strong>IDLE</strong>: The core is disabled or has completed its burst</p></li>
-<li><p><strong>ARMED</strong>: The core is enabled and waiting for a synchronization event</p></li>
-<li><p><strong>WAITING</strong>: A sync has been received; the startup delay is counting down</p></li>
-<li><p><strong>RUNNING</strong>: Frames are actively being generated</p></li>
-</ul>
-<p>The current state can be read via the <code class="docutils literal notranslate"><span class="pre">state</span></code> sysfs attribute.</p>
+<p>The peripheral transitions between four states. The current state can be read
+via the <code class="docutils literal notranslate"><span class="pre">state</span></code> sysfs attribute, which returns the numeric value:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 20.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>State</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>IDLE</p></td>
+<td><p>The core is disabled or has completed its burst</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>ARMED</p></td>
+<td><p>The core is enabled and waiting for a synchronization event</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>WAITING</p></td>
+<td><p>A sync has been received; the startup delay is counting down</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>RUNNING</p></td>
+<td><p>Frames are actively being generated</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
 <section id="synchronization">
 <h3>Synchronization<a class="headerlink" href="#synchronization" title="Link to this heading"></a></h3>
