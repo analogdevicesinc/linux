@@ -63,7 +63,11 @@
 			core-id = <1>;
 			firmware-name = "adi_adsp_core1_fw.ldr";
 			interrupts = <GIC_SPI 165 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
-			adi,rcu = <&rcu>;
+			adi,svect = <&rcu 0x30>;
+			resets = <&rcu 1 0>, <&rcu 1 1>;
+			reset-names = "crst", "start";
+			mboxes = <&tru 140>; /* trigger master SOFT4 */
+			mbox-names = "kick";
 			adi,l1-da = <0x240000 0x3a0000>;
 			adi,l2-da = <0x20000000 0x20200000>;
 			adi,rsc-table = <&rsc_tbl0>;
@@ -78,7 +82,11 @@
 			core-id = <2>;
 			firmware-name = "adi_adsp_core2_fw.ldr";
 			interrupts = <GIC_SPI 165 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
-			adi,rcu = <&rcu>;
+			adi,svect = <&rcu 0x34>;
+			resets = <&rcu 2 0>, <&rcu 2 1>;
+			reset-names = "crst", "start";
+			mboxes = <&tru 141>; /* trigger master SOFT5 */
+			mbox-names = "kick";
 			adi,l1-da = <0x240000 0x3a0000>;
 			adi,l2-da = <0x20000000 0x20200000>;
 			adi,rsc-table = <&rsc_tbl1>;
