@@ -74,10 +74,7 @@ jobs:
         get_file ci/symbols_depend.py
         get_file ci/touched_kconfig.awk
         get_file ci/gen_sbom.py
-
-        # https://github.com/ulfalizer/Kconfiglib/pull/119
-        curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -o ci/kconfiglib.py \
-            https://git.yoctoproject.org/yocto-kernel-tools/plain/Kconfiglib/kconfiglib.py
+        get_file ci/kconfiglib.py
 
         if [[ "${{ inputs.defconfig }}" == "adi_ci_defconfig" ]]; then
           mkdir -p arch/${{ inputs.arch }}/configs
