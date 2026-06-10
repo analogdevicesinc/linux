@@ -18,13 +18,11 @@
 #define SOC_ADI_ICC_H
 
 #include <linux/device.h>
+#include <linux/err.h>
 #include <linux/types.h>
-#include <asm/cacheflush.h>
 
 #define sm_atomic_read(v) ioread16(v)
 #define sm_atomic_write(i, v) iowrite16(v, i)
-#define invalidate_dcache_range(start, end) __sync_cache_range_r((void *)start, end - start)
-#define flush_dcache_range(start, end) __sync_cache_range_w((void *)start, end - start)
 #define arm_core_id()	0
 
 #ifdef CONFIG_ARCH_SC59X_64
@@ -118,10 +116,10 @@ void put_adi_tru(struct adi_tru *tru);
 int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev);
 int adi_tru_trigger(struct adi_tru *tru, u32 master);
 int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave);
-extern int adi_tru_probe(struct platform_device *pdev);
-extern void adi_tru_remove(struct platform_device *pdev);
-extern int adi_tru_set_trigger(struct adi_tru *tru,
-			       struct device_node *master,
-			       struct device_node *slave);
+int adi_tru_probe(struct platform_device *pdev);
+void adi_tru_remove(struct platform_device *pdev);
+int adi_tru_set_trigger(struct adi_tru *tru,
+			struct device_node *master,
+			struct device_node *slave);
 
 #endif
