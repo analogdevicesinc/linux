@@ -9,23 +9,24 @@
  * (C) Copyright 2011~2014 Bosch Sensortec GmbH All Rights Reserved
  */
 
-#include <linux/module.h>
-#include <linux/i2c.h>
-#include <linux/interrupt.h>
 #include <linux/cleanup.h>
 #include <linux/delay.h>
-#include <linux/slab.h>
+#include <linux/i2c.h>
+#include <linux/interrupt.h>
+#include <linux/module.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
-#include <linux/iio/iio.h>
-#include <linux/iio/sysfs.h>
+#include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
+#include <linux/slab.h>
+
 #include <linux/iio/buffer.h>
 #include <linux/iio/events.h>
+#include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 #include <linux/iio/trigger.h>
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
-#include <linux/regmap.h>
-#include <linux/regulator/consumer.h>
 
 #include "bmc150_magn.h"
 
