@@ -127,7 +127,6 @@
 <li><a class="reference internal" href="#register-update-restrictions">Register update restrictions</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#register-map">Register map</a></li>
 <li><a class="reference internal" href="#references">References</a></li>
 </ul>
 </li>
@@ -436,6 +435,12 @@ receiving multiple frames of data through multiple buffers.</p>
 </tr>
 <tr class="row-even"><td><p>sysfs ABI</p></td>
 <td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd" target="_blank">Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>HDL documentation</p></td>
+<td><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_tdd/index.html#axi-tdd" target="_blank" title="(in HDL)"><span>AXI TDD</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>HDL IP core source code</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/tree/main/library/axi_tdd" target="_blank">library/axi_tdd</a></p></td>
 </tr>
 </tbody>
 </table>
@@ -896,98 +901,9 @@ immediate effect.</p></li>
 </ul>
 </section>
 </section>
-<section id="register-map">
-<h2>Register map<a class="headerlink" href="#register-map" title="Link to this heading"></a></h2>
-<div class="table-wrapper colwidths-given docutils container">
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 20.0%" />
-<col style="width: 30.0%" />
-<col style="width: 50.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Address</p></th>
-<th class="head"><p>Name</p></th>
-<th class="head"><p>Description</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>0x0000</p></td>
-<td><p>VERSION</p></td>
-<td><p>IP core version</p></td>
-</tr>
-<tr class="row-odd"><td><p>0x0004</p></td>
-<td><p>PERIPHERAL_ID</p></td>
-<td><p>Peripheral identification</p></td>
-</tr>
-<tr class="row-even"><td><p>0x0008</p></td>
-<td><p>SCRATCH</p></td>
-<td><p>Scratch register</p></td>
-</tr>
-<tr class="row-odd"><td><p>0x000C</p></td>
-<td><p>IDENTIFICATION</p></td>
-<td><p>Magic identification (0x5444444E)</p></td>
-</tr>
-<tr class="row-even"><td><p>0x0010</p></td>
-<td><p>INTERFACE_DESCRIPTION</p></td>
-<td><p>Synthesis-time configuration (channel count, register width, sync capabilities)</p></td>
-</tr>
-<tr class="row-odd"><td><p>0x0014</p></td>
-<td><p>DEFAULT_POLARITY</p></td>
-<td><p>Default output polarity</p></td>
-</tr>
-<tr class="row-even"><td><p>0x0040</p></td>
-<td><p>CONTROL</p></td>
-<td><p>Control register (enable, sync source selection, sync reset)</p></td>
-</tr>
-<tr class="row-odd"><td><p>0x0044</p></td>
-<td><p>CHANNEL_ENABLE</p></td>
-<td><p>Per-channel enable bitmask</p></td>
-</tr>
-<tr class="row-even"><td><p>0x0048</p></td>
-<td><p>CHANNEL_POLARITY</p></td>
-<td><p>Per-channel polarity bitmask</p></td>
-</tr>
-<tr class="row-odd"><td><p>0x004C</p></td>
-<td><p>BURST_COUNT</p></td>
-<td><p>Number of frames per burst (0 = continuous)</p></td>
-</tr>
-<tr class="row-even"><td><p>0x0050</p></td>
-<td><p>STARTUP_DELAY</p></td>
-<td><p>Delay before first frame (clock cycles)</p></td>
-</tr>
-<tr class="row-odd"><td><p>0x0054</p></td>
-<td><p>FRAME_LENGTH</p></td>
-<td><p>Frame duration (clock cycles)</p></td>
-</tr>
-<tr class="row-even"><td><p>0x0058</p></td>
-<td><p>SYNC_PERIOD_LOW</p></td>
-<td><p>Internal sync period, lower 32 bits</p></td>
-</tr>
-<tr class="row-odd"><td><p>0x005C</p></td>
-<td><p>SYNC_PERIOD_HIGH</p></td>
-<td><p>Internal sync period, upper 32 bits</p></td>
-</tr>
-<tr class="row-even"><td><p>0x0060</p></td>
-<td><p>STATUS</p></td>
-<td><p>Current FSM state</p></td>
-</tr>
-<tr class="row-odd"><td><p>0x0080 + N*0x08</p></td>
-<td><p>CHANNEL_N_ON</p></td>
-<td><p>Channel N assertion time (clock cycles)</p></td>
-</tr>
-<tr class="row-even"><td><p>0x0084 + N*0x08</p></td>
-<td><p>CHANNEL_N_OFF</p></td>
-<td><p>Channel N de-assertion time (clock cycles)</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
 <section id="references">
 <h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
 <ul class="simple">
-<li><p>HDL IP core at <a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/tree/main/library/axi_tdd" target="_blank">library/axi_tdd</a></p></li>
 <li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/docs/axi_tdd" target="_blank">Generic Time-Division Duplexing Controller on wiki</a></p></li>
 </ul>
 </section>

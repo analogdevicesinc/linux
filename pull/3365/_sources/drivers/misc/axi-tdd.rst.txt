@@ -49,6 +49,10 @@ Files
      - :git+linux:`Documentation/devicetree/bindings/misc/adi,axi-tdd.yaml <main:Documentation/devicetree/bindings/misc/adi,axi-tdd.yaml>`
    * - sysfs ABI
      - :git+linux:`Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd <main:Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd>`
+   * - HDL documentation
+     - :external+hdl:ref:`axi_tdd`
+   * - HDL IP core source code
+     - :git-hdl:`library/axi_tdd`
 
 Overview
 --------
@@ -399,70 +403,7 @@ Exceptions:
   ``sync_reset`` (the ``CONTROL`` register) can be modified on-the-fly with
   immediate effect.
 
-Register map
-------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 30 50
-
-   * - Address
-     - Name
-     - Description
-   * - 0x0000
-     - VERSION
-     - IP core version
-   * - 0x0004
-     - PERIPHERAL_ID
-     - Peripheral identification
-   * - 0x0008
-     - SCRATCH
-     - Scratch register
-   * - 0x000C
-     - IDENTIFICATION
-     - Magic identification (0x5444444E)
-   * - 0x0010
-     - INTERFACE_DESCRIPTION
-     - Synthesis-time configuration (channel count, register width, sync capabilities)
-   * - 0x0014
-     - DEFAULT_POLARITY
-     - Default output polarity
-   * - 0x0040
-     - CONTROL
-     - Control register (enable, sync source selection, sync reset)
-   * - 0x0044
-     - CHANNEL_ENABLE
-     - Per-channel enable bitmask
-   * - 0x0048
-     - CHANNEL_POLARITY
-     - Per-channel polarity bitmask
-   * - 0x004C
-     - BURST_COUNT
-     - Number of frames per burst (0 = continuous)
-   * - 0x0050
-     - STARTUP_DELAY
-     - Delay before first frame (clock cycles)
-   * - 0x0054
-     - FRAME_LENGTH
-     - Frame duration (clock cycles)
-   * - 0x0058
-     - SYNC_PERIOD_LOW
-     - Internal sync period, lower 32 bits
-   * - 0x005C
-     - SYNC_PERIOD_HIGH
-     - Internal sync period, upper 32 bits
-   * - 0x0060
-     - STATUS
-     - Current FSM state
-   * - 0x0080 + N*0x08
-     - CHANNEL_N_ON
-     - Channel N assertion time (clock cycles)
-   * - 0x0084 + N*0x08
-     - CHANNEL_N_OFF
-     - Channel N de-assertion time (clock cycles)
-
 References
 ----------
 
-- HDL IP core at :git-hdl:`library/axi_tdd`
 - :dokuwiki:`Generic Time-Division Duplexing Controller on wiki <resources/fpga/docs/axi_tdd>`
