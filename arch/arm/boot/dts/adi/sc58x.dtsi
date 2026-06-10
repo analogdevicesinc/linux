@@ -242,10 +242,12 @@
 		};
 
 		rcu: rcu@3108B000 {
-			compatible = "adi,reset-controller";
+			compatible = "syscon", "adi,reset-controller";
 			reg = <0x3108B000 0x1000>;
+			#reset-cells = <2>;
 			adi,sharc-min = <1>;
 			adi,sharc-max = <2>;
+			adi,core-stop-irqs = <76 77>;
 			adi,enable-reboot;
 			status = "okay";
 		};
@@ -261,6 +263,7 @@
 		tru: tru@3108a000 {
 			compatible = "adi,trigger-routing-unit";
 			reg = <0x3108a000 0x1000>;
+			#mbox-cells = <1>;
 			adi,max-master-id = <139>;
 			adi,max-slave-id = <137>;
 			status = "okay";
