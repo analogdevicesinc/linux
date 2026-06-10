@@ -35,11 +35,9 @@
 #include "amdgpu_ras_nbio_v7_9.h"
 #include "amdgpu_ras_mce.h"
 
-#define MAX_SOCKET_NUM_PER_NODE_GFX9    8
 #define MAX_AID_NUM_PER_SOCKET_GFX9     4
 #define MAX_XCD_NUM_PER_AID_GFX9        2
 
-#define MAX_SOCKET_NUM_PER_NODE_GFX12   4
 #define MAX_AID_NUM_PER_SOCKET_GFX12    2
 #define MAX_XCD_NUM_PER_AID_GFX12       4
 
@@ -92,12 +90,10 @@ static int amdgpu_ras_mgr_init_aca_config(struct amdgpu_device *adev,
 	case IP_VERSION(9, 4, 3):
 	case IP_VERSION(9, 4, 4):
 	case IP_VERSION(9, 5, 0):
-		aca_cfg->socket_num_per_node = MAX_SOCKET_NUM_PER_NODE_GFX9;
 		aca_cfg->aid_num_per_socket = MAX_AID_NUM_PER_SOCKET_GFX9;
 		aca_cfg->xcd_num_per_aid = MAX_XCD_NUM_PER_AID_GFX9;
 		break;
 	case IP_VERSION(12, 1, 0):
-		aca_cfg->socket_num_per_node = MAX_SOCKET_NUM_PER_NODE_GFX12;
 		aca_cfg->aid_num_per_socket = MAX_AID_NUM_PER_SOCKET_GFX12;
 		aca_cfg->xcd_num_per_aid = MAX_XCD_NUM_PER_AID_GFX12;
 		break;

@@ -189,27 +189,36 @@ static int aca_parse_bank(struct ras_core_context *ras_core,
 static int aca_check_block_ecc_info(struct ras_core_context *ras_core,
 			struct aca_block *aca_blk, struct aca_ecc_info *info)
 {
-	if (info->socket_id >= aca_blk->ecc.socket_num_per_node) {
-		RAS_DEV_ERR(ras_core->dev,
-			"Socket id (%d) is out of config! max:%u\n",
-			info->socket_id, aca_blk->ecc.socket_num_per_node);
-		return -ENODATA;
+	struct device_system_info dev_info = {0};
+	int ret;
+
+	ret = ras_core_get_device_system_info(ras_core, &dev_info);
+	if (ret) {
+		RAS_DEV_ERR(ras_core->dev, "Failed to get system device info.\n");
+		return ret;
 	}
 
-	if (info->die_id >= aca_blk->ecc.socket[info->socket_id].aid_num) {
+	if (info->socket_id != dev_info.socket_id) {
+		RAS_DEV_ERR(ras_core->dev,
+			"Bank socket id (%d) does not match device socket id:%u\n",
+			info->socket_id, dev_info.socket_id);
+		return -ENXIO;
+	}
+
+	if (info->die_id >= aca_blk->ecc.socket.aid_num) {
 		RAS_DEV_ERR(ras_core->dev,
 			"Die id (%d) is out of config! max:%u\n",
-			info->die_id, aca_blk->ecc.socket[info->socket_id].aid_num);
+			info->die_id, aca_blk->ecc.socket.aid_num);
 		return -ENODATA;
 	}
 
 	if ((aca_blk->blk_info->ras_block_id == RAS_BLOCK_ID__GFX) && info->xcd_valid &&
 	    (info->xcd_id >=
-		 aca_blk->ecc.socket[info->socket_id].aid[info->die_id].xcd.xcd_num)) {
+		 aca_blk->ecc.socket.aid[info->die_id].xcd.xcd_num)) {
 		RAS_DEV_ERR(ras_core->dev,
 			"Xcd id (%d) is out of config! max:%u\n",
 			info->xcd_id,
-			aca_blk->ecc.socket[info->socket_id].aid[info->die_id].xcd.xcd_num);
+			aca_blk->ecc.socket.aid[info->die_id].xcd.xcd_num);
 		return -ENODATA;
 	}
 
@@ -232,7 +241,7 @@ static int aca_log_bad_bank(struct ras_core_context *ras_core,
 		return ret;
 
 	mutex_lock(&ras_core->ras_aca.aca_lock);
-	aid_ecc = &aca_blk->ecc.socket[info->socket_id].aid[info->die_id];
+	aid_ecc = &aca_blk->ecc.socket.aid[info->die_id];
 	ecc_err = &aid_ecc->ecc_err;
 
 	if ((aca_blk->blk_info->ras_block_id == RAS_BLOCK_ID__GFX) &&
@@ -268,7 +277,7 @@ static int aca_log_bad_bank(struct ras_core_context *ras_core,
 
 	aca_report_ecc_info(ras_core,
 		bank->seq_no, aca_blk->blk_info->ras_block_id, info->socket_id, info->die_id,
-		&aca_blk->ecc.socket[info->socket_id].aid[info->die_id], bank_ecc);
+		&aca_blk->ecc.socket.aid[info->die_id], bank_ecc);
 
 	return 0;
 }
@@ -452,16 +461,13 @@ int ras_aca_clear_all_blocks_ecc_count(struct ras_core_context *ras_core)
 {
 	struct aca_block *aca_blk;
 	enum ras_block_id blk;
-	int skt;
 
 	mutex_lock(&ras_core->ras_aca.aca_lock);
 	for (blk = RAS_BLOCK_ID__UMC; blk < RAS_BLOCK_ID__LAST; blk++) {
 		aca_blk = ras_aca_get_block_handle(ras_core, blk);
-		if (aca_blk) {
-			for (skt = 0; skt < aca_blk->ecc.socket_num_per_node; skt++)
-				__clear_block_socket_ecc_count(ras_core,
-						blk, &aca_blk->ecc.socket[skt]);
-		}
+		if (aca_blk)
+			__clear_block_socket_ecc_count(ras_core,
+						blk, &aca_blk->ecc.socket);
 	}
 	mutex_unlock(&ras_core->ras_aca.aca_lock);
 
@@ -471,29 +477,27 @@ int ras_aca_clear_all_blocks_ecc_count(struct ras_core_context *ras_core)
 int ras_aca_clear_block_new_ecc_count(struct ras_core_context *ras_core, u32 blk)
 {
 	struct aca_block *aca_blk;
-	int skt, aid, xcd;
+	int aid, xcd;
 	struct aca_ecc_count *ecc_err;
 	struct aca_aid_ecc  *aid_ecc;
 
 	mutex_lock(&ras_core->ras_aca.aca_lock);
 	aca_blk = ras_aca_get_block_handle(ras_core, blk);
-	for (skt = 0; skt < aca_blk->ecc.socket_num_per_node; skt++) {
-		for (aid = 0; aid < aca_blk->ecc.socket[skt].aid_num; aid++) {
-			aid_ecc = &aca_blk->ecc.socket[skt].aid[aid];
-			if (blk == RAS_BLOCK_ID__GFX) {
-				for (xcd = 0; xcd < aid_ecc->xcd.xcd_num; xcd++) {
-					ecc_err = &aid_ecc->xcd.xcd[xcd].ecc_err;
-					ecc_err->new_ce_count = 0;
-					ecc_err->new_ue_count = 0;
-					ecc_err->new_de_count = 0;
-				}
+	for (aid = 0; aid < aca_blk->ecc.socket.aid_num; aid++) {
+		aid_ecc = &aca_blk->ecc.socket.aid[aid];
+		if (blk == RAS_BLOCK_ID__GFX) {
+			for (xcd = 0; xcd < aid_ecc->xcd.xcd_num; xcd++) {
+				ecc_err = &aid_ecc->xcd.xcd[xcd].ecc_err;
+				ecc_err->new_ce_count = 0;
+				ecc_err->new_ue_count = 0;
+				ecc_err->new_de_count = 0;
 			}
-
-			ecc_err = &aid_ecc->ecc_err;
-			ecc_err->new_ce_count = 0;
-			ecc_err->new_ue_count = 0;
-			ecc_err->new_de_count = 0;
 		}
+
+		ecc_err = &aid_ecc->ecc_err;
+		ecc_err->new_ce_count = 0;
+		ecc_err->new_ue_count = 0;
+		ecc_err->new_de_count = 0;
 	}
 	mutex_unlock(&ras_core->ras_aca.aca_lock);
 
@@ -551,9 +555,7 @@ int ras_aca_get_block_ecc_count(struct ras_core_context *ras_core,
 {
 	struct ras_ecc_count *err_data = (struct ras_ecc_count *)data;
 	struct aca_block *aca_blk;
-	struct aca_ecc_count skt_ecc;
 	struct aca_ecc_count ecc;
-	u32 skt;
 
 	if (blk >= RAS_BLOCK_ID__LAST)
 		return -EINVAL;
@@ -565,13 +567,7 @@ int ras_aca_get_block_ecc_count(struct ras_core_context *ras_core,
 	memset(&ecc, 0, sizeof(ecc));
 
 	mutex_lock(&ras_core->ras_aca.aca_lock);
-	for (skt = 0; skt < aca_blk->ecc.socket_num_per_node; skt++) {
-		memset(&skt_ecc, 0, sizeof(skt_ecc));
-		__get_block_socket_ecc_count(ras_core, blk,
-				&aca_blk->ecc.socket[skt], &skt_ecc);
-
-		_add_ecc_count(&ecc, &skt_ecc);
-	}
+	__get_block_socket_ecc_count(ras_core, blk, &aca_blk->ecc.socket, &ecc);
 
 	err_data->new_ce_count = ecc.new_ce_count;
 	err_data->total_ce_count = ecc.total_ce_count;
@@ -589,21 +585,18 @@ int ras_aca_sw_init(struct ras_core_context *ras_core)
 	struct ras_aca *ras_aca = &ras_core->ras_aca;
 	struct ras_aca_config *aca_cfg = &ras_core->config->aca_cfg;
 	struct aca_block *aca_blk;
-	uint32_t socket_num_per_node;
 	uint32_t aid_num_per_socket;
 	uint32_t xcd_num_per_aid;
-	int blk, skt, aid;
+	int blk, aid;
 
-	socket_num_per_node = aca_cfg->socket_num_per_node;
 	aid_num_per_socket = aca_cfg->aid_num_per_socket;
 	xcd_num_per_aid = aca_cfg->xcd_num_per_aid;
 
 	if (!xcd_num_per_aid || !aid_num_per_socket ||
-		(socket_num_per_node > MAX_SOCKET_NUM_PER_NODE) ||
 	    (aid_num_per_socket > MAX_AID_NUM_PER_SOCKET) ||
 	    (xcd_num_per_aid > MAX_XCD_NUM_PER_AID)) {
-		RAS_DEV_ERR(ras_core->dev, "Invalid ACA system configuration: %d, %d, %d\n",
-			socket_num_per_node, aid_num_per_socket, xcd_num_per_aid);
+		RAS_DEV_ERR(ras_core->dev, "Invalid ACA system configuration: %d, %d\n",
+			aid_num_per_socket, xcd_num_per_aid);
 		return -EINVAL;
 	}
 
@@ -615,14 +608,11 @@ int ras_aca_sw_init(struct ras_core_context *ras_core)
 
 	for (blk = 0; blk < RAS_BLOCK_ID__LAST; blk++) {
 		aca_blk = &ras_aca->aca_blk[blk];
-		aca_blk->ecc.socket_num_per_node = socket_num_per_node;
-		for (skt = 0; skt < aca_blk->ecc.socket_num_per_node; skt++) {
-			aca_blk->ecc.socket[skt].aid_num = aid_num_per_socket;
-			if (blk == RAS_BLOCK_ID__GFX) {
-				for (aid = 0; aid < aca_blk->ecc.socket[skt].aid_num; aid++)
-					aca_blk->ecc.socket[skt].aid[aid].xcd.xcd_num =
-								xcd_num_per_aid;
-			}
+		aca_blk->ecc.socket.aid_num = aid_num_per_socket;
+		if (blk == RAS_BLOCK_ID__GFX) {
+			for (aid = 0; aid < aca_blk->ecc.socket.aid_num; aid++)
+				aca_blk->ecc.socket.aid[aid].xcd.xcd_num =
+							xcd_num_per_aid;
 		}
 	}
 

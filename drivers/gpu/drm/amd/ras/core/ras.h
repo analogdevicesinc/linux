@@ -323,7 +323,6 @@ struct ras_bank_ecc_node {
 };
 
 struct ras_aca_config {
-	u32 socket_num_per_node;
 	u32 aid_num_per_socket;
 	u32 xcd_num_per_aid;
 };

@@ -212,6 +212,9 @@ static int amdgpu_ras_sys_get_device_system_info(struct ras_core_context *ras_co
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
 
+	if (!adev->smuio.funcs || !adev->smuio.funcs->get_socket_id)
+		return -ENOENT;
+
 	dev_info->device_id = adev->pdev->device;
 	dev_info->vendor_id = adev->pdev->vendor;
 	dev_info->socket_id = adev->smuio.funcs->get_socket_id(adev);
