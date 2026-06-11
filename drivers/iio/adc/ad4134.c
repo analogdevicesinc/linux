@@ -61,6 +61,17 @@
 #define AD4134_DEVICE_CONFIG_POWER_MODE_MASK	BIT(0)
 #define AD4134_POWER_MODE_HIGH_PERF		0b1
 
+/*
+ * DEVICE_STATUS (datasheet Table, reg 0x15). STAT_PLL_LOCK (bit 0) reads 1 once
+ * the ASRC digital PLL has locked to the ODR input in slave mode. The datasheet
+ * (ASRC Slave Mode / Multidevice Synchronization) requires polling this bit
+ * before reading data; any ODR change unlocks and re-locks the PLL.
+ */
+#define AD4134_DEVICE_STATUS_REG		0x15
+#define AD4134_STAT_PLL_LOCK			BIT(0)
+#define AD4134_PLL_LOCK_POLL_US			1000
+#define AD4134_PLL_LOCK_TIMEOUT_US		(2 * MEGA)
+
 #define AD4134_DATA_PACKET_CONFIG_REG		0x11
 #define AD4134_DATA_PACKET_CONFIG_FRAME_MASK	GENMASK(5, 4)
 #define AD4134_DATA_PACKET_16BIT_FRAME		0x0
@@ -1340,7 +1351,31 @@ static int ad4134_clkin_startup(struct ad4134_state *st,
 	struct gpio_desc *slave_reset = ad4134_get_slave_reset(st);
 	s64 us_reset, us_por, us_startup, us_hs;
 	unsigned long timeout;
+	u32 div32, edge_a, edge_b;
 	ktime_t ts;
+
+	/*
+	 * §E.0 — soft-reset the clkin_aligner FSM so STARTUP_FIRE is taken
+	 * from ST_IDLE. On a driver reload (modprobe) a prior §E left the FSM
+	 * in ST_RUNNING (RESUME), where STARTUP_FIRE is ignored and §E.3 hangs
+	 * (startup_done TIMEOUT, DIV32=0x10x, EDGE=0xffff). RSTN bit[0] is
+	 * active-high (1=assert, 0=release) and crosses into the ext_clk
+	 * domain, so settle on both edges. STARTUP_CYCLES/EDGE_TARGET live in
+	 * the up_clk domain and survive this reset.
+	 */
+	dev_info(dev, "ad4134: §E.0 clkin_aligner FSM soft-reset (re-runnable §E)\n");
+	writel(1, st->clkin_base + AD4134_CLKIN_RSTN);
+	fsleep(10);
+	writel(0, st->clkin_base + AD4134_CLKIN_RSTN);
+	fsleep(10);
+	writel(AD4134_CLKIN_IRQ_STARTUP_DONE |
+	       AD4134_CLKIN_IRQ_STOP_AT_ALIGN_DONE |
+	       AD4134_CLKIN_IRQ_EDGE_TARGET_HIT,
+	       st->clkin_base + AD4134_CLKIN_IRQ_PENDING);
+	writel(AD4134_CLKIN_IRQ_STARTUP_DONE |
+	       AD4134_CLKIN_IRQ_STOP_AT_ALIGN_DONE |
+	       AD4134_CLKIN_IRQ_EDGE_TARGET_HIT,
+	       st->clkin_base + AD4134_CLKIN_IRQ_MASK);
 
 	dev_info(dev, "ad4134: §E.1 GATE_FORCE_OFF (stop XTAL at gate)%s\n",
 		 slave_reset ? " — controlling both chips' /RESETN" : "");
@@ -1411,6 +1446,35 @@ static int ad4134_clkin_startup(struct ad4134_state *st,
 	dev_info(dev,
 		 "ad4134: §E timing(us): reset_hold=%lld por=%lld startup->done=%lld handshake=%lld\n",
 		 us_reset, us_por, us_startup, us_hs);
+
+	/*
+	 * §E receipts — decode the raw counters into a PASS/FAIL so each boot's
+	 * dmesg proves the procedure ran, not just that it returned.
+	 * DIV32_PHASE[4:0]=div32_cnt, [8]=clk_div32 level. After the 36 delivered
+	 * edges (HW primes the counter to 31 on STARTUP_FIRE) the spec state is
+	 * div32_cnt=3, clk_div32=HIGH (§E.5) — a short value means the gate
+	 * dropped startup edge(s) (CDC race → DIV32 0x100-0x102). EDGE_COUNT must
+	 * advance after RESUME to prove the XTAL is genuinely free-running (§E.6),
+	 * so read it twice. NB: these counters are on the SHARED clk_in wire — a
+	 * PASS proves the FPGA delivered a correct, identical stimulus to BOTH
+	 * chips; it does NOT prove each chip's internal RC->XTAL handover landed
+	 * on the same edge (the ±1-XTAL inter-chip rung is invisible here — it
+	 * needs dig_clk feedback that the HDL does not have).
+	 */
+	div32  = readl(st->clkin_base + AD4134_CLKIN_DIV32_PHASE);
+	edge_a = readl(st->clkin_base + AD4134_CLKIN_EDGE_COUNT);
+	fsleep(10);
+	edge_b = readl(st->clkin_base + AD4134_CLKIN_EDGE_COUNT);
+	dev_info(dev,
+		 "ad4134: §E RECEIPT  step3/5: div32_cnt=%u clk_div32=%u → %s  |  step6: edge %u→%u → %s\n",
+		 div32 & 0x1f, (div32 >> 8) & 1,
+		 ((div32 & 0x1f) == 3 && (div32 & 0x100)) ?
+			"PASS (36 edges delivered, /32 phase primed)" :
+			"FAIL (short startup / wrong phase)",
+		 edge_a, edge_b,
+		 (edge_b != edge_a) ?
+			"PASS (XTAL free-running)" :
+			"FAIL (clock not advancing)");
 	return 0;
 }
 
@@ -1531,6 +1595,62 @@ static int ad4134_clkin_change_power_mode(struct ad4134_state *st,
 
 	dev_info(dev, "ad4134: §F complete (reg 0x%02x = 0x%02x)\n", reg, val);
 	return 0;
+}
+
+/*
+ * Poll DEVICE_STATUS.STAT_PLL_LOCK until the ASRC PLL locks to the ODR input.
+ * Replaces a blind settle delay: the datasheet requires confirming PLL lock
+ * before capture, and the lock time varies with ODR. Each chip is read over its
+ * own native CS through @regmap — never the broadcast cs_gpio, whose reads draw
+ * contention from both chips driving SDO simultaneously.
+ */
+static int ad4134_wait_pll_lock(struct device *dev, struct regmap *regmap,
+				const char *who)
+{
+	unsigned int status;
+	int ret;
+
+	ret = regmap_read_poll_timeout(regmap, AD4134_DEVICE_STATUS_REG,
+				       status, status & AD4134_STAT_PLL_LOCK,
+				       AD4134_PLL_LOCK_POLL_US,
+				       AD4134_PLL_LOCK_TIMEOUT_US);
+	if (ret) {
+		dev_err(dev,
+			"ad4134: %s PLL did not lock (DEVICE_STATUS=0x%02x): %d\n",
+			who, status, ret);
+		return ret;
+	}
+
+	dev_info(dev, "ad4134: %s PLL locked (DEVICE_STATUS=0x%02x)\n",
+		 who, status);
+
+	return 0;
+}
+
+/* device_for_each_child callback: poll a sibling ADC's PLL via its own regmap. */
+static int ad4134_wait_sibling_pll_lock(struct device *dev, void *data)
+{
+	struct spi_device *self_spi = data;
+	struct spi_device *sib_spi;
+	struct iio_dev *indio_dev;
+	struct ad4134_state *sib;
+
+	if (!dev->driver)
+		return 0;
+
+	sib_spi = to_spi_device(dev);
+	if (sib_spi == self_spi)
+		return 0;
+
+	indio_dev = dev_get_drvdata(dev);
+	if (!indio_dev)
+		return 0;
+
+	sib = iio_priv(indio_dev);
+	if (!sib->regmap)
+		return 0;
+
+	return ad4134_wait_pll_lock(dev, sib->regmap, "slave");
 }
 
 static int ad4134_setup(struct ad4134_state *st)
@@ -1746,9 +1866,10 @@ static int ad4134_setup(struct ad4134_state *st)
 		if (ret)
 			return dev_err_probe(dev, ret, "failed to set ODR freq\n");
 
-		dev_info(dev, "ad4134: §F.14/15 settle 1 s (PLL + filter)\n");
-		fsleep(MEGA);
-		dev_info(dev, "ad4134: §F.14/15 settle done\n");
+		dev_info(dev, "ad4134: §F.14/15 wait for master PLL lock (STAT_PLL_LOCK)\n");
+		ret = ad4134_wait_pll_lock(dev, st->regmap, "master");
+		if (ret)
+			return ret;
 	}
 
 	/*
@@ -1783,8 +1904,11 @@ static int ad4134_setup(struct ad4134_state *st)
 
 		gpiod_set_value_cansleep(st->cs_gpio, 0);
 
-		dev_info(dev, "ad4134: post-broadcast settle 200 ms\n");
-		fsleep(200000);
+		dev_info(dev, "ad4134: post-broadcast wait for slave PLL lock (STAT_PLL_LOCK)\n");
+		ret = device_for_each_child(&st->spi->controller->dev, st->spi,
+					    ad4134_wait_sibling_pll_lock);
+		if (ret)
+			return ret;
 
 		dev_info(dev, "ad4134: §F.16 DIG_IF_RESET SKIPPED at probe — trigger manually via 'ad4134_sync' sysfs attribute\n");
 		dev_info(dev, "ad4134: --- setup complete, ready for capture (UNSYNCED) ---\n");
