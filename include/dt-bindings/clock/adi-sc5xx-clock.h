@@ -9,7 +9,6 @@
 #ifndef DT_BINDINGS_CLOCK_ADI_SC5XX_CLOCK_H
 #define DT_BINDINGS_CLOCK_ADI_SC5XX_CLOCK_H
 
-
 /*----- CGU clocks common to SC5xx SoCs -----*/
 
 #define ADSP_SC5XX_CLK_CGU_IN		0
@@ -55,6 +54,7 @@
 #define ADSP_SC594_CLK_CGU_VCO_OUT	14
 #define ADSP_SC594_CLK_CGU_CCLK1	15
 
+
 /*----- CDU clocks common to SC5xx SoCs -----*/
 
 #define ADSP_SC5XX_CLK_CDU_CLKINSEL		0
@@ -99,5 +99,13 @@
 #define ADSP_SC57X_CLK_CDU_OCLK0_HALF		8
 #define ADSP_SC57X_CLK_CDU_CCLK1_1_HALF		9
 #define ADSP_SC57X_CLK_CDU_SDIO			10
+
+
+/*----- ADSP-SC598 specific PLL2 clocks -----*/
+
+#define ADSP_SC598_CLK_PLL2_PLL_IN 0
+#define ADSP_SC598_CLK_PLL2_VCO_OUT 1
+#define ADSP_SC598_CLK_PLL2_PLLCLK 2
+#define ADSP_SC598_CLK_PLL2_DDIV 3
 
 #endif
