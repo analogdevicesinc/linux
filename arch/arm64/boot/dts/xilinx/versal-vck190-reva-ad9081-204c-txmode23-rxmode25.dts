@@ -134,6 +134,8 @@
 			adi,jesd-links {
 				#size-cells = <0>;
 				#address-cells = <1>;
+				
+				adi,ctle-filter-settings = /bits/ 8 <3 4 3 3 3 4 3 3>; /* ctle filter for config */
 
 				adi,ctle-filter-settings = /bits/ 8 <3 4 3 3 3 4 3 3>; /* ctle filter for config */
 
