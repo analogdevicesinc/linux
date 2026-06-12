@@ -566,7 +566,8 @@ static int mes_v12_1_misc_op(struct amdgpu_mes *mes,
 	union MESAPI__MISC misc_pkt;
 	int pipe;
 
-	if (mes->adev->enable_uni_mes)
+	/*OP_WRM_REG_WR_WAIT is used to do tlb invalidation which need to be handled in sched pipe for gfx_12_1.*/
+	if (mes->adev->enable_uni_mes && input->op != MES_MISC_OP_WRM_REG_WR_WAIT)
 		pipe = AMDGPU_MES_KIQ_PIPE;
 	else
 		pipe = AMDGPU_MES_SCHED_PIPE;
@@ -960,7 +961,7 @@ static int mes_v12_1_inv_tlbs_pasid(struct amdgpu_mes *mes,
 	if (ret < 0)
 		return -EINVAL;
 	mes_inv_tlbs.invalidate_tlbs.hub_id = ret;
-	return mes_v12_1_submit_pkt_and_poll_completion(mes, xcc_id, AMDGPU_MES_KIQ_PIPE,
+	return mes_v12_1_submit_pkt_and_poll_completion(mes, xcc_id, AMDGPU_MES_SCHED_PIPE,
 			&mes_inv_tlbs, sizeof(mes_inv_tlbs),
 			offsetof(union MESAPI__INV_TLBS, api_status));
 
