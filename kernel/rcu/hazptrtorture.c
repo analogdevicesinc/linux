@@ -30,6 +30,8 @@ MODULE_DESCRIPTION("Hazard-pointer module-based torture test facility");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Paul E. McKenney <paulmckrcu@meta.com>");
 
+torture_param(int, kthread_do_pending_ms, -1,
+	      "Delay between cleanups for deferred hazard pointers (ms), zero to disable");
 torture_param(int, nreaders, -1, "Number of hazard-pointer reader threads");
 torture_param(int, onoff_holdoff, 0, "Time after boot before CPU hotplugs (s)");
 torture_param(int, onoff_interval, 0, "Time between CPU hotplugs (jiffies), 0=disable");
@@ -50,6 +52,7 @@ static int nrealreaders;
 static struct task_struct *writer_task;
 static struct task_struct *preempt_task;
 static struct task_struct **reader_tasks;
+static struct task_struct *do_pending_task;
 static struct task_struct *stats_task;
 
 #define HAZPTR_TORTURE_PIPE_LEN 10
@@ -73,6 +76,14 @@ static atomic_t n_hazptr_torture_alloc_fail;
 static atomic_t n_hazptr_torture_free;
 static atomic_t n_hazptr_torture_error;
 static struct list_head hazptr_torture_removed;
+
+// State for a deferred (AKA pending) hazard pointer
+struct hazptr_pending {
+	struct llist_node hpp_node;
+	struct hazptr_ctx hpp_hc;
+	struct hazptr_torture *hpp_htp;
+};
+static DEFINE_PER_CPU(struct llist_head, hazptr_pending);
 
 static int hazptr_torture_writer_state;
 #define HTWS_FIXED_DELAY	0
@@ -417,6 +428,76 @@ static int hazptr_torture_reader(void *arg)
 }
 
 /*
+ * Release the specified CPU's set of deferred/pending hazard pointers.
+ */
+static void hazptr_torture_do_one_pending(int cpu, struct torture_random_state *trsp)
+{
+	struct hazptr_pending *hppp;
+	struct hazptr_pending *hppp1;
+	struct llist_head *llhp;
+	struct llist_node *llnp;
+
+	llhp = per_cpu_ptr(&hazptr_pending, cpu);
+	llnp = llist_del_all(llhp);
+	if (!llnp)
+		return;
+	llist_for_each_entry_safe(hppp, hppp1, llnp, hpp_node) {
+		hazptr_torture_reader_tail(&hppp->hpp_hc, hppp->hpp_htp, trsp);
+		kfree(hppp);
+	}
+}
+
+/*
+ * Hazard-pointer release of deferred/pending hazard pointers.
+ */
+static int hazptr_torture_do_pending(void *arg)
+{
+	int cpu = 0;
+	DEFINE_TORTURE_RANDOM(rand);
+
+	VERBOSE_TOROUT_STRING("hazptr_torture_do_pending task started");
+	do {
+		if (stutter_will_wait()) {
+			for_each_possible_cpu(cpu)
+				hazptr_torture_do_one_pending(cpu, &rand);
+		} else {
+			cpu = cpumask_next_wrap(cpu, cpu_possible_mask);
+			hazptr_torture_do_one_pending(cpu, &rand);
+		}
+		if (torture_must_stop())
+			torture_hrtimeout_ms(kthread_do_pending_ms, USEC_PER_MSEC, &rand);
+		// Omit stutter_wait() because this function needs to do cleanup.
+	} while (!torture_must_stop());
+	torture_kthread_stopping("hazptr_torture_do_pending");
+	return 0;
+}
+
+/*
+ * Spawn hazptr_torture_do_pending() if there is something for it to do.
+ */
+static int hazptr_torture_do_pending_init(void)
+{
+	if (kthread_do_pending_ms == -1)
+		kthread_do_pending_ms = cur_ops->onstack_ctx ? 0 : 3;
+	if (kthread_do_pending_ms < 0) {
+		pr_alert("Cannot have negative kthread_do_pending_ms, disabling deferral.\n");
+		goto err_out;
+	}
+	if (cur_ops->onstack_ctx && kthread_do_pending_ms) {
+		pr_alert("Cannot defer onstack hazptr_ctx, disabling deferral.\n");
+		goto err_out;
+	}
+	if (!kthread_do_pending_ms)
+		return 0;
+	return torture_create_kthread(hazptr_torture_do_pending, NULL, do_pending_task);
+
+err_out:
+	WARN_ON(IS_BUILTIN(CONFIG_HAZPTR_TORTURE_TEST));
+	kthread_do_pending_ms = 0;
+	return 0;
+}
+
+/*
  * Print torture statistics.  Caller must ensure that there is only one
  * call to this function at a given time!!!  This is normally accomplished
  * by relying on the module system to only have one copy of the module
@@ -524,12 +605,14 @@ hazptr_torture_print_module_parms(struct hazptr_torture_ops *cur_ops, const char
 {
 	pr_alert("%s" TORTURE_FLAG
 		 "--- %s: nreaders=%d "
+		 "kthread_do_pending_ms=%d "
 		 "onoff_interval=%d onoff_holdoff=%d "
 		 "preempt_duration=%d preempt_interval=%d "
 		 "reader_sleep_us=%d "
 		 "shuffle_interval=%d shutdown_secs=%d stat_interval=%d stutter=%d "
 		 "verbose=%d\n",
 		 torture_type, tag, nrealreaders,
+		 kthread_do_pending_ms,
 		 onoff_interval, onoff_holdoff,
 		 preempt_duration, preempt_interval,
 		 reader_sleep_us,
@@ -578,6 +661,7 @@ hazptr_torture_cleanup(void)
 		return;
 	}
 
+	torture_stop_kthread(hazptr_torture_do_pending, do_pending_task);
 	torture_stop_kthread(hazptr_torture_preempt, preempt_task);
 	torture_stop_kthread(hazptr_torture_writer, writer_task);
 
@@ -665,6 +749,12 @@ static int __init hazptr_torture_init(void)
 	}
 
 	/* Start up the kthreads. */
+
+	// This must be before the readers in order to set up the module
+	// parameters used by the readers.
+	firsterr = hazptr_torture_do_pending_init();
+	if (torture_init_error(firsterr))
+		goto unwind;
 
 	reader_tasks = kzalloc_objs(reader_tasks[0], nrealreaders);
 	for (i = 0; i < nrealreaders; i++) {
