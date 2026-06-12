@@ -389,6 +389,13 @@ properties:
 
           '#size-cells':
             const: 0
+
+          adi,ctle-filter-settings:
+            $ref: /schemas/types.yaml#/definitions/uint8-array
+            minItems: 1
+            maxItems: 8
+            description: CTLE filter settings for JESD lanes.
+
         patternProperties:
           "^link@[0-1]$":
             type: object
