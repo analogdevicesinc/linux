@@ -1997,6 +1997,7 @@ static int amdgpu_discovery_get_gfx_info(struct amdgpu_device *adev)
 	uint8_t *discovery_bin = adev->discovery.bin;
 	struct table_info *info;
 	union gc_info *gc_info;
+	uint32_t num_wgps_per_sa, num_wgps_per_sa1;
 	u16 offset;
 
 	if (!discovery_bin) {
@@ -2070,11 +2071,13 @@ static int amdgpu_discovery_get_gfx_info(struct amdgpu_device *adev)
 			adev->gfx.config.gc_max_num_residency_ways = le32_to_cpu(gc_info->v1_5.gc_max_num_residency_ways);
 			adev->gfx.config.gc_cache_ways_size_in_bytes = le32_to_cpu(gc_info->v1_5.gc_cache_ways_size_in_bytes);
 			adev->gfx.config.gc_reserved = le32_to_cpu(gc_info->v1_5.gc_reserved);
-			/* GC info v1.5 derives max_cu_per_sh from the combined SA/SA1 WGP counts. */
-			adev->gfx.config.max_cu_per_sh = le32_to_cpu(gc_info->v1.gc_num_wgp0_per_sa) +
-						le32_to_cpu(gc_info->v1.gc_num_wgp1_per_sa) +
-						le32_to_cpu(gc_info->v1_5.gc_num_wgp0_per_sa1) +
-						le32_to_cpu(gc_info->v1_5.gc_num_wgp1_per_sa1);
+
+			num_wgps_per_sa = le32_to_cpu(gc_info->v1.gc_num_wgp0_per_sa) +
+					  le32_to_cpu(gc_info->v1.gc_num_wgp1_per_sa);
+			num_wgps_per_sa1 = le32_to_cpu(gc_info->v1_5.gc_num_wgp0_per_sa1) +
+					   le32_to_cpu(gc_info->v1_5.gc_num_wgp1_per_sa1);
+			adev->gfx.config.max_cu_per_sh = num_wgps_per_sa >= num_wgps_per_sa1 ?
+							 num_wgps_per_sa : num_wgps_per_sa1;
 		}
 		break;
 	case 2:
