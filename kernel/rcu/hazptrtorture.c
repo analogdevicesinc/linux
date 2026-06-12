@@ -30,6 +30,7 @@ MODULE_DESCRIPTION("Hazard-pointer module-based torture test facility");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Paul E. McKenney <paulmckrcu@meta.com>");
 
+torture_param(int, defer_modulus, -1, "Defer once per specified # of hazptr ops, zero to disable");
 torture_param(int, kthread_do_pending_ms, -1,
 	      "Delay between cleanups for deferred hazard pointers (ms), zero to disable");
 torture_param(int, nreaders, -1, "Number of hazard-pointer reader threads");
@@ -187,7 +188,7 @@ hazptr_torture_pipe_update(struct hazptr_torture *old_rp)
 struct hazptr_torture_ops {
 	void (*init)(void);
 	void (*cleanup)(void);
-	struct hazptr_torture *((*readlock)(struct hazptr_ctx **hcpp));
+	struct hazptr_torture *((*readlock)(struct hazptr_ctx *hcpp));
 	void (*read_delay)(struct torture_random_state *rrsp);
 	void (*readunlock)(struct hazptr_ctx *hcp, struct hazptr_torture *htp);
 	void (*sync)(void *htp);
@@ -203,14 +204,12 @@ static struct hazptr_torture_ops *cur_ops;
  * structures.
  */
 
-static struct hazptr_torture *hazptr_torture_read_lock(struct hazptr_ctx **hcpp)
+static struct hazptr_torture *hazptr_torture_read_lock(struct hazptr_ctx *hcpp)
 {
-	struct hazptr_ctx *hcp = kmalloc(sizeof(*hcp), GFP_KERNEL);
+	struct hazptr_torture *htp;
 
-	*hcpp = hcp;
-	if (!hcp)
-		return NULL;
-	return (struct hazptr_torture *)hazptr_acquire(hcp, (void *)&hazptr_torture_current);
+	htp = (struct hazptr_torture *)hazptr_acquire(hcpp, (void *)&hazptr_torture_current);
+	return htp;
 }
 
 static void hazptr_read_delay(struct torture_random_state *rrsp)
@@ -241,8 +240,6 @@ static void hazptr_torture_read_unlock(struct hazptr_ctx *hcp, struct hazptr_tor
 {
 	if (hcp) {
 		hazptr_release(hcp, htp);
-		if (cur_ops->onstack_ctx)
-			kfree(hcp);
 	}
 }
 
@@ -266,17 +263,9 @@ static struct hazptr_torture_ops hazptr_ops = {
  * hazptr_ctx structures.
  */
 
-static struct hazptr_torture *hazptr_torture_read_lock_stack(struct hazptr_ctx **hcpp)
-{
-	struct hazptr_torture *htp;
-
-	htp = (struct hazptr_torture *)hazptr_acquire(*hcpp, (void *)&hazptr_torture_current);
-	return htp;
-}
-
 static struct hazptr_torture_ops hazptr_stack_ops = {
 	.init			= hazptr_sync_torture_init,
-	.readlock		= hazptr_torture_read_lock_stack,
+	.readlock		= hazptr_torture_read_lock,
 	.read_delay		= hazptr_read_delay,
 	.readunlock		= hazptr_torture_read_unlock,
 	.sync			= hazptr_synchronize,
@@ -388,6 +377,20 @@ static void hazptr_torture_reader_tail(struct hazptr_ctx *hcp, struct hazptr_tor
 }
 
 /*
+ * Defer the specified hazard pointer to some other context.
+ */
+static void hazptr_torture_defer(struct hazptr_pending *hppp, struct torture_random_state *trsp)
+{
+	int cpu = torture_random(trsp) % nr_cpu_ids;
+	struct llist_head *llhp;
+
+	guard(preempt)();
+	cpu = cpumask_next_wrap(cpu, cpu_online_mask);
+	llhp = per_cpu_ptr(&hazptr_pending, cpu);
+	llist_add(&hppp->hpp_node, llhp);
+}
+
+/*
  * Hazard-pointer torture reader kthread.  Repeatedly dereferences
  * hazptr_torture_current, incrementing the corresponding element of the
  * pipeline array.  The counter in the element should never be greater
@@ -395,9 +398,9 @@ static void hazptr_torture_reader_tail(struct hazptr_ctx *hcp, struct hazptr_tor
  */
 static int hazptr_torture_reader(void *arg)
 {
-	struct hazptr_ctx hc;
-	struct hazptr_ctx *hcp = &hc;
-	struct hazptr_torture *htp;
+	bool can_defer = !cur_ops->onstack_ctx && kthread_do_pending_ms && defer_modulus;
+	struct hazptr_pending hpp;
+	struct hazptr_pending *hppp = cur_ops->onstack_ctx ? &hpp : NULL;
 	unsigned long lastsleep = jiffies;
 	long myid = (long)arg;
 	int mynumonline = myid % nr_cpu_ids;
@@ -406,10 +409,17 @@ static int hazptr_torture_reader(void *arg)
 	VERBOSE_TOROUT_STRING("hazptr_torture_reader task started");
 	set_user_nice(current, MAX_NICE);
 	do {
-		htp = cur_ops->readlock(&hcp);
-		if (!htp) {
-			// Still starting up or allocation failure,
-			// so get out of the way.
+		if (!hppp) {
+			hppp = kmalloc_obj(*hppp, GFP_KERNEL);
+			if (!hppp) {
+				// Allocation failure, so get out of the way.
+				schedule_timeout_interruptible(HZ / 10);
+				continue;
+			}
+		}
+		hppp->hpp_htp = cur_ops->readlock(&hppp->hpp_hc);
+		if (!hppp->hpp_htp) {
+			// Still starting up, so get out of the way.
 			schedule_timeout_interruptible(HZ / 10);
 			continue;
 		}
@@ -417,7 +427,12 @@ static int hazptr_torture_reader(void *arg)
 			torture_hrtimeout_us(500, 1000, &rand);
 			lastsleep = jiffies + 10;
 		}
-		hazptr_torture_reader_tail(hcp, htp, &rand);
+		if (can_defer && !(torture_random(&rand) % defer_modulus)) {
+			hazptr_torture_defer(hppp, &rand);
+			hppp = NULL;
+		} else {
+			hazptr_torture_reader_tail(&hppp->hpp_hc, hppp->hpp_htp, &rand);
+		}
 		while (!torture_must_stop() &&
 		       (torture_num_online_cpus() < mynumonline || !rcu_inkernel_boot_has_ended()))
 			schedule_timeout_interruptible(HZ / 5);
@@ -478,13 +493,26 @@ static int hazptr_torture_do_pending(void *arg)
 static int hazptr_torture_do_pending_init(void)
 {
 	if (kthread_do_pending_ms == -1)
-		kthread_do_pending_ms = cur_ops->onstack_ctx ? 0 : 3;
+		kthread_do_pending_ms = (cur_ops->onstack_ctx || defer_modulus == 0) ? 0 : 3;
+	if (defer_modulus == -1)
+		defer_modulus = (cur_ops->onstack_ctx ||
+				 kthread_do_pending_ms == 0) ? 0 : 1000 * nr_cpu_ids;
 	if (kthread_do_pending_ms < 0) {
 		pr_alert("Cannot have negative kthread_do_pending_ms, disabling deferral.\n");
 		goto err_out;
 	}
 	if (cur_ops->onstack_ctx && kthread_do_pending_ms) {
 		pr_alert("Cannot defer onstack hazptr_ctx, disabling deferral.\n");
+		goto err_out;
+	}
+	if (defer_modulus < 0) {
+		pr_alert("Cannot have negative defer_modulus (%d), disabling deferral.\n",
+			 defer_modulus);
+		goto err_out;
+	}
+	if (!kthread_do_pending_ms != !defer_modulus) {
+		pr_alert("Pending kthread (%d) & deferral (%d) don't match, disabling deferral.\n",
+			 kthread_do_pending_ms, defer_modulus);
 		goto err_out;
 	}
 	if (!kthread_do_pending_ms)
@@ -494,6 +522,7 @@ static int hazptr_torture_do_pending_init(void)
 err_out:
 	WARN_ON(IS_BUILTIN(CONFIG_HAZPTR_TORTURE_TEST));
 	kthread_do_pending_ms = 0;
+	defer_modulus = 0;
 	return 0;
 }
 
@@ -605,14 +634,14 @@ hazptr_torture_print_module_parms(struct hazptr_torture_ops *cur_ops, const char
 {
 	pr_alert("%s" TORTURE_FLAG
 		 "--- %s: nreaders=%d "
-		 "kthread_do_pending_ms=%d "
+		 "defer_modulus=%d kthread_do_pending_ms=%d "
 		 "onoff_interval=%d onoff_holdoff=%d "
 		 "preempt_duration=%d preempt_interval=%d "
 		 "reader_sleep_us=%d "
 		 "shuffle_interval=%d shutdown_secs=%d stat_interval=%d stutter=%d "
 		 "verbose=%d\n",
 		 torture_type, tag, nrealreaders,
-		 kthread_do_pending_ms,
+		 defer_modulus, kthread_do_pending_ms,
 		 onoff_interval, onoff_holdoff,
 		 preempt_duration, preempt_interval,
 		 reader_sleep_us,
