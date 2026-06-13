@@ -16,6 +16,21 @@
 #define IN2_CLKON	0x2
 #define IN3_CLKON	0x3
 
+/* Number of clocks per clock controller for each SoC */
+#define NUM_CLKS_SC594_CGU0	(ADSP_SC594_CLK_CGU_CCLK1 + 1)
+#define NUM_CLKS_SC594_CGU1	(ADSP_SC594_CLK_CGU_CCLK1 + 1)
+#define NUM_CLKS_SC594_CDU	(ADSP_SC594_CLK_CDU_TRACE + 1)
+#define NUM_CLKS_SC598_CGU0	(ADSP_SC598_CLK_CGU_VCO_OUT + 1)
+#define NUM_CLKS_SC598_CGU1	(ADSP_SC598_CLK_CGU1_S0SEL + 1)
+#define NUM_CLKS_SC598_CDU	(ADSP_SC598_CLK_CDU_DDR_SEL + 1)
+#define NUM_CLKS_SC598_PLL2	(ADSP_SC598_CLK_PLL2_DDIV + 1)
+#define NUM_CLKS_SC58X_CGU0	(ADSP_SC58X_CLK_CGU_CCLK1 + 1)
+#define NUM_CLKS_SC58X_CGU1	(ADSP_SC58X_CLK_CGU_S0SEL + 1)
+#define NUM_CLKS_SC58X_CDU	(ADSP_SC58X_CLK_CDU_SDIO + 1)
+#define NUM_CLKS_SC57X_CGU0	(ADSP_SC57X_CLK_CGU_CCLK1 + 1)
+#define NUM_CLKS_SC57X_CGU1	(ADSP_SC57X_CLK_CGU_S0SEL + 1)
+#define NUM_CLKS_SC57X_CDU	(ADSP_SC57X_CLK_CDU_SDIO + 1)
+
 /* CDU CLKOn input clock source configurations */
 MUX_TABLE(CDU_CLKO_SEL1)	= { IN0_CLKON };
 MUX_TABLE(CDU_CLKO_SEL2)	= { IN1_CLKON };
@@ -107,7 +122,8 @@ CLK_OF_DECLARE();
 
 static int sc5xx_clock_probe(struct platform_device *pdev)
 {
-	return 0;
+	struct device *dev = pdev->dev;
+
 }
 
 static void sc5xx_clock_remove(struct platform_device *pdev)
