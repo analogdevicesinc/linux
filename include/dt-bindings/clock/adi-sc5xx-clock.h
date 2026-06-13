@@ -2,58 +2,60 @@
 /*
  * (C) Copyright 2022 - Analog Devices Inc.
  *
- * ADSP SC5xx clock device tree bindings
+ * ADSP SC5XX clock device tree bindings
  *
+ * This header defines the clocks that the ADSP-SC5XX
+ * clock controllers (CDU, CGU and PLLs) provide.
+ *
+ * Author: Qasim Ijaz <qasim.ijaz@analog.com>
  */
 
 #ifndef DT_BINDINGS_CLOCK_ADI_SC5XX_CLOCK_H
 #define DT_BINDINGS_CLOCK_ADI_SC5XX_CLOCK_H
 
-/*----- CGU clocks common to SC5xx SoCs -----*/
+/* SC5XX CGU0 and CGU1 clocks */
+#define ADSP_SC5XX_CLK_CGU_PLL_IN	0
+#define ADSP_SC5XX_CLK_CGU_PLLCLK	1
+#define ADSP_SC5XX_CLK_CGU_CDIV		2
+#define ADSP_SC5XX_CLK_CGU_SYSCLK	3
+#define ADSP_SC5XX_CLK_CGU_DDIV		4
+#define ADSP_SC5XX_CLK_CGU_ODIV		5
+#define ADSP_SC5XX_CLK_CGU_CCLK0	6
+#define ADSP_SC5XX_CLK_CGU_S0SELDIV	7
+#define ADSP_SC5XX_CLK_CGU_S1SELDIV	8
+#define ADSP_SC5XX_CLK_CGU_DCLK		9
+#define ADSP_SC5XX_CLK_CGU_OCLK		10
+#define ADSP_SC5XX_CLK_CGU_SCLK1	11
+#define ADSP_SC5XX_CLK_CGU_SCLK0	12
 
-#define ADSP_SC5XX_CLK_CGU_IN		0
-#define ADSP_SC5XX_CLK_CGU_PLL_IN	1
-#define ADSP_SC5XX_CLK_CGU_PLLCLK	2
-#define ADSP_SC5XX_CLK_CGU_CDIV		3
-#define ADSP_SC5XX_CLK_CGU_SYSCLK	4
-#define ADSP_SC5XX_CLK_CGU_DDIV		5
-#define ADSP_SC5XX_CLK_CGU_ODIV		6
-#define ADSP_SC5XX_CLK_CGU_CCLK0	7
-#define ADSP_SC5XX_CLK_CGU_S0SELDIV	8
-#define ADSP_SC5XX_CLK_CGU_S1SELDIV	9
-#define ADSP_SC5XX_CLK_CGU_DCLK		10
-#define ADSP_SC5XX_CLK_CGU_OCLK		11
-#define ADSP_SC5XX_CLK_CGU_SCLK1	12
-#define ADSP_SC5XX_CLK_CGU_SCLK0	13
+/* ADSP-SC598 CGU0 and CGU1 clocks */
+#define ADSP_SC598_CLK_CGU_S1SELEXDIV	13
+#define ADSP_SC598_CLK_CGU_CCLK2	14
+#define ADSP_SC598_CLK_CGU_S1SEL	15
+#define ADSP_SC598_CLK_CGU_VCO_OUT	16
 
-/*----- ADSP-SC598 specific CGU clocks -----*/
+/* ADSP-SC598 CGU1 clocks */
+#define ADSP_SC598_CLK_CGU1_S0SELEXDIV	17
+#define ADSP_SC598_CLK_CGU1_S0SEL	18
 
-#define ADSP_SC598_CLK_CGU_S0SELEXDIV	14
-#define ADSP_SC598_CLK_CGU_S1SELEXDIV	15
-#define ADSP_SC598_CLK_CGU_CCLK2	16
-#define ADSP_SC598_CLK_CGU_SCLK1_HALF	17
-#define ADSP_SC598_CLK_CGU_S0SEL	18
-#define ADSP_SC598_CLK_CGU_S1SEL	19
-#define ADSP_SC598_CLK_CGU_VCO_OUT	20
+/* ADSP-SC58X CGU0 and CGU1 clocks */
+#define ADSP_SC58X_CLK_CGU_S1SEL	13
+#define ADSP_SC58X_CLK_CGU_VCO_OUT	14
+#define ADSP_SC58X_CLK_CGU_CCLK1	15
 
-/*----- ADSP-SC58X specific CGU clocks -----*/
+/* ADSP-SC58X CGU1 clocks */
+#define ADSP_SC58X_CLK_CGU_S0SEL	16
 
-#define ADSP_SC58X_CLK_CGU_S0SEL	14
-#define ADSP_SC58X_CLK_CGU_S1SEL	15
-#define ADSP_SC58X_CLK_CGU_VCO_OUT	16
-#define ADSP_SC58X_CLK_CGU_CCLK1	17
+/* ADSP-SC57X CGU0 and CGU1 clocks */
+#define ADSP_SC57X_CLK_CGU_S1SEL	13
+#define ADSP_SC57X_CLK_CGU_CCLK1	14
 
-/*----- ADSP-SC57X specific CGU clocks -----*/
+/* ADSP-SC57X CGU1 clocks */
+#define ADSP_SC57X_CLK_CGU_S0SEL	15
 
-#define ADSP_SC57X_CLK_CGU_S0SEL	14
-#define ADSP_SC57X_CLK_CGU_S1SEL	15
-#define ADSP_SC57X_CLK_CGU_CCLK1	16
-
-/*----- ADSP-SC594 specific CGU clocks -----*/
-
-#define ADSP_SC594_CLK_CGU_VCO_OUT	14
-#define ADSP_SC594_CLK_CGU_CCLK1	15
-
+/* ADSP-SC594 CGU0 and CGU1 clocks */
+#define ADSP_SC594_CLK_CGU_VCO_OUT	13
+#define ADSP_SC594_CLK_CGU_CCLK1	14
 
 /*----- CDU clocks common to SC5xx SoCs -----*/
 
@@ -103,9 +105,9 @@
 
 /*----- ADSP-SC598 specific PLL2 clocks -----*/
 
-#define ADSP_SC598_CLK_PLL2_PLL_IN 0
-#define ADSP_SC598_CLK_PLL2_VCO_OUT 1
-#define ADSP_SC598_CLK_PLL2_PLLCLK 2
-#define ADSP_SC598_CLK_PLL2_DDIV 3
+#define ADSP_SC598_CLK_PLL2_PLL_IN		0
+#define ADSP_SC598_CLK_PLL2_VCO_OUT		1
+#define ADSP_SC598_CLK_PLL2_PLLCLK 		2
+#define ADSP_SC598_CLK_PLL2_DDIV 		3
 
 #endif
