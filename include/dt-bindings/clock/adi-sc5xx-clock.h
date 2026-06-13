@@ -5,7 +5,7 @@
  * ADSP SC5XX clock device tree bindings
  *
  * This header defines the clocks that the ADSP-SC5XX
- * clock controllers (CDU, CGU and PLLs) provide.
+ * clock controllers provide.
  *
  * Author: Qasim Ijaz <qasim.ijaz@analog.com>
  */
@@ -13,7 +13,7 @@
 #ifndef DT_BINDINGS_CLOCK_ADI_SC5XX_CLOCK_H
 #define DT_BINDINGS_CLOCK_ADI_SC5XX_CLOCK_H
 
-/* SC5XX CGU0 and CGU1 clocks */
+/* CGU0 and CGU1 clocks common to SC5xx SoCs */
 #define ADSP_SC5XX_CLK_CGU_PLL_IN	0
 #define ADSP_SC5XX_CLK_CGU_PLLCLK	1
 #define ADSP_SC5XX_CLK_CGU_CDIV		2
@@ -57,57 +57,51 @@
 #define ADSP_SC594_CLK_CGU_VCO_OUT	13
 #define ADSP_SC594_CLK_CGU_CCLK1	14
 
-/*----- CDU clocks common to SC5xx SoCs -----*/
+/* CDU clocks common to SC5xx SoCs */
+#define ADSP_SC5XX_CLK_CDU_CLKINSEL	0
+#define ADSP_SC5XX_CLK_CDU_SHARC0	1
+#define ADSP_SC5XX_CLK_CDU_SHARC1	2
+#define ADSP_SC5XX_CLK_CDU_ARM		3
+#define ADSP_SC5XX_CLK_CDU_CAN		4
+#define ADSP_SC5XX_CLK_CDU_SPDIF	5
+#define ADSP_SC5XX_CLK_CDU_GIGE		6
+#define ADSP_SC5XX_CLK_CDU_DDR		7
 
-#define ADSP_SC5XX_CLK_CDU_CLKINSEL		0
-#define ADSP_SC5XX_CLK_CDU_SHARC0		1
-#define ADSP_SC5XX_CLK_CDU_SHARC1		2
-#define ADSP_SC5XX_CLK_CDU_ARM			3
-#define ADSP_SC5XX_CLK_CDU_CAN			4
-#define ADSP_SC5XX_CLK_CDU_SPDIF		5
-#define ADSP_SC5XX_CLK_CDU_GIGE			6
-#define ADSP_SC5XX_CLK_CDU_DDR			7
+/* ADSP-SC594 CDU clocks */
+#define ADSP_SC594_CLK_CDU_SPI		8
+#define ADSP_SC594_CLK_CDU_LP		9
+#define ADSP_SC594_CLK_CDU_LPDDR	10
+#define ADSP_SC594_CLK_CDU_OSPI		11
+#define ADSP_SC594_CLK_CDU_TRACE	12
 
-/*----- ADSP-SC594 specific CDU clocks -----*/
-
-#define ADSP_SC594_CLK_CDU_SPI			8
-#define ADSP_SC594_CLK_CDU_LP			9
-#define ADSP_SC594_CLK_CDU_LPDDR		10
-#define ADSP_SC594_CLK_CDU_OSPI			11
-#define ADSP_SC594_CLK_CDU_TRACE		12
-
-/*----- ADSP-SC598 specific CDU clocks -----*/
-
+/* ADSP-SC598 CDU clocks */
 #define ADSP_SC598_CLK_CDU_DCLK0_HALF		8
-#define ADSP_SC598_CLK_CDU_DCLK1_HALF		9
-#define ADSP_SC598_CLK_CDU_SPI			10
-#define ADSP_SC598_CLK_CDU_LP			11
-#define ADSP_SC598_CLK_CDU_LPDDR		12
-#define ADSP_SC598_CLK_CDU_OSPI_REFCLK		13
-#define ADSP_SC598_CLK_CDU_TRACE		14
-#define ADSP_SC598_CLK_CDU_EMMC			15
-#define ADSP_SC598_CLK_CDU_EMMC_TIMER_QMC	16
-#define ADSP_SC598_CLK_CDU_DDR_SEL		17
+#define ADSP_SC598_CLK_CDU_DCLK1_HALF 	  	9
+#define ADSP_SC598_CLK_CDU_SCLK1_HALF     	10
+#define ADSP_SC598_CLK_CDU_SPI		  	11
+#define ADSP_SC598_CLK_CDU_LP		  	12
+#define ADSP_SC598_CLK_CDU_LPDDR	  	13
+#define ADSP_SC598_CLK_CDU_OSPI_REFCLK	  	14
+#define ADSP_SC598_CLK_CDU_TRACE	  	15
+#define ADSP_SC598_CLK_CDU_EMMC		  	16
+#define ADSP_SC598_CLK_CDU_EMMC_TIMER_QMC	17
+#define ADSP_SC598_CLK_CDU_DDR_SEL	  	18
 
-/*----- ADSP-SC58X specific CDU clocks -----*/
-
+/* ADSP-SC58X CDU clocks */
 #define ADSP_SC58X_CLK_CDU_OCLK0_HALF		8
 #define ADSP_SC58X_CLK_CDU_CCLK1_1_HALF		9
 #define ADSP_SC58X_CLK_CDU_LP			10
 #define ADSP_SC58X_CLK_CDU_SDIO			11
 
-/*----- ADSP-SC57X specific CDU clocks -----*/
-
+/* ADSP-SC57X CDU clocks */
 #define ADSP_SC57X_CLK_CDU_OCLK0_HALF		8
 #define ADSP_SC57X_CLK_CDU_CCLK1_1_HALF		9
 #define ADSP_SC57X_CLK_CDU_SDIO			10
 
-
-/*----- ADSP-SC598 specific PLL2 clocks -----*/
-
+/* ADSP-SC598 PLL2 clocks */
 #define ADSP_SC598_CLK_PLL2_PLL_IN		0
 #define ADSP_SC598_CLK_PLL2_VCO_OUT		1
-#define ADSP_SC598_CLK_PLL2_PLLCLK 		2
-#define ADSP_SC598_CLK_PLL2_DDIV 		3
+#define ADSP_SC598_CLK_PLL2_PLLCLK		2
+#define ADSP_SC598_CLK_PLL2_DDIV		3
 
 #endif	/* DT_BINDINGS_CLOCK_ADI_SC5XX_CLOCK_H */
