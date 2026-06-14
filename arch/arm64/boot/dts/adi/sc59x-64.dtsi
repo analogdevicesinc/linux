@@ -126,7 +126,6 @@
 		#clock-cells = <1>;
 
 		clocks = <&cgu0 ADSP_SC5XX_CLK_CGU_CCLK0>,
-			 <&cgu0 ADSP_SC5XX_CLK_CGU_CCLK1>,
 			 <&cgu0 ADSP_SC598_CLK_CGU_CCLK2>,
 			 <&cgu0 ADSP_SC5XX_CLK_CGU_SYSCLK>,
 			 <&cgu0 ADSP_SC5XX_CLK_CGU_SCLK0>,
@@ -140,14 +139,13 @@
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_SCLK1>,
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_DCLK>,
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_OCLK>;
-		clock-names = "cclk0_0",  "cclk1_0",
-			      "cclk2_0",  "sysclk_0",
-			      "sclk0_0",  "sclk1_0",
-			      "dclk_0",   "oclk_0",
-			      "cclk0_1",  "cclk2_1",
-			      "sysclk_1", "sclk0_1",
-			      "sclk1_1",  "dclk_1",
-			      "oclk_1";
+		clock-names = "cclk0_0",  "cclk2_0",  
+			      "sysclk_0", "sclk0_0",
+			      "sclk1_0",  "dclk_0",
+			      "oclk_0",   "cclk0_1",
+			      "cclk2_1",  "sysclk_1",
+			      "sclk0_1",  "sclk1_1",
+			      "dclk_1",   "oclk_1";
 	};
 
 	gptimers: gptimers@31018000 {
