@@ -3892,22 +3892,6 @@ int adrv9002_intf_test_cfg(const struct adrv9002_rf_phy *phy, const int chann, c
 	return ret;
 }
 
-static u8 adrv9002_fixed_clk(bool tx, int channel)
-{
-	if (tx)
-		return channel ? ADRV9002_FIXED_TX_CH1_CLK : ADRV9002_FIXED_TX_CH0_CLK;
-
-	return channel ? ADRV9002_FIXED_RX_CH1_CLK : ADRV9002_FIXED_RX_CH0_CLK;
-}
-
-static u8 adrv9002_fixed_data(bool tx, int channel)
-{
-	if (tx)
-		return channel ? ADRV9002_FIXED_TX_CH1_DATA : ADRV9002_FIXED_TX_CH0_DATA;
-
-	return channel ? ADRV9002_FIXED_RX_CH1_DATA : ADRV9002_FIXED_RX_CH0_DATA;
-}
-
 static int adrv9002_intf_tuning(const struct adrv9002_rf_phy *phy)
 {
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
@@ -3922,20 +3906,29 @@ static int adrv9002_intf_tuning(const struct adrv9002_rf_phy *phy)
 			continue;
 		if (phy->rx2tx2 && c->idx) {
 			/*
-			 * In rx2tx2 we should treat both channels as the same. Hence, we will run
-			 * the test simultaneosly for both and configure the same delays.
+			 * In rx2tx2, dynamic tuning runs the test simultaneously for both
+			 * channels and uses the first channel's result. Fixed-delay mode is
+			 * configured explicitly per channel from devicetree.
 			 */
-			if (ADRV9002_FIXED_PATTERN_EN) {
+			if (phy->ssi_fixed_delays.enabled) {
 				if (c->port == ADI_RX) {
-					delays.rxClkDelay[c->idx] = adrv9002_fixed_clk(false, c->idx);
-					delays.rxIDataDelay[c->idx] = adrv9002_fixed_data(false, c->idx);
-					delays.rxQDataDelay[c->idx] = adrv9002_fixed_data(false, c->idx);
-					delays.rxStrobeDelay[c->idx] = adrv9002_fixed_data(false, c->idx);
+					delays.rxClkDelay[c->idx] =
+						adrv9002_ssi_fixed_clk(phy, false, c->idx);
+					delays.rxIDataDelay[c->idx] =
+						adrv9002_ssi_fixed_data(phy, false, c->idx);
+					delays.rxQDataDelay[c->idx] =
+						adrv9002_ssi_fixed_data(phy, false, c->idx);
+					delays.rxStrobeDelay[c->idx] =
+						adrv9002_ssi_fixed_data(phy, false, c->idx);
 				} else {
-					delays.txClkDelay[c->idx] = adrv9002_fixed_clk(true, c->idx);
-					delays.txIDataDelay[c->idx] = adrv9002_fixed_data(true, c->idx);
-					delays.txQDataDelay[c->idx] = adrv9002_fixed_data(true, c->idx);
-					delays.txStrobeDelay[c->idx] = adrv9002_fixed_data(true, c->idx);
+					delays.txClkDelay[c->idx] =
+						adrv9002_ssi_fixed_clk(phy, true, c->idx);
+					delays.txIDataDelay[c->idx] =
+						adrv9002_ssi_fixed_data(phy, true, c->idx);
+					delays.txQDataDelay[c->idx] =
+						adrv9002_ssi_fixed_data(phy, true, c->idx);
+					delays.txStrobeDelay[c->idx] =
+						adrv9002_ssi_fixed_data(phy, true, c->idx);
 				}
 			} else if (c->port == ADI_RX) {
 				/* RX0 must be enabled, hence we can safely skip further tuning */
@@ -4183,13 +4176,13 @@ int adrv9002_tx_fixup_all(const struct adrv9002_rf_phy *phy)
 
 int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile)
 {
+	const int max_attempts = 2;
 	int ret = 0, c, attempt;
 
 	phy->profile_load_error = 0;
 	phy->curr_profile = profile;
 
-	//for (attempt = 0; attempt < 2; attempt++) {
-	for (attempt = 0; attempt < 1; attempt++) {
+	for (attempt = 0; attempt < max_attempts; attempt++) {
 		adrv9002_cleanup(phy);
 
 		/*
@@ -4223,9 +4216,9 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 		if (!ret)
 			break;
 
-		dev_err(&phy->spi->dev, "Interface tuning failed on attempt %d/2: %d\n",
-			attempt + 1, ret);
-		if (attempt == 0) {
+		dev_err(&phy->spi->dev, "Interface tuning failed on attempt %d/%d: %d\n",
+			attempt + 1, max_attempts, ret);
+		if (attempt + 1 < max_attempts) {
 			dev_warn(&phy->spi->dev,
 				 "Retrying full device initialization after interface tuning failure\n");
 			continue;

@@ -1409,6 +1409,69 @@ static int adrv9002_parse_channels_dt(struct adrv9002_rf_phy *phy, const struct 
 	return 0;
 }
 
+static int adrv9002_parse_ssi_fixed_delays(struct adrv9002_rf_phy *phy,
+					   const struct device_node *node)
+{
+	static const char * const props[] = {
+		"adi,rx1-clk-delay",
+		"adi,rx1-data-delay",
+		"adi,rx2-clk-delay",
+		"adi,rx2-data-delay",
+		"adi,tx1-clk-delay",
+		"adi,tx1-data-delay",
+		"adi,tx2-clk-delay",
+		"adi,tx2-data-delay",
+	};
+	u8 *delays[] = {
+		&phy->ssi_fixed_delays.rx_clk[ADRV9002_CHANN_1],
+		&phy->ssi_fixed_delays.rx_data[ADRV9002_CHANN_1],
+		&phy->ssi_fixed_delays.rx_clk[ADRV9002_CHANN_2],
+		&phy->ssi_fixed_delays.rx_data[ADRV9002_CHANN_2],
+		&phy->ssi_fixed_delays.tx_clk[ADRV9002_CHANN_1],
+		&phy->ssi_fixed_delays.tx_data[ADRV9002_CHANN_1],
+		&phy->ssi_fixed_delays.tx_clk[ADRV9002_CHANN_2],
+		&phy->ssi_fixed_delays.tx_data[ADRV9002_CHANN_2],
+	};
+	struct device *dev = &phy->spi->dev;
+	int ret, prop;
+
+	struct device_node *fixed_delays __free(device_node) =
+		of_get_child_by_name(node, "adi,ssi-fixed-delays");
+	if (!fixed_delays)
+		return 0;
+
+	for (prop = 0; prop < ARRAY_SIZE(props); prop++) {
+		u32 val;
+
+		ret = of_property_read_u32(fixed_delays, props[prop], &val);
+		if (ret) {
+			dev_err(dev, "Failed to get mandatory prop: \"%s\", ret=%d\n",
+				props[prop], ret);
+			return ret;
+		}
+
+		if (val > 7) {
+			dev_err(dev, "Invalid value(%u) for %s\n", val, props[prop]);
+			return -EINVAL;
+		}
+
+		*delays[prop] = val;
+	}
+
+	phy->ssi_fixed_delays.enabled = true;
+	dev_info(dev, "SSI fixed delays enabled: rx1 clk=%u data=%u, rx2 clk=%u data=%u, tx1 clk=%u data=%u, tx2 clk=%u data=%u\n",
+		 phy->ssi_fixed_delays.rx_clk[ADRV9002_CHANN_1],
+		 phy->ssi_fixed_delays.rx_data[ADRV9002_CHANN_1],
+		 phy->ssi_fixed_delays.rx_clk[ADRV9002_CHANN_2],
+		 phy->ssi_fixed_delays.rx_data[ADRV9002_CHANN_2],
+		 phy->ssi_fixed_delays.tx_clk[ADRV9002_CHANN_1],
+		 phy->ssi_fixed_delays.tx_data[ADRV9002_CHANN_1],
+		 phy->ssi_fixed_delays.tx_clk[ADRV9002_CHANN_2],
+		 phy->ssi_fixed_delays.tx_data[ADRV9002_CHANN_2]);
+
+	return 0;
+}
+
 int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 {
 	struct device_node *parent = phy->spi->dev.of_node;
@@ -1431,6 +1494,10 @@ int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 	if (phy->mcs_trigger_external && phy->mcs_pulse_external)
 		dev_warn(&phy->spi->dev,
 			 "MCS trigger set to external but the MCS pulses are also external. Ignoring...\n");
+
+	ret = adrv9002_parse_ssi_fixed_delays(phy, parent);
+	if (ret)
+		return ret;
 
 	ret = adrv9002_parse_port_switch(phy, parent);
 	if (ret)

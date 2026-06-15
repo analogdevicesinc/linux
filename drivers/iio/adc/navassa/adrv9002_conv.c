@@ -6,6 +6,9 @@
  *
  * Licensed under the GPL-2.
  */
+
+# define DEBUG
+
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/module.h>
@@ -32,8 +35,6 @@
 #include "adi_adrv9001_ssi_types.h"
 
 #include "../cf_axi_adc.h"
-
-# define DEBUG
 
 #define ADI_RX2_REG_OFF			0x1000
 #define ADI_TX1_REG_OFF			0x2000
@@ -538,30 +539,14 @@ static void adrv9002_axi_get_channel_range(struct axiadc_converter *conv, bool t
 		*end = conv->chip_info->num_channels;
 }
 
-static u8 adrv9002_fixed_clk(bool tx, int channel)
-{
-	if (tx)
-		return channel ? ADRV9002_FIXED_TX_CH1_CLK : ADRV9002_FIXED_TX_CH0_CLK;
-
-	return channel ? ADRV9002_FIXED_RX_CH1_CLK : ADRV9002_FIXED_RX_CH0_CLK;
-}
-
-static u8 adrv9002_fixed_data(bool tx, int channel)
-{
-	if (tx)
-		return channel ? ADRV9002_FIXED_TX_CH1_DATA : ADRV9002_FIXED_TX_CH0_DATA;
-
-	return channel ? ADRV9002_FIXED_RX_CH1_DATA : ADRV9002_FIXED_RX_CH0_DATA;
-}
-
 static int adrv9002_apply_fixed_intf_delays(const struct adrv9002_rf_phy *phy, bool tx)
 {
 	struct adi_adrv9001_SsiCalibrationCfg delays = {0};
 	int channel;
 
 	for (channel = 0; channel < 2; channel++) {
-		u8 clk = adrv9002_fixed_clk(tx, channel);
-		u8 data = adrv9002_fixed_data(tx, channel);
+		u8 clk = adrv9002_ssi_fixed_clk(phy, tx, channel);
+		u8 data = adrv9002_ssi_fixed_data(phy, tx, channel);
 
 		if (tx) {
 			delays.txClkDelay[channel] = clk;
@@ -588,7 +573,7 @@ int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, con
 	u8 clk, data;
 	u32 saved_ctrl_7[4];
 	int n_chan;
-	bool fix_tune = ADRV9002_FIXED_PATTERN_EN;
+	bool fix_tune = phy->ssi_fixed_delays.enabled;
 
 	adrv9002_axi_get_channel_range(conv, tx, &n_chan);
 	if (tx) {
@@ -667,8 +652,8 @@ int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, con
 		adrv9002_axi_tx_test_pattern_restore(conv, chann, n_chan, saved_ctrl_7);
 
 	if (fix_tune) {
-		*clk_delay = adrv9002_fixed_clk(tx, chann);
-		*data_delay = adrv9002_fixed_data(tx, chann);
+		*clk_delay = adrv9002_ssi_fixed_clk(phy, tx, chann);
+		*data_delay = adrv9002_ssi_fixed_data(phy, tx, chann);
 		return tune_ret;
 	}
 

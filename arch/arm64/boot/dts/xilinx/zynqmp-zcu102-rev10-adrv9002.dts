@@ -171,4 +171,19 @@ dgpio_0		32	110
 
 &adc0_adrv9002 {
 	reset-gpios = <&gpio 124 GPIO_ACTIVE_LOW>;
+
+	/*
+	 * Uncomment to bypass SSI interface tuning and use fixed delay values.
+	 *
+	 * adi,ssi-fixed-delays {
+	 *	adi,rx1-clk-delay = <0>;
+	 *	adi,rx1-data-delay = <3>;
+	 *	adi,rx2-clk-delay = <6>;
+	 *	adi,rx2-data-delay = <6>;
+	 *	adi,tx1-clk-delay = <0>;
+	 *	adi,tx1-data-delay = <3>;
+	 *	adi,tx2-clk-delay = <0>;
+	 *	adi,tx2-data-delay = <3>;
+	 * };
+	 */
 };
