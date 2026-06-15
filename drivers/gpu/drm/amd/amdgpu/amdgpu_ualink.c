@@ -1494,7 +1494,11 @@ static int amdgpu_ualink_unmap_npa_addr(struct amdgpu_device *adev,
 	struct drm_exec exec;
 	int r;
 
-	amdgpu_ualink_reserve_npa_vm_and_bos(adev, bos, ARRAY_SIZE(bos), &exec, false);
+	r = amdgpu_ualink_reserve_npa_vm_and_bos(adev, bos, ARRAY_SIZE(bos), &exec, false);
+	if (unlikely(r)) {
+		dev_err(adev->dev, "Failed to reserve VM and BO in unmap_npa_addr\n");
+		return r;
+	}
 
 	r = amdgpu_vm_update_range(adev, &adev->ualink.npa_vm, false, false, true,
 				false, NULL, npa_addr, npa_addr + size - 1,
@@ -1538,7 +1542,11 @@ static int amdgpu_ualink_map_npa_addr(struct amdgpu_device *adev, u64 npa_addr,
 	struct drm_exec exec;
 	int r;
 
-	amdgpu_ualink_reserve_npa_vm_and_bos(adev, bos, ARRAY_SIZE(bos), &exec, false);
+	r = amdgpu_ualink_reserve_npa_vm_and_bos(adev, bos, ARRAY_SIZE(bos), &exec, false);
+	if (unlikely(r)) {
+		dev_err(adev->dev, "Failed to reserve VM and BO in map_npa_addr\n");
+		return r;
+	}
 
 	r = amdgpu_vm_update_range(adev, vm, false, false, true,
 				false, NULL, npa_addr, npa_addr + size - 1,
@@ -2002,7 +2010,11 @@ static void amdgpu_ualink_force_retry_rpcs(struct amdgpu_device *adev,
 	bo = exp_xa_node->bo;
 	size = amdgpu_bo_ngpu_pages(bo);
 
-	amdgpu_ualink_reserve_npa_vm_and_bos(adev, &bo, 1, &exec, false);
+	r = amdgpu_ualink_reserve_npa_vm_and_bos(adev, &bo, 1, &exec, false);
+	if (unlikely(r)) {
+		dev_err(adev->dev, "Failed to reserve VM and BO in force_retry_rpcs\n");
+		return;
+	}
 
 	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
 			 AMDGPU_UALINK_ACCEL_MAX) {
@@ -2128,8 +2140,12 @@ static void amdgpu_ualink_unmap_all_npa_addr(struct amdgpu_device *adev,
 
 	size = amdgpu_bo_ngpu_pages(exp_xa_node->bo);
 
-	amdgpu_ualink_reserve_npa_vm_and_bos(adev, &exp_xa_node->bo, 1,
-					     &exec, false);
+	r = amdgpu_ualink_reserve_npa_vm_and_bos(adev, &exp_xa_node->bo, 1,
+						 &exec, false);
+	if (unlikely(r)) {
+		dev_err(adev->dev, "Failed to reserve VM and BO in unmap_all_npa_addr\n");
+		return;
+	}
 
 	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
 			 AMDGPU_UALINK_ACCEL_MAX) {
