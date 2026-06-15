@@ -310,9 +310,10 @@ static const struct clk_ops sc5xx_cdu_ops = {
 
 /**
  * sc5xx_cdu_clkin_register - Register an ADSP-SC5xx CLKIN mux
+ * @pdev: Platform device pointer
  * @clock_name: Name of the clock to register.
  * @base: Base address of the CDU register block.
- * @parent_names: Names of the parent clocks.
+ * @parent_data: Parent data for this clock.
  * @num_parents: Number of parent clocks.
  * @clock_flags: Common clock framework flags.
  * @lock: Lock protecting CDU register access.
@@ -323,24 +324,29 @@ static const struct clk_ops sc5xx_cdu_ops = {
  * On ADSP-SC598 SoCs, CDU_CLKINSEL.CGU1 selects whether CGU1 and the
  * additional CGU2/third PLL use CLKIN0 or CLKIN1.
  *
- * Return: A registered clock on success, or an ERR_PTR() on failure.
+ * Return: Clock specific clk_hw data on success, or an ERR_PTR() on failure.
  */
-struct clk * __init sc5xx_cdu_clkin_register(const char *clock_name, void __iomem *base,
-					const char * const *parent_names, unsigned int num_parents,
-					unsigned long clock_flags, spinlock_t *lock)
+struct clk_hw * __init sc5xx_cdu_clkin_register(struct platform_device *pdev, const char *clock_name, 
+					void __iomem *base, const struct clk_parent_data *parent_data,
+					unsigned int num_parents, unsigned long clock_flags,
+					spinlock_t *lock)
 {
-	return clk_register_mux(NULL, clock_name, parent_names, num_parents,
-				clock_flags, base + SC5XX_CDU_CLKINSEL,
+	struct device *dev = &pdev->dev;
+
+	return devm_clk_hw_register_mux_parent_data_table(dev, clock_name,
+				parent_data, num_parents, clock_flags,
+				base + SC5XX_CDU_CLKINSEL,
 				SC5XX_CDU_CLKINSEL_CGU1, 1,
-				0, lock);
+				0, NULL, lock);
 }
 
 /**
  * sc5xx_cdu_register - Register an ADSP-SC5xx CDU output clock mux.
+ * @pdev: Platform device pointer
  * @clock_name: Name of the clock to register.
  * @base: Base address of the CDU register block.
  * @cdu_clko: CDU output index controlled by the clock.
- * @parent_names: Names of the parent clocks.
+ * @parent_data: Parent data for this clock.
  * @mux_table: CDU_CFG[n] clock input mappings.
  * @num_parents: Number of parent clocks.
  * @clock_flags: clock flags.
@@ -352,28 +358,29 @@ struct clk * __init sc5xx_cdu_clkin_register(const char *clock_name, void __iome
  * The mux preserves the bootloader selected input clocks during rate changes.
  * Reparenting must be requested explicitly.
  *
- * Return: A registered clock on success, or an ERR_PTR() on failure.
+ * Return: Clock specific clk_hw data on success, or an ERR_PTR() on failure.
  */
-struct clk * __init sc5xx_cdu_register(const char *clock_name, void __iomem *base,
-				u8 cdu_clko, const char * const *parent_names,
-				const u32 *mux_table, u8 num_parents,
-				unsigned long clock_flags, spinlock_t *lock)
+struct clk_hw * __init sc5xx_cdu_register(struct platform_device *pdev, const char *clock_name, 
+				void __iomem *base, u8 cdu_clko, const struct clk_parent_data *parent_data,
+				const u32 *mux_table, u8 num_parents, unsigned long clock_flags,
+				spinlock_t *lock)
 {
+	struct device *dev = &pdev->dev;
 	struct sc5xx_cdu *cdu_clk;
 	struct clk_init_data init = { };
-	struct clk *clk;
+	int ret;
 
 	/* CLKO11 is used internally by the processor and is not user configurable */
 	if (cdu_clko > 14 || cdu_clko == 11)
 		return ERR_PTR(-EINVAL);
 
-	cdu_clk = kzalloc(sizeof(*cdu_clk), GFP_KERNEL);
+	cdu_clk = devm_kzalloc(dev, sizeof(*cdu_clk), GFP_KERNEL);
 	if (!cdu_clk)
 		return ERR_PTR(-ENOMEM);
 
 	init.name = clock_name;
 	init.ops = &sc5xx_cdu_ops;
-	init.parent_names = parent_names;
+	init.parent_data = parent_data;
 	init.num_parents = num_parents;
 	init.flags = clock_flags;
 
@@ -383,9 +390,9 @@ struct clk * __init sc5xx_cdu_register(const char *clock_name, void __iomem *bas
 	cdu_clk->mux_table = mux_table;
 	cdu_clk->cdu_clko = cdu_clko;
 
-	clk = clk_register(NULL, &cdu_clk->clk_hw);
-	if (IS_ERR(clk))
-		kfree(cdu_clk);
+	ret = devm_clk_hw_register(dev, &cdu_clk->clk_hw);
+	if (ret)
+		return ERR_PTR(ret);
 
-	return clk;
+	return &cdu_clk->clk_hw;
 }
