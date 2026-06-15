@@ -368,9 +368,11 @@ static void hazptr_torture_acquire(void *hppp_in)
  * be invoked from hazptr_torture_reader, but also for hazard pointers
  * sent off to interrupt handlers and the like.
  */
-static void hazptr_torture_reader_tail(struct hazptr_ctx *hcp, struct hazptr_torture *htp,
-				       struct torture_random_state *trsp)
+static void
+hazptr_torture_reader_tail(struct hazptr_pending *hppp, struct torture_random_state *trsp)
 {
+	struct hazptr_ctx *hcp = &hppp->hpp_hc;
+	struct hazptr_torture *htp = hppp->hpp_htp;
 	int pipe_count;
 
 	cur_ops->read_delay(trsp);
@@ -453,7 +455,7 @@ static int hazptr_torture_reader(void *arg)
 			hazptr_torture_defer(hppp, &rand);
 			hppp = NULL;
 		} else {
-			hazptr_torture_reader_tail(&hppp->hpp_hc, hppp->hpp_htp, &rand);
+			hazptr_torture_reader_tail(hppp, &rand);
 		}
 		while (!torture_must_stop() &&
 		       (torture_num_online_cpus() < mynumonline || !rcu_inkernel_boot_has_ended()))
@@ -479,7 +481,7 @@ static void hazptr_torture_do_one_pending(int cpu, struct torture_random_state *
 	if (!llnp)
 		return;
 	llist_for_each_entry_safe(hppp, hppp1, llnp, hpp_node) {
-		hazptr_torture_reader_tail(&hppp->hpp_hc, hppp->hpp_htp, trsp);
+		hazptr_torture_reader_tail(hppp, trsp);
 		kfree(hppp);
 	}
 }
