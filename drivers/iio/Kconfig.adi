@@ -181,6 +181,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD5933
 	imply ADE7854
 	imply ADE7854_I2C if I2C
+NFIG_ADI_AXI_ADC
 	imply ADE7854_SPI if SPI
 	imply AD2S90
 	imply AD2S1210
@@ -217,4 +218,5 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD7091R8
 	imply AD9739A
 	imply ADRV9104
+	imply ADI_AXI_ADC
 
