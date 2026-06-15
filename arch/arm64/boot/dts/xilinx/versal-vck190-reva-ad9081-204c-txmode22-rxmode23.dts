@@ -127,7 +127,7 @@
 		hmc7044_c2: channel@2 {
 			reg = <2>;
 			adi,extended-name = "DEV_REFCLK";
-			adi,divider = <4>; /* 720 MHz */
+			adi,divider = <16>; /* 180 MHz */
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 		};
 
@@ -165,7 +165,7 @@
 		hmc7044_c12: channel@12 {
 			reg = <12>;
 			adi,extended-name = "FPGA_REFCLK2";
-			adi,divider = <8>;
+			adi,divider = <16>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
 		};
 
@@ -320,14 +320,14 @@
 					adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
 					adi,converters-per-device = <2>;	/* JESD M */
-					adi,octets-per-frame = <6>;		/* JESD F */
+					adi,octets-per-frame = <3>;		/* JESD F */
 
-					adi,frames-per-multiframe = <128>;	/* JESD K */
+					adi,frames-per-multiframe = <256>;	/* JESD K */
 					adi,converter-resolution = <12>;	/* JESD N */
 					adi,bits-per-sample = <12>;		/* JESD NP' */
 					adi,control-bits-per-sample = <0>;	/* JESD CS */
 					adi,lanes-per-device = <2>;		/* JESD L */
-					adi,samples-per-converter-per-frame = <4>; /* JESD S */
+					adi,samples-per-converter-per-frame = <2>; /* JESD S */
 					adi,high-density = <0>;			/* JESD HD */
 				};
 			};
