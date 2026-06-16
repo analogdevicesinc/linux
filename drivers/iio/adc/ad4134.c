@@ -4,16 +4,6 @@
  * Author: Cosmin Tanislav <cosmin.tanislav@analog.com>
  */
 
-/*
- * CLEANUP CANDIDATE (deferred): fallback/legacy paths for bitstreams WITHOUT
- * clkin_aligner or WITHOUT a broadcast cs_gpio. Production ad7134_fmc/zed
- * always has both — decide whether to keep these as safety nets or drop them:
- *      - legacy "release reset, hope for the best" else-branch (no clkin)
- *      - legacy §F else-branch (plain DEVICE_CONFIG write, no clkin)
- *      - ad4134_configure_sibling() + its else-branch (no cs_gpio path)
- *      - the 0x02 "fallback" re-apply inside the broadcast slave-config block
- */
-
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/completion.h>
@@ -1086,68 +1076,6 @@ static void ad4134_disable_regulators(void *data)
  * by §E giving both chips a deterministic clock startup, so the loop
  * is no longer needed.
  */
-static int ad4134_configure_sibling(struct device *dev, void *data)
-{
-	struct spi_device *self_spi = data;
-	struct spi_device *sib_spi;
-	struct iio_dev *indio_dev;
-	struct ad4134_state *sib;
-	unsigned int regval;
-	int ret;
-
-	if (!dev->driver)
-		return 0;
-
-	sib_spi = to_spi_device(dev);
-	if (sib_spi == self_spi)
-		return 0;
-
-	indio_dev = dev_get_drvdata(dev);
-	if (!indio_dev)
-		return 0;
-
-	sib = iio_priv(indio_dev);
-	if (!sib->regmap)
-		return 0;
-
-	dev_dbg(dev, "ad7134: reapplying config to sibling after shared reset\n");
-
-	ret = regmap_update_bits(sib->regmap, AD4134_DATA_PACKET_CONFIG_REG,
-				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
-				 FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
-					    sib->output_frame));
-	if (ret)
-		return 0;
-
-	ret = regmap_update_bits(sib->regmap, AD4134_DIG_IF_CFG_REG,
-				 AD4134_DIF_IF_CFG_FORMAT_MASK,
-				 FIELD_PREP(AD4134_DIF_IF_CFG_FORMAT_MASK,
-					    AD4134_DATA_FORMAT_QUAD_CH_PARALLEL));
-	if (ret)
-		return 0;
-
-	ret = regmap_update_bits(sib->regmap, AD4134_DEVICE_CONFIG_REG,
-				 AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
-				 FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
-					    AD4134_POWER_MODE_HIGH_PERF));
-	if (ret)
-		return 0;
-
-	/* Sequence.txt §F.8.c — power down internal LDOs (external rails are used). */
-	regmap_write(sib->regmap, AD4134_POWER_CONFIG_REG,
-		     AD4134_POWER_CONFIG_LDO_PD);
-
-	regmap_update_bits(sib->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG,
-			   AD4134_CHAN_DIG_FILTER_SEL_MASK,
-			   FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_MASK,
-				      AD4134_SINC6_FILTER));
-
-	/* Clear any latched errors so 0x42 reflects current state. */
-	regmap_read(sib->regmap, 0x42, &regval);
-
-	return 0;
-}
-
 /*
  * Threaded ISR for the clkin_aligner IP.
  *
@@ -1597,18 +1525,12 @@ static int ad4134_setup(struct ad4134_state *st)
 
 	/*
 	 * Sequence.txt §E — release /RESETN with controlled XTAL handover.
-	 * §E.1-6 are owned by ad4134_clkin_startup() when clkin_aligner is
-	 * present; without it we fall back to the legacy "release reset,
-	 * hope for the best" path (the gate defaults open in HDL ST_IDLE,
-	 * so the chip auto-switches on whatever free-running edges arrive).
+	 * §E.1-6 are owned by ad4134_clkin_startup().
 	 */
 	if (st->clkin_present) {
 		ret = ad4134_clkin_startup(st, reset_gpio);
 		if (ret)
 			return ret;
-	} else {
-		fsleep(AD4134_RESET_TIME_US);
-		gpiod_set_value_cansleep(reset_gpio, 0);
 	}
 
 	/*
@@ -1618,9 +1540,6 @@ static int ad4134_setup(struct ad4134_state *st)
 	 * waits 10 ms, resumes, and blocks until the edge_target IRQ fires
 	 * at edge 146 — the AD7134's guaranteed first dig_clk rising edge.
 	 *
-	 * Without clkin_aligner: just bit-bang DEVICE_CONFIG; dig_clk phase
-	 * is whatever it happens to be after the divider reset.
-	 *
 	 * Value 0x01 = AD4134_POWER_MODE_HIGH_PERF. All other DEVICE_CONFIG
 	 * bits default to 0 after reset.
 	 */
@@ -1628,14 +1547,9 @@ static int ad4134_setup(struct ad4134_state *st)
 		ret = ad4134_clkin_change_power_mode(st,
 						     AD4134_DEVICE_CONFIG_REG,
 						     AD4134_POWER_MODE_HIGH_PERF);
-	} else {
-		ret = regmap_update_bits(st->regmap, AD4134_DEVICE_CONFIG_REG,
-					 AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
-					 FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
-						    AD4134_POWER_MODE_HIGH_PERF));
+		if (ret)
+			return ret;
 	}
-	if (ret)
-		return ret;
 
 	ret = regmap_update_bits(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
 				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
@@ -1690,7 +1604,8 @@ static int ad4134_setup(struct ad4134_state *st)
 	 * window (§H), so both chips received RESUME simultaneously and
 	 * both dig_clk outputs rose at edge 146.  The broadcast writes
 	 * below cover the non-timing-critical registers (0x11, 0x12, 0x13,
-	 * 0x1E) and the final DIG_IF_RESET.  The 0x02 write is included as
+	 * 0x1E); DIG_IF_RESET is not issued here (it is done later from the
+	 * ad4134_sync sysfs attribute).  The 0x02 write is included as
 	 * a fallback: if the §H slave write failed (SPI error), the slave
 	 * is still in LP mode here and needs an HP write.  On a successful
 	 * §H this becomes an HP→HP no-op.
@@ -1718,10 +1633,6 @@ static int ad4134_setup(struct ad4134_state *st)
 					    ad4134_wait_sibling_pll_lock);
 		if (ret)
 			return ret;
-	} else if (st->ad4134_duo) {
-		/* No broadcast cs_gpio — fall back to per-CS sibling config. */
-		device_for_each_child(&st->spi->controller->dev, st->spi,
-				      ad4134_configure_sibling);
 	}
 
 	return 0;
