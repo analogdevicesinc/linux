@@ -71,7 +71,8 @@ adrv904x_drv-y = \
 	platforms/adi_library.o \
 	devices/adrv904x/private/src/initdata.o \
 	adrv904x.o \
-	adrv904x_conv.o
+	adrv904x_conv.o \
+	adrv904x_debugfs.o
 
 ccflags-y += -I$(src)/devices/adrv904x/private/include/ \
 	-I$(src)/devices/adrv904x/private/src/ \
