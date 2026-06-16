@@ -22,9 +22,9 @@
 	aliases {
 	};
 
-	memory@C3000000 {
+	memory@C2000000 {
 		device_type = "memory";
-		reg = <0xC3000000 0xF000000>;
+		reg = <0xC2000000 0x0E000000>;
 	};
 
 	reserved-memory {
