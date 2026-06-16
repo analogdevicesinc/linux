@@ -931,6 +931,9 @@ static const char *const ad9081_adc_testmodes[] = {
 	[AD9081_TMODE_PN15] = "pn15",
 	[AD9081_TMODE_PN31] = "pn31",
 	[AD9081_TMODE_RAMP] = "ramp",
+	[12] = "",
+	[13] = "",
+	[14] = ""
 };
 
 static const char *const ad9081_jesd_testmodes[] = {
