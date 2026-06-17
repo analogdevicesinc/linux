@@ -2315,7 +2315,7 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 	amdgpu_bo_unref(&bo);
 	exp_xa_node->bo = NULL;
 
-	/* Send NPA-REVOKE to all importers which have imported this memory */
+	/* Build the full npa_release_bitmap before sending any NPA-REVOKE. */
 	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
 				 AMDGPU_UALINK_ACCEL_MAX) {
 		imp_entry = &exp_xa_node->importer_entries[remote_acc_id];
@@ -2326,10 +2326,17 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 			continue;
 		}
 
+		set_bit(remote_acc_id, exp_xa_node->npa_release_bitmap);
+	}
+
+	/* Send NPA-REVOKE to all importers which have imported this memory.
+	 * On send failure clear the bit (no response will arrive).
+	 */
+	for_each_set_bit(remote_acc_id, exp_xa_node->importers_bitmap,
+				 AMDGPU_UALINK_ACCEL_MAX) {
 		dev_dbg(adev->dev,
 			"EXP-CLEANUP: Sending NPA-REVOKE to remote:%u\n",
 			remote_acc_id);
-		set_bit(remote_acc_id, exp_xa_node->npa_release_bitmap);
 		r = amdgpu_ualink_send_npa_revoke_msg(adev, remote_acc_id, handle);
 		if (r) {
 			dev_err(adev->dev,
@@ -2339,7 +2346,8 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 		}
 	}
 
-	if (!bitmap_empty(exp_xa_node->importers_bitmap,
+	/* Wait for the NPA_RELEASE to come back from all importers */
+	if (!bitmap_empty(exp_xa_node->npa_release_bitmap,
 			AMDGPU_UALINK_ACCEL_MAX)) {
 		dev_dbg(adev->dev,
 			"EXP-CLEANUP: handle:%llx:%llx NPA-RELEASE bitmap: %*pbl\n",
