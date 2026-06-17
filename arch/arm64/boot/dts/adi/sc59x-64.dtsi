@@ -131,21 +131,26 @@
 			 <&cgu0 ADSP_SC5XX_CLK_CGU_SCLK0>,
 			 <&cgu0 ADSP_SC5XX_CLK_CGU_SCLK1>,
 			 <&cgu0 ADSP_SC5XX_CLK_CGU_DCLK>,
+			 <&cgu0 ADSP_SC598_CLK_CGU_DCLK_HALF>,
 			 <&cgu0 ADSP_SC5XX_CLK_CGU_OCLK>,
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_CCLK0>,
 			 <&cgu1 ADSP_SC598_CLK_CGU_CCLK2>,
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_SYSCLK>,
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_SCLK0>,
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_SCLK1>,
+			 <&cgu1 ADSP_SC598_CLK_CGU_SCLK_HALF>,
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_DCLK>,
+			 <&cgu1 ADSP_SC598_CLK_CGU_DCLK_HALF>,
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_OCLK>;
 		clock-names = "cclk0_0",  "cclk2_0",  
 			      "sysclk_0", "sclk0_0",
 			      "sclk1_0",  "dclk_0",
-			      "oclk_0",   "cclk0_1",
-			      "cclk2_1",  "sysclk_1",
-			      "sclk0_1",  "sclk1_1",
-			      "dclk_1",   "oclk_1";
+			      "dclk_0/2", "oclk_0", 
+			      "cclk0_1",  "cclk2_1",
+			      "sysclk_1", "sclk0_1",
+			      "sclk1_1",  "sclk1_1/2",
+			      "dclk_1",   "dclk_1/2",
+			      "oclk_1";
 	};
 
 	gptimers: gptimers@31018000 {

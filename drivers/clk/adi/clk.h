@@ -79,8 +79,6 @@ struct sc5xx_pll_clock {
 	bool		half_m;
 };
 
-
-
 #define __PLL(_id, _name, _parent, _offset, _shift, _width, _m_offset, _half_m) \
 	{									\
 		.id = (_id),							\
@@ -147,7 +145,7 @@ struct sc5xx_fixed_factor_clock {
 struct sc5xx_mux_clock {
 	unsigned int			id;
 	const char			*clock_name;
-	const char			*parent_names;
+	const struct clk_parent_data	*parent_data
 	const u32			*mux_table;
 	u8				num_parents;
 	u8				cdu_clko;
@@ -158,7 +156,7 @@ struct sc5xx_mux_clock {
 	{							\
 		.id		= (_id),			\
 		.clock_name	= (_name),			\
-		.parent_names	= (_parents),			\
+		.parent_data	= (_parents),			\
 		.mux_table	= (_table),			\
 		.num_parents	= ARRAY_SIZE(_parents),		\
 		.cdu_clko	= (_clko),			\
@@ -172,7 +170,24 @@ struct sc5xx_mux_clock {
 	__MUX(_id, _name, _parents, _clko, _table,		\
 	      (_flags) | CLK_IS_CRITICAL)
 
-#define PARENT_CLKS(_name)	static const char * const _name[]
+struct sc5xx_clkinsel_clock {
+	unsigned int id;
+	const char *clock_name;
+	const struct clk_parent_data *parent_data;
+	u8 num_parents;
+	unsigned long flags;
+};
+
+#define CLKINSEL(_id, _name, _parents, _flags)		\
+	{						\
+		.id = (_id),				\
+		.clock_name = (_name),			\
+		.parent_data = (_parents),		\
+		.num_parents = ARRAY_SIZE(_parents),	\
+		.flags = (_flags),			\
+	}
+
+#define CLK_PARENT_DATA(_name)	static const struct clk_parent_data _name[]
 
 #define MUX_TABLE(_name)	static const u32 _name[]
 

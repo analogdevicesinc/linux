@@ -39,62 +39,62 @@ MUX_TABLE(CDU_CLKO_SEL4)	= { IN0_CLKON, IN1_CLKON, IN2_CLKON };
 MUX_TABLE(CDU_CLKO_SEL5)	= { IN0_CLKON, IN2_CLKON, IN3_CLKON };
 MUX_TABLE(CDU_CLKO_SEL6)	= { IN0_CLKON, IN1_CLKON, IN2_CLKON, IN3_CLKON };
 
-PARENT_CLKS(cgu1)		    = { "sys_clkin0", "sys_clkin1" };
-PARENT_CLKS(cgu0_sclk1_parents)	    = { "cgu0_s1seldiv", "cgu0_s1selexdiv" };
-PARENT_CLKS(cgu1_sclk0_parents)	    = { "cgu1_s0seldiv", "cgu1_s0selexdiv" };
-PARENT_CLKS(cgu1_sclk1_parents)	    = { "cgu1_s1seldiv", "cgu1_s1selexdiv" };
-PARENT_CLKS(sharc0_parents)	    = { "cclk0_0" };
-PARENT_CLKS(sharc1_parents)	    = { "cclk0_0" };
-PARENT_CLKS(arm_parents)	    = { "cclk2_0", "cclk2_1" };
-PARENT_CLKS(cdu_ddr_parents)	    = { "dclk_0", "dclk_1" };
-PARENT_CLKS(can_parents)	    = { "oclk_1" };
-PARENT_CLKS(spdif_parents)	    = { "sclk1_0" };
-PARENT_CLKS(spi_parents)	    = { "sclk0_0", "oclk_0" };
-PARENT_CLKS(gige_parents)	    = { "sclk0_0", "sclk0_1", "oclk_0" };
-PARENT_CLKS(lp_parents)		    = { "oclk_0", "sclk0_0", "cclk0_1" };
-PARENT_CLKS(lp_ddr_parents)	    = { "oclk_0", "dclk_0", "sysclk_1" };
-PARENT_CLKS(ospi_refclk_parents)    = { "sysclk_0", "sclk0_0", "sclk1_1" };
-PARENT_CLKS(trace_parents)	    = { "sclk0_0" };
-PARENT_CLKS(emmc_parents)	    = { "oclk_0", "sclk0_1", "dclk_0_half", "dclk_1_half" };
-PARENT_CLKS(emmc_timer_qmc_parents) = { "sclk1_1_half" };
-PARENT_CLKS(ddr_parents)	    = { "cdu_ddr", "3pll_ddiv" };
+/* ADSP-SC598 mux parents */
+CLK_PARENT_DATA(cdu_sharc0_parents)	 = { { .fw_name = "cclk0_0"    }, };
+CLK_PARENT_DATA(cdu_sharc1_parents)	 = { { .fw_name = "cclk0_0"    }, };
+CLK_PARENT_DATA(cdu_can_parents)	 = { { .fw_name = "oclk_1"     }, };
+CLK_PARENT_DATA(cdu_spdif_parents)	 = { { .fw_name = "sclk1_0"    }, };
+CLK_PARENT_DATA(cdu_trace_parents)	 = { { .fw_name = "sclk0_0"    }, };
+CLK_PARENT_DATA(cdu_emmc_timer_parents)	 = { { .fw_name = "sclk1_1/2"  }, };
+CLK_PARENT_DATA(cdu_clkinsel_parents)	 = { { .name = "sys_clkin0"    }, { .name = "sys_clkin1" }, };
+CLK_PARENT_DATA(cdu_arm_parents)	 = { { .fw_name = "cclk2_0"    }, { .fw_name = "cclk2_1" }, };
+CLK_PARENT_DATA(cdu_ddr_parents)	 = { { .fw_name = "dclk_0"     }, { .fw_name = "dclk_1"  }, };
+CLK_PARENT_DATA(cdu_spi_parents)	 = { { .fw_name = "sclk0_0"    }, { .fw_name = "oclk_0"  }, };
+CLK_PARENT_DATA(cdu_gige_parents)	 = { { .fw_name = "sclk0_0"    }, { .fw_name = "sclk0_1" }, { .fw_name = "oclk_0"   }, };
+CLK_PARENT_DATA(cdu_lp_parents)		 = { { .fw_name = "oclk_0"     }, { .fw_name = "sclk0_0" }, { .fw_name = "cclk0_1"  }, };
+CLK_PARENT_DATA(cdu_lpddr_parents)	 = { { .fw_name = "oclk_0"     }, { .fw_name = "dclk_0"  }, { .fw_name = "sysclk_1" }, };
+CLK_PARENT_DATA(cdu_ospi_refclk_parents) = { { .fw_name = "sysclk_0"   }, { .fw_name = "sclk0_0" }, { .fw_name = "sclk1_1"  }, };
+CLK_PARENT_DATA(cdu_emmc_parents)	 = { { .fw_name = "oclk_0"     }, { .fw_name = "sclk0_1" }, { .fw_name = "dclk_0/2" },
+					     { .fw_name = "dclk_1/2"   }, };
 
-CLK_PARENT_DATA(cdu_clkinsel_parents)	 = { { .name = "sys_clkin0"  }, { .name = "sys_clkin1" } };
-CLK_PARENT_DATA(cdu_sharc0_parents)	 = { { .fw_name = "cclk0_0"  }, };
-CLK_PARENT_DATA(cdu_sharc1_parents)	 = { { .fw_name = "cclk0_0"  }, };
-CLK_PARENT_DATA(cdu_arm_parents)	 = { { .fw_name = "cclk2_0"  }, { .fw_name = "cclk2_1" } };
-CLK_PARENT_DATA(cdu_ddr_parents)	 = { { .fw_name = "dclk_0"   }, { .fw_name = "dclk_1"  } };
-CLK_PARENT_DATA(cdu_can_parents)	 = { { .fw_name = "oclk_1"   }, };
-CLK_PARENT_DATA(cdu_spdif_parents)	 = { { .fw_name = "sclk1_0"  }, };
-CLK_PARENT_DATA(cdu_spi_parents)	 = { { .fw_name = "sclk0_0"  }, { .fw_name = "oclk_0"  } };
-CLK_PARENT_DATA(cdu_gige_parents)	 = { { .fw_name = "sclk0_0"  }, { .fw_name = "sclk0_1" }, { .fw_name = "oclk_0"   } };
-CLK_PARENT_DATA(cdu_lp_parents)		 = { { .fw_name = "oclk_0"   }, { .fw_name = "sclk0_0" }, { .fw_name = "cclk0_1"  } };
-CLK_PARENT_DATA(cdu_lp_ddr_parents)	 = { { .fw_name = "oclk_0"   }, { .fw_name = "dclk_0"  }, { .fw_name = "sysclk_1" } };
-CLK_PARENT_DATA(cdu_ospi_refclk_parents) = { { .fw_name = "sysclk_0" }, { .fw_name = "sclk0_0" }, { .fw_name = "sclk1_1"  } };
-CLK_PARENT_DATA(cdu_trace_parents)	 = { { .fw_name = "sclk0_0"  }  };
-CLK_PARENT_DATA(cdu_emmc_parents)	 = { { .fw_name = "oclk_0"   }, { .fw_name = "sclk0_1" } };
-CLK_PARENT_DATA(cdu_emmc_timer_parents)	 = { { .fw_name = "
+/* ADSP-SC5XX CLKINSEL mux */
+static const struct sc5xx_clkinsel_clock sc5xx_clkinsel_clks[] __initdata = {
+	CLKINSEL(ADSP_SC5XX_CLK_CDU_CLKINSEL, "cdu_clkinsel", cdu_clkinsel_parents, 0),
+};
 
-static const struct sc5xx_mux_clock sc598_mux_clks[] __initconst = {
-	CMUX(ADSP_SC5XX_CLK_CDU_SHARC0,  
-	CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, 
-	CMUX(ADSP_SC5XX_CLK_CDU_ARM, 
-	MUX(ADSP_SC5XX_CLK_CDU_CLKINSEL, 
-	MUX(ADSP_SC5XX_CLK_CDU_CAN, 
-	MUX(ADSP_SC5XX_CLK_CDU_SPDIF, 
-	MUX(ADSP_SC5XX_CLK_CDU_GIGE, 
-	MUX(ADSP_SC5XX_CLK_CDU_DDR, 
-	MUX(ADSP_SC598_CLK_CDU_DCLK0_HALF, 
-	MUX(ADSP_SC598_CLK_CDU_DCLK1_HALF, 
-	MUX(ADSP_SC598_CLK_CDU_SCLK1_HALF, 
-	MUX(ADSP_SC598_CLK_CDU_SPI, 
-	MUX(ADSP_SC598_CLK_CDU_LP, 
-	MUX(ADSP_SC598_CLK_CDU_LPDDR, 
-	MUX(ADSP_SC598_CLK_CDU_OSPI_REFCLK, 
-	MUX(ADSP_SC598_CLK_CDU_TRACE, 
-	MUX(ADSP_SC598_CLK_CDU_EMMC, 
-	MUX(ADSP_SC598_CLK_CDU_EMMC_TIMER_QMC, 
-	MUX(ADSP_SC598_CLK_CDU_DDR_SEL, 
+/* ADSP-SC598 CDU mux clocks */
+static const struct sc5xx_mux_clock sc598_mux_clks[] __initdata = {
+	CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0", cdu_sharc0_parents, 0, CDU_CLKO_SEL1, 0),
+	CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1", cdu_sharc1_parents, 1, CDU_CLKO_SEL1, 0),
+	CMUX(ADSP_SC5XX_CLK_CDU_ARM, "cdu_arm",	cdu_arm_parents, 2, CDU_CLKO_SEL5, 0),
+	MUX(ADSP_SC5XX_CLK_CDU_DDR, "cdu_ddr", cdu_ddr_parents, 3, CDU_CLKO_SEL3, 0),
+	MUX(ADSP_SC5XX_CLK_CDU_CAN, "cdu_can", cdu_can_parents, 4, CDU_CLKO_SEL2, 0),
+	MUX(ADSP_SC5XX_CLK_CDU_SPDIF, "cdu_spdif", cdu_spdif_parents, 5, CDU_CLKO_SEL1, 0),
+	MUX(ADSP_SC598_CLK_CDU_SPI, "cdu_spi", cdu_spi_parents, 6, CDU_CLKO_SEL3, 0),
+	MUX(ADSP_SC5XX_CLK_CDU_GIGE, "cdu_gige", cdu_gige_parents, 7, CDU_CLKO_SEL3, 0),
+	MUX(ADSP_SC598_CLK_CDU_LP, "cdu_lp", cdu_lp_parents, 8, CDU_CLKO_SEL4, 0),
+	MUX(ADSP_SC598_CLK_CDU_LPDDR, "cdu_lpddr", cdu_lpddr_parents, 9, CDU_CLKO_SEL4, 0),
+	MUX(ADSP_SC598_CLK_CDU_TRACE, "cdu_trace", cdu_trace_parents, 12, CDU_CLKO_SEL1, 0),
+	MUX(ADSP_SC598_CLK_CDU_EMMC, "cdu_emmc", cdu_emmc_parents, 13, CDU_CLKO_SEL6, 0),
+	MUX(ADSP_SC598_CLK_CDU_EMMC_TIMER_QMC, "cdu_emmc_timer", cdu_emmc_timer_parents, 14, CDU_CLKO_SEL2, 0),
+	MUX(ADSP_SC598_CLK_CDU_OSPI_REFCLK, "cdu_ospi_refclk", cdu_ospi_refclk_parents, 10, CDU_CLKO_SEL4, 0),
+};
+
+/* ADSP-SC598 CGU0 divider clocks */
+static const struct sc5xx_div_clock sc598_div_clks_cgu0[] = {
+	DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div", 
+	DIV(ADSP_SC5XX_CLK_CGU_CSEL_DIV, "cgu0_csel_div", 
+	DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div", 
+	DIV(ADSP_SC5XX_CLK_CGU_DSEL_DIV, "cgu0_dsel_div", 
+	DIV(ADSP_SC5XX_CLK_CGU_OSEL_DIV, "cgu0_osel_div", 
+	DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu0_s0sel_div", 
+	DIV(ADSP_SC5XX_CLK_CGU_S1SEL_DIV, "cgu0_s1sel_div", 
+	DIV(ADSP_SC598_CLK_CGU_S1SELEX_DIV, "cgu0_s1selex_div", 
+};
+
+/* ADSP-SC598 CGU1 divider clocks */
+static const struct sc5xx_div_clock sc598_div_clks_cgu1[] = {
+
 };
 
 static void __init sc5xx_early_clock_probe(struct device_node *np)
