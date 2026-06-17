@@ -1,0 +1,208 @@
+{% set ns = namespace(phy_cfg=0) %}
+{% for phy_cfg_i in des_cfg.phys %}
+	{% if phy_cfg_i.phy_idx == platform_cfg.phy_idx %}
+		{% set ns.phy_cfg = phy_cfg_i %}
+	{% endif %}
+{% endfor %}
+{% set phy_cfg = ns.phy_cfg %}
+{% if not phy_cfg %}
+	{{raise_exception("Invalid phy index " ~ platform_cfg.phy_idx)}}
+{% endif %}
+{% set csi_idx = platform_cfg.csi_idx %}
+{% set phy_idx = phy_cfg.phy_idx %}
+{% set clock_lanes = phy_cfg.clock_lanes | join(' ') %}
+{% set data_lanes = phy_cfg.data_lanes | join(' ') %}
+{% set link_frequencies = phy_cfg.link_frequencies | join(' ') %}
+{% set num_cameras = des_cfg.links | length %}
+{% macro csi_in_label_x(x) -%}
+	{{ "csi" ~ x ~ '_ep' }}
+{%- endmacro %}
+
+{% set frmbuf_addrs = ['0x84a60000', '0x84a80000'] %}
+{% set frmbuf_irqs = [94, 108] %}
+{% set frmbuf_gpios = [80, 81] %}
+{% set rtp_engine_base = 0x84aa0000 %}
+
+&{/} {
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		ranges = <0 0 0 0xffffffff>;
+
+		axi_iic_mipi: i2c@84a40000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clock-names = "s_axi_aclk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,axi-iic-2.1", "xlnx,xps-iic-2.00.a";
+			reg = <0x84a40000 0x1000>;
+			interrupts = <0 109 4>;
+
+			i2c-mux@77 {
+				compatible = "nxp,pca9548";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x77>;
+				reset-gpios = <&gpio 88 1>;
+
+				gmsl_i2c: i2c@3 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <3>;
+				};
+			};
+		};
+
+		mipi_csi: mipi_csi2_rx_subsystem@84a00000 {
+			clock-names = "lite_aclk", "dphy_clk_200M", "video_aclk";
+			clocks = <&zynqmp_clk 71>, <&misc_clk_0>, <&zynqmp_clk 71>;
+			compatible = "xlnx,mipi-csi2-rx-subsystem-5.2", "xlnx,mipi-csi2-rx-subsystem-5.0";
+			interrupt-names = "csirxss_csi_irq";
+			interrupt-parent = <&gic>;
+			interrupts = <0 111 4>;
+			xlnx,csi-pxl-format = <0x1E>;
+			video-reset-gpios = <&gpio 78 1>;
+			reg = <0x84a00000 0x2000>;
+			xlnx,axis-tdata-width = <32>;
+			xlnx,dphy-present;
+			xlnx,max-lanes = <4>;
+			xlnx,ppc = <2>;
+			xlnx,vc = <4>;
+			xlnx,vfb;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@1 {
+					reg = <1>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+					mipi_csirx_out: endpoint {
+						remote-endpoint = <&vcap_portswitch0>;
+					};
+				};
+				port@0 {
+					reg = <0>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+				};
+			};
+		};
+
+		misc_clk_0: misc_clk_0 {
+			#clock-cells = <0>;
+			clock-frequency = <200000000>;
+			compatible = "fixed-clock";
+		};
+
+		pwm_clk: pwm_clk {
+			#clock-cells = <0>;
+			clock-frequency = <100000000>;
+			compatible = "fixed-clock";
+		};
+
+{% for i in range(num_cameras) %}
+		axi_rtp_engine_{{i}}: axi_rtp_engine@{{ '%x' % (rtp_engine_base + i * 0x10000) }} {
+			compatible = "adi,axi-rtp-engine";
+			reg = <{{ '0x%x' % (rtp_engine_base + i * 0x10000) }} 0x1000>;
+		};
+
+{% endfor %}
+		axi_rtp_session_mux: axi_rtp_session_mux@84b20000 {
+			compatible = "adi,axi-rtp-session-mux";
+			reg = <0x84b20000 0x1000>;
+		};
+
+		axi_pwmgen: axi_pwmgen@84b60000 {
+			compatible = "adi,axi-pwmgen";
+			reg = <0x84b60000 0x1000>;
+			label = "pwm_out1";
+			#pwm-cells = <2>;
+			clocks = <&pwm_clk>;
+		};
+
+{% for i in range(num_cameras) %}
+		v_frmbuf_wr_{{i}}: v_frmbuf_wr@{{frmbuf_addrs[i] | hex_remove_0x}} {
+			#dma-cells = <1>;
+			clock-names = "ap_clk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,v-frmbuf-wr-2.4", "xlnx,axi-frmbuf-wr-v2.2";
+			interrupt-names = "interrupt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 {{frmbuf_irqs[i]}} 4>;
+			reset-gpios = <&gpio {{frmbuf_gpios[i]}} 1>;
+			reg = <{{frmbuf_addrs[i]}} 0x10000>;
+			xlnx,dma-addr-width = <32>;
+			xlnx,max-height = <2160>;
+			xlnx,max-width = <3840>;
+			xlnx,pixels-per-clock = <4>;
+			xlnx,s-axi-ctrl-addr-width = <0x7>;
+			xlnx,s-axi-ctrl-data-width = <0x20>;
+			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
+			xlnx,video-width = <8>;
+		};
+
+{% endfor %}
+		vcap_mipi_csi2_rx_subsyst_0 {
+			compatible = "xlnx,video";
+			dma-names = {% for i in range(num_cameras) %}"port{{i}}"{{ ", " if not loop.last }}{% endfor %};
+			dmas = <{% for i in range(num_cameras) %}&v_frmbuf_wr_{{i}} 0{{ " " if not loop.last }}{% endfor %}>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+{% for i in range(num_cameras) %}
+				vcap_port{{i}}: port@{{i}} {
+					direction = "input";
+					reg = <{{i}}>;
+					vcap_portswitch{{i}}: endpoint {
+						remote-endpoint = <&mipi_csirx_out>;
+					};
+				};
+{% endfor %}
+			};
+		};
+	};
+};
+
+&amba {
+	afi0: afi0 {
+		compatible = "xlnx,afi-fpga";
+		config-afi = <0 0>, <1 0>, <2 0>, <3 0>,
+			     <4 0>, <5 0>, <6 0>, <7 0>,
+			     <8 0>, <9 0>, <10 0>, <11 0>,
+			     <12 0>, <13 0>,
+			     <14 0x000>, <15 0x000>;
+	};
+
+	mqnic0: ethernet@a0000000 {
+		compatible = "corundum,mqnic";
+		reg = <0x0 0xa0000000 0x0 0x1000000>,
+		      <0x0 0xa8000000 0x0 0x1000000>;
+		reg-names = "csr", "app";
+		interrupt-parent = <&gic>;
+		interrupts = <0 93 1>;
+		assigned-clocks = <&zynqmp_clk 71>;
+		assigned-clock-rates = <300000000>;
+		resets = <&zynqmp_reset 116>;
+		reset-names = "reset";
+	};
+};
+
+&mipi_csi {
+	status = "okay";
+
+	ports {
+		port@0 {
+			{{csi_in_label_x(csi_idx)}}: endpoint {
+				remote-endpoint = <&{{des_phy_out_label_x(phy_idx)}}>;
+			};
+		};
+	};
+};
+
+&{{des_phy_out_label_x(phy_idx)}} {
+	remote-endpoint = <&{{csi_in_label_x(csi_idx)}}>;
+};
