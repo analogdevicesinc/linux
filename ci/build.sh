@@ -1278,6 +1278,66 @@ get_adi_ci_defconfig () {
 	cp "$CI_WORKTREE/arch/$ARCH/configs/adi_ci_defconfig" "arch/$ARCH/configs"
 }
 
+merge_latest_stable () {
+	export step_name="merge_latest_stable"
+	local upstream_url="https://github.com/gregkh/linux"
+	local origin_url=$(git config --get remote.origin.url)
+
+	[[ -n "$GITHUB_SHA" ]] && local head_sha_="$GITHUB_SHA" || local head_sha_=$(git rev-parse @)
+
+	echo "$step_name on $head_sha_"
+
+	local version=$(awk    '/^VERSION[[:space:]]*=/    {print $3; exit}' Makefile)
+	local patchlevel=$(awk '/^PATCHLEVEL[[:space:]]*=/ {print $3; exit}' Makefile)
+	local sublevel=$(awk '/^SUBLEVEL[[:space:]]*=/ {print $3; exit}' Makefile)
+	local lts_base="v$version.$patchlevel"
+
+	echo "got version $version.$patchlevel.$sublevel"
+
+	local bare_prefix="${lts_base#v}"
+	local lts_stable=$(curl -fsSL https://www.kernel.org/releases.json | \
+		jq -r --arg p "$bare_prefix" '
+			.releases[]
+				| select(
+					(.moniker == "stable" or .moniker == "longterm") and
+					(.version == $p or (.version | startswith($p + ".")))
+				)
+			| "v" + .version
+		' | head -1) \
+	|| :
+	[[ -n "$lts_stable" ]] || { echo "::error ::No stable/longterm release found for ${lts_base} on kernel.org."; return 1; }
+	[ "$sublevel" != "0" ] && lts_base="$lts_base.$sublevel"
+
+	treeless=$(mktemp -d)
+	pushd "$treeless" ; trap "rm -rf $treeless ; popd" EXIT
+	git init
+
+	lts_base_sha=$(git ls-remote "$upstream_url" "refs/tags/${lts_base}^{}" | awk '{print $1}')
+	lts_stable_sha=$(git ls-remote "$upstream_url" "refs/tags/${lts_stable}^{}" | awk '{print $1}')
+
+	git fetch --filter=tree:0 "$upstream_url" ${lts_stable_sha}
+	git fetch --filter=tree:0 "$origin_url" ${head_sha_}
+
+	depth_feature=$(git rev-list ${lts_base_sha}..${head_sha_} | wc -l)
+	depth_stable=$(git rev-list ${lts_base_sha}..${lts_stable_sha} | wc -l)
+	depth_feature=$((depth_feature + 1))
+	depth_stable=$((depth_stable + 1))
+
+	echo "depth feature: feature $depth_feature"
+	echo "depth stable: stable $depth_stable"
+	popd ; rm -rf "$treeless"
+
+	git fetch origin --depth=$depth_feature $head_sha_
+	git fetch "$upstream_url" --depth=$depth_stable $lts_stable_sha
+
+	if [[ "$RUNNER_DEBUG" == "true" ]]; then
+		git merge-base --is-ancestor $lts_base_sha $head_sha_
+		git merge-base --is-ancestor $lts_base_sha $lts_stable_sha
+	fi
+
+	git merge --no-ff --no-edit "$lts_stable_sha" || { echo "::error ::Merge $lts_stable_sha into $head_sha failed."; return 1; }
+}
+
 set_step_warn () {
 	[[ -z "$GITHUB_ENV" ]] && return
 	echo ; echo "step_warn_$1=true" >> "$GITHUB_ENV"

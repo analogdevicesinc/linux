@@ -18,6 +18,9 @@ on:
       auto_from_range:
         type: boolean
         default: true
+      stable-patch:
+        type: boolean
+        default: false
     outputs:
       fail: # DEPRECATED
         value: ${{ jobs.build.outputs.fail }}
@@ -80,6 +83,13 @@ jobs:
           mkdir -p arch/${{ inputs.arch }}/configs
           get_file arch/${{ inputs.arch }}/configs/${{ inputs.defconfig }}
         fi
+
+    - name: Merge latest stable
+      if: ${{ inputs.stable-patch == 'true' }}
+      run: |
+        [[ "${{ runner.debug }}" == "1" ]] && set -x
+        source ./ci/build.sh
+        merge_latest_stable
 
     - name: Prepare env
       run: |
