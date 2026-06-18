@@ -315,7 +315,9 @@ struct link_service {
 	bool (*dp_pr_set_general_cmd)(struct dc_link *link, struct dmub_cmd_pr_general_cmd_data *general_cmd_data);
 	bool (*dp_pr_get_state)(const struct dc_link *link, uint64_t *state);
 	void (*edp_set_panel_power)(struct dc_link *link, bool powerOn);
-
+	void (*edp_set_panel_polarity_enabled)(const struct dc_link *link, bool enable);
+	void (*edp_panel_polarity_reset)(struct dc_link *link);
+	bool (*edp_get_panel_polarity)(struct dc_link *link, int32_t *polarity);
 
 	/*************************** HDMI FRL *********************************/
 	bool (*hdmi_frl_poll_status_flag)(struct dc_link *link);
@@ -363,5 +365,6 @@ struct link_service {
 	uint64_t (*dp_trace_get_edp_poweroff_timestamp)(struct dc_link *link);
 	void (*dp_trace_source_sequence)(
 			struct dc_link *link, uint8_t dp_test_mode);
+
 };
 #endif /* __DC_LINK_HPD_H__ */

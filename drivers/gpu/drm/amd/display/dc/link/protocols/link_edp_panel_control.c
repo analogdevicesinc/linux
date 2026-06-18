@@ -1301,3 +1301,33 @@ void edp_set_panel_assr(struct dc_link *link, struct pipe_ctx *pipe_ctx,
 			*panel_mode = DP_PANEL_MODE_DEFAULT;
 	}
 }
+
+void edp_set_panel_polarity_enabled(const struct dc_link *link, bool enable)
+{
+	struct dc *dc = link->ctx->dc;
+	struct dc_dmub_srv *dc_dmub_srv = dc->ctx->dmub_srv;
+
+	if (dc_dmub_srv)
+		dc_dmub_srv_panel_polarity_set_enable(dc_dmub_srv, 0, enable);
+}
+
+void edp_panel_polarity_reset(struct dc_link *link)
+{
+	struct dc *dc = link->ctx->dc;
+	struct dc_dmub_srv *dc_dmub_srv = dc->ctx->dmub_srv;
+
+	if (dc_dmub_srv)
+		dc_dmub_srv_panel_polarity_reset(dc_dmub_srv, 0);
+}
+
+bool edp_get_panel_polarity(struct dc_link *link, int32_t *polarity)
+{
+	struct dc *dc = link->ctx->dc;
+	struct dc_dmub_srv *dc_dmub_srv = dc->ctx->dmub_srv;
+	bool ret = false;
+
+	if (dc_dmub_srv)
+		ret = dc_dmub_srv_panel_polarity_get_polarity(dc_dmub_srv, 0, polarity);
+
+	return ret;
+}

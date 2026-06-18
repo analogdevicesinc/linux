@@ -234,6 +234,10 @@ static void construct_link_service_edp_panel_control(struct link_service *link_s
 	link_srv->edp_receiver_ready_T7 = edp_receiver_ready_T7;
 	link_srv->edp_power_alpm_dpcd_enable = edp_power_alpm_dpcd_enable;
 	link_srv->edp_set_panel_power = edp_set_panel_power;
+
+	link_srv->edp_set_panel_polarity_enabled = edp_set_panel_polarity_enabled;
+	link_srv->edp_panel_polarity_reset = edp_panel_polarity_reset;
+	link_srv->edp_get_panel_polarity = edp_get_panel_polarity;
 }
 
 /* link dp panel replay implements DP panel replay functionality.

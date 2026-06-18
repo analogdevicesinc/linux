@@ -601,3 +601,25 @@ void dc_link_get_alpm_support(struct dc_link *link,
 {
 	link->dc->link_srv->edp_get_alpm_support(link, auxless_support, auxwake_support);
 }
+
+void dc_link_set_panel_polarity_enable(struct dc_link *link, bool enable)
+{
+	if (link->dc->link_srv->edp_set_panel_polarity_enabled)
+		link->dc->link_srv->edp_set_panel_polarity_enabled(link, enable);
+}
+
+void dc_link_panel_polarity_reset(struct dc_link *link)
+{
+	if (link->dc->link_srv->edp_panel_polarity_reset)
+		link->dc->link_srv->edp_panel_polarity_reset(link);
+}
+
+bool dc_link_get_panel_polarity(struct dc_link *link, int32_t *polarity)
+{
+	bool ret = false;
+
+	if (link->dc->link_srv->edp_get_panel_polarity)
+		ret = link->dc->link_srv->edp_get_panel_polarity(link, polarity);
+
+	return ret;
+}
