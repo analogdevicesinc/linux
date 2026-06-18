@@ -39,6 +39,10 @@ MUX_TABLE(CDU_CLKO_SEL4)	= { IN0_CLKON, IN1_CLKON, IN2_CLKON };
 MUX_TABLE(CDU_CLKO_SEL5)	= { IN0_CLKON, IN2_CLKON, IN3_CLKON };
 MUX_TABLE(CDU_CLKO_SEL6)	= { IN0_CLKON, IN1_CLKON, IN2_CLKON, IN3_CLKON };
 
+/* ADSP-SC5XX CGU0 and CGU1 root clocks */
+CLK_PARENT_DATA(cgu0_parents)		 = { { .fw_name = "sys_clkin0"   }, };
+CLK_PARENT_DATA(cgu1_parents)		 = { { .fw_name = "cdu_clkinsel" }, };
+
 /* ADSP-SC598 mux parents */
 CLK_PARENT_DATA(cdu_sharc0_parents)	 = { { .fw_name = "cclk0_0"    }, };
 CLK_PARENT_DATA(cdu_sharc1_parents)	 = { { .fw_name = "cclk0_0"    }, };
@@ -56,10 +60,15 @@ CLK_PARENT_DATA(cdu_lpddr_parents)	 = { { .fw_name = "oclk_0"     }, { .fw_name 
 CLK_PARENT_DATA(cdu_ospi_refclk_parents) = { { .fw_name = "sysclk_0"   }, { .fw_name = "sclk0_0" }, { .fw_name = "sclk1_1"  }, };
 CLK_PARENT_DATA(cdu_emmc_parents)	 = { { .fw_name = "oclk_0"     }, { .fw_name = "sclk0_1" }, { .fw_name = "dclk_0/2" },
 					     { .fw_name = "dclk_1/2"   }, };
-
 /* ADSP-SC5XX CLKINSEL mux */
 static const struct sc5xx_clkinsel_clock sc5xx_clkinsel_clks[] __initdata = {
 	CLKINSEL(ADSP_SC5XX_CLK_CDU_CLKINSEL, "cdu_clkinsel", cdu_clkinsel_parents, 0),
+};
+
+/* ADSP-SC5XX CGU PLL divider clocks */
+/* TODO: store parents in the final clocks struct during registration instead of here, make new macro for this */
+static const struct sc5xx_div_clock sc5xx_cgu_div_clks_pll[] = {
+	DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu1_df_div", CGU_CTL, 0, 1), 
 };
 
 /* ADSP-SC598 CDU mux clocks */
@@ -82,7 +91,7 @@ static const struct sc5xx_mux_clock sc598_mux_clks[] __initdata = {
 
 /* ADSP-SC598 CGU0 divider clocks */
 static const struct sc5xx_div_clock sc598_div_clks_cgu0[] = {
-	DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div", 
+	DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div",  
 	DIV(ADSP_SC5XX_CLK_CGU_CSEL_DIV, "cgu0_csel_div", 
 	DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div", 
 	DIV(ADSP_SC5XX_CLK_CGU_DSEL_DIV, "cgu0_dsel_div", 

@@ -69,21 +69,21 @@
 #define CDU_EN_BIT 0
 
 struct sc5xx_pll_clock {
-	unsigned int	id;
-	const char	*name;
-	const char	*parent_name;
-	u32		offset;
-	u8		shift;
-	u8		width;
-	u32		m_offset;
-	bool		half_m;
+	unsigned int			id;
+	const char			*name;
+        const struct clk_parent_data    *parent_data;
+	u32				offset;
+	u8				shift;
+	u8				width;
+	u32				m_offset;
+	bool				half_m;
 };
 
 #define __PLL(_id, _name, _parent, _offset, _shift, _width, _m_offset, _half_m) \
 	{									\
 		.id = (_id),							\
 		.name = (_name),						\
-		.parent_name = (_parent),					\
+		.parent_data = (_parent),					\
 		.offset = (_offset),						\
 		.shift = (_shift),						\
 		.width = (_width),						\
@@ -95,21 +95,21 @@ struct sc5xx_pll_clock {
 	__PLL(_id, _name, _parent, _offset, _shift, _width, 0, false)
 
 struct sc5xx_divider_clock {
-	unsigned int	id;
-	const char	*name;
-	const char	*parent_name;
-	unsigned long	clock_flags;
-	u32		offset;
-	u8		shift;
-	u8		width;
-	u8		div_flags;
+	unsigned int			id;
+	const char			*name;
+	const struct clk_parent_data    *parent_data;
+	unsigned long			clock_flags;
+	u32				offset;
+	u8				shift;
+	u8				width;
+	u8				div_flags;
 };
 
 #define __DIV(_id, _name, _parent, _offset, _shift, _width, _flags, _div_flags) \
 	{									\
 		.id = (_id),							\
 		.name = (_name),						\
-		.parent_name = (_parent),					\
+		.parent_data = (_parent),					\
 		.offset = (_offset),						\
 		.shift = (_shift),						\
 		.width = (_width),						\
