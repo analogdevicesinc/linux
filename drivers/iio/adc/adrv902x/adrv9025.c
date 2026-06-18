@@ -1118,6 +1118,33 @@ static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 	if (ret)
 		return adrv9025_dev_err(phy);
 
+	/*
+	 * Force the framer-1 ADC sample crossbar back to the "split" routing so
+	 * the two digital obs channels carry the two independent ORx sides:
+	 *   conv0/1 = side-A I/Q (ORx1/ORx2), conv2/3 = side-B I/Q (ORx3/ORx4).
+	 *
+	 * The on-chip stream processor reprograms this crossbar on every ORx
+	 * enable edge and, when more than one ORx is enabled, collapses both
+	 * converter pairs onto a single side (e.g. 0x13 0x12 0x13 0x12),
+	 * duplicating one ORx onto both digital channels. Re-asserting the
+	 * crossbar over SPI AFTER the enable edge (the stream does not touch it
+	 * again until the next enable change) makes the routing deterministic
+	 * and independent of the order the obs channels are selected.
+	 *
+	 * Framer-1 JTX converter-select registers are 0x7000..0x7003, field is
+	 * bits[6:0]. Values from adi_adrv9025_AdcSampleXbarSel_e.
+	 */
+	adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7000,
+				   ADI_ADRV9025_ADC_ORX1_I, 0x7F, 0);
+	adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7001,
+				   ADI_ADRV9025_ADC_ORX1_Q, 0x7F, 0);
+	adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7002,
+				   ADI_ADRV9025_ADC_ORX2_I, 0x7F, 0);
+	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7003,
+					 ADI_ADRV9025_ADC_ORX2_Q, 0x7F, 0);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
 	return ret;
 }
 
