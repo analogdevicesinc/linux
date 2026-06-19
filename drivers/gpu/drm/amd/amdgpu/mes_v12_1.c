@@ -167,7 +167,7 @@ static int mes_v12_1_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 	unsigned long flags;
 	u64 status_gpu_addr;
 	u32 seq, status_offset;
-	u64 *status_ptr;
+	u32 *status_ptr;
 	signed long r;
 	int ret;
 
@@ -186,7 +186,7 @@ static int mes_v12_1_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 		return ret;
 
 	status_gpu_addr = adev->wb.gpu_addr + (status_offset * 4);
-	status_ptr = (u64 *)&adev->wb.wb[status_offset];
+	status_ptr = &adev->wb.wb[status_offset];
 	*status_ptr = 0;
 
 	spin_lock_irqsave(ring_lock, flags);
@@ -235,7 +235,7 @@ static int mes_v12_1_submit_pkt_and_poll_completion(struct amdgpu_mes *mes,
 			xcc_id, pipe, x_pkt->header.opcode);
 
 	r = amdgpu_fence_wait_polling(ring, seq, timeout);
-	if (r < 1 || !lower_32_bits(*status_ptr)) {
+	if (r < 1 || !*status_ptr) {
 		if (misc_op_str)
 			dev_err(adev->dev,
 				"MES(%d, %d) failed to respond to msg=%s (%s)\n",
