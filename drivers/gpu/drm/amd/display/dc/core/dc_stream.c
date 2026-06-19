@@ -530,7 +530,7 @@ void program_cursor_position(
 			}
 		}
 
-		dc->hwss.set_cursor_position(pipe_ctx);
+		hwss_program_cursor_position(dc, pipe_ctx);
 		if (enable_cursor_offload && dc->hwss.update_cursor_offload_pipe) {
 			struct pipe_ctx *top_pipe = resource_get_otg_master(pipe_ctx);
 

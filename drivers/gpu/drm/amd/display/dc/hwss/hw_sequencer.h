@@ -874,7 +874,10 @@ struct dpp_set_cursor_attributes_params {
 
 struct set_cursor_position_params {
 	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct hubp *hubp;
+	struct dpp *dpp;
+	struct dc_cursor_position pos;
+	struct dc_cursor_mi_param param;
 };
 
 struct set_cursor_sdr_white_level_params {
@@ -1539,7 +1542,11 @@ struct hw_sequencer_funcs {
 	bool (*dmdata_status_done)(struct pipe_ctx *pipe_ctx);
 
 	/* Cursor Related */
-	void (*set_cursor_position)(struct pipe_ctx *pipe);
+	void (*set_cursor_position)(struct hubp *hubp, struct dpp *dpp,
+			const struct dc_cursor_position *pos,
+			const struct dc_cursor_mi_param *param);
+	/* Fallback for DCE */
+	void (*set_cursor_position_legacy)(struct pipe_ctx *pipe);
 	void (*set_cursor_attribute)(struct pipe_ctx *pipe);
 	void (*set_cursor_sdr_white_level)(struct pipe_ctx *pipe);
 	void (*abort_cursor_offload_update)(struct dmub_srv *dmub, struct dpp *dpp,
@@ -2151,6 +2158,8 @@ void hwss_hubp_set_cursor_attributes(union block_sequence_params *params);
 void hwss_dpp_set_cursor_attributes(union block_sequence_params *params);
 
 void hwss_set_cursor_position(union block_sequence_params *params);
+
+void hwss_program_cursor_position(struct dc *dc, struct pipe_ctx *pipe_ctx);
 
 void hwss_set_cursor_sdr_white_level(union block_sequence_params *params);
 

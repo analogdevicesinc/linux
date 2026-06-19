@@ -55,7 +55,12 @@ void dcn401_disable_link_output(struct dc_link *link,
 		const struct link_resource *link_res,
 		enum signal_type signal);
 
-void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx);
+void dcn401_build_cursor_position(struct pipe_ctx *pipe_ctx,
+		struct dc_cursor_position *pos,
+		struct dc_cursor_mi_param *param);
+void dcn401_set_cursor_position(struct hubp *hubp, struct dpp *dpp,
+		const struct dc_cursor_position *pos,
+		const struct dc_cursor_mi_param *param);
 
 bool dcn401_apply_idle_power_optimizations(struct dc *dc, bool enable);
 

@@ -94,6 +94,7 @@ static const struct hw_sequencer_funcs dcn10_funcs = {
 };
 
 static const struct hwseq_private_funcs dcn10_private_funcs = {
+	.build_cursor_position = dcn10_build_cursor_position,
 	.init_pipes = dcn10_init_pipes,
 	.plane_atomic_disconnect = dcn10_plane_atomic_disconnect,
 	.program_pipe = dcn10_program_pipe,

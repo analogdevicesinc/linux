@@ -229,6 +229,9 @@ struct hwseq_private_funcs {
 	void (*program_cm_hist)(struct dc *dc,
 		struct pipe_ctx *pipe_ctx,
 		const struct dc_plane_state *plane_state);
+	void (*build_cursor_position)(struct pipe_ctx *pipe_ctx,
+		struct dc_cursor_position *pos,
+		struct dc_cursor_mi_param *param);
 };
 
 struct dce_hwseq {

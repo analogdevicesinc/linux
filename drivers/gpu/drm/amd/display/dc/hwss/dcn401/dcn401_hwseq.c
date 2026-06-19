@@ -1045,11 +1045,12 @@ void dcn401_disable_link_output(struct dc_link *link,
 	dc->link_srv->dp_trace_source_sequence(link, DPCD_SOURCE_SEQ_AFTER_DISABLE_LINK_PHY);
 }
 
-void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx)
+void dcn401_build_cursor_position(struct pipe_ctx *pipe_ctx,
+		struct dc_cursor_position *pos_out,
+		struct dc_cursor_mi_param *param_out)
 {
 	struct dc_cursor_position pos_cpy = pipe_ctx->stream->cursor_position;
 	struct hubp *hubp = pipe_ctx->plane_res.hubp;
-	struct dpp *dpp = pipe_ctx->plane_res.dpp;
 	struct dc_cursor_mi_param param = {
 		.pixel_clk_khz = pipe_ctx->stream->timing.pix_clk_100hz / 10,
 		.ref_clk_khz = pipe_ctx->stream->ctx->dc->res_pool->ref_clocks.dchub_ref_clock_inKhz,
@@ -1073,6 +1074,11 @@ void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx)
 	int y_pos = pos_cpy.y;
 	int recout_x_pos = 0;
 	int recout_y_pos = 0;
+	int x_pos_viewport = 0;
+	int x_hot_viewport = 0;
+	int dst_x_offset = 0;
+	int rec_x_offset = 0;
+	int rec_y_offset = 0;
 
 	if ((pipe_ctx->top_pipe != NULL) || (pipe_ctx->bottom_pipe != NULL)) {
 		if ((pipe_ctx->plane_state->src_rect.width != pipe_ctx->plane_res.scl_data.viewport.width) ||
@@ -1215,8 +1221,60 @@ void dcn401_set_cursor_position(struct pipe_ctx *pipe_ctx)
 	pos_cpy.x = x_pos;
 	pos_cpy.y = y_pos;
 
-	hubp->funcs->set_cursor_position(hubp, &pos_cpy, &param);
-	dpp->funcs->set_cursor_position(dpp, &pos_cpy, &param, hubp->curs_attr.width, hubp->curs_attr.height);
+	/* Precompute the HW destination offset so the executor only programs
+	 * registers. Translate cursor x position from rect space into viewport
+	 * space; CURSOR_DST_X_OFFSET is relative to the viewport start position.
+	 */
+	if (param.recout.width) {
+		x_pos_viewport = pos_cpy.x * param.viewport.width / param.recout.width;
+		x_hot_viewport = pos_cpy.x_hotspot * param.viewport.width / param.recout.width;
+	} else {
+		ASSERT(!pos_cpy.enable || pos_cpy.x == 0);
+		ASSERT(!pos_cpy.enable || pos_cpy.x_hotspot == 0);
+	}
+
+	dst_x_offset = x_pos_viewport - x_hot_viewport *
+			(1 + hubp->curs_attr.attribute_flags.bits.ENABLE_MAGNIFICATION);
+	dst_x_offset = (dst_x_offset >= 0) ? dst_x_offset : 0;
+	dst_x_offset *= param.ref_clk_khz;
+	dst_x_offset /= param.pixel_clk_khz;
+
+	ASSERT(param.h_scale_ratio.value);
+
+	if (param.h_scale_ratio.value)
+		dst_x_offset = dc_fixpt_floor(dc_fixpt_div(
+			dc_fixpt_from_int(dst_x_offset),
+			param.h_scale_ratio));
+
+	param.dst_x_offset = dst_x_offset;
+
+	/* Cursor rectangle cache origin: derived from the final cursor position
+	 * minus hotspot, clamped to 0, offset by the recout origin. Precompute
+	 * here so the executor only stores the value.
+	 */
+	rec_x_offset = pos_cpy.x - pos_cpy.x_hotspot;
+	rec_y_offset = pos_cpy.y - pos_cpy.y_hotspot;
+	if (rec_x_offset < 0)
+		rec_x_offset = 0;
+	if (rec_y_offset < 0)
+		rec_y_offset = 0;
+	param.cur_rect_x = rec_x_offset + param.recout.x;
+	param.cur_rect_y = rec_y_offset + param.recout.y;
+
+	/* Clamp hotspot to the CURSOR_HOT_SPOT_X register field width */
+	if (pos_cpy.x_hotspot > 0xFF)
+		pos_cpy.x_hotspot = 0xFF;
+
+	*pos_out = pos_cpy;
+	*param_out = param;
+}
+
+void dcn401_set_cursor_position(struct hubp *hubp, struct dpp *dpp,
+		const struct dc_cursor_position *pos,
+		const struct dc_cursor_mi_param *param)
+{
+	hubp->funcs->set_cursor_position(hubp, pos, param);
+	dpp->funcs->set_cursor_position(dpp, pos, param, hubp->curs_attr.width, hubp->curs_attr.height);
 }
 
 static bool dcn401_check_no_memory_request_for_cab(struct dc *dc)

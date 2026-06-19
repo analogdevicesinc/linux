@@ -816,24 +816,9 @@ void hubp401_cursor_set_position(
 	const struct dc_cursor_mi_param *param)
 {
 	struct dcn20_hubp *hubp2 = TO_DCN20_HUBP(hubp);
-	int rec_x_offset = pos->x - pos->x_hotspot;
-	int rec_y_offset = pos->y - pos->y_hotspot;
-	int dst_x_offset;
-	int x_pos_viewport = 0;
-	int x_hot_viewport = 0;
+	int dst_x_offset = param->dst_x_offset;
 	uint32_t cur_en = pos->enable ? 1 : 0;
-	uint32_t x_hotspot_clamped = pos->x_hotspot;
 	hubp->curs_pos = *pos;
-	/* Recout is zero for pipes if the entire dst_rect is contained
-	 * within preceeding ODM slices.
-	 */
-	if (param->recout.width) {
-		x_pos_viewport = pos->x * param->viewport.width / param->recout.width;
-		x_hot_viewport = pos->x_hotspot * param->viewport.width / param->recout.width;
-	} else {
-		ASSERT(!cur_en || pos->x == 0);
-		ASSERT(!cur_en || pos->x_hotspot == 0);
-	}
 
 	/*
 	 * Guard aganst cursor_set_position() from being called with invalid
@@ -841,25 +826,6 @@ void hubp401_cursor_set_position(
 	 */
 	if (hubp->curs_attr.address.quad_part == 0)
 		return;
-
-	/* Translate the x position of the cursor from rect
-	 * space into viewport space. CURSOR_DST_X_OFFSET
-	 * is the offset relative to viewport start position.
-	 */
-	dst_x_offset = x_pos_viewport - x_hot_viewport *
-			(1 + hubp->curs_attr.attribute_flags.bits.ENABLE_MAGNIFICATION);
-	dst_x_offset = (dst_x_offset >= 0) ? dst_x_offset : 0;
-	dst_x_offset *= param->ref_clk_khz;
-	dst_x_offset /= param->pixel_clk_khz;
-
-	ASSERT(param->h_scale_ratio.value);
-
-	if (x_hotspot_clamped > 0xFF)
-		x_hotspot_clamped = 0xFF;
-	if (param->h_scale_ratio.value)
-		dst_x_offset = dc_fixpt_floor(dc_fixpt_div(
-			dc_fixpt_from_int(dst_x_offset),
-			param->h_scale_ratio));
 
 	if (hubp->pos.cur_ctl.bits.cur_enable != cur_en) {
 		if (cur_en && REG_READ(CURSOR_SURFACE_ADDRESS) == 0)
@@ -876,7 +842,7 @@ void hubp401_cursor_set_position(
 			CURSOR_Y_POSITION, pos->y);
 
 		REG_SET_2(CURSOR_HOT_SPOT, 0,
-			CURSOR_HOT_SPOT_X, x_hotspot_clamped,
+			CURSOR_HOT_SPOT_X, pos->x_hotspot,
 			CURSOR_HOT_SPOT_Y, pos->y_hotspot);
 
 		REG_SET(CURSOR_DST_OFFSET, 0,
@@ -889,18 +855,9 @@ void hubp401_cursor_set_position(
 	hubp->pos.hot_spot.bits.x_hot = pos->x_hotspot;
 	hubp->pos.hot_spot.bits.y_hot = pos->y_hotspot;
 	hubp->pos.dst_offset.bits.dst_x_offset = dst_x_offset;
-	/* Cursor Rectangle Cache
-	 * Cursor bitmaps have different hotspot values
-	 * There's a possibility that the above logic returns a negative value,
-	 * so we clamp them to 0
-	 */
-	if (rec_x_offset < 0)
-		rec_x_offset = 0;
-	if (rec_y_offset < 0)
-		rec_y_offset = 0;
 	/* Save necessary cursor info x, y position. w, h is saved in attribute func. */
-	hubp->cur_rect.x = rec_x_offset + param->recout.x;
-	hubp->cur_rect.y = rec_y_offset + param->recout.y;
+	hubp->cur_rect.x = param->cur_rect_x;
+	hubp->cur_rect.y = param->cur_rect_y;
 }
 
 void hubp401_read_state(struct hubp *hubp)
