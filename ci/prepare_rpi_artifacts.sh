@@ -151,9 +151,86 @@ artifacts_structure() {
 	echo "=== Artifacts structure created ==="
 }
 
+# Prepare one architecture's *-devel artifacts into the headers layout
+create_headers_structure() {
+	local karch="$1"; shift
+	local bcms=( "$@" )
+
+	local stage="${OUTPUT_DIRECTORY}/headers-${karch}"
+	local root="${stage}/lib/modules"
+	local base_version="" shared_name=""
+
+	for bcm in "${bcms[@]}"; do
+		local src="${SOURCE_DIRECTORY}/adi_${bcm}_defconfig-gcc-${karch}-devel"
+		if [[ ! -d "$src" ]]; then
+			echo "  WARN: missing ${src}, skipping ${bcm}"
+			continue
+		fi
+
+		local release
+		release=$(cat "${src}/include/config/kernel.release")
+		if [[ -z "$base_version" ]]; then
+			base_version=$(echo "$release" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+')
+			shared_name="rpi-${karch}-shared-${base_version}"
+		fi
+
+		local shared_dir="${root}/${shared_name}"
+		local build_dir="${root}/${release}/build"
+
+		# Populate the shared area once (first present flavor wins).
+		if [[ ! -d "$shared_dir" ]]; then
+			mkdir -p "${shared_dir}/include" "${shared_dir}/arch"
+			cp -r "${src}/arch/${karch}" "${shared_dir}/arch/"
+			for sub in "${src}/include"/*/; do
+				local name=$(basename "$sub")
+				[[ "$name" == "generated" || "$name" == "config" ]] && continue
+				cp -r "$sub" "${shared_dir}/include/"
+			done
+			[[ -f "${src}/Makefile" ]] && cp "${src}/Makefile" "${shared_dir}/"
+		fi
+
+		echo "  ${bcm} -> lib/modules/${release}/build"
+		mkdir -p "${build_dir}/include" "${build_dir}/arch"
+
+		# Real per-flavor files.
+		cp -r "${src}/include/generated" "${build_dir}/include/"
+		cp -r "${src}/include/config"    "${build_dir}/include/"
+		cp -r "${src}/scripts"           "${build_dir}/"
+		[[ -f "${src}/Module.symvers" ]] && cp "${src}/Module.symvers" "${build_dir}/"
+		[[ -f "${src}/context.txt" ]]    && cp "${src}/context.txt"    "${build_dir}/"
+
+		# Relative symlinks into the shared dir (depths per layout).
+		ln -s "../../../${shared_name}/arch/${karch}" "${build_dir}/arch/${karch}"
+		ln -s "../../${shared_name}/Makefile"         "${build_dir}/Makefile"
+		for sub in "${shared_dir}/include"/*/; do
+			local name=$(basename "$sub")
+			ln -s "../../../${shared_name}/include/${name}" "${build_dir}/include/${name}"
+		done
+	done
+
+	if [[ -z "$base_version" ]]; then
+		echo "  No ${karch} devel artifacts found; skipping ${karch} headers archive."
+		return 0
+	fi
+
+	echo "Creating rpi_headers_${karch}.tar.gz..."
+	tar -C "${stage}" -czf "${OUTPUT_DIRECTORY}/rpi_headers_${karch}.tar.gz" . >/dev/null
+	rm -r "${stage}"
+}
+
+# Arrange both architectures' headers into the symlinked layout.
+headers_structure() {
+	echo ""
+	echo "=== Arranging kernel headers layout ==="
+	create_headers_structure "arm"   "bcmrpi" "bcm2709" "bcm2711"
+	create_headers_structure "arm64" "bcm2711" "bcm2712"
+	echo "=== Headers layout ready at ${OUTPUT_DIRECTORY}/headers ==="
+}
+
 #create final boot archives and properties file
 create_rpi_boot_archives() {
 	artifacts_structure
+	headers_structure
 
 	echo ""
 	echo "=== Creating boot archives ==="
