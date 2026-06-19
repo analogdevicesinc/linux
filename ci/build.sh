@@ -1336,6 +1336,11 @@ merge_latest_stable () {
 	fi
 
 	git merge --no-ff --no-edit "$lts_stable_sha" || { echo "::error ::Merge $lts_stable_sha into $head_sha failed."; return 1; }
+
+	if [[ "$GITHUB_ACTIONS" == "true" ]]; then
+		echo "MERGE_FROM_TAG=$lts_stable" >> "$GITHUB_ENV"
+		echo "MERGE_FROM_SHA=$lts_stable_sha" >> "$GITHUB_ENV"
+	fi
 }
 
 set_step_warn () {
