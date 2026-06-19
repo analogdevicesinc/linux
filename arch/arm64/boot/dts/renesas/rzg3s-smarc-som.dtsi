@@ -184,7 +184,6 @@
 	bus-width = <4>;
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
-	max-frequency = <125000000>;
 	status = "okay";
 };
 #else
@@ -199,7 +198,6 @@
 	mmc-hs200-1_8v;
 	non-removable;
 	fixed-emmc-driver-type = <1>;
-	max-frequency = <125000000>;
 	status = "okay";
 };
 #endif
@@ -210,7 +208,6 @@
 	pinctrl-names = "default";
 	vmmc-supply = <&vcc_sdhi2>;
 	bus-width = <4>;
-	max-frequency = <50000000>;
 	status = "okay";
 };
 #endif
