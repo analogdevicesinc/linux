@@ -3263,6 +3263,7 @@ int amdgpu_ualink_import_handle(struct drm_device *dev,
 		imp_xa_node->node_state = AMDGPU_UALINK_NODE_NOT_READY;
 		imp_xa_node->handle = handle;
 		init_completion(&imp_xa_node->npa_done);
+		INIT_LIST_HEAD(&imp_xa_node->list);
 		kref_init(&imp_xa_node->refcount);
 
 		/* Take an extra reference to store in the Xarray. The error
