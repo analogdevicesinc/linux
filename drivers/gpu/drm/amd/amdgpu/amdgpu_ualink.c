@@ -3447,9 +3447,9 @@ int amdgpu_ualink_manager_start(struct amdgpu_device *adev)
 	adev->mmhub.funcs->setup_vm_pt_regs(adev, adev->vm_manager.npa_vmid,
 			amdgpu_gmc_pd_addr(adev->ualink.npa_vm.root.bo));
 
-	xa_init_flags(&adev->ualink.exp_xa, XA_FLAGS_LOCK_BH);
-	xa_init_flags(&adev->ualink.imp_xa, XA_FLAGS_LOCK_BH);
-	xa_init_flags(&adev->ualink.handle_invalid_xa, XA_FLAGS_LOCK_BH);
+	xa_init(&adev->ualink.exp_xa);
+	xa_init(&adev->ualink.imp_xa);
+	xa_init(&adev->ualink.handle_invalid_xa);
 
 	for (i = 0; i < AMDGPU_UALINK_ACCEL_MAX; i++) {
 		init_completion(&adev->ualink.conn_state[i].hello_done);
