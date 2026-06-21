@@ -52,14 +52,15 @@ enum sc5xx_cdu_en_state {
 	SC5XX_CDU_EN_ENABLE,
 };
 
-void sc5xx_cdu_print_revision(const char *soc_name, void __iomem *base)
+void sc5xx_cdu_print_revision(struct device *dev, const char *soc_name,
+                              void __iomem *base)
 {
-	u32 revid = readl(base + SC5XX_CDU_REVID);
-	u32 major = FIELD_GET(SC5XX_CDU_REVID_MAJOR, revid);
-	u32 rev = FIELD_GET(SC5XX_CDU_REVID_REV, revid);
+        u32 revid = readl(base + SC5XX_CDU_REVID);
+        u32 major = FIELD_GET(SC5XX_CDU_REVID_MAJOR, revid);
+        u32 rev = FIELD_GET(SC5XX_CDU_REVID_REV, revid);
 
-	pr_info("%s CDU revision: major=%u rev=%u (0x%08x)\n",
-		soc_name, major, rev, revid);
+        dev_info(dev, "%s CDU revision: major=%u rev=%u (0x%08x)\n",
+                 soc_name, major, rev, revid);
 }
 
 static inline struct sc5xx_cdu *to_sc5xx_cdu(struct clk_hw *clk_hw)
@@ -310,7 +311,7 @@ static const struct clk_ops sc5xx_cdu_ops = {
 
 /**
  * sc5xx_cdu_clkin_register - Register an ADSP-SC5xx CLKIN mux
- * @pdev: Platform device pointer
+ * @dev: device pointer
  * @clock_name: Name of the clock to register.
  * @base: Base address of the CDU register block.
  * @parent_data: Parent data for this clock.
@@ -326,13 +327,11 @@ static const struct clk_ops sc5xx_cdu_ops = {
  *
  * Return: Clock specific clk_hw data on success, or an ERR_PTR() on failure.
  */
-struct clk_hw * __init sc5xx_cdu_clkin_register(struct platform_device *pdev, const char *clock_name, 
+struct clk_hw * __init sc5xx_cdu_clkin_register(struct device *dev, const char *clock_name, 
 					void __iomem *base, const struct clk_parent_data *parent_data,
 					unsigned int num_parents, unsigned long clock_flags,
 					spinlock_t *lock)
 {
-	struct device *dev = &pdev->dev;
-
 	return devm_clk_hw_register_mux_parent_data_table(dev, clock_name,
 				parent_data, num_parents, clock_flags,
 				base + SC5XX_CDU_CLKINSEL,
@@ -342,7 +341,7 @@ struct clk_hw * __init sc5xx_cdu_clkin_register(struct platform_device *pdev, co
 
 /**
  * sc5xx_cdu_register - Register an ADSP-SC5xx CDU output clock mux.
- * @pdev: Platform device pointer
+ * @dev: device pointer
  * @clock_name: Name of the clock to register.
  * @base: Base address of the CDU register block.
  * @cdu_clko: CDU output index controlled by the clock.
@@ -360,12 +359,10 @@ struct clk_hw * __init sc5xx_cdu_clkin_register(struct platform_device *pdev, co
  *
  * Return: Clock specific clk_hw data on success, or an ERR_PTR() on failure.
  */
-struct clk_hw * __init sc5xx_cdu_register(struct platform_device *pdev, const char *clock_name, 
-				void __iomem *base, u8 cdu_clko, const struct clk_parent_data *parent_data,
-				const u32 *mux_table, u8 num_parents, unsigned long clock_flags,
-				spinlock_t *lock)
+struct clk_hw * __init sc5xx_cdu_register(struct device *dev, const char *clock_name, void __iomem *base,
+				u8 cdu_clko, const struct clk_parent_data *parent_data, const u32 *mux_table,
+				u8 num_parents, unsigned long clock_flags, spinlock_t *lock)
 {
-	struct device *dev = &pdev->dev;
 	struct sc5xx_cdu *cdu_clk;
 	struct clk_init_data init = { };
 	int ret;

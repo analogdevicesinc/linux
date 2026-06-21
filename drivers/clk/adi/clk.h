@@ -187,10 +187,6 @@ struct sc5xx_clkinsel_clock {
 		.flags = (_flags),			\
 	}
 
-#define CLK_PARENT_DATA(_name)	static const struct clk_parent_data _name[]
-
-#define MUX_TABLE(_name)	static const u32 _name[]
-
 struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 			       u8 cdu_clko,
 			       const char * const *parent_names,

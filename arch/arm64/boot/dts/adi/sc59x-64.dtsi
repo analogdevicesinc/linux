@@ -125,7 +125,9 @@
 		reg = <0x3108f000 0x100>;
 		#clock-cells = <1>;
 
-		clocks = <&cgu0 ADSP_SC5XX_CLK_CGU_CCLK0>,
+		clocks = <&sys_clkin0>,
+			 <&sys_clkin1>,
+			 <&cgu0 ADSP_SC5XX_CLK_CGU_CCLK0>,
 			 <&cgu0 ADSP_SC598_CLK_CGU_CCLK2>,
 			 <&cgu0 ADSP_SC5XX_CLK_CGU_SYSCLK>,
 			 <&cgu0 ADSP_SC5XX_CLK_CGU_SCLK0>,
@@ -142,7 +144,8 @@
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_DCLK>,
 			 <&cgu1 ADSP_SC598_CLK_CGU_DCLK_HALF>,
 			 <&cgu1 ADSP_SC5XX_CLK_CGU_OCLK>;
-		clock-names = "cclk0_0",  "cclk2_0",  
+		clock-names = "sys_clkin0", sys_clkin1",
+			      "cclk0_0",  "cclk2_0",  
 			      "sysclk_0", "sclk0_0",
 			      "sclk1_0",  "dclk_0",
 			      "dclk_0/2", "oclk_0", 
