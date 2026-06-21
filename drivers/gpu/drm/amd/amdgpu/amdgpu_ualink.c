@@ -1763,68 +1763,65 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
  */
 static void amdgpu_ualink_invalidate_import_mappings(struct amdgpu_bo *bo)
 {
-	struct drm_gem_object *obj = &bo->tbo.base;
-	struct ww_acquire_ctx *ticket = dma_resv_locking_ctx(obj->resv);
 	struct amdgpu_device *adev = amdgpu_ttm_adev(bo->tbo.bdev);
 	struct ttm_operation_ctx ctx = { false, false };
 	struct ttm_placement placement = {};
 	struct amdgpu_vm_bo_base *bo_base;
+	struct drm_exec exec;
 	int r;
 
-	amdgpu_bo_reserve(bo, false);
+	/*
+	 * Lock the BO together with every client VM page directory it is
+	 * mapped into in a single drm_exec transaction.
+	 */
+	drm_exec_init(&exec, DRM_EXEC_IGNORE_DUPLICATES, 0);
+	drm_exec_until_all_locked(&exec) {
+		r = drm_exec_lock_obj(&exec, &bo->tbo.base);
+		drm_exec_retry_on_contention(&exec);
+		if (unlikely(r))
+			goto fini;
+
+		for (bo_base = bo->vm_bo; bo_base; bo_base = bo_base->next) {
+			r = amdgpu_vm_lock_pd(bo_base->vm, &exec, 0);
+			drm_exec_retry_on_contention(&exec);
+			if (unlikely(r))
+				goto fini;
+		}
+	}
 
 	/* FIXME: This should be after the "if", but needs a fix to make sure
 	 * DMABuf imports are initialized in the right VM list.
 	 */
 	amdgpu_vm_bo_invalidate(bo, false);
 	if (!bo->tbo.resource || bo->tbo.resource->mem_type == TTM_PL_SYSTEM)
-		goto out;
+		goto fini;
 
 	r = ttm_bo_validate(&bo->tbo, &placement, &ctx);
 	if (r) {
 		dev_err(adev->dev, "Failed to invalidate NPA DMA-buf import (%d)\n",
 			r);
-		goto out;
+		goto fini;
 	}
 
 	for (bo_base = bo->vm_bo; bo_base; bo_base = bo_base->next) {
 		struct amdgpu_vm *vm = bo_base->vm;
-		struct dma_resv *resv = vm->root.bo->tbo.base.resv;
 
-		if (ticket) {
-			/* When we get an error here it means that somebody
-			 * else is holding the VM lock and updating page tables
-			 * So we can just continue here.
-			 */
-			r = dma_resv_lock(resv, ticket);
-			if (r)
-				continue;
-
-		} else {
-			/* TODO: This is more problematic and we actually need
-			 * to allow page tables updates without holding the
-			 * lock.
-			 */
-			if (!dma_resv_trylock(resv))
-				continue;
-		}
-
-		/* Reserve fences for two SDMA page table updates */
-		r = dma_resv_reserve_fences(resv, 2);
+		/*
+		 * Fences for the two SDMA page table updates were already
+		 * reserved by amdgpu_vm_lock_pd() above (it reserves 2 +
+		 * num_fences on the same VM root PD dma_resv).
+		 */
+		r = amdgpu_vm_clear_freed(adev, vm, NULL);
 		if (!r)
-			r = amdgpu_vm_clear_freed(adev, vm, NULL);
-		if (!r)
-			r = amdgpu_vm_handle_moved(adev, vm, ticket);
+			r = amdgpu_vm_handle_moved(adev, vm, &exec.ticket);
 
 		if (r && r != -EBUSY)
 			dev_err(adev->dev, "Failed to invalidate VM page tables (%d))\n",
 				r);
-
-		dma_resv_unlock(resv);
 	}
 
-out:
-	amdgpu_bo_unreserve(bo);
+fini:
+	drm_exec_fini(&exec);
 }
 
 static int amdgpu_ualink_map_npa_to_dmabuf(struct amdgpu_device *adev,
