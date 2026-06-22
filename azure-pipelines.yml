@@ -35,14 +35,12 @@ stages:
         - checkout: self
           fetchDepth: 1
           clean: true
-        - task: DownloadPipelineArtifact@2
-          inputs:
-            buildType: 'specific'
-            project: 'OpenSource'
-            definition: 56  # The ID of the buildroot pipeline to download microblaze rootfs
-            buildVersionToDownload: 'latest'
-            artifactName: 'mb_rootfs'
-            targetPath: '$(Agent.BuildDirectory)/s'
+        - script: |
+            gh run download 27944973101 --repo analogdevicesinc/br2-external \
+              --name rootfs-microblaze --dir .
+          displayName: 'Download microblaze rootfs'
+          env:
+            GH_TOKEN: $(GH_AZURE_TOKEN)
         - script: ./ci/travis/run-build.sh
           env:
             DOWNLOAD_URL: $(DOWNLOAD_URL)
