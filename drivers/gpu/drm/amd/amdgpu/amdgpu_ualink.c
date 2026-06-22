@@ -2267,6 +2267,12 @@ static void amdgpu_ualink_exp_cleanup_worker(struct work_struct *work)
 	/* If there are no importers for this BO/handle */
 	if (bitmap_empty(exp_xa_node->importers_bitmap,
 			 AMDGPU_UALINK_ACCEL_MAX)) {
+		/* Release the dma_buf created at export time (used for the
+		 * local-import shortcut). The has-importers path below drops
+		 * it too; this branch must not skip it or the dma_buf and the
+		 * BO it pins are leaked.
+		 */
+		dma_buf_put(exp_xa_node->dmabuf);
 		/* Drop the BO reference so it can be freed. */
 		amdgpu_bo_unref(&bo);
 		exp_xa_node->bo = NULL;
