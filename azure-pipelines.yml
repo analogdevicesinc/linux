@@ -45,6 +45,10 @@ stages:
           env:
             DOWNLOAD_URL: $(DOWNLOAD_URL)
           displayName: 'Microblaze Build Test'
+        - script: |
+            rm -rf rootfs.cpio.gz microblazeel-xilinx-elf.tar.gz /opt/microblazeel-xilinx-elf
+            find . -name '*.o' -o -name '*.a' -o -name '*.cmd' | xargs rm -f 2>/dev/null || true
+          displayName: 'Free disk space'
         - task: CopyFiles@2
           inputs:
             sourceFolder: '$(Agent.BuildDirectory)/s/arch/microblaze/boot'
