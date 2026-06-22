@@ -568,7 +568,7 @@ static void vhost_user_get_config(struct virtio_uml_device *vu_dev,
 		goto free;
 	}
 
-	rc = vhost_user_recv_resp(vu_dev, msg, msg_size);
+	rc = vhost_user_recv_resp(vu_dev, msg, payload_size);
 	if (rc) {
 		vu_err(vu_dev,
 		       "receiving VHOST_USER_GET_CONFIG response failed: %d\n",
