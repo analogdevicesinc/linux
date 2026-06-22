@@ -137,6 +137,17 @@ config VIDEO_HI847
           To compile this driver as a module, choose M here: the
           module will be called hi847.
 
+config VIDEO_HM1246
+	tristate "Himax HM1246 sensor support"
+	depends on OF
+	select V4L2_CCI_I2C
+	help
+	  This is a Video4Linux2 sensor driver for the Himax
+	  HM1246 camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called hm1246.
+
 config VIDEO_IMX111
 	tristate "Sony IMX111 sensor support"
 	select V4L2_CCI_I2C

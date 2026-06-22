@@ -11736,6 +11736,7 @@ M:	Matthias Fend <matthias.fend@emfend.at>
 L:	linux-media@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/media/i2c/himax,hm1246.yaml
+F:	drivers/media/i2c/hm1246.c
 
 HIMAX HX83112B TOUCHSCREEN SUPPORT
 M:	Job Noorman <job@noorman.info>
