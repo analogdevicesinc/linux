@@ -166,6 +166,13 @@ struct adrv9025_rf_phy {
 
 	struct gpio_desc *sysref_req_gpio;
 
+	/* ORx_CTRL pins for dual-channel 4-pin mode (orxEnableMode=4):
+	 * A/C = side-A/side-B enable, B/D = side-A/side-B channel select. */
+	struct gpio_desc *orx_ctrl_a_gpio;
+	struct gpio_desc *orx_ctrl_b_gpio;
+	struct gpio_desc *orx_ctrl_c_gpio;
+	struct gpio_desc *orx_ctrl_d_gpio;
+
 	u8 device_id;
 
 	u32 adrv9025_debugfs_entry_index;
