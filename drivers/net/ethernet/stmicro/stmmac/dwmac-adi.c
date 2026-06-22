@@ -12,14 +12,21 @@
  */
 
 #include <linux/gpio.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_net.h>
 #include <linux/platform_device.h>
-#include <linux/soc/adi/adi_system_config.h>
+#include <linux/regmap.h>
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
+
+#define REG_PADS_PCFG0 0x04
+#define PADS_PCFG0_EMAC0_EMACRESET_MASK BIT(2)
+#define PADS_PCFG0_EMAC0_PHYISEL_MASK GENMASK(4, 3)
+#define PADS_PCFG0_EMAC0_ENDIANNESS_MASK BIT(19)
+#define PADS_PCFG0_EMAC1_ENDIANNESS_MASK BIT(20)
 
 #define ADI_PHYISEL_MII 0
 #define ADI_PHYISEL_RGMII 1
@@ -44,14 +51,10 @@ static int dwmac_adi_probe(struct platform_device *pdev)
 			return -ENODEV;
 		}
 
-		regmap = system_config_regmap_lookup_by_phandle(np, "adi,system-config");
-		if (IS_ERR(regmap)) {
-			if (PTR_ERR(regmap) == -EPROBE_DEFER)
-				return PTR_ERR(regmap);
-
-			dev_err(&pdev->dev, "adi,system-config regmap not connected\n");
-			return PTR_ERR(regmap);
-		}
+		regmap = syscon_regmap_lookup_by_phandle(np, "adi,pads-syscon");
+		if (IS_ERR(regmap))
+			return dev_err_probe(&pdev->dev, PTR_ERR(regmap),
+					     "adi,pads-syscon not specified\n");
 
 		if (emac_alias == 0) {
 			ret = of_get_phy_mode(np, &phy_mode);
@@ -79,13 +82,41 @@ static int dwmac_adi_probe(struct platform_device *pdev)
 				return -EINVAL;
 			}
 
-			/* write config registers if available */
-			regmap_write(regmap, ADI_SYSTEM_REG_EMAC0_EMACRESET, 0);
-			regmap_write(regmap, ADI_SYSTEM_REG_EMAC0_PHYISEL, val);
-			regmap_write(regmap, ADI_SYSTEM_REG_EMAC0_EMACRESET, 1);
-			regmap_write(regmap, ADI_SYSTEM_REG_EMAC0_ENDIANNESS, 0);
+			ret = regmap_clear_bits(
+				regmap, REG_PADS_PCFG0,
+				PADS_PCFG0_EMAC0_EMACRESET_MASK);
+			if (ret)
+				return ret;
+
+			ret = regmap_update_bits(
+				regmap, REG_PADS_PCFG0,
+				PADS_PCFG0_EMAC0_PHYISEL_MASK,
+				FIELD_PREP(PADS_PCFG0_EMAC0_PHYISEL_MASK, val));
+			if (ret)
+				return ret;
+
+			ret = regmap_set_bits(regmap, REG_PADS_PCFG0,
+					      PADS_PCFG0_EMAC0_EMACRESET_MASK);
+			if (ret)
+				return ret;
+
+			/*
+			 * FIXME: Why is this only set for 64-bit, rather than
+			 * based on CPU endianness?
+			 */
+#if defined(CONFIG_ARCH_SC59X_64)
+			ret = regmap_clear_bits(
+				regmap, REG_PADS_PCFG0,
+				PADS_PCFG0_EMAC0_ENDIANNESS_MASK);
+			if (ret)
+				return ret;
 		} else if (emac_alias == 1) {
-			regmap_write(regmap, ADI_SYSTEM_REG_EMAC1_ENDIANNESS, 0);
+			ret = regmap_clear_bits(
+				regmap, REG_PADS_PCFG0,
+				PADS_PCFG0_EMAC1_ENDIANNESS_MASK);
+			if (ret)
+				return ret;
+#endif
 		}
 	}
 

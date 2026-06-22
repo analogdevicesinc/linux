@@ -21,13 +21,26 @@
 #include <linux/platform_device.h>
 #include <linux/soc/adi/adsp-gpio-port.h>
 #include <linux/slab.h>
-
-#include <linux/soc/adi/adi_system_config.h>
+#include <linux/mfd/syscon.h>
+#include <linux/regmap.h>
 
 #include "../core.h"
 #include "../pinconf.h"
 #include "../pinctrl-utils.h"
 #include "sru-ctrl-adsp.h"
+
+/*
+ * PADS syscon registers for DAI pin input enable.
+ * FIXME: syscon usage should be dropped in favor of normal pinctrl usage.
+ * Failing that, at least remove ifdefs in favor of per-compatible driver data.
+ */
+#if defined(CONFIG_ARCH_SC58X)
+#define REG_PADS_DAI0_IE 0x60
+#define REG_PADS_DAI1_IE 0x64
+#elif defined(CONFIG_ARCH_SC59X) || defined(CONFIG_ARCH_SC59X_64)
+#define REG_PADS_DAI0_IE 0x90
+#define REG_PADS_DAI1_IE 0x94
+#endif
 
 static const struct dai_destination dai0_destinations[] = {
 	{ "SPT0_ACLK_I", 0x5, 0x00, REG_DAI_CLK0, REG_DAI_EXTD_CLK0,
@@ -1552,32 +1565,35 @@ static int adsp_sru_ctrl_probe(struct platform_device *pdev)
 	pnctrl_desc->pctlops = &adsp_pctlops;
 	pnctrl_desc->owner = THIS_MODULE;
 
-	regmap =
-	    system_config_regmap_lookup_by_phandle(np,
-						   "adi,system-config");
-	if (IS_ERR(regmap)) {
-		if (PTR_ERR(regmap) == -EPROBE_DEFER)
-			return PTR_ERR(regmap);
-
-		dev_err(&pdev->dev,
-			"adi,system-config regmap not connected\n");
-		return PTR_ERR(regmap);
-	}
-
 	adsp_sru_ctrl->dai = of_alias_get_id(np, "sru");
 	if (adsp_sru_ctrl->dai == 0) {
 		adsp_sru_ctrl->dest = dai0_destinations;
 		adsp_sru_ctrl->dest_count = DAI0_DESTINATION_COUNT;
-		regmap_write(regmap, ADI_SYSTEM_REG_DAI0_IE, 0xffffffff);
 	} else if (adsp_sru_ctrl->dai == 1) {
 		adsp_sru_ctrl->dest = dai1_destinations;
 		adsp_sru_ctrl->dest_count = DAI1_DESTINATION_COUNT;
-		regmap_write(regmap, ADI_SYSTEM_REG_DAI1_IE, 0xffffffff);
 	} else {
 		dev_err(adsp_sru_ctrl->dev, "Unknown DAI instance (%d)\n",
 			adsp_sru_ctrl->dai);
 		return -EINVAL;
 	}
+
+#if defined(CONFIG_ARCH_SC58X) || defined(CONFIG_ARCH_SC59X) || \
+	defined(CONFIG_ARCH_SC59X_64)
+	regmap = syscon_regmap_lookup_by_phandle(np, "adi,pads-syscon");
+	if (IS_ERR(regmap))
+		return dev_err_probe(&pdev->dev, PTR_ERR(regmap),
+				     "adi,pads-syscon not specified\n");
+
+	ret = regmap_write(regmap,
+			   adsp_sru_ctrl->dai == 0 ? REG_PADS_DAI0_IE :
+						     REG_PADS_DAI1_IE,
+			   0xffffffff);
+	if (ret)
+		return ret;
+#else
+	(void)regmap;
+#endif
 
 	if (of_property_read_bool(np, "has-extended")) {
 		adsp_sru_ctrl->has_extended = 1;
