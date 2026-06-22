@@ -1,22 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
-config ADI_SYSTEM_CONFIG
-	bool "ADI System Config" if COMPILE_TEST
-	default ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
-	select REGMAP_MMIO
-	help
-	  This enables support for the ADI System Config system, which
-	  provides a regmap interface to system configuration registers.
-
-config ADI_PADS_SYSTEM
-	tristate "ADI PADS System Config driver"
-	default ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
-	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
-	select ADI_SYSTEM_CONFIG
-	help
-	  This enables support for the ADI PADS System Config driver,
-	  which manages pin configuration and other system settings.
-
 config ADI_MACH_SC5XX
 	bool "ADI SC5XX machine support" if COMPILE_TEST
 	default ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
