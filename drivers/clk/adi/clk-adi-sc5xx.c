@@ -39,8 +39,8 @@
 #define CLK_PARENT_DATA(_name)	\
 	static const struct clk_parent_data _name[]
 
-#define HW_PARENTS(_name, ...)	\
-	static const u8 _name[] = { __VA_ARGS__ }
+#define HW_PARENTS(_name)	\
+	static const u8 _name[]
 
 #define MUX_TABLE(_name)	\
 	static const u32 _name[]
@@ -90,10 +90,12 @@ CLK_PARENT_DATA(cdu_emmc_parents)	 = { { .fw_name = "oclk_0"     }, { .fw_name =
 CLK_PARENT_DATA(cgu0_parents)	= { { .fw_name = "sys_clkin0"   }, };
 CLK_PARENT_DATA(cgu1_parents)	= { { .fw_name = "cdu_clkinsel" }, };
 
-/* ADSP-SC598 HW parent refs */
+/* ADSP-SC5XX HW parent refs */
 HW_PARENTS(syssel_parent)	= { ADSP_SC5XX_CLK_CGU_SYSSEL_DIV };
 HW_PARENTS(pllclk_parent)	= { ADSP_SC5XX_CLK_CGU_PLLCLK };
-HW_PARENTS(vco_parent)		= { ADSP_SC5XX_CLK_CGU_DF_DIV };
+HW_PARENTS(df_parent)		= { ADSP_SC5XX_CLK_CGU_DF_DIV };
+HW_PARENTS(vco_parent)		= { ADSP_SC5XX_CLK_CGU_VCO_OUT };
+HW_PARENTS(s0sel_div_parent)	= { ADSP_SC5XX_CLK_CGU_S0SEL_DIV };
 
 /* ADSP-SC5XX CLKINSEL mux */
 static const struct sc5xx_clkinsel_clock sc5xx_clkinsel_clks[] = {
@@ -134,15 +136,24 @@ static const struct sc5xx_div_clock sc598_div_clks_cgu0[] = {
 	DIV(ADSP_SC598_CLK_CGU_S1SELEX_DIV, "cgu0_s1selex_div", pllclk_parent, 0, 16, 8),
 };
 
-/* ADSP-SC5XX PLL clocks */
-static const struct sc5xx_pll_clock sc598_pll_clks[] = {
-	PLL(ADSP_SC598_CLK_CGU_VCO_OUT, "pll_vco_out", vco_parent, CGU_CTL, 8, 7, 0, true),
+/* ADSP-SC594, ADSP-SC589, ADSP-SC573 early clocks */
+static const struct sc5xx_early_clk sc5xx_a5_early_clks[] = {
+	EARLY_DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div", cgu0_parents, CGU_CTL, 0, 1),
+	EARLY_PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu0_vco", df_parent, CGU_CTL, CGU_MSEL_SHIFT, CGU_MSEL_WIDTH, 0, false),
+	EARLY_FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu0_pllclk", vco_parent, 1, 1, 0),
+	EARLY_DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div", pllclk_parent, CGU_DIV, 8, 5),
+	EARLY_DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu0_s0sel_div",  syssel_parent, CGU_DIV, 5, 3),
+	EARLY_GATE(ADSP_SC5XX_CLK_CGU_SCLK0, "sclk0_gate", s0sel_div_parent, CGU_SCBF_DIS, 0, 0),
 };
 
-static const struct sc5xx_fixed_clock sc598_fixed_clks_cgu0[] = {
-	FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK
-	FFACTOR(ADSP_SC598_CLK_CGU_CCLK2
-	FFACTOR(ADSP_SC598_CLK_CGU_DCLK_HALF
+/* ADSP-SC598 early clocks */
+static const struct sc5xx_early_clk sc598_early_clks[] = {
+	EARLY_DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div", cgu0_parents, CGU_CTL, 0, 1),
+	EARLY_PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu0_vco", df_parent, CGU_CTL, CGU_MSEL_SHIFT, CGU_MSEL_WIDTH, 0, true),
+	EARLY_FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu0_pllclk", vco_parent, 1, 2, 0),
+	EARLY_DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div", pllclk_parent, CGU_DIV, 8, 5),
+	EARLY_DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu0_s0sel_div", syssel_parent, CGU_DIV, 5, 3),
+	EARLY_GATE(ADSP_SC5XX_CLK_CGU_SCLK0, "sclk0_gate", s0sel_div_parent, CGU_SCBF_DIS, 0, 0),
 };
 
 /* ADSP-SC5XX CGU1 PLL divider clocks */
@@ -150,25 +161,39 @@ static const struct sc5xx_div_clock sc5xx_cgu1_div_clks_pll[] = {
 	DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu1_df_div", cgu1_parents, CGU_CTL, 0, 1),
 };
 
-/* ADSP-SC598 CGU1 divider clocks */
-static const struct sc5xx_div_clock sc598_div_clks_cgu1[] = {
-
-};
-
 /**
- * This function will register minimal CGU0 clocks for Cortex-A5 
- * based SoCs such as the SC589, SC573 and SC594 due to early 
- * clock timer requirements:
+ * Register minimal CGU0 clocks for Cortex-A5 based
+ * SoCs such as the SC589, SC573 and SC594 and Cortex-A55 based SoCs 
+ * due to early clock timer requirements:
  *
- * [DF clock] -> [VCO clock] -> [PLLCLK clock] -> [SYSSEL clock] -> [S0SEL clock]
+ * [DF clock] -> [VCO clock] -> [PLLCLK clock] -> 
+ * 	[SYSSEL clock] -> [S0SEL clock] -> [SCLK0 gate]
  */
-static void __init sc5xx_early_clock_probe(struct device_node *np)
+static void __init sc5xx_register_early_clocks(struct device_node *np, 
+						const struct sc5xx_early_clk *clk_data,
+						unsigned int num_early_clks,
+						unsigned int num_provider_clks)
 {
-
+	
 }
-CLK_OF_DECLARE_DRIVER(sc589_early_clk, "adi,sc589-cgu0", sc5xx_early_clock_probe);
-CLK_OF_DECLARE_DRIVER(sc573_early_clk, "adi,sc573-cgu0", sc5xx_early_clock_probe);
-CLK_OF_DECLARE_DRIVER(sc594_early_clk, "adi,sc594-cgu0", sc5xx_early_clock_probe);
+
+static void __init sc5xx_a5_early_clock_probe(struct device_node *np)
+{
+	sc5xx_register_early_clocks(np, sc5xx_a5_early_clks,
+				    ARRAY_SIZE(&sc5xx_a5_early_clks),
+				    );
+}
+CLK_OF_DECLARE_DRIVER(sc589_early_clk, "adi,sc589-cgu0", sc5xx_a5_early_clock_probe);
+CLK_OF_DECLARE_DRIVER(sc573_early_clk, "adi,sc573-cgu0", sc5xx_a5_early_clock_probe);
+CLK_OF_DECLARE_DRIVER(sc594_early_clk, "adi,sc594-cgu0", sc5xx_a5_early_clock_probe);
+
+static void __init sc598_early_clock_probe(struct device_node *np)
+{
+	sc5xx_register_early_clocks(np, sc598_early_clks,
+				    ARRAY_SIZE(&sc598_early_clks),
+				    );
+}
+CLK_OF_DECLARE_DRIVER(sc598_early_clk, "adi,sc598-cgu0", sc598_early_clock_probe);
 
 static int sc5xx_clock_probe(struct platform_device *pdev)
 {

@@ -187,6 +187,36 @@ struct sc5xx_clkinsel_clock {
 		.flags = (_flags),			\
 	}
 
+enum sc5xx_early_clk_type {
+	SC5XX_EARLY_DIV,
+	SC5XX_EARLY_PLL,
+	SC5XX_EARLY_FFACTOR,
+	SC5XX_EARLY_GATE,
+};
+
+struct sc5xx_early_clk {
+	enum sc5xx_early_clk_type type;
+
+	union {
+		struct sc5xx_div_clock div;
+		struct sc5xx_pll_clock pll;
+		struct sc5xx_fixed_clock fixed;
+		struct sc5xx_gate_clock gate;
+	};
+};
+
+#define EARLY_DIV(...) \
+	{ .type = SC5XX_EARLY_DIV, .div = DIV(__VA_ARGS__) }
+
+#define EARLY_PLL(...) \
+	{ .type = SC5XX_EARLY_PLL, .pll = PLL(__VA_ARGS__) }
+
+#define EARLY_FFACTOR(...) \
+	{ .type = SC5XX_EARLY_FFACTOR, .fixed = FFACTOR(__VA_ARGS__) }
+
+#define EARLY_GATE(...) \
+	{ .type = SC5XX_EARLY_GATE, .gate = GATE(__VA_ARGS__) }
+
 struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 			       u8 cdu_clko,
 			       const char * const *parent_names,
