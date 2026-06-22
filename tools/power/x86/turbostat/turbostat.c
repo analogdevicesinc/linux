@@ -3636,7 +3636,7 @@ int format_counters(PER_THREAD_PARAMS)
 		if (p->gfx_rc6_ms == -1) {	/* detect GFX counter reset */
 			outp += sprintf(outp, "%s**.**", (printed++ ? delim : ""));
 		} else {
-			outp += sprintf(outp, "%s%.2f", (printed++ ? delim : ""), p->gfx_rc6_ms / 10.0 / interval_float);
+			outp += sprintf(outp, "%s%.2f", (printed++ ? delim : ""), pct(p->gfx_rc6_ms / 10.0, interval_float));
 		}
 	}
 
@@ -3653,7 +3653,7 @@ int format_counters(PER_THREAD_PARAMS)
 		if (p->sam_mc6_ms == -1) {	/* detect GFX counter reset */
 			outp += sprintf(outp, "%s**.**", (printed++ ? delim : ""));
 		} else {
-			outp += sprintf(outp, "%s%.2f", (printed++ ? delim : ""), p->sam_mc6_ms / 10.0 / interval_float);
+			outp += sprintf(outp, "%s%.2f", (printed++ ? delim : ""), pct(p->sam_mc6_ms / 10.0, interval_float));
 		}
 	}
 
