@@ -216,8 +216,8 @@
 		#size-cells = <1>;
 		ranges;
 
-		pads_system_config: adi-control@31004400 {
-			compatible = "adi,pads-system-config";
+		pads_syscon: syscon@31004400 {
+			compatible = "adi,sc5xx-pads-syscon", "syscon";
 			reg = <0x31004400 0x100>;
 			status = "okay";
 		};
@@ -465,7 +465,7 @@
 			snps,perfect-filter-entries = <32>;
 			clocks = <&clk ADSP_SC58X_CLK_GIGE>;
 			clock-names = "stmmaceth";
-			adi,system-config = <&pads_system_config>;
+			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
 		};
 
@@ -517,7 +517,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x310C9000 0x224>;
-			adi,system-config = <&pads_system_config>;
+			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
 		};
 
@@ -526,7 +526,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x310CB000 0x224>;
-			adi,system-config = <&pads_system_config>;
+			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
 		};
 
