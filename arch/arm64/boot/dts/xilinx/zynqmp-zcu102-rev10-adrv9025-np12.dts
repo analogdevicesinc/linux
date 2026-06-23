@@ -1,0 +1,52 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9025
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9025
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025
+ *
+ * hdl_project: <adrv9026/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev10-adrv9025-nls.dts"
+
+&trx0_adrv9025 {
+	adi,device-profile-name = "ActiveUseCase_NP12.profile";
+
+	jesd204-ignore-errors;
+};
+
+&clk0_ad9528 {
+	/delete-property/ adi,pll2-freq-doubler-enable;
+	adi,pll2-vco-div-m1 = <5>; /* use 5 for 184320000 output device clock */
+	adi,pll2-n2-div = <6>; /* N / M1 */
+	adi,jesd204-desired-sysref-frequency-hz = <960000>;
+};
+
+&ad9528_0_c1 {
+	adi,channel-divider = <3>;
+	// adi,output-dis;
+};
+
+&ad9528_0_c3 {
+	adi,channel-divider = <3>;
+	// adi,output-dis;
+};
+
+&ad9528_0_c13 {
+	adi,channel-divider = <2>;
+	// adi,output-dis;
+};
+
+&axi_adrv9025_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_QPLL>;
+	/delete-property/ adi,use-cpll-enable;
+	/delete-property/ adi,use-lpm-enable;
+};
+
+&axi_adrv9025_adxcvr_rx_os {
+	adi,sys-clk-select = <XCVR_QPLL>;
+	/delete-property/ adi,use-cpll-enable;
+	/delete-property/ adi,use-lpm-enable;
+};
