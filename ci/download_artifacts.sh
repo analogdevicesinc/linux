@@ -296,12 +296,12 @@ download_artifacts() {
 
 	[ -f '.get_artifacts' ] && { log_step "Get artifacts (checkpoint)" ; return ;} || log_step "Get artifacts"
 
+	[[ -z "$cloudsmith_token" ]] && cloudsmith_token="$CLOUDSMITH_API_KEY"
 	[[ $ref == refs/heads/* ]] && event="push"
 	[[ $ref == refs/pull/* ]] && event="pull_request"
 	[[ $ref == refs/heads/* ]] || [[ $ref == refs/tags/* ]] || [[ $ref == refs/pull/* ]] && \
 		git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" "tag:on/${event}+tag:${ref}") || git_sha="$ref"
 
-	[[ -z "$cloudsmith_token" ]] && cloudsmith_token="$CLOUDSMITH_API_KEY"
 	[[ -z "$cloudsmith_token" ]] && { log_warn "CLOUDSMITH_API_KEY is not set, only public artifacts will be accessible." ; } || :
 	[[ -n "$git_sha" ]] || { log_error "No git sha provided." ; return 1 ;}
 	[[ "${#git_sha}" == "40" ]] || git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" "tag:on/${event}+version:$git_sha")
