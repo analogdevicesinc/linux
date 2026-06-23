@@ -287,7 +287,7 @@ _get_first_result_version () {
 download_artifacts() {
 	local ref="${1-c894bed472b7}"
 	local org_repository="${2-adi/linux}"
-	local no_cache="${3-false}"
+	local no_cache="${3-true}"
 	local cloudsmith_token=${4}
 
 	local event=
