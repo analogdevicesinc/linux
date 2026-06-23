@@ -3,13 +3,7 @@ name: Kernel build
 on:
   push:
     branches:
-      - 'rpi-*.y'
-      - 'rpi/release/*'
-    paths-ignore:
-      - 'docs/**'
-  pull_request:
-    paths-ignore:
-      - 'docs/**'
+      - 'nicus/playground-rpi-77'
 
 jobs:
   checks:
@@ -220,3 +214,20 @@ jobs:
       artifacts: >
         adi_bcm*_defconfig-*
         dtb-*
+
+  deploy_rpi_artifacts:
+    needs: [assert_build]
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+    uses: analogdevicesinc/linux/.github/workflows/deploy-kuiper-artifacts.yml@nicus/playground-ci
+    secrets: inherit
+    with:
+      artifacts: >
+        adi_bcm*_defconfig-*
+        dtb-*
+      scripts-ref: nicus/playground-ci
+      pr-number: ${{ github.event.pull_request.number }}
+      pr-target-branch: ${{ github.event.pull_request.base.ref }}
