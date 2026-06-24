@@ -1246,9 +1246,7 @@ ensure_compiler () {
 	set_arch gcc_$arch || :
 	command -v "${CROSS_COMPILE}gcc" && return 0 || :
 
-	local bearer=
-	[[ -z "$GITHUB_TOKEN" ]] || bearer="Bearer $GITHUB_TOKEN"
-	curl -sL -H "Authorization: $bearer" -o install-compilers.sh \
+	curl -sL -H "Authorization:${GITHUB_TOKEN:+Bearer $GITHUB_TOKEN}" -o install-compilers.sh \
 	    https://raw.githubusercontent.com/analogdevicesinc/linux/ci/container/install-compilers.sh
 	source ./install-compilers.sh && rm ./install-compilers.sh
 
