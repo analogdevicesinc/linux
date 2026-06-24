@@ -15,6 +15,7 @@ endmenu
 
 config AXI_AION_TRIG
 	tristate "AXI AION Trigger support"
+	select REGMAP_MMIO
 	help
 	  Support for the AXI AION Trigger module HDL IP Core.
 
