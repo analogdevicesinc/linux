@@ -136,4 +136,7 @@ void torture_sched_set_normal(struct task_struct *t, int nice);
 long torture_sched_setaffinity(pid_t pid, const struct cpumask *in_mask, bool dowarn);
 #endif
 
+/* Atomic per-CPU counters. */
+s64 torture_sum_pcpu_atomic_long(atomic_long_t __percpu *pcp);
+
 #endif /* __LINUX_TORTURE_H */

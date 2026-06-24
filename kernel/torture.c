@@ -1012,3 +1012,18 @@ void torture_sched_set_normal(struct task_struct *t, int nice)
 	sched_set_normal(t, realnice);
 }
 EXPORT_SYMBOL_GPL(torture_sched_set_normal);
+
+/*
+ * Sum the specified per-CPU atomic_long_t variable.
+ */
+s64 torture_sum_pcpu_atomic_long(atomic_long_t __percpu *pcp)
+{
+	int cpu;
+	s64 sum = 0;
+
+	for_each_possible_cpu(cpu) {
+		sum += atomic_long_read(per_cpu_ptr(pcp, cpu));
+	}
+	return sum;
+}
+EXPORT_SYMBOL_GPL(torture_sum_pcpu_atomic_long);
