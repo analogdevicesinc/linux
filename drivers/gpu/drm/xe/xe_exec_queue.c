@@ -1121,6 +1121,9 @@ static int exec_queue_user_ext_set_property(struct xe_device *xe,
 	if (!exec_queue_set_property_funcs[idx])
 		return -EINVAL;
 
+	if (XE_IOCTL_DBG(xe, *properties & BIT_ULL(idx)))
+		return -EINVAL;
+
 	*properties |= BIT_ULL(idx);
 	err = exec_queue_user_ext_check(q, *properties);
 	if (XE_IOCTL_DBG(xe, err))
