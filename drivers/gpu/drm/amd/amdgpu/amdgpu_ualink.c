@@ -5404,13 +5404,6 @@ static int amdgpu_ualink_process_irq(struct amdgpu_device *adev,
 		entry->ih == &adev->irq.ih ? "ring" : "ualink soft ring",
 		entry->client_id, entry->src_id);
 
-	/* Copy IH entry into ualink soft ring. */
-	if (entry->ih == &adev->irq.ih) {
-		dev_dbg(adev->dev, "delegate to ualink irq soft ring\n");
-		amdgpu_irq_ualink_delegate(adev, entry, 8);
-		return handled;
-	}
-
 	/* ContextID 4 dwords */
 	src_acc_id = entry->pasid;
 	dw0 = entry->src_data[0];
@@ -5418,8 +5411,14 @@ static int amdgpu_ualink_process_irq(struct amdgpu_device *adev,
 	dw2 = entry->src_data[2];
 	dw3 = entry->src_data[3];
 
-	dev_dbg(adev->dev, "src accel_id %u context id 0x%x 0x%x 0x%x 0x%x\n",
-		src_acc_id, dw0, dw1, dw2, dw3);
+	/* Copy IH entry into ualink soft ring. */
+	if (entry->ih == &adev->irq.ih) {
+		dev_dbg(adev->dev, "src accel_id %u context id 0x%x 0x%x 0x%x 0x%x\n",
+			src_acc_id, dw0, dw1, dw2, dw3);
+		dev_dbg(adev->dev, "delegate to ualink irq soft ring\n");
+		amdgpu_irq_ualink_delegate(adev, entry, 8);
+		return handled;
+	}
 
 	msg_type = dw0 & AMDGPU_UALINK_MESSAGE_HEADER_MASK;
 	local_acc_id = adev->ualink.info->ppod.accel_id;

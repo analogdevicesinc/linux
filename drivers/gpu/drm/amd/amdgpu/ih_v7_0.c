@@ -643,7 +643,7 @@ static int ih_v7_0_sw_init(struct amdgpu_ip_block *ip_block)
 		return r;
 
 	dev_dbg(adev->dev, "ualink init ih_ualink\n");
-	r = amdgpu_ih_ring_init(adev, &adev->irq.ih_ualink, sw_ring_size, true);
+	r = amdgpu_ih_ring_init(adev, &adev->irq.ih_ualink, IH_UALINK_RING_SIZE, true);
 	if (r)
 		return r;
 
