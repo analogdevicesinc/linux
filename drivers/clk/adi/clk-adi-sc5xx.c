@@ -106,6 +106,7 @@ CLK_PARENT_DATA(sc589_cdu_sharc0_parents)	= { { .fw_name = "cclk0_0"  }, { .fw_n
 CLK_PARENT_DATA(sc589_cdu_sharc1_parents)	= { { .fw_name = "cclk0_0"  }, { .fw_name = "sysclk_0"  }, };
 CLK_PARENT_DATA(sc589_cdu_arm_parents)	 	= { { .fw_name = "cclk1_0"  }, { .fw_name = "sysclk_0"  }, };
 CLK_PARENT_DATA(sc589_cdu_ddr_parents)    	= { { .fw_name = "dclk_0"   }, { .fw_name = "dclk_1"    }, };
+CLK_PARENT_DARA(sc589_cdu_reserved_parents)	= { { .fw_name = "oclk_0"   }, { .fw_name = "cclk0_1"   }, };
 CLK_PARENT_DATA(sc589_cdu_can_parents)    	= { { .fw_name = "oclk_0"   }, { .fw_name = "oclk_1"    }, { .fw_name = "dclk_1"  }, };
 CLK_PARENT_DATA(sc589_cdu_spdif_parents) 	= { { .fw_name = "oclk_0"   }, { .fw_name = "oclk_1"    }, { .fw_name = "dclk_1"  }, { .fw_name = "dclk_0" }, };
 CLK_PARENT_DATA(sc589_cdu_gige_parents) 	= { { .fw_name = "sclk1_0"  }, { .fw_name = "sclk1_1"   }, { .fw_name = "cclk0_1" }, { .fw_name = "oclk_0" }, };
@@ -139,6 +140,94 @@ static const struct sc5xx_clkinsel_clock sc5xx_clkinsel_clks[] = {
 	CLKINSEL(ADSP_SC5XX_CLK_CDU_CLKINSEL, "cdu_clkinsel",
 		 cdu_clkinsel_parents, 0),
 };
+
+/*----------------------*/
+
+/* Early clocks for ADSP-SC589, ADSP-SC594, ADSP-SC573 CGU0 */
+static const struct sc5xx_clk sc5xx_early_clks_cgu0[] = {
+        DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div",
+	    cgu0_parents, CGU_CTL, 0, 1),
+        PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu0_vco",
+	    df_parent, CGU_CTL, 8, 7, 0, false),
+        FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu0_pllclk",
+		vco_parent, 1, 1, 0),
+        DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div",
+	    pllclk_parent, CGU_DIV, 8, 5),
+        DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu0_s0sel_div",
+	    syssel_parent, CGU_DIV, 5, 3),
+        GATE(ADSP_SC5XX_CLK_CGU_SCLK0, "cgu0_sclk0_gate",
+	     s0sel_div_parent, CGU_SCBF_DIS, 0, 0),
+};
+
+/* Early clocks for ADSP-SC598 CGU0 */
+static const struct sc5xx_clk sc598_early_clks_cgu0[] = {
+        DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div",
+	    cgu0_parents, CGU_CTL, 0, 1),
+        PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu0_vco",
+	    df_parent, CGU_CTL, 8, 7, 0, true),
+        FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu0_pllclk",
+		vco_parent, 1, 2, 0),
+        DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div",
+	    pllclk_parent, CGU_DIV, 8, 5),
+        DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu0_s0sel_div",
+	    syssel_parent, CGU_DIV, 5, 3),
+        GATE(ADSP_SC5XX_CLK_CGU_SCLK0, "cgu0_sclk0_gate",
+	     s0sel_div_parent, CGU_SCBF_DIS, 0, 0),
+};
+
+/* ADSP-SC598 CGU0 clocks */
+static const struct sc5xx_clk sc598_cgu0_clks[] = {
+	DIV(ADSP_SC5XX_CLK_CGU_DSEL_DIV, 
+	DIV(ADSP_SC5XX_CLK_CGU_OSEL_DIV
+	DIV(ADSP_SC5XX_CLK_CGU_S1SEL_DIV
+	DIV(ADSP_SC598_CLK_CGU_S1SELEX_DIV
+	GATE(ADSP_SC5XX_CLK_CGU_CCLK0_GATE
+	GATE(ADSP_SC5XX_CLK_CGU_DCLK_GATE
+	GATEE(ADSP_SC5XX_CLK_CGU_OCLK_GATE
+	GATE(ADSP_SC5XX_CLK_CGU_SCLK1_GATE
+	FFACTORADSP_SC598_CLK_CGU_DCLK_HALF
+	FFACTOR(ADSP_SC598_CLK_CGU_CCLK2
+	MUX(ADSP_SC598_CLK_CGU_S1SEL
+};
+
+/* ADSP-SC598 CGU1 clocks */
+static const struct sc5xx_clk sc598_cgu1_clks[] = {
+	DIV(ADSP_SC5XX_CLK_CGU_DF_DIV,
+	PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT,
+	FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK,
+	DIV(ADSP_SC5XX_CLK_CGU_CSEL_DIV,
+	DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV,
+	DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV,
+	DIV(ADSP_SC5XX_CLK_CGU_S1SEL_DIV,
+	DIV(ADSP_SC598_CLK_CGU_S1SELEX_DIV,
+	DIV(ADSP_SC598_CLK_CGU_S0SELEX_DIV,
+	DIV(ADSP_SC5XX_CLK_CGU_DSEL_DIV, 
+	DIV(ADSP_SC5XX_CLK_CGU_OSEL_DIV, 
+	GATE(ADSP_SC5XX_CLK_CGU_CCLK0_GATE, 
+	GATE(ADSP_SC5XX_CLK_CGU_DCLK_GATE, 
+	GATE(ADSP_SC5XX_CLK_CGU_OCLK_GATE, 
+	GATE(ADSP_SC5XX_CLK_CGU_SCLK1_GATE, 
+	GATE(ADSP_SC5XX_CLK_CGU_SCLK0_GATE, 
+	FFACTOR(ADSP_SC598_CLK_CGU_DCLK_HALF, 
+	FFACTOR(ADSP_SC598_CLK_CGU_CCLK2, 
+	FFACTOR(ADSP_SC598_CLK_CGU_SCLK_HALF, 
+	MUX(ADSP_SC598_CLK_CGU_S0SEL, 
+	MUX(ADSP_SC598_CLK_CGU_S1SEL, 
+};
+
+/* ADSP-SC589 PLL2 clocks */
+static const struct sc5xx_clk sc598_pll2_clks[] = {
+	DIV(ADSP_SC598_CLK_PLL2_DF_DIV
+	PLL(ADSP_SC598_CLK_PLL2_VCO_OUT
+	FFACTOR(ADSP_SC598_CLK_PLL2_PLLCLK
+	DIV(ADSP_SC598_CLK_PLL2_DDIV
+	MUX(ADSP_SC598_CLK_DDR
+};
+
+
+
+/*----------------------*/
+
 
 /* ADSP-SC5XX CDU mux clocks */
 static const struct sc5xx_mux_clock sc598_mux_clks[] = {
@@ -212,6 +301,8 @@ static const struct sc5xx_mux_clock sc589_mux_clks[] = {
 	    sc589_cdu_lp_parents, CDU_CLKO8, CDU_CLKO_SEL6, 0),
 	MUX(ADSP_SC58X_CLK_CDU_SDIO, "cdu_sdio",
 	    sc589_cdu_sdio_parents, CDU_CLKO9, CDU_CLKO_SEL6, 0),
+	MUX(ADSP_SC58X_CLK_CDU_RESERVED, "cdu_reserved",
+	    sc589_cdu_reserved_parents, CDU_CLKO6, CDU_CLKO_SEL3, 0),
 	CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0",
 	     sc589_cdu_sharc0_parents, CDU_CLKO0, CDU_CLKO_SEL3, 0),
 	CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1",
