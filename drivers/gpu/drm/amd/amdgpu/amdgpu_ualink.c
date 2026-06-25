@@ -1490,7 +1490,7 @@ static int amdgpu_ualink_unmap_npa_addr(struct amdgpu_device *adev,
 {
 	uint64_t pte_value = adev->gmc.noretry_flags;
 	struct amdgpu_bo *bos[] = { bo };
-	struct dma_fence *fence;
+	struct dma_fence *fence = NULL;
 	struct drm_exec exec;
 	int r;
 
