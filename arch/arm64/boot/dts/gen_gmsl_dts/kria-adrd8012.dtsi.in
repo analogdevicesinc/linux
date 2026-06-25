@@ -192,6 +192,40 @@
 };
 
 /*
+ * Enable the PL fabric reference clocks (PL0_REF..PL3_REF, clk 71..74).
+ * The bare-SoM base dtb leaves these gated; the shipped ADRD reference dtb
+ * enables all four via xlnx,fclk so clk_prepare_enable() keeps them running.
+ * mqnic's 10G SFP+ datapath / GT transceiver is clocked from the PL fabric:
+ * without these the MAC probes but the line never comes up and the link
+ * partner sees NO-CARRIER. PL0_REF rate is set by mqnic above (300 MHz).
+ */
+&{/} {
+	fclk0: fclk0 {
+		compatible = "xlnx,fclk";
+		status = "okay";
+		clocks = <&zynqmp_clk 71>;
+	};
+
+	fclk1: fclk1 {
+		compatible = "xlnx,fclk";
+		status = "okay";
+		clocks = <&zynqmp_clk 72>;
+	};
+
+	fclk2: fclk2 {
+		compatible = "xlnx,fclk";
+		status = "okay";
+		clocks = <&zynqmp_clk 73>;
+	};
+
+	fclk3: fclk3 {
+		compatible = "xlnx,fclk";
+		status = "okay";
+		clocks = <&zynqmp_clk 74>;
+	};
+};
+
+/*
  * PS-peripheral overrides for the ADRD8012-01z carrier.
  * The bare-SoM base (zynqmp-sm-k26-revA.dtb) enables sdhci0 (ff160000) and
  * disables sdhci1 (ff170000); on this carrier the SD slot is wired to sdhci1,
@@ -205,6 +239,13 @@
 
 &sdhci1 {
 	status = "okay";
+	/*
+	 * No physical write-protect line on this carrier's SD slot; without
+	 * disable-wp the Arasan SDHCI controller reads the floating WP signal,
+	 * enumerates the card read-only, and the rw root mount fails -EROFS.
+	 * The shipped ADRD reference dtb sets this.
+	 */
+	disable-wp;
 };
 
 &{/} {
@@ -234,6 +275,67 @@
 		clocks = <&ref_clka 0>;
 
 		#clock-cells = <2>;
+
+		/*
+		 * Synthesize the 10GBASE-R transceiver reference clocks for the
+		 * mqnic SFP+ datapath. Without these the AD9545 probes but never
+		 * drives an output, the FPGA GT has no refclk, and the link
+		 * partner sees NO-CARRIER. Values mirror the shipped ADRD
+		 * reference dtb: NCO0 -> 10 kHz, PLL0 -> 1.5625 GHz, OUT0 ->
+		 * 156.25 MHz. ad9545.h clk types: 0=OUT, 1=PLL, 2=NCO.
+		 */
+		assigned-clocks = <&ad9545_clock 2 0>,
+				  <&ad9545_clock 1 0>,
+				  <&ad9545_clock 0 0>;
+		assigned-clock-rates = <10000>, <1562500000>, <156250000>;
+		assigned-clock-phases = <0>, <0>, <0>, <180>;
+
+		ad9545_ref_a: ref-input-clk@0 {
+			reg = <0>;
+			adi,single-ended-mode = <2>;
+			adi,r-divider-ratio = <200>;
+			adi,ref-dtol-pbb = <10000000>;
+			adi,ref-monitor-hysteresis-pbb = <87500>;
+			adi,ref-validation-timer-ms = <1>;
+			adi,freq-lock-threshold-ps = <16777215>;
+			adi,phase-lock-threshold-ps = <16777215>;
+			adi,freq-lock-fill-rate = <20>;
+			adi,freq-lock-drain-rate = <20>;
+			adi,phase-lock-fill-rate = <20>;
+			adi,phase-lock-drain-rate = <20>;
+		};
+
+		ad9545_pll0: pll-clk@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+
+			ad9545_pll0_0: profile@0 {
+				reg = <0>;
+				adi,pll-source = <4>;
+				adi,profile-priority = <20>;
+				adi,pll-loop-bandwidth-uhz = <200000000>;
+			};
+
+			ad9545_pll0_1: profile@1 {
+				reg = <1>;
+				adi,pll-source = <0>;
+				adi,profile-priority = <0>;
+				adi,pll-loop-bandwidth-uhz = <200000000>;
+			};
+		};
+
+		ad9545_out0: output-clk@0 {
+			reg = <0>;
+			adi,output-mode = <0>;
+			adi,current-source-microamp = <15000>;
+		};
+
+		ad9545_aux_nco0: aux-nco-clk@0 {
+			reg = <0>;
+			adi,freq-lock-threshold-ps = <16000000>;
+			adi,phase-lock-threshold-ps = <16000000>;
+		};
 	};
 };
 
