@@ -121,22 +121,22 @@ struct sc5xx_divider_clock {
 	__DIV(_id, _name, _parent, _offset, _shift, _width, 0, 0)
 
 struct sc5xx_fixed_factor_clock {
-	unsigned int	id;
-	const char*	clock_name;
-	const char*	parent_name;
-	unsigned int	mult;
-	unsigned int	div;
-	unsigned long	clock_flags;
+	unsigned int			id;
+	const char*			clock_name;	
+	const struct clk_parent_data	*parent_data;
+	unsigned int			mult;
+	unsigned int			div;
+	unsigned long			clock_flags;
 };
 
 #define __FFACTOR(_id, _name, _parent, _mult, _div, _flags)	\
 	{							\
 		.id = (_id),					\
-		.name = (_name),				\
-		.parent_name = (_parent),			\
+		.clock_name = (_name),				\
+		.parent_data = (_parent),			\
 		.mult = (_mult),				\
 		.div = (_div),					\
-		.flags = (_flags),				\
+		.clock_flags = (_flags),			\
 	}
 
 #define FFACTOR(_id, _name, _parent, _mult, _div, _flags)	\
@@ -187,35 +187,47 @@ struct sc5xx_clkinsel_clock {
 		.flags = (_flags),			\
 	}
 
-enum sc5xx_early_clk_type {
-	SC5XX_EARLY_DIV,
-	SC5XX_EARLY_PLL,
-	SC5XX_EARLY_FFACTOR,
-	SC5XX_EARLY_GATE,
+enum sc5xx_clk_type {
+	SC5XX_CLK_DIV,
+	SC5XX_CLK_PLL,
+	SC5XX_CLK_FFACTOR,
+	SC5XX_CLK_GATE,
 };
 
-struct sc5xx_early_clk {
-	enum sc5xx_early_clk_type type;
+struct sc5xx_clk {
+	enum sc5xx_clk_type type;
 
 	union {
-		struct sc5xx_div_clock div;
-		struct sc5xx_pll_clock pll;
-		struct sc5xx_fixed_clock fixed;
-		struct sc5xx_gate_clock gate;
+		struct sc5xx_div_clock		div;
+		struct sc5xx_pll_clock		pll;
+		struct sc5xx_fixed_factor_clock	ffactor;
+		struct sc5xx_gate_clock		gate;
 	};
 };
 
-#define EARLY_DIV(...) \
-	{ .type = SC5XX_EARLY_DIV, .div = DIV(__VA_ARGS__) }
+#define CLK_DIV(...)					\
+	{						\
+		.type = SC5XX_CLK_DIV,			\
+		.div = DIV(__VA_ARGS__),		\
+	}
 
-#define EARLY_PLL(...) \
-	{ .type = SC5XX_EARLY_PLL, .pll = PLL(__VA_ARGS__) }
+#define CLK_PLL(...)					\
+	{						\
+		.type = SC5XX_CLK_PLL,			\
+		.pll = PLL(__VA_ARGS__),		\
+	}
 
-#define EARLY_FFACTOR(...) \
-	{ .type = SC5XX_EARLY_FFACTOR, .fixed = FFACTOR(__VA_ARGS__) }
+#define CLK_FFACTOR(...)				\
+	{						\
+		.type = SC5XX_CLK_FFACTOR,		\
+		.ffactor = FFACTOR(__VA_ARGS__),	\
+	}
 
-#define EARLY_GATE(...) \
-	{ .type = SC5XX_EARLY_GATE, .gate = GATE(__VA_ARGS__) }
+#define CLK_GATE(...)					\
+	{						\
+		.type = SC5XX_CLK_GATE,			\
+		.gate = GATE(__VA_ARGS__),		\
+	}
 
 struct clk *sc5xx_cdu_register(const char *clock_name, void __iomem *base,
 			       u8 cdu_clko,
