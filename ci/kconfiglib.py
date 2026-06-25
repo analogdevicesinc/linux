@@ -3126,6 +3126,34 @@ class Kconfig(object):
 
         return expr
 
+    def _expr_trans_compare_no(self, expr, equal):
+        # Returns an expression equivalent to "(expr) == n" (when 'equal' is
+        # True) or "(expr) != n" (when False), pushing the comparison down to
+        # the leaf symbols. Direct port of the kernel's
+        # expr_trans_compare(expr, E_EQUAL/E_UNEQUAL, &symbol_no) (expr.c).
+        # Used to encode "depends on X if Y" as "X || (Y == n)" with correct
+        # tristate semantics, including compound conditions.
+        if expr.__class__ is not tuple:
+            # Leaf symbol: "<sym> == n" / "<sym> != n"
+            return (EQUAL if equal else UNEQUAL, expr, self.n)
+
+        op = expr[0]
+        if op is AND or op is OR:
+            e1 = self._expr_trans_compare_no(expr[1], True)
+            e2 = self._expr_trans_compare_no(expr[2], True)
+            # "== n" flips AND<->OR (De Morgan); "!= n" negates the result.
+            res = (OR if op is AND else AND, e1, e2)
+            return res if equal else (NOT, res)
+
+        if op is NOT:
+            # "!X == n"  <=>  "X != n": flip the comparison and recurse.
+            return self._expr_trans_compare_no(expr[1], not equal)
+
+        # Relational operator (EQUAL/UNEQUAL/LESS/.../GREATER_EQUAL): already
+        # evaluates to y/n, so "<rel> == n" is "!<rel>" and "<rel> != n" is
+        # "<rel>".
+        return (NOT, expr) if equal else expr
+
     def _parse_props(self, node):
         # Parses and adds properties to the MenuNode 'node' (type, 'prompt',
         # 'default's, etc.) Properties are later copied up to symbols and
@@ -3171,8 +3199,21 @@ class Kconfig(object):
                 if not self._check_token(_T_ON):
                     self._parse_error("expected 'on' after 'depends'")
 
-                node.dep = self._make_and(node.dep,
-                                          self._expect_expr_and_eol())
+                # 'depends on <expr> [if <cond>]'. A conditional dependency
+                # "depends on X if Y" applies the dependency on X only when Y
+                # is set (Y != n). The kernel encodes this as "X || (Y == n)"
+                # (menu_add_dep() -> expr_trans_compare(cond, E_EQUAL,
+                # &symbol_no)), distributing "== n" down to the leaf symbols so
+                # it is correct for tristate operands in compound conditions
+                # too. See Linux kernel commit 76df6815dab7 ("kconfig: Support
+                # conditional deps using 'depends on X if Y'").
+                dep = self._parse_expr(True)
+                cond = self._parse_cond()
+                if cond is not self.y:
+                    dep = self._make_or(
+                        dep, self._expr_trans_compare_no(cond, True))
+
+                node.dep = self._make_and(node.dep, dep)
 
             elif t0 is _T_HELP:
                 self._parse_help(node)
