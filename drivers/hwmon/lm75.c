@@ -37,6 +37,7 @@ enum lm75_type {		/* keep sorted in alphabetical order */
 	max6625,
 	max6626,
 	max31725,
+	max31875,
 	mcp980x,
 	pct2075,
 	stds75,
@@ -217,6 +218,16 @@ static const struct lm75_params device_params[] = {
 	[max31725] = {
 		.default_resolution = 16,
 		.default_sample_time = MSEC_PER_SEC / 20,
+	},
+	[max31875] = {
+		.config_reg_16bits = true,
+		.set_mask = 2 << 5,	/* 10-bit resolution */
+		.clr_mask = 3 << 5 | 3 << 1,	/* resolution, 4 s conversion rate */
+		.default_resolution = 10,
+		.default_sample_time = 4000,
+		.num_sample_times = 4,
+		.sample_times = (unsigned int []){ 125, 250, 1000, 4000 },
+		.alarm = true,
 	},
 	[tcn75] = {
 		.default_resolution = 9,
@@ -420,6 +431,9 @@ static int lm75_read(struct device *dev, enum hwmon_sensor_types type,
 			case as6200:
 				*val = (regval >> 5) & 0x1;
 				break;
+			case max31875:
+				*val = !!(regval & BIT(15));
+				break;
 			default:
 				return -EINVAL;
 			}
@@ -495,6 +509,13 @@ static int lm75_update_interval(struct device *dev, long val)
 		reg &= ~0x00c0;
 		reg |= (3 - index) << 6;
 		err = regmap_write(data->regmap, LM75_REG_CONF, reg);
+		if (err < 0)
+			return err;
+		data->sample_time = data->params->sample_times[index];
+		break;
+	case max31875:
+		err = regmap_update_bits(data->regmap, LM75_REG_CONF,
+					 0x0006, (3 - index) << 1);
 		if (err < 0)
 			return err;
 		data->sample_time = data->params->sample_times[index];
@@ -733,6 +754,7 @@ static const struct i2c_device_id lm75_ids[] = {
 	{ "max6626", max6626, },
 	{ "max31725", max31725, },
 	{ "max31726", max31725, },
+	{ "max31875", max31875, },
 	{ "mcp980x", mcp980x, },
 	{ "pct2075", pct2075, },
 	{ "stds75", stds75, },
@@ -756,6 +778,10 @@ static const struct of_device_id __maybe_unused lm75_of_match[] = {
 	{
 		.compatible = "adi,adt75",
 		.data = (void *)adt75
+	},
+	{
+		.compatible = "adi,max31875",
+		.data = (void *)max31875
 	},
 	{
 		.compatible = "ams,as6200",
