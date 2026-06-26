@@ -1081,15 +1081,15 @@ static ssize_t adrv9025_phy_tx_write(struct iio_dev *indio_dev,
 }
 
 static const char * const adrv9025_obs1_rx_port[] = {
-	"OFF", "ORX1_ON_ORX2_OFF", "ORX1_OFF_ORX2_ON",
+	"ORX1_ON_ORX2_OFF", "ORX1_OFF_ORX2_ON",
 };
 
 static const char * const adrv9025_obs2_rx_port[] = {
-	"OFF", "ORX3_ON_ORX4_OFF", "ORX3_OFF_ORX4_ON",
+	"ORX3_ON_ORX4_OFF", "ORX3_OFF_ORX4_ON",
 };
 
 static const u8 ad9371_obs_rx_port_lut[] = {
-	0x00, BIT(4), BIT(5)
+	BIT(4), BIT(5)
 };
 
 static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
@@ -1127,6 +1127,7 @@ static int adrv9025_get_obs_rx_path(struct iio_dev *indio_dev,
 	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
 	u32 rxchan = 0, txchan = 0;
 	int shift_right = CHAN_OBS_RX1;
+	int pair;
 	int ret;
 
 	ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
@@ -1137,7 +1138,16 @@ static int adrv9025_get_obs_rx_path(struct iio_dev *indio_dev,
 	if (chan->channel > CHAN_OBS_RX1)
 		shift_right = CHAN_OBS_RX3;
 
-	return rxchan >> shift_right & 0x3;
+	/*
+	 * Each ORx pair occupies two adjacent enable bits (lower/upper). The
+	 * rf_port_select enum is now SELECT-only with two items: index 0 =
+	 * lower ORx, index 1 = upper ORx. Map the upper enable bit to index 1
+	 * and everything else (lower-on or disabled) to index 0 so the read
+	 * always lands on a valid enum item.
+	 */
+	pair = rxchan >> shift_right & 0x3;
+
+	return (pair & 0x2) ? 1 : 0;
 }
 
 static const struct iio_enum adrv9025_rf_obs1_rx_port_available = {
