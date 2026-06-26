@@ -16,6 +16,7 @@
 #include <linux/string_choices.h>
 
 #include <media/media-entity.h>
+#include <media/mipi-csi2.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-event.h>
@@ -591,6 +592,29 @@ static int ipu6_isys_csi2_streaming_change(struct ipu6_isys_subdev *asd,
 	return 0;
 }
 
+static int ipu6_isys_get_frame_desc(struct v4l2_subdev *remote_sd,
+				    unsigned int pad,
+				    struct v4l2_mbus_frame_desc *desc)
+{
+	struct v4l2_subdev_format fmt = { .which = V4L2_SUBDEV_FORMAT_ACTIVE };
+	int ret;
+
+	ret = v4l2_subdev_call(remote_sd, pad, get_frame_desc, pad, desc);
+	if (!ret || ret != -ENOIOCTLCMD)
+		return ret;
+
+	ret = v4l2_subdev_call_state_active(remote_sd, pad, get_fmt, &fmt);
+	if (ret)
+		return ret;
+
+	desc->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+	desc->num_entries = 1;
+	desc->entry[0].pixelcode = fmt.format.code;
+	desc->entry[0].bus.csi2.dt = ipu6_isys_mbus_code_to_mipi(fmt.format.code);
+
+	return 0;
+}
+
 static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 					 struct v4l2_subdev_state *state,
 					 u32 pad, u64 streams_mask)
@@ -614,8 +638,7 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 
 	lockdep_assert_held(&csi2->isys->stream_mutex);
 
-	ret = v4l2_subdev_call(remote_sd, pad, get_frame_desc,
-			       remote_pad->index, &desc);
+	ret = ipu6_isys_get_frame_desc(remote_sd, remote_pad->index, &desc);
 	if (ret)
 		return ret;
 
@@ -722,8 +745,7 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 
 	lockdep_assert_held(&csi2->isys->stream_mutex);
 
-	ret = v4l2_subdev_call(remote_sd, pad, get_frame_desc,
-			       remote_pad->index, &desc);
+	ret = ipu6_isys_get_frame_desc(remote_sd, remote_pad->index, &desc);
 	if (ret)
 		return ret;
 
