@@ -166,23 +166,6 @@ unregister_subdev:
 	return ret;
 }
 
-static void isys_stream_init(struct ipu6_isys *isys)
-{
-	u32 i;
-
-	for (i = 0; i < IPU6_ISYS_MAX_STREAMS; i++) {
-		mutex_init(&isys->streams[i].mutex);
-		init_completion(&isys->streams[i].stream_open_completion);
-		init_completion(&isys->streams[i].stream_close_completion);
-		init_completion(&isys->streams[i].stream_start_completion);
-		init_completion(&isys->streams[i].stream_stop_completion);
-		INIT_LIST_HEAD(&isys->streams[i].queues);
-		isys->streams[i].isys = isys;
-		isys->streams[i].stream_handle = i;
-		isys->streams[i].vc = INVALID_VC_ID;
-	}
-}
-
 static void isys_csi2_unregister_subdevices(struct ipu6_isys *isys)
 {
 	const struct ipu6_isys_internal_csi2_pdata *csi2 =
@@ -965,7 +948,6 @@ static int isys_probe(struct auxiliary_device *auxdev,
 	struct ipu6_bus_device *adev = auxdev_to_adev(auxdev);
 	struct ipu6_device *isp = adev->isp;
 	struct ipu6_isys *isys;
-	unsigned int i;
 	int ret;
 
 	if (!isp->bus_ready_to_probe)
@@ -1006,7 +988,7 @@ static int isys_probe(struct auxiliary_device *auxdev,
 
 	dev_set_drvdata(&auxdev->dev, isys);
 
-	isys_stream_init(isys);
+	ida_init(&isys->streams);
 
 	cpu_latency_qos_add_request(&isys->pm_qos, PM_QOS_DEFAULT_VALUE);
 
@@ -1034,9 +1016,6 @@ free_fw_msg_bufs:
 out_remove_pkg_dir_shared_buffer:
 	cpu_latency_qos_remove_request(&isys->pm_qos);
 
-	for (i = 0; i < IPU6_ISYS_MAX_STREAMS; i++)
-		mutex_destroy(&isys->streams[i].mutex);
-
 	mutex_destroy(&isys->mutex);
 	mutex_destroy(&isys->stream_mutex);
 
@@ -1046,7 +1025,8 @@ out_remove_pkg_dir_shared_buffer:
 static void isys_remove(struct auxiliary_device *auxdev)
 {
 	struct ipu6_isys *isys = dev_get_drvdata(&auxdev->dev);
-	unsigned int i;
+
+	ida_destroy(&isys->streams);
 
 	free_fw_msg_bufs(isys);
 
@@ -1054,9 +1034,6 @@ static void isys_remove(struct auxiliary_device *auxdev)
 	isys_notifier_cleanup(isys);
 
 	cpu_latency_qos_remove_request(&isys->pm_qos);
-
-	for (i = 0; i < IPU6_ISYS_MAX_STREAMS; i++)
-		mutex_destroy(&isys->streams[i].mutex);
 
 	mutex_destroy(&isys->stream_mutex);
 	mutex_destroy(&isys->mutex);

@@ -157,16 +157,18 @@ static void ipu7_fw_isys_put_resp(struct ipu6_isys *isys)
 }
 
 static int ipu7_isys_fw_pin_cfg(struct ipu6_isys_video *av,
-				struct ipu7_fw_isys_stream_cfg *cfg)
+				struct ipu6_isys_stream *stream,
+				struct media_pad *src_pad,
+				struct v4l2_mbus_frame_desc_entry *entry,
+				void *__cfg)
 {
-	struct media_pad *src_pad = media_pad_remote_pad_first(&av->pad);
 	struct v4l2_subdev *sd = media_entity_to_v4l2_subdev(src_pad->entity);
 	struct v4l2_subdev_state *state = v4l2_subdev_get_locked_active_state(sd);
+	struct ipu7_fw_isys_stream_cfg *cfg = __cfg;
 	struct ipu7_fw_isys_input_pin *input_pin;
 	struct ipu7_fw_isys_output_pin *output_pin;
-	struct ipu6_isys_stream *stream = av->stream;
 	struct ipu6_isys_queue *aq = &av->aq;
-	struct v4l2_mbus_framefmt fmt;
+	struct v4l2_mbus_framefmt *fmt;
 	const struct ipu6_isys_pixelformat *pfmt =
 		ipu6_isys_get_isys_format(ipu6_isys_get_format(av), 0);
 	int input_pins = cfg->nof_input_pins++;
@@ -174,12 +176,12 @@ static int ipu7_isys_fw_pin_cfg(struct ipu6_isys_video *av,
 	u32 src_stream;
 
 	src_stream = __ipu6_isys_get_src_stream_by_src_pad(state, src_pad->index);
-	fmt = *v4l2_subdev_state_get_format(state, src_pad->index, src_stream);
+	fmt = v4l2_subdev_state_get_format(state, src_pad->index, src_stream);
 
 	input_pin = &cfg->input_pins[input_pins];
-	input_pin->input_res.width = fmt.width;
-	input_pin->input_res.height = fmt.height;
-	input_pin->dt = av->dt;
+	input_pin->input_res.width = fmt->width;
+	input_pin->input_res.height = fmt->height;
+	input_pin->dt = entry->bus.csi2.dt;
 	input_pin->disable_mipi_unpacking = 0;
 	if (pfmt->bpp == pfmt->bpp_packed && pfmt->bpp % BITS_PER_BYTE)
 		input_pin->disable_mipi_unpacking = 1;
@@ -193,7 +195,7 @@ static int ipu7_isys_fw_pin_cfg(struct ipu6_isys_video *av,
 
 	output_pins = cfg->nof_output_pins++;
 	aq->fw_output = output_pins;
-	stream->output_pins_queue[output_pins] = aq;
+	av->stream->output_pins_queue[output_pins] = aq;
 
 	output_pin = &cfg->output_pins[output_pins];
 	memset(output_pin, 0, sizeof(*output_pin));
@@ -343,27 +345,24 @@ static void ipu7_fw_isys_dump_frame_buf_set(struct device *dev,
 	dev_dbg(dev, "---------------------------\n");
 }
 
-static int ipu7_fw_isys_prepare_stream_cfg(struct ipu6_isys_video *av,
+static int ipu7_fw_isys_prepare_stream_cfg(struct ipu6_isys_stream *stream,
+					   struct v4l2_mbus_frame_desc *desc,
 					   struct isys_fw_msgs *msg)
 {
 	struct ipu7_fw_isys_stream_cfg *cfg = &msg->ipu7.stream;
-	struct device *dev = &av->isys->adev->auxdev.dev;
-	struct ipu6_isys_stream *stream = av->stream;
-	struct ipu6_isys_queue *aq;
+	struct device *dev = &stream->isys->adev->auxdev.dev;
+	int ret;
 
 	memset(cfg, 0, sizeof(*cfg));
-	cfg->port_id = stream->stream_source;
+	cfg->port_id = stream->asd->source;
 	cfg->vc = stream->vc;
 	cfg->stream_msg_map = IPU7_INSYS_STREAM_ENABLE_MSG_SEND_RESP |
 			      IPU7_INSYS_STREAM_ENABLE_MSG_SEND_IRQ;
 
-	list_for_each_entry(aq, &stream->queues, node) {
-		struct ipu6_isys_video *__av = ipu6_isys_queue_to_video(aq);
-		int ret = ipu7_isys_fw_pin_cfg(__av, cfg);
-
-		if (ret < 0)
-			return ret;
-	}
+	ret = ipu6_isys_fw_pins_prepare(stream, desc, ipu7_isys_fw_pin_cfg,
+					cfg);
+	if (ret)
+		return ret;
 
 	stream->nr_output_pins = cfg->nof_output_pins;
 
@@ -600,7 +599,8 @@ static int ipu7_isys_isr_one(struct ipu6_bus_device *adev)
 		goto leave;
 	}
 
-	stream = ipu6_isys_query_stream_by_handle(isys, resp->stream_id);
+	stream = resp->stream_id < IPU6_ISYS_MAX_STREAMS ?
+		isys->streams_by_handle[resp->stream_id] : NULL;
 	if (!stream) {
 		dev_err(dev, "stream of stream_handle %u is unused\n",
 			resp->stream_id);
@@ -680,7 +680,6 @@ static int ipu7_isys_isr_one(struct ipu6_bus_device *adev)
 		break;
 	}
 
-	ipu6_isys_put_stream(stream);
 leave:
 	ipu7_fw_isys_put_resp(isys);
 
@@ -711,8 +710,7 @@ static void ipu7_isys_csi2_isr(struct ipu6_isys_csi2 *csi2)
 	}
 
 	for (vc = 0; vc < IPU7_NR_OF_CSI2_VC && (sync || fe); vc++) {
-		s = ipu6_isys_query_stream_by_source(csi2->isys,
-						     csi2->asd.source, vc);
+		s = csi2->streams_by_vc[vc];
 		if (!s)
 			continue;
 

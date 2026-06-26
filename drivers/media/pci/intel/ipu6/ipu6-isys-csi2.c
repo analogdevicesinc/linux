@@ -511,13 +511,13 @@ static int ipu7_isys_csi2_stream_enable(struct ipu6_isys_csi2 *csi2)
 
 static int ipu6_isys_csi2_streaming_change(struct ipu6_isys_subdev *asd,
 					   struct v4l2_subdev_state *state,
-					   u32 pad, u8 *vc, bool enable)
+					   u32 pad,
+					   struct v4l2_mbus_frame_desc *desc,
+					   u8 *vc, bool enable)
 {
 	struct v4l2_mbus_frame_desc_entry *this_entry = NULL;
 	struct v4l2_subdev_route *route, *this_route = NULL;
 	u32 streams_enabled = 0, nodes_streaming = 0;
-	struct v4l2_mbus_frame_desc desc = { 0 };
-	int ret;
 
 	for_each_active_route(&state->routing, this_route)
 		if (pad == this_route->source_pad)
@@ -527,18 +527,9 @@ static int ipu6_isys_csi2_streaming_change(struct ipu6_isys_subdev *asd,
 		return -EINVAL;
 	}
 
-	struct media_pad *remote_pad =
-		media_pad_remote_pad_first(&asd->sd.entity.pads[this_route->sink_pad]);
-	struct v4l2_subdev *remote_sd =
-		media_entity_to_v4l2_subdev(remote_pad->entity);
-	ret = v4l2_subdev_call(remote_sd, pad, get_frame_desc,
-			       remote_pad->index, &desc);
-	if (ret)
-		return ret;
-
-	for (unsigned int i = 0; i < desc.num_entries; i++) {
-		if (desc.entry[i].stream == this_route->sink_stream) {
-			this_entry = &desc.entry[i];
+	for (unsigned int i = 0; i < desc->num_entries; i++) {
+		if (desc->entry[i].stream == this_route->sink_stream) {
+			this_entry = &desc->entry[i];
 			break;
 		}
 	}
@@ -552,9 +543,9 @@ static int ipu6_isys_csi2_streaming_change(struct ipu6_isys_subdev *asd,
 	for_each_active_route(&state->routing, route) {
 		struct v4l2_mbus_frame_desc_entry *entry = NULL;
 
-		for (unsigned int i = 0; i < desc.num_entries; i++) {
-			if (desc.entry[i].stream == route->sink_stream) {
-				entry = &desc.entry[i];
+		for (unsigned int i = 0; i < desc->num_entries; i++) {
+			if (desc->entry[i].stream == route->sink_stream) {
+				entry = &desc->entry[i];
 				break;
 			}
 		}
@@ -582,12 +573,13 @@ static int ipu6_isys_csi2_streaming_change(struct ipu6_isys_subdev *asd,
 			nodes_streaming++;
 	}
 
-	*vc = this_entry->bus.csi2.vc;
+	if (vc)
+		*vc = this_entry->bus.csi2.vc;
 
 	if (streams_enabled == nodes_streaming) {
 		dev_dbg(asd->sd.dev,
-			"changing streaming state to %s on \"%s\":%u\n",
-			str_enabled_disabled(enable), asd->sd.entity.name, pad);
+			"changing streaming state to %s on \"%s\"\n",
+			str_enabled_disabled(enable), asd->sd.entity.name);
 		return 1;
 	}
 
@@ -605,11 +597,15 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 	struct ipu6_isys_subdev *asd = to_ipu6_isys_subdev(sd);
 	struct ipu6_isys_csi2 *csi2 = to_ipu6_isys_csi2(asd);
 	struct ipu6_device *isp = asd->isys->adev->isp;
-	struct v4l2_subdev *remote_sd;
-	struct media_pad *remote_pad,
+	struct media_pad *remote_pad =
+		media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]),
 		*vdev_pad = media_pad_remote_pad_unique(&sd->entity.pads[pad]);
 	struct ipu6_isys_video *av =
 		container_of_const(vdev_pad, struct ipu6_isys_video, pad);
+	struct v4l2_subdev *remote_sd =
+		media_entity_to_v4l2_subdev(remote_pad->entity);
+	struct v4l2_mbus_frame_desc desc = { 0 };
+	struct ipu6_isys_stream *stream;
 	struct ipu6_isys_buffer_list bl;
 	u64 sink_streams;
 	int ret;
@@ -617,11 +613,10 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 
 	lockdep_assert_held(&csi2->isys->stream_mutex);
 
-	ret = ipu6_isys_buffer_list_get(av->stream, &bl);
-	if (ret < 0) {
-		dev_warn(sd->dev, "no buffer available, DRIVER BUG?\n");
+	ret = v4l2_subdev_call(remote_sd, pad, get_frame_desc,
+			       remote_pad->index, &desc);
+	if (ret)
 		return ret;
-	}
 
 	list_add(&av->csi2_entry, &csi2->av_head);
 
@@ -630,20 +625,31 @@ static int ipu6_isys_csi2_enable_streams(struct v4l2_subdev *sd,
 						&streams_mask);
 	csi2->stream_ids |= sink_streams;
 
-	ret = ipu6_isys_csi2_streaming_change(asd, state, pad, &vc, true);
-	if (ret <= 0)
+	ret = ipu6_isys_csi2_streaming_change(asd, state, pad, &desc, &vc,
+					      true);
+	if (!ret)
 		return ret;
-
-	remote_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
-	remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
+	if (ret < 0)
+		goto err_av_del;
 
 	ipu6_isys_csi2_setup_watermark(csi2, state, remote_sd);
 
-	ret = ipu6_isys_start_stream_firmware(av, &bl);
-	if (ret) {
-		dev_err(sd->dev, "start stream of firmware failed\n");
-		goto err_return_buffers;
+	stream = ipu6_isys_alloc_stream_firmware(csi2, state, &desc, vc);
+	if (IS_ERR(stream)) {
+		ret = PTR_ERR(stream);
+		dev_err(sd->dev, "allocating firmware stream failed\n");
+		goto err_clear_watermark;
 	}
+
+	ret = ipu6_isys_buffer_list_get(stream, &bl);
+	if (ret < 0) {
+		dev_warn(sd->dev, "no buffer available, DRIVER BUG?\n");
+		goto err_free_stream_firmware;
+	}
+
+	ret = ipu6_isys_start_stream_firmware(stream, &bl, &desc);
+	if (ret)
+		goto err_requeue_buffers;
 
 	if (!csi2->streaming_vc) {
 		ret = IS_IPU7(isp) ? ipu7_isys_csi2_stream_enable(csi2) :
@@ -667,15 +673,22 @@ err_stop_stream_csi2:
 	else
 		ipu6_isys_csi2_stream_disable(csi2);
 
-err_stop_stream_firmware:
-	ipu6_isys_stop_streaming_firmware(av);
-	ipu6_isys_close_streaming_firmware(av);
-
-err_return_buffers:
-	ipu6_isys_csi2_clear_watermark(csi2);
-	csi2->stream_ids &= ~sink_streams;
-	list_del(&av->csi2_entry);
+err_requeue_buffers:
 	ipu6_isys_buffer_list_queue(&bl, IPU6_ISYS_BUFFER_LIST_FL_INCOMING, 0);
+
+err_stop_stream_firmware:
+	ipu6_isys_stop_stream_firmware(stream);
+	ipu6_isys_close_stream_firmware(stream);
+
+err_free_stream_firmware:
+	ipu6_isys_free_stream_firmware(stream);
+
+err_clear_watermark:
+	ipu6_isys_csi2_clear_watermark(csi2);
+	ipu6_isys_csi2_streaming_change(asd, state, pad, &desc, NULL, false);
+	csi2->stream_ids &= ~sink_streams;
+err_av_del:
+	list_del(&av->csi2_entry);
 
 	return ret;
 }
@@ -684,34 +697,44 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 					  struct v4l2_subdev_state *state,
 					  u32 pad, u64 streams_mask)
 {
-	struct media_pad *remote_pad,
+	struct media_pad *remote_pad =
+		media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]),
 		*vdev_pad = media_pad_remote_pad_unique(&sd->entity.pads[pad]);
 	struct ipu6_isys_video *av =
 		container_of_const(vdev_pad, struct ipu6_isys_video, pad);
+	struct v4l2_subdev *remote_sd =
+		media_entity_to_v4l2_subdev(remote_pad->entity);
 	struct ipu6_isys_subdev *asd = to_ipu6_isys_subdev(sd);
 	struct ipu6_isys_csi2 *csi2 = to_ipu6_isys_csi2(asd);
 	struct ipu6_device *isp = asd->isys->adev->isp;
-	struct v4l2_subdev *remote_sd;
+	struct v4l2_mbus_frame_desc desc = { 0 };
 	u64 sink_streams;
 	int ret;
 	u8 vc;
 
 	lockdep_assert_held(&csi2->isys->stream_mutex);
 
-	ret = ipu6_isys_csi2_streaming_change(asd, state, pad, &vc, false);
-	if (ret <= 0)
-		goto out_del_csi2_entry;
-
-	csi2->streaming_vc &= ~BIT(vc);
+	ret = v4l2_subdev_call(remote_sd, pad, get_frame_desc,
+			       remote_pad->index, &desc);
+	if (ret)
+		return ret;
 
 	sink_streams =
 		v4l2_subdev_state_xlate_streams(state, pad, CSI2_PAD_SINK,
 						&streams_mask);
 
-	remote_pad = media_pad_remote_pad_first(&sd->entity.pads[CSI2_PAD_SINK]);
-	remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
+	csi2->stream_ids &= ~sink_streams;
 
-	ipu6_isys_stop_streaming_firmware(av);
+	ret = ipu6_isys_csi2_streaming_change(asd, state, pad, &desc, &vc,
+					      false);
+	if (ret <= 0)
+		goto out_del_csi2_entry;
+
+	csi2->streaming_vc &= ~BIT(vc);
+
+	struct ipu6_isys_stream *stream =
+		ipu6_isys_find_stream_firmware(csi2, vc);
+	ipu6_isys_stop_stream_firmware(stream);
 
 	if IS_IPU7(isp)
 		ipu7_isys_csi2_stream_disable(csi2);
@@ -719,9 +742,10 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 		ipu6_isys_csi2_stream_disable(csi2);
 
 	v4l2_subdev_disable_streams(remote_sd, remote_pad->index,
-				    csi2->stream_ids);
+				    csi2->stream_ids | sink_streams);
 
-	ipu6_isys_close_streaming_firmware(av);
+	ipu6_isys_close_stream_firmware(stream);
+	ipu6_isys_free_stream_firmware(stream);
 
 	ipu6_isys_csi2_clear_watermark(csi2);
 
@@ -874,6 +898,7 @@ int ipu6_isys_csi2_init(struct ipu6_isys_csi2 *csi2,
 		goto fail;
 
 	INIT_LIST_HEAD(&csi2->av_head);
+	INIT_LIST_HEAD(&csi2->streams);
 	csi2->asd.source = IPU6_FW_ISYS_STREAM_SRC_CSI2_PORT0 + index;
 	csi2->asd.supported_codes = csi2_supported_codes;
 	snprintf(csi2->asd.sd.name, sizeof(csi2->asd.sd.name),
@@ -923,57 +948,4 @@ void ipu6_isys_csi2_eof_event_by_stream(struct ipu6_isys_stream *stream)
 
 	dev_dbg(dev, "eof_event::csi2-%i sequence: %i\n",
 		csi2->port, frame_sequence);
-}
-
-int ipu6_isys_csi2_get_remote_desc(u32 source_stream,
-				   struct ipu6_isys_csi2 *csi2,
-				   struct media_entity *source_entity,
-				   struct v4l2_mbus_frame_desc_entry *entry)
-{
-	struct v4l2_mbus_frame_desc_entry *desc_entry = NULL;
-	struct device *dev = &csi2->isys->adev->auxdev.dev;
-	struct v4l2_mbus_frame_desc desc;
-	struct v4l2_subdev *source;
-	struct media_pad *pad;
-	unsigned int i;
-	int ret;
-
-	source = media_entity_to_v4l2_subdev(source_entity);
-	if (!source)
-		return -EPIPE;
-
-	pad = media_pad_remote_pad_first(&csi2->asd.pad[CSI2_PAD_SINK]);
-	if (!pad)
-		return -EPIPE;
-
-	ret = v4l2_subdev_call(source, pad, get_frame_desc, pad->index, &desc);
-	if (ret)
-		return ret;
-
-	if (desc.type != V4L2_MBUS_FRAME_DESC_TYPE_CSI2) {
-		dev_err(dev, "Unsupported frame descriptor type\n");
-		return -EINVAL;
-	}
-
-	for (i = 0; i < desc.num_entries; i++) {
-		if (source_stream == desc.entry[i].stream) {
-			desc_entry = &desc.entry[i];
-			break;
-		}
-	}
-
-	if (!desc_entry) {
-		dev_err(dev, "Failed to find stream %u from remote subdev\n",
-			source_stream);
-		return -EINVAL;
-	}
-
-	if (desc_entry->bus.csi2.vc >= NR_OF_CSI2_VC) {
-		dev_err(dev, "invalid vc %d\n", desc_entry->bus.csi2.vc);
-		return -EINVAL;
-	}
-
-	*entry = *desc_entry;
-
-	return 0;
 }
