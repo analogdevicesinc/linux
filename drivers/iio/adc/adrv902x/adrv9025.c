@@ -1092,6 +1092,58 @@ static const u8 ad9371_obs_rx_port_lut[] = {
 	BIT(4), BIT(5)
 };
 
+/*
+ * True when the device is configured for dual-channel 4-pin ORx mode
+ * (orxEnableMode=4) AND the ORX_CTRL pins are wired in the device tree. In
+ * this mode ORx enable/select is driven by the ORX_CTRL pins (A/C = side-A/
+ * side-B enable, B/D = side-A/side-B channel select), not the 0x106 SPI
+ * enable. The enable mode comes from the init profile cached at probe.
+ */
+static bool adrv9025_orx_dual_4pin(struct adrv9025_rf_phy *phy)
+{
+	return phy->orx_ctrl_a_gpio && phy->orx_ctrl_c_gpio &&
+	       phy->adrv9025PostMcsInitInst.radioCtrlInit.radioCtrlModeCfg
+		       .orxRadioCtrlModeCfg.orxEnableMode ==
+		       ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE;
+}
+
+/*
+ * Re-assert the framer-1 ADC sample crossbar to split routing. The on-chip
+ * stream processor collapses it on every ORx enable edge, so this must run
+ * AFTER the enable change. conv0/1 = side-A I/Q, conv2/3 = side-B I/Q.
+ */
+static int adrv9025_orx_xbar_reassert(struct adrv9025_rf_phy *phy)
+{
+	int ret;
+
+	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7000,
+					 ADI_ADRV9025_ADC_ORX1_I, 0x7F, 0);
+	if (ret)
+		return ret;
+
+	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7001,
+					 ADI_ADRV9025_ADC_ORX1_Q, 0x7F, 0);
+	if (ret)
+		return ret;
+
+	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7002,
+					 ADI_ADRV9025_ADC_ORX2_I, 0x7F, 0);
+	if (ret)
+		return ret;
+
+	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7003,
+					 ADI_ADRV9025_ADC_ORX2_Q, 0x7F, 0);
+	return ret;
+}
+
+/*
+ * rf_port_select for the obs channels. In dual-channel 4-pin mode this is
+ * SELECT-ONLY: it drives the side's channel-select pin (B for side-A, D for
+ * side-B) to pick which ORx of the pair is observed. It does NOT enable the
+ * side - enable is owned by the _en attribute (write_raw). mode is the enum
+ * index: 0 = first ORx of the pair (sel low), 1 = second ORx (sel high).
+ * On boards without the ORX_CTRL pins it falls back to legacy SPI selection.
+ */
 static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan, u32 mode)
 {
@@ -1101,6 +1153,24 @@ static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 	u32 val = 0;
 	int ret;
 
+	if (adrv9025_orx_dual_4pin(phy)) {
+		struct gpio_desc *sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
+					     phy->orx_ctrl_d_gpio :
+					     phy->orx_ctrl_b_gpio;
+
+		/* select line: mode 1 = second ORx of the pair => assert */
+		if (sel_gpio)
+			gpiod_set_value_cansleep(sel_gpio, mode ? 1 : 0);
+
+		/* selecting changes routing; re-assert the split crossbar */
+		ret = adrv9025_orx_xbar_reassert(phy);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		return 0;
+	}
+
+	/* Legacy SPI-mode select+enable (boards without ORX_CTRL pins). */
 	ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
 					 &txchan);
 	if (ret)
@@ -1129,6 +1199,19 @@ static int adrv9025_get_obs_rx_path(struct iio_dev *indio_dev,
 	int shift_right = CHAN_OBS_RX1;
 	int pair;
 	int ret;
+
+	/*
+	 * In dual-4-pin mode selection is held by the channel-select pin, so
+	 * read it back directly. The output gpio returns the last value set.
+	 * 0 = first ORx of the pair, 1 = second ORx (matches the 2-item enum).
+	 */
+	if (adrv9025_orx_dual_4pin(phy)) {
+		struct gpio_desc *sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
+					     phy->orx_ctrl_d_gpio :
+					     phy->orx_ctrl_b_gpio;
+
+		return (sel_gpio && gpiod_get_value_cansleep(sel_gpio)) ? 1 : 0;
+	}
 
 	ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
 					 &txchan);
@@ -1277,7 +1360,17 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 		if (chan->output)
 			*val = !!(txchan & (ADI_ADRV9025_TX1 << chan->channel));
 		else
-			if (chan->channel >= CHAN_OBS_RX1) {
+			if (chan->channel >= CHAN_OBS_RX1 &&
+			    adrv9025_orx_dual_4pin(phy)) {
+				/* enable is held by the side ENABLE pin (A/C) */
+				struct gpio_desc *en_gpio =
+					(chan->channel > CHAN_OBS_RX1) ?
+					phy->orx_ctrl_c_gpio :
+					phy->orx_ctrl_a_gpio;
+
+				*val = en_gpio ?
+				       !!gpiod_get_value_cansleep(en_gpio) : 0;
+			} else if (chan->channel >= CHAN_OBS_RX1) {
 				chan_no = chan->channel;
 				if (chan_no == CHAN_OBS_RX2)
 					chan_no += 1;
@@ -1412,6 +1505,28 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 				txchan |= (ADI_ADRV9025_TX1 << chan->channel);
 			else
 				txchan &= ~(ADI_ADRV9025_TX1 << chan->channel);
+		} else if (chan->channel >= CHAN_OBS_RX1 &&
+			   adrv9025_orx_dual_4pin(phy)) {
+			/*
+			 * Dual-channel 4-pin mode: the ORx side ENABLE is owned
+			 * by the ORX_CTRL pin (A for side-A/obs1, C for side-B/
+			 * obs2), not the 0x106 SPI enable. _en drives the pin;
+			 * which ORx of the pair is picked by rf_port_select (the
+			 * select pin). Re-assert the split crossbar after the
+			 * enable edge (the stream collapses it on that edge).
+			 */
+			struct gpio_desc *en_gpio =
+				(chan->channel > CHAN_OBS_RX1) ?
+				phy->orx_ctrl_c_gpio : phy->orx_ctrl_a_gpio;
+
+			gpiod_set_value_cansleep(en_gpio, val ? 1 : 0);
+
+			if (val) {
+				ret = adrv9025_orx_xbar_reassert(phy);
+				if (ret)
+					ret = adrv9025_dev_err(phy);
+			}
+			break;
 		} else {
 			chan_no = chan->channel;
 			if (chan_no == CHAN_OBS_RX2)
@@ -3653,6 +3768,19 @@ static int adrv9025_probe(struct spi_device *spi)
 
 	phy->linux_hal.reset_gpio =
 		devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
+
+	/*
+	 * Optional ORx_CTRL pins for dual-channel 4-pin mode (orxEnableMode=4).
+	 * Absent on boards/profiles using SPI or single-channel ORx modes.
+	 */
+	phy->orx_ctrl_a_gpio =
+		devm_gpiod_get_optional(&spi->dev, "orx-ctrl-a", GPIOD_OUT_LOW);
+	phy->orx_ctrl_b_gpio =
+		devm_gpiod_get_optional(&spi->dev, "orx-ctrl-b", GPIOD_OUT_LOW);
+	phy->orx_ctrl_c_gpio =
+		devm_gpiod_get_optional(&spi->dev, "orx-ctrl-c", GPIOD_OUT_LOW);
+	phy->orx_ctrl_d_gpio =
+		devm_gpiod_get_optional(&spi->dev, "orx-ctrl-d", GPIOD_OUT_LOW);
 
 	ret = clk_prepare_enable(phy->dev_clk);
 	if (ret)
