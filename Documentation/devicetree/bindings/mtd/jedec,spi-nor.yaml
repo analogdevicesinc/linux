@@ -34,10 +34,14 @@ properties:
       - items:
           - enum:
               - issi,is25lp016d
+              - issi,is25lp01g
+              - issi,is25lp512
+              - issi,is25lx256
               - micron,mt25qu02g
               - mxicy,mx25r1635f
               - mxicy,mx25u6435f
               - mxicy,mx25v8035f
+              - mxicy,mx66lm1g45
               - spansion,s25sl12801
               - spansion,s25fs512s
           - const: jedec,spi-nor
