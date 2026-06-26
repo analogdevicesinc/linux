@@ -10,7 +10,7 @@
         "rxChannelMask": 255
       },
       "orxRadioCtrlModeCfg": {
-        "orxEnableMode": 0,
+        "orxEnableMode": 4,
         "orxPinSelectSettlingDelay_armClkCycles": 0,
         "singleChannel1PinModeOrxSel": 0,
         "singleChannel2PinModeLowOrxSel": 0,
