@@ -12,6 +12,7 @@
 #include <linux/dev_printk.h>
 #include <linux/errno.h>
 #include <linux/export.h>
+#include <linux/gpio/consumer.h>
 #include <linux/kstrtox.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
@@ -617,6 +618,11 @@ int ad5686_probe(struct device *dev,
 	reset_control_assert(rstc);
 	fsleep(1);
 	reset_control_deassert(rstc);
+
+	st->ldac_gpio = devm_gpiod_get_optional(dev, "ldac", GPIOD_OUT_HIGH);
+	if (IS_ERR(st->ldac_gpio))
+		return dev_err_probe(dev, PTR_ERR(st->ldac_gpio),
+				     "Failed to get LDAC GPIO\n");
 
 	/* PWM configuration */
 	st->pwm = devm_pwm_get(dev, NULL);
