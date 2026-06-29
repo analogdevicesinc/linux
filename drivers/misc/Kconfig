@@ -83,6 +83,27 @@ config ADI_AXI_HSCI
 	  To compile this driver as a module, choose M here: the
 	  module will be called adi-axi-hsci.
 
+config ADI_PCIE_OF_OVERLAY
+	tristate "Analog Devices PCIe endpoint device-tree overlay"
+	depends on PCI && OF
+	select OF_OVERLAY
+	select OF_DYNAMIC
+	select PCI_DYNAMIC_OF_NODES
+	help
+	  Driver for Analog Devices PCIe endpoints whose internals are
+	  described by a firmware-provided DT overlay (a simple-bus with
+	  BAR-derived ranges). It applies the overlay under the endpoint's
+	  OF node, registers an irqdomain backed by the axi_pcie_intc core
+	  behind BAR0 over MSI/MSI-X or shared INTx, and lets stock
+	  subsystem drivers probe the resulting platform devices.
+	  Endpoints behind a translating IOMMU additionally need
+	  ARCH_HAS_DMA_OPS, without which the children cannot be made to
+	  DMA under the endpoint's requester ID; such a device is refused
+	  at probe rather than left addressing the wrong memory.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-pcie-of-overlay.
+
 config DUMMY_IRQ
 	tristate "Dummy IRQ handler"
 	help
