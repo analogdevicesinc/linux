@@ -35,6 +35,13 @@ struct amdgpu_device;
 #define AMDGPU_UALINK_LOCAL_ACCELS_MAX 8
 #define AMDGPU_UALINK_STATIONS_MAX 64
 
+/* nHT firmware status */
+#define AMDGPU_NHT_FW_ST_PREINIT	0xA0
+#define AMDGPU_NHT_FW_ST_READY	0xA1
+#define AMDGPU_NHT_FW_ST_HALT	0xA2
+#define AMDGPU_NHT_FW_ST_ERROR	0xA3
+#define AMDGPU_NHT_FW_ST_FATAL	0xF0
+
 #define AMDGPU_UALINK_RESP_TIMEOUT			5000 /* 5s timeout */
 
 #define AMDGPU_UALINK_HANDLE_ACCID_MASK			GENMASK_ULL(9, 0)
@@ -299,9 +306,17 @@ struct amdgpu_ualink_connection {
 
 struct amdgpu_ualink_remote;
 
+struct amdgpu_ualink_msg_ctl {
+	u32 (*check_status)(struct amdgpu_device *adev);
+	int (*send_metadata)(struct amdgpu_device *adev, u64 metadata_gpu_addr,
+			     u32 accel_data);
+	int (*send_halt)(struct amdgpu_device *adev);
+};
+
 struct amdgpu_ualink_mgr {
 	u64 npa_size;
 	u32 psp_if_ver;
+	const struct amdgpu_ualink_msg_ctl *msg_ctl;
 	struct amdgpu_ualink_info *info;
 	struct amdgpu_ualink_ppod_setup *setup;
 	struct amdgpu_ualink_vpod_config *config;
@@ -387,6 +402,11 @@ int amdgpu_ualink_import_handle(struct drm_device *dev,
 				const struct amdgpu_ualink_handle *ualink_handle,
 				int *fd_out);
 void amdgpu_ualink_revoke_exported_memory(struct amdgpu_bo *bo);
+
+int ualink_ip_hw_init(struct amdgpu_ip_block *ip_block);
+int ualink_ip_late_init(struct amdgpu_ip_block *ip_block);
+int ualink_ip_sw_init(struct amdgpu_ip_block *ip_block);
+int ualink_ip_sw_fini(struct amdgpu_ip_block *ip_block);
 
 extern const struct amdgpu_ip_block_version ualink_v1_0_ip_block;
 #endif

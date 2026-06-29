@@ -279,7 +279,7 @@ amdgpu-y += amdgpu_amdkfd.o
 amdgpu-y += amdgpu_userq.o
 
 # add UALink manager support
-amdgpu-y += amdgpu_ualink.o
+amdgpu-y += amdgpu_ualink.o ualink_v1_0.o
 
 ifneq ($(CONFIG_HSA_AMD),)
 AMDKFD_PATH := ../amdkfd

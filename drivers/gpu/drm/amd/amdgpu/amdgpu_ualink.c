@@ -95,7 +95,7 @@ static void amdgpu_ualink_object_fini(struct amdgpu_device *adev)
 	adev->ualink.info = NULL;
 }
 
-static int ualink_ip_hw_init(struct amdgpu_ip_block *ip_block)
+int ualink_ip_hw_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
 	int r;
@@ -132,7 +132,7 @@ disable:
 	return 0;
 }
 
-static int ualink_ip_late_init(struct amdgpu_ip_block *ip_block)
+int ualink_ip_late_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
 	int r;
@@ -1050,7 +1050,7 @@ static const struct kobj_type ualink_station_config_ktype = {
 	.sysfs_ops = &kobj_sysfs_ops
 };
 
-static int ualink_ip_sw_init(struct amdgpu_ip_block *ip_block)
+int ualink_ip_sw_init(struct amdgpu_ip_block *ip_block)
 {
 	int r;
 
@@ -1102,7 +1102,7 @@ static int ualink_ip_sw_init(struct amdgpu_ip_block *ip_block)
 	return 0;
 }
 
-static int ualink_ip_sw_fini(struct amdgpu_ip_block *ip_block)
+int ualink_ip_sw_fini(struct amdgpu_ip_block *ip_block)
 {
 	amdgpu_ualink_object_fini(ip_block->adev);
 	return 0;
@@ -3520,29 +3520,6 @@ void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
 
 #define AMDGPU_UALINK_METADATA_HEADER	0x4E485446
 
-/* UALINK F/W commands */
-#define AMDGPU_UALINK_FW_CMD_LOAD_METADATA	0x1
-#define AMDGPU_UALINK_FW_CMD_HALT_OPERATION	0x2
-
-/* UALINK F/W status */
-#define AMDGPU_UALINK_FW_STATUS_PREINIT	0xA0
-#define AMDGPU_UALINK_FW_STATUS_READY	0xA1
-#define AMDGPU_UALINK_FW_STATUS_HALT	0xA2
-#define AMDGPU_UALINK_FW_STATUS_ERROR	0xA3
-#define AMDGPU_UALINK_FW_STATUS_FATAL	0xF0
-
-/* UALINK mailbox registers via SMN, copy of MP1 */
-/* send command to nht f/w */
-#define mmMPNHT_SMN_C2PMSG_22_ALT_2	0xAE10958
-/* additional data */
-#define mmMPNHT_SMN_C2PMSG_23_ALT_2	0xAE1095C
-/* metadata address low */
-#define mmMPNHT_SMN_C2PMSG_24_ALT_2	0xAE10960
-/* metadata address high */
-#define mmMPNHT_SMN_C2PMSG_25_ALT_2	0xAE10964
-/* f/w status */
-#define mmMPNHT_SMN_C2PMSG_26_ALT_2	0xAE10968
-
 /* 2MB NPA start address for 2MB page mapping */
 #define AMDGPU_UALINK_SOURCE_ALIAS_NPA_OFFSET SZ_2M
 
@@ -3769,25 +3746,6 @@ static void amdgpu_ualink_flush_tlb(struct amdgpu_device *adev, u32 flush_type)
 	for_each_set_bit_from(bit, adev->vmhubs_mask, AMDGPU_MAX_VMHUBS)
 		amdgpu_gmc_flush_gpu_tlb(adev, adev->vm_manager.npa_vmid,
 					bit, flush_type);
-}
-
-static inline u32 amdgpu_ualink_mailbox_read(struct amdgpu_device *adev,
-					     u32 mailbox_reg)
-{
-	u32 value;
-
-	value = RREG32_PCIE(mailbox_reg);
-	dev_dbg_ratelimited(adev->dev, "ualink read mailbox 0x%x return value 0x%x\n",
-			    mailbox_reg, value);
-	return value;
-}
-
-static inline void amdgpu_ualink_mailbox_write(struct amdgpu_device *adev,
-					       u32 mailbox_reg, u32 value)
-{
-	dev_dbg(adev->dev, "ualink write mailbox 0x%x value 0x%x\n",
-		mailbox_reg, value);
-	WREG32_PCIE(mailbox_reg, value);
 }
 
 /**
@@ -4464,7 +4422,7 @@ static int amdgpu_ualink_metadata_init(struct amdgpu_device *adev)
 	u32 size, rb_size, wptr_size, rptr_size, metadata_size;
 	u64 rb_gpu_addr, wptr_gpu_addr;
 	u32 status, accel_id;
-	int i, r;
+	int r;
 
 	remote->active_accel_bits = adev->ualink.info->vpod.active_accel_bits;
 	dev_dbg(adev->dev, "%d active accelerators config in vpod\n",
@@ -4476,9 +4434,9 @@ static int amdgpu_ualink_metadata_init(struct amdgpu_device *adev)
 	 */
 	remote->num_accel = AMDGPU_UALINK_ACCEL_MAX;
 
-	status = amdgpu_ualink_mailbox_read(adev, mmMPNHT_SMN_C2PMSG_26_ALT_2);
-	if (status != AMDGPU_UALINK_FW_STATUS_PREINIT &&
-	    status != AMDGPU_UALINK_FW_STATUS_HALT) {
+	status = adev->ualink.msg_ctl->check_status(adev);
+	if (status != AMDGPU_NHT_FW_ST_PREINIT &&
+	    status != AMDGPU_NHT_FW_ST_HALT) {
 		dev_dbg(adev->dev, "fw status 0x%x not preinit or halt\n", status);
 		return -ENODEV;
 	}
@@ -4595,25 +4553,9 @@ static int amdgpu_ualink_metadata_init(struct amdgpu_device *adev)
 			metadata[accel_id].tailptr_ri, metadata[accel_id].tailptr_tlb_inv);
 	}
 
-	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_25_ALT_2,
-				    upper_32_bits(remote->metadata_gpu_addr));
-	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_24_ALT_2,
-				    lower_32_bits(remote->metadata_gpu_addr));
-	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_23_ALT_2,
-				    AMDGPU_UALINK_ACCEL_MAX << 8);
-	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_22_ALT_2,
-				    AMDGPU_UALINK_FW_CMD_LOAD_METADATA);
-
-	for (i = 0; i < 2000; i++) {
-		status = amdgpu_ualink_mailbox_read(adev, mmMPNHT_SMN_C2PMSG_26_ALT_2);
-		if (status == AMDGPU_UALINK_FW_STATUS_READY)
-			break;
-		mdelay(1);
-	}
-	if (status != AMDGPU_UALINK_FW_STATUS_READY) {
-		dev_dbg(adev->dev, "f/w load metadata failed 0x%x\n", status);
-		r = -ETIME;
-	}
+	r = adev->ualink.msg_ctl->send_metadata(adev,
+						    remote->metadata_gpu_addr,
+						    AMDGPU_UALINK_ACCEL_MAX << 8);
 
 out:
 	if (r)
@@ -5365,23 +5307,10 @@ out:
  */
 void amdgpu_ualink_sw_fini(struct amdgpu_device *adev)
 {
-	u32 status;
-	int i;
-
 	dev_dbg(adev->dev, "halt accel_id %u addr_mode %d\n", ualink_accel_id(adev),
 		ualink_addr_mode(adev));
 
-	amdgpu_ualink_mailbox_write(adev, mmMPNHT_SMN_C2PMSG_22_ALT_2,
-				    AMDGPU_UALINK_FW_CMD_HALT_OPERATION);
-
-	for (i = 0; i < 2000; i++) {
-		status = amdgpu_ualink_mailbox_read(adev, mmMPNHT_SMN_C2PMSG_26_ALT_2);
-		if (status == AMDGPU_UALINK_FW_STATUS_HALT)
-			break;
-		mdelay(1);
-	}
-	if (status != AMDGPU_UALINK_FW_STATUS_HALT)
-		dev_warn(adev->dev, "f/w halt failed status 0x%x\n", status);
+	adev->ualink.msg_ctl->send_halt(adev);
 
 	amdgpu_ualink_peer_remote_fini(adev);
 	amdgpu_ualink_sdma_entities_fini(adev);
@@ -5589,20 +5518,3 @@ int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev)
 			      UALINK_IH_SOURCE_ID, &adev->ualink.irq);
 	return r;
 }
-
-const struct amd_ip_funcs ualink_ip_funcs = {
-	.name = "ualink",
-	.late_init = ualink_ip_late_init,
-	.sw_init = ualink_ip_sw_init,
-	.sw_fini = ualink_ip_sw_fini,
-	.hw_init = ualink_ip_hw_init,
-};
-
-const struct amdgpu_ip_block_version ualink_v1_0_ip_block = {
-	.type = AMD_IP_BLOCK_TYPE_UALINK,
-	.major = 1,
-	.minor = 0,
-	.rev = 0,
-	.funcs = &ualink_ip_funcs,
-};
-
