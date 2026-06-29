@@ -736,128 +736,6 @@ static bool amdgpu_ualink_is_local_accel(struct amdgpu_device *adev,
 	return false;
 }
 
-#ifdef UALINK_ENABLE_DEPRECATED_CONFIG_SYSFS
-static bool check_vpod_info(struct amdgpu_device *adev,
-			    const struct amdgpu_ualink_info *info)
-{
-	if (info->accel_state < AMDGPU_UALINK_ACCEL_STATE_PPOD_CONFIGURED) {
-		dev_dbg(adev->dev, "pPod is not yet configured\n");
-		return false;
-	}
-	return __check_vpod_info(adev, info);
-}
-
-static bool check_local_vpod_integrity(struct amdgpu_device *adev)
-{
-	struct amdgpu_ualink_info *info = adev->ualink.info;
-	struct amdgpu_ualink_info *peer_info;
-	struct amdgpu_device *peer_adev;
-	unsigned int accel_id;
-	unsigned int i;
-
-	if (!check_vpod_info(adev, info))
-		return false;
-
-	/* Check that all local accelerators listed in vpod_active_accels have
-	 * matching pod IDs
-	 */
-	for_each_set_bit(accel_id, info->vpod.active_accel_bits, AMDGPU_UALINK_ACCEL_MAX) {
-
-		if (accel_id == info->ppod.accel_id)
-			continue;
-
-		peer_adev = find_peer_adev(accel_id);
-		if (!peer_adev)
-			continue;
-		peer_info = peer_adev->ualink.info;
-
-		if (peer_info->vpod.id != info->vpod.id) {
-			dev_dbg(adev->dev, "Peer %u vpod_id doesn't match: %u != %u",
-				accel_id, peer_info->vpod.id, info->vpod.id);
-			return false;
-		}
-		if (!uuid_equal(&peer_info->ppod.id, &info->ppod.id)) {
-			dev_dbg(adev->dev, "Peer %u ppod_id doesn't match: %pU != %pU",
-				accel_id, &peer_info->ppod.id, &info->ppod.id);
-			return false;
-		}
-	}
-
-	/* Derive local accels from pod IDs of GPUs in mgpu_info */
-	info->n_local_accels = 0;
-	for (i = 0; i < mgpu_info.num_gpu &&
-		    info->n_local_accels < AMDGPU_UALINK_LOCAL_ACCELS_MAX;
-	     i++) {
-		peer_adev = mgpu_info.gpu_ins[i].adev;
-		peer_info = peer_adev->ualink.info;
-
-		if (peer_adev == adev ||
-		    (peer_info && peer_info->vpod.id == info->vpod.id &&
-		     uuid_equal(&peer_info->ppod.id, &info->ppod.id)))
-			info->local_accels[info->n_local_accels++] =
-				peer_info->ppod.accel_id;
-	}
-
-	/* Then check consistency of the vpod information on all those GPUs */
-	for (i = 0; i < info->n_local_accels; i++) {
-		unsigned int j;
-
-		for (j = i + 1; j < info->n_local_accels; j++) {
-			if (info->local_accels[j] == accel_id) {
-				dev_dbg(adev->dev,
-					"Accelerator ID %u is not unique among local GPUs\n",
-					accel_id);
-				return false;
-			}
-		}
-
-		accel_id = info->local_accels[i];
-
-		/* Skip this GPU, we are looking for our peers */
-		if (accel_id == info->ppod.accel_id)
-			continue;
-
-		peer_adev = find_peer_adev(accel_id);
-		if (WARN_ON(!peer_adev || !peer_adev->ualink.info))
-			/* info->local_accels we just built is corrupted? */
-			return false;
-		peer_info = peer_adev->ualink.info;
-
-		/* Check peer vpod info and consistency */
-		if (!check_vpod_info(peer_adev, peer_info))
-			return false;
-
-		if (peer_info->ppod.size != info->ppod.size) {
-			dev_dbg(adev->dev, "Peer %u ppod_size doesn't match: %u != %u\n",
-				accel_id, peer_info->ppod.size, info->ppod.size);
-			return false;
-		}
-		if (peer_info->vpod.size != info->vpod.size) {
-			dev_dbg(adev->dev, "Peer %u vpod_size doesn't match: %u != %u\n",
-				accel_id, peer_info->vpod.size, info->vpod.size);
-			return false;
-		}
-		if (peer_info->vpod.addr_mode != info->vpod.addr_mode) {
-			dev_dbg(adev->dev, "Peer %u addr_mode doesn't match: %u != %u\n",
-				accel_id, peer_info->vpod.addr_mode, info->vpod.addr_mode);
-			return false;
-		}
-		if (!bitmap_equal(peer_info->vpod.active_accel_bits,
-				  info->vpod.active_accel_bits, AMDGPU_UALINK_ACCEL_MAX)) {
-			dev_dbg(adev->dev, "Peer %u vpod_active_accels don't match\n",
-				accel_id);
-			return false;
-		}
-
-		/* Update peer's local accelerator array */
-		peer_info->n_local_accels = info->n_local_accels;
-		memcpy(peer_info->local_accels, info->local_accels,
-		       sizeof(info->local_accels));
-	}
-	return true;
-}
-#endif
-
 static void activate_accelerator(struct amdgpu_device *adev)
 {
 	int r;
@@ -1096,6 +974,8 @@ static ssize_t ualink_vpod_config_commit_store(struct kobject *kobj,
 	if (r)
 		return r;
 
+	if (!__check_vpod_info(adev, info))
+		return -EINVAL;
 	/* The integrity check makes sure each new GPU is consistent with the
 	 * other GPUs already in the vPod. All known local GPUs can become
 	 * "ready" at the same time.
@@ -1104,7 +984,8 @@ static ssize_t ualink_vpod_config_commit_store(struct kobject *kobj,
 	 * already in the vPod.
 	 */
 	mutex_lock(&mgpu_info.mutex);
-	if (check_local_vpod_integrity(adev))
+	r = __check_local_vpod_integrity(adev);
+	if (!r)
 		activate_local_vpod(adev);
 	else if (info->accel_state >= AMDGPU_UALINK_ACCEL_STATE_PPOD_CONFIGURED)
 		deactivate_accelerator(adev);
