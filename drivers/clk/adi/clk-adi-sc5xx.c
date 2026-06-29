@@ -70,8 +70,16 @@ static DEFINE_SPINLOCK(sc5xx_clk_lock);
 #define CLK_PARENT_DATA(_name)	\
 	static const struct clk_parent_data _name[]
 
-#define HW_PARENTS(_name)	\
+#define CLK_PARENT_IDS(_name)	\
 	static const u8 _name[]
+
+#define SC5XX_PARENT_DATA(_parent)	\
+	{ .parent_data = (_parent), 	\
+	  .num_parents = ARRAY_SIZE(_parent)  }	
+
+#define SC5XX_PARENT_IDS(_parent)	\
+	{ .parent_ids  = (_parent),	\
+	  .num_parents = ARRAY_SIZE(_parent)  }
 
 #define MUX_TABLE(_name)	\
 	static const u32 _name[]
@@ -137,7 +145,7 @@ CLK_PARENT_DATA(sc589_cdu_sharc0_parents)	= { { .fw_name = "cclk0_0"  }, { .fw_n
 CLK_PARENT_DATA(sc589_cdu_sharc1_parents)	= { { .fw_name = "cclk0_0"  }, { .fw_name = "sysclk_0"  }, };
 CLK_PARENT_DATA(sc589_cdu_arm_parents)	 	= { { .fw_name = "cclk1_0"  }, { .fw_name = "sysclk_0"  }, };
 CLK_PARENT_DATA(sc589_cdu_ddr_parents)    	= { { .fw_name = "dclk_0"   }, { .fw_name = "dclk_1"    }, };
-CLK_PARENT_DARA(sc589_cdu_reserved_parents)	= { { .fw_name = "oclk_0"   }, { .fw_name = "cclk0_1"   }, };
+CLK_PARENT_DATA(sc589_cdu_reserved_parents)	= { { .fw_name = "oclk_0"   }, { .fw_name = "cclk0_1"   }, };
 CLK_PARENT_DATA(sc589_cdu_can_parents)    	= { { .fw_name = "oclk_0"   }, { .fw_name = "oclk_1"    }, { .fw_name = "dclk_1"  }, };
 CLK_PARENT_DATA(sc589_cdu_spdif_parents) 	= { { .fw_name = "oclk_0"   }, { .fw_name = "oclk_1"    }, { .fw_name = "dclk_1"  }, { .fw_name = "dclk_0" }, };
 CLK_PARENT_DATA(sc589_cdu_gige_parents) 	= { { .fw_name = "sclk1_0"  }, { .fw_name = "sclk1_1"   }, { .fw_name = "cclk0_1" }, { .fw_name = "oclk_0" }, };
@@ -162,165 +170,262 @@ CLK_PARENT_DATA(cgu0_parents)			= { { .fw_name = "sys_clkin0"   }, };
 CLK_PARENT_DATA(cgu1_parents)			= { { .fw_name = "cdu_clkinsel" }, };
 
 /* ADSP-SC5XX HW parent refs */
-HW_PARENTS(df_parent)			= { ADSP_SC5XX_CLK_CGU_DF_DIV     };
-HW_PARENT(osel_parent)		 	= { ADSP_SC5XX_CLK_CGU_OSEL_DIV   };
-HW_PARENT(dsel_parent)		 	= { ADSP_SC5XX_CLK_CGU_DSEL_DIV   };
-HW_PARENTS(csel_parent)		 	= { ADSP_SC5XX_CLK_CGU_CSEL_DIV   };
-HW_PARENTS(syssel_parent)	 	= { ADSP_SC5XX_CLK_CGU_SYSSEL_DIV };
-HW_PARENTS(s0sel_div_parent)	 	= { ADSP_SC5XX_CLK_CGU_S0SEL_DIV  };
-HW_PARENTS(pllclk_parent)	 	= { ADSP_SC5XX_CLK_CGU_PLLCLK     };
-HW_PARENTS(vco_parent)		 	= { ADSP_SC5XX_CLK_CGU_VCO_OUT    };
-HW_PARENTS(oclk_gate_parent)	 	= { ADSP_SC5XX_CLK_CGU_OCLK_GATE  };
-HW_PARENTS(dclk_gate_parent)	 	= { ADSP_SC5XX_CLK_CGU_DCLK_GATE  };
-HW_PARENTS(sclk1_gate_parent)		= { ADSP_SC5XX_CLK_CGU_SCLK1_GATE };
-HW_PARENTS(3pll_df_parent)	 	= { ADSP_SC598_CLK_PLL2_DF_DIV    };
-HW_PARENTS(3pll_vco_parent) 		= { ADSP_SC598_CLK_PLL2_VCO_OUT   };
-HW_PARENTS(3pll_pllclk_parent)		= { ADSP_SC598_CLK_PLL2_PLLCLK    };
-HW_PARENTS(s1selexen_parent)		= { ADSP_SC598_CLK_CGU_S1SELEXEN  };
-HW_PARENTS(s0selexen_parent)	 	= { ADSP_SC598_CLK_CGU_S0SELEXEN  };
-HW_PARENTS(s1sel_s1selex_parent) 	= { ADSP_SC5XX_CLK_CGU_S1SEL_DIV, ADSP_SC598_CLK_CGU_S1SELEX_DIV };
-HW_PARENTS(s0sel_s0selex_parent)	= { ADSP_SC5XX_CLK_CGU_S0SEL_DIV, ADSP_SC598_CLK_CGU_S0SELEX_DIV };
+CLK_PARENT_IDS(df_parent)		= { ADSP_SC5XX_CLK_CGU_DF_DIV     };
+CLK_PARENT_IDS(osel_parent)		= { ADSP_SC5XX_CLK_CGU_OSEL_DIV   };
+CLK_PARENT_IDS(dsel_parent)		= { ADSP_SC5XX_CLK_CGU_DSEL_DIV   };
+CLK_PARENT_IDS(csel_parent)		= { ADSP_SC5XX_CLK_CGU_CSEL_DIV   };
+CLK_PARENT_IDS(syssel_parent)		= { ADSP_SC5XX_CLK_CGU_SYSSEL_DIV };
+CLK_PARENT_IDS(s0sel_div_parent)	= { ADSP_SC5XX_CLK_CGU_S0SEL_DIV  };
+CLK_PARENT_IDS(pllclk_parent)	 	= { ADSP_SC5XX_CLK_CGU_PLLCLK     };
+CLK_PARENT_IDS(vco_parent)		= { ADSP_SC5XX_CLK_CGU_VCO_OUT    };
+CLK_PARENT_IDS(oclk_gate_parent)	= { ADSP_SC5XX_CLK_CGU_OCLK_GATE  };
+CLK_PARENT_IDS(dclk_gate_parent)	= { ADSP_SC5XX_CLK_CGU_DCLK_GATE  };
+CLK_PARENT_IDS(sclk1_gate_parent)	= { ADSP_SC5XX_CLK_CGU_SCLK1_GATE };
+CLK_PARENT_IDS(3pll_df_parent)		= { ADSP_SC598_CLK_PLL2_DF_DIV    };
+CLK_PARENT_IDS(3pll_vco_parent) 	= { ADSP_SC598_CLK_PLL2_VCO_OUT   };
+CLK_PARENT_IDS(3pll_pllclk_parent)	= { ADSP_SC598_CLK_PLL2_PLLCLK    };
+CLK_PARENT_IDS(s1selexen_parent)	= { ADSP_SC598_CLK_CGU_S1SELEXEN  };
+CLK_PARENT_IDS(s0selexen_parent)	= { ADSP_SC598_CLK_CGU_S0SELEXEN  };
+CLK_PARENT_IDS(s1sel_s1selex_parent) 	= { ADSP_SC5XX_CLK_CGU_S1SEL_DIV, ADSP_SC598_CLK_CGU_S1SELEX_DIV };
+CLK_PARENT_IDS(s0sel_s0selex_parent)	= { ADSP_SC5XX_CLK_CGU_S0SEL_DIV, ADSP_SC598_CLK_CGU_S0SELEX_DIV };
 
 /* ADSP-SC5XX CLKINSEL mux for CGU1 and PLL3 */
 static const struct sc5xx_clk sc5xx_clkinsel_clks[] = {
-	CLKINSEL(ADSP_SC5XX_CLK_CDU_CLKINSEL, "cdu_clkinsel", cdu_clkinsel_parents, 0),
+	CLKINSEL(ADSP_SC5XX_CLK_CDU_CLKINSEL, "cdu_clkinsel", SC5XX_PARENT_DATA(cdu_clkinsel_parents), 0),
 };
 
 /*----------------------*/
 
 /* Early clocks for ADSP-SC589, ADSP-SC594, ADSP-SC573 CGU0 */
 static const struct sc5xx_clk sc5xx_early_clks_cgu0[] = {
-        DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div", cgu0_parents, 0, 1),
-        PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu0_vco", df_parent, 8, 7, 0, false),
-        FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu0_pllclk", vco_parent, 1, 1, 0),
-        DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div", pllclk_parent, 8, 5),
-        DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu0_s0sel_div", syssel_parent, 5, 3),
-        GATE(ADSP_SC5XX_CLK_CGU_SCLK0_GATE, "cgu0_sclk0_gate", s0sel_div_parent, 0, 0),
+        DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div", 
+		SC5XX_PARENT_DATA(cgu0_parents), 0, 1),
+        PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu0_vco",
+		SC5XX_PARENT_IDS(df_parent), 8, 7, 0, false),
+        FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu0_pllclk",
+		SC5XX_PARENT_IDS(vco_parent), 1, 1, 0),
+        DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div",
+		SC5XX_PARENT_IDS(pllclk_parent), 8, 5),
+        DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu0_s0sel_div",
+		SC5XX_PARENT_IDS(syssel_parent), 5, 3),
+        GATE(ADSP_SC5XX_CLK_CGU_SCLK0_GATE, "cgu0_sclk0_gate",
+		SC5XX_PARENT_IDS(s0sel_div_parent), 0, 0),
 };
 
 /* Early clocks for ADSP-SC598 CGU0 */
 static const struct sc5xx_clk sc598_early_clks_cgu0[] = {
-        DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div", cgu0_parents, 0, 1),
-        PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu0_vco", df_parent, 8, 7, 0, true),
-        FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu0_pllclk", vco_parent, 1, 2, 0),
-        DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div", pllclk_parent, 8, 5),
-        DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu0_s0sel_div", syssel_parent, 5, 3),
-        GATE(ADSP_SC5XX_CLK_CGU_SCLK0_GATE, "cgu0_sclk0_gate", s0sel_div_parent, 0, 0),
+        DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu0_df_div",
+		SC5XX_PARENT_DATA(cgu0_parents), 0, 1),
+        PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu0_vco",
+		SC5XX_PARENT_IDS(df_parent), 8, 7, 0, true),
+        FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu0_pllclk",
+		SC5XX_PARENT_IDS(vco_parent), 1, 2, 0),
+        DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu0_syssel_div",
+		SC5XX_PARENT_IDS(pllclk_parent), 8, 5),
+        DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu0_s0sel_div",
+		SC5XX_PARENT_IDS(syssel_parent), 5, 3),
+        GATE(ADSP_SC5XX_CLK_CGU_SCLK0_GATE, "cgu0_sclk0_gate",
+		SC5XX_PARENT_IDS(s0sel_div_parent), 0, 0),
 };
 
 /* ADSP-SC598 CGU0 clocks */
 static const struct sc5xx_clk sc598_cgu0_clks[] = {
-	DIV(ADSP_SC5XX_CLK_CGU_CSEL_DIV, "cgu0_cdiv", pllclk_parent, 0, 5),
-	DIV(ADSP_SC5XX_CLK_CGU_DSEL_DIV, "cgu0_dsel", pllclk_parent, 16, 5),
-	DIV(ADSP_SC5XX_CLK_CGU_OSEL_DIV, "cgu0_osel", pllclk_parent, 22, 7),
-	DIV(ADSP_SC5XX_CLK_CGU_S1SEL_DIV, "cgu0_s1sel", syssel_parent, 13, 3, 0),
-	DIV(ADSP_SC598_CLK_CGU_S1SELEX_DIV, "cgu0_s1selex_div", pllclk_parent, 16, 8, 0); 
-	MUX(ADSP_SC598_CLK_CGU_S1SELEXEN, "cgu0_s1selexen", s1sel_s1selex_parent, 2, 17, 1, 0),
-	GATE(ADSP_SC5XX_CLK_CGU_CCLK0_GATE, "cgu0_cclk0_0", csel_parent, CGU_CCBF_DIS, 0),
-	GATE(ADSP_SC5XX_CLK_CGU_DCLK_GATE, "cgu0_dclk_0", dsel_parent, CGU_SCBF_DIS, 2),
-	GATE(ADSP_SC5XX_CLK_CGU_OCLK_GATE, "cgu0_oclk_0", osel_parent, CGU_SCBF_DIS, 3),
-	GATE(ADSP_SC5XX_CLK_CGU_SCLK1_GATE, "cgu0_sclk1_0", s1selexen_parent, CGU_SCBF_DIS, 1),
-	FFACTOR(ADSP_SC598_CLK_CGU_DCLK_HALF, "cgu0_dclk_0/2", dclk_gate_parent, 1, 2),
-	FFACTOR(ADSP_SC598_CLK_CGU_CCLK2, "cgu0_cclk2_0", vco_parent, 1, 3),
+	DIV(ADSP_SC5XX_CLK_CGU_CSEL_DIV, "cgu0_cdiv",
+		SC5XX_PARENT_IDS(pllclk_parent), 0, 5),
+	DIV(ADSP_SC5XX_CLK_CGU_DSEL_DIV, "cgu0_dsel",
+		SC5XX_PARENT_IDS(pllclk_parent), 16, 5),
+	DIV(ADSP_SC5XX_CLK_CGU_OSEL_DIV, "cgu0_osel",
+		SC5XX_PARENT_IDS(pllclk_parent), 22, 7),
+	DIV(ADSP_SC5XX_CLK_CGU_S1SEL_DIV, "cgu0_s1sel",
+		SC5XX_PARENT_IDS(syssel_parent), 13, 3, 0),
+ 	DIV(ADSP_SC598_CLK_CGU_S1SELEX_DIV, "cgu0_s1selex_div",
+		SC5XX_PARENT_IDS(pllclk_parent), 16, 8, 0), 
+	MUX(ADSP_SC598_CLK_CGU_S1SELEXEN, "cgu0_s1selexen",
+		SC5XX_PARENT_IDS(s1sel_s1selex_parent), 2, 17, 1, 0),
+	GATE(ADSP_SC5XX_CLK_CGU_CCLK0_GATE, "cgu0_cclk0_0",
+		SC5XX_PARENT_IDS(csel_parent), CGU_CCBF_DIS, 0),
+	GATE(ADSP_SC5XX_CLK_CGU_DCLK_GATE, "cgu0_dclk_0",
+		SC5XX_PARENT_IDS(dsel_parent), CGU_SCBF_DIS, 2),
+	GATE(ADSP_SC5XX_CLK_CGU_OCLK_GATE, "cgu0_oclk_0",
+		SC5XX_PARENT_IDS(osel_parent), CGU_SCBF_DIS, 3),
+	GATE(ADSP_SC5XX_CLK_CGU_SCLK1_GATE, "cgu0_sclk1_0",
+		SC5XX_PARENT_IDS(s1selexen_parent), CGU_SCBF_DIS, 1),
+	FFACTOR(ADSP_SC598_CLK_CGU_DCLK_HALF, "cgu0_dclk_0/2",
+		SC5XX_PARENT_IDS(dclk_gate_parent), 1, 2),
+	FFACTOR(ADSP_SC598_CLK_CGU_CCLK2, "cgu0_cclk2_0",
+		SC5XX_PARENT_IDS(vco_parent), 1, 3),
 };
 
 /* ADSP-SC598 CGU1 clocks */
 static const struct sc5xx_clk sc598_cgu1_clks[] = {
-	DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu1_df_div", cgu1_parents, 0, 1),
-	PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu1_vco", df_parent, 8, 7, 0, true),
-	FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu1_pllclk", vco_parent, 1, 2),
-	DIV(ADSP_SC5XX_CLK_CGU_CSEL_DIV, "cgu1_cdiv", pllclk_parent, 0, 5, 0),
-	DIV(ADSP_SC5XX_CLK_CGU_OSEL_DIV, "cgu1_odiv", pllclk_parent, 22, 7, 0),
-	DIV(ADSP_SC5XX_CLK_CGU_DSEL_DIV, "cgu1_ddiv", pllclk_parent, 16, 5, 0),
-	DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu1_sysclk_1", pllclk_parent, 8, 5, 0),
-	DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu1_s0sel_div", syssel_parent,, 5, 3, 0),
-	DIV(ADSP_SC5XX_CLK_CGU_S1SEL_DIV, "cgu1_s1sel_div", syssel_parent, 13, 3, 0),
-	DIV(ADSP_SC598_CLK_CGU_S1SELEX_DIV, "cgu1_s1selex_div", pllclk_parent, 16, 8, 0),
-	DIV(ADSP_SC598_CLK_CGU_S0SELEX_DIV, "cgu1_s0selex_div", pllclk_parent, 0, 8, 0)	
-	MUX(ADSP_SC598_CLK_CGU_S1SELEXEN, "cgu1_sclk1sel", s1sel_s1selex_parent, 2, 17, 1, 0),
-	MUX(ADSP_SC598_CLK_CGU_S0SELEXEN, "cgu1_sclk0sel", s0sel_s0selex_parent, 2, 16, 1, 0),
-	GATE(ADSP_SC5XX_CLK_CGU_CCLK0_GATE, "cgu1_cclk0_1", csel_parent, CGU_CCBF_DIS, 0),
-	GATE(ADSP_SC5XX_CLK_CGU_DCLK_GATE, "cgu1_dclk_1", dsel_parent, CGU_SCBF_DIS, 2),
-	GATE(ADSP_SC5XX_CLK_CGU_OCLK_GATE, "cgu1_oclk_1", osel_parent, CGU_SCBF_DIS, 3),
-	GATE(ADSP_SC5XX_CLK_CGU_SCLK1_GATE, "cgu1_sclk1_1", s1selexen_parent, CGU_SCBF_DIS, 1),
-	GATE(ADSP_SC5XX_CLK_CGU_SCLK0_GATE, "cgu1_sclk0_1", s0selexen_parent, CGU_SCBF_DIS, 0),
-	FFACTOR(ADSP_SC598_CLK_CGU_DCLK_HALF, "cgu1_dclk_1/2", dclk_gate_parent, 1, 2),
-	FFACTOR(ADSP_SC598_CLK_CGU_CCLK2, "cgu1_cclk2_1", vco_parent, 1, 3),
-	FFACTOR(ADSP_SC598_CLK_CGU_SCLK_HALF, "cgu1_sclk1_1/2", sclk1_gate_parent, 1, 2),
+	DIV(ADSP_SC5XX_CLK_CGU_DF_DIV, "cgu1_df_div",
+		SC5XX_PARENT_DATA(cgu1_parents), 0, 1),
+	PLL(ADSP_SC5XX_CLK_CGU_VCO_OUT, "cgu1_vco",
+		SC5XX_PARENT_IDS(df_parent), 8, 7, 0, true),
+	FFACTOR(ADSP_SC5XX_CLK_CGU_PLLCLK, "cgu1_pllclk",
+		SC5XX_PARENT_IDS(vco_parent), 1, 2),
+	DIV(ADSP_SC5XX_CLK_CGU_CSEL_DIV, "cgu1_cdiv",
+		SC5XX_PARENT_IDS(pllclk_parent), 0, 5, 0),
+	DIV(ADSP_SC5XX_CLK_CGU_OSEL_DIV, "cgu1_odiv",
+		SC5XX_PARENT_IDS(pllclk_parent), 22, 7, 0),
+	DIV(ADSP_SC5XX_CLK_CGU_DSEL_DIV, "cgu1_ddiv",
+		SC5XX_PARENT_IDS(pllclk_parent), 16, 5, 0),
+	DIV(ADSP_SC5XX_CLK_CGU_SYSSEL_DIV, "cgu1_sysclk_1",
+		SC5XX_PARENT_IDS(pllclk_parent), 8, 5, 0),
+	DIV(ADSP_SC5XX_CLK_CGU_S0SEL_DIV, "cgu1_s0sel_div",
+		SC5XX_PARENT_IDS(syssel_parent), 5, 3, 0),
+	DIV(ADSP_SC5XX_CLK_CGU_S1SEL_DIV, "cgu1_s1sel_div",
+		SC5XX_PARENT_IDS(syssel_parent), 13, 3, 0),
+	DIV(ADSP_SC598_CLK_CGU_S1SELEX_DIV, "cgu1_s1selex_div",
+		SC5XX_PARENT_IDS(pllclk_parent), 16, 8, 0),
+	DIV(ADSP_SC598_CLK_CGU_S0SELEX_DIV, "cgu1_s0selex_div",
+		SC5XX_PARENT_IDS(pllclk_parent), 0, 8, 0),
+	MUX(ADSP_SC598_CLK_CGU_S1SELEXEN, "cgu1_sclk1sel",
+		SC5XX_PARENT_IDS(s1sel_s1selex_parent), 2, 17, 1, 0),
+	MUX(ADSP_SC598_CLK_CGU_S0SELEXEN, "cgu1_sclk0sel",
+		SC5XX_PARENT_IDS(s0sel_s0selex_parent), 2, 16, 1, 0),
+	GATE(ADSP_SC5XX_CLK_CGU_CCLK0_GATE, "cgu1_cclk0_1",
+		SC5XX_PARENT_IDS(csel_parent), CGU_CCBF_DIS, 0),
+	GATE(ADSP_SC5XX_CLK_CGU_DCLK_GATE, "cgu1_dclk_1",
+		SC5XX_PARENT_IDS(dsel_parent), CGU_SCBF_DIS, 2),
+	GATE(ADSP_SC5XX_CLK_CGU_OCLK_GATE, "cgu1_oclk_1",
+		SC5XX_PARENT_IDS(osel_parent), CGU_SCBF_DIS, 3),
+	GATE(ADSP_SC5XX_CLK_CGU_SCLK1_GATE, "cgu1_sclk1_1",
+		SC5XX_PARENT_IDS(s1selexen_parent), CGU_SCBF_DIS, 1),
+	GATE(ADSP_SC5XX_CLK_CGU_SCLK0_GATE, "cgu1_sclk0_1",
+		SC5XX_PARENT_IDS(s0selexen_parent), CGU_SCBF_DIS, 0),
+	FFACTOR(ADSP_SC598_CLK_CGU_DCLK_HALF, "cgu1_dclk_1/2",
+		SC5XX_PARENT_IDS(dclk_gate_parent), 1, 2),
+	FFACTOR(ADSP_SC598_CLK_CGU_CCLK2, "cgu1_cclk2_1",
+		SC5XX_PARENT_IDS(vco_parent), 1, 3),
+	FFACTOR(ADSP_SC598_CLK_CGU_SCLK_HALF, "cgu1_sclk1_1/2",
+		SC5XX_PARENT_IDS(sclk1_gate_parent), 1, 2),
 };
 
 /* ADSP-SC589 PLL2 clocks */
 static const struct sc5xx_clk sc598_pll2_clks[] = {
-	DIV(ADSP_SC598_CLK_PLL2_DF_DIV "3pll_df", cgu1_parents, 3, 1, 0)
-	PLL(ADSP_SC598_CLK_PLL2_VCO_OUT, "3pll_vco", 3pll_df_parent, 4, 7, 1, true), 
-	FFACTOR(ADSP_SC598_CLK_PLL2_PLLCLK, "3pll_pllclk", 3pll_vco_parent, 1, 2),
-	DIV(ADSP_SC598_CLK_PLL2_DDIV, "3pll_ddiv", 3pll_pllclk_parent, 12, 5, 0),
-	MUX(ADSP_SC598_CLK_DDR, "ddr", pll2_ddr_parents, 2, 11, 1, 0),
+	DIV(ADSP_SC598_CLK_PLL2_DF_DIV, "3pll_df",
+		SC5XX_PARENT_DATA(cgu1_parents), 3, 1, 0)
+	PLL(ADSP_SC598_CLK_PLL2_VCO_OUT, "3pll_vco",
+		SC5XX_PARENT_IDS(3pll_df_parent), 4, 7, 1, true), 
+	FFACTOR(ADSP_SC598_CLK_PLL2_PLLCLK, "3pll_pllclk",
+		SC5XX_PARENT_IDS(3pll_vco_parent), 1, 2),
+	DIV(ADSP_SC598_CLK_PLL2_DDIV, "3pll_ddiv",
+		SC5XX_PARENT_IDS(3pll_pllclk_parent), 12, 5, 0),
+	MUX(ADSP_SC598_CLK_DDR, "ddr",
+		SC5XX_PARENT_DATA(pll2_ddr_parents), 2, 11, 1, 0),
 };
 
 /*----------------------*/
 
 /* ADSP-SC5XX CDU mux clocks */
 static const struct sc5xx_clk sc598_mux_clks[] = {
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_DDR, "cdu_ddr", sc598_cdu_ddr_parents, CDU_CLKO3, CDU_CLKO_SEL3, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_CAN, "cdu_can", sc598_cdu_can_parents, CDU_CLKO4, CDU_CLKO_SEL2, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_SPDIF, "cdu_spdif", sc598_cdu_spdif_parents, CDU_CLKO5, CDU_CLKO_SEL1, 0),
-	CDU_MUX(ADSP_SC598_CLK_CDU_SPI, "cdu_spi", sc598_cdu_spi_parents, CDU_CLKO6, CDU_CLKO_SEL3, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_GIGE, "cdu_gige", sc598_cdu_gige_parents, CDU_CLKO7, CDU_CLKO_SEL4, 0),
-	CDU_MUX(ADSP_SC598_CLK_CDU_LP, "cdu_lp", sc598_cdu_lp_parents, CDU_CLKO8, CDU_CLKO_SEL4, 0),
-	CDU_MUX(ADSP_SC598_CLK_CDU_LPDDR, "cdu_lpddr", sc598_cdu_lpddr_parents, CDU_CLKO9, CDU_CLKO_SEL4, 0),
-	CDU_MUX(ADSP_SC598_CLK_CDU_TRACE, "cdu_trace", sc598_cdu_trace_parents, CDU_CLKO12, CDU_CLKO_SEL1, 0),
-	CDU_MUX(ADSP_SC598_CLK_CDU_EMMC, "cdu_emmc", sc598_cdu_emmc_parents, CDU_CLKO13, CDU_CLKO_SEL6, 0),
-	CDU_MUX(ADSP_SC598_CLK_CDU_EMMC_TIMER_QMC, "cdu_emmc_timer", sc598_cdu_emmc_timer_parents, CDU_CLKO14, CDU_CLKO_SEL2, 0),
-	CDU_MUX(ADSP_SC598_CLK_CDU_OSPI_REFCLK, "cdu_ospi_refclk", sc598_cdu_ospi_refclk_parents, CDU_CLKO10, CDU_CLKO_SEL4, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0", sc598_cdu_sharc0_parents, CDU_CLKO0, CDU_CLKO_SEL1, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1", sc598_cdu_sharc1_parents, CDU_CLKO1, CDU_CLKO_SEL1, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_ARM, "cdu_arm", sc598_cdu_arm_parents, CDU_CLKO2, CDU_CLKO_SEL5, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_DDR, "cdu_ddr",
+		SC5XX_PARENT_DATA(sc598_cdu_ddr_parents), CDU_CLKO3, CDU_CLKO_SEL3, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_CAN, "cdu_can",
+		SC5XX_PARENT_DATA(sc598_cdu_can_parents), CDU_CLKO4, CDU_CLKO_SEL2, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_SPDIF, "cdu_spdif",
+		SC5XX_PARENT_DATA(sc598_cdu_spdif_parents), CDU_CLKO5, CDU_CLKO_SEL1, 0),
+	CDU_MUX(ADSP_SC598_CLK_CDU_SPI, "cdu_spi",
+		SC5XX_PARENT_DATA(sc598_cdu_spi_parents), CDU_CLKO6, CDU_CLKO_SEL3, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_GIGE, "cdu_gige",
+		SC5XX_PARENT_DATA(sc598_cdu_gige_parents), CDU_CLKO7, CDU_CLKO_SEL4, 0),
+	CDU_MUX(ADSP_SC598_CLK_CDU_LP, "cdu_lp",
+		SC5XX_PARENT_DATA(sc598_cdu_lp_parents), CDU_CLKO8, CDU_CLKO_SEL4, 0),
+	CDU_MUX(ADSP_SC598_CLK_CDU_LPDDR, "cdu_lpddr",
+		SC5XX_PARENT_DATA(sc598_cdu_lpddr_parents), CDU_CLKO9, CDU_CLKO_SEL4, 0),
+	CDU_MUX(ADSP_SC598_CLK_CDU_TRACE, "cdu_trace",
+		SC5XX_PARENT_DATA(sc598_cdu_trace_parents), CDU_CLKO12, CDU_CLKO_SEL1, 0),
+	CDU_MUX(ADSP_SC598_CLK_CDU_EMMC, "cdu_emmc",
+		SC5XX_PARENT_DATA(sc598_cdu_emmc_parents), CDU_CLKO13, CDU_CLKO_SEL6, 0),
+	CDU_MUX(ADSP_SC598_CLK_CDU_EMMC_TIMER_QMC, "cdu_emmc_timer",
+		SC5XX_PARENT_DATA(sc598_cdu_emmc_timer_parents), CDU_CLKO14, CDU_CLKO_SEL2, 0),
+	CDU_MUX(ADSP_SC598_CLK_CDU_OSPI_REFCLK, "cdu_ospi_refclk",
+		SC5XX_PARENT_DATA(sc598_cdu_ospi_refclk_parents), CDU_CLKO10, CDU_CLKO_SEL4, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0",
+		SC5XX_PARENT_DATA(sc598_cdu_sharc0_parents), CDU_CLKO0, CDU_CLKO_SEL1, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1",
+		SC5XX_PARENT_DATA(sc598_cdu_sharc1_parents), CDU_CLKO1, CDU_CLKO_SEL1, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_ARM, "cdu_arm",
+		SC5XX_PARENT_DATA(sc598_cdu_arm_parents), CDU_CLKO2, CDU_CLKO_SEL5, 0),
 };
 
 static const struct sc5xx_clk sc594_mux_clks[] = {
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_DDR, "cdu_ddr", sc594_cdu_ddr_parents, CDU_CLKO3, CDU_CLKO_SEL3, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_CAN, "cdu_can", sc594_cdu_can_parents, CDU_CLKO4, CDU_CLKO_SEL3, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_SPDIF, "cdu_spdif", sc594_cdu_spdif_parents, CDU_CLKO5, CDU_CLKO_SEL1, 0),
-	CDU_MUX(ADSP_SC594_CLK_CDU_SPI, "cdu_spi", sc594_cdu_spi_parents, CDU_CLKO6, CDU_CLKO_SEL3, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_GIGE, "cdu_gige", sc594_cdu_gige_parents, CDU_CLKO7, CDU_CLKO_SEL3, 0),
-	CDU_MUX(ADSP_SC594_CLK_CDU_LP, "cdu_lp", sc594_cdu_lp_parents, CDU_CLKO8, CDU_CLKO_SEL4, 0),
-	CDU_MUX(ADSP_SC594_CLK_CDU_LPDDR, "cdu_lpddr", sc594_cdu_lpddr_parents, CDU_CLKO9, CDU_CLKO_SEL4, 0),
-	CDU_MUX(ADSP_SC594_CLK_CDU_TRACE, "cdu_trace", sc594_cdu_trace_parents, CDU_CLKO12, CDU_CLKO_SEL1, 0),
-	CDU_MUX(ADSP_SC594_CLK_CDU_OSPI_REFCLK, "cdu_ospi_refclk", sc594_cdu_ospi_refclk_parents, CDU_CLKO10, CDU_CLKO_SEL4, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0", sc594_cdu_sharc0_parents, CDU_CLKO0, CDU_CLKO_SEL1, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1", sc594_cdu_sharc1_parents, CDU_CLKO1, CDU_CLKO_SEL1, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_ARM, "cdu_arm", sc594_cdu_arm_parents, CDU_CLKO2, CDU_CLKO_SEL1, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_DDR, "cdu_ddr",
+		SC5XX_PARENT_DATA(sc594_cdu_ddr_parents), CDU_CLKO3, CDU_CLKO_SEL3, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_CAN, "cdu_can",
+		SC5XX_PARENT_DATA(sc594_cdu_can_parents), CDU_CLKO4, CDU_CLKO_SEL3, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_SPDIF, "cdu_spdif",
+		SC5XX_PARENT_DATA(sc594_cdu_spdif_parents), CDU_CLKO5, CDU_CLKO_SEL1, 0),
+	CDU_MUX(ADSP_SC594_CLK_CDU_SPI, "cdu_spi",
+		SC5XX_PARENT_DATA(sc594_cdu_spi_parents), CDU_CLKO6, CDU_CLKO_SEL3, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_GIGE, "cdu_gige",
+		SC5XX_PARENT_DATA(sc594_cdu_gige_parents), CDU_CLKO7, CDU_CLKO_SEL3, 0),
+	CDU_MUX(ADSP_SC594_CLK_CDU_LP, "cdu_lp",
+		SC5XX_PARENT_DATA(sc594_cdu_lp_parents), CDU_CLKO8, CDU_CLKO_SEL4, 0),
+	CDU_MUX(ADSP_SC594_CLK_CDU_LPDDR, "cdu_lpddr",
+		SC5XX_PARENT_DATA(sc594_cdu_lpddr_parents), CDU_CLKO9, CDU_CLKO_SEL4, 0),
+	CDU_MUX(ADSP_SC594_CLK_CDU_TRACE, "cdu_trace",
+		SC5XX_PARENT_DATA(sc594_cdu_trace_parents), CDU_CLKO12, CDU_CLKO_SEL1, 0),
+	CDU_MUX(ADSP_SC594_CLK_CDU_OSPI_REFCLK, "cdu_ospi_refclk",
+		SC5XX_PARENT_DATA(sc594_cdu_ospi_refclk_parents), CDU_CLKO10, CDU_CLKO_SEL4, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0",
+		SC5XX_PARENT_DATA(sc594_cdu_sharc0_parents), CDU_CLKO0, CDU_CLKO_SEL1, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1",
+		SC5XX_PARENT_DATA(sc594_cdu_sharc1_parents), CDU_CLKO1, CDU_CLKO_SEL1, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_ARM, "cdu_arm",
+		SC5XX_PARENT_DATA(sc594_cdu_arm_parents), CDU_CLKO2, CDU_CLKO_SEL1, 0),
 };
 
 static const struct sc5xx_clk sc589_mux_clks[] = {
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_DDR, "cdu_ddr", sc589_cdu_ddr_parents, CDU_CLKO3, CDU_CLKO_SEL3, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_CAN, "cdu_can", sc589_cdu_can_parents, CDU_CLKO4, CDU_CLKO_SEL4, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_SPDIF, "cdu_spdif", sc589_cdu_spdif_parents, CDU_CLKO5, CDU_CLKO_SEL6, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_GIGE, "cdu_gige", sc589_cdu_gige_parents, CDU_CLKO7, CDU_CLKO_SEL6, 0),
-	CDU_MUX(ADSP_SC58X_CLK_CDU_LP, "cdu_lp", sc589_cdu_lp_parents, CDU_CLKO8, CDU_CLKO_SEL6, 0),
-	CDU_MUX(ADSP_SC58X_CLK_CDU_SDIO, "cdu_sdio", sc589_cdu_sdio_parents, CDU_CLKO9, CDU_CLKO_SEL6, 0),
-	CDU_MUX(ADSP_SC58X_CLK_CDU_RESERVED, "cdu_reserved", sc589_cdu_reserved_parents, CDU_CLKO6, CDU_CLKO_SEL3, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0", sc589_cdu_sharc0_parents, CDU_CLKO0, CDU_CLKO_SEL3, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1", sc589_cdu_sharc1_parents, CDU_CLKO1, CDU_CLKO_SEL3, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_ARM, "cdu_arm", sc589_cdu_arm_parents, CDU_CLKO2, CDU_CLKO_SEL3, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_DDR, "cdu_ddr",
+		SC5XX_PARENT_DATA(sc589_cdu_ddr_parents), CDU_CLKO3, CDU_CLKO_SEL3, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_CAN, "cdu_can",
+		SC5XX_PARENT_DATA(sc589_cdu_can_parents), CDU_CLKO4, CDU_CLKO_SEL4, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_SPDIF, "cdu_spdif",
+		SC5XX_PARENT_DATA(sc589_cdu_spdif_parents), CDU_CLKO5, CDU_CLKO_SEL6, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_GIGE, "cdu_gige",
+		SC5XX_PARENT_DATA(sc589_cdu_gige_parents), CDU_CLKO7, CDU_CLKO_SEL6, 0),
+	CDU_MUX(ADSP_SC58X_CLK_CDU_LP, "cdu_lp",
+		SC5XX_PARENT_DATA(sc589_cdu_lp_parents), CDU_CLKO8, CDU_CLKO_SEL6, 0),
+	CDU_MUX(ADSP_SC58X_CLK_CDU_SDIO, "cdu_sdio",
+		SC5XX_PARENT_DATA(sc589_cdu_sdio_parents), CDU_CLKO9, CDU_CLKO_SEL6, 0),
+	CDU_MUX(ADSP_SC58X_CLK_CDU_RESERVED, "cdu_reserved",
+		SC5XX_PARENT_DATA(sc589_cdu_reserved_parents), CDU_CLKO6, CDU_CLKO_SEL3, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0",
+		SC5XX_PARENT_DATA(sc589_cdu_sharc0_parents), CDU_CLKO0, CDU_CLKO_SEL3, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1",
+		SC5XX_PARENT_DATA(sc589_cdu_sharc1_parents), CDU_CLKO1, CDU_CLKO_SEL3, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_ARM, "cdu_arm",
+		SC5XX_PARENT_DATA(sc589_cdu_arm_parents), CDU_CLKO2, CDU_CLKO_SEL3, 0),
 };
 
-static const struct sc5xx_mux_clock sc573_mux_clks[] = {
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_DDR, "cdu_ddr", sc573_cdu_ddr_parents, CDU_CLKO3, CDU_CLKO_SEL3, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_CAN, "cdu_can", sc573_cdu_can_parents, CDU_CLKO4, CDU_CLKO_SEL6, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_SPDIF, "cdu_spdif", sc573_cdu_spdif_parents, CDU_CLKO5, CDU_CLKO_SEL6, 0),
-	CDU_MUX(ADSP_SC5XX_CLK_CDU_GIGE, "cdu_gige", sc573_cdu_gige_parents, CDU_CLKO7, CDU_CLKO_SEL6, 0),
-	CDU_MUX(ADSP_SC57X_CLK_CDU_SDIO, "cdu_sdio", sc573_cdu_sdio_parents, CDU_CLKO9, CDU_CLKO_SEL6, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0", sc573_cdu_sharc0_parents, CDU_CLKO0, CDU_CLKO_SEL3, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1", sc573_cdu_sharc1_parents, CDU_CLKO1, CDU_CLKO_SEL3, 0),
-	CDU_CMUX(ADSP_SC5XX_CLK_CDU_ARM, "cdu_arm", sc573_cdu_arm_parents, CDU_CLKO2, CDU_CLKO_SEL3, 0),
+static const struct sc5xx_clk sc573_mux_clks[] = {
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_DDR, "cdu_ddr",
+		SC5XX_PARENT_DATA(sc573_cdu_ddr_parents), CDU_CLKO3, CDU_CLKO_SEL3, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_CAN, "cdu_can",
+		SC5XX_PARENT_DATA(sc573_cdu_can_parents), CDU_CLKO4, CDU_CLKO_SEL6, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_SPDIF, "cdu_spdif",
+		SC5XX_PARENT_DATA(sc573_cdu_spdif_parents), CDU_CLKO5, CDU_CLKO_SEL6, 0),
+	CDU_MUX(ADSP_SC5XX_CLK_CDU_GIGE, "cdu_gige",
+		SC5XX_PARENT_DATA(sc573_cdu_gige_parents), CDU_CLKO7, CDU_CLKO_SEL6, 0),
+	CDU_MUX(ADSP_SC57X_CLK_CDU_SDIO, "cdu_sdio",
+		SC5XX_PARENT_DATA(sc573_cdu_sdio_parents), CDU_CLKO9, CDU_CLKO_SEL6, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC0, "cdu_sharc0",
+		SC5XX_PARENT_DATA(sc573_cdu_sharc0_parents), CDU_CLKO0, CDU_CLKO_SEL3, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_SHARC1, "cdu_sharc1",
+		SC5XX_PARENT_DATA(sc573_cdu_sharc1_parents), CDU_CLKO1, CDU_CLKO_SEL3, 0),
+	CDU_CMUX(ADSP_SC5XX_CLK_CDU_ARM, "cdu_arm",
+		SC5XX_PARENT_DATA(sc573_cdu_arm_parents), CDU_CLKO2, CDU_CLKO_SEL3, 0),
 };
 
 static struct clk_hw *sc5xx_register_one(struct device *dev, void __iomem *reg_base,
 			      		 struct clk_hw_onecell_data *clk_data,
 			      		 const struct sc5xx_clk *clk)
 {
+	
+	struct clk_parent_data parent_data = sc5xx_get_parent(clk, 
+
 	switch (clk->type) {
 	case SC5XX_CLK_CDU_MUX:
 		const struct sc5xx_cdu_mux *cdu_mux = &clk->cdu_mux;
