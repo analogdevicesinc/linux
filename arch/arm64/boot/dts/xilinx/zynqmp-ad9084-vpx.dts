@@ -181,7 +181,7 @@
 
 //TODO:PCW
 &gic {
-	num_cpus = <2>;
+	num_cpus = <4>;
 	num_interrupts = <96>;
 };
 
