@@ -1094,8 +1094,8 @@ static __maybe_unused int32_t __maybe_unused adi_adrv910x_Radio_ExtVco_PowerCont
 {
     ADI_NULL_PTR_RETURN(&device->common, powerControl);
     ADI_RANGE_CHECK(device, powerControl->extVcoBand, ADI_ADRV910X_EXTVCO_BAND1, ADI_ADRV910X_EXTVCO_BAND3);
-    ADI_RANGE_CHECK(device, powerControl->pll, ADI_ADRV910X_PLL_LO1, ADI_ADRV910X_PLL_LO2);
-    
+    ADI_RANGE_CHECK(device, powerControl->pll, ADI_ADRV910X_EXTPLL_VCO1, ADI_ADRV910X_EXTPLL_VCO2);
+
     ADI_API_RETURN(device);
 }
 
@@ -1173,7 +1173,7 @@ int32_t adi_adrv910x_Radio_ExtVco_PowerControl_Get(adi_adrv910x_Device_t *device
 
     offset += 4;
     powerControl->extVcoBand = (adi_adrv910x_ExtVCO_Band_e)armData[offset++];
-    powerControl->pll = (adi_adrv910x_Pll_e)armData[offset++];
+    powerControl->pll = (adi_adrv910x_ExtPllSel_e)armData[offset++];
 
     ADI_MUTEX_RELEASE(device);
     ADI_API_RETURN(device);
