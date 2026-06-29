@@ -38,6 +38,7 @@ static int32_t linux_log_write(void *devHalCfg, uint32_t log_level, const char *
 	struct adrv9002_hal_cfg *hal_cfg = devHalCfg;
 	struct device *dev = &hal_cfg->spi->dev;
 	struct va_format vaf;
+	va_list args;
 	char fmt[512] = { 0 };
 	const char * const log_level_char[] = {
 		[ADI_LOGLEVEL_TRACE] = "[TRACE]",
@@ -61,8 +62,9 @@ static int32_t linux_log_write(void *devHalCfg, uint32_t log_level, const char *
 	if (ret < 0)
 		return ADI_COMMON_ERR_API_FAIL;
 
+	va_copy(args, argp);
 	vaf.fmt = fmt;
-	vaf.va = &argp;
+	vaf.va = &args;
 
 	switch (log_level) {
 	case ADI_LOGLEVEL_TRACE:
@@ -82,6 +84,8 @@ static int32_t linux_log_write(void *devHalCfg, uint32_t log_level, const char *
 		dev_crit(dev, "%pV", &vaf);
 		break;
 	}
+
+	va_end(args);
 
 	return ADI_COMMON_ERR_OK;
 }
