@@ -347,6 +347,7 @@ config ARCH_SC59X_64
 	select GPIOLIB
 	select PINCTRL
 	select SERIAL_ADI_UART4
+	select ADI_ADSP_PINT
 	select SPI_ADI
 	select COUNTER
 	help
