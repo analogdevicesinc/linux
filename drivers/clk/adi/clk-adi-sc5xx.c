@@ -181,9 +181,9 @@ CLK_PARENT_IDS(vco_parent)		= { ADSP_SC5XX_CLK_CGU_VCO_OUT    };
 CLK_PARENT_IDS(oclk_gate_parent)	= { ADSP_SC5XX_CLK_CGU_OCLK_GATE  };
 CLK_PARENT_IDS(dclk_gate_parent)	= { ADSP_SC5XX_CLK_CGU_DCLK_GATE  };
 CLK_PARENT_IDS(sclk1_gate_parent)	= { ADSP_SC5XX_CLK_CGU_SCLK1_GATE };
-CLK_PARENT_IDS(3pll_df_parent)		= { ADSP_SC598_CLK_PLL2_DF_DIV    };
-CLK_PARENT_IDS(3pll_vco_parent) 	= { ADSP_SC598_CLK_PLL2_VCO_OUT   };
-CLK_PARENT_IDS(3pll_pllclk_parent)	= { ADSP_SC598_CLK_PLL2_PLLCLK    };
+CLK_PARENT_IDS(pll2_df_parent)		= { ADSP_SC598_CLK_PLL2_DF_DIV    };
+CLK_PARENT_IDS(pll2_vco_parent) 	= { ADSP_SC598_CLK_PLL2_VCO_OUT   };
+CLK_PARENT_IDS(pll2_pllclk_parent)	= { ADSP_SC598_CLK_PLL2_PLLCLK    };
 CLK_PARENT_IDS(s1selexen_parent)	= { ADSP_SC598_CLK_CGU_S1SELEXEN  };
 CLK_PARENT_IDS(s0selexen_parent)	= { ADSP_SC598_CLK_CGU_S0SELEXEN  };
 CLK_PARENT_IDS(s1sel_s1selex_parent) 	= { ADSP_SC5XX_CLK_CGU_S1SEL_DIV, ADSP_SC598_CLK_CGU_S1SELEX_DIV };
@@ -191,7 +191,8 @@ CLK_PARENT_IDS(s0sel_s0selex_parent)	= { ADSP_SC5XX_CLK_CGU_S0SEL_DIV, ADSP_SC59
 
 /* ADSP-SC5XX CLKINSEL mux for CGU1 and PLL3 */
 static const struct sc5xx_clk sc5xx_clkinsel_clks[] = {
-	CLKINSEL(ADSP_SC5XX_CLK_CDU_CLKINSEL, "cdu_clkinsel", SC5XX_PARENT_DATA(cdu_clkinsel_parents), 0),
+	CLKINSEL(ADSP_SC5XX_CLK_CDU_CLKINSEL, "cdu_clkinsel", 
+		SC5XX_PARENT_DATA(cdu_clkinsel_parents), 0),
 };
 
 /*----------------------*/
@@ -302,16 +303,16 @@ static const struct sc5xx_clk sc598_cgu1_clks[] = {
 		SC5XX_PARENT_IDS(sclk1_gate_parent), 1, 2),
 };
 
-/* ADSP-SC589 PLL2 clocks */
+/* ADSP-SC598 PLL2 clocks */
 static const struct sc5xx_clk sc598_pll2_clks[] = {
 	DIV(ADSP_SC598_CLK_PLL2_DF_DIV, "3pll_df",
-		SC5XX_PARENT_DATA(cgu1_parents), 3, 1, 0)
+		SC5XX_PARENT_DATA(cgu1_parents), 3, 1, 0),
 	PLL(ADSP_SC598_CLK_PLL2_VCO_OUT, "3pll_vco",
-		SC5XX_PARENT_IDS(3pll_df_parent), 4, 7, 1, true), 
+		SC5XX_PARENT_IDS(pll2_df_parent), 4, 7, 1, true), 
 	FFACTOR(ADSP_SC598_CLK_PLL2_PLLCLK, "3pll_pllclk",
-		SC5XX_PARENT_IDS(3pll_vco_parent), 1, 2),
+		SC5XX_PARENT_IDS(pll2_vco_parent), 1, 2),
 	DIV(ADSP_SC598_CLK_PLL2_DDIV, "3pll_ddiv",
-		SC5XX_PARENT_IDS(3pll_pllclk_parent), 12, 5, 0),
+		SC5XX_PARENT_IDS(pll2_pllclk_parent), 12, 5, 0),
 	MUX(ADSP_SC598_CLK_DDR, "ddr",
 		SC5XX_PARENT_DATA(pll2_ddr_parents), 2, 11, 1, 0),
 };
