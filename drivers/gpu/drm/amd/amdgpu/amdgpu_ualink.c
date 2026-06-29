@@ -1488,6 +1488,7 @@ static int amdgpu_ualink_unmap_npa_addr(struct amdgpu_device *adev,
 					struct amdgpu_bo *bo,
 					u64 npa_addr, u64 size)
 {
+	struct amdgpu_vm *vm = &adev->ualink.npa_vm;
 	uint64_t pte_value = adev->gmc.noretry_flags;
 	struct amdgpu_bo *bos[] = { bo };
 	struct dma_fence *fence = NULL;
@@ -1500,16 +1501,16 @@ static int amdgpu_ualink_unmap_npa_addr(struct amdgpu_device *adev,
 		return r;
 	}
 
-	r = amdgpu_vm_update_range(adev, &adev->ualink.npa_vm, false, false, true,
+	r = amdgpu_vm_update_range(adev, vm, false, false, true,
 				false, NULL, npa_addr, npa_addr + size - 1,
-				pte_value, 0, 0, NULL, NULL, &fence);
+				pte_value, 0, 0, NULL, NULL, &vm->last_update);
 	if (r) {
 		dev_err(adev->dev,
 			"Failed to unmap NPA addr (%llx) from NPA VM\n", npa_addr);
 		goto out;
 	}
 
-	r = amdgpu_vm_update_pdes(adev, &adev->ualink.npa_vm, false);
+	r = amdgpu_vm_update_pdes(adev, vm, false);
 	if (r) {
 		dev_err(adev->dev,
 			"Failed %d to update page directories during unmapping NPA: 0x%llx\n",
@@ -1517,12 +1518,16 @@ static int amdgpu_ualink_unmap_npa_addr(struct amdgpu_device *adev,
 		goto out;
 	}
 
+	fence = dma_fence_get(vm->last_update);
 	if (fence) {
 		r = dma_fence_wait(fence, false);
 		dma_fence_put(fence);
 		fence = NULL;
-		if (r)
+		if (r) {
+			dev_dbg(adev->dev,
+				"UNMAP-NPA: dma fence wait failed, error: %d\n", r);
 			goto out;
+		}
 	}
 
 	amdgpu_ualink_flush_tlb(adev, TLB_FLUSH_HEAVYWEIGHT);
@@ -2129,6 +2134,7 @@ static void amdgpu_ualink_send_tlb_shootdown(struct amdgpu_device *adev,
 static void amdgpu_ualink_unmap_all_npa_addr(struct amdgpu_device *adev,
 				struct amdgpu_ualink_exp_xa_node *exp_xa_node)
 {
+	struct amdgpu_vm *vm = &adev->ualink.npa_vm;
 	u32 addr_mode = adev->ualink.info->vpod.addr_mode;
 	struct amdgpu_ualink_importer_entry *imp_entry;
 	u64 pte_value = adev->gmc.noretry_flags;
@@ -2167,10 +2173,10 @@ static void amdgpu_ualink_unmap_all_npa_addr(struct amdgpu_device *adev,
 			npa_addr, exp_xa_node->handle.handle_hi, exp_xa_node->handle.handle_lo,
 			remote_acc_id, pte_value);
 
-		r = amdgpu_vm_update_range(adev, &adev->ualink.npa_vm, false,
+		r = amdgpu_vm_update_range(adev, vm, false,
 					   false, true, false, NULL, npa_addr,
 					   npa_addr + size - 1, pte_value, 0,
-					   0, NULL, NULL, &fence);
+					   0, NULL, NULL, &vm->last_update);
 
 		if (r)
 			dev_err(adev->dev,
@@ -2182,7 +2188,7 @@ static void amdgpu_ualink_unmap_all_npa_addr(struct amdgpu_device *adev,
 			break;
 	}
 
-	r = amdgpu_vm_update_pdes(adev, &adev->ualink.npa_vm, false);
+	r = amdgpu_vm_update_pdes(adev, vm, false);
 	if (r) {
 		dev_err(adev->dev,
 			"Failed %d to update page directories during all NPA addresses unmapping\n",
@@ -2191,6 +2197,7 @@ static void amdgpu_ualink_unmap_all_npa_addr(struct amdgpu_device *adev,
 		return;
 	}
 
+	fence = dma_fence_get(vm->last_update);
 	if (fence) {
 		r = dma_fence_wait(fence, false);
 		dma_fence_put(fence);
