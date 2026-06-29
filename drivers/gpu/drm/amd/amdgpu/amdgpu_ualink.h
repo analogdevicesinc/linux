@@ -375,10 +375,6 @@ void amdgpu_ualink_sw_fini(struct amdgpu_device *adev);
 
 int ualink_send_hello(struct amdgpu_device *adev, u32 remote_accel_id);
 
-int amdgpu_ualink_mgr_sw_init(struct amdgpu_device *adev);
-void amdgpu_ualink_mgr_sw_fini(struct amdgpu_device *adev);
-int amdgpu_ualink_mgr_hw_init(struct amdgpu_device *adev);
-int amdgpu_ualink_mgr_late_init(struct amdgpu_device *adev);
 
 int amdgpu_ualink_sysfs_init(struct amdgpu_device *adev);
 void amdgpu_ualink_sysfs_fini(struct amdgpu_device *adev);
@@ -391,4 +387,6 @@ int amdgpu_ualink_import_handle(struct drm_device *dev,
 				const struct amdgpu_ualink_handle *ualink_handle,
 				int *fd_out);
 void amdgpu_ualink_revoke_exported_memory(struct amdgpu_bo *bo);
+
+extern const struct amdgpu_ip_block_version ualink_v1_0_ip_block;
 #endif

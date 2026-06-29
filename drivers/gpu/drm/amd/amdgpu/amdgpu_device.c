@@ -2460,8 +2460,6 @@ static int amdgpu_device_ip_init(struct amdgpu_device *adev)
 		}
 	}
 
-	amdgpu_ualink_mgr_sw_init(adev);
-
 	if (amdgpu_sriov_vf(adev))
 		amdgpu_virt_init_data_exchange(adev);
 
@@ -2487,8 +2485,6 @@ static int amdgpu_device_ip_init(struct amdgpu_device *adev)
 	r = amdgpu_device_ip_hw_init_phase2(adev);
 	if (r)
 		goto init_failed;
-
-	amdgpu_ualink_mgr_hw_init(adev);
 
 	/*
 	 * retired pages will be loaded from eeprom and reserved here,
@@ -2773,8 +2769,6 @@ static int amdgpu_device_ip_late_init(struct amdgpu_device *adev)
 		adev->ip_blocks[i].status.late_initialized = true;
 	}
 
-	amdgpu_ualink_mgr_late_init(adev);
-
 	r = amdgpu_ras_late_init(adev);
 	if (r) {
 		dev_err(adev->dev, "amdgpu_ras_late_init failed %d", r);
@@ -2966,8 +2960,6 @@ static int amdgpu_device_ip_fini(struct amdgpu_device *adev)
 		amdgpu_xgmi_remove_device(adev);
 
 	amdgpu_amdkfd_device_fini_sw(adev);
-
-	amdgpu_ualink_mgr_sw_fini(adev);
 
 	for (i = adev->num_ip_blocks - 1; i >= 0; i--) {
 		if (!adev->ip_blocks[i].status.sw)

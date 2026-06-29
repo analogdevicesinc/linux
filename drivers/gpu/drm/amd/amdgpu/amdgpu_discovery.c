@@ -26,6 +26,7 @@
 
 #include "amdgpu.h"
 #include "amdgpu_discovery.h"
+#include "amdgpu_ualink.h"
 #include "soc15_hw_ip.h"
 #include "discovery.h"
 #include "amdgpu_ras.h"
@@ -3359,6 +3360,22 @@ static int amdgpu_discovery_set_isp_ip_blocks(struct amdgpu_device *adev)
 	return 0;
 }
 
+static int amdgpu_discovery_set_ualink_ip_blocks(struct amdgpu_device *adev)
+{
+	/* TODO: no dedicated IP discovery version for UALink yet; key off the
+	 * GC IP version for now.
+	 */
+	switch (amdgpu_ip_version(adev, GC_HWIP, 0)) {
+	case IP_VERSION(12, 1, 0):
+		amdgpu_device_ip_block_add(adev, &ualink_v1_0_ip_block);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 int amdgpu_discovery_set_ip_blocks(struct amdgpu_device *adev)
 {
 	int r;
@@ -4008,6 +4025,10 @@ int amdgpu_discovery_set_ip_blocks(struct amdgpu_device *adev)
 		return r;
 
 	r = amdgpu_discovery_set_isp_ip_blocks(adev);
+	if (r)
+		return r;
+
+	r = amdgpu_discovery_set_ualink_ip_blocks(adev);
 	if (r)
 		return r;
 	return 0;

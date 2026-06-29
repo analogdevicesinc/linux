@@ -80,17 +80,6 @@ static int amdgpu_ualink_drm_client_create(struct amdgpu_device *adev)
 	return 0;
 }
 
-static bool amdgpu_ualink_supported(struct amdgpu_device *adev)
-{
-	if (!amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_PSP))
-		return false;
-
-	if (amdgpu_ip_version(adev, MP0_HWIP, 0) != IP_VERSION(15, 0, 8))
-		return false;
-
-	return true;
-}
-
 static void amdgpu_ualink_object_fini(struct amdgpu_device *adev)
 {
 	if (!adev->ualink.info)
@@ -106,8 +95,9 @@ static void amdgpu_ualink_object_fini(struct amdgpu_device *adev)
 	adev->ualink.info = NULL;
 }
 
-int amdgpu_ualink_mgr_hw_init(struct amdgpu_device *adev)
+static int ualink_ip_hw_init(struct amdgpu_ip_block *ip_block)
 {
+	struct amdgpu_device *adev = ip_block->adev;
 	int r;
 
 	if (!adev->ualink.info)
@@ -142,8 +132,9 @@ disable:
 	return 0;
 }
 
-int amdgpu_ualink_mgr_late_init(struct amdgpu_device *adev)
+static int ualink_ip_late_init(struct amdgpu_ip_block *ip_block)
 {
+	struct amdgpu_device *adev = ip_block->adev;
 	int r;
 
 	if (adev->ualink.mgr_state != AMDGPU_UALINK_INIT_HW)
@@ -1059,17 +1050,15 @@ static const struct kobj_type ualink_station_config_ktype = {
 	.sysfs_ops = &kobj_sysfs_ops
 };
 
-int amdgpu_ualink_mgr_sw_init(struct amdgpu_device *adev)
+static int ualink_ip_sw_init(struct amdgpu_ip_block *ip_block)
 {
 	int r;
 
 	struct amdgpu_ualink_station_config *stations;
 	struct amdgpu_ualink_vpod_config *vpod_config;
 	struct amdgpu_ualink_ppod_setup *ppod_setup;
+	struct amdgpu_device *adev = ip_block->adev;
 	struct amdgpu_ualink_info *info;
-
-	if (!amdgpu_ualink_supported(adev))
-		return 0;
 
 	info = kzalloc(sizeof(*info), GFP_KERNEL);
 	ppod_setup = kzalloc(sizeof(*ppod_setup), GFP_KERNEL);
@@ -1113,9 +1102,10 @@ int amdgpu_ualink_mgr_sw_init(struct amdgpu_device *adev)
 	return 0;
 }
 
-void amdgpu_ualink_mgr_sw_fini(struct amdgpu_device *adev)
+static int ualink_ip_sw_fini(struct amdgpu_ip_block *ip_block)
 {
-	amdgpu_ualink_object_fini(adev);
+	amdgpu_ualink_object_fini(ip_block->adev);
+	return 0;
 }
 
 static int ualink_kobj_add(struct kobject *kobj, struct kobject *parent,
@@ -5599,4 +5589,20 @@ int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev)
 			      UALINK_IH_SOURCE_ID, &adev->ualink.irq);
 	return r;
 }
+
+const struct amd_ip_funcs ualink_ip_funcs = {
+	.name = "ualink",
+	.late_init = ualink_ip_late_init,
+	.sw_init = ualink_ip_sw_init,
+	.sw_fini = ualink_ip_sw_fini,
+	.hw_init = ualink_ip_hw_init,
+};
+
+const struct amdgpu_ip_block_version ualink_v1_0_ip_block = {
+	.type = AMD_IP_BLOCK_TYPE_UALINK,
+	.major = 1,
+	.minor = 0,
+	.rev = 0,
+	.funcs = &ualink_ip_funcs,
+};
 
