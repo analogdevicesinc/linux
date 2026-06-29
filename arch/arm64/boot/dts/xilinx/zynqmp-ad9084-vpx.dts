@@ -45,6 +45,30 @@
 		clock-frequency = <125000000>;
 	};
 
+	fclk0: fclk0 {
+		compatible = "xlnx,fclk";
+		clocks = <&zynqmp_clk 71>;
+		status = "okay";
+	};
+
+	fclk1: fclk1 {
+		compatible = "xlnx,fclk";
+		clocks = <&zynqmp_clk 72>;
+		status = "okay";
+	};
+
+	fclk2: fclk2 {
+		compatible = "xlnx,fclk";
+		clocks = <&zynqmp_clk 73>;
+		status = "okay";
+	};
+
+	fclk3: fclk3 {
+		compatible = "xlnx,fclk";
+		clocks = <&zynqmp_clk 74>;
+		status = "okay";
+	};
+
 	vu11p_fpga_mgr: fpga-mgr@93000000 {
 		compatible = "adi,fpga-16-selectmap";
 		reg = <0x0 0x93000000 0x0 0x10000>;
