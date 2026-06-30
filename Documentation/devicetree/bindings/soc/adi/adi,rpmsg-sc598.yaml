@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/soc/adi/adi,rpmsg-SC598.yaml#
+$id: http://devicetree.org/schemas/soc/adi/adi,rpmsg-sc598.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: Analog Devices RPMSG Driver for SC5XX processor family
@@ -18,7 +18,7 @@ description: |
 properties:
   compatible:
     enum:
-      - adi,rpmsg-SC598
+      - adi,rpmsg-sc598
 
   reg:
     maxItems: 1
@@ -112,7 +112,7 @@ examples:
     };
 
     core0-rpmsg@28240000 {
-      compatible = "adi,rpmsg-SC598";
+      compatible = "adi,rpmsg-sc598";
       reg = <0x28240000 0x1000>;
       core-id = <1>;
       adi,rcu = <&rcu>;
