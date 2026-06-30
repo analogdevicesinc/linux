@@ -576,7 +576,7 @@ static void adi_rpmsg_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id adi_rpmsg_dt_ids[] = {
-	{ .compatible = "adi,rpmsg-SC598", .data = (void *)SC598, },
+	{ .compatible = "adi,rpmsg-sc598", .data = (void *)SC598, },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, adi_rpmsg_dt_ids);
