@@ -102,7 +102,7 @@
 
 		sharc0_rpmsg: core0-rpmsg@28240000 {
 				status = "disabled";
-				compatible = "adi,rpmsg-SC598";
+				compatible = "adi,rpmsg-sc598";
 				core-id = <1>;
 				adi,rcu = <&rcu>;
 				adi,check-idle;
@@ -116,7 +116,7 @@
 
 		sharc1_rpmsg: core1-rpmsg@28a40000 {
 				status = "disabled";
-				compatible = "adi,rpmsg-SC598";
+				compatible = "adi,rpmsg-sc598";
 				core-id = <2>;
 				adi,rcu = <&rcu>;
 				adi,check-idle;
