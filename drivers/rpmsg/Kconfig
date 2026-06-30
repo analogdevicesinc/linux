@@ -87,5 +87,6 @@ config RPMSG_ADI
 	depends on HAS_DMA
 	select ADI_MACH_SC5XX
 	select RPMSG
+	select RPMSG_VIRTIO
 
 endmenu
