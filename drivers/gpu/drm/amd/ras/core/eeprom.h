@@ -134,6 +134,8 @@ struct ras_eeprom_control {
 	/* Record channel info which occurred bad pages
 	 */
 	u32 bad_channel_bitmap;
+
+	bool ras_tbl_status_ok;
 };
 
 /*

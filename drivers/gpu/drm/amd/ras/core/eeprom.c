@@ -153,6 +153,8 @@
 
 #define to_ras_core_context(x) (container_of(x, struct ras_core_context, eeprom_mgr))
 
+static int __check_ras_table(struct ras_core_context *ras_core,
+			struct ras_eeprom_control *control);
 
 static bool __get_eeprom_i2c_addr(struct ras_core_context *ras_core,
 				  struct ras_eeprom_control *control)
@@ -801,6 +803,9 @@ static int ras_eeprom_append(struct ras_core_context *ras_core,
 
 	mutex_unlock(&control->ras_tbl_mutex);
 
+	if (!res)
+		res = __check_ras_table(ras_core, control);
+
 	return res;
 }
 
@@ -1123,6 +1128,7 @@ static int ras_eeprom_hw_init(struct ras_core_context *ras_core,
 		struct ras_eeprom_param *param)
 {
 	struct ras_eeprom_control *control = ras_core->eeprom_mgr.ras_eeprom;
+	int ret;
 
 	if (!control)
 		return -EINVAL;
@@ -1133,7 +1139,15 @@ static int ras_eeprom_hw_init(struct ras_core_context *ras_core,
 	control->i2c_port = param->eeprom_i2c_port;
 	control->i2c_address = param->eeprom_i2c_addr;
 
-	return __ras_table_init(ras_core);
+	ret = __ras_table_init(ras_core);
+	if (ret)
+		return ret;
+
+	ret = __check_ras_table(ras_core, control);
+	if (ret)
+		RAS_DEV_WARN(ras_core->dev, "Invalid eeprom ras table! ret: %d\n", ret);
+
+	return 0;
 }
 
 static int ras_eeprom_hw_fini(struct ras_core_context *ras_core)
@@ -1167,10 +1181,19 @@ static int __check_ras_table(struct ras_core_context *ras_core,
 
 	mutex_lock(&control->ras_tbl_mutex);
 	res = __verify_ras_table_checksum(control);
+	/* Update RAS table status only after an actual table
+	 * validation has been performed.
+	 */
+	if (res >= 0)
+		control->ras_tbl_status_ok = res ? false : true;
 	mutex_unlock(&control->ras_tbl_mutex);
-	if (res)
+	if (res) {
 		RAS_DEV_ERR(ras_core->dev,
-			"RAS table checksum is incorrect! ret: %d\n", res);
+			"RAS table validation failed! ret: %d\n", res);
+
+		if (res > 0)
+			res = -EFAULT;
+	}
 
 	return res;
 }
@@ -1185,7 +1208,7 @@ static void __get_eeprom_status(struct ras_core_context *ras_core,
 		return;
 
 	hdr = &control->tbl_hdr;
-	if (!fast_mode && __check_ras_table(ras_core, control))
+	if (!control->ras_tbl_status_ok)
 		*status = RAS_EEPROM_FAULT;
 	else if (hdr->header == RAS_TABLE_HDR_VAL)
 		*status = RAS_EEPROM_OK;
