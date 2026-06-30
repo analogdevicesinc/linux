@@ -5354,8 +5354,6 @@ void intel_ddi_init(struct intel_display *display,
 		else
 			encoder->get_config = mtl_ddi_non_tc_phy_get_config;
 	} else if (display->platform.dg2) {
-		encoder->enable_clock = intel_mpllb_enable;
-		encoder->disable_clock = intel_mpllb_disable;
 		encoder->get_config = dg2_ddi_get_config;
 	} else if (display->platform.alderlake_s) {
 		encoder->enable_clock = adls_ddi_enable_clock;

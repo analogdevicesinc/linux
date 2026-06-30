@@ -4933,7 +4933,6 @@ static bool dg2_compare_hw_state(const struct intel_dpll_hw_state *_a,
 		a->mpllb_sscstep == b->mpllb_sscstep;
 }
 
-__maybe_unused
 static const struct intel_dpll_mgr dg2_pll_mgr = {
 	.dpll_info = dg2_plls,
 	.compute_dplls = dg2_compute_dplls,
@@ -4960,8 +4959,7 @@ void intel_dpll_init(struct intel_display *display)
 	mutex_init(&display->dpll.lock);
 
 	if (display->platform.dg2)
-		/* No shared DPLLs on DG2; port PLLs are part of the PHY */
-		dpll_mgr = NULL;
+		dpll_mgr = &dg2_pll_mgr;
 	else if (DISPLAY_VER(display) >= 35)
 		dpll_mgr = &xe3plpd_pll_mgr;
 	else if (DISPLAY_VER(display) >= 14)
@@ -5330,8 +5328,13 @@ verify_single_dpll_state(struct intel_display *display,
 
 	if (pll->on) {
 		const struct intel_dpll_mgr *dpll_mgr = display->dpll.mgr;
-
-		if (HAS_LT_PHY(display))
+		/*
+		 * Avoid direct struct comparison here. Some hw state fields, such
+		 * as DG2 MPLLB ref_control or LT PHY config[1], are written by
+		 * firmware and may differ from the software state without indicating
+		 * a real mismatch.
+		 */
+		if (HAS_LT_PHY(display) || display->platform.dg2)
 			pll_mismatch = !dpll_mgr->compare_hw_state(&pll->state.hw_state,
 								   &dpll_hw_state);
 		else
