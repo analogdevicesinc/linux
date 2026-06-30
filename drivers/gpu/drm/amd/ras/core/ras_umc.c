@@ -177,19 +177,61 @@ int ras_umc_clear_logged_ecc(struct ras_core_context *ras_core)
 	return 0;
 }
 
+static int ras_umc_expand_row_pages(struct ras_core_context *ras_core,
+	struct eeprom_umc_record *record, uint64_t *page_pfns, uint32_t nr_page_pfns)
+{
+	uint64_t retired_addr = RAS_PFN_TO_ADDR(record->cur_nps_retired_row_pfn);
+	uint64_t flip_mask = record->cur_nps_pa_flip_mask;
+	uint64_t subset;
+	uint64_t row_pa, addr;
+	uint32_t count = 0;
+
+	if (!retired_addr || !flip_mask || !page_pfns || !nr_page_pfns)
+		return -ENOEXEC;
+
+	row_pa = retired_addr & ~(flip_mask);
+
+	if (count < nr_page_pfns)
+		page_pfns[count++] = RAS_ADDR_TO_PFN(row_pa);
+
+	subset = flip_mask;
+	while (subset) {
+		addr = row_pa ^ subset;
+
+		if (count >= nr_page_pfns)
+			break;
+
+		page_pfns[count++] = RAS_ADDR_TO_PFN(addr);
+
+		subset = (subset - 1) & flip_mask;
+	};
+
+	return count;
+}
+
 int ras_umc_convert_record_to_nps_pages(struct ras_core_context *ras_core,
 		struct eeprom_umc_record *record, uint32_t nps,
-		uint64_t *page_pfn, uint32_t max_pages)
+		uint64_t *page_pfns, uint32_t nr_page_pfns)
 {
-	int count = 0;
-	struct ras_umc *ras_umc = &ras_core->ras_umc;
+	uint32_t new_nps;
+	int ret, count = 0;
 
-	if (!page_pfn || !max_pages)
+	if (!page_pfns || !nr_page_pfns || !record ||
+	    (record->cur_nps > UMC_MEMORY_PARTITION_MODE_NPS8))
 		return -EINVAL;
 
-	if (ras_umc->ip_func && ras_umc->ip_func->eeprom_record_to_nps_pages)
-		count = ras_umc->ip_func->eeprom_record_to_nps_pages(ras_core,
-					record, nps, page_pfn, max_pages);
+	if (!record->cur_nps || !record->cur_nps_retired_row_pfn ||
+	    !record->cur_nps_pa_flip_mask) {
+		new_nps = record->cur_nps ?
+			record->cur_nps : ras_core_get_curr_nps_mode(ras_core);
+		ret = ras_umc_record_to_nps_record(ras_core, record, new_nps);
+		if (ret)
+			return ret;
+	}
+
+	count = ras_umc_expand_row_pages(ras_core, record, page_pfns, nr_page_pfns);
+	if (count > 0)
+		record->cur_nps_valid_page_num = count;
 
 	return count;
 }
@@ -497,7 +539,7 @@ static bool ras_umc_check_retired_record(struct ras_core_context *ras_core,
 	int ret;
 
 	nps = ras_core_get_curr_nps_mode(ras_core);
-	ret = ras_umc_eeprom_rec2nps_rec(ras_core, record, nps);
+	ret = ras_umc_record_to_nps_record(ras_core, record, nps);
 	if (ret) {
 		RAS_DEV_ERR(ras_core->dev, "Failed to translate nps record! ret:%d\n", ret);
 		return true;
@@ -996,11 +1038,28 @@ int ras_umc_bank_to_umc_record(struct ras_core_context *ras_core,
 int ras_umc_record_to_nps_record(struct ras_core_context *ras_core,
 		struct eeprom_umc_record *record,  uint32_t nps)
 {
+	struct ras_umc *ras_umc = &ras_core->ras_umc;
+	uint64_t ch_idx_v2;
+	uint32_t save_nps;
+
 	if (!record || !nps ||
 		(nps >= UMC_MEMORY_PARTITION_MODE_UNKNOWN))
 		return -EINVAL;
 
-	return ras_umc_eeprom_rec2nps_rec(ras_core, record, nps);
+	/* Avoid redundant conversion for the same NPS mode */
+	if ((record->cur_nps == nps) && record->cur_nps_retired_row_pfn &&
+	    record->cur_nps_pa_flip_mask)
+		return 0;
+
+	save_nps = EEPROM_RECORD_UMC_NPS_MODE(record);
+	ch_idx_v2 = record->retired_row_pfn & UMC_CHANNEL_IDX_V2;
+	if (!save_nps && !ch_idx_v2)
+		return ras_umc_eeprom_rec2nps_rec(ras_core, record, nps);
+
+	if (!ras_umc->ip_func || !ras_umc->ip_func->eeprom_record_to_nps_record)
+		return -EOPNOTSUPP;
+
+	return ras_umc->ip_func->eeprom_record_to_nps_record(ras_core, record, nps);
 }
 
 int ras_umc_dump_fw_records(struct ras_core_context *ras_core)

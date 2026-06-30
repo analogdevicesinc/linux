@@ -167,6 +167,7 @@ struct eeprom_umc_record {
 	 * used with cur_nps_retired_row_pfn to derive all bad page addresses
 	 */
 	uint64_t cur_nps_pa_flip_mask;
+	uint32_t cur_nps_valid_page_num;
 	uint32_t cur_nps_bank;
 	uint32_t cur_nps;
 	uint64_t ipid;

@@ -128,9 +128,6 @@ struct umc_bank_addr {
 struct ras_umc_ip_func {
 	int (*bank_to_eeprom_record)(struct ras_core_context *ras_core,
 			struct ras_bank_ecc *bank, struct eeprom_umc_record *record);
-	int (*eeprom_record_to_nps_pages)(struct ras_core_context *ras_core,
-			struct eeprom_umc_record *record, uint32_t nps,
-			uint64_t *pfns, uint32_t num);
 	int (*eeprom_record_to_nps_record)(struct ras_core_context *ras_core,
 			struct eeprom_umc_record *record, uint32_t nps);
 	int (*bank_to_soc_pa)(struct ras_core_context *ras_core,

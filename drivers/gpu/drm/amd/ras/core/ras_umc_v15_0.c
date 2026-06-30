@@ -33,27 +33,19 @@ static void __get_nps_pa_flip_bits(struct ras_core_context *ras_core,
 
 }
 
-static uint64_t  convert_nps_pa_to_row_pa(struct ras_core_context *ras_core,
-	struct umc_phy_addr *pa, enum umc_memory_partition_mode nps, bool zero_pfn_ok)
+static uint64_t  __get_nps_pa_flip_mask(struct ras_core_context *ras_core,
+		enum umc_memory_partition_mode nps)
 {
 	struct umc_flip_bits flip_bits = {0};
-	uint64_t row_pa;
+	uint64_t flip_mask = 0;
 	int i;
-
-	if (pa->pa_flip_mask)
-		return zero_pfn_ok ? (pa->pa & ~pa->pa_flip_mask) : pa->pa;
 
 	__get_nps_pa_flip_bits(ras_core, nps, &flip_bits);
 
-	row_pa = pa->pa;
-	/* clear loop bits in soc physical address */
 	for (i = 0; i < flip_bits.bit_num; i++)
-		row_pa &= ~BIT_ULL(flip_bits.flip_bits_in_pa[i]);
+		flip_mask |= BIT_ULL(flip_bits.flip_bits_in_pa[i]);
 
-	if (!zero_pfn_ok && !RAS_ADDR_TO_PFN(row_pa))
-		row_pa |= BIT_ULL(flip_bits.flip_bits_in_pa[2]);
-
-	return row_pa;
+	return flip_mask;
 }
 
 static int lookup_bad_pages_in_a_row(struct ras_core_context *ras_core,
@@ -113,9 +105,8 @@ static int convert_bank_to_nps_addr(struct ras_core_context *ras_core,
 
 	ret = convert_ma_to_pa(ras_core, &addr_in, &addr_out, nps);
 	if (!ret) {
-		pa_addr->pa =
-			convert_nps_pa_to_row_pa(ras_core, &addr_out, nps, false);
 		pa_addr->pa_flip_mask = addr_out.pa_flip_mask;
+		pa_addr->pa = addr_out.pa | pa_addr->pa_flip_mask;
 		pa_addr->channel_idx = addr_out.channel_idx;
 		pa_addr->bank = addr_out.bank;
 	}
@@ -153,7 +144,7 @@ static int umc_v15_0_bank_to_eeprom_record(struct ras_core_context *ras_core,
 }
 
 static int convert_eeprom_record_to_nps_addr(struct ras_core_context *ras_core,
-			struct eeprom_umc_record *record, uint64_t *pa, uint32_t nps)
+	struct eeprom_umc_record *record, uint64_t *pa, uint64_t *pa_flip_mask, uint32_t nps)
 {
 	struct device_system_info dev_info = {0};
 	struct umc_mca_addr addr_in;
@@ -175,7 +166,8 @@ static int convert_eeprom_record_to_nps_addr(struct ras_core_context *ras_core,
 	if (ret)
 		return ret;
 
-	*pa = convert_nps_pa_to_row_pa(ras_core, &addr_out, nps, false);
+	*pa_flip_mask = addr_out.pa_flip_mask;
+	*pa = addr_out.pa | addr_out.pa_flip_mask;
 
 	return 0;
 }
@@ -183,29 +175,27 @@ static int convert_eeprom_record_to_nps_addr(struct ras_core_context *ras_core,
 static int umc_v15_0_eeprom_record_to_nps_record(struct ras_core_context *ras_core,
 				struct eeprom_umc_record *record, uint32_t nps)
 {
-	uint64_t pa = 0;
+	uint64_t pa = 0, flip_mask = 0;
+	uint64_t row_pfn;
 	int ret = 0;
 
 	if (nps == EEPROM_RECORD_UMC_NPS_MODE(record)) {
-		record->cur_nps_retired_row_pfn = EEPROM_RECORD_UMC_ADDR_PFN(record);
+		record->cur_nps_pa_flip_mask = __get_nps_pa_flip_mask(ras_core, nps);
+		row_pfn = EEPROM_RECORD_UMC_ADDR_PFN(record);
+		record->cur_nps_retired_row_pfn =
+			RAS_ADDR_TO_PFN(RAS_PFN_TO_ADDR(row_pfn) | record->cur_nps_pa_flip_mask);
 	} else {
 		ret = convert_eeprom_record_to_nps_addr(ras_core,
-				record, &pa, nps);
-		if (!ret)
+				record, &pa, &flip_mask, nps);
+		if (!ret) {
 			record->cur_nps_retired_row_pfn = RAS_ADDR_TO_PFN(pa);
+			record->cur_nps_pa_flip_mask = flip_mask;
+		}
 	}
 
 	record->cur_nps = nps;
 
 	return ret;
-}
-
-static int umc_v15_0_eeprom_record_to_nps_pages(struct ras_core_context *ras_core,
-			struct eeprom_umc_record *record, uint32_t nps,
-			uint64_t *pfns, uint32_t num)
-{
-	return lookup_bad_pages_in_a_row(ras_core,
-				record, nps, pfns, num, 0, false);
 }
 
 static int umc_v15_0_soc_pa_to_bank(struct ras_core_context *ras_core,
@@ -225,7 +215,6 @@ static int umc_v15_0_bank_to_soc_pa(struct ras_core_context *ras_core,
 const struct ras_umc_ip_func ras_umc_func_v15_0 = {
 	.bank_to_eeprom_record = umc_v15_0_bank_to_eeprom_record,
 	.eeprom_record_to_nps_record = umc_v15_0_eeprom_record_to_nps_record,
-	.eeprom_record_to_nps_pages = umc_v15_0_eeprom_record_to_nps_pages,
 	.bank_to_soc_pa = umc_v15_0_bank_to_soc_pa,
 	.soc_pa_to_bank = umc_v15_0_soc_pa_to_bank,
 };
