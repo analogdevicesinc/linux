@@ -17,7 +17,6 @@ menuconfig ARCH_SC5XX
 	select IRQ_DOMAIN
 	select SPARSE_IRQ
 	select GENERIC_CLOCKEVENTS
-	select PINCTRL_ADSP_SC5XX
 
 config ARCH_SC59X
 	bool "ADI SC59x SoCs (Cortex-A5-based)"
