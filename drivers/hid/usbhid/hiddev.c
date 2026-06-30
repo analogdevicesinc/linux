@@ -903,6 +903,8 @@ int hiddev_connect(struct hid_device *hid, unsigned int force)
 	hid->hiddev = hiddev;
 	hiddev->hid = hid;
 	hiddev->exist = 1;
+	/* Honor NO_INIT_REPORTS before the character device becomes visible. */
+	hiddev->initialized = hid->quirks & HID_QUIRK_NO_INIT_REPORTS;
 	retval = usb_register_dev(usbhid->intf, &hiddev_class);
 	if (retval) {
 		hid_err(hid, "Not able to get a minor for this device\n");
@@ -910,12 +912,6 @@ int hiddev_connect(struct hid_device *hid, unsigned int force)
 		kfree(hiddev);
 		return retval;
 	}
-
-	/*
-	 * If HID_QUIRK_NO_INIT_REPORTS is set, make sure we don't initialize
-	 * the reports.
-	 */
-	hiddev->initialized = hid->quirks & HID_QUIRK_NO_INIT_REPORTS;
 
 	hiddev->minor = usbhid->intf->minor;
 
