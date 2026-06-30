@@ -188,6 +188,8 @@ struct ras_umc {
 
 	u32 last_record_count;
 	u64 last_channel_bitmap;
+
+	u32 max_pages_per_row;
 };
 
 /*
@@ -227,9 +229,8 @@ int ras_umc_get_badpage_record(struct ras_core_context *ras_core, uint32_t index
 bool ras_umc_check_retired_addr(struct ras_core_context *ras_core, uint64_t addr);
 int ras_umc_translate_soc_pa_and_bank(struct ras_core_context *ras_core,
 			uint64_t *soc_pa, struct umc_bank_addr *bank_addr, bool bank_to_pa);
-int ras_umc_convert_record_to_nps_pages(struct ras_core_context *ras_core,
-		struct eeprom_umc_record *record, uint32_t nps,
-		uint64_t *page_pfn, uint32_t max_pages);
+int ras_umc_convert_record_to_row_pages(struct ras_core_context *ras_core,
+	struct eeprom_umc_record *record, uint64_t *page_addrs, uint32_t nr_page_addrs);
 uint32_t ras_umc_bit_wise_xor(uint32_t val);
 int ras_umc_ma2pa(struct ras_core_context *ras_core,
 	struct umc_mca_addr *addr_in, struct umc_phy_addr *addr_out,
@@ -240,4 +241,8 @@ int ras_umc_record_to_nps_record(struct ras_core_context *ras_core,
 		struct eeprom_umc_record *record,  uint32_t nps);
 int ras_umc_dump_fw_records(struct ras_core_context *ras_core);
 void ras_umc_report_badpage_info(struct ras_core_context *ras_core);
+int ras_umc_alloc_row_pages(struct ras_core_context *ras_core,
+		uint64_t **page_pfns, uint32_t *nr_page_pfns);
+int ras_umc_free_row_pages(struct ras_core_context *ras_core,
+		uint64_t *page_pfns);
 #endif

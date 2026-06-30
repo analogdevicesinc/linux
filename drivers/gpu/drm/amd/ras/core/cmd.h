@@ -452,7 +452,7 @@ struct ras_cmd_convert_retired_address_req {
 	uint32_t reserved[6];
 };
 
-#define RAS_CMD_MAX_RETIRED_ADDR_COUNT  32
+#define RAS_CMD_MAX_RETIRED_ADDR_COUNT  128
 struct ras_cmd_convert_retired_address_rsp {
 	uint32_t version;
 	uint32_t retired_count;

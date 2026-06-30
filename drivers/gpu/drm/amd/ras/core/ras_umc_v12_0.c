@@ -475,6 +475,9 @@ static int umc_v12_0_eeprom_record_to_nps_record(struct ras_core_context *ras_co
 	uint64_t row_pfn;
 	int ret = 0;
 
+	if (!record || !nps)
+		return -EINVAL;
+
 	if (nps == EEPROM_RECORD_UMC_NPS_MODE(record)) {
 		record->cur_nps_pa_flip_mask = __get_nps_pa_flip_mask(ras_core, nps);
 		row_pfn = EEPROM_RECORD_UMC_ADDR_PFN(record);

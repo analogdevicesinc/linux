@@ -716,23 +716,14 @@ int ras_core_convert_soc_pa_to_cur_nps_pages(struct ras_core_context *ras_core,
 		uint64_t soc_pa, uint64_t *page_pfn, uint32_t max_pages)
 {
 	struct eeprom_umc_record record;
-	uint32_t cur_nps_mode;
-	int count = 0;
 
 	if (!ras_core || !page_pfn || !max_pages)
-		return -EINVAL;
-
-	cur_nps_mode = ras_core_get_curr_nps_mode(ras_core);
-	if (!cur_nps_mode || cur_nps_mode > UMC_MEMORY_PARTITION_MODE_NPS8)
 		return -EINVAL;
 
 	memset(&record, 0, sizeof(record));
 	record.cur_nps_retired_row_pfn = RAS_ADDR_TO_PFN(soc_pa);
 
-	count = ras_umc_convert_record_to_nps_pages(ras_core,
-				&record, cur_nps_mode, page_pfn, max_pages);
-
-	return count;
+	return ras_umc_convert_record_to_row_pages(ras_core, &record, page_pfn, max_pages);
 }
 
 int ras_core_check_address_sanity(struct ras_core_context *ras_core,
