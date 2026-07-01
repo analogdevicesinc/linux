@@ -72,19 +72,6 @@ static int csi_set_link_cfg(struct icvs *ctx, u64 link_freq)
  * Streaming
  */
 
-/**
- * cvs_csi_enable_streams - Start streaming through the bridge
- * @sd: Sub-device pointer
- * @state: Active state
- * @pad: Pad identifier (must be ICVS_CSI_PAD_SOURCE)
- * @streams_mask: Streams to enable (bit 0 supported)
- *
- * Runtime-resumes the bridge (triggering cvs_runtime_resume() to claim CSI-2
- * link ownership), fetches the link frequency, programs the MIPI configuration,
- * and forwards the enable request downstream.
- *
- * Return: 0 on success or negative errno.
- */
 static int cvs_csi_enable_streams(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_state *state,
 				  u32 pad, u64 streams_mask)
@@ -130,19 +117,6 @@ err_rpm_put:
 	return ret;
 }
 
-/**
- * cvs_csi_disable_streams - Stop streaming through the bridge
- * @sd: Sub-device pointer
- * @state: Active state
- * @pad: Pad identifier (must be ICVS_CSI_PAD_SOURCE)
- * @streams_mask: Streams to disable (bit 0 supported)
- *
- * Disables the remote sensor stream then drops the PM reference acquired
- * during enable. After the autosuspend delay, cvs_runtime_suspend() will
- * return CSI-2 link ownership to CVS firmware.
- *
- * Return: 0 on success or negative errno.
- */
 static int cvs_csi_disable_streams(struct v4l2_subdev *sd,
 				   struct v4l2_subdev_state *state,
 				   u32 pad, u64 streams_mask)
@@ -168,15 +142,6 @@ static int cvs_csi_disable_streams(struct v4l2_subdev *sd,
 /*
  * Pad operations / formats
  */
-/**
- * cvs_csi_init_state - Initialize pad formats in subdev state
- * @sd: Sub-device
- * @state: State container
- *
- * Sets all pad formats to a minimal 1x1 default.
- *
- * Return: 0.
- */
 static int cvs_csi_init_state(struct v4l2_subdev *sd,
 			      struct v4l2_subdev_state *state)
 {
@@ -187,17 +152,6 @@ static int cvs_csi_init_state(struct v4l2_subdev *sd,
 	return 0;
 }
 
-/**
- * cvs_csi_set_fmt - Negotiate pad format
- * @sd: Sub-device
- * @state: State
- * @format: Desired / returned format
- *
- * Mirrors sink format onto source pad. Accepts many media bus codes, falling
- * back to Y8 if unsupported. Normalizes field setting.
- *
- * Return: 0.
- */
 static int cvs_csi_set_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_state *state,
 			   struct v4l2_subdev_format *format)
@@ -320,17 +274,6 @@ static int cvs_csi_set_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-/**
- * cvs_csi_get_mbus_config - Provide current CSI-2 bus configuration
- * @sd: Sub-device
- * @pad: Pad index
- * @cfg: Returned bus config
- *
- * Fills lane ordering and number of lanes; retrieves link frequency from
- * remote entity.
- *
- * Return: 0 on success or negative errno.
- */
 static int cvs_csi_get_mbus_config(struct v4l2_subdev *sd, unsigned int pad,
 				   struct v4l2_mbus_config *cfg)
 {
@@ -385,17 +328,6 @@ static const struct media_entity_operations cvs_csi_entity_ops = {
 /*
  * Async notifier
  */
-/**
- * cvs_csi_notify_bound - Remote sensor bound callback
- * @notifier: Async notifier
- * @sd: Remote subdev
- * @asc: Async match connection
- *
- * Locates the source pad of the remote sensor and creates a media link to
- * the CVS bridge sink pad enabling it by default.
- *
- * Return: 0 on success or negative errno.
- */
 static int cvs_csi_notify_bound(struct v4l2_async_notifier *notifier,
 				struct v4l2_subdev *sd,
 				struct v4l2_async_connection *asc)
@@ -419,12 +351,6 @@ static int cvs_csi_notify_bound(struct v4l2_async_notifier *notifier,
 	return v4l2_device_register_subdev_nodes(sd->v4l2_dev);
 }
 
-/**
- * cvs_csi_notify_unbind - Remote sensor unbind callback
- * @notifier: Notifier
- * @sd: Remote subdev
- * @asc: Connection
- */
 static void cvs_csi_notify_unbind(struct v4l2_async_notifier *notifier,
 				  struct v4l2_subdev *sd,
 				  struct v4l2_async_connection *asc)
@@ -441,14 +367,6 @@ static const struct v4l2_async_notifier_operations cvs_csi_notify_ops = {
 
 /*
  * Controls
- */
-/**
- * cvs_csi_init_controls - Initialize V4L2 controls
- * @ctx: CVS context
- *
- * Currently sets up a read-only privacy control placeholder.
- *
- * Return: 0 on success or negative errno.
  */
 static int cvs_csi_init_controls(struct icvs *ctx)
 {
