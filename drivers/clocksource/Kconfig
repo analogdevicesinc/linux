@@ -785,11 +785,11 @@ config NXP_STM_TIMER
 
 config ADI_ADSP_TIMER
 	bool "ADI ADSP SC5xx timer driver"
-	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
+	depends on ARCH_SC84X || ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
 	select TIMER_OF
 	select COUNTER
 	help
 	  Enables support for the timer found on Analog Devices ADSP-SC5xx
-	  SoCs (SC573, SC582, SC583, SC584, SC587, SC589, SC594, SC598).
+	  SoCs (SC573, SC582, SC583, SC584, SC587, SC589, SC594, SC598, SC846).
 
 endmenu
