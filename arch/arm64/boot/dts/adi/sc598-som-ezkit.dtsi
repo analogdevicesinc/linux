@@ -19,6 +19,12 @@
 	};
 };
 
+&gpa {
+	gpio-line-names =
+		"", "", "", "", "", "", "", "",
+		"", "", "", "", "", "boot-trace";
+};
+
 &ospi {
 	pinctrl-names = "default";
 	pinctrl-0 = <&ospi_default>;
