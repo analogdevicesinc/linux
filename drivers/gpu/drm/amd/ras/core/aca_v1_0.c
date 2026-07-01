@@ -176,7 +176,7 @@ static bool aca_match_mmhub_bank(struct aca_block *aca_blk, void *data)
 
 static bool aca_check_umc_de(struct ras_core_context *ras_core, uint64_t mc_umc_status)
 {
-	return (ras_core->poison_supported &&
+	return (ras_core_poison_supported(ras_core) &&
 		    ACA_REG_STATUS_VAL(mc_umc_status) &&
 		    ACA_REG_STATUS_DEFERRED(mc_umc_status));
 }
