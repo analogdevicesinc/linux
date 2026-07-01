@@ -105,7 +105,7 @@ config ALPINE_MSI
 config ADI_ADSP_IRQ
 	bool "ADI PORT PINT Driver"
 	depends on OF
-	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
+	depends on ARCH_SC84X || ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
 	select IRQ_DOMAIN
 	help
 	  Say Y to enable the PORT-based PINT interrupt controller for
