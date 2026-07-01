@@ -124,17 +124,26 @@
 			clocks = <&pwm_clk>;
 		};
 
-{% for i in range(num_cameras) %}
-		v_frmbuf_wr_{{i}}: v_frmbuf_wr@{{frmbuf_addrs[i] | hex_remove_0x}} {
+		{#
+		   Single frame-buffer + single vcap port regardless of camera count.
+		   The ADRD8012 FPGA has no axis_switch to fan the one MIPI CSI-2 RX
+		   output out to per-VC DMA channels, so only one local capture path
+		   exists. Multi-camera streams (VC0, VC1, ...) are split downstream by
+		   the per-camera RTP engines in the fabric, not by extra vcap ports.
+		   Looping vcap ports would leave the single mipi_csirx_out endpoint
+		   with a non-reciprocal (dangling) link and the xilinx-vipp async
+		   notifier would refuse to register /dev/media0.
+		#}
+		v_frmbuf_wr_0: v_frmbuf_wr@{{frmbuf_addrs[0] | hex_remove_0x}} {
 			#dma-cells = <1>;
 			clock-names = "ap_clk";
 			clocks = <&zynqmp_clk 71>;
 			compatible = "xlnx,v-frmbuf-wr-2.4", "xlnx,axi-frmbuf-wr-v2.2";
 			interrupt-names = "interrupt";
 			interrupt-parent = <&gic>;
-			interrupts = <0 {{frmbuf_irqs[i]}} 4>;
-			reset-gpios = <&gpio {{frmbuf_gpios[i]}} 1>;
-			reg = <{{frmbuf_addrs[i]}} 0x10000>;
+			interrupts = <0 {{frmbuf_irqs[0]}} 4>;
+			reset-gpios = <&gpio {{frmbuf_gpios[0]}} 1>;
+			reg = <{{frmbuf_addrs[0]}} 0x10000>;
 			xlnx,dma-addr-width = <32>;
 			xlnx,max-height = <2160>;
 			xlnx,max-width = <3840>;
@@ -145,23 +154,20 @@
 			xlnx,video-width = <8>;
 		};
 
-{% endfor %}
 		vcap_mipi_csi2_rx_subsyst_0 {
 			compatible = "xlnx,video";
-			dma-names = {% for i in range(num_cameras) %}"port{{i}}"{{ ", " if not loop.last }}{% endfor %};
-			dmas = <{% for i in range(num_cameras) %}&v_frmbuf_wr_{{i}} 0{{ " " if not loop.last }}{% endfor %}>;
+			dma-names = "port0";
+			dmas = <&v_frmbuf_wr_0 0>;
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
-{% for i in range(num_cameras) %}
-				vcap_port{{i}}: port@{{i}} {
+				vcap_port0: port@0 {
 					direction = "input";
-					reg = <{{i}}>;
-					vcap_portswitch{{i}}: endpoint {
+					reg = <0>;
+					vcap_portswitch0: endpoint {
 						remote-endpoint = <&mipi_csirx_out>;
 					};
 				};
-{% endfor %}
 			};
 		};
 	};
