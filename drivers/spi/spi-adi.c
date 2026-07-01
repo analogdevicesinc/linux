@@ -20,6 +20,7 @@
 #include <linux/interrupt.h>
 #include <linux/irqdomain.h>
 #include <linux/io.h>
+#include <linux/math.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -295,7 +296,7 @@ static void adi_spi_dma_terminate(struct adi_spi_controller *drv_data)
 /* Calculate the SPI_CLOCK register value based on input HZ */
 static u32 hz_to_spi_clock(u32 sclk, u32 speed_hz)
 {
-	u32 spi_clock = sclk / speed_hz;
+	u32 spi_clock = DIV_ROUND_UP(sclk, speed_hz);
 
 	if (spi_clock)
 		spi_clock--;
