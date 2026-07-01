@@ -43,7 +43,8 @@ static int ras_get_block_ecc_info(struct ras_core_context *ras_core,
 		return RAS_CMD__ERROR_INVALID_INPUT_SIZE;
 
 	memset(&err_data, 0, sizeof(err_data));
-	ret = ras_aca_get_block_ecc_count(ras_core, input_data->block_id, &err_data);
+	ret = ras_core_query_block_ecc_data(ras_core,
+				input_data->block_id, &err_data, false);
 	if (ret)
 		return RAS_CMD__ERROR_GENERIC;
 

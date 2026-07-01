@@ -433,7 +433,7 @@ int ras_core_put_seqno(struct ras_core_context *ras_core,
 
 int ras_core_update_ecc_info(struct ras_core_context *ras_core);
 int ras_core_query_block_ecc_data(struct ras_core_context *ras_core,
-		enum ras_block_id block, struct ras_ecc_count *ecc_count);
+		enum ras_block_id block, struct ras_ecc_count *ecc_count, bool clear);
 
 bool ras_core_gpu_in_reset(struct ras_core_context *ras_core);
 bool ras_core_gpu_is_rma(struct ras_core_context *ras_core);

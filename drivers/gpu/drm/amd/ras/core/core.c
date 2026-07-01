@@ -570,7 +570,7 @@ int ras_core_update_ecc_info(struct ras_core_context *ras_core)
 }
 
 int ras_core_query_block_ecc_data(struct ras_core_context *ras_core,
-			enum ras_block_id block, struct ras_ecc_count *ecc_count)
+		enum ras_block_id block, struct ras_ecc_count *ecc_count, bool clear)
 {
 	int ret;
 
@@ -578,7 +578,7 @@ int ras_core_query_block_ecc_data(struct ras_core_context *ras_core,
 		return -EINVAL;
 
 	ret = ras_aca_get_block_ecc_count(ras_core, block, ecc_count);
-	if (!ret)
+	if (!ret && clear)
 		ras_aca_clear_block_new_ecc_count(ras_core, block);
 
 	return ret;

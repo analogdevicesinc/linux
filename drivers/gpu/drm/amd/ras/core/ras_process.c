@@ -88,7 +88,8 @@ static int ras_process_umc_event(struct ras_core_context *ras_core,
 		if (ret)
 			return ret;
 
-		ret = ras_core_query_block_ecc_data(ras_core, RAS_BLOCK_ID__UMC, &ecc_data);
+		ret = ras_core_query_block_ecc_data(ras_core,
+				RAS_BLOCK_ID__UMC, &ecc_data, true);
 		if (ret)
 			return ret;
 
