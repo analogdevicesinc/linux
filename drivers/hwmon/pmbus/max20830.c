@@ -21,10 +21,26 @@ struct max20830_data {
 	u32 vout_rfb2;
 };
 
-static const char * const supported_chip_ids[] = {
-	"MAX20830",
-	"MAX20830C",
-	"MAX20840C",
+struct max20830_chip_info {
+	const char *id;
+	int id_length;
+};
+
+/*
+ * Device ID mapping:
+ *   Current hardware - LTM4739 returns "MAX20810B", LTM4740 returns "MAX20815B"
+ *   Future hardware - May be fixed to return actual "LTM4739"/"LTM4740" IDs
+ */
+static const struct max20830_chip_info max20830_chips[] = {
+	{ .id = "LTM4739",   .id_length = 7 },  /* Future: if chip is fixed */
+	{ .id = "LTM4740",   .id_length = 7 },  /* Future: if chip is fixed */
+	{ .id = "MAX20810",  .id_length = 8 },
+	{ .id = "MAX20810B", .id_length = 9 },  /* Current: LTM4739 reports this */
+	{ .id = "MAX20815",  .id_length = 8 },
+	{ .id = "MAX20815B", .id_length = 9 },  /* Current: LTM4740 reports this */
+	{ .id = "MAX20830",  .id_length = 8 },
+	{ .id = "MAX20830C", .id_length = 9 },
+	{ .id = "MAX20840C", .id_length = 9 },
 };
 
 /*
@@ -35,7 +51,7 @@ static const char * const supported_chip_ids[] = {
  * like in1_max, in1_crit, etc. will not be available. Only in1_input (the
  * scaled output voltage) is supported.
  *
- * MAX20830 uses an external resistor divider for voltage sensing:
+ * MAX20830 family uses an external resistor divider for voltage sensing:
  * - VOUT_COMMAND and VOUT_MAX set the reference voltage at the feedback pin
  * - READ_VOUT reports the feedback voltage, which needs to be scaled for actual
  *   output voltage
@@ -131,23 +147,35 @@ static int max20830_probe(struct i2c_client *client)
 		ret = ret - 1;
 	}
 
-	/* Verify we read the expected number of bytes */
-	if (ret < MAX20830_IC_DEVICE_ID_LENGTH)
-		return dev_err_probe(&client->dev, -ENODEV,
-				     "IC_DEVICE_ID too short: expected %d bytes, got %d\n",
-				     MAX20830_IC_DEVICE_ID_LENGTH, ret);
+	/*
+	 * All devices return IC_DEVICE_ID with format "MAXxxxxxy\0"
+	 * where y is optional variant suffix (e.g., "MAX20815B\0").
+	 *
+	 * Current hardware behavior:
+	 *   - MAX20810/B/815/B/830/C/840C return their actual IDs (8-9 bytes)
+	 *   - LTM4739 returns "MAX20810B" (9 bytes, early batches)
+	 *   - LTM4740 returns "MAX20815B" (9 bytes, early batches)
+	 *   - LTM4739 returns "LTM4739" (7 bytes, new batches)
+	 *   - LTM4740 returns "LTM4740" (7 bytes, new batches)
+	 */
 
-	/* Null-terminate the string */
+	/* Null-terminate the string at actual length */
 	buf[ret] = '\0';
 
-	/* Verify the device ID matches what we expect */
-	for (i = 0; i < ARRAY_SIZE(supported_chip_ids); i++) {
-		if (!strcmp(buf, supported_chip_ids[i]))
+	/* Find matching chip and validate exact length */
+	for (i = 0; i < ARRAY_SIZE(max20830_chips); i++) {
+		if (!strcmp(buf, max20830_chips[i].id)) {
+			/* Verify we read the exact expected length for this chip */
+			if (ret != max20830_chips[i].id_length)
+				return dev_err_probe(&client->dev, -ENODEV,
+						     "IC_DEVICE_ID length mismatch for '%s': expected %d bytes, got %d\n",
+						     max20830_chips[i].id, max20830_chips[i].id_length, ret);
 			break;
+		}
 	}
 
 	/* No match found - unsupported device */
-	if (i == ARRAY_SIZE(supported_chip_ids))
+	if (i == ARRAY_SIZE(max20830_chips))
 		return dev_err_probe(&client->dev, -ENODEV,
 				     "Unsupported device: '%*pE'\n", ret, buf);
 
