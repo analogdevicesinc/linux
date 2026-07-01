@@ -6,15 +6,15 @@
         "platform_cfg": {
             "name": "kria-adrd8012",
             "csi_idx": 0,
-            "phy_idx": 2
+            "phy_idx": 0
         },
         "phys": [
             {
-                "phy_idx": 2,
-                "num_lanes": 2,
-                "link_frequencies": [750000000],
+                "phy_idx": 0,
+                "num_lanes": 4,
+                "link_frequencies": [1000000000],
                 "clock_lanes": [0],
-                "data_lanes": [1, 2]
+                "data_lanes": [1, 2, 3, 4]
             }
         ],
         "links": [
