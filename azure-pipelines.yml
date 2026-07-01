@@ -42,7 +42,8 @@ stages:
             buildType: 'specific'
             project: 'OpenSource'
             definition: 56  # The ID of the buildroot pipeline to download microblaze rootfs
-            buildVersionToDownload: 'latest'
+            buildVersionToDownload: 'latestFromBranch'
+            branchName: 'refs/heads/master'
             artifactName: 'mb_rootfs'
             targetPath: '$(Agent.BuildDirectory)/s'
         - script: ./ci/travis/run-build.sh
