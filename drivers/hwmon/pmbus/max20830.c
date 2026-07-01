@@ -22,6 +22,10 @@ struct max20830_data {
 };
 
 static const char * const supported_chip_ids[] = {
+	"MAX20810",
+	"MAX20810B",	/* also reported by the LTM4739 module */
+	"MAX20815",
+	"MAX20815B",	/* also reported by the LTM4740 module */
 	"MAX20830",
 	"MAX20830C",
 	"MAX20840C",
@@ -35,7 +39,7 @@ static const char * const supported_chip_ids[] = {
  * like in1_max, in1_crit, etc. will not be available. Only in1_input (the
  * scaled output voltage) is supported.
  *
- * MAX20830 uses an external resistor divider for voltage sensing:
+ * MAX20830 family uses an external resistor divider for voltage sensing:
  * - VOUT_COMMAND and VOUT_MAX set the reference voltage at the feedback pin
  * - READ_VOUT reports the feedback voltage, which needs to be scaled for actual
  *   output voltage
@@ -131,20 +135,21 @@ static int max20830_probe(struct i2c_client *client)
 		ret = ret - 1;
 	}
 
-	/* Verify we read the expected number of bytes */
-	if (ret < MAX20830_IC_DEVICE_ID_LENGTH)
+	/*
+	 * A valid read yields at least one byte to index and compare; a short
+	 * or garbled read then fails the strcmp() below, so no explicit ID
+	 * length check is needed to reject unsupported devices.
+	 */
+	if (ret <= 0)
 		return dev_err_probe(&client->dev, -ENODEV,
-				     "IC_DEVICE_ID too short: expected %d bytes, got %d\n",
-				     MAX20830_IC_DEVICE_ID_LENGTH, ret);
+				     "Failed to read IC_DEVICE_ID\n");
 
-	/* Null-terminate the string */
 	buf[ret] = '\0';
 
-	/* Verify the device ID matches what we expect */
-	for (i = 0; i < ARRAY_SIZE(supported_chip_ids); i++) {
+	/* Accept only known device IDs */
+	for (i = 0; i < ARRAY_SIZE(supported_chip_ids); i++)
 		if (!strcmp(buf, supported_chip_ids[i]))
 			break;
-	}
 
 	/* No match found - unsupported device */
 	if (i == ARRAY_SIZE(supported_chip_ids))

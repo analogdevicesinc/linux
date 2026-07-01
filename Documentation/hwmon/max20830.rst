@@ -5,6 +5,38 @@ Kernel driver max20830
 
 Supported chips:
 
+  * Analog Devices LTM4739
+
+    Prefix: 'ltm4739'
+
+    Addresses scanned: -
+
+    Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/ltm4739.pdf
+
+  * Analog Devices LTM4740
+
+    Prefix: 'ltm4740'
+
+    Addresses scanned: -
+
+    Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/ltm4740.pdf
+
+  * Analog Devices MAX20810
+
+    Prefix: 'max20810'
+
+    Addresses scanned: -
+
+    Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/max20810.pdf
+
+  * Analog Devices MAX20815
+
+    Prefix: 'max20815'
+
+    Addresses scanned: -
+
+    Datasheet: https://www.analog.com/media/en/technical-documentation/data-sheets/max20815.pdf
+
   * Analog Devices MAX20830
 
     Prefix: 'max20830'
@@ -37,13 +69,18 @@ Author:
 Description
 -----------
 
-This driver supports hardware monitoring for Analog Devices MAX20830, MAX20830C
-and MAX20840C. These are Step-Down Switching Regulator with PMBus Interface.
+This driver supports hardware monitoring for Analog Devices MAX20810, MAX20815,
+MAX20830, MAX20830C, MAX20840C, LTM4739, and LTM4740 Step-Down Switching Regulators
+with PMBus Interface.
 
-MAX20830, and MAX20830C are 2.7V to 16V, 30A fully integrated step-down DC-DC
-switching regulators. MAX20840C is similar but can reach 40A. Through the PMBus
-interface, these devices can monitor input/output voltages, output current and
-temperature.
+The MAX20810 and LTM4739 are 10A fully integrated step-down DC-DC switching
+regulators (2.7V–16V and 3V–15V input respectively). The MAX20815 and LTM4740
+provide up to 15A. The MAX20830 and MAX20830C provide up to 30A. The MAX20840C
+provides up to 40A. Through the PMBus interface, all devices can monitor
+input/output voltages, output current and temperature.
+
+LTM4739 and LTM4740 are the LTM-family equivalents of MAX20810 and MAX20815
+respectively, sharing an identical PMBus command set.
 
 The driver is a client driver to the core PMBus driver. Please see
 Documentation/hwmon/pmbus.rst for details on PMBus client drivers.
