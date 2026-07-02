@@ -10,7 +10,7 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/pinctrl/adi-adsp.h>
+#include <dt-bindings/pinctrl/adi,adsp-sc594-pinctrl.h>
 #include <dt-bindings/pinctrl/adi-adsp-sru.h>
 #include <dt-bindings/net/ti-dp83867.h>
 #include "sc59x.dtsi"
@@ -313,112 +313,101 @@
 	status = "okay";
 };
 
-&pinctrl0 {
-	uart0_default: uart0_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('A', 6, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT1)>;
-		};
+&pinctrl {
+	uart0_default: uart0-default-pins {
+		pinmux = <SC594_PA06__UART0_TX
+			  SC594_PA07__UART0_RX>;
 	};
-	uart0_hwflow: uart0_hwflow_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('A', 6, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 8, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 9, ADI_ADSP_PINFUNC_ALT1)>;
-		};
+
+	uart0_hwflow: uart0-hwflow-pins {
+		pinmux = <SC594_PA06__UART0_TX
+			  SC594_PA07__UART0_RX
+			  SC594_PA08__UART0_RTS
+			  SC594_PA09__UART0_CTS>;
 	};
-	spi0_default: spi0_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('A', 6, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT0)>,
-					 <ADI_ADSP_PINMUX('A', 8, ADI_ADSP_PINFUNC_ALT0)>;
-		};
+
+	spi0_default: spi0-default-pins {
+		pinmux = <SC594_PA06__SPI0_CLK
+			  SC594_PA07__SPI0_MISO
+			  SC594_PA08__SPI0_MOSI>;
 	};
-	spi1_default: spi1_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('A', 10, ADI_ADSP_PINFUNC_ALT1)>,
-				 <ADI_ADSP_PINMUX('A', 11, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 12, ADI_ADSP_PINFUNC_ALT1)>;
-		};
+
+	spi1_default: spi1-default-pins {
+		pinmux = <SC594_PA10__SPI1_CLK
+			  SC594_PA11__SPI1_MISO
+			  SC594_PA12__SPI1_MOSI>;
 	};
-	spi2_quad: spi2_quad_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('A', 0, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 1, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 2, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 3, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 4, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 5, ADI_ADSP_PINFUNC_ALT0)>;
-		};
+
+	spi2_quad: spi2-quad-pins {
+		pinmux = <SC594_PA00__SPI2_MISO
+			  SC594_PA01__SPI2_MOSI
+			  SC594_PA02__SPI2_D2
+			  SC594_PA03__SPI2_D3
+			  SC594_PA04__SPI2_CLK
+			  SC594_PA05__SPI2_SEL1>;
 	};
-	ospi_default: ospi_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('C', 8, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 9, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 10, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 11, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 12, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 13, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 14, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('D', 0, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('D', 1, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('D', 4, ADI_ADSP_PINFUNC_ALT2)>;
-		};
+
+	ospi_default: ospi-default-pins {
+		pinmux = <SC594_PC08__OSPI0_CLK
+			  SC594_PC09__OSPI0_D3
+			  SC594_PC10__OSPI0_D2
+			  SC594_PC11__OSPI0_MOSI
+			  SC594_PC12__OSPI0_MISO
+			  SC594_PC13__OSPI0_D7
+			  SC594_PC14__OSPI0_D6
+			  SC594_PC15__OSPI0_D5
+			  SC594_PD00__OSPI0_D4
+			  SC594_PD01__OSPI0_SEL1
+			  SC594_PD04__OSPI0_DQS>;
 	};
-	i2c2_pins: i2c2_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('A', 14, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 15, ADI_ADSP_PINFUNC_ALT0)>;
-		};
+
+	i2c2_pins: i2c2-default-pins {
+		pinmux = <SC594_PA14__TWI2_SCL
+			  SC594_PA15__TWI2_SDA>;
 	};
-	eth0_default: eth0_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('H', 3, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 4, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 5, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 6, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 7, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 8, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 9, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 10, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 11, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 12, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 13, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 14, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('H', 15, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('I', 0, ADI_ADSP_PINFUNC_ALT0)>;
-		};
+
+	eth0_default: eth0-default-pins {
+		pinmux = <SC594_PH03__ETH0_MDC
+			  SC594_PH04__ETH0_MDIO
+			  SC594_PH05__ETH0_RXD0
+			  SC594_PH06__ETH0_RXD1
+			  SC594_PH07__ETH0_RXCLK_REFCLK
+			  SC594_PH08__ETH0_RXCTL_RXDV
+			  SC594_PH09__ETH0_TXD0
+			  SC594_PH10__ETH0_TXD1
+			  SC594_PH11__ETH0_RXD2
+			  SC594_PH12__ETH0_RXD3
+			  SC594_PH13__ETH0_TXCTL_TXEN
+			  SC594_PH14__ETH0_TXCLK
+			  SC594_PH15__ETH0_TXD2
+			  SC594_PI00__ETH0_TXD3>;
 	};
-	eth1_default: eth1_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('E', 11, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('E', 12, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('E', 13, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('E', 14, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('E', 15, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 0, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 1, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 2, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 3, ADI_ADSP_PINFUNC_ALT0)>;
-		};
+
+	eth1_default: eth1-default-pins {
+		pinmux = <SC594_PE11__ETH1_REFCLK
+			  SC594_PE12__ETH1_TXEN
+			  SC594_PE13__ETH1_TXD0
+			  SC594_PE14__ETH1_TXD1
+			  SC594_PE15__ETH1_RXD0
+			  SC594_PF00__ETH1_RXD1
+			  SC594_PF01__ETH1_MDIO
+			  SC594_PF02__ETH1_MDC
+			  SC594_PF03__ETH1_CRS>;
 	};
-	usbc0_default: usbc0_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('F', 3, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 4, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 5, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 6, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 7, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 8, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 9, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 10, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 11, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 12, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 13, ADI_ADSP_PINFUNC_ALT2)>,
-				 <ADI_ADSP_PINMUX('F', 14, ADI_ADSP_PINFUNC_ALT2)>;
-		};
+
+	usbc0_default: usbc0-default-pins {
+		pinmux = <SC594_PF03__USBC0_STOP
+			  SC594_PF04__USBC0_DATA7
+			  SC594_PF05__USBC0_DATA6
+			  SC594_PF06__USBC0_DATA5
+			  SC594_PF07__USBC0_DATA4
+			  SC594_PF08__USBC0_NXT
+			  SC594_PF09__USBC0_DIR
+			  SC594_PF10__USBC0_DATA3
+			  SC594_PF11__USBC0_DATA2
+			  SC594_PF12__USBC0_DATA1
+			  SC594_PF13__USBC0_DATA0
+			  SC594_PF14__USBC0_CLK>;
 	};
 };
 
