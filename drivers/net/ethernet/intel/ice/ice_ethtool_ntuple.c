@@ -1793,9 +1793,6 @@ int ice_del_ntuple_ethtool(struct ice_vsi *vsi, struct ethtool_rxnfc *cmd)
 		return -EBUSY;
 	}
 
-	if (test_bit(ICE_FD_FLUSH_REQ, pf->state))
-		return -EBUSY;
-
 	mutex_lock(&hw->fdir_fltr_lock);
 	val = ice_ntuple_update_list_entry(pf, NULL, fsp->location);
 	mutex_unlock(&hw->fdir_fltr_lock);

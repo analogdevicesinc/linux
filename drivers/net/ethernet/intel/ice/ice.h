@@ -302,7 +302,6 @@ enum ice_pf_state {
 	ICE_CFG_BUSY,
 	ICE_SERVICE_SCHED,
 	ICE_SERVICE_DIS,
-	ICE_FD_FLUSH_REQ,
 	ICE_OICR_INTR_DIS,		/* Global OICR interrupt disabled */
 	ICE_MDD_VF_PRINT_PENDING,	/* set when MDD event handle */
 	ICE_VF_RESETS_DISABLED,	/* disable resets during ice_remove */
