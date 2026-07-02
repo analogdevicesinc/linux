@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#define DEVICE_PROFILE_NAME     "204C_M4_L12_NP12_20p0_4x1.bin"
+
+#include "vu11p-ad9084-vpx-revb.dtso"
