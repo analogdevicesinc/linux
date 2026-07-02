@@ -1299,7 +1299,6 @@ static int ast_udc_start(struct usb_gadget *gadget,
 
 	UDC_DBG(udc, "\n");
 	udc->driver = driver;
-	udc->gadget.dev.of_node = udc->pdev->dev.of_node;
 
 	for (i = 0; i < AST_UDC_NUM_ENDPOINTS; i++) {
 		ep = &udc->ep[i];
