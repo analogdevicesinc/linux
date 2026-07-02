@@ -3088,9 +3088,9 @@ static int ice_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
 
 	switch (cmd->cmd) {
 	case ETHTOOL_SRXCLSRLINS:
-		return ice_add_fdir_ethtool(vsi, cmd);
+		return ice_add_ntuple_ethtool(vsi, cmd);
 	case ETHTOOL_SRXCLSRLDEL:
-		return ice_del_fdir_ethtool(vsi, cmd);
+		return ice_del_ntuple_ethtool(vsi, cmd);
 	default:
 		break;
 	}
@@ -3132,7 +3132,7 @@ ice_get_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd,
 
 	switch (cmd->cmd) {
 	case ETHTOOL_GRXCLSRLCNT:
-		cmd->rule_cnt = hw->fdir_active_fltr;
+		cmd->rule_cnt = hw->ntuple_active_fltr_cnt;
 		/* report total rule count */
 		cmd->data = ice_get_fdir_cnt_all(hw);
 		ret = 0;
@@ -3908,7 +3908,8 @@ static int ice_set_channels(struct net_device *dev, struct ethtool_channels *ch)
 		return -EOPNOTSUPP;
 	}
 
-	if (test_bit(ICE_FLAG_FD_ENA, pf->flags) && pf->hw.fdir_active_fltr) {
+	if (test_bit(ICE_FLAG_FD_ENA, pf->flags) &&
+	    pf->hw.ntuple_active_fltr_cnt) {
 		netdev_err(dev, "Cannot set channels when Flow Director filters are active\n");
 		return -EOPNOTSUPP;
 	}
