@@ -2,7 +2,7 @@
 
 config ADI_MACH_SC5XX
 	bool "ADI SC5XX machine support" if COMPILE_TEST
-	default ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
+	default ARCH_SC84X || ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X
 	select MAILBOX
 	help
 	  This enables machine-level support for Analog Devices SC5XX SoCs,
