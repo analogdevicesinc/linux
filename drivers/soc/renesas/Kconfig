@@ -470,9 +470,10 @@ config RCAR_MFIS
 	depends on ARCH_RENESAS || COMPILE_TEST
 	depends on MAILBOX
 	help
-	  Select this option to enable the Renesas R-Car MFIS core driver for
-	  the MFIS device found on SoCs like R-Car. On families like Gen5, this
-	  is needed to communicate with the SCP.
+	  Select this option to enable support for the Renesas R-Car
+	  Multifunctional Interface (MFIS) device found on SoCs like R-Car.
+	  On families like R-Car Gen5, this is needed to communicate with the
+	  SCP.
 
 config PWC_RZV2M
 	bool "Renesas RZ/V2M PWC support" if COMPILE_TEST
