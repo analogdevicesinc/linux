@@ -30,6 +30,8 @@ config ADRV9104
 	tristate "Analog Devices ADRV9104 RF Transceiver driver"
 	depends on SPI
 	select IIO_BACKEND
+	select FW_LOADER
+	select FW_UPLOAD
 	help
 	  Say yes to build support for the Analog Devices ADRV9102 integrated
 	  RF transceiver and similar devices.
@@ -51,4 +53,15 @@ config ADRV9104_VALIDATE_PARAMS
 	bool "Causes the API to validate all the input parameters"
 	depends on ADRV9104
 	default y
+
+config ADRV9104_KUNIT_TEST
+	tristate "KUnit tests for the ADRV9104 device profile parser" if !KUNIT_ALL_TESTS
+	depends on ADRV9104 && KUNIT
+	default KUNIT_ALL_TESTS
+	help
+	  Build KUnit tests that load a device profile via request_firmware(),
+	  parse it and serialise it back, validating the JSON parser/serialiser.
+	  Useful to check whether the parser needs updating after an SDK bump.
+
+	  If unsure, say N.
 endmenu

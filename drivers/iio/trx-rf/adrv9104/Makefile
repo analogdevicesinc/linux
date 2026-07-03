@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0
 
-adrv9104_drv-y = adrv9104-linux.o
+adrv9104_drv-y = adrv9104.o
+adrv9104_drv-y += adrv9104-linux.o
+adrv9104_drv-y += adrv9104-backend.o
+adrv9104_drv-y += adrv9104-profile.o
+adrv9104_drv-y += adrv9104-fw.o
 adrv9104_drv-y += common/adi_common_log.o
 adrv9104_drv-y += common/adi_common_error.o
 adrv9104_drv-y += common/adi_common_hal_wrapper.o
