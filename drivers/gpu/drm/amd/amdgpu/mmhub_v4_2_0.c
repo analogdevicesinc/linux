@@ -137,12 +137,12 @@ static u64 mmhub_v4_2_0_get_mc_fb_offset(struct amdgpu_device *adev)
 static void mmhub_v4_2_0_mid_setup_vm_pt_regs(struct amdgpu_device *adev,
 					      uint32_t vmid,
 					      uint64_t page_table_base,
-					      uint32_t mid_mask)
+					      uint32_t inst_mask)
 {
 	struct amdgpu_vmhub *hub;
 	int i;
 
-	for_each_inst(i, mid_mask) {
+	for_each_inst(i, inst_mask) {
 		hub = &adev->vmhub[AMDGPU_MMHUB0(i)];
 		WREG32_SOC15_OFFSET(MMHUB, GET_INST(MMHUB, i),
 				    regMMVM_CONTEXT0_PAGE_TABLE_BASE_ADDR_LO32,
@@ -160,16 +160,13 @@ static void mmhub_v4_2_0_setup_vm_pt_regs(struct amdgpu_device *adev,
 					  uint32_t vmid,
 					  uint64_t page_table_base)
 {
-	uint32_t mid_mask;
-
-	mid_mask = adev->aid_mask;
 	mmhub_v4_2_0_mid_setup_vm_pt_regs(adev, vmid,
 					  page_table_base,
-					  mid_mask);
+					  adev->mmhub.inst_mask);
 }
 
 static void mmhub_v4_2_0_mid_init_gart_aperture_regs(struct amdgpu_device *adev,
-						     uint32_t mid_mask)
+						     uint32_t inst_mask)
 {
 	uint64_t pt_base;
 	int i;
@@ -179,9 +176,9 @@ static void mmhub_v4_2_0_mid_init_gart_aperture_regs(struct amdgpu_device *adev,
 	else
 		pt_base = amdgpu_gmc_pd_addr(adev->gart.bo);
 
-	mmhub_v4_2_0_mid_setup_vm_pt_regs(adev, 0, pt_base, mid_mask);
+	mmhub_v4_2_0_mid_setup_vm_pt_regs(adev, 0, pt_base, inst_mask);
 
-	for_each_inst(i, mid_mask) {
+	for_each_inst(i, inst_mask) {
 		if (adev->gmc.pdb0_bo) {
 			WREG32_SOC15(MMHUB, GET_INST(MMHUB, i),
 				     regMMVM_CONTEXT0_PAGE_TABLE_START_ADDR_LO32,
@@ -215,7 +212,7 @@ static void mmhub_v4_2_0_mid_init_gart_aperture_regs(struct amdgpu_device *adev,
 }
 
 static void mmhub_v4_2_0_mid_init_system_aperture_regs(struct amdgpu_device *adev,
-						       uint32_t mid_mask)
+						       uint32_t inst_mask)
 {
 	uint64_t value;
 	uint32_t tmp;
@@ -229,7 +226,7 @@ static void mmhub_v4_2_0_mid_init_system_aperture_regs(struct amdgpu_device *ade
 	if (amdgpu_sriov_vf(adev))
 		return;
 
-	for_each_inst(i, mid_mask) {
+	for_each_inst(i, inst_mask) {
 		if (adev->gmc.pdb0_bo) {
 			/* Disable agp and system aperture
 			 * when vmid0 page table is enabled */
@@ -328,12 +325,12 @@ static void mmhub_v4_2_0_mid_init_system_aperture_regs(struct amdgpu_device *ade
 }
 
 static void mmhub_v4_2_0_mid_init_tlb_regs(struct amdgpu_device *adev,
-					   uint32_t mid_mask)
+					   uint32_t inst_mask)
 {
 	uint32_t tmp;
 	int i;
 
-	for_each_inst(i, mid_mask) {
+	for_each_inst(i, inst_mask) {
 		/* Setup TLB control */
 		tmp = RREG32_SOC15(MMHUB, GET_INST(MMHUB, i),
 				   regMMMC_VM_MX_L1_TLB_CNTL);
@@ -353,7 +350,7 @@ static void mmhub_v4_2_0_mid_init_tlb_regs(struct amdgpu_device *adev,
 }
 
 static void mmhub_v4_2_0_mid_init_cache_regs(struct amdgpu_device *adev,
-					     uint32_t mid_mask)
+					     uint32_t inst_mask)
 {
 	uint32_t tmp;
 	int i;
@@ -364,7 +361,7 @@ static void mmhub_v4_2_0_mid_init_cache_regs(struct amdgpu_device *adev,
 	if (amdgpu_sriov_vf(adev))
 		return;
 
-	for_each_inst(i, mid_mask) {
+	for_each_inst(i, inst_mask) {
 		/* Setup L2 cache */
 		tmp = RREG32_SOC15(MMHUB, GET_INST(MMHUB, i), regMMVM_L2_CNTL);
 		tmp = REG_SET_FIELD(tmp, MMVM_L2_CNTL, ENABLE_L2_CACHE, 1);
@@ -416,12 +413,12 @@ static void mmhub_v4_2_0_mid_init_cache_regs(struct amdgpu_device *adev,
 }
 
 static void mmhub_v4_2_0_mid_enable_system_domain(struct amdgpu_device *adev,
-						  uint32_t mid_mask)
+						  uint32_t inst_mask)
 {
 	uint32_t tmp;
 	int i;
 
-	for_each_inst(i, mid_mask) {
+	for_each_inst(i, inst_mask) {
 		tmp = RREG32_SOC15(MMHUB, GET_INST(MMHUB, i),
 				   regMMVM_CONTEXT0_CNTL);
 		tmp = REG_SET_FIELD(tmp, MMVM_CONTEXT0_CNTL,
@@ -439,7 +436,7 @@ static void mmhub_v4_2_0_mid_enable_system_domain(struct amdgpu_device *adev,
 }
 
 static void mmhub_v4_2_0_mid_disable_identity_aperture(struct amdgpu_device *adev,
-						       uint32_t mid_mask)
+						       uint32_t inst_mask)
 {
 	int i;
 
@@ -449,7 +446,7 @@ static void mmhub_v4_2_0_mid_disable_identity_aperture(struct amdgpu_device *ade
 	if (amdgpu_sriov_vf(adev))
 		return;
 
-	for_each_inst(i, mid_mask) {
+	for_each_inst(i, inst_mask) {
 		WREG32_SOC15(MMHUB, GET_INST(MMHUB, i),
 			     regMMVM_L2_CONTEXT1_IDENTITY_APERTURE_LOW_ADDR_LO32,
 			     0xFFFFFFFF);
@@ -474,13 +471,13 @@ static void mmhub_v4_2_0_mid_disable_identity_aperture(struct amdgpu_device *ade
 }
 
 static void mmhub_v4_2_0_mid_setup_vmid_config(struct amdgpu_device *adev,
-					       uint32_t mid_mask)
+					       uint32_t inst_mask)
 {
 	struct amdgpu_vmhub *hub;
 	uint32_t tmp;
 	int i, j;
 
-	for_each_inst(j, mid_mask) {
+	for_each_inst(j, inst_mask) {
 		hub = &adev->vmhub[AMDGPU_MMHUB0(j)];
 		for (i = 0; i <= 14; i++) {
 			tmp = RREG32_SOC15_OFFSET(MMHUB, GET_INST(MMHUB, j),
@@ -530,12 +527,12 @@ static void mmhub_v4_2_0_mid_setup_vmid_config(struct amdgpu_device *adev,
 }
 
 static void mmhub_v4_2_0_mid_program_invalidation(struct amdgpu_device *adev,
-						  uint32_t mid_mask)
+						  uint32_t inst_mask)
 {
 	struct amdgpu_vmhub *hub;
 	unsigned int i, j;
 
-	for_each_inst(j, mid_mask) {
+	for_each_inst(j, inst_mask) {
 		hub = &adev->vmhub[AMDGPU_MMHUB0(j)];
 
 		for (i = 0; i < 18; ++i) {
@@ -550,37 +547,34 @@ static void mmhub_v4_2_0_mid_program_invalidation(struct amdgpu_device *adev,
 }
 
 static int mmhub_v4_2_0_mid_gart_enable(struct amdgpu_device *adev,
-					uint32_t mid_mask)
+					uint32_t inst_mask)
 {
 	/* GART Enable. */
-	mmhub_v4_2_0_mid_init_gart_aperture_regs(adev, mid_mask);
-	mmhub_v4_2_0_mid_init_system_aperture_regs(adev, mid_mask);
-	mmhub_v4_2_0_mid_init_tlb_regs(adev, mid_mask);
-	mmhub_v4_2_0_mid_init_cache_regs(adev, mid_mask);
+	mmhub_v4_2_0_mid_init_gart_aperture_regs(adev, inst_mask);
+	mmhub_v4_2_0_mid_init_system_aperture_regs(adev, inst_mask);
+	mmhub_v4_2_0_mid_init_tlb_regs(adev, inst_mask);
+	mmhub_v4_2_0_mid_init_cache_regs(adev, inst_mask);
 
-	mmhub_v4_2_0_mid_enable_system_domain(adev, mid_mask);
-	mmhub_v4_2_0_mid_disable_identity_aperture(adev, mid_mask);
-	mmhub_v4_2_0_mid_setup_vmid_config(adev, mid_mask);
-	mmhub_v4_2_0_mid_program_invalidation(adev, mid_mask);
+	mmhub_v4_2_0_mid_enable_system_domain(adev, inst_mask);
+	mmhub_v4_2_0_mid_disable_identity_aperture(adev, inst_mask);
+	mmhub_v4_2_0_mid_setup_vmid_config(adev, inst_mask);
+	mmhub_v4_2_0_mid_program_invalidation(adev, inst_mask);
 
 	return 0;
 }
 static int mmhub_v4_2_0_gart_enable(struct amdgpu_device *adev)
 {
-	uint32_t mid_mask;
-
-	mid_mask = adev->aid_mask;
-	return mmhub_v4_2_0_mid_gart_enable(adev, mid_mask);
+	return mmhub_v4_2_0_mid_gart_enable(adev, adev->mmhub.inst_mask);
 }
 
 static void mmhub_v4_2_0_mid_gart_disable(struct amdgpu_device *adev,
-					  uint32_t mid_mask)
+					  uint32_t inst_mask)
 {
 	struct amdgpu_vmhub *hub;
 	u32 tmp;
 	u32 i, j;
 
-	for_each_inst(j, mid_mask) {
+	for_each_inst(j, inst_mask) {
 		hub = &adev->vmhub[AMDGPU_MMHUB0(j)];
 		/* Disable all tables */
 		for (i = 0; i < 16; i++)
@@ -608,15 +602,12 @@ static void mmhub_v4_2_0_mid_gart_disable(struct amdgpu_device *adev,
 
 static void mmhub_v4_2_0_gart_disable(struct amdgpu_device *adev)
 {
-	uint32_t mid_mask;
-
-	mid_mask = adev->aid_mask;
-	mmhub_v4_2_0_mid_gart_disable(adev, mid_mask);
+	mmhub_v4_2_0_mid_gart_disable(adev, adev->mmhub.inst_mask);
 }
 
 static void
 mmhub_v4_2_0_mid_set_fault_enable_default(struct amdgpu_device *adev,
-					  bool value, uint32_t mid_mask)
+					  bool value, uint32_t inst_mask)
 {
 	u32 tmp;
 	int i;
@@ -627,7 +618,7 @@ mmhub_v4_2_0_mid_set_fault_enable_default(struct amdgpu_device *adev,
 	if (amdgpu_sriov_vf(adev))
 		return;
 
-	for_each_inst(i, mid_mask) {
+	for_each_inst(i, inst_mask) {
 		tmp = RREG32_SOC15(MMHUB, GET_INST(MMHUB, i),
 				   regMMVM_L2_PROTECTION_FAULT_CNTL_LO32);
 		tmp = REG_SET_FIELD(tmp, MMVM_L2_PROTECTION_FAULT_CNTL_LO32,
@@ -673,10 +664,8 @@ static void
 mmhub_v4_2_0_set_fault_enable_default(struct amdgpu_device *adev,
 				      bool value)
 {
-	uint32_t mid_mask;
-
-	mid_mask = adev->aid_mask;
-	mmhub_v4_2_0_mid_set_fault_enable_default(adev, value, mid_mask);
+	mmhub_v4_2_0_mid_set_fault_enable_default(adev, value,
+						  adev->mmhub.inst_mask);
 }
 
 static uint32_t mmhub_v4_2_0_get_invalidate_req(unsigned int vmid,
@@ -743,12 +732,12 @@ static const struct amdgpu_vmhub_funcs mmhub_v4_2_0_vmhub_funcs = {
 };
 
 static void mmhub_v4_2_0_mid_init(struct amdgpu_device *adev,
-				  uint32_t mid_mask)
+				  uint32_t inst_mask)
 {
 	struct amdgpu_vmhub *hub;
 	int i;
 
-	for_each_inst(i, mid_mask) {
+	for_each_inst(i, inst_mask) {
 		hub = &adev->vmhub[AMDGPU_MMHUB0(i)];
 
 		hub->ctx0_ptb_addr_lo32 =
@@ -805,10 +794,7 @@ static void mmhub_v4_2_0_mid_init(struct amdgpu_device *adev,
 
 static void mmhub_v4_2_0_init(struct amdgpu_device *adev)
 {
-	uint32_t mid_mask;
-
-	mid_mask = adev->aid_mask;
-	mmhub_v4_2_0_mid_init(adev, mid_mask);
+	mmhub_v4_2_0_mid_init(adev, adev->mmhub.inst_mask);
 
 	amdgpu_mmhub_init_client_info(&adev->mmhub,
 				     mmhub_client_ids_v4_2_0,

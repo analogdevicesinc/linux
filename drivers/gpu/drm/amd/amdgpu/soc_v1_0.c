@@ -823,18 +823,26 @@ static int soc_v1_0_xcp_mgr_init(struct amdgpu_device *adev)
 	return ret;
 }
 
+uint32_t soc_v1_0_get_aid_mask(uint16_t xcc_mask)
+{
+	int xcc_inst_per_aid = 4;
+	uint32_t aid_mask = 0;
+	int i;
+
+	for (i = 0; xcc_mask; xcc_mask >>= xcc_inst_per_aid, i++) {
+		if (xcc_mask & GENMASK(xcc_inst_per_aid - 1, 0))
+			aid_mask |= BIT(i);
+	}
+
+	return aid_mask;
+}
+
 int soc_v1_0_init_soc_config(struct amdgpu_device *adev)
 {
 	int ret, i;
-	int xcc_inst_per_aid = 4;
-	uint16_t xcc_mask, sdma_mask = 0;
+	uint16_t sdma_mask = 0;
 
-	xcc_mask = adev->gfx.xcc_mask;
-	adev->aid_mask = 0;
-	for (i = 0; xcc_mask; xcc_mask >>= xcc_inst_per_aid, i++) {
-		if (xcc_mask & ((1U << xcc_inst_per_aid) - 1))
-			adev->aid_mask |= (1 << i);
-	}
+	adev->aid_mask = soc_v1_0_get_aid_mask(adev->gfx.xcc_mask);
 
 	adev->sdma.num_inst_per_xcc = 2;
 	for_each_inst(i, adev->gfx.xcc_mask)

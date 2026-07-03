@@ -1760,6 +1760,7 @@ static int amdgpu_discovery_reg_base_init(struct amdgpu_device *adev)
 	adev->sdma.sdma_mask = 0;
 	adev->vcn.inst_mask = 0;
 	adev->jpeg.inst_mask = 0;
+	adev->mmhub.inst_mask = 0;
 	r = amdgpu_discovery_get_table_info(adev, &info, IP_DISCOVERY);
 	if (r)
 		return r;
@@ -1825,6 +1826,16 @@ static int amdgpu_discovery_reg_base_init(struct amdgpu_device *adev)
 				}
 				ip->revision &= ~0xc0;
 			}
+
+			if (le16_to_cpu(ip->hw_id) == MMHUB_HWID) {
+				if (inst < AMDGPU_MAX_MMHUB_INSTANCES)
+					adev->mmhub.inst_mask |= BIT(inst);
+				else
+					dev_err(adev->dev, "Too many MMHUB instances: %d vs %d\n",
+						inst + 1,
+						AMDGPU_MAX_MMHUB_INSTANCES);
+			}
+
 			if (le16_to_cpu(ip->hw_id) == SDMA0_HWID ||
 			    le16_to_cpu(ip->hw_id) == SDMA1_HWID ||
 			    le16_to_cpu(ip->hw_id) == SDMA2_HWID ||
