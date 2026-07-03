@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -709,6 +710,8 @@ static int ad4134_offload_buffer_postenable(struct iio_dev *indio_dev)
 	struct ad4134_state *st = iio_priv(indio_dev);
 	int ret;
 
+	dev_info(&st->spi->dev, "capture: arming SPI-Engine offload\n");
+
 	ad4134_prepare_offload_msg(indio_dev);
 	st->msg.offload = st->offload;
 	ret = spi_optimize_message(st->spi_engine, &st->msg);
@@ -719,6 +722,8 @@ static int ad4134_offload_buffer_postenable(struct iio_dev *indio_dev)
 					 &st->offload_trigger_config);
 	if (ret)
 		goto out_unoptimize;
+
+	dev_info(&st->spi->dev, "capture: periodic trigger enabled -> streaming valid data\n");
 
 	return 0;
 
@@ -1288,9 +1293,12 @@ static int ad4134_clkin_startup(struct ad4134_state *st,
 	gpiod_set_value_cansleep(reset_gpio, 0);
 	if (slave_reset)
 		gpiod_set_value_cansleep(slave_reset, 0);
+	dev_info(dev, "assert RESET, fsleep(%u us), release RESET\n",
+		 AD4134_RESET_TIME_US);
 
 	/* §E.2 POR wait (chip on RC). */
 	fsleep(3000);
+	dev_info(dev, "fsleep(3000 us)  -- power-on reset (chip on RC oscillator)\n");
 
 	/* §E.3 STARTUP_FIRE — deliver 36 XTAL cycles. */
 	reinit_completion(&st->clkin_startup_done);
@@ -1310,11 +1318,13 @@ static int ad4134_clkin_startup(struct ad4134_state *st,
 	}
 
 	/* §E.4 handshake settle. */
+	dev_dbg(dev, "delay: (multidevice-sync) clock-handover settle 20 us\n");
 	fsleep(20);
 
 	/* §E.6 RESUME — XTAL runs continuously. */
 	writel(AD4134_CLKIN_CTRL_RESUME,
 	       st->clkin_base + AD4134_CLKIN_CONTROL);
+	dev_info(dev, "start XTAL2_CLKIN (chip clock 48 MHz running)\n");
 
 	return 0;
 }
@@ -1346,6 +1356,7 @@ static int ad4134_clkin_change_power_mode(struct ad4134_state *st,
 {
 	struct device *dev = &st->spi->dev;
 	unsigned long timeout;
+	unsigned int val_rb;
 	int ret;
 
 	/* §F.1 ARM_STOP_AT_ALIGN — wait /32 negedge. */
@@ -1375,6 +1386,11 @@ static int ad4134_clkin_change_power_mode(struct ad4134_state *st,
 		       st->clkin_base + AD4134_CLKIN_CONTROL);
 		return ret;
 	}
+	dev_info(dev, "write reg 0x%02x (DEVICE_CONFIG)       = 0x%02x\n", reg, val);
+
+	if (!regmap_read(st->regmap, reg, &val_rb))
+		dev_info(dev, "read  reg 0x%02x (DEVICE_CONFIG)       = 0x%02x\n",
+			 reg, val_rb);
 
 	/* §H — broadcast the same write to the slave over the shared CS. */
 	if (st->ad4134_duo && st->cs_gpio) {
@@ -1387,6 +1403,7 @@ static int ad4134_clkin_change_power_mode(struct ad4134_state *st,
 
 	/* §F.4 settle. */
 	fsleep(10000);
+	dev_info(dev, "fsleep(10000 us)  -- power-mode settle\n");
 
 	/* §F.6 RESUME — XTAL restarts, edge_cnt=0. */
 	reinit_completion(&st->clkin_edge_hit);
@@ -1418,6 +1435,7 @@ static int ad4134_wait_pll_lock(struct device *dev, struct regmap *regmap,
 				const char *who)
 {
 	unsigned int status;
+	ktime_t t0 = ktime_get();
 	int ret;
 
 	ret = regmap_read_poll_timeout(regmap, AD4134_DEVICE_STATUS_REG,
@@ -1430,6 +1448,10 @@ static int ad4134_wait_pll_lock(struct device *dev, struct regmap *regmap,
 			who, status, ret);
 		return ret;
 	}
+
+	dev_info(dev, "read  reg 0x%02x (DEVICE_STATUS) = 0x%02x -- PLL locked after %lld us\n",
+		 AD4134_DEVICE_STATUS_REG, status,
+		 ktime_us_delta(ktime_get(), t0));
 
 	return 0;
 }
@@ -1465,18 +1487,10 @@ static int ad4134_setup(struct ad4134_state *st)
 	struct device *dev = &st->spi->dev;
 	struct gpio_desc *reset_gpio;
 	struct clk *clk;
+	unsigned int val_rb;
 	int ret;
 
-	clk = devm_clk_get_enabled(dev, "cnv_ext_clk");
-	if (IS_ERR(clk))
-		return dev_err_probe(dev, PTR_ERR(clk), "Failed to find SYS clock\n");
-
-	st->sys_clk_rate = clk_get_rate(clk);
-	if (!st->sys_clk_rate)
-		return dev_err_probe(dev, -EINVAL, "Failed to get SYS clock rate\n");
-	st->sys_clk_hz = st->sys_clk_rate;
-	dev_info(dev, "ad7134: cnv_ext_clk rate = %lu Hz, sys_clk_rate = %lu Hz\n",
-		 clk_get_rate(clk), st->sys_clk_rate);
+	dev_dbg(dev, "setup: chip+clock setup start\n");
 
 	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(st->regulators),
 				      st->regulators);
@@ -1487,16 +1501,29 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to enable regulators\n");
 
+	ret = devm_add_action_or_reset(dev, ad4134_disable_regulators, st);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to add regulators disable action\n");
+
 	ret = regulator_get_voltage(st->regulators[AD4134_REFIN_REGULATOR].consumer);
 	if (ret < 0)
 		return ret;
 
 	st->refin_mv = ret / 1000;
+	dev_info(dev, "enable regulators: AVDD5, AVDD1V8, IOVDD, REFIN (REFIN = %d mV)\n",
+		 st->refin_mv);
 
-	ret = devm_add_action_or_reset(dev, ad4134_disable_regulators, st);
-	if (ret)
-		return dev_err_probe(dev, ret,
-				     "Failed to add regulators disable action\n");
+	clk = devm_clk_get_enabled(dev, "cnv_ext_clk");
+	if (IS_ERR(clk))
+		return dev_err_probe(dev, PTR_ERR(clk), "Failed to find SYS clock\n");
+
+	st->sys_clk_rate = clk_get_rate(clk);
+	if (!st->sys_clk_rate)
+		return dev_err_probe(dev, -EINVAL, "Failed to get SYS clock rate\n");
+	st->sys_clk_hz = st->sys_clk_rate;
+	dev_info(dev, "enable clock cnv_ext_clk = %lu Hz (%lu MHz)\n",
+		 st->sys_clk_rate, st->sys_clk_rate / 1000000);
 
 	reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(reset_gpio))
@@ -1505,11 +1532,14 @@ static int ad4134_setup(struct ad4134_state *st)
 
 	/* Published so the master can reach the slave's reset for §E (§H). */
 	st->reset_gpio = reset_gpio;
+	dev_dbg(dev, "setup: reset GPIO acquired (chip held in reset)\n");
 
 	st->cs_gpio = devm_gpiod_get_optional(dev, "cs", GPIOD_OUT_LOW);
 	if (IS_ERR(st->cs_gpio))
 		return dev_err_probe(dev, PTR_ERR(st->cs_gpio),
 				     "Failed to find cs-gpio\n");
+	dev_dbg(dev, "setup: cs GPIO %s\n",
+		st->cs_gpio ? "acquired" : "not present");
 
 	/*
 	 * Sequence.txt §E/§F are one master responsibility on a dual-chip
@@ -1528,6 +1558,7 @@ static int ad4134_setup(struct ad4134_state *st)
 	 * §E.1-6 are owned by ad4134_clkin_startup().
 	 */
 	if (st->clkin_present) {
+		dev_dbg(dev, "setup: (multidevice-sync) controlled XTAL startup\n");
 		ret = ad4134_clkin_startup(st, reset_gpio);
 		if (ret)
 			return ret;
@@ -1551,12 +1582,21 @@ static int ad4134_setup(struct ad4134_state *st)
 			return ret;
 	}
 
+	dev_dbg(dev, "setup: programming chip config registers\n");
+
 	ret = regmap_update_bits(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
 				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
 				 FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
 					    st->output_frame));
 	if (ret)
 		return ret;
+	dev_info(dev, "write reg 0x%02x (DATA_PACKET_CONFIG)  = 0x%02x (mask 0x%02x)\n",
+		 AD4134_DATA_PACKET_CONFIG_REG,
+		 (u8)FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK, st->output_frame),
+		 (u8)AD4134_DATA_PACKET_CONFIG_FRAME_MASK);
+	if (!regmap_read(st->regmap, AD4134_DATA_PACKET_CONFIG_REG, &val_rb))
+		dev_info(dev, "read  reg 0x%02x (DATA_PACKET_CONFIG)  = 0x%02x\n",
+			 AD4134_DATA_PACKET_CONFIG_REG, val_rb);
 
 	ret = regmap_update_bits(st->regmap, AD4134_DIG_IF_CFG_REG,
 				 AD4134_DIF_IF_CFG_FORMAT_MASK,
@@ -1564,11 +1604,24 @@ static int ad4134_setup(struct ad4134_state *st)
 					    AD4134_DATA_FORMAT_QUAD_CH_PARALLEL));
 	if (ret)
 		return ret;
+	dev_info(dev, "write reg 0x%02x (DIG_IF_CFG)          = 0x%02x (mask 0x%02x)\n",
+		 AD4134_DIG_IF_CFG_REG,
+		 (u8)FIELD_PREP(AD4134_DIF_IF_CFG_FORMAT_MASK,
+				AD4134_DATA_FORMAT_QUAD_CH_PARALLEL),
+		 (u8)AD4134_DIF_IF_CFG_FORMAT_MASK);
+	if (!regmap_read(st->regmap, AD4134_DIG_IF_CFG_REG, &val_rb))
+		dev_info(dev, "read  reg 0x%02x (DIG_IF_CFG)          = 0x%02x\n",
+			 AD4134_DIG_IF_CFG_REG, val_rb);
 
 	ret = regmap_write(st->regmap, AD4134_POWER_CONFIG_REG,
 			   AD4134_POWER_CONFIG_LDO_PD);
 	if (ret)
 		return ret;
+	dev_info(dev, "write reg 0x%02x (POWER_CONFIG)        = 0x%02x\n",
+		 AD4134_POWER_CONFIG_REG, AD4134_POWER_CONFIG_LDO_PD);
+	if (!regmap_read(st->regmap, AD4134_POWER_CONFIG_REG, &val_rb))
+		dev_info(dev, "read  reg 0x%02x (POWER_CONFIG)        = 0x%02x\n",
+			 AD4134_POWER_CONFIG_REG, val_rb);
 
 	ret = regmap_update_bits(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG,
 				 AD4134_CHAN_DIG_FILTER_SEL_MASK,
@@ -1576,6 +1629,13 @@ static int ad4134_setup(struct ad4134_state *st)
 					    AD4134_SINC6_FILTER));
 	if (ret)
 		return ret;
+	dev_info(dev, "write reg 0x%02x (CHAN_DIG_FILTER_SEL) = 0x%02x (mask 0x%02x)\n",
+		 AD4134_CHAN_DIG_FILTER_SEL_REG,
+		 (u8)FIELD_PREP(AD4134_CHAN_DIG_FILTER_SEL_MASK, AD4134_SINC6_FILTER),
+		 (u8)AD4134_CHAN_DIG_FILTER_SEL_MASK);
+	if (!regmap_read(st->regmap, AD4134_CHAN_DIG_FILTER_SEL_REG, &val_rb))
+		dev_info(dev, "read  reg 0x%02x (CHAN_DIG_FILTER_SEL) = 0x%02x\n",
+			 AD4134_CHAN_DIG_FILTER_SEL_REG, val_rb);
 
 	/*
 	 * Sequence.txt §F.10 — start ODR after dig_clk is established and
@@ -1591,6 +1651,18 @@ static int ad4134_setup(struct ad4134_state *st)
 		ret = ad4134_setup_odr(st, st->odr_hz);
 		if (ret)
 			return dev_err_probe(dev, ret, "failed to set ODR freq\n");
+
+		{
+			struct pwm_waveform wf = {};
+
+			if (!pwm_get_waveform_might_sleep(st->odr_trigger, &wf) &&
+			    wf.period_length_ns)
+				dev_info(dev, "start ODR = %u Hz (period %llu ns, high %llu ns)\n",
+					 st->odr_hz, wf.period_length_ns,
+					 wf.duty_length_ns);
+			else
+				dev_info(dev, "start ODR = %u Hz\n", st->odr_hz);
+		}
 
 		ret = ad4134_wait_pll_lock(dev, st->regmap, "master");
 		if (ret)
@@ -1611,6 +1683,7 @@ static int ad4134_setup(struct ad4134_state *st)
 	 * §H this becomes an HP→HP no-op.
 	 */
 	if (st->ad4134_duo && st->cs_gpio) {
+		dev_dbg(dev, "setup: (multidevice-sync) broadcasting config to slave chip\n");
 		gpiod_set_value_cansleep(st->cs_gpio, 1);
 
 		regmap_write(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
@@ -1634,6 +1707,8 @@ static int ad4134_setup(struct ad4134_state *st)
 		if (ret)
 			return ret;
 	}
+
+	dev_dbg(dev, "setup: chip+clock setup done\n");
 
 	return 0;
 }
@@ -1663,19 +1738,30 @@ static int ad4134_bind(struct device *dev)
 	struct ad4134_state *st = iio_priv(indio_dev);
 	int ret;
 
+	dev_dbg(dev, "bind: SPI-Engine bound, building data path\n");
+
 	ret = component_bind_all(dev, st);
 	if (ret)
 		return ret;
+	dev_dbg(dev, "bind: SPI-Engine component resolved\n");
 
 	ret = ad4134_offload_buffer_setup(indio_dev, st->spi);
 	if (ret)
 		return ret;
+	dev_dbg(dev, "bind: SPI offload + RX DMA buffer ready\n");
 
 	ret = ad4134_update_conversion_rate(st, st->odr_hz);
 	if (ret)
 		return dev_err_probe(dev, ret, "failed to set sampling freq\n");
+	dev_info(dev, "start SPI-Engine + DMA @ %u Hz\n", st->odr_hz);
 
-	return iio_device_register(indio_dev);
+	ret = iio_device_register(indio_dev);
+	if (ret)
+		return ret;
+
+	dev_info(dev, "IIO device ready -- valid data\n");
+
+	return 0;
 }
 
 static void ad4134_unbind(struct device *dev)
@@ -1713,6 +1799,8 @@ static int ad4134_probe(struct spi_device *spi)
 
 	dev_set_drvdata(dev, indio_dev);
 
+	dev_info(dev, "AD7134 %s power-up sequence:\n", dev_name(dev));
+
 	st->regulators[AD4134_AVDD5_REGULATOR].supply = "avdd5";
 	st->regulators[AD4134_AVDD1V8_REGULATOR].supply = "avdd1v8";
 	st->regulators[AD4134_IOVDD_REGULATOR].supply = "iovdd";
@@ -1720,6 +1808,10 @@ static int ad4134_probe(struct spi_device *spi)
 
 	ad4134_duo = ad4134_get_ADC_count(st) == 2;
 	st->ad4134_duo = ad4134_duo;
+
+	dev_dbg(dev, "probe: ADC count = %d (%s)\n",
+		ad4134_duo ? 2 : 1,
+		ad4134_duo ? "dual / multidevice-sync" : "single");
 
 	/*
 	 * Dual-chip master (the node carrying the clkin_aligner phandle) drives
@@ -1791,12 +1883,16 @@ static int ad4134_probe(struct spi_device *spi)
 				     "Failed to config ADC frame\n");
 	}
 
+	dev_dbg(dev, "probe: data frame=%d, %d channels selected\n",
+		st->output_frame, indio_dev->num_channels);
+
 	st->regmap = devm_regmap_init_spi(spi, &ad4134_regmap_config);
 	if (IS_ERR(st->regmap))
 		return PTR_ERR(st->regmap);
 
 	/* The HDL is hardconded/configured to read from all 4 DOUT lines. */
 	st->num_dout_lines = 4;
+	dev_dbg(dev, "probe: DOUT lines = %d\n", st->num_dout_lines);
 
 	/*
 	 * Map the clkin_aligner side-band IP (if present in DT/bitstream).
@@ -1808,9 +1904,14 @@ static int ad4134_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	dev_dbg(dev, "probe: clkin-aligner %s (multidevice-sync side-band; NOT needed for basic capture)\n",
+		st->clkin_present ? "present" : "absent");
+
 	ret = ad4134_setup(st);
 	if (ret)
 		return ret;
+
+	dev_dbg(dev, "probe: chip setup complete\n");
 
 	if (device_property_present(&st->spi->dev, "gpio-controller")) {
 		ret = ad4134_gpio_setup(st);
@@ -1827,10 +1928,13 @@ static int ad4134_probe(struct spi_device *spi)
 		indio_dev->channels = 0;
 		indio_dev->num_channels = 0;
 		indio_dev->available_scan_masks = 0;
+		dev_info(dev, "register-only mode (no SPI-Engine -> no buffered capture)\n");
 		return devm_iio_device_register(dev, indio_dev);
 	}
 
 	indio_dev->setup_ops = &ad4134_offload_buffer_setup_ops;
+
+	dev_dbg(dev, "probe: registering SPI-Engine data path (waits for engine bind)\n");
 
 	st->spi_engine_fwnode = fwnode_find_reference(fwnode, "adi,spi-engine", 0);
 	if (IS_ERR(st->spi_engine_fwnode))
