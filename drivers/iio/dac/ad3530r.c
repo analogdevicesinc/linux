@@ -71,6 +71,7 @@ struct ad3530r_chan {
 struct ad3530r_chip_info {
 	const char *name;
 	const struct iio_chan_spec *channels;
+	const struct regmap_config *regmap_config;
 	int (*input_ch_reg)(unsigned int channel);
 	int (*sw_ldac_trig_reg)(unsigned int channel);
 	const unsigned int *interface_config_a;
@@ -371,9 +372,16 @@ static const unsigned int ad3531r_op_mode[] = {
 	AD3530R_OUTPUT_OPERATING_MODE_0,
 };
 
+static const struct regmap_config ad3530r_regmap_config = {
+	.reg_bits = 16,
+	.val_bits = 8,
+	.max_register = AD3530R_MAX_REG_ADDR,
+};
+
 static const struct ad3530r_chip_info ad3530_chip = {
 	.name = "ad3530",
 	.channels = ad3530r_channels,
+	.regmap_config = &ad3530r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3530r_channels),
 	.sw_ldac_trig_reg = ad3530r_trigger_sw_ldac_reg,
 	.input_ch_reg = ad3530r_input_ch_reg,
@@ -389,6 +397,7 @@ static const struct ad3530r_chip_info ad3530_chip = {
 static const struct ad3530r_chip_info ad3530r_chip = {
 	.name = "ad3530r",
 	.channels = ad3530r_channels,
+	.regmap_config = &ad3530r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3530r_channels),
 	.sw_ldac_trig_reg = ad3530r_trigger_sw_ldac_reg,
 	.input_ch_reg = ad3530r_input_ch_reg,
@@ -404,6 +413,7 @@ static const struct ad3530r_chip_info ad3530r_chip = {
 static const struct ad3530r_chip_info ad3531_chip = {
 	.name = "ad3531",
 	.channels = ad3531r_channels,
+	.regmap_config = &ad3530r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3531r_channels),
 	.sw_ldac_trig_reg = ad3531r_trigger_sw_ldac_reg,
 	.input_ch_reg = ad3531r_input_ch_reg,
@@ -419,6 +429,7 @@ static const struct ad3530r_chip_info ad3531_chip = {
 static const struct ad3530r_chip_info ad3531r_chip = {
 	.name = "ad3531r",
 	.channels = ad3531r_channels,
+	.regmap_config = &ad3530r_regmap_config,
 	.num_channels = ARRAY_SIZE(ad3531r_channels),
 	.sw_ldac_trig_reg = ad3531r_trigger_sw_ldac_reg,
 	.input_ch_reg = ad3531r_input_ch_reg,
@@ -536,12 +547,6 @@ static int ad3530r_setup(struct ad3530r_state *st, int external_vref_uV)
 	return 0;
 }
 
-static const struct regmap_config ad3530r_regmap_config = {
-	.reg_bits = 16,
-	.val_bits = 8,
-	.max_register = AD3530R_MAX_REG_ADDR,
-};
-
 static const struct iio_info ad3530r_info = {
 	.read_raw = ad3530r_read_raw,
 	.write_raw = ad3530r_write_raw,
@@ -562,7 +567,11 @@ static int ad3530r_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 
-	st->regmap = devm_regmap_init_spi(spi, &ad3530r_regmap_config);
+	st->chip_info = spi_get_device_match_data(spi);
+	if (!st->chip_info)
+		return -ENODEV;
+
+	st->regmap = devm_regmap_init_spi(spi, st->chip_info->regmap_config);
 	if (IS_ERR(st->regmap))
 		return dev_err_probe(dev, PTR_ERR(st->regmap),
 				     "Failed to init regmap");
@@ -570,10 +579,6 @@ static int ad3530r_probe(struct spi_device *spi)
 	ret = devm_mutex_init(dev, &st->lock);
 	if (ret)
 		return ret;
-
-	st->chip_info = spi_get_device_match_data(spi);
-	if (!st->chip_info)
-		return -ENODEV;
 
 	ret = devm_regulator_bulk_get_enable(dev, ARRAY_SIZE(regulators),
 					     regulators);
