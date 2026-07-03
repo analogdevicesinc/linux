@@ -11,8 +11,11 @@ config AD3530R
 	depends on SPI
 	select REGMAP_SPI
 	help
-	  Say yes here to build support for Analog Devices AD3530R, AD3531R
-	  Digital to Analog Converter.
+	  Say yes here to build support for the following Analog Devices
+	  Digital to Analog Converters:
+	  - AD3530/AD3530R (8-channel)
+	  - AD3531/AD3531R (4-channel)
+	  - AD3532/AD3532R (16-channel)
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad3530r.
