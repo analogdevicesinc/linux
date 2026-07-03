@@ -187,5 +187,10 @@ int adrv9104_init_with_profile(struct adrv9104_rf_phy *phy, const deviceProfileB
 #define adrv9104_init(phy)	adrv9104_init_with_profile(phy, NULL)
 
 int adrv9104_fw_parse(struct adrv9104_rf_phy *phy);
-
+#ifdef CONFIG_DEBUG_FS
+void adrv9104_debugfs_create(struct adrv9104_rf_phy *phy, struct iio_dev *indio_dev);
+#else
+static inline void adrv9104_debugfs_create(struct adrv9104_rf_phy *phy,
+					   struct iio_dev *indio_dev) {}
+#endif
 #endif

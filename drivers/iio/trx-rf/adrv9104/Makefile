@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
 adrv9104_drv-y = adrv9104.o
+adrv9104_drv-$(CONFIG_DEBUG_FS) += adrv9104-debugfs.o
 adrv9104_drv-y += adrv9104-linux.o
 adrv9104_drv-y += adrv9104-backend.o
 adrv9104_drv-y += adrv9104-profile.o

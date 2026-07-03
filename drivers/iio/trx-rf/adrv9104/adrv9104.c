@@ -1715,6 +1715,8 @@ static int adrv9104_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	adrv9104_debugfs_create(phy, indio_dev);
+
 	return 0;
 }
 
