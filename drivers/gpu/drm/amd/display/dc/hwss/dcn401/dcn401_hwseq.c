@@ -76,7 +76,8 @@ void dcn401_initialize_min_clocks(struct dc *dc)
 		if (dc->clk_mgr->funcs->get_dispclk_from_dentist) {
 			clocks->dispclk_khz = dc->clk_mgr->funcs->get_dispclk_from_dentist(dc->clk_mgr);
 		} else {
-			clocks->dispclk_khz = dc->clk_mgr->boot_snapshot.dispclk * 1000;
+			// Boot snapshot is already in Khz
+			clocks->dispclk_khz = dc->clk_mgr->boot_snapshot.dispclk;
 		}
 	}
 	clocks->ref_dtbclk_khz = dc->clk_mgr->bw_params->clk_table.entries[0].dtbclk_mhz * 1000;
