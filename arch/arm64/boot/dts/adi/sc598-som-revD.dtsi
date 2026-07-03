@@ -7,6 +7,17 @@
 
 #include "sc598-som.dtsi"
 
+/ {
+	mmc0_pwrseq: mmc0-pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&som_gpio_expander 8 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&mmc0 {
+	mmc-pwrseq = <&mmc0_pwrseq>;
+};
+
 &i2c2 {
 	som_gpio_expander: mcp23018@20 {
 		compatible = "microchip,mcp23018";
@@ -62,13 +73,6 @@
 			gpios = <6 GPIO_ACTIVE_LOW>;
 			output-low;
 			line-name = "uart0-flow-en";
-		};
-
-		som-emmc {
-			gpio-hog;
-			gpios = <8 GPIO_ACTIVE_LOW>;
-			output-high;
-			line-name = "som-emmc-en";
 		};
 
 		crr-sdcard {
