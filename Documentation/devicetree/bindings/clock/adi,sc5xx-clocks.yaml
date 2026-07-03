@@ -22,6 +22,7 @@ properties:
       - adi,sc58x-clocks # 32-Bit SC584, SC589 processors
       - adi,sc594-clocks # 32-Bit SC594 processor
       - adi,sc598-clocks # 64-Bit SC598 processor
+      - adi,sc846-clocks # 64-Bit SC846 processor
 
   '#clock-cells':
     const: 1
@@ -99,5 +100,18 @@ examples:
       #clock-cells = <1>;
       clocks = <&sys_clkin0>, <&sys_clkin1>;
       clock-names = "sys_clkin0", "sys_clkin1";
+      status = "okay";
+    };
+
+  - |
+    clocks@3108d000 {
+      compatible = "adi,sc846-clocks";
+      reg = <0x3108d000 0x1000>,
+            <0x3108e000 0x1000>,
+            <0x3108f000 0x1000>,
+            <0x310a9000 0x1000>;
+      #clock-cells = <1>;
+      clocks = <&sys_clkin0>;
+      clock-names = "sys_clkin0";
       status = "okay";
     };
