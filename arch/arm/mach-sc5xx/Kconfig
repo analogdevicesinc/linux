@@ -6,7 +6,6 @@ menuconfig ARCH_SC5XX
 	select PINCTRL
 	select COUNTER
 	select SERIAL_ADI_UART4
-	select ADI_ADSP_IRQ
 	select COMMON_CLK
 	select GENERIC_IRQ_MULTI_HANDLER
 	select VFP
@@ -14,7 +13,6 @@ menuconfig ARCH_SC5XX
 	select MIGHT_HAVE_CACHE_L2X0
 	select OF
 	select HAVE_CLK
-	select IRQ_DOMAIN
 	select SPARSE_IRQ
 	select GENERIC_CLOCKEVENTS
 
