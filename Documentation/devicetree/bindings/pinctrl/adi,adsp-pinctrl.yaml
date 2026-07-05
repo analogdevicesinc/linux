@@ -1,0 +1,258 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/pinctrl/adi,adsp-pinctrl.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSP PORT pin controller and GPIO
+
+maintainers:
+  - Alvin Šipraga <alvin.sipraga@analog.com>
+
+description:
+  Analog Devices PORT pinmux and GPIO controller found on ADSP SoCs. Each PORT
+  consists of up to 16 pins, each of which can function as a GPIO or, depending
+  on available alternative functions, be muxed to an on-chip peripheral signal.
+
+  Pin bias and drive strength is configured through a separate PADS register
+  block referenced by the adi,pads-syscon phandle.
+
+  Each PORT can also function as an interrupt controller for GPIO interrupts if
+  its lines are routed to a Pin Interrupt (PINT) controller found on the SoC.
+
+  Pin muxing is expressed in consumer nodes via the "pinmux" property using
+  the macros in <dt-bindings/pinctrl/adi,adsp-sc598-pinctrl.h> etc. Pin
+  configuration is expressed via the standard pinconf properties.
+
+allOf:
+  - $ref: pinctrl.yaml#
+
+properties:
+  compatible:
+    enum:
+      - adi,adsp-sc571-pinctrl
+      - adi,adsp-sc573-pinctrl
+      - adi,adsp-sc584-pinctrl
+      - adi,adsp-sc589-pinctrl
+      - adi,adsp-sc594-pinctrl
+      - adi,adsp-sc598-pinctrl
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 1
+
+  ranges: true
+
+  adi,pads-syscon:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      phandle to the PADS syscon register block used for pin bias and drive
+      strength configuration.
+
+required:
+  - compatible
+  - '#address-cells'
+  - '#size-cells'
+  - ranges
+
+if:
+  properties:
+    compatible:
+      enum:
+        - adi,adsp-sc584-pinctrl
+        - adi,adsp-sc589-pinctrl
+then:
+  properties:
+    adi,pads-syscon: false
+else:
+  required:
+    - adi,pads-syscon
+
+patternProperties:
+  "^gpio@[0-9a-f]+$":
+    type: object
+    description:
+      A single PORT GPIO controller and (optionally) interrupt controller.
+
+    properties:
+      reg:
+        maxItems: 1
+
+      gpio-controller: true
+
+      '#gpio-cells':
+        const: 2
+
+      gpio-ranges:
+        maxItems: 1
+
+      interrupt-parent:
+        description: phandle to the connected PINT controller
+
+      interrupt-controller: true
+
+      '#interrupt-cells':
+        const: 2
+
+      adi,interrupt-ranges:
+        $ref: /schemas/types.yaml#/definitions/uint32-matrix
+        description:
+          The mapping of the PORT's GPIO lines to the interrupt space of the
+          connected PINT controller. Such maps are per-port-half (i.e. the
+          upper- or lower-half) at an 8-bit aligned offset of the interrupt
+          space. If the whole PORT is mapped, the mapping must be contiguous and
+          map to offset 0.
+        maxItems: 1
+        items:
+          items:
+            - description: PORT GPIO offset
+              enum: [ 0, 8 ]
+            - description: PINT controller offset
+              enum: [ 0, 8, 16, 24 ]
+            - description: number of pins mapped
+              minimum: 1
+              maximum: 16
+
+    patternProperties:
+      "^.+-hog(-[0-9]+)?$":
+        type: object
+        required:
+          - gpio-hog
+
+    required:
+      - reg
+      - gpio-controller
+      - '#gpio-cells'
+      - gpio-ranges
+
+    dependencies:
+      interrupt-controller:
+        - '#interrupt-cells'
+        - interrupt-parent
+        - adi,interrupt-ranges
+      adi,interrupt-ranges:
+        - interrupt-controller
+
+    additionalProperties: false
+
+  "-pins$":
+    type: object
+    description:
+      Consumer pin configuration node. The node may directly configure pins by
+      specifying either the pinmux or pins properties, or it may contain
+      subnodes with those properties in order to apply different configurations
+      across pins.
+    oneOf:
+      - $ref: "#/$defs/pin-cfg"
+      - $ref: "#/$defs/pin-group"
+
+$defs:
+  pin-cfg:
+    type: object
+    allOf:
+      - $ref: pincfg-node.yaml#
+      - $ref: pinmux-node.yaml#
+    properties:
+      pinmux:
+        description:
+          Array of pin/function selectors, one per pin, using helper macros from
+          the relevant header for the SoC (e.g. adi,adsp-sc598-pinctrl.h).
+
+      pins:
+        description:
+          One or more pin names to apply pin configuration to, without
+          changing muxing. Names follow the format "PA_00", "PB_05", etc.
+        $ref: /schemas/types.yaml#/definitions/string-array
+
+      bias-disable: true
+      bias-pull-up: true
+      bias-pull-down: true
+      slew-rate:
+        description: |
+          0: low-speed drive (signals <= 62.5 MHz)
+          1: high-speed drive (signals > 62.5 MHz)
+        enum: [0, 1]
+
+    oneOf:
+      - required: [ pinmux ]
+      - required: [ pins ]
+
+    additionalProperties: false
+
+  pin-group:
+    type: object
+    patternProperties:
+      "-pins$":
+        $ref: "#/$defs/pin-cfg"
+
+    additionalProperties: false
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/pinctrl/adi,adsp-sc598-pinctrl.h>
+
+    pint0: interrupt-controller@31005000 {
+        reg = <0x31005000 0x40>;
+        interrupt-controller;
+        #interrupt-cells = <2>;
+    };
+
+    pinctrl: pinctrl {
+        compatible = "adi,adsp-sc598-pinctrl";
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges;
+        adi,pads-syscon = <&pads_syscon>;
+
+        gpio@31004000 {
+            reg = <0x31004000 0x80>;
+            gpio-controller;
+            #gpio-cells = <2>;
+            gpio-ranges = <&pinctrl 0 0 16>;
+            interrupt-controller;
+            #interrupt-cells = <2>;
+            interrupt-parent = <&pint0>;
+            adi,interrupt-ranges = <0 0 16>;
+        };
+
+        gpio@31004080 {
+            reg = <0x31004080 0x80>;
+            gpio-controller;
+            #gpio-cells = <2>;
+            gpio-ranges = <&pinctrl 0 16 16>;
+            interrupt-controller;
+            #interrupt-cells = <2>;
+            interrupt-parent = <&pint0>;
+            adi,interrupt-ranges = <0 16 16>;
+        };
+
+        button-pins {
+            pins = "PF_02";
+            bias-pull-up;
+        };
+
+        uart0-default-pins {
+            pinmux = <SC598_PA06__UART0_TX>,
+                     <SC598_PA07__UART0_RX>;
+        };
+
+        mmc0-default-pins {
+            data-pins {
+                pinmux = <SC598_PD15__EMSI0_D0>,
+                         <SC598_PE01__EMSI0_D1>,
+                         <SC598_PE06__EMSI0_D2>,
+                         <SC598_PE08__EMSI0_D3>,
+                         <SC598_PE09__EMSI0_CLK>,
+                         <SC598_PG01__EMSI0_CMD>;
+            };
+
+            cd-pins {
+                pins = "PB_15";
+                bias-pull-up;
+            };
+        };
+    };
