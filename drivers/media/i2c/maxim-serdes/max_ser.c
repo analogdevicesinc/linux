@@ -1116,6 +1116,18 @@ static int max_ser_v4l2_register(struct max_ser_priv *priv)
 
 	v4l2_i2c_subdev_init(sd, priv->client, &max_ser_subdev_ops);
 	i2c_set_clientdata(priv->client, data);
+	if (priv->client->dev.of_node) {
+		const char *compat;
+
+		if (!of_property_read_string(priv->client->dev.of_node,
+					     "compatible", &compat)) {
+			const char *chip = strchr(compat, ',');
+
+			if (chip)
+				v4l2_i2c_subdev_set_name(sd, priv->client,
+							 chip + 1, NULL);
+		}
+	}
 	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
 	sd->entity.ops = &max_ser_media_ops;
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_STREAMS;
