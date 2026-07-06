@@ -19,6 +19,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#gpio-cells = <2>;
+		#clock-cells = <0>;
 
 		compatible = {{compatible}};
 		reg = <{{address}}>;
