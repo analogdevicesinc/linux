@@ -617,8 +617,9 @@ static void gmc_v12_1_get_coherence_flags(struct amdgpu_device *adev,
 		mtype_local = is_aid_a1 ? MTYPE_RW : MTYPE_NC;
 		mtype_remote = is_aid_a1 ? MTYPE_NC : MTYPE_UC;
 		if (amdgpu_mtype_local == 0) {
-			DRM_INFO_ONCE("Using MTYPE_RW for local memory\n");
+			DRM_INFO_ONCE("Using MTYPE_RW for local memory and MTYPE_NC for remote memory\n");
 			mtype_local = MTYPE_RW;
+			mtype_remote = MTYPE_NC;
 		} else if (amdgpu_mtype_local == 1) {
 			DRM_INFO_ONCE("Using MTYPE_NC for local memory\n");
 			mtype_local = MTYPE_NC;
