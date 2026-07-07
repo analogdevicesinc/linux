@@ -78,16 +78,11 @@ enum sc5xx_clk_type {
 	SC5XX_CLK_CDU_MUX,
 };
 
-struct sc5xx_clk_parents {
-	const struct clk_parent_data *parent_data;
-	const u8 *parent_ids;
-	u8 num_parents;
-};
-
 struct sc5xx_div_clock {
 	unsigned int id;
 	const char *name;
-	struct sc5xx_clk_parents parents;
+	const unsigned int *parents;
+	unsigned int num_parents;
 	unsigned long flags;
 	u32 offset;
 	u8 shift;
@@ -103,6 +98,7 @@ struct sc5xx_div_clock {
 		.id = (_id),						\
 		.name = (_name),					\
 		.parents = _parents,					\
+		.num_parents = ARRAY_SIZE(_parents),			\
 		.flags = (_flags),					\
 		.offset = (_offset),					\
 		.shift = (_shift),					\
@@ -114,7 +110,8 @@ struct sc5xx_div_clock {
 struct sc5xx_pll_clock {
 	unsigned int id;
 	const char *name;
-	struct sc5xx_clk_parents parents;
+	const unsigned int *parents;
+	unsigned int num_parents;
 	unsigned long flags;
 	u32 offset;
 	u8 shift;
@@ -131,6 +128,7 @@ struct sc5xx_pll_clock {
 		.id = (_id),						\
 		.name = (_name),					\
 		.parents = _parents,					\
+		.num_parents = ARRAY_SIZE(_parents),			\
 		.flags = (_flags),					\
 		.offset = (_offset),					\
 		.shift = (_shift),					\
@@ -143,7 +141,8 @@ struct sc5xx_pll_clock {
 struct sc5xx_fixed_factor_clock {
 	unsigned int id;
 	const char *name;
-	struct sc5xx_clk_parents parents;
+	const unsigned int *parents;
+	unsigned int num_parents;
 	unsigned long flags;
 	unsigned int mult;
 	unsigned int div;
@@ -156,6 +155,7 @@ struct sc5xx_fixed_factor_clock {
 		.id = (_id),						\
 		.name = (_name),					\
 		.parents = _parents,					\
+		.num_parents = ARRAY_SIZE(_parents),			\
 		.flags = (_flags),					\
 		.mult = (_mult),					\
 		.div = (_div),						\
@@ -165,7 +165,8 @@ struct sc5xx_fixed_factor_clock {
 struct sc5xx_gate_clock {
 	unsigned int id;
 	const char *name;
-	struct sc5xx_clk_parents parents;
+	const unsigned int *parents;
+	unsigned int num_parents;
 	unsigned long flags;
 	u32 offset;
 	u8 bit_idx;
@@ -180,6 +181,7 @@ struct sc5xx_gate_clock {
 		.id = (_id),						\
 		.name = (_name),					\
 		.parents = _parents,					\
+		.num_parents = ARRAY_SIZE(_parents),			\
 		.flags = (_flags),					\
 		.offset = (_offset),					\
 		.bit_idx = (_bit_idx),					\
@@ -190,9 +192,8 @@ struct sc5xx_gate_clock {
 struct sc5xx_mux_clock {
 	unsigned int id;
 	const char *name;
-	struct sc5xx_clk_parents parents;
-	const u32 *mux_table;
-	u8 cdu_clko;
+	const unsigned int *parents;
+	unsigned int num_parents;
 	unsigned long flags;
 };
 
@@ -203,6 +204,7 @@ struct sc5xx_mux_clock {
 		.id = (_id),						\
 		.name = (_name),					\
 		.parents = _parents,					\
+		.num_parents = ARRAY_SIZE(_parents),			\
 		.mux_table = (_table),					\
 		.cdu_clko = (_clko),					\
 		.flags = (_flags),					\
@@ -216,7 +218,8 @@ struct sc5xx_mux_clock {
 struct sc5xx_clkinsel_clock {
 	unsigned int id;
 	const char *name;
-	struct sc5xx_clk_parents parents;
+	struct clk_parent_data *parent_data;
+	unsigned int num_parents;
 	unsigned long flags;
 };
 
@@ -227,6 +230,7 @@ struct sc5xx_clkinsel_clock {
 		.id = (_id),						\
 		.name = (_name),					\
 		.parents = _parents,					\
+		.num_parents = ARRAY_SIZE(_parents),			\
 		.flags = (_flags),					\
 	},								\
 }
@@ -235,7 +239,8 @@ struct sc5xx_cdu_mux {
 	unsigned int id;
 	const char *name;
 	u8 cdu_clko;
-	struct sc5xx_clk_parents parents;
+	struct clk_parent_data *parents;
+	unsigned int num_parents;
 	const u32 *mux_table;
 	unsigned long flags;
 };
@@ -248,6 +253,7 @@ struct sc5xx_cdu_mux {
 		.name = (_name),					\
 		.cdu_clko = (_cdu_clko),				\
 		.parents = _parents,					\
+		.num_parents = ARRAY_SIZE(_parents),			\
 		.mux_table = (_mux_table),				\
 		.flags = (_flags),					\
 	},								\
@@ -261,6 +267,7 @@ struct sc5xx_cdu_mux {
 		.name = (_name),					\
 		.cdu_clko = (_cdu_clko),				\
 		.parents = _parents,					\
+		.num_parents = ARRAY_SIZE(_parents),			\
 		.mux_table = (_mux_table),				\
 		.flags = (_flags) | (CLK_IS_CRITICAL),			\
 	},								\
