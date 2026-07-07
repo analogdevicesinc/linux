@@ -98,6 +98,41 @@ bool hazptr_slot_is_backup(struct hazptr_ctx *ctx, struct hazptr_slot *slot)
 	return slot == &ctx->backup_slot.slot;
 }
 
+/* Internal helper. */
+static inline
+void hazptr_promote_to_backup_slot(struct hazptr_ctx *ctx, struct hazptr_slot *slot)
+{
+	struct hazptr_slot *backup_slot;
+
+	backup_slot = hazptr_chain_backup_slot(ctx);
+	/*
+	 * Move hazard pointer from the per-CPU slot to the
+	 * backup slot. This requires hazard pointer
+	 * synchronize to iterate on per-CPU slots with
+	 * load-acquire before iterating on the overflow list.
+	 */
+	WRITE_ONCE(backup_slot->addr, slot->addr);
+	/*
+	 * store-release orders store to backup slot addr before
+	 * store to per-CPU slot addr.
+	 */
+	smp_store_release(&slot->addr, NULL);
+	/* Use the backup slot for context. */
+	ctx->slot = backup_slot;
+}
+
+static inline
+void hazptr_detach(struct hazptr_ctx *ctx)
+{
+	struct hazptr_slot *slot;
+
+	guard(preempt)();
+	slot = ctx->slot;
+	if (unlikely(hazptr_slot_is_backup(ctx, slot)))
+		return;
+	hazptr_promote_to_backup_slot(ctx, slot);
+}
+
 static inline
 void hazptr_note_context_switch(void)
 {
@@ -106,27 +141,11 @@ void hazptr_note_context_switch(void)
 
 	for (idx = 0; idx < NR_HAZPTR_PERCPU_SLOTS; idx++) {
 		struct hazptr_slot_item *item = &percpu_slots->items[idx];
-		struct hazptr_slot *slot = &item->slot, *backup_slot;
-		struct hazptr_ctx *ctx;
+		struct hazptr_slot *slot = &item->slot;
 
 		if (!slot->addr)
 			continue;
-		ctx = item->ctx.ctx;
-		backup_slot = hazptr_chain_backup_slot(ctx);
-		/*
-		 * Move hazard pointer from the per-CPU slot to the
-		 * backup slot. This requires hazard pointer
-		 * synchronize to iterate on per-CPU slots with
-		 * load-acquire before iterating on the overflow list.
-		 */
-		WRITE_ONCE(backup_slot->addr, slot->addr);
-		/*
-		 * store-release orders store to backup slot addr before
-		 * store to per-CPU slot addr.
-		 */
-		smp_store_release(&slot->addr, NULL);
-		/* Use the backup slot for context. */
-		ctx->slot = backup_slot;
+		hazptr_promote_to_backup_slot(item->ctx.ctx, slot);
 	}
 }
 
