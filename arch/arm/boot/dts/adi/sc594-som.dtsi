@@ -308,15 +308,6 @@
 	status = "okay";
 };
 
-&mmc0 {
-	/* wp-en-pin = <&som_gpio_expander ? GPIO_ACTIVE_LOW>;	 SD_WP_EN */
-	bus-width = <4>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&mmc0_8bgrp>;
-	cap-sd-highspeed;
-	status = "disabled";
-};
-
 &sram_mmap {
 	status = "okay";
 };
@@ -410,21 +401,6 @@
 				 <ADI_ADSP_PINMUX('F', 1, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('F', 2, ADI_ADSP_PINFUNC_ALT0)>,
 				 <ADI_ADSP_PINMUX('F', 3, ADI_ADSP_PINFUNC_ALT0)>;
-		};
-	};
-	mmc0_8bgrp: mmc0_8bgrp_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('F', 2, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 3, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 4, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 5, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 6, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 7, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 8, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 9, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 10, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 11, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 12, ADI_ADSP_PINFUNC_ALT0)>;
 		};
 	};
 	usbc0_default: usbc0_default_pins {
