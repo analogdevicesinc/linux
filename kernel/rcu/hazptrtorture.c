@@ -411,6 +411,7 @@ hazptr_torture_reader_tail(struct hazptr_pending *hppp, struct torture_random_st
 	preempt_enable();
 	if (irq_release && !(torture_random(trsp) % irq_release)) {
 		guard(preempt)();
+		hazptr_detach(&hppp->hpp_hc);
 		cpu = cpumask_next_wrap(smp_processor_id(), cpu_online_mask);
 		smp_call_function_single(cpu, hazptr_torture_release, hppp, 1);
 	} else {
@@ -428,6 +429,7 @@ static void hazptr_torture_defer(struct hazptr_pending *hppp, struct torture_ran
 	struct llist_head *llhp;
 
 	guard(preempt)();
+	hazptr_detach(&hppp->hpp_hc);
 	cpu = cpumask_next_wrap(cpu, cpu_online_mask);
 	llhp = per_cpu_ptr(&hazptr_pending, cpu);
 	llist_add(&hppp->hpp_node, llhp);
