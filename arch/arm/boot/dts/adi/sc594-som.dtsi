@@ -141,9 +141,10 @@
 &spi2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi2_quad>;
+
 	status = "okay";
 
-	flash: is25lp512@1 {
+	flash@1 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "issi,is25lp512", "jedec,spi-nor";
@@ -184,7 +185,7 @@
 
 	status = "disabled";
 
-	flash0: is25lx256@0 {
+	flash@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "issi,is25lx256", "jedec,spi-nor";
