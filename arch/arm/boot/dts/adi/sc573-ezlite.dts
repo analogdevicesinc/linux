@@ -11,7 +11,7 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/net/ti-dp83867.h>
-#include <dt-bindings/pinctrl/adi-adsp.h>
+#include <dt-bindings/pinctrl/adi,adsp-sc573-pinctrl.h>
 #include <dt-bindings/pinctrl/adi-adsp-sru.h>
 #include "sc57x.dtsi"
 
@@ -480,152 +480,143 @@
 	status = "okay";
 };
 
-&pinctrl0 {
-	uart0_default: uart0_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('F', 8, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 9, ADI_ADSP_PINFUNC_ALT0)>;
-		};
+&pinctrl {
+	uart0_default: uart0-default-pins {
+		pinmux = <SC573_PF08__UART0_TX
+			  SC573_PF09__UART0_RX>;
 	};
-	uart0_hwflow: uart0_hwflow_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('F', 8, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('F', 9, ADI_ADSP_PINFUNC_ALT0)>,
-					 <ADI_ADSP_PINMUX('D', 5, ADI_ADSP_PINFUNC_ALT2)>,
-					 <ADI_ADSP_PINMUX('D', 6, ADI_ADSP_PINFUNC_ALT2)>;
-		};
-	};
-	eth0_default: eth0_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('B', 7, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 8, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 6, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 5, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 13, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 12, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 14, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 15, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 9, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 4, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 0, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 2, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 10, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('A', 11, ADI_ADSP_PINFUNC_ALT0)>;
-		};
-	};
-	spi0_default: spi0_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('C', 1, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 2, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 3, ADI_ADSP_PINFUNC_ALT0)>;
-		};
-	};
-	spi2_quad: spi2_quad_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('B', 14, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 10, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 11, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 12, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 13, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 15, ADI_ADSP_PINFUNC_ALT0)>;
-		};
-	};
-	can0_default: can0_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('C', 12, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 13, ADI_ADSP_PINFUNC_ALT0)>;
 
-		};
+	uart0_hwflow: uart0-hwflow-pins {
+		pinmux = <SC573_PF08__UART0_TX
+			  SC573_PF09__UART0_RX
+			  SC573_PD05__UART0_RTS
+			  SC573_PD06__UART0_CTS>;
 	};
-	can1_default: can1_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('C', 14, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT0)>;
-		};
+
+	eth0_default: eth0-default-pins {
+		pinmux = <SC573_PB07__ETH0_TXD0
+			  SC573_PB08__ETH0_TXD1
+			  SC573_PB06__ETH0_TXD2
+			  SC573_PB05__ETH0_TXD3
+			  SC573_PA13__ETH0_RXD0
+			  SC573_PA12__ETH0_RXD1
+			  SC573_PA14__ETH0_RXD2
+			  SC573_PA15__ETH0_RXD3
+			  SC573_PB09__ETH0_TXCTL_TXEN
+			  SC573_PB04__ETH0_TXCLK
+			  SC573_PB00__ETH0_RXCLK_REFCLK
+			  SC573_PB02__ETH0_RXCTL_RXDV
+			  SC573_PA10__ETH0_MDIO
+			  SC573_PA11__ETH0_MDC>;
 	};
-	mmc0_default: mmc0_default_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('E', 12, ADI_ADSP_PINFUNC_ALT0)>,
-		     <ADI_ADSP_PINMUX('E', 13, ADI_ADSP_PINFUNC_ALT0)>,
-		     <ADI_ADSP_PINMUX('E', 14, ADI_ADSP_PINFUNC_ALT0)>,
-		     <ADI_ADSP_PINMUX('E', 15, ADI_ADSP_PINFUNC_ALT0)>,
-		     <ADI_ADSP_PINMUX('F', 0, ADI_ADSP_PINFUNC_ALT0)>,
-		     <ADI_ADSP_PINMUX('F', 1, ADI_ADSP_PINFUNC_ALT0)>,
-		     <ADI_ADSP_PINMUX('F', 2, ADI_ADSP_PINFUNC_ALT0)>,
-		     <ADI_ADSP_PINMUX('F', 3, ADI_ADSP_PINFUNC_ALT0)>,
-		     <ADI_ADSP_PINMUX('F', 4, ADI_ADSP_PINFUNC_ALT0)>,
-		     <ADI_ADSP_PINMUX('F', 7, ADI_ADSP_PINFUNC_ALT2)>,
-		     <ADI_ADSP_PINMUX('C', 12, ADI_ADSP_PINFUNC_ALT1)>;
-		};
+
+	spi0_default: spi0-default-pins {
+		pinmux = <SC573_PC01__SPI0_CLK
+			  SC573_PC02__SPI0_MISO
+			  SC573_PC03__SPI0_MOSI>;
 	};
-	ppi0_8b: ppi0_8b_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('D', 10, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 11, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 12, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 13, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 14, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 15, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 5, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 9, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 11, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 14, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 6, ADI_ADSP_PINFUNC_ALT2)>;
-		};
+
+	spi2_quad: spi2-quad-pins {
+		pinmux = <SC573_PB14__SPI2_CLK
+			  SC573_PB10__SPI2_MISO
+			  SC573_PB11__SPI2_MOSI
+			  SC573_PB12__SPI2_D2
+			  SC573_PB13__SPI2_D3
+			  SC573_PB15__SPI2_SEL1>;
 	};
-	ppi0_16b: ppi0_16b_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('D', 10, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 11, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 12, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 13, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 14, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 15, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 5, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('D', 9, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 1, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 2, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 3, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 4, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('E', 0, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 7, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 8, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('E', 1, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 11, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 14, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT1)>,
-		     <ADI_ADSP_PINMUX('C', 6, ADI_ADSP_PINFUNC_ALT2)>;
-		};
+
+	can0_default: can0-default-pins {
+		pinmux = <SC573_PC12__CAN0_RX
+			  SC573_PC13__CAN0_TX>;
 	};
-	cnt0_default: cnt0_default_pins {
-		pinmux = <ADI_ADSP_PINMUX('D', 7, ADI_ADSP_PINFUNC_ALT1)>,
-			 <ADI_ADSP_PINMUX('E', 13, ADI_ADSP_PINFUNC_ALT2)>,
-			 <ADI_ADSP_PINMUX('D', 8, ADI_ADSP_PINFUNC_ALT1)>;
+
+	can1_default: can1-default-pins {
+		pinmux = <SC573_PC14__CAN1_RX
+			  SC573_PC15__CAN1_TX>;
 	};
-	lp0_default: lp0_default_pins {
-		pinmux = <ADI_ADSP_PINMUX('E', 4, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('E', 5, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('E', 6, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('E', 7, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('E', 8, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('E', 9, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('E', 10, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('E', 11, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('E', 2, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('E', 3, ADI_ADSP_PINFUNC_ALT0)>;
+
+	mmc0_default: mmc0-default-pins {
+		pinmux = <SC573_PE12__MSI0_D0
+			  SC573_PE13__MSI0_D1
+			  SC573_PE14__MSI0_D2
+			  SC573_PE15__MSI0_D3
+			  SC573_PF00__MSI0_D4
+			  SC573_PF01__MSI0_D5
+			  SC573_PF02__MSI0_D6
+			  SC573_PF03__MSI0_D7
+			  SC573_PF04__MSI0_CLK
+			  SC573_PF07__MSI0_CMD
+			  SC573_PC12__MSI0_CD>;
 	};
-	lp1_default: lp1_default_pins {
-		pinmux = <ADI_ADSP_PINMUX('D', 10, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('D', 11, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('D', 12, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('D', 13, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('D', 14, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('D', 15, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('A', 9, ADI_ADSP_PINFUNC_ALT1)>,
-			 <ADI_ADSP_PINMUX('D', 9, ADI_ADSP_PINFUNC_ALT0)>,
-			 <ADI_ADSP_PINMUX('B', 3, ADI_ADSP_PINFUNC_ALT2)>,
-			 <ADI_ADSP_PINMUX('B', 1, ADI_ADSP_PINFUNC_ALT2)>;
+
+	ppi0_8b: ppi0-8b-pins {
+		pinmux = <SC573_PD10__PPI0_D00
+			  SC573_PD11__PPI0_D01
+			  SC573_PD12__PPI0_D02
+			  SC573_PD13__PPI0_D03
+			  SC573_PD14__PPI0_D04
+			  SC573_PD15__PPI0_D05
+			  SC573_PC05__PPI0_D06
+			  SC573_PD09__PPI0_D07
+			  SC573_PC11__PPI0_CLK
+			  SC573_PC14__PPI0_FS1
+			  SC573_PC15__PPI0_FS2
+			  SC573_PC06__PPI0_FS3>;
+	};
+
+	ppi0_16b: ppi0-16b-pins {
+		pinmux = <SC573_PD10__PPI0_D00
+			  SC573_PD11__PPI0_D01
+			  SC573_PD12__PPI0_D02
+			  SC573_PD13__PPI0_D03
+			  SC573_PD14__PPI0_D04
+			  SC573_PD15__PPI0_D05
+			  SC573_PC05__PPI0_D06
+			  SC573_PD09__PPI0_D07
+			  SC573_PC01__PPI0_D08
+			  SC573_PC02__PPI0_D09
+			  SC573_PC03__PPI0_D10
+			  SC573_PC04__PPI0_D11
+			  SC573_PE00__PPI0_D12
+			  SC573_PC07__PPI0_D13
+			  SC573_PC08__PPI0_D14
+			  SC573_PE01__PPI0_D15
+			  SC573_PC11__PPI0_CLK
+			  SC573_PC14__PPI0_FS1
+			  SC573_PC15__PPI0_FS2
+			  SC573_PC06__PPI0_FS3>;
+	};
+
+	cnt0_default: cnt0-default-pins {
+		pinmux = <SC573_PD07__CNT0_ZM
+			  SC573_PE13__CNT0_UD
+			  SC573_PD08__CNT0_DG>;
+	};
+
+	lp0_default: lp0-default-pins {
+		pinmux = <SC573_PE04__LP0_D0
+			  SC573_PE05__LP0_D1
+			  SC573_PE06__LP0_D2
+			  SC573_PE07__LP0_D3
+			  SC573_PE08__LP0_D4
+			  SC573_PE09__LP0_D5
+			  SC573_PE10__LP0_D6
+			  SC573_PE11__LP0_D7
+			  SC573_PE02__LP0_CLK
+			  SC573_PE03__LP0_ACK>;
+	};
+
+	lp1_default: lp1-default-pins {
+		pinmux = <SC573_PD10__LP1_D0
+			  SC573_PD11__LP1_D1
+			  SC573_PD12__LP1_D2
+			  SC573_PD13__LP1_D3
+			  SC573_PD14__LP1_D4
+			  SC573_PD15__LP1_D5
+			  SC573_PA09__LP1_D6
+			  SC573_PD09__LP1_D7
+			  SC573_PB03__LP1_CLK
+			  SC573_PB01__LP1_ACK>;
 	};
 };
 
