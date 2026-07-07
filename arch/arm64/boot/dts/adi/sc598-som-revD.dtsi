@@ -81,7 +81,7 @@
 };
 
 &spi2 {
-	som_flash: is25lp512@1 {
+	flash@1 {
 		compatible = "issi,is25lp512", "jedec,spi-nor";
 		reg = <1>;
 		spi-rx-bus-width = <4>;
