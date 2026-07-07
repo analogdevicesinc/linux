@@ -99,7 +99,7 @@
 };
 
 &spi2 {
-	som_flash: is25lp01g@1 {
+	flash@1 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "issi,is25lp01g", "jedec,spi-nor";
