@@ -1673,8 +1673,9 @@ static void ata_qc_done(struct ata_queued_cmd *qc)
 
 void ata_scsi_deferred_qc_work(struct work_struct *work)
 {
-	struct ata_port *ap =
-		container_of(work, struct ata_port, deferred_qc_work);
+	struct ata_link *link =
+		container_of(work, struct ata_link, deferred_qc_work);
+	struct ata_port *ap = link->ap;
 	struct ata_queued_cmd *qc;
 	unsigned long flags;
 
@@ -1685,10 +1686,10 @@ void ata_scsi_deferred_qc_work(struct work_struct *work)
 	 * such case, we should not need any more deferring the qc, so warn if
 	 * qc_defer() says otherwise.
 	 */
-	qc = ap->deferred_qc;
+	qc = link->deferred_qc;
 	if (qc && !ata_port_eh_scheduled(ap)) {
 		WARN_ON_ONCE(ap->ops->qc_defer(qc));
-		ap->deferred_qc = NULL;
+		link->deferred_qc = NULL;
 		ata_qc_issue(qc);
 	}
 
@@ -1697,30 +1698,34 @@ void ata_scsi_deferred_qc_work(struct work_struct *work)
 
 void ata_scsi_requeue_deferred_qc(struct ata_port *ap)
 {
-	struct ata_queued_cmd *qc = ap->deferred_qc;
-	struct scsi_cmnd *scmd;
+	struct ata_link *link;
 
 	lockdep_assert_held(ap->lock);
 
 	/*
 	 * If we have a deferred qc when a reset occurs or NCQ commands fail,
 	 * do not try to be smart about what to do with this deferred command
-	 * and simply retry it by completing it with DID_SOFT_ERROR.
+	 * and simply requeue it by completing it with DID_REQUEUE.
 	 */
-	if (!qc)
-		return;
+	ata_for_each_link(link, ap, PMP_FIRST) {
+		struct ata_queued_cmd *qc = link->deferred_qc;
+		struct scsi_cmnd *scmd;
 
-	scmd = qc->scsicmd;
-	ap->deferred_qc = NULL;
-	cancel_work(&ap->deferred_qc_work);
-	ata_qc_free(qc);
-	scmd->result = (DID_SOFT_ERROR << 16);
-	scsi_done(scmd);
+		if (qc) {
+			scmd = qc->scsicmd;
+			link->deferred_qc = NULL;
+			cancel_work(&link->deferred_qc_work);
+			ata_qc_free(qc);
+			scmd->result = (DID_REQUEUE << 16);
+			scsi_done(scmd);
+		}
+	}
 }
 
-static void ata_scsi_schedule_deferred_qc(struct ata_port *ap)
+static void ata_scsi_schedule_deferred_qc(struct ata_link *link)
 {
-	struct ata_queued_cmd *qc = ap->deferred_qc;
+	struct ata_queued_cmd *qc = link->deferred_qc;
+	struct ata_port *ap = link->ap;
 
 	lockdep_assert_held(ap->lock);
 
@@ -1737,12 +1742,12 @@ static void ata_scsi_schedule_deferred_qc(struct ata_port *ap)
 		return;
 	}
 	if (!ap->ops->qc_defer(qc))
-		queue_work(system_highpri_wq, &ap->deferred_qc_work);
+		queue_work(system_highpri_wq, &link->deferred_qc_work);
 }
 
 static void ata_scsi_qc_complete(struct ata_queued_cmd *qc)
 {
-	struct ata_port *ap = qc->ap;
+	struct ata_link *link = qc->dev->link;
 	struct scsi_cmnd *cmd = qc->scsicmd;
 	u8 *cdb = cmd->cmnd;
 	bool have_sense = qc->flags & ATA_QCFLAG_SENSE_VALID;
@@ -1771,22 +1776,23 @@ static void ata_scsi_qc_complete(struct ata_queued_cmd *qc)
 
 	ata_qc_done(qc);
 
-	ata_scsi_schedule_deferred_qc(ap);
+	ata_scsi_schedule_deferred_qc(link);
 }
 
 static int ata_scsi_qc_issue(struct ata_port *ap, struct ata_queued_cmd *qc)
 {
+	struct ata_link *link = qc->dev->link;
 	int ret;
 
 	if (!ap->ops->qc_defer)
-		goto issue;
+		goto issue_qc;
 
 	/*
 	 * If we already have a deferred qc, then rely on the SCSI layer to
 	 * requeue and defer all incoming commands until the deferred qc is
 	 * processed, once all on-going commands complete.
 	 */
-	if (ap->deferred_qc) {
+	if (link->deferred_qc) {
 		ata_qc_free(qc);
 		return SCSI_MLQUEUE_DEVICE_BUSY;
 	}
@@ -1798,38 +1804,46 @@ static int ata_scsi_qc_issue(struct ata_port *ap, struct ata_queued_cmd *qc)
 		break;
 	case ATA_DEFER_LINK:
 		ret = SCSI_MLQUEUE_DEVICE_BUSY;
-		break;
+		goto defer_qc;
+	case ATA_DEFER_LINK_EXCL:
+		/*
+		 * Drivers making use of ap->excl_link cannot store the QC in
+		 * link->deferred_qc, because the ap->excl_link handling is
+		 * incompatible with the link->deferred_qc workqueue handling.
+		 */
+		ret = SCSI_MLQUEUE_DEVICE_BUSY;
+		goto free_qc;
 	case ATA_DEFER_PORT:
 		ret = SCSI_MLQUEUE_HOST_BUSY;
-		break;
+		goto free_qc;
 	default:
 		WARN_ON_ONCE(1);
 		ret = SCSI_MLQUEUE_HOST_BUSY;
-		break;
+		goto free_qc;
 	}
 
-	if (ret) {
-		/*
-		 * We must defer this qc: if this is not an NCQ command, keep
-		 * this qc as a deferred one and report to the SCSI layer that
-		 * we issued it so that it is not requeued. The deferred qc will
-		 * be issued with the port deferred_qc_work once all on-going
-		 * commands complete.
-		 */
-		if (!ata_is_ncq(qc->tf.protocol)) {
-			ap->deferred_qc = qc;
-			return 0;
-		}
-
-		/* Force a requeue of the command to defer its execution. */
-		ata_qc_free(qc);
-		return ret;
-	}
-
-issue:
+issue_qc:
 	ata_qc_issue(qc);
-
 	return 0;
+
+defer_qc:
+	/*
+	 * We must defer this qc: if this is not an NCQ command, keep
+	 * this qc as a deferred one and report to the SCSI layer that
+	 * we issued it so that it is not requeued. The deferred qc will
+	 * be issued with the port deferred_qc_work once all on-going
+	 * commands complete.
+	 */
+	if (!ata_is_ncq(qc->tf.protocol)) {
+		link->deferred_qc = qc;
+		return 0;
+	}
+
+free_qc:
+	/* Force a requeue of the command to defer its execution. */
+	ata_qc_free(qc);
+
+	return ret;
 }
 
 /**
@@ -1920,17 +1934,19 @@ static void ata_scsi_rbuf_fill(struct ata_device *dev, struct scsi_cmnd *cmd,
 		unsigned int (*actor)(struct ata_device *dev,
 				      struct scsi_cmnd *cmd, u8 *rbuf))
 {
-	unsigned int rc;
 	unsigned long flags;
+	unsigned int len;
 
 	spin_lock_irqsave(&ata_scsi_rbuf_lock, flags);
 
 	memset(ata_scsi_rbuf, 0, ATA_SCSI_RBUF_SIZE);
-	rc = actor(dev, cmd, ata_scsi_rbuf);
-	if (rc == 0) {
+	len = actor(dev, cmd, ata_scsi_rbuf);
+	if (len) {
 		sg_copy_from_buffer(scsi_sglist(cmd), scsi_sg_count(cmd),
 				    ata_scsi_rbuf, ATA_SCSI_RBUF_SIZE);
 		cmd->result = SAM_STAT_GOOD;
+		if (scsi_bufflen(cmd) > len)
+			scsi_set_resid(cmd, scsi_bufflen(cmd) - len);
 	}
 
 	spin_unlock_irqrestore(&ata_scsi_rbuf_lock, flags);
@@ -2018,7 +2034,11 @@ static unsigned int ata_scsiop_inq_std(struct ata_device *dev,
 	else
 		memcpy(rbuf + 58, versions, sizeof(versions));
 
-	return 0;
+	/*
+	 * Include all 8 possible version descriptors, even if not all of
+	 * them are popoulated.
+	 */
+	return 96;
 }
 
 /**
@@ -2055,7 +2075,8 @@ static unsigned int ata_scsiop_inq_00(struct ata_device *dev,
 		num_pages++;
 	}
 	rbuf[3] = num_pages;	/* number of supported VPD pages */
-	return 0;
+
+	return get_unaligned_be16(&rbuf[2]) + 4;
 }
 
 /**
@@ -2082,7 +2103,8 @@ static unsigned int ata_scsiop_inq_80(struct ata_device *dev,
 	memcpy(rbuf, hdr, sizeof(hdr));
 	ata_id_string(dev->id, (unsigned char *) &rbuf[4],
 		      ATA_ID_SERNO, ATA_ID_SERNO_LEN);
-	return 0;
+
+	return get_unaligned_be16(&rbuf[2]) + 4;
 }
 
 /**
@@ -2143,7 +2165,8 @@ static unsigned int ata_scsiop_inq_83(struct ata_device *dev,
 		num += ATA_ID_WWN_LEN;
 	}
 	rbuf[3] = num - 4;    /* page len (assume less than 256 bytes) */
-	return 0;
+
+	return get_unaligned_be16(&rbuf[2]) + 4;
 }
 
 /**
@@ -2180,7 +2203,8 @@ static unsigned int ata_scsiop_inq_89(struct ata_device *dev,
 	rbuf[56] = ATA_CMD_ID_ATA;
 
 	memcpy(&rbuf[60], &dev->id[0], 512);
-	return 0;
+
+	return get_unaligned_be16(&rbuf[2]) + 4;
 }
 
 /**
@@ -2231,7 +2255,7 @@ static unsigned int ata_scsiop_inq_b0(struct ata_device *dev,
 		put_unaligned_be32(1, &rbuf[28]);
 	}
 
-	return 0;
+	return get_unaligned_be16(&rbuf[2]) + 4;
 }
 
 /**
@@ -2261,7 +2285,7 @@ static unsigned int ata_scsiop_inq_b1(struct ata_device *dev,
 	if (zoned)
 		rbuf[8] = (zoned << 4);
 
-	return 0;
+	return get_unaligned_be16(&rbuf[2]) + 4;
 }
 
 /**
@@ -2284,7 +2308,7 @@ static unsigned int ata_scsiop_inq_b2(struct ata_device *dev,
 	rbuf[3] = 0x4;
 	rbuf[5] = 1 << 6;	/* TPWS */
 
-	return 0;
+	return get_unaligned_be16(&rbuf[2]) + 4;
 }
 
 /**
@@ -2304,7 +2328,7 @@ static unsigned int ata_scsiop_inq_b6(struct ata_device *dev,
 {
 	if (!ata_dev_is_zac(dev)) {
 		ata_scsi_set_invalid_field(dev, cmd, 2, 0xff);
-		return 1;
+		return 0;
 	}
 
 	/*
@@ -2322,7 +2346,7 @@ static unsigned int ata_scsiop_inq_b6(struct ata_device *dev,
 	put_unaligned_be32(dev->zac_zones_optimal_nonseq, &rbuf[12]);
 	put_unaligned_be32(dev->zac_zones_max_open, &rbuf[16]);
 
-	return 0;
+	return get_unaligned_be16(&rbuf[2]) + 4;
 }
 
 /**
@@ -2346,7 +2370,7 @@ static unsigned int ata_scsiop_inq_b9(struct ata_device *dev,
 
 	if (!cpr_log) {
 		ata_scsi_set_invalid_field(dev, cmd, 2, 0xff);
-		return 1;
+		return 0;
 	}
 
 	/* SCSI Concurrent Positioning Ranges VPD page: SBC-5 rev 1 or later */
@@ -2360,7 +2384,7 @@ static unsigned int ata_scsiop_inq_b9(struct ata_device *dev,
 		put_unaligned_be64(cpr_log->cpr[i].num_lbas, &desc[16]);
 	}
 
-	return 0;
+	return get_unaligned_be16(&rbuf[2]) + 4;
 }
 
 /**
@@ -2382,7 +2406,7 @@ static unsigned int ata_scsiop_inquiry(struct ata_device *dev,
 	/* is CmdDt set?  */
 	if (scsicmd[1] & 2) {
 		ata_scsi_set_invalid_field(dev, cmd, 1, 0xff);
-		return 1;
+		return 0;
 	}
 
 	/* Is EVPD clear? */
@@ -2410,7 +2434,7 @@ static unsigned int ata_scsiop_inquiry(struct ata_device *dev,
 		return ata_scsiop_inq_b9(dev, cmd, rbuf);
 	default:
 		ata_scsi_set_invalid_field(dev, cmd, 2, 0xff);
-		return 1;
+		return 0;
 	}
 }
 
@@ -2741,24 +2765,27 @@ static unsigned int ata_scsiop_mode_sense(struct ata_device *dev,
 			rbuf[3] = sizeof(sat_blk_desc);
 			memcpy(rbuf + 4, sat_blk_desc, sizeof(sat_blk_desc));
 		}
-	} else {
-		put_unaligned_be16(p - rbuf - 2, &rbuf[0]);
-		rbuf[3] |= dpofua;
-		if (ebd) {
-			rbuf[7] = sizeof(sat_blk_desc);
-			memcpy(rbuf + 8, sat_blk_desc, sizeof(sat_blk_desc));
-		}
+
+		return rbuf[0] + 1;
 	}
-	return 0;
+
+	put_unaligned_be16(p - rbuf - 2, &rbuf[0]);
+	rbuf[3] |= dpofua;
+	if (ebd) {
+		rbuf[7] = sizeof(sat_blk_desc);
+		memcpy(rbuf + 8, sat_blk_desc, sizeof(sat_blk_desc));
+	}
+
+	return get_unaligned_be16(&rbuf[0]) + 2;
 
 invalid_fld:
 	ata_scsi_set_invalid_field(dev, cmd, fp, bp);
-	return 1;
+	return 0;
 
 saving_not_supp:
 	ata_scsi_set_sense(dev, cmd, ILLEGAL_REQUEST, 0x39, 0x0);
 	 /* "Saving parameters not supported" */
-	return 1;
+	return 0;
 }
 
 /**
@@ -2801,7 +2828,7 @@ static unsigned int ata_scsiop_read_cap(struct ata_device *dev,
 		rbuf[6] = sector_size >> (8 * 1);
 		rbuf[7] = sector_size;
 
-		return 0;
+		return 8;
 	}
 
 	/*
@@ -2811,7 +2838,7 @@ static unsigned int ata_scsiop_read_cap(struct ata_device *dev,
 	if (scsicmd[0] != SERVICE_ACTION_IN_16 ||
 	    (scsicmd[1] & 0x1f) != SAI_READ_CAPACITY_16) {
 		ata_scsi_set_invalid_field(dev, cmd, 1, 0xff);
-		return 1;
+		return 0;
 	}
 
 	/* sector count, 64-bit */
@@ -2846,7 +2873,7 @@ static unsigned int ata_scsiop_read_cap(struct ata_device *dev,
 		}
 	}
 
-	return 0;
+	return 16;
 }
 
 /**
@@ -2865,7 +2892,7 @@ static unsigned int ata_scsiop_report_luns(struct ata_device *dev,
 {
 	rbuf[3] = 8;	/* just one lun, LUN 0, size 8 bytes */
 
-	return 0;
+	return 16;
 }
 
 /*
@@ -3593,13 +3620,13 @@ static unsigned int ata_scsiop_maint_in(struct ata_device *dev,
 
 	if ((cdb[1] & 0x1f) != MI_REPORT_SUPPORTED_OPERATION_CODES) {
 		ata_scsi_set_invalid_field(dev, cmd, 1, 0xff);
-		return 1;
+		return 0;
 	}
 
 	if (cdb[2] != 1 && cdb[2] != 3) {
 		ata_dev_warn(dev, "invalid command format %d\n", cdb[2]);
-		ata_scsi_set_invalid_field(dev, cmd, 1, 0xff);
-		return 1;
+		ata_scsi_set_invalid_field(dev, cmd, 2, 0xff);
+		return 0;
 	}
 
 	switch (cdb[3]) {
@@ -3672,7 +3699,7 @@ static unsigned int ata_scsiop_maint_in(struct ata_device *dev,
 	rbuf[0] = rwcdlp;
 	rbuf[1] = cdlp | supported;
 
-	return 0;
+	return 4;
 }
 
 /**

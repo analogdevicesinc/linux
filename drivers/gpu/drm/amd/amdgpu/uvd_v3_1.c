@@ -98,7 +98,7 @@ static void uvd_v3_1_ring_emit_ib(struct amdgpu_ring *ring,
 }
 
 /**
- * uvd_v3_1_ring_emit_fence - emit an fence & trap command
+ * uvd_v3_1_ring_emit_fence - emit a fence & trap command
  *
  * @ring: amdgpu_ring pointer
  * @addr: address
@@ -242,7 +242,11 @@ static void uvd_v3_1_mc_resume(struct amdgpu_device *adev)
 	uint64_t addr;
 	uint32_t size;
 
-	/* programm the VCPU memory controller bits 0-27 */
+	/* When the keyselect is already set, don't perturb it. */
+	if (RREG32(mmUVD_FW_START))
+		return;
+
+	/* program the VCPU memory controller bits 0-27 */
 	addr = (adev->uvd.inst->gpu_addr + AMDGPU_UVD_FIRMWARE_OFFSET) >> 3;
 	size = AMDGPU_UVD_FIRMWARE_SIZE(adev) >> 3;
 	WREG32(mmUVD_VCPU_CACHE_OFFSET0, addr);
@@ -283,6 +287,12 @@ static int uvd_v3_1_fw_validate(struct amdgpu_device *adev)
 {
 	int i;
 	uint32_t keysel = adev->uvd.keyselect;
+
+	if (RREG32(mmUVD_FW_START) & UVD_FW_STATUS__PASS_MASK) {
+		dev_dbg(adev->dev, "UVD keyselect already set: 0x%x (on CPU: 0x%x)\n",
+			RREG32(mmUVD_FW_START), adev->uvd.keyselect);
+		return 0;
+	}
 
 	WREG32(mmUVD_FW_START, keysel);
 
@@ -416,7 +426,7 @@ static int uvd_v3_1_start(struct amdgpu_device *adev)
 	/* Set the write pointer delay */
 	WREG32(mmUVD_RBC_RB_WPTR_CNTL, 0);
 
-	/* programm the 4GB memory segment for rptr and ring buffer */
+	/* Program the 4GB memory segment for rptr and ring buffer */
 	WREG32(mmUVD_LMI_EXT40_ADDR, upper_32_bits(ring->gpu_addr) |
 		   (0x7 << 16) | (0x1 << 31));
 
@@ -531,9 +541,9 @@ static void uvd_v3_1_set_irq_funcs(struct amdgpu_device *adev)
 }
 
 
-static int uvd_v3_1_early_init(void *handle)
+static int uvd_v3_1_early_init(struct amdgpu_ip_block *ip_block)
 {
-	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+	struct amdgpu_device *adev = ip_block->adev;
 	adev->uvd.num_uvd_inst = 1;
 
 	uvd_v3_1_set_ring_funcs(adev);

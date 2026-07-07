@@ -19,7 +19,7 @@ static DEFINE_MUTEX(init_lock);
 
 static struct ksmbd_conn_ops default_conn_ops;
 
-LIST_HEAD(conn_list);
+DEFINE_HASHTABLE(conn_list, CONN_HASH_BITS);
 DECLARE_RWSEM(conn_list_lock);
 
 /**
@@ -33,13 +33,23 @@ DECLARE_RWSEM(conn_list_lock);
 void ksmbd_conn_free(struct ksmbd_conn *conn)
 {
 	down_write(&conn_list_lock);
-	list_del(&conn->conns_list);
+	hash_del(&conn->hlist);
 	up_write(&conn_list_lock);
 
 	xa_destroy(&conn->sessions);
 	kvfree(conn->request_buf);
 	kfree(conn->preauth_info);
+	kfree(conn->mechToken);
 	if (atomic_dec_and_test(&conn->refcnt)) {
+		/*
+		 * async_ida is embedded in struct ksmbd_conn, so pair
+		 * ida_destroy() with the final kfree() rather than with
+		 * the unconditional field teardown above.  This keeps
+		 * the IDA valid for the entire lifetime of the struct,
+		 * even while other refcount holders (oplock / vfs
+		 * durable handles) still reference the connection.
+		 */
+		ida_destroy(&conn->async_ida);
 		conn->transport->ops->free_transport(conn->transport);
 		kfree(conn);
 	}
@@ -77,7 +87,6 @@ struct ksmbd_conn *ksmbd_conn_alloc(void)
 
 	init_waitqueue_head(&conn->req_running_q);
 	init_waitqueue_head(&conn->r_count_q);
-	INIT_LIST_HEAD(&conn->conns_list);
 	INIT_LIST_HEAD(&conn->requests);
 	INIT_LIST_HEAD(&conn->async_requests);
 	spin_lock_init(&conn->request_lock);
@@ -90,19 +99,17 @@ struct ksmbd_conn *ksmbd_conn_alloc(void)
 
 	init_rwsem(&conn->session_lock);
 
-	down_write(&conn_list_lock);
-	list_add(&conn->conns_list, &conn_list);
-	up_write(&conn_list_lock);
 	return conn;
 }
 
 bool ksmbd_conn_lookup_dialect(struct ksmbd_conn *c)
 {
 	struct ksmbd_conn *t;
+	int bkt;
 	bool ret = false;
 
 	down_read(&conn_list_lock);
-	list_for_each_entry(t, &conn_list, conns_list) {
+	hash_for_each(conn_list, bkt, t, hlist) {
 		if (memcmp(t->ClientGUID, c->ClientGUID, SMB2_CLIENT_GUID_SIZE))
 			continue;
 
@@ -163,9 +170,10 @@ void ksmbd_conn_unlock(struct ksmbd_conn *conn)
 void ksmbd_all_conn_set_status(u64 sess_id, u32 status)
 {
 	struct ksmbd_conn *conn;
+	int bkt;
 
 	down_read(&conn_list_lock);
-	list_for_each_entry(conn, &conn_list, conns_list) {
+	hash_for_each(conn_list, bkt, conn, hlist) {
 		if (conn->binding || xa_load(&conn->sessions, sess_id))
 			WRITE_ONCE(conn->status, status);
 	}
@@ -181,17 +189,16 @@ int ksmbd_conn_wait_idle_sess_id(struct ksmbd_conn *curr_conn, u64 sess_id)
 {
 	struct ksmbd_conn *conn;
 	int rc, retry_count = 0, max_timeout = 120;
-	int rcount = 1;
+	int rcount, bkt;
 
 retry_idle:
 	if (retry_count >= max_timeout)
 		return -EIO;
 
 	down_read(&conn_list_lock);
-	list_for_each_entry(conn, &conn_list, conns_list) {
+	hash_for_each(conn_list, bkt, conn, hlist) {
 		if (conn->binding || xa_load(&conn->sessions, sess_id)) {
-			if (conn == curr_conn)
-				rcount = 2;
+			rcount = (conn == curr_conn) ? 2 : 1;
 			if (atomic_read(&conn->req_running) >= rcount) {
 				rc = wait_event_timeout(conn->req_running_q,
 					atomic_read(&conn->req_running) < rcount,
@@ -477,24 +484,55 @@ out:
 
 static void stop_sessions(void)
 {
-	struct ksmbd_conn *conn;
+	struct ksmbd_conn *conn, *target;
 	struct ksmbd_transport *t;
+	bool any;
+	int bkt;
 
+	/*
+	 * Serialised via init_lock; no concurrent stop_sessions() can
+	 * touch conn->stop_called, so writing it under the read lock is
+	 * safe.
+	 */
 again:
+	target = NULL;
+	any = false;
 	down_read(&conn_list_lock);
-	list_for_each_entry(conn, &conn_list, conns_list) {
-		t = conn->transport;
-		ksmbd_conn_set_exiting(conn);
-		if (t->ops->shutdown) {
-			up_read(&conn_list_lock);
-			t->ops->shutdown(t);
-			down_read(&conn_list_lock);
-		}
+	hash_for_each(conn_list, bkt, conn, hlist) {
+		any = true;
+		if (conn->stop_called)
+			continue;
+		atomic_inc(&conn->refcnt);
+		conn->stop_called = true;
+		/*
+		 * Mark the connection EXITING while still holding the
+		 * read lock so the selection and the status transition
+		 * happen together.  Do not regress a connection that has
+		 * already advanced to RELEASING on its own (e.g. the
+		 * handler exited its receive loop for an unrelated
+		 * reason).
+		 */
+		if (READ_ONCE(conn->status) != KSMBD_SESS_RELEASING)
+			ksmbd_conn_set_exiting(conn);
+		target = conn;
+		break;
 	}
 	up_read(&conn_list_lock);
 
-	if (!list_empty(&conn_list)) {
-		schedule_timeout_interruptible(HZ / 10); /* 100ms */
+	if (target) {
+		t = target->transport;
+		if (t->ops->shutdown)
+			t->ops->shutdown(t);
+		if (atomic_dec_and_test(&target->refcnt)) {
+			ida_destroy(&target->async_ida);
+			t->ops->free_transport(t);
+			kfree(target);
+		}
+		goto again;
+	}
+
+	if (any) {
+		msleep(100);
 		goto again;
 	}
 }

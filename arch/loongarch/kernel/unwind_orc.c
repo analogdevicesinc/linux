@@ -357,6 +357,8 @@ static bool is_entry_func(unsigned long addr)
 
 static inline unsigned long bt_address(unsigned long ra)
 {
+	extern unsigned long eentry;
+
 #if defined(CONFIG_NUMA) && !defined(CONFIG_PREEMPT_RT)
 	int cpu;
 	int vec_sz = sizeof(exception_handlers);
@@ -410,7 +412,7 @@ bool unwind_next_frame(struct unwind_state *state)
 		return false;
 
 	/* Don't let modules unload while we're reading their ORC data. */
-	guard(rcu)();
+	preempt_disable();
 
 	if (is_entry_func(state->pc))
 		goto end;
@@ -522,12 +524,14 @@ bool unwind_next_frame(struct unwind_state *state)
 		goto err;
 	}
 
+	preempt_enable();
 	return true;
 
 err:
 	state->error = true;
 
 end:
+	preempt_enable();
 	state->stack_info.type = STACK_TYPE_UNKNOWN;
 	return false;
 }

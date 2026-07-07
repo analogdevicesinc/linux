@@ -47,7 +47,7 @@ struct rds_ib_dereg_odp_mr {
 
 static void rds_ib_odp_mr_worker(struct work_struct *work);
 
-static struct rds_ib_device *rds_ib_get_device(__be32 ipaddr)
+struct rds_ib_device *rds_ib_get_device(__be32 ipaddr)
 {
 	struct rds_ib_device *rds_ibdev;
 	struct rds_ib_ipaddr *i_ipaddr;
@@ -608,8 +608,13 @@ void *rds_ib_get_mr(struct scatterlist *sg, unsigned long nents,
 		return ibmr;
 	}
 
-	if (conn)
+	if (conn) {
 		ic = conn->c_transport_data;
+		if (!ic || !ic->i_cm_id || !ic->i_cm_id->qp) {
+			ret = -ENODEV;
+			goto out;
+		}
+	}
 
 	if (!rds_ibdev->mr_8k_pool || !rds_ibdev->mr_1m_pool) {
 		ret = -ENODEV;

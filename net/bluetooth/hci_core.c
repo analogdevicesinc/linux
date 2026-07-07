@@ -1603,6 +1603,19 @@ struct adv_info *hci_find_adv_instance(struct hci_dev *hdev, u8 instance)
 }
 
 /* This function requires the caller holds hdev->lock */
+struct adv_info *hci_find_adv_sid(struct hci_dev *hdev, u8 sid)
+{
+	struct adv_info *adv;
+
+	list_for_each_entry(adv, &hdev->adv_instances, list) {
+		if (adv->sid == sid)
+			return adv;
+	}
+
+	return NULL;
+}
+
+/* This function requires the caller holds hdev->lock */
 struct adv_info *hci_get_next_instance(struct hci_dev *hdev, u8 instance)
 {
 	struct adv_info *cur_instance;
@@ -1754,7 +1767,7 @@ struct adv_info *hci_add_adv_instance(struct hci_dev *hdev, u8 instance,
 }
 
 /* This function requires the caller holds hdev->lock */
-struct adv_info *hci_add_per_instance(struct hci_dev *hdev, u8 instance,
+struct adv_info *hci_add_per_instance(struct hci_dev *hdev, u8 instance, u8 sid,
 				      u32 flags, u8 data_len, u8 *data,
 				      u32 min_interval, u32 max_interval)
 {
@@ -1766,6 +1779,7 @@ struct adv_info *hci_add_per_instance(struct hci_dev *hdev, u8 instance,
 	if (IS_ERR(adv))
 		return adv;
 
+	adv->sid = sid;
 	adv->periodic = true;
 	adv->per_adv_data_len = data_len;
 
@@ -4103,7 +4117,7 @@ static int hci_send_cmd_sync(struct hci_dev *hdev, struct sk_buff *skb)
 		kfree_skb(skb);
 	}
 
-	if (hdev->req_status == HCI_REQ_PEND &&
+	if (READ_ONCE(hdev->req_status) == HCI_REQ_PEND &&
 	    !hci_dev_test_and_set_flag(hdev, HCI_CMD_PENDING)) {
 		kfree_skb(hdev->req_skb);
 		hdev->req_skb = skb_clone(hdev->sent_cmd, GFP_KERNEL);

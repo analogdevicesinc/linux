@@ -14,6 +14,7 @@ struct nf_queue_entry {
 	struct list_head	list;
 	struct rhash_head	hash_node;
 	struct sk_buff		*skb;
+	struct net_device	*skb_dev;
 	unsigned int		id;
 	unsigned int		hook_index;	/* index in hook_entries->hook[] */
 #if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
@@ -23,7 +24,6 @@ struct nf_queue_entry {
 	struct nf_hook_state	state;
 	bool			nf_ct_is_unconfirmed;
 	u16			size; /* sizeof(entry) + saved route keys */
-	u16			queue_num;
 
 	/* extra space to store route keys */
 };

@@ -1671,12 +1671,6 @@ done:
 	return ret;
 }
 
-void wait_on_extent_buffer_writeback(struct extent_buffer *eb)
-{
-	wait_on_bit_io(&eb->bflags, EXTENT_BUFFER_WRITEBACK,
-		       TASK_UNINTERRUPTIBLE);
-}
-
 /*
  * Lock extent buffer status and pages for writeback.
  *
@@ -2088,8 +2082,7 @@ static int submit_eb_page(struct folio *folio, struct btrfs_eb_write_context *ct
 	return 1;
 }
 
-int btree_write_cache_pages(struct address_space *mapping,
-				   struct writeback_control *wbc)
+int btree_writepages(struct address_space *mapping, struct writeback_control *wbc)
 {
 	struct btrfs_eb_write_context ctx = { .wbc = wbc };
 	struct btrfs_fs_info *fs_info = inode_to_fs_info(mapping->host);
@@ -3643,8 +3636,8 @@ static void end_bbio_meta_read(struct btrfs_bio *bbio)
 	bio_put(&bbio->bio);
 }
 
-int read_extent_buffer_pages(struct extent_buffer *eb, int wait, int mirror_num,
-			     const struct btrfs_tree_parent_check *check)
+int read_extent_buffer_pages_nowait(struct extent_buffer *eb, int mirror_num,
+				    const struct btrfs_tree_parent_check *check)
 {
 	struct btrfs_bio *bbio;
 	bool ret;
@@ -3662,7 +3655,7 @@ int read_extent_buffer_pages(struct extent_buffer *eb, int wait, int mirror_num,
 
 	/* Someone else is already reading the buffer, just wait for it. */
 	if (test_and_set_bit(EXTENT_BUFFER_READING, &eb->bflags))
-		goto done;
+		return 0;
 
 	/*
 	 * Between the initial test_bit(EXTENT_BUFFER_UPTODATE) and the above
@@ -3702,14 +3695,21 @@ int read_extent_buffer_pages(struct extent_buffer *eb, int wait, int mirror_num,
 		}
 	}
 	btrfs_submit_bbio(bbio, mirror_num);
+	return 0;
+}
 
-done:
-	if (wait == WAIT_COMPLETE) {
-		wait_on_bit_io(&eb->bflags, EXTENT_BUFFER_READING, TASK_UNINTERRUPTIBLE);
-		if (!test_bit(EXTENT_BUFFER_UPTODATE, &eb->bflags))
-			return -EIO;
-	}
+int read_extent_buffer_pages(struct extent_buffer *eb, int mirror_num,
+			     const struct btrfs_tree_parent_check *check)
+{
+	int ret;
 
+	ret = read_extent_buffer_pages_nowait(eb, mirror_num, check);
+	if (ret < 0)
+		return ret;
+
+	wait_on_bit_io(&eb->bflags, EXTENT_BUFFER_READING, TASK_UNINTERRUPTIBLE);
+	if (!test_bit(EXTENT_BUFFER_UPTODATE, &eb->bflags))
+		return -EIO;
 	return 0;
 }
 
@@ -4441,7 +4441,7 @@ void btrfs_readahead_tree_block(struct btrfs_fs_info *fs_info,
 		return;
 	}
 
-	ret = read_extent_buffer_pages(eb, WAIT_NONE, 0, &check);
+	ret = read_extent_buffer_pages_nowait(eb, 0, &check);
 	if (ret < 0)
 		free_extent_buffer_stale(eb);
 	else

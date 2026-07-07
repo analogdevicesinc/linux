@@ -113,10 +113,18 @@ new_segment:
 EXPORT_SYMBOL(blk_rq_map_integrity_sg);
 
 int blk_rq_integrity_map_user(struct request *rq, void __user *ubuf,
-			      ssize_t bytes, u32 seed)
+			      ssize_t bytes)
 {
-	int ret = bio_integrity_map_user(rq->bio, ubuf, bytes, seed);
+	int ret;
+	struct iov_iter iter;
+	unsigned int direction;
 
+	if (op_is_write(req_op(rq)))
+		direction = ITER_DEST;
+	else
+		direction = ITER_SOURCE;
+	iov_iter_ubuf(&iter, direction, ubuf, bytes);
+	ret = bio_integrity_map_user(rq->bio, &iter);
 	if (ret)
 		return ret;
 

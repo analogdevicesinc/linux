@@ -38,6 +38,13 @@ struct io_buffer_list {
 	__u16 flags;
 
 	atomic_t refs;
+
+	/*
+	 * minimum required amount to be left to reuse an incrementally
+	 * consumed buffer. If less than this is left at consumption time,
+	 * buffer is done and head is incremented to the next buffer.
+	 */
+	__u32 min_left_sub_one;
 };
 
 struct io_buffer {
@@ -64,11 +71,30 @@ struct buf_sel_arg {
 	unsigned short partial_map;
 };
 
-void __user *io_buffer_select(struct io_kiocb *req, size_t *len,
-			      unsigned int issue_flags);
+/*
+ * Return value from io_buffer_list selection, to avoid stashing it in
+ * struct io_kiocb. For legacy/classic provided buffers, keeping a reference
+ * across execution contexts are fine. But for ring provided buffers, the
+ * list may go away as soon as ->uring_lock is dropped. As the io_kiocb
+ * persists, it's better to just keep the buffer local for those cases.
+ */
+struct io_br_sel {
+	struct io_buffer_list *buf_list;
+	/*
+	 * Some selection parts return the user address, others return an error.
+	 */
+	union {
+		void __user *addr;
+		ssize_t val;
+	};
+};
+
+struct io_br_sel io_buffer_select(struct io_kiocb *req, size_t *len,
+				 unsigned int issue_flags);
 int io_buffers_select(struct io_kiocb *req, struct buf_sel_arg *arg,
-		      unsigned int issue_flags);
-int io_buffers_peek(struct io_kiocb *req, struct buf_sel_arg *arg);
+		      struct io_br_sel *sel, unsigned int issue_flags);
+int io_buffers_peek(struct io_kiocb *req, struct buf_sel_arg *arg,
+		    struct io_br_sel *sel);
 void io_destroy_buffers(struct io_ring_ctx *ctx);
 
 int io_remove_buffers_prep(struct io_kiocb *req, const struct io_uring_sqe *sqe);
@@ -81,26 +107,24 @@ int io_register_pbuf_ring(struct io_ring_ctx *ctx, void __user *arg);
 int io_unregister_pbuf_ring(struct io_ring_ctx *ctx, void __user *arg);
 int io_register_pbuf_status(struct io_ring_ctx *ctx, void __user *arg);
 
-void __io_put_kbuf(struct io_kiocb *req, int len, unsigned issue_flags);
-
 bool io_kbuf_recycle_legacy(struct io_kiocb *req, unsigned issue_flags);
+void io_kbuf_drop_legacy(struct io_kiocb *req);
+
+unsigned int __io_put_kbufs(struct io_kiocb *req, struct io_buffer_list *bl,
+			    int len, int nbufs);
+bool io_kbuf_commit(struct io_kiocb *req,
+		    struct io_buffer_list *bl, int len, int nr);
 
 void io_put_bl(struct io_ring_ctx *ctx, struct io_buffer_list *bl);
 struct io_buffer_list *io_pbuf_get_bl(struct io_ring_ctx *ctx,
 				      unsigned long bgid);
 int io_pbuf_mmap(struct file *file, struct vm_area_struct *vma);
 
-static inline bool io_kbuf_recycle_ring(struct io_kiocb *req)
+static inline bool io_kbuf_recycle_ring(struct io_kiocb *req,
+					struct io_buffer_list *bl)
 {
-	/*
-	 * We don't need to recycle for REQ_F_BUFFER_RING, we can just clear
-	 * the flag and hence ensure that bl->head doesn't get incremented.
-	 * If the tail has already been incremented, hang on to it.
-	 * The exception is partial io, that case we should increment bl->head
-	 * to monopolize the buffer.
-	 */
-	if (req->buf_list) {
-		req->buf_index = req->buf_list->bgid;
+	if (bl) {
+		req->buf_index = bl->bgid;
 		req->flags &= ~(REQ_F_BUFFER_RING|REQ_F_BUFFERS_COMMIT);
 		return true;
 	}
@@ -114,111 +138,34 @@ static inline bool io_do_buffer_select(struct io_kiocb *req)
 	return !(req->flags & (REQ_F_BUFFER_SELECTED|REQ_F_BUFFER_RING));
 }
 
-static inline bool io_kbuf_recycle(struct io_kiocb *req, unsigned issue_flags)
+static inline bool io_kbuf_recycle(struct io_kiocb *req, struct io_buffer_list *bl,
+				   unsigned issue_flags)
 {
 	if (req->flags & REQ_F_BL_NO_RECYCLE)
 		return false;
 	if (req->flags & REQ_F_BUFFER_SELECTED)
 		return io_kbuf_recycle_legacy(req, issue_flags);
 	if (req->flags & REQ_F_BUFFER_RING)
-		return io_kbuf_recycle_ring(req);
+		return io_kbuf_recycle_ring(req, bl);
 	return false;
 }
 
 /* Mapped buffer ring, return io_uring_buf from head */
 #define io_ring_head_to_buf(br, head, mask)	&(br)->bufs[(head) & (mask)]
 
-static inline bool io_kbuf_commit(struct io_kiocb *req,
-				  struct io_buffer_list *bl, int len, int nr)
+static inline unsigned int io_put_kbuf(struct io_kiocb *req, int len,
+				       struct io_buffer_list *bl)
 {
-	if (unlikely(!(req->flags & REQ_F_BUFFERS_COMMIT)))
-		return true;
-
-	req->flags &= ~REQ_F_BUFFERS_COMMIT;
-
-	if (unlikely(len < 0))
-		return true;
-
-	if (bl->flags & IOBL_INC) {
-		struct io_uring_buf *buf;
-
-		buf = io_ring_head_to_buf(bl->buf_ring, bl->head, bl->mask);
-		if (len > buf->len)
-			len = buf->len;
-		buf->len -= len;
-		if (buf->len) {
-			buf->addr += len;
-			return false;
-		}
-	}
-
-	bl->head += nr;
-	return true;
-}
-
-static inline bool __io_put_kbuf_ring(struct io_kiocb *req, int len, int nr)
-{
-	struct io_buffer_list *bl = req->buf_list;
-	bool ret = true;
-
-	if (bl) {
-		ret = io_kbuf_commit(req, bl, len, nr);
-		req->buf_index = bl->bgid;
-	}
-	req->flags &= ~REQ_F_BUFFER_RING;
-	return ret;
-}
-
-static inline void __io_put_kbuf_list(struct io_kiocb *req, int len,
-				      struct list_head *list)
-{
-	if (req->flags & REQ_F_BUFFER_RING) {
-		__io_put_kbuf_ring(req, len, 1);
-	} else {
-		req->buf_index = req->kbuf->bgid;
-		list_add(&req->kbuf->list, list);
-		req->flags &= ~REQ_F_BUFFER_SELECTED;
-	}
-}
-
-static inline void io_kbuf_drop(struct io_kiocb *req)
-{
-	lockdep_assert_held(&req->ctx->completion_lock);
-
-	if (!(req->flags & (REQ_F_BUFFER_SELECTED|REQ_F_BUFFER_RING)))
-		return;
-
-	/* len == 0 is fine here, non-ring will always drop all of it */
-	__io_put_kbuf_list(req, 0, &req->ctx->io_buffers_comp);
-}
-
-static inline unsigned int __io_put_kbufs(struct io_kiocb *req, int len,
-					  int nbufs, unsigned issue_flags)
-{
-	unsigned int ret;
-
 	if (!(req->flags & (REQ_F_BUFFER_RING | REQ_F_BUFFER_SELECTED)))
 		return 0;
-
-	ret = IORING_CQE_F_BUFFER | (req->buf_index << IORING_CQE_BUFFER_SHIFT);
-	if (req->flags & REQ_F_BUFFER_RING) {
-		if (!__io_put_kbuf_ring(req, len, nbufs))
-			ret |= IORING_CQE_F_BUF_MORE;
-	} else {
-		__io_put_kbuf(req, len, issue_flags);
-	}
-	return ret;
-}
-
-static inline unsigned int io_put_kbuf(struct io_kiocb *req, int len,
-				       unsigned issue_flags)
-{
-	return __io_put_kbufs(req, len, 1, issue_flags);
+	return __io_put_kbufs(req, bl, len, 1);
 }
 
 static inline unsigned int io_put_kbufs(struct io_kiocb *req, int len,
-					int nbufs, unsigned issue_flags)
+					struct io_buffer_list *bl, int nbufs)
 {
-	return __io_put_kbufs(req, len, nbufs, issue_flags);
+	if (!(req->flags & (REQ_F_BUFFER_RING | REQ_F_BUFFER_SELECTED)))
+		return 0;
+	return __io_put_kbufs(req, bl, len, nbufs);
 }
 #endif

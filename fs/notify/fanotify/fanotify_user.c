@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/fanotify.h>
 #include <linux/fcntl.h>
-#include <linux/fdtable.h>
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/anon_inodes.h>
@@ -1014,22 +1013,18 @@ static int fanotify_find_path(int dfd, const char __user *filename,
 		 dfd, filename, flags);
 
 	if (filename == NULL) {
-		struct fd f = fdget(dfd);
+		CLASS(fd, f)(dfd);
 
-		ret = -EBADF;
-		if (!fd_file(f))
-			goto out;
+		if (fd_empty(f))
+			return -EBADF;
 
-		ret = -ENOTDIR;
 		if ((flags & FAN_MARK_ONLYDIR) &&
-		    !(S_ISDIR(file_inode(fd_file(f))->i_mode))) {
-			fdput(f);
-			goto out;
-		}
+		    !(S_ISDIR(file_inode(fd_file(f))->i_mode)))
+			return -ENOTDIR;
 
 		*path = fd_file(f)->f_path;
 		path_get(path);
-		fdput(f);
+		ret = 0;
 	} else {
 		unsigned int lookup_flags = 0;
 
@@ -1039,22 +1034,7 @@ static int fanotify_find_path(int dfd, const char __user *filename,
 			lookup_flags |= LOOKUP_DIRECTORY;
 
 		ret = user_path_at(dfd, filename, lookup_flags, path);
-		if (ret)
-			goto out;
 	}
-
-	/* you can only watch an inode if you have read permissions on it */
-	ret = path_permission(path, MAY_READ);
-	if (ret) {
-		path_put(path);
-		goto out;
-	}
-
-	ret = security_path_notify(path, mask, obj_type);
-	if (ret)
-		path_put(path);
-
-out:
 	return ret;
 }
 
@@ -1845,6 +1825,15 @@ static int do_fanotify_mark(int fanotify_fd, unsigned int flags, __u64 mask,
 		if (ret)
 			goto path_put_and_out;
 	}
+
+	/* you can only watch an inode if you have read permissions on it */
+	ret = path_permission(&path, MAY_READ);
+	if (ret)
+		goto path_put_and_out;
+
+	ret = security_path_notify(&path, mask, obj_type);
+	if (ret)
+		goto path_put_and_out;
 
 	if (fid_mode) {
 		ret = fanotify_test_fsid(path.dentry, flags, &__fsid);

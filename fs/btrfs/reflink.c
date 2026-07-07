@@ -165,7 +165,7 @@ out:
  * the source inode to destination inode when possible. When not possible we
  * copy the inline extent's data into the respective page of the inode.
  */
-static int clone_copy_inline_extent(struct inode *dst,
+static int clone_copy_inline_extent(struct btrfs_inode *inode,
 				    struct btrfs_path *path,
 				    struct btrfs_key *new_key,
 				    const u64 drop_start,
@@ -175,8 +175,8 @@ static int clone_copy_inline_extent(struct inode *dst,
 				    char *inline_data,
 				    struct btrfs_trans_handle **trans_out)
 {
-	struct btrfs_fs_info *fs_info = inode_to_fs_info(dst);
-	struct btrfs_root *root = BTRFS_I(dst)->root;
+	struct btrfs_root *root = inode->root;
+	struct btrfs_fs_info *fs_info = root->fs_info;
 	const u64 aligned_end = ALIGN(new_key->offset + datal,
 				      fs_info->sectorsize);
 	struct btrfs_trans_handle *trans = NULL;
@@ -185,12 +185,12 @@ static int clone_copy_inline_extent(struct inode *dst,
 	struct btrfs_key key;
 
 	if (new_key->offset > 0) {
-		ret = copy_inline_to_page(BTRFS_I(dst), new_key->offset,
+		ret = copy_inline_to_page(inode, new_key->offset,
 					  inline_data, size, datal, comp_type);
 		goto out;
 	}
 
-	key.objectid = btrfs_ino(BTRFS_I(dst));
+	key.objectid = btrfs_ino(inode);
 	key.type = BTRFS_EXTENT_DATA_KEY;
 	key.offset = 0;
 	ret = btrfs_search_slot(NULL, root, &key, path, 0, 0);
@@ -205,7 +205,7 @@ static int clone_copy_inline_extent(struct inode *dst,
 				goto copy_inline_extent;
 		}
 		btrfs_item_key_to_cpu(path->nodes[0], &key, path->slots[0]);
-		if (key.objectid == btrfs_ino(BTRFS_I(dst)) &&
+		if (key.objectid == btrfs_ino(inode) &&
 		    key.type == BTRFS_EXTENT_DATA_KEY) {
 			/*
 			 * There's an implicit hole at file offset 0, copy the
@@ -214,7 +214,7 @@ static int clone_copy_inline_extent(struct inode *dst,
 			ASSERT(key.offset > 0);
 			goto copy_to_page;
 		}
-	} else if (i_size_read(dst) <= datal) {
+	} else if (i_size_read(&inode->vfs_inode) <= datal) {
 		struct btrfs_file_extent_item *ei;
 
 		ei = btrfs_item_ptr(path->nodes[0], path->slots[0],
@@ -236,7 +236,7 @@ copy_inline_extent:
 	 * We have no extent items, or we have an extent at offset 0 which may
 	 * or may not be inlined. All these cases are dealt the same way.
 	 */
-	if (i_size_read(dst) > datal) {
+	if (i_size_read(&inode->vfs_inode) > datal) {
 		/*
 		 * At the destination offset 0 we have either a hole, a regular
 		 * extent or an inline extent larger then the one we want to
@@ -270,7 +270,7 @@ copy_inline_extent:
 	drop_args.start = drop_start;
 	drop_args.end = aligned_end;
 	drop_args.drop_cache = true;
-	ret = btrfs_drop_extents(trans, root, BTRFS_I(dst), &drop_args);
+	ret = btrfs_drop_extents(trans, root, inode, &drop_args);
 	if (ret)
 		goto out;
 	ret = btrfs_insert_empty_item(trans, root, path, new_key, size);
@@ -281,9 +281,9 @@ copy_inline_extent:
 			    btrfs_item_ptr_offset(path->nodes[0],
 						  path->slots[0]),
 			    size);
-	btrfs_update_inode_bytes(BTRFS_I(dst), datal, drop_args.bytes_found);
-	btrfs_set_inode_full_sync(BTRFS_I(dst));
-	ret = btrfs_inode_set_file_extent_range(BTRFS_I(dst), 0, aligned_end);
+	btrfs_update_inode_bytes(inode, datal, drop_args.bytes_found);
+	btrfs_set_inode_full_sync(inode);
+	ret = btrfs_inode_set_file_extent_range(inode, 0, aligned_end);
 out:
 	if (!ret && !trans) {
 		/*
@@ -318,8 +318,53 @@ copy_to_page:
 	 */
 	btrfs_release_path(path);
 
-	ret = copy_inline_to_page(BTRFS_I(dst), new_key->offset,
+	ret = copy_inline_to_page(inode, new_key->offset,
 				  inline_data, size, datal, comp_type);
+
+	/*
+	 * If we copied the inline extent data to a page/folio beyond the i_size
+	 * of the destination inode, then we need to increase the i_size before
+	 * we start a transaction to update the inode item. This is to prevent a
+	 * deadlock when the flushoncommit mount option is used, which happens
+	 * like this:
+	 *
+	 * 1) Task A clones an inline extent from inode X to an offset of inode
+	 *    Y that is beyond Y's current i_size. This means we copied the
+	 *    inline extent's data to a folio of inode Y that is beyond its EOF,
+	 *    using the call above to copy_inline_to_page();
+	 *
+	 * 2) Task B starts a transaction commit and calls
+	 *    btrfs_start_delalloc_flush() to flush delalloc;
+	 *
+	 * 3) The delalloc flushing sees the new dirty folio of inode Y and when
+	 *    it attempts to flush it, it ends up at extent_writepage() and sees
+	 *    that the offset of the folio is beyond the i_size of inode Y, so
+	 *    it attempts to invalidate the folio by calling folio_invalidate(),
+	 *    which ends up at btrfs' folio invalidate callback -
+	 *    btrfs_invalidate_folio(). There it tries to lock the folio's range
+	 *    in inode Y's extent io tree, but it blocks since it's currently
+	 *    locked by task A - during reflink we lock the inodes and the
+	 *    source and destination ranges after flushing all delalloc and
+	 *    waiting for ordered extent completion - after that we don't expect
+	 *    to have dirty folios in the ranges, the exception is if we have to
+	 *    copy an inline extent's data (because the destination offset is
+	 *    not zero);
+	 *
+	 * 4) Task A then does the 'goto out' below and attempts to start a
+	 *    transaction to update the inode item, and then it's blocked since
+	 *    the current transaction is in the TRANS_STATE_COMMIT_START state.
+	 *    Therefore task A has to wait for the current transaction to become
+	 *    unblocked (its state >= TRANS_STATE_UNBLOCKED).
+	 *
+	 * This leads to a deadlock - the task committing the transaction
+	 * waiting for the delalloc flushing which is blocked during folio
+	 * invalidation on the inode's extent lock and the reflink task waiting
+	 * for the current transaction to be unblocked so that it can start a
+	 * a new one to update the inode item (while holding the extent lock).
+	 */
+	if (ret == 0 && new_key->offset + datal > i_size_read(&inode->vfs_inode))
+		i_size_write(&inode->vfs_inode, new_key->offset + datal);
+
 	goto out;
 }
 
@@ -526,7 +571,7 @@ process_slot:
 				goto out;
 			}
 
-			ret = clone_copy_inline_extent(inode, path, &new_key,
+			ret = clone_copy_inline_extent(BTRFS_I(inode), path, &new_key,
 						       drop_start, datal, size,
 						       comp, buf, &trans);
 			if (ret)

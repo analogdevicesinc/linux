@@ -499,7 +499,7 @@ static bool convert_bpf_ld_abs(struct sock_filter *fp, struct bpf_insn **insnp)
 	    ((unaligned_ok && offset >= 0) ||
 	     (!unaligned_ok && offset >= 0 &&
 	      offset + ip_align >= 0 &&
-	      offset + ip_align % size == 0))) {
+	      (offset + ip_align) % size == 0))) {
 		bool ldx_off_ok = offset <= S16_MAX;
 
 		*insn++ = BPF_MOV64_REG(BPF_REG_TMP, BPF_REG_H);
@@ -1651,15 +1651,24 @@ err_prog_put:
 	return err;
 }
 
+static void sk_reuseport_prog_free_rcu(struct rcu_head *rcu)
+{
+	struct bpf_prog_aux *aux = container_of(rcu, struct bpf_prog_aux, rcu);
+	struct bpf_prog *prog = aux->prog;
+
+	bpf_release_orig_filter(prog);
+	bpf_prog_free(prog);
+}
+
 void sk_reuseport_prog_free(struct bpf_prog *prog)
 {
 	if (!prog)
 		return;
 
-	if (prog->type == BPF_PROG_TYPE_SK_REUSEPORT)
-		bpf_prog_put(prog);
+	if (bpf_prog_was_classic(prog))
+		call_rcu(&prog->aux->rcu, sk_reuseport_prog_free_rcu);
 	else
-		bpf_prog_destroy(prog);
+		bpf_prog_put(prog);
 }
 
 struct bpf_scratchpad {
@@ -2867,7 +2876,7 @@ BPF_CALL_4(bpf_msg_push_data, struct sk_msg *, msg, u32, start,
 
 		psge->length = start - offset;
 		rsge.length -= psge->length;
-		rsge.offset += start;
+		rsge.offset += start - offset;
 
 		sk_msg_iter_var_next(i);
 		sg_unmark_end(psge);
@@ -4388,6 +4397,8 @@ u32 xdp_master_redirect(struct xdp_buff *xdp)
 	struct net_device *master, *slave;
 
 	master = netdev_master_upper_dev_get_rcu(xdp->rxq->dev);
+	if (unlikely(!(master->flags & IFF_UP)))
+		return XDP_ABORTED;
 	slave = master->netdev_ops->ndo_xdp_get_xmit_slave(master, xdp);
 	if (slave && slave != xdp->rxq->dev) {
 		/* The target device is different from the receiving device, so

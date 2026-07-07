@@ -434,17 +434,16 @@ int spi_nor_read_id(struct spi_nor *nor, u8 naddr, u8 ndummy, u8 *id,
 		    enum spi_nor_protocol proto)
 {
 	int ret;
-#define SPI_NOR_MAX_EDID_LEN    20
 
 	if (nor->spimem) {
 		struct spi_mem_op op =
-			SPI_NOR_READID_OP(naddr, ndummy, id, SPI_NOR_MAX_EDID_LEN);
+			SPI_NOR_READID_OP(naddr, ndummy, id, SPI_NOR_MAX_ID_LEN);
 
 		spi_nor_spimem_setup_op(nor, &op, proto);
 		ret = spi_mem_exec_op(nor->spimem, &op);
 	} else {
 		ret = nor->controller_ops->read_reg(nor, SPINOR_OP_RDID, id,
-						    SPI_NOR_MAX_EDID_LEN);
+						    SPI_NOR_MAX_ID_LEN);
 	}
 	return ret;
 }
@@ -2251,12 +2250,6 @@ static const struct flash_info *spi_nor_match_id(struct spi_nor *nor,
 			if (part->id &&
 			    !memcmp(part->id->bytes, id, part->id->len)) {
 				nor->manufacturer = manufacturers[i];
-				/* ST and MICRON seem to use the same manufacturer ID */
-				if (id[0] == CFI_MFR_MICRON || id[0] == CFI_MFR_ST)
-					dev_info(nor->dev, "SPI-NOR-UniqueID %*phN\n",
-						 SPI_NOR_MAX_EDID_LEN - part->id->len,
-						 &id[part->id->len]);
-
 				return part;
 			}
 		}
@@ -3571,14 +3564,6 @@ static void spi_nor_sfdp_init_params_deprecated(struct spi_nor *nor)
  */
 static void spi_nor_init_params_deprecated(struct spi_nor *nor)
 {
-	bool is_zynq_qspi = false;
-#ifdef CONFIG_OF
-	struct device_node *np = spi_nor_get_flash_node(nor);
-	struct device_node *np_spi;
-	np_spi = of_get_next_parent(np);
-	is_zynq_qspi = of_property_match_string(np_spi, "compatible", "xlnx,zynq-qspi-1.0") >= 0;
-#endif
-
 	spi_nor_no_sfdp_init_params(nor);
 
 	spi_nor_manufacturer_init_params(nor);
@@ -3586,7 +3571,7 @@ static void spi_nor_init_params_deprecated(struct spi_nor *nor)
 	if (nor->info->no_sfdp_flags & (SPI_NOR_DUAL_READ |
 					SPI_NOR_QUAD_READ |
 					SPI_NOR_OCTAL_READ |
-					SPI_NOR_OCTAL_DTR_READ) && !is_zynq_qspi)
+					SPI_NOR_OCTAL_DTR_READ))
 		spi_nor_sfdp_init_params_deprecated(nor);
 }
 
@@ -3680,15 +3665,8 @@ static void spi_nor_init_default_params(struct spi_nor *nor)
  */
 static int spi_nor_init_params(struct spi_nor *nor)
 {
-	bool locking_disable = false;
 	struct spi_nor_flash_parameter *params = spi_nor_get_params(nor, 0);
 	int ret;
-#ifdef CONFIG_OF
-	struct device_node *np = spi_nor_get_flash_node(nor);
-	struct device_node *np_spi;
-	np_spi = of_get_next_parent(np);
-	locking_disable = of_property_read_bool(np_spi, "spi-nor-locking-disable");
-#endif
 
 	params = devm_kzalloc(nor->dev, sizeof(*params), GFP_KERNEL);
 	if (!params)
@@ -3697,13 +3675,6 @@ static int spi_nor_init_params(struct spi_nor *nor)
 	spi_nor_set_params(nor, 0, params);
 
 	spi_nor_init_default_params(nor);
-
-	/*
-	 * Don't move - needs to be behind spi_nor_manufacturer_init_params()
-	 * and before spi_nor_late_init_params()
-	 */
-	if (locking_disable)
-		nor->flags &= ~SNOR_F_HAS_LOCK;
 
 	if (spi_nor_needs_sfdp(nor)) {
 		ret = spi_nor_parse_sfdp(nor);
@@ -3742,8 +3713,11 @@ static int spi_nor_set_octal_dtr(struct spi_nor *nor, bool enable)
 		return 0;
 
 	if (!(nor->read_proto == SNOR_PROTO_8_8_8_DTR &&
-	      nor->write_proto == SNOR_PROTO_8_8_8_DTR))
+	      nor->write_proto == SNOR_PROTO_8_8_8_DTR)) {
+		if (params->phy_enable)
+			params->phy_enable(nor);
 		return 0;
+	}
 
 	if (!(nor->flags & SNOR_F_IO_MODE_EN_VOLATILE))
 		return 0;
@@ -3997,12 +3971,19 @@ static int spi_nor_suspend(struct mtd_info *mtd)
 static void spi_nor_resume(struct mtd_info *mtd)
 {
 	struct spi_nor *nor = mtd_to_spi_nor(mtd);
+	struct spi_nor_flash_parameter *params = spi_nor_get_params(nor, 0);
 	struct device *dev = nor->dev;
 	int ret;
 
 	ret = spi_nor_hw_reset(nor);
 	if (ret)
 		dev_err(dev, "device reset failed during resume()\n");
+
+	if (params->addr_mode_nbytes == 4) {
+		ret = spi_nor_set_4byte_addr_mode(nor, true);
+		if (ret)
+			dev_err(nor->dev, "Failed to enter 4-byte address mode, err = %d\n", ret);
+	}
 
 	/* re-initialize the nor chip */
 	ret = spi_nor_init(nor);

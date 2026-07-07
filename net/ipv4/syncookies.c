@@ -222,7 +222,7 @@ struct sock *tcp_get_cookie_sock(struct sock *sk, struct sk_buff *skb,
 
 	return NULL;
 }
-EXPORT_SYMBOL(tcp_get_cookie_sock);
+EXPORT_IPV6_MOD(tcp_get_cookie_sock);
 
 /*
  * when syncookies are in effect and tcp timestamps are enabled we stored
@@ -259,7 +259,7 @@ bool cookie_timestamp_decode(const struct net *net,
 
 	return READ_ONCE(net->ipv4.sysctl_tcp_window_scaling) != 0;
 }
-EXPORT_SYMBOL(cookie_timestamp_decode);
+EXPORT_IPV6_MOD(cookie_timestamp_decode);
 
 static int cookie_tcp_reqsk_init(struct sock *sk, struct sk_buff *skb,
 				 struct request_sock *req)
@@ -284,7 +284,6 @@ static int cookie_tcp_reqsk_init(struct sock *sk, struct sk_buff *skb,
 	treq->rcv_isn = ntohl(th->seq) - 1;
 	treq->snt_isn = ntohl(th->ack_seq) - 1;
 	treq->syn_tos = TCP_SKB_CB(skb)->ip_dsfield;
-	treq->req_usec_ts = false;
 
 #if IS_ENABLED(CONFIG_MPTCP)
 	treq->is_mptcp = sk_is_mptcp(sk);
@@ -310,7 +309,7 @@ struct request_sock *cookie_bpf_check(struct sock *sk, struct sk_buff *skb)
 
 	return req;
 }
-EXPORT_SYMBOL_GPL(cookie_bpf_check);
+EXPORT_IPV6_MOD_GPL(cookie_bpf_check);
 #endif
 
 struct request_sock *cookie_tcp_reqsk_alloc(const struct request_sock_ops *ops,
@@ -347,11 +346,12 @@ struct request_sock *cookie_tcp_reqsk_alloc(const struct request_sock_ops *ops,
 	ireq->wscale_ok = tcp_opt->wscale_ok;
 	ireq->ecn_ok = !!(tcp_opt->rcv_tsecr & TS_OPT_ECN);
 
+	treq->req_usec_ts = false;
 	treq->ts_off = tsoff;
 
 	return req;
 }
-EXPORT_SYMBOL_GPL(cookie_tcp_reqsk_alloc);
+EXPORT_IPV6_MOD_GPL(cookie_tcp_reqsk_alloc);
 
 static struct request_sock *cookie_tcp_check(struct net *net, struct sock *sk,
 					     struct sk_buff *skb)
@@ -376,9 +376,14 @@ static struct request_sock *cookie_tcp_check(struct net *net, struct sock *sk,
 	tcp_parse_options(net, skb, &tcp_opt, 0, NULL);
 
 	if (tcp_opt.saw_tstamp && tcp_opt.rcv_tsecr) {
-		tsoff = secure_tcp_ts_off(net,
-					  ip_hdr(skb)->daddr,
-					  ip_hdr(skb)->saddr);
+		union tcp_seq_and_ts_off st;
+
+		st = secure_tcp_seq_and_ts_off(net,
+					       ip_hdr(skb)->daddr,
+					       ip_hdr(skb)->saddr,
+					       tcp_hdr(skb)->dest,
+					       tcp_hdr(skb)->source);
+		tsoff = st.ts_off;
 		tcp_opt.rcv_tsecr -= tsoff;
 	}
 

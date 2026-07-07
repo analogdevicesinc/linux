@@ -1366,9 +1366,9 @@ static void sdma_v5_0_ring_emit_reg_write_reg_wait(struct amdgpu_ring *ring,
 	amdgpu_ring_emit_reg_wait(ring, reg1, mask, mask);
 }
 
-static int sdma_v5_0_early_init(void *handle)
+static int sdma_v5_0_early_init(struct amdgpu_ip_block *ip_block)
 {
-	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+	struct amdgpu_device *adev = ip_block->adev;
 	int r;
 
 	r = sdma_v5_0_init_microcode(adev);
@@ -1799,9 +1799,9 @@ static void sdma_v5_0_print_ip_state(void *handle, struct drm_printer *p)
 	}
 }
 
-static void sdma_v5_0_dump_ip_state(void *handle)
+static void sdma_v5_0_dump_ip_state(struct amdgpu_ip_block *ip_block)
 {
-	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+	struct amdgpu_device *adev = ip_block->adev;
 	int i, j;
 	uint32_t instance_offset;
 	uint32_t reg_count = ARRAY_SIZE(sdma_reg_list_5_0);
