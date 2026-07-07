@@ -48,7 +48,6 @@
 		i2c4 = &i2c4;
 		i2c5 = &i2c5;
 		i2s4 = &i2s4;
-		mmc0 = &mmc0;
 		sru0 = &sru_ctrl_dai0;
 		sru1 = &sru_ctrl_dai1;
 	};
@@ -601,17 +600,6 @@
 			#size-cells = <1>;
 			reg = <0x310CA000 0x224>;
 			adi,pads-syscon = <&pads_syscon>;
-			status = "disabled";
-		};
-
-		mmc0: mmc@31010000 {
-			compatible = "snps,dw-mshc";
-			reg = <0x31010000 0xFFF>;
-			interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>;
-			spu_securep_id = <58>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			fifo-depth = <1024>;
 			status = "disabled";
 		};
 
