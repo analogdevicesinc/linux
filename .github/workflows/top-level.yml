@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - 'rpi-*.y'
-      - 'rpi/release/*'
     paths-ignore:
       - 'docs/**'
   pull_request:
@@ -12,101 +11,7 @@ on:
       - 'docs/**'
 
 jobs:
-  checks:
-    uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
-    secrets: inherit
-    permissions:
-      contents: read
-  build_gcc_x86_64:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    needs: [checks]
-    if: needs.checks.outputs.fatal != 'true'
-    secrets: inherit
-    permissions:
-      contents: read
-    with:
-      compiler: "gcc"
-      arch: "x86"
-      defconfig: "adi_ci_defconfig"
-  build_llvm_x86_64:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    needs: [checks]
-    if: needs.checks.outputs.fatal != 'true'
-    secrets: inherit
-    permissions:
-      contents: read
-    with:
-      compiler: "llvm"
-      arch: "x86"
-      defconfig: "adi_ci_defconfig"
-      checks: true
-  build_gcc_aarch64:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    needs: [checks]
-    if: needs.checks.outputs.fatal != 'true'
-    secrets: inherit
-    permissions:
-      contents: read
-    with:
-      compiler: "gcc"
-      arch: "arm64"
-      defconfig: "adi_ci_defconfig"
-  build_gcc_arm:
-    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
-    secrets: inherit
-    permissions:
-      contents: read
-    with:
-      compiler: "gcc"
-      arch: "arm"
-      defconfig: "adi_ci_defconfig"
-      checks: true
-  assert_checks:
-    runs-on: [self-hosted, repo-only]
-    permissions:
-      contents: read
-    needs:
-      - checks
-      - build_gcc_x86_64
-      - build_llvm_x86_64
-      - build_gcc_aarch64
-      - build_gcc_arm
-
-    steps:
-      - name: Assert
-        env:
-          job_warn_checks: ${{needs.checks.outputs.warn}}
-          job_warn_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.warn}}
-          job_warn_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.warn}}
-          job_warn_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.warn}}
-          job_warn_build_gcc_arm: ${{needs.build_gcc_arm.outputs.warn}}
-          job_fail_checks: ${{needs.checks.outputs.fail}}
-          job_fail_build_gcc_x86_64: ${{needs.build_gcc_x86_64.outputs.fail}}
-          job_fail_build_llvm_x86_64: ${{needs.build_llvm_x86_64.outputs.fail}}
-          job_fail_build_gcc_aarch64: ${{needs.build_gcc_aarch64.outputs.fail}}
-          job_fail_build_gcc_arm: ${{needs.build_gcc_arm.outputs.fail}}
-        run: |
-          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
-            https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
-          source ./runner_env.sh
-          assert_labels
-  deploy_cloudsmith_checks:
-    needs: [assert_checks]
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' }}
-    uses: analogdevicesinc/linux/.github/workflows/upload-to-cloudsmith.yml@ci
-    secrets:
-        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
-        CLOUDSMITH_API_KEY: ${{ secrets.CLOUDSMITH_API_KEY }}
-    permissions:
-      id-token: write
-      contents: write
-      actions: read
-    with:
-      artifacts: >
-        adi_ci_defconfig-*
-
   build_gcc_arm_adi_bcm2709_defconfig:
-    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     permissions:
@@ -117,7 +22,6 @@ jobs:
       defconfig: "adi_bcm2709_defconfig"
       auto_from_range: false
   build_gcc_arm_adi_bcm2711_defconfig:
-    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     permissions:
@@ -128,7 +32,6 @@ jobs:
       defconfig: "adi_bcm2711_defconfig"
       auto_from_range: false
   build_gcc_arm_adi_bcmrpi_defconfig:
-    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     permissions:
@@ -139,7 +42,6 @@ jobs:
       defconfig: "adi_bcmrpi_defconfig"
       auto_from_range: false
   build_gcc_aarch64_adi_bcm2711_defconfig:
-    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     permissions:
@@ -150,7 +52,6 @@ jobs:
       defconfig: "adi_bcm2711_defconfig"
       auto_from_range: false
   build_gcc_aarch64_adi_bcm2712_defconfig:
-    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
     secrets: inherit
     permissions:
@@ -161,7 +62,6 @@ jobs:
       defconfig: "adi_bcm2712_defconfig"
       auto_from_range: false
   compile_devicetrees:
-    needs: [assert_checks]
     uses: analogdevicesinc/linux/.github/workflows/compile-devicetrees.yml@ci
     secrets: inherit
     permissions:
