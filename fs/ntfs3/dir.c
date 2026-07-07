@@ -34,6 +34,9 @@ int ntfs_utf16_to_nls(struct ntfs_sb_info *sbi, const __le16 *name, u32 len,
 		/* UTF-16 -> UTF-8 */
 		ret = utf16s_to_utf8s((wchar_t *)name, len, UTF16_LITTLE_ENDIAN,
 				      buf, buf_len);
+        if (ret >= buf_len) {
+            ret = buf_len-1;
+        }
 		buf[ret] = '\0';
 		return ret;
 	}
