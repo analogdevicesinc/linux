@@ -126,9 +126,10 @@
 &spi2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi2_quad>;
+
 	status = "okay";
 
-	flash: mt25ql512@1 {
+	flash@1 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "micron,mt25ql512", "jedec,spi-nor";

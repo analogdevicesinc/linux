@@ -138,9 +138,10 @@
 &spi2 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi2_quad>;
+
 	status = "okay";
 
-	flash: w25q128@1 {
+	flash@1 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "winbond,w25q128", "jedec,spi-nor";
