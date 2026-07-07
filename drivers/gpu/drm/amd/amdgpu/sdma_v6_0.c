@@ -1272,9 +1272,9 @@ static void sdma_v6_0_set_ras_funcs(struct amdgpu_device *adev)
 	}
 }
 
-static int sdma_v6_0_early_init(void *handle)
+static int sdma_v6_0_early_init(struct amdgpu_ip_block *ip_block)
 {
-	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+	struct amdgpu_device *adev = ip_block->adev;
 	int r;
 
 	r = amdgpu_sdma_init_microcode(adev, 0, true);
@@ -1577,9 +1577,9 @@ static void sdma_v6_0_print_ip_state(void *handle, struct drm_printer *p)
 	}
 }
 
-static void sdma_v6_0_dump_ip_state(void *handle)
+static void sdma_v6_0_dump_ip_state(struct amdgpu_ip_block *ip_block)
 {
-	struct amdgpu_device *adev = (struct amdgpu_device *)handle;
+	struct amdgpu_device *adev = ip_block->adev;
 	int i, j;
 	uint32_t instance_offset;
 	uint32_t reg_count = ARRAY_SIZE(sdma_reg_list_6_0);

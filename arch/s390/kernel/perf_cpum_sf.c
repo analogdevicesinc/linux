@@ -1188,8 +1188,9 @@ static void hw_collect_samples(struct perf_event *event, unsigned long *sdbt,
 static void hw_perf_event_update(struct perf_event *event, int flush_all)
 {
 	unsigned long long event_overflow, sampl_overflow, num_sdb;
-	union hws_trailer_header old, prev, new;
+	struct cpu_hw_sf *cpuhw = this_cpu_ptr(&cpu_hw_sf);
 	struct hw_perf_event *hwc = &event->hw;
+	union hws_trailer_header prev, new;
 	struct hws_trailer_entry *te;
 	unsigned long *sdbt, sdb;
 	int done;
@@ -1233,13 +1234,11 @@ static void hw_perf_event_update(struct perf_event *event, int flush_all)
 		/* Reset trailer (using compare-double-and-swap) */
 		prev.val = READ_ONCE_ALIGNED_128(te->header.val);
 		do {
-			old.val = prev.val;
 			new.val = prev.val;
 			new.f = 0;
 			new.a = 1;
 			new.overflow = 0;
-			prev.val = cmpxchg128(&te->header.val, old.val, new.val);
-		} while (prev.val != old.val);
+		} while (!try_cmpxchg128(&te->header.val, &prev.val, new.val));
 
 		/* Advance to next sample-data-block */
 		sdbt++;
@@ -1269,8 +1268,11 @@ static void hw_perf_event_update(struct perf_event *event, int flush_all)
 	 * are dropped.
 	 * Slightly increase the interval to avoid hitting this limit.
 	 */
-	if (event_overflow)
+	if (event_overflow) {
 		SAMPL_RATE(hwc) += DIV_ROUND_UP(SAMPL_RATE(hwc), 10);
+		if (SAMPL_RATE(hwc) > cpuhw->qsi.max_sampl_rate)
+			SAMPL_RATE(hwc) = cpuhw->qsi.max_sampl_rate;
+	}
 }
 
 static inline unsigned long aux_sdb_index(struct aux_buffer *aux,
@@ -1405,16 +1407,15 @@ static int aux_output_begin(struct perf_output_handle *handle,
 static bool aux_set_alert(struct aux_buffer *aux, unsigned long alert_index,
 			  unsigned long long *overflow)
 {
-	union hws_trailer_header old, prev, new;
+	union hws_trailer_header prev, new;
 	struct hws_trailer_entry *te;
 
 	te = aux_sdb_trailer(aux, alert_index);
 	prev.val = READ_ONCE_ALIGNED_128(te->header.val);
 	do {
-		old.val = prev.val;
 		new.val = prev.val;
-		*overflow = old.overflow;
-		if (old.f) {
+		*overflow = prev.overflow;
+		if (prev.f) {
 			/*
 			 * SDB is already set by hardware.
 			 * Abort and try to set somewhere
@@ -1424,8 +1425,7 @@ static bool aux_set_alert(struct aux_buffer *aux, unsigned long alert_index,
 		}
 		new.a = 1;
 		new.overflow = 0;
-		prev.val = cmpxchg128(&te->header.val, old.val, new.val);
-	} while (prev.val != old.val);
+	} while (!try_cmpxchg128(&te->header.val, &prev.val, new.val));
 	return true;
 }
 
@@ -1454,7 +1454,7 @@ static bool aux_set_alert(struct aux_buffer *aux, unsigned long alert_index,
 static bool aux_reset_buffer(struct aux_buffer *aux, unsigned long range,
 			     unsigned long long *overflow)
 {
-	union hws_trailer_header old, prev, new;
+	union hws_trailer_header prev, new;
 	unsigned long i, range_scan, idx;
 	unsigned long long orig_overflow;
 	struct hws_trailer_entry *te;
@@ -1486,17 +1486,15 @@ static bool aux_reset_buffer(struct aux_buffer *aux, unsigned long range,
 		te = aux_sdb_trailer(aux, idx);
 		prev.val = READ_ONCE_ALIGNED_128(te->header.val);
 		do {
-			old.val = prev.val;
 			new.val = prev.val;
-			orig_overflow = old.overflow;
+			orig_overflow = prev.overflow;
 			new.f = 0;
 			new.overflow = 0;
 			if (idx == aux->alert_mark)
 				new.a = 1;
 			else
 				new.a = 0;
-			prev.val = cmpxchg128(&te->header.val, old.val, new.val);
-		} while (prev.val != old.val);
+		} while (!try_cmpxchg128(&te->header.val, &prev.val, new.val));
 		*overflow += orig_overflow;
 	}
 

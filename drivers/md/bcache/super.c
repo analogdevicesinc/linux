@@ -1373,6 +1373,14 @@ static CLOSURE_CALLBACK(cached_dev_free)
 
 	mutex_unlock(&bch_register_lock);
 
+	/*
+	 * Wait for any pending sb_write to complete before free.
+	 * The sb_bio is embedded in struct cached_dev, so we must
+	 * ensure no I/O is in progress.
+	 */
+	down(&dc->sb_write_mutex);
+	up(&dc->sb_write_mutex);
+
 	if (dc->sb_disk)
 		put_page(virt_to_page(dc->sb_disk));
 

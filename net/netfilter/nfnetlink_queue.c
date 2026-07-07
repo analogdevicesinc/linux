@@ -49,8 +49,8 @@
 #endif
 
 #define NFQNL_QMAX_DEFAULT 1024
-#define NFQNL_HASH_MIN     1024
-#define NFQNL_HASH_MAX     1048576
+#define NFQNL_HASH_MIN     8
+#define NFQNL_HASH_MAX     32768
 
 /* We're using struct nlattr which has 16bit nla_len. Note that nla_len
  * includes the header length. Thus, the maximum packet length that we
@@ -60,29 +60,10 @@
  */
 #define NFQNL_MAX_COPY_RANGE (0xffff - NLA_HDRLEN)
 
-/* Composite key for packet lookup: (net, queue_num, packet_id) */
-struct nfqnl_packet_key {
-	possible_net_t net;
-	u32 packet_id;
-	u16 queue_num;
-} __aligned(sizeof(u32));  /* jhash2 requires 32-bit alignment */
-
-/* Global rhashtable - one for entire system, all netns */
-static struct rhashtable nfqnl_packet_map __read_mostly;
-
-/* Helper to initialize composite key */
-static inline void nfqnl_init_key(struct nfqnl_packet_key *key,
-				  struct net *net, u32 packet_id, u16 queue_num)
-{
-	memset(key, 0, sizeof(*key));
-	write_pnet(&key->net, net);
-	key->packet_id = packet_id;
-	key->queue_num = queue_num;
-}
-
 struct nfqnl_instance {
 	struct hlist_node hlist;		/* global list of queues */
-	struct rcu_head rcu;
+	struct rhashtable nfqnl_packet_map;
+	struct rcu_work	rwork;
 
 	u32 peer_portid;
 	unsigned int queue_maxlen;
@@ -106,6 +87,7 @@ struct nfqnl_instance {
 
 typedef int (*nfqnl_cmpfn)(struct nf_queue_entry *, unsigned long);
 
+static struct workqueue_struct *nfq_cleanup_wq __read_mostly;
 static unsigned int nfnl_queue_net_id __read_mostly;
 
 #define INSTANCE_BUCKETS	16
@@ -124,34 +106,10 @@ static inline u_int8_t instance_hashfn(u_int16_t queue_num)
 	return ((queue_num >> 8) ^ queue_num) % INSTANCE_BUCKETS;
 }
 
-/* Extract composite key from nf_queue_entry for hashing */
-static u32 nfqnl_packet_obj_hashfn(const void *data, u32 len, u32 seed)
-{
-	const struct nf_queue_entry *entry = data;
-	struct nfqnl_packet_key key;
-
-	nfqnl_init_key(&key, entry->state.net, entry->id, entry->queue_num);
-
-	return jhash2((u32 *)&key, sizeof(key) / sizeof(u32), seed);
-}
-
-/* Compare stack-allocated key against entry */
-static int nfqnl_packet_obj_cmpfn(struct rhashtable_compare_arg *arg,
-				  const void *obj)
-{
-	const struct nfqnl_packet_key *key = arg->key;
-	const struct nf_queue_entry *entry = obj;
-
-	return !net_eq(entry->state.net, read_pnet(&key->net)) ||
-	       entry->queue_num != key->queue_num ||
-	       entry->id != key->packet_id;
-}
-
 static const struct rhashtable_params nfqnl_rhashtable_params = {
 	.head_offset = offsetof(struct nf_queue_entry, hash_node),
-	.key_len = sizeof(struct nfqnl_packet_key),
-	.obj_hashfn = nfqnl_packet_obj_hashfn,
-	.obj_cmpfn = nfqnl_packet_obj_cmpfn,
+	.key_offset = offsetof(struct nf_queue_entry, id),
+	.key_len = sizeof(u32),
 	.automatic_shrinking = true,
 	.min_size = NFQNL_HASH_MIN,
 	.max_size = NFQNL_HASH_MAX,
@@ -178,17 +136,9 @@ instance_create(struct nfnl_queue_net *q, u_int16_t queue_num, u32 portid)
 	unsigned int h;
 	int err;
 
-	spin_lock(&q->instances_lock);
-	if (instance_lookup(q, queue_num)) {
-		err = -EEXIST;
-		goto out_unlock;
-	}
-
-	inst = kzalloc(sizeof(*inst), GFP_ATOMIC);
-	if (!inst) {
-		err = -ENOMEM;
-		goto out_unlock;
-	}
+	inst = kzalloc(sizeof(*inst), GFP_KERNEL_ACCOUNT);
+	if (!inst)
+		return ERR_PTR(-ENOMEM);
 
 	inst->queue_num = queue_num;
 	inst->peer_portid = portid;
@@ -198,9 +148,19 @@ instance_create(struct nfnl_queue_net *q, u_int16_t queue_num, u32 portid)
 	spin_lock_init(&inst->lock);
 	INIT_LIST_HEAD(&inst->queue_list);
 
+	err = rhashtable_init(&inst->nfqnl_packet_map, &nfqnl_rhashtable_params);
+	if (err < 0)
+		goto out_free;
+
+	spin_lock(&q->instances_lock);
+	if (instance_lookup(q, queue_num)) {
+		err = -EEXIST;
+		goto out_unlock;
+	}
+
 	if (!try_module_get(THIS_MODULE)) {
 		err = -EAGAIN;
-		goto out_free;
+		goto out_unlock;
 	}
 
 	h = instance_hashfn(queue_num);
@@ -210,25 +170,29 @@ instance_create(struct nfnl_queue_net *q, u_int16_t queue_num, u32 portid)
 
 	return inst;
 
-out_free:
-	kfree(inst);
 out_unlock:
 	spin_unlock(&q->instances_lock);
+	rhashtable_destroy(&inst->nfqnl_packet_map);
+out_free:
+	kfree(inst);
 	return ERR_PTR(err);
 }
 
 static void nfqnl_flush(struct nfqnl_instance *queue, nfqnl_cmpfn cmpfn,
 			unsigned long data);
 
-static void
-instance_destroy_rcu(struct rcu_head *head)
+static void instance_destroy_work(struct work_struct *work)
 {
-	struct nfqnl_instance *inst = container_of(head, struct nfqnl_instance,
-						   rcu);
+	struct nfqnl_instance *inst;
 
+	inst = container_of(to_rcu_work(work), struct nfqnl_instance,
+			    rwork);
 	rcu_read_lock();
 	nfqnl_flush(inst, NULL, 0);
 	rcu_read_unlock();
+
+	rhashtable_destroy(&inst->nfqnl_packet_map);
+
 	kfree(inst);
 	module_put(THIS_MODULE);
 }
@@ -237,7 +201,9 @@ static void
 __instance_destroy(struct nfqnl_instance *inst)
 {
 	hlist_del_rcu(&inst->hlist);
-	call_rcu(&inst->rcu, instance_destroy_rcu);
+
+	INIT_RCU_WORK(&inst->rwork, instance_destroy_work);
+	queue_rcu_work(nfq_cleanup_wq, &inst->rwork);
 }
 
 static void
@@ -253,9 +219,7 @@ __enqueue_entry(struct nfqnl_instance *queue, struct nf_queue_entry *entry)
 {
 	int err;
 
-	entry->queue_num = queue->queue_num;
-
-	err = rhashtable_insert_fast(&nfqnl_packet_map, &entry->hash_node,
+	err = rhashtable_insert_fast(&queue->nfqnl_packet_map, &entry->hash_node,
 				     nfqnl_rhashtable_params);
 	if (unlikely(err))
 		return err;
@@ -269,23 +233,19 @@ __enqueue_entry(struct nfqnl_instance *queue, struct nf_queue_entry *entry)
 static void
 __dequeue_entry(struct nfqnl_instance *queue, struct nf_queue_entry *entry)
 {
-	rhashtable_remove_fast(&nfqnl_packet_map, &entry->hash_node,
+	rhashtable_remove_fast(&queue->nfqnl_packet_map, &entry->hash_node,
 			       nfqnl_rhashtable_params);
 	list_del(&entry->list);
 	queue->queue_total--;
 }
 
 static struct nf_queue_entry *
-find_dequeue_entry(struct nfqnl_instance *queue, unsigned int id,
-		   struct net *net)
+find_dequeue_entry(struct nfqnl_instance *queue, unsigned int id)
 {
-	struct nfqnl_packet_key key;
 	struct nf_queue_entry *entry;
 
-	nfqnl_init_key(&key, net, id, queue->queue_num);
-
 	spin_lock_bh(&queue->lock);
-	entry = rhashtable_lookup_fast(&nfqnl_packet_map, &key,
+	entry = rhashtable_lookup_fast(&queue->nfqnl_packet_map, &id,
 				       nfqnl_rhashtable_params);
 
 	if (entry)
@@ -466,9 +426,46 @@ static bool nf_ct_drop_unconfirmed(const struct nf_queue_entry *entry, bool *is_
 	return false;
 }
 
+static bool nf_bridge_port_valid(const struct net_device *dev)
+{
+	if (!dev)
+		return true;
+
+	return netif_is_bridge_port(dev);
+}
+
+/* queued skbs leave rcu protection.  We bump device refcount so that
+ * the device cannot go away.  However, while packet was out the port
+ * could have been removed from the bridge.
+ *
+ * Ensure in+outdev are still part of a bridge at reinject time.
+ *
+ * The device rx_handler_data could even be pointing at data that is
+ * not a net_bridge_port structure.
+ */
+static bool nf_bridge_ports_valid(const struct nf_queue_entry *entry)
+{
+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+	if (!nf_bridge_port_valid(entry->physin) ||
+	    !nf_bridge_port_valid(entry->physout))
+		return false;
+#endif
+	if (entry->state.pf != PF_BRIDGE)
+		return true;
+
+	if (!nf_bridge_port_valid(entry->state.in) ||
+	    !nf_bridge_port_valid(entry->state.out))
+		return false;
+
+	return true;
+}
+
 static void nfqnl_reinject(struct nf_queue_entry *entry, unsigned int verdict)
 {
 	const struct nf_ct_hook *ct_hook;
+
+	if (!nf_bridge_ports_valid(entry))
+		verdict = NF_DROP;
 
 	if (verdict == NF_ACCEPT ||
 	    verdict == NF_REPEAT ||
@@ -662,6 +659,23 @@ static int nf_queue_checksum_help(struct sk_buff *entskb)
 	return skb_checksum_help(entskb);
 }
 
+#if IS_ENABLED(CONFIG_BRIDGE_NETFILTER)
+static int nfqnl_put_master_ifindex(struct sk_buff *nlskb, int attr,
+				    const struct net_device *dev)
+{
+	const struct net_device *upper;
+
+	if (dev && !netif_is_bridge_port(dev))
+		return 0;
+
+	upper = netdev_master_upper_dev_get_rcu((struct net_device *)dev);
+	if (upper && nla_put_be32(nlskb, attr, htonl(upper->ifindex)))
+		return -EMSGSIZE;
+
+	return 0;
+}
+#endif
+
 static struct sk_buff *
 nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
 			   struct nf_queue_entry *entry,
@@ -795,10 +809,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
 			 * netfilter_bridge) */
 			if (nla_put_be32(skb, NFQA_IFINDEX_PHYSINDEV,
 					 htonl(indev->ifindex)) ||
-			/* this is the bridge group "brX" */
-			/* rcu_read_lock()ed by __nf_queue */
-			    nla_put_be32(skb, NFQA_IFINDEX_INDEV,
-					 htonl(br_port_get_rcu(indev)->br->dev->ifindex)))
+			    nfqnl_put_master_ifindex(skb, NFQA_IFINDEX_INDEV, indev))
 				goto nla_put_failure;
 		} else {
 			int physinif;
@@ -829,10 +840,7 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
 			 * netfilter_bridge) */
 			if (nla_put_be32(skb, NFQA_IFINDEX_PHYSOUTDEV,
 					 htonl(outdev->ifindex)) ||
-			/* this is the bridge group "brX" */
-			/* rcu_read_lock()ed by __nf_queue */
-			    nla_put_be32(skb, NFQA_IFINDEX_OUTDEV,
-					 htonl(br_port_get_rcu(outdev)->br->dev->ifindex)))
+			    nfqnl_put_master_ifindex(skb, NFQA_IFINDEX_OUTDEV, outdev))
 				goto nla_put_failure;
 		} else {
 			int physoutif;
@@ -1236,6 +1244,8 @@ dev_cmp(struct nf_queue_entry *entry, unsigned long ifindex)
 	if (physinif == ifindex || physoutif == ifindex)
 		return 1;
 #endif
+	if (entry->skb_dev && entry->skb_dev->ifindex == ifindex)
+		return 1;
 	if (entry->state.in)
 		if (entry->state.in->ifindex == ifindex)
 			return 1;
@@ -1532,7 +1542,7 @@ static int nfqnl_recv_verdict(struct sk_buff *skb, const struct nfnl_info *info,
 
 	verdict = ntohl(vhdr->verdict);
 
-	entry = find_dequeue_entry(queue, ntohl(vhdr->id), info->net);
+	entry = find_dequeue_entry(queue, ntohl(vhdr->id));
 	if (entry == NULL)
 		return -ENOENT;
 
@@ -1547,8 +1557,10 @@ static int nfqnl_recv_verdict(struct sk_buff *skb, const struct nfnl_info *info,
 
 	if (entry->state.pf == PF_BRIDGE) {
 		err = nfqa_parse_bridge(entry, nfqa);
-		if (err < 0)
+		if (err < 0) {
+			nfqnl_reinject(entry, NF_DROP);
 			return err;
+		}
 	}
 
 	if (nfqa[NFQA_PAYLOAD]) {
@@ -1600,7 +1612,8 @@ static int nfqnl_recv_config(struct sk_buff *skb, const struct nfnl_info *info,
 	struct nfqnl_msg_config_cmd *cmd = NULL;
 	struct nfqnl_instance *queue;
 	__u32 flags = 0, mask = 0;
-	int ret = 0;
+
+	WARN_ON_ONCE(!lockdep_nfnl_is_held(NFNL_SUBSYS_QUEUE));
 
 	if (nfqa[NFQA_CFG_CMD]) {
 		cmd = nla_data(nfqa[NFQA_CFG_CMD]);
@@ -1646,47 +1659,44 @@ static int nfqnl_recv_config(struct sk_buff *skb, const struct nfnl_info *info,
 		}
 	}
 
+	/* Lookup queue under RCU. After peer_portid check (or for new queue
+	 * in BIND case), the queue is owned by the socket sending this message.
+	 * A socket cannot simultaneously send a message and close, so while
+	 * processing this CONFIG message, nfqnl_rcv_nl_event() (triggered by
+	 * socket close) cannot destroy this queue. Safe to use without RCU.
+	 */
 	rcu_read_lock();
 	queue = instance_lookup(q, queue_num);
 	if (queue && queue->peer_portid != NETLINK_CB(skb).portid) {
-		ret = -EPERM;
-		goto err_out_unlock;
+		rcu_read_unlock();
+		return -EPERM;
 	}
+	rcu_read_unlock();
 
 	if (cmd != NULL) {
 		switch (cmd->command) {
 		case NFQNL_CFG_CMD_BIND:
-			if (queue) {
-				ret = -EBUSY;
-				goto err_out_unlock;
-			}
-			queue = instance_create(q, queue_num,
-						NETLINK_CB(skb).portid);
-			if (IS_ERR(queue)) {
-				ret = PTR_ERR(queue);
-				goto err_out_unlock;
-			}
+			if (queue)
+				return -EBUSY;
+			queue = instance_create(q, queue_num, NETLINK_CB(skb).portid);
+			if (IS_ERR(queue))
+				return PTR_ERR(queue);
 			break;
 		case NFQNL_CFG_CMD_UNBIND:
-			if (!queue) {
-				ret = -ENODEV;
-				goto err_out_unlock;
-			}
+			if (!queue)
+				return -ENODEV;
 			instance_destroy(q, queue);
-			goto err_out_unlock;
+			return 0;
 		case NFQNL_CFG_CMD_PF_BIND:
 		case NFQNL_CFG_CMD_PF_UNBIND:
 			break;
 		default:
-			ret = -ENOTSUPP;
-			goto err_out_unlock;
+			return -EOPNOTSUPP;
 		}
 	}
 
-	if (!queue) {
-		ret = -ENODEV;
-		goto err_out_unlock;
-	}
+	if (!queue)
+		return -ENODEV;
 
 	if (nfqa[NFQA_CFG_PARAMS]) {
 		struct nfqnl_msg_config_params *params =
@@ -1711,9 +1721,7 @@ static int nfqnl_recv_config(struct sk_buff *skb, const struct nfnl_info *info,
 		spin_unlock_bh(&queue->lock);
 	}
 
-err_out_unlock:
-	rcu_read_unlock();
-	return ret;
+	return 0;
 }
 
 static const struct nfnl_callback nfqnl_cb[NFQNL_MSG_MAX] = {
@@ -1883,40 +1891,38 @@ static int __init nfnetlink_queue_init(void)
 {
 	int status;
 
-	status = rhashtable_init(&nfqnl_packet_map, &nfqnl_rhashtable_params);
-	if (status < 0)
-		return status;
+	nfq_cleanup_wq = alloc_ordered_workqueue("nfq_workqueue", 0);
+	if (!nfq_cleanup_wq)
+		return -ENOMEM;
 
 	status = register_pernet_subsys(&nfnl_queue_net_ops);
-	if (status < 0) {
-		pr_err("failed to register pernet ops\n");
-		goto cleanup_rhashtable;
-	}
+	if (status < 0)
+		goto cleanup_pernet_subsys;
 
-	netlink_register_notifier(&nfqnl_rtnl_notifier);
-	status = nfnetlink_subsys_register(&nfqnl_subsys);
-	if (status < 0) {
-		pr_err("failed to create netlink socket\n");
-		goto cleanup_netlink_notifier;
-	}
+	status = netlink_register_notifier(&nfqnl_rtnl_notifier);
+	if (status < 0)
+	       goto cleanup_rtnl_notifier;
 
 	status = register_netdevice_notifier(&nfqnl_dev_notifier);
-	if (status < 0) {
-		pr_err("failed to register netdevice notifier\n");
-		goto cleanup_netlink_subsys;
-	}
+	if (status < 0)
+		goto cleanup_dev_notifier;
+
+	status = nfnetlink_subsys_register(&nfqnl_subsys);
+	if (status < 0)
+		goto cleanup_nfqnl_subsys;
 
 	nf_register_queue_handler(&nfqh);
 
 	return status;
 
-cleanup_netlink_subsys:
-	nfnetlink_subsys_unregister(&nfqnl_subsys);
-cleanup_netlink_notifier:
+cleanup_nfqnl_subsys:
+	unregister_netdevice_notifier(&nfqnl_dev_notifier);
+cleanup_dev_notifier:
 	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
+cleanup_rtnl_notifier:
 	unregister_pernet_subsys(&nfnl_queue_net_ops);
-cleanup_rhashtable:
-	rhashtable_destroy(&nfqnl_packet_map);
+cleanup_pernet_subsys:
+	destroy_workqueue(nfq_cleanup_wq);
 	return status;
 }
 
@@ -1927,9 +1933,7 @@ static void __exit nfnetlink_queue_fini(void)
 	nfnetlink_subsys_unregister(&nfqnl_subsys);
 	netlink_unregister_notifier(&nfqnl_rtnl_notifier);
 	unregister_pernet_subsys(&nfnl_queue_net_ops);
-
-	rhashtable_destroy(&nfqnl_packet_map);
-
+	destroy_workqueue(nfq_cleanup_wq);
 	rcu_barrier(); /* Wait for completion of call_rcu()'s */
 }
 
