@@ -61,10 +61,15 @@ static int attr_load_runs(struct ATTRIB *attr, struct ntfs_inode *ni,
 			  struct runs_tree *run, const CLST *vcn)
 {
 	int err;
-	CLST svcn = le64_to_cpu(attr->nres.svcn);
-	CLST evcn = le64_to_cpu(attr->nres.evcn);
+	CLST svcn, evcn;
 	u32 asize;
 	u16 run_off;
+
+	if (!attr->non_res)
+		return -EIO;
+
+	svcn = le64_to_cpu(attr->nres.svcn);
+	evcn = le64_to_cpu(attr->nres.evcn);
 
 	if (svcn >= evcn + 1 || run_is_mapped_full(run, svcn, evcn))
 		return 0;
@@ -558,6 +563,10 @@ again_1:
 		}
 
 next_le_1:
+		if (!attr->non_res) {
+			err = -EIO;
+			goto out;
+		}
 		svcn = le64_to_cpu(attr->nres.svcn);
 		evcn = le64_to_cpu(attr->nres.evcn);
 	}
@@ -1457,6 +1466,9 @@ int attr_load_runs_vcn(struct ntfs_inode *ni, enum ATTR_TYPE type,
 		/* Is record corrupted? */
 		return -ENOENT;
 	}
+
+	if (!attr->non_res)
+		return -EIO;
 
 	svcn = le64_to_cpu(attr->nres.svcn);
 	evcn = le64_to_cpu(attr->nres.evcn);
