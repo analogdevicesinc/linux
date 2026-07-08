@@ -1,0 +1,124 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the Analog Devices ADEMA127 poly-phase energy ADC on the
+ * Raspberry Pi 40-pin header (SPI0 / CE0).
+ *
+ * Default wiring:
+ *   CE0        (GPIO8)  -> /CS
+ *   DREADY IN  (GPIO17) -> DREADY (falling edge)
+ *   RESET OUT  (GPIO22) -> /RESET (active low)
+ *
+ * An external 16.384 MHz clock feeds the ADEMA127 XTALIN pin — represented
+ * here as a fixed-clock; if a different XTAL is fitted, override with the
+ * xtal_freq_hz parameter.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			adema127_xtal: adema127-xtal {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <16384000>;
+				clock-output-names = "adema127-xtal";
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0>;
+		__overlay__ {
+			status = "okay";
+			/*
+			 * Use a GPIO for /CS instead of the BCM2835 native CE0.
+			 * Native CE0 mishandles the first SCLK edge in SPI mode
+			 * 3, dropping MOSI bit 7 into the ADEMA — visible as an
+			 * echo byte of 0x03 (RWB=0, CMD_CRC_ERR=1) on every
+			 * read. Software CS restores clean CS-to-SCLK timing.
+			 */
+			cs-gpios = <&gpio 8 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@3 {
+		target = <&gpio>;
+		__overlay__ {
+			adema127_pins: adema127_pins {
+				brcm,pins = <17 22>;  /* DREADY, /RESET */
+				brcm,function = <0 1>; /* input, output */
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			adema127: adema127@0 {
+				compatible = "adi,adema127";
+				reg = <0>;
+
+				spi-max-frequency = <20000000>;
+				spi-cpol;
+				spi-cpha;
+
+				pinctrl-names = "default";
+				pinctrl-0 = <&adema127_pins>;
+
+				interrupt-parent = <&gpio>;
+				interrupts = <17 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-names = "dready";
+
+				reset-gpios = <&gpio 22 GPIO_ACTIVE_LOW>;
+
+				clocks = <&adema127_xtal>;
+				clock-names = "xtal";
+			};
+		};
+	};
+
+	__overrides__ {
+		/*
+		 * device = adema124   (default is adema127)
+		 * Switch the compatible to select the 4-channel variant.
+		 */
+		device = <&adema127>,"compatible";
+
+		/*
+		 * dready_pin = <GPIO number for DREADY> (default 17)
+		 * reset_pin  = <GPIO number for /RESET> (default 22)
+		 */
+		dready_pin = <&adema127_pins>,"brcm,pins:0",
+			     <&adema127>,"interrupts:0";
+		reset_pin  = <&adema127_pins>,"brcm,pins:4",
+			     <&adema127>,"reset-gpios:4";
+
+		/*
+		 * spi_speed = <SCLK in Hz> (default 20000000)
+		 */
+		spi_speed = <&adema127>,"spi-max-frequency:0";
+
+		/*
+		 * xtal_freq_hz = <XTAL frequency in Hz> (default 16384000)
+		 */
+		xtal_freq_hz = <&adema127_xtal>,"clock-frequency:0";
+	};
+};

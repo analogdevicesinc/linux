@@ -543,6 +543,27 @@ Load:   dtoverlay=adau7002-simple,<param>=<val>
 Params: card-name               Override the default, "adau7002", card name.
 
 
+Name:   adema127
+Info:   Overlay for the Analog Devices ADEMA124/ADEMA127 poly-phase energy
+        metering ADC on SPI0 CE0. Default wiring: DREADY on GPIO17
+        (falling edge), /RESET on GPIO22, 16.384 MHz XTALIN described as
+        a fixed-clock.
+Load:   dtoverlay=adema127,<param>=<val>
+Params: device                  Compatible string to select the variant.
+                                Default is "adi,adema127" (7 channels).
+                                Set to "adi,adema124" for the 4-channel
+                                part.
+        dready_pin              GPIO for the DREADY interrupt input.
+                                (default 17)
+        reset_pin               GPIO for the active-low /RESET output.
+                                (default 22)
+        spi_speed               SPI SCLK frequency in Hz. The ADEMA
+                                supports up to 22 MHz. (default 20000000)
+        xtal_freq_hz            External XTAL / master clock frequency
+                                in Hz feeding ADEMA127 XTALIN.
+                                (default 16384000)
+
+
 Name:   ads1015
 Info:   Overlay for activation of Texas Instruments ADS1015 ADC over I2C
 Load:   dtoverlay=ads1015,<param>=<val>
