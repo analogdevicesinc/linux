@@ -2251,6 +2251,9 @@ static noinline int ntfs_readlink_hlp(const struct dentry *link_de,
 	if (err < 0)
 		goto out;
 
+	if (err >= buflen)
+		err = buflen - 1;
+
 	/* Translate Windows '\' into Linux '/'. */
 	for (i = 0; i < err; i++) {
 		if (buffer[i] == '\\')
