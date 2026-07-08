@@ -2810,7 +2810,7 @@ static int adrv9002_init_cals_handle(struct adrv9002_rf_phy *phy)
 	if (!phy->curr_profile->sysConfig.warmBootEnable || phy->warm_boot.coeffs_name[0] == '\0')
 		goto run_cals;
 
-	dev_dbg(&phy->spi->dev, "Requesting warmboot coefficients: \"%s\"n",
+	dev_dbg(&phy->spi->dev, "Requesting warmboot coefficients: \"%s\"\n",
 		phy->warm_boot.coeffs_name);
 
 	ret = request_firmware(&fw, phy->warm_boot.coeffs_name, &phy->spi->dev);
