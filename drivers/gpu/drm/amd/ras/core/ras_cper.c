@@ -321,6 +321,8 @@ static enum ras_cper_type cper_ras_log_event_to_cper_type(enum ras_log_event eve
 		return RAS_CPER_TYPE_RUNTIME;
 	case RAS_LOG_EVENT_RMA:
 		return RAS_CPER_TYPE_RMA;
+	case RAS_LOG_EVENT_BOOT:
+		return RAS_CPER_TYPE_BOOT;
 	default:
 		/* should never reach here */
 		return RAS_CPER_TYPE_RUNTIME;
