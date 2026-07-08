@@ -1579,6 +1579,17 @@ static int __pci_enable_link_state(struct pci_dev *pdev, int state, bool locked,
 		return -EPERM;
 	}
 
+	/*
+	 * Ensure the device is in D0 before enabling PCI-PM L1 PM Substates, per
+	 * PCIe r6.0, sec 5.5.4.
+	 */
+	if (state & PCIE_LINK_STATE_L1_SS_PCIPM) {
+		if (locked)
+			pci_set_power_state_locked(pdev, PCI_D0);
+		else
+			pci_set_power_state(pdev, PCI_D0);
+	}
+
 	if (!locked)
 		down_read(&pci_bus_sem);
 	mutex_lock(&aspm_lock);
@@ -1605,8 +1616,8 @@ static int __pci_enable_link_state(struct pci_dev *pdev, int state, bool locked,
  * touch the LNKCTL register. Also note that this does not enable states
  * disabled by pci_disable_link_state(). Return 0 or a negative errno.
  *
- * Note: Ensure devices are in D0 before enabling PCI-PM L1 PM Substates, per
- * PCIe r6.0, sec 5.5.4.
+ * Note: The device will be transitioned to D0 state if the PCI-PM L1 Substates
+ * are getting enabled.
  *
  * @pdev: PCI device
  * @state: Mask of ASPM link states to enable
@@ -1624,8 +1635,8 @@ EXPORT_SYMBOL(pci_enable_link_state);
  * can't touch the LNKCTL register. Also note that this does not enable states
  * disabled by pci_disable_link_state(). Return 0 or a negative errno.
  *
- * Note: Ensure devices are in D0 before enabling PCI-PM L1 PM Substates, per
- * PCIe r6.0, sec 5.5.4.
+ * Note: The device will be transitioned to D0 state if the PCI-PM L1 Substates
+ * are getting enabled.
  *
  * @pdev: PCI device
  * @state: Mask of ASPM link states to enable
@@ -1655,8 +1666,8 @@ EXPORT_SYMBOL(pci_enable_link_state_locked);
  * Note that if the BIOS didn't grant ASPM control to the OS, this does nothing
  * because we can't touch the LNKCTL register.
  *
- * Note: Ensure devices are in D0 before enabling PCI-PM L1 PM Substates, per
- * PCIe r6.0, sec 5.5.4.
+ * Note: The device will be transitioned to D0 state if the PCI-PM L1 Substates
+ * are getting enabled.
  *
  * Return: 0 on success, a negative errno otherwise.
  */
