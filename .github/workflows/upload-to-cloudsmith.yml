@@ -97,12 +97,18 @@ jobs:
 
         cs-package-upload()
         {
-          package_file=$(curl -sfL \
+          local http_code
+          local cs_tmp=$(mktemp -t cs.XXX)
+          http_code=$(curl -sL \
             -T $4 \
             -H "X-Api-Key: $1" \
             -H "Content-Sha256: $(shasum -a256 $4 | cut -f1 -d' ')" \
-            https://upload.cloudsmith.io/$2/$3/$4 | jq -r .identifier)
-          echo $package_file
+            -w '%{http_code}' \
+            -o "$cs_tmp" \
+            https://upload.cloudsmith.io/$2/$3/$4)
+          [ "$http_code" -eq 200 ] || { >&2 echo "$http_code" ; rm "$cs_tmp" ; return 22 ; }
+          cat "$cs_tmp" | jq -r .identifier
+          rm "$cs_tmp"
         }
 
         cs-package-store-raw () {
