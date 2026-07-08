@@ -479,4 +479,7 @@ bool ras_core_poison_supported(struct ras_core_context *ras_core);
 bool ras_core_in_early_init(struct ras_core_context *ras_core);
 bool ras_core_early_init_service_enabled(struct ras_core_context *ras_core);
 int ras_core_eeprom_early_init_service(struct ras_core_context *ras_core);
+#if defined(CONFIG_X86_MCE_AMD) && defined(CONFIG_ACPI_APEI)
+int ras_bert_process_records(struct ras_core_context *ras_core, const void *bert, u32 bert_len);
+#endif
 #endif

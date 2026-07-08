@@ -38,6 +38,7 @@ RAS_CORE_FILES = core.o \
 			ras_nbio.o \
 			ras_nbio_v7_9.o \
 			log_ring.o \
+			ras_bert.o \
 			ras_cper.o \
 			ras_psp.o \
 			ras_psp_v13_0.o \
