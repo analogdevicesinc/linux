@@ -437,8 +437,8 @@ where
 {
     /// # Safety
     ///
-    /// `this` must be a pointer to a `bindings::config_group` embedded in a
-    /// `Group<Parent>`.
+    /// `this` must be a pointer to the `cg_item` field of a `bindings::config_group` embedded in a
+    /// valid `Group<Data>`.
     ///
     /// This function will destroy the pointee of `this`. The pointee of `this`
     /// must not be accessed after the function returns.
