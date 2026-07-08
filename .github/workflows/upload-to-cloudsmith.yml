@@ -30,22 +30,11 @@ jobs:
       run: |
         rm -rf dist ; mkdir dist
 
-    - uses: cloudsmith-io/cloudsmith-cli-action@v2.0.3
-      env:
-        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
-      if: ${{ env.CLOUDSMITH_SERVICE_SLUG != '' && env.CLOUDSMITH_SERVICE_SLUG != ' ' }}
+    - uses: analogdevicesinc/doctools/cloudsmith-auth@action
       with:
-        oidc-namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
-        oidc-service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
-        oidc-auth-only: 'true'
-
-    - name: Cloudsmith API Key
-      env:
-        CLOUDSMITH_SERVICE_SLUG: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
-      if: ${{ env.CLOUDSMITH_SERVICE_SLUG == '' || env.CLOUDSMITH_SERVICE_SLUG == ' ' }}
-      run: |
-        CLOUDSMITH_API_KEY=$(echo "${{ secrets.CLOUDSMITH_API_KEY }}" | xargs)
-        echo "CLOUDSMITH_API_KEY=$CLOUDSMITH_API_KEY" >> "$GITHUB_ENV"
+        namespace: ${{ vars.CLOUDSMITH_NAMESPACE }}
+        service-slug: ${{ secrets.CLOUDSMITH_SERVICE_SLUG }}
+        api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
 
     - name: Download artifacts
       if: ${{ env.CLOUDSMITH_API_KEY != '' }}
