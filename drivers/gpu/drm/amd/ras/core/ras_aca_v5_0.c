@@ -49,6 +49,7 @@ static const u32 gfx_sdma_aca_types[] = {0x11};
 static const u32 sdma_aca_types[] =   {0x00};
 static const u32 mmhub_aca_types[] =  {0x00};
 static const u32 mpifoe_aca_types[] = {0x00};
+static const u32 pcie_pl_aca_types[] = {0x00};
 
 static struct ras_aca_hwip_v5 aca_hwip_maps[] = {
 	ACA_HWIP_MAP(SMU,      0x01,  smu_aca_types),
@@ -60,6 +61,7 @@ static struct ras_aca_hwip_v5 aca_hwip_maps[] = {
 	ACA_HWIP_MAP(SDMA,     0x15A, sdma_aca_types),
 	ACA_HWIP_MAP(MMHUB,    0x73,  mmhub_aca_types),
 	ACA_HWIP_MAP(MPIFOE,   0x1FD, mpifoe_aca_types),
+	ACA_HWIP_MAP(PCIE_PL,  0x1E1, pcie_pl_aca_types),
 };
 
 static void aca_decode_bank_info(struct aca_block *aca_blk,
@@ -314,12 +316,24 @@ static const struct aca_block_info aca_v5_0_xgmi = {
 	},
 };
 
+static const struct aca_block_info aca_v5_0_pcie_pl = {
+	.name = "pcie_pl",
+	.ras_block_id = RAS_BLOCK_ID__PCIE_PL,
+	.hwip = ACA_ECC_HWIP__PCIE_PL,
+	.mask = ACA_ERROR__UE_MASK | ACA_ERROR__CE_MASK,
+	.bank_ops = {
+		.bank_match = aca_match_bank_default,
+		.bank_parse = aca_parse_bank_default,
+	},
+};
+
 static const struct aca_block_info *aca_block_info_v5_0[] = {
 	&aca_v5_0_umc,
 	&aca_v5_0_gfx,
 	&aca_v5_0_sdma,
 	&aca_v5_0_mmhub,
 	&aca_v5_0_xgmi,
+	&aca_v5_0_pcie_pl,
 };
 
 static u64 aca_parse_ras_caps_v5_0(struct ras_core_context *ras_core)
