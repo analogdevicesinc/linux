@@ -321,6 +321,9 @@ static const struct clk_ops sc5xx_cdu_ops = {
  *
  * Register the CDU_CLKINSEL.CGU1 mux. This selects whether CGU1 receives
  * CLKIN0 or CLKIN1. By default it is set by the bootloader to 0 (CLKIN0).
+ * 
+ * The mux is registered as CLK_MUX_READ_ONLY because CLKINSEL is expected
+ * to be set by the bootloader before Linux starts.
  *
  * On ADSP-SC598 SoCs, CDU_CLKINSEL.CGU1 selects whether CGU1 and the
  * additional CGU2/third PLL use CLKIN0 or CLKIN1.
@@ -336,7 +339,7 @@ struct clk_hw * __init sc5xx_cdu_clkin_register(struct device *dev, const char *
 				parent_data, num_parents, clock_flags,
 				base + SC5XX_CDU_CLKINSEL,
 				SC5XX_CDU_CLKINSEL_CGU1, 1,
-				0, NULL, lock);
+				CLK_MUX_READ_ONLY, NULL, lock);
 }
 
 /**
