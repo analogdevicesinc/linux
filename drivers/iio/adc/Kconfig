@@ -540,6 +540,27 @@ config ADE9000
 	  To compile this driver as a module, choose M here: the module will
 	  be called ade9000.
 
+config ADEMA127
+	tristate "Analog Devices ADEMA124/ADEMA127 poly-phase energy ADC driver"
+	depends on SPI
+	select CRC_ITU_T
+	select REGMAP
+	select IIO_BUFFER
+	select IIO_TRIGGER
+	select IIO_TRIGGERED_BUFFER
+	help
+	  Say yes here to build support for the Analog Devices ADEMA124 and
+	  ADEMA127 poly-phase energy metering ADCs.
+
+	  The driver supports two sample-capture paths: a per-DREADY-interrupt
+	  triggered IIO buffer that runs on any SPI controller, and an
+	  autonomous SPI Offload streaming path that is selected automatically
+	  when the underlying SPI controller advertises hardware trigger and
+	  RX-stream DMA capabilities.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called adema127.
+
 config ADI_AXI_ADC
 	tristate "Analog Devices Generic AXI ADC IP core driver"
 	depends on MICROBLAZE || NIOS2 || ARCH_ZYNQ || ARCH_ZYNQMP || ARCH_INTEL_SOCFPGA || COMPILE_TEST
