@@ -93,6 +93,8 @@ jobs:
     - name: Cloudsmith upload assets
       if: ${{ env.CLOUDSMITH_API_KEY != '' }}
       run: |
+        [[ "${{ runner.debug }}" == "1" ]] && set -x
+
         cs-package-upload()
         {
           package_file=$(curl -sfL \
