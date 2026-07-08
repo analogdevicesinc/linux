@@ -1561,7 +1561,8 @@ int pci_disable_link_state(struct pci_dev *pdev, int state)
 }
 EXPORT_SYMBOL(pci_disable_link_state);
 
-static int __pci_enable_link_state(struct pci_dev *pdev, int state, bool locked)
+static int __pci_enable_link_state(struct pci_dev *pdev, int state, bool locked,
+				   bool force)
 {
 	struct pcie_link_state *link = pcie_aspm_get_link(pdev);
 
@@ -1582,6 +1583,10 @@ static int __pci_enable_link_state(struct pci_dev *pdev, int state, bool locked)
 		down_read(&pci_bus_sem);
 	mutex_lock(&aspm_lock);
 	link->aspm_default = pci_calc_aspm_enable_mask(state);
+
+	/* Force enable states that were previously disabled */
+	if (force)
+		link->aspm_disable &= ~link->aspm_default;
 	pcie_config_aspm_link(link, policy_to_aspm_state(link));
 
 	link->clkpm_default = (state & PCIE_LINK_STATE_CLKPM) ? 1 : 0;
@@ -1608,7 +1613,7 @@ static int __pci_enable_link_state(struct pci_dev *pdev, int state, bool locked)
  */
 int pci_enable_link_state(struct pci_dev *pdev, int state)
 {
-	return __pci_enable_link_state(pdev, state, false);
+	return __pci_enable_link_state(pdev, state, false, false);
 }
 EXPORT_SYMBOL(pci_enable_link_state);
 
@@ -1631,9 +1636,35 @@ int pci_enable_link_state_locked(struct pci_dev *pdev, int state)
 {
 	lockdep_assert_held_read(&pci_bus_sem);
 
-	return __pci_enable_link_state(pdev, state, true);
+	return __pci_enable_link_state(pdev, state, true, false);
 }
 EXPORT_SYMBOL(pci_enable_link_state_locked);
+
+/**
+ * pci_force_enable_link_state - Force enable device link state
+ * @pdev: PCI device
+ * @state: Mask of ASPM link states to enable
+ *
+ * Enable device link state, so the link will enter the specified states.
+ * Unlike pci_enable_link_state(), this also re-enables states previously
+ * disabled by pci_disable_link_state() and overrides the ASPM states disabled
+ * during init (e.g., the pre-1.1 device blacklist). The caller is therefore
+ * responsible for only enabling states the device supports, typically the ones
+ * previously reported by pcie_aspm_enabled().
+ *
+ * Note that if the BIOS didn't grant ASPM control to the OS, this does nothing
+ * because we can't touch the LNKCTL register.
+ *
+ * Note: Ensure devices are in D0 before enabling PCI-PM L1 PM Substates, per
+ * PCIe r6.0, sec 5.5.4.
+ *
+ * Return: 0 on success, a negative errno otherwise.
+ */
+int pci_force_enable_link_state(struct pci_dev *pdev, int state)
+{
+	return __pci_enable_link_state(pdev, state, false, true);
+}
+EXPORT_SYMBOL(pci_force_enable_link_state);
 
 void pcie_aspm_remove_cap(struct pci_dev *pdev, u32 lnkcap)
 {
