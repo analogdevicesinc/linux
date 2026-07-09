@@ -228,9 +228,14 @@ config SPI_BCM2835AUX
 
 config SPI_ADI
 	tristate "SPI controller v3 for ADI"
+	select SPI_OFFLOAD
 	help
 	  This is the SPI controller v3 master driver
 	  found on ADI SC5xx processor.
+
+	  Selecting this option also enables the SPI Offload framework so
+	  that a hardware-triggered streaming path can be plumbed through
+	  the SPI3 peripheral (see drivers/spi/spi-adi.c).
 
 config SPI_BCM63XX
 	tristate "Broadcom BCM63xx SPI controller"
