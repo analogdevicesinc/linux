@@ -3,6 +3,7 @@
 // Copyright 2024 Advanced Micro Devices, Inc.
 
 #include "dml2_core_dcn6_funcs_initialize.h"
+#include "dml2_core_dcn6_calcs.h"
 #include "dml2_debug.h"
 
 struct dml2_core_ip_params core_dcn6_ip_caps_base = {
@@ -160,6 +161,7 @@ bool dml2_core_dcn6_funcs_initialize(struct dml2_core_initialize_in_out *in_out)
 	memcpy(&core->clean_me_up.mode_lib.ip_caps, in_out->ip_caps, sizeof(struct dml2_ip_capabilities));
 	core->utm_soc_bb = in_out->utm_soc_bb;
 	core->clock_adjuster = in_out->clock_adjuster;
+	dml2_core_dcn6_calcs_init(&core->calcs);
 
 	DML_LOG_DEBUG("%s exit with true\n", __func__);
 	DML_LOG_COMP_IF_EXIT();

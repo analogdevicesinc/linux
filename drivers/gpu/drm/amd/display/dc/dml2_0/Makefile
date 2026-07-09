@@ -128,6 +128,7 @@ DML21 += src/dml2_utm_soc_bb/dml2_utm_soc_bb_dcn5.o
 DML21 += src/dml2_utm_soc_bb/dml2_utm_soc_bb_factory.o
 DML21 += src/dml2_cga/dml2_cga_dcn6.o
 DML21 += src/dml2_cga/dml2_cga_factory.o
+DML21 += src/dml2_core/dml2_core_dcn6_calcs.o
 DML21 += src/dml2_core/dml2_core_dcn6_calcs_dchub.o
 DML21 += src/dml2_core/dml2_core_dcn6_funcs_initialize.o
 DML21 += src/dml2_core/dml2_core_dcn6_funcs_mode_programming.o

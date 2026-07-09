@@ -833,6 +833,17 @@ struct dml2_core_internal_state_inputs {
 struct dml2_core_internal_state_intermediates {
 	unsigned int dummy;
 };
+/*
+ * Per-generation table of DML2 core "calcs" (leaf computation) functions.
+ * Each generation registers exactly one table pointer in this union.  The funcs
+ * layer reaches the active table through get_calcs(ctx), keeping it free of
+ * direct references to generation-specific calcs symbols.
+ */
+struct dml2_core_dcn6_calcs;
+
+union dml2_core_calcs {
+	const struct dml2_core_dcn6_calcs *dcn6;
+};
 
 struct dml2_core_calculate_mp_context {
 	const struct dml2_display_cfg *display_cfg;
@@ -841,6 +852,7 @@ struct dml2_core_calculate_mp_context {
 	const struct dml2_core_internal_mode_support *ms;
 	struct dml2_core_calcs_mode_programming_locals *dummies;
 	struct dml2_core_internal_scratch *func_params;
+	union dml2_core_calcs *calcs;
 };
 struct dml2_core_calculate_ms_context {
 	const struct dml2_display_cfg *display_cfg;
@@ -849,6 +861,7 @@ struct dml2_core_calculate_ms_context {
 	const struct dml2_clock_granularity_adjuster *clock_adjuster;
 	struct dml2_core_calcs_mode_support_locals *dummies;
 	struct dml2_core_internal_scratch *func_params;
+	union dml2_core_calcs *calcs;
 };
 
 struct dml2_core_mode_support_locals {
@@ -903,6 +916,7 @@ struct dml2_core_instance {
 	struct {
 		struct dml2_core_internal_display_mode_lib mode_lib;
 	} clean_me_up;
+	union dml2_core_calcs calcs;
 };
 
 /*
