@@ -616,6 +616,50 @@ static void gmc_v12_1_get_npa_flags(struct amdgpu_device *adev,
 	*flags &= ~AMDGPU_PTE_EXECUTABLE;
 }
 
+/*
+ * Resolve the MTYPEs used for local and remote memory accesses on GFX 12.1.
+ * Remote memory always uses MTYPE_UC; local memory depends on the AID stepping
+ * and the amdgpu_mtype_local module parameter.
+ */
+static void gmc_v12_1_get_mtypes(struct amdgpu_device *adev,
+				 unsigned int *mtype_local,
+				 unsigned int *mtype_remote)
+{
+	bool is_aid_a1 = (adev->rev_id & 0x10);
+
+	*mtype_local = is_aid_a1 ? MTYPE_RW : MTYPE_NC;
+	/* Remote memory always uses MTYPE_UC on GFX 12.1. */
+	*mtype_remote = MTYPE_UC;
+
+	if (amdgpu_mtype_local == 0) {
+		DRM_INFO_ONCE("Using MTYPE_RW for local memory\n");
+		*mtype_local = MTYPE_RW;
+	} else if (amdgpu_mtype_local == 1) {
+		DRM_INFO_ONCE("Using MTYPE_NC for local memory\n");
+		*mtype_local = MTYPE_NC;
+	} else if (amdgpu_mtype_local == 2) {
+		DRM_INFO_ONCE("MTYPE_CC not supported, using %s for local memory\n",
+			      is_aid_a1 ? "MTYPE_RW" : "MTYPE_NC");
+	} else {
+		DRM_INFO_ONCE("Using %s for local memory and MTYPE_UC for remote memory\n",
+			      is_aid_a1 ? "MTYPE_RW" : "MTYPE_NC");
+	}
+}
+
+/*
+ * The compute MQD coherent_aql_mtype field (offset 509) must be programmed to
+ * 0 whenever the driver maps local or remote memory as MTYPE_NC, and to 1 in
+ * all other cases.
+ */
+u32 gmc_v12_1_get_coherent_aql_mtype(struct amdgpu_device *adev)
+{
+	unsigned int mtype_local, mtype_remote;
+
+	gmc_v12_1_get_mtypes(adev, &mtype_local, &mtype_remote);
+
+	return (mtype_local == MTYPE_NC || mtype_remote == MTYPE_NC) ? 0 : 1;
+}
+
 static void gmc_v12_1_get_coherence_flags(struct amdgpu_device *adev,
 					  struct amdgpu_bo *bo,
 					  uint64_t *flags)
@@ -631,27 +675,10 @@ static void gmc_v12_1_get_coherence_flags(struct amdgpu_device *adev,
 	unsigned int mtype, mtype_local, mtype_remote;
 	bool snoop = false;
 	bool is_local = false;
-	bool is_aid_a1;
 
 	switch (gc_ip_version) {
 	case IP_VERSION(12, 1, 0):
-		is_aid_a1 = (adev->rev_id & 0x10);
-
-		mtype_local = is_aid_a1 ? MTYPE_RW : MTYPE_NC;
-		/* Remote memory always uses MTYPE_UC on GFX 12.1. */
-		mtype_remote = MTYPE_UC;
-		if (amdgpu_mtype_local == 0) {
-			DRM_INFO_ONCE("Using MTYPE_RW for local memory\n");
-			mtype_local = MTYPE_RW;
-		} else if (amdgpu_mtype_local == 1) {
-			DRM_INFO_ONCE("Using MTYPE_NC for local memory\n");
-			mtype_local = MTYPE_NC;
-		} else if (amdgpu_mtype_local == 2) {
-			DRM_INFO_ONCE("MTYPE_CC not supported, using %s for local memory\n", is_aid_a1 ? "MTYPE_RW" : "MTYPE_NC");
-		} else {
-			DRM_INFO_ONCE("Using %s for local memory and MTYPE_UC for remote memory\n",
-					is_aid_a1 ? "MTYPE_RW" : "MTYPE_NC");
-		}
+		gmc_v12_1_get_mtypes(adev, &mtype_local, &mtype_remote);
 
 		is_local = (is_vram && adev == bo_adev);
 		snoop = true;

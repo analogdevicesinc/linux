@@ -31,6 +31,7 @@
 #include "gc/gc_12_1_0_sh_mask.h"
 #include "amdgpu_amdkfd.h"
 #include "kfd_device_queue_manager.h"
+#include "gmc_v12_1.h"
 
 static void update_mqd(struct mqd_manager *mm, void *mqd,
 		       struct queue_properties *q,
@@ -234,6 +235,12 @@ static void init_mqd(struct mqd_manager *mm, void **mqd,
 		m->cp_hqd_cntl_stack_offset = q->ctl_stack_size;
 		m->cp_hqd_wg_state_offset = q->ctl_stack_size;
 	}
+
+	/*
+	 * coherent_aql_mtype (offset 509): program 0 when the driver maps local
+	 * or remote memory as MTYPE_NC, and 1 in all other cases.
+	 */
+	m->coherent_aql_mtype = gmc_v12_1_get_coherent_aql_mtype(mm->dev->adev);
 
 	*mqd = m;
 	if (gart_addr)
