@@ -846,6 +846,13 @@ MODULE_PARM_DESC(mtype_local, "MTYPE for local memory (default: ASIC dependent, 
 module_param_named_unsafe(mtype_local, amdgpu_mtype_local, int, 0444);
 
 /**
+ * DOC: mtype_remote (int)
+ */
+int amdgpu_mtype_remote = -1;
+MODULE_PARM_DESC(mtype_remote, "MTYPE for remote memory (default: ASIC dependent, 0 = MTYPE_NC, 1 = MTYPE_UC)");
+module_param_named_unsafe(mtype_remote, amdgpu_mtype_remote, int, 0444);
+
+/**
  * DOC: pcie_p2p (bool)
  * Enable PCIe P2P (requires large-BAR). Default value: true (on)
  */

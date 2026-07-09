@@ -618,8 +618,8 @@ static void gmc_v12_1_get_npa_flags(struct amdgpu_device *adev,
 
 /*
  * Resolve the MTYPEs used for local and remote memory accesses on GFX 12.1.
- * Remote memory always uses MTYPE_UC; local memory depends on the AID stepping
- * and the amdgpu_mtype_local module parameter.
+ * Both default to an ASIC-dependent value that can be overridden through the
+ * amdgpu_mtype_local and amdgpu_mtype_remote module parameters.
  */
 static void gmc_v12_1_get_mtypes(struct amdgpu_device *adev,
 				 unsigned int *mtype_local,
@@ -627,23 +627,25 @@ static void gmc_v12_1_get_mtypes(struct amdgpu_device *adev,
 {
 	bool is_aid_a1 = (adev->rev_id & 0x10);
 
+	/* Local memory: ASIC default depends on the AID stepping. */
 	*mtype_local = is_aid_a1 ? MTYPE_RW : MTYPE_NC;
-	/* Remote memory always uses MTYPE_UC on GFX 12.1. */
-	*mtype_remote = MTYPE_UC;
-
-	if (amdgpu_mtype_local == 0) {
-		DRM_INFO_ONCE("Using MTYPE_RW for local memory\n");
+	if (amdgpu_mtype_local == 0)
 		*mtype_local = MTYPE_RW;
-	} else if (amdgpu_mtype_local == 1) {
-		DRM_INFO_ONCE("Using MTYPE_NC for local memory\n");
+	else if (amdgpu_mtype_local == 1)
 		*mtype_local = MTYPE_NC;
-	} else if (amdgpu_mtype_local == 2) {
-		DRM_INFO_ONCE("MTYPE_CC not supported, using %s for local memory\n",
-			      is_aid_a1 ? "MTYPE_RW" : "MTYPE_NC");
-	} else {
-		DRM_INFO_ONCE("Using %s for local memory and MTYPE_UC for remote memory\n",
-			      is_aid_a1 ? "MTYPE_RW" : "MTYPE_NC");
-	}
+	else if (amdgpu_mtype_local == 2)
+		DRM_INFO_ONCE("MTYPE_CC not supported for local memory\n");
+
+	/* Remote memory defaults to MTYPE_UC on GFX 12.1. */
+	*mtype_remote = MTYPE_UC;
+	if (amdgpu_mtype_remote == 0)
+		*mtype_remote = MTYPE_NC;
+	else if (amdgpu_mtype_remote == 1)
+		*mtype_remote = MTYPE_UC;
+
+	DRM_INFO_ONCE("Using %s for local memory and %s for remote memory\n",
+		      *mtype_local == MTYPE_RW ? "MTYPE_RW" : "MTYPE_NC",
+		      *mtype_remote == MTYPE_NC ? "MTYPE_NC" : "MTYPE_UC");
 }
 
 /*
