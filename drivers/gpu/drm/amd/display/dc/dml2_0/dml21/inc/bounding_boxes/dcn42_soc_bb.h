@@ -219,7 +219,7 @@ static const struct dml2_soc_bb dml2_socbb_dcn42 = {
 };
 
 /* DCN42 params for DDR5 */
-struct dml2_soc_power_management_parameters dcn42_ddr5_power_management_parameters = {
+static struct dml2_soc_power_management_parameters dcn42_ddr5_power_management_parameters = {
 	.dram_clk_change_blackout_us = 36,
 	.fclk_change_blackout_us = 0,
 	.g7_ppt_blackout_us = 0,
