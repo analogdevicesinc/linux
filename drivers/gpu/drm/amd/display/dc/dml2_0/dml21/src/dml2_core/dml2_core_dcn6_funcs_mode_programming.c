@@ -2,10 +2,13 @@
 //
 // Copyright 2025 Advanced Micro Devices, Inc.
 #include "dml2_core_dcn6_funcs_mode_programming.h"
-#include "dml2_core_dcn5_calcs_dchub.h"
-#include "dml2_core_dcn6_calcs_dchub.h"
-#include "dml2_core_dcn5_calcs_display_pipe.h"
+#include "dml2_core_dcn6_calcs.h"
 #include "dml2_core_utils.h"
+
+static const struct dml2_core_dcn6_calcs *get_calcs(const struct dml2_core_calculate_mp_context *ctx)
+{
+	return ctx->calcs->dcn6;
+}
 
 static void dcn6_mp_populate_odm_mode(const struct dml2_display_solution *solution,
 		struct dml2_core_internal_mode_program *outputs)
@@ -58,7 +61,7 @@ static void dcn6_mp_calculate_dcc_configurations(struct dml2_core_calculate_mp_c
 
 	for (k = 0; k < display_cfg->num_planes; ++k) {
 		DML_LOG_VERBOSE("DML::%s: Calculate DCC configuration for surface k=%u\n", __func__, k);
-		dcn5_calculate_dcc_configuration(
+		get_calcs(ctx)->calculate_dcc_configuration(
 				display_cfg->plane_descriptors[k].surface.dcc.enable,
 				display_cfg->overrides.dcc_programming_assumes_scan_direction_unknown,
 				display_cfg->plane_descriptors[k].pixel_format,
@@ -96,7 +99,7 @@ static void dcn6_mp_calculate_pixel_delivery_times(struct dml2_core_calculate_mp
 	struct dml2_core_internal_mode_program *outputs = states;
 
 	//Display Pipeline Delivery Time in Prefetch, Groups
-	dcn5_calculate_pixel_delivery_times(
+	get_calcs(ctx)->calculate_pixel_delivery_times(
 			display_cfg,
 			inputs->NoOfDPP,
 			display_cfg->num_planes,
@@ -185,7 +188,7 @@ static void dcn6_mp_calculate_meta_and_pte_times(struct dml2_core_calculate_mp_c
 	p->TimePerMetaChunkFlip = outputs->TimePerMetaChunkFlip;
 	p->TimePerChromaMetaChunkFlip = outputs->TimePerChromaMetaChunkFlip;
 
-	dcn5_calculate_meta_and_pte_times(p);
+	get_calcs(ctx)->calculate_meta_and_pte_times(p);
 }
 
 static void dcn6_mp_calculate_vm_group_and_request_times(struct dml2_core_calculate_mp_context *ctx,
@@ -196,7 +199,7 @@ static void dcn6_mp_calculate_vm_group_and_request_times(struct dml2_core_calcul
 	struct dml2_core_internal_mode_program *inputs = states;
 	struct dml2_core_internal_mode_program *outputs = states;
 
-	dcn5_calculate_vm_group_and_request_times(
+	get_calcs(ctx)->calculate_vm_group_and_request_times(
 		display_cfg,
 		display_cfg->num_planes,
 		inputs->BytePerPixelC,
@@ -431,7 +434,7 @@ static void dcn6_mp_calculate_stutter_efficiency(struct dml2_core_calculate_mp_c
 	p->DCHUBBUB_ARB_CSTATE_MAX_CAP_MODE = &outputs->DCHUBBUB_ARB_CSTATE_MAX_CAP_MODE;
 
 	// Stutter Efficiency
-	dcn6_calculate_stutter_efficiency(func_params, p);
+	get_calcs(ctx)->calculate_stutter_efficiency(func_params, p);
 
 #ifdef __DML_VBA_ALLOW_DELTA__
 	// Calculate z8 stutter eff assuming 0 reserved space
@@ -444,7 +447,7 @@ static void dcn6_mp_calculate_stutter_efficiency(struct dml2_core_calculate_mp_c
 	p->StutterPeriod = &outputs->StutterPeriodBestCase;
 
 	// Stutter Efficiency
-	dcn6_calculate_stutter_efficiency(func_params, p);
+	get_calcs(ctx)->calculate_stutter_efficiency(func_params, p);
 #else
 	outputs->Z8StutterEfficiencyNotIncludingVBlankBestCase = outputs->Z8StutterEfficiencyNotIncludingVBlank;
 	outputs->Z8StutterEfficiencyBestCase = outputs->Z8StutterEfficiency;
@@ -506,7 +509,7 @@ static void dcn6_mp_calculate_pstate_keepout_dst_lines(struct dml2_core_calculat
 	struct dml2_core_internal_mode_program *inputs = states;
 	struct dml2_core_internal_mode_program *outputs = states;
 
-	dcn5_calculate_pstate_keepout_dst_lines(display_cfg, &inputs->Watermark,
+	get_calcs(ctx)->calculate_pstate_keepout_dst_lines(display_cfg, &inputs->Watermark,
 			outputs->pstate_keepout_dst_lines);
 }
 
@@ -958,7 +961,8 @@ static void dcn6_populate_qos_bound(struct dml2_display_cfg_programming *program
 	programming->qos_bound.lsdma_bandwidth_lb_kbps = solution->validation_result.mode_support.global.lsdma_bw_req_for_alt_kbps;
 }
 
-static void dcn6_populate_mode_programming(struct dml2_display_cfg_programming *programming,
+static void dcn6_populate_mode_programming(struct dml2_core_calculate_mp_context *ctx,
+		struct dml2_display_cfg_programming *programming,
 		struct dml2_core_internal_scratch *s,
 		const struct dml2_core_internal_display_mode_lib *mode_lib,
 		const struct dml2_display_solution *solution,
@@ -976,9 +980,10 @@ static void dcn6_populate_mode_programming(struct dml2_display_cfg_programming *
 
 	memcpy(&programming->display_config, &solution->dispcfg, sizeof(struct dml2_display_cfg));
 	dcn6_populate_min_clocks(programming, solution, utm_soc_bb);
-	dcn5_get_arb_params(&programming->display_config, mode_lib, utm_soc_bb, &programming->global_regs.arb_regs);
+	get_calcs(ctx)->get_arb_params(&programming->display_config, mode_lib, utm_soc_bb, &programming->global_regs.arb_regs);
 	programming->global_regs.num_watermark_sets = 1;
-	dcn6_get_watermarks(&programming->display_config, mode_lib, utm_soc_bb, &programming->global_regs.wm_regs[0]);
+	get_calcs(ctx)->get_watermarks(&programming->display_config, mode_lib, utm_soc_bb,
+			&programming->global_regs.wm_regs[0]);
 	dcn6_populate_stutter_support(programming, mode_lib, solution, utm_soc_bb);
 	dcn6_populate_mcache_allocation(programming, solution);
 	dcn6_populate_qos_bound(programming, solution);
@@ -1023,7 +1028,9 @@ static void dcn6_populate_mode_programming(struct dml2_display_cfg_programming *
 			total_pipe_regs_copied++;
 
 			// Populate
-			dcn6_get_pipe_regs(&programming->display_config, mode_lib, programming->plane_programming[plane_index].pipe_regs[pipe_offset], dml_internal_pipe_index, utm_soc_bb, s);
+			get_calcs(ctx)->get_pipe_regs(&programming->display_config, mode_lib,
+					programming->plane_programming[plane_index].pipe_regs[pipe_offset],
+					dml_internal_pipe_index, utm_soc_bb, s);
 
 			main_stream_index = programming->display_config.plane_descriptors[plane_index].stream_index;
 
@@ -1138,6 +1145,7 @@ static void dcn6_mp_build_calculate_mp_context(struct dml2_core_calculate_mp_con
 	ctx->ms = &mode_lib->ms;
 	ctx->dummies = &mode_lib->scratch.dml_core_mode_programming_locals;
 	ctx->func_params = &mode_lib->scratch;
+	ctx->calcs = &core->calcs;
 }
 
 static void dcn6_mp_initialize_from_ms(struct dml2_core_internal_mode_program *outputs,
@@ -1383,7 +1391,7 @@ enum dml2_status dml2_core_dcn6_funcs_populate_programming(struct dml2_core_inst
 	dcn6_mp_initialize_from_solution(&mode_lib->mp, solution, core->utm_soc_bb);
 	dcn6_mp_build_calculate_mp_context(calc_mp_ctx, core, solution);
 	dcn6_calculate_mode_programming(calc_mp_ctx, &mode_lib->mp);
-	dcn6_populate_mode_programming(programming, &mode_lib->scratch, mode_lib, solution, core->utm_soc_bb);
+	dcn6_populate_mode_programming(calc_mp_ctx, programming, &mode_lib->scratch, mode_lib, solution, core->utm_soc_bb);
 
 	DML_LOG_DEBUG("%s exit\n", __func__);
 	DML_LOG_COMP_IF_EXIT();
