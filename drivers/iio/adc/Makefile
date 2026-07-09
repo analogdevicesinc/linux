@@ -49,6 +49,7 @@ obj-$(CONFIG_AD799X) += ad799x.o
 obj-$(CONFIG_AD9467) += ad9467.o
 obj-$(CONFIG_ADE9000) += ade9000.o
 adema127-y := adema127-core.o
+adema127-$(CONFIG_ADEMA127_SPI_OFFLOAD) += adema127-spi-offload.o
 obj-$(CONFIG_ADEMA127) += adema127.o
 obj-$(CONFIG_ADI_AXI_ADC) += adi-axi-adc.o
 obj-$(CONFIG_ASPEED_ADC) += aspeed_adc.o

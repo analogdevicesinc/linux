@@ -215,7 +215,7 @@ static u16 adema_resp_crc(const u8 *data, size_t len)
 	return crc_itu_t(0xFFFF, data, len);
 }
 
-static void adema_build_cmd(u8 buf[ADEMA_CMD_LEN], bool read, bool long_frame,
+void adema_build_cmd(u8 buf[ADEMA_CMD_LEN], bool read, bool long_frame,
 			    u16 addr, u8 data)
 {
 	buf[0] = (read ? 0x80 : 0x00) | (long_frame ? 0x40 : 0x00) |
@@ -1062,7 +1062,7 @@ static ssize_t adema_ext_write(struct iio_dev *indio_dev, uintptr_t priv,
 	return ret;
 }
 
-static const struct iio_chan_spec_ext_info adema_ext_info[] = {
+const struct iio_chan_spec_ext_info adema_ext_info[] = {
 	ADEMA_EXT_INFO("xt_gain",		ADEMA_EXT_INFO_XT_GAIN),
 	ADEMA_EXT_INFO("xt_aggressor",		ADEMA_EXT_INFO_XT_AGGRESSOR),
 	ADEMA_EXT_INFO("shift",			ADEMA_EXT_INFO_SHIFT),
@@ -1925,28 +1925,41 @@ static int adema_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
-					      &iio_pollfunc_store_time,
-					      adema_trigger_handler,
-					      &adema_buffer_setup_ops);
-	if (ret)
-		return dev_err_probe(dev, ret,
-				     "failed to set up triggered buffer\n");
-
 	/*
-	 * Install (and immediately disable) the DREADY IRQ BEFORE the
-	 * chip starts pulsing DREADY. adema_init() only did reset +
-	 * detect + CONFIG0 + MASK1 -- it deliberately deferred the
-	 * DATARATE + SYNC_SNAP.ALIGN writes to adema_start_sampling()
-	 * so PINT_LATCH stays empty while we install the handler.
+	 * Try SPI Offload first; fall back to a per-DREADY triggered buffer
+	 * if offload support is compiled out or the controller does not
+	 * advertise it (i.e. the DT node has no trigger-sources /
+	 * offload-rx dma-name).
 	 */
-	ret = adema_request_dready(indio_dev, st);
-	if (ret)
+	ret = adema_setup_offload(indio_dev, st);
+	if (ret && ret != -ENODEV)
 		return ret;
 
+	if (ret == -ENODEV) {
+		ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
+						      &iio_pollfunc_store_time,
+						      adema_trigger_handler,
+						      &adema_buffer_setup_ops);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "failed to set up triggered buffer\n");
+
+		/*
+		 * Install (and immediately disable) the DREADY IRQ BEFORE the
+		 * chip starts pulsing DREADY. adema_init() only did reset +
+		 * detect + CONFIG0 + MASK1 -- it deliberately deferred the
+		 * DATARATE + SYNC_SNAP.ALIGN writes to adema_start_sampling()
+		 * so PINT_LATCH stays empty while we install the handler.
+		 */
+		ret = adema_request_dready(indio_dev, st);
+		if (ret)
+			return ret;
+	}
+
 	/*
-	 * Start the sample pipeline now that a masked IRQ handler is in
-	 * place.
+	 * Start the sample pipeline now that a masked IRQ handler is in place
+	 * (non-offload path) or the offload plumbing has taken ownership of
+	 * DREADY routing.
 	 */
 	ret = adema_start_sampling(st);
 	if (ret)

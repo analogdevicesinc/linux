@@ -561,6 +561,19 @@ config ADEMA127
 	  To compile this driver as a module, choose M here: the module will
 	  be called adema127.
 
+config ADEMA127_SPI_OFFLOAD
+	bool "SPI Offload streaming support for ADEMA124/ADEMA127"
+	depends on ADEMA127
+	depends on SPI_OFFLOAD
+	default y
+	help
+	  Say yes here to build the hardware-triggered SPI Offload capture
+	  path for the ADEMA124/ADEMA127: DREADY-gated DMA descriptor rings
+	  stream the chip's native long frames with one interrupt per bank
+	  of samples, with no per-sample CPU involvement. Without this
+	  option the driver always uses the per-DREADY-interrupt software
+	  triggered buffer.
+
 config ADI_AXI_ADC
 	tristate "Analog Devices Generic AXI ADC IP core driver"
 	depends on MICROBLAZE || NIOS2 || ARCH_ZYNQ || ARCH_ZYNQMP || ARCH_INTEL_SOCFPGA || COMPILE_TEST
