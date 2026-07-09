@@ -71,6 +71,22 @@
 #define DMAFLOW_STOP		0x000000000	/* Stop Mode */
 #define DMAFLOW_AUTO		0x000001000	/* Autobuffer Mode */
 
+/*
+ * DMA_CFG.TWAIT — Trigger Wait. Bit 15 on SC846 (ADSP-SC84x HRM Table 34-22).
+ * When set, after each work unit the channel enters a wait state and only
+ * advances when the peripheral-trigger receiver (routed via the TRU) fires.
+ * Per HRM the FIRST work unit still fires without waiting for a trigger; that
+ * first transfer is spurious and the consumer must discard it.
+ *
+ * The previous 0x00040000 value (bit 18) was almost certainly copied from
+ * an earlier ADSP part -- on SC846 bit 18 sits inside the NDSIZE field
+ * (bits 18:16, Next Descriptor Set Size, used only in descriptor-list /
+ * descriptor-array flow modes). Setting bit 18 in AUTOBUFFER mode silently
+ * did nothing: TWAIT stayed clear, DMA free-ran, and the SPI-offload RX
+ * chain never gated on TRU pulses.
+ */
+#define CFG_TWAIT		0x00008000
+
 /* DMA_IRQ_STATUS Masks */
 #define DMA_DONE		0x1	/* DMA Completion Interrupt Status */
 #define DMA_ERR			0x2	/* DMA Error Interrupt Status */

@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
+#include <linux/dma/adi-dma.h>
 #include <linux/dmaengine.h>
 #include <linux/io.h>
 #include <linux/irq.h>
@@ -99,6 +100,12 @@ struct adi_dma_channel {
 	struct list_head cb_pending;
 	struct dma_chan chan;
 	struct dma_slave_config config;
+	/*
+	 * Bitmask of ADI_DMA_PC_* flags copied out of the client's
+	 * struct adi_dma_peripheral_config in adi_dma_slave_config().
+	 * Consulted by adi_prep_cyclic() to select TWAIT gating etc.
+	 */
+	unsigned int peripheral_flags;
 	spinlock_t lock;
 };
 
@@ -491,6 +498,17 @@ static void __process_sg_entry(struct adi_dma_descriptor *desc)
 	desc->src = src;
 	desc->cfg = conf | DMARESTART | DMAEN;
 
+	/*
+	 * Same TWAIT plumbing as the cyclic path — an SPI-offload RX
+	 * consumer that received this channel via
+	 * rx_stream_request_dma_chan() can arm ADI_DMA_PC_WAIT_FOR_TRIGGER
+	 * via peripheral_config, and industrialio-buffer-dmaengine (which
+	 * uses dmaengine_prep_slave_single, not _cyclic) then reaches this
+	 * code path per block.
+	 */
+	if (adi_chan->peripheral_flags & ADI_DMA_PC_WAIT_FOR_TRIGGER)
+		desc->cfg |= CFG_TWAIT;
+
 	desc->sg_next = sg_next(desc->sg_next);
 }
 
@@ -767,6 +785,21 @@ static int adi_dma_slave_config(struct dma_chan *chan,
 	struct adi_dma_channel *adi_chan = to_adi_channel(chan);
 
 	adi_chan->config = *config;
+
+	/*
+	 * Copy the CONTENT of peripheral_config; the pointer stored in
+	 * adi_chan->config still references the caller's storage which may
+	 * be stack-allocated. The exported struct's size must match exactly
+	 * so we reject bogus values rather than silently truncating.
+	 */
+	adi_chan->peripheral_flags = 0;
+	if (config->peripheral_config) {
+		const struct adi_dma_peripheral_config *pc = config->peripheral_config;
+
+		if (config->peripheral_size != sizeof(*pc))
+			return -EINVAL;
+		adi_chan->peripheral_flags = pc->flags;
+	}
 	return 0;
 }
 
@@ -1111,6 +1144,15 @@ static struct dma_async_tx_descriptor *adi_prep_cyclic(struct dma_chan *chan,
 
 	// autoflow mode, 2D mode, restart on synchronize, enable dma channel,
 	desc->cfg = conf | DMAFLOW_AUTO | DMA2D | DMARESTART | DMAEN;
+
+	/*
+	 * SPI-offload consumers ask for TRU trigger gating via
+	 * ADI_DMA_PC_WAIT_FOR_TRIGGER on the peripheral_config
+	 * (DMA_CFG.TWAIT). Per HRM the FIRST work unit still fires
+	 * without waiting for a trigger — the consumer must discard it.
+	 */
+	if (adi_chan->peripheral_flags & ADI_DMA_PC_WAIT_FOR_TRIGGER)
+		desc->cfg |= CFG_TWAIT;
 	desc->src = buf;
 	desc->direction = direction;
 	desc->cyclic = 1;
