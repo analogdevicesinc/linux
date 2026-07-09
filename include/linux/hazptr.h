@@ -51,6 +51,11 @@ struct hazptr_ctx {
 	/* Backup slot in case all per-CPU slots are used. */
 	struct hazptr_backup_slot backup_slot;
 	struct hlist_node preempt_node;
+#ifdef CONFIG_HAZPTR_DEBUG
+	bool detach_task, detach_cpu;	/* Whether the ctx has been detached from task/cpu. */
+	int acquire_pid, acquire_cpu;	/* Note the task and cpu number at acquire. */
+	unsigned long acquire_caller;	/* Acquire instruction pointer. */
+#endif
 };
 
 struct hazptr_slot_ctx {
@@ -127,6 +132,9 @@ void hazptr_detach(struct hazptr_ctx *ctx)
 	struct hazptr_slot *slot;
 
 	guard(preempt)();
+#ifdef CONFIG_HAZPTR_DEBUG
+	ctx->detach_task = ctx->detach_cpu = true;
+#endif
 	slot = ctx->slot;
 	if (unlikely(hazptr_slot_is_backup(ctx, slot)))
 		return;
@@ -145,6 +153,9 @@ void hazptr_note_context_switch(void)
 
 		if (!slot->addr)
 			continue;
+#ifdef CONFIG_HAZPTR_DEBUG
+		item->ctx.ctx->detach_cpu = true;
+#endif
 		hazptr_promote_to_backup_slot(item->ctx.ctx, slot);
 	}
 }
@@ -173,6 +184,12 @@ void *hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 	percpu_slots = this_cpu_ptr(&hazptr_percpu_slots);
 	slot_item = &percpu_slots->items[0];
 	slot = &slot_item->slot;
+#ifdef CONFIG_HAZPTR_DEBUG
+	ctx->detach_cpu = ctx->detach_task = false;
+	ctx->acquire_pid = current->pid;
+	ctx->acquire_cpu = smp_processor_id();
+	ctx->acquire_caller = _THIS_IP_;
+#endif
 	if (unlikely(slot->addr))
 		return __hazptr_acquire(ctx, addr_p);
 	WRITE_ONCE(slot->addr, HAZPTR_WILDCARD);	/* Store B */
@@ -196,6 +213,26 @@ void *hazptr_acquire(struct hazptr_ctx *ctx, void * const *addr_p)
 	return addr;
 }
 
+#ifdef CONFIG_HAZPTR_DEBUG
+/* Called with preemption disabled. */
+static inline
+void hazptr_release_debug(struct hazptr_ctx *ctx, void *addr)
+{
+	int pid = current->pid, cpu = smp_processor_id();
+	bool warn_remote_cpu = !ctx->detach_cpu && ctx->acquire_cpu != cpu,
+	     warn_remote_task = !ctx->detach_task && ctx->acquire_pid != pid;
+
+	WARN_ONCE(warn_remote_cpu || warn_remote_task,
+		"Hazard Pointer (addr=%p) released on remote %s without %s. Acquire: caller=%pS, pid=%d, cpu=%d. Release: pid=%d, cpu=%d.",
+		addr,
+		warn_remote_task ? "task" : "cpu",
+		warn_remote_task ? "being detached from task" : "context switch",
+		(void *) ctx->acquire_caller, ctx->acquire_pid, ctx->acquire_cpu, pid, cpu);
+}
+#else
+static inline void hazptr_release_debug(struct hazptr_ctx *ctx, void *addr) { }
+#endif
+
 /* Release the protected hazard pointer from @slot. */
 static inline
 void hazptr_release(struct hazptr_ctx *ctx, void *addr)
@@ -205,6 +242,7 @@ void hazptr_release(struct hazptr_ctx *ctx, void *addr)
 	if (!addr)
 		return;
 	guard(preempt)();
+	hazptr_release_debug(ctx, addr);
 	slot = ctx->slot;
 	smp_store_release(&slot->addr, NULL);
 	if (unlikely(hazptr_slot_is_backup(ctx, slot)))
