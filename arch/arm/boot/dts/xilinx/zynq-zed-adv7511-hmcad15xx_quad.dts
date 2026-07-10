@@ -1,0 +1,22 @@
+ // SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD7768 - 12-bit Configuration
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7768
+ *
+ * hdl_project: <ad7768evb/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed-adv7511-hmcad15xx.dts"
+
+&hmcad15xx_xtal {
+		clock-frequency = <250000000>;
+};
+
+&hmcad15xx {
+	adi,num-channels = <4>;
+	adi,resolution = <8>;
+};
