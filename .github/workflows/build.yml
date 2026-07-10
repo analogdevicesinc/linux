@@ -105,7 +105,6 @@ jobs:
         fi
         if [[ "${{ inputs.checks }}" == "true" ]]; then
           if [[ "${{ inputs.compiler }}" == "gcc" ]]; then
-            echo "CHECKS_SPARCE=true" >> $GITHUB_ENV
             echo "CHECKS_GCC_FANALYZER=true" >> $GITHUB_ENV
             echo "CHECKS_SMATCH=true" >> $GITHUB_ENV
           fi
