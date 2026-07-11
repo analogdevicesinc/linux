@@ -202,11 +202,29 @@ properties:
               - st,stm32mp215f-dk
           - const: st,stm32mp215
 
+      - description: DH STM32MP231 DHCOS SoM based Boards
+        items:
+          - const: dh,stm32mp231a-dhcos-bb
+          - const: dh,stm32mp231a-dhcos-som
+          - const: st,stm32mp231
+
       - description: ST STM32MP235 based Boards
         items:
           - enum:
               - st,stm32mp235f-dk
           - const: st,stm32mp235
+
+      - description: DH STM32MP251 DHCOS SoM based Boards
+        items:
+          - const: dh,stm32mp251a-dhcos-bb
+          - const: dh,stm32mp251a-dhcos-som
+          - const: st,stm32mp251
+
+      - description: DH STM32MP255 DHCOS SoM based Boards
+        items:
+          - const: dh,stm32mp255c-dhcos-dhsbc
+          - const: dh,stm32mp255c-dhcos-som
+          - const: st,stm32mp255
 
       - description: Engicam MicroGEA STM32MP257 SoM based Boards
         items:
