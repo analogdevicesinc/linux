@@ -1028,7 +1028,7 @@ static void adi_remoteproc_remove(struct platform_device *pdev)
 
 static const struct of_device_id adi_rproc_of_match[] = {
 	{ .compatible = "adi,remoteproc" },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, adi_rproc_of_match);
 
