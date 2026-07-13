@@ -75,14 +75,12 @@ struct adi_tru *get_adi_tru_from_node(struct device *dev)
 
 	return ret;
 }
-
 EXPORT_SYMBOL(get_adi_tru_from_node);
 
 void put_adi_tru(struct adi_tru *tru)
 {
 	put_device(tru->dev);
 }
-
 EXPORT_SYMBOL(put_adi_tru);
 
 int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev)
@@ -99,7 +97,6 @@ int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev)
 
 	return adi_tru_trigger(tru, master);
 }
-
 EXPORT_SYMBOL(adi_tru_trigger_device);
 
 static int adi_tru_smc_trigger(struct adi_tru *tru, u32 master)
@@ -124,7 +121,6 @@ int adi_tru_trigger(struct adi_tru *tru, u32 master)
 	writel(master, tru->ioaddr + ADI_TRU_REG_MTR);
 	return 0;
 }
-
 EXPORT_SYMBOL(adi_tru_trigger);
 
 /**
@@ -326,20 +322,18 @@ int adi_tru_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id adi_tru_dt_ids[] = {
-	{.compatible = "adi,trigger-routing-unit" },
-	{ },
+	{ .compatible = "adi,trigger-routing-unit" },
+	{ }
 };
-
 MODULE_DEVICE_TABLE(of, adi_tru_dt_ids);
 
 static struct platform_driver adi_tru_driver = {
 	.probe = adi_tru_probe,
 	.driver = {
-		   .name = "adi-trigger-routing-unit",
-		   .of_match_table = of_match_ptr(adi_tru_dt_ids),
-		    },
+		.name = "adi-trigger-routing-unit",
+		.of_match_table = of_match_ptr(adi_tru_dt_ids),
+	},
 };
-
 module_platform_driver(adi_tru_driver);
 
 MODULE_DESCRIPTION("ADI Trigger Routing Unit driver");
