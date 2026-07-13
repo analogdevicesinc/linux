@@ -330,11 +330,6 @@ int adi_tru_probe(struct platform_device *pdev)
 	return 0;
 }
 
-void adi_tru_remove(struct platform_device *pdev)
-{
-	return;
-}
-
 static const struct of_device_id adi_tru_dt_ids[] = {
 	{.compatible = "adi,trigger-routing-unit" },
 	{ },
@@ -344,7 +339,6 @@ MODULE_DEVICE_TABLE(of, adi_tru_dt_ids);
 
 static struct platform_driver adi_tru_driver = {
 	.probe = adi_tru_probe,
-	.remove = adi_tru_remove,
 	.driver = {
 		   .name = "adi-trigger-routing-unit",
 		   .of_match_table = of_match_ptr(adi_tru_dt_ids),
