@@ -1019,9 +1019,9 @@ static void adi_remoteproc_remove(struct platform_device *pdev)
 	struct adi_rproc_data *rproc_data = rproc->priv;
 
 	dmaengine_put();
+	rproc_del(rproc);
 	destroy_workqueue(rproc_data->core_workqueue);
 	mbox_free_channel(rproc_data->kick_chan);
-	rproc_del(rproc);
 	rproc_free(rproc);
 }
 
