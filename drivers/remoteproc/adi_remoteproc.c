@@ -991,15 +991,18 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data->ldr_load_addr = SHARC_IDLE_ADDR;
 	rproc_data->rpmsg_state = ADI_RP_RPMSG_TIMED_OUT;
 
+	dmaengine_get();
+
 	ret = rproc_add(rproc);
 	if (ret) {
 		dev_err(dev, "Failed to add rproc\n");
-		goto free_workqueue;
+		goto put_dmaengine;
 	}
 
-	dmaengine_get();
-
 	return 0;
+
+put_dmaengine:
+	dmaengine_put();
 
 free_workqueue:
 	destroy_workqueue(rproc_data->core_workqueue);
@@ -1018,8 +1021,8 @@ static void adi_remoteproc_remove(struct platform_device *pdev)
 	struct rproc *rproc = platform_get_drvdata(pdev);
 	struct adi_rproc_data *rproc_data = rproc->priv;
 
-	dmaengine_put();
 	rproc_del(rproc);
+	dmaengine_put();
 	destroy_workqueue(rproc_data->core_workqueue);
 	mbox_free_channel(rproc_data->kick_chan);
 	rproc_free(rproc);
