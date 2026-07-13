@@ -109,7 +109,7 @@ static int spi_nor_params_show(struct seq_file *s, void *data)
 	seq_printf(s, " erase\t\t0x%02x\n", nor->erase_opcode);
 	seq_printf(s, " program\t0x%02x\n", nor->program_opcode);
 
-	switch (nor->cmd_ext_type) {
+	switch (params->cmd_ext_type) {
 	case SPI_NOR_EXT_NONE:
 		str = "none";
 		break;

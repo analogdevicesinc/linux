@@ -59,7 +59,7 @@
 static u8 spi_nor_get_cmd_ext(const struct spi_nor *nor,
 			      const struct spi_mem_op *op)
 {
-	switch (nor->cmd_ext_type) {
+	switch (nor->params->cmd_ext_type) {
 	case SPI_NOR_EXT_INVERT:
 		return ~op->cmd.opcode;
 

@@ -177,7 +177,7 @@ static int mt35xu512aba_post_sfdp_fixup(struct spi_nor *nor)
 	spi_nor_set_pp_settings(&nor->params->page_programs[SNOR_CMD_PP_8_8_8_DTR],
 				SPINOR_OP_PP_4B, SNOR_PROTO_8_8_8_DTR);
 
-	nor->cmd_ext_type = SPI_NOR_EXT_REPEAT;
+	nor->params->cmd_ext_type = SPI_NOR_EXT_REPEAT;
 	nor->params->rdsr_dummy = 8;
 	nor->params->rdsr_addr_nbytes = 0;
 

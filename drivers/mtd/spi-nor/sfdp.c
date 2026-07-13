@@ -655,11 +655,11 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 	/* 8D-8D-8D command extension. */
 	switch (bfpt.dwords[SFDP_DWORD(18)] & BFPT_DWORD18_CMD_EXT_MASK) {
 	case BFPT_DWORD18_CMD_EXT_REP:
-		nor->cmd_ext_type = SPI_NOR_EXT_REPEAT;
+		params->cmd_ext_type = SPI_NOR_EXT_REPEAT;
 		break;
 
 	case BFPT_DWORD18_CMD_EXT_INV:
-		nor->cmd_ext_type = SPI_NOR_EXT_INVERT;
+		params->cmd_ext_type = SPI_NOR_EXT_INVERT;
 		break;
 
 	case BFPT_DWORD18_CMD_EXT_RES:

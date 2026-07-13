@@ -370,6 +370,7 @@ struct spi_nor_otp {
  *                      in the array, the higher priority.
  * @page_programs:	page program capabilities ordered by priority: the
  *                      higher index in the array, the higher priority.
+ * @cmd_ext_type:	the command opcode extension type for DTR mode.
  * @erase_map:		the erase map parsed from the SFDP Sector Map Parameter
  *                      Table.
  * @otp:		SPI NOR OTP info.
@@ -399,6 +400,7 @@ struct spi_nor_flash_parameter {
 	struct spi_nor_hwcaps		hwcaps;
 	struct spi_nor_read_command	reads[SNOR_CMD_READ_MAX];
 	struct spi_nor_pp_command	page_programs[SNOR_CMD_PP_MAX];
+	enum spi_nor_cmd_ext		cmd_ext_type;
 
 	struct spi_nor_erase_map        erase_map;
 	struct spi_nor_otp		otp;
