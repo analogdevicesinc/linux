@@ -3066,10 +3066,8 @@ static void spi_nor_sfdp_init_params_deprecated(struct spi_nor *nor)
 
 	memcpy(&sfdp_params, nor->params, sizeof(sfdp_params));
 
-	if (spi_nor_parse_sfdp(nor)) {
+	if (spi_nor_parse_sfdp(nor))
 		memcpy(nor->params, &sfdp_params, sizeof(*nor->params));
-		nor->flags &= ~SNOR_F_4B_OPCODES;
-	}
 }
 
 /**
