@@ -919,9 +919,9 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		rproc_data->adi_rsc_table = devm_ioremap_wc(dev,
 							    rmem->base,
 							    rmem->size);
-		if (IS_ERR(rproc_data->adi_rsc_table)) {
+		if (!rproc_data->adi_rsc_table) {
 			dev_err(dev, "Can't map adi,rsc-table\n");
-			ret = PTR_ERR(rproc_data->adi_rsc_table);
+			ret = -ENOMEM;
 			goto free_mbox;
 		}
 
@@ -955,9 +955,9 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data->L1_shared_base = devm_ioremap_wc(dev,
 						     res->start,
 						     resource_size(res));
-	if (IS_ERR(rproc_data->L1_shared_base)) {
+	if (!rproc_data->L1_shared_base) {
 		dev_err(dev, "Cannot map L1 shared memory\n");
-		ret = PTR_ERR(rproc_data->L1_shared_base);
+		ret = -ENOMEM;
 		goto free_workqueue;
 	}
 
@@ -970,9 +970,9 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data->L2_shared_base = devm_ioremap_wc(dev,
 						     res->start,
 						     resource_size(res));
-	if (IS_ERR(rproc_data->L2_shared_base)) {
+	if (!rproc_data->L2_shared_base) {
 		dev_err(dev, "Cannot map L2 shared memory\n");
-		ret = PTR_ERR(rproc_data->L2_shared_base);
+		ret = -ENOMEM;
 		goto free_workqueue;
 	}
 
