@@ -83,6 +83,7 @@ void spi_nor_spimem_setup_op(const struct spi_nor *nor,
 			     struct spi_mem_op *op,
 			     const enum spi_nor_protocol proto)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	u8 ext;
 
 	op->cmd.buswidth = spi_nor_get_protocol_inst_nbits(proto);
@@ -116,7 +117,7 @@ void spi_nor_spimem_setup_op(const struct spi_nor *nor,
 		op->cmd.nbytes = 2;
 	}
 
-	if (proto == SNOR_PROTO_8_8_8_DTR && nor->flags & SNOR_F_SWAP16)
+	if (proto == SNOR_PROTO_8_8_8_DTR && params->flags & SNOR_F_SWAP16)
 		op->data.swap16 = true;
 }
 
@@ -633,7 +634,7 @@ int spi_nor_sr_ready(struct spi_nor *nor)
  */
 static bool spi_nor_use_parallel_locking(struct spi_nor *nor)
 {
-	return nor->flags & SNOR_F_RWW;
+	return nor->params->flags & SNOR_F_RWW;
 }
 
 /* Locking helpers for status read operations */
@@ -860,12 +861,13 @@ static int spi_nor_write_sr1_and_check(struct spi_nor *nor, u8 sr1)
  */
 static int spi_nor_write_16bit_sr_and_check(struct spi_nor *nor, u8 sr1)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	int ret;
 	u8 *sr_cr = nor->bouncebuf;
 	u8 cr_written;
 
 	/* Make sure we don't overwrite the contents of Status Register 2. */
-	if (!(nor->flags & SNOR_F_NO_READ_CR)) {
+	if (!(params->flags & SNOR_F_NO_READ_CR)) {
 		ret = spi_nor_read_cr(nor, &sr_cr[1]);
 		if (ret)
 			return ret;
@@ -906,7 +908,7 @@ static int spi_nor_write_16bit_sr_and_check(struct spi_nor *nor, u8 sr1)
 		return -EIO;
 	}
 
-	if (nor->flags & SNOR_F_NO_READ_CR)
+	if (params->flags & SNOR_F_NO_READ_CR)
 		return 0;
 
 	cr_written = sr_cr[1];
@@ -961,7 +963,7 @@ int spi_nor_write_16bit_cr_and_check(struct spi_nor *nor, u8 cr)
 		return -EIO;
 	}
 
-	if (nor->flags & SNOR_F_NO_READ_CR)
+	if (nor->params->flags & SNOR_F_NO_READ_CR)
 		return 0;
 
 	ret = spi_nor_read_cr(nor, &sr_cr[1]);
@@ -1009,7 +1011,7 @@ static int spi_nor_write_16bit_sr_cr_and_check(struct spi_nor *nor, const u8 *re
 		return -EIO;
 	}
 
-	if (nor->flags & SNOR_F_NO_READ_CR)
+	if (nor->params->flags & SNOR_F_NO_READ_CR)
 		return 0;
 
 	ret = spi_nor_read_cr(nor, &nor->bouncebuf[1]);
@@ -1035,7 +1037,7 @@ static int spi_nor_write_16bit_sr_cr_and_check(struct spi_nor *nor, const u8 *re
  */
 int spi_nor_write_sr_and_check(struct spi_nor *nor, u8 sr1)
 {
-	if (nor->flags & SNOR_F_HAS_16BIT_SR)
+	if (nor->params->flags & SNOR_F_HAS_16BIT_SR)
 		return spi_nor_write_16bit_sr_and_check(nor, sr1);
 
 	return spi_nor_write_sr1_and_check(nor, sr1);
@@ -1052,7 +1054,7 @@ int spi_nor_write_sr_and_check(struct spi_nor *nor, u8 sr1)
  */
 int spi_nor_write_sr_cr_and_check(struct spi_nor *nor, const u8 *regs)
 {
-	if (nor->flags & SNOR_F_HAS_16BIT_SR)
+	if (nor->params->flags & SNOR_F_HAS_16BIT_SR)
 		return spi_nor_write_16bit_sr_cr_and_check(nor, regs);
 
 	return spi_nor_write_sr1_and_check(nor, regs[0]);
@@ -1821,6 +1823,7 @@ static int spi_nor_erase_dice(struct spi_nor *nor, loff_t addr,
 static int spi_nor_erase(struct mtd_info *mtd, struct erase_info *instr)
 {
 	struct spi_nor *nor = mtd_to_spi_nor(mtd);
+	struct spi_nor_flash_parameter *params = nor->params;
 	u8 n_dice = nor->params->n_dice;
 	bool multi_die_erase = false;
 	u32 addr, len, rem;
@@ -1852,7 +1855,7 @@ static int spi_nor_erase(struct mtd_info *mtd, struct erase_info *instr)
 		return ret;
 
 	/* chip (die) erase? */
-	if ((len == mtd->size && !(nor->flags & SNOR_F_NO_OP_CHIP_ERASE)) ||
+	if ((len == mtd->size && !(params->flags & SNOR_F_NO_OP_CHIP_ERASE)) ||
 	    multi_die_erase) {
 		ret = spi_nor_erase_dice(nor, addr, len, die_size);
 		if (ret)
@@ -1942,7 +1945,7 @@ int spi_nor_sr2_bit1_quad_enable(struct spi_nor *nor)
 {
 	int ret;
 
-	if (nor->flags & SNOR_F_NO_READ_CR)
+	if (nor->params->flags & SNOR_F_NO_READ_CR)
 		return spi_nor_write_16bit_cr_and_check(nor, SR2_QUAD_EN_BIT1);
 
 	ret = spi_nor_read_cr(nor, nor->bouncebuf);
@@ -2502,7 +2505,7 @@ spi_nor_spimem_adjust_hwcaps(struct spi_nor *nor, u32 *hwcaps)
 	 * If the reset line is broken, we do not want to enter a stateful
 	 * mode.
 	 */
-	if (nor->flags & SNOR_F_BROKEN_RESET)
+	if (params->flags & SNOR_F_BROKEN_RESET)
 		*hwcaps &= ~(SNOR_HWCAPS_X_X_X | SNOR_HWCAPS_X_X_X_DTR);
 
 	for (cap = 0; cap < sizeof(*hwcaps) * BITS_PER_BYTE; cap++) {
@@ -2526,13 +2529,13 @@ spi_nor_spimem_adjust_hwcaps(struct spi_nor *nor, u32 *hwcaps)
 	}
 
 	/* Some SPI controllers might not support CR read opcode. */
-	if (!(nor->flags & SNOR_F_NO_READ_CR)) {
+	if (!(params->flags & SNOR_F_NO_READ_CR)) {
 		struct spi_mem_op op = SPI_NOR_RDCR_OP(nor->bouncebuf);
 
 		spi_nor_spimem_setup_op(nor, &op, nor->reg_proto);
 
 		if (!spi_mem_supports_op(nor->spimem, &op))
-			nor->flags |= SNOR_F_NO_READ_CR;
+			params->flags |= SNOR_F_NO_READ_CR;
 	}
 }
 
@@ -2749,6 +2752,8 @@ static int spi_nor_select_erase(struct spi_nor *nor)
 
 static int spi_nor_set_addr_nbytes(struct spi_nor *nor)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
+
 	if (nor->params->addr_nbytes) {
 		nor->addr_nbytes = nor->params->addr_nbytes;
 	} else if (nor->read_proto == SNOR_PROTO_8_8_8_DTR) {
@@ -2783,8 +2788,8 @@ static int spi_nor_set_addr_nbytes(struct spi_nor *nor)
 	}
 
 	/* Set 4byte opcodes when possible. */
-	if (nor->addr_nbytes == 4 && nor->flags & SNOR_F_4B_OPCODES &&
-	    !(nor->flags & SNOR_F_HAS_4BAIT))
+	if (nor->addr_nbytes == 4 && params->flags & SNOR_F_4B_OPCODES &&
+	    !(params->flags & SNOR_F_HAS_4BAIT))
 		spi_nor_set_4byte_opcodes(nor);
 
 	return 0;
@@ -2947,39 +2952,40 @@ static void spi_nor_no_sfdp_init_params(struct spi_nor *nor)
  */
 static void spi_nor_init_flags(struct spi_nor *nor)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	struct device_node *np = spi_nor_get_flash_node(nor);
 	const u16 flags = nor->info->flags;
 
 	if (of_property_read_bool(np, "broken-flash-reset"))
-		nor->flags |= SNOR_F_BROKEN_RESET;
+		params->flags |= SNOR_F_BROKEN_RESET;
 
 	if (of_property_read_bool(np, "no-wp"))
-		nor->flags |= SNOR_F_NO_WP;
+		params->flags |= SNOR_F_NO_WP;
 
 	if (flags & SPI_NOR_SWP_IS_VOLATILE)
-		nor->flags |= SNOR_F_SWP_IS_VOLATILE;
+		params->flags |= SNOR_F_SWP_IS_VOLATILE;
 
 	if (flags & SPI_NOR_HAS_LOCK)
-		nor->flags |= SNOR_F_HAS_LOCK;
+		params->flags |= SNOR_F_HAS_LOCK;
 
 	if (flags & SPI_NOR_HAS_TB) {
-		nor->flags |= SNOR_F_HAS_SR_TB;
+		params->flags |= SNOR_F_HAS_SR_TB;
 		if (flags & SPI_NOR_TB_SR_BIT6)
-			nor->flags |= SNOR_F_HAS_SR_TB_BIT6;
+			params->flags |= SNOR_F_HAS_SR_TB_BIT6;
 	}
 
 	if (flags & SPI_NOR_4BIT_BP) {
-		nor->flags |= SNOR_F_HAS_4BIT_BP;
+		params->flags |= SNOR_F_HAS_4BIT_BP;
 		if (flags & SPI_NOR_BP3_SR_BIT6)
-			nor->flags |= SNOR_F_HAS_SR_BP3_BIT6;
+			params->flags |= SNOR_F_HAS_SR_BP3_BIT6;
 	}
 
 	if (flags & SPI_NOR_HAS_CMP)
-		nor->flags |= SNOR_F_HAS_SR2_CMP_BIT6;
+		params->flags |= SNOR_F_HAS_SR2_CMP_BIT6;
 
 	if (flags & SPI_NOR_RWW && nor->params->n_banks > 1 &&
 	    !nor->controller_ops)
-		nor->flags |= SNOR_F_RWW;
+		params->flags |= SNOR_F_RWW;
 }
 
 /**
@@ -2992,13 +2998,14 @@ static void spi_nor_init_flags(struct spi_nor *nor)
  */
 static void spi_nor_init_fixup_flags(struct spi_nor *nor)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	const u8 fixup_flags = nor->info->fixup_flags;
 
 	if (fixup_flags & SPI_NOR_4B_OPCODES)
-		nor->flags |= SNOR_F_4B_OPCODES;
+		params->flags |= SNOR_F_4B_OPCODES;
 
 	if (fixup_flags & SPI_NOR_IO_MODE_EN_VOLATILE)
-		nor->flags |= SNOR_F_IO_MODE_EN_VOLATILE;
+		params->flags |= SNOR_F_IO_MODE_EN_VOLATILE;
 }
 
 /**
@@ -3043,7 +3050,7 @@ static int spi_nor_late_init_params(struct spi_nor *nor)
 	 * NOR protection support. When locking_ops are not provided, we pick
 	 * the default ones.
 	 */
-	if (nor->flags & SNOR_F_HAS_LOCK && !nor->params->locking_ops)
+	if (params->flags & SNOR_F_HAS_LOCK && !nor->params->locking_ops)
 		spi_nor_init_default_locking_ops(nor);
 
 	if (params->n_banks > 1)
@@ -3108,7 +3115,7 @@ static void spi_nor_init_default_params(struct spi_nor *nor)
 	params->otp.org = info->otp;
 
 	/* Default to 16-bit Write Status (01h) Command */
-	nor->flags |= SNOR_F_HAS_16BIT_SR;
+	params->flags |= SNOR_F_HAS_16BIT_SR;
 
 	/* Set SPI NOR sizes. */
 	params->writesize = 1;
@@ -3229,7 +3236,7 @@ static int spi_nor_set_octal_dtr(struct spi_nor *nor, bool enable)
 	      nor->write_proto == SNOR_PROTO_8_8_8_DTR))
 		return 0;
 
-	if (!(nor->flags & SNOR_F_IO_MODE_EN_VOLATILE))
+	if (!(nor->params->flags & SNOR_F_IO_MODE_EN_VOLATILE))
 		return 0;
 
 	ret = nor->params->set_octal_dtr(nor, enable);
@@ -3282,7 +3289,7 @@ int spi_nor_set_4byte_addr_mode(struct spi_nor *nor, bool enable)
 		 * reboots (e.g., crashes). Warn the user (or hopefully, system
 		 * designer) that this is bad.
 		 */
-		WARN_ONCE(nor->flags & SNOR_F_BROKEN_RESET,
+		WARN_ONCE(nor->params->flags & SNOR_F_BROKEN_RESET,
 			  "enabling reset hack; may not recover from unexpected reboots\n");
 	}
 
@@ -3303,6 +3310,7 @@ int spi_nor_set_4byte_addr_mode(struct spi_nor *nor, bool enable)
 
 static int spi_nor_init(struct spi_nor *nor)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	int err;
 
 	err = spi_nor_set_octal_dtr(nor, true);
@@ -3330,13 +3338,13 @@ static int spi_nor_init(struct spi_nor *nor)
 	spi_nor_cache_sr_lock_bits(nor, NULL);
 	if (IS_ENABLED(CONFIG_MTD_SPI_NOR_SWP_DISABLE) ||
 	    (IS_ENABLED(CONFIG_MTD_SPI_NOR_SWP_DISABLE_ON_VOLATILE) &&
-	     nor->flags & SNOR_F_SWP_IS_VOLATILE)) {
+	     params->flags & SNOR_F_SWP_IS_VOLATILE)) {
 		spi_nor_try_unlock_all(nor);
 	}
 
 	if (nor->addr_nbytes == 4 &&
 	    nor->read_proto != SNOR_PROTO_8_8_8_DTR &&
-	    !(nor->flags & SNOR_F_4B_OPCODES))
+	    !(params->flags & SNOR_F_4B_OPCODES))
 		return spi_nor_set_4byte_addr_mode(nor, true);
 
 	return 0;
@@ -3451,11 +3459,12 @@ static void spi_nor_put_device(struct mtd_info *mtd)
 
 static void spi_nor_restore(struct spi_nor *nor)
 {
+	struct spi_nor_flash_parameter *params = nor->params;
 	int ret;
 
 	/* restore the addressing mode */
-	if (nor->addr_nbytes == 4 && !(nor->flags & SNOR_F_4B_OPCODES) &&
-	    nor->flags & SNOR_F_BROKEN_RESET) {
+	if (nor->addr_nbytes == 4 && !(params->flags & SNOR_F_4B_OPCODES) &&
+	    params->flags & SNOR_F_BROKEN_RESET) {
 		ret = spi_nor_set_4byte_addr_mode(nor, false);
 		if (ret)
 			/*
@@ -3466,7 +3475,7 @@ static void spi_nor_restore(struct spi_nor *nor)
 			dev_err(nor->dev, "Failed to exit 4-byte address mode, err = %d\n", ret);
 	}
 
-	if (nor->flags & SNOR_F_SOFT_RESET)
+	if (params->flags & SNOR_F_SOFT_RESET)
 		spi_nor_soft_reset(nor);
 }
 
@@ -3583,7 +3592,7 @@ static int spi_nor_set_mtd_info(struct spi_nor *nor)
 	mtd->type = MTD_NORFLASH;
 	mtd->flags = MTD_CAP_NORFLASH;
 	/* Unset BIT_WRITEABLE to enable JFFS2 write buffer for ECC'd NOR */
-	if (nor->flags & SNOR_F_ECC)
+	if (nor->params->flags & SNOR_F_ECC)
 		mtd->flags &= ~MTD_BIT_WRITEABLE;
 	if (nor->info->flags & SPI_NOR_NO_ERASE)
 		mtd->flags |= MTD_NO_ERASE;

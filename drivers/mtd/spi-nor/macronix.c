@@ -40,7 +40,7 @@ mx25l25635_post_bfpt_fixups(struct spi_nor *nor,
 	 * its BFPT table.
 	 */
 	if (bfpt->dwords[SFDP_DWORD(5)] & BFPT_DWORD5_FAST_READ_4_4_4)
-		nor->flags |= SNOR_F_4B_OPCODES;
+		nor->params->flags |= SNOR_F_4B_OPCODES;
 
 	return 0;
 }

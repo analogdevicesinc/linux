@@ -99,7 +99,7 @@ static int spi_nor_params_show(struct seq_file *s, void *data)
 	seq_printf(s, "address nbytes\t%u\n", nor->addr_nbytes);
 
 	seq_puts(s, "flags\t\t");
-	spi_nor_print_flags(s, nor->flags, snor_f_names,
+	spi_nor_print_flags(s, params->flags, snor_f_names,
 			    ARRAY_SIZE(snor_f_names));
 	seq_puts(s, "\n");
 
@@ -144,7 +144,7 @@ static int spi_nor_params_show(struct seq_file *s, void *data)
 		}
 	}
 
-	if (!(nor->flags & SNOR_F_NO_OP_CHIP_ERASE)) {
+	if (!(params->flags & SNOR_F_NO_OP_CHIP_ERASE)) {
 		string_get_size(params->size, 1, STRING_UNITS_2, buf, sizeof(buf));
 		seq_printf(s, " %02x (%s)\n", params->die_erase_opcode, buf);
 	}

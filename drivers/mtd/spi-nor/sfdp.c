@@ -577,17 +577,17 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 		 * Read Configuration Register (35h) instruction is not
 		 * supported.
 		 */
-		nor->flags |= SNOR_F_HAS_16BIT_SR | SNOR_F_NO_READ_CR;
+		params->flags |= SNOR_F_HAS_16BIT_SR | SNOR_F_NO_READ_CR;
 		params->quad_enable = spi_nor_sr2_bit1_quad_enable;
 		break;
 
 	case BFPT_DWORD15_QER_SR1_BIT6:
-		nor->flags &= ~SNOR_F_HAS_16BIT_SR;
+		params->flags &= ~SNOR_F_HAS_16BIT_SR;
 		params->quad_enable = spi_nor_sr1_bit6_quad_enable;
 		break;
 
 	case BFPT_DWORD15_QER_SR2_BIT7:
-		nor->flags &= ~SNOR_F_HAS_16BIT_SR;
+		params->flags &= ~SNOR_F_HAS_16BIT_SR;
 		params->quad_enable = spi_nor_sr2_bit7_quad_enable;
 		break;
 
@@ -598,7 +598,7 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 		 * Register 2, so let's be cautious and keep the default
 		 * assumption of a 16-bit Write Status (01h) command.
 		 */
-		nor->flags |= SNOR_F_HAS_16BIT_SR;
+		params->flags |= SNOR_F_HAS_16BIT_SR;
 
 		params->quad_enable = spi_nor_sr2_bit1_quad_enable;
 		break;
@@ -620,7 +620,7 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 
 	/* Soft Reset support. */
 	if (bfpt.dwords[SFDP_DWORD(16)] & BFPT_DWORD16_SWRST_EN_RST)
-		nor->flags |= SNOR_F_SOFT_RESET;
+		params->flags |= SNOR_F_SOFT_RESET;
 
 	/* Stop here if not JESD216 rev C or later. */
 	if (bfpt_header->length == BFPT_DWORD_MAX_JESD216B)
@@ -673,7 +673,7 @@ static int spi_nor_parse_bfpt(struct spi_nor *nor,
 
 	/* Byte order in 8D-8D-8D mode */
 	if (bfpt.dwords[SFDP_DWORD(18)] & BFPT_DWORD18_BYTE_ORDER_SWAPPED)
-		nor->flags |= SNOR_F_SWAP16;
+		params->flags |= SNOR_F_SWAP16;
 
 	return spi_nor_post_bfpt_fixups(nor, bfpt_header, &bfpt);
 }
@@ -1160,7 +1160,7 @@ static int spi_nor_parse_4bait(struct spi_nor *nor,
 	 * SFDP compliant memories.
 	 */
 	params->addr_nbytes = 4;
-	nor->flags |= SNOR_F_4B_OPCODES | SNOR_F_HAS_4BAIT;
+	params->flags |= SNOR_F_4B_OPCODES | SNOR_F_HAS_4BAIT;
 
 	/* fall through */
 out:
@@ -1306,7 +1306,7 @@ static int spi_nor_parse_sccr(struct spi_nor *nor,
 
 	if (FIELD_GET(SCCR_DWORD22_OCTAL_DTR_EN_VOLATILE,
 		      dwords[SFDP_DWORD(22)]))
-		nor->flags |= SNOR_F_IO_MODE_EN_VOLATILE;
+		params->flags |= SNOR_F_IO_MODE_EN_VOLATILE;
 
 out:
 	kfree(dwords);

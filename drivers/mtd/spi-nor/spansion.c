@@ -537,7 +537,7 @@ static void cypress_nor_ecc_init(struct spi_nor *nor)
 	 * same ECC data unit without an erase are not allowed.
 	 */
 	nor->params->writesize = 16;
-	nor->flags |= SNOR_F_ECC;
+	nor->params->flags |= SNOR_F_ECC;
 }
 
 static int
@@ -1139,7 +1139,7 @@ static int spansion_nor_late_init(struct spi_nor *nor)
 	u8 mfr_flags = nor->info->mfr_flags;
 
 	if (params->size > SZ_16M) {
-		nor->flags |= SNOR_F_4B_OPCODES;
+		params->flags |= SNOR_F_4B_OPCODES;
 		/* No small sector erase for 4-byte command set */
 		nor->erase_opcode = SPINOR_OP_SE;
 		nor->mtd.erasesize = nor->info->sector_size ?:

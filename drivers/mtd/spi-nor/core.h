@@ -348,6 +348,7 @@ struct spi_nor_otp {
  *
  * @bank_size:		the flash memory bank density in bytes.
  * @size:		the total flash memory density in bytes.
+ * @flags:		flag options for the current SPI NOR (SNOR_F_*)
  * @writesize		Minimal writable flash unit size. Defaults to 1. Set to
  *			ECC unit size for ECC-ed flashes.
  * @page_size:		the page size of the SPI NOR flash memory.
@@ -386,6 +387,7 @@ struct spi_nor_otp {
 struct spi_nor_flash_parameter {
 	u64				bank_size;
 	u64				size;
+	u32				flags;
 	u32				writesize;
 	u32				page_size;
 	u8				addr_nbytes;
