@@ -1037,7 +1037,7 @@ static struct platform_driver adi_rproc_driver = {
 	.remove = adi_remoteproc_remove,
 	.driver = {
 		.name = "adi_remoteproc",
-		.of_match_table = of_match_ptr(adi_rproc_of_match),
+		.of_match_table = adi_rproc_of_match,
 	},
 };
 module_platform_driver(adi_rproc_driver);
