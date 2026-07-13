@@ -101,31 +101,31 @@
 		};
 
 		sharc0_rpmsg: core0-rpmsg@28240000 {
-				status = "disabled";
-				compatible = "adi,rpmsg-sc598";
-				core-id = <1>;
-				adi,rcu = <&rcu>;
-				adi,check-idle;
-				adi,rsc-table = <&rsc_tbl0>;
-				interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
-				adi,tru = <&tru>;
-				adi,tru-master-id = <135>; /* trigger master SOFT4 */
-				vdev-vring = <&vdev0vrings>;
-				memory-region = <&vdev0buffer>;
+			status = "disabled";
+			compatible = "adi,rpmsg-sc598";
+			core-id = <1>;
+			adi,rcu = <&rcu>;
+			adi,check-idle;
+			adi,rsc-table = <&rsc_tbl0>;
+			interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
+			adi,tru = <&tru>;
+			adi,tru-master-id = <135>; /* trigger master SOFT4 */
+			vdev-vring = <&vdev0vrings>;
+			memory-region = <&vdev0buffer>;
 		};
 
 		sharc1_rpmsg: core1-rpmsg@28a40000 {
-				status = "disabled";
-				compatible = "adi,rpmsg-sc598";
-				core-id = <2>;
-				adi,rcu = <&rcu>;
-				adi,check-idle;
-				adi,rsc-table = <&rsc_tbl1>;
-				interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
-				adi,tru = <&tru>;
-				adi,tru-master-id = <136>; /* trigger master SOFT5 */
-				vdev-vring = <&vdev1vrings>;
-				memory-region = <&vdev1buffer>;
+			status = "disabled";
+			compatible = "adi,rpmsg-sc598";
+			core-id = <2>;
+			adi,rcu = <&rcu>;
+			adi,check-idle;
+			adi,rsc-table = <&rsc_tbl1>;
+			interrupts = <GIC_SPI 337 IRQ_TYPE_EDGE_RISING>; /* TRU0_SLV3 */
+			adi,tru = <&tru>;
+			adi,tru-master-id = <136>; /* trigger master SOFT5 */
+			vdev-vring = <&vdev1vrings>;
+			memory-region = <&vdev1buffer>;
 		};
 	};
 
@@ -234,15 +234,15 @@
 	uart0_default: uart0_default_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 6, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT1)>;
+				 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT1)>;
 		};
 	};
 	uart0_hwflow: uart0_hwflow_pins {
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 6, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 8, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 9, ADI_ADSP_PINFUNC_ALT1)>;
+				 <ADI_ADSP_PINMUX('A', 7, ADI_ADSP_PINFUNC_ALT1)>,
+				 <ADI_ADSP_PINMUX('A', 8, ADI_ADSP_PINFUNC_ALT1)>,
+				 <ADI_ADSP_PINMUX('A', 9, ADI_ADSP_PINFUNC_ALT1)>;
 		};
 	};
 	spi0_default: spi0_default_pins {
@@ -256,7 +256,7 @@
 		pins {
 			pinmux = <ADI_ADSP_PINMUX('A', 10, ADI_ADSP_PINFUNC_ALT1)>,
 				 <ADI_ADSP_PINMUX('A', 11, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('A', 12, ADI_ADSP_PINFUNC_ALT1)>;
+				 <ADI_ADSP_PINMUX('A', 12, ADI_ADSP_PINFUNC_ALT1)>;
 		};
 	};
 	spi2_quad: spi2_quad_pins {
@@ -335,15 +335,15 @@
 				 <ADI_ADSP_PINMUX('C', 4, ADI_ADSP_PINFUNC_ALT2)>,
 				 <ADI_ADSP_PINMUX('C', 6, ADI_ADSP_PINFUNC_ALT2)>,
 				 <ADI_ADSP_PINMUX('E', 1, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('E', 6, ADI_ADSP_PINFUNC_ALT2)>,
-					 <ADI_ADSP_PINMUX('E', 8, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('E', 9, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('G', 1, ADI_ADSP_PINFUNC_ALT2)>,
-					 <ADI_ADSP_PINMUX('G', 2, ADI_ADSP_PINFUNC_ALT2)>,
-					 <ADI_ADSP_PINMUX('G', 8, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('G', 9, ADI_ADSP_PINFUNC_ALT3)>,
-					 <ADI_ADSP_PINMUX('G', 10, ADI_ADSP_PINFUNC_ALT1)>,
-					 <ADI_ADSP_PINMUX('I', 6, ADI_ADSP_PINFUNC_ALT1)>;
+				 <ADI_ADSP_PINMUX('E', 6, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('E', 8, ADI_ADSP_PINFUNC_ALT1)>,
+				 <ADI_ADSP_PINMUX('E', 9, ADI_ADSP_PINFUNC_ALT1)>,
+				 <ADI_ADSP_PINMUX('G', 1, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('G', 2, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('G', 8, ADI_ADSP_PINFUNC_ALT1)>,
+				 <ADI_ADSP_PINMUX('G', 9, ADI_ADSP_PINFUNC_ALT3)>,
+				 <ADI_ADSP_PINMUX('G', 10, ADI_ADSP_PINFUNC_ALT1)>,
+				 <ADI_ADSP_PINMUX('I', 6, ADI_ADSP_PINFUNC_ALT1)>;
 		};
 	};
 	usbc0_default: usbc0_default_pins {
