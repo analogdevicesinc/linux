@@ -3040,24 +3040,6 @@ static int spi_nor_late_init_params(struct spi_nor *nor)
 }
 
 /**
- * spi_nor_sfdp_init_params_deprecated() - Deprecated way of initializing flash
- * parameters and settings based on JESD216 SFDP standard.
- * @nor:	pointer to a 'struct spi_nor'.
- *
- * The method has a roll-back mechanism: in case the SFDP parsing fails, the
- * legacy flash parameters and settings will be restored.
- */
-static void spi_nor_sfdp_init_params_deprecated(struct spi_nor *nor)
-{
-	struct spi_nor_flash_parameter sfdp_params;
-
-	memcpy(&sfdp_params, nor->params, sizeof(sfdp_params));
-
-	if (spi_nor_parse_sfdp(nor))
-		memcpy(nor->params, &sfdp_params, sizeof(*nor->params));
-}
-
-/**
  * spi_nor_init_params_deprecated() - Deprecated way of initializing flash
  * parameters and settings.
  * @nor:	pointer to a 'struct spi_nor'.
@@ -3076,7 +3058,7 @@ static void spi_nor_init_params_deprecated(struct spi_nor *nor)
 					SPI_NOR_QUAD_READ |
 					SPI_NOR_OCTAL_READ |
 					SPI_NOR_OCTAL_DTR_READ))
-		spi_nor_sfdp_init_params_deprecated(nor);
+		spi_nor_parse_sfdp(nor);
 }
 
 /**

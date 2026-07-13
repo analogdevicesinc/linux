@@ -1464,18 +1464,28 @@ int spi_nor_check_sfdp_signature(struct spi_nor *nor)
  * runtime the main parameters needed to perform basic SPI flash operations such
  * as Fast Read, Page Program or Sector Erase commands.
  *
+ * Because the parsing is optional, all the settings have to be reverted. IOW,
+ * nothing of struct spi_nor shall be changed.
+ *
  * Return: 0 on success, -errno otherwise.
  */
 int spi_nor_parse_sfdp(struct spi_nor *nor)
 {
 	const struct sfdp_parameter_header *param_header, *bfpt_header;
 	struct sfdp_parameter_header *param_headers = NULL;
+	struct spi_nor_flash_parameter params, params2;
 	struct sfdp_header header;
 	struct device *dev = nor->dev;
 	struct sfdp *sfdp;
 	size_t sfdp_size;
 	size_t psize;
 	int i, err;
+
+	/*
+	 * Get a backup of all the parameter to roll back to in case of an
+	 * error.
+	 */
+	memcpy(&params, nor->params, sizeof(params));
 
 	/* Get the SFDP header. */
 	err = spi_nor_read_sfdp_dma_unsafe(nor, 0, sizeof(header), &header);
@@ -1598,6 +1608,7 @@ int spi_nor_parse_sfdp(struct spi_nor *nor)
 
 	/* Parse optional parameter tables. */
 	for (i = 0; i < header.nph; i++) {
+		memcpy(&params2, nor->params, sizeof(params2));
 		param_header = &param_headers[i];
 
 		switch (SFDP_PARAM_HEADER_ID(param_header)) {
@@ -1631,15 +1642,19 @@ int spi_nor_parse_sfdp(struct spi_nor *nor)
 			/*
 			 * Let's not drop all information we extracted so far
 			 * if optional table parsers fail. In case of failing,
-			 * each optional parser is responsible to roll back to
-			 * the previously known spi_nor data.
+			 * roll back to the previously known
+			 * spi_nor_flash_parameter data.
 			 */
 			err = 0;
+			memcpy(nor->params, &params2, sizeof(*nor->params));
 		}
 	}
 
 	err = spi_nor_post_sfdp_fixups(nor);
 exit:
 	kfree(param_headers);
+	if (err)
+		memcpy(nor->params, &params, sizeof(*nor->params));
+
 	return err;
 }
