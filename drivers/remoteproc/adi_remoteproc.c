@@ -533,7 +533,6 @@ static int adi_rproc_parse_fw(struct rproc *rproc, const struct firmware *fw)
 	struct device_node *np = dev->of_node;
 	struct sharc_resource_table *rsc_table;
 	struct rproc_mem_entry *mem;
-	struct device_node *node;
 	struct reserved_mem *rmem;
 	phys_addr_t size;
 	int ret, i, mem_regions, num;
@@ -569,9 +568,8 @@ static int adi_rproc_parse_fw(struct rproc *rproc, const struct firmware *fw)
 	 */
 	mem_regions = of_count_phandle_with_args(np, "vdev-vring", NULL);
 	for (i = 0; i < mem_regions; i++) {
-		node = of_parse_phandle(np, "vdev-vring", i);
+		struct device_node *node __free(device_node) = of_parse_phandle(np, "vdev-vring", i);
 		rmem = of_reserved_mem_lookup(node);
-		of_node_put(node);
 		if (!rmem) {
 			dev_err(dev, "Failed to acquire vdev-vring at idx %d\n", i);
 			return -EINVAL;
@@ -640,7 +638,7 @@ static int adi_rproc_parse_fw(struct rproc *rproc, const struct firmware *fw)
 	 */
 	mem_regions = of_count_phandle_with_args(np, "memory-region", NULL);
 	for (i = 0; i < mem_regions; i++) {
-		node = of_parse_phandle(np, "memory-region", i);
+		struct device_node *node __free(device_node) = of_parse_phandle(np, "memory-region", i);
 		rmem = of_reserved_mem_lookup(node);
 		mem = rproc_of_resm_mem_entry_init(dev, i, rmem->size,
 						   rmem->base, "vdev%dbuffer", i);
