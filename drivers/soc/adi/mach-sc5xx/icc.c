@@ -56,7 +56,7 @@ struct adi_tru {
 struct adi_tru *get_adi_tru_from_node(struct device *dev)
 {
 	struct platform_device *tru_pdev;
-	struct device_node *tru_node;
+	struct device_node *tru_node __free(device_node);
 	struct adi_tru *ret = NULL;
 
 	tru_node = of_parse_phandle(dev->of_node, "adi,tru", 0);
@@ -66,17 +66,13 @@ struct adi_tru *get_adi_tru_from_node(struct device *dev)
 	}
 
 	tru_pdev = of_find_device_by_node(tru_node);
-	if (!tru_pdev) {
-		ret = ERR_PTR(-EPROBE_DEFER);
-		goto cleanup;
-	}
+	if (!tru_pdev)
+		return ERR_PTR(-EPROBE_DEFER);
 
 	ret = dev_get_drvdata(&tru_pdev->dev);
 	if (!ret)
 		ret = ERR_PTR(-EPROBE_DEFER);
 
-cleanup:
-	of_node_put(tru_node);
 	return ret;
 }
 
@@ -246,7 +242,6 @@ int adi_tru_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct adi_tru *tru;
 	struct device_node *np = dev->of_node;
-	struct device_node *child;
 	u32 master, slave;
 	int ret = 0;
 
@@ -286,6 +281,8 @@ int adi_tru_probe(struct platform_device *pdev)
 	 * because all of the TRU is restricted from access in that case
 	 */
 	if (!tru->use_smc) {
+		struct device_node *child __free(device_node) = NULL;
+
 		/*
 		 * Initialize statically defined triggers from the device tree
 		 * as child nodes, for example something like this
@@ -300,11 +297,9 @@ int adi_tru_probe(struct platform_device *pdev)
 		 *  };
 		 * };
 		 */
-		child = NULL;
 		while ((child = of_get_next_child(np, child))) {
 			ret = adi_tru_set_trigger(tru, child, child);
 			if (ret) {
-				of_node_put(child);
 				dev_err(dev,
 					"Invalid static trigger map in TRU device tree entry\n");
 				return ret;
