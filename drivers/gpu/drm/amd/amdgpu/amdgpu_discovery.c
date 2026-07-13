@@ -964,6 +964,9 @@ static void amdgpu_discovery_read_from_harvest_table(struct amdgpu_device *adev,
 		case MMHUB_HWID:
 			adev->mmhub.inst_mask &= ~BIT(inst);
 			break;
+		case LSDMA_HWID:
+			adev->lsdma.inst_mask &= ~BIT(inst);
+			break;
 #if defined(CONFIG_DRM_AMD_ISP)
 		case ISP_HWID:
 			adev->isp.harvest_config |= ~BIT(inst);
@@ -1256,6 +1259,9 @@ static uint8_t amdgpu_discovery_get_harvest_info(struct amdgpu_device *adev,
 		break;
 	case MMHUB_HWID:
 		harvest = (BIT(inst) & adev->mmhub.inst_mask) == 0;
+		break;
+	case LSDMA_HWID:
+		harvest = (BIT(inst) & adev->lsdma.inst_mask) == 0;
 		break;
 	default:
 		break;
@@ -1802,6 +1808,7 @@ static int amdgpu_discovery_reg_base_init(struct amdgpu_device *adev)
 	adev->vcn.inst_mask = 0;
 	adev->jpeg.inst_mask = 0;
 	adev->mmhub.inst_mask = 0;
+	adev->lsdma.inst_mask = 0;
 	r = amdgpu_discovery_get_table_info(adev, &info, IP_DISCOVERY);
 	if (r)
 		return r;
@@ -1875,6 +1882,15 @@ static int amdgpu_discovery_reg_base_init(struct amdgpu_device *adev)
 					dev_err(adev->dev, "Too many MMHUB instances: %d vs %d\n",
 						inst + 1,
 						AMDGPU_MAX_MMHUB_INSTANCES);
+			}
+
+			if (le16_to_cpu(ip->hw_id) == LSDMA_HWID) {
+				if (inst < AMDGPU_MAX_LSDMA_INSTANCES)
+					adev->lsdma.inst_mask |= BIT(inst);
+				else
+					dev_err(adev->dev, "Too many LSDMA instances: %d vs %d\n",
+						inst + 1,
+						AMDGPU_MAX_LSDMA_INSTANCES);
 			}
 
 			if (le16_to_cpu(ip->hw_id) == SDMA0_HWID ||
