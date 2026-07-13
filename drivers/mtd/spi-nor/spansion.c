@@ -545,7 +545,6 @@ s25fs256t_post_bfpt_fixup(struct spi_nor *nor,
 			  const struct sfdp_parameter_header *bfpt_header,
 			  const struct sfdp_bfpt *bfpt)
 {
-	struct spi_mem_op op;
 	int ret;
 
 	/* Assign 4-byte address mode method that is not determined in BFPT */
@@ -554,19 +553,6 @@ s25fs256t_post_bfpt_fixup(struct spi_nor *nor,
 	ret = cypress_nor_set_addr_mode_nbytes(nor);
 	if (ret)
 		return ret;
-
-	/* Read Architecture Configuration Register (ARCFN) */
-	op = (struct spi_mem_op)
-		CYPRESS_NOR_RD_ANY_REG_OP(nor->params->addr_mode_nbytes,
-					  SPINOR_REG_CYPRESS_ARCFN, 1,
-					  nor->bouncebuf);
-	ret = spi_nor_read_any_reg(nor, &op, nor->reg_proto);
-	if (ret)
-		return ret;
-
-	/* ARCFN value must be 0 if uniform sector is selected  */
-	if (nor->bouncebuf[0])
-		return -ENODEV;
 
 	return 0;
 }
@@ -598,6 +584,22 @@ static int s25fs256t_post_sfdp_fixup(struct spi_nor *nor)
 
 static int s25fs256t_late_init(struct spi_nor *nor)
 {
+	struct spi_mem_op op;
+	int ret;
+
+	/* Read Architecture Configuration Register (ARCFN) */
+	op = (struct spi_mem_op)
+		CYPRESS_NOR_RD_ANY_REG_OP(nor->params->addr_mode_nbytes,
+					  SPINOR_REG_CYPRESS_ARCFN, 1,
+					  nor->bouncebuf);
+	ret = spi_nor_read_any_reg(nor, &op, nor->reg_proto);
+	if (ret)
+		return ret;
+
+	/* ARCFN value must be 0 if uniform sector is selected  */
+	if (nor->bouncebuf[0])
+		return -ENODEV;
+
 	cypress_nor_ecc_init(nor);
 
 	return 0;
