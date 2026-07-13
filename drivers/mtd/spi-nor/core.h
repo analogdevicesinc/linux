@@ -684,10 +684,6 @@ void spi_nor_mask_erase_type(struct spi_nor_erase_type *erase);
 void spi_nor_init_uniform_erase_map(struct spi_nor_erase_map *map,
 				    u8 erase_mask, u64 flash_size);
 
-int spi_nor_post_bfpt_fixups(struct spi_nor *nor,
-			     const struct sfdp_parameter_header *bfpt_header,
-			     const struct sfdp_bfpt *bfpt);
-
 void spi_nor_init_default_locking_ops(struct spi_nor *nor);
 bool spi_nor_has_default_locking_ops(struct spi_nor *nor);
 void spi_nor_try_unlock_all(struct spi_nor *nor);

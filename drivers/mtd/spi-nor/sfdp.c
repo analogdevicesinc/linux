@@ -402,6 +402,37 @@ static void spi_nor_regions_sort_erase_types(struct spi_nor_erase_map *map)
 }
 
 /**
+ * spi_nor_post_bfpt_fixups() - Updates the flash's parameters and settings
+ * after BFPT has been parsed. Called only for flashes that define JESD216 SFDP
+ * tables.
+ * @nor:	pointer to a 'struct spi_nor'
+ * @bfpt_header:	pointer to the 'struct sfdp_parameter_header' describing
+ *			the Basic Flash Parameter Table length and version
+ *
+ * Used to tweak various flash parameters when information provided by the SFDP
+ * tables are wrong.
+ */
+static int spi_nor_post_bfpt_fixups(struct spi_nor *nor,
+				    const struct sfdp_parameter_header *bfpt_header,
+				    const struct sfdp_bfpt *bfpt)
+{
+	int ret;
+
+	if (nor->manufacturer && nor->manufacturer->fixups &&
+	    nor->manufacturer->fixups->post_bfpt) {
+		ret = nor->manufacturer->fixups->post_bfpt(nor, bfpt_header,
+							   bfpt);
+		if (ret)
+			return ret;
+	}
+
+	if (nor->info->fixups && nor->info->fixups->post_bfpt)
+		return nor->info->fixups->post_bfpt(nor, bfpt_header, bfpt);
+
+	return 0;
+}
+
+/**
  * spi_nor_parse_bfpt() - read and parse the Basic Flash Parameter Table.
  * @nor:		pointer to a 'struct spi_nor'
  * @bfpt_header:	pointer to the 'struct sfdp_parameter_header' describing
