@@ -961,6 +961,9 @@ static void amdgpu_discovery_read_from_harvest_table(struct amdgpu_device *adev,
 		case SDMA0_HWID:
 			adev->sdma.sdma_mask &= ~BIT(inst);
 			break;
+		case MMHUB_HWID:
+			adev->mmhub.inst_mask &= ~BIT(inst);
+			break;
 #if defined(CONFIG_DRM_AMD_ISP)
 		case ISP_HWID:
 			adev->isp.harvest_config |= ~BIT(inst);
@@ -1250,6 +1253,9 @@ static uint8_t amdgpu_discovery_get_harvest_info(struct amdgpu_device *adev,
 		break;
 	case SDMA0_HWID:
 		harvest = ((1 << inst) & adev->sdma.sdma_mask) == 0;
+		break;
+	case MMHUB_HWID:
+		harvest = (BIT(inst) & adev->mmhub.inst_mask) == 0;
 		break;
 	default:
 		break;
