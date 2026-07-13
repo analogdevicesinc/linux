@@ -250,10 +250,9 @@ int adi_tru_probe(struct platform_device *pdev)
 
 	if (!tru->use_smc) {
 		void __iomem *base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
-		if (IS_ERR(base)) {
-			dev_err(dev, "Cannot map TRU base address\n");
-			return PTR_ERR(base);
-		}
+		if (IS_ERR(base))
+			return dev_err_probe(dev, PTR_ERR(base), "Cannot map TRU base address\n");
+
 		tru->ioaddr = base;
 	}
 
@@ -295,11 +294,9 @@ int adi_tru_probe(struct platform_device *pdev)
 		 */
 		while ((child = of_get_next_child(np, child))) {
 			ret = adi_tru_set_trigger(tru, child, child);
-			if (ret) {
-				dev_err(dev,
-					"Invalid static trigger map in TRU device tree entry\n");
-				return ret;
-			}
+			if (ret)
+				return dev_err_probe(dev, ret,
+						     "Invalid static trigger map in TRU device tree entry\n");
 		}
 
 		writel(0x01, tru->ioaddr + ADI_TRU_REG_GCTL);
@@ -312,10 +309,8 @@ int adi_tru_probe(struct platform_device *pdev)
 	tru->mbox.of_xlate   = adi_tru_mbox_xlate;
 
 	ret = devm_mbox_controller_register(dev, &tru->mbox);
-	if (ret) {
-		dev_err(dev, "Failed to register mailbox controller: %d\n", ret);
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to register mailbox controller\n");
 
 	dev_set_drvdata(dev, tru);
 	return 0;
