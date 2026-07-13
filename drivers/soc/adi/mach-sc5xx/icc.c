@@ -270,7 +270,7 @@ int adi_tru_probe(struct platform_device *pdev)
 		base = devm_ioremap(dev, res->start, resource_size(res));
 		if (IS_ERR(base)) {
 			dev_err(dev, "Cannot map TRU base address\n");
-			return -PTR_ERR(base);
+			return PTR_ERR(base);
 		}
 		tru->ioaddr = base;
 	}
