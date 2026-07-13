@@ -611,7 +611,8 @@ static int adi_rproc_parse_fw(struct rproc *rproc, const struct firmware *fw)
 		if (i > 0) {
 			continue;
 		} else {
-			/* Calc how many buffers we can fit in the vring region,
+			/*
+			 * Calc how many buffers we can fit in the vring region,
 			 * number of buffers must be power of 2
 			 */
 			for (num = 2; num < 0x00400000; num <<= 1) {
@@ -685,7 +686,8 @@ static struct resource_table *adi_rproc_find_loaded_rsc_table(struct rproc *rpro
 	return ret;
 }
 
-/* @todo store number of vrings from resource table and use it to dynamically
+/*
+ * @todo store number of vrings from resource table and use it to dynamically
  * notify the correct number of vrings
  */
 static irqreturn_t sharc_virtio_irq_threaded_handler(int irq, void *p)
@@ -865,7 +867,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(rproc_data->kick_chan),
 				     "Unable to get kick mailbox channel\n");
 
-	/* for now device addresses are represented as 32 bits and expanded to 64
+	/*
+	 * for now device addresses are represented as 32 bits and expanded to 64
 	 * here in driver code
 	 */
 	if (of_property_read_u32_array(np, "adi,l1-da", addr, 2)) {
