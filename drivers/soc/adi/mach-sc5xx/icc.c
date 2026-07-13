@@ -331,7 +331,7 @@ static struct platform_driver adi_tru_driver = {
 	.probe = adi_tru_probe,
 	.driver = {
 		.name = "adi-trigger-routing-unit",
-		.of_match_table = of_match_ptr(adi_tru_dt_ids),
+		.of_match_table = adi_tru_dt_ids,
 	},
 };
 module_platform_driver(adi_tru_driver);
