@@ -245,10 +245,8 @@ int adi_tru_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct adi_tru *tru;
-	struct resource *res;
 	struct device_node *np = dev->of_node;
 	struct device_node *child;
-	void __iomem *base;
 	u32 master, slave;
 	int ret = 0;
 
@@ -260,14 +258,7 @@ int adi_tru_probe(struct platform_device *pdev)
 	tru->use_smc = of_property_read_bool(np, "adi,use-smc");
 
 	if (!tru->use_smc) {
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-		if (!res) {
-			dev_err(dev,
-				"Missing TRU base address (reg property in device tree)\n");
-			return -ENODEV;
-		}
-
-		base = devm_ioremap(dev, res->start, resource_size(res));
+		void __iomem *base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
 		if (IS_ERR(base)) {
 			dev_err(dev, "Cannot map TRU base address\n");
 			return PTR_ERR(base);
