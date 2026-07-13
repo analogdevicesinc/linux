@@ -811,88 +811,74 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	const char *name;
 
 	ret = of_property_read_string(np, "firmware-name", &name);
-	if (ret) {
-		dev_err(dev, "Unable to get firmware-name property\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "Unable to get firmware-name property\n");
 
 	ret = of_property_read_u32(np, "core-id", &core_id);
-	if (ret) {
-		dev_err(dev, "Unable to get core-id property\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "Unable to get core-id property\n");
 
 	rproc = devm_rproc_alloc(dev, np->name, &adi_rproc_ops,
 				 name, sizeof(*rproc_data));
-	if (!rproc) {
-		dev_err(dev, "Unable to allocate remoteproc\n");
+	if (!rproc)
 		return -ENOMEM;
-	}
 
 	rproc_data = (struct adi_rproc_data *)rproc->priv;
 	platform_set_drvdata(pdev, rproc);
 
 	ret = of_parse_phandle_with_fixed_args(np, "adi,svect", 1, 0,
 					       &svect_args);
-	if (ret) {
-		dev_err(dev, "Missing adi,svect property\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(dev, ret, "Missing adi,svect property\n");
+
 	rproc_data->svect_regmap = syscon_node_to_regmap(svect_args.np);
 	of_node_put(svect_args.np);
-	if (IS_ERR(rproc_data->svect_regmap)) {
-		dev_err(dev, "Unable to get SVECT regmap\n");
-		return PTR_ERR(rproc_data->svect_regmap);
-	}
+	if (IS_ERR(rproc_data->svect_regmap))
+		return dev_err_probe(dev, PTR_ERR(rproc_data->svect_regmap),
+				     "Unable to get SVECT regmap\n");
+
 	rproc_data->svect_offset = svect_args.args[0];
 
 	rproc_data->rst_crst = devm_reset_control_get_exclusive(dev, "crst");
-	if (IS_ERR(rproc_data->rst_crst)) {
-		dev_err(dev, "Unable to get crst reset control\n");
-		return PTR_ERR(rproc_data->rst_crst);
-	}
+	if (IS_ERR(rproc_data->rst_crst))
+		return dev_err_probe(dev, PTR_ERR(rproc_data->rst_crst),
+				     "Unable to get crst reset control\n");
 
 	rproc_data->rst_start = devm_reset_control_get_exclusive(dev, "start");
-	if (IS_ERR(rproc_data->rst_start)) {
-		dev_err(dev, "Unable to get start reset control\n");
-		return PTR_ERR(rproc_data->rst_start);
-	}
+	if (IS_ERR(rproc_data->rst_start))
+		return dev_err_probe(dev, PTR_ERR(rproc_data->rst_start),
+				     "Unable to get start reset control\n");
 
 	ret = reset_control_status(rproc_data->rst_start);
-	if (ret < 0) {
-		dev_err(dev, "Unable to read core status\n");
-		return ret;
-	} else if (ret == 0) {
-		dev_err(dev, "Error: Core%d not idle\n", core_id);
-		return -EBUSY;
-	}
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Unable to read core status\n");
+	else if (ret == 0)
+		return dev_err_probe(dev, -EBUSY,
+				     "Error: Core%d not idle\n", core_id);
 
 	rproc_data->kick_client.dev = dev;
 	rproc_data->kick_client.tx_block = false;
 
 	rproc_data->kick_chan = mbox_request_channel_byname(&rproc_data->kick_client,
 							    "kick");
-	if (IS_ERR(rproc_data->kick_chan)) {
-		ret = PTR_ERR(rproc_data->kick_chan);
-		if (ret != -EPROBE_DEFER)
-			dev_err(dev, "Unable to get kick mailbox channel\n");
-		return ret;
-	}
+	if (IS_ERR(rproc_data->kick_chan))
+		return dev_err_probe(dev, PTR_ERR(rproc_data->kick_chan),
+				     "Unable to get kick mailbox channel\n");
 
 	/* for now device addresses are represented as 32 bits and expanded to 64
 	 * here in driver code
 	 */
 	if (of_property_read_u32_array(np, "adi,l1-da", addr, 2)) {
-		dev_err(dev, "Missing adi,l1-da with L1 device address range information\n");
-		ret = -ENODEV;
+		ret = dev_err_probe(dev, -ENODEV,
+				    "Missing adi,l1-da with L1 device address range information\n");
 		goto free_mbox;
 	}
 	rproc_data->l1_da_range[0] = addr[0];
 	rproc_data->l1_da_range[1] = addr[1];
 
 	if (of_property_read_u32_array(np, "adi,l2-da", addr, 2)) {
-		dev_err(dev, "Missing adi,l2-da with L2 device address range information\n");
-		ret = -ENODEV;
+		ret = dev_err_probe(dev, -ENODEV,
+				    "Missing adi,l2-da with L2 device address range information\n");
 		goto free_mbox;
 	}
 	rproc_data->l2_da_range[0] = addr[0];
@@ -904,25 +890,20 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "Resource table set, enable rpmsg\n");
 		rmem = of_reserved_mem_lookup(node);
 		of_node_put(node);
-		if (!rmem) {
-			dev_err(&pdev->dev, "Translating adi,rsc-table failed\n");
-			ret = -ENOMEM;
+		if (!rmem)
 			goto free_mbox;
-		}
 
 		rproc_data->adi_rsc_table = devm_ioremap_wc(dev,
 							    rmem->base,
 							    rmem->size);
 		if (!rproc_data->adi_rsc_table) {
-			dev_err(dev, "Can't map adi,rsc-table\n");
 			ret = -ENOMEM;
 			goto free_mbox;
 		}
 
 		rproc_data->icc_irq = platform_get_irq(pdev, 0);
 		if (rproc_data->icc_irq <= 0) {
-			dev_err(dev, "No ICC IRQ specified\n");
-			ret = -ENOENT;
+			ret = dev_err_probe(dev, -ENOENT, "No ICC IRQ specified\n");
 			goto free_mbox;
 		}
 
@@ -934,31 +915,25 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 
 	rproc_data->core_workqueue = alloc_workqueue("Core workqueue",
 		WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
-	if (!rproc_data->core_workqueue) {
-		dev_err(dev, "Unable to allocate core workqueue\n");
-		ret = -ENOMEM;
+	if (!rproc_data->core_workqueue)
 		goto free_mbox;
-	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
-		dev_err(dev, "Cannot get L1 base address (reg 0)\n");
-		ret = -ENODEV;
+		ret = dev_err_probe(dev, -ENODEV, "Cannot get L1 base address (reg 0)\n");
 		goto free_workqueue;
 	}
 	rproc_data->L1_shared_base = devm_ioremap_wc(dev,
 						     res->start,
 						     resource_size(res));
 	if (!rproc_data->L1_shared_base) {
-		dev_err(dev, "Cannot map L1 shared memory\n");
 		ret = -ENOMEM;
 		goto free_workqueue;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	if (!res) {
-		dev_err(dev, "Cannot get L2 base address (reg 1)\n");
-		ret = -ENODEV;
+		ret = dev_err_probe(dev, -ENODEV, "Cannot get L2 base address (reg 1)\n");
 		goto free_workqueue;
 	}
 	rproc_data->L2_shared_base = devm_ioremap_wc(dev,
@@ -989,7 +964,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 
 	ret = rproc_add(rproc);
 	if (ret) {
-		dev_err(dev, "Failed to add rproc\n");
+		dev_err_probe(dev, ret, "Failed to add rproc\n");
 		goto put_dmaengine;
 	}
 
