@@ -822,8 +822,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	rproc = rproc_alloc(dev, np->name, &adi_rproc_ops,
-			    name, sizeof(*rproc_data));
+	rproc = devm_rproc_alloc(dev, np->name, &adi_rproc_ops,
+				 name, sizeof(*rproc_data));
 	if (!rproc) {
 		dev_err(dev, "Unable to allocate remoteproc\n");
 		return -ENOMEM;
@@ -836,39 +836,35 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 					       &svect_args);
 	if (ret) {
 		dev_err(dev, "Missing adi,svect property\n");
-		goto free_rproc;
+		return ret;
 	}
 	rproc_data->svect_regmap = syscon_node_to_regmap(svect_args.np);
 	of_node_put(svect_args.np);
 	if (IS_ERR(rproc_data->svect_regmap)) {
 		dev_err(dev, "Unable to get SVECT regmap\n");
-		ret = PTR_ERR(rproc_data->svect_regmap);
-		goto free_rproc;
+		return PTR_ERR(rproc_data->svect_regmap);
 	}
 	rproc_data->svect_offset = svect_args.args[0];
 
 	rproc_data->rst_crst = devm_reset_control_get_exclusive(dev, "crst");
 	if (IS_ERR(rproc_data->rst_crst)) {
 		dev_err(dev, "Unable to get crst reset control\n");
-		ret = PTR_ERR(rproc_data->rst_crst);
-		goto free_rproc;
+		return PTR_ERR(rproc_data->rst_crst);
 	}
 
 	rproc_data->rst_start = devm_reset_control_get_exclusive(dev, "start");
 	if (IS_ERR(rproc_data->rst_start)) {
 		dev_err(dev, "Unable to get start reset control\n");
-		ret = PTR_ERR(rproc_data->rst_start);
-		goto free_rproc;
+		return PTR_ERR(rproc_data->rst_start);
 	}
 
 	ret = reset_control_status(rproc_data->rst_start);
 	if (ret < 0) {
 		dev_err(dev, "Unable to read core status\n");
-		goto free_rproc;
+		return ret;
 	} else if (ret == 0) {
 		dev_err(dev, "Error: Core%d not idle\n", core_id);
-		ret = -EBUSY;
-		goto free_rproc;
+		return -EBUSY;
 	}
 
 	rproc_data->kick_client.dev = dev;
@@ -880,7 +876,7 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 		ret = PTR_ERR(rproc_data->kick_chan);
 		if (ret != -EPROBE_DEFER)
 			dev_err(dev, "Unable to get kick mailbox channel\n");
-		goto free_rproc;
+		return ret;
 	}
 
 	/* for now device addresses are represented as 32 bits and expanded to 64
@@ -1008,9 +1004,6 @@ free_workqueue:
 free_mbox:
 	mbox_free_channel(rproc_data->kick_chan);
 
-free_rproc:
-	rproc_free(rproc);
-
 	return ret;
 }
 
@@ -1023,7 +1016,6 @@ static void adi_remoteproc_remove(struct platform_device *pdev)
 	dmaengine_put();
 	destroy_workqueue(rproc_data->core_workqueue);
 	mbox_free_channel(rproc_data->kick_chan);
-	rproc_free(rproc);
 }
 
 static const struct of_device_id adi_rproc_of_match[] = {
