@@ -9,7 +9,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 
 / {
-	model = "Avnet ZedBoard board";
+	model = "Xilinx Zynq ZED";
 	compatible = "avnet,zynq-zed", "xlnx,zynq-zed", "xlnx,zynq-7000";
 
 	aliases {

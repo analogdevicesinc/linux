@@ -119,7 +119,7 @@
 	adc_ad4883: adc_ad4883@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		compatible = "adi,ad4884";
+		compatible = "adi,ad4883";
 		reg = <0>, <1>;
 		spi-max-frequency = <10000000>;
 		clocks = <&clk0_ad9508 2>;

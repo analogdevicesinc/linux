@@ -63,6 +63,17 @@ config NVMEM_APPLE_SPMI
 	  This driver can also be built as a module. If so, the module
 	  will be called apple-nvmem-spmi.
 
+config NVMEM_AXI_SYSID
+	tristate "Analog Devices AXI SYSID Support"
+	depends on HAS_IOMEM
+	help
+	  Say y here to enable support for the Analog Devices AXI SYSID
+	  HDL core, which exposes build, board, and product information
+	  from an FPGA design as an nvmem device.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called nvmem-axi-sysid.
+
 config NVMEM_BCM_OCOTP
 	tristate "Broadcom On-Chip OTP Controller support"
 	depends on ARCH_BCM_IPROC || COMPILE_TEST
