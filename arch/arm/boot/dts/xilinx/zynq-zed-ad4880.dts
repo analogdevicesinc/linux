@@ -111,6 +111,17 @@
 		#clock-cells = <0>;
 		clock-frequency = <400000000>;
 	};
+
+	gpio-control {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&gpio0 91 0>;
+		channel@0 {
+			reg = <0>;
+			label = "SYNC_N";
+		};
+	};
 };
 
 &spi0 {
