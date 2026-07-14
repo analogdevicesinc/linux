@@ -273,7 +273,6 @@ struct ad9528_state {
 	struct iio_chan_spec		ad9528_channels[AD9528_NUM_CHAN];
 	struct clk_onecell_data		clk_data;
 	struct clk			*clks[AD9528_NUM_CHAN];
-	struct gpio_desc			*reset_gpio;
 	struct gpio_desc		*sysref_req_gpio;
 	struct jesd204_dev 		*jdev;
 	u32				jdev_lmfc_lemc_rate;
@@ -1674,6 +1673,7 @@ static int ad9528_probe(struct spi_device *spi)
 	struct ad9528_platform_data *pdata;
 	struct iio_dev *indio_dev;
 	struct ad9528_state *st;
+	struct gpio_desc *reset_gpio;
 	struct gpio_desc *status0_gpio;
 	struct gpio_desc *status1_gpio;
 	struct clk *clk;
@@ -1682,6 +1682,11 @@ static int ad9528_probe(struct spi_device *spi)
 	clk = devm_clk_get(&spi->dev, NULL);
 	if (PTR_ERR(clk) == -EPROBE_DEFER)
 		return -EPROBE_DEFER;
+
+	reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset", GPIOD_OUT_HIGH);
+	if (IS_ERR(reset_gpio))
+		return dev_err_probe(&spi->dev, PTR_ERR(reset_gpio),
+				     "Failed to get reset gpio\n");
 
 	ret = devm_regulator_get_enable(&spi->dev, "vcc");
 	if (ret)
@@ -1721,10 +1726,12 @@ static int ad9528_probe(struct spi_device *spi)
 	status1_gpio = devm_gpiod_get_optional(&spi->dev,
 					"status1", GPIOD_OUT_LOW);
 
-	st->reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
-	if (!IS_ERR(st->reset_gpio)) {
+	if (reset_gpio) {
 		udelay(1);
-		ret = gpiod_direction_output(st->reset_gpio, 1);
+		ret = gpiod_direction_output(reset_gpio, 0);
+		if (ret)
+			return dev_err_probe(&spi->dev, ret,
+					     "Failed to release reset gpio\n");
 	}
 
 	mdelay(10);
