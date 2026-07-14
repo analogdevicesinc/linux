@@ -277,7 +277,7 @@
 };
 
 &clk0_ad9528 {
-	reset-gpios = <&gpio0 113 0>;
+	reset-gpios = <&gpio0 113 1>;
 };
 
 &axi_adrv9009_core_tx {

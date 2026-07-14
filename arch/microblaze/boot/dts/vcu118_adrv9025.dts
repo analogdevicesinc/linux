@@ -195,7 +195,7 @@
 		#size-cells = <0>;
 
 		spi-max-frequency = <1000000>;
-		reset-gpios = <&axi_gpio 62 0>;
+		reset-gpios = <&axi_gpio 62 1>;
 
 		clock-output-names = "ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2",
 			"ad9528-1_out3", "ad9528-1_out4", "ad9528-1_out5", "ad9528-1_out6",
