@@ -298,7 +298,7 @@
 };
 
 &clk0_ad9528 {
-	reset-gpios = <&axi_gpio 59 0>;
+	reset-gpios = <&axi_gpio 59 1>;
 };
 
 &fmc_i2c {

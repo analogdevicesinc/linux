@@ -267,7 +267,7 @@
 
 &clk0_ad9528 {
 	reg = <0>;
-	reset-gpios = <&sys_gpio_out 27 0>;
+	reset-gpios = <&sys_gpio_out 27 1>;
 };
 
 &trx0_ad9371 {
