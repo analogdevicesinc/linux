@@ -71,14 +71,15 @@ jobs:
 
         artifacts_files=$(echo $artifacts | jq '[.artifacts[] | [.name, .archive_download_url]]' -r)
         patterns="${{ inputs.artifacts }}"
-        echo $artifacts_files |  jq -r '.[] | @tsv' | while IFS=$'\t' read -r name url; do
+        echo "$artifacts_files" | jq -r '.[] | @tsv' | while IFS=$'\t' read -r name url; do
           matched=0
-          for p in $patterns; do
+          while IFS= read -r p; do
+            [[ -z "$p" ]] && continue
             if [[ $name == $p ]]; then
               matched=1
               break
             fi
-          done
+          done <<< "$patterns"
 
           if [[ "$matched" == "1" ]]; then
             echo "$name"
