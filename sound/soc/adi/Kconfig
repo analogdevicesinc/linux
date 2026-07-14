@@ -55,54 +55,6 @@ choice
 		  DMA interrupt handed over to SHARC firmware.
 endchoice
 
-config SND_SC5XX_MACHINE
-	tristate
-	depends on ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST
-	help
-	Describes the ASoC Machine driver for ADI SC5XX based boards
-	Audio devices on SC5xx requires this
-	Say Y or M if you want to enable this
-
-config SND_SC5XX_ADAU1761
-	tristate "Support for the ADAU1761 Machine driver on SHARC Audio board"
-	depends on SND_SC5XX_PCM && I2C
-	select SND_SC5XX_MACHINE
-	select SND_SOC_ADI_SC5XX_I2S
-	select SND_SOC_ADAU1761_I2C
-	help
-	Say Y if you want to add support for the Analog Devices ADAU1761
-        machine driver on the SHARC Audio board.
-
-config SND_SC5XX_ADAU1979
-	tristate "Support for the ADAU1979 Machine driver on SC5XX ezkit board"
-	depends on SND_SC5XX_PCM && I2C && (!SND_SC5XX_ADAU1761)
-	select SND_SC5XX_MACHINE
-	select SND_SOC_ADI_SC5XX_I2S
-	select SND_SOC_ADAU1977_I2C
-	help
-	Say Y if you want to add support for the Analog Devices ADAU1979
-        machine driver on the SC5XX ezkit board.
-
-config SND_SC5XX_ADAU1962
-	tristate "Support for the ADAU1962 Machine driver on SC5XX ezkit board"
-	depends on SND_SC5XX_PCM && I2C && (!SND_SC5XX_ADAU1761)
-	select SND_SC5XX_MACHINE
-	select SND_SOC_ADI_SC5XX_I2S
-	select SND_SOC_ADAU1962_I2C
-	help
-	Say Y if you want to add support for the Analog Devices ADAU1962
-        machine driver on the SC5XX ezkit board.
-
-config SND_SC5XX_ADAU1372
-	tristate "Support for the ADAU1372 Machine driver on SC5XX ezkit board"
-	depends on SND_SC5XX_PCM && I2C && (!SND_SC5XX_ADAU1761)
-	select SND_SC5XX_MACHINE
-	select SND_SOC_ADI_SC5XX_I2S
-	select SND_SOC_ADAU1372_I2C
-	help
-	Say Y if you want to add support for the Analog Devices ADAU1962
-        machine driver on the SC5XX ezkit board.
-
 config SND_SC5XX_SHARC_ALSA_CARD
 	tristate "SHARC-ALSA SoC Audio card for the ADI SC5XX chip"
 	depends on ADI_REMOTEPROC && RPMSG && NET && (ARCH_SC57X || ARCH_SC58X || ARCH_SC59X || ARCH_SC59X_64 || COMPILE_TEST)
