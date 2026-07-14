@@ -215,7 +215,7 @@
 				//adi,spi-3wire-enable;
 				reg = <0>;
 
-				reset-gpios = <&sys_gpio_out 27 0>;
+				reset-gpios = <&sys_gpio_out 27 1>;
 
 				clock-output-names = "ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2",
 					"ad9528-1_out3", "ad9528-1_out4", "ad9528-1_out5", "ad9528-1_out6",

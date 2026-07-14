@@ -439,5 +439,5 @@
 };
 
 &clk0_ad9528 {
-	reset-gpios = <&gpio 146 0>;
+	reset-gpios = <&gpio 146 1>;
 };
