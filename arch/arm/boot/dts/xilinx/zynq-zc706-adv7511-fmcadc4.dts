@@ -76,6 +76,6 @@
 #include "adi-fmcadc4.dtsi"
 
 &clk0_ad9528 {
-	reset-gpios = <&gpio0 86 0>;
+	reset-gpios = <&gpio0 86 1>;
 	status0-gpios = <&gpio0 87 0>;
 };

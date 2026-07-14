@@ -208,7 +208,7 @@
 				#clock-cells = <1>;
 				compatible = "ad9528";
 
-				reset-gpios = <&sys_gpio_out 27 0>;
+				reset-gpios = <&sys_gpio_out 27 1>;
 
 				//spi-cpol;
 				//spi-cpha;
