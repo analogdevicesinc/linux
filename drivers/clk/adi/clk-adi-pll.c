@@ -60,18 +60,17 @@ static void sc5xx_cgu_pll_unprepare(struct clk_hw *hw)
 	pll->prepared = 0;
 }
 
-static long sc5xx_cgu_pll_round_rate(struct clk_hw *hw, unsigned long rate,
-				     unsigned long *parent_rate)
+static int sc5xx_cgu_pll_determine_rate(struct clk_hw *hw, struct clk_rate_request *req)
 {
 	struct clk_sc5xx_cgu_pll *pll = to_clk_sc5xx_cgu_pll(hw);
 	struct clk_hw *parent_hw;
-	unsigned long prate = *parent_rate;
+	unsigned long prate = req->best_parent_rate;
 	int parent_inc;
 	unsigned long m, m2, new_rate, nr2, prate2;
 
 	parent_hw = clk_hw_get_parent(hw);
 
-	m = rate / ((pll->half_m ? 2 : 1) * prate);
+	m = req->rate / ((pll->half_m ? 2 : 1) * prate);
 
 	if (m > pll->max) {
 		// cannot scale this far, need bigger input
@@ -80,37 +79,42 @@ static long sc5xx_cgu_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 		    clk_hw_round_rate(parent_hw, prate * (parent_inc + 1));
 
 		/* recalculate m to cope for how prate actually changed */
-		m = rate / ((pll->half_m ? 2 : 1) * prate);
+		m = req->rate / ((pll->half_m ? 2 : 1) * prate);
 	}
 
-	if (m > pll->max)
-		return prate * pll->max * (pll->half_m ? 2 : 1);
+	if (m > pll->max) {
+		req->best_parent_rate = prate;
+		req->rate = prate * pll->max * (pll->half_m ? 2 : 1);
+		return 0;
+	}
 
 	if (m == 0) {
 		pr_err
 		    ("%s: Cannot use VCO to reduce parent clock rate, requested %lu, clamping to %lu\n",
-		     __func__, rate, prate * (pll->half_m ? 2 : 1));
-		return prate * (pll->half_m ? 2 : 1);
+		     __func__, req->rate, prate * (pll->half_m ? 2 : 1));
+		req->rate = prate * (pll->half_m ? 2 : 1);
+		return 0;
 	}
 
 	new_rate = prate * m * (pll->half_m ? 2 : 1);
 
-	if (new_rate != rate) {
+	if (new_rate != req->rate) {
 		// Check if we could get an integer match by halving parent rate since we
 		// know at least about the DF bit before the VCO, although we don't know
 		// if we're already using it or not
 		prate2 = clk_hw_round_rate(parent_hw, prate / 2);
-		m2 = rate / ((pll->half_m ? 2 : 1) * prate2);
+		m2 = req->rate / ((pll->half_m ? 2 : 1) * prate2);
 		nr2 = prate2 * m2 * (pll->half_m ? 2 : 1);
-		if (m2 <= pll->max && nr2 == rate) {
+		if (m2 <= pll->max && nr2 == req->rate) {
 			m = m2;
 			new_rate = nr2;
 			prate = prate2;
 		}
 	}
 
-	*parent_rate = prate;
-	return new_rate;
+	req->best_parent_rate = prate;
+	req->rate = new_rate;
+	return 0;
 }
 
 static unsigned long sc5xx_cgu_pll_recalc_rate(struct clk_hw *hw,
@@ -155,7 +159,7 @@ static const struct clk_ops clk_sc5xx_cgu_pll_ops = {
 	.unprepare = sc5xx_cgu_pll_unprepare,
 	.is_prepared = sc5xx_cgu_pll_is_prepared,
 	.recalc_rate = sc5xx_cgu_pll_recalc_rate,
-	.round_rate = sc5xx_cgu_pll_round_rate,
+	.determine_rate = sc5xx_cgu_pll_determine_rate,
 	.set_rate = sc5xx_cgu_pll_set_rate,
 };
 
