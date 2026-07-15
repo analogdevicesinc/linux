@@ -28,10 +28,6 @@
 #include <linux/printk.h>
 #include <linux/dev_printk.h>
 #include <linux/mempool.h>
-#if defined(CONFIG_X86_MCE_AMD) && defined(CONFIG_ACPI_APEI)
-#include <linux/cper.h>
-#include <acpi/ghes.h>
-#endif
 #include "amdgpu.h"
 
 /* inject address is 52 bits */

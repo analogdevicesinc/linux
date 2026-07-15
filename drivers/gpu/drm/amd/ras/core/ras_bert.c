@@ -25,21 +25,109 @@
 #include "ras.h"
 
 #if defined(CONFIG_X86_MCE_AMD) && defined(CONFIG_ACPI_APEI)
+struct ras_bert_hest_generic_status {
+	u32 block_status;
+	u32 raw_data_offset;
+	u32 raw_data_length;
+	u32 data_length;
+	u32 error_severity;
+};
+
+struct ras_bert_hest_generic_data {
+	u8 section_type[16];
+	u32 error_severity;
+	u16 revision;
+	u8 validation_bits;
+	u8 flags;
+	u32 error_data_length;
+	u8 fru_id[16];
+	u8 fru_text[20];
+};
+
+struct ras_bert_hest_generic_data_v300 {
+	u8 section_type[16];
+	u32 error_severity;
+	u16 revision;
+	u8 validation_bits;
+	u8 flags;
+	u32 error_data_length;
+	u8 fru_id[16];
+	u8 fru_text[20];
+	u64 time_stamp;
+};
+
+static inline int ras_bert_get_version(struct ras_bert_hest_generic_data *gdata)
+{
+	return gdata->revision >> 8;
+}
+
+static inline void *ras_bert_get_payload(struct ras_bert_hest_generic_data *gdata)
+{
+	if (ras_bert_get_version(gdata) >= 3)
+		return (void *)(((struct ras_bert_hest_generic_data_v300 *)(gdata)) + 1);
+
+	return gdata + 1;
+}
+
+static inline int ras_bert_get_size(struct ras_bert_hest_generic_data *gdata)
+{
+	if (ras_bert_get_version(gdata) >= 3)
+		return sizeof(struct ras_bert_hest_generic_data_v300);
+
+	return sizeof(struct ras_bert_hest_generic_data);
+}
+
+static inline void *ras_bert_get_next(struct ras_bert_hest_generic_data *gdata)
+{
+	return (void *)gdata + ras_bert_get_size(gdata) + gdata->error_data_length;
+}
+
+static int ras_bert_estatus_check(const struct ras_bert_hest_generic_status *estatus)
+{
+	struct ras_bert_hest_generic_data *gdata;
+	unsigned int data_len, record_size;
+
+	if (estatus->data_length &&
+	    estatus->data_length < sizeof(struct ras_bert_hest_generic_data))
+		return -EINVAL;
+	if (estatus->raw_data_length &&
+	    estatus->raw_data_offset < sizeof(*estatus) + estatus->data_length)
+		return -EINVAL;
+
+	data_len = estatus->data_length;
+	gdata = (struct ras_bert_hest_generic_data *)(estatus + 1);
+	while ((void *)gdata - (void *)(estatus + 1) < estatus->data_length) {
+		if (ras_bert_get_size(gdata) > data_len)
+			return -EINVAL;
+
+		record_size = ras_bert_get_size(gdata) + gdata->error_data_length;
+		if (record_size > data_len)
+			return -EINVAL;
+
+		data_len -= record_size;
+		gdata = ras_bert_get_next(gdata);
+	}
+	if (data_len)
+		return -EINVAL;
+
+	return 0;
+}
+
 int ras_bert_process_records(struct ras_core_context *ras_core,
 			     const void *bert, u32 bert_len)
 {
-	struct acpi_hest_generic_status *estatus;
-	struct acpi_hest_generic_data *gdata;
+	struct ras_bert_hest_generic_status *estatus;
+	struct ras_bert_hest_generic_data *gdata;
 	u32 estatus_len;
 	int remain;
 
-	if (!ras_core || !bert || bert_len < sizeof(struct acpi_hest_generic_status))
+	if (!ras_core || !bert || bert_len < sizeof(struct ras_bert_hest_generic_status))
 		return -EINVAL;
 
-	estatus = (struct acpi_hest_generic_status *)bert;
+	estatus = (struct ras_bert_hest_generic_status *)bert;
 	remain = bert_len;
 
-	while (remain >= sizeof(struct acpi_hest_generic_status)) {
+	while (remain >= sizeof(struct ras_bert_hest_generic_status)) {
 		estatus_len = estatus->raw_data_length ?
 			      estatus->raw_data_offset + estatus->raw_data_length :
 			      sizeof(*estatus) + estatus->data_length;
@@ -57,19 +145,19 @@ int ras_bert_process_records(struct ras_core_context *ras_core,
 		 * parse the cached BERT payload, so do not use block_status to
 		 * decide whether this status block contains records.
 		 */
-		if (cper_estatus_check(estatus)) {
+		if (ras_bert_estatus_check(estatus)) {
 			RAS_DEV_ERR(ras_core->dev, "invalid error record.\n");
 			return -EINVAL;
 		}
 
-		gdata = (struct acpi_hest_generic_data *)(estatus + 1);
+		gdata = (struct ras_bert_hest_generic_data *)(estatus + 1);
 		while ((void *)gdata - (void *)(estatus + 1) < estatus->data_length) {
 			RAS_DEV_INFO(ras_core->dev, "unknown section: %pUl\n",
 				     gdata->section_type);
 
-			gdata = acpi_hest_get_next(gdata);
+			gdata = ras_bert_get_next(gdata);
 		}
-		estatus = (struct acpi_hest_generic_status *)((u8 *)estatus + estatus_len);
+		estatus = (struct ras_bert_hest_generic_status *)((u8 *)estatus + estatus_len);
 		remain -= estatus_len;
 	}
 
