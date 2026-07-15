@@ -172,6 +172,11 @@ static const struct snd_soc_component_driver sc5xx_pcm_component = {
 	.prepare	= sc5xx_pcm_prepare,
 	.trigger	= sc5xx_pcm_trigger,
 	.pointer	= sc5xx_pcm_pointer,
+	/*
+	 * Needs s/pcm_construct/pcm_new/ when rebased to v7.1-rc1 or later. See
+	 * commit tags/v7.1-rc1~166^2~5^2~86^2 ("ASoC: soc-component: remove
+	 * pcm_construct()/pcm_destruct()")
+	 */
 	.pcm_construct	= sc5xx_pcm_new,
 };
 

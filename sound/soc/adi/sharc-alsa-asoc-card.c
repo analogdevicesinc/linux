@@ -502,6 +502,11 @@ static void sa_delayed_probe(struct work_struct *work)
 		sa_comp.component_driver.prepare = sa_pcm_prepare;
 		sa_comp.component_driver.trigger = sa_pcm_trigger;
 		sa_comp.component_driver.pointer = sa_pcm_pointer;
+		/*
+		 * Needs s/pcm_construct/pcm_new/ when rebased to v7.1-rc1 or later. See
+		 * commit tags/v7.1-rc1~166^2~5^2~86^2 ("ASoC: soc-component: remove
+		 * pcm_construct()/pcm_destruct()")
+		 */
 		sa_comp.component_driver.pcm_construct = sa_pcm_new;
 
 		sa->asoc_platform_devs[sa->platform_num] = platform_device_register_data(
