@@ -158,4 +158,6 @@ void adrv904x_register_debugfs(struct iio_dev *indio_dev);
 static inline void adrv904x_register_debugfs(struct iio_dev *indio_dev) {}
 #endif
 
+int adrv904x_ramc_probe(struct adrv904x_rf_phy *phy);
+
 #endif

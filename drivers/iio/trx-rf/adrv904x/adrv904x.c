@@ -2340,6 +2340,10 @@ static int adrv904x_probe(struct spi_device *spi)
 
 	adrv904x_register_debugfs(indio_dev);
 
+	ret = adrv904x_ramc_probe(phy);
+	if (ret < 0)
+		return ret;
+
 	adi_adrv904x_HwClose(phy->kororDevice);
 
 	return devm_jesd204_fsm_start(&spi->dev, phy->jdev, JESD204_LINKS_ALL);
