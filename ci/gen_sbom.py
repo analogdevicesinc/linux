@@ -27,10 +27,7 @@ purl_prefix_upstream = {
     "linux": "github/gregkh/linux",
     "u-boot": "github/u-boot/u-boot",
 }
-purl_prefix_ci = {
-    "linux": "github/analogdevicesinc/linux@ci",
-    "u-boot": "github/analogdevicesinc/u-boot@ci",
-}
+purl_prefix_ci = "github/analogdevicesinc/linux@ci"
 
 product_metadata = {
     "linux": {
@@ -163,8 +160,8 @@ def get_purl_upstream(ctx):
         stable_tag = release
     return f"pkg:{purl_prefix_upstream[ctx['type']]}@{stable_tag}"
 
-def get_purl_ci(ctx):
-    return f"pkg:{purl_prefix_ci[ctx['type']]}"
+def get_purl_ci():
+    return f"pkg:{purl_prefix_ci}"
 
 def get_purl_out(ctx):
     release          = ctx.get(_metadata(ctx)["release_key"], "")
@@ -217,7 +214,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
              └─ Relationship: hasDeclaredLicense per file
     """
     purl_src = f"urn:purl:{get_purl_src(ctx)}"
-    purl_ci = f"urn:purl:{get_purl_ci(ctx)}"
+    purl_ci = f"urn:purl:{get_purl_ci()}"
     purl_out = f"urn:purl:{get_purl_out(ctx)}"
 
     release        = ctx.get(_metadata(ctx)["release_key"])
