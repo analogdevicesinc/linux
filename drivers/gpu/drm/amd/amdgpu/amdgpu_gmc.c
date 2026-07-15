@@ -1364,7 +1364,8 @@ int amdgpu_gmc_sysfs_init(struct amdgpu_device *adev)
 	if (!adev->gmc.gmc_funcs->query_mem_partition_mode)
 		return 0;
 
-	nps_switch_support = (hweight32(adev->gmc.supported_nps_modes &
+	nps_switch_support = !adev->gmc.xgmi.connected_to_cpu &&
+			     (hweight32(adev->gmc.supported_nps_modes &
 					AMDGPU_ALL_NPS_MASK) > 1);
 	if (!nps_switch_support)
 		dev_attr_current_memory_partition.attr.mode &=
