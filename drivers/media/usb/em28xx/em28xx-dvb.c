@@ -742,18 +742,14 @@ static int em28xx_pctv_290e_set_lna_gpio(struct em28xx *dev, u32 lna)
 #ifdef CONFIG_GPIOLIB_LEGACY
 	struct em28xx_dvb *dvb = dev->dvb;
 	int ret;
-	unsigned long flags;
 
-	if (lna == 1)
-		flags = GPIOF_OUT_INIT_HIGH; /* enable LNA */
-	else
-		flags = GPIOF_OUT_INIT_LOW; /* disable LNA */
-
-	ret = gpio_request_one(dvb->lna_gpio, flags, NULL);
-	if (ret)
+	ret = gpio_request(dvb->lna_gpio, NULL);
+	if (ret) {
 		dev_err(&dev->intf->dev, "gpio request failed %d\n", ret);
-	else
+	} else {
+		gpio_direction_output(dvb->lna_gpio, !!(lna == 1));
 		gpio_free(dvb->lna_gpio);
+	}
 
 	return ret;
 #else
