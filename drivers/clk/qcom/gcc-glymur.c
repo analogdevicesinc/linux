@@ -8469,6 +8469,17 @@ static void clk_glymur_regs_configure(struct device *dev, struct regmap *regmap)
 {
 	/* FORCE_MEM_CORE_ON for ufs phy ice core clocks */
 	qcom_branch_set_force_mem_core(regmap, gcc_ufs_phy_ice_core_clk, true);
+
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_3a_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_3a_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_3b_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_3b_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_4_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_4_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_5_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_5_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_6_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_6_pipe_clk, true);
 }
 
 static const struct qcom_cc_driver_data gcc_glymur_driver_data = {

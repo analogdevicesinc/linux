@@ -1824,11 +1824,24 @@ static const u32 gcc_nord_critical_cbcrs[] = {
 	0x52468, /* GCC_PCIE_LINK_XO_CLK */
 };
 
+static void clk_nord_regs_configure(struct device *dev, struct regmap *regmap)
+{
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_a_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_a_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_b_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_b_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_c_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_c_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_d_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_d_pipe_clk, true);
+}
+
 static const struct qcom_cc_driver_data gcc_nord_driver_data = {
 	.dfs_rcgs = gcc_nord_dfs_clocks,
 	.num_dfs_rcgs = ARRAY_SIZE(gcc_nord_dfs_clocks),
 	.clk_cbcrs = gcc_nord_critical_cbcrs,
 	.num_clk_cbcrs = ARRAY_SIZE(gcc_nord_critical_cbcrs),
+	.clk_regs_configure = clk_nord_regs_configure,
 };
 
 static const struct qcom_cc_desc gcc_nord_desc = {
