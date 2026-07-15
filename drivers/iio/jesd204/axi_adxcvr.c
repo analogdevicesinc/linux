@@ -9,6 +9,7 @@
  */
 
 #include <asm/io.h>
+#include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/of_device.h>
@@ -1108,6 +1109,19 @@ static int adxcvr_probe(struct platform_device *pdev)
 	}
 
 	st->dev = &pdev->dev;
+
+	/*
+	 * The eye-scan MMIO write address register (ADXCVR_REG_ES_CONTROL_5)
+	 * is 32 bits wide with no companion _HIGH register, so the eye-scan
+	 * DMA buffer must land in the low 4 GB of host physical memory
+	 * regardless of what a bus parent advertises. Cap the coherent
+	 * mask before adxcvr_eyescan_register() calls dma_alloc_coherent().
+	 */
+	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret,
+				     "failed to set 32-bit coherent DMA mask\n");
+
 	st->xcvr.version = adxcvr_read(st, ADI_AXI_REG_VERSION);
 	if (ADI_AXI_PCORE_VER_MAJOR(st->xcvr.version) > 0x10)
 		adxcvr_get_info(st);
