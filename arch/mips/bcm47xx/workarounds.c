@@ -9,11 +9,13 @@ static void __init bcm47xx_workarounds_enable_usb_power(int usb_power)
 {
 	int err;
 
-	err = gpio_request_one(usb_power, GPIOF_OUT_INIT_HIGH, "usb_power");
-	if (err)
+	err = gpio_request(usb_power, "usb_power");
+	if (err) {
 		pr_err("Failed to request USB power gpio: %d\n", err);
-	else
+	} else {
+		gpio_direction_output(usb_power, 1);
 		gpio_free(usb_power);
+	}
 }
 
 void __init bcm47xx_workarounds(void)
