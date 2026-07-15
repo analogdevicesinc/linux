@@ -11,17 +11,32 @@
 	model = "ADI 64-bit SC598 SOM EZ Lite";
 	compatible = "adi,sc598-som-ezlite", "adi,sc59x-64";
 
-	mclk: clock-24576000 {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <24576000>;
-		clock-output-names = "mclk";
-	};
-
 	sound {
-		compatible = "adi,sc5xx-asoc-card";
-		adi,cpu-dai = <&i2s0>;
-		adi,codec = <&adau1372>;
+		compatible = "simple-audio-card";
+		simple-audio-card,format = "dsp_a";
+		simple-audio-card,widgets = "Microphone", "AIN0",
+					    "Microphone", "AIN1",
+					    "Microphone", "AIN2",
+					    "Microphone", "AIN3",
+					    "Headphone", "STEREO OUT";
+		simple-audio-card,routing = "STEREO OUT", "CODEC HPOUTL",
+					    "STEREO OUT", "CODEC HPOUTR",
+					    "CODEC AIN0", "AIN0",
+					    "CODEC AIN1", "AIN1",
+					    "CODEC AIN2", "AIN2",
+					    "CODEC AIN3", "AIN3";
+
+		simple-audio-card,cpu {
+			sound-dai = <&i2s0>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&codec>;
+			frame-master;
+			bitclock-master;
+			dai-tdm-slot-num = <8>;
+			dai-tdm-slot-width = <32>;
+		};
 	};
 };
 
@@ -90,13 +105,6 @@
 			line-name = "eth0-reset";
 		};
 
-		adau1372-pwrdwn {
-			gpio-hog;
-			gpios = <13 GPIO_ACTIVE_LOW>;
-			output-low;
-			line-name = "adau1372_pwrdwn";
-		};
-
 		led1 {
 			gpio-hog;
 			gpios = <15 GPIO_ACTIVE_LOW>;
@@ -123,7 +131,9 @@
 		compatible = "adi,adau1372";
 		reg = <0x3c>;
 		clock-names = "mclk";
-		clocks = <&mclk>;
+		clocks = <&audio_clk>;
+		powerdown-gpios = <&crr_gpio_expander 13 GPIO_ACTIVE_LOW>;
+		sound-name-prefix = "CODEC";
 	};
 };
 
