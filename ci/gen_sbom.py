@@ -23,6 +23,42 @@ org_email = "linux@analog.com"
 tool_name = "linux-sbom-gen"
 tool_version = "1.0.0"
 
+purl_prefix_upstream = {
+    "linux": "github/gregkh/linux",
+    "u-boot": "github/u-boot/u-boot",
+}
+purl_prefix_ci = {
+    "linux": "github/analogdevicesinc/linux@ci",
+    "u-boot": "github/analogdevicesinc/u-boot@ci",
+}
+
+product_metadata = {
+    "linux": {
+        "release_key": "kernel_release",
+        "image_key": "kernel",
+        "defconfig_key": "kernel_defconfig",
+        "name": "Linux Kernel",
+        "description": "The Linux kernel is the core of any Linux operating system.",
+        "component_prefix": "linux",
+        "package_purpose": "operatingSystem",
+        "main_source": path.join("init", "main.c"),
+        "package_id": "linux",
+        "sbom_name_prefix": "linux-kernel",
+    },
+    "u-boot": {
+        "release_key": "uboot_release",
+        "image_key": "uboot",
+        "defconfig_key": "uboot_defconfig",
+        "name": "U-Boot",
+        "description": "Das U-Boot is an open source boot loader for embedded systems.",
+        "component_prefix": "u-boot",
+        "package_purpose": "firmware",
+        "main_source": path.join("common", "main.c"),
+        "package_id": "u-boot",
+        "sbom_name_prefix": "u-boot",
+    },
+}
+
 def _hash(filepath, alg):
     h = hashlib.new(alg)
     with open(filepath, "rb") as f:
@@ -61,14 +97,18 @@ def get_gitref(git_ref):
 
     return git_ref.replace('/', '-')
 
+def _metadata(ctx):
+    return product_metadata[ctx['type']]
+
 def get_component(ctx):
     git_ref = get_gitref(ctx.get("git_ref", ""))
+    prefix = _metadata(ctx)["component_prefix"]
 
-    return f"linux-{git_ref}"
+    return f"{prefix}-{git_ref}" if git_ref else prefix
 
 def get_artifact(ctx):
     compiler_name    = ctx.get("compiler_name", "")
-    defconfig        = ctx.get("kernel_defconfig")
+    defconfig        = ctx.get(_metadata(ctx)["defconfig_key"])
     arch             = ctx.get("compiler_arch")
 
     return f"{defconfig}-{compiler_name}-{arch}"
@@ -98,34 +138,50 @@ def _kernel_release_to_tag(kernel_release):
     tag = re.sub(r'\.0($|-rc)', r'\1', tag)
     return f'v{tag}'
 
+def _uboot_release_to_tag(uboot_release):
+    # Adapt fine version with upstream tag
+    # Build                      Upstream
+    # 2025.01-g4716953ee391      v2025.01
+    # 2025.01-rc2-g4716953ee391  v2025.01-rc2
+    # 2025.01.1-g4716953ee391    v2025.01.1
+    m = re.match(r'^(\d{4}\.\d{2}(?:\.\d+)?(?:-rc\d+)?)', uboot_release)
+    tag = m.group(1) if m else uboot_release
+    return f'v{tag}'
+
 def get_purl_src(ctx):
     git_sha = ctx.get("git_sha", "")
 
     return f"pkg:{_get_repository()}@{git_sha}"
 
 def get_purl_upstream(ctx):
-    stable_tag = _kernel_release_to_tag(ctx.get("kernel_release", ""))
-    return f"pkg:github/gregkh/linux@{stable_tag}"
+    release = ctx.get(_metadata(ctx)["release_key"], "")
+    if ctx['type'] == 'linux':
+        stable_tag = _kernel_release_to_tag(release)
+    elif ctx['type'] == 'u-boot':
+        stable_tag = _uboot_release_to_tag(release)
+    else:
+        stable_tag = release
+    return f"pkg:{purl_prefix_upstream[ctx['type']]}@{stable_tag}"
 
-def get_purl_ci():
-    return "pkg:github/analogdevicesinc/linux@ci"
+def get_purl_ci(ctx):
+    return f"pkg:{purl_prefix_ci[ctx['type']]}"
 
 def get_purl_out(ctx):
-    kernel_release   = ctx.get("kernel_release", "")
-    kernel           = ctx.get("kernel", "")
+    release          = ctx.get(_metadata(ctx)["release_key"], "")
+    image            = ctx.get(_metadata(ctx)["image_key"], "")
     arch             = ctx.get("compiler_arch", "")
-    defconfig        = ctx.get("kernel_defconfig", "")
+    defconfig        = ctx.get(_metadata(ctx)["defconfig_key"], "")
     compiler_name    = ctx.get("compiler_name", "")
     compiler_version = ctx.get("compiler_version", "")
     git_ref          = ctx.get("git_ref", "")
     git_sha          = ctx.get("git_sha", "")
 
     qualifiers = {
-        "release": kernel_release,
+        "release": release,
         "compiler": f"{compiler_name}-{compiler_version}",
         "arch": arch,
         "config": defconfig,
-        "image": kernel,
+        "image": image,
         "ref": git_ref
     }
 
@@ -139,10 +195,10 @@ def get_purl_out(ctx):
     return f"pkg:{_get_repository()}@{git_sha}?{qualifiers_}"
 
 def get_name(ctx):
-    return "Linux Kernel"
+    return _metadata(ctx)["name"]
 
 def get_description(ctx):
-    return "The Linux kernel is the core of any Linux operating system."
+    return _metadata(ctx)["description"]
 
 def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     """Return an SPDX 3.0.1 JSON-LD dict.
@@ -161,13 +217,13 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
              └─ Relationship: hasDeclaredLicense per file
     """
     purl_src = f"urn:purl:{get_purl_src(ctx)}"
-    purl_ci = f"urn:purl:{get_purl_ci()}"
+    purl_ci = f"urn:purl:{get_purl_ci(ctx)}"
     purl_out = f"urn:purl:{get_purl_out(ctx)}"
 
-    kernel_release = ctx.get("kernel_release")
-    kernel         = ctx.get("kernel")
+    release        = ctx.get(_metadata(ctx)["release_key"])
+    image          = ctx.get(_metadata(ctx)["image_key"])
     arch           = ctx.get("compiler_arch")
-    defconfig      = ctx.get("kernel_defconfig")
+    defconfig      = ctx.get(_metadata(ctx)["defconfig_key"])
     compiler_name  = ctx.get("compiler_name")
     compiler_ver   = ctx.get("compiler_version")
     git_sha        = ctx.get("git_sha")
@@ -177,7 +233,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         int(git_sha_ct), tz=datetime.timezone.utc
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    image_path = path.join(dist, "boot", kernel)
+    image_path = path.join(dist, "boot", image)
     git_url = environ.get('GIT_URL', '')
 
     def _id_out(tag):
@@ -191,7 +247,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
 
     id_doc     = _id_out("document")
     id_sbom    = _id_out("sbom")
-    id_pkg     = _id_out("pkg/linux")
+    id_pkg     = _id_out(f"pkg/{_metadata(ctx)['package_id']}")
     id_image   = _id_out("file/image")
     id_build   = _id_src("build/0")
     id_tool    = _id_ci(f"tool/{tool_name}")
@@ -282,8 +338,8 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "spdxId":           id_pkg,
         "creationInfo":     "_:creationinfo",
         "name":             get_name(ctx),
-        "software_packageVersion": kernel_release,
-        "software_primaryPurpose": "operatingSystem",
+        "software_packageVersion": release,
+        "software_primaryPurpose": _metadata(ctx)["package_purpose"],
         "description": get_description(ctx),
     }
     package["externalIdentifier"] = [{
@@ -330,7 +386,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "type":             "software_File",
         "spdxId":           id_image,
         "creationInfo":     "_:creationinfo",
-        "name":             kernel,
+        "name":             image,
         "software_fileKind": "file",
         "software_primaryPurpose": "executable",
     }
@@ -393,7 +449,7 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "type":             "software_Sbom",
         "spdxId":           id_sbom,
         "creationInfo":     "_:creationinfo",
-        "name":             f"linux-kernel-{kernel_release}-{git_sha}-{defconfig}-{compiler_name}-{arch}-{kernel}",
+        "name":             f"{_metadata(ctx)['sbom_name_prefix']}-{release}-{git_sha}-{defconfig}-{compiler_name}-{arch}-{image}",
         "rootElement":      [id_pkg],
         "element":          all_element_ids,
         "software_sbomType": ["source"],
@@ -431,6 +487,15 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
     }
 
 
+def set_ctx_type(ctx):
+    if "kernel_release" in ctx:
+        ctx['type'] = 'linux'
+    elif "uboot_release" in ctx:
+        ctx['type'] = 'u-boot'
+    else:
+        print("error: Could not infer type from context.txt", file=sys.stderr)
+        sys.exit(1)
+
 def main():
     dist = environ.get('DIST', None)
     if dist is None:
@@ -438,20 +503,22 @@ def main():
         sys.exit(1)
 
     ctx = _load_context(path.join(dist, "context.txt"))
+    set_ctx_type(ctx)
 
     with open(path.join(dist, "compile_commands.json")) as f:
         db = json.load(f)
 
     src_root = None
     main_c_command = None
+    main_source = _metadata(ctx)["main_source"]
     for entry in db:
         fp = entry["file"]
-        if fp.endswith(sep + "init" + sep + "main.c"):
-            src_root = fp[:-len("init" + sep + "main.c")]
+        if fp.endswith(sep + main_source):
+            src_root = fp[:-len(main_source)]
             main_c_command = entry.get("command")
             break
     if src_root is None:
-        print("error: cannot find init/main.c in compile_commands.json",
+        print(f"error: cannot find {main_source} in compile_commands.json",
               file=sys.stderr)
         sys.exit(1)
 
