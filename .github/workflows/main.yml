@@ -50,6 +50,9 @@ jobs:
   migrate_main:
     runs-on: ubuntu-latest
     if: ${{ github.repository_owner == 'analogdevicesinc' }}
+    permissions:
+      contents: write
+      actions: write
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v4
