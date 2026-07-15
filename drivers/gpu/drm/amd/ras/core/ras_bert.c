@@ -113,6 +113,53 @@ static int ras_bert_estatus_check(const struct ras_bert_hest_generic_status *est
 	return 0;
 }
 
+typedef int (*ras_bert_section_parser)(struct ras_core_context *ras_core,
+				       struct ras_bert_hest_generic_data *gdata);
+
+struct ras_bert_section_dispatch {
+	const u8 *section_type;
+	ras_bert_section_parser parser;
+};
+
+static int ras_bert_record_section(struct ras_core_context *ras_core,
+				   struct ras_bert_hest_generic_data *gdata)
+{
+	struct ras_boot_err_ctx ctx = { 0 };
+	u16 data_size;
+
+	memcpy(ctx.section_type, gdata->section_type,
+	       min(sizeof(ctx.section_type), sizeof(gdata->section_type)));
+	ctx.error_severity = gdata->error_severity;
+	ctx.reg_ctx_type = CPER_CTX_TYPE__BOOT;
+	data_size = min_t(u32, gdata->error_data_length, sizeof(ctx.regs));
+	ctx.reg_arr_size = data_size;
+	memcpy(ctx.regs, ras_bert_get_payload(gdata), data_size);
+
+	ras_log_ring_add_log_event(ras_core, RAS_LOG_EVENT_BOOT, &ctx, sizeof(ctx), NULL);
+
+	return 0;
+}
+
+static const struct ras_cper_guid ras_bert_guid_crashdump = GPU__CRASHDUMP;
+
+static const struct ras_bert_section_dispatch ras_bert_section_dispatch[] = {
+	{ ras_bert_guid_crashdump.b, ras_bert_record_section },
+};
+
+static const struct ras_bert_section_dispatch *
+ras_bert_find_section_parser(const u8 *section_type)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ras_bert_section_dispatch); i++) {
+		if (!memcmp(section_type, ras_bert_section_dispatch[i].section_type,
+			    CPER_UUID_MAX_SIZE))
+			return &ras_bert_section_dispatch[i];
+	}
+
+	return NULL;
+}
+
 int ras_bert_process_records(struct ras_core_context *ras_core,
 			     const void *bert, u32 bert_len)
 {
@@ -120,6 +167,7 @@ int ras_bert_process_records(struct ras_core_context *ras_core,
 	struct ras_bert_hest_generic_data *gdata;
 	u32 estatus_len;
 	int remain;
+	int ret;
 
 	if (!ras_core || !bert || bert_len < sizeof(struct ras_bert_hest_generic_status))
 		return -EINVAL;
@@ -152,8 +200,17 @@ int ras_bert_process_records(struct ras_core_context *ras_core,
 
 		gdata = (struct ras_bert_hest_generic_data *)(estatus + 1);
 		while ((void *)gdata - (void *)(estatus + 1) < estatus->data_length) {
-			RAS_DEV_INFO(ras_core->dev, "unknown section: %pUl\n",
-				     gdata->section_type);
+			const struct ras_bert_section_dispatch *parser;
+
+			parser = ras_bert_find_section_parser(gdata->section_type);
+			if (parser) {
+				ret = parser->parser(ras_core, gdata);
+				if (ret)
+					return ret;
+			} else {
+				RAS_DEV_INFO(ras_core->dev, "skip section: %pUl\n",
+					     gdata->section_type);
+			}
 
 			gdata = ras_bert_get_next(gdata);
 		}
