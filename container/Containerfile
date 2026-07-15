@@ -10,6 +10,11 @@ RUN zypper update -y
 RUN zypper install -y --no-recommends \
     tar unzip gzip curl jq libicu coreutils
 
+# Not on leap yet
+RUN zypper addrepo https://download.opensuse.org/repositories/utilities/openSUSE_Factory/utilities.repo && \
+    zypper --gpg-auto-import-keys refresh && \
+    zypper install -y yq
+
 RUN useradd -m runner
 WORKDIR /home/runner
 
