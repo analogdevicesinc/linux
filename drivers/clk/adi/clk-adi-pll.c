@@ -71,32 +71,37 @@ static long sc5xx_cgu_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 
 	parent_hw = clk_hw_get_parent(hw);
 
-	if (pll->half_m)
-		m = rate / prate / 2;
-	else
-		m = rate / prate;
+	m = rate / ((pll->half_m ? 2 : 1) * prate);
 
 	if (m > pll->max) {
 		// cannot scale this far, need bigger input
 		parent_inc = m / pll->max;
 		prate =
 		    clk_hw_round_rate(parent_hw, prate * (parent_inc + 1));
-	} else if (m == 0) {
-		pr_err
-		    ("%s: Cannot use VCO to reduce parent clock rate, requested %lu, clamping to %lu\n",
-		     __func__, rate, prate);
-		return prate;
+
+		/* recalculate m to cope for how prate actually changed */
+		m = rate / ((pll->half_m ? 2 : 1) * prate);
 	}
 
-	new_rate = prate * m;
+	if (m > pll->max)
+		return prate * pll->max * (pll->half_m ? 2 : 1);
+
+	if (m == 0) {
+		pr_err
+		    ("%s: Cannot use VCO to reduce parent clock rate, requested %lu, clamping to %lu\n",
+		     __func__, rate, prate * (pll->half_m ? 2 : 1));
+		return prate * (pll->half_m ? 2 : 1);
+	}
+
+	new_rate = prate * m * (pll->half_m ? 2 : 1);
 
 	if (new_rate != rate) {
 		// Check if we could get an integer match by halving parent rate since we
 		// know at least about the DF bit before the VCO, although we don't know
 		// if we're already using it or not
 		prate2 = clk_hw_round_rate(parent_hw, prate / 2);
-		m2 = rate / prate2;
-		nr2 = prate * m2;
+		m2 = rate / ((pll->half_m ? 2 : 1) * prate2);
+		nr2 = prate2 * m2 * (pll->half_m ? 2 : 1);
 		if (m2 <= pll->max && nr2 == rate) {
 			m = m2;
 			new_rate = nr2;
