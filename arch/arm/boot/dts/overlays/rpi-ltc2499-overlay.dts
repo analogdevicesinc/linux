@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * rpi-ltc2499-overlay.dts - Raspberry Pi overlay for the LTC2499 ADC
+ *
+ * Instantiates an LTC2499 on the Raspberry Pi I2C1 bus (40-pin header) and
+ * wires its ADC reference to the board's existing 3.3 V fixed regulator via
+ *
+ *     vref-supply = <&vdd_3v3_reg>;
+ *
+ * so that regulator_get_voltage() returns 3300000 and the LTC2499 temperature
+ * channel (in_temp_scale / in_temp_offset) reports correctly without relying on
+ * any driver-side fallback.
+ *
+ * Note: this overlay targets a Raspberry Pi wired with a 3.3 V VREF.  Other
+ * boards must supply their own Device Tree node describing the actual VREF
+ * regulator (2.5 V, 3.3 V, 4.096 V, etc.); the 3.3 V value here is not a
+ * universal hardware assumption.
+ */
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ltc2499: ltc2499@76 {
+				compatible = "lltc,ltc2499";
+				reg = <0x76>;
+				/* Board's own 3.3 V rail - see arch DT __symbols__ */
+				vref-supply = <&vdd_3v3_reg>;
+				#io-channel-cells = <1>;
+				status = "okay";
+			};
+		};
+	};
+
+	__overrides__ {
+		addr = <&ltc2499>,"reg:0";
+	};
+};
