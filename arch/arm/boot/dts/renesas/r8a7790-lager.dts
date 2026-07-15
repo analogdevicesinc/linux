@@ -302,7 +302,7 @@
 	};
 
 	/*
-	 * IIC0/I2C0 is routed to EXIO connector A, pins 114 (SCL) + 116 (SDA) only.
+	 * IIC0/I2C0 is routed to EXIO connector C, pins 114 (SCL) + 116 (SDA) only.
 	 * We use the I2C demuxer, so the desired IP core can be selected at runtime
 	 * depending on the use case (e.g. DMA with IIC0 or slave support with I2C0).
 	 * Note: For testing the I2C slave feature, it is convenient to connect this
