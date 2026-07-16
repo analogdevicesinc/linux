@@ -8,6 +8,7 @@
 #include <linux/array_size.h>
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
+#include <linux/cleanup.h>
 #include <linux/delay.h>
 #include <linux/dev_printk.h>
 #include <linux/errno.h>
@@ -182,11 +183,11 @@ static int ad5686_read_raw(struct iio_dev *indio_dev,
 	struct pwm_state state;
 	int ret;
 
+	guard(mutex)(&st->lock);
+
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
-		mutex_lock(&st->lock);
 		ret = ad5686_read(st, chan->address);
-		mutex_unlock(&st->lock);
 		if (ret < 0)
 			return ret;
 		*val = (ret >> chan->scan_type.shift) &
@@ -214,18 +215,16 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 {
 	struct ad5686_state *st = iio_priv(indio_dev);
 	struct pwm_state state;
-	int ret;
+
+	guard(mutex)(&st->lock);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		if (val >= (1 << chan->scan_type.realbits) || val < 0)
 			return -EINVAL;
 
-		mutex_lock(&st->lock);
-		ret = ad5686_write(st, AD5686_CMD_WRITE_INPUT_N_UPDATE_N,
-				   chan->address, val << chan->scan_type.shift);
-		mutex_unlock(&st->lock);
-		break;
+		return ad5686_write(st, AD5686_CMD_WRITE_INPUT_N_UPDATE_N,
+				    chan->address, val << chan->scan_type.shift);
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if (!st->pwm)
 			return -EINVAL;
@@ -234,13 +233,10 @@ static int ad5686_write_raw(struct iio_dev *indio_dev,
 		state.period = DIV_ROUND_CLOSEST_ULL(1000000000ULL, val);
 		pwm_set_relative_duty_cycle(&state, 50, 100);
 
-		ret = pwm_apply_might_sleep(st->pwm, &state);
-		break;
+		return pwm_apply_might_sleep(st->pwm, &state);
 	default:
-		ret = -EINVAL;
+		return -EINVAL;
 	}
-
-	return ret;
 }
 
 static int ad5686_trig_set_state(struct iio_trigger *trig,
