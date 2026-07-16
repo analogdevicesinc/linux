@@ -16,6 +16,7 @@
 #include <linux/iio/iio.h>
 
 #include "adrv903x.h"
+#include "adi_adrv903x_datainterface_types.h"
 
 static ssize_t adrv903x_tr_cal_status_read(struct adrv903x_rf_phy *phy,
 					   adi_adrv903x_TrackingCalibrationMask_e mask,
@@ -35,6 +36,30 @@ static ssize_t adrv903x_tr_cal_status_read(struct adrv903x_rf_phy *phy,
 			 calStatus.errorCode, calStatus.percentComplete,
 			 calStatus.performanceMetric, calStatus.iterCount,
 			 calStatus.updateCount);
+}
+
+static ssize_t adrv903x_debugfs_read_rx_capture(struct adrv903x_rf_phy *phy,
+						char __user *userbuf,
+						size_t count, loff_t *ppos)
+{
+	size_t buf_size, pos = 0;
+
+	guard(mutex)(&phy->lock);
+
+	if (!phy->rx_capture_len)
+		return -ENODATA;
+
+	/* Up to 12 chars per value (including newline) */
+	buf_size = phy->rx_capture_len * 12 + 1;
+	char *out_buf __free(kvfree) = kvzalloc(buf_size, GFP_KERNEL);
+	if (!out_buf)
+		return -ENOMEM;
+
+	for (unsigned int i = 0; i < phy->rx_capture_len && pos < buf_size - 12; i++)
+		pos += scnprintf(out_buf + pos, buf_size - pos, "%u\n",
+				 phy->rx_capture_data[i]);
+
+	return simple_read_from_buffer(userbuf, count, ppos, out_buf, pos);
 }
 
 static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
@@ -179,6 +204,8 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 		case DBGFS_HARD_RESET:
 			val = !gpiod_get_value_cansleep(phy->linux_hal.reset_gpio);
 			break;
+		case DBGFS_RX_DATA_CAPTURE:
+			return adrv903x_debugfs_read_rx_capture(phy, userbuf, count, ppos);
 		default:
 			val = entry->val;
 		}
@@ -190,6 +217,48 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 		len = snprintf(buf, sizeof(buf), "%llu\n", val);
 
 	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+
+/*
+ * Validate RX capture parameters and translate the channel index into the
+ * API channel mask. Returns 0 on success.
+ */
+static int adrv903x_rx_capture_chan_sel(s64 channel, u32 length,
+					adi_adrv903x_RxChannels_e *chan_sel)
+{
+	/* Channel: 0-7 for RX0-RX7, 8-9 for ORX0-ORX1 */
+	if (channel < 0 || channel > 9)
+		return -EINVAL;
+
+	/* Validate capture length against hardware-supported sizes */
+	switch (length) {
+	case ADI_ADRV903X_CAPTURE_SIZE_32:
+	case ADI_ADRV903X_CAPTURE_SIZE_64:
+	case ADI_ADRV903X_CAPTURE_SIZE_128:
+	case ADI_ADRV903X_CAPTURE_SIZE_256:
+	case ADI_ADRV903X_CAPTURE_SIZE_512:
+	case ADI_ADRV903X_CAPTURE_SIZE_1K:
+	case ADI_ADRV903X_CAPTURE_SIZE_2K:
+	case ADI_ADRV903X_CAPTURE_SIZE_4K:
+	case ADI_ADRV903X_CAPTURE_SIZE_8K:
+	case ADI_ADRV903X_CAPTURE_SIZE_12K:
+		break;
+	case ADI_ADRV903X_CAPTURE_SIZE_16K:
+	case ADI_ADRV903X_CAPTURE_SIZE_32K:
+		/* ORX channels limited to 12K max */
+		if (channel >= 8)
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (channel < 8)
+		*chan_sel = ADI_ADRV903X_RX0 << channel;
+	else
+		*chan_sel = ADI_ADRV903X_ORX0 << (channel - 8);
+
+	return 0;
 }
 
 static ssize_t adrv903x_debugfs_write(struct file *file,
@@ -378,6 +447,31 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 
 		return count;
 
+	case DBGFS_RX_DATA_CAPTURE: {
+		adi_adrv903x_RxChannels_e chan_sel;
+
+		/* Expects "<channel> <length>" */
+		if (ret != 2)
+			return -EINVAL;
+
+		ret = adrv903x_rx_capture_chan_sel(val, val2, &chan_sel);
+		if (ret)
+			return ret;
+
+		/* The capture overwrites the buffer, invalidate previous data */
+		phy->rx_capture_len = 0;
+
+		ret = adrv903x_api_call(phy, adi_adrv903x_RxOrxDataCaptureStart,
+					chan_sel, ADI_ADRV903X_CAPTURE_LOC_DDC0,
+					phy->rx_capture_data, val2, 0, 1000000);
+		if (ret)
+			return ret;
+
+		phy->rx_capture_len = val2;
+		entry->val = val;
+
+		return count;
+	}
 	default:
 		break;
 	}
@@ -482,6 +576,15 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 
 	adrv903x_add_debugfs_entry(phy, "hard_reset", DBGFS_HARD_RESET);
 
+	/* Max capture is 32K words (128KB); allocate once and reuse */
+	phy->rx_capture_data = devm_kcalloc(&phy->spi->dev,
+					    ADI_ADRV903X_CAPTURE_SIZE_32K,
+					    sizeof(*phy->rx_capture_data),
+					    GFP_KERNEL);
+	if (phy->rx_capture_data)
+		adrv903x_add_debugfs_entry(phy, "rx_data_capture",
+					   DBGFS_RX_DATA_CAPTURE);
+
 	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++) {
 		switch (phy->debugfs_entry[i].cmd) {
 		case DBGFS_BIST_FRAMER_0_PRBS:
@@ -515,6 +618,7 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 			mode = 0200;
 			break;
 		case DBGFS_HARD_RESET:
+		case DBGFS_RX_DATA_CAPTURE:
 			mode = 0644;
 			break;
 		default:
