@@ -568,7 +568,7 @@ static irqreturn_t ad5686_irq_handler(int irq, void *data)
 int ad5686_probe(struct device *dev,
 		 const struct ad5686_chip_info *chip_info,
 		 const char *name, const struct ad5686_bus_ops *ops,
-		 int irq)
+		 void *bus_data, int irq)
 {
 	struct reset_control *rstc;
 	struct ad5686_state *st;
@@ -584,6 +584,7 @@ int ad5686_probe(struct device *dev,
 
 	st->dev = dev;
 	st->ops = ops;
+	st->bus_data = bus_data;
 	st->chip_info = chip_info;
 
 	rstc = devm_reset_control_get_optional_exclusive(dev, NULL);
