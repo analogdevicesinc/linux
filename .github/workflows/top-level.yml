@@ -3,9 +3,6 @@ name: Kernel build
 on:
   workflow_dispatch:
   push:
-    branches:
-      - 'adsp-[0-9]+.[0-9]+*-y'
-  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -13,7 +10,7 @@ concurrency:
 
 jobs:
   checks:
-    uses: analogdevicesinc/linux/.github/workflows/checks.yml@ci
+    uses: analogdevicesinc/linux/.github/workflows/checks.yml@cicd/philip/command-yq-exit-0
     if: (github.event_name != 'push' || github.repository_owner == 'analogdevicesinc')
     secrets: inherit
     permissions:
