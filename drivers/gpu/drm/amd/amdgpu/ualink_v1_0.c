@@ -131,6 +131,7 @@ static const struct amd_ip_funcs ualink_v1_0_ip_funcs = {
 	.sw_init = ualink_v1_0_sw_init,
 	.sw_fini = ualink_ip_sw_fini,
 	.hw_init = ualink_ip_hw_init,
+	.hw_fini = ualink_ip_hw_fini,
 };
 
 const struct amdgpu_ip_block_version ualink_v1_0_ip_block = {

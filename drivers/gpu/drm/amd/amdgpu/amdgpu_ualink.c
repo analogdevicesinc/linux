@@ -425,6 +425,19 @@ disable:
 	return 0;
 }
 
+int ualink_ip_hw_fini(struct amdgpu_ip_block *ip_block)
+{
+	struct amdgpu_device *adev = ip_block->adev;
+
+	if (adev->ualink.mgr_state != AMDGPU_UALINK_INIT_COMPLETE)
+		return 0;
+
+	scoped_guard(mutex, &mgpu_info.mutex)
+		deactivate_accelerator(adev);
+
+	return 0;
+}
+
 int ualink_ip_late_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;

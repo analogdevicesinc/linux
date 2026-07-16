@@ -413,6 +413,7 @@ int amdgpu_ualink_import_handle(struct drm_device *dev,
 void amdgpu_ualink_revoke_exported_memory(struct amdgpu_bo *bo);
 
 int ualink_ip_hw_init(struct amdgpu_ip_block *ip_block);
+int ualink_ip_hw_fini(struct amdgpu_ip_block *ip_block);
 int ualink_ip_late_init(struct amdgpu_ip_block *ip_block);
 int ualink_ip_sw_init(struct amdgpu_ip_block *ip_block);
 int ualink_ip_sw_fini(struct amdgpu_ip_block *ip_block);
