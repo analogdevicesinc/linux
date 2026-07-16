@@ -856,10 +856,8 @@ static int tegra_hte_probe(struct platform_device *pdev)
 	hte_dev->hte_irq = ret;
 	ret = devm_request_irq(dev, hte_dev->hte_irq, tegra_hte_isr, 0,
 			       dev_name(dev), hte_dev);
-	if (ret < 0) {
-		dev_err(dev, "request irq failed.\n");
+	if (ret < 0)
 		return ret;
-	}
 
 	gc->nlines = nlines;
 	gc->ops = &g_ops;
