@@ -265,4 +265,6 @@ static inline void adrv903x_register_debugfs(struct iio_dev *indio_dev) { }
 static inline void adrv903x_agc_debugfs_register(struct iio_dev *indio_dev) { }
 #endif
 
+int adrv903x_ramc_probe(struct adrv903x_rf_phy *phy);
+
 #endif
