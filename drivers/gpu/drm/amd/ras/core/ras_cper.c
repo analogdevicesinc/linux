@@ -25,6 +25,7 @@
 #include "core_status.h"
 #include "log_ring.h"
 #include "ras_cper.h"
+#define ns_to_seconds(ns)   div_u64(ns, NSEC_PER_SEC)
 
 static const struct ras_cper_guid MCE	= CPER_NOTIFY__MCE;
 static const struct ras_cper_guid CMC	= CPER_NOTIFY__CMC;
@@ -69,7 +70,7 @@ static void fill_section_hdr(struct ras_core_context *ras_core,
 
 	ras_core_get_device_system_info(ras_core, &dev_info);
 
-	cper_get_timestamp(ras_core, &hdr->timestamp, trace->timestamp);
+	cper_get_timestamp(ras_core, &hdr->timestamp, ns_to_seconds(trace->timestamp));
 
 	snprintf(record_id, sizeof(record_id), "%d:%llX", dev_info.socket_id,
 		    RAS_LOG_SEQNO_TO_BATCH_IDX(trace->seqno));

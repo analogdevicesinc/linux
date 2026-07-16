@@ -212,7 +212,7 @@ struct ras_log_batch_tag *ras_log_ring_create_batch_tag(struct ras_core_context 
 	spin_unlock_irqrestore(&log_ring->spin_lock, flags);
 
 	batch_tag->sub_seqno = 0;
-	batch_tag->timestamp = ras_core_get_utc_second_timestamp(ras_core);
+	batch_tag->timestamp = ktime_get_real_ns();
 	return batch_tag;
 }
 
@@ -249,7 +249,7 @@ void ras_log_ring_add_log_event(struct ras_core_context *ras_core,
 
 	memset(log, 0, sizeof(*log));
 	log->timestamp =
-		batch_tag ? batch_tag->timestamp : ras_core_get_utc_second_timestamp(ras_core);
+		batch_tag ? batch_tag->timestamp : ktime_get_real_ns();
 	log->event = event;
 
 	if (data && size && size <= sizeof(log->body))
