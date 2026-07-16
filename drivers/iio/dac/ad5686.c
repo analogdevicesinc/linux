@@ -522,31 +522,56 @@ const struct ad5686_chip_info ad5679r_chip_info = {
 };
 EXPORT_SYMBOL_NS_GPL(ad5679r_chip_info, IIO_AD5686);
 
+static void do_ad5686_trigger_handler(struct iio_dev *indio_dev)
+{
+	struct ad5686_state *st = iio_priv(indio_dev);
+	u16 val[AD5686_MAX_CHANNELS] = { };
+	unsigned int scan_count, ch, i;
+	bool async_update;
+	u8 cmd;
+
+	if (iio_pop_from_buffer(indio_dev->buffer, val))
+		return;
+
+	guard(mutex)(&st->lock);
+
+	scan_count = bitmap_weight(indio_dev->active_scan_mask,
+				   iio_get_masklength(indio_dev));
+	async_update = st->ldac_gpio && scan_count > 1;
+	if (async_update) {
+		/* use LDAC to update all channels simultaneously */
+		cmd = AD5686_CMD_WRITE_INPUT_N;
+		gpiod_set_value_cansleep(st->ldac_gpio, 0);
+	} else {
+		cmd = AD5686_CMD_WRITE_INPUT_N_UPDATE_N;
+	}
+
+	i = 0;
+	iio_for_each_active_channel(indio_dev, ch) {
+		if (st->ops->write(st, cmd, indio_dev->channels[ch].address, val[i++]))
+			break;
+	}
+
+	/*
+	 * If sync() is available, it is called here regardless of write
+	 * failure to allow bus implementation to reset. In that case, partial
+	 * writes are unlikely as the write operations would just queue up
+	 * the transfers.
+	 */
+	if (st->ops->sync)
+		st->ops->sync(st);
+
+	if (async_update)
+		gpiod_set_value_cansleep(st->ldac_gpio, 1);
+}
+
 static irqreturn_t ad5686_trigger_handler(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
-	const struct iio_chan_spec *chan;
-	struct iio_buffer *buffer = indio_dev->buffer;
-	struct ad5686_state *st = iio_priv(indio_dev);
-	u16 val[AD5686_MAX_CHANNELS] = { };
-	int ret, ch, i = 0;
 
-	ret = iio_pop_from_buffer(buffer, val);
-	if (ret < 0)
-		goto out;
-
-	mutex_lock(&st->lock);
-	iio_for_each_active_channel(indio_dev, ch) {
-		chan = &indio_dev->channels[ch];
-		ret = st->ops->write(st, AD5686_CMD_WRITE_INPUT_N_UPDATE_N,
-				     chan->address, val[i++]);
-	}
-	mutex_unlock(&st->lock);
-
-out:
+	do_ad5686_trigger_handler(indio_dev);
 	iio_trigger_notify_done(indio_dev->trig);
-
 	return IRQ_HANDLED;
 }
 
