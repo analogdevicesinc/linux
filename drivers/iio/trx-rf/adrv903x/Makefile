@@ -50,7 +50,8 @@ adrv903x_drv-y = \
 	initdata.o \
 	adrv903x.o \
 	adrv903x_conv.o \
-	adrv903x_debugfs.o
+	adrv903x_debugfs.o \
+	adrv903x_ramc.o
 
 ccflags-y += -I$(src)/devices/adrv903x/private/include/ \
 	-I$(src)/devices/adrv903x/public/include/  \
