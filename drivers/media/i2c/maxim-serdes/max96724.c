@@ -463,7 +463,7 @@ static int max96724_conf_pin_config_get(struct pinctrl_dev *pctldev,
 		if (ret < 0)
 			return ret;
 
-		val = max96724_field_get(val, mask);
+		val = max96724_field_get(ret, mask);
 		break;
 	default:
 		return -ENOTSUPP;
