@@ -49,7 +49,8 @@ adrv903x_drv-y = \
 	platforms/adi_platform.o \
 	initdata.o \
 	adrv903x.o \
-	adrv903x_conv.o
+	adrv903x_conv.o \
+	adrv903x_ramc.o
 
 adrv903x_drv-$(CONFIG_DEBUG_FS) += adrv903x_debugfs.o adrv903x_agc.o
 
