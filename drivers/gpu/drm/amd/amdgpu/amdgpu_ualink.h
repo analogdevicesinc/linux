@@ -388,7 +388,9 @@ struct amdgpu_ualink_mgr {
 	unsigned long drop_msg_bitmap;
 };
 
-int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev);
+int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev,
+				 unsigned int client_id, unsigned int src_id);
+
 int amdgpu_ualink_sw_init(struct amdgpu_device *adev);
 void amdgpu_ualink_sw_fini(struct amdgpu_device *adev);
 

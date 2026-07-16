@@ -1419,8 +1419,6 @@ static const struct kobj_type ualink_station_config_ktype = {
 
 int ualink_ip_sw_init(struct amdgpu_ip_block *ip_block)
 {
-	int r;
-
 	struct amdgpu_ualink_station_config *stations;
 	struct amdgpu_ualink_vpod_config *vpod_config;
 	struct amdgpu_ualink_ppod_setup *ppod_setup;
@@ -1459,12 +1457,6 @@ int ualink_ip_sw_init(struct amdgpu_ip_block *ip_block)
 	adev->ualink.setup = ppod_setup;
 	adev->ualink.config = vpod_config;
 	adev->ualink.stations = stations;
-
-	r = amdgpu_ualink_init_interrupt(adev);
-	if (r) {
-		dev_err(adev->dev, "Failed to add UALink irq: %d\n", r);
-		return r;
-	}
 
 	return 0;
 }
@@ -6013,32 +6005,28 @@ static const struct amdgpu_irq_src_funcs ualink_irq_funcs = {
 	.process = amdgpu_ualink_process_irq,
 };
 
-/* TODO: if move to header file soc21_enum.h */
-#define UALINK_IH_CLIENT_ID 0x1C
-#define UALINK_IH_SOURCE_ID 0x0
-
 /**
- * amdgpu_ualink_init_interrupt - initialization of UALink IRQ
+ * amdgpu_ualink_init_interrupt - register the UALink IRQ source
  * @adev: amdgpu device pointer
+ * @client_id: IH client ID for the interrupt source
+ * @src_id: source ID for the interrupt source
  *
- * Registers the UALink interrupt source with the IH (Interrupt Handler)
- * subsystem during early device initialization. This sets up the IRQ
- * callback functions for handling remote interrupts from peer GPUs.
+ * Registers the UALink interrupt source with the IH subsystem.
  *
  * Return: 0 on success, negative error code on failure
  */
-int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev)
+int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev,
+				 unsigned int client_id, unsigned int src_id)
 {
 	int r;
 
 	dev_dbg(adev->dev, "init ualink irq client_id 0x%x src_id 0x%x\n",
-		UALINK_IH_CLIENT_ID, UALINK_IH_SOURCE_ID);
+		client_id, src_id);
 
 	adev->ualink.irq.num_types = 1;
 	adev->ualink.irq.funcs = &ualink_irq_funcs;
 
-	r = amdgpu_irq_add_id(adev, UALINK_IH_CLIENT_ID,
-			      UALINK_IH_SOURCE_ID, &adev->ualink.irq);
+	r = amdgpu_irq_add_id(adev, client_id, src_id, &adev->ualink.irq);
 	return r;
 }
 

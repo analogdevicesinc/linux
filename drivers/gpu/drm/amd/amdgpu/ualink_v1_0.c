@@ -23,6 +23,7 @@
 
 #include <linux/delay.h>
 #include "amdgpu.h"
+#include "ivsrcid/mpnht/irqsrcs_mpnht_15_0.h"
 #include "amdgpu_ualink.h"
 #include "ualink_v1_0.h"
 
@@ -104,11 +105,30 @@ static int ualink_v1_0_early_init(struct amdgpu_ip_block *ip_block)
 	return 0;
 }
 
+static int ualink_v1_0_sw_init(struct amdgpu_ip_block *ip_block)
+{
+	struct amdgpu_device *adev = ip_block->adev;
+	int r;
+
+	r = ualink_ip_sw_init(ip_block);
+	if (r)
+		return r;
+
+	r = amdgpu_ualink_init_interrupt(adev, SOC_V1_0_IH_CLIENTID_nHT,
+					 MPNHT_15_0__SRCID__REMOTE_INTERRUPT);
+	if (r) {
+		dev_err(adev->dev, "Failed to add UALink irq: %d\n", r);
+		return r;
+	}
+
+	return 0;
+}
+
 static const struct amd_ip_funcs ualink_v1_0_ip_funcs = {
 	.name = "ualink",
 	.early_init = ualink_v1_0_early_init,
 	.late_init = ualink_ip_late_init,
-	.sw_init = ualink_ip_sw_init,
+	.sw_init = ualink_v1_0_sw_init,
 	.sw_fini = ualink_ip_sw_fini,
 	.hw_init = ualink_ip_hw_init,
 };
