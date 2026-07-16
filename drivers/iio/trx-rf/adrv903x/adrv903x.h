@@ -96,6 +96,7 @@ enum debugfs_cmd {
 	DBGFS_TX6_QEC_SOFT_RESET,
 	DBGFS_TX7_QEC_SOFT_RESET,
 	DBGFS_HARD_RESET,
+	DBGFS_RX_DATA_CAPTURE,
 };
 
 enum adrv903x_rx_ext_info {
@@ -235,6 +236,10 @@ struct adrv903x_rf_phy {
 	u32 orx_nco_phase[2];
 	u8 orx_nco_sel[2];
 	adi_adrv903x_AgcCfg_t rx_agc[ADI_ADRV903X_MAX_RX_ONLY];
+
+	/* RX/ORx data capture storage */
+	u32 *rx_capture_data;
+	u32 rx_capture_len;
 };
 
 int __adrv903x_dev_err(struct adrv903x_rf_phy *phy, const char *function, int line);
