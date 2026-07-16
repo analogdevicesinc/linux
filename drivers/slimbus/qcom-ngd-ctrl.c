@@ -1614,7 +1614,7 @@ static int qcom_slim_ngd_ctrl_probe(struct platform_device *pdev)
 			       IRQF_TRIGGER_HIGH | IRQF_NO_AUTOEN,
 			       "slim-ngd", ctrl);
 	if (ret)
-		return dev_err_probe(&pdev->dev, ret, "request IRQ failed\n");
+		return ret;
 
 	ctrl->dev = dev;
 	ctrl->framer.rootfreq = SLIM_ROOT_FREQ >> 3;
