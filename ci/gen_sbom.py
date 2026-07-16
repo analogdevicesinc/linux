@@ -338,12 +338,8 @@ def build_spdx(dist, ctx, source_files, src_root, main_c_command=None):
         "software_packageVersion": release,
         "software_primaryPurpose": _metadata(ctx)["package_purpose"],
         "description": get_description(ctx),
+        "software_packageUrl": get_purl_upstream(ctx),
     }
-    package["externalIdentifier"] = [{
-        "type":                   "ExternalIdentifier",
-        "externalIdentifierType": "packageUrl",
-        "identifier":             get_purl_upstream(ctx),
-    }]
     package["extension"] = [{
         "type": "extension_CdxPropertiesExtension",
         "extension_cdxProperty": [{
