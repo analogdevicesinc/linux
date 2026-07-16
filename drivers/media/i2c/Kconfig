@@ -348,6 +348,19 @@ config VIDEO_ISX021
 	  To compile this driver as a module, choose M here: the
 	  module will be called isx021.
 
+config VIDEO_ISX031
+	tristate "Sony ISX031 sensor support"
+	depends on I2C && VIDEO_DEV
+	select VIDEO_V4L2_SUBDEV_API
+	select MEDIA_CONTROLLER
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the Sony
+	  ISX031 camera.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called isx031.
+
 config VIDEO_MAX9271_LIB
 	tristate
 
