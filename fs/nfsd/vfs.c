@@ -63,7 +63,7 @@ u64 nfsd_io_cache_write __read_mostly = NFSD_IO_BUFFERED;
  * it's an error we don't expect, log it once and return nfserr_io.
  */
 __be32
-nfserrno (int errno)
+nfserrno(int errno)
 {
 	static struct {
 		__be32	nfserr;
@@ -107,6 +107,8 @@ nfserrno (int errno)
 		{ nfserr_perm, -ENOKEY },
 		{ nfserr_no_grace, -ENOGRACE},
 		{ nfserr_io, -EBADMSG },
+		{ nfserr_symlink, -ELOOP },
+		{ nfserr_wrong_type, -EFTYPE },
 	};
 	int	i;
 
