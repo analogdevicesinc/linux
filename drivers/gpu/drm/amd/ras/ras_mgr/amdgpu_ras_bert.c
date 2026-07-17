@@ -31,15 +31,23 @@
 
 #include "amdgpu_ras_mgr.h"
 
-static DEFINE_MUTEX(boot_err_lock);
-static bool boot_err_polled, boot_err_written[MAX_GPU_INSTANCE];
-static int boot_err_poll_result;
-static u8 *boot_err_raw_data;
-static u32 boot_err_raw_data_len;
+struct amdgpu_ras_bert_boot_err_state {
+	struct mutex lock; /* protects cached boot error state */
+	bool polled;
+	bool written[MAX_GPU_INSTANCE];
+	int poll_result;
+	u8 *raw_data;
+	u32 raw_data_len;
+};
 
-int amdgpu_ras_bert_process_boot_errors(struct amdgpu_device *adev)
+static struct amdgpu_ras_bert_boot_err_state boot_err_state = {
+	.lock = __MUTEX_INITIALIZER(boot_err_state.lock),
+};
+
+static int amdgpu_ras_bert_process_boot_errors(struct amdgpu_device *adev)
 {
 	struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+	struct amdgpu_ras_bert_boot_err_state *state = &boot_err_state;
 	struct acpi_bert_region *boot_error_region;
 	struct acpi_table_header *table;
 	struct acpi_table_bert *bert_tab;
@@ -51,11 +59,11 @@ int amdgpu_ras_bert_process_boot_errors(struct amdgpu_device *adev)
 	if (!ras_mgr || !ras_mgr->ras_core)
 		return -EPERM;
 
-	mutex_lock(&boot_err_lock);
+	mutex_lock(&state->lock);
 
-	if (!boot_err_polled) {
-		boot_err_polled = true;
-		boot_err_poll_result = 0;
+	if (!state->polled) {
+		state->polled = true;
+		state->poll_result = 0;
 		ret = 0;
 
 		if (acpi_disabled)
@@ -67,7 +75,7 @@ int amdgpu_ras_bert_process_boot_errors(struct amdgpu_device *adev)
 
 		if (ACPI_FAILURE(status)) {
 			RAS_DEV_ERR(adev, "get table failed, %s.\n", acpi_format_exception(status));
-			boot_err_poll_result = -EINVAL;
+			state->poll_result = -EINVAL;
 			goto out_unlock;
 		}
 		bert_tab = (struct acpi_table_bert *)table;
@@ -75,36 +83,36 @@ int amdgpu_ras_bert_process_boot_errors(struct amdgpu_device *adev)
 		if (bert_tab->header.length < sizeof(struct acpi_table_bert) ||
 		    bert_tab->region_length < sizeof(struct acpi_bert_region)) {
 			RAS_DEV_ERR(adev, "table invalid.\n");
-			boot_err_poll_result = -EINVAL;
+			state->poll_result = -EINVAL;
 			goto out_put_bert_tab;
 		}
 
 		region_len = bert_tab->region_length;
 		boot_error_region = acpi_os_map_memory(bert_tab->address, region_len);
 		if (boot_error_region) {
-			boot_err_raw_data = kmemdup(boot_error_region, region_len, GFP_KERNEL);
+			state->raw_data = kmemdup(boot_error_region, region_len, GFP_KERNEL);
 			acpi_os_unmap_memory(boot_error_region, region_len);
-			if (!boot_err_raw_data) {
+			if (!state->raw_data) {
 				RAS_DEV_ERR(adev, "failed to cache BERT raw data.\n");
-				boot_err_poll_result = -ENOMEM;
+				state->poll_result = -ENOMEM;
 			} else {
-				boot_err_raw_data_len = region_len;
+				state->raw_data_len = region_len;
 			}
 		} else {
 			RAS_DEV_ERR(adev, "failed to map BERT region.\n");
-			boot_err_poll_result = -ENOMEM;
+			state->poll_result = -ENOMEM;
 		}
 
 out_put_bert_tab:
 		acpi_put_table(table);
 	}
 
-	if (boot_err_poll_result) {
-		ret = boot_err_poll_result;
+	if (state->poll_result) {
+		ret = state->poll_result;
 		goto out_unlock;
 	}
 
-	if (!boot_err_raw_data || !boot_err_raw_data_len ||
+	if (!state->raw_data || !state->raw_data_len ||
 	    !(adev && (adev->gmc.xgmi.connected_to_cpu || adev->gmc.is_app_apu))) {
 		ret = 0;
 		goto out_unlock;
@@ -122,31 +130,50 @@ out_put_bert_tab:
 		goto out_unlock;
 	}
 
-	if (boot_err_written[socket_id]) {
+	if (state->written[socket_id]) {
 		ret = 0;
 		goto out_unlock;
 	}
 
 	ret = ras_bert_process_records(ras_mgr->ras_core,
-				       boot_err_raw_data, boot_err_raw_data_len);
+				       state->raw_data, state->raw_data_len);
 	if (!ret)
-		boot_err_written[socket_id] = true;
+		state->written[socket_id] = true;
 
 out_unlock:
-	mutex_unlock(&boot_err_lock);
+	mutex_unlock(&state->lock);
 
 	return ret;
 }
 
-void amdgpu_ras_bert_reset_boot_errors(void)
+static void amdgpu_ras_bert_reset_boot_errors(void)
 {
-	mutex_lock(&boot_err_lock);
-	memset(boot_err_written, 0, sizeof(boot_err_written));
-	kfree(boot_err_raw_data);
-	boot_err_raw_data = NULL;
-	boot_err_raw_data_len = 0;
-	boot_err_poll_result = 0;
-	boot_err_polled = false;
-	mutex_unlock(&boot_err_lock);
+	struct amdgpu_ras_bert_boot_err_state *state = &boot_err_state;
+
+	mutex_lock(&state->lock);
+	memset(state->written, 0, sizeof(state->written));
+	kfree(state->raw_data);
+	state->raw_data = NULL;
+	state->raw_data_len = 0;
+	state->poll_result = 0;
+	state->polled = false;
+	mutex_unlock(&state->lock);
 }
 #endif
+
+int amdgpu_ras_bert_sw_init(struct amdgpu_device *adev)
+{
+#if defined(CONFIG_X86_MCE_AMD) && defined(CONFIG_ACPI_APEI)
+	return amdgpu_ras_bert_process_boot_errors(adev);
+#else
+	return 0;
+#endif
+}
+
+int amdgpu_ras_bert_sw_fini(struct amdgpu_device *adev)
+{
+#if defined(CONFIG_X86_MCE_AMD) && defined(CONFIG_ACPI_APEI)
+	amdgpu_ras_bert_reset_boot_errors();
+#endif
+	return 0;
+}

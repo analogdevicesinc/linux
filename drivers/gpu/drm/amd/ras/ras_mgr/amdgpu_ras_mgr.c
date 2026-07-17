@@ -33,6 +33,7 @@
 #include "amdgpu_ras_mp1_v13_0.h"
 #include "amdgpu_ras_mp1.h"
 #include "amdgpu_ras_nbio_v7_9.h"
+#include "amdgpu_ras_bert.h"
 #include "amdgpu_ras_mce.h"
 
 #define MAX_AID_NUM_PER_SOCKET_GFX9     4
@@ -358,6 +359,7 @@ int amdgpu_ras_mgr_sw_init(struct amdgpu_device *adev, struct ras_module_param *
 		goto err2;
 	}
 	amdgpu_ras_mgr_init_event_mgr(ras_mgr->ras_core);
+	amdgpu_ras_bert_sw_init(adev);
 	amdgpu_ras_mce_sw_init(adev);
 
 	if (amdgpu_sriov_vf(adev)) {
@@ -372,6 +374,8 @@ int amdgpu_ras_mgr_sw_init(struct amdgpu_device *adev, struct ras_module_param *
 	return 0;
 
 err3:
+	amdgpu_ras_mce_sw_fini(adev);
+	amdgpu_ras_bert_sw_fini(adev);
 	if (ras_mgr->ras_core)
 		ras_core_sw_fini(ras_mgr->ras_core);
 err2:
@@ -400,6 +404,7 @@ int amdgpu_ras_mgr_sw_fini(struct amdgpu_device *adev)
 		amdgpu_virt_ras_sw_fini(adev);
 
 	amdgpu_ras_mce_sw_fini(adev);
+	amdgpu_ras_bert_sw_fini(adev);
 	amdgpu_ras_process_fini(adev);
 	ras_core_sw_fini(ras_mgr->ras_core);
 	ras_core_destroy(ras_mgr->ras_core);

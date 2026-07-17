@@ -24,9 +24,7 @@
 #ifndef __AMDGPU_RAS_BERT_H__
 #define __AMDGPU_RAS_BERT_H__
 
-#if defined(CONFIG_X86_MCE_AMD) && defined(CONFIG_ACPI_APEI)
-int amdgpu_ras_bert_process_boot_errors(struct amdgpu_device *adev);
-void amdgpu_ras_bert_reset_boot_errors(void);
-#endif
+int amdgpu_ras_bert_sw_init(struct amdgpu_device *adev);
+int amdgpu_ras_bert_sw_fini(struct amdgpu_device *adev);
 
 #endif

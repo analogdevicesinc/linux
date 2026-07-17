@@ -23,7 +23,6 @@
  */
 
 #include "amdgpu.h"
-#include "amdgpu_ras_bert.h"
 #include "amdgpu_ras_mgr.h"
 #include "amdgpu_ras_mce.h"
 
@@ -122,9 +121,6 @@ static int amdgpu_ras_unregister_mce_notifier(struct amdgpu_device *adev)
 	if (atomic_read(&mce_mgr->ref_count) <= 0) {
 		atomic_set(&mce_mgr->dev_count, 0);
 		mce_unregister_decode_chain(&mce_mgr->nb);
-#ifdef CONFIG_ACPI_APEI
-		amdgpu_ras_bert_reset_boot_errors();
-#endif
 	}
 
 	return 0;
@@ -242,9 +238,6 @@ static int amdgpu_ras_mce_notifier(struct amdgpu_device *adev,
 
 int amdgpu_ras_mce_hw_init(struct amdgpu_device *adev)
 {
-#if defined(CONFIG_X86_MCE_AMD) && defined(CONFIG_ACPI_APEI)
-	amdgpu_ras_bert_process_boot_errors(adev);
-#endif
 	return 0;
 }
 
