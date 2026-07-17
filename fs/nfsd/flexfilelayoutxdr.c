@@ -6,6 +6,7 @@
 #include <linux/nfs4.h>
 
 #include "nfsd.h"
+#include "nfserr.h"
 #include "flexfilelayoutxdr.h"
 
 #define NFSDDBG_FACILITY	NFSDDBG_PNFS

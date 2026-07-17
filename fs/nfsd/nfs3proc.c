@@ -13,6 +13,7 @@
 #include "cache.h"
 #include "xdr3.h"
 #include "vfs.h"
+#include "nfserr.h"
 #include "filecache.h"
 #include "trace.h"
 

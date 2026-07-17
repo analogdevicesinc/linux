@@ -13,6 +13,7 @@
 
 #include <linux/sunrpc/addr.h>
 
+#include "nfserr.h"
 #include "flexfilelayoutxdr.h"
 #include "pnfs.h"
 #include "vfs.h"

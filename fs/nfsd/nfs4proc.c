@@ -51,6 +51,7 @@
 #include "netns.h"
 #include "acl.h"
 #include "pnfs.h"
+#include "nfserr.h"
 #include "trace.h"
 
 static bool inter_copy_offload_enable;
