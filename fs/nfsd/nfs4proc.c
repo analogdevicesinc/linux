@@ -169,9 +169,9 @@ do_open_permission(struct svc_rqst *rqstp, struct svc_fh *current_fh, struct nfs
 	return fh_verify(rqstp, current_fh, S_IFREG, accmode);
 }
 
-static __be32 nfsd_check_obj_isreg(struct svc_fh *fh, u32 minor_version)
+static __be32 nfsd_check_obj_isreg(struct dentry *child, u32 minor_version)
 {
-	umode_t mode = d_inode(fh->fh_dentry)->i_mode;
+	umode_t mode = d_inode(child)->i_mode;
 
 	if (S_ISREG(mode))
 		return nfs_ok;
@@ -253,6 +253,8 @@ static __be32
 nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		  struct svc_fh *resfhp, struct nfsd4_open *open)
 {
+	struct nfsd4_compoundres *resp = rqstp->rq_resp;
+	struct nfsd4_compound_state *cstate = &resp->cstate;
 	struct iattr *iap = &open->op_iattr;
 	struct nfsd_attrs attrs = {
 		.na_iattr	= iap,
@@ -363,7 +365,35 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	}
 
 	if (d_really_is_positive(child)) {
-		/* No creation needed */
+		/*
+		 * open the file so that we consistently have a valid
+		 * op_filp.
+		 */
+		struct path path = {.mnt = fhp->fh_export->ex_path.mnt,
+				    .dentry = child,
+		};
+		unsigned int oflags = O_LARGEFILE;
+
+		switch (open->op_share_access & NFS4_SHARE_ACCESS_BOTH) {
+		case NFS4_SHARE_ACCESS_WRITE:
+			oflags |= O_WRONLY;
+			break;
+		case NFS4_SHARE_ACCESS_BOTH:
+			oflags |= O_RDWR;
+			break;
+		default:
+			oflags |= O_RDONLY;
+		}
+
+		status = nfsd_check_obj_isreg(child, cstate->minorversion);
+		if (status == nfs_ok) {
+			open->op_filp = dentry_open(&path, oflags,
+						    current_cred());
+			if (IS_ERR(open->op_filp)) {
+				status = nfserrno(PTR_ERR(open->op_filp));
+				open->op_filp = NULL;
+			}
+		}
 	} else if (create_status) {
 		status = create_status;
 	} else {
@@ -517,7 +547,8 @@ do_open_lookup(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate, stru
 	}
 	if (status)
 		goto out;
-	status = nfsd_check_obj_isreg(*resfh, cstate->minorversion);
+	status = nfsd_check_obj_isreg((*resfh)->fh_dentry,
+				      cstate->minorversion);
 	if (status)
 		goto out;
 
