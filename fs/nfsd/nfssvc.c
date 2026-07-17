@@ -207,6 +207,11 @@ int nfsd_minorversion(struct nfsd_net *nn, u32 minorversion, enum vers_op change
 	return 0;
 }
 
+bool nfsd_v4client(struct svc_rqst *rqstp)
+{
+	return rqstp && rqstp->rq_prog == NFS_PROGRAM && rqstp->rq_vers == 4;
+}
+
 bool nfsd_net_try_get(struct net *net) __must_hold(rcu)
 {
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
