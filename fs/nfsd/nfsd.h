@@ -199,24 +199,6 @@ void		nfsd_lockd_shutdown(void);
 
 #ifdef CONFIG_NFSD_V4
 
-/* before processing a COMPOUND operation, we have to check that there
- * is enough space in the buffer for XDR encode to succeed.  otherwise,
- * we might process an operation with side effects, and be unable to
- * tell the client that the operation succeeded.
- *
- * COMPOUND_ERR_SLACK_SPACE - this is the minimum bytes of buffer space
- * needed to encode an operation which has failed with NFS4ERR_RESOURCE.
- * care is taken to ensure that we never fall below this level for any
- * reason.
- */
-#define COMPOUND_ERR_SLACK_SPACE	16     /* OP_SETATTR */
-
-#define NFSD_LAUNDROMAT_MINTIMEOUT      1   /* seconds */
-#define	NFSD_CLIENT_MAX_TRIM_PER_RUN	128
-#define	NFS4_CLIENTS_PER_GB		1024
-#define NFSD_DELEGRETURN_TIMEOUT	(HZ / 34)	/* 30ms */
-#define	NFSD_CB_GETATTR_TIMEOUT		NFSD_DELEGRETURN_TIMEOUT
-
 extern int nfsd4_is_junction(struct dentry *dentry);
 extern int register_cld_notifier(void);
 extern void unregister_cld_notifier(void);
