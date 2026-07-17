@@ -6,11 +6,11 @@
  * PWM output is achieved by calculating a clock that permits calculating
  * two periods (low and high). The counter then has to be set to switch after
  * N cycles for the first half period.
- * Partly the hardware has no "polarity" setting. This driver reverses the period
- * cycles (the low length is inverted with the high length) for
- * PWM_POLARITY_INVERSED. This means that .get_state cannot read the polarity
- * from the hardware.
- * Setting the duty cycle will disable and re-enable the PWM output.
+ * Some of the IP block revisions have an invert bit that swaps the high and
+ * low parts of the output. This is used to implement waveforms with
+ * duty_offset_ns + duty_length_ns == period_length_ns, i.e. what the legacy
+ * API calls inverted polarity. On the other revisions a nonzero duty_offset_ns
+ * is rounded down to zero.
  * Disabling the PWM stops the output immediately (without waiting for the
  * current period to complete first).
  *
@@ -35,6 +35,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/math64.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -96,12 +97,6 @@ static struct meson_pwm_channel_data {
 };
 
 struct meson_pwm_channel {
-	unsigned long rate;
-	unsigned int hi;
-	unsigned int lo;
-	bool constant;
-	bool inverted;
-
 	struct clk_mux mux;
 	struct clk_divider div;
 	struct clk_gate gate;
@@ -156,30 +151,44 @@ static void meson_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 	clk_disable_unprepare(channel->clk);
 }
 
-static int meson_pwm_calc(struct pwm_chip *chip, struct pwm_device *pwm,
-			  const struct pwm_state *state)
+struct meson_pwm_waveform {
+	unsigned long rate;
+	u16 hi;
+	u16 lo;
+	bool enabled;
+	bool inverted;
+};
+
+static int meson_pwm_round_waveform_tohw(struct pwm_chip *chip,
+					 struct pwm_device *pwm,
+					 const struct pwm_waveform *wf,
+					 void *_wfhw)
 {
+	struct meson_pwm_waveform *wfhw = _wfhw;
 	struct meson_pwm *meson = to_meson_pwm(chip);
 	struct meson_pwm_channel *channel = &meson->channels[pwm->hwpwm];
-	unsigned int cnt, duty_cnt;
+	u64 cnt, duty_cnt, freq;
 	long fin_freq;
-	u64 duty, period, freq;
+	int ret = 0;
 
-	duty = state->duty_cycle;
-	period = state->period;
+	if (wf->period_length_ns == 0) {
+		*wfhw = (struct meson_pwm_waveform){
+			.enabled = false,
+		};
+
+		return 0;
+	}
 
 	/*
-	 * Note this is wrong. The result is an output wave that isn't really
-	 * inverted and so is wrongly identified by .get_state as normal.
-	 * Fixing this needs some care however as some machines might rely on
-	 * this.
+	 * Get the highest input clock rate that makes the requested period
+	 * representable with the 16 bit wide counters, but at most 1 GHz so
+	 * one counter cycle stays at least a nanosecond long, which
+	 * .round_waveform_fromhw() relies on. clk_round_rate() may round up
+	 * past the requested rate, so reject a too-high result below.
 	 */
-	if (state->polarity == PWM_POLARITY_INVERSED && !meson->data->has_polarity)
-		duty = period - duty;
-
-	freq = div64_u64(NSEC_PER_SEC * 0xffffULL, period);
-	if (freq > ULONG_MAX)
-		freq = ULONG_MAX;
+	freq = div64_u64((u64)NSEC_PER_SEC * FIELD_MAX(PWM_LOW_MASK),
+			 wf->period_length_ns);
+	freq = min_t(u64, freq, NSEC_PER_SEC);
 
 	fin_freq = clk_round_rate(channel->clk, freq);
 	if (fin_freq <= 0) {
@@ -188,41 +197,158 @@ static int meson_pwm_calc(struct pwm_chip *chip, struct pwm_device *pwm,
 		return fin_freq ? fin_freq : -EINVAL;
 	}
 
-	dev_dbg(pwmchip_parent(chip), "fin_freq: %ld Hz\n", fin_freq);
-
-	cnt = mul_u64_u64_div_u64(fin_freq, period, NSEC_PER_SEC);
-	if (cnt > 0xffff) {
-		dev_err(pwmchip_parent(chip), "unable to get period cnt\n");
+	if (fin_freq > NSEC_PER_SEC) {
+		dev_err(pwmchip_parent(chip),
+			"source clock frequency %ld too high\n", fin_freq);
 		return -EINVAL;
 	}
 
-	dev_dbg(pwmchip_parent(chip), "period=%llu cnt=%u\n", period, cnt);
+	/*
+	 * If the requested period is too long to be counted even at the
+	 * lowest possible input clock rate, implement the longest possible
+	 * period instead.
+	 */
+	cnt = mul_u64_u64_div_u64(fin_freq, wf->period_length_ns, NSEC_PER_SEC);
+	cnt = min_t(u64, cnt, FIELD_MAX(PWM_LOW_MASK));
 
-	if (duty == period) {
-		channel->hi = cnt;
-		channel->lo = 0;
-		channel->constant = true;
-	} else if (duty == 0) {
-		channel->hi = 0;
-		channel->lo = cnt;
-		channel->constant = true;
-	} else {
-		duty_cnt = mul_u64_u64_div_u64(fin_freq, duty, NSEC_PER_SEC);
-
-		dev_dbg(pwmchip_parent(chip), "duty=%llu duty_cnt=%u\n", duty, duty_cnt);
-
-		channel->hi = duty_cnt;
-		channel->lo = cnt - duty_cnt;
-		channel->constant = false;
+	if (cnt == 0) {
+		/*
+		 * The requested period is shorter than one cycle of the
+		 * fastest available input clock, implement the minimal
+		 * period with zero duty cycle (the general calculation below
+		 * yields that as duty_length_ns and duty_offset_ns cannot
+		 * exceed the requested period) and signal the rounding up
+		 * in the return value.
+		 */
+		cnt = 1;
+		ret = 1;
 	}
 
-	channel->rate = fin_freq;
+	duty_cnt = mul_u64_u64_div_u64(fin_freq, wf->duty_length_ns, NSEC_PER_SEC);
+	duty_cnt = min(duty_cnt, cnt);
+
+	*wfhw = (struct meson_pwm_waveform){
+		.rate = fin_freq,
+		.hi = duty_cnt,
+		.lo = cnt - duty_cnt,
+		.enabled = true,
+	};
+
+	if (meson->data->has_polarity && duty_cnt) {
+		u64 offset_cnt = mul_u64_u64_div_u64(fin_freq, wf->duty_offset_ns,
+						     NSEC_PER_SEC);
+
+		/*
+		 * Waveforms with duty_offset_ns + duty_length_ns ==
+		 * period_length_ns are implemented by inverting the output:
+		 * The signal then is low for hi counts (the offset) followed
+		 * by high for lo counts (the duty cycle). Other nonzero
+		 * duty_offset_ns values are rounded down to 0.
+		 */
+		if (offset_cnt && duty_cnt + offset_cnt >= cnt) {
+			swap(wfhw->hi, wfhw->lo);
+			wfhw->inverted = true;
+		}
+	}
+
+	dev_dbg(pwmchip_parent(chip),
+		"pwm#%u: %llu/%llu [+%llu] @%lu -> hi: %u, lo: %u, inverted: %d\n",
+		pwm->hwpwm, wf->duty_length_ns, wf->period_length_ns,
+		wf->duty_offset_ns, wfhw->rate, wfhw->hi, wfhw->lo,
+		wfhw->inverted);
+
+	return ret;
+}
+
+static u64 meson_pwm_cnt_to_ns(unsigned long fin_freq, u32 cnt)
+{
+	return DIV64_U64_ROUND_UP(NSEC_PER_SEC * (u64)cnt, fin_freq);
+}
+
+static int meson_pwm_round_waveform_fromhw(struct pwm_chip *chip,
+					   struct pwm_device *pwm,
+					   const void *_wfhw,
+					   struct pwm_waveform *wf)
+{
+	const struct meson_pwm_waveform *wfhw = _wfhw;
+
+	if (!wfhw->enabled || !wfhw->rate) {
+		*wf = (struct pwm_waveform){
+			.period_length_ns = 0,
+		};
+
+		return 0;
+	}
+
+	/*
+	 * wfhw->hi and wfhw->lo are u16, so their sum doesn't overflow and
+	 * NSEC_PER_SEC * (hi + lo) fits into the u64 dividend in
+	 * meson_pwm_cnt_to_ns().
+	 */
+	wf->period_length_ns = meson_pwm_cnt_to_ns(wfhw->rate, wfhw->hi + wfhw->lo);
+
+	if (wfhw->inverted && wfhw->lo == 0) {
+		/*
+		 * The output is constant low. Report a normal constant-low
+		 * waveform instead of duty_offset_ns == period_length_ns
+		 * which wouldn't be a valid waveform description. This
+		 * setting is only reachable when the hardware was programmed
+		 * by the bootloader as .round_waveform_tohw() never produces
+		 * it.
+		 */
+		wf->duty_length_ns = 0;
+		wf->duty_offset_ns = 0;
+	} else if (wfhw->inverted) {
+		wf->duty_length_ns = meson_pwm_cnt_to_ns(wfhw->rate, wfhw->lo);
+		wf->duty_offset_ns = meson_pwm_cnt_to_ns(wfhw->rate, wfhw->hi);
+	} else {
+		wf->duty_length_ns = meson_pwm_cnt_to_ns(wfhw->rate, wfhw->hi);
+		wf->duty_offset_ns = 0;
+	}
 
 	return 0;
 }
 
-static void meson_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
+static int meson_pwm_read_waveform(struct pwm_chip *chip,
+				   struct pwm_device *pwm,
+				   void *_wfhw)
 {
+	struct meson_pwm_waveform *wfhw = _wfhw;
+	struct meson_pwm *meson = to_meson_pwm(chip);
+	struct meson_pwm_channel *channel = &meson->channels[pwm->hwpwm];
+	struct meson_pwm_channel_data *channel_data;
+	u32 value, pwm_reg;
+
+	channel_data = &meson_pwm_per_channel_data[pwm->hwpwm];
+
+	value = readl(meson->base + REG_MISC_AB);
+	if (!(value & channel_data->pwm_en_mask)) {
+		*wfhw = (struct meson_pwm_waveform){
+			.enabled = false,
+		};
+
+		return 0;
+	}
+
+	pwm_reg = readl(meson->base + channel_data->reg_offset);
+
+	*wfhw = (struct meson_pwm_waveform){
+		.rate = clk_get_rate(channel->clk),
+		.hi = FIELD_GET(PWM_HIGH_MASK, pwm_reg),
+		.lo = FIELD_GET(PWM_LOW_MASK, pwm_reg),
+		.enabled = true,
+		.inverted = meson->data->has_polarity &&
+			    (value & channel_data->inv_en_mask),
+	};
+
+	return 0;
+}
+
+static int meson_pwm_write_waveform(struct pwm_chip *chip,
+				    struct pwm_device *pwm,
+				    const void *_wfhw)
+{
+	const struct meson_pwm_waveform *wfhw = _wfhw;
 	struct meson_pwm *meson = to_meson_pwm(chip);
 	struct meson_pwm_channel *channel = &meson->channels[pwm->hwpwm];
 	struct meson_pwm_channel_data *channel_data;
@@ -232,136 +358,65 @@ static void meson_pwm_enable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	channel_data = &meson_pwm_per_channel_data[pwm->hwpwm];
 
-	err = clk_set_rate(channel->clk, channel->rate);
-	if (err)
-		dev_err(pwmchip_parent(chip), "setting clock rate failed\n");
-
-	spin_lock_irqsave(&meson->lock, flags);
-
-	value = FIELD_PREP(PWM_HIGH_MASK, channel->hi) |
-		FIELD_PREP(PWM_LOW_MASK, channel->lo);
-	writel(value, meson->base + channel_data->reg_offset);
-
-	value = readl(meson->base + REG_MISC_AB);
-	value |= channel_data->pwm_en_mask;
-
-	if (meson->data->has_constant) {
-		value &= ~channel_data->const_en_mask;
-		if (channel->constant)
-			value |= channel_data->const_en_mask;
-	}
-
-	if (meson->data->has_polarity) {
-		value &= ~channel_data->inv_en_mask;
-		if (channel->inverted)
-			value |= channel_data->inv_en_mask;
-	}
-
-	writel(value, meson->base + REG_MISC_AB);
-
-	spin_unlock_irqrestore(&meson->lock, flags);
-}
-
-static void meson_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	struct meson_pwm *meson = to_meson_pwm(chip);
-	struct meson_pwm_channel *channel = &meson->channels[pwm->hwpwm];
-	struct meson_pwm_channel_data *channel_data;
-	unsigned long flags;
-	u32 value;
-
-	channel_data = &meson_pwm_per_channel_data[pwm->hwpwm];
-
-	spin_lock_irqsave(&meson->lock, flags);
-
-	value = readl(meson->base + REG_MISC_AB);
-	value &= ~channel_data->pwm_en_mask;
-
-	if (meson->data->has_polarity) {
-		value &= ~channel_data->inv_en_mask;
-		if (channel->inverted)
-			value |= channel_data->inv_en_mask;
-	}
-
-	writel(value, meson->base + REG_MISC_AB);
-
-	spin_unlock_irqrestore(&meson->lock, flags);
-}
-
-static int meson_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
-			   const struct pwm_state *state)
-{
-	struct meson_pwm *meson = to_meson_pwm(chip);
-	struct meson_pwm_channel *channel = &meson->channels[pwm->hwpwm];
-	int err = 0;
-
-	channel->inverted = (state->polarity == PWM_POLARITY_INVERSED);
-
-	if (!state->enabled) {
-		if (channel->inverted && !meson->data->has_polarity) {
-			/*
-			 * Some of IP block revisions don't have an "always high"
-			 * setting which we can use for "inverted disabled".
-			 * Instead we achieve this by setting mux parent with
-			 * highest rate and minimum divider value, resulting
-			 * in the shortest possible duration for one "count"
-			 * and "period == duty_cycle". This results in a signal
-			 * which is LOW for one "count", while being HIGH for
-			 * the rest of the (so the signal is HIGH for slightly
-			 * less than 100% of the period, but this is the best
-			 * we can achieve).
-			 */
-			channel->rate = ULONG_MAX;
-			channel->hi = ~0;
-			channel->lo = 0;
-			channel->constant = true;
-
-			meson_pwm_enable(chip, pwm);
-		} else {
-			meson_pwm_disable(chip, pwm);
-		}
-	} else {
-		err = meson_pwm_calc(chip, pwm, state);
-		if (err < 0)
+	/*
+	 * Channel clock operations also modify REG_MISC_AB under meson->lock,
+	 * including from .request()/.free() outside the pwmchip lock. Set the
+	 * rate before taking meson->lock to avoid recursive locking. Skip
+	 * clk_set_rate() when unchanged because even a no-op re-evaluates the
+	 * mux parent and reparses the device tree.
+	 */
+	if (wfhw->enabled && clk_get_rate(channel->clk) != wfhw->rate) {
+		err = clk_set_rate(channel->clk, wfhw->rate);
+		if (err) {
+			dev_err(pwmchip_parent(chip),
+				"setting clock rate failed: %d\n", err);
 			return err;
+		}
 
-		meson_pwm_enable(chip, pwm);
+		/*
+		 * The rate computed by .round_waveform_tohw() might not be
+		 * hit if an input clock changed its rate in between; the
+		 * counter values only implement the promised waveform at
+		 * exactly wfhw->rate.
+		 */
+		if (clk_get_rate(channel->clk) != wfhw->rate) {
+			dev_err(pwmchip_parent(chip),
+				"clock rate changed since rounding\n");
+			return -EINVAL;
+		}
 	}
 
-	return 0;
-}
+	spin_lock_irqsave(&meson->lock, flags);
 
-static u64 meson_pwm_cnt_to_ns(unsigned long fin_freq, u32 cnt)
-{
-	return fin_freq ? div64_ul(NSEC_PER_SEC * (u64)cnt, fin_freq) : 0;
-}
+	if (wfhw->enabled) {
+		value = FIELD_PREP(PWM_HIGH_MASK, wfhw->hi) |
+			FIELD_PREP(PWM_LOW_MASK, wfhw->lo);
+		writel(value, meson->base + channel_data->reg_offset);
 
-static int meson_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
-			       struct pwm_state *state)
-{
-	struct meson_pwm *meson = to_meson_pwm(chip);
-	struct meson_pwm_channel_data *channel_data;
-	unsigned long fin_freq;
-	unsigned int hi, lo;
-	u32 value;
+		value = readl(meson->base + REG_MISC_AB);
+		value |= channel_data->pwm_en_mask;
 
-	channel_data = &meson_pwm_per_channel_data[pwm->hwpwm];
-	fin_freq = clk_get_rate(meson->channels[pwm->hwpwm].clk);
+		if (meson->data->has_constant) {
+			value &= ~channel_data->const_en_mask;
+			/* The signal is constant when one phase is empty */
+			if (!wfhw->hi || !wfhw->lo)
+				value |= channel_data->const_en_mask;
+		}
 
-	value = readl(meson->base + REG_MISC_AB);
-	state->enabled = value & channel_data->pwm_en_mask;
+		if (meson->data->has_polarity) {
+			value &= ~channel_data->inv_en_mask;
+			if (wfhw->inverted)
+				value |= channel_data->inv_en_mask;
+		}
 
-	if (meson->data->has_polarity && (value & channel_data->inv_en_mask))
-		state->polarity = PWM_POLARITY_INVERSED;
-	else
-		state->polarity = PWM_POLARITY_NORMAL;
+		writel(value, meson->base + REG_MISC_AB);
+	} else {
+		value = readl(meson->base + REG_MISC_AB);
+		value &= ~channel_data->pwm_en_mask;
+		writel(value, meson->base + REG_MISC_AB);
+	}
 
-	value = readl(meson->base + channel_data->reg_offset);
-	lo = FIELD_GET(PWM_LOW_MASK, value);
-	hi = FIELD_GET(PWM_HIGH_MASK, value);
-
-	state->period = meson_pwm_cnt_to_ns(fin_freq, lo + hi);
-	state->duty_cycle = meson_pwm_cnt_to_ns(fin_freq, hi);
+	spin_unlock_irqrestore(&meson->lock, flags);
 
 	return 0;
 }
@@ -369,8 +424,11 @@ static int meson_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 static const struct pwm_ops meson_pwm_ops = {
 	.request = meson_pwm_request,
 	.free = meson_pwm_free,
-	.apply = meson_pwm_apply,
-	.get_state = meson_pwm_get_state,
+	.sizeof_wfhw = sizeof(struct meson_pwm_waveform),
+	.round_waveform_tohw = meson_pwm_round_waveform_tohw,
+	.round_waveform_fromhw = meson_pwm_round_waveform_fromhw,
+	.read_waveform = meson_pwm_read_waveform,
+	.write_waveform = meson_pwm_write_waveform,
 };
 
 static int meson_pwm_init_clocks_meson8b(struct pwm_chip *chip,
