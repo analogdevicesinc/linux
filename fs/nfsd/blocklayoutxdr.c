@@ -8,6 +8,7 @@
 #include <linux/nfs4.h>
 
 #include "nfsd.h"
+#include "nfserr.h"
 #include "blocklayoutxdr.h"
 #include "vfs.h"
 

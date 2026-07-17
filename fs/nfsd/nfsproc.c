@@ -10,6 +10,7 @@
 #include "cache.h"
 #include "xdr.h"
 #include "vfs.h"
+#include "nfserr.h"
 #include "trace.h"
 
 #define NFSDDBG_FACILITY		NFSDDBG_PROC
