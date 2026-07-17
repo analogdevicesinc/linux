@@ -25,7 +25,9 @@
 #include <net/addrconf.h>
 #include <net/ipv6.h>
 #include <net/net_namespace.h>
+
 #include "nfsd.h"
+#include "nfserr.h"
 #include "cache.h"
 #include "vfs.h"
 #include "netns.h"

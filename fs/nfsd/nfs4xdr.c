@@ -54,6 +54,7 @@
 #include "xdr4.h"
 #include "vfs.h"
 #include "state.h"
+#include "nfserr.h"
 #include "cache.h"
 #include "netns.h"
 #include "pnfs.h"

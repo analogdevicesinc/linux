@@ -52,6 +52,7 @@
 #include "vfs.h"
 #include "current_stateid.h"
 #include "stats.h"
+#include "nfserr.h"
 
 #include "netns.h"
 #include "pnfs.h"
