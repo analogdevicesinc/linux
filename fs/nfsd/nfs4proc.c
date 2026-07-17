@@ -169,23 +169,17 @@ do_open_permission(struct svc_rqst *rqstp, struct svc_fh *current_fh, struct nfs
 	return fh_verify(rqstp, current_fh, S_IFREG, accmode);
 }
 
-static __be32 nfsd_check_obj_isreg(struct dentry *child, u32 minor_version)
+static __be32 nfsd_check_obj_isreg(struct dentry *child)
 {
 	umode_t mode = d_inode(child)->i_mode;
 
 	if (S_ISREG(mode))
-		return nfs_ok;
+		return 0;
 	if (S_ISDIR(mode))
-		return nfserr_isdir;
+		return -EISDIR;
 	if (S_ISLNK(mode))
-		return nfserr_symlink;
-
-	/* RFC 7530 - 16.16.6 */
-	if (minor_version == 0)
-		return nfserr_symlink;
-	else
-		return nfserr_wrong_type;
-
+		return -ELOOP;
+	return -EFTYPE;
 }
 
 static void nfsd4_set_open_owner_reply_cache(struct nfsd4_compound_state *cstate, struct nfsd4_open *open, struct svc_fh *resfh)
@@ -213,8 +207,6 @@ static __be32
 nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		  struct svc_fh *resfhp, struct nfsd4_open *open)
 {
-	struct nfsd4_compoundres *resp = rqstp->rq_resp;
-	struct nfsd4_compound_state *cstate = &resp->cstate;
 	struct iattr *iap = &open->op_iattr;
 	struct nfsd_attrs attrs = {
 		.na_iattr	= iap,
@@ -355,8 +347,8 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		 * op_filp and consequently a valid ->f_path.dentry.
 		 */
 
-		status = nfsd_check_obj_isreg(child, cstate->minorversion);
-		if (status == nfs_ok) {
+		status = nfserrno(nfsd_check_obj_isreg(child));
+		if (!status) {
 			open->op_filp = dentry_open(&path, oflags,
 						    current_cred());
 			if (IS_ERR(open->op_filp)) {
@@ -535,8 +527,7 @@ do_open_lookup(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate, stru
 	}
 	if (status)
 		goto out;
-	status = nfsd_check_obj_isreg((*resfh)->fh_dentry,
-				      cstate->minorversion);
+	status = nfserrno(nfsd_check_obj_isreg((*resfh)->fh_dentry));
 	if (status)
 		goto out;
 
@@ -548,6 +539,10 @@ do_open_lookup(struct svc_rqst *rqstp, struct nfsd4_compound_state *cstate, stru
 	status = do_open_permission(rqstp, *resfh, open, accmode);
 	set_change_info(&open->op_cinfo, current_fh);
 out:
+	if (status == nfserr_wrong_type && cstate->minorversion == 0)
+		/* RFC 7530 - 16.16.6 */
+		return nfserr_symlink;
+
 	return status;
 }
 
