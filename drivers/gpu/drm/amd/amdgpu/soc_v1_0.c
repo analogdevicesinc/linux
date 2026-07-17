@@ -632,7 +632,7 @@ static bool __soc_v1_0_is_valid_mode(struct amdgpu_xcp_mgr *xcp_mgr,
 	case AMDGPU_SPX_PARTITION_MODE:
 		return adev->gmc.num_mem_partitions == 1 && num_xcc > 0;
 	case AMDGPU_DPX_PARTITION_MODE:
-		return adev->gmc.num_mem_partitions <= 2 && (num_xcc % 4) == 0;
+		return adev->gmc.num_mem_partitions <= 2 && (num_xcc % 2) == 0;
 	case AMDGPU_TPX_PARTITION_MODE:
 		return (adev->gmc.num_mem_partitions == 1 ||
 			adev->gmc.num_mem_partitions == 3) &&
@@ -647,8 +647,10 @@ static bool __soc_v1_0_is_valid_mode(struct amdgpu_xcp_mgr *xcp_mgr,
 		 * (num_xcc % adev->gmc.num_mem_partitions) == 0 because
 		 * num_compute_partitions can't be less than num_mem_partitions
 		 */
-		return ((num_xcc > 1) &&
-		       (num_xcc % adev->gmc.num_mem_partitions) == 0);
+		return (adev->gmc.num_mem_partitions == 1 ||
+			adev->gmc.num_mem_partitions == 4) &&
+		       (num_xcc > 1) &&
+		       (num_xcc % adev->gmc.num_mem_partitions) == 0;
 	default:
 		return false;
 	}
