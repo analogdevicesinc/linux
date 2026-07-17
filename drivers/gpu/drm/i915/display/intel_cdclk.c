@@ -2177,6 +2177,11 @@ static bool pll_enable_wa_needed(struct intel_display *display)
 		display->cdclk.hw.vco > 0;
 }
 
+static bool has_cd2x_pipe_select(struct intel_display *display)
+{
+	return IS_DISPLAY_VER(display, 10, 20) || display->platform.broxton;
+}
+
 static u32 bxt_cdclk_ctl(struct intel_display *display,
 			 const struct intel_cdclk_config *cdclk_config,
 			 enum pipe pipe)
@@ -2190,7 +2195,7 @@ static u32 bxt_cdclk_ctl(struct intel_display *display,
 
 	val = bxt_cdclk_cd2x_div_sel(display, cdclk, vco, waveform);
 
-	if (DISPLAY_VER(display) < 30)
+	if (has_cd2x_pipe_select(display))
 		val |= bxt_cdclk_cd2x_pipe(display, pipe);
 
 	/*
@@ -2381,7 +2386,7 @@ static void bxt_sanitize_cdclk(struct intel_display *display)
 	 * dividers both syncing to an active pipe, or asynchronously
 	 * (PIPE_NONE).
 	 */
-	if (DISPLAY_VER(display) < 30) {
+	if (has_cd2x_pipe_select(display)) {
 		cdctl &= ~bxt_cdclk_cd2x_pipe_mask(display);
 		cdctl |= bxt_cdclk_cd2x_pipe(display, INVALID_PIPE);
 	}
@@ -2579,8 +2584,7 @@ static bool intel_cdclk_can_cd2x_update(struct intel_display *display,
 					const struct intel_cdclk_config *a,
 					const struct intel_cdclk_config *b)
 {
-	/* Older hw doesn't have the capability */
-	if (DISPLAY_VER(display) < 10 && !display->platform.broxton)
+	if (!has_cd2x_pipe_select(display))
 		return false;
 
 	/*
