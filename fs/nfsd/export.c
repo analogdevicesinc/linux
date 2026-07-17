@@ -22,6 +22,7 @@
 
 #include "nfsd.h"
 #include "nfserr.h"
+#include "nfs4ctl.h"
 #include "nfsfh.h"
 #include "netns.h"
 #include "pnfs.h"
