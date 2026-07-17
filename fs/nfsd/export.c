@@ -21,6 +21,7 @@
 #include <uapi/linux/nfsd_netlink.h>
 
 #include "nfsd.h"
+#include "nfserr.h"
 #include "nfsfh.h"
 #include "netns.h"
 #include "pnfs.h"

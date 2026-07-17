@@ -13,6 +13,7 @@
 #include "auth.h"
 #include "netns.h"
 #include "vfs.h"
+#include "nfserr.h"
 
 /*
  * Force construction of an empty post-op attr

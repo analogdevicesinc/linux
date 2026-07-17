@@ -37,6 +37,7 @@
 #include <linux/sunrpc/svc_xprt.h>
 #include <linux/slab.h>
 #include "nfsd.h"
+#include "nfserr.h"
 #include "state.h"
 #include "netns.h"
 #include "stats.h"
