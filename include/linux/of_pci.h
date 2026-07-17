@@ -38,4 +38,13 @@ of_irq_parse_and_map_pci(const struct pci_dev *dev, u8 slot, u8 pin)
 }
 #endif
 
+#ifdef CONFIG_PCI_DYNAMIC_OF_NODES
+int devm_of_pci_make_dev_node(struct pci_dev *pdev);
+#else
+static inline int devm_of_pci_make_dev_node(struct pci_dev *pdev)
+{
+	return -ENOENT;
+}
+#endif
+
 #endif

@@ -732,6 +732,42 @@ out_free_name:
 	kfree(name);
 }
 
+static void devm_of_pci_dev_node_release(void *data)
+{
+	of_pci_remove_node(data);
+}
+
+/**
+ * devm_of_pci_make_dev_node - Ensure a PCI device has an OF node, devm-tied.
+ * @pdev: target PCI device.
+ *
+ * If @pdev already has an of_node (e.g. a DT-native system, or a quirked
+ * device via DECLARE_PCI_FIXUP_FINAL of_pci_make_dev_node), returns 0 without
+ * touching its lifetime -- the original creator retains ownership.
+ *
+ * Otherwise attempts to create one via of_pci_make_dev_node(). On success,
+ * ties the node's lifetime to @pdev via devm so it is released on device
+ * teardown. On failure (no parent OF node to attach under, allocation
+ * failure, etc.), returns -ENOENT with a devicelog message.
+ *
+ * Return: 0 on success (pre-existing or freshly created), negative errno on
+ * failure.
+ */
+int devm_of_pci_make_dev_node(struct pci_dev *pdev)
+{
+	if (pdev->dev.of_node)
+		return 0;
+
+	of_pci_make_dev_node(pdev);
+	if (!pdev->dev.of_node)
+		return dev_err_probe(&pdev->dev, -ENOENT,
+				     "unable to create OF node for device\n");
+
+	return devm_add_action_or_reset(&pdev->dev,
+					devm_of_pci_dev_node_release, pdev);
+}
+EXPORT_SYMBOL_GPL(devm_of_pci_make_dev_node);
+
 void of_pci_remove_host_bridge_node(struct pci_host_bridge *bridge)
 {
 	struct device_node *np;
