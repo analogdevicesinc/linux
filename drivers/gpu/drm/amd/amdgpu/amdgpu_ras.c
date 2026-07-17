@@ -3469,7 +3469,7 @@ init_ras_enabled_flag:
 	adev->ras_hw_enabled &= AMDGPU_RAS_BLOCK_MASK;
 
 	adev->ras_enabled = amdgpu_ras_enable == 0 ? 0 :
-		adev->ras_hw_enabled & amdgpu_ras_mask;
+		(uint32_t)(adev->ras_hw_enabled & amdgpu_ras_mask);
 
 	/* bad page feature is not applicable to specific app platform */
 	if (adev->gmc.is_app_apu &&
@@ -4384,7 +4384,7 @@ int amdgpu_ras_is_supported(struct amdgpu_device *adev,
 	     block == AMDGPU_RAS_BLOCK__SDMA ||
 	     block == AMDGPU_RAS_BLOCK__VCN ||
 	     block == AMDGPU_RAS_BLOCK__JPEG) &&
-		(amdgpu_ras_mask & (1 << block)) &&
+		(amdgpu_ras_mask & BIT_ULL(block)) &&
 	    amdgpu_ras_is_poison_mode_supported(adev) &&
 	    amdgpu_ras_get_ras_block(adev, block, 0))
 		ret = 1;
