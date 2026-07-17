@@ -1,24 +1,31 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)-only
 
-config PINCTRL_ADSP
-	bool
-	depends on OF
-	select PINMUX
-	select GENERIC_PINCONF
-
 config SRUCTRL_ADSP
 	bool
 	depends on OF
 	select PINMUX
 	select GENERIC_PINCONF
 
-config PINCTRL_ADSP_SC5XX
-	bool "ADSP-SC5XX pinctrl driver"
-	depends on (ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST)
-	select PINCTRL_ADSP
+config PINCTRL_ADSP
+	tristate "Analog Devices ADSP pinctrl and GPIO driver"
+	depends on OF
+	select PINMUX
+	select PINCONF
+	select GENERIC_PINCONF
+	select GENERIC_PINCTRL_GROUPS
+	select GENERIC_PINMUX_FUNCTIONS
+	select GPIOLIB
+	select GPIOLIB_IRQCHIP
+	select IRQ_DOMAIN_HIERARCHY
+	select MFD_SYSCON
+	imply ADI_ADSP_PINT
 	help
-	  Say Y here to enable the ADSP-SC5XX pinctrl driver. This is required for
-	  correct peripheral functionality on the SoC.
+	  This pinctrl driver provides an interface that allows configuring the
+	  PORT pins on ADSP SC5xx series SoCs. The pins can be muxed to another
+	  peripheral, or function as GPIO.
+
+	  The driver can also be built as a module. If so, the module will be
+	  called pinctrl-adsp.
 
 config SRUCTRL_ADSP_SC5XX
 	bool "ADSP-SC5XX SRU control driver"

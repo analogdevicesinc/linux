@@ -27,31 +27,27 @@
 	status = "okay";
 };
 
-&pinctrl0 {
-	uart1_default: uart1_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('D', 4, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('D', 5, ADI_ADSP_PINFUNC_ALT0)>;
-		};
+&pinctrl {
+	uart1_default: uart1-pins {
+		pinmux = <SC598_PD04__UART1_RX
+			  SC598_PD05__UART1_TX>;
 	};
 
-	uart2_default: uart2_pins {
-		pins {
-			pinmux = <ADI_ADSP_PINMUX('B', 11, ADI_ADSP_PINFUNC_ALT0)>,
-				 <ADI_ADSP_PINMUX('B', 12, ADI_ADSP_PINFUNC_ALT0)>;
-		};
+	uart2_default: uart2-pins {
+		pinmux = <SC598_PB11__UART2_RX
+			  SC598_PB12__UART2_TX>;
 	};
 };
 
 &gpb {
-	uart0-en {
+	uart0-en-hog {
 		gpio-hog;
 		gpios = <13 GPIO_ACTIVE_LOW>;
 		output-high;
 		line-name = "uart0-en";
 	};
 
-	uart0-flow-en {
+	uart0-flow-en-hog {
 		gpio-hog;
 		gpios = <14 GPIO_ACTIVE_LOW>;
 		output-low;
@@ -60,14 +56,14 @@
 };
 
 &gpe {
-	led1 {
+	led1-hog {
 		gpio-hog;
 		gpios = <15 GPIO_ACTIVE_LOW>;
 		output-high;
 		line-name = "led1";
 	};
 
-	led2 {
+	led2-hog {
 		gpio-hog;
 		gpios = <10 GPIO_ACTIVE_LOW>;
 		output-high;

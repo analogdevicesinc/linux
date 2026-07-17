@@ -48,7 +48,6 @@
 		i2c4 = &i2c4;
 		i2c5 = &i2c5;
 		i2s4 = &i2s4;
-		mmc0 = &mmc0;
 		sru0 = &sru_ctrl_dai0;
 		sru1 = &sru_ctrl_dai1;
 	};
@@ -578,12 +577,198 @@
 			status = "disabled";
 		};
 
-		pinctrl0: pinctrl@31004600 {
-			compatible = "adi,adsp-pinctrl";
+		pinctrl: pinctrl {
+			compatible = "adi,adsp-sc594-pinctrl";
 			#address-cells = <1>;
 			#size-cells = <1>;
-			reg = <0x31004600 0x400>;
-			adi,port-sizes = <16 16 16 16 16 16 16 16 7>;
+			ranges;
+			adi,pads-syscon = <&pads_syscon>;
+
+			gpa: gpio@31004000 {
+				reg = <0x31004000 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 0 16>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&pint0>;
+				adi,interrupt-ranges = <0 0 16>;
+			};
+
+			gpb: gpio@31004080 {
+				reg = <0x31004080 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 16 16>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&pint1>;
+				adi,interrupt-ranges = <0 0 16>;
+			};
+
+			gpc: gpio@31004100 {
+				reg = <0x31004100 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 32 16>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&pint2>;
+				adi,interrupt-ranges = <0 0 16>;
+			};
+
+			gpd: gpio@31004180 {
+				reg = <0x31004180 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 48 16>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&pint3>;
+				adi,interrupt-ranges = <0 0 16>;
+			};
+
+			gpe: gpio@31004200 {
+				reg = <0x31004200 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 64 16>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&pint4>;
+				adi,interrupt-ranges = <0 0 16>;
+			};
+
+			gpf: gpio@31004280 {
+				reg = <0x31004280 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 80 16>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&pint5>;
+				adi,interrupt-ranges = <0 0 16>;
+			};
+
+			gpg: gpio@31004300 {
+				reg = <0x31004300 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 96 16>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&pint6>;
+				adi,interrupt-ranges = <0 0 16>;
+			};
+
+			gph: gpio@31004380 {
+				reg = <0x31004380 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 112 16>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&pint7>;
+				adi,interrupt-ranges = <0 0 16>;
+			};
+
+			gpi: gpio@31004400 {
+				reg = <0x31004400 0x80>;
+				gpio-controller;
+				#gpio-cells = <2>;
+				gpio-ranges = <&pinctrl 0 128 7>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&pint7>;
+				adi,interrupt-ranges = <0 16 7>;
+			};
+		};
+
+		pint0: interrupt-controller@31005000 {
+			compatible = "adi,adsp-sc598-pint";
+			reg = <0x31005000 0x40>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+			adi,pint-assign = <0x00000000>;
+		};
+
+		pint1: interrupt-controller@31005100 {
+			compatible = "adi,adsp-sc598-pint";
+			reg = <0x31005100 0x40>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
+			adi,pint-assign = <0x00000000>;
+		};
+
+		pint2: interrupt-controller@31005200 {
+			compatible = "adi,adsp-sc598-pint";
+			reg = <0x31005200 0x40>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
+			adi,pint-assign = <0x00000000>;
+		};
+
+		pint3: interrupt-controller@31005300 {
+			compatible = "adi,adsp-sc598-pint";
+			reg = <0x31005300 0x40>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
+			adi,pint-assign = <0x00000000>;
+		};
+
+		pint4: interrupt-controller@31005400 {
+			compatible = "adi,adsp-sc598-pint";
+			reg = <0x31005400 0x40>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
+			adi,pint-assign = <0x00000000>;
+		};
+
+		pint5: interrupt-controller@31005500 {
+			compatible = "adi,adsp-sc598-pint";
+			reg = <0x31005500 0x40>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
+			adi,pint-assign = <0x00000000>;
+		};
+
+		pint6: interrupt-controller@31005600 {
+			compatible = "adi,adsp-sc598-pint";
+			reg = <0x31005600 0x40>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
+			adi,pint-assign = <0x00000000>;
+		};
+
+		pint7: interrupt-controller@31005700 {
+			compatible = "adi,adsp-sc598-pint";
+			reg = <0x31005700 0x40>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+			/*
+			 * NOTE: PORTH and PORTI both have their lower halves
+			 * muxed into PINT7 via PINT_ASSIGN. This means that
+			 * EDGE_BOTH is unavailable on these PORTs' lower-half
+			 * pins. The upper-half of PORTH still support
+			 * EDGE_BOTH. PORTI has no upper-half.
+			 */
+			adi,pint-assign = <0x00010000>;
 		};
 
 		sru_ctrl_dai0: sru-ctrl-dai0@310C9000 {
@@ -604,16 +789,6 @@
 			status = "disabled";
 		};
 
-		mmc0: mmc@31010000 {
-			compatible = "snps,dw-mshc";
-			reg = <0x31010000 0xFFF>;
-			interrupts = <GIC_SPI 131 IRQ_TYPE_LEVEL_HIGH>;
-			spu_securep_id = <58>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			fifo-depth = <1024>;
-			status = "disabled";
-		};
 
 		gp_counter: cnt@3100B000 {
 			compatible = "adi,gp_counter";
@@ -640,144 +815,6 @@
 				     <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
 			clock-div = <1>;
 			status = "disabled";
-		};
-
-		pint0: pint@31005000 {
-			compatible = "adi,adsp-pint";
-			reg = <0x31005000 0xFF>;
-			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
-		};
-
-		pint1: pint@31005100 {
-			compatible = "adi,adsp-pint";
-			reg = <0x31005100 0xFF>;
-			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
-		};
-
-		pint2: pint@31005200 {
-			compatible = "adi,adsp-pint";
-			reg = <0x31005200 0xFF>;
-			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
-		};
-
-		pint3: pint@31005300 {
-			compatible = "adi,adsp-pint";
-			reg = <0x31005300 0xFF>;
-			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
-		};
-
-		pint4: pint@31005400 {
-			compatible = "adi,adsp-pint";
-			reg = <0x31005400 0xFF>;
-			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
-		};
-
-		pint5: pint@31005500 {
-			compatible = "adi,adsp-pint";
-			reg = <0x31005500 0xFF>;
-			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
-		};
-
-		pint6: pint@31005600 {
-			compatible = "adi,adsp-pint";
-			reg = <0x31005600 0xFF>;
-			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
-		};
-
-		pint7: pint@31005700 {
-			compatible = "adi,adsp-pint";
-			reg = <0x31005700 0xFF>;
-			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
-		};
-
-		gpa: gport@31004000 {
-			compatible = "adi,adsp-port-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0x31004000 0x7F>;
-			gpio-ranges = <&pinctrl0 0 0 16>;
-			adi,pint = <&pint0 1>;
-			adi,gpio-base = <0>;
-		};
-
-		gpb: gport@31004080 {
-			compatible = "adi,adsp-port-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0x31004080 0x7F>;
-			gpio-ranges = <&pinctrl0 0 16 16>;
-			adi,pint = <&pint0 0>;
-			adi,gpio-base = <16>;
-		};
-
-		gpc: gport@31004100 {
-			compatible = "adi,adsp-port-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0x31004100 0x7F>;
-			gpio-ranges = <&pinctrl0 0 32 16>;
-			adi,pint = <&pint2 1>;
-			adi,gpio-base = <32>;
-		};
-
-		gpd: gport@31004180 {
-			compatible = "adi,adsp-port-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0x31004180 0x7F>;
-			gpio-ranges = <&pinctrl0 0 48 16>;
-			adi,pint = <&pint2 0>;
-			adi,gpio-base = <48>;
-		};
-
-		gpe: gport@31004200 {
-			compatible = "adi,adsp-port-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0x31004200 0x7F>;
-			gpio-ranges = <&pinctrl0 0 64 16>;
-			adi,pint = <&pint4 1>;
-			adi,gpio-base = <64>;
-		};
-
-		gpf: gport@31004280 {
-			compatible = "adi,adsp-port-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0x31004280 0x7F>;
-			gpio-ranges = <&pinctrl0 0 80 16>;
-			adi,pint = <&pint4 0>;
-			adi,gpio-base = <80>;
-		};
-
-		gpg: gport@31004300 {
-			compatible = "adi,adsp-port-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0x31004300 0x7F>;
-			gpio-ranges = <&pinctrl0 0 96 16>;
-			adi,pint = <&pint6 1>;
-			adi,gpio-base = <96>;
-		};
-
-		gph: gport@31004380 {
-			compatible = "adi,adsp-port-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0x31004380 0x7F>;
-			gpio-ranges = <&pinctrl0 0 112 16>;
-			adi,pint = <&pint6 0>;
-			adi,gpio-base = <112>;
-		};
-
-		gpi: gport@31004400 {
-			compatible = "adi,adsp-port-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-			reg = <0x31004400 0x7F>;
-			gpio-ranges = <&pinctrl0 0 128 7>;
-			adi,pint = <&pint7 1>;
-			adi,gpio-base = <128>;
 		};
 
 		usb0_phy: usbphy {

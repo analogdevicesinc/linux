@@ -1,495 +1,463 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices ADSP family pinctrl driver.
+ * PORT pin controller and GPIO driver for ADI ADSP SoCs
  *
- * (C) Copyright 2022 - Analog Devices, Inc.
- *
- * Written and/or maintained by Timesys Corporation
- *
- * Contact: Nathan Barrett-Morrison <nathan.morrison@timesys.com>
- * Author: Greg Malysa <greg.malysa@timesys.com>
- *
+ * Copyright (c) 2026 Analog Devices Inc.
  */
 
-#include <linux/device.h>
+#include <dt-bindings/pinctrl/adi,adsp-pinctrl.h>
+#include <linux/bitfield.h>
+#include <linux/cleanup.h>
+#include <linux/gpio/driver.h>
+#include <linux/io.h>
+#include <linux/mfd/syscon.h>
+#include <linux/mod_devicetable.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/pinctrl/pinconf.h>
+#include <linux/of_irq.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/pinctrl/pinconf-generic.h>
+#include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/platform_device.h>
-#include <linux/soc/adi/adsp-gpio-port.h>
+#include <linux/regmap.h>
 #include <linux/spinlock.h>
-#include <linux/printk.h>
 
 #include "../core.h"
 #include "../pinconf.h"
 #include "../pinctrl-utils.h"
+#include "../pinmux.h"
 
-/* Convert from pinmux constants in device tree to actual settings */
-#define ADSP_PINMUX_PIN(p) ((p & 0xffffff00) >> 8)
-#define ADSP_PINMUX_FUNC(p) (p & 0xff)
+/* pinmux entry decoding */
+#define ADSP_PINMUX_SOC(v) FIELD_GET(GENMASK(31, 20), v)
+#define ADSP_PINMUX_PIN(v) FIELD_GET(GENMASK(9, 2), v)
+#define ADSP_PINMUX_ALT(v) FIELD_GET(GENMASK(1, 0), v)
 
-/* Details of the PORT_MUX register */
-#define ADSP_PORT_PORT_MUX_BITS 2
-#define ADSP_PORT_PORT_MUX_MASK GENMASK(1, 0)
+#define ADSP_PINS_PER_PORT 16
 
-/* Number of pin alternate functions, see pin_functions array */
-#define ADSP_NUMBER_OF_PIN_FUNCTIONS ARRAY_SIZE(pin_functions)
+#define ADSP_PORT_FER		0x00
+#define ADSP_PORT_FER_SET	0x04
+#define ADSP_PORT_FER_CLEAR	0x08
+#define ADSP_PORT_DATA		0x0c
+#define ADSP_PORT_DATA_SET	0x10
+#define ADSP_PORT_DATA_CLEAR	0x14
+#define ADSP_PORT_DIR		0x18
+#define ADSP_PORT_DIR_SET	0x1c
+#define ADSP_PORT_DIR_CLEAR	0x20
+#define ADSP_PORT_INEN		0x24
+#define ADSP_PORT_INEN_SET	0x28
+#define ADSP_PORT_INEN_CLEAR	0x2c
+#define ADSP_PORT_MUX		0x30
+#define ADSP_PORT_MUX_BITS	2
+#define ADSP_PORT_MUX_MASK	GENMASK(ADSP_PORT_MUX_BITS - 1, 0)
 
-/* Information for drive strength registers */
-#define ADSP_PADS_DS_BITS				3
-#define ADSP_PADS_DS_PINS_PER_REG		8
-#define ADSP_PADS_DS_HIGH				2
-#define ADSP_PADS_DS_LOW				1
+#define ADSP_PADS_PORT_DS_BITS	3
+#define ADSP_PADS_PORT_DS_MASK	GENMASK(ADSP_PADS_PORT_DS_BITS - 1, 0)
+#define ADSP_PADS_PORT_DS_LOW	1
+#define ADSP_PADS_PORT_DS_HIGH	2
 
-/* Information for pull up/pull down enable registers */
-#define ADSP_PADS_PUD_PINS_PER_REG		16
+#define ADSP_NO_PINT (~0)
 
-#define ADSP_PADS_REG_PCFG0				0x04
-#define ADSP_PADS_REG_PCFG1				0x08
-/* Convert from pin number (e.g. 0-143) to drive strength register offset */
-#define ADSP_PADS_PORTx_DS(p)			(0x0c + 0x04*(p/ADSP_PADS_DS_PINS_PER_REG))
-#define ADSP_PADS_NONPORTS_DS			0x50
-/* Convert from pin number to pull up enable register offset */
-#define ADSP_PADS_PORTx_PUE(p)			(0x98 + 0x04*(p/ADSP_PADS_PUD_PINS_PER_REG))
-/* Convert from pin number to pull down enable register offset */
-#define ADSP_PADS_PORTx_PDE(p)			(0xc4 + 0x04*(p/ADSP_PADS_PUD_PINS_PER_REG))
+struct adsp_pinctrl;
 
-/* Non GPIO PORT drive strength settings */
-#define ADSP_NONPORTS_DS_CKOUT			0
-#define ADSP_NONPORTS_DS_RESOUTB		1
-#define ADSP_NONPORTS_DS_FAULTB			2
-#define ADSP_NONPORTS_DS_LP1CK			3
-#define ADSP_NONPORTS_DS_LP0CK			4
-#define ADSP_NONPORTS_DS_OSPI			5
-
-/* DAI pad configuration offsets */
-#define ADSP_PADS_REG_DAI0_0_DS			0x78
-#define ADSP_PADS_REG_DAI0_1_DS			0x7c
-#define ADSP_PADS_REG_DAI1_0_DS			0x80
-#define ADSP_PADS_REG_DAI1_1_DS			0x84
-
-#define ADSP_PADS_REG_DAI0_PUE			0xbc
-#define ADSP_PADS_REG_DAI1_PUE			0xc0
-#define ADSP_PADS_REG_DAI0_PDE			0xfc
-#define ADSP_PADS_REG_DAI1_PDE			0x100
-
-/*
- * Represents a function setting for pins, controls the mux modes essentially
- */
-struct adsp_pin_function {
-	const char *name;
-	/* 0 for gpio, 1-4 for alt functions 0-3 */
-	u8 mode;
+struct adsp_port {
+	struct adsp_pinctrl *pc;
+	struct device_node *np;
+	struct gpio_chip gc;
+	void __iomem *regs;
+	spinlock_t mux_lock;
+	unsigned int index;
+	unsigned int ngpio;
+	unsigned int pin_base;
+	unsigned int pint_base_lower;
+	unsigned int pint_base_upper;
 };
 
-/*
- * Available pin function settings in the pin mux for GPIO-associated pins
- */
-static const struct adsp_pin_function pin_functions[] = {
-	{
-		.name = "gpio",
-		.mode = 0,
-	}, {
-		.name = "alt0",
-		.mode = 1,
-	}, {
-		.name = "alt1",
-		.mode = 2,
-	}, {
-		.name = "alt2",
-		.mode = 3,
-	}, {
-		.name = "alt3",
-		.mode = 4,
-	}
+struct adsp_pinctrl_info {
+	unsigned int soc;
+	unsigned int port_pue_reg;
+	unsigned int port_pud_reg;
+	unsigned int port_pde_reg;
+	unsigned int port_ds_reg;
 };
 
-/*
- * One pinctrl instance per chip, unifies the interface to the port mux and pad
- * conf registers in the PORT instances
- * @todo pads registers should be routed through system configuration abstraction
- *       to remove the need for feature testing/listing "missing" registers here
- */
 struct adsp_pinctrl {
 	struct device *dev;
-	struct pinctrl_dev *pin_dev;
-	void __iomem *regs;
-	const char **group_names;
-	unsigned int *pins;
-	spinlock_t lock;
-	size_t num_ports;
-	u32 *pin_counts;
-	u32 total_pins;
-
-	/* Are the drive strength registers missing on this part? */
-	bool ds_missing;
-
-	/* Are the pull up/down enable registers missing on this part? */
-	bool pude_missing;
+	const struct adsp_pinctrl_info *info;
+	struct regmap *pads;
+	struct adsp_port *ports;
+	unsigned int nports;
+	struct pinctrl_pin_desc *pins;
+	const char **pin_names;
+	unsigned int npins;
+	struct pinctrl_dev *pctldev;
+	struct pinctrl_desc pctldesc;
 };
 
-/*
- * Custom pinconf properties
- */
-#define ADSP_PIN_CONFIG_TRU_TOGGLE (PIN_CONFIG_END+1)
-
-static const struct pinconf_generic_params adsp_custom_bindings[] = {
-	/* Configure this pin as a toggle pin which flip each time a trigger event
-	 * is received by the pin controller from the TRU
-	 */
-	{"adi,tru-toggle", ADSP_PIN_CONFIG_TRU_TOGGLE, 0}
+enum adsp_pin_bias {
+	ADSP_PIN_BIAS_UNKNOWN,
+	ADSP_PIN_BIAS_DISABLE,
+	ADSP_PIN_BIAS_PULL_UP,
+	ADSP_PIN_BIAS_PULL_DOWN,
 };
 
-static const struct pin_config_item adsp_conf_items[] = {
-	PCONFDUMP(ADSP_PIN_CONFIG_TRU_TOGGLE, "tru-toggle", NULL, false),
+static const char *const adsp_pin_functions[] = { "alt0", "alt1", "alt2",
+						  "alt3" };
+
+static const struct adsp_pinctrl_info sc571_pinctrl_info = {
+	.soc = 0x571,
+	.port_pue_reg = 0x80,
+	.port_pud_reg = 0xc0,
 };
 
-/* does not need lock */
-static void adsp_set_pin_gpio(struct adsp_gpio_port *port, unsigned int offset, bool gpio)
+static const struct adsp_pinctrl_info sc573_pinctrl_info = {
+	.soc = 0x573,
+	.port_pue_reg = 0x80,
+	.port_pud_reg = 0xc0,
+};
+
+static const struct adsp_pinctrl_info sc584_pinctrl_info = {
+	.soc = 0x584,
+};
+
+static const struct adsp_pinctrl_info sc589_pinctrl_info = {
+	.soc = 0x589,
+};
+
+static const struct adsp_pinctrl_info sc594_pinctrl_info = {
+	.soc = 0x594,
+	.port_pue_reg = 0x98,
+	.port_pde_reg = 0xc4,
+	.port_ds_reg = 0x0c,
+};
+
+static const struct adsp_pinctrl_info sc598_pinctrl_info = {
+	.soc = 0x598,
+	.port_pue_reg = 0x98,
+	.port_pde_reg = 0xc4,
+	.port_ds_reg = 0x0c,
+};
+
+static struct adsp_port *adsp_pinctrl_pin_to_port(struct adsp_pinctrl *pc,
+						  unsigned int pin)
 {
-	if (gpio)
-		__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_FER_CLEAR);
+	return pc->pins[pin].drv_data;
+}
+
+static unsigned int adsp_pinctrl_pin_to_gpio(struct adsp_pinctrl *pc,
+					     unsigned int pin)
+{
+	struct adsp_port *port = adsp_pinctrl_pin_to_port(pc, pin);
+
+	return pin - port->pin_base;
+}
+
+static int adsp_gpio_child_to_parent_hwirq(struct gpio_chip *gc,
+					   unsigned int child,
+					   unsigned int type,
+					   unsigned int *parent,
+					   unsigned int *parent_type)
+{
+	struct adsp_port *port = gpiochip_get_data(gc);
+
+	if (child < 8 && port->pint_base_lower != ADSP_NO_PINT)
+		*parent = child + port->pint_base_lower;
+	else if (child < 16 && port->pint_base_upper != ADSP_NO_PINT)
+		*parent = (child - 8) + port->pint_base_upper;
 	else
-		__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_FER_SET);
-}
+		return -EINVAL;
 
-/*
- * Configure a pin either for gpio or an alternate function
- */
-static void adsp_portmux_setup(struct adsp_gpio_port *port, unsigned int offset,
-	const struct adsp_pin_function *func)
-{
-	if (func->mode == 0) {
-		adsp_set_pin_gpio(port, offset, true);
-	} else {
-		unsigned long flags;
-		u32 val;
-		u32 f = (func->mode - 1) & ADSP_PORT_PORT_MUX_MASK;
+	*parent_type = type;
 
-		spin_lock_irqsave(&port->lock, flags);
-
-		val = __adsp_gpio_readl(port, ADSP_PORT_REG_PORT_MUX);
-		val &= ~(ADSP_PORT_PORT_MUX_MASK << (ADSP_PORT_PORT_MUX_BITS * offset));
-		val |= f << (ADSP_PORT_PORT_MUX_BITS * offset);
-		__adsp_gpio_writel(port, val, ADSP_PORT_REG_PORT_MUX);
-
-		spin_unlock_irqrestore(&port->lock, flags);
-
-		adsp_set_pin_gpio(port, offset, false);
-	}
-}
-
-/* pin control operations */
-static int adsp_pinctrl_get_groups_count(struct pinctrl_dev *pctldev)
-{
-	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
-
-	return adsp_pinctrl->total_pins;
-}
-
-static const char *adsp_pinctrl_get_group_name(struct pinctrl_dev *pctldev,
-	unsigned int selector)
-{
-	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
-
-	return adsp_pinctrl->group_names[selector];
-}
-
-static int adsp_pinctrl_get_group_pins(struct pinctrl_dev *pctldev, unsigned int selector,
-	const unsigned int **pins, unsigned int *num_pins)
-{
-	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
-	*pins = &adsp_pinctrl->pins[selector];
-	*num_pins = 1;
 	return 0;
 }
 
-static int adsp_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
-	struct device_node *np, struct pinctrl_map **map, unsigned int *reserved_maps,
-	unsigned int *num_maps)
+static void adsp_gpio_init_valid_mask(struct gpio_chip *gc,
+				     unsigned long *valid_mask,
+				     unsigned int ngpio)
 {
-	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
-	const char *group;
-	unsigned long *configs;
-	unsigned int num_configs, num_pins;
-	unsigned int reserve = 0;
-	u32 pinmux;
+	struct adsp_port *port = gpiochip_get_data(gc);
+
+	if (port->pint_base_lower == ADSP_NO_PINT)
+		bitmap_clear(valid_mask, 0, 8);
+
+	if (port->pint_base_upper == ADSP_NO_PINT)
+		bitmap_clear(valid_mask, 8, 8);
+}
+
+static int adsp_gpio_get(struct gpio_chip *gc, unsigned int gpio)
+{
+	struct adsp_port *port = gpiochip_get_data(gc);
+
+	return !!(readl(port->regs + ADSP_PORT_DATA) & BIT(gpio));
+}
+
+static int adsp_gpio_set(struct gpio_chip *gc, unsigned int gpio, int val)
+{
+	struct adsp_port *port = gpiochip_get_data(gc);
+
+	if (val)
+		writel(BIT(gpio), port->regs + ADSP_PORT_DATA_SET);
+	else
+		writel(BIT(gpio), port->regs + ADSP_PORT_DATA_CLEAR);
+
+	return 0;
+}
+static int adsp_gpio_get_direction(struct gpio_chip *gc, unsigned int gpio)
+{
+	struct adsp_port *port = gpiochip_get_data(gc);
+	unsigned int val;
+
+	val = readl(port->regs + ADSP_PORT_DIR);
+
+	if (val & BIT(gpio))
+		return GPIO_LINE_DIRECTION_OUT;
+	else
+		return GPIO_LINE_DIRECTION_IN;
+}
+
+static int adsp_gpio_direction_input(struct gpio_chip *gc, unsigned int gpio)
+{
+	struct adsp_port *port = gpiochip_get_data(gc);
+
+	writel(BIT(gpio), port->regs + ADSP_PORT_DIR_CLEAR);
+	writel(BIT(gpio), port->regs + ADSP_PORT_INEN_SET);
+
+	return 0;
+}
+
+static int adsp_gpio_direction_output(struct gpio_chip *gc, unsigned int gpio,
+				      int val)
+{
+	struct adsp_port *port = gpiochip_get_data(gc);
 	int ret;
 
-	num_pins = of_property_count_u32_elems(np, "pinmux");
-	if (num_pins <= 0) {
-		dev_err(adsp_pinctrl->dev, "Must have at least one `pinmux` entry in %pOFn.\n",
-			np);
-		return -EINVAL;
-	}
-
-	ret = pinconf_generic_parse_dt_config(np, pctldev, &configs, &num_configs);
+	ret = adsp_gpio_set(gc, gpio, val);
 	if (ret)
 		return ret;
 
-	/* One configuration for the whole group, potentially */
-	reserve = num_pins;
-	if (num_configs)
-		reserve = reserve * 2;
+	writel(BIT(gpio), port->regs + ADSP_PORT_INEN_CLEAR);
+	writel(BIT(gpio), port->regs + ADSP_PORT_DIR_SET);
 
-	ret = pinctrl_utils_reserve_map(pctldev, map, reserved_maps, num_maps, reserve);
-	if (ret)
-		goto exit;
+	return 0;
+}
 
-	of_property_for_each_u32(np, "pinmux", pinmux) {
-		u32 pin = ADSP_PINMUX_PIN(pinmux);
-		u32 func = ADSP_PINMUX_FUNC(pinmux);
+static int adsp_pinconf_get_pin_bias(struct adsp_pinctrl *pc, unsigned int pin)
+{
+	struct adsp_port *port = adsp_pinctrl_pin_to_port(pc, pin);
+	const struct adsp_pinctrl_info *info = pc->info;
+	struct regmap *pads = pc->pads;
+	unsigned int reg_offset = port->index * regmap_get_reg_stride(pads);
+	unsigned int gpio = adsp_pinctrl_pin_to_gpio(pc, pin);
+	unsigned int pue = 0;
+	unsigned int pud = 0;
+	unsigned int pde = 0;
+	bool pullup = false;
+	bool pulldn = false;
+	unsigned int val;
 
-		if (func >= ADSP_NUMBER_OF_PIN_FUNCTIONS) {
-			dev_err(adsp_pinctrl->dev,
-				"Function number %d is not available for pin %d in %pOFn.n\n",
-				func, pin, np);
-			goto exit;
-		}
+	if (info->port_pue_reg)
+		pue = info->port_pue_reg + reg_offset;
+	if (info->port_pud_reg)
+		pud = info->port_pud_reg + reg_offset;
+	if (info->port_pde_reg)
+		pde = info->port_pde_reg + reg_offset;
 
-		group = adsp_pinctrl->group_names[pin];
-		ret = pinctrl_utils_add_map_mux(pctldev, map, reserved_maps, num_maps,
-			group, pin_functions[func].name);
-		if (ret)
-			goto exit;
+	if (!pue && !pud && !pde)
+		return -ENOTSUPP;
 
-		if (num_configs) {
-			ret = pinctrl_utils_add_map_configs(pctldev, map, reserved_maps, num_maps,
-				group, configs, num_configs, PIN_MAP_TYPE_CONFIGS_GROUP);
-			if (ret)
-				goto exit;
-		}
+	if (pue) {
+		regmap_read(pads, pue, &val);
+		pullup = !!(val & BIT(gpio));
 	}
 
-exit:
-	kfree(configs);
-	return ret;
-}
-
-/**
- * Handle device tree structures like:
- *
- * pinctrl_uart0_hwflow: uart0_hwflow_pins {
- *   pins_rxtx_ {
- *     pinmux = <1>, <2>;
- *     some-padconf-flag;
- *   };
- *   pins_hwflow {
- *     pinmux = <3>, <4>;
- *     some-other-padconf-flag;
- *   };
- * };
- *
- * where &pinctrl_uart0_hwflow is passed as an entry in pinctrl-0 on uart driver and
- * enables all sub-pins at once
- */
-static int adsp_pinctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
-	struct device_node *np, struct pinctrl_map **map, unsigned int *num_maps)
-{
-	unsigned int reserved_maps;
-	struct device_node *child_np;
-	int ret;
-
-	reserved_maps = 0;
-	*map = NULL;
-	*num_maps = 0;
-
-	for_each_child_of_node(np, child_np) {
-		ret = adsp_pinctrl_dt_subnode_to_map(pctldev, child_np, map,
-					&reserved_maps, num_maps);
-		if (ret < 0)
-			goto exit;
+	if (pud) {
+		/* PUD takes precedence over PUE when it is present */
+		regmap_read(pads, pud, &val);
+		pullup = !(val & BIT(gpio));
 	}
-	return 0;
 
-exit:
-	pinctrl_utils_free_map(pctldev, *map, *num_maps);
-	return ret;
+	if (pde) {
+		regmap_read(pads, pde, &val);
+		pulldn = !!(val & BIT(gpio));
+	}
+
+	if (pullup && !pulldn)
+		return PIN_CONFIG_BIAS_PULL_UP;
+	else if (pulldn && !pullup)
+		return PIN_CONFIG_BIAS_PULL_DOWN;
+	else if (!pullup && !pulldn)
+		return PIN_CONFIG_BIAS_DISABLE;
+
+	/* We should never get here */
+	return -EINVAL;
 }
 
-static const struct pinctrl_ops adsp_pctlops = {
-	.get_groups_count = adsp_pinctrl_get_groups_count,
-	.get_group_name = adsp_pinctrl_get_group_name,
-	.get_group_pins = adsp_pinctrl_get_group_pins,
-	.dt_node_to_map = adsp_pinctrl_dt_node_to_map,
-	.dt_free_map = pinconf_generic_dt_free_map,
-};
-
-/* pin mux operations */
-static int adsp_pinmux_get_functions_count(struct pinctrl_dev *pctldev)
+static int adsp_pinconf_set_pin_bias(struct adsp_pinctrl *pc, unsigned int pin,
+				     enum pin_config_param bias)
 {
-	return ADSP_NUMBER_OF_PIN_FUNCTIONS;
-}
+	struct adsp_port *port = adsp_pinctrl_pin_to_port(pc, pin);
+	const struct adsp_pinctrl_info *info = pc->info;
+	struct regmap *pads = pc->pads;
+	unsigned int reg_offset = port->index * regmap_get_reg_stride(pads);
+	unsigned int gpio = adsp_pinctrl_pin_to_gpio(pc, pin);
+	bool pullup = bias == PIN_CONFIG_BIAS_PULL_UP;
+	bool pulldn = bias == PIN_CONFIG_BIAS_PULL_DOWN;
+	unsigned int pue = 0;
+	unsigned int pud = 0;
+	unsigned int pde = 0;
 
-static const char *adsp_pinmux_get_function_name(struct pinctrl_dev *pctldev,
-	unsigned int selector)
-{
-	return pin_functions[selector].name;
-}
+	/*
+	 * Not all SoCs in the family support setting the bin bias. The three
+	 * cases are:
+	 *
+	 *  1. No support at all
+	 *  2. Pull-up control only
+	 *  3. Pull-up and pull-down control
+	 *
+	 * For pull-up control, sometimes it is split across two registers, PUE
+	 * (enable) and PUD (disable), where PUD takes precedence. The driver
+	 * assumes that SoC info register addresses are valid when they are
+	 * nonzero to determine the level of control available. Accordingly, an
+	 * error is only returned when a requested bias configuration cannot be
+	 * provided by the hardware.
+	 */
+	if (info->port_pue_reg)
+		pue = info->port_pue_reg + reg_offset;
+	if (info->port_pud_reg)
+		pud = info->port_pud_reg + reg_offset;
+	if (info->port_pde_reg)
+		pde = info->port_pde_reg + reg_offset;
 
-static int adsp_pinmux_get_function_groups(struct pinctrl_dev *pctldev,
-	unsigned int selector, const char * const **groups, unsigned * const num_groups)
-{
-	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
+	if (!pue && !pud && !pde)
+		return -ENOTSUPP;
 
-	*groups = adsp_pinctrl->group_names;
-	*num_groups = adsp_pinctrl->total_pins;
-	return 0;
-}
+	/* Disable bias */
+	if (!pullup) {
+		if (pud)
+			regmap_set_bits(pads, pud, BIT(gpio));
 
-/* Each group is exactly 1 pin and group id == pin id */
-static int adsp_pinmux_set_mux(struct pinctrl_dev *pctldev, unsigned int func,
-	unsigned int group)
-{
-	struct adsp_gpio_port *port;
-	struct pinctrl_gpio_range *range;
-	u32 offset;
+		if (pue)
+			regmap_clear_bits(pads, pue, BIT(gpio));
+	}
 
-	range = pinctrl_find_gpio_range_from_pin(pctldev, group);
-	if (!range || !range->gc)
-		return -EPROBE_DEFER;
+	if (!pulldn) {
+		if (pde)
+			regmap_clear_bits(pads, pde, BIT(gpio));
+	}
 
-	offset = group - range->pin_base;
+	/* Enable bias */
+	if (pullup) {
+		if (pud)
+			regmap_clear_bits(pads, pud, BIT(gpio));
 
-	port = to_adsp_gpio_port(range->gc);
-	adsp_portmux_setup(port, offset, &pin_functions[func]);
+		if (pue)
+			regmap_set_bits(pads, pue, BIT(gpio));
+		else
+			return -ENOTSUPP;
+	}
 
-	return 0;
-}
+	if (pulldn) {
+		if (pde)
+			regmap_set_bits(pads, pde, BIT(gpio));
+		else
+			return -ENOTSUPP;
+	}
 
-static int adsp_pinmux_request_gpio(struct pinctrl_dev *pctldev,
-	struct pinctrl_gpio_range *range, unsigned int pin)
-{
-	struct adsp_gpio_port *port = to_adsp_gpio_port(range->gc);
-	u32 offset = pin - range->pin_base;
-
-	adsp_set_pin_gpio(port, offset, true);
-	return 0;
-}
-
-static void adsp_pinmux_release_gpio(struct pinctrl_dev *pctldev,
-	struct pinctrl_gpio_range *range, unsigned int pin)
-{
-	struct adsp_gpio_port *port = to_adsp_gpio_port(range->gc);
-	u32 offset = pin - range->pin_base;
-
-	adsp_set_pin_gpio(port, offset, false);
-}
-
-static const struct pinmux_ops adsp_pmxops = {
-	.get_functions_count = adsp_pinmux_get_functions_count,
-	.get_function_name = adsp_pinmux_get_function_name,
-	.get_function_groups = adsp_pinmux_get_function_groups,
-	.set_mux = adsp_pinmux_set_mux,
-	.gpio_request_enable = adsp_pinmux_request_gpio,
-	.gpio_disable_free = adsp_pinmux_release_gpio,
-};
-
-/* pin configuration operations */
-static bool __adsp_pinconf_is_pue(struct adsp_pinctrl *p, unsigned int pin)
-{
-	u32 offset = ADSP_PADS_PORTx_PUE(pin);
-	u32 val, bit;
-
-	if (p->pude_missing)
-		return 0;
-
-	val = readl(p->regs + offset);
-	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG-1));
-	return !!(val & bit);
-}
-
-static bool __adsp_pinconf_is_pde(struct adsp_pinctrl *p, unsigned int pin)
-{
-	u32 offset = ADSP_PADS_PORTx_PDE(pin);
-	u32 val, bit;
-
-	if (p->pude_missing)
-		return 0;
-
-	val = readl(p->regs + offset);
-	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG-1));
-	return !!(val & bit);
-}
-
-static u32 __adsp_pinconf_get_ds(struct adsp_pinctrl *p, unsigned int pin)
-{
-	u32 offset = ADSP_PADS_PORTx_DS(pin);
-	u32 val, shift, mask;
-
-	if (p->ds_missing)
-		return 0;
-
-	val = readl(p->regs + offset);
-	shift = (pin & (ADSP_PADS_DS_PINS_PER_REG-1)) * ADSP_PADS_DS_BITS;
-	mask = GENMASK(ADSP_PADS_DS_BITS-1, 0) << shift;
-	val = val & mask;
-
-	if (val == ADSP_PADS_DS_HIGH)
-		return 1;
 	return 0;
 }
 
-/* seems we return -EINVAL for disabled static option, -ENOTSUPP for not supported,
- * and otherwise the argument is included in config
- */
-static int adsp_pinconf_get(struct pinctrl_dev *pctldev, unsigned int pin,
-	unsigned long *config)
+static int adsp_pinconf_get_slew_rate(struct adsp_pinctrl *pc, unsigned int pin)
 {
-	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
-	struct pinctrl_gpio_range *range;
-	struct adsp_gpio_port *port;
-	u32 offset, val;
-	u32 param = pinconf_to_config_param(*config);
-	u32 arg = 0;
+	const struct adsp_pinctrl_info *info = pc->info;
+	struct adsp_port *port = adsp_pinctrl_pin_to_port(pc, pin);
+	unsigned int gpio = adsp_pinctrl_pin_to_gpio(pc, pin);
+	unsigned int half = gpio / 8;
+	unsigned int reg_offset =
+		(port->index * 2 + half) * regmap_get_reg_stride(pc->pads);
+	unsigned int shift = (gpio % 8) * ADSP_PADS_PORT_DS_BITS;
+	unsigned int reg;
+	unsigned int val;
+
+	if (!info->port_ds_reg)
+		return -ENOTSUPP;
+
+	reg = info->port_ds_reg + reg_offset;
+
+	regmap_read(pc->pads, reg, &val);
+	val = (val >> shift) & ADSP_PADS_PORT_DS_MASK;
+
+	return val == ADSP_PADS_PORT_DS_HIGH ? 1 : 0;
+}
+
+static int adsp_pinconf_set_slew_rate(struct adsp_pinctrl *pc, unsigned int pin,
+				      u32 arg)
+{
+	const struct adsp_pinctrl_info *info = pc->info;
+	struct adsp_port *port = adsp_pinctrl_pin_to_port(pc, pin);
+	unsigned int gpio = adsp_pinctrl_pin_to_gpio(pc, pin);
+	unsigned int half = gpio / 8;
+	unsigned int reg_offset =
+		(port->index * 2 + half) * regmap_get_reg_stride(pc->pads);
+	unsigned int shift = (gpio % 8) * ADSP_PADS_PORT_DS_BITS;
+	unsigned int reg;
+	unsigned int val;
+
+	if (!info->port_ds_reg)
+		return -ENOTSUPP;
+
+	reg = info->port_ds_reg + reg_offset;
+
+	if (arg > 1)
+		return -EINVAL;
+
+	/*
+	 * The reference manuals refer to drive strength, with two permissible
+	 * values:
+	 *
+	 * - 0b001: for operating frequency <= 62.5 MHz (slow)
+	 * - 0b010: for operating frequency > 62.5 MHz  (fast)
+	 *
+	 * This is essentially slew rate. Just accept two values (0 or 1)
+	 * corresponding to the slow or fast slew rate.
+	 */
+	val = arg ? ADSP_PADS_PORT_DS_HIGH : ADSP_PADS_PORT_DS_LOW;
+
+	regmap_update_bits(pc->pads, reg, ADSP_PADS_PORT_DS_MASK << shift,
+			   val << shift);
+
+	return 0;
+}
+
+static int adsp_pinconf_pin_config_get(struct pinctrl_dev *pctldev,
+				       unsigned int pin, unsigned long *config)
+{
+	struct adsp_pinctrl *pc = pinctrl_dev_get_drvdata(pctldev);
+	enum pin_config_param param = pinconf_to_config_param(*config);
+	u32 arg = pinconf_to_config_argument(*config);
 
 	switch (param) {
 	case PIN_CONFIG_BIAS_DISABLE:
-		if (__adsp_pinconf_is_pue(adsp_pinctrl, pin) ||
-		    __adsp_pinconf_is_pde(adsp_pinctrl, pin))
-			return -EINVAL;
-		break;
-	case PIN_CONFIG_BIAS_PULL_DOWN:
-		if (!__adsp_pinconf_is_pde(adsp_pinctrl, pin))
-			return -EINVAL;
-		break;
 	case PIN_CONFIG_BIAS_PULL_UP:
-		if (!__adsp_pinconf_is_pue(adsp_pinctrl, pin))
+	case PIN_CONFIG_BIAS_PULL_DOWN: {
+		int bias = adsp_pinconf_get_pin_bias(pc, pin);
+		if (bias < 0)
+			return bias;
+		else if (bias != param)
 			return -EINVAL;
+		arg = 1;
 		break;
-	case PIN_CONFIG_DRIVE_STRENGTH:
-		arg = __adsp_pinconf_get_ds(adsp_pinctrl, pin);
+	}
+	case PIN_CONFIG_SLEW_RATE: {
+		int rate = adsp_pinconf_get_slew_rate(pc, pin);
+		if (rate < 0)
+			return rate;
+		arg = rate;
 		break;
-	case PIN_CONFIG_DRIVE_OPEN_DRAIN:
-		range = pinctrl_find_gpio_range_from_pin_nolock(pctldev, pin);
-		offset = pin - range->pin_base;
-		port = to_adsp_gpio_port(range->gc);
-
-		if (!(port->open_drain & BIT(offset)))
-			return -EINVAL;
-		break;
-	case PIN_CONFIG_DRIVE_PUSH_PULL:
-		range = pinctrl_find_gpio_range_from_pin_nolock(pctldev, pin);
-		offset = pin - range->pin_base;
-		port = to_adsp_gpio_port(range->gc);
-
-		if (port->open_drain & BIT(offset))
-			return -EINVAL;
-		break;
-	case ADSP_PIN_CONFIG_TRU_TOGGLE:
-		range = pinctrl_find_gpio_range_from_pin_nolock(pctldev, pin);
-		offset = pin - range->pin_base;
-		port = to_adsp_gpio_port(range->gc);
-
-		val = __adsp_gpio_readl(port, ADSP_PORT_REG_TRIG_TGL);
-		if (!(val & BIT(offset)))
-			return -EINVAL;
-		break;
+	}
 	default:
-		return -EOPNOTSUPP;
+		return -ENOTSUPP;
 	}
 
 	*config = pinconf_to_config_packed(param, arg);
@@ -497,211 +465,32 @@ static int adsp_pinconf_get(struct pinctrl_dev *pctldev, unsigned int pin,
 	return 0;
 }
 
-static void __adsp_pinconf_pue(struct adsp_pinctrl *p, unsigned int pin, bool state)
+static int adsp_pinconf_pin_config_set(struct pinctrl_dev *pctldev,
+				       unsigned int pin, unsigned long *configs,
+				       unsigned int num_configs)
 {
-	u32 offset = ADSP_PADS_PORTx_PUE(pin);
-	u32 val, bit;
+	struct adsp_pinctrl *pc = pinctrl_dev_get_drvdata(pctldev);
+	int i;
+	int ret;
 
-	if (p->pude_missing) {
-		dev_warn(p->dev,
-			 "Pull Up Enable is not supported by this PADS HW (tried to set PUE for pin %d)\n",
-			 pin);
-		return;
-	}
-
-	val = readl(p->regs + offset);
-	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG-1));
-
-	if (state)
-		writel(val | bit, p->regs + offset);
-	else
-		writel(val & ~bit, p->regs + offset);
-}
-
-static void __adsp_pinconf_pde(struct adsp_pinctrl *p, unsigned int pin, bool state)
-{
-	u32 offset = ADSP_PADS_PORTx_PDE(pin);
-	u32 val, bit;
-
-	if (p->pude_missing) {
-		dev_warn(p->dev,
-			 "Pull Down Enable is not supported by this PADS HW (tried to set PDE for pin %d)\n",
-			 pin);
-		return;
-	}
-
-	val = readl(p->regs + offset);
-	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG-1));
-
-	if (state)
-		writel(val | bit, p->regs + offset);
-	else
-		writel(val & ~bit, p->regs + offset);
-}
-
-static void __adsp_pinconf_ds(struct adsp_pinctrl *p, unsigned int pin, bool high)
-{
-	u32 offset = ADSP_PADS_PORTx_DS(pin);
-	u32 val, shift, mask;
-
-	if (p->ds_missing) {
-		dev_warn(p->dev,
-			"Drive strength is not supported by this PADS HW (tried to set drive strength for pin %d)\n",
-			pin);
-		return;
-	}
-
-	val = readl(p->regs + offset);
-	shift = (pin & (ADSP_PADS_DS_PINS_PER_REG-1)) * ADSP_PADS_DS_BITS;
-	mask = GENMASK(ADSP_PADS_DS_BITS-1, 0) << shift;
-	val = val & ~mask;
-
-	if (high)
-		writel(val | (ADSP_PADS_DS_HIGH << shift), p->regs + offset);
-	else
-		writel(val | (ADSP_PADS_DS_LOW << shift), p->regs + offset);
-}
-
-static int adsp_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
-	unsigned long *config, unsigned int num_configs)
-{
-	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
-	struct pinctrl_gpio_range *range;
-	struct adsp_gpio_port *port;
-	u32 param, arg, val;
-	u32 offset;
-	int cfg;
-	int ret = 0;
-	unsigned long flags;
-
-	spin_lock_irqsave(&adsp_pinctrl->lock, flags);
-
-	for (cfg = 0; cfg < num_configs; ++cfg) {
-		param = pinconf_to_config_param(config[cfg]);
-		arg = pinconf_to_config_argument(config[cfg]);
+	for (i = 0; i < num_configs; i++) {
+		enum pin_config_param param =
+			pinconf_to_config_param(configs[i]);
+		u32 arg = pinconf_to_config_argument(configs[i]);
 
 		switch (param) {
 		case PIN_CONFIG_BIAS_DISABLE:
-			__adsp_pinconf_pue(adsp_pinctrl, pin, false);
-			__adsp_pinconf_pde(adsp_pinctrl, pin, false);
-			break;
-		case PIN_CONFIG_BIAS_PULL_DOWN:
-			__adsp_pinconf_pde(adsp_pinctrl, pin, !!arg);
-			break;
 		case PIN_CONFIG_BIAS_PULL_UP:
-			__adsp_pinconf_pue(adsp_pinctrl, pin, !!arg);
+		case PIN_CONFIG_BIAS_PULL_DOWN:
+			ret = adsp_pinconf_set_pin_bias(pc, pin, param);
 			break;
-		case PIN_CONFIG_DRIVE_STRENGTH:
-			/* This only supports high/low-speed drive strength (see HRM)
-			 * so assume any positive value means we would like high-speed strength
-			 */
-			__adsp_pinconf_ds(adsp_pinctrl, pin, !!arg);
-			break;
-		case PIN_CONFIG_DRIVE_OPEN_DRAIN:
-			range = pinctrl_find_gpio_range_from_pin(pctldev, pin);
-			offset = pin - range->pin_base;
-			port = to_adsp_gpio_port(range->gc);
-
-			spin_lock(&port->lock);
-			val = __adsp_gpio_readw(port, ADSP_PORT_REG_DATA);
-			val &= BIT(offset);
-
-			if (val) {
-				/* open drain with value of 1 => configure as input */
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DIR_CLEAR);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_INEN_SET);
-			} else {
-				/* open drain with value of 0 => configure as output, drive 0 */
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_INEN_CLEAR);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DATA_CLEAR);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DIR_SET);
-			}
-
-			port->open_drain |= BIT(offset);
-			spin_unlock(&port->lock);
-			break;
-		case PIN_CONFIG_DRIVE_PUSH_PULL:
-			range = pinctrl_find_gpio_range_from_pin(pctldev, pin);
-			offset = pin - range->pin_base;
-			port = to_adsp_gpio_port(range->gc);
-
-			spin_lock(&port->lock);
-
-			/*
-			 * by default make the pin an input when exiting open drain mode;
-			 * user can correct later with GPIO in/out configuration
-			 */
-			if (port->open_drain & BIT(offset)) {
-				port->open_drain &= ~BIT(offset);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DIR_CLEAR);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_INEN_SET);
-			}
-
-			spin_unlock(&port->lock);
-			break;
-		case ADSP_PIN_CONFIG_TRU_TOGGLE:
-			range = pinctrl_find_gpio_range_from_pin(pctldev, pin);
-			offset = pin - range->pin_base;
-			port = to_adsp_gpio_port(range->gc);
-
-			spin_lock(&port->lock);
-			val = __adsp_gpio_readl(port, ADSP_PORT_REG_TRIG_TGL);
-			val |= BIT(offset);
-			__adsp_gpio_writel(port, val, ADSP_PORT_REG_TRIG_TGL);
-			spin_unlock(&port->lock);
+		case PIN_CONFIG_SLEW_RATE:
+			ret = adsp_pinconf_set_slew_rate(pc, pin, arg);
 			break;
 		default:
-			ret = -EOPNOTSUPP;
-			goto end;
+			return -ENOTSUPP;
 		}
-	}
 
-end:
-	spin_unlock_irqrestore(&adsp_pinctrl->lock, flags);
-	return ret;
-}
-
-/* Config for all pins must match or we have an error regarding group structure */
-static int adsp_pinconf_group_get(struct pinctrl_dev *pctldev, unsigned int group,
-	unsigned long *config)
-{
-	const unsigned int *pins;
-	unsigned int npins, i;
-	unsigned long first;
-	int ret;
-
-	ret = adsp_pinctrl_get_group_pins(pctldev, group, &pins, &npins);
-	if (ret)
-		return ret;
-
-	for (i = 0; i < npins; ++i) {
-		ret = adsp_pinconf_get(pctldev, pins[i], config);
-		if (ret)
-			return ret;
-
-		if (i == 0)
-			first = *config;
-
-		if (first != *config)
-			return -EOPNOTSUPP;
-	}
-
-	return 0;
-}
-
-static int adsp_pinconf_group_set(struct pinctrl_dev *pctldev, unsigned int group,
-	unsigned long *configs, unsigned int num_configs)
-{
-	const unsigned int *pins;
-	unsigned int npins, i;
-	int ret;
-
-	ret = adsp_pinctrl_get_group_pins(pctldev, group, &pins, &npins);
-	if (ret)
-		return ret;
-
-	for (i = 0; i < npins; ++i) {
-		ret = adsp_pinconf_set(pctldev, pins[i], configs, num_configs);
 		if (ret)
 			return ret;
 	}
@@ -711,186 +500,673 @@ static int adsp_pinconf_group_set(struct pinctrl_dev *pctldev, unsigned int grou
 
 static const struct pinconf_ops adsp_confops = {
 	.is_generic = true,
-	.pin_config_get = adsp_pinconf_get,
-	.pin_config_set = adsp_pinconf_set,
-	.pin_config_group_get = adsp_pinconf_group_get,
-	.pin_config_group_set = adsp_pinconf_group_set,
-#ifdef CONFIG_DEBUG_FS
-	.pin_config_config_dbg_show = pinconf_generic_dump_config,
-#endif
+	.pin_config_get = adsp_pinconf_pin_config_get,
+	.pin_config_set = adsp_pinconf_pin_config_set,
 };
 
-/*
- * We want to make one group per pin so that we can refer to the pins by group
- * later on when mux assignments are made
- */
-static int adsp_pinctrl_init_groups(struct adsp_pinctrl *adsp_pinctrl,
-	struct pinctrl_desc *desc)
+static int adsp_pinmux_set_mux(struct pinctrl_dev *pctldev, unsigned int func,
+			       unsigned int group)
 {
-	struct device *dev = adsp_pinctrl->dev;
-	struct pinctrl_pin_desc *all_pins;
-	size_t port, pin;
-	unsigned int i, pin_total;
-	int num_ports;
-	int ret;
+	struct adsp_pinctrl *pc = pinctrl_dev_get_drvdata(pctldev);
+	struct adsp_port *port = adsp_pinctrl_pin_to_port(pc, group);
+	unsigned int gpio = adsp_pinctrl_pin_to_gpio(pc, group);
+	u32 shift = ADSP_PORT_MUX_BITS * gpio;
+	u32 mask = ADSP_PORT_MUX_MASK << shift;
+	u32 field = func << shift;
+	u32 val;
 
-	num_ports = of_property_count_u32_elems(dev->of_node, "adi,port-sizes");
-
-	if (num_ports < 0)
-		return num_ports;
-
-	if (num_ports == 0) {
-		dev_err(dev, "pinctrl missing `adi,port-sizes` port size definition\n");
-		return -ENOENT;
+	/* Set alternate mode mux value */
+	scoped_guard(spinlock, &port->mux_lock)	{
+		val = readl(port->regs + ADSP_PORT_MUX);
+		val &= ~mask;
+		val |= field;
+		writel(val, port->regs + ADSP_PORT_MUX);
 	}
 
-	adsp_pinctrl->num_ports = num_ports;
-
-	adsp_pinctrl->pin_counts = devm_kcalloc(dev, sizeof(*adsp_pinctrl->pin_counts),
-		num_ports, GFP_KERNEL);
-	if (!adsp_pinctrl->pin_counts)
-		return -ENOMEM;
-
-	ret = of_property_read_u32_array(dev->of_node, "adi,port-sizes",
-		adsp_pinctrl->pin_counts, num_ports);
-	if (ret)
-		return ret;
-
-	pin_total = 0;
-
-	for (i = 0; i < num_ports; ++i)
-		pin_total += adsp_pinctrl->pin_counts[i];
-
-	adsp_pinctrl->total_pins = pin_total;
-
-	all_pins = devm_kcalloc(dev, sizeof(*all_pins), adsp_pinctrl->total_pins,
-		GFP_KERNEL);
-
-	adsp_pinctrl->pins = devm_kcalloc(dev, sizeof(adsp_pinctrl->pins),
-		adsp_pinctrl->total_pins, GFP_KERNEL);
-	if (!adsp_pinctrl->pins)
-		return -ENOMEM;
-
-	adsp_pinctrl->group_names = devm_kcalloc(dev, sizeof(*adsp_pinctrl->group_names),
-		adsp_pinctrl->total_pins, GFP_KERNEL);
-	if (!adsp_pinctrl->group_names)
-		return -ENOMEM;
-
-	i = 0;
-	for (port = 0; port < adsp_pinctrl->num_ports; ++port) {
-		for (pin = 0; pin < adsp_pinctrl->pin_counts[port]; ++pin) {
-			adsp_pinctrl->group_names[i] = devm_kasprintf(dev, GFP_KERNEL,
-				"p%c%zu", (char) ('A' + port), pin);
-			adsp_pinctrl->pins[i] = i;
-
-			all_pins[i].name = adsp_pinctrl->group_names[i];
-			all_pins[i].number = i;
-			i += 1;
-		}
-	}
-
-	desc->pins = all_pins;
-	desc->npins = adsp_pinctrl->total_pins;
+	/* Enable alternate function on the pin */
+	writel(BIT(gpio), port->regs + ADSP_PORT_FER_SET);
 
 	return 0;
 }
 
-static void adsp_set_nongpio_ds(struct adsp_pinctrl *p, int type, bool high)
+static int adsp_pinmux_gpio_request_enable(struct pinctrl_dev *pctldev,
+					   struct pinctrl_gpio_range *range,
+					   unsigned int pin)
 {
-	u32 val = readl(p->regs + ADSP_PADS_NONPORTS_DS);
-	u32 shift = ADSP_PADS_DS_BITS * type;
-	u32 mask = GENMASK(ADSP_PADS_DS_BITS-1, 0) << shift;
+	struct adsp_pinctrl *pc = pinctrl_dev_get_drvdata(pctldev);
+	struct adsp_port *port = adsp_pinctrl_pin_to_port(pc, pin);
+	unsigned int gpio = adsp_pinctrl_pin_to_gpio(pc, pin);
 
-	val = val & ~mask;
+	/* Disable alternate function on the pin */
+	writel(BIT(gpio), port->regs + ADSP_PORT_FER_CLEAR);
 
-	if (high)
-		writel(val | (ADSP_PADS_DS_HIGH << shift), p->regs + ADSP_PADS_NONPORTS_DS);
-	else
-		writel(val | (ADSP_PADS_DS_LOW << shift), p->regs + ADSP_PADS_NONPORTS_DS);
+	return 0;
+}
+
+static const struct pinmux_ops adsp_pmxops = {
+	.get_functions_count = pinmux_generic_get_function_count,
+	.get_function_name = pinmux_generic_get_function_name,
+	.get_function_groups = pinmux_generic_get_function_groups,
+	.set_mux = adsp_pinmux_set_mux,
+	.gpio_request_enable = adsp_pinmux_gpio_request_enable,
+	.strict = true,
+};
+
+static int adsp_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
+					  struct device_node *np,
+					  struct pinctrl_map **map,
+					  unsigned int *reserved_maps,
+					  unsigned int *num_maps)
+{
+	struct adsp_pinctrl *pc = pinctrl_dev_get_drvdata(pctldev);
+	unsigned long *configs = NULL;
+	unsigned int num_configs = 0;
+	int num_mux;
+	int i;
+	int ret;
+
+	/* If there's no muxing, defer to the generic helper (pinconf only) */
+	if (of_property_present(np, "pins"))
+		return pinconf_generic_dt_subnode_to_map(
+			pctldev, np, map, reserved_maps, num_maps,
+			PIN_MAP_TYPE_CONFIGS_PIN);
+
+	num_mux = of_property_count_u32_elems(np, "pinmux");
+	if (num_mux <= 0)
+		return num_mux ?: -EINVAL;
+
+	ret = pinconf_generic_parse_dt_config(np, pctldev, &configs,
+					      &num_configs);
+	if (ret)
+		return ret;
+
+	/*
+	 * Reserve maps for each pin mux, and if pinconf settings exist, also
+	 * reserve a config map for each muxed pin.
+	 */
+	ret = pinctrl_utils_reserve_map(pctldev, map, reserved_maps, num_maps,
+					num_configs ? 2 * num_mux : num_mux);
+	if (ret)
+		goto out;
+
+	for (i = 0; i < num_mux; i++) {
+		const char *group;
+		const char *func;
+		unsigned int val;
+		unsigned int pin;
+		unsigned int alt;
+
+		ret = of_property_read_u32_index(np, "pinmux", i, &val);
+		if (ret)
+			goto out;
+
+		/* Check that the correct mux table is being employed */
+		if (ADSP_PINMUX_SOC(val) != pc->info->soc) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* Decompose the macro into pin and alternate mode indices */
+		pin = ADSP_PINMUX_PIN(val);
+		alt = ADSP_PINMUX_ALT(val);
+
+		if (pin >= pctldev->desc->npins ||
+		    alt >= pinmux_generic_get_function_count(pctldev)) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* Get the group (single pin) and function (alt mode) strings */
+		group = pinctrl_generic_get_group_name(pctldev, pin);
+		func = pinmux_generic_get_function_name(pctldev, alt);
+
+		/* Add the muxing map */
+		ret = pinctrl_utils_add_map_mux(pctldev, map, reserved_maps,
+						num_maps, group, func);
+		if (ret)
+			goto out;
+
+		/* If there were configs, add their map too */
+		if (num_configs) {
+			ret = pinctrl_utils_add_map_configs(
+				pctldev, map, reserved_maps, num_maps, group,
+				configs, num_configs, PIN_MAP_TYPE_CONFIGS_PIN);
+			if (ret)
+				goto out;
+		}
+	}
+
+out:
+	kfree(configs);
+	return ret;
+}
+
+static int adsp_pinctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
+				       struct device_node *np,
+				       struct pinctrl_map **map,
+				       unsigned int *num_maps)
+{
+	unsigned int reserved_maps;
+	int ret;
+
+	*map = NULL;
+	*num_maps = 0;
+	reserved_maps = 0;
+
+	if (of_get_child_count(np)) {
+		for_each_child_of_node_scoped(np, child) {
+			ret = adsp_pinctrl_dt_subnode_to_map(
+				pctldev, child, map, &reserved_maps, num_maps);
+			if (ret)
+				goto out;
+		}
+	} else {
+		ret = adsp_pinctrl_dt_subnode_to_map(pctldev, np, map,
+						     &reserved_maps, num_maps);
+		if (ret)
+			goto out;
+	}
+
+ out:
+	if (ret)
+		pinctrl_utils_free_map(pctldev, *map, *num_maps);
+
+	return ret;
+}
+
+static const struct pinctrl_ops adsp_pctlops = {
+	.get_groups_count = pinctrl_generic_get_group_count,
+	.get_group_name = pinctrl_generic_get_group_name,
+	.get_group_pins = pinctrl_generic_get_group_pins,
+	.dt_node_to_map = adsp_pinctrl_dt_node_to_map,
+	.dt_free_map = pinctrl_utils_free_map,
+};
+
+static void adsp_gpio_irq_enable(struct irq_data *data)
+{
+	struct irq_data *parent = data->parent_data;
+
+	if (parent && parent->chip && parent->chip->irq_enable)
+		parent->chip->irq_enable(parent);
+}
+
+static void adsp_gpio_irq_mask(struct irq_data *data)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
+	struct irq_data *parent = data->parent_data;
+
+	if (parent && parent->chip && parent->chip->irq_mask)
+		parent->chip->irq_mask(parent);
+
+	gpiochip_disable_irq(gc, data->hwirq);
+}
+
+static void adsp_gpio_irq_unmask(struct irq_data *data)
+{
+	struct gpio_chip *gc = irq_data_get_irq_chip_data(data);
+	struct irq_data *parent = data->parent_data;
+
+	gpiochip_enable_irq(gc, data->hwirq);
+
+	if (parent && parent->chip && parent->chip->irq_unmask)
+		parent->chip->irq_unmask(parent);
+}
+
+static void adsp_gpio_irq_ack(struct irq_data *data)
+{
+	struct irq_data *parent = data->parent_data;
+
+	if (parent && parent->chip && parent->chip->irq_ack)
+		parent->chip->irq_ack(parent);
+}
+
+static const struct irq_chip adsp_gpio_irq_chip = {
+	.name = "adsp-gpio",
+	.irq_enable = adsp_gpio_irq_enable,
+	.irq_mask = adsp_gpio_irq_mask,
+	.irq_unmask = adsp_gpio_irq_unmask,
+	.irq_set_type = irq_chip_set_type_parent,
+	.irq_ack = adsp_gpio_irq_ack,
+	.flags = IRQCHIP_IMMUTABLE | IRQCHIP_SET_TYPE_MASKED,
+	GPIOCHIP_IRQ_RESOURCE_HELPERS,
+};
+
+static int adsp_pinctrl_register_port(struct adsp_port *port)
+{
+	struct device *dev = port->pc->dev;
+	struct gpio_chip *gc = &port->gc;
+	struct gpio_irq_chip *girq = &gc->irq;
+	struct device_node *parent_np __free(device_node) = NULL;
+
+	port->regs = devm_of_iomap(dev, port->np, 0, NULL);
+	if (IS_ERR(port->regs))
+		return dev_err_probe(dev, PTR_ERR(port->regs),
+				     "%pOF: failed to map regs\n", port->np);
+
+	/* Make the gpiochip */
+	gc->label = devm_kasprintf(dev, GFP_KERNEL, "adsp-port%c",
+				   'a' + port->index);
+	if (!gc->label)
+		return -ENOMEM;
+
+	gc->parent = dev;
+	gc->fwnode = of_fwnode_handle(port->np);
+	gc->owner = THIS_MODULE;
+	gc->request = gpiochip_generic_request;
+	gc->free = gpiochip_generic_free;
+	gc->get = adsp_gpio_get;
+	gc->set = adsp_gpio_set;
+	gc->get_direction = adsp_gpio_get_direction;
+	gc->direction_input = adsp_gpio_direction_input;
+	gc->direction_output = adsp_gpio_direction_output;
+	gc->set_config = gpiochip_generic_config;
+	gc->base = -1;
+	gc->ngpio = port->ngpio;
+
+	if (port->pint_base_lower == ADSP_NO_PINT &&
+	    port->pint_base_upper == ADSP_NO_PINT)
+		goto skip_irqchip;
+
+	/* Make the GPIO irqchip */
+	parent_np = of_irq_find_parent(port->np);
+	if (!parent_np)
+		return -EINVAL;
+
+	/* ... unless the parent PINT is unavailable */
+	if (!of_device_is_available(parent_np))
+		goto skip_irqchip;
+
+	girq->parent_domain = irq_find_host(parent_np);
+	if (!girq->parent_domain)
+		return -EPROBE_DEFER;
+
+	gpio_irq_chip_set_chip(girq, &adsp_gpio_irq_chip);
+	girq->fwnode = of_fwnode_handle(port->np);
+	girq->child_to_parent_hwirq = adsp_gpio_child_to_parent_hwirq;
+	girq->populate_parent_alloc_arg =
+		gpiochip_populate_parent_fwspec_twocell;
+	girq->handler = handle_bad_irq;
+	girq->default_type = IRQ_TYPE_NONE;
+	girq->init_valid_mask = adsp_gpio_init_valid_mask;
+
+skip_irqchip:
+	return devm_gpiochip_add_data(dev, gc, port);
+}
+
+static int adsp_pinctrl_register_ports(struct adsp_pinctrl *pc)
+{
+	unsigned int i;
+	int ret;
+
+	for (i = 0; i < pc->nports; i++) {
+		ret = adsp_pinctrl_register_port(&pc->ports[i]);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int adsp_pinctrl_add_groups_and_functions(struct adsp_pinctrl *pc)
+{
+	struct pinctrl_dev *pctldev = pc->pctldev;
+	unsigned int i, f;
+	int ret;
+
+	/*
+	 * Muxing is per-pin. Add a single-pin group per pin, and add the
+	 * alternate pin functions without any associated pins. While not all
+	 * pins actually support every alternate function, the DT header macros
+	 * only expose valid combinations.
+	 */
+
+	for (i = 0; i < pc->npins; i++) {
+		ret = pinctrl_generic_add_group(pctldev, pc->pins[i].name,
+						&pc->pins[i].number, 1, NULL);
+		if (ret < 0)
+			return ret;
+	}
+
+	for (f = 0; f < ARRAY_SIZE(adsp_pin_functions); f++) {
+		ret = pinmux_generic_add_function(pctldev, adsp_pin_functions[f],
+						  pc->pin_names, pc->npins, NULL);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int adsp_pinctrl_register(struct adsp_pinctrl *pc)
+{
+	struct device *dev = pc->dev;
+	int ret;
+
+	pc->pctldesc.name = dev_name(dev);
+	pc->pctldesc.pins = pc->pins;
+	pc->pctldesc.npins = pc->npins;
+	pc->pctldesc.pctlops = &adsp_pctlops;
+	pc->pctldesc.pmxops = &adsp_pmxops;
+	if (pc->pads)
+		pc->pctldesc.confops = &adsp_confops;
+	pc->pctldesc.owner = THIS_MODULE;
+
+	ret = devm_pinctrl_register_and_init(dev, &pc->pctldesc, pc,
+					     &pc->pctldev);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to register pinctrl\n");
+
+	return 0;
+}
+
+static int adsp_pinctrl_build_pins(struct adsp_pinctrl *pc)
+{
+	struct device *dev = pc->dev;
+	int i;
+
+	pc->pins = devm_kcalloc(dev, pc->npins, sizeof(*pc->pins), GFP_KERNEL);
+	if (!pc->pins)
+		return -ENOMEM;
+
+	pc->pin_names = devm_kcalloc(dev, pc->npins, sizeof(*pc->pin_names),
+				     GFP_KERNEL);
+	if (!pc->pin_names)
+		return -ENOMEM;
+
+	for (i = 0; i < pc->npins; i++) {
+		unsigned int port = i / ADSP_PINS_PER_PORT;
+		unsigned int offset = i % ADSP_PINS_PER_PORT;
+
+		pc->pins[i].name =
+			devm_kasprintf(dev, GFP_KERNEL, "P%c_%02u", 'A' + port,
+				       offset); /* PA_00, PB_12, ... */
+		if (!pc->pins[i].name)
+			return -ENOMEM;
+
+		pc->pins[i].number = i;
+		pc->pins[i].drv_data = &pc->ports[port];
+		pc->pin_names[i] = pc->pins[i].name;
+	}
+
+	return 0;
+}
+
+static int adsp_pinctrl_parse_port_interrupts(struct device_node *np,
+					      unsigned int *lower,
+					      unsigned int *upper,
+					      unsigned int ngpio)
+{
+	unsigned int ranges[6];
+	int count;
+	int half;
+
+	/*
+	 * PORT GPIO interrupts can be sensed by a PINT interrupt controller,
+	 * which is specified as an interrupt-parent of each PORT. Within the
+	 * chip fabric, each PINT is typically connected to between 1 and 2
+	 * PORTs. A PINT controller has 32 interrupt lines. These interrupt
+	 * lines are muxed to connected PORT GPIOs at an 8 bit granularity,
+	 * which is to say that each byte of PINT's 32 bit interrupt domain will
+	 * correspond contiguously to either the upper- or lower-half of a
+	 * PORT's 16 bit GPIO pin space, depending on the configuration. The
+	 * configuration is set within the PINT controller itself. In order to
+	 * construct a hierarchical interrupt domain between PINT and PORT,
+	 * the adi,interrupt-ranges property is parsed below to determine the
+	 * mapping between GPIO line and PINT controller hwirq.
+	 *
+	 * A PORT may not be muxed into a connected PINT controller at all, in
+	 * which case the property is absent and no GPIO interrupt controller
+	 * should be registered.
+	 *
+	 * A PORT may also have only half of its pin space muxed to a PINT
+	 * controller. Accordingly, either the lower- or upper-half has to be
+	 * masked out during registration.
+	 *
+	 * A PORT may have the full pin space muxed to a PINT controller, but in
+	 * a non-contiguous fashion with respect to the PINT's 32 bit interrupt
+	 * domain. For example, the lower-half GPIOs may correspond to PINT
+	 * hwirqs 0..7, while the upper-half correspond to 24..31.
+	 *
+	 * Or, in the more typical use-case, the PORT's 16 GPIOs correspond to a
+	 * contiguous field of PINT hwirqs 0..15 or 16..31.
+	 *
+	 * These various configurations are expressed in the firmware by the
+	 * aforementioned adi,interrupt-ranges property: an array of 3-tuples
+	 * <port_base pint_base length>. The code below decodes the array and
+	 * sets the return values *lower and *upper to the corresponding PINT
+	 * hwirq base for the lower- and upper-half of the GPIO pin space. If a
+	 * particular half is not mapped, ADSP_NO_PINT is set instead.
+	 *
+	 * Based on the discussion above, a number of restrictions are applied
+	 * (explained below). But to begin with, it should be clear that any
+	 * valid configuration must consist of either zero, one, or two
+	 * 3-tuples.
+	 */
+
+	*lower = ADSP_NO_PINT;
+	*upper = ADSP_NO_PINT;
+
+	if (!of_property_present(np, "interrupt-controller"))
+		return 0;
+
+	count = of_property_read_variable_u32_array(np, "adi,interrupt-ranges",
+						    ranges, 3, 6);
+	if (count < 0 || count % 3)
+		return -EINVAL;
+
+	for (half = 0; half < count / 3; half++) {
+		unsigned int port_base = ranges[0 + 3 * half];
+		unsigned int pint_base = ranges[1 + 3 * half];
+		unsigned int length = ranges[2 + 3 * half];
+
+		/* Mapped PORT pins must start from the lower- or upper-half */
+		if (port_base != 0 && port_base != 8)
+			return -EINVAL;
+
+		/* Mapping must respect PINT muxing granularity (8 bits) */
+		if (pint_base != 0 && pint_base != 8 && pint_base != 16 &&
+		    pint_base != 24)
+			return -EINVAL;
+
+		/* Either half or all of the PORT pins must be mapped */
+		if (length != 8 && length != ngpio)
+			return -EINVAL;
+
+		/* If all pins are mapped ... */
+		if (length == ngpio) {
+			/* the mapping must start from the lower-half */
+			if (port_base != 0)
+				return -EINVAL;
+
+			/* and it must fit the PINT hwirq space */
+			if (pint_base != 0 && pint_base != 16)
+				return -EINVAL;
+		}
+
+		/* The mapping is valid - store the pint_base for this half */
+		if (port_base == 0) {
+			*lower = pint_base;
+
+			/* Full mapping? Set the upper-half too */
+			if (length == 16)
+				*upper = pint_base + 8;
+		} else if (port_base == 8)
+			*upper = pint_base;
+	}
+
+	return 0;
+}
+
+static int adsp_pinctrl_parse_port_gpio_ranges(struct device_node *np,
+					       unsigned int *pin_base,
+					       unsigned int *ngpio)
+{
+	struct of_phandle_args args;
+	int ret;
+
+	ret = of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3, 0, &args);
+	if (ret)
+		return ret;
+	of_node_put(args.np);
+
+	*pin_base = args.args[1];
+	*ngpio = args.args[2];
+
+	if (!*ngpio || *ngpio > 16)
+		return -EINVAL;
+
+	if (*pin_base % ADSP_PINS_PER_PORT)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int adsp_pinctrl_parse_ports(struct adsp_pinctrl *pc)
+{
+	struct device *dev = pc->dev;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	/*
+	 * For each PORT, compute its index (PORTA, PORTB, etc.) and count the
+	 * number of available pins based on its gpio-ranges property. From
+	 * that, derive the total number of pins to expose in the pin
+	 * controller: last PORT's pin base + pin count.
+	 */
+
+	for_each_available_child_of_node_scoped(np, child) {
+		struct adsp_port *port;
+		unsigned int pin_base;
+		unsigned int ngpio;
+		unsigned int index;
+
+		if (!of_property_present(child, "gpio-controller"))
+			continue;
+
+		ret = adsp_pinctrl_parse_port_gpio_ranges(child, &pin_base,
+							  &ngpio);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "%pOFn: bad gpio-ranges\n", child);
+
+		index = pin_base / ADSP_PINS_PER_PORT;
+		if (index >= pc->nports || index > 'Z' - 'A')
+			return dev_err_probe(dev, -EINVAL,
+					     "%pOFn: port %u out of range\n",
+					     child, index);
+
+		port = &pc->ports[index];
+		if (port->ngpio)
+			return dev_err_probe(dev, -EINVAL,
+					     "%pOFn: duplicate port %u\n",
+					     child, index);
+
+		ret = adsp_pinctrl_parse_port_interrupts(child,
+							 &port->pint_base_lower,
+							 &port->pint_base_upper,
+							 ngpio);
+		if (ret)
+			return dev_err_probe(
+				dev, -EINVAL,
+				"%pOFn: bad adi,interrupt-ranges\n", child);
+
+		port->index = index;
+		port->ngpio = ngpio;
+		port->pin_base = pin_base;
+		port->pc = pc;
+		port->np = of_node_get(child);
+		spin_lock_init(&port->mux_lock);
+
+		/* Update total number of pins */
+		pc->npins = max(pc->npins, pin_base + ngpio);
+	}
+
+	return 0;
+}
+
+static unsigned int adsp_pinctrl_count_ports(struct device_node *np)
+{
+	unsigned int n = 0;
+
+	for_each_available_child_of_node_scoped(np, child)
+		if (of_property_present(child, "gpio-controller"))
+			n++;
+
+	return n;
 }
 
 static int adsp_pinctrl_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct adsp_pinctrl *adsp_pinctrl;
-	struct pinctrl_desc *pnctrl_desc;
-	struct resource *res;
-	u32 val;
+	struct adsp_pinctrl *pc;
 	int ret;
 
-	adsp_pinctrl = devm_kzalloc(dev, sizeof(*adsp_pinctrl), GFP_KERNEL);
-	if (!adsp_pinctrl)
+	pc = devm_kzalloc(dev, sizeof(*pc), GFP_KERNEL);
+	if (!pc)
 		return -ENOMEM;
 
-	adsp_pinctrl->dev = dev;
-	pnctrl_desc = devm_kzalloc(dev, sizeof(*pnctrl_desc), GFP_KERNEL);
-	if (!pnctrl_desc)
+	dev_set_drvdata(dev, pc);
+	pc->dev = dev;
+	pc->info = device_get_match_data(dev);
+
+	pc->pads = syscon_regmap_lookup_by_phandle(np, "adi,pads-syscon");
+	if (IS_ERR(pc->pads)) {
+		if (PTR_ERR(pc->pads) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+
+		/*
+		 * PADS is optional; without it, there will be no pinconf
+		 * support. Some SoCs like SC58x offer no pinconf.
+		 */
+		pc->pads = NULL;
+	}
+
+	pc->nports = adsp_pinctrl_count_ports(np);
+	if (!pc->nports)
+		return dev_err_probe(dev, -EINVAL,
+				     "missing gpio-controller child nodes\n");
+
+	pc->ports =
+		devm_kcalloc(dev, pc->nports, sizeof(*pc->ports), GFP_KERNEL);
+	if (!pc->ports)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	adsp_pinctrl->regs = devm_ioremap_resource(dev, res);
-	if (IS_ERR(adsp_pinctrl->regs))
-		return PTR_ERR(adsp_pinctrl->regs);
-
-	/* Different features are available in different hw revisions; no way to read this
-	 * from an ID register so the missing features need to be specified in dts
-	 */
-	adsp_pinctrl->ds_missing = of_property_read_bool(np, "adi,no-drive-strength");
-	adsp_pinctrl->pude_missing = of_property_read_bool(np, "adi,no-pull-up-down");
-
-	/* Only if requested, adjust non-port drive strengths */
-	ret = of_property_read_u32(np, "adi,clkout-drive-strength", &val);
-	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_CKOUT, !!val);
-
-	ret = of_property_read_u32(np, "adi,resoutb-drive-strength", &val);
-	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_RESOUTB, !!val);
-
-	ret = of_property_read_u32(np, "adi,faultb-drive-strength", &val);
-	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_FAULTB, !!val);
-
-	ret = of_property_read_u32(np, "adi,lp1ck-drive-strength", &val);
-	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_LP1CK, !!val);
-
-	ret = of_property_read_u32(np, "adi,lp0ck-drive-strength", &val);
-	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_LP0CK, !!val);
-
-	ret = of_property_read_u32(np, "adi,ospi-drive-strength", &val);
-	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_OSPI, !!val);
-
-	pnctrl_desc->name = dev_name(dev);
-	pnctrl_desc->pctlops = &adsp_pctlops;
-	pnctrl_desc->confops = &adsp_confops;
-	pnctrl_desc->pmxops = &adsp_pmxops;
-	pnctrl_desc->owner = THIS_MODULE;
-	pnctrl_desc->num_custom_params = ARRAY_SIZE(adsp_custom_bindings);
-	pnctrl_desc->custom_params = adsp_custom_bindings;
-	pnctrl_desc->custom_conf_items = adsp_conf_items;
-
-	spin_lock_init(&adsp_pinctrl->lock);
-	ret = adsp_pinctrl_init_groups(adsp_pinctrl, pnctrl_desc);
+	ret = adsp_pinctrl_parse_ports(pc);
 	if (ret)
 		return ret;
 
-	ret = devm_pinctrl_register_and_init(dev, pnctrl_desc, adsp_pinctrl,
-		&adsp_pinctrl->pin_dev);
+	ret = adsp_pinctrl_build_pins(pc);
 	if (ret)
 		return ret;
 
-	platform_set_drvdata(pdev, adsp_pinctrl);
-	ret = pinctrl_enable(adsp_pinctrl->pin_dev);
-	return ret;
+	ret = adsp_pinctrl_register(pc);
+	if (ret)
+		return ret;
+
+	ret = adsp_pinctrl_add_groups_and_functions(pc);
+	if (ret)
+		return ret;
+
+	ret = pinctrl_enable(pc->pctldev);
+	if (ret)
+		return ret;
+
+	ret = adsp_pinctrl_register_ports(pc);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 static const struct of_device_id adsp_pinctrl_of_match[] = {
-	{ .compatible = "adi,adsp-pinctrl", },
-	{ },
+	{ .compatible = "adi,adsp-sc571-pinctrl", .data = &sc571_pinctrl_info },
+	{ .compatible = "adi,adsp-sc573-pinctrl", .data = &sc573_pinctrl_info },
+	{ .compatible = "adi,adsp-sc584-pinctrl", .data = &sc584_pinctrl_info },
+	{ .compatible = "adi,adsp-sc589-pinctrl", .data = &sc589_pinctrl_info },
+	{ .compatible = "adi,adsp-sc594-pinctrl", .data = &sc594_pinctrl_info },
+	{ .compatible = "adi,adsp-sc598-pinctrl", .data = &sc598_pinctrl_info },
+	{}
 };
 MODULE_DEVICE_TABLE(of, adsp_pinctrl_of_match);
 
@@ -898,18 +1174,11 @@ static struct platform_driver adsp_pinctrl_driver = {
 	.driver = {
 		.name = "adsp-pinctrl",
 		.of_match_table = adsp_pinctrl_of_match,
-		.suppress_bind_attrs = true,
 	},
 	.probe = adsp_pinctrl_probe,
 };
+module_platform_driver(adsp_pinctrl_driver);
 
-static int __init adsp_pinctrl_init(void)
-{
-	return platform_driver_register(&adsp_pinctrl_driver);
-}
-
-/*
- * We want the pinctrl driver to be available at arch init time not at the
- * later device init time
- */
-arch_initcall(adsp_pinctrl_init);
+MODULE_AUTHOR("Alvin Šipraga <alvin.sipraga@analog.com>");
+MODULE_DESCRIPTION("ADI ADSP PORT pinctrl/GPIO driver");
+MODULE_LICENSE("GPL");

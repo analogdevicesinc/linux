@@ -2310,7 +2310,6 @@ F:	drivers/clk/adi/*
 F:	drivers/clocksource/timer-adi-adsp-sc5xx.c
 F:	drivers/dma/adi-dma.c
 F:	drivers/dma/adi-dma.h
-F:	drivers/gpio/gpio-adi-adsp-port.c
 F:	drivers/i2c/busses/i2c-adi-twi.c
 F:	drivers/irqchip/irq-adi-adsp.c
 F:	drivers/misc/adi/

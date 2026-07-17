@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/interrupt-controller/adi,adsp-pint.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSP Pin Interrupt (PINT) controller
+
+maintainers:
+  - Alvin Šipraga <alvin.sipraga@analog.com>
+
+description:
+  Analog Devices Pin Interrupt (PINT) controller found on ADSP SoCs. Each PINT
+  is connected to up to two PORT peripherals for sensing of GPIO interrupts. The
+  PINT controller demultiplexes the parent interrupt to as many as 32 connected
+  PORT pins.
+
+allOf:
+  - $ref: /schemas/interrupt-controller.yaml#
+
+properties:
+  compatible:
+    const: adi,adsp-sc598-pint
+
+  reg:
+    maxItems: 1
+
+  '#interrupt-cells':
+    const: 2
+
+  interrupt-controller: true
+
+  interrupts:
+    maxItems: 1
+    description: Interrupt line connecting this controller to its parent
+
+  adi,pint-assign:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      The value of the PINT_ASSIGN register, which controls the four 1-bit muxes
+      internal to the PINT controller. The muxes control which pins of a
+      connected PORT can be sensed by the PINT controller. Each mux maps either
+      the upper- or lower-half of a PORT's 16 pins to one contiguous byte within
+      the PINT controller's hardware interrupt space. When the same PORT half is
+      selected twice, the PINT controller can perform race-free detection of
+      both rising and falling edges on the pins in that half.
+    enum: [ 0x00000000, 0x00000001, 0x00000100, 0x00000101,
+            0x00010000, 0x00010001, 0x00010100, 0x00010101,
+            0x01000000, 0x01000001, 0x01000100, 0x01000101,
+            0x01010000, 0x01010001, 0x01010100, 0x01010101 ]
+
+unevaluatedProperties: false
+
+required:
+  - compatible
+  - reg
+  - interrupt-controller
+  - '#interrupt-cells'
+  - interrupts
+  - adi,pint-assign
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    interrupt-controller@31005000 {
+      compatible = "adi,adsp-sc598-pint";
+      reg = <0x31005000 0x40>;
+      interrupt-controller;
+      #interrupt-cells = <2>;
+      interrupt-parent = <&gic>;
+      interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+      adi,pint-assign = <0x00000000>;
+    };
