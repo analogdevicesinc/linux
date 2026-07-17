@@ -28,6 +28,7 @@
 
 #include "nfsd.h"
 #include "nfserr.h"
+#include "nfs4ctl.h"
 #include "cache.h"
 #include "vfs.h"
 #include "netns.h"

@@ -48,6 +48,7 @@
 #include <linux/nfs_ssc.h>
 
 #include "xdr4.h"
+#include "nfs4ctl.h"
 #include "xdr4cb.h"
 #include "vfs.h"
 #include "current_stateid.h"

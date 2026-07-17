@@ -46,6 +46,7 @@
 #include "idmap.h"
 #include "cache.h"
 #include "xdr4.h"
+#include "nfs4ctl.h"
 #include "vfs.h"
 #include "current_stateid.h"
 #include "netns.h"
