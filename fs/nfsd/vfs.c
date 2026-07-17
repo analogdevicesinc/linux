@@ -118,15 +118,15 @@ nfserrno (int errno)
 	return nfserr_io;
 }
 
-/* 
- * Called from nfsd_lookup and encode_dirent. Check if we have crossed 
+/*
+ * Called from nfsd_lookup and encode_dirent. Check if we have crossed
  * a mount point.
- * Returns -EAGAIN or -ETIMEDOUT leaving *dpp and *expp unchanged,
+ * Returns an nfs error leaving *dpp and *expp unchanged,
  *  or nfs_ok having possibly changed *dpp and *expp
  */
-int
-nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp, 
-		        struct svc_export **expp)
+__be32
+nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
+	       struct svc_export **expp)
 {
 	struct svc_export *exp = *expp, *exp2 = NULL;
 	struct dentry *dentry = *dpp;
@@ -134,6 +134,7 @@ nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
 			    .dentry = dget(dentry)};
 	unsigned int follow_flags = 0;
 	int err = 0;
+	__be32 nfserr = nfs_ok;
 
 	if (exp->ex_flags & NFSEXP_CROSSMOUNT)
 		follow_flags = LOOKUP_AUTOMOUNT;
@@ -163,23 +164,28 @@ nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
 			err = 0;
 	} else if (nfsd_v4client(rqstp) ||
 		(exp->ex_flags & NFSEXP_CROSSMOUNT) || EX_NOHIDE(exp2)) {
-		/* successfully crossed mount point */
-		/*
-		 * This is subtle: path.dentry is *not* on path.mnt
-		 * at this point.  The only reason we are safe is that
-		 * original mnt is pinned down by exp, so we should
-		 * put path *before* putting exp
-		 */
-		*dpp = path.dentry;
-		path.dentry = dentry;
-		*expp = exp2;
-		exp2 = exp;
+		nfserr = check_nfsd_access(exp, rqstp);
+		if (nfserr == nfs_ok) {
+			/* successfully crossed mount point */
+			/*
+			 * This is subtle: path.dentry is *not* on path.mnt
+			 * at this point.  The only reason we are safe is that
+			 * original mnt is pinned down by exp, so we should
+			 * put path *before* putting exp
+			 */
+			*dpp = path.dentry;
+			path.dentry = dentry;
+			*expp = exp2;
+			exp2 = exp;
+		}
 	}
 out:
 	path_put(&path);
 	if (exp2)
 		exp_put(exp2);
-	return err;
+	if (nfserr)
+		return nfserr;
+	return nfserrno(err);
 }
 
 static void follow_to_parent(struct path *path)
@@ -277,10 +283,12 @@ nfsd_lookup_dentry(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		if (IS_ERR(dentry))
 			goto out_nfserr;
 		if (nfsd_mountpoint(dentry, exp)) {
-			host_err = nfsd_cross_mnt(rqstp, &dentry, &exp);
-			if (host_err) {
+			__be32 nfserr = nfsd_cross_mnt(rqstp, &dentry, &exp);
+
+			if (nfserr) {
 				dput(dentry);
-				goto out_nfserr;
+				exp_put(exp);
+				return nfserr;
 			}
 		}
 	}
@@ -327,9 +335,6 @@ nfsd_lookup(struct svc_rqst *rqstp, struct svc_fh *fhp, const char *name,
 	err = nfsd_lookup_dentry(rqstp, fhp, name, len, &exp, &dentry);
 	if (err)
 		return err;
-	err = check_nfsd_access(exp, rqstp, false);
-	if (err)
-		goto out;
 	/*
 	 * Note: we compose the file handle now, but as the
 	 * dentry may be negative, it may need to be updated.
@@ -337,7 +342,7 @@ nfsd_lookup(struct svc_rqst *rqstp, struct svc_fh *fhp, const char *name,
 	err = fh_compose(resfh, exp, dentry, fhp);
 	if (!err && d_really_is_negative(dentry))
 		err = nfserr_noent;
-out:
+
 	dput(dentry);
 	exp_put(exp);
 	return err;
