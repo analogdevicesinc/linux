@@ -146,10 +146,7 @@ extern u64 nfsd_io_cache_write __read_mostly;
 
 extern int nfsd_max_blksize;
 
-static inline int nfsd_v4client(struct svc_rqst *rq)
-{
-	return rq && rq->rq_prog == NFS_PROGRAM && rq->rq_vers == 4;
-}
+bool nfsd_v4client(struct svc_rqst *rqstp);
 
 /*
  * lockd binding
