@@ -367,7 +367,7 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	if (d_really_is_positive(child)) {
 		/*
 		 * open the file so that we consistently have a valid
-		 * op_filp.
+		 * op_filp and consequently a valid ->f_path.dentry.
 		 */
 		struct path path = {.mnt = fhp->fh_export->ex_path.mnt,
 				    .dentry = child,
@@ -401,8 +401,11 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		if (status == nfs_ok)
 			open->op_created = open->op_filp->f_mode & FMODE_CREATED;
 	}
+	end_creating(child);
 	if (status != nfs_ok)
 		goto out;
+
+	child = open->op_filp->f_path.dentry;
 
 	status = fh_compose(resfhp, fhp->fh_export, child, fhp);
 	if (status != nfs_ok)
@@ -453,7 +456,6 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	if (attrs.na_paclerr)
 		open->op_bmval[2] &= ~FATTR4_WORD2_POSIX_ACCESS_ACL;
 out:
-	end_creating(child);
 	if (!want_write_err)
 		fh_drop_write(fhp);
 	nfsd_attrs_free(&attrs);
