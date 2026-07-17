@@ -261,7 +261,7 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	struct dentry *parent, *child = ERR_PTR(-EINVAL);
 	__u32 v_mtime, v_atime;
 	struct inode *inode;
-	__be32 status;
+	__be32 status, create_status;
 	int host_err;
 
 	if (name_is_dot_dotdot(open->op_fname, open->op_fnamelen))
@@ -348,6 +348,8 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		iap->ia_atime.tv_nsec = 0;
 	}
 
+	create_status = fh_verify(rqstp, fhp, S_IFDIR, NFSD_MAY_CREATE);
+
 	host_err = fh_want_write(fhp);
 	if (host_err) {
 		status = nfserrno(host_err);
@@ -361,16 +363,17 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		goto out;
 	}
 
-	if (d_really_is_negative(child)) {
-		status = fh_verify(rqstp, fhp, S_IFDIR, NFSD_MAY_CREATE);
-		if (status != nfs_ok)
-			goto out;
-
+	if (d_really_is_positive(child)) {
+		/* No creation needed */
+	} else if (create_status) {
+		status = create_status;
+	} else {
 		status = nfsd4_vfs_create(fhp, &child, open);
-		if (status != nfs_ok)
-			goto out;
-		open->op_created = open->op_filp->f_mode & FMODE_CREATED;
+		if (status == nfs_ok)
+			open->op_created = open->op_filp->f_mode & FMODE_CREATED;
 	}
+	if (status != nfs_ok)
+		goto out;
 
 	status = fh_compose(resfhp, fhp->fh_export, child, fhp);
 	if (status != nfs_ok)
