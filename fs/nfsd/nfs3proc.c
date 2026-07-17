@@ -282,6 +282,7 @@ nfsd3_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	struct nfsd_attrs attrs = {
 		.na_iattr	= iap,
 	};
+	struct svc_export *exp;
 	__u32 v_mtime, v_atime;
 	struct inode *inode;
 	__be32 status;
@@ -320,7 +321,23 @@ nfsd3_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 			goto out;
 	}
 
-	status = fh_compose(resfhp, fhp->fh_export, child, fhp);
+	exp = exp_get(fhp->fh_export);
+	if (argp->createmode == NFS3_CREATE_UNCHECKED) {
+		/*
+		 * If name is already in dcache we need to check for mountpoints
+		 */
+		if (d_is_reg(child) &&
+		    unlikely(nfsd_mountpoint(child, exp))) {
+			status = nfsd_cross_mnt(rqstp, &child, &exp);
+			if (status != nfs_ok) {
+				exp_put(exp);
+				goto out;
+			}
+		}
+	}
+
+	status = fh_compose(resfhp, exp, child, fhp);
+	exp_put(exp);
 	if (status != nfs_ok)
 		goto out;
 
