@@ -10,6 +10,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/clock/adi-sc5xx-clock.h>
+#include <dt-bindings/clock/adi,adsp-sc594-cdu.h>
 
 / {
 	model = "ADI sc59x";
@@ -60,7 +61,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a5";
 			reg = <0x0>;
-			clocks = <&clk ADSP_SC594_CLK_ARM>;
+			clocks = <&cdu ADSP_SC594_CLK_CDU_ARM>;
 		};
 	};
 
@@ -117,12 +118,47 @@
 	clk: clocks@3108d000 {
 		compatible = "adi,sc594-clocks";
 		reg = <0x3108d000 0x1000>,
-			<0x3108e000 0x1000>,
-			<0x3108f000 0x1000>;
+			<0x3108e000 0x1000>;
 		#clock-cells = <1>;
 		clocks = <&sys_clkin0>, <&sys_clkin1>;
 		clock-names = "sys_clkin0", "sys_clkin1";
 		status = "okay";
+	};
+
+	cdu: clock-controller@3108f000 {
+		compatible = "adi,adsp-sc594-cdu";
+		reg = <0x3108f000 0x100>;
+		#clock-cells = <1>;
+		clocks = <&sys_clkin0>,
+			 <&sys_clkin1>,
+			 <&clk ADSP_SC594_CLK_CGU0_CCLK0>,
+			 <&clk ADSP_SC594_CLK_CGU0_CCLK1>,
+			 <&clk ADSP_SC594_CLK_CGU0_SYSCLK>,
+			 <&clk ADSP_SC594_CLK_CGU0_SCLK0>,
+			 <&clk ADSP_SC594_CLK_CGU0_SCLK1>,
+			 <&clk ADSP_SC594_CLK_CGU0_DCLK>,
+			 <&clk ADSP_SC594_CLK_CGU0_OCLK>,
+			 <&clk ADSP_SC594_CLK_CGU1_CCLK0>,
+			 <&clk ADSP_SC594_CLK_CGU1_SYSCLK>,
+			 <&clk ADSP_SC594_CLK_CGU1_SCLK0>,
+			 <&clk ADSP_SC594_CLK_CGU1_SCLK1>,
+			 <&clk ADSP_SC594_CLK_CGU1_DCLK>,
+			 <&clk ADSP_SC594_CLK_CGU1_OCLK>;
+		clock-names = "sys_clkin0",
+			      "sys_clkin1",
+			      "cclk0_0",
+			      "cclk1_0",
+			      "sysclk_0",
+			      "sclk0_0",
+			      "sclk1_0",
+			      "dclk_0",
+			      "oclk_0",
+			      "cclk0_1",
+			      "sysclk_1",
+			      "sclk0_1",
+			      "sclk1_1",
+			      "dclk_1",
+			      "oclk_1";
 	};
 
 	gptimers: gptimers@31018000 {
@@ -465,7 +501,7 @@
 			reg = <0x3102e000 0xFF>;
 			interrupts = <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>;
 			dma-channel = <22>, <23>;
-			clocks = <&clk ADSP_SC594_CLK_SPI>;
+			clocks = <&cdu ADSP_SC594_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -478,7 +514,7 @@
 			interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>;
 			dma-channel = <24>, <25>;
 			dmas = <&spi_cluster 24>, <&spi_cluster 25>;
-			clocks = <&clk ADSP_SC594_CLK_SPI>;
+			clocks = <&cdu ADSP_SC594_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -491,7 +527,7 @@
 			interrupts = <GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 26>, <&spi_cluster 27>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC594_CLK_SPI>;
+			clocks = <&cdu ADSP_SC594_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -503,7 +539,7 @@
 			reg = <0x31027000 0x1000>,
 				  <0x60000000 0x20000000>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk ADSP_SC594_CLK_OSPI>;
+			clocks = <&cdu ADSP_SC594_CLK_CDU_OSPI_REFCLK>;
 			clock-names = "ospi";
 			cdns,is-decoded-cs;
 			cdns,fifo-depth = <128>;
@@ -520,7 +556,7 @@
 			interrupt-names = "macirq";
 			snps,pbl = <8>;
 			snps,perfect-filter-entries = <32>;
-			clocks = <&clk ADSP_SC594_CLK_GIGE>;
+			clocks = <&cdu ADSP_SC594_CLK_CDU_GIGE>;
 			clock-names = "stmmaceth";
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
@@ -536,7 +572,7 @@
 			snps,burst_len = <0x4>;	/* BLEN8 */
 			snps,pbl = <1>;
 			snps,force_thresh_dma_mode;
-			clocks = <&clk ADSP_SC594_CLK_GIGE>;
+			clocks = <&cdu ADSP_SC594_CLK_CDU_GIGE>;
 			clock-names = "stmmaceth";
 			status = "disabled";
 		};
