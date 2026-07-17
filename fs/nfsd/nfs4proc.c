@@ -262,7 +262,7 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	__u32 v_mtime, v_atime;
 	struct inode *inode;
 	__be32 status, create_status;
-	int host_err;
+	int want_write_err;
 
 	if (name_is_dot_dotdot(open->op_fname, open->op_fnamelen))
 		return nfserr_exist;
@@ -350,11 +350,10 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 
 	create_status = fh_verify(rqstp, fhp, S_IFDIR, NFSD_MAY_CREATE);
 
-	host_err = fh_want_write(fhp);
-	if (host_err) {
-		status = nfserrno(host_err);
-		goto out_free;
-	}
+	want_write_err = fh_want_write(fhp);
+	if (want_write_err)
+		/* Might still succeed if no create is needed */
+		create_status = nfserrno(want_write_err);
 
 	child = start_creating(&nop_mnt_idmap, parent,
 			       &QSTR_LEN(open->op_fname, open->op_fnamelen));
@@ -425,8 +424,8 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		open->op_bmval[2] &= ~FATTR4_WORD2_POSIX_ACCESS_ACL;
 out:
 	end_creating(child);
-	fh_drop_write(fhp);
-out_free:
+	if (!want_write_err)
+		fh_drop_write(fhp);
 	nfsd_attrs_free(&attrs);
 	return status;
 }
