@@ -76,8 +76,8 @@ static inline bool nfsd_attrs_valid(struct nfsd_attrs *attrs)
 }
 
 __be32		nfserrno (int errno);
-int		nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
-		                struct svc_export **expp);
+__be32		nfsd_cross_mnt(struct svc_rqst *rqstp, struct dentry **dpp,
+			       struct svc_export **expp);
 __be32		nfsd_lookup(struct svc_rqst *, struct svc_fh *,
 				const char *, unsigned int, struct svc_fh *);
 __be32		 nfsd_lookup_dentry(struct svc_rqst *, struct svc_fh *,

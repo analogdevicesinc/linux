@@ -4574,8 +4574,6 @@ nfsd4_encode_entry4_fattr(struct nfsd4_readdir *cd, const char *name,
 	 * directly from the mountpoint dentry.
 	 */
 	if (nfsd_mountpoint(dentry, exp)) {
-		int err;
-
 		if (!(exp->ex_flags & NFSEXP_V4ROOT)
 				&& !attributes_need_mount(cd->rd_bmval)) {
 			ignore_crossmnt = 1;
@@ -4586,12 +4584,7 @@ nfsd4_encode_entry4_fattr(struct nfsd4_readdir *cd, const char *name,
 		 * Different "."/".." handling?  Something else?
 		 * At least, add a comment here to explain....
 		 */
-		err = nfsd_cross_mnt(cd->rd_rqstp, &dentry, &exp);
-		if (err) {
-			nfserr = nfserrno(err);
-			goto out_put;
-		}
-		nfserr = check_nfsd_access(exp, cd->rd_rqstp, false);
+		nfserr = nfsd_cross_mnt(cd->rd_rqstp, &dentry, &exp);
 		if (nfserr)
 			goto out_put;
 		crossed = true;
