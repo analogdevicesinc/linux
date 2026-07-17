@@ -169,7 +169,7 @@ do_open_permission(struct svc_rqst *rqstp, struct svc_fh *current_fh, struct nfs
 	return fh_verify(rqstp, current_fh, S_IFREG, accmode);
 }
 
-static __be32 nfsd_check_obj_isreg(struct dentry *child)
+static int nfsd_check_obj_isreg(struct dentry *child)
 {
 	umode_t mode = d_inode(child)->i_mode;
 
@@ -196,6 +196,52 @@ static inline bool nfsd4_create_is_exclusive(int createmode)
 		createmode == NFS4_CREATE_EXCLUSIVE4_1;
 }
 
+static struct file *do_lookup_open(struct path *parent,
+				   struct qstr *name,
+				   unsigned int oflags,
+				   umode_t mode)
+{
+	struct file *filp = NULL;
+	struct path path;
+	struct dentry *child;
+	int want_write_err = 0;
+
+	want_write_err = mnt_want_write(parent->mnt);
+
+	child = start_creating(&nop_mnt_idmap, parent->dentry, name);
+	if (IS_ERR(child)) {
+		filp = ERR_CAST(child);
+		goto out;
+	}
+	path.mnt = parent->mnt;
+	path.dentry = child;
+
+	if (d_really_is_positive(child)) {
+		/*
+		 * open the file so that we consistently have a valid
+		 * op_filp and consequently a valid ->f_path.dentry.
+		 */
+		int err = nfsd_check_obj_isreg(child);
+
+		if (err)
+			filp = ERR_PTR(err);
+		else
+			filp = dentry_open(&path, oflags, current_cred());
+	} else if (!(oflags & O_CREAT)) {
+		filp = ERR_PTR(-ENOENT);
+	} else if (want_write_err) {
+		filp = ERR_PTR(want_write_err);
+	} else {
+		filp = dentry_create(&path, oflags, mode, current_cred());
+		child = path.dentry;
+	}
+	end_creating(child);
+out:
+	if (!want_write_err)
+		mnt_drop_write(parent->mnt);
+	return filp;
+}
+
 /*
  * Implement NFSv4's unchecked, guarded, and exclusive create
  * semantics for regular files. Open state for this new file is
@@ -213,12 +259,12 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		.na_seclabel	= &open->op_label,
 	};
 	int oflags = O_CREAT | O_LARGEFILE;
-	struct dentry *parent, *child = ERR_PTR(-EINVAL);
-	struct path path = {
+	struct dentry *child = ERR_PTR(-EINVAL);
+	struct path parent = {
 		.mnt = fhp->fh_export->ex_path.mnt,
+		.dentry = fhp->fh_dentry,
 	};
 	__u32 v_mtime, v_atime;
-	struct inode *inode;
 	__be32 status, create_status;
 	int want_write_err;
 
@@ -230,8 +276,6 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	status = fh_verify(rqstp, fhp, S_IFDIR, NFSD_MAY_EXEC);
 	if (status != nfs_ok)
 		return status;
-	parent = fhp->fh_dentry;
-	inode = d_inode(parent);
 
 	if (open->op_createmode == NFS4_CREATE_UNCHECKED) {
 		/*
@@ -239,7 +283,7 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		 */
 		child = try_lookup_noperm(&QSTR_LEN(open->op_fname,
 						    open->op_fnamelen),
-					  parent);
+					  parent.dentry);
 		if (child && !IS_ERR(child) && d_is_reg(child) &&
 		    unlikely(nfsd_mountpoint(child, fhp->fh_export))) {
 			struct svc_export *exp = exp_get(fhp->fh_export);
@@ -260,7 +304,7 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 			dput(child);
 	}
 
-	if (!IS_POSIXACL(inode))
+	if (!IS_POSIXACL(d_inode(parent.dentry)))
 		iap->ia_mode &= ~current_umask();
 
 	/*
@@ -325,58 +369,25 @@ nfsd4_create_file(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	}
 
 	create_status = fh_verify(rqstp, fhp, S_IFDIR, NFSD_MAY_CREATE);
-
-	want_write_err = fh_want_write(fhp);
-	if (want_write_err)
+	if (create_status)
 		/* Might still succeed if no create is needed */
-		create_status = nfserrno(want_write_err);
+		oflags &= ~O_CREAT;
 
-	child = start_creating(&nop_mnt_idmap, parent,
-			       &QSTR_LEN(open->op_fname, open->op_fnamelen));
-	if (IS_ERR(child)) {
-		status = nfserrno(PTR_ERR(child));
-		if (!want_write_err)
-			fh_drop_write(fhp);
+	open->op_filp = do_lookup_open(&parent,
+				       &QSTR_LEN(open->op_fname,
+						 open->op_fnamelen),
+				       oflags,
+				       open->op_iattr.ia_mode);
+	if (IS_ERR(open->op_filp)) {
+		status = nfserrno(PTR_ERR(open->op_filp));
+		open->op_filp = NULL;
+		if (status == nfserr_noent && create_status)
+			status = create_status;
 		goto out;
 	}
-	path.dentry = child;
-
-	if (d_really_is_positive(child)) {
-		/*
-		 * open the file so that we consistently have a valid
-		 * op_filp and consequently a valid ->f_path.dentry.
-		 */
-
-		status = nfserrno(nfsd_check_obj_isreg(child));
-		if (!status) {
-			open->op_filp = dentry_open(&path, oflags,
-						    current_cred());
-			if (IS_ERR(open->op_filp)) {
-				status = nfserrno(PTR_ERR(open->op_filp));
-				open->op_filp = NULL;
-			}
-		}
-	} else if (create_status) {
-		status = create_status;
-	} else {
-		open->op_filp = dentry_create(&path, oflags, open->op_iattr.ia_mode,
-					      current_cred());
-		child = path.dentry;
-
-		if (IS_ERR(open->op_filp)) {
-			status = nfserrno(PTR_ERR(open->op_filp));
-			open->op_filp = NULL;
-		} else {
-			open->op_created = open->op_filp->f_mode & FMODE_CREATED;
-		}
-	}
-	end_creating(child);
-	if (!want_write_err)
-		fh_drop_write(fhp);
-	if (status != nfs_ok)
-		goto out;
 
 	child = open->op_filp->f_path.dentry;
+	open->op_created = open->op_filp->f_mode & FMODE_CREATED;
 
 	status = fh_compose(resfhp, fhp->fh_export, child, fhp);
 	if (status != nfs_ok)
