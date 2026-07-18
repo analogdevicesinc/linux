@@ -42,6 +42,7 @@
 #define AD4052_REG_ADC_MODES				0x21
 #define     AD4052_REG_ADC_MODES_MODE_MSK		GENMASK(1, 0)
 #define AD4052_REG_ADC_CONFIG				0x22
+#define     AD4052_REG_ADC_CONFIG_SIGN_EXT_EN_MSK	BIT(6)
 #define     AD4052_REG_ADC_CONFIG_REF_EN_MSK		BIT(5)
 #define     AD4052_REG_ADC_CONFIG_SCALE_EN_MSK		BIT(4)
 #define AD4052_REG_AVG_CONFIG				0x23
@@ -323,6 +324,14 @@ static int ad4052_get_oversampling_ratio(struct ad4052_state *st, int *val)
 }
 
 
+static int ad4052_set_sign_ext(struct ad4052_state *st, bool en)
+{
+	return regmap_update_bits(st->regmap, AD4052_REG_ADC_CONFIG,
+				  AD4052_REG_ADC_CONFIG_SIGN_EXT_EN_MSK,
+				  FIELD_PREP(AD4052_REG_ADC_CONFIG_SIGN_EXT_EN_MSK,
+					     en));
+}
+
 static int ad4052_update_xfer_raw(struct iio_dev *indio_dev,
 				  struct iio_chan_spec const *chan)
 {
@@ -339,7 +348,7 @@ static int ad4052_update_xfer_raw(struct iio_dev *indio_dev,
 	xfer->len = spi_bpw_to_bytes(scan_type->realbits);
 	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uV);
 
-	return 0;
+	return ad4052_set_sign_ext(st, xfer->bits_per_word == 32);
 }
 
 static int ad4052_check_ids(struct ad4052_state *st)
