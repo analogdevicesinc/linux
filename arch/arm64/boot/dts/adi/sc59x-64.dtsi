@@ -6,6 +6,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/clock/adi-sc5xx-clock.h>
+#include <dt-bindings/clock/adi,adsp-sc598-cdu.h>
 
 / {
 	model = "ADI 64-bit SC59X";
@@ -56,7 +57,7 @@
 			reg = <0x0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0xdeadbeef>;
-			clocks = <&clk ADSP_SC598_CLK_ARM>, <&clk ADSP_SC598_CLK_DDR>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_ARM>, <&clk ADSP_SC598_CLK_DDR>;
 		};
 	};
 
@@ -102,12 +103,57 @@
 		compatible = "adi,sc598-clocks";
 		reg = <0x3108d000 0x1000>,
 			<0x3108e000 0x1000>,
-			<0x3108f000 0x1000>,
 			<0x310a9000 0x1000>;
 		#clock-cells = <1>;
 		clocks = <&sys_clkin0>, <&sys_clkin1>;
 		clock-names = "sys_clkin0", "sys_clkin1";
 		status = "okay";
+	};
+
+	cdu: clock-controller@3108f000 {
+		compatible = "adi,adsp-sc598-cdu";
+		reg = <0x3108f000 0x100>;
+		#clock-cells = <1>;
+		clocks = <&sys_clkin0>,
+			 <&sys_clkin1>,
+			 <&clk ADSP_SC598_CLK_CGU0_CCLK0>,
+			 <&clk ADSP_SC598_CLK_CGU0_CCLK1>,
+			 <&clk ADSP_SC598_CLK_CGU0_CCLK2>,
+			 <&clk ADSP_SC598_CLK_CGU0_SYSCLK>,
+			 <&clk ADSP_SC598_CLK_CGU0_SCLK0>,
+			 <&clk ADSP_SC598_CLK_CGU0_SCLK1>,
+			 <&clk ADSP_SC598_CLK_CGU0_DCLK>,
+			 <&clk ADSP_SC598_CLK_CGU0_DCLK_HALF>,
+			 <&clk ADSP_SC598_CLK_CGU0_OCLK>,
+			 <&clk ADSP_SC598_CLK_CGU1_CCLK0>,
+			 <&clk ADSP_SC598_CLK_CGU1_CCLK2>,
+			 <&clk ADSP_SC598_CLK_CGU1_SYSCLK>,
+			 <&clk ADSP_SC598_CLK_CGU1_SCLK0>,
+			 <&clk ADSP_SC598_CLK_CGU1_SCLK1>,
+			 <&clk ADSP_SC598_CLK_CGU1_SCLK1_HALF>,
+			 <&clk ADSP_SC598_CLK_CGU1_DCLK>,
+			 <&clk ADSP_SC598_CLK_CGU1_DCLK_HALF>,
+			 <&clk ADSP_SC598_CLK_CGU1_OCLK>;
+		clock-names = "sys_clkin0",
+			      "sys_clkin1",
+			      "cclk0_0",
+			      "cclk1_0",
+			      "cclk2_0",
+			      "sysclk_0",
+			      "sclk0_0",
+			      "sclk1_0",
+			      "dclk_0",
+			      "dclk_0/2",
+			      "oclk_0",
+			      "cclk0_1",
+			      "cclk2_1",
+			      "sysclk_1",
+			      "sclk0_1",
+			      "sclk1_1",
+			      "sclk1_1/2",
+			      "dclk_1",
+			      "dclk_1/2",
+			      "oclk_1";
 	};
 
 	gptimers: gptimers@31018000 {
@@ -506,7 +552,7 @@
 			interrupts = <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 22>, <&spi_cluster 23>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_SPI>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -519,7 +565,7 @@
 			interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 24>, <&spi_cluster 25>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_SPI>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -532,7 +578,7 @@
 			interrupts = <GIC_SPI 132 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 26>, <&spi_cluster 27>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_SPI>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -545,7 +591,7 @@
 			interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 55>, <&spi_cluster 56>;
 			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_SPI>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_SPI>;
 			clock-names = "spi";
 			status = "disabled";
 		};
@@ -557,7 +603,7 @@
 			reg = <0x31027000 0x1000>,
 				  <0x60000000 0x20000000>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk ADSP_SC598_CLK_OSPI_REFCLK>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_OSPI_REFCLK>;
 			cdns,is-decoded-cs;
 			cdns,fifo-depth = <128>;
 			cdns,fifo-width = <4>;
@@ -576,7 +622,7 @@
 			snps,force_sf_dma_mode;
 			snps,perfect-filter-entries = <32>;
 			snps,tso;
-			clocks = <&clk ADSP_SC598_CLK_GIGE>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_GIGE>;
 			clock-names = "stmmaceth";
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
@@ -663,7 +709,7 @@
 			reg = <0x310c7000 0x1000>;
 			interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>; /* Status */
 				     /*<GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;*/ /* Wakeup */
-			clocks = <&clk ADSP_SC598_CLK_EMMC>;
+			clocks = <&cdu ADSP_SC598_CLK_CDU_EMMC>;
 			clock-names = "core";
 			bus-width = <8>;
 			status = "disabled";
