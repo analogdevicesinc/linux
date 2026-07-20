@@ -33,6 +33,7 @@ config COMMON_CLK_ADI_SC594
 	bool "ADI SC594 clock driver"
 	depends on ARCH_SC59X || COMPILE_TEST
 	select COMMON_CLK_ADI_PLL
+	select COMMON_CLK_ADI_ADSP_CDU
 	help
 	  This enables the ADI SC594 clock driver. The driver provides
 	  support for the clock controller on the ADI SC594 SoC.
