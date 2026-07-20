@@ -31,7 +31,7 @@ nfsd4_ff_encode_layoutget(struct xdr_stream *xdr,
 	struct ff_idmap uid;
 	struct ff_idmap gid;
 
-	fh_len = 4 + xdr_align_size(fl->fh.size);
+	fh_len = 4 + xdr_align_size(fl->fh.fh_size);
 
 	uid.len = sprintf(uid.buf, "%u", fl->uid);
 	gid.len = sprintf(gid.buf, "%u", fl->gid);
@@ -69,7 +69,7 @@ nfsd4_ff_encode_layoutget(struct xdr_stream *xdr,
 				    sizeof(stateid_opaque_t));
 
 	*p++ = cpu_to_be32(1);			/* single file handle */
-	p = xdr_encode_opaque(p, fl->fh.data, fl->fh.size);
+	p = xdr_encode_opaque(p, fl->fh.fh_raw, fl->fh.fh_size);
 
 	p = xdr_encode_opaque(p, uid.buf, uid.len);
 	p = xdr_encode_opaque(p, gid.buf, gid.len);
