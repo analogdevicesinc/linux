@@ -150,7 +150,7 @@ static void set_gptimer_config(struct sc5xx_gptimer *timer,
 	writew(config, timer->io_base + GPTIMER_CFG_OFF);
 }
 
-static uint32_t get_gptimer_count(struct sc5xx_gptimer *timer)
+static uint32_t notrace get_gptimer_count(struct sc5xx_gptimer *timer)
 {
 	return readl(timer->io_base + GPTIMER_CNT_OFF);
 }
