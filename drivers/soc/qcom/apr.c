@@ -338,29 +338,6 @@ static void apr_rxwq(struct work_struct *work)
 	}
 }
 
-static int apr_device_match(struct device *dev, const struct device_driver *drv)
-{
-	struct apr_device *adev = to_apr_device(dev);
-	const struct apr_driver *adrv = to_apr_driver(drv);
-	const struct apr_device_id *id = adrv->id_table;
-
-	/* Attempt an OF style match first */
-	if (of_driver_match_device(dev, drv))
-		return 1;
-
-	if (!id)
-		return 0;
-
-	while (id->domain_id != 0 || id->svc_id != 0) {
-		if (id->domain_id == adev->domain_id &&
-		    id->svc_id == adev->svc.id)
-			return 1;
-		id++;
-	}
-
-	return 0;
-}
-
 static int apr_device_probe(struct device *dev)
 {
 	struct apr_device *adev = to_apr_device(dev);
@@ -401,7 +378,7 @@ static int apr_uevent(const struct device *dev, struct kobj_uevent_env *env)
 
 const struct bus_type aprbus = {
 	.name		= "aprbus",
-	.match		= apr_device_match,
+	.match		= of_driver_match_device,
 	.probe		= apr_device_probe,
 	.uevent		= apr_uevent,
 	.remove		= apr_device_remove,
