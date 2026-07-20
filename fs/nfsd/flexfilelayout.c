@@ -66,8 +66,7 @@ nfsd4_ff_proc_layoutget(struct svc_rqst *rqstp, struct inode *inode,
 	if (error)
 		goto out_error;
 
-	fl->fh.size = fhp->fh_handle.fh_size;
-	memcpy(fl->fh.data, &fhp->fh_handle.fh_raw, fl->fh.size);
+	fh_copy_shallow(&fl->fh, &fhp->fh_handle);
 
 	/* Give whole file layout segments */
 	seg->offset = 0;

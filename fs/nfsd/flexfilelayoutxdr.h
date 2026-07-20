@@ -6,6 +6,7 @@
 #define _NFSD_FLEXFILELAYOUTXDR_H 1
 
 #include <linux/inet.h>
+#include "nfsfh.h"
 #include "xdr4.h"
 
 #define FF_FLAGS_NO_LAYOUTCOMMIT 1
@@ -40,7 +41,7 @@ struct pnfs_ff_layout {
 	u32				gid;
 	struct nfsd4_deviceid		deviceid;
 	stateid_t			stateid;
-	struct nfs_fh			fh;
+	struct knfsd_fh			fh;
 };
 
 __be32 nfsd4_ff_encode_getdeviceinfo(struct xdr_stream *xdr,
