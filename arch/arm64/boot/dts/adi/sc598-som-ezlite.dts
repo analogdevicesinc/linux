@@ -127,12 +127,13 @@
 		};
 	};
 
-	adau1372: audio-codec@3c {
+	codec: audio-codec@3c {
 		compatible = "adi,adau1372";
 		reg = <0x3c>;
 		clock-names = "mclk";
 		clocks = <&audio_clk>;
 		powerdown-gpios = <&crr_gpio_expander 13 GPIO_ACTIVE_LOW>;
+		#sound-dai-cells = <0>;
 		sound-name-prefix = "CODEC";
 	};
 };

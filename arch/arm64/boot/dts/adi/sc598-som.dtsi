@@ -16,6 +16,13 @@
 		stdout-path = &uart1;
 	};
 
+	audio_clk: clock-24576000 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24576000>; /* 24.576 MHz */
+		clock-output-names = "audio_clk";
+	};
+
 	memory@90000000 {
 		device_type = "memory";
 		reg = <0x90000000 0x0e000000>;

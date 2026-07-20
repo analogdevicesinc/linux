@@ -475,6 +475,7 @@
 			dma-names = "tx", "rx";
 			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK1>;
 			clock-names = "sclk";
+			#sound-dai-cells = <0>; /* TODO FIXME */
 		};
 
 		i2s0: i2s@31002000 {
@@ -488,6 +489,7 @@
 			dma-names = "tx", "rx";
 			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK1>;
 			clock-names = "sclk";
+			#sound-dai-cells = <0>; /* TODO FIXME */
 		};
 
 		watchdog: watchdog@31008000 {
