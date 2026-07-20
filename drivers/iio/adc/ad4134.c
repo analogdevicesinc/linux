@@ -111,7 +111,11 @@
  * BUFGCE and tracks /32-divider phase + delivered edge counts. It implements
  * the hardware side of Sequence.txt: §E (one-time 36-cycle startup) and §F
  * (deterministic stop-at-/32-boundary across SPI power-mode writes, then
- * resume and IRQ at edge 146 — first dig_clk rising edge).
+ * resume and IRQ at EDGE_TARGET). EDGE_TARGET is 137 in the bitstream: it
+ * anchors odr_sync so the first ODR pulse lands on CLKin edge 146 (the
+ * AD7134's first dig_clk rising edge) after the measured +9.5-cycle
+ * anchor-to-ODR pipeline. The IRQ therefore fires at edge 137, ~187 ns
+ * before dig_clk rises — used only as a "clock aligned, proceed" signal.
  *
  * Offsets are byte addresses on the AXI-Lite slave (word offset * 4).
  */
@@ -123,8 +127,8 @@
 #define   AD4134_CLKIN_CTRL_GATE_FORCE_OFF		BIT(3)
 #define   AD4134_CLKIN_CTRL_GATE_FORCE_ON		BIT(4)
 #define AD4134_CLKIN_STATUS			0x048 /* word 0x12 */
-#define AD4134_CLKIN_STARTUP_CYCLES		0x04C /* word 0x13 — default 36 */
-#define AD4134_CLKIN_EDGE_TARGET		0x050 /* word 0x14 — default 146 */
+#define AD4134_CLKIN_STARTUP_CYCLES		0x04C /* word 0x13 — bitstream default 39 (Fused_part_sequence) */
+#define AD4134_CLKIN_EDGE_TARGET		0x050 /* word 0x14 — bitstream default 137 (anchors ODR to CLKin edge 146) */
 #define AD4134_CLKIN_EDGE_COUNT			0x054 /* word 0x15 */
 #define AD4134_CLKIN_DIV32_PHASE		0x058 /* word 0x16 */
 #define AD4134_CLKIN_IRQ_PENDING		0x05C /* word 0x17, RW1C */
@@ -458,8 +462,9 @@ static int ad4134_setup_odr(struct ad4134_state *st, unsigned int freq_hz)
 	dev_info(&st->spi->dev, "ODR frequency: %u Hz (DOUT lines: %u)\n",
 		odr_hz, st->num_dout_lines);
 	if (odr_hz < AD4134_MIN_ODR_FREQ_HZ || odr_hz > AD4134_MAX_ODR_FREQ_HZ) {
-		dev_err(&st->spi->dev, "ODR %u Hz out of range [%d, %d]\n",
-			odr_hz, AD4134_MIN_ODR_FREQ_HZ, AD4134_MAX_ODR_FREQ_HZ);
+		dev_err(&st->spi->dev, "ODR %u Hz out of range [%d, %lu]\n",
+			odr_hz, AD4134_MIN_ODR_FREQ_HZ,
+			(unsigned long)AD4134_MAX_ODR_FREQ_HZ);
 		return -EINVAL;
 	}
 
@@ -1325,7 +1330,8 @@ static int ad4134_clkin_startup(struct ad4134_state *st,
  * Wraps a single 1-byte SPI write with the alignment-preserving stop/resume
  * dance. The FSM must be in ST_RUNNING on entry (i.e. §E has completed and
  * the clock is free-running); on success it's back in ST_RUNNING with the
- * edge counter at exactly EDGE_TARGET (default 146) — which the AD7134
+ * edge counter at exactly EDGE_TARGET (137 in the bitstream), which anchors
+ * odr_sync so the first ODR lands on CLKin edge 146 — the edge the AD7134
  * datasheet guarantees coincides with the first dig_clk rising edge.
  *
  *   1. ARM_STOP_AT_ALIGN  — FSM RUNNING→ARMED, waits for /32 negedge,
@@ -1334,7 +1340,8 @@ static int ad4134_clkin_startup(struct ad4134_state *st,
  *      (still works with XTAL2_CLKIN stopped — that's what §B is for).
  *   3. fsleep §F.4 (10 ms settle).
  *   4. RESUME — clock restarts, edge_cnt resets to 0.
- *   5. wait IRQ[0] — fires when edge_cnt reaches EDGE_TARGET (=146).
+ *   5. wait IRQ[0] — fires when edge_cnt reaches EDGE_TARGET (=137);
+ *      the ODR/dig_clk edge itself is ~9.5 cycles later at edge 146.
  *
  * Returns -ETIMEDOUT if either IRQ doesn't arrive within 100 ms; the chip
  * config write itself returns its own errno on SPI failure. On any error
@@ -1538,7 +1545,8 @@ static int ad4134_setup(struct ad4134_state *st)
 	 * XTAL at the next /32 negedge, does the SPI write while the clock
 	 * is stopped (SPI runs on its independent 100 MHz clock per §B),
 	 * waits 10 ms, resumes, and blocks until the edge_target IRQ fires
-	 * at edge 146 — the AD7134's guaranteed first dig_clk rising edge.
+	 * at edge 137 — which anchors the first ODR to CLKin edge 146, the
+	 * AD7134's guaranteed first dig_clk rising edge.
 	 *
 	 * Value 0x01 = AD4134_POWER_MODE_HIGH_PERF. All other DEVICE_CONFIG
 	 * bits default to 0 after reset.
