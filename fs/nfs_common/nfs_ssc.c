@@ -12,9 +12,61 @@
 #include <linux/nfs_ssc.h>
 #include "../nfs/nfs4_fs.h"
 
+struct nfs_ssc_client_ops_tbl {
+	const struct nfs4_ssc_client_ops *ssc_nfs4_ops;
+};
 
-struct nfs_ssc_client_ops_tbl nfs_ssc_client_tbl;
-EXPORT_SYMBOL_GPL(nfs_ssc_client_tbl);
+static struct nfs_ssc_client_ops_tbl nfs_ssc_client_tbl __read_mostly;
+
+/**
+ * nfsd42_ssc_open - Open a file to be used for server-to-server copy
+ * @ss_mnt: active mount point on which the source file resides
+ * @src_fh: file handle of the source file to be copied
+ * @stateid: stateid to use for COPY operation
+ *
+ * Caller must close the returned file using nfsd42_ssc_close().
+ *
+ * Return: an open file, or an ERR_PTR on error
+ */
+struct file *nfsd42_ssc_open(struct vfsmount *ss_mnt, struct nfs_fh *src_fh,
+			     nfs4_stateid *stateid)
+{
+	/*
+	 * Built under CONFIG_NFS_V4_2_SSC_HELPER, which the NFS client
+	 * enables on its own. The dispatch below is live only when the
+	 * server also sets CONFIG_NFSD_V4_2_INTER_SSC; without it the
+	 * source file cannot be opened, so callers get -EIO.
+	 */
+#if IS_ENABLED(CONFIG_NFSD_V4_2_INTER_SSC)
+	const struct nfs4_ssc_client_ops *ops = nfs_ssc_client_tbl.ssc_nfs4_ops;
+
+	if (ops)
+		return ops->sco_open(ss_mnt, src_fh, stateid);
+#endif
+
+	return ERR_PTR(-EIO);
+}
+EXPORT_SYMBOL_GPL(nfsd42_ssc_open);
+
+/**
+ * nfsd42_ssc_close - Close a file opened with nfsd42_ssc_open()
+ * @filp: struct file to be closed
+ *
+ * The real cleanup happens unconditionally in nfsd4_cleanup_inter_ssc().
+ * The vfsmount is pinned until this function is called, preventing
+ * the client from unregistering its SSC ops.
+ */
+void nfsd42_ssc_close(struct file *filp)
+{
+	/* Live only under CONFIG_NFSD_V4_2_INTER_SSC; see nfsd42_ssc_open(). */
+#if IS_ENABLED(CONFIG_NFSD_V4_2_INTER_SSC)
+	const struct nfs4_ssc_client_ops *ops = nfs_ssc_client_tbl.ssc_nfs4_ops;
+
+	if (ops)
+		ops->sco_close(filp);
+#endif
+}
+EXPORT_SYMBOL_GPL(nfsd42_ssc_close);
 
 #ifdef CONFIG_NFS_V4_2
 /**

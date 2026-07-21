@@ -1693,11 +1693,6 @@ void nfsd4_cancel_copy_by_sb(struct net *net, struct super_block *sb)
 
 #ifdef CONFIG_NFSD_V4_2_INTER_SSC
 
-extern struct file *nfs42_ssc_open(struct vfsmount *ss_mnt,
-				   struct nfs_fh *src_fh,
-				   nfs4_stateid *stateid);
-extern void nfs42_ssc_close(struct file *filep);
-
 #define NFSD42_INTERSSC_MOUNTOPS "vers=4.2,addr=%s,sec=sys"
 
 /*
@@ -1920,7 +1915,7 @@ nfsd4_cleanup_inter_ssc(struct nfsd4_ssc_umount_item *nsui, struct file *filp,
 	struct nfsd_net *nn = net_generic(dst->nf_net, nfsd_net_id);
 	long timeout = msecs_to_jiffies(nfsd4_ssc_umount_timeout);
 
-	nfs42_ssc_close(filp);
+	nfsd42_ssc_close(filp);
 	fput(filp);
 
 	spin_lock(&nn->nfsd_ssc_lock);
@@ -1952,12 +1947,6 @@ nfsd4_cleanup_inter_ssc(struct nfsd4_ssc_umount_item *nsui, struct file *filp,
 {
 }
 
-static struct file *nfs42_ssc_open(struct vfsmount *ss_mnt,
-				   struct nfs_fh *src_fh,
-				   nfs4_stateid *stateid)
-{
-	return NULL;
-}
 #endif /* CONFIG_NFSD_V4_2_INTER_SSC */
 
 static __be32
@@ -2180,8 +2169,8 @@ static int nfsd4_do_async_copy(void *data)
 	if (nfsd4_ssc_is_inter(copy)) {
 		struct file *filp;
 
-		filp = nfs42_ssc_open(copy->ss_nsui->nsui_vfsmount,
-				      &copy->c_fh, &copy->stateid);
+		filp = nfsd42_ssc_open(copy->ss_nsui->nsui_vfsmount,
+				       &copy->c_fh, &copy->stateid);
 		if (IS_ERR(filp)) {
 			switch (PTR_ERR(filp)) {
 			case -EBADF:
