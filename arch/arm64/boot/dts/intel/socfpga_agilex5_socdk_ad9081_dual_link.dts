@@ -74,11 +74,12 @@
 	axi_ad9081_adxcvr_tx: axi-ad9081-tx-xcvr@CC000 {
 		compatible = "adi,altera-adxcvr-1.00.a";
 		reg = <0x000CC000 0x00002000>,
-			<0x02000000 0x00100000>,
-			<0x02100000 0x00100000>;
+			<0x020a6000 0x00000080>,
+			<0x02100000 0x00100000>,
+			<0x02200000 0x00100000>;
 			// <0x02200000 0x00100000>,
 			// <0x02300000 0x00100000>;
-		reg-names = "adxcvr",  "adxcfg-0", "adxcfg-1";
+		reg-names = "adxcvr",  "gts-pll", "adxcfg-0", "adxcfg-1";
 				// "adxcfg-2", "adxcfg-3";
 
 		clocks = <&hmc7044 8>, <&tx_link_clk>;
@@ -159,7 +160,7 @@
 		reg = <0x000B0000 0x4000>;
 
 		interrupt-parent = <&intc>;
-		interrupts = <0 32 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <0 26 IRQ_TYPE_LEVEL_HIGH>;
 
 		clocks = <&sys_clk>, <&rx_link_clk>, <&hmc7044 6>, <&axi_ad9081_adxcvr_rx_os 0>;
 		clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
@@ -218,9 +219,24 @@
 		clocks = <&dma_clk>;
 	};
 
+	// axi_data_offload_rx: axi-data-offload-0@60000 {
+	// 	compatible = "adi,axi-data-offload-1.0.a";
+	// 	reg = <0x00060000 0x10000>;
+	// };
+
+	// axi_data_offload_rx_os: axi-data-offload-1@70000 {
+	// 	compatible = "adi,axi-data-offload-1.0.a";
+	// 	reg = <0x00070000 0x10000>;
+	// };
+
+	// axi_data_offload_tx: axi-data-offload-2@80000 {
+	// 	compatible = "adi,axi-data-offload-1.0.a";
+	// 	reg = <0x00080000 0x10000>;
+	// };
+
 	axi_ad9081_core_rx: axi-ad9081-rx-hpc@D2000 {
 		compatible = "adi,axi-ad9081-rx-1.0";
-		reg = <0x000D2000 0x00002000>;
+		reg = <0x000D2000 0x0002000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
 		spibus-connected = <&trx0_ad9081>;
@@ -254,6 +270,8 @@
 		spibus-connected = <&trx0_ad9081>;
 
 		plddrbypass-gpios = <&sys_gpio_out (fmc_gpio_base + 60) 0>;
+		// adi,axi-data-offload-connected = <&axi_data_offload_tx>;
+		adi,axi-pl-fifo-enable;
 
 		jesd204-device;
 		#jesd204-cells = <2>;
