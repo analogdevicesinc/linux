@@ -597,6 +597,19 @@ struct nfsd4_cb_offload {
 	u32			co_referring_seqno;
 };
 
+struct nfsd4_ssc_umount_item {
+	struct list_head	nsui_list;
+	bool			nsui_busy;
+	/*
+	 * nsui_refcnt inited to 2, 1 on list and 1 for consumer. Entry
+	 * is removed when refcnt drops to 1 and nsui_expire expires.
+	 */
+	refcount_t		nsui_refcnt;
+	unsigned long		nsui_expire;
+	struct vfsmount		*nsui_vfsmount;
+	char			nsui_ipaddr[RPC_MAX_ADDRBUFLEN + 1];
+};
+
 struct nfsd4_copy {
 	/* request */
 	stateid_t		cp_src_stateid;

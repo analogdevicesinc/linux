@@ -10,7 +10,7 @@
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/nfs_ssc.h>
-#include "../nfs/nfs4_fs.h"
+#include <linux/nfsd_ssc.h>
 
 struct nfs_ssc_client_ops_tbl {
 	const struct nfs4_ssc_client_ops __rcu *ssc_nfs4_ops;
