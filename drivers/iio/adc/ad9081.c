@@ -853,12 +853,14 @@ static int ad9081_testmode_write(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
 	int ret;
-
+	dev_info(&phy->spi->dev, "Trying to write test mode: %u\n", item);
 	guard(mutex)(&conv->lock);
 	ret = adi_ad9081_adc_test_mode_config_set(&phy->ad9081, item, item,
 						  AD9081_LINK_ALL);
-	if (!ret)
+	if (!ret) {
 		conv->testmode[chan->channel] = item;
+		dev_info(&phy->spi->dev, "Writing test mode: %u\n", item);
+	}
 
 	return ret;
 }
@@ -877,6 +879,9 @@ static const char *const ad9081_adc_testmodes[] = {
 	[AD9081_TMODE_PN15] = "pn15",
 	[AD9081_TMODE_PN31] = "pn31",
 	[AD9081_TMODE_RAMP] = "ramp",
+	[12] = "",
+	[13] = "",
+	[14] = "",
 };
 
 static const char *const ad9081_jesd_testmodes[] = {
