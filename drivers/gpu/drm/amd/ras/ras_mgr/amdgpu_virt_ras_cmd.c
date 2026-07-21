@@ -308,7 +308,7 @@ static int amdgpu_virt_ras_get_cper_records(struct ras_core_context *ras_core,
 							  trace, trace_count,
 							  rsp_cache);
 		if (count > 0) {
-			ret = ras_cper_generate_cper(ras_core, trace, count,
+			ret = ras_cper_generate_batch_cper(ras_core, trace, count,
 					&out_buf[offset], req->buf_size - offset, &real_data_len);
 			if (ret)
 				break;

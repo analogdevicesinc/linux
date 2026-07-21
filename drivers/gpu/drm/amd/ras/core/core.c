@@ -408,6 +408,10 @@ int ras_core_sw_init(struct ras_core_context *ras_core)
 	if (ret)
 		return ret;
 
+	ret = ras_cper_sw_init(ras_core);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
@@ -424,7 +428,7 @@ int ras_core_sw_fini(struct ras_core_context *ras_core)
 	ras_aca_sw_fini(ras_core);
 	ras_eeprom_mgr_sw_fini(ras_core);
 	ras_mce_sw_fini(ras_core);
-
+	ras_cper_sw_fini(ras_core);
 	return 0;
 }
 

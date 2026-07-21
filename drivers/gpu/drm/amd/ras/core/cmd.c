@@ -229,7 +229,7 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 		count = ras_log_ring_get_batch_records(ras_core, batch_id, trace,
 					trace_count);
 		if (count > 0) {
-			ret = ras_cper_generate_cper(ras_core, trace, count,
+			ret = ras_cper_generate_batch_cper(ras_core, trace, count,
 					&buf_ptr[offset], req->buf_size - offset, &real_data_len);
 			if (ret)
 				break;

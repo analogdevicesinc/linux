@@ -27,12 +27,8 @@
 #include "ras_cper.h"
 #define ns_to_seconds(ns)   div_u64(ns, NSEC_PER_SEC)
 
-static const struct ras_cper_guid MCE	= CPER_NOTIFY__MCE;
-static const struct ras_cper_guid CMC	= CPER_NOTIFY__CMC;
-static const struct ras_cper_guid BOOT	= BOOT__TYPE;
-
-static const struct ras_cper_guid CRASHDUMP = GPU__CRASHDUMP;
-static const struct ras_cper_guid RUNTIME = GPU__NONSTANDARD_ERROR;
+static int ras_cper_get_profile(struct ras_core_context *ras_core,
+		enum ras_log_event event, struct ras_cper_profile **profile);
 
 static void cper_get_timestamp(struct ras_core_context *ras_core,
 		struct ras_cper_timestamp *timestamp, uint64_t utc_second_timestamp)
@@ -51,8 +47,8 @@ static void cper_get_timestamp(struct ras_core_context *ras_core,
 }
 
 static void fill_section_hdr(struct ras_core_context *ras_core,
-				struct cper_section_hdr *hdr, enum ras_cper_type type,
-				enum ras_cper_severity sev, struct ras_log_info *trace)
+		struct cper_section_hdr *hdr, struct ras_cper_guid notify_type,
+		enum ras_cper_severity sev, struct ras_log_info *log)
 {
 	struct device_system_info dev_info = {0};
 	char record_id[32];
@@ -70,10 +66,10 @@ static void fill_section_hdr(struct ras_core_context *ras_core,
 
 	ras_core_get_device_system_info(ras_core, &dev_info);
 
-	cper_get_timestamp(ras_core, &hdr->timestamp, ns_to_seconds(trace->timestamp));
+	cper_get_timestamp(ras_core, &hdr->timestamp, ns_to_seconds(log->timestamp));
 
 	snprintf(record_id, sizeof(record_id), "%d:%llX", dev_info.socket_id,
-		    RAS_LOG_SEQNO_TO_BATCH_IDX(trace->seqno));
+		    RAS_LOG_SEQNO_TO_BATCH_IDX(log->seqno));
 	memcpy(hdr->record_id, record_id, 8);
 
 	snprintf(hdr->platform_id, 16, "0x%04X:0x%04X",
@@ -81,40 +77,20 @@ static void fill_section_hdr(struct ras_core_context *ras_core,
 	/* pmfw version should be part of creator_id according to CPER spec */
 	snprintf(hdr->creator_id, 16, "%s", CPER_CREATOR_ID__AMDGPU);
 
-	switch (type) {
-	case RAS_CPER_TYPE_BOOT:
-		hdr->notify_type = BOOT;
-		break;
-	case RAS_CPER_TYPE_FATAL:
-	case RAS_CPER_TYPE_RMA:
-		hdr->notify_type = MCE;
-		break;
-	case RAS_CPER_TYPE_RUNTIME:
-		if (sev == RAS_CPER_SEV_NON_FATAL_CE)
-			hdr->notify_type = CMC;
-		else
-			hdr->notify_type = MCE;
-		break;
-	default:
-		RAS_DEV_ERR(ras_core->dev, "Unknown CPER Type\n");
-		break;
-	}
+	hdr->notify_type = notify_type;
 }
 
 static int fill_section_descriptor(struct ras_core_context *ras_core,
-					struct cper_section_desc *descriptor,
-					enum ras_cper_severity sev,
-					struct ras_cper_guid sec_type,
-					uint32_t section_offset,
-					uint32_t section_length)
+		struct cper_section_desc *descriptor, enum ras_cper_severity sev,
+		struct ras_cper_guid sec_type, uint32_t sec_offset, uint32_t sec_len)
 {
 	struct device_system_info dev_info = {0};
 
 	descriptor->revision_minor		= CPER_SEC__MINOR_REV_1;
 	descriptor->revision_major		= CPER_SEC__MAJOR_REV_22;
-	descriptor->sec_offset		= section_offset;
-	descriptor->sec_length		= section_length;
-	descriptor->valid_bits.fru_text	= 1;
+	descriptor->sec_offset		= sec_offset;
+	descriptor->sec_length		= sec_len;
+	descriptor->valid_bits.fru_text = 1;
 	descriptor->flag_bits.primary	= 1;
 	descriptor->severity = (sev == RAS_CPER_SEV_RMA ? RAS_CPER_SEV_FATAL_UE : sev);
 	descriptor->sec_type			= sec_type;
@@ -132,28 +108,31 @@ static int fill_section_descriptor(struct ras_core_context *ras_core,
 	return 0;
 }
 
-static int fill_section_fatal(struct ras_core_context *ras_core,
-		struct cper_section_fatal *fatal, struct ras_log_info *trace)
+static int fill_section_fatal(struct ras_core_context *ras_core, void *section,
+		struct ras_log_info *log, enum ras_cper_severity sev)
 {
+	struct cper_section_fatal *fatal = section;
+
 	fatal->data.reg_ctx_type = CPER_CTX_TYPE__CRASH;
 	fatal->data.reg_arr_size = sizeof(fatal->data.reg);
 
-	fatal->data.reg.status = trace->body.aca_reg.regs[RAS_CPER_ACA_REG_STATUS];
-	fatal->data.reg.addr   = trace->body.aca_reg.regs[RAS_CPER_ACA_REG_ADDR];
-	fatal->data.reg.ipid   = trace->body.aca_reg.regs[RAS_CPER_ACA_REG_IPID];
-	fatal->data.reg.synd   = trace->body.aca_reg.regs[RAS_CPER_ACA_REG_SYND];
+	fatal->data.reg.status = log->body.aca_reg.regs[RAS_CPER_ACA_REG_STATUS];
+	fatal->data.reg.addr   = log->body.aca_reg.regs[RAS_CPER_ACA_REG_ADDR];
+	fatal->data.reg.ipid   = log->body.aca_reg.regs[RAS_CPER_ACA_REG_IPID];
+	fatal->data.reg.synd   = log->body.aca_reg.regs[RAS_CPER_ACA_REG_SYND];
 
 	return 0;
 }
 
-static int fill_section_runtime(struct ras_core_context *ras_core,
-		struct cper_section_runtime *runtime, struct ras_log_info *trace,
-		enum ras_cper_severity sev)
+static int fill_section_runtime(struct ras_core_context *ras_core, void *section,
+		struct ras_log_info *log, enum ras_cper_severity sev)
 {
+	struct cper_section_runtime *runtime = section;
+
 	runtime->hdr.valid_bits.err_info_cnt = 1;
 	runtime->hdr.valid_bits.err_context_cnt = 1;
 
-	runtime->descriptor.error_type = RUNTIME;
+	runtime->descriptor.error_type = GPU__NONSTANDARD_ERROR;
 	runtime->descriptor.ms_chk_bits.err_type_valid = 1;
 	if (sev == RAS_CPER_SEV_RMA) {
 		runtime->descriptor.valid_bits.ms_chk = 1;
@@ -165,26 +144,27 @@ static int fill_section_runtime(struct ras_core_context *ras_core,
 	runtime->reg.reg_arr_size = sizeof(runtime->reg.reg_dump);
 
 	runtime->reg.reg_dump[RAS_CPER_ACA_REG_CTL] =
-			trace->body.aca_reg.regs[ACA_REG_IDX__CTL];
+			log->body.aca_reg.regs[ACA_REG_IDX__CTL];
 	runtime->reg.reg_dump[RAS_CPER_ACA_REG_STATUS] =
-			trace->body.aca_reg.regs[ACA_REG_IDX__STATUS];
+			log->body.aca_reg.regs[ACA_REG_IDX__STATUS];
 	runtime->reg.reg_dump[RAS_CPER_ACA_REG_ADDR] =
-			trace->body.aca_reg.regs[ACA_REG_IDX__ADDR];
+			log->body.aca_reg.regs[ACA_REG_IDX__ADDR];
 	runtime->reg.reg_dump[RAS_CPER_ACA_REG_MISC0] =
-			trace->body.aca_reg.regs[ACA_REG_IDX__MISC0];
+			log->body.aca_reg.regs[ACA_REG_IDX__MISC0];
 	runtime->reg.reg_dump[RAS_CPER_ACA_REG_CONFIG] =
-			trace->body.aca_reg.regs[ACA_REG_IDX__CONFG];
+			log->body.aca_reg.regs[ACA_REG_IDX__CONFG];
 	runtime->reg.reg_dump[RAS_CPER_ACA_REG_IPID] =
-			trace->body.aca_reg.regs[ACA_REG_IDX__IPID];
+			log->body.aca_reg.regs[ACA_REG_IDX__IPID];
 	runtime->reg.reg_dump[RAS_CPER_ACA_REG_SYND] =
-			trace->body.aca_reg.regs[ACA_REG_IDX__SYND];
+			log->body.aca_reg.regs[ACA_REG_IDX__SYND];
 
 	return 0;
 }
 
-static int fill_section_boot(struct ras_core_context *ras_core, struct cper_section_boot *boot,
-			     struct ras_log_info *log)
+static int fill_section_boot(struct ras_core_context *ras_core, void *section,
+		struct ras_log_info *log, enum ras_cper_severity sev)
 {
+	struct cper_section_boot *boot = section;
 	struct ras_boot_err_ctx *ctx = &log->body.boot_err_ctx;
 	struct crashdump_boot *data = &boot->data;
 
@@ -196,138 +176,114 @@ static int fill_section_boot(struct ras_core_context *ras_core, struct cper_sect
 	return 0;
 }
 
-static int cper_generate_runtime_record(struct ras_core_context *ras_core,
-	struct cper_section_hdr *hdr, struct ras_log_info *trace_arr, uint32_t arr_num,
-		enum ras_cper_severity sev)
+static int cper_boot_get_severity(struct ras_log_info *log,
+			enum ras_cper_severity *sev)
 {
+	*sev = log->body.boot_err_ctx.error_severity;
+	return 0;
+}
+
+static int cper_boot_get_sec_type(struct ras_log_info *log, struct ras_cper_guid *out)
+{
+	memcpy(out, &log->body.boot_err_ctx.section_type,
+		min(sizeof(*out), sizeof(log->body.boot_err_ctx.section_type)));
+	return 0;
+}
+
+static uint32_t cper_get_record_size(const struct ras_cper_profile *profile,
+		uint32_t section_count)
+{
+	if (profile->build_record_per_log)
+		return (RAS_HDR_LEN + RAS_SEC_DESC_LEN + profile->section_size) *
+			section_count;
+
+	return RAS_HDR_LEN +
+		(RAS_SEC_DESC_LEN + profile->section_size) * section_count;
+}
+
+static int cper_build_single_record(struct ras_core_context *ras_core,
+		struct cper_section_hdr *hdr, const struct ras_cper_profile *profile,
+		struct ras_log_info *batch_logs, uint32_t nr_batch_logs)
+{
+	enum ras_cper_severity sev = profile->severity;
+	struct ras_cper_guid sec_type = profile->sec_type;
+	struct ras_cper_guid notify_type = profile->notify_type;
 	struct cper_section_desc *descriptor;
-	struct cper_section_runtime *runtime;
-	int i;
+	uint32_t desc_off, sec_off;
+	void *section;
+	uint32_t i;
 
-	fill_section_hdr(ras_core, hdr, RAS_CPER_TYPE_RUNTIME, sev, &trace_arr[0]);
-	hdr->record_length =  RAS_HDR_LEN + ((RAS_SEC_DESC_LEN + RAS_NONSTD_SEC_LEN) * arr_num);
-	hdr->sec_cnt = arr_num;
-	for (i = 0; i < arr_num; i++) {
-		descriptor = (struct cper_section_desc *)((uint8_t *)hdr +
-			     RAS_SEC_DESC_OFFSET(i));
-		runtime = (struct cper_section_runtime *)((uint8_t *)hdr +
-			  RAS_NONSTD_SEC_OFFSET(hdr->sec_cnt, i));
+	if (profile->get_severity)
+		profile->get_severity(&batch_logs[0], &sev);
 
-		fill_section_descriptor(ras_core, descriptor, sev, RUNTIME,
-			RAS_NONSTD_SEC_OFFSET(hdr->sec_cnt, i),
-			sizeof(struct cper_section_runtime));
-		fill_section_runtime(ras_core, runtime, &trace_arr[i], sev);
+	if (profile->get_sec_type)
+		profile->get_sec_type(&batch_logs[0], &sec_type);
+
+	if (profile->get_notify_type)
+		profile->get_notify_type(&batch_logs[0], &notify_type);
+
+	fill_section_hdr(ras_core, hdr, notify_type, sev, &batch_logs[0]);
+	hdr->sec_cnt = nr_batch_logs;
+	hdr->record_length = RAS_HDR_LEN +
+		(RAS_SEC_DESC_LEN + profile->section_size) * nr_batch_logs;
+
+	for (i = 0; i < nr_batch_logs; i++) {
+		desc_off = RAS_HDR_LEN + (RAS_SEC_DESC_LEN * i);
+		sec_off  = RAS_HDR_LEN + (RAS_SEC_DESC_LEN * nr_batch_logs) +
+			   (profile->section_size * i);
+
+		descriptor = (struct cper_section_desc *)((uint8_t *)hdr + desc_off);
+		section = (uint8_t *)hdr + sec_off;
+
+		fill_section_descriptor(ras_core, descriptor, sev,
+			sec_type, sec_off, profile->section_size);
+
+		profile->fill_section(ras_core, section, &batch_logs[i], sev);
 	}
 
 	return 0;
 }
 
-static int cper_generate_fatal_record(struct ras_core_context *ras_core,
-	uint8_t *buffer, struct ras_log_info *trace_arr, uint32_t arr_num)
+static int cper_build_multiple_records(struct ras_core_context *ras_core,
+		uint8_t *buffer, const struct ras_cper_profile *profile,
+		struct ras_log_info *batch_logs, uint32_t nr_batch_logs)
 {
-	struct ras_cper_fatal_record record = {0};
-	int i = 0;
+	uint32_t rec_len = RAS_HDR_LEN + RAS_SEC_DESC_LEN + profile->section_size;
+	uint32_t i;
 
-	for (i = 0; i < arr_num; i++) {
-		fill_section_hdr(ras_core, &record.hdr, RAS_CPER_TYPE_FATAL,
-				 RAS_CPER_SEV_FATAL_UE, &trace_arr[i]);
-		record.hdr.record_length =  RAS_HDR_LEN + RAS_SEC_DESC_LEN + RAS_FATAL_SEC_LEN;
-		record.hdr.sec_cnt = 1;
+	for (i = 0; i < nr_batch_logs; i++) {
+		struct ras_log_info *log = &batch_logs[i];
+		enum ras_cper_severity sev = profile->severity;
+		struct ras_cper_guid sec_type = profile->sec_type;
+		struct ras_cper_guid notify_type = profile->notify_type;
+		struct cper_section_hdr *hdr;
+		struct cper_section_desc *descriptor;
+		void *section;
 
-		fill_section_descriptor(ras_core, &record.descriptor, RAS_CPER_SEV_FATAL_UE,
-					CRASHDUMP, offsetof(struct ras_cper_fatal_record, fatal),
-					sizeof(struct cper_section_fatal));
+		if (profile->get_severity)
+			profile->get_severity(log, &sev);
 
-		fill_section_fatal(ras_core, &record.fatal, &trace_arr[i]);
+		if (profile->get_sec_type)
+			profile->get_sec_type(log, &sec_type);
 
-		memcpy(buffer + (i * record.hdr.record_length),
-				&record, record.hdr.record_length);
+		if (profile->get_notify_type)
+			profile->get_notify_type(log, &notify_type);
+
+		hdr = (struct cper_section_hdr *)(buffer + (i * rec_len));
+		descriptor = (struct cper_section_desc *)((uint8_t *)hdr + RAS_HDR_LEN);
+		section = (uint8_t *)hdr + RAS_HDR_LEN + RAS_SEC_DESC_LEN;
+
+		fill_section_hdr(ras_core, hdr, notify_type, sev, log);
+		hdr->sec_cnt = 1;
+		hdr->record_length = rec_len;
+
+		fill_section_descriptor(ras_core, descriptor, sev, sec_type,
+			RAS_HDR_LEN + RAS_SEC_DESC_LEN, profile->section_size);
+
+		profile->fill_section(ras_core, section, log, sev);
 	}
 
 	return 0;
-}
-
-static int cper_generate_boot_record(struct ras_core_context *ras_core, u8 *buffer,
-				     struct ras_log_info *trace_arr, u32 arr_num)
-{
-	struct ras_cper_boot_record *record;
-	int i;
-
-	record = kzalloc(sizeof(*record), GFP_KERNEL);
-	if (!record)
-		return -ENOMEM;
-
-	for (i = 0; i < arr_num; i++) {
-		u32 severity = trace_arr[i].body.boot_err_ctx.error_severity;
-		struct ras_cper_guid section_type;
-
-		memcpy(&section_type, &trace_arr[i].body.boot_err_ctx.section_type,
-			min(sizeof(section_type),
-			    sizeof(trace_arr[i].body.boot_err_ctx.section_type)));
-
-		fill_section_hdr(ras_core, &record->hdr, RAS_CPER_TYPE_BOOT, severity,
-				 &trace_arr[i]);
-		record->hdr.record_length = RAS_HDR_LEN + RAS_SEC_DESC_LEN + RAS_BOOT_SEC_LEN;
-		record->hdr.sec_cnt = 1;
-
-		fill_section_descriptor(ras_core, &record->descriptor, severity, section_type,
-					offsetof(struct ras_cper_boot_record, boot),
-					sizeof(struct ras_cper_boot_record));
-
-		fill_section_boot(ras_core, &record->boot, &trace_arr[i]);
-
-		memcpy(buffer + (i * record->hdr.record_length), record, record->hdr.record_length);
-	}
-
-	kfree(record);
-	return 0;
-}
-
-static int cper_get_record_size(enum ras_cper_type type, uint16_t section_count)
-{
-	int size = 0;
-
-	size += RAS_HDR_LEN;
-	size += (RAS_SEC_DESC_LEN * section_count);
-
-	switch (type) {
-	case RAS_CPER_TYPE_RUNTIME:
-	case RAS_CPER_TYPE_RMA:
-		size += (RAS_NONSTD_SEC_LEN * section_count);
-		break;
-	case RAS_CPER_TYPE_FATAL:
-		size += (RAS_FATAL_SEC_LEN * section_count);
-		size += (RAS_HDR_LEN * (section_count - 1));
-		break;
-	case RAS_CPER_TYPE_BOOT:
-		size += (RAS_BOOT_SEC_LEN * section_count);
-		break;
-	default:
-		/* should never reach here */
-		break;
-	}
-
-	return size;
-}
-
-static enum ras_cper_type cper_ras_log_event_to_cper_type(enum ras_log_event event)
-{
-	switch (event) {
-	case RAS_LOG_EVENT_UE:
-		return RAS_CPER_TYPE_FATAL;
-	case RAS_LOG_EVENT_DE:
-	case RAS_LOG_EVENT_CE:
-	case RAS_LOG_EVENT_POISON_CREATION:
-	case RAS_LOG_EVENT_POISON_CONSUMPTION:
-		return RAS_CPER_TYPE_RUNTIME;
-	case RAS_LOG_EVENT_RMA:
-		return RAS_CPER_TYPE_RMA;
-	case RAS_LOG_EVENT_BOOT:
-		return RAS_CPER_TYPE_BOOT;
-	default:
-		/* should never reach here */
-		return RAS_CPER_TYPE_RUNTIME;
-	}
 }
 
 static enum ras_log_event cper_mce_parse_err_type(struct ras_core_context *ras_core,
@@ -350,57 +306,235 @@ static enum ras_log_event cper_mce_parse_err_type(struct ras_core_context *ras_c
 	return RAS_LOG_EVENT_NONE;
 }
 
-int ras_cper_generate_cper(struct ras_core_context *ras_core,
-		struct ras_log_info *trace_list, uint32_t count,
+int ras_cper_generate_batch_cper(struct ras_core_context *ras_core,
+		struct ras_log_info *batch_logs, uint32_t nr_batch_logs,
 		uint8_t *buf, uint32_t buf_len, uint32_t *real_data_len)
 {
-	uint8_t *buffer = buf;
-	uint64_t buf_size = buf_len;
-	int record_size, saved_size = 0;
-	struct cper_section_hdr *hdr;
+	struct ras_cper *cper = &ras_core->ras_cper;
+	struct ras_cper_profile *profile;
+	enum ras_log_event event;
+	uint32_t record_size;
+	int ret = 0;
 
-	if (trace_list[0].event == RAS_LOG_EVENT_MCE) {
+	if (!batch_logs || !nr_batch_logs || !buf || !buf_len || !real_data_len)
+		return -EINVAL;
+
+	*real_data_len = 0;
+
+	event = batch_logs[0].event;
+	if (event == RAS_LOG_EVENT_MCE) {
 		struct aca_bank_reg bank = { 0 };
 
 		/* MCE is encoded as 1 record each */
-		memcpy(&bank.regs, &trace_list[0].body.aca_reg.regs, sizeof(bank.regs));
-		trace_list[0].event = cper_mce_parse_err_type(ras_core, &bank);
+		memcpy(&bank.regs, &batch_logs[0].body.aca_reg.regs, sizeof(bank.regs));
+		event = cper_mce_parse_err_type(ras_core, &bank);
+		batch_logs[0].event = event;
 	}
 
-	/* All the batch traces share the same event */
-	record_size = cper_get_record_size(
-			cper_ras_log_event_to_cper_type(trace_list[0].event), count);
+	mutex_lock(&cper->profile_mutex);
+	/* All the batch logs share the same event */
+	ret = ras_cper_get_profile(ras_core, event, &profile);
+	if (ret) {
+		RAS_DEV_ERR(ras_core->dev,
+			"Unprocessed ras log event: %d, ret:%d\n", event, ret);
+		goto out;
+	}
 
-	if ((record_size + saved_size) > buf_size)
+	record_size = cper_get_record_size(profile, nr_batch_logs);
+	if (record_size > buf_len) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	memset(buf, 0, record_size);
+
+	if (profile->build_record_per_log)
+		cper_build_multiple_records(ras_core, buf, profile, batch_logs, nr_batch_logs);
+	else
+		cper_build_single_record(ras_core,
+			(struct cper_section_hdr *)buf, profile, batch_logs, nr_batch_logs);
+
+	*real_data_len = record_size;
+
+out:
+	mutex_unlock(&cper->profile_mutex);
+	return ret;
+}
+
+static int ras_cper_get_profile(struct ras_core_context *ras_core,
+		enum ras_log_event event, struct ras_cper_profile **profile)
+{
+	struct ras_cper *cper = &ras_core->ras_cper;
+
+	if (!profile || event < 0 || event >= cper->nr_profiles)
+		return -EINVAL;
+
+	if (!cper->profiles)
+		return -EPERM;
+
+	if (!cper->profiles[event].fill_section)
+		return -ENOENT;
+
+	*profile = &cper->profiles[event];
+
+	return 0;
+}
+
+static struct ras_cper_profile ras_ue_profile = {
+	.cper_type        = RAS_CPER_TYPE_FATAL,
+	.severity         = RAS_CPER_SEV_FATAL_UE,
+	.notify_type      = CPER_NOTIFY__MCE,
+	.sec_type         = GPU__CRASHDUMP,
+	.section_size     = sizeof(struct cper_section_fatal),
+	.build_record_per_log = true,
+	.fill_section     = fill_section_fatal,
+};
+
+static struct ras_cper_profile ras_de_profile = {
+	.cper_type        = RAS_CPER_TYPE_RUNTIME,
+	.severity         = RAS_CPER_SEV_NON_FATAL_UE,
+	.notify_type      = CPER_NOTIFY__MCE,
+	.sec_type         = GPU__NONSTANDARD_ERROR,
+	.section_size     = sizeof(struct cper_section_runtime),
+	.build_record_per_log = false,
+	.fill_section     = fill_section_runtime,
+};
+
+static struct ras_cper_profile ras_ce_profile = {
+	.cper_type        = RAS_CPER_TYPE_RUNTIME,
+	.severity         = RAS_CPER_SEV_NON_FATAL_CE,
+	.notify_type      = CPER_NOTIFY__CMC,
+	.sec_type         = GPU__NONSTANDARD_ERROR,
+	.section_size     = sizeof(struct cper_section_runtime),
+	.build_record_per_log = false,
+	.fill_section     = fill_section_runtime,
+};
+
+static struct ras_cper_profile ras_rma_profile = {
+	.cper_type        = RAS_CPER_TYPE_RUNTIME,
+	.severity         = RAS_CPER_SEV_RMA,
+	.notify_type      = CPER_NOTIFY__MCE,
+	.sec_type         = GPU__NONSTANDARD_ERROR,
+	.section_size     = sizeof(struct cper_section_runtime),
+	.build_record_per_log = false,
+	.fill_section     = fill_section_runtime,
+};
+
+static struct ras_cper_profile ras_boot_profile = {
+	.cper_type        = RAS_CPER_TYPE_BOOT,
+	.severity         = RAS_CPER_SEV_FATAL_UE,
+	.notify_type      = BOOT__TYPE,
+	.sec_type         = GPU__CRASHDUMP,
+	.section_size     = sizeof(struct cper_section_boot),
+	.build_record_per_log = true,
+	.get_severity     = cper_boot_get_severity,
+	.get_sec_type     = cper_boot_get_sec_type,
+	.fill_section     = fill_section_boot,
+};
+
+static struct ras_event_profile_map ras_event_profile_maps[] = {
+	{RAS_LOG_EVENT_UE,   &ras_ue_profile},
+	{RAS_LOG_EVENT_DE,   &ras_de_profile},
+	{RAS_LOG_EVENT_CE,   &ras_ce_profile},
+	{RAS_LOG_EVENT_RMA,  &ras_rma_profile},
+	{RAS_LOG_EVENT_BOOT, &ras_boot_profile},
+};
+
+int ras_cper_sw_init(struct ras_core_context *ras_core)
+{
+	struct ras_cper *cper = &ras_core->ras_cper;
+	struct ras_cper_profile *profiles;
+	uint32_t nr_profiles = RAS_LOG_EVENT_COUNT_MAX;
+	int i, ret = 0;
+
+	profiles = kcalloc(nr_profiles, sizeof(*profiles), GFP_KERNEL);
+	if (!profiles)
 		return -ENOMEM;
 
-	hdr = (struct cper_section_hdr *)(buffer + saved_size);
+	cper->profiles = profiles;
+	cper->nr_profiles = nr_profiles;
+	mutex_init(&cper->profile_mutex);
 
-	switch (trace_list[0].event) {
-	case RAS_LOG_EVENT_RMA:
-		cper_generate_runtime_record(ras_core, hdr, trace_list, count, RAS_CPER_SEV_RMA);
-		break;
-	case RAS_LOG_EVENT_DE:
-		cper_generate_runtime_record(ras_core,
-			hdr, trace_list, count, RAS_CPER_SEV_NON_FATAL_UE);
-		break;
-	case RAS_LOG_EVENT_CE:
-		cper_generate_runtime_record(ras_core,
-			hdr, trace_list, count, RAS_CPER_SEV_NON_FATAL_CE);
-		break;
-	case RAS_LOG_EVENT_UE:
-		cper_generate_fatal_record(ras_core, buffer + saved_size, trace_list, count);
-		break;
-	case RAS_LOG_EVENT_BOOT:
-		cper_generate_boot_record(ras_core, buffer + saved_size, trace_list, count);
-		break;
-	default:
-		RAS_DEV_WARN(ras_core->dev, "Unprocessed trace event: %d\n", trace_list[0].event);
-		break;
+	for (i = 0; i < ARRAY_SIZE(ras_event_profile_maps); i++) {
+		ret = ras_cper_register_profile(ras_core,
+				ras_event_profile_maps[i].event,
+				ras_event_profile_maps[i].profile);
+		if (ret) {
+			RAS_DEV_ERR(ras_core->dev,
+				"Failed to register %u profile. ret:%d\n",
+				ras_event_profile_maps[i].event, ret);
+			goto out;
+		}
 	}
 
-	saved_size += record_size;
-
-	*real_data_len = saved_size;
 	return 0;
+
+out:
+	ras_cper_sw_fini(ras_core);
+	return ret;
+}
+
+int ras_cper_sw_fini(struct ras_core_context *ras_core)
+{
+	struct ras_cper *cper = &ras_core->ras_cper;
+
+	if (!cper->profiles)
+		return 0;
+
+	kfree(cper->profiles);
+	cper->profiles = NULL;
+	cper->nr_profiles = 0;
+	mutex_destroy(&cper->profile_mutex);
+
+	return 0;
+}
+
+int ras_cper_register_profile(struct ras_core_context *ras_core,
+	enum ras_log_event event, struct ras_cper_profile *profile)
+{
+	struct ras_cper *cper = &ras_core->ras_cper;
+	int ret = 0;
+
+	if (!profile || event >= cper->nr_profiles)
+		return -EINVAL;
+
+	if (!cper->profiles)
+		return -EPERM;
+
+	mutex_lock(&cper->profile_mutex);
+	if (cper->profiles[event].fill_section) {
+		ret = -EEXIST;
+		goto out;
+	}
+
+	memcpy(&cper->profiles[event], profile, sizeof(struct ras_cper_profile));
+
+out:
+	mutex_unlock(&cper->profile_mutex);
+	return ret;
+}
+
+int ras_cper_unregister_profile(struct ras_core_context *ras_core,
+	enum ras_log_event event)
+{
+	struct ras_cper *cper = &ras_core->ras_cper;
+	int ret = 0;
+
+	if (event >= cper->nr_profiles)
+		return -EINVAL;
+
+	if (!cper->profiles)
+		return -EPERM;
+
+	mutex_lock(&cper->profile_mutex);
+	if (!cper->profiles[event].fill_section) {
+		ret = 0;
+		goto out;
+	}
+
+	memset(&cper->profiles[event], 0, sizeof(struct ras_cper_profile));
+
+out:
+	mutex_unlock(&cper->profile_mutex);
+	return ret;
 }

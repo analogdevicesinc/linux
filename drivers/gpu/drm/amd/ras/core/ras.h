@@ -406,6 +406,7 @@ struct ras_core_context {
 	struct ras_process ras_proc;
 	struct ras_log_ring ras_log_ring;
 	struct ras_mce ras_mce;
+	struct ras_cper ras_cper;
 
 	const struct ras_sys_func *sys_fn;
 
