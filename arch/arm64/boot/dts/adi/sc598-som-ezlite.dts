@@ -82,13 +82,6 @@
 			line-name = "usb_qspi_reset";
 		};
 
-		eth0-reset {
-			gpio-hog;
-			gpios = <12 GPIO_ACTIVE_LOW>;
-			output-low;
-			line-name = "eth0-reset";
-		};
-
 		adau1372-pwrdwn {
 			gpio-hog;
 			gpios = <13 GPIO_ACTIVE_LOW>;
@@ -169,12 +162,15 @@
 		};
 	};
 
-	mdio0 {
+	mdio {
 		compatible = "snps,dwmac-mdio";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		adin1300: ethernet-phy@0 {
 			reg = <0>;
+			reset-gpios = <&crr_gpio_expander 12 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <10>;
+			reset-deassert-us = <5000>;
 		};
 	};
 
