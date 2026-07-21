@@ -354,6 +354,13 @@ struct ras_eeprom_config {
 	const struct ras_eeprom_sys_func *eeprom_sys_fn;
 };
 
+struct ras_module_param {
+	/* driver installation option parameter */
+	int ras_feature_enable;
+	u64 ras_feature_mask;
+	int ras_bad_page_threshold;
+};
+
 struct ras_core_config {
 	u32 aca_ip_version;
 	u32 umc_ip_version;
@@ -374,6 +381,8 @@ struct ras_core_config {
 	struct ras_psp_config psp_cfg;
 	struct ras_eeprom_config eeprom_cfg;
 	struct ras_umc_config umc_cfg;
+
+	struct ras_module_param mod_param;
 };
 
 struct ras_core_context {
@@ -482,4 +491,6 @@ bool ras_core_poison_supported(struct ras_core_context *ras_core);
 bool ras_core_in_early_init(struct ras_core_context *ras_core);
 bool ras_core_early_init_service_enabled(struct ras_core_context *ras_core);
 int ras_core_eeprom_early_init_service(struct ras_core_context *ras_core);
+int ras_core_get_module_param(struct ras_core_context *ras_core,
+		struct ras_module_param *param);
 #endif

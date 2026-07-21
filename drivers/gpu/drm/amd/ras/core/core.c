@@ -799,14 +799,21 @@ int ras_core_get_eeprom_version(struct ras_core_context *ras_core,
 uint64_t ras_core_get_ras_caps(struct ras_core_context *ras_core)
 {
 	uint64_t ras_hw_caps,  ras_drv_caps;
+	struct ras_module_param param = {0};
 
 	if (!ras_core)
+		return 0;
+
+	if (ras_core_get_module_param(ras_core, &param))
+		return 0;
+
+	if (!param.ras_feature_enable)
 		return 0;
 
 	ras_hw_caps = ras_psp_get_hw_ras_caps(ras_core);
 	ras_drv_caps = ras_aca_get_parser_caps(ras_core);
 
-	return ras_hw_caps & ras_drv_caps;
+	return ras_hw_caps & ras_drv_caps & param.ras_feature_mask;
 }
 
 bool ras_core_poison_supported(struct ras_core_context *ras_core)
@@ -841,4 +848,15 @@ int ras_core_eeprom_early_init_service(struct ras_core_context *ras_core)
 		return -EACCES;
 
 	return ras_core_eeprom_recovery(ras_core);
+}
+
+int ras_core_get_module_param(struct ras_core_context *ras_core,
+		struct ras_module_param *param)
+{
+	if (!ras_core || !ras_core->config || !param)
+		return -EINVAL;
+
+	memcpy(param, &ras_core->config->mod_param, sizeof(*param));
+
+	return 0;
 }

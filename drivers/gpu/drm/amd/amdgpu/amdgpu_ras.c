@@ -3570,6 +3570,7 @@ static void amdgpu_ras_init_reserved_vram_size(struct amdgpu_device *adev)
 int amdgpu_ras_init(struct amdgpu_device *adev)
 {
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
+	struct ras_module_param param = {0};
 	int r;
 
 	if (con)
@@ -3593,7 +3594,10 @@ int amdgpu_ras_init(struct amdgpu_device *adev)
 
 	amdgpu_ras_check_supported(adev);
 
-	amdgpu_ras_mgr_sw_init(adev);
+	param.ras_feature_enable = amdgpu_ras_enable;
+	param.ras_feature_mask = amdgpu_ras_mask;
+	param.ras_bad_page_threshold = amdgpu_bad_page_threshold;
+	amdgpu_ras_mgr_sw_init(adev, &param);
 
 	if (!con->uniras_enabled &&
 	    (!adev->ras_enabled || adev->asic_type == CHIP_VEGA10)) {

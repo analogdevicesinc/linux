@@ -81,6 +81,24 @@ static void amdgpu_ras_mgr_init_event_mgr(struct ras_core_context *ras_core)
 		amdgpu_put_xgmi_hive(hive);
 }
 
+static int amdgpu_ras_mgr_init_module_param(struct amdgpu_device *adev,
+		struct ras_core_config *config, struct ras_module_param *param)
+{
+	struct ras_module_param *mod_param = &config->mod_param;
+
+	if (param) {
+		mod_param->ras_feature_enable = param->ras_feature_enable;
+		mod_param->ras_feature_mask = param->ras_feature_mask;
+		mod_param->ras_bad_page_threshold = param->ras_bad_page_threshold;
+	} else {
+		mod_param->ras_feature_enable = -1;
+		mod_param->ras_feature_mask = U64_MAX;
+		mod_param->ras_bad_page_threshold = -1;
+	}
+
+	return 0;
+}
+
 static int amdgpu_ras_mgr_init_aca_config(struct amdgpu_device *adev,
 		struct ras_core_config *config)
 {
@@ -252,7 +270,8 @@ static int amdgpu_ras_mgr_init_umc_config(struct amdgpu_device *adev,
 	return 0;
 }
 
-static struct ras_core_context *amdgpu_ras_mgr_create_ras_core(struct amdgpu_device *adev)
+static struct ras_core_context *amdgpu_ras_mgr_create_ras_core(struct amdgpu_device *adev,
+			struct ras_module_param *param)
 {
 	struct ras_core_config init_config;
 
@@ -280,6 +299,7 @@ static struct ras_core_context *amdgpu_ras_mgr_create_ras_core(struct amdgpu_dev
 		amdgpu_ras_is_poison_mode_supported(adev);
 	init_config.ras_debug_mask = amdgpu_debug_mask;
 
+	amdgpu_ras_mgr_init_module_param(adev, &init_config, param);
 	amdgpu_ras_mgr_init_aca_config(adev, &init_config);
 	amdgpu_ras_mgr_init_eeprom_config(adev, &init_config);
 	amdgpu_ras_mgr_init_mp1_config(adev, &init_config);
@@ -290,7 +310,7 @@ static struct ras_core_context *amdgpu_ras_mgr_create_ras_core(struct amdgpu_dev
 	return ras_core_create(&init_config);
 }
 
-int amdgpu_ras_mgr_sw_init(struct amdgpu_device *adev)
+int amdgpu_ras_mgr_sw_init(struct amdgpu_device *adev, struct ras_module_param *param)
 {
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
 	struct amdgpu_ras_mgr *ras_mgr;
@@ -302,7 +322,10 @@ int amdgpu_ras_mgr_sw_init(struct amdgpu_device *adev)
 	/* Disabled by default */
 	con->uniras_enabled = false;
 
-	if (amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(13, 0, 14) ||
+	/* Disable ras via driver installation option */
+	if (param && !param->ras_feature_enable)
+		return 0;
+	else if (amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(13, 0, 14) ||
 	    amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(13, 0, 12) ||
 	    amdgpu_ip_version(adev, MP0_HWIP, 0) == IP_VERSION(13, 0, 6))
 		con->uniras_enabled = true;
@@ -319,7 +342,7 @@ int amdgpu_ras_mgr_sw_init(struct amdgpu_device *adev)
 	con->ras_mgr = ras_mgr;
 	ras_mgr->adev = adev;
 
-	ras_mgr->ras_core = amdgpu_ras_mgr_create_ras_core(adev);
+	ras_mgr->ras_core = amdgpu_ras_mgr_create_ras_core(adev, param);
 	if (!ras_mgr->ras_core) {
 		RAS_DEV_ERR(adev, "Failed to create ras core!\n");
 		ret = -EINVAL;

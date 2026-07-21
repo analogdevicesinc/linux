@@ -81,9 +81,12 @@ static int ras_eeprom_i2c_config(struct ras_core_context *ras_core,
 		struct ras_eeprom_param_config *cfg)
 {
 	struct amdgpu_device *adev = (struct amdgpu_device *)ras_core->dev;
+	struct ras_module_param mod_param = {0};
 	u64 badpages, badpages_per_record = 0;
 	u8 i2c_addr;
 	u32 ip_version;
+	int badpage_threshold = 0;
+	int ret;
 
 	ip_version = amdgpu_ip_version(adev, MP1_HWIP, 0);
 
@@ -136,8 +139,16 @@ static int ras_eeprom_i2c_config(struct ras_core_context *ras_core,
 		}
 	}
 
+	ret = ras_core_get_module_param(ras_core, &mod_param);
+	if (ret) {
+		RAS_DEV_ERR(adev, "Failed to get module option parameter.\n");
+		return ret;
+	}
+
+	badpage_threshold = mod_param.ras_bad_page_threshold;
+
 	/*
-	 * amdgpu_bad_page_threshold is used to config
+	 * badpage_threshold is used to config
 	 * the threshold for the number of bad pages.
 	 * -1:  Threshold is set to default value
 	 *      Driver will issue a warning message when threshold is reached
@@ -152,21 +163,21 @@ static int ras_eeprom_i2c_config(struct ras_core_context *ras_core,
 	 *      A user-defined threshold is set
 	 *      Driver will halt runtime services when this custom threshold is reached.
 	 */
-	if (amdgpu_bad_page_threshold == NONSTOP_OVER_THRESHOLD) {
+	if (badpage_threshold == NONSTOP_OVER_THRESHOLD) {
 		cfg->work_mode_over_thresh = RAS_WORK_MODE_OVER_THRESH_NORMAL;
 		badpages = ESTIMATE_BAD_PAGE_THRESHOLD(adev->gmc.mc_vram_size);
-	} else if (amdgpu_bad_page_threshold == WARN_NONSTOP_OVER_THRESHOLD) {
+	} else if (badpage_threshold == WARN_NONSTOP_OVER_THRESHOLD) {
 		cfg->work_mode_over_thresh = RAS_WORK_MODE_OVER_THRESH_STRICT;
 		badpages = COUNT_BAD_PAGE_THRESHOLD(RAS_RESERVED_VRAM_SIZE_DEFAULT);
-	} else if (!amdgpu_bad_page_threshold) {
+	} else if (!badpage_threshold) {
 		cfg->work_mode_over_thresh = RAS_WORK_MODE_OVER_THRESH_DEBUG;
 		badpages = 128;
-	} else if (amdgpu_bad_page_threshold > 0) {
+	} else if (badpage_threshold > 0) {
 		cfg->work_mode_over_thresh = RAS_WORK_MODE_OVER_THRESH_RMA;
-		badpages = amdgpu_bad_page_threshold;
+		badpages = badpage_threshold;
 	} else {
-		RAS_DEV_ERR(adev, "Invalid amdgpu_bad_page_threshold value(%d)\n",
-			amdgpu_bad_page_threshold);
+		RAS_DEV_ERR(adev, "Invalid badpage_threshold value(%d)\n",
+			badpage_threshold);
 		return -EINVAL;
 	}
 
