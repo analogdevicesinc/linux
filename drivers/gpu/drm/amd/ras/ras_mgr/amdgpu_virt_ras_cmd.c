@@ -273,8 +273,8 @@ static int amdgpu_virt_ras_get_cper_records(struct ras_core_context *ras_core,
 		(struct ras_cmd_cper_record_rsp *)cmd->output_buff_raw;
 	struct ras_log_batch_overview *overview = &virt_ras->batch_mgr.batch_overview;
 	struct ras_cmd_batch_trace_record_rsp *rsp_cache = &virt_ras->batch_mgr.batch_trace;
-	struct ras_log_info *trace;
-	uint32_t trace_count = MAX_RECORD_PER_BATCH;
+	struct ras_log_info *batch_logs;
+	uint32_t nr_batch_logs = MAX_RECORD_PER_BATCH;
 	uint32_t offset = 0, real_data_len = 0;
 	uint64_t batch_id;
 	uint8_t *out_buf;
@@ -288,13 +288,13 @@ static int amdgpu_virt_ras_get_cper_records(struct ras_core_context *ras_core,
 	    req->buf_size > RAS_CMD_MAX_CPER_BUF_SZ)
 		return RAS_CMD__ERROR_INVALID_INPUT_DATA;
 
-	trace = kzalloc_objs(*trace, trace_count);
-	if (!trace)
+	batch_logs = kzalloc_objs(*batch_logs, nr_batch_logs);
+	if (!batch_logs)
 		return RAS_CMD__ERROR_GENERIC;
 
 	out_buf = kzalloc(req->buf_size, GFP_KERNEL);
 	if (!out_buf) {
-		kfree(trace);
+		kfree(batch_logs);
 		return RAS_CMD__ERROR_GENERIC;
 	}
 
@@ -305,10 +305,10 @@ static int amdgpu_virt_ras_get_cper_records(struct ras_core_context *ras_core,
 		if (batch_id >= overview->last_batch_id)
 			break;
 		count = amdgpu_virt_ras_get_batch_records(ras_core, batch_id,
-							  trace, trace_count,
+							  batch_logs, nr_batch_logs,
 							  rsp_cache);
 		if (count > 0) {
-			ret = ras_cper_generate_batch_cper(ras_core, trace, count,
+			ret = ras_cper_generate_batch_cper(ras_core, batch_logs, count,
 					&out_buf[offset], req->buf_size - offset, &real_data_len);
 			if (ret)
 				break;
@@ -320,7 +320,7 @@ static int amdgpu_virt_ras_get_cper_records(struct ras_core_context *ras_core,
 	if ((ret && (ret != -ENOMEM)) ||
 	    copy_to_user(u64_to_user_ptr(req->buf_ptr), out_buf, offset)) {
 		kfree(out_buf);
-		kfree(trace);
+		kfree(batch_logs);
 		return RAS_CMD__ERROR_GENERIC;
 	}
 
@@ -332,7 +332,7 @@ static int amdgpu_virt_ras_get_cper_records(struct ras_core_context *ras_core,
 	cmd->output_size = sizeof(struct ras_cmd_cper_record_rsp);
 
 	kfree(out_buf);
-	kfree(trace);
+	kfree(batch_logs);
 
 	return RAS_CMD__SUCCESS;
 }
