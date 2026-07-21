@@ -691,3 +691,17 @@ u64 ras_aca_get_parser_caps(struct ras_core_context *ras_core)
 
 	return 0;
 }
+
+int ras_aca_fill_rma_bank(struct ras_core_context *ras_core,
+			struct aca_bank_reg *bank)
+{
+	struct ras_aca *ras_aca = &ras_core->ras_aca;
+
+	if (!bank)
+		return -EINVAL;
+
+	if (ras_aca->ip_func && ras_aca->ip_func->fill_rma_bank)
+		return ras_aca->ip_func->fill_rma_bank(ras_core, bank);
+
+	return -EOPNOTSUPP;
+}

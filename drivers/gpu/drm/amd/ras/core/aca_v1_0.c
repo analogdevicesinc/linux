@@ -384,8 +384,34 @@ static u64 aca_parse_ras_caps_v1_0(struct ras_core_context *ras_core)
 	return parser_supported_mask;
 }
 
+static int aca_fill_rma_bank_v1_0(struct ras_core_context *ras_core, struct aca_bank_reg *bank)
+{
+	struct device_system_info dev_info = {0};
+	u64 socket_id;
+	int ret;
+
+	if (!bank)
+		return -EINVAL;
+
+	ret = ras_core_get_device_system_info(ras_core, &dev_info);
+	if (ret)
+		return ret;
+
+	socket_id = dev_info.socket_id;
+
+	memset(bank->regs, 0, sizeof(bank->regs));
+	bank->regs[ACA_REG_IDX__CTL]    = 0x1ULL;
+	bank->regs[ACA_REG_IDX__STATUS] = 0xB000000000000137ULL;
+	bank->regs[ACA_REG_IDX__CONFG]  = 0x1ff00000002ULL;
+	bank->regs[ACA_REG_IDX__IPID]   = 0x9600000000ULL |
+		((socket_id / 4) & 0x01) | (((socket_id % 4) & 0x3) << 44);
+
+	return 0;
+}
+
 const struct ras_aca_ip_func ras_aca_func_v1_0 = {
 	.block_num = ARRAY_SIZE(aca_block_info_v1_0),
 	.block_info = aca_block_info_v1_0,
 	.aca_parse_ras_caps = aca_parse_ras_caps_v1_0,
+	.fill_rma_bank = aca_fill_rma_bank_v1_0,
 };
