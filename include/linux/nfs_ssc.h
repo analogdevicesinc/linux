@@ -21,16 +21,8 @@ struct nfs4_ssc_client_ops {
 	void (*sco_close)(struct file *filep);
 };
 
-/*
- * NFS_FS
- */
-struct nfs_ssc_client_ops {
-	void (*sco_sb_deactive)(struct super_block *sb);
-};
-
 struct nfs_ssc_client_ops_tbl {
 	const struct nfs4_ssc_client_ops *ssc_nfs4_ops;
-	const struct nfs_ssc_client_ops *ssc_nfs_ops;
 };
 
 extern void nfs42_ssc_register_ops(void);
@@ -67,15 +59,3 @@ struct nfsd4_ssc_umount_item {
 	struct vfsmount *nsui_vfsmount;
 	char nsui_ipaddr[RPC_MAX_ADDRBUFLEN + 1];
 };
-
-/*
- * NFS_FS
- */
-extern void nfs_ssc_register(const struct nfs_ssc_client_ops *ops);
-extern void nfs_ssc_unregister(const struct nfs_ssc_client_ops *ops);
-
-static inline void nfs_do_sb_deactive(struct super_block *sb)
-{
-	if (nfs_ssc_client_tbl.ssc_nfs_ops)
-		(*nfs_ssc_client_tbl.ssc_nfs_ops->sco_sb_deactive)(sb);
-}
