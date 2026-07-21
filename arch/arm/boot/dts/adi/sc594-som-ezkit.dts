@@ -117,13 +117,6 @@
 			line-name = "eth1-reset";
 		};
 
-		gige-reset {
-			gpio-hog;
-			gpios = <15 GPIO_ACTIVE_HIGH>;
-			output-high;
-			line-name = "gige-reset";
-		};
-
 	};
 
 	adau1979: adau1979@11 {
@@ -160,38 +153,40 @@
 &emac0 {
 	snps,reset-active-low;
 	snps,reset-delays-us = <0 200 500>;
-	phy-handle = <&dp83867>;
+	phy-handle = <&adin1300>;
 	phy-mode = "rgmii-id";
 	pinctrl-names = "default";
 	pinctrl-0 = <&eth0_default>;
 	status = "okay";
 
-	mdio0 {
+	mdio {
 		compatible = "snps,dwmac-mdio";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dp83867: ethernet-phy@0 {
+
+		adin1300: ethernet-phy@0 {
 			reg = <0>;
-			ti,rx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-			ti,tx-internal-delay = <DP83867_RGMIIDCTL_2_00_NS>;
-			ti,fifo-depth = <DP83867_PHYCR_FIFO_DEPTH_8_B_NIB>;
-			ti,dp83867-rxctrl-strap-quirk;
+			reset-gpios = <&crr_gpio_expander 15 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <10>;
+			reset-deassert-us = <5000>;
 		};
 	};
 };
 
 &emac1 {
-	phy-handle = <&dp83848>;
+	phy-handle = <&adin1200>;
 	phy-mode = "rmii";
 	pinctrl-names = "default";
 	pinctrl-0 = <&eth1_default>;
+
 	status = "disabled";
 
-	mdio1 {
+	mdio {
 		compatible = "snps,dwmac-mdio";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		dp83848: ethernet-phy@1 {
+
+		adin1200: ethernet-phy@1 {
 			reg = <1>;
 		};
 	};
