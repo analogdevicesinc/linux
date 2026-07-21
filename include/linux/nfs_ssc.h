@@ -10,8 +10,6 @@
 #include <linux/nfs_fs.h>
 #include <linux/sunrpc/svc.h>
 
-extern struct nfs_ssc_client_ops_tbl nfs_ssc_client_tbl;
-
 /*
  * NFS_V4
  */
@@ -21,29 +19,26 @@ struct nfs4_ssc_client_ops {
 	void (*sco_close)(struct file *filep);
 };
 
-struct nfs_ssc_client_ops_tbl {
-	const struct nfs4_ssc_client_ops *ssc_nfs4_ops;
-};
-
 extern void nfs42_ssc_register_ops(void);
 extern void nfs42_ssc_unregister_ops(void);
 
 extern void nfs42_ssc_register(const struct nfs4_ssc_client_ops *ops);
 extern void nfs42_ssc_unregister(const struct nfs4_ssc_client_ops *ops);
 
-#ifdef CONFIG_NFSD_V4_2_INTER_SSC
-static inline struct file *nfs42_ssc_open(struct vfsmount *ss_mnt,
-		struct nfs_fh *src_fh, nfs4_stateid *stateid)
+#if IS_ENABLED(CONFIG_NFS_V4_2_SSC_HELPER)
+struct file *nfsd42_ssc_open(struct vfsmount *ss_mnt, struct nfs_fh *src_fh,
+			     nfs4_stateid *stateid);
+void nfsd42_ssc_close(struct file *filp);
+#else
+static inline struct file *nfsd42_ssc_open(struct vfsmount *ss_mnt,
+					   struct nfs_fh *src_fh,
+					   nfs4_stateid *stateid)
 {
-	if (nfs_ssc_client_tbl.ssc_nfs4_ops)
-		return (*nfs_ssc_client_tbl.ssc_nfs4_ops->sco_open)(ss_mnt, src_fh, stateid);
 	return ERR_PTR(-EIO);
 }
 
-static inline void nfs42_ssc_close(struct file *filep)
+static inline void nfsd42_ssc_close(struct file *filp)
 {
-	if (nfs_ssc_client_tbl.ssc_nfs4_ops)
-		(*nfs_ssc_client_tbl.ssc_nfs4_ops->sco_close)(filep);
 }
 #endif
 
