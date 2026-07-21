@@ -5,6 +5,8 @@
  * Copyright 2025 Analog Devices Inc.
  */
 
+#define DEBUG
+
 #include <linux/array_size.h>
 #include <linux/bitfield.h>
 #include <linux/bits.h>
@@ -211,11 +213,14 @@ static int ad4080_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 			     unsigned int writeval, unsigned int *readval)
 {
 	struct ad4080_state *st = iio_priv(indio_dev);
+	unsigned int ch = (reg >> 8) & (AD4080_MAX_CHANNELS - 1);
+
+	reg &= 0xff;
 
 	if (readval)
-		return regmap_read(st->regmap[0], reg, readval);
+		return regmap_read(st->regmap[ch], reg, readval);
 
-	return regmap_write(st->regmap[0], reg, writeval);
+	return regmap_write(st->regmap[ch], reg, writeval);
 }
 
 static int ad4080_get_scale(struct ad4080_state *st, int *val, int *val2)
@@ -660,7 +665,7 @@ static const struct ad4080_chip_info ad4883_chip_info = {
 	.num_scales = ARRAY_SIZE(ad4080_scale_table),
 	.num_channels = 2,
 	.channels = ad4883_channels,
-	.lvds_cnv_clk_cnt_max = 5,
+	.lvds_cnv_clk_cnt_max = 7,
 };
 
 static const struct ad4080_chip_info ad4884_chip_info = {
@@ -670,7 +675,7 @@ static const struct ad4080_chip_info ad4884_chip_info = {
 	.num_scales = ARRAY_SIZE(ad4080_scale_table),
 	.num_channels = 2,
 	.channels = ad4884_channels,
-	.lvds_cnv_clk_cnt_max = 2,
+	.lvds_cnv_clk_cnt_max = 4,
 };
 
 static int ad4080_setup_channel(struct ad4080_state *st, unsigned int ch)
