@@ -2,17 +2,22 @@
 /*
  * include/linux/nfs_ssc.h
  *
+ * NFSv4.2 server-to-server copy, NFS client side APIs
+ *
  * Author: Dai Ngo <dai.ngo@oracle.com>
  *
  * Copyright (c) 2020, Oracle and/or its affiliates.
  */
 
-#include <linux/nfs_fs.h>
-#include <linux/sunrpc/svc.h>
+#ifndef _LINUX_NFS_SSC_H
+#define _LINUX_NFS_SSC_H
 
-/*
- * NFS_V4
- */
+#include <linux/nfs_fh.h>
+#include <linux/nfs4.h>
+
+struct file;
+struct vfsmount;
+
 struct nfs4_ssc_client_ops {
 	struct module *owner;
 	struct file *(*sco_open)(struct vfsmount *ss_mnt,
@@ -26,32 +31,4 @@ extern void nfs42_ssc_unregister_ops(void);
 extern void nfs42_ssc_register(const struct nfs4_ssc_client_ops *ops);
 extern void nfs42_ssc_unregister(const struct nfs4_ssc_client_ops *ops);
 
-#if IS_ENABLED(CONFIG_NFS_V4_2_SSC_HELPER)
-struct file *nfsd42_ssc_open(struct vfsmount *ss_mnt, struct nfs_fh *src_fh,
-			     nfs4_stateid *stateid);
-void nfsd42_ssc_close(struct file *filp);
-#else
-static inline struct file *nfsd42_ssc_open(struct vfsmount *ss_mnt,
-					   struct nfs_fh *src_fh,
-					   nfs4_stateid *stateid)
-{
-	return ERR_PTR(-EIO);
-}
-
-static inline void nfsd42_ssc_close(struct file *filp)
-{
-}
-#endif
-
-struct nfsd4_ssc_umount_item {
-	struct list_head nsui_list;
-	bool nsui_busy;
-	/*
-	 * nsui_refcnt inited to 2, 1 on list and 1 for consumer. Entry
-	 * is removed when refcnt drops to 1 and nsui_expire expires.
-	 */
-	refcount_t nsui_refcnt;
-	unsigned long nsui_expire;
-	struct vfsmount *nsui_vfsmount;
-	char nsui_ipaddr[RPC_MAX_ADDRBUFLEN + 1];
-};
+#endif /* _LINUX_NFS_SSC_H */
