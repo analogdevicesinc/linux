@@ -16,6 +16,47 @@
 #include <linux/platform_device.h>
 #include <linux/jesd204/jesd204.h>
 
+#define DEBUG 1
+
+
+static bool reset_workaround = false;
+module_param(reset_workaround, bool, 0644);
+MODULE_PARM_DESC(reset_workaround, "Enable additional reset workaround in the Altera ADXCVR driver");
+
+static int clk_ready_delay = 0;
+module_param(clk_ready_delay, int, 0644);
+MODULE_PARM_DESC(clk_ready_delay, "Enable additional reset workaround in the Altera ADXCVR driver");
+
+
+static int reset_mdelay = 10;
+module_param(reset_mdelay, int, 0644);
+MODULE_PARM_DESC(reset_mdelay, "If reset_workaround is enabled, the additional delay in ms to wait before resetting the xcvr");
+
+static int timeout_iterations = 4000;
+module_param(timeout_iterations, int, 0644);
+MODULE_PARM_DESC(timeout_iterations, "If reset_workaround is enabled, the additional iterations between successive resets");
+
+
+static bool altera_adxcvr_debug = false;
+module_param(altera_adxcvr_debug, bool, 0644);
+MODULE_PARM_DESC(altera_adxcvr_debug, "Enable verbose debug logging for Altera ADXCVR driver");
+
+
+#define altera_adxcvr_dbg(dev, fmt, ...)                     \
+    do {                                              \
+        if (altera_adxcvr_debug)                             \
+            dev_info(dev, "DBG: " fmt, ##__VA_ARGS__);\
+    } while (0)
+
+#define altera_adxcvr_trace(dev, func)                       \
+    do {                                              \
+        if (altera_adxcvr_debug)                             \
+            dev_info(dev, "TRACE: %s()\n", func);     \
+    } while (0)
+
+
+
+
 /* Registers Description */
 
 /* ADXCVR Registers */
@@ -92,6 +133,7 @@ struct adxcvr_state {
 	struct device		*dev;
 	void __iomem		*adxcvr_regs;
 	void __iomem		*atx_pll_regs;
+	void __iomem		*gts_pll_regs;
 	void __iomem		*adxcfg_regs[32];
 	struct jesd204_dev	*jdev;
 	unsigned int 		version;
@@ -191,9 +233,38 @@ static void atx_pll_release_arbitration(struct adxcvr_state *st,
 	adxcvr_release_arbitration(st->atx_pll_regs, calibrate);
 }
 
+#define GTS_REFCLK_BUFFER_REG              0x0e
+#define GTS_REFCLK_BUFFER_BYTE_OFFSET      (GTS_REFCLK_BUFFER_REG * 4)
+#define GTS_REFCLK_BUFFER_REQ_BYTE_OFFSET  (GTS_REFCLK_BUFFER_BYTE_OFFSET + 2)
+
+static void gts_pll_write(struct adxcvr_state *st, unsigned int reg, u32 val)
+{
+	void __iomem *addr = st->gts_pll_regs + reg * 4;
+
+	altera_adxcvr_dbg(st->dev, "gts_pll_write 0x%08x to %px\n", val, addr);
+
+	iowrite32(val, addr);
+}
+
+static void gts_pll_writeb(struct adxcvr_state *st, unsigned int byte_offset, u8 val)
+{
+	void __iomem *addr = st->gts_pll_regs + byte_offset;
+
+	altera_adxcvr_dbg(st->dev, "gts_pll_writeb 0x%02x to %px\n", val, addr);
+
+	iowrite8(val, addr);
+}
+
+static u32 gts_pll_read(struct adxcvr_state *st, unsigned int reg)
+{
+	return ioread32(st->gts_pll_regs + reg * 4);
+}
+
 static void adxcfg_write(struct adxcvr_state *st, unsigned lane, unsigned reg,
 	unsigned val)
 {
+    dev_dbg(st->dev, "%s: writing %d to %p\n",
+        __func__, val, st->adxcfg_regs[lane] + reg * 4);
 	iowrite32(val, st->adxcfg_regs[lane] + reg * 4);
 }
 
@@ -207,6 +278,7 @@ static void adxcfg_update(struct adxcvr_state *st, unsigned int lane,
 	unsigned int reg, unsigned int mask, unsigned int val)
 {
 	unsigned int rval;
+    altera_adxcvr_trace(st->dev, __func__);
 
 	rval = adxcfg_read(st, lane, reg);
 	rval &= ~mask;
@@ -217,6 +289,7 @@ static void adxcfg_update(struct adxcvr_state *st, unsigned int lane,
 static void adxcfg_acquire_arbitration(struct adxcvr_state *st,
 	unsigned int lane)
 {
+    altera_adxcvr_trace(st->dev, __func__);
 	adxcvr_acquire_arbitration(st, st->adxcfg_regs[lane],
 		XCVR_REG_CAPAB_PMA);
 }
@@ -224,16 +297,19 @@ static void adxcfg_acquire_arbitration(struct adxcvr_state *st,
 static void adxcfg_release_arbitration(struct adxcvr_state *st,
 	unsigned int lane, bool calibrate)
 {
+    altera_adxcvr_trace(st->dev, __func__);
 	adxcvr_release_arbitration(st->adxcfg_regs[lane], calibrate);
 }
 
 static void adxcfg_lock(struct adxcvr_state *st)
 {
+    altera_adxcvr_trace(st->dev, __func__);
 	mutex_lock(&adxcfg_global_lock);
 }
 
 static void adxcfg_unlock(struct adxcvr_state *st)
 {
+    altera_adxcvr_trace(st->dev, __func__);
 	mutex_unlock(&adxcfg_global_lock);
 }
 
@@ -241,6 +317,7 @@ static int atx_pll_calibration_check(struct adxcvr_state *st)
 {
 	unsigned int timeout = 0;
 	unsigned int val;
+    altera_adxcvr_trace(st->dev, __func__);
 
 	/* Wait max 100ms for cal_busy to de-assert */
 	do {
@@ -270,6 +347,7 @@ static int adxcfg_calibration_check(struct adxcvr_state *st, unsigned int lane,
 	unsigned int mask;
 	unsigned int val;
 	const char *msg;
+    altera_adxcvr_trace(st->dev, __func__);
 
 	if (tx) {
 		mask = XCVR_CAPAB_TX_CAL_BUSY_MASK;
@@ -303,6 +381,7 @@ static int xcvr_calib_tx(struct adxcvr_state *st)
 {
 	unsigned lane;
 	unsigned err = 0;
+    altera_adxcvr_trace(st->dev, __func__);
 
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
 		adxcfg_acquire_arbitration(st, lane);
@@ -396,6 +475,7 @@ static ssize_t adxcvr_sysfs_store(struct device *dev,
 
 static void adxcvr_pre_lane_rate_change(struct adxcvr_state *st)
 {
+    altera_adxcvr_trace(st->dev, __func__);
 	adxcfg_lock(st);
 	/*
 	 * Multiple re-configuration requests can be active at the same time.
@@ -411,6 +491,7 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 	unsigned int status;
 	int timeout = 1000;
 	unsigned int i;
+    altera_adxcvr_trace(st->dev, __func__);
 
 	if (--st->reset_counter != 0)
 		return;
@@ -439,20 +520,24 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 		}
 	}
 
-	// /* Reset twice for Agilex workaround */
-	// if (st->is_agilex && st->is_transmit) {
-	// 	dev_info(st->dev, "Agilex workaround, resetting TX again\n");
-	// 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
-	// 	mdelay(5);
-	// 	adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-	// 	timeout = 5000;
-	// 	do {
-	// 		mdelay(1);
-	// 		status = adxcvr_read(st, ADXCVR_REG_STATUS);
-	// 		if (status == ADXCVR_STATUS)
-	// 			break;
-	// 	} while (timeout--);
-	// }
+    if (reset_workaround) {
+        /* Reset twice for Agilex workaround */
+        if (st->is_agilex && st->is_transmit) {
+            dev_info(st->dev, "Agilex workaround, resetting TX again\n");
+            adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+            mdelay(reset_mdelay);
+            timeout = timeout_iterations;
+            adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+            do {
+                mdelay(1);
+                status = adxcvr_read(st, ADXCVR_REG_STATUS);
+                if (status == ADXCVR_STATUS) {
+                    dev_info(st->dev, "ADXCVR_STATUS is 0x%0X.  Breaking out...(iter %d)\n", status, timeout);
+                    break;
+            }
+            } while (timeout--);
+        }
+    }
 }
 
 static void adxcvr_link_clk_work(struct work_struct *work)
@@ -461,6 +546,7 @@ static void adxcvr_link_clk_work(struct work_struct *work)
 		container_of(work, struct adxcvr_state, link_clk_work);
 	unsigned int link_rate;
 	int ret;
+    altera_adxcvr_trace(st->dev, __func__);
 
 	link_rate = READ_ONCE(st->lane_rate) * (1000 / 40);
 
@@ -486,6 +572,10 @@ static void adxcvr_link_clk_work(struct work_struct *work)
 	if (ret < 0)
 		dev_err(st->dev, "Enabling link clock failed: %d\n", ret);
 
+    if (clk_ready_delay) {
+        mdelay(clk_ready_delay);
+    }
+
 	adxcfg_lock(st);
 	adxcvr_finalize_lane_rate_change(st);
 	adxcfg_unlock(st);
@@ -495,8 +585,10 @@ static void adxcvr_post_lane_rate_change(struct adxcvr_state *st,
 	unsigned int lane_rate)
 {
 	bool changed = st->lane_rate != lane_rate;
+    altera_adxcvr_trace(st->dev, __func__);
 
 	st->lane_rate = lane_rate;
+    dev_dbg(st->dev, "%s: changed=%d us\n", __func__, (int)changed);
 
 	/*
 	 * Can't change the clock rate of another clock from within the
@@ -523,6 +615,7 @@ static unsigned long adxcvr_dummy_pll_recalc_rate(struct clk_hw *clk_hw,
 	unsigned long parent_rate)
 {
 	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
+    altera_adxcvr_trace(st->dev, __func__);
 
 	return st->lane_rate;
 }
@@ -530,6 +623,8 @@ static unsigned long adxcvr_dummy_pll_recalc_rate(struct clk_hw *clk_hw,
 static long adxcvr_dummy_pll_round_rate(struct clk_hw *clk_hw,
 	unsigned long rate, unsigned long *parent_rate)
 {
+	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
+    altera_adxcvr_trace(st->dev, __func__);
 	return rate;
 }
 
@@ -537,6 +632,7 @@ static int adxcfg_s10_calibration(struct adxcvr_state *st, bool tx)
 {
 	unsigned int lane;
 	int err = 0;
+    altera_adxcvr_trace(st->dev, __func__);
 
 	for (lane = 0; lane < st->lanes_per_link; lane++) {
 		adxcfg_write(st, lane,
@@ -565,27 +661,56 @@ static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
 	unsigned long rate, unsigned long parent_rate)
 {
 	struct adxcvr_state *st = clk_hw_to_adxcvr(clk_hw);
+	// u32 val;
+    altera_adxcvr_trace(st->dev, __func__);
 
 	adxcvr_pre_lane_rate_change(st);
 
-	if (!st->is_agilex && st->is_transmit) {
-		adxcvr_post_lane_rate_change(st, rate);
-		st->lane_rate = rate;
-		return 0;
-		atx_pll_acquire_arbitration(st);
-		atx_pll_update(st, XCVR_REG_CALIB_ATX_PLL_EN,
-			XCVR_CALIB_ATX_PLL_EN_MASK, XCVR_CALIB_ATX_PLL_EN);
-		atx_pll_release_arbitration(st, true);
+    if (!st->is_agilex) {
+        if (st->is_transmit) {
+            adxcvr_post_lane_rate_change(st, rate);
+            st->lane_rate = rate;
+            return 0;
+            atx_pll_acquire_arbitration(st);
+            atx_pll_update(st, XCVR_REG_CALIB_ATX_PLL_EN,
+                XCVR_CALIB_ATX_PLL_EN_MASK, XCVR_CALIB_ATX_PLL_EN);
+            atx_pll_release_arbitration(st, true);
 
-		atx_pll_calibration_check(st);
+            atx_pll_calibration_check(st);
 
-		if (st->is_s10)
-			adxcfg_s10_calibration(st, true);
-		else
-			xcvr_calib_tx(st);
-	} else {
-		if (st->is_s10)
-			adxcfg_s10_calibration(st, false);
+            if (st->is_s10)
+                adxcfg_s10_calibration(st, true);
+            else
+                xcvr_calib_tx(st);
+        } else {
+            dev_dbg(st->dev, "%s:%d is_s10=%d.\n", __func__, __LINE__, st->is_s10);
+            if (st->is_s10)
+                adxcfg_s10_calibration(st, false);
+        }
+	}
+    else {
+        if (st->is_transmit) {
+            dev_info(st->dev, "Agilex - Skipping adxcvr rate change and ATX PLL calibration\n");
+
+#if 0
+            dev_info(st->dev, "Agilex - enabling GTS Tx PLL refclk buffers\n");
+            val = gts_pll_read(st, GTS_REFCLK_BUFFER_REG);
+            dev_info(st->dev, "refclk status before: 0x%08x\n", val);
+
+            /*
+            * Register 0x0e is byte offset 0x38.
+            * Bits [23:16] are byte offset 0x38 + 2.
+            */
+            gts_pll_writeb(st, GTS_REFCLK_BUFFER_REQ_BYTE_OFFSET, 0xff);
+
+            mdelay(10);
+            val = gts_pll_read(st, GTS_REFCLK_BUFFER_REG);
+            dev_info(st->dev, "refclk status after: 0x%08x\n", val);
+#endif
+        }
+        else {
+            dev_info(st->dev, "Agilex - Receiver transceiver - Skipping adxcvr rate change and ATX PLL calibration\n");
+        }
 	}
 
 	adxcvr_post_lane_rate_change(st, rate);
@@ -607,6 +732,7 @@ static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 	const char *clk_name;
 	struct clk *clk;
 
+    altera_adxcvr_trace(st->dev, __func__);
 	st->initial_recalc = true;
 
 	parent_name = of_clk_get_parent_name(st->dev->of_node, 0);
@@ -618,12 +744,25 @@ static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 		&clk_name);
 
 	init.name = clk_name;
-	if (st->atx_pll_regs)
+    altera_adxcvr_dbg(st->dev, "%s setting clk_init_data operations\n", __func__);
+	if (st->atx_pll_regs) {
+        altera_adxcvr_dbg(st->dev, "%s:%d setting clk_init_data ATX_PLL operations\n", __func__, __LINE__);
 		init.ops = &adxcvr_atx_pll_ops;
-	else
-		init.ops = &adxcvr_cdr_pll_ops;
-	if (st->skip_pll_reconfig)
+    }
+	else if (st->gts_pll_regs) {
+		// init.ops = &adxcvr_gts_pll_ops;
+        altera_adxcvr_dbg(st->dev, "%s:%d setting clk_init_data DUMMY operations\n", __func__, __LINE__);
 		init.ops = &adxcvr_dummy_pll_ops;
+    }
+	else {
+        altera_adxcvr_dbg(st->dev, "%s:%d setting clk_init_data CDR_PLL operations\n", __func__, __LINE__);
+		init.ops = &adxcvr_cdr_pll_ops;
+    }
+	// if (st->skip_pll_reconfig)
+
+    altera_adxcvr_dbg(st->dev, "%s:%d setting clk_init_data FORCING DUMMY operations\n", __func__, __LINE__);
+    init.ops = &adxcvr_dummy_pll_ops;
+
 	init.flags = CLK_SET_RATE_GATE | CLK_SET_PARENT_GATE;
 	init.num_parents = 1;
 	init.parent_names = &parent_name;
@@ -637,19 +776,86 @@ static int adxcvr_register_lane_clk(struct adxcvr_state *st)
 		clk);
 }
 
+
+static int adxcvr_jesd204_link_setup(struct jesd204_dev *jdev,
+        enum jesd204_state_op_reason reason,
+        struct jesd204_link *lnk)
+{
+    struct device *dev = jesd204_dev_to_device(jdev);
+    struct adxcvr_state *st = dev_get_drvdata(dev);
+    u32 val;
+    int ret;
+
+    if (reason != JESD204_STATE_OP_REASON_INIT && reason != JESD204_STATE_OP_REASON_UNINIT)
+        return JESD204_STATE_CHANGE_DONE;
+
+    dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
+         __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (reason == JESD204_STATE_OP_REASON_INIT) {
+		if (st->gpio_ref_clk_ready) {
+			gpiod_set_value(st->gpio_ref_clk_ready, 1);
+			// Wait some time for the internal FPGA pll to lock.
+			mdelay(100);
+			dev_info(st->dev, "Setting refclk_ready to 1");
+		}
+
+
+		/**
+		* Perform the writes you want to do after the AD9528 is locked here
+		* Return an error code on an error, otherwise return JESD204_STATE_CHANGE_DONE
+		* as below on success
+		*/
+		if (st->is_transmit) {
+			dev_info(st->dev, "Agilex - Skipping adxcvr rate change and ATX PLL calibration\n");
+
+			dev_info(st->dev, "Agilex - enabling GTS Tx PLL refclk buffers\n");
+
+			val = gts_pll_read(st, GTS_REFCLK_BUFFER_REG);
+			dev_info(st->dev, "refclk status before: 0x%08x\n", val);
+
+			/*
+			* Register 0x0e is byte offset 0x38.
+			* Bits [23:16] are byte offset 0x38 + 2.
+			*/
+			gts_pll_writeb(st, GTS_REFCLK_BUFFER_REQ_BYTE_OFFSET, 0xff);
+
+			mdelay(10);
+			val = gts_pll_read(st, GTS_REFCLK_BUFFER_REG);
+			dev_info(st->dev, "refclk status after: 0x%08x\n", val);
+		}
+	} else if (reason == JESD204_STATE_OP_REASON_UNINIT) {
+		if (st->gpio_ref_clk_ready) {
+			gpiod_set_value(st->gpio_ref_clk_ready, 0);
+			mdelay(100);
+			dev_info(st->dev, "Setting refclk_ready to 0");
+		}
+	}
+
+    return JESD204_STATE_CHANGE_DONE;
+
+}
+
 static const struct jesd204_dev_data adxcvr_jesd204_data = {
+	.state_ops = {
+        [JESD204_OP_LINK_SETUP] = {
+            .per_link = adxcvr_jesd204_link_setup,
+        },
+	},
 };
 
 static int adxcvr_probe(struct platform_device *pdev)
 {
 	struct resource *mem_adxcvr;
 	struct resource *mem_atx_pll;
+	struct resource *mem_gts_pll;
 	struct resource *mem_adxcfg;
 	struct adxcvr_state *st;
 	unsigned int synth_conf;
 	char adxcfg_name[16];
 	int lane;
 	int ret;
+    altera_adxcvr_trace(&pdev->dev, __func__);
 
 	st = devm_kzalloc(&pdev->dev, sizeof(*st), GFP_KERNEL);
 	if (!st)
@@ -681,7 +887,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	}
 
 	if (st->lanes_per_link > ARRAY_SIZE(st->adxcfg_regs)) {
-		dev_err(&pdev->dev, "Only up to %d lanes supported.\n",
+		dev_err(&pdev->dev, "Only up to %lu lanes supported.\n",
 			ARRAY_SIZE(st->adxcfg_regs));
 		return -EINVAL;
 	}
@@ -692,6 +898,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 						IORESOURCE_MEM, adxcfg_name);
 		st->adxcfg_regs[lane] = devm_ioremap_resource(&pdev->dev,
 							      mem_adxcfg);
+        altera_adxcvr_dbg(&pdev->dev, "adxcfg-%d = %px\n", lane, st->adxcfg_regs[lane]);
 		if (IS_ERR(st->adxcfg_regs[lane])) {
 			dev_err(&pdev->dev, "Failed to get adxcfg_regs[%d] resource\n", lane);
 			return PTR_ERR(st->adxcfg_regs[lane]);
@@ -717,16 +924,44 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	st->is_s10 = of_property_read_bool(pdev->dev.of_node,
 		"adi,stratix10");
-	if (st->is_s10)
-		st->skip_pll_reconfig = true;
+	// if (st->is_s10)
+	// 	st->skip_pll_reconfig = true;
 
 	st->is_agilex = of_property_read_bool(pdev->dev.of_node,
 		"adi,agilex");
-
+	dev_info(&pdev->dev, "is Agilex: %d", st->is_agilex);
 	st->gpio_ref_clk_ready = devm_gpiod_get_optional(&pdev->dev, "refclk-ready", GPIOD_OUT_LOW);
 	if (IS_ERR(st->gpio_ref_clk_ready)) {
 		dev_err(&pdev->dev, "Failed to get refclk-ready gpio!\n");
 	}
+
+    if (st->is_transmit) {
+		if (st->is_agilex) {
+			mem_gts_pll = platform_get_resource_byname(pdev,
+						IORESOURCE_MEM, "gts-pll");
+			st->gts_pll_regs = devm_ioremap_resource(&pdev->dev,
+								 mem_gts_pll);
+			if (IS_ERR(st->gts_pll_regs))
+				return PTR_ERR(st->gts_pll_regs);
+			dev_info(&pdev->dev, "Mapped gts-pll!");
+
+		}
+		else if (st->is_s10) {
+			mem_atx_pll = platform_get_resource_byname(pdev,
+						IORESOURCE_MEM, "atx-pll");
+			st->atx_pll_regs = devm_ioremap_resource(&pdev->dev,
+								 mem_atx_pll);
+			if (IS_ERR(st->atx_pll_regs))
+				return PTR_ERR(st->atx_pll_regs);
+			dev_info(&pdev->dev, "Mapped atx-pll!");
+
+        }
+    }
+
+	st->skip_pll_reconfig = of_property_read_bool(pdev->dev.of_node,
+		"adi,skip-pll-reconfiguration");
+	dev_info(&pdev->dev, "Skip pll reconfig: %d", st->skip_pll_reconfig);
+
 
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
@@ -736,32 +971,36 @@ static int adxcvr_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(st->ref_clk);
 	if (ret)
 		return ret;
-
-	if (st->gpio_ref_clk_ready) {
-		gpiod_set_value(st->gpio_ref_clk_ready, 1);
-		// Wait some time for the internal FPGA pll to lock.
-		mdelay(100);
-		dev_info(st->dev, "Setting refclk_ready to 1");
-	}
+	dev_info(&pdev->dev, "clk_prepare_enabled completed %d", __LINE__);
+	// if (st->gpio_ref_clk_ready) {
+	// 	gpiod_set_value(st->gpio_ref_clk_ready, 1);
+	// 	// Wait some time for the internal FPGA pll to lock.
+	// 	mdelay(100);
+	// 	dev_info(st->dev, "Setting refclk_ready to 1");
+	// }
 
 
 	ret = adxcvr_register_lane_clk(st);
 	if (ret)
 		return ret;
+	dev_info(&pdev->dev, "adxcvr_register_lane_clk completed %d", __LINE__);
 
 	if (!IS_ERR(st->link_clk)) {
 		ret = clk_prepare_enable(st->link_clk);
 		if (ret)
 			return ret;
 	}
+	dev_info(&pdev->dev, "continuing %d", __LINE__);
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &adxcvr_sysfs_group);
 	if (ret)
 		dev_err(&pdev->dev, "Can't create the sysfs group\n");
+	dev_info(&pdev->dev, "sysfs group created %d", __LINE__);
 
 	ret = devm_jesd204_fsm_start(&pdev->dev, st->jdev, JESD204_LINKS_ALL);
 	if (ret)
 		return ret;
+	dev_info(&pdev->dev, "devm_jesd204_fsm_start completed %d", __LINE__);
 
 	dev_info(&pdev->dev, "Altera ADXCVR (%d.%.2d.%c) probed\n",
 			VERSION_MAJOR(st->version),
