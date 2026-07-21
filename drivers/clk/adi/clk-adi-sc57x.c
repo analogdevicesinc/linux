@@ -48,7 +48,6 @@ static void __init sc57x_clock_probe(struct device_node *np)
 	}
 
 	// Input clock configuration
-	clks[ADSP_SC57X_CLK_DUMMY] = clk_register_fixed_rate(NULL, "dummy", NULL, 0, 0);
 	clks[ADSP_SC57X_CLK_SYS_CLKIN0] = of_clk_get_by_name(np, "sys_clkin0");
 	clks[ADSP_SC57X_CLK_SYS_CLKIN1] = of_clk_get_by_name(np, "sys_clkin1");
 

@@ -63,8 +63,6 @@ static void sc598_clock_probe(struct device_node *np)
 	pll3 = pll3 + PLL3_OFFSET;
 
 	// Input clock configuration
-	clks[ADSP_SC598_CLK_DUMMY] =
-	    clk_register_fixed_rate(NULL, "dummy", NULL, 0, 0);
 	clks[ADSP_SC598_CLK_SYS_CLKIN0] =
 	    of_clk_get_by_name(np, "sys_clkin0");
 	clks[ADSP_SC598_CLK_SYS_CLKIN1] =
