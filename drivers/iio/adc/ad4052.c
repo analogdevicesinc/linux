@@ -442,6 +442,7 @@ static int ad4052_update_xfer_offload(struct iio_dev *indio_dev,
 	struct ad4052_state *st = iio_priv(indio_dev);
 	const struct iio_scan_type *scan_type;
 	struct spi_transfer *xfer = &st->offload_xfer;
+	int ret;
 
 	scan_type = iio_get_current_scan_type(indio_dev, chan);
 	if (IS_ERR(scan_type))
@@ -451,6 +452,10 @@ static int ad4052_update_xfer_offload(struct iio_dev *indio_dev,
 	xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
 	xfer->len = spi_bpw_to_bytes(scan_type->realbits);
 	xfer->speed_hz = AD4052_SPI_MAX_ADC_XFER_SPEED(st->vio_uV);
+
+	ret = ad4052_set_sign_ext(st, xfer->bits_per_word == 32);
+	if (ret)
+		return ret;
 
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
 	st->offload_msg.offload = st->offload;
