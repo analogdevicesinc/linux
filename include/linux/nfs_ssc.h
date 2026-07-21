@@ -14,6 +14,7 @@
  * NFS_V4
  */
 struct nfs4_ssc_client_ops {
+	struct module *owner;
 	struct file *(*sco_open)(struct vfsmount *ss_mnt,
 		struct nfs_fh *src_fh, nfs4_stateid *stateid);
 	void (*sco_close)(struct file *filep);
