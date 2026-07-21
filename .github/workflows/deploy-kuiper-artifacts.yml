@@ -47,7 +47,7 @@ jobs:
       id: detect
       run: |
         BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
-        echo "::notice::Branch: ${BRANCH_NAME}"
+        echo "Branch: ${BRANCH_NAME}"
 
         if [[ "${BRANCH_NAME}" == *"rpi"* ]]; then
           echo "ARTIFACT_TYPE=rpi" >> $GITHUB_ENV
@@ -69,7 +69,7 @@ jobs:
         org_repo="analogdevicesinc/linux"
         ref="${{ inputs.scripts-ref }}"
 
-        echo "::notice::Fetching scripts from: $org_repo @ $ref"
+        echo "Fetching scripts from: $org_repo @ $ref"
 
         get_file() {
           curl -sL -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
@@ -189,7 +189,7 @@ jobs:
           exit 0
         fi
 
-        echo "::notice::Uploading from: ${UPLOAD_PATH}"
+        echo "Uploading from: ${UPLOAD_PATH}"
         ls -la "${UPLOAD_PATH}"
 
         python3 upload_to_cloudsmith.py \
@@ -199,5 +199,5 @@ jobs:
           --token="${CLOUDSMITH_API_KEY}" \
           --max_workers=10
 
-        echo "::notice::Upload complete: ${VERSION_PATH}."
-        echo "::notice::Check Cloudsmith repository for details on https://cloudsmith.io/~${{ vars.CLOUDSMITH_NAMESPACE }}/repos/${{ env.CLOUDSMITH_REPO }}/packages/"
+        echo "Upload complete: ${VERSION_PATH}."
+        echo "Check Cloudsmith repository for details on https://cloudsmith.io/~${{ vars.CLOUDSMITH_NAMESPACE }}/repos/${{ env.CLOUDSMITH_REPO }}/packages/"
