@@ -1698,8 +1698,6 @@ extern struct file *nfs42_ssc_open(struct vfsmount *ss_mnt,
 				   nfs4_stateid *stateid);
 extern void nfs42_ssc_close(struct file *filep);
 
-extern void nfs_sb_deactive(struct super_block *sb);
-
 #define NFSD42_INTERSSC_MOUNTOPS "vers=4.2,addr=%s,sec=sys"
 
 /*
