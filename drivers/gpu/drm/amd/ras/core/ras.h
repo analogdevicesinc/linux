@@ -494,4 +494,6 @@ bool ras_core_early_init_service_enabled(struct ras_core_context *ras_core);
 int ras_core_eeprom_early_init_service(struct ras_core_context *ras_core);
 int ras_core_get_module_param(struct ras_core_context *ras_core,
 		struct ras_module_param *param);
+int ras_core_add_log_event(struct ras_core_context *ras_core,
+		uint32_t event, void *data, uint32_t data_sz);
 #endif

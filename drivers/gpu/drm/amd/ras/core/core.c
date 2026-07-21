@@ -864,3 +864,14 @@ int ras_core_get_module_param(struct ras_core_context *ras_core,
 
 	return 0;
 }
+
+int ras_core_add_log_event(struct ras_core_context *ras_core,
+		uint32_t event, void *data, uint32_t data_sz)
+{
+	if (event >= RAS_LOG_EVENT_COUNT_MAX) {
+		RAS_DEV_ERR(ras_core->dev, "Invalid ras log event(0x%x)!\n", event);
+		return -EINVAL;
+	}
+
+	return ras_log_ring_add_log_event(ras_core, event, data, data_sz, NULL);
+}

@@ -65,6 +65,7 @@ struct ras_log_info {
 	uint64_t seqno;
 	uint64_t timestamp;
 	enum ras_log_event event;
+	uint32_t size;
 	union ras_log_body body;
 };
 
@@ -97,7 +98,7 @@ int ras_log_ring_sw_fini(struct ras_core_context *ras_core);
 struct ras_log_batch_tag *ras_log_ring_create_batch_tag(struct ras_core_context *ras_core);
 void ras_log_ring_destroy_batch_tag(struct ras_core_context *ras_core,
 			struct ras_log_batch_tag *tag);
-void ras_log_ring_add_log_event(struct ras_core_context *ras_core,
+int ras_log_ring_add_log_event(struct ras_core_context *ras_core,
 		enum ras_log_event event,
 		void *data, uint32_t size, struct ras_log_batch_tag *batch_tag);
 
