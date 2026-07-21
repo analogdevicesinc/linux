@@ -239,37 +239,10 @@ static int amdgpu_ualink_update_vpod_config(struct amdgpu_device *adev)
 	return 0;
 }
 
-int amdgpu_ualink_config_update_handler(struct amdgpu_device *adev)
+static int amdgpu_ualink_update_accel_state(
+	struct amdgpu_device *adev, enum amdgpu_ualink_accel_state prev_state,
+	u32 prev_vpod_id, enum psp_gfx_ual_config_state cfg_state)
 {
-	enum amdgpu_ualink_accel_state prev_state;
-	enum psp_gfx_ual_config_state cfg_state;
-	u32 prev_vpod_id;
-	int r, qerr;
-
-	/* TBD: Stop ASP interrupts if driver faced an issue */
-	if (adev->ualink.mgr_state != AMDGPU_UALINK_INIT_COMPLETE) {
-		u32 status;
-
-		dev_dbg(adev->dev,
-			"UALink not initialized, skipping config update\n");
-		status = !!(adev->ualink.mgr_state == AMDGPU_UALINK_INIT_ERROR);
-		return psp_ual_send_completion(
-			&adev->psp, adev->ualink.psp_if_ver,
-			PSP_GFX_INT_CTXT_UAL_CMD_CFG_UPDATE_ID, status);
-	}
-
-	prev_state = adev->ualink.info->accel_state;
-	prev_vpod_id = adev->ualink.info->vpod.id;
-
-	qerr = psp_ual_query_info(&adev->psp, adev->ualink.psp_if_ver,
-				  adev->ualink.info, &cfg_state);
-
-	/*TBD: find the right value of status to be sent to ASP*/
-	r = psp_ual_send_completion(&adev->psp, adev->ualink.psp_if_ver,
-				    PSP_GFX_INT_CTXT_UAL_CMD_CFG_UPDATE_ID, 0);
-	if (r || qerr)
-		goto err;
-
 	/* If the device is already active and its vpod_id is unchanged, the
 	 * update does not affect vpod membership. Skip the local vpod
 	 * integrity check and re-activation.
@@ -301,9 +274,48 @@ int amdgpu_ualink_config_update_handler(struct amdgpu_device *adev)
 			dev_err(adev->dev,
 				"Invalid vpod transition from %u to %u\n",
 				prev_vpod_id, adev->ualink.info->vpod.id);
-			goto err;
+			return -EINVAL;
 		}
 	}
+
+	return 0;
+}
+
+int amdgpu_ualink_config_update_handler(struct amdgpu_device *adev)
+{
+	enum amdgpu_ualink_accel_state prev_state;
+	enum psp_gfx_ual_config_state cfg_state;
+	u32 prev_vpod_id;
+	int r, qerr;
+
+	/* TBD: Stop ASP interrupts if driver faced an issue */
+	if (adev->ualink.mgr_state != AMDGPU_UALINK_INIT_COMPLETE) {
+		u32 status;
+
+		dev_dbg(adev->dev,
+			"UALink not initialized, skipping config update\n");
+		status = !!(adev->ualink.mgr_state == AMDGPU_UALINK_INIT_ERROR);
+		return psp_ual_send_completion(
+			&adev->psp, adev->ualink.psp_if_ver,
+			PSP_GFX_INT_CTXT_UAL_CMD_CFG_UPDATE_ID, status);
+	}
+
+	prev_state = adev->ualink.info->accel_state;
+	prev_vpod_id = adev->ualink.info->vpod.id;
+
+	qerr = psp_ual_query_info(&adev->psp, adev->ualink.psp_if_ver,
+				  adev->ualink.info, &cfg_state);
+
+	/*TBD: find the right value of status to be sent to ASP*/
+	r = psp_ual_send_completion(&adev->psp, adev->ualink.psp_if_ver,
+				    PSP_GFX_INT_CTXT_UAL_CMD_CFG_UPDATE_ID, 0);
+	if (r || qerr)
+		goto err;
+
+	r = amdgpu_ualink_update_accel_state(adev, prev_state, prev_vpod_id,
+					     cfg_state);
+	if (r)
+		goto err;
 
 	return 0;
 
@@ -816,8 +828,9 @@ static ssize_t ualink_ppod_setup_commit_store(struct kobject *kobj,
 	mutex_lock(&mgpu_info.mutex);
 	if (info->accel_state >= AMDGPU_UALINK_ACCEL_STATE_READY)
 		deactivate_accelerator(adev);
-
 	info->accel_state = check_ppod_state(adev, setup);
+	/* PPOD is expected to be configured first */
+	info->vpod.id = AMDGPU_UALINK_VPOD_ID_INVALID;
 	mutex_unlock(&mgpu_info.mutex);
 
 	/* TODO: If accel_state was ACTIVE, reset all connections */
@@ -1111,6 +1124,8 @@ static ssize_t ualink_vpod_config_commit_store(struct kobject *kobj,
 	struct device *dev = kobj_to_dev(info->kobj.parent);
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct amdgpu_device *adev = drm_to_adev(ddev);
+	enum amdgpu_ualink_accel_state prev_state;
+	u32 prev_vpod_id;
 	int r;
 
 	if (!sysfs_streq(buf, "true"))
@@ -1120,6 +1135,8 @@ static ssize_t ualink_vpod_config_commit_store(struct kobject *kobj,
 		return -EINVAL;
 	}
 
+	prev_state = info->accel_state;
+	prev_vpod_id = info->vpod.id;
 	r = psp_ual_set_vpod_config(&adev->psp, adev->ualink.psp_if_ver,
 				    config);
 	if (r)
@@ -1128,30 +1145,21 @@ static ssize_t ualink_vpod_config_commit_store(struct kobject *kobj,
 	if (r)
 		return r;
 
-	if (!__check_vpod_info(adev, info))
+	if (info->vpod.id != AMDGPU_UALINK_VPOD_ID_INVALID &&
+	    !__check_vpod_info(adev, info))
 		return -EINVAL;
 	/* The integrity check makes sure each new GPU is consistent with the
 	 * other GPUs already in the vPod. All known local GPUs can become
 	 * "ready" at the same time.
 	 *
 	 * Misconfiguration of one GPU does not reduce the state of other GPUs
-	 * already in the vPod.
+	 * already in the vPod. GPU is intentionally not put to ERROR state if
+	 * misconfiguration occurs.
 	 */
-	mutex_lock(&mgpu_info.mutex);
-	r = __check_local_vpod_integrity(adev);
-	if (!r)
-		activate_local_vpod(adev);
-	else if (info->accel_state >= AMDGPU_UALINK_ACCEL_STATE_PPOD_CONFIGURED)
-		deactivate_accelerator(adev);
-	mutex_unlock(&mgpu_info.mutex);
-
-	/* TODO: Update KFD topology for in-domain link */
-
-	/* TODO: If state was ACTIVE:
-	 * - If addr_mode changed, reset all connections, reset state to READY
-	 * - If accelerators were removed, reset those links, but keep state ACTIVE
-	 * - If accelerators were added, keep state ACTIVE
-	 */
+	r = amdgpu_ualink_update_accel_state(adev, prev_state, prev_vpod_id,
+					     UAL_CFG_VPOD);
+	if (r)
+		return r;
 
 	return count;
 }
@@ -1271,9 +1279,6 @@ static ssize_t ualink_station_config_commit_store(struct kobject *kobj,
 		return -EINVAL;
 
 	r = psp_ual_set_station_config(&adev->psp, adev->ualink.psp_if_ver, stations);
-	if (r)
-		return r;
-	r = psp_ual_query_info(&adev->psp, adev->ualink.psp_if_ver, info, NULL);
 	if (r)
 		return r;
 
