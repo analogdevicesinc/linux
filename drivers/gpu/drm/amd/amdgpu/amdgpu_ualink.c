@@ -3887,8 +3887,14 @@ struct amdgpu_ualink_remote {
 	/* address alias mode alloc npa address for shared wb */
 	struct drm_mm_node		rptr_mm_node;
 
-	/* active accelator id bitmap of the pod */
-	unsigned long			*active_accel_bits;
+	/*
+	 * Owned snapshot of the vPod's active accelerator bitmap, taken at
+	 * sw_init time. Must NOT alias info->vpod.active_accel_bits, which
+	 * psp_ual_query_info() refreshes on every commit: aliasing it would let
+	 * teardown unmap a different set than setup mapped, leaking drm_mm nodes
+	 * in the shared GTT manager.
+	 */
+	DECLARE_BITMAP(active_accel_bits, AMDGPU_UALINK_ACCEL_MAX);
 	u32				num_accel;
 
 	/* remote GPUs ring buffer, read, write pointer local copy and gart mapping */
@@ -4265,8 +4271,6 @@ static void amdgpu_ualink_metadata_npa_unmapping(struct amdgpu_device *adev)
 	int r;
 
 	if (!remote->ring_bo)
-		return;
-	if (!remote->active_accel_bits)
 		return;
 
 	rb_size = AMDGPU_UALINK_RB_SIZE;
@@ -4686,7 +4690,9 @@ static int amdgpu_ualink_metadata_init(struct amdgpu_device *adev)
 	u32 status, accel_id;
 	int r;
 
-	remote->active_accel_bits = adev->ualink.info->vpod.active_accel_bits;
+	bitmap_copy(remote->active_accel_bits,
+		    adev->ualink.info->vpod.active_accel_bits,
+		    AMDGPU_UALINK_ACCEL_MAX);
 	dev_dbg(adev->dev, "%d active accelerators config in vpod\n",
 		bitmap_weight(remote->active_accel_bits, AMDGPU_UALINK_ACCEL_MAX));
 
