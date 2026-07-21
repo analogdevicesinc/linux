@@ -54,6 +54,7 @@ static int amdgpu_ualink_remote_shootdown(struct amdgpu_device *adev,
 					  u32 remote_accel_id, u64 addr,
 					  u32 size_in_pages, u32 flush_type);
 static void __amdgpu_ualink_activate_vpod_locked(struct amdgpu_device *adev);
+static bool amdgpu_ualink_vpod_membership_changed(struct amdgpu_device *adev);
 
 #define STRIP_NPA(addr)						\
 	(((u64)(addr) & ~AMDGPU_UALINK_NPA_ADDR_GPUID_MASK))
@@ -257,9 +258,24 @@ static int amdgpu_ualink_update_accel_state(
 	 */
 	if (prev_state == AMDGPU_UALINK_ACCEL_STATE_ACTIVE &&
 	    adev->ualink.info->vpod.id == prev_vpod_id) {
-		dev_info(adev->dev,
-			 "UALINK: update_accel_state: already ACTIVE, vpod_id unchanged\n");
 		amdgpu_ualink_update_vpod_config(adev);
+
+		/* Same vpod_id, but the member set may have changed (vPod grown
+		 * or shrunk while this GPU stayed ACTIVE). If so, run the local
+		 * vpod activation path: once every local peer has committed the
+		 * new config (integrity passes), it bounces the affected ACTIVE
+		 * peers to rebuild links/GART for the new member set.
+		 */
+		if (amdgpu_ualink_vpod_membership_changed(adev)) {
+			dev_info(adev->dev,
+				 "UALINK: update_accel_state: ACTIVE vpod_id=%u membership changed, reconfiguring\n",
+				 adev->ualink.info->vpod.id);
+			scoped_guard(mutex, &mgpu_info.mutex)
+				__amdgpu_ualink_activate_vpod_locked(adev);
+		} else {
+			dev_info(adev->dev,
+				 "UALINK: update_accel_state: already ACTIVE, vpod_id/membership unchanged\n");
+		}
 		return 0;
 	}
 
@@ -993,7 +1009,24 @@ static void activate_local_vpod(struct amdgpu_device *adev)
 			/* info->local_accels is corrupted? */
 			continue;
 
-		activate_accelerator(peer_adev);
+		/* Bring the peer up to match the current vPod membership.
+		 *
+		 * A peer that is not yet ACTIVE (or whose ACTIVE membership
+		 * changed on a grow/shrink) has its remote metadata, links and
+		 * GART mappings built for a stale member set (or none at all).
+		 * Firmware only accepts a full metadata reload while halted, so
+		 * surgical per-peer deltas are not possible: fully bounce the
+		 * accelerator. deactivate_accelerator() is a no-op when the peer
+		 * is not ACTIVE, so this handles first-time bring-up too.
+		 * Unchanged ACTIVE peers are left untouched.
+		 */
+		if (amdgpu_ualink_vpod_membership_changed(peer_adev)) {
+			dev_info(peer_adev->dev,
+				 "UALINK: (re)configuring vpod for accel_id=%u\n",
+				 peer_adev->ualink.info->ppod.accel_id);
+			deactivate_accelerator(peer_adev);
+			activate_accelerator(peer_adev);
+		}
 	}
 }
 
@@ -3979,6 +4012,27 @@ struct amdgpu_ualink_remote {
 static inline struct amdgpu_ualink_remote *to_remote(struct amdgpu_device *adev)
 {
 	return adev->ualink.remote;
+}
+
+/*
+ * Returns true if the vPod membership most recently reported by firmware
+ * (info->vpod.active_accel_bits, read back via psp_ual_query_info() on the
+ * committing GPU) differs from the owned snapshot captured when this
+ * accelerator was last activated (remote->active_accel_bits). Used to
+ * decide whether an accelerator must be (re)built to match the new member
+ * set. A NULL remote means the accelerator has never been activated (no
+ * snapshot yet), which also counts as "changed" so it gets brought up.
+ */
+static bool amdgpu_ualink_vpod_membership_changed(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_remote *remote = to_remote(adev);
+
+	if (!remote)
+		return true;
+
+	return !bitmap_equal(remote->active_accel_bits,
+			     adev->ualink.info->vpod.active_accel_bits,
+			     AMDGPU_UALINK_ACCEL_MAX);
 }
 
 static inline u32 ualink_accel_id(struct amdgpu_device *adev)
