@@ -342,11 +342,7 @@ static int ad7768_set_power_mode(struct iio_dev *dev,
 	if (ret < 0)
 		return ret;
 
-	ret = ad7768_sync(st);
-	if (ret < 0)
-		return ret;
-
-	return ret;
+	return ad7768_sync(st);
 }
 
 static int ad7768_get_power_mode(struct iio_dev *dev,
@@ -829,7 +825,7 @@ static int ad7768_probe(struct spi_device *spi)
 
 	ad7768_set_available_sampl_freq(st);
 
-	ad7768_set_power_mode(indio_dev, NULL, AD7768_FAST_MODE);
+	ret = ad7768_set_power_mode(indio_dev, NULL, AD7768_FAST_MODE);
 	if (ret < 0)
 		return ret;
 
