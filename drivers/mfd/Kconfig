@@ -2573,5 +2573,7 @@ config MFD_MAX7360
 	  additional drivers must be enabled in order to use the functionality
 	  of the device.
 
+source "drivers/mfd/maxim/max2035x/Kconfig"
+
 endmenu
 endif
