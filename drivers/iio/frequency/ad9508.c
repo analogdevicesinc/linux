@@ -66,6 +66,8 @@
 
 #define AD9508_NUM_CHAN		4
 
+#define AD9508_NUM_REGS		45
+
 struct ad9508_outputs {
 	struct clk_hw hw;
 	struct iio_dev *indio_dev;
@@ -88,7 +90,7 @@ struct ad9508_state {
 	struct gpio_desc		*reset_gpio;
 	struct gpio_desc		*sync_gpio;
 	bool			write_mode_only;
-	unsigned long		regs_hw[44];
+	unsigned long		regs_hw[AD9508_NUM_REGS];
 	struct mutex		lock;
 
 	/*
