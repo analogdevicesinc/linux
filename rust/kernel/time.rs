@@ -53,9 +53,9 @@ pub fn msecs_to_jiffies(msecs: Msecs) -> Jiffies {
     unsafe { bindings::__msecs_to_jiffies(msecs) }
 }
 
-/// Trait for clock sources.
+/// Trait for kernel clock identifiers.
 ///
-/// Selection of the clock source depends on the use case. In some cases the usage of a
+/// Selection of the clock depends on the use case. In some cases the usage of a
 /// particular clock is mandatory, e.g. in network protocols, filesystems. In other
 /// cases the user of the clock has to decide which clock is best suited for the
 /// purpose. In most scenarios clock [`Monotonic`] is the best choice as it
@@ -66,13 +66,13 @@ pub fn msecs_to_jiffies(msecs: Msecs) -> Jiffies {
 /// Implementers must ensure that `ktime_get()` returns a value in the inclusive range
 /// `0..=KTIME_MAX` (i.e., greater than or equal to 0 and less than or equal to
 /// `KTIME_MAX`, where `KTIME_MAX` equals `i64::MAX`).
-pub unsafe trait ClockSource {
-    /// The kernel clock ID associated with this clock source.
+pub unsafe trait ClockId {
+    /// The kernel clock ID associated with this clock.
     ///
     /// This constant corresponds to the C side `clockid_t` value.
     const ID: bindings::clockid_t;
 
-    /// Get the current time from the clock source.
+    /// Get the current time from the clock.
     ///
     /// The function must return a value in the range `0..=KTIME_MAX`.
     fn ktime_get() -> bindings::ktime_t;
@@ -93,7 +93,7 @@ pub struct Monotonic;
 
 // SAFETY: The kernel's `ktime_get()` is guaranteed to return a value
 // in `0..=KTIME_MAX`.
-unsafe impl ClockSource for Monotonic {
+unsafe impl ClockId for Monotonic {
     const ID: bindings::clockid_t = bindings::CLOCK_MONOTONIC as bindings::clockid_t;
 
     fn ktime_get() -> bindings::ktime_t {
@@ -120,7 +120,7 @@ pub struct RealTime;
 
 // SAFETY: The kernel's `ktime_get_real()` is guaranteed to return a value
 // in `0..=KTIME_MAX`.
-unsafe impl ClockSource for RealTime {
+unsafe impl ClockId for RealTime {
     const ID: bindings::clockid_t = bindings::CLOCK_REALTIME as bindings::clockid_t;
 
     fn ktime_get() -> bindings::ktime_t {
@@ -140,7 +140,7 @@ pub struct BootTime;
 
 // SAFETY: The kernel's `ktime_get_boottime()` is guaranteed to return a value
 // in `0..=KTIME_MAX`.
-unsafe impl ClockSource for BootTime {
+unsafe impl ClockId for BootTime {
     const ID: bindings::clockid_t = bindings::CLOCK_BOOTTIME as bindings::clockid_t;
 
     fn ktime_get() -> bindings::ktime_t {
@@ -164,7 +164,7 @@ pub struct Tai;
 
 // SAFETY: The kernel's `ktime_get_clocktai()` is guaranteed to return a value
 // in `0..=KTIME_MAX`.
-unsafe impl ClockSource for Tai {
+unsafe impl ClockId for Tai {
     const ID: bindings::clockid_t = bindings::CLOCK_TAI as bindings::clockid_t;
 
     fn ktime_get() -> bindings::ktime_t {
@@ -180,24 +180,24 @@ unsafe impl ClockSource for Tai {
 /// The `inner` value is in the range from 0 to `KTIME_MAX`.
 #[repr(transparent)]
 #[derive(PartialEq, PartialOrd, Eq, Ord)]
-pub struct Instant<C: ClockSource> {
+pub struct Instant<C: ClockId> {
     inner: bindings::ktime_t,
     _c: PhantomData<C>,
 }
 
-impl<C: ClockSource> Clone for Instant<C> {
+impl<C: ClockId> Clone for Instant<C> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<C: ClockSource> Copy for Instant<C> {}
+impl<C: ClockId> Copy for Instant<C> {}
 
-impl<C: ClockSource> Instant<C> {
+impl<C: ClockId> Instant<C> {
     /// Get the current time from the clock source.
     #[inline]
     pub fn now() -> Self {
-        // INVARIANT: The `ClockSource::ktime_get()` function returns a value in the range
+        // INVARIANT: The `ClockId::ktime_get()` function returns a value in the range
         // from 0 to `KTIME_MAX`.
         Self {
             inner: C::ktime_get(),
@@ -239,7 +239,7 @@ impl<C: ClockSource> Instant<C> {
     }
 }
 
-impl<C: ClockSource> ops::Sub for Instant<C> {
+impl<C: ClockId> ops::Sub for Instant<C> {
     type Output = Delta;
 
     // By the type invariant, it never overflows.
@@ -251,7 +251,7 @@ impl<C: ClockSource> ops::Sub for Instant<C> {
     }
 }
 
-impl<T: ClockSource> ops::Add<Delta> for Instant<T> {
+impl<T: ClockId> ops::Add<Delta> for Instant<T> {
     type Output = Self;
 
     #[inline]
@@ -271,7 +271,7 @@ impl<T: ClockSource> ops::Add<Delta> for Instant<T> {
     }
 }
 
-impl<T: ClockSource> ops::Sub<Delta> for Instant<T> {
+impl<T: ClockId> ops::Sub<Delta> for Instant<T> {
     type Output = Self;
 
     #[inline]
