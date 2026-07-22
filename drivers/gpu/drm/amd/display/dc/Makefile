@@ -66,6 +66,7 @@ FILES =
 FILES += dc_dmub_srv.o
 FILES += dc_fused_io.o
 FILES += dc_helper.o
+FILES += dc_memory_pool.o
 FILES += core/dc.o
 FILES += core/dc_debug.o
 FILES += core/dc_hw_sequencer.o
