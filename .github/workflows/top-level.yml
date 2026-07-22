@@ -4,9 +4,8 @@ on:
   push:
     branches:
       - 'main'
-      - 'next_stable'
-      - 'staging/*'
       - 'xlnx/release/*'
+      - 'rpi/release/*'
   pull_request:
 
 concurrency:
