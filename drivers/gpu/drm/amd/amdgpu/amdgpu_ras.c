@@ -219,8 +219,9 @@ static int amdgpu_check_address_validity(struct amdgpu_device *adev,
 {
 	struct amdgpu_ras *con = amdgpu_ras_get_context(adev);
 	struct amdgpu_vram_block_info blk_info;
-	uint64_t page_pfns[32] = {0};
-	int i, ret, count;
+	uint64_t *page_pfns = NULL;
+	u32 nr_page_pfns = 256;
+	int i, ret = 0, count;
 	bool hit = false;
 
 	if (amdgpu_ip_version(adev, UMC_HWIP, 0) < IP_VERSION(12, 0, 0))
@@ -243,15 +244,21 @@ static int amdgpu_check_address_validity(struct amdgpu_device *adev,
 	    (address >= RAS_UMC_INJECT_ADDR_LIMIT))
 		return -EFAULT;
 
+	page_pfns = kcalloc(nr_page_pfns, sizeof(*page_pfns), GFP_KERNEL);
+	if (!page_pfns)
+		return -ENOMEM;
+
 	if (amdgpu_sriov_vf(adev))
 		count = amdgpu_virt_ras_convert_retired_address(adev, address,
-			page_pfns, ARRAY_SIZE(page_pfns));
+			page_pfns, nr_page_pfns);
 	else
 		count = amdgpu_ras_mgr_lookup_bad_pages_in_a_row(adev, address,
-			page_pfns, ARRAY_SIZE(page_pfns));
+			page_pfns, nr_page_pfns);
 
-	if (count <= 0)
-		return -EPERM;
+	if (count <= 0) {
+		ret = -EPERM;
+		goto out;
+	}
 
 	for (i = 0; i < count; i++) {
 		memset(&blk_info, 0, sizeof(blk_info));
@@ -264,16 +271,23 @@ static int amdgpu_check_address_validity(struct amdgpu_device *adev,
 			 */
 			if ((flags == BYPASS_ALLOCATED_ADDRESS) &&
 			    ((blk_info.task.pid != task_pid_nr(current)) ||
-				strncmp(blk_info.task.comm, current->comm, TASK_COMM_LEN)))
-				return -EACCES;
-			else if ((flags == BYPASS_INITIALIZATION_ADDRESS) &&
+				strncmp(blk_info.task.comm, current->comm, TASK_COMM_LEN))) {
+				ret = -EACCES;
+				goto out;
+			} else if ((flags == BYPASS_INITIALIZATION_ADDRESS) &&
 				(blk_info.task.pid == con->init_task_pid) &&
-				!strncmp(blk_info.task.comm, con->init_task_comm, TASK_COMM_LEN))
-				return -EACCES;
+				!strncmp(blk_info.task.comm, con->init_task_comm, TASK_COMM_LEN)) {
+				ret = -EACCES;
+				goto out;
+			}
 		}
 	}
 
-	return 0;
+	ret = 0;
+
+out:
+	kfree(page_pfns);
+	return ret;
 }
 
 static ssize_t amdgpu_ras_debugfs_read(struct file *f, char __user *buf,
