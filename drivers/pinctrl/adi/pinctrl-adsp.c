@@ -179,6 +179,14 @@ static void adsp_portmux_setup(struct adsp_gpio_port *port, unsigned int offset,
 		spin_unlock_irqrestore(&port->lock, flags);
 
 		adsp_set_pin_gpio(port, offset, false);
+
+		/*
+		 * PORT_INEN gates the pad's input buffer: peripheral input
+		 * functions read a constant 0 while it is clear, and it is
+		 * harmless for output-only pins, so enable it on every
+		 * peripheral-muxed pin.
+		 */
+		__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_INEN_SET);
 	}
 }
 
