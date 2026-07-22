@@ -783,7 +783,6 @@ static int adi_spi_probe(struct platform_device *pdev)
 	drv_data = spi_controller_get_devdata(controller);
 	drv_data->controller = controller;
 	drv_data->sclk = sclk;
-	drv_data->sclk_rate = clk_get_rate(sclk);
 	drv_data->dev = dev;
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -826,6 +825,13 @@ static int adi_spi_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(drv_data->sclk);
 	if (ret) {
 		dev_err(dev, "Could not enable SPI clock\n");
+		goto err_free_rx_dma;
+	}
+
+	drv_data->sclk_rate = clk_get_rate(drv_data->sclk);
+	if (!drv_data->sclk_rate) {
+		dev_err(dev, "Invalid SPI clock rate: %lu Hz\n", drv_data->sclk_rate);
+		ret = -EINVAL;
 		goto err_free_rx_dma;
 	}
 
