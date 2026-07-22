@@ -199,8 +199,6 @@ struct iio_backend_ops {
 	int (*data_stream_disable)(struct iio_backend *back);
 	int (*data_transfer_addr)(struct iio_backend *back, u32 address);
 	int (*set_num_lanes)(struct iio_backend *back, unsigned int num_lanes);
-	int (*crc_enable)(struct iio_backend *back);
-	int (*crc_disable)(struct iio_backend *back);
 };
 
 /**

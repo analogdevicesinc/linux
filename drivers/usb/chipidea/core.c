@@ -35,8 +35,8 @@
 #include <linux/usb/chipidea.h>
 #include <linux/usb/of.h>
 #include <linux/usb/ulpi.h>
+#include <linux/gpio/consumer.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/phy.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/ehci_def.h>
@@ -972,23 +972,20 @@ static void ci_get_otg_capable(struct ci_hdrc *ci)
 static int ci_hdrc_create_ulpi_phy(struct device *dev, struct ci_hdrc *ci)
 {
 	struct usb_phy *ulpi;
-	int reset_gpio;
-	int ret;
+	struct gpio_desc *reset_gpio;
 
-	reset_gpio = of_get_named_gpio(dev->parent->of_node, "xlnx,phy-reset-gpio", 0);
-	if (gpio_is_valid(reset_gpio)) {
-		ret = devm_gpio_request_one(dev, reset_gpio,
-				GPIOF_OUT_INIT_LOW, "ulpi resetb");
-		if (ret) {
-			dev_err(dev, "Failed to request ULPI reset gpio: %d\n", ret);
-			return ret;
-		}
+	reset_gpio = devm_gpiod_get_optional(dev->parent, "xlnx,phy-reset",
+					     GPIOD_OUT_LOW);
+	if (IS_ERR(reset_gpio))
+		return PTR_ERR(reset_gpio);
+
+	if (reset_gpio) {
 		msleep(5);
-		gpio_set_value_cansleep(reset_gpio, 1);
+		gpiod_set_value_cansleep(reset_gpio, 1);
 		msleep(1);
 	}
 
-	ulpi = otg_ulpi_create(&ulpi_viewport_access_ops,
+	ulpi = devm_otg_ulpi_create(dev, &ulpi_viewport_access_ops,
 		ULPI_OTG_DRVVBUS | ULPI_OTG_DRVVBUS_EXT);
 	if (ulpi) {
 		ulpi->io_priv = ci->hw_bank.abs + 0x170;
