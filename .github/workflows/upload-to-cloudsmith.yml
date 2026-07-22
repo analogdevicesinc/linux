@@ -73,13 +73,13 @@ jobs:
         patterns="${{ inputs.artifacts }}"
         echo "$artifacts_files" | jq -r '.[] | @tsv' | while IFS=$'\t' read -r name url; do
           matched=0
-          while IFS= read -r p; do
+          while IFS= read -r p || [[ -n "$p" ]]; do
             [[ -z "$p" ]] && continue
             if [[ $name == $p ]]; then
               matched=1
               break
             fi
-          done <<< "$patterns"
+          done < <(printf '%s' "$patterns" | tr '[:space:]' '\n')
 
           if [[ "$matched" == "1" ]]; then
             echo "$name"
