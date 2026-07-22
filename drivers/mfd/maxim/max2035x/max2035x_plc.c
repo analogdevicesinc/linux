@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
+#include <linux/math64.h>
 
 #include "max2035x.h"
 #include "max2035x_registers.h"
@@ -2148,7 +2149,7 @@ static int max2035x_read_vcell(struct max2035x *chip)
 	/* Convert to microvolts (LSB = 78.125μV = 78125nV = 78.125μV) */
 	/* vcell_uv = vcell_raw * 78.125 = vcell_raw * 78125 / 1000 */
 	/* Use long long to prevent overflow: 65535 * 78125 = 5,120,953,125 > INT_MAX */
-	vcell_uv = ((long long)vcell_raw * 78125) / 1000;
+	vcell_uv = (int)div_s64((s64)vcell_raw * 78125, 1000);
 
 	dev_info(chip->dev, "%s: VCELL: %d.%03d mV (0x%04x)\n",
 		__func__, vcell_uv / 1000, vcell_uv % 1000, vcell_raw);
@@ -2276,7 +2277,7 @@ static int max2035x_read_avgvcell(struct max2035x *chip)
 
 	/* Convert to microvolts (LSB = 78.125μV) */
 	/* Use long long to prevent overflow: 65535 * 78125 = 5,120,953,125 > INT_MAX */
-	avgvcell_uv = ((long long)avgvcell_raw * 78125) / 1000;
+	avgvcell_uv = (int)div_s64((s64)avgvcell_raw * 78125, 1000);
 
 	dev_info(chip->dev, "%s: AVGVCELL: %d.%03d mV (0x%04x)\n",
 		__func__, avgvcell_uv / 1000, avgvcell_uv % 1000, avgvcell_raw);

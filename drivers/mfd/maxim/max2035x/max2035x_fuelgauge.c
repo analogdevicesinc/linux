@@ -9,6 +9,7 @@
 #include <linux/workqueue.h>
 #include <linux/firmware.h>
 #include <linux/ctype.h>
+#include <linux/math64.h>
 
 #include "max2035x.h"
 #include "max2035x_registers.h"
@@ -130,7 +131,7 @@ static int max2035x_read_fuelgauge_vcell(struct max2035x_fuelgauge *fuelgauge)
 	}
 
 	/* VCell: LSB = 1.25mV/16 = 78.125μV */
-	vcell_uv = (reg_val * 78125) / 1000;
+	vcell_uv = (int)div_u64((u64)reg_val * 78125, 1000);
 
 	dev_info(fuelgauge->dev, "%s: VCell: %d.%03d mV (0x%04x)\n",
 		__func__, vcell_uv / 1000, vcell_uv % 1000, reg_val);
@@ -155,7 +156,7 @@ static int max2035x_read_fuelgauge_avgvcell(struct max2035x_fuelgauge *fuelgauge
 	}
 
 	/* AvgVCell: LSB = 1.25mV/16 = 78.125μV */
-	avgvcell_uv = (reg_val * 78125) / 1000;
+	avgvcell_uv = (int)div_u64((u64)reg_val * 78125, 1000);
 
 	dev_info(fuelgauge->dev, "%s: AvgVCell: %d.%03d mV (0x%04x)\n",
 		__func__, avgvcell_uv / 1000, avgvcell_uv % 1000, reg_val);
@@ -607,7 +608,7 @@ static void max2035x_custom_full_ini(struct max2035x_fuelgauge *fuelgauge)
 	} while (++attempt < 3);
 
 	regmap_read(fuelgauge->regmap, MAX2035X_FG_REG_VFSOC, &r_vfsoc);
-	update_capacity = (u32)(((u64)r_vfsoc * bat->fullcapnom) / 25600);
+	update_capacity = (u32)div_u64((u64)r_vfsoc * bat->fullcapnom, 25600);
 
 	regmap_write(fuelgauge->regmap, MAX2035X_FG_REG_MIXCAP, update_capacity);
 	regmap_write(fuelgauge->regmap, MAX2035X_FG_REG_AVCAP, update_capacity);
