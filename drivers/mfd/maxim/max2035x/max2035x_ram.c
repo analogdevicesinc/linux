@@ -141,7 +141,7 @@ int __init max2035x_ram_init(void)
 	return platform_register_drivers(ram_drivers, ARRAY_SIZE(ram_drivers));
 }
 
-void __exit max2035x_ram_exit(void)
+void max2035x_ram_exit(void)
 {
 	platform_unregister_drivers(ram_drivers, ARRAY_SIZE(ram_drivers));
 }

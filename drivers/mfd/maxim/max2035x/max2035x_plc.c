@@ -3205,7 +3205,7 @@ int __init max2035x_plc_init(void)
 	return platform_register_drivers(plc_drivers, ARRAY_SIZE(plc_drivers));
 }
 
-void __exit max2035x_plc_exit(void)
+void max2035x_plc_exit(void)
 {
 	platform_unregister_drivers(plc_drivers, ARRAY_SIZE(plc_drivers));
 }

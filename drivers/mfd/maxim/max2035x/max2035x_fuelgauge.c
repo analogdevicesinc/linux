@@ -801,7 +801,7 @@ int __init max2035x_fuelgauge_init(void)
 	return platform_register_drivers(fuelgauge_drivers, ARRAY_SIZE(fuelgauge_drivers));
 }
 
-void __exit max2035x_fuelgauge_exit(void)
+void max2035x_fuelgauge_exit(void)
 {
 	platform_unregister_drivers(fuelgauge_drivers, ARRAY_SIZE(fuelgauge_drivers));
 }
