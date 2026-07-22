@@ -152,12 +152,6 @@ struct eeprom_store_record {
 	int count;
 	/* the space can place new entries */
 	int space_left;
-	/* logical bad page number */
-	int bad_page_num;
-	/* the bad page number is ras_num_recs or
-	 * ras_num_recs * retire_unit
-	 */
-	int bad_page_num_old;
 	uint64_t umc_channel_bitmap;
 };
 

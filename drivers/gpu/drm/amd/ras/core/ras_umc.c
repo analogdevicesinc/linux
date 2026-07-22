@@ -684,14 +684,6 @@ static int ras_umc_update_eeprom_ram_data(struct ras_core_context *ras_core,
 	return 0;
 }
 
-static void ras_umc_update_bad_pages(struct ras_core_context *ras_core)
-{
-	struct ras_umc *ras_umc = &ras_core->ras_umc;
-	struct eeprom_store_record *data = &ras_umc->umc_err_data.ram_data;
-
-	data->bad_page_num_old = data->bad_page_num;
-}
-
 void ras_umc_report_badpage_info(struct ras_core_context *ras_core)
 {
 	struct ras_umc *ras_umc = &ras_core->ras_umc;
@@ -798,13 +790,22 @@ int ras_umc_load_bad_pages(struct ras_core_context *ras_core)
 	if (ret)
 		RAS_DEV_ERR(ras_core->dev,
 			"Failed to load EEPROM table records! ret:%d\n", ret);
-	else {
+	else
 		ret = ras_umc_add_bad_pages(ras_core, bps, ras_num_recs, &c);
-		ras_umc_update_bad_pages(ras_core);
-	}
 
 	kfree(bps);
 	return ret;
+}
+
+static int ras_umc_count_valid_pages(struct ras_core_context *ras_core,
+		struct eeprom_umc_record *records, const u32 nr_records)
+{
+	int count = 0, i;
+
+	for (i = 0; i < nr_records; i++)
+		count += records[i].cur_nps_valid_page_num;
+
+	return count;
 }
 
 /*
@@ -816,8 +817,7 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 {
 	struct ras_umc *ras_umc = &ras_core->ras_umc;
 	struct eeprom_store_record *data = &ras_umc->umc_err_data.rom_data;
-	struct eeprom_store_record *ram_data = &ras_umc->umc_err_data.ram_data;
-	int eeprom_record_num, logical_count = 0;
+	int eeprom_record_num;
 	int save_count;
 	int ret = -ENODATA;
 
@@ -834,7 +834,6 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 
 	mutex_lock(&ras_umc->umc_lock);
 	save_count = data->count - eeprom_record_num;
-	logical_count = ram_data->bad_page_num - ram_data->bad_page_num_old;
 	/* only new entries are saved */
 	if (save_count > 0) {
 		ret = ras_eeprom_mgr_append_records(ras_core,
@@ -846,8 +845,9 @@ static int ras_umc_save_bad_pages(struct ras_core_context *ras_core)
 			goto exit;
 		}
 
-		ras_umc_update_bad_pages(ras_core);
-		RAS_DEV_INFO(ras_core->dev, "Saved %d records to EEPROM table.\n", logical_count);
+		RAS_DEV_INFO(ras_core->dev, "Saved %d pages to EEPROM table.\n",
+			ras_umc_count_valid_pages(ras_core,
+				&data->bps[eeprom_record_num], save_count));
 	}
 
 exit:
