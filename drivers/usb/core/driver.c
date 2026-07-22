@@ -984,7 +984,7 @@ bool is_usb_device_driver(const struct device_driver *drv)
 }
 
 /**
- * usb_register_device_driver - register a USB device (not interface) driver
+ * __usb_register_device_driver - register a USB device (not interface) driver
  * @new_udriver: USB operations for the device driver
  * @owner: module owner of this driver.
  *
@@ -994,7 +994,7 @@ bool is_usb_device_driver(const struct device_driver *drv)
  *
  * Return: A negative error code on failure and 0 on success.
  */
-int usb_register_device_driver(struct usb_device_driver *new_udriver,
+int __usb_register_device_driver(struct usb_device_driver *new_udriver,
 		struct module *owner)
 {
 	int retval = 0;
@@ -1027,7 +1027,7 @@ int usb_register_device_driver(struct usb_device_driver *new_udriver,
 
 	return retval;
 }
-EXPORT_SYMBOL_GPL(usb_register_device_driver);
+EXPORT_SYMBOL_GPL(__usb_register_device_driver);
 
 /**
  * usb_deregister_device_driver - unregister a USB device (not interface) driver

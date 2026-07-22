@@ -1369,7 +1369,9 @@ extern void usb_deregister(struct usb_driver *);
 	module_driver(__usb_driver, usb_register, \
 		       usb_deregister)
 
-extern int usb_register_device_driver(struct usb_device_driver *,
+#define usb_register_device_driver(new_udriver) \
+	__usb_register_device_driver(new_udriver, THIS_MODULE)
+extern int __usb_register_device_driver(struct usb_device_driver *,
 			struct module *);
 extern void usb_deregister_device_driver(struct usb_device_driver *);
 
