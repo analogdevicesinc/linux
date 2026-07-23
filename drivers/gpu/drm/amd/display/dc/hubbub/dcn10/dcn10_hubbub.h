@@ -143,6 +143,7 @@ struct dcn_hubbub_registers {
 	uint32_t DCHVM_CLK_CTRL;
 	uint32_t DCHVM_RIOMMU_CTRL0;
 	uint32_t DCHVM_RIOMMU_STAT0;
+	uint32_t DCHVM_PREFETCH_VFID;
 	uint32_t DCHUBBUB_DET0_CTRL;
 	uint32_t DCHUBBUB_DET1_CTRL;
 	uint32_t DCHUBBUB_DET2_CTRL;
@@ -398,7 +399,8 @@ struct dcn_hubbub_registers {
 		type HOSTVM_PREFETCH_REQ; \
 		type HOSTVM_POWERSTATUS; \
 		type RIOMMU_ACTIVE; \
-		type HOSTVM_PREFETCH_DONE
+		type HOSTVM_PREFETCH_DONE; \
+		type HOSTVM_PREFETCH_VFID
 
 #define HUBBUB_RET_REG_FIELD_LIST(type) \
 		type DET_DEPTH;\

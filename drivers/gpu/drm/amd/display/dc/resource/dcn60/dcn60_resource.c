@@ -1962,6 +1962,8 @@ static bool dcn60_resource_construct(
 	struct ddc_service_init_data ddc_init_data = {0};
 	uint32_t pipe_fuses = 0;
 	uint32_t num_pipes  = 4;
+	bool is_lite3 =
+		ASICREV_IS_DCN6_VARIANT_LITE3(ctx->asic_id.hw_internal_rev);
 
 #undef REG_STRUCT
 #define REG_STRUCT bios_regs
@@ -2341,6 +2343,10 @@ static bool dcn60_resource_construct(
 
 	dc->dml2_options.max_segments_per_hubp = 20;
 	dc->dml2_options.det_segment_size = DCN6_0_CRB_SEGMENT_SIZE_KB;
+	if (is_lite3) {
+		dc->dml2_options.gpuvm_enable = true;
+		dc->dml2_options.hostvm_enable = true;
+	}
 
 	/* SPL */
 	dc->caps.scl_caps.sharpener_support = true;

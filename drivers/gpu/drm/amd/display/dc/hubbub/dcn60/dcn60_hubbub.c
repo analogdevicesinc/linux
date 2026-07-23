@@ -18,6 +18,92 @@
 #define FN(reg_name, field_name) \
 	hubbub2->shifts->field_name, hubbub2->masks->field_name
 
+static void dcn60_control_dchvm_gating(const struct hubbub *hubbub, uint32_t disable_gating)
+{
+	const struct dcn20_hubbub *hubbub2 = TO_DCN20_HUBBUB(hubbub);
+
+	if (disable_gating != 0) {
+		REG_UPDATE(DCHVM_MEM_CTRL, HVM_GPUVMRET_FORCE_REQ, 0);
+	}
+
+	REG_UPDATE(DCHVM_MEM_CTRL, HVM_GPUVMRET_PWR_REQ_DIS, disable_gating);
+
+	REG_UPDATE_4(DCHVM_CLK_CTRL,
+		     HVM_DISPCLK_R_GATE_DIS, disable_gating,
+		     HVM_DISPCLK_G_GATE_DIS, disable_gating,
+		     HVM_DCFCLK_R_GATE_DIS, disable_gating,
+		     HVM_DCFCLK_G_GATE_DIS, disable_gating);
+
+	udelay(1);
+}
+
+static void dcn60_dchvm_init(struct hubbub *hubbub)
+{
+	struct dcn20_hubbub *hubbub2 = TO_DCN20_HUBBUB(hubbub);
+	uint32_t riommu_active = 0;
+	uint32_t prefetch_done = 0;
+	unsigned int i;
+
+	/* If already prefetched return early. */
+	REG_GET(DCHVM_RIOMMU_STAT0, HOSTVM_PREFETCH_DONE, &prefetch_done);
+
+	if (prefetch_done) {
+		hubbub->riommu_active = true;
+		return;
+	}
+
+	/* Init DCHVM block. */
+	REG_UPDATE(DCHVM_CTRL0, HOSTVM_INIT_REQ, 1);
+
+	/* Poll until the rIOMMU and main IOMMU are active. */
+	for (i = 0; i < 100u; i++) {
+		REG_GET(DCHVM_RIOMMU_STAT0, RIOMMU_ACTIVE, &riommu_active);
+		if (riommu_active)
+			break;
+
+		udelay(5);
+	}
+
+	if (!riommu_active) {
+		DC_LOG_ERROR("Timed out waiting for DCHVM RIOMMU_ACTIVE\n");
+		return;
+	}
+
+	/* Disable gating and memory power requests. */
+	dcn60_control_dchvm_gating(hubbub, 1);
+
+	/* Select the physical function's host table for the initial prefetch. */
+	REG_UPDATE(DCHVM_PREFETCH_VFID, HOSTVM_PREFETCH_VFID, 1U << 31);
+
+	/* Reflect the power status of DCHUBBUB. */
+	REG_UPDATE(DCHVM_RIOMMU_CTRL0, HOSTVM_POWERSTATUS, 1);
+
+	/* Wait for power status to propagate to rIOMMU before prefetch req.*/
+	udelay(5);
+
+	/* Start rIOMMU prefetching. */
+	REG_UPDATE(DCHVM_RIOMMU_CTRL0, HOSTVM_PREFETCH_REQ, 1);
+
+	/* Poll for prefetch to be done. */
+	REG_WAIT(DCHVM_RIOMMU_STAT0, HOSTVM_PREFETCH_DONE, 1, 5, 100);
+
+	/* Re-enable gating and memory power requests. */
+	dcn60_control_dchvm_gating(hubbub, 0);
+
+	hubbub->riommu_active = true;
+}
+
+static int hubbub60_init_dchub_sys_ctx(struct hubbub *hubbub,
+		struct dcn_hubbub_phys_addr_config *pa_config)
+{
+	int num_vmids = hubbub3_init_dchub_sys_ctx(hubbub, pa_config);
+
+	if (hubbub->funcs->dchvm_init)
+		hubbub->funcs->dchvm_init(hubbub);
+
+	return num_vmids;
+}
+
 static void dcn60_init_crb(struct hubbub *hubbub)
 {
 	struct dcn20_hubbub *hubbub2 = TO_DCN20_HUBBUB(hubbub);
@@ -1752,7 +1838,7 @@ static void hubbub60_override_utm_client_qc_profile(struct hubbub *hubbub, uint8
 
 static const struct hubbub_funcs hubbub60_funcs = {
 	.update_dchub = hubbub2_update_dchub,
-	.init_dchub_sys_ctx = hubbub3_init_dchub_sys_ctx,
+	.init_dchub_sys_ctx = hubbub60_init_dchub_sys_ctx,
 	.init_vm_ctx = hubbub2_init_vm_ctx,
 	.dcc_support_swizzle_addr3 = hubbub401_dcc_support_swizzle,
 	.dcc_support_pixel_format_plane0_plane1 =
@@ -1768,6 +1854,7 @@ static const struct hubbub_funcs hubbub60_funcs = {
 	.force_pstate_change_control = hubbub3_force_pstate_change_control,
 	.init_watermarks = hubbub60_init_watermarks,
 	.init_crb = dcn60_init_crb,
+	.dchvm_init = dcn60_dchvm_init,
 	.hubbub_read_state = hubbub2_read_state,
 	.force_usr_retraining_allow = NULL,
 	.set_request_limit = hubbub32_set_request_limit,
