@@ -1404,6 +1404,65 @@ static void dm_test_crtc_duplicate_state_copies_fields(struct kunit *test)
 	amdgpu_dm_crtc_destroy_state(crtc, dup);
 }
 
+/**
+ * dm_test_crtc_duplicate_state_retains_stream - Test duplicate retains the stream
+ * @test: The KUnit test context
+ *
+ * When the current CRTC state carries a DC stream, duplicating the state must
+ * copy the stream pointer and take an additional reference on it. Destroying
+ * the duplicate then drops that reference back to the KUnit-managed one.
+ */
+static void dm_test_crtc_duplicate_state_retains_stream(struct kunit *test)
+{
+	struct dc_stream_state *stream;
+	struct drm_crtc *crtc;
+	struct dm_crtc_state *cur;
+	struct drm_crtc_state *dup;
+	struct dm_crtc_state *dm_dup;
+	struct dc_link *link;
+
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	cur = kunit_kzalloc(test, sizeof(*cur), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, cur);
+
+	link = dm_kunit_alloc_link(test);
+	stream = dm_kunit_alloc_stream(test, link);
+
+	cur->stream = stream;
+	crtc->state = &cur->base;
+
+	dup = amdgpu_dm_crtc_duplicate_state(crtc);
+	KUNIT_ASSERT_NOT_NULL(test, dup);
+
+	dm_dup = to_dm_crtc_state(dup);
+	KUNIT_EXPECT_PTR_EQ(test, dm_dup->stream, stream);
+	/* The duplicate took a second reference on top of the managed one. */
+	KUNIT_EXPECT_EQ(test, kref_read(&stream->refcount), 2);
+
+	/* Destroying the duplicate drops back to the KUnit-managed reference. */
+	amdgpu_dm_crtc_destroy_state(crtc, dup);
+	KUNIT_EXPECT_EQ(test, kref_read(&stream->refcount), 1);
+}
+
+/**
+ * dm_test_crtc_duplicate_state_null_state_returns_null - Test guard on missing state
+ * @test: The KUnit test context
+ *
+ * Duplicating a CRTC whose current state is NULL must trip the WARN_ON guard
+ * and return NULL without allocating a new state.
+ */
+static void dm_test_crtc_duplicate_state_null_state_returns_null(struct kunit *test)
+{
+	struct drm_crtc *crtc;
+
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	crtc->state = NULL;
+
+	KUNIT_EXPECT_NULL(test, amdgpu_dm_crtc_duplicate_state(crtc));
+}
+
 /* Tests for amdgpu_dm_crtc_reset_state() */
 
 /**
@@ -1907,6 +1966,8 @@ static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	KUNIT_CASE(dm_test_count_crtc_active_planes_mixed),
 	/* amdgpu_dm_crtc_duplicate_state */
 	KUNIT_CASE(dm_test_crtc_duplicate_state_copies_fields),
+	KUNIT_CASE(dm_test_crtc_duplicate_state_retains_stream),
+	KUNIT_CASE(dm_test_crtc_duplicate_state_null_state_returns_null),
 	/* amdgpu_dm_crtc_reset_state */
 	KUNIT_CASE(dm_test_crtc_reset_state_allocates_state),
 	/* amdgpu_dm_crtc_destroy_state */
