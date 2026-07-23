@@ -720,10 +720,8 @@ static int qcom_smp2p_probe(struct platform_device *pdev)
 					NULL, qcom_smp2p_intr,
 					IRQF_ONESHOT,
 					NULL, (void *)smp2p);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to request interrupt\n");
+	if (ret)
 		goto unwind_interfaces;
-	}
 
 	/*
 	 * Treat smp2p interrupt as wakeup source, but keep it disabled
