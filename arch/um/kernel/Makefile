@@ -20,6 +20,9 @@ obj-y = config.o exec.o exitcode.o irq.o ksyms.o mem.o \
 	um_arch.o umid.o kmsg_dump.o capflags.o skas/
 obj-y += load_file.o
 obj-$(CONFIG_MMU) += mem-pgtable.o tlb.o trap-mmu.o
+ifneq ($(CONFIG_MMU),y)
+obj-y += trap-nommu.o
+endif
 
 obj-$(CONFIG_BLK_DEV_INITRD) += initrd.o
 obj-$(CONFIG_GPROF)	+= gprof_syms.o

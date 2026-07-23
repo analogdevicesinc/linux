@@ -6,6 +6,9 @@
 obj-y := stub.o process.o syscall.o \
 	 stub_exe_embed.o
 obj-$(CONFIG_MMU) += mmu.o uaccess.o
+ifneq ($(CONFIG_MMU),y)
+obj-y += nommu.o
+endif
 
 # Stub executable
 
