@@ -2419,7 +2419,7 @@ void dcn5_calculate_tdlut_setting(
 	else
 		tdlut_footprint_bytes = tdlut_pitch_bytes;
 
-	if (!p->gpuvm_enable) {
+	if (!p->gpuvm_enable || vmpg_bytes == 0) {
 		tdlut_vmpg_per_frame = 0;
 		tdlut_pte_req_per_frame = 0;
 	} else {
