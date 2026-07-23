@@ -503,8 +503,9 @@ is ignored and a new one is requested.
    ~/linux
    $ podman run \
        --secret public_linux_runner_token,type=env,target=runner_token \
-       --env org_repository=analogdevicesinc/linux \
-       --env runner_labels=repo-only,big_cpu \
+       --env owner_repository=analogdevicesinc/linux \
+       --env runner_labels=self-hosted,repo-only,big_cpu \
+       --entrypoint /usr/local/bin/entrypoint.sh \
        adi/linux
 
 .. collapsible:: Docker alternative
@@ -518,8 +519,9 @@ is ignored and a new one is requested.
       ~/linux
       $ docker run \
           --env public_linux_runner_token=$(gpg --quiet --batch --decrypt /run/secrets/public_linux_runner_token.gpg) \
-          --env org_repository=analogdevicesinc/linux \
-          --env runner_labels=repo-only,big_cpu \
+          --env owner_repository=analogdevicesinc/linux \
+          --env runner_labels=self-hosted,repo-only,big_cpu \
+          --entrypoint /usr/local/bin/entrypoint.sh \
           localhost/adi/linux
 
 The environment variable runner_labels (comma-separated), set the runner labels.
@@ -582,9 +584,9 @@ Below is a suggested systemd service at
    [Service]
    Restart=on-success
    ExecStart=/usr/local/bin/entrypoint.sh
-   Environment="version=latest"
-   Environment="name_label=%i"
-   Environment="org_repository=analogdevicesinc/linux"
+   Environment="owner_repository=analogdevicesinc/linux"
+   Environment="runner_name=adi-linux-%q-%i"
+   Environment="runner_labels=self-hosted,repo-only,v4"
    Environment="HOME=/home/runner"
    Environment="USER=runner"
    Environment="LOGNAME=runner"
