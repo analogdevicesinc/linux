@@ -10,6 +10,7 @@
 #include <drm/drm_connector.h>
 #include <drm/drm_kunit_helpers.h>
 #include <drm/drm_vblank.h>
+#include <linux/debugfs.h>
 
 #include "dc.h"
 #include "inc/core_types.h"
@@ -1990,6 +1991,33 @@ static void dm_test_crtc_disable_vblank_queues_work(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, adev->dm.active_vblank_irq_count, 1);
 }
 
+#ifdef CONFIG_DEBUG_FS
+/**
+ * dm_test_crtc_late_register_inits_debugfs - Test late_register succeeds
+ * @test: The KUnit test context
+ *
+ * amdgpu_dm_crtc_late_register populates the CRTC's debugfs entries via
+ * crtc_debugfs_init and must return 0. Provide a debugfs parent so the
+ * helper attaches its files there, then tear it down.
+ */
+static void dm_test_crtc_late_register_inits_debugfs(struct kunit *test)
+{
+	struct drm_crtc *crtc;
+	int ret;
+
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+
+	crtc->debugfs_entry = debugfs_create_dir("dm_test_crtc", NULL);
+
+	ret = amdgpu_dm_crtc_late_register(crtc);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+
+	debugfs_remove_recursive(crtc->debugfs_entry);
+}
+#endif
+
 static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	/* amdgpu_dm_crtc_modeset_required */
 	KUNIT_CASE(dm_test_crtc_modeset_required_active_mode_changed),
@@ -2071,6 +2099,10 @@ static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	KUNIT_CASE(dm_test_crtc_disable_vblank_no_irq_installed),
 	KUNIT_CASE(dm_test_crtc_disable_vblank_vrr),
 	KUNIT_CASE(dm_test_crtc_disable_vblank_queues_work),
+#ifdef CONFIG_DEBUG_FS
+	/* amdgpu_dm_crtc_late_register */
+	KUNIT_CASE(dm_test_crtc_late_register_inits_debugfs),
+#endif
 	{}
 };
 

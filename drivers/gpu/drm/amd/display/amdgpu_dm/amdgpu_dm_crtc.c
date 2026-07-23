@@ -492,12 +492,13 @@ STATIC_IFN_KUNIT void amdgpu_dm_crtc_reset_state(struct drm_crtc *crtc)
 EXPORT_IF_KUNIT(amdgpu_dm_crtc_reset_state);
 
 #ifdef CONFIG_DEBUG_FS
-static int amdgpu_dm_crtc_late_register(struct drm_crtc *crtc)
+STATIC_IFN_KUNIT int amdgpu_dm_crtc_late_register(struct drm_crtc *crtc)
 {
 	crtc_debugfs_init(crtc);
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_crtc_late_register);
 #endif
 
 #ifdef AMD_PRIVATE_COLOR
