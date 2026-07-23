@@ -463,7 +463,7 @@ STATIC_IFN_KUNIT struct drm_crtc_state *amdgpu_dm_crtc_duplicate_state(struct dr
 }
 EXPORT_IF_KUNIT(amdgpu_dm_crtc_duplicate_state);
 
-static void amdgpu_dm_crtc_destroy(struct drm_crtc *crtc)
+STATIC_IFN_KUNIT void amdgpu_dm_crtc_destroy(struct drm_crtc *crtc)
 {
 	/*
 	 * amdgpu_dm_ism_fini() is intentionally called in amdgpu_dm_fini().
@@ -474,6 +474,7 @@ static void amdgpu_dm_crtc_destroy(struct drm_crtc *crtc)
 	drm_crtc_cleanup(crtc);
 	kfree(crtc);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_crtc_destroy);
 
 STATIC_IFN_KUNIT void amdgpu_dm_crtc_reset_state(struct drm_crtc *crtc)
 {

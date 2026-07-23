@@ -1463,6 +1463,47 @@ static void dm_test_crtc_duplicate_state_null_state_returns_null(struct kunit *t
 	KUNIT_EXPECT_NULL(test, amdgpu_dm_crtc_duplicate_state(crtc));
 }
 
+/* Tests for amdgpu_dm_crtc_destroy() */
+
+/**
+ * dm_test_crtc_destroy_cleans_up_and_frees - Test destroy tears down the CRTC
+ * @test: The KUnit test context
+ *
+ * amdgpu_dm_crtc_destroy() is the drm_crtc .destroy callback: it must run
+ * drm_crtc_cleanup() and free the CRTC. Initialise a CRTC with a primary plane
+ * so it is registered on the device (num_crtc == 1), then destroy it and verify
+ * the CRTC was unregistered (num_crtc back to 0). The CRTC is a plain (unmanaged)
+ * allocation because amdgpu_dm_crtc_destroy() kfree()s it.
+ */
+static void dm_test_crtc_destroy_cleans_up_and_frees(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct drm_plane *plane;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+
+	plane = drm_kunit_helper_create_primary_plane(test, &adev->ddev,
+						      NULL, NULL, NULL, 0, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane);
+
+	/* amdgpu_dm_crtc_destroy() kfree()s the CRTC, so use a plain alloc. */
+	acrtc = kzalloc_obj(*acrtc, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+
+	ret = drm_crtc_init_with_planes(&adev->ddev, &acrtc->base, plane,
+					NULL, &dm_test_crtc_funcs, NULL);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.num_crtc, 1);
+
+	amdgpu_dm_crtc_destroy(&acrtc->base);
+
+	/* drm_crtc_cleanup() ran: the CRTC was unregistered from the device. */
+	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.num_crtc, 0);
+}
+
 /* Tests for amdgpu_dm_crtc_reset_state() */
 
 /**
@@ -1968,6 +2009,8 @@ static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	KUNIT_CASE(dm_test_crtc_duplicate_state_copies_fields),
 	KUNIT_CASE(dm_test_crtc_duplicate_state_retains_stream),
 	KUNIT_CASE(dm_test_crtc_duplicate_state_null_state_returns_null),
+	/* amdgpu_dm_crtc_destroy */
+	KUNIT_CASE(dm_test_crtc_destroy_cleans_up_and_frees),
 	/* amdgpu_dm_crtc_reset_state */
 	KUNIT_CASE(dm_test_crtc_reset_state_allocates_state),
 	/* amdgpu_dm_crtc_destroy_state */
