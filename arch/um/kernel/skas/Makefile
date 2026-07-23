@@ -3,8 +3,9 @@
 # Copyright (C) 2002 - 2007 Jeff Dike (jdike@{addtoit,linux.intel}.com)
 #
 
-obj-y := stub.o mmu.o process.o syscall.o uaccess.o \
+obj-y := stub.o process.o syscall.o \
 	 stub_exe_embed.o
+obj-$(CONFIG_MMU) += mmu.o uaccess.o
 
 # Stub executable
 
