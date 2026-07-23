@@ -241,6 +241,7 @@ _get_artifact () {
 
 	[[ "$url" == "null" ]] && return
 	[[ "$url" =~ $git_sha/adi_ci_defconfig- ]] && return
+	[[ "$url" = *-devel ]] && return
 	[[ "$url" = *-headers ]] && return
 
 	name=$(basename "$url")
