@@ -1531,6 +1531,48 @@ static void dm_test_crtc_reset_state_allocates_state(struct kunit *test)
 		amdgpu_dm_crtc_destroy_state(crtc, crtc->state);
 }
 
+/**
+ * dm_test_crtc_reset_state_replaces_existing - Test reset frees the old state
+ * @test: The KUnit test context
+ *
+ * Resetting a CRTC that already carries a state must destroy the existing
+ * state before installing a fresh one. The old state holds a stream reference,
+ * so a successful reset drops that reference (via amdgpu_dm_crtc_destroy_state)
+ * and leaves the CRTC with a new, non-NULL state.
+ */
+static void dm_test_crtc_reset_state_replaces_existing(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_stream_state *stream;
+	struct dm_crtc_state *old;
+	struct drm_crtc *crtc;
+	struct dc_link *link;
+
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	crtc->dev = &adev->ddev;
+
+	link = dm_kunit_alloc_link(test);
+	stream = dm_kunit_alloc_stream(test, link);
+	/* Extra ref so destroying the old state drops back to the managed one. */
+	kref_get(&stream->refcount);
+
+	/* reset_state kfree()s the old state, so use a plain (unmanaged) alloc. */
+	old = kzalloc_obj(*old, GFP_KERNEL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, old);
+	old->stream = stream;
+	crtc->state = &old->base;
+
+	amdgpu_dm_crtc_reset_state(crtc);
+
+	/* Old state was destroyed (stream ref dropped) and a new one installed. */
+	KUNIT_EXPECT_EQ(test, kref_read(&stream->refcount), 1);
+	KUNIT_EXPECT_NOT_NULL(test, crtc->state);
+
+	if (crtc->state)
+		amdgpu_dm_crtc_destroy_state(crtc, crtc->state);
+}
+
 /* Tests for amdgpu_dm_crtc_destroy_state() */
 
 /**
@@ -2013,6 +2055,7 @@ static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	KUNIT_CASE(dm_test_crtc_destroy_cleans_up_and_frees),
 	/* amdgpu_dm_crtc_reset_state */
 	KUNIT_CASE(dm_test_crtc_reset_state_allocates_state),
+	KUNIT_CASE(dm_test_crtc_reset_state_replaces_existing),
 	/* amdgpu_dm_crtc_destroy_state */
 	KUNIT_CASE(dm_test_crtc_destroy_state_no_stream),
 	KUNIT_CASE(dm_test_crtc_destroy_state_releases_stream),
