@@ -2018,6 +2018,124 @@ static void dm_test_crtc_late_register_inits_debugfs(struct kunit *test)
 }
 #endif
 
+/* Tests for amdgpu_dm_crtc_init() */
+
+/**
+ * dm_test_crtc_init_registers_crtc - Test amdgpu_dm_crtc_init success path
+ * @test: The KUnit test context
+ *
+ * amdgpu_dm_crtc_init allocates an amdgpu_crtc, wires it up with the primary
+ * and a new cursor plane, resets its state, and records it in mode_info. It
+ * must return 0, register the CRTC with the DRM device, and initialize the
+ * CRTC's identifying fields and cursor size limits.
+ */
+static void dm_test_crtc_init_registers_crtc(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct drm_plane *cursor;
+	struct drm_plane *plane;
+	struct dc *dc;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
+	dc->caps.max_cursor_size = 256;
+
+	adev->dm.adev = adev;
+	adev->dm.ddev = &adev->ddev;
+	adev->dm.dc = dc;
+
+	plane = drm_kunit_helper_create_primary_plane(test, &adev->ddev,
+						      NULL, NULL, NULL, 0, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane);
+
+	ret = amdgpu_dm_crtc_init(&adev->dm, plane, 0);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.num_crtc, 1);
+
+	acrtc = adev->mode_info.crtcs[0];
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	KUNIT_EXPECT_EQ(test, acrtc->crtc_id, 0);
+	KUNIT_EXPECT_EQ(test, acrtc->otg_inst, -1);
+	KUNIT_EXPECT_FALSE(test, acrtc->base.enabled);
+	KUNIT_EXPECT_EQ(test, acrtc->max_cursor_width, 256);
+	KUNIT_EXPECT_EQ(test, acrtc->max_cursor_height, 256);
+
+	/*
+	 * Clean up the objects created inside amdgpu_dm_crtc_init(): free the
+	 * reset-installed CRTC state, destroy the CRTC (which kfree()s it), then
+	 * destroy the cursor plane it allocated.
+	 */
+	cursor = acrtc->base.cursor;
+	if (acrtc->base.state) {
+		amdgpu_dm_crtc_destroy_state(&acrtc->base, acrtc->base.state);
+		acrtc->base.state = NULL;
+	}
+	amdgpu_dm_crtc_destroy(&acrtc->base);
+	if (cursor)
+		cursor->funcs->destroy(cursor);
+}
+
+/**
+ * dm_test_crtc_init_enables_degamma - Test amdgpu_dm_crtc_init degamma path
+ * @test: The KUnit test context
+ *
+ * When the DPP reports a DCN architecture (and the ASIC is not DCN 4.01),
+ * amdgpu_dm_crtc_init must enable the DRM CRTC degamma LUT. Exercise that
+ * has_degamma == true branch and confirm the CRTC is still initialized and
+ * registered successfully.
+ */
+static void dm_test_crtc_init_enables_degamma(struct kunit *test)
+{
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct drm_plane *cursor;
+	struct drm_plane *plane;
+	struct dc *dc;
+	int ret;
+
+	adev = dm_kunit_alloc_adev(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+
+	dc = dm_kunit_alloc_dc_with_ctx(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
+	/* DCN DPP with a non-4.01 ASIC selects the degamma-enabled path. */
+	dc->caps.color.dpp.dcn_arch = 1;
+	dc->ctx->dce_version = DCN_VERSION_3_0;
+
+	adev->dm.adev = adev;
+	adev->dm.ddev = &adev->ddev;
+	adev->dm.dc = dc;
+
+	plane = drm_kunit_helper_create_primary_plane(test, &adev->ddev,
+						      NULL, NULL, NULL, 0, NULL);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane);
+
+	ret = amdgpu_dm_crtc_init(&adev->dm, plane, 0);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_EQ(test, adev->ddev.mode_config.num_crtc, 1);
+
+	acrtc = adev->mode_info.crtcs[0];
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	KUNIT_EXPECT_EQ(test, acrtc->otg_inst, -1);
+
+	/* Free the reset state, destroy the CRTC, then the cursor plane. */
+	cursor = acrtc->base.cursor;
+	if (acrtc->base.state) {
+		amdgpu_dm_crtc_destroy_state(&acrtc->base, acrtc->base.state);
+		acrtc->base.state = NULL;
+	}
+	amdgpu_dm_crtc_destroy(&acrtc->base);
+	if (cursor)
+		cursor->funcs->destroy(cursor);
+}
+
 static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	/* amdgpu_dm_crtc_modeset_required */
 	KUNIT_CASE(dm_test_crtc_modeset_required_active_mode_changed),
@@ -2103,6 +2221,9 @@ static struct kunit_case amdgpu_dm_crtc_tests[] = {
 	/* amdgpu_dm_crtc_late_register */
 	KUNIT_CASE(dm_test_crtc_late_register_inits_debugfs),
 #endif
+	/* amdgpu_dm_crtc_init */
+	KUNIT_CASE(dm_test_crtc_init_registers_crtc),
+	KUNIT_CASE(dm_test_crtc_init_enables_degamma),
 	{}
 };
 

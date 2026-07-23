@@ -822,4 +822,5 @@ fail:
 	kfree(cursor_plane);
 	return res;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_crtc_init);
 
