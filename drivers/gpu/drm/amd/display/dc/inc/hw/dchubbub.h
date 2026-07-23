@@ -253,6 +253,7 @@ struct hubbub_funcs {
 	void (*wait_for_det_update)(struct hubbub *hubbub, int hubp_inst);
 	bool (*program_arbiter)(struct hubbub *hubbub, struct dml2_display_arb_regs *arb_regs, bool safe_to_lower);
 	void (*dchvm_init)(struct hubbub *hubbub);
+	void (*override_utm_client_qc_profile)(struct hubbub *hubbub, uint8_t qc_profile, int index);
 
 	/* Performance monitoring related functions */
 	struct hubbub_perfmon_funcs {

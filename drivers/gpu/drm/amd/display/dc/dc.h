@@ -1321,6 +1321,8 @@ struct dc_debug_options {
 	bool disable_dynamic_expansion_for_test_pattern;
 	uint32_t dml21_custom_derate_num_dpms;
 	uint32_t dml21_custom_derate_at_dpm[DML2_MAX_NUM_DPM_LVL];
+	bool override_utm_client_qc_profile;
+	uint8_t utm_client_qc_profiles[4];
 };
 
 

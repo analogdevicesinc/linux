@@ -1730,6 +1730,26 @@ static void hubbub60_reset_display_qos_profile(struct hubbub *hubbub)
 	REG_UPDATE(DCHUBBUB_ARB_QOS_FORCE, DCHUBBUB_ARB_UTM_FORCE_URGENT, 0);
 }
 
+static void hubbub60_override_utm_client_qc_profile(struct hubbub *hubbub, uint8_t qc_profile, int index)
+{
+	struct dcn20_hubbub *hubbub2 = TO_DCN20_HUBBUB(hubbub);
+
+	switch (index) {
+	case 0:
+		REG_UPDATE(UTM_CLIENT_TO_SYSTEM_PROFILE_MAPPING_0, SYSTEM_PROFILE_QC0, qc_profile);
+		break;
+	case 1:
+		REG_UPDATE(UTM_CLIENT_TO_SYSTEM_PROFILE_MAPPING_0, SYSTEM_PROFILE_QC1, qc_profile);
+		break;
+	case 2:
+		REG_UPDATE(UTM_CLIENT_TO_SYSTEM_PROFILE_MAPPING_0, SYSTEM_PROFILE_QC2, qc_profile);
+		break;
+	default:
+		BREAK_TO_DEBUGGER();
+		break;
+	}
+}
+
 static const struct hubbub_funcs hubbub60_funcs = {
 	.update_dchub = hubbub2_update_dchub,
 	.init_dchub_sys_ctx = hubbub3_init_dchub_sys_ctx,
@@ -1755,6 +1775,7 @@ static const struct hubbub_funcs hubbub60_funcs = {
 	.program_compbuf_segments = dcn60_program_compbuf_segments,
 	.wait_for_det_update = dcn60_wait_for_det_update,
 	.program_arbiter = dcn401_program_arbiter,
+	.override_utm_client_qc_profile = hubbub60_override_utm_client_qc_profile,
 	.hubbub_read_reg_state = hubbub3_read_reg_state,
 	.perfmon = {
 		.reset = hubbub60_perfmon_reset,

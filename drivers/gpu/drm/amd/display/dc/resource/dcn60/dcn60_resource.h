@@ -140,7 +140,8 @@ bool dcn50_program_mcache_pipe_config(struct dc_state *context,
 	SR(DC_PERFMON5_PERFMON_HI),                                              \
 	SR(DC_PERFMON5_PERFMON_LOW),                                             \
 	SR(FMON_CTRL),                                                           \
-	SR(DCHUBBUB_ARB_QOS_FORCE)
+	SR(DCHUBBUB_ARB_QOS_FORCE),                                              \
+	SR(UTM_CLIENT_TO_SYSTEM_PROFILE_MAPPING_0)
 
 /* HUBP */
 #define HUBP_REG_LIST_DCN60_RI(id)                                               \

@@ -753,6 +753,12 @@ void dcn60_init_hw(struct dc *dc)
 	if (dc->res_pool->hubbub->funcs->set_request_limit && dc->config.sdpif_request_limit_words_per_umc > 0)
 		dc->res_pool->hubbub->funcs->set_request_limit(dc->res_pool->hubbub, dc->ctx->dc_bios->vram_info.num_chans, dc->config.sdpif_request_limit_words_per_umc);
 
+	if (dc->res_pool->hubbub->funcs->override_utm_client_qc_profile && dc->debug.override_utm_client_qc_profile) {
+		dc->res_pool->hubbub->funcs->override_utm_client_qc_profile(dc->res_pool->hubbub, dc->debug.utm_client_qc_profiles[0], 0);
+		dc->res_pool->hubbub->funcs->override_utm_client_qc_profile(dc->res_pool->hubbub, dc->debug.utm_client_qc_profiles[1], 1);
+		dc->res_pool->hubbub->funcs->override_utm_client_qc_profile(dc->res_pool->hubbub, dc->debug.utm_client_qc_profiles[2], 2);
+	}
+
 	// Get DMCUB capabilities
 	if (dc->ctx->dmub_srv) {
 		dc_dmub_srv_query_caps_cmd(dc->ctx->dmub_srv);
