@@ -20,7 +20,6 @@ struct dml2_soc_derate_values {
 
 struct dml2_soc_derates {
 	struct dml2_soc_derate_values system_active_urgent;
-	struct dml2_soc_derate_values system_active_average;
 	struct dml2_soc_derate_values dcn_mall_prefetch_urgent;
 	struct dml2_soc_derate_values dcn_mall_prefetch_average;
 	struct dml2_soc_derate_values system_idle_average;
@@ -71,8 +70,22 @@ enum dml2_qos_param_type {
 	dml2_qos_param_type_dcn4x
 };
 
-//Indicies mapped to DPM level
-// Unpopulated indicies should fallback to the global derate value.
+// Per-DPM derate structure: each element pairs a derate percentage with its clock threshold
+// Requirements:
+// - Index 0 must always be populated (the base/default derate)
+// - Last populated entry must have clk_upperbound_threshold_khz = 0
+// - All clock arrays within a power state should have the same number of entries
+// - If a non-zero DPM index has derate_percent = 0, fall back to index 0
+// Unpopulated derates should fallback to the global derate value.
+// Each element pairs a derate percentage with its threshold
+struct dml2_soc_derate_values_per_dpm_v2 {
+	unsigned int derate_percent;
+	unsigned int clk_upperbound_threshold_khz;
+};
+
+// Legacy structure - for backward compatibility as driver debug values can override the values. (will temporarily break driver overrides)
+// Per-DPM derate arrays for system_active_average (the only power state that varies by DPM)
+// Urgent derates are constant across DPMs and come from derate_table.system_active_urgent
 struct dml2_soc_derate_values_per_dpm {
 	unsigned int dram_derate_percent_pixel[DML_MAX_CLK_TABLE_SIZE];
 	unsigned int fclk_derate_percent[DML_MAX_CLK_TABLE_SIZE];
@@ -80,12 +93,31 @@ struct dml2_soc_derate_values_per_dpm {
 };
 
 struct dml2_soc_derates_per_dpm {
-	struct dml2_soc_derate_values_per_dpm system_active_derates_per_dpm;
+	// Union allows both layouts to coexist without increasing struct size
+	// Anonymous structs allow direct member access without .v1 or .v2 prefix
+	union {
+		// Legacy layout - used by soc_and_ip_translator (unchanged access pattern)
+		// TODO: Remove after soc_and_ip_translator migration is complete
+		struct {
+			struct dml2_soc_derate_values_per_dpm system_active_derates_per_dpm;
+			unsigned int min_uclk_khz_threshold[DML_MAX_CLK_TABLE_SIZE];
+			unsigned int min_fclk_khz_threshold[DML_MAX_CLK_TABLE_SIZE];
+			unsigned int min_dcfclk_khz_threshold[DML_MAX_CLK_TABLE_SIZE];
+		};
+
+		// New layout - used by DML internally
+		// Arrays of derate/threshold pairs, one per DPM level
+		struct {
+			struct dml2_soc_derate_values_per_dpm_v2 dram_per_dpm_derate_pixel[DML_MAX_CLK_TABLE_SIZE];
+			struct dml2_soc_derate_values_per_dpm_v2 fclk_per_dpm_derate[DML_MAX_CLK_TABLE_SIZE];
+			struct dml2_soc_derate_values_per_dpm_v2 dcfclk_per_dpm_derate[DML_MAX_CLK_TABLE_SIZE];
+		};
+	};
 };
 
 struct dml2_soc_qos_parameters {
-	struct dml2_soc_derates derate_table;
-	struct dml2_soc_derates_per_dpm derate_table_per_dpm;
+	struct dml2_soc_derates derate_table; // Single-value derates (source of truth for urgent, idle, mall_prefetch)
+	struct dml2_soc_derates_per_dpm derate_table_per_dpm; // Per-DPM derates for system_active_average only
 	struct {
 		unsigned int base_latency_us;
 		unsigned int scaling_factor_us;

@@ -2739,16 +2739,15 @@ static double dml_get_return_bandwidth_available(
 			derate_fabric_factor = soc->qos_parameters.derate_table.dcn_mall_prefetch_average.fclk_derate_percent / 100.0;
 			derate_dram_factor = soc->qos_parameters.derate_table.dcn_mall_prefetch_average.dram_derate_percent_pixel / 100.0;
 		} else { // just assume sys_active
-			// use per dpm derates if the values are populated. Otherwise use global derates
-			derate_sdp_factor = soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.dcfclk_derate_percent[uclk_dpm_level] != 0 ?
-				soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.dcfclk_derate_percent[uclk_dpm_level] / 100.0 :
-				soc->qos_parameters.derate_table.system_active_average.dcfclk_derate_percent / 100.0;
-			derate_fabric_factor = soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.fclk_derate_percent[uclk_dpm_level] != 0 ?
-				soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.fclk_derate_percent[uclk_dpm_level] / 100.0 :
-				soc->qos_parameters.derate_table.system_active_average.fclk_derate_percent / 100.0;
-			derate_dram_factor = soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.dram_derate_percent_pixel[uclk_dpm_level] != 0 ?
-				soc->qos_parameters.derate_table_per_dpm.system_active_derates_per_dpm.dram_derate_percent_pixel[uclk_dpm_level] / 100.0 :
-				soc->qos_parameters.derate_table.system_active_average.dram_derate_percent_pixel / 100.0;
+			derate_sdp_factor = (soc->qos_parameters.derate_table_per_dpm.dcfclk_per_dpm_derate[uclk_dpm_level].derate_percent != 0 ?
+				soc->qos_parameters.derate_table_per_dpm.dcfclk_per_dpm_derate[uclk_dpm_level].derate_percent :
+				soc->qos_parameters.derate_table_per_dpm.dcfclk_per_dpm_derate[0].derate_percent) / 100.0;
+			derate_fabric_factor = (soc->qos_parameters.derate_table_per_dpm.fclk_per_dpm_derate[uclk_dpm_level].derate_percent != 0 ?
+				soc->qos_parameters.derate_table_per_dpm.fclk_per_dpm_derate[uclk_dpm_level].derate_percent :
+				soc->qos_parameters.derate_table_per_dpm.fclk_per_dpm_derate[0].derate_percent) / 100.0;
+			derate_dram_factor = (soc->qos_parameters.derate_table_per_dpm.dram_per_dpm_derate_pixel[uclk_dpm_level].derate_percent != 0 ?
+				soc->qos_parameters.derate_table_per_dpm.dram_per_dpm_derate_pixel[uclk_dpm_level].derate_percent :
+				soc->qos_parameters.derate_table_per_dpm.dram_per_dpm_derate_pixel[0].derate_percent) / 100.0;
 		}
 	} else { // urgent bw
 		if (state_type == dml2_core_internal_soc_state_svp_prefetch) {

@@ -246,6 +246,7 @@ struct dml2_dpmm_map_mode_to_soc_dpm_params_in_out {
 	* Output
 	*/
 	struct dml2_display_cfg_programming *programming;
+	int derate_dpm_index;
 };
 
 struct dml2_dpmm_map_watermarks_params_in_out {
