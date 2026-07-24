@@ -6209,6 +6209,7 @@ F:	include/dt-bindings/sound/cs*
 F:	include/linux/mfd/cs42l43*
 F:	include/sound/cs*
 F:	sound/hda/codecs/cirrus*
+F:	sound/hda/codecs/side-codecs/cirrus*
 F:	sound/hda/codecs/side-codecs/cs*
 F:	sound/hda/codecs/side-codecs/hda_component*
 F:	sound/soc/codecs/cs*
@@ -14191,6 +14192,7 @@ F:	virt/kvm/*
 KERNEL VIRTUAL MACHINE FOR ARM64 (KVM/arm64)
 M:	Marc Zyngier <maz@kernel.org>
 M:	Oliver Upton <oupton@kernel.org>
+R:	Fuad Tabba <tabba@google.com>
 R:	Joey Gouly <joey.gouly@arm.com>
 R:	Steffen Eiden <seiden@linux.ibm.com>
 R:	Suzuki K Poulose <suzuki.poulose@arm.com>
