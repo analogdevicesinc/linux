@@ -13,6 +13,7 @@
 #include <linux/iio/sysfs.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/unaligned.h>
@@ -81,6 +82,7 @@
 #define ADXL367_SAMPLES_L_MASK		GENMASK(7, 0)
 
 #define ADXL367_REG_INT1_MAP		0x2A
+#define ADXL367_REG_INT2_MAP		0x2B
 #define ADXL367_INT_INACT_MASK		BIT(5)
 #define ADXL367_INT_ACT_MASK		BIT(4)
 #define ADXL367_INT_FIFO_WATERMARK_MASK	BIT(2)
@@ -167,6 +169,8 @@ struct adxl367_state {
 
 	enum adxl367_odr	odr;
 	enum adxl367_range	range;
+
+	u8		int_map_reg;
 
 	unsigned int	act_threshold;
 	unsigned int	act_time_ms;
@@ -366,7 +370,7 @@ static int adxl367_set_act_interrupt_en(struct adxl367_state *st,
 {
 	unsigned int mask = adxl367_act_int_mask_tbl[act];
 
-	return regmap_update_bits(st->regmap, ADXL367_REG_INT1_MAP,
+	return regmap_update_bits(st->regmap, st->int_map_reg,
 				  mask, en ? mask : 0);
 }
 
@@ -378,7 +382,7 @@ static int adxl367_get_act_interrupt_en(struct adxl367_state *st,
 	unsigned int val;
 	int ret;
 
-	ret = regmap_read(st->regmap, ADXL367_REG_INT1_MAP, &val);
+	ret = regmap_read(st->regmap, st->int_map_reg, &val);
 	if (ret)
 		return ret;
 
@@ -401,7 +405,7 @@ static int adxl367_set_act_en(struct adxl367_state *st,
 static int adxl367_set_fifo_watermark_interrupt_en(struct adxl367_state *st,
 						   bool en)
 {
-	return regmap_update_bits(st->regmap, ADXL367_REG_INT1_MAP,
+	return regmap_update_bits(st->regmap, st->int_map_reg,
 				  ADXL367_INT_FIFO_WATERMARK_MASK,
 				  en ? ADXL367_INT_FIFO_WATERMARK_MASK : 0);
 }
@@ -1426,6 +1430,31 @@ static int adxl367_setup(struct adxl367_state *st)
 	return adxl367_set_measure_en(st, true);
 }
 
+static int adxl367_set_int_map_reg(struct adxl367_state *st)
+{
+	int irq;
+
+	irq = fwnode_irq_get_byname(dev_fwnode(st->dev), "INT1");
+	if (irq == -EPROBE_DEFER)
+		return irq;
+	if (irq > 0) {
+		st->int_map_reg = ADXL367_REG_INT1_MAP;
+		return 0;
+	}
+
+	irq = fwnode_irq_get_byname(dev_fwnode(st->dev), "INT2");
+	if (irq == -EPROBE_DEFER)
+		return irq;
+	if (irq > 0) {
+		st->int_map_reg = ADXL367_REG_INT2_MAP;
+		return 0;
+	}
+
+	/* No interrupt-names: default to INT1 for backwards compatibility. */
+	st->int_map_reg = ADXL367_REG_INT1_MAP;
+	return 0;
+}
+
 int adxl367_probe(struct device *dev, const struct adxl367_ops *ops,
 		  void *context, struct regmap *regmap, int irq)
 {
@@ -1481,6 +1510,10 @@ int adxl367_probe(struct device *dev, const struct adxl367_ops *ops,
 					      adxl367_fifo_attributes);
 	if (ret)
 		return ret;
+
+	ret = adxl367_set_int_map_reg(st);
+	if (ret)
+		return dev_err_probe(st->dev, ret, "Failed to get interrupt\n");
 
 	ret = devm_request_threaded_irq(st->dev, irq, NULL,
 					adxl367_irq_handler, IRQF_ONESHOT,
