@@ -944,27 +944,17 @@ void dc_stream_set_static_screen_params(struct dc *dc,
 
 static void dc_destruct_update_scratch_pool(struct dc *dc)
 {
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(dc->update_scratch_pool); i++) {
-		kfree(dc->update_scratch_pool[i]);
-		dc->update_scratch_pool[i] = NULL;
-		dc->update_scratch_in_use[i] = false;
-	}
+	dc_memory_pool_destroy(dc->update_scratch_pool);
 }
 
 static bool dc_construct_update_scratch_pool(struct dc *dc)
 {
-	unsigned int i;
+	// +1 to allow updates not tied to any specific stream
+	const size_t size = sizeof(struct dc_update_scratch_space);
+	const size_t capacity = MAX_STREAMS + 1;
 
-	for (i = 0; i < ARRAY_SIZE(dc->update_scratch_pool); i++) {
-		dc->update_scratch_pool[i] = kzalloc_obj(struct dc_update_scratch_space);
-		if (!dc->update_scratch_pool[i])
-			return false;
-		dc->update_scratch_in_use[i] = false;
-	}
-
-	return true;
+	dc->update_scratch_pool = dc_memory_pool_create(size, capacity);
+	return dc->update_scratch_pool != NULL;
 }
 
 static void dc_destruct(struct dc *dc)
@@ -6026,32 +6016,17 @@ static void clear_update_bits(struct dc_surface_update *srf_updates,
 
 static struct dc_update_scratch_space *dc_update_scratch_acquire(struct dc *dc)
 {
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(dc->update_scratch_pool); i++) {
-		if (dc->update_scratch_in_use[i])
-			continue;
-
-		dc->update_scratch_in_use[i] = true;
-		return dc->update_scratch_pool[i];
-	}
+	void *p = dc_memory_pool_acquire(dc->update_scratch_pool);
 
 	/* TODO: add recoverable scratch acquisition failure handling. */
-	ASSERT(false);
-	return NULL;
+	ASSERT(p);
+	return p;
 }
 
 static void dc_update_scratch_release(struct dc *dc,
 		struct dc_update_scratch_space *scratch)
 {
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(dc->update_scratch_pool); i++) {
-		if (dc->update_scratch_pool[i] == scratch) {
-			dc->update_scratch_in_use[i] = false;
-			return;
-		}
-	}
+	dc_memory_pool_release(dc->update_scratch_pool, scratch);
 }
 
 /**

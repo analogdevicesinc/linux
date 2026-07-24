@@ -30,6 +30,7 @@
 #include "dc_state.h"
 #include "dc_plane.h"
 #include "dc_probe.h"
+#include "dc_memory_pool.h"
 #include "grph_object_defs.h"
 #include "logger_types.h"
 #include "hdcp_msg_types.h"
@@ -2025,8 +2026,7 @@ struct dc {
 	/**
 	 * @update_scratch_pool: Per-commit scratch buffers for dc_update_state.
 	 */
-	struct dc_update_scratch_space *update_scratch_pool[MAX_STREAMS + 1];
-	bool update_scratch_in_use[MAX_STREAMS + 1];
+	struct dc_memory_pool *update_scratch_pool;  // MAX_STREAMS + 1
 
 	struct clk_mgr *clk_mgr;
 
