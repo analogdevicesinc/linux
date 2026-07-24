@@ -1240,8 +1240,10 @@ static int vc5_resume(struct device *dev)
 
 	regcache_cache_only(vc5->regmap, false);
 	ret = regcache_sync(vc5->regmap);
-	if (ret)
+	if (ret) {
+		regcache_cache_only(vc5->regmap, true);
 		dev_err(dev, "Failed to restore register map: %d\n", ret);
+	}
 	return ret;
 }
 
