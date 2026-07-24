@@ -2380,6 +2380,13 @@ static void dcn6_ms_check_average_latency_supports(
 	DML_LOG_FUNC_ENTER();
 	outputs->support.OutstandingRequestsSupport = true;
 	outputs->support.OutstandingRequestsUrgencyAvoidance = true;
+	/* An SOP being capable of high bandwidth drives DCFCLK up, which shrinks the outstanding-request
+	 * buffer window below the request latency and (perversely) fails this check. For analysis of future
+	 * SoCs the ROB size / request limit is not yet fixed, so allow the check to be opted out. */
+	if (display_cfg->overrides.hw.outstanding_requests_check_disable) {
+		DML_LOG_FUNC_EXIT();
+		return;
+	}
 	for (k = 0; k < display_cfg->num_planes; k++) {
 		outstanding_latency_us = soc_bb->max_outstanding_reqs
 				* inputs->support.request_size_bytes_luma[k]
