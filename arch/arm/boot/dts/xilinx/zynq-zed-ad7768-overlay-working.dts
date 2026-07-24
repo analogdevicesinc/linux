@@ -42,7 +42,7 @@
 
 			vref_regulator: vref-regulator {
 				compatible = "regulator-fixed";
-				regulator-name = "fixed-supply";
+				regulator-name = "vref";
 				regulator-min-microvolt = <4096000>;
 				regulator-max-microvolt = <4096000>;
 				regulator-always-on;
@@ -84,7 +84,7 @@
 
 					dma_channel: dma-channel@0 {
 						reg = <0>;
-						adi,source-bus-width = <256>;
+						adi,source-bus-width = <128>;
 						adi,source-bus-type = <2>;
 						adi,destination-bus-width = <64>;
 						adi,destination-bus-type = <0>;
@@ -120,44 +120,59 @@
 				iovdd-supply = <&iovdd_regulator>;
 				vref-supply = <&vref_regulator>;
 				reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
- 
+
 				clocks = <&ad7768_mclk>;
-				clock-names = "mclk";
+
 				adi,data-lines-number = <8>;
+				adi,common-mode-output = "2.5V";
+				adi,power-mode = "median";
+
 				gpio-controller;
 				#gpio-cells = <2>;
-				#address-cells = <1>;
-				#size-cells = <0>;
 
 				io-backends = <&iio_backend>;
 
-				regulators {
-					vcm-output {
-						regulator-name = "vcm-output";
-						regulator-min-microvolt = <2500000>;
-						regulator-max-microvolt = <2500000>;
-						regulator-always-on;
-					};
-				};
+				#address-cells = <1>;
+				#size-cells = <0>;
 
 				channel@0 {
 					reg = <0>;
-					adi,prechargebuf-pos-enable;
-					adi,refbuf-pos-enable;
+					adi,ch-mode = <0>;
 				};
 
 				channel@1 {
 					reg = <1>;
-					adi,prechargebuf-pos-enable;
-					adi,prechargebuf-neg-enable;
-					adi,refbuf-pos-enable;
-					adi,refbuf-neg-enable;
+					adi,ch-mode = <0>;
 				};
 
 				channel@2 {
 					reg = <2>;
-					adi,prechargebuf-neg-enable;
-					adi,refbuf-neg-enable;
+					adi,ch-mode = <0>;
+				};
+
+				channel@3 {
+					reg = <3>;
+					adi,ch-mode = <0>;
+				};
+
+				channel@4 {
+					reg = <4>;
+					adi,ch-mode = <0>;
+				};
+
+				channel@5 {
+					reg = <5>;
+					adi,ch-mode = <0>;
+				};
+
+				channel@6 {
+					reg = <6>;
+					adi,ch-mode = <0>;
+				};
+
+				channel@7 {
+					reg = <7>;
+					adi,ch-mode = <0>;
 				};
 			};
 		};
