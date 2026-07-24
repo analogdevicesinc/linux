@@ -3,38 +3,37 @@ soc/arm
 		https://git.kernel.org/pub/scm/linux/kernel/git/soc/soc tags/arm-feature-deprecation-for-7.3
 	patch
 		ARM: replace linux/gpio.h inclusions
+	renesas/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-soc-for-v7.3-tag1
+	ixp4xx/arm
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/ixp4xx-arm-v7.3
 
 soc/dt
 	patch
 		ARM: dts: st: spear: Correct indentation
 		ARM: dts: st: ste: Correct indentation
 		ARM: dts: st: spear13xx: Drop unused/incorrect usbh0_id and usbh1_id
+		ARM: dts: ixp4xx: Drop the reg-offset hack
+	canaan/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v7.3-early-k230
 
 soc/drivers
+	ixp4xx/soc-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/ixp4xx-soc-v7.3
+	firmware/scmi
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-7.3
+	rockchip/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.3-rockchip-drivers1
+	renesas/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.3-tag1
 
 soc/defconfig
+	riscv/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/riscv-config-for-v7.3
 
 soc/late
 
 arm/fixes
-	patch
-		MAINTAINERS: Update SpacemiT SoC git tree repository
-	<no branch> (71827776667f4e4677a4fa806bcfb24d4b8dd9d7)
-		git://git.kernel.org/pub/scm/linux/kernel/git/pza/linux tags/reset-fixes-for-v7.2
-	<no branch> (813e034925814858cc52e7de321ec4848314e15d)
-		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.2-pmc-fixes
-	<no branch> (265d5d4032c5f6eb089a6e6241d37fdbde7da180)
-		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.2-soc-fixes
-	<no branch> (806a66f926c2b6652aeb88983d01f25081b41a73)
-		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.2-arm64-dt-fixes
-	patch
-		ARM: Don't let ARMv5 platforms select USE_OF
-	<no branch> (314c243b201b678fa89226b1eaea51a71340454e)
-		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-update-for-v7.2
-	patch
-		MAINTAINERS: Update maintainer and git tree for CIX SoC
-	<no branch> (980a8bfe7baec9b9ee0d5443b0b204552e41c407)
-		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-ffa-fixes-7.2
-	<no branch> (6fa6ee724d8dadf392139e242ac936b5da730c4b)
-		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-fixes-for-v7.2-tag1
+	broadcom/fixes
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.2/devicetree-arm64-fixes
 
