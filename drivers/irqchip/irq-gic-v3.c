@@ -2276,7 +2276,6 @@ static struct
 	bool single_redist;
 	int enabled_rdists;
 	u32 maint_irq;
-	int maint_irq_mode;
 	phys_addr_t vcpu_base;
 } acpi_data __initdata;
 
@@ -2454,21 +2453,19 @@ static int __init gic_acpi_parse_virt_madt_gicc(union acpi_subtable_headers *hea
 {
 	struct acpi_madt_generic_interrupt *gicc =
 		(struct acpi_madt_generic_interrupt *)header;
-	int maint_irq_mode;
 	static int first_madt = true;
 
 	if (!(gicc->flags &
 	      (ACPI_MADT_ENABLED | ACPI_MADT_GICC_ONLINE_CAPABLE)))
 		return 0;
 
-	maint_irq_mode = (gicc->flags & ACPI_MADT_VGIC_IRQ_MODE) ?
-		ACPI_EDGE_SENSITIVE : ACPI_LEVEL_SENSITIVE;
+	if (gicc->flags & ACPI_MADT_VGIC_IRQ_MODE)
+		pr_warn_once(FW_BUG "MI wrongly advertised as Edge-triggered\n");
 
 	if (first_madt) {
 		first_madt = false;
 
 		acpi_data.maint_irq = gicc->vgic_interrupt;
-		acpi_data.maint_irq_mode = maint_irq_mode;
 		acpi_data.vcpu_base = gicc->gicv_base_address;
 
 		return 0;
@@ -2478,7 +2475,6 @@ static int __init gic_acpi_parse_virt_madt_gicc(union acpi_subtable_headers *hea
 	 * The maintenance interrupt and GICV should be the same for every CPU
 	 */
 	if ((acpi_data.maint_irq != gicc->vgic_interrupt) ||
-	    (acpi_data.maint_irq_mode != maint_irq_mode) ||
 	    (acpi_data.vcpu_base != gicc->gicv_base_address))
 		return -EINVAL;
 
@@ -2511,7 +2507,7 @@ static void __init gic_acpi_setup_kvm_info(void)
 	gic_v3_kvm_info.type = GIC_V3;
 
 	irq = acpi_register_gsi(NULL, acpi_data.maint_irq,
-				acpi_data.maint_irq_mode,
+				ACPI_LEVEL_SENSITIVE,
 				ACPI_ACTIVE_HIGH);
 	if (irq <= 0)
 		return;
