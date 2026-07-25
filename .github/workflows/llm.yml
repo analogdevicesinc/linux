@@ -111,10 +111,13 @@ jobs:
 
           Do **not** review commits starting with "[TMP]", "[ADI]", "[CI]",
           they are not part of the series but to change the CI/CD or temporally change behaviour.
-          You **must** check the appropriate datasheets for devices drivers, always convert pdfs
-          before reading it, in particular, camelot-py is already installed.
+          You **must** check the appropriate datasheets for devices drivers.
 
-          Pre-converted (with docling), may be available at the git tree:
+          A sitemap with all pdfs, including the datasheets, is available at:
+            https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling/en-pdf-sitemap.xml
+            (mirror of https://www.analog.com/media/en/en-pdf-sitemap.xml)
+
+          Pre-converted (with docling), are available at the git tree:
             https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling
 
           for example:
@@ -122,13 +125,8 @@ jobs:
           can be fetched with:
             https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling/media/en/technical-documentation/data-sheets/max17335.md
 
-          If not available,
-          `python3 $CI_WORKTREE/ci/extract_register_map.py ./datasheet.pdf`
-          extract register maps from datasheets and should work on most cases.
-
-          A sitemap with all pdfs, including the datasheets, is available at:
-            https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling/en-pdf-sitemap.xml
-            (mirror of https://www.analog.com/media/en/en-pdf-sitemap.xml)
+          Do not try to fetch the from analog.com domain directly, due to bot protection
+          guards in place.
 
           EOF
 
