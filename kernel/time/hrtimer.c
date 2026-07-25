@@ -1997,7 +1997,7 @@ bool hrtimer_active(const struct hrtimer *timer)
 		base = READ_ONCE(timer->base);
 		seq = raw_read_seqcount_begin(&base->seq);
 
-		if (timer->is_queued || base->running == timer)
+		if (timer->is_queued || READ_ONCE(base->running) == timer)
 			return true;
 
 	} while (read_seqcount_retry(&base->seq, seq) || base != READ_ONCE(timer->base));
@@ -2034,7 +2034,7 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base, struct hrtimer_cloc
 	lockdep_assert_held(&cpu_base->lock);
 
 	debug_hrtimer_deactivate(timer);
-	base->running = timer;
+	WRITE_ONCE(base->running, timer);
 
 	/*
 	 * Separate the ->running assignment from the ->is_queued assignment.
@@ -2093,7 +2093,7 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base, struct hrtimer_cloc
 	raw_write_seqcount_barrier(&base->seq);
 
 	WARN_ON_ONCE(base->running != timer);
-	base->running = NULL;
+	WRITE_ONCE(base->running, NULL);
 }
 
 static void __hrtimer_run_queues(struct hrtimer_cpu_base *cpu_base, ktime_t now,
