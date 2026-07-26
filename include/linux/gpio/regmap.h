@@ -14,6 +14,32 @@ struct regmap;
 #define GPIO_REGMAP_ADDR(addr) ((addr) ? : GPIO_REGMAP_ADDR_ZERO)
 
 /**
+ * enum gpio_regmap_operation - Operation type for reg_mask_xlate_op callback
+ *
+ * Traditionally, the operation type was inferred from the base register.
+ * However, that approach does not always work — for example, when all control
+ * bits of a single GPIO reside in the same register. This enum allows the
+ * reg_mask_xlate_op callback to explicitly distinguish between operation
+ * types. The user is free to choose which method to use.
+ *
+ * Read operation:
+ * @GPIO_REGMAP_GET_OP: Indicates a read operation to get the current GPIO value.
+ *
+ * Write operation:
+ * @GPIO_REGMAP_SET_OP: Indicates a write operation to set the GPIO output value.
+ *
+ * Direction operations:
+ * @GPIO_REGMAP_GET_DIR_OP: Indicates a read operation to get the GPIO direction.
+ * @GPIO_REGMAP_SET_DIR_OP: Indicates a write operation to set the GPIO direction.
+ */
+enum gpio_regmap_operation {
+	GPIO_REGMAP_GET_OP,
+	GPIO_REGMAP_SET_OP,
+	GPIO_REGMAP_GET_DIR_OP,
+	GPIO_REGMAP_SET_DIR_OP,
+};
+
+/**
  * struct gpio_regmap_config - Description of a generic regmap gpio_chip.
  * @parent:		The parent device
  * @regmap:		The regmap used to access the registers
@@ -38,15 +64,17 @@ struct regmap;
  *			offset to a register/bitmask pair. If not
  *			given the default gpio_regmap_simple_xlate()
  *			is used.
+ * @reg_mask_xlate_op:	(Optional) Operation-aware variant of
+ *			@reg_mask_xlate. Takes precedence when both are set.
  * @drvdata:		(Optional) Pointer to driver specific data which is
  *			not used by gpio-remap but is provided "as is" to the
  *			driver callback(s).
  * @init_valid_mask:	(Optional) Routine to initialize @valid_mask, to be used
  *			if not all GPIOs are valid.
  *
- * The ->reg_mask_xlate translates a given base address and GPIO offset to
- * register and mask pair. The base address is one of the given register
- * base addresses in this structure.
+ * The ->reg_mask_xlate and ->reg_mask_xlate_op callbacks translate a given
+ * base address and GPIO offset to a register and mask pair. The base address
+ * is one of the given register base addresses in this structure.
  *
  * Although all register base addresses are marked as optional, there are
  * several rules:
@@ -84,6 +112,10 @@ struct gpio_regmap_config {
 	int (*reg_mask_xlate)(struct gpio_regmap *gpio, unsigned int base,
 			      unsigned int offset, unsigned int *reg,
 			      unsigned int *mask);
+	int (*reg_mask_xlate_op)(struct gpio_regmap *gpio,
+				 enum gpio_regmap_operation op,
+				 unsigned int base, unsigned int offset,
+				 unsigned int *reg, unsigned int *mask);
 
 	int (*init_valid_mask)(struct gpio_chip *gc,
 			       unsigned long *valid_mask,
