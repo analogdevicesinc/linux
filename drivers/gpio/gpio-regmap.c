@@ -33,6 +33,10 @@ struct gpio_regmap {
 	int (*reg_mask_xlate)(struct gpio_regmap *gpio, unsigned int base,
 			      unsigned int offset, unsigned int *reg,
 			      unsigned int *mask);
+	int (*reg_mask_xlate_op)(struct gpio_regmap *gpio,
+				 enum gpio_regmap_operation op,
+				 unsigned int base, unsigned int offset,
+				 unsigned int *reg, unsigned int *mask);
 
 	void *driver_data;
 };
@@ -58,6 +62,17 @@ static int gpio_regmap_simple_xlate(struct gpio_regmap *gpio,
 	return 0;
 }
 
+static int gpio_regmap_xlate(struct gpio_regmap *gpio,
+			     enum gpio_regmap_operation op,
+			     unsigned int base, unsigned int offset,
+			     unsigned int *reg, unsigned int *mask)
+{
+	if (gpio->reg_mask_xlate_op)
+		return gpio->reg_mask_xlate_op(gpio, op, base, offset, reg, mask);
+
+	return gpio->reg_mask_xlate(gpio, base, offset, reg, mask);
+}
+
 static int gpio_regmap_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct gpio_regmap *gpio = gpiochip_get_data(chip);
@@ -70,7 +85,8 @@ static int gpio_regmap_get(struct gpio_chip *chip, unsigned int offset)
 	else
 		base = gpio_regmap_addr(gpio->reg_set_base);
 
-	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
+	ret = gpio_regmap_xlate(gpio, GPIO_REGMAP_GET_OP, base, offset,
+				&reg, &mask);
 	if (ret)
 		return ret;
 
@@ -88,7 +104,7 @@ static void gpio_regmap_set(struct gpio_chip *chip, unsigned int offset,
 	unsigned int base = gpio_regmap_addr(gpio->reg_set_base);
 	unsigned int reg, mask;
 
-	gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
+	gpio_regmap_xlate(gpio, GPIO_REGMAP_SET_OP, base, offset, &reg, &mask);
 	if (val)
 		regmap_update_bits(gpio->regmap, reg, mask, mask);
 	else
@@ -106,7 +122,7 @@ static void gpio_regmap_set_with_clear(struct gpio_chip *chip,
 	else
 		base = gpio_regmap_addr(gpio->reg_clr_base);
 
-	gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
+	gpio_regmap_xlate(gpio, GPIO_REGMAP_SET_OP, base, offset, &reg, &mask);
 	regmap_write(gpio->regmap, reg, mask);
 }
 
@@ -132,7 +148,8 @@ static int gpio_regmap_get_direction(struct gpio_chip *chip,
 		return -ENOTSUPP;
 	}
 
-	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
+	ret = gpio_regmap_xlate(gpio, GPIO_REGMAP_GET_DIR_OP, base, offset,
+				&reg, &mask);
 	if (ret)
 		return ret;
 
@@ -163,7 +180,8 @@ static int gpio_regmap_set_direction(struct gpio_chip *chip,
 		return -ENOTSUPP;
 	}
 
-	ret = gpio->reg_mask_xlate(gpio, base, offset, &reg, &mask);
+	ret = gpio_regmap_xlate(gpio, GPIO_REGMAP_SET_DIR_OP, base, offset,
+				&reg, &mask);
 	if (ret)
 		return ret;
 
@@ -236,6 +254,7 @@ struct gpio_regmap *gpio_regmap_register(const struct gpio_regmap_config *config
 	gpio->ngpio_per_reg = config->ngpio_per_reg;
 	gpio->reg_stride = config->reg_stride;
 	gpio->reg_mask_xlate = config->reg_mask_xlate;
+	gpio->reg_mask_xlate_op = config->reg_mask_xlate_op;
 	gpio->reg_dat_base = config->reg_dat_base;
 	gpio->reg_set_base = config->reg_set_base;
 	gpio->reg_clr_base = config->reg_clr_base;
@@ -250,7 +269,7 @@ struct gpio_regmap *gpio_regmap_register(const struct gpio_regmap_config *config
 	if (!gpio->reg_stride)
 		gpio->reg_stride = 1;
 
-	if (!gpio->reg_mask_xlate)
+	if (!gpio->reg_mask_xlate && !gpio->reg_mask_xlate_op)
 		gpio->reg_mask_xlate = gpio_regmap_simple_xlate;
 
 	chip = &gpio->gpio_chip;
