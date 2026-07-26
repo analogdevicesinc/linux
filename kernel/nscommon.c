@@ -91,7 +91,8 @@ int __ns_common_init(struct ns_common *ns, u32 ns_type, const struct proc_ns_ope
 
 void __ns_common_free(struct ns_common *ns)
 {
-	proc_free_inum(ns->inum);
+	if (ns->inum > MNT_NS_INO_SPECIAL_MAX)
+		proc_free_inum(ns->inum);
 }
 
 struct ns_common *__must_check ns_owner(struct ns_common *ns)
