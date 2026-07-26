@@ -112,6 +112,11 @@ static int vcn_v5_0_2_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		return r;
 
+	r = amdgpu_irq_add_id(adev, SOC_V1_0_IH_CLIENTID_VCN1,
+		VCN_5_0__SRCID__UVD_ENC_GENERAL_PURPOSE, &adev->vcn.inst->irq);
+	if (r)
+		return r;
+
 	for (i = 0; i < adev->vcn.num_vcn_inst; i++) {
 		vcn_inst = GET_INST(VCN, i);
 
@@ -132,7 +137,7 @@ static int vcn_v5_0_2_sw_init(struct amdgpu_ip_block *ip_block)
 			(adev->doorbell_index.vcn.vcn_ring0_1 << 1) + 11 * vcn_inst;
 
 		ring->vm_hub = AMDGPU_MMHUB0(adev->vcn.inst[i].aid_id);
-		sprintf(ring->name, "vcn_unified_%d", adev->vcn.inst[i].aid_id);
+		sprintf(ring->name, "vcn_unified_%d", i);
 
 		r = amdgpu_ring_init(adev, ring, 512, &adev->vcn.inst[i].irq, 0,
 					AMDGPU_RING_PRIO_DEFAULT, &adev->vcn.inst[i].sched_score);
@@ -218,7 +223,7 @@ static int vcn_v5_0_2_hw_init(struct amdgpu_ip_block *ip_block)
 			adev->nbio.funcs->vcn_doorbell_range(adev, ring->use_doorbell,
 				((adev->doorbell_index.vcn.vcn_ring0_1 << 1) +
 				 11 * vcn_inst),
-				adev->vcn.inst[i].aid_id);
+				vcn_inst);
 
 		/* Re-init fw_shared, if required */
 		vcn_v5_0_2_fw_shared_init(adev, i);
@@ -587,7 +592,7 @@ static int vcn_v5_0_2_start_dpg_mode(struct amdgpu_vcn_inst *vinst,
 			(uint32_t *)adev->vcn.inst[inst_idx].dpg_sram_cpu_addr;
 		/* Use dummy register 0xDEADBEEF passing AID selection to PSP FW */
 		WREG32_SOC24_DPG_MODE(inst_idx, 0xDEADBEEF,
-				adev->vcn.inst[inst_idx].aid_id, 0, true);
+				vcn_inst, 0, true);
 	}
 
 	/* enable VCPU clock */
@@ -1141,17 +1146,46 @@ static int vcn_v5_0_2_set_pg_state(struct amdgpu_vcn_inst *vinst,
 static int vcn_v5_0_2_process_interrupt(struct amdgpu_device *adev, struct amdgpu_irq_src *source,
 	struct amdgpu_iv_entry *entry)
 {
-	uint32_t i, inst;
-
-	i = node_id_to_phys_map[entry->node_id];
+	uint32_t mid, cid;
+	int i, inst;
 
 	DRM_DEV_DEBUG(adev->dev, "IH: VCN TRAP\n");
 
-	for (inst = 0; inst < adev->vcn.num_vcn_inst; ++inst)
-		if (adev->vcn.inst[inst].aid_id == i)
+	switch (entry->client_id) {
+	case SOC_V1_0_IH_CLIENTID_VCN:
+		cid = 0;
+		break;
+	case SOC_V1_0_IH_CLIENTID_VCN1:
+		cid = 1;
+		break;
+	default:
+		dev_WARN_ONCE(adev->dev, 1,
+				"Interrupt received for unknown VCN client_id %d",
+				entry->client_id);
+		return 0;
+	}
+
+	switch (entry->node_id) {
+	case 0:
+		mid = 0;
+		break;
+	case 8:
+		mid = 1;
+		break;
+	default:
+		dev_WARN_ONCE(adev->dev, 1,
+				"Interrupt received for unknown VCN instance %d",
+				entry->node_id);
+		return 0;
+	}
+
+	inst = mid * adev->vcn.num_inst_per_aid + cid;
+
+	for (i = 0; i < adev->vcn.num_vcn_inst; i++)
+		if (GET_INST(VCN, i) == inst)
 			break;
 
-	if (inst >= adev->vcn.num_vcn_inst) {
+	if (i >= adev->vcn.num_vcn_inst) {
 		dev_WARN_ONCE(adev->dev, 1,
 				"Interrupt received for unknown VCN instance %d",
 				entry->node_id);
@@ -1160,7 +1194,7 @@ static int vcn_v5_0_2_process_interrupt(struct amdgpu_device *adev, struct amdgp
 
 	switch (entry->src_id) {
 	case VCN_5_0__SRCID__UVD_ENC_GENERAL_PURPOSE:
-		amdgpu_fence_process(&adev->vcn.inst[inst].ring_enc[0]);
+		amdgpu_fence_process(&adev->vcn.inst[i].ring_enc[0]);
 		break;
 	default:
 		DRM_DEV_ERROR(adev->dev, "Unhandled interrupt: %d %d\n",
