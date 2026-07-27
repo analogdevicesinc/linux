@@ -123,6 +123,18 @@
 		compatible = "xlnx,fclk";
 		clocks = <&zynqmp_clk PL3_REF>;
 	};
+
+	refclk_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&gpio 128 0>;//50
+		label = "refclk_control";
+		channel@0 {
+			reg = <0>;
+			label = "REFCLK_1_P2_0_P0";
+		};
+	};
 };
 
 / {
