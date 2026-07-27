@@ -312,6 +312,14 @@ static int xspi_hw_init_impl(struct rpcif_priv *xspi, bool hyperflash)
 	regmap_update_bits(xspi->regmap, XSPI_INTE, XSPI_INTE_CMDCMPE,
 			   XSPI_INTE_CMDCMPE);
 
+	regmap_update_bits(xspi->regmap, XSPI_BMCTL0,
+			   XSPI_BMCTL0_CS0ACC(0xff), XSPI_BMCTL0_CS0ACC(0x03));
+
+	regmap_update_bits(xspi->regmap, XSPI_BMCFG,
+			   XSPI_BMCFG_WRMD | XSPI_BMCFG_MWRCOMB |
+			   XSPI_BMCFG_MWRSIZE(0xff) | XSPI_BMCFG_PREEN,
+			   0 | XSPI_BMCFG_MWRCOMB | XSPI_BMCFG_MWRSIZE(0x0f) |
+			   XSPI_BMCFG_PREEN);
 	return 0;
 }
 
@@ -869,15 +877,6 @@ static size_t xspi_dirmap_read_impl(struct rpcif_priv *xspi, u64 offs,
 			   XSPI_CMCFG1_RDCMD_UPPER_BYTE(xspi->command) |
 			   XSPI_CMCFG1_RDLATE(xspi->dummy));
 
-	regmap_update_bits(xspi->regmap, XSPI_BMCTL0, XSPI_BMCTL0_CS0ACC(0xff),
-			   XSPI_BMCTL0_CS0ACC(0x01));
-
-	regmap_update_bits(xspi->regmap, XSPI_BMCFG,
-			   XSPI_BMCFG_WRMD | XSPI_BMCFG_MWRCOMB |
-			   XSPI_BMCFG_MWRSIZE(0xff) | XSPI_BMCFG_PREEN,
-			   0 | XSPI_BMCFG_MWRCOMB | XSPI_BMCFG_MWRSIZE(0x0f) |
-			   XSPI_BMCFG_PREEN);
-
 	regmap_update_bits(xspi->regmap, XSPI_LIOCFGCS0, XSPI_LIOCFG_PRTMD(0x3ff),
 			   XSPI_LIOCFG_PRTMD(xspi->proto));
 
@@ -944,15 +943,6 @@ ssize_t xspi_dirmap_write(struct device *dev, u64 offs, size_t len, const void *
 			   XSPI_CMCFG2_WRCMD_UPPER(0xff) | XSPI_CMCFG2_WRLATE(0x1f),
 			   XSPI_CMCFG2_WRCMD_UPPER(xspi->command) |
 			   XSPI_CMCFG2_WRLATE(xspi->dummy));
-
-	regmap_update_bits(xspi->regmap, XSPI_BMCTL0,
-			   XSPI_BMCTL0_CS0ACC(0xff), XSPI_BMCTL0_CS0ACC(0x03));
-
-	regmap_update_bits(xspi->regmap, XSPI_BMCFG,
-			   XSPI_BMCFG_WRMD | XSPI_BMCFG_MWRCOMB |
-			   XSPI_BMCFG_MWRSIZE(0xff) | XSPI_BMCFG_PREEN,
-			   0 | XSPI_BMCFG_MWRCOMB | XSPI_BMCFG_MWRSIZE(0x0f) |
-			   XSPI_BMCFG_PREEN);
 
 	regmap_update_bits(xspi->regmap, XSPI_LIOCFGCS0, XSPI_LIOCFG_PRTMD(0x3ff),
 			   XSPI_LIOCFG_PRTMD(xspi->proto));
