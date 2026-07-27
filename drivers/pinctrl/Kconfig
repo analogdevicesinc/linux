@@ -276,7 +276,7 @@ config PINCTRL_GEMINI
 
 config PINCTRL_GENERIC_MUX
 	tristate "Generic Pinctrl driver by using multiplexer"
-	depends on MULTIPLEXER
+	select MULTIPLEXER
 	select PINMUX
 	select GENERIC_PINCTRL
 	help
