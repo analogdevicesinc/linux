@@ -7,6 +7,13 @@ soc/arm
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-soc-for-v7.3-tag1
 	ixp4xx/arm
 		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/ixp4xx-arm-v7.3
+	patch
+		gpio: sa1100: register software node for GPIO controller
+		ARM: sa1100: assabet: convert gpio-keys to use software nodes
+		ARM: sa1100: collie: convert gpio-keys to use software nodes
+		ARM: sa1100: h3xxx: convert gpio-keys to use software nodes
+	lpc32xx/soc
+		https://github.com/vzapolskiy/linux-lpc32xx tags/lpc32xx-arm-for-7.3
 
 soc/dt
 	patch
@@ -16,6 +23,8 @@ soc/dt
 		ARM: dts: ixp4xx: Drop the reg-offset hack
 	canaan/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v7.3-early-k230
+	renesas/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.3-tag1
 
 soc/drivers
 	ixp4xx/soc-drivers
