@@ -48,6 +48,8 @@
 
 &mmc0 {
 	non-removable;
+
+	status = "okay";
 };
 
 &i2c2 {

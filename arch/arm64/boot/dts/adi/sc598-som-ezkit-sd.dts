@@ -27,4 +27,6 @@
 	max-frequency = <44000000>;
 	no-1-8-v;
 	bus-width = <4>;
+
+	status = "okay";
 };
