@@ -389,14 +389,38 @@ uint32_t dcn42b_get_clock_freq_from_clkip(struct clk_mgr *clk_mgr_base, enum clo
 	return (uint32_t)clock_freq_mhz;
 }
 
-/* dcn42b_get_dispclk_from_dentist removed: reuse dcn42_get_dispclk_from_dentist.
- * DENTIST_DISPCLK_CNTL is a DCN register with the same offset on both dcn42 and dcn42b.
+#define DCN42B_MIN_DCFCLK_MHZ 200
+#define DCN42B_MAX_DCFCLK_MHZ 600
+
+/*
+ * dcn42b_update_clocks - DCN42B wrapper around dcn42_update_clocks.
+ *
+ * Sanitizes the user-requested force-min-DCFCLK override
+ * (DalForceMinDcFclkMhz -> dc->debug.force_min_dcfclk_mhz) to the DCN42B
+ * supported DCFCLK range before delegating to the shared dcn42_update_clocks(),
+ * which applies the floor to new_clocks->dcfclk_khz. Clamping here (rather than
+ * in the shared dcn42 path) keeps the [200, 600] MHz limit DCN42B-specific.
  */
+static void dcn42b_update_clocks(struct clk_mgr *clk_mgr_base,
+			struct dc_state *context,
+			bool safe_to_lower)
+{
+	struct dc *dc = clk_mgr_base->ctx->dc;
+
+	if (dc->debug.force_min_dcfclk_mhz > 0) {
+		if (dc->debug.force_min_dcfclk_mhz < DCN42B_MIN_DCFCLK_MHZ)
+			dc->debug.force_min_dcfclk_mhz = DCN42B_MIN_DCFCLK_MHZ;
+		else if (dc->debug.force_min_dcfclk_mhz > DCN42B_MAX_DCFCLK_MHZ)
+			dc->debug.force_min_dcfclk_mhz = DCN42B_MAX_DCFCLK_MHZ;
+	}
+
+	dcn42_update_clocks(clk_mgr_base, context, safe_to_lower);
+}
 
 static struct clk_mgr_funcs dcn42b_funcs = {
 	.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
 	.get_dtb_ref_clk_frequency = dcn31_get_dtb_ref_freq_khz,
-	.update_clocks = dcn42_update_clocks,
+	.update_clocks = dcn42b_update_clocks,
 	.init_clocks = dcn42b_init_clocks,
 	.enable_pme_wa = dcn42_enable_pme_wa,
 	.are_clock_states_equal = dcn42_are_clock_states_equal,
