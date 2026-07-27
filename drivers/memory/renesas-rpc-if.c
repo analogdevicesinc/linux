@@ -636,18 +636,14 @@ static int xspi_manual_xfer_impl(struct rpcif_priv *xspi)
 	u32 pos = 0, max = 8;
 	int ret = 0;
 
-	regmap_update_bits(xspi->regmap, XSPI_CDCTL0, XSPI_CDCTL0_TRNUM(0x3),
+	/* Clear transaction number and request */
+	regmap_update_bits(xspi->regmap, XSPI_CDCTL0,
+			   XSPI_CDCTL0_TRNUM(0x3) | XSPI_CDCTL0_TRREQ,
 			   XSPI_CDCTL0_TRNUM(0));
 
-	regmap_update_bits(xspi->regmap, XSPI_CDCTL0, XSPI_CDCTL0_TRREQ, 0);
-
 	regmap_write(xspi->regmap, XSPI_CDTBUF0,
-		     XSPI_CDTBUF_CMDSIZE(0x1) | XSPI_CDTBUF_CMD_FIELD(xspi->command));
-
-	regmap_write(xspi->regmap, XSPI_CDABUF0, 0);
-
-	regmap_update_bits(xspi->regmap, XSPI_CDTBUF0, XSPI_CDTBUF_ADDSIZE(0x7),
-			   XSPI_CDTBUF_ADDSIZE(xspi->addr_nbytes));
+		     XSPI_CDTBUF_CMDSIZE(0x1) | XSPI_CDTBUF_CMD_FIELD(xspi->command) |
+		     XSPI_CDTBUF_ADDSIZE(xspi->addr_nbytes));
 
 	regmap_write(xspi->regmap, XSPI_CDABUF0, xspi->smadr);
 
