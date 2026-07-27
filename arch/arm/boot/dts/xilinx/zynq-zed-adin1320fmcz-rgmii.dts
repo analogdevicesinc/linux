@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ *  Avnet ZedBoard with the EVAL-ADIN1320FMCZ board (RGMII mode)
+ *
+ *  Copyright (C) 2026 Analog Devices Inc.
+ *
+ *  Both ADIN1320 PHYs on the FMC card are reached through the GEM1 MDIO bus.
+ *  Each MAC is connected to its PHY over RGMII via a GMII-to-RGMII bridge in
+ *  the PL. The PHY on GEM1 additionally drives an SFP cage over its SerDes
+ *  line interface.
+ */
+/dts-v1/;
+#include <dt-bindings/interrupt-controller/irq.h>
+#include "zynq-zed.dts"
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		fmc_i2c: i2c@41620000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			reg = <0x41620000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+			status = "okay";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			sfp0_eeprom: eeprom@50 {
+				compatible = "atmel,24c02";
+				reg = <0x50>;
+				clock-frequency = <100000>;
+				read-only;
+			};
+		};
+	};
+
+	sfp_eth0: sfp-eth0 {
+		compatible = "sff,sfp";
+		i2c-bus = <&fmc_i2c>;
+	};
+};
+
+/delete-node/ &ethernet_phy;
+
+&gem0 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethernet_gem0_phy1>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gmiitorgmii_gem0_phy1: gmiitorgmii@0 {
+			compatible = "xlnx,gmii-to-rgmii-1.0";
+			reg = <10>;
+			phy-handle = <&ethernet_gem0_phy1>;
+		};
+	};
+};
+
+&gem1 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethernet_gem1_phy2>;
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethernet_gem1_phy2: ethernet-phy@2 {
+			reg = <0>;
+			sfp = <&sfp_eth0>;
+		};
+
+		ethernet_gem0_phy1: ethernet-phy@1 {
+			reg = <8>;
+		};
+
+		gmiitorgmii_gem1_phy2: gmiitorgmii@2 {
+			compatible = "xlnx,gmii-to-rgmii-1.0";
+			reg = <11>;
+			phy-handle = <&ethernet_gem1_phy2>;
+		};
+	};
+};
