@@ -776,7 +776,7 @@ int rpcif_manual_xfer(struct device *dev)
 
 	ret = rpc->info->impl->manual_xfer(rpc);
 
-	pm_runtime_put(dev);
+	pm_runtime_put_autosuspend(dev);
 
 	return ret;
 }
@@ -891,7 +891,7 @@ ssize_t rpcif_dirmap_read(struct device *dev, u64 offs, size_t len, void *buf)
 
 	read = rpc->info->impl->dirmap_read(rpc, offs, len, buf);
 
-	pm_runtime_put(dev);
+	pm_runtime_put_autosuspend(dev);
 
 	return read;
 }
@@ -948,7 +948,7 @@ ssize_t xspi_dirmap_write(struct device *dev, u64 offs, size_t len, const void *
 		regmap_update_bits(xspi->regmap, XSPI_BMCTL1,
 				   XSPI_BMCTL1_MWRPUSH, XSPI_BMCTL1_MWRPUSH);
 
-	pm_runtime_put(dev);
+	pm_runtime_put_autosuspend(dev);
 
 	return writebytes;
 }
