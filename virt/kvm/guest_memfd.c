@@ -828,7 +828,17 @@ static int kvm_gmem_error_folio(struct address_space *mapping, struct folio *fol
 	enum kvm_gfn_range_filter filter;
 	pgoff_t start, end;
 
-	filemap_invalidate_lock_shared(mapping);
+	/*
+	 * memory_failure() invokes ->error_remove_folio() while holding the
+	 * poisoned folio lock.  Do not block on mapping->invalidate_lock, as
+	 * a writer that already holds the invalidate lock can be waiting for
+	 * the same folio, e.g. truncation from MADV_REMOVE/FALLOC_FL_PUNCH_HOLE.
+	 *
+	 * If the invalidate lock is contended, fail the recovery instead of
+	 * risking a deadlock in the memory-failure path.
+	 */
+	if (!filemap_invalidate_trylock_shared(mapping))
+		return -EBUSY;
 
 	start = folio->index;
 	end = start + folio_nr_pages(folio);
