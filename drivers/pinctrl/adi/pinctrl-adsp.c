@@ -647,6 +647,22 @@ static int adsp_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 
 			spin_unlock(&port->lock);
 			break;
+		case PIN_CONFIG_INPUT_ENABLE:
+			/*
+			 * Control PORT_INEN directly so a board can enable a
+			 * pad's input buffer (e.g. for a PINT edge source)
+			 * without claiming the pin as a GPIO.
+			 */
+			range = pinctrl_find_gpio_range_from_pin(pctldev, pin);
+			offset = pin - range->pin_base;
+			port = to_adsp_gpio_port(range->gc);
+
+			spin_lock(&port->lock);
+			__adsp_gpio_writew(port, BIT(offset),
+					   arg ? ADSP_PORT_REG_INEN_SET
+					       : ADSP_PORT_REG_INEN_CLEAR);
+			spin_unlock(&port->lock);
+			break;
 		case ADSP_PIN_CONFIG_TRU_TOGGLE:
 			range = pinctrl_find_gpio_range_from_pin(pctldev, pin);
 			offset = pin - range->pin_base;
