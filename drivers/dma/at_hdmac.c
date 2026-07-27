@@ -2125,7 +2125,7 @@ err_dma_async_device_register:
 err_memset_pool_create:
 	dma_pool_destroy(atdma->lli_pool);
 err_desc_pool_create:
-	free_irq(platform_get_irq(pdev, 0), atdma);
+	free_irq(irq, atdma);
 err_irq:
 	clk_disable_unprepare(atdma->clk);
 	return err;
