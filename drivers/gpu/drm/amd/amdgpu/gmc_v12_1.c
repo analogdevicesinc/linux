@@ -575,7 +575,12 @@ static void gmc_v12_1_get_vm_pde(struct amdgpu_device *adev, int level,
 	if (!(*flags & AMDGPU_PDE_PTE_GFX12) && !(*flags & AMDGPU_PTE_SYSTEM))
 		*addr = adev->vm_manager.vram_base_offset + *addr -
 			adev->gmc.vram_start;
-	BUG_ON(*addr & 0xFFFF00000000003FULL);
+
+	if (*addr & ~adev->gmc.pte_addr_mask) {
+		dev_err(adev->dev, "Invalid PDE address: %llx\n", *addr);
+		*addr = 0;
+		*flags &= ~AMDGPU_PTE_VALID;
+	}
 
 	*flags |= AMDGPU_PTE_SNOOPED;
 
