@@ -25,4 +25,6 @@
 
 &mmc0 {
 	non-removable;
+
+	status = "okay";
 };
