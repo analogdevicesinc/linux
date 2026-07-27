@@ -1247,17 +1247,54 @@ static int tegra_vi_tpg_channels_alloc(struct tegra_vi *vi)
 	return 0;
 }
 
+static int tegra_vi_port_channel_alloc(struct tegra_vi *vi,
+				       struct device_node *port)
+{
+	struct v4l2_fwnode_endpoint v4l2_ep = { .bus_type = 0 };
+	struct device_node *parent;
+	struct device_node *ep;
+	unsigned int port_num;
+	unsigned int lanes;
+	int ret;
+
+	if (!of_node_name_eq(port, "port"))
+		return 0;
+
+	if (of_property_read_u32(port, "reg", &port_num) < 0)
+		return 0;
+
+	if (port_num > vi->soc->vi_max_channels) {
+		dev_err(vi->dev, "invalid port num %d for %pOF\n",
+			port_num, port);
+		return -EINVAL;
+	}
+
+	ep = of_get_child_by_name(port, "endpoint");
+	if (!ep)
+		return 0;
+
+	parent = of_graph_get_remote_port_parent(ep);
+	of_node_put(ep);
+	if (!parent)
+		return 0;
+
+	ep = of_graph_get_endpoint_by_regs(parent, 0, 0);
+	of_node_put(parent);
+	ret = v4l2_fwnode_endpoint_parse(of_fwnode_handle(ep), &v4l2_ep);
+	of_node_put(ep);
+	if (ret)
+		return 0;
+
+	lanes = v4l2_ep.bus.mipi_csi2.num_data_lanes;
+
+	return tegra_vi_channel_alloc(vi, port_num, port, lanes);
+}
+
 static int tegra_vi_channels_alloc(struct tegra_vi *vi)
 {
 	struct device_node *node = vi->dev->of_node;
-	struct device_node *ep = NULL;
 	struct device_node *ports;
-	struct device_node *port = NULL;
-	unsigned int port_num;
-	struct device_node *parent;
-	struct v4l2_fwnode_endpoint v4l2_ep = { .bus_type = 0 };
-	unsigned int lanes;
-	int err;
+	struct device_node *port;
 	int ret = 0;
 
 	ports = of_get_child_by_name(node, "ports");
@@ -1265,46 +1302,15 @@ static int tegra_vi_channels_alloc(struct tegra_vi *vi)
 		return dev_err_probe(vi->dev, -ENODEV, "%pOF: missing 'ports' node\n", node);
 
 	for_each_child_of_node(ports, port) {
-		if (!of_node_name_eq(port, "port"))
-			continue;
-
-		err = of_property_read_u32(port, "reg", &port_num);
-		if (err < 0)
-			continue;
-
-		if (port_num > vi->soc->vi_max_channels) {
-			dev_err(vi->dev, "invalid port num %d for %pOF\n",
-				port_num, port);
-			ret = -EINVAL;
-			goto cleanup;
+		ret = tegra_vi_port_channel_alloc(vi, port);
+		if (ret) {
+			of_node_put(port);
+			break;
 		}
-
-		ep = of_get_child_by_name(port, "endpoint");
-		if (!ep)
-			continue;
-
-		parent = of_graph_get_remote_port_parent(ep);
-		of_node_put(ep);
-		if (!parent)
-			continue;
-
-		ep = of_graph_get_endpoint_by_regs(parent, 0, 0);
-		of_node_put(parent);
-		err = v4l2_fwnode_endpoint_parse(of_fwnode_handle(ep),
-						 &v4l2_ep);
-		of_node_put(ep);
-		if (err)
-			continue;
-
-		lanes = v4l2_ep.bus.mipi_csi2.num_data_lanes;
-		ret = tegra_vi_channel_alloc(vi, port_num, port, lanes);
-		if (ret < 0)
-			goto cleanup;
 	}
 
-cleanup:
-	of_node_put(port);
 	of_node_put(ports);
+
 	return ret;
 }
 
