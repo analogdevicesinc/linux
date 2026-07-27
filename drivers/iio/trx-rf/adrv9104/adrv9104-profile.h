@@ -9,7 +9,6 @@
 struct adrv9104_rf_phy;
 struct iio_dev;
 
-#define ADRV9104_PROFILE_DEFAULT_NAME	"adrv9104_profile.json"
 #define ADRV9104_PROFILE_MAX_SZ		(128 * KILO)
 
 int adrv9104_profile_load(struct adrv9104_rf_phy *phy);

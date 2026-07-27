@@ -36,6 +36,8 @@
 
 #include "device_profile_bundle_t.h"
 
+#define ADRV9104_PROFILE_DEFAULT_NAME	"adrv9104_profile.json"
+
 enum adrv9104_profile_ftype {
 	ADRV9104_PROFILE_INT,
 	ADRV9104_PROFILE_BOOL,
