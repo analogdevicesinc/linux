@@ -372,11 +372,11 @@ static const struct dcn30_hpo_frl_link_encoder_mask hpo_le_mask = {
 static struct dcn31_hpo_dp_stream_encoder_registers hpo_dp_stream_enc_regs[4];
 
 static const struct dcn31_hpo_dp_stream_encoder_shift hpo_dp_se_shift = {
-	DCN3_1_HPO_DP_STREAM_ENC_MASK_SH_LIST(__SHIFT)
+	DCN4_2_HPO_DP_STREAM_ENC_MASK_SH_LIST(__SHIFT)
 };
 
 static const struct dcn31_hpo_dp_stream_encoder_mask hpo_dp_se_mask = {
-	DCN3_1_HPO_DP_STREAM_ENC_MASK_SH_LIST(_MASK)
+	DCN4_2_HPO_DP_STREAM_ENC_MASK_SH_LIST(_MASK)
 };
 
 #define hpo_dp_link_encoder_reg_init(id)\
