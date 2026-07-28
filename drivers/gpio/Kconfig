@@ -1800,6 +1800,7 @@ config GPIO_AD7768
 	tristate "Analog Devices AD7768 GPIO support"
 	depends on AD7768
 	depends on GPIOLIB
+	select GPIO_REGMAP
 	help
 	  Say yes here to expose the AD7768 utility pins as GPIOs when the
 	  device tree node is marked as a GPIO controller.

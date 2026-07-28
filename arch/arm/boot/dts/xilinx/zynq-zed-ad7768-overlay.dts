@@ -8,9 +8,9 @@
 	fragment@0 {
 		target-path = "/";
 		__overlay__ {
-			avdd_regulator: avdd-regulator {
+			avdd1_regulator: avdd1-regulator {
 				compatible = "regulator-fixed";
-				regulator-name = "avdd";
+				regulator-name = "avdd1";
 				regulator-min-microvolt = <5000000>;
 				regulator-max-microvolt = <5000000>;
 				regulator-always-on;
@@ -24,11 +24,11 @@
 				regulator-always-on;
 			};
 
-			dvdd_regulator: dvdd-regulator {
+			avdd2_regulator: avdd2-regulator {
 				compatible = "regulator-fixed";
-				regulator-name = "dvdd";
-				regulator-min-microvolt = <3300000>;
-				regulator-max-microvolt = <3300000>;
+				regulator-name = "avdd2";
+				regulator-min-microvolt = <5000000>;
+				regulator-max-microvolt = <5000000>;
 				regulator-always-on;
 			};
 
@@ -40,9 +40,17 @@
 				regulator-always-on;
 			};
 
-			vref_regulator: vref-regulator {
+			ref1_regulator: ref1-regulator {
 				compatible = "regulator-fixed";
-				regulator-name = "fixed-supply";
+				regulator-name = "ref1";
+				regulator-min-microvolt = <4096000>;
+				regulator-max-microvolt = <4096000>;
+				regulator-always-on;
+			};
+
+			ref2_regulator: ref2-regulator {
+				compatible = "regulator-fixed";
+				regulator-name = "ref2";
 				regulator-min-microvolt = <4096000>;
 				regulator-max-microvolt = <4096000>;
 				regulator-always-on;
@@ -114,15 +122,15 @@
 				reg = <0>;
 				spi-max-frequency = <1000000>;
 
-				avdd-supply = <&avdd_regulator>;
+				avdd1-supply = <&avdd1_regulator>;
 				avss-supply = <&avss_regulator>;
-				dvdd-supply = <&dvdd_regulator>;
+				avdd2-supply = <&avdd2_regulator>;
 				iovdd-supply = <&iovdd_regulator>;
-				vref-supply = <&vref_regulator>;
+				ref1-supply = <&ref1_regulator>;
+				ref2-supply = <&ref2_regulator>;
 				reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
- 
+
 				clocks = <&ad7768_mclk>;
-				clock-names = "mclk";
 				adi,data-lines-number = <8>;
 				gpio-controller;
 				#gpio-cells = <2>;

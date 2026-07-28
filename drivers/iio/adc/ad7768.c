@@ -116,10 +116,9 @@
 #define   AD7768_CALIB_REG_MSB_MSK		GENMASK(23, 16)
 #define   AD7768_CALIB_REG_MID_MSK		GENMASK(15, 8)
 #define   AD7768_CALIB_REG_LSB_MSK		GENMASK(7, 0)
+#define   AD7768_CALIB_REG_MSK			GENMASK(23, 0)
 #define   AD7768_REV_ID_VAL			0x06
-/* Wideband filter full settling time in output samples (Table 35, ~65.2-65.6 ODR) */
-#define   AD7768_WIDEBAND_SETTLING_SAMPLES	66
-/* Sinc5 filter full settling time in output samples */
+#define   AD7768_WIDEBAND_SETTLING_SAMPLES	68
 #define   AD7768_SINC5_SETTLING_SAMPLES		7
 
 enum ad7768_filter_type {
@@ -154,6 +153,7 @@ struct ad7768_convdelay_params {
 
 struct ad7768_avail_freq {
 	unsigned int n_freqs;
+	int freqs[MAX_FREQ_PER_MODE];
 	struct ad7768_freq_config freq_cfg[MAX_FREQ_PER_MODE];
 };
 
@@ -183,6 +183,7 @@ struct ad7768_state {
 	enum ad7768_filter_type ch_filter[AD7768_MAX_CHANNEL];
 	struct iio_backend *back;
 	struct regulator_dev *vcm_rdev;
+	unsigned int avdd1_uv;
 
 	__be16 d16 __aligned(IIO_DMA_MINALIGN);
 };
@@ -190,6 +191,20 @@ struct ad7768_state {
 static const unsigned int ad7768_vcm_voltage_table[] = {
 	0, 1650000, 2500000, 2140000
 };
+
+static int ad7768_vcm_list_voltage(struct regulator_dev *rdev,
+				   unsigned int selector)
+{
+	struct ad7768_state *st = rdev_get_drvdata(rdev);
+
+	if (selector >= ARRAY_SIZE(ad7768_vcm_voltage_table))
+		return -EINVAL;
+
+	if (!selector)
+		return DIV_ROUND_CLOSEST(st->avdd1_uv, 2);
+
+	return ad7768_vcm_voltage_table[selector];
+}
 
 static int ad7768_vcm_enable(struct regulator_dev *rdev)
 {
@@ -246,7 +261,7 @@ static const struct regulator_ops ad7768_vcm_ops = {
 	.enable = ad7768_vcm_enable,
 	.disable = ad7768_vcm_disable,
 	.is_enabled = ad7768_vcm_is_enabled,
-	.list_voltage = regulator_list_voltage_table,
+	.list_voltage = ad7768_vcm_list_voltage,
 	.set_voltage_sel = ad7768_vcm_set_voltage_sel,
 	.get_voltage_sel = ad7768_vcm_get_voltage_sel,
 };
@@ -255,7 +270,6 @@ static const struct regulator_desc ad7768_vcm_desc = {
 	.name = "vcm",
 	.of_match = of_match_ptr("vcm-output"),
 	.n_voltages = ARRAY_SIZE(ad7768_vcm_voltage_table),
-	.volt_table = ad7768_vcm_voltage_table,
 	.ops = &ad7768_vcm_ops,
 	.type = REGULATOR_VOLTAGE,
 	.owner = THIS_MODULE,
@@ -298,7 +312,7 @@ static const u8 ad7768_4_chan_map[] = {
 };
 
 static const char * const ad7768_supply_names[] = {
-	"avdd1", "avss", "avdd2", "iovdd", "ref1", "ref2",
+	"avss", "avdd2", "iovdd", "ref1", "ref2",
 };
 
 static u8 ad7768_map_power_mode_to_regval(u8 x)
@@ -458,7 +472,7 @@ static unsigned int ad7768_get_calib_reg_base(struct ad7768_state *st,
 }
 
 static int ad7768_read_calib_value(struct ad7768_state *st,
-				   unsigned int base_reg, int *val)
+				   unsigned int base_reg, unsigned int *val)
 {
 	u8 data[3];
 	int ret;
@@ -475,9 +489,12 @@ static int ad7768_read_calib_value(struct ad7768_state *st,
 }
 
 static int ad7768_write_calib_value(struct ad7768_state *st,
-				    unsigned int base_reg, int val)
+				    unsigned int base_reg, unsigned int val)
 {
 	int ret;
+
+	if (val > AD7768_CALIB_REG_MSK)
+		return -EINVAL;
 
 	guard(mutex)(&st->lock);
 
@@ -607,7 +624,7 @@ static int ad7768_set_sampling_freq(struct iio_dev *indio_dev,
 	if (!freq)
 		return -EINVAL;
 
-	if (!ad7768_freq_supported(st, AD7768_FAST_MODE, freq))
+	if (!ad7768_freq_supported(st, AD7768_LOW_POWER_MODE, freq))
 		return -EINVAL;
 
 	guard(mutex)(&st->lock);
@@ -630,16 +647,7 @@ static int ad7768_get_freq_cfg(struct ad7768_state *st, unsigned int freq,
 	return -EINVAL;
 }
 
-/*
- * Wait for digital filter to fully settle after a sync. Settling time depends
- * on filter type: wideband needs 68 output samples (2x group delay of 34/ODR),
- * sinc5 needs 7 output samples per the datasheet specification.
- *
- * When multiple modes are active, we must wait for the slowest-settling channel.
- * t_settle = settling_samples / freq
- */
-static void ad7768_filter_wait(struct ad7768_state *st,
-			       const unsigned int *mode_freq,
+static void ad7768_filter_wait(const unsigned int *mode_freq,
 			       const enum ad7768_filter_type *mode_filter,
 			       const bool *mode_used)
 {
@@ -658,7 +666,8 @@ static void ad7768_filter_wait(struct ad7768_state *st,
 		else
 			settling_samples = AD7768_WIDEBAND_SETTLING_SAMPLES;
 
-		t_mode_us = DIV_ROUND_UP_ULL((u64)settling_samples * USEC_PER_SEC,
+		t_mode_us = DIV_ROUND_UP_ULL((u64)settling_samples *
+					     USEC_PER_SEC,
 					     mode_freq[mode]);
 		t_settle_us = max(t_settle_us, t_mode_us);
 	}
@@ -859,7 +868,7 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	ad7768_filter_wait(st, mode_freq, mode_filter, mode_used);
+	ad7768_filter_wait(mode_freq, mode_filter, mode_used);
 
 	return 0;
 }
@@ -900,6 +909,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 	unsigned int base_reg;
+	unsigned int calib;
 	int ret;
 
 	PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(&st->spi->dev, pm);
@@ -916,16 +926,20 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 
 	case IIO_CHAN_INFO_CALIBBIAS:
 		base_reg = ad7768_get_calib_reg_base(st, chan, false);
-		ret = ad7768_read_calib_value(st, base_reg, val);
+		ret = ad7768_read_calib_value(st, base_reg, &calib);
 		if (ret)
 			return ret;
+
+		*val = calib;
 		return IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_CALIBSCALE:
 		base_reg = ad7768_get_calib_reg_base(st, chan, true);
-		ret = ad7768_read_calib_value(st, base_reg, val);
+		ret = ad7768_read_calib_value(st, base_reg, &calib);
 		if (ret)
 			return ret;
+
+		*val = calib;
 		return IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_CONVDELAY: {
@@ -964,6 +978,10 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 	unsigned int base_reg;
 	int ret;
 
+	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+	if (IIO_DEV_ACQUIRE_FAILED(claim))
+		return -EBUSY;
+
 	PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(&st->spi->dev, pm);
 	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
 	if (ret)
@@ -974,10 +992,16 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 		return ad7768_set_sampling_freq(indio_dev, val, chan->channel);
 
 	case IIO_CHAN_INFO_CALIBBIAS:
+		if (val < 0 || val > AD7768_CALIB_REG_MSK)
+			return -EINVAL;
+
 		base_reg = ad7768_get_calib_reg_base(st, chan, false);
 		return ad7768_write_calib_value(st, base_reg, val);
 
 	case IIO_CHAN_INFO_CALIBSCALE:
+		if (val < 0 || val > AD7768_CALIB_REG_MSK)
+			return -EINVAL;
+
 		base_reg = ad7768_get_calib_reg_base(st, chan, true);
 		return ad7768_write_calib_value(st, base_reg, val);
 
@@ -995,17 +1019,35 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
+static int ad7768_read_avail(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     const int **vals, int *type, int *length,
+			     long info)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+	const struct ad7768_avail_freq *avail_freq;
+
+	if (info != IIO_CHAN_INFO_SAMP_FREQ)
+		return -EINVAL;
+
+	avail_freq = &st->avail_freq[st->power_mode];
+	*vals = avail_freq->freqs;
+	*type = IIO_VAL_INT;
+	*length = avail_freq->n_freqs;
+
+	return IIO_AVAIL_LIST;
+}
+
 static int ad7768_update_scan_mode(struct iio_dev *indio_dev,
 				   const unsigned long *scan_mask)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 	unsigned int c;
 	int ret;
-	
+
 	ret = ad7768_apply_channel_modes(indio_dev, scan_mask);
 	if (ret)
 		return ret;
-
 
 	for (c = 0; c < st->chip_info->num_channels; c++) {
 		if (test_bit(c, scan_mask))
@@ -1064,6 +1106,7 @@ static const struct iio_info ad7768_info = {
 	.read_raw = ad7768_read_raw,
 	.write_raw_get_fmt = ad7768_write_raw_get_fmt,
 	.write_raw = ad7768_write_raw,
+	.read_avail = ad7768_read_avail,
 	.update_scan_mode = ad7768_update_scan_mode,
 };
 
@@ -1080,11 +1123,11 @@ static void ad7768_set_available_sampl_freq(struct ad7768_state *st)
 			freq_cfg.dec_rate = dec - 1;
 			freq_cfg.freq = mclk / (ad7768_dec_rate[dec - 1] *
 					ad7768_mclk_div[mode]);
+			avail_freq->freqs[avail_freq->n_freqs] = freq_cfg.freq;
 			avail_freq->freq_cfg[avail_freq->n_freqs++] = freq_cfg;
 		}
 	}
 
-	/* The AD7768 cannot output its maximum rate over one data line. */
 	if (st->datalines == 1 &&
 	    st->chip_info->num_channels == AD7768_MAX_CHANNEL)
 		st->avail_freq[AD7768_FAST_MODE].n_freqs--;
@@ -1115,6 +1158,10 @@ static int ad7768_set_filter_mode(struct iio_dev *indio_dev,
 				  unsigned int mode)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
+
+	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+	if (IIO_DEV_ACQUIRE_FAILED(claim))
+		return -EBUSY;
 
 	guard(mutex)(&st->lock);
 	st->ch_filter[chan->channel] = mode;
@@ -1159,7 +1206,6 @@ static int ad7768_configure_precharge_buffers(struct iio_dev *indio_dev,
 			refbufn_val |= ad7768_channel_mask(st, channel);
 	}
 
-	/* The analog input precharge registers invert the value written. */
 	prebuf1_val = ad7768_precharge_buf1_mask(st, ~prebuf_mask);
 	prebuf2_val = ad7768_precharge_buf2_mask(st, ~prebuf_mask);
 
@@ -1274,6 +1320,8 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 					      BIT(IIO_CHAN_INFO_CALIBSCALE) |
 					      BIT(IIO_CHAN_INFO_CONVDELAY) |
 					      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+			.info_mask_separate_available =
+				BIT(IIO_CHAN_INFO_SAMP_FREQ),
 			.indexed = 1,
 			.address = channel,
 			.channel = channel,
@@ -1306,12 +1354,12 @@ static int ad7768_parse_config(struct iio_dev *indio_dev,
 		return dev_err_probe(dev, ret, "Failed to register VCM regulator\n");
 
 	scoped_guard(mutex, &st->lock) {
-		ret = ad7768_set_power_mode(st, AD7768_FAST_MODE);
+		ret = ad7768_set_power_mode(st, AD7768_LOW_POWER_MODE);
 	}
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to set power mode\n");
 
-	avail_freq = &st->avail_freq[AD7768_FAST_MODE];
+	avail_freq = &st->avail_freq[AD7768_LOW_POWER_MODE];
 	default_freq = avail_freq->freq_cfg[avail_freq->n_freqs - 1].freq;
 	for (i = 0; i < st->chip_info->num_channels; i++) {
 		st->ch_freq[i] = default_freq;
@@ -1401,6 +1449,12 @@ static int ad7768_probe(struct spi_device *spi)
 		return ret;
 
 	st->chip_info = spi_get_device_match_data(spi);
+
+	ret = devm_regulator_get_enable_read_voltage(dev, "avdd1");
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Failed to enable AVDD1 supply\n");
+
+	st->avdd1_uv = ret;
 
 	ret = devm_regulator_bulk_get_enable(dev,
 					     ARRAY_SIZE(ad7768_supply_names),
