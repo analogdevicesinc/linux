@@ -16,6 +16,14 @@
 #include <linux/nfs.h>
 #include <net/net_namespace.h>
 
+/*
+ * The LOCALIO program is entirely private to Linux and is NOT part of
+ * the uapi.
+ */
+#define NFS_LOCALIO_PROGRAM		400122
+#define LOCALIOPROC_NULL		0
+#define LOCALIOPROC_UUID_IS_LOCAL	1
+
 struct nfs_client;
 struct nfs_file_localio;
 
