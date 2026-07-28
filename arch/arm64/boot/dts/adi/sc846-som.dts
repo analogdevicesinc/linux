@@ -1,0 +1,243 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2026 Analog Devices Incorporated
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/net/ti-dp83867.h>
+#include <dt-bindings/pinctrl/adi-adsp.h>
+#include <dt-bindings/pinctrl/adi-adsp-sru.h>
+
+#include "sc846.dtsi"
+
+/ {
+	chosen {
+		stdout-path = &uart0;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x20000000>;
+	};
+
+	memory@20040000 {
+		device_type = "memory";
+		reg = <0x20040000 0x40000>;
+	};
+
+	reserved-memory {
+		sram1_res: sram1-reserved@20040000 {
+			compatible = "adi,sram-access";
+			reg = <0x20040000 0x40000>;
+		};
+
+		vdev0vrings: vdev0vring0@20080000 {
+			reg = <0x20080000 0x4000>;
+			no-map;
+		};
+
+		vdev0buffer: vdev0buffer@20084000 {
+			compatible = "shared-dma-pool";
+			reg = <0x20084000 0x20000>;
+			no-map;
+		};
+
+		vdev1vrings: vdev0vring0@200A4000 {
+			reg = <0x200A4000 0x4000>;
+			no-map;
+		};
+
+		vdev1buffer: vdev0buffer@200A8000 {
+			compatible = "shared-dma-pool";
+			reg = <0x200A8000 0x20000>;
+			no-map;
+		};
+	};
+
+	sram1_mmap: sram-mmap@0 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&sram1_res>;
+		status = "okay";
+	};
+};
+
+&scb {
+	sharc0: core1-rproc@28240000 {
+		compatible = "adi,remoteproc";
+		reg = <0x28240000 0x160000>,
+				<0x20000000 0x200000>;
+		core-id = <1>;
+		core-irq = <321>; /* SOFT1 */
+		firmware-name = "adi_adsp_core1_fw.ldr";
+		interrupts = <GIC_SPI 352 IRQ_TYPE_EDGE_RISING>; /* TRU0_RCV3 */
+		adi,rcu = <&rcu>;
+		adi,l1-da = <0x240000 0x3a0000>;
+		adi,l2-da = <0x20000000 0x20200000>;
+		adi,rsc-table = <&rsc_tbl0>;
+		adi,verify = <1>;
+		adi,tru = <&tru>;
+		adi,tru-master-id = <171>; /* trigger master SOFT4 */
+		status = "okay";
+	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart0_default>;
+	status = "okay";
+};
+
+&i2c5 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c5_pins>;
+	status = "okay";
+
+	gpio_expander: gpio@34 {
+		compatible = "adi,adp5587";
+		gpio-controller;
+		#gpio-cells = <2>;
+		reg = <0x34>;
+
+		uart0-flow {
+			gpio-hog;
+			gpios = <0 GPIO_ACTIVE_LOW>;
+			output-low;
+			line-name = "uart0-flow-en";
+		};
+
+		uart0 {
+			gpio-hog;
+			gpios = <1 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "uart0-en";
+		};
+
+		sd-card-en {
+			gpio-hog;
+			gpios = <2 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "sd-card-en";
+		};
+
+		usb-phy-reset {
+			gpio-hog;
+			gpios = <3 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "usb-phy-reset";
+		};
+
+		led-ds4 {
+			gpio-hog;
+			gpios = <17 GPIO_ACTIVE_LOW >;
+			output-high;
+			line-name = "led-ds4";
+		};
+
+		led-ds3 {
+			gpio-hog;
+			gpios = <16 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "led-ds3";
+		};
+
+		led-ds2 {
+			gpio-hog;
+			gpios = <15 GPIO_ACTIVE_LOW>;
+			output-high;
+			line-name = "led-ds2";
+		};
+	};
+};
+
+&spi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi1_default>;
+	cs-gpios = <&gpd 2 GPIO_ACTIVE_LOW>;
+	//bus-num = <2>;
+	status = "okay";
+
+	som_flash: is25lp02gg@0 {
+		compatible = "jedec,spi-nor", "is25lp02gg";
+		reg = <0>;
+		//spi-rx-bus-width = <4>;
+		//spi-tx-bus-width = <4>;
+		spi-max-frequency = <50000000>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qspi_0@0 {
+				label = "u-boot spl";
+				reg = <0x00000000 0x40000>;
+			};
+
+			qspi_1@40000 {
+				label = "u-boot proper";
+				reg = <0x00040000 0xC0000>;
+			};
+
+			qspi_2@210000 {
+				label = "kernel";
+				reg = <0x00210000 0x1000000>;
+			};
+
+			qspi_3@2000000 {
+				label = "rootfs";
+				reg = <0x1210000 0xEDF0000>;
+			};
+		};
+	};
+};
+
+&pinctrl0 {
+	status = "okay";
+	uart0_default: uart0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('A', 0, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 1, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	uart0_hwflow: uart0_hwflow_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('A', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('A', 3, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	spi0_default: spi0_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('E', 5,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 14, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 6,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 15, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 4,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 11, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 13, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 0,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 2,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 10, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 12, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 1,  ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('E', 3,  ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	spi1_default: spi1_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('D', 0, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 1, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('D', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 10, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('B', 11, ADI_ADSP_PINFUNC_ALT2)>,
+				 <ADI_ADSP_PINMUX('C', 15, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+	i2c5_pins: i2c5_default_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('B', 2, ADI_ADSP_PINFUNC_ALT0)>,
+				 <ADI_ADSP_PINMUX('B', 3, ADI_ADSP_PINFUNC_ALT0)>;
+		};
+	};
+};
