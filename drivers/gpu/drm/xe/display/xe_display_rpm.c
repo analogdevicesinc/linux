@@ -3,8 +3,6 @@
 
 #include <drm/intel/display_parent_interface.h>
 
-#include "intel_display_core.h"
-#include "intel_display_rpm.h"
 #include "xe_device.h"
 #include "xe_device_types.h"
 #include "xe_pm.h"
