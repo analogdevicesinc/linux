@@ -217,7 +217,8 @@ int max_xlate_enable_disable_streams(struct max_source *sources,
 		else
 			ret = v4l2_subdev_disable_streams(source->sd, source->pad,
 							  updated_sink_streams_mask);
-		if (ret) {
+		/* -EALREADY on disable means already stopped — that's our goal. */
+		if (ret && !(ret == -EALREADY && !enable)) {
 			failed_sink_pad = i;
 			goto err;
 		}
