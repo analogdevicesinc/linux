@@ -1294,7 +1294,6 @@ static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 					     phy->orx_ctrl_d_gpio :
 					     phy->orx_ctrl_b_gpio;
 
-		/* select line: mode 1 = second ORx of the pair => assert */
 		if (sel_gpio)
 			gpiod_set_value_cansleep(sel_gpio, mode ? 1 : 0);
 
@@ -1307,7 +1306,6 @@ static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 	}
 
 	case ADI_ADRV9025_ORX_EN_SPI_MODE:
-		/* Legacy SPI-mode select+enable (boards without ORX_CTRL pins). */
 		ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
 					 	&txchan);
 		if (ret)
@@ -1698,6 +1696,10 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 	u32 code;
 	int ret = 0;
 
+	dev_warn(&phy->spi->dev,
+		 "DEBUG write_raw: ENTER mask=%ld channel=%d output=%d val=%d val2=%d\n",
+		 mask, chan->channel, chan->output, val, val2);
+
 	mutex_lock(&phy->lock);
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
@@ -1821,6 +1823,10 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 				case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
 					int sel = adrv9025_set_obs_rx_path(indio_dev, chan, val);
 
+					dev_warn(&phy->spi->dev,
+						 "DEBUG write_raw: 4pin path, chan_no=%d val=%d set_obs_rx_path ret sel=%d\n",
+						 chan_no, val, sel);
+
 					if (sel < 0) {
 						ret = sel;
 						goto out;
@@ -1873,8 +1879,21 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 				break;
 
 			rxGain.gainIndex = code;
-			rxGain.rxChannelMask = 1 << chan_no;
 
+			/* TEMP PROOF: ORx uses a sparse gain table (valid
+			 * indices 2-14, see firmware/ORxGainTable.csv). The Rx
+			 * formula in adrv9025_gain_to_gainindex() produces 225
+			 * for 15 dB, which is INVALID for ORx. Force index 8
+			 * (FE ctrl word 210 -> 20*log10((256-210)/256) = 14.9 dB
+			 * ~= 15 dB atten per UG eq 3) so we can confirm the
+			 * hardware actually responds. Remove once the real ORx
+			 * dB<->index mapping is implemented. */
+			if (chan_no > CHAN_RX4)
+				rxGain.gainIndex = 8;
+
+			rxGain.rxChannelMask = 1 << chan_no;
+			printk("trying to write gain, chan_no=%d gainIndex=%u, val=%u, val2=%u\n",
+			       chan_no, rxGain.gainIndex,val, val2);
 			ret = adi_adrv9025_RxGainSet(phy->madDevice, &rxGain,
 						     1);
 			if (ret)
@@ -4019,7 +4038,7 @@ static int adrv9025_probe(struct spi_device *spi)
 
 	phy->madDevice = &phy->adi_adrv9025_device;
 	phy->linux_hal.spi = spi;
-	phy->linux_hal.logCfg.logLevel = ADI_HAL_LOG_ERR | ADI_HAL_LOG_WARN;
+	phy->linux_hal.logCfg.logLevel = ADI_HAL_LOG_ALL;
 	phy->madDevice->common.devHalInfo = &phy->linux_hal;
 
 	if (!of_property_read_string(np, "adi,arm-firmware-name", &name)) {
