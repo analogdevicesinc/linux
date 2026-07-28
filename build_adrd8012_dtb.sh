@@ -6,7 +6,7 @@ BASE_DTB=arch/arm64/boot/dts/xilinx/zynqmp-sm-k26-revA.dtb
 
 # Arg is the number of cameras (default 1); selects the matching JSON config.
 NUM_CAMERAS=${1:-1}
-GMSL_JSON=${GEN_GMSL_DIR}/max96724_${NUM_CAMERAS}_max9295a_isx021_kria_adrd8012.json
+GMSL_JSON=${GEN_GMSL_DIR}/max96724_${NUM_CAMERAS}_max96717_isx031_adrd8012.json
 
 if [ ! -f "${GMSL_JSON}" ]; then
 	echo "error: no config for ${NUM_CAMERAS} camera(s): ${GMSL_JSON} not found" >&2

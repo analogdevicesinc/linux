@@ -74,10 +74,12 @@ def write_config(
 
 '''.lstrip()
 
+        total_cameras = sum(len(d.get('links', [])) for d in config)
         for i, des_cfg in enumerate(config):
             data += read_template(config_dir, des_cfg['name'], {
                 'des_cfg': des_cfg,
                 'des_idx': i,
+                'total_cameras': total_cameras,
             })
         f.write(data)
 

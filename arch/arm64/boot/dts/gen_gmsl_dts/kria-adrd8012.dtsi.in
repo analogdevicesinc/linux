@@ -21,8 +21,102 @@
 {% set frmbuf_addrs = ['0x84a60000', '0x84a80000'] %}
 {% set frmbuf_irqs = [94, 108] %}
 {% set frmbuf_gpios = [80, 81] %}
+{% set mipi_addrs = ['0x84a00000', '0x84a20000'] %}
+{% set mipi_irqs = [111, 110] %}
+{% set mipi_reset_gpios = [78, 78] %}
 {% set rtp_engine_base = 0x84aa0000 %}
 
+{#
+   Per-deserializer CSI-2 capture chain, selected by platform_cfg.csi_idx.
+   Each MAX96724 aggregates its links onto one MIPI CSI-2 stream, which the
+   FPGA fabric receives on a dedicated MIPI CSI-2 RX subsystem -> frame-buffer
+   writer -> vcap (V4L2 xilinx-vipp) triplet. csi_idx 0 uses RX @84a00000 /
+   frmbuf @84a60000; csi_idx 1 uses RX @84a20000 / frmbuf @84a80000. The labels
+   below are indexed by csi_idx so a second deserializer (DES2) gets its own
+   non-conflicting chain and /dev/media node. Multi-camera streams within a
+   single deserializer (VC0, VC1, ...) are still split downstream by the
+   per-camera RTP engines, not by extra vcap ports.
+#}
+{% set mipi_csi_label = 'mipi_csi' if csi_idx == 0 else 'mipi_csi_' ~ csi_idx %}
+{% set mipi_rx_out_label = 'mipi_csirx_out' if csi_idx == 0 else 'mipi_csirx_out_' ~ csi_idx %}
+
+{% macro capture_chain() %}
+		{{mipi_csi_label}}: mipi_csi2_rx_subsystem@{{ mipi_addrs[csi_idx] | hex_remove_0x }} {
+			clock-names = "lite_aclk", "dphy_clk_200M", "video_aclk";
+			clocks = <&zynqmp_clk 71>, <&misc_clk_0>, <&zynqmp_clk 71>;
+			compatible = "xlnx,mipi-csi2-rx-subsystem-5.2", "xlnx,mipi-csi2-rx-subsystem-5.0";
+			interrupt-names = "csirxss_csi_irq";
+			interrupt-parent = <&gic>;
+			interrupts = <0 {{ mipi_irqs[csi_idx] }} 4>;
+			xlnx,csi-pxl-format = <0x1E>;
+			video-reset-gpios = <&gpio {{ mipi_reset_gpios[csi_idx] }} 1>;
+			reg = <{{ mipi_addrs[csi_idx] }} 0x2000>;
+			xlnx,axis-tdata-width = <32>;
+			xlnx,dphy-present;
+			xlnx,max-lanes = <4>;
+			xlnx,ppc = <2>;
+			xlnx,vc = <4>;
+			xlnx,vfb;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				port@1 {
+					reg = <1>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+					{{mipi_rx_out_label}}: endpoint {
+						remote-endpoint = <&vcap_portswitch{{csi_idx}}>;
+					};
+				};
+				port@0 {
+					reg = <0>;
+					xlnx,cfa-pattern = "rggb";
+					xlnx,video-format = <0>;
+					xlnx,video-width = <8>;
+				};
+			};
+		};
+
+		v_frmbuf_wr_{{csi_idx}}: v_frmbuf_wr@{{frmbuf_addrs[csi_idx] | hex_remove_0x}} {
+			#dma-cells = <1>;
+			clock-names = "ap_clk";
+			clocks = <&zynqmp_clk 71>;
+			compatible = "xlnx,v-frmbuf-wr-2.4", "xlnx,axi-frmbuf-wr-v2.2";
+			interrupt-names = "interrupt";
+			interrupt-parent = <&gic>;
+			interrupts = <0 {{frmbuf_irqs[csi_idx]}} 4>;
+			reset-gpios = <&gpio {{frmbuf_gpios[csi_idx]}} 1>;
+			reg = <{{frmbuf_addrs[csi_idx]}} 0x10000>;
+			xlnx,dma-addr-width = <32>;
+			xlnx,max-height = <2160>;
+			xlnx,max-width = <3840>;
+			xlnx,pixels-per-clock = <4>;
+			xlnx,s-axi-ctrl-addr-width = <0x7>;
+			xlnx,s-axi-ctrl-data-width = <0x20>;
+			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
+			xlnx,video-width = <8>;
+		};
+
+		vcap_mipi_csi2_rx_subsyst_{{csi_idx}} {
+			compatible = "xlnx,video";
+			dma-names = "port0";
+			dmas = <&v_frmbuf_wr_{{csi_idx}} 0>;
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				vcap_port{{csi_idx}}: port@0 {
+					direction = "input";
+					reg = <0>;
+					vcap_portswitch{{csi_idx}}: endpoint {
+						remote-endpoint = <&{{mipi_rx_out_label}}>;
+					};
+				};
+			};
+		};
+{% endmacro %}
+
+{% if des_idx == 0 %}
 &{/} {
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;
@@ -47,47 +141,25 @@
 				reg = <0x77>;
 				reset-gpios = <&gpio 88 1>;
 
+				/*
+				 * ADRD8012 carrier has two MAX96724 deserializers, each on
+				 * its own PCA9548 (u18) downstream channel: DES1 (@0x27) on
+				 * channel 3, DES2 (@0x2e) on channel 4. They are distinct
+				 * Linux i2c bus segments, so `i2cdetect` on the channel-3 bus
+				 * will not see DES2. Both channels are emitted here even for
+				 * single-deserializer configs; an unpopulated channel is
+				 * harmless. Matches the shipped 6.1 gmsl-k26-adrd8012.dts.
+				 */
 				gmsl_i2c: i2c@3 {
 					#address-cells = <1>;
 					#size-cells = <0>;
 					reg = <3>;
 				};
-			};
-		};
 
-		mipi_csi: mipi_csi2_rx_subsystem@84a00000 {
-			clock-names = "lite_aclk", "dphy_clk_200M", "video_aclk";
-			clocks = <&zynqmp_clk 71>, <&misc_clk_0>, <&zynqmp_clk 71>;
-			compatible = "xlnx,mipi-csi2-rx-subsystem-5.2", "xlnx,mipi-csi2-rx-subsystem-5.0";
-			interrupt-names = "csirxss_csi_irq";
-			interrupt-parent = <&gic>;
-			interrupts = <0 111 4>;
-			xlnx,csi-pxl-format = <0x1E>;
-			video-reset-gpios = <&gpio 78 1>;
-			reg = <0x84a00000 0x2000>;
-			xlnx,axis-tdata-width = <32>;
-			xlnx,dphy-present;
-			xlnx,max-lanes = <4>;
-			xlnx,ppc = <2>;
-			xlnx,vc = <4>;
-			xlnx,vfb;
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				port@1 {
-					reg = <1>;
-					xlnx,cfa-pattern = "rggb";
-					xlnx,video-format = <0>;
-					xlnx,video-width = <8>;
-					mipi_csirx_out: endpoint {
-						remote-endpoint = <&vcap_portswitch0>;
-					};
-				};
-				port@0 {
-					reg = <0>;
-					xlnx,cfa-pattern = "rggb";
-					xlnx,video-format = <0>;
-					xlnx,video-width = <8>;
+				gmsl_i2c_2: i2c@4 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <4>;
 				};
 			};
 		};
@@ -104,7 +176,7 @@
 			compatible = "fixed-clock";
 		};
 
-{% for i in range(num_cameras) %}
+{% for i in range(total_cameras) %}
 		axi_rtp_engine_{{i}}: axi_rtp_engine@{{ '%x' % (rtp_engine_base + i * 0x10000) }} {
 			compatible = "adi,axi-rtp-engine";
 			reg = <{{ '0x%x' % (rtp_engine_base + i * 0x10000) }} 0x1000>;
@@ -124,52 +196,7 @@
 			clocks = <&pwm_clk>;
 		};
 
-		{#
-		   Single frame-buffer + single vcap port regardless of camera count.
-		   The ADRD8012 FPGA has no axis_switch to fan the one MIPI CSI-2 RX
-		   output out to per-VC DMA channels, so only one local capture path
-		   exists. Multi-camera streams (VC0, VC1, ...) are split downstream by
-		   the per-camera RTP engines in the fabric, not by extra vcap ports.
-		   Looping vcap ports would leave the single mipi_csirx_out endpoint
-		   with a non-reciprocal (dangling) link and the xilinx-vipp async
-		   notifier would refuse to register /dev/media0.
-		#}
-		v_frmbuf_wr_0: v_frmbuf_wr@{{frmbuf_addrs[0] | hex_remove_0x}} {
-			#dma-cells = <1>;
-			clock-names = "ap_clk";
-			clocks = <&zynqmp_clk 71>;
-			compatible = "xlnx,v-frmbuf-wr-2.4", "xlnx,axi-frmbuf-wr-v2.2";
-			interrupt-names = "interrupt";
-			interrupt-parent = <&gic>;
-			interrupts = <0 {{frmbuf_irqs[0]}} 4>;
-			reset-gpios = <&gpio {{frmbuf_gpios[0]}} 1>;
-			reg = <{{frmbuf_addrs[0]}} 0x10000>;
-			xlnx,dma-addr-width = <32>;
-			xlnx,max-height = <2160>;
-			xlnx,max-width = <3840>;
-			xlnx,pixels-per-clock = <4>;
-			xlnx,s-axi-ctrl-addr-width = <0x7>;
-			xlnx,s-axi-ctrl-data-width = <0x20>;
-			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
-			xlnx,video-width = <8>;
-		};
-
-		vcap_mipi_csi2_rx_subsyst_0 {
-			compatible = "xlnx,video";
-			dma-names = "port0";
-			dmas = <&v_frmbuf_wr_0 0>;
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				vcap_port0: port@0 {
-					direction = "input";
-					reg = <0>;
-					vcap_portswitch0: endpoint {
-						remote-endpoint = <&mipi_csirx_out>;
-					};
-				};
-			};
-		};
+{{ capture_chain() }}
 	};
 };
 
@@ -344,8 +371,20 @@
 		};
 	};
 };
+{% else %}
+/*
+ * Additional deserializer (DES2+): only its CSI-2 capture chain is added.
+ * The shared FPGA/AXI, clock, mqnic and AD9545 infrastructure is emitted once
+ * by the first deserializer (des_idx == 0) above; here we just append this
+ * deserializer's MIPI CSI-2 RX / frame-buffer / vcap triplet into the existing
+ * fpga-axi@0 bus via the &fpga_axi label.
+ */
+&fpga_axi {
+{{ capture_chain() }}
+};
+{% endif %}
 
-&mipi_csi {
+&{{mipi_csi_label}} {
 	status = "okay";
 
 	ports {
