@@ -246,6 +246,20 @@ fh_copy_shallow(struct knfsd_fh *dst, const struct knfsd_fh *src)
 	memcpy(&dst->fh_raw, &src->fh_raw, src->fh_size);
 }
 
+#define NFSD_FHSIZE_UNSPEC	0
+
+/**
+ * fh_init - Prepare a file handle for fh_compose() or fh_verify()
+ * @fhp: File handle to initialize
+ * @maxsize: Largest file handle, in bytes, to build in @fhp
+ *
+ * @maxsize bounds the handle fh_compose() may build: NFS_FHSIZE,
+ * NFS3_FHSIZE, and NFS4_FHSIZE additionally select version-specific
+ * handling in fh_verify(). Callers that only verify an incoming
+ * handle pass NFSD_FHSIZE_UNSPEC, which cannot be composed.
+ *
+ * Return: @fhp
+ */
 static __inline__ struct svc_fh *
 fh_init(struct svc_fh *fhp, int maxsize)
 {

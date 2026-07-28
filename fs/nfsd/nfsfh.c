@@ -335,6 +335,8 @@ static __be32 nfsd_set_fh_dentry(struct svc_rqst *rqstp, struct net *net,
 	}
 
 	switch (fhp->fh_maxsize) {
+	case NFSD_FHSIZE_UNSPEC:
+		break;
 	case NFS4_FHSIZE:
 		if (dentry->d_sb->s_export_op->flags & EXPORT_OP_NOATOMIC_ATTR)
 			fhp->fh_no_atomic_attr = true;
