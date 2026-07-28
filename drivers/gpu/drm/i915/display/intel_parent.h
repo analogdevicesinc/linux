@@ -155,6 +155,7 @@ int intel_parent_vlv_iosf_write(struct intel_display *display, enum vlv_iosf_sb_
 /* generic */
 bool intel_parent_has_auxccs(struct intel_display *display);
 bool intel_parent_has_fenced_regions(struct intel_display *display);
+void intel_parent_transient_data_flush(struct intel_display *display);
 bool intel_parent_vgpu_active(struct intel_display *display);
 void intel_parent_fence_priority_display(struct intel_display *display, struct dma_fence *fence);
 

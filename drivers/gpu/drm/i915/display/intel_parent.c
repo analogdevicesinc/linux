@@ -451,6 +451,12 @@ bool intel_parent_has_fenced_regions(struct intel_display *display)
 	return display->parent->has_fenced_regions && display->parent->has_fenced_regions(display->drm);
 }
 
+void intel_parent_transient_data_flush(struct intel_display *display)
+{
+	if (display->parent->transient_data_flush)
+		display->parent->transient_data_flush(display->drm);
+}
+
 bool intel_parent_vgpu_active(struct intel_display *display)
 {
 	return display->parent->vgpu_active && display->parent->vgpu_active(display->drm);

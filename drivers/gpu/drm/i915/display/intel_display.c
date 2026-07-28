@@ -107,6 +107,7 @@
 #include "intel_modeset_verify.h"
 #include "intel_overlay.h"
 #include "intel_panel.h"
+#include "intel_parent.h"
 #include "intel_pch_display.h"
 #include "intel_pch_refclk.h"
 #include "intel_pfit.h"
@@ -119,7 +120,6 @@
 #include "intel_sdvo.h"
 #include "intel_snps_phy.h"
 #include "intel_tc.h"
-#include "intel_tdf.h"
 #include "intel_tv.h"
 #include "intel_vblank.h"
 #include "intel_vdsc.h"
@@ -7506,7 +7506,7 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 
 	intel_atomic_commit_fence_wait(state);
 
-	intel_td_flush(display);
+	intel_parent_transient_data_flush(display);
 
 	intel_atomic_prepare_plane_clear_colors(state);
 

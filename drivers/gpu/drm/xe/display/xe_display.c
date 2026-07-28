@@ -446,6 +446,20 @@ static bool has_auxccs(struct drm_device *drm)
 	return xe->info.platform == XE_ALDERLAKE_P;
 }
 
+/*
+ * TDF (Transient-Data-Flush) is needed for Xe2+ where special L3:XD caching can
+ * be enabled through various PAT index modes. Idea is to use this caching mode
+ * when for example rendering onto the display surface, with the promise that
+ * KMD will ensure transient cache entries are always flushed by the time we do
+ * the display flip, since display engine is never coherent with CPU/GPU caches.
+ */
+static void transient_data_flush(struct drm_device *drm)
+{
+	struct xe_device *xe = to_xe_device(drm);
+
+	xe_device_td_flush(xe);
+}
+
 static const struct intel_display_parent_interface parent = {
 	.bo = &xe_display_bo_interface,
 	.dsb = &xe_display_dsb_interface,
@@ -459,6 +473,7 @@ static const struct intel_display_parent_interface parent = {
 	.rpm = &xe_display_rpm_interface,
 	.stolen = &xe_display_stolen_interface,
 	.has_auxccs = has_auxccs,
+	.transient_data_flush = transient_data_flush,
 };
 
 /**

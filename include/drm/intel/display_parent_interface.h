@@ -302,6 +302,9 @@ struct intel_display_parent_interface {
 		/** @has_fenced_regions: Support legacy fencing? Optional. */
 		bool (*has_fenced_regions)(struct drm_device *drm);
 
+		/** @transient_data_flush: Transient data flush. Optional. */
+		void (*transient_data_flush)(struct drm_device *drm);
+
 		/** @vgpu_active: Is vGPU active? Optional. */
 		bool (*vgpu_active)(struct drm_device *drm);
 	};
