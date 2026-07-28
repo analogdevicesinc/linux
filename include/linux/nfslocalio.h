@@ -13,7 +13,8 @@
 #include <linux/uuid.h>
 #include <linux/sunrpc/clnt.h>
 #include <linux/sunrpc/svcauth.h>
-#include <linux/nfs.h>
+#include <linux/nfs_fh.h>
+
 #include <net/net_namespace.h>
 
 /*
