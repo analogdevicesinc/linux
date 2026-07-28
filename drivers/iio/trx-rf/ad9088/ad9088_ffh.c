@@ -214,6 +214,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 	bool hop_enable;
 	u64 val, ret;
 	u64 ftw_u64, f, tmp;
+	s64 sel;
 
 	if (!map)
 		return -EINVAL;
@@ -226,7 +227,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EINVAL;
 
 		ret = kstrtou64(buf, 10, &val);
-		if (ret || val >= ADI_APOLLO_FNCO_PROFILE_NUM || val < 0)
+		if (ret || val >= ADI_APOLLO_FNCO_PROFILE_NUM)
 			return -EINVAL;
 
 		phy->ffh.dir[dir].fnco.index[map->fddc_num] = val;
@@ -236,7 +237,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		fnco_en = GENMASK(fnco_num + 1, fnco_num);
 
 		ret = kstrtou64(buf, 10, &val);
-		if (ret || val < 0)
+		if (ret)
 			return -EINVAL;
 
 		index = phy->ffh.dir[dir].fnco.index[map->fddc_num];
@@ -272,10 +273,12 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		fnco_num = map->fddc_num + map->side * 8;
 		fnco_en = GENMASK(fnco_num + 1, fnco_num);
 
-		ret = kstrtou64(buf, 10, &val);
-		hop_enable = !(val == -1);
-		if (ret || val >= ADI_APOLLO_FNCO_PROFILE_NUM || val < -1)
+		ret = kstrtos64(buf, 10, &sel);
+		if (ret || sel < -1 || sel >= ADI_APOLLO_FNCO_PROFILE_NUM)
 			return -EINVAL;
+
+		hop_enable = !(sel == -1);
+		val = sel;
 
 		ret = adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en,
 						 hop_enable);
@@ -344,7 +347,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EINVAL;
 
 		ret = kstrtou64(buf, 10, &val);
-		if (ret || val >= ADI_APOLLO_CNCO_PROFILE_NUM || val < 0)
+		if (ret || val >= ADI_APOLLO_CNCO_PROFILE_NUM)
 			return -EINVAL;
 
 		phy->ffh.dir[dir].cnco.index[map->cddc_num] = val;
@@ -354,7 +357,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		cnco_en = BIT(cnco_num);
 
 		ret = kstrtou64(buf, 10, &val);
-		if (ret || val < 0)
+		if (ret)
 			return -EINVAL;
 
 		index = phy->ffh.dir[dir].cnco.index[map->cddc_num];
@@ -381,7 +384,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		cnco_en = BIT(cnco_num);
 
 		ret = kstrtou64(buf, 10, &val);
-		if (ret || val >= ADI_APOLLO_CNCO_PROFILE_NUM || val < 0)
+		if (ret || val >= ADI_APOLLO_CNCO_PROFILE_NUM)
 			return -EINVAL;
 
 		if (phy->ffh.dir[dir].cnco.mode[map->cddc_num] == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO ||
