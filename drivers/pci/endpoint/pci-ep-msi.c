@@ -10,7 +10,6 @@
 #include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/export.h>
-#include <linux/interrupt.h>
 #include <linux/irqdomain.h>
 #include <linux/module.h>
 #include <linux/msi.h>
@@ -112,8 +111,11 @@ static int pci_epf_alloc_doorbell_embedded(struct pci_epf *epf, u16 num_db)
 	 *
 	 * Still, pci_epf_alloc_doorbell() allows requesting multiple doorbells.
 	 * For such backends we replicate the same address/data for each entry
-	 * and mark the IRQ as shared (IRQF_SHARED). Consumers must treat them
-	 * as equivalent "kick" doorbells.
+	 * as equivalent "kick" doorbells. Consumers must request each distinct
+	 * IRQ only once.
+	 *
+	 * Keep the IRQ exclusive because the source cannot identify which EPF
+	 * rang the doorbell.
 	 */
 	for (i = 0; i < num_db; i++)
 		msg[i] = (struct pci_epf_doorbell_msg) {
@@ -121,7 +123,6 @@ static int pci_epf_alloc_doorbell_embedded(struct pci_epf *epf, u16 num_db)
 			.msg.address_hi = (u32)(addr >> 32),
 			.msg.data = doorbell->u.db_mmio.data,
 			.virq = doorbell->u.db_mmio.irq,
-			.irq_flags = IRQF_SHARED,
 			.type = PCI_EPF_DOORBELL_EMBEDDED,
 			.bar = doorbell->bar,
 			.offset = (doorbell->bar == NO_BAR) ? 0 :
