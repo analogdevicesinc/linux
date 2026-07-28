@@ -87,6 +87,21 @@
  * bound to the correct driver. i.e. The PCI core does not protect against a
  * device getting preserved by driver A in the outgoing kernel and then getting
  * bound to driver B in the incoming kernel. This may change in the future.
+ *
+ * BDF Stability
+ * =============
+ *
+ * The PCI core guarantees that preserved devices can be identified by the same
+ * bus, device, and function numbers for as long as they are preserved
+ * (including across kexec). To accomplish this, the PCI core always preserves
+ * the secondary and subordinate bus numbers assigned to bridges during scanning
+ * if any device is preserved. This is true even on architectures that always
+ * assign new bus numbers during scanning. The kernel assumes the previous
+ * kernel established a sane bus topology across kexec.
+ *
+ * If a misconfigured or unconfigured bridge is encountered during enumeration
+ * while there are preserved devices, its secondary and subordinate bus numbers
+ * will be cleared and devices below it will not be enumerated.
  */
 
 #define pr_fmt(fmt) "PCI: liveupdate: " fmt
@@ -487,6 +502,86 @@ static struct pci_flb_incoming *pci_liveupdate_flb_get_incoming(void)
 static void pci_liveupdate_flb_put_incoming(void)
 {
 	liveupdate_flb_put_incoming(&pci_liveupdate_flb);
+}
+
+static bool pci_has_incoming_preserved_devices(void)
+{
+	struct pci_flb_incoming *incoming;
+	u32 nr_devices;
+
+	guard(rwsem_read)(&pci_liveupdate.rwsem);
+
+	incoming = pci_liveupdate_flb_get_incoming();
+	if (!incoming)
+		return false;
+
+	nr_devices = incoming->ser->nr_devices;
+	pci_liveupdate_flb_put_incoming();
+
+	return nr_devices > 0;
+}
+
+/**
+ * pci_liveupdate_preserve_bus_numbers() - Determine if the PCI core should
+ *                                         preserve bus numbers when scanning
+ *                                         the provided bridge.
+ * @bus: The parent bus of the bridge.
+ * @dev: The PCI bridge device.
+ *
+ * This function is called by the PCI core when it is scanning a bridge.  It
+ * determines whether the PCI core should preserve the secondary and subordinate
+ * bus numbers assigned to @dev by the previous kernel. This is necessary to
+ * keep RequesterIDs constant for preserved devices issuing memory transactions.
+ *
+ * Return: True if bus numbers should be preserved, false otherwise.
+ */
+bool pci_liveupdate_preserve_bus_numbers(struct pci_bus *bus, struct pci_dev *dev)
+{
+	struct pci_dev *parent = bus->self;
+
+	if (dev->liveupdate.preserve_bus_numbers)
+		return true;
+
+	if (parent && parent->liveupdate.preserve_bus_numbers) {
+		/*
+		 * Preserve bus numbers if the parent bridge is required to
+		 * preserve bus numbers. Otherwise the PCI core could expand
+		 * this bridge's reservation beyond its parent (which cannot
+		 * expand).
+		 */
+		dev->liveupdate.preserve_bus_numbers = true;
+	} else {
+		/*
+		 * Otherwise preserve bus numbers if there are any incoming
+		 * preserved devices. This ensures that the PCI core does not
+		 * allocate a bus number to a non-preserved device that
+		 * conflicts with the bus number already assigned to a preserved
+		 * device.
+		 *
+		 * This is slightly more restrictive than it needs to be. For
+		 * example, each host bridges have their own range of bus
+		 * numbers that won't conflict with other host bridges. But the
+		 * previous kernel should have assigned a sane bus topology and
+		 * it is simpler to just adopt that entire topology.
+		 */
+		dev->liveupdate.preserve_bus_numbers =
+			pci_has_incoming_preserved_devices();
+	}
+
+	return dev->liveupdate.preserve_bus_numbers;
+}
+
+/**
+ * pci_liveupdate_scan_bridge_end() - Finish scanning a PCI bridge
+ * @dev: The PCI bridge device.
+ *
+ * This function is called by the PCI core when it finishes scanning a bridge.
+ * It clears the bus number preservation status of the bridge so it can be
+ * re-evaluated on future scans.
+ */
+void pci_liveupdate_scan_bridge_end(struct pci_dev *dev)
+{
+	dev->liveupdate.preserve_bus_numbers = false;
 }
 
 void pci_liveupdate_setup_device(struct pci_dev *dev)

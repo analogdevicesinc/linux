@@ -17,10 +17,14 @@
  * struct pci_liveupdate - PCI Live Update state for a struct pci_dev
  * @outgoing: State preserved for the next kernel.
  * @incoming: State preserved by the previous kernel.
+ * @preserve_bus_numbers: True if the PCI core should preserve the secondary and
+ *                        subordinate bus numbers assigned to this device due to
+ *                        an ongoing Live Update.
  */
 struct pci_liveupdate {
 	struct pci_dev_ser *outgoing;
 	struct pci_dev_ser *incoming;
+	bool preserve_bus_numbers;
 };
 
 struct pci_dev;

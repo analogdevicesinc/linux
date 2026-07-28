@@ -1397,6 +1397,7 @@ static int pci_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
 				  int max, unsigned int available_buses,
 				  int pass)
 {
+	bool preserve_bus_numbers = !pcibios_assign_all_busses();
 	struct pci_bus *child;
 	u32 buses;
 	u16 bctl;
@@ -1405,6 +1406,9 @@ static int pci_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
 	bool fixed_buses;
 	u8 fixed_sec, fixed_sub;
 	int next_busnr;
+
+	if (pci_liveupdate_preserve_bus_numbers(bus, dev))
+		preserve_bus_numbers = true;
 
 	/*
 	 * Make sure the bridge is powered on to be able to access config
@@ -1449,8 +1453,7 @@ static int pci_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
 		goto out;
 	}
 
-	if ((secondary || subordinate) &&
-	    !pcibios_assign_all_busses() && !broken) {
+	if ((secondary || subordinate) && preserve_bus_numbers && !broken) {
 		unsigned int cmax, buses;
 
 		/*
@@ -1492,8 +1495,7 @@ static int pci_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
 		 * do in the second pass.
 		 */
 		if (!pass) {
-			if (pcibios_assign_all_busses() || broken)
-
+			if (!preserve_bus_numbers || broken)
 				/*
 				 * Temporarily disable forwarding of the
 				 * configuration cycles on all bridges in
@@ -1504,6 +1506,11 @@ static int pci_scan_bridge_extend(struct pci_bus *bus, struct pci_dev *dev,
 				 */
 				pci_write_config_dword(dev, PCI_PRIMARY_BUS,
 						       buses & PCI_SEC_LATENCY_TIMER_MASK);
+			goto out;
+		}
+
+		if (pci_liveupdate_preserve_bus_numbers(bus, dev)) {
+			pci_err(dev, "Cannot reconfigure bridge during Live Update, skipping\n");
 			goto out;
 		}
 
@@ -1567,6 +1574,9 @@ out:
 	pci_write_config_word(dev, PCI_BRIDGE_CONTROL, bctl);
 
 	pm_runtime_put(&dev->dev);
+
+	if (pass)
+		pci_liveupdate_scan_bridge_end(dev);
 
 	return max;
 }
