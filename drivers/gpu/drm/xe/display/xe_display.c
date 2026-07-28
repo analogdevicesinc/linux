@@ -129,7 +129,6 @@ static void xe_display_fini(void *arg)
 	struct xe_device *xe = arg;
 	struct intel_display *display = xe->display;
 
-	intel_hpd_poll_fini(display);
 	intel_hdcp_component_fini(display);
 	intel_audio_deinit(display);
 	intel_display_driver_remove(display);
