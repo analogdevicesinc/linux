@@ -11,7 +11,6 @@
 #include <linux/exportfs.h>
 #include <linux/sunrpc/svcauth.h>
 #include <linux/sunrpc/clnt.h>
-#include <linux/nfs4.h>
 #include <linux/nfs_common.h>
 #include <linux/nfs_fh.h>
 #include <linux/nfslocalio.h>
@@ -54,7 +53,7 @@ nfsd_open_local_fh(struct net *net, struct auth_domain *dom,
 	struct nfsd_file *localio;
 	__be32 beres;
 
-	if (nfs_fh->size > NFS4_FHSIZE)
+	if (nfs_fh->size > NFS_MAXFHSIZE)
 		return ERR_PTR(-EINVAL);
 
 	if (!nfsd_net_try_get(net))
@@ -67,7 +66,7 @@ nfsd_open_local_fh(struct net *net, struct auth_domain *dom,
 		return localio;
 
 	/* nfs_fh -> svc_fh */
-	fh_init(&fh, NFS4_FHSIZE);
+	fh_init(&fh, NFSD_FHSIZE_UNSPEC);
 	fh.fh_handle.fh_size = nfs_fh->size;
 	memcpy(fh.fh_handle.fh_raw, nfs_fh->data, nfs_fh->size);
 
