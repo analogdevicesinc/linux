@@ -41,3 +41,13 @@ config COMMON_CLK_ADI_SC598
 	  support for the clock controller on the ADI SC598 SoC.
 	  If you are using the ADI SC598 SoC, say Y here.
 	  If unsure, say N.
+
+config COMMON_CLK_ADI_SC846
+	bool "ADI SC846 clock driver"
+	depends on ARCH_SC84X || COMPILE_TEST
+	select COMMON_CLK_ADI_PLL
+	help
+	  This enables the ADI SC846 clock driver. The driver provides
+	  support for the clock controller on the ADI SC846 SoC.
+	  If you are using the ADI SC846 SoC, say Y here.
+	  If unsure, say N.
