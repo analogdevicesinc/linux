@@ -18,7 +18,6 @@
 #include <uapi/drm/xe_drm.h>
 
 #include "intel_acpi.h"
-#include "intel_audio.h"
 #include "intel_display.h"
 #include "intel_display_core.h"
 #include "intel_display_device.h"
@@ -128,7 +127,6 @@ static void xe_display_fini(void *arg)
 	struct xe_device *xe = arg;
 	struct intel_display *display = xe->display;
 
-	intel_audio_deinit(display);
 	intel_display_driver_remove(display);
 }
 
