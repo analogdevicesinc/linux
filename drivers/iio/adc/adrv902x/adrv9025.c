@@ -55,6 +55,9 @@ enum adrv9025_iio_dev_attr {
 	adrv9025_JESD204_FSM_STATE,
 	adrv9025_JESD204_FSM_RESUME,
 	adrv9025_JESD204_FSM_CTRL,
+	ADRV9025_INIT_CALS_COMPLETE_CHECK,
+	ADRV9025_INIT_STATUS_ALL,
+	ADRV9025_TRACKING_STATUS_ALL
 };
 
 static int __adrv9025_dev_err(struct adrv9025_rf_phy *phy, const char *function,
@@ -316,6 +319,35 @@ static void adrv9025_shutdown(struct adrv9025_rf_phy *phy)
 	       sizeof(phy->adi_adrv9025_device.devStateInfo));
 }
 
+/*
+ * Re-assert the framer-1 ADC sample crossbar to split routing. The on-chip
+ * stream processor collapses it on every ORx enable edge, so this must run
+ * AFTER the enable change. conv0/1 = side-A I/Q, conv2/3 = side-B I/Q.
+ */
+static int adrv9025_orx_xbar_reassert(struct adrv9025_rf_phy *phy)
+{
+	int ret;
+
+	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7000,
+					 ADI_ADRV9025_ADC_ORX1_I, 0x7F, 0);
+	if (ret)
+		return ret;
+
+	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7001,
+					 ADI_ADRV9025_ADC_ORX1_Q, 0x7F, 0);
+	if (ret)
+		return ret;
+
+	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7002,
+					 ADI_ADRV9025_ADC_ORX2_I, 0x7F, 0);
+	if (ret)
+		return ret;
+
+	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7003,
+					 ADI_ADRV9025_ADC_ORX2_Q, 0x7F, 0);
+	return ret;
+}
+
 static ssize_t adrv9025_phy_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t len)
@@ -338,11 +370,17 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 		val = (u64)this_attr->address >> 8;
 
 		if (val) {
-			if (enable)
+			printk("phy_store: val!=0\n");
+			if (enable){
 				phy->cal_mask.calMask |= val;
-			else
+				printk("phy_store: enable: init calibration mask is %d\n",phy->cal_mask.calMask);
+			}
+			else{
 				phy->cal_mask.calMask &= ~val;
+				printk("phy_store: disable: init calibration mask is %d\n",phy->cal_mask.calMask);
+			}
 		} else if (enable) {
+			printk("phy_store: attempting init calibrations\n");
 			static const u32 INIT_CALS_TIMEOUT_MS =
 				60000; /*60 seconds timeout*/
 			u8 initCalsError = 0;
@@ -352,29 +390,41 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 					phy->adrv9025PostMcsInitInst.initCals.channelMask;
 
 			/* Run Init Cals */
+			printk("calibration mask before running init cals:%d",phy->cal_mask.calMask);
 			ret = adi_adrv9025_InitCalsRun(phy->madDevice,
 						       &phy->cal_mask);
 			if (ret) {
+				printk("Init cals run failed\n");
 				ret = adrv9025_dev_err(phy);
 				break;
 			}
 
+			printk("phy_store: between cals run and cals wait\n");
+
 			ret = adi_adrv9025_InitCalsWait(phy->madDevice,
 							INIT_CALS_TIMEOUT_MS,
 							&initCalsError);
-			if (ret)
+			if (ret){
+				printk("Init cals wait failed\n");
 				ret = adrv9025_dev_err(phy);
+			}
+			//revert xbar registers for test
+			adrv9025_orx_xbar_reassert(phy);
+			printk("after init cals wait function, error code : %d",initCalsError);
 		}
 		break;
 	case ADRV9025_CAL_MASK:
 		ret = kstrtou64(buf, 0, &val);
 		if (ret)
 			break;
-
-		if (val <= 0x0F)
+		if (val <= 0x0F){
 			phy->cal_mask.channelMask = val;
-		else
+			printk("phy_store: Changing calibration mask\n");
+		}
+		else{
 			ret = -EINVAL;
+			printk("phy_store: Cant change calibration mask\n");
+		}
 		break;
 	case ADRV9025_DPD_TX_MASK:
 		ret = kstrtou64(buf, 0, &val);
@@ -475,6 +525,10 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 	case ADRV9025_CAL_MASK:
 		ret = sysfs_emit(buf, "0x%x\n",
 				 phy->cal_mask.channelMask);
+		if(ret){
+			printk("phy_show: error reading calibration mask\n");
+			return -EINVAL;
+		}
 		break;
 	case ADRV9025_DPD_TX_MASK:
 		ret = sysfs_emit(buf, "0x%x\n", phy->dpdTxChannel);
@@ -561,6 +615,72 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 
 		ret = sysfs_emit(buf, "%d\n", phy->is_initialized);
 		break;
+
+	case ADRV9025_INIT_CALS_COMPLETE_CHECK:
+		uint8_t status;
+		uint8_t ARMflag;
+		ret = adi_adrv9025_InitCalsCheckCompleteGet(phy->madDevice, &status, &ARMflag);
+		if(ret){
+			adrv9025_dev_err(phy);
+			return ret;
+		}
+		
+		ret = sysfs_emit(buf, "Status: %d, ARM is error?: %d", status, ARMflag);
+
+		break;
+	case ADRV9025_INIT_STATUS_ALL:
+		adi_adrv9025_InitCalStatus_t initStatus;
+		ret = adi_adrv9025_InitCalsDetailedStatusGet(phy->madDevice,&initStatus);
+		if(ret){
+			adrv9025_dev_err(phy);
+			return ret;			
+		}
+
+		ret = sysfs_emit(buf,
+        "initErrCode: 0x%08x (objId=0x%02x err=0x%02x)\n"
+        "initErrCal: 0x%08x, durationUsec: %u\n"
+        "calsSincePowerUp: [0x%08x 0x%08x 0x%08x 0x%08x]\n"
+        "calsLastRun:      [0x%08x 0x%08x 0x%08x 0x%08x]\n",
+        initStatus.initErrCode,
+        (initStatus.initErrCode >> 8) & 0xFF, initStatus.initErrCode & 0xFF,
+        initStatus.initErrCal, initStatus.calsDurationUsec,
+        initStatus.calsSincePowerUp[0], initStatus.calsSincePowerUp[1],
+        initStatus.calsSincePowerUp[2], initStatus.calsSincePowerUp[3],
+        initStatus.calsLastRun[0], initStatus.calsLastRun[1],
+        initStatus.calsLastRun[2], initStatus.calsLastRun[3]);
+		break;
+		
+case ADRV9025_TRACKING_STATUS_ALL: {
+    adi_adrv9025_TrackingCalState_t st;
+
+    ret = adi_adrv9025_TrackingCalAllStateGet(phy->madDevice, &st);
+    if (ret)
+        return adrv9025_dev_err(phy);
+
+    ret = sysfs_emit(buf,
+        "calError: 0x%016llx\n"
+        "rxQec:  [%u %u %u %u]\n"
+        "orxQec: [%u %u %u %u]\n"
+        "txLol:  [%u %u %u %u]\n"
+        "txQec:  [%u %u %u %u]\n"
+        "txDpd:  [%u %u %u %u]\n"
+        "txClgc: [%u %u %u %u]\n"
+        "txVswr: [%u %u %u %u]\n"
+        "rxHd2:  [%u %u %u %u]\n"
+        "deserializer: %u\n",
+        (unsigned long long)st.calError,
+        st.rx1Qec, st.rx2Qec, st.rx3Qec, st.rx4Qec,
+        st.orx1Qec, st.orx2Qec, st.orx3Qec, st.orx4Qec,
+        st.tx1Lol, st.tx2Lol, st.tx3Lol, st.tx4Lol,
+        st.tx1Qec, st.tx2Qec, st.tx3Qec, st.tx4Qec,
+        st.tx1Dpd, st.tx2Dpd, st.tx3Dpd, st.tx4Dpd,
+        st.tx1Clgc, st.tx2Clgc, st.tx3Clgc, st.tx4Clgc,
+        st.tx1Vswr, st.tx2Vswr, st.tx3Vswr, st.tx4Vswr,
+        st.rx1Hd2, st.rx2Hd2, st.rx3Hd2, st.rx4Hd2,
+        st.deserializer);
+    break;
+}
+
 	default:
 		ret = -EINVAL;
 	}
@@ -585,6 +705,10 @@ static IIO_DEVICE_ATTR(calibrate_tx_lol_en, 0644,
 		       ADRV9025_INIT_CAL |
 			       (ADI_ADRV9025_TX_LO_LEAKAGE_INTERNAL << 8));
 
+static IIO_DEVICE_ATTR(init_cals_complete_check, 0444,
+			   adrv9025_phy_show, NULL,
+			   ADRV9025_INIT_CALS_COMPLETE_CHECK);
+
 static IIO_DEVICE_ATTR(calibrate_tx_lol_ext_en, 0644,
 		       adrv9025_phy_show, adrv9025_phy_store,
 		       ADRV9025_INIT_CAL |
@@ -594,8 +718,30 @@ static IIO_DEVICE_ATTR(calibrate_ext_path_delay_en, 0644,
 		       adrv9025_phy_show, adrv9025_phy_store,
 		       ADRV9025_INIT_CAL | (ADI_ADRV9025_EXTERNAL_PATH_DELAY << 8));
 
+static IIO_DEVICE_ATTR(calibrate_orx_qec_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | (ADI_ADRV9025_ORX_QEC_INIT << 8));
+
+static IIO_DEVICE_ATTR(calibrate_orx_lo_delay_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | (ADI_ADRV9025_ORX_LO_DELAY << 8));
+
+static IIO_DEVICE_ATTR(calibrate_adc_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | (ADI_ADRV9025_ADC_TUNER << 8));
+
+static IIO_DEVICE_ATTR(calibrate_orx_adc_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | (ADI_ADRV9025_ORX_TIA << 8));
+
 static IIO_DEVICE_ATTR(calibrate_mask, 0644, adrv9025_phy_show,
 		       adrv9025_phy_store, ADRV9025_CAL_MASK);
+
+static IIO_DEVICE_ATTR(init_cals_all_status, 0644, adrv9025_phy_show,
+				NULL, ADRV9025_INIT_STATUS_ALL);
+
+static IIO_DEVICE_ATTR(tracking_cals_all_status, 0644, adrv9025_phy_show,
+				NULL, ADRV9025_TRACKING_STATUS_ALL);
 
 static IIO_DEVICE_ATTR(dpd_tx_mask, 0644, adrv9025_phy_show,
 		       adrv9025_phy_store, ADRV9025_DPD_TX_MASK);
@@ -633,12 +779,19 @@ static IIO_DEVICE_ATTR(jesd204_fsm_ctrl, 0644,
 
 static struct attribute *adrv9026_phy_attributes[] = {
 	&iio_dev_attr_calibrate.dev_attr.attr,
+	&iio_dev_attr_init_cals_complete_check.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_lo_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_adc_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_adc_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_mask.dev_attr.attr,
+	&iio_dev_attr_init_cals_all_status.dev_attr.attr,
+	&iio_dev_attr_tracking_cals_all_status.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
@@ -649,12 +802,19 @@ static struct attribute *adrv9026_phy_attributes[] = {
 
 static struct attribute *adrv9029_phy_attributes[] = {
 	&iio_dev_attr_calibrate.dev_attr.attr,
+	&iio_dev_attr_init_cals_complete_check.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_ext_path_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_qec_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_lo_delay_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_adc_en.dev_attr.attr,
+	&iio_dev_attr_calibrate_orx_adc_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_mask.dev_attr.attr,
+	&iio_dev_attr_init_cals_all_status.dev_attr.attr,
+	&iio_dev_attr_tracking_cals_all_status.dev_attr.attr,
 	&iio_dev_attr_dpd_tx_mask.dev_attr.attr,
 	&iio_dev_attr_dpd_reset.dev_attr.attr,
 	&iio_dev_attr_dpd_tracking_config_set.dev_attr.attr,
@@ -869,6 +1029,7 @@ static ssize_t adrv9025_phy_rx_write(struct iio_dev *indio_dev,
 				 ADI_ADRV9025_TRACKING_CAL_DISABLE);
 		if (ret)
 			ret = adrv9025_dev_err(phy);
+		printk("phy_rx_write: enable mask for tracking calibrations is: %llu\n", mask);    //verify mask for enabling tracking calibrations:look in adi_adrv9025_cals.h for the table with the bits
 		break;
 	case RX_HD2:
 		mask = ADI_ADRV9025_TRACK_RX1_HD2 << chan->channel;
@@ -934,6 +1095,11 @@ static ssize_t adrv9025_phy_rx_read(struct iio_dev *indio_dev,
 	case RX_QEC:
 		tmask = ADI_ADRV9025_TRACK_RX1_QEC << chan->channel;
 		ret = adi_adrv9025_TrackingCalsEnableGet(phy->madDevice, &mask);
+
+		dev_info(&phy->spi->dev,
+			 "%s: chan=%d tmask=0x%llx enableMask=0x%llx -> %d\n",
+			 __func__, chan->channel, tmask, mask, !!(tmask & mask));
+
 		if (ret == 0)
 			ret = sysfs_emit(buf, "%d\n", !!(tmask & mask));
 
@@ -1093,47 +1259,16 @@ static const u8 ad9371_obs_rx_port_lut[] = {
 };
 
 /*
- * True when the device is configured for dual-channel 4-pin ORx mode
- * (orxEnableMode=4) AND the ORX_CTRL pins are wired in the device tree. In
- * this mode ORx enable/select is driven by the ORX_CTRL pins (A/C = side-A/
- * side-B enable, B/D = side-A/side-B channel select), not the 0x106 SPI
- * enable. The enable mode comes from the init profile cached at probe.
+ * Return the configured ORx enable mode (orxEnableMode) cached from the init
+ * profile at probe. In dual-channel 4-pin mode (ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE)
+ * ORx enable/select is driven by the ORX_CTRL pins (A/C = side-A/side-B enable,
+ * B/D = side-A/side-B channel select) rather than the 0x106 SPI enable; in SPI
+ * mode the 0x106 enable is used instead.
  */
-static bool adrv9025_orx_dual_4pin(struct adrv9025_rf_phy *phy)
+static u8 adrv9025_orx_get_mode(struct adrv9025_rf_phy *phy)
 {
-	return phy->orx_ctrl_a_gpio && phy->orx_ctrl_c_gpio &&
-	       phy->adrv9025PostMcsInitInst.radioCtrlInit.radioCtrlModeCfg
-		       .orxRadioCtrlModeCfg.orxEnableMode ==
-		       ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE;
-}
-
-/*
- * Re-assert the framer-1 ADC sample crossbar to split routing. The on-chip
- * stream processor collapses it on every ORx enable edge, so this must run
- * AFTER the enable change. conv0/1 = side-A I/Q, conv2/3 = side-B I/Q.
- */
-static int adrv9025_orx_xbar_reassert(struct adrv9025_rf_phy *phy)
-{
-	int ret;
-
-	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7000,
-					 ADI_ADRV9025_ADC_ORX1_I, 0x7F, 0);
-	if (ret)
-		return ret;
-
-	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7001,
-					 ADI_ADRV9025_ADC_ORX1_Q, 0x7F, 0);
-	if (ret)
-		return ret;
-
-	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7002,
-					 ADI_ADRV9025_ADC_ORX2_I, 0x7F, 0);
-	if (ret)
-		return ret;
-
-	ret = adi_adrv9025_SpiFieldWrite(phy->madDevice, 0x7003,
-					 ADI_ADRV9025_ADC_ORX2_Q, 0x7F, 0);
-	return ret;
+	return phy->adrv9025PostMcsInitInst.radioCtrlInit.radioCtrlModeCfg
+		       .orxRadioCtrlModeCfg.orxEnableMode;
 }
 
 /*
@@ -1152,8 +1287,9 @@ static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 	u32 mask = 0xFFFFFFCF;
 	u32 val = 0;
 	int ret;
+	switch (adrv9025_orx_get_mode(phy)) {
 
-	if (adrv9025_orx_dual_4pin(phy)) {
+	case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
 		struct gpio_desc *sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
 					     phy->orx_ctrl_d_gpio :
 					     phy->orx_ctrl_b_gpio;
@@ -1167,29 +1303,37 @@ static int adrv9025_set_obs_rx_path(struct iio_dev *indio_dev,
 		if (ret)
 			return adrv9025_dev_err(phy);
 
-		return 0;
+		break;
 	}
 
-	/* Legacy SPI-mode select+enable (boards without ORX_CTRL pins). */
-	ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
-					 &txchan);
-	if (ret)
-		return adrv9025_dev_err(phy);
+	case ADI_ADRV9025_ORX_EN_SPI_MODE:
+		/* Legacy SPI-mode select+enable (boards without ORX_CTRL pins). */
+		ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
+					 	&txchan);
+		if (ret)
+			return adrv9025_dev_err(phy);
 
-	val = ad9371_obs_rx_port_lut[mode];
-	if (chan->channel > CHAN_OBS_RX1) {
-		mask = mask << 2 | 0xF;
-		val <<= 2;
+		val = ad9371_obs_rx_port_lut[mode];
+		if (chan->channel > CHAN_OBS_RX1) {
+			mask = mask << 2 | 0xF;
+			val <<= 2;
+		}
+
+		rxchan = (rxchan & mask) | val;
+
+		ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan, txchan);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		break;
+
+	case ADI_ADRV9025_ORX_EN_INVALID_MODE:
+		ret = adrv9025_dev_err(phy);
+		break;
 	}
-
-	rxchan = (rxchan & mask) | val;
-
-	ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan, txchan);
-	if (ret)
-		return adrv9025_dev_err(phy);
 
 	return ret;
-}
+}	
 
 static int adrv9025_get_obs_rx_path(struct iio_dev *indio_dev,
 				    const struct iio_chan_spec *chan)
@@ -1200,37 +1344,52 @@ static int adrv9025_get_obs_rx_path(struct iio_dev *indio_dev,
 	int pair;
 	int ret;
 
-	/*
-	 * In dual-4-pin mode selection is held by the channel-select pin, so
-	 * read it back directly. The output gpio returns the last value set.
-	 * 0 = first ORx of the pair, 1 = second ORx (matches the 2-item enum).
-	 */
-	if (adrv9025_orx_dual_4pin(phy)) {
+	switch (adrv9025_orx_get_mode(phy)) {
+
+	case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
+		/*
+		 * In dual-4-pin mode selection is held by the channel-select
+		 * pin, so read it back directly. The output gpio returns the
+		 * last value set. 0 = first ORx of the pair, 1 = second ORx
+		 * (matches the 2-item enum).
+		 */
 		struct gpio_desc *sel_gpio = (chan->channel > CHAN_OBS_RX1) ?
 					     phy->orx_ctrl_d_gpio :
 					     phy->orx_ctrl_b_gpio;
 
-		return (sel_gpio && gpiod_get_value_cansleep(sel_gpio)) ? 1 : 0;
+		ret = (sel_gpio && gpiod_get_value_cansleep(sel_gpio)) ? 1 : 0;
+		break;
 	}
 
-	ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
-					 &txchan);
-	if (ret)
-		return adrv9025_dev_err(phy);
+	case ADI_ADRV9025_ORX_EN_SPI_MODE:
+		/* Legacy SPI-mode readback (boards without ORX_CTRL pins). */
+		ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
+						 &txchan);
+		if (ret)
+			return adrv9025_dev_err(phy);
 
-	if (chan->channel > CHAN_OBS_RX1)
-		shift_right = CHAN_OBS_RX3;
+		if (chan->channel > CHAN_OBS_RX1)
+			shift_right = CHAN_OBS_RX3;
 
-	/*
-	 * Each ORx pair occupies two adjacent enable bits (lower/upper). The
-	 * rf_port_select enum is now SELECT-only with two items: index 0 =
-	 * lower ORx, index 1 = upper ORx. Map the upper enable bit to index 1
-	 * and everything else (lower-on or disabled) to index 0 so the read
-	 * always lands on a valid enum item.
-	 */
-	pair = rxchan >> shift_right & 0x3;
+		/*
+		 * Each ORx pair occupies two adjacent enable bits (lower/
+		 * upper). The rf_port_select enum is now SELECT-only with two
+		 * items: index 0 = lower ORx, index 1 = upper ORx. Map the
+		 * upper enable bit to index 1 and everything else (lower-on or
+		 * disabled) to index 0 so the read always lands on a valid
+		 * enum item.
+		 */
+		pair = rxchan >> shift_right & 0x3;
 
-	return (pair & 0x2) ? 1 : 0;
+		ret = (pair & 0x2) ? 1 : 0;
+		break;
+
+	case ADI_ADRV9025_ORX_EN_INVALID_MODE:
+		ret = adrv9025_dev_err(phy);
+		break;
+	}
+
+	return ret;
 }
 
 static const struct iio_enum adrv9025_rf_obs1_rx_port_available = {
@@ -1357,11 +1516,23 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 			break;
 		}
 
-		if (chan->output)
+		if (chan->output) {
 			*val = !!(txchan & (ADI_ADRV9025_TX1 << chan->channel));
-		else
-			if (chan->channel >= CHAN_OBS_RX1 &&
-			    adrv9025_orx_dual_4pin(phy)) {
+			ret = IIO_VAL_INT;
+			break;
+		}
+
+		/* Regular Rx channels always use the SPI enable state. */
+		if (chan->channel < CHAN_OBS_RX1) {
+			*val = !!(rxchan & (ADI_ADRV9025_RX1 << chan->channel));
+			ret = IIO_VAL_INT;
+			break;
+		}
+
+		/* OBS channel: dispatch on the configured ORx enable mode. */
+		if (chan->channel >= CHAN_OBS_RX1) {
+			switch (adrv9025_orx_get_mode(phy)) {
+			case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
 				/* enable is held by the side ENABLE pin (A/C) */
 				struct gpio_desc *en_gpio =
 					(chan->channel > CHAN_OBS_RX1) ?
@@ -1370,15 +1541,20 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 
 				*val = en_gpio ?
 				       !!gpiod_get_value_cansleep(en_gpio) : 0;
-			} else if (chan->channel >= CHAN_OBS_RX1) {
+				break;
+			}
+			case ADI_ADRV9025_ORX_EN_SPI_MODE:
 				chan_no = chan->channel;
 				if (chan_no == CHAN_OBS_RX2)
 					chan_no += 1;
 				*val = !!(rxchan & (ADI_ADRV9025_RX1 << chan_no) ||
 					  rxchan & (ADI_ADRV9025_RX1 << (chan_no + 1)));
-			} else {
-				*val = !!(rxchan & (ADI_ADRV9025_RX1 << chan->channel));
+				break;
+			default:
+				ret = -EINVAL;
+				goto out;
 			}
+		}
 
 		ret = IIO_VAL_INT;
 		break;
@@ -1403,31 +1579,63 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 			chan_no = chan->channel;
 
 			if (chan_no > CHAN_RX4) {
-				/* For OBS channels, determine which specific channel is enabled */
-				ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan, &txchan);
-				if (ret) {
-					ret = adrv9025_dev_err(phy);
+				/*
+				 * For OBS channels, resolve which physical ORx of
+				 * the pair is active, based on the ORx enable mode.
+				 */
+				switch (adrv9025_orx_get_mode(phy)) {
+
+				case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
+					/*
+					 * Selection is held by the channel-select
+					 * pin; read it via get_obs_rx_path
+					 * (0 = lower ORx of pair, 1 = upper).
+					 */
+					int sel = adrv9025_get_obs_rx_path(indio_dev, chan);
+
+					if (sel < 0) {
+						ret = sel;
+						goto out;
+					}
+
+					if (chan_no == CHAN_OBS_RX1)
+						chan_no = sel ? CHAN_OBS_RX2 : CHAN_OBS_RX1;
+					else if (chan_no == CHAN_OBS_RX2)
+						chan_no = sel ? CHAN_OBS_RX4 : CHAN_OBS_RX3;
 					break;
 				}
 
-				if (chan_no == CHAN_OBS_RX1) {
-					if ((rxchan & ADI_ADRV9025_ORX1) && !(rxchan & ADI_ADRV9025_ORX2)) {
-						chan_no = CHAN_OBS_RX1;
-					} else if (!(rxchan & ADI_ADRV9025_ORX1) && (rxchan & ADI_ADRV9025_ORX2)) {
-						chan_no = CHAN_OBS_RX2;
-					} else {
-						ret = -EINVAL;
-						break;
+				case ADI_ADRV9025_ORX_EN_SPI_MODE:
+					ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan, &txchan);
+					if (ret) {
+						ret = adrv9025_dev_err(phy);
+						goto out;
 					}
-				} else if (chan_no == CHAN_OBS_RX2) {
-					if ((rxchan & ADI_ADRV9025_ORX3) && !(rxchan & ADI_ADRV9025_ORX4)) {
-						chan_no = CHAN_OBS_RX3;
-					} else if (!(rxchan & ADI_ADRV9025_ORX3) && (rxchan & ADI_ADRV9025_ORX4)) {
-						chan_no = CHAN_OBS_RX4;
-					} else {
-						ret = -EINVAL;
-						break;
+
+					if (chan_no == CHAN_OBS_RX1) {
+						if ((rxchan & ADI_ADRV9025_ORX1) && !(rxchan & ADI_ADRV9025_ORX2)) {
+							chan_no = CHAN_OBS_RX1;
+						} else if (!(rxchan & ADI_ADRV9025_ORX1) && (rxchan & ADI_ADRV9025_ORX2)) {
+							chan_no = CHAN_OBS_RX2;
+						} else {
+							ret = -EINVAL;
+							goto out;
+						}
+					} else if (chan_no == CHAN_OBS_RX2) {
+						if ((rxchan & ADI_ADRV9025_ORX3) && !(rxchan & ADI_ADRV9025_ORX4)) {
+							chan_no = CHAN_OBS_RX3;
+						} else if (!(rxchan & ADI_ADRV9025_ORX3) && (rxchan & ADI_ADRV9025_ORX4)) {
+							chan_no = CHAN_OBS_RX4;
+						} else {
+							ret = -EINVAL;
+							goto out;
+						}
 					}
+					break;
+
+				default:
+					ret = -EINVAL;
+					goto out;
 				}
 			}
 
@@ -1474,6 +1682,7 @@ static int adrv9025_phy_read_raw(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 	}
 
+out:
 	mutex_unlock(&phy->lock);
 
 	return ret;
@@ -1505,49 +1714,76 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 				txchan |= (ADI_ADRV9025_TX1 << chan->channel);
 			else
 				txchan &= ~(ADI_ADRV9025_TX1 << chan->channel);
-		} else if (chan->channel >= CHAN_OBS_RX1 &&
-			   adrv9025_orx_dual_4pin(phy)) {
-			/*
-			 * Dual-channel 4-pin mode: the ORx side ENABLE is owned
-			 * by the ORX_CTRL pin (A for side-A/obs1, C for side-B/
-			 * obs2), not the 0x106 SPI enable. _en drives the pin;
-			 * which ORx of the pair is picked by rf_port_select (the
-			 * select pin). Re-assert the split crossbar after the
-			 * enable edge (the stream collapses it on that edge).
-			 */
-			struct gpio_desc *en_gpio =
-				(chan->channel > CHAN_OBS_RX1) ?
-				phy->orx_ctrl_c_gpio : phy->orx_ctrl_a_gpio;
 
-			gpiod_set_value_cansleep(en_gpio, val ? 1 : 0);
-
-			if (val) {
-				ret = adrv9025_orx_xbar_reassert(phy);
-				if (ret)
-					ret = adrv9025_dev_err(phy);
-			}
+			ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan,
+							 txchan);
+			if (ret)
+				ret = adrv9025_dev_err(phy);
 			break;
-		} else {
-			chan_no = chan->channel;
-			if (chan_no == CHAN_OBS_RX2)
-				chan_no += 1;
-			if (val) {
-				rxchan |= (ADI_ADRV9025_RX1 << chan_no);
-				if (chan_no >= CHAN_OBS_RX1)
+		}
+
+		/* Regular Rx channels always use the SPI enable path. */
+		if (chan->channel < CHAN_OBS_RX1) {
+			if (val)
+				rxchan |= (ADI_ADRV9025_RX1 << chan->channel);
+			else
+				rxchan &= ~(ADI_ADRV9025_RX1 << chan->channel);
+
+			ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan,
+							 txchan);
+			if (ret)
+				ret = adrv9025_dev_err(phy);
+			break;
+		}
+		/* OBS channel: dispatch on the configured ORx enable mode. */
+		if (chan->channel >= CHAN_OBS_RX1) {
+			switch (adrv9025_orx_get_mode(phy)) {
+			case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
+				/*
+				 * Dual-channel 4-pin mode: the ORx side ENABLE is
+				 * owned by the ORX_CTRL pin (A for side-A/obs1, C
+				 * for side-B/obs2), not the 0x106 SPI enable. _en
+				 * drives the pin; which ORx of the pair is picked
+				 * by rf_port_select (the select pin). Re-assert the
+				 * split crossbar after the enable edge (the stream
+				 * collapses it on that edge).
+				 */
+				struct gpio_desc *en_gpio =
+					(chan->channel > CHAN_OBS_RX1) ?
+					phy->orx_ctrl_c_gpio :
+					phy->orx_ctrl_a_gpio;
+
+				gpiod_set_value_cansleep(en_gpio, val ? 1 : 0);
+
+				if (val) {
+					ret = adrv9025_orx_xbar_reassert(phy);
+					if (ret)
+						ret = adrv9025_dev_err(phy);
+				}
+				break;
+			}
+			case ADI_ADRV9025_ORX_EN_SPI_MODE:
+				chan_no = chan->channel;
+				if (chan_no == CHAN_OBS_RX2)
+					chan_no += 1;
+				if (val) {
+					rxchan |= (ADI_ADRV9025_RX1 << chan_no);
 					rxchan &= ~(ADI_ADRV9025_RX1 << (chan_no + 1));
-			} else {
-				if (chan_no < CHAN_OBS_RX1) {
-					rxchan &= ~(ADI_ADRV9025_RX1 << chan_no);
 				} else {
 					rxchan &= ~(ADI_ADRV9025_RX1 << chan_no);
 					rxchan &= ~(ADI_ADRV9025_RX1 << (chan_no + 1));
 				}
+
+				ret = adi_adrv9025_RxTxEnableSet(phy->madDevice,
+								 rxchan, txchan);
+				if (ret)
+					ret = adrv9025_dev_err(phy);
+				break;
+			default:
+				ret = -EINVAL;
+				break;
 			}
 		}
-		ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, rxchan,
-						 txchan);
-		if (ret)
-			ret = adrv9025_dev_err(phy);
 		break;
 
 	case IIO_CHAN_INFO_HARDWAREGAIN:
@@ -1574,14 +1810,16 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 			chan_no = chan->channel;
 
 			if (chan_no > CHAN_RX4) {
-
+				/*
+				 * Resolve which physical ORx of the pair is active.
+				 * In dual-channel 4-pin mode the selection is held
+				 * by the channel-select pin (read via
+				 * get_obs_rx_path: 0 = lower ORx, 1 = upper);
+				 * otherwise fall back to the SPI enable state.
+				 */
 				switch (adrv9025_orx_get_mode(phy)) {
 				case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
-					int sel = adrv9025_get_obs_rx_path(indio_dev, chan);
-
-					dev_warn(&phy->spi->dev,
-						 "DEBUG write_raw: 4pin path, chan_no=%d val=%d set_obs_rx_path ret sel=%d\n",
-						 chan_no, val, sel);
+					int sel = adrv9025_set_obs_rx_path(indio_dev, chan, val);
 
 					if (sel < 0) {
 						ret = sel;
@@ -1626,26 +1864,6 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 				default:
 					ret = -EINVAL;
 					goto out;
-				}
-
-				if (chan_no == CHAN_OBS_RX1) {
-					if (rxchan & ADI_ADRV9025_ORX1 && !(rxchan & ADI_ADRV9025_ORX2)) {
-						chan_no = CHAN_OBS_RX1;
-					} else if (!(rxchan & ADI_ADRV9025_ORX1) && (rxchan & ADI_ADRV9025_ORX2)) {
-						chan_no = CHAN_OBS_RX2;
-					} else {
-						ret = -EINVAL;
-						goto out;
-					}
-				} else if (chan_no == CHAN_OBS_RX2) {
-					if (rxchan & ADI_ADRV9025_ORX3 && !(rxchan & ADI_ADRV9025_ORX4)) {
-						chan_no = CHAN_OBS_RX3;
-					} else if (!(rxchan & ADI_ADRV9025_ORX3) && (rxchan & ADI_ADRV9025_ORX4)) {
-						chan_no = CHAN_OBS_RX4;
-					} else {
-						ret = -EINVAL;
-						goto out;
-					}
 				}
 			}
 
@@ -3591,7 +3809,8 @@ static int adrv9025_parse_dpd_coef(struct adrv9025_rf_phy *phy, char *data, u32 
 		ret = sscanf(line, "%hhu %hhu %hhu %hhu %s", &i, &j, &k, &lut, coef);
 		if (ret != 5) {
 			dev_err(&phy->spi->dev,
-				"ERROR: Malformed DPD coefficient table\n");
+				"ERROR: Malformed DPD coefficient table (sscanf ret=%d line=[%s])\n",
+				ret, line);
 			return -EINVAL;
 		}
 
