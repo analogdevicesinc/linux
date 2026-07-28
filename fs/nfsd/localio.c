@@ -11,11 +11,10 @@
 #include <linux/exportfs.h>
 #include <linux/sunrpc/svcauth.h>
 #include <linux/sunrpc/clnt.h>
-#include <linux/nfs.h>
+#include <linux/nfs4.h>
 #include <linux/nfs_common.h>
+#include <linux/nfs_fh.h>
 #include <linux/nfslocalio.h>
-#include <linux/nfs_fs.h>
-#include <linux/nfs_xdr.h>
 #include <linux/string.h>
 
 #include "nfsd.h"
@@ -179,7 +178,7 @@ static bool localio_decode_uuidarg(struct svc_rqst *rqstp,
 	struct localio_uuidarg *argp = rqstp->rq_argp;
 	u8 uuid[UUID_SIZE];
 
-	if (decode_opaque_fixed(xdr, uuid, UUID_SIZE))
+	if (xdr_stream_decode_opaque_fixed(xdr, uuid, UUID_SIZE) < 0)
 		return false;
 	import_uuid(&argp->uuid, uuid);
 
