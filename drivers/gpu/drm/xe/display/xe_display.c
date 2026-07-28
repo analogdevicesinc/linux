@@ -29,7 +29,6 @@
 #include "intel_dmc_wl.h"
 #include "intel_dp.h"
 #include "intel_fbdev.h"
-#include "intel_hdcp.h"
 #include "intel_hotplug.h"
 #include "intel_opregion.h"
 #include "skl_watermark.h"
@@ -129,7 +128,6 @@ static void xe_display_fini(void *arg)
 	struct xe_device *xe = arg;
 	struct intel_display *display = xe->display;
 
-	intel_hdcp_component_fini(display);
 	intel_audio_deinit(display);
 	intel_display_driver_remove(display);
 }
