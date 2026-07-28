@@ -868,6 +868,7 @@ static int ad7768_apply_channel_modes(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
+	/* Apply a filter settling time (Datasheet table 35 and 36) */
 	ad7768_filter_wait(mode_freq, mode_filter, mode_used);
 
 	return 0;
@@ -1005,7 +1006,7 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 		base_reg = ad7768_get_calib_reg_base(st, chan, true);
 		return ad7768_write_calib_value(st, base_reg, val);
 
-	case IIO_CHAN_INFO_CONVDELAY:
+	case IIO_CHAN_INFO_CONVDELAY: {
 		delay_ps = iio_val_s64_compose(val, val2);
 		if (delay_ps < 0)
 			return -EINVAL;
@@ -1013,7 +1014,7 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 		guard(mutex)(&st->lock);
 		st->ch_convdelay_ps[chan->channel] = delay_ps;
 		return 0;
-
+	}
 	default:
 		return -EINVAL;
 	}
@@ -1557,6 +1558,7 @@ static int ad7768_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
+	/* Empirically determined delay to re-enable ADC and digital clocks.*/
 	fsleep(20000);
 
 	return 0;
