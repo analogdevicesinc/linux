@@ -55,6 +55,7 @@ enum iio_chan_type {
 	IIO_FLAGS,
 	IIO_ALTCURRENT,
 	IIO_COVERAGE,
+	IIO_FREQUENCY,
 };
 
 enum iio_modifier {
