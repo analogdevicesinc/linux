@@ -15052,11 +15052,17 @@ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
 			goto err_unregister_hw;
 		}
 
-		if (this_ab->hw_params->current_cc_support && this_ab->new_alpha2[0]) {
+		if (this_ab->hw_params->current_cc_support) {
 			struct wmi_set_current_country_arg current_cc = {};
 
+			spin_lock_bh(&this_ab->base_lock);
 			memcpy(&current_cc.alpha2, this_ab->new_alpha2, 2);
-			memcpy(&ar->alpha2, this_ab->new_alpha2, 2);
+			spin_unlock_bh(&this_ab->base_lock);
+
+			if (!current_cc.alpha2[0])
+				goto fw_stats_init;
+
+			memcpy(&ar->alpha2, current_cc.alpha2, 2);
 
 			reinit_completion(&ar->regd_update_completed);
 
@@ -15067,6 +15073,7 @@ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
 					    ret);
 		}
 
+fw_stats_init:
 		ath12k_fw_stats_init(ar);
 		ath12k_debugfs_register(ar);
 	}
