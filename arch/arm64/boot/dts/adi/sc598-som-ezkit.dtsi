@@ -12,10 +12,113 @@
 	model = "ADI 64-bit SC598 SOM EZ Kit";
 	compatible = "adi,sc598-som-ezkit", "adi,sc59x-64";
 
+	sound_mux: dac-mux-controller {
+		compatible = "gpio-mux";
+		#mux-state-cells = <1>;
+		mux-gpios = <&crr_gpio_expander 6 GPIO_ACTIVE_LOW>, /* DAC enable */
+			    <&crr_gpio_expander 7 GPIO_ACTIVE_LOW>; /* ADC enable */
+		idle-state = <0>;
+	};
+
+	pinmux-sound {
+		compatible = "pinctrl-multiplexer";
+
+		dac_en_state: dac-grp {
+			mux-states = <&sound_mux 1>;
+		};
+
+		adc_en_state: adc-grp {
+			mux-states = <&sound_mux 2>;
+		};
+
+		adc_dac_en_state: adc-dac-grp {
+			mux-states = <&sound_mux 3>;
+		};
+	};
+
 	sound {
-		compatible = "adi,sc5xx-asoc-card";
-		adi,cpu-dai = <&i2s4>;
-		adi,codec = <&adau1962>, <&adau1979>;
+		compatible = "audio-graph-card2";
+		/* links = <&sound_i2s4>; */
+		links = <&i2s4_port>;
+		widgets = "Headphone", "Headphones",
+			  "Line", "DAC1",
+			  "Line", "DAC2",
+			  "Line", "DAC3",
+			  "Line", "DAC4",
+			  "Line", "DAC5",
+			  "Line", "DAC6",
+			  "Line", "DAC7",
+			  "Line", "DAC8",
+			  "Line", "DAC9",
+			  "Line", "DAC10",
+			  "Line", "DAC11",
+			  "Line", "DAC12",
+			  "Line", "AN1",
+			  "Line", "AN2",
+			  "Line", "AN3",
+			  "Line", "AN4";
+		routing = "Headphones", "DAC AOUT1",
+			  "Headphones", "DAC AOUT2",
+			  "DAC1", "DAC AOUT1",
+			  "DAC2", "DAC AOUT2",
+			  "DAC3", "DAC AOUT3",
+			  "DAC4", "DAC AOUT4",
+			  "DAC5", "DAC AOUT5",
+			  "DAC6", "DAC AOUT6",
+			  "DAC7", "DAC AOUT7",
+			  "DAC8", "DAC AOUT8",
+			  "DAC9", "DAC AOUT9",
+			  "DAC10", "DAC AOUT10",
+			  "DAC11", "DAC AOUT11",
+			  "DAC12", "DAC AOUT12",
+			  "ADC AIN1", "AN1",
+			  "ADC AIN2", "AN2",
+			  "ADC AIN3", "AN3",
+			  "ADC AIN4", "AN4";
+
+		multi {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			ports@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				dai-format = "dsp_a";
+				dai-tdm-slot-num = <8>;
+				dai-tdm-slot-width = <32>;
+
+				sound_i2s4: port@0 {
+					reg = <0>;
+
+					sound_i2s4_ep: endpoint {
+						remote-endpoint = <&i2s4_ep>;
+					};
+				};
+
+				port@1 {
+					reg = <1>;
+
+					sound_adc_ep: endpoint {
+						remote-endpoint = <&adc_ep>;
+						system-clock-frequency = <24576000>; /* ADAU1962 MCLKO */
+						frame-master;
+						bitclock-master;
+					};
+				};
+
+				port@2 {
+					reg = <2>;
+
+					sound_dac_ep: endpoint {
+						remote-endpoint = <&dac_ep>;
+						clocks = <&audio_clk>;
+						frame-master;
+						bitclock-master;
+					};
+				};
+			};
+		};
 	};
 };
 
@@ -115,20 +218,6 @@
 			line-name = "can-en";
 		};
 
-		adau1962 {
-			gpio-hog;
-			gpios = <6 GPIO_ACTIVE_LOW>;
-			output-high;
-			line-name = "adau1962-en";
-		};
-
-		adau1979 {
-			gpio-hog;
-			gpios = <7 GPIO_ACTIVE_LOW>;
-			output-high;
-			line-name = "adau1979-en";
-		};
-
 		octal {
 			gpio-hog;
 			gpios = <8 GPIO_ACTIVE_LOW>;
@@ -182,15 +271,34 @@
 		};
 	};
 
-	adau1979: audio-codec@11 {
+	adc: audio-codec@11 {
 		compatible = "adi,adau1979";
 		reg = <0x11>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&adc_dac_en_state>;
+		reset-gpios = <&crr_gpio_expander 5 GPIO_ACTIVE_HIGH>;
+		sound-name-prefix = "ADC";
+
+		port {
+			adc_ep: endpoint {
+				remote-endpoint = <&sound_adc_ep>;
+			};
+		};
 	};
 
-	adau1962: audio-codec@4 {
+	dac: audio-codec@4 {
 		compatible = "adi,adau1962";
 		reg = <0x4>;
-		reset-gpios = <&crr_gpio_expander 5 GPIO_ACTIVE_LOW>;
+		pinctrl-names = "default";
+		/* pinctrl-0 = <&adc_dac_en_state>; */
+		/* reset-gpios = <&crr_gpio_expander 5 GPIO_ACTIVE_LOW>; */
+		sound-name-prefix = "DAC";
+
+		port {
+			dac_ep: endpoint {
+				remote-endpoint = <&sound_dac_ep>;
+			};
+		};
 	};
 };
 
@@ -273,6 +381,12 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&sru_dai1>;
 	status = "okay";
+
+	i2s4_port: port { /* TODO: need this label? */
+		i2s4_ep: endpoint {
+			remote-endpoint = <&sound_i2s4_ep>;
+		};
+	};
 };
 
 &sru_ctrl_dai1 {
