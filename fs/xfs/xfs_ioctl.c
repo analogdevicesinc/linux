@@ -1226,6 +1226,42 @@ xfs_ioc_dioinfo(
 	return 0;
 }
 
+static int
+xfs_ioc_find_handle(
+	unsigned int		cmd,
+	void __user		*arg)
+{
+	struct xfs_fsop_handlereq hreq;
+
+	if (copy_from_user(&hreq, arg, sizeof(hreq)))
+		return -EFAULT;
+	return xfs_find_handle(cmd, &hreq);
+}
+
+static int
+xfs_ioc_open_by_handle(
+	struct file		*file,
+	void __user		*arg)
+{
+	struct xfs_fsop_handlereq hreq;
+
+	if (copy_from_user(&hreq, arg, sizeof(hreq)))
+		return -EFAULT;
+	return xfs_open_by_handle(file, &hreq);
+}
+
+static int
+xfs_ioc_readlink_by_handle(
+	struct file		*file,
+	void __user		*arg)
+{
+	struct xfs_fsop_handlereq hreq;
+
+	if (copy_from_user(&hreq, arg, sizeof(hreq)))
+		return -EFAULT;
+	return xfs_readlink_by_handle(file, &hreq);
+}
+
 /*
  * These long-unused ioctls were removed from the official ioctl API in 5.17,
  * but retain these definitions so that we can log warnings about them.
@@ -1314,31 +1350,14 @@ xfs_file_ioctl(
 
 	case XFS_IOC_FD_TO_HANDLE:
 	case XFS_IOC_PATH_TO_HANDLE:
-	case XFS_IOC_PATH_TO_FSHANDLE: {
-		xfs_fsop_handlereq_t	hreq;
-
-		if (copy_from_user(&hreq, arg, sizeof(hreq)))
-			return -EFAULT;
-		return xfs_find_handle(cmd, &hreq);
-	}
-	case XFS_IOC_OPEN_BY_HANDLE: {
-		xfs_fsop_handlereq_t	hreq;
-
-		if (copy_from_user(&hreq, arg, sizeof(xfs_fsop_handlereq_t)))
-			return -EFAULT;
-		return xfs_open_by_handle(filp, &hreq);
-	}
-
-	case XFS_IOC_READLINK_BY_HANDLE: {
-		xfs_fsop_handlereq_t	hreq;
-
-		if (copy_from_user(&hreq, arg, sizeof(xfs_fsop_handlereq_t)))
-			return -EFAULT;
-		return xfs_readlink_by_handle(filp, &hreq);
-	}
+	case XFS_IOC_PATH_TO_FSHANDLE:
+		return xfs_ioc_find_handle(cmd, arg);
+	case XFS_IOC_OPEN_BY_HANDLE:
+		return xfs_ioc_open_by_handle(filp, arg);
+	case XFS_IOC_READLINK_BY_HANDLE:
+		return xfs_ioc_readlink_by_handle(filp, arg);
 	case XFS_IOC_ATTRLIST_BY_HANDLE:
 		return xfs_attrlist_by_handle(filp, arg);
-
 	case XFS_IOC_ATTRMULTI_BY_HANDLE:
 		return xfs_attrmulti_by_handle(filp, arg);
 
