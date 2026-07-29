@@ -138,9 +138,16 @@ int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave)
 		return -ERANGE;
 	}
 
-	if (master > tru->max_master_id || master == 0) {
+	/*
+	 * master == 0 is the "null master" per HRM ("Trigger receiver ID 0
+	 * is reserved and defined as null") -- writing 0 to a TRU_SSR is the
+	 * documented way to disconnect a slave, so we must NOT reject it.
+	 * (The old print also passed `slave` where `master` was formatted;
+	 * fixed here.)
+	 */
+	if (master > tru->max_master_id) {
 		dev_err(tru->dev, "Invalid master ID %d passed to %s",
-			slave, __func__);
+			master, __func__);
 		return -ERANGE;
 	}
 
