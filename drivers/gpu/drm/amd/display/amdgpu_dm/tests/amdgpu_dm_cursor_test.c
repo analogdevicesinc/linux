@@ -54,6 +54,144 @@ static struct dm_cursor_fb_fixture dm_test_alloc_cursor_fb_fixture(struct kunit 
 	return fixture;
 }
 
+struct dm_cursor_mode_fixture {
+	struct amdgpu_device *adev;
+	struct drm_atomic_commit *state;
+	struct dm_crtc_state *dm_crtc_state;
+	struct drm_crtc *crtc;
+	struct drm_plane *cursor;
+	struct drm_plane *primary;
+	struct drm_plane_state *old_cursor_state;
+	struct drm_plane_state *cursor_state;
+	struct drm_plane_state *old_primary_state;
+	struct drm_plane_state *primary_state;
+	struct drm_framebuffer *cursor_fb;
+	struct drm_framebuffer *primary_fb;
+};
+
+static struct dm_cursor_mode_fixture dm_test_alloc_cursor_mode_fixture(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = { 0 };
+
+	fixture.adev = dm_kunit_alloc_adev(test);
+	fixture.state = kunit_kzalloc(test, sizeof(*fixture.state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.state);
+	fixture.dm_crtc_state = kunit_kzalloc(test, sizeof(*fixture.dm_crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.dm_crtc_state);
+	fixture.crtc = kunit_kzalloc(test, sizeof(*fixture.crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.crtc);
+	fixture.cursor = kunit_kzalloc(test, sizeof(*fixture.cursor), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.cursor);
+	fixture.primary = kunit_kzalloc(test, sizeof(*fixture.primary), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.primary);
+	fixture.old_cursor_state =
+		kunit_kzalloc(test, sizeof(*fixture.old_cursor_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.old_cursor_state);
+	fixture.cursor_state = kunit_kzalloc(test, sizeof(*fixture.cursor_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.cursor_state);
+	fixture.old_primary_state =
+		kunit_kzalloc(test, sizeof(*fixture.old_primary_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.old_primary_state);
+	fixture.primary_state = kunit_kzalloc(test, sizeof(*fixture.primary_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.primary_state);
+	fixture.cursor_fb = kunit_kzalloc(test, sizeof(*fixture.cursor_fb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.cursor_fb);
+	fixture.primary_fb = kunit_kzalloc(test, sizeof(*fixture.primary_fb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.primary_fb);
+	fixture.state->planes = kunit_kcalloc(test, 2, sizeof(*fixture.state->planes), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.state->planes);
+	fixture.state->acquire_ctx =
+		kunit_kzalloc(test, sizeof(*fixture.state->acquire_ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.state->acquire_ctx);
+
+	fixture.adev->ddev.mode_config.num_total_plane = 2;
+	fixture.state->dev = &fixture.adev->ddev;
+	fixture.crtc->dev = &fixture.adev->ddev;
+	fixture.crtc->cursor = fixture.cursor;
+	fixture.cursor->dev = &fixture.adev->ddev;
+	fixture.cursor->index = 0;
+	fixture.cursor->type = DRM_PLANE_TYPE_CURSOR;
+	fixture.cursor->base.id = 2;
+	fixture.primary->dev = &fixture.adev->ddev;
+	fixture.primary->index = 1;
+	fixture.primary->type = DRM_PLANE_TYPE_PRIMARY;
+	fixture.primary->base.id = 1;
+
+	fixture.cursor_fb->format = drm_format_info(DRM_FORMAT_ARGB8888);
+	fixture.primary_fb->format = drm_format_info(DRM_FORMAT_XRGB8888);
+	fixture.old_cursor_state->plane = fixture.cursor;
+	fixture.old_cursor_state->crtc = fixture.crtc;
+	fixture.old_cursor_state->fb = fixture.cursor_fb;
+	fixture.old_cursor_state->src_w = 64 << 16;
+	fixture.old_cursor_state->src_h = 64 << 16;
+	fixture.old_cursor_state->crtc_w = 64;
+	fixture.old_cursor_state->crtc_h = 64;
+	fixture.old_cursor_state->zpos = 1;
+	*fixture.cursor_state = *fixture.old_cursor_state;
+	fixture.cursor_state->state = fixture.state;
+	fixture.old_primary_state->plane = fixture.primary;
+	fixture.old_primary_state->crtc = fixture.crtc;
+	fixture.old_primary_state->fb = fixture.primary_fb;
+	fixture.old_primary_state->src_w = 1920 << 16;
+	fixture.old_primary_state->src_h = 1080 << 16;
+	fixture.old_primary_state->crtc_w = 1920;
+	fixture.old_primary_state->crtc_h = 1080;
+	fixture.old_primary_state->zpos = 0;
+	*fixture.primary_state = *fixture.old_primary_state;
+	fixture.primary_state->state = fixture.state;
+
+	fixture.state->planes[0].ptr = fixture.cursor;
+	fixture.state->planes[0].old_state = fixture.old_cursor_state;
+	fixture.state->planes[0].new_state = fixture.cursor_state;
+	fixture.state->planes[1].ptr = fixture.primary;
+	fixture.state->planes[1].old_state = fixture.old_primary_state;
+	fixture.state->planes[1].new_state = fixture.primary_state;
+	fixture.dm_crtc_state->base.crtc = fixture.crtc;
+	fixture.dm_crtc_state->base.plane_mask = drm_plane_mask(fixture.cursor) |
+						 drm_plane_mask(fixture.primary);
+	fixture.dm_crtc_state->base.zpos_changed = true;
+	fixture.dm_crtc_state->base.mode.hdisplay = 1920;
+	fixture.dm_crtc_state->base.mode.vdisplay = 1080;
+
+	return fixture;
+}
+
+static void dm_test_add_cursor_mode_colorop(struct kunit *test,
+					    struct dm_cursor_mode_fixture *fixture,
+					    bool old_bypass, bool new_bypass)
+{
+	struct drm_colorop_state *old_colorop_state;
+	struct drm_colorop_state *new_colorop_state;
+	struct drm_colorop *colorop;
+
+	colorop = kunit_kzalloc(test, sizeof(*colorop), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, colorop);
+	old_colorop_state = kunit_kzalloc(test, sizeof(*old_colorop_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_colorop_state);
+	new_colorop_state = kunit_kzalloc(test, sizeof(*new_colorop_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_colorop_state);
+	fixture->state->colorops =
+		kunit_kzalloc(test, sizeof(*fixture->state->colorops), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->state->colorops);
+
+	fixture->adev->ddev.mode_config.num_colorop = 1;
+	fixture->state->colorops[0].ptr = colorop;
+	fixture->state->colorops[0].old_state = old_colorop_state;
+	fixture->state->colorops[0].new_state = new_colorop_state;
+	colorop->plane = fixture->primary;
+	old_colorop_state->colorop = colorop;
+	old_colorop_state->bypass = old_bypass;
+	new_colorop_state->colorop = colorop;
+	new_colorop_state->bypass = new_bypass;
+}
+
+static int dm_test_get_cursor_mode(struct dm_cursor_mode_fixture *fixture,
+				   enum amdgpu_dm_cursor_mode *cursor_mode)
+{
+	return amdgpu_dm_crtc_get_cursor_mode(fixture->adev, fixture->state,
+					      fixture->dm_crtc_state, cursor_mode);
+}
+
 /* Tests for dm_check_cursor_fb() */
 
 /**
@@ -358,6 +496,192 @@ static void dm_test_plane_color_pipeline_ignores_other_plane(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, dm_plane_color_pipeline_active(state, other_plane, false));
 }
 
+/* Tests for amdgpu_dm_crtc_get_cursor_mode() */
+
+/**
+ * dm_test_crtc_get_cursor_mode_new_hardware - Test new hardware always uses native mode
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_new_hardware(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dm_crtc_state *dm_crtc_state;
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_OVERLAY_MODE;
+	int ret;
+
+	dm_crtc_state = kunit_kzalloc(test, sizeof(*dm_crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dm_crtc_state);
+	adev->ip_versions[DCE_HWIP][0] = IP_VERSION(4, 2, 0);
+
+	ret = amdgpu_dm_crtc_get_cursor_mode(adev, NULL, dm_crtc_state, &cursor_mode);
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_NATIVE_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_no_change - Test unchanged atomic state preserves cursor mode
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_no_change(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_atomic_commit *state;
+	struct dm_crtc_state *dm_crtc_state;
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_NATIVE_MODE;
+	int ret;
+
+	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state);
+	dm_crtc_state = kunit_kzalloc(test, sizeof(*dm_crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dm_crtc_state);
+	state->dev = &adev->ddev;
+	dm_crtc_state->cursor_mode = DM_CURSOR_OVERLAY_MODE;
+
+	ret = amdgpu_dm_crtc_get_cursor_mode(adev, state, dm_crtc_state, &cursor_mode);
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_OVERLAY_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_disabled_cursor - Test disabled cursor preserves mode
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_disabled_cursor(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_NATIVE_MODE;
+
+	fixture.cursor_state->crtc = NULL;
+	fixture.cursor_state->fb = NULL;
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_NATIVE_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_yuv_plane - Test YUV plane requires overlay cursor
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_yuv_plane(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_NATIVE_MODE;
+
+	fixture.primary_fb->format = drm_format_info(DRM_FORMAT_NV12);
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_OVERLAY_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_scale_mismatch - Test different scaling requires overlay
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_scale_mismatch(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_NATIVE_MODE;
+
+	fixture.old_primary_state->src_w = 960 << 16;
+	fixture.old_primary_state->src_h = 540 << 16;
+	fixture.primary_state->src_w = 960 << 16;
+	fixture.primary_state->src_h = 540 << 16;
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_OVERLAY_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_full_coverage - Test full RGB coverage uses native cursor
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_full_coverage(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_OVERLAY_MODE;
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_NATIVE_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_hole - Test incomplete plane coverage uses overlay cursor
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_hole(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_NATIVE_MODE;
+
+	fixture.old_primary_state->crtc_w = 1280;
+	fixture.primary_state->crtc_w = 1280;
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_OVERLAY_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_without_cursor - Test unrelated update avoids cursor state
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_without_cursor(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_NATIVE_MODE;
+
+	fixture.state->planes[0].ptr = NULL;
+	fixture.dm_crtc_state->base.plane_mask = drm_plane_mask(fixture.primary);
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_NATIVE_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_scale_changed - Test scale change triggers reevaluation
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_scale_changed(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_NATIVE_MODE;
+
+	fixture.primary_state->src_w = 960 << 16;
+	fixture.primary_state->src_h = 540 << 16;
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_OVERLAY_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_position_changed - Test destination move triggers reevaluation
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_position_changed(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_NATIVE_MODE;
+
+	fixture.primary_state->crtc_x = 1;
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_OVERLAY_MODE);
+}
+
+/**
+ * dm_test_crtc_get_cursor_mode_color_pipeline - Test active color pipeline requires overlay
+ * @test: The KUnit test context
+ */
+static void dm_test_crtc_get_cursor_mode_color_pipeline(struct kunit *test)
+{
+	struct dm_cursor_mode_fixture fixture = dm_test_alloc_cursor_mode_fixture(test);
+	enum amdgpu_dm_cursor_mode cursor_mode = DM_CURSOR_NATIVE_MODE;
+
+	dm_test_add_cursor_mode_colorop(test, &fixture, true, false);
+
+	KUNIT_EXPECT_EQ(test, dm_test_get_cursor_mode(&fixture, &cursor_mode), 0);
+	KUNIT_EXPECT_EQ(test, cursor_mode, DM_CURSOR_OVERLAY_MODE);
+}
+
 /* Tests for amdgpu_dm_should_update_native_cursor() */
 
 /**
@@ -598,6 +922,18 @@ static struct kunit_case amdgpu_dm_cursor_tests[] = {
 	/* dm_plane_color_pipeline_active */
 	KUNIT_CASE(dm_test_plane_color_pipeline_active),
 	KUNIT_CASE(dm_test_plane_color_pipeline_ignores_other_plane),
+	/* amdgpu_dm_crtc_get_cursor_mode */
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_new_hardware),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_no_change),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_disabled_cursor),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_yuv_plane),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_scale_mismatch),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_full_coverage),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_hole),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_without_cursor),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_scale_changed),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_position_changed),
+	KUNIT_CASE(dm_test_crtc_get_cursor_mode_color_pipeline),
 	/* amdgpu_dm_should_update_native_cursor */
 	KUNIT_CASE(dm_test_should_update_native_cursor_without_crtc),
 	KUNIT_CASE(dm_test_should_update_native_cursor_disable_native),

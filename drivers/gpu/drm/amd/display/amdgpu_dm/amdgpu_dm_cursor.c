@@ -449,3 +449,4 @@ int amdgpu_dm_crtc_get_cursor_mode(struct amdgpu_device *adev,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_crtc_get_cursor_mode);
