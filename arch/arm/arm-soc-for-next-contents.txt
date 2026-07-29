@@ -25,6 +25,18 @@ soc/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v7.3-early-k230
 	renesas/dts
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.3-tag1
+	realtek/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/yu_chun/linux tags/realtek-dt-v7.3
+	exynos/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-7.3
+	thead/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v7.3
+	rockchip/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.3-rockchip-dts32-1
+	socfpga/dts
+		https://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_updates_for_v7.3
+	cix/dts
+		https://github.com/cixtech/linux-mainline tags/cix-dt-v7.3-rc1
 
 soc/drivers
 	ixp4xx/soc-drivers
@@ -35,6 +47,10 @@ soc/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.3-rockchip-drivers1
 	renesas/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.3-tag1
+	drivers/memory
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-mem-ctrl tags/memory-controller-drv-7.3
+	exynos/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-7.3
 
 soc/defconfig
 	riscv/defconfig
