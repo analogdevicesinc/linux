@@ -3775,6 +3775,82 @@ static void dm_test_fill_stream_non_hdmi_ep_keeps_depth(struct kunit *test)
 			(int)COLOR_DEPTH_101010);
 }
 
+/**
+ * dm_test_fill_stream_hdmi_infoframe - Test HDMI signal fills VIC from infoframe
+ * @test: The KUnit test context
+ *
+ * With an HDMI stream signal the AVI/vendor infoframe path runs and overwrites
+ * the VIC (seeded via an old stream) with the value derived from the mode.
+ */
+static void dm_test_fill_stream_hdmi_infoframe(struct kunit *test)
+{
+	struct dm_test_fill_ctx *ctx = dm_test_fill_ctx_alloc(test);
+	struct dc_crtc_timing *timing = &ctx->stream->timing;
+	struct dc_stream_state *old_stream;
+	struct drm_display_mode *cea;
+
+	old_stream = kunit_kzalloc(test, sizeof(*old_stream), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_stream);
+	old_stream->timing.vic = 99;
+
+	/* A real CEA-16 (1080p60) mode so the AVI infoframe resolves VIC 16. */
+	cea = drm_display_mode_from_cea_vic(ctx->drm, 16);
+	KUNIT_ASSERT_NOT_NULL(test, cea);
+	*ctx->mode = *cea;
+	drm_mode_destroy(ctx->drm, cea);
+
+	ctx->stream->signal = SIGNAL_TYPE_HDMI_TYPE_A;
+
+	fill_stream_properties_from_drm_display_mode(ctx->stream, ctx->mode,
+		&ctx->aconnector->base, ctx->conn_state, old_stream, 8,
+		PIXEL_ENCODING_RGB, false);
+
+	/* The HDMI block overwrote the old stream's VIC of 99 with the AVI code. */
+	KUNIT_EXPECT_EQ(test, (int)timing->vic, 16);
+}
+
+/**
+ * dm_test_fill_stream_freesync_video - Test timing taken from the mode for FS video
+ * @test: The KUnit test context
+ *
+ * When the mode matches the connector's cached freesync base mode the timing is
+ * taken from the drm mode fields (not crtc_*), including a 10x pixel clock.
+ */
+static void dm_test_fill_stream_freesync_video(struct kunit *test)
+{
+	struct dm_test_fill_ctx *ctx = dm_test_fill_ctx_alloc(test);
+	struct dc_crtc_timing *timing = &ctx->stream->timing;
+
+	/* Cached high mode == the mode passed in => freesync video mode. */
+	ctx->aconnector->freesync_vid_base.clock = 148500;
+	ctx->aconnector->freesync_vid_base.hdisplay = 1920;
+	ctx->aconnector->freesync_vid_base.vdisplay = 1080;
+	ctx->aconnector->freesync_vid_base.hsync_start = 2008;
+	ctx->aconnector->freesync_vid_base.hsync_end = 2052;
+	ctx->aconnector->freesync_vid_base.htotal = 2200;
+	ctx->aconnector->freesync_vid_base.vsync_start = 1084;
+	ctx->aconnector->freesync_vid_base.vsync_end = 1089;
+	ctx->aconnector->freesync_vid_base.vtotal = 1125;
+
+	ctx->mode->clock = 148500;
+	ctx->mode->hdisplay = 1920;
+	ctx->mode->vdisplay = 1080;
+	ctx->mode->hsync_start = 2008;
+	ctx->mode->hsync_end = 2052;
+	ctx->mode->htotal = 2200;
+	ctx->mode->vsync_start = 1084;
+	ctx->mode->vsync_end = 1089;
+	ctx->mode->vtotal = 1125;
+
+	fill_stream_properties_from_drm_display_mode(ctx->stream, ctx->mode,
+		&ctx->aconnector->base, ctx->conn_state, NULL, 8,
+		PIXEL_ENCODING_RGB, false);
+
+	KUNIT_EXPECT_EQ(test, (int)timing->h_addressable, 1920);
+	KUNIT_EXPECT_EQ(test, (int)timing->v_addressable, 1080);
+	KUNIT_EXPECT_EQ(test, (int)timing->pix_clk_100hz, 1485000);
+}
+
 /* Tests for create_stream_for_sink() */
 
 /*
@@ -6239,6 +6315,8 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_fill_stream_encoding_from_caller_ycbcr444),
 	KUNIT_CASE(dm_test_fill_stream_hdmi_ep_clamps_depth),
 	KUNIT_CASE(dm_test_fill_stream_non_hdmi_ep_keeps_depth),
+	KUNIT_CASE(dm_test_fill_stream_hdmi_infoframe),
+	KUNIT_CASE(dm_test_fill_stream_freesync_video),
 	/* create_stream_for_sink */
 	KUNIT_CASE(dm_test_create_stream_fake_sink_success),
 	KUNIT_CASE(dm_test_create_stream_sets_dm_context),
