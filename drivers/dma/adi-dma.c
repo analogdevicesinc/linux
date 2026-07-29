@@ -79,7 +79,31 @@ struct adi_dma_descriptor {
 	// specific entry to load from; it will be null when we're done
 	struct scatterlist *sg;
 	struct scatterlist *sg_next;
+
+	/*
+	 * Hardware descriptor-list ring (see adi_prep_cyclic_desc_list):
+	 * coherent array of adi_dma_hw_desc the channel fetches on its own.
+	 * list_mode selects the DSCPTR_NXT start path in __process_descriptor.
+	 */
+	int list_mode;
+	struct adi_dma_hw_desc *hw_list;
+	dma_addr_t hw_list_dma;
+	size_t hw_list_size;
 };
+
+/*
+ * One descriptor set in memory for DMAFLOW_LIST mode, in the exact fetch
+ * order of HRM Table 34-13 (DSCPTR_NXT, ADDRSTART, CFG, XCNT, XMOD). We
+ * always fetch 5 elements (NDSIZE_4) and stay 1D, so YCNT/YMOD are never
+ * part of the set and the channel retains its previous values for them.
+ */
+struct adi_dma_hw_desc {
+	u32 next;
+	u32 start;
+	u32 cfg;
+	u32 xcnt;
+	u32 xmod;
+} __packed;
 
 struct adi_dma_channel {
 	int id;
@@ -106,6 +130,11 @@ struct adi_dma_channel {
 	 * Consulted by adi_prep_cyclic() to select TWAIT gating etc.
 	 */
 	unsigned int peripheral_flags;
+	/*
+	 * Bytes per TRU trigger from the same peripheral_config; non-zero
+	 * switches adi_prep_cyclic() to the hardware descriptor-list ring.
+	 */
+	unsigned int trigger_granule;
 	spinlock_t lock;
 };
 
@@ -326,6 +355,10 @@ static int adi_dma_desc_free(struct dma_async_tx_descriptor *tx)
 	if (desc->memset)
 		dmam_free_coherent(dma->dev, ADI_MEMSET_SIZE, desc->memset, desc->src);
 
+	if (desc->hw_list)
+		dma_free_coherent(dma->dev, desc->hw_list_size, desc->hw_list,
+				  desc->hw_list_dma);
+
 	devm_kfree(dma->dev, desc);
 	return 0;
 }
@@ -526,6 +559,21 @@ static void __process_descriptor(struct adi_dma_descriptor *desc)
 	if (get_dma_curr_irqstat(channel->iosrc) & DMA_RUN)
 		dev_err(dma->dev, "processing a new descriptor while running\n");
 
+	/*
+	 * Descriptor-list ring: hand the hardware the head of the coherent
+	 * descriptor chain and the initial CFG (FLOW=LIST + NDSIZE sizes the
+	 * first fetch, TWAIT gates it on a trigger). The channel then fetches
+	 * and loops through the ring on its own; no per-work-unit MMR writes.
+	 */
+	if (desc->list_mode) {
+		channel->current_desc = desc;
+		set_dma_next_desc_addr(channel->iosrc, desc->hw_list_dma);
+		clear_dma_irqstat(channel->iosrc);
+		set_dma_config(channel->iosrc, desc->cfg);
+		__adi_dma_enable_irqs(channel);
+		return;
+	}
+
 	// In sg mode we have to load the descriptor with new data from the scatterlist
 	// first
 	if (desc->sg)
@@ -630,6 +678,12 @@ static enum dma_status adi_dma_tx_status(struct dma_chan *chan, dma_cookie_t coo
 
 	if (desc->result.result != DMA_TRANS_NOERROR)
 		return DMA_ERROR;
+
+	/* list-mode rings run forever; the sw descriptor carries no counts */
+	if (desc->list_mode) {
+		txstate->residue = 0;
+		return DMA_IN_PROGRESS;
+	}
 
 	// @todo this assumes ymod is one element, which is currently true in the only
 	//       2D case we support
@@ -745,6 +799,8 @@ static int adi_dma_terminate_all(struct dma_chan *chan)
 	struct list_head *curr;
 	struct list_head *tmp;
 
+	LIST_HEAD(to_free);
+
 	spin_lock_irqsave(&adi_chan->lock, flags);
 
 	// Disable regardless of status to clear config that may have been modified
@@ -753,23 +809,34 @@ static int adi_dma_terminate_all(struct dma_chan *chan)
 
 	if (adi_chan->current_desc) {
 		desc = adi_chan->current_desc;
-		desc->tx.desc_free(&desc->tx);
+		list_add_tail(&desc->node, &to_free);
 		adi_chan->current_desc = NULL;
 	}
 
 	list_for_each_safe(curr, tmp, &adi_chan->pending) {
 		desc = list_entry(curr, struct adi_dma_descriptor, node);
 		list_del(curr);
-		desc->tx.desc_free(&desc->tx);
+		list_add_tail(&desc->node, &to_free);
 	}
 
 	list_for_each_safe(curr, tmp, &adi_chan->cb_pending) {
 		desc = list_entry(curr, struct adi_dma_descriptor, cb_node);
 		list_del(curr);
-		desc->tx.desc_free(&desc->tx);
+		list_add_tail(&desc->node, &to_free);
 	}
 
 	spin_unlock_irqrestore(&adi_chan->lock, flags);
+
+	/*
+	 * Free with interrupts enabled: descriptor-list rings release
+	 * dma_alloc_coherent memory, and dma_free_coherent() must not run
+	 * with IRQs disabled.
+	 */
+	list_for_each_safe(curr, tmp, &to_free) {
+		desc = list_entry(curr, struct adi_dma_descriptor, node);
+		list_del(curr);
+		desc->tx.desc_free(&desc->tx);
+	}
 
 	return 0;
 }
@@ -793,12 +860,14 @@ static int adi_dma_slave_config(struct dma_chan *chan,
 	 * so we reject bogus values rather than silently truncating.
 	 */
 	adi_chan->peripheral_flags = 0;
+	adi_chan->trigger_granule = 0;
 	if (config->peripheral_config) {
 		const struct adi_dma_peripheral_config *pc = config->peripheral_config;
 
 		if (config->peripheral_size != sizeof(*pc))
 			return -EINVAL;
 		adi_chan->peripheral_flags = pc->flags;
+		adi_chan->trigger_granule = pc->trigger_granule;
 	}
 	return 0;
 }
@@ -1104,6 +1173,110 @@ static struct dma_async_tx_descriptor *adi_prep_slave_sg(struct dma_chan *chan,
 	return &desc->tx;
 }
 
+/*
+ * Hardware descriptor-list cyclic ring (HRM "Descriptor List Mode").
+ *
+ * One 5-element descriptor set per trigger_granule bytes, every set
+ * gated on a TRU trigger via CFG.TWAIT, the last set of the ring linked
+ * back to the first so the channel loops with zero CPU involvement. The
+ * completion interrupt (DI_EN_X) is placed only in the last descriptor
+ * of each period_len, so a period of N granules costs one IRQ per N
+ * trigger pulses instead of one per pulse.
+ *
+ * Unlike the AUTOBUFFER TWAIT path, list mode also gates the FIRST
+ * descriptor fetch on a trigger (HRM "Waiting For Triggers"), so there
+ * is no spurious untriggered first work unit to discard.
+ */
+static struct dma_async_tx_descriptor *
+adi_prep_cyclic_desc_list(struct adi_dma_channel *adi_chan, dma_addr_t buf,
+			  size_t len, size_t period_len,
+			  enum dma_transfer_direction direction,
+			  unsigned long flags)
+{
+	struct adi_dma *dma = adi_chan->dma;
+	size_t granule = adi_chan->trigger_granule;
+	struct adi_dma_descriptor *desc;
+	size_t ndesc, per_period, i, head;
+	u32 conf, shift, base_cfg;
+
+	if (!granule || period_len % granule || len % period_len) {
+		dev_err(dma->dev,
+			"%s: granule %zu / period %zu / len %zu not divisible\n",
+			__func__, granule, period_len, len);
+		return NULL;
+	}
+
+	ndesc = len / granule;
+	per_period = period_len / granule;
+
+	desc = adi_dma_alloc_descriptor(dma);
+	if (!desc)
+		return NULL;
+
+	/*
+	 * Optional head descriptor (see ADI_DMA_PC_DISCARD_FIRST): consumes
+	 * the first trigger by steering the spurious first granule into the
+	 * ring's LAST slot — the loop rewrites that slot with real data well
+	 * before its period interrupt fires — then chains into the ring
+	 * proper and is never revisited.
+	 */
+	head = !!(adi_chan->peripheral_flags & ADI_DMA_PC_DISCARD_FIRST);
+
+	desc->hw_list_size = (ndesc + head) * sizeof(struct adi_dma_hw_desc);
+	desc->hw_list = dma_alloc_coherent(dma->dev, desc->hw_list_size,
+					   &desc->hw_list_dma, GFP_NOWAIT);
+	if (!desc->hw_list) {
+		devm_kfree(dma->dev, desc);
+		return NULL;
+	}
+
+	get_periph_align(adi_chan, direction, buf, granule, &conf, &shift);
+	if (direction == DMA_DEV_TO_MEM)
+		conf |= WNR;
+
+	base_cfg = conf | DMAFLOW_LIST | NDSIZE_4 | CFG_TWAIT | DMAEN;
+
+	if (head) {
+		struct adi_dma_hw_desc *hw = &desc->hw_list[0];
+
+		hw->next = lower_32_bits(desc->hw_list_dma + sizeof(*hw));
+		hw->start = lower_32_bits(buf + len - granule);
+		hw->cfg = base_cfg;
+		hw->xcnt = granule >> shift;
+		hw->xmod = 1 << shift;
+	}
+
+	for (i = 0; i < ndesc; i++) {
+		struct adi_dma_hw_desc *hw = &desc->hw_list[head + i];
+
+		hw->next = lower_32_bits(desc->hw_list_dma +
+				(head + (i + 1) % ndesc) * sizeof(*hw));
+		hw->start = lower_32_bits(buf + i * granule);
+		hw->cfg = base_cfg;
+		if ((flags & DMA_PREP_INTERRUPT) && ((i + 1) % per_period == 0))
+			hw->cfg |= DI_EN_X;
+		hw->xcnt = granule >> shift;
+		hw->xmod = 1 << shift;
+	}
+
+	/* Initial MMR config: TWAIT gates the very first descriptor fetch on
+	 * the first trigger; NDSIZE_4 sizes that fetch. Everything else is
+	 * replaced by the fetched descriptor before any data moves.
+	 */
+	desc->cfg = base_cfg;
+	desc->src = buf;
+	desc->direction = direction;
+	desc->cyclic = 1;
+	desc->list_mode = 1;
+
+	dma_async_tx_descriptor_init(&desc->tx, &adi_chan->chan);
+	desc->tx.flags = flags;
+	desc->tx.tx_submit = adi_submit;
+	desc->tx.desc_free = adi_dma_desc_free;
+
+	return &desc->tx;
+}
+
 static struct dma_async_tx_descriptor *adi_prep_cyclic(struct dma_chan *chan,
 	dma_addr_t buf, size_t len, size_t period_len,
 	enum dma_transfer_direction direction, unsigned long flags)
@@ -1113,6 +1286,11 @@ static struct dma_async_tx_descriptor *adi_prep_cyclic(struct dma_chan *chan,
 	struct adi_dma_descriptor *desc;
 	u32 conf;
 	u32 shift;
+
+	if ((adi_chan->peripheral_flags & ADI_DMA_PC_WAIT_FOR_TRIGGER) &&
+	    adi_chan->trigger_granule)
+		return adi_prep_cyclic_desc_list(adi_chan, buf, len,
+						 period_len, direction, flags);
 
 	desc = adi_dma_alloc_descriptor(dma);
 	if (!desc)
