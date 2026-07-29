@@ -9,6 +9,8 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_blend.h>
 #include <drm/drm_crtc.h>
+#include <drm/drm_fourcc.h>
+#include <drm/drm_framebuffer.h>
 #include <drm/drm_plane.h>
 
 #include "dc.h"
@@ -16,6 +18,190 @@
 #include "amdgpu_mode.h"
 #include "amdgpu_dm.h"
 #include "amdgpu_dm_cursor.h"
+#include "amdgpu_dm_kunit_test_helpers.h"
+
+struct dm_cursor_fb_fixture {
+	struct amdgpu_device *adev;
+	struct amdgpu_crtc *acrtc;
+	struct amdgpu_framebuffer *afb;
+	struct drm_plane_state *plane_state;
+};
+
+static struct dm_cursor_fb_fixture dm_test_alloc_cursor_fb_fixture(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = { 0 };
+
+	fixture.adev = dm_kunit_alloc_adev(test);
+	fixture.acrtc = kunit_kzalloc(test, sizeof(*fixture.acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.acrtc);
+	fixture.afb = kunit_kzalloc(test, sizeof(*fixture.afb), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.afb);
+	fixture.plane_state = kunit_kzalloc(test, sizeof(*fixture.plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, fixture.plane_state);
+
+	fixture.acrtc->base.dev = &fixture.adev->ddev;
+	fixture.acrtc->max_cursor_width = 256;
+	fixture.acrtc->max_cursor_height = 256;
+	fixture.afb->base.width = 64;
+	fixture.afb->base.height = 64;
+	fixture.afb->base.pitches[0] = 64 * 4;
+	fixture.afb->base.format = drm_format_info(DRM_FORMAT_ARGB8888);
+	fixture.plane_state->fb = &fixture.afb->base;
+	fixture.plane_state->src_w = 64 << 16;
+	fixture.plane_state->src_h = 64 << 16;
+
+	return fixture;
+}
+
+/* Tests for dm_check_cursor_fb() */
+
+/**
+ * dm_test_check_cursor_fb_valid_linear - Test a supported linear cursor framebuffer
+ * @test: The KUnit test context
+ */
+static void dm_test_check_cursor_fb_valid_linear(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+
+	fixture.adev->family = AMDGPU_FAMILY_AI;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			0);
+}
+
+/**
+ * dm_test_check_cursor_fb_rejects_size - Test an oversized cursor framebuffer
+ * @test: The KUnit test context
+ */
+static void dm_test_check_cursor_fb_rejects_size(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+
+	fixture.afb->base.width = fixture.acrtc->max_cursor_width + 1;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			-EINVAL);
+}
+
+/**
+ * dm_test_check_cursor_fb_rejects_cropping - Test cursor framebuffer cropping rejection
+ * @test: The KUnit test context
+ */
+static void dm_test_check_cursor_fb_rejects_cropping(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+
+	fixture.plane_state->src_w = 32 << 16;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			-EINVAL);
+}
+
+/**
+ * dm_test_check_cursor_fb_rejects_pitch - Test unsupported cursor framebuffer pitch
+ * @test: The KUnit test context
+ */
+static void dm_test_check_cursor_fb_rejects_pitch(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+
+	fixture.afb->base.pitches[0] = 96 * 4;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			-EINVAL);
+}
+
+/**
+ * dm_test_check_cursor_fb_rejects_unsupported_pitch - Test matching unsupported pitch
+ * @test: The KUnit test context
+ */
+static void dm_test_check_cursor_fb_rejects_unsupported_pitch(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+
+	fixture.afb->base.width = 32;
+	fixture.afb->base.pitches[0] = 32 * 4;
+	fixture.plane_state->src_w = 32 << 16;
+
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			-EINVAL);
+}
+
+/**
+ * dm_test_check_cursor_fb_rejects_tiling - Test tiled cursor framebuffer rejection
+ * @test: The KUnit test context
+ */
+static void dm_test_check_cursor_fb_rejects_tiling(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+
+	fixture.adev->family = AMDGPU_FAMILY_AI;
+	fixture.afb->tiling_flags = AMDGPU_TILING_SET(SWIZZLE_MODE, 1);
+
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			-EINVAL);
+}
+
+/**
+ * dm_test_check_cursor_fb_gfx12_tiling - Test GFX12 cursor tiling decoding
+ * @test: The KUnit test context
+ */
+static void dm_test_check_cursor_fb_gfx12_tiling(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+
+	fixture.adev->family = AMDGPU_FAMILY_GC_12_0_0;
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			0);
+
+	fixture.afb->tiling_flags = AMDGPU_TILING_SET(GFX12_SWIZZLE_MODE, 1);
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			-EINVAL);
+}
+
+/**
+ * dm_test_check_cursor_fb_pre_ai_tiling - Test legacy cursor tiling decoding
+ * @test: The KUnit test context
+ */
+static void dm_test_check_cursor_fb_pre_ai_tiling(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+
+	fixture.adev->family = AMDGPU_FAMILY_CZ;
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			0);
+
+	fixture.afb->tiling_flags = AMDGPU_TILING_SET(ARRAY_MODE, DC_ARRAY_1D_TILED_THIN1);
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			-EINVAL);
+}
+
+/**
+ * dm_test_check_cursor_fb_modifier_skips_tiling - Test modifier validation stays in DRM core
+ * @test: The KUnit test context
+ */
+static void dm_test_check_cursor_fb_modifier_skips_tiling(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+
+	fixture.adev->family = AMDGPU_FAMILY_AI;
+	fixture.afb->base.flags = DRM_MODE_FB_MODIFIERS;
+	fixture.afb->tiling_flags = AMDGPU_TILING_SET(SWIZZLE_MODE, 1);
+
+	KUNIT_EXPECT_EQ(test,
+			dm_check_cursor_fb(fixture.acrtc, fixture.plane_state, &fixture.afb->base),
+			0);
+}
 
 /* Tests for amdgpu_dm_should_update_native_cursor() */
 
@@ -240,6 +426,16 @@ static void dm_test_get_plane_scale_zero_src_width(struct kunit *test)
 }
 
 static struct kunit_case amdgpu_dm_cursor_tests[] = {
+	/* dm_check_cursor_fb */
+	KUNIT_CASE(dm_test_check_cursor_fb_valid_linear),
+	KUNIT_CASE(dm_test_check_cursor_fb_rejects_size),
+	KUNIT_CASE(dm_test_check_cursor_fb_rejects_cropping),
+	KUNIT_CASE(dm_test_check_cursor_fb_rejects_pitch),
+	KUNIT_CASE(dm_test_check_cursor_fb_rejects_unsupported_pitch),
+	KUNIT_CASE(dm_test_check_cursor_fb_rejects_tiling),
+	KUNIT_CASE(dm_test_check_cursor_fb_gfx12_tiling),
+	KUNIT_CASE(dm_test_check_cursor_fb_pre_ai_tiling),
+	KUNIT_CASE(dm_test_check_cursor_fb_modifier_skips_tiling),
 	/* amdgpu_dm_should_update_native_cursor */
 	KUNIT_CASE(dm_test_should_update_native_cursor_without_crtc),
 	KUNIT_CASE(dm_test_should_update_native_cursor_disable_native),

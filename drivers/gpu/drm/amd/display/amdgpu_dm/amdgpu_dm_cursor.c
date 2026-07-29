@@ -41,9 +41,9 @@
 #include "amdgpu_dm_cursor.h"
 #include "dm_helpers.h"
 
-static int dm_check_cursor_fb(struct amdgpu_crtc *new_acrtc,
-			      struct drm_plane_state *new_plane_state,
-			      struct drm_framebuffer *fb)
+STATIC_IFN_KUNIT int dm_check_cursor_fb(struct amdgpu_crtc *new_acrtc,
+				       struct drm_plane_state *new_plane_state,
+				       struct drm_framebuffer *fb)
 {
 	struct amdgpu_device *adev = drm_to_adev(new_acrtc->base.dev);
 	struct amdgpu_framebuffer *afb = to_amdgpu_framebuffer(fb);
@@ -109,6 +109,7 @@ static int dm_check_cursor_fb(struct amdgpu_crtc *new_acrtc,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(dm_check_cursor_fb);
 
 /*
  * Helper function for checking the cursor in native mode
