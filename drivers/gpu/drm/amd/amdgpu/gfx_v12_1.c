@@ -3699,11 +3699,6 @@ static void gfx_v12_1_ring_emit_vm_flush(struct amdgpu_ring *ring,
 	amdgpu_gmc_emit_flush_gpu_tlb(ring, vmid, pd_addr);
 
 	/* compute doesn't have PFP */
-	if (ring->funcs->type == AMDGPU_RING_TYPE_GFX) {
-		/* sync PFP to ME, otherwise we might get invalid PFP reads */
-		amdgpu_ring_write(ring, PACKET3(PACKET3_PFP_SYNC_ME, 0));
-		amdgpu_ring_write(ring, 0x0);
-	}
 }
 
 static void gfx_v12_1_ring_emit_fence_kiq(struct amdgpu_ring *ring, u64 addr,
