@@ -34,8 +34,6 @@
 #include "vcn/vcn_5_0_0_sh_mask.h"
 #include "ivsrcid/vcn/irqsrcs_vcn_5_0.h"
 
-#include "jpeg_v5_0_1.h"
-
 static void jpeg_v5_0_2_set_dec_ring_funcs(struct amdgpu_device *adev);
 static void jpeg_v5_0_2_set_irq_funcs(struct amdgpu_device *adev);
 static int jpeg_v5_0_2_set_powergating_state(struct amdgpu_ip_block *ip_block,
@@ -140,7 +138,12 @@ static int jpeg_v5_0_2_sw_init(struct amdgpu_ip_block *ip_block)
 
 	for (j = 0; j < adev->jpeg.num_jpeg_rings; ++j) {
 		/* JPEG TRAP */
-		r = amdgpu_irq_add_id(adev, SOC15_IH_CLIENTID_VCN,
+		r = amdgpu_irq_add_id(adev, SOC_V1_0_IH_CLIENTID_VCN,
+				      amdgpu_ih_srcid_jpeg[j], &adev->jpeg.inst->irq);
+		if (r)
+			return r;
+
+		r = amdgpu_irq_add_id(adev, SOC_V1_0_IH_CLIENTID_VCN1,
 				      amdgpu_ih_srcid_jpeg[j], &adev->jpeg.inst->irq);
 		if (r)
 			return r;
@@ -585,6 +588,95 @@ static int jpeg_v5_0_2_set_interrupt_state(struct amdgpu_device *adev,
 	return 0;
 }
 
+static int jpeg_v5_0_2_process_interrupt(struct amdgpu_device *adev,
+					 struct amdgpu_irq_src *source,
+					 struct amdgpu_iv_entry *entry)
+{
+	uint32_t mid, cid;
+	int i, jpeg_inst;
+
+	DRM_DEV_DEBUG(adev->dev, "IH: JPEG TRAP\n");
+
+	switch (entry->client_id) {
+	case SOC_V1_0_IH_CLIENTID_VCN:
+		cid = 0;
+		break;
+	case SOC_V1_0_IH_CLIENTID_VCN1:
+		cid = 1;
+		break;
+	default:
+		dev_WARN_ONCE(adev->dev, 1,
+			      "Interrupt received for unknown JPEG client_id %d",
+			      entry->client_id);
+		return 0;
+	}
+
+	switch (entry->node_id) {
+	case 0:
+		mid = 0;
+		break;
+	case 8:
+		mid = 1;
+		break;
+	default:
+		dev_WARN_ONCE(adev->dev, 1,
+			      "Interrupt received for unknown JPEG node_id %d",
+			      entry->node_id);
+		return 0;
+	}
+
+	jpeg_inst = mid * adev->jpeg.num_inst_per_aid + cid;
+
+	for (i = 0; i < adev->jpeg.num_jpeg_inst; i++)
+		if (GET_INST(JPEG, i) == jpeg_inst)
+			break;
+
+	if (i >= adev->jpeg.num_jpeg_inst) {
+		dev_WARN_ONCE(adev->dev, 1,
+			      "Interrupt received for unknown JPEG inst %d",
+			      jpeg_inst);
+		return 0;
+	}
+
+	switch (entry->src_id) {
+	case VCN_5_0__SRCID__JPEG_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[0]);
+		break;
+	case VCN_5_0__SRCID__JPEG1_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[1]);
+		break;
+	case VCN_5_0__SRCID__JPEG2_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[2]);
+		break;
+	case VCN_5_0__SRCID__JPEG3_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[3]);
+		break;
+	case VCN_5_0__SRCID__JPEG4_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[4]);
+		break;
+	case VCN_5_0__SRCID__JPEG5_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[5]);
+		break;
+	case VCN_5_0__SRCID__JPEG6_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[6]);
+		break;
+	case VCN_5_0__SRCID__JPEG7_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[7]);
+		break;
+	case VCN_5_0__SRCID__JPEG8_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[8]);
+		break;
+	case VCN_5_0__SRCID__JPEG9_DECODE:
+		amdgpu_fence_process(&adev->jpeg.inst[i].ring_dec[9]);
+		break;
+	default:
+		DRM_DEV_ERROR(adev->dev, "Unhandled interrupt: %d %d\n",
+			      entry->src_id, entry->src_data[0]);
+		break;
+	}
+
+	return 0;
+}
 
 static void jpeg_v5_0_2_core_stall_reset(struct amdgpu_ring *ring)
 {
@@ -690,7 +782,7 @@ static void jpeg_v5_0_2_set_dec_ring_funcs(struct amdgpu_device *adev)
 
 static const struct amdgpu_irq_src_funcs jpeg_v5_0_2_irq_funcs = {
 	.set = jpeg_v5_0_2_set_interrupt_state,
-	.process = jpeg_v5_0_1_process_interrupt,
+	.process = jpeg_v5_0_2_process_interrupt,
 };
 
 static void jpeg_v5_0_2_set_irq_funcs(struct amdgpu_device *adev)
