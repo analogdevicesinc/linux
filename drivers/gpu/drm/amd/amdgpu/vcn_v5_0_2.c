@@ -1172,7 +1172,7 @@ static int vcn_v5_0_2_process_interrupt(struct amdgpu_device *adev, struct amdgp
 		break;
 	default:
 		dev_WARN_ONCE(adev->dev, 1,
-				"Interrupt received for unknown VCN instance %d",
+				"Interrupt received for unknown VCN node_id %d",
 				entry->node_id);
 		return 0;
 	}
@@ -1186,7 +1186,7 @@ static int vcn_v5_0_2_process_interrupt(struct amdgpu_device *adev, struct amdgp
 	if (i >= adev->vcn.num_vcn_inst) {
 		dev_WARN_ONCE(adev->dev, 1,
 				"Interrupt received for unknown VCN instance %d",
-				entry->node_id);
+				inst);
 		return 0;
 	}
 
