@@ -1144,7 +1144,7 @@ xfs_fs_eofblocks_from_user(
 }
 
 static int
-xfs_ioctl_getset_resblocks(
+xfs_ioc_getset_resblocks(
 	struct file		*filp,
 	unsigned int		cmd,
 	void __user		*arg)
@@ -1351,7 +1351,7 @@ xfs_file_ioctl(
 
 	case XFS_IOC_SET_RESBLKS:
 	case XFS_IOC_GET_RESBLKS:
-		return xfs_ioctl_getset_resblocks(filp, cmd, arg);
+		return xfs_ioc_getset_resblocks(filp, cmd, arg);
 
 	case XFS_IOC_FSGROWFSDATA: {
 		struct xfs_growfs_data in;
