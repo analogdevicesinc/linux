@@ -9992,11 +9992,6 @@ static void ath12k_wmi_process_tpc_stats(struct ath12k_base *ab,
 	u32 event_count;
 	int ret;
 
-	if (!skb->data) {
-		ath12k_warn(ab, "No data present in tpc stats event\n");
-		return;
-	}
-
 	if (skb->len < (sizeof(*fixed_param) + TLV_HDR_SIZE)) {
 		ath12k_warn(ab, "TPC stats event size invalid\n");
 		return;
