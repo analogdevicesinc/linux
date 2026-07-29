@@ -15054,6 +15054,8 @@ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
 
 		if (this_ab->hw_params->current_cc_support) {
 			struct wmi_set_current_country_arg current_cc = {};
+			struct ieee80211_regdomain *default_regd;
+			bool same_cc = false;
 
 			spin_lock_bh(&this_ab->base_lock);
 			memcpy(&current_cc.alpha2, this_ab->new_alpha2, 2);
@@ -15063,6 +15065,16 @@ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
 				goto fw_stats_init;
 
 			memcpy(&ar->alpha2, current_cc.alpha2, 2);
+
+			spin_lock_bh(&this_ab->base_lock);
+			default_regd = this_ab->default_regd[ar->pdev_idx];
+			if (default_regd)
+				same_cc = !memcmp(default_regd->alpha2,
+						  current_cc.alpha2, 2);
+			spin_unlock_bh(&this_ab->base_lock);
+
+			if (same_cc)
+				goto fw_stats_init;
 
 			reinit_completion(&ar->regd_update_completed);
 
