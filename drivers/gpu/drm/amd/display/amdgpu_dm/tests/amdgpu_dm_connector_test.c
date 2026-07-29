@@ -2906,6 +2906,54 @@ static void dm_test_detect_mst_branch_without_aux(struct kunit *test)
 		amdgpu_dm_detect_mst_link_for_all_connectors(drm), 0);
 }
 
+/**
+ * dm_test_detect_mst_start_fail - Test the MST-start failure path
+ * @test: The KUnit test context
+ *
+ * An MST branch whose topology manager fails to start must downgrade the link
+ * to a single connection and attempt to stop the topology manager. The failure
+ * is forced by giving the manager a powered-down aux, so its initial DPCD read
+ * returns an error before any real transfer is attempted.
+ */
+static void dm_test_detect_mst_start_fail(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_link *link;
+	struct drm_dp_aux *aux;
+
+	aconnector = dm_test_add_connector(test, drm,
+					   DRM_MODE_CONNECTOR_DisplayPort);
+	link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link);
+	aux = kunit_kzalloc(test, sizeof(*aux), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aux);
+
+	link->type = dc_connection_mst_branch;
+	aconnector->dc_link = link;
+
+	/*
+	 * A powered-down aux makes the initial DPCD read return -EBUSY before
+	 * any transfer, so drm_dp_mst_topology_mgr_set_mst() fails fast.
+	 */
+	mutex_init(&aux->hw_mutex);
+	aux->name = "kunit-mst-aux";
+	aux->powered_down = true;
+	mutex_init(&aconnector->mst_mgr.lock);
+	aconnector->mst_mgr.dev = drm;
+	aconnector->mst_mgr.aux = aux;
+
+	/*
+	 * link->priv is left NULL so dm_helpers_dp_mst_stop_top_mgr() returns
+	 * early without recursing back into the topology manager.
+	 */
+	KUNIT_EXPECT_EQ(test,
+		amdgpu_dm_detect_mst_link_for_all_connectors(drm), 0);
+
+	/* The failure path downgrades the link to a single connection. */
+	KUNIT_EXPECT_EQ(test, link->type, dc_connection_single);
+}
+
 /* Tests for amdgpu_dm_find_first_crtc_matching_connector() */
 
 /*
@@ -5835,6 +5883,7 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_detect_mst_skips_writeback),
 	KUNIT_CASE(dm_test_detect_mst_non_mst_link),
 	KUNIT_CASE(dm_test_detect_mst_branch_without_aux),
+	KUNIT_CASE(dm_test_detect_mst_start_fail),
 	/* amdgpu_dm_find_first_crtc_matching_connector */
 	KUNIT_CASE(dm_test_find_first_crtc_match),
 	KUNIT_CASE(dm_test_find_first_crtc_no_match),
