@@ -4175,6 +4175,168 @@ static void dm_test_poll_dac_load_returns_cached(struct kunit *test)
 		(int)connector_status_connected);
 }
 
+/*
+ * Fake link_service detection callbacks used by the connector poll tests.
+ * dc_link_detect_connection_type() and dc_link_detect() proxy through
+ * link->dc->link_srv, so faking these pointers exercises the poll paths
+ * without touching real hardware.
+ */
+static bool dm_test_poll_detect_type_connected(struct dc_link *link,
+						enum dc_connection_type *type)
+{
+	*type = dc_connection_single;
+	return true;
+}
+
+static bool dm_test_poll_detect_type_none(struct dc_link *link,
+					   enum dc_connection_type *type)
+{
+	*type = dc_connection_none;
+	return false;
+}
+
+static bool dm_test_poll_detect_link_connected(struct dc_link *link,
+					       enum dc_detect_reason reason)
+{
+	return true;
+}
+
+struct dm_test_poll_ctx {
+	struct amdgpu_device *adev;
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_link *link;
+	struct dc *dc;
+	struct dc_context *dc_ctx;
+	struct link_service *link_srv;
+	struct drm_device *drm;
+};
+
+/*
+ * Build an amdgpu_dm_connector embedded in an amdgpu_device (so drm_to_adev()
+ * resolves) with a faked dc_link->dc->link_srv. The hpd_lock and dc_lock
+ * mutexes are initialised because the non-shortcut poll path takes them.
+ */
+static struct dm_test_poll_ctx *dm_test_poll_ctx_alloc(struct kunit *test)
+{
+	struct dm_test_poll_ctx *ctx;
+	struct device *dev;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	dev = drm_kunit_helper_alloc_device(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
+
+	ctx->drm = __drm_kunit_helper_alloc_drm_device(test, dev,
+						       sizeof(*ctx->adev),
+						       offsetof(struct amdgpu_device, ddev),
+						       DRIVER_MODESET);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->drm);
+	ctx->adev = drm_to_adev(ctx->drm);
+	mutex_init(&ctx->adev->dm.dc_lock);
+
+	ctx->aconnector = drmm_kzalloc(ctx->drm, sizeof(*ctx->aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector);
+	KUNIT_ASSERT_EQ(test,
+		drmm_connector_init(ctx->drm, &ctx->aconnector->base,
+				    &dm_test_connector_funcs,
+				    DRM_MODE_CONNECTOR_VGA, NULL), 0);
+	mutex_init(&ctx->aconnector->hpd_lock);
+
+	ctx->dc = kunit_kzalloc(test, sizeof(*ctx->dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->dc);
+	ctx->link_srv = kunit_kzalloc(test, sizeof(*ctx->link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link_srv);
+	ctx->dc->link_srv = ctx->link_srv;
+
+	ctx->dc_ctx = kunit_kzalloc(test, sizeof(*ctx->dc_ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->dc_ctx);
+
+	ctx->link = kunit_kzalloc(test, sizeof(*ctx->link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link);
+	ctx->link->dc = ctx->dc;
+	ctx->link->ctx = ctx->dc_ctx;
+	ctx->aconnector->dc_link = ctx->link;
+
+	return ctx;
+}
+
+/**
+ * dm_test_poll_connected_cached_sink - Test the connected path reusing a sink
+ * @test: The KUnit test context
+ *
+ * detect_connection_type reports a connection and a local_sink already exists,
+ * so the short-circuit skips full detection and the status stays connected.
+ */
+static void dm_test_poll_connected_cached_sink(struct kunit *test)
+{
+	struct dm_test_poll_ctx *ctx = dm_test_poll_ctx_alloc(test);
+	struct dc_sink *local_sink;
+
+	ctx->link_srv->detect_connection_type = dm_test_poll_detect_type_connected;
+	local_sink = kunit_kzalloc(test, sizeof(*local_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, local_sink);
+	ctx->link->local_sink = local_sink;
+	ctx->link->type = dc_connection_single;
+	ctx->aconnector->base.status = connector_status_connected;
+
+	KUNIT_EXPECT_EQ(test,
+		(int)amdgpu_dm_connector_poll(ctx->aconnector, false),
+		(int)connector_status_connected);
+}
+
+/**
+ * dm_test_poll_connected_new_sink - Test the connected path via full detection
+ * @test: The KUnit test context
+ *
+ * With no cached local_sink, dc_link_detect() is consulted and reports a
+ * connection, so the status becomes connected.
+ */
+static void dm_test_poll_connected_new_sink(struct kunit *test)
+{
+	struct dm_test_poll_ctx *ctx = dm_test_poll_ctx_alloc(test);
+
+	ctx->link_srv->detect_connection_type = dm_test_poll_detect_type_connected;
+	ctx->link_srv->detect_link = dm_test_poll_detect_link_connected;
+	ctx->link->local_sink = NULL;
+	ctx->aconnector->base.status = connector_status_connected;
+
+	KUNIT_EXPECT_EQ(test,
+		(int)amdgpu_dm_connector_poll(ctx->aconnector, false),
+		(int)connector_status_connected);
+}
+
+/**
+ * dm_test_poll_disconnect_releases_sink - Test the disconnect teardown path
+ * @test: The KUnit test context
+ *
+ * detect_connection_type reports no connection while the cached status was
+ * connected, so the stale local_sink is released and cleared before the
+ * connector is re-evaluated.
+ */
+static void dm_test_poll_disconnect_releases_sink(struct kunit *test)
+{
+	struct dm_test_poll_ctx *ctx = dm_test_poll_ctx_alloc(test);
+	struct dc_sink_init_data sink_init = { 0 };
+	struct dc_sink *local_sink;
+
+	ctx->link_srv->detect_connection_type = dm_test_poll_detect_type_none;
+
+	sink_init.link = ctx->link;
+	sink_init.sink_signal = SIGNAL_TYPE_VIRTUAL;
+	local_sink = dc_sink_create(&sink_init);
+	KUNIT_ASSERT_NOT_NULL(test, local_sink);
+	ctx->link->local_sink = local_sink;
+
+	ctx->aconnector->base.status = connector_status_connected;
+	ctx->aconnector->dc_sink = NULL;
+
+	KUNIT_EXPECT_EQ(test,
+		(int)amdgpu_dm_connector_poll(ctx->aconnector, false),
+		(int)connector_status_disconnected);
+	KUNIT_EXPECT_NULL(test, ctx->link->local_sink);
+}
+
 /* Tests for amdgpu_dm_connector_late_register() and _unregister() */
 
 /*
@@ -6331,6 +6493,9 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_detect_no_sink),
 	/* amdgpu_dm_connector_poll */
 	KUNIT_CASE(dm_test_poll_dac_load_returns_cached),
+	KUNIT_CASE(dm_test_poll_connected_cached_sink),
+	KUNIT_CASE(dm_test_poll_connected_new_sink),
+	KUNIT_CASE(dm_test_poll_disconnect_releases_sink),
 	/* amdgpu_dm_connector_late_register */
 	KUNIT_CASE(dm_test_late_register_non_dp_succeeds),
 	/* amdgpu_dm_connector_unregister */
