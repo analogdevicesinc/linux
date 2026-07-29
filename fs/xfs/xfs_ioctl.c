@@ -1262,6 +1262,25 @@ xfs_ioc_readlink_by_handle(
 	return xfs_readlink_by_handle(file, &hreq);
 }
 
+static int
+xfs_ioc_swapext(
+	struct file		*file,
+	void __user		*arg)
+{
+	struct xfs_swapext	sxp;
+	int			error;
+
+	if (copy_from_user(&sxp, arg, sizeof(sxp)))
+		return -EFAULT;
+
+	error = mnt_want_write_file(file);
+	if (error)
+		return error;
+	error = xfs_swapext(&sxp);
+	mnt_drop_write_file(file);
+	return error;
+}
+
 /*
  * These long-unused ioctls were removed from the official ioctl API in 5.17,
  * but retain these definitions so that we can log warnings about them.
@@ -1361,18 +1380,8 @@ xfs_file_ioctl(
 	case XFS_IOC_ATTRMULTI_BY_HANDLE:
 		return xfs_attrmulti_by_handle(filp, arg);
 
-	case XFS_IOC_SWAPEXT: {
-		struct xfs_swapext	sxp;
-
-		if (copy_from_user(&sxp, arg, sizeof(xfs_swapext_t)))
-			return -EFAULT;
-		error = mnt_want_write_file(filp);
-		if (error)
-			return error;
-		error = xfs_swapext(&sxp);
-		mnt_drop_write_file(filp);
-		return error;
-	}
+	case XFS_IOC_SWAPEXT:
+		return xfs_ioc_swapext(filp, arg);
 
 	case XFS_IOC_FSCOUNTS:
 		return xfs_ioc_fs_counts(mp, arg);
