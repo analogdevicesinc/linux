@@ -1723,6 +1723,7 @@ W:	https://ez.analog.com/linux-software-drivers
 F:	Documentation/ABI/testing/debugfs-iio-ad9910
 F:	Documentation/ABI/testing/sysfs-bus-iio-frequency-ad9910
 F:	Documentation/devicetree/bindings/iio/frequency/adi,ad9910.yaml
+F:	Documentation/iio/ad9910.rst
 F:	drivers/iio/frequency/ad9910.c
 
 ANALOG DEVICES INC MAX22007 DRIVER
