@@ -184,6 +184,7 @@
 					sw1_p8: port@8 {
 						reg = <8>;
 						ethernet = <&sw0_p0>;
+						phy-mode = "rgmii";
 						label = "cpu";
 
 						fixed-link {
