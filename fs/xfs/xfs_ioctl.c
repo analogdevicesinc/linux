@@ -1209,12 +1209,6 @@ xfs_ioctl_fs_counts(
 #define XFS_IOC_ALLOCSP64	_IOW ('X', 36, struct xfs_flock64)
 #define XFS_IOC_FREESP64	_IOW ('X', 37, struct xfs_flock64)
 
-/*
- * Note: some of the ioctl's return positive numbers as a
- * byte count indicating success, such as readlink_by_handle.
- * So we don't "sign flip" like most other routines.  This means
- * true errors need to be returned as a negative value.
- */
 long
 xfs_file_ioctl(
 	struct file		*filp,
