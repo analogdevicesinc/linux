@@ -137,8 +137,19 @@ static void __process_descriptor(struct adi_dma_descriptor *desc);
 static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node,
 	struct adi_dma_channel *channel)
 {
+	const char *label;
 	int irq;
 	int ret;
+
+	/*
+	 * The channel <-> peripheral assignment is fixed in silicon (HRM
+	 * "DMA Channel List"), so the controller address plus channel id
+	 * uniquely identify the serviced peripheral in /proc/interrupts.
+	 */
+	label = devm_kasprintf(dma->dev, GFP_KERNEL, "%s ch%u",
+			       dev_name(dma->dev), channel->id);
+	if (!label)
+		return -ENOMEM;
 
 	irq = of_irq_get_byname(node, "complete");
 	if (irq <= 0) {
@@ -149,7 +160,7 @@ static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node
 	channel->src_irq = irq;
 
 	ret = devm_request_threaded_irq(dma->dev, irq, adi_dma_handler,
-		adi_dma_thread_handler, 0, "dma controller irq", channel);
+		adi_dma_thread_handler, 0, label, channel);
 	if (ret) {
 		dev_err(dma->dev, "Failed to request IRQ %d\n", ret);
 		return ret;
@@ -164,7 +175,9 @@ static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node
 	channel->src_err_irq = irq;
 
 	ret = devm_request_threaded_irq(dma->dev, irq, adi_dma_error_handler,
-		adi_dma_thread_handler, 0, "dma controller error irq", channel);
+		adi_dma_thread_handler, 0,
+		devm_kasprintf(dma->dev, GFP_KERNEL, "%s err", label),
+		channel);
 	if (ret) {
 		dev_err(dma->dev, "Failed to request IRQ %d\n", ret);
 		return ret;
@@ -181,7 +194,9 @@ static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node
 		channel->dest_irq = irq;
 
 		ret = devm_request_threaded_irq(dma->dev, irq, adi_dma_handler,
-			adi_dma_thread_handler, 0, "dma controller irq", channel);
+			adi_dma_thread_handler, 0,
+			devm_kasprintf(dma->dev, GFP_KERNEL, "%s dst", label),
+			channel);
 		if (ret) {
 			dev_err(dma->dev, "Failed to request IRQ %d\n", ret);
 			return ret;
@@ -196,7 +211,9 @@ static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node
 		channel->dest_err_irq = irq;
 
 		ret = devm_request_threaded_irq(dma->dev, irq, adi_dma_error_handler,
-			adi_dma_thread_handler, 0, "dma controller error irq", channel);
+			adi_dma_thread_handler, 0,
+			devm_kasprintf(dma->dev, GFP_KERNEL, "%s dst err", label),
+			channel);
 		if (ret) {
 			dev_err(dma->dev, "Failed to request IRQ %d\n", ret);
 			return ret;
