@@ -379,6 +379,43 @@ xfs_compat_handlereq_to_dentry(
 			compat_ptr(hreq->ihandle), hreq->ihandlen);
 }
 
+static int
+xfs_compat_ioc_find_handle(
+	unsigned int		cmd,
+	void __user		*arg)
+{
+	struct xfs_fsop_handlereq hreq;
+
+	if (xfs_compat_handlereq_copyin(&hreq, arg))
+		return -EFAULT;
+	return xfs_find_handle(_NATIVE_IOC(cmd, struct xfs_fsop_handlereq),
+			&hreq);
+}
+
+static int
+xfs_compat_ioc_open_by_handle(
+	struct file		*file,
+	void __user		*arg)
+{
+	struct xfs_fsop_handlereq hreq;
+
+	if (xfs_compat_handlereq_copyin(&hreq, arg))
+		return -EFAULT;
+	return xfs_open_by_handle(file, &hreq);
+}
+
+static int
+xfs_compat_ioc_readlink_by_handle(
+	struct file		*file,
+	void __user		*arg)
+{
+	struct xfs_fsop_handlereq hreq;
+
+	if (xfs_compat_handlereq_copyin(&hreq, arg))
+		return -EFAULT;
+	return xfs_readlink_by_handle(file, &hreq);
+}
+
 STATIC int
 xfs_compat_attrlist_by_handle(
 	struct file		*parfilp,
@@ -490,28 +527,12 @@ xfs_file_compat_ioctl(
 		return xfs_compat_ioc_fsbulkstat(filp, cmd, arg);
 	case XFS_IOC_FD_TO_HANDLE_32:
 	case XFS_IOC_PATH_TO_HANDLE_32:
-	case XFS_IOC_PATH_TO_FSHANDLE_32: {
-		struct xfs_fsop_handlereq	hreq;
-
-		if (xfs_compat_handlereq_copyin(&hreq, arg))
-			return -EFAULT;
-		cmd = _NATIVE_IOC(cmd, struct xfs_fsop_handlereq);
-		return xfs_find_handle(cmd, &hreq);
-	}
-	case XFS_IOC_OPEN_BY_HANDLE_32: {
-		struct xfs_fsop_handlereq	hreq;
-
-		if (xfs_compat_handlereq_copyin(&hreq, arg))
-			return -EFAULT;
-		return xfs_open_by_handle(filp, &hreq);
-	}
-	case XFS_IOC_READLINK_BY_HANDLE_32: {
-		struct xfs_fsop_handlereq	hreq;
-
-		if (xfs_compat_handlereq_copyin(&hreq, arg))
-			return -EFAULT;
-		return xfs_readlink_by_handle(filp, &hreq);
-	}
+	case XFS_IOC_PATH_TO_FSHANDLE_32:
+		return xfs_compat_ioc_find_handle(cmd, arg);
+	case XFS_IOC_OPEN_BY_HANDLE_32:
+		return xfs_compat_ioc_open_by_handle(filp, arg);
+	case XFS_IOC_READLINK_BY_HANDLE_32:
+		return xfs_compat_ioc_readlink_by_handle(filp, arg);
 	case XFS_IOC_ATTRLIST_BY_HANDLE_32:
 		return xfs_compat_attrlist_by_handle(filp, arg);
 	case XFS_IOC_ATTRMULTI_BY_HANDLE_32:
