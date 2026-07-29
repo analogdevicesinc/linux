@@ -5516,6 +5516,329 @@ static void dm_test_update_after_detect_sink_unchanged(struct kunit *test)
 	KUNIT_EXPECT_NULL(test, aconnector->dc_sink);
 }
 
+/* Tests for amdgpu_dm_update_connector_after_detect() */
+
+/*
+ * A minimal but structurally valid 128-byte EDID base block (correct header
+ * and checksum) so drm_edid_alloc()/drm_edid_connector_update() accept it when
+ * exercising the "sink carries EDID" branch.
+ */
+static const u8 dm_test_uad_edid[128] = {
+	0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00, 0x04, 0x21, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x04, 0x80, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5c,
+};
+
+/*
+ * Build an amdgpu_dm_connector registered against a real kunit drm_device that
+ * is embedded in an amdgpu_device, so drm_to_adev()/adev_to_drm() resolve for
+ * amdgpu_dm_update_connector_after_detect() and all of its helpers.
+ *
+ * bl_idx is forced to -1 and adev->dm.freesync_module is left NULL so the
+ * backlight, CEC and freesync helpers take their early-return paths and the
+ * test stays focused on the sink-adoption logic.
+ */
+struct dm_test_uad_ctx {
+	struct amdgpu_device *adev;
+	struct drm_device *drm;
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_link *link;
+};
+
+static struct dm_test_uad_ctx *
+dm_test_uad_ctx_alloc(struct kunit *test, int connector_type)
+{
+	struct dm_test_uad_ctx *ctx;
+	struct device *dev;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	dev = drm_kunit_helper_alloc_device(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
+
+	ctx->drm = __drm_kunit_helper_alloc_drm_device(test, dev,
+			sizeof(*ctx->adev),
+			offsetof(struct amdgpu_device, ddev),
+			DRIVER_MODESET);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->drm);
+	ctx->adev = drm_to_adev(ctx->drm);
+
+	ctx->aconnector = drmm_kzalloc(ctx->drm, sizeof(*ctx->aconnector),
+			GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector);
+	KUNIT_ASSERT_EQ(test,
+			drmm_connector_init(ctx->drm, &ctx->aconnector->base,
+			&dm_test_connector_funcs, connector_type,
+			NULL), 0);
+
+	ctx->link = kunit_kzalloc(test, sizeof(*ctx->link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link);
+	ctx->aconnector->dc_link = ctx->link;
+
+	/* Keep the backlight/CEC/freesync helpers on their early-return paths. */
+	ctx->aconnector->bl_idx = -1;
+
+	return ctx;
+}
+
+/* A real (non-kunit) sink the function is expected to free via dc_sink_release. */
+static struct dc_sink *dm_test_uad_owned_sink(void)
+{
+	struct dc_sink *sink = kzalloc_obj(*sink, GFP_KERNEL);
+
+	if (sink)
+		kref_init(&sink->refcount);
+	return sink;
+}
+
+/* A kunit-managed sink that stays referenced (never released to zero). */
+static struct dc_sink *dm_test_uad_kept_sink(struct kunit *test)
+{
+	struct dc_sink *sink = kunit_kzalloc(test, sizeof(*sink), GFP_KERNEL);
+
+	if (sink)
+		kref_init(&sink->refcount);
+	return sink;
+}
+
+/**
+ * dm_test_update_after_detect_mst_sink - Test an MST sink is left to drm_mst
+ * @test: The KUnit test context
+ *
+ * A local sink reporting SIGNAL_TYPE_DISPLAY_PORT_MST is handled by the
+ * drm_mst framework, so the function returns before adopting it.
+ */
+static void dm_test_update_after_detect_mst_sink(struct kunit *test)
+{
+	struct dm_test_uad_ctx *ctx =
+		dm_test_uad_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_sink *sink = dm_test_uad_kept_sink(test);
+
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	sink->sink_signal = SIGNAL_TYPE_DISPLAY_PORT_MST;
+	ctx->link->local_sink = sink;
+
+	amdgpu_dm_update_connector_after_detect(ctx->aconnector);
+
+	KUNIT_EXPECT_NULL(test, ctx->aconnector->dc_sink);
+}
+
+/**
+ * dm_test_update_after_detect_connect_edid - Test adopting a new sink with EDID
+ * @test: The KUnit test context
+ *
+ * A freshly detected DisplayPort sink carrying EDID is adopted: the connector
+ * takes the sink, allocates a drm_edid and a requested-timing structure.
+ */
+static void dm_test_update_after_detect_connect_edid(struct kunit *test)
+{
+	struct dm_test_uad_ctx *ctx =
+		dm_test_uad_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_sink *sink = dm_test_uad_kept_sink(test);
+
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	sink->sink_signal = SIGNAL_TYPE_DISPLAY_PORT;
+	memcpy(sink->dc_edid.raw_edid, dm_test_uad_edid, sizeof(dm_test_uad_edid));
+	sink->dc_edid.length = sizeof(dm_test_uad_edid);
+	ctx->link->local_sink = sink;
+	ctx->link->aux_mode = true;
+
+	amdgpu_dm_update_connector_after_detect(ctx->aconnector);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, sink);
+	KUNIT_EXPECT_NOT_NULL(test, ctx->aconnector->timing_requested);
+
+	kfree(ctx->aconnector->timing_requested);
+	ctx->aconnector->timing_requested = NULL;
+}
+
+/**
+ * dm_test_update_after_detect_replace_no_edid - Test replacing a sink with no
+ * EDID and HDMI compression auto
+ * @test: The KUnit test context
+ *
+ * When a new EDID-less sink replaces an existing one, the old sink is released
+ * and, with hdmi_comp_auto set, an HDMI sink signal is promoted to FRL.
+ */
+static void dm_test_update_after_detect_replace_no_edid(struct kunit *test)
+{
+	struct dm_test_uad_ctx *ctx =
+		dm_test_uad_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_sink *old_sink = dm_test_uad_owned_sink();
+	struct dc_sink *new_sink = dm_test_uad_kept_sink(test);
+
+	KUNIT_ASSERT_NOT_NULL(test, old_sink);
+	KUNIT_ASSERT_NOT_NULL(test, new_sink);
+
+	ctx->aconnector->dc_sink = old_sink;
+	new_sink->sink_signal = SIGNAL_TYPE_HDMI_TYPE_A;
+	new_sink->dc_edid.length = 0;
+	ctx->link->local_sink = new_sink;
+	ctx->link->aux_mode = true;
+	ctx->aconnector->hdmi_comp_auto = true;
+
+	amdgpu_dm_update_connector_after_detect(ctx->aconnector);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, new_sink);
+	KUNIT_EXPECT_EQ(test, (int)new_sink->sink_signal,
+			(int)SIGNAL_TYPE_HDMI_FRL);
+}
+
+/**
+ * dm_test_update_after_detect_disconnect - Test tearing down on unplug
+ * @test: The KUnit test context
+ *
+ * With no local sink but an existing dc_sink, the disconnect path releases the
+ * sink, clears modes/timing, downgrades content protection and notifies audio.
+ */
+static void dm_test_update_after_detect_disconnect(struct kunit *test)
+{
+	struct dm_test_uad_ctx *ctx =
+		dm_test_uad_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_sink *old_sink = dm_test_uad_owned_sink();
+	struct dc_crtc_timing *timing = kzalloc_obj(*timing, GFP_KERNEL);
+
+	KUNIT_ASSERT_NOT_NULL(test, old_sink);
+	KUNIT_ASSERT_NOT_NULL(test, timing);
+
+	mutex_init(&ctx->adev->dm.audio_lock);
+	ctx->aconnector->dc_sink = old_sink;
+	ctx->aconnector->timing_requested = timing;
+	ctx->aconnector->num_modes = 3;
+	ctx->aconnector->audio_inst = 5;
+	ctx->link->local_sink = NULL;
+
+	amdgpu_dm_connector_funcs_reset(&ctx->aconnector->base);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector->base.state);
+	ctx->aconnector->base.state->content_protection =
+		DRM_MODE_CONTENT_PROTECTION_ENABLED;
+
+	amdgpu_dm_update_connector_after_detect(ctx->aconnector);
+
+	KUNIT_EXPECT_NULL(test, ctx->aconnector->dc_sink);
+	KUNIT_EXPECT_NULL(test, ctx->aconnector->timing_requested);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 0);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->audio_inst, -1);
+	KUNIT_EXPECT_EQ(test,
+			(int)ctx->aconnector->base.state->content_protection,
+			(int)DRM_MODE_CONTENT_PROTECTION_DESIRED);
+}
+
+/**
+ * dm_test_update_after_detect_force_em_adopt - Test forced eml_sink adoption
+ * @test: The KUnit test context
+ *
+ * A forced connector with an emulated sink adopts a newly reported local sink
+ * under the mode_config lock.
+ */
+static void dm_test_update_after_detect_force_em_adopt(struct kunit *test)
+{
+	struct dm_test_uad_ctx *ctx =
+		dm_test_uad_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_sink *em_sink = dm_test_uad_kept_sink(test);
+	struct dc_sink *sink = dm_test_uad_kept_sink(test);
+
+	KUNIT_ASSERT_NOT_NULL(test, em_sink);
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+
+	ctx->aconnector->base.force = DRM_FORCE_ON;
+	ctx->aconnector->dc_em_sink = em_sink;
+	ctx->link->local_sink = sink;
+
+	amdgpu_dm_update_connector_after_detect(ctx->aconnector);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, sink);
+}
+
+/**
+ * dm_test_update_after_detect_force_em_replace - Test forced eml_sink replace
+ * @test: The KUnit test context
+ *
+ * A forced connector that already has a dc_sink releases it before adopting the
+ * newly reported local sink.
+ */
+static void dm_test_update_after_detect_force_em_replace(struct kunit *test)
+{
+	struct dm_test_uad_ctx *ctx =
+		dm_test_uad_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_sink *em_sink = dm_test_uad_kept_sink(test);
+	struct dc_sink *old_sink = dm_test_uad_owned_sink();
+	struct dc_sink *new_sink = dm_test_uad_kept_sink(test);
+
+	KUNIT_ASSERT_NOT_NULL(test, em_sink);
+	KUNIT_ASSERT_NOT_NULL(test, old_sink);
+	KUNIT_ASSERT_NOT_NULL(test, new_sink);
+
+	ctx->aconnector->base.force = DRM_FORCE_ON;
+	ctx->aconnector->dc_em_sink = em_sink;
+	ctx->aconnector->dc_sink = old_sink;
+	ctx->link->local_sink = new_sink;
+
+	amdgpu_dm_update_connector_after_detect(ctx->aconnector);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, new_sink);
+}
+
+/**
+ * dm_test_update_after_detect_force_em_fake - Test forced fallback to eml_sink
+ * @test: The KUnit test context
+ *
+ * A forced connector with no local sink and no dc_sink falls back to using the
+ * emulated sink so a headless stream can still be faked.
+ */
+static void dm_test_update_after_detect_force_em_fake(struct kunit *test)
+{
+	struct dm_test_uad_ctx *ctx =
+		dm_test_uad_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_sink *em_sink = dm_test_uad_kept_sink(test);
+
+	KUNIT_ASSERT_NOT_NULL(test, em_sink);
+
+	ctx->aconnector->base.force = DRM_FORCE_ON;
+	ctx->aconnector->dc_em_sink = em_sink;
+	ctx->link->local_sink = NULL;
+
+	amdgpu_dm_update_connector_after_detect(ctx->aconnector);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, em_sink);
+}
+
+/**
+ * dm_test_update_after_detect_force_em_keep - Test forced no-sink keeps dc_sink
+ * @test: The KUnit test context
+ *
+ * A forced connector with no local sink but an existing dc_sink keeps that sink
+ * (the emulated-sink fallback is skipped).
+ */
+static void dm_test_update_after_detect_force_em_keep(struct kunit *test)
+{
+	struct dm_test_uad_ctx *ctx =
+		dm_test_uad_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_sink *em_sink = dm_test_uad_kept_sink(test);
+	struct dc_sink *dc_sink = dm_test_uad_kept_sink(test);
+
+	KUNIT_ASSERT_NOT_NULL(test, em_sink);
+	KUNIT_ASSERT_NOT_NULL(test, dc_sink);
+
+	ctx->aconnector->base.force = DRM_FORCE_ON;
+	ctx->aconnector->dc_em_sink = em_sink;
+	ctx->aconnector->dc_sink = dc_sink;
+	ctx->link->local_sink = NULL;
+
+	amdgpu_dm_update_connector_after_detect(ctx->aconnector);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, dc_sink);
+}
+
 /* Tests for amdgpu_dm_update_stream_scaling_settings() */
 
 /**
@@ -6007,6 +6330,14 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* amdgpu_dm_update_connector_after_detect */
 	KUNIT_CASE(dm_test_update_after_detect_mst_noop),
 	KUNIT_CASE(dm_test_update_after_detect_sink_unchanged),
+	KUNIT_CASE(dm_test_update_after_detect_mst_sink),
+	KUNIT_CASE(dm_test_update_after_detect_connect_edid),
+	KUNIT_CASE(dm_test_update_after_detect_replace_no_edid),
+	KUNIT_CASE(dm_test_update_after_detect_disconnect),
+	KUNIT_CASE(dm_test_update_after_detect_force_em_adopt),
+	KUNIT_CASE(dm_test_update_after_detect_force_em_replace),
+	KUNIT_CASE(dm_test_update_after_detect_force_em_fake),
+	KUNIT_CASE(dm_test_update_after_detect_force_em_keep),
 	/* amdgpu_dm_update_stream_scaling_settings */
 	KUNIT_CASE(dm_test_update_scaling_null_mode),
 	KUNIT_CASE(dm_test_update_scaling_fullscreen_default),
