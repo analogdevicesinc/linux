@@ -1369,6 +1369,33 @@ xfs_ioc_error_injection(
 	return xfs_errortag_add(mp, in.errtag);
 }
 
+static int
+xfs_ioc_free_eofblocks(
+	struct xfs_mount	*mp,
+	struct xfs_fs_eofblocks	__user *arg)
+{
+	struct xfs_fs_eofblocks	eofb;
+	struct xfs_icwalk	icw;
+	int			error;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+	if (xfs_is_readonly(mp))
+		return -EROFS;
+
+	if (copy_from_user(&eofb, arg, sizeof(eofb)))
+		return -EFAULT;
+
+	error = xfs_fs_eofblocks_from_user(&eofb, &icw);
+	if (error)
+		return error;
+
+	trace_xfs_ioc_free_eofblocks(mp, &icw, _RET_IP_);
+
+	guard(super_write)(mp->m_super);
+	return xfs_blockgc_free_space(mp, &icw);
+}
+
 /*
  * These long-unused ioctls were removed from the official ioctl API in 5.17,
  * but retain these definitions so that we can log warnings about them.
@@ -1388,7 +1415,6 @@ xfs_file_ioctl(
 	struct xfs_inode	*ip = XFS_I(inode);
 	struct xfs_mount	*mp = ip->i_mount;
 	void			__user *arg = (void __user *)p;
-	int			error;
 
 	trace_xfs_file_ioctl(ip);
 
@@ -1494,28 +1520,8 @@ xfs_file_ioctl(
 			return -EPERM;
 		return xfs_errortag_clearall(mp);
 
-	case XFS_IOC_FREE_EOFBLOCKS: {
-		struct xfs_fs_eofblocks	eofb;
-		struct xfs_icwalk	icw;
-
-		if (!capable(CAP_SYS_ADMIN))
-			return -EPERM;
-
-		if (xfs_is_readonly(mp))
-			return -EROFS;
-
-		if (copy_from_user(&eofb, arg, sizeof(eofb)))
-			return -EFAULT;
-
-		error = xfs_fs_eofblocks_from_user(&eofb, &icw);
-		if (error)
-			return error;
-
-		trace_xfs_ioc_free_eofblocks(mp, &icw, _RET_IP_);
-
-		guard(super_write)(mp->m_super);
-		return xfs_blockgc_free_space(mp, &icw);
-	}
+	case XFS_IOC_FREE_EOFBLOCKS:
+		return xfs_ioc_free_eofblocks(mp, arg);
 
 	case XFS_IOC_EXCHANGE_RANGE:
 		return xfs_ioc_exchange_range(filp, arg);
