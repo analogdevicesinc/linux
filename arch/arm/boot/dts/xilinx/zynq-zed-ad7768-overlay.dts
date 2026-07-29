@@ -167,6 +167,26 @@
 					adi,prechargebuf-neg-enable;
 					adi,refbuf-neg-enable;
 				};
+
+				channel@3 {
+					reg = <3>;
+				};
+
+				channel@4 {
+					reg = <4>;
+				};
+
+				channel@5 {
+					reg = <5>;
+				};
+
+				channel@6 {
+					reg = <6>;
+				};
+
+				channel@7 {
+					reg = <7>;
+				};
 			};
 		};
 	};
