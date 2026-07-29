@@ -822,6 +822,10 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qxp-tqma8xqps-mb-smarc-2.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8ulp-9x9-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8ulp-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx91-9x9-qsb.dtb
+
+imx91-9x9-qsb-tianma-tm050rdh03-dtbs += imx91-9x9-qsb.dtb imx91-9x9-qsb-tianma-tm050rdh03.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx91-9x9-qsb-tianma-tm050rdh03.dtb
+
 dtb-$(CONFIG_ARCH_MXC) += imx91-11x11-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx91-11x11-frdm.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx91-11x11-frdm-s.dtb
