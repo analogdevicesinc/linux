@@ -4289,6 +4289,43 @@ static void dm_test_encoder_disable_noop(struct kunit *test)
  * connector and connector-state are stacked in their containers and wired
  * together through conn_state->connector.
  */
+/* Tests for amdgpu_dm_encoder_init() */
+
+/**
+ * dm_test_encoder_init_success - Test encoder init wires id, crtc mask and helpers
+ * @test: The KUnit test context
+ *
+ * On a DRM device embedded in an amdgpu_device, amdgpu_dm_encoder_init()
+ * registers a TMDS encoder, derives possible_crtcs from mode_info.num_crtc,
+ * records the link index as the encoder id and attaches the helper funcs.
+ */
+static void dm_test_encoder_init_success(struct kunit *test)
+{
+	struct device *dev;
+	struct drm_device *drm;
+	struct amdgpu_device *adev;
+	struct amdgpu_encoder *aencoder;
+
+	dev = drm_kunit_helper_alloc_device(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
+	drm = __drm_kunit_helper_alloc_drm_device(test, dev, sizeof(*adev),
+						  offsetof(struct amdgpu_device, ddev),
+						  DRIVER_MODESET);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, drm);
+	adev = drm_to_adev(drm);
+	adev->mode_info.num_crtc = 4;
+
+	/* Plain kzalloc: amdgpu_dm_encoder_destroy() kfree()s it on teardown. */
+	aencoder = kzalloc_obj(*aencoder);
+	KUNIT_ASSERT_NOT_NULL(test, aencoder);
+
+	KUNIT_EXPECT_EQ(test, amdgpu_dm_encoder_init(drm, aencoder, 2), 0);
+	KUNIT_EXPECT_EQ(test, aencoder->encoder_id, 2);
+	KUNIT_EXPECT_EQ(test, (int)aencoder->base.possible_crtcs, 0xf);
+	KUNIT_EXPECT_PTR_EQ(test, (const void *)aencoder->base.helper_private,
+			    (const void *)&amdgpu_dm_encoder_helper_funcs);
+}
+
 struct dm_test_atomic_check_ctx {
 	struct drm_device *drm;
 	struct amdgpu_encoder *aenc;
@@ -5863,6 +5900,7 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_atomic_check_mst_duplicated_skips_pbn),
 	KUNIT_CASE(dm_test_atomic_check_mst_topology_err_propagates),
 	KUNIT_CASE(dm_test_atomic_check_mst_vcpi_error_propagates),
+	KUNIT_CASE(dm_test_encoder_init_success),
 	/* hdmi_cec_unset_edid */
 	KUNIT_CASE(dm_test_hdmi_cec_unset_edid_no_notifier),
 	/* create_eml_sink */

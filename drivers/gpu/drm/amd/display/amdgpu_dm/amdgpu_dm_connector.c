@@ -171,6 +171,7 @@ const struct drm_encoder_helper_funcs amdgpu_dm_encoder_helper_funcs = {
 	.disable = dm_encoder_helper_disable,
 	.atomic_check = dm_encoder_helper_atomic_check
 };
+EXPORT_IF_KUNIT(amdgpu_dm_encoder_helper_funcs);
 
 int amdgpu_dm_get_encoder_crtc_mask(struct amdgpu_device *adev)
 {
@@ -215,6 +216,7 @@ int amdgpu_dm_encoder_init(struct drm_device *dev,
 
 	return res;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_encoder_init);
 
 STATIC_IFN_KUNIT enum drm_mode_subconnector get_subconnector_type(struct dc_link *link)
 {
