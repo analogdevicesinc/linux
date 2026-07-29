@@ -248,6 +248,7 @@ void amdgpu_dm_update_freesync_state_on_stream(
 
 	spin_unlock_irqrestore(&adev_to_drm(adev)->event_lock, flags);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_update_freesync_state_on_stream);
 
 void amdgpu_dm_update_stream_irq_parameters(
 	struct amdgpu_display_manager *dm,

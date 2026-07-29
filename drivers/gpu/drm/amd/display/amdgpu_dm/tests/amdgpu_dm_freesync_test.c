@@ -416,6 +416,194 @@ static void dm_test_reset_freesync_config(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, crtc_state->vrr_infopacket.valid);
 }
 
+/* Tests for amdgpu_dm_update_freesync_state_on_stream() */
+
+/**
+ * dm_test_update_freesync_state_no_stream - Test a NULL stream is ignored
+ * @test: The KUnit test context
+ */
+static void dm_test_update_freesync_state_no_stream(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	crtc_state.base.crtc = &acrtc->base;
+
+	amdgpu_dm_update_freesync_state_on_stream(&adev->dm, &crtc_state, NULL, NULL, 0);
+
+	KUNIT_SUCCEED(test);
+}
+
+/**
+ * dm_test_update_freesync_state_invalid_timing - Test zero stream timing is ignored
+ * @test: The KUnit test context
+ */
+static void dm_test_update_freesync_state_invalid_timing(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_stream_state *stream = dm_kunit_alloc_stream(test, NULL);
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	crtc_state.base.crtc = &acrtc->base;
+
+	amdgpu_dm_update_freesync_state_on_stream(&adev->dm, &crtc_state, stream, NULL, 0);
+
+	KUNIT_SUCCEED(test);
+}
+
+/**
+ * dm_test_update_freesync_state_default_packet - Test default packet state update
+ * @test: The KUnit test context
+ */
+static void dm_test_update_freesync_state_default_packet(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_stream_state *stream = dm_kunit_alloc_stream(test, NULL);
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	crtc_state.base.crtc = &acrtc->base;
+	stream->timing.h_total = 2200;
+	stream->timing.v_total = 1125;
+	adev->dm.adev = adev;
+
+	amdgpu_dm_update_freesync_state_on_stream(&adev->dm, &crtc_state, stream, NULL, 0);
+
+	KUNIT_EXPECT_FALSE(test, crtc_state.freesync_vrr_info_changed);
+	KUNIT_EXPECT_FALSE(test, crtc_state.vrr_infopacket.valid);
+	KUNIT_EXPECT_FALSE(test, stream->allow_freesync);
+}
+
+/**
+ * dm_test_update_freesync_state_packet_changed - Test packet changes are recorded
+ * @test: The KUnit test context
+ */
+static void dm_test_update_freesync_state_packet_changed(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_stream_state *stream = dm_kunit_alloc_stream(test, NULL);
+	struct dc_plane_state *surface;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	surface = kunit_kzalloc(test, sizeof(*surface), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, surface);
+	crtc_state.base.crtc = &acrtc->base;
+	crtc_state.vrr_infopacket.valid = true;
+	stream->timing.h_total = 2200;
+	stream->timing.v_total = 1125;
+	adev->family = AMDGPU_FAMILY_AI;
+	adev->dm.adev = adev;
+
+	amdgpu_dm_update_freesync_state_on_stream(&adev->dm, &crtc_state, stream, surface, 0);
+
+	KUNIT_EXPECT_TRUE(test, crtc_state.freesync_vrr_info_changed);
+	KUNIT_EXPECT_FALSE(test, crtc_state.vrr_infopacket.valid);
+}
+
+/**
+ * dm_test_update_freesync_state_pre_ai_active - Test pre-AI active VRR adjustment
+ * @test: The KUnit test context
+ */
+static void dm_test_update_freesync_state_pre_ai_active(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_stream_state *stream = dm_kunit_alloc_stream(test, NULL);
+	struct dc_plane_state *surface;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	surface = kunit_kzalloc(test, sizeof(*surface), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, surface);
+	crtc_state.base.crtc = &acrtc->base;
+	crtc_state.stream = stream;
+	crtc_state.freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
+	stream->timing.h_total = 2200;
+	stream->timing.v_total = 1125;
+	adev->dm.adev = adev;
+	adev->dm.dc = dm_kunit_alloc_dc_with_ctx(test);
+	adev->dm.dc->current_state = dm_kunit_alloc_dc_state(test);
+
+	amdgpu_dm_update_freesync_state_on_stream(&adev->dm, &crtc_state, stream, surface, 0);
+
+	KUNIT_EXPECT_FALSE(test, stream->adjust.timing_adjust_pending);
+}
+
+static void dm_test_update_freesync_state_pcon_version(struct kunit *test, u8 version)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	struct dc_stream_state *stream = dm_kunit_alloc_stream(test, link);
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
+	crtc_state.base.crtc = &acrtc->base;
+	stream->timing.h_total = 2200;
+	stream->timing.v_total = 1125;
+	stream->dm_stream_context = aconnector;
+	aconnector->as_type = FREESYNC_TYPE_PCON_IN_WHITELIST;
+	aconnector->vsdb_info.amd_vsdb_version = version;
+	adev->dm.adev = adev;
+
+	amdgpu_dm_update_freesync_state_on_stream(&adev->dm, &crtc_state, stream, NULL, 0);
+
+	KUNIT_EXPECT_TRUE(test, stream->adaptive_sync_infopacket.valid);
+	KUNIT_EXPECT_EQ(test, stream->adaptive_sync_infopacket.hb2, (u8)AS_SDP_VER_1);
+}
+
+/**
+ * dm_test_update_freesync_state_pcon_v1 - Test PCON AMD VSDB version 1
+ * @test: The KUnit test context
+ */
+static void dm_test_update_freesync_state_pcon_v1(struct kunit *test)
+{
+	dm_test_update_freesync_state_pcon_version(test, 1);
+}
+
+/**
+ * dm_test_update_freesync_state_pcon_v2 - Test PCON AMD VSDB version 2
+ * @test: The KUnit test context
+ */
+static void dm_test_update_freesync_state_pcon_v2(struct kunit *test)
+{
+	dm_test_update_freesync_state_pcon_version(test, 2);
+}
+
+/**
+ * dm_test_update_freesync_state_pcon_v3 - Test PCON AMD VSDB version 3
+ * @test: The KUnit test context
+ */
+static void dm_test_update_freesync_state_pcon_v3(struct kunit *test)
+{
+	dm_test_update_freesync_state_pcon_version(test, 3);
+}
+
+/**
+ * dm_test_update_freesync_state_pcon_default - Test unknown AMD VSDB version
+ * @test: The KUnit test context
+ */
+static void dm_test_update_freesync_state_pcon_default(struct kunit *test)
+{
+	dm_test_update_freesync_state_pcon_version(test, 0);
+}
+
 static struct kunit_case amdgpu_dm_freesync_tests[] = {
 	/* amdgpu_dm_is_timing_unchanged_for_freesync */
 	KUNIT_CASE(dm_test_timing_unchanged_null_args),
@@ -438,6 +626,16 @@ static struct kunit_case amdgpu_dm_freesync_tests[] = {
 	KUNIT_CASE(dm_test_freesync_config_active_fixed),
 	/* amdgpu_dm_reset_freesync_config_for_crtc */
 	KUNIT_CASE(dm_test_reset_freesync_config),
+	/* amdgpu_dm_update_freesync_state_on_stream */
+	KUNIT_CASE(dm_test_update_freesync_state_no_stream),
+	KUNIT_CASE(dm_test_update_freesync_state_invalid_timing),
+	KUNIT_CASE(dm_test_update_freesync_state_default_packet),
+	KUNIT_CASE(dm_test_update_freesync_state_packet_changed),
+	KUNIT_CASE(dm_test_update_freesync_state_pre_ai_active),
+	KUNIT_CASE(dm_test_update_freesync_state_pcon_v1),
+	KUNIT_CASE(dm_test_update_freesync_state_pcon_v2),
+	KUNIT_CASE(dm_test_update_freesync_state_pcon_v3),
+	KUNIT_CASE(dm_test_update_freesync_state_pcon_default),
 	{}
 };
 
