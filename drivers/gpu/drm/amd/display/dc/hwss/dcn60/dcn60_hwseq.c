@@ -904,16 +904,6 @@ static void dcn60_build_hubbub_perfmon_sequence(
 	if (probe->target_state != DC_PROBE_MEASURED || !ref_tg)
 		return;
 
-	/* Peak BW needs a single timing group. The out-of-order counter spans one
-	 * prefetch window, which is meaningless when streams in separate timing
-	 * groups have non-overlapping prefetch windows. */
-	if (probe->type == DC_PROBE_PEAK_MEM_BW) {
-		int group_size = context->stream_status[0].timing_sync_info.group_size;
-
-		if (group_size != context->stream_count)
-			return;
-	}
-
 	switch (probe->type) {
 	case DC_PROBE_PEAK_MEM_BW:
 		/* Start at the vblank edge and stop at the next vactive so the counter
