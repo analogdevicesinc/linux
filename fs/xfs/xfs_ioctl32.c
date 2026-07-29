@@ -459,10 +459,9 @@ xfs_file_compat_ioctl(
 	case XFS_IOC_FSGROWFSRT_32:
 		return xfs_compat_ioc_growfs_rt(filp, ip->i_mount, arg);
 #endif
-	/* long changes size, but xfs only copiese out 32 bits */
 	case XFS_IOC_GETVERSION_32:
-		cmd = _NATIVE_IOC(cmd, long);
-		return xfs_file_ioctl(filp, cmd, p);
+		/* long changes size, but xfs only copies out 32 bits */
+		return xfs_file_ioctl(filp, _NATIVE_IOC(cmd, long), p);
 	case XFS_IOC_SWAPEXT_32: {
 		struct xfs_swapext	  sxp;
 		struct compat_xfs_swapext __user *sxu = arg;
