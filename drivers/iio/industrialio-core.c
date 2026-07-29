@@ -9,12 +9,15 @@
 
 #define pr_fmt(fmt) "iio-core: " fmt
 
+#include <kunit/visibility.h>
+
 #include <linux/anon_inodes.h>
 #include <linux/cdev.h>
 #include <linux/cleanup.h>
 #include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/export.h>
 #include <linux/fs.h>
 #include <linux/idr.h>
 #include <linux/kdev_t.h>
@@ -201,10 +204,11 @@ static const char * const iio_chan_info_postfix[] = {
 	[IIO_CHAN_INFO_POWERFACTOR] = "powerfactor",
 };
 
-static ssize_t __iio_chan_prefix_emit(struct device *dev,
-				      const struct iio_chan_spec *chan,
-				      enum iio_shared_by shared_by,
-				      char *buf, size_t len)
+VISIBLE_IF_KUNIT
+ssize_t __iio_chan_prefix_emit(struct device *dev,
+			       const struct iio_chan_spec *chan,
+			       enum iio_shared_by shared_by,
+			       char *buf, size_t len)
 {
 	const char *type = iio_chan_type_name_spec[chan->type];
 	const char *dir = iio_direction[chan->output];
@@ -254,6 +258,7 @@ static ssize_t __iio_chan_prefix_emit(struct device *dev,
 
 	return seq_buf_has_overflowed(&s) ? -EOVERFLOW : s.len;
 }
+EXPORT_SYMBOL_IF_KUNIT(__iio_chan_prefix_emit);
 
 /**
  * iio_device_id() - query the unique ID for the device
