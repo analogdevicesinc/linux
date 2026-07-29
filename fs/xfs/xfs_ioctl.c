@@ -1341,6 +1341,20 @@ xfs_ioc_growfs_rt(
 	return error;
 }
 
+static int
+xfs_ioc_goingdown(
+	struct xfs_mount	*mp,
+	uint32_t __user		*arg)
+{
+	uint32_t		in;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+	if (get_user(in, arg))
+		return -EFAULT;
+	return xfs_fs_goingdown(mp, in);
+}
+
 /*
  * These long-unused ioctls were removed from the official ioctl API in 5.17,
  * but retain these definitions so that we can log warnings about them.
@@ -1457,18 +1471,8 @@ xfs_file_ioctl(
 	case XFS_IOC_FSGROWFSRT:
 		return xfs_ioc_growfs_rt(filp, mp, arg);
 
-	case XFS_IOC_GOINGDOWN: {
-		uint32_t in;
-
-		if (!capable(CAP_SYS_ADMIN))
-			return -EPERM;
-
-		if (get_user(in, (uint32_t __user *)arg))
-			return -EFAULT;
-
-		return xfs_fs_goingdown(mp, in);
-	}
-
+	case XFS_IOC_GOINGDOWN:
+		return xfs_ioc_goingdown(mp, arg);
 	case XFS_IOC_ERROR_INJECTION: {
 		xfs_error_injection_t in;
 
