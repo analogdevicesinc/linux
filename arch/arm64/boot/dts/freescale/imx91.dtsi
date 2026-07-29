@@ -62,6 +62,10 @@
 	compatible = "fsl,imx91-ddr-pmu", "fsl,imx93-ddr-pmu";
 };
 
+&dpi_bridge {
+	compatible = "nxp,imx91-pdfc";
+};
+
 &eqos {
 	clocks = <&clk IMX91_CLK_ENET1_QOS_TSN_GATE>,
 		 <&clk IMX91_CLK_ENET1_QOS_TSN_GATE>,
