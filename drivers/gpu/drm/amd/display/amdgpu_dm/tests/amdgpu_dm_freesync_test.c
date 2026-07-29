@@ -604,6 +604,147 @@ static void dm_test_update_freesync_state_pcon_default(struct kunit *test)
 	dm_test_update_freesync_state_pcon_version(test, 0);
 }
 
+/* Tests for amdgpu_dm_update_stream_irq_parameters() */
+
+/**
+ * dm_test_update_stream_irq_parameters_no_stream - Test a NULL stream is ignored
+ * @test: The KUnit test context
+ */
+static void dm_test_update_stream_irq_parameters_no_stream(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	crtc_state.base.crtc = &acrtc->base;
+
+	amdgpu_dm_update_stream_irq_parameters(&adev->dm, &crtc_state);
+
+	KUNIT_SUCCEED(test);
+}
+
+/**
+ * dm_test_update_stream_irq_parameters_invalid_timing - Test zero stream timing is ignored
+ * @test: The KUnit test context
+ */
+static void dm_test_update_stream_irq_parameters_invalid_timing(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	crtc_state.base.crtc = &acrtc->base;
+	crtc_state.stream = dm_kunit_alloc_stream(test, NULL);
+
+	amdgpu_dm_update_stream_irq_parameters(&adev->dm, &crtc_state);
+
+	KUNIT_SUCCEED(test);
+}
+
+/**
+ * dm_test_update_stream_irq_parameters_unsupported - Test unsupported config update
+ * @test: The KUnit test context
+ */
+static void dm_test_update_stream_irq_parameters_unsupported(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	crtc_state.base.crtc = &acrtc->base;
+	crtc_state.stream = dm_kunit_alloc_stream(test, NULL);
+	crtc_state.stream->timing.h_total = 2200;
+	crtc_state.stream->timing.v_total = 1125;
+	adev->dm.adev = adev;
+
+	amdgpu_dm_update_stream_irq_parameters(&adev->dm, &crtc_state);
+
+	KUNIT_EXPECT_EQ(test, (int)crtc_state.freesync_config.state,
+			(int)VRR_STATE_UNSUPPORTED);
+	KUNIT_EXPECT_EQ(test, (int)acrtc->dm_irq_params.freesync_config.state,
+			(int)VRR_STATE_UNSUPPORTED);
+}
+
+static void dm_test_update_stream_irq_parameters_supported(struct kunit *test, bool vrr_enabled)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	crtc_state.base.crtc = &acrtc->base;
+	crtc_state.base.vrr_enabled = vrr_enabled;
+	crtc_state.stream = dm_kunit_alloc_stream(test, NULL);
+	crtc_state.stream->timing.h_total = 2200;
+	crtc_state.stream->timing.v_total = 1125;
+	crtc_state.vrr_supported = true;
+	crtc_state.freesync_config.min_refresh_in_uhz = 48000000;
+	crtc_state.freesync_config.max_refresh_in_uhz = 120000000;
+	adev->dm.adev = adev;
+
+	amdgpu_dm_update_stream_irq_parameters(&adev->dm, &crtc_state);
+
+	KUNIT_EXPECT_EQ(test, (int)crtc_state.freesync_config.state,
+			vrr_enabled ? (int)VRR_STATE_ACTIVE_VARIABLE : (int)VRR_STATE_INACTIVE);
+}
+
+/**
+ * dm_test_update_stream_irq_parameters_variable - Test variable VRR configuration
+ * @test: The KUnit test context
+ */
+static void dm_test_update_stream_irq_parameters_variable(struct kunit *test)
+{
+	dm_test_update_stream_irq_parameters_supported(test, true);
+}
+
+/**
+ * dm_test_update_stream_irq_parameters_inactive - Test inactive VRR configuration
+ * @test: The KUnit test context
+ */
+static void dm_test_update_stream_irq_parameters_inactive(struct kunit *test)
+{
+	dm_test_update_stream_irq_parameters_supported(test, false);
+}
+
+/**
+ * dm_test_update_stream_irq_parameters_fixed - Test fixed VRR configuration
+ * @test: The KUnit test context
+ */
+static void dm_test_update_stream_irq_parameters_fixed(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state crtc_state = { 0 };
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	crtc_state.base.crtc = &acrtc->base;
+	crtc_state.base.mode_changed = true;
+	crtc_state.stream = dm_kunit_alloc_stream(test, NULL);
+	crtc_state.stream->timing.h_total = 2200;
+	crtc_state.stream->timing.v_total = 1125;
+	crtc_state.vrr_supported = true;
+	crtc_state.freesync_config.state = VRR_STATE_ACTIVE_FIXED;
+	crtc_state.freesync_config.min_refresh_in_uhz = 48000000;
+	crtc_state.freesync_config.max_refresh_in_uhz = 120000000;
+	crtc_state.freesync_config.fixed_refresh_in_uhz = 60000000;
+	adev->dm.adev = adev;
+
+	amdgpu_dm_update_stream_irq_parameters(&adev->dm, &crtc_state);
+
+	KUNIT_EXPECT_EQ(test, (int)acrtc->dm_irq_params.vrr_params.state,
+			(int)VRR_STATE_ACTIVE_FIXED);
+	KUNIT_EXPECT_EQ(test, acrtc->dm_irq_params.vrr_params.fixed_refresh_in_uhz,
+			60000000U);
+}
+
 static struct kunit_case amdgpu_dm_freesync_tests[] = {
 	/* amdgpu_dm_is_timing_unchanged_for_freesync */
 	KUNIT_CASE(dm_test_timing_unchanged_null_args),
@@ -636,6 +777,13 @@ static struct kunit_case amdgpu_dm_freesync_tests[] = {
 	KUNIT_CASE(dm_test_update_freesync_state_pcon_v2),
 	KUNIT_CASE(dm_test_update_freesync_state_pcon_v3),
 	KUNIT_CASE(dm_test_update_freesync_state_pcon_default),
+	/* amdgpu_dm_update_stream_irq_parameters */
+	KUNIT_CASE(dm_test_update_stream_irq_parameters_no_stream),
+	KUNIT_CASE(dm_test_update_stream_irq_parameters_invalid_timing),
+	KUNIT_CASE(dm_test_update_stream_irq_parameters_unsupported),
+	KUNIT_CASE(dm_test_update_stream_irq_parameters_variable),
+	KUNIT_CASE(dm_test_update_stream_irq_parameters_inactive),
+	KUNIT_CASE(dm_test_update_stream_irq_parameters_fixed),
 	{}
 };
 

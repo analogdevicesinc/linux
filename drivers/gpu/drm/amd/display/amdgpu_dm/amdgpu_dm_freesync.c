@@ -308,6 +308,7 @@ void amdgpu_dm_update_stream_irq_parameters(
 	acrtc->dm_irq_params.vrr_params = vrr_params;
 	spin_unlock_irqrestore(&adev_to_drm(adev)->event_lock, flags);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_update_stream_irq_parameters);
 
 void amdgpu_dm_handle_vrr_transition(struct amdgpu_display_manager *dm,
 				     struct dm_crtc_state *old_state,
