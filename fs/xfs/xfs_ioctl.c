@@ -1183,7 +1183,7 @@ xfs_ioctl_getset_resblocks(
 }
 
 static int
-xfs_ioctl_fs_counts(
+xfs_ioc_fs_counts(
 	struct xfs_mount	*mp,
 	struct xfs_fsop_counts __user	*uarg)
 {
@@ -1347,7 +1347,7 @@ xfs_file_ioctl(
 	}
 
 	case XFS_IOC_FSCOUNTS:
-		return xfs_ioctl_fs_counts(mp, arg);
+		return xfs_ioc_fs_counts(mp, arg);
 
 	case XFS_IOC_SET_RESBLKS:
 	case XFS_IOC_GET_RESBLKS:
