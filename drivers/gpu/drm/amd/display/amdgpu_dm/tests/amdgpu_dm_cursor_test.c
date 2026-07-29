@@ -203,6 +203,81 @@ static void dm_test_check_cursor_fb_modifier_skips_tiling(struct kunit *test)
 			0);
 }
 
+/* Tests for amdgpu_dm_check_native_cursor_state() */
+
+/**
+ * dm_test_check_native_cursor_state_disabled - Test disabled cursor needs no validation
+ * @test: The KUnit test context
+ */
+static void dm_test_check_native_cursor_state_disabled(struct kunit *test)
+{
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_check_native_cursor_state(NULL, NULL, NULL, false),
+			0);
+}
+
+/**
+ * dm_test_check_native_cursor_state_rejects_offset - Test source offset rejection
+ * @test: The KUnit test context
+ */
+static void dm_test_check_native_cursor_state_rejects_offset(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct amdgpu_crtc *acrtc;
+	struct drm_plane *plane;
+	struct drm_plane_state *old_plane_state;
+	struct drm_plane_state *new_plane_state;
+	int ret;
+
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	old_plane_state = kunit_kzalloc(test, sizeof(*old_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_plane_state);
+	new_plane_state = kunit_kzalloc(test, sizeof(*new_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_plane_state);
+
+	acrtc->base.dev = &adev->ddev;
+	old_plane_state->crtc = &acrtc->base;
+	new_plane_state->crtc = &acrtc->base;
+	new_plane_state->src_x = 1;
+	plane->state = old_plane_state;
+
+	ret = amdgpu_dm_check_native_cursor_state(&acrtc->base, plane,
+						  new_plane_state, true);
+	KUNIT_EXPECT_EQ(test, ret, -EINVAL);
+}
+
+/**
+ * dm_test_check_native_cursor_state_checks_fb - Test framebuffer validation propagation
+ * @test: The KUnit test context
+ */
+static void dm_test_check_native_cursor_state_checks_fb(struct kunit *test)
+{
+	struct dm_cursor_fb_fixture fixture = dm_test_alloc_cursor_fb_fixture(test);
+	struct drm_plane *plane;
+	struct drm_plane_state *old_plane_state;
+	int ret;
+
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	old_plane_state = kunit_kzalloc(test, sizeof(*old_plane_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_plane_state);
+	old_plane_state->crtc = &fixture.acrtc->base;
+	fixture.plane_state->crtc = &fixture.acrtc->base;
+	plane->state = old_plane_state;
+
+	ret = amdgpu_dm_check_native_cursor_state(&fixture.acrtc->base, plane,
+						  fixture.plane_state, true);
+	KUNIT_EXPECT_EQ(test, ret, 0);
+
+	fixture.afb->base.width = fixture.acrtc->max_cursor_width + 1;
+	ret = amdgpu_dm_check_native_cursor_state(&fixture.acrtc->base, plane,
+						  fixture.plane_state, true);
+	KUNIT_EXPECT_EQ(test, ret, -EINVAL);
+}
+
 /* Tests for amdgpu_dm_should_update_native_cursor() */
 
 /**
@@ -436,6 +511,10 @@ static struct kunit_case amdgpu_dm_cursor_tests[] = {
 	KUNIT_CASE(dm_test_check_cursor_fb_gfx12_tiling),
 	KUNIT_CASE(dm_test_check_cursor_fb_pre_ai_tiling),
 	KUNIT_CASE(dm_test_check_cursor_fb_modifier_skips_tiling),
+	/* amdgpu_dm_check_native_cursor_state */
+	KUNIT_CASE(dm_test_check_native_cursor_state_disabled),
+	KUNIT_CASE(dm_test_check_native_cursor_state_rejects_offset),
+	KUNIT_CASE(dm_test_check_native_cursor_state_checks_fb),
 	/* amdgpu_dm_should_update_native_cursor */
 	KUNIT_CASE(dm_test_should_update_native_cursor_without_crtc),
 	KUNIT_CASE(dm_test_should_update_native_cursor_disable_native),

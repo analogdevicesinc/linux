@@ -143,6 +143,7 @@ int amdgpu_dm_check_native_cursor_state(struct drm_crtc *new_plane_crtc,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_check_native_cursor_state);
 
 bool amdgpu_dm_should_update_native_cursor(struct drm_atomic_commit *state,
 					   struct drm_crtc *old_plane_crtc,
