@@ -44,26 +44,46 @@ xfs_compat_ioc_fsgeometry_v1(
 	return 0;
 }
 
-STATIC int
-xfs_compat_growfs_data_copyin(
-	struct xfs_growfs_data	 *in,
-	compat_xfs_growfs_data_t __user *arg32)
+static int
+xfs_compat_ioc_growfs_data(
+	struct file		*file,
+	struct xfs_mount	*mp,
+	struct compat_xfs_growfs_data __user *arg32)
 {
-	if (get_user(in->newblocks, &arg32->newblocks) ||
-	    get_user(in->imaxpct,   &arg32->imaxpct))
+	struct xfs_growfs_data	in = { };
+	int			error;
+
+	if (get_user(in.newblocks, &arg32->newblocks) ||
+	    get_user(in.imaxpct, &arg32->imaxpct))
 		return -EFAULT;
-	return 0;
+
+	error = mnt_want_write_file(file);
+	if (error)
+		return error;
+	error = xfs_growfs_data(mp, &in);
+	mnt_drop_write_file(file);
+	return error;
 }
 
-STATIC int
-xfs_compat_growfs_rt_copyin(
-	struct xfs_growfs_rt	 *in,
-	compat_xfs_growfs_rt_t	__user *arg32)
+static int
+xfs_compat_ioc_growfs_rt(
+	struct file		*file,
+	struct xfs_mount	*mp,
+	struct compat_xfs_growfs_rt __user *arg32)
 {
-	if (get_user(in->newblocks, &arg32->newblocks) ||
-	    get_user(in->extsize,   &arg32->extsize))
+	struct xfs_growfs_rt	in = {};
+	int			error;
+
+	if (get_user(in.newblocks, &arg32->newblocks) ||
+	    get_user(in.extsize, &arg32->extsize))
 		return -EFAULT;
-	return 0;
+
+	error = mnt_want_write_file(file);
+	if (error)
+		return error;
+	error = xfs_growfs_rt(mp, &in);
+	mnt_drop_write_file(file);
+	return error;
 }
 
 STATIC int
@@ -434,30 +454,10 @@ xfs_file_compat_ioctl(
 #if defined(BROKEN_X86_ALIGNMENT)
 	case XFS_IOC_FSGEOMETRY_V1_32:
 		return xfs_compat_ioc_fsgeometry_v1(ip->i_mount, arg);
-	case XFS_IOC_FSGROWFSDATA_32: {
-		struct xfs_growfs_data	in;
-
-		if (xfs_compat_growfs_data_copyin(&in, arg))
-			return -EFAULT;
-		error = mnt_want_write_file(filp);
-		if (error)
-			return error;
-		error = xfs_growfs_data(ip->i_mount, &in);
-		mnt_drop_write_file(filp);
-		return error;
-	}
-	case XFS_IOC_FSGROWFSRT_32: {
-		struct xfs_growfs_rt	in;
-
-		if (xfs_compat_growfs_rt_copyin(&in, arg))
-			return -EFAULT;
-		error = mnt_want_write_file(filp);
-		if (error)
-			return error;
-		error = xfs_growfs_rt(ip->i_mount, &in);
-		mnt_drop_write_file(filp);
-		return error;
-	}
+	case XFS_IOC_FSGROWFSDATA_32:
+		return xfs_compat_ioc_growfs_data(filp, ip->i_mount, arg);
+	case XFS_IOC_FSGROWFSRT_32:
+		return xfs_compat_ioc_growfs_rt(filp, ip->i_mount, arg);
 #endif
 	/* long changes size, but xfs only copiese out 32 bits */
 	case XFS_IOC_GETVERSION_32:
