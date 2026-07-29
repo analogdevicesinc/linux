@@ -70,8 +70,8 @@ struct iio_dev_opaque {
 
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry			*debugfs_dentry;
-	unsigned			cached_reg_addr;
-	char				read_buf[20];
+	unsigned int			cached_reg_addr;
+	char				read_buf[24];
 	unsigned int			read_buf_len;
 #endif
 };
