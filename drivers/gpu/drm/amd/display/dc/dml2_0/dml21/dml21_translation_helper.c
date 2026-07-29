@@ -999,7 +999,7 @@ void dml21_copy_clocks_to_dc_state(struct dml2_context *in_ctx, struct dc_state 
 	context->bw_ctx.bw.dcn.clk.stutter_efficiency.low_power_efficiency = (uint8_t)in_ctx->v21.mode_programming.programming->stutter.low_power_percent_efficiency;
 	context->bw_ctx.bw.dcn.clk.stutter_efficiency.z8_stutter_efficiency = (uint8_t)in_ctx->v21.mode_programming.programming->informative.power_management.z8.stutter_efficiency;
 	context->bw_ctx.bw.dcn.clk.stutter_efficiency.z8_stutter_period = (int)in_ctx->v21.mode_programming.programming->informative.power_management.z8.stutter_period;
-	context->bw_ctx.bw.dcn.clk.zstate_support = in_ctx->v21.mode_programming.programming->z8_stutter.supported_in_blank; /*ignore meets_eco since it is not used*/
+	context->bw_ctx.bw.dcn.clk.zstate_support = in_ctx->v21.mode_programming.programming->z8_stutter.global_support;
 }
 
 static struct dml2_dchub_watermark_regs *wm_set_index_to_dc_wm_set(union dcn_watermark_set *watermarks, const enum dml2_dchub_watermark_reg_set_index wm_index)

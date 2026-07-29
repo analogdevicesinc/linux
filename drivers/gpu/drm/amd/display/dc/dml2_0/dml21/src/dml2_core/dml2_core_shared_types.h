@@ -1039,6 +1039,7 @@ struct dml2_core_internal_mode_program {
 	double MaxActiveFCLKChangeLatencySupported;
 	bool USRRetrainingSupport;
 	bool g6_temp_read_support;
+	bool global_z8_stutter_supported;
 	enum dml2_pstate_change_support FCLKChangeSupport[DML2_MAX_PLANES];
 	enum dml2_pstate_change_support DRAMClockChangeSupport[DML2_MAX_PLANES];
 	enum dml2_pstate_change_support temp_read_or_ppt_support[DML2_MAX_PLANES];
@@ -1841,6 +1842,7 @@ struct dml2_core_calcs_CalculateWatermarksMALLUseAndDRAMSpeedChangeSupport_param
 	bool *g6_temp_read_support;
 	enum dml2_pstate_change_support *temp_read_or_ppt_support;
 	bool *global_temp_read_or_ppt_supported;
+	bool *global_z8_stutter_supported;
 };
 
 struct dml2_core_calcs_CalculateSwathAndDETConfiguration_params {

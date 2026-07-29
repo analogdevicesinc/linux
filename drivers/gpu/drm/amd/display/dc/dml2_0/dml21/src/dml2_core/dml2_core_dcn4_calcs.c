@@ -6876,6 +6876,8 @@ static void CalculateWatermarksMALLUseAndDRAMSpeedChangeSupport(
 
 	*p->global_fclk_change_supported = true;
 	*p->global_dram_clock_change_supported = true;
+	if (p->global_z8_stutter_supported)
+		*p->global_z8_stutter_supported = true;
 
 	for (unsigned int k = 0; k < p->NumberOfActiveSurfaces; ++k) {
 		double h_total = (double)p->display_cfg->stream_descriptors[p->display_cfg->plane_descriptors[k].stream_index].timing.h_total;
@@ -6989,6 +6991,12 @@ static void CalculateWatermarksMALLUseAndDRAMSpeedChangeSupport(
 
 		if (p->DRAMClockChangeSupport[k] == dml2_pstate_change_unsupported)
 			*p->global_dram_clock_change_supported = false;
+
+		if (p->global_z8_stutter_supported &&
+		    !dml_is_phantom_pipe(&p->display_cfg->plane_descriptors[k]) &&
+		    !(reserved_vblank_time_us > p->mmSOCParameters.SREnterPlusExitZ8Time) &&
+		    !((s->ActiveClockChangeLatencyHiding - p->Watermark->Z8StutterEnterPlusExitWatermark) > 0))
+			*p->global_z8_stutter_supported = false;
 
 		s->dst_y_pstate = (unsigned int)(math_ceil2((p->mmSOCParameters.DRAMClockChangeLatency + p->mmSOCParameters.UrgentLatency) / (h_total / pixel_clock_mhz), 1));
 		s->src_y_pstate_l = (unsigned int)(math_ceil2(s->dst_y_pstate * v_ratio, p->SwathHeightY[k]));
@@ -8027,6 +8035,7 @@ static noinline_for_stack void dml_core_ms_prefetch_check(struct dml2_core_inter
 	CalculateWatermarks_params->MaxActiveFCLKChangeLatencySupported = &s->dummy_single[0]; // double *MaxActiveFCLKChangeLatencySupported
 	CalculateWatermarks_params->USRRetrainingSupport = &mode_lib->ms.support.USRRetrainingSupport;
 	CalculateWatermarks_params->g6_temp_read_support = &mode_lib->ms.support.g6_temp_read_support;
+	CalculateWatermarks_params->global_z8_stutter_supported = NULL; // only consumed by mode programming
 	CalculateWatermarks_params->VActiveLatencyHidingMargin = mode_lib->ms.VActiveLatencyHidingMargin;
 	CalculateWatermarks_params->VActiveLatencyHidingUs = mode_lib->ms.VActiveLatencyHidingUs;
 
@@ -11883,6 +11892,7 @@ static bool dml_core_mode_programming(struct dml2_core_calcs_mode_programming_ex
 		CalculateWatermarks_params->MaxActiveFCLKChangeLatencySupported = &mode_lib->mp.MaxActiveFCLKChangeLatencySupported;
 		CalculateWatermarks_params->USRRetrainingSupport = &mode_lib->mp.USRRetrainingSupport;
 		CalculateWatermarks_params->g6_temp_read_support = &mode_lib->mp.g6_temp_read_support;
+		CalculateWatermarks_params->global_z8_stutter_supported = &mode_lib->mp.global_z8_stutter_supported;
 		CalculateWatermarks_params->VActiveLatencyHidingMargin = 0;
 		CalculateWatermarks_params->VActiveLatencyHidingUs = 0;
 
@@ -12907,6 +12917,11 @@ void dml2_core_calcs_get_mcif_arb_params(const struct dml2_core_internal_display
 	out->wm_regs[0].uclk_pstate = (unsigned int)(mode_lib->mp.Watermark.WritebackDRAMClockChangeWatermark * 1000.0);
 	out->wm_regs[0].urgent = (unsigned int)(mode_lib->mp.Watermark.WritebackUrgentWatermark * 1000.0);
 	out->wm_regs[0].temp_read_or_ppt = (unsigned int)(mode_lib->mp.Watermark.writeback_temp_read_or_ppt_watermark_us * 1000.0);
+}
+
+void dml2_core_calcs_get_z8_stutter_support(const struct dml2_core_internal_display_mode_lib *mode_lib, bool *out)
+{
+	*out = mode_lib->mp.global_z8_stutter_supported;
 }
 
 void dml2_core_calcs_get_pipe_regs(const struct dml2_display_cfg *display_cfg,
