@@ -1355,6 +1355,20 @@ xfs_ioc_goingdown(
 	return xfs_fs_goingdown(mp, in);
 }
 
+static int
+xfs_ioc_error_injection(
+	struct xfs_mount	*mp,
+	struct xfs_error_injection __user *arg)
+{
+	struct xfs_error_injection in;
+
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
+	if (copy_from_user(&in, arg, sizeof(in)))
+		return -EFAULT;
+	return xfs_errortag_add(mp, in.errtag);
+}
+
 /*
  * These long-unused ioctls were removed from the official ioctl API in 5.17,
  * but retain these definitions so that we can log warnings about them.
@@ -1473,22 +1487,11 @@ xfs_file_ioctl(
 
 	case XFS_IOC_GOINGDOWN:
 		return xfs_ioc_goingdown(mp, arg);
-	case XFS_IOC_ERROR_INJECTION: {
-		xfs_error_injection_t in;
-
-		if (!capable(CAP_SYS_ADMIN))
-			return -EPERM;
-
-		if (copy_from_user(&in, arg, sizeof(in)))
-			return -EFAULT;
-
-		return xfs_errortag_add(mp, in.errtag);
-	}
-
+	case XFS_IOC_ERROR_INJECTION:
+		return xfs_ioc_error_injection(mp, arg);
 	case XFS_IOC_ERROR_CLEARALL:
 		if (!capable(CAP_SYS_ADMIN))
 			return -EPERM;
-
 		return xfs_errortag_clearall(mp);
 
 	case XFS_IOC_FREE_EOFBLOCKS: {
