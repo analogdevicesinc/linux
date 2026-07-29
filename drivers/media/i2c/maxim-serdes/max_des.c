@@ -295,7 +295,7 @@ static int max_des_populate_remap_context(struct max_des_priv *priv,
 	if (!des->ops->set_pipe_tunnel_enable)
 		return 0;
 
-	tunnel_enable = true;
+	tunnel_enable = false;
 
 	for (link_id = 0; link_id < des->ops->num_links; link_id++) {
 		struct max_des_link *link = &des->links[link_id];

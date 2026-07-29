@@ -499,7 +499,7 @@ static int max96724_init_phy(struct max_des *des, struct max_des_phy *phy)
 			return ret;
 	}
 
-	if (!is_cphy && dpll_freq > 1500000000ull) {
+	if (!is_cphy && dpll_freq > 2500000000ull) {
 		/* Enable initial deskew with 2 x 32k UI. */
 		ret = regmap_write(priv->regmap, MAX96724_MIPI_TX3(index),
 				   MAX96724_MIPI_TX3_DESKEW_INIT_AUTO |
