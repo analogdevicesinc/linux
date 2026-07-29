@@ -176,7 +176,7 @@
 			compatible = "fixed-clock";
 		};
 
-{% for i in range(total_cameras) %}
+{% for i in range(8) %}
 		axi_rtp_engine_{{i}}: axi_rtp_engine@{{ '%x' % (rtp_engine_base + i * 0x10000) }} {
 			compatible = "adi,axi-rtp-engine";
 			reg = <{{ '0x%x' % (rtp_engine_base + i * 0x10000) }} 0x1000>;
