@@ -854,7 +854,7 @@ int soc_v1_0_init_soc_config(struct amdgpu_device *adev)
 	adev->vcn.num_vcn_inst = hweight32(adev->vcn.inst_mask);
 
 	adev->jpeg.harvest_config = 0;
-	adev->jpeg.num_inst_per_aid = 1;
+	adev->jpeg.num_inst_per_aid = 2;
 	adev->jpeg.inst_mask = 1;
 	adev->jpeg.num_jpeg_inst = hweight32(adev->jpeg.inst_mask);
 

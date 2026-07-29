@@ -167,7 +167,7 @@ static int jpeg_v5_0_2_sw_init(struct amdgpu_ip_block *ip_block)
 			ring->doorbell_index =
 				(adev->doorbell_index.vcn.vcn_ring0_1 << 1) +
 				1 + j + 11 * jpeg_inst;
-			sprintf(ring->name, "jpeg_dec_%d.%d", adev->jpeg.inst[i].aid_id, j);
+			sprintf(ring->name, "jpeg_dec_%d.%d", i, j);
 			r = amdgpu_ring_init(adev, ring, 512, &adev->jpeg.inst->irq, 0,
 					     AMDGPU_RING_PRIO_DEFAULT, NULL);
 			if (r)
@@ -243,7 +243,7 @@ static int jpeg_v5_0_2_hw_init(struct amdgpu_ip_block *ip_block)
 		if (ring->use_doorbell)
 			adev->nbio.funcs->vcn_doorbell_range(adev, ring->use_doorbell,
 				 (adev->doorbell_index.vcn.vcn_ring0_1 << 1) + 11 * jpeg_inst,
-				 adev->jpeg.inst[i].aid_id);
+				 jpeg_inst);
 
 		for (j = 0; j < adev->jpeg.num_jpeg_rings; ++j) {
 			ring = &adev->jpeg.inst[i].ring_dec[j];
