@@ -8,6 +8,7 @@
 #include <kunit/test.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_blend.h>
+#include <drm/drm_colorop.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_framebuffer.h>
@@ -278,6 +279,85 @@ static void dm_test_check_native_cursor_state_checks_fb(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, ret, -EINVAL);
 }
 
+/* Tests for dm_plane_color_pipeline_active() */
+
+/**
+ * dm_test_plane_color_pipeline_active - Test old and new colorop activity
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_color_pipeline_active(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_atomic_commit *state;
+	struct drm_colorop *colorop;
+	struct drm_colorop_state *old_colorop_state;
+	struct drm_colorop_state *new_colorop_state;
+	struct drm_plane *plane;
+
+	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state);
+	colorop = kunit_kzalloc(test, sizeof(*colorop), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, colorop);
+	old_colorop_state = kunit_kzalloc(test, sizeof(*old_colorop_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, old_colorop_state);
+	new_colorop_state = kunit_kzalloc(test, sizeof(*new_colorop_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, new_colorop_state);
+	plane = kunit_kzalloc(test, sizeof(*plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, plane);
+	state->colorops = kunit_kzalloc(test, sizeof(*state->colorops), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state->colorops);
+
+	adev->ddev.mode_config.num_colorop = 1;
+	state->dev = &adev->ddev;
+	state->colorops[0].ptr = colorop;
+	state->colorops[0].old_state = old_colorop_state;
+	state->colorops[0].new_state = new_colorop_state;
+	colorop->plane = plane;
+	old_colorop_state->colorop = colorop;
+	old_colorop_state->bypass = true;
+	new_colorop_state->colorop = colorop;
+	new_colorop_state->bypass = false;
+
+	KUNIT_EXPECT_FALSE(test, dm_plane_color_pipeline_active(state, plane, true));
+	KUNIT_EXPECT_TRUE(test, dm_plane_color_pipeline_active(state, plane, false));
+}
+
+/**
+ * dm_test_plane_color_pipeline_ignores_other_plane - Test unrelated colorops are ignored
+ * @test: The KUnit test context
+ */
+static void dm_test_plane_color_pipeline_ignores_other_plane(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct drm_atomic_commit *state;
+	struct drm_colorop *colorop;
+	struct drm_colorop_state *colorop_state;
+	struct drm_plane *colorop_plane;
+	struct drm_plane *other_plane;
+
+	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state);
+	colorop = kunit_kzalloc(test, sizeof(*colorop), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, colorop);
+	colorop_state = kunit_kzalloc(test, sizeof(*colorop_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, colorop_state);
+	colorop_plane = kunit_kzalloc(test, sizeof(*colorop_plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, colorop_plane);
+	other_plane = kunit_kzalloc(test, sizeof(*other_plane), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, other_plane);
+	state->colorops = kunit_kzalloc(test, sizeof(*state->colorops), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state->colorops);
+
+	adev->ddev.mode_config.num_colorop = 1;
+	state->dev = &adev->ddev;
+	state->colorops[0].ptr = colorop;
+	state->colorops[0].new_state = colorop_state;
+	colorop->plane = colorop_plane;
+	colorop_state->colorop = colorop;
+
+	KUNIT_EXPECT_FALSE(test, dm_plane_color_pipeline_active(state, other_plane, false));
+}
+
 /* Tests for amdgpu_dm_should_update_native_cursor() */
 
 /**
@@ -515,6 +595,9 @@ static struct kunit_case amdgpu_dm_cursor_tests[] = {
 	KUNIT_CASE(dm_test_check_native_cursor_state_disabled),
 	KUNIT_CASE(dm_test_check_native_cursor_state_rejects_offset),
 	KUNIT_CASE(dm_test_check_native_cursor_state_checks_fb),
+	/* dm_plane_color_pipeline_active */
+	KUNIT_CASE(dm_test_plane_color_pipeline_active),
+	KUNIT_CASE(dm_test_plane_color_pipeline_ignores_other_plane),
 	/* amdgpu_dm_should_update_native_cursor */
 	KUNIT_CASE(dm_test_should_update_native_cursor_without_crtc),
 	KUNIT_CASE(dm_test_should_update_native_cursor_disable_native),

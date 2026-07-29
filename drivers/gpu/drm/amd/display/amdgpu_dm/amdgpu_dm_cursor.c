@@ -235,9 +235,9 @@ EXPORT_IF_KUNIT(dm_get_plane_scale);
  *
  * Return: true if the pipeline modifies pixels, false otherwise.
  */
-static bool dm_plane_color_pipeline_active(struct drm_atomic_commit *state,
-					   struct drm_plane *plane,
-					   bool use_old)
+STATIC_IFN_KUNIT bool dm_plane_color_pipeline_active(struct drm_atomic_commit *state,
+						     struct drm_plane *plane,
+						     bool use_old)
 {
 	struct drm_colorop *colorop;
 	struct drm_colorop_state *old_colorop_state, *new_colorop_state;
@@ -253,6 +253,7 @@ static bool dm_plane_color_pipeline_active(struct drm_atomic_commit *state,
 	}
 	return false;
 }
+EXPORT_IF_KUNIT(dm_plane_color_pipeline_active);
 
 /**
  * amdgpu_dm_crtc_get_cursor_mode() - Determine the required cursor mode on crtc
