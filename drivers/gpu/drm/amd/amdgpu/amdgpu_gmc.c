@@ -672,7 +672,8 @@ int amdgpu_gmc_allocate_vm_inv_eng(struct amdgpu_device *adev)
 			continue;
 
 		/* Skip if the ring is a shared ring */
-		if (amdgpu_sdma_is_shared_inv_eng(adev, ring))
+		if (amdgpu_sdma_is_shared_inv_eng(adev, ring) ||
+		    amdgpu_jpeg_is_shared_inv_eng(adev, ring))
 			continue;
 
 		inv_eng = ffs(vm_inv_engs[vmhub]);
@@ -702,6 +703,12 @@ int amdgpu_gmc_allocate_vm_inv_eng(struct amdgpu_device *adev)
 					ring->name, ring->vm_inv_eng, shared_ring->name, ring->vm_hub);
 			continue;
 		}
+
+		/* All decode rings within one JPEG instance share one VM
+		 * invalidation engine (no-op unless ring is a JPEG instance's
+		 * first ring).
+		 */
+		amdgpu_jpeg_set_shared_inv_eng(adev, ring);
 	}
 
 	return 0;
