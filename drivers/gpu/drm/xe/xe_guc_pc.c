@@ -1234,8 +1234,21 @@ static int pc_modify_defaults(struct xe_guc_pc *pc)
 
 	if (xe->info.platform == XE_PANTHERLAKE) {
 		ret = pc_action_set_dcc(pc, false);
-		if (unlikely(ret))
+		if (unlikely(ret)) {
 			xe_gt_err(gt, "Failed to modify DCC default: %pe\n", ERR_PTR(ret));
+			return ret;
+		}
+
+		if (xe_gt_is_main_type(gt) &&
+		    GUC_FIRMWARE_VER_AT_LEAST(&gt->uc.guc, 70, 48, 0)) {
+			ret = pc_action_set_param(pc,
+						  SLPC_PARAM_SET_IBC_VERSION,
+						  3);
+			if (unlikely(ret)) {
+				xe_gt_err(gt, "Failed to modify IBC version: %pe\n", ERR_PTR(ret));
+				return ret;
+			}
+		}
 	}
 
 	return ret;
