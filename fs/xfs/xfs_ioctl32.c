@@ -158,6 +158,27 @@ xfs_ioctl32_bstat_copyin(
 	return 0;
 }
 
+static int
+xfs_compat_ioc_swapext(
+	struct file		*file,
+	struct compat_xfs_swapext __user *sxu)
+{
+	struct xfs_swapext	  sxp;
+	int			error;
+
+	/* Bulk copy in up to the sx_stat field, then copy bstat */
+	if (copy_from_user(&sxp, sxu, offsetof(struct xfs_swapext, sx_stat)) ||
+	    xfs_ioctl32_bstat_copyin(&sxp.sx_stat, &sxu->sx_stat))
+		return -EFAULT;
+
+	error = mnt_want_write_file(file);
+	if (error)
+		return error;
+	error = xfs_swapext(&sxp);
+	mnt_drop_write_file(file);
+	return error;
+}
+
 /* XFS_IOC_FSBULKSTAT and friends */
 
 STATIC int
@@ -446,7 +467,6 @@ xfs_file_compat_ioctl(
 	struct inode		*inode = file_inode(filp);
 	struct xfs_inode	*ip = XFS_I(inode);
 	void			__user *arg = compat_ptr(p);
-	int			error;
 
 	trace_xfs_file_compat_ioctl(ip);
 
@@ -462,22 +482,8 @@ xfs_file_compat_ioctl(
 	case XFS_IOC_GETVERSION_32:
 		/* long changes size, but xfs only copies out 32 bits */
 		return xfs_file_ioctl(filp, _NATIVE_IOC(cmd, long), p);
-	case XFS_IOC_SWAPEXT_32: {
-		struct xfs_swapext	  sxp;
-		struct compat_xfs_swapext __user *sxu = arg;
-
-		/* Bulk copy in up to the sx_stat field, then copy bstat */
-		if (copy_from_user(&sxp, sxu,
-				   offsetof(struct xfs_swapext, sx_stat)) ||
-		    xfs_ioctl32_bstat_copyin(&sxp.sx_stat, &sxu->sx_stat))
-			return -EFAULT;
-		error = mnt_want_write_file(filp);
-		if (error)
-			return error;
-		error = xfs_swapext(&sxp);
-		mnt_drop_write_file(filp);
-		return error;
-	}
+	case XFS_IOC_SWAPEXT_32:
+		return xfs_compat_ioc_swapext(filp, arg);
 	case XFS_IOC_FSBULKSTAT_32:
 	case XFS_IOC_FSBULKSTAT_SINGLE_32:
 	case XFS_IOC_FSINUMBERS_32:
