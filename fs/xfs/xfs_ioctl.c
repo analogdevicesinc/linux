@@ -1281,6 +1281,66 @@ xfs_ioc_swapext(
 	return error;
 }
 
+static int
+xfs_ioc_growfs_data(
+	struct file		*file,
+	struct xfs_mount	*mp,
+	void __user		*arg)
+{
+	struct xfs_growfs_data	in;
+	int			error;
+
+	if (copy_from_user(&in, arg, sizeof(in)))
+		return -EFAULT;
+
+	error = mnt_want_write_file(file);
+	if (error)
+		return error;
+	error = xfs_growfs_data(mp, &in);
+	mnt_drop_write_file(file);
+	return error;
+}
+
+static int
+xfs_ioc_growfs_log(
+	struct file		*file,
+	struct xfs_mount	*mp,
+	void  __user		*arg)
+{
+	struct xfs_growfs_log	in;
+	int			error;
+
+	if (copy_from_user(&in, arg, sizeof(in)))
+		return -EFAULT;
+
+	error = mnt_want_write_file(file);
+	if (error)
+		return error;
+	error = xfs_growfs_log(mp, &in);
+	mnt_drop_write_file(file);
+	return error;
+}
+
+static int
+xfs_ioc_growfs_rt(
+	struct file		*file,
+	struct xfs_mount	*mp,
+	void __user		*arg)
+{
+	struct xfs_growfs_rt	in;
+	int			error;
+
+	if (copy_from_user(&in, arg, sizeof(in)))
+		return -EFAULT;
+
+	error = mnt_want_write_file(file);
+	if (error)
+		return error;
+	error = xfs_growfs_rt(mp, &in);
+	mnt_drop_write_file(file);
+	return error;
+}
+
 /*
  * These long-unused ioctls were removed from the official ioctl API in 5.17,
  * but retain these definitions so that we can log warnings about them.
@@ -1390,47 +1450,12 @@ xfs_file_ioctl(
 	case XFS_IOC_GET_RESBLKS:
 		return xfs_ioc_getset_resblocks(filp, cmd, arg);
 
-	case XFS_IOC_FSGROWFSDATA: {
-		struct xfs_growfs_data in;
-
-		if (copy_from_user(&in, arg, sizeof(in)))
-			return -EFAULT;
-
-		error = mnt_want_write_file(filp);
-		if (error)
-			return error;
-		error = xfs_growfs_data(mp, &in);
-		mnt_drop_write_file(filp);
-		return error;
-	}
-
-	case XFS_IOC_FSGROWFSLOG: {
-		struct xfs_growfs_log in;
-
-		if (copy_from_user(&in, arg, sizeof(in)))
-			return -EFAULT;
-
-		error = mnt_want_write_file(filp);
-		if (error)
-			return error;
-		error = xfs_growfs_log(mp, &in);
-		mnt_drop_write_file(filp);
-		return error;
-	}
-
-	case XFS_IOC_FSGROWFSRT: {
-		xfs_growfs_rt_t in;
-
-		if (copy_from_user(&in, arg, sizeof(in)))
-			return -EFAULT;
-
-		error = mnt_want_write_file(filp);
-		if (error)
-			return error;
-		error = xfs_growfs_rt(mp, &in);
-		mnt_drop_write_file(filp);
-		return error;
-	}
+	case XFS_IOC_FSGROWFSDATA:
+		return xfs_ioc_growfs_data(filp, mp, arg);
+	case XFS_IOC_FSGROWFSLOG:
+		return xfs_ioc_growfs_log(filp, mp, arg);
+	case XFS_IOC_FSGROWFSRT:
+		return xfs_ioc_growfs_rt(filp, mp, arg);
 
 	case XFS_IOC_GOINGDOWN: {
 		uint32_t in;
