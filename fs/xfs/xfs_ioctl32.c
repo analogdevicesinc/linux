@@ -475,7 +475,7 @@ xfs_file_compat_ioctl(
 		error = mnt_want_write_file(filp);
 		if (error)
 			return error;
-		error = xfs_ioc_swapext(&sxp);
+		error = xfs_swapext(&sxp);
 		mnt_drop_write_file(filp);
 		return error;
 	}

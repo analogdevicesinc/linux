@@ -962,10 +962,10 @@ out_free_buf:
 }
 
 int
-xfs_ioc_swapext(
-	xfs_swapext_t	*sxp)
+xfs_swapext(
+	struct xfs_swapext	*sxp)
 {
-	xfs_inode_t     *ip, *tip;
+	struct xfs_inode	*ip, *tip;
 
 	/* Pull information for the target fd */
 	CLASS(fd, f)((int)sxp->sx_fdtarget);
@@ -1341,7 +1341,7 @@ xfs_file_ioctl(
 		error = mnt_want_write_file(filp);
 		if (error)
 			return error;
-		error = xfs_ioc_swapext(&sxp);
+		error = xfs_swapext(&sxp);
 		mnt_drop_write_file(filp);
 		return error;
 	}
