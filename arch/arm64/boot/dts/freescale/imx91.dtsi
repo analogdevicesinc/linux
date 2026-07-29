@@ -120,6 +120,13 @@
 		 <&clk IMX93_CLK_MIPI_CSI_GATE>;
 	clock-names = "apb", "axi", "nic", "disp", "cam",
 		      "lcdif", "isi", "csi";
+	assigned-clocks = <&clk IMX93_CLK_MEDIA_AXI>,
+			  <&clk IMX93_CLK_MEDIA_APB>,
+			  <&clk IMX93_CLK_MEDIA_DISP_PIX>;
+	assigned-clock-parents = <&clk IMX93_CLK_SYS_PLL_PFD0>,
+				 <&clk IMX93_CLK_SYS_PLL_PFD0_DIV2>,
+				 <&clk IMX93_CLK_VIDEO_PLL>;
+	assigned-clock-rates = <333330000>, <125000000>;
 };
 
 &ocotp {
