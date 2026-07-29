@@ -100,6 +100,7 @@ static const char * const iio_chan_type_name_spec[] = {
 	[IIO_ALTCURRENT] = "altcurrent",
 	[IIO_COVERAGE] = "coverage",
 	[IIO_VOLUMEFLOW] = "volumeflow",
+	[IIO_FREQUENCY] = "frequency",
 };
 
 static const char * const iio_modifier_names[] = {
