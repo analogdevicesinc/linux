@@ -10,6 +10,7 @@
 #include <drm/drm_connector.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_modes.h>
+#include <drm/drm_vblank.h>
 
 #include "dc.h"
 #include "inc/core_types.h"
@@ -745,6 +746,63 @@ static void dm_test_update_stream_irq_parameters_fixed(struct kunit *test)
 			60000000U);
 }
 
+/* Tests for amdgpu_dm_handle_vrr_transition() */
+
+/**
+ * dm_test_handle_vrr_transition_inactive - Test steady inactive state is a no-op
+ * @test: The KUnit test context
+ */
+static void dm_test_handle_vrr_transition_inactive(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dm_crtc_state old_state = { 0 };
+	struct dm_crtc_state new_state = { 0 };
+
+	adev->dm.adev = adev;
+	amdgpu_dm_handle_vrr_transition(&adev->dm, &old_state, &new_state);
+
+	KUNIT_SUCCEED(test);
+}
+
+/**
+ * dm_test_handle_vrr_transition_round_trip - Test VRR on and off transitions
+ * @test: The KUnit test context
+ */
+static void dm_test_handle_vrr_transition_round_trip(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	struct dc_stream_state *stream = dm_kunit_alloc_stream(test, link);
+	struct drm_vblank_crtc *vblank;
+	struct amdgpu_crtc *acrtc;
+	struct dm_crtc_state old_state = { 0 };
+	struct dm_crtc_state new_state = { 0 };
+
+	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
+	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
+	acrtc->base.dev = &adev->ddev;
+	acrtc->otg_inst = -1;
+	vblank = drm_crtc_vblank_crtc(&acrtc->base);
+	adev->ddev.vblank[0].enabled = true;
+	adev->dm.adev = adev;
+	adev->dm.dc = kunit_kzalloc(test, sizeof(*adev->dm.dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, adev->dm.dc);
+	mutex_init(&adev->dm.dc_lock);
+
+	old_state.base.crtc = &acrtc->base;
+	old_state.stream = stream;
+	new_state.base.crtc = &acrtc->base;
+	new_state.stream = stream;
+	new_state.freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
+
+	amdgpu_dm_handle_vrr_transition(&adev->dm, &old_state, &new_state);
+	KUNIT_EXPECT_EQ(test, atomic_read(&vblank->refcount), 1);
+
+	amdgpu_dm_handle_vrr_transition(&adev->dm, &new_state, &old_state);
+	KUNIT_EXPECT_EQ(test, atomic_read(&vblank->refcount), 0);
+}
+
 static struct kunit_case amdgpu_dm_freesync_tests[] = {
 	/* amdgpu_dm_is_timing_unchanged_for_freesync */
 	KUNIT_CASE(dm_test_timing_unchanged_null_args),
@@ -784,6 +842,9 @@ static struct kunit_case amdgpu_dm_freesync_tests[] = {
 	KUNIT_CASE(dm_test_update_stream_irq_parameters_variable),
 	KUNIT_CASE(dm_test_update_stream_irq_parameters_inactive),
 	KUNIT_CASE(dm_test_update_stream_irq_parameters_fixed),
+	/* amdgpu_dm_handle_vrr_transition */
+	KUNIT_CASE(dm_test_handle_vrr_transition_inactive),
+	KUNIT_CASE(dm_test_handle_vrr_transition_round_trip),
 	{}
 };
 

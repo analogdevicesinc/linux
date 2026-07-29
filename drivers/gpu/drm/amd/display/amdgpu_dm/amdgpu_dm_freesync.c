@@ -362,3 +362,4 @@ void amdgpu_dm_handle_vrr_transition(struct amdgpu_display_manager *dm,
 		}
 	}
 }
+EXPORT_IF_KUNIT(amdgpu_dm_handle_vrr_transition);
