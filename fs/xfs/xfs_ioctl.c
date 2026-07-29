@@ -1200,6 +1200,32 @@ xfs_ioc_fs_counts(
 	return 0;
 }
 
+static int
+xfs_ioc_dioinfo(
+	struct file		*file,
+	void __user		*arg)
+{
+	struct kstat		st;
+	struct dioattr		da;
+	int			error;
+
+	error = vfs_getattr(&file->f_path, &st, STATX_DIOALIGN, 0);
+	if (error)
+		return error;
+
+	/*
+	 * Some userspace directly feeds the return value to posix_memalign,
+	 * which fails for values that are smaller than the pointer size.
+	 * Round up the value to not break userspace.
+	 */
+	da.d_mem = roundup(st.dio_mem_align, sizeof(void *));
+	da.d_miniosz = st.dio_offset_align;
+	da.d_maxiosz = INT_MAX & ~(da.d_miniosz - 1);
+	if (copy_to_user(arg, &da, sizeof(da)))
+		return -EFAULT;
+	return 0;
+}
+
 /*
  * These long-unused ioctls were removed from the official ioctl API in 5.17,
  * but retain these definitions so that we can log warnings about them.
@@ -1238,26 +1264,9 @@ xfs_file_ioctl(
 	"%s should use fallocate; XFS_IOC_{ALLOC,FREE}SP ioctl unsupported",
 				current->comm);
 		return -ENOTTY;
-	case XFS_IOC_DIOINFO: {
-		struct kstat		st;
-		struct dioattr		da;
 
-		error = vfs_getattr(&filp->f_path, &st, STATX_DIOALIGN, 0);
-		if (error)
-			return error;
-
-		/*
-		 * Some userspace directly feeds the return value to
-		 * posix_memalign, which fails for values that are smaller than
-		 * the pointer size.  Round up the value to not break userspace.
-		 */
-		da.d_mem = roundup(st.dio_mem_align, sizeof(void *));
-		da.d_miniosz = st.dio_offset_align;
-		da.d_maxiosz = INT_MAX & ~(da.d_miniosz - 1);
-		if (copy_to_user(arg, &da, sizeof(da)))
-			return -EFAULT;
-		return 0;
-	}
+	case XFS_IOC_DIOINFO:
+		return xfs_ioc_dioinfo(filp, arg);
 
 	case XFS_IOC_FSBULKSTAT_SINGLE:
 	case XFS_IOC_FSBULKSTAT:
