@@ -15,6 +15,15 @@ config SND_SOC_ADI_AXI_SPDIF
 	help
 	  ASoC driver for the Analog Devices AXI-SPDIF softcore peripheral.
 
+config SND_SOC_ADI_ADSP_SPORT
+	tristate "ADSP SPORT driver"
+	select SND_DMAENGINE_PCM
+	help
+	  ASoC driver for the Serial Port (SPORT) interface found on Analog
+	  Devices ADSP SoCs.
+
+	  If built as a module, it will be called snd-soc-adi-adsp-sport.
+
 source "sound/soc/adi/legacy/Kconfig"
 
 endmenu
