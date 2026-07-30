@@ -156,28 +156,6 @@ struct sport_params {
 	u32 spcs0;
 };
 
-struct sport_device *sport_create(struct platform_device *pdev);
-void sport_delete(struct sport_device *sport);
-int sport_set_tx_params(struct sport_device *sport,
-		struct sport_params *params);
-int sport_set_rx_params(struct sport_device *sport,
-		struct sport_params *params);
-int sport_tx_start(struct sport_device *sport);
-int sport_rx_start(struct sport_device *sport);
-int sport_tx_stop(struct sport_device *sport);
-int sport_rx_stop(struct sport_device *sport);
-void sport_tx_dma_callback(void *ptr);
-void sport_rx_dma_callback(void *ptr);
-void sport_set_tx_callback(struct sport_device *sport,
-	void (*tx_callback)(void *), void *tx_data);
-void sport_set_rx_callback(struct sport_device *sport,
-	void (*rx_callback)(void *), void *rx_data);
-int sport_config_tx_dma(struct sport_device *sport, void *buf,
-	int fragcount, size_t fragsize, struct snd_pcm_substream *substream);
-int sport_config_rx_dma(struct sport_device *sport, void *buf,
-	int fragcount, size_t fragsize, struct snd_pcm_substream *substream);
-unsigned long sport_curr_offset_tx(struct sport_device *sport);
-unsigned long sport_curr_offset_rx(struct sport_device *sport);
 
 
 #endif
