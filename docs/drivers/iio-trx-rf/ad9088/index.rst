@@ -194,13 +194,15 @@ Trigger
 If the option is enabled and no trigger is provided, the synchronization will
 time out.
 
-Multi-Chip Synchronization (MCS)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Detailed topics
+~~~~~~~~~~~~~~~
 
 .. toctree::
-   :caption: See the following page:
+   :caption: The following sections describe these topics:
+   :titlesonly:
 
    mcs
+   gpio
 
 Topology
 ~~~~~~~~
@@ -238,7 +240,7 @@ GPIO
 
 * ``adi,gpio-exports``: Expose a list of the 30s device GPIOs into a GPIO controller.
 
-A more detailed usage is provided :ref:`here <apollo gpio>`.
+A more detailed usage is provided :ref:`here <ad9088 gpio>`.
 
 Spectrum Sniffer
 ~~~~~~~~~~~~~~~~
@@ -1570,7 +1572,7 @@ The user configures the NCO FFH frequency by writing the index (0 to 31) to
 
    /sys/bus/iio/devices/iio:device8
    $echo 1 > out_voltage0_i_ffh_fnco_index
-   $echo $((16#20000000)) > out_voltage0_ffh_fnco_frequency
+   $echo $((16#20000000)) > out_voltage0_i_ffh_fnco_frequency
 
 Then hop to the desired frequency writing the index to
 ``out_voltageX_[i|q]_ffh_fnco_select``, and write -1 to disable the feature;
@@ -1605,7 +1607,7 @@ Then hop to the desired frequency writing the index to
 .. shell::
 
    /sys/bus/iio/devices/iio:device8
-   $echo 1 > out_voltage0_i_ffh_fnco_select
+   $echo 1 > out_voltage0_i_ffh_cnco_select
 
 ``out_voltageX_[i|q]_ffh_cnco_frequency`` at index 0 is equivalent to
 ``in_voltage0_i_main_nco_frequency``
@@ -1631,6 +1633,8 @@ For example:
 
    /sys/bus/iio/devices/iio:device8
    $echo 1 > out_voltage0_i_ffh_fnco_mode
+
+See :ref:`ad9088 gpio ffh` for how to trigger with GPIO.
 
 Rx FFH FNCO
 +++++++++++
@@ -1848,54 +1852,6 @@ The BMEM device supports IIO buffer operations for capturing ADC samples.
 
 Captured samples are 16-bit signed values in little-endian format. When multiple
 channels are enabled, samples are interleaved in channel order.
-
-.. _apollo gpio:
-
-GPIOs & GPIO chip
-^^^^^^^^^^^^^^^^^
-
-The device contains 30 general purpose GPIOs that can be used to trigger various
-changes and can be exported into a :external+upstream:c:struct:`gpio_chip`
-using the ``adi,gpio-exports`` devicetree property:
-
-.. code:: dts
-
-   trx0_ad9084: ad9084@0 {
-        adi,gpio-exports = /bits/ 8 <15 16 17 18>;
-   };
-
-Some of the device GPIOs are mapped in the HDL design to a axi_gpio IP Core, and
-the apollo's and axi_gpio's can be attached to other drivers in the device tree:
-
-.. tip::
-
-   ``0`` is the index of item in the ``adi,gpio-exports``, and in the previous
-   example, is equivalent to the device's GPIO 15. Also ensure to check the
-   schematics and HDL design for the routes between apollo's GPIO, axi_gpio's
-   and other input options.
-
-.. code:: dts
-
-   my_driver {
-        /* ... */
-        provider-gpios = <&axi_gpio 0 GPIO_ACTIVE_HIGH>;
-        consumer-gpios = <&tx0_ad9084 0 GPIO_ACTIVE_HIGH>;
-   }
-
-Or from user space through `gpiod <https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/>`__:
-
-.. shell::
-
-   $gpiodetect
-    gpiochip0 [a4000000.gpio] (64 lines)
-    gpiochip1 [versal_gpio] (58 lines)
-    gpiochip2 [pmc_gpio] (116 lines)
-    gpiochip3 [ad9088] (4 lines)
-   $gpioget ad9088 3
-    0
-   $gpioset a4000000.gpio 3=1
-   $gpioget ad9088 3
-    1
 
 Debug system
 ^^^^^^^^^^^^
