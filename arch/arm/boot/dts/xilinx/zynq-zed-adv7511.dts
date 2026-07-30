@@ -18,3 +18,19 @@
 &eeprom1 {
 	status = "disabled";
 };
+
+/{
+	one-bit-adc-dac@0 {
+			compatible = "adi,one-bit-adc-dac";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			out-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+
+			channel@0 {
+				reg = <0>;
+				label = "QSPI_RST_N";
+			};
+		};
+};
