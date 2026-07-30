@@ -8,10 +8,12 @@
 #include <linux/seq_file.h>
 #include <linux/string.h>
 
+#include <drm/drm_atomic.h>
 #include <drm/drm_print.h>
 #include <drm/intel/step.h>
 
 #include "intel_alpm.h"
+#include "intel_atomic.h"
 #include "intel_cmtg.h"
 #include "intel_crtc.h"
 #include "intel_de.h"
@@ -1304,12 +1306,67 @@ static int intel_vrr_debugfs_target_rr_open(struct inode *inode, struct file *fi
 	return single_open(file, intel_vrr_debugfs_target_rr_show, inode->i_private);
 }
 
+/*
+ * Force an internal commit on @crtc so that a CMRR ratio programmed
+ * via debugfs gets recomputed and latched into hardware.
+ *
+ * CMRR only alters the (average) vtotal. Depending on whether the
+ * computed vblank value (with LRR disabled) changes, this commit may or
+ * may not be downgraded to a fastset.
+ */
+static int intel_vrr_cmrr_commit_force(struct intel_crtc *crtc)
+{
+	struct intel_display *display = to_intel_display(crtc);
+	struct drm_modeset_acquire_ctx ctx;
+	struct drm_atomic_commit *state;
+	struct intel_crtc_state *crtc_state;
+	int ret = 0;
+
+	state = drm_atomic_commit_alloc(display->drm);
+	if (!state)
+		return -ENOMEM;
+
+	drm_modeset_acquire_init(&ctx, DRM_MODESET_ACQUIRE_INTERRUPTIBLE);
+
+	state->acquire_ctx = &ctx;
+	to_intel_atomic_state(state)->internal = true;
+
+retry:
+	crtc_state = intel_atomic_get_crtc_state(state, crtc);
+	if (IS_ERR(crtc_state)) {
+		ret = PTR_ERR(crtc_state);
+		goto out;
+	}
+
+	if (!crtc_state->hw.active)
+		goto out;
+
+	/* Mark mode as changed to trigger a pipe recompute + update() */
+	crtc_state->uapi.mode_changed = true;
+
+	ret = drm_atomic_commit(state);
+out:
+	if (ret == -EDEADLK) {
+		drm_atomic_commit_clear(state);
+		ret = drm_modeset_backoff(&ctx);
+		if (!ret)
+			goto retry;
+	}
+
+	drm_modeset_drop_locks(&ctx);
+	drm_modeset_acquire_fini(&ctx);
+	drm_atomic_commit_put(state);
+
+	return ret;
+}
+
 static ssize_t intel_vrr_debugfs_target_rr_write(struct file *file, const char __user *ubuf,
 						 size_t len, loff_t *offp)
 {
 	struct seq_file *m = file->private_data;
 	struct intel_crtc *crtc = m->private;
 	u32 numerator, denominator;
+	u32 old_numerator, old_denominator;
 	char kbuf[32];
 	int ret;
 
@@ -1329,8 +1386,28 @@ static ssize_t intel_vrr_debugfs_target_rr_write(struct file *file, const char _
 	    crtc->force_cmrr.denominator == denominator)
 		return len;
 
+	old_numerator = crtc->force_cmrr.numerator;
+	old_denominator = crtc->force_cmrr.denominator;
+
 	crtc->force_cmrr.numerator = numerator;
 	crtc->force_cmrr.denominator = denominator;
+
+	/*
+	 * The debugfs value is a side channel that is not tracked by the atomic
+	 * state, so kick an internal commit to recompute and latch the
+	 * new CMRR parameters.
+	 */
+	ret = intel_vrr_cmrr_commit_force(crtc);
+	if (ret) {
+		/*
+		 * Restore the last known good ratio so that force_cmrr does not
+		 * hold on to bad values, which would make all subsequent commits
+		 * fail.
+		 */
+		crtc->force_cmrr.numerator = old_numerator;
+		crtc->force_cmrr.denominator = old_denominator;
+		return ret;
+	}
 
 	return len;
 }
