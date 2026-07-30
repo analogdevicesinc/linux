@@ -1412,6 +1412,17 @@ config SPI_OFFLOAD_TRIGGER_PWM
 	help
 	  Generic SPI offload trigger implemented using PWM output.
 
+config SPI_OFFLOAD_TRIGGER_ADI_SC_TRU
+	tristate "SPI offload trigger using ADI SC5xx TRU"
+	depends on ARCH_SC59X_64 || ARCH_SC84X || COMPILE_TEST
+	help
+	  Data-ready SPI offload trigger provider for the ADSP-SC5xx / SC59x
+	  / SC84x family, backed by the on-chip Trigger Routing Unit (TRU). Routes a
+	  configurable generator (typically a GP timer clocked from a
+	  DREADY pin in EXTCLK mode) to the SPI TX/RX DMA receiver IDs of
+	  the target SPI controller. Consumers request the standard
+	  SPI_OFFLOAD_TRIGGER_DATA_READY trigger type.
+
 endif # SPI_OFFLOAD
 
 endif # SPI
