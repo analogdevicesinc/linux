@@ -181,7 +181,7 @@ void FN(intersect_with_srange)(struct cnum_t *dst, st min, st max)
 
 static inline struct cnum_t FN(normalize)(struct cnum_t cnum)
 {
-	if (cnum.size == UT_MAX && cnum.base != 0 && cnum.base != (ut)ST_MAX)
+	if (cnum.size == UT_MAX)
 		cnum.base = 0;
 	return cnum;
 }
