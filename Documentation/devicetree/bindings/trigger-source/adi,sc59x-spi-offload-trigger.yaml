@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/trigger-source/adi,sc59x-spi-offload-trigger.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADI ADSP-SC59x TRU-backed SPI offload trigger provider
+
+maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com>
+
+description: |
+  Data-ready SPI offload trigger provider for the ADSP-SC5xx / SC59x
+  family. Routes a TRU generator (typically a GP timer clocked from a
+  data-ready GPIO in EXTCLK mode) to one or more TRU receiver IDs
+  belonging to a target SPI controller's TX / RX DMA channels. On every
+  DREADY edge the routed DMA channels advance one work unit — no CPU
+  involvement — provided the SPI TX/RX DMA channels are also opened
+  with DMA_CFG.TWAIT = 1 (see include/linux/dma/adi-dma.h).
+
+  Consumer drivers (e.g. iio-adc/adema127) request the standard
+  SPI_OFFLOAD_TRIGGER_DATA_READY trigger type via the SPI offload
+  framework; the SPI controller's DT node points at this trigger node
+  through its "trigger-sources" property.
+
+properties:
+  compatible:
+    const: adi,sc59x-spi-offload-trigger
+
+  "#trigger-source-cells":
+    const: 0
+
+  adi,tru:
+    description: Phandle to the TRU controller (compatible
+      "adi,trigger-routing-unit") that owns the RSR array to program.
+    $ref: /schemas/types.yaml#/definitions/phandle
+
+  adi,tru-master-id:
+    description: |
+      TRU generator ID that drives the route. Typically the TRU
+      generator ID for a GP timer output pulse (e.g.
+      ADI_TRU_MST_TIMER0_TMR(0) from dt-bindings/soc/adi/sc5xx-tru.h).
+      Timer configuration itself is not the responsibility of this
+      driver — dedicate a timer as the edge-to-trigger converter via
+      the adi,mode-extclk-gen property of the adi,sc5xx-gptimers
+      binding.
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  adi,tru-slave-ids:
+    description: |
+      List of TRU receiver IDs to route the generator into. Typically
+      the SPI controller's TX DMA + RX DMA receiver IDs (e.g. for SPI0
+      on ADSP-SC59x: SPI0_TXDMA_recv = 149, SPI0_RXDMA_recv = 150).
+      Both must be routed so the TX and RX DMA channels advance in
+      lockstep.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 1
+    maxItems: 4
+
+required:
+  - compatible
+  - "#trigger-source-cells"
+  - adi,tru
+  - adi,tru-master-id
+  - adi,tru-slave-ids
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/soc/adi/sc5xx-tru.h>
+
+    /* Route TIMER0_TMR00_GEN into the SPI0 TX + RX DMA receivers */
+    dready-trigger {
+        compatible = "adi,sc59x-spi-offload-trigger";
+        #trigger-source-cells = <0>;
+
+        adi,tru = <&tru>;
+        adi,tru-master-id = <ADI_TRU_MST_TIMER0_TMR(0)>;
+        adi,tru-slave-ids = <ADI_TRU_RCV_SPI0_TXDMA ADI_TRU_RCV_SPI0_RXDMA>;
+    };
+...
