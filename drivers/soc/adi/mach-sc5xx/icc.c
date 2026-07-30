@@ -145,8 +145,8 @@ int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave)
 	}
 
 	if (!tru->use_smc) {
-		dev_info(tru->dev, "Connecting master %d to slave %d\n",
-			 master, slave);
+		dev_dbg(tru->dev, "Connecting master %d to slave %d\n",
+			master, slave);
 		writel(master, tru->ioaddr + (slave * 4));
 	} else {
 		dev_err(tru->dev,
