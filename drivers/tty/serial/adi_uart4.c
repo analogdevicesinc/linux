@@ -262,9 +262,11 @@ static void adi_uart4_serial_stop_tx(struct uart_port *port)
 		UART_PUT_LSR(uart, TFI);
 		UART_CLEAR_IER(uart, ETBEI);
 	} else {
-		if (!uart->tx_done)
-			dma_unmap_sg(uart->dev, &uart->tx_sgl, 1, DMA_TO_DEVICE);
-
+		/*
+		 * tx_sgl is only a view into the long-lived xmit_buf mapping
+		 * created with dma_map_single() in startup — there is nothing
+		 * to unmap per transfer; the mapping is released in shutdown.
+		 */
 		dmaengine_terminate_sync(uart->tx_dma_channel);
 		uart->port.icount.tx += uart->tx_count;
 		uart->tx_count = 0;
@@ -445,10 +447,8 @@ static void adi_uart4_serial_dma_tx_chars(struct adi_uart4_serial_port *uart)
 
 	desc = dmaengine_prep_slave_sg(uart->tx_dma_channel, &uart->tx_sgl, 1,
 			DMA_MEM_TO_DEV, 0);
-	if (!desc) {
-		dma_unmap_sg(uart->dev, &uart->tx_sgl, 1, DMA_TO_DEVICE);
+	if (!desc)
 		return;
-	}
 
 	uart->tx_count = sg_dma_len(&uart->tx_sgl);
 
@@ -549,8 +549,6 @@ static void adi_uart4_serial_dma_tx(void *data)
 	struct adi_uart4_serial_port *uart = data;
 	struct tty_port *tport = &uart->port.state->port;
 	unsigned long flags;
-
-	dma_unmap_sg(uart->dev, &uart->tx_sgl, 1, DMA_TO_DEVICE);
 
 	spin_lock_irqsave(&uart->port.lock, flags);
 	/* Anomaly notes:
