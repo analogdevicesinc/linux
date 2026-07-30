@@ -30,6 +30,8 @@
 #include "include/grph_object_id.h"
 #include "amdgpu_dm_kunit_test_helpers.h"
 #include "inc/link_service.h"
+#include "inc/resource.h"
+#include "inc/hw/timing_generator.h"
 
 /* Tests for get_subconnector_type() */
 
@@ -5202,6 +5204,87 @@ static void dm_test_validate_stream_null_stream(struct kunit *test)
 			(int)DC_ERROR_UNEXPECTED);
 }
 
+static bool dm_test_vs_validate_timing_true(struct timing_generator *tg,
+					     const struct dc_crtc_timing *timing)
+{
+	return true;
+}
+
+static enum dc_status dm_test_vs_validate_mode_timing_ok(
+		const struct dc_stream_state *stream,
+		struct dc_link *link,
+		const struct dc_crtc_timing *timing)
+{
+	return DC_OK;
+}
+
+/**
+ * dm_test_validate_stream_dc_ok_no_pipe - Exercise the full validation body
+ * @test: The KUnit test context
+ *
+ * Build a minimal fake dc so stream and plane validation both pass, then
+ * let dc_state_add_stream() bail out early (timing_generator_count == 0) so
+ * the deep pipe-allocation paths are avoided. This drives plane population,
+ * dc_validate_stream(), dc_validate_plane() and cleanup.
+ */
+static void dm_test_validate_stream_dc_ok_no_pipe(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct dc *dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	struct dc_context *ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	struct dal_logger *logger = kunit_kzalloc(test, sizeof(*logger), GFP_KERNEL);
+	struct resource_pool *pool = kunit_kzalloc(test, sizeof(*pool), GFP_KERNEL);
+	struct resource_funcs *rfuncs = kunit_kzalloc(test, sizeof(*rfuncs), GFP_KERNEL);
+	struct resource_caps *rcaps = kunit_kzalloc(test, sizeof(*rcaps), GFP_KERNEL);
+	struct timing_generator *tg = kunit_kzalloc(test, sizeof(*tg), GFP_KERNEL);
+	struct timing_generator_funcs *tgfuncs =
+		kunit_kzalloc(test, sizeof(*tgfuncs), GFP_KERNEL);
+	struct link_service *link_srv =
+		kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	struct dc_stream_state *stream =
+		kunit_kzalloc(test, sizeof(*stream), GFP_KERNEL);
+	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
+
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, drm);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	KUNIT_ASSERT_NOT_NULL(test, logger);
+	KUNIT_ASSERT_NOT_NULL(test, pool);
+	KUNIT_ASSERT_NOT_NULL(test, rfuncs);
+	KUNIT_ASSERT_NOT_NULL(test, rcaps);
+	KUNIT_ASSERT_NOT_NULL(test, tg);
+	KUNIT_ASSERT_NOT_NULL(test, tgfuncs);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, stream);
+	KUNIT_ASSERT_NOT_NULL(test, link);
+
+	logger->dev = drm;
+	ctx->logger = logger;
+
+	tgfuncs->validate_timing = dm_test_vs_validate_timing_true;
+	tg->funcs = tgfuncs;
+
+	pool->funcs = rfuncs;
+	pool->res_cap = rcaps;
+	pool->timing_generators[0] = tg;
+	pool->timing_generator_count = 0;
+
+	link_srv->validate_mode_timing = dm_test_vs_validate_mode_timing_ok;
+
+	dc->ctx = ctx;
+	dc->res_pool = pool;
+	dc->link_srv = link_srv;
+
+	link->ep_type = DISPLAY_ENDPOINT_UNKNOWN;
+	stream->link = link;
+	stream->src.width = 1920;
+	stream->src.height = 1080;
+
+	KUNIT_EXPECT_EQ(test,
+			(int)dm_validate_stream_and_context(dc, stream),
+			(int)DC_ERROR_UNEXPECTED);
+}
+
 /**
  * dm_test_to_encoder_no_encoder - Test connector with no encoder returns NULL
  * @test: The KUnit test context
@@ -6589,6 +6672,7 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_funcs_force_no_edid),
 	/* dm_validate_stream_and_context */
 	KUNIT_CASE(dm_test_validate_stream_null_stream),
+	KUNIT_CASE(dm_test_validate_stream_dc_ok_no_pipe),
 	/* amdgpu_dm_connector_to_encoder */
 	KUNIT_CASE(dm_test_to_encoder_no_encoder),
 	KUNIT_CASE(dm_test_to_encoder_returns_attached),
