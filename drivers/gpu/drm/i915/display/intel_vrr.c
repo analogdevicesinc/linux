@@ -27,9 +27,6 @@
 #include "skl_prefill.h"
 #include "skl_watermark.h"
 
-#define FIXED_POINT_PRECISION		100
-#define CMRR_PRECISION_TOLERANCE	10
-
 /*
  * Tunable parameters for DC Balance correction.
  * These are captured based on experimentations.
@@ -198,68 +195,78 @@ static bool intel_vrr_cmrr_possible(const struct intel_crtc_state *crtc_state)
 	return HAS_CMRR(display) && intel_vrr_always_use_vrr_tg(display);
 }
 
-static bool
-is_cmrr_frac_required(struct intel_crtc_state *crtc_state)
+static void
+intel_vrr_cmrr_compute_config(struct intel_crtc_state *crtc_state)
 {
-	int calculated_refresh_k, actual_refresh_k, pixel_clock_per_line;
+	struct intel_display *display = to_intel_display(crtc_state);
+	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
+	u64 dividend;
+	u32 mode_rate_mhz;
+	u32 requested_rate_mhz = crtc->force_cmrr.numerator;
+	bool video_mode = crtc->force_cmrr.denominator != 1000;
+	int rr_multiplier = video_mode ? 1000 : 1;
+	int rr_divider = video_mode ? 1001 : 1;
 
-	/* Avoid CMRR for now till we have VRR with fixed timings working */
-	if (!intel_vrr_cmrr_possible(crtc_state) || true)
-		return false;
+	if (!intel_vrr_cmrr_possible(crtc_state))
+		return;
 
-	actual_refresh_k =
-		drm_mode_vrefresh(adjusted_mode) * FIXED_POINT_PRECISION;
-	pixel_clock_per_line =
-		adjusted_mode->crtc_clock * 1000 / adjusted_mode->crtc_htotal;
-	calculated_refresh_k =
-		pixel_clock_per_line * FIXED_POINT_PRECISION / adjusted_mode->crtc_vtotal;
+	/* No CMRR ratio configured through debugfs */
+	if (!requested_rate_mhz)
+		return;
 
-	if ((actual_refresh_k - calculated_refresh_k) < CMRR_PRECISION_TOLERANCE)
-		return false;
-
-	return true;
-}
-
-static unsigned int
-cmrr_get_vtotal(struct intel_crtc_state *crtc_state, bool video_mode_required)
-{
-	int multiplier_m = 1, multiplier_n = 1, vtotal, desired_refresh_rate;
-	u64 adjusted_pixel_rate;
-	struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
-
-	desired_refresh_rate = drm_mode_vrefresh(adjusted_mode);
-
-	if (video_mode_required) {
-		multiplier_m = 1001;
-		multiplier_n = 1000;
+	/* Requested rate must match the mode's nominal (integer) refresh rate */
+	if (DIV_ROUND_CLOSEST(requested_rate_mhz, 1000) !=
+			drm_mode_vrefresh(adjusted_mode)) {
+		drm_dbg_kms(display->drm,
+			    "[CRTC:%d:%s] CMRR requested %u.%03u Hz doesn't match mode %d Hz\n",
+			    crtc->base.base.id, crtc->base.name,
+			    requested_rate_mhz / 1000, requested_rate_mhz % 1000,
+			    drm_mode_vrefresh(adjusted_mode));
+		return;
 	}
 
-	crtc_state->vrr.cmrr.cmrr_n = mul_u32_u32(desired_refresh_rate * adjusted_mode->crtc_htotal,
-						  multiplier_n);
-	vtotal = DIV_ROUND_UP_ULL(mul_u32_u32(adjusted_mode->crtc_clock * 1000, multiplier_n),
-				  crtc_state->vrr.cmrr.cmrr_n);
-	adjusted_pixel_rate = mul_u32_u32(adjusted_mode->crtc_clock * 1000, multiplier_m);
-	crtc_state->vrr.cmrr.cmrr_m = do_div(adjusted_pixel_rate, crtc_state->vrr.cmrr.cmrr_n);
+	/* Actual rate produced by the current timings, in milli-Hz */
+	mode_rate_mhz =
+		DIV_ROUND_CLOSEST_ULL((u64)adjusted_mode->crtc_clock * 1000 * 1000,
+				      adjusted_mode->crtc_vtotal *
+				      adjusted_mode->crtc_htotal);
 
-	return vtotal;
-}
-
-static
-void intel_vrr_compute_cmrr_timings(struct intel_crtc_state *crtc_state)
-{
 	/*
-	 * TODO: Compute precise target refresh rate to determine
-	 * if video_mode_required should be true. Currently set to
-	 * false due to uncertainty about the precise target
-	 * refresh Rate.
+	 * 1:1 request already satisfied by the mode -> CMRR not needed.
 	 */
-	crtc_state->vrr.vmax = cmrr_get_vtotal(crtc_state, false);
-	crtc_state->vrr.vmin = crtc_state->vrr.vmax;
-	crtc_state->vrr.flipline = crtc_state->vrr.vmin;
+	if (!video_mode && DIV_ROUND_CLOSEST(mode_rate_mhz, 10) ==
+	    DIV_ROUND_CLOSEST(requested_rate_mhz, 10)) {
+		drm_dbg_kms(display->drm,
+			    "[CRTC:%d:%s] %u.%03u Hz can be driven without CMRR\n",
+			    crtc->base.base.id, crtc->base.name,
+			    requested_rate_mhz / 1000, requested_rate_mhz % 1000);
+		return;
+	}
 
-	crtc_state->vrr.cmrr.enable = true;
-	crtc_state->mode_flags |= I915_MODE_FLAG_VRR;
+	/*
+	 * Let pixel_clock_hz = adjusted_mode->crtc_clock * 1000.
+	 *
+	 * cmrr_n = (requested_rate_mhz x htotal x rr_multiplier) / 1000
+	 * cmrr_m = (pixel_clock_hz x rr_divider) % cmrr_n
+	 *
+	 * where requested_rate_mhz is the requested refresh rate in milli-Hz
+	 * and rr_multiplier/rr_divider = 1000/1001 when the video timing
+	 * is required, else 1/1. The integer vtotal term is tracked in SW
+	 * (it is the programmed mode vtotal) while the fractional part
+	 * represented by cmrr_m/cmrr_n is tracked in HW.
+	 *
+	 * TODO: Using the actual desired rate for cmrr_n in video
+	 * mode produces more aggressive vtotal dithering than
+	 * expected; revisit once the Bspec algorithm is clarified.
+	 */
+	crtc_state->vrr.cmrr.cmrr_n =
+		div64_u64((u64)requested_rate_mhz *
+			  adjusted_mode->crtc_htotal * rr_multiplier, 1000);
+	dividend = (u64)adjusted_mode->crtc_clock * rr_divider * 1000;
+	adjusted_mode->crtc_vtotal = div64_u64_rem(dividend,
+						   crtc_state->vrr.cmrr.cmrr_n,
+						   &crtc_state->vrr.cmrr.cmrr_m);
 }
 
 static
@@ -435,8 +442,6 @@ intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_connector *connector =
 		to_intel_connector(conn_state->connector);
-	struct intel_dp *intel_dp = intel_attached_dp(connector);
-	bool is_edp = intel_dp_is_edp(intel_dp);
 	struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
 	int vmin, vmax;
 
@@ -470,12 +475,17 @@ intel_vrr_compute_config(struct intel_crtc_state *crtc_state,
 		vmax = vmin;
 	}
 
-	if (crtc_state->uapi.vrr_enabled && vmin < vmax)
+	if (crtc_state->uapi.vrr_enabled && vmin < vmax) {
 		intel_vrr_compute_vrr_timings(crtc_state, vmin, vmax);
-	else if (is_cmrr_frac_required(crtc_state) && is_edp)
-		intel_vrr_compute_cmrr_timings(crtc_state);
-	else
+	} else {
+		/*
+		 * CMRR is a fixed average Vtotal mode and is only computed on
+		 * the fixed refresh rate path. It is generic across transcoders
+		 * and gated on platform support and a valid debugfs ratio.
+		 */
+		intel_vrr_cmrr_compute_config(crtc_state);
 		intel_vrr_compute_fixed_rr_timings(crtc_state);
+	}
 
 	if (HAS_AS_SDP(display)) {
 		crtc_state->vrr.vsync_start =
@@ -1142,11 +1152,6 @@ void intel_vrr_get_config(struct intel_crtc_state *crtc_state)
 
 	intel_vrr_get_dc_balance_config(crtc_state);
 
-	/*
-	 * #TODO: For Both VRR and CMRR the flag I915_MODE_FLAG_VRR is set for mode_flags.
-	 * Since CMRR is currently disabled, set this flag for VRR for now.
-	 * Need to keep this in mind while re-enabling CMRR.
-	 */
 	if (crtc_state->vrr.enable)
 		crtc_state->mode_flags |= I915_MODE_FLAG_VRR;
 
