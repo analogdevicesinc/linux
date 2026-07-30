@@ -5019,6 +5019,29 @@ static void ad9088_set_gpio(struct gpio_chip *chip, unsigned int offset, int val
 	adi_apollo_gpio_cmos_output_set(&phy->ad9088, phy->gpios_exported[offset], value);
 }
 
+static int ad9088_gpio_quick_config(struct ad9088_phy *phy)
+{
+	struct device *dev = &phy->spi->dev;
+	u32 quick_cfg;
+	int ret;
+
+	if (device_property_read_u32(dev, "adi,gpio-quick-config", &quick_cfg))
+		return 0;
+
+	if (quick_cfg > ADI_APOLLO_QUICK_CFG_PROFILE_8)
+		return dev_err_probe(dev, -EINVAL, "Invalid GPIO quick config profile %u\n",
+				     quick_cfg);
+
+	ret = adi_apollo_gpio_quick_config_mode_set(&phy->ad9088, quick_cfg);
+	ret = ad9088_check_apollo_error(dev, ret, "adi_apollo_gpio_quick_config_mode_set");
+	if (ret)
+		return ret;
+
+	dev_dbg(dev, "Applied GPIO quick config profile %u\n", quick_cfg);
+
+	return 0;
+}
+
 static int ad9088_gpio_setup(struct ad9088_phy *phy)
 {
 	int ret, len;
@@ -5352,6 +5375,10 @@ static int ad9088_probe(struct spi_device *spi)
 	}
 
 	ret = ad9088_bmem_probe(phy);
+	if (ret)
+		return ret;
+
+	ret = ad9088_gpio_quick_config(phy);
 	if (ret)
 		return ret;
 
