@@ -210,12 +210,7 @@ bool FN(is_empty)(struct cnum_t cnum)
 
 bool FN(contains)(struct cnum_t cnum, ut v)
 {
-	if (FN(is_empty)(cnum))
-		return false;
-	if (FN(urange_overflow)(cnum))
-		return v >= cnum.base || v <= (ut)cnum.base + cnum.size;
-	else
-		return v >= cnum.base && v <= (ut)cnum.base + cnum.size;
+	return !FN(is_empty)(cnum) && v - cnum.base <= cnum.size;
 }
 
 bool FN(is_const)(struct cnum_t cnum)
