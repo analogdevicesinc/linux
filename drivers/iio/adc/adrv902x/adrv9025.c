@@ -525,10 +525,6 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 	case ADRV9025_CAL_MASK:
 		ret = sysfs_emit(buf, "0x%x\n",
 				 phy->cal_mask.channelMask);
-		if(ret){
-			printk("phy_show: error reading calibration mask\n");
-			return -EINVAL;
-		}
 		break;
 	case ADRV9025_DPD_TX_MASK:
 		ret = sysfs_emit(buf, "0x%x\n", phy->dpdTxChannel);
@@ -622,7 +618,8 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 		ret = adi_adrv9025_InitCalsCheckCompleteGet(phy->madDevice, &status, &ARMflag);
 		if(ret){
 			adrv9025_dev_err(phy);
-			return ret;
+			ret = -EINVAL;
+			break;
 		}
 		
 		ret = sysfs_emit(buf, "Status: %d, ARM is error?: %d", status, ARMflag);
@@ -633,7 +630,8 @@ static ssize_t adrv9025_phy_show(struct device *dev,
 		ret = adi_adrv9025_InitCalsDetailedStatusGet(phy->madDevice,&initStatus);
 		if(ret){
 			adrv9025_dev_err(phy);
-			return ret;			
+			ret = -EINVAL;
+			break;
 		}
 
 		ret = sysfs_emit(buf,
@@ -654,8 +652,11 @@ case ADRV9025_TRACKING_STATUS_ALL: {
     adi_adrv9025_TrackingCalState_t st;
 
     ret = adi_adrv9025_TrackingCalAllStateGet(phy->madDevice, &st);
-    if (ret)
-        return adrv9025_dev_err(phy);
+    if (ret) {
+        adrv9025_dev_err(phy);
+        ret = -EINVAL;
+        break;
+    }
 
     ret = sysfs_emit(buf,
         "calError: 0x%016llx\n"
@@ -1812,16 +1813,10 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 			chan_no = chan->channel;
 
 			if (chan_no > CHAN_RX4) {
-				/*
-				 * Resolve which physical ORx of the pair is active.
-				 * In dual-channel 4-pin mode the selection is held
-				 * by the channel-select pin (read via
-				 * get_obs_rx_path: 0 = lower ORx, 1 = upper);
-				 * otherwise fall back to the SPI enable state.
-				 */
+
 				switch (adrv9025_orx_get_mode(phy)) {
 				case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
-					int sel = adrv9025_set_obs_rx_path(indio_dev, chan, val);
+					int sel = adrv9025_get_obs_rx_path(indio_dev, chan);
 
 					dev_warn(&phy->spi->dev,
 						 "DEBUG write_raw: 4pin path, chan_no=%d val=%d set_obs_rx_path ret sel=%d\n",
@@ -1880,20 +1875,7 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 
 			rxGain.gainIndex = code;
 
-			/* TEMP PROOF: ORx uses a sparse gain table (valid
-			 * indices 2-14, see firmware/ORxGainTable.csv). The Rx
-			 * formula in adrv9025_gain_to_gainindex() produces 225
-			 * for 15 dB, which is INVALID for ORx. Force index 8
-			 * (FE ctrl word 210 -> 20*log10((256-210)/256) = 14.9 dB
-			 * ~= 15 dB atten per UG eq 3) so we can confirm the
-			 * hardware actually responds. Remove once the real ORx
-			 * dB<->index mapping is implemented. */
-			if (chan_no > CHAN_RX4)
-				rxGain.gainIndex = 8;
-
 			rxGain.rxChannelMask = 1 << chan_no;
-			printk("trying to write gain, chan_no=%d gainIndex=%u, val=%u, val2=%u\n",
-			       chan_no, rxGain.gainIndex,val, val2);
 			ret = adi_adrv9025_RxGainSet(phy->madDevice, &rxGain,
 						     1);
 			if (ret)
