@@ -1,0 +1,368 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-vector-power/adl5960
+
+.. _adl5960:
+
+ADL5960
+=======
+
+ADL5960 10 MHz to 20 GHz, Integrated Vector Network Analyzer Front-End Linux
+Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADL5960`
+
+Evaluation Boards
+-----------------
+
+- :adi:`ADL5960-EVALZ`
+
+Description
+-----------
+
+The ADL5960 is a wideband, vector network analyzer front-end that consists of a
+bidirectional bridge, downconverters, programmable IF amplifiers, and a
+configurable local oscillator (LO) interface.
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting integrated Vector Network Analyzer Front-Ends. The industrial
+I/O subsystem provides a unified framework for drivers for many different types
+of converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - :git+linux:`git <main:drivers/iio/frequency/adl5960.c>`
+     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adl5960.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/adl5960.c`
+     -
+   * - Documentation
+     - :git+linux:`main:Documentation/ABI/testing/sysfs-bus-iio-frequency-adl5960`
+     -
+   * - Documentation
+     - `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
+     -
+   * - dt-bindings
+     - :git+linux:`main:Documentation/devicetree/bindings/iio/frequency/adi,adl5960.yaml`
+     -
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Devicetree properties
+^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   compatible:
+     enum:
+       - adi,adl5960
+
+::
+
+   reg:
+     maxItems: 1
+
+::
+
+   spi-max-frequency:
+     maximum: 50000000
+
+::
+
+   clocks:
+     description:
+       Definition of the external clock (see clock/clock-bindings.txt)
+     minItems: 2
+
+::
+
+   clock-names:
+     items:
+       - const: lo_in
+       - const: offs_in
+     maxItems: 2
+
+::
+
+   lo_in-clock-scales:
+     description:
+       The Common Clock Framework max rate is limited by MAX of unsigned long.
+       For ADL5960 device this is a deficiency. If specified, this
+       property allows arbitrary scales. The first element in the array should
+       be the multiplier and the second element should be the divider.
+     $ref: /schemas/types.yaml#/definitions/uint32-array
+     minimum: 1
+
+::
+
+   avcc-supply:
+     description:
+       analog voltage regulator (see regulator/regulator.txt)
+
+::
+
+   '#clock-cells':
+     const: 0
+
+::
+
+   required:
+   - compatible
+   - reg
+   - clocks
+   - clock-names
+
+Example
+^^^^^^^
+
+.. code:: dts
+
+   spi {
+     adl5960-1@0 {
+       compatible = "adi,adl5960";
+       reg = <0>;
+       spi-max-frequency = <12500000>;
+       /* Clocks */
+       clocks = <&adf5610>, <&ad9528 4>;
+       clock-names = "lo_in", "offs_in";
+       lo_in-clock-scales = <1 10>;
+       label = "adl5960-1";
+     };
+   };
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADL5960 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               RF Font-Ends --->
+                  <*> Analog Devices ADL5960 Vector Network Analyzer Front-End"
+
+Hardware configuration
+----------------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root@analog:~# cd /sys/bus/iio/devices/
+
+   root@analog:/sys/bus/iio/devices# ls
+   iio:device0  iio:device10  iio:device12  iio:device14  iio:device16  iio:device18  iio:device3  iio:device5  iio:device7  iio:device9
+   iio:device1  iio:device11  iio:device13  iio:device15  iio:device17  iio:device2   iio:device4  iio:device6  iio:device8  iio_sysfs_trigger
+
+   root@analog:/sys/bus/iio/devices# grep "" /name
+   iio:device0/name:ams
+   iio:device1/name:adrf5720
+   iio:device10/name:adl5960
+   iio:device11/name:adl5960
+   iio:device12/name:adl5960
+   iio:device13/name:adl5960
+   iio:device14/name:adl5960
+   iio:device15/name:admv8818
+   iio:device16/name:iio-gen-mux
+   iio:device17/name:iio-gen-mux
+   iio:device18/name:admv8818
+   iio:device2/name:adrf5720
+   iio:device3/name:ad9528
+   iio:device4/name:adf5610
+   iio:device5/name:axi-ad9083-rx-hpc
+   iio:device6/name:one-bit-adc-dac
+   iio:device7/name:adl5960
+   iio:device8/name:adl5960
+   iio:device9/name:adl5960
+
+   root@analog:/sys/bus/iio/devices# cd iio:device7
+
+   root@analog:/sys/bus/iio/devices/iio:device7# ls -al
+   total 0
+   drwxr-xr-x 3 root root    0 Mar 30 11:21 .
+   drwxr-xr-x 5 root root    0 Mar 30 11:21 ..
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 dev
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 in_altvoltage0_lo_frequency
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 in_altvoltage0_lo_mode
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 in_altvoltage0_lo_mode_available
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 in_altvoltage1_if_frequency
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 in_altvoltage1_offset_frequency
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 in_altvoltage1_offset_mode
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 in_altvoltage1_offset_mode_available
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 in_temp0_input
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 label
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 name
+   lrwxrwxrwx 1 root root    0 Mar 30 11:21 of_node -> ../../../../../../../../firmware/devicetree/base/fpga-axi@0/spi@88100000/adl5960-1@0
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 out_voltage0_forward_hardwaregain
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 out_voltage1_reverse_hardwaregain
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 out_voltage_filter_low_pass_3db_frequency
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 out_voltage_hardwaregain_available
+   drwxrwxrwx 2 root root    0 Mar 30 11:21 power
+   lrwxrwxrwx 1 root root    0 Mar 30 11:21 subsystem -> ../../../../../../../../bus/iio
+   -rw-rw-rw- 1 root root 4096 Mar 30 11:21 uevent
+   root@analog:/sys/bus/iio/devices/iio:device7#
+
+LO Frequency
+~~~~~~~~~~~~
+
+**What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_frequency``
+
+**Description:** Stores the Local Oscillator (LO) frequency in Hz. Reading
+returns the actual frequency in Hz. The values take the in_altvoltage0_lo_mode
+into account.
+
+LO Mode
+^^^^^^^
+
+**What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_mode``
+**Description:** The frequency divider and multipliers in the LO interface
+enable measurement sweeps beyond the operating frequency range of the source
+driving the (LOP, LOM) pins. This enables operation over the full 20 GHz
+bandwidth of the ADL5960 using a 6 GHz synthesizer as the LO source.
+
+This attribute Configures the LO path multiplier/divider or bypass. Reading
+returns the actual mode.
+
+Available LO Modes
+''''''''''''''''''
+
+**What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage0_lo_mode_available``
+**Description:** Reading this returns the valid values that can be written to
+the in_altvoltage0_lo_mode attribute:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Value
+     - Description
+   * - bypass
+     - Bypasses the IF frequency mixer
+   * - x1
+     - The external applied LO frequency is directly passed into the mixer
+   * - x2
+     - The external applied LO frequency is doubled and passed into the mixer
+   * - x4
+     - The external applied LO frequency is quadrupled and passed into the mixer
+   * - /2
+     - The external applied LO frequency is divided and passed into the mixer
+
+Offset Frequency
+''''''''''''''''
+
+**What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_offset_frequency``
+**Description:** Stores the Offset frequency applied to the OFP, OFM inputs in
+Hz. Reading returns the actual frequency in Hz. The values do not take the
+in_altvoltage1_offset_mode into account. Please see in_altvoltage1_if_frequency.
+
+Offset Frequency Modes
+''''''''''''''''''''''
+
+**What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_offset_mode``
+**Description:** This attribute Configures the Offset path divider and modes.
+Reading returns the actual mode.
+
+Available Offset Frequency Modes
+''''''''''''''''''''''''''''''''
+
+**What:**
+``/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_offset_mode_available``
+**Description:** Reading this returns the valid values that can be written to
+the in_altvoltage1_offset_mode attribute:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Value
+     - Description
+   * - bypass
+     - Bypasses the IF frequency mixer
+   * - off
+     - Dividers are off, offset signal is disconnected
+   * - x1
+     - The external applied OFFS frequency is directly passed into the mixer
+   * - /2
+     - The external applied OFFS frequency is divided by 2 and passed into the
+       mixer
+   * - /4
+     - The external applied OFFS frequency is divided by 4 and passed into the
+       mixer
+
+IF Frequency
+''''''''''''
+
+**What:** ``/sys/bus/iio/devices/iio:deviceX/in_altvoltage1_if_frequency``
+**Description:** Stores the IF frequency applied to IF frequency offset mixer in
+Hz. Reading returns the actual frequency in Hz. The values take the
+in_altvoltage1_offset_mode into account.
+
+Forward Gain
+''''''''''''
+
+**What:** ``/sys/bus/iio/devices/iio:deviceX/out_voltage0_forward_hardwaregain``
+**Description:** Stores the gain of the IF amplifier in the Forward path, to the
+(IFFP, IFFM) output, in 6dB steps. Reading returns the actual gain in dB.
+
+Reflected Gain
+''''''''''''''
+
+**What:** ``/sys/bus/iio/devices/iio:deviceX/out_voltage1_reverse_hardwaregain``
+**Description:** Stores the gain of the IF amplifier in the Reverse path, to the
+(IFRP, IFRM) output, in 6dB steps. Reading returns the actual gain in dB.
+
+IF Filter Cutoff Frequency
+''''''''''''''''''''''''''
+
+**What:**
+``/sys/bus/iio/devices/iio:deviceX/out_voltage_filter_low_pass_3db_frequency``
+**Description:** Stores the corner frequency of the narrow (CIF2) & wideband
+(CIF1) bandwidth IF filter in Hz. Reading returns the actual frequency in Hz.
+
+Device Temperature
+''''''''''''''''''
+
+**What:** ``/sys/bus/iio/devices/iio:deviceX/in_temp0_input`` **Description:**
+Scaled device (die) temperature measurement in milli degrees Celsius.
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

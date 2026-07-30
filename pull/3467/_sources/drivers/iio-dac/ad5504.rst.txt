@@ -1,0 +1,340 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5504
+
+.. _ad5504:
+
+AD5504
+======
+
+AD5504 IIO High Voltage DAC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD5504`
+- :adi:`AD5501`
+
+Reference Circuits
+------------------
+
+- :adi:`CN0193`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD5504EBZ`
+- :adi:`EVAL-AD5501EBZ`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting multi-channel serial interface DACs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5504.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5504.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/dac/ad5504.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5504.c>`__
+   * - include
+     - `drivers/iio/dac/ad5504.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5504.h>`__
+
+Example platform device initialization
+--------------------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+The reference voltage may vary between boards and models. The platform_data for
+the device’s ``struct device`` holds this information.
+
+.. code:: c
+
+   static struct ad5504_platform_data ad5504_pdata = {
+       .vref_mv = 30000,
+   };
+
+.. tip::
+
+   This driver supports also an alternative way of specifying the reference
+   voltage, by using the Linux regulator framework.
+
+Specifying reference voltage via the regulator framework
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Below example specifies a 30 Volt reference for the SPI device 3 on SPI-Bus 0.
+(**spi0.3**)
+
+.. code:: c
+
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+   static struct regulator_consumer_supply ad5504_consumer_supplies[] = {
+       REGULATOR_SUPPLY("vcc", "spi0.3"),
+   };
+
+   static struct regulator_init_data stamp_avdd_reg_init_data = {
+       .constraints    = {
+           .name   = "30V0",
+           .valid_ops_mask = REGULATOR_CHANGE_STATUS,
+       },
+       .consumer_supplies = ad5504_consumer_supplies,
+       .num_consumer_supplies = ARRAY_SIZE(ad5504_consumer_supplies),
+   };
+
+   static struct fixed_voltage_config stamp_vdd_pdata = {
+       .supply_name    = "board-30V0",
+       .microvolts = 30000000,
+       .gpio       = -EINVAL,
+       .enabled_at_boot = 0,
+       .init_data  = &stamp_avdd_reg_init_data,
+   };
+   static struct platform_device brd_voltage_regulator = {
+       .name       = "reg-fixed-voltage",
+       .id     = -1,
+       .num_resources  = 0,
+       .dev        = {
+           .platform_data  = &stamp_vdd_pdata,
+       },
+   };
+   #endif
+
+.. code:: c
+
+   static struct platform_device *board_devices[] __initdata = {
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+       &brd_voltage_regulator,
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       platform_add_devices(board_devices, ARRAY_SIZE(board_devices));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name. It may also required to adjust
+max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
+the device in question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_AD5504) || \
+       defined(CONFIG_AD5504_MODULE)
+       {
+           /* the modalias must be the same as spi device driver name */
+           .modalias = "ad5504", /* Name of spi_driver for this device */
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0, /* Framework bus number */
+           .chip_select = 3, /* Framework chip select */
+           .mode = SPI_MODE_1,
+           .irq = IRQ_PF2,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD5504 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+
+                     *** Digital to analog convertors ***
+               [--snip--]
+               <*>   Analog Devices AD5504/AD5501 DAC spi driver
+               [--snip--]
+
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/software/driver/linux/ad5504_eval_lr.jpg
+   :width: 600px
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0         iio:device0:event0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> ls -l
+   -r--r--r--    1 root     root          4096 Jan  3 14:39 name
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 out_voltage0_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 out_voltage0_raw
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 out_voltage1_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 out_voltage1_raw
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 out_voltage2_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 out_voltage2_raw
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 out_voltage3_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 out_voltage3_raw
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 out_voltage_powerdown_mode
+   -r--r--r--    1 root     root          4096 Jan  3 14:39 out_voltage_powerdown_mode_available
+   -r--r--r--    1 root     root          4096 Jan  3 14:39 out_voltage_scale
+   lrwxrwxrwx    1 root     root             0 Jan  3 14:39 subsystem -> ../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  3 14:39 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
+   ad5504
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to out_voltage0_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_scale
+   7.324
+
+Set channel Y output voltage
+''''''''''''''''''''''''''''
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
+
+Raw (unscaled, no bias etc.) output voltage for channel Y.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 1234 > out0_raw
+
+**U** = *out_voltage0_raw \* out_voltage_scale* = 1234 \* 7.324 = **9037,816
+mV**
+
+List available power down modes
+'''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/deviceX/out_voltage_powerdown_mode_available
+
+**Description:** Lists all available output power down modes.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_powerdown_mode_available
+   20kohm_to_gnd three_state
+
+Set power down mode
+'''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_voltage_powerdown_mode
+
+**Description:** Specifies the output power down mode. DAC output stage is
+disconnected from the amplifier and
+
+.. list-table::
+
+   * - 20kohm_to_gnd
+     - connected to ground via an 20kOhm resistor
+   * - three_state
+     - left floating
+
+For a list of available output power down options read
+out_voltageX_powerdown_mode_available.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo three_state > out_voltage_powerdown_mode
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_powerdown_mode
+   three_state
+
+Enable power down mode on output Y
+''''''''''''''''''''''''''''''''''
+
+/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
+
+**Description:** Writing 1 causes output Y to enter the power down mode
+specified by the corresponding out_voltageY_powerdown_mode. Clearing returns to
+normal operation. Y may be suppressed if all outputs are controlled together.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 1 > out_voltage0_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage0_powerdown
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 0 > out_voltage0_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage0_powerdown
+   0
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

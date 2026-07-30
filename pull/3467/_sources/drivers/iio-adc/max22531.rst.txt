@@ -1,0 +1,317 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/max22531
+
+.. _max22531:
+
+MAX22530
+========
+
+MAX22530/MAX22531/MAX22532 ADC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`MAX22530`
+- :adi:`MAX22531`
+- :adi:`MAX22532`
+
+Evaluation Boards
+-----------------
+
+- :adi:`en/resources/evaluation-hardware-and-software/evaluation-boards-kits/max22531evkit.html#eb-overview`
+
+Status
+------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/max22531.c>`__
+     - `Not yet <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/max22351.c>`__
+     -
+     -
+
+Files
+-----
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - `drivers/iio/adc/max22531.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/max22531.c>`__
+     -
+   * - devicetree bindings
+     - `Documentation/devicetree/bindings/iio/adc/adi,max22531.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,max22531.yaml>`__
+     -
+   * - rpi5 devicetree overlay
+     - `arch/arm/boot/dts/overlays/rpi-max22531-overlay.dts <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/arch/arm/boot/dts/overlays/rpi-max22531-overlay.dts>`__
+     -
+
+Overview
+--------
+
+The MAX22530–MAX22532 are galvanically isolated, 4-channel, multiplexed, 12-bit,
+analog-to-digital converters (ADC) in the MAXSafeTM family product line. An
+integrated, isolated, DC-DC converter powers all field-side circuitry, and this
+allows field-side diagnostics even when no input signal is present.
+
+Hardware configuration
+----------------------
+
+Use the test points for interfacing the MAX22531_EVKIT_A with a machine running
+Linux.
+
+The instructions below describe how to set up
+:[adi:`MAX22531_EVKIT_A <en/resources/evaluation-hardware-and-software/evaluation-boards-kits/max22531evkit.html#eb-overview>`
+with `RPI-5 <https://www.raspberrypi.com/products/raspberry-pi-5/>`__.
+
+For the jumper links, use the following configuration:
+
+Change SW1 to OFF.
+
+J3 disconnected to provide 5V supply to VDDPL through VDDPL test point.
+
+J4 connection 1-2 to provide 3.3V VDDL supply to MAX22531 logic-side circuitry
+through EVAL J1 (11) and J1(12).
+
+There are a number of connections to make between the ADC evaluation board and
+the Linux machine.
+
+.. list-table::
+   :header-rows: 1
+
+   * - MAX22531_EVKIT_A test point
+     - Pin Function
+     - `RPI-5 <https://www.raspberrypi.com/products
+       /raspberry-pi-5/>`__ Pin function (Pin number)
+   * - CS (J1-1)
+     - Chip Select
+     - CE0 (pin 24)
+   * - SCLK (J1-7)
+     - Serial Clock
+     - SCLK (pin 23)
+   * - SDO (J1-5)
+     - Serial Data Out
+     - MISO (pin 21)
+   * - SDI (J1-3)
+     - Serial Data In
+     - MOSI (pin 19)
+   * - VDDL (J1-11)
+     - Digital Supply Voltage Input
+     - 3.3V (pin 17
+   * - VDDPL
+     - Analog side power supply
+     - 5V (pin 3)
+   * - GND (J1-9)
+     - Power Supply Ground
+     - GND (pin 39)
+
+After the changes in the link positions and soldering links, the
+MAX22531_EVKIT_A setup should look like the following.
+
+.. figure:: https://wiki.analog.com/_media/resources/eval/max22531/max2531_evkit_a_setup.jpg
+   :width: 600px
+
+Analog Devices ADALM2000 can be used to debug data transfer and to provide input
+test signals.
+
+Here is how it looks after everything is connected.
+
+.. figure:: https://wiki.analog.com/_media/resources/eval/max22531/max22531_evkit_a_m2k.jpg
+   :width: 600px
+
+The collection of jumpers looks messy and hard to follow so review the textual
+description in case of doubt.
+
+Adding Linux driver support
+---------------------------
+
+Enabling the driver
+~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The MAX22531 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Analog to digital converters  --->
+                   ...
+                   <*>   Analog Devices MAX22531 ADC Driver
+                   ...
+               ...
+           ...
+
+Adding a device tree entry
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Required properties
+^^^^^^^^^^^^^^^^^^^
+
+- **compatible**: Must be one of ``adi,max22530``, ``adi,max22531``,
+  ``adi,max22532``.
+- **reg**: number of SPI chip select id for the device.
+- **vddl-supply**: Logic power supply.
+- **vddpl-supply**: Isolated DC-DC converter power supply.
+
+Device tree generic example
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   spi {
+     #address-cells = <1>;
+     #size-cells = <0>;
+
+     max22531: adc@0 {
+       compatible = "adi,max22531";
+       reg = <0>;
+       spi-max-frequency = <5000000>;
+       vddl-supply = <&vddl>;
+       vddpl-supply = <&vddpl>;
+     };
+   };
+
+Device tree overlay example
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   // SPDX-License-Identifier: (GPL-2.0+)
+   /*
+    * Device Tree Overlay for MAX22531
+    */
+
+   /dts-v1/;
+   /plugin/;
+
+   / {
+       compatible = "brcm,bcm2835", "brcm,bcm2711", "brcm,bcm2712";
+
+       vddl_1v8: fixedregulator@0 {
+           compatible = "regulator-fixed";
+           regulator-name = "Power Input for the Logic-Side";
+           regulator-min-microvolt = <1800000>;
+           regulator-max-microvolt = <1800000>;
+           regulator-boot-on;
+           regulator-always-on;
+       };
+
+       vddpl_3v3: fixedregulator@1 {
+           compatible = "regulator-fixed";
+           regulator-name = "Power Input for the Isolated DC-DC Converter";
+           regulator-min-microvolt = <3300000>;
+           regulator-max-microvolt = <3300000>;
+           regulator-boot-on;
+           regulator-always-on;
+       };
+   };
+
+   &spi0 {
+       status = "okay";
+
+       max22531@0 {
+           compatible = "adi,max22531";
+           reg = <0>;  /* Using CS0 on spi0 */
+           spi-max-frequency = <5000000>;
+           vddl-supply = <&vddl_1v8>;
+           vddpl-supply = <&vddpl_3v3>;
+       };
+   };
+
+   &spidev0 {
+       status = "disabled";
+   };
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+.. tip::
+
+   An example program whiroot@analog:/sys/bus/iio/devices# ls -lch uses the
+   interface can be found here:
+
+   - :external+documentation:ref:`iio-oscilloscope`
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/name
+   max22531
+
+Show channel scale
+^^^^^^^^^^^^^^^^^^
+
+**Description:** Scale to be applied to in_voltageX_raw in order to obtain the
+measured voltage in millivolts
+
+::
+
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/in_voltage_scale
+   0.439453125
+
+Example test single-shot readings through IIO device sysfs interface.
+
+::
+
+   root@rpi5:~# ls -l /sys/bus/iio/devices/iio\:device0/
+   total 0
+   -rw-r--r-- 1 root root 16384 Aug 21 22:44 in_voltage0_mean_raw
+   -rw-r--r-- 1 root root 16384 Aug 21 22:44 in_voltage0_raw
+   -rw-r--r-- 1 root root 16384 Aug 21 22:44 in_voltage1_mean_raw
+   -rw-r--r-- 1 root root 16384 Aug 21 22:44 in_voltage1_raw
+   -rw-r--r-- 1 root root 16384 Aug 21 22:44 in_voltage2_mean_raw
+   -rw-r--r-- 1 root root 16384 Aug 21 22:44 in_voltage2_raw
+   -rw-r--r-- 1 root root 16384 Aug 21 22:44 in_voltage3_mean_raw
+   -rw-r--r-- 1 root root 16384 Aug 21 22:44 in_voltage3_raw
+   -rw-r--r-- 1 root root 16384 Aug 21 22:44 in_voltage_scale
+   -r--r--r-- 1 root root 16384 Aug 21 22:41 name
+   lrwxrwxrwx 1 root root     0 Aug 21 22:44 of_node -> ../../../../../../../../../firmware/devicetree/base/axi/pcie@1000120000/rp1/spi@50000/max22531@0
+   drwxr-xr-x 2 root root     0 Aug 21 22:44 power
+   lrwxrwxrwx 1 root root     0 Aug 21 22:44 subsystem -> ../../../../../../../../../bus/iio
+   -rw-r--r-- 1 root root 16384 Aug 21 22:41 uevent
+   -r--r--r-- 1 root root 16384 Aug 21 22:44 waiting_for_supplier
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/in_voltage0_raw
+   131
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/in_voltage1_raw
+   133
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/in_voltage2_raw
+   1
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/in_voltage3_raw
+   1
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/in_voltage0_mean_raw
+   131
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/in_voltage1_mean_raw
+   133
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/in_voltage2_mean_raw
+   1
+   root@rpi5:~# cat /sys/bus/iio/devices/iio\:device0/in_voltage3_mean_raw
+   1
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
