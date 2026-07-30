@@ -53,6 +53,8 @@ int amdgpu_discovery_get_nps_info(struct amdgpu_device *adev,
 				  int *range_cnt, bool refresh);
 int amdgpu_discovery_get_gc_major_minor_version(struct amdgpu_device *adev,
 						uint16_t *major, uint16_t *minor);
+int amdgpu_discovery_get_die_rev_id(struct amdgpu_device *adev,
+				    uint16_t *die_rev_id);
 
 void amdgpu_discovery_dump(struct amdgpu_device *adev, struct drm_printer *p);
 

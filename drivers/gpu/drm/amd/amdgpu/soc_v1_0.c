@@ -49,6 +49,23 @@
 #define NORMALIZE_MID_REG_OFFSET(offset) \
 		(offset & 0x3FFFF)
 
+/*
+ * die_info[0].die_id from IP discovery encodes the silicon revision:
+ *   bit[15:12] Reserved
+ *   bit[11:8] MID revision
+ *   bit[7:4]  AID revision
+ *   bit[3:0]  XCD revision
+ * The value is copied into adev->rev_id[15:0] (rev_id[31:16] are 0) and mapped
+ * to adev->external_rev_id below.
+ */
+#define SOC_V1_0_DIE_REV_XCD__SHIFT 0
+#define SOC_V1_0_DIE_REV_AID__SHIFT 4
+#define SOC_V1_0_DIE_REV_MID__SHIFT 8
+#define SOC_V1_0_DIE_REV(mid, aid, xcd)           \
+	(((mid) << SOC_V1_0_DIE_REV_MID__SHIFT) | \
+	 ((aid) << SOC_V1_0_DIE_REV_AID__SHIFT) | \
+	 ((xcd) << SOC_V1_0_DIE_REV_XCD__SHIFT))
+
 static const struct amdgpu_video_codecs vcn_5_0_2_video_codecs_encode_vcn0 = {
 	.codec_count = 0,
 	.codec_array = NULL,
@@ -326,9 +343,60 @@ static const struct amdgpu_asic_funcs soc_v1_0_asic_funcs = {
 	.get_fw_reserved_info = &soc_v1_0_get_fw_reserved_info,
 };
 
+enum soc_v1_0_external_rev_id {
+	SOC_V1_0_MID_A0_AID_A0_XCD_A0 = 0x1,
+	SOC_V1_0_MID_A0_AID_A0_XCD_B0 = 0x2,
+	SOC_V1_0_MID_A0_AID_A1_XCD_A0 = 0x3,
+	SOC_V1_0_MID_A0_AID_A1_XCD_B0 = 0x4,
+};
+
+static int soc_v1_0_set_rev_id(struct amdgpu_device *adev)
+{
+	u16 die_rev_id = 0, xcd_rev_id;
+	int r;
+
+	xcd_rev_id = amdgpu_device_get_rev_id(adev);
+	r = amdgpu_discovery_get_die_rev_id(adev, &die_rev_id);
+	if (r) {
+		die_rev_id = 0;
+		dev_warn(adev->dev,
+			"missing die rev id from ip discovery, assuming 0\n");
+	}
+
+	/*
+	 * FIXME: XCD revision is not yet populated in die_info[0].die_id by
+	 * ASP firmware. Use the PCI revision ID register as a temporary
+	 * fallback until firmware support is available.
+	 */
+	die_rev_id |= xcd_rev_id << SOC_V1_0_DIE_REV_XCD__SHIFT;
+	adev->rev_id = die_rev_id;
+
+	/* SOC_V1_0_DIE_REV(mid_rev, aid_rev, xcd_rev) */
+	switch (die_rev_id) {
+	case SOC_V1_0_DIE_REV(0, 0, 0):
+		adev->external_rev_id = SOC_V1_0_MID_A0_AID_A0_XCD_A0;
+		break;
+	case SOC_V1_0_DIE_REV(0, 0, 1):
+		adev->external_rev_id = SOC_V1_0_MID_A0_AID_A0_XCD_B0;
+		break;
+	case SOC_V1_0_DIE_REV(0, 1, 0):
+		adev->external_rev_id = SOC_V1_0_MID_A0_AID_A1_XCD_A0;
+		break;
+	case SOC_V1_0_DIE_REV(0, 1, 1):
+		adev->external_rev_id = SOC_V1_0_MID_A0_AID_A1_XCD_B0;
+		break;
+	default:
+		dev_warn(adev->dev, "unknown die rev id 0x%x\n", die_rev_id);
+		break;
+	}
+
+	return 0;
+}
+
 static int soc_v1_0_common_early_init(struct amdgpu_ip_block *ip_block)
 {
 	struct amdgpu_device *adev = ip_block->adev;
+	int r;
 
 	adev->reg.pcie.rreg = &amdgpu_device_indirect_rreg;
 	adev->reg.pcie.wreg = &amdgpu_device_indirect_wreg;
@@ -343,14 +411,14 @@ static int soc_v1_0_common_early_init(struct amdgpu_ip_block *ip_block)
 
 	adev->asic_funcs = &soc_v1_0_asic_funcs;
 
-	adev->rev_id = amdgpu_device_get_rev_id(adev);
-	adev->external_rev_id = 0xff;
+	r = soc_v1_0_set_rev_id(adev);
+	if (r)
+		return r;
 
 	switch (amdgpu_ip_version(adev, GC_HWIP, 0)) {
 	case IP_VERSION(12, 1, 0):
 		adev->cg_flags = 0;
 		adev->pg_flags = AMD_PG_SUPPORT_VCN_DPG;
-		adev->external_rev_id = adev->rev_id + 0x50;
 		break;
 	default:
 		/* FIXME: not supported yet */

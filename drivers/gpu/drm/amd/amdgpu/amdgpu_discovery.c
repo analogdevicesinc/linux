@@ -4038,3 +4038,27 @@ int amdgpu_discovery_get_gc_major_minor_version(struct amdgpu_device *adev,
 		*minor = le16_to_cpu(gc_info->v1.header.version_minor);
 	return 0;
 }
+
+int amdgpu_discovery_get_die_rev_id(struct amdgpu_device *adev,
+				    uint16_t *die_rev_id)
+{
+	uint8_t *discovery_bin = adev->discovery.bin;
+	struct ip_discovery_header *ihdr;
+	struct table_info *info;
+	u16 offset;
+
+	if (!discovery_bin)
+		return -EINVAL;
+	if (amdgpu_discovery_get_table_info(adev, &info, IP_DISCOVERY))
+		return -EINVAL;
+
+	offset = le16_to_cpu(info->offset);
+	if (!offset)
+		return -EINVAL;
+
+	ihdr = (struct ip_discovery_header *)(discovery_bin + offset);
+
+	if (die_rev_id)
+		*die_rev_id = le16_to_cpu(ihdr->die_info[0].die_id);
+	return 0;
+}
