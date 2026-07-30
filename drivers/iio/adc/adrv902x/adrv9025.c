@@ -1574,10 +1574,57 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 			chan_no = chan->channel;
 
 			if (chan_no > CHAN_RX4) {
-				ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
-								 &txchan);
-				if (ret) {
-					ret = adrv9025_dev_err(phy);
+
+				switch (adrv9025_orx_get_mode(phy)) {
+				case ADI_ADRV9025_ORX_EN_DUAL_CH_4PIN_MODE: {
+					int sel = adrv9025_get_obs_rx_path(indio_dev, chan);
+
+					dev_warn(&phy->spi->dev,
+						 "DEBUG write_raw: 4pin path, chan_no=%d val=%d set_obs_rx_path ret sel=%d\n",
+						 chan_no, val, sel);
+
+					if (sel < 0) {
+						ret = sel;
+						goto out;
+					}
+
+					if (chan_no == CHAN_OBS_RX1)
+						chan_no = sel ? CHAN_OBS_RX2 : CHAN_OBS_RX1;
+					else if (chan_no == CHAN_OBS_RX2)
+						chan_no = sel ? CHAN_OBS_RX4 : CHAN_OBS_RX3;
+					break;
+				}
+				case ADI_ADRV9025_ORX_EN_SPI_MODE:
+					ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rxchan,
+									 &txchan);
+					if (ret) {
+						ret = adrv9025_dev_err(phy);
+						goto out;
+					}
+
+					if (chan_no == CHAN_OBS_RX1) {
+						if (rxchan & ADI_ADRV9025_ORX1 && !(rxchan & ADI_ADRV9025_ORX2)) {
+							chan_no = CHAN_OBS_RX1;
+						} else if (!(rxchan & ADI_ADRV9025_ORX1) && (rxchan & ADI_ADRV9025_ORX2)) {
+							chan_no = CHAN_OBS_RX2;
+						} else {
+							ret = -EINVAL;
+							goto out;
+						}
+					} else if (chan_no == CHAN_OBS_RX2) {
+						if (rxchan & ADI_ADRV9025_ORX3 && !(rxchan & ADI_ADRV9025_ORX4)) {
+							chan_no = CHAN_OBS_RX3;
+						} else if (!(rxchan & ADI_ADRV9025_ORX3) && (rxchan & ADI_ADRV9025_ORX4)) {
+							chan_no = CHAN_OBS_RX4;
+						} else {
+							ret = -EINVAL;
+							goto out;
+						}
+					}
+					break;
+				
+				default:
+					ret = -EINVAL;
 					goto out;
 				}
 
@@ -1608,8 +1655,8 @@ static int adrv9025_phy_write_raw(struct iio_dev *indio_dev,
 				break;
 
 			rxGain.gainIndex = code;
-			rxGain.rxChannelMask = 1 << chan_no;
 
+			rxGain.rxChannelMask = 1 << chan_no;
 			ret = adi_adrv9025_RxGainSet(phy->madDevice, &rxGain,
 						     1);
 			if (ret)
