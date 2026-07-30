@@ -5,6 +5,7 @@
 {% set ser_out_label = ser_label ~ '_out' %}
 {% set ser_out_remote_label = des_in_label_x(ser_idx) %}
 {% set i2c_label = des_i2c_label_x(ser_idx) %}
+{% set mfp8_fsync_label = ser_label ~ '_mfp8_fsync' %}
 {% macro ser_in_label_x(x) -%}
 	{{ ser_label ~ '_in_' ~ x }}
 {%- endmacro %}
@@ -53,6 +54,17 @@
 			{{ser_out_label}}: endpoint {
 				remote-endpoint = <&{{ser_out_remote_label}}>;
 			};
+		};
+	};
+
+	pins {
+		{{mfp8_fsync_label}}: {{mfp8_fsync_label}} {
+			pins = "mfp8";
+			function = "gpio";
+			bias-pull-up;
+			output-enable;
+			maxim,gmsl-rx = <1>;
+			maxim,gmsl-rx-id = <8>;
 		};
 	};
 };

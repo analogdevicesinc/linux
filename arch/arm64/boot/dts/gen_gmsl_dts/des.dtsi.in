@@ -110,6 +110,76 @@
 };
 {% endfor %}
 
+&{{des_label}} {
+	pinctrl-0 = <&{{des_label}}_mfp0_fsync0 &{{des_label}}_mfp1_fsync1 &{{des_label}}_mfp2_fsync2 &{{des_label}}_mfp3_fsync3>;
+	pinctrl-names = "default";
+	pins {
+		{{des_label}}_mfp0_fsync0: mfp0_fsync0 {
+			pins = "mfp0";
+			function = "gpio";
+			bias-pull-up;
+			input-enable;
+			maxim,jitter-compensation = <1>;
+			maxim,gmsl-tx-a = <1>;
+			maxim,gmsl-tx-id-a = <8>;
+			maxim,gmsl-tx-b = <0>;
+			maxim,gmsl-tx-id-b = <8>;
+			maxim,gmsl-tx-c = <0>;
+			maxim,gmsl-tx-id-c = <8>;
+			maxim,gmsl-tx-d = <0>;
+			maxim,gmsl-tx-id-d = <8>;
+		};
+
+		{{des_label}}_mfp1_fsync1: mfp1_fsync1 {
+			pins = "mfp1";
+			function = "gpio";
+			bias-pull-up;
+			input-enable;
+			maxim,jitter-compensation = <1>;
+			maxim,gmsl-tx-a = <0>;
+			maxim,gmsl-tx-id-a = <8>;
+			maxim,gmsl-tx-b = <1>;
+			maxim,gmsl-tx-id-b = <8>;
+			maxim,gmsl-tx-c = <0>;
+			maxim,gmsl-tx-id-c = <8>;
+			maxim,gmsl-tx-d = <0>;
+			maxim,gmsl-tx-id-d = <8>;
+		};
+
+		{{des_label}}_mfp2_fsync2: mfp2_fsync2 {
+			pins = "mfp2";
+			function = "gpio";
+			bias-pull-up;
+			input-enable;
+			maxim,jitter-compensation = <1>;
+			maxim,gmsl-tx-a = <0>;
+			maxim,gmsl-tx-id-a = <8>;
+			maxim,gmsl-tx-b = <0>;
+			maxim,gmsl-tx-id-b = <8>;
+			maxim,gmsl-tx-c = <1>;
+			maxim,gmsl-tx-id-c = <8>;
+			maxim,gmsl-tx-d = <0>;
+			maxim,gmsl-tx-id-d = <8>;
+		};
+
+		{{des_label}}_mfp3_fsync3: mfp3_fsync3 {
+			pins = "mfp3";
+			function = "gpio";
+			bias-pull-up;
+			input-enable;
+			maxim,jitter-compensation = <1>;
+			maxim,gmsl-tx-a = <0>;
+			maxim,gmsl-tx-id-a = <8>;
+			maxim,gmsl-tx-b = <0>;
+			maxim,gmsl-tx-id-b = <8>;
+			maxim,gmsl-tx-c = <0>;
+			maxim,gmsl-tx-id-c = <8>;
+			maxim,gmsl-tx-d = <1>;
+			maxim,gmsl-tx-id-d = <8>;
+		};
+	};
+};
+
 {% for ser_cfg in des_cfg.links %}
 	{% set ser_idx = loop.index0 %}
 	{% include '%s.dtsi.in' % ser_cfg.name %}
