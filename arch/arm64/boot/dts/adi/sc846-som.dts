@@ -7,6 +7,7 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/adi-adsp.h>
+#include <dt-bindings/soc/adi/sc5xx-tru.h>
 #include <dt-bindings/pinctrl/adi-adsp-sru.h>
 
 #include "sc846.dtsi"
@@ -77,7 +78,7 @@
 		adi,rsc-table = <&rsc_tbl0>;
 		adi,verify = <1>;
 		adi,tru = <&tru>;
-		adi,tru-master-id = <171>; /* trigger master SOFT4 */
+		adi,tru-master-id = <ADI_TRU_MST_SOFT(4)>;
 		status = "okay";
 	};
 };
