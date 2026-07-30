@@ -20,14 +20,8 @@
 #include <linux/completion.h>
 #include <sound/pcm_params.h>
 
-#if IS_ENABLED(CONFIG_SND_SC5XX_SPORT_SHARC)
-#include <linux/workqueue.h>
-#include <linux/rpmsg.h>
-#include "icap/include/icap_application.h"
-#endif
 
 #define TDM_MAX_SLOTS 8
-#define SHARC_CORES_NUM 2
 
 #define SPORT_CTL_SPENPRI        0x00000001 /* Enable Primary Channel */
 
@@ -153,45 +147,6 @@ struct sport_device {
 
 	unsigned int dai_format;
 
-#if IS_ENABLED(CONFIG_SND_SC5XX_SPORT_SHARC)
-
-	struct icap_instance icap[SHARC_CORES_NUM];
-	spinlock_t icap_spinlock;
-
-	u32 sharc_tx_core;
-	u32 sharc_rx_core;
-
-	u32 icap_tx_dev_id;
-	u32 icap_rx_dev_id;
-
-	struct work_struct get_sharc1_feature_work;
-	struct work_struct get_sharc2_feature_work;
-
-	struct snd_dma_buffer sharc_tx_dma_buf;
-	struct snd_dma_buffer sharc_rx_dma_buf;
-
-	size_t sharc_tx_buf_pos;
-	size_t sharc_rx_buf_pos;
-	spinlock_t sharc_tx_buf_pos_lock;
-	spinlock_t sharc_rx_buf_pos_lock;
-
-	u32 tx_alsa_icap_buf_id;
-	u32 tx_dma_icap_buf_id;
-	u32 rx_alsa_icap_buf_id;
-	u32 rx_dma_icap_buf_id;
-
-	struct work_struct send_tx_start_work;
-	struct work_struct send_rx_start_work;
-
-	struct work_struct send_tx_stop_work;
-	struct work_struct send_rx_stop_work;
-
-	struct wait_queue_head pending_tx_stop_event;
-	struct wait_queue_head pending_rx_stop_event;
-
-	u32 pending_tx_stop;
-	u32 pending_rx_stop;
-#endif
 };
 
 struct sport_params {
@@ -224,10 +179,5 @@ int sport_config_rx_dma(struct sport_device *sport, void *buf,
 unsigned long sport_curr_offset_tx(struct sport_device *sport);
 unsigned long sport_curr_offset_rx(struct sport_device *sport);
 
-#if IS_ENABLED(CONFIG_SND_SC5XX_SPORT_SHARC)
-int rpmsg_icap_sport_probe(struct rpmsg_device *rpdev);
-int rpmsg_icap_sport_cb(struct rpmsg_device *rpdev, void *data, int len, void *priv, u32 src);
-void rpmsg_icap_sport_remove(struct rpmsg_device *rpdev);
-#endif
 
 #endif

@@ -21,7 +21,6 @@
 #include <sound/pcm_params.h>
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
-#include <linux/rpmsg.h>
 
 #include "sc5xx-sport.h"
 
@@ -192,35 +191,6 @@ static struct platform_driver sc5xx_pcm_driver = {
 	.probe = sc5xx_soc_platform_probe,
 };
 
-#if IS_ENABLED(CONFIG_SND_SC5XX_SPORT_SHARC)
-static struct rpmsg_device_id rpmsg_icap_sport_id_table[] = {
-	{ .name = "icap-sport0-core1" },
-	{ .name = "icap-sport1-core1" },
-	{ .name = "icap-sport2-core1" },
-	{ .name = "icap-sport3-core1" },
-	{ .name = "icap-sport4-core1" },
-	{ .name = "icap-sport5-core1" },
-	{ .name = "icap-sport6-core1" },
-	{ .name = "icap-sport7-core1" },
-	{ .name = "icap-sport0-core2" },
-	{ .name = "icap-sport1-core2" },
-	{ .name = "icap-sport2-core2" },
-	{ .name = "icap-sport3-core2" },
-	{ .name = "icap-sport4-core2" },
-	{ .name = "icap-sport5-core2" },
-	{ .name = "icap-sport6-core2" },
-	{ .name = "icap-sport7-core2" },
-	{ },
-};
-static struct rpmsg_driver rpmsg_icap_sport = {
-	.drv.name  = KBUILD_MODNAME,
-	.drv.owner = THIS_MODULE,
-	.id_table  = rpmsg_icap_sport_id_table,
-	.probe     = rpmsg_icap_sport_probe,
-	.callback  = rpmsg_icap_sport_cb,
-	.remove    = rpmsg_icap_sport_remove,
-};
-#endif
 
 static struct platform_device *sc5xx_pcm_dev;
 
@@ -241,16 +211,6 @@ static int sc5xx_pcm_driver_init(void)
 		return PTR_ERR(sc5xx_pcm_dev);
 	}
 
-#if IS_ENABLED(CONFIG_SND_SC5XX_SPORT_SHARC)
-	ret = register_rpmsg_driver(&rpmsg_icap_sport);
-	if (ret < 0) {
-		pr_err("sc5xx_pcm_driver: failed to register rpmsg driver\n");
-		platform_device_unregister(sc5xx_pcm_dev);
-		platform_driver_unregister(&sc5xx_pcm_driver);
-		return ret;
-	}
-#endif
-
 	return 0;
 }
 module_init(sc5xx_pcm_driver_init);
@@ -259,9 +219,6 @@ static void sc5xx_pcm_driver_exit(void)
 {
 	platform_device_unregister(sc5xx_pcm_dev);
 	platform_driver_unregister(&sc5xx_pcm_driver);
-#if IS_ENABLED(CONFIG_SND_SC5XX_SPORT_SHARC)
-	unregister_rpmsg_driver(&rpmsg_icap_sport);
-#endif
 }
 module_exit(sc5xx_pcm_driver_exit);
 
