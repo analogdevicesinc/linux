@@ -54,6 +54,7 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	adi_apollo_coarse_nco_hop_t cnco_hop_config;
 	struct device *dev = &phy->spi->dev;
 	int ret, n_gpios;
+	u32 quick_cfg;
 
 	fnco_hop_config.nco_trig_hop_sel = ADI_APOLLO_FNCO_TRIG_HOP_FREQ_PHASE;
 	fnco_hop_config.profile_sel_mode = ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP;
@@ -76,6 +77,21 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 					 ADI_APOLLO_CNCO_ALL, &cnco_hop_config);
 	if (ret)
 		return ret;
+
+	ret = device_property_read_u32(dev, "adi,gpio-quick-config", &quick_cfg);
+	if (!ret) {
+		if (quick_cfg > ADI_APOLLO_QUICK_CFG_PROFILE_8)
+			return dev_err_probe(dev, -EINVAL,
+					     "Invalid GPIO quick config profile %u\n", quick_cfg);
+
+		ret = adi_apollo_gpio_quick_config_mode_set(&phy->ad9088, quick_cfg);
+		ret = ad9088_check_apollo_error(dev, ret,
+					       "adi_apollo_gpio_quick_config_mode_set");
+		if (ret)
+			return ret;
+
+		dev_dbg(dev, "Applied GPIO quick config profile %u\n", quick_cfg);
+	}
 
 	/* Read GPIO hop profile configuration directly into phy structure */
 	n_gpios = ad9088_read_gpio_hop_array(dev, "adi,gpio-hop-profile",
