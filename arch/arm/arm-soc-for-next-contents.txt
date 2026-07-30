@@ -14,6 +14,8 @@ soc/arm
 		ARM: sa1100: h3xxx: convert gpio-keys to use software nodes
 	lpc32xx/soc
 		https://github.com/vzapolskiy/linux-lpc32xx tags/lpc32xx-arm-for-7.3
+	imx/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-soc-7.3
 
 soc/dt
 	patch
@@ -37,6 +39,12 @@ soc/dt
 		https://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_dts_updates_for_v7.3
 	cix/dts
 		https://github.com/cixtech/linux-mainline tags/cix-dt-v7.3-rc1
+	imx/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt-7.3
+	mediatek/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts32-for-v7.3
+	mediatek/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts64-for-v7.3
 
 soc/drivers
 	ixp4xx/soc-drivers
@@ -51,6 +59,8 @@ soc/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-mem-ctrl tags/memory-controller-drv-7.3
 	exynos/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-7.3
+	mediatek/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-soc-for-v7.3
 
 soc/defconfig
 	riscv/defconfig
@@ -61,4 +71,8 @@ soc/late
 arm/fixes
 	broadcom/fixes
 		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.2/devicetree-arm64-fixes
+	imx/maintainers
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-maintainers-7.3
+	qcom/dt-fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-fixes-for-7.2
 
