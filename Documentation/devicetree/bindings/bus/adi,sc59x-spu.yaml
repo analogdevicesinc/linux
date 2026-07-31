@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bus/adi,sc59x-spu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices SC59x System Protection Unit
+
+maintainers:
+  - Ozan Durgut <ozan.durgut@analog.com>
+  - Analog Devices <linux@analog.com>
+
+description: |
+  The System Protection Unit (SPU) is the peripheral firewall of the
+  ADSP-SC59x processors. It sits between the system crossbar and the
+  peripheral MMR interface and can write-protect a peripheral's MMR space
+  from selected bus masters (SPU_WP[n]) and, with secure register access,
+  mark peripherals as secure completers (SPU_SECUREP[n]).
+
+  The protection to apply is described in the device tree and programmed at
+  probe. There is a single SPU instance (SPU0) at 0x3108B000 that raises a
+  protection and security violation interrupt (SEC ID 216).
+
+properties:
+  compatible:
+    const: adi,sc59x-spu
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    description: Protection and security violation interrupt (SEC ID 216)
+    maxItems: 1
+
+  adi,secure-access:
+    type: boolean
+    description: |
+      The driver has secure-mode access and can program the SPU secure
+      registers at offset 0x800 and above (SPU_SECURECTL, SPU_SECUREP[n]).
+      If absent, the driver only uses the write-protect registers and leaves
+      the secure registers untouched.
+
+  adi,write-protect:
+    $ref: /schemas/types.yaml#/definitions/uint32-matrix
+    description: |
+      List of <peripheral-id master-mask> pairs applied at probe. For each
+      pair, the master bits set in master-mask are written to the peripheral's
+      SPU_WP[n] register, blocking those bus masters from writing the
+      peripheral's MMR space. Bits 2:0 select core masters (CM), bits 18:16
+      select system masters (SM).
+    items:
+      minItems: 2
+      maxItems: 2
+
+  adi,secure-peripherals:
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    description: |
+      Peripheral IDs to mark as secure completers (SPU_SECUREP[n].SSEC), so
+      only secure transactions may access them. Requires adi,secure-access;
+      ignored otherwise.
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    spu: spu@3108b000 {
+        compatible = "adi,sc59x-spu";
+        reg = <0x3108b000 0x1000>;
+        interrupts = <GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>;
+        /* block core master 0 from writing peripherals 29 and 30 */
+        adi,write-protect = <29 0x1>, <30 0x1>;
+    };
