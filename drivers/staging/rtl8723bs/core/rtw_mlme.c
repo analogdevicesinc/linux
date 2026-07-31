@@ -2102,14 +2102,14 @@ signed int rtw_restruct_sec_ie(struct adapter *adapter, u8 *in_ie, u8 *out_ie, u
 
 void rtw_init_registrypriv_dev_network(struct adapter *adapter)
 {
-	struct registry_priv *pregistrypriv = &adapter->registrypriv;
+	struct registry_priv *registry_priv = &adapter->registrypriv;
 	struct eeprom_priv *peepriv = &adapter->eeprompriv;
-	struct wlan_bssid_ex *dev_network = &pregistrypriv->dev_network;
+	struct wlan_bssid_ex *dev_network = &registry_priv->dev_network;
 	u8 *myhwaddr = myid(peepriv);
 
 	memcpy(dev_network->mac_address, myhwaddr, ETH_ALEN);
 
-	memcpy(&dev_network->ssid, &pregistrypriv->ssid, sizeof(struct ndis_802_11_ssid));
+	memcpy(&dev_network->ssid, &registry_priv->ssid, sizeof(struct ndis_802_11_ssid));
 
 	dev_network->configuration.length = sizeof(struct ndis_802_11_conf);
 	dev_network->configuration.beacon_period = 100;
@@ -2118,8 +2118,8 @@ void rtw_init_registrypriv_dev_network(struct adapter *adapter)
 void rtw_update_registrypriv_dev_network(struct adapter *adapter)
 {
 	int sz = 0;
-	struct registry_priv *pregistrypriv = &adapter->registrypriv;
-	struct wlan_bssid_ex *dev_network = &pregistrypriv->dev_network;
+	struct registry_priv *registry_priv = &adapter->registrypriv;
+	struct wlan_bssid_ex *dev_network = &registry_priv->dev_network;
 	struct security_priv *psecuritypriv = &adapter->securitypriv;
 	struct wlan_network *cur_network = &adapter->mlmepriv.cur_network;
 
@@ -2127,7 +2127,7 @@ void rtw_update_registrypriv_dev_network(struct adapter *adapter)
 
 	dev_network->rssi = 0;
 
-	dev_network->configuration.ds_config = (pregistrypriv->channel);
+	dev_network->configuration.ds_config = (registry_priv->channel);
 
 	if (cur_network->network.infrastructure_mode == NL80211_IFTYPE_ADHOC)
 		dev_network->configuration.atim_window = (0);
@@ -2137,8 +2137,8 @@ void rtw_update_registrypriv_dev_network(struct adapter *adapter)
 	/*  1. Supported rates */
 	/*  2. IE */
 
-	/* rtw_set_supported_rate(dev_network->supported_rates, pregistrypriv->wireless_mode) ;  will be called in rtw_generate_ie */
-	sz = rtw_generate_ie(pregistrypriv);
+	/* rtw_set_supported_rate(dev_network->supported_rates, registry_priv->wireless_mode) ;  will be called in rtw_generate_ie */
+	sz = rtw_generate_ie(registry_priv);
 
 	dev_network->ie_length = sz;
 
@@ -2182,28 +2182,28 @@ void rtw_ht_use_default_setting(struct adapter *adapter)
 {
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
 	struct ht_priv *ht_priv = &mlme_priv->htpriv;
-	struct registry_priv *pregistrypriv = &adapter->registrypriv;
+	struct registry_priv *registry_priv = &adapter->registrypriv;
 	bool bHwLDPCSupport = false, bHwSTBCSupport = false;
 	bool bHwSupportBeamformer = false, bHwSupportBeamformee = false;
 
-	if (pregistrypriv->wifi_spec)
+	if (registry_priv->wifi_spec)
 		ht_priv->bss_coexist = 1;
 	else
 		ht_priv->bss_coexist = 0;
 
-	ht_priv->sgi_40m = TEST_FLAG(pregistrypriv->short_gi, BIT(1)) ? true : false;
-	ht_priv->sgi_20m = TEST_FLAG(pregistrypriv->short_gi, BIT(0)) ? true : false;
+	ht_priv->sgi_40m = TEST_FLAG(registry_priv->short_gi, BIT(1)) ? true : false;
+	ht_priv->sgi_20m = TEST_FLAG(registry_priv->short_gi, BIT(0)) ? true : false;
 
 	/*  LDPC support */
 	rtw_hal_get_def_var(adapter, HAL_DEF_RX_LDPC, (u8 *)&bHwLDPCSupport);
 	CLEAR_FLAGS(ht_priv->ldpc_cap);
 	if (bHwLDPCSupport) {
-		if (TEST_FLAG(pregistrypriv->ldpc_cap, BIT(4)))
+		if (TEST_FLAG(registry_priv->ldpc_cap, BIT(4)))
 			SET_FLAG(ht_priv->ldpc_cap, LDPC_HT_ENABLE_RX);
 	}
 	rtw_hal_get_def_var(adapter, HAL_DEF_TX_LDPC, (u8 *)&bHwLDPCSupport);
 	if (bHwLDPCSupport) {
-		if (TEST_FLAG(pregistrypriv->ldpc_cap, BIT(5)))
+		if (TEST_FLAG(registry_priv->ldpc_cap, BIT(5)))
 			SET_FLAG(ht_priv->ldpc_cap, LDPC_HT_ENABLE_TX);
 	}
 
@@ -2211,12 +2211,12 @@ void rtw_ht_use_default_setting(struct adapter *adapter)
 	rtw_hal_get_def_var(adapter, HAL_DEF_TX_STBC, (u8 *)&bHwSTBCSupport);
 	CLEAR_FLAGS(ht_priv->stbc_cap);
 	if (bHwSTBCSupport) {
-		if (TEST_FLAG(pregistrypriv->stbc_cap, BIT(5)))
+		if (TEST_FLAG(registry_priv->stbc_cap, BIT(5)))
 			SET_FLAG(ht_priv->stbc_cap, STBC_HT_ENABLE_TX);
 	}
 	rtw_hal_get_def_var(adapter, HAL_DEF_RX_STBC, (u8 *)&bHwSTBCSupport);
 	if (bHwSTBCSupport) {
-		if (TEST_FLAG(pregistrypriv->stbc_cap, BIT(4)))
+		if (TEST_FLAG(registry_priv->stbc_cap, BIT(4)))
 			SET_FLAG(ht_priv->stbc_cap, STBC_HT_ENABLE_RX);
 	}
 
@@ -2224,10 +2224,10 @@ void rtw_ht_use_default_setting(struct adapter *adapter)
 	rtw_hal_get_def_var(adapter, HAL_DEF_EXPLICIT_BEAMFORMER, (u8 *)&bHwSupportBeamformer);
 	rtw_hal_get_def_var(adapter, HAL_DEF_EXPLICIT_BEAMFORMEE, (u8 *)&bHwSupportBeamformee);
 	CLEAR_FLAGS(ht_priv->beamform_cap);
-	if (TEST_FLAG(pregistrypriv->beamform_cap, BIT(4)) && bHwSupportBeamformer)
+	if (TEST_FLAG(registry_priv->beamform_cap, BIT(4)) && bHwSupportBeamformer)
 		SET_FLAG(ht_priv->beamform_cap, BEAMFORMING_HT_BEAMFORMER_ENABLE);
 
-	if (TEST_FLAG(pregistrypriv->beamform_cap, BIT(5)) && bHwSupportBeamformee)
+	if (TEST_FLAG(registry_priv->beamform_cap, BIT(5)) && bHwSupportBeamformee)
 		SET_FLAG(ht_priv->beamform_cap, BEAMFORMING_HT_BEAMFORMEE_ENABLE);
 }
 
@@ -2253,7 +2253,7 @@ unsigned int rtw_restructure_ht_ie(struct adapter *adapter, u8 *in_ie, u8 *out_i
 	unsigned char *p;
 	struct ieee80211_ht_cap ht_capie;
 	u8 cbw40_enable = 0, stbc_rx_enable = 0, operation_bw = 0;
-	struct registry_priv *pregistrypriv = &adapter->registrypriv;
+	struct registry_priv *registry_priv = &adapter->registrypriv;
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
 	struct ht_priv *ht_priv = &mlme_priv->htpriv;
 	struct mlme_ext_priv *pmlmeext = &adapter->mlmeextpriv;
@@ -2302,7 +2302,7 @@ unsigned int rtw_restructure_ht_ie(struct adapter *adapter, u8 *in_ie, u8 *out_i
 	}
 
 	/* to disable 40M Hz support while gd_bw_40MHz_en = 0 */
-	if ((pregistrypriv->bw_mode & 0x0f) > 0)
+	if ((registry_priv->bw_mode & 0x0f) > 0)
 		cbw40_enable = 1;
 
 	if ((cbw40_enable == 1) && (operation_bw == CHANNEL_WIDTH_40)) {
@@ -2318,8 +2318,8 @@ unsigned int rtw_restructure_ht_ie(struct adapter *adapter, u8 *in_ie, u8 *out_i
 	ht_capie.cap_info |= cpu_to_le16(IEEE80211_HT_CAP_SM_PS);
 
 	if (TEST_FLAG(ht_priv->stbc_cap, STBC_HT_ENABLE_RX)) {
-		if ((channel <= 14 && pregistrypriv->rx_stbc == 0x1) ||	/* enable for 2.4GHz */
-			(pregistrypriv->wifi_spec == 1))
+		if ((channel <= 14 && registry_priv->rx_stbc == 0x1) ||	/* enable for 2.4GHz */
+			(registry_priv->wifi_spec == 1))
 			stbc_rx_enable = 1;
 	}
 
@@ -2377,7 +2377,7 @@ void rtw_update_ht_cap(struct adapter *adapter, u8 *pie, uint ie_len, u8 channel
 	struct ieee80211_ht_cap *pht_capie;
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
 	struct ht_priv *ht_priv = &mlme_priv->htpriv;
-	struct registry_priv *pregistrypriv = &adapter->registrypriv;
+	struct registry_priv *registry_priv = &adapter->registrypriv;
 	struct mlme_ext_priv *pmlmeext = &adapter->mlmeextpriv;
 	struct mlme_ext_info *pmlmeinfo = &pmlmeext->mlmext_info;
 	u8 cbw40_enable = 0;
@@ -2389,7 +2389,7 @@ void rtw_update_ht_cap(struct adapter *adapter, u8 *pie, uint ie_len, u8 channel
 		return;
 
 	/* maybe needs check if ap supports rx ampdu. */
-	if (!(ht_priv->ampdu_enable) && pregistrypriv->ampdu_enable == 1)
+	if (!(ht_priv->ampdu_enable) && registry_priv->ampdu_enable == 1)
 		ht_priv->ampdu_enable = true;
 
 	/* check Max Rx A-MPDU Size */
@@ -2409,7 +2409,7 @@ void rtw_update_ht_cap(struct adapter *adapter, u8 *pie, uint ie_len, u8 channel
 		/* todo: */
 	}
 
-	if ((pregistrypriv->bw_mode & 0x0f) > 0)
+	if ((registry_priv->bw_mode & 0x0f) > 0)
 		cbw40_enable = 1;
 
 	/* update cur_bwmode & cur_ch_offset */
