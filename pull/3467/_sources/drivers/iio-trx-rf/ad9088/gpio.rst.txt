@@ -128,7 +128,10 @@ Where ``f=profile_fcn_sel``, ``u=unused``, ``t=profile_tx_rxn``,
 ``s=profile_txrx_slice``, ``BA=profile_txrx_BA``, and
 ``p=profile_fcn_sel``.
 
-For the RX side, replace ``fnco`` with ``cnco`` and set ``8=1`` for
+For the RX side, replace the ``out_`` attributes with ``in_``.
+
+To configure and use the CNCO instead of FNCO, replace ``_fnco_`` with
+``_cnco_`` in the properties and set ``8=1`` for
 ``profile_fcn_sel[3:0]=ADI_APOLLO_GPIO_BLOCK_CNCO``.
 
 GPIO chip
