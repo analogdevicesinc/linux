@@ -196,12 +196,15 @@ static ssize_t adrv904x_phy_store(struct device *dev,
 			else
 				phy->cal_mask.calMask &= ~val;
 		} else if (enable) {
-			phy->cal_mask.orxChannelMask =
-				phy->adrv904xPostMcsInitInst.initCals.orxChannelMask;
-			phy->cal_mask.rxChannelMask =
-				phy->adrv904xPostMcsInitInst.initCals.rxChannelMask;
-			phy->cal_mask.txChannelMask =
-				phy->adrv904xPostMcsInitInst.initCals.txChannelMask;
+			if (!phy->cal_mask.orxChannelMask)
+				phy->cal_mask.orxChannelMask =
+					phy->adrv904xPostMcsInitInst.initCals.orxChannelMask;
+			if (!phy->cal_mask.rxChannelMask)
+				phy->cal_mask.rxChannelMask =
+					phy->adrv904xPostMcsInitInst.initCals.rxChannelMask;
+			if (!phy->cal_mask.txChannelMask)
+				phy->cal_mask.txChannelMask =
+					phy->adrv904xPostMcsInitInst.initCals.txChannelMask;
 
 			/* Run Init Cals */
 			ret = adrv904x_api_call(phy, adi_adrv904x_InitCalsRun,
