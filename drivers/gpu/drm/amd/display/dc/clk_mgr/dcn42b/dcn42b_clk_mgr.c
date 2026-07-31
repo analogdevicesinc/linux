@@ -618,6 +618,7 @@ void dcn42b_clk_mgr_construct(
 
 	clk_mgr->base.dccg = dccg;
 	clk_mgr->base.dfs_bypass_disp_clk = 0;
+	clk_mgr->max_bypass_clk_khz = 0;
 
 	clk_mgr->base.dprefclk_ss_percentage = 0;
 	clk_mgr->base.dprefclk_ss_divider = 1000;

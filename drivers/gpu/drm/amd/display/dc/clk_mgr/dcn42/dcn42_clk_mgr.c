@@ -214,6 +214,7 @@ void dcn42_update_clocks(struct clk_mgr *clk_mgr_base,
 {
 	union dmub_rb_cmd cmd;
 	struct clk_mgr_internal *clk_mgr = TO_CLK_MGR_INTERNAL(clk_mgr_base);
+	struct clk_mgr_dcn42 *clk_mgr_dcn42 = TO_CLK_MGR_DCN42(clk_mgr);
 	struct dc_clocks *new_clocks = &context->bw_ctx.bw.dcn.clk;
 	struct dc *dc = clk_mgr_base->ctx->dc;
 	bool update_dppclk = false;
@@ -364,6 +365,16 @@ void dcn42_update_clocks(struct clk_mgr *clk_mgr_base,
 		clk_mgr_base->clks.dcfclk_deep_sleep_khz;
 	cmd.notify_clocks.clocks.dispclk_khz = clk_mgr_base->clks.dispclk_khz;
 	cmd.notify_clocks.clocks.dppclk_khz = clk_mgr_base->clks.dppclk_khz;
+	/* Communicate the minimum (DPM0) clocks and bypass ceiling so DMUB does not
+	 * assume hardcoded per-ASIC values (e.g. for Z8-Retention clock lowering).
+	 * DPM0 is the lowest populated DPM level (entries[0]); 0 when the SMU DPM
+	 * table is unavailable, in which case DMUB falls back to its own defaults.
+	 */
+	cmd.notify_clocks.clocks.dpm0_dispclk_khz =
+		clk_mgr_base->bw_params->clk_table.entries[0].dispclk_mhz * 1000;
+	cmd.notify_clocks.clocks.dpm0_dppclk_khz =
+		clk_mgr_base->bw_params->clk_table.entries[0].dppclk_mhz * 1000;
+	cmd.notify_clocks.clocks.max_bypass_clk_khz = clk_mgr_dcn42->max_bypass_clk_khz;
 
 	dc_wake_and_execute_dmub_cmd(dc->ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
 }
@@ -1113,6 +1124,7 @@ void dcn42_clk_mgr_construct(
 
 	clk_mgr->base.dccg = dccg;
 	clk_mgr->base.dfs_bypass_disp_clk = 0;
+	clk_mgr->max_bypass_clk_khz = 0;
 
 	clk_mgr->base.dprefclk_ss_percentage = 0;
 	clk_mgr->base.dprefclk_ss_divider = 1000;

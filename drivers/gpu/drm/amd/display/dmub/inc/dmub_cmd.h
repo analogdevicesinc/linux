@@ -3009,6 +3009,9 @@ struct dmub_clocks {
 	uint32_t dppclk_khz; /**< dppclk kHz */
 	uint32_t dcfclk_khz; /**< dcfclk kHz */
 	uint32_t dcfclk_deep_sleep_khz; /**< dcfclk deep sleep kHz */
+	uint32_t dpm0_dispclk_khz; /**< DPM0 (minimum) dispclk kHz from SMU DPM table, 0 if unknown */
+	uint32_t dpm0_dppclk_khz; /**< DPM0 (minimum) dppclk kHz from SMU DPM table, 0 if unknown */
+	uint32_t max_bypass_clk_khz; /**< max dispclk/dppclk achievable on a bypass source (no PLL) kHz, 0 if unknown */
 };
 
 /**
