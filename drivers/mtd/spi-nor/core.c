@@ -1823,7 +1823,6 @@ static int spi_nor_erase_dice(struct spi_nor *nor, loff_t addr,
 static int spi_nor_erase(struct mtd_info *mtd, struct erase_info *instr)
 {
 	struct spi_nor *nor = mtd_to_spi_nor(mtd);
-	struct spi_nor_flash_parameter *params = nor->params;
 	u8 n_dice = nor->params->n_dice;
 	bool multi_die_erase = false;
 	u32 addr, len, rem;
@@ -1855,8 +1854,7 @@ static int spi_nor_erase(struct mtd_info *mtd, struct erase_info *instr)
 		return ret;
 
 	/* chip (die) erase? */
-	if ((len == mtd->size && !(params->flags & SNOR_F_NO_OP_CHIP_ERASE)) ||
-	    multi_die_erase) {
+	if (len == mtd->size || multi_die_erase) {
 		ret = spi_nor_erase_dice(nor, addr, len, die_size);
 		if (ret)
 			goto erase_err;

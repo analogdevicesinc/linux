@@ -121,10 +121,12 @@
 		   SPI_MEM_OP_NO_ADDR,					\
 		   SPI_MEM_OP_NO_DATA)
 
-/* Keep these in sync with the list in debugfs.c */
+/*
+ * This could contain holes, if adding a new flag use the first free spot.
+ * Keep the flags in sync with the list in debugfs.c
+ */
 enum spi_nor_option_flags {
 	SNOR_F_HAS_SR_TB	= BIT(0),
-	SNOR_F_NO_OP_CHIP_ERASE	= BIT(1),
 	SNOR_F_BROKEN_RESET	= BIT(2),
 	SNOR_F_4B_OPCODES	= BIT(3),
 	SNOR_F_HAS_4BAIT	= BIT(4),

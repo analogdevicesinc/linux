@@ -14,7 +14,6 @@
 #define SNOR_F_NAME(name) [ilog2(SNOR_F_##name)] = #name
 static const char *const snor_f_names[] = {
 	SNOR_F_NAME(HAS_SR_TB),
-	SNOR_F_NAME(NO_OP_CHIP_ERASE),
 	SNOR_F_NAME(BROKEN_RESET),
 	SNOR_F_NAME(4B_OPCODES),
 	SNOR_F_NAME(HAS_4BAIT),
@@ -144,10 +143,8 @@ static int spi_nor_params_show(struct seq_file *s, void *data)
 		}
 	}
 
-	if (!(params->flags & SNOR_F_NO_OP_CHIP_ERASE)) {
-		string_get_size(params->size, 1, STRING_UNITS_2, buf, sizeof(buf));
-		seq_printf(s, " %02x (%s)\n", params->die_erase_opcode, buf);
-	}
+	string_get_size(params->size, 1, STRING_UNITS_2, buf, sizeof(buf));
+	seq_printf(s, " %02x (%s)\n", params->die_erase_opcode, buf);
 
 	seq_puts(s, "\nsector map\n");
 	seq_puts(s, " region (in hex)   | erase mask | overlaid\n");
