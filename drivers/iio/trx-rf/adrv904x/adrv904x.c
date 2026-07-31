@@ -676,6 +676,7 @@ static ssize_t adrv904x_phy_tx_write(struct iio_dev *indio_dev,
 	struct adrv904x_rf_phy *phy = iio_priv(indio_dev);
 	adi_adrv904x_TrackingCalibrationMask_t calMask;
 	bool enable;
+	u8 mapping;
 	int ret;
 	u64 mask;
 
@@ -694,15 +695,34 @@ static ssize_t adrv904x_phy_tx_write(struct iio_dev *indio_dev,
 	case TX_QEC:
 		calMask = ADI_ADRV904X_TC_TX_QEC_MASK;
 		break;
-	case TX_LOL:
+	case TX_LOL: {
+		adi_adrv904x_TxChannels_e tx_orx0, tx_orx1;
+
 		calMask = ADI_ADRV904X_TC_TX_LOL_MASK;
 		if (enable) {
+			/*
+			 * TX0-3 are observable by ORX0, TX4-7 by ORX1.
+			 * Mapping byte format: upper nibble = TX for ORX1,
+			 *                      lower nibble = TX for ORX0.
+			 * Read current mapping and preserve the other ORX.
+			 */
+			adrv904x_api_call(phy, adi_adrv904x_TxToOrxMappingGet,
+					  ADI_ADRV904X_ORX0, &tx_orx0);
+			adrv904x_api_call(phy, adi_adrv904x_TxToOrxMappingGet,
+					  ADI_ADRV904X_ORX1, &tx_orx1);
+
+			if (chan->channel < 4)
+				mapping = (ffs(tx_orx1) - 1) << 4 | chan->channel;
+			else
+				mapping = chan->channel << 4 | (ffs(tx_orx0) - 1);
+
 			ret = adrv904x_api_call(phy, adi_adrv904x_TxToOrxMappingSet,
-					       ADI_ADRV904X_TX_ORX_MAPPING_MODE_8BIT);
+					       mapping);
 			if (ret)
 				return ret;
 		}
 		break;
+	}
 	case TX_LB_ADC:
 		calMask = ADI_ADRV904X_TC_TX_LB_ADC_MASK;
 		break;
