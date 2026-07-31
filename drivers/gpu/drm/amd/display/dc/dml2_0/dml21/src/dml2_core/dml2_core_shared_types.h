@@ -1658,6 +1658,9 @@ struct dml2_core_shared_CalculateFlipSchedule_locals {
 	double num_rows;
 	double hvm_scaled_row_bytes;
 	double hvm_scaled_vm_row_bytes;
+	double vm_time_budget;
+	double row_time_budget;
+	double vm_and_row_time_budget;
 	bool dual_plane;
 };
 

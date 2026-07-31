@@ -6555,7 +6555,6 @@ static void CalculateFlipSchedule(
 	bool GPUVMEnable,
 	double vm_bytes, // vm_bytes
 	double DPTEBytesPerRow, // dpte_row_bytes
-	double BandwidthAvailableForImmediateFlip,
 	unsigned int TotImmediateFlipBytes,
 	enum dml2_source_format_class SourcePixelFormat,
 	double LineTime,
@@ -6567,7 +6566,6 @@ static void CalculateFlipSchedule(
 	bool use_one_row_for_frame_flip,
 	unsigned int max_flip_time_us,
 	unsigned int max_flip_time_lines,
-	unsigned int per_pipe_flip_bytes,
 	unsigned int meta_row_bytes,
 	unsigned int meta_row_height,
 	unsigned int meta_row_height_chroma,
@@ -6589,7 +6587,6 @@ static void CalculateFlipSchedule(
 	DML_LOG_VERBOSE("DML::%s: GPUVMEnable = %u\n", __func__, GPUVMEnable);
 	DML_LOG_VERBOSE("DML::%s: ip.max_flip_time_us = %d\n", __func__, max_flip_time_us);
 	DML_LOG_VERBOSE("DML::%s: ip.max_flip_time_lines = %d\n", __func__, max_flip_time_lines);
-	DML_LOG_VERBOSE("DML::%s: BandwidthAvailableForImmediateFlip = %f\n", __func__, BandwidthAvailableForImmediateFlip);
 	DML_LOG_VERBOSE("DML::%s: TotImmediateFlipBytes = %u\n", __func__, TotImmediateFlipBytes);
 	DML_LOG_VERBOSE("DML::%s: use_lb_flip_bw = %u\n", __func__, use_lb_flip_bw);
 	DML_LOG_VERBOSE("DML::%s: iflip_enable = %u\n", __func__, iflip_enable);
@@ -6637,104 +6634,71 @@ static void CalculateFlipSchedule(
 #endif
 		DML_ASSERT(l->min_row_time > 0);
 
-		if (use_lb_flip_bw) {
-			// For mode check, calculation the flip bw requirement with worst case flip time
-			l->max_flip_time = math_min2(math_min2(l->min_row_time, (double)max_flip_time_lines * LineTime / VRatio),
-				math_max2(Tvm_trips_flip_rounded + 2 * Tr0_trips_flip_rounded, (double)max_flip_time_us));
+		// For mode check, calculation the flip bw requirement with worst case flip time
+		l->max_flip_time = math_min2(math_min2(l->min_row_time, (double)max_flip_time_lines * LineTime / VRatio),
+			math_max2(Tvm_trips_flip_rounded + 2 * Tr0_trips_flip_rounded, (double)max_flip_time_us));
 
-			//The lower bound on flip bandwidth
-			// Note: The get_urgent_bandwidth_required already consider dpte_row_bw and meta_row_bw in bandwidth calculation, so leave final_flip_bw = 0 if iflip not required
-			l->lb_flip_bw = 0;
+		//The lower bound on flip bandwidth
+		// Note: The get_urgent_bandwidth_required already consider dpte_row_bw and meta_row_bw in bandwidth calculation, so leave final_flip_bw = 0 if iflip not required
+		l->lb_flip_bw = 0;
 
-			if (iflip_enable) {
-				l->hvm_scaled_vm_bytes = vm_bytes * HostVMInefficiencyFactor;
-				l->num_rows = 2;
-				l->hvm_scaled_row_bytes = (l->num_rows * l->dpte_row_bytes * HostVMInefficiencyFactor + l->num_rows * meta_row_bytes);
-				l->hvm_scaled_vm_row_bytes = l->hvm_scaled_vm_bytes + l->hvm_scaled_row_bytes;
-				l->lb_flip_bw = math_max3(
-					l->hvm_scaled_vm_row_bytes / (l->max_flip_time - Tno_bw_flip),
-					l->hvm_scaled_vm_bytes / (l->max_flip_time - Tno_bw_flip - 2 * Tr0_trips_flip_rounded),
-					l->hvm_scaled_row_bytes / (l->max_flip_time - Tvm_trips_flip_rounded));
+		l->vm_and_row_time_budget = l->max_flip_time - Tno_bw_flip;
+		l->vm_time_budget = l->max_flip_time - Tno_bw_flip - 2 * Tr0_trips_flip_rounded;
+		l->row_time_budget = l->max_flip_time - Tvm_trips_flip_rounded;
+
+		if (iflip_enable) {
+			l->hvm_scaled_vm_bytes = vm_bytes * HostVMInefficiencyFactor;
+			l->num_rows = 2;
+			l->hvm_scaled_row_bytes = (l->num_rows * l->dpte_row_bytes * HostVMInefficiencyFactor + l->num_rows * meta_row_bytes);
+			l->hvm_scaled_vm_row_bytes = l->hvm_scaled_vm_bytes + l->hvm_scaled_row_bytes;
+			l->lb_flip_bw = math_max3(
+				l->hvm_scaled_vm_row_bytes / l->vm_and_row_time_budget,
+				l->hvm_scaled_vm_bytes / math_min2(l->vm_time_budget, 31.75 * LineTime - Tno_bw_flip),
+				l->dpte_row_bytes * HostVMInefficiencyFactor / math_min2(l->row_time_budget, 15.75 * LineTime));
 #ifdef __DML_VBA_DEBUG__
-				DML_LOG_VERBOSE("DML::%s: max_flip_time = %f\n", __func__, l->max_flip_time);
-				DML_LOG_VERBOSE("DML::%s: total vm bytes (hvm ineff scaled) = %f\n", __func__, l->hvm_scaled_vm_bytes);
-				DML_LOG_VERBOSE("DML::%s: total row bytes (%f row, hvm ineff scaled) = %f\n", __func__, l->num_rows, l->hvm_scaled_row_bytes);
-				DML_LOG_VERBOSE("DML::%s: total vm+row bytes (hvm ineff scaled) = %f\n", __func__, l->hvm_scaled_vm_row_bytes);
-				DML_LOG_VERBOSE("DML::%s: lb_flip_bw for vm and row = %f\n", __func__, l->hvm_scaled_vm_row_bytes / (l->max_flip_time - Tno_bw_flip));
-				DML_LOG_VERBOSE("DML::%s: lb_flip_bw for vm = %f\n", __func__, l->hvm_scaled_vm_bytes / (l->max_flip_time - Tno_bw_flip - 2 * Tr0_trips_flip_rounded));
-				DML_LOG_VERBOSE("DML::%s: lb_flip_bw for row = %f\n", __func__, l->hvm_scaled_row_bytes / (l->max_flip_time - Tvm_trips_flip_rounded));
-
-				if (l->lb_flip_bw > 0) {
-					DML_LOG_VERBOSE("DML::%s: mode_support est Tvm_flip = %f (bw-based)\n", __func__, Tno_bw_flip + l->hvm_scaled_vm_bytes / l->lb_flip_bw);
-					DML_LOG_VERBOSE("DML::%s: mode_support est Tr0_flip = %f (bw-based)\n", __func__, l->hvm_scaled_row_bytes / l->lb_flip_bw / l->num_rows);
-					DML_LOG_VERBOSE("DML::%s: mode_support est dst_y_per_vm_flip = %f (bw-based)\n", __func__, Tno_bw_flip + l->hvm_scaled_vm_bytes / l->lb_flip_bw / LineTime);
-					DML_LOG_VERBOSE("DML::%s: mode_support est dst_y_per_row_flip = %f (bw-based)\n", __func__, l->hvm_scaled_row_bytes / l->lb_flip_bw / LineTime / l->num_rows);
-					DML_LOG_VERBOSE("DML::%s: Tvm_trips_flip_rounded + 2*Tr0_trips_flip_rounded = %f\n", __func__, (Tvm_trips_flip_rounded + 2 * Tr0_trips_flip_rounded));
-				}
+			DML_LOG_VERBOSE("DML::%s: max_flip_time = %f\n", __func__, l->max_flip_time);
+			DML_LOG_VERBOSE("DML::%s: total vm bytes (hvm ineff scaled) = %f\n", __func__, l->hvm_scaled_vm_bytes);
+			DML_LOG_VERBOSE("DML::%s: total row bytes (%f row, hvm ineff scaled) = %f\n", __func__, l->num_rows, l->hvm_scaled_row_bytes);
+			DML_LOG_VERBOSE("DML::%s: total vm+row bytes (hvm ineff scaled) = %f\n", __func__, l->hvm_scaled_vm_row_bytes);
+			DML_LOG_VERBOSE("DML::%s: lb_flip_bw for vm and row = %f\n", __func__, l->hvm_scaled_vm_row_bytes / l->vm_and_row_time_budget);
+			DML_LOG_VERBOSE("DML::%s: lb_flip_bw for vm = %f\n", __func__, l->hvm_scaled_vm_bytes / l->vm_time_budget);
+			DML_LOG_VERBOSE("DML::%s: lb_flip_bw for row = %f\n", __func__, l->hvm_scaled_row_bytes / l->row_time_budget);
+			DML_LOG_VERBOSE("DML::%s: lb_flip_bw for vm reg limit = %f\n", __func__, l->hvm_scaled_vm_bytes / (31.75 * LineTime - Tno_bw_flip));
+			DML_LOG_VERBOSE("DML::%s: lb_flip_bw for row reg limit = %f\n", __func__, (l->dpte_row_bytes * HostVMInefficiencyFactor + meta_row_bytes) / (15.75 * LineTime));
 #endif
-				l->lb_flip_bw = math_max3(l->lb_flip_bw,
-						l->hvm_scaled_vm_bytes / (31 * LineTime) - Tno_bw_flip,
-						(l->dpte_row_bytes * HostVMInefficiencyFactor + meta_row_bytes) / (15 * LineTime));
+		}
 
-#ifdef __DML_VBA_DEBUG__
-				DML_LOG_VERBOSE("DML::%s: lb_flip_bw for vm reg limit = %f\n", __func__, l->hvm_scaled_vm_bytes / (31 * LineTime) - Tno_bw_flip);
-				DML_LOG_VERBOSE("DML::%s: lb_flip_bw for row reg limit = %f\n", __func__, (l->dpte_row_bytes * HostVMInefficiencyFactor + meta_row_bytes) / (15 * LineTime));
-#endif
-			}
+		*final_flip_bw = l->lb_flip_bw;
 
-			*final_flip_bw = l->lb_flip_bw;
+		if (l->lb_flip_bw > 0) {
+			DML_LOG_VERBOSE("DML::%s: mode_support est Tvm_flip = %f (bw-based)\n", __func__, Tno_bw_flip + l->hvm_scaled_vm_bytes / l->lb_flip_bw);
+			DML_LOG_VERBOSE("DML::%s: mode_support est Tr0_flip = %f (bw-based)\n", __func__, l->hvm_scaled_row_bytes / l->lb_flip_bw / l->num_rows);
+			DML_LOG_VERBOSE("DML::%s: mode_support est dst_y_per_vm_flip = %f (bw-based)\n", __func__, Tno_bw_flip + l->hvm_scaled_vm_bytes / l->lb_flip_bw / LineTime);
+			DML_LOG_VERBOSE("DML::%s: mode_support est dst_y_per_row_flip = %f (bw-based)\n", __func__, l->hvm_scaled_row_bytes / l->lb_flip_bw / LineTime / l->num_rows);
+			DML_LOG_VERBOSE("DML::%s: Tvm_trips_flip_rounded + 2*Tr0_trips_flip_rounded = %f\n", __func__, (Tvm_trips_flip_rounded + 2 * Tr0_trips_flip_rounded));
 
-			*dst_y_per_vm_flip = 1; // not used
-			*dst_y_per_row_flip = 1; // not used
-			*ImmediateFlipSupportedForPipe = l->min_row_time >= (Tvm_trips_flip_rounded + 2 * Tr0_trips_flip_rounded);
-		} else {
-			if (iflip_enable) {
-				l->ImmediateFlipBW = (double)per_pipe_flip_bytes * BandwidthAvailableForImmediateFlip / (double)TotImmediateFlipBytes; // flip_bw(i)
+			l->Tvm_flip = math_max3(Tvm_trips_flip,
+					Tno_bw_flip + vm_bytes * HostVMInefficiencyFactor / l->lb_flip_bw,
+					LineTime / 4.0);
+			l->Tr0_flip = math_max3(Tr0_trips_flip,
+					l->dpte_row_bytes * HostVMInefficiencyFactor / l->lb_flip_bw,
+					LineTime / 4.0);
 
-#ifdef __DML_VBA_DEBUG__
-				DML_LOG_VERBOSE("DML::%s: per_pipe_flip_bytes = %d\n", __func__, per_pipe_flip_bytes);
-				DML_LOG_VERBOSE("DML::%s: BandwidthAvailableForImmediateFlip = %f\n", __func__, BandwidthAvailableForImmediateFlip);
-				DML_LOG_VERBOSE("DML::%s: ImmediateFlipBW = %f\n", __func__, l->ImmediateFlipBW);
-				DML_LOG_VERBOSE("DML::%s: portion of flip bw = %f\n", __func__, (double)per_pipe_flip_bytes / (double)TotImmediateFlipBytes);
-#endif
-				if (l->ImmediateFlipBW == 0) {
-					l->Tvm_flip = 0;
-					l->Tr0_flip = 0;
-				} else {
-					l->Tvm_flip = math_max3(Tvm_trips_flip,
-						Tno_bw_flip + vm_bytes * HostVMInefficiencyFactor / l->ImmediateFlipBW,
-						LineTime / 4.0);
+			*dst_y_per_vm_flip = math_ceil2(4.0 * l->Tvm_flip / LineTime, 1.0) / 4.0;
+			*dst_y_per_row_flip = math_ceil2(4.0 * l->Tr0_flip / LineTime, 1.0) / 4.0;
 
-					l->Tr0_flip = math_max3(Tr0_trips_flip,
-						(l->dpte_row_bytes * HostVMInefficiencyFactor + meta_row_bytes) / l->ImmediateFlipBW,
-						LineTime / 4.0);
-				}
-#ifdef __DML_VBA_DEBUG__
-				DML_LOG_VERBOSE("DML::%s: total vm bytes (hvm ineff scaled) = %f\n", __func__, vm_bytes * HostVMInefficiencyFactor);
-				DML_LOG_VERBOSE("DML::%s: total row bytes (hvm ineff scaled, one row) = %f\n", __func__, (l->dpte_row_bytes * HostVMInefficiencyFactor + meta_row_bytes));
-
-				DML_LOG_VERBOSE("DML::%s: Tvm_flip = %f (bw-based), Tvm_trips_flip = %f (latency-based)\n", __func__, Tno_bw_flip + vm_bytes * HostVMInefficiencyFactor / l->ImmediateFlipBW, Tvm_trips_flip);
-				DML_LOG_VERBOSE("DML::%s: Tr0_flip = %f (bw-based), Tr0_trips_flip = %f (latency-based)\n", __func__, (l->dpte_row_bytes * HostVMInefficiencyFactor + meta_row_bytes) / l->ImmediateFlipBW, Tr0_trips_flip);
-#endif
-				*dst_y_per_vm_flip = math_ceil2(4.0 * (l->Tvm_flip / LineTime), 1.0) / 4.0;
-				*dst_y_per_row_flip = math_ceil2(4.0 * (l->Tr0_flip / LineTime), 1.0) / 4.0;
-
-				*final_flip_bw = math_max2(vm_bytes * HostVMInefficiencyFactor / (*dst_y_per_vm_flip * LineTime),
-					(l->dpte_row_bytes * HostVMInefficiencyFactor + meta_row_bytes) / (*dst_y_per_row_flip * LineTime));
-
-				if (*dst_y_per_vm_flip >= 32 || *dst_y_per_row_flip >= 16 || l->Tvm_flip + 2 * l->Tr0_flip > l->min_row_time) {
-					*ImmediateFlipSupportedForPipe = false;
-				} else {
-					*ImmediateFlipSupportedForPipe = iflip_enable;
-				}
+			if (*dst_y_per_vm_flip >= 32 || *dst_y_per_row_flip >= 16 || l->Tvm_flip + 2 * l->Tr0_flip > l->min_row_time) {
+				*ImmediateFlipSupportedForPipe = false;
 			} else {
-				l->Tvm_flip = 0;
-				l->Tr0_flip = 0;
-				*dst_y_per_vm_flip = 0;
-				*dst_y_per_row_flip = 0;
-				*final_flip_bw = 0;
 				*ImmediateFlipSupportedForPipe = iflip_enable;
 			}
+		} else {
+			l->Tvm_flip = 0;
+			l->Tr0_flip = 0;
+			*dst_y_per_vm_flip = 0;
+			*dst_y_per_row_flip = 0;
+			*final_flip_bw = 0;
+			*ImmediateFlipSupportedForPipe = iflip_enable;
 		}
 	} else {
 		l->Tvm_flip = 0;
@@ -7891,7 +7855,6 @@ static noinline_for_stack void dml_core_ms_prefetch_check(struct dml2_core_inter
 				display_cfg->gpuvm_enable,
 				mode_lib->ms.vm_bytes[k],
 				mode_lib->ms.DPTEBytesPerRow[k],
-				mode_lib->ms.BandwidthAvailableForImmediateFlip,
 				mode_lib->ms.TotImmediateFlipBytes,
 				display_cfg->plane_descriptors[k].pixel_format,
 				(display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].timing.h_total / ((double)display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].timing.pixel_clock_khz / 1000)),
@@ -7903,7 +7866,6 @@ static noinline_for_stack void dml_core_ms_prefetch_check(struct dml2_core_inter
 				mode_lib->ms.use_one_row_for_frame_flip[k],
 				mode_lib->ip.max_flip_time_us,
 				mode_lib->ip.max_flip_time_lines,
-				s->per_pipe_flip_bytes[k],
 				mode_lib->ms.meta_row_bytes[k],
 				s->meta_row_height_luma[k],
 				s->meta_row_height_chroma[k],
@@ -11684,7 +11646,6 @@ static bool dml_core_mode_programming(struct dml2_core_calcs_mode_programming_ex
 					display_cfg->gpuvm_enable,
 					mode_lib->mp.vm_bytes[k],
 					mode_lib->mp.PixelPTEBytesPerRow[k],
-					mode_lib->mp.BandwidthAvailableForImmediateFlip,
 					mode_lib->mp.TotImmediateFlipBytes,
 					display_cfg->plane_descriptors[k].pixel_format,
 					display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].timing.h_total / ((double)display_cfg->stream_descriptors[display_cfg->plane_descriptors[k].stream_index].timing.pixel_clock_khz / 1000),
@@ -11696,7 +11657,6 @@ static bool dml_core_mode_programming(struct dml2_core_calcs_mode_programming_ex
 					mode_lib->mp.use_one_row_for_frame_flip[k],
 					mode_lib->ip.max_flip_time_us,
 					mode_lib->ip.max_flip_time_lines,
-					s->per_pipe_flip_bytes[k],
 					mode_lib->mp.meta_row_bytes[k],
 					mode_lib->mp.meta_row_height[k],
 					mode_lib->mp.meta_row_height_chroma[k],
