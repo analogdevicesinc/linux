@@ -1411,6 +1411,9 @@ static int em28xx_vb2_setup(struct em28xx *dev)
 	if (rc < 0)
 		return rc;
 
+	if (!em28xx_vbi_supported(dev))
+		return 0;
+
 	/* Setup Videobuf2 for VBI capture */
 	q = &v4l2->vb_vbiq;
 	q->type = V4L2_BUF_TYPE_VBI_CAPTURE;
