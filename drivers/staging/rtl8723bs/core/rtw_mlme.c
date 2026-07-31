@@ -2183,7 +2183,7 @@ void rtw_ht_use_default_setting(struct adapter *adapter)
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
 	struct ht_priv *ht_priv = &mlme_priv->htpriv;
 	struct registry_priv *registry_priv = &adapter->registrypriv;
-	bool hw_ldpc_support = false, bHwSTBCSupport = false;
+	bool hw_ldpc_support = false, hw_stbc_support = false;
 	bool bHwSupportBeamformer = false, bHwSupportBeamformee = false;
 
 	if (registry_priv->wifi_spec)
@@ -2208,14 +2208,14 @@ void rtw_ht_use_default_setting(struct adapter *adapter)
 	}
 
 	/*  STBC */
-	rtw_hal_get_def_var(adapter, HAL_DEF_TX_STBC, (u8 *)&bHwSTBCSupport);
+	rtw_hal_get_def_var(adapter, HAL_DEF_TX_STBC, (u8 *)&hw_stbc_support);
 	CLEAR_FLAGS(ht_priv->stbc_cap);
-	if (bHwSTBCSupport) {
+	if (hw_stbc_support) {
 		if (TEST_FLAG(registry_priv->stbc_cap, BIT(5)))
 			SET_FLAG(ht_priv->stbc_cap, STBC_HT_ENABLE_TX);
 	}
-	rtw_hal_get_def_var(adapter, HAL_DEF_RX_STBC, (u8 *)&bHwSTBCSupport);
-	if (bHwSTBCSupport) {
+	rtw_hal_get_def_var(adapter, HAL_DEF_RX_STBC, (u8 *)&hw_stbc_support);
+	if (hw_stbc_support) {
 		if (TEST_FLAG(registry_priv->stbc_cap, BIT(4)))
 			SET_FLAG(ht_priv->stbc_cap, STBC_HT_ENABLE_RX);
 	}
