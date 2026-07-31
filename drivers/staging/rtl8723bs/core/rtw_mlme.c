@@ -2184,7 +2184,7 @@ void rtw_ht_use_default_setting(struct adapter *adapter)
 	struct ht_priv *ht_priv = &mlme_priv->htpriv;
 	struct registry_priv *registry_priv = &adapter->registrypriv;
 	bool hw_ldpc_support = false, hw_stbc_support = false;
-	bool hw_support_beamformer = false, bHwSupportBeamformee = false;
+	bool hw_support_beamformer = false, hw_support_beamformee = false;
 
 	if (registry_priv->wifi_spec)
 		ht_priv->bss_coexist = 1;
@@ -2222,12 +2222,12 @@ void rtw_ht_use_default_setting(struct adapter *adapter)
 
 	/*  Beamforming setting */
 	rtw_hal_get_def_var(adapter, HAL_DEF_EXPLICIT_BEAMFORMER, (u8 *)&hw_support_beamformer);
-	rtw_hal_get_def_var(adapter, HAL_DEF_EXPLICIT_BEAMFORMEE, (u8 *)&bHwSupportBeamformee);
+	rtw_hal_get_def_var(adapter, HAL_DEF_EXPLICIT_BEAMFORMEE, (u8 *)&hw_support_beamformee);
 	CLEAR_FLAGS(ht_priv->beamform_cap);
 	if (TEST_FLAG(registry_priv->beamform_cap, BIT(4)) && hw_support_beamformer)
 		SET_FLAG(ht_priv->beamform_cap, BEAMFORMING_HT_BEAMFORMER_ENABLE);
 
-	if (TEST_FLAG(registry_priv->beamform_cap, BIT(5)) && bHwSupportBeamformee)
+	if (TEST_FLAG(registry_priv->beamform_cap, BIT(5)) && hw_support_beamformee)
 		SET_FLAG(ht_priv->beamform_cap, BEAMFORMING_HT_BEAMFORMEE_ENABLE);
 }
 
