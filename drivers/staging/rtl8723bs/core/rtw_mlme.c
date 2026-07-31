@@ -2183,7 +2183,7 @@ void rtw_ht_use_default_setting(struct adapter *adapter)
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
 	struct ht_priv *ht_priv = &mlme_priv->htpriv;
 	struct registry_priv *registry_priv = &adapter->registrypriv;
-	bool bHwLDPCSupport = false, bHwSTBCSupport = false;
+	bool hw_ldpc_support = false, bHwSTBCSupport = false;
 	bool bHwSupportBeamformer = false, bHwSupportBeamformee = false;
 
 	if (registry_priv->wifi_spec)
@@ -2195,14 +2195,14 @@ void rtw_ht_use_default_setting(struct adapter *adapter)
 	ht_priv->sgi_20m = TEST_FLAG(registry_priv->short_gi, BIT(0)) ? true : false;
 
 	/*  LDPC support */
-	rtw_hal_get_def_var(adapter, HAL_DEF_RX_LDPC, (u8 *)&bHwLDPCSupport);
+	rtw_hal_get_def_var(adapter, HAL_DEF_RX_LDPC, (u8 *)&hw_ldpc_support);
 	CLEAR_FLAGS(ht_priv->ldpc_cap);
-	if (bHwLDPCSupport) {
+	if (hw_ldpc_support) {
 		if (TEST_FLAG(registry_priv->ldpc_cap, BIT(4)))
 			SET_FLAG(ht_priv->ldpc_cap, LDPC_HT_ENABLE_RX);
 	}
-	rtw_hal_get_def_var(adapter, HAL_DEF_TX_LDPC, (u8 *)&bHwLDPCSupport);
-	if (bHwLDPCSupport) {
+	rtw_hal_get_def_var(adapter, HAL_DEF_TX_LDPC, (u8 *)&hw_ldpc_support);
+	if (hw_ldpc_support) {
 		if (TEST_FLAG(registry_priv->ldpc_cap, BIT(5)))
 			SET_FLAG(ht_priv->ldpc_cap, LDPC_HT_ENABLE_TX);
 	}
