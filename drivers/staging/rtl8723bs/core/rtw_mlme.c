@@ -42,7 +42,7 @@ static void rtw_init_mlme_timer(struct adapter *padapter)
 int rtw_init_mlme_priv(struct adapter *padapter)
 {
 	int i;
-	u8 *pbuf;
+	u8 *buf;
 	struct wlan_network *pnetwork;
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	int res = _SUCCESS;
@@ -62,15 +62,15 @@ int rtw_init_mlme_priv(struct adapter *padapter)
 
 	memset(&pmlmepriv->assoc_ssid, 0, sizeof(struct ndis_802_11_ssid));
 
-	pbuf = vzalloc(array_size(MAX_BSS_CNT, sizeof(struct wlan_network)));
+	buf = vzalloc(array_size(MAX_BSS_CNT, sizeof(struct wlan_network)));
 
-	if (!pbuf) {
+	if (!buf) {
 		res = _FAIL;
 		goto exit;
 	}
-	pmlmepriv->free_bss_buf = pbuf;
+	pmlmepriv->free_bss_buf = buf;
 
-	pnetwork = (struct wlan_network *)pbuf;
+	pnetwork = (struct wlan_network *)buf;
 
 	for (i = 0; i < MAX_BSS_CNT; i++) {
 		INIT_LIST_HEAD(&pnetwork->list);
@@ -632,13 +632,13 @@ static bool rtw_is_desired_network(struct adapter *adapter, struct wlan_network 
 	return bselected;
 }
 
-void rtw_survey_event_callback(struct adapter *adapter, u8 *pbuf)
+void rtw_survey_event_callback(struct adapter *adapter, u8 *buf)
 {
 	u32 len;
 	struct wlan_bssid_ex *pnetwork;
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
 
-	pnetwork = (struct wlan_bssid_ex *)pbuf;
+	pnetwork = (struct wlan_bssid_ex *)buf;
 
 	len = get_wlan_bssid_ex_sz(pnetwork);
 	if (len > (sizeof(struct wlan_bssid_ex)))
@@ -675,7 +675,7 @@ exit:
 	spin_unlock_bh(&pmlmepriv->lock);
 }
 
-void rtw_surveydone_event_callback(struct adapter *adapter, u8 *pbuf)
+void rtw_surveydone_event_callback(struct adapter *adapter, u8 *buf)
 {
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
 
@@ -777,11 +777,11 @@ unlock:
 	rtw_indicate_scan_done(adapter, false);
 }
 
-void rtw_dummy_event_callback(struct adapter *adapter, u8 *pbuf)
+void rtw_dummy_event_callback(struct adapter *adapter, u8 *buf)
 {
 }
 
-void rtw_fwdbg_event_callback(struct adapter *adapter, u8 *pbuf)
+void rtw_fwdbg_event_callback(struct adapter *adapter, u8 *buf)
 {
 }
 
@@ -1143,12 +1143,12 @@ void rtw_reset_securitypriv(struct adapter *adapter)
 /* if join_res > 0, for (fw_state ==WIFI_ADHOC_STATE), we only check if "ptarget_wlan" exist. */
 /* if join_res > 0, update "cur_network->network" from "pnetwork->network" if (ptarget_wlan != NULL). */
 /*  */
-void rtw_joinbss_event_prehandle(struct adapter *adapter, u8 *pbuf)
+void rtw_joinbss_event_prehandle(struct adapter *adapter, u8 *buf)
 {
 	struct sta_info *ptarget_sta = NULL, *pcur_sta = NULL;
 	struct sta_priv *pstapriv = &adapter->stapriv;
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
-	struct wlan_network *pnetwork = (struct wlan_network *)pbuf;
+	struct wlan_network *pnetwork = (struct wlan_network *)buf;
 	struct wlan_network *cur_network = &pmlmepriv->cur_network;
 	struct wlan_network *pcur_wlan = NULL, *ptarget_wlan = NULL;
 	unsigned int the_same_macaddr = false;
@@ -1251,9 +1251,9 @@ void rtw_joinbss_event_prehandle(struct adapter *adapter, u8 *pbuf)
 	timer_delete_sync(&pmlmepriv->assoc_timer);
 }
 
-void rtw_joinbss_event_callback(struct adapter *adapter, u8 *pbuf)
+void rtw_joinbss_event_callback(struct adapter *adapter, u8 *buf)
 {
-	struct wlan_network *pnetwork = (struct wlan_network *)pbuf;
+	struct wlan_network *pnetwork = (struct wlan_network *)buf;
 
 	mlmeext_joinbss_event_callback(adapter, pnetwork->join_res);
 
@@ -1272,11 +1272,11 @@ void rtw_sta_media_status_rpt(struct adapter *adapter, struct sta_info *psta, u3
 	rtw_hal_set_hwreg(adapter, HW_VAR_H2C_MEDIA_STATUS_RPT, (u8 *)&media_status_rpt);
 }
 
-void rtw_stassoc_event_callback(struct adapter *adapter, u8 *pbuf)
+void rtw_stassoc_event_callback(struct adapter *adapter, u8 *buf)
 {
 	struct sta_info *psta;
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
-	struct stassoc_event *pstassoc = (struct stassoc_event *)pbuf;
+	struct stassoc_event *pstassoc = (struct stassoc_event *)buf;
 	struct wlan_network *cur_network = &pmlmepriv->cur_network;
 	struct wlan_network *ptarget_wlan = NULL;
 
@@ -1363,7 +1363,7 @@ void rtw_stassoc_event_callback(struct adapter *adapter, u8 *pbuf)
 	mlmeext_sta_add_event_callback(adapter, psta);
 }
 
-void rtw_stadel_event_callback(struct adapter *adapter, u8 *pbuf)
+void rtw_stadel_event_callback(struct adapter *adapter, u8 *buf)
 {
 	int mac_id = (-1);
 	struct sta_info *psta;
@@ -1371,7 +1371,7 @@ void rtw_stadel_event_callback(struct adapter *adapter, u8 *pbuf)
 	struct wlan_bssid_ex    *pdev_network = NULL;
 	u8 *pibss = NULL;
 	struct mlme_priv *pmlmepriv = &adapter->mlmepriv;
-	struct stadel_event *pstadel = (struct stadel_event *)pbuf;
+	struct stadel_event *pstadel = (struct stadel_event *)buf;
 	struct wlan_network *tgt_network = &pmlmepriv->cur_network;
 	struct mlme_ext_priv *pmlmeext = &adapter->mlmeextpriv;
 	struct mlme_ext_info *pmlmeinfo = &pmlmeext->mlmext_info;
@@ -1480,16 +1480,16 @@ unlock:
 	spin_unlock_bh(&pmlmepriv->lock);
 }
 
-void rtw_cpwm_event_callback(struct adapter *padapter, u8 *pbuf)
+void rtw_cpwm_event_callback(struct adapter *padapter, u8 *buf)
 {
 	struct reportpwrstate_parm *preportpwrstate;
 
-	preportpwrstate = (struct reportpwrstate_parm *)pbuf;
+	preportpwrstate = (struct reportpwrstate_parm *)buf;
 	preportpwrstate->state |= (u8)(adapter_to_pwrctl(padapter)->cpwm_tog + 0x80);
 	cpwm_int_hdl(padapter, preportpwrstate);
 }
 
-void rtw_wmm_event_callback(struct adapter *padapter, u8 *pbuf)
+void rtw_wmm_event_callback(struct adapter *padapter, u8 *buf)
 {
 	WMMOnAssocRsp(padapter);
 }
