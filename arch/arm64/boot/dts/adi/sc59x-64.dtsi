@@ -250,6 +250,32 @@
 			status = "okay";
 		};
 
+		smpu: smpu@31083000 {
+			compatible = "adi,sc59x-smpu";
+			/* SMPU6 (0x31087000) and SMPU12 (0x31012000) unused */
+			reg = <0x31083000 0x1000>,   /* SMPU2 - L2-Core Port 0 (CL2_0) */
+			      <0x31084000 0x1000>,   /* SMPU3 - L2 DMA Port 0 (DL2_0) */
+			      <0x31085000 0x1000>,   /* SMPU4 - L2-Core Port 1 (CL2_1) */
+			      <0x31086000 0x1000>,   /* SMPU5 - L2 DMA Port 1 (DL2_1) */
+			      <0x310A0000 0x1000>,   /* SMPU9 - DDR Memory Controller */
+			      <0x310A1000 0x1000>;   /* SMPU11 - SPI2/OSPI Flash */
+			reg-names = "smpu2", "smpu3", "smpu4", "smpu5",
+				    "smpu9", "smpu11";
+			interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
+			status = "okay";
+
+			static-regions {
+				region-0 {
+					instance = <2>;  /* SMPU2: L2 SRAM Port 1 */
+					base = <0x20040000>;  /* L2 SRAM bank 1 */
+					size = <0x40000>;     /* 256KB */
+					permissions = <0x1>;  /* Read-only */
+					allowed-ids = <0x0289 0>;  /* ARM A55 TID */
+					id-masks = <0x1FFF 0>;     /* Exact match */
+				};
+			};
+		};
+
 		tru: tru@3108a000 {
 			compatible = "adi,trigger-routing-unit";
 			reg = <0x3108a000 0x1000>;
