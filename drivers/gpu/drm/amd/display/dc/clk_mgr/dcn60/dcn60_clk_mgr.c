@@ -628,6 +628,11 @@ static void dcn60_populate_utm_qos_model(
 	memset(dchub, 0, sizeof(*dchub));
 	dchub->load_level_count = (uint8_t)utm_table->Header.LoadLevelCount;
 	dchub->sop_count = (uint8_t)utm_table->Header.SopCount;
+	/* WORKAROUND: limit sop_count to 5 for now instead of using
+	 * utm_table->Header.SopCount.
+	 */
+	if (utm_table->Header.SopCount > 5)
+		dchub->sop_count = 5;
 
 	for (ll = 0; ll < dchub->load_level_count
 			&& ll < UTM_QOS_MODEL_V3_MAX_LOAD_LEVEL_COUNT; ll++) {
@@ -688,7 +693,6 @@ void dcn60_init_clocks(struct clk_mgr *clk_mgr_base)
 	memset(&(clk_mgr_base->clks), 0, sizeof(struct dc_clocks));
 	clk_mgr_base->clks.p_state_change_support = true;
 	clk_mgr_base->clks.fclk_p_state_change_support = false;
-	//clk_mgr_base->force_smu_not_present = true; // temporary until SMU ready
 	clk_mgr->smu_present = !clk_mgr_base->force_smu_not_present /* not force-disabled */
 			&& dcn60_smu_get_msg_header_version(clk_mgr, &smu_header_ver)
 			&& smu_header_ver != 0;
