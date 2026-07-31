@@ -9,8 +9,8 @@
 #include "dccg.h"
 #include "clk_mgr_internal.h"
 
-// For dce12_get_dp_ref_freq_khz
-#include "dce100/dce_clk_mgr.h"
+// For dcn10_get_dp_ref_freq_khz
+#include "dcn10/dcn10_clk_mgr.h"
 
 // For dcn20_update_clocks_update_dpp_dto
 #include "dcn20/dcn20_clk_mgr.h"
@@ -234,7 +234,7 @@ void dcn42b_init_clocks(struct clk_mgr *clk_mgr_base)
 	// to adjust dp_dto reference clock if ssc is enable otherwise to apply dprefclk
 	if (dcn42_is_spll_ssc_enabled(clk_mgr_base))
 		clk_mgr_base->dp_dto_source_clock_in_khz =
-			dce_adjust_dp_ref_freq_for_ss(clk_mgr_int, clk_mgr_base->dprefclk_khz);
+			dcn10_adjust_dp_ref_freq_for_ss(clk_mgr_int, clk_mgr_base->dprefclk_khz);
 	else
 		clk_mgr_base->dp_dto_source_clock_in_khz = clk_mgr_base->dprefclk_khz;
 
@@ -418,7 +418,7 @@ static void dcn42b_update_clocks(struct clk_mgr *clk_mgr_base,
 }
 
 static struct clk_mgr_funcs dcn42b_funcs = {
-	.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
+	.get_dp_ref_clk_frequency = dcn10_get_dp_ref_freq_khz,
 	.get_dtb_ref_clk_frequency = dcn31_get_dtb_ref_freq_khz,
 	.update_clocks = dcn42b_update_clocks,
 	.init_clocks = dcn42b_init_clocks,
@@ -657,7 +657,7 @@ void dcn42b_clk_mgr_construct(
 		/* Saved clocks configured at boot for debug purposes */
 		dcn42b_dump_clk_registers(&clk_mgr->base.base.boot_snapshot, clk_mgr);
 
-	dce_clock_read_ss_info(&clk_mgr->base);
+	dcn10_clock_read_ss_info(&clk_mgr->base);
 	/*when clk src is from FCH, it could have ss, same clock src as DPREF clk*/
 
 	dcn42b_read_ss_info_from_lut(&clk_mgr->base);

@@ -7,7 +7,7 @@
 #include "dal_asic_id.h"
 #include "dcn10_clk_mgr.h"
 
-unsigned int dentist_get_divider_from_did(unsigned int did)
+unsigned int dcn10_dentist_get_divider_from_did(unsigned int did)
 {
 	if (did < DENTIST_BASE_DID_1)
 		did = DENTIST_BASE_DID_1;
@@ -41,7 +41,7 @@ unsigned int dentist_get_divider_from_did(unsigned int did)
  (should not be case with CIK) then SW should program all rates
  generated according to average value (case as with previous ASICs)
   */
-int dce_adjust_dp_ref_freq_for_ss(struct clk_mgr_internal *clk_mgr_dce, int dp_ref_clk_khz)
+int dcn10_adjust_dp_ref_freq_for_ss(struct clk_mgr_internal *clk_mgr_dce, int dp_ref_clk_khz)
 {
 	if (clk_mgr_dce->ss_on_dprefclk && clk_mgr_dce->dprefclk_ss_divider != 0) {
 		struct fixed31_32 ss_percentage = dc_fixpt_div_int(
@@ -56,14 +56,14 @@ int dce_adjust_dp_ref_freq_for_ss(struct clk_mgr_internal *clk_mgr_dce, int dp_r
 	return dp_ref_clk_khz;
 }
 
-int dce12_get_dp_ref_freq_khz(struct clk_mgr *clk_mgr_base)
+int dcn10_get_dp_ref_freq_khz(struct clk_mgr *clk_mgr_base)
 {
 	struct clk_mgr_internal *clk_mgr_dce = TO_CLK_MGR_INTERNAL(clk_mgr_base);
 
-	return dce_adjust_dp_ref_freq_for_ss(clk_mgr_dce, clk_mgr_base->dprefclk_khz);
+	return dcn10_adjust_dp_ref_freq_for_ss(clk_mgr_dce, clk_mgr_base->dprefclk_khz);
 }
 
-void dce_clock_read_ss_info(struct clk_mgr_internal *clk_mgr_dce)
+void dcn10_clock_read_ss_info(struct clk_mgr_internal *clk_mgr_dce)
 {
 	struct dc_bios *bp = clk_mgr_dce->base.ctx->dc_bios;
 	int ss_info_num = bp->funcs->get_ss_entry_number(
@@ -121,7 +121,7 @@ void dce_clock_read_ss_info(struct clk_mgr_internal *clk_mgr_dce)
 	}
 }
 
-int dce112_set_dispclk(struct clk_mgr_internal *clk_mgr, int requested_clk_khz)
+int dcn10_set_dispclk(struct clk_mgr_internal *clk_mgr, int requested_clk_khz)
 {
 	struct bp_set_dce_clock_parameters dce_clk_params;
 	struct dc_bios *bp = clk_mgr->base.ctx->dc_bios;
@@ -154,7 +154,7 @@ int dce112_set_dispclk(struct clk_mgr_internal *clk_mgr, int requested_clk_khz)
 
 }
 
-int dce112_set_dprefclk(struct clk_mgr_internal *clk_mgr)
+int dcn10_set_dprefclk(struct clk_mgr_internal *clk_mgr)
 {
 	struct bp_set_dce_clock_parameters dce_clk_params;
 	struct dc_bios *bp = clk_mgr->base.ctx->dc_bios;

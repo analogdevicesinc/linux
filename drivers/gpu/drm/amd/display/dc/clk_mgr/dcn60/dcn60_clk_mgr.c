@@ -6,7 +6,7 @@
 #include "clk_mgr_internal.h"
 #include "dcn60/dcn60_clk_mgr_smu_msg.h"
 #include "hw_sequencer.h"
-#include "dce100/dce_clk_mgr.h"
+#include "dcn10/dcn10_clk_mgr.h"
 #include "dcn20/dcn20_clk_mgr.h"
 #include "dcn401/dcn401_clk_mgr.h"
 #include "dcn60/dcn60_clk_mgr.h"
@@ -1589,7 +1589,7 @@ static void dcn60_execute_clk_mgr_block_sequence_bls(struct clk_mgr *clk_mgr_bas
 }
 
 static struct clk_mgr_funcs dcn60_funcs = {
-		.get_dp_ref_clk_frequency = dce12_get_dp_ref_freq_khz,
+		.get_dp_ref_clk_frequency = dcn10_get_dp_ref_freq_khz,
 		.get_dtb_ref_clk_frequency = dcn60_get_dtb_ref_freq_khz,
 		.update_clocks = dcn60_update_clocks,
 		.dump_clk_registers = dcn60_dump_clk_registers,
