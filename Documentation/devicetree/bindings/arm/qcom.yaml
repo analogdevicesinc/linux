@@ -88,6 +88,7 @@ properties:
           - enum:
               - asus,zenbook-a16-ux3607oa
               - hp,elitebook-x-g2q
+              - lenovo,yoga-slim7x-gen11
               - qcom,glymur-crd
           - const: qcom,glymur
 
