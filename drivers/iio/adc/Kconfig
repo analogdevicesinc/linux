@@ -576,20 +576,22 @@ config AD9467
 	  called ad9467.
 
 config ADE9000
-	tristate "Analog Devices ADE9000 Multiphase Energy, and Power Quality Monitoring IC Driver"
+	tristate "Analog Devices Multiphase Energy and Power Quality Monitoring IC Driver"
 	depends on SPI
 	select REGMAP_SPI
 	select IIO_BUFFER
 	select IIO_KFIFO_BUF
 	help
-	  Say yes here to build support for the Analog Devices ADE9000,
-	  a highly accurate, multiphase energy and power quality monitoring
-	  integrated circuit.
+	  Say yes here to build support for the following Analog Devices
+	  highly accurate, multiphase energy and power quality monitoring
+	  integrated circuits:
+	    - ADE9000
+	    - ADE9078
 
-	  The device features high-precision analog-to-digital converters
+	  The devices feature high-precision analog-to-digital converters
 	  and digital signal processing to compute RMS values, power factor,
-	  frequency, and harmonic analysis. It supports SPI communication
-	  and provides buffered data output through the IIO framework.
+	  frequency, and harmonic analysis. They support SPI communication
+	  and provide buffered data output through the IIO framework.
 
 	  To compile this driver as a module, choose M here: the module will
 	  be called ade9000.
