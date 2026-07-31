@@ -1,0 +1,260 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/bus/adi,sc59x-smpu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices SC59x System Memory Protection Unit
+
+maintainers:
+  - Ozan Durgut <ozan.durgut@analog.com>
+  - Analog Devices <linux@analog.com>
+
+description: |
+  The System Memory Protection Unit (SMPU) provides hardware-based memory
+  protection for ADSP-SC59x processors. Each SMPU instance can configure up
+  to 8 protection regions with transaction ID-based access control.
+
+  There are 9 SMPU instances in SC59x processors protecting different memory
+  domains:
+    - SMPU0 (0x31007000): System MMR access
+    - SMPU2 (0x31083000): L2-Core Port 0 (CL2_0), L2 SRAM banks 0-3
+    - SMPU3 (0x31084000): L2 DMA Port 0 (DL2_0)
+    - SMPU4 (0x31085000): L2-Core Port 1 (CL2_1), L2 SRAM banks 4-7
+    - SMPU5 (0x31086000): L2 DMA Port 1 (DL2_1)
+    - SMPU6 (0x31087000): L2-Core Port 2 (CL2_2), instruction port
+    - SMPU9 (0x310A0000): DDR3 Memory Controller
+    - SMPU11 (0x310A1000): SPI2/OSPI Flash
+    - SMPU12 (0x31012000): OTP Memory
+
+  Each region can be configured with:
+    - Base address and size (power-of-2, 4KB to 4GB)
+    - Read/write protection independently
+    - Transaction ID filtering with dual match units and masks
+    - Inversion logic for blocking specific IDs
+
+  Silicon Anomaly 20000003: Non-secure accesses to SMPU registers in range
+  0x800-0xFFF cause erroneous bus errors. The driver handles this by avoiding
+  these registers unless the adi,secure-access property indicates secure mode.
+
+properties:
+  compatible:
+    const: adi,sc59x-smpu
+
+  reg:
+    description: Register regions for each SMPU instance
+    minItems: 1
+    maxItems: 9
+
+  reg-names:
+    description: Names for each SMPU instance (sparse numbering)
+    minItems: 1
+    maxItems: 9
+    items:
+      enum:
+        - smpu0
+        - smpu2
+        - smpu3
+        - smpu4
+        - smpu5
+        - smpu6
+        - smpu9
+        - smpu11
+        - smpu12
+
+  interrupts:
+    description: Protection violation interrupt (SEC ID 217)
+    maxItems: 1
+
+  adi,secure-access:
+    type: boolean
+    description: |
+      Driver has secure-mode access and can program registers at offset
+      0x800-0xFFF (SMPU_SECURECTL and SMPU_SECURERCTL).
+
+      If absent, driver avoids these registers to work around Anomaly 20000003
+      (non-secure access causes bus errors). Basic protection still works via
+      registers at 0x00-0x7FF.
+
+  static-regions:
+    type: object
+    description: |
+      Optional static protection regions to be configured at boot time.
+      Each child node defines a region with base address, size, permissions,
+      and allowed transaction IDs. These regions are automatically configured
+      and enabled during driver probe.
+    patternProperties:
+      "^region-[0-9]+$":
+        type: object
+        properties:
+          instance:
+            $ref: /schemas/types.yaml#/definitions/uint32
+            description: SMPU instance ID (0, 2-6, 9, 11-12)
+
+          memory-region:
+            $ref: /schemas/types.yaml#/definitions/phandle
+            description: |
+              Reference to reserved-memory node. Preferred method for defining
+              base and size.
+
+          base:
+            $ref: /schemas/types.yaml#/definitions/uint32
+            description: |
+              Physical base address (alternative to memory-region). Must be
+              aligned to region size.
+
+          size:
+            $ref: /schemas/types.yaml#/definitions/uint32
+            description: |
+              Region size (alternative to memory-region). Must be power of 2,
+              minimum 4KB, maximum 4GB.
+
+          permissions:
+            $ref: /schemas/types.yaml#/definitions/uint32
+            description: |
+              Bitmap selecting which access types are protected (blocked
+              for transaction IDs that do not match allowed-ids):
+                bit 0: read-protect
+                bit 1: write-protect
+              Default is 0x3 (both read and write protected).
+            enum: [1, 2, 3]
+            default: 3
+
+          allowed-ids:
+            $ref: /schemas/types.yaml#/definitions/uint32-array
+            minItems: 1
+            maxItems: 2
+            description: |
+              Transaction IDs allowed to access this region (up to 2).
+              13-bit IDs identifying bus masters (CPU cores, DMA, etc).
+
+          id-masks:
+            $ref: /schemas/types.yaml#/definitions/uint32-array
+            minItems: 1
+            maxItems: 2
+            description: |
+              Masks for transaction ID matching (0x0000 = match all,
+              0x1FFF = exact match). Default is 0x1FFF for exact matching.
+
+          adi,read-id-invert:
+            type: boolean
+            description: >
+              Invert the read ID-match result (RCTL.RIDCINV), so that
+              matching IDs are blocked instead of allowed for reads.
+
+          adi,write-id-invert:
+            type: boolean
+            description: >
+              Invert the write ID-match result (RCTL.WIDCINV), so that
+              matching IDs are blocked instead of allowed for writes.
+
+          secure-only:
+            type: boolean
+            description: |
+              Allow only secure transactions. Blocks all non-secure accesses.
+              Only effective if adi,secure-access property is set.
+              Cannot be combined with non-secure-only.
+
+          non-secure-only:
+            type: boolean
+            description: |
+              Allow only non-secure transactions. Blocks all secure accesses.
+              Useful for non-secure peripherals in TrustZone systems.
+              Cannot be combined with secure-only.
+
+        required:
+          - instance
+
+        oneOf:
+          - required:
+              - memory-region
+          - required:
+              - base
+              - size
+
+        additionalProperties: false
+
+    additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - reg-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    /* Basic configuration without static regions */
+    smpu: smpu@31007000 {
+        compatible = "adi,sc59x-smpu";
+        reg = <0x31007000 0x1000>,   /* SMPU0 */
+              <0x31083000 0x1000>,   /* SMPU2 */
+              <0x31084000 0x1000>,   /* SMPU3 */
+              <0x31085000 0x1000>,   /* SMPU4 */
+              <0x31086000 0x1000>,   /* SMPU5 */
+              <0x31087000 0x1000>,   /* SMPU6 */
+              <0x310A0000 0x1000>,   /* SMPU9 */
+              <0x310A1000 0x1000>,   /* SMPU11 */
+              <0x31012000 0x1000>;   /* SMPU12 */
+        reg-names = "smpu0", "smpu2", "smpu3", "smpu4", "smpu5",
+                    "smpu6", "smpu9", "smpu11", "smpu12";
+        interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
+    };
+
+  - |
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+
+    /* Example with static protection regions */
+    reserved-memory {
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges;
+
+        dsp_memory: dsp@20000000 {
+            reg = <0x20000000 0x100000>;  /* 1MB for DSP */
+            no-map;
+        };
+
+        sharc_memory: sharc@20100000 {
+            reg = <0x20100000 0x200000>;  /* 2MB for SHARC+ */
+            no-map;
+        };
+    };
+
+    smpu1: smpu@31007000 {
+        compatible = "adi,sc59x-smpu";
+        reg = <0x31007000 0x1000>,   /* SMPU0 */
+              <0x310A0000 0x1000>;   /* SMPU9 (DDR) */
+        reg-names = "smpu0", "smpu9";
+        interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
+
+        /* Static protection regions configured at boot */
+        static-regions {
+            region-0 {
+                instance = <0>;  /* SMPU0: L2 SRAM */
+                memory-region = <&dsp_memory>;
+                permissions = <0x3>;  /* Read/Write */
+                allowed-ids = <0x100>;  /* DSP core transaction ID */
+            };
+
+            region-1 {
+                instance = <0>;  /* SMPU0: L2 SRAM */
+                memory-region = <&sharc_memory>;
+                permissions = <0x3>;  /* Read/Write */
+                allowed-ids = <0x200 0x201>;  /* SHARC+ cores */
+            };
+
+            region-2 {
+                instance = <9>;  /* SMPU9: DDR protection */
+                base = <0x80000000>;
+                size = <0x40000000>;  /* 1GB DDR */
+                permissions = <0x3>;  /* read- and write-protect */
+                allowed-ids = <0x100 0x200>;  /* DSP and SHARC */
+                id-masks = <0x1FFF 0x1FF0>;  /* Exact and range match */
+            };
+        };
+    };
