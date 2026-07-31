@@ -3,6 +3,9 @@
 # Makefile for the bus drivers.
 #
 
+# Protection/firewall controllers for ADI SC59x SoCs
+obj-$(CONFIG_ADI_SC59X_SMPU)	+= adi-sc59x-smpu.o
+
 # Interconnect bus drivers for ARM platforms
 obj-$(CONFIG_ARM_CCI)		+= arm-cci.o
 obj-$(CONFIG_ARM_INTEGRATOR_LM)	+= arm-integrator-lm.o
