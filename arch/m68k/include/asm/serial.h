@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/*
- * include/asm-m68k/serial.h
- *
- * currently this seems useful only for a Q40,
- * it's an almost exact copy of ../asm-alpha/serial.h
- *
- */
+#ifndef _ASM_M68K_SERIAL_H
+#define _ASM_M68K_SERIAL_H
 
 #include <asm-generic/serial.h>
 
@@ -26,3 +21,5 @@
 	{ 0, BASE_BAUD, 0x3E8, 4, STD_COM_FLAGS },	/* ttyS2 */	\
 	{ 0, BASE_BAUD, 0x2E8, 3, STD_COM4_FLAGS },	/* ttyS3 */
 #endif
+
+#endif /* _ASM_M68K_SERIAL_H */
