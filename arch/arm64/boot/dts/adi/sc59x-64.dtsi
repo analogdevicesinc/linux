@@ -8,8 +8,6 @@
 #include <dt-bindings/clock/adi-sc5xx-clock.h>
 
 / {
-	model = "ADI 64-bit SC59X";
-	compatible = "adi,sc59x-64";
 
 	interrupt-parent = <&gic>;
 	#address-cells = <1>;
@@ -20,7 +18,6 @@
 	aliases {
 		serial0 = &uart0;
 		serial2 = &uart2;
-		serial3 = &uart3;
 		timer0 = &gptimer0;
 		timer1 = &gptimer1;
 		timer2 = &gptimer2;
@@ -34,19 +31,17 @@
 		spi0   = &spi0;
 		spi1   = &spi1;
 		spi2   = &spi2;
-		spi3   = &spi3;
 /*
 		can0 = &can0;
 		can1 = &can1;
 		rtc0 = &rtc0;
 */
 		i2s4 = &i2s4;
-		mmc0 = &mmc0;
 		sru0 = &sru_ctrl_dai0;
 		sru1 = &sru_ctrl_dai1;
 	};
 
-	cpus {
+	cpus: cpus {
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
@@ -76,7 +71,7 @@
 		      <0x31240000 0x40000>; /* GICR */
 	};
 
-	timer {
+	timer: timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* Physical Secure */
 			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>, /* Physical Non-Secure */
@@ -200,7 +195,7 @@
 		};
 	};
 
-	scb {
+	scb: scb {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -332,22 +327,6 @@
 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>;
-			adi,use-edbo;
-			status = "disabled";
-		};
-
-		uart3: uart@31003C00 {
-			compatible = "adi,uart4";
-			reg = <0x31003C00 0x40>;
-			dmas = <&dma_cluster2 53>, <&dma_cluster2 54>;
-			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
-			clock-names = "sclk0";
-			interrupt-parent = <&gic>;
-			interrupt-names = "tx", "rx", "status";
-			interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>;
 			adi,use-edbo;
 			status = "disabled";
 		};
@@ -515,19 +494,6 @@
 			status = "disabled";
 		};
 
-		spi3: spi@31031000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "adi,spi3";
-			reg = <0x31031000 0xFF>;
-			interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
-			dmas = <&spi_cluster 55>, <&spi_cluster 56>;
-			dma-names = "tx", "rx";
-			clocks = <&clk ADSP_SC598_CLK_SPI>;
-			clock-names = "spi";
-			status = "disabled";
-		};
-
 		ospi: spi@31027000 {
 			compatible = "adi,sc59x-ospi";
 			#address-cells = <1>;
@@ -646,17 +612,6 @@
 			#clock-cells = <0>;
 			clock-frequency = <50000000>;
 			clock-output-names = "emac1_clkin";
-		};
-
-		mmc0: mmc@310C7000 {
-			compatible = "snps,dwcmshc-sdhci";
-			reg = <0x310C7000 0x1000>;
-			interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>; /* Status */
-				     /*<GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;*/ /* Wakeup */
-			clocks = <&clk ADSP_SC598_CLK_EMMC>;
-			clock-names = "core";
-			bus-width = <8>;
-			status = "disabled";
 		};
 
 		gp_counter: cnt@3100B000 {
@@ -816,21 +771,6 @@
 			reg = <0x31004400 0x7F>;
 			gpio-ranges = <&pinctrl0 0 128 7>;
 			adi,pint = <&pint7 1>;
-		};
-
-		usb0_phy: usbphy {
-			compatible = "usb-nop-xceiv";
-			#phy-cells = <0>;
-			status = "disabled";
-		};
-
-		usb0: usb@310c5000 {
-			compatible = "snps,dwc2";
-			reg = <0x310c5000 0x2000>;
-			interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>;
-			phys = <&usb0_phy>;
-			phy-names = "usb2-phy";
-			status = "disabled";
 		};
 
 		pkte1: pkte@310CD000 {
@@ -1181,23 +1121,6 @@
 				interrupt-names = "complete", "error";
 				adi,src-offset = <0x280>;
 			};
-
-			spi3_tx: channel@55 {
-				adi,id = <55>;
-				interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 267 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "complete", "error";
-				adi,src-offset = <0x300>;
-			};
-
-			spi3_rx: channel@56 {
-				adi,id = <56>;
-				interrupts = <GIC_SPI 134 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 268 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "complete", "error";
-				adi,src-offset = <0x380>;
-			};
-
 		};
 
 		crc_cluster: dma@310a7000 {
@@ -1293,21 +1216,6 @@
 				adi,src-offset = <0x200>;
 			};
 
-			uart3_tx: channel@53 {
-				adi,id = <53>;
-				interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 275 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "complete", "error";
-				adi,src-offset = <0x380>;
-			};
-
-			uart3_rx: channel@54 {
-				adi,id = <54>;
-				interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "complete", "error";
-				adi,src-offset = <0x300>;
-			};
 		};
 
 		mdma: dma@3109a000 {

@@ -20,13 +20,13 @@
 			clock-output-names = "mclk";
 		};
 	};
+};
 
-	scb {
-		sound {
-			compatible = "adi,sc5xx-asoc-card";
-			adi,cpu-dai = <&i2s0>;
-			adi,codec = <&adau1372>;
-		};
+&scb {
+	sound {
+		compatible = "adi,sc5xx-asoc-card";
+		adi,cpu-dai = <&i2s0>;
+		adi,codec = <&adau1372>;
 	};
 };
 

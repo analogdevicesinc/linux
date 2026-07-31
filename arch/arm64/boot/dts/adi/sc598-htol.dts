@@ -94,6 +94,10 @@
 	};
 };
 
+&mmc0 {
+	status = "disabled";
+};
+
 &spi2 {
 	flash@1 {
 		#address-cells = <1>;
