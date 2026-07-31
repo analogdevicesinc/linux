@@ -704,7 +704,7 @@ void rtw_surveydone_event_callback(struct adapter *adapter, u8 *buf)
 					_set_timer(&mlme_priv->assoc_timer, MAX_JOIN_TIMEOUT);
 				} else {
 					u8 ret = _SUCCESS;
-					struct wlan_bssid_ex *pdev_network =
+					struct wlan_bssid_ex *dev_network =
 						&adapter->registrypriv.dev_network;
 
 					u8 *pibss = adapter->registrypriv.dev_network.mac_address;
@@ -712,7 +712,7 @@ void rtw_surveydone_event_callback(struct adapter *adapter, u8 *buf)
 					/* mlme_priv->fw_state ^= _FW_UNDER_SURVEY;because don't set assoc_timer */
 					_clr_fwstate_(mlme_priv, _FW_UNDER_SURVEY);
 
-					memcpy(&pdev_network->ssid, &mlme_priv->assoc_ssid,
+					memcpy(&dev_network->ssid, &mlme_priv->assoc_ssid,
 					       sizeof(struct ndis_802_11_ssid));
 
 					rtw_update_registrypriv_dev_network(adapter);
@@ -1368,7 +1368,7 @@ void rtw_stadel_event_callback(struct adapter *adapter, u8 *buf)
 	int mac_id = (-1);
 	struct sta_info *psta;
 	struct wlan_network *pwlan = NULL;
-	struct wlan_bssid_ex    *pdev_network = NULL;
+	struct wlan_bssid_ex    *dev_network = NULL;
 	u8 *pibss = NULL;
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
 	struct stadel_event *pstadel = (struct stadel_event *)buf;
@@ -1454,12 +1454,12 @@ void rtw_stadel_event_callback(struct adapter *adapter, u8 *buf)
 			}
 			spin_unlock_bh(&mlme_priv->scanned_queue.lock);
 			/* re-create ibss */
-			pdev_network = &adapter->registrypriv.dev_network;
+			dev_network = &adapter->registrypriv.dev_network;
 			pibss = adapter->registrypriv.dev_network.mac_address;
 
-			memcpy(pdev_network, &tgt_network->network, get_wlan_bssid_ex_sz(&tgt_network->network));
+			memcpy(dev_network, &tgt_network->network, get_wlan_bssid_ex_sz(&tgt_network->network));
 
-			memcpy(&pdev_network->ssid, &mlme_priv->assoc_ssid, sizeof(struct ndis_802_11_ssid));
+			memcpy(&dev_network->ssid, &mlme_priv->assoc_ssid, sizeof(struct ndis_802_11_ssid));
 
 			rtw_update_registrypriv_dev_network(adapter);
 
@@ -2104,48 +2104,48 @@ void rtw_init_registrypriv_dev_network(struct adapter *adapter)
 {
 	struct registry_priv *pregistrypriv = &adapter->registrypriv;
 	struct eeprom_priv *peepriv = &adapter->eeprompriv;
-	struct wlan_bssid_ex *pdev_network = &pregistrypriv->dev_network;
+	struct wlan_bssid_ex *dev_network = &pregistrypriv->dev_network;
 	u8 *myhwaddr = myid(peepriv);
 
-	memcpy(pdev_network->mac_address, myhwaddr, ETH_ALEN);
+	memcpy(dev_network->mac_address, myhwaddr, ETH_ALEN);
 
-	memcpy(&pdev_network->ssid, &pregistrypriv->ssid, sizeof(struct ndis_802_11_ssid));
+	memcpy(&dev_network->ssid, &pregistrypriv->ssid, sizeof(struct ndis_802_11_ssid));
 
-	pdev_network->configuration.length = sizeof(struct ndis_802_11_conf);
-	pdev_network->configuration.beacon_period = 100;
+	dev_network->configuration.length = sizeof(struct ndis_802_11_conf);
+	dev_network->configuration.beacon_period = 100;
 }
 
 void rtw_update_registrypriv_dev_network(struct adapter *adapter)
 {
 	int sz = 0;
 	struct registry_priv *pregistrypriv = &adapter->registrypriv;
-	struct wlan_bssid_ex *pdev_network = &pregistrypriv->dev_network;
+	struct wlan_bssid_ex *dev_network = &pregistrypriv->dev_network;
 	struct security_priv *psecuritypriv = &adapter->securitypriv;
 	struct wlan_network *cur_network = &adapter->mlmepriv.cur_network;
 
-	pdev_network->privacy = (psecuritypriv->dot11_privacy_algrthm > 0 ? 1 : 0) ; /*  adhoc no 802.1x */
+	dev_network->privacy = (psecuritypriv->dot11_privacy_algrthm > 0 ? 1 : 0) ; /*  adhoc no 802.1x */
 
-	pdev_network->rssi = 0;
+	dev_network->rssi = 0;
 
-	pdev_network->configuration.ds_config = (pregistrypriv->channel);
+	dev_network->configuration.ds_config = (pregistrypriv->channel);
 
 	if (cur_network->network.infrastructure_mode == NL80211_IFTYPE_ADHOC)
-		pdev_network->configuration.atim_window = (0);
+		dev_network->configuration.atim_window = (0);
 
-	pdev_network->infrastructure_mode = (cur_network->network.infrastructure_mode);
+	dev_network->infrastructure_mode = (cur_network->network.infrastructure_mode);
 
 	/*  1. Supported rates */
 	/*  2. IE */
 
-	/* rtw_set_supported_rate(pdev_network->supported_rates, pregistrypriv->wireless_mode) ;  will be called in rtw_generate_ie */
+	/* rtw_set_supported_rate(dev_network->supported_rates, pregistrypriv->wireless_mode) ;  will be called in rtw_generate_ie */
 	sz = rtw_generate_ie(pregistrypriv);
 
-	pdev_network->ie_length = sz;
+	dev_network->ie_length = sz;
 
-	pdev_network->length = get_wlan_bssid_ex_sz((struct wlan_bssid_ex *)pdev_network);
+	dev_network->length = get_wlan_bssid_ex_sz((struct wlan_bssid_ex *)dev_network);
 
 	/* notes: translate ie_length & length after assign the length to cmdsz in createbss_cmd(); */
-	/* pdev_network->ie_length = cpu_to_le32(sz); */
+	/* dev_network->ie_length = cpu_to_le32(sz); */
 }
 
 /* the function is at passive_level */
