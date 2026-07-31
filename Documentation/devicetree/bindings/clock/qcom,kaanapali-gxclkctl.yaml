@@ -28,6 +28,7 @@ properties:
       - items:
           - enum:
               - qcom,hawi-gxclkctl
+              - qcom,maili-gxclkctl
           - const: qcom,kaanapali-gxclkctl
 
   power-domains:
