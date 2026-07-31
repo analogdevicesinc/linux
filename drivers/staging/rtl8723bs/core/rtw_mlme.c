@@ -2154,7 +2154,7 @@ void rtw_joinbss_reset(struct adapter *adapter)
 	u8 threshold;
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
 
-	struct ht_priv *phtpriv = &mlme_priv->htpriv;
+	struct ht_priv *ht_priv = &mlme_priv->htpriv;
 
 	/* todo: if you want to do something io/reg/hw setting before join_bss, please add code here */
 
@@ -2162,11 +2162,11 @@ void rtw_joinbss_reset(struct adapter *adapter)
 
 	mlme_priv->num_sta_no_ht = 0;
 
-	phtpriv->ampdu_enable = false;/* reset to disabled */
+	ht_priv->ampdu_enable = false;/* reset to disabled */
 
 	/*  TH = 1 => means that invalidate usb rx aggregation */
 	/*  TH = 0 => means that validate usb rx aggregation, use init value. */
-	if (phtpriv->ht_option) {
+	if (ht_priv->ht_option) {
 		if (adapter->registrypriv.wifi_spec == 1)
 			threshold = 1;
 		else
@@ -2181,54 +2181,54 @@ void rtw_joinbss_reset(struct adapter *adapter)
 void rtw_ht_use_default_setting(struct adapter *adapter)
 {
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
-	struct ht_priv *phtpriv = &mlme_priv->htpriv;
+	struct ht_priv *ht_priv = &mlme_priv->htpriv;
 	struct registry_priv *pregistrypriv = &adapter->registrypriv;
 	bool bHwLDPCSupport = false, bHwSTBCSupport = false;
 	bool bHwSupportBeamformer = false, bHwSupportBeamformee = false;
 
 	if (pregistrypriv->wifi_spec)
-		phtpriv->bss_coexist = 1;
+		ht_priv->bss_coexist = 1;
 	else
-		phtpriv->bss_coexist = 0;
+		ht_priv->bss_coexist = 0;
 
-	phtpriv->sgi_40m = TEST_FLAG(pregistrypriv->short_gi, BIT(1)) ? true : false;
-	phtpriv->sgi_20m = TEST_FLAG(pregistrypriv->short_gi, BIT(0)) ? true : false;
+	ht_priv->sgi_40m = TEST_FLAG(pregistrypriv->short_gi, BIT(1)) ? true : false;
+	ht_priv->sgi_20m = TEST_FLAG(pregistrypriv->short_gi, BIT(0)) ? true : false;
 
 	/*  LDPC support */
 	rtw_hal_get_def_var(adapter, HAL_DEF_RX_LDPC, (u8 *)&bHwLDPCSupport);
-	CLEAR_FLAGS(phtpriv->ldpc_cap);
+	CLEAR_FLAGS(ht_priv->ldpc_cap);
 	if (bHwLDPCSupport) {
 		if (TEST_FLAG(pregistrypriv->ldpc_cap, BIT(4)))
-			SET_FLAG(phtpriv->ldpc_cap, LDPC_HT_ENABLE_RX);
+			SET_FLAG(ht_priv->ldpc_cap, LDPC_HT_ENABLE_RX);
 	}
 	rtw_hal_get_def_var(adapter, HAL_DEF_TX_LDPC, (u8 *)&bHwLDPCSupport);
 	if (bHwLDPCSupport) {
 		if (TEST_FLAG(pregistrypriv->ldpc_cap, BIT(5)))
-			SET_FLAG(phtpriv->ldpc_cap, LDPC_HT_ENABLE_TX);
+			SET_FLAG(ht_priv->ldpc_cap, LDPC_HT_ENABLE_TX);
 	}
 
 	/*  STBC */
 	rtw_hal_get_def_var(adapter, HAL_DEF_TX_STBC, (u8 *)&bHwSTBCSupport);
-	CLEAR_FLAGS(phtpriv->stbc_cap);
+	CLEAR_FLAGS(ht_priv->stbc_cap);
 	if (bHwSTBCSupport) {
 		if (TEST_FLAG(pregistrypriv->stbc_cap, BIT(5)))
-			SET_FLAG(phtpriv->stbc_cap, STBC_HT_ENABLE_TX);
+			SET_FLAG(ht_priv->stbc_cap, STBC_HT_ENABLE_TX);
 	}
 	rtw_hal_get_def_var(adapter, HAL_DEF_RX_STBC, (u8 *)&bHwSTBCSupport);
 	if (bHwSTBCSupport) {
 		if (TEST_FLAG(pregistrypriv->stbc_cap, BIT(4)))
-			SET_FLAG(phtpriv->stbc_cap, STBC_HT_ENABLE_RX);
+			SET_FLAG(ht_priv->stbc_cap, STBC_HT_ENABLE_RX);
 	}
 
 	/*  Beamforming setting */
 	rtw_hal_get_def_var(adapter, HAL_DEF_EXPLICIT_BEAMFORMER, (u8 *)&bHwSupportBeamformer);
 	rtw_hal_get_def_var(adapter, HAL_DEF_EXPLICIT_BEAMFORMEE, (u8 *)&bHwSupportBeamformee);
-	CLEAR_FLAGS(phtpriv->beamform_cap);
+	CLEAR_FLAGS(ht_priv->beamform_cap);
 	if (TEST_FLAG(pregistrypriv->beamform_cap, BIT(4)) && bHwSupportBeamformer)
-		SET_FLAG(phtpriv->beamform_cap, BEAMFORMING_HT_BEAMFORMER_ENABLE);
+		SET_FLAG(ht_priv->beamform_cap, BEAMFORMING_HT_BEAMFORMER_ENABLE);
 
 	if (TEST_FLAG(pregistrypriv->beamform_cap, BIT(5)) && bHwSupportBeamformee)
-		SET_FLAG(phtpriv->beamform_cap, BEAMFORMING_HT_BEAMFORMEE_ENABLE);
+		SET_FLAG(ht_priv->beamform_cap, BEAMFORMING_HT_BEAMFORMEE_ENABLE);
 }
 
 void rtw_build_wmm_ie_ht(struct adapter *adapter, u8 *out_ie, uint *pout_len)
@@ -2255,10 +2255,10 @@ unsigned int rtw_restructure_ht_ie(struct adapter *adapter, u8 *in_ie, u8 *out_i
 	u8 cbw40_enable = 0, stbc_rx_enable = 0, operation_bw = 0;
 	struct registry_priv *pregistrypriv = &adapter->registrypriv;
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
-	struct ht_priv *phtpriv = &mlme_priv->htpriv;
+	struct ht_priv *ht_priv = &mlme_priv->htpriv;
 	struct mlme_ext_priv *pmlmeext = &adapter->mlmeextpriv;
 
-	phtpriv->ht_option = false;
+	ht_priv->ht_option = false;
 
 	out_len = *pout_len;
 
@@ -2266,7 +2266,7 @@ unsigned int rtw_restructure_ht_ie(struct adapter *adapter, u8 *in_ie, u8 *out_i
 
 	ht_capie.cap_info = cpu_to_le16(IEEE80211_HT_CAP_DSSSCCK40);
 
-	if (phtpriv->sgi_20m)
+	if (ht_priv->sgi_20m)
 		ht_capie.cap_info |= cpu_to_le16(IEEE80211_HT_CAP_SGI_20);
 
 	/* Get HT BW */
@@ -2307,17 +2307,17 @@ unsigned int rtw_restructure_ht_ie(struct adapter *adapter, u8 *in_ie, u8 *out_i
 
 	if ((cbw40_enable == 1) && (operation_bw == CHANNEL_WIDTH_40)) {
 		ht_capie.cap_info |= cpu_to_le16(IEEE80211_HT_CAP_SUP_WIDTH);
-		if (phtpriv->sgi_40m)
+		if (ht_priv->sgi_40m)
 			ht_capie.cap_info |= cpu_to_le16(IEEE80211_HT_CAP_SGI_40);
 	}
 
-	if (TEST_FLAG(phtpriv->stbc_cap, STBC_HT_ENABLE_TX))
+	if (TEST_FLAG(ht_priv->stbc_cap, STBC_HT_ENABLE_TX))
 		ht_capie.cap_info |= cpu_to_le16(IEEE80211_HT_CAP_TX_STBC);
 
 	/* todo: disable SM power save mode */
 	ht_capie.cap_info |= cpu_to_le16(IEEE80211_HT_CAP_SM_PS);
 
-	if (TEST_FLAG(phtpriv->stbc_cap, STBC_HT_ENABLE_RX)) {
+	if (TEST_FLAG(ht_priv->stbc_cap, STBC_HT_ENABLE_RX)) {
 		if ((channel <= 14 && pregistrypriv->rx_stbc == 0x1) ||	/* enable for 2.4GHz */
 			(pregistrypriv->wifi_spec == 1))
 			stbc_rx_enable = 1;
@@ -2356,7 +2356,7 @@ unsigned int rtw_restructure_ht_ie(struct adapter *adapter, u8 *in_ie, u8 *out_i
 	rtw_set_ie(out_ie + out_len, WLAN_EID_HT_CAPABILITY,
 		   sizeof(struct ieee80211_ht_cap), (unsigned char *)&ht_capie, pout_len);
 
-	phtpriv->ht_option = true;
+	ht_priv->ht_option = true;
 
 	if (in_ie) {
 		p = rtw_get_ie(in_ie, WLAN_EID_HT_OPERATION, &ielen, in_len);
@@ -2366,7 +2366,7 @@ unsigned int rtw_restructure_ht_ie(struct adapter *adapter, u8 *in_ie, u8 *out_i
 		}
 	}
 
-	return phtpriv->ht_option;
+	return ht_priv->ht_option;
 }
 
 /* the function is > passive_level (in critical_section) */
@@ -2376,21 +2376,21 @@ void rtw_update_ht_cap(struct adapter *adapter, u8 *pie, uint ie_len, u8 channel
 	int len;
 	struct ieee80211_ht_cap *pht_capie;
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
-	struct ht_priv *phtpriv = &mlme_priv->htpriv;
+	struct ht_priv *ht_priv = &mlme_priv->htpriv;
 	struct registry_priv *pregistrypriv = &adapter->registrypriv;
 	struct mlme_ext_priv *pmlmeext = &adapter->mlmeextpriv;
 	struct mlme_ext_info *pmlmeinfo = &pmlmeext->mlmext_info;
 	u8 cbw40_enable = 0;
 
-	if (!phtpriv->ht_option)
+	if (!ht_priv->ht_option)
 		return;
 
 	if ((!pmlmeinfo->HT_info_enable) || (!pmlmeinfo->HT_caps_enable))
 		return;
 
 	/* maybe needs check if ap supports rx ampdu. */
-	if (!(phtpriv->ampdu_enable) && pregistrypriv->ampdu_enable == 1)
-		phtpriv->ampdu_enable = true;
+	if (!(ht_priv->ampdu_enable) && pregistrypriv->ampdu_enable == 1)
+		ht_priv->ampdu_enable = true;
 
 	/* check Max Rx A-MPDU Size */
 	len = 0;
@@ -2400,7 +2400,7 @@ void rtw_update_ht_cap(struct adapter *adapter, u8 *pie, uint ie_len, u8 channel
 		max_ampdu_sz = (pht_capie->ampdu_params_info & IEEE80211_HT_CAP_AMPDU_FACTOR);
 		max_ampdu_sz = 1 << (max_ampdu_sz + 3); /*  max_ampdu_sz (kbytes); */
 
-		phtpriv->rx_ampdu_maxlen = max_ampdu_sz;
+		ht_priv->rx_ampdu_maxlen = max_ampdu_sz;
 	}
 
 	len = 0;
@@ -2460,7 +2460,7 @@ void rtw_issue_addbareq_cmd(struct adapter *adapter, struct xmit_frame *pxmitfra
 	u8 issued;
 	int priority;
 	struct sta_info *psta;
-	struct ht_priv *phtpriv;
+	struct ht_priv *ht_priv;
 	struct pkt_attrib *pattrib = &pxmitframe->attrib;
 	s32 bmcst = is_multicast_ether_addr(pattrib->ra);
 
@@ -2479,11 +2479,11 @@ void rtw_issue_addbareq_cmd(struct adapter *adapter, struct xmit_frame *pxmitfra
 	if (!(psta->state & _FW_LINKED))
 		return;
 
-	phtpriv = &psta->htpriv;
+	ht_priv = &psta->htpriv;
 
-	if (phtpriv->ht_option && phtpriv->ampdu_enable) {
-		issued = (phtpriv->agg_enable_bitmap >> priority) & 0x1;
-		issued |= (phtpriv->candidate_tid_bitmap >> priority) & 0x1;
+	if (ht_priv->ht_option && ht_priv->ampdu_enable) {
+		issued = (ht_priv->agg_enable_bitmap >> priority) & 0x1;
+		issued |= (ht_priv->candidate_tid_bitmap >> priority) & 0x1;
 
 		if (issued == 0) {
 			psta->htpriv.candidate_tid_bitmap |= BIT((u8)priority);
@@ -2495,10 +2495,10 @@ void rtw_issue_addbareq_cmd(struct adapter *adapter, struct xmit_frame *pxmitfra
 void rtw_append_exented_cap(struct adapter *adapter, u8 *out_ie, uint *pout_len)
 {
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
-	struct ht_priv *phtpriv = &mlme_priv->htpriv;
+	struct ht_priv *ht_priv = &mlme_priv->htpriv;
 	u8 cap_content[8] = {0};
 
-	if (phtpriv->bss_coexist)
+	if (ht_priv->bss_coexist)
 		SET_EXT_CAPABILITY_ELE_BSS_COEXIST(cap_content, 1);
 
 	rtw_set_ie(out_ie + *pout_len, WLAN_EID_EXT_CAPABILITY, 8, cap_content, pout_len);
