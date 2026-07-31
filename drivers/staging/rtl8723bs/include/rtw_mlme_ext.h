@@ -533,7 +533,7 @@ void update_mgnt_tx_rate(struct adapter *padapter, u8 rate);
 void update_mgntframe_attrib(struct adapter *padapter, struct pkt_attrib *pattrib);
 void update_mgntframe_attrib_addr(struct adapter *padapter, struct xmit_frame *pmgntframe);
 void dump_mgntframe(struct adapter *padapter, struct xmit_frame *pmgntframe);
-s32 dump_mgntframe_and_wait(struct adapter *padapter, struct xmit_frame *pmgntframe, int timeout_ms);
+void dump_mgntframe_and_wait(struct adapter *padapter, struct xmit_frame *pmgntframe, int timeout_ms);
 s32 dump_mgntframe_and_wait_ack(struct adapter *padapter, struct xmit_frame *pmgntframe);
 
 void issue_beacon(struct adapter *padapter, int timeout_ms);
