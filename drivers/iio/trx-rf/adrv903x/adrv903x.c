@@ -198,12 +198,15 @@ static ssize_t adrv903x_phy_store(struct device *dev,
 			static const u32 INIT_CALS_TIMEOUT_MS =
 				60000; /*60 seconds timeout*/
 
-			phy->cal_mask.orxChannelMask =
-				phy->adrv903xPostMcsInitInst.initCals.orxChannelMask;
-			phy->cal_mask.rxChannelMask =
-				phy->adrv903xPostMcsInitInst.initCals.rxChannelMask;
-			phy->cal_mask.txChannelMask =
-				phy->adrv903xPostMcsInitInst.initCals.txChannelMask;
+			if (!phy->cal_mask.orxChannelMask)
+				phy->cal_mask.orxChannelMask =
+					phy->adrv903xPostMcsInitInst.initCals.orxChannelMask;
+			if (!phy->cal_mask.rxChannelMask)
+				phy->cal_mask.rxChannelMask =
+					phy->adrv903xPostMcsInitInst.initCals.rxChannelMask;
+			if (!phy->cal_mask.txChannelMask)
+				phy->cal_mask.txChannelMask =
+					phy->adrv903xPostMcsInitInst.initCals.txChannelMask;
 
 			/* Run Init Cals */
 			ret = adrv903x_api_call(phy, adi_adrv903x_InitCalsRun,
