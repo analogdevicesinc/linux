@@ -49,6 +49,18 @@ static const struct alpha_pll_config gpu_cc_pll0_config = {
 	.user_ctl_hi_val = 0x00000002,
 };
 
+/* 788.0 MHz Configuration */
+static const struct alpha_pll_config gpu_cc_pll0_config_maili = {
+	.l = 0x29,
+	.cal_l = 0x42,
+	.alpha = 0xaaa,
+	.config_ctl_val = 0xa5c400e7,
+	.config_ctl_hi_val = 0x0a806160,
+	.config_ctl_hi1_val = 0xf51dea20,
+	.user_ctl_val = 0x00000000,
+	.user_ctl_hi_val = 0x00000002,
+};
+
 static struct clk_alpha_pll gpu_cc_pll0 = {
 	.offset = 0x0,
 	.config = &gpu_cc_pll0_config,
@@ -438,12 +450,16 @@ static const struct qcom_cc_desc gpu_cc_hawi_desc = {
 
 static const struct of_device_id gpu_cc_hawi_match_table[] = {
 	{ .compatible = "qcom,hawi-gpucc" },
+	{ .compatible = "qcom,maili-gpucc" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gpu_cc_hawi_match_table);
 
 static int gpu_cc_hawi_probe(struct platform_device *pdev)
 {
+	if (device_is_compatible(&pdev->dev, "qcom,maili-gpucc"))
+		gpu_cc_pll0.config = &gpu_cc_pll0_config_maili;
+
 	return qcom_cc_probe(pdev, &gpu_cc_hawi_desc);
 }
 
