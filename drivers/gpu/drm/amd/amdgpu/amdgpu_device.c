@@ -4577,9 +4577,16 @@ int amdgpu_device_suspend(struct drm_device *dev, bool notify_clients)
 
 	amdgpu_ras_suspend(adev);
 
+	/* VKMS modeset state is saved here, never from the reset path */
+	if (adev->enable_virtual_display) {
+		r = drm_mode_config_helper_suspend(dev);
+		if (r)
+			goto unwind_smartshift;
+	}
+
 	r = amdgpu_device_ip_suspend_phase1(adev);
 	if (r)
-		goto unwind_smartshift;
+		goto unwind_vkms;
 
 	amdgpu_amdkfd_suspend(adev, !amdgpu_sriov_vf(adev) && !adev->in_runpm);
 	r = amdgpu_userq_suspend(adev);
@@ -4626,6 +4633,10 @@ unwind_ip_phase1:
 		dev_warn(adev->dev, "failed to re-initialize IPs phase1: %d\n", rec);
 		return r;
 	}
+
+unwind_vkms:
+	if (adev->enable_virtual_display)
+		drm_mode_config_helper_resume(dev);
 
 unwind_smartshift:
 	rec = amdgpu_acpi_smart_shift_update(adev, AMDGPU_SS_DEV_D0);
@@ -4724,6 +4735,12 @@ int amdgpu_device_resume(struct drm_device *dev, bool notify_clients)
 	if (r) {
 		dev_err(adev->dev, "amdgpu_device_ip_resume failed (%d).\n", r);
 		goto exit;
+	}
+
+	if (adev->enable_virtual_display) {
+		r = drm_mode_config_helper_resume(dev);
+		if (r)
+			goto exit;
 	}
 
 	r = amdgpu_amdkfd_resume(adev, !amdgpu_sriov_vf(adev) && !adev->in_runpm);
