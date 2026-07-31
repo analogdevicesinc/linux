@@ -1990,6 +1990,10 @@ s32 dump_mgntframe_and_wait(struct adapter *padapter, struct xmit_frame *pmgntfr
 	pxmitbuf->sctx = &sctx;
 
 	ret = rtw_hal_mgnt_xmit(padapter, pmgntframe);
+	if (ret)
+		ret = _FAIL;
+	else
+		ret = _SUCCESS;
 
 	if (ret == _SUCCESS)
 		ret = rtw_sctx_wait(&sctx);
