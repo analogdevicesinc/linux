@@ -797,6 +797,10 @@ int fsl_mc_device_add(struct fsl_mc_obj_desc *obj_desc,
 	}
 	dev_set_name(&mc_dev->dev, "%s.%d", obj_desc->type, obj_desc->id);
 
+	mc_dev->dma_mask = FSL_MC_DEFAULT_DMA_MASK;
+	mc_dev->dev.dma_mask = &mc_dev->dma_mask;
+	mc_dev->dev.coherent_dma_mask = mc_dev->dma_mask;
+
 	if (strcmp(obj_desc->type, "dprc") == 0) {
 		struct fsl_mc_io *mc_io2;
 
@@ -838,9 +842,6 @@ int fsl_mc_device_add(struct fsl_mc_obj_desc *obj_desc,
 		 * parent's ICID.
 		 */
 		mc_dev->icid = parent_mc_dev->icid;
-		mc_dev->dma_mask = FSL_MC_DEFAULT_DMA_MASK;
-		mc_dev->dev.dma_mask = &mc_dev->dma_mask;
-		mc_dev->dev.coherent_dma_mask = mc_dev->dma_mask;
 	}
 
 	/*
