@@ -271,16 +271,16 @@ bool rtw_if_up(struct adapter *padapter)
 	return true;
 }
 
-void rtw_generate_random_ibss(u8 *pibss)
+void rtw_generate_random_ibss(u8 *ibss)
 {
 	unsigned long curtime = jiffies;
 
-	pibss[0] = 0x02;  /* in ad-hoc mode bit1 must set to 1 */
-	pibss[1] = 0x11;
-	pibss[2] = 0x87;
-	pibss[3] = (u8)(curtime & 0xff) ;/* p[0]; */
-	pibss[4] = (u8)((curtime >> 8) & 0xff) ;/* p[1]; */
-	pibss[5] = (u8)((curtime >> 16) & 0xff) ;/* p[2]; */
+	ibss[0] = 0x02;  /* in ad-hoc mode bit1 must set to 1 */
+	ibss[1] = 0x11;
+	ibss[2] = 0x87;
+	ibss[3] = (u8)(curtime & 0xff) ;/* p[0]; */
+	ibss[4] = (u8)((curtime >> 8) & 0xff) ;/* p[1]; */
+	ibss[5] = (u8)((curtime >> 16) & 0xff) ;/* p[2]; */
 }
 
 u8 *rtw_get_capability_from_ie(u8 *ie)
@@ -707,7 +707,7 @@ void rtw_surveydone_event_callback(struct adapter *adapter, u8 *buf)
 					struct wlan_bssid_ex *dev_network =
 						&adapter->registrypriv.dev_network;
 
-					u8 *pibss = adapter->registrypriv.dev_network.mac_address;
+					u8 *ibss = adapter->registrypriv.dev_network.mac_address;
 
 					/* mlme_priv->fw_state ^= _FW_UNDER_SURVEY;because don't set assoc_timer */
 					_clr_fwstate_(mlme_priv, _FW_UNDER_SURVEY);
@@ -716,7 +716,7 @@ void rtw_surveydone_event_callback(struct adapter *adapter, u8 *buf)
 					       sizeof(struct ndis_802_11_ssid));
 
 					rtw_update_registrypriv_dev_network(adapter);
-					rtw_generate_random_ibss(pibss);
+					rtw_generate_random_ibss(ibss);
 
 					mlme_priv->fw_state = WIFI_ADHOC_MASTER_STATE;
 
@@ -1369,7 +1369,7 @@ void rtw_stadel_event_callback(struct adapter *adapter, u8 *buf)
 	struct sta_info *psta;
 	struct wlan_network *pwlan = NULL;
 	struct wlan_bssid_ex    *dev_network = NULL;
-	u8 *pibss = NULL;
+	u8 *ibss = NULL;
 	struct mlme_priv *mlme_priv = &adapter->mlmepriv;
 	struct stadel_event *pstadel = (struct stadel_event *)buf;
 	struct wlan_network *tgt_network = &mlme_priv->cur_network;
@@ -1455,7 +1455,7 @@ void rtw_stadel_event_callback(struct adapter *adapter, u8 *buf)
 			spin_unlock_bh(&mlme_priv->scanned_queue.lock);
 			/* re-create ibss */
 			dev_network = &adapter->registrypriv.dev_network;
-			pibss = adapter->registrypriv.dev_network.mac_address;
+			ibss = adapter->registrypriv.dev_network.mac_address;
 
 			memcpy(dev_network, &tgt_network->network, get_wlan_bssid_ex_sz(&tgt_network->network));
 
@@ -1463,7 +1463,7 @@ void rtw_stadel_event_callback(struct adapter *adapter, u8 *buf)
 
 			rtw_update_registrypriv_dev_network(adapter);
 
-			rtw_generate_random_ibss(pibss);
+			rtw_generate_random_ibss(ibss);
 
 			if (check_fwstate(mlme_priv, WIFI_ADHOC_STATE)) {
 				set_fwstate(mlme_priv, WIFI_ADHOC_MASTER_STATE);
