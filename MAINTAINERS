@@ -2296,6 +2296,7 @@ M:	Vasileios Bimpikas <vasileios.bimpikas@analog.com>
 L:	linux@analog.com
 S:	Maintained
 F:	Documentation/devicetree/bindings/bus/adi,sc59x-smpu.yaml
+F:	Documentation/devicetree/bindings/bus/adi,sc59x-spu.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,pads-system-config.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,reset-controller.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,rpmsg-SC598.yaml
@@ -2309,6 +2310,7 @@ F:	arch/arm/mach-sc5xx/
 F:	arch/arm64/boot/dts/adi/*
 F:	arch/arm64/configs/sc5*_defconfig
 F:	drivers/bus/adi-sc59x-smpu.c
+F:	drivers/bus/adi-sc59x-spu.c
 F:	drivers/clk/adi/*
 F:	drivers/clocksource/timer-adi-adsp-sc5xx.c
 F:	drivers/dma/adi-dma.c

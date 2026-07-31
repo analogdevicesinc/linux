@@ -16,6 +16,17 @@ config ADI_SC59X_SMPU
 	  is a memory firewall that restricts memory-region accesses by
 	  transaction ID and, optionally, secure state.
 
+config ADI_SC59X_SPU
+	tristate "ADI SC59x System Protection Unit"
+	depends on OF
+	depends on ARCH_SC59X_64 || COMPILE_TEST
+	default ARCH_SC59X_64
+	help
+	  This enables support for the SPU (System Protection Unit) on
+	  Analog Devices SC59x processors (SC595/SC596/SC598). The SPU is a
+	  peripheral firewall that write-protects peripheral MMR space from
+	  selected bus masters and, optionally, enforces secure access.
+
 config ARM_CCI
 	bool
 
