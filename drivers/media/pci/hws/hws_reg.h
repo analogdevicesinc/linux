@@ -121,9 +121,10 @@
 #define HWS_REG_DEVICE_INFO   (CVBS_IN_BASE +  88 * PCIE_BARADDROFSIZE)
 /*
  * Reading this 32-bit word returns:
- *   bits 7:0   = "device version"
- *   bits 15:8  = "device sub-version"
- *   bits 23:24 = "HW key / port ID" etc.
+ *   bits 7:0   = unused by the baseline driver
+ *   bits 15:8  = device version
+ *   bits 23:16 = device sub-version
+ *   bits 27:24 = HW key (port ID in bits 25:24)
  *   bits 31:28 = "support YV12" flags
  */
 

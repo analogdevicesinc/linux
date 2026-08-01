@@ -33,8 +33,8 @@ static unsigned long long hws_elapsed_us(u64 start_ns)
 }
 
 /* register layout inside HWS_REG_DEVICE_INFO */
-#define DEVINFO_VER GENMASK(7, 0)
-#define DEVINFO_SUBVER GENMASK(15, 8)
+#define DEVINFO_VER GENMASK(15, 8)
+#define DEVINFO_SUBVER GENMASK(23, 16)
 #define DEVINFO_YV12 GENMASK(31, 28)
 #define DEVINFO_HWKEY GENMASK(27, 24)
 #define DEVINFO_PORTID GENMASK(25, 24) /* low 2 bits of HW-key */
