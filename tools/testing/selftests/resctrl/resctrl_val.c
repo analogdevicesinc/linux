@@ -28,6 +28,7 @@ struct membw_read_format {
 };
 
 struct imc_counter_config {
+	struct list_head entry;
 	__u32 type;
 	__u64 event;
 	__u64 umask;
@@ -38,6 +39,7 @@ struct imc_counter_config {
 static char mbm_total_path[1024];
 static int imcs;
 static struct imc_counter_config imc_counters_config[MAX_IMCS];
+LIST_HEAD(imc_counters_list);
 static const struct resctrl_test *current_test;
 
 static void read_mem_bw_initialize_perf_event_attr(int i)
@@ -113,6 +115,7 @@ static int parse_imc_read_bw_events(char *imc_dir, unsigned int type,
 				    unsigned int *count)
 {
 	char imc_events_dir[PATH_MAX], imc_counter_cfg[PATH_MAX];
+	struct imc_counter_config *imc_counter;
 	unsigned int orig_count = *count;
 	char cas_count_cfg[1024];
 	struct dirent *ep;
@@ -126,13 +129,13 @@ static int parse_imc_read_bw_events(char *imc_dir, unsigned int type,
 			    imc_dir);
 	if (path_len >= sizeof(imc_events_dir)) {
 		ksft_print_msg("Unable to create path to %sevents\n", imc_dir);
-		return -1;
+		goto out;
 	}
 
 	dp = opendir(imc_events_dir);
 	if (!dp) {
 		ksft_perror("Unable to open PMU events directory");
-		return -1;
+		goto out;
 	}
 
 	while ((ep = readdir(dp))) {
@@ -167,11 +170,17 @@ static int parse_imc_read_bw_events(char *imc_dir, unsigned int type,
 			ksft_print_msg("Maximum iMC count exceeded\n");
 			goto out_close;
 		}
+		imc_counter = calloc(1, sizeof(*imc_counter));
+		if (!imc_counter) {
+			ksft_perror("Unable to allocate memory for iMC counters");
+			goto out_close;
+		}
 
 		imc_counters_config[*count].type = type;
 		get_read_event_and_umask(cas_count_cfg, *count);
 		/* Do not fail after incrementing *count. */
 		*count += 1;
+		list_add(&imc_counter->entry, &imc_counters_list);
 	}
 	if (*count == orig_count) {
 		ksft_print_msg("Unable to find events in %s\n", imc_events_dir);
@@ -180,6 +189,10 @@ static int parse_imc_read_bw_events(char *imc_dir, unsigned int type,
 	ret = 0;
 out_close:
 	closedir(dp);
+out:
+	if (ret)
+		cleanup_read_mem_bw_imc();
+
 	return ret;
 }
 
@@ -301,6 +314,16 @@ int initialize_read_mem_bw_imc(void)
 		read_mem_bw_initialize_perf_event_attr(imc);
 
 	return 0;
+}
+
+void cleanup_read_mem_bw_imc(void)
+{
+	struct imc_counter_config *imc_counter, *tmp;
+
+	list_for_each_entry_safe(imc_counter, tmp, &imc_counters_list, entry) {
+		list_del(&imc_counter->entry);
+		free(imc_counter);
+	}
 }
 
 static void perf_close_imc_read_mem_bw(void)
