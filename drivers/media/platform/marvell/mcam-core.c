@@ -224,11 +224,11 @@ static void mcam_buffer_done(struct mcam_camera *cam, int frame,
  * Debugging and related.
  */
 #define cam_err(cam, fmt, arg...) \
-	dev_err((cam)->dev, fmt, ##arg);
+	dev_err((cam)->dev, fmt, ##arg)
 #define cam_warn(cam, fmt, arg...) \
-	dev_warn((cam)->dev, fmt, ##arg);
+	dev_warn((cam)->dev, fmt, ##arg)
 #define cam_dbg(cam, fmt, arg...) \
-	dev_dbg((cam)->dev, fmt, ##arg);
+	dev_dbg((cam)->dev, fmt, ##arg)
 
 
 /*
