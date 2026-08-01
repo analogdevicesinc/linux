@@ -1458,7 +1458,7 @@
 				clock-names = "per", "ipg";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				dmas = <&edma1 12 0 0>, <&edma1 13 0 FSL_EDMA_RX> ;
+				dmas = <&edma1 12 0 0>, <&edma1 13 0 FSL_EDMA_RX>;
 				dma-names = "tx", "rx";
 				status = "disabled";
 			};
@@ -1472,7 +1472,7 @@
 				clock-names = "per", "ipg";
 				#address-cells = <1>;
 				#size-cells = <0>;
-				dmas = <&edma1 14 0 0>, <&edma1 15 0 FSL_EDMA_RX> ;
+				dmas = <&edma1 14 0 0>, <&edma1 15 0 FSL_EDMA_RX>;
 				dma-names = "tx", "rx";
 				status = "disabled";
 			};
@@ -1486,7 +1486,7 @@
 				clocks = <&scmi_clk IMX95_CLK_LPSPI1>,
 					 <&scmi_clk IMX95_CLK_BUSAON>;
 				clock-names = "per", "ipg";
-				dmas = <&edma1 16 0 FSL_EDMA_RX>, <&edma1 17 0 0> ;
+				dmas = <&edma1 16 0 FSL_EDMA_RX>, <&edma1 17 0 0>;
 				dma-names = "tx", "rx";
 				status = "disabled";
 			};
@@ -1500,7 +1500,7 @@
 				clocks = <&scmi_clk IMX95_CLK_LPSPI2>,
 					 <&scmi_clk IMX95_CLK_BUSAON>;
 				clock-names = "per", "ipg";
-				dmas = <&edma1 18 0 FSL_EDMA_RX>, <&edma1 19 0 0> ;
+				dmas = <&edma1 18 0 FSL_EDMA_RX>, <&edma1 19 0 0>;
 				dma-names = "tx", "rx";
 				status = "disabled";
 			};
