@@ -1364,7 +1364,7 @@
 			status = "disabled";
 		};
 
-		sdhi0: mmc@92080000  {
+		sdhi0: mmc@92080000 {
 			compatible = "renesas,sdhi-r9a09g077",
 				     "renesas,sdhi-r9a09g057";
 			reg = <0x0 0x92080000 0 0x10000>;
