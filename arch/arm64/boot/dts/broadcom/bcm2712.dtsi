@@ -55,6 +55,13 @@
 			clock-frequency = <96000000>;
 			clock-output-names = "sw-baud";
 		};
+
+		clk_usb: clk-usb {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <480000000>;
+			clock-output-names = "otg";
+		};
 	};
 
 	cpus: cpus {
@@ -693,6 +700,19 @@
 			interrupts = <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>;
 		};
+
+		usb: usb@1000480000 {
+			compatible = "brcm,bcm2835-usb";
+			reg = <0x10 0x00480000  0x0 0x10000>;
+			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&clk_usb>;
+			clock-names = "otg";
+			phys = <&usbphy>;
+			phy-names = "usb2-phy";
+			status = "disabled";
+		};
 	};
 
 	vc4: gpu {
@@ -753,5 +773,10 @@
 			cooling_maps: cooling-maps {
 			};
 		};
+	};
+
+	usbphy: phy {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
 	};
 };
