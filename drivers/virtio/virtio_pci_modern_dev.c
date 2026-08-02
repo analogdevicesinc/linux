@@ -480,8 +480,14 @@ EXPORT_SYMBOL_GPL(vp_modern_generation);
 u8 vp_modern_get_status(struct virtio_pci_modern_device *mdev)
 {
 	struct virtio_pci_common_cfg __iomem *cfg = mdev->common;
+	u8 status = vp_ioread8(&cfg->device_status);
 
-	return vp_ioread8(&cfg->device_status);
+	if (VIRTIO_STATUS_ERROR(status)) {
+		WARN_ONCE(1, "virtio: device returned error status: %#x\n",
+			  status);
+	}
+
+	return status;
 }
 EXPORT_SYMBOL_GPL(vp_modern_get_status);
 
