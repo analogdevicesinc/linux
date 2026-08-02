@@ -1167,6 +1167,8 @@ static void nfs4_free_deleg(struct nfs4_stid *stid)
 	WARN_ON_ONCE(!list_empty(&dp->dl_perfile));
 	WARN_ON_ONCE(!list_empty(&dp->dl_perclnt));
 	WARN_ON_ONCE(!list_empty(&dp->dl_recall_lru));
+	/* The list outlives one recall, so ->release() cannot free it. */
+	nfsd41_cb_destroy_referring_call_list(&dp->dl_recall);
 	kmem_cache_free(deleg_slab, stid);
 	atomic_long_dec(&num_delegations);
 }
@@ -6091,6 +6093,18 @@ bool nfsd_wait_for_delegreturn(struct svc_rqst *rqstp, struct inode *inode)
 	return timeo > 0;
 }
 
+/*
+ * gen_sessionid() composes a sessionid from the client's clientid and a
+ * sequence counter, so the sequence alone identifies the granting session.
+ */
+static void nfsd4_recall_grant_sessionid(const struct nfs4_delegation *dp,
+					 struct nfsd4_sessionid *sid)
+{
+	sid->clientid = dp->dl_stid.sc_client->cl_clientid;
+	sid->sequence = dp->dl_recall_grant.sessionid_seq;
+	sid->reserved = 0;
+}
+
 static bool nfsd4_recall_grant_slot_retired(struct nfs4_delegation *dp)
 {
 	struct nfs4_client *clp = dp->dl_stid.sc_client;
@@ -6103,14 +6117,7 @@ static bool nfsd4_recall_grant_slot_retired(struct nfs4_delegation *dp)
 	if (!dp->dl_recall_grant.valid)
 		return false;
 
-	/*
-	 * gen_sessionid() composes a sessionid from the client's clientid
-	 * and a sequence counter, so the sequence alone identifies the
-	 * granting session.
-	 */
-	sid.clientid = clp->cl_clientid;
-	sid.sequence = dp->dl_recall_grant.sessionid_seq;
-	sid.reserved = 0;
+	nfsd4_recall_grant_sessionid(dp, &sid);
 
 	/*
 	 * A missing session does not prove the client saw the grant: a
@@ -6145,6 +6152,21 @@ static bool nfsd4_recall_grant_slot_retired(struct nfs4_delegation *dp)
 	return retired;
 }
 
+/*
+ * ->prepare does not run on every send: nfsd4_run_cb_work() skips it
+ * on a requeue, and a retry via rpc_restart_call_prepare() re-enters
+ * the RPC layer beneath it. The granting request does not change, so
+ * a send inherits a correct list. Retirement is the one transition
+ * the list has to follow.
+ */
+static void nfsd4_refresh_recall_grant(struct nfs4_delegation *dp)
+{
+	dp->dl_recall_grant.retired_at_send =
+			nfsd4_recall_grant_slot_retired(dp);
+	if (dp->dl_recall_grant.retired_at_send)
+		nfsd41_cb_destroy_referring_call_list(&dp->dl_recall);
+}
+
 static bool nfsd4_cb_recall_prepare(struct nfsd4_callback *cb)
 {
 	struct nfs4_delegation *dp = cb_to_delegation(cb);
@@ -6167,8 +6189,17 @@ static bool nfsd4_cb_recall_prepare(struct nfsd4_callback *cb)
 	}
 	spin_unlock(&nn->deleg_lock);
 
-	dp->dl_recall_grant.retired_at_send =
-			nfsd4_recall_grant_slot_retired(dp);
+	nfsd4_refresh_recall_grant(dp);
+
+	if (dp->dl_recall_grant.valid && !dp->dl_recall_grant.retired_at_send) {
+		struct nfsd4_sessionid sid;
+
+		nfsd4_recall_grant_sessionid(dp, &sid);
+		nfsd41_cb_referring_call(&dp->dl_recall,
+					 (struct nfs4_sessionid *)&sid,
+					 dp->dl_recall_grant.slotid,
+					 dp->dl_recall_grant.seqid);
+	}
 	return true;
 }
 
@@ -6225,8 +6256,7 @@ static int nfsd4_cb_recall_done(struct nfsd4_callback *cb,
 			return 1;
 		}
 		if (!dp->dl_stid.sc_status && dp->dl_retries--) {
-			dp->dl_recall_grant.retired_at_send =
-					nfsd4_recall_grant_slot_retired(dp);
+			nfsd4_refresh_recall_grant(dp);
 			rpc_delay(task, 2 * HZ);
 			return 0;
 		}
