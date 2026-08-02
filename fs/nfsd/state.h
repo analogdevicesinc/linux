@@ -145,10 +145,13 @@ struct nfs4_stid {
 #define SC_TYPE_COPY		BIT(4)
 	unsigned short		sc_type;
 
-/* nn->deleg_lock protects sc_status for delegation stateids.
- * ->cl_lock protects sc_status for open and lock stateids.
- * ->st_mutex also protect sc_status for open stateids.
- * ->ls_lock protects sc_status for layout stateids.
+/*
+ * nn->deleg_lock protects sc_status for hashed delegation stateids.
+ * ->cl_lock protects the bits set as one is disposed of
+ * (SC_STATUS_CLOSED, SC_STATUS_FREEABLE, SC_STATUS_FREED) and
+ * sc_status for open and lock stateids. ->st_mutex also protects
+ * sc_status for open stateids. ->ls_lock protects sc_status for
+ * layout stateids.
  */
 /*
  * For an open stateid kept around *only* to process close replays.
