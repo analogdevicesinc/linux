@@ -58,6 +58,7 @@
 					XDR_QUADLEN(NFS4_VERIFIER_SIZE))
 #define NFS4_enc_cb_offload_sz		(cb_compound_enc_hdr_sz +       \
 					cb_sequence_enc_sz +            \
+					op_enc_sz +			\
 					enc_nfs4_fh_sz +		\
 					enc_stateid_sz +		\
 					enc_cb_offload_info_sz)
