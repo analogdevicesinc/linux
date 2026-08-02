@@ -21523,7 +21523,6 @@ void nl80211_mlo_reconf_add_done(struct net_device *dev,
 
 	nl80211_send_mlme_event(rdev, dev, &event, GFP_KERNEL);
 }
-EXPORT_SYMBOL(nl80211_mlo_reconf_add_done);
 
 void nl80211_send_ibss_bssid(struct cfg80211_registered_device *rdev,
 			     struct net_device *netdev, const u8 *bssid,
