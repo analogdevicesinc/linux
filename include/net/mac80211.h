@@ -2919,8 +2919,8 @@ struct ieee80211_txq {
  *	autonomously manages the PS status of connected stations. When
  *	this flag is set mac80211 will not trigger PS mode for connected
  *	stations based on the PM bit of incoming frames.
- *	Use ieee80211_start_ps()/ieee8021_end_ps() to manually configure
- *	the PS mode of connected stations.
+ *	Use ieee80211_sta_ps_transition() to manually toggle the PS mode
+ *	of connected stations.
  *
  * @IEEE80211_HW_TX_AMPDU_SETUP_IN_HW: The device handles TX A-MPDU session
  *	setup strictly in HW. mac80211 should not attempt to do this in
@@ -5499,10 +5499,8 @@ static inline void ieee80211_rx_ni(struct ieee80211_hw *hw,
  *
  * @sta: currently connected sta
  * @start: start or stop PS
- *
- * Return: 0 on success. -EINVAL when the requested PS mode is already set.
  */
-int ieee80211_sta_ps_transition(struct ieee80211_sta *sta, bool start);
+void ieee80211_sta_ps_transition(struct ieee80211_sta *sta, bool start);
 
 /**
  * ieee80211_sta_ps_transition_ni - PS transition for connected sta
@@ -5514,19 +5512,13 @@ int ieee80211_sta_ps_transition(struct ieee80211_sta *sta, bool start);
  *
  * @sta: currently connected sta
  * @start: start or stop PS
- *
- * Return: Like ieee80211_sta_ps_transition().
  */
-static inline int ieee80211_sta_ps_transition_ni(struct ieee80211_sta *sta,
+static inline void ieee80211_sta_ps_transition_ni(struct ieee80211_sta *sta,
 						  bool start)
 {
-	int ret;
-
 	local_bh_disable();
-	ret = ieee80211_sta_ps_transition(sta, start);
+	ieee80211_sta_ps_transition(sta, start);
 	local_bh_enable();
-
-	return ret;
 }
 
 /**
