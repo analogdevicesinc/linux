@@ -48,7 +48,7 @@
 
 #define NFS4_enc_cb_notify_lock_sz	(cb_compound_enc_hdr_sz +        \
 					cb_sequence_enc_sz +             \
-					2 + 1 +				 \
+					op_enc_sz + 2 + 1 +		 \
 					XDR_QUADLEN(NFS4_OPAQUE_LIMIT) + \
 					enc_nfs4_fh_sz)
 #define NFS4_dec_cb_notify_lock_sz	(cb_compound_dec_hdr_sz  +      \
