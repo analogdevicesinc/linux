@@ -2878,8 +2878,19 @@ static void ice_ptp_tspll_monitor(struct ice_pf *pf)
 	    !ice_pf_src_tmr_owned(pf))
 		return;
 
+	/* Serialize the entire monitor tick against TSPLL userspace reconfig
+	 * (ice_dpll_tspll_state_on_dpll_set()). Both paths read HW state and
+	 * write pf->ptp.tspll_locked; without holding pf->dplls.lock across
+	 * the HW read here, a preempted monitor could observe stale HW state
+	 * and then overwrite an accurate cache update from the DPLL callback.
+	 * pf->dplls.lock is initialized in ice_init_features() before the PTP
+	 * kworker starts and destroyed in ice_deinit_features() only after
+	 * ice_ptp_release() has drained the kworker, so it is always valid.
+	 */
+	mutex_lock(&pf->dplls.lock);
 	err = ice_tspll_lost_lock_e825c(&pf->hw, &lock_lost);
 	if (err) {
+		mutex_unlock(&pf->dplls.lock);
 		dev_err_ratelimited(ice_pf_to_dev(pf),
 				    "Failed reading TimeSync PLL lock status (err: %d). Retrying.\n",
 				    err);
@@ -2911,6 +2922,7 @@ static void ice_ptp_tspll_monitor(struct ice_pf *pf)
 		WRITE_ONCE(pf->ptp.tspll_locked, true);
 		pf->ptp.tspll_lock_retries = 0;
 	}
+	mutex_unlock(&pf->dplls.lock);
 }
 
 static void ice_ptp_periodic_work(struct kthread_work *work)

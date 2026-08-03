@@ -334,8 +334,9 @@ static int ice_tspll_dis_sticky_bits_e82x(struct ice_hw *hw)
  * Return:
  * * %0       - success
  * * %-EINVAL - input parameters are incorrect
- * * %-EBUSY  - failed to lock TSPLL
- * * %other   - CGU read/write failure
+ * * %-EAGAIN - TSPLL configuration succeeded but lock is not acquired yet
+ * * %-EBUSY  - CGU access is busy (for example during reset)
+ * * %other   - other CGU read/write failures
  */
 static int ice_tspll_cfg_e825c(struct ice_hw *hw, enum ice_tspll_freq clk_freq,
 			       enum ice_clk_src clk_src)
@@ -467,7 +468,7 @@ static int ice_tspll_cfg_e825c(struct ice_hw *hw, enum ice_tspll_freq clk_freq,
 
 	if (!(val & ICE_CGU_RO_LOCK_TRUE_LOCK)) {
 		dev_warn(ice_hw_to_dev(hw), "CGU PLL failed to lock\n");
-		return -EBUSY;
+		return -EAGAIN;
 	}
 
 	err = ice_read_cgu_reg(hw, ICE_CGU_R9, &r9);
@@ -659,6 +660,33 @@ int ice_tspll_get_clk_src(struct ice_hw *hw, enum ice_clk_src *clk_src)
 					       val);
 
 	return 0;
+}
+
+/**
+ * ice_tspll_set_cfg - configure TS PLL with new settings
+ * @hw: board private hw structure
+ * @clk_freq: clock frequency to program
+ * @clk_src: clock source to select (TIME_REF, or TCXO)
+ *
+ * Configure CGU with new clock source and clock frequency settings.
+ *
+ * Return:
+ * * 0 - OK
+ * * negative - error
+ */
+int ice_tspll_set_cfg(struct ice_hw *hw, enum ice_tspll_freq clk_freq,
+		      enum ice_clk_src clk_src)
+{
+	int ret;
+
+	if (!ice_tspll_check_params(hw, clk_freq, clk_src))
+		return -EINVAL;
+
+	ret = ice_tspll_dis_sticky_bits(hw);
+	if (ret)
+		return ret;
+
+	return ice_tspll_cfg(hw, clk_freq, clk_src);
 }
 
 /**
