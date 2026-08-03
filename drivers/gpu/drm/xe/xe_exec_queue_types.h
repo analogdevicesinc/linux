@@ -70,6 +70,13 @@ struct xe_exec_queue_group {
 	spinlock_t suspend_lock;
 	/** @sync_pending: CGP_SYNC_DONE g2h response pending */
 	bool sync_pending;
+	/**
+	 * @cgp_update_q: Queue that issued the currently outstanding (sent)
+	 * CGP_SYNC or REGISTER_CONTEXT_MULTI_QUEUE; NULL when none is
+	 * outstanding. Used during VF recovery to identify and replay the
+	 * message whose CGP_SYNC_DONE was not received.
+	 */
+	struct xe_exec_queue *cgp_update_q;
 	/** @banned: Group banned */
 	bool banned;
 	/** @stopped: Group is stopped, protected by list_lock */
