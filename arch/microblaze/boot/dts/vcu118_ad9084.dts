@@ -780,7 +780,7 @@
 			<&axi_ad9084_core_tx 0 DEFRAMER_LINK_A0_TX>,
 			<&axi_ad9084_core_tx_b 0 DEFRAMER_LINK_B0_TX>;
 
-		adi,side-b-use-seperate-tpl-en;
+		adi,side-b-use-separate-tpl-en;
 #else
 		jesd204-link-ids = <DEFRAMER_LINK_A0_TX DEFRAMER_LINK_B0_TX FRAMER_LINK_A0_RX FRAMER_LINK_B0_RX>;
 
