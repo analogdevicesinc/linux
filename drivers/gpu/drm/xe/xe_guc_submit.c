@@ -1960,11 +1960,25 @@ static void __guc_exec_queue_process_msg_set_multi_queue_priority(struct xe_sche
 	kfree(msg);
 }
 
+static void __guc_exec_queue_process_msg_cgp_sync(struct xe_sched_msg *msg)
+{
+	struct xe_exec_queue *q = msg->private_data;
+
+	/*
+	 * Replay a dynamic CGP update lost across VF migration by re-issuing the
+	 * CGP update + CGP_SYNC (re-applies the current priority from
+	 * q->multi_queue.priority).
+	 */
+	if (guc_exec_queue_allowed_to_change_state(q))
+		guc_exec_queue_send_cgp_sync(q, 0);
+}
+
 #define CLEANUP				1	/* Non-zero values to catch uninitialized msg */
 #define SET_SCHED_PROPS			2
 #define SUSPEND				3
 #define RESUME				4
 #define SET_MULTI_QUEUE_PRIORITY	5
+#define CGP_SYNC_MSG			6
 #define OPCODE_MASK	0xf
 #define MSG_LOCKED	BIT(8)
 #define MSG_HEAD	BIT(9)
@@ -1990,6 +2004,9 @@ static void guc_exec_queue_process_msg(struct xe_sched_msg *msg)
 		break;
 	case SET_MULTI_QUEUE_PRIORITY:
 		__guc_exec_queue_process_msg_set_multi_queue_priority(msg);
+		break;
+	case CGP_SYNC_MSG:
+		__guc_exec_queue_process_msg_cgp_sync(msg);
 		break;
 	default:
 		XE_WARN_ON("Unknown message type");
@@ -2160,6 +2177,7 @@ static bool guc_exec_queue_try_add_msg(struct xe_exec_queue *q,
 #define STATIC_MSG_CLEANUP	0
 #define STATIC_MSG_SUSPEND	1
 #define STATIC_MSG_RESUME	2
+#define STATIC_MSG_CGP_SYNC	3
 static void guc_exec_queue_destroy(struct xe_exec_queue *q)
 {
 	struct xe_sched_msg *msg = q->guc->static_msgs + STATIC_MSG_CLEANUP;
@@ -3023,6 +3041,16 @@ static void guc_exec_queue_replay_pending_state_change(struct xe_exec_queue *q)
 {
 	struct xe_gpu_scheduler *sched = &q->guc->sched;
 	struct xe_sched_msg *msg;
+
+	if (q->guc->multi_queue.needs_cgp_sync) {
+		msg = q->guc->static_msgs + STATIC_MSG_CGP_SYNC;
+
+		xe_sched_msg_lock(sched);
+		guc_exec_queue_try_add_msg_head(q, msg, CGP_SYNC_MSG);
+		xe_sched_msg_unlock(sched);
+
+		q->guc->multi_queue.needs_cgp_sync = false;
+	}
 
 	if (q->guc->needs_cleanup) {
 		msg = q->guc->static_msgs + STATIC_MSG_CLEANUP;
