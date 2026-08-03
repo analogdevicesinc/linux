@@ -130,6 +130,25 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 				return ret;
 			len = ret;
 			break;
+		case DBGFS_TX_TO_ORX_MAPPING: {
+			adi_adrv903x_TxChannels_e tx_orx0 = ADI_ADRV903X_TXOFF;
+			adi_adrv903x_TxChannels_e tx_orx1 = ADI_ADRV903X_TXOFF;
+
+			guard(mutex)(&phy->lock);
+
+			ret = adrv903x_api_call(phy, adi_adrv903x_TxToOrxMappingGet,
+						ADI_ADRV903X_ORX0, &tx_orx0);
+			if (ret)
+				return ret;
+
+			ret = adrv903x_api_call(phy, adi_adrv903x_TxToOrxMappingGet,
+						ADI_ADRV903X_ORX1, &tx_orx1);
+			if (ret)
+				return ret;
+			val = (ffs(tx_orx1) ? (ffs(tx_orx1) - 1) << 4 : 0) |
+			      (ffs(tx_orx0) ? (ffs(tx_orx0) - 1) : 0);
+			break;
+		}
 		default:
 			val = entry->val;
 		}
@@ -234,6 +253,20 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 		entry->val = val;
 		return count;
 
+	case DBGFS_TX_TO_ORX_MAPPING:
+		if (ret != 1)
+			return -EINVAL;
+
+		if (val < 0 || val > 0xff)
+			return -EINVAL;
+
+		ret = adrv903x_api_call(phy, adi_adrv903x_TxToOrxMappingSet,
+					(u8)val);
+		if (ret)
+			return ret;
+
+		return count;
+
 	default:
 		break;
 	}
@@ -320,6 +353,7 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 	}
 	adrv903x_add_debugfs_entry(phy, "orx0_adc_status", DBGFS_ORX0_ADC_STATUS);
 	adrv903x_add_debugfs_entry(phy, "orx1_adc_status", DBGFS_ORX1_ADC_STATUS);
+	adrv903x_add_debugfs_entry(phy, "tx_to_orx_mapping", DBGFS_TX_TO_ORX_MAPPING);
 
 	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++) {
 		switch (phy->debugfs_entry[i].cmd) {
@@ -328,6 +362,7 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 		case DBGFS_BIST_FRAMER_0_LOOPBACK:
 		case DBGFS_BIST_FRAMER_1_LOOPBACK:
 		case DBGFS_BIST_TONE:
+		case DBGFS_TX_TO_ORX_MAPPING:
 			mode = 0644;
 			break;
 		default:
