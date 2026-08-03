@@ -7849,9 +7849,6 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
 # endif
 
 /*
- * SC:irqentry_exit_cond_resched
- *
- *
  * NONE:
  *   (unselectable)
  *
@@ -7859,11 +7856,9 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
  *   (unselectable)
  *
  * FULL:
- *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched
  *   dynamic_preempt_lazy       <- false
  *
  * LAZY:
- *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched
  *   dynamic_preempt_lazy       <- true
  */
 
@@ -7907,14 +7902,12 @@ static void __sched_dynamic_update(int mode)
 {
 	switch (mode) {
 	case preempt_dynamic_full:
-		preempt_dynamic_enable(irqentry_exit_cond_resched);
 		preempt_dynamic_key_disable(preempt_lazy);
 		if (mode != preempt_dynamic_mode)
 			pr_info("Dynamic Preempt: full\n");
 		break;
 
 	case preempt_dynamic_lazy:
-		preempt_dynamic_enable(irqentry_exit_cond_resched);
 		preempt_dynamic_key_enable(preempt_lazy);
 		if (mode != preempt_dynamic_mode)
 			pr_info("Dynamic Preempt: lazy\n");
