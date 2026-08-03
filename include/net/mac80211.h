@@ -8051,25 +8051,6 @@ ieee80211_obss_color_collision_notify(struct ieee80211_vif *vif,
 				      u64 color_bitmap, u8 link_id);
 
 /**
- * ieee80211_is_tx_data - check if frame is a data frame
- *
- * The function is used to check if a frame is a data frame. Frames with
- * hardware encapsulation enabled are data frames.
- *
- * @skb: the frame to be transmitted.
- *
- * Return: %true if @skb is a data frame, %false otherwise
- */
-static inline bool ieee80211_is_tx_data(struct sk_buff *skb)
-{
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
-	struct ieee80211_hdr *hdr = (void *) skb->data;
-
-	return info->flags & IEEE80211_TX_CTL_HW_80211_ENCAP ||
-	       ieee80211_is_data(hdr->frame_control);
-}
-
-/**
  * ieee80211_set_active_links - set active links in client mode
  * @vif: interface to set active links on
  * @active_links: the new active links bitmap
