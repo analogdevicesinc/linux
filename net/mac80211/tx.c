@@ -6650,9 +6650,6 @@ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
 	skb_reset_network_header(skb);
 	skb_reset_mac_header(skb);
 
-	if (local->hw.queues < IEEE80211_NUM_ACS)
-		goto start_xmit;
-
 	/* update QoS header to prioritize control port frames if possible,
 	 * prioritization also happens for control port frames send over
 	 * AF_PACKET
@@ -6665,24 +6662,31 @@ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
 		return err;
 	}
 
-	if (!IS_ERR(sta)) {
-		u16 queue = ieee80211_select_queue(sdata, sta, skb);
+	if (IS_ERR(sta))
+		sta = NULL;
 
-		skb_set_queue_mapping(skb, queue);
+	skb_set_queue_mapping(skb, ieee80211_select_queue(sdata, sta, skb));
 
-		/*
-		 * for MLO STA, the SA should be the AP MLD address, but
-		 * the link ID has been selected already
-		 */
-		if (sta && sta->sta.mlo)
-			memcpy(ehdr->h_source, sdata->vif.addr, ETH_ALEN);
+	/*
+	 * for MLO STA, the SA should be the AP MLD address, but
+	 * the link ID has been selected already
+	 */
+	if (sta && sta->sta.mlo)
+		memcpy(ehdr->h_source, sdata->vif.addr, ETH_ALEN);
+
+	skb = ieee80211_build_hdr(sdata, skb, flags, sta, ctrl_flags, cookie);
+	if (IS_ERR(skb)) {
+		rcu_read_unlock();
+		return PTR_ERR(skb);
 	}
-	rcu_read_unlock();
 
-start_xmit:
+	dev_sw_netstats_tx_add(dev, 1, skb->len);
+	ieee80211_tpt_led_trig_tx(local, skb->len);
+
 	local_bh_disable();
-	__ieee80211_subif_start_xmit(skb, skb->dev, flags, ctrl_flags, cookie);
+	ieee80211_xmit(sdata, sta, skb);
 	local_bh_enable();
+	rcu_read_unlock();
 
 	return 0;
 }
