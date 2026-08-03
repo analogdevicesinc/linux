@@ -230,6 +230,10 @@ struct intel_display_vlv_iosf_interface {
 	int (*write)(struct drm_device *drm, enum vlv_iosf_sb_unit unit, u32 addr, u32 val);
 };
 
+struct intel_display_wa_interface {
+	bool (*wa_16023588340)(struct drm_device *drm);
+};
+
 /**
  * struct intel_display_parent_interface - services parent driver provides to display
  *
@@ -290,6 +294,12 @@ struct intel_display_parent_interface {
 
 	/** @vlv_iosf: VLV IOSF sideband. Optional. */
 	const struct intel_display_vlv_iosf_interface *vlv_iosf;
+
+	/**
+	 * @wa: Display workarounds query. Use only for workarounds that require
+	 * information only available to the parent driver. Optional.
+	 */
+	const struct intel_display_wa_interface *wa;
 
 	/* Generic independent functions */
 	struct {
