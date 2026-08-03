@@ -7864,8 +7864,6 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
 
 enum {
 	preempt_dynamic_undefined = -1,
-	preempt_dynamic_none,
-	preempt_dynamic_voluntary,
 	preempt_dynamic_full,
 	preempt_dynamic_lazy,
 };
@@ -7950,8 +7948,6 @@ static void __init preempt_dynamic_init(void)
 	}								\
 	EXPORT_SYMBOL_GPL(preempt_model_##mode)
 
-PREEMPT_MODEL_ACCESSOR(none);
-PREEMPT_MODEL_ACCESSOR(voluntary);
 PREEMPT_MODEL_ACCESSOR(full);
 PREEMPT_MODEL_ACCESSOR(lazy);
 
