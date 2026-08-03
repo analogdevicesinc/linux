@@ -3669,7 +3669,9 @@ static int pvr2_send_request_ex(struct pvr2_hdw *hdw,
 			pvr2_trace(
 				PVR2_TRACE_ERROR_LEGS,
 				"Invalid write control endpoint");
-			return -EINVAL;
+			hdw->ctl_write_pend_flag = 0;
+			status = -EINVAL;
+			goto done;
 		}
 		status = usb_submit_urb(hdw->ctl_write_urb,GFP_KERNEL);
 		if (status < 0) {
@@ -3699,7 +3701,13 @@ status);
 			pvr2_trace(
 				PVR2_TRACE_ERROR_LEGS,
 				"Invalid read control endpoint");
-			return -EINVAL;
+			hdw->ctl_read_pend_flag = 0;
+			status = -EINVAL;
+			if (hdw->ctl_write_pend_flag) {
+				usb_unlink_urb(hdw->ctl_write_urb);
+				wait_for_completion(&hdw->ctl_done);
+			}
+			goto done;
 		}
 		status = usb_submit_urb(hdw->ctl_read_urb,GFP_KERNEL);
 		if (status < 0) {
