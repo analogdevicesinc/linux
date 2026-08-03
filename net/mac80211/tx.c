@@ -2622,13 +2622,11 @@ static int ieee80211_lookup_ra_sta(struct ieee80211_sub_if_data *sdata,
 	return 0;
 }
 
-static u16 ieee80211_store_ack_skb(struct ieee80211_local *local,
-				   struct sk_buff *skb,
-				   u32 *info_flags,
-				   u64 cookie)
+static void ieee80211_store_ack_skb(struct ieee80211_local *local,
+				    struct sk_buff *skb, u64 cookie)
 {
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct sk_buff *ack_skb;
-	u16 info_id = 0;
 
 	if (skb->sk)
 		ack_skb = skb_clone_sk(skb);
@@ -2645,28 +2643,15 @@ static u16 ieee80211_store_ack_skb(struct ieee80211_local *local,
 		spin_unlock_irqrestore(&local->ack_status_lock, flags);
 
 		if (id >= 0) {
-			info_id = id;
-			*info_flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
+			info->status_data = id;
+			info->status_data_idr = 1;
+			info->flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
 			if (cookie)
 				IEEE80211_SKB_CB(ack_skb)->ack.cookie = cookie;
 		} else {
 			kfree_skb(ack_skb);
 		}
 	}
-
-	return info_id;
-}
-
-static void ieee80211_remove_ack_skb(struct ieee80211_local *local, u16 info_id)
-{
-	struct sk_buff *ack_skb;
-	unsigned long flags;
-
-	spin_lock_irqsave(&local->ack_status_lock, flags);
-	ack_skb = idr_remove(&local->ack_status_frames, info_id);
-	spin_unlock_irqrestore(&local->ack_status_lock, flags);
-
-	kfree_skb(ack_skb);
 }
 
 /**
@@ -2674,7 +2659,6 @@ static void ieee80211_remove_ack_skb(struct ieee80211_local *local, u16 info_id)
  * @sdata: virtual interface to build the header for
  * @skb: the skb to build the header in
  * @sta: the station pointer
- * @cookie: cookie pointer to fill (if not %NULL)
  *
  * This function takes the skb with 802.3 header and reformats the header to
  * the appropriate IEEE 802.11 header based on which interface the packet is
@@ -2690,8 +2674,7 @@ static void ieee80211_remove_ack_skb(struct ieee80211_local *local, u16 info_id)
  */
 static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 					   struct sk_buff *skb,
-					   struct sta_info *sta,
-					   u64 cookie)
+					   struct sta_info *sta)
 {
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_local *local = sdata->local;
@@ -2706,7 +2689,6 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 	bool wme_sta = false, authorized = false;
 	bool tdls_peer;
 	bool multicast;
-	u16 info_id = 0;
 	struct ieee80211_chanctx_conf *chanctx_conf = NULL;
 	enum nl80211_band band;
 	int ret;
@@ -2988,11 +2970,6 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 		goto free;
 	}
 
-	if (unlikely(!multicast &&
-		     (sk_requests_wifi_status(skb->sk) || cookie)))
-		info_id = ieee80211_store_ack_skb(local, skb, &info->flags,
-						  cookie);
-
 	hdr.frame_control = fc;
 	hdr.duration_id = 0;
 	hdr.seq_ctrl = 0;
@@ -3031,8 +3008,6 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 		head_need += local->tx_headroom;
 		head_need = max_t(int, 0, head_need);
 		if (ieee80211_skb_resize(sdata, skb, head_need, ENCRYPT_DATA)) {
-			ieee80211_free_txskb(&local->hw, skb);
-			skb = NULL;
 			ret = -ENOMEM;
 			goto free;
 		}
@@ -3061,44 +3036,14 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 
 	skb_reset_mac_header(skb);
 
-	if (info_id) {
-		info->status_data = info_id;
-		info->status_data_idr = 1;
-	}
 	info->band = band;
 
-	if (likely(!cookie)) {
-		info->control.flags |=
-			u32_encode_bits(link_id, IEEE80211_TX_CTRL_MLO_LINK);
-	} else {
-		unsigned int pre_conf_link_id;
-
-		/*
-		 * The link ID already has been set by
-		 * ieee80211_tx_control_port(), here
-		 * we just sanity check that
-		 */
-
-		pre_conf_link_id = u32_get_bits(info->control.flags,
-						IEEE80211_TX_CTRL_MLO_LINK);
-
-		if (pre_conf_link_id != link_id &&
-		    link_id != IEEE80211_LINK_UNSPECIFIED) {
-#ifdef CONFIG_MAC80211_VERBOSE_DEBUG
-			net_info_ratelimited("%s: dropped frame to %pM with bad link ID request (%d vs. %d)\n",
-					     sdata->name, hdr.addr1,
-					     pre_conf_link_id, link_id);
-#endif
-			ret = -EINVAL;
-			goto free;
-		}
-	}
-
+	info->control.flags =
+		u32_replace_bits(info->control.flags, link_id,
+				 IEEE80211_TX_CTRL_MLO_LINK);
 	return skb;
  free:
-	if (info_id)
-		ieee80211_remove_ack_skb(local, info_id);
-	kfree_skb(skb);
+	ieee80211_free_txskb(&local->hw, skb);
 	return ERR_PTR(ret);
 }
 
@@ -4423,6 +4368,7 @@ void __ieee80211_subif_start_xmit(struct sk_buff *skb,
 	struct ieee80211_tx_info *info;
 	struct sta_info *sta;
 	struct sk_buff *next;
+	bool group_addressed;
 	int len = skb->len;
 
 	if (unlikely(!ieee80211_sdata_running(sdata) || skb->len < ETH_HLEN)) {
@@ -4442,6 +4388,7 @@ void __ieee80211_subif_start_xmit(struct sk_buff *skb,
 	if (ieee80211_lookup_ra_sta(sdata, skb, &sta))
 		goto out_free;
 
+	group_addressed = IS_ERR(sta);
 	if (IS_ERR(sta))
 		sta = NULL;
 
@@ -4485,7 +4432,11 @@ void __ieee80211_subif_start_xmit(struct sk_buff *skb,
 		info->flags = info_flags;
 		info->control.flags = ctrl_flags;
 
-		skb = ieee80211_build_hdr(sdata, skb, sta, 0);
+		if (unlikely(!group_addressed &&
+			     sk_requests_wifi_status(skb->sk)))
+			ieee80211_store_ack_skb(local, skb, 0);
+
+		skb = ieee80211_build_hdr(sdata, skb, sta);
 		if (IS_ERR(skb)) {
 			kfree_skb_list(next);
 			goto out;
@@ -4820,12 +4771,8 @@ static void ieee80211_8023_xmit(struct ieee80211_sub_if_data *sdata,
 			memcpy(IEEE80211_SKB_CB(seg), info, sizeof(*info));
 	}
 
-	if (unlikely(sk_requests_wifi_status(skb->sk))) {
-		info->status_data = ieee80211_store_ack_skb(local, skb,
-							    &info->flags, 0);
-		if (info->status_data)
-			info->status_data_idr = 1;
-	}
+	if (unlikely(sk_requests_wifi_status(skb->sk)))
+		ieee80211_store_ack_skb(local, skb, 0);
 
 	dev_sw_netstats_tx_add(dev, skbs, len);
 
@@ -4970,7 +4917,7 @@ ieee80211_build_data_template(struct ieee80211_sub_if_data *sdata,
 	info->flags = info_flags;
 	info->control.flags = IEEE80211_TX_CTRL_MLO_LINK_UNSPEC;
 
-	skb = ieee80211_build_hdr(sdata, skb, sta, 0);
+	skb = ieee80211_build_hdr(sdata, skb, sta);
 	if (IS_ERR(skb))
 		goto out;
 
@@ -6591,6 +6538,7 @@ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = sdata->local;
 	struct ieee80211_tx_info *info;
+	bool group_addressed;
 	struct sta_info *sta;
 	struct sk_buff *skb;
 	struct ethhdr *ehdr;
@@ -6631,14 +6579,10 @@ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
 
 	/* we may override the SA for MLO STA later */
 	if (link_id < 0) {
-		ctrl_flags |= u32_encode_bits(IEEE80211_LINK_UNSPECIFIED,
-					      IEEE80211_TX_CTRL_MLO_LINK);
+		link_id = IEEE80211_LINK_UNSPECIFIED;
 		memcpy(ehdr->h_source, sdata->vif.addr, ETH_ALEN);
 	} else {
 		struct ieee80211_bss_conf *link_conf;
-
-		ctrl_flags |= u32_encode_bits(link_id,
-					      IEEE80211_TX_CTRL_MLO_LINK);
 
 		rcu_read_lock();
 		link_conf = rcu_dereference(sdata->vif.link_conf[link_id]);
@@ -6670,6 +6614,7 @@ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
 		return err;
 	}
 
+	group_addressed = IS_ERR(sta);
 	if (IS_ERR(sta))
 		sta = NULL;
 
@@ -6685,12 +6630,23 @@ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
 	info = IEEE80211_SKB_CB(skb);
 	memset(info, 0, sizeof(*info));
 	info->flags = flags;
+	ctrl_flags |= u32_encode_bits(link_id, IEEE80211_TX_CTRL_MLO_LINK);
 	info->control.flags = ctrl_flags;
 
-	skb = ieee80211_build_hdr(sdata, skb, sta, cookie);
+	if (!group_addressed)
+		ieee80211_store_ack_skb(local, skb, cookie);
+
+	skb = ieee80211_build_hdr(sdata, skb, sta);
 	if (IS_ERR(skb)) {
 		rcu_read_unlock();
 		return PTR_ERR(skb);
+	}
+
+	if (link_id != u32_get_bits(info->control.flags,
+				    IEEE80211_TX_CTRL_MLO_LINK)) {
+		ieee80211_free_txskb(&local->hw, skb);
+		rcu_read_unlock();
+		return -EINVAL;
 	}
 
 	dev_sw_netstats_tx_add(dev, 1, skb->len);
