@@ -2737,6 +2737,17 @@ static void lrc_parallel_clear(struct xe_lrc *lrc)
  * during VF resume flows. The function scans the queue state, make adjustments
  * as needed, and queues jobs / messages which replayed upon unpause.
  */
+static void guc_exec_queue_pause_prepare(struct xe_guc *guc, struct xe_exec_queue *q)
+{
+	struct xe_gpu_scheduler *sched = &q->guc->sched;
+
+	lockdep_assert_held(&guc->submission_state.lock);
+
+	/* Stop scheduling + flush any DRM scheduler operations */
+	xe_sched_submission_stop(sched);
+	cancel_delayed_work_sync(&sched->base.work_tdr);
+}
+
 static void guc_exec_queue_pause(struct xe_guc *guc, struct xe_exec_queue *q)
 {
 	struct xe_gpu_scheduler *sched = &q->guc->sched;
@@ -2744,10 +2755,6 @@ static void guc_exec_queue_pause(struct xe_guc *guc, struct xe_exec_queue *q)
 	int i;
 
 	lockdep_assert_held(&guc->submission_state.lock);
-
-	/* Stop scheduling + flush any DRM scheduler operations */
-	xe_sched_submission_stop(sched);
-	cancel_delayed_work_sync(&sched->base.work_tdr);
 
 	guc_exec_queue_revert_pending_state_change(guc, q);
 
@@ -2806,6 +2813,19 @@ void xe_guc_submit_pause_vf(struct xe_guc *guc)
 	xe_gt_assert(guc_to_gt(guc), vf_recovery(guc));
 
 	mutex_lock(&guc->submission_state.lock);
+	/*
+	 * Stop all schedulers before reverting any queue: in a multi-queue
+	 * group a secondary's run_job() can register the primary, which must
+	 * not race an in-progress revert.
+	 */
+	xa_for_each(&guc->submission_state.exec_queue_lookup, index, q) {
+		/* Prevent redundant attempts to stop parallel queues */
+		if (q->guc->id != index)
+			continue;
+
+		guc_exec_queue_pause_prepare(guc, q);
+	}
+
 	xa_for_each(&guc->submission_state.exec_queue_lookup, index, q) {
 		/* Prevent redundant attempts to stop parallel queues */
 		if (q->guc->id != index)
