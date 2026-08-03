@@ -2673,9 +2673,7 @@ static void ieee80211_remove_ack_skb(struct ieee80211_local *local, u16 info_id)
  * ieee80211_build_hdr - build 802.11 header in the given frame
  * @sdata: virtual interface to build the header for
  * @skb: the skb to build the header in
- * @info_flags: skb flags to set
  * @sta: the station pointer
- * @ctrl_flags: info control flags to set
  * @cookie: cookie pointer to fill (if not %NULL)
  *
  * This function takes the skb with 802.3 header and reformats the header to
@@ -2683,19 +2681,20 @@ static void ieee80211_remove_ack_skb(struct ieee80211_local *local, u16 info_id)
  * being transmitted on.
  *
  * Note that this function also takes care of the TX status request. The skb
- * must not be shared.
+ * must not be shared, and its TX info must already be initialised - this
+ * function only fills in what it determines itself.
  *
  * The function requires the read-side RCU lock held
  *
  * Returns: the (possibly reallocated) skb or an ERR_PTR() code
  */
 static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
-					   struct sk_buff *skb, u32 info_flags,
-					   struct sta_info *sta, u32 ctrl_flags,
+					   struct sk_buff *skb,
+					   struct sta_info *sta,
 					   u64 cookie)
 {
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct ieee80211_local *local = sdata->local;
-	struct ieee80211_tx_info *info;
 	int head_need;
 	u16 ethertype, hdrlen,  meshhdrlen = 0;
 	__le16 fc;
@@ -2711,14 +2710,15 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_chanctx_conf *chanctx_conf = NULL;
 	enum nl80211_band band;
 	int ret;
-	u8 link_id = u32_get_bits(ctrl_flags, IEEE80211_TX_CTRL_MLO_LINK);
+	u8 link_id = u32_get_bits(info->control.flags,
+				  IEEE80211_TX_CTRL_MLO_LINK);
 
 	if (IS_ERR(sta))
 		sta = NULL;
 
 #ifdef CONFIG_MAC80211_DEBUGFS
 	if (local->force_tx_status)
-		info_flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
+		info->flags |= IEEE80211_TX_CTL_REQ_TX_STATUS;
 #endif
 
 	/* convert Ethernet header to proper 802.11 header (based on
@@ -2859,7 +2859,7 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 		/* For injected frames, fill RA right away as nexthop lookup
 		 * will be skipped.
 		 */
-		if ((ctrl_flags & IEEE80211_TX_CTRL_SKIP_MPATH_LOOKUP) &&
+		if ((info->control.flags & IEEE80211_TX_CTRL_SKIP_MPATH_LOOKUP) &&
 		    is_zero_ether_addr(hdr.addr1))
 			memcpy(hdr.addr1, skb->data, ETH_ALEN);
 		break;
@@ -2990,7 +2990,7 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 
 	if (unlikely(!multicast &&
 		     (sk_requests_wifi_status(skb->sk) || cookie)))
-		info_id = ieee80211_store_ack_skb(local, skb, &info_flags,
+		info_id = ieee80211_store_ack_skb(local, skb, &info->flags,
 						  cookie);
 
 	hdr.frame_control = fc;
@@ -3061,10 +3061,6 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 
 	skb_reset_mac_header(skb);
 
-	info = IEEE80211_SKB_CB(skb);
-	memset(info, 0, sizeof(*info));
-
-	info->flags = info_flags;
 	if (info_id) {
 		info->status_data = info_id;
 		info->status_data_idr = 1;
@@ -3072,18 +3068,18 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 	info->band = band;
 
 	if (likely(!cookie)) {
-		ctrl_flags |= u32_encode_bits(link_id,
-					      IEEE80211_TX_CTRL_MLO_LINK);
+		info->control.flags |=
+			u32_encode_bits(link_id, IEEE80211_TX_CTRL_MLO_LINK);
 	} else {
 		unsigned int pre_conf_link_id;
 
 		/*
-		 * ctrl_flags already have been set by
+		 * The link ID already has been set by
 		 * ieee80211_tx_control_port(), here
 		 * we just sanity check that
 		 */
 
-		pre_conf_link_id = u32_get_bits(ctrl_flags,
+		pre_conf_link_id = u32_get_bits(info->control.flags,
 						IEEE80211_TX_CTRL_MLO_LINK);
 
 		if (pre_conf_link_id != link_id &&
@@ -3097,8 +3093,6 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 			goto free;
 		}
 	}
-
-	info->control.flags = ctrl_flags;
 
 	return skb;
  free:
@@ -4426,6 +4420,7 @@ void __ieee80211_subif_start_xmit(struct sk_buff *skb,
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = sdata->local;
+	struct ieee80211_tx_info *info;
 	struct sta_info *sta;
 	struct sk_buff *next;
 	int len = skb->len;
@@ -4485,8 +4480,12 @@ void __ieee80211_subif_start_xmit(struct sk_buff *skb,
 			goto out;
 		}
 
-		skb = ieee80211_build_hdr(sdata, skb, info_flags,
-					  sta, ctrl_flags, 0);
+		info = IEEE80211_SKB_CB(skb);
+		memset(info, 0, sizeof(*info));
+		info->flags = info_flags;
+		info->control.flags = ctrl_flags;
+
+		skb = ieee80211_build_hdr(sdata, skb, sta, 0);
 		if (IS_ERR(skb)) {
 			kfree_skb_list(next);
 			goto out;
@@ -4955,6 +4954,7 @@ ieee80211_build_data_template(struct ieee80211_sub_if_data *sdata,
 		.local = sdata->local,
 		.sdata = sdata,
 	};
+	struct ieee80211_tx_info *info;
 	struct sta_info *sta;
 
 	rcu_read_lock();
@@ -4965,8 +4965,12 @@ ieee80211_build_data_template(struct ieee80211_sub_if_data *sdata,
 		goto out;
 	}
 
-	skb = ieee80211_build_hdr(sdata, skb, info_flags, sta,
-				  IEEE80211_TX_CTRL_MLO_LINK_UNSPEC, 0);
+	info = IEEE80211_SKB_CB(skb);
+	memset(info, 0, sizeof(*info));
+	info->flags = info_flags;
+	info->control.flags = IEEE80211_TX_CTRL_MLO_LINK_UNSPEC;
+
+	skb = ieee80211_build_hdr(sdata, skb, sta, 0);
 	if (IS_ERR(skb))
 		goto out;
 
@@ -6586,6 +6590,7 @@ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
 	struct ieee80211_local *local = sdata->local;
+	struct ieee80211_tx_info *info;
 	struct sta_info *sta;
 	struct sk_buff *skb;
 	struct ethhdr *ehdr;
@@ -6677,7 +6682,12 @@ int ieee80211_tx_control_port(struct wiphy *wiphy, struct net_device *dev,
 	if (sta && sta->sta.mlo)
 		memcpy(ehdr->h_source, sdata->vif.addr, ETH_ALEN);
 
-	skb = ieee80211_build_hdr(sdata, skb, flags, sta, ctrl_flags, cookie);
+	info = IEEE80211_SKB_CB(skb);
+	memset(info, 0, sizeof(*info));
+	info->flags = flags;
+	info->control.flags = ctrl_flags;
+
+	skb = ieee80211_build_hdr(sdata, skb, sta, cookie);
 	if (IS_ERR(skb)) {
 		rcu_read_unlock();
 		return PTR_ERR(skb);
