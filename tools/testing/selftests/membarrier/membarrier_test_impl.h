@@ -16,6 +16,11 @@ static int sys_membarrier(int cmd, int flags)
 	return syscall(__NR_membarrier, cmd, flags);
 }
 
+static int membarrier_get_registrations(void)
+{
+	return sys_membarrier(MEMBARRIER_CMD_GET_REGISTRATIONS, 0);
+}
+
 static int test_membarrier_get_registrations(int cmd)
 {
 	int ret, flags = 0;
@@ -24,7 +29,7 @@ static int test_membarrier_get_registrations(int cmd)
 
 	registrations |= cmd;
 
-	ret = sys_membarrier(MEMBARRIER_CMD_GET_REGISTRATIONS, 0);
+	ret = membarrier_get_registrations();
 	if (ret < 0) {
 		ksft_exit_fail_msg(
 			"%s test: flags = %d, errno = %d\n",
