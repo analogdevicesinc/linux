@@ -322,8 +322,18 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 	adrv903x_add_debugfs_entry(phy, "orx1_adc_status", DBGFS_ORX1_ADC_STATUS);
 
 	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++) {
-		if (phy->adrv903x_debugfs_entry_index > DBGFS_BIST_TONE)
-			mode = 0400;
+		switch (phy->debugfs_entry[i].cmd) {
+		case DBGFS_BIST_FRAMER_0_PRBS:
+		case DBGFS_BIST_FRAMER_1_PRBS:
+		case DBGFS_BIST_FRAMER_0_LOOPBACK:
+		case DBGFS_BIST_FRAMER_1_LOOPBACK:
+		case DBGFS_BIST_TONE:
+			mode = 0644;
+			break;
+		default:
+			mode = 0444;
+			break;
+		}
 		debugfs_create_file(phy->debugfs_entry[i].propname, mode,
 				    iio_get_debugfs_dentry(indio_dev),
 				    &phy->debugfs_entry[i],
