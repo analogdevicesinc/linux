@@ -74,6 +74,13 @@ Profile 1. Instead, modify ``profile_fcn_sel[3]`` to GPIO 15:
 With this devicetree configuration, and for TX side A, slice 0, FNCO block, and
 profile selected by GPIOs, the feature can be tested as described below:
 
+Set ``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO``:
+
+.. shell::
+
+   /sys/bus/iio/devices/iio:device8
+   $ echo 3 > out_voltage0_i_ffh_fnco_mode
+
 Set the profile frequencies:
 
 .. shell::
@@ -85,13 +92,6 @@ Set the profile frequencies:
    $ echo $((16#25000000)) > out_voltage0_i_ffh_fnco_frequency
    $ echo 2 > out_voltage0_i_ffh_fnco_index
    $ echo $((16#30000000)) > out_voltage0_i_ffh_fnco_frequency
-
-Set ``ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO``:
-
-.. shell::
-
-   /sys/bus/iio/devices/iio:device8
-   $ echo 3 > out_voltage0_i_ffh_fnco_mode
 
 Set the GPIO outputs to select the profile:
 
