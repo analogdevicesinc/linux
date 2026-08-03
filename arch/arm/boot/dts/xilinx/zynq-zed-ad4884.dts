@@ -20,15 +20,6 @@
 };
 
 / {
-	clocks {
-		axi_clk: clock {
-			compatible = "fixed-clock";
-			clock-frequency = <100000000>;
-			clock-output-names = "axi-clk";
-			#clock-cells = <0>;
-		};
-	};
-
 	vdd33: regulator-vdd33 {
 		compatible = "regulator-fixed";
 		regulator-name = "fixed-supply";
@@ -121,14 +112,14 @@
 		reg = <0x44A00000 0x10000>;
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
-		clocks = <&axi_clk>;
+		clocks = <&clkc 15>;
 		spibus-connected = <&adc_ad4884>;
 	};
 
 	iio_backend_chb: axi-adc@44a10000 {
 		compatible = "adi,axi-ad408x";
 		reg = <0x44A10000 0x10000>;
-		clocks = <&axi_clk>;
+		clocks = <&clkc 15>;
 		spibus-connected = <&adc_ad4884>;
 	};
 };
