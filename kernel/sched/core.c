@@ -7886,16 +7886,6 @@ int sched_dynamic_mode(const char *str)
 # define preempt_dynamic_key_enable(f)	static_key_enable(&sk_dynamic_##f.key)
 # define preempt_dynamic_key_disable(f)	static_key_disable(&sk_dynamic_##f.key)
 
-# if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
-#  define preempt_dynamic_enable(f)	static_call_update(f, f##_dynamic_enabled)
-#  define preempt_dynamic_disable(f)	static_call_update(f, f##_dynamic_disabled)
-# elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
-#  define preempt_dynamic_enable(f)	preempt_dynamic_key_enable(f)
-#  define preempt_dynamic_disable(f)	preempt_dynamic_key_disable(f)
-# else
-#  error "Unsupported PREEMPT_DYNAMIC mechanism"
-# endif
-
 static DEFINE_MUTEX(sched_dynamic_mutex);
 
 static void __sched_dynamic_update(int mode)
