@@ -7794,7 +7794,7 @@ out_unlock:
 }
 #endif /* CONFIG_RT_MUTEXES */
 
-#if !defined(CONFIG_PREEMPTION) || defined(CONFIG_PREEMPT_DYNAMIC)
+#if !defined(CONFIG_PREEMPTION)
 int __sched __cond_resched(void)
 {
 	if (should_resched(0) && !irqs_disabled()) {
@@ -7821,38 +7821,6 @@ int __sched __cond_resched(void)
 }
 EXPORT_SYMBOL(__cond_resched);
 #endif
-
-#ifdef CONFIG_PREEMPT_DYNAMIC
-# ifdef CONFIG_HAVE_PREEMPT_DYNAMIC_CALL
-#  define cond_resched_dynamic_enabled	__cond_resched
-#  define cond_resched_dynamic_disabled	((void *)&__static_call_return0)
-DEFINE_STATIC_CALL_RET0(cond_resched, __cond_resched);
-EXPORT_STATIC_CALL_TRAMP(cond_resched);
-
-#  define might_resched_dynamic_enabled	__cond_resched
-#  define might_resched_dynamic_disabled ((void *)&__static_call_return0)
-DEFINE_STATIC_CALL_RET0(might_resched, __cond_resched);
-EXPORT_STATIC_CALL_TRAMP(might_resched);
-# elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
-static DEFINE_STATIC_KEY_FALSE(sk_dynamic_cond_resched);
-int __sched dynamic_cond_resched(void)
-{
-	if (!static_branch_unlikely(&sk_dynamic_cond_resched))
-		return 0;
-	return __cond_resched();
-}
-EXPORT_SYMBOL(dynamic_cond_resched);
-
-static DEFINE_STATIC_KEY_FALSE(sk_dynamic_might_resched);
-int __sched dynamic_might_resched(void)
-{
-	if (!static_branch_unlikely(&sk_dynamic_might_resched))
-		return 0;
-	return __cond_resched();
-}
-EXPORT_SYMBOL(dynamic_might_resched);
-# endif
-#endif /* CONFIG_PREEMPT_DYNAMIC */
 
 /*
  * __cond_resched_lock() - if a reschedule is pending, drop the given lock,
@@ -7923,8 +7891,6 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
 # endif
 
 /*
- * SC:cond_resched
- * SC:might_resched
  * SC:preempt_schedule
  * SC:preempt_schedule_notrace
  * SC:irqentry_exit_cond_resched
@@ -7937,16 +7903,12 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
  *   (unselectable)
  *
  * FULL:
- *   cond_resched               <- RET0
- *   might_resched              <- RET0
  *   preempt_schedule           <- preempt_schedule
  *   preempt_schedule_notrace   <- preempt_schedule_notrace
  *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched
  *   dynamic_preempt_lazy       <- false
  *
  * LAZY:
- *   cond_resched               <- RET0
- *   might_resched              <- RET0
  *   preempt_schedule           <- preempt_schedule
  *   preempt_schedule_notrace   <- preempt_schedule_notrace
  *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched
@@ -7993,8 +7955,6 @@ static void __sched_dynamic_update(int mode)
 {
 	switch (mode) {
 	case preempt_dynamic_full:
-		preempt_dynamic_disable(cond_resched);
-		preempt_dynamic_disable(might_resched);
 		preempt_dynamic_enable(preempt_schedule);
 		preempt_dynamic_enable(preempt_schedule_notrace);
 		preempt_dynamic_enable(irqentry_exit_cond_resched);
@@ -8004,8 +7964,6 @@ static void __sched_dynamic_update(int mode)
 		break;
 
 	case preempt_dynamic_lazy:
-		preempt_dynamic_disable(cond_resched);
-		preempt_dynamic_disable(might_resched);
 		preempt_dynamic_enable(preempt_schedule);
 		preempt_dynamic_enable(preempt_schedule_notrace);
 		preempt_dynamic_enable(irqentry_exit_cond_resched);
