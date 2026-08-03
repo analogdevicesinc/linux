@@ -14,6 +14,13 @@
 
 #define JESD204_FSM_BUSY	BIT(0)
 
+/*
+ * Internal error code used to signal that the current FSM state doesn't match
+ * the expected state during validation. This is distinct from standard errno
+ * values to allow special handling (e.g., skipping states during resume).
+ * The value 9000 is chosen to be well outside the range of standard errno
+ * values (typically 1-4095) to avoid conflicts.
+ */
 #define EINVALID_STATE		9000
 
 typedef int (*jesd204_fsm_cb)(struct jesd204_dev *jdev,
@@ -141,6 +148,7 @@ static const struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
 	JESD204_STATE_OP(CLK_SYNC_STAGE1),
 	JESD204_STATE_OP(CLK_SYNC_STAGE2),
 	JESD204_STATE_OP(CLK_SYNC_STAGE3),
+	JESD204_STATE_OP(CLK_SYNC_STAGE4),
 	JESD204_STATE_OP(LINK_SETUP),
 	JESD204_STATE_OP(OPT_SETUP_STAGE1),
 	JESD204_STATE_OP(OPT_SETUP_STAGE2),
@@ -150,6 +158,9 @@ static const struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
 	JESD204_STATE_OP(CLOCKS_ENABLE),
 	JESD204_STATE_OP(LINK_ENABLE),
 	JESD204_STATE_OP(LINK_RUNNING),
+	JESD204_STATE_OP(OPT_POST_SETUP_STAGE1),
+	JESD204_STATE_OP(OPT_POST_SETUP_STAGE2),
+	JESD204_STATE_OP(OPT_POST_SETUP_STAGE3),
 	JESD204_STATE_OP_LAST(OPT_POST_RUNNING_STAGE),
 };
 
@@ -178,6 +189,8 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "clk_sync_stage2";
 	case JESD204_STATE_CLK_SYNC_STAGE3:
 		return "clk_sync_stage3";
+	case JESD204_STATE_CLK_SYNC_STAGE4:
+		return "clk_sync_stage4";
 	case JESD204_STATE_LINK_SETUP:
 		return "link_setup";
 	case JESD204_STATE_CLOCKS_ENABLE:
@@ -196,6 +209,12 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "opt_setup_stage4";
 	case JESD204_STATE_OPT_SETUP_STAGE5:
 		return "opt_setup_stage5";
+	case JESD204_STATE_OPT_POST_SETUP_STAGE1:
+		return "opt_post_setup_stage1";
+	case JESD204_STATE_OPT_POST_SETUP_STAGE2:
+		return "opt_post_setup_stage2";
+	case JESD204_STATE_OPT_POST_SETUP_STAGE3:
+		return "opt_post_setup_stage3";
 	case JESD204_STATE_OPT_POST_RUNNING_STAGE:
 		return "opt_post_running_stage";
 	case JESD204_STATE_DONT_CARE:
@@ -318,7 +337,7 @@ static int jesd204_fsm_propagate_rollback_cb_outputs(struct jesd204_dev *jdev_it
 static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 					      struct jesd204_fsm_data *fsm_data)
 {
-	int i, ret;
+	int i, ret = 0;
 
 	if (fsm_data->link_idx != JESD204_LINKS_ALL)
 		return jesd204_fsm_handle_con_cb(jdev_it, NULL,
@@ -330,7 +349,6 @@ static int jesd204_fsm_propagate_cb_top_level(struct jesd204_dev *jdev_it,
 		if (ret)
 			break;
 	}
-	/* FIXME: error message here? */
 
 	return ret;
 }
@@ -371,6 +389,10 @@ static int __jesd204_fsm_propagate_cb(struct jesd204_dev *jdev,
 static int __jesd204_fsm_propagate_rollback_cb(struct jesd204_dev *jdev,
 					       struct jesd204_fsm_data *data)
 {
+	jesd204_dbg(jdev, "Rolling back from state %s to %s\n",
+		    jesd204_state_str(data->cur_state),
+		    jesd204_state_str(data->nxt_state));
+
 	jesd204_fsm_propagate_rollback_cb_top_level(jdev, data);
 	jesd204_fsm_propagate_rollback_cb_outputs(jdev, data);
 	jesd204_fsm_propagate_rollback_cb_inputs(jdev, data);
@@ -965,7 +987,7 @@ static int jesd204_init_secondary_sysref_cb(struct jesd204_dev *jdev,
 	if (!jdev->is_sec_sysref_provider)
 		return 0;
 
-	if (!jdev->dev_data->sysref_cb) {
+	if (!jdev->dev_data || !jdev->dev_data->sysref_cb) {
 		jesd204_err(jdev, "Configured as SYSREF, but no SYSREF cb\n");
 		return -EINVAL;
 	}
@@ -997,7 +1019,7 @@ static int jesd204_init_sysref_cb(struct jesd204_dev *jdev,
 	if (!jdev->is_sysref_provider)
 		return jesd204_init_secondary_sysref_cb(jdev, jdev_top);
 
-	if (!jdev->dev_data->sysref_cb) {
+	if (!jdev->dev_data || !jdev->dev_data->sysref_cb) {
 		jesd204_err(jdev, "Configured as SYSREF, but no SYSREF cb\n");
 		return -EINVAL;
 	}
@@ -1180,6 +1202,9 @@ static int jesd204_fsm_table_entry_cb(struct jesd204_dev *jdev,
 
 	jesd204_fsm_handle_stop_state(jdev, link_idx, fsm_data);
 
+	if (!jdev->dev_data)
+		return JESD204_STATE_CHANGE_DONE;
+
 	state_op = &jdev->dev_data->state_ops[it->table[0].op];
 
 	if (fsm_data->rollback)
@@ -1220,7 +1245,7 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 			return ret;
 	}
 
-	if (!fsm_data->rollback) {
+	if (!fsm_data->rollback && jdev->dev_data) {
 		state_op = &jdev->dev_data->state_ops[it->table[0].op];
 		if (state_op->post_state_sysref && jesd204_dev_is_top(jdev))
 			jesd204_sysref_async(jdev);
@@ -1300,12 +1325,11 @@ static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
 
 	ret1 = 0;
 	ret = 0;
-	/**
-	 * FIXME: the handle_busy_flags logic needs re-visit, we should lock
-	 * here and unlock after the loop is done
-	 */
 	while (!jesd204_fsm_table_end(&it->table[0], rollback, jdev->fsm_rb_to_init)) {
 		it->table = table;
+
+		if (!jdev->dev_data)
+			break;
 
 		state_op = &jdev->dev_data->state_ops[table[0].op];
 
@@ -1359,7 +1383,7 @@ static int jesd204_fsm_run_finished_cb_cb(struct jesd204_dev *jdev,
 {
 	const struct jesd204_link * const *links = fsm_data->cb_data;
 
-	if (!jdev->dev_data->fsm_finished_cb)
+	if (!jdev->dev_data || !jdev->dev_data->fsm_finished_cb)
 		return JESD204_STATE_CHANGE_DONE;
 
 	jdev->dev_data->fsm_finished_cb(jdev, links,
@@ -1414,6 +1438,8 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 	if (!jdev_top)
 		return -EFAULT;
 
+	mutex_lock(&jdev_top->fsm_lock);
+
 	memset(&data, 0, sizeof(data));
 	data.fsm_change_cb = jesd204_fsm_table_entry_cb;
 	data.fsm_complete_cb = jesd204_fsm_table_entry_done;
@@ -1442,6 +1468,8 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 		jesd204_err(jdev, "FSM completed with error %d\n", ret);
 
 	jesd204_fsm_run_finished_cb(jdev, jdev_top, link_idx, handle_busy_flags);
+
+	mutex_unlock(&jdev_top->fsm_lock);
 
 	return ret;
 }

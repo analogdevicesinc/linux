@@ -10,9 +10,11 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/device.h>
+#include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/property.h>
 #include <linux/slab.h>
+#include <linux/units.h>
 
 #include "jesd204-priv.h"
 
@@ -21,6 +23,15 @@ static DEFINE_IDA(jesd204_ida);
 
 static struct bus_type jesd204_bus_type = {
 	.name = "jesd204",
+};
+
+static void jesd204_dev_release(struct device *dev)
+{
+	/* jdev memory is managed separately; nothing to free here */
+}
+
+static const struct device_type jesd204_dev_type = {
+	.release = jesd204_dev_release,
 };
 
 static LIST_HEAD(jesd204_device_list);
@@ -139,6 +150,11 @@ bool jesd204_link_get_paused(const struct jesd204_link *lnk)
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_paused);
 
+/**
+ * jesd204_device_count_get() - Get the total number of registered JESD204 devices
+ *
+ * Return: The current count of registered JESD204 devices in the framework.
+ */
 int jesd204_device_count_get(void)
 {
 	return jesd204_device_count;
@@ -373,14 +389,15 @@ EXPORT_SYMBOL_GPL(jesd204_copy_link_params);
  * link configuration parameters. The calculated rate is stored in the variable
  * pointed to by @rate_hz.
  *
- * Return: 0 on success, negative error code on failure
+ * Return: 0 on success (exact division), positive value (remainder in ppm) if not exact,
+ *         or negative error code on failure.
  */
 
 int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 				    unsigned long *rate_hz)
 {
-	u64 lane_rate_hz;
-	u32 bkw;
+	u64 lane_rate_hz, rem;
+	u32 bkw, div;
 	int ret;
 
 	ret = jesd204_link_get_rate(lnk, &lane_rate_hz);
@@ -398,48 +415,73 @@ int jesd204_link_get_lmfc_lemc_rate(struct jesd204_link *lnk,
 				bkw = 80; /* JESD 204C */
 
 			if (lnk->num_of_multiblocks_in_emb) {
-				do_div(lane_rate_hz, bkw * 32 *
-					lnk->num_of_multiblocks_in_emb);
+				div =  bkw * 32 * lnk->num_of_multiblocks_in_emb;
 			} else {
 				lane_rate_hz *= 8;
-				do_div(lane_rate_hz, bkw *
-					lnk->octets_per_frame *
-					lnk->frames_per_multiframe);
+				div = bkw * lnk->octets_per_frame * lnk->frames_per_multiframe;
 			}
 			break;
 		case JESD204_ENCODER_8B10B:
-			do_div(lane_rate_hz, 10 * lnk->octets_per_frame *
-				lnk->frames_per_multiframe);
+			div = 10 * lnk->octets_per_frame * lnk->frames_per_multiframe;
 			break;
 		default:
 			return -EINVAL;
 		}
 		break;
 	default:
-		do_div(lane_rate_hz, 10 * lnk->octets_per_frame *
-			lnk->frames_per_multiframe);
+			div = 10 * lnk->octets_per_frame * lnk->frames_per_multiframe;
 		break;
 	}
 
+	rem = do_div(lane_rate_hz, div);
 	*rate_hz = lane_rate_hz;
+
+	if (rem) {
+		rem *= MICROHZ_PER_HZ;
+		do_div(rem, div);
+
+		return rem;
+	}
 
 	return 0;
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_lmfc_lemc_rate);
 
+/**
+ * jesd204_dev_get_topology_top_dev() - Get the top-level device for a JESD204 topology
+ * @jdev: Pointer to a JESD204 device within the topology
+ *
+ * This function finds and returns the top-level device (typically ADC, DAC,
+ * or transceiver) for the JESD204 topology that contains the given device.
+ * If the device itself is a top-level device, it returns that directly.
+ * Otherwise, it searches through all topologies to find where this device
+ * has connections.
+ *
+ * Return: Pointer to the top-level jesd204_dev_top structure, or NULL if
+ *         the device doesn't belong to any topology.
+ */
 struct jesd204_dev_top *jesd204_dev_get_topology_top_dev(struct jesd204_dev *jdev)
 {
 	struct jesd204_dev_top *jdev_top = jesd204_dev_top_dev(jdev);
+	struct jesd204_dev_top *found = NULL;
 
 	if (jdev_top)
 		return jdev_top;
 
-	/* FIXME: enforce that one jdev object can only be in one topology */
 	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
 		if (!jesd204_dev_has_con_in_topology(jdev, jdev_top))
 			continue;
-		return jdev_top;
+		if (found) {
+			jesd204_warn(jdev,
+				     "Device belongs to multiple topologies (%d, %d); using first\n",
+				     found->topo_id, jdev_top->topo_id);
+			break;
+		}
+		found = jdev_top;
 	}
+
+	if (found)
+		return found;
 
 	jesd204_warn(jdev, "Device isn't a top-device, nor does it belong to topology with top-device\n");
 
@@ -612,6 +654,17 @@ static void __jesd204_printk(const char *level, const struct jesd204_dev *jdev,
 			vaf);
 }
 
+/**
+ * jesd204_printk() - Print a kernel message for a JESD204 device
+ * @level: Kernel log level string (e.g., KERN_ERR, KERN_INFO)
+ * @jdev: Pointer to the JESD204 device structure (may be NULL)
+ * @fmt: printf-style format string
+ * @...: Arguments for the format string
+ *
+ * This function prints a kernel message with JESD204 device context.
+ * It handles NULL device pointers gracefully and includes device tree
+ * node information when available.
+ */
 void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
 		    const char *fmt, ...)
 {
@@ -656,6 +709,29 @@ static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
 	jdev_top->staged_links = links;
 
 	return 0;
+}
+
+static void jesd204_dev_free_links(struct jesd204_dev_top *jdev_top)
+{
+	unsigned int i;
+
+	if (!jdev_top)
+		return;
+
+	/* Free lane_ids for each link */
+	if (jdev_top->active_links) {
+		for (i = 0; i < jdev_top->num_links; i++) {
+			/* Only free if not using static init_links lane_ids */
+			if (!jdev_top->init_links ||
+			    !jdev_top->init_links[i].lane_ids)
+				kfree(jdev_top->active_links[i].link.lane_ids);
+		}
+		kfree(jdev_top->active_links);
+		jdev_top->active_links = NULL;
+	}
+
+	kfree(jdev_top->staged_links);
+	jdev_top->staged_links = NULL;
 }
 
 static int jesd204_dev_init_stop_states(struct jesd204_dev *jdev,
@@ -720,6 +796,7 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 
 		jdev = &jdev_top->jdev;
 
+		mutex_init(&jdev_top->fsm_lock);
 		jdev_top->topo_id = topo_id;
 		jdev_top->num_links = ret;
 		for (i = 0; i < jdev_top->num_links; i++)
@@ -755,7 +832,7 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 
 	ret = jesd204_dev_init_stop_states(jdev, np);
 	if (ret)
-		goto err_free_id;
+		goto err_free_dev;
 
 	jdev->id = id;
 	jdev->np = of_node_get(np);
@@ -767,6 +844,16 @@ static struct jesd204_dev *jesd204_dev_alloc(struct device_node *np)
 
 	return jdev;
 
+err_free_dev:
+	if (jdev->is_top) {
+		jdev_top = jesd204_dev_top_dev(jdev);
+		list_del(&jdev_top->entry);
+		jesd204_topologies_count--;
+		jesd204_dev_free_links(jdev_top);
+		kfree(jdev_top);
+	} else {
+		kfree(jdev);
+	}
 err_free_id:
 	ida_simple_remove(&jesd204_ida, id);
 
@@ -898,16 +985,23 @@ static int jesd204_of_device_create_cons(struct jesd204_dev *jdev)
 		 * improve this later, to allow the good configs
 		 */
 		if (ret < 0)
-			return ret;
+			goto err_free_inputs;
 
 		ret = jesd204_dev_create_con(jdev, &args);
 		of_node_put(args.np);
 		if (ret)
-			return ret;
+			goto err_free_inputs;
 	}
 
 	return 0;
+
+err_free_inputs:
+	kfree(jdev->inputs);
+	jdev->inputs = NULL;
+	return ret;
 }
+
+static void jesd204_of_unregister_devices(void);
 
 static int jesd204_of_create_devices(void)
 {
@@ -918,23 +1012,30 @@ static int jesd204_of_create_devices(void)
 
 	for_each_node_with_property(np, "jesd204-device") {
 		jdev = jesd204_dev_alloc(np);
-		if (IS_ERR(jdev))
-			return PTR_ERR(jdev);
+		if (IS_ERR(jdev)) {
+			of_node_put(np);
+			ret = PTR_ERR(jdev);
+			goto err_unregister;
+		}
 	}
 
 	list_for_each_entry(jdev, &jesd204_device_list, entry) {
 		ret = jesd204_of_device_create_cons(jdev);
 		if (ret)
-			return ret;
+			goto err_unregister;
 	}
 
 	list_for_each_entry(jdev_top, &jesd204_topologies, entry) {
 		ret = jesd204_init_topology(jdev_top);
 		if (ret)
-			return ret;
+			goto err_unregister;
 	}
 
 	return 0;
+
+err_unregister:
+	jesd204_of_unregister_devices();
+	return ret;
 }
 
 static int jesd204_dev_init_link_lane_ids(struct jesd204_dev_top *jdev_top,
@@ -1097,6 +1198,9 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	if (jesd204_dyn_dt_change)
 		return ERR_PTR(-EPROBE_DEFER);
 
+	if (jdev->unregistered)
+		jdev->unregistered = false;
+
 	ret = jesd204_dev_init_links_data(dev, jdev, init);
 	if (ret)
 		return ERR_PTR(ret);
@@ -1106,6 +1210,7 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	jdev->dev.parent = dev;
 	jdev->dev_data = init;
 	jdev->dev.bus = &jesd204_bus_type;
+	jdev->dev.type = &jesd204_dev_type;
 	device_initialize(&jdev->dev);
 	dev_set_name(&jdev->dev, "jesd204:%d", jdev->id);
 
@@ -1131,7 +1236,7 @@ static struct jesd204_dev *jesd204_dev_register(struct device *dev,
 	return jdev;
 
 err_device_del:
-	device_del(&jdev->dev);
+	device_unregister(&jdev->dev);
 err_uninit_device:
 	memset(&jdev->dev, 0, sizeof(jdev->dev));
 
@@ -1144,6 +1249,7 @@ static void jesd204_dev_destroy_cons(struct jesd204_dev *jdev)
 	struct jesd204_dev_list_entry *e, *e1;
 
 	kfree(jdev->inputs);
+	jdev->inputs = NULL;
 
 	list_for_each_entry_safe(c, c1, &jdev->outputs, entry) {
 		list_del(&c->entry);
@@ -1164,6 +1270,7 @@ static void jesd204_of_unregister_devices(void)
 		jesd204_dev_unregister(jdev);
 		jesd204_dev_destroy_cons(jdev);
 		of_node_put(jdev->np);
+		ida_simple_remove(&jesd204_ida, jdev->id);
 		list_del(&jdev->entry);
 		jesd204_device_count--;
 		if (!jdev->is_top) {
@@ -1172,9 +1279,14 @@ static void jesd204_of_unregister_devices(void)
 		}
 		jdev_top = jesd204_dev_top_dev(jdev);
 		list_del(&jdev_top->entry);
+		jesd204_dev_free_links(jdev_top);
+		mutex_destroy(&jdev_top->fsm_lock);
 		kfree(jdev_top);
 		jesd204_topologies_count--;
 	}
+
+	/* Reset connection ID counter for next overlay load */
+	jesd204_con_id_counter = 0;
 }
 
 /**
@@ -1192,16 +1304,26 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	if (IS_ERR_OR_NULL(jdev))
 		return;
 
+	/* Check if already unregistered to avoid double cleanup */
+	if (jdev->unregistered)
+		return;
+
+	pr_debug("Unregistering JESD204 device %pOF\n", jdev->np);
+
+	jdev->unregistered = true;
+
 	jesd204_dev_destroy_sysfs(jdev);
 
-	if (jdev->dev.parent)
-		device_del(&jdev->dev);
+	if (jdev->dev.parent) {
+		device_unregister(&jdev->dev);
+		memset(&jdev->dev, 0, sizeof(jdev->dev));
+	}
 
 	jdev->fsm_rb_to_init = true;
 	jesd204_fsm_stop(jdev, JESD204_LINKS_ALL);
 	jdev->fsm_rb_to_init = false;
 
-	memset(&jdev->dev, 0, sizeof(jdev->dev));
+	jdev->dev_data = NULL;
 	jdev->fsm_inited = false;
 }
 
@@ -1304,8 +1426,12 @@ static int of_jesd204_notify(struct notifier_block *nb,
 				jesd204_device_count, jesd204_topologies_count);
 
 			jesd204_dyn_dt_change = false;
-			if (!ret)
-				driver_deferred_probe_trigger();
+			if (ret) {
+				jesd204_of_unregister_devices();
+				return notifier_from_errno(ret);
+			}
+
+			driver_deferred_probe_trigger();
 
 			return notifier_from_errno(ret);
 		}
@@ -1313,9 +1439,9 @@ static int of_jesd204_notify(struct notifier_block *nb,
 		return NOTIFY_OK;
 	case OF_OVERLAY_PRE_REMOVE:
 		pr_debug("%s OF_OVERLAY_PRE_REMOVE\n", __func__);
-
-		if (jesd204_device_count)
-			return notifier_from_errno(-EOPNOTSUPP);
+		return NOTIFY_OK;
+	case OF_OVERLAY_POST_REMOVE:
+		jesd204_of_unregister_devices();
 
 		return NOTIFY_OK;
 	default:

@@ -11,6 +11,8 @@
 #define JESD204_OF_PREFIX	"jesd204-"
 #endif
 
+#include <linux/of.h>
+
 /**
  * Note: usually macros should not define control follows, but other methods
  * can cause insanity.

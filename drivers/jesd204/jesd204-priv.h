@@ -35,6 +35,7 @@ enum jesd204_dev_state {
 	JESD204_STATE_ENUM(CLK_SYNC_STAGE1),
 	JESD204_STATE_ENUM(CLK_SYNC_STAGE2),
 	JESD204_STATE_ENUM(CLK_SYNC_STAGE3),
+	JESD204_STATE_ENUM(CLK_SYNC_STAGE4),
 	JESD204_STATE_ENUM(LINK_SETUP),
 	JESD204_STATE_ENUM(OPT_SETUP_STAGE1),
 	JESD204_STATE_ENUM(OPT_SETUP_STAGE2),
@@ -44,6 +45,9 @@ enum jesd204_dev_state {
 	JESD204_STATE_ENUM(CLOCKS_ENABLE),
 	JESD204_STATE_ENUM(LINK_ENABLE),
 	JESD204_STATE_ENUM(LINK_RUNNING),
+	JESD204_STATE_ENUM(OPT_POST_SETUP_STAGE1),
+	JESD204_STATE_ENUM(OPT_POST_SETUP_STAGE2),
+	JESD204_STATE_ENUM(OPT_POST_SETUP_STAGE3),
 	JESD204_STATE_ENUM(OPT_POST_RUNNING_STAGE),
 	JESD204_STATE_DONT_CARE = 999,
 };
@@ -129,6 +133,7 @@ struct jesd204_dev {
 	bool				fsm_inited;
 	bool				fsm_rb_to_init;
 	bool				is_top;
+	bool				unregistered;
 
 	bool				is_sysref_provider;
 	bool				is_sec_sysref_provider;
@@ -191,6 +196,7 @@ struct jesd204_link_opaque {
  *			cb_ref on the jesd204_link_opaque struct, but each link
  *			increments/decrements it, to group transitions of multiple
  *			JESD204 links
+ * @fsm_lock		mutex to serialize FSM state transitions
  * @topo_id		topology ID for this device (and top-level device)
  *			(connections should match against this)
  * @link_ids		JESD204 link IDs for this top-level device
@@ -211,6 +217,7 @@ struct jesd204_dev_top {
 
 	struct jesd204_fsm_data		*fsm_data;
 	struct kref			cb_ref;
+	struct mutex			fsm_lock;
 
 	int				topo_id;
 	unsigned int			link_ids[JESD204_MAX_LINKS];

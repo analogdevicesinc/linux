@@ -216,6 +216,7 @@ enum jesd204_dev_op {
 	JESD204_OP_CLK_SYNC_STAGE1,
 	JESD204_OP_CLK_SYNC_STAGE2,
 	JESD204_OP_CLK_SYNC_STAGE3,
+	JESD204_OP_CLK_SYNC_STAGE4,
 	JESD204_OP_LINK_SETUP,
 	JESD204_OP_OPT_SETUP_STAGE1,
 	JESD204_OP_OPT_SETUP_STAGE2,
@@ -225,6 +226,9 @@ enum jesd204_dev_op {
 	JESD204_OP_CLOCKS_ENABLE,
 	JESD204_OP_LINK_ENABLE,
 	JESD204_OP_LINK_RUNNING,
+	JESD204_OP_OPT_POST_SETUP_STAGE1,
+	JESD204_OP_OPT_POST_SETUP_STAGE2,
+	JESD204_OP_OPT_POST_SETUP_STAGE3,
 	JESD204_OP_OPT_POST_RUNNING_STAGE,
 
 	__JESD204_MAX_OPS,
@@ -438,5 +442,7 @@ void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
 	jesd204_printk(KERN_NOTICE, dev, fmt, ##__VA_ARGS__)
 #define jesd204_info(dev, fmt, ...)					\
 	jesd204_printk(KERN_INFO, dev, fmt, ##__VA_ARGS__)
+#define jesd204_dbg(dev, fmt, ...)					\
+	jesd204_printk(KERN_DEBUG, dev, fmt, ##__VA_ARGS__)
 
 #endif
