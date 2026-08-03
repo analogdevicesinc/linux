@@ -1109,16 +1109,8 @@ static ssize_t adrv903x_phy_tx_write(struct iio_dev *indio_dev,
 		mask = ADI_ADRV903X_TX0 << chan->channel;
 		calMask = ADI_ADRV903X_TC_TX_LOL_MASK;
 
-		adi_adrv903x_ChannelTrackingCals_t channelMask = { 0 };
-
-		channelMask.txChannel = mask;
-
-		ret = adrv903x_api_call(phy, adi_adrv903x_TxToOrxMappingSet, 0x50);
-		if (ret)
-			break;
-
-		ret = adrv903x_api_call(phy, adi_adrv903x_TrackingCalsEnableSet, calMask,
-					mask,
+		ret = adrv903x_api_call(phy, adi_adrv903x_TrackingCalsEnableSet,
+					calMask, mask,
 					enable ? ADI_ADRV903X_TRACKING_CAL_ENABLE :
 						ADI_ADRV903X_TRACKING_CAL_DISABLE);
 		break;
