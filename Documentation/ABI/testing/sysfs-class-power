@@ -365,9 +365,12 @@ Contact:	linux-pm@vger.kernel.org
 Description:
 		Represents a battery percentage level, above which charging will
 		stop. Not all hardware is capable of setting this to an arbitrary
-		percentage. Drivers will round written values to the nearest
-		supported value. Reading back the value will show the actual
-		threshold set by the driver.
+		value, instead providing different minimum, maximum, or step
+		values. Drivers will round written values to the nearest supported
+		value. Reading back the value will show the actual threshold set
+		by the driver. For hardware that only supports a single fixed
+		value, use charge_types with a value of "Long Life" (vs "Standard")
+		instead'
 
 		Access: Read, Write
 
@@ -398,8 +401,9 @@ Description:
 			when to start and stop charging. Advanced users
 			can use this to drastically extend battery life.
 		Long Life:
-			The charger reduces its charging rate in order to
-			prolong the battery health.
+			The charger firmware reduces its charging rate and/or
+			maximum charging percentage to a hardware specified
+			fixed limit in order to prolong the battery health.
 		Bypass:
 			The charger bypasses the charging path around the
 			integrated converter allowing for a "smart" wall
