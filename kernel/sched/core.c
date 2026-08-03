@@ -7500,27 +7500,6 @@ asmlinkage __visible void __sched notrace preempt_schedule(void)
 NOKPROBE_SYMBOL(preempt_schedule);
 EXPORT_SYMBOL(preempt_schedule);
 
-#ifdef CONFIG_PREEMPT_DYNAMIC
-# ifdef CONFIG_HAVE_PREEMPT_DYNAMIC_CALL
-#  ifndef preempt_schedule_dynamic_enabled
-#   define preempt_schedule_dynamic_enabled	preempt_schedule
-#   define preempt_schedule_dynamic_disabled	NULL
-#  endif
-DEFINE_STATIC_CALL(preempt_schedule, preempt_schedule_dynamic_enabled);
-EXPORT_STATIC_CALL_TRAMP(preempt_schedule);
-# elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
-static DEFINE_STATIC_KEY_TRUE(sk_dynamic_preempt_schedule);
-void __sched notrace dynamic_preempt_schedule(void)
-{
-	if (!static_branch_unlikely(&sk_dynamic_preempt_schedule))
-		return;
-	preempt_schedule();
-}
-NOKPROBE_SYMBOL(dynamic_preempt_schedule);
-EXPORT_SYMBOL(dynamic_preempt_schedule);
-# endif
-#endif /* CONFIG_PREEMPT_DYNAMIC */
-
 /**
  * preempt_schedule_notrace - preempt_schedule called by tracing
  *
@@ -7572,27 +7551,6 @@ asmlinkage __visible void __sched notrace preempt_schedule_notrace(void)
 	} while (need_resched());
 }
 EXPORT_SYMBOL_GPL(preempt_schedule_notrace);
-
-#ifdef CONFIG_PREEMPT_DYNAMIC
-# if defined(CONFIG_HAVE_PREEMPT_DYNAMIC_CALL)
-#  ifndef preempt_schedule_notrace_dynamic_enabled
-#   define preempt_schedule_notrace_dynamic_enabled	preempt_schedule_notrace
-#   define preempt_schedule_notrace_dynamic_disabled	NULL
-#  endif
-DEFINE_STATIC_CALL(preempt_schedule_notrace, preempt_schedule_notrace_dynamic_enabled);
-EXPORT_STATIC_CALL_TRAMP(preempt_schedule_notrace);
-# elif defined(CONFIG_HAVE_PREEMPT_DYNAMIC_KEY)
-static DEFINE_STATIC_KEY_TRUE(sk_dynamic_preempt_schedule_notrace);
-void __sched notrace dynamic_preempt_schedule_notrace(void)
-{
-	if (!static_branch_unlikely(&sk_dynamic_preempt_schedule_notrace))
-		return;
-	preempt_schedule_notrace();
-}
-NOKPROBE_SYMBOL(dynamic_preempt_schedule_notrace);
-EXPORT_SYMBOL(dynamic_preempt_schedule_notrace);
-# endif
-#endif
 
 #endif /* CONFIG_PREEMPTION */
 
@@ -7891,8 +7849,6 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
 # endif
 
 /*
- * SC:preempt_schedule
- * SC:preempt_schedule_notrace
  * SC:irqentry_exit_cond_resched
  *
  *
@@ -7903,14 +7859,10 @@ EXPORT_SYMBOL(__cond_resched_rwlock_write);
  *   (unselectable)
  *
  * FULL:
- *   preempt_schedule           <- preempt_schedule
- *   preempt_schedule_notrace   <- preempt_schedule_notrace
  *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched
  *   dynamic_preempt_lazy       <- false
  *
  * LAZY:
- *   preempt_schedule           <- preempt_schedule
- *   preempt_schedule_notrace   <- preempt_schedule_notrace
  *   irqentry_exit_cond_resched <- irqentry_exit_cond_resched
  *   dynamic_preempt_lazy       <- true
  */
@@ -7955,8 +7907,6 @@ static void __sched_dynamic_update(int mode)
 {
 	switch (mode) {
 	case preempt_dynamic_full:
-		preempt_dynamic_enable(preempt_schedule);
-		preempt_dynamic_enable(preempt_schedule_notrace);
 		preempt_dynamic_enable(irqentry_exit_cond_resched);
 		preempt_dynamic_key_disable(preempt_lazy);
 		if (mode != preempt_dynamic_mode)
@@ -7964,8 +7914,6 @@ static void __sched_dynamic_update(int mode)
 		break;
 
 	case preempt_dynamic_lazy:
-		preempt_dynamic_enable(preempt_schedule);
-		preempt_dynamic_enable(preempt_schedule_notrace);
 		preempt_dynamic_enable(irqentry_exit_cond_resched);
 		preempt_dynamic_key_enable(preempt_lazy);
 		if (mode != preempt_dynamic_mode)
