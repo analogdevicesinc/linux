@@ -2671,9 +2671,8 @@ static void ieee80211_remove_ack_skb(struct ieee80211_local *local, u16 info_id)
  * the appropriate IEEE 802.11 header based on which interface the packet is
  * being transmitted on.
  *
- * Note that this function also takes care of the TX status request and
- * potential unsharing of the SKB - this needs to be interleaved with the
- * header building.
+ * Note that this function also takes care of the TX status request. The skb
+ * must not be shared.
  *
  * The function requires the read-side RCU lock held
  *
@@ -2982,15 +2981,6 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 		     (sk_requests_wifi_status(skb->sk) || cookie)))
 		info_id = ieee80211_store_ack_skb(local, skb, &info_flags,
 						  cookie);
-
-	/*
-	 * If the skb is shared we need to obtain our own copy.
-	 */
-	skb = skb_share_check(skb, GFP_ATOMIC);
-	if (unlikely(!skb)) {
-		ret = -ENOMEM;
-		goto free;
-	}
 
 	hdr.frame_control = fc;
 	hdr.duration_id = 0;
@@ -4477,6 +4467,12 @@ void __ieee80211_subif_start_xmit(struct sk_buff *skb,
 
 		if (skb->protocol == sdata->control_port_protocol)
 			ctrl_flags |= IEEE80211_TX_CTRL_SKIP_MPATH_LOOKUP;
+
+		skb = skb_share_check(skb, GFP_ATOMIC);
+		if (unlikely(!skb)) {
+			kfree_skb_list(next);
+			goto out;
+		}
 
 		skb = ieee80211_build_hdr(sdata, skb, info_flags,
 					  sta, ctrl_flags, 0);
