@@ -625,6 +625,11 @@ static void dcn60_populate_utm_qos_model(
 	const SocUtmTable_t *utm_table = &init_table->UtmTable;
 	unsigned int ll, sop;
 
+	if (utm_table->Header.LoadLevelCount == 0 || utm_table->Header.SopCount == 0) {
+		*qos_model = NULL;
+		return;
+	}
+
 	memset(dchub, 0, sizeof(*dchub));
 	dchub->load_level_count = (uint8_t)utm_table->Header.LoadLevelCount;
 	dchub->sop_count = (uint8_t)utm_table->Header.SopCount;
