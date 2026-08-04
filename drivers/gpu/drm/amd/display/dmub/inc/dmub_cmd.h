@@ -1170,6 +1170,16 @@ enum dmub_ips_comand_type {
 };
 
 /**
+ * enum dmub_dc_bls_command_type - DC_BLS subcommands.
+ */
+enum dmub_dc_bls_command_type {
+	/**
+	 * Placeholder for block-level initialization of the DCHVM
+	 */
+	DMUB_CMD__DC_BLS_DCHVM_INIT = 0,
+};
+
+/**
  * enum dmub_cursor_offload_comand_type - Cursor offload subcommands.
  */
 enum dmub_cursor_offload_comand_type {
@@ -2007,6 +2017,11 @@ enum dmub_cmd_type {
 	 * Command type use for all Panel Polarity commands.
 	 */
 	DMUB_CMD__PANEL_POLARITY = 97,
+
+	/**
+	 * Command type used for all DC_BLS commands.
+	 */
+	DMUB_CMD__DC_BLS = 98,
 
 	/**
 	 * Command type use for VBIOS shared commands.
@@ -2938,6 +2953,25 @@ struct dmub_dcn_notify_idle_cntl_data {
 struct dmub_rb_cmd_idle_opt_dcn_notify_idle {
 	struct dmub_cmd_header header; /**< header */
 	struct dmub_dcn_notify_idle_cntl_data cntl_data;
+};
+
+/**
+ * Data passed from driver to FW in a DMUB_CMD__DC_BLS_DCHVM_INIT command.
+ */
+struct dmub_cmd_dc_bls_dchvm_init_data {
+	/**
+	 * The value to program to rIOMMU PCTRL register. x86 cannot access this SMN
+	 * register, so the write is performed by DMCUB on the driver's behalf.
+	 */
+	uint32_t riommu_pctrl_val; /* r */
+};
+
+/**
+ * Definition of a DMUB_CMD__DC_BLS_DCHVM_INIT command.
+ */
+struct dmub_rb_cmd_dc_bls_dchvm_init {
+	struct dmub_cmd_header header;
+	struct dmub_cmd_dc_bls_dchvm_init_data data;
 };
 
 /**
@@ -7988,6 +8022,8 @@ union dmub_rb_cmd {
 	struct dmub_rb_cmd_panel_polarity_enable panel_polarity_enable;
 	struct dmub_rb_cmd_panel_polarity_get_bias panel_polarity_get_bias;
 	struct dmub_rb_cmd_panel_polarity_reset panel_polarity_reset;
+
+	struct dmub_rb_cmd_dc_bls_dchvm_init dc_bls_dchvm_init;
 };
 
 /**
