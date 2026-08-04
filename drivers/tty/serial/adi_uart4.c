@@ -34,10 +34,6 @@
 
 #include <linux/soc/adi/uart4.h>
 
-#if defined(CONFIG_SERIAL_ADI_UART4_CONSOLE) && defined(CONFIG_MAGIC_SYSRQ)
-#define SUPPORT_SYSRQ
-#endif
-
 #define DRIVER_NAME "adi-uart4"
 
 struct adi_uart4_serial_port {
@@ -1184,6 +1180,7 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 		uart->port.fifosize  = 8;
 		uart->port.ops       = &adi_uart4_serial_pops;
 		uart->port.line      = uartid;
+		uart->port.has_sysrq = IS_ENABLED(CONFIG_SERIAL_ADI_UART4_CONSOLE);
 		uart->port.iotype    = UPIO_MEM;
 		uart->port.flags     = UPF_BOOT_AUTOCONF;
 
