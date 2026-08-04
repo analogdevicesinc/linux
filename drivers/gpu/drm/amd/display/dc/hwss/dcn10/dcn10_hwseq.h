@@ -183,8 +183,9 @@ void dcn10_set_cursor_position(struct pipe_ctx *pipe_ctx);
 void dcn10_set_cursor_attribute(struct pipe_ctx *pipe_ctx);
 void dcn10_set_cursor_sdr_white_level(struct pipe_ctx *pipe_ctx);
 void dcn10_setup_periodic_interrupt(
-		struct dc *dc,
-		struct pipe_ctx *pipe_ctx);
+		struct timing_generator *tg,
+		uint32_t start_line,
+		uint32_t end_line);
 enum dc_status dcn10_set_clock(struct dc *dc,
 		enum dc_clock_type clock_type,
 		uint32_t clk_khz,

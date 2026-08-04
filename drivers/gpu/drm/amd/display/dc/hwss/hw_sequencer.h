@@ -819,8 +819,9 @@ struct cursor_lock_params {
 };
 
 struct setup_periodic_interrupt_params {
-	struct dc *dc;
-	struct pipe_ctx *pipe_ctx;
+	struct timing_generator *tg;
+	uint32_t start_line;
+	uint32_t end_line;
 };
 
 struct send_cursor_info_to_dmu_params {
@@ -1452,8 +1453,9 @@ struct hw_sequencer_funcs {
 	void (*enable_vblanks_synchronization)(struct dc *dc,
 			int group_index, int group_size,
 			struct pipe_ctx *grouped_pipes[]);
-	void (*setup_periodic_interrupt)(struct dc *dc,
-			struct pipe_ctx *pipe_ctx);
+	void (*setup_periodic_interrupt)(struct timing_generator *tg,
+			uint32_t start_line,
+			uint32_t end_line);
 	void (*set_drr)(struct pipe_ctx **pipe_ctx, int num_pipes,
 			struct dc_crtc_timing_adjust adjust);
 	void (*set_static_screen_control)(struct pipe_ctx **pipe_ctx,
@@ -2113,7 +2115,7 @@ void hwss_commit_cursor_offload_update(union block_sequence_params *params);
 
 void hwss_update_cursor_offload_pipe(union block_sequence_params *params);
 
-void hwss_setup_periodic_interrupt(struct dc *dc, union block_sequence_params *params);
+void hwss_setup_periodic_interrupt(struct dc *dc, struct pipe_ctx *pipe_ctx);
 
 void hwss_disable_audio_stream(struct dc *dc, union block_sequence_params *params);
 

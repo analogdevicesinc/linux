@@ -4367,8 +4367,8 @@ static void commit_planes_do_stream_update(struct dc *dc,
 
 		if (resource_is_pipe_type(pipe_ctx, OTG_MASTER) && pipe_ctx->stream == stream) {
 
-			if (stream_update->periodic_interrupt && dc->hwss.setup_periodic_interrupt)
-				dc->hwss.setup_periodic_interrupt(dc, pipe_ctx);
+			if (stream_update->periodic_interrupt)
+				hwss_setup_periodic_interrupt(dc, pipe_ctx);
 
 			if ((stream_update->hdr_static_metadata && !stream->use_dynamic_meta) ||
 					stream_update->vrr_infopacket ||

@@ -4026,45 +4026,12 @@ void dcn10_calc_vupdate_position(
 	*end_line = (*start_line + 2) % timing->v_total;
 }
 
-static void dcn10_cal_vline_position(
-		struct dc *dc,
-		struct pipe_ctx *pipe_ctx,
-		uint32_t *start_line,
-		uint32_t *end_line)
-{
-	const struct dc_crtc_timing *timing = &pipe_ctx->stream->timing;
-	int vline_pos = pipe_ctx->stream->periodic_interrupt.lines_offset;
-
-	if (pipe_ctx->stream->periodic_interrupt.ref_point == START_V_UPDATE) {
-		if (vline_pos > 0)
-			vline_pos--;
-		else if (vline_pos < 0)
-			vline_pos++;
-
-		vline_pos += dc->hwss.get_vupdate_offset_from_vsync(pipe_ctx);
-		if (vline_pos >= 0)
-			*start_line = vline_pos - ((vline_pos / timing->v_total) * timing->v_total);
-		else
-			*start_line = vline_pos + ((-vline_pos / timing->v_total) + 1) * timing->v_total - 1;
-		*end_line = (*start_line + 2) % timing->v_total;
-	} else if (pipe_ctx->stream->periodic_interrupt.ref_point == START_V_SYNC) {
-		// vsync is line 0 so start_line is just the requested line offset
-		*start_line = vline_pos;
-		*end_line = (*start_line + 2) % timing->v_total;
-	} else
-		ASSERT(0);
-}
-
 void dcn10_setup_periodic_interrupt(
-		struct dc *dc,
-		struct pipe_ctx *pipe_ctx)
+		struct timing_generator *tg,
+		uint32_t start_line,
+		uint32_t end_line
+	)
 {
-	struct timing_generator *tg = pipe_ctx->stream_res.tg;
-	uint32_t start_line = 0;
-	uint32_t end_line = 0;
-
-	dcn10_cal_vline_position(dc, pipe_ctx, &start_line, &end_line);
-
 	tg->funcs->setup_vertical_interrupt0(tg, start_line, end_line);
 }
 
