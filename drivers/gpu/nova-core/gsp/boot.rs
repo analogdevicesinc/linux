@@ -43,7 +43,11 @@ impl<'gsp> super::Gsp<'gsp> {
         let gsp_fw = KBox::pin_init(GspFirmware::new(dev, chipset), GFP_KERNEL)?;
 
         self.cmdq
-            .send_rpc_command_no_wait(commands::rpc::SetSystemInfo::new(pdev, chipset))?;
+            .send_rpc_command_no_wait(commands::rpc::SetSystemInfo::new(
+                pdev,
+                chipset,
+                ctx.vgpu.state(),
+            ))?;
         self.cmdq
             .send_rpc_command_no_wait(commands::rpc::SetRegistry::new(ctx.vgpu.state())?)?;
 

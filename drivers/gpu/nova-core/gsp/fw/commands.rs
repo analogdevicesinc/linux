@@ -16,7 +16,8 @@ use kernel::{
 use crate::{
     gpu::Chipset,
     gsp::GSP_PAGE_SIZE,
-    num::IntoSafeCast, //
+    num::IntoSafeCast,
+    vgpu::VgpuState, //
 };
 
 use super::bindings;
@@ -29,10 +30,43 @@ pub(crate) struct GspSetSystemInfo {
 static_assert!(size_of::<GspSetSystemInfo>() < GSP_PAGE_SIZE);
 
 impl GspSetSystemInfo {
+    /// Builds the VF topology passed to GSP-RM as part of the system information.
+    fn build_vf_info(
+        dev: &pci::Device<device::Bound>,
+        vgpu_state: VgpuState,
+    ) -> Result<bindings::GSP_VF_INFO> {
+        let VgpuState::Enabled { total_vfs } = vgpu_state else {
+            return Ok(Zeroable::zeroed());
+        };
+
+        let sriov = dev
+            .config_space_extended()?
+            .find_ext_capability::<pci::ExtSriovRegs>()?
+            .ok_or(ENODEV)?;
+
+        let mut vf_bars = sriov.vf_bars()?;
+        let bar0 = vf_bars.next().ok_or(EINVAL)?;
+        let bar1 = vf_bars.next().ok_or(EINVAL)?;
+        let bar2 = vf_bars.next().ok_or(EINVAL)?;
+
+        Ok(bindings::GSP_VF_INFO {
+            totalVFs: u32::from(total_vfs.get()),
+            firstVFOffset: u32::from(sriov.first_vf_offset()),
+            FirstVFBar0Address: bar0.address,
+            FirstVFBar1Address: bar1.address,
+            FirstVFBar2Address: bar2.address,
+            b64bitBar0: u8::from(bar0.is_64bit),
+            b64bitBar1: u8::from(bar1.is_64bit),
+            b64bitBar2: u8::from(bar2.is_64bit),
+            ..Zeroable::zeroed()
+        })
+    }
+
     /// Returns an in-place initializer for the `GspSetSystemInfo` command.
     pub(crate) fn init<'a>(
         dev: &'a pci::Device<device::Bound>,
         chipset: Chipset,
+        vgpu_state: VgpuState,
     ) -> impl Init<Self, Error> + 'a {
         type InnerGspSystemInfo = bindings::GspSystemInfo;
         let pci_config_mirror_range = chipset.pci_config_mirror_range();
@@ -54,6 +88,7 @@ impl GspSetSystemInfo {
             PCIRevisionID: u32::from(dev.revision_id()),
             bIsPrimary: 0,
             bPreserveVideoMemoryAllocations: 0,
+            gspVFInfo: Self::build_vf_info(dev, vgpu_state)?,
             ..Zeroable::init_zeroed()
         });
 

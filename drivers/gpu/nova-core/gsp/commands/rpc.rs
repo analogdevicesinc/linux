@@ -43,12 +43,21 @@ use crate::{
 pub(crate) struct SetSystemInfo<'a> {
     pdev: &'a pci::Device<device::Bound>,
     chipset: Chipset,
+    vgpu_state: VgpuState,
 }
 
 impl<'a> SetSystemInfo<'a> {
     /// Creates a new `GspSetSystemInfo` command using the parameters of `pdev`.
-    pub(crate) fn new(pdev: &'a pci::Device<device::Bound>, chipset: Chipset) -> Self {
-        Self { pdev, chipset }
+    pub(crate) fn new(
+        pdev: &'a pci::Device<device::Bound>,
+        chipset: Chipset,
+        vgpu_state: VgpuState,
+    ) -> Self {
+        Self {
+            pdev,
+            chipset,
+            vgpu_state,
+        }
     }
 }
 
@@ -59,7 +68,7 @@ impl<'a> CommandToGsp for SetSystemInfo<'a> {
     type InitError = Error;
 
     fn init(&self) -> impl Init<Self::Command, Self::InitError> {
-        Self::Command::init(self.pdev, self.chipset)
+        Self::Command::init(self.pdev, self.chipset, self.vgpu_state)
     }
 }
 
