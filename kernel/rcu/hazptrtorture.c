@@ -555,7 +555,7 @@ static int hazptr_torture_do_pending(void *arg)
 			cpu = cpumask_next_wrap(cpu, cpu_possible_mask);
 			hazptr_torture_do_one_pending(cpu, &rand);
 		}
-		if (torture_must_stop())
+		if (!torture_must_stop())
 			torture_hrtimeout_ms(kthread_do_pending_ms, USEC_PER_MSEC, &rand);
 		// Omit stutter_wait() because this function needs to do cleanup.
 	} while (!torture_must_stop());
