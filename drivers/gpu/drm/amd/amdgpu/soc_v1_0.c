@@ -149,7 +149,11 @@ static u32 soc_v1_0_get_config_memsize(struct amdgpu_device *adev)
 
 static u32 soc_v1_0_get_xclk(struct amdgpu_device *adev)
 {
-	return adev->clock.spll.reference_freq;
+	/* 100MHz is the default */
+	if (!adev->bios)
+		return 10000;
+	else
+		return adev->clock.spll.reference_freq;
 }
 
 void soc_v1_0_grbm_select(struct amdgpu_device *adev,
