@@ -320,6 +320,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-hmc425a.dtbo \
 	rpi-lm75.dtbo \
 	rpi-ltc2497.dtbo \
+	rpi-ltc2499.dtbo \
 	rpi-ltc2664.dtbo \
 	rpi-ltc2672.dtbo \
 	rpi-ltc2688.dtbo \
