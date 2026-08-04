@@ -590,6 +590,7 @@ void taskstats_exit(struct task_struct *tsk, int group_dead)
 	struct sk_buff *rep_skb;
 	size_t size;
 	int is_thread_group;
+	unsigned long flags;
 
 	if (!family_registered)
 		return;
@@ -635,7 +636,10 @@ void taskstats_exit(struct task_struct *tsk, int group_dead)
 	if (!stats)
 		goto err;
 
+	/* This was racy before, copy the stats under siglock. */
+	spin_lock_irqsave(&tsk->sighand->siglock, flags);
 	memcpy(stats, tsk->signal->stats, sizeof(*stats));
+	spin_unlock_irqrestore(&tsk->sighand->siglock, flags);
 	stats->version = TASKSTATS_VERSION;
 
 send:
