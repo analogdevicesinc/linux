@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - 'adsp-[0-9]+.[0-9]+*-y'
+      - 'adsp-ehp2-[0-9]+.[0-9]+*-y'
   pull_request:
 
 concurrency:
@@ -141,6 +142,17 @@ jobs:
       arch: "arm64"
       defconfig: "sc598-som-ezlite_defconfig"
       auto_from_range: false
+  build_gcc_aarch64_sc846-som-ezkit_defconfig:
+    needs: [assert_checks]
+    uses: analogdevicesinc/linux/.github/workflows/build.yml@ci
+    secrets: inherit
+    permissions:
+      contents: read
+    with:
+      compiler: "gcc"
+      arch: "arm64"
+      defconfig: "sc846-som-ezkit_defconfig"
+      auto_from_range: false
   assert_build:
     runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-slim' }}
     permissions:
@@ -152,6 +164,7 @@ jobs:
       - build_gcc_arm_sc594-som-ezlite_defconfig
       - build_gcc_aarch64_sc598-som-ezkit_defconfig
       - build_gcc_aarch64_sc598-som-ezlite_defconfig
+      - build_gcc_aarch64_sc846-som-ezkit_defconfig
     steps:
       - name: Assert
         env:
@@ -161,6 +174,7 @@ jobs:
           job_build_gcc_arm_sc594-som-ezlite_defconfig: ${{needs.build_gcc_arm_sc594-som-ezlite_defconfig.outputs.summary}}
           job_build_gcc_aarch64_sc598-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezkit_defconfig.outputs.summary}}
           job_build_gcc_aarch64_sc598-som-ezlite_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.summary}}
+          job_build_gcc_aarch64_sc846-som-ezkit_defconfig: ${{needs.build_gcc_aarch64_sc598-som-ezlite_defconfig.outputs.summary}}
         run: |
           curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -L -o runner_env.sh \
             https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/runner_env.sh
