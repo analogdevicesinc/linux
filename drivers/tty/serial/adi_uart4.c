@@ -1194,6 +1194,7 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 			goto out_error;
 		}
 
+		uart->port.mapbase = res->start;
 		uart->port.membase = devm_ioremap(&pdev->dev, res->start,
 						resource_size(res));
 		if (!uart->port.membase) {
