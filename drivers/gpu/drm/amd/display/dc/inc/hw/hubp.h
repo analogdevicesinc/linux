@@ -87,6 +87,7 @@ enum hubp_3dlut_fl_addressing_mode {
 };
 
 enum hubp_3dlut_fl_width {
+	hubp_3dlut_fl_width_9 = 9,
 	hubp_3dlut_fl_width_17 = 17,
 	hubp_3dlut_fl_width_33 = 33,
 	hubp_3dlut_fl_width_17_transformed    = 4916, //mpc default

@@ -41,6 +41,7 @@
 #include "opp.h"
 #include "ipp.h"
 #include "mpc.h"
+#include "rmcm.h"
 #include "reg_helper.h"
 #include "dcn10/dcn10_hubp.h"
 #include "dcn10/dcn10_hubbub.h"
@@ -565,31 +566,32 @@ static void dcn10_log_color_state(struct dc *dc,
 		"OUT_OFFSET", "OUT_SCALE", "FL_DONE", "SOFT_UNDERFLOW", "HARD_UNDERFLOW",
 		"MEM_PWR_ST", "FORCE", "DIS", "MODE"};
 
-	for (i = 0; i < pool->mpcc_count; i++) {
-		struct mpcc_state s = {0};
+	/* Read RMCM state separately - RMCM is a shared resource (only 2 instances) */
+	for (i = 0; i < MAX_RMCM_INST && i < pool->mpcc_count; i++) {
+		struct rmcm_state r = {0};
 
-		pool->mpc->funcs->read_mpcc_state(pool->mpc, i, &s);
-		if (s.opp_id != 0xf) {
+		if (pool->rmcm[i] && pool->rmcm[i]->funcs->read_rmcm_state) {
+			pool->rmcm[i]->funcs->read_rmcm_state(pool->rmcm[i], i, &r);
 			uint32_t values[] = {
 				i,
-				s.rmcm_regs.rmcm_3dlut_size,
-				s.rmcm_regs.rmcm_3dlut_mode,
-				s.rmcm_regs.rmcm_3dlut_mode_cur,
-				s.rmcm_regs.rmcm_3dlut_read_sel,
-				s.rmcm_regs.rmcm_3dlut_30bit_en,
-				s.rmcm_regs.rmcm_3dlut_wr_en_mask,
-				s.rmcm_regs.rmcm_3dlut_ram_sel,
-				s.rmcm_regs.rmcm_3dlut_out_norm_factor,
-				s.rmcm_regs.rmcm_3dlut_fl_sel,
-				s.rmcm_regs.rmcm_3dlut_out_offset_r,
-				s.rmcm_regs.rmcm_3dlut_out_scale_r,
-				s.rmcm_regs.rmcm_3dlut_fl_done,
-				s.rmcm_regs.rmcm_3dlut_fl_soft_underflow,
-				s.rmcm_regs.rmcm_3dlut_fl_hard_underflow,
-				s.rmcm_regs.rmcm_3dlut_mem_pwr_state,
-				s.rmcm_regs.rmcm_3dlut_mem_pwr_force,
-				s.rmcm_regs.rmcm_3dlut_mem_pwr_dis,
-				s.rmcm_regs.rmcm_3dlut_mem_pwr_mode};
+				r.regs.rmcm_3dlut_size,
+				r.regs.rmcm_3dlut_mode,
+				r.regs.rmcm_3dlut_mode_cur,
+				r.regs.rmcm_3dlut_read_sel,
+				r.regs.rmcm_3dlut_30bit_en,
+				r.regs.rmcm_3dlut_wr_en_mask,
+				r.regs.rmcm_3dlut_ram_sel,
+				r.regs.rmcm_3dlut_out_norm_factor,
+				r.regs.rmcm_3dlut_fl_sel,
+				r.regs.rmcm_3dlut_out_offset_r,
+				r.regs.rmcm_3dlut_out_scale_r,
+				r.regs.rmcm_3dlut_fl_done,
+				r.regs.rmcm_3dlut_fl_soft_underflow,
+				r.regs.rmcm_3dlut_fl_hard_underflow,
+				r.regs.rmcm_3dlut_mem_pwr_state,
+				r.regs.rmcm_3dlut_mem_pwr_force,
+				r.regs.rmcm_3dlut_mem_pwr_dis,
+				r.regs.rmcm_3dlut_mem_pwr_mode};
 
 			int num_elements = 19;
 
@@ -600,17 +602,18 @@ static void dcn10_log_color_state(struct dc *dc,
 	DTN_INFO("\n");
 	DTN_INFO("===== MPC RMCM Shaper =====\n");
 	DTN_INFO("MPCC:  CNTL  LUT_MODE  MODE_CUR  WR_EN_MASK  WR_SEL  OFFSET  SCALE  START_B	START_SEG_B	END_B	END_BASE_B	MEM_PWR_ST	FORCE	DIS	MODE\n");
-	for (i = 0; i < pool->mpcc_count; i++) {
-		struct mpcc_state s = {0};
+	for (i = 0; i < MAX_RMCM_INST && i < pool->mpcc_count; i++) {
+		struct rmcm_state r = {0};
 
-		pool->mpc->funcs->read_mpcc_state(pool->mpc, i, &s);
-		if (s.opp_id != 0xf)
+		if (pool->rmcm[i] && pool->rmcm[i]->funcs->read_rmcm_state) {
+			pool->rmcm[i]->funcs->read_rmcm_state(pool->rmcm[i], i, &r);
 			DTN_INFO("[%2d]:  %4xh  %4xh  %6xh  %4x  %4x  %4x  %4x  %4x %4xh  %4xh  %6xh  %4x  %4x  %4x  %4x\n",
-				i, s.rmcm_regs.rmcm_cntl, s.rmcm_regs.rmcm_shaper_lut_mode, s.rmcm_regs.rmcm_shaper_mode_cur,
-				s.rmcm_regs.rmcm_shaper_lut_write_en_mask, s.rmcm_regs.rmcm_shaper_lut_write_sel, s.rmcm_regs.rmcm_shaper_offset_b,
-				s.rmcm_regs.rmcm_shaper_scale_b, s.rmcm_regs.rmcm_shaper_rama_exp_region_start_b, s.rmcm_regs.rmcm_shaper_rama_exp_region_start_seg_b,
-				s.rmcm_regs.rmcm_shaper_rama_exp_region_end_b, s.rmcm_regs.rmcm_shaper_rama_exp_region_end_base_b, s.rmcm_regs.rmcm_shaper_mem_pwr_state,
-				s.rmcm_regs.rmcm_shaper_mem_pwr_force, s.rmcm_regs.rmcm_shaper_mem_pwr_dis, s.rmcm_regs.rmcm_shaper_mem_pwr_mode);
+				i, r.regs.rmcm_cntl, r.regs.rmcm_shaper_lut_mode, r.regs.rmcm_shaper_mode_cur,
+				r.regs.rmcm_shaper_lut_write_en_mask, r.regs.rmcm_shaper_lut_write_sel, r.regs.rmcm_shaper_offset_b,
+				r.regs.rmcm_shaper_scale_b, r.regs.rmcm_shaper_rama_exp_region_start_b, r.regs.rmcm_shaper_rama_exp_region_start_seg_b,
+				r.regs.rmcm_shaper_rama_exp_region_end_b, r.regs.rmcm_shaper_rama_exp_region_end_base_b, r.regs.rmcm_shaper_mem_pwr_state,
+				r.regs.rmcm_shaper_mem_pwr_force, r.regs.rmcm_shaper_mem_pwr_dis, r.regs.rmcm_shaper_mem_pwr_mode);
+		}
 	}
 }
 

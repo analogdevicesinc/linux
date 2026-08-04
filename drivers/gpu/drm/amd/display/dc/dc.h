@@ -37,6 +37,7 @@
 #include "link_service_types.h"
 #include "grph_object_ctrl_defs.h"
 #include <inc/hw/opp.h>
+#include <inc/hw/rmcm.h>
 
 #include "hwss/hw_sequencer.h"
 #include "inc/compressor.h"
@@ -1512,11 +1513,6 @@ struct lut_mem_mapping {
 		uint16_t linear_rgb[(33*33*33*4/128+1)*128];
 	};
 	uint16_t size;
-};
-
-struct dc_rmcm_3dlut {
-	bool isInUse;
-	const struct dc_stream_state *stream;
 };
 
 struct dc_3dlut {

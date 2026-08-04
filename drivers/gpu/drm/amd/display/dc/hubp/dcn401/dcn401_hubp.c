@@ -126,6 +126,10 @@ static enum hubp_3dlut_fl_width hubp401_get_3dlut_fl_width(
 	enum hubp_3dlut_fl_width width = 0;
 
 	switch (size) {
+	case CM_LUT_SIZE_999:
+		ASSERT(swizzle != CM_LUT_1D_PACKED_LINEAR);
+		width = hubp_3dlut_fl_width_9;
+		break;
 	case CM_LUT_SIZE_333333:
 		ASSERT(swizzle != CM_LUT_1D_PACKED_LINEAR);
 		width = hubp_3dlut_fl_width_33;

@@ -73,6 +73,7 @@ struct timing_generator;
 struct tg_color;
 struct output_pixel_processor;
 struct mpcc_blnd_cfg;
+struct rmcm;
 
 struct hwseq_private_funcs {
 
@@ -193,6 +194,9 @@ struct hwseq_private_funcs {
 			struct hubp *primary_hubp, struct mpc *mpc, int mpcc_id,
 			struct dc_stream_state *stream,
 			struct dc_plane_state *plane_state);
+	bool (*set_rmcm_luts)(struct set_input_transfer_func_params *params);
+	void (*disable_mcm_luts)(struct mpc *mpc, int mpcc_id);
+	void (*disable_rmcm_luts)(struct dc *dc, struct rmcm *rmcm, struct hubp *hubp, int mpcc_id);
 	void (*PLAT_58856_wa)(struct dc_state *context,
 			struct pipe_ctx *pipe_ctx);
 	void (*setup_hpo_hw_control)(const struct dce_hwseq *hws, bool enable);

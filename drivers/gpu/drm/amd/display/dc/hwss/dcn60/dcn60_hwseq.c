@@ -31,6 +31,7 @@
 #include "dce110/dce110_hwseq.h"
 #include "dcn32/dcn32_hwseq.h"
 #include "dcn401/dcn401_hwseq.h"
+#include "dcn42/dcn42_hwseq.h"
 #include "dcn50/dcn50_hwseq.h"
 #include "dcn60_hwseq.h"
 #include "dcn401/dcn401_resource.h"
@@ -51,6 +52,127 @@
 #undef FN
 #define FN(reg_name, field_name) \
 	hws->shifts->field_name, hws->masks->field_name
+
+bool dcn60_set_rmcm_luts(struct set_input_transfer_func_params *params)
+{
+	struct dpp *dpp_base = params->dpp;
+	struct hubp *hubp = params->hubp;
+	const struct dc_plane_cm *cm = &params->plane_state->cm;
+	struct rmcm *rmcm = params->rmcm;
+	int rmcm_inst;
+	union rmcm_lut_params m_lut_params = {0};
+	struct dc_3dlut_dma lut3d_dma;
+	bool lut_enable;
+	/* DCN60 has a single LUT SRAM per RMCM - always bank A. */
+	bool rval;
+	bool result = true;
+
+	/* No RMCM on this plane, so there is nothing to program */
+	if (!rmcm || !rmcm->funcs) {
+		return true;
+	}
+
+	rmcm_inst = rmcm->inst;
+
+	/* Shaper */
+	lut_enable = cm->flags.bits.shaper_enable != 0;
+	if (lut_enable) {
+		memset(&m_lut_params, 0, sizeof(m_lut_params));
+		if (cm->shaper_func.type == TF_TYPE_HWPWL)
+			m_lut_params.pwl = &cm->shaper_func.pwl;
+		else if (cm->shaper_func.type == TF_TYPE_DISTRIBUTED_POINTS) {
+			ASSERT(false);
+			rval = cm_helper_translate_curve_to_hw_format(params->plane_state->ctx,
+					&cm->shaper_func,
+					&dpp_base->shaper_params,
+					true);
+			m_lut_params.pwl = rval ? &dpp_base->shaper_params : NULL;
+		}
+		if (!m_lut_params.pwl) {
+			lut_enable = false;
+		}
+	} else {
+		lut_enable = false;
+	}
+
+	if (rmcm->funcs->program_lut_mode)
+		rmcm->funcs->program_lut_mode(rmcm, MCM_LUT_SHAPER, lut_enable, true,
+			CM_LUT_SIZE_NONE, 0, 0, rmcm_inst);
+	if (lut_enable && rmcm->funcs->populate_lut)
+		rmcm->funcs->populate_lut(rmcm, MCM_LUT_SHAPER, m_lut_params, true, rmcm_inst);
+
+	/* NOTE: Toggling from DMA->Host is not supported atomically as hardware
+	 * blocks writes until 3DLUT FL mode is cleared from HUBP on VUpdate.
+	 * Expectation is either option is used consistently.
+	*/
+
+	/* 3DLUT */
+	lut_enable = cm->flags.bits.lut3d_enable != 0;
+	if (lut_enable && cm->flags.bits.lut3d_dma_enable) {
+		/* Fast (DMA) Load Mode */
+		if (rmcm->funcs->program_lut_mode)
+			rmcm->funcs->program_lut_mode(rmcm, MCM_LUT_3DLUT, lut_enable, true,
+				cm->lut3d_dma.size,
+				cm->lut3d_dma.bias, cm->lut3d_dma.scale,
+				rmcm_inst);
+
+		if (rmcm->funcs->program_lut_read_write_control)
+			rmcm->funcs->program_lut_read_write_control(rmcm, MCM_LUT_3DLUT, true, true, rmcm_inst);
+
+		if (rmcm->funcs->update_3dlut_fast_load_select)
+			rmcm->funcs->update_3dlut_fast_load_select(rmcm, rmcm_inst, hubp->inst);
+
+		/* HUBP */
+		if (hubp->funcs->hubp_program_3dlut_fl_config)
+			hubp->funcs->hubp_program_3dlut_fl_config(hubp, &cm->lut3d_dma);
+
+		if (hubp->funcs->hubp_program_3dlut_fl_crossbar)
+			hubp->funcs->hubp_program_3dlut_fl_crossbar(hubp, cm->lut3d_dma.format);
+
+		if (hubp->funcs->hubp_program_3dlut_fl_addr)
+			hubp->funcs->hubp_program_3dlut_fl_addr(hubp, &cm->lut3d_dma.addr);
+
+		if (hubp->funcs->hubp_enable_3dlut_fl) {
+			hubp->funcs->hubp_enable_3dlut_fl(hubp, true);
+		} else {
+			/* GPU memory only supports fast load path */
+			BREAK_TO_DEBUGGER();
+			result = false;
+		}
+	} else {
+		/* RMCM 3DLUT is fetched only by HUBP fast load, so a host load request is a
+		 * programming error.
+		 */
+		ASSERT(!lut_enable);
+		result = !lut_enable;
+		lut_enable = false;
+
+		if (rmcm->funcs->program_lut_mode)
+			rmcm->funcs->program_lut_mode(rmcm, MCM_LUT_3DLUT, lut_enable, true,
+				CM_LUT_SIZE_NONE, 0, 0, rmcm_inst);
+
+		if (rmcm->funcs->update_3dlut_fast_load_select)
+			rmcm->funcs->update_3dlut_fast_load_select(rmcm, rmcm_inst, RMCM_FL_HUBP_IDX_NONE);
+
+		/* HUBP */
+		memset(&lut3d_dma, 0, sizeof(lut3d_dma));
+		if (hubp->funcs->hubp_program_3dlut_fl_config)
+			hubp->funcs->hubp_program_3dlut_fl_config(hubp, &lut3d_dma);
+
+		if (hubp->funcs->hubp_enable_3dlut_fl)
+			hubp->funcs->hubp_enable_3dlut_fl(hubp, false);
+	}
+
+	/* Connect to the MPCC only once the LUTs are loaded. Teardown is done by
+	 * disable_rmcm_luts, at plane teardown or when the plane switches back to MCM.
+	 */
+	dcn42_release_rmcm_from_mpcc(params->dc, params->mpcc_id, rmcm);
+
+	if (rmcm->funcs->connect_mpcc)
+		rmcm->funcs->connect_mpcc(rmcm, rmcm_inst, params->mpcc_id);
+
+	return result;
+}
 
 static void dcn60_build_audio_output(
 	struct dc_state *state,

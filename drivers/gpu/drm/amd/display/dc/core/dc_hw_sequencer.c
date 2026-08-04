@@ -1489,7 +1489,9 @@ void hwss_build_fast_sequence(struct dc *dc,
 
 				if (current_mpc_pipe->plane_state->update_bits.lut_3d &&
 						current_mpc_pipe->plane_state->cm.flags.bits.lut3d_dma_enable &&
-						current_mpc_pipe->plane_state->cm.flags.bits.shaper_enable &&
+						/* RMCM drives the 3DLUT without a shaper */
+						(current_mpc_pipe->plane_state->cm.flags.bits.shaper_enable ||
+							current_mpc_pipe->plane_state->cm.flags.bits.rmcm_enable) &&
 						current_mpc_pipe->plane_state->cm.flags.bits.lut3d_enable &&
 						current_mpc_pipe->plane_res.hubp->funcs->hubp_enable_3dlut_fl) {
 					block_sequence[*num_steps].params.hubp_enable_3dlut_fl_params.hubp =
@@ -1510,6 +1512,7 @@ void hwss_build_fast_sequence(struct dc *dc,
 							primary_dpp_pipe->plane_res.hubp : current_mpc_pipe->plane_res.hubp,
 						.ipp = current_mpc_pipe->plane_res.ipp,
 						.mpc = dc->res_pool->mpc,
+						.rmcm = current_mpc_pipe->plane_res.rmcm,
 						.mpcc_id = current_mpc_pipe->plane_res.mpcc_inst,
 						.stream = current_mpc_pipe->stream,
 						.plane_state = current_mpc_pipe->plane_state,
@@ -2368,6 +2371,7 @@ void hwss_add_dpp_set_input_transfer_func(struct block_sequence_state *seq_state
 				primary_dpp_pipe->plane_res.hubp : pipe_ctx->plane_res.hubp,
 			.ipp = pipe_ctx->plane_res.ipp,
 			.mpc = dc->res_pool->mpc,
+			.rmcm = pipe_ctx->plane_res.rmcm,
 			.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
 			.plane_state = pipe_ctx->plane_state,
 			.stream = pipe_ctx->stream,
@@ -4644,6 +4648,7 @@ void hwss_set_input_transfer_func(struct dc *dc, struct pipe_ctx *pipe_ctx)
 				primary_dpp_pipe->plane_res.hubp : pipe_ctx->plane_res.hubp,
 			.ipp = pipe_ctx->plane_res.ipp,
 			.mpc = dc->res_pool->mpc,
+			.rmcm = pipe_ctx->plane_res.rmcm,
 			.mpcc_id = pipe_ctx->plane_res.mpcc_inst,
 			.plane_state = pipe_ctx->plane_state,
 			.stream = pipe_ctx->stream,

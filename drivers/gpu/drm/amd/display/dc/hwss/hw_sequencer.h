@@ -46,6 +46,7 @@ struct resource_pool;
 struct dc_phy_addr_space_config;
 struct dc_virtual_addr_space_config;
 struct dpp;
+struct rmcm;
 struct dce_hwseq;
 struct link_resource;
 struct dc_dmub_cmd;
@@ -101,6 +102,7 @@ struct set_input_transfer_func_params {
 	struct hubp *hubp;
 	struct hubp *primary_hubp;
 	struct mpc *mpc;
+	struct rmcm *rmcm;
 	int mpcc_id;
 	struct dc_stream_state *stream;
 	struct input_pixel_processor *ipp;

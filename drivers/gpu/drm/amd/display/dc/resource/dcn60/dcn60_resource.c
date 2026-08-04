@@ -19,6 +19,7 @@
 #include "dcn321/dcn321_resource.h"
 #include "dcn401/dcn401_resource.h"
 #include "dcn42/dcn42_resource.h"
+#include "dcn60/dcn60_rmcm.h"
 #include "dcn60_resource.h"
 
 #include "dcn10/dcn10_ipp.h"
@@ -464,9 +465,7 @@ static struct dcn60_mpc_registers mpc_regs;
 	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(0),\
 	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(1),\
 	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(2),\
-	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(3),\
-	MPC_RMCM_REG_LIST_DCN42(0),\
-	MPC_RMCM_REG_LIST_DCN42(1)
+	MPC_OUT_MUX_REG_LIST_DCN3_0_RI(3)
 
 static const struct dcn60_mpc_shift mpc_shift = {
 	MPC_COMMON_MASK_SH_LIST_DCN6_0(__SHIFT)
@@ -1695,6 +1694,8 @@ static void dcn60_resource_destruct(struct dcn60_resource_pool *pool)
 		kfree(TO_DCN20_MPC(pool->base.mpc));
 		pool->base.mpc = NULL;
 	}
+	for (i = 0; i < MAX_RMCM_INST; i++)
+		dcn60_rmcm_destroy(&pool->base.rmcm[i]);
 	if (pool->base.hubbub != NULL) {
 		kfree(TO_DCN20_HUBBUB(pool->base.hubbub));
 		pool->base.hubbub = NULL;
@@ -2286,6 +2287,16 @@ static bool dcn60_resource_construct(
 		BREAK_TO_DEBUGGER();
 		dm_error("DC: failed to create mpc!\n");
 		goto create_fail;
+	}
+
+	/* RMCMs */
+	for (i = 0; i < pool->base.res_cap->num_rmcm && i < MAX_RMCM_INST; i++) {
+		pool->base.rmcm[i] = dcn60_rmcm_create(ctx, i);
+		if (pool->base.rmcm[i] == NULL) {
+			BREAK_TO_DEBUGGER();
+			dm_error("DC: failed to create rmcm%d!\n", i);
+			goto create_fail;
+		}
 	}
 
 	/* DSCs */

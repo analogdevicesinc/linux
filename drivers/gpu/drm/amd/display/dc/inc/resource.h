@@ -337,6 +337,21 @@ void resource_remove_dpp_pipes_for_plane_composition(
 		const struct dc_plane_state *plane_state);
 
 /*
+ * RMCM resource management. Instances are handed out for a whole context at once so that a
+ * plane that is only now asking cannot evict one that is already using an instance.
+ * Tracking is via res_ctx->rmcm_in_use[].
+ */
+void resource_assign_rmcm(
+		struct dc_state *new_ctx,
+		const struct dc_state *cur_ctx,
+		const struct resource_pool *pool);
+
+void resource_release_rmcm(
+		struct resource_context *res_ctx,
+		const struct resource_pool *pool,
+		struct rmcm **rmcm);
+
+/*
  * Update ODM slice count by acquiring or releasing pipes. If new slices need
  * to be added, it is going to add them to the last ODM index. If existing
  * slices need to be removed, it is going to remove them from the last ODM

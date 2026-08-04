@@ -579,10 +579,24 @@ bool dcn32_set_input_transfer_func(struct set_input_transfer_func_params *params
 
 	dpp->funcs->dpp_program_gamcor_lut(dpp, pwl_params);
 
-	if (hws->funcs.set_mcm_luts)
-		result = hws->funcs.set_mcm_luts(params->dc, dpp, params->hubp,
-			params->primary_hubp, params->mpc, params->mpcc_id,
-			params->stream, plane_state);
+	/* MCM and RMCM are mutually exclusive - tear the inactive one out before programming
+	 * the active one, which then owns the shared HUBP 3DLUT fast load.
+	 */
+	if (plane_state->cm.flags.bits.rmcm_enable && hws->funcs.set_rmcm_luts) {
+		if (hws->funcs.disable_mcm_luts)
+			hws->funcs.disable_mcm_luts(params->mpc, params->mpcc_id);
+
+		result = hws->funcs.set_rmcm_luts(params);
+	} else {
+		if (hws->funcs.disable_rmcm_luts)
+			hws->funcs.disable_rmcm_luts(params->dc, params->rmcm,
+					params->hubp, params->mpcc_id);
+
+		if (hws->funcs.set_mcm_luts)
+			result = hws->funcs.set_mcm_luts(params->dc, dpp, params->hubp,
+				params->primary_hubp, params->mpc, params->mpcc_id,
+				params->stream, plane_state);
+	}
 
 	return result;
 }

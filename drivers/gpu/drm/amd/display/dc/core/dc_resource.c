@@ -3389,6 +3389,95 @@ static bool acquire_secondary_dpp_pipes_and_add_plane(
 	return true;
 }
 
+/*
+ * resource_assign_rmcm() - Assign the RMCM instances for a whole context
+ *
+ * RMCM is pre-blend, so every pipe asking for one needs its own instance. Ownership is
+ * tracked per instance in res_ctx->rmcm_in_use[]; the owning pipe is the one holding the
+ * matching plane_res.rmcm pointer.
+ *
+ * A pipe that already drives an RMCM keeps it, so a plane that is only now asking never
+ * evicts one that is already using an instance - it simply gets none when the pool is
+ * exhausted. This has to see the finished context, hence one pass over all pipes rather
+ * than one per appended plane.
+ */
+void resource_assign_rmcm(
+		struct dc_state *new_ctx,
+		const struct dc_state *cur_ctx,
+		const struct resource_pool *pool)
+{
+	struct rmcm *held[MAX_PIPES] = { NULL };
+	unsigned int p;
+	int i;
+
+	/* new_ctx and cur_ctx can be the same object, so snapshot before clearing */
+	for (p = 0; p < pool->pipe_count && p < MAX_PIPES; p++)
+		held[p] = cur_ctx ? cur_ctx->res_ctx.pipe_ctx[p].plane_res.rmcm : NULL;
+
+	for (p = 0; p < pool->pipe_count && p < MAX_PIPES; p++)
+		new_ctx->res_ctx.pipe_ctx[p].plane_res.rmcm = NULL;
+
+	for (i = 0; i < MAX_RMCM_INST; i++)
+		new_ctx->res_ctx.rmcm_in_use[i] = false;
+
+	/* incumbents first, so a later pipe cannot take an instance out from under them */
+	for (p = 0; p < pool->pipe_count && p < MAX_PIPES; p++) {
+		struct pipe_ctx *pipe = &new_ctx->res_ctx.pipe_ctx[p];
+
+		if (!pipe->plane_state || !pipe->plane_state->cm.flags.bits.rmcm_enable)
+			continue;
+
+		if (!held[p] || new_ctx->res_ctx.rmcm_in_use[held[p]->inst])
+			continue;
+
+		pipe->plane_res.rmcm = held[p];
+		new_ctx->res_ctx.rmcm_in_use[held[p]->inst] = true;
+	}
+
+	for (p = 0; p < pool->pipe_count && p < MAX_PIPES; p++) {
+		struct pipe_ctx *pipe = &new_ctx->res_ctx.pipe_ctx[p];
+
+		if (!pipe->plane_state || !pipe->plane_state->cm.flags.bits.rmcm_enable)
+			continue;
+
+		if (pipe->plane_res.rmcm)
+			continue;
+
+		for (i = 0; i < pool->res_cap->num_rmcm && i < MAX_RMCM_INST; i++) {
+			if (!pool->rmcm[i] || new_ctx->res_ctx.rmcm_in_use[i])
+				continue;
+
+			pipe->plane_res.rmcm = pool->rmcm[i];
+			new_ctx->res_ctx.rmcm_in_use[i] = true;
+			break;
+		}
+	}
+}
+
+/*
+ * resource_release_rmcm() - Release an RMCM instance for a pipe.
+ *
+ * Marks the instance free and NULLs the caller's pointer.
+ */
+void resource_release_rmcm(
+		struct resource_context *res_ctx,
+		const struct resource_pool *pool,
+		struct rmcm **rmcm)
+{
+	int i;
+
+	if (!*rmcm)
+		return;
+
+	for (i = 0; i < pool->res_cap->num_rmcm && i < MAX_RMCM_INST; i++) {
+		if (pool->rmcm[i] == *rmcm) {
+			res_ctx->rmcm_in_use[i] = false;
+			*rmcm = NULL;
+			return;
+		}
+	}
+}
+
 bool resource_append_dpp_pipes_for_plane_composition(
 		struct dc_state *new_ctx,
 		struct dc_state *cur_ctx,
@@ -3414,6 +3503,12 @@ bool resource_append_dpp_pipes_for_plane_composition(
 					pool, plane_state);
 	}
 
+	/* Idempotent, so the last append of a commit leaves the final assignment behind.
+	 * Releasing is driven by the MPC_RMCM_CNTL mirror (see dcn42_release_rmcm_from_mpcc).
+	 */
+	if (success)
+		resource_assign_rmcm(new_ctx, cur_ctx, pool);
+
 	return success;
 }
 
@@ -3428,6 +3523,12 @@ void resource_remove_dpp_pipes_for_plane_composition(
 		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
 
 		if (pipe_ctx->plane_state == plane_state) {
+			/* Release RMCM instance for this pipe */
+			if (pipe_ctx->plane_res.rmcm)
+				resource_release_rmcm(&context->res_ctx,
+						pool,
+						&pipe_ctx->plane_res.rmcm);
+
 			if (pipe_ctx->top_pipe)
 				pipe_ctx->top_pipe->bottom_pipe = pipe_ctx->bottom_pipe;
 
