@@ -366,6 +366,7 @@ enum mes_misc_opcode {
 	MES_MISC_OP_WRM_REG_WR_WAIT,
 	MES_MISC_OP_SET_SHADER_DEBUGGER,
 	MES_MISC_OP_CHANGE_CONFIG,
+	MES_MISC_OP_NOTIFY_WORK_ON_UNMAPPED_QUEUE
 };
 
 struct mes_misc_op_input {
@@ -643,4 +644,7 @@ int amdgpu_mes_alloc_gang_ctx_index(struct amdgpu_mes *mes,
 				    uint32_t *index);
 void amdgpu_mes_free_gang_ctx_index(struct amdgpu_mes *mes,
 				    uint32_t index);
+
+int amdgpu_mes_notify_unmap_queue(struct amdgpu_device *adev);
+
 #endif /* __AMDGPU_MES_H__ */
