@@ -16,6 +16,8 @@ soc/arm
 		https://github.com/vzapolskiy/linux-lpc32xx tags/lpc32xx-arm-for-7.3
 	imx/soc
 		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-soc-7.3
+	tegra/arm
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-arm-core
 
 soc/dt
 	patch
@@ -61,10 +63,26 @@ soc/drivers
 		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-7.3
 	mediatek/soc
 		https://git.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-soc-for-v7.3
+	amlogic/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-drivers-for-v7.3
+	tegra/soc-drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-soc
+	omap/drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/drivers-signed
+	aspeed/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.3-drivers-0
+	qcom/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.3
 
 soc/defconfig
 	riscv/defconfig
 		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/riscv-config-for-v7.3
+	qcom/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-7.3
+	omap/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/defconfig-signed
+	allwinner/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-config-for-7.3
 
 soc/late
 
@@ -75,4 +93,12 @@ arm/fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-maintainers-7.3
 	qcom/dt-fixes
 		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-fixes-for-7.2
+	broadcom/fixes-2
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.2/devicetree-fixes-v2
+	aspeed/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.2-driver-fixes-0
+	nuvoton/fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-7.2-arm-fixes-0
+	nuvoton/maintainers
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/aspeed-7.3-maintainers-0
 
