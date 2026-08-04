@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/arm/adi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices SC59x (SHARC+) / SC84x (SHARC-FX) platforms
+
+maintainers:
+  - Arturs Artamonovs <arturs.artamonovs@analog.com>
+  - Qasim Ijaz <qasim.ijaz@analog.com>
+  - Caleb Ethridge <calen.ethridge@analog.com>
+  - Vasileios Bimpikas <vasileios.bimpikas@analog.com>
+
+properties:
+  $nodename:
+    const: "/"
+  compatible:
+    oneOf:
+      - description: SC598 boards
+        items:
+          - enum:
+              - adi,sc598-htol
+              - adi,sc598-som-ezkit
+              - adi,sc598-som-ezlite
+          - const: adi,sc59x-64
+      - description: SC846 boards
+        items:
+          - enum:
+              - adi,sc846-som-ezkit
+          - const: adi,sc846
+additionalProperties: true
