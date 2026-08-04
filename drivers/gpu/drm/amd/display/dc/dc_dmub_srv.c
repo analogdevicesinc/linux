@@ -2527,3 +2527,21 @@ bool dc_dmub_srv_panel_polarity_get_polarity(struct dc_dmub_srv *dc_dmub_srv, ui
 
 	return ret;
 }
+
+void dc_dmub_srv_hubbub_set_riommu_pctrl(const struct dc_context *ctx, uint32_t value)
+{
+	union dmub_rb_cmd cmd;
+
+	if (!(ctx->dce_version == DCN_VERSION_4_2 || ctx->dce_version == DCN_VERSION_4_2B))
+		return;
+
+	memset(&cmd, 0, sizeof(cmd));
+
+	cmd.dc_bls_dchvm_init.header.type = DMUB_CMD__DC_BLS;
+	cmd.dc_bls_dchvm_init.header.sub_type = DMUB_CMD__DC_BLS_DCHVM_INIT;
+	cmd.dc_bls_dchvm_init.header.payload_bytes = sizeof(struct dmub_cmd_dc_bls_dchvm_init_data);
+
+	cmd.dc_bls_dchvm_init.data.riommu_pctrl_val = value;
+
+	dc_wake_and_execute_dmub_cmd(ctx, &cmd, DM_DMUB_WAIT_TYPE_WAIT);
+}

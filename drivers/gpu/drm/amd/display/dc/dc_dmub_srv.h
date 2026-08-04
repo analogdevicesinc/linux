@@ -451,4 +451,16 @@ void dc_dmub_srv_panel_polarity_reset(struct dc_dmub_srv *dc_dmub_srv, uint8_t p
  */
 bool dc_dmub_srv_panel_polarity_get_polarity(struct dc_dmub_srv *dc_dmub_srv, uint8_t panel_inst, int32_t *polarity);
 
+/**
+ * dc_dmub_srv_hubbub_set_riommu_pctrl() - Program the RIOMMU PCTRL register via DMCUB.
+ *
+ * The RIOMMU PCTRL register (SMN address 0x16B0A100) controls the SDP port
+ * disconnection hysteresis between rIOMMU & DCHVM. It is not accessible from
+ * x86, so the write is offloaded to DMCUB.
+ *
+ * @ctx: dc context
+ * @value: value to program into the register (e.g. 0x20)
+ */
+void dc_dmub_srv_hubbub_set_riommu_pctrl(const struct dc_context *ctx, uint32_t value);
+
 #endif /* _DMUB_DC_SRV_H_ */
