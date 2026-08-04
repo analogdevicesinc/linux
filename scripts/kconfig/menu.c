@@ -309,6 +309,10 @@ static int sym_check_prop(struct symbol *sym)
 				    "'%s' has wrong type. '%s' only "
 				    "accept arguments of bool and "
 				    "tristate type", sym2->name, use);
+			if (sym_is_choice_value(sym2))
+				prop_warn(prop,
+					  "config symbol '%s' uses %s for '%s', but '%s' is a choice value",
+					  sym->name, use, sym2->name, sym2->name);
 			break;
 		case P_RANGE:
 			if (sym->type != S_INT && sym->type != S_HEX)
