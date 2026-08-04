@@ -491,7 +491,6 @@
 
 &rtc {
 	status = "okay";
-	ext-clk-src;
 };
 
 &mac_sw {
