@@ -36,8 +36,8 @@ static int ad9088_read_gpio_hop_array(struct device *dev, const char *propname,
 		return 0;
 
 	/* Read up to count values */
-	ret = device_property_read_u32_array(dev, propname, tmp,
-					     min(len, (int)count));
+	len = min(len, count);
+	ret = device_property_read_u32_array(dev, propname, tmp, len);
 	if (ret < 0)
 		return 0;
 
@@ -45,7 +45,7 @@ static int ad9088_read_gpio_hop_array(struct device *dev, const char *propname,
 	for (i = 0; i < len; i++)
 		array[i] = tmp[i];
 
-	return ret;
+	return len;
 }
 
 int ad9088_ffh_probe(struct ad9088_phy *phy)
