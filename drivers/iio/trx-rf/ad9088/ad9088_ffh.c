@@ -212,8 +212,10 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	if (n_gpios > 0) {
 		ret = adi_apollo_gpio_hop_profile_configure(&phy->ad9088,
 							    &phy->gpio_hop_profile);
+		ret = ad9088_check_apollo_error(dev, ret,
+					       "adi_apollo_gpio_hop_profile_configure");
 		if (ret)
-			return dev_err_probe(dev, ret, "Failed to configure GPIO hop profile\n");
+			return ret;
 
 		dev_info(dev, "Configured %d GPIO hop profile bits\n", n_gpios);
 	}
@@ -225,8 +227,10 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	if (n_gpios > 0) {
 		ret = adi_apollo_gpio_hop_block_configure(&phy->ad9088,
 							  &phy->gpio_hop_block);
+		ret = ad9088_check_apollo_error(dev, ret,
+					       "adi_apollo_gpio_hop_block_configure");
 		if (ret)
-			return dev_err_probe(dev, ret, "Failed to configure GPIO hop block\n");
+			return ret;
 
 		dev_info(dev, "Configured %d GPIO hop block bits\n", n_gpios);
 	}
@@ -238,8 +242,10 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	if (n_gpios > 0) {
 		ret = adi_apollo_gpio_hop_side_configure(&phy->ad9088,
 							 &phy->gpio_hop_side);
+		ret = ad9088_check_apollo_error(dev, ret,
+					       "adi_apollo_gpio_hop_side_configure");
 		if (ret)
-			return dev_err_probe(dev, ret, "Failed to configure GPIO hop side\n");
+			return ret;
 
 		dev_info(dev, "Configured %d GPIO hop side bits\n", n_gpios);
 	}
@@ -251,8 +257,10 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	if (n_gpios > 0) {
 		ret = adi_apollo_gpio_hop_slice_configure(&phy->ad9088,
 							  &phy->gpio_hop_slice);
+		ret = ad9088_check_apollo_error(dev, ret,
+					       "adi_apollo_gpio_hop_slice_configure");
 		if (ret)
-			return dev_err_probe(dev, ret, "Failed to configure GPIO hop slice\n");
+			return ret;
 
 		dev_info(dev, "Configured %d GPIO hop slice bits\n", n_gpios);
 	}
@@ -264,8 +272,10 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	if (n_gpios > 0) {
 		ret = adi_apollo_gpio_hop_terminal_configure(&phy->ad9088,
 							     &phy->gpio_hop_terminal);
+		ret = ad9088_check_apollo_error(dev, ret,
+					       "adi_apollo_gpio_hop_terminal_configure");
 		if (ret)
-			return dev_err_probe(dev, ret, "Failed to configure GPIO hop terminal\n");
+			return ret;
 
 		dev_info(dev, "Configured %d GPIO hop terminal bits\n", n_gpios);
 	}
@@ -446,8 +456,10 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 
 		ret = adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en,
 						 hop_enable);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					       "adi_apollo_fnco_hop_enable");
 		if (ret)
-			return -EFAULT;
+			return ret;
 
 		phy->ffh.dir[dir].fnco.en[fnco_num] = hop_enable;
 		if (!hop_enable)
@@ -459,8 +471,10 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EINVAL;
 
 		ret = adi_apollo_fnco_active_profile_set(&phy->ad9088, dir, fnco_en, val);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					       "adi_apollo_fnco_active_profile_set");
 		if (ret)
-			return -EFAULT;
+			return ret;
 
 		/* Increment by 1 to use 0 to flag disabled */
 		phy->ffh.dir[dir].fnco.select[fnco_num] = val + 1;
@@ -544,8 +558,10 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EINVAL;
 
 		ret = adi_apollo_cnco_active_profile_set(&phy->ad9088, dir, cnco_en, val);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					       "adi_apollo_cnco_active_profile_set");
 		if (ret)
-			return -EFAULT;
+			return ret;
 
 		phy->ffh.dir[dir].cnco.select[cnco_num] = val;
 		return len;
