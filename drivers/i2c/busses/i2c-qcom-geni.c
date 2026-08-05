@@ -1040,10 +1040,8 @@ static int geni_i2c_init(struct geni_i2c_dev *gi2c)
 	int ret;
 
 	ret = pm_runtime_resume_and_get(gi2c->se.dev);
-	if (ret < 0) {
-		dev_err(gi2c->se.dev, "error turning on device :%d\n", ret);
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(gi2c->se.dev, ret, "error turning on device\n");
 
 	proto = geni_se_read_proto(&gi2c->se);
 	if (proto == GENI_SE_INVALID_PROTO) {
