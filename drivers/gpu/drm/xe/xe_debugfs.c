@@ -43,6 +43,7 @@
 
 DECLARE_FAULT_ATTR(gt_reset_failure);
 DECLARE_FAULT_ATTR(inject_csc_hw_error);
+DECLARE_FAULT_ATTR(wedge_cold_reset);
 
 static bool csc_hw_error_available(struct xe_device *xe)
 {
@@ -63,6 +64,8 @@ static struct {
 	{ .name = "inject_csc_hw_error",
 	  .attr = &inject_csc_hw_error,
 	  .is_visible = csc_hw_error_available },
+	{ .name = "wedge_cold_reset",
+	  .attr = &wedge_cold_reset },
 };
 
 /*
@@ -77,6 +80,7 @@ bool xe_fault_##name(void)				\
 
 FAULT_ACTION(gt_reset, gt_reset_failure)
 FAULT_ACTION(csc_hw_error, inject_csc_hw_error)
+FAULT_ACTION(wedge_cold_reset, wedge_cold_reset)
 
 static void xe_fault_inject_debugfs_register(struct xe_device *xe,
 					     struct dentry *root)

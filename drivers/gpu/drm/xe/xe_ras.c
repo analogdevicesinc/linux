@@ -3,6 +3,7 @@
  * Copyright © 2026 Intel Corporation
  */
 
+#include "xe_debugfs.h"
 #include "xe_device.h"
 #include "xe_drm_ras.h"
 #include "xe_pm.h"
@@ -476,6 +477,12 @@ enum xe_ras_recovery_action xe_ras_process_errors(struct xe_device *xe)
 	u8 sent = 0;
 	size_t rlen;
 	int ret;
+
+	if (xe_fault_wedge_cold_reset()) {
+		xe_err(xe, "[RAS]: cold-reset wedge injected\n");
+		punit_error_handler(xe);
+		return XE_RAS_RECOVERY_ACTION_DISCONNECT;
+	}
 
 	if (!xe->info.has_sysctrl)
 		return XE_RAS_RECOVERY_ACTION_RESET;
