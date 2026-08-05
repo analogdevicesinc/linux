@@ -1567,6 +1567,9 @@ static int gfx_v12_1_sw_init(struct amdgpu_ip_block *ip_block)
 
 	gfx_v12_1_alloc_ip_dump(adev);
 
+	adev->gfx.me.use_mmio_for_reset = false;
+	adev->gfx.mec.use_mmio_for_reset = false;
+
 	mutex_init(&adev->gfx.mec.reset_mutex);
 
 	return 0;
