@@ -4161,7 +4161,7 @@ static const u8 dm_test_detect_tile_edid[256] = {
  *
  * A sink whose panel patch requests disable_second_tile combined with a tiled
  * EDID at a non-origin tile location makes the detect path hide the secondary
- * Apple Studio Display tile, reporting the connector as disconnected.
+ * display tile, reporting the connector as disconnected.
  */
 static void dm_test_detect_hides_secondary_tile(struct kunit *test)
 {
@@ -6262,6 +6262,65 @@ static void dm_test_create_validate_stream_prune_context(struct kunit *test)
 								    NULL));
 }
 
+/* Further tests for amdgpu_dm_connector_mode_valid() */
+
+/**
+ * dm_test_mode_valid_no_dc_sink - Test the missing-sink rejection
+ * @test: The KUnit test context
+ *
+ * With no dc_sink and an unforced connector there is nothing to validate
+ * against, so mode_valid() logs and returns MODE_ERROR without reaching stream
+ * creation.
+ */
+static void dm_test_mode_valid_no_dc_sink(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct amdgpu_dm_connector *aconnector =
+		dm_test_add_connector(test, drm, DRM_MODE_CONNECTOR_HDMIA);
+	struct drm_display_mode *mode;
+
+	mode = kunit_kzalloc(test, sizeof(*mode), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, mode);
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_connector_mode_valid(&aconnector->base, mode),
+			MODE_ERROR);
+}
+
+/**
+ * dm_test_mode_valid_force_on_no_stream - Test the forced no-stream rejection
+ * @test: The KUnit test context
+ *
+ * A forced-on connector with dc_em_sink already set skips the EDID refresh and
+ * the missing-sink bail, reaching stream creation; with no validatable depth no
+ * stream is produced, so mode_valid() returns MODE_ERROR.
+ */
+static void dm_test_mode_valid_force_on_no_stream(struct kunit *test)
+{
+	struct dm_test_cvs_ctx *ctx =
+		dm_test_cvs_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	struct dc_sink *em_sink;
+
+	em_sink = kunit_kzalloc(test, sizeof(*em_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, em_sink);
+
+	ctx->link->connector_signal = SIGNAL_TYPE_DISPLAY_PORT;
+	ctx->aconnector->dc_em_sink = em_sink;
+	ctx->aconnector->base.force = DRM_FORCE_ON;
+
+	/* drm_connector_cleanup() kfree()s connector->state, so it must not
+	 * point at KUnit-managed memory.
+	 */
+	amdgpu_dm_connector_funcs_reset(&ctx->aconnector->base);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector->base.state);
+	ctx->aconnector->base.state->max_requested_bpc = 4;
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_connector_mode_valid(&ctx->aconnector->base,
+						       ctx->mode),
+			MODE_ERROR);
+}
+
 /**
  * dm_test_update_after_detect_mst_noop - Test MST connectors are left to drm_mst
  * @test: The KUnit test context
@@ -7117,6 +7176,8 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* amdgpu_dm_connector_mode_valid */
 	KUNIT_CASE(dm_test_mode_valid_interlace_rejected),
 	KUNIT_CASE(dm_test_mode_valid_dblscan_rejected),
+	KUNIT_CASE(dm_test_mode_valid_no_dc_sink),
+	KUNIT_CASE(dm_test_mode_valid_force_on_no_stream),
 	/* amdgpu_dm_hdmi_cec_set_edid */
 	KUNIT_CASE(dm_test_hdmi_cec_set_edid_no_notifier),
 	/* amdgpu_dm_s3_handle_hdmi_cec */
