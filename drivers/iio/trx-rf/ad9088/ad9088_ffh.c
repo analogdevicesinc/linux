@@ -281,7 +281,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		phy->ffh.dir[dir].fnco.frequency[index] = val;
 		/* Restore state */
 		adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en,
-					   phy->ffh.dir[dir].fnco.en[index]);
+					   phy->ffh.dir[dir].fnco.en[fnco_num]);
 		if (ret)
 			return -EFAULT;
 		return len;
