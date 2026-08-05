@@ -222,5 +222,8 @@ void decide_crtc_timing_for_drm_display_mode(struct drm_display_mode *drm_mode,
 					     bool scale_enabled);
 void amdgpu_dm_set_panel_type(struct amdgpu_dm_connector *aconnector);
 void amdgpu_dm_update_cacp_caps(struct amdgpu_dm_connector *aconnector);
+struct drm_atomic_commit;
+int amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
+				     struct drm_atomic_commit *state);
 #endif
 #endif /* __AMDGPU_DM_CONNECTOR_H__ */

@@ -2573,7 +2573,7 @@ int amdgpu_dm_fill_hdr_info_packet(const struct drm_connector_state *state,
 }
 EXPORT_IF_KUNIT(amdgpu_dm_fill_hdr_info_packet);
 
-static int
+STATIC_IFN_KUNIT int
 amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
 				 struct drm_atomic_commit *state)
 {
@@ -2654,6 +2654,7 @@ amdgpu_dm_connector_atomic_check(struct drm_connector *conn,
 
 	return 0;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_atomic_check);
 
 static const struct drm_connector_helper_funcs
 amdgpu_dm_connector_helper_funcs = {

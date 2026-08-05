@@ -6463,6 +6463,111 @@ static void dm_test_mode_valid_edid_mgmt_forced(struct kunit *test)
 			MODE_ERROR);
 }
 
+/* Tests for amdgpu_dm_connector_atomic_check() */
+
+/*
+ * Build a single-connector atomic commit for amdgpu_dm_connector_atomic_check().
+ * The connector lives at index 0 so the hand-rolled connectors[] slot resolves
+ * both the old and new connector state; leaving crtc NULL keeps the check off
+ * the crtc-state machinery that a real atomic path would require.
+ */
+struct dm_test_conn_ac_ctx {
+	struct amdgpu_dm_connector *aconn;
+	struct drm_atomic_commit *state;
+	struct drm_connector_state *old_state;
+	struct drm_connector_state *new_state;
+};
+
+static struct dm_test_conn_ac_ctx *
+dm_test_conn_ac_ctx_alloc(struct kunit *test, int connector_type)
+{
+	struct dm_test_conn_ac_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->aconn = kunit_kzalloc(test, sizeof(*ctx->aconn), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconn);
+	ctx->old_state = kunit_kzalloc(test, sizeof(*ctx->old_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->old_state);
+	ctx->new_state = kunit_kzalloc(test, sizeof(*ctx->new_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->new_state);
+
+	ctx->state = dm_test_alloc_atomic_state(test, 1);
+
+	ctx->aconn->base.connector_type = connector_type;
+	ctx->new_state->connector = &ctx->aconn->base;
+	ctx->new_state->state = ctx->state;
+	ctx->old_state->connector = &ctx->aconn->base;
+
+	ctx->state->connectors[0].ptr = &ctx->aconn->base;
+	ctx->state->connectors[0].old_state = ctx->old_state;
+	ctx->state->connectors[0].new_state = ctx->new_state;
+
+	return ctx;
+}
+
+/**
+ * dm_test_conn_atomic_check_no_crtc - Test the unbound-connector short-circuit
+ * @test: The KUnit test context
+ *
+ * A non-DisplayPort connector with no crtc has nothing to validate and returns
+ * 0 immediately.
+ */
+static void dm_test_conn_atomic_check_no_crtc(struct kunit *test)
+{
+	struct dm_test_conn_ac_ctx *ctx =
+		dm_test_conn_ac_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	int ret;
+
+	ret = amdgpu_dm_connector_atomic_check(&ctx->aconn->base, ctx->state);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+}
+
+/**
+ * dm_test_conn_atomic_check_dp_mst - Test the DisplayPort MST root check
+ * @test: The KUnit test context
+ *
+ * A DisplayPort connector runs the MST root atomic check; with no crtc bound on
+ * either state it finds nothing to reserve and returns 0.
+ */
+static void dm_test_conn_atomic_check_dp_mst(struct kunit *test)
+{
+	struct dm_test_conn_ac_ctx *ctx =
+		dm_test_conn_ac_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	int ret;
+
+	ret = amdgpu_dm_connector_atomic_check(&ctx->aconn->base, ctx->state);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+}
+
+/**
+ * dm_test_conn_atomic_check_no_change - Test the bound-but-unchanged path
+ * @test: The KUnit test context
+ *
+ * With a crtc bound but no privacy/colorspace/content-type/HDR differences the
+ * check skips every modeset trigger and returns 0 without touching the crtc
+ * state.
+ */
+static void dm_test_conn_atomic_check_no_change(struct kunit *test)
+{
+	struct dm_test_conn_ac_ctx *ctx =
+		dm_test_conn_ac_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct drm_crtc *crtc;
+	int ret;
+
+	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
+
+	ctx->new_state->crtc = crtc;
+
+	ret = amdgpu_dm_connector_atomic_check(&ctx->aconn->base, ctx->state);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+}
+
 /**
  * dm_test_update_after_detect_mst_noop - Test MST connectors are left to drm_mst
  * @test: The KUnit test context
@@ -7140,6 +7245,10 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_fill_hdr_dp),
 	KUNIT_CASE(dm_test_fill_hdr_unsupported_connector),
 	KUNIT_CASE(dm_test_fill_hdr_bad_metadata),
+	/* amdgpu_dm_connector_atomic_check */
+	KUNIT_CASE(dm_test_conn_atomic_check_no_crtc),
+	KUNIT_CASE(dm_test_conn_atomic_check_dp_mst),
+	KUNIT_CASE(dm_test_conn_atomic_check_no_change),
 	/* amdgpu_dm_connector_atomic_set_property */
 	KUNIT_CASE(dm_test_set_property_scaling_center),
 	KUNIT_CASE(dm_test_set_property_scaling_aspect),
