@@ -8,6 +8,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/clock/adi-sc5xx-clock.h>
+#include <dt-bindings/reset/adi,sc846-miscreg-reset.h>
 
 / {
 	model = "ADI 64-bit SC84X";
@@ -250,6 +251,16 @@
 			compatible = "adi,sc5xx-pads-syscon", "syscon";
 			reg = <0x31004600 0x200>;
 			status = "okay";
+		};
+
+		miscreg: syscon@310a9000 {
+			compatible = "adi,sc846-miscreg", "simple-mfd", "syscon";
+			reg = <0x310a9000 0x1000>;
+
+			misc_rst: reset-controller {
+				compatible = "adi,sc846-miscreg-reset";
+				#reset-cells = <1>;
+			};
 		};
 
 		dmc_pmu: dmc-pmu@31070000 {
@@ -544,6 +555,19 @@
 			dma-names = "tx", "rx";
 			clocks = <&clk ADSP_SC846_CLK_SPI>;
 			clock-names = "spi";
+			status = "disabled";
+		};
+
+		xspi0: spi@3101c000 {
+			compatible = "adi,sc846-xspi-nor";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x3101c000 0x1040>,
+			      <0x60000000 0x2000>,
+			      <0x3101e000 0x100>;
+			reg-names = "io", "sdma", "aux";
+			interrupts = <GIC_SPI 386 IRQ_TYPE_LEVEL_HIGH>;
+			resets = <&misc_rst ADI_SC846_RESET_XSPI0>;
 			status = "disabled";
 		};
 
