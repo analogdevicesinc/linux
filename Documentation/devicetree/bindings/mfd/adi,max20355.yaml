@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/mfd/adi,max20355.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX20355/MAX20357 PMIC
+
+maintainers:
+  - Judy Na <judy.na@analog.com>
+
+description: |
+  The Analog Devices MAX20355 and MAX20357 are Power Management ICs that
+  provide PLC-based power management and monitoring functions for system
+  power control. These devices communicate via I2C and include sub-functions
+  for PLC communication, fuel gauge monitoring, and RAM access.
+
+  MAX20355 is the master PMIC (I2C address 0x28) with fuel gauge at 0x36
+  and RAM at 0x50.
+
+  MAX20357 is the slave PMIC (I2C address 0x15) with fuel gauge at 0x36
+  and RAM at 0x55.
+
+properties:
+  compatible:
+    enum:
+      - adi,max20355
+      - adi,max20357
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmic@28 {
+            compatible = "adi,max20355";
+            reg = <0x28>;
+            interrupt-parent = <&gpio>;
+            interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+        };
+    };
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmic@15 {
+            compatible = "adi,max20357";
+            reg = <0x15>;
+            interrupt-parent = <&gpio>;
+            interrupts = <22 IRQ_TYPE_LEVEL_LOW>;
+        };
+    };
