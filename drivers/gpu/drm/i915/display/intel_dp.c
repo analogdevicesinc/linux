@@ -4095,14 +4095,9 @@ static int intel_dp_pcon_set_frl_mask(int max_frl)
 static int intel_dp_hdmi_sink_max_frl(struct intel_dp *intel_dp)
 {
 	struct intel_connector *connector = intel_dp->attached_connector;
-	const struct drm_display_info *info = &connector->base.display_info;
-	int max_frl_rate;
-	int max_lanes, rate_per_lane;
-	int max_dsc_lanes, dsc_rate_per_lane;
-
-	max_lanes = info->hdmi.max_lanes;
-	rate_per_lane = info->hdmi.max_frl_rate_per_lane;
-	max_frl_rate = max_lanes * rate_per_lane;
+	struct drm_connector *drm_connector = &connector->base;
+	int max_frl_rate = intel_hdmi_sink_max_frl_rate(drm_connector);
+	int dsc_max_frl_rate = intel_hdmi_sink_dsc_max_frl_rate(drm_connector);
 
 	/*
 	 * The sink's DSC max FRL rate only applies to compressed video
@@ -4111,12 +4106,8 @@ static int intel_dp_hdmi_sink_max_frl(struct intel_dp *intel_dp)
 	 * the regular max FRL rate is the limit.
 	 */
 	if (drm_dp_pcon_enc_is_dsc_1_2(intel_dp->pcon_dsc_dpcd) &&
-	    info->hdmi.dsc_cap.v_1p2) {
-		max_dsc_lanes = info->hdmi.dsc_cap.max_lanes;
-		dsc_rate_per_lane = info->hdmi.dsc_cap.max_frl_rate_per_lane;
-		if (max_dsc_lanes && dsc_rate_per_lane)
-			max_frl_rate = min(max_frl_rate, max_dsc_lanes * dsc_rate_per_lane);
-	}
+	    dsc_max_frl_rate)
+		return min(max_frl_rate, dsc_max_frl_rate);
 
 	return max_frl_rate;
 }
