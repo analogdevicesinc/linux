@@ -9,6 +9,12 @@
 #include <linux/property.h>
 #include "ad9088.h"
 
+static bool ad9088_ffh_mode_is_gpio(u8 mode)
+{
+	return mode == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO ||
+	       mode == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO;
+}
+
 /* fddc/cddc numbers are per side, the NCO masks and the shadow state are not */
 static u8 ad9088_ffh_fnco_num(const struct ad9088_chan_map *map)
 {
@@ -18,6 +24,83 @@ static u8 ad9088_ffh_fnco_num(const struct ad9088_chan_map *map)
 static u8 ad9088_ffh_cnco_num(const struct ad9088_chan_map *map)
 {
 	return map->cddc_num + map->side * ADI_APOLLO_CNCO_PER_SIDE_NUM;
+}
+
+/* Retuns true if any FNCO/CNCO is in GPIO mode. */
+static bool ad9088_ffh_gpio_active(struct ad9088_phy *phy, bool fnco, u8 terminal,
+				   u8 idx, u8 new_mode)
+{
+	const struct _ad9088_ffh *ffh;
+	u8 t, i;
+
+	for (t = 0; t < ARRAY_SIZE(phy->ffh.dir); t++) {
+		ffh = &phy->ffh.dir[t];
+
+		for (i = 0; i < ADI_APOLLO_FNCO_NUM; i++)
+			if (ad9088_ffh_mode_is_gpio(fnco && t == terminal && i == idx ?
+						    new_mode : ffh->fnco.mode[i]))
+				return true;
+
+		for (i = 0; i < ADI_APOLLO_CNCO_NUM; i++)
+			if (ad9088_ffh_mode_is_gpio(!fnco && t == terminal && i == idx ?
+						    new_mode : ffh->cnco.mode[i]))
+				return true;
+	}
+
+	return false;
+}
+
+static int ad9088_ffh_gpio_hop_enter(struct ad9088_phy *phy, bool fnco)
+{
+	int ret;
+
+	ret = adi_apollo_gpio_hop_slice_select_set(&phy->ad9088,
+						   fnco ? ADI_APOLLO_GPIO_BLOCK_FNCO :
+							  ADI_APOLLO_GPIO_BLOCK_CNCO,
+						   ADI_APOLLO_GPIO_HOP_SELECT_GPIO);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+				       "adi_apollo_gpio_hop_slice_select_set");
+	if (ret)
+		return ret;
+
+	ret = adi_apollo_gpio_hop_block_select_set(&phy->ad9088,
+						   ADI_APOLLO_GPIO_HOP_SELECT_GPIO);
+	return ad9088_check_apollo_error(&phy->spi->dev, ret,
+					       "adi_apollo_gpio_hop_block_select_set");
+}
+
+static int ad9088_ffh_gpio_hop_exit(struct ad9088_phy *phy, bool fnco, u8 terminal,
+				    u8 idx, u8 new_mode)
+{
+	int ret;
+
+	/*
+	 * The block select is global, only revert to SPI if no reamining FNCO/CNCO
+	 * is in GPIO mode.
+	 */
+	if (ad9088_ffh_gpio_active(phy, fnco, terminal, idx, new_mode))
+		return 0;
+
+	ret = adi_apollo_gpio_hop_slice_select_set(&phy->ad9088,
+						   ADI_APOLLO_GPIO_BLOCK_FNCO,
+						   ADI_APOLLO_GPIO_HOP_SELECT_SPI);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+				       "adi_apollo_gpio_hop_slice_select_set");
+	if (ret)
+		return ret;
+
+	ret = adi_apollo_gpio_hop_slice_select_set(&phy->ad9088,
+						   ADI_APOLLO_GPIO_BLOCK_CNCO,
+						   ADI_APOLLO_GPIO_HOP_SELECT_SPI);
+	ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+				       "adi_apollo_gpio_hop_slice_select_set");
+	if (ret)
+		return ret;
+
+	ret = adi_apollo_gpio_hop_block_select_set(&phy->ad9088,
+						   ADI_APOLLO_GPIO_HOP_SELECT_SPI);
+	return ad9088_check_apollo_error(&phy->spi->dev, ret,
+					       "adi_apollo_gpio_hop_block_select_set");
 }
 
 /**
@@ -268,11 +351,12 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 	u32 ftw_u32;
 	u32 cddc_dcm;
 	u16 fnco_en, cnco_en;
-	bool hop_enable;
+	bool hop_enable, gpio_mode, gpio_mode_old;
 	u64 val;
 	u64 ftw_u64, f, tmp;
 	int ret;
 	s64 sel;
+	u8 mode;
 
 	if (!map)
 		return -EINVAL;
@@ -369,32 +453,9 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		if (!hop_enable)
 			return len;
 
-		if (phy->ffh.dir[dir].fnco.mode[fnco_num] == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO ||
-		    phy->ffh.dir[dir].fnco.mode[fnco_num] == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO) {
-			u64 gpio, val2;
-
-			ret = adi_apollo_gpio_hop_profile_calc(&phy->ad9088,
-							       &phy->gpio_hop_profile,
-							       val, &gpio, &val2);
-			if (ret)
-				return ret;
-
-			dev_info(&conv->spi->dev, "Profile GPIO: mask: %llx value: %llx\n",
-				 gpio, val2);
-
-			ret = adi_apollo_gpio_hop_block_calc(&phy->ad9088,
-							     &phy->gpio_hop_block,
-							     0, &gpio, &val2);
-			if (ret)
-				return ret;
-
-			dev_info(&conv->spi->dev,
-				 "Block GPIO: mask: %llx value: %llx\n",
-				 gpio, val2);
-		}
-
-		if (phy->ffh.dir[dir].fnco.mode[fnco_num] != ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP &&
-		    phy->ffh.dir[dir].fnco.mode[fnco_num] != ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP)
+		mode = phy->ffh.dir[dir].fnco.mode[fnco_num];
+		if (mode != ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP &&
+		    mode != ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP)
 			return -EINVAL;
 
 		ret = adi_apollo_fnco_active_profile_set(&phy->ad9088, dir, fnco_en, val);
@@ -409,9 +470,35 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		if (ret || val > ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP)
 			return -EINVAL;
 
+		mode = phy->ffh.dir[dir].fnco.mode[fnco_num];
+		gpio_mode = ad9088_ffh_mode_is_gpio(val);
+		gpio_mode_old = ad9088_ffh_mode_is_gpio(mode);
+
+		/*
+		 * adi_apollo_fnco_hop_pgm() pulses HOP_CTRL_INIT,
+		 * discarting hop profiles, use adi_apollo_fnco_profile_sel_mode_set()
+		 * to preserve between mode changes.
+		 */
 		ret = adi_apollo_fnco_profile_sel_mode_set(&phy->ad9088, dir, fnco_en, val);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					       "adi_apollo_fnco_profile_sel_mode_set");
 		if (ret)
-			return -EFAULT;
+			return ret;
+
+		ret = adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en, true);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					       "adi_apollo_fnco_hop_enable");
+		if (ret)
+			return ret;
+
+		phy->ffh.dir[dir].fnco.en[fnco_num] = true;
+
+		if (gpio_mode)
+			ret = ad9088_ffh_gpio_hop_enter(phy, true);
+		else if (gpio_mode_old)
+			ret = ad9088_ffh_gpio_hop_exit(phy, true, dir, fnco_num, val);
+		if (ret)
+			return ret;
 
 		phy->ffh.dir[dir].fnco.mode[fnco_num] = val;
 		return len;
@@ -451,32 +538,9 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		if (ret || val >= ADI_APOLLO_CNCO_PROFILE_NUM)
 			return -EINVAL;
 
-		if (phy->ffh.dir[dir].cnco.mode[cnco_num] == ADI_APOLLO_NCO_CHAN_SEL_TRIG_GPIO ||
-		    phy->ffh.dir[dir].cnco.mode[cnco_num] == ADI_APOLLO_NCO_CHAN_SEL_DIRECT_GPIO) {
-			u64 gpio, val2;
-
-			ret = adi_apollo_gpio_hop_profile_calc(&phy->ad9088,
-							       &phy->gpio_hop_profile,
-							       val, &gpio, &val2);
-			if (ret)
-				return ret;
-
-			dev_info(&conv->spi->dev, "Profile GPIO: mask: %llx value: %llx\n",
-				 gpio, val2);
-
-			ret = adi_apollo_gpio_hop_block_calc(&phy->ad9088,
-							     &phy->gpio_hop_block,
-							     0, &gpio, &val2);
-			if (ret)
-				return ret;
-
-			dev_info(&conv->spi->dev,
-				 "Block GPIO: mask: %llx value: %llx\n",
-				 gpio, val2);
-		}
-
-		if (phy->ffh.dir[dir].cnco.mode[cnco_num] != ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP &&
-		    phy->ffh.dir[dir].cnco.mode[cnco_num] != ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP)
+		mode = phy->ffh.dir[dir].cnco.mode[cnco_num];
+		if (mode != ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP &&
+		    mode != ADI_APOLLO_NCO_CHAN_SEL_TRIG_REGMAP)
 			return -EINVAL;
 
 		ret = adi_apollo_cnco_active_profile_set(&phy->ad9088, dir, cnco_en, val);
@@ -490,9 +554,23 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		if (ret || val > ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP)
 			return -EINVAL;
 
+		mode = phy->ffh.dir[dir].cnco.mode[cnco_num];
+		gpio_mode = ad9088_ffh_mode_is_gpio(val);
+		gpio_mode_old = ad9088_ffh_mode_is_gpio(mode);
+
+		/* adi_apollo_cnco_hop_enable() sets HOP_CTRL_INIT */
 		ret = adi_apollo_cnco_profile_sel_mode_set(&phy->ad9088, dir, cnco_en, val);
+		ret = ad9088_check_apollo_error(&phy->spi->dev, ret,
+					       "adi_apollo_cnco_profile_sel_mode_set");
 		if (ret)
-			return -EFAULT;
+			return ret;
+
+		if (gpio_mode)
+			ret = ad9088_ffh_gpio_hop_enter(phy, false);
+		else if (gpio_mode_old)
+			ret = ad9088_ffh_gpio_hop_exit(phy, false, dir, cnco_num, val);
+		if (ret)
+			return ret;
 
 		phy->ffh.dir[dir].cnco.mode[cnco_num] = val;
 		return len;
