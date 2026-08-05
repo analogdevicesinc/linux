@@ -15,6 +15,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/reset.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
 #include <linux/bitfield.h>
@@ -40,8 +41,14 @@
 /* PHY gate loopback control register */
 #define CDNS_XSPI_CCP_PHY_GATE_LPBCK_CTRL	0x0008
 
+/* PHY DLL master control register */
+#define CDNS_XSPI_CCP_PHY_DLL_MASTER_CTRL	0x000C
+
 /* PHY DLL slave control register */
 #define CDNS_XSPI_CCP_PHY_DLL_SLAVE_CTRL	0x0010
+
+/* PHY DQS input enable timing register */
+#define CDNS_XSPI_CCP_PHY_IE_TIMER		0x0014
 
 /* DLL PHY control register */
 #define CDNS_XSPI_DLL_PHY_CTRL			0x1034
@@ -233,6 +240,14 @@
 #define MARVELL_RFILE_PHY_DLL_MASTER_CTRL	0x00800000
 #define MARVELL_RFILE_PHY_DLL_SLAVE_CTRL	0x0000ff01
 
+/* ADI SC846 Phy default values */
+#define ADI_XSPI_PHY_DQ_TR			0x00000101
+#define ADI_XSPI_PHY_DQS_TR			0x00300400
+#define ADI_XSPI_PHY_GATE_LPBK_CTL		0x00180030
+#define ADI_XSPI_PHY_DLL_MSTR_CTL		0x00140084
+#define ADI_XSPI_PHY_DLL_SLAVE_CTL		0x00003FC4
+#define ADI_XSPI_PHY_IE_TR			0x00100000
+
 /* PHY config registers */
 #define CDNS_XSPI_RF_MINICTRL_REGS_DLL_PHY_CTRL			0x1034
 #define CDNS_XSPI_PHY_CTB_RFILE_PHY_CTRL			0x0080
@@ -379,6 +394,19 @@ static bool cdns_xspi_is_dll_locked(struct cdns_xspi_dev *cdns_xspi)
 	return !readl_relaxed_poll_timeout(cdns_xspi->iobase +
 		CDNS_XSPI_INTR_STATUS_REG,
 		dll_lock, ((dll_lock & CDNS_XSPI_DLL_LOCK) == 1), 10, 10000);
+}
+
+static int adi_xspi_dll_locked(struct cdns_xspi_dev *cdns_xspi)
+{
+	u32 dllob0;
+	int ret;
+
+	ret = readl_poll_timeout(cdns_xspi->auxbase + CDNS_XSPI_DATASLICE_RFILE_PHY_DLL_OBS_REG_0,
+				 dllob0, dllob0 & CDNS_XSPI_DLL_LOCK, 10, 10000);
+	if (ret)
+		return dev_err_probe(cdns_xspi->dev, ret, "DLL lock failed\n");
+
+	return 0;
 }
 
 /* Static configuration of PHY */
@@ -1185,11 +1213,33 @@ static int cdns_mrvl_xspi_custom_init(struct cdns_xspi_dev *cdns_xspi)
 	return 0;
 }
 
+static int cdns_sc846_xspi_custom_init(struct cdns_xspi_dev *cdns_xspi)
+{
+	writel(ADI_XSPI_PHY_DQ_TR,
+	       cdns_xspi->auxbase + CDNS_XSPI_CCP_PHY_DQ_TIMING);
+	writel(ADI_XSPI_PHY_DQS_TR,
+	       cdns_xspi->auxbase + CDNS_XSPI_CCP_PHY_DQS_TIMING);
+	writel(ADI_XSPI_PHY_GATE_LPBK_CTL,
+	       cdns_xspi->auxbase + CDNS_XSPI_CCP_PHY_GATE_LPBCK_CTRL);
+	writel(ADI_XSPI_PHY_DLL_MSTR_CTL,
+	       cdns_xspi->auxbase + CDNS_XSPI_CCP_PHY_DLL_MASTER_CTRL);
+	writel(ADI_XSPI_PHY_DLL_SLAVE_CTL,
+	       cdns_xspi->auxbase + CDNS_XSPI_CCP_PHY_DLL_SLAVE_CTRL);
+	writel(ADI_XSPI_PHY_IE_TR,
+	       cdns_xspi->auxbase + CDNS_XSPI_CCP_PHY_IE_TIMER);
+	writel(0, cdns_xspi->iobase + CDNS_XSPI_RF_MINICTRL_REGS_DLL_PHY_CTRL);
+
+	cdns_xspi_reset_dll(cdns_xspi);
+
+	return adi_xspi_dll_locked(cdns_xspi);
+}
+
 static int cdns_xspi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct spi_controller *host = NULL;
 	struct cdns_xspi_dev *cdns_xspi = NULL;
+	struct reset_control *rstc;
 	struct resource *res;
 	int ret;
 
@@ -1258,6 +1308,14 @@ static int cdns_xspi_probe(struct platform_device *pdev)
 		}
 	}
 
+	rstc = devm_reset_control_get_optional_exclusive(dev, NULL);
+	if (IS_ERR(rstc))
+		return dev_err_probe(dev, PTR_ERR(rstc), "Failed to get reset\n");
+
+	ret = reset_control_reset(rstc);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to reset controller\n");
+
 	cdns_xspi->irq = platform_get_irq(pdev, 0);
 	if (cdns_xspi->irq < 0)
 		return -ENXIO;
@@ -1297,6 +1355,13 @@ static int cdns_xspi_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct cdns_xspi_driver_data adi_driver_data = {
+	.sdma_handler = &cdns_xspi_sdma_handle,
+	.mem_ops = &cadence_xspi_mem_ops,
+	.set_interrupts_handler = &cdns_xspi_set_interrupts,
+	.init = &cdns_sc846_xspi_custom_init,
+};
+
 static const struct cdns_xspi_driver_data marvell_driver_data = {
 	.transfer_one_message = cdns_xspi_transfer_one_message_b0,
 	.sdma_handler = &marvell_xspi_sdma_handle,
@@ -1319,6 +1384,10 @@ static const struct of_device_id cdns_xspi_of_match[] = {
 	{
 		.compatible = "marvell,cn10-xspi-nor",
 		.data = &marvell_driver_data,
+	},
+	{
+		.compatible = "adi,sc846-xspi-nor",
+		.data = &adi_driver_data,
 	},
 	{ /* end of table */}
 };
