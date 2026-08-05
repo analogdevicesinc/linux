@@ -47,6 +47,9 @@
 /* See unmap_queues_cpsch() */
 #define USE_DEFAULT_GRACE_PERIOD 0xffffffff
 
+/* Interval for notifying MES of work on unmapped queues during oversubscription */
+#define DQM_MES_UNMAP_NOTIFY_DELAY_MS 50
+
 static int set_pasid_vmid_mapping(struct device_queue_manager *dqm,
 				  u32 pasid, unsigned int vmid);
 
@@ -276,7 +279,15 @@ static int add_queue_mes(struct device_queue_manager *dqm, struct queue *q,
 			q->properties.doorbell_off);
 		dev_err(adev->dev, "MES might be in unrecoverable state, issue a GPU reset\n");
 		kfd_hws_hang(dqm);
+		return r;
 	}
+
+	/* GFX11: start notify timer only once when oversubscription begins */
+	if (KFD_GC_VERSION(dqm->dev) >= IP_VERSION(11, 0, 0) &&
+	    KFD_GC_VERSION(dqm->dev) < IP_VERSION(12, 0, 0) &&
+	    dqm->active_cp_queue_count > get_cp_queues_num(dqm))
+		queue_delayed_work(system_wq, &dqm->notify_unmap_work,
+				   msecs_to_jiffies(DQM_MES_UNMAP_NOTIFY_DELAY_MS));
 
 	return r;
 }
@@ -354,7 +365,16 @@ static void set_perfcount(struct device_queue_manager *dqm, int enable)
 static int remove_queue_mes(struct device_queue_manager *dqm, struct queue *q,
 			    struct qcm_process_device *qpd)
 {
-	return remove_queue_mes_on_reset_option(dqm, q, qpd, false, false);
+	int r = remove_queue_mes_on_reset_option(dqm, q, qpd, false, false);
+
+	/* GFX11: stop notify timer when oversubscription clears */
+	if (!r &&
+	    KFD_GC_VERSION(dqm->dev) >= IP_VERSION(11, 0, 0) &&
+	    KFD_GC_VERSION(dqm->dev) < IP_VERSION(12, 0, 0) &&
+	    dqm->active_cp_queue_count <= get_cp_queues_num(dqm))
+		cancel_delayed_work(&dqm->notify_unmap_work);
+
+	return r;
 }
 
 static int remove_all_kfd_queues_mes(struct device_queue_manager *dqm)
@@ -3204,6 +3224,20 @@ static void deallocate_hiq_sdma_mqd(struct kfd_node *dev,
 	amdgpu_amdkfd_free_kernel_mem(dev->adev, &mqd->mem);
 }
 
+static void mes_notify_unmap_work_handler(struct work_struct *work)
+{
+	struct device_queue_manager *dqm =
+		container_of(work, struct device_queue_manager,
+			     notify_unmap_work.work);
+
+	amdgpu_mes_notify_unmap_queue((struct amdgpu_device *)dqm->dev->adev);
+
+	/* Re-arm if still oversubscribed */
+	if (READ_ONCE(dqm->active_cp_queue_count) > get_cp_queues_num(dqm))
+		queue_delayed_work(system_wq, &dqm->notify_unmap_work,
+				   msecs_to_jiffies(DQM_MES_UNMAP_NOTIFY_DELAY_MS));
+}
+
 struct device_queue_manager *device_queue_manager_init(struct kfd_node *dev)
 {
 	struct device_queue_manager *dqm;
@@ -3329,6 +3363,8 @@ struct device_queue_manager *device_queue_manager_init(struct kfd_node *dev)
 
 	if (!dqm->ops.initialize(dqm)) {
 		init_waitqueue_head(&dqm->destroy_wait);
+		INIT_DELAYED_WORK(&dqm->notify_unmap_work,
+				  mes_notify_unmap_work_handler);
 		return dqm;
 	}
 
@@ -3345,6 +3381,7 @@ out_free:
 
 void device_queue_manager_uninit(struct device_queue_manager *dqm)
 {
+	cancel_delayed_work_sync(&dqm->notify_unmap_work);
 	dqm->ops.stop(dqm);
 	dqm->ops.uninitialize(dqm);
 	if (!dqm->dev->kfd->shared_resources.enable_mes)
