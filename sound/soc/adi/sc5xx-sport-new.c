@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/module.h>
@@ -81,19 +82,27 @@
 #define SPORT_TXSEC_VALUE	GENMASK(31, 0)
 #define SPORT_RXSEC_VALUE	GENMASK(31, 0)
 
+struct adsp_sport_half {
+	unsigned int tdm_slots;
+	unsigned int slot_width;
+	unsigned int tx_mask;
+	unsigned int rx_mask;
+	bool use_secondary;
+};
+
 struct adsp_sport {
 	void __iomem *regs;
 	struct clk *clk;
+	struct adsp_sport_half half[2];
 };
 
 static int adsp_sport_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 {
 	struct adsp_sport *sport = snd_soc_dai_get_drvdata(dai);
-	bool is_i2s = false;
 	unsigned int ctl;
+	bool is_i2s = false;
 
 	ctl = readl(sport->regs + SPORT_CTL(dai->id));
-	ctl |= 0;
 
 	/* Operating mode */
 	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
@@ -101,34 +110,29 @@ static int adsp_sport_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		FIELD_MODIFY(SPORT_CTL_OPMODE, &ctl, 1);
 		FIELD_MODIFY(SPORT_CTL_LAFS, &ctl, 0);
 		FIELD_MODIFY(SPORT_CTL_RJUST, &ctl, 0);
-		FIELD_MODIFY(SPORT_CTL_MCE, &ctl, 0);
 		is_i2s = true;
 		break;
 	case SND_SOC_DAIFMT_LEFT_J:
 		FIELD_MODIFY(SPORT_CTL_OPMODE, &ctl, 1);
 		FIELD_MODIFY(SPORT_CTL_LAFS, &ctl, 1);
 		FIELD_MODIFY(SPORT_CTL_RJUST, &ctl, 0);
-		FIELD_MODIFY(SPORT_CTL_MCE, &ctl, 0);
 		break;
 	case SND_SOC_DAIFMT_RIGHT_J:
 		FIELD_MODIFY(SPORT_CTL_OPMODE, &ctl, 1);
 		FIELD_MODIFY(SPORT_CTL_LAFS, &ctl, 1);
 		FIELD_MODIFY(SPORT_CTL_RJUST, &ctl, 1);
-		FIELD_MODIFY(SPORT_CTL_MCE, &ctl, 0);
 		break;
 	case SND_SOC_DAIFMT_DSP_A:
 		FIELD_MODIFY(SPORT_CTL_OPMODE, &ctl, 0);
 		FIELD_MODIFY(SPORT_CTL_LAFS, &ctl, 0);
 		FIELD_MODIFY(SPORT_CTL_RJUST, &ctl, 0);
-		FIELD_MODIFY(SPORT_CTL_MCE, &ctl, 1);
-		/* TODO: Tune SYNC offset in MCTL */
 		break;
 	default:
 		return -EINVAL;
 	}
 
 	/* Clock polarities */
-	switch (fmt & SND_SOC_FAIFMT_INV_MASK) {
+	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
 	case SND_SOC_DAIFMT_NB_NF:
 		FIELD_MODIFY(SPORT_CTL_CKRE, &ctl, 1);
 		FIELD_MODIFY(SPORT_CTL_LFS, &ctl, 0);
@@ -151,11 +155,10 @@ static int adsp_sport_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 
 	/* I2S frames start with falling edge, unlike the other modes */
 	if (is_i2s)
-		ctrl ^= SPORT_CTL_LFS;
+		ctl ^= SPORT_CTL_LFS;
 
 	/* Always require frame sync */
 	FIELD_MODIFY(SPORT_CTL_FSR, &ctl, 1);
-	// TODO: DIFS?
 
 	/* Clock consumer/provider roles */
 	switch (fmt & SND_SOC_DAIFMT_CLOCK_PROVIDER_MASK) {
@@ -179,42 +182,152 @@ static int adsp_sport_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		return -EINVAL;
 	}
 
+	writel(ctl, sport->regs + SPORT_CTL(dai->id));
+
+	return 0;
+}
+
+static int adsp_sport_set_tdm_slot(struct snd_soc_dai *dai,
+				   unsigned int tx_mask, unsigned int rx_mask,
+				   int slots, int slot_width)
+{
+	struct adsp_sport *sport = snd_soc_dai_get_drvdata(dai);
+	struct adsp_sport_half *h = &sport->half[dai->id];
+
+	if (slots < 1 || slots > 128)
+		return -EINVAL;
+
+	if (slot_width != 16 && slot_width != 32)
+		return -EINVAL;
+
+	h->tdm_slots = slots;
+	h->slot_width = slot_width;
+	h->tx_mask = tx_mask;
+	h->rx_mask = rx_mask;
+
+	return 0;
+}
+
+static int adsp_sport_startup(struct snd_pcm_substream *substream,
+			      struct snd_soc_dai *dai)
+{
+	struct adsp_sport *sport = snd_soc_dai_get_drvdata(dai);
+
+	writel(0, sport->regs + SPORT_CTL(dai->id));
+	writel(0, sport->regs + SPORT_MCTL(dai->id));
+
 	return 0;
 }
 
 static int adsp_sport_hw_params(struct snd_pcm_substream *substream,
-			      struct snd_pcm_hw_params *params,
-			      struct snd_soc_dai *dai)
+				struct snd_pcm_hw_params *params,
+				struct snd_soc_dai *dai)
 {
-	struct adsp_sport *dev = snd_soc_dai_get_drvdata(dai);
+	struct adsp_sport *sport = snd_soc_dai_get_drvdata(dai);
+	struct adsp_sport_half *h = &sport->half[dai->id];
+	unsigned int ctl, mctl;
+	unsigned int word_len;
 
-	/* TODO */
+	ctl = readl(sport->regs + SPORT_CTL(dai->id));
+	mctl = readl(sport->regs + SPORT_MCTL(dai->id));
+
+	/* Serial word length (SLEN = bits - 1) */
+	word_len = h->slot_width ? h->slot_width : params_width(params);
+	FIELD_MODIFY(SPORT_CTL_SLEN, &ctl, word_len - 1);
+
+	/* TX direction bit */
+	FIELD_MODIFY(SPORT_CTL_SPTRAN, &ctl,
+		     substream->stream == SNDRV_PCM_STREAM_PLAYBACK);
+
+	/* Multichannel / TDM configuration */
+	if (h->tdm_slots > 2) {
+		FIELD_MODIFY(SPORT_MCTL_MCE, &mctl, 1);
+		FIELD_MODIFY(SPORT_MCTL_WSIZE, &mctl, h->tdm_slots - 1);
+		FIELD_MODIFY(SPORT_MCTL_MCPDE, &mctl, 1);
+		FIELD_MODIFY(SPORT_MCTL_MFD, &mctl, 1);
+	} else {
+		FIELD_MODIFY(SPORT_MCTL_MCE, &mctl, 0);
+	}
+
+	/*
+	 * Enable secondary data pin if the channel count exceeds what
+	 * a single pin can carry. Each pin carries tdm_slots channels
+	 * (or 2 in I2S/LJ/RJ mode). Actual enable happens in trigger.
+	 */
+	unsigned int channels_per_pin = h->tdm_slots ? h->tdm_slots : 2;
+
+	h->use_secondary = params_channels(params) > channels_per_pin;
+
+	/*
+	 * Program clock dividers.
+	 * CLKDIV: BCLK = sysclk / (CLKDIV + 1), only when ICLK is set.
+	 * FSDIV: LRCLK = BCLK / (FSDIV + 1), only when IFS is set.
+	 */
+	if ((ctl & SPORT_CTL_ICLK) || (ctl & SPORT_CTL_IFS)) {
+		unsigned int slots = h->tdm_slots ? h->tdm_slots : 2;
+		unsigned int div = 0;
+
+		if (ctl & SPORT_CTL_ICLK) {
+			unsigned int sysclk = clk_get_rate(sport->clk);
+			unsigned int bclk = params_rate(params) * slots * word_len;
+
+			FIELD_MODIFY(SPORT_DIV_CLKDIV, &div, sysclk / bclk - 1);
+		}
+
+		if (ctl & SPORT_CTL_IFS)
+			FIELD_MODIFY(SPORT_DIV_FSDIV, &div, slots * word_len - 1);
+
+		writel(div, sport->regs + SPORT_DIV(dai->id));
+	}
+
+	/* Program TDM slot mask (CS0 covers slots 0-31) */
+	if (h->tdm_slots > 2) {
+		unsigned int mask;
+
+		mask = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			? h->tx_mask : h->rx_mask;
+
+		writel(mask, sport->regs + SPORT_CS0(dai->id));
+	}
+
+	writel(ctl, sport->regs + SPORT_CTL(dai->id));
+	writel(mctl, sport->regs + SPORT_MCTL(dai->id));
 
 	return 0;
 }
 
 static int adsp_sport_trigger(struct snd_pcm_substream *substream,
-			    int cmd, struct snd_soc_dai *dai)
+			      int cmd, struct snd_soc_dai *dai)
 {
-	struct adsp_sport *dev = snd_soc_dai_get_drvdata(dai);
+	struct adsp_sport *sport = snd_soc_dai_get_drvdata(dai);
+	struct adsp_sport_half *h = &sport->half[dai->id];
+	unsigned int ctl;
+
+	ctl = readl(sport->regs + SPORT_CTL(dai->id));
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-		/* TODO */
+		FIELD_MODIFY(SPORT_CTL_SPENPRI, &ctl, 1);
+		FIELD_MODIFY(SPORT_CTL_SPENSEC, &ctl, h->use_secondary);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-		/* TODO */
+		FIELD_MODIFY(SPORT_CTL_SPENPRI, &ctl, 0);
+		FIELD_MODIFY(SPORT_CTL_SPENSEC, &ctl, 0);
 		break;
 	default:
 		return -EINVAL;
 	}
+
+	writel(ctl, sport->regs + SPORT_CTL(dai->id));
 	return 0;
 }
 
 static const struct snd_soc_dai_ops adsp_sport_ops = {
 	.set_fmt	= adsp_sport_set_fmt,
+	.set_tdm_slot	= adsp_sport_set_tdm_slot,
+	.startup	= adsp_sport_startup,
 	.hw_params	= adsp_sport_hw_params,
 	.trigger	= adsp_sport_trigger,
 };
@@ -233,7 +346,7 @@ static struct snd_soc_dai_driver adsp_sport_dais[] = {
 			.rates = ADSP_SPORT_RATES,
 			.formats = ADSP_SPORT_FORMATS,
 		},
-		.ops = &adsp_sport_tx_ops,
+		.ops = &adsp_sport_ops,
 	},
 	[1] = {
 		.name = "HSPORT-B",
@@ -243,12 +356,12 @@ static struct snd_soc_dai_driver adsp_sport_dais[] = {
 			.rates = ADSP_SPORT_RATES,
 			.formats = ADSP_SPORT_FORMATS,
 		},
-		.ops = &adsp_sport_rx_ops,
+		.ops = &adsp_sport_ops,
 	},
 };
 
 static const struct snd_soc_component_driver adsp_sport_component = {
-	.name		= "adsp-sport",
+	.name = "adsp-sport",
 };
 
 static int adsp_sport_probe(struct platform_device *pdev)
@@ -257,17 +370,16 @@ static int adsp_sport_probe(struct platform_device *pdev)
 	struct adsp_sport *sport;
 	int ret;
 
-	sport = devm_kzalloc(dev, sizeof(*adsp_sport), GFP_KERNEL);
-	if (!adsp_sport)
+	sport = devm_kzalloc(dev, sizeof(*sport), GFP_KERNEL);
+	if (!sport)
 		return -ENOMEM;
 
 	sport->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(sport->regs))
 		return PTR_ERR(sport->regs);
 
-	/* TODO: SCLK0? Do we really have to enable it now? */
 	sport->clk = devm_clk_get_enabled(dev, NULL);
-	if (IS_ERR(adsp_sport->clk))
+	if (IS_ERR(sport->clk))
 		return PTR_ERR(sport->clk);
 
 	platform_set_drvdata(pdev, sport);
@@ -276,13 +388,9 @@ static int adsp_sport_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = devm_snd_soc_register_component(dev, &adsp_sport_component,
-					      adsp_sport_dais,
-					      ARRAY_SIZE(adsp_sport_dais));
-	if (ret)
-		return ret;
-
-	return 0;
+	return devm_snd_soc_register_component(dev, &adsp_sport_component,
+					       adsp_sport_dais,
+					       ARRAY_SIZE(adsp_sport_dais));
 }
 
 static const struct of_device_id adsp_sport_of_match[] = {
