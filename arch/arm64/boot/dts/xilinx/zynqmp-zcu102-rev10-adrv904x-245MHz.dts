@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV904X
+ * https://wiki.analog.com/resources/eval/user-guides/adrv904x
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv904x
+ *
+ * hdl_project: <adrv904x/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020-2026 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev10-adrv904x.dts"
+
+&clk0_ad9528 {
+	adi,jesd204-desired-sysref-frequency-hz = <1920000>;
+};
+
+&ad9528_0_c3 {
+	adi,channel-divider = <4>;
+};
+
+&ad9528_0_c13 {
+	adi,channel-divider = <4>;
+};
+
+&trx0_adrv904x {
+	adi,device-config-name = "DeviceProfileTest_245MHz.bin";
+};
+
+&axi_adrv904x_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_CPLL>;
+	adi,use-lpm-enable;
+	adi,use-cpll-enable;
+};
