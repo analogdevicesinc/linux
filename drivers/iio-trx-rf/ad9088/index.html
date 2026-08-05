@@ -8,7 +8,7 @@
 
     <title>AD9084/AD9088 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=d3f78147" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=cae2157c" />
     <script async="async" src="../../../_static/app.umd.js?v=26d0298f"></script>
     <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
     <link rel="icon" href="../../../_static/icon.svg"/>
@@ -67,10 +67,10 @@
     </div>
     <div id="right">
       <span>
-        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <a id="logo-org" href="https://developer.analog.com/" aria-label="Analog Devices Inc. landing page"></a>
         <div class="vertical-divider"></div>
         
-        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Documentation</label>
         
         <a id="logo" href="../../../index.html">
           <div>Linux</div>
@@ -109,7 +109,7 @@
 <li><a class="reference internal" href="#bring-up">Bring-up</a></li>
 <li><a class="reference internal" href="#format">Format</a></li>
 <li><a class="reference internal" href="#trigger">Trigger</a></li>
-<li><a class="reference internal" href="#multi-chip-synchronization-mcs">Multi-Chip Synchronization (MCS)</a></li>
+<li><a class="reference internal" href="#detailed-topics">Detailed topics</a></li>
 <li><a class="reference internal" href="#topology">Topology</a></li>
 <li><a class="reference internal" href="#spi">SPI</a></li>
 <li><a class="reference internal" href="#hsci">HSCI</a></li>
@@ -178,7 +178,6 @@
 <li><a class="reference internal" href="#bmem-buffer-operations">BMEM Buffer Operations</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#gpios-gpio-chip">GPIOs &amp; GPIO chip</a></li>
 <li><a class="reference internal" href="#debug-system">Debug system</a></li>
 <li><a class="reference internal" href="#jesd204-link-status">JESD204 Link Status</a></li>
 <li><a class="reference internal" href="#communication-protocol">Communication Protocol</a></li>
@@ -448,6 +447,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="../../spi/spi_engine.html">SPI Engine</a></li>
 <li class="toctree-l2 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1" checked=""/><div class="collapse"><a class="current reference internal" href="#">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
 <li class="toctree-l3"><a class="reference internal" href="mcs.html">Multi-Chip Synchronization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gpio.html">GPIO usage</a></li>
 </ul>
 </li>
 </ul>
@@ -672,64 +672,13 @@ If not provided, the SPI trigger will be used for trigger synchronization.</p></
 <p>If the option is enabled and no trigger is provided, the synchronization will
 time out.</p>
 </section>
-<section id="multi-chip-synchronization-mcs">
-<h3>Multi-Chip Synchronization (MCS)<a class="headerlink" href="#multi-chip-synchronization-mcs" title="Link to this heading"></a></h3>
+<section id="detailed-topics">
+<h3>Detailed topics<a class="headerlink" href="#detailed-topics" title="Link to this heading"></a></h3>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">See the following page:</span></p>
+<p class="caption" role="heading"><span class="caption-text">The following sections describe these topics:</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="mcs.html">Multi-Chip Synchronization</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#system-architecture">System Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#hardware-topology">Hardware Topology</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#multi-device-configuration">Multi-Device Configuration</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#adf4382-phase-control-via-apollo-gpio">ADF4382 Phase Control via Apollo GPIO</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#linux-driver-architecture">Linux Driver Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#driver-stack">Driver Stack</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#driver-file-organization">Driver File Organization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#iio-channel-relationships">IIO Channel Relationships</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#jesd204-state-machine-integration">JESD204 State Machine Integration</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#fsm-stage-execution-order">FSM Stage Execution Order</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#ad9088-jesd204-callbacks">AD9088 JESD204 Callbacks</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#bsync-time-of-flight-measurement">BSYNC Time-of-Flight Measurement</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#measurement-principle">Measurement Principle</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#path-delay-calculation">Path Delay Calculation</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#complete-mcs-flow-sequence">Complete MCS Flow Sequence</a></li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#tracking-calibration">Tracking Calibration</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#adf4382-bleed-current-adjustment">ADF4382 Bleed Current Adjustment</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#tracking-cal-validation">Tracking Cal Validation</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#single-vs-dual-clock-mode">Single vs Dual Clock Mode</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#single-clock-mode">Single Clock Mode</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#dual-clock-mode">Dual Clock Mode</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#device-tree-configuration">Device Tree Configuration</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#complete-example">Complete Example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#key-device-tree-properties-for-mcs">Key Device Tree Properties for MCS</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#debugfs-interface">Debugfs Interface</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#mcs-attributes">MCS Attributes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#example-usage">Example Usage</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#error-handling-and-diagnostics">Error Handling and Diagnostics</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#driver-validation-checks">Driver Validation Checks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcs.html#kernel-log-messages">Kernel Log Messages</a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="mcs.html#references">References</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="mcs.html">Multi-Chip Synchronization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gpio.html">GPIO usage</a></li>
 </ul>
 </div>
 </section>
@@ -770,7 +719,7 @@ If absent, only SPI is used to communicate with the device, considerably slower.
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code>: Expose a list of the 30s device GPIOs into a GPIO controller.</p></li>
 </ul>
-<p>A more detailed usage is provided <a class="reference internal" href="#apollo-gpio"><span class="std std-ref">here</span></a>.</p>
+<p>A more detailed usage is provided <a class="reference internal" href="gpio.html#ad9088-gpio"><span class="std std-ref">here</span></a>.</p>
 </section>
 <section id="spectrum-sniffer">
 <h3>Spectrum Sniffer<a class="headerlink" href="#spectrum-sniffer" title="Link to this heading"></a></h3>
@@ -2349,7 +2298,7 @@ selectively assigned to the NCO during runtime. This allows to quickly change
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="k">$((</span><span class="m">16#20000000</span><span class="k">))</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_ffh_fnco_frequency
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="k">$((</span><span class="m">16#20000000</span><span class="k">))</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_fnco_frequency
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p>Then hop to the desired frequency writing the index to
@@ -2389,7 +2338,7 @@ the method will return -EINVAL;</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/iio/devices/iio:device8$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_fnco_select
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_cnco_select
 </pre></div>
 </div>
 <div class="clear-left"></div></div></div><p><code class="docutils literal notranslate"><span class="pre">out_voltageX_[i|q]_ffh_cnco_frequency</span></code> at index 0 is equivalent to
@@ -2415,7 +2364,8 @@ Other options are available and configurable with
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_voltage0_i_ffh_fnco_mode
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div></section>
+<div class="clear-left"></div></div></div><p>See <a class="reference internal" href="gpio.html#ad9088-gpio-ffh"><span class="std std-ref">GPIO Fast Frequency Hopping</span></a> for how to trigger with GPIO.</p>
+</section>
 <section id="rx-ffh-fnco">
 <h5>Rx FFH FNCO<a class="headerlink" href="#rx-ffh-fnco" title="Link to this heading"></a></h5>
 <p>The RX path also supports Fast Frequency Hopping. The user configures the
@@ -2719,70 +2669,6 @@ channel (read-only). Value is in Hz.</p>
 channels are enabled, samples are interleaved in channel order.</p>
 </section>
 </section>
-<section id="gpios-gpio-chip">
-<span id="apollo-gpio"></span><h4>GPIOs &amp; GPIO chip<a class="headerlink" href="#gpios-gpio-chip" title="Link to this heading"></a></h4>
-<p>The device contains 30 general purpose GPIOs that can be used to trigger various
-changes and can be exported into a <a class="icon link reference external" href="https://docs.kernel.org/driver-api/gpio/index.html#c.gpio_chip" target="_blank" title="(in The Linux Kernel v7.2.0-rc4)"><code class="xref c c-struct docutils literal notranslate"><span class="pre">gpio_chip</span></code></a>
-using the <code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code> devicetree property:</p>
-<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nl">trx0_ad9084</span><span class="p">:</span><span class="w"> </span><span class="nf">ad9084</span><span class="o">@</span><span class="mi">0</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">     </span><span class="n">adi</span><span class="p">,</span><span class="n">gpio-exports</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="cp">/bits/</span><span class="cm"> </span><span class="cp">8 &lt;15 16 17 18&gt;</span><span class="p">;</span>
-<span class="p">};</span>
-</pre></div>
-</div>
-<p>Some of the device GPIOs are mapped in the HDL design to a axi_gpio IP Core, and
-the apollo’s and axi_gpio’s can be attached to other drivers in the device tree:</p>
-<div class="admonition tip">
-<p class="admonition-title">Tip</p>
-<p><code class="docutils literal notranslate"><span class="pre">0</span></code> is the index of item in the <code class="docutils literal notranslate"><span class="pre">adi,gpio-exports</span></code>, and in the previous
-example, is equivalent to the device’s GPIO 15. Also ensure to check the
-schematics and HDL design for the routes between apollo’s GPIO, axi_gpio’s
-and other input options.</p>
-</div>
-<div class="highlight-dts notranslate"><div class="highlight"><pre><span></span><span class="nf">my_driver</span><span class="cm"> </span><span class="p">{</span>
-<span class="w">     </span><span class="cm">/* ... */</span>
-<span class="w">     </span><span class="n">provider-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">axi_gpio</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">GPIO_ACTIVE_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="w">     </span><span class="n">consumer-gpios</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">&lt;&amp;</span><span class="na">tx0_ad9084</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="na">GPIO_ACTIVE_HIGH</span><span class="o">&gt;</span><span class="p">;</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-<p>Or from user space through <a class="icon link reference external" href="https://git.kernel.org/pub/scm/libs/libgpiod/libgpiod.git/" target="_blank">gpiod</a>:</p>
-<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gpiodetect
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>gpiochip0 [a4000000.gpio] (64 lines)
-gpiochip1 [versal_gpio] (58 lines)
-gpiochip2 [pmc_gpio] (116 lines)
-gpiochip3 [ad9088] (4 lines)
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gpioget<span class="w"> </span>ad9088<span class="w"> </span><span class="m">3</span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>0
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gpioset<span class="w"> </span>a4000000.gpio<span class="w"> </span><span class="nv">3</span><span class="o">=</span><span class="m">1</span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
-</pre></div>
-</div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>gpioget<span class="w"> </span>ad9088<span class="w"> </span><span class="m">3</span>
-</pre></div>
-</div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>1
-</pre></div>
-</div>
-<div class="clear-left"></div></div></div></section>
 <section id="debug-system">
 <h4>Debug system<a class="headerlink" href="#debug-system" title="Link to this heading"></a></h4>
 <p>An additional debug interface is provided through debugfs:</p>

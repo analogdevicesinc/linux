@@ -8,13 +8,13 @@
 
     <title>Contribution guidelines &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=d3f78147" />
+    <link rel="stylesheet" type="text/css" href="_static/app.min.css?v=cae2157c" />
     <script async="async" src="_static/app.umd.js?v=26d0298f"></script>
     <link rel="icon" href="_static/icon.svg"/>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Continuous integration" href="ci.html" />
-    <link rel="prev" title="Multi-Chip Synchronization" href="drivers/iio-trx-rf/ad9088/mcs.html" />
+    <link rel="prev" title="GPIO usage" href="drivers/iio-trx-rf/ad9088/gpio.html" />
    
   
   
@@ -66,10 +66,10 @@
     </div>
     <div id="right">
       <span>
-        <a id="logo-org" href="https://analog.com" aria-label="Analog Devices Inc. landing page"></a>
+        <a id="logo-org" href="https://developer.analog.com/" aria-label="Analog Devices Inc. landing page"></a>
         <div class="vertical-divider"></div>
         
-        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Docs</label>
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Documentation</label>
         
         <a id="logo" href="index.html">
           <div>Linux</div>
@@ -336,6 +336,7 @@ Content on this topic
 <li class="toctree-l2"><a class="reference internal" href="drivers/spi/spi_engine.html">SPI Engine</a></li>
 <li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="drivers/iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
 <li class="toctree-l3"><a class="reference internal" href="drivers/iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="drivers/iio-trx-rf/ad9088/gpio.html">GPIO usage</a></li>
 </ul>
 </li>
 </ul>
@@ -383,7 +384,7 @@ they can be run with one command using a standard configuration. The checkers
 supported by build.sh are as follows.</p>
 <section id="checkpatch">
 <h3>Checkpatch<a class="headerlink" href="#checkpatch" title="Link to this heading"></a></h3>
-<p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/checkpatch.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc4)"><span>Checkpatch</span></a>
+<p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/checkpatch.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Checkpatch</span></a>
 (<a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/scripts/checkpatch.pl" target="_blank">checkpatch.pl</a>)
 is a perl script which checks for trivial style violations in patches and
 optionally corrects them. Checkpatch can also be run on file contexts and
@@ -408,7 +409,7 @@ without the kernel tree.</p>
 </section>
 <section id="sparse-and-smatch">
 <h3>Sparse and smatch<a class="headerlink" href="#sparse-and-smatch" title="Link to this heading"></a></h3>
-<p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/sparse.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc4)"><span>Sparse</span></a> is a semantic checker for C programs;
+<p><a class="icon link reference external" href="https://docs.kernel.org/dev-tools/sparse.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Sparse</span></a> is a semantic checker for C programs;
 it can be used to find a number of potential problems with kernel code.
 Usage:</p>
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/linux$
@@ -467,7 +468,7 @@ for the <code class="docutils literal notranslate"><span class="pre">.c</span></
 <section id="devicetree">
 <h2>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h2>
 <p>The “Open Firmware Device Tree”, or simply
-<a class="icon link reference external" href="https://docs.kernel.org/devicetree/usage-model.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc4)"><span class="xref std std-doc">Devicetree</span></a> (DT), is a data
+<a class="icon link reference external" href="https://docs.kernel.org/devicetree/usage-model.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span class="xref std std-doc">Devicetree</span></a> (DT), is a data
 structure and language for describing hardware. More specifically, it is a
 description of hardware that is readable by an operating system so that the
 operating system doesn’t need to hard code details of the machine.</p>
@@ -514,7 +515,7 @@ interfaces (networking, storage, input, etc.), and various device-oriented
 modules (IIO, USB, SPI, etc.). Each subsystem encapsulates its own APIs,
 conventions, and lifecycle, helping maintain modularity and clarity. For an
 up-to-date map of these subsystems and their interfaces, see
-<a class="icon link reference external" href="https://docs.kernel.org/subsystem-apis.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc4)"><span>Kernel subsystem documentation</span></a>.</p>
+<a class="icon link reference external" href="https://docs.kernel.org/subsystem-apis.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Kernel subsystem documentation</span></a>.</p>
 <p>When developing for a particular subsystem, look for the appropriate git tree
 in the <a class="icon link reference external" href="https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/MAINTAINERS" target="_blank">MAINTAINERS</a>
 file to work on. Development branches may be force pushed. It is reasonable to
@@ -525,7 +526,7 @@ or near it, this avoids unnecessary merge commits when pulling changes.</p>
 described at <a class="reference internal" href="ci.html#ci"><span class="std std-ref">Continuous integration</span></a>.</p>
 <section id="iio-subsytem">
 <h3>IIO Subsytem<a class="headerlink" href="#iio-subsytem" title="Link to this heading"></a></h3>
-<p>The <a class="icon link reference external" href="https://docs.kernel.org/driver-api/iio/intro.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc4)"><span class="xref std std-doc">Industrial I/O subsystem</span></a> is
+<p>The <a class="icon link reference external" href="https://docs.kernel.org/driver-api/iio/intro.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span class="xref std std-doc">Industrial I/O subsystem</span></a> is
 intended to provide support for devices that in some senses are analog to
 digital or digital to analog converters (ADCs, DACs). Devices that fall into
 this category are: ADCs, accelerometers, gyros, IMUs, capacitance to digital
@@ -537,7 +538,7 @@ I2C.</p>
 subsystems. Hwmon is very much directed at low sample rate sensors used in
 applications such as fan speed control and temperature measurement.</p>
 <p>To continuous capture data based on a trigger source,
-<a class="icon link reference external" href="https://docs.kernel.org/iio/iio_devbuf.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc4)"><span>Industrial IIO device buffers</span></a> are used.</p>
+<a class="icon link reference external" href="https://docs.kernel.org/iio/iio_devbuf.html" target="_blank" title="(in The Linux Kernel v7.2.0-rc6)"><span>Industrial IIO device buffers</span></a> are used.</p>
 </section>
 </section>
 </section>
@@ -546,7 +547,7 @@ applications such as fan speed control and temperature measurement.</p>
           </div>
               <div class="related">
                 &nbsp;
-    <a href="drivers/iio-trx-rf/ad9088/mcs.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">Multi-Chip Synchronization</a>
+    <a href="drivers/iio-trx-rf/ad9088/gpio.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">GPIO usage</a>
     <a href="ci.html" title="Next document (Alt+Shift+RightArrow)" class="next">Continuous integration</a>
               </div>
           
