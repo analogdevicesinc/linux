@@ -45,6 +45,33 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 	u8 chan;
 	int ret;
 
+	/* Handle RX data capture read specially */
+	if (entry->cmd == DBGFS_RX_DATA_CAPTURE) {
+		char *out_buf;
+		size_t buf_size, pos = 0;
+		u32 i;
+		ssize_t result;
+
+		guard(mutex)(&phy->lock);
+
+		if (!phy->rx_capture_data || !phy->rx_capture_len)
+			return -ENODATA;
+
+		/* Allocate buffer: up to 12 chars per value (including newline) */
+		buf_size = phy->rx_capture_len * 12 + 1;
+		out_buf = kvzalloc(buf_size, GFP_KERNEL);
+		if (!out_buf)
+			return -ENOMEM;
+
+		for (i = 0; i < phy->rx_capture_len && pos < buf_size - 12; i++)
+			pos += scnprintf(out_buf + pos, buf_size - pos, "%u\n",
+					 phy->rx_capture_data[i]);
+
+		result = simple_read_from_buffer(userbuf, count, ppos, out_buf, pos);
+		kvfree(out_buf);
+		return result;
+	}
+
 	if (entry->out_value) {
 		switch (entry->size) {
 		case 1:
@@ -160,6 +187,74 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 	if (ret < 0)
 		return ret;
 	buf[ret] = '\0';
+
+	/*
+	 * Handle RX_DATA_CAPTURE before taking the lock since it needs
+	 * to allocate memory with GFP_KERNEL which can sleep.
+	 */
+	if (entry->cmd == DBGFS_RX_DATA_CAPTURE) {
+		adi_adrv903x_RxChannels_e chan_sel;
+		u32 *capture_buf;
+		u32 length;
+
+		if (sscanf(buf, "%lld %u", &val, &length) < 2)
+			return -EINVAL;
+
+		/* Channel: 0-7 for RX0-RX7, 8-9 for ORX0-ORX1 */
+		if (val < 0 || val > 9)
+			return -EINVAL;
+
+		/* Validate capture length against hardware-supported sizes */
+		switch (length) {
+		case ADI_ADRV903X_CAPTURE_SIZE_32:
+		case ADI_ADRV903X_CAPTURE_SIZE_64:
+		case ADI_ADRV903X_CAPTURE_SIZE_128:
+		case ADI_ADRV903X_CAPTURE_SIZE_256:
+		case ADI_ADRV903X_CAPTURE_SIZE_512:
+		case ADI_ADRV903X_CAPTURE_SIZE_1K:
+		case ADI_ADRV903X_CAPTURE_SIZE_2K:
+		case ADI_ADRV903X_CAPTURE_SIZE_4K:
+		case ADI_ADRV903X_CAPTURE_SIZE_8K:
+		case ADI_ADRV903X_CAPTURE_SIZE_12K:
+			break;
+		case ADI_ADRV903X_CAPTURE_SIZE_16K:
+		case ADI_ADRV903X_CAPTURE_SIZE_32K:
+			/* ORX channels limited to 12K max */
+			if (val >= 8)
+				return -EINVAL;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		if (val < 8)
+			chan_sel = ADI_ADRV903X_RX0 << val;
+		else
+			chan_sel = ADI_ADRV903X_ORX0 << (val - 8);
+
+		capture_buf = kvcalloc(length, sizeof(u32), GFP_KERNEL);
+		if (!capture_buf)
+			return -ENOMEM;
+
+		guard(mutex)(&phy->lock);
+
+		ret = adi_adrv903x_RxOrxDataCaptureStart(phy->palauDevice,
+							 chan_sel,
+							 ADI_ADRV903X_CAPTURE_LOC_DDC0,
+							 capture_buf, length,
+							 0, 1000000);
+		if (ret) {
+			kvfree(capture_buf);
+			return __adrv903x_dev_err(phy, __func__, __LINE__);
+		}
+
+		kvfree(phy->rx_capture_data);
+		phy->rx_capture_data = capture_buf;
+		phy->rx_capture_len = length;
+		entry->val = val;
+
+		return count;
+	}
 
 	ret = sscanf(buf, "%lli %i %i %i", &val, &val2, &val3, &val4);
 	if (ret < 1)
@@ -320,6 +415,7 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 	}
 	adrv903x_add_debugfs_entry(phy, "orx0_adc_status", DBGFS_ORX0_ADC_STATUS);
 	adrv903x_add_debugfs_entry(phy, "orx1_adc_status", DBGFS_ORX1_ADC_STATUS);
+	adrv903x_add_debugfs_entry(phy, "rx_data_capture", DBGFS_RX_DATA_CAPTURE);
 
 	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++) {
 		if (phy->adrv903x_debugfs_entry_index > DBGFS_BIST_TONE)

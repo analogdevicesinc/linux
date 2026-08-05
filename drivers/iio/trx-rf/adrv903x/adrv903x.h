@@ -74,6 +74,7 @@ enum debugfs_cmd {
 	DBGFS_RX7_ADC_STATUS,
 	DBGFS_ORX0_ADC_STATUS,
 	DBGFS_ORX1_ADC_STATUS,
+	DBGFS_RX_DATA_CAPTURE,
 };
 
 enum adrv903x_rx_ext_info {
@@ -199,6 +200,10 @@ struct adrv903x_rf_phy {
 
 	bool is_initialized;
 	const struct adrv903x_chip_info *chip_info;
+
+	/* RX/ORx data capture storage */
+	u32 *rx_capture_data;
+	u32 rx_capture_len;
 	bool tx_test_tone_en[8];
 	u32 tx_test_tone_freq_khz[8];
 	u32 tx_test_tone_phase[8];
@@ -233,5 +238,7 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev);
 #else
 static inline void adrv903x_register_debugfs(struct iio_dev *indio_dev) { }
 #endif
+
+int adrv903x_ramc_probe(struct adrv903x_rf_phy *phy);
 
 #endif

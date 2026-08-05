@@ -2941,6 +2941,10 @@ static int adrv903x_probe(struct spi_device *spi)
 
 	adrv903x_register_debugfs(indio_dev);
 
+	ret = adrv903x_ramc_probe(phy);
+	if (ret < 0)
+		return ret;
+
 	return devm_jesd204_fsm_start(&spi->dev, phy->jdev, JESD204_LINKS_ALL);
 }
 
