@@ -1797,6 +1797,9 @@ void hwss_execute_sequence(struct dc *dc,
 		case DMUB_SEND_DMCUB_CMD:
 			hwss_send_dmcub_cmd(params);
 			break;
+		case LSDMA_SEND_PIO_COPY:
+			hwss_lsdma_send_pio_copy(params);
+			break;
 		case DMUB_SUBVP_SAVE_SURF_ADDR:
 			hwss_subvp_save_surf_addr(params);
 			break;
@@ -2668,6 +2671,17 @@ void hwss_send_dmcub_cmd(union block_sequence_params *params)
 	enum dm_dmub_wait_type wait_type = params->send_dmcub_cmd_params.wait_type;
 
 	dc_wake_and_execute_dmub_cmd(ctx, cmd, wait_type);
+}
+
+void hwss_lsdma_send_pio_copy(union block_sequence_params *params)
+{
+	struct dc_dmub_srv *dc_dmub_srv = params->lsdma_send_pio_copy_params.dc_dmub_srv;
+	uint64_t src_addr = params->lsdma_send_pio_copy_params.src_addr;
+	uint64_t dst_addr = params->lsdma_send_pio_copy_params.dst_addr;
+	uint32_t byte_count = params->lsdma_send_pio_copy_params.byte_count;
+	uint32_t overlap_disable = params->lsdma_send_pio_copy_params.overlap_disable;
+
+	dmub_lsdma_send_pio_copy_command(dc_dmub_srv, src_addr, dst_addr, byte_count, overlap_disable);
 }
 
 /*
@@ -5210,6 +5224,21 @@ void hwss_add_hubbub_perfmon_arm_out_of_order_bw(struct block_sequence_state *se
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
 		seq_state->steps[*seq_state->num_steps].func = HUBBUB_PERFMON_ARM_OUT_OF_ORDER_BW;
 		seq_state->steps[*seq_state->num_steps].params.hubbub_perfmon_arm_out_of_order_bw_params.hubbub = hubbub;
+		(*seq_state->num_steps)++;
+	}
+}
+
+void hwss_add_lsdma_send_pio_copy(struct block_sequence_state *seq_state,
+		struct dc_dmub_srv *dc_dmub_srv, uint64_t src_addr, uint64_t dst_addr,
+		uint32_t byte_count, uint32_t overlap_disable)
+{
+	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		seq_state->steps[*seq_state->num_steps].func = LSDMA_SEND_PIO_COPY;
+		seq_state->steps[*seq_state->num_steps].params.lsdma_send_pio_copy_params.dc_dmub_srv = dc_dmub_srv;
+		seq_state->steps[*seq_state->num_steps].params.lsdma_send_pio_copy_params.src_addr = src_addr;
+		seq_state->steps[*seq_state->num_steps].params.lsdma_send_pio_copy_params.dst_addr = dst_addr;
+		seq_state->steps[*seq_state->num_steps].params.lsdma_send_pio_copy_params.byte_count = byte_count;
+		seq_state->steps[*seq_state->num_steps].params.lsdma_send_pio_copy_params.overlap_disable = overlap_disable;
 		(*seq_state->num_steps)++;
 	}
 }

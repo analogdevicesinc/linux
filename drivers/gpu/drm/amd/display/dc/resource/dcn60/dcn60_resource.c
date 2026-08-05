@@ -3,6 +3,7 @@
 // Copyright 2024 Advanced Micro Devices, Inc.
 
 #include "dm_services.h"
+#include "dm_helpers.h"
 #include "dc.h"
 
 #include "dcn32/dcn32_init.h"
@@ -83,6 +84,8 @@
 
 #include "dml2_wrapper/dml2_wrapper.h"
 #include "dml2_wrapper/dml21_wrapper/dml21_wrapper.h"
+
+#define LSDMA_CONTENTION_BUFFER_SIZE (64 * 1024 * 1024)
 
 #define DC_LOGGER_INIT(logger)
 
@@ -1626,6 +1629,12 @@ static void dcn60_resource_destruct(struct dcn60_resource_pool *pool)
 {
 	unsigned int i;
 
+	if (pool->base.lsdma_scratch.buffer) {
+		dm_helpers_free_gpu_mem(pool->base.ctx,
+				DC_MEM_ALLOC_TYPE_GART, pool->base.lsdma_scratch.buffer);
+		pool->base.lsdma_scratch.buffer = NULL;
+	}
+
 	for (i = 0; i < pool->base.stream_enc_count; i++) {
 		if (pool->base.stream_enc[i] != NULL) {
 			if (pool->base.stream_enc[i]->vpg != NULL) {
@@ -2041,6 +2050,16 @@ static bool dcn60_resource_construct(
 	dc->caps.dmcub_support = true;
 	dc->caps.utm_support = true;
 	dc->caps.max_v_total = (1 << 15) - 1;
+
+	pool->base.ctx = ctx;
+
+	if (dc->config.lsdma_peak_bw_contention_support) {
+		pool->base.lsdma_scratch.buffer = dm_helpers_allocate_gpu_mem(ctx,
+				DC_MEM_ALLOC_TYPE_GART, LSDMA_CONTENTION_BUFFER_SIZE,
+				&pool->base.lsdma_scratch.pa);
+		if (pool->base.lsdma_scratch.buffer)
+			pool->base.lsdma_scratch.size = LSDMA_CONTENTION_BUFFER_SIZE;
+	}
 
 	if (ASICREV_IS_GC_12_0_1_A0(dc->ctx->asic_id.hw_internal_rev))
 		dc->caps.dcc_plane_width_limit = 7680;

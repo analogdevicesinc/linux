@@ -4475,6 +4475,10 @@ enum dc_status resource_validate_probe_set(struct dc *dc,
 
 		if (probes[i].scope.type != DC_PROBE_SCOPE_GLOBAL)
 			return DC_NOT_SUPPORTED;
+
+		if (probes[i].type == DC_PROBE_PEAK_MEM_BW_STRESSED &&
+				!dc->res_pool->lsdma_scratch.buffer)
+			return DC_NO_DRAM_BUFFER_RESOURCE;
 	}
 
 	return DC_OK;

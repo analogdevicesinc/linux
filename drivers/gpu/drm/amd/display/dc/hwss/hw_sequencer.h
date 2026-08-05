@@ -142,6 +142,14 @@ struct send_dmcub_cmd_params {
 	enum dm_dmub_wait_type wait_type;
 };
 
+struct lsdma_send_pio_copy_params {
+	struct dc_dmub_srv *dc_dmub_srv;
+	uint64_t src_addr;
+	uint64_t dst_addr;
+	uint32_t byte_count;
+	uint32_t overlap_disable;
+};
+
 struct setup_dpp_params {
 	struct pipe_ctx *pipe_ctx;
 };
@@ -1058,6 +1066,7 @@ union block_sequence_params {
 	struct update_info_frame_params update_info_frame_params;
 	struct program_manual_trigger_params program_manual_trigger_params;
 	struct send_dmcub_cmd_params send_dmcub_cmd_params;
+	struct lsdma_send_pio_copy_params lsdma_send_pio_copy_params;
 	struct setup_dpp_params setup_dpp_params;
 	struct program_bias_and_scale_params program_bias_and_scale_params;
 	struct set_output_transfer_func_params set_output_transfer_func_params;
@@ -1236,6 +1245,7 @@ enum block_sequence_func {
 	HUBP_SET_DMDATA_ATTRIBUTES,
 	OPTC_PROGRAM_MANUAL_TRIGGER,
 	DMUB_SEND_DMCUB_CMD,
+	LSDMA_SEND_PIO_COPY,
 	DPP_SETUP_DPP,
 	DPP_PROGRAM_BIAS_AND_SCALE,
 	DPP_SET_OUTPUT_TRANSFER_FUNC,
@@ -1847,6 +1857,7 @@ void hwss_process_outstanding_hw_updates(struct dc *dc,
 		struct dc_state *dc_context);
 
 void hwss_send_dmcub_cmd(union block_sequence_params *params);
+void hwss_lsdma_send_pio_copy(union block_sequence_params *params);
 
 void hwss_program_manual_trigger(union block_sequence_params *params);
 
@@ -2205,6 +2216,9 @@ void hwss_add_dmub_send_dmcub_cmd(struct block_sequence_state *seq_state,
 void hwss_add_dmub_subvp_save_surf_addr(struct block_sequence_state *seq_state,
 		struct dc_dmub_srv *dc_dmub_srv, struct dc_plane_address *addr, uint8_t subvp_index);
 
+void hwss_add_lsdma_send_pio_copy(struct block_sequence_state *seq_state,
+		struct dc_dmub_srv *dc_dmub_srv, uint64_t src_addr, uint64_t dst_addr,
+		uint32_t byte_count, uint32_t overlap_disable);
 void hwss_add_hubp_wait_pipe_read_start(struct block_sequence_state *seq_state,
 		struct hubp *hubp);
 

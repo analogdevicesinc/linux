@@ -584,6 +584,7 @@ struct dc_config {
 	bool forced_clocks;
 	union allow_lttpr_non_transparent_mode allow_lttpr_non_transparent_mode;
 	bool multi_mon_pp_mclk_switch;
+	bool lsdma_peak_bw_contention_support;
 	bool disable_dmcu;
 	bool allow_4to1MPC;
 	bool enable_windowed_mpo_odm;

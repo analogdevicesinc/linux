@@ -1713,7 +1713,8 @@ static uint32_t hubbub60_perfmon_get_in_order_bandwidth_mbps(
 		return 0;
 
 	measuring_duration_ns = count4 * 1000 / refclk_mhz;
-	*duration_ns = measuring_duration_ns;
+	if (duration_ns)
+		*duration_ns = measuring_duration_ns;
 	if (min_duration_ns > measuring_duration_ns)
 		return 0;
 

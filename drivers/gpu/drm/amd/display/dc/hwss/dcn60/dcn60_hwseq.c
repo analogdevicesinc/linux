@@ -893,7 +893,6 @@ static void dcn60_build_hubbub_perfmon_sequence(
 	uint32_t refclk_mhz = dc->res_pool->ref_clocks.dchub_ref_clock_inKhz / 1000;
 	struct timing_generator *ref_tg = dcn60_get_ref_tg_for_hubbub_probe(context);
 	struct block_sequence_state seq_state = { .steps = block_sequence, .num_steps = num_steps };
-	uint32_t duration_ns = 0;
 
 	if (!hubbub || !hubbub->funcs || !hubbub->funcs->perfmon.reset)
 		return;
@@ -910,6 +909,7 @@ static void dcn60_build_hubbub_perfmon_sequence(
 
 	switch (probe->type) {
 	case DC_PROBE_PEAK_MEM_BW:
+	case DC_PROBE_PEAK_MEM_BW_STRESSED:
 		/* Start at the vblank edge and stop at the next vactive so the counter
 		 * spans exactly one prefetch window, capturing prefetch traffic only. */
 		if (!hubbub->funcs->perfmon.arm_measuring_out_of_order_bandwidth ||
@@ -919,12 +919,30 @@ static void dcn60_build_hubbub_perfmon_sequence(
 
 		hwss_add_hubbub_perfmon_reset(&seq_state, hubbub);
 		hwss_add_hubbub_perfmon_arm_out_of_order_bw(&seq_state, hubbub);
+
+		if (probe->type == DC_PROBE_PEAK_MEM_BW_STRESSED) {
+			struct dc_plane_state *plane = (context->stream_status[0].plane_count > 0) ?
+					context->stream_status[0].plane_states[0] : NULL;
+
+			if (dc->res_pool->lsdma_scratch.buffer && plane) {
+				unsigned int surface_bytes = plane->plane_size.surface_pitch *
+						plane->plane_size.surface_size.height;
+				unsigned int copy_bytes = (surface_bytes < dc->res_pool->lsdma_scratch.size) ?
+						surface_bytes : dc->res_pool->lsdma_scratch.size;
+
+				hwss_add_lsdma_send_pio_copy(&seq_state, dc->ctx->dmub_srv,
+						(uint64_t)plane->address.grph.addr.quad_part,
+						(uint64_t)dc->res_pool->lsdma_scratch.pa,
+						copy_bytes, /* overlap_disable */ 1);
+			}
+		}
+
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VACTIVE);
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VBLANK);
 		hwss_add_hubbub_perfmon_start_out_of_order_bw(&seq_state, hubbub);
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VACTIVE);
 		hwss_add_hubbub_perfmon_get_out_of_order_bw(&seq_state, hubbub,
-				refclk_mhz, &status->u.bandwidth_mbps, &duration_ns);
+				refclk_mhz, &status->u.bandwidth_mbps, NULL);
 		break;
 
 	case DC_PROBE_AVG_MEM_BW:
@@ -941,7 +959,7 @@ static void dcn60_build_hubbub_perfmon_sequence(
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VACTIVE);
 		hwss_add_tg_wait_for_state(&seq_state, ref_tg, CRTC_STATE_VBLANK);
 		hwss_add_hubbub_perfmon_get_in_order_bw(&seq_state, hubbub,
-				refclk_mhz, 0, &status->u.bandwidth_mbps, &duration_ns);
+				refclk_mhz, 0, &status->u.bandwidth_mbps, NULL);
 		break;
 
 	case DC_PROBE_MEM_LATENCY:
@@ -1006,6 +1024,7 @@ static void dcn60_update_probe_status(struct dc_probe_status *status)
 {
 	switch (status->type) {
 	case DC_PROBE_PEAK_MEM_BW:
+	case DC_PROBE_PEAK_MEM_BW_STRESSED:
 	case DC_PROBE_AVG_MEM_BW:
 		/* Zero bandwidth means the counter did not fire — treat as invalid. */
 		status->valid = (status->u.bandwidth_mbps != 0);
@@ -1029,6 +1048,7 @@ static bool is_probe_measurement_type_for_hubbub(enum dc_probe_type type)
 {
 	switch (type) {
 	case DC_PROBE_PEAK_MEM_BW:
+	case DC_PROBE_PEAK_MEM_BW_STRESSED:
 	case DC_PROBE_AVG_MEM_BW:
 	case DC_PROBE_MEM_LATENCY:
 	case DC_PROBE_URGENT_ASSERTION_COUNT:
