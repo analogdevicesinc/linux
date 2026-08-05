@@ -6476,6 +6476,8 @@ struct dm_test_conn_ac_ctx {
 	struct drm_atomic_commit *state;
 	struct drm_connector_state *old_state;
 	struct drm_connector_state *new_state;
+	struct drm_crtc *crtc;
+	struct drm_crtc_state *crtc_state;
 };
 
 static struct dm_test_conn_ac_ctx *
@@ -6566,6 +6568,146 @@ static void dm_test_conn_atomic_check_no_change(struct kunit *test)
 	ret = amdgpu_dm_connector_atomic_check(&ctx->aconn->base, ctx->state);
 
 	KUNIT_EXPECT_EQ(test, ret, 0);
+}
+
+/*
+ * Bind a crtc to the commit with a pre-populated crtc slot so
+ * drm_atomic_get_crtc_state() returns @crtc_state via its new-state fast path
+ * rather than locking and duplicating through absent crtc funcs.
+ */
+static void dm_test_conn_ac_bind_crtc(struct kunit *test,
+				      struct dm_test_conn_ac_ctx *ctx)
+{
+	ctx->crtc = kunit_kzalloc(test, sizeof(*ctx->crtc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc);
+	ctx->crtc_state = kunit_kzalloc(test, sizeof(*ctx->crtc_state), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_state);
+
+	ctx->state->crtcs = kunit_kcalloc(test, 1, sizeof(*ctx->state->crtcs),
+					  GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->state->crtcs);
+	ctx->state->crtcs[0].ptr = ctx->crtc;
+	ctx->state->crtcs[0].new_state = ctx->crtc_state;
+
+	/* Only needs to be non-NULL to satisfy the get_crtc_state() WARN. */
+	ctx->state->acquire_ctx = (void *)ctx;
+
+	ctx->new_state->crtc = ctx->crtc;
+}
+
+/**
+ * dm_test_conn_atomic_check_privacy_change - Test privacy toggle forces modeset
+ * @test: The KUnit test context
+ *
+ * A changed privacy-screen software state pulls in the crtc state and flags a
+ * modeset.
+ */
+static void dm_test_conn_atomic_check_privacy_change(struct kunit *test)
+{
+	struct dm_test_conn_ac_ctx *ctx =
+		dm_test_conn_ac_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	int ret;
+
+	dm_test_conn_ac_bind_crtc(test, ctx);
+	ctx->new_state->privacy_screen_sw_state = PRIVACY_SCREEN_ENABLED;
+
+	ret = amdgpu_dm_connector_atomic_check(&ctx->aconn->base, ctx->state);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_TRUE(test, ctx->crtc_state->mode_changed);
+}
+
+/**
+ * dm_test_conn_atomic_check_colorspace_change - Test colorspace change forces modeset
+ * @test: The KUnit test context
+ *
+ * A changed output colorspace pulls in the crtc state and flags a modeset.
+ */
+static void dm_test_conn_atomic_check_colorspace_change(struct kunit *test)
+{
+	struct dm_test_conn_ac_ctx *ctx =
+		dm_test_conn_ac_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	int ret;
+
+	dm_test_conn_ac_bind_crtc(test, ctx);
+	ctx->new_state->colorspace = DRM_MODE_COLORIMETRY_BT2020_RGB;
+
+	ret = amdgpu_dm_connector_atomic_check(&ctx->aconn->base, ctx->state);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_TRUE(test, ctx->crtc_state->mode_changed);
+}
+
+/**
+ * dm_test_conn_atomic_check_content_type_change - Test content-type change forces modeset
+ * @test: The KUnit test context
+ *
+ * A changed content type pulls in the crtc state and flags a modeset.
+ */
+static void dm_test_conn_atomic_check_content_type_change(struct kunit *test)
+{
+	struct dm_test_conn_ac_ctx *ctx =
+		dm_test_conn_ac_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	int ret;
+
+	dm_test_conn_ac_bind_crtc(test, ctx);
+	ctx->new_state->content_type = DRM_MODE_CONTENT_TYPE_GRAPHICS;
+
+	ret = amdgpu_dm_connector_atomic_check(&ctx->aconn->base, ctx->state);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_TRUE(test, ctx->crtc_state->mode_changed);
+}
+
+/**
+ * dm_test_conn_atomic_check_hdr_exit - Test exiting HDR forces a modeset
+ * @test: The KUnit test context
+ *
+ * Clearing previously set HDR metadata makes the metadata unequal; the fill
+ * succeeds for the empty new state and the enter/exit rule flags a modeset.
+ */
+static void dm_test_conn_atomic_check_hdr_exit(struct kunit *test)
+{
+	struct dm_test_conn_ac_ctx *ctx =
+		dm_test_conn_ac_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct drm_property_blob *blob;
+	int ret;
+
+	blob = kunit_kzalloc(test, sizeof(*blob), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, blob);
+
+	dm_test_conn_ac_bind_crtc(test, ctx);
+	ctx->old_state->hdr_output_metadata = blob;
+
+	ret = amdgpu_dm_connector_atomic_check(&ctx->aconn->base, ctx->state);
+
+	KUNIT_EXPECT_EQ(test, ret, 0);
+	KUNIT_EXPECT_TRUE(test, ctx->crtc_state->mode_changed);
+}
+
+/**
+ * dm_test_conn_atomic_check_hdr_fill_error - Test infopacket fill errors propagate
+ * @test: The KUnit test context
+ *
+ * A new HDR metadata blob with no payload makes the infopacket fill fail, and
+ * that error is returned before the crtc state is touched.
+ */
+static void dm_test_conn_atomic_check_hdr_fill_error(struct kunit *test)
+{
+	struct dm_test_conn_ac_ctx *ctx =
+		dm_test_conn_ac_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct drm_property_blob *blob;
+	int ret;
+
+	blob = kunit_kzalloc(test, sizeof(*blob), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, blob);
+
+	dm_test_conn_ac_bind_crtc(test, ctx);
+	ctx->new_state->hdr_output_metadata = blob;
+
+	ret = amdgpu_dm_connector_atomic_check(&ctx->aconn->base, ctx->state);
+
+	KUNIT_EXPECT_EQ(test, ret, -EINVAL);
 }
 
 /**
@@ -7249,6 +7391,11 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_conn_atomic_check_no_crtc),
 	KUNIT_CASE(dm_test_conn_atomic_check_dp_mst),
 	KUNIT_CASE(dm_test_conn_atomic_check_no_change),
+	KUNIT_CASE(dm_test_conn_atomic_check_privacy_change),
+	KUNIT_CASE(dm_test_conn_atomic_check_colorspace_change),
+	KUNIT_CASE(dm_test_conn_atomic_check_content_type_change),
+	KUNIT_CASE(dm_test_conn_atomic_check_hdr_exit),
+	KUNIT_CASE(dm_test_conn_atomic_check_hdr_fill_error),
 	/* amdgpu_dm_connector_atomic_set_property */
 	KUNIT_CASE(dm_test_set_property_scaling_center),
 	KUNIT_CASE(dm_test_set_property_scaling_aspect),
