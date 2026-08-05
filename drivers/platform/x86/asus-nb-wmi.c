@@ -137,6 +137,10 @@ static struct quirk_entry quirk_asus_use_lid_flip_devid = {
 	.tablet_switch_mode = asus_wmi_lid_flip_devid,
 };
 
+static struct quirk_entry quirk_asus_proart_px13 = {
+	.tablet_switch_mode = asus_wmi_lid_flip_devid,
+};
+
 static struct quirk_entry quirk_asus_tablet_mode = {
 	.wmi_backlight_set_devstate = true,
 	.tablet_switch_mode = asus_wmi_lid_flip_rog_devid,
@@ -561,6 +565,15 @@ static const struct dmi_system_id asus_quirks[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "ROG Flow Z13"),
 		},
 		.driver_data = &quirk_asus_z13,
+	},
+	{
+		.callback = dmi_matched,
+		.ident = "ASUS ProArt PX13",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "ASUSTeK COMPUTER INC."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "HN7306WV"),
+		},
+		.driver_data = &quirk_asus_proart_px13,
 	},
 	{},
 };
