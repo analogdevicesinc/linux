@@ -75,4 +75,7 @@ void hsw_read_infoframe(struct intel_encoder *encoder,
 void intel_hdmi_poll_for_scrambling_enable(const struct intel_crtc_state *crtc_state,
 					   struct drm_connector *_connector);
 
+int intel_hdmi_sink_max_frl_rate(struct drm_connector *connector);
+int intel_hdmi_sink_dsc_max_frl_rate(struct drm_connector *connector);
+
 #endif /* __INTEL_HDMI_H__ */
