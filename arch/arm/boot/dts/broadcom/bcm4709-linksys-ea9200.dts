@@ -162,6 +162,11 @@
 	vcc-gpios = <&chipcommon 14 GPIO_ACTIVE_HIGH>;
 };
 
+&gmac2 {
+	nvmem-cells = <&et2macaddr 0>;
+	nvmem-cell-names = "mac-address";
+};
+
 &srab {
 	status = "okay";
 
