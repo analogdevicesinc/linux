@@ -900,6 +900,7 @@ struct cfg80211_bitrate_mask {
 		enum nl80211_eht_gi eht_gi;
 		enum nl80211_he_ltf he_ltf;
 		enum nl80211_eht_ltf eht_ltf;
+		bool nonht_dup_6ghz;
 	} control[NUM_NL80211_BANDS];
 };
 
