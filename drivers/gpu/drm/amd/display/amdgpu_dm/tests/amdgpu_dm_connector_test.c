@@ -6322,6 +6322,30 @@ static void dm_test_mode_valid_force_on_no_stream(struct kunit *test)
 }
 
 /**
+ * dm_test_mode_valid_edid_mgmt_forced - Test the forced-connector EDID refresh
+ * @test: The KUnit test context
+ *
+ * A forced connector with no emulated sink runs the one-time EDID mgmt refresh
+ * before validating; with no readable EDID no dc_sink appears and a non-on
+ * force still bails to MODE_ERROR.
+ */
+static void dm_test_mode_valid_edid_mgmt_forced(struct kunit *test)
+{
+	struct dm_test_edid_ctx *ctx =
+		dm_test_edid_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	struct drm_display_mode *mode;
+
+	ctx->link->connector_signal = SIGNAL_TYPE_DISPLAY_PORT;
+
+	mode = kunit_kzalloc(test, sizeof(*mode), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, mode);
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_connector_mode_valid(&ctx->aconnector->base, mode),
+			MODE_ERROR);
+}
+
+/**
  * dm_test_update_after_detect_mst_noop - Test MST connectors are left to drm_mst
  * @test: The KUnit test context
  *
@@ -7178,6 +7202,7 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_mode_valid_dblscan_rejected),
 	KUNIT_CASE(dm_test_mode_valid_no_dc_sink),
 	KUNIT_CASE(dm_test_mode_valid_force_on_no_stream),
+	KUNIT_CASE(dm_test_mode_valid_edid_mgmt_forced),
 	/* amdgpu_dm_hdmi_cec_set_edid */
 	KUNIT_CASE(dm_test_hdmi_cec_set_edid_no_notifier),
 	/* amdgpu_dm_s3_handle_hdmi_cec */
