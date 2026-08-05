@@ -1534,7 +1534,8 @@ static int adrv904x_jesd204_link_init(struct jesd204_dev *jdev,
 						    JESD204_VERSION_B;
 		lnk->subclass = JESD204_SUBCLASS_1;
 		lnk->is_transmit = true;
-		lnk->jesd_encoder = JESD204_ENCODER_64B66B;
+		lnk->jesd_encoder = deframerCfg.enableJesd204C ? JESD204_ENCODER_64B66B :
+							JESD204_ENCODER_8B10B;
 		break;
 	}
 	case FRAMER0_LINK_RX:
@@ -1582,7 +1583,8 @@ static int adrv904x_jesd204_link_init(struct jesd204_dev *jdev,
 			    JESD204_VERSION_B;
 		lnk->subclass = JESD204_SUBCLASS_1;
 		lnk->is_transmit = false;
-		lnk->jesd_encoder = JESD204_ENCODER_64B66B;
+		lnk->jesd_encoder = framerCfg.enableJesd204C ? JESD204_ENCODER_64B66B :
+							JESD204_ENCODER_8B10B;
 
 		break;
 	}
@@ -1890,10 +1892,17 @@ static int adrv904x_jesd204_link_running(struct jesd204_dev *jdev,
 		if (ret)
 			return ret;
 
-		if (framerStatus.status != 0x82)
-			dev_warn(&phy->spi->dev,
-				 "Link%u framerStatus 0x%X",
-				 lnk->link_id, framerStatus.status);
+		if (lnk->jesd_version != JESD204_VERSION_C) {
+			if (framerStatus.status != 0x2)
+				dev_warn(&phy->spi->dev,
+					 "Link%u framerStatus 0x%X (expected 0x2)",
+					 lnk->link_id, framerStatus.status);
+		} else {
+			if (framerStatus.status != 0x82)
+				dev_warn(&phy->spi->dev,
+					 "Link%u framerStatus 0x%X (expected 0x82)",
+					 lnk->link_id, framerStatus.status);
+		}
 	} else {
 		ret = adrv904x_api_call(phy, adi_adrv904x_DeframerStatusGet_v2,
 			       priv->link[lnk->link_id].source_id, &deframerStatus);
