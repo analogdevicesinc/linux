@@ -1654,6 +1654,124 @@ static void dm_test_fill_hdr_zeroes_output(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)out.hb3, 0);
 }
 
+/*
+ * Build a minimal connector state carrying a valid static HDR metadata blob so
+ * the packing path can be exercised without a full atomic state. connector_type
+ * selects the sink-specific header layout.
+ */
+struct dm_test_hdr_ctx {
+	struct drm_connector conn;
+	struct drm_connector_state state;
+	struct drm_property_blob blob;
+	struct hdr_output_metadata meta;
+};
+
+static struct dm_test_hdr_ctx *
+dm_test_hdr_ctx_alloc(struct kunit *test, int connector_type)
+{
+	struct dm_test_hdr_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->conn.connector_type = connector_type;
+	ctx->state.connector = &ctx->conn;
+	ctx->blob.data = &ctx->meta;
+	ctx->blob.length = sizeof(ctx->meta);
+	ctx->state.hdr_output_metadata = &ctx->blob;
+
+	return ctx;
+}
+
+/**
+ * dm_test_fill_hdr_hdmi - Test the HDMI infopacket header layout
+ * @test: The KUnit test context
+ *
+ * A valid metadata blob on an HDMI connector packs a type 0x87 infoframe and
+ * marks the packet valid.
+ */
+static void dm_test_fill_hdr_hdmi(struct kunit *test)
+{
+	struct dm_test_hdr_ctx *ctx =
+		dm_test_hdr_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_info_packet out;
+
+	memset(&out, 0xAA, sizeof(out));
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_fill_hdr_info_packet(&ctx->state, &out), 0);
+	KUNIT_EXPECT_TRUE(test, out.valid);
+	KUNIT_EXPECT_EQ(test, (int)out.hb0, 0x87);
+	KUNIT_EXPECT_EQ(test, (int)out.hb1, 0x01);
+	KUNIT_EXPECT_EQ(test, (int)out.hb2, 0x1A);
+}
+
+/**
+ * dm_test_fill_hdr_dp - Test the DisplayPort SDP header layout
+ * @test: The KUnit test context
+ *
+ * A valid metadata blob on a DisplayPort connector packs the SDP header with
+ * the version/length subpacket bytes and marks the packet valid.
+ */
+static void dm_test_fill_hdr_dp(struct kunit *test)
+{
+	struct dm_test_hdr_ctx *ctx =
+		dm_test_hdr_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	struct dc_info_packet out;
+
+	memset(&out, 0xAA, sizeof(out));
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_fill_hdr_info_packet(&ctx->state, &out), 0);
+	KUNIT_EXPECT_TRUE(test, out.valid);
+	KUNIT_EXPECT_EQ(test, (int)out.hb0, 0x00);
+	KUNIT_EXPECT_EQ(test, (int)out.hb1, 0x87);
+	KUNIT_EXPECT_EQ(test, (int)out.hb2, 0x1D);
+	KUNIT_EXPECT_EQ(test, (int)out.hb3, 0x13 << 2);
+	KUNIT_EXPECT_EQ(test, (int)out.sb[0], 0x01);
+	KUNIT_EXPECT_EQ(test, (int)out.sb[1], 0x1A);
+}
+
+/**
+ * dm_test_fill_hdr_unsupported_connector - Test unsupported sinks are rejected
+ * @test: The KUnit test context
+ *
+ * A connector type with no defined HDR infopacket layout returns -EINVAL and
+ * leaves the packet invalid.
+ */
+static void dm_test_fill_hdr_unsupported_connector(struct kunit *test)
+{
+	struct dm_test_hdr_ctx *ctx =
+		dm_test_hdr_ctx_alloc(test, DRM_MODE_CONNECTOR_VGA);
+	struct dc_info_packet out = {};
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_fill_hdr_info_packet(&ctx->state, &out),
+			-EINVAL);
+	KUNIT_EXPECT_FALSE(test, out.valid);
+}
+
+/**
+ * dm_test_fill_hdr_bad_metadata - Test malformed metadata is propagated
+ * @test: The KUnit test context
+ *
+ * A metadata blob with no payload makes drm_hdmi_infoframe_set_hdr_metadata()
+ * fail, and that error is returned unchanged.
+ */
+static void dm_test_fill_hdr_bad_metadata(struct kunit *test)
+{
+	struct dm_test_hdr_ctx *ctx =
+		dm_test_hdr_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
+	struct dc_info_packet out = {};
+
+	ctx->blob.data = NULL;
+
+	KUNIT_EXPECT_EQ(test,
+			amdgpu_dm_fill_hdr_info_packet(&ctx->state, &out),
+			-EINVAL);
+	KUNIT_EXPECT_FALSE(test, out.valid);
+}
+
 /* Tests for amdgpu_dm_connector_atomic_set_property() */
 
 /*
@@ -7018,6 +7136,10 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* amdgpu_dm_fill_hdr_info_packet */
 	KUNIT_CASE(dm_test_fill_hdr_null_metadata),
 	KUNIT_CASE(dm_test_fill_hdr_zeroes_output),
+	KUNIT_CASE(dm_test_fill_hdr_hdmi),
+	KUNIT_CASE(dm_test_fill_hdr_dp),
+	KUNIT_CASE(dm_test_fill_hdr_unsupported_connector),
+	KUNIT_CASE(dm_test_fill_hdr_bad_metadata),
 	/* amdgpu_dm_connector_atomic_set_property */
 	KUNIT_CASE(dm_test_set_property_scaling_center),
 	KUNIT_CASE(dm_test_set_property_scaling_aspect),
