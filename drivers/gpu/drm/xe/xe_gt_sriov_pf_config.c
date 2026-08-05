@@ -668,7 +668,42 @@ static int pf_config_bulk_set_u64_done(struct xe_gt *gt, unsigned int first, uns
 }
 
 /**
- * xe_gt_sriov_pf_config_bulk_set_ggtt - Provision many VFs with GGTT.
+ * xe_gt_sriov_pf_config_bulk_set_ggtt_locked() - Provision many VFs with GGTT.
+ * @gt: the &xe_gt (can't be media)
+ * @vfid: starting VF identifier (can't be 0)
+ * @num_vfs: number of VFs to provision
+ * @size: requested GGTT size
+ *
+ * This function can only be called on PF.
+ *
+ * Return: 0 on success or a negative error code on failure.
+ */
+int xe_gt_sriov_pf_config_bulk_set_ggtt_locked(struct xe_gt *gt, unsigned int vfid,
+					       unsigned int num_vfs, u64 size)
+{
+	unsigned int n;
+	int err = 0;
+
+	xe_gt_assert(gt, vfid);
+	xe_gt_assert(gt, xe_gt_is_main_type(gt));
+	lockdep_assert_held(xe_gt_sriov_pf_master_mutex(gt));
+
+	if (!num_vfs)
+		return 0;
+
+	for (n = vfid; n < vfid + num_vfs; n++) {
+		err = pf_provision_vf_ggtt(gt, n, size);
+		if (err)
+			break;
+	}
+
+	return pf_config_bulk_set_u64_done(gt, vfid, num_vfs, size,
+					   pf_get_vf_config_ggtt,
+					   "GGTT", n, err);
+}
+
+/**
+ * xe_gt_sriov_pf_config_bulk_set_ggtt() - Provision many VFs with GGTT.
  * @gt: the &xe_gt (can't be media)
  * @vfid: starting VF identifier (can't be 0)
  * @num_vfs: number of VFs to provision
@@ -681,26 +716,9 @@ static int pf_config_bulk_set_u64_done(struct xe_gt *gt, unsigned int first, uns
 int xe_gt_sriov_pf_config_bulk_set_ggtt(struct xe_gt *gt, unsigned int vfid,
 					unsigned int num_vfs, u64 size)
 {
-	unsigned int n;
-	int err = 0;
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
 
-	xe_gt_assert(gt, vfid);
-	xe_gt_assert(gt, xe_gt_is_main_type(gt));
-
-	if (!num_vfs)
-		return 0;
-
-	mutex_lock(xe_gt_sriov_pf_master_mutex(gt));
-	for (n = vfid; n < vfid + num_vfs; n++) {
-		err = pf_provision_vf_ggtt(gt, n, size);
-		if (err)
-			break;
-	}
-	mutex_unlock(xe_gt_sriov_pf_master_mutex(gt));
-
-	return pf_config_bulk_set_u64_done(gt, vfid, num_vfs, size,
-					   xe_gt_sriov_pf_config_get_ggtt,
-					   "GGTT", n, err);
+	return xe_gt_sriov_pf_config_bulk_set_ggtt_locked(gt, vfid, num_vfs, size);
 }
 
 /* Return: size of the largest continuous GGTT region */
@@ -775,10 +793,9 @@ int xe_gt_sriov_pf_config_set_fair_ggtt(struct xe_gt *gt, unsigned int vfid,
 	xe_gt_assert(gt, num_vfs);
 	xe_gt_assert(gt, xe_gt_is_main_type(gt));
 
-	mutex_lock(xe_gt_sriov_pf_master_mutex(gt));
-	fair = pf_estimate_fair_ggtt(gt, num_vfs);
-	mutex_unlock(xe_gt_sriov_pf_master_mutex(gt));
+	guard(mutex)(xe_gt_sriov_pf_master_mutex(gt));
 
+	fair = pf_estimate_fair_ggtt(gt, num_vfs);
 	if (!fair)
 		return -ENOSPC;
 
@@ -787,7 +804,7 @@ int xe_gt_sriov_pf_config_set_fair_ggtt(struct xe_gt *gt, unsigned int vfid,
 		xe_gt_sriov_info(gt, "Using non-profile provisioning (%s %llu vs %llu)\n",
 				 "GGTT", fair, profile);
 
-	return xe_gt_sriov_pf_config_bulk_set_ggtt(gt, vfid, num_vfs, fair);
+	return xe_gt_sriov_pf_config_bulk_set_ggtt_locked(gt, vfid, num_vfs, fair);
 }
 
 /**
