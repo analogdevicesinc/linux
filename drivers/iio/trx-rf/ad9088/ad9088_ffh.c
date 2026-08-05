@@ -62,7 +62,7 @@ int ad9088_ffh_probe(struct ad9088_phy *phy)
 	cnco_hop_config.profile_sel_mode = ADI_APOLLO_NCO_CHAN_SEL_DIRECT_REGMAP;
 
 	ret = adi_apollo_fnco_hop_pgm(&phy->ad9088, ADI_APOLLO_RX,
-				      ADI_APOLLO_CNCO_ALL, &fnco_hop_config);
+				      ADI_APOLLO_FNCO_ALL, &fnco_hop_config);
 	if (ret)
 		return ret;
 	ret = adi_apollo_fnco_hop_pgm(&phy->ad9088, ADI_APOLLO_TX,
