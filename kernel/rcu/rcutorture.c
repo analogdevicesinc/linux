@@ -440,6 +440,7 @@ struct rcu_torture_ops {
 	int debug_objects;
 	int start_poll_irqsoff;
 	int have_up_down;
+	int rdrs_handle_load;
 	const char *name;
 };
 
@@ -648,6 +649,7 @@ static struct rcu_torture_ops rcu_ops = {
 	.extendables		= RCUTORTURE_MAX_EXTEND,
 	.debug_objects		= 1,
 	.start_poll_irqsoff	= 1,
+	.rdrs_handle_load	= !IS_ENABLED(CONFIG_PREEMPT_RCU) || IS_ENABLED(CONFIG_RCU_BOOST),
 	.name			= "rcu"
 };
 
@@ -2534,8 +2536,10 @@ static bool rcu_torture_one_read_start(struct rcu_torture_one_read_state *rtorsp
 	rtorsp->p = rcu_dereference_check(rcu_torture_current,
 					  !cur_ops->readlock_held || cur_ops->readlock_held() ||
 					  (rtorsp->readstate & RCUTORTURE_RDR_UPDOWN));
-	if (rtorsp->p == NULL) {
-		/* Wait for rcu_torture_writer to get underway */
+	if ((!cur_ops->rdrs_handle_load && atomic_read(&rcu_fwd_cb_nodelay)) || rtorsp->p == NULL) {
+		// Wait for rcu_torture_writer to get underway and
+		// (if readers cannot handle heavy loads) for any
+		// forward-progress testing to complete.
 		rcutorture_one_extend(&rtorsp->readstate, 0, trsp, rtorsp->rtrsp);
 		return false;
 	}
