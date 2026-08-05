@@ -250,7 +250,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		return len;
 	case FFH_FNCO_FREQUENCY:
 		fnco_num = map->fddc_num + map->side * 8;
-		fnco_en = GENMASK(fnco_num + 1, fnco_num);
+		fnco_en = BIT(fnco_num);
 
 		ret = kstrtou64(buf, 10, &val);
 		if (ret)
@@ -287,7 +287,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		return len;
 	case FFH_FNCO_SELECT:
 		fnco_num = map->fddc_num + map->side * 8;
-		fnco_en = GENMASK(fnco_num + 1, fnco_num);
+		fnco_en = BIT(fnco_num);
 
 		ret = kstrtos64(buf, 10, &sel);
 		if (ret || sel < -1 || sel >= ADI_APOLLO_FNCO_PROFILE_NUM)
@@ -343,7 +343,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		return len;
 	case FFH_FNCO_MODE:
 		fnco_num = map->fddc_num + map->side * 8;
-		fnco_en = GENMASK(fnco_num + 1, fnco_num);
+		fnco_en = BIT(fnco_num);
 
 		if (map->fddc_num > ADI_APOLLO_FNCO_PROFILE_NUM)
 			return -EINVAL;
