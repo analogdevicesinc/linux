@@ -195,7 +195,7 @@ ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			return -EINVAL;
 		return sysfs_emit(buf, "%llu\n", phy->ffh.dir[dir].fnco.frequency[index]);
 	case FFH_FNCO_SELECT:
-		return sysfs_emit(buf, "%u\n", phy->ffh.dir[dir].fnco.select[map->fddc_num] - 1);
+		return sysfs_emit(buf, "%d\n", (int)phy->ffh.dir[dir].fnco.select[map->fddc_num] - 1);
 	case FFH_FNCO_MODE:
 		return sysfs_emit(buf, "%u\n", phy->ffh.dir[dir].fnco.mode[map->fddc_num]);
 	case FFH_CNCO_INDEX:
