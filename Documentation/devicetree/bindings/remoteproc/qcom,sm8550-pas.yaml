@@ -18,7 +18,6 @@ properties:
     oneOf:
       - enum:
           - qcom,eliza-cdsp-pas
-          - qcom,sdx75-mpss-pas
           - qcom,sm8550-adsp-pas
           - qcom,sm8550-cdsp-pas
           - qcom,sm8550-mpss-pas
@@ -51,6 +50,7 @@ properties:
           - enum:
               - qcom,hawi-mpss-pas
               - qcom,maili-mpss-pas
+              - qcom,sdx75-mpss-pas
           - const: qcom,sm8650-mpss-pas
 
   reg:
@@ -210,7 +210,6 @@ allOf:
         compatible:
           contains:
             enum:
-              - qcom,sdx75-mpss-pas
               - qcom,sm8650-mpss-pas
     then:
       properties:
@@ -261,7 +260,6 @@ allOf:
         compatible:
           contains:
             enum:
-              - qcom,sdx75-mpss-pas
               - qcom,sm8550-mpss-pas
               - qcom,sm8650-mpss-pas
               - qcom,sm8750-mpss-pas
