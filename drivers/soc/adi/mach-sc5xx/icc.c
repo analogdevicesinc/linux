@@ -162,6 +162,7 @@ int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(adi_tru_set_trigger_by_id);
 
 /**
  * Configure by device tree nodes, which lets us have more flexible configurations,
