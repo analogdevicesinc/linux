@@ -7171,6 +7171,179 @@ static void dm_test_funcs_force_reads_edid(struct kunit *test)
 	ctx->aconnector->drm_edid = NULL;
 }
 
+/* Tests for amdgpu_dm_connector_get_modes() */
+
+static enum dp_link_encoding dm_test_gm_enc_8b10b(const struct dc_link_settings *s)
+{
+	return DP_8b_10b_ENCODING;
+}
+
+static enum dp_link_encoding dm_test_gm_enc_128b(const struct dc_link_settings *s)
+{
+	return DP_128b_132b_ENCODING;
+}
+
+/*
+ * Build an amdgpu_dm_connector on an amdgpu_device-backed drm device (so
+ * drm_to_adev() resolves for amdgpu_dm_fbc_init()) with an attached encoder
+ * and a dc/dc_link whose link_srv reports a non-128b encoding by default. The
+ * fbc compressor is left NULL so amdgpu_dm_fbc_init() early-returns.
+ */
+struct dm_test_gm_ctx {
+	struct amdgpu_device *adev;
+	struct drm_device *drm;
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_encoder *aenc;
+	struct dc *dc;
+	struct link_service *link_srv;
+	struct dc_link *link;
+};
+
+static struct dm_test_gm_ctx *
+dm_test_gm_ctx_alloc(struct kunit *test, int connector_type)
+{
+	struct dm_test_gm_ctx *ctx;
+	struct device *dev;
+	int ret;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	dev = drm_kunit_helper_alloc_device(test);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
+
+	ctx->drm = __drm_kunit_helper_alloc_drm_device(test, dev,
+						       sizeof(*ctx->adev),
+						       offsetof(struct amdgpu_device, ddev),
+						       DRIVER_MODESET);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->drm);
+	ctx->adev = drm_to_adev(ctx->drm);
+
+	ctx->aconnector = drmm_kzalloc(ctx->drm, sizeof(*ctx->aconnector),
+				       GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector);
+	ret = drmm_connector_init(ctx->drm, &ctx->aconnector->base,
+				  &dm_test_connector_funcs, connector_type,
+				  NULL);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	ctx->aenc = drmm_kzalloc(ctx->drm, sizeof(*ctx->aenc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->aenc);
+	ret = drmm_encoder_init(ctx->drm, &ctx->aenc->base, NULL,
+				DRM_MODE_ENCODER_TMDS, NULL);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+	ret = drm_connector_attach_encoder(&ctx->aconnector->base,
+					   &ctx->aenc->base);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	ctx->dc = kunit_kzalloc(test, sizeof(*ctx->dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->dc);
+	ctx->link_srv = kunit_kzalloc(test, sizeof(*ctx->link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link_srv);
+	ctx->link = kunit_kzalloc(test, sizeof(*ctx->link), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link);
+
+	ctx->link_srv->dp_get_encoding_format = dm_test_gm_enc_8b10b;
+	ctx->dc->link_srv = ctx->link_srv;
+	ctx->adev->dm.dc = ctx->dc;
+	ctx->link->dc = ctx->dc;
+	ctx->aconnector->dc_link = ctx->link;
+
+	return ctx;
+}
+
+/**
+ * dm_test_get_modes_noedid_default - Test synthesized modes without an EDID
+ * @test: The KUnit test context
+ *
+ * With no cached EDID and a non-128b link, get_modes() synthesizes the default
+ * 640x480 fallback mode(s) and reports a non-zero count.
+ */
+static void dm_test_get_modes_noedid_default(struct kunit *test)
+{
+	struct dm_test_gm_ctx *ctx =
+		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+
+	KUNIT_EXPECT_GT(test,
+			amdgpu_dm_connector_get_modes(&ctx->aconnector->base), 0);
+}
+
+/**
+ * dm_test_get_modes_noedid_128b_adds_more - Test 128b links add 1080p modes
+ * @test: The KUnit test context
+ *
+ * A 128b/132b link synthesizes the extra 1920x1080 fallback modes, so the mode
+ * count is strictly greater than for an 8b/10b link.
+ */
+static void dm_test_get_modes_noedid_128b_adds_more(struct kunit *test)
+{
+	struct dm_test_gm_ctx *ctx =
+		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	int n_8b, n_128b;
+
+	n_8b = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+
+	ctx->link_srv->dp_get_encoding_format = dm_test_gm_enc_128b;
+	n_128b = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_GT(test, n_128b, n_8b);
+}
+
+/**
+ * dm_test_get_modes_noedid_analog_adds_common - Test analog sinks add common modes
+ * @test: The KUnit test context
+ *
+ * An analog VGA sink detected by load detection adds the common fallback modes
+ * on top of the default 640x480 mode(s).
+ */
+static void dm_test_get_modes_noedid_analog_adds_common(struct kunit *test)
+{
+	struct dm_test_gm_ctx *ctx =
+		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_VGA);
+	struct dc_sink *sink;
+	int n_base, n_analog;
+
+	n_base = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+
+	sink = kunit_kzalloc(test, sizeof(*sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, sink);
+	sink->edid_caps.analog = true;
+	ctx->aconnector->dc_sink = sink;
+	ctx->link->link_id.id = CONNECTOR_ID_VGA;
+
+	n_analog = amdgpu_dm_connector_get_modes(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_GT(test, n_analog, n_base);
+}
+
+/**
+ * dm_test_get_modes_with_edid - Test the cached-EDID path adds common modes
+ * @test: The KUnit test context
+ *
+ * With a cached EDID on an eDP connector, get_modes() takes the DDC path and
+ * adds the common downscaled modes derived from the encoder native mode.
+ */
+static void dm_test_get_modes_with_edid(struct kunit *test)
+{
+	struct dm_test_gm_ctx *ctx =
+		dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_eDP);
+	const struct drm_edid *drm_edid;
+
+	drm_edid = drm_edid_alloc(dm_test_uad_edid, sizeof(dm_test_uad_edid));
+	KUNIT_ASSERT_NOT_NULL(test, drm_edid);
+	drm_edid_connector_update(&ctx->aconnector->base, drm_edid);
+	ctx->aconnector->drm_edid = drm_edid;
+
+	ctx->aenc->native_mode.hdisplay = 1920;
+	ctx->aenc->native_mode.vdisplay = 1200;
+
+	KUNIT_EXPECT_GT(test,
+			amdgpu_dm_connector_get_modes(&ctx->aconnector->base), 0);
+
+	drm_edid_free(drm_edid);
+	ctx->aconnector->drm_edid = NULL;
+}
+
 /* Tests for amdgpu_dm_update_stream_scaling_settings() */
 
 /**
@@ -7634,6 +7807,11 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* amdgpu_dm_connector_funcs_force */
 	KUNIT_CASE(dm_test_funcs_force_no_edid),
 	KUNIT_CASE(dm_test_funcs_force_reads_edid),
+	/* amdgpu_dm_connector_get_modes */
+	KUNIT_CASE(dm_test_get_modes_noedid_default),
+	KUNIT_CASE(dm_test_get_modes_noedid_128b_adds_more),
+	KUNIT_CASE(dm_test_get_modes_noedid_analog_adds_common),
+	KUNIT_CASE(dm_test_get_modes_with_edid),
 	/* dm_validate_stream_and_context */
 	KUNIT_CASE(dm_test_validate_stream_null_stream),
 	KUNIT_CASE(dm_test_validate_stream_dc_ok_no_pipe),

@@ -256,7 +256,7 @@ STATIC_IFN_KUNIT void update_subconnector_property(struct amdgpu_dm_connector *a
 }
 EXPORT_IF_KUNIT(update_subconnector_property);
 
-static int amdgpu_dm_connector_get_modes(struct drm_connector *connector);
+STATIC_IFN_KUNIT int amdgpu_dm_connector_get_modes(struct drm_connector *connector);
 
 STATIC_IFN_KUNIT void amdgpu_dm_fbc_init(struct drm_connector *connector)
 {
@@ -3085,7 +3085,7 @@ STATIC_IFN_KUNIT void amdgpu_dm_connector_add_freesync_modes(struct drm_connecto
 }
 EXPORT_IF_KUNIT(amdgpu_dm_connector_add_freesync_modes);
 
-static int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
+STATIC_IFN_KUNIT int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
 {
 	struct amdgpu_dm_connector *amdgpu_dm_connector =
 			to_amdgpu_dm_connector(connector);
@@ -3124,6 +3124,7 @@ static int amdgpu_dm_connector_get_modes(struct drm_connector *connector)
 
 	return amdgpu_dm_connector->num_modes;
 }
+EXPORT_IF_KUNIT(amdgpu_dm_connector_get_modes);
 
 static const u32 supported_colorspaces =
 	BIT(DRM_MODE_COLORIMETRY_BT709_YCC) |
