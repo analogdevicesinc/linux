@@ -883,6 +883,9 @@ bool edp_setup_psr(struct dc_link *link,
 
 	psr_context->os_request_force_ffu = psr_config->os_request_force_ffu;
 
+	if (dc->debug.psr_phy_force_phy_power_down_up_level_2)
+		psr_context->psr_level.bits.FORCE_P2CPM = 1;
+
 	if (psr) {
 		link->psr_settings.psr_feature_enabled = psr->funcs->psr_copy_settings(psr,
 			link, psr_context, (uint8_t)panel_inst);

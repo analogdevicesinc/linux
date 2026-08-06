@@ -689,7 +689,8 @@ union dmcu_psr_level {
 		unsigned int SKIP_SINGLE_OTG_DISABLE:1;
 		unsigned int DISABLE_ALPM:1;
 		unsigned int ALPM_DEFAULT_PD_MODE:1;
-		unsigned int RESERVED:20;
+		unsigned int FORCE_P2CPM:1;
+		unsigned int RESERVED:19;
 	} bits;
 	unsigned int u32all;
 };
