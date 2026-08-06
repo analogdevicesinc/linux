@@ -1,0 +1,448 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-synchronizer/adf4030
+
+.. _adf4030:
+
+ADF4030
+=======
+
+ADF4030 IIO 10-Channel Precision Synchronizer.
+
+Supported Devices
+-----------------
+
+- :adi:`ADF4030`
+
+Supported Boards
+----------------
+
+- :adi:`EVAL-ADF4030`
+
+Description
+-----------
+
+The ADF4030 is a 10-channel precision synchronizer with integrated time-to-
+digital converter (TDC) for high-accuracy clock distribution and alignment.
+It provides sub-picosecond alignment accuracy for JESD204B/C system
+synchronization, making it essential for multi-converter high-speed data
+acquisition systems.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - :git+linux:`main:drivers/iio/frequency/adf4030.c`
+     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adf4030.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/adf4030.c`
+     -
+   * - Documentation
+     - :git+linux:`adi,adf4030.yaml <main:Documentation/devicetree/bindings/iio/frequency/adi,adf4030.yaml>`
+     -
+   * - ABI documentation
+     - :git+linux:`sysfs-bus-iio-frequency-adf4030 <main:Documentation/ABI/testing/sysfs-bus-iio-frequency-adf4030>`
+     -
+
+Example platform device initialization
+--------------------------------------
+
+The ADF4030 driver is a SPI bus driver and can be instantiated via device tree.
+
+**Properties:**
+
+- **compatible**: \`adi,adf4030\`
+- **clocks**: Input reference clock (maxItems: 1)
+- **clock-names**: \`refin\`
+- **adi,vco-frequency-hz**: VCO output frequency in Hz
+- **adi,bsync-frequency-hz**: Primary BSync output frequency in Hz
+- **adi,bsync-secondary-frequency-hz**: Secondary BSync output frequency in Hz
+- **adi,bsync-autoalign-reference-channel**: Reference channel number for auto
+  alignment
+- **adi,bsync-autoalign-iteration-count**: Number of iterations for auto
+  alignment
+- **adi,bsync-autoalign-threshold-fs**: Threshold for auto alignment in
+  femtoseconds
+- **clock-output-names**: Names of the clock outputs (minItems: 1, maxItems: 10)
+- **#clock-cells**: 1
+
+**Pattern Properties:** \* **^channel@[0-9]+$**: ADF4030 channel configuration
+
+- **reg**: Channel number
+- **adi,delay-fs**: Delay in femtoseconds
+- **adi,extended-name**: Extended name for the channel
+- **adi,reference-channel-num**: Reference channel number
+- **adi,output-en**: Enable output for the channel
+- **adi,input-output-reconfig-en**: Enable input-output reconfiguration for the
+  channel
+- **adi,use-secondary-odiv-b-en**: Enable use of secondary ODIV B
+- **auto-align-on-sync-en**: Enable auto alignment on sync
+- **adi,invert-en**: Enable inversion for the channel
+- **adi,ac-coupled-en**: Enable AC coupling for the channel
+- **adi,link-tx-en**: Enable link TX for the channel
+- **adi,link-rx-en**: Enable link RX for the channel
+- **adi,float-tx-en**: Enable float TX for the channel
+- **adi,float-rx-en**: Enable float RX for the channel
+- **adi,rcm**: RCM value for the channel
+
+**Required properties:**
+
+- **compatible**: Should always be one of these:
+
+  - ``adi,adf4030``
+
+- **reg**: SPI chip select number.
+- **clocks**: a list of phandle, one for each entry in clock-names.
+- **clock-names**: Must include the following entry: ``refin``
+- **adi,vco-frequency-hz**: VCO output frequency in Hz
+- **adi,bsync-frequency-hz**: Primary BSync output frequency in Hz
+
+::
+
+   Example:
+
+       spi {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           adf4030@0 {
+               #clock-cells = <1>;
+               compatible = "adi,adf4030";
+               reg = <0>;
+
+               #address-cells = <1>;
+               #size-cells = <0>;
+
+               spi-max-frequency = <1000000>;
+               clocks = <&ltc6952 5>;
+               clock-names = "refin";
+               clock-output-names = "adf4030_bsync_0", "adf4030_bsync_1",
+                   "adf4030_bsync_2", "adf4030_bsync_3", "adf4030_bsync_4",
+                   "adf4030_bsync_5", "adf4030_bsync_6", "adf4030_bsync_7",
+                   "adf4030_bsync_8", "adf4030_bsync_9"  ;
+               label = "adf4030";
+
+               adi,vco-frequency-hz = <2500000000>; /* 2.5 GHz */
+               adi,bsync-frequency-hz = <12500000>; /* 12.5 MHz */
+               adi,bsync-autoalign-reference-channel = <8>;
+               adi,bsync-autoalign-iteration-count = <6>;
+
+               channel@0 {
+                   reg = <0>;
+                   adi,extended-name = "SYSREF_0";
+                   adi,output-en;
+                   adi,input-output-reconfig-en;
+                   auto-align-on-sync-en;
+                   adi,rcm = <1>;
+               };
+               channel@1 {
+                   reg = <1>;
+                   adi,extended-name = "SYSREF_1";
+                   adi,output-en;
+                   adi,input-output-reconfig-en;
+                   auto-align-on-sync-en;
+                   adi,rcm = <1>;
+               };
+               channel@4 {
+                   reg = <4>;
+                   adi,extended-name = "FPGA_SYSREF_0";
+                   adi,output-en;
+                   adi,input-output-reconfig-en;
+                   auto-align-on-sync-en;
+                   adi,rcm = <62>;
+               };
+               channel@8 {
+                   reg = <8>;
+                   adi,extended-name = "REF";
+                   adi,rcm = <62>;
+               };
+           };
+       };
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADF4030 driver depends on **SPI** and selects **REGMAP_SPI**
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+                    Frequency Synthesizers DDS/PLL --->
+                                *** Phase-Locked Loop (PLL) frequency synthesizers ***
+                                <*> Analog Devices ADF4030 10-Channel Precision Synchronizer
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   analog:/sys/bus/iio/devices/iio:device0# cd /sys/bus/iio/devices/
+   root@analog:/sys/bus/iio/devices# ls
+   iio:device0
+   root@analog:/sys/bus/iio/devices#
+
+   root@analog:/sys/bus/iio/devices# cd iio\:device0
+   root@analog:/sys/bus/iio/devices/iio:device0# ls -l
+   total 0
+   drwxr-xr-x    2 root   root       0 Jan  1 00:03 .
+   drwxr-xr-x    5 root   root       0 Jan  1 00:03 ..
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 in_temp0_input
+   -r--r--r--    1 root   root    4096 Jan  1 00:03 label
+   -r--r--r--    1 root   root    4096 Jan  1 00:03 name
+   lrwxrwxrwx    1 root   root       0 Jan  1 00:03 of_node -> ../../../../../../../../firmware/devicetree/base/amba_pl/spi@44A80000/a4
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_autoalign_enable
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_frequency
+   -r--r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_label
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_output_enable
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_phase
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage0_SYSREF_0_reference_channel
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_autoalign_enable
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_frequency
+   -r--r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_label
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_output_enable
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_phase
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage1_SYSREF_1_reference_channel
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_autoalign_enable
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_frequency
+   -r--r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_label
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_output_enable
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_phase
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage4_FPGA_SYSREF_0_reference_channel
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_autoalign_enable
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_frequency
+   -r--r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_label
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_output_enable
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_phase
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage8_REF_reference_channel
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage_autoalign_iteration
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 out_altvoltage_autoalign_threshold
+   lrwxrwxrwx    1 root   root       0 Jan  1 00:03 subsystem -> ../../../../../../../../bus/iio
+   -rw-r--r--    1 root   root    4096 Jan  1 00:03 uevent
+   -r
+
+   root@analog:/sys/bus/iio/devices/iio:device0#
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat name
+   adf4030
+
+Read BSYNC frequency
+~~~~~~~~~~~~~~~~~~~~
+
+**What:** ``out_altvoltageX_[<adi,extended-name>]_frequency``
+
+Returns the BSYNC frequency set via devicetree property
+``adi,bsync-frequency-hz``
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat out_altvoltage0_SYSREF_0_frequency
+   6250000
+
+Set Reference Channel
+~~~~~~~~~~~~~~~~~~~~~
+
+**What:** ``out_altvoltageX_[<adi,extended-name>]_reference_channel``
+
+Set reference channel for TDC measurement and BSYNC alignment.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Value
+     - Input
+   * - ``0``
+     - BSYNC0
+   * - ``1``
+     - BSYNC1
+   * - ``2``
+     - BSYNC2
+   * - ``3``
+     - BSYNC3
+   * - ``4``
+     - BSYNC4
+   * - ``5``
+     - BSYNC5
+   * - ``6``
+     - BSYNC6
+   * - ``7``
+     - BSYNC7
+   * - ``8``
+     - BSYNC8
+   * - ``9``
+     - BSYNC9
+   * - ``26``
+     - REFIN
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 8 > out_altvoltage0_SYSREF_0_reference_channel
+
+Read TDC Measurement
+~~~~~~~~~~~~~~~~~~~~
+
+**What:** ``out_altvoltageX_[<adi,extended-name>]_phase``
+
+Measure the time difference between this and the reference channel using the
+time-to-digital converter (TDC). Results are counted in femtoseconds (fs)
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat out_altvoltage0_SYSREF_0_phase
+   72412
+
+Set Time Delay Offset
+~~~~~~~~~~~~~~~~~~~~~
+
+**What:** ``out_altvoltageX_[<adi,extended-name>]_phase``
+
+Set the desired time delay offset for the Single-Channel Alignment in
+femtoseconds (fs).
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 0 > out_altvoltage0_SYSREF_0_phase
+
+Start Single-Channel Alignment
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**What:** ``out_altvoltageX_[<adi,extended-name>]_autoalign_enable``
+
+Writing ``1`` starts the Single-Channel Alignment procedure.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > out_altvoltage0_SYSREF_0_autoalign_enable
+   root@analog:/sys/bus/iio/devices/iio:device0# cat out_altvoltage0_SYSREF_0_phase
+   104
+
+Channel Direction Control
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**What:** ``out_altvoltageX_[<adi,extended-name>]_output_enable``
+
+Writing this attribute with ``1`` enables the BSYNC driver (output), writing it
+with ``0`` enables the BSYNC receiver (input). Care must be taken to avoid that
+both ends drive the signal.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 1 > out_altvoltage0_SYSREF_0_output_enable
+
+Alignment Cycles Control
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+**What:** ``out_altvoltage_autoalign_iteration``
+
+Sets the Number of Alignment Cycles (iterations) in the single-channel alignment
+procedures. For best performance set to ``7``
+
+.. list-table::
+   :header-rows: 1
+
+   * - Value
+     - Mode
+   * - ``0``
+     - Run 1 alignment cycle
+   * - ``1``
+     - Run 2 alignment cycles
+   * - ``2``
+     - Run 3 alignment cycles
+   * - ``3``
+     - Run 4 alignment cycles
+   * - ``4``
+     - Run 5 alignment cycles
+   * - ``5``
+     - Run 6 alignment cycles
+   * - ``6``
+     - Run 7 alignment cycles
+   * - ``7``
+     - Run 8 alignment cycles
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 7 > out_altvoltage0_SYSREF_0_autoalign_iteration
+
+Alignment Threshold Control
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**What:** ``out_altvoltage_autoalign_threshold``
+
+The threshold alignment procedure repeats the alignment until either the
+alignment becomes lower than a desired threshold or the alignment cycles reach
+the maximum number of alignment cycles set with
+``out_altvoltage_autoalign_iteration``. Values are in femtoseconds (fs).
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# echo 100 > out_altvoltage_autoalign_threshold
+
+Temperature Reading
+~~~~~~~~~~~~~~~~~~~
+
+**What:** ``in_temp0_input``
+
+The temperature measurement system contains a proportional to ambient
+temperature (PTAT) circuit, an ADC, and a code-to-temperature converter (CTC).
+Ideally, the PTAT circuit generates a voltage that varies linearly with the
+silicon die temperature in its vicinity. The CTC output, that is the temperature
+measurement, is expressed in °C. The purpose of the temperature measurement
+system is to measure changes in die temperature, not the absolute junction
+temperature.
+
+This attribute returns this temperature in milli-degrees Celsius.
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device0# cat in_temp0_input
+   45000
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

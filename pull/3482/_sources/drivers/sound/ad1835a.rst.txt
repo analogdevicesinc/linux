@@ -1,0 +1,474 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/sound/ad1835a
+
+.. _ad1835a:
+
+AD1836
+======
+
+AD1836 Sound CODEC Linux Driver.
+
+Supported devices
+-----------------
+
+- :adi:`AD1835A`
+- :adi:`AD1836A`
+- :adi:`AD1838A`
+- :adi:`AD1837A`
+- :adi:`AD1839A`
+
+Evaluation Boards
+-----------------
+
+- :adi:`AD1836AZ-DBRD`
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainline?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad1836.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad1836.c>`__
+     -
+     -
+
+Files
+^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `sound/soc/codecs/ad1836.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad1836.c>`__
+   * - include
+     - `sound/soc/codecs/ad1836.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/sound/soc/codecs/ad1836.h>`__
+
+Example device initialization
+-----------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+You need to set the modalias of your SPI info according to your codec. Valid
+values are ``ad1835``, ``ad1836``, ``ad1837``, ``ad1838`` and ``ad1839``. You’ll
+also have to adjust bus_num and chip_select according to your board setup.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+       [--snip--]
+       {
+           .modalias = "ad1836",
+           .max_speed_hz = 3125000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = 4, /* CS, change it for your board */
+           .mode = SPI_MODE_3,
+       },
+       [--snip--]
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+ASoC DAPM Widgets
+~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Model
+   * - DAC1OUT
+     - DAC Channel1 Output
+     - AD1835A, AD1836A, AD1838A
+   * - DAC2OUT
+     - DAC Channel2 Output
+     - AD1835A, AD1836A, AD1838A
+   * - DAC3OUT
+     - DAC Channel3 Output
+     - AD1835A, AD1836A, AD1838A
+   * - DAC4OUT
+     - DAC Channel4 Output
+     - AD1835A
+   * - ADC1IN
+     - ADC Channel1 Input
+     - AD1835A, AD1836A, AD1838A
+   * - ADC2IN
+     - ADC Channel2 Input
+     - AD1836A
+
+ALSA Controls
+~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Description
+     - Model
+   * - ADC High Pass Filter Switch
+     - Enable/Disable ADC high-pass filter
+     - AD1835A, AD1836A, AD1838A
+   * - Playback Deemphasis
+     - Select playback de-emphasis. Possible Values: ``None``, ``44.1kHz``,
+       ``32kHz``, ``48kHz``
+     - AD1835A, AD1836A, AD1838A
+   * - DAC1 Playback Volume
+     - DAC Channel 1 volume
+     - AD1835A, AD1836A, AD1838A
+   * - DAC2 Playback Volume
+     - DAC Channel 2 volume
+     - AD1835A, AD1836A, AD1838A
+   * - DAC3 Playback Volume
+     - DAC Channel 3 volume
+     - AD1835A, AD1836A, AD1838A
+   * - DAC4 Playback Volume
+     - DAC Channel 4 volume
+     - AD1835A
+   * - DAC1 Playback Switch
+     - Mute/Unmute DAC Channel 1
+     - AD1835A, AD1836A, AD1838A
+   * - DAC2 Playback Switch
+     - Mute/Unmute DAC Channel 2
+     - AD1835A, AD1836A, AD1838A
+   * - DAC3 Playback Switch
+     - Mute/Unmute DAC Channel 3
+     - AD1835A, AD1836A, AD1838A
+   * - DAC4 Playback Switch
+     - Mute/Unmute DAC Channel 4
+     - AD1835A
+   * - ADC1 Capture Switch
+     - Mute/Unmute ADC Channel1
+     - AD1835A, AD1836A, AD1838A
+   * - ADC2 Capture Switch
+     - Mute/Unmute ADC Channel2
+     - AD1836A
+   * - ADC2 Capture Volume
+     - Gain for ADC Channel 2
+     - AD1836A
+
+DAI Configuration
+~~~~~~~~~~~~~~~~~
+
+The CODEC driver registers one DAI named depending on the chip model used.
+
+.. list-table::
+   :header-rows: 1
+
+   * - DAI name
+     - Model
+   * - ``ad1835-hifi``
+     - AD1835, AD1837
+   * - ``ad1836-hifi``
+     - AD1836
+   * - ``ad1838-hifi``
+     - AD1838, AD1839
+
+Supported DAI formats
+^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Supported by driver
+     - Description
+   * - SND_SOC_DAIFMT_I2S
+     - no
+     - I2S mode
+   * - SND_SOC_DAIFMT_RIGHT_J
+     - no
+     - Right Justified mode
+   * - SND_SOC_DAIFMT_LEFT_J
+     - no
+     - Left Justified mode
+   * - SND_SOC_DAIFMT_DSP_A
+     - yes
+     - data MSB after FRM LRC
+   * - SND_SOC_DAIFMT_DSP_B
+     - no
+     - data MSB during FRM LRC
+   * - SND_SOC_DAIFMT_AC97
+     - no
+     - AC97 mode
+   * - SND_SOC_DAIFMT_PDM
+     - no
+     - Pulse density modulation
+   * -
+     -
+     -
+   * - SND_SOC_DAIFMT_NB_NF
+     - no
+     - Normal bit- and frameclock
+   * - SND_SOC_DAIFMT_NB_IF
+     - no
+     - Normal bitclock, inverted frameclock
+   * - SND_SOC_DAIFMT_IB_NF
+     - no
+     - Inverted frameclock, normal bitclock
+   * - SND_SOC_DAIFMT_IB_IF
+     - yes
+     - Inverted bit- and frameclock
+   * -
+     -
+     -
+   * - SND_SOC_DAIFMT_CBM_CFM
+     - yes
+     - Codec bit- and frameclock master
+   * - SND_SOC_DAIFMT_CBS_CFM
+     - no
+     - Codec bitclock slave, frameclock master
+   * - SND_SOC_DAIFMT_CBM_CFS
+     - no
+     - Codec bitclock master, frameclock slave
+   * - SND_SOC_DAIFMT_CBS_CFS
+     - no
+     - Codec bit- and frameclock slave
+
+Example DAI Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code:: c
+
+   static int bf5xx_ad1836_hw_params(struct snd_pcm_substream *substream,
+       struct snd_pcm_hw_params *params)
+   {
+       struct snd_soc_pcm_runtime *rtd = substream->private_data;
+       struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+       struct snd_soc_dai *codec_dai = rtd->codec_dai;
+       int ret;
+
+       /* set cpu DAI configuration */
+       ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_DSP_A |
+           SND_SOC_DAIFMT_IB_IF | SND_SOC_DAIFMT_CBM_CFM);
+       if (ret < 0)
+           return ret;
+
+       /* set codec DAI configuration */
+       ret = snd_soc_dai_set_fmt(codec_dai, SND_SOC_DAIFMT_DSP_A |
+           SND_SOC_DAIFMT_IB_IF | SND_SOC_DAIFMT_CBM_CFM);
+       if (ret < 0)
+           return ret;
+
+       return 0;
+   }
+
+   static struct snd_soc_ops bf5xx_ad1836_ops = {
+       .hw_params = bf5xx_ad1836_hw_params,
+   };
+
+   static struct snd_soc_dai_link bf5xx_ad1836_dai = {
+       .name = "ad1836",
+       .stream_name = "AD1836",
+       .cpu_dai_name = "bfin-tdm.0",
+       .codec_dai_name = "ad1836-hifi",
+       .platform_name = "bfin-tdm-pcm-audio",
+       .codec_name = "spi0.4",
+       .ops = &bf5xx_ad1836_ops,
+   };
+
+AD1836 evaluation board driver
+------------------------------
+
+Adding Kernel Support - As a module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To add support for the built-in codec AD183X of BF5XX to the kernel build
+system, a few things must be enabled properly for things to work.The
+configuration is as following:
+
+::
+
+   Linux Kernel Configuration
+     Device Drivers  --->
+       Sound  --->
+         <M> Sound card support
+           Advanced Linux Sound Architecture  --->
+             <M> Advanced Linux Sound Architecture
+             < > Sequencer support
+             <M> OSS Mixer API
+             <M> OSS PCM (digital audio) API
+             <M>   ALSA for SoC audio support  --->
+                 <M>   SoC I2S(TDM mode) Audio for the ADI BF5xx chip
+                 <M>   SoC AD183X Audio support for BF5xx
+
+Doing this will create modules (outside the kernel). The modules will be
+inserted automatically when it is needed. You can also build sound driver into
+kernel.
+
+Testing the built in kernel driver
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If audio is configured as modules, skip this section. If audio is built into
+kernel and you have booted the kernel, there are a few things to check to ensure
+audio is working:
+
+#. Check the boot messages to see if you have booted the correct kernel. During
+   kernel boot, it should print out:
+
+::
+
+   Advanced Linux Sound Architecture Driver Version 1.0.12rc1 (Thu Jun 22 13:55:50 2006 UTC).
+   ASoC version 0.13.1
+   dma rx:3 tx:4, err irq:45, regs:
+   asoc: AD183X <-> bf5xx-tdm mapping ok
+   ALSA device list:
+     #0: bf5xx_ad183x (AD183X)
+
+Testing the audio module
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root:/> modprobe snd-ad183x
+   dma rx:3 tx:4, err irq:45, regs:ffc00800
+   asoc: AD183X <-> bf5xx-tdm mapping ok
+   root:/> modprobe snd-pcm-oss
+   root:/> lsmod
+   Module                  Size  Used by
+   snd_pcm_oss            28414  0
+   snd_mixer_oss          10215  1 snd_pcm_oss
+   snd_ad183x               801  0
+   snd_bf5xx_tdm           1857  1 snd_ad183x
+   snd_soc_ad183x          8033  1 snd_ad183x
+   snd_soc_bf5xx_tdm       2157  1 snd_ad183x
+   snd_soc_bf5xx_sport     9392  2 snd_bf5xx_tdm,snd_soc_bf5xx_tdm
+   snd_soc_core           33839  4 snd_ad183x,snd_bf5xx_tdm,snd_soc_ad183x,snd_soc_bf5xx_tdm
+   snd_pcm                44936  3 snd_pcm_oss,snd_bf5xx_tdm,snd_soc_core
+   snd_page_alloc          2753  1 snd_pcm
+   snd_timer              12412  1 snd_pcm
+   snd                    32171  5 snd_pcm_oss,snd_mixer_oss,snd_soc_core,snd_pcm,snd_timer
+   input_core             15713  1 snd
+   soundcore               3591  1 snd
+
+   root:~> tone
+   TONE: generating sine wave at 1000 Hz...
+
+Driver testing
+~~~~~~~~~~~~~~
+
+#. Check the output
+
+::
+
+   root:~> tone
+   TONE: generating sine wave at 1000 Hz...
+
+You should hear something out of the headphone Jack.
+
+#. Check and set the audio mixer:
+
+::
+
+   root:/> amixer
+   Simple mixer control 'Playback Deemphasis',0
+     Capabilities: enum
+     Items: 'None' '44.1kHz' '32kHz' '48kHz'
+     Item0: '48kHz'
+   Simple mixer control 'ADC High Pass Filter',0
+     Capabilities: pswitch pswitch-joined
+     Playback channels: Mono
+     Mono: Playback [on]
+   Simple mixer control 'ADC1',0
+     Capabilities: pswitch
+     Playback channels: Front Left - Front Right
+     Mono:
+     Front Left: Playback [on]
+     Front Right: Playback [on]
+   Simple mixer control 'ADC2',0
+     Capabilities: pswitch
+     Playback channels: Front Left - Front Right
+     Mono:
+     Front Left: Playback [on]
+     Front Right: Playback [on]
+   Simple mixer control 'DAC1',0
+     Capabilities: volume pswitch
+     Playback channels: Front Left - Front Right
+     Capture channels: Front Left - Front Right
+     Limits: 0 - 1023
+     Front Left: 1023 [100%] Playback [on]
+     Front Right: 1023 [100%] Playback [on]
+   Simple mixer control 'DAC2',0
+     Capabilities: volume pswitch
+     Playback channels: Front Left - Front Right
+     Capture channels: Front Left - Front Right
+     Limits: 0 - 1023
+     Front Left: 1023 [100%] Playback [on]
+     Front Right: 1023 [100%] Playback [on]
+   Simple mixer control 'DAC3',0
+     Capabilities: volume pswitch
+     Playback channels: Front Left - Front Right
+     Capture channels: Front Left - Front Right
+     Limits: 0 - 1023
+     Front Left: 1023 [100%] Playback [on]
+     Front Right: 1023 [100%] Playback [on]
+
+   root:/> amixer sset 'DAC3' 200
+   Simple mixer control 'DAC3',0
+     Capabilities: volume pswitch
+     Playback channels: Front Left - Front Right
+     Capture channels: Front Left - Front Right
+     Limits: 0 - 1023
+     Front Left: 200 [20%] Playback [on]
+     Front Right: 200 [20%] Playback [on]
+
+Check to make sure mp3s work (assuming you have built mp3play). The first step
+is to download a mp3 file onto the platform. The ``wget`` command assumes that
+networking is properly configured (you have an IP number, the default gateway is
+set, and DNS servers can be accessed), and working.
+
+::
+
+   root:/> cd /var
+   root:/var> wget http://www.radiocrazy.com/shows/A/AbbottCostello/ABCOWhosOnFirstclip.mp3
+
+Next, play it with mp3play:
+
+::
+
+   root:/var> mp3play ABCOWhosOnFirstclip.mp3
+
+You can play it in one step with:
+
+::
+
+   root:~> mp3play http://www.radiocrazy.com/shows/A/AbbottCostello/ABCOWhosOnFirstclip.mp3
+   %%http://www.radiocrazy.com/shows/A/AbbottCostello/ABCOWhosOnFirstclip.mp3: MPEG2-III (0 ms)%%
+
+Optionally check to make sure the mic and headphone are working properly:
+
+::
+
+   root:~> arecord -d 10 test.wav
+   Recording WAVE "test.wav" : Unsigned 8 bit, Rate 8000 Hz, Mono
+   root:~> aplay test.wav
+
+This should record 10 seconds of whatever is on the Line, and then play it back
+over the output. You should also be able to do a ``talkthrough``, and hear on
+the speakers anything you put on the line.
+
+::
+
+   root:~> arecord | aplay

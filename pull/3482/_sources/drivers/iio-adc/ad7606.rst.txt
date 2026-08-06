@@ -1,0 +1,490 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7606
+
+.. _ad7606:
+
+AD7606
+======
+
+AD7606 IIO Multi-Channel Simultaneous Sampling ADC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD7605-4`
+- :adi:`AD7606`
+- :adi:`AD7606-6`
+- :adi:`AD7606-4`
+- :adi:`AD7606B`
+- :adi:`AD7606C-16`
+- :adi:`AD7606C-18`
+- :adi:`AD7607`
+- :adi:`AD7608`
+- :adi:`AD7609`
+- :adi:`AD7616`
+
+Reference Circuits
+------------------
+
+- :adi:`CN0148`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD7605-4`
+- :adi:`EVAL-AD7606EDZ`
+- :adi:`EVAL-AD7606-4EDZ`
+- :adi:`EVAL-AD7606-6EDZ`
+- :adi:`EVAL-AD7606BFMCZ`
+- :adi:`EVAL-AD7606CFMCZ`
+- :adi:`EVAL-AD7606C18FMCZ`
+- :adi:`EVAL-AD7616`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting multi channel, dual interface serial/parallel interface ADCs.
+The industrial I/O subsystem provides a unified framework for drivers for many
+different types of converters and sensors using a number of different physical
+interfaces (i2c, spi, etc). See :external+documentation:ref:`iio` for more
+information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7606.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7606.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver (common)
+     - `drivers/iio/adc/ad7606.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7606.c>`__
+     -
+   * - driver (SPI interface)
+     - `drivers/iio/adc/ad7606_spi.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7606_spi.c>`__
+     -
+   * - driver (parallel interface)
+     - `drivers/iio/adc/ad7606_par.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7606_par.c>`__
+     -
+   * - include
+     - `drivers/iio/adc/ad7606.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7606.h>`__
+     -
+   * - devicetree bindings
+     - `Documentation/devicetree/bindings/iio/adc/adi,ad7606.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/adc/adi,ad7606.yaml>`__
+     -
+   * - documentation
+     - `Documentation/iio/ad7606.rst <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/iio/ad7606.rst>`__ (`html <https://docs.kernel.org/iio/ad7606.html>`__)
+     -
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                         *** Analog to digital converters ***
+                   [--snip--]
+
+                   <*>     Analog Devices AD7606 ADC driver with parallel interface support
+                   <*>     Analog Devices AD7606 ADC driver with spi interface support
+
+                   [--snip--]
+
+Devicetree
+~~~~~~~~~~
+
+Devicetree is used to describe how the ADC chip is wired up. The driver uses
+this information to correctly configure the chip according to how it is wired.
+The ``compatible`` property specifies the specific type of chip that is being
+used.
+
+::
+
+   compatible = "adi,ad7606b";
+
+.. note::
+
+   Not all properties described in the sections below are applicable to all
+   chips in the family due to different pinouts.
+
+Communication bus
+^^^^^^^^^^^^^^^^^
+
+This family of chips has two different ways it can communicate with the MCU, via
+a SPI bus or via a parallel bus. It is assumed that the PAR/SER SEL pin is
+hard-wired to select one bus type or the other.
+
+SPI
+'''
+
+When the SPI bus is used, the ADC chip is described in the devicetree a child
+node of a SPI controller. Additional SPI peripheral properties like ``spi-cpol``
+are needed to select the correct SPI mode. ``spi-max-frequency`` is usually the
+max speed possible on the chip, but may be slower if required for signal
+integrity due to non-ideal wiring.
+
+Currently, the driver only supports SPI controllers with a single SPI bus, i.e.
+D\ :sub:`OUT`\ B, C, … can’t be used.
+
+::
+
+   spi@44a00000{
+       reg = <0x44a00000 0x1000>;
+       compatible = "adi,axi-spi-engine-1.00.a";
+       ...
+
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       adc@0 {
+           compatible = "adi,ad7606b";
+           reg = <0>;
+           spi-cpha;
+           spi-cpol;
+           spi-max-frequency = <10000000>;
+           ...
+       };
+   };
+
+Parallel
+''''''''
+
+When using the parallel bus, the ADC node is a child of a parallel bus
+controller. In particular, the driver currently only supports the
+`AXI AD7606x <https://analogdevicesinc.github.io/hdl/library/axi_ad7606x/index.html>`__
+FPGA IP block for parallel bus. In addition to being the child of the parallel
+controller, the ADC node also needs a ``io-backends`` property to link it to the
+AXI AD7606X IP block.
+
+In this case the DB0 thru DB15, /CS, /RD and /WR pins are wired to the AXI
+AD7606X IP block. HBEN and BYTESEL are not currently used.
+
+::
+
+   iio_backend: axi-adc@0x44a00000{
+       reg = <0x44a00000 0x10000>;
+       compatible = "adi,axi-ad7606x";
+       #io-backend-cells = <0>;
+       ...
+
+       #address-cells = <1>;
+       #size-cells = <0>;
+
+       adc@0 {
+           compatible = "adi,ad7606b";
+           reg = <0>;
+           io-backends = <&iio_backend>;
+           ...
+       };
+   };
+
+Power supplies
+''''''''''''''
+
+These chips require several power supplies to operate. These are described in
+the device tree with ``*-supply`` nodes that reference a supply. Typically,
+these supplies aren‘t connected to or controlled by the MCU, so use the
+’‘compatible = ``regulator-fixed``’’ bindings.
+
+These properties are ``avcc-supply`` and ``vdrive-supply``. As a shortcut, these
+properties can be omitted if they don’t need to be controlled by the MCU.
+
+Reference voltage
+'''''''''''''''''
+
+Some chips may be connected to an external reference voltage via the REFIN pin.
+If this is the case, the ``refin-supply`` must be used. Currently, this feature
+is not supported in the Linux driver. Only the internal reference voltage is
+currently supported.
+
+In either case, it is assumed that the REF SELECT pin is hard-wired to match.
+I.e. if the ``refin-supply`` property is present, REF SELECT is wired high or if
+the property is absent, the pin is wired low.
+
+Differential inputs
+'''''''''''''''''''
+
+This section only applies to AD7606C chips that have configurable differential
+inputs. For these chips, a ``channel@`` node is required to describe how each
+individual input is wired up. There are three options, unipolar, single-ended;
+bipolar, single-ended; and bipolar differential.
+
+In all cases, a ``reg`` property is required that matches the number after
+``@``. This is the number of the in put pin, e.g. ``1`` for V1.
+
+Unipolar, single-ended
+''''''''''''''''''''''
+
+No extra properties are required for these.
+
+::
+
+   channel@1 {
+       reg = <1>;
+   };
+
+Bipolar, single-ended
+'''''''''''''''''''''
+
+This one requires the ``bipolar`` property.
+
+::
+
+   channel@2 {
+       reg = <2>;
+       bipolar;
+   };
+
+Bipolar, differential
+'''''''''''''''''''''
+
+This one requires both ``diff-channels`` and ``bipolar`` properties. The numbers
+in the ``diff-channels`` property are the same as the ``reg`` property (the Vx
+pin number).
+
+::
+
+   channel@3 {
+       reg = <3>;
+       diff-channels = <3 3>;
+       bipolar;
+   };
+
+Conversion trigger
+''''''''''''''''''
+
+When using the SPI bus, the driver currently supports triggering conversions via
+a GPIO connected to the CNVST pin on the ADC. This is described using the
+``adi,conversion-start-gpios`` property. The reference to the GPIO should have
+the ``GPIO_ACTIVE_HIGH`` flag set since this is an active-high signal.
+
+When using the parallel bus, a PWM is connected to the CNVST pin on the ADC is
+used as a trigger. Therefore the ``pwms`` property is required and the
+``adi,conversion-start-gpios`` property is omitted.
+
+Status signals
+''''''''''''''
+
+When using the SPI bus, the driver requires that the BUSY pin on the ADC is
+connected to an interrupt on the MCU (usually a GPIO). In this case, the
+``interrupts`` property is required in the devicetree.
+
+When using the parallel bus, the BUSY pin is connected to the AXI AD7606X IP
+block. There are no extra properties needed to describe this case.
+
+The FRSTDATA output indicates when the first channel is being read back. If this
+is wired up, provide the ``adi,first-data-gpios`` property. As the line is
+active high, it should be marked ``GPIO_ACTIVE_HIGH``.
+
+Power and reset
+'''''''''''''''
+
+The RESET pin on the ADC can be connected to a GPIO on the MCU to reset the chip
+on startup. If this is wired up, provide the ``reset-gpios`` property. As the
+line is active high, it should be marked ``GPIO_ACTIVE_HIGH``.
+
+The /STBY pin on the ADC can be connected to a GPIO on the MCU to put the chip
+into standby during a system suspend. If this is wired up, provide the
+``standby-gpios`` property. As the line is active low, it should be marked
+``GPIO_ACTIVE_LOW``.
+
+Configuration
+'''''''''''''
+
+Some chips can be used in a software mode where the ADC chip is configured by
+writing to registers on the chip. In this case, the OSx pins are all hard-wired
+high and the ``adi,sw-mode`` property must be used.
+
+If software mode is not used, the ``adi,sw-mode`` property is omitted and
+properties for the configuration pins OSx and RANGE (HW_RNGSEL on AD7616) are
+required. These are the ``adi,oversampling-ratio-gpios`` and ``adi,range-gpios``
+properties respectively. All of these should be ``GPIO_ACTIVE_HIGH``.
+
+The driver currently only supports having these pins connected to GPIOs and not
+hard-wired to a specific configuration. Additional confutation pins on AD7616
+(BURST, SEQUEN, CHSEL, CRCEN) are not currently supported.
+
+Example
+'''''''
+
+::
+
+   adc@0 {
+       compatible = "adi,ad7606-8";
+       reg = <0>;
+       spi-max-frequency = <1000000>;
+       spi-cpol;
+       avcc-supply = <&adc_avcc_supply>;
+       interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
+       interrupt-parent = <&gpio>;
+       adi,conversion-start-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
+       reset-gpios = <&gpio 27 GPIO_ACTIVE_HIGH>;
+       standby-gpios = <&gpio 24 GPIO_ACTIVE_LOW>;
+       adi,sw-mode;
+   };
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0  iio:trigger0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+
+   root:/sys/bus/iio/devices/iio:device0> ls -l
+   drwxr-xr-x    5 root     root             0 Jan  1 00:00 buffer
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage0_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage1_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage2_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage3_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage4_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage5_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage6_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage7_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage_scale
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 name
+   -rw-r--r--    1 root     root          4096 Jan  1 00:00 oversampling_ratio
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 oversampling_ratio_available
+   -rw-r--r--    1 root     root          4096 Jan  1 00:00 range
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 range_available
+   lrwxrwxrwx    1 root     root             0 Jan  1 00:00 subsystem -> ../../../../bus/iio
+   drwxr-xr-x    2 root     root             0 Jan  1 00:00 trigger
+   -rw-r--r--    1 root     root          4096 Jan  1 00:00 uevent
+   root:/sys/bus/iio/devices/iio:device0>
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat name
+   ad7606
+
+Show available oversampling ratios
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat oversampling_ratio_available
+   0 2 4 8 16 32 64
+
+Show available input ranges
+'''''''''''''''''''''''''''
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat range_available
+   5000 10000
+
+Set input range to 10Volt
+'''''''''''''''''''''''''
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> echo 10000 > range
+   root:/sys/bus/iio/devices/iio:device0> cat range
+   10000
+
+Show scale
+''''''''''
+
+**Description:** scale to be applied to in0_raw in order to obtain the measured
+voltage in millivolts.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage_scale
+   0.152
+
+Show channel 2 measurement
+''''''''''''''''''''''''''
+
+**Description:** Raw unscaled voltage measurement on channel 2
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage2_raw
+   5789
+
+**U** = *in2_raw \* in_scale* = 5789 \* 0.152 = **879,928 mV**
+
+Trigger management
+~~~~~~~~~~~~~~~~~~
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-devices-with-trigger-consumer-interface
+   :end-before: .. end-iio-devices-with-trigger-consumer-interface
+
+Available standalone trigger drivers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-standalone-trigger-drivers
+   :end-before: .. end-standalone-trigger-drivers
+
+Buffer management
+~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0/buffer> ls
+   enable                   subsystem
+   length                   uevent
+   root:/sys/bus/iio/devices/iio:device0/buffer>
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-buffer-management
+   :end-before: .. end-buffer-management
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0/scan_elements> ls
+   in_voltage0_en           in_voltage2_index        in_voltage5_en           in_voltage7_index
+   in_voltage0_index        in_voltage3_en           in_voltage5_index        in_voltage_type
+   in_voltage1_en           in_voltage3_index        in_voltage6_en           timestamp_en
+   in_voltage1_index        in_voltage4_en           in_voltage6_index        timestamp_index
+   in_voltage2_en           in_voltage4_index        in_voltage7_en           timestamp_type
+   root:/sys/bus/iio/devices/iio:device0/scan_elements>
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-typical-adc-scan-elements
+   :end-before: .. end-typical-adc-scan-elements
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

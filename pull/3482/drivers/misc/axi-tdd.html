@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="The AXI TDD (Time Division Duplexing) is an FPGA IP core driver that provides a waveform generator capable of addressing RF applications which require Time Division Duplexing, as well as controlling other modules through its dedicated output channels. It solves the synchronization issue when transmitting and receiving multiple frames of data through multiple buffers." name="description" />
+
+    <title>AXI TDD &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Digital Potentiometer" href="dpot.html" />
+    <link rel="prev" title="AXI HSCI" href="axi-hsci.html" />
+   
+  
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://developer.analog.com/" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Documentation</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">AXI TDD</a><ul>
+<li><a class="reference internal" href="#supported-ip-cores">Supported IP Cores</a></li>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#adding-linux-driver-support">Adding Linux driver support</a><ul>
+<li><a class="reference internal" href="#enabling-the-driver">Enabling the driver</a></li>
+<li><a class="reference internal" href="#adding-a-device-tree-entry">Adding a device tree entry</a><ul>
+<li><a class="reference internal" href="#required-properties">Required properties</a></li>
+<li><a class="reference internal" href="#device-tree-example">Device tree example</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#sysfs-interface">Sysfs interface</a><ul>
+<li><a class="reference internal" href="#core-attributes">Core attributes</a></li>
+<li><a class="reference internal" href="#control-attributes">Control attributes</a></li>
+<li><a class="reference internal" href="#timing-attributes">Timing attributes</a></li>
+<li><a class="reference internal" href="#per-channel-attributes-n-0-31">Per-channel attributes (N = 0..31)</a></li>
+<li><a class="reference internal" href="#example-sysfs-usage">Example sysfs usage</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#theory-of-operation">Theory of operation</a><ul>
+<li><a class="reference internal" href="#frame-generation">Frame generation</a></li>
+<li><a class="reference internal" href="#fsm-states">FSM states</a></li>
+<li><a class="reference internal" href="#synchronization">Synchronization</a></li>
+<li><a class="reference internal" href="#channel-output">Channel output</a></li>
+<li><a class="reference internal" href="#register-update-restrictions">Register update restrictions</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#references">References</a></li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad4695.html">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad6676.html">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/adema127.html">ADEMA124 / ADEMA127</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-adc/max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361-customization.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-trx-rf/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/ad714x.html">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl345.html">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7873.html">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7877.html">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">AXI TDD</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/open_alliance.html">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1320.html">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/gpio.html">GPIO usage</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="axi-tdd">
+<span id="id1"></span><h1>AXI TDD<a class="headerlink" href="#axi-tdd" title="Link to this heading"></a></h1>
+<p>The AXI TDD (Time Division Duplexing) is an FPGA IP core driver that provides
+a waveform generator capable of addressing RF applications which require Time
+Division Duplexing, as well as controlling other modules through its dedicated
+output channels. It solves the synchronization issue when transmitting and
+receiving multiple frames of data through multiple buffers.</p>
+<p>The driver implements:</p>
+<ul class="simple">
+<li><p>Up to 32 independent output channels with configurable on/off timing</p></li>
+<li><p>Per-channel enable and polarity control</p></li>
+<li><p>Configurable frame length and burst count</p></li>
+<li><p>Initial startup delay before waveform generation</p></li>
+<li><p>Three synchronization sources: external, internal, and software-generated</p></li>
+<li><p>Timing values in both raw clock cycles and milliseconds</p></li>
+<li><p>Dynamic clock rate tracking via clock notifiers</p></li>
+</ul>
+<section id="supported-ip-cores">
+<h2>Supported IP Cores<a class="headerlink" href="#supported-ip-cores" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p>AXI TDD IP v2.0.a</p></li>
+</ul>
+</section>
+<section id="status">
+<h2>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/misc/adi-axi-tdd.c" target="_blank">drivers/misc/adi-axi-tdd.c</a></p></td>
+<td><p>No</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="files">
+<h2>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h2>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/misc/adi-axi-tdd.c" target="_blank">drivers/misc/adi-axi-tdd.c</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>devicetree</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/devicetree/bindings/misc/adi,axi-tdd.yaml" target="_blank">Documentation/devicetree/bindings/misc/adi,axi-tdd.yaml</a></p></td>
+</tr>
+<tr class="row-even"><td><p>sysfs ABI</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd" target="_blank">Documentation/ABI/testing/sysfs-bus-platform-drivers-adi-axi-tdd</a></p></td>
+</tr>
+<tr class="row-odd"><td><p>HDL documentation</p></td>
+<td><p><a class="icon link reference external" href="https://analogdevicesinc.github.io/hdl/library/axi_tdd/index.html#axi-tdd" target="_blank" title="(in HDL)"><span>AXI TDD</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>HDL IP core source code</p></td>
+<td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/hdl/tree/main/library/axi_tdd" target="_blank">library/axi_tdd</a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading"></a></h2>
+<p>The AXI TDD controller is a generic waveform generator developed for use in
+Analog Devices HDL reference designs. Unlike previous TDD engines, this core
+operates only in standalone mode and is not embedded into other devices.</p>
+<p>Each output channel has independently configurable on and off times relative to
+the start of a frame. The controller generates repeating frames of a
+configurable length, with an optional startup delay before the first frame.
+Multiple frames can be grouped into a burst, or the controller can run
+continuously until disabled.</p>
+<p>Synchronization can be triggered from three sources:</p>
+<ul class="simple">
+<li><p><strong>Software sync</strong>: A one-shot trigger via the <code class="docutils literal notranslate"><span class="pre">sync_soft</span></code> attribute</p></li>
+<li><p><strong>Internal sync</strong>: A periodic trigger generated by an internal counter with
+a configurable period</p></li>
+<li><p><strong>External sync</strong>: A trigger from an external signal, optionally synchronized
+into the core clock domain via a CDC (Clock Domain Crossing) circuit</p></li>
+</ul>
+</section>
+<section id="adding-linux-driver-support">
+<h2>Adding Linux driver support<a class="headerlink" href="#adding-linux-driver-support" title="Link to this heading"></a></h2>
+<section id="enabling-the-driver">
+<h3>Enabling the driver<a class="headerlink" href="#enabling-the-driver" title="Link to this heading"></a></h3>
+<p>Configure kernel with <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">menuconfig</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Linux</span> <span class="n">Kernel</span> <span class="n">Configuration</span>
+    <span class="n">Device</span> <span class="n">Drivers</span>  <span class="o">---&gt;</span>
+        <span class="n">Misc</span> <span class="n">devices</span>  <span class="o">---&gt;</span>
+            <span class="o">&lt;*&gt;</span>   <span class="n">Analog</span> <span class="n">Devices</span> <span class="n">TDD</span> <span class="n">Engine</span> <span class="n">support</span>
+</pre></div>
+</div>
+</section>
+<section id="adding-a-device-tree-entry">
+<h3>Adding a device tree entry<a class="headerlink" href="#adding-a-device-tree-entry" title="Link to this heading"></a></h3>
+<section id="required-properties">
+<h4>Required properties<a class="headerlink" href="#required-properties" title="Link to this heading"></a></h4>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;adi,axi-tdd&quot;</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: Physical base address and size of the IP core registers</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code>: References to the system clock and the TDD core clock</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clock-names</span></code>: Must be <code class="docutils literal notranslate"><span class="pre">&quot;s_axi_aclk&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;intf_clk&quot;</span></code></p></li>
+</ul>
+</section>
+<section id="device-tree-example">
+<h4>Device tree example<a class="headerlink" href="#device-tree-example" title="Link to this heading"></a></h4>
+<p>Basic TDD core instance:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tdd</span><span class="o">@</span><span class="mi">84</span><span class="n">a00000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-tdd&quot;</span><span class="p">;</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x84a00000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="n">PL0_REF</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="n">PL1_REF</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;s_axi_aclk&quot;</span><span class="p">,</span> <span class="s2">&quot;intf_clk&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>TDD core with external clock source (e.g. HMC7044):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">axi_tdd_0</span><span class="p">:</span> <span class="n">axi</span><span class="o">-</span><span class="n">tdd</span><span class="o">-</span><span class="mi">0</span><span class="o">@</span><span class="mi">9</span><span class="n">c460000</span> <span class="p">{</span>
+    <span class="n">compatible</span> <span class="o">=</span> <span class="s2">&quot;adi,axi-tdd&quot;</span><span class="p">;</span>
+    <span class="n">reg</span> <span class="o">=</span> <span class="o">&lt;</span><span class="mh">0x9c460000</span> <span class="mh">0x10000</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clocks</span> <span class="o">=</span> <span class="o">&lt;&amp;</span><span class="n">zynqmp_clk</span> <span class="n">PL0_REF</span><span class="o">&gt;</span><span class="p">,</span> <span class="o">&lt;&amp;</span><span class="n">hmc7044</span> <span class="mi">6</span><span class="o">&gt;</span><span class="p">;</span>
+    <span class="n">clock</span><span class="o">-</span><span class="n">names</span> <span class="o">=</span> <span class="s2">&quot;s_axi_aclk&quot;</span><span class="p">,</span> <span class="s2">&quot;intf_clk&quot;</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<p>The TDD driver exposes a sysfs interface for configuration and monitoring.</p>
+<section id="sysfs-interface">
+<h3>Sysfs interface<a class="headerlink" href="#sysfs-interface" title="Link to this heading"></a></h3>
+<p>The driver creates sysfs attributes under
+<code class="docutils literal notranslate"><span class="pre">/sys/bus/platform/drivers/adi-axi-tdd/&lt;device&gt;/</span></code>.</p>
+<section id="core-attributes">
+<h4>Core attributes<a class="headerlink" href="#core-attributes" title="Link to this heading"></a></h4>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>RO</p></td>
+<td><p>IP core version (semantic versioning)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">core_id</span></code></p></td>
+<td><p>RO</p></td>
+<td><p>ID configuration parameter value</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">magic</span></code></p></td>
+<td><p>RO</p></td>
+<td><p>Identification code (0x5444444E = ‘T’,’D’,’D’,’N’)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">scratch</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Scratch register for testing register access</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">state</span></code></p></td>
+<td><p>RO</p></td>
+<td><p>Current state of the peripheral FSM</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="control-attributes">
+<h4>Control attributes<a class="headerlink" href="#control-attributes" title="Link to this heading"></a></h4>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">enable</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Enable or disable the TDD module</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sync_soft</span></code></p></td>
+<td><p>WO</p></td>
+<td><p>Trigger one software sync pulse</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sync_external</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Enable or disable the external sync trigger</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sync_internal</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Enable or disable the internal sync trigger</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">sync_reset</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Reset the internal counter on sync event</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="timing-attributes">
+<h4>Timing attributes<a class="headerlink" href="#timing-attributes" title="Link to this heading"></a></h4>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">burst_count</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Number of frames per burst (0 = continuous)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">startup_delay_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Initial delay before first frame (clock cycles)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">startup_delay_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Initial delay before first frame (milliseconds)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">frame_length_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Frame length (clock cycles)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">frame_length_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Frame length (milliseconds)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">internal_sync_period_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Internal sync generator period (clock cycles)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">internal_sync_period_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Internal sync generator period (milliseconds)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="per-channel-attributes-n-0-31">
+<h4>Per-channel attributes (N = 0..31)<a class="headerlink" href="#per-channel-attributes-n-0-31" title="Link to this heading"></a></h4>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Access</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_enable</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Enable or disable output channel N</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_polarity</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Set the polarity of output channel N</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_on_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Channel N assertion offset from frame start (clock cycles)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_off_raw</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Channel N de-assertion offset from frame start (clock cycles)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_on_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Channel N assertion offset from frame start (milliseconds)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">out_channelN_off_ms</span></code></p></td>
+<td><p>RW</p></td>
+<td><p>Channel N de-assertion offset from frame start (milliseconds)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="example-sysfs-usage">
+<h4>Example sysfs usage<a class="headerlink" href="#example-sysfs-usage" title="Link to this heading"></a></h4>
+<p>The following example configures a burst of 2 pulses on channel 0, triggered
+by an external sync signal (e.g. a GPSDO 1 PPS output). Each frame is 2 ms
+long, and within each frame channel 0 is high from 0.8 ms to 1.8 ms (a 1 ms
+pulse). After the 2 frames complete, the output stays low until the next
+external sync event re-arms the core.</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Configure timing (must be done before enabling)</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">0</span>.000000<span class="w"> </span>&gt;<span class="w"> </span>startup_delay_ms
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">2</span>.000000<span class="w"> </span>&gt;<span class="w"> </span>frame_length_ms
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">2</span><span class="w"> </span>&gt;<span class="w"> </span>burst_count
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Configure channel 0: 1 ms pulse starting at 0.8 ms into each frame</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">0</span>.800000<span class="w"> </span>&gt;<span class="w"> </span>out_channel0_on_ms
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span>.800000<span class="w"> </span>&gt;<span class="w"> </span>out_channel0_off_ms
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>out_channel0_enable
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Use external sync as trigger source and enable</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span>sync_external
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">echo</span><span class="w"> </span><span class="m">1</span><span class="w"> </span>&gt;<span class="w"> </span><span class="nb">enable</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Verify the core is armed and waiting for sync</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>/sys/bus/platform/drivers/adi-axi-tdd/9c460000.axi-tdd-0$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cat<span class="w"> </span>state
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Explanation of the configuration:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">startup_delay_ms</span> <span class="pre">=</span> <span class="pre">0</span></code>: No extra delay before the first frame. Note that
+any startup delay applies to all channels equally.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">frame_length_ms</span> <span class="pre">=</span> <span class="pre">2</span></code>: Each frame is 2 ms long; GPIO toggles are spaced
+2 ms apart.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">burst_count</span> <span class="pre">=</span> <span class="pre">2</span></code>: A burst of 2 frames is generated, then the core stops.
+Set to 0 for infinite (continuous) operation.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channel0_on_ms</span> <span class="pre">=</span> <span class="pre">0.8</span></code>: Channel 0 asserts 0.8 ms after the frame
+starts. This acts as a per-channel delay relative to the sync trigger.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channel0_off_ms</span> <span class="pre">=</span> <span class="pre">1.8</span></code>: Channel 0 de-asserts 1.8 ms after the frame
+starts. The resulting pulse width is 1.0 ms (1.8 - 0.8).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sync_external</span> <span class="pre">=</span> <span class="pre">1</span></code>: The core waits for an external sync pulse to begin
+the burst.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable</span> <span class="pre">=</span> <span class="pre">1</span></code>: Arms the TDD core; it enters the ARMED state and waits for
+the configured sync event.</p></li>
+</ul>
+</section>
+</section>
+</section>
+<section id="theory-of-operation">
+<h2>Theory of operation<a class="headerlink" href="#theory-of-operation" title="Link to this heading"></a></h2>
+<section id="frame-generation">
+<h3>Frame generation<a class="headerlink" href="#frame-generation" title="Link to this heading"></a></h3>
+<p>The central idea of the TDD controller is “frame”-based operation: all timing
+defined for individual channels is relative to the beginning of a frame. The
+<code class="docutils literal notranslate"><span class="pre">frame_length</span></code> value controls the length of a single frame, while
+<code class="docutils literal notranslate"><span class="pre">burst_count</span></code> controls how many frames should be played after enabling the
+device (a value of 0 means frames repeat indefinitely). Before the start of a
+burst, an optional startup delay is inserted, defined by <code class="docutils literal notranslate"><span class="pre">startup_delay</span></code> in
+clock cycles.</p>
+<p>The TDD core generates timing waveforms organized into frames:</p>
+<ol class="arabic simple">
+<li><p>When enabled, the core enters the ARMED state and waits for a sync event</p></li>
+<li><p>After sync, it transitions to the WAITING state and the startup delay
+counter runs (if configured)</p></li>
+<li><p>The core enters the RUNNING state and the frame counter begins, cycling
+through the configured frame length</p></li>
+<li><p>Each channel output is asserted at its <code class="docutils literal notranslate"><span class="pre">on</span></code> time and de-asserted at its
+<code class="docutils literal notranslate"><span class="pre">off</span></code> time within the frame</p></li>
+<li><p>After the frame completes, the next frame begins</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">burst_count</span></code> is non-zero, the core stops after that many frames and
+returns to IDLE; otherwise it runs continuously until disabled</p></li>
+</ol>
+</section>
+<section id="fsm-states">
+<h3>FSM states<a class="headerlink" href="#fsm-states" title="Link to this heading"></a></h3>
+<p>The peripheral transitions between four states. The current state can be read
+via the <code class="docutils literal notranslate"><span class="pre">state</span></code> sysfs attribute, which returns the numeric value:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 20.0%" />
+<col style="width: 65.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Value</p></th>
+<th class="head"><p>State</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>0</p></td>
+<td><p>IDLE</p></td>
+<td><p>The core is disabled or has completed its burst</p></td>
+</tr>
+<tr class="row-odd"><td><p>1</p></td>
+<td><p>ARMED</p></td>
+<td><p>The core is enabled and waiting for a synchronization event</p></td>
+</tr>
+<tr class="row-even"><td><p>2</p></td>
+<td><p>WAITING</p></td>
+<td><p>A sync has been received; the startup delay is counting down</p></td>
+</tr>
+<tr class="row-odd"><td><p>3</p></td>
+<td><p>RUNNING</p></td>
+<td><p>Frames are actively being generated</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="synchronization">
+<h3>Synchronization<a class="headerlink" href="#synchronization" title="Link to this heading"></a></h3>
+<p>Three sync sources are available and can be enabled simultaneously:</p>
+<ul class="simple">
+<li><p><strong>Software</strong> (<code class="docutils literal notranslate"><span class="pre">sync_soft</span></code>): Write-only, generates a single pulse. Useful
+for triggering operation at an arbitrary point in time.</p></li>
+<li><p><strong>Internal</strong> (<code class="docutils literal notranslate"><span class="pre">sync_internal</span></code>): Periodic trigger from an internal counter.
+The period is configured via <code class="docutils literal notranslate"><span class="pre">internal_sync_period_raw</span></code>/<code class="docutils literal notranslate"><span class="pre">_ms</span></code>.</p></li>
+<li><p><strong>External</strong> (<code class="docutils literal notranslate"><span class="pre">sync_external</span></code>): An external signal input, optionally
+processed through a CDC circuit (synthesis-time configuration). This allows
+alignment of frames between multiple devices in different locations, for
+example using a GPSDO 1 PPS output.</p></li>
+</ul>
+<p>If a synchronization signal is received while the TDD core is already running,
+the <code class="docutils literal notranslate"><span class="pre">sync_reset</span></code> attribute controls whether the internal counter is reset to
+zero. This can alter the counter value in both the WAITING and RUNNING states.</p>
+</section>
+<section id="channel-output">
+<h3>Channel output<a class="headerlink" href="#channel-output" title="Link to this heading"></a></h3>
+<p>The TDD controller can have up to 32 output channels. Each channel produces a
+single-bit output signal with unique <code class="docutils literal notranslate"><span class="pre">on</span></code> and <code class="docutils literal notranslate"><span class="pre">off</span></code> values that are
+continuously compared to the internal counter while the core is RUNNING.</p>
+<p>Within a frame:</p>
+<ul class="simple">
+<li><p>The output is asserted (set to active level) at the <code class="docutils literal notranslate"><span class="pre">on</span></code> time</p></li>
+<li><p>The output is de-asserted (set to inactive level) at the <code class="docutils literal notranslate"><span class="pre">off</span></code> time</p></li>
+<li><p>The <code class="docutils literal notranslate"><span class="pre">polarity</span></code> attribute inverts the active level for a channel</p></li>
+</ul>
+<p>Every bit in <code class="docutils literal notranslate"><span class="pre">CHANNEL_ENABLE</span></code> / <code class="docutils literal notranslate"><span class="pre">CHANNEL_POLARITY</span></code> corresponds to a
+specific channel. The bit position is correlated to the channel index: the LSB
+is associated with channel 0 and the MSB with channel 31.</p>
+<p>Timing values can be specified in raw clock cycles or milliseconds. The
+millisecond values are converted to clock cycles using the <code class="docutils literal notranslate"><span class="pre">intf_clk</span></code> rate,
+which is tracked dynamically via clock notifiers.</p>
+</section>
+<section id="register-update-restrictions">
+<h3>Register update restrictions<a class="headerlink" href="#register-update-restrictions" title="Link to this heading"></a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Most configuration registers cannot be modified while the TDD core is
+enabled. Any writes to these registers while the peripheral is enabled
+will be ignored.</p>
+</div>
+<p>The following attributes must be configured <strong>before</strong> enabling the peripheral:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">burst_count</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">startup_delay_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">startup_delay_ms</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">frame_length_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">frame_length_ms</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">internal_sync_period_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">internal_sync_period_ms</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_polarity</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_on_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">out_channelN_on_ms</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_off_raw</span></code> / <code class="docutils literal notranslate"><span class="pre">out_channelN_off_ms</span></code></p></li>
+</ul>
+<p>Exceptions:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">out_channelN_enable</span></code> can be modified on-the-fly. The new value takes
+effect when the core enters the ARMED state or at the end of the current
+frame.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable</span></code>, <code class="docutils literal notranslate"><span class="pre">sync_soft</span></code>, <code class="docutils literal notranslate"><span class="pre">sync_external</span></code>, <code class="docutils literal notranslate"><span class="pre">sync_internal</span></code>, and
+<code class="docutils literal notranslate"><span class="pre">sync_reset</span></code> (the <code class="docutils literal notranslate"><span class="pre">CONTROL</span></code> register) can be modified on-the-fly with
+immediate effect.</p></li>
+</ul>
+</section>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon dokuwiki reference external" href="https://wiki.analog.com/resources/fpga/docs/axi_tdd" target="_blank">Generic Time-Division Duplexing Controller on wiki</a></p></li>
+</ul>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="axi-hsci.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">AXI HSCI</a>
+    <a href="dpot.html" title="Next document (Alt+Shift+RightArrow)" class="next">Digital Potentiometer</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

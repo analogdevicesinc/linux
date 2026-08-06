@@ -1,0 +1,512 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-inertial-measurement-units/adis16480
+
+.. _adis16480:
+
+ADIS16480
+=========
+
+ADIS16480 IIO Inertial Measurement Unit.
+
+Supported Devices
+-----------------
+
+- :adi:`ADIS16375`
+- :adi:`ADIS16480`
+- :adi:`ADIS16485`
+- :adi:`ADIS16488`
+- :adi:`ADIS16490`
+- :adi:`ADIS16495`
+- :adi:`ADIS16497`
+
+Evaluation Boards
+-----------------
+
+- :adi:`ADIS16IMU1/PCBZ <EVAL-ADIS16IMU1>`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting serial interface Inertial Measurement Units (IMU). The
+industrial I/O subsystem provides a unified framework for drivers for many
+different types of converters and sensors using a number of different physical
+interfaces (i2c, spi, etc). See :external+documentation:ref:`iio` for more
+information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16480.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16480.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/imu/adis16480.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/imu/adis16480.c>`__
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name. It may also required to adjust
+max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
+the device in question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_adis16480) \
+       || defined(CONFIG_adis16480_MODULE)
+       {
+           .modalias = "adis16480",
+           .max_speed_hz = 2000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = 1, /* CS, change it for your board */
+           .platform_data = NULL, /* No spi_driver specific config */
+           .mode = SPI_MODE_3,
+           .irq = IRQ_PF5,
+       },
+   #endif
+
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Devicetree
+~~~~~~~~~~
+
+Analog Devices ADIS16480 and similar IMUs
+
+Required properties for the ADIS16480:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- compatible: Must be one of
+
+  - ``adi,adis16375``
+  - ``adi,adis16480``
+  - ``adi,adis16485``
+  - ``adi,adis16488``
+  - ``adi,adis16490``
+  - ``adi,adis16495-1``
+  - ``adi,adis16495-2``
+  - ``adi,adis16495-3``
+  - ``adi,adis16497-1``
+  - ``adi,adis16497-2``
+  - ``adi,adis16497-3``
+
+- reg: SPI chip select number for the device
+- spi-max-frequency: Max SPI frequency to use see:
+  Documentation/devicetree/bindings/spi/spi-bus.txt
+- spi-cpha: See Documentation/devicetree/bindings/spi/spi-bus.txt
+- spi-cpol: See Documentation/devicetree/bindings/spi/spi-bus.txt
+- interrupts: interrupt mapping for IRQ, accepted values are:
+- IRQF_TRIGGER_RISING
+- IRQF_TRIGGER_FALLING
+
+Optional properties
+^^^^^^^^^^^^^^^^^^^
+
+- interrupt-names: Data ready line selection. If this field is left empty, the
+  factory default assigns DIO2 as data ready signal. Valid values are:
+
+  - DIO1
+  - DIO2
+  - DIO3
+  - DIO4
+
+- reset-gpios: must be the device tree identifier of the RESET pin. As the line
+  is active low, it should be marked GPIO_ACTIVE_LOW.
+
+- clocks: phandle to the external clock. Should be set according to
+  ``clock-names``. If this field is left empty, the internal clock is used.
+- clock-names: The name of the external clock to be used. Valid values are:
+
+  - sync: In sync mode, the internal clock is disabled and the frequency of the
+    external clock signal establishes the rate of data collection and
+    processing. The clock-frequency must be:
+
+    - 3000 to 4500 Hz for adis1649x devices.
+    - 700 to 2400 Hz for adis1648x devices.
+
+  - pps: In Pulse Per Second (PPS) Mode, the rate of data collection and
+    production is equal to the product of the external clock frequency and the
+    scale factor in the SYNC_SCALE register, see Table 154 in the datasheet. The
+    clock-frequency must be:
+
+    - 1 to 128 Hz for adis1649x devices.
+    - This mode is not supported by adis1648x devices. If this field is left
+      empty, the internal clock is used.
+
+- adi,ext-clk-pin: The DIOx line to be used as an external clock input. Valid
+  values are:
+
+  - DIO1
+  - DIO2
+  - DIO3
+  - DIO4
+
+Each DIOx pin supports only one function at a time (data ready line selection or
+external clock input). When a single pin has two assignments, the enable bit for
+the lower priority function automatically resets to zero (disabling the lower
+priority function). Data ready has highest priority. If this field is left
+empty, DIO2 is assigned as default external clock input pin.
+
+Example
+^^^^^^^
+
+::
+
+   imu@0 {
+       compatible = "adi,adis16495-1";
+       reg = <0>;
+       spi-max-frequency = <3200000>;
+       spi-cpol;
+       spi-cpha;
+       interrupts = <25 IRQF_TRIGGER_FALLING>;
+       interrupt-parent = <&gpio>;
+       interrupt-names = "DIO2";
+       clocks = <&adis16495_sync>;
+       clock-names = "sync";
+       adi,ext-clk-pin = "DIO1";
+      };
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The adis16480 driver depends on **CONFIG_SPI_MASTER**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               [*]   Enable buffer support within IIO
+               -*-     Industrial I/O buffering based on kfifo
+               -*-   Enable triggered sampling support
+               [--snip--]
+               Inertial measurement units  --->
+                   [--snip--]
+                   <*> Analog Devices ADIS16480 and similar IMU driver
+                   [--snip--]
+
+Hardware configuration
+----------------------
+
+The :adi:`ADIS16IMU1/PCBZ <EVAL-ADIS16IMU1>` is the primary breakout board for
+the ADIS1649x products. This breakout board simplifies the process of connecting
+an ADIS1649x IMU to an embedded processor system using a 16-pin, 1mm ribbon
+cable. For a detailed description, please see:
+:dokuwiki:`/resources/eval/user-guides/inertial-mems/imu/adis1649x </resources/eval/user-guides/inertial-mems/imu/adis1649x>`
+Here is an example of basic connection from the ADIS1649X interface connector to
+the host (microprocessor):
+
+::
+
+   ADIS1649X       HOST MICROPROCESSOR
+   * DIO2 ———————> IRQ GPIO
+   * CS   <——————— SPI_SEL
+   * SCLK <——————— SPI_SCLK
+   * DIN  <——————— SPI_MOSI
+   * DOUT ———————> SPI_MISO
+
+Note: IRQ GPIO can be connected to any DIOx pin. See the Devicetree section.
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+.. tip::
+
+   An example program which uses the interface can be found here:
+
+   - :external+documentation:ref:`iio-oscilloscope`
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0  trigger0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> ls -l
+   drwxr-xr-x    2 root     root             0 Jan  4 00:03 buffer
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 dev
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_filter_low_pass_3db_frequency
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_scale
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_x_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_y_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_y_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_accel_z_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_accel_z_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_filter_low_pass_3db_frequency
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_scale
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_x_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_y_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_y_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_z_calibbias
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_anglvel_z_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_magn_filter_low_pass_3db_frequency
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_magn_scale
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_x_raw
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_y_raw
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_magn_z_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_temp0_offset
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 in_temp0_raw
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 in_temp0_scale
+   -r--r--r--    1 root     root          4096 Jan  4 00:03 name
+   drwxr-xr-x    2 root     root             0 Jan  4 00:03 power
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 sampling_frequency
+   drwxr-xr-x    2 root     root             0 Jan  4 00:03 scan_elements
+   lrwxrwxrwx    1 root     root             0 Jan  4 00:03 subsystem -> ../../../../../bus/iio
+   drwxr-xr-x    2 root     root             0 Jan  4 00:03 trigger
+   -rw-r--r--    1 root     root          4096 Jan  4 00:03 uevent
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0>
+
+ADIS16480 device attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a detailed description please see:
+`Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
+
+.. list-table::
+   :header-rows: 1
+
+   * - 3-Axis Accelerometer related device files
+     - Description
+   * - in_accel_filter_low_pass_3db_frequency
+     - Bandwidth for the accelerometer channels.
+   * - in_accel_scale
+     - Scale for the accelerometer channels.
+   * - in_accel_x_calibbias
+     - Calibration offset for the X-axis accelerometer channel.
+   * - in_accel_x_raw
+     - Raw X-axis accelerometer channel value.
+   * - in_accel_y_calibbias
+     - Calibration offset for the Y-axis accelerometer channel.
+   * - in_accel_y_raw
+     - Raw Y-axis accelerometer channel value.
+   * - in_accel_z_calibbias
+     - Calibration offset for the Z-axis accelerometer channel.
+   * - in_accel_z_raw
+     - Raw Z-axis accelerometer channel value.
+   * - 3-Axis Gyro related device files
+     - Description
+   * - in_anglvel_filter_low_pass_3db_frequency
+     - Bandwidth for the gyroscope channels.
+   * - in_anglvel_scale
+     - Scale for the gyroscope channels.
+   * - in_anglvel_x_calibbias
+     - Calibration offset for the X-axis gyroscope channel.
+   * - in_anglvel_x_raw
+     - Raw X-axis gyroscope channel value.
+   * - in_anglvel_y_calibbias
+     - Calibration offset for the Y-axis gyroscope channel.
+   * - in_anglvel_y_raw
+     - Raw Y-axis gyroscope channel value.
+   * - in_anglvel_z_calibbias
+     - Calibration offset for the Z-axis gyroscope channel.
+   * - in_anglvel_z_raw
+     - Raw Z-axis gyroscope channel value.
+   * - 3-Axis Magnetometer related device files
+     - Description
+   * - in_magn_filter_low_pass_3db_frequency
+     - Bandwidth for the magnetometer channels.
+   * - in_magn_scale
+     - Scale for the magnetometer channels.
+   * - in_magn_x_raw
+     - Raw X-axis magnetometer channel value.
+   * - in_magn_y_raw
+     - Raw Y-axis magnetometer channel value.
+   * - in_magn_z_raw
+     - Raw Z-axis magnetometer channel value.
+   * - Barometric pressure sensor related files
+     - Description
+   * - in_pressure_raw
+     - Raw barometric pressure sensor channel value.
+   * - in_pressure_scale
+     - Scale for the barometric pressure sensor channel.
+   * - Temperature sensor related files
+     - Description
+   * - in_temp0_offset
+     - Offset for temperature sensor channel.
+   * - in_temp0_raw
+     - Raw temperature channel value.
+   * - in_temp0_scale
+     - Scale for the temperature sensor channel.
+   * - Miscellaneous device files
+     - Description
+   * - name
+     - Name of the IIO device.
+   * - sampling_frequency
+     - Currently selected sample rate.
+
+Show device name
+^^^^^^^^^^^^^^^^
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat name
+   adis16480
+
+Set sampling frequency
+^^^^^^^^^^^^^^^^^^^^^^
+
+The sampling frequency of the device can be set by writing the desired value to
+the ``sampling_frequency`` file. The driver will automatically round up to the
+nearest supported sampling frequency.
+
+**Example:** ::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat sampling_frequency
+   4250.000000
+   pi@raspberrypi:/s
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> echo 2000 > sampling_frequency
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat sampling_frequency
+   2125.000000
+
+Show channel value
+^^^^^^^^^^^^^^^^^^
+
+A channel value can be read from its ``_raw`` attribute. The value returned by
+the ``_raw`` attribute is the raw value as reported by the device. To get the
+processed value of the channel in a standardized unit add the channels
+``_offset`` attribute to the ``_raw`` value and multiply the result by
+``_scale`` attribute. If no ``_offset`` attribute is present assume 0 for the
+offset.
+
+``processed value = (raw + offset) * scale``
+
+The units by the IIO framework are:
+
+- Acceleration: Meter per Second squared
+- Angular velocity: Rad per second
+- Pressure: kilo Pascal
+- Magnetometer: milli Gauss
+- Temperature: milli Degree Celsius
+
+**Example:** ::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_accel_z_raw
+   265126938
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_accel_scale
+   0.002451731
+
+``Z-axis acceleration = in_accel_z_raw * in_accel_scale = 265126938 *
+0.002451731 m/s^2 = 650019.932 m/s^2``
+
+Set channel bandwidth
+^^^^^^^^^^^^^^^^^^^^^
+
+The channels bandwidth can be set by writing the desired value to the channels
+``_filter_low_pass_3db_frequency`` attribute. The driver will automatically
+round up to the nearest supported bandwidth.
+
+Note that the low pass filter frequency depends on the sampling frequency, so
+changing the sampling frequency will scale the low pass filter frequency
+accordingly. E.g. reducing the sampling frequency by a factor of two will also
+reduce the bandwidth by a factor of two.
+
+**Example:** ::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_anglvel_filter_low_pass_3db_frequency
+   TDB
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> echo TBD > in_anglvel_filter_low_pass_3db_frequency
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat in_anglvel_filter_low_pass_3db_frequency
+   TBD
+
+Trigger management
+~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+   This driver only supports it’s own default trigger source **adis16480-dev0**
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> cat trigger/current_trigger
+   adis16480-dev0
+
+.. tip::
+
+   In case there is no trigger specified, run the following command:
+
+   ::
+
+      root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0> echo adis16480-dev0 > trigger/current_trigger
+
+Buffer management
+~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/buffer> ls
+   enable           length
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-buffer-management
+   :end-before: .. end-buffer-management
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements> ls
+   TBD
+   root:/sys/devices/platform/bfin-spi.0/spi0.1/iio:device0/scan_elements>
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-typical-adc-scan-elements
+   :end-before: .. end-typical-adc-scan-elements
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
+
+IMU Evaluation Board User Guides
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- :dokuwiki:`ADIS1648x Evaluation on the EVAL-ADIS </resources/eval/user-guides/inertial-mems/imu/adis1648x>`
+- :dokuwiki:`ADIS16375 Evaluation on the ADISUSB </resources/eval/user-guides/inertial-mems/imu/adis16375-adisusb>`

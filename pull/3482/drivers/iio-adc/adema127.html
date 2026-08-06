@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta content="ADEMA124 / ADEMA127 IIO ADC Linux driver." name="description" />
+
+    <title>ADEMA124 / ADEMA127 &#8212; Linux Drivers  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8e8a900e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/app.min.css?v=cae2157c" />
+    <script async="async" src="../../_static/app.umd.js?v=26d0298f"></script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
+    <link rel="icon" href="../../_static/icon.svg"/>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="AXI ADC HDL" href="axi-adc-hdl.html" />
+    <link rel="prev" title="ADAS1000" href="adas1000.html" />
+   
+  
+  
+  
+  <meta name="repository" content="linux">
+  <meta name="version" content="">
+  
+    <meta name="page_source_suffix" content=".rst">
+  
+  
+  
+
+
+<style>
+  body {
+    
+  }
+
+  body.dark {
+    
+  }
+
+  @media (prefers-color-scheme: dark) {
+    body:not(.light) {
+      
+    }
+  }
+</style>
+  </head>
+  
+    <body>
+  
+  <input type="checkbox" id="input-show-toc">
+  <input type="checkbox" id="input-show-localtoc">
+  <input type="checkbox" id="input-show-repotoc">
+
+  
+  <div class="search-area">
+    <form action="" method="get">
+      <input type="text" name="q" aria-labelledby="search-documentation" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="search" placeholder="Search"/>
+      <button class="icon"></button>
+    </form>
+  </div>
+  
+
+  <header>
+    <div id="left">
+      <label id="show-sidebar" class="icon" for="input-show-toc" title="Show/hide index"></label>
+    </div>
+    <div id="right">
+      <span>
+        <a id="logo-org" href="https://developer.analog.com/" aria-label="Analog Devices Inc. landing page"></a>
+        <div class="vertical-divider"></div>
+        
+        <label id="show-repotoc" for="input-show-repotoc" title="Show/hide docs">Documentation</label>
+        
+        <a id="logo" href="../../index.html">
+          <div>Linux</div>
+        </a>
+      </span>
+      <span class="reverse">
+        <label id="show-localtoc" class="icon" for="input-show-localtoc" title="Show/hide contents"></label>
+      </span>
+    </div>
+  </header>
+
+
+  <div class="repotoc-tree overlay">
+    <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+  </div>
+    <div class="localtoc">
+      <div class="tocwrapper">
+        <div class="header localtoc-header">
+          <a id="scroll-up" href="#top-anchor" title="Back to top"></a>
+        </div>
+        <nav>
+          <ul>
+<li><a class="reference internal" href="#">ADEMA124 / ADEMA127</a><ul>
+<li><a class="reference internal" href="#supported-devices">Supported Devices</a></li>
+<li><a class="reference internal" href="#evaluation-boards">Evaluation Boards</a></li>
+<li><a class="reference internal" href="#description">Description</a></li>
+<li><a class="reference internal" href="#source-code">Source Code</a><ul>
+<li><a class="reference internal" href="#status">Status</a></li>
+<li><a class="reference internal" href="#files">Files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#hardware-overview">Hardware Overview</a><ul>
+<li><a class="reference internal" href="#signal-chain">Signal chain</a></li>
+<li><a class="reference internal" href="#spi-protocol">SPI protocol</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#devicetree">Devicetree</a><ul>
+<li><a class="reference internal" href="#spi-bus">SPI Bus</a></li>
+<li><a class="reference internal" href="#per-channel-overrides">Per-channel overrides</a></li>
+<li><a class="reference internal" href="#master-clock">Master clock</a></li>
+<li><a class="reference internal" href="#dready-pin">DREADY pin</a></li>
+<li><a class="reference internal" href="#spi-offload-optional">SPI Offload (optional)</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#driver-testing">Driver testing</a><ul>
+<li><a class="reference internal" href="#show-device-name">Show device name</a></li>
+<li><a class="reference internal" href="#direct-unbuffered-read">Direct (unbuffered) read</a></li>
+<li><a class="reference internal" href="#sampling-rate">Sampling rate</a></li>
+<li><a class="reference internal" href="#test-pattern-debug-modes">Test-pattern debug modes</a></li>
+<li><a class="reference internal" href="#synchronising-channels">Synchronising channels</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#trigger-management">Trigger management</a><ul>
+<li><a class="reference internal" href="#per-dready-software-triggered-buffer">Per-DREADY software triggered buffer</a></li>
+<li><a class="reference internal" href="#spi-offload-trigger">SPI Offload trigger</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#attribute-reference">Attribute reference</a><ul>
+<li><a class="reference internal" href="#direct-read-iio-chan-info-attributes">Direct-read (<code class="docutils literal notranslate"><span class="pre">IIO_CHAN_INFO_*</span></code>) attributes</a></li>
+<li><a class="reference internal" href="#extended-per-channel-calibration-attributes">Extended per-channel calibration attributes</a></li>
+<li><a class="reference internal" href="#filter-enables">Filter enables</a></li>
+<li><a class="reference internal" href="#analog-front-end-attributes">Analog front-end attributes</a></li>
+<li><a class="reference internal" href="#device-level-attributes">Device-level attributes</a></li>
+<li><a class="reference internal" href="#debugfs">Debugfs</a></li>
+<li><a class="reference internal" href="#module-parameters">Module parameters</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#programming-notes">Programming notes</a><ul>
+<li><a class="reference internal" href="#reset-sequence">Reset sequence</a></li>
+<li><a class="reference internal" href="#datapath-lock-unlock">Datapath lock/unlock</a></li>
+<li><a class="reference internal" href="#crc-handling">CRC handling</a></li>
+<li><a class="reference internal" href="#overrange-detection">Overrange detection</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#datasheet-cross-reference">Datasheet cross-reference</a></li>
+</ul>
+</li>
+</ul>
+
+        </nav>
+      </div>
+    </div>
+
+  
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+    <a id="no-logo" href="../../index.html">
+      Linux Drivers
+    </a><input id="input-switch-toc" type="checkbox">
+<label id="show-repotoc" for="input-switch-toc">
+All content
+</label>
+<label id="show-toc" for="input-switch-toc">
+Content on this topic
+</label>
+<div class="repotoc-tree">
+  <root>
+  <a href="../../index.html" class="current">Linux</a>
+</root>
+
+</div>
+<div class="toc-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Getting Started</a></li>
+<li class="toctree-l1 current"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1" checked=""/><div class="collapse"><a class="reference internal" href="../index.html">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8860.html">ADP8860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../backlight/adp8870.html">ADP8870</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../clk/ad9545.html">AD9545</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../demo/pmod-ad1-da1-demo.html">PmodAD1 - PmodDA1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../dma/axi-dmac.html">AXI DMAC</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/adv7511.html">ADV7511</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../drm/hdl-axi-hdmi.html">AXI HDMI HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../gpio/adp5588-gpio.html">ADP5588 GPIO</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/axi_fan_control.html">AXI Fan Control</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../hwmon/ltc2947.html">LTC2947</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16201.html">ADIS16201</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16203.html">ADIS16203</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16209.html">ADIS16209</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adis16240.html">ADIS16240</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl313.html">ADXL312</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl355.html">ADXL355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl367.html">ADXL367</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-accelerometer/adxl372.html">ADXL372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad400x.html">AD4003/AD4007/AD4011/AD4020/ADAQ4001/ADAQ4003</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4030.html">AD4030/AD4630/ADAQ4216/ADAQ4224</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4134.html">AD4134</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4170.html">AD4170</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4630.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad463x.html">AD4630</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad4695.html">AD469x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad6676.html">AD6676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7091r5.html">AD7091R5</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7091r8.html">AD7091R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7124.html">AD7124</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7173.html">AD7173</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7192.html">AD7192</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7266.html">AD7266</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7280a.html">AD7280A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7291.html">AD7291</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7298.html">AD7298</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad738x.html">AD738x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7476a.html">AD7476A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7606.html">AD7606</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7625.html">AD7625</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7766.html">AD7766</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7768.html">AD7768</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7768-1.html">AD7768-1</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7780.html">AD7780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7791.html">AD7791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7793.html">AD7793</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7887.html">AD7887</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7944.html">AD7944/AD7985/AD7986</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad7998.html">AD7998</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad9083.html">AD9083</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ad9208.html">AD9208</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adaq8092.html">ADAQ8092</a></li>
+<li class="toctree-l2"><a class="reference internal" href="adas1000.html">ADAS1000</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">ADEMA124 / ADEMA127</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi-adc-hdl.html">AXI ADC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi-jesd204b-gt-hdl.html">AXI JESD204B GT HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="axi-jesd204b-hdl.html">AXI JESD204B HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ltc2358.html">LTC2358</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ltc2387.html">LTC2387</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ltc2499.html">LTC2499</a></li>
+<li class="toctree-l2"><a class="reference internal" href="max11205.html">MAX11205</a></li>
+<li class="toctree-l2"><a class="reference internal" href="max14001.html">MAX14001</a></li>
+<li class="toctree-l2"><a class="reference internal" href="max22531.html">MAX22530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-addac/ad74413r.html">AD74413R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ad8366.html">AD8366</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/ada4250.html">ADA4250</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-amplifiers/hmc425a.html">HMC425A</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7150.html">AD7150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7152.html">AD7152</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-cdc/ad7745.html">AD7746</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad3530r.html">AD3530R/AD3530</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5064.html">AD5064</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5360.html">AD5360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5380.html">AD5380</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5421.html">AD5421</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5446.html">AD5446</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5449.html">AD5449</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5504.html">AD5504</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5592r.html">AD5592R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5593r.html">AD5593R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5624r.html">AD5624</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5676.html">AD5676</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5755.html">AD5755</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5758.html">AD5758</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5764.html">AD5764</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5770r.html">AD5770R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad5791.html">AD5791</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7293.html">AD7293</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ad7303.html">AD7303</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/axi-ad3552r.html">AD3552R</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2664.html">LTC2664</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dac/ltc2672.html">LTC2672</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9172.html">AD9172</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9832.html">AD9832</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/ad9834.html">AD9834</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-dds/axi-dac-dds-hdl.html">AXI DAC HDL</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-filter/admv8818.html">ADMV8818</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16060.html">ADIS16060</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16080.html">ADIS16080</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16130.html">ADIS16130</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16136.html">ADIS16136</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adis16260.html">ADIS16260</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-gyroscope/adxrs450.html">ADXRS450</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-impedance-analyzer/ad5933.html">AD5933</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16400.html">ADIS16400</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16475.html">ADIS16475</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-inertial-measurement-units/adis16480.html">ADIS16480</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-logic/axi-aion-trig.html">AXI AION Trigger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9162.html">AD9162</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9508.html">AD9508</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9517.html">AD9517</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9523.html">AD9523</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ad9528.html">AD9528</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4159.html">ADF4159</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4350.html">ADF4350</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4360.html">ADF4360</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4371.html">ADF4371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4377.html">ADF4377</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf4382.html">ADF4382</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adf5355.html">ADF5355</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admfm2000.html">ADMFM2000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1013.html">ADMV1013</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/admv1014.html">ADMV1014</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/adrf6780.html">ADRF6780</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/hmc7044.html">HMC7044</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-pll/ltc6952.html">LTC6952</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1200.html">AD2S1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s1210.html">AD2S1210</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-resolver/ad2s90.html">AD2S90</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-synchronizer/adf4030.html">ADF4030</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-temperature/ltc2983.html">LTC2983</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9361-customization.html">AD9361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/ad9371-customization.html">AD9371</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar1000.html">ADAR1000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adar4000.html">ADAR4000</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002.html">ADRV9002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9002-customization.html">ADRV9002 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9009-customization.html">ADRV9009</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025.html">ADRV9026</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv9025-customization.html">ADRV9025 Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x.html">ADRV904x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-transceiver/adrv904x-customization.html">ADRV904x Customization</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-trx-rf/ad9081.html">AD9081</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../iio-vector-power/adl5960.html">ADL5960</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5588.html">ADP5588 Input</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-keyboard/adp5589.html">ADP5589</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/ad714x.html">AD714X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl345.html">ADXL345</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-misc/adxl362.html">ADXL362</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7873.html">AD7873</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7877.html">AD7877</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../input-touchscreen/ad7879.html">AD7879</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_adxcvr.html">AXI ADXCVR</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_rx.html">AXI JESD204B RX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/axi_jesd204_tx.html">AXI JESD204 TX</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../jesd204/jesd204-fsm-framework.html">JESD204 FSM</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../leds/adp1650.html">ADP1650</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-hsci.html">AXI HSCI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/axi-tdd.html">AXI TDD</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../misc/dpot.html">Digital Potentiometer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../multifunction-device/adp5520.html">ADP5520</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../mux/adgs1408.html">ADGS1408</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin1110.html">ADIN1110</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/adin2111.html">ADIN2111</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-mac-phy/open_alliance.html">TC6-10BASE-T1x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin.html">ADIN1300/ADIN1200</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1100.html">ADIN1100</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../net-phy/adin1320.html">ADIN1320</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../networking-mac802154/adf7242.html">ADF7242</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../pmbus/adm1275.html">ADM1275</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/ad5398.html">AD5398</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../regulator/adp150.html">ADP150</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../serial/max310x.html">MAX310x</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1835a.html">AD1836</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad1936.html">AD1936</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ad73322.html">AD73322</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1361.html">ADAU1361</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1372.html">ADAU1372</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1373.html">ADAU1373</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1381.html">ADAU1781</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1701.html">ADAU1701</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1860.html">ADAU1860</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau1977.html">ADAU1977</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7002.html">ADAU7002</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adau7118.html">ADAU7118</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/adav801.html">ADAV80X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-i2s.html">HDL AXI I2S</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/hdl-axi-spidf.html">HDL AXI SPIDF</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2518.html">SSM2518</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm2602.html">SSM2602</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4329.html">SSM4329</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../sound/ssm4567.html">SSM4567</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../spi/spi_engine.html">SPI Engine</a></li>
+<li class="toctree-l2"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1-1" id="toctree-collapse-1-1"/><div class="collapse"><a class="reference internal" href="../iio-trx-rf/ad9088/index.html">AD9084/AD9088</a><label for="toctree-collapse-1-1"><div class="icon"></div></label></div><ul>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/mcs.html">Multi-Chip Synchronization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../iio-trx-rf/ad9088/gpio.html">GPIO usage</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../contribute.html">Contribution guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ci.html">Continuous integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../mainline.html">ADI Linux version support</a></li>
+</ul>
+
+
+</div>
+        </div>
+      </div>
+
+  <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper" id="top-anchor">
+          <div class="body-header">
+  <nav class="breadcrumb"><ol><li><a href="../index.html">Drivers</a></li></ol></nav>
+</div>
+          <div class="body" role="main">
+            
+  <section id="adema124-adema127">
+<span id="adema127"></span><h1>ADEMA124 / ADEMA127<a class="headerlink" href="#adema124-adema127" title="Link to this heading"></a></h1>
+<p>ADEMA124 / ADEMA127 IIO ADC Linux driver.</p>
+<section id="supported-devices">
+<h2>Supported Devices<a class="headerlink" href="#supported-devices" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/ADEMA124" target="_blank">ADEMA124</a></p></li>
+<li><p><a class="icon adi reference external" href="https://www.analog.com/ADEMA127" target="_blank">ADEMA127</a></p></li>
+</ul>
+</section>
+<section id="evaluation-boards">
+<h2>Evaluation Boards<a class="headerlink" href="#evaluation-boards" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="icon adi reference external" href="https://www.analog.com/EVAL-ADEMA127KTZ" target="_blank">EVAL-ADEMA127KTZ</a></p></li>
+</ul>
+</section>
+<section id="description">
+<h2>Description<a class="headerlink" href="#description" title="Link to this heading"></a></h2>
+<p>The ADEMA124 and ADEMA127 are 4- and 7-channel simultaneous-sampling 24-bit
+sigma-delta ADCs intended for poly-phase electricity metering, current
+sensing and general high-accuracy waveform capture. Both parts share the
+same die, the same SPI command/response protocol and the same on-chip DSP
+datapath; only the number of active analog front-ends differs. The driver
+keys off the <code class="docutils literal notranslate"><span class="pre">PRODUCT_ID</span></code> register at probe time
+(<code class="docutils literal notranslate"><span class="pre">0x13</span></code> = ADEMA124, <code class="docutils literal notranslate"><span class="pre">0x16</span></code> = ADEMA127) and picks the matching channel
+count and long-frame length automatically.</p>
+<p>Key features:</p>
+<ul class="simple">
+<li><p>24-bit signed output, ±1.2 V differential input full scale at 1× gain
+(~4,772,275 codes/V), overrange status flag per channel.</p></li>
+<li><p>Fully-simultaneous sampling on all channels — one 32-byte (ADEMA127) or
+20-byte (ADEMA124) SPI response frame carries every channel plus status.</p></li>
+<li><p>Programmable output data rate from 250 SPS to 64 kSPS, derived from a
+16.384 MHz nominal <code class="docutils literal notranslate"><span class="pre">XTALIN</span></code> clock via the <code class="docutils literal notranslate"><span class="pre">DATARATE</span></code> register.</p></li>
+<li><p>Per-channel DSP datapath: DC block (α), high-pass filter, low-pass
+filter, sensor-compensation filter, compensation filter (with two
+configurations), phase offset, crosstalk-compensation gain, sample
+shift, all-pass and gain/offset compensation.</p></li>
+<li><p>Hardware auto-CRC on both command (8-bit CRC-8, poly <code class="docutils literal notranslate"><span class="pre">0x07</span></code>, XOR
+<code class="docutils literal notranslate"><span class="pre">0x55</span></code>) and response (16-bit CRC-CCITT-FALSE, poly <code class="docutils literal notranslate"><span class="pre">0x1021</span></code>, seed
+<code class="docutils literal notranslate"><span class="pre">0xFFFF</span></code>, transmitted little-endian on the wire).</p></li>
+<li><p>Dedicated <code class="docutils literal notranslate"><span class="pre">DREADY</span></code> output — falling edge on every new sample set —
+shared with the <code class="docutils literal notranslate"><span class="pre">CLKOUT</span></code> pin (which the driver keeps disabled so the
+pin carries the sample-ready pulse).</p></li>
+</ul>
+<p>This is a Linux industrial I/O (<a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/linux/drivers/iio/index.html#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a>)
+subsystem driver. See <a class="icon link reference external" href="https://analogdevicesinc.github.io/documentation/linux/drivers/iio/index.html#iio" target="_blank" title="(in System Level Documentation)"><span>Linux Industrial I/O Subsystem</span></a> for background on
+the framework.</p>
+</section>
+<section id="source-code">
+<h2>Source Code<a class="headerlink" href="#source-code" title="Link to this heading"></a></h2>
+<section id="status">
+<h3>Status<a class="headerlink" href="#status" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Source</p></th>
+<th class="head"><p>Mainlined?</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/main/drivers/iio/adc/adema127-core.c" target="_blank">ADI tree</a></p></td>
+<td><p>No (submission in progress)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="files">
+<h3>Files<a class="headerlink" href="#files" title="Link to this heading"></a></h3>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Function</p></th>
+<th class="head"><p>File</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>driver</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">drivers/iio/adc/adema127-core.c</span></code> and
+<code class="docutils literal notranslate"><span class="pre">drivers/iio/adc/adema127-spi-offload.c</span></code> (SPI Offload streaming
+backend, <code class="docutils literal notranslate"><span class="pre">CONFIG_ADEMA127_SPI_OFFLOAD</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p>devicetree bindings</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Documentation/devicetree/bindings/iio/adc/adi,adema127.yaml</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>documentation</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">docs/drivers/iio-adc/adema127.rst</span></code> (this file)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="hardware-overview">
+<h2>Hardware Overview<a class="headerlink" href="#hardware-overview" title="Link to this heading"></a></h2>
+<section id="signal-chain">
+<h3>Signal chain<a class="headerlink" href="#signal-chain" title="Link to this heading"></a></h3>
+<p>Each active channel goes through the following on-chip datapath, in order:</p>
+<ol class="arabic simple">
+<li><p>Analog PGA (front-end gain 1× or 2×, per-channel).</p></li>
+<li><p>Analog inversion (optional, per-channel).</p></li>
+<li><p>24-bit sigma-delta modulator + sinc3 decimator (governed by
+<code class="docutils literal notranslate"><span class="pre">DATARATE</span></code>).</p></li>
+<li><p>Optional compensation filter (<code class="docutils literal notranslate"><span class="pre">COMP_FILT</span></code>), configurable between two
+coefficient sets (Sinc-Droop only, or Sinc-Droop plus external band-limit).</p></li>
+<li><p>Optional sensor compensation filter (<code class="docutils literal notranslate"><span class="pre">SCF</span></code>) — 1st-order IIR, per
+channel.</p></li>
+<li><p>Optional high-pass filter (<code class="docutils literal notranslate"><span class="pre">HPF</span></code>) — 2nd-order biquad, shared by all
+channels; the datasheet 3 dB corner is tunable in 4 preset bandwidths.</p></li>
+<li><p>Optional low-pass filter (<code class="docutils literal notranslate"><span class="pre">LPF</span></code>) — 17th-order FIR, shared across
+channels.</p></li>
+<li><p>Optional all-pass filter for phase compensation (<code class="docutils literal notranslate"><span class="pre">ALLPASS</span></code>).</p></li>
+<li><p>Optional per-channel arithmetic shift (0..7 bits).</p></li>
+<li><p>Optional per-channel gain / offset / crosstalk-compensation stage
+(<code class="docutils literal notranslate"><span class="pre">GAIN_OFFSET_XT</span></code>), where the crosstalk term subtracts a
+programmable scale of an “aggressor” channel from this channel.</p></li>
+<li><p>Optional DC-block (single-pole HPF) with programmable α (0..15).</p></li>
+</ol>
+<p>Each of the filter stages is individually enabled through the
+per-channel <code class="docutils literal notranslate"><span class="pre">in_voltageX_filter_*</span></code> and <code class="docutils literal notranslate"><span class="pre">in_voltageX_gain_offset_xt_en</span></code>
+attributes described below.</p>
+</section>
+<section id="spi-protocol">
+<h3>SPI protocol<a class="headerlink" href="#spi-protocol" title="Link to this heading"></a></h3>
+<p>Communication uses SPI mode 3 (<code class="docutils literal notranslate"><span class="pre">CPOL=1</span></code>, <code class="docutils literal notranslate"><span class="pre">CPHA=1</span></code>), MSB-first, up to
+22 MHz SCLK. Every SPI transaction is 6 bytes on the wire for a <em>short</em>
+frame (register access) or 20/32 bytes for a <em>long</em> frame (waveform
+readout on ADEMA124/127 respectively). Because the ADEMA is a pipelined
+device, the response for command <em>N</em> is shifted in during transaction
+<em>N+1</em>.</p>
+<p>Short-frame TX layout (both host→ADC and the pipeline of ADC→host):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>byte 0..1   dummy (host writes zeros; ADC returns the ECHO + STATUS0
+            of the previous command)
+byte 2      RWB | LONG | ADDR[13:8]   (bit 7 = 1 for read, 0 for write)
+byte 3      ADDR[7:0]
+byte 4      DATA (write payload; ignored on reads)
+byte 5      8-bit CRC-8 over bytes 2..4
+</pre></div>
+</div>
+<p>Short-frame RX layout (response of the <em>previous</em> command):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>byte 0      ECHO      (RWB | LONG | MRID[2:0] | RSRVD | CMD_CRC_ERR | IRQ)
+byte 1      STATUS0
+byte 2      DATA[0]   (register at ADDR + 1)
+byte 3      DATA[1]   (register at ADDR)
+byte 4..5  CRC-CCITT (poly 0x1021, seed 0xFFFF), little-endian on wire
+</pre></div>
+</div>
+<p>Long-frame reads (used for buffered capture) place the command word in
+the last 4 bytes of the frame; every preceding byte transmits zeros. The
+response, occupying the whole frame, delivers ECHO, STATUS0/1, all
+channel samples (24 bits each, transmitted WAV_LO/WAV_MD/WAV_HI —
+little-endian in-frame), and the trailing CRC-CCITT.</p>
+</section>
+</section>
+<section id="devicetree">
+<h2>Devicetree<a class="headerlink" href="#devicetree" title="Link to this heading"></a></h2>
+<p>The ADEMA is described as a child of the SPI controller it’s wired to.
+A complete example board file, including the mandatory clock and
+interrupt providers, is provided in the ADI Linux source at
+<code class="docutils literal notranslate"><span class="pre">arch/arm64/boot/dts/adi/sc598-som-ezlite-adema127.dts</span></code>.</p>
+<section id="spi-bus">
+<h3>SPI Bus<a class="headerlink" href="#spi-bus" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>&amp;spi0 {
+    status = &quot;okay&quot;;
+    cs-gpios = &lt;&amp;gpio 8 GPIO_ACTIVE_LOW&gt;;
+
+    adema127: adc@0 {
+        compatible = &quot;adi,adema127&quot;;
+        reg = &lt;0&gt;;
+
+        spi-max-frequency = &lt;20000000&gt;;
+        spi-cpol;
+        spi-cpha;
+
+        interrupt-parent = &lt;&amp;gpio&gt;;
+        interrupts = &lt;17 IRQ_TYPE_EDGE_FALLING&gt;;
+        interrupt-names = &quot;dready&quot;;
+
+        reset-gpios = &lt;&amp;gpio 22 GPIO_ACTIVE_LOW&gt;;
+
+        clocks = &lt;&amp;adema127_xtal&gt;;
+        clock-names = &quot;xtal&quot;;
+
+        #address-cells = &lt;1&gt;;
+        #size-cells = &lt;0&gt;;
+    };
+};
+</pre></div>
+</div>
+<p>Required properties:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;adi,adema124&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;adi,adema127&quot;</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reg</span></code>: SPI chip-select index.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">spi-cpol;</span> <span class="pre">spi-cpha;</span></code>: SPI mode 3 is mandatory.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">spi-max-frequency</span></code>: up to <code class="docutils literal notranslate"><span class="pre">22000000</span></code>. Typical evaluation setups
+use 20 MHz to leave signal-integrity margin.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clocks</span></code> / <code class="docutils literal notranslate"><span class="pre">clock-names</span> <span class="pre">=</span> <span class="pre">&quot;xtal&quot;</span></code>: 16.384 MHz nominal master clock
+driving <code class="docutils literal notranslate"><span class="pre">XTALIN</span></code>. See “Master clock” below.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">interrupts</span></code> (named <code class="docutils literal notranslate"><span class="pre">dready</span></code>): GPIO line wired to the chip’s
+<code class="docutils literal notranslate"><span class="pre">DREADY</span></code> output, configured as <code class="docutils literal notranslate"><span class="pre">IRQ_TYPE_EDGE_FALLING</span></code>.</p></li>
+</ul>
+<p>Optional properties:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">reset-gpios</span></code>: active-low GPIO wired to the chip’s <code class="docutils literal notranslate"><span class="pre">/RESET</span></code> pin.
+When present the driver pulses <code class="docutils literal notranslate"><span class="pre">/RESET</span></code> at probe (~10 µs low); when
+absent it falls back to a software reset via the <code class="docutils literal notranslate"><span class="pre">SWRST</span></code> register
+(write <code class="docutils literal notranslate"><span class="pre">0xD6</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cs-gpios</span></code> on the SPI controller node: use a GPIO for chip-select
+rather than the controller’s native CS. On the BCM2835 SPI controller
+(Raspberry Pi 3) native CE0 mis-times the first SCLK edge in mode 3;
+software CS avoids that. Not required on FPGA-based ADI reference
+designs.</p></li>
+</ul>
+</section>
+<section id="per-channel-overrides">
+<h3>Per-channel overrides<a class="headerlink" href="#per-channel-overrides" title="Link to this heading"></a></h3>
+<p>Child <code class="docutils literal notranslate"><span class="pre">channel&#64;N</span></code> nodes may override the reset-default input gain and
+polarity of individual channels. Only channels that need a non-default
+setting need to appear; unlisted channels use <code class="docutils literal notranslate"><span class="pre">adi,input-gain</span> <span class="pre">=</span> <span class="pre">&lt;1&gt;</span></code>
+and <code class="docutils literal notranslate"><span class="pre">adi,input-invert</span></code> off.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>channel@0 {
+    reg = &lt;0&gt;;
+    adi,input-gain = &lt;2&gt;;      /* analog PGA on channel 0 = 2x */
+};
+
+channel@2 {
+    reg = &lt;2&gt;;
+    adi,input-invert;          /* invert polarity of channel 2 */
+};
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,input-gain</span></code>: analog PGA gain applied at the input, <code class="docutils literal notranslate"><span class="pre">1</span></code> or
+<code class="docutils literal notranslate"><span class="pre">2</span></code>. Written to <code class="docutils literal notranslate"><span class="pre">ADC_GAIN</span></code> (register <code class="docutils literal notranslate"><span class="pre">0x006</span></code>) bit <code class="docutils literal notranslate"><span class="pre">N</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adi,input-invert</span></code>: boolean; when present inverts the polarity of the
+analog input for that channel (bit <code class="docutils literal notranslate"><span class="pre">N</span></code> of <code class="docutils literal notranslate"><span class="pre">ADC_INV</span></code> at <code class="docutils literal notranslate"><span class="pre">0x007</span></code>).</p></li>
+</ul>
+</section>
+<section id="master-clock">
+<h3>Master clock<a class="headerlink" href="#master-clock" title="Link to this heading"></a></h3>
+<p>The ADEMA needs a stable master clock on the <code class="docutils literal notranslate"><span class="pre">XTALIN</span></code> pin. The
+recommended source is a 16.384 MHz crystal or clock generator. The
+driver reads <code class="docutils literal notranslate"><span class="pre">clk_get_rate()</span></code> at probe and uses the result to derive
+<code class="docutils literal notranslate"><span class="pre">DATARATE</span></code> register values; other integer multiples of 16.384 MHz work
+but the raw rate must land on one of the ratios in Table 16 of the
+datasheet.</p>
+<p>Represent the crystal as a fixed-clock:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>adema127_xtal: adema127-xtal {
+    compatible = &quot;fixed-clock&quot;;
+    #clock-cells = &lt;0&gt;;
+    clock-frequency = &lt;16384000&gt;;
+    clock-output-names = &quot;adema127-xtal&quot;;
+};
+</pre></div>
+</div>
+</section>
+<section id="dready-pin">
+<h3>DREADY pin<a class="headerlink" href="#dready-pin" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">DREADY</span></code> output and the optional <code class="docutils literal notranslate"><span class="pre">CLKOUT</span></code> output share the same
+physical pin. The driver keeps <code class="docutils literal notranslate"><span class="pre">CLKOUT_EN</span></code> cleared in <code class="docutils literal notranslate"><span class="pre">CONFIG0</span></code> so the
+pin carries a falling-edge pulse each time a new sample set is ready.
+Enabling <code class="docutils literal notranslate"><span class="pre">CLKOUT_EN</span></code> would replace the sample-ready pulse with the
+16 MHz internal clock, which would flood the host GPIO IRQ line and
+lock up the CPU; the driver deliberately does not expose that as a
+user-selectable option.</p>
+</section>
+<section id="spi-offload-optional">
+<h3>SPI Offload (optional)<a class="headerlink" href="#spi-offload-optional" title="Link to this heading"></a></h3>
+<p>When the underlying SPI controller advertises the SPI Offload framework
+capabilities <code class="docutils literal notranslate"><span class="pre">SPI_OFFLOAD_CAP_TRIGGER</span></code>, <code class="docutils literal notranslate"><span class="pre">SPI_OFFLOAD_CAP_RX_STREAM_DMA</span></code>
+and <code class="docutils literal notranslate"><span class="pre">SPI_OFFLOAD_CAP_TX_STREAM_DMA</span></code>, the driver selects the offload
+path automatically and streams long-frame responses through a hardware
+descriptor-ring DMA into a kfifo IIO buffer with no CPU involvement per
+sample. The ADI SC5xx SPI3 controller (drivers/spi/spi-adi.c) together
+with the TRU data-ready trigger provider implements the required
+capabilities; controllers without them (RPi BCM2835) fall back to the
+per-DREADY software triggered buffer path described in “Trigger
+management” below.</p>
+<p>Refer to the SPI controller’s own binding for how to describe the
+offload trigger source and the “offload-tx”/”offload-rx” DMA channels.</p>
+</section>
+</section>
+<section id="driver-testing">
+<h2>Driver testing<a class="headerlink" href="#driver-testing" title="Link to this heading"></a></h2>
+<p>After probe the device appears under <code class="docutils literal notranslate"><span class="pre">/sys/bus/iio/devices/</span></code> as
+<code class="docutils literal notranslate"><span class="pre">iio:deviceN</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root@analog:~# ls /sys/bus/iio/devices/iio:device0
+buffer            in_voltage3_calibbias   scan_elements
+dev               in_voltage3_calibscale  sync_align
+in_voltage0_raw   in_voltage3_phase       sampling_frequency
+in_voltage0_scale in_voltage3_raw         sampling_frequency_available
+in_voltage0_...   ...                     test_pattern
+name              of_node                 test_pattern_available
+...
+</pre></div>
+</div>
+<section id="show-device-name">
+<h3>Show device name<a class="headerlink" href="#show-device-name" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/sys/bus/iio/devices/iio:device0&gt; cat name
+adema127          # or &quot;adema124&quot; for the 4-channel part
+</pre></div>
+</div>
+</section>
+<section id="direct-unbuffered-read">
+<h3>Direct (unbuffered) read<a class="headerlink" href="#direct-unbuffered-read" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; cat in_voltage0_raw
+-2153
+root:/&gt; cat in_voltage0_scale
+0.000209543
+</pre></div>
+</div>
+<p>Voltage on <code class="docutils literal notranslate"><span class="pre">AIN0</span></code> = raw × scale (in millivolts):</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[U = -2153 \times 0.000209543 \; \text{mV} \approx -0.451 \; \text{mV}\]</div>
+</div>
+<p>At 1× gain the scale corresponds exactly to
+1 V / 4,772,275 codes ≈ 209.5 nV/LSB, as specified in Table 2 of the
+datasheet. Setting <code class="docutils literal notranslate"><span class="pre">in_voltageN_input_gain</span> <span class="pre">=</span> <span class="pre">2</span></code> halves the scale for
+that channel.</p>
+</section>
+<section id="sampling-rate">
+<h3>Sampling rate<a class="headerlink" href="#sampling-rate" title="Link to this heading"></a></h3>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; cat sampling_frequency
+32000
+root:/&gt; cat sampling_frequency_available
+250 500 1000 2000 4000 8000 16000 32000 64000
+root:/&gt; echo 250 &gt; sampling_frequency
+</pre></div>
+</div>
+<p>Writing to <code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code> unlocks the <code class="docutils literal notranslate"><span class="pre">DATAPATH_CONFIG_LOCK</span></code>,
+programs the <code class="docutils literal notranslate"><span class="pre">DATARATE</span></code> register (0x03C) and re-locks the datapath.
+The buffer must be disabled (<code class="docutils literal notranslate"><span class="pre">buffer/enable</span></code> = 0) before changing the
+rate; the driver enforces this via <code class="docutils literal notranslate"><span class="pre">iio_device_claim_direct</span></code>.</p>
+</section>
+<section id="test-pattern-debug-modes">
+<h3>Test-pattern debug modes<a class="headerlink" href="#test-pattern-debug-modes" title="Link to this heading"></a></h3>
+<p>The chip’s <code class="docutils literal notranslate"><span class="pre">CONFIG0.STREAM_DBG</span></code> field selects what the SPI shift-out
+buffer contains:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; cat test_pattern_available
+normal static increment
+root:/&gt; echo static &gt; test_pattern     # every sample = constant
+root:/&gt; echo increment &gt; test_pattern  # sample = counter that steps
+                                       # once per ADC conversion
+root:/&gt; echo normal &gt; test_pattern     # back to real ADC data
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">static</span></code> mode confirms that the SPI-to-buffer pipeline is
+deterministic. <code class="docutils literal notranslate"><span class="pre">increment</span></code> mode is useful to check for dropped or
+duplicated samples in <code class="docutils literal notranslate"><span class="pre">iio_readdev</span></code> output — every channel should step
+by a fixed amount between consecutive sample records.</p>
+</section>
+<section id="synchronising-channels">
+<h3>Synchronising channels<a class="headerlink" href="#synchronising-channels" title="Link to this heading"></a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">sync_align</span></code> write-only attribute writes <code class="docutils literal notranslate"><span class="pre">ALIGN</span></code> to
+<code class="docutils literal notranslate"><span class="pre">SYNC_SNAP</span></code> (0x014). This forces the internal decimator to re-align
+all channels to a common sample instant — useful after changing filter
+enables or after startup.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; echo 1 &gt; sync_align
+</pre></div>
+</div>
+</section>
+</section>
+<section id="trigger-management">
+<h2>Trigger management<a class="headerlink" href="#trigger-management" title="Link to this heading"></a></h2>
+<p>The driver supports two capture paths, selected automatically at probe.</p>
+<section id="per-dready-software-triggered-buffer">
+<h3>Per-DREADY software triggered buffer<a class="headerlink" href="#per-dready-software-triggered-buffer" title="Link to this heading"></a></h3>
+<p>This is the default whenever the SPI controller does not implement the
+SPI Offload framework (or the RX-stream DMA capability). On every
+<code class="docutils literal notranslate"><span class="pre">DREADY</span></code> falling edge the driver’s GPIO IRQ handler kicks the IIO
+trigger; the trigger’s poll handler runs a single long-frame
+<code class="docutils literal notranslate"><span class="pre">spi_sync()</span></code> to fetch one sample set, verifies the CRC-CCITT trailer,
+unpacks the channel data and pushes one record to the IIO buffer,
+including an <code class="docutils literal notranslate"><span class="pre">s64</span></code> timestamp read at IRQ time.</p>
+<p>CPU cost scales linearly with the sample rate. At 32 kSPS this is 32000
+<code class="docutils literal notranslate"><span class="pre">spi_sync</span></code> calls per second — practical on a modern SoC but the SPI
+subsystem overhead dominates the cost. For bring-up and low-rate use
+(≤ 8 kSPS) this path is fine.</p>
+<p>The IRQ is registered with <code class="docutils literal notranslate"><span class="pre">IRQF_NO_AUTOEN</span></code> and enabled only inside
+the buffer’s <code class="docutils literal notranslate"><span class="pre">postenable</span></code> hook; disabling the buffer disables the IRQ.
+No DREADY interrupts fire while the buffer is idle.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span># enable all channels + timestamp
+for f in scan_elements/in_voltage*_en scan_elements/in_timestamp_en; do
+    echo 1 &gt; &quot;$f&quot;
+done
+
+# capture 128 samples at 250 SPS (~0.5 s)
+echo 250 &gt; sampling_frequency
+iio_readdev -b 128 -s 128 adema127 &gt; /tmp/samples.bin
+</pre></div>
+</div>
+<p>The captured record layout is:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>struct sample {
+    s32 chan[7];        /* ADEMA127; 4 channels for ADEMA124        */
+    u32 pad;            /* alignment to 8 bytes                     */
+    s64 timestamp;      /* CLOCK_MONOTONIC or CLOCK_REALTIME, ns    */
+};
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">chan[N]</span></code> values are 24-bit signed samples sign-extended to
+<code class="docutils literal notranslate"><span class="pre">s32</span></code>.</p>
+</section>
+<section id="spi-offload-trigger">
+<h3>SPI Offload trigger<a class="headerlink" href="#spi-offload-trigger" title="Link to this heading"></a></h3>
+<p>When the SPI controller supports the SPI Offload framework, the driver
+requests it via <code class="docutils literal notranslate"><span class="pre">devm_spi_offload_get()</span></code> and runs both stream DMA
+channels itself: a single self-looping TX descriptor re-sends the read
+command on every trigger, and the RX side is a ping-pong descriptor
+ring (one trigger-gated descriptor per long-frame) whose completion
+interrupt fires only once per bank. Triggering uses the standard
+<code class="docutils literal notranslate"><span class="pre">SPI_OFFLOAD_TRIGGER_DATA_READY</span></code> type — one hardware trigger per
+DREADY pulse, so the capture is phase-locked to the chip’s own sample
+cadence rather than a periodic timer. No per-sample CPU work is
+required.</p>
+<p>The RX bank size (frames accumulated per completion interrupt) follows
+the IIO buffer <code class="docutils literal notranslate"><span class="pre">watermark</span></code> set by userspace, so the interrupt rate is
+<code class="docutils literal notranslate"><span class="pre">sampling_frequency</span> <span class="pre">/</span> <span class="pre">watermark</span></code>. When userspace leaves the watermark
+at its default of 1, the board default from the optional
+<code class="docutils literal notranslate"><span class="pre">adi,offload-frames-per-interrupt</span></code> DT property (128 when absent) is
+used instead.</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>In offload mode the scan layout is the chip’s native long-frame:
+each phase channel has <code class="docutils literal notranslate"><span class="pre">scan_type</span></code> <code class="docutils literal notranslate"><span class="pre">le:s24/32&gt;&gt;8</span></code> — the 24-bit
+sample (transmitted LSByte first) in the upper bits of a
+little-endian 32-bit slot whose low byte is the frame’s
+housekeeping (ECHO/STATUS) byte, shifted and sign-extended away by
+the IIO core — plus one <code class="docutils literal notranslate"><span class="pre">be:u32/32</span></code>
+trailer channel carrying RDD1/RDD0 and the CRC. The available scan
+mask is all-or-none because the on-wire frame is fixed; pass every
+channel to <code class="docutils literal notranslate"><span class="pre">iio_readdev</span></code>. This differs from the software path’s
+packed CPU-endian <code class="docutils literal notranslate"><span class="pre">s32</span> <span class="pre">chan[N]</span></code> layout shown above.</p>
+</div>
+</section>
+</section>
+<section id="attribute-reference">
+<span id="adema127-attribute-reference"></span><h2>Attribute reference<a class="headerlink" href="#attribute-reference" title="Link to this heading"></a></h2>
+<p>All per-channel attributes exist as <code class="docutils literal notranslate"><span class="pre">in_voltageN_&lt;attr&gt;</span></code>. In the
+descriptions below <code class="docutils literal notranslate"><span class="pre">N</span></code> is the channel index: 0..6 for ADEMA127, 0..3
+for ADEMA124.</p>
+<section id="direct-read-iio-chan-info-attributes">
+<h3>Direct-read (<code class="docutils literal notranslate"><span class="pre">IIO_CHAN_INFO_*</span></code>) attributes<a class="headerlink" href="#direct-read-iio-chan-info-attributes" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt><strong>in_voltageN_raw</strong> <em>(int, read-only)</em></dt><dd><p>Latest 24-bit signed sample read from the <code class="docutils literal notranslate"><span class="pre">CHx_WAV</span></code> registers of
+this channel. The value is sign-extended to <code class="docutils literal notranslate"><span class="pre">s32</span></code>. Multiply by
+<code class="docutils literal notranslate"><span class="pre">in_voltageN_scale</span></code> to obtain millivolts at the input pins (after
+the analog PGA, before any DSP transformation).</p>
+</dd>
+<dt><strong>in_voltageN_scale</strong> <em>(float, read-only)</em></dt><dd><p>Millivolts per LSB. Computed from
+<code class="docutils literal notranslate"><span class="pre">1000</span> <span class="pre">/</span> <span class="pre">(4,772,275</span> <span class="pre">×</span> <span class="pre">input_gain)</span></code>. Changes automatically when
+<code class="docutils literal notranslate"><span class="pre">in_voltageN_input_gain</span></code> is written.</p>
+</dd>
+<dt><strong>in_voltageN_calibbias</strong> <em>(s24, read/write)</em></dt><dd><p>Per-channel offset compensation, stored in the DSP RAM
+<code class="docutils literal notranslate"><span class="pre">OFFSET</span></code> field. Applied when the <code class="docutils literal notranslate"><span class="pre">gain_offset_xt</span></code> stage is
+enabled. Range: <code class="docutils literal notranslate"><span class="pre">-2^23</span> <span class="pre">..</span> <span class="pre">2^23</span> <span class="pre">-</span> <span class="pre">1</span></code> (24-bit two’s complement,
+ADC-code units). The offset is subtracted from the sample before
+scaling.</p>
+</dd>
+<dt><strong>in_voltageN_calibscale</strong> <em>(fractional, read/write)</em></dt><dd><p>Per-channel gain compensation, stored in the DSP RAM <code class="docutils literal notranslate"><span class="pre">GAIN</span></code> field.
+Signed 2.22 fixed-point (nominal 1.0 = 0x400000). Read as the tuple
+<code class="docutils literal notranslate"><span class="pre">(raw,</span> <span class="pre">22)</span></code> in fractional-log2 form; write the raw 24-bit integer.
+Applied together with <code class="docutils literal notranslate"><span class="pre">calibbias</span></code> when
+<code class="docutils literal notranslate"><span class="pre">gain_offset_xt_en</span></code> = 1.</p>
+</dd>
+<dt><strong>in_voltageN_phase</strong> <em>(int, read/write)</em></dt><dd><p>13-bit signed fractional-sample phase offset (<code class="docutils literal notranslate"><span class="pre">PHASE_OFFSET</span></code>
+registers <code class="docutils literal notranslate"><span class="pre">0x048</span> <span class="pre">+</span> <span class="pre">2N</span></code> / <code class="docutils literal notranslate"><span class="pre">0x049</span> <span class="pre">+</span> <span class="pre">2N</span></code>). One LSB = 1/8192 of a
+sample period; range <code class="docutils literal notranslate"><span class="pre">-4096..4095</span></code>.</p>
+</dd>
+<dt><strong>in_voltage_sampling_frequency</strong> <em>(int, read/write, shared)</em></dt><dd><p>Output data rate in Hz. Writing selects the closest matching entry
+in <code class="docutils literal notranslate"><span class="pre">DATARATE</span></code> Table 16 for the current <code class="docutils literal notranslate"><span class="pre">XTALIN</span></code> frequency; the
+driver rejects values that cannot be reached exactly (<code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code>).
+Available values are listed in
+<code class="docutils literal notranslate"><span class="pre">in_voltage_sampling_frequency_available</span></code>.</p>
+</dd>
+</dl>
+</section>
+<section id="extended-per-channel-calibration-attributes">
+<h3>Extended per-channel calibration attributes<a class="headerlink" href="#extended-per-channel-calibration-attributes" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt><strong>in_voltageN_xt_gain</strong> <em>(s24, read/write)</em></dt><dd><p>Crosstalk-compensation gain, DSP RAM <code class="docutils literal notranslate"><span class="pre">XT_GAIN</span></code>. Same signed 2.22
+fixed-point format as <code class="docutils literal notranslate"><span class="pre">calibscale</span></code>. When <code class="docutils literal notranslate"><span class="pre">gain_offset_xt</span></code> is
+enabled the value output for this channel is decremented by
+<code class="docutils literal notranslate"><span class="pre">xt_gain</span> <span class="pre">×</span> <span class="pre">sample_of_aggressor</span></code>. Set together with
+<code class="docutils literal notranslate"><span class="pre">xt_aggressor</span></code>.</p>
+</dd>
+<dt><strong>in_voltageN_xt_aggressor</strong> <em>(int 0..6, read/write)</em></dt><dd><p>Selects which other channel provides the “aggressor” waveform for
+the crosstalk compensator on channel <code class="docutils literal notranslate"><span class="pre">N</span></code>. Written to the
+<code class="docutils literal notranslate"><span class="pre">XT_AGGRESSOR</span></code> byte in DSP RAM. Only 3 bits of the register are
+meaningful; setting a value greater than the highest channel index
+for the variant is rejected with <code class="docutils literal notranslate"><span class="pre">-EINVAL</span></code>.</p>
+</dd>
+<dt><strong>in_voltageN_shift</strong> <em>(int 0..7, read/write)</em></dt><dd><p>Post-gain arithmetic left-shift, DSP RAM <code class="docutils literal notranslate"><span class="pre">SHIFT</span></code>. Increases the
+effective gain by 2^shift <em>before</em> saturation; use with care as it
+can push samples into the overrange region.</p>
+</dd>
+<dt><strong>in_voltageN_dc_block_alpha</strong> <em>(int 0..15, read/write)</em></dt><dd><p>4-bit programmable α for the per-channel DC-block filter (register
+<code class="docutils literal notranslate"><span class="pre">DATAPATH_ALPHA_CHx</span></code> at <code class="docutils literal notranslate"><span class="pre">0x03D</span> <span class="pre">+</span> <span class="pre">N</span></code>). Larger α = lower corner
+frequency = better DC rejection but longer settling.</p>
+</dd>
+</dl>
+</section>
+<section id="filter-enables">
+<h3>Filter enables<a class="headerlink" href="#filter-enables" title="Link to this heading"></a></h3>
+<p>All of the following are boolean (<code class="docutils literal notranslate"><span class="pre">0</span></code> / <code class="docutils literal notranslate"><span class="pre">1</span></code>) writes to
+<code class="docutils literal notranslate"><span class="pre">DATAPATH_CONFIG_CHx</span></code> (register <code class="docutils literal notranslate"><span class="pre">0x041</span> <span class="pre">+</span> <span class="pre">N</span></code>). Enabling a stage that
+requires DSP coefficients also requires those coefficients to be loaded
+first (see Datasheet §Configuration Procedure and DSP RAM tables).</p>
+<dl class="simple">
+<dt><strong>in_voltageN_filter_hpf_en</strong></dt><dd><p>High-pass filter enable. When set, the shared 2nd-order biquad HPF
+filters this channel. The corner frequency is set by the HPF
+coefficients in DSP RAM (see Datasheet Table 31; not directly exposed
+by this driver — use debugfs register access to program if needed).</p>
+</dd>
+<dt><strong>in_voltageN_filter_lpf_en</strong></dt><dd><p>17th-order FIR low-pass filter enable. Coefficients are shared
+across all channels.</p>
+</dd>
+<dt><strong>in_voltageN_filter_scf_en</strong></dt><dd><p>1st-order IIR sensor-compensation filter enable. Coefficients are
+per-channel.</p>
+</dd>
+<dt><strong>in_voltageN_filter_comp_en</strong></dt><dd><p>Compensation filter (droop / band-limit) enable. 6th-order FIR.</p>
+</dd>
+<dt><strong>in_voltageN_filter_comp_cfg</strong></dt><dd><p>Selects the compensation filter coefficient set: <code class="docutils literal notranslate"><span class="pre">0</span></code> = Sinc-Droop
+correction only; <code class="docutils literal notranslate"><span class="pre">1</span></code> = Sinc-Droop plus external band-limit filter
+compensation.</p>
+</dd>
+<dt><strong>in_voltageN_filter_allpass_en</strong></dt><dd><p>All-pass filter enable, used for phase compensation without altering
+magnitude response.</p>
+</dd>
+<dt><strong>in_voltageN_gain_offset_xt_en</strong></dt><dd><p>Master enable for the gain / offset / crosstalk stage. When cleared,
+<code class="docutils literal notranslate"><span class="pre">calibscale</span></code> / <code class="docutils literal notranslate"><span class="pre">calibbias</span></code> / <code class="docutils literal notranslate"><span class="pre">xt_gain</span></code> have no effect on the
+sample even if their DSP-RAM values are non-zero.</p>
+</dd>
+</dl>
+</section>
+<section id="analog-front-end-attributes">
+<h3>Analog front-end attributes<a class="headerlink" href="#analog-front-end-attributes" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt><strong>in_voltageN_input_gain</strong> <em>(int 1 or 2, read/write)</em></dt><dd><p>Analog PGA gain (<code class="docutils literal notranslate"><span class="pre">ADC_GAIN</span></code> bit <code class="docutils literal notranslate"><span class="pre">N</span></code>). Setting <code class="docutils literal notranslate"><span class="pre">2</span></code> doubles the
+effective sensitivity; <code class="docutils literal notranslate"><span class="pre">in_voltageN_scale</span></code> is halved automatically.
+Change while the buffer is stopped — the write bracket unlocks the
+datapath.</p>
+</dd>
+<dt><strong>in_voltageN_input_invert</strong> <em>(int 0 or 1, read/write)</em></dt><dd><p>Invert analog input polarity for channel <code class="docutils literal notranslate"><span class="pre">N</span></code> (<code class="docutils literal notranslate"><span class="pre">ADC_INV</span></code> bit
+<code class="docutils literal notranslate"><span class="pre">N</span></code>).</p>
+</dd>
+</dl>
+</section>
+<section id="device-level-attributes">
+<h3>Device-level attributes<a class="headerlink" href="#device-level-attributes" title="Link to this heading"></a></h3>
+<dl class="simple">
+<dt><strong>sync_align</strong> <em>(bool, write-only)</em></dt><dd><p>Writing <code class="docutils literal notranslate"><span class="pre">1</span></code> sets the <code class="docutils literal notranslate"><span class="pre">ALIGN</span></code> bit in <code class="docutils literal notranslate"><span class="pre">SYNC_SNAP</span></code> (register
+<code class="docutils literal notranslate"><span class="pre">0x014</span></code>), causing the on-chip sinc decimator to re-align all
+channels to a common sample instant. Useful after enabling filters
+or after startup to ensure a synchronised sample edge. Writing <code class="docutils literal notranslate"><span class="pre">0</span></code>
+is a no-op.</p>
+</dd>
+<dt><strong>test_pattern</strong> / <strong>test_pattern_available</strong> <em>(string, read/write)</em></dt><dd><p>Selects the <code class="docutils literal notranslate"><span class="pre">CONFIG0.STREAM_DBG</span></code> field:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">normal</span></code> (0): real ADC samples.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">static</span></code> (1): a fixed constant is returned in each channel slot.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">increment</span></code> (2): a counter that steps once per ADC conversion is
+returned in each channel slot. Every channel emits the same
+counter value, so <code class="docutils literal notranslate"><span class="pre">increment</span></code> mode confirms both the framing and
+the trigger cadence end-to-end.</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="debugfs">
+<h3>Debugfs<a class="headerlink" href="#debugfs" title="Link to this heading"></a></h3>
+<p>The driver exposes <code class="docutils literal notranslate"><span class="pre">debugfs_reg_access</span></code> so that any main-map register
+(<code class="docutils literal notranslate"><span class="pre">0x001</span></code>–<code class="docutils literal notranslate"><span class="pre">0x07E</span></code>) or DSP-RAM location (<code class="docutils literal notranslate"><span class="pre">≥</span> <span class="pre">0x400</span></code>) can be poked.
+For DSP RAM addresses the driver automatically wraps the access with
+the <code class="docutils literal notranslate"><span class="pre">ACCESS_EXTENDED_MMAP</span></code> / <code class="docutils literal notranslate"><span class="pre">STATUS2.DSP_MEM_ACCESS_READY</span></code>
+handshake:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; cd /sys/kernel/debug/iio/iio:device0
+root:/&gt; cat direct_reg_access 0x07E    # read PRODUCT_ID
+0x16
+root:/&gt; echo &quot;0x03C 0x38&quot; &gt; direct_reg_access   # DATARATE = 250 SPS
+</pre></div>
+</div>
+<p>The debugfs interface bypasses the <code class="docutils literal notranslate"><span class="pre">iio_device_claim_direct</span></code> gate but
+should not be used while the buffer is running.</p>
+</section>
+<section id="module-parameters">
+<h3>Module parameters<a class="headerlink" href="#module-parameters" title="Link to this heading"></a></h3>
+<p>Two module parameters exist for bring-up on new boards. Both default to
+off in production.</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">debug_wire=1</span></code>: log every short-frame SPI transaction (TX + RX
+bytes, address, direction, return code) at <code class="docutils literal notranslate"><span class="pre">dev_err</span></code> level.
+Very verbose — expect several lines per register access.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ignore_crc=1</span></code>: log CRC-CCITT mismatches but do not fail the read.
+Useful when validating a new SPI wiring against unknown-good
+responses; the driver still returns the (potentially corrupted)
+<code class="docutils literal notranslate"><span class="pre">DATA[1]</span></code> byte to the regmap consumer.</p></li>
+</ul>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>root:/&gt; modprobe adema127 debug_wire=1 ignore_crc=1
+</pre></div>
+</div>
+</section>
+</section>
+<section id="programming-notes">
+<h2>Programming notes<a class="headerlink" href="#programming-notes" title="Link to this heading"></a></h2>
+<section id="reset-sequence">
+<h3>Reset sequence<a class="headerlink" href="#reset-sequence" title="Link to this heading"></a></h3>
+<p>At probe the driver pulses <code class="docutils literal notranslate"><span class="pre">/RESET</span></code> low (via <code class="docutils literal notranslate"><span class="pre">reset-gpios</span></code> if
+provided) for ~10 µs, then waits ~1 ms for the internal band-gap and
+sinc filters to settle before reading <code class="docutils literal notranslate"><span class="pre">STATUS0.RESET_DONE</span></code> and
+clearing it (write-1-to-clear). If <code class="docutils literal notranslate"><span class="pre">reset-gpios</span></code> is not provided, a
+software reset (writing <code class="docutils literal notranslate"><span class="pre">0xD6</span></code> to <code class="docutils literal notranslate"><span class="pre">SWRST</span></code> at <code class="docutils literal notranslate"><span class="pre">0x001</span></code>) is used
+instead — the retained memory-mapped registers are returned to their
+reset defaults but any DSP-RAM configuration is preserved.</p>
+</section>
+<section id="datapath-lock-unlock">
+<h3>Datapath lock/unlock<a class="headerlink" href="#datapath-lock-unlock" title="Link to this heading"></a></h3>
+<p>The ADEMA has two lock bits guarding configuration:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">WR_LOCK</span></code> (<code class="docutils literal notranslate"><span class="pre">0x01F</span></code>, unlock key <code class="docutils literal notranslate"><span class="pre">0x5E</span></code>, lock key <code class="docutils literal notranslate"><span class="pre">0xD4</span></code>)
+guards most of the retained-MMR and DSP-RAM address ranges.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">DATAPATH_CONFIG_LOCK</span></code> (<code class="docutils literal notranslate"><span class="pre">0x03B</span></code>) additionally guards the datapath
+registers. Writing <code class="docutils literal notranslate"><span class="pre">0</span></code> unlocks; writing <code class="docutils literal notranslate"><span class="pre">1</span></code> re-arms the datapath.</p></li>
+</ul>
+<p>The driver wraps every configuration write path (<code class="docutils literal notranslate"><span class="pre">sampling_frequency</span></code>,
+<code class="docutils literal notranslate"><span class="pre">input_gain</span></code>, <code class="docutils literal notranslate"><span class="pre">input_invert</span></code>, <code class="docutils literal notranslate"><span class="pre">dc_block_alpha</span></code>, all filter
+enables) with an unlock/lock bracket and a mandatory 50 µs settle after
+the re-lock, matching Table 5 of the datasheet.</p>
+</section>
+<section id="crc-handling">
+<h3>CRC handling<a class="headerlink" href="#crc-handling" title="Link to this heading"></a></h3>
+<p>The driver enables SPI command CRC (<code class="docutils literal notranslate"><span class="pre">CRC_EN_SPI_WRITE</span></code> in
+<code class="docutils literal notranslate"><span class="pre">CONFIG0</span></code>) unconditionally at probe. Every command sent to the ADC
+includes the 8-bit CRC in byte 3 of the command word; the ADC responds
+with <code class="docutils literal notranslate"><span class="pre">ECHO.CMD_CRC_ERR</span> <span class="pre">=</span> <span class="pre">1</span></code> if it disagrees. Every response includes a
+16-bit CRC-CCITT trailer that the driver validates before consuming the
+data; failures return <code class="docutils literal notranslate"><span class="pre">-EBADMSG</span></code> to the regmap layer.</p>
+<p>Long-frame CRC failures during buffered capture are rate-limited
+<code class="docutils literal notranslate"><span class="pre">dev_dbg_ratelimited</span></code> events; individual bad samples are simply
+skipped for the current sample record and the trigger handler
+continues.</p>
+</section>
+<section id="overrange-detection">
+<h3>Overrange detection<a class="headerlink" href="#overrange-detection" title="Link to this heading"></a></h3>
+<p>The per-channel overrange bits in <code class="docutils literal notranslate"><span class="pre">STATUS1</span></code> (register <code class="docutils literal notranslate"><span class="pre">0x021</span></code>) are
+included in every long-frame response and are exposed indirectly via
+the <code class="docutils literal notranslate"><span class="pre">debugfs_reg_access</span></code> interface. They are also enabled to raise
+the shared <code class="docutils literal notranslate"><span class="pre">IRQ</span></code> bit via the <code class="docutils literal notranslate"><span class="pre">MASK1</span></code> register the driver programs
+at probe (all-enabled). A future revision of the driver may forward
+these as IIO events.</p>
+</section>
+</section>
+<section id="datasheet-cross-reference">
+<h2>Datasheet cross-reference<a class="headerlink" href="#datasheet-cross-reference" title="Link to this heading"></a></h2>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Feature</p></th>
+<th class="head"><p>Register</p></th>
+<th class="head"><p>Datasheet section / notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Product ID</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x07E</span></code></p></td>
+<td><p>Table 27 — <code class="docutils literal notranslate"><span class="pre">0x13</span></code>/<code class="docutils literal notranslate"><span class="pre">0x16</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Sample rate select</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x03C</span></code> DATARATE</p></td>
+<td><p>Table 16 — ratio determined by prescaler + decimation</p></td>
+</tr>
+<tr class="row-even"><td><p>Analog input gain</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x006</span></code> ADC_GAIN</p></td>
+<td><p>one bit per channel; 1× or 2×</p></td>
+</tr>
+<tr class="row-odd"><td><p>Channel offset</p></td>
+<td><p>DSP RAM <code class="docutils literal notranslate"><span class="pre">OFFSET</span></code></p></td>
+<td><p>Table 31 — 24-bit signed</p></td>
+</tr>
+<tr class="row-even"><td><p>Channel gain</p></td>
+<td><p>DSP RAM <code class="docutils literal notranslate"><span class="pre">GAIN</span></code></p></td>
+<td><p>Table 31 — signed 2.22</p></td>
+</tr>
+<tr class="row-odd"><td><p>Crosstalk gain</p></td>
+<td><p>DSP RAM <code class="docutils literal notranslate"><span class="pre">XT_GAIN</span></code></p></td>
+<td><p>Table 31</p></td>
+</tr>
+<tr class="row-even"><td><p>Crosstalk aggressor</p></td>
+<td><p>DSP RAM <code class="docutils literal notranslate"><span class="pre">XT_AGGRESSOR</span></code></p></td>
+<td><p>Table 31 — 3-bit channel index</p></td>
+</tr>
+<tr class="row-odd"><td><p>Phase offset</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x048</span> <span class="pre">+</span> <span class="pre">2N</span></code></p></td>
+<td><p>13-bit signed</p></td>
+</tr>
+<tr class="row-even"><td><p>DC block α</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x03D</span> <span class="pre">+</span> <span class="pre">N</span></code></p></td>
+<td><p>4-bit nibble</p></td>
+</tr>
+<tr class="row-odd"><td><p>Filter enables</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x041</span> <span class="pre">+</span> <span class="pre">N</span></code></p></td>
+<td><p>HPF/LPF/SCF/COMP/ALLPASS/GAIN_OFFSET_XT bits</p></td>
+</tr>
+<tr class="row-even"><td><p>Sync/align</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x014</span></code> SYNC_SNAP</p></td>
+<td><p>re-align all decimators</p></td>
+</tr>
+<tr class="row-odd"><td><p>Test pattern</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x002.STREAM_DBG</span></code></p></td>
+<td><p>normal / static / increment</p></td>
+</tr>
+<tr class="row-even"><td><p>CRC on command</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0x002.CRC_EN_SPI_WRITE</span></code></p></td>
+<td><p>8-bit CRC-8, poly <code class="docutils literal notranslate"><span class="pre">0x07</span></code>, XOR <code class="docutils literal notranslate"><span class="pre">0x55</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Response CRC</p></td>
+<td><p>built-in</p></td>
+<td><p>16-bit CRC-CCITT (poly <code class="docutils literal notranslate"><span class="pre">0x1021</span></code>, init <code class="docutils literal notranslate"><span class="pre">0xFFFF</span></code>, LE on wire)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+
+
+          </div>
+              <div class="related">
+                &nbsp;
+    <a href="adas1000.html" title="Previous document (Alt+Shift+LeftArrow)" class="prev">ADAS1000</a>
+    <a href="axi-adc-hdl.html" title="Next document (Alt+Shift+RightArrow)" class="next">AXI ADC HDL</a>
+              </div>
+          
+        </div>
+      </div>
+  </div>
+
+  <label id="cancel-area-show-toc" for="input-show-toc"></label>
+  <label id="cancel-area-show-localtoc" for="input-show-localtoc"></label>
+    <footer>
+      &#169;2025, Analog Devices, Inc.
+      
+      |
+      Made with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+      &amp; <a href="https://github.com/analogdevicesinc/doctools">Doctools</a>
+      
+    </footer>
+  </body>
+</html>

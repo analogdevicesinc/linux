@@ -1,0 +1,272 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5449
+
+.. _ad5449:
+
+AD5449
+======
+
+AD5449 IIO DAC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD5415`
+- :adi:`AD5426`
+- :adi:`AD5429`
+- :adi:`AD5432`
+- :adi:`AD5439`
+- :adi:`AD5443`
+- :adi:`AD5449`
+
+Reference Circuits
+------------------
+
+- :adi:`CN0143`
+- :adi:`CN0151`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD5415SDZ <EVAL-AD5415>`
+- :adi:`EVAL-AD5443-DBRDZ`
+- :adi:`EVAL-AD5443SDZ <EVAL-AD5443>`
+- :adi:`EVAL-AD5449SDZ <EVAL-AD5449>`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting single channel serial interface DACs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5449.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5449.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/dac/ad5449.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5449.c>`__
+   * - include
+     - `include/linux/platform_data/ad5449.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/platform_data/ad5449.h>`__
+
+Example platform device initialization
+--------------------------------------
+
+Specifying reference voltage via the regulator framework
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Below example specifies a 2.5 Volt reference for the SPI device 3 on SPI-Bus 0.
+(**spi0.3**)
+
+.. code:: c
+
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+   static struct regulator_consumer_supply ad5449_consumer_supplies[] = {
+       REGULATOR_SUPPLY("vcc", "spi0.3"),
+   };
+
+   static struct regulator_init_data stamp_avdd_reg_init_data = {
+       .constraints    = {
+           .name   = "2V5",
+           .valid_ops_mask = REGULATOR_CHANGE_STATUS,
+       },
+       .consumer_supplies = ad5449_consumer_supplies,
+       .num_consumer_supplies = ARRAY_SIZE(ad5449_consumer_supplies),
+   };
+
+   static struct fixed_voltage_config stamp_vdd_pdata = {
+       .supply_name    = "board-2V5",
+       .microvolts = 2500000,
+       .gpio       = -EINVAL,
+       .enabled_at_boot = 0,
+       .init_data  = &stamp_avdd_reg_init_data,
+   };
+
+   static struct platform_device brd_voltage_regulator = {
+       .name       = "reg-fixed-voltage",
+       .id     = -1,
+       .num_resources  = 0,
+       .dev        = {
+           .platform_data  = &stamp_vdd_pdata,
+       },
+   };
+
+   #endif
+
+.. code:: c
+
+   static struct platform_device *board_devices[] __initdata = {
+   #if defined(CONFIG_REGULATOR_FIXED_VOLTAGE) || defined(CONFIG_REGULATOR_FIXED_VOLTAGE_MODULE)
+       &brd_voltage_regulator
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       platform_add_devices(board_devices, ARRAY_SIZE(board_devices));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name.
+
+It may also required to adjust max_speed_hz. Please consult the datasheet, for
+maximum spi clock supported by the device in question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+       {
+           /* the modalias must be the same as spi device driver name */
+           .modalias = "ad5449", /* Name of spi_driver for this device */
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0, /* Framework bus number */
+           .chip_select = 3, /* Framework chip select */
+           .mode = SPI_MODE_2,
+       },
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD5449 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       ...
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           ...
+           Digital to analog converters  --->
+               ...
+               <*>  Analog Devices AD5449 and similar DACs drive
+               ...
+           ...
+       ...
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> ls -l
+   -r--r--r--    1 root     root          4096 Jan  1 02:20 dev
+   -r--r--r--    1 root     root          4096 Jan  1 02:20 name
+   -rw-r--r--    1 root     root          4096 Jan  1 02:25 out_voltage0_raw
+   -rw-r--r--    1 root     root          4096 Jan  1 02:20 out_voltage0_scale
+   -rw-r--r--    1 root     root          4096 Jan  1 02:25 out_voltage1_raw
+   -rw-r--r--    1 root     root          4096 Jan  1 02:20 out_voltage1_scale
+   drwxr-xr-x    2 root     root             0 Jan  1 02:20 power
+   lrwxrwxrwx    1 root     root             0 Jan  1 02:20 subsystem -> ../../../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  1 02:20 uevent
+
+.. note::
+
+   For DACs with only one output channel there will be no out_voltage1_raw and
+   out_voltage1_scale files
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
+   ad5449
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to out_voltage0_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage_scale
+   0.152
+
+Set channel 0
+'''''''''''''
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_raw
+
+Raw (unscaled, no bias etc.) output voltage for channel Y.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 1234 > out_voltage0_raw
+
+**U** = *out_voltage0_raw \* out_voltage_scale* = 1234 \* 0.152mV = **187.568
+mV**
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

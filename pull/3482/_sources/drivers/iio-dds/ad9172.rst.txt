@@ -1,0 +1,656 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dds/ad9172
+
+.. _ad9172:
+
+AD9172
+======
+
+AD9172 DAC Linux Driver.
+
+This driver is used in conjunction with the :ref:`axi-dac-dds-hdl`
+
+Supported Devices
+-----------------
+
+- :adi:`AD9171`
+- :adi:`AD9172`
+- :adi:`AD9173`
+- :adi:`AD9174`
+- :adi:`AD9175`
+- :adi:`AD9176`
+
+Supported Boards
+----------------
+
+| This driver supports the
+
+- :dokuwiki:`AD9171/AD9172/AD9173/AD9174/AD9175/AD9176 Evaluation Board </resources/eval/dpg/eval-ad9172>`
+
+HDL Support
+-----------
+
+- :dokuwiki:`AD-DAC-FMC-EBZ reference HDL design </resources/eval/user-guides/ad-dac-fmc-ebz>`
+- :external+hdl:ref:`ad_ip_jesd204_tpl_dac`
+
+Description
+-----------
+
+The AD9172 is a high performance, dual, 16-bit digital-to-analog converter (DAC)
+that supports DAC sample rates to 12.6 GSPS. The device features an 8-lane, 15
+Gbps JESD204B data input port, a high performance, on-chip DAC clock multiplier,
+and digital signal processing capabilities targeted at single-band and multiband
+direct to radio frequency (RF) wireless applications.
+
+The AD9172 features three complex data input channels per RF DAC that are
+bypassable. Each data input channel includes a configurable gain stage, an
+interpolation filter, and a channel numerically controlled oscillator (NCO) for
+flexible, multiband frequency planning. The device supports up to a 1.5 GSPS
+complex data rate per input channel and is capable of aggregating multiple
+complex input data streams up to a maximum complex data rate of 1.5 GSPS.
+Additionally, the AD9172 supports ultrawide bandwidth modes bypassing the
+channelizers to provide maximum data rates of up to 3.08 GSPS (with 16-bit
+resolution) and 4.1 GSPS (with 12-bit resolution).
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - :git+linux:`main:drivers/iio/frequency/ad9172.c`
+     - `WIP <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/ad9172.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/ad9172.c`
+     -
+   * - API driver
+     - :git+linux:`main:drivers/iio/frequency/ad917x`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds_buffer_stream.c`
+     -
+   * - include
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.h`
+     -
+   * - Documentation
+     - :git+linux:`adi,ad9172.txt <main:Documentation/devicetree/bindings/iio/frequency/adi,ad9172.txt>`
+     -
+
+Example device trees
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - dtsi
+     - :git+linux:`adi-ad9172-fmc-ebz.dtsi <main:arch/arm64/boot/dts/xilinx/adi-ad9172-fmc-ebz.dtsi>`
+     -
+   * - dts
+     - :git+linux:`zynqmp-zcu102-rev10-ad9172-fmc-ebz-mode4.dts (MODE 4, L = 4, M = 4, NP = 16, N = 16) <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9172-fmc-ebz-mode4.dts>`
+     -
+   * - dts
+     - :git+linux:`zynqmp-zcu102-rev10-ad9172-fmc-ebz.dts (MODE 10, L = 8, M = 2, S = 2, NP = 16, N = 16, full bandwidth mode) <main:arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9172-fmc-ebz.dts>`
+     -
+   * - dts
+     - :git+linux:`zynq-zc706-adv7511-ad9172-fmc-ebz.dts (MODE 4, L = 4, M = 4, NP = 16, N = 16) <main:arch/arm/boot/dts/zynq-zc706-adv7511-ad9172-fmc-ebz.dts>`
+     -
+
+Interrelated Device Drivers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+- :ref:`jesd204-fsm-framework`
+- :external+hdl:ref:`jesd204`
+
+Transport Layer Transmit AXI-DAC / DDS driver
+'''''''''''''''''''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/frequency/cf_axi_dds.c`
+     -
+   * - include
+     - :git+linux:`drivers/iio/frequency/cf_axi_adc.h <main:drivers/iio/frequency/cf_axi_dds.h>`
+     -
+
+**Documentation:** :ref:`axi-dac-dds-hdl`
+
+Link Layer AXI JESD204B HDL driver
+''''''''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_jesd204_tx.c`
+     -
+
+**Documentation:**
+
+- :ref:`axi_jesd204_tx`
+
+PHY Layer AXI JESD204B GT (Gigabit Tranceiver) HDL driver (XILINX/ALTERA-INTEL)
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - :git+linux:`main:drivers/iio/jesd204/axi_adxcvr.c`
+     -
+
+**Documentation:**
+
+- :ref:`axi_adxcvr`
+
+Example platform device initialization
+--------------------------------------
+
+The AD9172 driver is a SPI bus driver and can be instantiated via device tree.
+
+**Required properties:**
+
+- **compatible**: Should always be one of these:
+
+  - ``adi,ad9171``
+  - ``adi,ad9172``
+  - ``adi,ad9173``
+  - ``adi,ad9174``
+  - ``adi,ad9175``
+  - ``adi,ad9176``
+
+- **reg**: SPI chip select number.
+- **spi-max-frequency**: Max SPI frequency to use (<= 10000000).
+- **clocks**: a list of phandle, one for each entry in clock-names.
+- **clock-names**: Must include the following entries: ``jesd_dac_clk``,
+  ``dac_clk``, ``dac_sysref``
+- **adi,dac-rate-khz**: The desired DAC rate in kHz
+- **adi,jesd-link-mode**: The desired JESD204 Link Mode, please refer to the
+  AD917x datasheet.
+- **adi,dac-interpolation**: The DAC or main datapath interpolation, please
+  refer to the supported values for a given Link Mode in the AD917x datasheet.
+- **adi,channel-interpolation**: The channel interpolation, please refer to the
+  supported values for a given Link Mode in the AD917x datasheet.
+
+**Optional properties:**
+
+- **adi,jesd-subclass**: The JESD204 subclass (0, 1).
+- **adi,dual-link**: Enables dual-link mode when set to 1.
+- **adi,clock-output-divider**: Divide down DAC clock, supported values (ratios)
+  are 0 (disabled), 1, 2, 3. The clock output frequency ranges from 727.8Mhz to
+  2GHz.
+- **adi,direct-clocking-enable**: If set enabled direct clocking mode.
+- **adi,syncoutb-signal-type-lvds-enable**: Enables LVDS mode for the SYNCOUTB
+  signal, default is CMOS.
+- **adi,sysref-coupling-dc-enable**: Enables SYSREF signal DC coupling, default
+  is AC coupling.
+- **reset-gpio**: a GPIO spec for the reset pin.
+- **txen0-gpio**: a GPIO spec for the TXEN0 pin.
+- **txen1-gpio**: a GPIO spec for the TXEN1 pin.
+
+::
+
+   Example:
+
+       dac0_ad9172: ad9172@1 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           compatible = "adi,ad9172";
+           reg = <1>;
+           spi-max-frequency = <1000000>;
+           clocks = <&axi_ad9172_jesd>, <&hmc7044 2>, <&hmc7044 3>;
+           clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
+
+           adi,dac-rate-khz = <3000000>;
+           adi,jesd-link-mode = <10>;
+
+           adi,jesd-subclass = <0>;
+           adi,dac-interpolation = <1>;
+           adi,channel-interpolation = <1>;
+           adi,clock-output-divider = <1>;
+           adi,syncoutb-signal-type-lvds-enable;
+   };
+
+**Using:** :ref:`jesd204-fsm-framework`
+
+::
+
+   Example:
+
+       dac0_ad9172: ad9172@1 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           compatible = "adi,ad9172";
+           reg = <1>;
+           spi-max-frequency = <1000000>;
+           clocks = <&hmc7044 2>;
+           clock-names = "dac_clk";
+
+           adi,dac-rate-khz = <11796480>;
+           adi,jesd-link-mode = <4>;
+
+           adi,jesd-subclass = <1>;
+           adi,dac-interpolation = <8>;
+           adi,channel-interpolation = <4>;
+           adi,clock-output-divider = <4>;
+           adi,syncoutb-signal-type-lvds-enable;
+           adi,scrambling = <1>;
+           adi,sysref-mode = <2>; /* SYSREF_CONTINUOUS */
+
+           /* jesd204-fsm support */
+           jesd204-device;
+           #jesd204-cells = <2>;
+           jesd204-top-device = <0>; /* This is the TOP device */
+           jesd204-link-ids = <0>;
+           jesd204-inputs = <&axi_ad9172_core 0 0>;
+       };
+
+Enabling Linux driver support
+-----------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD9172 driver depends on **CONFIG_SPI**
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+           -*-   Enable ring buffer support within IIO
+           -*-     Industrial I/O lock free software ring
+           -*-   Enable triggered sampling support
+
+                 *** Direct Digital Synthesis ***
+           [--snip--]
+
+           <*>   Analog Devices CoreFPGA AXI DDS driver
+           <*>   Analog Devices AD917x DAC
+
+           [--snip--]
+
+Hardware configuration
+----------------------
+
+In case the driver probes successfully and the device gets instantiated. Your
+systems kernel messages should include a lines, which may look like the one
+shown below.
+
+::
+
+   ad9172 spi1.1: AD916x DAC Chip ID: 4
+   ad9172 spi1.1: AD916x DAC Product ID: 9172
+   ad9172 spi1.1: AD916x DAC Product Grade: 0
+   ad9172 spi1.1: AD916x DAC Product Revision: 2
+   ad9172 spi1.1: AD916x Revision: 1.1.1
+   ad9172 spi1.1: PLL Input rate 368640000
+   ad9172 spi1.1: PLL lock status 1,  DLL lock status: 1
+   ad9172 spi1.1: Serdes PLL Locked (stat: 3)
+   ad9172 spi1.1: code_grp_sync: f
+   ad9172 spi1.1: frame_sync_stat: f
+   ad9172 spi1.1: good_checksum_stat: f
+   ad9172 spi1.1: init_lane_sync_stat: f
+   ad9172 spi1.1: 4 lanes @ 7372800 kBps
+   ad9172 spi1.1: Probed.
+   cf_axi_dds 84a04000.axi-ad9172-hpc: Analog Devices CF_AXI_DDS_DDS MASTER (9.00.b) at 0x84A04000 mapped to 0xffffff800d0f0000, probed DDS AD9172
+
+**Using:** :ref:`jesd204-fsm-framework`
+
+::
+
+   jesd204: created con: id=0, topo=0, link=0, /axi/spi@e0006000/hmc7044@0 <-> /fpga-axi@0/axi-adxcvr-tx@44A60000
+   jesd204: created con: id=1, topo=0, link=0, /fpga-axi@0/axi-adxcvr-tx@44A60000 <-> /fpga-axi@0/axi-jesd204-tx@44A90000
+   jesd204: created con: id=2, topo=0, link=0, /fpga-axi@0/axi-jesd204-tx@44A90000 <-> /fpga-axi@0/axi-ad9172-hpc@44A04000
+   jesd204: created con: id=3, topo=0, link=0, /fpga-axi@0/axi-ad9172-hpc@44A04000 <-> /axi/spi@e0006000/ad9172@1
+   jesd204: /axi/spi@e0006000/ad9172@1: JESD204[0] transition uninitialized -> initialized
+   jesd204: found 5 devices and 1 topologies
+
+   jesd204: /axi/spi@e0006000/hmc7044@0,jesd204:0,parent=spi0.0: Using as SYSREF provider
+
+   ad9172 spi0.1: ad917x DAC Chip ID: 4
+   ad9172 spi0.1: ad917x DAC Product ID: 9172
+   ad9172 spi0.1: ad917x DAC Product Grade: 0
+   ad9172 spi0.1: ad917x DAC Product Revision: 2
+   ad9172 spi0.1: ad917x Revision: 1.1.1
+   ad9172 spi0.1: CLK Input rate 368640000
+   ad9172 spi0.1: PLL lock status 1,  DLL lock status: 1
+   ad9172 spi0.1: Serdes PLL Locked (stat: 3)
+   ad9172 spi0.1: Probed.
+
+   axi_adxcvr 44a60000.axi-adxcvr-tx: AXI-ADXCVR-TX (17.05.a) using QPLL on GTX2 at 0x44A60000. Number of lanes: 4.
+   axi-jesd204-tx 44a90000.axi-jesd204-tx: AXI-JESD204-TX (1.06.a) at 0x44A90000. Encoder 8b10b, width 4/4, lanes 4, jesd204-fsm.
+   axi_sysid 45000000.axi-sysid-0: AXI System ID core version (1.01.a) found
+   axi_sysid 45000000.axi-sysid-0: [dac_fmc_ebz] [AD9172 - 04] on [zc706] git branch <master> git <8e0a45dea963b75caf9c18195ee7076b1191a8db> clean [202
+   1-11-19 19:20:28] UTC
+   cf_axi_dds 44a04000.axi-ad9172-hpc: Analog Devices CF_AXI_DDS_DDS MASTER (9.01.b) at 0x44A04000 mapped to 0x9d8cb513, probed DDS AD917x
+
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition initialized -> probed
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition probed -> idle
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition idle -> device_init
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition device_init -> link_init
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition link_init -> link_supported
+   hmc7044 spi0.0: hmc7044_jesd204_link_pre_setup: Link0 forcing continuous SYSREF mode
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition link_supported -> link_pre_setup
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition link_pre_setup -> clk_sync_stage1
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition clk_sync_stage1 -> clk_sync_stage2
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition clk_sync_stage2 -> clk_sync_stage3
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition clk_sync_stage3 -> link_setup
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition link_setup -> opt_setup_stage1
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition opt_setup_stage1 -> opt_setup_stage2
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition opt_setup_stage2 -> opt_setup_stage3
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition opt_setup_stage3 -> opt_setup_stage4
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition opt_setup_stage4 -> opt_setup_stage5
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition opt_setup_stage5 -> clocks_enable
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition clocks_enable -> link_enable
+   ad9172 spi0.1: Link0 code_grp_sync: f
+   ad9172 spi0.1: Link0 frame_sync_stat: f
+   ad9172 spi0.1: Link0 good_checksum_stat: f
+   ad9172 spi0.1: Link0 init_lane_sync_stat: f
+   ad9172 spi0.1: Link0 4 lanes @ 7372800 kBps
+   jesd204: /axi/spi@e0006000/ad9172@1,jesd204:1,parent=spi0.1: JESD204[0] transition link_enable -> link_running
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+Some device attributes control the DDS HDL Core, others features of the DAC and
+associated clock providers.
+
+::
+
+   analog:/sys/bus/iio/devices/iio:device2# cd /sys/bus/iio/devices/
+   root@analog:/sys/bus/iio/devices# ls
+   iio:device0  iio:device1  iio:device2  iio:device3
+   root@analog:/sys/bus/iio/devices#
+
+   root@analog:/sys/bus/iio/devices# cd iio\:device2
+   root@analog:/sys/bus/iio/devices/iio:device2# ls -l
+   total 0
+   drwxr-xr-x 5 root root    0 Apr 12 12:01 .
+   drwxr-xr-x 4 root root    0 Apr 12 12:01 ..
+   drwxrwxrwx 2 root root    0 Apr 12 12:01 buffer
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 dev
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 name
+   lrwxrwxrwx 1 root root    0 Apr 12 12:01 of_node -> ../../../../../firmware/devicetree/base/fpga-axi@0/axi-ad9172-hpc@84a04000
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage0_TX1_I_F1_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage0_TX1_I_F1_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage0_TX1_I_F1_raw
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage0_TX1_I_F1_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage1_TX1_I_F2_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage1_TX1_I_F2_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage1_TX1_I_F2_raw
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage1_TX1_I_F2_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage2_TX1_Q_F1_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage2_TX1_Q_F1_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage2_TX1_Q_F1_raw
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage2_TX1_Q_F1_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage3_TX1_Q_F2_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage3_TX1_Q_F2_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage3_TX1_Q_F2_raw
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage3_TX1_Q_F2_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage4_TX2_I_F1_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage4_TX2_I_F1_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage4_TX2_I_F1_raw
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage4_TX2_I_F1_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage5_TX2_I_F2_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage5_TX2_I_F2_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage5_TX2_I_F2_raw
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage5_TX2_I_F2_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage6_TX2_Q_F1_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage6_TX2_Q_F1_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage6_TX2_Q_F1_raw
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage6_TX2_Q_F1_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage7_TX2_Q_F2_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage7_TX2_Q_F2_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage7_TX2_Q_F2_raw
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage7_TX2_Q_F2_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_altvoltage_sampling_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage0_i_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage0_nco_enable
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage0_nco_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage0_nco_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage0_q_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage1_i_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage1_nco_enable
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage1_nco_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage1_nco_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage1_q_scale
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage6_nco_enable
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage6_nco_frequency
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage6_nco_phase
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 out_voltage_sampling_frequency
+   drwxrwxrwx 2 root root    0 Apr 12 12:01 power
+   drwxrwxrwx 2 root root    0 Apr 12 12:01 scan_elements
+   lrwxrwxrwx 1 root root    0 Apr 12 12:01 subsystem -> ../../../../../bus/iio
+   -rw-rw-rw- 1 root root 4096 Apr 12 12:01 uevent
+
+   root@analog:/sys/bus/iio/devices/iio:device2#
+
+Documentation for following subfolders and channel attributes can be found here:
+:ref:`axi-dac-dds-hdl`
+
+- buffer
+- name
+- out_altvoltage0_TX1_I_F1_frequency
+- out_altvoltage0_TX1_I_F1_phase
+- out_altvoltage0_TX1_I_F1_raw
+- out_altvoltage0_TX1_I_F1_scale
+- out_altvoltage1_TX1_I_F2_frequency
+- out_altvoltage1_TX1_I_F2_phase
+- out_altvoltage1_TX1_I_F2_raw
+- out_altvoltage1_TX1_I_F2_scale
+- out_altvoltage2_TX1_Q_F1_frequency
+- out_altvoltage2_TX1_Q_F1_phase
+- out_altvoltage2_TX1_Q_F1_raw
+- out_altvoltage2_TX1_Q_F1_scale
+- out_altvoltage3_TX1_Q_F2_frequency
+- out_altvoltage3_TX1_Q_F2_phase
+- out_altvoltage3_TX1_Q_F2_raw
+- out_altvoltage3_TX1_Q_F2_scale
+- out_altvoltage4_TX2_I_F1_frequency
+- out_altvoltage4_TX2_I_F1_phase
+- out_altvoltage4_TX2_I_F1_raw
+- out_altvoltage4_TX2_I_F1_scale
+- out_altvoltage5_TX2_I_F2_frequency
+- out_altvoltage5_TX2_I_F2_phase
+- out_altvoltage5_TX2_I_F2_raw
+- out_altvoltage5_TX2_I_F2_scale
+- out_altvoltage6_TX2_Q_F1_frequency
+- out_altvoltage6_TX2_Q_F1_phase
+- out_altvoltage6_TX2_Q_F1_raw
+- out_altvoltage6_TX2_Q_F1_scale
+- out_altvoltage7_TX2_Q_F2_frequency
+- out_altvoltage7_TX2_Q_F2_phase
+- out_altvoltage7_TX2_Q_F2_raw
+- out_altvoltage7_TX2_Q_F2_scale
+- out_altvoltage_sampling_frequency
+- scan_elements
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# cat name
+   axi-ad9172-hpc
+
+Digital channel controls
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dds/ad9172_transmit_path.png
+   :width: 600px
+
+For each of the channel digital datapaths (when not using 1× interpolation for
+the channel), there are individually programmable gain stages and NCO blocks
+available. The NCO blocks have a 48-bit modulus NCO option to enable digital
+frequency shifts of signals with near infinite precision. The number of channels
+(X) depend on the JESD204 link mode. Please refer to the AD917x datasheet.
+
+At the end of the three channelizer datapaths, there is a summation node that
+combines the three channel datapaths together at a maximum of 1.5 GSPS to then
+pass along to each of the main DAC datapaths for further digital feature
+options.
+
+Set channel gain
+^^^^^^^^^^^^^^^^
+
+What: **out_voltageX_i_scale**, **out_voltageX_q_scale**
+
+Sets the scalar channel gain value. Range is from 0.0000 to 1.9999
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# echo 0.85 > out_voltage0_q_scale
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage0_q_scale
+   0.849609375
+
+Enable/disable channel NCO
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+What: **out_voltageX_nco_enable**
+
+Enable/Disable NCOs. (Values 0, 1)
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# echo 1 > out_voltage0_nco_enable
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage0_nco_enable
+   1
+
+Set channel NCO frequency
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dds/ad9172_transmit_path_chan_nco.png
+   :width: 600px
+
+What: **out_voltageX_nco_frequency**
+
+Set channel NCO frequency (fCARRIER) in Hz Range is: −(fDAC/Main
+Interpolation)/2 ≤ fCARRIER < +(fDAC/Main Interpolation)/2
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# echo 400000000 > out_voltage0_nco_frequency
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage0_nco_frequency
+   400000000
+
+Set channel NCO phase offset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+What: **out_voltageX_nco_phase**
+
+Sets main datapath and/or channel datapath NCO phase offset. Range is −180° ≤
+Degrees Offset ≤ +180° (Values are in milli degrees.)
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# echo 120000 > out_voltage0_nco_phase
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage0_nco_phase
+   119998
+
+Main DAC datapaths controls
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-dds/ad9172_transmit_path_dac_nco.png
+   :width: 600px
+
+Each of the main DAC datapaths contain an optional power amplifier (PA)
+protection block, a main datapath interpolation block, a main NCO with an
+optional modulus feature, and a ramp-up/ramp-down gain block that is fed by the
+PA protection block. Additionally, there is an optional calibration tone
+feature, as well as four modulator switch modes that are part of the main NCO
+block.
+
+Enable/disable main datapath DAC NCO
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+What: **out_voltage6_nco_enable**
+
+Enable/Disable main datapath DAC NCO. (Values 0, 1)
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# echo 1 > out_voltage6_nco_enable
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage6_nco_enable
+   1
+
+Set main datapath DAC NCO frequency
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+What: **out_voltage6_nco_frequency**
+
+Set main datapath DAC NCO frequency (fCARRIER) in Hz Range is: −fDAC/2 ≤
+fCARRIER < +fDAC/2
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# echo 2250000000 > out_voltage6_nco_frequency
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage6_nco_frequency
+   2250000000
+
+Set main datapath DAC NCO phase offset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+What: **out_voltage6_nco_phase**
+
+Sets main datapath and/or channel datapath NCO phase offset. Range is −180° ≤
+Degrees Offset ≤ +180° (Values are in milli degrees.)
+
+::
+
+   root@analog:/sys/bus/iio/devices/iio:device2# echo 120000 > out_voltage6_nco_phase
+   root@analog:/sys/bus/iio/devices/iio:device2# cat out_voltage6_nco_phase
+   119998
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

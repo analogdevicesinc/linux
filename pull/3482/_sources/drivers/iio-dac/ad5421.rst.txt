@@ -1,0 +1,283 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5421
+
+.. _ad5421:
+
+AD5421
+======
+
+AD5421 IIO DAC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD5421`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0267`
+- :adi:`CN0278`
+- :adi:`CN0382`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD5421SDZ`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting multi-channel serial interface DACs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5421.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5421.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/dac/ad5421.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5421.c>`__
+
+Example platform device initialization
+--------------------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+The ad5421 platform data is used to describe how the chip is configured on a
+specific board.
+
+.. code:: c
+
+   /**
+    * enum ad5421_current_range - Current range the AD5421 is configured for.
+    * @AD5421_CURRENT_RANGE_4mA_20mA: 4 mA to 20 mA (RANGE1,0 pins = 00)
+    * @AD5421_CURRENT_RANGE_3mA8_21mA: 3.8 mA to 21 mA (RANGE1,0 pins = x1)
+    * @AD5421_CURRENT_RANGE_3mA2_24mA: 3.2 mA to 24 mA (RANGE1,0 pins = 10)
+    */
+
+   enum ad5421_current_range {
+       AD5421_CURRENT_RANGE_4mA_20mA,
+       AD5421_CURRENT_RANGE_3mA8_21mA,
+       AD5421_CURRENT_RANGE_3mA2_24mA,
+   };
+
+   /**
+    * struct ad5421_platform_data - AD5421 DAC driver platform data
+    * @external_vref: whether an external reference voltage is used or not
+    * @current_range: Current range the AD5421 is configured for
+    */
+
+   struct ad5421_platform_data {
+       bool external_vref;
+       enum ad5421_current_range current_range;
+   };
+
+If no platform data is given, the driver will assume an internal reference
+voltage and a current range of 4 mA to 20 mA.
+
+.. code:: c
+
+   struct ad5421_platform_data ad5421_pdata {
+       .external_vref = true,
+       .current_range = AD5421_CURRENT_RANGE_3mA2_24mA,
+   };
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       platform_add_devices(board_devices, ARRAY_SIZE(board_devices));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_AD5421_SPI) || \
+       defined(CONFIG_AD5421_SPI_MODULE)
+       {
+           /* the modalias must be the same as spi device driver name */
+           .modalias = "ad5421", /* Name of spi_driver for this device */
+           .max_speed_hz = 30000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0, /* Framework bus number */
+           .chip_select = 3, /* Framework chip select */
+           .mode = SPI_MODE_2,
+           .irq = IRQ_PF4,
+           .platform_data = &ad5421_pdata,
+       },
+   #endif
+   };
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ad5421 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Digital to analog converters  --->
+                   ...
+                   <*>  Analog Devices AD5421 DAC driver
+                   ...
+               ...
+           ...
+
+Hardware configuration
+----------------------
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> ls -l
+   -r--r--r--    1 root     root          4096 Jan  1 00:03 dev
+   -r--r--r--    1 root     root          4096 Jan  1 00:03 name
+   -rw-r--r--    1 root     root          4096 Jan  1 00:03 out_current0_calibbias
+   -rw-r--r--    1 root     root          4096 Jan  1 00:03 out_current0_calibscale
+   -rw-r--r--    1 root     root          4096 Jan  1 00:03 out_current0_raw
+   -rw-r--r--    1 root     root          4096 Jan  1 00:03 out_current_offset
+   -rw-r--r--    1 root     root          4096 Jan  1 00:03 out_current_scale
+   drwxr-xr-x    2 root     root             0 Jan  1 00:03 power
+   lrwxrwxrwx    1 root     root             0 Jan  1 00:03 subsystem -> ../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  1 00:03 uevent
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
+   ad5421
+
+Show scale
+^^^^^^^^^^
+
+| **Description:**
+| /sys/bus/iio/devices/iio:deviceX/out_current_scale
+
+scale to be applied to out_current0_raw in order to obtain the outputted current
+in milliampere.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_current_scale
+   0.000244
+
+Show offset
+'''''''''''
+
+| **Description:**
+| /sys/bus/iio/devices/iio:deviceX/out_current_offset
+
+offset to be applied to out_current0_raw in order to obtain the outputted
+current in milliampere.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_current_offset
+   16384
+
+Set channel Y output current
+''''''''''''''''''''''''''''
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_currentY_raw
+
+Raw (unscaled, no bias etc.) output current for channel Y.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 10000 > out_current0_raw
+
+**I** = *( out_current0_raw + out_current_offset ) \* out_current_scale* =
+(10000 + 16384) \* 0.000244 *mA* = **6.437696 mA**
+
+Calibrate channel Y gain
+''''''''''''''''''''''''
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_currentY_calibscale
+
+Each channel has an adjustable gain which can be used to calibrate the channel’s
+scale and compensate for full-scale errors. The default value is 65535.
+
+If scale calibration is used the following formula can be used calculate the
+output current:
+
+**I** = *( ( out_currentY_raw \* ( out_currentY_calibscale + 1 ) ) / 2^16 +
+out_currentY_calibbias + out_current_offset ) \* out_currentY_scale*
+
+Calibrate channel Y offset
+''''''''''''''''''''''''''
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_currentY_calibbias
+
+Each channel has an adjustable offset which can be used to calibrate the
+channel’s offset and compensate for zero-scale errors. The default value is 0.
+
+If offset calibration is used the following formula can be used calculate the
+output current:
+
+**I** = *( ( out_currentY_raw \* ( out_currentY_calibscale + 1 ) ) / 2^16 +
+out_currentY_calibbias + out_current_offset ) \* out_currentY_scale*
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

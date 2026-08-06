@@ -1,0 +1,421 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7280a
+
+.. _ad7280a:
+
+AD7280A
+=======
+
+AD7280A IIO Lithium Ion Battery Monitoring System.
+
+Supported Devices
+-----------------
+
+- :adi:`AD7280A`
+
+Reference Circuits
+------------------
+
+- :adi:`CN0197`
+- :adi:`CN0235`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD7280AEDZ`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+documentation:ref:`iio`) subsystem
+driver, targeting multi channel serial interface ADCs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+documentation:ref:`iio` for more information.
+
+The AD7280A contains all the functions required for general-purpose monitoring
+of stacked lithium ion batteries as used in hybrid electric vehicles, battery
+backup applications, and power tools. The part has multiplexed cell voltage and
+auxiliary ADC measurement channels for up to six cells of battery management.
+This driver supports the daisy-chain interface allowing up to eight parts to be
+stacked without the need for individual device isolation.
+
+The driver automatically detects then number of devices present and creates the
+iio device files accordingly.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7280a.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7280a.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/staging/iio/adc/ad7280a.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7280a.c>`__
+   * - include
+     - `drivers/staging/iio/adc/ad7280a.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/staging/iio/adc/ad7280a.h>`__
+
+Example platform device initialization
+--------------------------------------
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+Some device parameter may vary between applications and use cases. The
+platform_data for the device’s ``struct device`` holds this information.
+
+.. code:: c
+
+   #define AD7280A_ACQ_TIME_400ns          0
+   #define AD7280A_ACQ_TIME_800ns          1
+   #define AD7280A_ACQ_TIME_1200ns         2
+   #define AD7280A_ACQ_TIME_1600ns         3
+
+   #define AD7280A_CONV_AVG_DIS            0
+   #define AD7280A_CONV_AVG_2          1
+   #define AD7280A_CONV_AVG_4          2
+   #define AD7280A_CONV_AVG_8          3
+
+   #define AD7280A_ALERT_REMOVE_VIN5       (1 << 2)
+   #define AD7280A_ALERT_REMOVE_VIN4_VIN5      (2 << 2)
+   #define AD7280A_ALERT_REMOVE_AUX5       (1 << 0)
+   #define AD7280A_ALERT_REMOVE_AUX4_AUX5      (2 << 0)
+
+   struct ad7280_platform_data {
+       unsigned acquisition_time;
+       unsigned conversion_averaging;
+       unsigned chain_last_alert_ignore;
+       bool thermistor_term_en;
+   }
+
+.. tip::
+
+   In case platform_data is not present or set to NULL, the driver will use
+   following defaults:
+
+   .. code:: c
+
+      static const struct ad7280_platform_data ad7280_default_pdata = {
+          .acquisition_time = AD7280A_ACQ_TIME_400ns,
+          .conversion_averaging = AD7280A_CONV_AVG_DIS,
+          .thermistor_term_en = true,
+      };
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name. It may also required to adjust
+max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
+the device in question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_AD7280A) || \
+       defined(CONFIG_AD7280A_MODULE)
+       {
+           .modalias = "ad7280a",
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = GPIO_PF10 + MAX_CTRL_CS, /* CS, change it for your board */
+           .mode = SPI_MODE_1,
+           .irq = IRQ_PF6
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Adding Linux driver support
+---------------------------
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7280A Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [*] Staging drivers  --->
+               <*>     Industrial I/O support --->
+                   --- Industrial I/O support
+                   -*-   Enable ring buffer support within IIO
+                   -*-     Industrial I/O lock free software ring
+                   -*-   Enable triggered sampling support
+
+                         *** Analog to digital converters ***
+                   [--snip--]
+
+                   <*>   Analog Devices AD7280A Lithium Ion Battery Monitoring System
+
+                   [--snip--]
+
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7280_eval_lr.jpg
+   :width: 600px
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   device0         device0:event0
+   root:/sys/bus/iio/devices> cd device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> ls -l
+   drwxr-xr-x    3 root     root             0 Mar 14 11:16 device0:event0
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in-in_scale
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in0-in12_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in0-in1_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in0-in1_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in0-in1_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in1-in2_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in1-in2_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in1-in2_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in10-in11_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in10-in11_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in10-in11_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in11-in12_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in11-in12_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in11-in12_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in2-in3_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in2-in3_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in2-in3_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in3-in4_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in3-in4_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in3-in4_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in4-in5_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in4-in5_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in4-in5_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in5-in6_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in5-in6_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in5-in6_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in6-in7_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in6-in7_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in6-in7_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in7-in8_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in7-in8_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in7-in8_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in8-in9_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in8-in9_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in8-in9_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in9-in10_balance_switch_en
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 in9-in10_balance_timer
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 in9-in10_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 name
+   drwxr-xr-x    2 root     root             0 Mar 14 11:16 power
+   lrwxrwxrwx    1 root     root             0 Mar 14 11:16 subsystem -> ../../../../../bus/iio
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp0_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp10_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp11_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp1_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp2_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp3_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp4_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp5_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp6_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp7_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp8_raw
+   -r--r--r--    1 root     root          4096 Mar 14 11:16 temp9_raw
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 temp_scale
+   -rw-r--r--    1 root     root          4096 Mar 14 11:16 uevent
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0>
+
+Show device name
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat name
+   ad7280a
+
+Show cell channel scale
+^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** scale to be applied to inX-inY_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in-in_scale
+   0.976000
+
+Show channel 0-1 measurement
+''''''''''''''''''''''''''''
+
+**Description:** Raw unscaled voltage measurement on cell channel in0-in1_raw
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in0-in1_raw
+   2254
+
+**U** = *in0-in1_raw \* in-in_scale + offset* = 2254 \* 0.976000 + 1000 =
+**3199.904 mV**
+
+Show voltage across all cells measurement
+'''''''''''''''''''''''''''''''''''''''''
+
+**Description:** Raw unscaled voltage measurement on all cell channel
+in0-inX_raw
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in0-in12_raw
+   27048
+
+**U** = *in0-in1_raw \* in-in_scale + (cell_num \* offset)* = 27048 \* 0.976000
++ (12 \* 1000) = **38398.848 mV**
+
+Show auxiliary/temperature channel scale
+''''''''''''''''''''''''''''''''''''''''
+
+**Description:** scale to be applied to tempX_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat temp_scale
+   1.220000
+
+Show auxiliary/temperature channel measurement
+''''''''''''''''''''''''''''''''''''''''''''''
+
+**Description:** Shows high accuracy band gap temperature sensor temperature in
+milli degrees Celsius.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat temp0_raw
+   2096
+
+**U** = *temp0_raw \* temp_scale* = 2096 \* 1.220000 = **2557.12 mV**
+
+Enable cell balance output switch on channel 4-5
+''''''''''''''''''''''''''''''''''''''''''''''''
+
+The AD7280A has cell balancing interface outputs designed to control external
+FET transistors to allow discharging of individual cells.
+
+**Description:** Writing 1 enables the cell balance output switch corresponding
+to input Y. Writing 0 disables it. If the inY-inZ_balance_timer is set to a none
+zero value, the corresponding switch will enable for the programmed amount of
+time, before it automatically disables.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> echo 1 > in4-in5_balance_switch_en
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in4-in5_balance_switch_en
+   1
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> echo 0 > in4-in5_balance_switch_en
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in4-in5_balance_switch_en
+   0
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0>
+
+Enable cell balance timer on channel 4-5
+''''''''''''''''''''''''''''''''''''''''
+
+**Description:** The inY-inZ_balance_timer file allows the user to program
+individual times for each cell balance output. The AD7280A allows the user to
+set the timer to a value from 0 minutes to 36.9 minutes. The resolution of the
+timer is 71.5 sec. The value written is the on-time in milliseconds. When the
+timer value is set 0, the timer is disabled. The cell balance outputs are
+controlled only by inY-inZ_balance_switch_en.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> echo 150000 > in4-in5_balance_timer
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in4-in5_balance_timer
+   143000
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0>
+
+Enabling cell and auxiliary/temperature channel threshold events
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   device0         device0:event0
+   root:/sys/bus/iio/devices> cd device0:event0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0/device0:event0> ls -l
+   -r--r--r--    1 root     root          4096 Mar 14 13:37 dev
+   -rw-r--r--    1 root     root          4096 Mar 14 13:37 in-in_thresh_high_value
+   -rw-r--r--    1 root     root          4096 Mar 14 13:37 in-in_thresh_low_value
+   drwxr-xr-x    2 root     root             0 Mar 14 13:37 power
+   lrwxrwxrwx    1 root     root             0 Mar 14 13:37 subsystem -> ../../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Mar 14 13:37 temp_thresh_high_value
+   -rw-r--r--    1 root     root          4096 Mar 14 13:37 temp_thresh_low_value
+   -rw-r--r--    1 root     root          4096 Mar 14 13:37 uevent
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0/device0:event0>
+
+The AD7280A includes a dynamic alert function that can detect whether the cell
+voltages or auxiliary ADC inputs exceed an upper or lower limit defined by the
+user.
+
+**Description:** Specifies the value of threshold (\_high|_low) that the device
+is comparing against.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0/device0:event0> echo 2300 > in-in_thresh_low_value
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0/device0:event0> cat in-in_thresh_low_value
+   2285
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0/device0:event0> echo 4000 > in-in_thresh_high_value
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0/device0:event0> cat in-in_thresh_high_value
+   3994
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers
