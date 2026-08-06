@@ -34,7 +34,9 @@
 struct amdgpu_ras_bert_boot_err_state {
 	struct mutex lock; /* protects cached boot error state */
 	bool polled;
+	bool platform_written;
 	bool written[MAX_GPU_INSTANCE];
+	u32 users;
 	int poll_result;
 	u8 *raw_data;
 	u32 raw_data_len;
@@ -60,6 +62,7 @@ static int amdgpu_ras_bert_process_boot_errors(struct amdgpu_device *adev)
 		return -EPERM;
 
 	mutex_lock(&state->lock);
+	state->users++;
 
 	if (!state->polled) {
 		state->polled = true;
@@ -135,10 +138,13 @@ out_put_bert_tab:
 		goto out_unlock;
 	}
 
+	ras_mgr->ras_core->bert_platform_owner = !state->platform_written;
+	if (ras_mgr->ras_core->bert_platform_owner)
+		state->platform_written = true;
+	state->written[socket_id] = true;
 	ret = ras_bert_process_records(ras_mgr->ras_core,
 				       state->raw_data, state->raw_data_len);
-	if (!ret)
-		state->written[socket_id] = true;
+	ras_mgr->ras_core->bert_platform_owner = false;
 
 out_unlock:
 	mutex_unlock(&state->lock);
@@ -146,17 +152,23 @@ out_unlock:
 	return ret;
 }
 
-static void amdgpu_ras_bert_reset_boot_errors(void)
+static void amdgpu_ras_bert_release_boot_errors(void)
 {
 	struct amdgpu_ras_bert_boot_err_state *state = &boot_err_state;
 
 	mutex_lock(&state->lock);
+	if (!state->users || --state->users)
+		goto out_unlock;
+
 	memset(state->written, 0, sizeof(state->written));
+	state->platform_written = false;
 	kfree(state->raw_data);
 	state->raw_data = NULL;
 	state->raw_data_len = 0;
 	state->poll_result = 0;
 	state->polled = false;
+
+out_unlock:
 	mutex_unlock(&state->lock);
 }
 #endif
@@ -173,7 +185,7 @@ int amdgpu_ras_bert_sw_init(struct amdgpu_device *adev)
 int amdgpu_ras_bert_sw_fini(struct amdgpu_device *adev)
 {
 #if defined(CONFIG_X86_MCE_AMD) && defined(CONFIG_ACPI_APEI)
-	amdgpu_ras_bert_reset_boot_errors();
+	amdgpu_ras_bert_release_boot_errors();
 #endif
 	return 0;
 }
