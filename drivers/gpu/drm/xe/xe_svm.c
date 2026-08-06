@@ -115,6 +115,7 @@ xe_svm_range_alloc(struct drm_gpusvm *gpusvm)
 		return NULL;
 
 	INIT_LIST_HEAD(&range->garbage_collector_link);
+	mutex_init(&range->lock);
 	drm_gpusvm_init_pages(&range->pages, &gpusvm_to_vm(gpusvm)->xe->drm);
 	xe_vm_get(gpusvm_to_vm(gpusvm));
 
@@ -125,6 +126,7 @@ static void xe_svm_range_free(struct drm_gpusvm_range *range)
 {
 	drm_gpusvm_free_pages(range->gpusvm, &(to_xe_range(range)->pages),
 			      drm_gpusvm_range_size(range) >> PAGE_SHIFT);
+	mutex_destroy(&to_xe_range(range)->lock);
 	xe_vm_put(range_to_vm(range));
 	kfree(to_xe_range(range));
 }
@@ -140,11 +142,11 @@ xe_svm_garbage_collector_add_range(struct xe_vm *vm, struct xe_svm_range *range,
 	drm_gpusvm_range_set_unmapped(&range->base, &range->pages, 1,
 				      mmu_range);
 
-	spin_lock(&vm->svm.garbage_collector.lock);
+	spin_lock(&vm->svm.garbage_collector.list_lock);
 	if (list_empty(&range->garbage_collector_link))
 		list_add_tail(&range->garbage_collector_link,
 			      &vm->svm.garbage_collector.range_list);
-	spin_unlock(&vm->svm.garbage_collector.lock);
+	spin_unlock(&vm->svm.garbage_collector.list_lock);
 
 	queue_work(xe->usm.pf_wq, &vm->svm.garbage_collector.work);
 }
@@ -309,18 +311,30 @@ static int __xe_svm_garbage_collector(struct xe_vm *vm,
 
 	range_debug(range, "GARBAGE COLLECTOR");
 
-	xe_vm_lock(vm, false);
-	fence = xe_vm_range_unbind(vm, range);
-	xe_vm_unlock(vm);
-	if (IS_ERR(fence))
-		return PTR_ERR(fence);
-	dma_fence_put(fence);
+	scoped_guard(mutex, &range->lock) {
+		drm_gpusvm_range_get(&range->base);
+		range->removed = true;
 
-	drm_gpusvm_unmap_pages(&vm->svm.gpusvm, &range->pages,
-			       drm_gpusvm_range_size(&range->base) >> PAGE_SHIFT,
-			       &ctx);
+		range_debug(range, "GARBAGE COLLECTOR");
 
-	drm_gpusvm_range_remove(&vm->svm.gpusvm, &range->base);
+		xe_vm_lock(vm, false);
+		fence = xe_vm_range_unbind(vm, range);
+		xe_vm_unlock(vm);
+		if (IS_ERR(fence)) {
+			drm_gpusvm_range_put(&range->base);
+			return PTR_ERR(fence);
+		}
+		dma_fence_put(fence);
+
+		drm_gpusvm_unmap_pages(&vm->svm.gpusvm, &range->pages,
+				       drm_gpusvm_range_size(&range->base) >> PAGE_SHIFT,
+				       &ctx);
+
+		scoped_guard(mutex, &vm->svm.range_lock)
+			drm_gpusvm_range_remove(&vm->svm.gpusvm, &range->base);
+	}
+
+	drm_gpusvm_range_put(&range->base);
 
 	return 0;
 }
@@ -393,13 +407,15 @@ static int xe_svm_garbage_collector(struct xe_vm *vm)
 	u64 range_end;
 	int err, ret = 0;
 
-	lockdep_assert_held_write(&vm->lock);
+	lockdep_assert_held(&vm->lock);
 
 	if (xe_vm_is_closed_or_banned(vm))
 		return -ENOENT;
 
+	guard(mutex)(&vm->svm.garbage_collector.lock);
+
 	for (;;) {
-		spin_lock(&vm->svm.garbage_collector.lock);
+		spin_lock(&vm->svm.garbage_collector.list_lock);
 		range = list_first_entry_or_null(&vm->svm.garbage_collector.range_list,
 						 typeof(*range),
 						 garbage_collector_link);
@@ -410,7 +426,7 @@ static int xe_svm_garbage_collector(struct xe_vm *vm)
 		range_end = xe_svm_range_end(range);
 
 		list_del(&range->garbage_collector_link);
-		spin_unlock(&vm->svm.garbage_collector.lock);
+		spin_unlock(&vm->svm.garbage_collector.list_lock);
 
 		err = __xe_svm_garbage_collector(vm, range);
 		if (err) {
@@ -429,7 +445,7 @@ static int xe_svm_garbage_collector(struct xe_vm *vm)
 				return err;
 		}
 	}
-	spin_unlock(&vm->svm.garbage_collector.lock);
+	spin_unlock(&vm->svm.garbage_collector.list_lock);
 
 	return ret;
 }
@@ -439,9 +455,8 @@ static void xe_svm_garbage_collector_work_func(struct work_struct *w)
 	struct xe_vm *vm = container_of(w, struct xe_vm,
 					svm.garbage_collector.work);
 
-	down_write(&vm->lock);
+	guard(rwsem_read)(&vm->lock);
 	xe_svm_garbage_collector(vm);
-	up_write(&vm->lock);
 }
 
 #if IS_ENABLED(CONFIG_DRM_XE_PAGEMAP)
@@ -893,8 +908,11 @@ int xe_svm_init(struct xe_vm *vm)
 {
 	int err;
 
+	mutex_init(&vm->svm.range_lock);
+	mutex_init(&vm->svm.garbage_collector.lock);
+
 	if (vm->flags & XE_VM_FLAG_FAULT_MODE) {
-		spin_lock_init(&vm->svm.garbage_collector.lock);
+		spin_lock_init(&vm->svm.garbage_collector.list_lock);
 		INIT_LIST_HEAD(&vm->svm.garbage_collector.range_list);
 		INIT_WORK(&vm->svm.garbage_collector.work,
 			  xe_svm_garbage_collector_work_func);
@@ -903,12 +921,12 @@ int xe_svm_init(struct xe_vm *vm)
 		err = drm_pagemap_acquire_owner(&vm->svm.peer, &xe_owner_list,
 						xe_has_interconnect);
 		if (err)
-			return err;
+			goto out_err;
 
 		err = xe_svm_get_pagemaps(vm);
 		if (err) {
 			drm_pagemap_release_owner(&vm->svm.peer);
-			return err;
+			goto out_err;
 		}
 
 		err = drm_gpusvm_init(&vm->svm.gpusvm, "Xe SVM",
@@ -916,18 +934,26 @@ int xe_svm_init(struct xe_vm *vm)
 				      xe_modparam.svm_notifier_size * SZ_1M,
 				      &gpusvm_ops, fault_chunk_sizes,
 				      ARRAY_SIZE(fault_chunk_sizes));
-		drm_gpusvm_driver_set_lock(&vm->svm.gpusvm, &vm->lock);
+		drm_gpusvm_driver_set_lock(&vm->svm.gpusvm, &vm->svm.range_lock);
 
 		if (err) {
 			xe_svm_put_pagemaps(vm);
 			drm_pagemap_release_owner(&vm->svm.peer);
-			return err;
+			goto out_err;
 		}
 	} else {
 		err = drm_gpusvm_init(&vm->svm.gpusvm, "Xe SVM (simple)",
 				      NULL, 0, 0, 0, NULL,
 				      NULL, 0);
+		if (err)
+			goto out_err;
 	}
+
+	return 0;
+
+out_err:
+	mutex_destroy(&vm->svm.range_lock);
+	mutex_destroy(&vm->svm.garbage_collector.lock);
 
 	return err;
 }
@@ -969,7 +995,10 @@ void xe_svm_fini(struct xe_vm *vm)
 					       &ctx);
 	}
 
-	drm_gpusvm_fini(&vm->svm.gpusvm);
+	scoped_guard(mutex, &vm->svm.range_lock)
+		drm_gpusvm_fini(&vm->svm.gpusvm);
+	mutex_destroy(&vm->svm.range_lock);
+	mutex_destroy(&vm->svm.garbage_collector.lock);
 }
 
 static bool xe_svm_range_has_pagemap_locked(const struct xe_svm_range *range,
@@ -1246,21 +1275,27 @@ static int __xe_svm_handle_pagefault(struct xe_vm *vm, struct xe_vma *vma,
 	};
 	struct xe_validation_ctx vctx;
 	struct drm_exec exec;
-	struct xe_svm_range *range;
+	struct xe_svm_range *range = NULL;
 	struct drm_gpusvm_range_flags range_flags;
 	struct dma_fence *fence;
 	struct drm_pagemap *dpagemap;
 	struct xe_tile *tile = gt_to_tile(gt);
 	int migrate_try_count = ctx.devmem_only ? 3 : 1;
 	ktime_t start = xe_gt_stats_ktime_get(), bind_start, get_pages_start;
-	int err;
+	int err = 0;
 
-	lockdep_assert_held_write(&vm->lock);
+	lockdep_assert_held(&vm->lock);
 	xe_assert(vm->xe, xe_vma_is_cpu_addr_mirror(vma));
 
 	xe_gt_stats_incr(gt, XE_GT_STATS_ID_SVM_PAGEFAULT_COUNT, 1);
 
 retry:
+	/* Release old range */
+	if (range) {
+		mutex_unlock(&range->lock);
+		drm_gpusvm_range_put(&range->base);
+	}
+
 	/* Always process UNMAPs first so view SVM ranges is current */
 	err = xe_svm_garbage_collector(vm);
 	if (err)
@@ -1276,10 +1311,17 @@ retry:
 
 	xe_svm_range_fault_count_stats_incr(gt, range);
 
+	mutex_lock(&range->lock);
+
+	if (xe_svm_range_is_removed(range))
+		goto retry;
+
 	/* READ_ONCE pairs with WRITE_ONCE in drm_gpusvm_range_set_unmapped() */
 	range_flags.__flags = READ_ONCE(range->base.flags.__flags);
-	if (ctx.devmem_only && !range_flags.migrate_devmem)
-		return -EACCES;
+	if (ctx.devmem_only && !range_flags.migrate_devmem) {
+		err = -EACCES;
+		goto err_out;
+	}
 
 	if (xe_svm_range_is_valid(range, tile, ctx.devmem_only, dpagemap)) {
 		xe_svm_range_valid_fault_count_stats_incr(gt, range);
@@ -1317,7 +1359,7 @@ retry:
 				drm_err(&vm->xe->drm,
 					"VRAM allocation failed, retry count exceeded, asid=%u, errno=%pe\n",
 					vm->usm.asid, ERR_PTR(err));
-				return err;
+				goto err_out;
 			}
 		}
 	}
@@ -1344,7 +1386,7 @@ get_pages:
 	}
 	if (err) {
 		range_debug(range, "PAGE FAULT - FAIL PAGE COLLECT");
-		goto out;
+		goto err_out;
 	} else if (IS_ENABLED(CONFIG_DRM_XE_DEBUG_VM)) {
 		drm_dbg(&vm->xe->drm, "After page collect data location is %sin \"%s\".\n",
 			xe_svm_range_has_pagemap(range, dpagemap) ? "" : "NOT ",
@@ -1379,6 +1421,8 @@ get_pages:
 
 out:
 	xe_svm_range_fault_us_stats_incr(gt, range, start);
+	mutex_unlock(&range->lock);
+	drm_gpusvm_range_put(&range->base);
 	return 0;
 
 err_out:
@@ -1387,6 +1431,9 @@ err_out:
 		range_debug(range, "PAGE FAULT - RETRY BIND");
 		goto retry;
 	}
+
+	mutex_unlock(&range->lock);
+	drm_gpusvm_range_put(&range->base);
 
 	return err;
 }
@@ -1470,9 +1517,9 @@ void xe_svm_unmap_address_range(struct xe_vm *vm, u64 start, u64 end)
 				drm_gpusvm_range_get(range);
 				__xe_svm_garbage_collector(vm, to_xe_range(range));
 				if (!list_empty(&to_xe_range(range)->garbage_collector_link)) {
-					spin_lock(&vm->svm.garbage_collector.lock);
+					spin_lock(&vm->svm.garbage_collector.list_lock);
 					list_del(&to_xe_range(range)->garbage_collector_link);
-					spin_unlock(&vm->svm.garbage_collector.lock);
+					spin_unlock(&vm->svm.garbage_collector.list_lock);
 				}
 				drm_gpusvm_range_put(range);
 			}
@@ -1502,7 +1549,7 @@ int xe_svm_bo_evict(struct xe_bo *bo)
  * @ctx: GPU SVM context
  *
  * This function finds or inserts a newly allocated a SVM range based on the
- * address.
+ * address. Take a reference to SVM range on success.
  *
  * Return: Pointer to the SVM range on success, ERR_PTR() on failure.
  */
@@ -1511,10 +1558,14 @@ struct xe_svm_range *xe_svm_range_find_or_insert(struct xe_vm *vm, u64 addr,
 {
 	struct drm_gpusvm_range *r;
 
+	guard(mutex)(&vm->svm.range_lock);
+
 	r = drm_gpusvm_range_find_or_insert(&vm->svm.gpusvm, max(addr, xe_vma_start(vma)),
 					    xe_vma_start(vma), xe_vma_end(vma), ctx);
 	if (IS_ERR(r))
 		return ERR_CAST(r);
+
+	drm_gpusvm_range_get(r);
 
 	return to_xe_range(r);
 }
@@ -1534,6 +1585,8 @@ int xe_svm_range_get_pages(struct xe_vm *vm, struct xe_svm_range *range,
 			   struct drm_gpusvm_ctx *ctx)
 {
 	int err = 0;
+
+	lockdep_assert_held(&range->lock);
 
 	err = drm_gpusvm_get_pages(&vm->svm.gpusvm, &range->pages,
 				   vm->svm.gpusvm.mm,
@@ -1659,6 +1712,7 @@ int xe_svm_alloc_vram(struct xe_svm_range *range, const struct drm_gpusvm_ctx *c
 		.__flags = READ_ONCE(range->base.flags.__flags),
 	};
 
+	lockdep_assert_held(&range->lock);
 	xe_assert(range_to_vm(&range->base)->xe, flags.migrate_devmem);
 	range_debug(range, "ALLOCATE VRAM");
 

@@ -84,9 +84,9 @@ static int xe_pagefault_handle_vma(struct xe_gt *gt, struct xe_vma *vma,
 	struct xe_validation_ctx ctx;
 	struct drm_exec exec;
 	struct dma_fence *fence;
-	int err, needs_vram;
+	int err = 0, needs_vram;
 
-	lockdep_assert_held_write(&vm->lock);
+	lockdep_assert_held(&vm->lock);
 
 	needs_vram = xe_vma_need_vram_for_atomic(vm->xe, vma, atomic);
 	if (needs_vram < 0 || (needs_vram && xe_vma_is_userptr(vma)))
@@ -98,50 +98,52 @@ static int xe_pagefault_handle_vma(struct xe_gt *gt, struct xe_vma *vma,
 
 	trace_xe_vma_pagefault(vma);
 
+	guard(mutex)(&vma->fault_lock);
+
 	/* Check if VMA is valid, opportunistic check only */
 	if (xe_vm_has_valid_gpu_mapping(tile, vma->tile_present,
 					vma->tile_invalidated) && !atomic)
 		return 0;
 
-retry_userptr:
-	if (xe_vma_is_userptr(vma) &&
-	    xe_vma_userptr_check_repin(to_userptr_vma(vma))) {
-		struct xe_userptr_vma *uvma = to_userptr_vma(vma);
+	do {
+		if (xe_vma_is_userptr(vma) &&
+		    xe_vma_userptr_check_repin(to_userptr_vma(vma))) {
+			struct xe_userptr_vma *uvma = to_userptr_vma(vma);
 
-		err = xe_vma_userptr_pin_pages(uvma);
-		if (err)
-			return err;
-	}
-
-	/* Lock VM and BOs dma-resv */
-	xe_validation_ctx_init(&ctx, &vm->xe->val, &exec, (struct xe_val_flags) {});
-	drm_exec_until_all_locked(&exec) {
-		err = xe_pagefault_begin(&exec, vma, tile->mem.vram,
-					 needs_vram == 1);
-		drm_exec_retry_on_contention(&exec);
-		xe_validation_retry_on_oom(&ctx, &err);
-		if (err)
-			goto unlock_dma_resv;
-
-		/* Bind VMA only to the GT that has faulted */
-		trace_xe_vma_pf_bind(vma);
-		xe_vm_set_validation_exec(vm, &exec);
-		fence = xe_vma_rebind(vm, vma, BIT(tile->id));
-		xe_vm_set_validation_exec(vm, NULL);
-		if (IS_ERR(fence)) {
-			err = PTR_ERR(fence);
-			xe_validation_retry_on_oom(&ctx, &err);
-			goto unlock_dma_resv;
+			err = xe_vma_userptr_pin_pages(uvma);
+			if (err)
+				return err;
 		}
+
+		/* Lock VM and BOs dma-resv */
+		xe_validation_ctx_init(&ctx, &vm->xe->val, &exec,
+				       (struct xe_val_flags) {});
+		drm_exec_until_all_locked(&exec) {
+			err = xe_pagefault_begin(&exec, vma, tile->mem.vram,
+						 needs_vram == 1);
+			drm_exec_retry_on_contention(&exec);
+			xe_validation_retry_on_oom(&ctx, &err);
+			if (err)
+				break;
+
+			/* Bind VMA only to the GT that has faulted */
+			trace_xe_vma_pf_bind(vma);
+			xe_vm_set_validation_exec(vm, &exec);
+			fence = xe_vma_rebind(vm, vma, BIT(tile->id));
+			xe_vm_set_validation_exec(vm, NULL);
+			if (IS_ERR(fence)) {
+				err = PTR_ERR(fence);
+				xe_validation_retry_on_oom(&ctx, &err);
+				break;
+			}
+		}
+		xe_validation_ctx_fini(&ctx);
+	} while (err == -EAGAIN);
+
+	if (!err) {
+		dma_fence_wait(fence, false);
+		dma_fence_put(fence);
 	}
-
-	dma_fence_wait(fence, false);
-	dma_fence_put(fence);
-
-unlock_dma_resv:
-	xe_validation_ctx_fini(&ctx);
-	if (err == -EAGAIN)
-		goto retry_userptr;
 
 	return err;
 }
@@ -184,10 +186,7 @@ static int xe_pagefault_service(struct xe_pagefault *pf)
 	if (IS_ERR(vm))
 		return PTR_ERR(vm);
 
-	/*
-	 * TODO: Change to read lock? Using write lock for simplicity.
-	 */
-	down_write(&vm->lock);
+	down_read(&vm->lock);
 
 	if (xe_vm_is_closed(vm)) {
 		err = -ENOENT;
@@ -215,9 +214,7 @@ static int xe_pagefault_service(struct xe_pagefault *pf)
 		err = xe_pagefault_handle_vma(gt, vma, atomic);
 
 unlock_vm:
-	if (!err)
-		vm->usm.last_fault_vma = vma;
-	up_write(&vm->lock);
+	up_read(&vm->lock);
 	xe_vm_put(vm);
 
 	return err;
@@ -462,6 +459,19 @@ static bool xe_pagefault_queue_full(struct xe_pagefault_queue *pf_queue)
 		xe_pagefault_entry_size();
 }
 
+/*
+ * This function can race with multiple page fault producers, but worst case we
+ * stick a page fault on the same queue for consumption.
+ */
+static int xe_pagefault_queue_index(struct xe_device *xe)
+{
+	u32 old_pf_queue = READ_ONCE(xe->usm.current_pf_queue);
+
+	WRITE_ONCE(xe->usm.current_pf_queue, (old_pf_queue + 1));
+
+	return old_pf_queue % XE_PAGEFAULT_QUEUE_COUNT;
+}
+
 /**
  * xe_pagefault_handler() - Page fault handler
  * @xe: xe device instance
@@ -474,8 +484,8 @@ static bool xe_pagefault_queue_full(struct xe_pagefault_queue *pf_queue)
  */
 int xe_pagefault_handler(struct xe_device *xe, struct xe_pagefault *pf)
 {
-	struct xe_pagefault_queue *pf_queue = xe->usm.pf_queue +
-		(pf->consumer.asid % XE_PAGEFAULT_QUEUE_COUNT);
+	int queue_index = xe_pagefault_queue_index(xe);
+	struct xe_pagefault_queue *pf_queue = xe->usm.pf_queue + queue_index;
 	unsigned long flags;
 	bool full;
 
@@ -489,7 +499,7 @@ int xe_pagefault_handler(struct xe_device *xe, struct xe_pagefault *pf)
 	} else {
 		drm_warn(&xe->drm,
 			 "PageFault Queue (%d) full, shouldn't be possible\n",
-			 pf->consumer.asid % XE_PAGEFAULT_QUEUE_COUNT);
+			 queue_index);
 	}
 	spin_unlock_irqrestore(&pf_queue->lock, flags);
 

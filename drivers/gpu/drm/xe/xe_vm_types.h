@@ -133,6 +133,12 @@ struct xe_vma {
 	};
 
 	/**
+	 * @fault_lock: Synchronizes fault processing. Locking order: inside
+	 * vm->lock, outside dma-resv.
+	 */
+	struct mutex fault_lock;
+
+	/**
 	 * @tile_invalidated: Tile mask of binding are invalidated for this VMA.
 	 * protected by BO's resv and for userptrs, vm->svm.gpusvm.notifier_lock in
 	 * write mode for writing or vm->svm.gpusvm.notifier_lock in read mode and
@@ -215,12 +221,26 @@ struct xe_vm {
 		/** @svm.gpusvm: base GPUSVM used to track fault allocations */
 		struct drm_gpusvm gpusvm;
 		/**
+		 * @svm.range_lock: Protects insertion and removal of ranges
+		 * from GPU SVM tree.
+		 */
+		struct mutex range_lock;
+		/**
 		 * @svm.garbage_collector: Garbage collector which is used unmap
 		 * SVM range's GPU bindings and destroy the ranges.
 		 */
 		struct {
-			/** @svm.garbage_collector.lock: Protect's range list */
-			spinlock_t lock;
+			/**
+			 * @svm.garbage_collector.lock: Ensures only one thread
+			 * runs the garbage collector at a time. Locking order:
+			 * inside vm->lock, outside range->lock and dma-resv.
+			 */
+			struct mutex lock;
+			/**
+			 * @svm.garbage_collector.list_lock: Protect's range
+			 * list
+			 */
+			spinlock_t list_lock;
 			/**
 			 * @svm.garbage_collector.range_list: List of SVM ranges
 			 * in the garbage collector.
@@ -350,11 +370,6 @@ struct xe_vm {
 	struct {
 		/** @asid: address space ID, unique to each VM */
 		u32 asid;
-		/**
-		 * @last_fault_vma: Last fault VMA, used for fast lookup when we
-		 * get a flood of faults to the same VMA
-		 */
-		struct xe_vma *last_fault_vma;
 	} usm;
 
 	/** @error_capture: allow to track errors */

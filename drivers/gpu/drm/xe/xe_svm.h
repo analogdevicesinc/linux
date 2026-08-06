@@ -39,6 +39,13 @@ struct xe_svm_range {
 	 */
 	struct list_head garbage_collector_link;
 	/**
+	 * @lock: Protects fault handler, garbage collector, and prefetch
+	 * critical sections, ensuring only one thread operates on a range at a
+	 * time. Locking order: inside vm->lock and garbage collector, outside
+	 * dma-resv locks, vm->svm.range_lock.
+	 */
+	struct mutex lock;
+	/**
 	 * @tile_present: Tile mask of binding is present for this range.
 	 * Protected by GPU SVM notifier lock.
 	 */
@@ -48,7 +55,21 @@ struct xe_svm_range {
 	 * range. Protected by GPU SVM notifier lock.
 	 */
 	u8 tile_invalidated;
+	/**
+	 * @removed: Range has been removed from GPU SVM tree, protected by
+	 * @lock.
+	 */
+	bool removed;
 };
+
+/**
+ * xe_svm_range_put() - SVM range put
+ * @range: SVM range
+ */
+static inline void xe_svm_range_put(struct xe_svm_range *range)
+{
+	drm_gpusvm_range_put(&range->base);
+}
 
 /**
  * struct xe_pagemap - Manages xe device_private memory for SVM.
@@ -138,6 +159,19 @@ static inline bool xe_svm_range_has_dma_mapping(struct xe_svm_range *range)
 }
 
 /**
+ * xe_svm_range_is_removed() - SVM range is removed from GPU SVM tree
+ * @range: SVM range
+ *
+ * Return: True if SVM range is removed from GPU SVM tree, False otherwise
+ */
+static inline bool xe_svm_range_is_removed(struct xe_svm_range *range)
+{
+	lockdep_assert_held(&range->lock);
+
+	return range->removed;
+}
+
+/**
  * to_xe_range - Convert a drm_gpusvm_range pointer to a xe_svm_range
  * @r: Pointer to the drm_gpusvm_range structure
  *
@@ -216,9 +250,14 @@ struct xe_svm_range {
 	struct {
 		const struct drm_pagemap_addr *dma_addr;
 	} pages;
+	struct mutex lock;
 	u32 tile_present;
 	u32 tile_invalidated;
 };
+
+static inline void xe_svm_range_put(struct xe_svm_range *range)
+{
+}
 
 static inline bool xe_svm_range_pages_valid(struct xe_svm_range *range)
 {
@@ -387,6 +426,11 @@ static inline int xe_pagemap_cache_create(struct xe_tile *tile)
 static inline struct drm_pagemap *xe_drm_pagemap_from_fd(int fd, u32 region_instance)
 {
 	return ERR_PTR(-ENOENT);
+}
+
+static inline bool xe_svm_range_is_removed(struct xe_svm_range *range)
+{
+	return false;
 }
 
 #define xe_svm_range_has_dma_mapping(...) false
