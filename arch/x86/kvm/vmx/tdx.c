@@ -3257,7 +3257,7 @@ static int tdx_vcpu_init_mem_region(struct kvm_vcpu *vcpu, struct kvm_tdx_cmd *c
 	struct kvm_tdx *kvm_tdx = to_kvm_tdx(kvm);
 	struct kvm_tdx_init_mem_region region;
 	struct tdx_gmem_post_populate_arg arg;
-	gpa_t nr_bytes;
+	gpa_t nr_bytes, end_gpa;
 	long gmem_ret;
 	int ret;
 
@@ -3279,9 +3279,9 @@ static int tdx_vcpu_init_mem_region(struct kvm_vcpu *vcpu, struct kvm_tdx_cmd *c
 		return -EINVAL;
 
 	if (check_shl_overflow(region.nr_pages, PAGE_SHIFT, &nr_bytes) ||
-	    region.gpa + nr_bytes <= region.gpa ||
+	    check_add_overflow(region.gpa, nr_bytes - 1, &end_gpa) ||
 	    !vt_is_tdx_private_gpa(kvm, region.gpa) ||
-	    !vt_is_tdx_private_gpa(kvm, region.gpa + nr_bytes - 1))
+	    !vt_is_tdx_private_gpa(kvm, end_gpa))
 		return -EINVAL;
 
 	ret = 0;
