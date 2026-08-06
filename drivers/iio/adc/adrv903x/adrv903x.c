@@ -868,18 +868,10 @@ static ssize_t adrv903x_phy_tx_write(struct iio_dev *indio_dev,
 		mask = ADI_ADRV903X_TX0 << chan->channel;
 		calMask = ADI_ADRV903X_TC_TX_LOL_MASK;
 
-		adi_adrv903x_ChannelTrackingCals_t channelMask = { 0 };
-		channelMask.txChannel = mask;
-
-		ret = adi_adrv903x_TxToOrxMappingSet(phy->palauDevice, 0x50);
-		if (ret)
-			ret = adrv903x_dev_err(phy);
-
 		ret = adi_adrv903x_TrackingCalsEnableSet(phy->palauDevice, calMask,
 							mask,
                                                         enable ? ADI_ADRV903X_TRACKING_CAL_ENABLE :
 								 ADI_ADRV903X_TRACKING_CAL_DISABLE);
-
 		if (ret)
 			ret = adrv903x_dev_err(phy);
 		break;
@@ -1468,9 +1460,30 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 			ret = -EINVAL;
 		}
 
-	} else if (entry->cmd)
-		val = entry->val;
-	else
+	} else if (entry->cmd) {
+		switch (entry->cmd) {
+		case DBGFS_TX_TO_ORX_MAPPING: {
+			adi_adrv903x_TxChannels_e tx_orx0 = ADI_ADRV903X_TXOFF;
+			adi_adrv903x_TxChannels_e tx_orx1 = ADI_ADRV903X_TXOFF;
+
+			mutex_lock(&phy->lock);
+			ret = adi_adrv903x_TxToOrxMappingGet(phy->palauDevice,
+							     ADI_ADRV903X_ORX0, &tx_orx0);
+			if (!ret)
+				ret = adi_adrv903x_TxToOrxMappingGet(phy->palauDevice,
+								     ADI_ADRV903X_ORX1, &tx_orx1);
+			mutex_unlock(&phy->lock);
+			if (ret)
+				return adrv903x_dev_err(phy);
+
+			val = (ffs(tx_orx1) ? (ffs(tx_orx1) - 1) << 4 : 0) |
+			      (ffs(tx_orx0) ? (ffs(tx_orx0) - 1) : 0);
+			break;
+		}
+		default:
+			val = entry->val;
+		}
+	} else
 		return -EFAULT;
 
 	if (!len)
@@ -1635,6 +1648,21 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 		entry->val = val;
 		return count;
 
+	case DBGFS_TX_TO_ORX_MAPPING:
+		if (ret != 1)
+			return -EINVAL;
+
+		if (val < 0 || val > 0xff)
+			return -EINVAL;
+
+		mutex_lock(&phy->lock);
+		ret = adi_adrv903x_TxToOrxMappingSet(phy->palauDevice, (u8)val);
+		mutex_unlock(&phy->lock);
+		if (ret)
+			return adrv903x_dev_err(phy);
+
+		return count;
+
 	default:
 		break;
 	}
@@ -1689,6 +1717,7 @@ static int adrv903x_register_debugfs(struct iio_dev *indio_dev)
 {
 	struct adrv903x_rf_phy *phy = iio_priv(indio_dev);
 	struct dentry *d;
+	umode_t mode;
 	int i;
 
 	if (!iio_get_debugfs_dentry(indio_dev))
@@ -1704,12 +1733,28 @@ static int adrv903x_register_debugfs(struct iio_dev *indio_dev)
 				   DBGFS_BIST_FRAMER_1_LOOPBACK);
 	adrv903x_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
 	adrv903x_add_debugfs_entry(phy, "rx_data_capture", DBGFS_RX_DATA_CAPTURE);
+	adrv903x_add_debugfs_entry(phy, "tx_to_orx_mapping", DBGFS_TX_TO_ORX_MAPPING);
 
-	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++)
-		d = debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
+	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++) {
+		switch (phy->debugfs_entry[i].cmd) {
+		case DBGFS_BIST_FRAMER_0_PRBS:
+		case DBGFS_BIST_FRAMER_1_PRBS:
+		case DBGFS_BIST_FRAMER_0_LOOPBACK:
+		case DBGFS_BIST_FRAMER_1_LOOPBACK:
+		case DBGFS_BIST_TONE:
+		case DBGFS_RX_DATA_CAPTURE:
+		case DBGFS_TX_TO_ORX_MAPPING:
+			mode = 0644;
+			break;
+		default:
+			mode = 0444;
+			break;
+		}
+		d = debugfs_create_file(phy->debugfs_entry[i].propname, mode,
 					iio_get_debugfs_dentry(indio_dev),
 					&phy->debugfs_entry[i],
 					&adrv903x_debugfs_reg_fops);
+	}
 	return 0;
 }
 
