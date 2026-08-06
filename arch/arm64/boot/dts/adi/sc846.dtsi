@@ -255,7 +255,7 @@
 			compatible = "adi,sram-controller";
 			reg = <0x31080000 0x100>;
 			/* adi,sram = <&sram0>, <&sram1>; */
-			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 143 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
 
@@ -297,8 +297,8 @@
 			reg = <0x31016800 0x100>;
 			#thermal-sensor-cells = <0>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 7 IRQ_TYPE_EDGE_RISING>,
-						 <GIC_SPI 8 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <GIC_SPI 347 IRQ_TYPE_EDGE_RISING>,
+						 <GIC_SPI 348 IRQ_TYPE_EDGE_RISING>;
 			adi,gain = <0x4>; /* 10-bit two's complement */
 			adi,offset = <0x7D40>; /* Q9.7 fixed point */
 			status = "disabled";
@@ -370,12 +370,17 @@
 		};
 
 		can0: can@31000200 {
+			/*
+			 * The SC846 controllers are CAN FD (HRM ch.19); the
+			 * legacy adi,can binding/driver predates CAN FD and
+			 * needs updating before these nodes can be enabled.
+			 */
 			compatible = "adi,can";
 			reg = <0x31000200 0x5FF>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 84 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
 
@@ -383,9 +388,9 @@
 			compatible = "adi,can";
 			reg = <0x31000a00 0x5FF>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
 
@@ -622,7 +627,7 @@
 		crc2: crc@310aa000 {
 			compatible = "adi,hmac-crc";
 			reg = <0x310aa000 0x100>;
-			interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&crc_cluster 45>;
 			dma-names = "mdma_chan";
 			crypto_crc_poly = <0x04c11db7>;
@@ -632,7 +637,7 @@
 		crc3: crc@310ab000 {
 			compatible = "adi,hmac-crc";
 			reg = <0x310ab000 0x100>;
-			interrupts = <GIC_SPI 205 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&crc_cluster 47>;
 			dma-names = "mdma_chan";
 			crypto_crc_poly = <0x04c11db7>;
@@ -672,11 +677,11 @@
 			clock-output-names = "emac1_clkin";
 		};
 
-		mmc0: mmc@310C7000 {
+		mmc0: mmc@31152000 {
 			compatible = "snps,dwcmshc-sdhci";
-			reg = <0x310C7000 0x1000>;
-			interrupts = <GIC_SPI 237 IRQ_TYPE_LEVEL_HIGH>; /* Status */
-				     /*<GIC_SPI 239 IRQ_TYPE_LEVEL_HIGH>;*/ /* Wakeup */
+			reg = <0x31152000 0x1000>;
+			interrupts = <GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH>; /* Status */
+				     /*<GIC_SPI 215 IRQ_TYPE_LEVEL_HIGH>;*/ /* Wakeup */
 			clocks = <&clk ADSP_SC846_CLK_MSHC>;
 			clock-names = "core";
 			bus-width = <8>;
@@ -695,8 +700,8 @@
 		lp0: linkport@0 {
 			compatible = "linkport0";
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH>;
 			clock-div = <1>;
 			status = "disabled";
 		};
@@ -704,8 +709,8 @@
 		lp1: linkport@1 {
 			compatible = "linkport1";
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 155 IRQ_TYPE_LEVEL_HIGH>;
 			clock-div = <1>;
 			status = "disabled";
 		};
@@ -861,7 +866,7 @@
 		pkte1: pkte@310CD000 {
 			compatible = "adi,pkte";
 			reg = <0x310CD000 0x400>;
-			interrupts = <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 226 IRQ_TYPE_LEVEL_HIGH>;
 			status = "disabled";
 		};
 
@@ -1011,16 +1016,16 @@
 
 			crc2_dma: channel@45 { /* MDMA4_SRC */
 				adi,id = <45>;
-				interrupts = <GIC_SPI 200 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>;
+				interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 54 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-names = "complete", "error";
 				adi,src-offset = <0x200>;
 			};
 
 			crc3_dma: channel@47 { /* MDMA5_SRC */
 				adi,id = <47>;
-				interrupts = <GIC_SPI 202 IRQ_TYPE_LEVEL_HIGH>,
-					<GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH>;
+				interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-names = "complete", "error";
 				adi,src-offset = <0x300>;
 			};
