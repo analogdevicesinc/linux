@@ -2205,12 +2205,33 @@ out:
 	return r;
 }
 
+/* Invalidate an importer node's mappings and drop its last ref (frees the
+ * node, dma-buf and GEM handle). Caller must have unlinked it from the
+ * per-remote list and must not hold the imp_xa lock.
+ */
+static void amdgpu_ualink_release_imp_xa_node(struct amdgpu_device *adev,
+				struct amdgpu_ualink_imp_xa_node *imp_xa_node)
+{
+	struct amdgpu_bo *bo;
+
+	dev_dbg(adev->dev,
+		"IMP-CLEANUP: handle:%llx:%llx npa:%llx size:%llx\n",
+		imp_xa_node->handle.handle_hi, imp_xa_node->handle.handle_lo,
+		imp_xa_node->npa_addr, imp_xa_node->size);
+
+	if (imp_xa_node->dmabuf) {
+		bo = gem_to_amdgpu_bo(imp_xa_node->dmabuf->priv);
+		amdgpu_ualink_invalidate_import_mappings(bo);
+	}
+
+	amdgpu_ualink_imp_xa_entry_put(imp_xa_node);
+}
+
 static void amdgpu_ualink_cleanup_imp_xa_entries(struct amdgpu_device *adev,
 						 u32 remote_acc_id)
 {
 	struct amdgpu_ualink_imp_xa_node *imp_xa_node;
 	struct list_head *imp_handles_list;
-	struct amdgpu_bo *bo;
 
 	dev_dbg(adev->dev,
 		"IMP-RESET: Cleaning up all XA entries for remote:%u\n",
@@ -2226,18 +2247,8 @@ static void amdgpu_ualink_cleanup_imp_xa_entries(struct amdgpu_device *adev,
 		WRITE_ONCE(imp_xa_node->node_state, AMDGPU_UALINK_NODE_TEARDOWN);
 		xa_unlock(&adev->ualink.imp_xa);
 
-		dev_dbg(adev->dev,
-			"IMP-RESET: remote:%u handle:%llx:%llx npa:%llx size:%llx\n",
-			remote_acc_id, imp_xa_node->handle.handle_hi,
-			imp_xa_node->handle.handle_lo,
-			imp_xa_node->npa_addr, imp_xa_node->size);
+		amdgpu_ualink_release_imp_xa_node(adev, imp_xa_node);
 
-		bo = gem_to_amdgpu_bo(imp_xa_node->dmabuf->priv);
-		/* Invalidate the imported mappings */
-		amdgpu_ualink_invalidate_import_mappings(bo);
-
-		/* Drop the refcount for the node */
-		amdgpu_ualink_imp_xa_entry_put(imp_xa_node);
 		xa_lock(&adev->ualink.imp_xa);
 	}
 	xa_unlock(&adev->ualink.imp_xa);
@@ -3860,13 +3871,114 @@ out:
 	return r;
 }
 
+/* Free every importer entry left in imp_xa at manager stop. */
+static void amdgpu_ualink_teardown_imp_xa_entries(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_imp_xa_node *imp_xa_node;
+	unsigned long index;
+
+	xa_for_each(&adev->ualink.imp_xa, index, imp_xa_node) {
+		list_del_init(&imp_xa_node->list);
+		WRITE_ONCE(imp_xa_node->node_state, AMDGPU_UALINK_NODE_TEARDOWN);
+		amdgpu_ualink_release_imp_xa_node(adev, imp_xa_node);
+	}
+}
+
+/* Free a single exporter node at manager stop. This is the message-free
+ * portion of amdgpu_ualink_exp_cleanup_worker().
+ */
+static void amdgpu_ualink_teardown_exp_xa_node(struct amdgpu_device *adev,
+				struct amdgpu_ualink_exp_xa_node *exp_xa_node)
+{
+	DECLARE_BITMAP(importers_bitmap, AMDGPU_UALINK_ACCEL_MAX);
+	struct amdgpu_bo *bo = exp_xa_node->bo;
+	u32 remote_acc_id;
+
+	bitmap_copy(importers_bitmap, exp_xa_node->importers_bitmap,
+		    AMDGPU_UALINK_ACCEL_MAX);
+
+	dev_dbg(adev->dev,
+		"EXP-STOP: handle:%llx:%llx importers bitmap: %*pbl\n",
+		exp_xa_node->handle.handle_hi, exp_xa_node->handle.handle_lo,
+		AMDGPU_UALINK_ACCEL_MAX, importers_bitmap);
+
+	if (!bitmap_empty(importers_bitmap, AMDGPU_UALINK_ACCEL_MAX)) {
+		amdgpu_ualink_unmap_all_npa_addr(adev, exp_xa_node);
+
+		/* Unlink importers and unpin the BO once per importer. */
+		if (likely(!amdgpu_bo_reserve(bo, true))) {
+			bo->ualink_handle_lo = 0ULL;
+			for_each_set_bit(remote_acc_id, importers_bitmap,
+					 AMDGPU_UALINK_ACCEL_MAX) {
+				list_del_init(&exp_xa_node->importer_entries[remote_acc_id].list);
+				amdgpu_bo_unpin(bo);
+			}
+			amdgpu_bo_unreserve(bo);
+		} else {
+			dev_warn(adev->dev,
+				"EXP-STOP: BO reserve to unpin failed handle:%llx:%llx\n",
+				exp_xa_node->handle.handle_hi,
+				exp_xa_node->handle.handle_lo);
+			for_each_set_bit(remote_acc_id, importers_bitmap,
+					 AMDGPU_UALINK_ACCEL_MAX)
+				list_del_init(&exp_xa_node->importer_entries[remote_acc_id].list);
+		}
+
+		amdgpu_ualink_free_all_npa_va(adev, exp_xa_node, importers_bitmap);
+	}
+
+	/* Release the export dma-buf and drop the BO ref. */
+	dma_buf_put(exp_xa_node->dmabuf);
+	amdgpu_bo_unref(&bo);
+	exp_xa_node->bo = NULL;
+
+	mutex_destroy(&exp_xa_node->node_lock);
+	kfree(exp_xa_node);
+}
+
+/* Free every exporter entry left in exp_xa at manager stop. These were
+ * exported but never revoked, so no cleanup worker was queued for them.
+ */
+static void amdgpu_ualink_teardown_exp_xa_entries(struct amdgpu_device *adev)
+{
+	struct amdgpu_ualink_exp_xa_node *exp_xa_node;
+	unsigned long index;
+
+	xa_for_each(&adev->ualink.exp_xa, index, exp_xa_node) {
+		xa_erase(&adev->ualink.exp_xa, index);
+		amdgpu_ualink_teardown_exp_xa_node(adev, exp_xa_node);
+	}
+}
+
 void amdgpu_ualink_manager_stop(struct amdgpu_device *adev)
 {
 	int i;
 
 	adev->mmhub.funcs->setup_vm_pt_regs(adev, adev->vm_manager.npa_vmid, 0);
+
+	/* Mark connections down so the drained workers and the teardown below
+	 * take the message-free path in amdgpu_ualink_check_conn_ready().
+	 */
+	for (i = 0; i < AMDGPU_UALINK_ACCEL_MAX; i++) {
+		mutex_lock(&adev->ualink.conn_state[i].lock);
+		adev->ualink.conn_state[i].state = AMDGPU_UALINK_CONN_NOT_READY;
+		mutex_unlock(&adev->ualink.conn_state[i].lock);
+	}
+
+	/* Drain in-flight exporter cleanup work so revoked nodes in
+	 * handle_invalid_xa free themselves and empty that xarray.
+	 */
+	drain_workqueue(adev->ualink.npa_wq);
+
+	/* Free live entries before the NPA allocator is torn down, so NPA
+	 * addresses can still be unmapped and freed.
+	 */
+	amdgpu_ualink_teardown_imp_xa_entries(adev);
+	amdgpu_ualink_teardown_exp_xa_entries(adev);
+
 	amdgpu_ualink_npa_mm_fini(adev);
 
+	/* All three xarrays are empty by now. */
 	xa_destroy(&adev->ualink.exp_xa);
 	xa_destroy(&adev->ualink.imp_xa);
 	xa_destroy(&adev->ualink.handle_invalid_xa);
@@ -5177,6 +5289,10 @@ static int amdgpu_ualink_send_command(struct amdgpu_device *adev,
 	u64 src;
 	int r;
 
+	/* Refuse sends unless active */
+	if (adev->ualink.info->accel_state != AMDGPU_UALINK_ACCEL_STATE_ACTIVE)
+		return -ESHUTDOWN;
+
 	peer = &remote->peer[remote_accel_id];
 
 	/*
@@ -5735,6 +5851,7 @@ static int amdgpu_ualink_process_irq(struct amdgpu_device *adev,
 				     struct amdgpu_iv_entry *entry)
 {
 	u32 sender_acc_id, receiver_acc_id, msg_type, src_acc_id;
+	enum amdgpu_ualink_accel_state accel_state;
 	struct amdgpu_ualink_handle handle;
 	u32 size, npa_addr, fail_reason;
 	u32 dw0, dw1, dw2, dw3;
@@ -5744,6 +5861,18 @@ static int amdgpu_ualink_process_irq(struct amdgpu_device *adev,
 	if (unlikely(adev->ualink.mgr_state != AMDGPU_UALINK_INIT_COMPLETE)) {
 		dev_dbg(adev->dev,
 			"UALink manager not initialized, dropping irq\n");
+		return handled;
+	}
+
+	/* Only handle interrupts while ACTIVE. Otherwise (e.g. during teardown)
+	 * consume stale ring entries but drop them, so they don't touch state
+	 * being freed.
+	 */
+	accel_state = adev->ualink.info->accel_state;
+	if (accel_state != AMDGPU_UALINK_ACCEL_STATE_ACTIVE) {
+		dev_dbg(adev->dev,
+			"Dropping stale UALink interrupt, accel_state %d\n",
+			accel_state);
 		return handled;
 	}
 
