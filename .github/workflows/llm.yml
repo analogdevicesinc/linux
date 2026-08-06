@@ -125,6 +125,10 @@ jobs:
           can be fetched with:
             https://raw.githubusercontent.com/analogdevicesinc/doctools/refs/heads/docling/media/en/technical-documentation/data-sheets/max17335.md
 
+          IMPORTANT: For ADSP processor, you have a dedicate skills, that contains all the datasheets and collaterals,
+          for ADSP you do **not** need to fetch from the analog.com or the doctools mirror.
+
+
           Do not try to fetch the from analog.com domain directly, due to bot protection
           guards in place.
 
@@ -195,6 +199,13 @@ jobs:
           sed "s|{{KERNEL_REVIEW_PROMPTS_DIR}}|$PI/_prompts/kernel|g" "kernel/skills/kernel.md" > "$PI/skills/kernel/kernel.md"
           popd
 
+          skills_dir="$(mktemp -d)"
+          git clone --depth 1 https://github.com/analogdevicesinc/linux --branch "ci-adsp" "$skills_dir" && cd $_
+          pushd skills/adsp
+          chmod +x install.sh ; ./install.sh -a pi
+          popd
+          echo "skills_dir=$skills_dir" >> "$GITHUB_ENV"
+
       - name: Prepare tools
         shell: bash
         run: |
@@ -226,6 +237,7 @@ jobs:
         run: |
           rm -f "$prompt_file"
           rm -rf "$prompt_dir"
+          rm -rf "$skills_dir"
           rm -rf "$py_venv"
           rm -rf "$CI_WORKTREE"
 
