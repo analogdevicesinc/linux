@@ -375,10 +375,11 @@ void dml21_handle_phantom_streams_planes(const struct dc *dc, struct dc_state *c
 		dml2_map_dc_pipes(dml_ctx, context, NULL, &dml_ctx->v21.dml_to_dc_pipe_mapping, dc->current_state);
 }
 
-static uint32_t calc_svp_size_64kb(uint32_t total_size_bytes)
+static uint32_t calc_svp_size_256kb(uint64_t addr_bytes)
 {
-	return (total_size_bytes + 0xFFFF) >> 16;
+    return (uint32_t)(((addr_bytes + 0x3FFFFull) >> 18) << 2); // ceil to 256KB, then return bits [47:16]
 }
+
 
 static unsigned int dml21_build_fams2_stream_programming_v3(const struct dc *dc,
 		struct dc_state *context,
@@ -387,7 +388,7 @@ static unsigned int dml21_build_fams2_stream_programming_v3(const struct dc *dc,
 	int dml_stream_idx, dc_stream_idx, dc_plane_idx, svp_idx;
 	unsigned int dc_pipe_idx;
 	unsigned int num_fams2_streams = 0;
-	unsigned int svp_size_64kb[2] = {0};
+	unsigned int svp_size_256kb[2] = {0};
 	struct pipe_ctx *pipe;
 
 	for (dc_stream_idx = 0; dc_stream_idx < context->stream_count; dc_stream_idx++) {
@@ -477,12 +478,12 @@ static unsigned int dml21_build_fams2_stream_programming_v3(const struct dc *dc,
 					}
 					for (svp_idx = 0; svp_idx < 2; svp_idx++) {
 						alternate_static_state->pipe_copy_addr_47_16[svp_idx][dc_pipe_idx] =
-								dml_ctx->config.alt_ch_cfg.region_base_addr_47_16[svp_idx] + svp_size_64kb[svp_idx];
-						svp_size_64kb[svp_idx] += calc_svp_size_64kb(alternate_static_state->pipe_copy_max_size[svp_idx][dc_plane_idx]);
+								dml_ctx->config.alt_ch_cfg.region_base_addr_47_16[svp_idx] + svp_size_256kb[svp_idx];
+						svp_size_256kb[svp_idx] += calc_svp_size_256kb(alternate_static_state->pipe_copy_max_size[svp_idx][dc_plane_idx]);
 						if (alternate_static_state->config[dc_plane_idx].bits.is_multi_planar) {
 							alternate_static_state->pipe_copy_addr_47_16_c[svp_idx][dc_pipe_idx] =
-									dml_ctx->config.alt_ch_cfg.region_base_addr_47_16[svp_idx] + svp_size_64kb[svp_idx];
-							svp_size_64kb[svp_idx] += calc_svp_size_64kb(alternate_static_state->pipe_copy_max_size_c[svp_idx][dc_plane_idx]);
+									dml_ctx->config.alt_ch_cfg.region_base_addr_47_16[svp_idx] + svp_size_256kb[svp_idx];
+							svp_size_256kb[svp_idx] += calc_svp_size_256kb(alternate_static_state->pipe_copy_max_size_c[svp_idx][dc_plane_idx]);
 						}
 					}
 				}

@@ -2246,6 +2246,8 @@ static void dcn6_ms_calculate_alternate_params(const struct dml2_core_calculate_
 	p->Read256BlockHeightC = inputs->Read256BlockHeightC;
 	p->MacroTileWidthY = inputs->MacroTileWidthY;
 	p->MacroTileWidthC = inputs->MacroTileWidthC;
+	p->MacroTileHeightY = inputs->MacroTileHeightY;
+	p->MacroTileHeightC = inputs->MacroTileHeightC;
 	p->VInitPrefillY = inputs->PrefillY;
 	p->VInitPrefillC = inputs->PrefillC;
 	p->VRatioPrefetchY = inputs->VRatioPreY;
@@ -2316,6 +2318,7 @@ static void dcn6_ms_calculate_alternate_svp_lines(const struct dml2_core_calcula
 	struct dml2_core_internal_mode_support *outputs = states;
 
 	DML_LOG_FUNC_ENTER();
+
 	p->display_cfg = ctx->display_cfg;
 	p->SwathHeightY = inputs->SwathHeightY;
 	p->SwathHeightC = inputs->SwathHeightC;

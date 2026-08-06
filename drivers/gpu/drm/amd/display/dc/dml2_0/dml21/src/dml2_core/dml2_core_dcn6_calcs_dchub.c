@@ -203,14 +203,32 @@ static unsigned int calculate_copy_swaths(double pre_first_hdl,
 	return num_swaths;
 }
 
+/**
+  * *******************************************************************************************************************************************************
+  * calculate_tile_aligned_size: Applies tiled-surface padding / alignment rules to an unaligned copy region
+  *
+  * Given the unaligned copy region dimensions (copy_width in pixels, copy_height in lines) and the plane's macro tile
+  * (swizzle block) dimensions, this returns the number of bytes reserved for the region following addrlib sizing rules:
+  * - The pitch is padded up to the macro tile width and the height is padded up to the macro tile height.
+  *   size = alignedPitch * alignedHeight * bpp, which is inherently macro-tile (block) aligned
+  * - The final ceil2 to 256 is a harmless floor for degenerate tile sizes.
+  *
+  * *******************************************************************************************************************************************************
+  */
+static unsigned int calculate_tile_aligned_size(unsigned int copy_width, unsigned int copy_height, unsigned int tile_width, unsigned int tile_height, unsigned int byte_per_pixel)
+{
+	unsigned int mem_width = (unsigned int)math_ceil2(copy_width, tile_width);
+	unsigned int mem_height = (unsigned int)math_ceil2(copy_height, tile_height);
+
+	return (unsigned int)math_ceil2(mem_width * mem_height * byte_per_pixel, 256);
+}
+
  /**
   * *******************************************************************************************************************************************************
   * calculate_max_mem_size_per_plane_per_dpp: Calculate (loose) upper bound for total number of bytes reserved in memory for the copy given number of swaths
   *
   * - The copy width / height is the min of the vp_width/height and maximum number of pixels that can fit across an ODM slice
   *     - This is to account for recout positions that cross the ODM seam but are "mostly" within the same ODM slice
-  * - For mem width assume an extra block width and tile width is required (the memory reserved must take into account pitch which must be tiled aligned)
-  * - For mem height assumes two extra block heights are required
   *
   * *******************************************************************************************************************************************************
   */
@@ -222,12 +240,11 @@ static unsigned int calculate_max_mem_size_per_plane_per_dpp(const struct dml2_c
 	unsigned int copy_src_lines = copy_swaths * (chroma ? p->SwathHeightC[plane_idx] : p->SwathHeightY[plane_idx]);
 	unsigned int vp_width = chroma ? p->display_cfg->plane_descriptors[plane_idx].composition.viewport.plane1.width : p->display_cfg->plane_descriptors[plane_idx].composition.viewport.plane0.width;
 	unsigned int vp_height = chroma ? p->display_cfg->plane_descriptors[plane_idx].composition.viewport.plane1.height : p->display_cfg->plane_descriptors[plane_idx].composition.viewport.plane0.height;
-	unsigned int block256_width = chroma ? p->Read256BlockWidthC[plane_idx] : p->Read256BlockWidthY[plane_idx];
-	unsigned int block256_height = chroma ? p->Read256BlockHeightC[plane_idx] : p->Read256BlockHeightY[plane_idx];
 	unsigned int tile_width = chroma ? p->MacroTileWidthC[plane_idx] : p->MacroTileWidthY[plane_idx];
+	unsigned int tile_height = chroma ? p->MacroTileHeightC[plane_idx] : p->MacroTileHeightY[plane_idx];
 	unsigned int byte_per_pixel = chroma ? p->BytePerPixelC[plane_idx] : p->BytePerPixelY[plane_idx];
-	unsigned int mem_width;
-	unsigned int mem_height;
+	unsigned int copy_width;
+	unsigned int copy_height;
 	unsigned int odm_combine_factor;
 	double odm_slice_pixels;
 
@@ -241,12 +258,14 @@ static unsigned int calculate_max_mem_size_per_plane_per_dpp(const struct dml2_c
 		odm_combine_factor = 1;
 
 	odm_slice_pixels = (double)h_active / odm_combine_factor * h_ratio + (odm_combine_factor == 3 ? 2 : 0);
-	mem_width = (vertical_access ? copy_src_lines : (unsigned int)math_ceil(math_min2(odm_slice_pixels, vp_width))) + block256_width + tile_width;
-	mem_height = (vertical_access ? (unsigned int)math_ceil(math_min2(odm_slice_pixels, vp_height)) : copy_src_lines) + 2 * block256_height;
 
-	return (unsigned int)math_ceil2(mem_width * mem_height * byte_per_pixel, 256);
+	/* Unaligned copy region dimensions (in pixels / lines) prior to tile alignment.
+	 * Also divide vp_widht/height by NoOfDPP for MPC combine scenarios (i.e., MPC split within an ODM slice). */
+	copy_width = vertical_access ? copy_src_lines : (unsigned int)math_ceil(math_min2(odm_slice_pixels, vp_width / p->NoOfDPP[plane_idx]));
+	copy_height = vertical_access ? (unsigned int)math_ceil(math_min2(odm_slice_pixels, vp_height / p->NoOfDPP[plane_idx])) : copy_src_lines;
+
+	return calculate_tile_aligned_size(copy_width, copy_height, tile_width, tile_height, byte_per_pixel);
 }
-
  /**
   * ****************************************************************************************************************************************
   * calculate_ub_copy_size_per_plane_per_dpp: Calculate tight upper bound for total number of bytes required for the copy given number of swaths.
@@ -422,9 +441,9 @@ static void calculate_swath_params(const struct dml2_core_calcs_calculate_altern
 	out->prefetch_hdl_delta = (double)swath_height / vratio_pre;
 }
 
-static unsigned int calc_svp_size_64kb_aligned(unsigned int total_size_bytes)
+static unsigned int calc_svp_size_256kb_aligned(unsigned int total_size_bytes)
 {
-	return ((total_size_bytes + 0xFFFF) >> 16) << 16; // Round up to nearest 64KB boundary
+	return ((total_size_bytes + 0x3FFFFu) >> 18) << 18; // Round up to nearest 256KB boundary
 }
 
 void dcn6_calculate_alternate_params(struct dml2_core_calcs_calculate_alternate_params *p)
@@ -471,7 +490,7 @@ void dcn6_calculate_alternate_params(struct dml2_core_calcs_calculate_alternate_
 				p->prefetch_hdl_delta[j] = swath_params.prefetch_hdl_delta;
 				for (k = 0; k < 2; k++) {
 					svp_max_bytes_per_dpp[k] = calculate_ub_copy_size_per_plane_per_dpp_per_svp(p, svp_dst_lines[k], j, false);
-					svp_max_bytes[k] += calc_svp_size_64kb_aligned(svp_max_bytes_per_dpp[k]) * p->NoOfDPP[j];
+					svp_max_bytes[k] += calc_svp_size_256kb_aligned(svp_max_bytes_per_dpp[k]) * p->NoOfDPP[j];
 				}
 				p->svp0_max_bytes_per_dpp[j] = svp_max_bytes_per_dpp[0];
 				p->svp1_max_bytes_per_dpp[j] = svp_max_bytes_per_dpp[1];
@@ -485,7 +504,7 @@ void dcn6_calculate_alternate_params(struct dml2_core_calcs_calculate_alternate_
 
 					for (k = 0; k < 2; k++) {
 						svp_max_bytes_per_dpp[k] = calculate_ub_copy_size_per_plane_per_dpp_per_svp(p, svp_dst_lines[k], j, true);
-						svp_max_bytes[k] += calc_svp_size_64kb_aligned(svp_max_bytes_per_dpp[k]) * p->NoOfDPP[j];
+						svp_max_bytes[k] += calc_svp_size_256kb_aligned(svp_max_bytes_per_dpp[k]) * p->NoOfDPP[j];
 					}
 					p->svp0_max_bytes_per_dpp_c[j] = svp_max_bytes_per_dpp[0];
 					p->svp1_max_bytes_per_dpp_c[j] = svp_max_bytes_per_dpp[1];

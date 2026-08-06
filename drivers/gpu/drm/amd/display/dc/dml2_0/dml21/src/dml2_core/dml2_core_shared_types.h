@@ -2300,6 +2300,8 @@ struct dml2_core_calcs_calculate_alternate_params {
 	unsigned int *Read256BlockHeightC;
 	unsigned int *MacroTileWidthY;
 	unsigned int *MacroTileWidthC;
+	unsigned int *MacroTileHeightY;
+	unsigned int *MacroTileHeightC;
 	unsigned int *VInitPrefillY;
 	unsigned int *VInitPrefillC;
 	double *VRatioPrefetchY;
