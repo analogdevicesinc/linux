@@ -113,6 +113,9 @@ static int fill_section_fatal(struct ras_core_context *ras_core, void *section,
 {
 	struct cper_section_fatal *fatal = section;
 
+	fatal->hdr.valid_bits = CPER_AMD_ERR_INFO_COUNT(1) |
+		CPER_AMD_CONTEXT_COUNT(1);
+	fatal->error_info.error_type = GPU__NONSTANDARD_ERROR;
 	fatal->data.reg_ctx_type = CPER_CTX_TYPE__CRASH;
 	fatal->data.reg_arr_size = sizeof(fatal->data.reg);
 
@@ -167,11 +170,15 @@ static int fill_section_boot(struct ras_core_context *ras_core, void *section,
 	struct cper_section_boot *boot = section;
 	struct ras_boot_err_ctx *ctx = &log->body.boot_err_ctx;
 	struct crashdump_boot *data = &boot->data;
+	u16 data_size;
 
+	boot->hdr.valid_bits = CPER_AMD_ERR_INFO_COUNT(1) |
+		CPER_AMD_CONTEXT_COUNT(1);
+	boot->error_info.error_type = GPU__NONSTANDARD_ERROR;
 	data->reg_ctx_type = ctx->reg_ctx_type;
-	data->reg_arr_size = ctx->reg_arr_size;
-	memcpy(data->msg, ctx->regs,
-		min(boot->data.reg_arr_size, sizeof(data->msg)));
+	data_size = min_t(u16, ctx->reg_arr_size, sizeof(data->msg));
+	data->reg_arr_size = data_size;
+	memcpy(data->msg, ctx->regs, data_size);
 
 	return 0;
 }
@@ -327,8 +334,21 @@ int ras_cper_generate_batch_cper(struct ras_core_context *ras_core,
 
 		/* MCE is encoded as 1 record each */
 		memcpy(&bank.regs, &batch_logs[0].body.aca_reg.regs, sizeof(bank.regs));
+		bank.ecc_type = RAS_ERR_TYPE__MCE;
 		event = cper_mce_parse_err_type(ras_core, &bank);
 		batch_logs[0].event = event;
+	}
+
+	if (event == RAS_LOG_EVENT_BOOT) {
+		uint32_t i;
+
+		for (i = 1; i < nr_batch_logs; i++) {
+			if (batch_logs[i].event != RAS_LOG_EVENT_BOOT ||
+			    memcmp(batch_logs[i].body.boot_err_ctx.section_type,
+				   batch_logs[0].body.boot_err_ctx.section_type,
+				   CPER_UUID_MAX_SIZE))
+				return -EINVAL;
+		}
 	}
 
 	mutex_lock(&cper->profile_mutex);
