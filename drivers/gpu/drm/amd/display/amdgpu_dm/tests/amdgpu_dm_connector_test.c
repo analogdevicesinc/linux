@@ -7077,6 +7077,100 @@ static void dm_test_update_after_detect_force_em_keep(struct kunit *test)
 	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, dc_sink);
 }
 
+/* Tests for amdgpu_dm_connector_funcs_force() with a valid EDID */
+
+/*
+ * Fake i2c adapter that serves dm_test_uad_edid over the DDC read protocol
+ * drm_do_probe_ddc_edid() uses: a one-byte write to DDC_ADDR (0x50) sets the
+ * block offset and the following read returns bytes from that offset. This
+ * lets amdgpu_dm_connector_funcs_force() obtain a valid EDID without hardware.
+ */
+static int dm_test_force_edid_i2c_xfer(struct i2c_adapter *adap,
+				       struct i2c_msg *msgs, int num)
+{
+	u8 offset = 0;
+	int i;
+
+	for (i = 0; i < num; i++) {
+		if (msgs[i].flags & I2C_M_RD) {
+			size_t len = msgs[i].len;
+
+			if (offset >= sizeof(dm_test_uad_edid))
+				len = 0;
+			else if (len > sizeof(dm_test_uad_edid) - offset)
+				len = sizeof(dm_test_uad_edid) - offset;
+			memcpy(msgs[i].buf, dm_test_uad_edid + offset, len);
+		} else if (msgs[i].addr == 0x50 && msgs[i].len >= 1) {
+			offset = msgs[i].buf[0];
+		}
+	}
+
+	return num;
+}
+
+static u32 dm_test_force_edid_i2c_func(struct i2c_adapter *adap)
+{
+	return I2C_FUNC_I2C;
+}
+
+static const struct i2c_algorithm dm_test_force_edid_i2c_algo = {
+	.master_xfer = dm_test_force_edid_i2c_xfer,
+	.functionality = dm_test_force_edid_i2c_func,
+};
+
+static void dm_test_force_edid_lock_bus(struct i2c_adapter *adap, unsigned int flags) {}
+static int dm_test_force_edid_trylock_bus(struct i2c_adapter *adap, unsigned int flags)
+{
+	return 1;
+}
+static void dm_test_force_edid_unlock_bus(struct i2c_adapter *adap, unsigned int flags) {}
+
+static const struct i2c_lock_operations dm_test_force_edid_lock_ops = {
+	.lock_bus = dm_test_force_edid_lock_bus,
+	.trylock_bus = dm_test_force_edid_trylock_bus,
+	.unlock_bus = dm_test_force_edid_unlock_bus,
+};
+
+/**
+ * dm_test_funcs_force_reads_edid - Test force() caches EDID and updates em_sink
+ * @test: The KUnit test context
+ *
+ * A non-AUX link selects the connector's i2c adapter, which serves a valid
+ * EDID. force() must cache it in drm_edid and, because an emulated sink and a
+ * dc_link are present, copy the raw EDID into the sink and parse its caps.
+ */
+static void dm_test_funcs_force_reads_edid(struct kunit *test)
+{
+	struct dm_test_edid_ctx *ctx =
+		dm_test_edid_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	struct amdgpu_i2c_adapter *i2c;
+	struct dc_sink *em_sink;
+
+	i2c = kunit_kzalloc(test, sizeof(*i2c), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, i2c);
+	i2c->base.algo = &dm_test_force_edid_i2c_algo;
+	i2c->base.lock_ops = &dm_test_force_edid_lock_ops;
+	ctx->aconnector->i2c = i2c;
+
+	em_sink = kunit_kzalloc(test, sizeof(*em_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, em_sink);
+	ctx->aconnector->dc_em_sink = em_sink;
+
+	/* Non-AUX link picks the i2c adapter; force-on skips the DDC probe. */
+	ctx->link->aux_mode = false;
+	ctx->link->priv = ctx->aconnector;
+	ctx->aconnector->base.force = DRM_FORCE_ON;
+
+	amdgpu_dm_connector_funcs_force(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_NOT_NULL(test, ctx->aconnector->drm_edid);
+	KUNIT_EXPECT_MEMEQ(test, em_sink->dc_edid.raw_edid,
+			   dm_test_uad_edid, sizeof(dm_test_uad_edid));
+
+	drm_edid_free(ctx->aconnector->drm_edid);
+	ctx->aconnector->drm_edid = NULL;
+}
+
 /* Tests for amdgpu_dm_update_stream_scaling_settings() */
 
 /**
@@ -7539,6 +7633,7 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_handle_edid_mgmt_non_dp_leaves_caps),
 	/* amdgpu_dm_connector_funcs_force */
 	KUNIT_CASE(dm_test_funcs_force_no_edid),
+	KUNIT_CASE(dm_test_funcs_force_reads_edid),
 	/* dm_validate_stream_and_context */
 	KUNIT_CASE(dm_test_validate_stream_null_stream),
 	KUNIT_CASE(dm_test_validate_stream_dc_ok_no_pipe),
