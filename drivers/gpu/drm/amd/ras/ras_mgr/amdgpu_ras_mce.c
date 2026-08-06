@@ -132,6 +132,8 @@ static void __fill_mce_to_aca_bank(struct amdgpu_device *adev,
 	aca_bank->timestamp = m->time;
 	aca_bank->bank_type = bank_type;
 	aca_bank->ecc_type = RAS_ERR_TYPE__MCE;
+	aca_bank->apic_id = m->apicid;
+	aca_bank->bank = m->bank;
 	aca_bank->regs[ACA_REG_IDX__STATUS] = m->status;
 	aca_bank->regs[ACA_REG_IDX__ADDR] = m->addr;
 	aca_bank->regs[ACA_REG_IDX__MISC0] = m->misc;
@@ -185,9 +187,11 @@ static int amdgpu_ras_mce_notifier_v5(struct amdgpu_device *adev, unsigned int i
 
 	if (ras_mce_check_bank(ras_mgr->ras_core, MCE_BANK_TYPE_GPU, m->bank)) {
 		bank_type = MCE_BANK_TYPE_GPU;
-	/* For CPU bank, only the first registered gpu device needs to record bank */
-	} else if (ras_mce_check_bank(ras_mgr->ras_core, MCE_BANK_TYPE_CPU, m->bank) &&
-			!id) {
+	} else if (ras_mce_check_bank(ras_mgr->ras_core, MCE_BANK_TYPE_CPU, m->bank)) {
+		/* For CPU bank, only the first registered gpu device needs to record bank */
+		if (id)
+			return 0;
+
 		bank_type = MCE_BANK_TYPE_CPU;
 	} else {
 		RAS_DEV_WARN(adev, "Unsupported mce bank: %u\n",  m->bank);
