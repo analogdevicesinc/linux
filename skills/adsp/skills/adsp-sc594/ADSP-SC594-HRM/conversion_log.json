@@ -1,0 +1,302 @@
+[
+  {
+    "chunk": "000_Notices",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/000_Notices.md"
+  },
+  {
+    "chunk": "001_Contents",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/001_Contents.md"
+  },
+  {
+    "chunk": "002_Preface",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/002_Preface.md"
+  },
+  {
+    "chunk": "003_Introduction",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/003_Introduction.md"
+  },
+  {
+    "chunk": "004_Arm_Cortex-A5_Subsystem",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/004_Arm_Cortex-A5_Subsystem.md"
+  },
+  {
+    "chunk": "005_Clock_Generation_Unit_CGU",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/005_Clock_Generation_Unit_CGU.md"
+  },
+  {
+    "chunk": "006_Clock_Distribution_Unit_CDU",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/006_Clock_Distribution_Unit_CDU.md"
+  },
+  {
+    "chunk": "007_Dynamic_Power_Management_DPM",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/007_Dynamic_Power_Management_DPM.md"
+  },
+  {
+    "chunk": "008_Reset_Control_Unit_RCU",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/008_Reset_Control_Unit_RCU.md"
+  },
+  {
+    "chunk": "009_System_Event_Controller_SEC_and_Generic_Interrupt_Controller",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/009_System_Event_Controller_SEC_and_Generic_Interrupt_Controller.md"
+  },
+  {
+    "chunk": "010_Trigger_Routing_Unit_TRU",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/010_Trigger_Routing_Unit_TRU.md"
+  },
+  {
+    "chunk": "011_L2_System_Memory",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/011_L2_System_Memory.md"
+  },
+  {
+    "chunk": "012_Dynamic_Memory_Controller_DMC",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/012_Dynamic_Memory_Controller_DMC.md"
+  },
+  {
+    "chunk": "013_One-Time_Programmable_Memory_Controller_OTPC",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/013_One-Time_Programmable_Memory_Controller_OTPC.md"
+  },
+  {
+    "chunk": "014_System_Memory_Protection_Unit_SMPU",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/014_System_Memory_Protection_Unit_SMPU.md"
+  },
+  {
+    "chunk": "015_General-Purpose_Ports_PORT",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/015_General-Purpose_Ports_PORT.md"
+  },
+  {
+    "chunk": "016_Thermal_Monitoring_Unit_TMU",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/016_Thermal_Monitoring_Unit_TMU.md"
+  },
+  {
+    "chunk": "017_Housekeeping_ADC_HADC",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/017_Housekeeping_ADC_HADC.md"
+  },
+  {
+    "chunk": "018_Controller_Area_Network_Flexible_Data_Rate_CANFD",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/018_Controller_Area_Network_Flexible_Data_Rate_CANFD.md"
+  },
+  {
+    "chunk": "019_Watchdog_Timer_WDOG",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/019_Watchdog_Timer_WDOG.md"
+  },
+  {
+    "chunk": "020_Link_Port_LP",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/020_Link_Port_LP.md"
+  },
+  {
+    "chunk": "021_Pulse_Density_Modulation_PDM_Microphone_Interface",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/021_Pulse_Density_Modulation_PDM_Microphone_Interface.md"
+  },
+  {
+    "chunk": "022_Universal_Serial_Bus_Controller_USBC",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/022_Universal_Serial_Bus_Controller_USBC.md"
+  },
+  {
+    "chunk": "023_Serial_Peripheral_Interface_SPI",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/023_Serial_Peripheral_Interface_SPI.md"
+  },
+  {
+    "chunk": "024_Octal_Serial_Peripheral_Interface_OSPI",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/024_Octal_Serial_Peripheral_Interface_OSPI.md"
+  },
+  {
+    "chunk": "025_Universal_Asynchronous_ReceiverTransmitter_UART",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/025_Universal_Asynchronous_ReceiverTransmitter_UART.md"
+  },
+  {
+    "chunk": "026_Enhanced_Parallel_Peripheral_Interface_EPPI",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/026_Enhanced_Parallel_Peripheral_Interface_EPPI.md"
+  },
+  {
+    "chunk": "027_General-Purpose_Timer_TIMER",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/027_General-Purpose_Timer_TIMER.md"
+  },
+  {
+    "chunk": "028_General-Purpose_Counter_CNT",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/028_General-Purpose_Counter_CNT.md"
+  },
+  {
+    "chunk": "029_Media_Local_Bus_MLB",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/029_Media_Local_Bus_MLB.md"
+  },
+  {
+    "chunk": "030_Two-Wire_Interface_TWI",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/030_Two-Wire_Interface_TWI.md"
+  },
+  {
+    "chunk": "031_Ethernet_Media_Access_Controller_EMAC_EMAC_Features",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/031_Ethernet_Media_Access_Controller_EMAC_EMAC_Features.md"
+  },
+  {
+    "chunk": "032_Ethernet_Media_Access_Controller_EMAC_EMAC_Functional_Descri",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/032_Ethernet_Media_Access_Controller_EMAC_EMAC_Functional_Descri.md"
+  },
+  {
+    "chunk": "033_Ethernet_Media_Access_Controller_EMAC_EMAC_Event_Control",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/033_Ethernet_Media_Access_Controller_EMAC_EMAC_Event_Control.md"
+  },
+  {
+    "chunk": "034_Ethernet_Media_Access_Controller_EMAC_EMAC_Programming_Model",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/034_Ethernet_Media_Access_Controller_EMAC_EMAC_Programming_Model.md"
+  },
+  {
+    "chunk": "035_Ethernet_Media_Access_Controller_EMAC_EMAC_Programming_Conce",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/035_Ethernet_Media_Access_Controller_EMAC_EMAC_Programming_Conce.md"
+  },
+  {
+    "chunk": "036_Ethernet_Media_Access_Controller_EMAC_ADSP-2159x_SC592_SC594",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/036_Ethernet_Media_Access_Controller_EMAC_ADSP-2159x_SC592_SC594.md"
+  },
+  {
+    "chunk": "037_Digital_Audio_Interface_DAI",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/037_Digital_Audio_Interface_DAI.md"
+  },
+  {
+    "chunk": "038_Serial_Port_SPORT",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/038_Serial_Port_SPORT.md"
+  },
+  {
+    "chunk": "039_Precision_Clock_Generators_PCG",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/039_Precision_Clock_Generators_PCG.md"
+  },
+  {
+    "chunk": "040_Asynchronous_Sample_Rate_Converter_ASRC",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/040_Asynchronous_Sample_Rate_Converter_ASRC.md"
+  },
+  {
+    "chunk": "041_SonyPhilips_Digital_Interface_SPDIF",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/041_SonyPhilips_Digital_Interface_SPDIF.md"
+  },
+  {
+    "chunk": "042_Direct_Memory_Access_DMA",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/042_Direct_Memory_Access_DMA.md"
+  },
+  {
+    "chunk": "043_Extended_Memory_DMA_EMDMA",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/043_Extended_Memory_DMA_EMDMA.md"
+  },
+  {
+    "chunk": "044_Cyclic_Redundancy_Check_CRC",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/044_Cyclic_Redundancy_Check_CRC.md"
+  },
+  {
+    "chunk": "045_System_Security",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/045_System_Security.md"
+  },
+  {
+    "chunk": "046_System_Protection_Unit_SPU",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/046_System_Protection_Unit_SPU.md"
+  },
+  {
+    "chunk": "047_Security_Packet_Engine_PKTE",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/047_Security_Packet_Engine_PKTE.md"
+  },
+  {
+    "chunk": "048_Public_Key_Accelerator_PKA",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/048_Public_Key_Accelerator_PKA.md"
+  },
+  {
+    "chunk": "049_Public_Key_Interrupt_Controller_PKIC",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/049_Public_Key_Interrupt_Controller_PKIC.md"
+  },
+  {
+    "chunk": "050_True_Random_Number_Generator_TRNG",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/050_True_Random_Number_Generator_TRNG.md"
+  },
+  {
+    "chunk": "051_FIR_Accelerator_FIR",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/051_FIR_Accelerator_FIR.md"
+  },
+  {
+    "chunk": "052_IIR_Accelerator_IIR",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/052_IIR_Accelerator_IIR.md"
+  },
+  {
+    "chunk": "053_Boot_ROM_and_Booting_the_Processor",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/053_Boot_ROM_and_Booting_the_Processor.md"
+  },
+  {
+    "chunk": "054_System_Crossbars_SCB",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/054_System_Crossbars_SCB.md"
+  },
+  {
+    "chunk": "055_System_Watchpoint_Unit_SWU",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/055_System_Watchpoint_Unit_SWU.md"
+  },
+  {
+    "chunk": "056_Memory_Error_Protection_Unit_MEPU",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/056_Memory_Error_Protection_Unit_MEPU.md"
+  },
+  {
+    "chunk": "057_System_Debug_and_Trace_Unit_DBG",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/057_System_Debug_and_Trace_Unit_DBG.md"
+  },
+  {
+    "chunk": "058_ADSP-2159x_SC592_SC594_Register_List_pages_34873786",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/058_ADSP-2159x_SC592_SC594_Register_List_pages_34873786.md"
+  },
+  {
+    "chunk": "059_ADSP-2159x_SC592_SC594_Register_List_pages_37873790",
+    "status": "ok",
+    "md": "/home/michael/skills/adsp_sc594/ADSP-SC594-HRM/059_ADSP-2159x_SC592_SC594_Register_List_pages_37873790.md"
+  }
+]
