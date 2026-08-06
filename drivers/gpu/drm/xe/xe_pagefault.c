@@ -303,8 +303,8 @@ static void xe_pagefault_queue_work(struct work_struct *w)
 
 		err = xe_pagefault_service(&pf);
 		if (err) {
-			xe_pagefault_save_to_vm(gt_to_xe(pf.gt), &pf);
 			if (!(pf.consumer.access_type & XE_PAGEFAULT_ACCESS_PREFETCH)) {
+				xe_pagefault_save_to_vm(gt_to_xe(pf.gt), &pf);
 				xe_pagefault_print(&pf);
 				xe_gt_info(pf.gt, "Fault response: Unsuccessful %pe\n",
 					   ERR_PTR(err));
@@ -318,7 +318,7 @@ static void xe_pagefault_queue_work(struct work_struct *w)
 		pf.producer.ops->ack_fault(&pf, err);
 
 		if (time_after(jiffies, threshold)) {
-			queue_work(gt_to_xe(pf.gt)->usm.pf_wq, w);
+			queue_work(gt_to_xe(pf.gt)->usm.pagefault_wq, w);
 			break;
 		}
 	}
@@ -376,7 +376,8 @@ static void xe_pagefault_fini(void *arg)
 {
 	struct xe_device *xe = arg;
 
-	destroy_workqueue(xe->usm.pf_wq);
+	destroy_workqueue(xe->usm.prefetch_wq);
+	destroy_workqueue(xe->usm.pagefault_wq);
 }
 
 /**
@@ -394,11 +395,19 @@ int xe_pagefault_init(struct xe_device *xe)
 	if (!xe->info.has_usm)
 		return 0;
 
-	xe->usm.pf_wq = alloc_workqueue("xe_page_fault_work_queue",
-					WQ_UNBOUND | WQ_HIGHPRI,
-					XE_PAGEFAULT_QUEUE_COUNT);
-	if (!xe->usm.pf_wq)
+	xe->usm.pagefault_wq = alloc_workqueue("xe_page_fault_work_queue",
+					       WQ_UNBOUND | WQ_HIGHPRI,
+					       XE_PAGEFAULT_QUEUE_COUNT);
+	if (!xe->usm.pagefault_wq)
 		return -ENOMEM;
+
+	xe->usm.prefetch_wq = alloc_workqueue("xe_prefetch_work_queue",
+					      WQ_UNBOUND,
+					      XE_PAGEFAULT_QUEUE_COUNT);
+	if (!xe->usm.prefetch_wq) {
+		err = -ENOMEM;
+		goto err_pagefault_wq;
+	}
 
 	for (i = 0; i < XE_PAGEFAULT_QUEUE_COUNT; ++i) {
 		err = xe_pagefault_queue_init(xe, xe->usm.pf_queue + i);
@@ -409,7 +418,9 @@ int xe_pagefault_init(struct xe_device *xe)
 	return devm_add_action_or_reset(xe->drm.dev, xe_pagefault_fini, xe);
 
 err_out:
-	destroy_workqueue(xe->usm.pf_wq);
+	destroy_workqueue(xe->usm.prefetch_wq);
+err_pagefault_wq:
+	destroy_workqueue(xe->usm.pagefault_wq);
 	return err;
 }
 
@@ -495,7 +506,7 @@ int xe_pagefault_handler(struct xe_device *xe, struct xe_pagefault *pf)
 		memcpy(pf_queue->data + pf_queue->head, pf, sizeof(*pf));
 		pf_queue->head = (pf_queue->head + xe_pagefault_entry_size()) %
 			pf_queue->size;
-		queue_work(xe->usm.pf_wq, &pf_queue->worker);
+		queue_work(xe->usm.pagefault_wq, &pf_queue->worker);
 	} else {
 		drm_warn(&xe->drm,
 			 "PageFault Queue (%d) full, shouldn't be possible\n",

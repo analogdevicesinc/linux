@@ -324,8 +324,10 @@ struct xe_device {
 		u32 current_pf_queue;
 		/** @usm.lock: protects UM state */
 		struct rw_semaphore lock;
-		/** @usm.pf_wq: page fault work queue, unbound, high priority */
-		struct workqueue_struct *pf_wq;
+		/** @usm.pagefault_wq: page fault work queue, unbound, high priority */
+		struct workqueue_struct *pagefault_wq;
+		/** @usm.prefetch_wq: threaded prefetch work queue, unbound */
+		struct workqueue_struct *prefetch_wq;
 		/*
 		 * We pick 4 here because, in the current implementation, it
 		 * yields the best bandwidth utilization of the kernel paging

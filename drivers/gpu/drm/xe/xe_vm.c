@@ -2525,7 +2525,7 @@ vm_bind_ioctl_ops_create(struct xe_vm *vm, struct xe_vma_ops *vops,
 			struct drm_pagemap *dpagemap = NULL;
 			u8 id, tile_mask = 0;
 			u32 i;
-			bool need_put;
+			bool need_put, valid_pages;
 
 			if (xe_vma_is_userptr(vma))
 				vops->flags |= XE_VMA_OPS_FLAG_MODIFIES_GPUVA;
@@ -2571,8 +2571,10 @@ alloc_next_range:
 				goto unwind_prefetch_ops;
 			}
 
-			if (xe_svm_range_validate(vm, svm_range, tile_mask, dpagemap)) {
+			if (xe_svm_range_validate(vm, svm_range, tile_mask,
+						  dpagemap, &valid_pages)) {
 				xe_svm_range_debug(svm_range, "PREFETCH - RANGE IS VALID");
+				xe_assert(vm->xe, valid_pages);
 				need_put = true;
 				goto check_next_range;
 			}
@@ -2588,6 +2590,8 @@ alloc_next_range:
 
 			op->prefetch_range.ranges_count++;
 			vops->flags |= XE_VMA_OPS_FLAG_HAS_SVM_PREFETCH;
+			if (valid_pages)
+				vops->flags |= XE_VMA_OPS_FLAG_HAS_SVM_VALID_RANGE;
 			xe_svm_range_debug(svm_range, "PREFETCH - RANGE CREATED");
 check_next_range:
 			if (range_end > xe_svm_range_end(svm_range) &&
@@ -3158,16 +3162,87 @@ static int check_ufence(struct xe_vma *vma)
 	return 0;
 }
 
-static int prefetch_ranges(struct xe_vm *vm, struct xe_vma_op *op)
+struct prefetch_thread {
+	struct work_struct work;
+	struct drm_gpusvm_ctx *ctx;
+	struct xe_vma *vma;
+	struct xe_svm_range *svm_range;
+	struct drm_pagemap *dpagemap;
+	int err;
+};
+
+static void prefetch_thread_func(struct prefetch_thread *thread)
+{
+	struct xe_vma *vma = thread->vma;
+	struct xe_vm *vm = xe_vma_vm(vma);
+	struct xe_svm_range *svm_range = thread->svm_range;
+	struct drm_pagemap *dpagemap = thread->dpagemap;
+	int err = 0;
+
+	guard(mutex)(&svm_range->lock);
+
+	if (xe_svm_range_is_removed(svm_range))
+		return;
+
+	if (!dpagemap)
+		xe_svm_range_migrate_to_smem(vm, svm_range);
+
+	if (IS_ENABLED(CONFIG_DRM_XE_DEBUG_VM)) {
+		drm_dbg(&vm->xe->drm,
+			"Prefetch pagemap is %s start 0x%016lx end 0x%016lx\n",
+			dpagemap ? dpagemap->drm->unique : "system",
+			xe_svm_range_start(svm_range), xe_svm_range_end(svm_range));
+	}
+
+	if (xe_svm_range_needs_migrate_to_vram(svm_range, vma, dpagemap)) {
+		err = xe_svm_alloc_vram(svm_range, thread->ctx, dpagemap);
+		if (err) {
+			drm_dbg(&vm->xe->drm, "VRAM allocation failed, retry from userspace, asid=%u, gpusvm=%p, errno=%pe\n",
+				vm->usm.asid, &vm->svm.gpusvm, ERR_PTR(err));
+			/*
+			 * We intentionally return -ENODATA on any races to
+			 * commit any VMA updates from other ops without
+			 * updating any page tables deferring to page faults to
+			 * page updates skipped in the IOCTL.
+			 */
+			thread->err = -ENODATA;
+			return;
+		}
+		xe_svm_range_debug(svm_range, "PREFETCH - RANGE MIGRATED TO VRAM");
+	}
+
+	err = xe_svm_range_get_pages(vm, svm_range, thread->ctx);
+	if (err) {
+		drm_dbg(&vm->xe->drm, "Get pages failed, asid=%u, gpusvm=%p, errno=%pe\n",
+			vm->usm.asid, &vm->svm.gpusvm, ERR_PTR(err));
+		if (err == -EOPNOTSUPP || err == -EFAULT || err == -EPERM)
+			err = -ENODATA;
+		thread->err = err;
+		return;
+	}
+	xe_svm_range_debug(svm_range, "PREFETCH - RANGE GET PAGES DONE");
+}
+
+static void prefetch_work_func(struct work_struct *w)
+{
+	struct prefetch_thread *thread =
+		container_of(w, struct prefetch_thread, work);
+
+	prefetch_thread_func(thread);
+}
+
+static int prefetch_ranges(struct xe_vm *vm, struct xe_vma_ops *vops,
+			   struct xe_vma_op *op)
 {
 	bool devmem_possible = IS_DGFX(vm->xe) && IS_ENABLED(CONFIG_DRM_XE_PAGEMAP);
 	struct xe_vma *vma = gpuva_to_vma(op->base.prefetch.va);
 	struct drm_pagemap *dpagemap = op->prefetch_range.dpagemap;
-	int err = 0;
-
 	struct xe_svm_range *svm_range;
 	struct drm_gpusvm_ctx ctx = {};
+	struct prefetch_thread stack_thread, *thread, *prefetches;
 	unsigned long i;
+	int err = 0, idx = 0;
+	bool skip_threads;
 
 	if (!xe_vma_is_cpu_addr_mirror(vma))
 		return 0;
@@ -3177,42 +3252,49 @@ static int prefetch_ranges(struct xe_vm *vm, struct xe_vma_op *op)
 	ctx.check_pages_threshold = devmem_possible ? SZ_64K : 0;
 	ctx.device_private_page_owner = xe_svm_private_page_owner(vm, !dpagemap);
 
-	/* TODO: Threading the migration */
+	skip_threads =  op->prefetch_range.ranges_count == 1 ||
+		(!dpagemap && !(vops->flags &
+				XE_VMA_OPS_FLAG_HAS_SVM_VALID_RANGE)) ||
+		!(vops->flags & XE_VMA_OPS_FLAG_DOWNGRADE_LOCK);
+	thread = skip_threads ? &stack_thread : NULL;
+
+	if (!skip_threads) {
+		prefetches = kvmalloc_array(op->prefetch_range.ranges_count,
+					    sizeof(*prefetches), GFP_KERNEL);
+		if (!prefetches)
+			return -ENOMEM;
+	}
+
 	xa_for_each(&op->prefetch_range.range, i, svm_range) {
-		guard(mutex)(&svm_range->lock);
-
-		if (xe_svm_range_is_removed(svm_range))
-			continue;
-
-		if (!dpagemap)
-			xe_svm_range_migrate_to_smem(vm, svm_range);
-
-		if (IS_ENABLED(CONFIG_DRM_XE_DEBUG_VM)) {
-			drm_dbg(&vm->xe->drm,
-				"Prefetch pagemap is %s start 0x%016lx end 0x%016lx\n",
-				dpagemap ? dpagemap->drm->unique : "system",
-				xe_svm_range_start(svm_range), xe_svm_range_end(svm_range));
+		if (!skip_threads) {
+			thread = prefetches + idx++;
+			INIT_WORK(&thread->work, prefetch_work_func);
 		}
 
-		if (xe_svm_range_needs_migrate_to_vram(svm_range, vma, dpagemap)) {
-			err = xe_svm_alloc_vram(svm_range, &ctx, dpagemap);
-			if (err) {
-				drm_dbg(&vm->xe->drm, "VRAM allocation failed, retry from userspace, asid=%u, gpusvm=%p, errno=%pe\n",
-					vm->usm.asid, &vm->svm.gpusvm, ERR_PTR(err));
-				return -ENODATA;
-			}
-			xe_svm_range_debug(svm_range, "PREFETCH - RANGE MIGRATED TO VRAM");
-		}
+		thread->ctx = &ctx;
+		thread->vma = vma;
+		thread->svm_range = svm_range;
+		thread->dpagemap = dpagemap;
+		thread->err = 0;
 
-		err = xe_svm_range_get_pages(vm, svm_range, &ctx);
-		if (err) {
-			drm_dbg(&vm->xe->drm, "Get pages failed, asid=%u, gpusvm=%p, errno=%pe\n",
-				vm->usm.asid, &vm->svm.gpusvm, ERR_PTR(err));
-			if (err == -EOPNOTSUPP || err == -EFAULT || err == -EPERM)
-				err = -ENODATA;
-			return err;
+		if (skip_threads) {
+			prefetch_thread_func(thread);
+			if (thread->err)
+				return thread->err;
+		} else {
+			queue_work(vm->xe->usm.prefetch_wq, &thread->work);
 		}
-		xe_svm_range_debug(svm_range, "PREFETCH - RANGE GET PAGES DONE");
+	}
+
+	if (!skip_threads) {
+		for (i = 0; i < idx; ++i) {
+			thread = prefetches + i;
+
+			flush_work(&thread->work);
+			if (thread->err && !err)
+				err = thread->err;
+		}
+		kvfree(prefetches);
 	}
 
 	return err;
@@ -3343,7 +3425,8 @@ static int op_lock_and_prep(struct drm_exec *exec, struct xe_vm *vm,
 	return err;
 }
 
-static int vm_bind_ioctl_ops_prefetch_ranges(struct xe_vm *vm, struct xe_vma_ops *vops)
+static int vm_bind_ioctl_ops_prefetch_ranges(struct xe_vm *vm,
+					     struct xe_vma_ops *vops)
 {
 	struct xe_vma_op *op;
 	int err;
@@ -3353,7 +3436,7 @@ static int vm_bind_ioctl_ops_prefetch_ranges(struct xe_vm *vm, struct xe_vma_ops
 
 	list_for_each_entry(op, &vops->list, link) {
 		if (op->base.op  == DRM_GPUVA_OP_PREFETCH) {
-			err = prefetch_ranges(vm, op);
+			err = prefetch_ranges(vm, vops, op);
 			if (err)
 				return err;
 		}

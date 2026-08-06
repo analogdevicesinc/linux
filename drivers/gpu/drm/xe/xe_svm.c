@@ -148,7 +148,7 @@ xe_svm_garbage_collector_add_range(struct xe_vm *vm, struct xe_svm_range *range,
 			      &vm->svm.garbage_collector.range_list);
 	spin_unlock(&vm->svm.garbage_collector.list_lock);
 
-	queue_work(xe->usm.pf_wq, &vm->svm.garbage_collector.work);
+	queue_work(xe->usm.pagefault_wq, &vm->svm.garbage_collector.work);
 }
 
 static void xe_svm_tlb_inval_count_stats_incr(struct xe_gt *gt)
@@ -1051,6 +1051,7 @@ void xe_svm_range_migrate_to_smem(struct xe_vm *vm, struct xe_svm_range *range)
  * @tile_mask: Mask representing the tiles to be checked
  * @dpagemap: if !%NULL, the range is expected to be present
  * in device memory identified by this parameter.
+ * @valid_pages: Pages are valid, result written back to caller
  *
  * The xe_svm_range_validate() function checks if a range is
  * valid and located in the desired memory region.
@@ -1059,7 +1060,8 @@ void xe_svm_range_migrate_to_smem(struct xe_vm *vm, struct xe_svm_range *range)
  */
 bool xe_svm_range_validate(struct xe_vm *vm,
 			   struct xe_svm_range *range,
-			   u8 tile_mask, const struct drm_pagemap *dpagemap)
+			   u8 tile_mask, const struct drm_pagemap *dpagemap,
+			   bool *valid_pages)
 {
 	bool ret;
 
@@ -1070,6 +1072,8 @@ bool xe_svm_range_validate(struct xe_vm *vm,
 		ret = ret && xe_svm_range_has_pagemap_locked(range, dpagemap);
 	else
 		ret = ret && !range->pages.dpagemap;
+
+	*valid_pages = xe_svm_range_pages_valid(range);
 
 	xe_svm_notifier_unlock(vm);
 
