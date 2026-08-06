@@ -44,6 +44,7 @@ static void dml21_populate_pmo_options(struct dml2_pmo_options *pmo_options,
 static enum dml2_project_id dml21_dcn_revision_to_dml2_project_id(const struct dc *in_dc)
 {
 	enum dml2_project_id project_id;
+
 	switch (in_dc->ctx->dce_version) {
 	case DCN_VERSION_4_01:
 		project_id = dml2_project_dcn4x_stage2_auto_drr_svp;
@@ -54,6 +55,8 @@ static enum dml2_project_id dml21_dcn_revision_to_dml2_project_id(const struct d
 		break;
 	case DCN_VERSION_6_0:
 		project_id = dml2_project_dcn6x_soc_var_a;
+		if (ASICREV_IS_DCN6_VARIANT_LITE3(in_dc->ctx->asic_id.hw_internal_rev))
+			project_id = dml2_project_dcn6x_soc_var_b;
 		break;
 	default:
 		project_id = dml2_project_invalid;
@@ -179,6 +182,7 @@ static void populate_dml21_timing_config_from_stream_state(struct dml2_timing_cf
 
 	{
 		uint64_t min_refresh = max((uint64_t)stream->timing.min_refresh_in_uhz, min_hardware_refresh_in_uhz);
+
 		ASSERT(min_refresh <= ULONG_MAX);
 		timing->drr_config.min_refresh_uhz = (unsigned long)min_refresh;
 	}
@@ -307,7 +311,7 @@ static void populate_dml21_writeback_config_from_stream_state(struct dml2_writeb
 		writeback->active_writebacks_per_stream = stream->num_wb_info <= DML2_MAX_WRITEBACK ?
 				stream->num_wb_info : DML2_MAX_WRITEBACK;
 
-		ASSERT(stream->num_wb_info <= DML2_MAX_WRITEBACK);
+		ASSERT(stream->num_wb_info <= MAX_DWB_PIPES);
 
 		for (unsigned int wb_index = 0; wb_index < stream->num_wb_info; wb_index++) {
 			const struct dc_writeback_info *dc_wb_info = &stream->writeback_info[wb_index];
@@ -705,7 +709,8 @@ static void populate_dml21_plane_config_from_plane_state(struct dml2_context *dm
 	plane->composition.scaler_info.upsp_enabled = (scaler_data->upsp != UPSP_BYPASS);
 
 	/* always_scale is only used for debug purposes not used in production but has to be
-	 * maintained for certain complainces. */
+	 * maintained for certain complainces.
+	 */
 	if (plane_state->ctx->dc->debug.always_scale == true) {
 		plane->composition.scaler_info.enabled = true;
 	}
@@ -821,7 +826,7 @@ static void populate_dml21_plane_config_from_plane_state(struct dml2_context *dm
 
 	plane->composition.rect_out_height_spans_vactive =
 		plane_state->dst_rect.height >= stream->src.height &&
-		stream->dst.height >= stream->timing.v_addressable;
+		stream->dst.height >= (int)stream->timing.v_addressable;
 }
 
 //TODO : Could be possibly moved to a common helper layer.
@@ -946,6 +951,7 @@ bool dml21_map_dc_state_into_dml_display_cfg(const struct dc *in_dc, struct dc_s
 		ASSERT(otg_master_pipe);
 
 		ASSERT(disp_cfg_stream_location >= 0 && disp_cfg_stream_location < __DML2_WRAPPER_MAX_STREAMS_PLANES__);
+
 		populate_dml21_timing_config_from_stream_state(&dml_dispcfg->stream_descriptors[disp_cfg_stream_location].timing, context->streams[stream_index], otg_master_pipe, dml_ctx);
 		populate_dml21_output_config_from_stream_state(&dml_dispcfg->stream_descriptors[disp_cfg_stream_location].output, context->streams[stream_index], otg_master_pipe);
 		populate_dml21_writeback_config_from_stream_state(&dml_dispcfg->stream_descriptors[disp_cfg_stream_location].writeback, context->streams[stream_index]);
@@ -1004,7 +1010,7 @@ bool dml21_map_dc_state_into_dml_display_cfg(const struct dc *in_dc, struct dc_s
 
 void dml21_copy_clocks_to_dc_state(struct dml2_context *in_ctx, struct dc_state *context)
 {
-	/* TODO these should be the max of active, svp prefetch and idle should be tracked seperately */
+	/* TODO these should be the max of active, svp prefetch and idle should be tracked separately */
 	context->bw_ctx.bw.dcn.clk.dispclk_khz = in_ctx->v21.mode_programming.programming->min_clocks.dcn4x.dispclk_khz;
 	context->bw_ctx.bw.dcn.clk.dcfclk_khz = in_ctx->v21.mode_programming.programming->min_clocks.dcn4x.active.dcfclk_khz;
 	context->bw_ctx.bw.dcn.clk.dramclk_khz = in_ctx->v21.mode_programming.programming->min_clocks.dcn4x.active.uclk_khz;
@@ -1169,3 +1175,4 @@ void dml21_init_min_clocks_for_dc_state(struct dml2_context *in_ctx, struct dc_s
 	min_clocks->stutter_efficiency.z8_stutter_period = 100000;
 	min_clocks->zstate_support = DCN_ZSTATE_SUPPORT_ALLOW;
 }
+

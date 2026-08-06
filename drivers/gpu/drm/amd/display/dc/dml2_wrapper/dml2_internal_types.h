@@ -33,7 +33,7 @@
 #include "dml2_policy.h"
 
 #include "dml_top.h"
-#include "dml21_wrapper.h"
+#include "dml21_wrapper/dml21_wrapper.h"
 
 struct dml2_wrapper_optimize_configuration_params {
 	struct display_mode_lib_st *dml_core_ctx;

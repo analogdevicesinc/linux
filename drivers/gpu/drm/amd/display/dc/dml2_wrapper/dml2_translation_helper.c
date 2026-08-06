@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+// SPDX-License-Identifier: MIT
 /*
  * Copyright 2023 Advanced Micro Devices, Inc.
  *
@@ -720,6 +720,7 @@ void dml2_translate_socbb_params(const struct dc *in, struct soc_bounding_box_st
 void dml2_translate_soc_states(const struct dc *dc, struct soc_states_st *out, int num_states)
 {
 	unsigned int i = 0;
+
 	out->num_states = num_states;
 
 	for (i = 0; i < out->num_states; i++) {
@@ -1096,7 +1097,7 @@ static void populate_dml_plane_cfg_from_plane_state(struct dml_plane_cfg_st *out
 
 	/* Current driver code base uses LBBitPerPixel as 57. There is a discrepancy
 	 * from the HW/DML teams about this value. Initialize LBBitPerPixel with the
-	 * value current used in Navi3x .
+	 * value current used in DCN32.
 	 */
 
 	out->LBBitPerPixel[location] = 57;
@@ -1292,12 +1293,12 @@ static void dml2_map_hpo_stream_encoder_to_hpo_link_encoder_index(struct dml2_co
 	for (i = 0; i < MAX_PIPES; i++) {
 		current_pipe_context = &context->res_ctx.pipe_ctx[i];
 		if (current_pipe_context->stream &&
-			current_pipe_context->stream_res.hpo_dp_stream_enc &&
-			current_pipe_context->link_res.hpo_dp_link_enc &&
-			dc_is_dp_signal(current_pipe_context->stream->signal)) {
-				dml2->v20.scratch.hpo_stream_to_link_encoder_mapping[current_pipe_context->stream_res.hpo_dp_stream_enc->inst] =
-					current_pipe_context->link_res.hpo_dp_link_enc->inst;
-			}
+		    current_pipe_context->stream_res.hpo_dp_stream_enc &&
+		    current_pipe_context->link_res.hpo_dp_link_enc &&
+		    dc_is_dp_signal(current_pipe_context->stream->signal)) {
+			dml2->v20.scratch.hpo_stream_to_link_encoder_mapping[current_pipe_context->stream_res.hpo_dp_stream_enc->inst] =
+				current_pipe_context->link_res.hpo_dp_link_enc->inst;
+		}
 	}
 }
 
@@ -1330,7 +1331,8 @@ void map_dc_state_into_dml_display_cfg(struct dml2_context *dml2, struct dc_stat
 		current_pipe_context = NULL;
 		for (k = 0; k < MAX_PIPES; k++) {
 			/* find one pipe allocated to this stream for the purpose of getting
-			info about the link later */
+			 * info about the link later
+			 */
 			if (context->streams[i] == context->res_ctx.pipe_ctx[k].stream) {
 				current_pipe_context = &context->res_ctx.pipe_ctx[k];
 				break;

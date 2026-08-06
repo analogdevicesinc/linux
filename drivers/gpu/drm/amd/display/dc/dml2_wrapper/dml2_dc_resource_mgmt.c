@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+// SPDX-License-Identifier: MIT
 /*
  * Copyright 2023 Advanced Micro Devices, Inc.
  *
@@ -332,7 +332,7 @@ static bool is_pipe_in_candidate_array(const unsigned int pipe_idx,
 	const unsigned int *candidate_array,
 	const unsigned int candidate_array_size)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < candidate_array_size; i++) {
 		if (candidate_array[i] == pipe_idx)
@@ -355,6 +355,7 @@ static bool find_more_pipes_for_stream(struct dml2_context *ctx,
 	unsigned int last_resort_pipe_candidates[MAX_PIPES] = {0};
 	unsigned int num_preferred_candidates = 0;
 	unsigned int num_last_resort_candidates = 0;
+	unsigned int idx;
 	int i;
 
 	if (existing_state) {
@@ -366,13 +367,13 @@ static bool find_more_pipes_for_stream(struct dml2_context *ctx,
 	}
 
 	// First see if any of the preferred are unmapped, and choose those instead
-	for (i = 0; pipes_needed > 0 && i < num_preferred_candidates; i++) {
-		pipe = &state->res_ctx.pipe_ctx[preferred_pipe_candidates[i]];
+	for (idx = 0; pipes_needed > 0 && idx < num_preferred_candidates; idx++) {
+		pipe = &state->res_ctx.pipe_ctx[preferred_pipe_candidates[idx]];
 		if (!is_plane_using_pipe(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			ASSERT(preferred_pipe_candidates[i] <= 0xFF);
-			pipe->pipe_idx = (uint8_t)preferred_pipe_candidates[i];
+			ASSERT(preferred_pipe_candidates[idx] <= 0xFF);
+			pipe->pipe_idx = (uint8_t)preferred_pipe_candidates[idx];
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -395,13 +396,13 @@ static bool find_more_pipes_for_stream(struct dml2_context *ctx,
 	}
 
 	// Only use the last resort pipe candidates as a last resort
-	for (i = 0; pipes_needed > 0 && i < num_last_resort_candidates; i++) {
-		pipe = &state->res_ctx.pipe_ctx[last_resort_pipe_candidates[i]];
+	for (idx = 0; pipes_needed > 0 && idx < num_last_resort_candidates; idx++) {
+		pipe = &state->res_ctx.pipe_ctx[last_resort_pipe_candidates[idx]];
 		if (!is_plane_using_pipe(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			ASSERT(last_resort_pipe_candidates[i] <= 0xFF);
-			pipe->pipe_idx = (uint8_t)last_resort_pipe_candidates[i];
+			ASSERT(last_resort_pipe_candidates[idx] <= 0xFF);
+			pipe->pipe_idx = (uint8_t)last_resort_pipe_candidates[idx];
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -424,6 +425,7 @@ static bool find_more_free_pipes(struct dml2_context *ctx,
 	unsigned int last_resort_pipe_candidates[MAX_PIPES] = {0};
 	unsigned int num_preferred_candidates = 0;
 	unsigned int num_last_resort_candidates = 0;
+	unsigned int idx;
 	int i;
 
 	if (existing_state) {
@@ -435,13 +437,13 @@ static bool find_more_free_pipes(struct dml2_context *ctx,
 	}
 
 	// First see if any of the preferred are unmapped, and choose those instead
-	for (i = 0; pipes_needed > 0 && i < num_preferred_candidates; i++) {
-		pipe = &state->res_ctx.pipe_ctx[preferred_pipe_candidates[i]];
+	for (idx = 0; pipes_needed > 0 && idx < num_preferred_candidates; idx++) {
+		pipe = &state->res_ctx.pipe_ctx[preferred_pipe_candidates[idx]];
 		if (is_pipe_free(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			ASSERT(preferred_pipe_candidates[i] <= 0xFF);
-			pipe->pipe_idx = (uint8_t)preferred_pipe_candidates[i];
+			ASSERT(preferred_pipe_candidates[idx] <= 0xFF);
+			pipe->pipe_idx = (uint8_t)preferred_pipe_candidates[idx];
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -457,20 +459,20 @@ static bool find_more_free_pipes(struct dml2_context *ctx,
 		if (is_pipe_free(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			ASSERT(i >= 0 && i <= 0xFF);
+			ASSERT(i >= 0 && i < MAX_PIPES);
 			pipe->pipe_idx = (uint8_t)i;
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
 
 	// Only use the last resort pipe candidates as a last resort
-	for (i = 0; pipes_needed > 0 && i < num_last_resort_candidates; i++) {
-		pipe = &state->res_ctx.pipe_ctx[last_resort_pipe_candidates[i]];
+	for (idx = 0; pipes_needed > 0 && idx < num_last_resort_candidates; idx++) {
+		pipe = &state->res_ctx.pipe_ctx[last_resort_pipe_candidates[idx]];
 		if (is_pipe_free(pipe)) {
 			pipes_needed--;
 			// TODO: This doens't make sense really, pipe_idx should always be valid
-			ASSERT(last_resort_pipe_candidates[i] <= 0xFF);
-			pipe->pipe_idx = (uint8_t)last_resort_pipe_candidates[i];
+			ASSERT(last_resort_pipe_candidates[idx] <= 0xFF);
+			pipe->pipe_idx = (uint8_t)last_resort_pipe_candidates[idx];
 			assigned_pipes[(*assigned_pipe_count)++] = pipe->pipe_idx;
 		}
 	}
@@ -526,7 +528,7 @@ static void sort_pipes_for_splitting(struct dc_plane_pipe_pool *pipes)
 static void calculate_odm_slices(const struct dc_stream_state *stream, unsigned int odm_factor, unsigned int *odm_slice_end_x)
 {
 	unsigned int slice_size = 0;
-	int i;
+	unsigned int i;
 
 	if (odm_factor < 1 || odm_factor > 4) {
 		ASSERT(false);
@@ -749,7 +751,7 @@ static void remove_pipes_from_blend_trees(struct dml2_context *ctx, struct dc_st
 static void map_pipes_for_stream(struct dml2_context *ctx, struct dc_state *state, const struct dc_stream_state *stream,
 		struct dc_pipe_mapping_scratch *scratch, const struct dc_state *existing_state)
 {
-	int odm_slice_index;
+	unsigned int odm_slice_index;
 	struct pipe_ctx *master_pipe = NULL;
 
 
@@ -769,7 +771,7 @@ static void map_pipes_for_stream(struct dml2_context *ctx, struct dc_state *stat
 static void map_pipes_for_plane(struct dml2_context *ctx, struct dc_state *state, const struct dc_stream_state *stream, const struct dc_plane_state *plane,
 		int plane_index, struct dc_pipe_mapping_scratch *scratch, const struct dc_state *existing_state)
 {
-	int odm_slice_index;
+	unsigned int odm_slice_index;
 	unsigned int plane_id;
 	struct pipe_ctx *master_pipe = NULL;
 	int i;
@@ -819,6 +821,10 @@ static unsigned int get_target_mpc_factor(struct dml2_context *ctx,
 		get_plane_id(ctx, state, status->plane_states[plane_idx],
 				stream->stream_id, plane_idx, &plane_id);
 		cfg_idx = find_disp_cfg_idx_by_plane_id(mapping, plane_id);
+		if (!disp_cfg) {
+			ASSERT(0); // disp_cfg pointer is expected on DML2.0
+			return 1;
+		}
 		mpc_factor = (unsigned int)disp_cfg->hw.DPPPerSurface[cfg_idx];
 	} else if (ctx->architecture == dml2_architecture_21) {
 		if (ctx->config.svp_pstate.callbacks.get_stream_subvp_type(state, stream) == SUBVP_PHANTOM) {
@@ -872,6 +878,10 @@ static unsigned int get_target_odm_factor(
 	if (ctx->architecture == dml2_architecture_20) {
 		cfg_idx = find_disp_cfg_idx_by_stream_id(
 				mapping, stream->stream_id);
+		if (!disp_cfg) {
+			ASSERT(0); // disp_cfg pointer is expected on DML2.0
+			return 1;
+		}
 		switch (disp_cfg->hw.ODMMode[cfg_idx]) {
 		case dml_odm_mode_bypass:
 			return 1;
@@ -1082,6 +1092,10 @@ bool dml2_map_dc_pipes(struct dml2_context *ctx, struct dc_state *state, const s
 		DPPPerSurface = (const unsigned int *)dpp_per_surface_array;
 		disp_cfg_index_max = __DML2_WRAPPER_MAX_STREAMS_PLANES__;
 	} else {
+		if (disp_cfg == NULL) {
+			ASSERT(0); // disp_cfg pointer is expected on DML2.0
+			return false;
+		}
 		ODMMode = (unsigned int *)disp_cfg->hw.ODMMode;
 		DPPPerSurface = disp_cfg->hw.DPPPerSurface;
 		disp_cfg_index_max = __DML_NUM_PLANES__;
@@ -1110,7 +1124,7 @@ bool dml2_map_dc_pipes(struct dml2_context *ctx, struct dc_state *state, const s
 		/* After DML2.1 update, ODM interpretation needs to change and is no longer same as for DML2.0.
 		 * This is not an issue with new resource management logic. This block ensure backcompat
 		 * with legacy pipe management with updated DML.
-		 * */
+		 */
 			if (ODMMode[stream_disp_cfg_index] == 1) {
 				scratch.odm_info.odm_factor = 1;
 			} else if (ODMMode[stream_disp_cfg_index] == 2) {

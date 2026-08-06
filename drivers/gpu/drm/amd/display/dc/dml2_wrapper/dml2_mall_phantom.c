@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+// SPDX-License-Identifier: MIT
 /*
  * Copyright 2023 Advanced Micro Devices, Inc.
  *
@@ -40,7 +40,7 @@ unsigned int dml2_helper_calculate_num_ways_for_subvp(struct dml2_context *ctx, 
 	uint32_t bytes_in_mall = 0;
 	uint32_t num_mblks = 0;
 	uint32_t cache_lines_per_plane = 0;
-	uint32_t i = 0;
+	int i = 0;
 	uint32_t mblk_width = 0;
 	uint32_t mblk_height = 0;
 	uint32_t full_vp_width_blk_aligned = 0;
@@ -185,7 +185,7 @@ static bool mpo_in_use(const struct dc_state *context)
  */
 static unsigned int get_num_free_pipes(struct dml2_context *ctx, struct dc_state *state)
 {
-	unsigned int i;
+	int i;
 	unsigned int free_pipes = 0;
 	unsigned int num_pipes = 0;
 
@@ -228,7 +228,8 @@ static unsigned int get_num_free_pipes(struct dml2_context *ctx, struct dc_state
  */
 static bool assign_subvp_pipe(struct dml2_context *ctx, struct dc_state *context, unsigned int *index)
 {
-	unsigned int i, pipe_idx;
+	int i;
+	unsigned int pipe_idx;
 	unsigned int max_frame_time = 0;
 	bool valid_assignment_found = false;
 	unsigned int free_pipes = 2; //dcn32_get_num_free_pipes(dc, context);
@@ -272,8 +273,8 @@ static bool assign_subvp_pipe(struct dml2_context *ctx, struct dc_state *context
 					valid_assignment_found = true;
 					current_assignment_freesync = false;
 				/* For the 2-Freesync display case, still choose the one with the
-			     * longest frame time
-			     */
+				 * longest frame time
+				 */
 				} else if (stream->ignore_msa_timing_param && (!valid_assignment_found ||
 						(current_assignment_freesync && frame_us > max_frame_time))) {
 					*index = i;
@@ -309,8 +310,10 @@ static bool assign_subvp_pipe(struct dml2_context *ctx, struct dc_state *context
  */
 static bool enough_pipes_for_subvp(struct dml2_context *ctx, struct dc_state *state)
 {
-	unsigned int i, split_cnt, free_pipes;
-	unsigned int min_pipe_split = ctx->config.dcn_pipe_count + 1; // init as max number of pipes + 1
+	int i;
+	int split_cnt;
+	int free_pipes;
+	int min_pipe_split = ctx->config.dcn_pipe_count + 1; // init as max number of pipes + 1
 	bool subvp_possible = false;
 
 	for (i = 0; i < ctx->config.dcn_pipe_count; i++) {
@@ -361,13 +364,13 @@ static bool subvp_subvp_schedulable(struct dml2_context *ctx, struct dc_state *c
 	struct dc_stream_state *phantom = NULL;
 	uint32_t microschedule_lines = 0;
 	uint32_t index = 0;
-	uint32_t i;
-	uint32_t max_microschedule_us = 0;
+	int i;
+	int32_t max_microschedule_us = 0;
 	int32_t vactive1_us, vactive2_us, vblank1_us, vblank2_us;
 
 	for (i = 0; i < ctx->config.dcn_pipe_count; i++) {
 		struct pipe_ctx *pipe = &context->res_ctx.pipe_ctx[i];
-		uint32_t time_us = 0;
+		int32_t time_us = 0;
 
 		if (pipe == NULL || pipe->stream == NULL)
 			continue;
@@ -378,6 +381,10 @@ static bool subvp_subvp_schedulable(struct dml2_context *ctx, struct dc_state *c
 		if (pipe->stream && pipe->plane_state && !pipe->top_pipe &&
 				ctx->config.svp_pstate.callbacks.get_pipe_subvp_type(context, pipe) == SUBVP_MAIN) {
 			phantom = ctx->config.svp_pstate.callbacks.get_paired_subvp_stream(context, pipe->stream);
+			if (phantom == NULL) {
+				ASSERT(0); // Not expected to happen
+				return false;
+			}
 			microschedule_lines = (phantom->timing.v_total - phantom->timing.v_front_porch) +
 					phantom->timing.v_addressable;
 
@@ -440,7 +447,7 @@ static bool subvp_subvp_schedulable(struct dml2_context *ctx, struct dc_state *c
 bool dml2_svp_drr_schedulable(struct dml2_context *ctx, struct dc_state *context, struct dc_crtc_timing *drr_timing)
 {
 	bool schedulable = false;
-	uint32_t i;
+	int i;
 	struct pipe_ctx *pipe = NULL;
 	struct dc_crtc_timing *main_timing = NULL;
 	struct dc_crtc_timing *phantom_timing = NULL;
@@ -473,6 +480,11 @@ bool dml2_svp_drr_schedulable(struct dml2_context *ctx, struct dc_state *context
 		return false;
 	}
 	phantom_stream = ctx->config.svp_pstate.callbacks.get_paired_subvp_stream(context, pipe->stream);
+	if (phantom_stream == NULL) {
+		// Defensive: should never happen, try to catch in debug
+		ASSERT(0);
+		return false;
+	}
 	main_timing = &pipe->stream->timing;
 	phantom_timing = &phantom_stream->timing;
 	prefetch_us = (int32_t)((phantom_timing->v_total - phantom_timing->v_front_porch) * phantom_timing->h_total /
@@ -524,7 +536,7 @@ static bool subvp_vblank_schedulable(struct dml2_context *ctx, struct dc_state *
 	struct pipe_ctx *subvp_pipe = NULL;
 	bool found = false;
 	bool schedulable = false;
-	uint32_t i = 0;
+	int i = 0;
 	uint8_t vblank_index = 0;
 	uint32_t prefetch_us = 0;
 	uint32_t mall_region_us = 0;
@@ -544,7 +556,7 @@ static bool subvp_vblank_schedulable(struct dml2_context *ctx, struct dc_state *
 	 * displays which are synchronized (in which case they have identical
 	 * timings).
 	 */
-	for (i = 0; i < ctx->config.dcn_pipe_count; i++) {
+	for (i = 0; i < ctx->config.dcn_pipe_count && i < MAX_PIPES ; i++) {
 		pipe = &context->res_ctx.pipe_ctx[i];
 		pipe_mall_type = ctx->config.svp_pstate.callbacks.get_pipe_subvp_type(context, pipe);
 
@@ -594,14 +606,11 @@ static bool subvp_vblank_schedulable(struct dml2_context *ctx, struct dc_state *
 		subvp_active_us = (uint32_t)(main_timing->v_addressable * main_timing->h_total /
 				(double)(main_timing->pix_clk_100hz * 100) * 1000000);
 		max_vblank_mallregion = vblank_blank_us > mall_region_us ? vblank_blank_us : mall_region_us;
-		const uint64_t required_us = (uint64_t)prefetch_us +
-					     (uint64_t)vblank_frame_us +
-					     (uint64_t)max_vblank_mallregion;
 
 		// Schedulable if VACTIVE region of the SubVP pipe can fit the MALL prefetch, VBLANK frame time,
 		// and the max of (VBLANK blanking time, MALL region)
 		// TODO: Possibly add some margin (i.e. the below conditions should be [...] > X instead of [...] > 0)
-		if ((uint64_t)subvp_active_us > required_us)
+		if (subvp_active_us - prefetch_us - vblank_frame_us - max_vblank_mallregion > 0)
 			schedulable = true;
 	}
 	return schedulable;
@@ -627,7 +636,8 @@ bool dml2_svp_validate_static_schedulability(struct dml2_context *ctx, struct dc
 {
 	bool schedulable = true;	// true by default for single display case
 	struct vba_vars_st *vba = &context->bw_ctx.dml.vba;
-	uint32_t i, pipe_idx;
+	int i;
+	uint32_t pipe_idx;
 	uint8_t subvp_count = 0;
 	uint8_t vactive_count = 0;
 
@@ -679,7 +689,7 @@ static void set_phantom_stream_timing(struct dml2_context *ctx, struct dc_state 
 				     unsigned int svp_height,
 				     unsigned int svp_vstartup)
 {
-	unsigned int i;
+	int i;
 	double line_time, fp_and_sync_width_time;
 	struct pipe_ctx *pipe;
 	uint32_t phantom_vactive, phantom_bp, pstate_width_fw_delay_lines;
@@ -743,6 +753,10 @@ static struct dc_stream_state *enable_phantom_stream(struct dml2_context *ctx, s
 			state,
 			ref_pipe->stream);
 
+	if (!phantom_stream) {
+		ASSERT(0); //Phantom stream is expected to be created.
+		return NULL;
+	}
 	/* stream has limited viewport and small timing */
 	memcpy(&phantom_stream->timing, &ref_pipe->stream->timing, sizeof(phantom_stream->timing));
 	memcpy(&phantom_stream->src, &ref_pipe->stream->src, sizeof(phantom_stream->src));
@@ -813,12 +827,16 @@ static void enable_phantom_plane(struct dml2_context *ctx,
 static void add_phantom_pipes_for_main_pipe(struct dml2_context *ctx, struct dc_state *state, unsigned int main_pipe_idx, unsigned int svp_height, unsigned int vstartup)
 {
 	struct dc_stream_state *phantom_stream = NULL;
-	unsigned int i;
+	int i;
 
-	// The index of the DC pipe passed into this function is guarenteed to
+	// The index of the DC pipe passed into this function is guaranteed to
 	// be a valid candidate for SubVP (i.e. has a plane, stream, doesn't
 	// already have phantom pipe assigned, etc.) by previous checks.
 	phantom_stream = enable_phantom_stream(ctx, state, main_pipe_idx, svp_height, vstartup);
+	if (phantom_stream == NULL) {
+		ASSERT(0); // Phantom stream is expected to be created.
+		return;
+	}
 	enable_phantom_plane(ctx, state, phantom_stream, main_pipe_idx);
 
 	for (i = 0; i < ctx->config.dcn_pipe_count; i++) {
@@ -845,10 +863,10 @@ static bool remove_all_phantom_planes_for_stream(struct dml2_context *ctx, struc
 	struct dc_plane_state *del_planes[MAX_SURFACES] = { 0 };
 
 	for (i = 0; i < context->stream_count; i++)
-			if (context->streams[i] == stream) {
-				stream_status = &context->stream_status[i];
-				break;
-			}
+		if (context->streams[i] == stream) {
+			stream_status = &context->stream_status[i];
+			break;
+		}
 
 	if (stream_status == NULL) {
 		return false;

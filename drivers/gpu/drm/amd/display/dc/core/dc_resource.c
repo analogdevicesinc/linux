@@ -102,7 +102,7 @@
 #define DC_LOGGER_INIT(logger)
 #include "link/hwss/link_hwss_hpo_frl.h"
 #include "dml/dml1_frl_cap_chk.h"
-#include "dml2_0/dml2_wrapper.h"
+#include "dml2_wrapper/dml2_wrapper.h"
 
 #define UNABLE_TO_SPLIT -1
 

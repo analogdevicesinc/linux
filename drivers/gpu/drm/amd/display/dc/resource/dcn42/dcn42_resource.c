@@ -87,7 +87,7 @@
 #include "dc_state_priv.h"
 #include "link_enc_cfg.h"
 
-#include "dml2_0/dml2_wrapper.h"
+#include "dml2_wrapper/dml2_wrapper.h"
 
 #define regBIF_BX0_BIOS_SCRATCH_3                            0x003b
 #define regBIF_BX0_BIOS_SCRATCH_3_BASE_IDX                   1

@@ -81,14 +81,6 @@ CFLAGS_$(AMDDALPATH)/dc/dml2_0/dml21/src/dml2_core/dml2_core_dcn5_funcs_mode_sup
 CFLAGS_$(AMDDALPATH)/dc/dml2_0/dml21/src/dml2_core/dml2_core_dcn6_funcs_mode_programming.o := $(dml2_ccflags) $(frame_warn_flag)
 CFLAGS_$(AMDDALPATH)/dc/dml2_0/dml21/src/dml2_core/dml2_core_dcn6_funcs_mode_support.o := $(dml2_ccflags) $(frame_warn_flag)
 
-#Wrapper files are being moved to their own component. Use a flag to transition once files are moved.
-ifndef DML2_WRAPPER_STANDALONE
-CFLAGS_$(AMDDALPATH)/dc/dml2_0/dml2_wrapper.o := $(dml2_rcflags)
-CFLAGS_$(AMDDALPATH)/dc/dml2_0/dml21/dml21_wrapper.o := $(dml2_rcflags)
-CFLAGS_REMOVE_$(AMDDALPATH)/dc/dml2_0/dml2_wrapper.o := $(dml2_ccflags)
-CFLAGS_REMOVE_$(AMDDALPATH)/dc/dml2_0/dml21/dml21_wrapper.o := $(dml2_ccflags)
-endif
-
 CFLAGS_REMOVE_$(AMDDALPATH)/dc/dml2_0/display_mode_core.o := $(dml2_rcflags)
 CFLAGS_REMOVE_$(AMDDALPATH)/dc/dml2_0/dml21/src/dml2_core/dml2_core_dcn4_calcs.o := $(dml2_rcflags)
 CFLAGS_REMOVE_$(AMDDALPATH)/dc/dml2_0/dml21/src/dml2_core/dml2_core_utils.o := $(dml2_rcflags)
@@ -101,12 +93,6 @@ CFLAGS_REMOVE_$(AMDDALPATH)/dc/dml2_0/dml21/src/dml2_core/dml2_core_dcn6_funcs_m
 DML2 = display_mode_core.o display_mode_util.o \
 		dml_display_rq_dlg_calc.o
 DML2 += dml_frl_cap_chk.o
-
-#Wrapper files are being moved to their own component. Use a flag to transition once files are moved.
-ifndef DML2_WRAPPER_STANDALONE
-DML2 += dml2_wrapper_fpu.o dml2_wrapper.o \
-		dml2_utils.o dml2_policy.o dml2_translation_helper.o dml2_dc_resource_mgmt.o dml2_mall_phantom.o
-endif
 
 AMD_DAL_DML2 = $(addprefix $(AMDDALPATH)/dc/dml2_0/,$(DML2))
 
@@ -152,14 +138,6 @@ DML21 += src/dml2_pmo/dml2_pmo_dcn6.o
 DML21 += src/dml2_pmo/dml2_pmo_dcn6_stage_optimizers.o
 DML21 += src/dml2_standalone_libraries/alternate_pstate_shared_lib.o
 DML21 += src/dml2_utm_soc_bb/dml2_utm_soc_bb_dcn6.o
-
-#Wrapper files are being moved to their own component. Use a flag to transition once files are moved.
-ifndef DML2_WRAPPER_STANDALONE
-DML21 += dml21_translation_helper.o
-DML21 += dml21_wrapper.o
-DML21 += dml21_wrapper_fpu.o
-DML21 += dml21_utils.o
-endif
 
 AMD_DAL_DML21 = $(addprefix $(AMDDALPATH)/dc/dml2_0/dml21/,$(DML21))
 

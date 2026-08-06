@@ -69,6 +69,7 @@ static void dml21_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_sta
 	(void)out_new_hw_state;
 	(void)pipe_cnt;
 	unsigned int dml_prog_idx = 0, dc_pipe_index = 0, num_dpps_required = 0;
+	unsigned int pipe_count = 0;
 	struct dml2_per_plane_programming *pln_prog = NULL;
 	struct dml2_per_stream_programming *stream_prog = NULL;
 	struct pipe_ctx *dc_main_pipes[__DML2_WRAPPER_MAX_STREAMS_PLANES__];
@@ -109,8 +110,10 @@ static void dml21_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_sta
 		if (num_pipes <= 0)
 			continue;
 
+		pipe_count = (unsigned int)num_pipes;
+
 		/* program each pipe */
-		for (dc_pipe_index = 0; dc_pipe_index < num_pipes; dc_pipe_index++) {
+		for (dc_pipe_index = 0; dc_pipe_index < pipe_count; dc_pipe_index++) {
 			dml21_program_dc_pipe(in_ctx, context, dc_main_pipes[dc_pipe_index], pln_prog, stream_prog);
 
 			if (pln_prog->phantom_plane.valid && dc_phantom_pipes[dc_pipe_index]) {
@@ -302,7 +305,7 @@ bool dml21_validate(const struct dc *in_dc, struct dc_state *context, struct dml
 
 void dml21_prepare_mcache_programming(struct dc *in_dc, struct dc_state *context, struct dml2_context *dml_ctx)
 {
-	unsigned int dml_prog_idx, dml_phantom_prog_idx, dc_pipe_index;
+	unsigned int dml_prog_idx, dml_phantom_prog_idx, dc_pipe_index, pipe_count;
 	int num_pipes;
 	struct pipe_ctx *dc_main_pipes[__DML2_WRAPPER_MAX_STREAMS_PLANES__];
 	struct pipe_ctx *dc_phantom_pipes[__DML2_WRAPPER_MAX_STREAMS_PLANES__] = {0};
@@ -342,8 +345,10 @@ void dml21_prepare_mcache_programming(struct dc *in_dc, struct dc_state *context
 		    dc_main_pipes[0]->plane_state == NULL)
 			continue;
 
+		pipe_count = (unsigned int)num_pipes;
+
 		/* get config for each pipe */
-		for (dc_pipe_index = 0; dc_pipe_index < num_pipes; dc_pipe_index++) {
+		for (dc_pipe_index = 0; dc_pipe_index < pipe_count; dc_pipe_index++) {
 			ASSERT(dc_main_pipes[dc_pipe_index]);
 			dml21_get_pipe_mcache_config(context, dc_main_pipes[dc_pipe_index], pln_prog, &mcache_config->pipe_configurations[dc_pipe_index]);
 		}
@@ -361,7 +366,7 @@ void dml21_prepare_mcache_programming(struct dc *in_dc, struct dc_state *context
 			mcache_config->num_pipes = (char)pln_prog->num_dpps_required;
 			l->build_mcache_programming_params.num_configurations++;
 
-			for (dc_pipe_index = 0; dc_pipe_index < num_pipes; dc_pipe_index++) {
+			for (dc_pipe_index = 0; dc_pipe_index < pipe_count; dc_pipe_index++) {
 				ASSERT(dc_phantom_pipes[dc_pipe_index]);
 				dml21_get_pipe_mcache_config(context, dc_phantom_pipes[dc_pipe_index], pln_prog, &mcache_config->pipe_configurations[dc_pipe_index]);
 			}
@@ -383,8 +388,10 @@ void dml21_prepare_mcache_programming(struct dc *in_dc, struct dc_state *context
 		    dc_main_pipes[0]->plane_state == NULL)
 			continue;
 
+		pipe_count = (unsigned int)num_pipes;
+
 		/* get config for each pipe */
-		for (dc_pipe_index = 0; dc_pipe_index < num_pipes; dc_pipe_index++) {
+		for (dc_pipe_index = 0; dc_pipe_index < pipe_count; dc_pipe_index++) {
 			ASSERT(dc_main_pipes[dc_pipe_index]);
 			if (l->build_mcache_programming_params.per_plane_pipe_mcache_regs[dml_prog_idx][dc_pipe_index]) {
 				memcpy(&dc_main_pipes[dc_pipe_index]->mcache_regs,
@@ -398,7 +405,7 @@ void dml21_prepare_mcache_programming(struct dc *in_dc, struct dc_state *context
 				dc_phantom_pipes[0] &&
 				dc_main_pipes[0]->stream &&
 				dc_phantom_pipes[0]->plane_state) {
-			for (dc_pipe_index = 0; dc_pipe_index < num_pipes; dc_pipe_index++) {
+			for (dc_pipe_index = 0; dc_pipe_index < pipe_count; dc_pipe_index++) {
 				ASSERT(dc_phantom_pipes[dc_pipe_index]);
 				if (l->build_mcache_programming_params.per_plane_pipe_mcache_regs[dml_phantom_prog_idx][dc_pipe_index]) {
 					memcpy(&dc_phantom_pipes[dc_pipe_index]->mcache_regs,

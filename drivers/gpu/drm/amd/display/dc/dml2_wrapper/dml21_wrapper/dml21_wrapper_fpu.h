@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: MIT
-//
-// Copyright 2026 Advanced Micro Devices, Inc.
+/* SPDX-License-Identifier: MIT */
+/*
+ * Copyright 2026 Advanced Micro Devices, Inc.
+ */
 
 #ifndef _DML21_WRAPPER_FPU_H_
 #define _DML21_WRAPPER_FPU_H_

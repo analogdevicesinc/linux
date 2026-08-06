@@ -85,7 +85,7 @@
 #include "hw_sequencer_private.h"
 
 #if defined(CONFIG_DRM_AMD_DC_FP)
-#include "dml2_0/dml2_internal_types.h"
+#include "dml2_wrapper/dml2_internal_types.h"
 #include "soc_and_ip_translator.h"
 #endif
 

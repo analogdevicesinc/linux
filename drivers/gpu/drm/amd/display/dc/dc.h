@@ -43,7 +43,7 @@
 #include "inc/hw/dmcu.h"
 #include "dml/display_mode_lib.h"
 
-#include "dml2_0/dml2_wrapper.h"
+#include "dml2_wrapper/dml2_wrapper.h"
 
 #include "dmub/inc/dmub_cmd.h"
 

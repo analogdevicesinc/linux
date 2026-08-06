@@ -88,7 +88,7 @@
 #include "dc_state_priv.h"
 #include "link_enc_cfg.h"
 
-#include "dml2_0/dml2_wrapper.h"
+#include "dml2_wrapper/dml2_wrapper.h"
 
 #define DC_LOGGER_INIT(logger)
 

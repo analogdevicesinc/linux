@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+// SPDX-License-Identifier: MIT
 /*
  * Copyright 2023 Advanced Micro Devices, Inc.
  *
@@ -33,8 +33,8 @@
 #include "dml2_dc_resource_mgmt.h"
 #include "dml2_wrapper.h"
 #include "dml2_wrapper_fpu.h"
-#include "dml21_wrapper.h"
-#include "dml21_wrapper_fpu.h"
+#include "dml21_wrapper/dml21_wrapper.h"
+#include "dml21_wrapper/dml21_wrapper_fpu.h"
 
 void initialize_dml2_ip_params(struct dml2_context *dml2, const struct dc *in_dc, struct ip_params_st *out)
 {
@@ -65,7 +65,8 @@ static void map_hw_resources(struct dml2_context *dml2,
 		struct dml_display_cfg_st *in_out_display_cfg, struct dml_mode_support_info_st *mode_support_info)
 {
 	unsigned int num_pipes = 0;
-	int i, j;
+	int i;
+	unsigned int j;
 
 	for (i = 0; i < __DML_NUM_PLANES__; i++) {
 		in_out_display_cfg->hw.ODMMode[i] = mode_support_info->ODMMode[i];
@@ -120,7 +121,7 @@ static bool optimize_configuration(struct dml2_context *dml2, struct dml2_wrappe
 	int unused_dpps = p->ip_params->max_num_dpp;
 	int i;
 	int odms_needed;
-	int largest_blend_and_timing = 0;
+	unsigned int largest_blend_and_timing = 0;
 	bool optimization_done = false;
 
 	for (i = 0; i < (int) p->cur_display_config->num_timings; i++) {
@@ -164,7 +165,8 @@ static int calculate_lowest_supported_state_for_temp_read(struct dml2_context *d
 	struct dml2_wrapper_scratch *s_global = &dml2->v20.scratch;
 
 	unsigned int dml_result = 0;
-	int result = -1, i, j;
+	unsigned int state_idx;
+	int result = -1, i;
 
 	build_unoptimized_policy_settings(dml2->v20.dml_core_ctx.project, &dml2->v20.dml_core_ctx.policy);
 
@@ -191,13 +193,13 @@ static int calculate_lowest_supported_state_for_temp_read(struct dml2_context *d
 
 	map_dc_state_into_dml_display_cfg(dml2, display_state, &s->cur_display_config);
 
-	for (i = 0; i < dml2->v20.dml_core_ctx.states.num_states; i++) {
-		s->uclk_change_latencies[i] = dml2->v20.dml_core_ctx.states.state_array[i].dram_clock_change_latency_us;
+	for (state_idx = 0; state_idx < (unsigned int)dml2->v20.dml_core_ctx.states.num_states; state_idx++) {
+		s->uclk_change_latencies[state_idx] = dml2->v20.dml_core_ctx.states.state_array[state_idx].dram_clock_change_latency_us;
 	}
 
 	for (i = 0; i < 4; i++) {
-		for (j = 0; j < dml2->v20.dml_core_ctx.states.num_states; j++) {
-			dml2->v20.dml_core_ctx.states.state_array[j].dram_clock_change_latency_us = s_global->dummy_pstate_table[i].dummy_pstate_latency_us;
+		for (state_idx = 0; state_idx < (unsigned int)dml2->v20.dml_core_ctx.states.num_states; state_idx++) {
+			dml2->v20.dml_core_ctx.states.state_array[state_idx].dram_clock_change_latency_us = s_global->dummy_pstate_table[i].dummy_pstate_latency_us;
 		}
 
 		dml_result = pack_and_call_dml_mode_support_ex(dml2, &s->cur_display_config, &s->evaluation_info,
@@ -221,8 +223,8 @@ static int calculate_lowest_supported_state_for_temp_read(struct dml2_context *d
 		}
 	}
 
-	for (i = 0; i < dml2->v20.dml_core_ctx.states.num_states; i++) {
-		dml2->v20.dml_core_ctx.states.state_array[i].dram_clock_change_latency_us = s->uclk_change_latencies[i];
+	for (state_idx = 0; state_idx < (unsigned int)dml2->v20.dml_core_ctx.states.num_states; state_idx++) {
+		dml2->v20.dml_core_ctx.states.state_array[state_idx].dram_clock_change_latency_us = s->uclk_change_latencies[state_idx];
 	}
 
 	return result;
@@ -230,7 +232,7 @@ static int calculate_lowest_supported_state_for_temp_read(struct dml2_context *d
 
 static void copy_dummy_pstate_table(struct dummy_pstate_entry *dest, struct dummy_pstate_entry *src, unsigned int num_entries)
 {
-	for (int i = 0; i < num_entries; i++) {
+	for (unsigned int i = 0; i < num_entries; i++) {
 		dest[i] = src[i];
 	}
 }
@@ -239,7 +241,7 @@ static bool are_timings_requiring_odm_doing_blending(const struct dml_display_cf
 		const struct dml_mode_support_info_st *evaluation_info)
 {
 	unsigned int planes_per_timing[__DML_NUM_PLANES__] = {0};
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < display_cfg->num_surfaces; i++)
 		planes_per_timing[display_cfg->plane.BlendingAndTiming[i]]++;
@@ -270,7 +272,8 @@ static bool dml_mode_support_wrapper(struct dml2_context *dml2,
 		enum dc_validate_mode validate_mode)
 {
 	struct dml2_wrapper_scratch *s = &dml2->v20.scratch;
-	unsigned int result = 0, i;
+	unsigned int result = 0;
+	int i;
 	unsigned int optimized_result = true;
 
 	build_unoptimized_policy_settings(dml2->v20.dml_core_ctx.project, &dml2->v20.dml_core_ctx.policy);
@@ -383,7 +386,8 @@ static bool call_dml_mode_support_and_programming(struct dc_state *context, enum
 	 */
 	if (!context->streams[0]->sink->link->dc->caps.is_apu) {
 		if (min_state_for_g6_temp_read >= 0)
-			min_state = min_state_for_g6_temp_read > s->mode_support_params.out_lowest_state_idx ? min_state_for_g6_temp_read : s->mode_support_params.out_lowest_state_idx;
+			min_state = (unsigned int)min_state_for_g6_temp_read > s->mode_support_params.out_lowest_state_idx ?
+				(unsigned int)min_state_for_g6_temp_read : s->mode_support_params.out_lowest_state_idx;
 		else
 			min_state = s->mode_support_params.out_lowest_state_idx;
 	}
@@ -463,6 +467,7 @@ bool dml2_validate_and_build_resource(const struct dc *in_dc, struct dc_state *c
 
 	if (result) {
 		unsigned int lowest_state_idx = s->mode_support_params.out_lowest_state_idx;
+
 		out_clks.dispclk_khz = (unsigned int)dml2->v20.dml_core_ctx.mp.Dispclk_calculated * 1000;
 		out_clks.p_state_supported = s->mode_support_info.DRAMClockChangeSupport[0] != dml_dram_clock_change_unsupported;
 		if (in_dc->config.use_default_clock_table &&
@@ -499,8 +504,8 @@ bool dml2_validate_and_build_resource(const struct dc *in_dc, struct dc_state *c
 		cstate_enter_plus_exit_z8_ns = context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_enter_plus_exit_z8_ns;
 
 		if (context->bw_ctx.dml.vba.StutterPeriod < in_dc->debug.minimum_z8_residency_time &&
-				cstate_enter_plus_exit_z8_ns < in_dc->debug.minimum_z8_residency_time * 1000)
-			cstate_enter_plus_exit_z8_ns = in_dc->debug.minimum_z8_residency_time * 1000;
+				cstate_enter_plus_exit_z8_ns < (uint32_t)in_dc->debug.minimum_z8_residency_time * 1000)
+			cstate_enter_plus_exit_z8_ns = (uint32_t)in_dc->debug.minimum_z8_residency_time * 1000;
 
 		context->bw_ctx.bw.dcn.watermarks.a.cstate_pstate.cstate_enter_plus_exit_z8_ns = cstate_enter_plus_exit_z8_ns;
 	}
@@ -527,8 +532,8 @@ bool dml2_validate_only(struct dc_state *context, enum dc_validate_mode validate
 	build_unoptimized_policy_settings(dml2->v20.dml_core_ctx.project, &dml2->v20.dml_core_ctx.policy);
 
 	map_dc_state_into_dml_display_cfg(dml2, context, &dml2->v20.scratch.cur_display_config);
-	 if (!dml2->config.skip_hw_state_mapping)
-		 dml2_apply_det_buffer_allocation_policy(dml2, &dml2->v20.scratch.cur_display_config);
+	if (!dml2->config.skip_hw_state_mapping)
+		dml2_apply_det_buffer_allocation_policy(dml2, &dml2->v20.scratch.cur_display_config);
 
 	result = pack_and_call_dml_mode_support_ex(dml2,
 		&dml2->v20.scratch.cur_display_config,

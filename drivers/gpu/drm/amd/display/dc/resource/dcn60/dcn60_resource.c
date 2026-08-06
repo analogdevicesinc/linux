@@ -81,8 +81,8 @@
 
 #include "dc_state_priv.h"
 
-#include "dml2_0/dml2_wrapper.h"
-#include "dml2_0/dml21/dml21_wrapper.h"
+#include "dml2_wrapper/dml2_wrapper.h"
+#include "dml2_wrapper/dml21_wrapper/dml21_wrapper.h"
 
 #define DC_LOGGER_INIT(logger)
 

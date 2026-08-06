@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT */
+// SPDX-License-Identifier: MIT
 /*
  * Copyright 2023 Advanced Micro Devices, Inc.
  *
@@ -168,7 +168,7 @@ bool is_dp2p0_output_encoder(const struct pipe_ctx *pipe_ctx)
 
 bool is_dtbclk_required(const struct dc *dc, struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
 		if (!context->res_ctx.pipe_ctx[i].stream)
@@ -196,6 +196,7 @@ void dml2_copy_clocks_to_dc_state(struct dml2_dcn_clocks *out_clks, struct dc_st
 int dml2_helper_find_dml_pipe_idx_by_stream_id(struct dml2_context *ctx, unsigned int stream_id)
 {
 	int i;
+
 	for (i = 0; i < __DML2_WRAPPER_MAX_STREAMS_PLANES__; i++) {
 		if (ctx->v20.scratch.dml_to_dc_pipe_mapping.dml_pipe_idx_to_stream_id_valid[i] && ctx->v20.scratch.dml_to_dc_pipe_mapping.dml_pipe_idx_to_stream_id[i] == stream_id)
 			return  i;
@@ -207,6 +208,7 @@ int dml2_helper_find_dml_pipe_idx_by_stream_id(struct dml2_context *ctx, unsigne
 static int find_dml_pipe_idx_by_plane_id(struct dml2_context *ctx, unsigned int plane_id)
 {
 	int i;
+
 	for (i = 0; i < __DML2_WRAPPER_MAX_STREAMS_PLANES__; i++) {
 		if (ctx->v20.scratch.dml_to_dc_pipe_mapping.dml_pipe_idx_to_plane_id_valid[i] && ctx->v20.scratch.dml_to_dc_pipe_mapping.dml_pipe_idx_to_plane_id[i] == plane_id)
 			return  i;
@@ -218,7 +220,8 @@ static int find_dml_pipe_idx_by_plane_id(struct dml2_context *ctx, unsigned int 
 static bool get_plane_id(struct dml2_context *dml2, const struct dc_state *state, const struct dc_plane_state *plane,
 	unsigned int stream_id, unsigned int plane_index, unsigned int *plane_id)
 {
-	unsigned int i, j;
+	unsigned int i;
+	int j;
 	bool is_plane_duplicate = dml2->v20.scratch.plane_duplicate_exists;
 
 	if (!plane_id)
@@ -228,8 +231,8 @@ static bool get_plane_id(struct dml2_context *dml2, const struct dc_state *state
 		if (state->streams[i]->stream_id == stream_id) {
 			for (j = 0; j < state->stream_status[i].plane_count; j++) {
 				if (state->stream_status[i].plane_states[j] == plane &&
-					(!is_plane_duplicate || (j == plane_index))) {
-					*plane_id = (i << 16) | j;
+					(!is_plane_duplicate || ((unsigned int)j == plane_index))) {
+					*plane_id = ((unsigned int)i << 16) | (unsigned int)j;
 					return true;
 				}
 			}
@@ -293,8 +296,8 @@ void dml2_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_state *cont
 	else
 		context->bw_ctx.bw.dcn.clk.fclk_p_state_change_support = true;
 
-	if (context->bw_ctx.bw.dcn.clk.dispclk_khz < dc->debug.min_disp_clk_khz)
-		context->bw_ctx.bw.dcn.clk.dispclk_khz = dc->debug.min_disp_clk_khz;
+	if (context->bw_ctx.bw.dcn.clk.dispclk_khz < (int)dc->debug.min_disp_clk_khz)
+		context->bw_ctx.bw.dcn.clk.dispclk_khz = (int)dc->debug.min_disp_clk_khz;
 
 	context->bw_ctx.bw.dcn.compbuf_size_kb = in_ctx->v20.dml_core_ctx.ip.config_return_buffer_size_in_kbytes;
 
@@ -304,7 +307,8 @@ void dml2_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_state *cont
 		/* The DML2 and the DC logic of determining pipe indices are different from each other so
 		 * there is a need to know which DML pipe index maps to which DC pipe. The code below
 		 * finds a dml_pipe_index from the plane id if a plane is valid. If a plane is not valid then
-		 * it finds a dml_pipe_index from the stream id. */
+		 * it finds a dml_pipe_index from the stream id.
+		 */
 		if (get_plane_id(in_ctx, context, context->res_ctx.pipe_ctx[dc_pipe_ctx_index].plane_state,
 			context->res_ctx.pipe_ctx[dc_pipe_ctx_index].stream->stream_id,
 			in_ctx->v20.scratch.dml_to_dc_pipe_mapping.dml_pipe_idx_to_plane_index[context->res_ctx.pipe_ctx[dc_pipe_ctx_index].pipe_idx], &plane_id)) {
@@ -371,7 +375,7 @@ void dml2_calculate_rq_and_dlg_params(const struct dc *dc, struct dc_state *cont
 
 	if (dc->config.forced_clocks || dc->debug.max_disp_clk) {
 		context->bw_ctx.bw.dcn.clk.bw_dispclk_khz = context->bw_ctx.bw.dcn.clk.max_supported_dispclk_khz;
-		context->bw_ctx.bw.dcn.clk.bw_dppclk_khz = context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz ;
+		context->bw_ctx.bw.dcn.clk.bw_dppclk_khz = context->bw_ctx.bw.dcn.clk.max_supported_dppclk_khz;
 	}
 }
 
@@ -449,7 +453,7 @@ void dml2_extract_writeback_wm(struct dc_state *context, struct display_mode_lib
 		bw_writeback->mcif_wb_arb[i].arbitration_slice = 2;
 		bw_writeback->mcif_wb_arb[i].max_scaled_time =
 			dml2_calc_max_scaled_time(wb_arb_params->time_per_pixel,
-					wbif_mode, 	wb_arb_params->cli_watermark[0]);
+					wbif_mode, wb_arb_params->cli_watermark[0]);
 		/*not required any more*/
 		bw_writeback->mcif_wb_arb[i].dram_speed_change_duration =
 			(unsigned int)(dml_get_wm_writeback_dram_clock_change(dml_core_ctx) * 1000);
@@ -500,8 +504,8 @@ void dml2_apply_det_buffer_allocation_policy(struct dml2_context *in_ctx, struct
 			dml_dispcfg->plane.DETSizeOverride[plane_index] = ((max_det_size / num_of_streams) / num_of_planes_per_stream[stream_index] / in_ctx->det_helper_scratch.dpps_per_surface[plane_index]);
 
 			/* If the override size is not divisible by det_segment_size then round off to nearest number divisible by det_segment_size as
-				* this is a requirement.
-				*/
+			 * this is a requirement.
+			 */
 			if (dml_dispcfg->plane.DETSizeOverride[plane_index] % in_ctx->config.det_segment_size != 0) {
 				dml_dispcfg->plane.DETSizeOverride[plane_index] = dml_dispcfg->plane.DETSizeOverride[plane_index] & ~0x3F;
 			}

@@ -14,6 +14,7 @@
 int dml21_helper_find_dml_pipe_idx_by_stream_id(struct dml2_context *ctx, unsigned int stream_id)
 {
 	int i;
+
 	for (i = 0; i < __DML2_WRAPPER_MAX_STREAMS_PLANES__; i++) {
 		if (ctx->v21.dml_to_dc_pipe_mapping.dml_pipe_idx_to_stream_id_valid[i] && ctx->v21.dml_to_dc_pipe_mapping.dml_pipe_idx_to_stream_id[i] == stream_id)
 			return  i;
@@ -25,6 +26,7 @@ int dml21_helper_find_dml_pipe_idx_by_stream_id(struct dml2_context *ctx, unsign
 int dml21_find_dml_pipe_idx_by_plane_id(struct dml2_context *ctx, unsigned int plane_id)
 {
 	int i;
+
 	for (i = 0; i < __DML2_WRAPPER_MAX_STREAMS_PLANES__; i++) {
 		if (ctx->v21.dml_to_dc_pipe_mapping.dml_pipe_idx_to_plane_id_valid[i] && ctx->v21.dml_to_dc_pipe_mapping.dml_pipe_idx_to_plane_id[i] == plane_id)
 			return  i;
@@ -120,6 +122,7 @@ int dml21_find_dc_pipes_for_plane(const struct dc *in_dc,
 	} else {
 		/* stream was configured with dummy plane, so get pipes from opp head */
 		struct pipe_ctx *otg_master_pipe = dml_ctx->config.callbacks.get_otg_master_for_stream(&context->res_ctx, dc_main_stream);
+
 		if (otg_master_pipe != NULL)
 			num_pipes = dml_ctx->config.callbacks.get_opp_heads_for_otg_master(otg_master_pipe, &context->res_ctx, dc_main_pipes);
 	}
@@ -196,7 +199,7 @@ bool check_dp2p0_output_encoder(const struct pipe_ctx *pipe_ctx)
 
 static bool is_sub_vp_enabled(struct dc *dc, struct dc_state *context)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < dc->res_pool->pipe_count; i++) {
 		struct pipe_ctx *pipe_ctx = &context->res_ctx.pipe_ctx[i];
@@ -377,7 +380,8 @@ void dml21_handle_phantom_streams_planes(const struct dc *dc, struct dc_state *c
 
 static uint32_t calc_svp_size_256kb(uint64_t addr_bytes)
 {
-    return (uint32_t)(((addr_bytes + 0x3FFFFull) >> 18) << 2); // ceil to 256KB, then return bits [47:16]
+	/* ceil to 256KB, then return bits [47:16] */
+	return (uint32_t)(((addr_bytes + 0x3FFFFull) >> 18) << 2);
 }
 
 
@@ -505,7 +509,8 @@ static unsigned int dml21_build_fams2_stream_programming_v2(const struct dc *dc,
 		struct dc_state *context,
 		struct dml2_context *dml_ctx)
 {
-	int dc_stream_idx, dc_plane_idx, dc_pipe_idx;
+	int dc_stream_idx, dc_plane_idx;
+	unsigned int dc_pipe_idx;
 	unsigned int num_fams2_streams = 0;
 
 	for (dc_stream_idx = 0; dc_stream_idx < context->stream_count; dc_stream_idx++) {
