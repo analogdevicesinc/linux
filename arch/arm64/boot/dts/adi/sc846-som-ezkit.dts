@@ -56,14 +56,14 @@
 			gpio-hog;
 			gpios = <1 GPIO_ACTIVE_LOW>;
 			output-high;
-			line-name = "spidif1-en";
+			line-name = "spdif1-en";
 		};
 
 		adau1966-reset-som-a {
 			gpio-hog;
 			gpios = <2 GPIO_ACTIVE_LOW>;
 			output-high;
-			line-name = "adsu1966-reset-som-a";
+			line-name = "adau1966-reset-som-a";
 		};
 
 		adau1979-a-reset-som-a {
@@ -77,13 +77,14 @@
 			gpio-hog;
 			gpios = <4 GPIO_ACTIVE_LOW>;
 			output-high;
+			line-name = "adau1979-b-reset-som-a";
 		};
 
 		pushbutton-b-en {
 			gpio-hog;
 			gpios = <5 GPIO_ACTIVE_LOW>;
 			output-high;
-			line-name = "ushbutton-b-en";
+			line-name = "pushbutton-b-en";
 		};
 
 		spdif1-opt-en {
@@ -153,7 +154,7 @@
 			gpio-hog;
 			gpios = <15 GPIO_ACTIVE_HIGH>;
 			output-low;
-			line-name = "a2b-io7";
+			line-name = "a2b1-io7";
 		};
 
 		a2b2-io1 {
