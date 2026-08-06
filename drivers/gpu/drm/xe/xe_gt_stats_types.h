@@ -10,6 +10,17 @@
 
 /**
  * enum xe_gt_stats_id - GT statistics identifiers
+ * @XE_GT_STATS_ID_CHAIN_PAGEFAULT_COUNT: Total page faults chained onto an
+ *   in-flight fault instead of being queued separately.
+ * @XE_GT_STATS_ID_CHAIN_IRQ_PAGEFAULT_COUNT: Page faults chained directly from
+ *   the IRQ handler.
+ * @XE_GT_STATS_ID_CHAIN_DRAIN_IRQ_PAGEFAULT_COUNT: IRQ-handler chained faults
+ *   that also drained the fault queue.
+ * @XE_GT_STATS_ID_CHAIN_MISMATCH_PAGEFAULT_COUNT: Chained faults requeued
+ *   because their fault range did not match the fault they were chained onto.
+ * @XE_GT_STATS_ID_LAST_PAGEFAULT_COUNT: Faults whose range matched the last
+ *   serviced range, allowing an immediate ack.
+ *
  * @XE_GT_STATS_ID_SVM_PAGEFAULT_COUNT: Total SVM page faults handled.
  * @XE_GT_STATS_ID_TLB_INVAL: Total GPU Translation Lookaside Buffer (TLB)
  *   invalidations issued.
@@ -129,6 +140,11 @@
  * See Documentation/gpu/xe/xe_gt_stats.rst.
  */
 enum xe_gt_stats_id {
+	XE_GT_STATS_ID_CHAIN_PAGEFAULT_COUNT,
+	XE_GT_STATS_ID_CHAIN_IRQ_PAGEFAULT_COUNT,
+	XE_GT_STATS_ID_CHAIN_DRAIN_IRQ_PAGEFAULT_COUNT,
+	XE_GT_STATS_ID_CHAIN_MISMATCH_PAGEFAULT_COUNT,
+	XE_GT_STATS_ID_LAST_PAGEFAULT_COUNT,
 	XE_GT_STATS_ID_SVM_PAGEFAULT_COUNT,
 	XE_GT_STATS_ID_TLB_INVAL,
 	XE_GT_STATS_ID_SVM_TLB_INVAL_COUNT,
