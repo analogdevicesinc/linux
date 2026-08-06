@@ -265,13 +265,60 @@
 			status = "okay";
 
 			static-regions {
+				/*
+				 * TEST ONLY (not for upstream): read-protect this L2
+				 * SRAM window against the ARM A55 (TID 0x289) so a
+				 * violation can be provoked from the console with a
+				 * devmem *read*. allowed-ids lists IDs that bypass
+				 * protection; the A55 is deliberately excluded.
+				 *
+				 * READ-protect (permissions = 0x1), not write-protect:
+				 * a blocked read faults synchronously (precise data
+				 * abort -> SIGBUS to the reading process), so the
+				 * console survives and devmem just prints "Bus error".
+				 * A blocked *write* on this SoC returns a posted bus
+				 * error that arrives as an uncontainable asynchronous
+				 * SError and panics the kernel - not usable as an
+				 * interactive test. (The SPU write-protect path has the
+				 * same limitation by design.)
+				 *
+				 * Address vs instance (HRM Table 12-1): SMPU2 is
+				 * L2-Core Port 0, the ARM data port, and only covers
+				 * 0x20000000-0x200FFFFF (L2 SRAM banks 0-3). An ARM
+				 * devmem read is only checked by the instance that owns
+				 * that address's port, so the base MUST stay in SMPU2's
+				 * window. (0x20100000 belongs to SMPU4/L2-Core Port 1,
+				 * which is not wired up here - putting the region there
+				 * lets the read sail through unchecked.)
+				 *
+				 * 0x200D0000 is a free hole in banks 0-3: above every
+				 * reserved-memory region (top is vdev1buffer at
+				 * 0x200A8000+0x20000) and outside the usable memory@
+				 * node (0x20040000-0x2007FFFF), so the kernel never
+				 * allocates from it.
+				 *
+				 * Verify:
+				 *   devmem 0x200D0000 32          # read -> Bus error
+				 *   cat /sys/kernel/debug/smpu/smpu2/violations
+				 */
 				region-0 {
-					instance = <2>;  /* SMPU2: L2 SRAM Port 1 */
-					base = <0x20040000>;  /* L2 SRAM bank 1 */
-					size = <0x40000>;     /* 256KB */
-					permissions = <0x1>;  /* Read-only */
-					allowed-ids = <0x0289 0>;  /* ARM A55 TID */
-					id-masks = <0x1FFF 0>;     /* Exact match */
+					instance = <2>;  /* SMPU2: L2-Core Port 0 (ARM data) */
+					base = <0x200D0000>;  /* free hole in banks 0-3 */
+					size = <0x1000>;      /* 4KB (SMPU minimum) */
+					permissions = <0x1>;  /* Read-protected */
+					/*
+					 * ID match = (A match OR B match) selects the
+					 * IDs that BYPASS protection. Both comparators
+					 * must use an exact 13-bit mask (0x1FFF): a mask
+					 * of 0 makes "(id & 0) == 0" true for every ID,
+					 * so comparator B would match all transactions
+					 * and nothing would ever be blocked. With RIDA=
+					 * RIDB=0 and both masks exact, only ID 0 bypasses;
+					 * the ARM A55 (TID 0x289) matches neither and is
+					 * blocked.
+					 */
+					allowed-ids = <0x0000 0x0000>;  /* only ID 0 bypasses */
+					id-masks = <0x1FFF 0x1FFF>;     /* both exact match */
 				};
 			};
 		};
@@ -281,6 +328,19 @@
 			reg = <0x3108b000 0x1000>;
 			interrupts = <GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>;
 			status = "okay";
+
+			/*
+			 * TEST ONLY (not for upstream): write-protect UART1
+			 * (peripheral 30) from the ARM A55 core requester
+			 * (CM bit 0). UART0 (peripheral 29) is the Linux console
+			 * and is deliberately left open - blocking the console
+			 * UART hangs the boot on the first print after the block.
+			 * UART1 is status="disabled" so no kernel driver binds it;
+			 * the only A55 access is the devmem test below. Verify:
+			 *   cat /sys/kernel/debug/spu@3108b000/write-protect  # WP[30]=0x1
+			 *   devmem 0x31003400 32 0        # write UART1 -> blocked
+			 */
+			adi,write-protect = <30 0x1>;
 		};
 
 		tru: tru@3108a000 {
