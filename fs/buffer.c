@@ -1079,7 +1079,7 @@ static void buffer_set_crypto_ctx(struct bio *bio, const struct buffer_head *bh,
 	 */
 	if (!bh->b_folio)
 		return;
-	mapping = folio_mapping(bh->b_folio);
+	mapping = bh->b_folio->mapping;
 	if (!mapping)
 		return;
 	fscrypt_set_bio_crypt_ctx(bio, mapping->host,
