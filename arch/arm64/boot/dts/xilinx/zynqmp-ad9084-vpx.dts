@@ -45,21 +45,6 @@
 		clock-frequency = <125000000>;
 	};
 
-	system_reference_select: system-reference-select {
-		compatible = "adi,one-bit-adc-dac";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		status = "okay";
-		label = "system_reference_select";
-
-		out-gpios = <&gpio 128 GPIO_ACTIVE_HIGH>; /* 1=REFCLK_P0, 0=REFCLK_P2 */
-
-		channel@0 {
-			reg = <0>;
-			label = "REFCLK_SELECT [1:P0 0:P2]";
-		};
-	};
-
 	vu11p_fpga_mgr: fpga-mgr@93000000 {
 		compatible = "adi,fpga-16-selectmap";
 		reg = <0x0 0x93000000 0x0 0x10000>;
