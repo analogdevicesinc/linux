@@ -169,6 +169,7 @@ void amdgpu_dm_connector_add_common_modes(struct drm_encoder *encoder,
 void amdgpu_dm_connector_ddc_get_modes(struct drm_connector *connector,
 				       const struct drm_edid *drm_edid);
 int amdgpu_dm_connector_get_modes(struct drm_connector *connector);
+void amdgpu_dm_prune_primary_tile_modes(struct drm_connector *connector);
 uint add_fs_modes(struct amdgpu_dm_connector *aconnector);
 void amdgpu_dm_connector_add_freesync_modes(struct drm_connector *connector,
 					    const struct drm_edid *drm_edid);

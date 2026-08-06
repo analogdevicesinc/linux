@@ -7540,6 +7540,172 @@ static void dm_test_panel_orientation_applies_quirk(struct kunit *test)
 			DRM_MODE_PANEL_ORIENTATION_UNKNOWN);
 }
 
+/* Tests for amdgpu_dm_prune_primary_tile_modes() */
+
+struct dm_test_prune_ctx {
+	struct drm_device *drm;
+	struct amdgpu_dm_connector *aconnector;
+	struct dc_sink *sink;
+};
+
+/*
+ * Build a connector configured as the primary tile of an Apple Studio Display:
+ * a dc_sink requesting the second-tile patch, has_tile set, tile location (0,0)
+ * and a per-tile timing of tile_h_size x tile_v_size. Individual tests relax a
+ * single precondition to exercise the early-return guards.
+ */
+static struct dm_test_prune_ctx *
+dm_test_prune_ctx_alloc(struct kunit *test)
+{
+	struct dm_test_prune_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->drm = dm_test_alloc_drm(test);
+	ctx->aconnector = dm_test_add_connector(test, ctx->drm,
+						DRM_MODE_CONNECTOR_DisplayPort);
+
+	ctx->sink = kunit_kzalloc(test, sizeof(*ctx->sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->sink);
+	ctx->sink->edid_caps.panel_patch.disable_second_tile = true;
+	ctx->aconnector->dc_sink = ctx->sink;
+
+	ctx->aconnector->base.has_tile = true;
+	ctx->aconnector->base.tile_h_size = 2560;
+	ctx->aconnector->base.tile_v_size = 2880;
+
+	return ctx;
+}
+
+static struct drm_display_mode *
+dm_test_prune_add_mode(struct kunit *test, struct drm_connector *connector,
+		       int hdisplay, int vdisplay)
+{
+	struct drm_display_mode *mode = drm_mode_create(connector->dev);
+
+	KUNIT_ASSERT_NOT_NULL(test, mode);
+	mode->hdisplay = hdisplay;
+	mode->vdisplay = vdisplay;
+	list_add_tail(&mode->head, &connector->probed_modes);
+
+	return mode;
+}
+
+static int dm_test_prune_count(struct drm_connector *connector)
+{
+	struct drm_display_mode *mode;
+	int n = 0;
+
+	list_for_each_entry(mode, &connector->probed_modes, head)
+		n++;
+
+	return n;
+}
+
+/**
+ * dm_test_prune_no_sink - Test a connector without a sink is left untouched
+ * @test: The KUnit test context
+ */
+static void dm_test_prune_no_sink(struct kunit *test)
+{
+	struct dm_test_prune_ctx *ctx = dm_test_prune_ctx_alloc(test);
+
+	ctx->aconnector->dc_sink = NULL;
+	dm_test_prune_add_mode(test, &ctx->aconnector->base, 2560, 2880);
+	ctx->aconnector->num_modes = 1;
+
+	amdgpu_dm_prune_primary_tile_modes(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_test_prune_count(&ctx->aconnector->base), 1);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 1);
+}
+
+/**
+ * dm_test_prune_no_patch - Test the patch flag being unset skips pruning
+ * @test: The KUnit test context
+ */
+static void dm_test_prune_no_patch(struct kunit *test)
+{
+	struct dm_test_prune_ctx *ctx = dm_test_prune_ctx_alloc(test);
+
+	ctx->sink->edid_caps.panel_patch.disable_second_tile = false;
+	dm_test_prune_add_mode(test, &ctx->aconnector->base, 2560, 2880);
+	ctx->aconnector->num_modes = 1;
+
+	amdgpu_dm_prune_primary_tile_modes(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_test_prune_count(&ctx->aconnector->base), 1);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 1);
+}
+
+/**
+ * dm_test_prune_no_tile - Test a non-tiled connector skips pruning
+ * @test: The KUnit test context
+ */
+static void dm_test_prune_no_tile(struct kunit *test)
+{
+	struct dm_test_prune_ctx *ctx = dm_test_prune_ctx_alloc(test);
+
+	ctx->aconnector->base.has_tile = false;
+	dm_test_prune_add_mode(test, &ctx->aconnector->base, 2560, 2880);
+	ctx->aconnector->num_modes = 1;
+
+	amdgpu_dm_prune_primary_tile_modes(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_test_prune_count(&ctx->aconnector->base), 1);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 1);
+}
+
+/**
+ * dm_test_prune_secondary_tile - Test a secondary tile is left untouched
+ * @test: The KUnit test context
+ *
+ * Only the primary tile (location 0,0) is pruned; a secondary tile keeps its
+ * per-tile timing.
+ */
+static void dm_test_prune_secondary_tile(struct kunit *test)
+{
+	struct dm_test_prune_ctx *ctx = dm_test_prune_ctx_alloc(test);
+
+	ctx->aconnector->base.tile_h_loc = 1;
+	dm_test_prune_add_mode(test, &ctx->aconnector->base, 2560, 2880);
+	ctx->aconnector->num_modes = 1;
+
+	amdgpu_dm_prune_primary_tile_modes(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_test_prune_count(&ctx->aconnector->base), 1);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 1);
+}
+
+/**
+ * dm_test_prune_removes_per_tile - Test the per-tile timing is pruned
+ * @test: The KUnit test context
+ *
+ * On the primary tile the per-tile (tile_h_size x tile_v_size) timing is
+ * dropped while the full-resolution mode is kept and num_modes is decremented.
+ */
+static void dm_test_prune_removes_per_tile(struct kunit *test)
+{
+	struct dm_test_prune_ctx *ctx = dm_test_prune_ctx_alloc(test);
+	struct drm_display_mode *mode;
+	bool has_tile_mode = false;
+
+	dm_test_prune_add_mode(test, &ctx->aconnector->base, 2560, 2880);
+	dm_test_prune_add_mode(test, &ctx->aconnector->base, 5120, 2880);
+	ctx->aconnector->num_modes = 2;
+
+	amdgpu_dm_prune_primary_tile_modes(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, dm_test_prune_count(&ctx->aconnector->base), 1);
+	KUNIT_EXPECT_EQ(test, ctx->aconnector->num_modes, 1);
+
+	list_for_each_entry(mode, &ctx->aconnector->base.probed_modes, head)
+		if (mode->hdisplay == 2560 && mode->vdisplay == 2880)
+			has_tile_mode = true;
+	KUNIT_EXPECT_FALSE(test, has_tile_mode);
+}
+
 /* Tests for amdgpu_dm_update_stream_scaling_settings() */
 
 /**
@@ -8015,6 +8181,12 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_panel_orientation_non_edp),
 	KUNIT_CASE(dm_test_panel_orientation_no_native_mode),
 	KUNIT_CASE(dm_test_panel_orientation_applies_quirk),
+	/* amdgpu_dm_prune_primary_tile_modes */
+	KUNIT_CASE(dm_test_prune_no_sink),
+	KUNIT_CASE(dm_test_prune_no_patch),
+	KUNIT_CASE(dm_test_prune_no_tile),
+	KUNIT_CASE(dm_test_prune_secondary_tile),
+	KUNIT_CASE(dm_test_prune_removes_per_tile),
 	/* dm_validate_stream_and_context */
 	KUNIT_CASE(dm_test_validate_stream_null_stream),
 	KUNIT_CASE(dm_test_validate_stream_dc_ok_no_pipe),
