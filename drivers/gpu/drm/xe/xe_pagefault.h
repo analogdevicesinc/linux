@@ -8,6 +8,7 @@
 
 #include "xe_pagefault_types.h"
 
+struct drm_printer;
 struct xe_device;
 struct xe_gt;
 struct xe_pagefault;
@@ -17,6 +18,8 @@ int xe_pagefault_init(struct xe_device *xe);
 void xe_pagefault_reset(struct xe_device *xe, struct xe_gt *gt);
 
 int xe_pagefault_handler(struct xe_device *xe, struct xe_pagefault *pf);
+
+void xe_pagefault_print_info(struct xe_device *xe, struct drm_printer *p);
 
 #define XE_PAGEFAULT_END_ADDR_MASK	(~0xfffull)
 
