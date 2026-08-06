@@ -27,6 +27,9 @@
 #include "ras_cper.h"
 #define ns_to_seconds(ns)   div_u64(ns, NSEC_PER_SEC)
 
+static const struct ras_cper_guid processor_section_type =
+	PROC_ERR__SECTION_TYPE;
+
 static int ras_cper_get_profile(struct ras_core_context *ras_core,
 		enum ras_log_event event, struct ras_cper_profile **profile);
 
@@ -183,6 +186,79 @@ static int fill_section_boot(struct ras_core_context *ras_core, void *section,
 	return 0;
 }
 
+static void fill_processor_error_info(struct cper_processor_error_info *error_info,
+		u64 status)
+{
+	u64 check_info = CPER_MS_CHECK_VALID_ERR_TYPE |
+		CPER_MS_CHECK_ERR_TYPE_INTERNAL;
+
+	error_info->error_type = PROC_ERR__MS_CHECK_TYPE;
+	error_info->valid_bits = CPER_PROC_INFO_VALID_CHECK_INFO;
+
+	if (status & CPER_MCA_STATUS_PCC)
+		check_info |= CPER_MS_CHECK_VALID_PCC | CPER_MS_CHECK_PCC;
+	if (status & CPER_MCA_STATUS_UNCORRECTED)
+		check_info |= CPER_MS_CHECK_VALID_UNCORRECTED |
+			CPER_MS_CHECK_UNCORRECTED;
+	if (status & CPER_MCA_STATUS_OVERFLOW)
+		check_info |= CPER_MS_CHECK_VALID_OVERFLOW |
+			CPER_MS_CHECK_OVERFLOW;
+
+	error_info->check_info = check_info;
+}
+
+static int fill_section_processor(struct cper_section_processor *processor,
+		struct ras_log_info *log)
+{
+	const struct ras_cpu_mce *mce = &log->body.cpu_mce;
+	u64 status = mce->regs[RAS_CPER_ACA_REG_STATUS];
+	u64 *reg_dump = processor->context.reg_dump;
+
+	processor->processor.valid_bits = CPER_PROC_VALID_APIC_ID |
+		CPER_PROC_ERR_INFO_COUNT(1) | CPER_PROC_CONTEXT_COUNT(1);
+	processor->processor.apic_id = mce->apic_id;
+	fill_processor_error_info(&processor->error_info, status);
+	processor->context.reg_ctx_type = CPER_CTX_TYPE__CRASH;
+	processor->context.reg_arr_size = sizeof(processor->context.reg_dump);
+	processor->context.msr_addr = CPER_SMCA_MC0_STATUS_MSR +
+		(mce->bank * CPER_SMCA_BANK_STRIDE);
+	/* The IA processor register array starts at MCA_STATUS. */
+	reg_dump[0] = mce->regs[ACA_REG_IDX__STATUS];
+	reg_dump[1] = mce->regs[ACA_REG_IDX__ADDR];
+	reg_dump[2] = mce->regs[ACA_REG_IDX__MISC0];
+	reg_dump[3] = mce->regs[ACA_REG_IDX__CONFG];
+	reg_dump[4] = mce->regs[ACA_REG_IDX__IPID];
+	reg_dump[5] = mce->regs[ACA_REG_IDX__SYND];
+	reg_dump[7] = mce->regs[ACA_REG_IDX__DESTAT];
+	reg_dump[8] = mce->regs[ACA_REG_IDX__DEADDR];
+	reg_dump[9] = mce->regs[ACA_REG_IDX__CTL_MASK];
+
+	return 0;
+}
+
+static int fill_section_boot_processor(struct cper_section_processor *processor,
+		struct ras_log_info *log)
+{
+	const struct ras_boot_err_ctx *ctx = &log->body.boot_err_ctx;
+	u64 status = ctx->regs[0];
+
+	processor->processor.valid_bits = CPER_PROC_ERR_INFO_COUNT(1) |
+		CPER_PROC_CONTEXT_COUNT(1);
+	if (ctx->flags & RAS_BOOT_CTX_VALID_APIC_ID)
+		processor->processor.valid_bits |= CPER_PROC_VALID_APIC_ID;
+	processor->processor.apic_id = ctx->apic_id;
+	fill_processor_error_info(&processor->error_info, status);
+	processor->context.reg_ctx_type = ctx->reg_ctx_type;
+	processor->context.reg_arr_size = ctx->reg_arr_size;
+	processor->context.msr_addr = ctx->msr_addr;
+	processor->context.mm_reg_addr = ctx->mm_reg_addr;
+	memcpy(processor->context.reg_dump, ctx->regs,
+		min_t(size_t, ctx->reg_arr_size,
+		      sizeof(processor->context.reg_dump)));
+
+	return 0;
+}
+
 static int cper_boot_get_severity(struct ras_log_info *log,
 			enum ras_cper_severity *sev)
 {
@@ -293,6 +369,139 @@ static int cper_build_multiple_records(struct ras_core_context *ras_core,
 	return 0;
 }
 
+static int cper_generate_boot_processor_records(struct ras_core_context *ras_core,
+		u8 *buffer, struct ras_log_info *batch_logs, u32 nr_batch_logs)
+{
+	u32 offset = 0;
+	u32 i;
+
+	for (i = 0; i < nr_batch_logs; i++) {
+		const struct ras_boot_err_ctx *ctx = &batch_logs[i].body.boot_err_ctx;
+		struct ras_cper_processor_record record = { 0 };
+		u16 data_size = min_t(u16, ctx->reg_arr_size,
+					 sizeof(record.processor.context.reg_dump));
+		u32 section_size = offsetof(struct cper_section_processor,
+					    context.reg_dump) + data_size;
+		u32 record_size = RAS_HDR_LEN + RAS_SEC_DESC_LEN + section_size;
+		enum ras_cper_severity sev = ctx->error_severity;
+
+		fill_section_hdr(ras_core, &record.hdr, BOOT__TYPE, sev,
+				 &batch_logs[i]);
+		record.hdr.record_length = record_size;
+		record.hdr.sec_cnt = 1;
+		fill_section_descriptor(ras_core, &record.descriptor, sev,
+				PROC_ERR__SECTION_TYPE,
+				offsetof(struct ras_cper_processor_record, processor),
+				section_size);
+		fill_section_boot_processor(&record.processor, &batch_logs[i]);
+		memcpy(buffer + offset, &record, record_size);
+		offset += record_size;
+	}
+
+	return offset;
+}
+
+static int cper_generate_runtime_processor_records(struct ras_core_context *ras_core,
+		u8 *buffer, struct ras_log_info *batch_logs, u32 nr_batch_logs)
+{
+	u32 i;
+
+	for (i = 0; i < nr_batch_logs; i++) {
+		struct ras_cper_processor_record record = { 0 };
+		u64 status = batch_logs[i].body.cpu_mce.regs[ACA_REG_IDX__STATUS];
+		enum ras_cper_severity sev;
+
+		if (!(status & CPER_MCA_STATUS_UNCORRECTED) &&
+		    !(status & CPER_MCA_STATUS_DEFERRED))
+			sev = RAS_CPER_SEV_NON_FATAL_CE;
+		else if ((status & CPER_MCA_STATUS_UNCORRECTED) &&
+			 (status & CPER_MCA_STATUS_PCC))
+			sev = RAS_CPER_SEV_FATAL_UE;
+		else
+			sev = RAS_CPER_SEV_NON_FATAL_UE;
+
+		fill_section_hdr(ras_core, &record.hdr, CPER_NOTIFY__MCE, sev,
+				 &batch_logs[i]);
+		record.hdr.revision = CPER_HDR__REV_AMD_CPU;
+		record.hdr.record_length = sizeof(record);
+		record.hdr.sec_cnt = 1;
+		fill_section_descriptor(ras_core, &record.descriptor, sev,
+				PROC_ERR__SECTION_TYPE,
+				offsetof(struct ras_cper_processor_record, processor),
+				RAS_PROC_SEC_LEN);
+		record.descriptor.flag_bits.latent_err =
+			!!(status & CPER_MCA_STATUS_DEFERRED);
+		record.descriptor.revision_minor = CPER_SEC__REV_AMD_CPU & 0xff;
+		record.descriptor.revision_major = CPER_SEC__REV_AMD_CPU >> 8;
+		fill_section_processor(&record.processor, &batch_logs[i]);
+		memcpy(buffer + (i * sizeof(record)), &record, sizeof(record));
+	}
+
+	return 0;
+}
+
+static bool cper_is_processor_record(struct ras_log_info *log)
+{
+	return log->event == RAS_LOG_EVENT_CPU_RAS ||
+		(log->event == RAS_LOG_EVENT_BOOT &&
+		 !memcmp(log->body.boot_err_ctx.section_type,
+			 processor_section_type.b, CPER_UUID_MAX_SIZE));
+}
+
+static int cper_generate_processor_records(struct ras_core_context *ras_core,
+		struct ras_log_info *batch_logs, u32 nr_batch_logs,
+		u8 *buffer, u32 buf_len, u32 *real_data_len)
+{
+	u32 record_size = 0;
+	u32 i;
+	int ret;
+
+	if (batch_logs[0].event == RAS_LOG_EVENT_CPU_RAS) {
+		if (nr_batch_logs > U32_MAX / sizeof(struct ras_cper_processor_record))
+			return -EOVERFLOW;
+		record_size = sizeof(struct ras_cper_processor_record) * nr_batch_logs;
+		if (record_size > buf_len)
+			return -ENOMEM;
+
+		ret = cper_generate_runtime_processor_records(ras_core, buffer,
+				batch_logs, nr_batch_logs);
+		if (ret)
+			return ret;
+		*real_data_len = record_size;
+		return 0;
+	}
+
+	for (i = 0; i < nr_batch_logs; i++) {
+		const struct ras_boot_err_ctx *ctx = &batch_logs[i].body.boot_err_ctx;
+		u16 data_size;
+		u32 size;
+
+		if (batch_logs[i].event != RAS_LOG_EVENT_BOOT ||
+		    !cper_is_processor_record(&batch_logs[i]))
+			return -EINVAL;
+
+		data_size = min_t(u16, ctx->reg_arr_size,
+				  sizeof(struct cper_processor_context) -
+				  offsetof(struct cper_processor_context, reg_dump));
+		size = RAS_HDR_LEN + RAS_SEC_DESC_LEN +
+			offsetof(struct cper_section_processor, context.reg_dump) +
+			data_size;
+		if (record_size > U32_MAX - size)
+			return -EOVERFLOW;
+		record_size += size;
+	}
+	if (record_size > buf_len)
+		return -ENOMEM;
+
+	ret = cper_generate_boot_processor_records(ras_core, buffer,
+			batch_logs, nr_batch_logs);
+	if (ret < 0)
+		return ret;
+	*real_data_len = ret;
+
+	return 0;
+}
+
 static enum ras_log_event cper_mce_parse_err_type(struct ras_core_context *ras_core,
 						  struct aca_bank_reg *bank)
 {
@@ -327,6 +536,9 @@ int ras_cper_generate_batch_cper(struct ras_core_context *ras_core,
 		return -EINVAL;
 
 	*real_data_len = 0;
+	if (cper_is_processor_record(&batch_logs[0]))
+		return cper_generate_processor_records(ras_core, batch_logs,
+			nr_batch_logs, buf, buf_len, real_data_len);
 
 	event = batch_logs[0].event;
 	if (event == RAS_LOG_EVENT_MCE) {
