@@ -202,7 +202,9 @@ void bh_end_write(struct bio *bio)
 	struct buffer_head *bh;
 	bool success = bio_endio_bh(bio, &bh);
 
-	if (!success) {
+	if (success) {
+		clear_buffer_write_io_error(bh);
+	} else {
 		buffer_io_error(bh, ", lost sync page write");
 		mark_buffer_write_io_error(bh);
 	}
@@ -404,7 +406,9 @@ void bh_end_async_write(struct bio *bio)
 	BUG_ON(!buffer_async_write(bh));
 
 	folio = bh->b_folio;
-	if (!success) {
+	if (success) {
+		clear_buffer_write_io_error(bh);
+	} else {
 		buffer_io_error(bh, ", lost async page write");
 		mark_buffer_write_io_error(bh);
 	}
@@ -1085,7 +1089,6 @@ static void __bh_submit(struct buffer_head *bh, blk_opf_t opf,
 		enum rw_hint write_hint, struct writeback_control *wbc,
 		bio_end_io_t end_bio)
 {
-	const enum req_op op = opf & REQ_OP_MASK;
 	struct bio *bio;
 
 	BUG_ON(!buffer_locked(bh));
@@ -1093,11 +1096,7 @@ static void __bh_submit(struct buffer_head *bh, blk_opf_t opf,
 	BUG_ON(buffer_delay(bh));
 	BUG_ON(buffer_unwritten(bh));
 
-	/*
-	 * Only clear out a write error when rewriting
-	 */
-	if (test_set_buffer_req(bh) && (op == REQ_OP_WRITE))
-		clear_buffer_write_io_error(bh);
+	set_buffer_req(bh);
 
 	if (buffer_meta(bh))
 		opf |= REQ_META;

@@ -36,7 +36,9 @@ static void journal_end_buffer_io_sync(struct bio *bio)
 	struct buffer_head *orig_bh = bh->b_private;
 
 	BUFFER_TRACE(bh, "");
-	if (!success)
+	if (success)
+		clear_buffer_write_io_error(bh);
+	else
 		mark_buffer_write_io_error(bh);
 	if (orig_bh) {
 		clear_and_wake_up_bit(BH_Shadow, &orig_bh->b_state);
