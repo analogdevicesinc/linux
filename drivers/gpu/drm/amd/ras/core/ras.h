@@ -388,6 +388,7 @@ struct ras_core_config {
 struct ras_core_context {
 	void *dev;
 	struct ras_core_config *config;
+	bool bert_platform_owner;
 	u32 socket_num_per_node;
 	u32 aid_num_per_socket;
 	u32 xcd_num_per_aid;
