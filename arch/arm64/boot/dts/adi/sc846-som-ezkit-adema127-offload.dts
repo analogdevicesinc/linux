@@ -1,0 +1,216 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/*
+ * ADI SC846 SOM EZ-Kit + ADEMA127 poly-phase energy ADC daughter card,
+ * SPI Offload variant.
+ *
+ * Same physical wiring as sc846-som-ezkit-adema127.dts but binds the
+ * SPI0 controller and the ADEMA127 driver into the SPI Offload
+ * framework path instead of the per-DREADY software triggered buffer.
+ *
+ * Key deltas from the software-trigger variant:
+ *   * &spi0 uses "offload-tx"/"offload-rx" dma-names and gains a
+ *     trigger-sources phandle to the TRU trigger provider below.
+ *   * cs-gpios is dropped: the controller drives hardware SEL1
+ *     (SPI_SLVSEL/ASSEL) for both regmap short-frames and triggered
+ *     offload transactions; PC_12 is muxed to SPI0_SEL1.
+ *   * dready-gpios stays as the software fallback but is unused once
+ *     spi_offload_get() succeeds.
+ *
+ * DREADY -> TRU trigger chain:
+ *
+ *   ADEMA DREADY (falling on new sample)
+ *     -> rework wire to PB_07 (TM0_TMR0 primary function; the stock
+ *        daughter-card pin PC_13 has no TIMER alt function)
+ *     -> gptimer0 in EXTCLK-gen mode, PER=1, PULSE_HI=0
+ *     -> TIMER0_TMR00_GEN TRU master routed to the SPI0_TXDMA/RXDMA
+ *        receivers, gating one DMA work unit per trigger (TWAIT)
+ *     -> SPI0 clocks one long-frame per trigger with hardware CS.
+ *
+ * TRU IDs per SC84x HRM ch.11 tables, see dt-bindings/soc/adi/sc5xx-tru.h.
+ */
+
+/dts-v1/;
+
+#include "sc846-som-ezkit.dts"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/adi-adsp.h>
+#include <dt-bindings/soc/adi/sc5xx-tru.h>
+#include <dt-bindings/clock/adi-sc5xx-clock.h>
+
+/ {
+	model = "ADI SC846 SOM EZ-Kit + ADEMA127 (SPI Offload)";
+	compatible = "adi,sc846-som-ezkit-adema127-offload",
+		     "adi,sc846-som-ezkit",
+		     "adi,sc59x-64", "adi,sc84x";
+
+	adema127_xtal: adema127-xtal {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <16384000>;
+		clock-output-names = "adema127-xtal";
+	};
+
+	/*
+	 * SPI Offload trigger provider. Routes the TRU master corresponding
+	 * to the "DREADY-derived edge" source into the SPI0 TX and RX DMA
+	 * receivers. On each DREADY falling edge both DMA channels advance
+	 * one work unit and the SPI peripheral runs one triggered transaction.
+	 *
+	 * IDs verified against SC84x HRM Chapter 11:
+	 *   master 173 = TIMER0_TMR00_GEN
+	 *   slave  149 = SPI0_TXDMA
+	 *   slave  150 = SPI0_RXDMA
+	 * The upstream max IDs on SC846 are 200 (master) / 237 (slave),
+	 * see the &tru override in sc846-som.dts.
+	 */
+	adema_dready_trigger: dready-trigger {
+		compatible = "adi,sc59x-spi-offload-trigger";
+		#trigger-source-cells = <0>;
+
+		adi,tru = <&tru>;
+		adi,tru-master-id = <ADI_TRU_MST_TIMER0_TMR(0)>;
+		adi,tru-slave-ids = <ADI_TRU_RCV_SPI0_TXDMA ADI_TRU_RCV_SPI0_RXDMA>;
+	};
+};
+
+&pinctrl0 {
+	/*
+	 * Offload variant: PC_12 is muxed to SPI0_SEL1 ALT0 so the SPI
+	 * peripheral's ATSEL logic can drive the /CS line directly. The
+	 * patched adi-spi3 driver keeps SPI_CTL_ASSEL set for slaves that
+	 * (a) live on an offload-capable controller and (b) have no
+	 * cs-gpios entry -- covering both the regmap short-frame reads on
+	 * the non-offload transfer path AND the hardware-triggered offload
+	 * transactions with a single pinmux state.
+	 *
+	 * PC_13 (SPI0_RDY / DREADY) stays as GPIO -- the offload path
+	 * routes DREADY through the TRU trigger provider, not the pinmux.
+	 */
+	/*
+	 * PB_07 (TM0_TMR0) is bundled into the SPI0 pin group so that a
+	 * single pinctrl-0 on &spi0 activates both the SPI wiring and the
+	 * DREADY -> TIMER edge input. The gptimer driver initialises very
+	 * early via TIMER_OF_DECLARE (before pinctrl is up), so it can't
+	 * own its own pinctrl-0 phandle; piggybacking on the SPI consumer
+	 * is the standard pattern for this pinctrl driver.
+	 */
+	spi0_adema127_offload: spi0_adema127_offload_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C',  9, ADI_ADSP_PINFUNC_ALT0)>, /* SPI0_CLK        */
+				 <ADI_ADSP_PINMUX('C', 10, ADI_ADSP_PINFUNC_ALT0)>, /* SPI0_CITO (MISO) */
+				 <ADI_ADSP_PINMUX('C', 11, ADI_ADSP_PINFUNC_ALT0)>, /* SPI0_COTI (MOSI) */
+				 <ADI_ADSP_PINMUX('C', 12, ADI_ADSP_PINFUNC_ALT0)>, /* SPI0_SEL1 (/CS) */
+				 <ADI_ADSP_PINMUX('B',  7, ADI_ADSP_PINFUNC_ALT0)>; /* TM0_TMR0 (DREADY, rework wire) */
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_adema127_offload>;
+
+	/*
+	 * Only "offload-tx"/"offload-rx" -- SPI0 has one physical TX and one
+	 * physical RX DMA channel, and the DMA engine won't hand the same
+	 * channel to two consumers. Keeping the base sc59x-64.dtsi "tx"/"rx"
+	 * mappings would let adi_spi_probe() claim spi_cluster 22/23 first
+	 * and cause the offload framework's
+	 * adi_spi_offload_rx_stream_request_dma_chan() to fail with -ENODEV.
+	 *
+	 * The non-offload transfer path stays PIO -- adi_spi_can_dma() returns
+	 * false when controller->dma_tx/rx are NULL, so regmap short-frames
+	 * go through adi_spi_pio_xfer(). Hardware CS (SPI0_SEL1 via manual
+	 * SPI_SLVSEL programming) is unaffected.
+	 */
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+	dmas = <&spi_cluster 22>, <&spi_cluster 23>;
+	dma-names = "offload-tx", "offload-rx";
+
+	/* Trigger source is the TRU-backed provider defined above. */
+	trigger-sources = <&adema_dready_trigger>;
+
+	/*
+	 * No cs-gpios: the patched adi-spi3 driver enables SPI_CTL_ASSEL
+	 * for slaves on offload-capable controllers that lack cs-gpios
+	 * (see adi_spi_setup() in drivers/spi/spi-adi.c), and programs
+	 * SPI_SLVSEL per message from the slave's chip_select so ATSEL
+	 * drives the correct SSELn line for both regmap short-frames and
+	 * offload-triggered transactions.
+	 */
+
+	adema127: adc@1 {
+		compatible = "adi,adema127";
+		/*
+		 * reg = <1> selects hardware SEL1. adi_spi_get_offload()
+		 * requires cs in 1..7 (SPISSEL1..SPISSEL7) and programs
+		 * SPI_SLVSEL from this value; the non-offload path uses
+		 * the same value via spi_get_chipselect() in
+		 * adi_spi_prepare_message(). Matches PC_12 muxed to
+		 * SPI0_SEL1 ALT0 in pinctrl-0.
+		 */
+		reg = <1>;
+
+		/* Mode 3, max SCLK 22 MHz per the ADEMA127 datasheet. */
+		spi-max-frequency = <5000000>;
+		spi-cpol;
+		spi-cpha;
+
+		/*
+		 * Default RX frames per completion interrupt when userspace
+		 * leaves the IIO buffer watermark untouched (a watermark >= 2
+		 * always takes precedence). 128 at 250 SPS ~= 2 IRQ/s.
+		 */
+		adi,offload-frames-per-interrupt = <128>;
+
+		/* Placeholder /RESET (same reason as software-trigger variant). */
+		reset-gpios = <&gpc 2 GPIO_ACTIVE_LOW>;
+
+		/*
+		 * DREADY interrupt retained for the software fallback path but
+		 * NOT USED at runtime: once devm_spi_offload_get() succeeds the
+		 * driver skips adema_request_dready() entirely (see
+		 * drivers/iio/adc/adema127.c around adema_setup_offload()).
+		 * The TRU takes over as the DREADY consumer via the trigger
+		 * provider above.
+		 */
+		dready-gpios = <&gpc 13 GPIO_ACTIVE_LOW>;
+
+		clocks = <&adema127_xtal>;
+		clock-names = "xtal";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@0 { reg = <0>; adi,input-gain = <1>; };
+		channel@1 { reg = <1>; adi,input-gain = <1>; };
+		channel@2 { reg = <2>; adi,input-gain = <1>; };
+	};
+};
+
+/*
+ * Repurpose gptimer0 as the DREADY -> TRU edge counter.
+ *
+ * The base sc59x-64.dtsi declares gptimer0 as adi,is-clocksource, but
+ * on this build the ARM arch timer already provides both clocksource
+ * and sched_clock (dmesg: "clocksource: arch_sys_counter ..." and
+ * "sched_clock: 56 bits at 31MHz"), so dropping the ADI clocksource
+ * role here has no functional impact -- the kernel keeps its 31 MHz
+ * arch-timer clocksource.
+ *
+ * In EXTCLK-gen mode with PER=1 and PULSE_HI=0, the timer counts
+ * falling edges on TM0_TMR0 (PB_07, muxed via the spi0 pin group),
+ * and fires TIMER0_TMR00_GEN into the TRU on every edge. Combined
+ * with the trigger provider node above, that hands one DMA work unit
+ * to SPI0 per DREADY -- the whole point of the offload path.
+ */
+&gptimer0 {
+	/delete-property/ adi,is-clocksource;
+	/delete-property/ adi,reset-timer;
+	adi,mode-extclk-gen;
+	adi,extclk-active-low;
+};
