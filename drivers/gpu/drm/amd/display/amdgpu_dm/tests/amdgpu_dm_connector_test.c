@@ -5665,6 +5665,26 @@ static void dm_test_add_fs_modes_out_of_range(struct kunit *test)
 }
 
 /**
+ * dm_test_add_fs_modes_skips_illegal - Test illegal derived timings are dropped
+ * @test: The KUnit test context
+ *
+ * A reference vtotal of 1133 gives a true refresh of ~59.58 that rounds up to
+ * 60, so the 60000 rate clears the refresh check yet yields a negative vtotal
+ * delta. The resulting timing is illegal, so add_fs_modes() skips it and
+ * returns 0.
+ */
+static void dm_test_add_fs_modes_skips_illegal(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector = dm_test_fs_setup(test);
+
+	aconnector->freesync_vid_base.vtotal = 1133;
+	aconnector->min_vfreq = 59;
+	aconnector->max_vfreq = 60;
+
+	KUNIT_EXPECT_EQ(test, (int)add_fs_modes(aconnector), 0);
+}
+
+/**
  * dm_test_add_freesync_modes_null_edid_noop - Test NULL EDID adds no modes
  * @test: The KUnit test context
  *
@@ -8270,6 +8290,7 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_add_fs_modes_no_preferred_mode),
 	KUNIT_CASE(dm_test_add_fs_modes_generates),
 	KUNIT_CASE(dm_test_add_fs_modes_out_of_range),
+	KUNIT_CASE(dm_test_add_fs_modes_skips_illegal),
 	/* amdgpu_dm_connector_add_freesync_modes */
 	KUNIT_CASE(dm_test_add_freesync_modes_null_edid_noop),
 	/* amdgpu_dm_i2c_func */
