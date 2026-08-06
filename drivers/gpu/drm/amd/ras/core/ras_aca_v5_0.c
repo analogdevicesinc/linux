@@ -174,6 +174,11 @@ static int aca_parse_umc_bank(struct ras_core_context *ras_core,
 
 	ext_error_code = ACA_V5_REG_STATUS_ERRORCODEEXT(status);
 	misc0_errcnt = ACA_V5_REG_MISC0_ERRCNT(bank->regs[ACA_REG_IDX__MISC0]);
+	if (bank->ecc_type == RAS_ERR_TYPE__MCE &&
+	    ACA_V5_REG_STATUS_DEFERRED(status)) {
+		err->de_count = 1;
+		return 0;
+	}
 
 	if (aca_check_umc_de(ras_core, status))
 		err->de_count = misc0_errcnt ? misc0_errcnt : 1;
@@ -181,6 +186,18 @@ static int aca_parse_umc_bank(struct ras_core_context *ras_core,
 		err->ue_count = ext_error_code ? 1 : misc0_errcnt;
 	else if (aca_check_umc_ce(ras_core, status))
 		err->ce_count = ext_error_code ? 1 : misc0_errcnt;
+
+	if (bank->ecc_type != RAS_ERR_TYPE__MCE || err->de_count ||
+	    err->ue_count || err->ce_count)
+		return 0;
+
+	if (ACA_V5_REG_STATUS_DEFERRED(status))
+		err->de_count = 1;
+	else if (ACA_V5_REG_STATUS_UC(status) || ACA_V5_REG_STATUS_PCC(status) ||
+		 ACA_V5_REG_STATUS_TCC(status))
+		err->ue_count = 1;
+	else if (ACA_V5_REG_STATUS_CECC(status) || ACA_V5_REG_STATUS_UECC(status))
+		err->ce_count = 1;
 
 	return 0;
 }
