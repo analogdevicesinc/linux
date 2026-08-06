@@ -5602,6 +5602,68 @@ static void dm_test_add_fs_modes_no_preferred_mode(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, (int)add_fs_modes(aconnector), 0);
 }
 
+/*
+ * Build a DisplayPort connector whose highest-refresh mode is a fixed
+ * 1920x1080@60 timing. A non-zero freesync_vid_base.clock makes
+ * amdgpu_dm_get_highest_refresh_rate_mode() return that timing directly,
+ * giving the test full control of the reference mode.
+ */
+static struct amdgpu_dm_connector *dm_test_fs_setup(struct kunit *test)
+{
+	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct amdgpu_dm_connector *aconnector =
+		dm_test_add_connector(test, drm, DRM_MODE_CONNECTOR_DisplayPort);
+	struct drm_display_mode *m = &aconnector->freesync_vid_base;
+
+	m->clock = 148500;
+	m->hdisplay = 1920;
+	m->htotal = 2200;
+	m->vdisplay = 1080;
+	m->vsync_start = 1084;
+	m->vsync_end = 1089;
+	m->vtotal = 1125;
+
+	return aconnector;
+}
+
+/**
+ * dm_test_add_fs_modes_generates - Test FreeSync video modes are added
+ * @test: The KUnit test context
+ *
+ * With min/max vfreq spanning the standard rates, add_fs_modes() derives one
+ * mode per legal rate at or below the reference refresh. A second call finds
+ * every generated mode already present, so is_duplicate_mode() rejects them
+ * all and no new modes are added.
+ */
+static void dm_test_add_fs_modes_generates(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector = dm_test_fs_setup(test);
+
+	aconnector->min_vfreq = 20;
+	aconnector->max_vfreq = 60;
+
+	KUNIT_EXPECT_EQ(test, (int)add_fs_modes(aconnector), 8);
+	KUNIT_EXPECT_EQ(test, (int)add_fs_modes(aconnector), 0);
+}
+
+/**
+ * dm_test_add_fs_modes_out_of_range - Test no modes when rates fall outside range
+ * @test: The KUnit test context
+ *
+ * A vfreq window above the reference refresh leaves every standard rate either
+ * higher than the mode or outside [min_vfreq, max_vfreq], so add_fs_modes()
+ * skips them all and returns 0.
+ */
+static void dm_test_add_fs_modes_out_of_range(struct kunit *test)
+{
+	struct amdgpu_dm_connector *aconnector = dm_test_fs_setup(test);
+
+	aconnector->min_vfreq = 100;
+	aconnector->max_vfreq = 120;
+
+	KUNIT_EXPECT_EQ(test, (int)add_fs_modes(aconnector), 0);
+}
+
 /**
  * dm_test_add_freesync_modes_null_edid_noop - Test NULL EDID adds no modes
  * @test: The KUnit test context
@@ -8206,6 +8268,8 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_ddc_get_modes_null_edid),
 	/* add_fs_modes */
 	KUNIT_CASE(dm_test_add_fs_modes_no_preferred_mode),
+	KUNIT_CASE(dm_test_add_fs_modes_generates),
+	KUNIT_CASE(dm_test_add_fs_modes_out_of_range),
 	/* amdgpu_dm_connector_add_freesync_modes */
 	KUNIT_CASE(dm_test_add_freesync_modes_null_edid_noop),
 	/* amdgpu_dm_i2c_func */
