@@ -705,49 +705,65 @@
 		pint0: pint@31005000 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005000 0xFF>;
-			interrupts = <GIC_SPI 65 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 		};
 
 		pint1: pint@31005100 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005100 0xFF>;
-			interrupts = <GIC_SPI 66 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 218 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 		};
 
 		pint2: pint@31005200 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005200 0xFF>;
-			interrupts = <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 219 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 		};
 
 		pint3: pint@31005300 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005300 0xFF>;
-			interrupts = <GIC_SPI 68 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 		};
 
 		pint4: pint@31005400 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005400 0xFF>;
-			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 		};
 
 		pint5: pint@31005500 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005500 0xFF>;
-			interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 		};
 
 		pint6: pint@31005600 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005600 0xFF>;
-			interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 		};
 
 		pint7: pint@31005700 {
 			compatible = "adi,adsp-pint";
 			reg = <0x31005700 0xFF>;
-			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+			interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
 		};
 
 		gpa: gport@31004000 {
