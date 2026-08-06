@@ -139,7 +139,8 @@ struct ras_umc_ip_func {
 		uint32_t nps);
 	uint64_t (*nps_pa_to_row_pa)(struct ras_core_context *ras_core,
 		uint64_t pa, enum umc_memory_partition_mode nps, bool zero_pfn_ok);
-	uint32_t (*get_die_id)(uint64_t mca_addr, uint64_t pa);
+	uint32_t (*get_die_id)(struct ras_core_context *ras_core,
+		uint64_t mca_addr, uint64_t pa);
 };
 
 struct eeprom_store_record {
@@ -168,6 +169,10 @@ struct ras_umc {
 	u32 umc_ip_version;
 	u32 umc_vram_type;
 	u32 num_umc;
+	/* this node's base in the hive PA space: physical_node_id * lfb_size */
+	u64 pa_base;
+	/* local frame buffer size */
+	u64 lfb_size;
 	const struct ras_umc_ip_func *ip_func;
 	struct radix_tree_root root;
 	struct mutex  tree_lock;

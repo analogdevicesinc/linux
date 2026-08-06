@@ -280,6 +280,10 @@ struct ras_psp_config {
 struct ras_umc_config {
 	uint32_t umc_vram_type;
 	uint32_t num_umc;
+	/* this node's base in the hive PA space: physical_node_id * lfb_size */
+	uint64_t pa_base;
+	/* local frame buffer size */
+	uint64_t lfb_size;
 };
 
 struct ras_eeprom_config {

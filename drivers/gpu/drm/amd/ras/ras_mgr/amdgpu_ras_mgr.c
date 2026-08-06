@@ -285,6 +285,8 @@ static int amdgpu_ras_mgr_init_umc_config(struct amdgpu_device *adev,
 
 	umc_cfg->umc_vram_type = adev->gmc.vram_type;
 	umc_cfg->num_umc = adev->gmc.num_umc;
+	umc_cfg->lfb_size = adev->gmc.xgmi.node_segment_size;
+	umc_cfg->pa_base = amdgpu_xgmi_get_relative_phy_addr(adev, 0x0ULL);
 
 	return 0;
 }

@@ -411,8 +411,9 @@ static int ras_umc_eeprom_rec2nps_addr_legacy(struct ras_core_context *ras_core,
 	 * only ever existed on NPS1 systems)
 	 */
 	if (ras_core->ras_umc.ip_func && ras_core->ras_umc.ip_func->get_die_id) {
-		die_id = ras_core->ras_umc.ip_func->get_die_id(record->address,
-			RAS_PFN_TO_ADDR(EEPROM_RECORD_UMC_ADDR_PFN(record)));
+		die_id = ras_core->ras_umc.ip_func->get_die_id(ras_core,
+				record->address,
+				RAS_PFN_TO_ADDR(EEPROM_RECORD_UMC_ADDR_PFN(record)));
 	} else {
 		RAS_DEV_ERR(ras_core->dev, "get_die_id is not supported!\n");
 		return -EOPNOTSUPP;
@@ -855,6 +856,8 @@ int ras_umc_hw_init(struct ras_core_context *ras_core)
 			ras_umc->umc_vram_type);
 		return -ENODATA;
 	}
+	ras_umc->pa_base = ras_core->config->umc_cfg.pa_base;
+	ras_umc->lfb_size = ras_core->config->umc_cfg.lfb_size;
 
 	ras_umc->umc_ip_version = ras_core->config->umc_ip_version;
 	ras_umc->ip_func = ras_umc_get_ip_func(ras_core, ras_umc->umc_ip_version);

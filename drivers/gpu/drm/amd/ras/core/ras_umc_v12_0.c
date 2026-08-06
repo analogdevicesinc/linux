@@ -243,6 +243,8 @@ static int umc_v12_0_ma2pa(struct ras_core_context *ras_core,
 	uint32_t socket_id = addr_in->socket_id;
 	uint32_t channel_index;
 	uint64_t err_addr = addr_in->err_addr;
+	uint64_t pa_base = ras_core->ras_umc.pa_base;
+	uint64_t lfb_size = ras_core->ras_umc.lfb_size;
 
 	if (node_inst != UMC_INV_AID_NODE) {
 		if (ch_inst >= UMC_V12_0_CHANNEL_INSTANCE_NUM ||
@@ -318,11 +320,11 @@ static int umc_v12_0_ma2pa(struct ras_core_context *ras_core,
 		OFFSET_IN_256B_BLOCK(na);
 
 	/* calc channel hash based on absolute address */
-	soc_pa += socket_id * SOCKET_LFB_SIZE;
+	soc_pa += pa_base;
 	/* the umc channel bits are not original values, they are hashed */
 	UMC_V12_0_SET_CHANNEL_HASH(channel_index, soc_pa);
 	/* restore pa */
-	soc_pa -= socket_id * SOCKET_LFB_SIZE;
+	soc_pa -= pa_base;
 
 	/* get some channel bits from na_nps directly and
 	 * add nps section offset
@@ -330,16 +332,16 @@ static int umc_v12_0_ma2pa(struct ras_core_context *ras_core,
 	if (nps == UMC_MEMORY_PARTITION_MODE_NPS2) {
 		soc_pa &= ~(0x1ULL << UMC_V12_0_PA_CH5_BIT);
 		soc_pa |= ((na_nps & 0x100) << 5);
-		soc_pa += (node_inst >> 1) * (SOCKET_LFB_SIZE >> 1);
+		soc_pa += (node_inst >> 1) * (lfb_size >> 1);
 	} else if (nps == UMC_MEMORY_PARTITION_MODE_NPS4) {
 		soc_pa &= ~(0x3ULL << UMC_V12_0_PA_CH4_BIT);
 		soc_pa |= ((na_nps & 0x300) << 4);
-		soc_pa += node_inst * (SOCKET_LFB_SIZE >> 2);
+		soc_pa += node_inst * (lfb_size >> 2);
 	} else if (nps == UMC_MEMORY_PARTITION_MODE_NPS8) {
 		soc_pa &= ~(0x7ULL << UMC_V12_0_PA_CH4_BIT);
 		soc_pa |= ((na_nps & 0x700) << 4);
-		soc_pa += node_inst * (SOCKET_LFB_SIZE >> 2) +
-			(channel_index >> 4) * (SOCKET_LFB_SIZE >> 3);
+		soc_pa += node_inst * (lfb_size >> 2) +
+			(channel_index >> 4) * (lfb_size >> 3);
 	}
 
 	addr_out->pa = soc_pa;
@@ -496,9 +498,13 @@ static void umc_v12_0_mca_ipid_parse(struct ras_core_context *ras_core, uint64_t
  * umc number: 16
  * hbm type: UMC_VRAM_TYPE_HBM
  */
-static uint32_t umc_v12_0_get_die_id(uint64_t mca_addr, uint64_t pa)
+static uint32_t umc_v12_0_get_die_id(struct ras_core_context *ras_core,
+		uint64_t mca_addr, uint64_t pa)
 {
 	uint32_t die = 0;
+
+	/* use absolute PA */
+	pa += ras_core->ras_umc.pa_base;
 
 	/* we only calculate die id for nps1 mode(save_nps == ch_idx_v2 == 0) */
 	die += (((pa >> 12) & 0x1ULL) ^
