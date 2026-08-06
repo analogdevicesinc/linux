@@ -1792,6 +1792,7 @@ static int tps6598x_probe(struct i2c_client *client)
 	const struct tipd_data *data;
 	struct tps6598x *tps;
 	struct fwnode_handle *fwnode;
+	bool patch_loaded = false;
 	u32 status;
 	u32 vid = 0;
 	int ret;
@@ -1847,6 +1848,7 @@ static int tps6598x_probe(struct i2c_client *client)
 		return ret;
 
 	if (ret == TPS_MODE_PTCH) {
+		patch_loaded = true;
 		ret = tps->data->init(tps);
 		if (ret)
 			return ret;
@@ -1937,7 +1939,8 @@ err_clear_mask:
 	tps6598x_write64(tps, TPS_REG_INT_MASK1, 0);
 err_reset_controller:
 	/* Reset PD controller to remove any applied patch */
-	tps->data->reset(tps);
+	if (patch_loaded)
+		tps->data->reset(tps);
 
 	return ret;
 }
