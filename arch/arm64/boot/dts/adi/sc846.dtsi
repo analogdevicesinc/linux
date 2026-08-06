@@ -32,14 +32,12 @@
 		timer6 = &gptimer6;
 		timer7 = &gptimer7;
 		ethernet0 = &emac0;
-		ethernet1 = &emac1;
 		spi0   = &spi0;
 		spi1   = &spi1;
 		spi2   = &spi2;
 		spi5   = &spi5;
 		can0 = &can0;
 		can1 = &can1;
-		rtc0 = &rtc0;
 		i2s4 = &i2s4;
 		mmc0 = &mmc0;
 		sru0 = &sru_ctrl_dai0;
@@ -313,14 +311,6 @@
 			status = "okay";
 		};
 
-		rtc0: rtc@310C8000 {
-			compatible = "adi,rtc2";
-			reg = <0x310C8000 0x100>;
-			/*interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;*/
-			calibration = /bits/ 8 <0>;
-			status = "disabled";
-		};
-
 		uart0: uart@31003000 {
 			compatible = "adi,uart4";
 			reg = <0x31003000 0x40>;
@@ -550,21 +540,6 @@
 			status = "disabled";
 		};
 
-		ospi: spi@31027000 {
-			compatible = "adi,sc59x-ospi";
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <0x31027000 0x1000>,
-				  <0x60000000 0x20000000>;
-			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&clk ADSP_SC846_CLK_XSPI0>;
-			cdns,is-decoded-cs;
-			cdns,fifo-depth = <128>;
-			cdns,fifo-width = <4>;
-			cdns,trigger-address = <0x00000000>;
-			status = "disabled";
-		};
-
 		emac0: ethernet@31040000 {
 			compatible = "adi,dwmac", "snps,dwmac-4.20a", "snps,dwmac-5.20a";
 			reg = <0x31040000 0x2000>;
@@ -584,21 +559,6 @@
 			snps,perfect-filter-entries = <32>;
 			snps,tso = <1>;
 			clocks = <&clk ADSP_SC846_CLK_GIGE>;
-			clock-names = "stmmaceth";
-			adi,pads-syscon = <&pads_syscon>;
-			status = "disabled";
-		};
-
-		emac1: ethernet@31042000 {
-			compatible = "adi,dwmac", "snps,dwmac-4.20a", "snps,dwmac-5.20a";
-			reg = <0x31042000 0x2000>;
-			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "macirq";
-			snps,fixed-burst;
-			snps,pbl = <1>;
-			snps,force_thresh_dma_mode;
-			clocks = <&emac1_clkin>;
 			clock-names = "stmmaceth";
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
@@ -668,13 +628,6 @@
 			reg = <0x310CA000 0x224>;
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
-		};
-
-		emac1_clkin: emac1-clkin@0 {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <50000000>;
-			clock-output-names = "emac1_clkin";
 		};
 
 		mmc0: mmc@31152000 {
