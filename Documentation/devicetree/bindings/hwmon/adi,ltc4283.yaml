@@ -10,22 +10,47 @@ maintainers:
   - Nuno Sá <nuno.sa@analog.com>
 
 description: |
-  The LTC4283 negative voltage hot swap controller drives an external N-channel
-  MOSFET to allow a board to be safely inserted and removed from a live
-  backplane.
+  The LTC4283 and LTC4284 are negative voltage hot swap controllers that drive
+  external N-channel MOSFETs to allow a board to be safely inserted and removed
+  from a live backplane.
+
+  The LTC4284 features dual-gate drivers with four operating modes (single
+  driver, parallel, high stress staged start, and low stress staged start)
+  configured via the hardware MODE pin. The MODE pin must be connected to the
+  appropriate voltage level (VEE, VIN, INTVCC, or left open) and cannot be
+  controlled via software or GPIO.
 
   https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4283.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ltc4284.pdf
 
 properties:
   compatible:
     enum:
       - adi,ltc4283
+      - adi,ltc4284
 
   reg:
     maxItems: 1
 
   adi,rsense-nano-ohms:
-    description: Value of the sense resistor.
+    description:
+      Value of the sense resistor. For LTC4283, this is the only sense resistor.
+      For LTC4284, this is optional and represents the sense resistor value for
+      current measurements via the ADC+/ADC- pins (channel 0), which depends on
+      the hardware connection (can be wired to SENSE1, SENSE2, or an average via
+      resistive divider).
+
+  adi,rsense1-nano-ohms:
+    description:
+      Value of the SENSE1 current sense resistor. Only applicable to LTC4284.
+      This resistor is connected between SENSE1+ and SENSE1- pins and is used
+      for channel 1 current measurements.
+
+  adi,rsense2-nano-ohms:
+    description:
+      Value of the SENSE2 current sense resistor. Only applicable to LTC4284.
+      This resistor is connected between SENSE2+ and SENSE2- pins and is used
+      for channel 2 current measurements.
 
   adi,current-limit-sense-microvolt:
     description:
@@ -192,9 +217,27 @@ dependencies:
 required:
   - compatible
   - reg
-  - adi,rsense-nano-ohms
 
 allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: adi,ltc4283
+    then:
+      required:
+        - adi,rsense-nano-ohms
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: adi,ltc4284
+    then:
+      required:
+        - adi,rsense1-nano-ohms
+        - adi,rsense2-nano-ohms
+
   - if:
       properties:
         adi,pgio1-func:

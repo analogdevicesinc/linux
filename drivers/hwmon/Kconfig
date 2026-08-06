@@ -1194,13 +1194,13 @@ config SENSORS_LTC4282
 	  be called ltc4282.
 
 config SENSORS_LTC4283
-	tristate "Analog Devices LTC4283"
+	tristate "Analog Devices LTC4283 and compatibles"
 	depends on I2C
 	select REGMAP_I2C
 	select AUXILIARY_BUS
 	help
-	  If you say yes here you get support for Analog Devices LTC4283
-	  Negative Voltage Hot Swap Controller I2C interface.
+	  If you say yes here you get support for Analog Devices LTC4283 and
+	  LTC4284 Negative Voltage Hot Swap Controller I2C interface.
 
 	  This driver can also be built as a module. If so, the module will
 	  be called ltc4283.
