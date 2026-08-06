@@ -307,7 +307,7 @@
 			compatible = "adi,hadc";
 			reg = <0x31016000 0x100>;
 			interrupt-parent = <&gic>;
-			interrupts = <GIC_SPI 186 IRQ_TYPE_EDGE_RISING>;
+			interrupts = <GIC_SPI 118 IRQ_TYPE_EDGE_RISING>;
 			#iio-cells = <1>;
 			status = "okay";
 		};
