@@ -566,7 +566,14 @@
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
-			snps,mixed-burst;
+			/*
+			 * REVISIT: Workaround: mixed-burst MAC DMA can hang
+			 * the SoC fabric under sustained traffic, fixed bursts
+			 * are stable. The hang may be related to the Rev B SOM
+			 * LPDDR4 signal-margin issue (fixed in Rev C); revisit
+			 * once the root cause is confirmed.
+			 */
+			snps,fixed-burst;
 			snps,pbl = <8>;
 			snps,force_sf_dma_mode;
 			snps,perfect-filter-entries = <32>;
