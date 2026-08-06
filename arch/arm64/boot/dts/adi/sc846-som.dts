@@ -157,11 +157,11 @@
 	//bus-num = <2>;
 	status = "okay";
 
-	som_flash: is25lp02gg@0 {
-		compatible = "jedec,spi-nor", "is25lp02gg";
+	som_flash: flash@0 {
+		compatible = "jedec,spi-nor";
 		reg = <0>;
-		//spi-rx-bus-width = <4>;
-		//spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		spi-tx-bus-width = <4>;
 		spi-max-frequency = <50000000>;
 
 		partitions {
