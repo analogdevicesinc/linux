@@ -311,13 +311,16 @@ static int ras_process_add_non_umc_interrupt_req(struct ras_core_context *ras_co
 	struct ras_process *ras_proc = &ras_core->ras_proc;
 	int ret;
 
-	ret = ras_process_put_event(ras_core, req);
-	if (!ret) {
-		atomic_inc(&ras_proc->ras_interrupt_req);
-		wake_up(&ras_proc->ras_process_wq);
+	if (req) {
+		ret = ras_process_put_event(ras_core, req);
+		if (ret)
+			return ret;
 	}
 
-	return ret;
+	atomic_inc(&ras_proc->ras_interrupt_req);
+	wake_up(&ras_proc->ras_process_wq);
+
+	return 0;
 }
 
 int ras_process_add_interrupt_req(struct ras_core_context *ras_core,
