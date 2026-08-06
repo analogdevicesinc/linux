@@ -2110,7 +2110,8 @@ EXPORT_SYMBOL_GPL(uart_console_write);
 
 /**
  * uart_parse_earlycon - Parse earlycon options
- * @p:	     ptr to 2nd field (ie., just beyond '<name>,')
+ * @p:	     ptr to 2nd field (ie., just beyond '<name>,'); %NULL if
+ *	     no console options were supplied
  * @iotype:  ptr for decoded iotype (out)
  * @addr:    ptr for decoded mapbase/iobase (out)
  * @options: ptr for <options> field; %NULL if not present (out)
@@ -2130,6 +2131,9 @@ EXPORT_SYMBOL_GPL(uart_console_write);
 int uart_parse_earlycon(char *p, enum uart_iotype *iotype,
 			resource_size_t *addr, char **options)
 {
+	if (!p)
+		return -EINVAL;
+
 	if (strncmp(p, "mmio,", 5) == 0) {
 		*iotype = UPIO_MEM;
 		p += 5;
