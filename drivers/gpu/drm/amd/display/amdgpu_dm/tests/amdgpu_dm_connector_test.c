@@ -7171,6 +7171,138 @@ static void dm_test_funcs_force_reads_edid(struct kunit *test)
 	ctx->aconnector->drm_edid = NULL;
 }
 
+/* Tests for create_eml_sink() with a valid EDID */
+
+/*
+ * create_eml_sink() reads the EDID off the connector DDC and, on success,
+ * installs an emulated sink from link_srv->add_remote_sink(). A non-AUX link
+ * selects the connector i2c adapter (serving dm_test_uad_edid) and a fake
+ * add_remote_sink() returns dm_test_ces_remote_sink, so the full EDID path
+ * runs without real hardware or DC.
+ */
+static struct dc_sink *dm_test_ces_remote_sink;
+
+static struct dc_sink *
+dm_test_ces_add_remote_sink(struct dc_link *link, const uint8_t *edid,
+			    unsigned int len, struct dc_sink_init_data *init_data)
+{
+	return dm_test_ces_remote_sink;
+}
+
+static void dm_test_ces_setup(struct kunit *test, struct dm_test_edid_ctx *ctx,
+			      struct dc_sink *em_sink)
+{
+	struct amdgpu_i2c_adapter *i2c;
+	struct link_service *link_srv;
+	struct dc *dc;
+
+	i2c = kunit_kzalloc(test, sizeof(*i2c), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, i2c);
+	i2c->base.algo = &dm_test_force_edid_i2c_algo;
+	i2c->base.lock_ops = &dm_test_force_edid_lock_ops;
+	ctx->aconnector->i2c = i2c;
+
+	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
+	link_srv->add_remote_sink = dm_test_ces_add_remote_sink;
+	dc->link_srv = link_srv;
+
+	ctx->link->dc = dc;
+	ctx->link->aux_mode = false;
+	dm_test_ces_remote_sink = em_sink;
+}
+
+/**
+ * dm_test_create_eml_sink_reads_edid - Test the valid-EDID path builds a sink
+ * @test: The KUnit test context
+ *
+ * With a readable EDID and force unspecified, create_eml_sink() caches the EDID
+ * in drm_edid and installs the emulated sink while leaving dc_sink untouched.
+ */
+static void dm_test_create_eml_sink_reads_edid(struct kunit *test)
+{
+	struct dm_test_edid_ctx *ctx =
+	dm_test_edid_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	struct dc_sink *em_sink;
+
+	em_sink = kunit_kzalloc(test, sizeof(*em_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, em_sink);
+	dm_test_ces_setup(test, ctx, em_sink);
+	ctx->aconnector->base.force = DRM_FORCE_UNSPECIFIED;
+
+	create_eml_sink(ctx->aconnector);
+
+	KUNIT_EXPECT_NOT_NULL(test, ctx->aconnector->drm_edid);
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_em_sink, em_sink);
+	KUNIT_EXPECT_NULL(test, ctx->aconnector->dc_sink);
+
+	drm_edid_free(ctx->aconnector->drm_edid);
+	ctx->aconnector->drm_edid = NULL;
+}
+
+/**
+ * dm_test_create_eml_sink_force_on_em - Test force-on adopts the emulated sink
+ * @test: The KUnit test context
+ *
+ * With DRM_FORCE_ON and no local sink, create_eml_sink() adopts the emulated
+ * sink as dc_sink and retains it.
+ */
+static void dm_test_create_eml_sink_force_on_em(struct kunit *test)
+{
+	struct dm_test_edid_ctx *ctx =
+	dm_test_edid_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	struct dc_sink *em_sink;
+
+	em_sink = kunit_kzalloc(test, sizeof(*em_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, em_sink);
+	kref_init(&em_sink->refcount);
+	dm_test_ces_setup(test, ctx, em_sink);
+	ctx->link->local_sink = NULL;
+	ctx->aconnector->base.force = DRM_FORCE_ON;
+
+	create_eml_sink(ctx->aconnector);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, em_sink);
+	KUNIT_EXPECT_EQ(test, kref_read(&em_sink->refcount), 2);
+
+	drm_edid_free(ctx->aconnector->drm_edid);
+	ctx->aconnector->drm_edid = NULL;
+}
+
+/**
+ * dm_test_create_eml_sink_force_on_local - Test force-on prefers the local sink
+ * @test: The KUnit test context
+ *
+ * With DRM_FORCE_ON and a local sink present, create_eml_sink() adopts the
+ * local sink as dc_sink instead of the emulated one and retains it.
+ */
+static void dm_test_create_eml_sink_force_on_local(struct kunit *test)
+{
+	struct dm_test_edid_ctx *ctx =
+	dm_test_edid_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	struct dc_sink *em_sink;
+	struct dc_sink *local_sink;
+
+	em_sink = kunit_kzalloc(test, sizeof(*em_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, em_sink);
+	local_sink = kunit_kzalloc(test, sizeof(*local_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, local_sink);
+	kref_init(&local_sink->refcount);
+	dm_test_ces_setup(test, ctx, em_sink);
+	ctx->link->local_sink = local_sink;
+	ctx->aconnector->base.force = DRM_FORCE_ON;
+
+	create_eml_sink(ctx->aconnector);
+
+	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, local_sink);
+	KUNIT_EXPECT_EQ(test, kref_read(&local_sink->refcount), 2);
+
+	drm_edid_free(ctx->aconnector->drm_edid);
+	ctx->aconnector->drm_edid = NULL;
+}
+
 /* Tests for amdgpu_dm_connector_get_modes() */
 
 static enum dp_link_encoding dm_test_gm_enc_8b10b(const struct dc_link_settings *s)
@@ -7801,6 +7933,9 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_hdmi_cec_unset_edid_no_notifier),
 	/* create_eml_sink */
 	KUNIT_CASE(dm_test_create_eml_sink_no_edid),
+	KUNIT_CASE(dm_test_create_eml_sink_reads_edid),
+	KUNIT_CASE(dm_test_create_eml_sink_force_on_em),
+	KUNIT_CASE(dm_test_create_eml_sink_force_on_local),
 	/* handle_edid_mgmt */
 	KUNIT_CASE(dm_test_handle_edid_mgmt_dp_sets_link_caps),
 	KUNIT_CASE(dm_test_handle_edid_mgmt_non_dp_leaves_caps),
