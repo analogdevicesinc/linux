@@ -1,0 +1,124 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/*
+ * ADI SC846 SOM EZ-Kit + ADEMA127 poly-phase energy ADC daughter card.
+ *
+ * Wiring (per user):
+ *   SPI0_SEL1  -> ADEMA127 /CS
+ *   SPI0_CLK   -> ADEMA127 SCLK
+ *   SPI0_MOSI  -> ADEMA127 SDI
+ *   SPI0_MISO  -> ADEMA127 SDO
+ *   SPI0_RDY   -> ADEMA127 DREADY   (pin muxed to plain GPIO, used as edge IRQ)
+ *   (no RESET line wired -- driver skips reset-gpios)
+ *
+ * The daughter-card header is labelled "SPI2" on the EZ-Kit schematic, but the
+ * board actually routes those traces to the SC846 SPI0 controller (proven
+ * via MISO<->MOSI loopback on this pin group).
+ *
+ * XTALIN is a 16.384 MHz oscillator on the daughter card, modeled as a
+ * fixed-clock (matches the SC598 ADEMA127 setup).
+ *
+ * This variant uses the software-triggered IIO buffer path on the DREADY
+ * GPIO interrupt; see sc846-som-ezkit-adema127-offload.dts for the SPI
+ * Offload streaming variant on the same wiring.
+ */
+
+/dts-v1/;
+
+#include "sc846-som-ezkit.dts"
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/adi-adsp.h>
+#include <dt-bindings/clock/adi-sc5xx-clock.h>
+
+/ {
+	model = "ADI SC846 SOM EZ-Kit + ADEMA127";
+	compatible = "adi,sc846-som-ezkit-adema127",
+		     "adi,sc846-som-ezkit",
+		     "adi,sc59x-64", "adi,sc84x";
+
+	adema127_xtal: adema127-xtal {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <16384000>;
+		clock-output-names = "adema127-xtal";
+	};
+};
+
+&pinctrl0 {
+	/*
+	 * SPI0 signal group on Port C -- the header labelled "SPI2" on the
+	 * daughter-card schematic actually lands on SC846 SPI0:
+	 *   PC_09 = SPI0_CLK
+	 *   PC_10 = SPI0_CITO (MISO)
+	 *   PC_11 = SPI0_COTI (MOSI)
+	 *   PC_12 = /CS   -- kept in reset-default GPIO mode, framework
+	 *                    drives it via cs-gpios (see below). The adi_spi3
+	 *                    driver disables ASSEL in adi_spi_setup(), so
+	 *                    hardware SEL1 is never asserted; software GPIO
+	 *                    CS is the intended path.
+	 * SPI0_RDY (PC_13) stays in GPIO mode so gpc can raise the DREADY
+	 * edge interrupt off it.
+	 */
+	spi0_adema127: spi0_adema127_pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('C',  9, ADI_ADSP_PINFUNC_ALT0)>, /* SPI0_CLK        */
+				 <ADI_ADSP_PINMUX('C', 10, ADI_ADSP_PINFUNC_ALT0)>, /* SPI0_CITO (MISO) */
+				 <ADI_ADSP_PINMUX('C', 11, ADI_ADSP_PINFUNC_ALT0)>; /* SPI0_COTI (MOSI) */
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi0_adema127>;
+
+	/*
+	 * Software GPIO chip select on PC_12. spi-adi's adi_spi_setup() clears
+	 * SPI_CTL_ASSEL for the non-offload path and sets use_gpio_descriptors,
+	 * so CS goes through the framework's GPIO handler. reg=<1> below stays
+	 * as the framework's cs index into cs-gpios[], not a hardware SEL number.
+	 * Same pattern as spi1 in sc846-som.dts.
+	 */
+	cs-gpios = <&gpc 12 GPIO_ACTIVE_LOW>;
+
+	adema127: adc@0 {
+		compatible = "adi,adema127";
+		reg = <0>;
+
+		/* Mode 3, max SCLK 22 MHz per the ADEMA127 datasheet. */
+		spi-max-frequency = <5000000>;
+		spi-cpol;
+		spi-cpha;
+
+		/*
+		 * Placeholder reset line, physically unwired (PC_02 is
+		 * otherwise unused here). Declaring it steers probe into the
+		 * GPIO-reset path and skips the SWRST-over-SPI path, whose
+		 * early SPI writes hit the chip before its startup time has
+		 * elapsed and leave it returning CRC-bad short frames.
+		 */
+		reset-gpios = <&gpc 2 GPIO_ACTIVE_LOW>;
+
+		/*
+		 * DREADY (falling edge = new sample set) as a GPIO: claiming
+		 * PC_13 as input enables the pad's input buffer (PORT_INEN,
+		 * required for the pint to see edges) and the driver maps it
+		 * to the PINT-domain IRQ via gpiod_to_irq().
+		 */
+		dready-gpios = <&gpc 13 GPIO_ACTIVE_LOW>;
+
+		/* 16.384 MHz XTALIN from the daughter card. */
+		clocks = <&adema127_xtal>;
+		clock-names = "xtal";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		channel@0 { reg = <0>; adi,input-gain = <1>; };
+		channel@1 { reg = <1>; adi,input-gain = <1>; };
+		channel@2 { reg = <2>; adi,input-gain = <1>; };
+	};
+};
