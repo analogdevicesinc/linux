@@ -2172,7 +2172,7 @@ static int tpacpi_hotkey_driver_mask_set(const u32 mask)
 		return 0;
 	}
 
-	mutex_lock(&hotkey_mutex);
+	guard(mutex)(&hotkey_mutex);
 
 	HOTKEY_CONFIG_CRITICAL_START
 	hotkey_driver_mask = mask;
@@ -2184,8 +2184,6 @@ static int tpacpi_hotkey_driver_mask_set(const u32 mask)
 	rc = hotkey_mask_set((hotkey_acpi_mask | hotkey_driver_mask) &
 							~hotkey_source_mask);
 	hotkey_poll_setup(true);
-
-	mutex_unlock(&hotkey_mutex);
 
 	return rc;
 }
@@ -2210,15 +2208,12 @@ static void tpacpi_input_send_tabletsw(void)
 {
 	int state;
 
-	if (tp_features.hotkey_tablet &&
-	    !hotkey_get_tablet_mode(&state)) {
-		mutex_lock(&tpacpi_inputdev_send_mutex);
+	if (tp_features.hotkey_tablet && !hotkey_get_tablet_mode(&state)) {
+		guard(mutex)(&tpacpi_inputdev_send_mutex);
 
 		input_report_switch(tpacpi_inputdev,
 				    SW_TABLET_MODE, !!state);
 		input_sync(tpacpi_inputdev);
-
-		mutex_unlock(&tpacpi_inputdev_send_mutex);
 	}
 }
 
@@ -2243,7 +2238,6 @@ static int get_camera_shutter(void)
 
 static bool tpacpi_input_send_key(const u32 hkey, bool *send_acpi_ev)
 {
-	bool known_ev;
 	u32 scancode;
 
 	if (tpacpi_driver_event(hkey))
@@ -2286,11 +2280,8 @@ static bool tpacpi_input_send_key(const u32 hkey, bool *send_acpi_ev)
 		scancode = hkey;
 	}
 
-	mutex_lock(&tpacpi_inputdev_send_mutex);
-	known_ev = sparse_keymap_report_event(tpacpi_inputdev, scancode, 1, true);
-	mutex_unlock(&tpacpi_inputdev_send_mutex);
-
-	return known_ev;
+	guard(mutex)(&tpacpi_inputdev_send_mutex);
+	return sparse_keymap_report_event(tpacpi_inputdev, scancode, 1, true);
 }
 
 #ifdef CONFIG_THINKPAD_ACPI_HOTKEY_POLL
@@ -2555,7 +2546,7 @@ static void hotkey_poll_setup(const bool may_warn)
 
 	lockdep_assert_held(&hotkey_mutex);
 
-	mutex_lock(&tpacpi_inputdev->mutex);
+	guard(mutex)(&tpacpi_inputdev->mutex);
 	if (hotkey_poll_freq > 0 &&
 	    (poll_driver_mask ||
 	     (poll_user_mask && input_device_enabled(tpacpi_inputdev)))) {
@@ -2575,14 +2566,12 @@ static void hotkey_poll_setup(const bool may_warn)
 				  poll_user_mask, poll_driver_mask);
 		}
 	}
-	mutex_unlock(&tpacpi_inputdev->mutex);
 }
 
 static void hotkey_poll_setup_safe(const bool may_warn)
 {
-	mutex_lock(&hotkey_mutex);
+	guard(mutex)(&hotkey_mutex);
 	hotkey_poll_setup(may_warn);
-	mutex_unlock(&hotkey_mutex);
 }
 
 static void hotkey_poll_set_freq(unsigned int freq)
@@ -3146,13 +3135,11 @@ static void tpacpi_send_radiosw_update(void)
 
 	/* Issue rfkill input event for WLSW switch */
 	if (!(wlsw < 0)) {
-		mutex_lock(&tpacpi_inputdev_send_mutex);
+		guard(mutex)(&tpacpi_inputdev_send_mutex);
 
 		input_report_switch(tpacpi_inputdev,
 				    SW_RFKILL_ALL, (wlsw > 0));
 		input_sync(tpacpi_inputdev);
-
-		mutex_unlock(&tpacpi_inputdev_send_mutex);
 	}
 
 	/*
@@ -3164,7 +3151,7 @@ static void tpacpi_send_radiosw_update(void)
 
 static void hotkey_exit(void)
 {
-	mutex_lock(&hotkey_mutex);
+	guard(mutex)(&hotkey_mutex);
 	hotkey_poll_stop_sync();
 	dbg_printk(TPACPI_DBG_EXIT | TPACPI_DBG_HKEY,
 		   "restoring original HKEY status and mask\n");
@@ -3174,8 +3161,6 @@ static void hotkey_exit(void)
 	      hotkey_mask_set(hotkey_orig_mask)) |
 	     hotkey_status_set(false)) != 0)
 		pr_err("failed to restore hot key mask to BIOS defaults\n");
-
-	mutex_unlock(&hotkey_mutex);
 }
 
 /*
@@ -3492,11 +3477,11 @@ static int __init hotkey_init(struct ibm_init_struct *iibm)
 	if (tp_features.hotkey_mask) {
 		/* hotkey_source_mask *must* be zero for
 		 * the first hotkey_mask_get to return hotkey_orig_mask */
-		mutex_lock(&hotkey_mutex);
-		res = hotkey_mask_get();
-		mutex_unlock(&hotkey_mutex);
-		if (res)
-			return res;
+		scoped_guard(mutex, &hotkey_mutex) {
+			res = hotkey_mask_get();
+			if (res)
+				return res;
+		}
 
 		hotkey_orig_mask = hotkey_acpi_mask;
 	} else {
@@ -3596,11 +3581,11 @@ static int __init hotkey_init(struct ibm_init_struct *iibm)
 		hotkey_exit();
 		return res;
 	}
-	mutex_lock(&hotkey_mutex);
-	res = hotkey_mask_set(((hotkey_all_mask & ~hotkey_reserved_mask)
-			       | hotkey_driver_mask)
-			      & ~hotkey_source_mask);
-	mutex_unlock(&hotkey_mutex);
+	scoped_guard(mutex, &hotkey_mutex) {
+		res = hotkey_mask_set(((hotkey_all_mask & ~hotkey_reserved_mask)
+				       | hotkey_driver_mask)
+				      & ~hotkey_source_mask);
+	}
 	if (res < 0 && res != -ENXIO) {
 		hotkey_exit();
 		return res;
@@ -4049,11 +4034,11 @@ static void hotkey_resume(void)
 {
 	tpacpi_disable_brightness_delay();
 
-	mutex_lock(&hotkey_mutex);
-	if (hotkey_status_set(true) < 0 ||
-	    hotkey_mask_set(hotkey_acpi_mask) < 0)
-		pr_err("error while attempting to reset the event firmware interface\n");
-	mutex_unlock(&hotkey_mutex);
+	scoped_guard(mutex, &hotkey_mutex) {
+		if (hotkey_status_set(true) < 0 ||
+		    hotkey_mask_set(hotkey_acpi_mask) < 0)
+			pr_err("error while attempting to reset the event firmware interface\n");
+	}
 
 	tpacpi_send_radiosw_update();
 	tpacpi_input_send_tabletsw();
@@ -5119,21 +5104,16 @@ static DEFINE_MUTEX(kbdlight_mutex);
 
 static int kbdlight_set_level(int level)
 {
-	int ret = 0;
-
 	if (!hkey_handle)
 		return -ENXIO;
 
-	mutex_lock(&kbdlight_mutex);
+	guard(mutex)(&kbdlight_mutex);
 
 	if (!acpi_evalf(hkey_handle, NULL, "MLCS", "dd", level))
-		ret = -EIO;
-	else
-		kbdlight_brightness = level;
+		return -EIO;
 
-	mutex_unlock(&kbdlight_mutex);
-
-	return ret;
+	kbdlight_brightness = level;
+	return 0;
 }
 
 static int kbdlight_get_level(void)
@@ -10189,9 +10169,8 @@ static void lcdshadow_resume(void)
 	if (!lcdshadow_dev)
 		return;
 
-	mutex_lock(&lcdshadow_dev->lock);
+	guard(mutex)(&lcdshadow_dev->lock);
 	lcdshadow_set_sw_state(lcdshadow_dev, lcdshadow_dev->sw_state);
-	mutex_unlock(&lcdshadow_dev->lock);
 }
 
 static int lcdshadow_read(struct seq_file *m)
@@ -10223,9 +10202,8 @@ static int lcdshadow_write(char *buf)
 	if (state >= 2 || state < 0)
 		return -EINVAL;
 
-	mutex_lock(&lcdshadow_dev->lock);
-	res = lcdshadow_set_sw_state(lcdshadow_dev, state);
-	mutex_unlock(&lcdshadow_dev->lock);
+	scoped_guard(mutex, &lcdshadow_dev->lock)
+		res = lcdshadow_set_sw_state(lcdshadow_dev, state);
 
 	drm_privacy_screen_call_notifier_chain(lcdshadow_dev);
 
@@ -10689,26 +10667,26 @@ static const struct platform_profile_ops dytc_profile_ops = {
 static void dytc_profile_refresh(void)
 {
 	enum platform_profile_option profile;
-	int output = 0, err = 0;
+	int output = 0, err;
 	int perfmode, funcmode = 0;
 
-	mutex_lock(&dytc_mutex);
-	if (dytc_capabilities & BIT(DYTC_FC_MMC)) {
-		if (dytc_mmc_get_available)
-			err = dytc_command(DYTC_CMD_MMC_GET, &output);
-		else
-			err = dytc_cql_command(DYTC_CMD_GET, &output);
-		funcmode = DYTC_FUNCTION_MMC;
-	} else if (dytc_capabilities & BIT(DYTC_FC_PSC)) {
-		err = dytc_command(DYTC_CMD_GET, &output);
-		/* Check if we are PSC mode, or have AMT enabled */
-		funcmode = (output >> DYTC_GET_FUNCTION_BIT) & 0xF;
-	} else { /* Unknown profile mode */
-		err = -ENODEV;
+	scoped_guard(mutex, &dytc_mutex) {
+		if (dytc_capabilities & BIT(DYTC_FC_MMC)) {
+			if (dytc_mmc_get_available)
+				err = dytc_command(DYTC_CMD_MMC_GET, &output);
+			else
+				err = dytc_cql_command(DYTC_CMD_GET, &output);
+			funcmode = DYTC_FUNCTION_MMC;
+		} else if (dytc_capabilities & BIT(DYTC_FC_PSC)) {
+			err = dytc_command(DYTC_CMD_GET, &output);
+			/* Check if we are PSC mode, or have AMT enabled */
+			funcmode = (output >> DYTC_GET_FUNCTION_BIT) & 0xF;
+		} else { /* Unknown profile mode */
+			err = -ENODEV;
+		}
+		if (err)
+			return;
 	}
-	mutex_unlock(&dytc_mutex);
-	if (err)
-		return;
 
 	perfmode = (output >> DYTC_GET_MODE_BIT) & 0xF;
 	err = convert_dytc_to_profile(funcmode, perfmode, &profile);
@@ -11620,7 +11598,7 @@ static bool tpacpi_driver_event(const unsigned int hkey_event)
 		if (tp_features.kbdlight) {
 			enum led_brightness brightness;
 
-			mutex_lock(&kbdlight_mutex);
+			guard(mutex)(&kbdlight_mutex);
 
 			/*
 			 * Check the brightness actually changed, setting the brightness
@@ -11632,8 +11610,6 @@ static bool tpacpi_driver_event(const unsigned int hkey_event)
 				led_classdev_notify_brightness_hw_changed(
 					&tpacpi_led_kbdlight.led_classdev, brightness);
 			}
-
-			mutex_unlock(&kbdlight_mutex);
 		}
 		/* Key events are suppressed by default hotkey_user_mask */
 		return false;
@@ -11655,11 +11631,11 @@ static bool tpacpi_driver_event(const unsigned int hkey_event)
 			enum drm_privacy_screen_status old_hw_state;
 			bool changed;
 
-			mutex_lock(&lcdshadow_dev->lock);
-			old_hw_state = lcdshadow_dev->hw_state;
-			lcdshadow_get_hw_state(lcdshadow_dev);
-			changed = lcdshadow_dev->hw_state != old_hw_state;
-			mutex_unlock(&lcdshadow_dev->lock);
+			scoped_guard(mutex, &lcdshadow_dev->lock) {
+				old_hw_state = lcdshadow_dev->hw_state;
+				lcdshadow_get_hw_state(lcdshadow_dev);
+				changed = lcdshadow_dev->hw_state != old_hw_state;
+			}
 
 			if (changed)
 				drm_privacy_screen_call_notifier_chain(lcdshadow_dev);
@@ -11680,12 +11656,10 @@ static bool tpacpi_driver_event(const unsigned int hkey_event)
 			pr_err("Error retrieving camera shutter state after shutter event\n");
 			return true;
 		}
-		mutex_lock(&tpacpi_inputdev_send_mutex);
-
-		input_report_switch(tpacpi_inputdev, SW_CAMERA_LENS_COVER, camera_shutter_state);
-		input_sync(tpacpi_inputdev);
-
-		mutex_unlock(&tpacpi_inputdev_send_mutex);
+		scoped_guard(mutex, &tpacpi_inputdev_send_mutex) {
+			input_report_switch(tpacpi_inputdev, SW_CAMERA_LENS_COVER, camera_shutter_state);
+			input_sync(tpacpi_inputdev);
+		}
 		return true;
 	case TP_HKEY_EV_DOUBLETAP_TOGGLE:
 		/* Toggle kernel-level doubletap event filtering */
