@@ -2891,6 +2891,7 @@ void amdgpu_set_panel_orientation(struct drm_connector *connector)
 						       native_mode->hdisplay,
 						       native_mode->vdisplay);
 }
+EXPORT_IF_KUNIT(amdgpu_set_panel_orientation);
 
 /*
  * The Apple Studio Display primary tile advertises both the full 5120x2880

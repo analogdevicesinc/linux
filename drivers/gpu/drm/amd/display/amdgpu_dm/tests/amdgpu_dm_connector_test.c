@@ -7476,6 +7476,70 @@ static void dm_test_get_modes_with_edid(struct kunit *test)
 	ctx->aconnector->drm_edid = NULL;
 }
 
+/* Tests for amdgpu_set_panel_orientation() */
+
+/**
+ * dm_test_panel_orientation_non_edp - Test non-eDP/LVDS connectors are skipped
+ * @test: The KUnit test context
+ *
+ * Only eDP and LVDS panels carry a fixed orientation, so a DisplayPort
+ * connector returns immediately with its panel_orientation left unknown.
+ */
+static void dm_test_panel_orientation_non_edp(struct kunit *test)
+{
+	struct dm_test_gm_ctx *ctx =
+	dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+
+	amdgpu_set_panel_orientation(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_EQ(test,
+			ctx->aconnector->base.display_info.panel_orientation,
+			DRM_MODE_PANEL_ORIENTATION_UNKNOWN);
+}
+
+/**
+ * dm_test_panel_orientation_no_native_mode - Test a missing native mode is skipped
+ * @test: The KUnit test context
+ *
+ * On an eDP connector with no cached EDID the encoder native mode stays 0x0, so
+ * the function returns before applying an orientation.
+ */
+static void dm_test_panel_orientation_no_native_mode(struct kunit *test)
+{
+	struct dm_test_gm_ctx *ctx =
+	dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_eDP);
+
+	amdgpu_set_panel_orientation(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_EQ(test, ctx->aenc->native_mode.hdisplay, 0);
+	KUNIT_EXPECT_EQ(test,
+			ctx->aconnector->base.display_info.panel_orientation,
+			DRM_MODE_PANEL_ORIENTATION_UNKNOWN);
+}
+
+/**
+ * dm_test_panel_orientation_applies_quirk - Test a native mode reaches the quirk
+ * @test: The KUnit test context
+ *
+ * With a valid encoder native mode on an eDP connector the panel dimensions are
+ * forwarded to the orientation quirk lookup; absent a matching quirk the
+ * orientation stays unknown.
+ */
+static void dm_test_panel_orientation_applies_quirk(struct kunit *test)
+{
+	struct dm_test_gm_ctx *ctx =
+	dm_test_gm_ctx_alloc(test, DRM_MODE_CONNECTOR_eDP);
+
+	ctx->aenc->native_mode.hdisplay = 1920;
+	ctx->aenc->native_mode.vdisplay = 1200;
+
+	amdgpu_set_panel_orientation(&ctx->aconnector->base);
+
+	KUNIT_EXPECT_EQ(test,
+			ctx->aconnector->base.display_info.panel_orientation,
+			DRM_MODE_PANEL_ORIENTATION_UNKNOWN);
+}
+
 /* Tests for amdgpu_dm_update_stream_scaling_settings() */
 
 /**
@@ -7947,6 +8011,10 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_get_modes_noedid_128b_adds_more),
 	KUNIT_CASE(dm_test_get_modes_noedid_analog_adds_common),
 	KUNIT_CASE(dm_test_get_modes_with_edid),
+	/* amdgpu_set_panel_orientation */
+	KUNIT_CASE(dm_test_panel_orientation_non_edp),
+	KUNIT_CASE(dm_test_panel_orientation_no_native_mode),
+	KUNIT_CASE(dm_test_panel_orientation_applies_quirk),
 	/* dm_validate_stream_and_context */
 	KUNIT_CASE(dm_test_validate_stream_null_stream),
 	KUNIT_CASE(dm_test_validate_stream_dc_ok_no_pipe),
