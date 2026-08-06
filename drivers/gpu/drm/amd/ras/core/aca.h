@@ -54,6 +54,8 @@ struct aca_bank_reg {
 	uint64_t timestamp;
 	u32 bank_type;
 	u32 ecc_type;
+	u32 apic_id;
+	u32 bank;
 	u64 seq_no;
 	u64 regs[ACA_REG_MAX_COUNT];
 };

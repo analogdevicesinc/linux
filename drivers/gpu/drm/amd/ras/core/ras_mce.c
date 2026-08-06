@@ -70,7 +70,7 @@ static int ras_mce_add_gpu_bank(struct ras_core_context *ras_core,
 	ret = kfifo_in_spinlocked(&mce->mce_fifo,
 			aca_bank, sizeof(*aca_bank), &mce->mce_fifo_lock);
 	if (ret)
-		ras_process_add_interrupt_req(ras_core, NULL, true);
+		ras_process_add_interrupt_req(ras_core, NULL, false);
 
 	return ret ? 0 : -ENOSPC;
 }
@@ -78,9 +78,14 @@ static int ras_mce_add_gpu_bank(struct ras_core_context *ras_core,
 static int ras_mce_log_cpu_bank(struct ras_core_context *ras_core,
 			struct aca_bank_reg *aca_bank)
 {
+	struct ras_cpu_mce cpu_mce = {
+		.apic_id = aca_bank->apic_id,
+		.bank = aca_bank->bank,
+	};
 
+	memcpy(cpu_mce.regs, aca_bank->regs, sizeof(cpu_mce.regs));
 	ras_log_ring_add_log_event(ras_core,
-		RAS_LOG_EVENT_CPU_RAS, aca_bank, sizeof(*aca_bank), NULL);
+		RAS_LOG_EVENT_CPU_RAS, &cpu_mce, sizeof(cpu_mce), NULL);
 
 	return 0;
 }

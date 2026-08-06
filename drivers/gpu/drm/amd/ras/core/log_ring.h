@@ -48,16 +48,35 @@ struct ras_aca_reg {
 	uint64_t regs[ACA_REG_MAX_COUNT];
 };
 
+struct ras_cpu_mce {
+	u64 regs[ACA_REG_MAX_COUNT - 1];
+	u32 apic_id;
+	u16 bank;
+	u16 reserved;
+};
+
+#define RAS_CPER_BOOT_RAW_DATA_SIZE	80
+#define RAS_BOOT_CTX_VALID_APIC_ID	BIT(0)
+
 struct ras_boot_err_ctx {
 	u8 section_type[16];
 	u32 error_severity;
 	u16 reg_ctx_type;
 	u16 reg_arr_size;
-	u64 regs[CPER_OAM_MAX_COUNT];
+	u32 msr_addr;
+	u16 raw_data_size;
+	u16 flags;
+	u64 apic_id;
+	u64 mm_reg_addr;
+	union {
+		u64 regs[CPER_OAM_MAX_COUNT];
+		u8 raw_data[RAS_CPER_BOOT_RAW_DATA_SIZE];
+	};
 };
 
 union ras_log_body {
 	struct ras_aca_reg aca_reg;
+	struct ras_cpu_mce cpu_mce;
 	struct ras_boot_err_ctx boot_err_ctx;
 };
 
