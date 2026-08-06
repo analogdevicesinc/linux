@@ -412,6 +412,10 @@ static bool xe_pagefault_try_chain(struct xe_pagefault_queue *pf_queue,
 			xe_assert(xe, pf_work->cache.pf->consumer.alloc_state ==
 				  XE_PAGEFAULT_ALLOC_STATE_ACTIVE);
 
+			if (pf->producer.private !=
+			    pf_work->cache.pf->producer.private)
+				continue;
+
 			xe_gt_stats_incr(pf->gt,
 					 XE_GT_STATS_ID_CHAIN_PAGEFAULT_COUNT,
 					 1);
@@ -585,6 +589,8 @@ static void xe_pagefault_queue_work(struct work_struct *w)
 	threshold = jiffies + msecs_to_jiffies(USM_QUEUE_MAX_RUNTIME_MS);
 
 	while (xe_pagefault_queue_pop(pf_queue, &pf, pf_work->id)) {
+		const struct xe_pagefault_ops *ops = pf->producer.ops;
+		void *private = pf->producer.private;
 		struct xe_gt *gt = pf->gt;
 		u32 asid = pf->consumer.asid;
 		int err = 0;
@@ -622,11 +628,14 @@ ack_fault:
 			  XE_PAGEFAULT_ALLOC_STATE_ACTIVE);
 		xe_assert(xe, pf == pf_work->cache.pf);
 
+		ops->ack_fault_begin(private);
 		while (pf) {
 			xe_assert(xe, pf->consumer.alloc_state ==
 				  XE_PAGEFAULT_ALLOC_STATE_ACTIVE);
+			xe_assert(xe, ops == pf->producer.ops);
+			xe_assert(xe, gt == pf->gt);
 
-			pf->producer.ops->ack_fault(pf, err);
+			ops->ack_fault(pf, err);
 
 			spin_lock_irq(&pf_queue->lock);
 
@@ -654,6 +663,7 @@ ack_fault:
 
 			spin_unlock_irq(&pf_queue->lock);
 		}
+		ops->ack_fault_end(private);
 
 		if (time_after(jiffies, threshold)) {
 			queue_work(xe->usm.pagefault_wq, w);

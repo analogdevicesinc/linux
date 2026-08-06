@@ -34,6 +34,13 @@ enum xe_pagefault_type {
 /** struct xe_pagefault_ops - Xe pagefault ops (producer) */
 struct xe_pagefault_ops {
 	/**
+	 * @ack_fault_begin: Ack fault begin
+	 * @private: producer private data
+	 *
+	 * Page fault producer begins acknowledgment from the consumer.
+	 */
+	void (*ack_fault_begin)(void *private);
+	/**
 	 * @ack_fault: Ack fault
 	 * @pf: Page fault
 	 * @err: Error state of fault
@@ -42,6 +49,13 @@ struct xe_pagefault_ops {
 	 * sends the result to the HW/FW interface.
 	 */
 	void (*ack_fault)(struct xe_pagefault *pf, int err);
+	/**
+	 * @ack_fault_end: Ack fault end
+	 * @private: producer private data
+	 *
+	 * Page fault producer ends acknowledgment from the consumer.
+	 */
+	void (*ack_fault_end)(void *private);
 };
 
 /**
