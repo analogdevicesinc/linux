@@ -15,6 +15,7 @@
 #include "xe_gt_stats.h"
 #include "xe_migrate.h"
 #include "xe_module.h"
+#include "xe_pagefault.h"
 #include "xe_pm.h"
 #include "xe_pt.h"
 #include "xe_svm.h"
@@ -1264,8 +1265,8 @@ DECL_SVM_RANGE_US_STATS(bind, BIND)
 DECL_SVM_RANGE_US_STATS(fault, PAGEFAULT)
 
 static int __xe_svm_handle_pagefault(struct xe_vm *vm, struct xe_vma *vma,
-				     struct xe_gt *gt, u64 fault_addr,
-				     bool need_vram)
+				     struct xe_pagefault *pf, struct xe_gt *gt,
+				     u64 fault_addr, bool need_vram)
 {
 	int devmem_possible = IS_DGFX(vm->xe) &&
 		IS_ENABLED(CONFIG_DRM_XE_PAGEMAP);
@@ -1424,6 +1425,10 @@ get_pages:
 	xe_svm_range_bind_us_stats_incr(gt, range, bind_start);
 
 out:
+	/* Give hint to immediately ack faults */
+	xe_pagefault_set_start_addr(pf,  xe_svm_range_start(range));
+	xe_pagefault_set_end_addr(pf, xe_svm_range_end(range));
+
 	xe_svm_range_fault_us_stats_incr(gt, range, start);
 	mutex_unlock(&range->lock);
 	drm_gpusvm_range_put(&range->base);
@@ -1446,6 +1451,7 @@ err_out:
  * xe_svm_handle_pagefault() - SVM handle page fault
  * @vm: The VM.
  * @vma: The CPU address mirror VMA.
+ * @pf: Pagefault structure
  * @gt: The gt upon the fault occurred.
  * @fault_addr: The GPU fault address.
  * @atomic: The fault atomic access bit.
@@ -1456,8 +1462,8 @@ err_out:
  * Return: 0 on success, negative error code on error.
  */
 int xe_svm_handle_pagefault(struct xe_vm *vm, struct xe_vma *vma,
-			    struct xe_gt *gt, u64 fault_addr,
-			    bool atomic)
+			    struct xe_pagefault *pf, struct xe_gt *gt,
+			    u64 fault_addr, bool atomic)
 {
 	int need_vram, ret;
 retry:
@@ -1465,7 +1471,7 @@ retry:
 	if (need_vram < 0)
 		return need_vram;
 
-	ret =  __xe_svm_handle_pagefault(vm, vma, gt, fault_addr,
+	ret =  __xe_svm_handle_pagefault(vm, vma, pf, gt, fault_addr,
 					 need_vram ? true : false);
 	if (ret == -EAGAIN) {
 		/*
