@@ -29,6 +29,8 @@
 
 static const struct ras_cper_guid processor_section_type =
 	PROC_ERR__SECTION_TYPE;
+static const struct ras_cper_guid platform_memory_section_type =
+	PLATFORM_MEM__SECTION_TYPE;
 
 static int ras_cper_get_profile(struct ras_core_context *ras_core,
 		enum ras_log_event event, struct ras_cper_profile **profile);
@@ -502,6 +504,70 @@ static int cper_generate_processor_records(struct ras_core_context *ras_core,
 	return 0;
 }
 
+static bool cper_is_platform_memory_record(struct ras_log_info *log)
+{
+	return log->event == RAS_LOG_EVENT_BOOT &&
+		!memcmp(log->body.boot_err_ctx.section_type,
+			platform_memory_section_type.b, CPER_UUID_MAX_SIZE);
+}
+
+static int cper_generate_platform_memory_records(struct ras_core_context *ras_core,
+		struct ras_log_info *batch_logs, u32 nr_batch_logs,
+		u8 *buffer, u32 buf_len, u32 *real_data_len)
+{
+	u32 record_size = 0;
+	u32 offset = 0;
+	u32 i;
+
+	for (i = 0; i < nr_batch_logs; i++) {
+		const struct ras_boot_err_ctx *ctx = &batch_logs[i].body.boot_err_ctx;
+		u32 size;
+
+		if (!cper_is_platform_memory_record(&batch_logs[i]) ||
+		    !ctx->raw_data_size ||
+		    ctx->raw_data_size > sizeof(ctx->raw_data))
+			return -EINVAL;
+
+		size = ALIGN(RAS_HDR_LEN + RAS_SEC_DESC_LEN +
+			     ctx->raw_data_size, sizeof(u32));
+		if (record_size > U32_MAX - size)
+			return -EOVERFLOW;
+		record_size += size;
+	}
+	if (record_size > buf_len)
+		return -ENOMEM;
+
+	for (i = 0; i < nr_batch_logs; i++) {
+		const struct ras_boot_err_ctx *ctx = &batch_logs[i].body.boot_err_ctx;
+		struct cper_section_desc *descriptor;
+		struct cper_section_hdr *hdr;
+		u32 size = ALIGN(RAS_HDR_LEN + RAS_SEC_DESC_LEN +
+				 ctx->raw_data_size, sizeof(u32));
+
+		hdr = (struct cper_section_hdr *)(buffer + offset);
+		descriptor = (struct cper_section_desc *)(buffer + offset +
+						  RAS_HDR_LEN);
+		fill_section_hdr(ras_core, hdr, BOOT__TYPE,
+				 ctx->error_severity, &batch_logs[i]);
+		hdr->record_length = size;
+		hdr->sec_cnt = 1;
+		fill_section_descriptor(ras_core, descriptor, ctx->error_severity,
+				PLATFORM_MEM__SECTION_TYPE,
+				RAS_HDR_LEN + RAS_SEC_DESC_LEN,
+				ctx->raw_data_size);
+		memcpy(buffer + offset + RAS_HDR_LEN + RAS_SEC_DESC_LEN,
+		       ctx->raw_data, ctx->raw_data_size);
+		memset(buffer + offset + RAS_HDR_LEN + RAS_SEC_DESC_LEN +
+		       ctx->raw_data_size, 0,
+		       size - RAS_HDR_LEN - RAS_SEC_DESC_LEN -
+		       ctx->raw_data_size);
+		offset += size;
+	}
+
+	*real_data_len = offset;
+	return 0;
+}
+
 static enum ras_log_event cper_mce_parse_err_type(struct ras_core_context *ras_core,
 						  struct aca_bank_reg *bank)
 {
@@ -538,6 +604,9 @@ int ras_cper_generate_batch_cper(struct ras_core_context *ras_core,
 	*real_data_len = 0;
 	if (cper_is_processor_record(&batch_logs[0]))
 		return cper_generate_processor_records(ras_core, batch_logs,
+			nr_batch_logs, buf, buf_len, real_data_len);
+	if (cper_is_platform_memory_record(&batch_logs[0]))
+		return cper_generate_platform_memory_records(ras_core, batch_logs,
 			nr_batch_logs, buf, buf_len, real_data_len);
 
 	event = batch_logs[0].event;
