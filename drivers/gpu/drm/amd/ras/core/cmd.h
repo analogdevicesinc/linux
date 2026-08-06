@@ -359,6 +359,8 @@ struct ras_cmd_cper_snapshot_rsp {
 	uint64_t latest_cper_id;
 };
 
+#define RAS_CMD_MAX_CPER_BUF_SZ	(2 * 1024U * 1024U) /* 2 MiB */
+
 struct ras_cmd_cper_record_req {
 	struct ras_cmd_dev_handle dev;
 	uint64_t cper_start_id;

@@ -174,16 +174,18 @@ static int ras_cmd_get_cper_snapshot(struct ras_core_context *ras_core,
 	struct ras_cmd_cper_snapshot_rsp *output_data =
 			(struct ras_cmd_cper_snapshot_rsp *)cmd->output_buff_raw;
 	struct ras_log_batch_overview overview;
+	u64 latest_cper_id;
 
 	if ((cmd->input_size != sizeof(struct ras_cmd_cper_snapshot_req)) ||
 		(cmd->output_buf_size < sizeof(*output_data)))
 		return RAS_CMD__ERROR_INVALID_INPUT_SIZE;
 
 	ras_log_ring_get_batch_overview(ras_core, &overview);
+	latest_cper_id = overview.logged_batch_count ? overview.last_batch_id - 1 : 0;
 
 	output_data->total_cper_num = overview.logged_batch_count;
 	output_data->start_cper_id = overview.first_batch_id;
-	output_data->latest_cper_id = overview.last_batch_id;
+	output_data->latest_cper_id = latest_cper_id;
 
 	output_data->version = 0;
 
@@ -202,7 +204,7 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 	uint32_t nr_batch_logs = MAX_RECORD_PER_BATCH;
 	struct ras_log_batch_overview overview;
 	uint32_t offset = 0, real_data_len = 0;
-	uint64_t batch_id;
+	u64 batch_id, start_batch_id;
 	uint8_t *buf_ptr = (uint8_t *)(uintptr_t)req->buf_ptr;
 	int ret = 0, i, count, valid_batch_count = 0;
 
@@ -221,14 +223,24 @@ static int ras_cmd_get_cper_records(struct ras_core_context *ras_core,
 	}
 
 	ras_log_ring_get_batch_overview(ras_core, &overview);
+
+	start_batch_id = req->cper_start_id;
+	if (overview.logged_batch_count && start_batch_id == overview.last_batch_id)
+		start_batch_id = overview.last_batch_id - 1;
+
 	for (i = 0; i < req->cper_num; i++) {
-		batch_id = req->cper_start_id + i;
+		batch_id = start_batch_id + i;
 		if (batch_id >= overview.last_batch_id)
 			break;
 
 		count = ras_log_ring_get_batch_records(ras_core, batch_id, batch_logs,
 					nr_batch_logs);
 		if (count > 0) {
+			if (offset >= req->buf_size) {
+				ret = -ENOMEM;
+				break;
+			}
+
 			ret = ras_cper_generate_batch_cper(ras_core, batch_logs, count,
 					&buf_ptr[offset], req->buf_size - offset, &real_data_len);
 			if (ret)
@@ -328,9 +340,8 @@ static int ras_cmd_get_batch_trace_records(struct ras_core_context *ras_core,
 				record->seqno = trace_arry[j].seqno;
 				record->timestamp = trace_arry[j].timestamp;
 				record->event = trace_arry[j].event;
-				memcpy(&record->body.aca_reg,
-					&trace_arry[j].body.aca_reg,
-					sizeof(trace_arry[j].body.aca_reg));
+				memcpy(&record->body, &trace_arry[j].body,
+				       sizeof(record->body));
 			}
 		} else {
 			count = 0;
