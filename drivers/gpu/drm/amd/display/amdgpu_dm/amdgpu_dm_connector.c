@@ -3174,6 +3174,7 @@ void hdmi_frl_status_polling_work(struct work_struct *work)
 			   &dm->hdmi_frl_status_polling_work,
 			   msecs_to_jiffies(dm->hdmi_frl_status_polling_delay_ms));
 }
+EXPORT_IF_KUNIT(hdmi_frl_status_polling_work);
 
 void amdgpu_dm_connector_init_helper(struct amdgpu_display_manager *dm,
 				     struct amdgpu_dm_connector *aconnector,

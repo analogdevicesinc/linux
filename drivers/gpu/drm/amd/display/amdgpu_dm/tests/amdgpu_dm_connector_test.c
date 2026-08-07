@@ -7988,6 +7988,206 @@ static void dm_test_update_scaling_underscan(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, stream->dst.height, 1048);
 }
 
+/* Tests for hdmi_frl_status_polling_work() */
+
+static int dm_test_frl_poll_calls;
+static int dm_test_frl_detect_calls;
+
+static bool dm_test_frl_poll_true(struct dc_link *link)
+{
+	dm_test_frl_poll_calls++;
+	return true;
+}
+
+static bool dm_test_frl_poll_false(struct dc_link *link)
+{
+	dm_test_frl_poll_calls++;
+	return false;
+}
+
+static bool dm_test_frl_detect(struct dc_link *link, enum dc_detect_reason reason)
+{
+	dm_test_frl_detect_calls++;
+	return true;
+}
+
+struct dm_test_frl_ctx {
+	struct amdgpu_display_manager *dm;
+	struct dc *dc;
+	struct link_service *link_srv;
+};
+
+/*
+ * Build a display manager whose polling work re-arms on a real workqueue. The
+ * dc starts with an empty link array and link_srv hooks that count poll and
+ * detect calls, so a test can assert exactly how far a link progresses. A large
+ * re-arm delay keeps the requeued work dormant until the test cancels it.
+ */
+static struct dm_test_frl_ctx *dm_test_frl_ctx_alloc(struct kunit *test)
+{
+	struct dm_test_frl_ctx *ctx;
+
+	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+
+	ctx->dm = kunit_kzalloc(test, sizeof(*ctx->dm), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->dm);
+	ctx->dc = kunit_kzalloc(test, sizeof(*ctx->dc), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->dc);
+	ctx->link_srv = kunit_kzalloc(test, sizeof(*ctx->link_srv), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, ctx->link_srv);
+
+	ctx->link_srv->hdmi_frl_poll_status_flag = dm_test_frl_poll_true;
+	ctx->link_srv->detect_link = dm_test_frl_detect;
+	ctx->dc->link_srv = ctx->link_srv;
+	ctx->dm->dc = ctx->dc;
+	mutex_init(&ctx->dm->dc_lock);
+	INIT_DELAYED_WORK(&ctx->dm->hdmi_frl_status_polling_work, hdmi_frl_status_polling_work);
+	ctx->dm->hdmi_frl_status_polling_delay_ms = 100000;
+	ctx->dm->hdmi_frl_status_polling_wq = system_wq;
+
+	dm_test_frl_poll_calls = 0;
+	dm_test_frl_detect_calls = 0;
+
+	return ctx;
+}
+
+/* Allocate a dc_link, wire its dc back-pointer and register it at index 0. */
+static struct dc_link *dm_test_frl_add_link(struct kunit *test, struct dm_test_frl_ctx *ctx)
+{
+	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
+
+	KUNIT_ASSERT_NOT_NULL(test, link);
+	link->dc = ctx->dc;
+	ctx->dc->links[0] = link;
+
+	return link;
+}
+
+/* Register a link that satisfies every guard up to the poll status check. */
+static struct dc_link *dm_test_frl_add_hdmi_link(struct kunit *test, struct dm_test_frl_ctx *ctx)
+{
+	struct dc_link *link = dm_test_frl_add_link(test, ctx);
+
+	link->local_sink = kunit_kzalloc(test, sizeof(*link->local_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link->local_sink);
+	link->connector_signal = SIGNAL_TYPE_HDMI_TYPE_A;
+	link->frl_link_settings.frl_link_rate = HDMI_FRL_LINK_RATE_3GBPS;
+
+	return link;
+}
+
+/* Run the work once directly, then cancel and tear down the re-armed work. */
+static void dm_test_frl_run(struct dm_test_frl_ctx *ctx)
+{
+	hdmi_frl_status_polling_work(&ctx->dm->hdmi_frl_status_polling_work.work);
+	cancel_delayed_work_sync(&ctx->dm->hdmi_frl_status_polling_work);
+}
+
+/**
+ * dm_test_frl_no_links - Test an empty link array is a no-op
+ * @test: The KUnit test context
+ *
+ * With no links registered the loop body never runs, so neither the poll nor
+ * the detect hook is invoked.
+ */
+static void dm_test_frl_no_links(struct kunit *test)
+{
+	struct dm_test_frl_ctx *ctx = dm_test_frl_ctx_alloc(test);
+
+	dm_test_frl_run(ctx);
+
+	KUNIT_EXPECT_EQ(test, dm_test_frl_poll_calls, 0);
+	KUNIT_EXPECT_EQ(test, dm_test_frl_detect_calls, 0);
+}
+
+/**
+ * dm_test_frl_skips_no_local_sink - Test a link without a local sink is skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_frl_skips_no_local_sink(struct kunit *test)
+{
+	struct dm_test_frl_ctx *ctx = dm_test_frl_ctx_alloc(test);
+
+	dm_test_frl_add_link(test, ctx);
+
+	dm_test_frl_run(ctx);
+
+	KUNIT_EXPECT_EQ(test, dm_test_frl_poll_calls, 0);
+}
+
+/**
+ * dm_test_frl_skips_non_hdmi - Test a non-HDMI link is skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_frl_skips_non_hdmi(struct kunit *test)
+{
+	struct dm_test_frl_ctx *ctx = dm_test_frl_ctx_alloc(test);
+	struct dc_link *link = dm_test_frl_add_link(test, ctx);
+
+	link->local_sink = kunit_kzalloc(test, sizeof(*link->local_sink), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, link->local_sink);
+	link->connector_signal = SIGNAL_TYPE_DISPLAY_PORT;
+
+	dm_test_frl_run(ctx);
+
+	KUNIT_EXPECT_EQ(test, dm_test_frl_poll_calls, 0);
+}
+
+/**
+ * dm_test_frl_skips_zero_rate - Test a link with no FRL rate is skipped
+ * @test: The KUnit test context
+ */
+static void dm_test_frl_skips_zero_rate(struct kunit *test)
+{
+	struct dm_test_frl_ctx *ctx = dm_test_frl_ctx_alloc(test);
+	struct dc_link *link = dm_test_frl_add_hdmi_link(test, ctx);
+
+	link->frl_link_settings.frl_link_rate = 0;
+
+	dm_test_frl_run(ctx);
+
+	KUNIT_EXPECT_EQ(test, dm_test_frl_poll_calls, 0);
+}
+
+/**
+ * dm_test_frl_poll_no_update - Test a clear poll status skips retraining
+ * @test: The KUnit test context
+ *
+ * The poll hook is reached but reports no change, so dc_link_detect() is not
+ * called.
+ */
+static void dm_test_frl_poll_no_update(struct kunit *test)
+{
+	struct dm_test_frl_ctx *ctx = dm_test_frl_ctx_alloc(test);
+
+	ctx->link_srv->hdmi_frl_poll_status_flag = dm_test_frl_poll_false;
+	dm_test_frl_add_hdmi_link(test, ctx);
+
+	dm_test_frl_run(ctx);
+
+	KUNIT_EXPECT_EQ(test, dm_test_frl_poll_calls, 1);
+	KUNIT_EXPECT_EQ(test, dm_test_frl_detect_calls, 0);
+}
+
+/**
+ * dm_test_frl_poll_retrains - Test a set poll status triggers a retrain
+ * @test: The KUnit test context
+ *
+ * A poll status change drives dc_link_detect() with DETECT_REASON_RETRAIN.
+ */
+static void dm_test_frl_poll_retrains(struct kunit *test)
+{
+	struct dm_test_frl_ctx *ctx = dm_test_frl_ctx_alloc(test);
+
+	dm_test_frl_add_hdmi_link(test, ctx);
+
+	dm_test_frl_run(ctx);
+
+	KUNIT_EXPECT_EQ(test, dm_test_frl_poll_calls, 1);
+	KUNIT_EXPECT_EQ(test, dm_test_frl_detect_calls, 1);
+}
+
 static struct kunit_case amdgpu_dm_connector_tests[] = {
 	/* get_subconnector_type */
 	KUNIT_CASE(dm_test_subconnector_type_none),
@@ -8348,6 +8548,13 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_update_scaling_rmx_aspect_letterbox),
 	KUNIT_CASE(dm_test_update_scaling_rmx_center),
 	KUNIT_CASE(dm_test_update_scaling_underscan),
+	/* hdmi_frl_status_polling_work */
+	KUNIT_CASE(dm_test_frl_no_links),
+	KUNIT_CASE(dm_test_frl_skips_no_local_sink),
+	KUNIT_CASE(dm_test_frl_skips_non_hdmi),
+	KUNIT_CASE(dm_test_frl_skips_zero_rate),
+	KUNIT_CASE(dm_test_frl_poll_no_update),
+	KUNIT_CASE(dm_test_frl_poll_retrains),
 	{}
 };
 
