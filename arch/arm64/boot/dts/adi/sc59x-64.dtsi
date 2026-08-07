@@ -262,6 +262,12 @@
 			interrupts = <GIC_SPI 217 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
+		spu: spu@3108b000 {
+			compatible = "adi,sc59x-spu";
+			reg = <0x3108b000 0x1000>;
+			interrupts = <GIC_SPI 216 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		tru: tru@3108a000 {
 			compatible = "adi,trigger-routing-unit";
 			reg = <0x3108a000 0x1000>;
