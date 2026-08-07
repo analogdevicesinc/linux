@@ -8,7 +8,7 @@
 #include "sc598-som.dtsi"
 
 / {
-	mmc_muxctl: mmc-mux-controller {
+	mmc_muxctl: mux-controller {
 		compatible = "gpio-mux";
 		#mux-state-cells = <1>;
 		mux-gpios = <&som_gpio_expander 8 GPIO_ACTIVE_LOW>,
@@ -30,7 +30,7 @@
 };
 
 &i2c2 {
-	som_gpio_expander: mcp23018@20 {
+	som_gpio_expander: gpio@20 {
 		compatible = "microchip,mcp23018";
 		reg = <0x20>;
 		gpio-controller;
