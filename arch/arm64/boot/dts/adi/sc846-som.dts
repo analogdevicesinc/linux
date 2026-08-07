@@ -56,7 +56,7 @@
 		};
 	};
 
-	sram1_mmap: sram-mmap@0 {
+	sram1_mmap: sram-mmap {
 		compatible = "adi,sram-mmap";
 		memory-region = <&sram1_res>;
 		status = "okay";

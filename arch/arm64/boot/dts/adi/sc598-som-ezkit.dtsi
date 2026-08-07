@@ -12,12 +12,10 @@
 	model = "ADI 64-bit SC598 SOM EZ Kit";
 	compatible = "adi,sc598-som-ezkit", "adi,sc59x-64";
 
-	scb {
-		sound {
-			compatible = "adi,sc5xx-asoc-card";
-			adi,cpu-dai = <&i2s4>;
-			adi,codec = <&adau1962>, <&adau1979>;
-		};
+	sound {
+		compatible = "adi,sc5xx-asoc-card";
+		adi,cpu-dai = <&i2s4>;
+		adi,codec = <&adau1962>, <&adau1979>;
 	};
 };
 

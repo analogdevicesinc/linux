@@ -11,22 +11,17 @@
 	model = "ADI 64-bit SC598 SOM EZ Lite";
 	compatible = "adi,sc598-som-ezlite", "adi,sc59x-64";
 
-	clocks {
-		compatible = "simple-bus";
-		mclk: mclk {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <24576000>;
-			clock-output-names = "mclk";
-		};
+	mclk: clock-24576000 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24576000>;
+		clock-output-names = "mclk";
 	};
 
-	scb {
-		sound {
-			compatible = "adi,sc5xx-asoc-card";
-			adi,cpu-dai = <&i2s0>;
-			adi,codec = <&adau1372>;
-		};
+	sound {
+		compatible = "adi,sc5xx-asoc-card";
+		adi,cpu-dai = <&i2s0>;
+		adi,codec = <&adau1372>;
 	};
 };
 

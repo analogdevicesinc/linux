@@ -200,6 +200,24 @@
 		};
 	};
 
+	gptimer_counter: gptimer-counter {
+		compatible = "adi,gptimer-counter";
+		status = "okay";
+	};
+
+	emac1_clkin: clock-emac1-clkin {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <50000000>;
+		clock-output-names = "emac1_clkin";
+	};
+
+	usb0_phy: usb-phy {
+		compatible = "usb-nop-xceiv";
+		#phy-cells = <0>;
+		status = "disabled";
+	};
+
 	scb {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -226,10 +244,6 @@
 			status = "disabled";
 		};
 
-		gptimer_counter: gptimer-counters@0 {
-			compatible = "adi,gptimer-counter";
-			status = "okay";
-		};
 
 		rcu: rcu@3108c000 {
 			compatible = "syscon", "adi,reset-controller";
@@ -643,12 +657,6 @@
 			status = "disabled";
 		};
 
-		emac1_clkin: emac1-clkin@0 {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <50000000>;
-			clock-output-names = "emac1_clkin";
-		};
 
 		mmc0: mmc@310C7000 {
 			compatible = "snps,dwcmshc-sdhci";
@@ -802,11 +810,6 @@
 			adi,pint = <&pint7 1>;
 		};
 
-		usb0_phy: usbphy {
-			compatible = "usb-nop-xceiv";
-			#phy-cells = <0>;
-			status = "disabled";
-		};
 
 		usb0: usb@310c5000 {
 			compatible = "snps,dwc2";
