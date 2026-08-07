@@ -486,6 +486,8 @@
 			interrupts = <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>;
 			dmas = <&spi_cluster 22>, <&spi_cluster 23>;
 			dma-names = "tx", "rx";
+			clocks = <&clk ADSP_SC598_CLK_SPI>;
+			clock-names = "spi";
 			status = "disabled";
 		};
 
