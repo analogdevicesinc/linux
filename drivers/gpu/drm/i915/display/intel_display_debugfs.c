@@ -1285,22 +1285,11 @@ static ssize_t i915_joiner_write(struct file *file,
 	if (ret < 0)
 		return ret;
 
-	switch (force_joined_pipes) {
-	case 0:
-	case 1:
-	case 2:
-		connector->force_joined_pipes = force_joined_pipes;
-		break;
-	case 4:
-		if (HAS_ULTRAJOINER(display)) {
-			connector->force_joined_pipes = force_joined_pipes;
-			break;
-		}
-
-		fallthrough;
-	default:
+	if (force_joined_pipes &&
+	    !intel_joiner_valid_primary_pipe_mask(display, force_joined_pipes))
 		return -EINVAL;
-	}
+
+	connector->force_joined_pipes = force_joined_pipes;
 
 	*offp += len;
 
