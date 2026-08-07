@@ -14,14 +14,43 @@
 
 #include "adrv904x.h"
 #include "adi_adrv904x_datainterface.h"
+#include "adi_adrv904x_datainterface_types.h"
+
+static ssize_t adrv904x_debugfs_read_rx_capture(struct adrv904x_rf_phy *phy,
+						char __user *userbuf,
+						size_t count, loff_t *ppos)
+{
+	size_t buf_size, pos = 0;
+
+	guard(mutex)(&phy->lock);
+
+	if (!phy->rx_capture_len)
+		return -ENODATA;
+
+	/* Up to 12 chars per value (including newline) */
+	buf_size = phy->rx_capture_len * 12 + 1;
+	char *out_buf __free(kvfree) = kvzalloc(buf_size, GFP_KERNEL);
+	if (!out_buf)
+		return -ENOMEM;
+
+	for (unsigned int i = 0; i < phy->rx_capture_len && pos < buf_size - 12; i++)
+		pos += scnprintf(out_buf + pos, buf_size - pos, "%u\n",
+				 phy->rx_capture_data[i]);
+
+	return simple_read_from_buffer(userbuf, count, ppos, out_buf, pos);
+}
 
 static ssize_t adrv904x_debugfs_read(struct file *file, char __user *userbuf,
 				     size_t count, loff_t *ppos)
 {
 	struct adrv904x_debugfs_entry *entry = file->private_data;
+	struct adrv904x_rf_phy *phy = entry->phy;
 	char buf[700];
 	u64 val = 0;
 	ssize_t len = 0;
+
+	if (entry->cmd == DBGFS_RX_DATA_CAPTURE)
+		return adrv904x_debugfs_read_rx_capture(phy, userbuf, count, ppos);
 
 	if (entry->out_value) {
 		switch (entry->size) {
@@ -55,6 +84,52 @@ static ssize_t adrv904x_debugfs_read(struct file *file, char __user *userbuf,
 	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
 }
 
+/*
+ * Parse and validate RX capture parameters. Returns 0 on success.
+ * Does NOT allocate memory or call hardware - that's done by caller.
+ */
+static int adrv904x_parse_rx_capture_params(const char *buf, s64 *channel,
+					    u32 *length,
+					    adi_adrv904x_RxChannels_e *chan_sel)
+{
+	if (sscanf(buf, "%lld %u", channel, length) < 2)
+		return -EINVAL;
+
+	/* Channel: 0-7 for RX0-RX7, 8-9 for ORX0-ORX1 */
+	if (*channel < 0 || *channel > 9)
+		return -EINVAL;
+
+	/* Validate capture length against hardware-supported sizes */
+	switch (*length) {
+	case ADI_ADRV904X_CAPTURE_SIZE_32:
+	case ADI_ADRV904X_CAPTURE_SIZE_64:
+	case ADI_ADRV904X_CAPTURE_SIZE_128:
+	case ADI_ADRV904X_CAPTURE_SIZE_256:
+	case ADI_ADRV904X_CAPTURE_SIZE_512:
+	case ADI_ADRV904X_CAPTURE_SIZE_1K:
+	case ADI_ADRV904X_CAPTURE_SIZE_2K:
+	case ADI_ADRV904X_CAPTURE_SIZE_4K:
+	case ADI_ADRV904X_CAPTURE_SIZE_8K:
+	case ADI_ADRV904X_CAPTURE_SIZE_12K:
+		break;
+	case ADI_ADRV904X_CAPTURE_SIZE_16K:
+	case ADI_ADRV904X_CAPTURE_SIZE_32K:
+		/* ORX channels limited to 12K max */
+		if (*channel >= 8)
+			return -EINVAL;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (*channel < 8)
+		*chan_sel = ADI_ADRV904X_RX0 << *channel;
+	else
+		*chan_sel = ADI_ADRV904X_ORX0 << (*channel - 8);
+
+	return 0;
+}
+
 static ssize_t adrv904x_debugfs_write(struct file *file,
 				      const char __user *userbuf, size_t count,
 				      loff_t *ppos)
@@ -73,6 +148,32 @@ static ssize_t adrv904x_debugfs_write(struct file *file,
 	if (ret < 0)
 		return ret;
 	buf[ret] = '\0';
+
+	/* RX_DATA_CAPTURE takes two arguments, so it is parsed separately */
+	if (entry->cmd == DBGFS_RX_DATA_CAPTURE) {
+		adi_adrv904x_RxChannels_e chan_sel;
+
+		ret = adrv904x_parse_rx_capture_params(buf, &val, &val2, &chan_sel);
+		if (ret)
+			return ret;
+
+		guard(mutex)(&phy->lock);
+
+		/* The capture overwrites the buffer, invalidate previous data */
+		phy->rx_capture_len = 0;
+
+		ret = adi_adrv904x_RxOrxDataCaptureStart(phy->kororDevice, chan_sel,
+							 ADI_ADRV904X_CAPTURE_LOC_DDC0,
+							 phy->rx_capture_data, val2,
+							 0, 1000000);
+		if (ret)
+			return __adrv904x_dev_err(phy, __func__, __LINE__);
+
+		phy->rx_capture_len = val2;
+		entry->val = val;
+
+		return count;
+	}
 
 	ret = kstrtoll(strim(buf), 10, &val);
 	if (ret)
@@ -194,6 +295,15 @@ void adrv904x_register_debugfs(struct iio_dev *indio_dev)
 	adrv904x_add_debugfs_entry(phy, "bist_framer_loopback",
 				   DBGFS_BIST_FRAMER_LOOPBACK);
 	adrv904x_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
+
+	/* Max capture is 32K words (128KB); allocate once and reuse */
+	phy->rx_capture_data = devm_kcalloc(&phy->spi->dev,
+					    ADI_ADRV904X_CAPTURE_SIZE_32K,
+					    sizeof(*phy->rx_capture_data),
+					    GFP_KERNEL);
+	if (phy->rx_capture_data)
+		adrv904x_add_debugfs_entry(phy, "rx_data_capture",
+					   DBGFS_RX_DATA_CAPTURE);
 
 	for (i = 0; i < phy->adrv904x_debugfs_entry_index; i++)
 		debugfs_create_file(phy->debugfs_entry[i].propname, 0644,
