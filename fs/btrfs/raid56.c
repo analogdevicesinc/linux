@@ -466,7 +466,7 @@ static void __remove_rbio_from_cache(struct btrfs_raid_bio *rbio)
 	int bucket = rbio_bucket(rbio);
 	struct btrfs_stripe_hash_table *table;
 	struct btrfs_stripe_hash *h;
-	int freeit = 0;
+	bool freeit = false;
 
 	/*
 	 * check the bit again under the hash table lock.
@@ -491,7 +491,7 @@ static void __remove_rbio_from_cache(struct btrfs_raid_bio *rbio)
 	if (test_and_clear_bit(RBIO_CACHE_BIT, &rbio->flags)) {
 		list_del_init(&rbio->stripe_cache);
 		table->cache_size -= 1;
-		freeit = 1;
+		freeit = true;
 
 		/* if the bio list isn't empty, this rbio is
 		 * still involved in an IO.  We take it out
@@ -855,7 +855,7 @@ static noinline void unlock_stripe(struct btrfs_raid_bio *rbio)
 {
 	int bucket;
 	struct btrfs_stripe_hash *h;
-	int keep_cache = 0;
+	bool keep_cache = false;
 
 	bucket = rbio_bucket(rbio);
 	h = rbio->bioc->fs_info->stripe_hash_table->table + bucket;
@@ -874,7 +874,7 @@ static noinline void unlock_stripe(struct btrfs_raid_bio *rbio)
 		 */
 		if (list_empty(&rbio->plug_list) &&
 		    test_bit(RBIO_CACHE_BIT, &rbio->flags)) {
-			keep_cache = 1;
+			keep_cache = true;
 			clear_bit(RBIO_RMW_LOCKED_BIT, &rbio->flags);
 			BUG_ON(!bio_list_empty(&rbio->bio_list));
 			goto done;
@@ -1123,7 +1123,7 @@ static int alloc_rbio_pages(struct btrfs_raid_bio *rbio)
 {
 	int ret;
 
-	ret = btrfs_alloc_page_array(rbio->nr_pages, rbio->stripe_pages, false);
+	ret = btrfs_alloc_page_array(rbio->nr_pages, rbio->stripe_pages, GFP_NOFS);
 	if (ret < 0)
 		return ret;
 	/* Mapping all sectors */
@@ -1138,7 +1138,7 @@ static int alloc_rbio_parity_pages(struct btrfs_raid_bio *rbio)
 	int ret;
 
 	ret = btrfs_alloc_page_array(rbio->nr_pages - data_pages,
-				     rbio->stripe_pages + data_pages, false);
+				     rbio->stripe_pages + data_pages, GFP_NOFS);
 	if (ret < 0)
 		return ret;
 
@@ -1679,8 +1679,10 @@ static void verify_bio_data_sectors(struct btrfs_raid_bio *rbio,
 			continue;
 
 		/* No csum for this sector, skip to the next sector. */
-		if (!test_bit(total_sector_nr, rbio->csum_bitmap))
+		if (!test_bit(total_sector_nr, rbio->csum_bitmap)) {
+			total_sector_nr++;
 			continue;
+		}
 
 		expected_csum = rbio->csum_buf + total_sector_nr * fs_info->csum_size;
 		btrfs_calculate_block_csum_pages(fs_info, paddrs, csum_buf);
@@ -1732,7 +1734,7 @@ static int alloc_rbio_data_pages(struct btrfs_raid_bio *rbio)
 	const int data_pages = rbio->nr_data * rbio->stripe_npages;
 	int ret;
 
-	ret = btrfs_alloc_page_array(data_pages, rbio->stripe_pages, false);
+	ret = btrfs_alloc_page_array(data_pages, rbio->stripe_pages, GFP_NOFS);
 	if (ret < 0)
 		return ret;
 
@@ -2695,7 +2697,7 @@ static int finish_parity_scrub(struct btrfs_raid_bio *rbio)
 	phys_addr_t p_paddr = INVALID_PADDR;
 	phys_addr_t q_paddr = INVALID_PADDR;
 	struct bio_list bio_list;
-	int is_replace = 0;
+	bool is_replace = false;
 	int ret;
 
 	bio_list_init(&bio_list);
@@ -2712,7 +2714,7 @@ static int finish_parity_scrub(struct btrfs_raid_bio *rbio)
 	 * need to duplicate the final write to replace target.
 	 */
 	if (bioc->replace_nr_stripes && bioc->replace_stripe_src == rbio->scrubp) {
-		is_replace = 1;
+		is_replace = true;
 		bitmap_copy(pbitmap, &rbio->dbitmap, rbio->stripe_nsectors);
 	}
 
@@ -2909,13 +2911,12 @@ static int scrub_assemble_read_bios(struct btrfs_raid_bio *rbio)
 			continue;
 
 		/*
-		 * We want to find all the sectors missing from the rbio and
-		 * read them from the disk. If sector_paddr_in_rbio() finds a sector
-		 * in the bio list we don't need to read it off the stripe.
+		 * A parity-scrub rbio carries no data in its bio list: the
+		 * only bio there is the empty completion bio added by
+		 * raid56_parity_alloc_scrub_rbio().  Every sector is read
+		 * from the stripe, so only assert that invariant here.
 		 */
-		paddrs = sector_paddrs_in_rbio(rbio, stripe, sectornr, 1);
-		if (paddrs == NULL)
-			continue;
+		ASSERT(!sector_paddrs_in_rbio(rbio, stripe, sectornr, 1));
 
 		paddrs = rbio_stripe_paddrs(rbio, stripe, sectornr);
 		/*
